@@ -1,0 +1,13 @@
+{
+  "name": "soulforge-prototype-tests",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Playwright smoke tests for basefile.html. The game itself has zero dependencies and needs no build step - this is only for running tests/.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0"
+  }
+}

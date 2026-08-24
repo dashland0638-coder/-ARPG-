@@ -365,6 +365,11 @@
     text-transform:uppercase;
   }
   .continue-summary{ font-size:13px; color:var(--text); margin-top:4px; }
+  .continue-banner.continue-error{
+    border-color:var(--hp);
+    background:linear-gradient(180deg, rgba(194,90,107,0.16), rgba(194,90,107,0.03));
+  }
+  .continue-banner.continue-error .continue-label{ color:var(--hp); }
   #cc-continue-btn{
     padding:10px 22px; border:1px solid var(--gold);
     background:linear-gradient(180deg, var(--gold), #8a6a2f); color:#1a1108;
@@ -1787,6 +1792,7 @@
   function refreshContinueBanner(){
     const banner = document.getElementById('continue-banner');
     if(!banner) return;
+    banner.classList.remove('continue-error');
     const data = loadSaveData();
     if(data){
       document.getElementById('continue-summary').textContent = formatSaveSummary(data);
@@ -1794,6 +1800,17 @@
     } else {
       banner.style.display = 'none';
     }
+  }
+  // continueGame() falls back here on failure - the title screen has no HUD
+  // for spawnToast() to render into, so the error has to live in the banner
+  // itself rather than as a toast the player would never see.
+  function showContinueError(message){
+    const banner = document.getElementById('continue-banner');
+    const summary = document.getElementById('continue-summary');
+    if(!banner || !summary) return;
+    banner.classList.add('continue-error');
+    summary.textContent = message;
+    banner.style.display = 'flex';
   }
   document.getElementById('cc-continue-btn').addEventListener('click', ()=>{ continueGame(); });
 
@@ -2476,17 +2493,33 @@
     const def = WORLD_DEFS[key];
     if(!def) return;
     const before = new Set(scene.children);
-    def.build();
-    currentWorldObjects = scene.children.filter(o=>!before.has(o));
-    applySurfaceDetail(currentWorldObjects);
-    applyDotFiltering();
-    currentWorldKey = key;
-    if(!state.routePath || !state.routePath.length) routeReset(); // disposeWorld が潰した分を戻す
-    setWorldBounds(key);
-    applyWorldMood(key);
-    if(!shadowOn) applyShadowSetting();   // new meshes default to casting
-    spawnEnemiesForWorld(key);
-    spawnChestsForWorld(key);
+    try{
+      def.build();
+      currentWorldObjects = scene.children.filter(o=>!before.has(o));
+      applySurfaceDetail(currentWorldObjects);
+      applyDotFiltering();
+      currentWorldKey = key;
+      if(!state.routePath || !state.routePath.length) routeReset(); // disposeWorld が潰した分を戻す
+      setWorldBounds(key);
+      applyWorldMood(key);
+      if(!shadowOn) applyShadowSetting();   // new meshes default to casting
+      spawnEnemiesForWorld(key);
+      spawnChestsForWorld(key);
+    }catch(err){
+      console.error(`buildWorld(${key}) failed:`, err);
+      // def.build() may have thrown partway through - it doesn't get to write
+      // currentWorldObjects, so any meshes it did add would otherwise be
+      // orphaned (untracked by any cleanup path) rather than merely leaked.
+      // walls/doors/enemies/... arrays are fine as-is: the fallback rebuild
+      // below runs its own disposeWorld() and reassigns them from scratch.
+      scene.children.filter(o=>!before.has(o)).forEach(o=>scene.remove(o));
+      currentWorldObjects = [];
+      currentWorldKey = null;
+      if(key !== 'tavern'){
+        spawnToast('⚠️ 読み込みに失敗しました。街へ戻ります', '#c25a6b');
+        buildWorld('tavern');
+      }
+    }
   }
 
   /* =========================================================
@@ -17802,10 +17835,21 @@
   function continueGame(){
     const data = loadSaveData();
     if(!data) return false;
-    applySaveData(data);
-    finishEnteringGame({showIntro:false});
-    spawnToast(`🌙 ${state.name} として再開しました`);
-    return true;
+    try{
+      applySaveData(data);
+      finishEnteringGame({showIntro:false});
+      spawnToast(`🌙 ${state.name} として再開しました`);
+      return true;
+    }catch(err){
+      // Leaves the title screen exactly as it was - a malformed save
+      // shouldn't take the whole page down with it. The save itself is
+      // left alone (not deleted): whatever broke might be a one-off, and
+      // silently discarding someone's progress on an exception is worse
+      // than asking them to try again.
+      console.error('continueGame failed:', err);
+      showContinueError('⚠️ セーブデータの読み込みに失敗しました');
+      return false;
+    }
   }
 
   /* Shared tail for both beginGame() and continueGame(): reset combat-
