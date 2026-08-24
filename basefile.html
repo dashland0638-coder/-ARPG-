@@ -860,6 +860,23 @@
   .boss-ability-name{ font-size:11.5px; color:var(--text); }
   .boss-ability-desc{ font-size:9.5px; color:var(--text-dim); margin-top:1px; }
   .boss-ability-toggle{ font-size:9.5px; color:var(--text-dim); white-space:nowrap; }
+
+  .boss-choice-panel{
+    margin:10px 0; padding:10px; border-radius:6px; border:1px solid var(--ember-bright); background:#180f0a;
+  }
+  .boss-choice-title{ font-size:11.5px; color:var(--ember-bright); margin-bottom:8px; text-align:center; }
+  .boss-choice-options{ display:flex; gap:8px; }
+  .boss-choice-card{
+    flex:1; min-width:0; padding:8px 6px; border-radius:6px; background:#1a1420; border:1px solid var(--panel-line);
+    cursor:pointer; text-align:center;
+  }
+  .boss-choice-card:hover{ border-color:var(--ember-bright); }
+  .boss-choice-icon{ font-size:20px; }
+  .boss-choice-name{ font-size:10px; color:var(--text); margin-top:3px; }
+  .boss-choice-desc{ font-size:8.5px; color:var(--text-dim); margin-top:2px; line-height:1.3; }
+  .boss-choice-panel.resolved .boss-choice-card{ opacity:0.35; cursor:default; }
+  .boss-choice-panel.resolved .boss-choice-card.picked{ opacity:1; border-color:#5a8a4a; background:#182418; }
+
   .boss-ability-item.equipped .boss-ability-toggle{ color:var(--ember-bright); }
 
   .sphere-points{
@@ -1205,6 +1222,7 @@
     <div class="event-title display">VICTORY</div>
     <div class="event-desc" id="clear-desc">館の主を打ち倒した。<br>その力の残滓――竜の心臓を手に入れた。</div>
     <div class="result-loot" id="result-loot"></div>
+    <div class="boss-choice-panel" id="boss-choice-panel" style="display:none;"></div>
     <div class="result-stat-panel" id="result-stat-panel" style="display:none;">
       <div class="result-stat-title">レベルアップで得たポイントを振り分けよう</div>
       <div class="stat-alloc-row">
@@ -11424,6 +11442,7 @@
     addShake(en.isBoss ? 0.18 : 0.10);
     sfx('bigHit');
     addUltGauge(8);   // 体幹を崩すこと自体が必殺ゲージの報酬になる(Phase 0との接続)
+    triggerBossSkills('onKnockdownHeal');
   }
 
   // 撃破時の共通処理(通常ヒット・燃焼ティックの両方から呼ばれる)
@@ -11432,6 +11451,8 @@
       if(!isAlly){
         addUltGauge(en.isBoss ? 40 : 18);   // 撃破は必殺ゲージの主要な稼ぎどころ(仲間の撃破では貯まらない)
         state.sortieKills = (state.sortieKills||0) + 1;   // 中途撤退ボーナスの進捗計算に使う
+        triggerBossSkills('onKillBonus');
+        triggerBossSkills('onKillHeal');
       }
       if(en.isBoss){
         en.group.visible = false;
@@ -12231,7 +12252,7 @@
     invulnerable:false,
     paralyzed:false, paralyzeT:0, paralyzeInvulnT:0,
     waterwayColdTimerT:0, waterwayColdTimerFired:false, lastDefeatedBossKey:null, sortied:false, hasBossKey:false, sortieKills:0, checkpointUsed:false,
-    learnedBossAbilities:[], equippedBossAbilities:[], invulnExtraT:0,
+    learnedBossAbilities:[], equippedBossAbilities:[], invulnExtraT:0, learnedBossSkills:[],
     unlockedSphereNodes:['root'], spherePoints:0,
     bossClears:{},
     escapeFalling:false,        // committed to the leap off the lookout
@@ -12992,13 +13013,18 @@
       const dmg = Math.round(base * comboMul);
       const staggerOpts = {staggerMul, ultGauge: isFinish ? 6 : 3};
       spawnMeleeSwingVFX(range, angle, state.classDef.trim, styleKey);
+      let hitTarget = null;
       if(state.classDef.cleave){
-        findMeleeTargetsInArc(range, angle).forEach(t=> dealDamageToEnemy(t, dmg, false, staggerOpts));
+        findMeleeTargetsInArc(range, angle).forEach(t=>{ dealDamageToEnemy(t, dmg, false, staggerOpts); if(!hitTarget) hitTarget = t; });
       } else {
         const target = findMeleeTarget(range, angle);
-        if(target) dealDamageToEnemy(target, dmg, false, staggerOpts);
+        if(target){ dealDamageToEnemy(target, dmg, false, staggerOpts); hitTarget = target; }
       }
       checkMimicRevealInRange(range, angle, dmg);
+      if(isFinish && hitTarget){
+        triggerBossSkills('onFinishHit');
+        triggerBossSkills('onFinishHit2', {target: hitTarget});
+      }
     } else {
       // 魔法使いのフィニッシュ(杖)は貫通弾、弓師のフィニッシュは武器種で分かれる
       // ―― 小弓=正面3連射、ボウガン=重い貫通ボルト(「遅いが重い」という思想)。
@@ -13010,6 +13036,8 @@
                 specialId==='kaijin',
         volley: isFinish && state.classDef.key==='archer' && !state.usingAltWeapon,
       });
+      // 遠隔は着弾が非同期のため、発射の瞬間にフィニッシュフックを発火する(近似)
+      if(isFinish) triggerBossSkills('onFinishHit');
     }
     if(isFinish) spawnToast('✨ フィニッシュ!');
   }
@@ -13518,6 +13546,7 @@
     const ultAreaMul = rankArea('ult') * chargeArea;
     state.ultGauge = 0;
     state.ultLockT = 1.5;   // 理論上の即時連続発動を防ぐ保険的な最短ロックアウト
+    triggerBossSkills('onUltCast');
     state.swinging = true; beginMove('ult');
     if(sequenceLocks.length) tryStrikeBell(state.pos);
     state.swingLockFacing = state.facing;
@@ -14030,6 +14059,66 @@
   };
   const BOSS_ABILITY_SLOTS = 2;   // 同時に装着できるのは2つまで
 
+  /* ---- ボス撃破の3択報酬(装備/スキル/アビリティ) ----
+     BOSS_ABILITIESが「常時発動の数値バフ」なのに対し、BOSS_SKILLSは
+     「特定の場面で発火するproc(仕掛け技)」にしてキャラクター性を出す。
+     アビリティと違って装着枠の制限は設けず、習得すれば常に有効。
+     既存の主要な処理フック(フィニッシュ命中/撃破/ダウン/必殺技発動)に
+     そのまま相乗りさせているので、新しい入力やUIを増やさずに済む。 */
+  const BOSS_SKILLS = {
+    mansionBoss:   {name:'亡霊の連撃', icon:'👻', desc:'フィニッシュ命中時25%の確率で必殺ゲージ+8', hook:'onFinishHit', chance:0.25, value:8},
+    ghostCaptain:  {name:'略奪の一撃', icon:'🧭', desc:'敵を倒すたび25%の確率でゴールド+20', hook:'onKillBonus', chance:0.25, value:20},
+    waterwayTurtle:{name:'甲羅の反撃', icon:'🐢', desc:'ダウンを取った時、最大HPの3%回復', hook:'onKnockdownHeal', chance:1.0, value:0.03},
+    templeGuardian:{name:'崩しの型', icon:'🗿', desc:'フィニッシュ命中時、追加で体幹を30%削る', hook:'onFinishHit2', chance:1.0, value:0.3},
+    towerWarden:   {name:'刻の余韻', icon:'⏱️', desc:'必殺技発動の瞬間、スタミナを全回復', hook:'onUltCast', chance:1.0, value:1},
+    conservatoryBloom:{name:'開花の癒し', icon:'🌸', desc:'敵を倒すたび、最大HPの1%回復', hook:'onKillHeal', chance:1.0, value:0.01},
+  };
+
+  function learnBossSkill(bossKey){
+    const def = BOSS_SKILLS[bossKey];
+    if(!def) return false;
+    if(!state.learnedBossSkills) state.learnedBossSkills = [];
+    if(state.learnedBossSkills.includes(bossKey)) return false;
+    state.learnedBossSkills.push(bossKey);
+    return true;
+  }
+  // 指定したhookに該当する習得済みスキルをすべて実行する(装着枠は無く、
+  // 習得していれば常時発動する)
+  function triggerBossSkills(hook, ctx){
+    (state.learnedBossSkills||[]).forEach(bossKey=>{
+      const def = BOSS_SKILLS[bossKey];
+      if(!def || def.hook!==hook) return;
+      if(Math.random() > (def.chance!=null?def.chance:1)) return;
+      applyBossSkillEffect(def, ctx||{});
+    });
+  }
+  function applyBossSkillEffect(def, ctx){
+    switch(def.hook){
+      case 'onFinishHit':
+        addUltGauge(def.value);
+        spawnToast(`${def.icon} ${def.name}!`);
+        break;
+      case 'onFinishHit2':
+        if(ctx.target && ctx.target.postureMax){
+          ctx.target.posture = Math.min(ctx.target.postureMax, ctx.target.posture + ctx.target.postureMax*def.value);
+          if(ctx.target.posture >= ctx.target.postureMax && !ctx.target.knockedDown) triggerKnockdown(ctx.target);
+        }
+        break;
+      case 'onKillBonus':
+        grantGold(def.value);
+        spawnToast(`${def.icon} ${def.name}! 🪙+${def.value}`);
+        break;
+      case 'onKillHeal':
+      case 'onKnockdownHeal':
+        state.hp = Math.min(state.maxHp, state.hp + Math.round(state.maxHp*def.value));
+        break;
+      case 'onUltCast':
+        state.stamina = state.maxStamina;
+        spawnToast(`${def.icon} ${def.name}!`);
+        break;
+    }
+  }
+
   function learnBossAbility(bossKey){
     const def = BOSS_ABILITIES[bossKey];
     if(!def) return false;
@@ -14117,6 +14206,71 @@
     return total;
   }
 
+  /* ---- ボス撃破の3択報酬 ----
+     スキル/アビリティは「そのボスにつき一つずつ」なので、両方取得済みに
+     なった以降は選択肢が装備(追加の固有装備ロール)一つだけになる。
+     早い段階で強力な武器が欲しければ装備を選ぶのも有効な戦略、という
+     ことでスキル/アビリティより先に装備を選んでも構わない設計にしてある。 */
+  function renderBossChoicePanel(bossKey){
+    const panel = document.getElementById('boss-choice-panel');
+    if(!panel) return;
+    const hasSkill = BOSS_SKILLS[bossKey];
+    const hasAbility = BOSS_ABILITIES[bossKey];
+    const skillLearned = (state.learnedBossSkills||[]).includes(bossKey);
+    const abilityLearned = (state.learnedBossAbilities||[]).includes(bossKey);
+    const options = [];
+    options.push({key:'gear', icon:'⚔️', name:'固有装備', desc:'この強敵の名を冠した装備をもう一つ手に入れる'});
+    if(hasSkill && !skillLearned) options.push({key:'skill', icon:hasSkill.icon, name:hasSkill.name, desc:hasSkill.desc});
+    if(hasAbility && !abilityLearned) options.push({key:'ability', icon:hasAbility.icon, name:hasAbility.name, desc:hasAbility.desc});
+
+    if(options.length <= 1){
+      // 選択肢が装備しか無い場合は、選ぶ手間を挟まず自動で付与する
+      panel.style.display = 'none';
+      if(options.length===1) grantBossChoiceReward(bossKey, 'gear');
+      return;
+    }
+    panel.style.display = 'block';
+    panel.innerHTML = `<div class="boss-choice-title">🎁 撃破報酬を1つ選ぼう</div>
+      <div class="boss-choice-options">` +
+      options.map(o=>`<div class="boss-choice-card" data-choice="${o.key}">
+        <div class="boss-choice-icon">${o.icon}</div>
+        <div class="boss-choice-name">${o.name}</div>
+        <div class="boss-choice-desc">${o.desc}</div>
+      </div>`).join('') +
+      `</div>`;
+    panel.querySelectorAll('[data-choice]').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        if(panel.classList.contains('resolved')) return;   // 一度選んだら確定
+        panel.classList.add('resolved');
+        panel.querySelectorAll('[data-choice]').forEach(c=> c.classList.toggle('picked', c===card));
+        grantBossChoiceReward(bossKey, card.dataset.choice);
+      });
+    });
+  }
+
+  function grantBossChoiceReward(bossKey, choice){
+    if(choice==='skill'){
+      if(learnBossSkill(bossKey)){
+        const def = BOSS_SKILLS[bossKey];
+        spawnToast(`${def.icon} スキル「${def.name}」を習得!`);
+        sfx('levelUp');
+      }
+    } else if(choice==='ability'){
+      if(learnBossAbility(bossKey)){
+        const def = BOSS_ABILITIES[bossKey];
+        const equipped = (state.equippedBossAbilities||[]).includes(bossKey);
+        spawnToast(`${def.icon} アビリティ「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'));
+        sfx('levelUp');
+      }
+    } else {
+      const item = rollBossSignatureGear(bossKey, state.level);
+      addEquipmentItem(item);
+      spawnToast('⚔️ 固有装備を手に入れた!(鑑定所で確認できます)');
+      sfx('levelUp');
+    }
+  }
+
+
   function showBossResultScreen(boss, levelBefore){
     state.lastDefeatedBossKey = boss.key;
     const xpBefore = levelBefore!=null ? levelBefore : state.level;
@@ -14131,13 +14285,9 @@
     const firstClear = grantFirstClearRank(scKey);
     if(scKey) state.scenarioClears[scKey] = (state.scenarioClears[scKey]||0) + 1;
     if(firstClear){ sfx('levelUp'); spawnToast('🏅 初制覇! 「習得の証」を手に入れた'); }
-    // ボス能力の習得(初撃破の時だけ。周回のたびに何度も習得判定はしない)
-    const bossAbilityLearned = clears===1 ? learnBossAbility(boss.key) : false;
-    if(bossAbilityLearned){
-      const abDef = BOSS_ABILITIES[boss.key];
-      const equipped = (state.equippedBossAbilities||[]).includes(boss.key);
-      spawnToast(`${abDef.icon} ボス能力「${abDef.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'));
-    }
+    // ボス撃破の3択報酬(装備/スキル/アビリティ)。renderBossChoicePanel()が
+    // 未取得の選択肢だけを出し、両方取得済みなら装備一択になる
+    // (=周回を重ねるほど自然と装備固定の周回になる、という設計)
     if(scKey) recordRouteCombo(scKey, state.routePath);
     const routeProgress = scKey ? routeComboProgress(scKey) : null;
     const routeSuggestion = (routeProgress && routeProgress.done < routeProgress.total) ? routeSuggestUnseen(scKey) : null;
@@ -14184,6 +14334,8 @@
             ? `<div class="result-loot-row result-route-hint"><span>次はこちらも</span><span>${routeSuggestion}</span></div>`
             : '')
         : '');
+
+    renderBossChoicePanel(boss.key);
 
     const remaining = diceTotal - (allocPoints.atk+allocPoints.spd+allocPoints.hp+allocPoints.mp);
     const panel = document.getElementById('result-stat-panel');
@@ -17383,7 +17535,7 @@
     state.equipLevel = 0;
     state.equipmentInventory = []; state.equipped = {weapon:null, upper:null, lower:null};
     state.bossClears = {};
-    state.learnedBossAbilities = []; state.equippedBossAbilities = [];
+    state.learnedBossAbilities = []; state.equippedBossAbilities = []; state.learnedBossSkills = [];
     state.unlockedSphereNodes = ['root']; state.spherePoints = 0;
     state.scenarioClears = {};
     state.routeCombosSeen = {};   // 分岐の組み合わせ踏破記録(scenarioClearsと同じく、キャラ単位で保持)
