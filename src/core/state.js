@@ -1,0 +1,67 @@
+// The single mutable game-progress object. Every other module reads and
+// writes properties on this same object (never reassigns `state` itself -
+// see ARCHITECTURE.md for why that distinction matters for ES modules).
+import * as THREE from 'three';
+
+
+  /* =========================================================
+     GAME STATE
+  ========================================================= */
+  const state = {
+    started:false, paused:false,
+    classDef:null, gender:null, name:'', personality:null,
+    cautiousTimer:0, killStreak:0, killStreakT:0, justDodgedT:0,
+    routePath:[],        // 実際に通った区画のkey列
+    routeNode:null,      // 現在いる区画
+    bossMods:[],         // 第2分岐で積まれるボス戦修飾(例: 'chandelier')
+    chandelierUsed:false,
+    routeCombosSeen:{},  // scenarioKey -> {comboKey:true} 踏破済みの分岐組み合わせ
+    hp:0, maxHp:0, mp:0, maxMp:0,
+    stamina:100, maxStamina:100, staminaRegenDelayT:0,
+    usingAltWeapon:false,
+    pos:new THREE.Vector3(0,0,10),   // inside the tavern, not south of its wall
+    vel:new THREE.Vector3(0,0,0),
+    yVel:0, grounded:true, groundY:0,
+    facing:0,           // player facing yaw (radians)
+    camDist:5, camHeight:9.5, camYaw:0, camRotateTouch:0, // closer still - manual view adjustment now matters more
+    moveInput:{x:0,y:0},
+    attackCD:0, dodgeCD:0, dodging:false, dodgeT:0, dodgeDir:new THREE.Vector3(), dodgeAttackWindowT:0,
+    comboStage:0, comboCount:0, comboWindowT:0, jumpAttacking:false, jumpAttackCD:0,
+    invulnerable:false,
+    paralyzed:false, paralyzeT:0, paralyzeInvulnT:0,
+    waterwayColdTimerT:0, waterwayColdTimerFired:false, lastDefeatedBossKey:null, sortied:false, hasBossKey:false, sortieKills:0, checkpointUsed:false,
+    learnedBossAbilities:[], equippedBossAbilities:[], invulnExtraT:0, learnedBossSkills:[],
+    unlockedSphereNodes:['root'], spherePoints:0,
+    bossClears:{},
+    escapeFalling:false,        // committed to the leap off the lookout
+    walkTo:null,                // a scripted walk during a cutscene
+    shakeScale:1,               // 0 = off, 0.5 = gentle, 1 = full (settings)
+    hitStopScale:1,             // 0 disables the impact freeze entirely
+    brightness:1,               // multiplies the scenario's own exposure
+    sfxVolume:0.5,              // 0 mutes; synthesised cues, no assets to load
+    safePos:new THREE.Vector3(0,0,15),   // last position confirmed outside all geometry
+    scenarioClears:{},          // scenario key -> clears, drives the star rating
+    scenarioKey:null,           // which scenario this sortie is
+    swingT:0, swinging:false,
+    inventory:{gold:0, gem:0, potion:0, shard:0, mppotion:0},
+    equipmentInventory:[], equipped:{weapon:null, upper:null, lower:null},
+    ultGauge:0, ultLockT:0,
+    dialogueActive:false, dialogueBoss:null, dialogueLines:null, dialogueIndex:0, dialogueKind:null, pendingScenario:null,
+    activeOverlay:'none',
+    equipLevel:0, skills:{atkUp:0, hpUp:0, ultUp:0, companion:0, chargeUp:0},
+    /* Ranks for the three active abilities. Bought with gems, and granted
+       free the first time each scenario is cleared - so a player who explores
+       widely is rewarded with power rather than only with numbers. */
+    ranks:{skill:0, skill2:0, ult:0},
+    freeRanks:0,                 // banked from first clears, spendable on any
+    clearedScenarios:{},         // scenario key -> true, for the one-time grant
+    charging:false, chargeT:0, chargeMax:1.1, skillAnim:null,
+    moveClip:null, swingDur:0.28,
+    ultAiming:false, ultAimT:0, ultSweep:null,
+    skillChoice:'retreat', skillCharging:false, skillChargeT:0, skillChargeMax:1.1,
+    chargeCD:0, skillCD:0, skill2CD:0, followUpT:0, mageOrbs:[],
+    level:1, xp:0, xpToNext:40, levelGrowth:{atk:0, hp:0, mp:0, spd:0},
+    debugMode:false
+  };
+
+export { state };
