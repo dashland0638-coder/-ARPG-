@@ -319,11 +319,14 @@ import * as THREE from 'three';
 
   /* Walks freshly built world objects and upgrades every textured standard
      material in place: anisotropic filtering so floors stay sharp at a
-     grazing angle, plus the height field that matches its colour map. */
+     grazing angle, plus the height field that matches its colour map.
+     `renderer` and the "軽量にはバンプを付けない" default both live outside
+     this module (renderer/quality setting belong to the world/settings
+     code), so the caller passes them in rather than this module reaching
+     for globals it doesn't have. */
   let _maxAniso = 0;
-  function applySurfaceDetail(objs, wantBump){
+  function applySurfaceDetail(objs, wantBump, renderer){
     if(!_maxAniso && renderer) _maxAniso = renderer.capabilities.getMaxAnisotropy() || 1;
-    if(wantBump === undefined) wantBump = qualityIdx > 0;   // '軽量' drops the relief
     const done = new Set();
     objs.forEach(root => root.traverse && root.traverse(n=>{
       if(!n.isMesh || !n.material) return;

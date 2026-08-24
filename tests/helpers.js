@@ -1,13 +1,40 @@
 // @ts-check
 
 /**
+ * Attaches a listener that collects console.error messages and uncaught
+ * page errors into the array it returns. Call this before openGame() and
+ * assert the array is empty at the end of the test.
+ *
+ * This matters more than it looks: buildWorld() and continueGame() catch
+ * their own exceptions and fall back rather than crash the page (see
+ * ARCHITECTURE.md), so a broken module boundary shows up as a
+ * console.error, not a pageerror or a failed assertion elsewhere. A test
+ * that only checked pageerror would pass right through a real bug - which
+ * is exactly how the src/textures/textures.js `renderer`/`qualityIdx`
+ * split bug shipped undetected for a commit.
+ */
+function watchErrors(page) {
+  const messages = [];
+  page.on('pageerror', err => messages.push(`[pageerror] ${err.message}`));
+  page.on('console', msg => {
+    if (msg.type() === 'error') messages.push(`[console.error] ${msg.text()}`);
+  });
+  return messages;
+}
+
+/**
  * Navigates to the app (baseURL from playwright.config.js) and waits for
  * the title screen to appear. Three.js is bundled by Vite now, so the only
- * external request left is Google Fonts - which is non-critical (the page
- * has fallback fonts) and safe to ignore if a sandboxed runner can't reach
- * it.
+ * external request left is Google Fonts - non-critical (the page has
+ * fallback fonts). Fulfilled here with an empty (but successful) stylesheet
+ * rather than aborted, so a network-restricted runner doesn't also get a
+ * "failed to load resource" console.error alongside every test's real
+ * assertions on watchErrors().
  */
 async function openGame(page) {
+  await page.route('**://fonts.googleapis.com/**', route =>
+    route.fulfill({ status: 200, contentType: 'text/css', body: '' })
+  );
   await page.goto('/');
   await page.waitForFunction(
     () => document.getElementById('title-screen').style.display === 'flex',
@@ -57,4 +84,4 @@ async function dismissIntroDialogue(page) {
   }
 }
 
-export { openGame, createCharacter, dismissIntroDialogue };
+export { watchErrors, openGame, createCharacter, dismissIntroDialogue };

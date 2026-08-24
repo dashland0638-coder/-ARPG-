@@ -1,33 +1,88 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
-import { openGame, createCharacter, dismissIntroDialogue } from './helpers.js';
+import { watchErrors, openGame, createCharacter, dismissIntroDialogue } from './helpers.js';
 
 test.describe('boot', () => {
   test('reaches the title screen with an empty continue banner', async ({ page }) => {
-    const pageErrors = [];
-    page.on('pageerror', err => pageErrors.push(err));
-
+    const errors = watchErrors(page);
     await openGame(page);
 
     await expect(page.locator('#boot-msg')).toBeHidden();
     await expect(page.locator('#continue-banner')).toBeHidden();
-    expect(pageErrors).toEqual([]);
+    expect(errors).toEqual([]);
   });
 });
 
 test.describe('character creation', () => {
   test('creating a character shows the HUD and drops the player in the tavern', async ({ page }) => {
+    const errors = watchErrors(page);
     await openGame(page);
     await createCharacter(page, { classKey: 'mage', gender: 'female', personality: 'calm', name: '検証マージ' });
 
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await expect(page.locator('#title-screen')).toBeHidden();
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('sortie', () => {
+  test('sortieing into a dungeon and fighting builds the world without errors', async ({ page }) => {
+    // exercises world-common + the mansion/temple dungeon builders + player
+    // rig + textures + audio together - the parts most likely to break from
+    // a bad module boundary, since the tavern alone doesn't touch most of them
+    const errors = watchErrors(page);
+    await openGame(page);
+    await createCharacter(page, { classKey: 'warrior', gender: 'male', personality: 'brave', name: '出撃検証' });
+    await page.click('#cc-start-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await dismissIntroDialogue(page);
+
+    // Walk to the bartender (spawns at z=10, bartender sits at z=20) rather
+    // than reach into game internals to teleport there. Movement is
+    // camera-relative (see inputToWorldDir()); at the tavern's fixed spawn
+    // camYaw (135°), W+A together is the diagonal that points straight at
+    // +Z, i.e. at the bartender. Retries walking a bit further if the
+    // overlay doesn't open yet, rather than betting everything on one
+    // guessed distance.
+    let scenarioOpen = false;
+    for (let attempt = 0; attempt < 10 && !scenarioOpen; attempt++) {
+      await page.keyboard.down('KeyW');
+      await page.keyboard.down('KeyA');
+      await page.waitForTimeout(500);
+      await page.keyboard.up('KeyW');
+      await page.keyboard.up('KeyA');
+      await page.keyboard.press('KeyF');
+      await page.waitForTimeout(300);
+      scenarioOpen = await page.evaluate(() => document.getElementById('scenario-overlay').classList.contains('active'));
+    }
+    expect(scenarioOpen).toBe(true);
+
+    await page.click('.scenario-sortie-btn[data-scenario="mansion"]');
+    for (let i = 0; i < 6; i++) {
+      const active = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
+      if (!active) break;
+      await page.click('#dialogue-overlay');
+      await page.waitForTimeout(400);
+    }
+    await page.waitForTimeout(1000);
+
+    // in the dungeon now - move and swing the weapon a few times
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.down('KeyW');
+      await page.waitForTimeout(400);
+      await page.keyboard.up('KeyW');
+      await page.mouse.click(640, 400);
+      await page.waitForTimeout(300);
+    }
+
+    expect(errors).toEqual([]);
   });
 });
 
 test.describe('save / load', () => {
   test('menu save writes localStorage, and continue restores the same character', async ({ page }) => {
+    const errors = watchErrors(page);
     await openGame(page);
     await createCharacter(page, { classKey: 'warrior', gender: 'male', personality: 'brave', name: 'セーブ検証' });
     await page.click('#cc-start-btn');
@@ -55,9 +110,11 @@ test.describe('save / load', () => {
     await page.click('#cc-continue-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await expect(page.locator('#hud-name')).toContainText('セーブ検証');
+    expect(errors).toEqual([]);
   });
 
   test('starting fresh over an existing save asks for confirmation first', async ({ page }) => {
+    const errors = watchErrors(page);
     await openGame(page);
     await createCharacter(page, { name: '上書き元' });
     await page.click('#cc-start-btn');
@@ -79,6 +136,7 @@ test.describe('save / load', () => {
 
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await expect(page.locator('#hud-name')).toContainText('上書き先');
+    expect(errors).toEqual([]);
   });
 
   test('a corrupted save shows an inline error instead of crashing the page', async ({ page }) => {
@@ -100,6 +158,10 @@ test.describe('save / load', () => {
         scenarioClears: {}, clearedScenarios: {}, routeCombosSeen: {},
       }));
     });
+    // only pageerror here, deliberately - this test's whole point is that
+    // continueGame() catches its own exception and logs a console.error
+    // rather than crashing, so asserting on console.error would fail on
+    // the expected behavior instead of a regression
     page.on('pageerror', err => pageErrors.push(err));
 
     await openGame(page);
