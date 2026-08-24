@@ -353,6 +353,28 @@
   #interact-btn.branch-locked{ border-color:#5a5a62; color:#a8a8b0; background:rgba(20,20,26,0.78); }
   #interact-btn.branch-locked::before{ content:'🔒 '; opacity:1; }
 
+  .continue-banner{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    flex-wrap:wrap;
+    background:linear-gradient(180deg, rgba(201,164,75,0.14), rgba(201,164,75,0.03));
+    border:1px solid var(--gold); border-radius:4px;
+    padding:14px 18px; margin-bottom:24px;
+  }
+  .continue-label{
+    font-size:10.5px; letter-spacing:0.15em; color:var(--gold);
+    text-transform:uppercase;
+  }
+  .continue-summary{ font-size:13px; color:var(--text); margin-top:4px; }
+  #cc-continue-btn{
+    padding:10px 22px; border:1px solid var(--gold);
+    background:linear-gradient(180deg, var(--gold), #8a6a2f); color:#1a1108;
+    font-family:'Cinzel','Noto Serif JP',serif; font-weight:700; font-size:13.5px;
+    letter-spacing:0.06em; border-radius:4px; cursor:pointer; white-space:nowrap;
+    transition:filter .15s, transform .15s;
+  }
+  #cc-continue-btn:hover{ filter:brightness(1.12); }
+  #cc-continue-btn:active{ transform:scale(0.98); }
+
   #cc-start-btn{
     margin-top:28px; width:100%; padding:14px; border:1px solid var(--ember-bright);
     background:linear-gradient(180deg, var(--ember), #9c5e2c); color:#1a1108;
@@ -962,6 +984,13 @@
 <!-- ============ TITLE / CHARACTER CREATION ============ -->
 <div id="title-screen" style="display:none;">
   <div class="cc-frame">
+    <div class="continue-banner" id="continue-banner" style="display:none;">
+      <div class="continue-info">
+        <div class="continue-label">つづきのデータ</div>
+        <div class="continue-summary" id="continue-summary">-</div>
+      </div>
+      <button type="button" id="cc-continue-btn">⏵ つづきから</button>
+    </div>
     <div class="cc-eyebrow">Character Creation</div>
     <h1 class="cc-title display">冒険者を創る</h1>
     <p class="cc-sub">職業と性別、名を定めよ。すべてはこの街から始まる。</p>
@@ -1201,6 +1230,7 @@
     </div>
     <div class="menu-btn-row">
       <div class="menu-btn primary" id="menu-resume">冒険に戻る</div>
+      <div class="menu-btn" id="menu-save">💾 セーブ</div>
       <div class="menu-btn" id="menu-town">街に戻る</div>
       <div class="menu-btn" id="menu-title">タイトルへ</div>
     </div>
@@ -1349,7 +1379,9 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"
+        integrity="sha384-AzA44jlyVWma8eiYiADgpKxzsQuDwVvJpS/NE2QVxr8MP99cuGzxhKWZM09B14ih"
+        crossorigin="anonymous"></script>
 <script>
 (function(){
   "use strict";
@@ -1734,8 +1766,36 @@
   }
   startBtn.addEventListener('click', ()=>{
     if(startBtn.disabled) return;
-    beginGame();
+    if(hasSaveGame()){
+      askConfirm('新しく始める',
+        '既存のセーブデータを上書きして、新しい冒険者を作成します。<br>よろしいですか?',
+        beginGame,
+        {okLabel:'新しく始める', cancelLabel:'やめる'});
+    } else {
+      beginGame();
+    }
   });
+
+  // Shows/hides the "つづきから" banner on the title screen based on
+  // whatever's currently in the save slot. Called at boot and again
+  // whenever returnToTitle() might have just written a fresh save.
+  function formatSaveSummary(data){
+    const cls = CLASSES[data.selectedClass];
+    const clsLabel = cls ? `${cls.icon} ${cls.name}` : '???';
+    return `${clsLabel} Lv.${data.level || 1} ｜ ${data.playerName || '名もなき冒険者'}`;
+  }
+  function refreshContinueBanner(){
+    const banner = document.getElementById('continue-banner');
+    if(!banner) return;
+    const data = loadSaveData();
+    if(data){
+      document.getElementById('continue-summary').textContent = formatSaveSummary(data);
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+  document.getElementById('cc-continue-btn').addEventListener('click', ()=>{ continueGame(); });
 
   /* =========================================================
      THREE.JS SETUP
@@ -1768,8 +1828,10 @@
   ========================================================= */
   const surfCache = new Map();
   // colour texture -> {tex: height texture, scale: how deep the relief reads}.
-  // The depth lives here rather than on the texture: THREE.Texture in r128 has
-  // no userData bag to hang it off, and assigning one blows up on load.
+  // The depth lives here rather than on the texture. Written back when
+  // THREE.Texture had no userData bag to hang it off (newer versions added
+  // one) - left as a side map since there's no reason to churn working code
+  // just because the workaround it was written around is now optional.
   const bumpFor   = new Map();
 
   function _tex(canvas, rx, ry){
@@ -2198,11 +2260,20 @@
     renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5));
-    // Three r128 renders linear by default, which leaves everything looking
-    // washed out and grey. Writing sRGB and running a filmic curve costs
-    // nothing and is the single largest visual change available.
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    // Renders linear by default, which leaves everything looking washed out
+    // and grey. Writing sRGB and running a filmic curve costs nothing and is
+    // the single largest visual change available.
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // Every point/spot light intensity in this file (the many lamp()/brazier()
+    // helpers scattered through the world builders) was hand-tuned against
+    // r128's non-physical falloff. r155 switched that math on by default and
+    // would dim every one of them - staying on the library's own opt-out
+    // keeps the existing lighting exactly as tuned. Migrating to physical
+    // units is a real improvement, but it means re-tuning every light in
+    // every dungeon, which belongs in its own dedicated pass, not folded
+    // silently into a version bump.
+    renderer.useLegacyLights = true;
     renderer.toneMappingExposure = 0.78;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -2429,9 +2500,10 @@
      the shadow pass paid all of them again. None of that geometry ever
      moves, so it can be welded into one buffer per material at build time.
 
-     BufferGeometryUtils isn't part of the three r128 core build this file
-     loads, so the merge is done by hand: bake each box's transform into its
-     own vertices, then concatenate the attribute arrays.
+     BufferGeometryUtils isn't part of the three.js core build this file
+     loads (it's a separate examples/jsm module), so the merge is done by
+     hand: bake each box's transform into its own vertices, then concatenate
+     the attribute arrays.
   ========================================================= */
   let batching = false;
   let batchBuckets = null;      // material -> {geos:[], mesh:null}
@@ -12286,6 +12358,166 @@
     debugMode:false
   };
 
+  /* =========================================================
+     SAVE / LOAD
+     Two independent slots in localStorage:
+       - SAVE_KEY     : one character's progression (created at
+                        beginGame, refreshed at natural checkpoints).
+       - SETTINGS_KEY : display/audio prefs, tied to the device
+                        rather than the character, loaded once at boot.
+  ========================================================= */
+  const SAVE_KEY = 'soulforge_save_v1';
+  const SETTINGS_KEY = 'soulforge_settings_v1';
+
+  function buildSaveData(){
+    return {
+      v:1, savedAt:Date.now(),
+      selectedClass, selectedGender, selectedPersonality, playerName,
+      allocPoints:Object.assign({}, allocPoints),
+      level:state.level, xp:state.xp, xpToNext:state.xpToNext,
+      levelGrowth:Object.assign({}, state.levelGrowth),
+      equipLevel:state.equipLevel,
+      inventory:Object.assign({}, state.inventory),
+      equipmentInventory:state.equipmentInventory.map(it=>Object.assign({}, it)),
+      equipped:{
+        weapon:state.equipped.weapon ? Object.assign({}, state.equipped.weapon) : null,
+        upper: state.equipped.upper  ? Object.assign({}, state.equipped.upper)  : null,
+        lower: state.equipped.lower  ? Object.assign({}, state.equipped.lower)  : null,
+      },
+      skills:Object.assign({}, state.skills),
+      ranks:Object.assign({}, state.ranks),
+      freeRanks:state.freeRanks,
+      unlockedSphereNodes:state.unlockedSphereNodes.slice(),
+      spherePoints:state.spherePoints,
+      bossClears:Object.assign({}, state.bossClears),
+      learnedBossAbilities:state.learnedBossAbilities.slice(),
+      equippedBossAbilities:state.equippedBossAbilities.slice(),
+      learnedBossSkills:state.learnedBossSkills.slice(),
+      scenarioClears:Object.assign({}, state.scenarioClears),
+      clearedScenarios:Object.assign({}, state.clearedScenarios),
+      routeCombosSeen:JSON.parse(JSON.stringify(state.routeCombosSeen || {})),
+    };
+  }
+
+  // Only ever called while a character is actually in play, so there is
+  // always something worth persisting.
+  function saveGame(){
+    if(!state.started || !state.classDef) return false;
+    try{
+      localStorage.setItem(SAVE_KEY, JSON.stringify(buildSaveData()));
+      return true;
+    }catch(err){
+      console.error('saveGame failed:', err);
+      return false;
+    }
+  }
+
+  function loadSaveData(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if(!raw) return null;
+      const data = JSON.parse(raw);
+      // guard against a corrupted/foreign payload rather than crashing deep
+      // inside applySaveData with half-applied state
+      if(!data || !data.selectedClass || !CLASSES[data.selectedClass] || !data.selectedGender) return null;
+      return data;
+    }catch(err){
+      console.error('loadSaveData failed:', err);
+      return null;
+    }
+  }
+
+  function hasSaveGame(){ return !!loadSaveData(); }
+
+  function deleteSaveGame(){
+    try{ localStorage.removeItem(SAVE_KEY); }catch(err){ console.error('deleteSaveGame failed:', err); }
+  }
+
+  // Mirrors the reset block at the top of beginGame(), but copies values
+  // out of a save instead of zeroing them. Leaves state.pos/world/player
+  // untouched - finishEnteringGame() handles that part for both flows.
+  function applySaveData(data){
+    selectedClass = data.selectedClass;
+    selectedGender = data.selectedGender;
+    selectedPersonality = data.selectedPersonality || null;
+    playerName = data.playerName || '';
+    allocPoints = Object.assign({atk:0, spd:0, hp:0, mp:0}, data.allocPoints);
+
+    state.gender = selectedGender;
+    state.name = playerName || '名もなき冒険者';
+    state.personality = selectedPersonality;
+    state.cautiousTimer = 0; state.killStreak = 0; state.killStreakT = 0; state.justDodgedT = 0; state.dodgeAttackWindowT = 0;
+    state.comboStage = 0; state.comboCount = 0; state.comboWindowT = 0; state.jumpAttacking = false; state.jumpAttackCD = 0;
+
+    state.equipLevel = data.equipLevel || 0;
+    state.equipmentInventory = (data.equipmentInventory || []).map(it=>Object.assign({}, it));
+    state.equipped = {
+      weapon:data.equipped && data.equipped.weapon ? Object.assign({}, data.equipped.weapon) : null,
+      upper: data.equipped && data.equipped.upper  ? Object.assign({}, data.equipped.upper)  : null,
+      lower: data.equipped && data.equipped.lower  ? Object.assign({}, data.equipped.lower)  : null,
+    };
+    state.bossClears = Object.assign({}, data.bossClears);
+    state.learnedBossAbilities = (data.learnedBossAbilities || []).slice();
+    state.equippedBossAbilities = (data.equippedBossAbilities || []).slice();
+    state.learnedBossSkills = (data.learnedBossSkills || []).slice();
+    state.unlockedSphereNodes = (data.unlockedSphereNodes && data.unlockedSphereNodes.length) ? data.unlockedSphereNodes.slice() : ['root'];
+    state.spherePoints = data.spherePoints || 0;
+    state.scenarioClears = Object.assign({}, data.scenarioClears);
+    state.routeCombosSeen = data.routeCombosSeen ? JSON.parse(JSON.stringify(data.routeCombosSeen)) : {};
+    state.skills = Object.assign({atkUp:0, hpUp:0, ultUp:0, companion:0, chargeUp:0}, data.skills);
+    state.ranks = Object.assign({skill:0, skill2:0, ult:0}, data.ranks);
+    state.freeRanks = data.freeRanks || 0;
+    state.clearedScenarios = Object.assign({}, data.clearedScenarios);
+
+    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
+    state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
+
+    state.level = data.level || 1;
+    state.xp = data.xp || 0;
+    state.xpToNext = data.xpToNext || xpToNextForLevel(state.level);
+    state.levelGrowth = Object.assign({atk:0, hp:0, mp:0, spd:0}, data.levelGrowth);
+    state.usingAltWeapon = false;   // 保存された装備のnative武器種に合わせる
+
+    state.inventory = Object.assign({gold:0, gem:0, potion:0, shard:0, mppotion:0}, data.inventory);
+
+    state.maxHp = 0; state.maxMp = 0; // force a full heal on the recompute below
+    recomputeStats();
+  }
+
+  function saveSettings(){
+    try{
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+        v:1, sfxIdx, shakeIdx, brightIdx, qualityIdx, hitStopIdx, dotIdx, shadowOn
+      }));
+    }catch(err){ console.error('saveSettings failed:', err); }
+  }
+
+  // Applies straight onto the module-level setting vars/renderer, then
+  // relies on the caller to refresh the on-screen labels.
+  function loadAndApplySettings(){
+    let data = null;
+    try{ const raw = localStorage.getItem(SETTINGS_KEY); if(raw) data = JSON.parse(raw); }
+    catch(err){ console.error('loadAndApplySettings failed:', err); }
+    if(!data) return;
+    if(Number.isInteger(data.sfxIdx) && SFX_STEPS[data.sfxIdx]){ sfxIdx = data.sfxIdx; setSfxVolume(SFX_STEPS[sfxIdx].v); }
+    if(Number.isInteger(data.shakeIdx) && SHAKE_STEPS[data.shakeIdx]){ shakeIdx = data.shakeIdx; state.shakeScale = SHAKE_STEPS[shakeIdx].v; }
+    if(Number.isInteger(data.brightIdx) && BRIGHT_STEPS[data.brightIdx]){ brightIdx = data.brightIdx; state.brightness = BRIGHT_STEPS[brightIdx].v; }
+    if(Number.isInteger(data.hitStopIdx) && HITSTOP_STEPS[data.hitStopIdx]){ hitStopIdx = data.hitStopIdx; state.hitStopScale = HITSTOP_STEPS[hitStopIdx].v; }
+    if(Number.isInteger(data.qualityIdx) && QUALITY_STEPS[data.qualityIdx]){ qualityIdx = data.qualityIdx; }
+    if(Number.isInteger(data.dotIdx) && DOT_STEPS[data.dotIdx]){ dotIdx = data.dotIdx; }
+    if(typeof data.shadowOn === 'boolean'){ shadowOn = data.shadowOn; }
+    applyShadowSetting();
+    applyQualitySetting();
+    applyDotSetting();
+  }
+
+  // Autosave on the way out - a mobile tab getting backgrounded fires
+  // visibilitychange reliably where it may never fire beforeunload/unload.
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden) saveGame();
+  });
+  window.addEventListener('beforeunload', ()=>{ saveGame(); });
+
   const keys = {};
   window.addEventListener('keydown', e=>{
     keys[e.code]=true;
@@ -12455,6 +12687,11 @@
   document.getElementById('loot-menu-btn').addEventListener('pointerdown', e=>{ e.preventDefault(); toggleMenu(); });
 
   document.getElementById('menu-resume').addEventListener('click', ()=> setOverlay('none'));
+  document.getElementById('menu-save').addEventListener('click', ()=>{
+    const ok = saveGame();
+    spawnToast(ok ? '💾 セーブしました' : '⚠️ セーブに失敗しました', ok ? undefined : '#c25a6b');
+    sfx('ui');
+  });
   document.getElementById('menu-town').addEventListener('click', ()=>{
     // leaving mid-sortie throws away the run's progress through the dungeon,
     // so it gets the same treatment as returning to the title - except the
@@ -12471,8 +12708,8 @@
   });
   document.getElementById('menu-title').addEventListener('click', ()=>{
     askConfirm('タイトルへ戻る',
-      'タイトル画面に戻ります。<br>これまでの進行はすべて失われます。',
-      returnToTitle,
+      'タイトル画面に戻ります。<br>進行状況は自動的にセーブされます。',
+      ()=>{ saveGame(); returnToTitle(); refreshContinueBanner(); },
       {okLabel:'戻る', cancelLabel:'やめる'});
   });
 
@@ -14522,6 +14759,7 @@
       companion.target = null;
     }
     camera.position.copy(state.pos).add(getCamOffset());
+    saveGame();   // town is always a safe checkpoint - retreat, clear, or defeat alike
   }
 
   document.getElementById('dialogue-overlay').addEventListener('click', advanceDialogue);
@@ -17066,6 +17304,7 @@
     document.getElementById('set-quality').textContent = QUALITY_STEPS[qualityIdx].label;
     document.getElementById('set-dot').textContent = DOT_STEPS[dotIdx].label;
     document.getElementById('set-hitstop').textContent = HITSTOP_STEPS[hitStopIdx].label;
+    saveSettings();
   }
 
   // Turning shadowMap.enabled off on its own leaves the already-compiled
@@ -17551,7 +17790,31 @@
     recomputeStats();          // establishes state.classDef
     grantStarterGear();        // needs classDef to pick class-appropriate gear
     recomputeStats();          // fold the starter bonuses in
+    state.usingAltWeapon = false;   // 初期装備(grantStarterGearでnative武器種を装備する)に合わせる
+    state.inventory = {gold:0, gem:0, potion:0, shard:0, mppotion:0};
 
+    deleteSaveGame();          // a fresh character replaces whatever was saved
+    finishEnteringGame({showIntro:true});
+  }
+
+  // Loads the one save slot and resumes play with it. Returns false (and
+  // leaves the title screen untouched) if there is nothing valid to load.
+  function continueGame(){
+    const data = loadSaveData();
+    if(!data) return false;
+    applySaveData(data);
+    finishEnteringGame({showIntro:false});
+    spawnToast(`🌙 ${state.name} として再開しました`);
+    return true;
+  }
+
+  /* Shared tail for both beginGame() and continueGame(): reset combat-
+     transient state, drop the player in the tavern, and show the HUD.
+     Everything that differs between "brand new character" and "resume a
+     save" (level, gear, inventory, ...) is already written onto `state`
+     and the character-creation module vars before this runs. */
+  function finishEnteringGame(opts){
+    opts = opts || {};
     state.pos.set(0,0,10);
     state.vel.set(0,0,0);
     state.yVel = 0; state.grounded = true;
@@ -17562,11 +17825,9 @@
     state.paralyzed=false; state.paralyzeT=0; state.paralyzeInvulnT=0;
     state.ultGauge = 0; state.ultLockT = 0;
     state.stamina = state.maxStamina; state.staminaRegenDelayT = 0;
-    state.usingAltWeapon = false;   // 初期装備(grantStarterGearでnative武器種を装備する)に合わせる
     state.dialogueActive = false; state.dialogueBoss = null;
-    state.inventory = {gold:0, gem:0, potion:0, shard:0, mppotion:0};
     ['potion','mppotion'].forEach(k=>{
-      const chip = document.getElementById('loot-'+k); if(chip) chip.textContent = '0';
+      const chip = document.getElementById('loot-'+k); if(chip) chip.textContent = String(state.inventory[k]||0);
     });
 
     projectiles.forEach(p=>scene.remove(p.mesh)); projectiles = [];
@@ -17620,7 +17881,8 @@
     camera.lookAt(state.pos.x, state.pos.y+0.6, state.pos.z);
 
     state.paused = false;      // state.started was set above, before the pad refresh
-    triggerTownIntroEvent();
+    if(opts.showIntro !== false) triggerTownIntroEvent();
+    saveGame();
   }
 
   function triggerTownIntroEvent(){
@@ -17642,7 +17904,9 @@
   ========================================================= */
   try{
     initThree(); // builds the tavern world, which spawns its own enemies/chests
+    loadAndApplySettings();
     bindSettings();
+    refreshContinueBanner();
     document.getElementById('boot-msg').style.display = 'none';
     document.getElementById('title-screen').style.display = 'flex';
     animate();
