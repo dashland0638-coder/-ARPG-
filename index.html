@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c0a10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ソウルフォージ・プロトタイプ</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+<div id="boot-msg">読み込み中 ...</div>
+<div id="canvas-wrap"></div>
+
+<!-- ============ TITLE / CHARACTER CREATION ============ -->
+<div id="title-screen" style="display:none;">
+  <div class="cc-frame">
+    <div class="continue-banner" id="continue-banner" style="display:none;">
+      <div class="continue-info">
+        <div class="continue-label">つづきのデータ</div>
+        <div class="continue-summary" id="continue-summary">-</div>
+      </div>
+      <button type="button" id="cc-continue-btn">⏵ つづきから</button>
+    </div>
+    <div class="cc-eyebrow">Character Creation</div>
+    <h1 class="cc-title display">冒険者を創る</h1>
+    <p class="cc-sub">職業と性別、名を定めよ。すべてはこの街から始まる。</p>
+
+    <div class="cc-section-label">職業</div>
+    <div class="class-grid" id="class-grid"></div>
+
+    <div class="cc-section-label">性別</div>
+    <div class="gender-grid" id="gender-grid">
+      <div class="gender-card" data-gender="male">♂ 男</div>
+      <div class="gender-card" data-gender="female">♀ 女</div>
+    </div>
+
+    <div class="cc-section-label">性格</div>
+    <div class="gender-grid" id="personality-grid" style="grid-template-columns:repeat(4,1fr);">
+      <div class="gender-card personality-card" data-personality="brave">勇敢<small class="personality-desc">HPが減るほど攻撃力が上がる</small></div>
+      <div class="gender-card personality-card" data-personality="calm">冷静<small class="personality-desc">かわした直後にMPが少し戻る</small></div>
+      <div class="gender-card personality-card" data-personality="cheerful">陽気<small class="personality-desc">連続で倒すと攻撃が速くなる</small></div>
+      <div class="gender-card personality-card" data-personality="cautious">慎重<small class="personality-desc">無傷が続くと被ダメージが減る</small></div>
+    </div>
+
+    <div class="cc-section-label">名前</div>
+    <div class="name-row">
+      <input class="name-input" id="name-input" maxlength="12" placeholder="例）レイン" />
+      <button type="button" class="name-random-btn" id="name-random-btn">🎲 中世風に生成</button>
+    </div>
+
+    <div class="cc-section-label">能力値(サイコロで決定)</div>
+    <div class="dice-panel">
+      <div class="dice-stage">
+        <div class="dice-history" id="dice-history"></div>
+        <div class="dice-current">
+          <div class="dice-row">
+            <div class="die" id="die-0"></div>
+            <div class="die" id="die-1"></div>
+            <div class="die" id="die-2"></div>
+          </div>
+        </div>
+      </div>
+      <div class="dice-total">合計 <span id="dice-total-val">-</span> pt</div>
+      <div class="dice-yaku" id="dice-yaku"></div>
+      <button type="button" id="dice-roll-btn">🎲 ダイスを振る</button>
+
+      <div class="stat-alloc" id="stat-alloc" style="display:none;">
+        <div class="stat-alloc-row">
+          <span class="stat-alloc-label">攻撃力 +1 / pt</span>
+          <div class="stat-alloc-ctrl">
+            <button type="button" class="stat-btn minus" data-stat="atk">−</button>
+            <span class="stat-alloc-val" id="alloc-atk">0</span>
+            <button type="button" class="stat-btn plus" data-stat="atk">＋</button>
+          </div>
+        </div>
+        <div class="stat-alloc-row">
+          <span class="stat-alloc-label">素早さ +0.1 / pt</span>
+          <div class="stat-alloc-ctrl">
+            <button type="button" class="stat-btn minus" data-stat="spd">−</button>
+            <span class="stat-alloc-val" id="alloc-spd">0</span>
+            <button type="button" class="stat-btn plus" data-stat="spd">＋</button>
+          </div>
+        </div>
+        <div class="stat-alloc-row">
+          <span class="stat-alloc-label">HP +3 / pt</span>
+          <div class="stat-alloc-ctrl">
+            <button type="button" class="stat-btn minus" data-stat="hp">−</button>
+            <span class="stat-alloc-val" id="alloc-hp">0</span>
+            <button type="button" class="stat-btn plus" data-stat="hp">＋</button>
+          </div>
+        </div>
+        <div class="stat-alloc-row">
+          <span class="stat-alloc-label">MP +2 / pt</span>
+          <div class="stat-alloc-ctrl">
+            <button type="button" class="stat-btn minus" data-stat="mp">−</button>
+            <span class="stat-alloc-val" id="alloc-mp">0</span>
+            <button type="button" class="stat-btn plus" data-stat="mp">＋</button>
+          </div>
+        </div>
+        <div class="stat-remaining">残りポイント: <span id="alloc-remaining">0</span></div>
+        <div class="alloc-preview" id="alloc-preview"></div>
+      </div>
+    </div>
+
+    <button id="cc-start-btn" disabled>冒険を始める</button>
+    <div class="cc-start-hint">職業・性別・性格・名前・ダイスでの能力値割り振りをすべて完了してください</div>
+  </div>
+</div>
+
+<!-- ============ HUD ============ -->
+<div id="hud">
+  <div class="hud-topleft">
+    <div class="hud-portrait" id="hud-portrait"><span id="hud-portrait-icon">⚔</span><span id="weapon-badge" class="weapon-badge">M</span></div>
+    <div class="hud-bars">
+      <div class="hud-name" id="hud-name">-</div>
+      <div class="hud-floor" id="hud-floor" style="display:none;"></div>
+      <div class="bar-label">HP</div>
+      <div class="bar-track"><div class="bar-fill hp" id="hp-fill" style="width:100%"></div></div>
+      <div class="bar-label" id="mp-label">MP</div>
+      <div class="bar-track"><div class="bar-fill mp" id="mp-fill" style="width:100%"></div></div>
+      <div class="bar-label">スタミナ</div>
+      <div class="bar-track"><div class="bar-fill sta" id="sta-fill" style="width:100%"></div></div>
+      <div class="bar-track xp"><div class="bar-fill xp" id="xp-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div class="hud-loot" id="hud-loot">
+    <div class="loot-chip" id="loot-menu-btn" style="cursor:pointer;">☰</div>
+    <div class="loot-chip" id="loot-potion-btn" style="cursor:pointer;">🧪<span class="count" id="loot-potion">0</span></div>
+    <div class="loot-chip" id="loot-mppotion-btn" style="cursor:pointer;">🔷<span class="count" id="loot-mppotion">0</span></div>
+  </div>
+  <div class="hud-gamepad-badge" id="gamepad-badge">🎮 コントローラー接続中</div>
+  <div class="hud-hint" id="hud-hint">WASD 移動 / Space ジャンプ / クリック(J) 攻撃 / L スキル / O スキル2 / Shift 回避 / K 必殺技 / Q・E カメラ回転 / R インタラクト / V 薬草 / Esc メニュー</div>
+</div>
+<div id="boss-bar-wrap">
+  <div id="boss-bar-name">-</div>
+  <div id="boss-bar-track">
+    <div id="boss-bar-chip"></div>
+    <div id="boss-bar-fill"></div>
+    <div class="boss-bar-notch" style="left:65%"></div>
+    <div class="boss-bar-notch" style="left:30%"></div>
+  </div>
+  <div id="boss-bar-phase">第1形態</div>
+</div>
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <div id="confirm-title">確認</div>
+    <div id="confirm-text"></div>
+    <div id="confirm-actions">
+      <button type="button" class="confirm-btn ghost" id="confirm-cancel">キャンセル</button>
+      <button type="button" class="confirm-btn" id="confirm-ok">はい</button>
+    </div>
+  </div>
+</div>
+<div id="screen-flash"></div>
+<div id="debug-badge">🐛 DEBUG MODE — 被ダメージ0</div>
+<div id="interact-btn">扉を開ける</div>
+<div id="btn-cam-left">⟲</div>
+<div id="btn-cam-right">⟳</div>
+
+<!-- ============ TOUCH CONTROLS (iOS等) ============ -->
+<div id="touch-controls">
+  <div class="joy-zone" id="joy-zone">
+    <div class="joy-base" id="joy-base">
+      <div class="joy-knob" id="joy-knob"></div>
+    </div>
+  </div>
+  <div class="action-zone">
+    <div class="action-btn has-cd-ring" id="btn-ult">
+      <span id="btn-ult-icon">💥</span>
+      <div class="ult-btn-cd" id="ult-btn-cd" style="display:none;"></div>
+    </div>
+    <div class="action-btn has-cd-ring" id="btn-charge">
+      <span id="btn-charge-icon">💢</span>
+    </div>
+    <div class="action-btn has-cd-ring" id="btn-skill2">
+      <span id="btn-skill2-icon">✴️</span>
+    </div>
+    <div class="action-btn" id="btn-jump">JUMP</div>
+    <div class="action-btn" id="btn-dodge">回避</div>
+    <div class="action-btn" id="btn-attack">攻撃</div>
+  </div>
+</div>
+<div id="screen-fade"></div>
+<div id="minimap-wrap"><canvas id="minimap" width="248" height="248"></canvas></div>
+<div id="minimap-label"><span id="minimap-area">-</span><span id="minimap-room"></span></div>
+
+<!-- ============ ROTATE TO LANDSCAPE ============ -->
+<div id="rotate-overlay">
+  <div class="rotate-icon">📱</div>
+  <div class="display" style="font-size:18px;">端末を横向きにしてください</div>
+  <div style="font-size:12px; color:var(--text-dim);">横画面でのプレイに対応しています</div>
+</div>
+
+<!-- ============ MENU ============ -->
+<div id="menu-overlay">
+  <div class="menu-box">
+    <div class="menu-title display">メニュー</div>
+    <div class="menu-stat-line"><span>名前</span><span id="menu-name">-</span></div>
+    <div class="menu-stat-line"><span>職業</span><span id="menu-class">-</span></div>
+    <div class="menu-stat-line"><span>経験値</span><span id="menu-xp">-</span></div>
+    <div class="menu-stat-line"><span>HP</span><span id="menu-hp">-</span></div>
+    <div class="menu-stat-line"><span>MP</span><span id="menu-mp">-</span></div>
+    <div class="menu-stat-line"><span>攻撃力</span><span id="menu-atk">-</span></div>
+    <div class="menu-stat-line"><span>移動速度</span><span id="menu-spd">-</span></div>
+    <div class="menu-stat-line"><span>必殺技</span><span id="menu-ult">-</span></div>
+    <div class="menu-mats-title">所持素材</div>
+    <div class="menu-mats">
+      <span class="menu-mat">🪙<b id="menu-gold">0</b></span>
+      <span class="menu-mat">💎<b id="menu-gem">0</b></span>
+      <span class="menu-mat">🔩<b id="menu-shard">0</b></span>
+    </div>
+    <div class="menu-mats-title">設定</div>
+    <div class="menu-settings">
+      <div class="menu-setting-row">
+        <span>効果音</span>
+        <button type="button" class="menu-setting-btn" id="set-sfx">中</button>
+      </div>
+      <div class="menu-setting-row">
+        <span>画面の揺れ</span>
+        <button type="button" class="menu-setting-btn" id="set-shake">標準</button>
+      </div>
+      <div class="menu-setting-row">
+        <span>影</span>
+        <button type="button" class="menu-setting-btn" id="set-shadow">あり</button>
+      </div>
+      <div class="menu-setting-row">
+        <span>ヒットストップ</span>
+        <button type="button" class="menu-setting-btn" id="set-hitstop">標準</button>
+      </div>
+      <div class="menu-setting-row">
+        <span>明るさ</span>
+        <button type="button" class="menu-setting-btn" id="set-bright">標準</button>
+      </div>
+      <div class="menu-setting-row">
+        <span>画質</span>
+        <button type="button" class="menu-setting-btn" id="set-quality">標準</button>
+      </div>
+      <div class="menu-setting-row">
+        <span>ドット表現</span>
+        <button type="button" class="menu-setting-btn" id="set-dot">なし</button>
+      </div>
+    </div>
+    <div class="menu-controls">
+      移動: WASD / 左スティック / 画面左下スティック<br>
+      ジャンプ: Space / A・× / JUMPボタン<br>
+      攻撃: 左クリック・J / X・□ / 攻撃ボタン<br>
+      回避: Shift / B・○ / 回避ボタン<br>
+      必殺技: K / R2・RT / 必殺ボタン(リチャージ制)<br>
+      溜め攻撃: L(長押し) / Y・△(長押し) / 溜めボタン(長押し・鑑定所でタイプ変更可)<br>
+      カメラ回転: Q・E / 右スティック<br>
+      鑑定所(街の近くで): I / 十字キー下 / 鑑定ボタン<br>
+      出撃メニュー(街で): F / 十字キー上 / 出撃ボタン<br>
+      扉を開ける・階段を使う: R / L1・LB / 画面下のメッセージをタップ<br>
+      薬草を使う: V / R1・RB / HUD左上の🧪をタップ<br>
+      対話・手記を進める: クリック / A・×<br>
+      メニューを閉じる: Esc / B・○
+    </div>
+    <div class="menu-controls" style="margin-top:8px; color:var(--ember-bright); font-size:10.5px;">
+      Backbone One等のコントローラーはUSB/Bluetoothで接続すると自動認識されます。接続中は画面のタッチボタンが自動的に隠れます。
+    </div>
+    <div class="menu-btn-row">
+      <div class="menu-btn primary" id="menu-resume">冒険に戻る</div>
+      <div class="menu-btn" id="menu-save">💾 セーブ</div>
+      <div class="menu-btn" id="menu-town">街に戻る</div>
+      <div class="menu-btn" id="menu-title">タイトルへ</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BOSS DIALOGUE ============ -->
+<div id="dialogue-overlay">
+  <div class="dialogue-box">
+    <div class="dialogue-name" id="dialogue-name">-</div>
+    <div class="dialogue-text" id="dialogue-text">-</div>
+    <div class="dialogue-next">クリックして続ける</div>
+  </div>
+</div>
+
+<!-- ============ CLEAR ============ -->
+<div id="clear-overlay" class="event-overlay">
+  <div class="event-box" style="max-height:88vh; overflow-y:auto; touch-action:pan-y;">
+    <div class="event-title display">VICTORY</div>
+    <div class="event-desc" id="clear-desc">館の主を打ち倒した。<br>その力の残滓――竜の心臓を手に入れた。</div>
+    <div class="result-loot" id="result-loot"></div>
+    <div class="boss-choice-panel" id="boss-choice-panel" style="display:none;"></div>
+    <div class="result-stat-panel" id="result-stat-panel" style="display:none;">
+      <div class="result-stat-title">レベルアップで得たポイントを振り分けよう</div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">攻撃力 +1 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-rstat="atk">−</button>
+          <span class="stat-alloc-val" id="ralloc-atk">0</span>
+          <button type="button" class="stat-btn plus" data-rstat="atk">＋</button>
+        </div>
+      </div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">素早さ +0.1 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-rstat="spd">−</button>
+          <span class="stat-alloc-val" id="ralloc-spd">0</span>
+          <button type="button" class="stat-btn plus" data-rstat="spd">＋</button>
+        </div>
+      </div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">HP +3 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-rstat="hp">−</button>
+          <span class="stat-alloc-val" id="ralloc-hp">0</span>
+          <button type="button" class="stat-btn plus" data-rstat="hp">＋</button>
+        </div>
+      </div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">MP +2 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-rstat="mp">−</button>
+          <span class="stat-alloc-val" id="ralloc-mp">0</span>
+          <button type="button" class="stat-btn plus" data-rstat="mp">＋</button>
+        </div>
+      </div>
+      <div class="stat-remaining">残りポイント: <span id="ralloc-remaining">0</span></div>
+    </div>
+    <button type="button" class="event-btn" id="clear-continue-btn" style="display:none;">探索を続ける</button>
+    <button type="button" class="event-btn" id="clear-return-btn">街に戻る</button>
+  </div>
+</div>
+
+<!-- ============ PLAYER DOWN ============ -->
+<div id="down-overlay" class="event-overlay">
+  <div class="event-box">
+    <div class="event-title display" style="color:#c9576a;">力尽きた……</div>
+    <div class="event-desc">気づくと、見知った街の外れに倒れていた。<br>体力は半分ほど戻っている。</div>
+    <div class="event-desc" id="down-penalty-line" style="color:#e0a04a;"></div>
+    <button type="button" class="event-btn" id="down-return-btn">街に戻る</button>
+  </div>
+</div>
+
+<!-- ============ APPRAISAL (鑑定所) ============ -->
+<div id="appraisal-overlay" class="event-overlay">
+  <div class="appraisal-box">
+    <div class="appraisal-header">
+      <div class="appraisal-title display">鑑定所</div>
+      <div class="appraisal-currency">🪙<span id="ap-gold">0</span>　💎<span id="ap-gem">0</span></div>
+    </div>
+
+    <div class="ap-tabs">
+      <div class="ap-tab active" data-tab="gear">装備品</div>
+      <div class="ap-tab" data-tab="stat">ステータス配分</div>
+      <div class="ap-tab" data-tab="skill">スキル</div>
+      <div class="ap-tab" data-tab="sphere">奥義の環</div>
+      <div class="ap-tab" data-tab="shop">商店</div>
+    </div>
+
+    <div class="ap-panel" id="ap-panel-gear"></div>
+
+    <div class="ap-panel" id="ap-panel-stat" style="display:none;">
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">攻撃力 +1 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-apstat="atk">−</button>
+          <span class="stat-alloc-val" id="ap-alloc-atk">0</span>
+          <button type="button" class="stat-btn plus" data-apstat="atk">＋</button>
+        </div>
+      </div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">素早さ +0.1 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-apstat="spd">−</button>
+          <span class="stat-alloc-val" id="ap-alloc-spd">0</span>
+          <button type="button" class="stat-btn plus" data-apstat="spd">＋</button>
+        </div>
+      </div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">HP +3 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-apstat="hp">−</button>
+          <span class="stat-alloc-val" id="ap-alloc-hp">0</span>
+          <button type="button" class="stat-btn plus" data-apstat="hp">＋</button>
+        </div>
+      </div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">MP +2 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-apstat="mp">−</button>
+          <span class="stat-alloc-val" id="ap-alloc-mp">0</span>
+          <button type="button" class="stat-btn plus" data-apstat="mp">＋</button>
+        </div>
+      </div>
+      <div class="stat-remaining">残りポイント: <span id="ap-alloc-remaining">0</span></div>
+      <button type="button" class="ap-apply-btn" id="ap-apply-btn">反映する</button>
+    </div>
+
+    <div class="ap-panel" id="ap-panel-skill" style="display:none;"></div>
+    <div class="ap-panel" id="ap-panel-sphere" style="display:none;"></div>
+    <div class="ap-panel" id="ap-panel-shop" style="display:none;"></div>
+
+    <button type="button" class="ap-close-btn" id="appraisal-close-btn">閉じる</button>
+  </div>
+</div>
+
+<!-- ============ SCENARIO SELECT (出撃) ============ -->
+<div id="scenario-overlay" class="event-overlay">
+  <div class="appraisal-box">
+    <div class="appraisal-header">
+      <div class="appraisal-title display">出撃 - シナリオ選択</div>
+      <div class="appraisal-currency">現在 Lv.<span id="scenario-char-level">1</span></div>
+    </div>
+    <div id="scenario-list"></div>
+    <button type="button" class="ap-close-btn" id="scenario-close-btn">閉じる</button>
+  </div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

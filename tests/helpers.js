@@ -1,40 +1,14 @@
 // @ts-check
-const path = require('path');
-
-const BASEFILE_URL = 'file://' + path.resolve(__dirname, '..', 'basefile.html');
 
 /**
- * basefile.html loads Three.js from jsdelivr and its fonts from Google
- * Fonts directly in <head> - fine on a normal dev machine, but a sandboxed
- * CI runner with no outbound network can't reach either. Set
- * SOULFORGE_THREE_LOCAL to the path of a matching three.min.js (e.g. from
- * `npm i three@0.154.0` - see tests/README.md) to route the CDN request to
- * it instead; left unset, this is a no-op and the real CDN is used.
+ * Navigates to the app (baseURL from playwright.config.js) and waits for
+ * the title screen to appear. Three.js is bundled by Vite now, so the only
+ * external request left is Google Fonts - which is non-critical (the page
+ * has fallback fonts) and safe to ignore if a sandboxed runner can't reach
+ * it.
  */
-async function mockCdnIfConfigured(page) {
-  const localThree = process.env.SOULFORGE_THREE_LOCAL;
-  if (!localThree) return;
-  await page.route('**://cdn.jsdelivr.net/npm/three@*/build/three.min.js', route => {
-    route.fulfill({ path: localThree, contentType: 'application/javascript' });
-  });
-  await page.route('**://fonts.googleapis.com/**', route =>
-    route.fulfill({ status: 200, contentType: 'text/css', body: '' })
-  );
-  // the mocked file won't match the tag's integrity hash
-  await page.addInitScript(() => {
-    const strip = () => {
-      const s = document.querySelector('script[src*="cdn.jsdelivr.net/npm/three"]');
-      if (s) s.removeAttribute('integrity');
-      else requestAnimationFrame(strip);
-    };
-    strip();
-  });
-}
-
-/** Navigates to basefile.html and waits for the title screen to appear. */
 async function openGame(page) {
-  await mockCdnIfConfigured(page);
-  await page.goto(BASEFILE_URL);
+  await page.goto('/');
   await page.waitForFunction(
     () => document.getElementById('title-screen').style.display === 'flex',
     { timeout: 15_000 }
@@ -83,4 +57,4 @@ async function dismissIntroDialogue(page) {
   }
 }
 
-module.exports = { BASEFILE_URL, openGame, createCharacter, dismissIntroDialogue };
+export { openGame, createCharacter, dismissIntroDialogue };

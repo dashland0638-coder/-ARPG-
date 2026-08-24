@@ -1,6 +1,6 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
-const { openGame, createCharacter, dismissIntroDialogue } = require('./helpers');
+import { test, expect } from '@playwright/test';
+import { openGame, createCharacter, dismissIntroDialogue } from './helpers.js';
 
 test.describe('boot', () => {
   test('reaches the title screen with an empty continue banner', async ({ page }) => {

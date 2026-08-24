@@ -1,13 +1,21 @@
 {
-  "name": "soulforge-prototype-tests",
+  "name": "soulforge-prototype",
   "private": true,
-  "version": "0.0.0",
-  "description": "Playwright smoke tests for basefile.html. The game itself has zero dependencies and needs no build step - this is only for running tests/.",
+  "version": "0.1.0",
+  "description": "見下ろし型3D ARPG - Vite製Webアプリ。basefile.html は移行前の単一ファイル版をそのまま残したもの(ARCHITECTURE.md参照)。",
+  "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "playwright test",
     "test:headed": "playwright test --headed"
   },
+  "dependencies": {
+    "three": "0.154.0"
+  },
   "devDependencies": {
-    "@playwright/test": "^1.56.0"
+    "@playwright/test": "^1.56.0",
+    "vite": "^5.4.0"
   }
 }

@@ -1,17 +1,22 @@
 // @ts-check
-const { defineConfig } = require('@playwright/test');
+import { defineConfig } from '@playwright/test';
 
-module.exports = defineConfig({
+export default defineConfig({
   testDir: './tests',
   timeout: 45_000,
-  // basefile.html loads Three.js and its own fonts straight from the CDNs
-  // in the <head> - a machine with no outbound network (locked-down CI,
-  // an offline sandbox) needs to mock those requests itself. See
-  // tests/README.md.
   fullyParallel: false,
   workers: 1,
   reporter: [['list']],
+  // Boots the real Vite dev server for the test run and reuses one that's
+  // already running locally (e.g. `npm run dev` in another terminal).
+  webServer: {
+    command: 'npm run dev -- --port=5173 --strictPort',
+    url: 'http://localhost:5173/',
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
+  },
   use: {
+    baseURL: 'http://localhost:5173/',
     headless: true,
     viewport: { width: 1280, height: 800 },
     launchOptions: {
