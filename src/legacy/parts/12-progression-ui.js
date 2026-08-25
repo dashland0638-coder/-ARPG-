@@ -731,6 +731,7 @@
   }
 
   function returnToTownNow(isDefeat){
+    clearScenarioTimer();   // クリア・撤退・全滅・タイムアップ、どの経路で戻っても次のシナリオへ持ち越さない
     buildWorld('tavern'); // dispose the scenario world, rebuild the tavern
     state.pos.set(0,0,10);
     state.vel.set(0,0,0);
@@ -886,6 +887,77 @@
     });
   }
 
+  /* =========================================================
+     周回制限時間 ―― 初回クリアは無制限のまま、2周目(★2)以降にだけ
+     時間の緊張感を足す。改善アイデア「シナリオ毎の制限時間、周回以降で
+     タイムが設定されるように」に対応。基準タイムは各ダンジョンの規模・
+     レベル帯からの見積もりで、実プレイでの詰まり具合を見て調整する
+     前提の仮値(TIME_LIMIT_STAR_SHRINK/TIME_LIMIT_MIN_MULとあわせて)。
+  ========================================================= */
+  const SCENARIO_TIME_LIMIT_BASE = {   // 秒。★2(初回周回)時点の基準タイム
+    mansion: 480, ghostship: 600, temple: 720,
+    clocktower: 600, waterway: 720, conservatory: 660,
+  };
+  const TIME_LIMIT_STAR_SHRINK = 0.08; // ★1つぶんの周回ごとに8%短縮
+  const TIME_LIMIT_MIN_MUL = 0.6;      // どれだけ周回を重ねても基準の60%は残す
+
+  // このシナリオが今回タイム制限つきか(初回クリアなら無制限=null)。
+  // 実際のシュリンク計算はsrc/core/scenario-timer.jsの純粋関数
+  // (tests/unit/scenario-timer.test.jsで単体テスト済み)に委譲している
+  function scenarioTimeLimitFor(key){
+    if(!isRepeatRun(key)) return null;
+    return timeLimitForStars(SCENARIO_TIME_LIMIT_BASE[key], scenarioStars(key),
+      {shrinkPerStar:TIME_LIMIT_STAR_SHRINK, minMul:TIME_LIMIT_MIN_MUL});
+  }
+
+  function formatTimeLimit(seconds){
+    const t = Math.max(0, Math.ceil(seconds));
+    const m = Math.floor(t/60), s = t%60;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+
+  function refreshScenarioTimerHUD(){
+    const el = document.getElementById('scenario-timer');
+    if(!el) return;
+    if(state.scenarioTimeLeft == null){ el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.textContent = `⏱️ ${formatTimeLimit(state.scenarioTimeLeft)}`;
+    el.classList.toggle('timer-urgent', state.scenarioTimeLeft <= 30);
+  }
+
+  // 毎フレーム呼ばれる(通常プレイ中のみ - 会話/一時停止/カットシーン中は
+  // 呼び出し元がそもそも呼ばない。waterwayColdTimerと違い、こちらは
+  // ダンジョン滞在中ずっと動く常設のHUDカウントダウン)
+  let timeLimitWarned60 = false, timeLimitWarned10 = false;
+  function updateScenarioTimer(dt){
+    if(state.scenarioTimeLeft == null) return;
+    state.scenarioTimeLeft = Math.max(0, state.scenarioTimeLeft - dt);
+    refreshScenarioTimerHUD();
+    if(!timeLimitWarned60 && state.scenarioTimeLeft <= 60){
+      timeLimitWarned60 = true;
+      spawnToast('⏱️ 残り1分!');
+    }
+    if(!timeLimitWarned10 && state.scenarioTimeLeft <= 10){
+      timeLimitWarned10 = true;
+      spawnToast('⏱️ 残り10秒!');
+    }
+    if(state.scenarioTimeLeft <= 0){
+      clearScenarioTimer();
+      spawnToast('⏱️ 制限時間切れ - 撤退する');
+      performRetreat();
+    }
+  }
+
+  // ダンジョンを抜けるあらゆる経路(クリア・撤退・全滅・タイムアップ)の
+  // どこからでも呼んでよい後始末。次のシナリオへ引き継がない
+  function clearScenarioTimer(){
+    state.scenarioTimeLimit = null;
+    state.scenarioTimeLeft = null;
+    timeLimitWarned60 = false;
+    timeLimitWarned10 = false;
+    refreshScenarioTimerHUD();
+  }
+
   function launchScenario(key){
     fadeTransition(()=> launchScenarioNow(key));
   }
@@ -898,6 +970,10 @@
     state.sortied = true;
     state.sortieKills = 0;   // 中途撤退ボーナスの計算に使う(このダンジョンでの撃破数)
     state.checkpointUsed = false;   // 階層間休憩ポイントは1回の出撃につき1回だけ回復する
+    timeLimitWarned60 = false; timeLimitWarned10 = false;
+    state.scenarioTimeLimit = scenarioTimeLimitFor(key);
+    state.scenarioTimeLeft = state.scenarioTimeLimit;
+    refreshScenarioTimerHUD();
     if(key==='mansion'){
       state.pos.copy(MANSION_ENTRY);
       state.camYaw = Math.PI*0.25; // northeast

@@ -38,6 +38,7 @@ import { initAudio, resumeAudio, setSfxVolume, sfx, setBgmVolume, playBgm, stopB
 import { groupsFromGraph, allCombos, comboKey, comboKeyFromPath, comboProgress, suggestUnseenCombo } from '../core/route-combos.js';
 import { applyIncomingDamage, applyOutgoingDamage } from '../core/damage-math.js';
 import { pickWeighted, equipmentStatBonus } from '../core/loot-math.js';
+import { timeLimitForStars } from '../core/scenario-timer.js';
 
 `;
 

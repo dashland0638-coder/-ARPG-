@@ -13,6 +13,7 @@ src/
   core/damage-math.js          与/被ダメージ倍率の純粋計算(性格・装備特殊効果)。state依存なし
   core/loot-math.js            ドロップ抽選・装備ステータス乱数の純粋計算。state依存なし
   core/route-combos.js         分岐ルートの組み合わせ計算(直積・進捗・未踏破の提案)。state依存なし
+  core/scenario-timer.js       周回制限時間の★シュリンク計算(基準タイム→星ごとの短縮後タイム)。state依存なし
   audio/audio.js               SE合成・BGM再生(WebAudio)。state.sfxVolume/bgmVolume以外への依存なし
   audio/procedural-bgm.js      ワールドごとの生成音楽(ドローン+疎らな旋律+簡易リバーブ)。実ファイル未登録時のBGM
   textures/textures.js         手続きテクスチャ/バンプマップ生成。state依存なし

@@ -223,6 +223,25 @@
   }
 
   /* ---------- SCREEN FX ---------- */
+  /* 周回制限時間(初回クリアは表示されない)。ボスバーの真下に置き、
+     両方出ている間も重ならないようにしてある */
+  #scenario-timer{
+    position:fixed; top:64px; left:50%; transform:translateX(-50%);
+    z-index:39; pointer-events:none;
+    font-family:'JetBrains Mono', ui-monospace, monospace;
+    font-size:15px; letter-spacing:1px; color:#ffe9c9;
+    background:rgba(10,8,14,0.55); border:1px solid rgba(255,200,140,0.3);
+    border-radius:7px; padding:4px 12px;
+    text-shadow:0 2px 3px #000;
+  }
+  #scenario-timer.timer-urgent{
+    color:#ff8a7a; border-color:rgba(255,90,60,0.6);
+    animation:timer-pulse 0.9s ease-in-out infinite;
+  }
+  @keyframes timer-pulse{
+    0%, 100%{ opacity:1; } 50%{ opacity:0.55; }
+  }
+
   #boss-bar-wrap{
     position:fixed; top:14px; left:50%; transform:translateX(-50%);
     width:min(520px, 78vw); pointer-events:none; opacity:0;

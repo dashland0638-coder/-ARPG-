@@ -519,6 +519,7 @@
       updateCheckpointProximity();
       updateProximityEvents();
       updateWaterwayColdTimer(dt);
+      updateScenarioTimer(dt);
       if(state.debugMode){
         debugRefreshCounter = (debugRefreshCounter+1)%30;
         if(debugRefreshCounter===0) showDebugColliders();

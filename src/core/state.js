@@ -43,6 +43,11 @@ import * as THREE from 'three';
     safePos:new THREE.Vector3(0,0,15),   // last position confirmed outside all geometry
     scenarioClears:{},          // scenario key -> clears, drives the star rating
     scenarioKey:null,           // which scenario this sortie is
+    // 周回(2回目以降の挑戦)にだけ効く制限時間。初回クリアは無制限のまま。
+    // どちらもnullなら非表示・非カウント。ダンジョン内の一時状態なので
+    // セーブには含めない(09-save-load.js参照、scenarioKey等と同じ扱い)
+    scenarioTimeLimit:null,     // このダンジョンの制限時間(秒)。周回でなければnull
+    scenarioTimeLeft:null,      // 残り時間(秒)
     swingT:0, swinging:false,
     inventory:{gold:0, gem:0, potion:0, shard:0, mppotion:0},
     equipmentInventory:[], equipped:{weapon:null, upper:null, lower:null},
