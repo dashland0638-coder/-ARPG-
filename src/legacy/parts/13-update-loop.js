@@ -284,6 +284,8 @@
     state.cautiousTimer = (state.cautiousTimer||0) + dt;
     if(state.justDodgedT>0) state.justDodgedT = Math.max(0, state.justDodgedT - dt);
     if(state.dodgeAttackWindowT>0) state.dodgeAttackWindowT = Math.max(0, state.dodgeAttackWindowT - dt);
+    if(state.perfectDodgeCD>0) state.perfectDodgeCD = Math.max(0, state.perfectDodgeCD - dt);
+    if(state.perfectDodgeWindowT>0) state.perfectDodgeWindowT = Math.max(0, state.perfectDodgeWindowT - dt);
     if(state.jumpAttackCD>0) state.jumpAttackCD = Math.max(0, state.jumpAttackCD - dt);
     if(state.comboWindowT>0){
       state.comboWindowT = Math.max(0, state.comboWindowT - dt);
@@ -904,6 +906,8 @@
             if(state.hp<=0) triggerPlayerDown();
           }
           continue;
+        } else if(d < 0.75 && Math.abs(p.mesh.position.y - state.pos.y) < 1.8 && state.paralyzeInvulnT<=0){
+          tryPerfectDodge();
         }
       } else if(p.isChargeOrb){
         /* The orb was tested with a raw 3D distance against en.group.position,

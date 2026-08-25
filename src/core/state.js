@@ -26,6 +26,11 @@ import * as THREE from 'three';
     camDist:5, camHeight:9.5, camYaw:0, camRotateTouch:0, // closer still - manual view adjustment now matters more
     moveInput:{x:0,y:0},
     attackCD:0, dodgeCD:0, dodging:false, dodgeT:0, dodgeDir:new THREE.Vector3(), dodgeAttackWindowT:0,
+    // ジャストドッジ: 被弾する寸前(=state.dodgingの無敵で判定を吸収した瞬間)に
+    // 発動する。perfectDodgeCDは同じ1回のローリング中に複数の判定ソースへ
+    // 多重発火しないための短いクールダウン、perfectDodgeWindowTは反撃の
+    // 猶予(この間に当てた次の一撃が強化される)。tryPerfectDodge()参照
+    perfectDodgeWindowT:0, perfectDodgeCD:0,
     comboStage:0, comboCount:0, comboWindowT:0, jumpAttacking:false, jumpAttackCD:0,
     invulnerable:false,
     paralyzed:false, paralyzeT:0, paralyzeInvulnT:0,

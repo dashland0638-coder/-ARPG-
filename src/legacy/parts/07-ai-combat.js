@@ -675,6 +675,8 @@
           }
           if(state.hp<=0) triggerPlayerDown();
         }
+      } else if(d<1.15 && en.hitCD<=0 && state.paralyzeInvulnT<=0){
+        tryPerfectDodge();
       }
       if(en.chargeT<=0){ en.chargeState='cooldown'; en.chargeT=2.4; }
       return;
@@ -729,7 +731,10 @@
   // damage helper shared by every boss special
   function bossHitPlayer(en, dmg, opts){
     opts = opts || {};
-    if(state.invulnerable || state.paralyzeInvulnT>0) return;
+    if(state.invulnerable || state.paralyzeInvulnT>0){
+      if(state.paralyzeInvulnT<=0) tryPerfectDodge();
+      return;
+    }
     if(tryConsumeOrbShield()) return;
     const d = applyIncomingDamageMul(state.debugMode ? 0 : dmg);
     state.hp = Math.max(0, state.hp - d);
@@ -1408,6 +1413,8 @@
             }
             if(state.hp<=0) triggerPlayerDown();
           }
+        } else if(stillClose && state.paralyzeInvulnT<=0){
+          tryPerfectDodge();
         }
         en.atkCD = en.atkCdBase || 1.6;
       }
@@ -1450,6 +1457,8 @@
         }
         if(state.hp<=0) triggerPlayerDown();
       }
+    } else if(d < burstRadius && state.paralyzeInvulnT<=0){
+      tryPerfectDodge();
     }
     sfx('ultimate'); addShake(0.22);
     spawnUltimateVFX(en.group.position.clone(), {radius:burstRadius, vfxColor: en.baseColor});
@@ -1498,6 +1507,31 @@
   }
 
   /* =========================================================
+     ジャストドッジ
+
+     被弾判定が「無敵だから素通り」した瞬間、その無敵がアクティブな
+     ドッジロール(state.dodging)によるものだった場合だけ発動する
+     - パラライズ猶予やボス/スフィアのボーナス無敵、デバッグモードは
+     対象外。プレイヤーが実際にタイミングを合わせてドッジボタンを
+     押した結果だけを「うまい」と扱う。
+
+     このファイル内の被ダメ判定5箇所(通常敵の攻撃・ボス共通ヒット
+     ヘルパー・突進・フェイズ移行バースト、および13-update-loop.jsの
+     敵弾)それぞれから、無敵で素通りした分岐に対になる形で呼ぶ。
+  ========================================================= */
+  function tryPerfectDodge(){
+    if(!state.dodging || state.perfectDodgeCD > 0) return;
+    // 同じ1回のロール中に複数の判定ソースへ多重発火しないための
+    // 短いクールダウン(例: 突進の距離判定は毎フレーム再評価される)
+    state.perfectDodgeCD = 0.5;
+    state.perfectDodgeWindowT = 1.4;   // この間に当てた次の一撃が強化される
+    hitStop(0.05);
+    addShake(0.06);
+    sfx('perfectDodge');
+    spawnToast('⚡ ジャストドッジ!', '#ffd27a');
+  }
+
+  /* =========================================================
      性格・装備特殊効果: 与ダメージ / 被ダメージの補正
      ここに集約しておくと、攻撃経路が増えても呼び出し側を触らずに済む。
   ========================================================= */
@@ -1532,6 +1566,10 @@
     const distanceToEnemy = (en && en.group) ? state.pos.distanceTo(en.group.position) : null;
     const specialId = equippedSpecialId();
     const justDodged = specialId==='kagenui' && state.justDodgedT>0;
+    // どの武器でも乗る一般ボーナス。かげぬいの小刀のjustDodgedとは別枠
+    // (あちらは装備限定・ドッジ直後1秒、こちらはタイミングを合わせた
+    // ジャストドッジ限定・反撃猶予1.4秒) - tryPerfectDodge()参照
+    const perfectDodgeOpen = state.perfectDodgeWindowT > 0;
     const result = applyOutgoingDamage(amount, {
       personality: state.personality,
       hpRatio,
@@ -1539,7 +1577,9 @@
       distanceToEnemy,
       specialId,
       justDodged,
+      perfectDodgeOpen,
     });
+    if(perfectDodgeOpen) state.perfectDodgeWindowT = 0;   // 反撃は1回だけ強化
     if(justDodged) state.justDodgedT = 0;   // 1回のドッジにつき1回だけ発動
     if(specialId==='kaijin' && en){
       // かいじんの杖: 命中した敵を燃焼状態にする(3秒、1秒毎にダメージ)

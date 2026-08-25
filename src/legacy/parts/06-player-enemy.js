@@ -211,6 +211,18 @@
     const skinMat = new THREE.MeshStandardMaterial({color:0xe8b98a, roughness:0.8});
     const clothMat = new THREE.MeshStandardMaterial({color:classDef.color, roughness:0.6, metalness:0.15});
     const trimMat = new THREE.MeshStandardMaterial({color:classDef.trim, roughness:0.4, metalness:0.3, emissive:classDef.trim, emissiveIntensity:0.12});
+    /* Flat-shaded twins for the newly-lathed head/pelvis/pauldron. A low
+       segment count alone doesn't read as faceted - LatheGeometry's default
+       smooth vertex normals blend right through the facets, which is why
+       the torso/limbs already read as smoothly round despite being lathed
+       too. flatShading swaps that for per-face normals, which is what
+       actually turns "a lathe with few segments" into a visible gem-cut.
+       Cloned rather than set on skinMat/clothMat/trimMat directly, since
+       those are shared with the (still meant to be smooth) limbs, torso,
+       weapon trim and so on. */
+    const skinMatFlat = skinMat.clone();  skinMatFlat.flatShading = true;
+    const clothMatFlat = clothMat.clone(); clothMatFlat.flatShading = true;
+    const trimMatFlat = trimMat.clone();  trimMatFlat.flatShading = true;
 
     // legs - hip and knee are separate pivots and the boot hangs off the
     // shin, so the whole leg articulates. Previously the thigh swung while
@@ -257,10 +269,14 @@
     playerMixerParts.kneeL = kneeL;
     playerMixerParts.kneeR = kneeR;
 
-    // hips, so the thighs meet something instead of hanging off the tunic
-    const pelvis = new THREE.Mesh(new THREE.SphereGeometry(B.hipR,12,8), clothMat);
-    // the wider, lower-set pelvis is a big part of the female silhouette
-    pelvis.scale.set(isFemale ? 1.18 : 1.06, isFemale ? 0.58 : 0.62, 0.94);
+    // hips, so the thighs meet something instead of hanging off the tunic.
+    // Lathed from PELVIS_PROFILE instead of a squashed sphere - the flare
+    // (widest at the waist, narrowing to the crotch) is baked into the
+    // profile itself now, same technique as the torso just below.
+    const pelvisH = isFemale ? 0.30 : 0.34;
+    const pelvis = new THREE.Mesh(
+      limbGeo(PELVIS_PROFILE[isFemale ? 'female' : 'male'], B.hipR, pelvisH, 10), clothMatFlat);
+    pelvis.scale.z = 0.94;
     pelvis.position.y = 0.80;
     pelvis.castShadow = true;
     group.add(pelvis);
@@ -293,8 +309,11 @@
     belt.position.y = HIP_Y;
     group.add(belt);
 
-    // head
-    const head = new THREE.Mesh(new THREE.SphereGeometry(B.headR, 14,14), skinMat);
+    // head - lathed from HEAD_PROFILE (chin to crown) at a low segment count
+    // for a faceted, gem-cut look instead of a plain sphere. See the long
+    // comment on HEAD_PROFILE in 05-rendering-rig.js for why.
+    const head = new THREE.Mesh(
+      limbGeo(HEAD_PROFILE[isFemale ? 'female' : 'male'], B.headR, B.headR*2, 8), skinMatFlat);
     head.position.y = HIP_Y + bodyH + B.headGap;
     head.castShadow = true;
     group.add(head);
@@ -310,8 +329,9 @@
       group.add(eye);
     });
 
-    // hair suggestion
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(B.hairR, 12,12, 0, Math.PI*2, 0, Math.PI*0.62),
+    // hair suggestion - segment count trimmed to match the head's faceted
+    // look rather than reading as a smooth cap over an angular skull
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(B.hairR, 9,8, 0, Math.PI*2, 0, Math.PI*0.62),
       new THREE.MeshStandardMaterial({color:isFemale?0x2c1e14:0x1b140f, roughness:0.7}));
     hair.position.copy(head.position);
     hair.position.y += 0.02;
@@ -325,7 +345,7 @@
 
     if(classDef.key==='warrior'){
       // full helm + a long scarf trailing off the neck
-      const helm = new THREE.Mesh(new THREE.SphereGeometry(headR*1.16, 14, 12, 0, Math.PI*2, 0, Math.PI*0.62), metalMat);
+      const helm = new THREE.Mesh(new THREE.SphereGeometry(headR*1.16, 10, 8, 0, Math.PI*2, 0, Math.PI*0.62), metalMat);
       helm.position.set(0, hY+0.03, 0); helm.castShadow = true; group.add(helm);
       const visor = new THREE.Mesh(new THREE.BoxGeometry(headR*1.9, 0.07, 0.1), darkMat);
       visor.position.set(0, hY+0.02, headR*0.86); group.add(visor);
@@ -344,7 +364,7 @@
 
     } else if(classDef.key==='rogue'){
       // barbaric helm with curved horns
-      const helm = new THREE.Mesh(new THREE.SphereGeometry(headR*1.12, 14, 12, 0, Math.PI*2, 0, Math.PI*0.55), darkMat);
+      const helm = new THREE.Mesh(new THREE.SphereGeometry(headR*1.12, 10, 8, 0, Math.PI*2, 0, Math.PI*0.55), darkMat);
       helm.position.set(0, hY+0.04, 0); helm.castShadow = true; group.add(helm);
       [-1,1].forEach(s=>{
         const horn = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.055, 7, 12, Math.PI*1.15),
@@ -387,7 +407,7 @@
 
     } else if(classDef.key==='archer'){
       // hunting cap: shallow dome + a forward peak
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(headR*1.12, 14, 10, 0, Math.PI*2, 0, Math.PI*0.5), clothMat);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(headR*1.12, 10, 8, 0, Math.PI*2, 0, Math.PI*0.5), clothMat);
       cap.position.set(0, hY+0.05, 0); cap.castShadow = true; group.add(cap);
       const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*0.85, 0.3, 4), clothMat);
       peak.position.set(0, hY+0.16, 0.02); peak.rotation.y = Math.PI/4; group.add(peak);
@@ -435,9 +455,12 @@
       el.add(hand);
       sh.add(el);
 
-      const pauldron = new THREE.Mesh(new THREE.SphereGeometry(B.upper*1.52,10,8), trimMat);
+      // lathed hex-cut dome instead of a squashed sphere - see
+      // PAULDRON_PROFILE's comment for why the low segment count is
+      // deliberate (a hard "armor plate" read, not a soft one)
+      const pauldron = new THREE.Mesh(
+        limbGeo(PAULDRON_PROFILE, B.upper*1.52, B.upper*2.1, 6), trimMatFlat);
       pauldron.position.y = -0.02;
-      pauldron.scale.set(1,0.70,1);
       pauldron.castShadow = true;
       sh.add(pauldron);
     });

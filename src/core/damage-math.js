@@ -34,8 +34,10 @@ export function applyIncomingDamage(rawDmg, mulInputs) {
 // distanceToEnemy: null when there's no enemy position to measure against.
 // specialId: the equipped weapon's special effect id (identified weapons only).
 // justDodged: whether かげぬいの小刀's dodge-crit window is open right now.
+// perfectDodgeOpen: whether a well-timed dodge (any weapon) just absorbed a
+// hit and the resulting counter-attack window is still open.
 export function outgoingDamageMods({
-  personality, hpRatio, classKey, distanceToEnemy, specialId, justDodged,
+  personality, hpRatio, classKey, distanceToEnemy, specialId, justDodged, perfectDodgeOpen,
 }) {
   let mul = 1;
   let isCrit = false;
@@ -57,6 +59,10 @@ export function outgoingDamageMods({
   if (specialId === 'kagenui' && justDodged) {
     isCrit = true; // かげぬいの小刀: 回避直後は必ずクリティカル
     mul *= 1.8;
+  }
+  if (perfectDodgeOpen) {
+    isCrit = true; // ジャストドッジの反撃: 武器を問わず必ずクリティカル+50%
+    mul *= 1.5;
   }
   return { mul, isCrit };
 }

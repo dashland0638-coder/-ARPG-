@@ -184,6 +184,14 @@ import { startProceduralBgm } from './procedural-bgm.js';
     jump(){ tone('sine', 300, 620, 0.14, 0.14); },
     land(power){ noise(0.14, 0.10 + 0.12*(power||0.5), 500, 140, 0.9); },
     dodge(){ noise(0.20, 0.13, 1200, 3000, 1.6); },
+    // a distinct sting on top of the dodge whoosh for a well-timed
+    // roll: a quick rising chime rather than another swoosh, so it reads
+    // as "reward" and not as a louder dodge
+    perfectDodge(){
+      noise(0.14, 0.10, 1600, 3400, 1.8);
+      tone('triangle', 900, 1800, 0.16, 0.14, 0.02);
+      tone('triangle', 1350, 2700, 0.14, 0.10, 0.05);
+    },
     thorn(){ noise(0.26, 0.20, 700, 180, 0.8); tone('square', 150, 70, 0.22, 0.12); },
     spore(){ noise(0.34, 0.08, 500, 220, 0.7); },
     door(){ noise(0.42, 0.16, 320, 120, 0.6); tone('sine', 90, 55, 0.42, 0.14); },

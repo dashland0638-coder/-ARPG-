@@ -96,6 +96,17 @@ test('outgoingDamageMods', async (t) => {
     const { mul } = outgoingDamageMods({ personality: 'brave', hpRatio: 0.2, specialId: 'chizome' });
     assert.ok(Math.abs(mul - 1.15 * 1.4) < 1e-9);
   });
+
+  await t.test('perfect dodge counter: guaranteed crit + 1.5x, any weapon, only while the window is open', () => {
+    assert.deepEqual(outgoingDamageMods({ perfectDodgeOpen: true }), { mul: 1.5, isCrit: true });
+    assert.deepEqual(outgoingDamageMods({ perfectDodgeOpen: false }), { mul: 1, isCrit: false });
+  });
+
+  await t.test('perfect dodge stacks with personality/special multipliers, independent of specialId', () => {
+    const { mul, isCrit } = outgoingDamageMods({ personality: 'brave', hpRatio: 0.2, specialId: 'chizome', perfectDodgeOpen: true });
+    assert.ok(Math.abs(mul - 1.15 * 1.4 * 1.5) < 1e-9);
+    assert.equal(isCrit, true);
+  });
 });
 
 test('applyOutgoingDamage', async (t) => {

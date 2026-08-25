@@ -263,6 +263,44 @@
              [1.02,0.60],[0.92,0.73],[0.81,0.85],[0.55,0.95],[0.24,1.00]],
   };
 
+  /* Head, pelvis and pauldron profiles, added alongside the torso/limb ones
+     above for the same reason: a lathe of a handful of points reads as a
+     deliberately-shaped part, where a plain sphere reads as a placeholder.
+     The player's tilt-back (PLAYER_LEAN_BACK, below) turns the top of the
+     head into the part the camera actually sees, so it's the one sphere
+     that most needed to stop being one.
+
+     Chin (u=0) to crown (u=1) - narrow at both ends, widest at the
+     cheekbone/jaw-hinge height. Lathed at low segment count (see
+     buildPlayer()) on purpose: a faceted, gem-cut head matches the toon/
+     posterized dot-mode shading better than a smooth sphere would, and
+     reads as "sculpted" rather than "round" from across a room. */
+  const HEAD_PROFILE = {
+    male:   [[0.12,0.00],[0.52,0.10],[0.86,0.26],[1.00,0.46],
+             [0.97,0.66],[0.82,0.84],[0.55,0.96],[0.20,1.00]],
+    female: [[0.10,0.00],[0.46,0.09],[0.78,0.24],[0.96,0.44],
+             [1.00,0.62],[0.86,0.82],[0.56,0.95],[0.22,1.00]],
+  };
+
+  /* Crotch (u=0) to waistline (u=1), where it meets the torso's belt. Radius
+     scale is calibrated against B.hipR the same way TORSO_PROFILE is
+     against bodyR, so the peaks below (1.06 male / 1.18 female) reproduce
+     the same effective hip widths the old scaled-sphere pelvis had
+     (B.hipR * old x-scale of 1.06 / 1.18) rather than introducing a new
+     silhouette by accident. */
+  const PELVIS_PROFILE = {
+    male:   [[0.55,0.00],[0.80,0.20],[1.00,0.46],[1.06,0.60],[0.95,0.80],[0.78,1.00]],
+    female: [[0.48,0.00],[0.85,0.18],[1.10,0.40],[1.18,0.58],[1.00,0.80],[0.76,1.00]],
+  };
+
+  /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
+     for both genders - the shoulder-armor read is a class/armor thing, not
+     a body-shape thing, and B.upper already differs by gender for sizing.
+     Lathed at very low segment count for a hard, hex-cut "armor plate"
+     look, contrasting on purpose with the softer cloth/skin lathes
+     elsewhere on the rig. */
+  const PAULDRON_PROFILE = [[0.92,0.00],[1.00,0.16],[0.90,0.46],[0.64,0.74],[0.18,1.00]];
+
   /* The camera looks almost straight down (state.camHeight:9.5 over
      state.camDist:5, ~62° below horizontal - see getCamOffset()), which the
      comment above already conceded means nobody reads the face at this
