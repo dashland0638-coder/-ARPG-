@@ -266,9 +266,6 @@
   /* Head, pelvis and pauldron profiles, added alongside the torso/limb ones
      above for the same reason: a lathe of a handful of points reads as a
      deliberately-shaped part, where a plain sphere reads as a placeholder.
-     The player's tilt-back (PLAYER_LEAN_BACK, below) turns the top of the
-     head into the part the camera actually sees, so it's the one sphere
-     that most needed to stop being one.
 
      Chin (u=0) to crown (u=1) - narrow at both ends, widest at the
      cheekbone/jaw-hinge height. Lathed at low segment count (see
@@ -300,27 +297,6 @@
      look, contrasting on purpose with the softer cloth/skin lathes
      elsewhere on the rig. */
   const PAULDRON_PROFILE = [[0.92,0.00],[1.00,0.16],[0.90,0.46],[0.64,0.74],[0.18,1.00]];
-
-  /* The camera looks almost straight down (state.camHeight:9.5 over
-     state.camDist:5, ~62° below horizontal - see getCamOffset()), which the
-     comment above already conceded means nobody reads the face at this
-     distance. updatePlayer() (13-update-loop.js, at the very end, after
-     every other system has had its say on the rig's rotation for the
-     frame) leans the whole rig back by this many radians toward whatever
-     direction the camera is currently looking - physically nonsensical
-     (nobody stands reclined at rest), but it turns "the top of a head"
-     into "a face" when the character is facing roughly toward the viewer,
-     which is what actually reads from this angle. Deliberately tied to the
-     CAMERA's current direction (state.camYaw) rather than the character's
-     own facing (state.facing): the camera can be rotated independently
-     (Q/E) and the character turns constantly during play, and a lean
-     baked into the character's own local frame would sometimes lean
-     toward the camera and sometimes away from it depending on which way
-     the character happened to be facing - the screen-space read ("body
-     tips toward the far side of the screen") needs to stay the same
-     regardless of either one. See PLAYER_LEAN_BACK's application for how
-     the legs are kept from floating along with it. */
-  const PLAYER_LEAN_BACK = 0.32;              // ~18°, magnitude of the camera-relative lean
 
   /* One table for everything the two builds differ by - proportions and the
      way they move. Motion is deliberately in here too: a build that is only
