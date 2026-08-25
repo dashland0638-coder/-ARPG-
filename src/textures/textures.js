@@ -142,6 +142,103 @@ function applyOverride(name, tex){
     }, opts.name);
   }
 
+  /* ---- leather: armor straps, cloth-adjacent gear, boots ----------------
+     Mottled organic blotches (no two patches of hide are quite the same
+     shade) plus a scatter of fine creases - the two things a flat colour
+     fill can't give a leather surface. Used on the player rig's cloth/skin
+     parts (06-player-enemy.js) rather than the structured wall/floor
+     surfaces above, so there's no "rows/cols" grid to lay out - just noise
+     at a few different scales. */
+  function makeLeatherTexture(base, rx, ry, opts){
+    opts = opts || {};
+    const key = 'leather|'+base+'|'+rx+'|'+ry+'|'+(opts.seed||0);
+    return makeSurface(key, 96, rx, ry, opts.bump || 0.05, (cx,hx,S)=>{
+      cx.fillStyle = base; cx.fillRect(0,0,S,S);
+      // mottled blotches - overlapping soft-edged patches of slightly
+      // different shade, the variation leather naturally has hide to hide
+      for(let i=0;i<26;i++){
+        const x = Math.random()*S, y = Math.random()*S, r = 6 + Math.random()*14;
+        const k = 0.82 + Math.random()*0.36;
+        const grad = cx.createRadialGradient(x,y,0,x,y,r);
+        grad.addColorStop(0, _shade(base, k));
+        grad.addColorStop(1, base);
+        cx.fillStyle = grad;
+        cx.beginPath(); cx.arc(x,y,r,0,Math.PI*2); cx.fill();
+        hx.fillStyle = _grey(128 + (k-1)*90);
+        hx.beginPath(); hx.arc(x,y,r,0,Math.PI*2); hx.fill();
+      }
+      // fine creases - short, irregular curved lines, recessed in the bump pass
+      for(let i=0;i<14;i++){
+        const x0 = Math.random()*S, y0 = Math.random()*S;
+        const a = Math.random()*Math.PI*2, len = 6 + Math.random()*16;
+        const x1 = x0 + Math.cos(a)*len, y1 = y0 + Math.sin(a)*len;
+        const mx = (x0+x1)/2 + (Math.random()-0.5)*6, my = (y0+y1)/2 + (Math.random()-0.5)*6;
+        cx.globalAlpha = 0.5;
+        cx.strokeStyle = _shade(base, 0.62); cx.lineWidth = 0.6 + Math.random()*0.6;
+        cx.beginPath(); cx.moveTo(x0,y0); cx.quadraticCurveTo(mx,my,x1,y1); cx.stroke();
+        cx.globalAlpha = 1;
+        hx.strokeStyle = _grey(96); hx.lineWidth = 1.0;
+        hx.beginPath(); hx.moveTo(x0,y0); hx.quadraticCurveTo(mx,my,x1,y1); hx.stroke();
+      }
+      // fine grain speckle
+      for(let i=0;i<220;i++){
+        cx.fillStyle = _shade(base, 0.9 + Math.random()*0.22);
+        cx.fillRect(Math.random()*S, Math.random()*S, 1, 1);
+      }
+    }, opts.name);
+  }
+
+  /* ---- metal: armor plate, trim, blades - brushed streaks and old scars -
+     A flat metallic colour with metalness turned up reads as plastic, not
+     steel - what actually sells "worked metal" is directional brushing and
+     a couple of scars catching the light differently from the surrounding
+     grain. */
+  function makeMetalTexture(base, rx, ry, opts){
+    opts = opts || {};
+    const key = 'metal|'+base+'|'+rx+'|'+ry+'|'+(opts.seed||0);
+    return makeSurface(key, 96, rx, ry, opts.bump || 0.04, (cx,hx,S)=>{
+      cx.fillStyle = base; cx.fillRect(0,0,S,S);
+      // brushed streaks: thin near-horizontal lines of slightly varying shade
+      cx.globalAlpha = 0.5;
+      for(let i=0;i<70;i++){
+        const y = Math.random()*S;
+        cx.strokeStyle = _shade(base, 0.88 + Math.random()*0.28);
+        cx.lineWidth = 0.5 + Math.random()*0.7;
+        cx.beginPath(); cx.moveTo(0, y); cx.lineTo(S, y + (Math.random()-0.5)*3); cx.stroke();
+      }
+      cx.globalAlpha = 1;
+      // a handful of scratches/scars
+      for(let i=0;i<5;i++){
+        const x0 = Math.random()*S, y0 = Math.random()*S;
+        const a = Math.random()*Math.PI*2, len = 8 + Math.random()*18;
+        const x1 = x0+Math.cos(a)*len, y1 = y0+Math.sin(a)*len;
+        cx.strokeStyle = _shade(base, 0.55); cx.lineWidth = 0.8;
+        cx.beginPath(); cx.moveTo(x0,y0); cx.lineTo(x1,y1); cx.stroke();
+        hx.strokeStyle = _grey(190); hx.lineWidth = 1.2;
+        hx.beginPath(); hx.moveTo(x0,y0); hx.lineTo(x1,y1); hx.stroke();
+      }
+      // faint speckled wear
+      for(let i=0;i<90;i++){
+        cx.fillStyle = _shade(base, 0.85 + Math.random()*0.3);
+        cx.fillRect(Math.random()*S, Math.random()*S, 1, 1);
+      }
+    }, opts.name);
+  }
+
+  /* Wires a material's `.map` up with its matching procedural bump map (see
+     makeSurface() above), unconditionally - unlike applySurfaceDetail()
+     below, which gates this behind the quality setting for the sprawling
+     floor/wall surfaces it targets. Character gear textures are tiny by
+     comparison, so there's no quality reason to skip the bump here; this
+     just saves every call site the trouble of reaching into the same
+     internal bumpFor map. No-op (returns mat unchanged) if mat.map isn't a
+     tracked procedural surface. */
+  function applyBump(mat, scale){
+    const rec = mat.map && bumpFor.get(mat.map);
+    if(rec){ mat.bumpMap = rec.tex; mat.bumpScale = scale != null ? scale : rec.scale; }
+    return mat;
+  }
+
   /* ---- masonry: ashlar blocks, brickwork, tomb walls -------------------
      Rows are laid in running bond. Blocks are drawn from -1 to cols so the
      half-block at each edge completes across the tile seam. */
@@ -499,4 +596,4 @@ function applyOverride(name, tex){
     return tex;
   }
 
-export { makePlankTexture, makeMasonryTexture, makeCobbleTexture, makeWallpaperTexture, makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture, getMaxAnisotropy };
+export { makePlankTexture, makeMasonryTexture, makeCobbleTexture, makeWallpaperTexture, makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture, getMaxAnisotropy, makeLeatherTexture, makeMetalTexture, applyBump };

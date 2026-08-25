@@ -298,6 +298,13 @@
      elsewhere on the rig. */
   const PAULDRON_PROFILE = [[0.92,0.00],[1.00,0.16],[0.90,0.46],[0.64,0.74],[0.18,1.00]];
 
+  /* Cuff profiles (bottom rim u=0 to top rim u=1) for the vambrace/greave
+     bands added on top of the forearm/calf lathes - a raised lip at each
+     rim with a shallow waist between, so they read as a fitted armour cuff
+     rather than a slid-on napkin ring. Low segment count, same hex-cut
+     language as PAULDRON_PROFILE. */
+  const CUFF_PROFILE = [[0.90,0.00],[1.00,0.10],[0.94,0.50],[1.00,0.90],[0.90,1.00]];
+
   /* One table for everything the two builds differ by - proportions and the
      way they move. Motion is deliberately in here too: a build that is only
      a different set of radii still walks identically, and that reads as one

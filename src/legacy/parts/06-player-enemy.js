@@ -208,9 +208,19 @@
     const bodyR = B.chest;
     playerMixerParts.build = B;
 
+    // '#rrggbb' for the canvas-based texture generators below - classDef's
+    // colours are plain numeric hex (THREE's own convention), not CSS strings
+    const hexStr = n => '#'+n.toString(16).padStart(6,'0');
     const skinMat = new THREE.MeshStandardMaterial({color:0xe8b98a, roughness:0.8});
-    const clothMat = new THREE.MeshStandardMaterial({color:classDef.color, roughness:0.6, metalness:0.15});
-    const trimMat = new THREE.MeshStandardMaterial({color:classDef.trim, roughness:0.4, metalness:0.3, emissive:classDef.trim, emissiveIntensity:0.12});
+    // cloth/leather and armor trim used to be flat colour fills - the same
+    // procedural surface technique the world's walls/floors already use
+    // (textures.js), pointed at the class's own colour instead of a fixed
+    // stone/wood palette, so a "worked material" reads on the character too
+    const clothMat = applyBump(new THREE.MeshStandardMaterial({
+      map: makeLeatherTexture(hexStr(classDef.color), 2, 2), roughness:0.6, metalness:0.15}));
+    const trimMat = applyBump(new THREE.MeshStandardMaterial({
+      map: makeMetalTexture(hexStr(classDef.trim), 3, 1), roughness:0.4, metalness:0.3,
+      emissive:classDef.trim, emissiveIntensity:0.12}));
     /* Flat-shaded twins for the newly-lathed head/pelvis/pauldron. A low
        segment count alone doesn't read as faceted - LatheGeometry's default
        smooth vertex normals blend right through the facets, which is why
@@ -246,6 +256,13 @@
       const cap = new THREE.Mesh(new THREE.SphereGeometry(B.calf*0.98,8,6), trimMat);
       cap.scale.set(1,0.72,0.92);
       knee.add(cap);
+
+      // greave: a metal cuff on the shin, midway between the kneecap and
+      // the boot - the calf alone read as a bare cloth leg with only the
+      // kneepad marking it as armoured
+      const greave = new THREE.Mesh(limbGeo(CUFF_PROFILE, B.calf*1.25, 0.13, 8), trimMatFlat);
+      greave.position.y = -B.calfLen*0.62; greave.castShadow = true;
+      knee.add(greave);
 
       const bw = B.calf*1.62;
       /* Put the sole on the floor. The knee group sits at world
@@ -451,6 +468,12 @@
       el.add(fore);
       const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(B.forearm*1.06,8,6), clothMat);
       el.add(elbowCap);
+      // vambrace: a metal cuff banded around the forearm just above the
+      // hand, lathed the same way as the pauldron - the forearm alone read
+      // as a bare cloth sleeve with nothing marking it as armoured
+      const vambrace = new THREE.Mesh(limbGeo(CUFF_PROFILE, B.forearm*1.2, 0.11, 8), trimMatFlat);
+      vambrace.position.y = -0.27; vambrace.castShadow = true;
+      el.add(vambrace);
       hand.position.y = -0.32; hand.castShadow = true;
       el.add(hand);
       sh.add(el);
