@@ -39,7 +39,7 @@ import * as THREE from 'three';
     hitStopScale:1,             // 0 disables the impact freeze entirely
     brightness:1,               // multiplies the scenario's own exposure
     sfxVolume:0.5,              // 0 mutes; plays a loaded sound file if one is registered, else synthesises
-    bgmVolume:0.4,              // 0 mutes background music (silent if no track is registered for the world)
+    bgmVolume:0.4,              // 0 mutes; plays a loaded track if one is registered, else a generative ambient loop
     safePos:new THREE.Vector3(0,0,15),   // last position confirmed outside all geometry
     scenarioClears:{},          // scenario key -> clears, drives the star rating
     scenarioKey:null,           // which scenario this sortie is

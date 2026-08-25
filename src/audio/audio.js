@@ -6,6 +6,7 @@
 // and state.bgmVolume only.
 import { state } from '../core/state.js';
 import { BGM_TRACKS, SFX_FILES } from './asset-manifest.js';
+import { startProceduralBgm } from './procedural-bgm.js';
 
   // asset-manifest.js entries are written as site-root-relative paths
   // ('/audio/bgm/tavern.mp3'), but GitHub Pages serves this app from a
@@ -236,18 +237,22 @@ import { BGM_TRACKS, SFX_FILES } from './asset-manifest.js';
     if(f) try{ f(arg); }catch(e){}
   }
 
-  /* ---- background music (optional, per-world) -----------------------------
-     Streamed through a plain <audio> element rather than WebAudio buffers -
-     tracks are long, so decoding the whole file up front (like the SFX
-     buffers above) would be wasteful. Nothing plays for a world with no
-     entry in BGM_TRACKS; that's the expected, silent default today. */
+  /* ---- background music (optional per-world file, generative otherwise) ---
+     A registered BGM_TRACKS file streams through a plain <audio> element
+     rather than WebAudio buffers - tracks are long, so decoding the whole
+     file up front (like the SFX buffers above) would be wasteful. With no
+     file registered (every world, today), procedural-bgm.js generates an
+     ambient loop for that world on the WebAudio graph instead of leaving
+     it silent - see ASSETS.md for how to add a real track later. */
   let bgmEl = null;
   let bgmKey = null;
-  let pendingBgmEl = null;   // set when play() was blocked by autoplay policy
+  let pendingBgmEl = null;      // set when play() was blocked by autoplay policy
+  let proceduralBgm = null;     // the generative engine's handle, when active
 
   function setBgmVolume(v){
     state.bgmVolume = v;
     if(bgmEl) bgmEl.volume = v;
+    if(proceduralBgm) proceduralBgm.setVolume(v);
   }
 
   function playBgm(key){
@@ -255,17 +260,27 @@ import { BGM_TRACKS, SFX_FILES } from './asset-manifest.js';
     bgmKey = key;
     if(bgmEl){ bgmEl.pause(); bgmEl = null; }
     pendingBgmEl = null;
+    if(proceduralBgm){ proceduralBgm.stop(); proceduralBgm = null; }
+    const vol = state.bgmVolume != null ? state.bgmVolume : 0.4;
     const url = BGM_TRACKS[key];
-    if(!url) return;                    // no track registered - silence is correct
-    const el = new Audio(resolveAssetUrl(url));
-    el.loop = true;
-    el.volume = state.bgmVolume != null ? state.bgmVolume : 0.4;
-    el.play().catch(()=>{ pendingBgmEl = el; });   // retried from resumeAudio()
-    bgmEl = el;
+    if(url){
+      const el = new Audio(resolveAssetUrl(url));
+      el.loop = true;
+      el.volume = vol;
+      el.play().catch(()=>{ pendingBgmEl = el; });   // retried from resumeAudio()
+      bgmEl = el;
+      return;
+    }
+    // no track registered - generate one instead of leaving the world
+    // silent. initAudio() is safe to call before any user gesture: it just
+    // creates a suspended context, which resumeAudio() later wakes up.
+    const ctx = initAudio();
+    if(ctx) proceduralBgm = startProceduralBgm(ctx, ctx.destination, key, vol);
   }
 
   function stopBgm(){
     if(bgmEl){ bgmEl.pause(); bgmEl = null; }
+    if(proceduralBgm){ proceduralBgm.stop(); proceduralBgm = null; }
     bgmKey = null;
     pendingBgmEl = null;
   }

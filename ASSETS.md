@@ -8,7 +8,7 @@
 
 ## 1. 音楽 (BGM)
 
-7つのワールドキーそれぞれに1曲まで登録できる(`src/audio/asset-manifest.js`の`BGM_TRACKS`)。
+7つのワールドキーそれぞれに1曲まで登録できる(`src/audio/asset-manifest.js`の`BGM_TRACKS`)。未登録のワールドは無音ではなく、`src/audio/procedural-bgm.js`がそのワールド用に生成した環境音楽(ドローン和音+疎らな旋律、簡易リバーブ付き)が流れる ─ 実ファイルを登録すればそちらへ即座に差し替わる。
 
 | キー | ワールド | Lv目安 |
 |---|---|---|
