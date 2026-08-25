@@ -32,6 +32,7 @@ import { state } from '../core/state.js';
 import {
   makePlankTexture, makeMasonryTexture, makeCobbleTexture, makeWallpaperTexture,
   makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture,
+  getMaxAnisotropy,
 } from '../textures/textures.js';
 import { initAudio, resumeAudio, setSfxVolume, sfx, setBgmVolume, playBgm, stopBgm } from '../audio/audio.js';
 import { groupsFromGraph, allCombos, comboKey, comboKeyFromPath, comboProgress, suggestUnseenCombo } from '../core/route-combos.js';

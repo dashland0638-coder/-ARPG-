@@ -26,6 +26,16 @@
 
   function applyDotFiltering(){
     const near = dotOn();
+    // getMaxAnisotropy() lives in textures.js (a real ES module, not this
+    // shared concatenated scope) - it used to be reached for here as a bare
+    // `_maxAniso`, which only exists in that module's own closure. That
+    // threw a ReferenceError every time this ran with near===false (i.e.
+    // turning dot mode back OFF), aborting applyDotSetting() before it
+    // reached refreshOutlines()/onResize() - dot mode would then look stuck
+    // on, since the canvas's small backing-store resolution never got
+    // reset even though the .dotty CSS class (set earlier in the same
+    // function) did come off.
+    const maxAniso = near ? 1 : getMaxAnisotropy(renderer);
     const seen = new Set();
     scene.traverse(n=>{
       if(!n.isMesh || !n.material) return;
@@ -40,7 +50,7 @@
           if(t.magFilter !== want){
             t.magFilter = want;
             t.minFilter = near ? NEAREST_MIP : LINEAR_MIP;
-            t.anisotropy = near ? 1 : Math.min(4, _maxAniso || 1);
+            t.anisotropy = Math.min(4, maxAniso);
             t.needsUpdate = true;
           }
         });

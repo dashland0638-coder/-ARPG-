@@ -362,6 +362,20 @@ function applyOverride(name, tex){
     });
   }
 
+  /* Cached once per renderer, since capabilities.getMaxAnisotropy() is a
+     GPU query. Exported as getMaxAnisotropy() rather than left as a bare
+     module-private variable: 05-rendering-rig.js's dot-mode filtering
+     needs the same value, and reaching for a name like `_maxAniso` that
+     lives only in this module's closure is exactly the class of bug
+     ARCHITECTURE.md documents (applySurfaceDetail's old renderer/qualityIdx
+     ReferenceError) - a legacy/parts/ file can't see another module's
+     private state just because it used to all be one shared scope. */
+  let _maxAniso = 0;
+  function getMaxAnisotropy(renderer){
+    if(!_maxAniso && renderer) _maxAniso = renderer.capabilities.getMaxAnisotropy() || 1;
+    return _maxAniso || 1;
+  }
+
   /* Walks freshly built world objects and upgrades every textured standard
      material in place: anisotropic filtering so floors stay sharp at a
      grazing angle, plus the height field that matches its colour map.
@@ -369,9 +383,8 @@ function applyOverride(name, tex){
      this module (renderer/quality setting belong to the world/settings
      code), so the caller passes them in rather than this module reaching
      for globals it doesn't have. */
-  let _maxAniso = 0;
   function applySurfaceDetail(objs, wantBump, renderer){
-    if(!_maxAniso && renderer) _maxAniso = renderer.capabilities.getMaxAnisotropy() || 1;
+    const maxAniso = getMaxAnisotropy(renderer);
     const done = new Set();
     objs.forEach(root => root.traverse && root.traverse(n=>{
       if(!n.isMesh || !n.material) return;
@@ -379,7 +392,7 @@ function applyOverride(name, tex){
       mats.forEach(m=>{
         if(!m || done.has(m) || !m.map) return;
         done.add(m);
-        m.map.anisotropy = Math.min(4, _maxAniso || 1);
+        m.map.anisotropy = Math.min(4, maxAniso);
         m.map.needsUpdate = true;
         if(!m.isMeshStandardMaterial) return;
         const rec = bumpFor.get(m.map);
@@ -486,4 +499,4 @@ function applyOverride(name, tex){
     return tex;
   }
 
-export { makePlankTexture, makeMasonryTexture, makeCobbleTexture, makeWallpaperTexture, makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture };
+export { makePlankTexture, makeMasonryTexture, makeCobbleTexture, makeWallpaperTexture, makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture, getMaxAnisotropy };
