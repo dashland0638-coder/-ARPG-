@@ -236,6 +236,23 @@
              [1.02,0.60],[0.92,0.73],[0.81,0.85],[0.55,0.95],[0.24,1.00]],
   };
 
+  /* The camera looks almost straight down (state.camHeight:9.5 over
+     state.camDist:5, ~62° below horizontal - see getCamOffset()), which the
+     comment above already conceded means nobody reads the face at this
+     distance. Rather than shallow the camera itself (the top-down read is
+     the point of the genre), buildPlayer() tips the whole rig back by this
+     many radians around its own root, the same cheat plenty of top-down/
+     isometric games use: physically nonsensical (nobody stands reclined at
+     rest), but it turns "the top of a head" into "a face", which is what
+     actually reads from this angle. The legs would inherit the same lean
+     and look like they're floating off the ground, since they're still
+     children of that tilted root - LEG_TILT_COMPENSATION corrects for
+     exactly that (added back onto every leg rotation.x the animation system
+     sets, in applyPose() and the locomotion code in 13-update-loop.js), so
+     only the torso/head/arms/weapon actually lean. */
+  const PLAYER_LEAN_BACK = -0.32;              // ~18°, negative tips the face up toward the camera
+  const LEG_TILT_COMPENSATION = -PLAYER_LEAN_BACK;
+
   /* One table for everything the two builds differ by - proportions and the
      way they move. Motion is deliberately in here too: a build that is only
      a different set of radii still walks identically, and that reads as one
@@ -1066,8 +1083,11 @@
     if(p.shR) P.armR.rotation.set(p.shR[0], p.shR[1], p.shR[2]);
     if(p.elL !== undefined) P.elbowL.rotation.x = p.elL;
     if(p.elR !== undefined) P.elbowR.rotation.x = p.elR;
-    if(p.hipL !== undefined) P.legL.rotation.x = p.hipL;
-    if(p.hipR !== undefined) P.legR.rotation.x = p.hipR;
+    // + LEG_TILT_COMPENSATION: cancels the whole-rig lean-back applied in
+    // buildPlayer() (see PLAYER_LEAN_BACK) so the legs still read as
+    // planted on the ground instead of tipping back with the torso
+    if(p.hipL !== undefined) P.legL.rotation.x = p.hipL + LEG_TILT_COMPENSATION;
+    if(p.hipR !== undefined) P.legR.rotation.x = p.hipR + LEG_TILT_COMPENSATION;
     if(p.kneeL !== undefined) P.kneeL.rotation.x = p.kneeL;
     if(p.kneeR !== undefined) P.kneeR.rotation.x = p.kneeR;
     if(p.wep && P.weapon) aimWeapon(P.weapon, p.wep);

@@ -524,9 +524,12 @@
     playerMixerParts.elbowLBase = elbowL.rotation.clone();
     playerMixerParts.elbowRBase = elbowR.rotation.clone();
 
-    // shadow-catcher friendly small base ring (visual footing indicator)
+    // shadow-catcher friendly small base ring (visual footing indicator).
+    // + LEG_TILT_COMPENSATION: it's a flat ground decal, not part of the
+    // body, so it needs the same lean-back cancellation as the legs below
+    // or it'd tilt up off the floor along with the torso.
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.35,0.42,20), new THREE.MeshBasicMaterial({color:classDef.trim, transparent:true, opacity:0.5, side:THREE.DoubleSide}));
-    ring.rotation.x = -Math.PI/2;
+    ring.rotation.x = -Math.PI/2 + LEG_TILT_COMPENSATION;
     ring.position.y = 0.16;   // local to the player group, so this is correct as-is
     group.add(ring);
     playerMixerParts.ring = ring;
@@ -535,6 +538,15 @@
     // it would just be a dark disc.
     if(playerMixerParts.ring) playerMixerParts.ring.userData.noOutline = true;
     addOutline(group);
+
+    // Leans the whole rig back so the face/hair (moved onto the waist pivot
+    // above, along with everything else above the belt) reads from this
+    // game's steep top-down camera instead of showing just the crown of the
+    // head - see the PLAYER_LEAN_BACK comment in 05-rendering-rig.js. The
+    // legs/pelvis/ring stay planted: applyPose() and the locomotion code in
+    // 13-update-loop.js add LEG_TILT_COMPENSATION to every leg rotation.x
+    // they set, cancelling this same lean for anything below the hip.
+    group.rotation.x = PLAYER_LEAN_BACK;
 
     group.position.set(0,0,4);
     group.castShadow = true;
