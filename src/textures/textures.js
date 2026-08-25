@@ -1,7 +1,47 @@
 // Procedural texture/bump-map generation - the game draws every surface on
 // a <canvas> at runtime rather than shipping image files. Self-contained:
-// no dependency on game state, only on THREE and the DOM canvas API.
+// no dependency on game state, only on THREE and the DOM canvas API. The
+// "structured" surface generators (plank/masonry/cobble/wallpaper/
+// stone-tile) can optionally be overridden with a real image registered in
+// texture-manifest.js - see applyOverride() below.
 import * as THREE from 'three';
+import { TEXTURE_OVERRIDES } from './texture-manifest.js';
+
+function resolveAssetUrl(assetPath){
+  if(!assetPath) return assetPath;
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+  return base + assetPath;
+}
+
+// url -> { image: HTMLImageElement|null, waiters: Set<THREE.Texture> }.
+// Multiple surfaces (different repeat/bump params) can share one override
+// name, so a single load is fanned out to every texture waiting on it
+// rather than re-fetched per call site.
+const overrideLoads = new Map();
+function applyOverride(name, tex){
+  if(!name) return;
+  const url = TEXTURE_OVERRIDES[name];
+  if(!url) return;
+  const resolved = resolveAssetUrl(url);
+  let entry = overrideLoads.get(resolved);
+  if(!entry){
+    entry = { image: null, waiters: new Set() };
+    overrideLoads.set(resolved, entry);
+    new THREE.TextureLoader().load(resolved, loaded => {
+      entry.image = loaded.image;
+      entry.waiters.forEach(t => { t.image = entry.image; t.needsUpdate = true; });
+      entry.waiters.clear();
+      // the loaded photo has its own baked lighting/relief - stop offering
+      // it as a bumpMap candidate so a later applySurfaceDetail() call
+      // doesn't emboss the procedural height field on top of it.
+      bumpFor.delete(tex);
+    }, undefined, err => {
+      console.warn(`texture override failed to load, keeping procedural surface: ${name}`, err);
+    });
+  }
+  if(entry.image){ tex.image = entry.image; tex.needsUpdate = true; }
+  else entry.waiters.add(tex);
+}
 
   /* =========================================================
      PROCEDURAL SURFACE LIBRARY
@@ -42,8 +82,12 @@ import * as THREE from 'three';
   /* Draws a colour pass and a height pass into two canvases, caches the
      pair, and returns the colour texture. Mid-grey (128) in the height pass
      means "flat", darker means recessed. */
-  function makeSurface(key, size, rx, ry, bumpScale, draw){
-    if(surfCache.has(key)) return surfCache.get(key);
+  function makeSurface(key, size, rx, ry, bumpScale, draw, overrideName){
+    if(surfCache.has(key)){
+      const cached = surfCache.get(key);
+      if(overrideName) applyOverride(overrideName, cached);
+      return cached;
+    }
     const c = document.createElement('canvas'); c.width = c.height = size;
     const h = document.createElement('canvas'); h.width = h.height = size;
     const cx = c.getContext('2d'), hx = h.getContext('2d');
@@ -52,6 +96,7 @@ import * as THREE from 'three';
     const tex = _tex(c, rx, ry), bump = _tex(h, rx, ry);
     bumpFor.set(tex, {tex:bump, scale:bumpScale});
     surfCache.set(key, tex);
+    if(overrideName) applyOverride(overrideName, tex);
     return tex;
   }
 
@@ -94,7 +139,7 @@ import * as THREE from 'three';
         cx.fillStyle = _shade(base, 0.45); cx.fillRect(jx, y+1, 1.4, ph-2);
         hx.fillStyle = _grey(72);          hx.fillRect(jx, y+1, 1.4, ph-2);
       }
-    });
+    }, opts.name);
   }
 
   /* ---- masonry: ashlar blocks, brickwork, tomb walls -------------------
@@ -154,7 +199,7 @@ import * as THREE from 'three';
           }
         }
       }
-    });
+    }, opts.name);
   }
 
   /* ---- cobbles: garden paths, courtyards ------------------------------ */
@@ -184,7 +229,7 @@ import * as THREE from 'three';
           }
         }
       }
-    });
+    }, opts.name);
   }
 
   /* ---- wallpaper / panelling: interiors that aren't stone -------------- */
@@ -215,7 +260,7 @@ import * as THREE from 'three';
         cx.fill();
       }
       cx.globalAlpha = 1;
-    });
+    }, opts.name);
   }
 
 
@@ -274,7 +319,7 @@ import * as THREE from 'three';
           }
         }
       }
-    });
+    }, opts.name);
   }
 
   /* ---- turf: the forest floor, which is the first surface anyone sees --- */

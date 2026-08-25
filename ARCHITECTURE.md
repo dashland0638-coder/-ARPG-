@@ -72,9 +72,10 @@ ESモジュールは `import` した変数への**再代入を許さない**(参
 
 ## 外部アセット(音楽・SE・グラフィック)の追加方針
 
-- 画像・音声ファイルは `public/` 配下に置けば `/foo.png` のような絶対パスでそのまま参照できる(Viteがそのままコピーする)
-- 音楽/SEを追加する場合: `src/audio/audio.js` の `sfx()` に、ファイルが指定されていれば `Audio`/Web Audio で再生し、無ければ今の手続き合成にフォールバックする分岐を足すのが自然(モジュールは既に切り出し済み)
-- テクスチャ画像を追加する場合も同様に、`src/textures/textures.js` の各 `make*Texture()` に「画像ファイルがあれば読み込み、無ければ今の手続き生成」という分岐を足せばよい
+画像・音声ファイルは `public/` 配下に置けば `/foo.png` のような絶対パスでそのまま参照できる(Viteがそのままコピーする)。ただしGitHub Pagesはリポジトリ名のサブパス(`/-ARPG-/`)配信なので、コード内で直接そのパスをfetchすると本番だけ404になる(`manifest.webmanifest`で一度踏んだ問題と同じ)。`audio.js`/`textures.js`双方の`resolveAssetUrl()`が`import.meta.env.BASE_URL`でこれを吸収している。
+
+- **音楽/SE**: `src/audio/asset-manifest.js` にBGM/SFXのファイルパスを登録する。全項目が任意で、未登録またはファイル読み込み失敗時は既存の手続き合成/無音へ自動フォールバックするので、ファイル本体を用意する前に安全にエントリだけ足せる。BGMはワールド突入時(`buildWorld()`)に自動再生、SFXは`sfx()`呼び出し時にプリロード済みのバッファがあればそちらを優先する。
+- **テクスチャ画像**: `src/textures/texture-manifest.js` に登録名→画像パスを書き、対応する呼び出し側(`make*Texture()`の`opts`)に`{name: '登録名'}`を足すと、画像が読み込まれ次第そのサーフェスに差し替わる(対応しているのは`makePlankTexture`/`makeMasonryTexture`/`makeCobbleTexture`/`makeWallpaperTexture`/`makeStoneTileTexture`の5つ)。読み込みは非同期なので、画像が届くまでは今まで通り手続き生成された見た目のまま表示される。実写画像を当てる場合、バンプマップ(手続き生成の高さ場)は写真の陰影と噛み合わないため自動的に無効化される。
 
 ## デプロイ(GitHub Pages)
 
