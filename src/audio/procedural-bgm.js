@@ -118,9 +118,31 @@ export function startProceduralBgm(ctx, destination, worldKey, initialVolume) {
   filterLfo.connect(filterLfoGain); filterLfoGain.connect(filter.frequency);
   filterLfo.start();
 
+  // --- combat pulse: silent at rest, a driving low gated pulse once
+  // setIntensity() raises it. Built as an amplitude-modulated oscillator
+  // (an LFO added onto the pulse's own gain, the same idiom padVoices'
+  // detune drift above already uses) rather than scheduled notes, so
+  // raising intensity is just "turn up two gain values" - no extra
+  // scheduling logic to keep in sync with the event layer's own timing. ---
+  const pulseOsc = ctx.createOscillator();
+  pulseOsc.type = 'sawtooth';
+  pulseOsc.frequency.value = noteHz(mood.root, mood.scale[0] - 24); // two octaves down
+  const pulseGain = ctx.createGain();
+  pulseGain.gain.value = 0;
+  pulseOsc.connect(pulseGain); pulseGain.connect(filter);
+  pulseOsc.start();
+  const pulseLfo = ctx.createOscillator();
+  pulseLfo.type = 'square';
+  pulseLfo.frequency.value = Math.max(0.6, mood.tempo * 1.5); // rhythmic gate rate, scaled to the mood's own pace
+  const pulseLfoDepth = ctx.createGain();
+  pulseLfoDepth.gain.value = 0;  // kept equal to pulseGain's base below, so the square swings fully 0..2x rather than just wobbling around a fixed level
+  pulseLfo.connect(pulseLfoDepth); pulseLfoDepth.connect(pulseGain.gain);
+  pulseLfo.start();
+
   // --- sparse melodic/percussive event layer -----------------------------
   let stopped = false;
   let timer = null;
+  let intensity = 0;   // 0..1, driven by setIntensity() - see COMBAT MUSIC in 13-update-loop.js
 
   function playEvent() {
     // buildWorld('tavern') runs once at boot (before any user gesture, to
@@ -163,7 +185,11 @@ export function startProceduralBgm(ctx, destination, worldKey, initialVolume) {
   // voice, only to feel like it's breathing at roughly the mood's pace
   function scheduleNextEvent() {
     if (stopped) return;
-    const wait = (0.6 + Math.random() * 1.8) / Math.max(0.15, mood.density);
+    // combat raises the effective density (events fire closer together)
+    // rather than shortening the random range itself, so a fight still
+    // breathes instead of turning into a flat metronome
+    const effectiveDensity = mood.density * (1 + intensity * 1.6);
+    const wait = (0.6 + Math.random() * 1.8) / Math.max(0.15, effectiveDensity);
     timer = setTimeout(() => {
       if (stopped) return;
       playEvent();
@@ -174,9 +200,22 @@ export function startProceduralBgm(ctx, destination, worldKey, initialVolume) {
 
   return {
     setVolume(v) { out.gain.value = v; },
+    // v: 0 (calm) .. 1 (thick of a fight). Ramped with setTargetAtTime
+    // rather than snapped, so it reads as the room's mood shifting rather
+    // than a hard cut when an enemy steps in or out of range.
+    setIntensity(v) {
+      intensity = Math.max(0, Math.min(1, v));
+      const t = ctx.currentTime;
+      filter.frequency.setTargetAtTime(mood.cutoff * (1 + intensity * 0.6), t, 0.8);
+      const pulseLevel = intensity * 0.05;
+      pulseGain.gain.setTargetAtTime(pulseLevel, t, 0.6);
+      pulseLfoDepth.gain.setTargetAtTime(pulseLevel, t, 0.6);
+    },
     stop() {
       stopped = true;
       if (timer) clearTimeout(timer);
+      try { pulseOsc.stop(); } catch (e) {}
+      try { pulseLfo.stop(); } catch (e) {}
       padVoices.forEach(({ osc, lfo }) => {
         try { osc.stop(); } catch (e) {}
         try { lfo.stop(); } catch (e) {}

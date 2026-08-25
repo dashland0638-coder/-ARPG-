@@ -1589,6 +1589,18 @@
     return result;
   }
 
+  /* 被弾/撃破SEの素材分類。見た目(06-player-enemy.jsのMOB_THEME/
+     buildBossのcfg.key)と打撃音がちぐはぐにならないよう対応させてある
+     - 石兵を殴って肉打撃音、のような違和感を防ぐのが目的。表にない
+     テーマ/ボスキーはaudio.js側で既定の(元からあった)音にフォールバック
+     するので、新しい敵を足してもここへの追記を忘れて壊れることはない */
+  const MOB_MATERIAL = { wraith:'ghost', drowned:'wet', eel:'flesh', stone:'stone', clockwork:'metal', plant:'plant', beast:'flesh' };
+  const BOSS_MATERIAL = { ghostCaptain:'ghost', waterwayTurtle:'shell', templeGuardian:'stone', conservatoryBloom:'plant', towerWarden:'metal', mansionBoss:'flesh' };
+  function materialOf(en){
+    if(en.isBoss) return BOSS_MATERIAL[en.key];
+    return MOB_MATERIAL[en.mob && en.mob.theme];
+  }
+
   function dealDamageToEnemy(en, amount, isAlly, opts){
     opts = opts || {};
     if(!en || en.dead) return;
@@ -1650,7 +1662,7 @@
     // the burst sprays away from the attacker, along the line of the blow
     const away = from.lengthSq() > 0.0001 ? {x:-from.x, z:-from.z} : null;
     spawnHitSpark(contact, isAlly ? 0x8fd9ff : 0xffe6a0, weight, away);
-    sfx(weight > 1.5 || en.isBoss ? 'bigHit' : 'hit', weight);
+    sfx(weight > 1.5 || en.isBoss ? 'bigHit' : 'hit', {weight, material: materialOf(en)});
     if(!isAlly){
       hitStop(en.isBoss ? 0.022 : 0.016);
       addShake(en.isBoss ? 0.09 : 0.06);
@@ -1745,7 +1757,7 @@
             }
           }
         }
-        sfx('death');
+        sfx('death', {material: materialOf(en)});
         grantXP(en.xp||10);
         if(!isAlly){
           // 陽気: 連続撃破カウントを進める。4秒以内に次を倒せば連鎖が続く

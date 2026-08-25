@@ -980,6 +980,37 @@
     shakeAmp *= 0.94;
   }
 
+  /* =========================================================
+     COMBAT MUSIC - the ambient per-world drone (procedural-bgm.js) used to
+     play at the same hush whether the room was empty or a boss was three
+     steps away. This drives a 0..1 "intensity" into it every frame: the
+     nearer an active enemy is (and more so if it's a boss), the higher it
+     climbs, which procedural-bgm.js turns into a faster event density, a
+     brighter filter, and a driving low pulse layer that's otherwise
+     silent. No-ops harmlessly for a world playing a registered BGM file
+     instead of the procedural fallback (see setBgmIntensity() in
+     audio.js) - there's just nothing for it to shape yet.
+  ========================================================= */
+  let combatIntensity = 0;
+  function updateCombatMusic(dt){
+    let target = 0;
+    enemies.forEach(en=>{
+      if(en.dead || en.dormant) return;
+      const range = en.isBoss ? 14 : 8;
+      const d = state.pos.distanceTo(en.group.position);
+      if(d >= range) return;
+      const w = (1 - d/range) * (en.isBoss ? 1.4 : 1.0);
+      if(w > target) target = w;
+    });
+    target = Math.min(1, target);
+    // rises quickly (a fight shouldn't take a second to announce itself)
+    // but falls slowly, so ducking behind a pillar mid-fight doesn't
+    // instantly drop the music back to a hush
+    const rate = target > combatIntensity ? 2.2 : 0.6;
+    combatIntensity += (target - combatIntensity) * Math.min(1, rate*dt);
+    setBgmIntensity(combatIntensity);
+  }
+
   /* A burst of shards at the point of contact, plus a one-frame light.
      Everything here is pooled. Building a BoxGeometry per shard meant every
      sword swing allocated GPU buffers mid-combat, which is precisely when a

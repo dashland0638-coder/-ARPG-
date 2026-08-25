@@ -98,6 +98,63 @@ import { startProceduralBgm } from './procedural-bgm.js';
     src.start(t); src.stop(t + dur + 0.02);
   }
 
+  /* 素材別の被弾/撃破音。dealDamageToEnemy()/finishEnemyDeath()
+     (07-ai-combat.js)が敵のtheme/bossキーから割り出したmaterialを
+     渡してくる - 石を殴って肉打撃音、のような見た目と音のちぐはぐを
+     防ぐための分岐。未対応/不明なmaterial(既定のflesh)は元からあった
+     単一の打撃音のまま。 */
+  function hitByMaterial(material, p, big){
+    if(material === 'stone'){
+      if(big){ noise(0.16, 0.42, 2600, 600, 2.4); tone('square', 200, 90, 0.22, 0.22); }
+      else   { noise(0.08, 0.32*p, 3400, 1200, 3.0); tone('square', 300*p, 150, 0.10, 0.14); }
+    } else if(material === 'metal'){
+      if(big){ noise(0.09, 0.34, 3400, 1400, 3.2); tone('triangle', 1400, 700, 0.34, 0.20); tone('triangle', 2100, 1050, 0.26, 0.12, 0.02); }
+      else   { noise(0.06, 0.28*p, 4200, 2000, 4.0); tone('triangle', 1800, 900, 0.24, 0.14); }
+    } else if(material === 'ghost'){
+      if(big){ noise(0.28, 0.24, 900, 1800, 0.7); tone('sine', 350, 120, 0.4, 0.16); }
+      else   { noise(0.18, 0.18*p, 1200, 2400, 0.8); tone('sine', 500, 200, 0.3, 0.12); }
+    } else if(material === 'plant'){
+      if(big){ noise(0.22, 0.34, 500, 1200, 0.9); tone('sine', 140, 70, 0.28, 0.22); }
+      else   { noise(0.14, 0.26*p, 600, 1400, 1.0); tone('sine', 180, 90, 0.18, 0.16); }
+    } else if(material === 'wet'){
+      if(big){ noise(0.20, 0.36, 700, 1800, 1.0); tone('sine', 110, 50, 0.3, 0.24); }
+      else   { noise(0.12, 0.28*p, 900, 2200, 1.2); tone('sine', 150, 70, 0.2, 0.18); }
+    } else if(material === 'shell'){
+      if(big){ noise(0.14, 0.40, 1400, 700, 2.8); tone('triangle', 500, 250, 0.2, 0.24); }
+      else   { noise(0.07, 0.30*p, 1800, 900, 3.5); tone('triangle', 700, 350, 0.12, 0.18); }
+    } else {
+      // flesh (既定): 元からあった打撃音そのまま
+      if(big){ noise(0.20, 0.38, 1500, 300, 1.0); tone('sine', 120, 42, 0.32, 0.34); }
+      else   { noise(0.10, 0.30, 2600, 700, 1.4); tone('triangle', 190*p, 60, 0.16, 0.22); }
+    }
+  }
+  function deathByMaterial(material){
+    if(material === 'stone'){
+      noise(0.5, 0.30, 1200, 150, 0.9);        // 崩れ落ちる
+      noise(0.15, 0.20, 3000, 800, 2.0, 0.05); // 砕けた破片
+    } else if(material === 'metal'){
+      tone('sawtooth', 400, 60, 0.4, 0.2);     // 動力が落ちる音程の下降
+      noise(0.3, 0.25, 2000, 300, 1.5);
+      tone('sine', 600, 80, 0.5, 0.18, 0.05);
+    } else if(material === 'ghost'){
+      tone('sine', 700, 150, 0.9, 0.18);       // 尾を引く嘆き
+      noise(0.6, 0.14, 800, 1600, 0.6, 0.05);
+    } else if(material === 'plant'){
+      noise(0.4, 0.22, 400, 900, 0.7);         // しおれる
+      tone('sine', 160, 50, 0.5, 0.14);
+    } else if(material === 'wet'){
+      noise(0.45, 0.26, 600, 1500, 0.8);
+      tone('sawtooth', 200, 60, 0.35, 0.14);
+    } else if(material === 'shell'){
+      noise(0.35, 0.28, 1600, 300, 1.5);       // 甲羅が割れる
+      tone('triangle', 400, 150, 0.3, 0.16);
+    } else {
+      // flesh (既定): 元からあった撃破音そのまま
+      noise(0.30, 0.20, 900, 160, 0.8);
+      tone('sawtooth', 260, 70, 0.34, 0.16);
+    }
+  }
+
   const SFX = {
     // Every attack used to fire the same generic whoosh. A greatsword, a
     // knife, a staff and a bowstring have almost nothing in common
@@ -171,14 +228,17 @@ import { startProceduralBgm } from './procedural-bgm.js';
       tone('triangle', 260, 140, 0.09, 0.12);
       noise(0.10, 0.10, 3000, 1200, 2.4, 0.01);
     },
-    hit(power){
-      const p = Math.min(2, power || 1);
-      noise(0.10, 0.30, 2600, 700, 1.4);
-      tone('triangle', 190*p, 60, 0.16, 0.22);
+    // arg is either a plain weight number (existing call sites, and the
+    // generic player-impact ones that don't know an enemy's material) or
+    // {weight, material} from dealDamageToEnemy() (07-ai-combat.js), which
+    // does know what it just hit.
+    hit(arg){
+      const o = (arg && typeof arg === 'object') ? arg : { weight: arg };
+      hitByMaterial(o.material, Math.min(2, o.weight || 1), false);
     },
-    bigHit(){
-      noise(0.20, 0.38, 1500, 300, 1.0);
-      tone('sine', 120, 42, 0.32, 0.34);
+    bigHit(arg){
+      const o = (arg && typeof arg === 'object') ? arg : { weight: arg };
+      hitByMaterial(o.material, Math.min(2, o.weight || 1), true);
     },
     hurt(){ tone('sawtooth', 320, 90, 0.26, 0.22); noise(0.10, 0.16, 900, 300, 1.0); },
     jump(){ tone('sine', 300, 620, 0.14, 0.14); },
@@ -202,7 +262,7 @@ import { startProceduralBgm } from './procedural-bgm.js';
     levelUp(){ [523,659,784,1047].forEach((f,i)=> tone('triangle', f, f, 0.22, 0.15, i*0.10)); },
     ultimate(){ tone('sawtooth', 90, 700, 0.42, 0.26); noise(0.5, 0.26, 400, 2600, 0.8); },
     bossWake(){ tone('sawtooth', 150, 45, 0.95, 0.30); noise(0.8, 0.18, 300, 90, 0.6); },
-    death(){ noise(0.30, 0.20, 900, 160, 0.8); tone('sawtooth', 260, 70, 0.34, 0.16); },
+    death(arg){ deathByMaterial(arg && arg.material); },
     ui(){ tone('square', 700, 700, 0.05, 0.07); },
     chime(){ tone('sine', 880, 880, 0.55, 0.16); tone('sine', 1320, 1320, 0.45, 0.08, 0.02); },
     tick(){ tone('square', 1200, 1200, 0.03, 0.05); },
@@ -263,6 +323,14 @@ import { startProceduralBgm } from './procedural-bgm.js';
     if(proceduralBgm) proceduralBgm.setVolume(v);
   }
 
+  // 0 (calm) .. 1 (thick of a fight) - see COMBAT MUSIC in 13-update-loop.js.
+  // No-ops for a world playing a registered BGM file instead of the
+  // procedural fallback: there's no generative layer in a fixed audio file
+  // to shape, so a boss fight in that world just plays the track as-is.
+  function setBgmIntensity(v){
+    if(proceduralBgm) proceduralBgm.setIntensity(v);
+  }
+
   function playBgm(key){
     if(key === bgmKey) return;
     bgmKey = key;
@@ -293,4 +361,4 @@ import { startProceduralBgm } from './procedural-bgm.js';
     pendingBgmEl = null;
   }
 
-export { initAudio, resumeAudio, setSfxVolume, sfx, setBgmVolume, playBgm, stopBgm };
+export { initAudio, resumeAudio, setSfxVolume, sfx, setBgmVolume, setBgmIntensity, playBgm, stopBgm };

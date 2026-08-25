@@ -259,6 +259,7 @@
       spawnEnemiesForWorld(key);
       spawnChestsForWorld(key);
       playBgm(key);   // no-op if this world has no track registered (asset-manifest.js)
+      combatIntensity = 0; setBgmIntensity(0);   // fresh room, not still "loud" from the last one
     }catch(err){
       console.error(`buildWorld(${key}) failed:`, err);
       // def.build() may have thrown partway through - it doesn't get to write

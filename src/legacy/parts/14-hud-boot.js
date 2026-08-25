@@ -499,6 +499,7 @@
       updateSwingVFX(dt);
       updateSparks(dt);
       updateShake(dt);
+      updateCombatMusic(dt);
       tickMobBarTimers(dt);
       updateMobBars();
       updateBossBar(dt);
