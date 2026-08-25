@@ -81,9 +81,36 @@
           // original colour to hit that quantized brightness - steps the
           // shading down the same way a toon shader would while leaving
           // each surface's own hue alone.
+          //
+          // Quantizing luma directly spends its bands evenly across the
+          // full 0-1 range, which is fine for a brightly-lit room but ruins
+          // a moody dungeon (waterway, ghostship, ...): most of what's on
+          // screen there sits in the bottom ~15% of that range already, so
+          // it all rounds down into the same one or two bands - anything
+          // below half a band's width (0.5/levels, e.g. 0.1 at levels=5)
+          // floors straight to 0, crushing shadow detail to solid black
+          // rather than stepping it. Quantizing in a gamma-lifted space
+          // instead spends more of those same bands on the shadow end and
+          // fewer on the highlight end (roughly how a real cel-shader or a
+          // perceptual/sRGB-ish curve would), then un-lifts back before
+          // scaling the colour - a real improvement over plain-linear
+          // quantizing, but the lift/unlift is still a round trip through
+          // the same 0-1 range, so an originally-dim pixel that lands on a
+          // low-but-nonzero band still unlifts back down to something not
+          // far above true black - closer to "not literally invisible" than
+          // "actually readable". MIN_LIT_LUMA is a floor on top of that:
+          // anything that had ANY light on it at all (luma above the cutoff
+          // that separates "dim" from "supposed to be void/deep shadow")
+          // gets bumped up to at least this brightness, so a whole dark
+          // dungeon doesn't read as a black rectangle with a character
+          // standing in it.
           vec4 c = texture2D(map, vUv);
           float luma = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-          float qLuma = floor(luma * levels + 0.5) / levels;
+          float lifted = pow(luma, 0.6);
+          float qLifted = floor(lifted * levels + 0.5) / levels;
+          float qLuma = pow(qLifted, 1.0/0.6);
+          const float MIN_LIT_LUMA = 0.11;
+          if(luma > 0.01) qLuma = max(qLuma, MIN_LIT_LUMA);
           vec3 q = c.rgb * (qLuma / max(luma, 0.0001));
           gl_FragColor = vec4(q, c.a);
         }
@@ -239,19 +266,23 @@
   /* The camera looks almost straight down (state.camHeight:9.5 over
      state.camDist:5, ~62° below horizontal - see getCamOffset()), which the
      comment above already conceded means nobody reads the face at this
-     distance. Rather than shallow the camera itself (the top-down read is
-     the point of the genre), buildPlayer() tips the whole rig back by this
-     many radians around its own root, the same cheat plenty of top-down/
-     isometric games use: physically nonsensical (nobody stands reclined at
-     rest), but it turns "the top of a head" into "a face", which is what
-     actually reads from this angle. The legs would inherit the same lean
-     and look like they're floating off the ground, since they're still
-     children of that tilted root - LEG_TILT_COMPENSATION corrects for
-     exactly that (added back onto every leg rotation.x the animation system
-     sets, in applyPose() and the locomotion code in 13-update-loop.js), so
-     only the torso/head/arms/weapon actually lean. */
-  const PLAYER_LEAN_BACK = -0.32;              // ~18°, negative tips the face up toward the camera
-  const LEG_TILT_COMPENSATION = -PLAYER_LEAN_BACK;
+     distance. updatePlayer() (13-update-loop.js, at the very end, after
+     every other system has had its say on the rig's rotation for the
+     frame) leans the whole rig back by this many radians toward whatever
+     direction the camera is currently looking - physically nonsensical
+     (nobody stands reclined at rest), but it turns "the top of a head"
+     into "a face" when the character is facing roughly toward the viewer,
+     which is what actually reads from this angle. Deliberately tied to the
+     CAMERA's current direction (state.camYaw) rather than the character's
+     own facing (state.facing): the camera can be rotated independently
+     (Q/E) and the character turns constantly during play, and a lean
+     baked into the character's own local frame would sometimes lean
+     toward the camera and sometimes away from it depending on which way
+     the character happened to be facing - the screen-space read ("body
+     tips toward the far side of the screen") needs to stay the same
+     regardless of either one. See PLAYER_LEAN_BACK's application for how
+     the legs are kept from floating along with it. */
+  const PLAYER_LEAN_BACK = 0.32;              // ~18°, magnitude of the camera-relative lean
 
   /* One table for everything the two builds differ by - proportions and the
      way they move. Motion is deliberately in here too: a build that is only
@@ -1083,11 +1114,8 @@
     if(p.shR) P.armR.rotation.set(p.shR[0], p.shR[1], p.shR[2]);
     if(p.elL !== undefined) P.elbowL.rotation.x = p.elL;
     if(p.elR !== undefined) P.elbowR.rotation.x = p.elR;
-    // + LEG_TILT_COMPENSATION: cancels the whole-rig lean-back applied in
-    // buildPlayer() (see PLAYER_LEAN_BACK) so the legs still read as
-    // planted on the ground instead of tipping back with the torso
-    if(p.hipL !== undefined) P.legL.rotation.x = p.hipL + LEG_TILT_COMPENSATION;
-    if(p.hipR !== undefined) P.legR.rotation.x = p.hipR + LEG_TILT_COMPENSATION;
+    if(p.hipL !== undefined) P.legL.rotation.x = p.hipL;
+    if(p.hipR !== undefined) P.legR.rotation.x = p.hipR;
     if(p.kneeL !== undefined) P.kneeL.rotation.x = p.kneeL;
     if(p.kneeR !== undefined) P.kneeR.rotation.x = p.kneeR;
     if(p.wep && P.weapon) aimWeapon(P.weapon, p.wep);

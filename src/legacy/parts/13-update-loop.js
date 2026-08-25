@@ -683,12 +683,10 @@
     stepDustCD = Math.max(0, stepDustCD - dt);
 
     // legs: the hip swings the thigh, and the knee folds as that leg comes
-    // through - a straight-legged swing is what reads as a puppet on sticks.
-    // + LEG_TILT_COMPENSATION cancels buildPlayer()'s whole-rig lean-back
-    // (PLAYER_LEAN_BACK) so the legs still plant straight under the body
+    // through - a straight-legged swing is what reads as a puppet on sticks
     if(P.legL && P.legR){
-      P.legL.rotation.x =  s * swing + LEG_TILT_COMPENSATION;
-      P.legR.rotation.x = -s * swing + LEG_TILT_COMPENSATION;
+      P.legL.rotation.x =  s * swing;
+      P.legR.rotation.x = -s * swing;
       if(P.kneeL && P.kneeR){
         P.kneeL.rotation.x = Math.max(0,  s) * swing * 1.55 * B.kneeLift + 0.05;
         P.kneeR.rotation.x = Math.max(0, -s) * swing * 1.55 * B.kneeLift + 0.05;
@@ -728,8 +726,8 @@
     if(!state.grounded && P.legL && P.legR && P.kneeL && P.kneeR){
       const rise = Math.max(-1, Math.min(1, state.yVel/7));
       const tuck = rise > 0 ? rise : rise*0.45;
-      P.legL.rotation.x = -0.30*tuck - 0.06 + LEG_TILT_COMPENSATION;
-      P.legR.rotation.x = -0.22*tuck + 0.10 + LEG_TILT_COMPENSATION;
+      P.legL.rotation.x = -0.30*tuck - 0.06;
+      P.legR.rotation.x = -0.22*tuck + 0.10;
       P.kneeL.rotation.x = Math.max(0.05, 1.15*tuck);
       P.kneeR.rotation.x = Math.max(0.05, 0.85*tuck);
       if(!busy && P.armL && P.armR && P.armLBase && P.armRBase){
@@ -745,8 +743,8 @@
       P.waist.rotation.x = 0.55*curl;
       P.kneeL.rotation.x = 0.10 + 1.5*curl;
       P.kneeR.rotation.x = 0.10 + 1.5*curl;
-      P.legL.rotation.x = -0.55*curl + LEG_TILT_COMPENSATION;
-      P.legR.rotation.x = -0.55*curl + LEG_TILT_COMPENSATION;
+      P.legL.rotation.x = -0.55*curl;
+      P.legR.rotation.x = -0.55*curl;
     }
 
     // lean into the direction of travel, and out of it when stopping
@@ -780,12 +778,7 @@
     const bob = (moving ? Math.abs(Math.sin(strideT))*(0.05 + run*0.035)
                         : Math.sin(strideT)*0.022) * B.bobAmp;
     player.position.y += bob;
-    // PLAYER_LEAN_BACK is the base value here (not an offset added
-    // elsewhere): this absolute assignment runs every frame regardless of
-    // movement, so without it the recline from buildPlayer() would be wiped
-    // out the instant the player moves (or even just stands still, since
-    // leanZ eases to 0 there too)
-    player.rotation.x = PLAYER_LEAN_BACK - leanZ*0.55;
+    player.rotation.x = -leanZ*0.55;
     player.rotation.z =  leanX*0.55;
 
     applyCombatPose();   // an attack or a charge overrides the walk cycle
@@ -793,6 +786,42 @@
     updateGrip();        // the weapon lands on wherever the hand ended up
     updateBowDraw();     // and the string on wherever the drawing hand ended up
     updateBladeTrail(dt);
+
+    /* Lean the whole rig toward the far side of the screen (away from the
+       viewer) by PLAYER_LEAN_BACK, using the CAMERA's current direction
+       (state.camYaw) rather than the character's own facing - see the long
+       comment on PLAYER_LEAN_BACK in 05-rendering-rig.js for why. Placed
+       last in this function, after applyCombatPose() (which can set
+       P.legL/P.legR.rotation.x for an attack keyframe via applyPose()) and
+       the walk/jump/dodge leg code earlier above, so whatever those systems
+       decided for this frame is what gets compensated - not overwritten by
+       running before them.
+
+       Small-angle Euler addition, the same idiom the leanX/leanZ lean-into-
+       movement wobble just above already uses (rotation.x/z as if they were
+       independent world-space tilts) rather than a rigorous quaternion
+       composition - good enough at ~18° and keeps this in the same style as
+       the rest of the rig's animation code. tiltDx/tiltDz is camF, the
+       camera's forward (into-the-screen) direction (see inputToWorldDir()).
+       The exact sign of tiltX/tiltZ below isn't obvious by inspection (it's
+       not simply "the leanX/leanZ formula with camF substituted for
+       facing" - that combination leans the wrong way) - it's set to what
+       was actually confirmed on screen: idle in the tavern, then holding E
+       to spin the camera ~180° with the character not moving, and checking
+       the head stayed toward the top of frame (away from the viewer) both
+       times rather than swinging around with the camera. */
+    const tiltDx = -Math.sin(state.camYaw), tiltDz = -Math.cos(state.camYaw);
+    const tiltX =  tiltDz * PLAYER_LEAN_BACK;
+    const tiltZ = -tiltDx * PLAYER_LEAN_BACK;
+    player.rotation.x += tiltX;
+    player.rotation.z += tiltZ;
+    // legs and the footing ring are still children of this same tilted
+    // root - cancel the same amount so they read as planted, not floating
+    if(P.legL && P.legR){
+      P.legL.rotation.x -= tiltX; P.legL.rotation.z -= tiltZ;
+      P.legR.rotation.x -= tiltX; P.legR.rotation.z -= tiltZ;
+    }
+    if(P.ring){ P.ring.rotation.x -= tiltX; P.ring.rotation.z -= tiltZ; }
   }
 
   function spawnLandingDust(pos, power){
