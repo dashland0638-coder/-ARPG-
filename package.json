@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "playwright test",
-    "test:headed": "playwright test --headed"
+    "test:headed": "playwright test --headed",
+    "test:unit": "node --test"
   },
   "dependencies": {
     "three": "0.154.0"

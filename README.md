@@ -55,11 +55,12 @@ npm run preview    # dist/ をローカルで確認
 
 ## テスト
 
-`tests/` に Playwright のスモークテスト(起動〜キャラ作成〜セーブ/ロードを実際にブラウザで操作して検証)。
+`tests/` に2種類。E2E(`*.spec.js`、Playwright。起動〜キャラ作成〜セーブ/ロードを実際にブラウザで操作して検証)と、単体(`unit/*.test.js`、`node:test`。ダメージ倍率・ドロップ抽選・ルート分岐の組み合わせ計算などの純粋関数をゲームを起動せず検証)。詳細は `tests/README.md`。
 
 ```sh
-npx playwright install chromium   # 初回のみ
-npm test
+npx playwright install chromium   # E2Eの初回のみ
+npm test          # E2E
+npm run test:unit # 単体
 ```
 
 `playwright test` は `npm run dev` を自動起動してから実行する。詳細は `tests/README.md`。

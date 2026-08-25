@@ -1,16 +1,21 @@
 # テスト
 
-`src/` のアプリを実際にブラウザで動かして検証する、Playwright ベースのスモークテスト。ロジックを単体で切り出すのではなく、キャラ作成〜セーブ/ロードといった実際の操作フローを自動でなぞる形。
+2種類ある。
+
+- **`tests/*.spec.js`(E2E)**: `src/` のアプリを実際にブラウザで動かして検証する、Playwrightベースのスモークテスト。キャラ作成〜セーブ/ロードといった実際の操作フローを自動でなぞる
+- **`tests/unit/*.test.js`(単体)**: `src/core/` の純粋関数(ダメージ倍率・ドロップ抽選・ルート分岐の組み合わせ計算)を、ゲームを起動せずに直接検証する。Node標準の `node:test` を使用(追加の依存なし)
 
 ## 実行方法
 
 ```sh
 npm install
-npx playwright install chromium   # 初回のみ
-npm test
+npx playwright install chromium   # E2Eの初回のみ
+
+npm test          # E2E (Playwright)
+npm run test:unit # 単体 (node:test)
 ```
 
-`playwright.config.js` の `webServer` 設定により、`npm run dev` が自動的に起動してからテストが走る(既に別ターミナルで起動済みなら、そちらを再利用する)。
+`playwright.config.js` の `webServer` 設定により、`npm run dev` が自動的に起動してからテストが走る(既に別ターミナルで起動済みなら、そちらを再利用する)。`tests/unit/` は `testIgnore` でPlaywrightの収集対象から明示的に除外してあるので、`npm test` では実行されない。
 
 ## 既知の注意点
 

@@ -13,14 +13,13 @@
   ];
   /* Herbs weigh a little more when the player is hurt. Deliberately small -
      10% - so it reads as luck rather than as the game handing out charity,
-     but over a long fight it meaningfully softens a death spiral. */
+     but over a long fight it meaningfully softens a death spiral.
+     The weighted-pick itself is src/core/loot-math.js's pickWeighted(),
+     unit tested in tests/unit/loot-math.test.js - this just supplies the
+     situational weight bump. */
   function pickLoot(){
     const hurt = state.maxHp > 0 && (state.hp / state.maxHp) < 0.35;
-    const weightOf = l => (hurt && l.type === 'potion') ? l.weight * 1.1 : l.weight;
-    const total = LOOT_TABLE.reduce((s,l)=>s+weightOf(l),0);
-    let r = Math.random()*total;
-    for(const l of LOOT_TABLE){ const w = weightOf(l); if(r<w) return l; r -= w; }
-    return LOOT_TABLE[0];
+    return pickWeighted(LOOT_TABLE, Math.random, l => (hurt && l.type === 'potion') ? l.weight * 1.1 : l.weight);
   }
 
   /* =========================================================
@@ -154,18 +153,10 @@
     const baseName = namePool[Math.floor(Math.random()*namePool.length)];
     const prefixPool = isRare ? GEAR_PREFIX_RARE : GEAR_PREFIX_NORMAL;
     const prefix = prefixPool[Math.floor(Math.random()*prefixPool.length)];
-    // weapons lead on attack, armour on HP - lower body a bit lighter than upper
-    let atkBonus, hpBonus;
-    if(slot==='weapon'){
-      atkBonus = 3 + itemLevel*2 + (isRare?Math.floor(Math.random()*8):0);
-      hpBonus  = Math.round(itemLevel*1.2);
-    } else if(slot==='upper'){
-      atkBonus = Math.round(itemLevel*0.5);
-      hpBonus  = 7 + itemLevel*4 + (isRare?Math.floor(Math.random()*16):0);
-    } else {
-      atkBonus = Math.round(itemLevel*0.4);
-      hpBonus  = 5 + itemLevel*3 + (isRare?Math.floor(Math.random()*12):0);
-    }
+    // weapons lead on attack, armour on HP - lower body a bit lighter than
+    // upper. Formula lives in src/core/loot-math.js's equipmentStatBonus(),
+    // unit tested in tests/unit/loot-math.test.js.
+    const {atkBonus, hpBonus} = equipmentStatBonus(slot, itemLevel, isRare);
     const weaponIconPool = useAltWeapon ? GEAR_WEAPON_ICON_ALT_BY_CLASS : GEAR_WEAPON_ICON_BY_CLASS;
     return {
       id: 'eq_'+Date.now()+'_'+Math.floor(Math.random()*100000),

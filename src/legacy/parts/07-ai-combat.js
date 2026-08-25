@@ -1501,22 +1501,21 @@
      性格・装備特殊効果: 与ダメージ / 被ダメージの補正
      ここに集約しておくと、攻撃経路が増えても呼び出し側を触らずに済む。
   ========================================================= */
-  // 慎重: 無傷の時間が続くほど被ダメージが下がる。命中した瞬間に計測をリセットする
+  // 慎重: 無傷の時間が続くほど被ダメージが下がる。命中した瞬間に計測をリセットする。
+  // 実際の倍率計算は src/core/damage-math.js に切り出してユニットテスト
+  // 可能にしてある(tests/unit/damage-math.test.js)。ここはstateの読み書きだけ
   function applyIncomingDamageMul(rawDmg){
     if(!rawDmg || rawDmg<=0) return rawDmg;
-    let mul = 1;
-    if(state.personality==='cautious'){
-      const t = state.cautiousTimer||0;
-      if(t >= 12) mul = 0.75;
-      else if(t >= 6) mul = 0.88;
-    }
+    const cautiousUnhurtSeconds = state.cautiousTimer||0;
     state.cautiousTimer = 0;
-    mul += bossAbilityValue('dmgTakenMul');   // ボス能力「甲羅の加護」: 被ダメージを軽減する(valueは負数)
-    mul = Math.max(0.1, mul);                 // 軽減が積み重なっても0にはならない下限
     // 必殺ゲージ: 被弾でもわずかに貯まるが、他の獲得源(通常ヒット+3、撃破+18等)
     // よりはっきり小さくしてあり、「わざと受けて貯める」を最適解にしない
     addUltGauge(2);
-    return Math.max(1, Math.round(rawDmg*mul));
+    return applyIncomingDamage(rawDmg, {
+      personality: state.personality,
+      cautiousUnhurtSeconds,
+      bossDmgTakenMul: bossAbilityValue('dmgTakenMul'),   // ボス能力「甲羅の加護」: 被ダメージを軽減する(valueは負数)
+    });
   }
 
   // 装備中の武器の特殊効果IDを返す(未鑑定なら発動しない)
@@ -1525,43 +1524,29 @@
     return (w && w.identified) ? (w.specialId||null) : null;
   }
 
-  // プレイヤーの与ダメージに、性格・特殊効果を反映する。isCrit/isBurn の表示用フラグを添えて返す
+  // プレイヤーの与ダメージに、性格・特殊効果を反映する。isCrit/isBurn の表示用フラグを添えて返す。
+  // 倍率計算そのものは src/core/damage-math.js に切り出してユニットテスト
+  // 可能にしてある(tests/unit/damage-math.test.js)。ここはstate/enの読み書きだけ
   function applyOutgoingDamageMods(amount, en){
-    let mul = 1;
-    let isCrit = false;
-    // 勇敢: HPが減っているほど攻撃力が上がる
-    if(state.personality==='brave' && state.maxHp>0){
-      const hpRatio = state.hp/state.maxHp;
-      if(hpRatio <= 0.3) mul *= 1.15;
-      else if(hpRatio >= 0.5) mul *= 1.05;
-    }
-    // 弓師: 「接近戦では弱い、距離管理が重要」という武器思想(ARPG開発
-    // アイデアまとめ 2.1)を、特殊武器に関係なくクラス全体の特性として実装。
-    // はやての弓の遠距離ボーナス(+25%)とは独立した、弓師そのものの弱点。
-    if(state.classDef && state.classDef.key==='archer' && en && en.group){
-      const dist = state.pos.distanceTo(en.group.position);
-      if(dist < 3.2) mul *= 0.65;   // 間合いを詰められると火力が落ちる
-    }
+    const hpRatio = state.maxHp>0 ? state.hp/state.maxHp : null;
+    const distanceToEnemy = (en && en.group) ? state.pos.distanceTo(en.group.position) : null;
     const specialId = equippedSpecialId();
-    if(specialId==='chizome' && state.maxHp>0 && (state.hp/state.maxHp) <= 0.3){
-      mul *= 1.4;   // ちぞめの大剣: HP30%以下で攻撃力+40%
-    }
-    if(specialId==='hayate' && en && en.group){
-      const dist = state.pos.distanceTo(en.group.position);
-      if(dist >= 6) mul *= 1.25;   // はやての弓: 離れた敵に+25%
-    }
-    if(specialId==='kagenui' && state.justDodgedT>0){
-      isCrit = true;
-      state.justDodgedT = 0;      // 1回のドッジにつき1回だけ発動
-      mul *= 1.8;                 // かげぬいの小刀: 回避直後は必ずクリティカル
-    }
-    const finalDmg = Math.max(1, Math.round(amount*mul));
+    const justDodged = specialId==='kagenui' && state.justDodgedT>0;
+    const result = applyOutgoingDamage(amount, {
+      personality: state.personality,
+      hpRatio,
+      classKey: state.classDef && state.classDef.key,
+      distanceToEnemy,
+      specialId,
+      justDodged,
+    });
+    if(justDodged) state.justDodgedT = 0;   // 1回のドッジにつき1回だけ発動
     if(specialId==='kaijin' && en){
       // かいじんの杖: 命中した敵を燃焼状態にする(3秒、1秒毎にダメージ)
       en.burnT = 3.0; en.burnTick = 1.0;
-      en.burnDmg = Math.max(1, Math.round(finalDmg*0.18));
+      en.burnDmg = Math.max(1, Math.round(result.dmg*0.18));
     }
-    return {dmg:finalDmg, isCrit};
+    return result;
   }
 
   function dealDamageToEnemy(en, amount, isAlly, opts){

@@ -150,43 +150,23 @@
      「今回は crypt→grand を通った」のように、分岐グループ(m1,m2,…)ごとに
      選んだノードの組を1つの"経路"として数える。クリア画面で
      「6経路中いくつ踏破したか」「次はどれを試せば良いか」を出すために使う。 */
+  // このブロックはグラフの直積・キー生成といった純粋な組み合わせ計算で、
+  // 実体は src/core/route-combos.js に切り出してユニットテスト可能にして
+  // ある(tests/unit/route-combos.test.js)。ここに残っているのは
+  // ROUTE_GRAPHS/state の読み書きだけの薄いラッパー
   function routeGroups(scKey){
-    const g = ROUTE_GRAPHS[scKey];
-    if(!g) return null;
-    const groups = {};
-    Object.keys(g.nodes).forEach(k=>{
-      const gr = g.nodes[k].group;
-      if(gr) (groups[gr] = groups[gr] || []).push(k);
-    });
-    return groups;
+    return groupsFromGraph(ROUTE_GRAPHS[scKey]);
   }
-  // groupNames(ソート済み) と、その直積である全組み合わせ(各要素はノードkeyの配列)を返す
   function routeAllCombos(scKey){
-    const groups = routeGroups(scKey);
-    if(!groups || !Object.keys(groups).length) return null;
-    const groupNames = Object.keys(groups).sort();
-    let combos = [[]];
-    groupNames.forEach(gr=>{
-      const next = [];
-      groups[gr].forEach(nodeKey=>{
-        combos.forEach(c=> next.push(c.concat([nodeKey])));
-      });
-      combos = next;
-    });
-    return {groupNames, combos};
+    return allCombos(ROUTE_GRAPHS[scKey]);
   }
   function routeComboKey(groupNames, nodeKeys){
-    return groupNames.map((gr,i)=> gr+':'+nodeKeys[i]).join('|');
+    return comboKey(groupNames, nodeKeys);
   }
   // 今回通った経路(state.routePath)から組み合わせキーを作る。分岐を持たない
   // シナリオや、まだ分岐に入っていない場合は null を返す
   function routeComboKeyFromPath(scKey, path){
-    const groups = routeGroups(scKey);
-    if(!groups) return null;
-    const groupNames = Object.keys(groups).sort();
-    const picked = groupNames.map(gr=> (path||[]).find(n=> groups[gr].indexOf(n)>=0) || null);
-    if(picked.indexOf(null) >= 0) return null; // 全分岐を通っていない
-    return routeComboKey(groupNames, picked);
+    return comboKeyFromPath(ROUTE_GRAPHS[scKey], path);
   }
   function recordRouteCombo(scKey, path){
     const key = routeComboKeyFromPath(scKey, path);
@@ -195,25 +175,14 @@
     state.routeCombosSeen[scKey][key] = true;
   }
   function routeComboProgress(scKey){
-    const all = routeAllCombos(scKey);
-    if(!all) return null;
-    const seen = state.routeCombosSeen[scKey] || {};
-    const total = all.combos.length;
-    const done = all.combos.filter(c=> seen[routeComboKey(all.groupNames, c)]).length;
-    return {total, done};
+    return comboProgress(ROUTE_GRAPHS[scKey], state.routeCombosSeen[scKey]);
   }
   // まだ踏んでいない組み合わせを1つ、読める名前にして返す(なければnull)
   function routeSuggestUnseen(scKey){
     const g = ROUTE_GRAPHS[scKey];
-    const all = routeAllCombos(scKey);
-    if(!g || !all) return null;
-    const seen = state.routeCombosSeen[scKey] || {};
-    for(const combo of all.combos){
-      if(!seen[routeComboKey(all.groupNames, combo)]){
-        return combo.map(nk=> g.nodes[nk].name).join(' → ');
-      }
-    }
-    return null;
+    const combo = suggestUnseenCombo(g, state.routeCombosSeen[scKey]);
+    if(!g || !combo) return null;
+    return combo.map(nk=> g.nodes[nk].name).join(' → ');
   }
 
   /* ---- 分岐タグ札(3D空間上のUI) ----

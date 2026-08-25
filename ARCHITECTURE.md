@@ -10,6 +10,9 @@ src/
   main.js                    エントリースクリプト。'virtual:legacy-core' を import するだけ
   styles/main.css             旧basefile.htmlの<style>をそのまま移した全UIのCSS
   core/state.js               ゲーム進行状況(state)。他のどのファイルからも読み書きされる
+  core/damage-math.js          与/被ダメージ倍率の純粋計算(性格・装備特殊効果)。state依存なし
+  core/loot-math.js            ドロップ抽選・装備ステータス乱数の純粋計算。state依存なし
+  core/route-combos.js         分岐ルートの組み合わせ計算(直積・進捗・未踏破の提案)。state依存なし
   audio/audio.js               SE合成(WebAudio)。state.sfxVolume以外への依存なし
   textures/textures.js         手続きテクスチャ/バンプマップ生成。state依存なし
   legacy/
@@ -69,6 +72,8 @@ ESモジュールは `import` した変数への**再代入を許さない**(参
 4. 対象部分を実際に別ファイル・別importへ切り出す
 
 オーディオとテクスチャ生成は、`state` 以外の共有可変変数への依存がほぼ無かったため、この作業をしなくても安全に真のESモジュールとして切り出せた。
+
+`core/damage-math.js`・`core/loot-math.js`・`core/route-combos.js` は同じ考え方をさらに絞ったケース: 関数全体を切り出すのではなく、`state`・敵オブジェクト・3D座標などへの依存を一切持たない「計算の核」だけを抜き出し、`state`の読み書きは元の関数(`parts/`側)に薄いラッパーとして残してある。たとえば`applyOutgoingDamageMods(amount, en)`は`state.hp`や`en.group.position`を読んでから`core/damage-math.js`の`applyOutgoingDamage()`へ純粋な数値だけを渡す、という形。これにより該当ロジックは`tests/unit/`で(ゲームを起動せず)単体テストできる一方、90個の共有変数問題には一切触れずに済んでいる。
 
 ## 外部アセット(音楽・SE・グラフィック)の追加方針
 

@@ -3,6 +3,10 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  // tests/unit/ holds node:test unit tests (npm run test:unit), not
+  // Playwright specs - importing them here to check for tests is enough to
+  // run their node:test suite as a side effect, so exclude them explicitly.
+  testIgnore: '**/unit/**',
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,
