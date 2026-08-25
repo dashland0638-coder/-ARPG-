@@ -32,8 +32,8 @@ npm run preview    # dist/ をローカルで確認
 ## 技術構成
 
 - **描画**: Three.js(npm経由でバンドル。バージョンは `package.json` に固定)
-- **テクスチャ**: 外部画像なし。すべて `<canvas>` 上で手続き的に生成(`src/textures/`、木目・石畳・芝生など) - 外部画像へのフォールバック元として差し替え可能にしていく予定(ARCHITECTURE.md参照)
-- **効果音**: 外部音声ファイルなし。WebAudio で都度合成(`src/audio/`) - 同上、外部音源を追加できるようにしていく予定
+- **テクスチャ**: 既定は`<canvas>`上での手続き生成(`src/textures/`、木目・石畳・芝生など)。実画像を登録すれば一部の面は差し替え可能(`src/textures/texture-manifest.js`、詳細はASSETS.md)
+- **音楽・効果音**: 既定はWebAudioでの都度合成(`src/audio/`)。実ファイルを登録すればBGM/SEとも差し替え可能(`src/audio/asset-manifest.js`、詳細はASSETS.md)
 - **保存**: `localStorage`。キャラ進行(`soulforge_save_v1`)と表示設定(`soulforge_settings_v1`)は別スロット
 - **フォント**: Google Fonts(Cinzel / Noto Serif JP / Noto Sans JP)
 - **PWA**: `public/manifest.webmanifest` あり。iPhoneでホーム画面に追加するとフルスクリーンで起動する(アイコンはプレースホルダー、差し替え歓迎)
