@@ -494,15 +494,12 @@
   .hud-gamepad-badge.show{ display:flex; }
 
   /* ---------- TOUCH CONTROLS ---------- */
-  /* Dot mode. The canvas backing store is rendered small and blown up by the
-     compositor with no smoothing, which is what actually produces square
-     pixels - scaling a full-resolution render down and back up would just
-     look soft. The HUD is DOM, so it stays crisp on top. */
-  #canvas-wrap canvas.dotty{
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-    -ms-interpolation-mode: nearest-neighbor;
-  }
+  /* Dot mode used to shrink the canvas backing store and rely on this CSS
+     to blow it back up with no smoothing - moved to a WebGLRenderTarget +
+     GPU-side nearest-neighbour blit instead (see the DOT MODE comment in
+     05-rendering-rig.js), which sidesteps the canvas's own antialiasing
+     rather than blurring it and then pixelating the blur. The canvas is
+     always full resolution now, so this CSS trick is retired. */
   #touch-controls{ position:fixed; inset:0; z-index:15; display:none; pointer-events:none; }
   #touch-controls.active{ display:block; }
   /* On gamepad/keyboard the virtual pad is hidden, but the ability buttons

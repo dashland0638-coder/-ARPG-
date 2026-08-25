@@ -537,7 +537,7 @@
       updateSparks(dt);
       updateCamera(dt);
       drawMinimap();
-      renderer.render(scene, camera);
+      renderScene();
     } else if(state.started && state.dialogueActive){
       hideMobBars();
       clearMovementInput(false); wasPlayable = false;   // never leave the stick held
@@ -564,7 +564,7 @@
       }
       if(gp && btnPressed(gp,1)) setOverlay('none'); // B / Circle always backs out
     }
-    renderer.render(scene, camera);
+    renderScene();
   }
 
   /* =========================================================

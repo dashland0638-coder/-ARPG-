@@ -4,18 +4,35 @@
 
      DOT MODE
 
-     Renders into a deliberately small backing store and lets the compositor
-     blow it up with nearest-neighbour, so every scene pixel becomes a hard
-     square block. Texture filtering is switched to nearest at the same time -
-     otherwise the surfaces stay smoothly interpolated underneath and the
-     result reads as a blurry photo behind a pixel grid rather than as art
-     drawn at that resolution. Mipmaps stay on so distant floors don't crawl.
+     Renders the scene into a small off-screen WebGLRenderTarget, posterizes
+     it (a fragment shader that quantizes each colour channel to a handful
+     of steps - the "パレット化/セル画風" cel-shading approximation, cheap
+     enough to run as one full-screen pass instead of swapping every
+     material in the game to MeshToonMaterial), then draws that texture
+     onto the actual canvas with nearest-neighbour sampling so it blows up
+     into hard square blocks. Texture filtering inside the scene itself is
+     also switched to nearest at the same time - otherwise the surfaces
+     stay smoothly interpolated underneath and the result reads as a
+     blurry photo behind a pixel grid rather than as art drawn at that
+     resolution. Mipmaps stay on so distant floors don't crawl.
+
+     The render target is deliberately NOT the main canvas shrunk down:
+     the canvas's own WebGL context is created with antialias:true (see
+     initThree()) and that setting is fixed for the lifetime of the
+     context - shrinking and CSS-stretching that same canvas (the earlier
+     approach) still smooths every edge inside the tiny buffer before the
+     blow-up, which is exactly the "モザイク表現のようで見づらい" blur this
+     was reported as. A WebGLRenderTarget has its own, independent (and by
+     default zero) sample count, so rendering into one sidesteps the
+     canvas's antialiasing entirely and produces genuinely crisp pixel
+     edges - render target -> posterize -> nearest-neighbour blit, all at
+     the canvas's normal full resolution so no CSS pixel tricks are needed.
   ========================================================= */
   const DOT_STEPS = [
-    {label:'なし', px:1},
-    {label:'弱',   px:2.5},
-    {label:'中',   px:4},
-    {label:'強',   px:6},
+    {label:'なし', px:1,   levels:0},   // levels:0 skips the render-target/posterize pipeline entirely
+    {label:'弱',   px:2.5, levels:10},
+    {label:'中',   px:4,   levels:7},
+    {label:'強',   px:6,   levels:5},
   ];
   let dotIdx = 0;
   const NEAREST_MIP = THREE.NearestMipmapLinearFilter || THREE.NearestMipMapLinearFilter || THREE.NearestFilter;
@@ -23,6 +40,94 @@
 
   function dotScale(){ return DOT_STEPS[dotIdx].px; }
   function dotOn(){ return dotIdx > 0; }
+
+  // --- off-screen render target + posterize/blit pass, built lazily so a
+  // player who never touches dot mode never pays for it ---
+  let dotRenderTarget = null;
+  let dotBlitScene = null, dotBlitCamera = null, dotBlitQuad = null;
+
+  function ensureDotBlitPipeline(){
+    if(dotBlitScene) return;
+    dotBlitScene = new THREE.Scene();
+    dotBlitCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const geo = new THREE.PlaneGeometry(2, 2);
+    const mat = new THREE.ShaderMaterial({
+      depthTest:false, depthWrite:false,
+      uniforms:{ map:{value:null}, levels:{value:6} },
+      vertexShader:`
+        varying vec2 vUv;
+        void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
+      `,
+      fragmentShader:`
+        uniform sampler2D map;
+        uniform float levels;
+        varying vec2 vUv;
+        void main(){
+          // dotRenderTarget's texture already comes out tone-mapped and
+          // sRGB-encoded (Three applies both per-object during the scene
+          // render pass into the target, same as it would rendering
+          // straight to the canvas) - no extra colour-space conversion
+          // needed before posterizing.
+          //
+          // Quantizing R/G/B independently (floor(c.rgb*levels+0.5)/levels)
+          // looks correct on a flat colour swatch, but this game's surfaces
+          // are detailed procedural textures (wood grain, per-board shading,
+          // mortar) sampled at a genuinely tiny resolution - three channels
+          // that started only slightly apart can each round to a different
+          // one of the handful of allowed steps, so neighbouring texels
+          // that were nearly the same warm brown come out as visibly
+          // different hues (green/magenta banding, not the intended flat
+          // cel-shaded look). Posterizing luminance only - and scaling the
+          // original colour to hit that quantized brightness - steps the
+          // shading down the same way a toon shader would while leaving
+          // each surface's own hue alone.
+          vec4 c = texture2D(map, vUv);
+          float luma = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+          float qLuma = floor(luma * levels + 0.5) / levels;
+          vec3 q = c.rgb * (qLuma / max(luma, 0.0001));
+          gl_FragColor = vec4(q, c.a);
+        }
+      `,
+    });
+    dotBlitQuad = new THREE.Mesh(geo, mat);
+    dotBlitScene.add(dotBlitQuad);
+  }
+
+  // sized in real device pixels (not CSS pixels) so it matches whatever the
+  // canvas itself is rendering at - px is "how many device pixels per dot"
+  function resizeDotRenderTarget(px){
+    const ratio = renderer.getPixelRatio();
+    const w = Math.max(160, Math.round(lastViewW * ratio / px));
+    const h = Math.max(120, Math.round(lastViewH * ratio / px));
+    if(dotRenderTarget && dotRenderTarget.width === w && dotRenderTarget.height === h) return;
+    if(dotRenderTarget) dotRenderTarget.dispose();
+    dotRenderTarget = new THREE.WebGLRenderTarget(w, h, {
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+      generateMipmaps: false,
+      depthBuffer: true,
+      stencilBuffer: false,
+    });
+    ensureDotBlitPipeline();
+    dotBlitQuad.material.uniforms.map.value = dotRenderTarget.texture;
+  }
+
+  /* Called once a frame instead of a bare renderer.render(scene, camera) -
+     routes through the render-target/posterize/blit pipeline while dot
+     mode is on, otherwise renders straight to the canvas as before. */
+  function renderScene(){
+    if(!renderer) return;
+    if(dotOn()){
+      resizeDotRenderTarget(dotScale());
+      dotBlitQuad.material.uniforms.levels.value = DOT_STEPS[dotIdx].levels;
+      renderer.setRenderTarget(dotRenderTarget);
+      renderer.render(scene, camera);
+      renderer.setRenderTarget(null);
+      renderer.render(dotBlitScene, dotBlitCamera);
+    } else {
+      renderer.render(scene, camera);
+    }
+  }
 
   function applyDotFiltering(){
     const near = dotOn();
@@ -60,10 +165,6 @@
 
   function applyDotSetting(){
     if(!renderer) return;
-    const canvas = renderer.domElement;
-    canvas.classList.toggle('dotty', dotOn());
-    // dot mode fights antialiasing by definition, and a soft edge on a 4px
-    // block is the one thing that breaks the illusion
     applyDotFiltering();
     refreshOutlines();
     onResize(true);
@@ -83,18 +184,13 @@
     if(!camera || !renderer) return;
     camera.aspect = w / Math.max(1, h);
     camera.updateProjectionMatrix();
-    const px = dotScale();
-    if(px > 1){
-      // render small, then let CSS stretch the canvas back over the viewport
-      renderer.setPixelRatio(1);
-      renderer.setSize(Math.max(160, Math.round(w/px)), Math.max(120, Math.round(h/px)), false);
-      const cv = renderer.domElement;
-      cv.style.width = w + 'px';
-      cv.style.height = h + 'px';
-    } else {
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY_STEPS[qualityIdx].ratio));
-      renderer.setSize(w, h, true);
-    }
+    // the canvas itself always renders at full resolution now - dot mode's
+    // blockiness comes entirely from the render-target/blit pipeline in
+    // renderScene(), not from shrinking this canvas, so there's no CSS
+    // stretch trick here any more (see the DOT MODE comment above)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY_STEPS[qualityIdx].ratio));
+    renderer.setSize(w, h, true);
+    if(dotOn()) resizeDotRenderTarget(dotScale());
     checkOrientation();
   }
 

@@ -10,9 +10,13 @@ test.describe('dot-mode setting', () => {
     // from there) - not in this legacy/parts/ concatenated scope. That
     // threw a ReferenceError specifically on the near===false branch (i.e.
     // turning dot mode back OFF), which aborted applyDotSetting() before
-    // it reached the canvas resize/label refresh - dot mode looked
-    // permanently stuck on. This exercises every step of the cycle,
-    // including strong -> off, to catch that class of bug returning.
+    // it reached the label refresh - dot mode looked permanently stuck on.
+    // This exercises every step of the cycle, including strong -> off, to
+    // catch that class of bug returning (dot mode's rendering itself is a
+    // render-target/posterize/blit pipeline - see 05-rendering-rig.js -
+    // that isn't inspectable from outside the page, so this test's job is
+    // "the whole cycle completes with the right labels and no exception",
+    // not a pixel-level check of the visual result).
     const errors = watchErrors(page);
     await openGame(page);
     await createCharacter(page, { name: 'ドット表現検証' });
@@ -23,24 +27,10 @@ test.describe('dot-mode setting', () => {
     await page.keyboard.press('Escape');
     await expect(page.locator('#menu-overlay')).toHaveClass(/active/);
 
-    const canvas = () => page.locator('#canvas-wrap canvas');
-    const fullSize = await canvas().evaluate(cv => ({ w: cv.width, h: cv.height }));
-
     const expectedLabels = ['弱', '中', '強', 'なし'];
     for (const label of expectedLabels) {
       await page.click('#set-dot');
       await expect(page.locator('#set-dot')).toHaveText(label);
-      const isOff = label === 'なし';
-      const dotty = await canvas().evaluate(cv => cv.classList.contains('dotty'));
-      expect(dotty).toBe(!isOff);
-      const size = await canvas().evaluate(cv => ({ w: cv.width, h: cv.height }));
-      if (isOff) {
-        // the actual bug: this backing-store resize never ran once the
-        // ReferenceError aborted the handler mid-way
-        expect(size).toEqual(fullSize);
-      } else {
-        expect(size.w).toBeLessThan(fullSize.w);
-      }
     }
 
     expect(errors).toEqual([]);
