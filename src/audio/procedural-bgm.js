@@ -123,6 +123,17 @@ export function startProceduralBgm(ctx, destination, worldKey, initialVolume) {
   let timer = null;
 
   function playEvent() {
+    // buildWorld('tavern') runs once at boot (before any user gesture, to
+    // have the tavern ready behind character creation), so this can start
+    // scheduling against a still-suspended context - ctx.currentTime is
+    // frozen while suspended, so every skipped tick here would otherwise
+    // schedule at that same frozen instant and all land in a stacked burst
+    // the moment the context finally resumes. Skipping while suspended (the
+    // pad drone above is unaffected - a bare .start() with no explicit time
+    // just begins playing once resumed, no burst risk there) means the
+    // first audible event is a clean one, scheduled against a real
+    // advancing clock.
+    if (ctx.state !== 'running') return;
     const t = ctx.currentTime;
     const semi = mood.scale[Math.floor(Math.random() * mood.scale.length)];
     const octaveUp = Math.random() < 0.5 ? 0 : 12;

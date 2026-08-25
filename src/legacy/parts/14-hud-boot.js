@@ -663,6 +663,13 @@
     state.chandelierUsed = false;
     state.lastDefeatedBossKey = null;
 
+    // beginGame()/continueGame() both reach here directly from a button
+    // click, so this is the earliest point that's reliably a user gesture -
+    // unlock audio here rather than waiting for the player's first attack/
+    // dodge/potion, otherwise buildWorld() below starts the world's BGM on
+    // a still-suspended AudioContext and it never becomes audible until
+    // one of those later actions happens to fire.
+    resumeAudio();
     currentWorldKey = null; // force a full rebuild even if we're already nominally in the tavern
     buildWorld('tavern');
 

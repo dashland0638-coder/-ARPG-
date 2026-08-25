@@ -74,6 +74,26 @@ async function createCharacter(page, { classKey = 'warrior', gender = 'male', pe
   await page.waitForFunction(() => !document.getElementById('cc-start-btn').disabled);
 }
 
+/**
+ * Patches window.AudioContext/webkitAudioContext (before any app script
+ * runs) to stash the real AudioContext instance on window.__testAudioCtx,
+ * so a test can read its .state directly instead of needing a debug hook
+ * wired into the app itself. Call before openGame().
+ */
+async function exposeAudioContext(page) {
+  await page.addInitScript(() => {
+    window.__testAudioCtx = null;
+    const OrigAC = window.AudioContext || window.webkitAudioContext;
+    function Patched(...args) {
+      const ctx = new OrigAC(...args);
+      window.__testAudioCtx = ctx;
+      return ctx;
+    }
+    window.AudioContext = Patched;
+    window.webkitAudioContext = Patched;
+  });
+}
+
 /** Clicks past the town-arrival dialogue lines (2, but bounded generously). */
 async function dismissIntroDialogue(page) {
   for (let i = 0; i < 5; i++) {
@@ -84,4 +104,4 @@ async function dismissIntroDialogue(page) {
   }
 }
 
-export { watchErrors, openGame, createCharacter, dismissIntroDialogue };
+export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue };
