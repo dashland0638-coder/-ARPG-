@@ -30,7 +30,10 @@ test.describe('sortie', () => {
   test('sortieing into a dungeon and fighting builds the world without errors', async ({ page }) => {
     // exercises world-common + the mansion/temple dungeon builders + player
     // rig + textures + audio together - the parts most likely to break from
-    // a bad module boundary, since the tavern alone doesn't touch most of them
+    // a bad module boundary, since the tavern alone doesn't touch most of them.
+    // Real-time character creation + a simulated walk to the bartender runs
+    // right up against the default 45s test timeout, so this one gets more room.
+    test.setTimeout(90_000);
     const errors = watchErrors(page);
     await openGame(page);
     await createCharacter(page, { classKey: 'warrior', gender: 'male', personality: 'brave', name: '出撃検証' });

@@ -258,6 +258,7 @@
       if(!shadowOn) applyShadowSetting();   // new meshes default to casting
       spawnEnemiesForWorld(key);
       spawnChestsForWorld(key);
+      playBgm(key);   // no-op if this world has no track registered (asset-manifest.js)
     }catch(err){
       console.error(`buildWorld(${key}) failed:`, err);
       // def.build() may have thrown partway through - it doesn't get to write

@@ -1,14 +1,34 @@
-// SFX synthesis (oscillators + a shared noise buffer, no audio files).
-// Only touches game state through state.sfxVolume.
+// SFX synthesis (oscillators + a shared noise buffer) plus BGM playback.
+// Real audio files are optional everywhere here: register one in
+// asset-manifest.js and it's used automatically; leave it unregistered (or
+// let the fetch fail) and the existing synthesis / silence takes over with
+// no code changes elsewhere. Touches game state through state.sfxVolume
+// and state.bgmVolume only.
 import { state } from '../core/state.js';
+import { BGM_TRACKS, SFX_FILES } from './asset-manifest.js';
+
+  // asset-manifest.js entries are written as site-root-relative paths
+  // ('/audio/bgm/tavern.mp3'), but GitHub Pages serves this app from a
+  // /<repo>/ subpath in production - plain strings never go through Vite's
+  // HTML asset rewriting the way <link>/<script> tags do, so without this
+  // they'd 404 under that base exactly like the manifest.webmanifest
+  // start_url bug did. import.meta.env.BASE_URL is Vite's own '/' (dev) or
+  // '/<repo>/' (build) value; every asset-manifest URL is resolved through
+  // this before it's fetched or handed to an <audio> element.
+  function resolveAssetUrl(assetPath){
+    if(!assetPath) return assetPath;
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+    return base + assetPath;
+  }
 
   /* =========================================================
-     SOUND - synthesised, not sampled.
-     The whole game ships as one HTML file, so loading audio assets isn't an
-     option. Every cue below is built from oscillators and a noise buffer at
-     runtime, which costs a few hundred bytes instead of a few megabytes.
-     Browsers refuse to start audio before a gesture, so the context is
-     created lazily on the first input and simply stays silent until then.
+     SOUND - synthesised by default, sampled where a file is registered.
+     Every cue below is built from oscillators and a noise buffer at
+     runtime, which costs a few hundred bytes and needs nothing to load -
+     that's still what plays until/unless a real recording is registered
+     for it in asset-manifest.js. Browsers refuse to start audio before a
+     gesture, so the context is created lazily on the first input and
+     simply stays silent until then.
   ========================================================= */
   let audioCtx = null, masterGain = null, noiseBuffer = null;
 
@@ -25,11 +45,21 @@ import { state } from '../core/state.js';
     noiseBuffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
     const data = noiseBuffer.getChannelData(0);
     for(let i=0;i<len;i++) data[i] = Math.random()*2 - 1;
+    // kick off loading any registered SFX recordings now that decoding is
+    // possible - each one silently keeps using synthesis if this never
+    // resolves (wrong path, 404, unsupported format, ...)
+    Object.keys(SFX_FILES).forEach(name=>{
+      const url = SFX_FILES[name];
+      if(url) loadSfxFile(name, resolveAssetUrl(url));
+    });
     return audioCtx;
   }
   function resumeAudio(){
     const ctx = initAudio();
     if(ctx && ctx.state === 'suspended') ctx.resume();
+    // autoplay is blocked until a real user gesture - this is the first
+    // one, so retry any BGM that was asked for before it was allowed
+    if(pendingBgmEl) pendingBgmEl.play().catch(()=>{});
   }
   function setSfxVolume(v){
     state.sfxVolume = v;
@@ -169,10 +199,75 @@ import { state } from '../core/state.js';
     tick(){ tone('square', 1200, 1200, 0.03, 0.05); },
     deny(){ tone('square', 220, 160, 0.16, 0.12); },
   };
+
+  /* ---- recorded SFX (optional, per-cue override) -------------------------
+     A decoded AudioBuffer beats the synthesised cue of the same name -
+     sfx() checks here first and only falls back to SFX[name] when nothing
+     loaded successfully. */
+  const sfxBufferCache = new Map();   // cue name -> AudioBuffer
+
+  async function loadSfxFile(name, url){
+    const ctx = audioCtx;
+    if(!ctx) return;
+    try{
+      const res = await fetch(url);
+      if(!res.ok) return;              // 404 etc. - keep the synthesised cue
+      const arr = await res.arrayBuffer();
+      const buf = await ctx.decodeAudioData(arr);
+      sfxBufferCache.set(name, buf);
+    }catch(err){
+      console.warn(`sfx recording failed to load, using synthesis instead: ${name}`, err);
+    }
+  }
+
+  function playSfxBuffer(buf){
+    if(!audioCtx || !masterGain) return;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(masterGain);
+    src.start();
+  }
+
   function sfx(name, arg){
     if(!audioCtx || !state.sfxVolume) return;
+    const buf = sfxBufferCache.get(name);
+    if(buf){ playSfxBuffer(buf); return; }
     const f = SFX[name];
     if(f) try{ f(arg); }catch(e){}
   }
 
-export { initAudio, resumeAudio, setSfxVolume, sfx };
+  /* ---- background music (optional, per-world) -----------------------------
+     Streamed through a plain <audio> element rather than WebAudio buffers -
+     tracks are long, so decoding the whole file up front (like the SFX
+     buffers above) would be wasteful. Nothing plays for a world with no
+     entry in BGM_TRACKS; that's the expected, silent default today. */
+  let bgmEl = null;
+  let bgmKey = null;
+  let pendingBgmEl = null;   // set when play() was blocked by autoplay policy
+
+  function setBgmVolume(v){
+    state.bgmVolume = v;
+    if(bgmEl) bgmEl.volume = v;
+  }
+
+  function playBgm(key){
+    if(key === bgmKey) return;
+    bgmKey = key;
+    if(bgmEl){ bgmEl.pause(); bgmEl = null; }
+    pendingBgmEl = null;
+    const url = BGM_TRACKS[key];
+    if(!url) return;                    // no track registered - silence is correct
+    const el = new Audio(resolveAssetUrl(url));
+    el.loop = true;
+    el.volume = state.bgmVolume != null ? state.bgmVolume : 0.4;
+    el.play().catch(()=>{ pendingBgmEl = el; });   // retried from resumeAudio()
+    bgmEl = el;
+  }
+
+  function stopBgm(){
+    if(bgmEl){ bgmEl.pause(); bgmEl = null; }
+    bgmKey = null;
+    pendingBgmEl = null;
+  }
+
+export { initAudio, resumeAudio, setSfxVolume, sfx, setBgmVolume, playBgm, stopBgm };

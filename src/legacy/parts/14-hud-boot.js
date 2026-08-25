@@ -82,6 +82,7 @@
      control, not a preference - anyone prone to motion sickness needs to be
      able to switch it off without giving up the rest of the feedback. */
   const SFX_STEPS    = [{v:0,   label:'オフ'}, {v:0.25, label:'小'}, {v:0.5, label:'中'}, {v:0.85, label:'大'}];
+  const BGM_STEPS    = [{v:0,   label:'オフ'}, {v:0.2,  label:'小'}, {v:0.4, label:'中'}, {v:0.7,  label:'大'}];
   const SHAKE_STEPS  = [{v:0,   label:'オフ'}, {v:0.5,  label:'控えめ'}, {v:1, label:'標準'}, {v:1.5, label:'強め'}];
   const BRIGHT_STEPS = [{v:0.78, label:'暗め'}, {v:1, label:'標準'}, {v:1.25, label:'明るめ'}];
   const HITSTOP_STEPS = [{v:0, label:'オフ'}, {v:0.6, label:'控えめ'}, {v:1, label:'標準'}, {v:1.5, label:'強め'}];
@@ -90,10 +91,11 @@
     {label:'標準', ratio:1.5,  shadowSize:1024, shadowSpan:28},
     {label:'高',   ratio:2.0,  shadowSize:2048, shadowSpan:34},
   ];
-  let sfxIdx = 2, shakeIdx = 2, brightIdx = 1, qualityIdx = 1, hitStopIdx = 2, shadowOn = true;
+  let sfxIdx = 2, bgmIdx = 2, shakeIdx = 2, brightIdx = 1, qualityIdx = 1, hitStopIdx = 2, shadowOn = true;
 
   function refreshSettingLabels(){
     document.getElementById('set-sfx').textContent = SFX_STEPS[sfxIdx].label;
+    document.getElementById('set-bgm').textContent = BGM_STEPS[bgmIdx].label;
     document.getElementById('set-shake').textContent = SHAKE_STEPS[shakeIdx].label;
     document.getElementById('set-shadow').textContent = shadowOn ? 'あり' : 'なし';
     document.getElementById('set-bright').textContent = BRIGHT_STEPS[brightIdx].label;
@@ -144,6 +146,13 @@
       sfxIdx = (sfxIdx+1) % SFX_STEPS.length;
       resumeAudio();
       setSfxVolume(SFX_STEPS[sfxIdx].v);
+      refreshSettingLabels();
+      sfx('ui');
+    });
+    document.getElementById('set-bgm').addEventListener('click', ()=>{
+      bgmIdx = (bgmIdx+1) % BGM_STEPS.length;
+      resumeAudio();
+      setBgmVolume(BGM_STEPS[bgmIdx].v);
       refreshSettingLabels();
       sfx('ui');
     });

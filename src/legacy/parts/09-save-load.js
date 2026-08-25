@@ -130,7 +130,7 @@
   function saveSettings(){
     try{
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-        v:1, sfxIdx, shakeIdx, brightIdx, qualityIdx, hitStopIdx, dotIdx, shadowOn
+        v:1, sfxIdx, bgmIdx, shakeIdx, brightIdx, qualityIdx, hitStopIdx, dotIdx, shadowOn
       }));
     }catch(err){ console.error('saveSettings failed:', err); }
   }
@@ -143,6 +143,7 @@
     catch(err){ console.error('loadAndApplySettings failed:', err); }
     if(!data) return;
     if(Number.isInteger(data.sfxIdx) && SFX_STEPS[data.sfxIdx]){ sfxIdx = data.sfxIdx; setSfxVolume(SFX_STEPS[sfxIdx].v); }
+    if(Number.isInteger(data.bgmIdx) && BGM_STEPS[data.bgmIdx]){ bgmIdx = data.bgmIdx; setBgmVolume(BGM_STEPS[bgmIdx].v); }
     if(Number.isInteger(data.shakeIdx) && SHAKE_STEPS[data.shakeIdx]){ shakeIdx = data.shakeIdx; state.shakeScale = SHAKE_STEPS[shakeIdx].v; }
     if(Number.isInteger(data.brightIdx) && BRIGHT_STEPS[data.brightIdx]){ brightIdx = data.brightIdx; state.brightness = BRIGHT_STEPS[brightIdx].v; }
     if(Number.isInteger(data.hitStopIdx) && HITSTOP_STEPS[data.hitStopIdx]){ hitStopIdx = data.hitStopIdx; state.hitStopScale = HITSTOP_STEPS[hitStopIdx].v; }

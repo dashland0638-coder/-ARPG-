@@ -33,7 +33,7 @@ import {
   makePlankTexture, makeMasonryTexture, makeCobbleTexture, makeWallpaperTexture,
   makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture,
 } from '../textures/textures.js';
-import { initAudio, resumeAudio, setSfxVolume, sfx } from '../audio/audio.js';
+import { initAudio, resumeAudio, setSfxVolume, sfx, setBgmVolume, playBgm, stopBgm } from '../audio/audio.js';
 
 `;
 
