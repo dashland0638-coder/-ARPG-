@@ -4,6 +4,11 @@
 
      PLAYER CONSTRUCTION (stylized primitive character)
   ========================================================= */
+  // '#rrggbb' for the canvas-based texture generators (textures.js) -
+  // classDef/cfg colours are plain numeric hex (THREE's own convention),
+  // not CSS strings. Shared by buildPlayer/buildEnemy/buildBoss.
+  const hexStr = n => '#'+n.toString(16).padStart(6,'0');
+
   /* ---- 武器メッシュ(見た目) ----
      weaponKey で武器種ごとに全く別の形状を組み立てる。位置は仮置きで、
      呼び出し側(buildPlayer / swapPlayerWeaponVisual)が握りの位置に
@@ -208,9 +213,6 @@
     const bodyR = B.chest;
     playerMixerParts.build = B;
 
-    // '#rrggbb' for the canvas-based texture generators below - classDef's
-    // colours are plain numeric hex (THREE's own convention), not CSS strings
-    const hexStr = n => '#'+n.toString(16).padStart(6,'0');
     const skinMat = new THREE.MeshStandardMaterial({color:0xe8b98a, roughness:0.8});
     // cloth/leather and armor trim used to be flat colour fills - the same
     // procedural surface technique the world's walls/floors already use
@@ -1390,8 +1392,16 @@
     }, cfg||{});
     const _D = difficultyFor(_spawnWorldKey);
     const g = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({color:cfg.bodyColor, roughness:0.5, emissive:cfg.emissive, emissiveIntensity:0.22});
-    const trimMat = new THREE.MeshStandardMaterial({color:0x241018, roughness:0.6});
+    // hide/metal texture (textures.js) instead of a flat colour fill - see
+    // the same treatment on the player rig (buildPlayer() above). Bosses
+    // are seen at a much bigger scale than the player, so a flat fill (or
+    // a barely-tapered cylinder - see the HUMANOID branch below) reads even
+    // cruder here than it did there.
+    const bodyMat = applyBump(new THREE.MeshStandardMaterial({
+      map: makeLeatherTexture(hexStr(cfg.bodyColor), 3, 3), roughness:0.5,
+      emissive:cfg.emissive, emissiveIntensity:0.22}));
+    const trimMat = applyBump(new THREE.MeshStandardMaterial({
+      map: makeMetalTexture('#241018', 3, 1), roughness:0.6}));
     const eyeMat = new THREE.MeshBasicMaterial({color:cfg.eyeColor});
     const eyeGeo = new THREE.SphereGeometry(0.09,6,6);
     let body;
@@ -1425,26 +1435,29 @@
 
     } else if(cfg.key==='waterwayTurtle'){
       // --- TURTLE: wide domed shell, four stubby legs, long low neck ---
-      const shellMat = new THREE.MeshStandardMaterial({color:cfg.bodyColor, roughness:0.65,
-        emissive:cfg.emissive, emissiveIntensity:0.3});
+      const shellMat = applyBump(new THREE.MeshStandardMaterial({
+        map: makeMetalTexture(hexStr(cfg.bodyColor), 4, 4), roughness:0.65,
+        emissive:cfg.emissive, emissiveIntensity:0.3}));
       body = new THREE.Mesh(new THREE.SphereGeometry(2.1,16,12), shellMat);
       body.scale.set(1,0.55,1.15);
       body.position.y = 1.5; body.castShadow = true;
       g.add(body);
       // shell plates
-      const plateMat = new THREE.MeshStandardMaterial({color:0x0f2a24, roughness:0.8});
+      const plateMat = applyBump(new THREE.MeshStandardMaterial({map: makeMetalTexture('#0f2a24', 2, 2), roughness:0.8}));
       for(let i=0;i<6;i++){
         const a=(i/6)*Math.PI*2;
         const pl = new THREE.Mesh(new THREE.ConeGeometry(0.42,0.42,6), plateMat);
         pl.position.set(Math.cos(a)*1.15, 2.35, Math.sin(a)*1.3);
         g.add(pl);
       }
-      const limbMat = new THREE.MeshStandardMaterial({color:0x1e5a4a, roughness:0.7});
+      // legs/neck lathed from the player's calf/forearm profiles instead of
+      // barely-tapered cylinders - see the HUMANOID branch above for why
+      const limbMat = applyBump(new THREE.MeshStandardMaterial({map: makeLeatherTexture('#1e5a4a', 3, 2), roughness:0.7}));
       [[-1.3,1.3],[1.3,1.3],[-1.3,-1.3],[1.3,-1.3]].forEach(([x,z])=>{
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.46,1.1,8), limbMat);
+        const leg = new THREE.Mesh(limbGeo(LIMB_PROFILE.calf, 0.46, 1.1, 8), limbMat);
         leg.position.set(x,0.55,z); leg.castShadow = true; g.add(leg);
       });
-      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.44,1.5,8), limbMat);
+      const neck = new THREE.Mesh(limbGeo(LIMB_PROFILE.forearm, 0.44, 1.5, 8), limbMat);
       neck.position.set(0,1.5,1.9); neck.rotation.x = 0.85; g.add(neck);
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.62,12,10), limbMat);
       head.position.set(0,2.0,2.6); head.castShadow = true; g.add(head);
@@ -1456,8 +1469,12 @@
     } else if(cfg.key==='templeGuardian'){
       // --- COLOSSUS: cut from the temple itself. Blocky, no neck, carved
       //     runes, and a ring of broken masonry orbiting where a head should be.
-      const stoneMat = new THREE.MeshStandardMaterial({color:cfg.bodyColor, roughness:0.85,
-        emissive:cfg.emissive, emissiveIntensity:0.2});
+      // makeMetalTexture's scratches/speckle double as a passable weathered-
+      // rock surface here - there's no dedicated stone generator at
+      // character scale, and this reads close enough to cracked, worn stone
+      const stoneMat = applyBump(new THREE.MeshStandardMaterial({
+        map: makeMetalTexture(hexStr(cfg.bodyColor), 3, 3), roughness:0.85,
+        emissive:cfg.emissive, emissiveIntensity:0.2}));
       const runeMat = new THREE.MeshBasicMaterial({color:cfg.eyeColor});
       body = new THREE.Mesh(new THREE.BoxGeometry(2.9, 3.0, 1.9), stoneMat);
       body.position.y = 2.7; body.castShadow = true; g.add(body);
@@ -1496,9 +1513,13 @@
     } else if(cfg.key==='conservatoryBloom'){
       // --- BLOOM: rooted, no legs. Petals that open and shut, a lamprey maw,
       //     and vines that writhe instead of arms.
-      const petalMat = new THREE.MeshStandardMaterial({color:cfg.bodyColor, roughness:0.55,
-        emissive:cfg.emissive, emissiveIntensity:0.25, side:THREE.DoubleSide});
-      const stemMat = new THREE.MeshStandardMaterial({color:0x2f6b3c, roughness:0.8});
+      // makeLeatherTexture's mottling/creases double as a passable organic
+      // skin here - close enough to a fleshy petal/stalk surface, and it's
+      // the same generator the player's cloth already uses
+      const petalMat = applyBump(new THREE.MeshStandardMaterial({
+        map: makeLeatherTexture(hexStr(cfg.bodyColor), 2, 2), roughness:0.55,
+        emissive:cfg.emissive, emissiveIntensity:0.25, side:THREE.DoubleSide}));
+      const stemMat = applyBump(new THREE.MeshStandardMaterial({map: makeLeatherTexture('#2f6b3c', 2, 3), roughness:0.8}));
       const mawMat = new THREE.MeshStandardMaterial({color:0x3a0e1e, roughness:0.4,
         emissive:0x8a1030, emissiveIntensity:0.5});
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.9,1.6,2.6,10), stemMat);
@@ -1549,9 +1570,10 @@
     } else if(cfg.key==='towerWarden'){
       // --- CLOCKWORK: a gear for a torso, clock hands for arms, a pendulum
       //     where legs would be, and a working face that keeps the wrong time.
-      const brass = new THREE.MeshStandardMaterial({color:cfg.bodyColor, roughness:0.35,
-        metalness:0.8, emissive:cfg.emissive, emissiveIntensity:0.25});
-      const ironMat = new THREE.MeshStandardMaterial({color:0x2a2620, roughness:0.7, metalness:0.5});
+      const brass = applyBump(new THREE.MeshStandardMaterial({
+        map: makeMetalTexture(hexStr(cfg.bodyColor), 4, 1), roughness:0.35,
+        metalness:0.8, emissive:cfg.emissive, emissiveIntensity:0.25}));
+      const ironMat = applyBump(new THREE.MeshStandardMaterial({map: makeMetalTexture('#2a2620', 3, 1), roughness:0.7, metalness:0.5}));
       const faceMat = new THREE.MeshStandardMaterial({color:0xf0e2b0, roughness:0.3,
         emissive:0xffd27a, emissiveIntensity:0.45});
       body = new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,0.6,16), brass);
@@ -1597,19 +1619,27 @@
 
     } else {
       // --- HUMANOID: shoulders, arms and legs, a clear person silhouette ---
-      body = new THREE.Mesh(new THREE.CylinderGeometry(0.85,1.0,1.9,10), bodyMat);
+      // Lathed from the same profile tables the player rig uses
+      // (05-rendering-rig.js) instead of near-uniform cylinders - at boss
+      // scale a barely-tapered cylinder reads as a log even more than it
+      // did on the player before that same fix. flatShading on the head
+      // for the same reason the player's is: a low-segment lathe needs
+      // per-face normals to actually look faceted rather than smoothly
+      // round (see the comment on skinMatFlat in buildPlayer()).
+      const bodyMatFlat = bodyMat.clone(); bodyMatFlat.flatShading = true;
+      body = new THREE.Mesh(limbGeo(TORSO_PROFILE.male, 0.95, 1.9, 12), bodyMat);
       body.position.y = 2.0; body.castShadow = true;
       g.add(body);
       const shoulders = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.5,0.9), trimMat);
       shoulders.position.y = 2.85; shoulders.castShadow = true; g.add(shoulders);
       [-1.15,1.15].forEach(x=>{
-        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.2,1.7,8), bodyMat);
+        const arm = new THREE.Mesh(limbGeo(LIMB_PROFILE.upper, 0.28, 1.7, 9), bodyMat);
         arm.position.set(x,1.9,0); arm.rotation.z = x>0 ? 0.16 : -0.16;
         arm.castShadow = true; g.add(arm);
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.28,1.2,8), trimMat);
+        const leg = new THREE.Mesh(limbGeo(LIMB_PROFILE.thigh, 0.36, 1.2, 10), trimMat);
         leg.position.set(x*0.42,0.6,0); leg.castShadow = true; g.add(leg);
       });
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.62,12,10), bodyMat);
+      const head = new THREE.Mesh(limbGeo(HEAD_PROFILE.male, 0.62, 1.1, 8), bodyMatFlat);
       head.position.y = 3.35; head.castShadow = true; g.add(head);
       const hornGeo = new THREE.ConeGeometry(0.14,0.7,6);
       [-0.34,0.34].forEach(x=>{

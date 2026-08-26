@@ -156,7 +156,7 @@ function applyOverride(name, tex){
       cx.fillStyle = base; cx.fillRect(0,0,S,S);
       // mottled blotches - overlapping soft-edged patches of slightly
       // different shade, the variation leather naturally has hide to hide
-      for(let i=0;i<26;i++){
+      for(let i=0;i<18;i++){
         const x = Math.random()*S, y = Math.random()*S, r = 6 + Math.random()*14;
         const k = 0.82 + Math.random()*0.36;
         const grad = cx.createRadialGradient(x,y,0,x,y,r);
@@ -181,7 +181,7 @@ function applyOverride(name, tex){
         hx.beginPath(); hx.moveTo(x0,y0); hx.quadraticCurveTo(mx,my,x1,y1); hx.stroke();
       }
       // fine grain speckle
-      for(let i=0;i<220;i++){
+      for(let i=0;i<100;i++){
         cx.fillStyle = _shade(base, 0.9 + Math.random()*0.22);
         cx.fillRect(Math.random()*S, Math.random()*S, 1, 1);
       }
@@ -200,7 +200,7 @@ function applyOverride(name, tex){
       cx.fillStyle = base; cx.fillRect(0,0,S,S);
       // brushed streaks: thin near-horizontal lines of slightly varying shade
       cx.globalAlpha = 0.5;
-      for(let i=0;i<70;i++){
+      for(let i=0;i<45;i++){
         const y = Math.random()*S;
         cx.strokeStyle = _shade(base, 0.88 + Math.random()*0.28);
         cx.lineWidth = 0.5 + Math.random()*0.7;
@@ -218,7 +218,7 @@ function applyOverride(name, tex){
         hx.beginPath(); hx.moveTo(x0,y0); hx.lineTo(x1,y1); hx.stroke();
       }
       // faint speckled wear
-      for(let i=0;i<90;i++){
+      for(let i=0;i<45;i++){
         cx.fillStyle = _shade(base, 0.85 + Math.random()*0.3);
         cx.fillRect(Math.random()*S, Math.random()*S, 1, 1);
       }
