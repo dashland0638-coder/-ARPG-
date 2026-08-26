@@ -864,7 +864,7 @@
           if(!tryConsumeOrbShield()){
             const dmg = applyIncomingDamageMul(state.debugMode ? 0 : p.dmg);
             state.hp = Math.max(0, state.hp - dmg);
-            spawnDamagePopup(state.pos.clone(), dmg, false);
+            spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
             flashScreen();
             if(p.isElectric && !state.debugMode){
               state.paralyzed = true; state.paralyzeT = 1.0; state.paralyzeInvulnT = 1.7;

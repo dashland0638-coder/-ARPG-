@@ -667,7 +667,7 @@
         else {
           const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
           state.hp = Math.max(0, state.hp-dmg);
-          spawnDamagePopup(state.pos.clone(), dmg, false);
+          spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
           flashScreen();
           if(en.isElectric && !state.debugMode){
             state.paralyzed = true; state.paralyzeT = 1.0; state.paralyzeInvulnT = 1.7;
@@ -741,7 +741,7 @@
     if(tryConsumeOrbShield()) return;
     const d = applyIncomingDamageMul(state.debugMode ? 0 : dmg);
     state.hp = Math.max(0, state.hp - d);
-    spawnDamagePopup(state.pos.clone(), d, false);
+    spawnDamagePopup(state.pos.clone(), d, false, false, true);
     flashScreen();
     if((opts.electric || en.isElectric) && !state.debugMode){
       state.paralyzed = true; state.paralyzeT = 1.0; state.paralyzeInvulnT = 1.7;
@@ -1408,7 +1408,7 @@
           if(!tryConsumeOrbShield()){
             const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
             state.hp = Math.max(0, state.hp - dmg);
-            spawnDamagePopup(state.pos.clone(), dmg, false);
+            spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
             flashScreen();
             sfx('hurt'); addShake(0.14);
             if(en.isElectric && !state.debugMode){
@@ -1454,7 +1454,7 @@
       if(!tryConsumeOrbShield()){
         const dmg = applyIncomingDamageMul(state.debugMode ? 0 : Math.round(en.atk*0.9));
         state.hp = Math.max(0, state.hp - dmg);
-        spawnDamagePopup(state.pos.clone(), dmg, false);
+        spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
         if(en.isElectric && !state.debugMode){
           state.paralyzed = true; state.paralyzeT = 1.0; state.paralyzeInvulnT = 1.7;
           spawnToast('⚡ 体が痺れて動けない!');

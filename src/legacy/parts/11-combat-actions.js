@@ -124,10 +124,12 @@
     const len = state.usingAltWeapon ? ALT_COMBO_LENGTH : (COMBO_LENGTH[clsKey] || 4);
     const chaining = (state.comboWindowT||0) > 0;
     state.comboStage = chaining ? (state.comboStage % len) + 1 : 1;   // 1→2→…→フィニッシュ→1…
+    state.comboLen = len;   // HUDのコンボ表示(updateComboIndicator, 14-hud-boot.js)用
 
     const swingCD = state.classDef.atkCooldown * attackCooldownMul();
     state.attackCD = swingCD;
     state.comboWindowT = swingCD + 0.15;   // クールダウンが明けてから確実に猶予が残る程度に引き締めた(前回+0.5は緩すぎた)
+    state.comboWindowMax = state.comboWindowT;   // 上と同じくHUDの残り時間バー用の基準値
 
     // clipMap は常に 'basic'/'basic2'/... を指すだけでよい。サブ武器なら
     // beginMove() 側が altBasic/altBasic2 へ透過的に差し替えてくれる
@@ -928,7 +930,12 @@
      scratch vector instead of cloning. */
   const _scratchVec = new THREE.Vector3();
   const dmgPool = [];
-  function spawnDamagePopup(worldPos, amount, isAlly, isCrit){
+  // isIncoming: this hit landed ON the player, not one the player (or their
+  // companion) dealt. Both used to render in the same gold, so in a busy
+  // fight the only way to tell "I hit them" from "they hit me" apart was the
+  // popup's screen position - easy to lose track of mid-dodge. Incoming hits
+  // now get their own red tone and a leading "-", independent of isCrit/isAlly.
+  function spawnDamagePopup(worldPos, amount, isAlly, isCrit, isIncoming){
     _scratchVec.set(worldPos.x, worldPos.y + 2.1, worldPos.z);
     _scratchVec.project(camera);
     if(_scratchVec.z > 1) return;                 // behind the camera
@@ -939,11 +946,11 @@
       el = document.createElement('div');
       document.getElementById('hud').appendChild(el);
     }
-    el.className = 'dmg-pop' + (isCrit ? ' crit' : '');
-    el.style.color = isAlly ? '#9fe8ff' : '';
+    el.className = 'dmg-pop' + (isCrit ? ' crit' : '') + (isIncoming ? ' incoming' : '');
+    el.style.color = (!isIncoming && isAlly) ? '#9fe8ff' : '';
     el.style.left = x+'px'; el.style.top = y+'px';
     el.style.display = '';
-    el.textContent = isCrit ? amount+'!' : amount;
+    el.textContent = (isIncoming ? '-' : '') + amount + (isCrit ? '!' : '');
     // Restarting the animation used to read offsetWidth, which forces a
     // synchronous layout of the whole HUD on every hit. Clearing the
     // animation and setting it again on the next frame does the same job

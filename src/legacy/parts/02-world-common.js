@@ -813,7 +813,7 @@
     if(!state.debugMode){
       const dmg = applyIncomingDamageMul(Math.max(5, Math.round(state.maxHp*0.10)));
       state.hp = Math.max(0, state.hp - dmg);
-      spawnDamagePopup(state.pos.clone(), dmg, false);
+      spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
     }
     flashScreen();
     sfx('hurt');
@@ -841,7 +841,7 @@
   function handlePitFall(pit){
     const dmg = applyIncomingDamageMul(Math.max(4, Math.round(state.maxHp*0.08)));
     state.hp = Math.max(1, state.hp - dmg);
-    spawnDamagePopup(state.pos.clone(), dmg, false);
+    spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
     flashScreen();
     fadeTransition(()=>{
       state.pos.copy(pit.respawn);

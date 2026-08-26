@@ -508,6 +508,44 @@
     if(ultEl) ultEl.style.setProperty('--cd-pct', Math.max(0, Math.min(1, state.ultGauge / ULT_GAUGE_MAX)));
   }
 
+  // 通常攻撃コンボの段数と、次の一撃までに残っている接続猶予(comboWindowT)
+  // を画面下中央に出す。ピップは段数が変わった時だけ作り直し、毎フレームは
+  // 猶予バーの幅だけ更新する(DOM再構築を攻撃のたびに繰り返さないため)
+  let comboIndicatorShownFor = 0; // 直近に組み立てたコンボの長さ(0=未構築)
+  function updateComboIndicator(){
+    const wrap = document.getElementById('combo-indicator');
+    if(!wrap) return;
+    const stage = state.comboStage || 0;
+    if(stage <= 0){
+      wrap.classList.remove('show');
+      comboIndicatorShownFor = 0;
+      return;
+    }
+    const len = state.comboLen || stage;
+    if(comboIndicatorShownFor !== len){
+      const pipsEl = document.getElementById('combo-pips');
+      pipsEl.innerHTML = '';
+      for(let i=1;i<=len;i++){
+        const pip = document.createElement('div');
+        pip.className = 'combo-pip' + (i===len ? ' finisher' : '');
+        pip.dataset.stage = i;
+        pipsEl.appendChild(pip);
+      }
+      comboIndicatorShownFor = len;
+    }
+    document.querySelectorAll('#combo-pips .combo-pip').forEach(pip=>{
+      const i = parseInt(pip.dataset.stage);
+      pip.classList.toggle('filled', i <= stage);
+      pip.classList.toggle('current', i === stage);
+    });
+    const fill = document.getElementById('combo-window-fill');
+    if(fill){
+      const pct = state.comboWindowMax>0 ? Math.max(0, Math.min(1, (state.comboWindowT||0)/state.comboWindowMax)) : 0;
+      fill.style.transform = `scaleX(${pct})`;
+    }
+    wrap.classList.add('show');
+  }
+
   function updateUltHUD(){
     const ready = ultReady();
     const btn = document.getElementById('btn-ult');
@@ -561,6 +599,7 @@
       updateCamera(dt);
       updateSunShadow();
       updateHUD();
+      updateComboIndicator();
       updateDoors(dt);
       updateMansionRoof();
       updateRestroomRoof();

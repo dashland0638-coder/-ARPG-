@@ -242,6 +242,34 @@
     0%, 100%{ opacity:1; } 50%{ opacity:0.55; }
   }
 
+  /* コンボ表示: 通常攻撃を当てている間だけ画面下中央に浮かぶ。手元(攻撃ボタン)
+     ではなくキャラの近く・視線が集まる位置に置き、段数と「あと何秒繋げられるか」
+     を見た瞬間に把握できるようにしてある。タッチの action-zone は右側だけを
+     使うので、画面下中央に置いても操作の邪魔にならない */
+  #combo-indicator{
+    position:fixed; left:50%; bottom:15%; transform:translate(-50%,0);
+    z-index:16; pointer-events:none;
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+    opacity:0; transition:opacity 0.15s ease-out;
+  }
+  #combo-indicator.show{ opacity:1; }
+  .combo-pips{ display:flex; gap:6px; }
+  /* 汎用の .pip (サイコロ演出、main.css内の別箇所) は既定 opacity:0 で
+     .on が付くまで隠れる作りになっており、同じクラス名だと常に透明のまま
+     になってしまう。名前を分けて衝突を避けてある */
+  .combo-pips .combo-pip{
+    width:10px; height:10px; border-radius:50%;
+    background:rgba(224,216,240,0.18); border:1px solid rgba(224,216,240,0.35);
+    transition:background .1s, border-color .1s, transform .1s;
+  }
+  .combo-pips .combo-pip.filled{ background:var(--ember-bright); border-color:var(--ember-bright); }
+  .combo-pips .combo-pip.current{ transform:scale(1.35); box-shadow:0 0 8px var(--ember-bright); }
+  /* フィニッシュ段だけひし形にして、コンボの終端だと分かるようにする */
+  .combo-pips .combo-pip.finisher{ border-radius:2px; transform:rotate(45deg); width:9px; height:9px; }
+  .combo-pips .combo-pip.finisher.current{ transform:rotate(45deg) scale(1.35); }
+  .combo-window-track{ width:64px; height:3px; border-radius:2px; background:rgba(224,216,240,0.18); overflow:hidden; }
+  .combo-window-fill{ height:100%; background:var(--ember-bright); transform-origin:left; }
+
   #boss-bar-wrap{
     position:fixed; top:14px; left:50%; transform:translateX(-50%);
     width:min(520px, 78vw); pointer-events:none; opacity:0;
@@ -614,6 +642,11 @@
   }
   .dmg-pop.dmg-pop-run{ animation:dmgfloat 0.8s ease-out forwards; }
   .dmg-pop.crit{ font-size:26px; color:#ff5a5a; }
+  /* 被弾(isIncoming): 与ダメージと同じ金色だと、乱戦中は画面位置でしか
+     区別できなかった。被弾は常にこの色調に統一し、クリティカルと重なる
+     場合はより強い赤で「今かなり食らっている」を一目で伝える */
+  .dmg-pop.incoming{ color:#ff8a4a; }
+  .dmg-pop.incoming.crit{ color:#ff2a2a; }
   @keyframes dmgfloat{
     0%{ opacity:1; transform:translate(-50%,-50%) translateY(0); }
     100%{ opacity:0; transform:translate(-50%,-50%) translateY(-46px); }

@@ -847,7 +847,7 @@
              !state.invulnerable && !state.debugMode){
             const dmg = applyIncomingDamageMul(Math.max(6, Math.round(state.maxHp*0.07)));
             state.hp = Math.max(0, state.hp - dmg);
-            spawnDamagePopup(state.pos.clone(), dmg, false);
+            spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
             flashScreen();
             spawnToast('🌿 茨に挟まれた!');
             sfx('thorn');
@@ -883,7 +883,7 @@
     if(state.invulnerable || state.debugMode) return;
     const dmg = applyIncomingDamageMul(Math.max(3, Math.round(state.maxHp*0.035)));
     state.hp = Math.max(0, state.hp - dmg);
-    spawnDamagePopup(state.pos.clone(), dmg, false);
+    spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
     sfx('spore');
     if(state.hp<=0) triggerPlayerDown();
   }
@@ -981,7 +981,7 @@
         if(state.invulnerable || state.debugMode) return;
         const dmg = applyIncomingDamageMul(Math.max(6, Math.round(state.maxHp*0.09)));
         state.hp = Math.max(0, state.hp - dmg);
-        spawnDamagePopup(state.pos.clone(), dmg, false);
+        spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
         // flung outward, away from the pivot
         const ox = state.pos.x - h.cx, oz = state.pos.z - h.cz;
         const L = Math.hypot(ox, oz) || 1;

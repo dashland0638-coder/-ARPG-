@@ -31,7 +31,7 @@ import * as THREE from 'three';
     // 多重発火しないための短いクールダウン、perfectDodgeWindowTは反撃の
     // 猶予(この間に当てた次の一撃が強化される)。tryPerfectDodge()参照
     perfectDodgeWindowT:0, perfectDodgeCD:0,
-    comboStage:0, comboCount:0, comboWindowT:0, jumpAttacking:false, jumpAttackCD:0,
+    comboStage:0, comboCount:0, comboWindowT:0, comboWindowMax:0, comboLen:0, jumpAttacking:false, jumpAttackCD:0,
     invulnerable:false,
     paralyzed:false, paralyzeT:0, paralyzeInvulnT:0,
     waterwayColdTimerT:0, waterwayColdTimerFired:false, lastDefeatedBossKey:null, sortied:false, hasBossKey:false, sortieKills:0, checkpointUsed:false,
