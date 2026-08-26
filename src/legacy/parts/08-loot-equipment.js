@@ -513,15 +513,19 @@
       [new THREE.Vector3(304,0,32),   'armoury'],         // conservatory: 種子の保管庫 (branch)
       [new THREE.Vector3(236,0,70),   'supply'],          // conservatory: before the bloom
     ].filter(e=> worldKeyForPos(e[0])===_spawnWorldKey).map(e=> buildChest(e[0], false, e[1]));
+    // hp/atkは「他のモブとは一線を画す強さに」の要望を受け、同じダンジョンの
+    // strongMob付き雑魚より明確に上回る水準まで底上げしてある(旧値からhp×1.6・
+    // atk×1.35)。加えて突進の攻撃頻度を2倍にしてある(buildMimicChest参照)ので、
+    // 数値以上に体感の脅威度が上がっている
     const mimics = [
-      [new THREE.Vector3(65,0,-58), {color:0x6a2a3a, hp:110, atk:20, speed:2.6, xp:26, goldBonus:[10,16]}],   // crypt
-      [new THREE.Vector3(35,0,113), {color:0x2c4a5a, hp:120, atk:22, speed:2.7, xp:35, goldBonus:[12,18]}],   // cargo hold
-      [new THREE.Vector3(-13.5,0,74), {color:0x3a5a4a, hp:105, atk:19, speed:2.5, xp:27, goldBonus:[10,16]}], // storage closet
-      [new THREE.Vector3(13.5,0,40), {color:0x8a6a2a, hp:140, atk:25, speed:2.8, xp:42, goldBonus:[15,22]}],  // treasury - the biggest pile is never real
-      [new THREE.Vector3(-40,0,122), {color:0x4a6a8a, hp:130, atk:23, speed:2.6, xp:38, goldBonus:[13,19]}],  // boss chamber
-      [new THREE.Vector3(-117,0,-18), {color:0x3ac0a8, hp:125, atk:24, speed:2.7, xp:40, goldBonus:[14,20]}], // waterway specimen room
-      [new THREE.Vector3(146,0,-142), {color:0xc9a44a, hp:150, atk:28, speed:2.7, xp:48, goldBonus:[18,26]}],  // temple treasure vault - the shiniest pile is never real
-      [new THREE.Vector3(314,0,24), {color:0x7a2f4a, hp:300, atk:52, speed:2.7, xp:150, goldBonus:[34,50]}],  // seed vault - the same trick, one tier up
+      [new THREE.Vector3(65,0,-58), {color:0x6a2a3a, hp:176, atk:27, speed:2.6, xp:26, goldBonus:[10,16]}],   // crypt
+      [new THREE.Vector3(35,0,113), {color:0x2c4a5a, hp:192, atk:30, speed:2.7, xp:35, goldBonus:[12,18]}],   // cargo hold
+      [new THREE.Vector3(-13.5,0,74), {color:0x3a5a4a, hp:168, atk:26, speed:2.5, xp:27, goldBonus:[10,16]}], // storage closet
+      [new THREE.Vector3(13.5,0,40), {color:0x8a6a2a, hp:224, atk:34, speed:2.8, xp:42, goldBonus:[15,22]}],  // treasury - the biggest pile is never real
+      [new THREE.Vector3(-40,0,122), {color:0x4a6a8a, hp:208, atk:31, speed:2.6, xp:38, goldBonus:[13,19]}],  // boss chamber
+      [new THREE.Vector3(-117,0,-18), {color:0x3ac0a8, hp:200, atk:32, speed:2.7, xp:40, goldBonus:[14,20]}], // waterway specimen room
+      [new THREE.Vector3(146,0,-142), {color:0xc9a44a, hp:240, atk:38, speed:2.7, xp:48, goldBonus:[18,26]}],  // temple treasure vault - the shiniest pile is never real
+      [new THREE.Vector3(314,0,24), {color:0x7a2f4a, hp:480, atk:70, speed:2.7, xp:150, goldBonus:[34,50]}],  // seed vault - the same trick, one tier up
     ];
     mimics.filter(m=> worldKeyForPos(m[0])===_spawnWorldKey).forEach(m=> buildMimicChest(m[0], m[1]));
   }
@@ -607,6 +611,11 @@
     const mon = buildEnemy(pos, Object.assign({atkType:'charge'}, monsterVariant, {
       speed: Math.max(2.6, monsterVariant.speed||0),
     }));
+    // 他のモブとは一線を画す強さにする2点: 突進の再挑戦間隔を半分にして
+    // 攻撃頻度を2倍にする(updateChargerAI参照)のと、撃破時ドロップを
+    // 確定良ドロップにする目印(finishEnemyDeath参照)
+    mon.chargeCooldownOverride = 1.2;
+    mon.isMimicMonster = true;
     buildMimicVisual(mon);
     mon.dormant = true;
     mon.group.visible = false;
