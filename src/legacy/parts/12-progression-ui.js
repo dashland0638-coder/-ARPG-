@@ -1259,6 +1259,11 @@
   const STAMINA_COST = { dodge: 22, jump: 18, parry: 0 };  // parryは将来の拡張枠(未実装)
   const STAMINA_REGEN_DELAY = 0.5;
   const STAMINA_REGEN_RATE = 28;
+  // 溜め攻撃(攻撃ボタン長押し、state.charging)は今まで無料だった。
+  // 毎秒この分だけ継続的に消費するようにし、最大まで溜め切る(chargeMax=1.1秒)
+  // とドッジ1回分(22)とほぼ同じ重さになるよう調整してある。「無限に溜めて
+  // 待つ」を牽制しつつ、スタミナをドッジと奪い合う資源にする狙い
+  const CHARGE_STAMINA_DRAIN_RATE = 20;
   // スフィア「俊敏の心得」でスタミナ消費が下がる(下限は基礎コストの40%)
   function effectiveStaminaCost(kind){
     const base = STAMINA_COST[kind]||0;

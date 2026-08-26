@@ -113,6 +113,19 @@
     }
     if(state.charging){
       state.chargeT = Math.min(state.chargeMax, state.chargeT + dt);
+      // スタミナ切れ: 構えを維持できず、その時点の溜め具合で強制的に技を放つ
+      // (溜めた分を無駄にはしない。ドッジで既にスタミナを使い切っていた場合の
+      // フォールバックとして自然に機能する)
+      const mul = Math.max(0.4, 1 + sphereValue('staminaCostMul'));
+      state.stamina = Math.max(0, state.stamina - CHARGE_STAMINA_DRAIN_RATE*mul*dt);
+      state.staminaRegenDelayT = STAMINA_REGEN_DELAY;
+      if(state.stamina<=0){
+        attackHeldStart = null;
+        state.charging = false;
+        releaseChargeAttack();
+        state.chargeT = 0;
+        state.chargeCD = 0.7;
+      }
     }
     if(state.skillCharging){
       state.skillChargeT = Math.min(state.skillChargeMax, state.skillChargeT + dt);
