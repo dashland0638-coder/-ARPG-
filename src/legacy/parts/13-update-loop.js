@@ -1078,9 +1078,27 @@
     else { l.color.setHex(color); l.intensity = intensity; l.distance = dist; }
     return l;
   }
+  // 非必須な演出専用: プールが空なら新規作成せずnullを返す(呼び出し側は
+  // 光なしで見た目を続行する)。ヒットスパークのように、1フレームに多数の
+  // 敵をまとめて殴るAOEで同時発生しうる演出はこちらを使う - takeLight()の
+  // ように新規PointLightで穴埋めすると、その瞬間だけでもシーンのライト数が
+  // プールの想定ピークを超え、全マテリアルのシェーダ再コンパイル
+  // (prewarmLightPoolの導入理由そのもの)を再び引き起こしてしまうため
+  function tryTakeLight(color, intensity, dist){
+    const l = lightPool.pop();
+    if(!l) return null;
+    l.color.setHex(color); l.intensity = intensity; l.distance = dist;
+    return l;
+  }
   function giveLight(l){
     l.intensity = 0;
     if(lightPool.length < LIGHT_POOL_SIZE) lightPool.push(l);
+    // プール超過分(takeLight()が新規作成した分)はここで実際にシーンから
+    // 取り除く。捨てずに残すと intensity=0 でも点光源としてカウントされ続け、
+    // 以後ずっとシェーダのライト数が高いままになってしまう(魔法職の範囲
+    // スキルで多数の敵に同時ヒットした後、体感のカクツキが戻らなくなる
+    // 症状の原因だった)
+    else scene.remove(l);
   }
 
   // A small ring of materials, reused in rotation. Opacity animates per burst,
@@ -1280,8 +1298,11 @@
       m.scale.set(1,1,1);
       bits.push({mesh:m, vx:Math.sin(a)*sp, vy:up*3, vz:Math.cos(a)*sp});
     }
-    const glow = takeLight(col, 2.2*power, 5.5);
-    glow.position.copy(pos);
+    // tryTakeLight(): 範囲スキルで多数の敵に同時ヒットしてプールを使い切って
+    // いても、演出を続けるためだけに新規ライトを増やさない(下のコメント参照)。
+    // 光が付かないヒットスパークが稀に混ざるだけで、視覚的にはほぼ気づかれない
+    const glow = tryTakeLight(col, 2.2*power, 5.5);
+    if(glow) glow.position.copy(pos);
     sparks.push({bits, glow, mat, pool:sparkPool, t:0, life:0.34, peak:2.2*power});
   }
   function updateSparks(dt){
