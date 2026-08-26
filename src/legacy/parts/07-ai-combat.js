@@ -93,7 +93,7 @@
       {pos:new THREE.Vector3(65,0,-45), variant:{color:0x8a3a5a, hp:85, atk:18, speed:2.7, atkType:'charge', xp:24, goldBonus:[8,14]}},
       {pos:new THREE.Vector3(75,0,-35), variant:{color:0x5fcf7a, hp:55, atk:13, speed:0.7, atkType:'fire', xp:23, goldBonus:[8,14]}},
       // basement -> crypt (deeper room beyond the cellar door)
-      {pos:new THREE.Vector3(70,0,-64), variant:{color:0x6a2a7a, hp:120, atk:22, speed:2.9, atkType:'charge', xp:34, goldBonus:[12,18], strongMob:true}},
+      {pos:new THREE.Vector3(70,0,-64), variant:{color:0x6a2a7a, hp:120, atk:22, speed:2.9, atkType:'charge', xp:34, goldBonus:[12,18], strongMob:true, guardian:true}},
       // 2F study (bonus vault)
       {pos:new THREE.Vector3(-65,0,-45), variant:{color:0x8a5a2a, hp:85, atk:17, speed:2.7, atkType:'charge', xp:24, goldBonus:[8,14]}},
       {pos:new THREE.Vector3(-75,0,-35), variant:{color:0xd06a2a, hp:55, atk:13, speed:0.7, atkType:'fire', xp:23, goldBonus:[8,14]}},
@@ -130,7 +130,7 @@
       {pos:new THREE.Vector3(-106,0,6),   variant:{color:0x4ac8b8, hp:149, atk:30, speed:0.8, atkType:'fire', xp:61, goldBonus:[11,17], projColor:0x9a6ae0, isElectric:true}},
       {pos:new THREE.Vector3(-94,0,17),   variant:{color:0x8a5ad0, hp:158, atk:32, speed:2.6, atkType:'charge', xp:63, goldBonus:[11,17], isElectric:true}},
       {pos:new THREE.Vector3(-120,0,-15), variant:{color:0x4ac8b8, hp:166, atk:34, speed:0.8, atkType:'fire', xp:66, goldBonus:[12,18], projColor:0x9a6ae0, isElectric:true}},
-      {pos:new THREE.Vector3(-110,0,-26), variant:{color:0x6a5ad0, hp:192, atk:37, speed:2.7, atkType:'charge', xp:72, goldBonus:[13,19], isElectric:true, strongMob:true}},
+      {pos:new THREE.Vector3(-110,0,-26), variant:{color:0x6a5ad0, hp:192, atk:37, speed:2.7, atkType:'charge', xp:72, goldBonus:[13,19], isElectric:true, strongMob:true, guardian:true}},
       {pos:new THREE.Vector3(-119,0,-49), variant:{color:0x4ac8b8, hp:175, atk:35, speed:0.8, atkType:'fire', xp:68, goldBonus:[12,18], projColor:0x9a6ae0, isElectric:true}},
       {pos:new THREE.Vector3(-122,0,-78), variant:{color:0x4ac8b8, hp:184, atk:37, speed:0.8, atkType:'fire', xp:72, goldBonus:[13,19], projColor:0x9a6ae0, isElectric:true}},
       {pos:new THREE.Vector3(-114,0,-86), variant:{color:0x8a5ad0, hp:201, atk:38, speed:2.7, atkType:'charge', xp:76, goldBonus:[13,19], isElectric:true}},
@@ -145,7 +145,7 @@
       {pos:new THREE.Vector3(-46,0,-176), variant:{color:0xb08a3a, hp:115, atk:26, speed:0.8, atkType:'fire', xp:46, goldBonus:[14,20], projColor:0xffd24a, roomTag:'templeHouse'}},
       {pos:new THREE.Vector3(-68,0,-164), variant:{color:0xc9a44a, hp:130, atk:27, speed:2.5, atkType:'charge', xp:46, goldBonus:[14,20], roomTag:'templeHouse'}},
       {pos:new THREE.Vector3(-46,0,-164), variant:{color:0xb08a3a, hp:115, atk:26, speed:0.8, atkType:'fire', xp:46, goldBonus:[14,20], projColor:0xffd24a, roomTag:'templeHouse'}},
-      {pos:new THREE.Vector3(-57,0,-170), variant:{color:0x8a6a2a, hp:190, atk:31, speed:2.6, atkType:'charge', xp:74, goldBonus:[20,30], strongMob:true, roomTag:'templeHouse'}},
+      {pos:new THREE.Vector3(-57,0,-170), variant:{color:0x8a6a2a, hp:190, atk:31, speed:2.6, atkType:'charge', xp:74, goldBonus:[20,30], strongMob:true, guardian:true, roomTag:'templeHouse'}},
       {pos:new THREE.Vector3(-57,0,-178), variant:{color:0xc9a44a, hp:130, atk:27, speed:2.5, atkType:'charge', xp:46, goldBonus:[14,20], roomTag:'templeHouse'}},
       {pos:new THREE.Vector3(11,0,-186), variant:{color:0xb08a3a, hp:115, atk:26, speed:0.8, atkType:'fire', xp:46, goldBonus:[14,20], projColor:0xffd24a}},
       {pos:new THREE.Vector3(69,0,-186), variant:{color:0xb08a3a, hp:115, atk:26, speed:0.8, atkType:'fire', xp:46, goldBonus:[14,20], projColor:0xffd24a}},
@@ -184,7 +184,7 @@
       {pos:new THREE.Vector3(-286,9,-50), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'charge', xp:58, goldBonus:[17,25]}},
       {pos:new THREE.Vector3(-244,9,-60), variant:{color:0x6a8a9a, hp:118, atk:30, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
       {pos:new THREE.Vector3(-212,9,-40), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'charge', xp:58, goldBonus:[17,25]}},
-      {pos:new THREE.Vector3(-232,9,-16), variant:{color:0x9a5a3a, hp:225, atk:34, speed:2.4, atkType:'charge', xp:102, goldBonus:[28,40], strongMob:true}},
+      {pos:new THREE.Vector3(-232,9,-16), variant:{color:0x9a5a3a, hp:225, atk:34, speed:2.4, atkType:'charge', xp:102, goldBonus:[28,40], strongMob:true, guardian:true}},
       // sealed 'towerHouse2'
       {pos:new THREE.Vector3(-306,9,-20), variant:{color:0x8a7a4a, hp:138, atk:29, speed:2.6, atkType:'charge', xp:60, goldBonus:[18,26], roomTag:'towerHouse2'}},
       {pos:new THREE.Vector3(-280,9,-20), variant:{color:0x8a7a4a, hp:138, atk:29, speed:2.6, atkType:'charge', xp:60, goldBonus:[18,26], roomTag:'towerHouse2'}},
@@ -210,7 +210,7 @@
       {pos:new THREE.Vector3(212,0,-40), variant:{color:0x6f9c4a, hp:240, atk:48, speed:0.9, atkType:'fire', xp:118, goldBonus:[26,40], projColor:11075418}},
       {pos:new THREE.Vector3(246,0,-52), variant:{color:0x4f7a3a, hp:270, atk:46, speed:2.6, atkType:'charge', xp:118, goldBonus:[26,40]}},
       {pos:new THREE.Vector3(280,0,-38), variant:{color:0x6f9c4a, hp:240, atk:48, speed:0.9, atkType:'fire', xp:118, goldBonus:[26,40], projColor:11075418}},
-      {pos:new THREE.Vector3(308,0,-50), variant:{color:0x8a9c3a, hp:330, atk:51, speed:2.5, atkType:'charge', xp:148, goldBonus:[32,48], strongMob:true}},
+      {pos:new THREE.Vector3(308,0,-50), variant:{color:0x8a9c3a, hp:330, atk:51, speed:2.5, atkType:'charge', xp:148, goldBonus:[32,48], strongMob:true, guardian:true}},
       {pos:new THREE.Vector3(292,0,-2), variant:{color:0x6f9c4a, hp:250, atk:49, speed:0.9, atkType:'fire', xp:124, goldBonus:[27,42], projColor:11075418}},
       {pos:new THREE.Vector3(314,0,-18), variant:{color:0x4f7a3a, hp:275, atk:47, speed:2.7, atkType:'charge', xp:124, goldBonus:[27,42]}},
       // sealed room 'consVine'
@@ -1629,6 +1629,15 @@
     if(en.guardT > 0){
       amount = Math.max(1, Math.round(amount * 0.25));   // braced: mostly turned aside
     }
+    // ガード持ち雑魚(en.guardian): ボスのguardTのような一時的な身構えでは
+    // なく常時ガードしている雑魚タイプ。体幹を崩す(ダウンさせる)までは
+    // 近接・遠隔問わずダメージの2割程度しか通らない。体幹ゲージ自体は
+    // amountでなくstaggerMulで貯まるので、ガード中でも殴り続ければ確実に
+    // 崩せる ―― 「崩さないと稼げない」ではなく「崩すまで我慢が要る」設計
+    const guardAbsorbed = en.guardian && !en.knockedDown;
+    if(guardAbsorbed){
+      amount = Math.max(1, Math.round(amount * 0.2));
+    }
     if(en.knockedDown){
       amount = Math.round(amount * 1.4);   // ダウン中は追撃ボーナス。畳み掛ける動機を作る
     }
@@ -1668,13 +1677,17 @@
     }
     // the burst sprays away from the attacker, along the line of the blow
     const away = from.lengthSq() > 0.0001 ? {x:-from.x, z:-from.z} : null;
-    spawnHitSpark(contact, isAlly ? 0x8fd9ff : 0xffe6a0, weight, away);
-    sfx(weight > 1.5 || en.isBoss ? 'bigHit' : 'hit', {weight, material: materialOf(en)});
+    // ガードで弾かれた一撃は、通常のヒットスパークとは違うと一目で
+    // 分かるよう金属質な色にし、効果音も'metal'素材で鳴らして「弾かれた」
+    // 感触を出す(実際の敵の材質に関係なく、ガード中はこちらを優先する)
+    spawnHitSpark(contact, guardAbsorbed ? 0xdfe8ff : (isAlly ? 0x8fd9ff : 0xffe6a0), weight, away);
+    sfx(weight > 1.5 || en.isBoss ? 'bigHit' : 'hit', {weight, material: guardAbsorbed ? 'metal' : materialOf(en)});
     if(!isAlly){
       hitStop(en.isBoss ? 0.022 : 0.016);
       addShake(en.isBoss ? 0.09 : 0.06);
-      // knockback: light mobs get shoved, bosses barely register it
-      if(from.lengthSq() > 0.0001 && !en.isBoss){
+      // knockback: light mobs get shoved, bosses barely register it。
+      // ガード中の雑魚も「据わっている」感触を出すため弾かない
+      if(from.lengthSq() > 0.0001 && !en.isBoss && !guardAbsorbed){
         const push = en.strongMob ? 0.16 : 0.32;
         en.group.position.addScaledVector(from, -push * weight);
       }
