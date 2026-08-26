@@ -662,6 +662,7 @@
     // it would just be a dark disc.
     if(playerMixerParts.ring) playerMixerParts.ring.userData.noOutline = true;
     addOutline(group);
+    addXrayShell(group);   // visible through walls/terrain when they occlude the player
 
     group.position.set(0,0,4);
     group.castShadow = true;
@@ -1426,6 +1427,10 @@
     // gear on twenty enemies at once costs far more than it reads.
     addOutline(g, {rim:false, filter:n=> n === body || n === head || n === snout ||
                                           M.legs.some(l=> l.children.indexOf(n) >= 0)});
+    // same "big forms only" filter as the outline above - a full silhouette
+    // per rag/fin on a screen full of enemies isn't worth the draw calls
+    addXrayShell(g, {filter:n=> n === body || n === head || n === snout ||
+                                 M.legs.some(l=> l.children.indexOf(n) >= 0)});
 
     if(variant.strongMob) g.scale.setScalar(1.5); // visually larger, doesn't affect hitboxes
 
@@ -1847,6 +1852,7 @@
     g.position.copy(pos);
     scene.add(g);
     addOutline(g);   // a boss is the thing you must be able to read
+    addXrayShell(g); // ...including when a pillar or wall gets between you
 
     return {
       group:g, body, parts,

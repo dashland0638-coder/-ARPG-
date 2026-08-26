@@ -415,6 +415,96 @@
     });
   }
 
+  /* X-ray silhouette: a translucent yellow shell that only ever draws where
+     something else (a wall, a door, terrain) is already nearer to the
+     camera at that pixel - i.e. exactly the parts of this character a wall
+     is currently hiding. depthFunc GreaterDepth is the trick: normally the
+     depth test keeps the *nearer* fragment (LessEqual), so a shell drawn
+     behind a wall just fails the test and never shows. Flipping to
+     "greater" inverts that - the shell only passes where the depth buffer
+     already holds something CLOSER than it, which can only be true where
+     an occluder is in front. Sharing the target's own geometry (like
+     addOutline above) means this costs one extra draw call per targeted
+     mesh, no new geometry.
+
+     First pass at this rendered the shell on top of the character all the
+     time, occluded or not - GreaterDepth relies on the shell's own depth
+     tying with the opaque body's depth at every unoccluded pixel, but the
+     unlit shell material and the body's own lit material are different
+     shader programs, and two different programs computing "the same"
+     transform can round gl_Position.z to slightly different floats. Where
+     that rounding happened to land the shell a hair *farther* than the
+     body it sits on, GreaterDepth read it as occluded and drew it anyway -
+     the whole reason "twenty enemies at once" all looked jaundiced.
+
+     The usual fix is a polygonOffset bias, which turned out unreliable
+     here specifically: this camera's near/far planes are 0.1/500, a
+     5000:1 ratio, which makes the depth buffer's precision wildly
+     non-uniform with distance - an offset large enough to win up close
+     (tried -4, then -100) was still nowhere near enough to matter at
+     typical play distance, where most of the buffer's precision has
+     already been spent on the near field. Biasing in view-space Z instead
+     (see XRAY_VS below) sidesteps that non-linearity, but even so the
+     margin has to be a genuinely large chunk of a world unit (3.0, found
+     empirically - 0.015 and 0.5 both still showed the shell everywhere,
+     2.0 was the first value that reliably hid it) precisely because so
+     little of the depth buffer's precision survives out at gameplay
+     range. The shell ends up biased noticeably closer to the camera than
+     the body it's shadowing, which is a non-issue for a soft translucent
+     silhouette whose whole point is "something is roughly here", not a
+     precise outline. */
+  const XRAY_VS = [
+    'uniform float uShrink;',
+    'void main(){',
+    // biasing along the surface normal isn't reliable here - whether
+    // "inward" means toward or away from the camera depends on which way
+    // that particular vertex's normal happens to face, which flips across
+    // the character. Pushing along view-space Z instead is orientation-
+    // independent: the camera always looks down -Z in view space, so
+    // increasing z (making it less negative) moves any vertex closer to
+    // the camera regardless of which way it faces.
+    '  vec4 viewPos = modelViewMatrix * vec4(position, 1.0);',
+    '  viewPos.z += uShrink;',
+    '  gl_Position = projectionMatrix * viewPos;',
+    '}'
+  ].join('\n');
+  const XRAY_FS = [
+    'uniform vec3 uColor;',
+    'uniform float uOpacity;',
+    'void main(){ gl_FragColor = vec4(uColor, uOpacity); }'
+  ].join('\n');
+  let _xrayMat = null;
+  function xrayMat(){
+    if(!_xrayMat){
+      _xrayMat = new THREE.ShaderMaterial({
+        uniforms: {uShrink:{value:3.0}, uColor:{value:new THREE.Color(0xffe066)}, uOpacity:{value:0.08}},
+        vertexShader: XRAY_VS,
+        fragmentShader: XRAY_FS,
+        transparent: true,
+        depthTest: true, depthFunc: THREE.GreaterDepth, depthWrite: false,
+        side: THREE.DoubleSide, fog: false,
+      });
+    }
+    return _xrayMat;
+  }
+  function addXrayShell(root, opts){
+    opts = opts || {};
+    const mat = xrayMat();
+    const targets = [];
+    root.traverse(n=>{
+      if(!n.isMesh || n.userData.isOutline || n.userData.isXray || n.userData.noOutline) return;
+      if(opts.filter && !opts.filter(n)) return;
+      targets.push(n);
+    });
+    targets.forEach(m=>{
+      const shell = new THREE.Mesh(m.geometry, mat);
+      shell.userData.isXray = true;
+      shell.castShadow = false;
+      shell.receiveShadow = false;
+      m.add(shell);
+    });
+  }
+
   /* The dark contour is a dot-mode device: at full resolution a hard black
      line around everything looks like a filter. The bright rim earns its
      place either way - it is what lifts a character off ground of the same
