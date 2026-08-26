@@ -229,12 +229,14 @@
     // ...then settles to chest height, so it crosses the room at the height
     // of the things it is meant to hit
     mesh.position.y = state.pos.y + 1.15;
-    const glow = new THREE.PointLight(variant.vfxColor, 1.4, 6);
-    mesh.add(glow);
+    // pooled via takeLight (see its comment) - not a child of the mesh, so
+    // removing/reusing the orb never changes the scene's light count
+    const glow = takeLight(variant.vfxColor, 1.4, 6);
+    glow.position.copy(mesh.position);
     scene.add(mesh);
     const speed = variant.orbSpeed || 11;
     const range = variant.orbRange || 15;
-    projectiles.push({mesh, dir: dir.clone(), speed, life: range/speed, dmg, isChargeOrb:true, hitRadius: radius});
+    projectiles.push({mesh, light: glow, dir: dir.clone(), speed, life: range/speed, dmg, isChargeOrb:true, hitRadius: radius});
   }
 
   function findRangedTargetInLine(fwd, length, width){
@@ -842,6 +844,7 @@
         }
       }
       p.mesh.position.addScaledVector(p.dir, p.speed*dt);
+      if(p.light) p.light.position.copy(p.mesh.position);   // borrowed from the pool, not a child of the mesh - see spawnProjectileSingle()
       p.life -= dt;
 
       let hitWall = false;
@@ -850,14 +853,14 @@
           hitWall = true; break;
         }
       }
-      if(hitWall){ scene.remove(p.mesh); projectiles.splice(i,1); continue; }
+      if(hitWall){ scene.remove(p.mesh); if(p.light) giveLight(p.light); projectiles.splice(i,1); continue; }
 
       if(p.hostile){
         const flatPlayerPos = new THREE.Vector3(state.pos.x, p.mesh.position.y, state.pos.z);
         const d = p.mesh.position.distanceTo(flatPlayerPos);
         if(d < 0.75 && Math.abs(p.mesh.position.y - state.pos.y) < 1.8 &&
            !state.invulnerable && state.paralyzeInvulnT<=0){
-          scene.remove(p.mesh); projectiles.splice(i,1);
+          scene.remove(p.mesh); if(p.light) giveLight(p.light); projectiles.splice(i,1);
           if(!tryConsumeOrbShield()){
             const dmg = applyIncomingDamageMul(state.debugMode ? 0 : p.dmg);
             state.hp = Math.max(0, state.hp - dmg);
@@ -894,7 +897,7 @@
         });
         if(hitAny){
           spawnUltimateVFX(p.mesh.position.clone(), {radius:p.hitRadius, vfxColor:p.mesh.material.color.getHex()});
-          scene.remove(p.mesh); projectiles.splice(i,1); continue;
+          scene.remove(p.mesh); if(p.light) giveLight(p.light); projectiles.splice(i,1); continue;
         }
       } else {
         let hit = false;
@@ -929,10 +932,10 @@
             }
           }
         }
-        if(hit){ scene.remove(p.mesh); projectiles.splice(i,1); continue; }
+        if(hit){ scene.remove(p.mesh); if(p.light) giveLight(p.light); projectiles.splice(i,1); continue; }
       }
 
-      if(p.life<=0){ scene.remove(p.mesh); projectiles.splice(i,1); }
+      if(p.life<=0){ scene.remove(p.mesh); if(p.light) giveLight(p.light); projectiles.splice(i,1); }
     }
   }
 
@@ -1035,16 +1038,49 @@
     scene.remove(m);
     if(pool.length < 160) pool.push(m);
   }
+  /* Point lights are pooled by object reuse, but the first version of this
+     fix only stopped take/giveLight from calling scene.add()/scene.remove()
+     per borrow - it still let the pool grow lazily, one new PointLight at a
+     time, the first time concurrent demand exceeded whatever peak it had
+     hit so far. WebGL forward lighting bakes the active light count into
+     every material's shader (as a #define), so each time that count reaches
+     a value it has never been at before, three.js has to compile a fresh
+     shader for every distinct material the renderer touches next - a real
+     GPU stall, confirmed empirically via direct WebGL linkProgram
+     instrumentation. Lazily growing the pool just meant that stall kept
+     recurring: every time a fight produced a slightly bigger burst of
+     simultaneous arrows/sparks/orbs than any before it, the pool hit a new
+     peak and the game re-paid the recompile cost - i.e. "happens often, not
+     just once", exactly matching the reported symptom. The real fix is to
+     pre-warm the whole pool to its cap at boot (prewarmLightPool, called
+     from initThree once the scene exists), so the light count the renderer
+     sees is fixed from frame one and never has a new peak to discover. */
+  // Every one of these stays live in the scene for the rest of the game
+  // (see prewarmLightPool below), so its per-fragment cost is paid on every
+  // material, every frame, all game long - not just during the burst that
+  // needs it. 12 was carried over from the old lazy cap without checking
+  // that cost: pre-warming all 12 measured out to roughly double real-world
+  // build/frame time in this environment's software renderer, for headroom
+  // far past what combat actually uses (empirically ~4 concurrent VFX
+  // lights in a sustained rapid-fire burst - see spawnProjectileSingle's
+  // comment). Sized to that measured peak plus a small margin instead.
+  const LIGHT_POOL_SIZE = 6;
+  function prewarmLightPool(){
+    for(let i=0;i<LIGHT_POOL_SIZE;i++){
+      const l = new THREE.PointLight(0xffffff, 0, 1);
+      scene.add(l);
+      lightPool.push(l);
+    }
+  }
   function takeLight(color, intensity, dist){
     let l = lightPool.pop();
-    if(!l) l = new THREE.PointLight(color, intensity, dist);
+    if(!l){ l = new THREE.PointLight(color, intensity, dist); scene.add(l); }
     else { l.color.setHex(color); l.intensity = intensity; l.distance = dist; }
-    scene.add(l);
     return l;
   }
   function giveLight(l){
-    scene.remove(l);
-    if(lightPool.length < 12) lightPool.push(l);
+    l.intensity = 0;
+    if(lightPool.length < LIGHT_POOL_SIZE) lightPool.push(l);
   }
 
   // A small ring of materials, reused in rotation. Opacity animates per burst,

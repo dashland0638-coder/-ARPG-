@@ -24,6 +24,10 @@
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0d1117);
     scene.fog = new THREE.FogExp2(0x0d1117, 0.014);
+    // fills the VFX light pool (see takeLight/giveLight below) to its cap right
+    // away, so the scene's active point-light count never changes again after
+    // this - see the comment on prewarmLightPool for why that matters
+    prewarmLightPool();
 
     camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 500);
 

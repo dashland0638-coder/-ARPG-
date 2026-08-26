@@ -345,9 +345,15 @@
     if(state.classDef.key==='archer'){
       mesh.rotation.y = facing; // +Z now matches dir at every facing angle
     }
-    // 段階が進むほど輝きが強くなる後光(魔法使いは魔力の輝き、弓師は矢の煌めき)
-    const glow = new THREE.PointLight(state.classDef.atkColorHex, st.glow, 2.6 + st.scale);
-    mesh.add(glow);
+    // 段階が進むほど輝きが強くなる後光(魔法使いは魔力の輝き、弓師は矢の煌めき)。
+    // takeLight()のプールから借りる - meshの子にせず(=シーングラフに出入り
+    // させず)、updateProjectiles()で毎フレーム座標だけ追従させる。以前は
+    // 発射のたびnew THREE.PointLight()してmeshの子にしていたため、矢が
+    // 消えるたびにシーンの点光源の数が変わり、その都度マテリアルの
+    // シェーダー再コンパイルが走っていた(連射中の一斉重量落ちの原因-
+    // takeLight/giveLightのコメント参照)
+    const glow = takeLight(state.classDef.atkColorHex, st.glow, 2.6 + st.scale);
+    glow.position.copy(mesh.position);
     scene.add(mesh);
     // arrows get a noticeably larger hit radius - the archer's whole identity
     // is landing shots at range, so it shouldn't feel finicky
@@ -356,7 +362,9 @@
     // 3連射は1発ごとのダメージを抑える(合計で妥当な威力になるよう)
     const volleyMul = opts.volley ? 0.6 : 1;
     const dmg = Math.round(baseDmg * (opts.dmgMul || 1) * volleyMul);
-    const proj = {mesh, dir, speed:20*st.speedMul, life:2.2, hitR, dmg, staggerMul: opts.staggerMul, ultGauge: opts.ultGauge};
+    // life*speed is the effective range (~44 at speedMul 1 before this) -
+    // shortened a bit per feedback that arrows/bolts carried too far
+    const proj = {mesh, light: glow, dir, speed:20*st.speedMul, life:1.6, hitR, dmg, staggerMul: opts.staggerMul, ultGauge: opts.ultGauge};
     // 魔法使いのフィニッシュ: 貫通弾(roadmap「杖: 魔弾→貫通弾」)
     if(opts.pierce){ proj.pierce = true; proj.pierceLeft = 3; proj.pierceHitSet = new Set(); }
     projectiles.push(proj);
@@ -501,13 +509,17 @@
     [-1, 1].forEach(side=>{
       const orbMat = new THREE.MeshStandardMaterial({color:0x9a6ae0, emissive:0x8a5ad0, emissiveIntensity:0.7, roughness:0.3});
       const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22,10,10), orbMat);
-      const glow = new THREE.PointLight(0x9a6ae0, 0.5, 4);
-      mesh.add(glow);
+      // pooled via takeLight (see its comment), not a child of the mesh -
+      // this orb hangs around and gets consumed/thrown far more than a
+      // regular shot, so a raw per-cast light here was another source of
+      // the same shader-recompile stutter
+      const glow = takeLight(0x9a6ae0, 0.5, 4);
       const spawnPos = state.pos.clone().addScaledVector(right, side*0.9).addScaledVector(fwd, 0.8);
       spawnPos.y = state.pos.y + 1.3;   // relative: the floor is not always y=0
       mesh.position.copy(spawnPos);
+      glow.position.copy(mesh.position);
       scene.add(mesh);
-      state.mageOrbs.push({mesh, side, target:null, charging:false});
+      state.mageOrbs.push({mesh, light: glow, side, target:null, charging:false});
     });
   }
 
@@ -524,6 +536,7 @@
           .addScaledVector(fwd, 0.8);
         hoverPos.y = state.pos.y + 1.3;
         orb.mesh.position.lerp(hoverPos, 0.15);
+        orb.light.position.copy(orb.mesh.position);
         // look for a nearby enemy to lock onto
         let nearest = null, nearestD = 3;   // was 6 - locked on from much too far
         enemies.forEach(en=>{
@@ -536,15 +549,18 @@
       } else {
         if(!orb.target || orb.target.dead){
           scene.remove(orb.mesh);
+          giveLight(orb.light);
           state.mageOrbs.splice(i,1);
           continue;
         }
         orb.mesh.position.lerp(orb.target.group.position, 0.12);  // was 0.35 - closed distance far too fast
+        orb.light.position.copy(orb.mesh.position);
         if(orb.mesh.position.distanceTo(orb.target.group.position) < 1){
           const dmg = Math.round(state.classDef.atk*1.4) + Math.round(Math.random()*5);
           dealDamageToEnemy(orb.target, dmg, false);
           spawnUltimateVFX(orb.mesh.position.clone(), {radius:2.2, vfxColor:0x9a6ae0});
           scene.remove(orb.mesh);
+          giveLight(orb.light);
           state.mageOrbs.splice(i,1);
         }
       }
@@ -556,6 +572,7 @@
     if(state.mageOrbs.length===0) return false;
     const orb = state.mageOrbs.shift();
     scene.remove(orb.mesh);
+    giveLight(orb.light);
     spawnToast('🔮 魔球が身代わりになった!');
     return true;
   }

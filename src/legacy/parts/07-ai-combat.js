@@ -722,10 +722,13 @@
     const startPos = en.group.position.clone(); startPos.y += 0.9;
     mesh.position.copy(startPos);
     const dir = new THREE.Vector3().subVectors(state.pos, en.group.position); dir.y=0; dir.normalize();
-    const glow = new THREE.PointLight(color, 1, 3.5);
-    mesh.add(glow);
+    // pooled, not a child of the mesh - see the comment on takeLight() in
+    // 13-update-loop.js for why (dynamically adding/removing point lights
+    // forces a shader recompile on every lit material in the scene)
+    const glow = takeLight(color, 1, 3.5);
+    glow.position.copy(mesh.position);
     scene.add(mesh);
-    projectiles.push({mesh, dir, speed:10, life:3, dmg:en.atk, hostile:true, isElectric:!!en.isElectric});
+    projectiles.push({mesh, light: glow, dir, speed:10, life:3, dmg:en.atk, hostile:true, isElectric:!!en.isElectric});
   }
 
   // damage helper shared by every boss special
@@ -1111,9 +1114,10 @@
           const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.34,8,8), mat);
           const from = en.group.position.clone(); from.y += 1.6;
           mesh.position.copy(from);
-          mesh.add(new THREE.PointLight(0x6fd1e6, 0.8, 4));
+          const glow = takeLight(0x6fd1e6, 0.8, 4);   // pooled - see takeLight()'s comment
+          glow.position.copy(mesh.position);
           scene.add(mesh);
-          projectiles.push({mesh, dir:d2, speed:13, life:3, dmg:Math.round(en.atk*0.8),
+          projectiles.push({mesh, light: glow, dir:d2, speed:13, life:3, dmg:Math.round(en.atk*0.8),
                             hostile:true, isElectric:true});
         });
         spawnToast('🌊 水を吐いた!');

@@ -1432,6 +1432,20 @@
         const eye = new THREE.Mesh(eyeGeo, eyeMat);
         eye.position.set(x, 3.55, 0.5); g.add(eye);
       });
+      // a hooked hand where a drowned captain's arm trails off into the
+      // shroud, and a scabbarded cutlass at the hip - the dialogue calls
+      // him barnacled and armed, neither of which the body alone showed
+      const hook = new THREE.Mesh(new THREE.TorusGeometry(0.16,0.045,6,10,Math.PI*1.4), trimMat);
+      hook.position.set(0.85, 2.55, 0.3); hook.rotation.set(0,0.3,Math.PI*0.65); g.add(hook);
+      const cutlass = new THREE.Mesh(new THREE.BoxGeometry(0.08,1.1,0.22), trimMat);
+      cutlass.position.set(-0.7, 2.2, 0.4); cutlass.rotation.z = 0.5; g.add(cutlass);
+      // barnacles: small pale bumps scattered on the body/shroud
+      const barnacleMat = new THREE.MeshStandardMaterial({color:0x9aa898, roughness:0.9});
+      const barnacleSpots = [[0.5,2.7,0.75],[-0.6,2.9,0.6],[0.3,1.9,0.85],[-0.35,1.6,0.7],[0.55,3.3,0.4]];
+      barnacleSpots.forEach(([x,y,z])=>{
+        const b = new THREE.Mesh(new THREE.SphereGeometry(0.09+Math.random()*0.05,6,5), barnacleMat);
+        b.position.set(x,y,z); g.add(b);
+      });
 
     } else if(cfg.key==='waterwayTurtle'){
       // --- TURTLE: wide domed shell, four stubby legs, long low neck ---
@@ -1453,14 +1467,27 @@
       // legs/neck lathed from the player's calf/forearm profiles instead of
       // barely-tapered cylinders - see the HUMANOID branch above for why
       const limbMat = applyBump(new THREE.MeshStandardMaterial({map: makeLeatherTexture('#1e5a4a', 3, 2), roughness:0.7}));
+      const clawGeo = new THREE.ConeGeometry(0.09,0.28,5);
       [[-1.3,1.3],[1.3,1.3],[-1.3,-1.3],[1.3,-1.3]].forEach(([x,z])=>{
         const leg = new THREE.Mesh(limbGeo(LIMB_PROFILE.calf, 0.46, 1.1, 8), limbMat);
         leg.position.set(x,0.55,z); leg.castShadow = true; g.add(leg);
+        // a bare rounded stump for a foot read as a leg cut off mid-air -
+        // three splayed claws give each leg something to actually stand on
+        [-0.16,0,0.16].forEach(dx=>{
+          const claw = new THREE.Mesh(clawGeo, trimMat);
+          claw.position.set(x+dx, 0.05, z + (z>0?0.2:-0.2));
+          claw.rotation.x = z>0 ? Math.PI*0.42 : -Math.PI*0.42;
+          g.add(claw);
+        });
       });
       const neck = new THREE.Mesh(limbGeo(LIMB_PROFILE.forearm, 0.44, 1.5, 8), limbMat);
       neck.position.set(0,1.5,1.9); neck.rotation.x = 0.85; g.add(neck);
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.62,12,10), limbMat);
       head.position.set(0,2.0,2.6); head.castShadow = true; g.add(head);
+      // beak: without it the head was just a smooth ball, indistinguishable
+      // from the shell plates at a glance
+      const beak = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.5,6), trimMat);
+      beak.position.set(0, 1.94, 3.14); beak.rotation.x = Math.PI/2; g.add(beak);
       [-0.24,0.24].forEach(x=>{
         const eye = new THREE.Mesh(eyeGeo, eyeMat);
         eye.position.set(x, 2.15, 3.1); g.add(eye);
@@ -1491,21 +1518,37 @@
         const leg = new THREE.Mesh(new THREE.BoxGeometry(0.95,1.4,1.0), stoneMat);
         leg.position.set(x,0.7,0); leg.castShadow = true; g.add(leg);
       });
-      // no head: a single carved rune-eye set into the chest slab
+      // no head: a carved rune-eye set into the chest slab, with a glowing
+      // crystal core behind it - the flat rune alone read as a decal on a
+      // stone box rather than something with the boss's power inside it
       const eye = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.22,0.1), runeMat);
       eye.position.set(0, 3.3, 0.98); g.add(eye);
+      const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32,0), new THREE.MeshStandardMaterial({
+        color:cfg.eyeColor, emissive:cfg.eyeColor, emissiveIntensity:0.9, roughness:0.25, flatShading:true}));
+      core.position.set(0, 2.7, 1.02); g.add(core);
       for(let i=0;i<3;i++){
         const band = new THREE.Mesh(new THREE.BoxGeometry(2.0,0.12,0.08), runeMat);
         band.position.set(0, 1.9 + i*0.45, 0.96); g.add(band);
       }
-      // orbiting masonry, animated later
+      // corner chips: small dark notches let into the body/shoulder edges,
+      // so the stone reads as broken/weathered instead of factory-cut
+      const chipMat = new THREE.MeshStandardMaterial({color:0x1a1712, roughness:0.95});
+      const chipSpots = [[-1.35,3.9,0.7],[1.55,4.0,-0.6],[-1.0,1.7,0.85],[0.95,3.6,0.85],[-1.85,2.4,0.4]];
+      chipSpots.forEach(([x,y,z])=>{
+        const chip = new THREE.Mesh(new THREE.BoxGeometry(0.22+Math.random()*0.16,0.18+Math.random()*0.14,0.16), chipMat);
+        chip.position.set(x,y,z); chip.rotation.y = Math.random()*Math.PI; g.add(chip);
+      });
+      // orbiting masonry, animated later - irregular sizes/proportions
+      // instead of uniform cubes, so it reads as rubble rather than blocks
       const halo = new THREE.Group();
       halo.position.y = 4.6; g.add(halo);
       const shards = [];
+      const shardSizes = [[0.6,0.6,0.6],[0.42,0.7,0.5],[0.55,0.4,0.62],[0.68,0.5,0.4],[0.46,0.46,0.75]];
       for(let i=0;i<5;i++){
         const a = (i/5)*Math.PI*2;
-        const sh = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.6,0.6), stoneMat);
+        const sh = new THREE.Mesh(new THREE.BoxGeometry(...shardSizes[i]), stoneMat);
         sh.position.set(Math.cos(a)*2.1, Math.sin(a*1.7)*0.3, Math.sin(a)*2.1);
+        sh.rotation.set(Math.random()*0.6, Math.random()*Math.PI, Math.random()*0.6);
         halo.add(sh); shards.push(sh);
       }
       parts = {kind:'colossus', armL, armR, halo, shards, shoulderL, shoulderR, eye};
@@ -1524,16 +1567,41 @@
         emissive:0x8a1030, emissiveIntensity:0.5});
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.9,1.6,2.6,10), stemMat);
       stem.position.y = 1.3; stem.castShadow = true; g.add(stem);
+      // thorns down the stem - a bare tapered cylinder read as a tree
+      // trunk rather than something carnivorous
+      const thornGeo = new THREE.ConeGeometry(0.1,0.4,5);
+      for(let i=0;i<8;i++){
+        const a = (i/8)*Math.PI*2 + (i%2)*0.3;
+        const y = 0.3 + (i%3)*0.7;
+        const r = 0.9 + (2.6-y)*0.27;   // matches the stem's own taper
+        const thorn = new THREE.Mesh(thornGeo, stemMat);
+        thorn.position.set(Math.cos(a)*r, y, Math.sin(a)*r);
+        thorn.rotation.z = Math.PI/2; thorn.rotation.y = -a;
+        g.add(thorn);
+      }
+      // a low ring of budding sprouts around the base, so the bloom looks
+      // like it grew out of something rather than floating on a bare cone
+      for(let i=0;i<6;i++){
+        const a = (i/6)*Math.PI*2 + 0.5;
+        const bud = new THREE.Mesh(new THREE.ConeGeometry(0.28,0.7,5), petalMat);
+        bud.position.set(Math.cos(a)*1.7, 0.35, Math.sin(a)*1.7);
+        bud.rotation.x = Math.PI*0.12; bud.rotation.y = a;
+        bud.castShadow = true; g.add(bud);
+      }
       body = new THREE.Mesh(new THREE.SphereGeometry(1.5,14,12), mawMat);
       body.position.y = 3.2; body.castShadow = true; g.add(body);
-      // ring of petals, each hinged so they can close over the maw
+      // ring of petals, each hinged so they can close over the maw - every
+      // other petal gets a slightly darker tint of the same material so the
+      // ring doesn't read as one uniform stamped shape repeated seven times
+      const petalMatAlt = petalMat.clone();
+      petalMatAlt.color.multiplyScalar(0.8);
       const petals = [];
       for(let i=0;i<7;i++){
         const a = (i/7)*Math.PI*2;
         const hinge = new THREE.Group();
         hinge.position.set(0, 3.2, 0);
         hinge.rotation.y = a;
-        const petal = new THREE.Mesh(new THREE.ConeGeometry(0.95, 2.9, 5), petalMat);
+        const petal = new THREE.Mesh(new THREE.ConeGeometry(0.95, 2.9, 5), i%2 ? petalMatAlt : petalMat);
         petal.position.set(0, 0.9, 1.5);
         petal.rotation.x = -0.75;
         petal.castShadow = true;
@@ -1587,13 +1655,34 @@
         t.rotation.z = a;
         body.parent === g && g.add(t);
       }
-      // pendulum instead of legs
+      // an inner gear ring, smaller and set slightly forward, so the torso
+      // reads as layered machinery instead of one flat disc with teeth
+      const innerGear = new THREE.Mesh(new THREE.CylinderGeometry(1.05,1.05,0.5,12), ironMat);
+      innerGear.rotation.x = Math.PI/2; innerGear.position.set(0, 2.6, 0);
+      innerGear.castShadow = true; g.add(innerGear);
+      // pendulum instead of legs - a chained rod, not a bare cylinder
       const pend = new THREE.Group();
       pend.position.y = 2.4; g.add(pend);
       const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,2.2,6), ironMat);
       rod.position.y = -1.1; pend.add(rod);
+      const linkGeo = new THREE.TorusGeometry(0.13,0.045,6,10);
+      for(let i=0;i<5;i++){
+        const link = new THREE.Mesh(linkGeo, ironMat);
+        link.position.y = -0.15 - i*0.42;
+        link.rotation.x = i%2 ? Math.PI/2 : 0;
+        pend.add(link);
+      }
       const bob = new THREE.Mesh(new THREE.CylinderGeometry(0.75,0.75,0.22,14), brass);
       bob.rotation.x = Math.PI/2; bob.position.y = -2.2; bob.castShadow = true; pend.add(bob);
+      // a rivet ring set into the bob's front face, echoing the torso's
+      // gear teeth - the bob is a cylinder rotated to face the camera, so
+      // the ring sits in its local XY plane, just proud of the face
+      for(let i=0;i<8;i++){
+        const a=(i/8)*Math.PI*2;
+        const rivet = new THREE.Mesh(new THREE.SphereGeometry(0.06,6,5), ironMat);
+        rivet.position.set(Math.cos(a)*0.6, -2.2 + Math.sin(a)*0.6, 0.13);
+        pend.add(rivet);
+      }
       // arms are clock hands
       const handL = new THREE.Group(); handL.position.set(-1.5, 2.9, 0.4); g.add(handL);
       const handR = new THREE.Group(); handR.position.set( 1.5, 2.9, 0.4); g.add(handR);
@@ -1627,17 +1716,38 @@
       // per-face normals to actually look faceted rather than smoothly
       // round (see the comment on skinMatFlat in buildPlayer()).
       const bodyMatFlat = bodyMat.clone(); bodyMatFlat.flatShading = true;
+      // trimMat's own faceted-armor twin (see bodyMatFlat above) - shared by
+      // every hard-edged accessory added below instead of the smoothly
+      // rounded default, so pauldron/vambrace/greave/belt actually read as
+      // plate rather than blending into the cloth they sit on
+      const trimMatFlat = trimMat.clone(); trimMatFlat.flatShading = true;
       body = new THREE.Mesh(limbGeo(TORSO_PROFILE.male, 0.95, 1.9, 12), bodyMat);
       body.position.y = 2.0; body.castShadow = true;
       g.add(body);
+      // waist belt: the same lathed cuff the player's vambrace/greave use,
+      // just wider - without it the torso was one bare tapered shape from
+      // collar to hip with nothing to break up the silhouette
+      const belt = new THREE.Mesh(limbGeo(CUFF_PROFILE, 1.0, 0.24, 10), trimMatFlat);
+      belt.position.y = 1.35; belt.castShadow = true; g.add(belt);
       const shoulders = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.5,0.9), trimMat);
       shoulders.position.y = 2.85; shoulders.castShadow = true; g.add(shoulders);
       [-1.15,1.15].forEach(x=>{
         const arm = new THREE.Mesh(limbGeo(LIMB_PROFILE.upper, 0.28, 1.7, 9), bodyMat);
         arm.position.set(x,1.9,0); arm.rotation.z = x>0 ? 0.16 : -0.16;
         arm.castShadow = true; g.add(arm);
+        // pauldron: the player's own hex-cut shoulder dome (buildPlayer()),
+        // reused here at boss scale - the shoulder bar alone left both arms
+        // bare from socket to wrist
+        const pauldron = new THREE.Mesh(limbGeo(PAULDRON_PROFILE, 0.5, 0.68, 6), trimMatFlat);
+        pauldron.position.set(x, 2.62, 0); pauldron.castShadow = true; g.add(pauldron);
+        // vambrace: same cuff as the player's forearm, near the wrist
+        const vambrace = new THREE.Mesh(limbGeo(CUFF_PROFILE, 0.32, 0.16, 8), trimMatFlat);
+        vambrace.position.set(x, 1.32, 0); vambrace.castShadow = true; g.add(vambrace);
         const leg = new THREE.Mesh(limbGeo(LIMB_PROFILE.thigh, 0.36, 1.2, 10), trimMat);
         leg.position.set(x*0.42,0.6,0); leg.castShadow = true; g.add(leg);
+        // greave: same cuff as the player's shin, midway to the ankle
+        const greave = new THREE.Mesh(limbGeo(CUFF_PROFILE, 0.4, 0.18, 8), trimMatFlat);
+        greave.position.set(x*0.42, 0.32, 0); greave.castShadow = true; g.add(greave);
       });
       const head = new THREE.Mesh(limbGeo(HEAD_PROFILE.male, 0.62, 1.1, 8), bodyMatFlat);
       head.position.y = 3.35; head.castShadow = true; g.add(head);
