@@ -200,11 +200,16 @@
     spawnToast(item.identified ? `${item.icon} ${item.name} を手に入れた!` : '❓ 未鑑定の装備を手に入れた!');
   }
 
+  // 装備が出る抽選に当たった時、さらに小さな確率で職業固有の特殊武器に差し替える。
+  // maybeDropEquipmentAt(物理ドロップ)とmaybeGrantEquipmentInstant(即時付与)の
+  // 両方から呼ぶ共通の抽選部分だけを切り出してある
+  function rollDropEquipment(rareChance){
+    return (Math.random() < 0.10) ? rollSpecialWeapon(state.level) : rollEquipment(state.level, rareChance);
+  }
+
   function maybeDropEquipmentAt(pos, chance, rareChance){
     if(Math.random() > chance) return;
-    // 装備が出る抽選に当たった時、さらに小さな確率で職業固有の特殊武器に差し替える
-    let item = (Math.random() < 0.10) ? rollSpecialWeapon(state.level) : null;
-    if(!item) item = rollEquipment(state.level, rareChance);
+    const item = rollDropEquipment(rareChance);
     spawnItemDrop(pos, {
       type:'equipment',
       name: item.identified ? item.name : '未鑑定の装備',
@@ -212,6 +217,14 @@
       color: item.specialId ? 0xff9a4a : (item.rarity==='rare' ? 0xb08aff : 0xffd700),
       equipItem: item, amountMin:1, amountMax:1
     });
+  }
+
+  // 宝箱は開けた場でまとめて自動回収する(徒歩での拾い直しをさせない)ため、
+  // 装備も物理ドロップではなく即時付与にする。敵撃破の装備ドロップは今まで
+  // 通り物理ドロップのまま(そちらは意図的に手元で確認させたい)
+  function maybeGrantEquipmentInstant(chance, rareChance){
+    if(Math.random() > chance) return;
+    addEquipmentItem(rollDropEquipment(rareChance));
   }
 
   function identifyEquipment(item){
@@ -621,6 +634,32 @@
 
   let nearbyChest = null;
 
+  // 通常(ランダム)宝箱の中身: 以前は LOOT_TABLE から1種類だけを抽選していたが、
+  // 「ポーション、装備、大金、強化素材」の4カテゴリに整理してほしいという
+  // 要望に合わせ、各カテゴリを独立抽選する形にした。額はダンジョン内の
+  // ランダム箱を全部開けたときの合計が旧仕様に近い量になるよう調整してある
+  // (大金は旧: 40%×平均10枚=期待値4.0 → 新: 常時3〜6枚=期待値4.5、
+  //  ポーションは旧: 薬草14%+魔力の雫8%=期待値0.22 → 新: 12%=期待値0.12と
+  //  「少なめ」の要望通り半減させてある)。装備の抽選は従来通り呼び出し側で行う
+  function rollCommonChestLoot(){
+    const gold = 3 + Math.floor(Math.random()*4);   // 3〜6枚
+    grantGold(gold);
+    spawnToast(`🪙 金貨${gold}枚を手に入れた!`);
+
+    if(Math.random() < 0.55){
+      const isGem = Math.random() < 0.5;
+      const type = isGem ? 'gem' : 'shard';
+      grantItem(type, 1 + Math.floor(Math.random()*2));
+      spawnToast(isGem ? '💎 魔宝石を手に入れた!' : '🔩 武具の欠片を手に入れた!');
+    }
+
+    if(Math.random() < 0.12){
+      const useMp = state.maxMp > 0 && Math.random() < 0.5;
+      grantItem(useMp ? 'mppotion' : 'potion', 1);
+      spawnToast(useMp ? '🔷 魔力の雫を手に入れた!' : '🧪 薬草を手に入れた!');
+    }
+  }
+
   function updateChests(dt){
     let nearbyC = null;
     chests.forEach(c=>{
@@ -642,18 +681,20 @@
         const dist = state.pos.distanceTo(c.pos);
         if(dist < 1.7){
           c.opened = true; sfx('chest');
-          const dropY = c.pos.y + 0.9;
+          // 宝箱の中身は種類を問わず開封時にまとめて自動回収する(徒歩での
+          // 拾い直しは要求しない)。確定箱(supply/armoury)の中身自体は
+          // 従来通り変更していない
           if(c.kind === 'supply'){
             grantItem('potion', 2);
             spawnToast('🧪 薬草を2つ手に入れた!');
             if(state.maxMp > 0){ grantItem('mppotion', 1); spawnToast('🔷 魔力の雫を手に入れた!'); }
           } else if(c.kind === 'armoury'){
-            maybeDropEquipmentAt(new THREE.Vector3(c.pos.x+0.5, dropY, c.pos.z+0.5), 1.0);
+            maybeGrantEquipmentInstant(1.0);
             grantItem('potion', 1);
             spawnToast('🧪 薬草を手に入れた!');
           } else {
-            spawnItemDrop(new THREE.Vector3(c.pos.x, dropY, c.pos.z));
-            maybeDropEquipmentAt(new THREE.Vector3(c.pos.x+0.5, dropY, c.pos.z+0.5), 0.2);
+            rollCommonChestLoot();
+            maybeGrantEquipmentInstant(0.2);
           }
         }
       }
@@ -664,6 +705,94 @@
     });
     nearbyChest = nearbyC;
     updateInteractPrompt();
+  }
+
+  /* =========================================================
+     HEALING CRYSTALS (壊すと回復する結晶)
+     宝箱と同様、ワールド単位で配置してdisposeWorld()で次のワールドへ
+     引き継がない一度きりのギミック。壊すと最大HPの一部を即座に回復する
+  ========================================================= */
+  function buildHealingCrystal(pos){
+    const g = new THREE.Group();
+    const stoneMat = new THREE.MeshStandardMaterial({color:0x4a4a52, roughness:0.85});
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.5,0.3,6), stoneMat);
+    base.position.y = 0.15; base.castShadow = true; base.receiveShadow = true;
+    g.add(base);
+    // 主軸1本+周りに小さい結晶3本、というありがちだが読みやすいシルエットにしてある
+    const crystalMat = new THREE.MeshStandardMaterial({
+      color:0x8ff0c0, emissive:0x5fe0a0, emissiveIntensity:0.9, roughness:0.25, metalness:0.1,
+      transparent:true, opacity:0.92,
+    });
+    const shards = [];
+    [
+      {h:0.9,  r:0.16, tilt:0,    rot:0},
+      {h:0.55, r:0.11, tilt:0.4,  rot:1.3},
+      {h:0.55, r:0.11, tilt:0.4,  rot:-1.7},
+      {h:0.4,  r:0.08, tilt:0.55, rot:2.6},
+    ].forEach(d=>{
+      const shard = new THREE.Mesh(new THREE.ConeGeometry(d.r, d.h, 5), crystalMat);
+      shard.position.y = 0.3 + d.h/2;
+      shard.rotation.z = d.tilt;
+      shard.castShadow = true;
+      const holder = new THREE.Group();
+      holder.rotation.y = d.rot;
+      holder.add(shard);
+      g.add(holder);
+      shards.push(holder);
+    });
+    const glow = new THREE.PointLight(0x7fe8b8, 1.1, 4.5);
+    glow.position.y = 0.7;
+    g.add(glow);
+    g.position.copy(pos);
+    scene.add(g);
+    return {group:g, shards, glow, pos:g.position.clone(), broken:false, t:Math.random()*10};
+  }
+
+  function spawnHealingCrystalsForWorld(key){
+    _spawnWorldKey = key;
+    // 各配置は既存の(確定枠ではない)宝箱のすぐ隣を選んである - 部屋の中で
+    // 実際に歩ける場所だとspawnChests()の実績で分かっているマスだけを使うため
+    const spots = [
+      new THREE.Vector3(-15.3,0,10.4),    // mansion 1F 東の間
+      new THREE.Vector3(-9.4,0,-26.2),    // mansion 玄関ホール
+      new THREE.Vector3(-4.2,0,113.4),    // ghost ship deck
+      new THREE.Vector3(-107.2,0,20.9),   // waterway underground
+      new THREE.Vector3(75.9,0,-57.3),    // crypt
+      new THREE.Vector3(-61.2,0,-196.6),  // temple 石橋の間
+      new THREE.Vector3(-243.2,9,-11.3),  // clocktower 2F
+      new THREE.Vector3(184.8,0,-53.3),   // conservatory 枯れた前庭
+    ];
+    spots.filter(p=> worldKeyForPos(p)===_spawnWorldKey).forEach(p=> healingCrystals.push(buildHealingCrystal(p)));
+  }
+
+  function updateHealingCrystals(dt){
+    healingCrystals.forEach(h=>{
+      if(h.broken) return;
+      h.t += dt;
+      h.shards.forEach((holder,i)=>{ holder.rotation.y += dt*(0.4+i*0.15); });
+      h.glow.intensity = 1.1 * (1 + Math.sin(h.t*2.2)*0.12);
+    });
+  }
+
+  // 攻撃ボタンを押した瞬間、近くに壊れていない結晶があれば独立して割れる。
+  // 武器の間合い判定(findMeleeTargetsInArc、クラス/武器ごとに射程が違う)には
+  // 乗せず単純な距離判定にしてあるので、弓・魔法職でも歩み寄って攻撃ボタンを
+  // 押せば確実に割れる
+  function checkHealingCrystalBreak(){
+    for(const h of healingCrystals){
+      if(h.broken) continue;
+      if(state.pos.distanceTo(h.pos) < 2.2){ breakHealingCrystal(h); return; }
+    }
+  }
+
+  function breakHealingCrystal(h){
+    h.broken = true;
+    const healAmt = Math.max(1, Math.round(state.maxHp * 0.25));
+    state.hp = Math.min(state.maxHp, state.hp + healAmt);
+    spawnToast(`💚 結晶を砕いて${healAmt}回復した!`);
+    spawnHitSpark(new THREE.Vector3(h.pos.x, h.pos.y+0.6, h.pos.z), 0x7fe8b8, 1.6);
+    flashScreen();
+    scene.remove(h.group);
   }
 
   /* =========================================================

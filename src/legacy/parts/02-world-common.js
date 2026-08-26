@@ -10,6 +10,7 @@
   let hemiLight = null, rimLight = null;
   let enemies = [];
   let chests = [];
+  let healingCrystals = [];
   let itemDrops = [];
   let companion = null;
   let projectiles = [];
@@ -214,6 +215,8 @@
     enemies = [];
     chests.forEach(c=>{ if(c.group) scene.remove(c.group); });
     chests = [];
+    healingCrystals.forEach(h=>{ if(h.group) scene.remove(h.group); });
+    healingCrystals = [];
     projectiles.forEach(p=>scene.remove(p.mesh)); projectiles = [];
     itemDrops.forEach(d=>scene.remove(d.mesh)); itemDrops = [];
     if(state.mageOrbs){ state.mageOrbs.forEach(orb=>scene.remove(orb.mesh)); state.mageOrbs = []; }
@@ -262,6 +265,7 @@
       if(!shadowOn) applyShadowSetting();   // new meshes default to casting
       spawnEnemiesForWorld(key);
       spawnChestsForWorld(key);
+      spawnHealingCrystalsForWorld(key);
       playBgm(key);   // no-op if this world has no track registered (asset-manifest.js)
       combatIntensity = 0; setBgmIntensity(0);   // fresh room, not still "loud" from the last one
     }catch(err){

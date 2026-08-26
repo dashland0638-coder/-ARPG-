@@ -1774,7 +1774,17 @@
         const gb = en.goldBonus || [3,8];
         const bonusGold = gb[0] + Math.floor(Math.random()*(gb[1]-gb[0]+1));
         grantGold(bonusGold);
-        if(Math.random()<0.75) spawnItemDrop(new THREE.Vector3(en.group.position.x,0.6,en.group.position.z));
+        // 装備・ポーション以外(金貨・武具の欠片・魔宝石)は乱戦中に拾い直す
+        // 手間をなくすため即時回収する。装備・ポーションはあえて物理ドロップの
+        // ままにし、ドロップが見えた喜びと拾いに行く一手間を残してある
+        if(Math.random()<0.75){
+          const loot = pickLoot();
+          if(loot.type==='potion' || loot.type==='mppotion'){
+            spawnItemDrop(new THREE.Vector3(en.group.position.x,0.6,en.group.position.z), loot);
+          } else {
+            addItem(loot);
+          }
+        }
         if(en.strongMob) maybeDropEquipmentAt(new THREE.Vector3(en.group.position.x,0.6,en.group.position.z), 0.25, 0.25);
       }
   }

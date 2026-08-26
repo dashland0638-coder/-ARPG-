@@ -115,6 +115,7 @@
 
   function tryAttack(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging) return;
+    checkHealingCrystalBreak();   // 攻撃入力そのものに独立して乗せてあるので、通常のコンボ/CD管理には影響しない
     if(!state.grounded && !state.jumpAttacking){ tryJumpAttack(); return; }
     if(state.dodgeAttackWindowT > 0){ tryDodgeAttack(); return; }
     if(state.attackCD>0) return;

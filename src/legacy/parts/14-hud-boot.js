@@ -414,6 +414,7 @@
     stairs.forEach(s=> blip(s.pos.x, s.pos.z, '#7ec8ff', 5, 'diamond'));
     loreObjects.forEach(l=> blip(l.pos.x, l.pos.z, l.read?'rgba(220,220,220,0.4)':'#f0ead8', 3));
     chests.forEach(c=> blip(c.pos.x, c.pos.z, c.opened?'rgba(180,150,80,0.35)':'#ffd24a', 5, 'chest'));
+    healingCrystals.forEach(h=> blip(h.pos.x, h.pos.z, h.broken?'rgba(140,220,180,0.3)':'#7fe8b8', 4, 'diamond'));
     enemies.forEach(en=>{
       if(en.dead || en.dormant) return;
       const isBoss = !!en.isBoss;
@@ -594,6 +595,7 @@
       updateMobBars();
       updateBossBar(dt);
       updateChests(dt);
+      updateHealingCrystals(dt);
       updateItemDrops(dt);
       updateCompanion(dt);
       updateCamera(dt);
