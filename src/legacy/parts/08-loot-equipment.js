@@ -232,11 +232,14 @@
   // 「今の武器」になる)。武器スロット以外(上半身/下半身)は無関係
   function equipItem(item){
     if(item.itemLevel > state.level) return false;
+    const prevWeapon = state.equipped.weapon;
     state.equipped[item.slot] = item;
     let weaponTypeChanged = false;
     if(item.slot==='weapon' && state.classDef && item.weaponType){
       const wantAlt = item.weaponType === WEAPON_TYPES[state.classDef.key].alt.key;
-      weaponTypeChanged = wantAlt !== state.usingAltWeapon;
+      // 武器種(native/alt)が変わらなくても、特殊効果武器(ちぞめ等)を
+      // 着脱したときは常時オーラの有無が変わるので見た目を作り直す
+      weaponTypeChanged = wantAlt !== state.usingAltWeapon || item.specialId !== (prevWeapon && prevWeapon.specialId);
       state.usingAltWeapon = wantAlt;
     }
     recomputeStats();
@@ -245,10 +248,11 @@
   }
 
   function unequipSlot(slot){
+    const prevWeapon = state.equipped.weapon;
     state.equipped[slot] = null;
     let weaponTypeChanged = false;
     if(slot==='weapon'){
-      weaponTypeChanged = state.usingAltWeapon !== false;
+      weaponTypeChanged = state.usingAltWeapon !== false || !!(prevWeapon && prevWeapon.specialId);
       state.usingAltWeapon = false;   // 武器を外すとnative武器種の構えに戻る
     }
     recomputeStats();

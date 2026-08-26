@@ -497,6 +497,7 @@
       updateAltitude(dt);
       updateCutscene(dt);
       updateSwingVFX(dt);
+      updateWeaponAura(dt);
       updateSparks(dt);
       updateShake(dt);
       updateCombatMusic(dt);

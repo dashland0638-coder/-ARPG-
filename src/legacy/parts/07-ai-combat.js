@@ -1574,6 +1574,7 @@
     // (あちらは装備限定・ドッジ直後1秒、こちらはタイミングを合わせた
     // ジャストドッジ限定・反撃猶予1.4秒) - tryPerfectDodge()参照
     const perfectDodgeOpen = state.perfectDodgeWindowT > 0;
+    const weaponKey = state.classDef && weaponDefFor(state.classDef.key, state.usingAltWeapon).key;
     const result = applyOutgoingDamage(amount, {
       personality: state.personality,
       hpRatio,
@@ -1582,6 +1583,8 @@
       specialId,
       justDodged,
       perfectDodgeOpen,
+      weaponKey,
+      comboStage: state.comboStage,
     });
     if(perfectDodgeOpen) state.perfectDodgeWindowT = 0;   // 反撃は1回だけ強化
     if(justDodged) state.justDodgedT = 0;   // 1回のドッジにつき1回だけ発動

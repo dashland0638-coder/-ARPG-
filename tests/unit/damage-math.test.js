@@ -92,6 +92,15 @@ test('outgoingDamageMods', async (t) => {
     assert.deepEqual(outgoingDamageMods({ specialId: 'kagenui', justDodged: false }), { mul: 1, isCrit: false });
   });
 
+  await t.test('katana (刀): guaranteed crit + 1.3x only on the first combo hit', () => {
+    assert.deepEqual(outgoingDamageMods({ weaponKey: 'katana', comboStage: 1 }), { mul: 1.3, isCrit: true });
+    assert.deepEqual(outgoingDamageMods({ weaponKey: 'katana', comboStage: 2 }), { mul: 1, isCrit: false });
+  });
+
+  await t.test('katana bonus is specific to the weapon key, not any weapon on combo stage 1', () => {
+    assert.deepEqual(outgoingDamageMods({ weaponKey: 'greatsword', comboStage: 1 }), { mul: 1, isCrit: false });
+  });
+
   await t.test('stacks brave + a weapon special multiplicatively', () => {
     const { mul } = outgoingDamageMods({ personality: 'brave', hpRatio: 0.2, specialId: 'chizome' });
     assert.ok(Math.abs(mul - 1.15 * 1.4) < 1e-9);

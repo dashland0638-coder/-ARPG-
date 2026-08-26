@@ -36,8 +36,13 @@ export function applyIncomingDamage(rawDmg, mulInputs) {
 // justDodged: whether かげぬいの小刀's dodge-crit window is open right now.
 // perfectDodgeOpen: whether a well-timed dodge (any weapon) just absorbed a
 // hit and the resulting counter-attack window is still open.
+// weaponKey: the currently-wielded weapon's WEAPON_TYPES key (e.g. 'katana'),
+// independent of specialId - this is about the weapon TYPE's own identity,
+// available on any katana rather than gated behind the one named legendary.
+// comboStage: state.comboStage at the moment of this hit (1-indexed).
 export function outgoingDamageMods({
   personality, hpRatio, classKey, distanceToEnemy, specialId, justDodged, perfectDodgeOpen,
+  weaponKey, comboStage,
 }) {
   let mul = 1;
   let isCrit = false;
@@ -59,6 +64,13 @@ export function outgoingDamageMods({
   if (specialId === 'kagenui' && justDodged) {
     isCrit = true; // かげぬいの小刀: 回避直後は必ずクリティカル
     mul *= 1.8;
+  }
+  // 刀(盗賊のサブ武器): 居合の型。サブ武器コンボの1段目は確定クリティカル
+  // - 「一撃の重み」という刀のコンセプト(buildWeaponMesh参照)を数値面
+  // にも反映する。2段目(フィニッシュ)は通常通り
+  if (weaponKey === 'katana' && comboStage === 1) {
+    isCrit = true;
+    mul *= 1.3;
   }
   if (perfectDodgeOpen) {
     isCrit = true; // ジャストドッジの反撃: 武器を問わず必ずクリティカル+50%

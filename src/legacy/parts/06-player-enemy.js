@@ -14,7 +14,51 @@
      呼び出し側(buildPlayer / swapPlayerWeaponVisual)が握りの位置に
      合わせて必ず上書きする。弓系(shortbow/crossbow)だけ playerMixerParts
      に弦・矢の参照を残す(構えを引く演出に使うため)。 */
-  function buildWeaponMesh(weaponKey, classDef, trimMat, bodyR, bodyH, HIP_Y){
+  /* 特殊効果武器(ちぞめ・かげぬい・かいじん・はやて)は今までステータスと
+     説明文だけが違う「見た目は普通の武器」だった。武器そのものに常時
+     まとうオーラを与え、装備した瞬間に一目でそれと分かるようにする。
+     色は各武器の由来(血/影/火/風)に合わせた。 */
+  const SPECIAL_WEAPON_AURA = {
+    chizome: 0xdd1133,   // ちぞめの大剣: 血の赤
+    kagenui: 0x6a2ad8,   // かげぬいの小刀: 影の紫
+    kaijin:  0xff7a1a,   // かいじんの杖: 炎の橙
+    hayate:  0x1ad0f0,   // はやての弓: 風の水色(暖色の照明下でも埋もれないよう、やや濃いめに)
+  };
+  function buildWeaponAura(color){
+    // a top-down camera at typical gameplay distance sees a ring almost
+    // edge-on (it can vanish to a hairline), so the main body of the aura
+    // is a soft glowing orb - readable from any angle - with a ring and
+    // orbiting shards layered on top for texture up close
+    const g = new THREE.Group();
+    const glowMat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.5, blending:THREE.AdditiveBlending, depthWrite:false});
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), glowMat);
+    g.add(glow);
+    const ringMat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.7, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false});
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.022, 6, 16), ringMat);
+    g.add(ring);
+    const shardMat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.9, blending:THREE.AdditiveBlending, depthWrite:false});
+    const shards = [];
+    for(let i=0;i<3;i++){
+      const a = (i/3)*Math.PI*2;
+      const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.055,0), shardMat);
+      shard.position.set(Math.cos(a)*0.26, Math.sin(a*1.7)*0.08, Math.sin(a)*0.26);
+      g.add(shard); shards.push(shard);
+    }
+    g.userData.glow = glow; g.userData.ring = ring; g.userData.shards = shards;
+    return g;
+  }
+  function updateWeaponAura(dt){
+    const aura = playerMixerParts.weaponAura;
+    if(!aura) return;
+    aura.rotation.y += dt*1.4;
+    aura.userData.ring.rotation.x += dt*0.9;
+    const t = performance.now()*0.001;
+    aura.userData.glow.material.opacity = 0.4 + 0.15*Math.sin(t*2.2);
+    aura.userData.shards.forEach((s,i)=>{
+      s.material.opacity = 0.6 + 0.35*Math.sin(t*3 + i*2.1);
+    });
+  }
+  function buildWeaponMesh(weaponKey, classDef, trimMat, bodyR, bodyH, HIP_Y, specialId){
     const weapon = new THREE.Group();
     const steel = new THREE.MeshStandardMaterial({color:0xd8dce0, roughness:0.3, metalness:0.7});
     const darkSteel = new THREE.MeshStandardMaterial({color:0x9aa4ae, roughness:0.4, metalness:0.6});
@@ -200,6 +244,16 @@
       weapon.add(arrow);
       playerMixerParts.nockArrow = arrow;
       weapon.position.set(0.06, HIP_Y+bodyH*0.62, 0.34);
+    }
+    const auraColor = SPECIAL_WEAPON_AURA[specialId];
+    if(auraColor){
+      const aura = buildWeaponAura(auraColor);
+      // 弓系は打撃武器と違い切っ先が定まらないので、武器全体の中心寄りに置く
+      aura.position.y = (weaponKey==='shortbow' || weaponKey==='crossbow') ? 0 : 0.85;
+      weapon.add(aura);
+      playerMixerParts.weaponAura = aura;
+    } else {
+      playerMixerParts.weaponAura = null;
     }
     return weapon;
   }
@@ -532,7 +586,8 @@
 
     // weapon / focus item, attached to right arm
     const activeWeaponKey = weaponDefFor(classDef.key, state.usingAltWeapon).key;
-    const weapon = buildWeaponMesh(activeWeaponKey, classDef, trimMat, bodyR, bodyH, HIP_Y);
+    const equippedWeapon = state.equipped && state.equipped.weapon;
+    const weapon = buildWeaponMesh(activeWeaponKey, classDef, trimMat, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
     // Sit the weapon where the hands actually ended up, rather than at a
     // hard-coded offset that goes stale the moment the rig is retuned.
     group.updateMatrixWorld(true);
@@ -633,7 +688,8 @@
     const bodyH = B.height, HIP_Y = B.hipY, bodyR = B.chest;
     const trimMat = new THREE.MeshStandardMaterial({color:classDef.trim, roughness:0.4, metalness:0.3, emissive:classDef.trim, emissiveIntensity:0.12});
     const weaponKey = weaponDefFor(classDef.key, state.usingAltWeapon).key;
-    const weapon = buildWeaponMesh(weaponKey, classDef, trimMat, bodyR, bodyH, HIP_Y);
+    const equippedWeapon = state.equipped && state.equipped.weapon;
+    const weapon = buildWeaponMesh(weaponKey, classDef, trimMat, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
 
     const st = activeStance(classDef.key, state.usingAltWeapon);
     // 武器の向きだけでなく、腕そのものの構え(肩・肘の角度)も持ち替え先の
