@@ -43,3 +43,15 @@ export function equipmentStatBonus(slot, itemLevel, isRare, rng = Math.random) {
     hpBonus: 5 + itemLevel * 3 + (isRare ? Math.floor(rng() * 12) : 0),
   };
 }
+
+// Gold refunded for scrapping an identified equipment piece (renderGearPanel()'s
+// 売却/まとめて売却 buttons in 12-progression-ui.js). Scales with itemLevel like
+// the identify cost does, but a special-weapon roll (one per class, unique
+// numeric effect - see SPECIAL_WEAPONS) is worth far more than its raw
+// atk/hp stats alone would suggest, so it gets its own multiplier rather
+// than being priced off gearScore().
+export function equipmentSellPrice(item) {
+  const base = 8 + item.itemLevel * 4;
+  const mul = item.specialId ? 3 : (item.rarity === 'rare' ? 1.6 : 1);
+  return Math.round(base * mul);
+}

@@ -2,7 +2,7 @@
 // test:unit` (node's built-in test runner - no extra dev dependency).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickWeighted, equipmentStatBonus } from '../../src/core/loot-math.js';
+import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../../src/core/loot-math.js';
 
 test('pickWeighted', async (t) => {
   const table = [
@@ -61,5 +61,19 @@ test('equipmentStatBonus', async (t) => {
     assert.equal(equipmentStatBonus('upper', 1, true, () => 0.999).hpBonus, 26);    // 7+1*4+15
     // lower: +0..11 on hp
     assert.equal(equipmentStatBonus('lower', 1, true, () => 0.999).hpBonus, 19);    // 5+1*3+11
+  });
+});
+
+test('equipmentSellPrice', async (t) => {
+  await t.test('scales with itemLevel, no rarity bonus for a common piece', () => {
+    assert.equal(equipmentSellPrice({ itemLevel: 5 }), 28);   // 8+5*4=28, x1
+  });
+
+  await t.test('rare pieces sell for 1.6x', () => {
+    assert.equal(equipmentSellPrice({ itemLevel: 5, rarity: 'rare' }), 45); // round(28*1.6)=44.8->45
+  });
+
+  await t.test('a special weapon (specialId set) sells for 3x, overriding rarity', () => {
+    assert.equal(equipmentSellPrice({ itemLevel: 5, rarity: 'rare', specialId: 'chizome' }), 84); // 28*3
   });
 });

@@ -227,6 +227,40 @@
     return true;
   }
 
+  // 未鑑定のまま売ると「実は特殊効果武器だった」を鑑定前に取り逃す事故に
+  // つながるので、売却できるのは鑑定済み・かつ今装備していない品だけ。
+  // 金額は src/core/loot-math.js の equipmentSellPrice() 参照
+  function sellEquipment(item){
+    if(!item.identified) return false;
+    const equipped = ['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===item.id);
+    if(equipped) return false;
+    const idx = state.equipmentInventory.indexOf(item);
+    if(idx < 0) return false;
+    const price = equipmentSellPrice(item);
+    state.equipmentInventory.splice(idx, 1);
+    state.inventory.gold += price;
+    spawnToast(`🪙 ${item.icon} ${item.name} を売却した (+${price})`);
+    return true;
+  }
+
+  // まとめて売却: 特殊効果武器(specialId)は一つしかない上に見た目のオーラも
+  // 付く思い入れの強い品なので誤って一括処理に巻き込まないよう対象から
+  // 常に除外する。それ以外の鑑定済み・未装備の品だけをまとめて現金化する
+  function sellAllJunk(){
+    const targets = state.equipmentInventory.filter(item=>{
+      if(!item.identified || item.specialId) return false;
+      return !['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===item.id);
+    });
+    if(targets.length===0){ spawnToast('🪙 売却できる装備がない'); return; }
+    const total = targets.reduce((s,it)=> s+equipmentSellPrice(it), 0);
+    targets.forEach(item=>{
+      const idx = state.equipmentInventory.indexOf(item);
+      if(idx>=0) state.equipmentInventory.splice(idx,1);
+    });
+    state.inventory.gold += total;
+    spawnToast(`🪙 装備${targets.length}個を売却した (+${total})`);
+  }
+
   // 装備した武器の weaponType がそのままモーション・数値を決める
   // (2武器切り替え: メイン/サブの区別はなく、装備欄で選んだ方がそのまま
   // 「今の武器」になる)。武器スロット以外(上半身/下半身)は無関係

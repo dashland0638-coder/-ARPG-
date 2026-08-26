@@ -846,18 +846,26 @@
   .gear-item-name{ font-size:11.5px; color:var(--text); font-weight:700; }
   .gear-item-name.unidentified{ color:#b08aff; }
   .gear-item-stat{ font-size:9.5px; color:var(--text-dim); }
+  .gear-item-actions{ display:flex; flex-direction:column; gap:4px; align-items:stretch; }
   .gear-item-btn{
     padding:6px 10px; font-size:10.5px; border-radius:4px; border:1px solid var(--panel-line);
-    background:#1a1420; color:var(--text); cursor:pointer;
+    background:#1a1420; color:var(--text); cursor:pointer; white-space:nowrap;
   }
   .gear-item-btn:disabled{ opacity:0.4; cursor:default; }
   .gear-item-btn.identify{ border-color:#b08aff; color:#b08aff; }
+  .gear-item-btn.sell{ border-color:#7ad08a; color:#7ad08a; font-size:9.5px; padding:4px 10px; }
+  /* 比較チップ: 今装備している物との差分だけを見せる。0差分の項目は
+     gearCompareChip() 側で最初から出さないので、ここは色分けだけでいい */
+  .gear-item-compare{ font-size:9.5px; margin-top:2px; display:flex; gap:8px; }
+  .gear-item-compare .gear-up{ color:#7ad08a; }
+  .gear-item-compare .gear-down{ color:#c05a5a; }
   .gear-tools{ display:flex; align-items:center; gap:12px; margin:4px 0 10px; flex-wrap:wrap; }
   .gear-tool-btn{
     padding:7px 14px; font-size:11.5px; border-radius:5px; cursor:pointer;
     background:#1c1526; color:var(--ember-bright); border:1px solid var(--ember-bright);
   }
   .gear-tool-btn:active{ transform:scale(0.96); }
+  .gear-tool-btn.sell-all{ color:#7ad08a; border-color:#7ad08a; }
   .gear-legend{ font-size:10px; color:var(--text-dim); display:flex; align-items:center; gap:6px; }
   .gear-legend i{ width:9px; height:9px; border-radius:2px; display:inline-block; margin-left:6px; }
   .lg-ok{ background:#7ad08a; } .lg-hi{ background:#c05a5a; } .lg-eq{ background:#e0b050; }

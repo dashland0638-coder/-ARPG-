@@ -1449,6 +1449,22 @@
   // rough single number for comparing pieces, so "best" has a meaning
   function gearScore(it){ return (it.atkBonus||0)*3 + (it.hpBonus||0) + (it.specialId?15:0); }
 
+  // ▲/▼ 比較チップ: 一覧の各品が「今その部位に装備している物」と比べて
+  // 攻撃/HPがどちらに動くかを一目で見せる。差が0の項目は出さないので、
+  // 完全に同じ性能の品を並べたときは何も表示されない。比較先が空(未装備)
+  // なら比較の意味がないので何も出さない
+  function gearCompareChip(item){
+    const cur = state.equipped[item.slot];
+    if(!cur || cur.id===item.id) return '';
+    const dAtk = (item.atkBonus||0) - (cur.atkBonus||0);
+    const dHp = (item.hpBonus||0) - (cur.hpBonus||0);
+    const parts = [];
+    if(dAtk) parts.push(`<span class="${dAtk>0?'gear-up':'gear-down'}">${dAtk>0?'▲':'▼'}攻撃${dAtk>0?'+':''}${dAtk}</span>`);
+    if(dHp) parts.push(`<span class="${dHp>0?'gear-up':'gear-down'}">${dHp>0?'▲':'▼'}HP${dHp>0?'+':''}${dHp}</span>`);
+    if(!parts.length) return '';
+    return `<div class="gear-item-compare">${parts.join(' ')}</div>`;
+  }
+
   // equips the strongest usable piece in every slot
   function equipBestGear(){
     let changed = 0;
@@ -1524,6 +1540,7 @@
 
     html += `<div class="gear-tools">
         <button type="button" class="gear-tool-btn" id="gear-best-btn">⚙️ 最強装備</button>
+        <button type="button" class="gear-tool-btn sell-all" id="gear-sell-all-btn">🪙 まとめて売却</button>
         <span class="gear-legend"><i class="lg-ok"></i>装備可 <i class="lg-hi"></i>Lv不足 <i class="lg-eq"></i>装備中</span>
       </div>`;
 
@@ -1556,11 +1573,17 @@
             <div class="gear-item-name ${item.identified?'':'unidentified'}">${item.identified ? item.name : '未鑑定の装備'} <span class="gear-lv">Lv.${item.itemLevel}</span> ${weaponTypeChip}</div>
             <div class="gear-item-stat">${item.identified ? `${item.atkBonus?'攻撃+'+item.atkBonus+' ':''}${item.hpBonus?'HP+'+item.hpBonus:''}` : '鑑定するまで効果は分からない'}</div>
             ${item.identified && item.specialId ? `<div class="gear-item-special">⭐ ${item.specialDesc}</div>` : ''}
+            ${item.identified && !equipped ? gearCompareChip(item) : ''}
           </div>
-          ${item.identified
-            ? `<button type="button" class="gear-item-btn" data-equip-idx="${idx}" ${equipped||!canEquip?'disabled':''}>${equipped?'装備中':(canEquip?'装備する':'Lv不足')}</button>`
-            : `<button type="button" class="gear-item-btn identify" data-identify-idx="${idx}" ${state.inventory.gold<(15+item.itemLevel*3)?'disabled':''}>鑑定 🪙${15+item.itemLevel*3}</button>`
-          }
+          <div class="gear-item-actions">
+            ${item.identified
+              ? `<button type="button" class="gear-item-btn" data-equip-idx="${idx}" ${equipped||!canEquip?'disabled':''}>${equipped?'装備中':(canEquip?'装備する':'Lv不足')}</button>`
+              : `<button type="button" class="gear-item-btn identify" data-identify-idx="${idx}" ${state.inventory.gold<(15+item.itemLevel*3)?'disabled':''}>鑑定 🪙${15+item.itemLevel*3}</button>`
+            }
+            ${item.identified && !equipped
+              ? `<button type="button" class="gear-item-btn sell" data-sell-idx="${idx}">売却 🪙${equipmentSellPrice(item)}</button>` : ''
+            }
+          </div>
         </div>`;
       });
     }
@@ -1568,6 +1591,19 @@
 
     const bestBtn = panel.querySelector('#gear-best-btn');
     if(bestBtn) bestBtn.addEventListener('click', equipBestGear);
+    const sellAllBtn = panel.querySelector('#gear-sell-all-btn');
+    if(sellAllBtn) sellAllBtn.addEventListener('click', ()=>{
+      const targets = state.equipmentInventory.filter(item=>{
+        if(!item.identified || item.specialId) return false;
+        return !['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===item.id);
+      });
+      if(targets.length===0){ spawnToast('🪙 売却できる装備がない'); return; }
+      const total = targets.reduce((s,it)=> s+equipmentSellPrice(it), 0);
+      askConfirm('まとめて売却', `未装備の装備 <b>${targets.length}個</b> を売却して <b>🪙${total}</b> を得ます。<br>⭐特殊効果武器は対象外です。よろしいですか?`, ()=>{
+        sellAllJunk();
+        refreshAppraisal();
+      });
+    });
     panel.querySelectorAll('[data-boss-ability]').forEach(row=>{
       row.addEventListener('click', ()=>{ toggleEquippedBossAbility(row.dataset.bossAbility); refreshAppraisal(); });
     });
@@ -1585,6 +1621,13 @@
       btn.addEventListener('click', ()=>{
         const item = state.equipmentInventory[parseInt(btn.dataset.identifyIdx)];
         if(item) identifyEquipment(item);
+        refreshAppraisal();
+      });
+    });
+    panel.querySelectorAll('[data-sell-idx]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const item = state.equipmentInventory[parseInt(btn.dataset.sellIdx)];
+        if(item) sellEquipment(item);
         refreshAppraisal();
       });
     });
