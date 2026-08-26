@@ -507,6 +507,14 @@
     // 必殺技は待ち時間ではなくゲージ充填率(戦闘performanceで貯まる)。
     // リング表示の仕組みはそのまま流用し、値の意味だけ変えてある
     if(ultEl) ultEl.style.setProperty('--cd-pct', Math.max(0, Math.min(1, state.ultGauge / ULT_GAUGE_MAX)));
+    const skill3El = document.getElementById('btn-skill3');
+    if(skill3El){
+      const activeDef = state.equippedBossActiveSkill && BOSS_ACTIVE_SKILLS[state.equippedBossActiveSkill];
+      skill3El.classList.toggle('unequipped', !activeDef);   // 何も装着していない間は薄く表示するだけ
+      const icon = document.getElementById('btn-skill3-icon');
+      if(icon) icon.textContent = activeDef ? activeDef.icon : '👑';
+      if(activeDef) skill3El.style.setProperty('--cd-pct', state.bossSkill3CD>0 ? Math.max(0,1-state.bossSkill3CD/activeDef.cd) : 1);
+    }
   }
 
   // 通常攻撃コンボの段数と、次の一撃までに残っている接続猶予(comboWindowT)

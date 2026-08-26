@@ -49,6 +49,7 @@
       if(btnPressed(gp,9) || btnPressed(gp,8)) toggleMenu(); // Start/Select
       if(btnPressed(gp,12)) toggleScenarioSelect(); // D-pad up
       if(btnPressed(gp,13)) toggleAppraisal();      // D-pad down
+      if(btnPressed(gp,14)) castBossSkill3();       // D-pad left (skill 3)
     }
     updateChargeHold(dt);
     updateMageOrbs(dt);
@@ -97,6 +98,7 @@
     if(state.chargeCD>0) state.chargeCD -= dt;
     if(state.skillCD>0) state.skillCD -= dt;
     if(state.skill2CD>0) state.skill2CD -= dt;
+    if(state.bossSkill3CD>0) state.bossSkill3CD -= dt;
     if(state.paused || state.dialogueActive || state.dodging){
       if(state.charging){ state.charging=false; state.chargeT=0; }
       if(state.skillCharging){ state.skillCharging=false; state.skillChargeT=0; }

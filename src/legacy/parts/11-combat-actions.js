@@ -431,6 +431,100 @@
     flashScreen();
   }
 
+  /* ---- ボス「スキル3」―― BOSS_ACTIVE_SKILLS(12-progression-ui.js)を
+     ボタンで能動的に発動する。クラス固有のskill/skill2とは独立した
+     専用クールダウン(state.bossSkill3CD)を持つ。MP/スタミナは消費しない
+     - ボスから借りた力という位置づけで、代わりに長めの再使用時間で
+     律速している。効果自体はdealDamageToEnemy/posture/invulnExtraTなど
+     既存の仕組みに乗せてあり、新しいダメージ経路は増やしていない */
+  function castBossSkill3(){
+    if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    if(!state.equippedBossActiveSkill){ spawnToast('💥 スキル3が装着されていない(鑑定所で装着できます)'); return; }
+    if(state.bossSkill3CD>0) return;
+    if(state.swinging || state.charging || state.skillCharging) return;
+    const def = BOSS_ACTIVE_SKILLS[state.equippedBossActiveSkill];
+    if(!def) return;
+    state.bossSkill3CD = def.cd;
+    state.swinging = true; beginMove('ult');   // 専用モーションは無いので、必殺技の構えを流用する
+    if(sequenceLocks.length) tryStrikeBell(state.pos);
+    state.swingLockFacing = state.facing;
+    applyBossActiveSkillEffect(state.equippedBossActiveSkill);
+  }
+
+  function applyBossActiveSkillEffect(bossKey){
+    const cdef = state.classDef;
+    const dmg = Math.round((cdef.atk + Math.round(Math.random()*6)) * 1.6);
+    const fwd = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
+    const radius = 5.5;
+    switch(bossKey){
+      case 'mansionBoss': {
+        // 亡霊の一閃: 一瞬無敵になりながら周囲を強く斬りつける
+        state.invulnerable = true;
+        state.invulnExtraT = Math.max(state.invulnExtraT||0, 0.8);
+        findMeleeTargetsInArc(radius, Math.PI*2).forEach(t=> dealDamageToEnemy(t, dmg, false, {staggerMul:2.0, ultGauge:6}));
+        checkMimicRevealInRange(radius, Math.PI*2, dmg);
+        spawnUltimateVFX(state.pos.clone(), {radius, vfxColor:0xb08aff});
+        addShake(0.2); flashScreen(); sfx('bigHit');
+        spawnToast('👻 亡霊の一閃!');
+        break;
+      }
+      case 'ghostCaptain': {
+        // 斉射: 5方向に砲弾をまとめて放つ(弓師のfan5と同じ扇状パターン)
+        const right = new THREE.Vector3(Math.cos(state.facing),0,-Math.sin(state.facing));
+        [-0.34,-0.17,0,0.17,0.34].forEach(spread=>{
+          const dir = fwd.clone().addScaledVector(right, spread).normalize();
+          spawnArrow(dir, dmg, {color:0x7ec8ff, speed:22, hitR:1.2});
+        });
+        flashScreen(); sfx('bowVolley');
+        spawnToast('🧭 斉射!');
+        break;
+      }
+      case 'waterwayTurtle': {
+        // 甲羅ダイブ: 叩きつけて周囲を強制ダウンさせ、自分も少し回復する
+        findMeleeTargetsInArc(radius, Math.PI*2).forEach(t=>{
+          dealDamageToEnemy(t, Math.round(dmg*0.7), false, {staggerMul:0});
+          if(t.postureMax && !t.knockedDown) triggerKnockdown(t);
+        });
+        checkMimicRevealInRange(radius, Math.PI*2, dmg);
+        state.hp = Math.min(state.maxHp, state.hp + Math.round(state.maxHp*0.08));
+        spawnUltimateVFX(state.pos.clone(), {radius, vfxColor:0x3ac0a8});
+        addShake(0.22); flashScreen(); sfx('bigHit');
+        spawnToast('🐢 甲羅ダイブ!');
+        break;
+      }
+      case 'templeGuardian': {
+        // 地烈の一撃: ダメージ+特大の体幹崩し(ガード持ち敵への対抗手段として機能する)
+        findMeleeTargetsInArc(radius, Math.PI*2).forEach(t=> dealDamageToEnemy(t, dmg, false, {staggerMul:5.0, ultGauge:6}));
+        checkMimicRevealInRange(radius, Math.PI*2, dmg);
+        spawnUltimateVFX(state.pos.clone(), {radius, vfxColor:0xc9a44a});
+        addShake(0.24); flashScreen(); sfx('bigHit');
+        spawnToast('🗿 地烈の一撃!');
+        break;
+      }
+      case 'towerWarden': {
+        // 刻の一撃: 攻撃しつつ他スキルの再使用時間を短縮する
+        findMeleeTargetsInArc(radius, Math.PI*2).forEach(t=> dealDamageToEnemy(t, dmg, false, {staggerMul:1.5, ultGauge:6}));
+        checkMimicRevealInRange(radius, Math.PI*2, dmg);
+        state.skillCD = Math.max(0, state.skillCD - 3);
+        state.skill2CD = Math.max(0, state.skill2CD - 3);
+        spawnUltimateVFX(state.pos.clone(), {radius, vfxColor:0x9a5a3a});
+        addShake(0.2); flashScreen(); sfx('bigHit');
+        spawnToast('⏱️ 刻の一撃! スキルの再使用時間を短縮した');
+        break;
+      }
+      case 'conservatoryBloom': {
+        // 癒しの開花: 自分を回復しつつ周囲にダメージ
+        findMeleeTargetsInArc(radius, Math.PI*2).forEach(t=> dealDamageToEnemy(t, Math.round(dmg*0.8), false, {staggerMul:1}));
+        checkMimicRevealInRange(radius, Math.PI*2, dmg);
+        state.hp = Math.min(state.maxHp, state.hp + Math.round(state.maxHp*0.15));
+        spawnUltimateVFX(state.pos.clone(), {radius, vfxColor:0x8a9c3a});
+        addShake(0.16); flashScreen(); sfx('bigHit');
+        spawnToast('🌸 癒しの開花!');
+        break;
+      }
+    }
+  }
+
   // warrior: 地裂斬 - a long-range ground-splitting slash, giving a melee
   // class rare reach
   function castGroundSplit(dmg, fwd){

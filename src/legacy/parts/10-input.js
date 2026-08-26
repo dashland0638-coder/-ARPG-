@@ -127,6 +127,7 @@
   bindHoldButton('btn-attack', attackInputDown, attackInputUp);
   bindHoldButton('btn-charge', skillInputDown, skillInputUp); // dedicated skill button
   bindTouchButton('btn-skill2', castSkill2);
+  bindTouchButton('btn-skill3', castBossSkill3);
   bindTouchButton('btn-dodge', tryDodge);
   bindTouchButton('btn-ult', tryUltimate, releaseUltimate);
   document.getElementById('loot-menu-btn').addEventListener('pointerdown', e=>{ e.preventDefault(); toggleMenu(); });

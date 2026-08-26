@@ -597,6 +597,10 @@
   #btn-dodge{ width:58px; height:58px; right:30px; bottom:calc(110px + env(safe-area-inset-bottom)); }
   #btn-charge{ width:44px; height:44px; right:96px; bottom:calc(112px + env(safe-area-inset-bottom)); font-size:15px; z-index:3; }
   #btn-skill2{ width:42px; height:42px; right:152px; bottom:calc(128px + env(safe-area-inset-bottom)); font-size:14px; z-index:3; }
+  /* スキル3(ボスから習得した能動技)。skill1->skill2->ultと同じ右上への
+     並びをそのまま続け、何も装着していない間は薄く表示するだけにしてある */
+  #btn-skill3{ width:46px; height:46px; right:258px; bottom:calc(136px + env(safe-area-inset-bottom)); font-size:16px; z-index:3; }
+  #btn-skill3.unequipped{ opacity:0.4; }
   #screen-fade{
     position:fixed; inset:0; background:#05040a; z-index:60;
     opacity:0; pointer-events:none; transition:opacity .22s ease;

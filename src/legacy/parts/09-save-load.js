@@ -36,6 +36,8 @@
       learnedBossAbilities:state.learnedBossAbilities.slice(),
       equippedBossAbilities:state.equippedBossAbilities.slice(),
       learnedBossSkills:state.learnedBossSkills.slice(),
+      learnedBossActiveSkills:state.learnedBossActiveSkills.slice(),
+      equippedBossActiveSkill:state.equippedBossActiveSkill,
       scenarioClears:Object.assign({}, state.scenarioClears),
       clearedScenarios:Object.assign({}, state.clearedScenarios),
       routeCombosSeen:JSON.parse(JSON.stringify(state.routeCombosSeen || {})),
@@ -104,6 +106,8 @@
     state.learnedBossAbilities = (data.learnedBossAbilities || []).slice();
     state.equippedBossAbilities = (data.equippedBossAbilities || []).slice();
     state.learnedBossSkills = (data.learnedBossSkills || []).slice();
+    state.learnedBossActiveSkills = (data.learnedBossActiveSkills || []).slice();
+    state.equippedBossActiveSkill = data.equippedBossActiveSkill || null;
     state.unlockedSphereNodes = (data.unlockedSphereNodes && data.unlockedSphereNodes.length) ? data.unlockedSphereNodes.slice() : ['root'];
     state.spherePoints = data.spherePoints || 0;
     state.scenarioClears = Object.assign({}, data.scenarioClears);
@@ -181,6 +185,7 @@
     if(e.code==='KeyV'){ usePotion(); }
     if(e.code==='KeyL' && !e.repeat){ skillInputDown(); }
     if(e.code==='KeyO' && !e.repeat){ castSkill2(); }
+    if(e.code==='KeyU' && !e.repeat){ castBossSkill3(); }
     if(e.code==='Backquote'){ toggleDebugMode(); }
     if(e.code==='ShiftLeft' || e.code==='ShiftRight'){ tryDodge(); }
   });

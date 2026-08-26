@@ -36,6 +36,7 @@ import * as THREE from 'three';
     paralyzed:false, paralyzeT:0, paralyzeInvulnT:0,
     waterwayColdTimerT:0, waterwayColdTimerFired:false, lastDefeatedBossKey:null, sortied:false, hasBossKey:false, sortieKills:0, checkpointUsed:false,
     learnedBossAbilities:[], equippedBossAbilities:[], invulnExtraT:0, learnedBossSkills:[],
+    learnedBossActiveSkills:[], equippedBossActiveSkill:null, bossSkill3CD:0,
     unlockedSphereNodes:['root'], spherePoints:0,
     bossClears:{},
     escapeFalling:false,        // committed to the leap off the lookout

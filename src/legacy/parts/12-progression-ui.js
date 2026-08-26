@@ -357,6 +357,40 @@
     }
   }
 
+  /* ---- ボス「スキル3」―― 能動的に発動できるボス由来の技 ----
+     BOSS_ABILITIES(常時バフ)・BOSS_SKILLS(自動proc)はどちらも受動的で、
+     「ボスの技をボタンで自分から撃つ」という要望には応えていなかった。
+     こちらは3択報酬の4つ目の選択肢として習得し、鑑定所で最大1つだけ
+     装着してスキル3ボタン(castBossSkill3, 11-combat-actions.js)で
+     使う。効果自体はdealDamageToEnemy/posture/invulnExtraTなど既存の
+     仕組みに乗せてあり、新しいダメージ経路は増やしていない */
+  const BOSS_ACTIVE_SKILLS = {
+    mansionBoss:    {name:'亡霊の一閃', icon:'👻', desc:'一瞬無敵になりながら周囲を強く斬りつける', cd:16},
+    ghostCaptain:   {name:'斉射', icon:'🧭', desc:'5方向に砲弾をまとめて放つ', cd:14},
+    waterwayTurtle: {name:'甲羅ダイブ', icon:'🐢', desc:'叩きつけて周囲の体幹を崩し、自分も少し回復する', cd:18},
+    templeGuardian: {name:'地烈の一撃', icon:'🗿', desc:'周囲にダメージ+特大の体幹崩し', cd:16},
+    towerWarden:    {name:'刻の一撃', icon:'⏱️', desc:'周囲を攻撃し、他のスキルの再使用時間を短縮する', cd:20},
+    conservatoryBloom:{name:'癒しの開花', icon:'🌸', desc:'自分を回復しつつ周囲にダメージ', cd:18},
+  };
+
+  function learnBossActiveSkill(bossKey){
+    const def = BOSS_ACTIVE_SKILLS[bossKey];
+    if(!def) return false;
+    if(!state.learnedBossActiveSkills) state.learnedBossActiveSkills = [];
+    if(state.learnedBossActiveSkills.includes(bossKey)) return false;
+    state.learnedBossActiveSkills.push(bossKey);
+    // 未装着なら自動でスキル3に装着する(1個目は選ぶ手間を挟まない)
+    if(!state.equippedBossActiveSkill) state.equippedBossActiveSkill = bossKey;
+    return true;
+  }
+
+  // スキル3は同時に1つまでなので、選択は「入れ替え」であって「装着/解除」
+  // の切り替えではない(ボス能力の2枠選択とはここが違う)
+  function setEquippedBossActiveSkill(bossKey){
+    if(!state.learnedBossActiveSkills || !state.learnedBossActiveSkills.includes(bossKey)) return;
+    state.equippedBossActiveSkill = (state.equippedBossActiveSkill===bossKey) ? null : bossKey;
+  }
+
   function learnBossAbility(bossKey){
     const def = BOSS_ABILITIES[bossKey];
     if(!def) return false;
@@ -454,12 +488,15 @@
     if(!panel) return;
     const hasSkill = BOSS_SKILLS[bossKey];
     const hasAbility = BOSS_ABILITIES[bossKey];
+    const hasActiveSkill = BOSS_ACTIVE_SKILLS[bossKey];
     const skillLearned = (state.learnedBossSkills||[]).includes(bossKey);
     const abilityLearned = (state.learnedBossAbilities||[]).includes(bossKey);
+    const activeSkillLearned = (state.learnedBossActiveSkills||[]).includes(bossKey);
     const options = [];
     options.push({key:'gear', icon:'⚔️', name:'固有装備', desc:'この強敵の名を冠した装備をもう一つ手に入れる'});
     if(hasSkill && !skillLearned) options.push({key:'skill', icon:hasSkill.icon, name:hasSkill.name, desc:hasSkill.desc});
     if(hasAbility && !abilityLearned) options.push({key:'ability', icon:hasAbility.icon, name:hasAbility.name, desc:hasAbility.desc});
+    if(hasActiveSkill && !activeSkillLearned) options.push({key:'activeSkill', icon:hasActiveSkill.icon, name:'【スキル3】'+hasActiveSkill.name, desc:hasActiveSkill.desc});
 
     if(options.length <= 1){
       // 選択肢が装備しか無い場合は、選ぶ手間を挟まず自動で付与する
@@ -498,6 +535,13 @@
         const def = BOSS_ABILITIES[bossKey];
         const equipped = (state.equippedBossAbilities||[]).includes(bossKey);
         spawnToast(`${def.icon} アビリティ「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'));
+        sfx('levelUp');
+      }
+    } else if(choice==='activeSkill'){
+      if(learnBossActiveSkill(bossKey)){
+        const def = BOSS_ACTIVE_SKILLS[bossKey];
+        const equipped = state.equippedBossActiveSkill===bossKey;
+        spawnToast(`${def.icon} 【スキル3】「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'));
         sfx('levelUp');
       }
     } else {
@@ -1538,6 +1582,30 @@
       html += '</div></div>';
     }
 
+    // スキル3: ボス能力と違い同時に1つまでしか装着できないので、タップで
+    // 選び直す(既に装着中のものをタップすると外す)単一選択の一覧にしてある
+    const learnedActive = state.learnedBossActiveSkills || [];
+    if(learnedActive.length > 0){
+      const equippedActive = state.equippedBossActiveSkill;
+      html += `<div class="boss-ability-row">
+        <div class="gear-slot-label">💥 スキル3 <span class="boss-ability-slots">(${equippedActive?'1':'0'}/1 装着中)</span></div>
+        <div class="boss-ability-list">`;
+      learnedActive.forEach(key=>{
+        const def = BOSS_ACTIVE_SKILLS[key];
+        if(!def) return;
+        const isEq = equippedActive===key;
+        html += `<div class="boss-ability-item ${isEq?'equipped':''}" data-boss-active-skill="${key}">
+          <div class="boss-ability-icon">${def.icon}</div>
+          <div class="boss-ability-info">
+            <div class="boss-ability-name">${def.name}</div>
+            <div class="boss-ability-desc">${def.desc}(再使用${def.cd}秒)</div>
+          </div>
+          <div class="boss-ability-toggle">${isEq?'装着中':'装着する'}</div>
+        </div>`;
+      });
+      html += '</div></div>';
+    }
+
     html += `<div class="gear-tools">
         <button type="button" class="gear-tool-btn" id="gear-best-btn">⚙️ 最強装備</button>
         <button type="button" class="gear-tool-btn sell-all" id="gear-sell-all-btn">🪙 まとめて売却</button>
@@ -1606,6 +1674,9 @@
     });
     panel.querySelectorAll('[data-boss-ability]').forEach(row=>{
       row.addEventListener('click', ()=>{ toggleEquippedBossAbility(row.dataset.bossAbility); refreshAppraisal(); });
+    });
+    panel.querySelectorAll('[data-boss-active-skill]').forEach(row=>{
+      row.addEventListener('click', ()=>{ setEquippedBossActiveSkill(row.dataset.bossActiveSkill); refreshAppraisal(); });
     });
     panel.querySelectorAll('[data-unequip]').forEach(btn=>{
       btn.addEventListener('click', ()=>{ unequipSlot(btn.dataset.unequip); refreshAppraisal(); });
