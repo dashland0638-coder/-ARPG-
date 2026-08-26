@@ -279,6 +279,12 @@
       const toe = new THREE.Mesh(new THREE.BoxGeometry(bw*0.88,0.09,0.10), bootMat);
       toe.position.set(0, 0.045 - kneeWorldY, 0.18); toe.castShadow = true;
       knee.add(toe);
+      // ankle strap: a thin metal band across the boot, echoing the greave
+      // above it - without it the boot was one flat-coloured box with no
+      // relation to the armour on the rest of the leg
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(bw*1.04,0.05,0.28), trimMatFlat);
+      strap.position.set(0, bootY+0.02, 0.04); strap.castShadow = true;
+      knee.add(strap);
 
       hip.add(knee);
     });
@@ -478,6 +484,24 @@
       el.add(vambrace);
       hand.position.y = -0.32; hand.castShadow = true;
       el.add(hand);
+      // fingers: a bare scaled sphere read as a mitten from any distance
+      // closer than the previous armor pass's camera - three short fingers
+      // plus a thumb, angled to close around a grip, is enough to break
+      // that read without the cost of a fully articulated hand
+      const fingerGeo = new THREE.CapsuleGeometry(B.forearm*0.16, B.forearm*0.42, 3, 5);
+      [-0.16,0,0.16].forEach(fx=>{
+        const finger = new THREE.Mesh(fingerGeo, skinMat);
+        finger.position.set(fx, -0.32 - B.forearm*0.55, B.forearm*0.35);
+        finger.rotation.x = -Math.PI*0.42;
+        finger.castShadow = true;
+        el.add(finger);
+      });
+      const thumb = new THREE.Mesh(fingerGeo, skinMat);
+      thumb.scale.setScalar(0.85);
+      thumb.position.set(s*B.forearm*0.85, -0.32 - B.forearm*0.15, B.forearm*0.15);
+      thumb.rotation.set(-Math.PI*0.18, 0, s*Math.PI*0.32);
+      thumb.castShadow = true;
+      el.add(thumb);
       sh.add(el);
 
       // lathed hex-cut dome instead of a squashed sphere - see
