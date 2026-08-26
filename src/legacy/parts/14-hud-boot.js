@@ -381,10 +381,12 @@
       ctx.closePath(); ctx.fill();
     });
 
+    // returns the projected point when actually drawn (so callers can layer
+    // extra decoration - a boss pulse ring, say), null when skipped
     function blip(wx, wz, color, size, shape){
-      if(!inSubZone(zone, wx, wz)) return;
+      if(!inSubZone(zone, wx, wz)) return null;
       const p = proj(wx,wz);
-      if(Math.hypot(p.x-cx,p.y-cy) > R-2) return;
+      if(Math.hypot(p.x-cx,p.y-cy) > R-2) return null;
       ctx.fillStyle = color;
       if(shape==='square'){ ctx.fillRect(p.x-size,p.y-size,size*2,size*2); }
       else if(shape==='diamond'){
@@ -392,19 +394,68 @@
         ctx.moveTo(p.x,p.y-size); ctx.lineTo(p.x+size,p.y);
         ctx.lineTo(p.x,p.y+size); ctx.lineTo(p.x-size,p.y);
         ctx.closePath(); ctx.fill();
+      } else if(shape==='chest'){
+        // a diamond outline with a bright core - a plain gold square read too
+        // close to the door's yellow square at this size, so a chest now
+        // differs by silhouette, not just by color
+        ctx.save();
+        ctx.strokeStyle = color; ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(p.x,p.y-size); ctx.lineTo(p.x+size,p.y);
+        ctx.lineTo(p.x,p.y+size); ctx.lineTo(p.x-size,p.y);
+        ctx.closePath(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(p.x,p.y,size*0.4,0,Math.PI*2); ctx.fill();
+        ctx.restore();
       } else { ctx.beginPath(); ctx.arc(p.x,p.y,size,0,Math.PI*2); ctx.fill(); }
+      return p;
     }
 
     doors.forEach(d=> blip(d.pos.x, d.pos.z, d.opened?'rgba(150,220,150,0.9)':'#e0b050', 4, 'square'));
     stairs.forEach(s=> blip(s.pos.x, s.pos.z, '#7ec8ff', 5, 'diamond'));
     loreObjects.forEach(l=> blip(l.pos.x, l.pos.z, l.read?'rgba(220,220,220,0.4)':'#f0ead8', 3));
-    chests.forEach(c=> blip(c.pos.x, c.pos.z, c.opened?'rgba(180,150,80,0.35)':'#ffd24a', 4, 'square'));
+    chests.forEach(c=> blip(c.pos.x, c.pos.z, c.opened?'rgba(180,150,80,0.35)':'#ffd24a', 5, 'chest'));
     enemies.forEach(en=>{
       if(en.dead || en.dormant) return;
       const isBoss = !!en.isBoss;
-      blip(en.group.position.x, en.group.position.z, isBoss?'#ff5a4a':'#e0574a', isBoss?7:4);
+      const p = blip(en.group.position.x, en.group.position.z, isBoss?'#ff5a4a':'#e0574a', isBoss?7:4);
+      // a slow pulsing ring so the boss dot can't be mistaken for a strong
+      // regular enemy at a glance - it's the one dot on this map you plan
+      // your whole approach around
+      if(isBoss && p){
+        const t = performance.now()*0.003;
+        ctx.strokeStyle = 'rgba(255,90,74,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 9 + Math.sin(t)*2.5, 0, Math.PI*2); ctx.stroke();
+      }
     });
     if(companion) blip(companion.pos.x, companion.pos.z, '#8ae0c0', 4);
+
+    // off-map arrow: the stairs are the one thing you always want to be able
+    // to find, but once they're outside MINIMAP_RANGE the dot above just
+    // silently stops drawing - which reads as "gone", not "far". Point an
+    // arrow at the ring's edge toward the nearest unopened one instead, so
+    // the map still tells you which way to walk even from across the level.
+    let nearestStairs = null, nearestStairsD = Infinity;
+    stairs.forEach(s=>{
+      if(!inSubZone(zone, s.pos.x, s.pos.z)) return;
+      const d = Math.hypot(s.pos.x-px, s.pos.z-pz);
+      if(d < nearestStairsD){ nearestStairsD = d; nearestStairs = s; }
+    });
+    if(nearestStairs){
+      const p = proj(nearestStairs.pos.x, nearestStairs.pos.z);
+      const d = Math.hypot(p.x-cx, p.y-cy);
+      if(d > R-2){
+        const ang = Math.atan2(p.y-cy, p.x-cx);
+        const ex = cx + Math.cos(ang)*(R-10), ey = cy + Math.sin(ang)*(R-10);
+        ctx.save();
+        ctx.translate(ex,ey); ctx.rotate(ang);
+        ctx.fillStyle = '#7ec8ff';
+        ctx.beginPath();
+        ctx.moveTo(7,0); ctx.lineTo(-4,-5); ctx.lineTo(-4,5);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+    }
 
     ctx.restore();
 
