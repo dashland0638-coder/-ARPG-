@@ -1016,31 +1016,33 @@
   }
   .sphere-respec-btn:disabled{ opacity:0.4; cursor:default; background:#1a1620; color:var(--text-dim); }
 
-  /* 盤面: 高さを固定し、ノード数が増えても縦にだらだら伸びないようにする。
-     root(頂点)から左右2本の細い糸(sphere-link)で下段へ繋がる、
-     簡易的な「ボード」の見た目。第3弾で各系統3→6段に伸びた分、
-     ノードを一回り小さくした上で縦横ともスクロールに逃がしてある */
+  /* 盤面(2026-08-27再設計): rootを中心に東西南北へ広がる網目状のマップ。
+     ノードはpos:{dir,tier,lane}から計算した絶対座標(sphere-board-canvas
+     内のpx)に配置し、結線はSVGで描く。盤面自体は正方形の固定サイズ
+     キャンバスで、表示領域(.sphere-board)は高さを抑えてスクロール/
+     パンに逃がす ―― 「マスを押すと先頭に戻る」旧仕様の反省から、
+     renderSpherePanel側でスクロール位置を明示的に保持している */
   .sphere-board{
-    height:264px; display:flex; flex-direction:column; align-items:center;
-    background:radial-gradient(circle at 50% 0%, rgba(240,160,92,0.06), transparent 70%);
-    border:1px solid var(--panel-line); border-radius:8px; padding:10px 6px; margin-bottom:8px;
-    overflow:auto;   /* 4系統×6段になった分、狭い画面では縦横スクロールに逃がす */
+    height:280px; position:relative;
+    background:radial-gradient(circle at 50% 50%, rgba(240,160,92,0.07), transparent 65%);
+    border:1px solid var(--panel-line); border-radius:8px; margin-bottom:8px;
+    overflow:auto;
   }
-  .sphere-board-root{ margin-bottom:5px; flex-shrink:0; }
-  .sphere-board-branches{ display:flex; gap:14px; flex:1; }
-  .sphere-board-col{ display:flex; flex-direction:column; align-items:center; gap:0; }
-  .sphere-link{ width:2px; height:11px; background:var(--panel-line); flex-shrink:0; }
-  .sphere-link.lit{ background:var(--ember-bright); }
+  .sphere-board-canvas{ position:relative; }
+  .sphere-svg{ position:absolute; left:0; top:0; pointer-events:none; }
+  .sphere-edge{ stroke:var(--panel-line); stroke-width:2; }
+  .sphere-edge.lit{ stroke:var(--ember-bright); }
 
   .sphere-node{
+    position:absolute; transform:translate(-50%,-50%);
     width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     font-size:14px; background:#1a1420; border:1.5px solid var(--panel-line); opacity:0.45; cursor:pointer;
     transition:transform .1s; flex-shrink:0;
   }
-  .sphere-node.root-node{ width:30px; height:30px; opacity:1; border-color:var(--ember-bright); background:#241a12; cursor:default; }
+  .sphere-node.root-node{ width:34px; height:34px; opacity:1; border-color:var(--ember-bright); background:#241a12; cursor:default; z-index:2; }
   .sphere-node.unlocked{ opacity:1; border-color:#5a8a4a; background:#182418; }
   .sphere-node.can-unlock{ opacity:0.9; border-color:var(--ember-bright); }
-  .sphere-node.selected{ transform:scale(1.15); box-shadow:0 0 0 2px var(--ember-bright); }
+  .sphere-node.selected{ transform:translate(-50%,-50%) scale(1.25); box-shadow:0 0 0 2px var(--ember-bright); z-index:3; }
   .sphere-node:hover{ opacity:1; }
 
   .sphere-detail{

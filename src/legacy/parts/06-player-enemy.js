@@ -738,7 +738,18 @@
      adds a star, to a maximum of five, and each star makes that scenario's
      whole roster tougher - and worth proportionally more.
   ========================================================= */
-  const MAX_STARS = 5;
+  // レベルバランス調整(2026-08-27): 表示上のレベル目安と実際の適正
+  // レベルが噛み合っていない、シナリオ中の最高難度がLv80クラスの
+  // キャラでも歯応えがあるくらいまで伸びていない、という指摘を受けて
+  // 見直した。★5止まりだった周回難易度の天井を★8まで延ばし、成長率も
+  // 併せて引き上げてある(旧: ★5でhp3.22倍/atk1.98倍 → 新: ★8で
+  // hp5.82倍/atk3.26倍)。硝子の温室(全シナリオ中もっとも敵の素の
+  // ステータスが高い=最高難度)を★8まで周回し切った状態が、Lv80前後の
+  // キャラでも押し切られずに苦戦できる基準になるよう狙った数値。
+  // SCENARIO_DEFSのlevelRange表示もこの想定に合わせて併せて修正済み
+  // (12-progression-ui.js参照)。実際の適正レベルは装備やスフィア盤の
+  // 育ち具合にも左右されるため、プレイして違和感があれば追って調整する。
+  const MAX_STARS = 8;
 
   function scenarioClears(key){ return (state.scenarioClears && state.scenarioClears[key]) || 0; }
   function scenarioStars(key){ return Math.min(MAX_STARS, 1 + scenarioClears(key)); }
@@ -746,7 +757,7 @@
 
   // t counts stars beyond the first, so a first run is exactly as balanced as
   // it always was. HP climbs hardest, attack more gently and speed barely at
-  // all: a five-star run should be a longer, more punishing fight rather than
+  // all: a max-star run should be a longer, more punishing fight rather than
   // one whose tells are too fast to read.
   //
   // COMBAT_REBALANCE: コンボ・体幹(怯み・ダウン)・回避攻撃・ジャンプ攻撃の
@@ -756,7 +767,7 @@
   const COMBAT_REBALANCE = { hp: 1.20, atk: 1.10 };
   function difficultyFor(key){
     const stars = scenarioStars(key), t = stars - 1;
-    return { stars, hp:(1 + t*0.42)*COMBAT_REBALANCE.hp, atk:(1 + t*0.20)*COMBAT_REBALANCE.atk, speed:1 + t*0.05,
+    return { stars, hp:(1 + t*0.55)*COMBAT_REBALANCE.hp, atk:(1 + t*0.28)*COMBAT_REBALANCE.atk, speed:1 + t*0.06,
              xp:1 + t*0.34, gold:1 + t*0.30 };
   }
 
