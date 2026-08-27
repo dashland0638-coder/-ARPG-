@@ -273,6 +273,15 @@
       enemies.push(buildEnemy(new THREE.Vector3(156,0,-111),
         {color:0xe0b860, hp:260, atk:52, speed:1.9, atkType:'fire', xp:118, goldBonus:[27,40], projColor:0xffd24a}));
     }
+    // 水路「山を登る」拡張(★4): 最深部。buildWaterwayDepths()が同じ
+    // ★条件でしか部屋を建てないので、こちらも床のない場所に敵だけ
+    // 浮く事故は起きない
+    if(_spawnWorldKey==='waterway' && scenarioStars('waterway') >= WATERWAY_DEPTHS_STARS){
+      enemies.push(buildEnemy(new THREE.Vector3(-96,0,-146),
+        {color:0x1a4a3a, hp:280, atk:48, speed:2.6, atkType:'charge', xp:100, goldBonus:[24,36], strongMob:true, guardian:true, isElectric:true}));
+      enemies.push(buildEnemy(new THREE.Vector3(-88,0,-136),
+        {color:0x8a5ad0, hp:220, atk:44, speed:2.6, atkType:'charge', xp:88, goldBonus:[20,30], isElectric:true}));
+    }
     // 屋根裏へは主を倒した後にしか上れない(buildStairsのgateTag参照)。
     // ★4未満はgateTagがそもそも付かず、階段自体もbuildMansion側で建てない
     if(_spawnWorldKey==='mansion') enemies.push(buildBoss(new THREE.Vector3(0,0,-56),
@@ -381,9 +390,13 @@
       clearName:'庭の主', clearFlavor:'巨大な花は音もなく萎れ、硝子の天井から一条の光が差し込んだ。',
       rewardLoot:{type:'gem', name:'百年花の種核', icon:'💎', color:0x9ad86a}
     }));
+    // 水路も同じ「山を登る」拡張(★4): 撃破後に主の間の南側の未使用
+    // 区画への階段が現れる(gateTag、buildWaterwayMaze側で階段を建てる)
     if(_spawnWorldKey==='waterway') enemies.push(buildBoss(new THREE.Vector3(-88,0,-114), {
       // shell radius 3.2, head reaches 3.22, so the bite lands out to 4.2
       key:'waterwayTurtle', bossDoorKey:'waterwayFinalDoor', solidR:3.2, atkReach:4.2,
+      gateTag: scenarioStars('waterway') >= WATERWAY_DEPTHS_STARS ? 'waterwayTurtle' : null,
+      endsRun: scenarioStars('waterway') < WATERWAY_DEPTHS_STARS,
       bodyColor:0x1a4a3a, emissive:0x2a6a8a, eyeColor:0xf0e050, auraColor:0x9a6ae0,
       hpMax:1500, atk:58, speed:1.45, xp:620, isElectric:true,
       dialogueName:'水路の主',

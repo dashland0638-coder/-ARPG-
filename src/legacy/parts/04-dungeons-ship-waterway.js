@@ -14,6 +14,10 @@
   // 「潜る」が似合うので、船倉のさらに深部という形にした。踏破の仕組みは
   // 洋館の屋根裏と同じ: 主(船長)を倒した後だけ現れる階段+gateTag
   const GHOSTSHIP_DEPTHS_STARS = 4;
+  // 「山を登る」拡張の第4弾。水路の主を倒した後だけ、最終決戦の間の
+  // 南壁の先に現れる(worldKeyForPos()の'waterway'帯 x:-135〜-84に
+  // 収まるよう、部屋の東端をx=-86までに抑えてある)
+  const WATERWAY_DEPTHS_STARS = 4;
 
   /* =========================================================
      WATERWAY: PIER + RESTROOM (surface) -> falls asleep in the
@@ -650,6 +654,13 @@
       scene.add(crystal);
     });
 
+    // 周回★4以上でのみ、水路の主を倒した後に南壁の先へ続く階段が現れる
+    if(scenarioStars('waterway') >= WATERWAY_DEPTHS_STARS){
+      buildStairs(new THREE.Vector3(-88,0,-119), new THREE.Vector3(-92,0,-140),
+        'さらに深い水路へ下りた……', 0x1a3a52, 'down', 'waterwayTurtle');
+      buildWaterwayDepths();
+    }
+
     // no visible staircase here - once the mid-boss falls, standing in the
     // arena triggers the floor giving way automatically
     registerProximityEvent(new THREE.Vector3(-100,0,-48), 9, '', [
@@ -757,6 +768,45 @@
       'この先に、何かがいる。'
     ]);
 
+  }
+
+  // 水路の主の間のさらに奥、周回★4で開く拡張(洋館の屋根裏・幽霊船の
+  // 最深部・神殿の最深部と同じ位置づけ)。座標はworldKeyForPos()の
+  // 'waterway'帯(x:-135〜-84)に収まるよう、部屋の東端をx=-86までに
+  // 抑えてある
+  function buildWaterwayDepths(){
+    const cx = -92, cz = -140;
+    const wallMat = new THREE.MeshStandardMaterial({color:0x1c2a30, roughness:0.9});
+    const floorTex = makeCobbleTexture('#1a2a2c', '#0a1414', 4, 5, 5);
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.95});
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(12,16), floorMat);
+    floor.rotation.x = -Math.PI/2;
+    floor.position.set(cx, 0.08, cz);
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    addWallBox(cx, cz-8, 12.6, 0.6, wallMat);
+    addWallBox(cx, cz+8, 12.6, 0.6, wallMat);
+    addWallBox(cx-6, cz, 0.6, 16, wallMat);
+    addWallBox(cx+6, cz, 0.6, 16, wallMat);
+
+    const crystalMat3 = new THREE.MeshStandardMaterial({color:0x3ac0a8, emissive:0x2a8a78, emissiveIntensity:0.5, roughness:0.4});
+    [[-3,-4],[3,3],[0,6]].forEach(([x,z])=>{
+      const crystal = new THREE.Mesh(new THREE.ConeGeometry(0.5,1.8,5), crystalMat3);
+      crystal.position.set(cx+x, 1.6, cz+z);
+      scene.add(crystal);
+    });
+    const glow = new THREE.PointLight(0x9a6ae0, 0.9, 16);
+    glow.position.set(cx, 3, cz);
+    scene.add(glow);
+
+    buildStairs(new THREE.Vector3(cx,0,cz+6), new THREE.Vector3(-88,0,-115), '主の間へ戻った……', 0x1a3a52, 'up');
+
+    registerProximityEvent(new THREE.Vector3(cx,0,cz-3), 4, '???', [
+      '主がこの奥に何を隠していたのか、水底でようやく光を取り戻している。',
+      'ここまで潜ってきた甲斐は、あったようだ。'
+    ]);
   }
 
   function buildGhostShipBelowDecks(){

@@ -496,6 +496,8 @@
         ? [[new THREE.Vector3(-32,0,150), 'armoury']] : []), // 船倉最深部(周回★4+)
       [new THREE.Vector3(-108,0,20)],                     // waterway underground
       [new THREE.Vector3(-108,0,-28), 'armoury'],         // pump room dead end
+      ...(scenarioStars('waterway') >= WATERWAY_DEPTHS_STARS
+        ? [[new THREE.Vector3(-92,0,-140), 'armoury']] : []), // waterway: 最深部(周回★4+)
       [new THREE.Vector3(-124,0,-86), 'supply'],          // drowned cistern, before the descent
       [new THREE.Vector3(75,0,-58)],                      // crypt
       [new THREE.Vector3(-75,0,-58)],                     // sealed study
