@@ -241,7 +241,25 @@
       enemies.push(buildEnemy(new THREE.Vector3(80,0,-64),
         {color:0x5a1a7a, hp:95, atk:20, speed:2.7, atkType:'charge', xp:28, goldBonus:[9,15]}));
     }
-    if(_spawnWorldKey==='mansion') enemies.push(buildBoss(new THREE.Vector3(0,0,-56), {}));
+    // 「山を登る」拡張(★3/★4): 地下納骨堂の最奥・屋根裏。どちらも建物側の
+    // buildMansionCryptDepths()/buildMansionAttic()が同じ★条件でしか部屋自体を
+    // 建てないので、床のない場所に敵だけ浮く事故は起きない
+    if(_spawnWorldKey==='mansion' && scenarioStars('mansion') >= MANSION_CRYPT_DEPTHS_STARS){
+      enemies.push(buildEnemy(new THREE.Vector3(70,0,-85),
+        {color:0x6a2a7a, hp:165, atk:27, speed:2.7, atkType:'charge', xp:42, goldBonus:[14,20], strongMob:true, guardian:true}));
+    }
+    if(_spawnWorldKey==='mansion' && scenarioStars('mansion') >= MANSION_ATTIC_STARS){
+      enemies.push(buildEnemy(new THREE.Vector3(159,0,-44),
+        {color:0x8a3a5a, hp:250, atk:36, speed:2.7, atkType:'charge', xp:72, goldBonus:[22,32], strongMob:true, guardian:true}));
+      enemies.push(buildEnemy(new THREE.Vector3(168,0,-36),
+        {color:0x6a3a8a, hp:180, atk:31, speed:0.9, atkType:'fire', xp:64, goldBonus:[19,28], projColor:0xd8b0ff}));
+    }
+    // 屋根裏へは主を倒した後にしか上れない(buildStairsのgateTag参照)。
+    // ★4未満はgateTagがそもそも付かず、階段自体もbuildMansion側で建てない
+    if(_spawnWorldKey==='mansion') enemies.push(buildBoss(new THREE.Vector3(0,0,-56),
+      scenarioStars('mansion') >= MANSION_ATTIC_STARS
+        ? {gateTag:'mansionBoss', endsRun:false}
+        : {}));
     if(_spawnWorldKey==='ghostship') enemies.push(buildBoss(new THREE.Vector3(-32,0,120), {
       key:'ghostCaptain', bossDoorKey:'bossHoldDoor', bodyColor:0x3a5568, emissive:0x1a3a4a, eyeColor:0x7ecbe8, auraColor:0x4a8ab0,
       hpMax:820, atk:40, speed:1.95, xp:340,

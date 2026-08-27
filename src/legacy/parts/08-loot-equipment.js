@@ -481,6 +481,10 @@
       [new THREE.Vector3(9,0,-40),    'supply'],          // mansion hall - before the locked door
       [new THREE.Vector3(65,0,-33),   'armoury'],         // basement dead end
       [new THREE.Vector3(-65,0,-33),  'armoury'],         // 2F study dead end
+      ...(scenarioStars('mansion') >= MANSION_CRYPT_DEPTHS_STARS
+        ? [[new THREE.Vector3(74,0,-86), 'armoury']] : []),  // 地下納骨堂・最奥(周回★3+)
+      ...(scenarioStars('mansion') >= MANSION_ATTIC_STARS
+        ? [[new THREE.Vector3(160,0,-47), 'armoury']] : []), // 屋根裏(周回★4+)
       [new THREE.Vector3(-5,0,113)],                      // ghost ship deck
       [new THREE.Vector3(5,0,90)],                        // ghost ship cabin
       [new THREE.Vector3(33,0,106),   'armoury'],         // cargo hold dead end

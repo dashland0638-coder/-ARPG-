@@ -98,6 +98,17 @@
     return scenarioStars(scKey) >= ROUTE_MUTATION_STARS;
   }
 
+  /* ---- 山を登るように拡張する周回ダンジョン(洋館で試験導入) ----
+     「1周目は今の規模のままでよいが、周回を重ねるたび先へ拡張し、難易度も
+     報酬も跳ね上がる」という設計(改善アイデア.md補足)。数値インフレ済みの
+     周回変異(routeMutationActive、上記)とは別枠で、構造そのものを継ぎ足す。
+     既存の行き止まり(地下納骨堂)の先にもう一段、ボスの間の先にもう一段、
+     という2段構えにしてあるのは「山を少しずつ登る」感覚を早い段階から
+     一度体験させるため。★はscenarioStars('mansion')、つまりこのシナリオの
+     クリア回数がそのまま基準になる(既存のdifficultyFor()と同じ物差し)。 */
+  const MANSION_CRYPT_DEPTHS_STARS = 3;  // 地下納骨堂の最奥が開く周回★
+  const MANSION_ATTIC_STARS = 4;         // 主を倒した先、屋根裏が開く周回★
+
   /* ---- ルートグラフのランタイム ----
      グラフを持たないシナリオでは全ての問い合わせが素通しになるので、
      未対応のダンジョンに影響を与えない。 */
@@ -1547,6 +1558,15 @@
     // 選んで state.bossMods に 'chandelier' が積まれている時だけ
     buildMansionChandelier();
 
+    // 周回★4以上でのみ、主の間の奥に屋根裏へ続く階段が現れる。実際に上れる
+    // のは主を倒した後だけ(gateTag、spawnEnemiesのbuildBoss呼び出し側で
+    // 付与)。山を登り切った先の一段、という位置づけ
+    if(scenarioStars('mansion') >= MANSION_ATTIC_STARS){
+      buildStairs(new THREE.Vector3(0,0,-60), new THREE.Vector3(165,0,-40),
+        '屋根裏へ続く階段を上った……', 0x2a1830, 'up', 'mansionBoss');
+      buildMansionAttic();
+    }
+
     buildMansionExterior();
     buildMansionForestWall();
   }
@@ -1803,6 +1823,55 @@
     return {cx, cz};
   }
 
+  // 主の間の先、周回★4で開く「山を登り切った先」の一段。座標は
+  // worldKeyForPos()が'mansion'と判定するx帯(160≦x<170、他ダンジョンの
+  // 領域と重ならない隙間)を選んである。徒歩の通路では繋がっておらず、
+  // 既存のbasement/study/courtyardと同じ「階段テレポートで飛ぶ離れ島」
+  function buildMansionAttic(){
+    const cx = 165, cz = -40;
+    const wallMat = new THREE.MeshStandardMaterial({color:0x2a2436, roughness:0.85});
+    const floorTex = makePlankTexture('#4a3c50', 4, 5, 4);
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20,20), floorMat);
+    floor.rotation.x = -Math.PI/2;
+    floor.position.set(cx, 0.08, cz);
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    addWallBox(cx, cz-10, 20.8, 0.8, wallMat);
+    addWallBox(cx, cz+10, 20.8, 0.8, wallMat);
+    addWallBox(cx-10, cz, 0.8, 20, wallMat);
+    addWallBox(cx+10, cz, 0.8, 20, wallMat);
+
+    // 傾いた梁と積み上がった家具箱。屋根裏らしい雑然とした飾り
+    const beamMat = new THREE.MeshStandardMaterial({color:0x2a2020, roughness:0.8});
+    [[-6,-4,0.5],[6,3,-0.4]].forEach(([x,z,rot])=>{
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(6,0.3,0.3), beamMat);
+      beam.position.set(cx+x, 3.4, cz+z);
+      beam.rotation.z = rot;
+      beam.castShadow = true;
+      scene.add(beam);
+    });
+    const crateMat = new THREE.MeshStandardMaterial({color:0x4a3826, roughness:0.85});
+    [[-7,6],[-5,7],[7,-6]].forEach(([x,z])=>{
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(1.4,1.2,1.4), crateMat);
+      crate.position.set(cx+x, 0.6, cz+z);
+      crate.castShadow = true; crate.receiveShadow = true;
+      scene.add(crate);
+    });
+    const lamp = new THREE.PointLight(0xc9a0ff, 0.6, 16);
+    lamp.position.set(cx, 3.6, cz);
+    scene.add(lamp);
+
+    buildStairs(new THREE.Vector3(cx,0,cz+8), new THREE.Vector3(0,0,-58), '主の間へ戻った……', 0x2a1830, 'down');
+
+    registerProximityEvent(new THREE.Vector3(cx,0,cz-4), 5, '???', [
+      '館の主が、なぜここまで力を蓄えていたのか……その答えが、埃をかぶって眠っている。',
+      '登ってきた甲斐は、あったようだ。'
+    ]);
+  }
+
   // a dense ring of trees with real collision, ~2 units out from the
   // mansion's own exterior shell, so the player can't slip past the
   // building's sides - with a courtyard-sized gap left open in front of
@@ -1972,7 +2041,16 @@
     cryptFloor.receiveShadow = true;
     scene.add(cryptFloor);
 
-    addWallBox(cx, czCrypt-10, 24.8, 0.8, wallMat);
+    // 周回★3未満はこれまで通りの完全な行き止まり。★3以上になると同じ壁の
+    // 中央だけ扉に差し替わり、さらに奥へ続く(=山を少し登った証)
+    const cryptDepthsUnlocked = scenarioStars('mansion') >= MANSION_CRYPT_DEPTHS_STARS;
+    if(cryptDepthsUnlocked){
+      addWallBox(cx-7, czCrypt-10, 10, 0.8, wallMat);
+      addWallBox(cx+7, czCrypt-10, 10, 0.8, wallMat);
+      buildDoor('cryptDepthsDoor', cx, czCrypt-10, 4, 0x1a1015);
+    } else {
+      addWallBox(cx, czCrypt-10, 24.8, 0.8, wallMat);
+    }
     addWallBox(cx-12, czCrypt, 0.8, 20, wallMat);
     addWallBox(cx+12, czCrypt, 0.8, 20, wallMat);
 
@@ -1988,7 +2066,44 @@
     cryptGlow.position.set(cx, 3, czCrypt);
     scene.add(cryptGlow);
 
+    if(cryptDepthsUnlocked) buildMansionCryptDepths(cx, czCrypt);
+
     return {cx, cz, czCrypt};
+  }
+
+  // 地下納骨堂のさらに奥、周回★3で開く行き止まり拡張。行き止まりの構造
+  // そのものは変えず、同じ通路の先にもう一部屋足すだけ(既存のcrypt同様、
+  // 徒歩で入って徒歩で戻れる=帰還のための特別な仕掛けは要らない)
+  function buildMansionCryptDepths(cx, czCrypt){
+    const czDepths = czCrypt - 20;
+    const wallMat = new THREE.MeshStandardMaterial({color:0x1c1418, roughness:0.9});
+    const floorTex = makeMasonryTexture('#1c1418', '#0a0608', 3, 4, 5, 4, {crack:true});
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.95});
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(18,16), floorMat);
+    floor.rotation.x = -Math.PI/2;
+    floor.position.set(cx, 0.08, czDepths);
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    addWallBox(cx, czDepths-8, 18.8, 0.8, wallMat);
+    addWallBox(cx-9, czDepths, 0.8, 16, wallMat);
+    addWallBox(cx+9, czDepths, 0.8, 16, wallMat);
+
+    // 崩れかけた祭壇。ここまで辿り着いた証として据えてあるだけの飾り
+    const altarMat = new THREE.MeshStandardMaterial({color:0x2a2020, roughness:0.85});
+    const altar = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.9,1.4), altarMat);
+    altar.position.set(cx, 0.45, czDepths-5);
+    altar.castShadow = false; altar.receiveShadow = true;
+    scene.add(altar);
+    const altarGlow = new THREE.PointLight(0xc060ff, 0.9, 14);
+    altarGlow.position.set(cx, 2, czDepths-5);
+    scene.add(altarGlow);
+
+    registerProximityEvent(new THREE.Vector3(cx,0,czDepths+6), 4, '???', [
+      'これまで踏み込んだことのない、納骨堂のさらに奥……',
+      '空気が、ひときわ重い。'
+    ]);
   }
 
   /* =========================================================
