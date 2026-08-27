@@ -517,6 +517,12 @@
     skill13:{name:'受け流しの理II', icon:'🔷', cost:2, requires:['skill12'], effect:{type:'barrierHealSphereMul', value:0.15}, desc:'バリアのHP吸収量+15%'},
     skill14:{name:'神速', icon:'💫', cost:2, requires:['skill13'], effect:{type:'skill2CDSphereMul', value:-0.10}, desc:'スキル2の再使用時間-10%'},
     skill15:{name:'会心の型', icon:'🎴', cost:3, requires:['skill14'], effect:{type:'skillDmgSphereMul', value:0.15}, desc:'スキル(専用ボタン)の威力+15%(装着中の技を問わず)'},
+    // ---- 拡張(第5弾): 「スキル解放」= 新スキルの習得。強化(effect)とは
+    // 別枠で、unlockフィールドを持つノードだけ解放時に専用フラグを立てる
+    // (unlockSphereNode参照)。職業ごとの新スキル1種類を、この2マスで
+    // スキル1・スキル2それぞれ習得できるようにしてある
+    skill16:{name:'新技の会得: スキル1', icon:'✨', cost:2, requires:['skill15'], unlock:'skill1Alt', desc:'クラス専用の新しいスキル(専用ボタン)を習得する'},
+    skill17:{name:'新技の会得: スキル2', icon:'✨', cost:2, requires:['skill16'], unlock:'skill2Alt', desc:'クラス専用の新しいスキル2を習得する'},
 
     ult4:  {name:'力の高まりII', icon:'🔥', cost:2, requires:['ult3'],  effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
     ult5:  {name:'満ちる刻II', icon:'⏳', cost:2, requires:['ult4'],  effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
@@ -530,6 +536,9 @@
     ult13: {name:'絶対の一撃IV', icon:'💫', cost:2, requires:['ult12'], effect:{type:'ultDmgSphereMul', value:0.08}, desc:'必殺技威力+8%'},
     ult14: {name:'神域への道', icon:'🌌', cost:2, requires:['ult13'], effect:{type:'ultDmgSphereMul', value:0.08}, desc:'必殺技威力+8%'},
     ult15: {name:'天啓', icon:'🕊️', cost:3, requires:['ult14'], effect:{type:'ultDmgSphereMul', value:0.12}, desc:'必殺技威力+12%'},
+    // 新技の会得: スキル1・2と同じ枠組みで、必殺技もクラス専用の
+    // 新しいものを習得できるようにしてある
+    ult16: {name:'新技の会得: 必殺技', icon:'✨', cost:2, requires:['ult15'], unlock:'ultAlt', desc:'クラス専用の新しい必殺技を習得する'},
   };
 
   function sphereUnlocked(id){ return (state.unlockedSphereNodes||['root']).includes(id); }
@@ -546,7 +555,17 @@
     if(!state.unlockedSphereNodes) state.unlockedSphereNodes = ['root'];
     state.unlockedSphereNodes.push(id);
     sfx('levelUp');
-    spawnToast(`${def.icon} スフィア「${def.name}」を解放!`);
+    // unlockフィールドを持つノードは「強化」ではなく「新スキルの習得」
+    // なので、専用フラグを立てるだけで済ませる(実際の切り替えは
+    // スキルタブ側でこのフラグを見て選択肢を出す)
+    if(def.unlock){
+      if(def.unlock==='skill1Alt') state.unlockedSkill1Alt = true;
+      else if(def.unlock==='skill2Alt') state.unlockedSkill2Alt = true;
+      else if(def.unlock==='ultAlt') state.unlockedUltAlt = true;
+      spawnToast(`${def.icon} 新しい技を習得した!`);
+    } else {
+      spawnToast(`${def.icon} スフィア「${def.name}」を解放!`);
+    }
     recomputeStats();
     return true;
   }
@@ -1215,12 +1234,16 @@
     } : {};
     const atkMul = (state.usingAltWeapon ? (weaponDef.atkMul||1) : 1) * (1 + sphereValue('atkMul'));   // スフィア「攻撃の心得」
     const hpAbilityMul = 1 + bossAbilityValue('maxHpMul');   // ボス能力「百年花の芯」
+    // 必殺技の新規選択肢(スフィア盤で解放): 未解放ならaltを選んでいても
+    // 強制的にdefaultへ戻す(セーブデータ改変や解放前の選択残りに対する安全策)
+    const ultBase = (state.ultChoice==='alt' && state.unlockedUltAlt && ULT_ALT_BY_CLASS[selectedClass])
+      ? ULT_ALT_BY_CLASS[selectedClass] : base.ult;
     const cdef = Object.assign({}, base, weaponOverrides, {
       hp: Math.round((base.hp + allocPoints.hp*3 + state.skills.hpUp*15 + state.levelGrowth.hp + gearHp) * hpAbilityMul),
       mp: base.mp + allocPoints.mp*2 + state.levelGrowth.mp,
       atk: Math.round((base.atk + allocPoints.atk*1 + state.skills.atkUp*2 + state.equipLevel*4 + state.levelGrowth.atk + gearAtk) * atkMul),
       spd: +(base.spd + allocPoints.spd*0.1 + state.levelGrowth.spd).toFixed(2),
-      ult: Object.assign({}, base.ult, { mult: +(base.ult.mult * (1 + state.skills.ultUp*0.1) * (1 + sphereValue('ultDmgSphereMul'))).toFixed(2) })   // スフィア「絶対の一撃」
+      ult: Object.assign({}, ultBase, { mult: +(ultBase.mult * (1 + state.skills.ultUp*0.1) * (1 + sphereValue('ultDmgSphereMul'))).toFixed(2) })   // スフィア「絶対の一撃」
     });
     const hpRatio = state.maxHp>0 ? state.hp/state.maxHp : 1;
     const mpRatio = state.maxMp>0 ? state.mp/state.maxMp : 1;
@@ -1236,7 +1259,8 @@
     if(btnUltIcon) btnUltIcon.textContent = cdef.ult.icon;
     updateSkillButtonIcon();
     const btnSkill2Icon = document.getElementById('btn-skill2-icon');
-    if(btnSkill2Icon && SKILL2_BY_CLASS[cdef.key]) btnSkill2Icon.textContent = SKILL2_BY_CLASS[cdef.key].icon;
+    const skill2Def = activeSkill2Def(cdef.key);
+    if(btnSkill2Icon && skill2Def) btnSkill2Icon.textContent = skill2Def.icon;
     updateUltHUD();
   }
 
@@ -1436,6 +1460,11 @@
       barrier: {
         key:'barrier', name:'剛絶の盾', icon:'🛡️', desc:'大剣を構えてバリアを展開する。命中を受けると弾き、HPを少し吸収する(発動中は無敵)',
         mode:'barrier', vfxColor:0x66aaff, duration:0.5, healFrac:0.12
+      },
+      // 新スキル(スフィア盤「轟斬の会得」で解放)
+      cleave: {
+        key:'cleave', name:'轟斬', icon:'👹', desc:'大剣を大きく振り抜き、周囲の敵をまとめて薙ぎ払う(スフィア盤で解放)',
+        baseMult:1.3, maxMult:2.6, mode:'aoe', radius:5.0, vfxColor:0xff5a3a, unlockKey:'skill1Alt'
       }
     },
     rogue: {
@@ -1457,6 +1486,14 @@
       barrier: {
         key:'barrier', name:'影の受け流し', icon:'🌑', desc:'両の短刀を交差させて構える。命中を受けると弾き、HPを少し吸収する(発動中は無敵)',
         mode:'barrier', vfxColor:0x9ad66a, duration:0.5, healFrac:0.12
+      },
+      // 新スキル(スフィア盤「毒霧の会得」で解放): 命中させた敵に毒を
+      // 塗りつける。既存の火傷DoT(en.burnT/burnDmg、かいじんの杖と同じ
+      // 経路)をそのまま流用しているので、敵側の新しい仕組みは増やしていない
+      poison: {
+        key:'poison', name:'毒霧', icon:'☠️', desc:'眼前に毒霧を放つ。当たった敵は数秒間、継続ダメージを受ける(スフィア盤で解放)',
+        baseMult:0.55, maxMult:1.1, mode:'aoe', radius:3.8, vfxColor:0x5ac95a,
+        dotFrac:0.4, dotDuration:3.0, unlockKey:'skill1Alt'
       }
     },
     mage: {
@@ -1478,6 +1515,13 @@
       barrier: {
         key:'barrier', name:'魔導障壁', icon:'🔷', desc:'杖を掲げて魔法障壁を展開する。命中を受けると弾き、HPを少し吸収する(発動中は無敵)',
         mode:'barrier', vfxColor:0x8a6aff, duration:0.5, healFrac:0.12
+      },
+      // 新スキル(スフィア盤「連鎖雷撃の会得」で解放): 最初の的に当たった
+      // 稲妻が、近くのもう1体へ減衰しつつ飛び移る
+      chain: {
+        key:'chain', name:'連鎖雷撃', icon:'⚡', desc:'雷撃を放つ。命中した敵の近くにいる別の敵へも雷が飛び移る(スフィア盤で解放)',
+        baseMult:1.0, maxMult:2.2, mode:'chain', vfxColor:0x8ac8ff,
+        chainRadius:6.5, chainMul:0.6, unlockKey:'skill1Alt'
       }
     },
     archer: {
@@ -1499,6 +1543,12 @@
       barrier: {
         key:'barrier', name:'弓の盾構え', icon:'🔰', desc:'弓を体の前に掲げて構える。命中を受けると弾き、HPを少し吸収する(発動中は無敵)',
         mode:'barrier', vfxColor:0xffcf7a, duration:0.5, healFrac:0.12
+      },
+      // 新スキル(スフィア盤「貫通の一矢の会得」で解放): 直線上の敵を
+      // 全て貫通する一射
+      pierce: {
+        key:'pierce', name:'貫通の一矢', icon:'🏹', desc:'渾身の一射で、直線上の敵を全て貫通する(スフィア盤で解放)',
+        baseMult:1.2, maxMult:2.6, mode:'line', length:11, width:1.3, vfxColor:0xe8d38a, unlockKey:'skill1Alt'
       }
     }
   };
@@ -1508,6 +1558,52 @@
     rogue:   { name:'三連投げナイフ', icon:'🔪', desc:'短剣を3連続で投げつける', cd:8, mult:0.75 },
     mage:    { name:'護りの魔球', icon:'🔮', desc:'両脇に追尾する魔球を展開。敵に接近すると自爆特攻し、被弾時は身代わりになる', cd:10, mult:1.6 },
     archer:  { name:'爆弾投げ', icon:'💣', desc:'目の前に広範囲の爆弾を投げ込む', cd:9, mult:1.7 },
+  };
+
+  /* ---- スキル2の新規選択肢(スフィア盤で解放) ----
+     既存のSKILL2_BY_CLASSは1クラス1種類・専用のcast関数(castGroundSplit等)
+     を持つ凝った演出だったので、そちらは変更せず残す。新しい方は
+     executeVariant()の汎用モード(aoe/single+movement)にそのまま乗せて、
+     専用cast関数を増やさずに済ませてある(castSkill2の分岐を参照) */
+  const SKILL2_ALT_BY_CLASS = {
+    // executeVariant()はchargeRatio(=1で固定、下記)でbaseMult〜maxMultを
+    // 補間するため、charge非依存のスキル2でも両方に同じ値を入れてある
+    warrior: { key:'skill2alt', name:'崩し撃', icon:'💢', desc:'渾身の一撃で敵の体幹を大きく崩す(スフィア盤で解放)',
+      cd:11, baseMult:2.4, maxMult:2.4, mode:'aoe', radius:3.0, vfxColor:0xff8844 },
+    rogue:   { key:'skill2alt', name:'影撃', icon:'🌒', desc:'瞬時に間合いを詰め、死角から斬りつける(スフィア盤で解放)',
+      cd:10, baseMult:2.6, maxMult:2.6, mode:'single', vfxColor:0xc9a24b, movement:'dash', dist:5.5, duration:0.16 },
+    mage:    { key:'skill2alt', name:'業火の環', icon:'🔥', desc:'周囲に業火を撒き散らす。当たった敵は継続ダメージを受ける(スフィア盤で解放)',
+      cd:12, baseMult:1.1, maxMult:1.1, mode:'aoe', radius:4.4, vfxColor:0xff6a3a, dotFrac:0.4, dotDuration:3.0 },
+    archer:  { key:'skill2alt', name:'追尾弾', icon:'🎯', desc:'追尾する矢を3連続で放つ(スフィア盤で解放)',
+      cd:10, baseMult:0.75, maxMult:0.75, mode:'burst3', vfxColor:0xdcbf7a, homing:true },
+  };
+
+  // 現在選ばれているスキル2の定義を返す(未解放ならaltを選んでいても
+  // 強制的にdefaultへ戻す)
+  function activeSkill2Def(classKey){
+    if(state.skill2Choice==='alt' && state.unlockedSkill2Alt && SKILL2_ALT_BY_CLASS[classKey]) return SKILL2_ALT_BY_CLASS[classKey];
+    return SKILL2_BY_CLASS[classKey];
+  }
+
+  /* ---- 必殺技の新規選択肢(スフィア盤で解放) ----
+     CLASSES[key].ultと同じフィールド構成(radial/sweep/aimed等)で
+     書けるようにしてあるので、fireUltimate()側に新しいコードは
+     ほぼ要らない(唯一の追加はexecuteThreshold/executeMul、後述)。
+     ロールごとに既存必殺技とは違う「形」を選んである:
+     剣士=単発大爆発→多段の乱舞、盗賊=範囲乱舞→単体処刑、
+     魔法使い=中規模の着弾→長い溜めの超big着弾、弓師=瞬間全方位→
+     持続する広範囲の雨、という組み合わせ */
+  const ULT_ALT_BY_CLASS = {
+    warrior: { name:'阿修羅', icon:'👹', cd:20, vfxColor:0xff6a3a,
+      radial:true, sweep:true, sweepDur:0.9, sweepArrows:26, radius:4.0, mult:1.7 },
+    rogue:   { name:'処刑人の一撃', icon:'🔪', cd:18, vfxColor:0xc9a24b,
+      aimed:true, aimDist:6.0, aimMax:1.6, aimRadiusMul:1.3, aimDmgMul:1.6, aimMpPerSec:14,
+      radius:2.2, mult:2.6, executeThreshold:0.35, executeMul:2.0 },
+    mage:    { name:'絶対零度', icon:'❄️', cd:26, vfxColor:0x9fe0ff,
+      aimed:true, aimDist:7.0, aimMax:2.6, aimRadiusMul:2.0, aimDmgMul:2.0, aimMpPerSec:18,
+      radius:4.0, mult:3.8 },
+    archer:  { name:'百矢の雨', icon:'🌧️', cd:22, vfxColor:0xffe0a0,
+      radial:true, sweep:true, sweepDur:1.3, sweepArrows:36, radius:9.0, mult:1.0 },
   };
 
   function updateSkillButtonIcon(){
@@ -1830,8 +1926,8 @@
     html += '<div class="sphere-board-branches">';
     html += col(chain('atk',15));
     html += col(chain('dodge',15));
-    html += col(chain('skill',15));
-    html += col(chain('ult',15));
+    html += col(chain('skill',17));
+    html += col(chain('ult',16));
     html += '</div></div>';
 
     const selDef = SPHERE_NODES[sphereSelectedNode];
@@ -1968,8 +2064,11 @@
           <div class="ap-charge-desc">${fixedTech.desc}</div>
         </div></div>`;
       html += '<div class="ap-charge-title">スキル(専用ボタン・付け替え可能)</div><div class="ap-charge-variants">';
-      ['retreat','spin','barrier'].forEach(key=>{
+      // 新技(unlockKey:'skill1Alt'付き)は、スフィア盤「新技の会得」で
+      // 解放するまでは一覧に出さない
+      ['retreat','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt')).forEach(key=>{
         const v = variants[key];
+        if(v.unlockKey==='skill1Alt' && !state.unlockedSkill1Alt) return;
         const active = state.skillChoice===key;
         html += `<div class="ap-charge-card ${active?'active':''}" data-variant="${key}">
           <div class="ap-charge-icon">${v.icon}</div>
@@ -1981,15 +2080,21 @@
     }
 
     else if(skillSubTab==='skill2'){
-      const skill2 = SKILL2_BY_CLASS[state.classDef.key];
-      if(skill2){
-        html += `<div class="ap-charge-title">スキル2(専用ボタン2・固定・再使用${skill2.cd}秒)</div>
-          <div class="ap-charge-variants"><div class="ap-charge-card active" style="cursor:default;">
-            <div class="ap-charge-icon">${skill2.icon}</div>
-            <div class="ap-charge-name">${skill2.name}</div>
-            <div class="ap-charge-desc">${skill2.desc}</div>
-          </div></div>`;
-      }
+      const skill2Options = state.unlockedSkill2Alt
+        ? [['default', SKILL2_BY_CLASS[state.classDef.key]], ['alt', SKILL2_ALT_BY_CLASS[state.classDef.key]]]
+        : [['default', SKILL2_BY_CLASS[state.classDef.key]]];
+      html += `<div class="ap-charge-title">スキル2(専用ボタン2・${state.unlockedSkill2Alt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
+      skill2Options.forEach(([choiceKey, def])=>{
+        if(!def) return;
+        const active = (state.skill2Choice||'default')===choiceKey;
+        const clickable = state.unlockedSkill2Alt;
+        html += `<div class="ap-charge-card ${active?'active':''}" ${clickable?`data-skill2-choice="${choiceKey}"`:'style="cursor:default;"'}>
+          <div class="ap-charge-icon">${def.icon}</div>
+          <div class="ap-charge-name">${def.name}</div>
+          <div class="ap-charge-desc">${def.desc}${def.cd?'(再使用'+def.cd+'秒)':''}</div>
+        </div>`;
+      });
+      html += '</div>';
     }
 
     else if(skillSubTab==='skill3'){
@@ -2020,13 +2125,25 @@
     }
 
     else if(skillSubTab==='ult'){
-      const ult = state.classDef.ult;
-      html += `<div class="ap-charge-title">必殺技(専用ゲージ・固定)</div>
-        <div class="ap-charge-variants"><div class="ap-charge-card active" style="cursor:default;">
-          <div class="ap-charge-icon">${ult.icon}</div>
-          <div class="ap-charge-name">${ult.name}</div>
-          <div class="ap-charge-desc">威力倍率 x${ult.mult.toFixed(2)}${ult.radial?'・全方位':''}</div>
-        </div></div>`;
+      const clsKey = state.classDef.key;
+      const ultOptions = state.unlockedUltAlt
+        ? [['default', CLASSES[clsKey].ult], ['alt', ULT_ALT_BY_CLASS[clsKey]]]
+        : [['default', CLASSES[clsKey].ult]];
+      html += `<div class="ap-charge-title">必殺技(専用ゲージ・${state.unlockedUltAlt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
+      ultOptions.forEach(([choiceKey, def])=>{
+        if(!def) return;
+        const active = (state.ultChoice||'default')===choiceKey;
+        // 表示中の威力倍率は「今選ばれている方」に限りstate.classDef.ult
+        // (スフィア等の倍率込み)を使い、選ばれていない方は素の値を出す
+        const shownMult = active ? state.classDef.ult.mult : def.mult;
+        const clickable = state.unlockedUltAlt;
+        html += `<div class="ap-charge-card ${active?'active':''}" ${clickable?`data-ult-choice="${choiceKey}"`:'style="cursor:default;"'}>
+          <div class="ap-charge-icon">${def.icon}</div>
+          <div class="ap-charge-name">${def.name}</div>
+          <div class="ap-charge-desc">威力倍率 x${shownMult.toFixed(2)}${def.radial?'・全方位':''}${def.executeMul?'・瀕死の敵に特大ダメージ':''}</div>
+        </div>`;
+      });
+      html += '</div>';
     }
 
     html += '</div>';
@@ -2051,6 +2168,20 @@
       card.addEventListener('click', ()=>{
         state.skillChoice = card.dataset.variant;
         updateSkillButtonIcon();
+        renderSkillPanel();
+      });
+    });
+    panel.querySelectorAll('.ap-charge-card[data-skill2-choice]').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        state.skill2Choice = card.dataset.skill2Choice;
+        recomputeStats();
+        renderSkillPanel();
+      });
+    });
+    panel.querySelectorAll('.ap-charge-card[data-ult-choice]').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        state.ultChoice = card.dataset.ultChoice;
+        recomputeStats();
         renderSkillPanel();
       });
     });

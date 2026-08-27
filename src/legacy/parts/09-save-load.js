@@ -33,6 +33,11 @@
       freeRanks:state.freeRanks,
       unlockedSphereNodes:state.unlockedSphereNodes.slice(),
       spherePoints:state.spherePoints,
+      // 新スキルの選択/解放状態。以前はskillChoiceがそもそも保存されて
+      // おらず、続きからだと毎回retreatに戻っていた(このタイミングで
+      // 一緒に直した)
+      skillChoice:state.skillChoice, skill2Choice:state.skill2Choice, ultChoice:state.ultChoice,
+      unlockedSkill1Alt:!!state.unlockedSkill1Alt, unlockedSkill2Alt:!!state.unlockedSkill2Alt, unlockedUltAlt:!!state.unlockedUltAlt,
       bossClears:Object.assign({}, state.bossClears),
       learnedBossAbilities:state.learnedBossAbilities.slice(),
       equippedBossAbilities:state.equippedBossAbilities.slice(),
@@ -128,6 +133,13 @@
     state.equippedBossActiveSkill = data.equippedBossActiveSkill || null;
     state.unlockedSphereNodes = (data.unlockedSphereNodes && data.unlockedSphereNodes.length) ? data.unlockedSphereNodes.slice() : ['root'];
     state.spherePoints = data.spherePoints || 0;
+    state.unlockedSkill1Alt = !!data.unlockedSkill1Alt;
+    state.unlockedSkill2Alt = !!data.unlockedSkill2Alt;
+    state.unlockedUltAlt = !!data.unlockedUltAlt;
+    // 未解放の選択肢が保存されていた場合(改変セーブ等)に備え、
+    // 解放済みかどうかで安全にフォールバックする
+    state.skill2Choice = (data.skill2Choice==='alt' && state.unlockedSkill2Alt) ? 'alt' : 'default';
+    state.ultChoice = (data.ultChoice==='alt' && state.unlockedUltAlt) ? 'alt' : 'default';
     state.scenarioClears = Object.assign({}, data.scenarioClears);
     state.routeCombosSeen = data.routeCombosSeen ? JSON.parse(JSON.stringify(data.routeCombosSeen)) : {};
     state.skills = Object.assign({atkUp:0, hpUp:0, ultUp:0, companion:0, chargeUp:0}, data.skills);
@@ -136,7 +148,16 @@
     state.clearedScenarios = Object.assign({}, data.clearedScenarios);
 
     state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
-    state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
+    // 以前はここでretreat固定に戻していた(skillChoice自体が未保存だった
+    // ため)。クラスの持ち技として実在し、かつ未解放の新技(unlockKey付き)
+    // でなければ、保存されていた選択をそのまま復元する
+    {
+      const variants = CHARGE_VARIANTS_BY_CLASS[data.selectedClass] || {};
+      const saved = variants[data.skillChoice];
+      const savedOk = saved && (!saved.unlockKey || state.unlockedSkill1Alt);
+      state.skillChoice = savedOk ? data.skillChoice : 'retreat';
+    }
+    state.skillCharging = false; state.skillChargeT = 0;
 
     state.level = data.level || 1;
     state.xp = data.xp || 0;

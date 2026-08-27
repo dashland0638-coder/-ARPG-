@@ -207,8 +207,34 @@
       enemies.forEach(en=>{
         if(en.dead || en.dormant) return;
         if(!isBossAccessible(en)) return;
-        if(en.group.position.distanceTo(state.pos) <= variant.radius) dealDamageToEnemy(en, dmg, false);
+        if(en.group.position.distanceTo(state.pos) <= variant.radius){
+          dealDamageToEnemy(en, dmg, false);
+          // 毒霧/業火の環: 命中した敵に継続ダメージを付与する。既存の
+          // 火傷DoT(en.burnT/burnDmg、かいじんの杖と同じ経路)をそのまま
+          // 流用しているので、敵側に新しい仕組みは増やしていない
+          if(variant.dotFrac){
+            en.burnT = Math.max(en.burnT||0, variant.dotDuration||3);
+            en.burnDmg = Math.round(dmg * variant.dotFrac);
+            en.burnTick = Math.min(en.burnTick||1, 1);
+          }
+        }
       });
+    } else if(variant.mode==='chain'){
+      // 連鎖雷撃: 最初の的に当てた後、その近くにいる別の敵へも減衰した
+      // ダメージを飛ばす。新しい弾種を増やさず、ヒット判定だけ連鎖させてある
+      const target = findMeleeTarget(state.classDef.meleeRange||2.6, state.classDef.meleeAngle||Math.PI/2.1) || findRangedTargetInLine(fwd, 12, 2.0);
+      spawnPiercingLineVFX(fwd, 10, variant.vfxColor);
+      if(target){
+        dealDamageToEnemy(target, dmg, false);
+        let second = null, bestD = variant.chainRadius || 6;
+        enemies.forEach(en=>{
+          if(en===target || en.dead || en.dormant) return;
+          if(!isBossAccessible(en)) return;
+          const d = en.group.position.distanceTo(target.group.position);
+          if(d <= bestD){ bestD = d; second = en; }
+        });
+        if(second) dealDamageToEnemy(second, Math.round(dmg * (variant.chainMul||0.6)), false);
+      }
     } else if(variant.mode==='line'){
       const right = new THREE.Vector3(Math.cos(state.facing),0,-Math.sin(state.facing));
       spawnPiercingLineVFX(fwd, variant.length, variant.vfxColor);
@@ -223,12 +249,14 @@
     } else if(variant.mode==='orb'){
       spawnChargeOrb(fwd, variant, dmg);
     } else if(variant.mode==='burst3'){
-      // three arrows in quick succession while backing away
+      // three arrows in quick succession while backing away. homing:true
+      // (追尾弾/スキル2)は既存のfan5と同じ追尾フラグをそのまま渡すだけ
       [0,1,2].forEach(i=>{
         setTimeout(()=>{
           if(!state.started) return;
           const f = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
-          spawnArrow(f, dmg, {color:variant.vfxColor, speed:24, hitR:1.15});
+          spawnArrow(f, dmg, {color:variant.vfxColor, speed:24, hitR:1.15,
+                              homing:!!variant.homing, homingTurn:2.6, homingRange:13});
         }, i*110);
       });
     } else if(variant.mode==='barrier'){

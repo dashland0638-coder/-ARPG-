@@ -414,11 +414,18 @@
     if(state.skill2CD>0) return;
     if(state.swinging || state.charging || state.skillCharging) return; // can't overlap with other attack actions
     if(!hasRes('skill2')){ warnNoRes(); return; }
-    spendRes('skill2');
     const cdef = state.classDef;
-    const skill2 = SKILL2_BY_CLASS[cdef.key];
+    const skill2 = activeSkill2Def(cdef.key);
     if(!skill2) return;
+    spendRes('skill2');
     state.skill2CD = skill2.cd * rankCD('skill2') * Math.max(0.4, 1 + sphereValue('skill2CDSphereMul'));   // スフィア「神速の一撃」
+    // スフィア盤で解放した新スキル2(SKILL2_ALT_BY_CLASS)は、専用のcast関数を
+    // 増やさずexecuteVariant()の汎用モードにそのまま乗せてある(mode持ちで
+    // 判定)。既存のスキル2(地裂斬など)は今まで通り専用cast関数を使う
+    if(skill2.mode){
+      executeVariant(skill2, 1, 1, 'skill2');
+      return;
+    }
     state.swinging = true; beginMove('skill2');
     if(sequenceLocks.length) tryStrikeBell(state.pos);
     state.swingLockFacing = state.facing;
@@ -946,7 +953,11 @@
       if(!isBossAccessible(en)) return;
       const d = en.group.position.distanceTo(center);
       if(d <= ultRadius){
-        const dmg = Math.round(state.classDef.atk * ult.mult * ultDmgMul) + Math.round(Math.random()*8);
+        let dmg = Math.round(state.classDef.atk * ult.mult * ultDmgMul) + Math.round(Math.random()*8);
+        // 処刑人の一撃: 残りHPが閾値を下回っている敵に超過ダメージを与える
+        if(ult.executeMul && en.hpMax>0 && (en.hp/en.hpMax) < (ult.executeThreshold||0.3)){
+          dmg = Math.round(dmg * ult.executeMul);
+        }
         dealDamageToEnemy(en, dmg, false);
       }
     });

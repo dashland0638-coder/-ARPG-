@@ -702,6 +702,8 @@
     state.bossClears = {};
     state.learnedBossAbilities = []; state.equippedBossAbilities = []; state.learnedBossSkills = [];
     state.unlockedSphereNodes = ['root']; state.spherePoints = 0;
+    state.skill2Choice = 'default'; state.ultChoice = 'default';
+    state.unlockedSkill1Alt = false; state.unlockedSkill2Alt = false; state.unlockedUltAlt = false;
     state.scenarioClears = {};
     state.routeCombosSeen = {};   // 分岐の組み合わせ踏破記録(scenarioClearsと同じく、キャラ単位で保持)
     state.skills = {atkUp:0, hpUp:0, ultUp:0, companion:0, chargeUp:0};
