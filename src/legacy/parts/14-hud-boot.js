@@ -792,6 +792,10 @@
     state.equipmentInventory = []; state.equipped = {weapon:null, upper:null, lower:null};
     state.bossClears = {};
     state.learnedBossAbilities = []; state.equippedBossAbilities = []; state.learnedBossSkills = [];
+    // バグ修正: 【スキル3】(ボス撃破で習得するアクティブスキル)の習得/装着
+    // 状態がここで初期化されておらず、新規キャラ作成時に前のキャラの
+    // 習得済みスキル3がそのまま引き継がれてしまっていた
+    state.learnedBossActiveSkills = []; state.equippedBossActiveSkill = null; state.bossSkill3CD = 0;
     state.unlockedSphereNodes = ['root']; state.spherePoints = 0;
     state.skill2Choice = 'default'; state.ultChoice = 'default';
     state.unlockedSkill1Alt = false; state.unlockedSkill2Alt = false; state.unlockedUltAlt = false;
