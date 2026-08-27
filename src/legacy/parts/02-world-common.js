@@ -11,6 +11,10 @@
   let enemies = [];
   let chests = [];
   let healingCrystals = [];
+  let anomalyRifts = [];        // メインダンジョン内に浮かぶ、入ると異空間へ転送する裂け目
+  let inAnomalyRoom = false;
+  let anomalyReturnPos = null;
+  let anomalyRoomState = null;  // {group, wallList, returnRift, mons, rewardGiven}
   let itemDrops = [];
   let companion = null;
   let projectiles = [];
@@ -217,6 +221,18 @@
     chests = [];
     healingCrystals.forEach(h=>{ if(h.group) scene.remove(h.group); });
     healingCrystals = [];
+    // 異空間の裂け目/部屋: enemies配列の一括クリア(上)で中の雑魚は既に
+    // 取り除かれているので、ここでは部屋自体の見た目とマップ上の裂け目
+    // だけ後始末すればいい。walls配列自体は下でまとめてリセットされる
+    anomalyRifts.forEach(r=>{ if(r.group) scene.remove(r.group); });
+    anomalyRifts = [];
+    if(anomalyRoomState){
+      if(anomalyRoomState.group) scene.remove(anomalyRoomState.group);
+      if(anomalyRoomState.returnRift && anomalyRoomState.returnRift.group) scene.remove(anomalyRoomState.returnRift.group);
+      anomalyRoomState = null;
+    }
+    inAnomalyRoom = false;
+    anomalyReturnPos = null;
     projectiles.forEach(p=>scene.remove(p.mesh)); projectiles = [];
     itemDrops.forEach(d=>scene.remove(d.mesh)); itemDrops = [];
     if(state.mageOrbs){ state.mageOrbs.forEach(orb=>scene.remove(orb.mesh)); state.mageOrbs = []; }
@@ -266,6 +282,7 @@
       spawnEnemiesForWorld(key);
       spawnChestsForWorld(key);
       spawnHealingCrystalsForWorld(key);
+      spawnAnomalyRiftForWorld(key);
       playBgm(key);   // no-op if this world has no track registered (asset-manifest.js)
       combatIntensity = 0; setBgmIntensity(0);   // fresh room, not still "loud" from the last one
     }catch(err){
@@ -688,6 +705,204 @@
     if(groundYAt(state.pos.x, prevZ, state.pos.y) !== null){ state.pos.z = prevZ; return; }
     if(groundYAt(prevX, state.pos.z, state.pos.y) !== null){ state.pos.x = prevX; return; }
     state.pos.x = prevX; state.pos.z = prevZ;
+  }
+
+  /* =========================================================
+     異空間の裂け目(ANOMALY RIFT) ―― 周回のたびに毎回同じにならない
+     よう、ダンジョン探索中にランダムで裂け目が出現し、入ると隔離された
+     小部屋(専用の敵2体+確定良質ドロップ)へ転送する。
+
+     専用の「ワールド」としては作っていない: buildWorld()は同じキーへの
+     再突入だと何もしないが、違うキーに一度でも切り替えると
+     disposeWorld()でそのダンジョンの状態(倒した敵・開けた宝箱)が
+     丸ごとリセットされてしまう。「ちょっと寄り道して戻ってくる」を
+     壊さないよう、現在のワールドキーは変えずに、既存のどのダンジョンの
+     座標範囲とも重ならない専用の隔離座標(ANOMALY_HUB)へ直接
+     state.posを移し、その場に部屋のジオメトリ・壁・敵を都度組み立てて
+     いる(walls/enemies配列は共有だが、戻る際に自分が足した分だけ
+     正確に取り除く)。
+
+     床の高さ判定(groundYAt)は「多層構造(groundSlabs持ち)のダンジョン
+     だけ床が要求される」仕組みなので、groundSlabsを使わない単層の
+     ダンジョン(時計塔以外の全て)でだけ対象にしてある。時計塔は
+     多層構造の分岐が複雑なため今回は対象外(follow-up)
+  ========================================================= */
+  const ANOMALY_HUB = new THREE.Vector3(3000, 0, 3000);
+  const ANOMALY_SPAWN_CHANCE = 0.4;
+  // clampToWorldBounds()(06-player-enemy.js)は毎フレームstate.posを現在の
+  // ダンジョンの合法範囲(部屋ベースの矩形、無指定なら原点中心の円)へ
+  // 引き戻す。ANOMALY_HUBはそのどちらにも収まらないほど遠いため、訪問中は
+  // 一時的にworldBoundsをこの隔離エリアを覆う矩形に差し替え、退出時に
+  // 元のダンジョンの範囲へ戻す
+  let anomalySavedWorldBounds;
+  // 各ダンジョンの、歩けることが分かっている場所(宝箱や回復結晶と同じ
+  // 発想で、既存の確定枠でない宝箱の近くを選んである)
+  const ANOMALY_RIFT_SPOTS = {
+    mansion:       new THREE.Vector3(-14.6, 0, 9.0),     // mansion 1F 東の間 (chest -14,0,10 の隣)
+    ghostship:     new THREE.Vector3(-3.8, 0, 111.8),    // ghost ship deck (chest -5,0,113 の隣)
+    waterway:      new THREE.Vector3(-106.8, 0, 19.0),   // waterway underground (chest -108,0,20 の隣)
+    temple:        new THREE.Vector3(76.4, 0, -56.0),    // crypt (chest 75,0,-58 の隣)
+    conservatory:  new THREE.Vector3(183.4, 0, -52.8),   // conservatory 枯れた前庭 (chest 184,0,-54 の隣)
+  };
+
+  function buildRift(pos){
+    const g = new THREE.Group();
+    const ringMat = new THREE.MeshBasicMaterial({color:0xa855f7, transparent:true, opacity:0.9, side:THREE.DoubleSide});
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.11, 8, 24), ringMat);
+    ring.position.y = 1.1;
+    g.add(ring);
+    const coreMat = new THREE.MeshBasicMaterial({color:0x1c1030, transparent:true, opacity:0.92, side:THREE.DoubleSide});
+    const core = new THREE.Mesh(new THREE.CircleGeometry(0.7, 24), coreMat);
+    core.position.y = 1.1;
+    g.add(core);
+    const glow = new THREE.PointLight(0xa855f7, 1.3, 6);
+    glow.position.y = 1.1;
+    g.add(glow);
+    g.position.copy(pos);
+    scene.add(g);
+    return {group:g, ring, pos:g.position.clone(), t:Math.random()*10};
+  }
+  function updateRiftVisual(r, dt){
+    r.t += dt;
+    r.ring.rotation.y += dt*1.4;
+    const pulse = 1 + Math.sin(r.t*3)*0.06;
+    r.ring.scale.set(pulse, pulse, 1);
+  }
+
+  function spawnAnomalyRiftForWorld(key){
+    const spot = ANOMALY_RIFT_SPOTS[key];
+    if(!spot) return;
+    if(Math.random() < ANOMALY_SPAWN_CHANCE) anomalyRifts.push(buildRift(spot));
+  }
+
+  function buildAnomalyRoom(){
+    const g = new THREE.Group();
+    const floorMat = new THREE.MeshStandardMaterial({color:0x241a38, roughness:0.85});
+    const floor = new THREE.Mesh(new THREE.CylinderGeometry(13,13,0.4,8), floorMat);
+    floor.position.set(ANOMALY_HUB.x, -0.2, ANOMALY_HUB.z);
+    floor.receiveShadow = true;
+    g.add(floor);
+    // 8角形の壁。既存の壁と同じ軸並行AABBに相乗りさせる(回転を無視した
+    // 外接矩形になるが、部屋が十分広いので実用上気にならない)
+    const wallMat = new THREE.MeshStandardMaterial({color:0x160f24, roughness:0.9});
+    const wallList = [];
+    for(let i=0;i<8;i++){
+      const a = i/8*Math.PI*2;
+      const wx = ANOMALY_HUB.x + Math.sin(a)*13, wz = ANOMALY_HUB.z + Math.cos(a)*13;
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(6.4,5,0.6), wallMat);
+      wall.position.set(wx, 2.4, wz);
+      wall.rotation.y = a;
+      wall.castShadow = true;
+      g.add(wall);
+      const half = 3.2;
+      const box = {minX:wx-half, maxX:wx+half, minZ:wz-half, maxZ:wz+half};
+      walls.push(box);
+      wallList.push(box);
+    }
+    const crystalMat = new THREE.MeshStandardMaterial({color:0xa855f7, emissive:0x7c3aed, emissiveIntensity:0.8, transparent:true, opacity:0.85});
+    for(let i=0;i<5;i++){
+      const a = Math.random()*Math.PI*2, r = 4+Math.random()*7;
+      const crystal = new THREE.Mesh(new THREE.ConeGeometry(0.3+Math.random()*0.3, 1.2+Math.random()*1.5, 5), crystalMat);
+      crystal.position.set(ANOMALY_HUB.x+Math.sin(a)*r, 0.6, ANOMALY_HUB.z+Math.cos(a)*r);
+      crystal.rotation.z = (Math.random()-0.5)*0.3;
+      g.add(crystal);
+    }
+    const glow = new THREE.PointLight(0x9a5ad0, 1.6, 22);
+    glow.position.set(ANOMALY_HUB.x, 5, ANOMALY_HUB.z);
+    g.add(glow);
+    scene.add(g);
+
+    // 帰還用の裂け目: 常時出現。クリア前に帰っても構わないが報酬は逃す
+    const returnRift = buildRift(new THREE.Vector3(ANOMALY_HUB.x, 0, ANOMALY_HUB.z+9));
+
+    // 「歪んだ」雑魚2体。既存のbuildEnemy/updateEnemiesにそのまま乗せる
+    const mons = [
+      buildEnemy(new THREE.Vector3(ANOMALY_HUB.x-3, 0, ANOMALY_HUB.z-4), {color:0x8a3ad0, hp:140, atk:24, speed:2.8, atkType:'charge', xp:45, goldBonus:[16,24]}),
+      buildEnemy(new THREE.Vector3(ANOMALY_HUB.x+3, 0, ANOMALY_HUB.z-4), {color:0x8a3ad0, hp:140, atk:24, speed:2.8, atkType:'charge', xp:45, goldBonus:[16,24]}),
+    ];
+    mons.forEach(m=>{ m.isAnomalyMonster = true; enemies.push(m); });
+
+    anomalyRoomState = {group:g, wallList, returnRift, mons, rewardGiven:false};
+  }
+
+  function enterAnomalyRoom(){
+    if(inAnomalyRoom) return;
+    inAnomalyRoom = true;   // 即座にガードを立てる。フェード中(約230ms)は
+                            // 毎フレーム裂け目との距離判定が再実行されるため
+    const savedPos = state.pos.clone();
+    fadeTransition(()=>{
+      buildAnomalyRoom();
+      anomalyReturnPos = savedPos;
+      anomalySavedWorldBounds = worldBounds;
+      worldBounds = {x0:ANOMALY_HUB.x-16, x1:ANOMALY_HUB.x+16, z0:ANOMALY_HUB.z-16, z1:ANOMALY_HUB.z+16};
+      state.pos.set(ANOMALY_HUB.x, 0, ANOMALY_HUB.z);
+      state.vel.set(0,0,0);
+      state.yVel = 0; state.grounded = true;
+      voidT = 0; lastSolid = state.pos.clone();
+      if(state.safePos) state.safePos.copy(state.pos);
+      camera.position.copy(state.pos).add(getCamOffset());
+      spawnToast('🌀 異空間に迷い込んだ……');
+    });
+  }
+
+  function grantAnomalyReward(){
+    spawnToast('✨ 異空間の宝を手に入れた!');
+    addEquipmentItem(rollDropEquipment(0.4));   // レア率40%(通常22%)で確定装備
+    const isGem = Math.random() < 0.5;
+    addItem({type: isGem?'gem':'shard', name: isGem?'魔宝石':'武具の欠片', icon: isGem?'💎':'🔩',
+      color: isGem?0x6fd1e6:0xb0a08a, amountMin:2, amountMax:4});
+    grantGold(20 + Math.floor(Math.random()*20));
+    sfx('levelUp');
+  }
+
+  function exitAnomalyRoom(){
+    if(!inAnomalyRoom || !anomalyRoomState) return;
+    inAnomalyRoom = false;   // 即座にガード。フェード中(約230ms)は毎フレーム
+                             // 帰還用の裂け目との距離判定が再実行されるため
+    const rs = anomalyRoomState;
+    anomalyRoomState = null;
+    fadeTransition(()=>{
+      scene.remove(rs.group);
+      scene.remove(rs.returnRift.group);
+      rs.wallList.forEach(w=>{ const idx = walls.indexOf(w); if(idx>=0) walls.splice(idx,1); });
+      // 倒した敵も雑魚と同じ復活タイマー(en.respawnT)持ちでenemies配列に
+      // 残り続ける仕組みなので、生死を問わず必ず取り除く。生きていた分だけ
+      // 見た目もまだ残っているのでscene.removeする
+      rs.mons.forEach(m=>{
+        if(!m.dead) scene.remove(m.group);
+        const idx = enemies.indexOf(m);
+        if(idx>=0) enemies.splice(idx,1);
+      });
+      worldBounds = anomalySavedWorldBounds;
+      state.pos.copy(anomalyReturnPos);
+      state.vel.set(0,0,0);
+      state.yVel = 0; state.grounded = true;
+      voidT = 0; lastSolid = state.pos.clone();
+      if(state.safePos) state.safePos.copy(state.pos);
+      camera.position.copy(state.pos).add(getCamOffset());
+      spawnToast('🌀 元の場所へ戻った');
+    });
+  }
+
+  function updateAnomalyRifts(dt){
+    anomalyRifts.forEach(r=> updateRiftVisual(r, dt));
+    if(!inAnomalyRoom){
+      for(let i=anomalyRifts.length-1;i>=0;i--){
+        if(state.pos.distanceTo(anomalyRifts[i].pos) < 1.6){
+          scene.remove(anomalyRifts[i].group);
+          anomalyRifts.splice(i,1);
+          enterAnomalyRoom();
+          return;
+        }
+      }
+    } else if(anomalyRoomState){
+      updateRiftVisual(anomalyRoomState.returnRift, dt);
+      if(!anomalyRoomState.rewardGiven && anomalyRoomState.mons.every(m=>m.dead)){
+        anomalyRoomState.rewardGiven = true;
+        grantAnomalyReward();
+      }
+      if(state.pos.distanceTo(anomalyRoomState.returnRift.pos) < 1.6) exitAnomalyRoom();
+    }
   }
 
   /* =========================================================
