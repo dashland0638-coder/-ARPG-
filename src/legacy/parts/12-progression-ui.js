@@ -490,6 +490,13 @@
   function renderBossChoicePanel(bossKey){
     const panel = document.getElementById('boss-choice-panel');
     if(!panel) return;
+    // 前回のボス撃破で付いた 'resolved' はここでしか外れない(innerHTMLの
+    // 差し替えは子要素だけを作り直し、panel自身のクラスには触れないため)。
+    // 外し忘れると、最初に1回選んだ後は毎回このガードで弾かれ続け、
+    // パネルは表示されるのにクリックしても一切反応しなくなる
+    // (「洋館以外のボス報酬が選べない」の実体はこれ - 洋館が最初の
+    // ダンジョンなので、そこで最初の1回を消費してしまう)
+    panel.classList.remove('resolved');
     const hasSkill = BOSS_SKILLS[bossKey];
     const hasAbility = BOSS_ABILITIES[bossKey];
     const hasActiveSkill = BOSS_ACTIVE_SKILLS[bossKey];
