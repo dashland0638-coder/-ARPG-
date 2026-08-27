@@ -76,7 +76,10 @@
     const moveMag = Math.sqrt(ix*ix + iy*iy);
     if(camAutoOn && !manualCamInput && camAutoResumeT<=0 && moveMag>0.35 && !findLockOnBoss()){
       const desiredYaw = state.facing + Math.PI;
-      state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(0.82, dt));
+      // 体感が遅すぎるとのフィードバックにより約3倍速に変更。
+      // フレームレート非依存のイージング(1-k^dt)で速度を3倍にするには
+      // 減衰定数kを3乗する(k^3は同じ時間でkの3倍速く0へ収束する)
+      state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(0.82*0.82*0.82, dt));
     }
   }
   let camAutoResumeT = 0;
@@ -451,7 +454,10 @@
       state.vel.set(0,0,0);
     } else if(state.dodging){
       state.dodgeT -= dt;
-      const dashSpeed = speed*3.6;
+      // 回避距離は移動速度ステータス(speed)に比例させない。
+      // ステ振り/レベル成長で移動速度を上げるほど回避が伸びすぎる問題の修正で、
+      // 常に職業ごとの基準速度(baseSpd)だけを使って距離を固定する
+      const dashSpeed = (state.classDef.baseSpd || speed)*3.6;
       moveVec.copy(state.dodgeDir).multiplyScalar(dashSpeed*dt);
       state.vel.set(0,0,0);
       if(state.dodgeT<=0){

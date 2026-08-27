@@ -790,7 +790,10 @@
       } else if(d<1.15 && en.hitCD<=0 && state.paralyzeInvulnT<=0){
         tryPerfectDodge();
       }
-      if(en.chargeT<=0){ en.chargeState='cooldown'; en.chargeT = en.chargeCooldownOverride || 2.4; }
+      // 攻撃間隔の見直し(#21): 旧2.4sは硬直→cooldownの往復が長すぎ、
+      // 通常攻撃が完全に無警戒に振り切れる「ゴリ押し」を許してしまっていた。
+      // テレグラフ(0.65s)は据え置いたまま再攻撃までの間隔だけ詰める
+      if(en.chargeT<=0){ en.chargeState='cooldown'; en.chargeT = en.chargeCooldownOverride || 1.5; }
       return;
     }
     if(en.chargeState==='cooldown'){
@@ -808,7 +811,7 @@
         en.fireCharging = false;
         en.body.scale.copy(en.bodyScale);
         spawnEnemyFireball(en);
-        en.atkCD = 2.6;
+        en.atkCD = 1.8;   // 攻撃間隔の見直し(#21): 旧2.6sは間延びしすぎていた
       }
       return;
     }
@@ -865,7 +868,7 @@
         en.fireCharging = false;
         en.body.scale.copy(en.bodyScale);
         spawnEnemyFireball(en);
-        en.atkCD = 2.2;
+        en.atkCD = 1.6;   // 攻撃間隔の見直し(#21)
       }
       return;
     }
@@ -907,7 +910,7 @@
         en.fireCharging = false;
         en.body.scale.copy(en.bodyScale);
         spawnEnemyFireball(en);
-        en.atkCD = 2.4;
+        en.atkCD = 1.6;   // 攻撃間隔の見直し(#21)
       }
       return;
     }

@@ -1480,6 +1480,7 @@
       mp: base.mp + allocPoints.mp*2 + state.levelGrowth.mp,
       atk: Math.round((base.atk + allocPoints.atk*1 + state.skills.atkUp*2 + state.equipLevel*4 + state.levelGrowth.atk + gearAtk) * atkMul),
       spd: +(base.spd + allocPoints.spd*0.1 + state.levelGrowth.spd).toFixed(2),
+      baseSpd: base.spd,   // 回避ダッシュ距離用。ステータス振り/レベル成長の速度上昇を乗せない基準値
       ult: Object.assign({}, ultBase, { mult: +(ultBase.mult * (1 + state.skills.ultUp*0.1) * (1 + sphereValue('ultDmgSphereMul'))).toFixed(2) })   // スフィア「絶対の一撃」
     });
     const hpRatio = state.maxHp>0 ? state.hp/state.maxHp : 1;
