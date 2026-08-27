@@ -217,6 +217,12 @@
     state.started = false;
     state.dialogueActive = false;
     state.activeOverlay = 'none';
+    // バグ報告対応: フォーカス喪失でkeyup漏れが起きたキー入力が残ったまま
+    // タイトルへ戻ると、次のプレイ開始時にも歩き続けてしまっていた。
+    // タイトルへ戻る際は保持中の入力を必ず全部クリアする
+    for(const k in keys) keys[k] = false;
+    clearMovementInput(false);
+    state.camRotateTouch = 0;
     if(state.debugMode){ state.debugMode = false; hideDebugColliders(); document.getElementById('debug-badge').classList.remove('show'); }
     document.getElementById('menu-overlay').classList.remove('active');
     document.getElementById('appraisal-overlay').classList.remove('active');

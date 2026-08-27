@@ -249,6 +249,16 @@
     if(e.code==='KeyL'){ skillInputUp(); }
     if(e.code==='KeyK'){ releaseUltimate(); }   // aimed ults fire on release
   });
+  // バグ報告: カメラを回しながら移動していると、ウィンドウがフォーカスを
+  // 失った瞬間(Alt+Tab、他のウィンドウ/タブをクリック等)に押していた
+  // キーのkeyupイベントがブラウザに届かず、keys[...]がtrueのまま残って
+  // 歩き続けてしまう不具合があった。タイトルに戻ってもkeysはクリアされない
+  // ため直らない。フォーカスを失った時点で保持中の入力を全て解放する
+  window.addEventListener('blur', ()=>{
+    for(const k in keys) keys[k] = false;
+    attackInputUp(); skillInputUp(); releaseUltimate();
+    state.camRotateTouch = 0;
+  });
 
   wrap.addEventListener('mousedown', e=>{
     if(!state.started || state.paused) return;
