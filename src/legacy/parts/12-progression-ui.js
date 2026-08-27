@@ -25,37 +25,61 @@
   };
 
   // scenario-specific tavern gossip, shown once a scenario is picked, before the sortie begins
+  // マスターと主人公が交互に話す「掛け合い」形式。renderDialogueLine()は
+  // 文字列そのままなら直前の話者名を引き継ぐだけなので、掛け合いとして
+  // 交互に切り替えるには、両者の台詞を両方とも{name, text}で明示する
+  // 必要がある(どちらか一方だけ明示すると、地の文の話者名がプレイヤー側に
+  // 引きずられたまま戻らなくなる)。関数形式なのは、話者名にstate.name
+  // (キャラ作成後でないと決まらない)を使うため ―― この関数は
+  // startScenarioTavernDialogue()から呼ばれる時点で初めて評価される
   const SCENARIO_TAVERN_DIALOGUE = {
-    mansion: [
-      '……見慣れぬ顔だな。旅の冒険者かい。',
-      'この街の酒場じゃもっぱらの噂さ。森の奥に古い洋館があってな、その昔、当主の一族に悲劇があったと聞く。',
-      '当主は弟の病を治そうとして、手を出しちゃならんものに手を出したそうだ。詳しいことは誰も知らんがね。',
-      '今も夜ごとに灯が点るというなら、只事じゃあるまい。門までの道も、木々が茂って迷路のようだと聞くよ。'
-    ],
-    ghostship: [
-      '幽霊船か。正気の沙汰とも思えんが……',
-      '霧の港に、朽ちた帆船が打ち上げられたそうだ。異国の秘宝――"海神の涙"とかいう真珠を積んでいたらしい。',
-      '欲をかいた船乗りたちの成れの果てとも噂される。今も甲板を彷徨う亡霊がいるとか。',
-      '海の男でさえ近寄らん場所さ。よほどの事情がなきゃ勧めんが……それでも行くかい?'
-    ],
-    temple: [
-      '古代神殿か。あそこは魔物より、造りそのものが厄介でな。',
-      '床は抜け、足場は動き、渡り損ねれば下まで真っ逆さまだそうだ。',
-      '奥には魔物を閉じ込めた部屋もあるという。入れば、片付けるまで出られん。',
-      '腕っぷしだけじゃどうにもならん場所さ。……それでも行くかい?'
-    ],
-    clocktower: [
-      '時計塔か。……街の連中は、あの塔の鐘で起きて、あの鐘で眠る。',
-      'それが先月から、でたらめな時刻に鳴るようになってな。',
-      '直しに入った技師が三人、誰ひとり降りてこん。',
-      '登るなら覚悟しな。あそこは仕掛けだらけだ。……降りる階段は、無いって話もある。'
-    ],
-    conservatory: [
-      '硝子の温室か。……よく調べたな、そんな場所まで。',
-      '王様が道楽で建てた温室でな。園丁がひとり残らず居なくなって、百年からそのままだ。',
-      '茨が生きていて、時計みたいに正確に開いたり閉じたりするそうだ。焦って突っ込んだ奴は、みんな手を潰してる。',
-      '緑の靄にも近寄るな。あれは肺に来る。……それでも行くかい?'
-    ],
+    mansion: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+      {name:M, text:'……見慣れぬ顔だな。旅の冒険者かい。'},
+      {name:Y, text:'この辺りで、何か腕試しになりそうな話はないか?'},
+      {name:M, text:'なら森の奥の洋館だな。とはいえ、あまり気は進まんが……昔、あそこの当主の一族に悲劇があったと聞く。'},
+      {name:Y, text:'どんな悲劇だ?'},
+      {name:M, text:'当主は弟の病を治そうとして、手を出しちゃならんものに手を出したそうだ。詳しいことは誰も知らんがね。'},
+      {name:Y, text:'……それで、どうなった?'},
+      {name:M, text:'誰も知らんと言ったろう。ただ――今も夜ごとに灯が点るという。悲劇から何十年も経つのに、な。'},
+      {name:Y, text:'灯が消えていない、ということは……'},
+      {name:M, text:'ああ。まだ何か、あそこに残っているのかもしれん。門までの道も、木々が茂って迷路のようだと聞くよ。'}
+    ]; },
+    ghostship: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+      {name:M, text:'幽霊船か。正気の沙汰とも思えんが……'},
+      {name:Y, text:'眉唾だとは思うが、話だけでも聞かせてくれ。'},
+      {name:M, text:'霧の港に、朽ちた帆船が打ち上げられたそうだ。異国の秘宝――"海神の涙"とかいう真珠を積んでいたらしくてな。'},
+      {name:Y, text:'真珠ひとつで、あそこまで朽ちるものか?'},
+      {name:M, text:'欲をかいた船乗りたちの成れの果て、とも噂される。今も甲板を彷徨う亡霊がいるとか。'},
+      {name:Y, text:'亡霊は、まだ船を降りていない……ということか。'},
+      {name:M, text:'……さあな。海の男でさえ近寄らん場所さ。よほどの事情がなきゃ勧めんが……それでも行くかい?'}
+    ]; },
+    temple: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+      {name:M, text:'古代神殿か。あそこは魔物より、造りそのものが厄介でな。'},
+      {name:Y, text:'どんな仕掛けがある?'},
+      {name:M, text:'床は抜け、足場は動き、渡り損ねれば下まで真っ逆さまだそうだ。奥には魔物を閉じ込めた部屋もあるという。'},
+      {name:Y, text:'守り手がいる、とも聞いたが。'},
+      {name:M, text:'ああ。最後に踏み入った者が、その務めを継ぐという噂だ。……信じるかどうかは、お前さん次第だがね。'},
+      {name:Y, text:'……つまり、次は自分の番かもしれない、と。'},
+      {name:M, text:'縁起でもないことを言うな。腕っぷしだけじゃどうにもならん場所さ。……それでも行くかい?'}
+    ]; },
+    clocktower: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+      {name:M, text:'時計塔か。……街の連中は、あの塔の鐘で起きて、あの鐘で眠る。'},
+      {name:Y, text:'その鐘に、何かあったのか?'},
+      {name:M, text:'それが先月から、でたらめな時刻に鳴るようになってな。直しに入った技師が三人、誰ひとり降りてこん。'},
+      {name:Y, text:'三人とも、か。'},
+      {name:M, text:'ああ。手紙が一枚だけ届いた。差出人の名は書いてなかったが……達筆な女の字でな。'},
+      {name:Y, text:'何と書いてあった?'},
+      {name:M, text:'「わたしの分まで、下へ降りてください」――それだけだ。登るなら覚悟しな。降りる階段は、無いって話もある。'}
+    ]; },
+    conservatory: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+      {name:M, text:'硝子の温室か。……よく調べたな、そんな場所まで。'},
+      {name:Y, text:'なぜ、そんなに詳しい?'},
+      {name:M, text:'王様が道楽で建てた温室でな。園丁がひとり残らず居なくなって、百年からそのままだ。……わしの祖父が、その一人だったのさ。'},
+      {name:Y, text:'……すまない。知らなかった。'},
+      {name:M, text:'いや、いい。祖父の最後の手紙が、あそこのどこかに今も残っているという話でな。読めるものなら、読んでやってくれ。'},
+      {name:Y, text:'分かった。見つけたら、必ず。'},
+      {name:M, text:'茨が生きていて、時計みたいに正確に開いたり閉じたりするそうだ。緑の靄にも近寄るな、あれは肺に来る。……それでも行くかい?'}
+    ]; },
     waterway: [] // unused placeholder - waterway builds its own lines per personality/gender, see WATERWAY_VACATION_LINES below
   };
 
@@ -82,11 +106,12 @@
       '……妙なんだ。お前さんが降りてくるたび、鐘は正しく鳴る。',
       'それが三日もすれば、また狂う。何度でも、な。'
     ],
-    conservatory: [
-      'また温室かい。あの茨の周期を、もう覚えちまったのか。',
-      '一つだけ言っておく。あそこの主は、切られるたびに根を深くするそうだ。',
-      '……行くたびに、迎えが太くなってるって意味さ。'
-    ],
+    conservatory: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+      {name:M, text:'また温室かい。あの茨の周期を、もう覚えちまったのか。'},
+      {name:Y, text:'祖父さんの手紙、まだ見つけていない。すまない。'},
+      {name:M, text:'いや、気にするな。……あそこにあるなら、いつか誰かの目に留まるだろうさ。'},
+      {name:M, text:'一つだけ言っておく。あそこの主は、切られるたびに根を深くするそうだ。……行くたびに、迎えが太くなってるって意味さ。'}
+    ]; },
     waterway: []
   };
 
@@ -166,14 +191,20 @@
         : getWaterwayLines(WATERWAY_VACATION_LINES);
       document.getElementById('dialogue-name').textContent = state.name || '';
     } else {
-      const repeat = isRepeatRun(scenarioKey) ? SCENARIO_TAVERN_REPEAT[scenarioKey] : null;
-      const base = (repeat && repeat.length) ? repeat
-                 : (SCENARIO_TAVERN_DIALOGUE[scenarioKey] || SCENARIO_TAVERN_DIALOGUE.mansion);
+      // 各エントリは配列、または(state.nameを使うため)遅延評価する関数の
+      // どちらもあり得るので、.length等で扱う前にここで一度だけ解決する
+      const repeatRaw = isRepeatRun(scenarioKey) ? SCENARIO_TAVERN_REPEAT[scenarioKey] : null;
+      const repeat = typeof repeatRaw === 'function' ? repeatRaw() : repeatRaw;
+      const baseRaw = (repeat && repeat.length) ? repeat
+                    : (SCENARIO_TAVERN_DIALOGUE[scenarioKey] || SCENARIO_TAVERN_DIALOGUE.mansion);
+      const base = typeof baseRaw === 'function' ? baseRaw() : baseRaw;
       const closing = PERSONALITY_LINES[selectedPersonality] || '';
-      state.dialogueLines = closing ? base.concat([closing]) : base.slice();
+      // 締めの一言は主人公自身の呟きなので、話者名も主人公に切り替える
+      // (以前は最後まで「酒場の主人」名義のまま表示されていた)
+      state.dialogueLines = closing ? base.concat([{name: state.name || 'あなた', text: closing}]) : base.slice();
       document.getElementById('dialogue-name').textContent = '酒場の主人';
     }
-    document.getElementById('dialogue-text').textContent = state.dialogueLines[0];
+    renderDialogueLine(state.dialogueLines[0]);
     document.getElementById('dialogue-overlay').classList.add('active');
   }
 
@@ -196,6 +227,19 @@
     // outside, unable to reach the boss at all
     if(!boss.sneakAttacked && boss.bossDoorKey){
       lockDoorForFight(getDoor(boss.bossDoorKey)); // seal the room - no leaving mid-fight
+    }
+  }
+
+  // dialogueLinesの1エントリは、これまで通りの文字列(dialogue-nameを
+  // 変えずに表示)に加えて、{name, text}(その行だけ話者を切り替える)も
+  // 許容する。酒場のマスターと主人公が交互に話す「掛け合い」の会話を、
+  // 既存の一方向テキスト送り演出にそのまま乗せるための最小拡張
+  function renderDialogueLine(line){
+    if(typeof line === 'string'){
+      document.getElementById('dialogue-text').textContent = line;
+    } else {
+      document.getElementById('dialogue-name').textContent = line.name;
+      document.getElementById('dialogue-text').textContent = line.text;
     }
   }
 
@@ -251,7 +295,7 @@
       }
       return;
     }
-    document.getElementById('dialogue-text').textContent = state.dialogueLines[state.dialogueIndex];
+    renderDialogueLine(state.dialogueLines[state.dialogueIndex]);
   }
 
   function onBossDefeated(boss, levelBefore){

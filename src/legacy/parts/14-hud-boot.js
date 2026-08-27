@@ -687,6 +687,7 @@
       updateBartenderProximity();
       updateCheckpointProximity();
       updateProximityEvents();
+      updateApparitions(dt);
       updateWaterwayColdTimer(dt);
       updateScenarioTimer(dt);
       if(state.debugMode){

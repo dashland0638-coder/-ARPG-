@@ -1642,6 +1642,16 @@
       scene.add(lamp);
     });
 
+    // 玄関を抜けてすぐ、暗がりの隅に人影が一瞬だけ立っている。近づくと消える
+    // ―― 「昨日まで人が暮らしていたような」空気を、台詞より先に見せる演出
+    registerProximityEvent(new THREE.Vector3(0,0,-23), 8, '???', ()=>{
+      spawnApparition(new THREE.Vector3(-9,0,-30), {vanishDist:6.5});
+      return [
+        '玄関ホールの隅、暗がりの中に――誰か、佇んでいる。',
+        'こちらに気づいた様子はない。……いや、気のせいか?'
+      ];
+    });
+
     // real, visible, collidable doors
     buildDoor('entrance', 0, -20, 6, 0x2a1830);     // opens via normal interaction, like any other door
     buildDoor('foyerHall', 0, -34, 4, 0x3a2818);    // opens via the center "open door" button
@@ -1870,6 +1880,16 @@
       ['正面に本館へ続く大階段、右手に使用人通路への扉がある。',
        'どちらの先にも、主の間へ繋がっているという。だが――一度選べば、もう一方の道は閉ざされるだろう。'],
       {condition:()=>!routeBranchTaken('m2')});
+
+    // 大階段の上、当主とおぼしき人影が一瞬だけ見える。近づくと消える
+    // ―― まだ館の奥に「何か」が居座っていることを、文章より先に見せる演出
+    registerProximityEvent(new THREE.Vector3(cx+6,0,cz+9), 9, '???', ()=>{
+      spawnApparition(new THREE.Vector3(cx+6,0,cz+13), {vanishDist:6.5, color:0x2a2438});
+      return [
+        '大階段の上、誰かがこちらを見下ろしている。',
+        '……瞬きをした一瞬で、その姿は消えていた。'
+      ];
+    });
 
     // 階層間の休憩ポイント: 古びた姿見(鏡)。ここで一息つき、装備を整えられる
     const mirrorFrameMat = new THREE.MeshStandardMaterial({color:0x8a7a4a, roughness:0.5, metalness:0.5});

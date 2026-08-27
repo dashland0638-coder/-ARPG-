@@ -215,6 +215,7 @@
     townReturnBusy = false;
     loreObjects = [];
     proximityEvents = [];
+    clearApparitions();
     stallTriggers = [];
     checkpointTriggers = []; nearbyCheckpoint = null;
     enemies.forEach(en=>{ if(en.shockRing) scene.remove(en.shockRing); if(en.chargeLane) scene.remove(en.chargeLane); scene.remove(en.group); });
@@ -1613,6 +1614,61 @@
     scene.add(g);
     loreObjects.push({pos:pos.clone(), title, lines,
                       radius: kind==='sign' ? 2.6 : 2.2, read:false, kind});
+  }
+
+  /* =========================================================
+     APPARITIONS: a translucent human silhouette that fades in, holds
+     while the player is at a distance, then fades out fast the moment
+     they get close - "a figure that was there a second ago" rather than
+     a scripted cutscene actor. Built for the "誰もいないはずなのに人影が
+     見える" beats (シナリオ改修), but generic enough for any dungeon:
+     build*()側はどこに立たせるかだけ決めればよく、フェードイン/ホールド/
+     消失の面倒はすべてここで完結する。
+  ========================================================= */
+  let apparitions = [];
+  function spawnApparition(pos, opts){
+    opts = opts || {};
+    const mat = new THREE.MeshBasicMaterial({color: opts.color!=null ? opts.color : 0x3a3a55,
+                  transparent:true, opacity:0, depthWrite:false});
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.5, 10), mat);
+    body.position.y = 0.75;
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), mat);
+    head.position.y = 1.62;
+    g.add(head);
+    g.position.set(pos.x, pos.y, pos.z);
+    if(opts.facing != null) g.rotation.y = opts.facing;
+    scene.add(g);
+    apparitions.push({group:g, mat, state:'in',
+      fadeIn: opts.fadeIn!=null ? opts.fadeIn : 0.9,
+      fadeOut: opts.fadeOut!=null ? opts.fadeOut : 1.6,
+      maxOpacity: opts.maxOpacity!=null ? opts.maxOpacity : 0.55,
+      vanishDist: opts.vanishDist!=null ? opts.vanishDist : 5.5});
+    return g;
+  }
+  function updateApparitions(dt){
+    if(!apparitions.length) return;
+    for(let i=apparitions.length-1;i>=0;i--){
+      const a = apparitions[i];
+      if(a.state==='in'){
+        a.mat.opacity = Math.min(a.maxOpacity, a.mat.opacity + dt*a.fadeIn);
+        if(a.mat.opacity >= a.maxOpacity) a.state = 'hold';
+      } else if(a.state==='hold'){
+        if(state.pos.distanceTo(a.group.position) < a.vanishDist) a.state = 'out';
+      } else {
+        a.mat.opacity = Math.max(0, a.mat.opacity - dt*a.fadeOut);
+        if(a.mat.opacity <= 0){
+          scene.remove(a.group);
+          apparitions.splice(i,1);
+        }
+      }
+    }
+  }
+  // シナリオを抜ける・入り直す際、前回分の人影を残さないための掃除
+  function clearApparitions(){
+    apparitions.forEach(a=> scene.remove(a.group));
+    apparitions = [];
   }
 
   /* =========================================================
