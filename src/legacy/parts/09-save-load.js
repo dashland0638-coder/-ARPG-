@@ -107,7 +107,13 @@
     state.comboStage = 0; state.comboCount = 0; state.comboWindowT = 0; state.jumpAttacking = false; state.jumpAttackCD = 0;
 
     state.equipLevel = data.equipLevel || 0;
-    state.equipmentInventory = (data.equipmentInventory || []).map(it=>Object.assign({}, it));
+    // rollDropEquipment()の旧バグ(職業固有武器を既に持っていると
+    // rollSpecialWeapon()がnullを返し、それがそのままセーブに紛れ込む)で
+    // 壊れたアイテム({}相当、slot/itemLevel/nameが無い)が既存セーブに
+    // 残っている場合がある。読み込み時に弾いて自動的に取り除く
+    state.equipmentInventory = (data.equipmentInventory || [])
+      .map(it=>Object.assign({}, it))
+      .filter(it=> it && it.slot && it.itemLevel!=null && it.name);
     state.equipped = {
       weapon:data.equipped && data.equipped.weapon ? Object.assign({}, data.equipped.weapon) : null,
       upper: data.equipped && data.equipped.upper  ? Object.assign({}, data.equipped.upper)  : null,

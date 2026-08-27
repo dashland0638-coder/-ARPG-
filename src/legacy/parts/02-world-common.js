@@ -211,6 +211,8 @@
     walls = [];
     doors = [];
     stairs = [];
+    townReturnPoints = [];
+    townReturnBusy = false;
     loreObjects = [];
     proximityEvents = [];
     stallTriggers = [];
@@ -1872,6 +1874,51 @@
         if(ROUTE_ONCOMMIT_EFFECTS[s.routeNode]) ROUTE_ONCOMMIT_EFFECTS[s.routeNode]();
       }
     });
+  }
+
+  /* =========================================================
+     TOWN RETURN PORTAL(「山を登る」拡張の各ボーナス部屋専用)
+     洋館の屋根裏・幽霊船/神殿/水路の最深部は、主を倒した後にしか
+     入れない追加エリア。既存の退却(performRetreat)は「まだ終えて
+     いない周回を早めに切り上げる」ためのもので、報酬は7割になり
+     トーストも「撤退」表現になる ―― だがここに来る時点で主の撃破
+     報酬はすでに受け取り済みなので、退却の文脈は適切ではない
+     (「クリア条件が不明」「戻る=途中離脱扱いになる」という報告の対応)。
+     撤退とは別に、探索を終えて素直に酒場へ戻るための入口を用意し、
+     returnToTown()を直接呼ぶ
+  ========================================================= */
+  let townReturnPoints = [];
+  function registerTownReturnPoint(pos, radius){
+    townReturnPoints.push({pos: pos.clone(), radius: radius || 1.8});
+  }
+  function buildTownReturnPortal(pos){
+    const ringMat = new THREE.MeshStandardMaterial({color:0xfff0c0, emissive:0xffe6a0, emissiveIntensity:0.9, roughness:0.3, metalness:0.4});
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.11, 8, 24), ringMat);
+    ring.rotation.x = -Math.PI/2;
+    ring.position.set(pos.x, 0.14, pos.z);
+    scene.add(ring);
+    const core = new THREE.Mesh(new THREE.CircleGeometry(0.85, 20),
+      new THREE.MeshBasicMaterial({color:0xffe6a0, transparent:true, opacity:0.35, side:THREE.DoubleSide}));
+    core.rotation.x = -Math.PI/2;
+    core.position.set(pos.x, 0.11, pos.z);
+    scene.add(core);
+    const glow = new THREE.PointLight(0xffe6a0, 1.1, 11);
+    glow.position.set(pos.x, 1.6, pos.z);
+    scene.add(glow);
+    registerTownReturnPoint(pos, 1.8);
+  }
+  let townReturnBusy = false;   // 異空間の裂け目と同じ理由: フェード中(約230ms)は
+                                 // 毎フレーム距離判定が再実行されるため、同期的に立てる
+  function updateTownReturnPoints(){
+    if(townReturnBusy || !townReturnPoints.length) return;
+    for(const p of townReturnPoints){
+      if(state.pos.distanceTo(p.pos) < p.radius){
+        townReturnBusy = true;
+        spawnToast('🏠 探索を終えて酒場へ戻った');
+        returnToTown(false);
+        return;
+      }
+    }
   }
 
   /* =========================================================

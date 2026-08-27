@@ -619,6 +619,7 @@
       updateChests(dt);
       updateHealingCrystals(dt);
       updateAnomalyRifts(dt);
+      updateTownReturnPoints();
       updateItemDrops(dt);
       updateCompanion(dt);
       updateCamera(dt);

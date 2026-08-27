@@ -204,7 +204,16 @@
   // maybeDropEquipmentAt(物理ドロップ)とmaybeGrantEquipmentInstant(即時付与)の
   // 両方から呼ぶ共通の抽選部分だけを切り出してある
   function rollDropEquipment(rareChance){
-    return (Math.random() < 0.10) ? rollSpecialWeapon(state.level) : rollEquipment(state.level, rareChance);
+    // rollSpecialWeapon()はその職業の固有武器を既に持っていると null を返す
+    // (hasSpecialWeapon参照)。一度手に入れた後は永久にこの分岐に来る可能性が
+    // あるため、nullならではrollEquipment()に必ずフォールバックする。
+    // 以前はここでnullをそのまま返してしまい、identified/itemLevel等が
+    // 欠けた壊れたアイテムが持ち物に紛れ込むバグがあった
+    if(Math.random() < 0.10){
+      const special = rollSpecialWeapon(state.level);
+      if(special) return special;
+    }
+    return rollEquipment(state.level, rareChance);
   }
 
   function maybeDropEquipmentAt(pos, chance, rareChance){

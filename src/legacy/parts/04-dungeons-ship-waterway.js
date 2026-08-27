@@ -364,6 +364,9 @@
     scene.add(glow);
 
     buildStairs(new THREE.Vector3(cx,0,cz-7), new THREE.Vector3(-32,0,124), '船長の間へ戻った……', 0x1a2430, 'up');
+    // 撃破報酬はここへ来る前に受け取り済みなので、退却とは別に
+    // 酒場へ直接戻れる帰還の光を置く
+    buildTownReturnPortal(new THREE.Vector3(cx-6, 0, cz+3));
 
     registerProximityEvent(new THREE.Vector3(cx,0,cz+3), 5, '???', [
       '船長がここまで沈むのを拒み続けた理由が、積荷の奥に眠っている。',
@@ -802,6 +805,9 @@
     scene.add(glow);
 
     buildStairs(new THREE.Vector3(cx,0,cz+6), new THREE.Vector3(-88,0,-115), '主の間へ戻った……', 0x1a3a52, 'up');
+    // 撃破報酬はここへ来る前に受け取り済みなので、退却とは別に
+    // 酒場へ直接戻れる帰還の光を置く
+    buildTownReturnPortal(new THREE.Vector3(cx-4, 0, cz+2));
 
     registerProximityEvent(new THREE.Vector3(cx,0,cz-3), 4, '???', [
       '主がこの奥に何を隠していたのか、水底でようやく光を取り戻している。',

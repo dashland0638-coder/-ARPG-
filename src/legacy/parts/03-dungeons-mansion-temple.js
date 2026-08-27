@@ -1397,6 +1397,9 @@
     scene.add(glow);
 
     buildStairs(new THREE.Vector3(cx,0,cz+8), new THREE.Vector3(149,0,-114), '守り手の間へ戻った……', 0x3a3020, 'up');
+    // 撃破報酬はここへ来る前に受け取り済みなので、退却とは別に
+    // 酒場へ直接戻れる帰還の光を置く
+    buildTownReturnPortal(new THREE.Vector3(cx, 0, cz+3));
 
     registerProximityEvent(new THREE.Vector3(cx,0,cz-5), 4, '???', [
       '守り手が何を守っていたのか、その本当の答えがここに眠っている。',
@@ -1916,6 +1919,9 @@
     scene.add(lamp);
 
     buildStairs(new THREE.Vector3(cx,0,cz+8), new THREE.Vector3(0,0,-58), '主の間へ戻った……', 0x2a1830, 'down');
+    // 主の間へ引き返す階段のすぐ隣に、酒場へ直接戻れる帰還の光を置く。
+    // 撃破報酬はここへ来る前に受け取り済みなので、これは退却ではない
+    buildTownReturnPortal(new THREE.Vector3(cx+6, 0, cz+8));
 
     registerProximityEvent(new THREE.Vector3(cx,0,cz-4), 5, '???', [
       '館の主が、なぜここまで力を蓄えていたのか……その答えが、埃をかぶって眠っている。',
