@@ -109,6 +109,7 @@
   const MANSION_CRYPT_DEPTHS_STARS = 3;  // 地下納骨堂の最奥が開く周回★
   const MANSION_ATTIC_STARS = 4;         // 主を倒した先、屋根裏が開く周回★
   const TEMPLE_DEPTHS_STARS = 4;         // 守り手の間の奥、神殿の最深部が開く周回★(第3弾)
+  const CONSERVATORY_DEPTHS_STARS = 4;   // 主の温室の奥、最深部が開く周回★(第5弾)
 
   /* ---- ルートグラフのランタイム ----
      グラフを持たないシナリオでは全ての問い合わせが素通しになるので、
@@ -871,6 +872,14 @@
     {id:'gaunt', x0:232, x1:272, z0:48, z1:72, cor:false, gaps:{S:[252,264], W:[56,66]}, name:'棘兵の試練'},
     {id:'cC4', x0:220, x1:232, z0:56, z1:66, cor:true , gaps:{E:'full', W:'full'}, name:'通路'},
     {id:'boss', x0:176, x1:220, z0:44, z1:76, cor:false, gaps:{E:[56,66]}, name:'主の温室'},
+    // 「山を登る」拡張(第5弾、周回★4+)。gapsを持たないので、テーブル駆動の
+    // 壁生成ループが毎回この部屋自体は建てても、歩いてどこからも入れない
+    // (=低★でも部屋の存在自体は無害。到達手段は下のbuildConservatory側で
+    // ★4未満は一切建てない内側からの階段のみ)。CONS_ROOMSに載せてあるのは
+    // setWorldBounds()のboundsFromRooms(CONS_ROOMS,6)にこの区画も含めて
+    // もらうため(温室はテーブル外の矩形をworldBoundsが知らないと、ここへ
+    // テレポートした瞬間にclampToWorldBoundsで押し戻されてしまう)
+    {id:'depths', x0:186, x1:210, z0:80, z1:104, cor:false, gaps:{}, name:'温室・最深部'},
   ];
 
   /* Barriers always span their room completely - there is no walking around
@@ -1081,6 +1090,38 @@
         : ['天井の硝子を突き破って、太い蔓が幾本も垂れ下がっている。',
            'その根元で、巨大な花が、ゆっくりと呼吸していた。']
     );
+
+    // 周回★4以上でのみ、主を倒した後に温室の奥・最深部への階段が現れる
+    // (gateTag、buildBoss呼び出し側で付与)。'depths'部屋自体はCONS_ROOMSの
+    // テーブル駆動ループで壁・床は毎回建つが、gapsを持たないため低★でも
+    // 歩いて入ることはできない
+    if(scenarioStars('conservatory') >= CONSERVATORY_DEPTHS_STARS){
+      buildStairs(new THREE.Vector3(198,0,73), new THREE.Vector3(198,0,90),
+        '温室の最深部へ進んだ……', 0x3d5a3a, 'down', 'conservatoryBloom');
+
+      // 最深部の飾り: 巨大な種子鞘と発光する苗
+      const seedPod = new THREE.Mesh(new THREE.SphereGeometry(1.6,12,10), seedMat);
+      seedPod.position.set(198, 1.4, 92);
+      scene.add(seedPod);
+      [[-8,-6],[8,-4],[-6,8],[7,7]].forEach(([x,z])=>{
+        const sprout = new THREE.Mesh(new THREE.ConeGeometry(0.5,2.2,6), leafMat);
+        sprout.position.set(198+x, 1.1, 92+z);
+        scene.add(sprout);
+      });
+      const depthsGlow = new THREE.PointLight(0xa8ff5a, 0.9, 20);
+      depthsGlow.position.set(198, 3.5, 92);
+      scene.add(depthsGlow);
+
+      buildStairs(new THREE.Vector3(198,0,84), new THREE.Vector3(196,0,58), '主の温室へ戻った……', 0x3d5a3a, 'up');
+      // 撃破報酬はここへ来る前に受け取り済みなので、退却とは別に
+      // 酒場へ直接戻れる帰還の光を置く
+      buildTownReturnPortal(new THREE.Vector3(190, 0, 84));
+
+      registerProximityEvent(new THREE.Vector3(198,0,96), 5, '???', [
+        '庭の主が守り続けてきた本当の種が、ここに眠っている。',
+        'ここまで踏み込んできた甲斐は、あったようだ。'
+      ]);
+    }
   }
 
   /* =========================================================

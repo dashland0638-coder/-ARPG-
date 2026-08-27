@@ -541,6 +541,8 @@
       [new THREE.Vector3(178,0,34)],                      // conservatory: 硝子の大広間
       [new THREE.Vector3(304,0,32),   'armoury'],         // conservatory: 種子の保管庫 (branch)
       [new THREE.Vector3(236,0,70),   'supply'],          // conservatory: before the bloom
+      ...(scenarioStars('conservatory') >= CONSERVATORY_DEPTHS_STARS
+        ? [[new THREE.Vector3(198,0,100), 'armoury']] : []), // conservatory: 最深部(周回★4+)
     ].filter(e=> worldKeyForPos(e[0])===_spawnWorldKey).map(e=> buildChest(e[0], false, e[1]));
     // hp/atkは「他のモブとは一線を画す強さに」の要望を受け、同じダンジョンの
     // strongMob付き雑魚より明確に上回る水準まで底上げしてある(旧値からhp×1.6・

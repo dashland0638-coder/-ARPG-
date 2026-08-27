@@ -282,6 +282,15 @@
       enemies.push(buildEnemy(new THREE.Vector3(-88,0,-136),
         {color:0x8a5ad0, hp:220, atk:44, speed:2.6, atkType:'charge', xp:88, goldBonus:[20,30], isElectric:true}));
     }
+    // 温室「山を登る」拡張(★4): 最深部。'depths'部屋自体はCONS_ROOMSの
+    // テーブルに常に存在するが、gapsが無く歩いて入れないので、こちらも
+    // 低★で敵だけ浮いて見える事故は起きない
+    if(_spawnWorldKey==='conservatory' && scenarioStars('conservatory') >= CONSERVATORY_DEPTHS_STARS){
+      enemies.push(buildEnemy(new THREE.Vector3(192,0,96),
+        {color:0x7a2f4a, hp:650, atk:70, speed:2.5, atkType:'charge', xp:220, goldBonus:[50,70], strongMob:true, guardian:true}));
+      enemies.push(buildEnemy(new THREE.Vector3(204,0,88),
+        {color:0x9ad86a, hp:520, atk:64, speed:1.9, atkType:'fire', xp:190, goldBonus:[42,60], projColor:0xa8ff5a}));
+    }
     // 屋根裏へは主を倒した後にしか上れない(buildStairsのgateTag参照)。
     // ★4未満はgateTagがそもそも付かず、階段自体もbuildMansion側で建てない
     if(_spawnWorldKey==='mansion') enemies.push(buildBoss(new THREE.Vector3(0,0,-56),
@@ -366,11 +375,15 @@
       clearName:'刻番', clearFlavor:'歯車が一つ、また一つと止まり、塔にようやく静寂が戻った。',
       rewardLoot:{type:'gem', name:'狂った時針', icon:'💎', color:0xffd27a}
     }));
+    // 温室も同じ「山を登る」拡張(★4): 撃破後に温室の奥、最深部への
+    // 階段が現れる(gateTag、buildConservatory側で階段を建てる)
     if(_spawnWorldKey==='conservatory') enemies.push(buildBoss(new THREE.Vector3(196,0,62), {
       key:'conservatoryBloom', solidR:3.6, atkReach:4.6,   // the maw sits well forward of the bulb
       bodyColor:0x7a2f4a, emissive:0xa8ff5a, eyeColor:0xd8ff6a, auraColor:0x9ad86a,
       hpMax:2400, atk:72, speed:1.7, xp:1080,
       bossDoorKey:'consBossDoor',
+      gateTag: scenarioStars('conservatory') >= CONSERVATORY_DEPTHS_STARS ? 'conservatoryBloom' : null,
+      endsRun: scenarioStars('conservatory') < CONSERVATORY_DEPTHS_STARS,
       dialogueName:'庭の主',
       ambushDialogueLines:[
         '花弁が一斉に開き、内側の棘がこちらを向いた。',
