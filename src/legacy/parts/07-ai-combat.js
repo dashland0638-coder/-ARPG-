@@ -970,9 +970,27 @@
     return true;
   }
 
+  // HPが一定割合を下回った瞬間に一度だけ、そのボス固有の台詞/描写を流す。
+  // BOSS_BARK_LINES(12-progression-ui.js)にエントリの無いボスキーは
+  // 何もしない。en.barkStageで「hiまで表示済み/loまで表示済み」を管理し、
+  // 同じ台詞が毎フレーム流れたり、HPが上下して二度流れたりしないようにする。
+  function updateBossBark(en, hpRatio){
+    const lines = BOSS_BARK_LINES[en.key];
+    if(!lines || en.dead) return;
+    if(en.barkStage === undefined) en.barkStage = 0;
+    if(en.barkStage < 1 && hpRatio <= 0.6 && lines.hi){
+      en.barkStage = 1;
+      spawnToast(lines.hi, '#c9b6e8');
+    } else if(en.barkStage < 2 && hpRatio <= 0.22 && lines.lo){
+      en.barkStage = 2;
+      spawnToast(lines.lo, '#c9b6e8');
+    }
+  }
+
   function updateBossSpecial(en, dt){
     if(en.specialCD === undefined) en.specialCD = 5 + Math.random()*3;
     const hpRatio = en.hp / en.hpMax;
+    updateBossBark(en, hpRatio);
 
     if(en.special){
       en.specialT -= dt;
