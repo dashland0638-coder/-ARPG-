@@ -503,12 +503,19 @@
           en.knockdownT -= dt;
           const targetLean = -Math.PI*0.42;
           en.group.rotation.x += (targetLean - en.group.rotation.x) * Math.min(1, dt*8);
+          if(en.shieldGroup){
+            // 崩された盾はだらりと下がる ―― UIのバーを見なくても、姿を
+            // 見ただけで「今は崩れている」と分かるようにするための演出
+            en.shieldGroup.rotation.x += (-1.15 - en.shieldGroup.rotation.x) * Math.min(1, dt*8);
+            en.shieldMat.emissiveIntensity = 0;
+          }
           if(en.knockdownT <= 0){
             en.knockedDown = false;
             en.posture = 0;
             en.postureGraceT = 1.5;  // 復帰直後は少しの間だけ体幹が削れない
             en.bigFlinched = false;
             en.group.rotation.x = 0;
+            if(en.shieldGroup) en.shieldGroup.rotation.x = 0;
           } else {
             updateMobAnim(en, dt); // アニメ自体は続ける(倒れた姿勢が硬直に見えないよう軽く揺れる)
             return; // ダウン中は通常AIを完全に止める
@@ -519,6 +526,14 @@
             // 怯みを与え続けないと体勢を立て直す(=コンボを継続する動機になる)
             en.posture = Math.max(0, en.posture - dt*(en.postureMax*0.35));
             if(en.posture < en.postureMax*0.7) en.bigFlinched = false;
+          }
+          // 盾持ちの体幹ゲージを、盾自体の輝きで可視化する。体幹バーを
+          // 直視しなくても「そろそろ崩せる」が身体の変化だけで伝わるように
+          // ―― 青(平常)から橙(大怯みの閾値=崩し目前)へ、輝きも溜まるほど強く
+          if(en.shieldGroup){
+            const ratio = en.posture / en.postureMax;
+            en.shieldMat.emissiveIntensity = ratio * 0.85;
+            en.shieldMat.emissive.setHex(ratio >= 0.7 ? 0xff6a3a : 0x3a5aff);
           }
         }
       }

@@ -301,6 +301,22 @@
   }
   #boss-bar-phase{ font-size:10px; color:#c9a9a0; margin-top:3px; letter-spacing:1px; }
 
+  /* 体幹(崩し)ゲージ。HPバーとは別軸で「あとどれだけ攻め続ければ
+     体勢を崩せるか」を示す。溜まるほど橙に近づき、崩れた瞬間は
+     一杯まで満ちた金色のまま一拍止まる(triggerKnockdown後、次の
+     ダウン解除まで posture=postureMax のため)。 */
+  #boss-bar-posture-track{
+    position:relative; height:6px; border-radius:3px; overflow:hidden;
+    margin-top:4px; background:rgba(8,6,10,0.75);
+    border:1px solid rgba(160,190,255,0.3);
+  }
+  #boss-bar-posture-fill{
+    position:absolute; inset:0 auto 0 0; width:0%;
+    background:linear-gradient(90deg,#5a86ff,#8ab4ff);
+    transition:width 0.12s linear, background 0.2s ease;
+  }
+  #boss-bar-posture-fill.brk{ background:linear-gradient(90deg,#ffb347,#ffe0a0); }
+
   .mob-hp{
     position:fixed; width:46px; height:5px; margin-left:-23px; margin-top:-6px;
     background:rgba(6,6,10,0.8); border-radius:3px; overflow:hidden;
@@ -311,6 +327,21 @@
     display:block; height:100%; background:linear-gradient(90deg,#e2534a,#ffa257);
   }
   .mob-hp.elite{ width:64px; margin-left:-32px; height:6px; border-color:rgba(255,215,140,0.55); }
+  /* 体幹ゲージ持ちの雑魚(ガード持ち・強敵)だけ、HPバーの下に細い
+     崩しゲージを追加する。付いている個体だけ意味を持つので、通常の
+     雑魚には要素ごと生成しない(updateMobBars参照) */
+  .mob-posture{
+    position:fixed; width:46px; height:3px; margin-left:-23px; margin-top:0.5px;
+    background:rgba(6,6,10,0.75); border-radius:2px; overflow:hidden;
+    pointer-events:none; z-index:30; border:1px solid rgba(160,190,255,0.28);
+    transition:opacity 0.25s ease;
+  }
+  .mob-posture > i{
+    display:block; height:100%; background:linear-gradient(90deg,#5a86ff,#8ab4ff);
+    transition:width 0.12s linear, background 0.2s ease;
+  }
+  .mob-posture.elite{ width:64px; margin-left:-32px; }
+  .mob-posture.brk > i{ background:linear-gradient(90deg,#ffb347,#ffe0a0); }
 
   #confirm-overlay{
     position:fixed; inset:0; display:none; align-items:center; justify-content:center;

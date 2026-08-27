@@ -8,6 +8,7 @@
      phase thresholds so the fight's structure is legible.
   ========================================================= */
   const mobBars = new Map();   // enemy -> element
+  const mobPostureBars = new Map();   // enemy -> element (guardian/elite only)
 
   function mobBarFor(en){
     let el = mobBars.get(en);
@@ -21,24 +22,61 @@
     return el;
   }
 
+  // 体幹(崩し)ゲージ持ちの雑魚(ガード持ち・強敵)にだけ、HPバーの下に
+  // 追加で細いバーを出す。ザコ全員に付けると画面が煩雑になるだけなので、
+  // 「崩す駆け引きが実際に意味を持つ相手」だけに絞ってある
+  function mobPostureBarFor(en){
+    let el = mobPostureBars.get(en);
+    if(!el){
+      el = document.createElement('div');
+      el.className = 'mob-posture' + (en.strongMob ? ' elite' : '');
+      el.innerHTML = '<i></i>';
+      document.body.appendChild(el);
+      mobPostureBars.set(en, el);
+    }
+    return el;
+  }
+
   function updateMobBars(){
     const showAll = !!state.debugMode;
     enemies.forEach(en=>{
       const engaged = !en.dead && !en.dormant && !en.isBoss &&
                       (showAll || (en.barT||0) > 0) && en.hp < en.hpMax;
+      const showPosture = engaged && en.postureMax && (en.guardian || en.strongMob);
       if(!engaged){
         const old = mobBars.get(en);
         if(old) old.style.opacity = '0';
+        const oldP = mobPostureBars.get(en);
+        if(oldP) oldP.style.opacity = '0';
         return;
       }
       const v = en.group.position.clone(); v.y += en.strongMob ? 3.0 : 2.1;
       v.project(camera);
       const el = mobBarFor(en);
-      if(v.z > 1){ el.style.opacity = '0'; return; }   // behind the camera
-      el.style.left = ((v.x*0.5+0.5)*window.innerWidth) + 'px';
-      el.style.top  = ((-v.y*0.5+0.5)*window.innerHeight) + 'px';
+      if(v.z > 1){
+        el.style.opacity = '0';
+        const oldP = mobPostureBars.get(en);
+        if(oldP) oldP.style.opacity = '0';
+        return;   // behind the camera
+      }
+      const left = (v.x*0.5+0.5)*window.innerWidth;
+      const top  = (-v.y*0.5+0.5)*window.innerHeight;
+      el.style.left = left + 'px';
+      el.style.top  = top + 'px';
       el.style.opacity = '1';
       el.firstChild.style.width = Math.max(0, en.hp/en.hpMax*100) + '%';
+      if(showPosture){
+        const pel = mobPostureBarFor(en);
+        pel.style.left = left + 'px';
+        pel.style.top  = (top + (en.strongMob ? 7 : 6)) + 'px';
+        pel.style.opacity = '1';
+        const ratio = en.knockedDown ? 1 : (en.posture / en.postureMax);
+        pel.firstChild.style.width = Math.max(0, ratio*100) + '%';
+        pel.classList.toggle('brk', ratio >= 0.7);
+      } else {
+        const oldP = mobPostureBars.get(en);
+        if(oldP) oldP.style.opacity = '0';
+      }
     });
   }
 
@@ -48,6 +86,7 @@
 
   function hideMobBars(){
     mobBars.forEach(el=> el.style.opacity = '0');
+    mobPostureBars.forEach(el=> el.style.opacity = '0');
     const wrap = document.getElementById('boss-bar-wrap');
     if(wrap) wrap.classList.remove('show');
     const lbl = document.getElementById('minimap-label');
@@ -57,6 +96,8 @@
   function clearMobBars(){
     mobBars.forEach(el=> el.remove());
     mobBars.clear();
+    mobPostureBars.forEach(el=> el.remove());
+    mobPostureBars.clear();
   }
 
   let bossBarChip = 100;
@@ -76,6 +117,15 @@
     document.getElementById('boss-bar-chip').style.width = bossBarChip + '%';
     const phase = boss.phase || 1;
     document.getElementById('boss-bar-phase').textContent = '第' + phase + '形態';
+    // 体幹ゲージ: ボスも雑魚と同じpostureMax/postureを持つので、HPバーの
+    // 下にもう一段。崩し目前(70%)で橙に変わり、崩れた瞬間は満タンの
+    // まま知覚できる長さだけ止まる(トリガー元はdealDamageToEnemy参照)
+    if(boss.postureMax){
+      const postureEl = document.getElementById('boss-bar-posture-fill');
+      const ratio = boss.knockedDown ? 1 : (boss.posture / boss.postureMax);
+      postureEl.style.width = Math.max(0, ratio*100) + '%';
+      postureEl.classList.toggle('brk', ratio >= 0.7);
+    }
   }
 
   /* Settings the player can actually reach. Shake in particular is a comfort

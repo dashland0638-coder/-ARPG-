@@ -1426,16 +1426,20 @@
     // 大きな金属の盾を構える。突進の角、火吹きの尾と同じ「見た瞬間に
     // 戦い方が分かる」役割の外見(dealDamageToEnemy側の減衰ロジックとは
     // 独立した、純粋な視覚的テル)
+    let shieldGroup = null, shieldMat = null;
     if(variant.guardian){
-      const shieldMat = new THREE.MeshStandardMaterial({color:0xb8c4d8, roughness:0.35, metalness:0.75});
+      shieldMat = new THREE.MeshStandardMaterial({color:0xb8c4d8, roughness:0.35, metalness:0.75,
+                    emissive:0x3a5aff, emissiveIntensity:0});
+      shieldGroup = new THREE.Group();
+      shieldGroup.position.set(0, 0.42, 0.34);
       const shield = new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.34,0.09,8), shieldMat);
       shield.rotation.z = Math.PI/2;
-      shield.position.set(0, 0.42, 0.34);
       shield.castShadow = true;
-      g.add(shield);
+      shieldGroup.add(shield);
       const boss = new THREE.Mesh(new THREE.SphereGeometry(0.09,8,6), shieldMat);
-      boss.position.set(0, 0.42, 0.39);
-      g.add(boss);
+      boss.position.set(0, 0, 0.05);
+      shieldGroup.add(boss);
+      g.add(shieldGroup);
     }
 
     // Contour only, and only the big forms: outlining every rag, fin and
@@ -1472,7 +1476,7 @@
       // 体幹ゲージも一回り大きくしてある(dealDamageToEnemyのガード減衰参照)
       posture:0, postureMax:Math.round((variant.strongMob?130:55)*(variant.guardian?1.3:1)*_D.hp),
       knockedDown:false, knockdownT:0, postureGraceT:0, bigFlinched:false,
-      guardian:!!variant.guardian
+      guardian:!!variant.guardian, shieldGroup, shieldMat, shieldBaseRot:0
     };
   }
 
