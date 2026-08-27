@@ -1010,6 +1010,11 @@
     border-radius:6px; padding:6px 10px; margin-bottom:8px; display:flex; align-items:baseline; gap:6px;
   }
   .sphere-points-note{ font-size:9px; color:var(--text-dim); }
+  .sphere-respec-btn{
+    margin-left:auto; padding:4px 9px; font-size:9.5px; border-radius:5px; cursor:pointer;
+    background:#241820; border:1px solid #6a4a52; color:#e0b8c0; white-space:nowrap;
+  }
+  .sphere-respec-btn:disabled{ opacity:0.4; cursor:default; background:#1a1620; color:var(--text-dim); }
 
   /* 盤面: 高さを固定し、ノード数が増えても縦にだらだら伸びないようにする。
      root(頂点)から左右2本の細い糸(sphere-link)で下段へ繋がる、

@@ -174,7 +174,8 @@
   function saveSettings(){
     try{
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-        v:1, sfxIdx, bgmIdx, shakeIdx, brightIdx, qualityIdx, hitStopIdx, dotIdx, shadowOn
+        v:1, sfxIdx, bgmIdx, shakeIdx, brightIdx, qualityIdx, hitStopIdx, dotIdx, shadowOn,
+        camAutoOn, camInvertOn
       }));
     }catch(err){ console.error('saveSettings failed:', err); }
   }
@@ -194,6 +195,8 @@
     if(Number.isInteger(data.qualityIdx) && QUALITY_STEPS[data.qualityIdx]){ qualityIdx = data.qualityIdx; }
     if(Number.isInteger(data.dotIdx) && DOT_STEPS[data.dotIdx]){ dotIdx = data.dotIdx; }
     if(typeof data.shadowOn === 'boolean'){ shadowOn = data.shadowOn; }
+    if(typeof data.camAutoOn === 'boolean'){ camAutoOn = data.camAutoOn; }
+    if(typeof data.camInvertOn === 'boolean'){ camInvertOn = data.camInvertOn; }
     applyShadowSetting();
     applyQualitySetting();
     applyDotSetting();
@@ -205,6 +208,18 @@
     if(document.hidden) saveGame();
   });
   window.addEventListener('beforeunload', ()=>{ saveGame(); });
+
+  // PCでゲームパッドを挿したままだと、ブラウザが「フォーカス中の要素への
+  // Enter/クリック」としてボタン入力を扱ってしまうことがあり、意図しない
+  // メニュー操作やクリックの暴発に繋がる。クリック後は常にフォーカスを
+  // 外しておくことで、ゲームパッドの入力がどのDOM要素にも吸われないように
+  // する(名前入力欄などのテキスト入力はフォーカスを維持させたいので除外)
+  document.addEventListener('click', ()=>{
+    const el = document.activeElement;
+    if(el && el !== document.body && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA'){
+      setTimeout(()=>{ if(document.activeElement === el) el.blur(); }, 0);
+    }
+  });
 
   const keys = {};
   window.addEventListener('keydown', e=>{

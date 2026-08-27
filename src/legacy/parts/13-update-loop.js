@@ -54,16 +54,32 @@
     updateChargeHold(dt);
     updateMageOrbs(dt);
     updatePlatforms(dt);
+    // カメラ左右反転設定: Q/E・タッチ・右スティック、どの入力元から来た
+    // ものでも合算後にまとめて反転させれば済む
+    if(camInvertOn) camRot = -camRot;
+    const manualCamInput = Math.abs(camRot)>0.01;
     // ボス戦ロックオン中は手動回転を無視する(updateCamera側が
     // camYawを自動で操作するため、Q/E・タッチ・右スティックが
     // 割り込むと綱引きになって毎フレーム震える)
-    if(Math.abs(camRot)>0.01 && !findLockOnBoss()){ state.camYaw += camRot * 1.9 * dt; }
+    if(manualCamInput && !findLockOnBoss()){ state.camYaw += camRot * 1.9 * dt; }
 
     ix = Math.max(-1,Math.min(1,ix));
     iy = Math.max(-1,Math.min(1,iy));
     state.moveInput.x = ix;
     state.moveInput.y = iy;
+
+    // カメラ自動追従: 進行方向へゆっくりカメラを回し、ミニマップ頼みに
+    // ならなくても先の様子・敵の有無が画面で見えるようにする。手動で
+    // 回した直後(camAutoResumeT秒)・ボスロックオン中は割り込まない
+    if(manualCamInput) camAutoResumeT = 1.4;
+    else if(camAutoResumeT > 0) camAutoResumeT -= dt;
+    const moveMag = Math.sqrt(ix*ix + iy*iy);
+    if(camAutoOn && !manualCamInput && camAutoResumeT<=0 && moveMag>0.35 && !findLockOnBoss()){
+      const desiredYaw = state.facing + Math.PI;
+      state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(0.82, dt));
+    }
   }
+  let camAutoResumeT = 0;
 
   // the attack button now does double duty: a quick tap fires a normal
   // attack, holding it past a short threshold charges the selected skill

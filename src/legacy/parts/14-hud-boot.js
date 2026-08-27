@@ -142,6 +142,12 @@
     {label:'高',   ratio:2.0,  shadowSize:2048, shadowSpan:34},
   ];
   let sfxIdx = 2, bgmIdx = 2, shakeIdx = 2, brightIdx = 1, qualityIdx = 1, hitStopIdx = 2, shadowOn = true;
+  // カメラ自動追従: 進行方向へゆっくりカメラを回し、先の様子や敵の有無を
+  // ミニマップ頼みにせず見られるようにする(手動回転・ロックオン中は
+  // 干渉しない。updateCamera側で実際の補間を行う)。
+  // カメラ左右反転: Q/E・右スティック・タッチの左右回転ボタンの符号を
+  // まとめて反転させるプレイヤー設定
+  let camAutoOn = true, camInvertOn = false;
 
   function refreshSettingLabels(){
     document.getElementById('set-sfx').textContent = SFX_STEPS[sfxIdx].label;
@@ -152,6 +158,8 @@
     document.getElementById('set-quality').textContent = QUALITY_STEPS[qualityIdx].label;
     document.getElementById('set-dot').textContent = DOT_STEPS[dotIdx].label;
     document.getElementById('set-hitstop').textContent = HITSTOP_STEPS[hitStopIdx].label;
+    document.getElementById('set-camauto').textContent = camAutoOn ? 'あり' : 'なし';
+    document.getElementById('set-caminvert').textContent = camInvertOn ? 'あり' : 'なし';
     saveSettings();
   }
 
@@ -243,6 +251,16 @@
       qualityIdx = (qualityIdx+1) % QUALITY_STEPS.length;
       applyQualitySetting();
       if(currentWorldObjects.length) applySurfaceDetail(currentWorldObjects, qualityIdx > 0, renderer);
+      refreshSettingLabels();
+      sfx('ui');
+    });
+    document.getElementById('set-camauto').addEventListener('click', ()=>{
+      camAutoOn = !camAutoOn;
+      refreshSettingLabels();
+      sfx('ui');
+    });
+    document.getElementById('set-caminvert').addEventListener('click', ()=>{
+      camInvertOn = !camInvertOn;
       refreshSettingLabels();
       sfx('ui');
     });

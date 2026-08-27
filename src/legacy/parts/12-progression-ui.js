@@ -613,6 +613,50 @@
     recomputeStats();
     return true;
   }
+
+  /* ---- スフィア盤の全リセット(有償) ----
+     ステータスの割り振り直し(鑑定所)は既に無償で出来るのに対し、
+     スフィア盤は「ビルドを考えるのも遊びのうち」という位置づけなので、
+     気軽に何度もやり直されすぎないよう、投資したpt総量に応じたゴールドを
+     取る。使ったptは全額スフィアポイントとして返し、新技解放フラグ
+     (unlockedSkill1/2/UltAlt)や選択中の派生技も、解放が外れることに
+     合わせてデフォルトへ戻す。 */
+  function sphereSpentTotal(){
+    return (state.unlockedSphereNodes||['root']).reduce((sum,id)=>{
+      if(id==='root') return sum;
+      const def = SPHERE_NODES[id];
+      return sum + (def ? def.cost : 0);
+    }, 0);
+  }
+  function sphereRespecCost(){
+    const spent = sphereSpentTotal();
+    return spent > 0 ? Math.max(200, spent * 50) : 0;
+  }
+  function respecSphere(){
+    const spent = sphereSpentTotal();
+    if(spent <= 0) return false;
+    const cost = sphereRespecCost();
+    if(state.inventory.gold < cost){ spawnToast('🪙 ゴールドが足りない'); return false; }
+    state.inventory.gold -= cost;
+    state.spherePoints = (state.spherePoints||0) + spent;
+    state.unlockedSphereNodes = ['root'];
+    state.unlockedSkill1Alt = false;
+    state.unlockedSkill2Alt = false;
+    state.unlockedUltAlt = false;
+    // 装備中だった派生技の解放も外れるので、対応する選択をデフォルトへ戻す
+    // (セーブ復元時の検証ロジックと同じ考え方)
+    const variants = CHARGE_VARIANTS_BY_CLASS[selectedClass] || {};
+    const chosenVariant = variants[state.skillChoice];
+    if(chosenVariant && chosenVariant.unlockKey) state.skillChoice = 'retreat';
+    if(state.skill2Choice === 'alt') state.skill2Choice = 'default';
+    if(state.ultChoice === 'alt') state.ultChoice = 'default';
+    sphereSelectedNode = 'root';
+    recomputeStats();
+    spawnToast(`🌀 スフィア盤をリセットした(${spent}pt還元)`);
+    sfx('levelUp');
+    return true;
+  }
+
   // 解放済みノードのうち、指定した効果typeの合計値を返す
   function sphereValue(type){
     const unlocked = state.unlockedSphereNodes || ['root'];
@@ -665,9 +709,27 @@
     if(hasActiveSkill && !activeSkillLearned) options.push({key:'activeSkill', icon:hasActiveSkill.icon, name:'【スキル3】'+hasActiveSkill.name, desc:hasActiveSkill.desc});
 
     if(options.length <= 1){
-      // 選択肢が装備しか無い場合は、選ぶ手間を挟まず自動で付与する
-      panel.style.display = 'none';
-      if(options.length===1) grantBossChoiceReward(bossKey, 'gear');
+      if(options.length===1){
+        // スキル/アビリティを全て習得済みで、残る選択肢が装備しか無い場合。
+        // 選ぶ手間は無いが、パネルごと消してトースト一つだけにすると
+        // 「クリア演出のどさくさで何も貰えなかったように見える」ため、
+        // 通常の3択と同じカードUIを1枚だけ「選択済み」で表示し、
+        // 報酬が確かに付いたことを視覚的にも分かるようにする
+        const o = options[0];
+        panel.style.display = 'block';
+        panel.innerHTML = `<div class="boss-choice-title">🎁 撃破報酬</div>
+          <div class="boss-choice-options">
+            <div class="boss-choice-card picked" data-choice="${o.key}">
+              <div class="boss-choice-icon">${o.icon}</div>
+              <div class="boss-choice-name">${o.name}</div>
+              <div class="boss-choice-desc">${o.desc}</div>
+            </div>
+          </div>`;
+        panel.classList.add('resolved');
+        grantBossChoiceReward(bossKey, 'gear');
+      } else {
+        panel.style.display = 'none';
+      }
       return;
     }
     panel.style.display = 'block';
@@ -1204,8 +1266,19 @@
     }
     if(state.scenarioTimeLeft <= 0){
       clearScenarioTimer();
-      spawnToast('⏱️ 制限時間切れ - 撤退する');
-      performRetreat();
+      // ボスを既に倒している(=このシナリオの主目的は達成済み)なら、
+      // タイムアップは単に探索を切り上げて帰るだけの通常帰還にする。
+      // 中途撤退ボーナス(70%レート)は「まだ進行中に自分の意思で
+      // 諦める」ときの救済であって、既にクリア報酬を受け取った後まで
+      // それに差し替えると、実質的な目減りに感じられてしまうため
+      const bossDown = enemies.some(en=> en.isBoss && en.dead);
+      if(bossDown){
+        spawnToast('⏱️ 制限時間切れ - 酒場へ戻る');
+        returnToTown(false);
+      } else {
+        spawnToast('⏱️ 制限時間切れ - 撤退する');
+        performRetreat();
+      }
     }
   }
 
@@ -1988,6 +2061,12 @@
   function renderSpherePanel(){
     const panel = document.getElementById('ap-panel-sphere');
     if(!panel) return;
+    // マスを選ぶたびにinnerHTMLを丸ごと差し替えるため、何もしなければ
+    // .sphere-board(overflow:auto)のスクロール位置が毎回先頭に戻って
+    // しまう。差し替え前に位置を控え、新しいDOMへ復元する
+    const prevBoard = panel.querySelector('.sphere-board');
+    const prevScrollTop = prevBoard ? prevBoard.scrollTop : 0;
+    const prevScrollLeft = prevBoard ? prevBoard.scrollLeft : 0;
     const unlockedList = state.unlockedSphereNodes || ['root'];
     if(!sphereSelectedNode || !SPHERE_NODES[sphereSelectedNode]){
       sphereSelectedNode = unlockedList[unlockedList.length-1] || 'root';
@@ -2000,7 +2079,11 @@
       return `<div class="sphere-node ${unlocked?'unlocked':''} ${can?'can-unlock':''} ${sel?'selected':''} ${extraClass||''}"
         data-sphere-node="${id}" title="${def.name}">${def.icon}</div>`;
     };
-    let html = `<div class="sphere-points">✨ <b>${state.spherePoints||0}</b>pt<span class="sphere-points-note">(レベルアップ毎+1)</span></div>`;
+    const respecSpent = sphereSpentTotal();
+    const respecCost = sphereRespecCost();
+    let html = `<div class="sphere-points">✨ <b>${state.spherePoints||0}</b>pt<span class="sphere-points-note">(レベルアップ毎+1)</span>
+      ${respecSpent>0 ? `<button type="button" class="sphere-respec-btn" id="sphere-respec-btn" ${state.inventory.gold<respecCost?'disabled':''}>🌀 全リセット(🪙${respecCost})</button>` : ''}
+    </div>`;
     html += '<div class="sphere-board">';
     html += `<div class="sphere-board-root">${node('root','root-node')}</div>`;
     // 各系統6段(第3弾で3→6段に延長)。列を組み立てる部分を共通化し、
@@ -2029,12 +2112,20 @@
     </div>`;
 
     panel.innerHTML = html;
+    const board = panel.querySelector('.sphere-board');
+    if(board){ board.scrollTop = prevScrollTop; board.scrollLeft = prevScrollLeft; }
     panel.querySelectorAll('[data-sphere-node]').forEach(elm=>{
       elm.addEventListener('click', ()=>{ sphereSelectedNode = elm.dataset.sphereNode; renderSpherePanel(); });
     });
     const unlockBtn = panel.querySelector('#sphere-unlock-btn');
     if(unlockBtn) unlockBtn.addEventListener('click', ()=>{
       if(unlockSphereNode(sphereSelectedNode)) refreshAppraisal();
+    });
+    const respecBtn = panel.querySelector('#sphere-respec-btn');
+    if(respecBtn) respecBtn.addEventListener('click', ()=>{
+      askConfirm('スフィア盤のリセット',
+        `解放済みの全マスを未解放に戻し、使ったptを全額返す。<br>費用: 🪙${sphereRespecCost()}<br><br>この操作は元に戻せない。よろしいか?`,
+        ()=>{ if(respecSphere()) refreshAppraisal(); });
     });
   }
 
