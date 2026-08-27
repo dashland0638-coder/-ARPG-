@@ -324,10 +324,18 @@
     const floorY = groundSlabs.length ? (groundYAt(pos.x, pos.z, pos.y) ?? 0) : 0;
     mesh.position.copy(pos); mesh.position.y = floorY + 0.5;
     mesh.castShadow = true;
-    const glow = new THREE.PointLight(loot.color, 0.5, 3);
-    mesh.add(glow);
+    // プールから借りる(非必須演出なので、プールが空ならtryTakeLightがnullを
+    // 返し光なしで続行する)。以前はここでnew THREE.PointLight()を直接
+    // meshの子として都度生成していたため、弓師の「五月雨射ち」(五本の矢が
+    // 別々の雑魚に同時ヒットしうる)のように複数体をまとめて倒すと、ドロップ
+    // した分だけ動的ライト数が一気に跳ね上がり、全マテリアルのシェーダ
+    // 再コンパイルが起きて1秒以上のカクツキになっていた
+    // (spawnHitSpark/tryTakeLightの導入理由と同じ症状)。mesh の子にはせず
+    // 借用中として別管理し、拾う/消える時に必ずgiveLightで返す
+    const glow = tryTakeLight(loot.color, 0.5, 3);
+    if(glow) glow.position.copy(mesh.position);
     scene.add(mesh);
-    itemDrops.push({mesh, loot, t:Math.random()*10, baseY:floorY});
+    itemDrops.push({mesh, loot, light:glow, t:Math.random()*10, baseY:floorY});
   }
 
   function updateItemDrops(dt){
@@ -336,10 +344,12 @@
       d.t += dt;
       d.mesh.position.y = (d.baseY || 0) + 0.55 + Math.sin(d.t*2.4)*0.12;
       d.mesh.rotation.y += dt*1.6;
+      if(d.light) d.light.position.copy(d.mesh.position);
       const dist = state.pos.distanceTo(d.mesh.position);
       if(dist < 1.15){
         addItem(d.loot);
         scene.remove(d.mesh);
+        if(d.light) giveLight(d.light);
         itemDrops.splice(i,1); sfx('pickup');
       }
     }

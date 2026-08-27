@@ -235,8 +235,12 @@
     }
     inAnomalyRoom = false;
     anomalyReturnPos = null;
-    projectiles.forEach(p=>scene.remove(p.mesh)); projectiles = [];
-    itemDrops.forEach(d=>scene.remove(d.mesh)); itemDrops = [];
+    // 借用中のプールライトを返し忘れると、そのままシーンに残り続けて
+    // (intensityをリセットする者がいなくなる)実質プールが恒久的に縮む。
+    // 世界の切り替え中に飛行中の魔弾/矢や、拾われる前のドロップが
+    // あってもここで必ず返却する
+    projectiles.forEach(p=>{ scene.remove(p.mesh); if(p.light) giveLight(p.light); }); projectiles = [];
+    itemDrops.forEach(d=>{ scene.remove(d.mesh); if(d.light) giveLight(d.light); }); itemDrops = [];
     if(state.mageOrbs){ state.mageOrbs.forEach(orb=>scene.remove(orb.mesh)); state.mageOrbs = []; }
     clearDecals();   // scorches belong to the room that got burned
     nearbyDoor = null; nearbyStairs = null; nearbyLore = null;
