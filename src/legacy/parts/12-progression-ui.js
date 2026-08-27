@@ -151,6 +151,10 @@
   }
 
   function startScenarioTavernDialogue(scenarioKey){
+    // 一覧側でボタンごと出さないようにしてあるが、ここでも二重に防ぐ
+    // (renderScenarioList()参照)
+    const def = SCENARIO_DEFS.find(s=>s.key===scenarioKey);
+    if(def && (!def.unlocked || state.level < def.minLevel)) return;
     state.dialogueActive = true;
     state.dialogueBoss = null;
     state.dialogueKind = 'town';
@@ -888,15 +892,20 @@
     returnToTown(true);
   });
 
+  // minLevel は推奨レベル(levelRange)の下限をそのまま採用してある。
+  // 以前はlevelRangeが説明文だけで一切強制されておらず、レベル1のまま
+  // どのシナリオにも出撃できてしまっていた(「初期レベルでも最高難度を
+  // 突破できる」の主因)。序盤の洋館・幽霊船で稼いだ経験値なしには
+  // 水路・温室に挑めないようにし、周回して育てる動機を作る
   const SCENARIO_DEFS = [
-    {key:'mansion',    name:'🏚️ 囚われの洋館',   levelRange:'1〜5',   desc:'森の奥、迷路のような木々の先に佇む洋館。最深部には館の主が待ち受けている。', unlocked:true},
-    {key:'ghostship',  name:'👻 幽霊船',         levelRange:'6〜12',  desc:'霧の港に打ち上げられた朽ちた帆船。甲板を彷徨う亡霊たちが眠りを妨げる者を待つ。', unlocked:true},
-    {key:'waterway',   name:'💧 埠頭の地下水路', levelRange:'18〜25',  desc:'埠頭の下に張り巡らされた古い水路。闇の中、何かが水音を立てて動いている。', unlocked:true},
-    {key:'temple',     name:'🏛️ 古代神殿',       levelRange:'10〜20', desc:'跳び、渡り、乗り継いで越えてゆく長い試練の神殿。落ちれば痛い目を見るぞ。', unlocked:true},
-    {key:'clocktower', name:'🕰️ 狂いの時計塔', levelRange:'11〜16', desc:'街の時を司る塔。針が狂い、六層すべての仕掛けが動き出した。最上階の天蓋には、使われたことのない脱出装置がひとつ。', unlocked:true},
-    {key:'conservatory', name:'🌿 硝子の温室', levelRange:'22〜28', desc:'打ち捨てられた王立温室。茨が時計仕掛けのように開閉し、緑の靄が肺を蝕む。奥では、庭の主が百年ぶんの根を張っている。', unlocked:true},
-    {key:'pyramid',    name:'🏜️ 砂漠のピラミッド', levelRange:'16〜20', desc:'黄金の呪いに満ちた古の墓所。目覚めた王が眠りへの帰還を拒む者を裁く。', unlocked:false},
-    {key:'volcano',    name:'🌋 業火の火山',     levelRange:'21〜25', desc:'絶えず溶岩が滾る山の奥、炎そのものと化した支配者が待つ。', unlocked:false},
+    {key:'mansion',    name:'🏚️ 囚われの洋館',   levelRange:'1〜5',   minLevel:1,  desc:'森の奥、迷路のような木々の先に佇む洋館。最深部には館の主が待ち受けている。', unlocked:true},
+    {key:'ghostship',  name:'👻 幽霊船',         levelRange:'6〜12',  minLevel:6,  desc:'霧の港に打ち上げられた朽ちた帆船。甲板を彷徨う亡霊たちが眠りを妨げる者を待つ。', unlocked:true},
+    {key:'waterway',   name:'💧 埠頭の地下水路', levelRange:'18〜25', minLevel:18, desc:'埠頭の下に張り巡らされた古い水路。闇の中、何かが水音を立てて動いている。', unlocked:true},
+    {key:'temple',     name:'🏛️ 古代神殿',       levelRange:'10〜20', minLevel:10, desc:'跳び、渡り、乗り継いで越えてゆく長い試練の神殿。落ちれば痛い目を見るぞ。', unlocked:true},
+    {key:'clocktower', name:'🕰️ 狂いの時計塔', levelRange:'11〜16', minLevel:11, desc:'街の時を司る塔。針が狂い、六層すべての仕掛けが動き出した。最上階の天蓋には、使われたことのない脱出装置がひとつ。', unlocked:true},
+    {key:'conservatory', name:'🌿 硝子の温室', levelRange:'22〜28', minLevel:22, desc:'打ち捨てられた王立温室。茨が時計仕掛けのように開閉し、緑の靄が肺を蝕む。奥では、庭の主が百年ぶんの根を張っている。', unlocked:true},
+    {key:'pyramid',    name:'🏜️ 砂漠のピラミッド', levelRange:'16〜20', minLevel:16, desc:'黄金の呪いに満ちた古の墓所。目覚めた王が眠りへの帰還を拒む者を裁く。', unlocked:false},
+    {key:'volcano',    name:'🌋 業火の火山',     levelRange:'21〜25', minLevel:21, desc:'絶えず溶岩が滾る山の奥、炎そのものと化した支配者が待つ。', unlocked:false},
   ];
 
   function renderScenarioList(){
@@ -904,6 +913,7 @@
     let html = '';
     SCENARIO_DEFS.forEach(sc=>{
       const stars = scenarioStars(sc.key), clears = scenarioClears(sc.key);
+      const levelLocked = sc.unlocked && state.level < sc.minLevel;
       const starRow = sc.unlocked
         ? `<div class="scenario-card-stars"><span class="sc-stars">${starLabel(stars)}</span>` +
           (clears ? `<span class="sc-clears">${clears}周クリア</span>` : `<span class="sc-clears">初挑戦</span>`) +
@@ -911,14 +921,14 @@
             ? `<span class="sc-next">あと1周で★${stars+1}</span>`
             : `<span class="sc-next sc-max">最高難易度</span>`) + `</div>`
         : '';
-      html += `<div class="scenario-card ${sc.unlocked?'':'locked'}">
+      html += `<div class="scenario-card ${sc.unlocked && !levelLocked?'':'locked'}">
         <div class="scenario-card-title">${sc.name}</div>
         <div class="scenario-card-level">推奨レベル: ${sc.levelRange}</div>
         ${starRow}
         <div class="scenario-card-desc">${sc.desc}</div>
-        ${sc.unlocked
-          ? `<button type="button" class="event-btn scenario-sortie-btn" data-scenario="${sc.key}">出撃する</button>`
-          : `<div class="scenario-locked-label">🔒 近日追加予定</div>`}
+        ${!sc.unlocked ? `<div class="scenario-locked-label">🔒 近日追加予定</div>`
+          : levelLocked ? `<div class="scenario-locked-label">🔒 Lv.${sc.minLevel}以上で挑戦可能(現在Lv.${state.level})</div>`
+          : `<button type="button" class="event-btn scenario-sortie-btn" data-scenario="${sc.key}">出撃する</button>`}
       </div>`;
     });
     list.innerHTML = html;
