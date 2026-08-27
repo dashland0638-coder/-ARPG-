@@ -1580,56 +1580,13 @@
     });
     html += '</div>';
 
-    // ボス能力: 習得済みのものを一覧表示し、装着(最大BOSS_ABILITY_SLOTS個)を
-    // タップで切り替えられるようにする。習得していないボスは薄く表示するだけ
-    const learned = state.learnedBossAbilities || [];
-    if(learned.length > 0){
-      const equipped = state.equippedBossAbilities || [];
-      html += `<div class="boss-ability-row">
-        <div class="gear-slot-label">👑 ボス能力 <span class="boss-ability-slots">(${equipped.length}/${BOSS_ABILITY_SLOTS} 装着中)</span></div>
-        <div class="boss-ability-list">`;
-      learned.forEach(key=>{
-        const def = BOSS_ABILITIES[key];
-        if(!def) return;
-        const isEq = equipped.includes(key);
-        html += `<div class="boss-ability-item ${isEq?'equipped':''}" data-boss-ability="${key}">
-          <div class="boss-ability-icon">${def.icon}</div>
-          <div class="boss-ability-info">
-            <div class="boss-ability-name">${def.name}</div>
-            <div class="boss-ability-desc">${def.desc}</div>
-          </div>
-          <div class="boss-ability-toggle">${isEq?'装着中':'装着する'}</div>
-        </div>`;
-      });
-      html += '</div></div>';
-    }
-
-    // スキル3: ボス能力と違い同時に1つまでしか装着できないので、タップで
-    // 選び直す(既に装着中のものをタップすると外す)単一選択の一覧にしてある
-    const learnedActive = state.learnedBossActiveSkills || [];
-    if(learnedActive.length > 0){
-      const equippedActive = state.equippedBossActiveSkill;
-      html += `<div class="boss-ability-row">
-        <div class="gear-slot-label">💥 スキル3 <span class="boss-ability-slots">(${equippedActive?'1':'0'}/1 装着中)</span></div>
-        <div class="boss-ability-list">`;
-      learnedActive.forEach(key=>{
-        const def = BOSS_ACTIVE_SKILLS[key];
-        if(!def) return;
-        const isEq = equippedActive===key;
-        html += `<div class="boss-ability-item ${isEq?'equipped':''}" data-boss-active-skill="${key}">
-          <div class="boss-ability-icon">${def.icon}</div>
-          <div class="boss-ability-info">
-            <div class="boss-ability-name">${def.name}</div>
-            <div class="boss-ability-desc">${def.desc}(再使用${def.cd}秒)</div>
-          </div>
-          <div class="boss-ability-toggle">${isEq?'装着中':'装着する'}</div>
-        </div>`;
-      });
-      html += '</div></div>';
-    }
+    // ボス由来の能力(ボス能力/スキル3/常時パッシブ)は「スキル」タブに
+    // まとめた(装備品タブは装備品だけにする、というUI整理のため)。
+    // renderSkillPanel()を参照
 
     html += `<div class="gear-tools">
         <button type="button" class="gear-tool-btn" id="gear-best-btn">⚙️ 最強装備</button>
+        <button type="button" class="gear-tool-btn" id="gear-identify-all-btn">🔍 一括鑑定</button>
         <button type="button" class="gear-tool-btn sell-all" id="gear-sell-all-btn">🪙 まとめて売却</button>
         <span class="gear-legend"><i class="lg-ok"></i>装備可 <i class="lg-hi"></i>Lv不足 <i class="lg-eq"></i>装備中</span>
       </div>`;
@@ -1694,11 +1651,14 @@
         refreshAppraisal();
       });
     });
-    panel.querySelectorAll('[data-boss-ability]').forEach(row=>{
-      row.addEventListener('click', ()=>{ toggleEquippedBossAbility(row.dataset.bossAbility); refreshAppraisal(); });
-    });
-    panel.querySelectorAll('[data-boss-active-skill]').forEach(row=>{
-      row.addEventListener('click', ()=>{ setEquippedBossActiveSkill(row.dataset.bossActiveSkill); refreshAppraisal(); });
+    const identifyAllBtn = panel.querySelector('#gear-identify-all-btn');
+    if(identifyAllBtn) identifyAllBtn.addEventListener('click', ()=>{
+      const result = identifyAllEquipment();
+      if(result.total===0) spawnToast('🔍 鑑定できる装備がない');
+      else if(result.count===0) spawnToast('🪙 資金が足りず鑑定できなかった');
+      else if(result.count<result.total) spawnToast(`✨ ${result.count}個を鑑定した(🪙${result.spent}) ―― 資金不足で${result.total-result.count}個は残った`);
+      else spawnToast(`✨ ${result.count}個をまとめて鑑定した(🪙${result.spent})`);
+      refreshAppraisal();
     });
     panel.querySelectorAll('[data-unequip]').forEach(btn=>{
       btn.addEventListener('click', ()=>{ unequipSlot(btn.dataset.unequip); refreshAppraisal(); });
@@ -1847,7 +1807,89 @@
         html += `<button type="button" class="ap-skill-btn" data-skill="${sk.key}" ${can?'':'disabled'}>💎${cost}</button></div>`;
       }
     });
+
+    // ---- ボス由来の力(ボス能力/スキル3/常時パッシブ) ----
+    // 以前は装備品タブに混ざっていたが、「装備品タブは装備品だけに」という
+    // 整理でこちらへ移した。3つとも別々の習得元(3択報酬)を持つが、
+    // どれも「ボスを倒して得る力」という点でまとめて見せた方が分かりやすい
+    const bossLearned = state.learnedBossAbilities || [];
+    const bossLearnedActive = state.learnedBossActiveSkills || [];
+    const bossLearnedPassive = state.learnedBossSkills || [];
+    if(bossLearned.length>0 || bossLearnedActive.length>0 || bossLearnedPassive.length>0){
+      html += '<div class="ap-charge-title">ボス由来の力</div>';
+    }
+    if(bossLearned.length > 0){
+      const equipped = state.equippedBossAbilities || [];
+      html += `<div class="boss-ability-row">
+        <div class="gear-slot-label">👑 ボス能力 <span class="boss-ability-slots">(${equipped.length}/${BOSS_ABILITY_SLOTS} 装着中)</span></div>
+        <div class="boss-ability-list">`;
+      bossLearned.forEach(key=>{
+        const def = BOSS_ABILITIES[key];
+        if(!def) return;
+        const isEq = equipped.includes(key);
+        html += `<div class="boss-ability-item ${isEq?'equipped':''}" data-boss-ability="${key}">
+          <div class="boss-ability-icon">${def.icon}</div>
+          <div class="boss-ability-info">
+            <div class="boss-ability-name">${def.name}</div>
+            <div class="boss-ability-desc">${def.desc}</div>
+          </div>
+          <div class="boss-ability-toggle">${isEq?'装着中':'装着する'}</div>
+        </div>`;
+      });
+      html += '</div></div>';
+    }
+    // スキル3: ボス能力と違い同時に1つまでしか装着できないので、タップで
+    // 選び直す(既に装着中のものをタップすると外す)単一選択の一覧にしてある
+    if(bossLearnedActive.length > 0){
+      const equippedActive = state.equippedBossActiveSkill;
+      html += `<div class="boss-ability-row">
+        <div class="gear-slot-label">💥 スキル3 <span class="boss-ability-slots">(${equippedActive?'1':'0'}/1 装着中)</span></div>
+        <div class="boss-ability-list">`;
+      bossLearnedActive.forEach(key=>{
+        const def = BOSS_ACTIVE_SKILLS[key];
+        if(!def) return;
+        const isEq = equippedActive===key;
+        html += `<div class="boss-ability-item ${isEq?'equipped':''}" data-boss-active-skill="${key}">
+          <div class="boss-ability-icon">${def.icon}</div>
+          <div class="boss-ability-info">
+            <div class="boss-ability-name">${def.name}</div>
+            <div class="boss-ability-desc">${def.desc}(再使用${def.cd}秒)</div>
+          </div>
+          <div class="boss-ability-toggle">${isEq?'装着中':'装着する'}</div>
+        </div>`;
+      });
+      html += '</div></div>';
+    }
+    // 常時パッシブ(BOSS_SKILLS): 装着枠が無く、習得すれば常に有効なので
+    // 一覧はすべて表示専用(タップでの切り替えは無い)。以前はこの一覧
+    // 自体がどこにも表示されておらず、「2個しか表示されない」という
+    // 報告(実際には👑ボス能力の2枠表示と混同されていた)につながっていた
+    if(bossLearnedPassive.length > 0){
+      html += `<div class="boss-ability-row">
+        <div class="gear-slot-label">🎯 常時発動パッシブ <span class="boss-ability-slots">(${bossLearnedPassive.length}個・すべて常時有効)</span></div>
+        <div class="boss-ability-list">`;
+      bossLearnedPassive.forEach(key=>{
+        const def = BOSS_SKILLS[key];
+        if(!def) return;
+        html += `<div class="boss-ability-item equipped">
+          <div class="boss-ability-icon">${def.icon}</div>
+          <div class="boss-ability-info">
+            <div class="boss-ability-name">${def.name}</div>
+            <div class="boss-ability-desc">${def.desc}</div>
+          </div>
+          <div class="boss-ability-toggle">常時発動</div>
+        </div>`;
+      });
+      html += '</div></div>';
+    }
+
     panel.innerHTML = html;
+    panel.querySelectorAll('[data-boss-ability]').forEach(row=>{
+      row.addEventListener('click', ()=>{ toggleEquippedBossAbility(row.dataset.bossAbility); refreshAppraisal(); });
+    });
+    panel.querySelectorAll('[data-boss-active-skill]').forEach(row=>{
+      row.addEventListener('click', ()=>{ setEquippedBossActiveSkill(row.dataset.bossActiveSkill); refreshAppraisal(); });
+    });
     panel.querySelectorAll('[data-rank]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         if(rankUpAbility(btn.dataset.rank)) refreshAppraisal();

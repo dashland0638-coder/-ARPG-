@@ -249,6 +249,26 @@
     return true;
   }
 
+  // 一括鑑定: 未鑑定の装備をまとめて鑑定する。安い(=低レベル)ものから
+  // 順に処理し、資金が尽きたところで打ち切る ―― 高額な1つで資金を
+  // 使い切って残り全部が鑑定できない、という事故を避けるため。
+  // 個別のトースト(spawnToast)は積み上げず、呼び出し側が結果を
+  // まとめて1つのトーストで表示する
+  function identifyAllEquipment(){
+    const targets = state.equipmentInventory
+      .filter(it=>!it.identified)
+      .sort((a,b)=> a.itemLevel - b.itemLevel);
+    let count = 0, spent = 0;
+    targets.forEach(item=>{
+      const cost = 15 + item.itemLevel*3;
+      if(state.inventory.gold < cost) return;
+      state.inventory.gold -= cost;
+      item.identified = true;
+      count++; spent += cost;
+    });
+    return {total:targets.length, count, spent};
+  }
+
   // 未鑑定のまま売ると「実は特殊効果武器だった」を鑑定前に取り逃す事故に
   // つながるので、売却できるのは鑑定済み・かつ今装備していない品だけ。
   // 金額は src/core/loot-math.js の equipmentSellPrice() 参照
