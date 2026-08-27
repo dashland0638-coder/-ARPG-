@@ -424,6 +424,23 @@
     }
     if(state.paralyzeInvulnT>0) state.paralyzeInvulnT = Math.max(0, state.paralyzeInvulnT-dt);
 
+    // ミミックの咬みつき: 気づかず調べた/突進で暴いた瞬間に至近距離だと
+    // 咬みつかれ、持続ダメージを受ける(revealMimic参照)。「動けない」の
+    // 実体は既存のstate.paralyzeT(電撃麻痺と同じ機構)に任せ、ここでは
+    // ダメージのtickだけを別軸(biteT)で管理する
+    if(state.biteT>0){
+      state.biteT -= dt;
+      state.biteTick -= dt;
+      if(state.biteTick<=0 && !state.debugMode){
+        state.biteTick = 0.5;
+        const dmg = applyIncomingDamageMul(state.biteDmg||0);
+        state.hp = Math.max(0, state.hp-dmg);
+        spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+        if(state.hp<=0) triggerPlayerDown();
+      }
+      if(state.biteT<=0) state.biteT = 0;
+    }
+
     // コンボの振り中は踏み込みで身動きが取りにくくなる、という感覚を出すため
     // 移動速度を落とす(旋回速度は下のfacing補間側で別途絞る)
     const speed = state.classDef.spd * (state.swinging ? 0.45 : 1);

@@ -691,6 +691,19 @@
     }
     spawnToast('🎭 ミミックだ!正体を現した!');
     flashScreen();
+    // 気づかずに調べた/突進で暴いた瞬間、至近距離にいると咬みつかれて
+    // 動けなくなり持続ダメージを受ける ―― 油断すると痛い目を見る宝箱に
+    // (「動けない」の実体は電撃麻痺と同じstate.paralyzeTに乗せ、
+    //  ダメージのtickだけ専用のbiteTで管理する。13-update-loop.js参照)
+    const GRAB_DIST = 2.2, BITE_DURATION = 1.4;
+    if(!state.debugMode && !state.invulnerable && state.pos.distanceTo(chest.pos) < GRAB_DIST){
+      state.paralyzed = true;
+      state.paralyzeT = Math.max(state.paralyzeT||0, BITE_DURATION);
+      state.biteT = BITE_DURATION;
+      state.biteTick = 0.5;
+      state.biteDmg = Math.round((en ? en.atk : 15) * 0.4);
+      spawnToast('🦷 咬みつかれた!動けない!');
+    }
     return en;
   }
 

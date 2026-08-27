@@ -104,6 +104,9 @@
       {pos:new THREE.Vector3(108,0,68), variant:{color:0x6a3a3a, hp:65, atk:13, speed:2.4, atkType:'charge', xp:20, goldBonus:[6,10]}},
       // greathall (合流点、通行の軽い戦闘のみ)
       {pos:new THREE.Vector3(92,0,116), variant:{color:0x6a5a8a, hp:70, atk:14, speed:2.3, atkType:'charge', xp:22, goldBonus:[7,11]}},
+      // 引き撃ち(kite、敵デザイン強化#21): 広い大広間で距離を取りながら
+      // 弓を射てくる衛兵。突進一辺倒だった洋館の戦闘に「詰め寄る動機」を作る
+      {pos:new THREE.Vector3(108,0,124), variant:{color:0x7a6a4a, hp:65, atk:15, speed:2.2, atkType:'kite', xp:24, goldBonus:[7,11], projColor:0xd8b878}},
       // grand: 本館大階段(第2分岐 上振れ) - servantより明確に敵が多い
       {pos:new THREE.Vector3(90,0,164), variant:{color:0x8a3a5a, hp:120, atk:22, speed:2.6, atkType:'charge', xp:38, goldBonus:[12,18]}},
       {pos:new THREE.Vector3(110,0,164),variant:{color:0x8a3a5a, hp:120, atk:22, speed:2.6, atkType:'charge', xp:38, goldBonus:[12,18]}},
@@ -114,6 +117,9 @@
       {pos:new THREE.Vector3(-4,0,108), variant:{color:0x8fb5c9, hp:95, atk:19, speed:2.5, atkType:'charge', xp:30, goldBonus:[10,16]}},
       {pos:new THREE.Vector3(4,0,105),  variant:{color:0x6fa8d8, hp:70, atk:16, speed:0.7, atkType:'fire', xp:32, goldBonus:[10,16], projColor:0x7ecbe8}},
       {pos:new THREE.Vector3(0,0,118),  variant:{color:0x8fb5c9, hp:95, atk:19, speed:2.5, atkType:'charge', xp:30, goldBonus:[10,16]}},
+      // 幽霊(ghost、敵デザイン強化#21): 消えて背後へ回り込み咬みつく乗員の霊。
+      // "幽霊船"という舞台にもっとも噛み合う新タイプ
+      {pos:new THREE.Vector3(-3,0,100), variant:{color:0x5a6a8a, hp:80, atk:20, speed:1.8, atkType:'ghost', xp:33, goldBonus:[10,16]}},
       // ghost ship -> cargo hold (below deck)
       {pos:new THREE.Vector3(25,0,112), variant:{color:0x5a7a95, hp:100, atk:20, speed:2.6, atkType:'charge', xp:34, goldBonus:[11,17], strongMob:true}},
       {pos:new THREE.Vector3(35,0,120), variant:{color:0x7ecbe8, hp:75, atk:17, speed:0.7, atkType:'fire', xp:33, goldBonus:[11,17], projColor:0x9fe0ff, strongMob:true}},
@@ -140,6 +146,9 @@
       {pos:new THREE.Vector3(12,0,-200), variant:{color:0xc9a44a, hp:130, atk:27, speed:2.5, atkType:'charge', xp:46, goldBonus:[14,20]}},
       {pos:new THREE.Vector3(-12,0,-205), variant:{color:0xb08a3a, hp:115, atk:26, speed:0.8, atkType:'fire', xp:46, goldBonus:[14,20], projColor:0xffd24a}},
       {pos:new THREE.Vector3(-61,0,-198), variant:{color:0xb08a3a, hp:115, atk:26, speed:0.8, atkType:'fire', xp:46, goldBonus:[14,20], projColor:0xffd24a}},
+      // 跳躍(jumper、敵デザイン強化#21): 石橋や仕掛けを跳び越える神殿らしい
+      // 敵。至近距離で振ると横へ跳んで避けることがある
+      {pos:new THREE.Vector3(50,0,-195), variant:{color:0xd0a850, hp:125, atk:27, speed:2.6, atkType:'jumper', xp:48, goldBonus:[14,20]}},
       // sealed room 'templeHouse': tagged so they never respawn and the door tracks them
       {pos:new THREE.Vector3(-68,0,-176), variant:{color:0xc9a44a, hp:130, atk:27, speed:2.5, atkType:'charge', xp:46, goldBonus:[14,20], roomTag:'templeHouse'}},
       {pos:new THREE.Vector3(-46,0,-176), variant:{color:0xb08a3a, hp:115, atk:26, speed:0.8, atkType:'fire', xp:46, goldBonus:[14,20], projColor:0xffd24a, roomTag:'templeHouse'}},
@@ -213,6 +222,9 @@
       {pos:new THREE.Vector3(308,0,-50), variant:{color:0x8a9c3a, hp:330, atk:51, speed:2.5, atkType:'charge', xp:148, goldBonus:[32,48], strongMob:true, guardian:true}},
       {pos:new THREE.Vector3(292,0,-2), variant:{color:0x6f9c4a, hp:250, atk:49, speed:0.9, atkType:'fire', xp:124, goldBonus:[27,42], projColor:11075418}},
       {pos:new THREE.Vector3(314,0,-18), variant:{color:0x4f7a3a, hp:275, atk:47, speed:2.7, atkType:'charge', xp:124, goldBonus:[27,42]}},
+      // 石像(turret、敵デザイン強化#21): 蔦に埋もれた庭園の石像。台座に
+      // 固定され、近づくと目を覚まして撃ってくる。ノックバックも効かない
+      {pos:new THREE.Vector3(260,0,-24), variant:{color:0x7a8a72, hp:320, atk:50, speed:0, atkType:'turret', xp:130, goldBonus:[28,44], projColor:0xa8c88a, turretRange:14}},
       // sealed room 'consVine'
       {pos:new THREE.Vector3(246,0,-16), variant:{color:0x4f7a3a, hp:280, atk:48, speed:2.6, atkType:'charge', xp:126, goldBonus:[28,42], roomTag:'consVine'}},
       {pos:new THREE.Vector3(268,0,-16), variant:{color:0x4f7a3a, hp:280, atk:48, speed:2.6, atkType:'charge', xp:126, goldBonus:[28,42], roomTag:'consVine'}},
@@ -553,6 +565,10 @@
       if(en.isBoss){ updateBossAnim(en, dt); updateBossAI(en, dt); return; }
       if(en.atkType==='charge')      updateChargerAI(en, dt);
       else if(en.atkType==='fire')   updateFireEnemyAI(en, dt);
+      else if(en.atkType==='kite')   updateKiteAI(en, dt);
+      else if(en.atkType==='turret') updateTurretAI(en, dt);
+      else if(en.atkType==='jumper') updateJumperAI(en, dt);
+      else if(en.atkType==='ghost')  updateGhostAI(en, dt);
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
       updateMobAnim(en, dt);
@@ -825,6 +841,244 @@
     glow.position.copy(mesh.position);
     scene.add(mesh);
     projectiles.push({mesh, light: glow, dir, speed:10, life:3, dmg:en.atk, hostile:true, isElectric:!!en.isElectric});
+  }
+
+  /* =========================================================
+     新規敵タイプ(敵デザイン強化 #21)
+     突進(charge)と据え置き砲撃(fire)の2種しか無かった攻撃パターンに、
+     4つの新しい"戦い方"を追加する。狙いはどれも「見た瞬間に対処法が
+     変わる」ことで、既存のfire/chargeの部品(spawnEnemyFireball、
+     突進のダメージ判定パターン)をそのまま再利用しつつ、動きの質だけ
+     差別化してある。
+  ========================================================= */
+
+  // 引き撃ち(kite): 近すぎれば下がりながら撃つ、離れすぎれば詰める、
+  // ちょうど良い間合いに入った時だけ足を止めて撃つ。updateFireEnemyAIの
+  // 溜め→spawnEnemyFireballをそのまま流用し、移動判断だけ追加した形
+  const KITE_MIN_RANGE = 6.5, KITE_MAX_RANGE = 11;
+  function updateKiteAI(en, dt){
+    if(en.fireCharging){
+      en.fireChargeT -= dt;
+      const pulse = 1 + Math.sin(performance.now()*0.025)*0.18;
+      en.body.scale.set(en.bodyScale.x*pulse, en.bodyScale.y*pulse, en.bodyScale.z*pulse);
+      if(en.fireChargeT<=0){
+        en.fireCharging = false;
+        en.body.scale.copy(en.bodyScale);
+        spawnEnemyFireball(en);
+        en.atkCD = 2.2;
+      }
+      return;
+    }
+    if(en.atkCD>0) en.atkCD -= dt;
+    const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
+    const dist = toPlayer.length();
+    const sees = dist < 16 && hasLineOfSight(en.group.position, state.pos);
+    if(!sees){ updateWanderAI(en, dt); return; }
+    en.group.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+    if(dist < KITE_MIN_RANGE){
+      // 距離を取りながら後退(引き撃ち) ―― 前を向いたまま後ろへ下がる
+      const away = toPlayer.clone().normalize().multiplyScalar(-1);
+      const prevX = en.group.position.x, prevZ = en.group.position.z;
+      en.group.position.addScaledVector(away, en.speed*dt*1.05);
+      resolveWallCollisions(en.group.position);
+      // 壁に阻まれて下がれない時は無理に押し込まない(その場で撃つ側へ回す)
+      if(Math.abs(en.group.position.x-prevX)<0.001 && Math.abs(en.group.position.z-prevZ)<0.001 && en.atkCD<=0){
+        en.fireCharging = true; en.fireChargeT = 0.6;
+      }
+    } else if(dist > KITE_MAX_RANGE){
+      const dir = toPlayer.clone().normalize();
+      en.group.position.addScaledVector(dir, en.speed*dt*0.7);
+    } else if(en.atkCD<=0){
+      en.fireCharging = true; en.fireChargeT = 0.6;
+    }
+  }
+
+  // 砲台/石像(turret): 台座に固定され、一切徘徊しない。射程内に入ると
+  // fire系と同じ溜め→射撃を行うだけの、最も単純だが「動かないからこそ
+  // 配置と間合いで工夫させる」タイプ。ノックバック・怯みも無効化して
+  // 「叩いても揺るがない」感触を出す(updateEnemies側のknockback分岐は
+  // en.turretで弾く)
+  function updateTurretAI(en, dt){
+    if(en.fireCharging){
+      en.fireChargeT -= dt;
+      const pulse = 1 + Math.sin(performance.now()*0.025)*0.18;
+      en.body.scale.set(en.bodyScale.x*pulse, en.bodyScale.y*pulse, en.bodyScale.z*pulse);
+      if(en.fireChargeT<=0){
+        en.fireCharging = false;
+        en.body.scale.copy(en.bodyScale);
+        spawnEnemyFireball(en);
+        en.atkCD = 2.4;
+      }
+      return;
+    }
+    if(en.atkCD>0) en.atkCD -= dt;
+    const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
+    const dist = toPlayer.length();
+    const sees = dist < (en.turretRange||15) && hasLineOfSight(en.group.position, state.pos);
+    if(sees){
+      en.group.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+      if(en.atkCD<=0){ en.fireCharging = true; en.fireChargeT = 0.75; }
+    }
+    // 視界外でも動かない ―― 徘徊(updateWanderAI)は意図的に呼ばない
+  }
+
+  // 跳躍(jumper): 中距離まで詰めたら空中を飛び越えて着地際に叩きつける。
+  // さらに、プレイヤーが至近距離で振っている最中(state.swinging)は
+  // 横へ小さくホップして避けようとする ―― 「こちらの攻撃をジャンプで
+  // 避けることがある敵」への対応
+  function updateJumperAI(en, dt){
+    // jumpCD未初期化(undefined)だと `en.jumpCD<=0` が常にfalseになり、
+    // 一度も跳べないまま足止めされてしまう(undefined<=0 は false)ため、
+    // 初回だけ明示的に0へ倒しておく
+    if(en.jumpCD===undefined) en.jumpCD = 0;
+    if(en.hitCD>0) en.hitCD -= dt;
+    const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
+    const dist = toPlayer.length();
+
+    if(en.jumpState==='air'){
+      en.jumpT -= dt;
+      const k = 1 - Math.max(0, en.jumpT)/en.jumpDur;
+      en.group.position.addScaledVector(en.jumpDir, en.jumpSpeed*dt);
+      en.group.position.y = Math.sin(Math.PI*Math.min(1,k)) * 1.6;
+      if(en.jumpT<=0){
+        en.jumpState = 'idle';
+        en.group.position.y = 0;
+        const d = state.pos.distanceTo(en.group.position);
+        if(d<2.2 && !en.jumpHit && !state.invulnerable && state.paralyzeInvulnT<=0){
+          en.jumpHit = true;
+          if(!tryConsumeOrbShield()){
+            const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
+            state.hp = Math.max(0, state.hp-dmg);
+            spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+            flashScreen();
+            addShake(0.1);
+            if(state.hp<=0) triggerPlayerDown();
+          }
+        } else if(d<2.2 && !en.jumpHit && state.paralyzeInvulnT<=0){
+          tryPerfectDodge();
+        }
+        en.jumpCD = 1.8 + Math.random()*0.8;
+      }
+      return;
+    }
+    if(en.jumpCD>0) en.jumpCD -= dt;
+
+    if(en.dodgeHopCD===undefined) en.dodgeHopCD = 0;
+    if(en.dodgeHopCD>0) en.dodgeHopCD -= dt;
+    if(state.swinging && dist < 3.5 && dist > 0.4 && en.dodgeHopCD<=0){
+      const side = new THREE.Vector3(-toPlayer.z, 0, toPlayer.x).normalize();
+      const sign = Math.random()<0.5 ? 1 : -1;
+      const prevX = en.group.position.x, prevZ = en.group.position.z;
+      en.group.position.addScaledVector(side, sign*1.8);
+      resolveWallCollisions(en.group.position);
+      en.dodgeHopCD = 1.6;
+      if(en.group.position.x!==prevX || en.group.position.z!==prevZ) return;
+    }
+
+    if(dist < 8 && dist > 2.5 && hasLineOfSight(en.group.position, state.pos) && en.jumpCD<=0){
+      en.jumpState = 'air';
+      en.jumpT = en.jumpDur = 0.55;
+      en.jumpDir = toPlayer.clone().normalize();
+      en.jumpSpeed = Math.min(dist, 7.5)/en.jumpDur;
+      en.jumpHit = false;
+      en.group.rotation.y = Math.atan2(en.jumpDir.x, en.jumpDir.z);
+      return;
+    }
+    if(dist > 2.5){
+      const dir = toPlayer.clone().normalize();
+      en.group.position.addScaledVector(dir, en.speed*dt*0.7);
+      en.group.rotation.y = Math.atan2(dir.x, dir.z);
+    } else {
+      updateWanderAI(en, dt);
+    }
+  }
+
+  // 敵のグループ全体(複数パーツ・複数マテリアル)を一括で透過させる汎用
+  // ヘルパー。ghost(幽霊系)の「消える/また現れる」演出のために作ったが、
+  // どの敵にも使える(初回呼び出し時にtransparent化して基準opacityを控える)
+  function setEnemyOpacity(en, alpha){
+    en.group.traverse(o=>{
+      if(!o.isMesh || !o.material) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach(m=>{
+        if(!m.userData.opacityBase){
+          m.transparent = true;
+          m.userData.opacityBase = (m.opacity!=null) ? m.opacity : 1;
+        }
+        m.opacity = alpha * m.userData.opacityBase;
+      });
+    });
+  }
+
+  // 幽霊(ghost): 近づいて姿を消し、プレイヤーの背後へ回り込んでから
+  // 実体化して咬みつく。透過中も当たり判定・被弾判定はそのまま(見た目上
+  // 見えづらいだけ)なので、無敵状態を新設する必要が無く安全
+  function updateGhostAI(en, dt){
+    if(en.ghostState===undefined){ en.ghostState = 'approach'; en.ghostCD = 0; setEnemyOpacity(en, 1); }
+    const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
+    const dist = toPlayer.length();
+    if(en.ghostState==='approach'){
+      if(en.ghostCD>0) en.ghostCD -= dt;
+      if(dist > 1.4){
+        const dir = toPlayer.clone().normalize();
+        en.group.position.addScaledVector(dir, en.speed*dt*0.55);
+        en.group.rotation.y = Math.atan2(dir.x, dir.z);
+      }
+      if(dist < 7.5 && en.ghostCD<=0 && hasLineOfSight(en.group.position, state.pos)){
+        en.ghostState = 'phaseOut'; en.ghostT = 0.5;
+      }
+      return;
+    }
+    if(en.ghostState==='phaseOut'){
+      en.ghostT -= dt;
+      setEnemyOpacity(en, Math.max(0.12, en.ghostT/0.5));
+      if(en.ghostT<=0){
+        const behind = new THREE.Vector3(Math.sin(state.facing+Math.PI), 0, Math.cos(state.facing+Math.PI));
+        en.group.position.copy(state.pos).addScaledVector(behind, 2.2);
+        resolveWallCollisions(en.group.position);
+        en.ghostState = 'phaseIn'; en.ghostT = 0.35;
+      }
+      return;
+    }
+    if(en.ghostState==='phaseIn'){
+      en.ghostT -= dt;
+      setEnemyOpacity(en, 1 - Math.max(0, en.ghostT/0.35));
+      const face = new THREE.Vector3().subVectors(state.pos, en.group.position); face.y=0;
+      if(face.lengthSq()>0.0001) en.group.rotation.y = Math.atan2(face.x, face.z);
+      if(en.ghostT<=0){
+        setEnemyOpacity(en, 1);
+        en.ghostState = 'lunge'; en.ghostT = 0.3;
+        const dir = new THREE.Vector3().subVectors(state.pos, en.group.position); dir.y=0;
+        en.ghostLungeDir = dir.lengthSq()>0.0001 ? dir.normalize() : new THREE.Vector3(0,0,1);
+        en.ghostHit = false;
+        spawnToast('👻 背後に気配が!');
+      }
+      return;
+    }
+    if(en.ghostState==='lunge'){
+      en.ghostT -= dt;
+      en.group.position.addScaledVector(en.ghostLungeDir, 9*dt);
+      en.group.rotation.y = Math.atan2(en.ghostLungeDir.x, en.ghostLungeDir.z);
+      const d = state.pos.distanceTo(en.group.position);
+      if(d<1.1 && !en.ghostHit && !state.invulnerable && state.paralyzeInvulnT<=0){
+        en.ghostHit = true;
+        if(!tryConsumeOrbShield()){
+          const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
+          state.hp = Math.max(0, state.hp-dmg);
+          spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+          flashScreen();
+          if(state.hp<=0) triggerPlayerDown();
+        }
+      } else if(d<1.1 && !en.ghostHit && state.paralyzeInvulnT<=0){
+        tryPerfectDodge();
+      }
+      if(en.ghostT<=0){ en.ghostState = 'cooldown'; en.ghostT = 2.4; }
+      return;
+    }
+    if(en.ghostState==='cooldown'){
+      en.ghostT -= dt;
+      if(en.ghostT<=0){ en.ghostState = 'approach'; en.ghostCD = 0; }
+    }
   }
 
   // damage helper shared by every boss special
@@ -1785,8 +2039,9 @@
     // all scaled by how big a hit it was relative to the target's health
     const weight = Math.min(2.2, 0.55 + amount / Math.max(40, en.hpMax*0.16));
     // 被弾ノックバック: プレイヤーから見た攻撃方向へ短く弾く。ボス・ダウン中・
-    // DoTでは発生させない(ボスは据わりが重い設定、ダウン中は既に無力化済み)
-    if(!en.isBoss && !en.knockedDown && !isAlly){
+    // DoTでは発生させない(ボスは据わりが重い設定、ダウン中は既に無力化済み)。
+    // 砲台/石像(en.turret)も台座に固定されている設定なので対象外
+    if(!en.isBoss && !en.knockedDown && !isAlly && !en.turret){
       const kdir = new THREE.Vector3().subVectors(en.group.position, state.pos);
       kdir.y = 0;
       if(kdir.lengthSq() < 0.0001) kdir.set(Math.sin(state.facing), 0, Math.cos(state.facing));
@@ -1815,8 +2070,8 @@
       hitStop(en.isBoss ? 0.022 : 0.016);
       addShake(en.isBoss ? 0.09 : 0.06);
       // knockback: light mobs get shoved, bosses barely register it。
-      // ガード中の雑魚も「据わっている」感触を出すため弾かない
-      if(from.lengthSq() > 0.0001 && !en.isBoss && !guardAbsorbed){
+      // ガード中の雑魚・砲台/石像も「据わっている」感触を出すため弾かない
+      if(from.lengthSq() > 0.0001 && !en.isBoss && !guardAbsorbed && !en.turret){
         const push = en.strongMob ? 0.16 : 0.32;
         en.group.position.addScaledVector(from, -push * weight);
       }

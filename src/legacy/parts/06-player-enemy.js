@@ -1476,7 +1476,10 @@
       // 体幹ゲージも一回り大きくしてある(dealDamageToEnemyのガード減衰参照)
       posture:0, postureMax:Math.round((variant.strongMob?130:55)*(variant.guardian?1.3:1)*_D.hp),
       knockedDown:false, knockdownT:0, postureGraceT:0, bigFlinched:false,
-      guardian:!!variant.guardian, shieldGroup, shieldMat, shieldBaseRot:0
+      guardian:!!variant.guardian, shieldGroup, shieldMat, shieldBaseRot:0,
+      // 新規敵タイプ用のフラグ(敵デザイン強化 #21): turret=台座固定・
+      // ノックバック無効、turretRange=砲台の索敵距離(未指定なら既定値)
+      turret:!!variant.turret, turretRange:variant.turretRange||null
     };
   }
 
