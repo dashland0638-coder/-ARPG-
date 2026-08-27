@@ -224,6 +224,15 @@
       '誰も歌っていないはずなのに。',
       '声は足元――船倉の、さらに奥から響いてくるようだ。'
     ]);
+
+    // 手すりの向こう、海を見つめる乗員の影。近づくと消える
+    registerProximityEvent(new THREE.Vector3(-5,0,105), 7, '???', ()=>{
+      spawnApparition(new THREE.Vector3(-6,0,102), {vanishDist:6, color:0x2a3a48, facing:Math.PI*0.5});
+      return [
+        '手すりの向こう、海を見つめている影がある。',
+        '声をかけようとした瞬間、霧に溶けるように消えていた。'
+      ];
+    });
     buildLoreNote(new THREE.Vector3(6,0,122), '滲んだ航海日誌', [
       '「霧はますます深くなる一方だ。羅針盤は狂い、もう戻る道はわからない」',
       '「三日前、見たこともない緑色に光る霧に包まれた。乗組員の何人かが姿を消した」',
@@ -300,6 +309,15 @@
       '「この先に進むな。船長は、もう船長ではない」',
       '荒々しい筆致で、そう刻まれている。刻んだ者の名は残っていない。'
     ], {kind:'sign'});
+
+    // 扉の奥、船長とおぼしき影が身じろぎもせず立っている。近づくと消える
+    registerProximityEvent(new THREE.Vector3(-30,0,110), 6, '???', ()=>{
+      spawnApparition(new THREE.Vector3(-30,0,113), {vanishDist:5.5, color:0x1a2028});
+      return [
+        '扉の奥、誰かが身じろぎもせず立っている。船長帽らしき輪郭が見えた。',
+        '一歩踏み出した途端、その姿はかき消えていた。'
+      ];
+    });
 
     // boss chamber: deep, dark, water pooling at the edges
     const bossGlow = new THREE.PointLight(0x4a8ab0, 0.9, 20);
