@@ -176,10 +176,14 @@
 
   function executeVariant(variant, chargeT, chargeMax, rankKey){
     const chargeRatio = Math.min(1, chargeT / chargeMax);
-    // スフィア「見切りの真髄」はスキル(専用ボタン、rankKey==='skill')だけに
-    // 乗る ―― 溜め技(releaseChargeAttackはrankKeyを渡さない)には乗せない
+    // スフィア「会心の型」はスキル(専用ボタン、rankKey==='skill')だけに
+    // 乗る ―― 溜め技(releaseChargeAttackはrankKeyを渡さない)には乗せない。
+    // 一方、variantEffect(退き足の妙/旋風の心得/踏込みの型など)は
+    // variant.key単位の強化なので、スキル/溜め技どちらでも該当すれば乗る
+    // ―― 「あるバリアントに投資したら、それを使いたくなる」を成立させる
     const skillDmgBonus = rankKey==='skill' ? sphereValue('skillDmgSphereMul') : 0;
-    const skillBonus = 1 + (state.skills.chargeUp||0)*0.15 + skillDmgBonus;
+    const variantBonus = sphereVariantBonus(variant.key);
+    const skillBonus = 1 + (state.skills.chargeUp||0)*0.15 + skillDmgBonus + variantBonus;
     const rankBonus = rankKey ? rankDmg(rankKey) : 1;
     const mult = (variant.baseMult + chargeRatio*(variant.maxMult-variant.baseMult)) * skillBonus * rankBonus;
     const dmg = Math.round(state.classDef.atk * mult) + Math.round(Math.random()*5);

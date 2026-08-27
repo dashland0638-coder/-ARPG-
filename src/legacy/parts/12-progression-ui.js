@@ -469,22 +469,67 @@
     ult2:  {name:'満ちる刻', icon:'⏳', cost:2, requires:['ult1'], effect:{type:'ultGaugeSphereMul', value:0.10}, desc:'必殺ゲージ獲得+10%'},
     ult3:  {name:'絶対の一撃', icon:'💫', cost:3, requires:['ult2'], effect:{type:'ultDmgSphereMul', value:0.12}, desc:'必殺技威力+12%'},
 
-    // ---- 拡張(第3弾): 全4本を6段まで延長。4〜6段目はコストを
-    // 6/10/16と重くし、「まだまだ残っている」長期の目標にしてある
-    atk4:  {name:'剛力の系譜', icon:'🦾', cost:6,  requires:['atk3'], effect:{type:'atkMul', value:0.05}, desc:'攻撃力+5%'},
-    atk5:  {name:'会心の極み', icon:'🌟', cost:10, requires:['atk4'], effect:{type:'staggerDealtSphereMul', value:0.10}, desc:'体幹削り+10%'},
-    atk6:  {name:'覇道', icon:'👹', cost:16, requires:['atk5'], effect:{type:'atkMul', value:0.06}, desc:'攻撃力+6%'},
-    dodge4:{name:'残心', icon:'🍃', cost:6,  requires:['dodge3'], effect:{type:'staminaCostMul', value:-0.08}, desc:'スタミナ消費-8%'},
-    dodge5:{name:'見切りの間', icon:'🕊️', cost:10, requires:['dodge4'], effect:{type:'dodgeInvulnSphereMul', value:0.10}, desc:'回避の無敵時間+10%'},
-    dodge6:{name:'無形', icon:'🌀', cost:16, requires:['dodge5'], effect:{type:'atkCooldownMul', value:-0.05}, desc:'攻撃間隔-5%'},
-    // スキル系統4〜6段目は「スキル1(付け替え可能なスキルボタン)・
-    // スキル2(クラス固有の専用ボタン2)自体の強化」を担う枠にしてある
-    skill4:{name:'見切りの真髄', icon:'🎴', cost:6,  requires:['skill3'], effect:{type:'skillDmgSphereMul', value:0.10}, desc:'スキル(専用ボタン)の威力+10%'},
-    skill5:{name:'受け流しの理', icon:'🔷', cost:10, requires:['skill4'], effect:{type:'barrierHealSphereMul', value:0.15}, desc:'バリアのHP吸収量+15%'},
-    skill6:{name:'二の太刀', icon:'⚔️', cost:16, requires:['skill5'], effect:{type:'skill2DmgSphereMul', value:0.15}, desc:'スキル2の威力+15%'},
-    ult4:  {name:'力の高まり', icon:'🔆', cost:6,  requires:['ult3'], effect:{type:'atkMul', value:0.05}, desc:'攻撃力+5%'},
-    ult5:  {name:'刻の加護', icon:'⌛', cost:10, requires:['ult4'], effect:{type:'ultGaugeSphereMul', value:0.10}, desc:'必殺ゲージ獲得+10%'},
-    ult6:  {name:'神速の一撃', icon:'⚡', cost:16, requires:['ult5'], effect:{type:'skill2CDSphereMul', value:-0.12}, desc:'スキル2の再使用時間-12%'},
+    // ---- 拡張(第4弾): 「コストを重くする」のではなく「マス目を増やす」
+    // 方向で全4本を15段まで延長した(高レベルになるほど1マスが高額で
+    // 買えなくなる、という前回のフラストレーションを解消するため)。
+    // 4段目以降はほぼ一律コスト2(要所だけ3)の平坦な刻みで、代わりに
+    // 段数そのものを増やして「まだまだ続く」長さを作ってある
+    atk4:  {name:'攻撃の心得II', icon:'⚔️', cost:2, requires:['atk3'],  effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
+    atk5:  {name:'会心の兆しII', icon:'💥', cost:2, requires:['atk4'],  effect:{type:'staggerDealtSphereMul', value:0.06}, desc:'体幹削り+6%'},
+    atk6:  {name:'攻撃の心得III', icon:'⚔️', cost:2, requires:['atk5'],  effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
+    atk7:  {name:'会心の兆しIII', icon:'💥', cost:2, requires:['atk6'],  effect:{type:'staggerDealtSphereMul', value:0.06}, desc:'体幹削り+6%'},
+    atk8:  {name:'攻撃の心得IV', icon:'⚔️', cost:2, requires:['atk7'],  effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
+    atk9:  {name:'会心の兆しIV', icon:'💥', cost:2, requires:['atk8'],  effect:{type:'staggerDealtSphereMul', value:0.06}, desc:'体幹削り+6%'},
+    atk10: {name:'攻撃の心得V', icon:'⚔️', cost:2, requires:['atk9'],  effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
+    atk11: {name:'会心の兆しV', icon:'💥', cost:2, requires:['atk10'], effect:{type:'staggerDealtSphereMul', value:0.06}, desc:'体幹削り+6%'},
+    atk12: {name:'猛進', icon:'🐎', cost:2, requires:['atk11'], effect:{type:'atkCooldownMul', value:-0.04}, desc:'攻撃間隔-4%'},
+    atk13: {name:'攻撃の心得VI', icon:'⚔️', cost:2, requires:['atk12'], effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
+    atk14: {name:'会心の兆しVI', icon:'💥', cost:2, requires:['atk13'], effect:{type:'staggerDealtSphereMul', value:0.06}, desc:'体幹削り+6%'},
+    atk15: {name:'覇道', icon:'👹', cost:3, requires:['atk14'], effect:{type:'atkMul', value:0.06}, desc:'攻撃力+6%'},
+
+    dodge4: {name:'俊敏の心得II', icon:'🌬️', cost:2, requires:['dodge3'],  effect:{type:'staminaCostMul', value:-0.05}, desc:'スタミナ消費-5%'},
+    dodge5: {name:'残影の一歩II', icon:'👤', cost:2, requires:['dodge4'],  effect:{type:'dodgeInvulnSphereMul', value:0.06}, desc:'回避の無敵時間+6%'},
+    dodge6: {name:'俊敏の心得III', icon:'🌬️', cost:2, requires:['dodge5'],  effect:{type:'staminaCostMul', value:-0.05}, desc:'スタミナ消費-5%'},
+    dodge7: {name:'残影の一歩III', icon:'👤', cost:2, requires:['dodge6'],  effect:{type:'dodgeInvulnSphereMul', value:0.06}, desc:'回避の無敵時間+6%'},
+    dodge8: {name:'俊敏の心得IV', icon:'🌬️', cost:2, requires:['dodge7'],  effect:{type:'staminaCostMul', value:-0.05}, desc:'スタミナ消費-5%'},
+    dodge9: {name:'残影の一歩IV', icon:'👤', cost:2, requires:['dodge8'],  effect:{type:'dodgeInvulnSphereMul', value:0.06}, desc:'回避の無敵時間+6%'},
+    dodge10:{name:'俊敏の心得V', icon:'🌬️', cost:2, requires:['dodge9'],  effect:{type:'staminaCostMul', value:-0.05}, desc:'スタミナ消費-5%'},
+    dodge11:{name:'残影の一歩V', icon:'👤', cost:2, requires:['dodge10'], effect:{type:'dodgeInvulnSphereMul', value:0.06}, desc:'回避の無敵時間+6%'},
+    dodge12:{name:'疾風II', icon:'💨', cost:2, requires:['dodge11'], effect:{type:'atkCooldownMul', value:-0.04}, desc:'攻撃間隔-4%'},
+    dodge13:{name:'俊敏の心得VI', icon:'🌬️', cost:2, requires:['dodge12'], effect:{type:'staminaCostMul', value:-0.05}, desc:'スタミナ消費-5%'},
+    dodge14:{name:'残影の一歩VI', icon:'👤', cost:2, requires:['dodge13'], effect:{type:'dodgeInvulnSphereMul', value:0.06}, desc:'回避の無敵時間+6%'},
+    dodge15:{name:'無形', icon:'🌀', cost:3, requires:['dodge14'], effect:{type:'dodgeInvulnSphereMul', value:0.10}, desc:'回避の無敵時間+10%'},
+
+    // ---- スキル系統4段目以降: 「あるスキルを強化すると、その技を
+    // 使うきっかけになる」ため、汎用倍率ではなく特定のバリアント
+    // (切り下がり系/回転斬り系/ダッシュ系など、variant.keyで判定)だけを
+    // 強化するノードを中心にしてある(sphereVariantBonus参照)。
+    // 普段使わない技に投資すると、その技で殴りたくなる設計
+    skill4: {name:'退き足の妙', icon:'⬇️', cost:2, requires:['skill3'],  variantEffect:{variant:'retreat', value:0.12}, desc:'「切り下がり」系スキルの威力+12%'},
+    skill5: {name:'旋風の心得', icon:'🌀', cost:2, requires:['skill4'],  variantEffect:{variant:'spin', value:0.12}, desc:'「回転斬り」系スキルの威力+12%'},
+    skill6: {name:'踏込みの型', icon:'⚡', cost:2, requires:['skill5'],  variantEffect:{variant:'dash', value:0.12}, desc:'溜め技(ダッシュ系)の威力+12%'},
+    skill7: {name:'受け流しの理', icon:'🔷', cost:2, requires:['skill6'],  effect:{type:'barrierHealSphereMul', value:0.15}, desc:'バリアのHP吸収量+15%'},
+    skill8: {name:'退き足の妙II', icon:'⬇️', cost:2, requires:['skill7'],  variantEffect:{variant:'retreat', value:0.12}, desc:'「切り下がり」系スキルの威力+12%'},
+    skill9: {name:'旋風の心得II', icon:'🌀', cost:2, requires:['skill8'],  variantEffect:{variant:'spin', value:0.12}, desc:'「回転斬り」系スキルの威力+12%'},
+    skill10:{name:'踏込みの型II', icon:'⚡', cost:2, requires:['skill9'],  variantEffect:{variant:'dash', value:0.12}, desc:'溜め技(ダッシュ系)の威力+12%'},
+    skill11:{name:'見切りの経験II', icon:'🧭', cost:2, requires:['skill10'], effect:{type:'skillCDMul', value:-0.06}, desc:'スキルの再使用時間-6%'},
+    skill12:{name:'二の太刀', icon:'⚔️', cost:2, requires:['skill11'], effect:{type:'skill2DmgSphereMul', value:0.15}, desc:'スキル2の威力+15%'},
+    skill13:{name:'受け流しの理II', icon:'🔷', cost:2, requires:['skill12'], effect:{type:'barrierHealSphereMul', value:0.15}, desc:'バリアのHP吸収量+15%'},
+    skill14:{name:'神速', icon:'💫', cost:2, requires:['skill13'], effect:{type:'skill2CDSphereMul', value:-0.10}, desc:'スキル2の再使用時間-10%'},
+    skill15:{name:'会心の型', icon:'🎴', cost:3, requires:['skill14'], effect:{type:'skillDmgSphereMul', value:0.15}, desc:'スキル(専用ボタン)の威力+15%(装着中の技を問わず)'},
+
+    ult4:  {name:'力の高まりII', icon:'🔥', cost:2, requires:['ult3'],  effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
+    ult5:  {name:'満ちる刻II', icon:'⏳', cost:2, requires:['ult4'],  effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
+    ult6:  {name:'力の高まりIII', icon:'🔥', cost:2, requires:['ult5'],  effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
+    ult7:  {name:'満ちる刻III', icon:'⏳', cost:2, requires:['ult6'],  effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
+    ult8:  {name:'絶対の一撃II', icon:'💫', cost:2, requires:['ult7'],  effect:{type:'ultDmgSphereMul', value:0.08}, desc:'必殺技威力+8%'},
+    ult9:  {name:'満ちる刻IV', icon:'⏳', cost:2, requires:['ult8'],  effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
+    ult10: {name:'絶対の一撃III', icon:'💫', cost:2, requires:['ult9'],  effect:{type:'ultDmgSphereMul', value:0.08}, desc:'必殺技威力+8%'},
+    ult11: {name:'力の高まりIV', icon:'🔥', cost:2, requires:['ult10'], effect:{type:'atkMul', value:0.04}, desc:'攻撃力+4%'},
+    ult12: {name:'満ちる刻V', icon:'⏳', cost:2, requires:['ult11'], effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
+    ult13: {name:'絶対の一撃IV', icon:'💫', cost:2, requires:['ult12'], effect:{type:'ultDmgSphereMul', value:0.08}, desc:'必殺技威力+8%'},
+    ult14: {name:'神域への道', icon:'🌌', cost:2, requires:['ult13'], effect:{type:'ultDmgSphereMul', value:0.08}, desc:'必殺技威力+8%'},
+    ult15: {name:'天啓', icon:'🕊️', cost:3, requires:['ult14'], effect:{type:'ultDmgSphereMul', value:0.12}, desc:'必殺技威力+12%'},
   };
 
   function sphereUnlocked(id){ return (state.unlockedSphereNodes||['root']).includes(id); }
@@ -512,6 +557,19 @@
     unlocked.forEach(id=>{
       const def = SPHERE_NODES[id];
       if(def && def.effect && def.effect.type===type) total += def.effect.value;
+    });
+    return total;
+  }
+  // sphereValueの「装着中の技を問わず効く汎用倍率」とは別に、指定した
+  // バリアント(variant.key、例:'retreat'/'spin'/'dash')だけに効く強化の
+  // 合計値を返す。「あるスキルを強化すると、その技を使いたくなる」
+  // (skill4以降の設計方針)を実現する仕組み
+  function sphereVariantBonus(variantKey){
+    const unlocked = state.unlockedSphereNodes || ['root'];
+    let total = 0;
+    unlocked.forEach(id=>{
+      const def = SPHERE_NODES[id];
+      if(def && def.variantEffect && def.variantEffect.variant===variantKey) total += def.variantEffect.value;
     });
     return total;
   }
@@ -1766,11 +1824,14 @@
     const col = (ids)=> `<div class="sphere-board-col">` +
       ids.map((id,i)=> node(id) + (i<ids.length-1 ? `<div class="sphere-link ${sphereUnlocked(id)?'lit':''}"></div>` : '')).join('') +
       `</div>`;
+    // 各系統15段(第4弾でさらに延長)。prefixごとにID列を機械的に
+    // 組み立てるので、段数を増やしてもここを書き換える必要が無い
+    const chain = (prefix, n)=> Array.from({length:n}, (_,i)=> prefix+(i+1));
     html += '<div class="sphere-board-branches">';
-    html += col(['atk1','atk2','atk3','atk4','atk5','atk6']);
-    html += col(['dodge1','dodge2','dodge3','dodge4','dodge5','dodge6']);
-    html += col(['skill1','skill2','skill3','skill4','skill5','skill6']);
-    html += col(['ult1','ult2','ult3','ult4','ult5','ult6']);
+    html += col(chain('atk',15));
+    html += col(chain('dodge',15));
+    html += col(chain('skill',15));
+    html += col(chain('ult',15));
     html += '</div></div>';
 
     const selDef = SPHERE_NODES[sphereSelectedNode];
@@ -1793,147 +1854,187 @@
     });
   }
 
+  /* =========================================================
+     スキルタブ: 「パッシブ/スキル1/スキル2/スキル3/必殺技」の5つを
+     横並びのサブタブにして、タップした1つだけの中身を表示する。
+     以前は全部を1本の縦リストに並べていて画面が縦長すぎたため、
+     カテゴリごとに切り分けて直感的に付け替えられるようにした。
+  ========================================================= */
+  const SKILL_SUBTABS = [
+    {key:'passive', label:'パッシブ'},
+    {key:'skill1',  label:'スキル1'},
+    {key:'skill2',  label:'スキル2'},
+    {key:'skill3',  label:'スキル3'},
+    {key:'ult',     label:'必殺技'},
+  ];
+  let skillSubTab = 'skill1';
+
   function renderSkillPanel(){
     const panel = document.getElementById('ap-panel-skill');
     const variants = getChargeVariants();
-    const fixedTech = variants.dash;
-    let html = `<div class="ap-charge-title">溜め技(攻撃ボタン長押し・固定)</div>
-      <div class="ap-charge-variants"><div class="ap-charge-card active" style="cursor:default;">
-        <div class="ap-charge-icon">${fixedTech.icon}</div>
-        <div class="ap-charge-name">${fixedTech.name}</div>
-        <div class="ap-charge-desc">${fixedTech.desc}</div>
-      </div></div>`;
-    html += '<div class="ap-charge-title">スキル(専用ボタン・付け替え可能)</div><div class="ap-charge-variants">';
-    ['retreat','spin','barrier'].forEach(key=>{
-      const v = variants[key];
-      const active = state.skillChoice===key;
-      html += `<div class="ap-charge-card ${active?'active':''}" data-variant="${key}">
-        <div class="ap-charge-icon">${v.icon}</div>
-        <div class="ap-charge-name">${v.name}</div>
-        <div class="ap-charge-desc">${v.desc}</div>
-      </div>`;
-    });
-    html += '</div>';
 
-    // ---- ability ranks -----------------------------------------------
-    html += '<div class="ap-charge-title">能力の強化' +
-      (state.freeRanks>0 ? ' <span style="color:#ffd27a">(習得の証 ' + state.freeRanks + ')</span>' : '') +
-      '</div><div class="ap-rank-list">';
-    ABILITY_DEFS.forEach(a=>{
-      const r = rankOf(a.key);
-      const maxed = r >= MAX_RANK;
-      const cost = maxed ? '-' : (state.freeRanks>0 ? '証 x1' : '💎' + RANK_GEM_COST[r]);
-      const can = canRankUp(a.key);
-      html += `<div class="ap-rank-row">
-        <span class="ap-rank-icon">${a.icon}</span>
-        <span class="ap-rank-name">${a.label}<br><span class="ap-rank-note">${a.note}</span></span>
-        <span class="ap-rank-pips">${'★'.repeat(r)}${'☆'.repeat(MAX_RANK-r)}</span>
-        <button type="button" class="ap-rank-btn" data-rank="${a.key}"
-          ${(maxed || !can) ? 'disabled' : ''}>${maxed ? '極' : cost}</button>
-      </div>`;
+    let html = '<div class="skill-subtabs">';
+    SKILL_SUBTABS.forEach(t=>{
+      html += `<div class="skill-subtab ${skillSubTab===t.key?'active':''}" data-skill-subtab="${t.key}">${t.label}</div>`;
     });
-    html += '</div>';
+    html += '</div><div class="skill-subtab-body">';
 
-    const skill2 = SKILL2_BY_CLASS[state.classDef.key];
-    if(skill2){
-      html += `<div class="ap-charge-title">スキル2(専用ボタン2・固定・再使用${skill2.cd}秒)</div>
+    if(skillSubTab==='passive'){
+      // ---- ability ranks -----------------------------------------------
+      html += '<div class="ap-charge-title">能力の強化' +
+        (state.freeRanks>0 ? ' <span style="color:#ffd27a">(習得の証 ' + state.freeRanks + ')</span>' : '') +
+        '</div><div class="ap-rank-list">';
+      ABILITY_DEFS.forEach(a=>{
+        const r = rankOf(a.key);
+        const maxed = r >= MAX_RANK;
+        const cost = maxed ? '-' : (state.freeRanks>0 ? '証 x1' : '💎' + RANK_GEM_COST[r]);
+        const can = canRankUp(a.key);
+        html += `<div class="ap-rank-row">
+          <span class="ap-rank-icon">${a.icon}</span>
+          <span class="ap-rank-name">${a.label}<br><span class="ap-rank-note">${a.note}</span></span>
+          <span class="ap-rank-pips">${'★'.repeat(r)}${'☆'.repeat(MAX_RANK-r)}</span>
+          <button type="button" class="ap-rank-btn" data-rank="${a.key}"
+            ${(maxed || !can) ? 'disabled' : ''}>${maxed ? '極' : cost}</button>
+        </div>`;
+      });
+      html += '</div>';
+
+      SKILL_DEFS.forEach(sk=>{
+        const lvl = state.skills[sk.key];
+        html += `<div class="ap-skill-row"><div class="ap-skill-info">
+          <div class="ap-skill-name">${sk.name} <span class="ap-skill-lv">Lv.${lvl}/${sk.max}</span></div>
+          <div class="ap-skill-desc">${sk.desc}</div>
+        </div>`;
+        if(lvl>=sk.max){
+          html += `<div class="ap-maxed-small">MAX</div></div>`;
+        } else {
+          const cost = sk.costs[lvl];
+          const can = state.inventory.gem>=cost;
+          html += `<button type="button" class="ap-skill-btn" data-skill="${sk.key}" ${can?'':'disabled'}>💎${cost}</button></div>`;
+        }
+      });
+
+      // ボス由来のパッシブ(ボス能力/常時発動パッシブ)。スキル3(能動)は
+      // 別サブタブへ。以前は装備品タブに混ざっていたが、「装備品タブは
+      // 装備品だけに」という整理でこちらへ移した
+      const bossLearned = state.learnedBossAbilities || [];
+      const bossLearnedPassive = state.learnedBossSkills || [];
+      if(bossLearned.length > 0){
+        const equipped = state.equippedBossAbilities || [];
+        html += `<div class="boss-ability-row">
+          <div class="gear-slot-label">👑 ボス能力 <span class="boss-ability-slots">(${equipped.length}/${BOSS_ABILITY_SLOTS} 装着中)</span></div>
+          <div class="boss-ability-list">`;
+        bossLearned.forEach(key=>{
+          const def = BOSS_ABILITIES[key];
+          if(!def) return;
+          const isEq = equipped.includes(key);
+          html += `<div class="boss-ability-item ${isEq?'equipped':''}" data-boss-ability="${key}">
+            <div class="boss-ability-icon">${def.icon}</div>
+            <div class="boss-ability-info">
+              <div class="boss-ability-name">${def.name}</div>
+              <div class="boss-ability-desc">${def.desc}</div>
+            </div>
+            <div class="boss-ability-toggle">${isEq?'装着中':'装着する'}</div>
+          </div>`;
+        });
+        html += '</div></div>';
+      }
+      if(bossLearnedPassive.length > 0){
+        html += `<div class="boss-ability-row">
+          <div class="gear-slot-label">🎯 常時発動パッシブ <span class="boss-ability-slots">(${bossLearnedPassive.length}個・すべて常時有効)</span></div>
+          <div class="boss-ability-list">`;
+        bossLearnedPassive.forEach(key=>{
+          const def = BOSS_SKILLS[key];
+          if(!def) return;
+          html += `<div class="boss-ability-item equipped">
+            <div class="boss-ability-icon">${def.icon}</div>
+            <div class="boss-ability-info">
+              <div class="boss-ability-name">${def.name}</div>
+              <div class="boss-ability-desc">${def.desc}</div>
+            </div>
+            <div class="boss-ability-toggle">常時発動</div>
+          </div>`;
+        });
+        html += '</div></div>';
+      }
+    }
+
+    else if(skillSubTab==='skill1'){
+      const fixedTech = variants.dash;
+      html += `<div class="ap-charge-title">溜め技(攻撃ボタン長押し・固定)</div>
         <div class="ap-charge-variants"><div class="ap-charge-card active" style="cursor:default;">
-          <div class="ap-charge-icon">${skill2.icon}</div>
-          <div class="ap-charge-name">${skill2.name}</div>
-          <div class="ap-charge-desc">${skill2.desc}</div>
+          <div class="ap-charge-icon">${fixedTech.icon}</div>
+          <div class="ap-charge-name">${fixedTech.name}</div>
+          <div class="ap-charge-desc">${fixedTech.desc}</div>
+        </div></div>`;
+      html += '<div class="ap-charge-title">スキル(専用ボタン・付け替え可能)</div><div class="ap-charge-variants">';
+      ['retreat','spin','barrier'].forEach(key=>{
+        const v = variants[key];
+        const active = state.skillChoice===key;
+        html += `<div class="ap-charge-card ${active?'active':''}" data-variant="${key}">
+          <div class="ap-charge-icon">${v.icon}</div>
+          <div class="ap-charge-name">${v.name}</div>
+          <div class="ap-charge-desc">${v.desc}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    else if(skillSubTab==='skill2'){
+      const skill2 = SKILL2_BY_CLASS[state.classDef.key];
+      if(skill2){
+        html += `<div class="ap-charge-title">スキル2(専用ボタン2・固定・再使用${skill2.cd}秒)</div>
+          <div class="ap-charge-variants"><div class="ap-charge-card active" style="cursor:default;">
+            <div class="ap-charge-icon">${skill2.icon}</div>
+            <div class="ap-charge-name">${skill2.name}</div>
+            <div class="ap-charge-desc">${skill2.desc}</div>
+          </div></div>`;
+      }
+    }
+
+    else if(skillSubTab==='skill3'){
+      // スキル3: ボス能力と違い同時に1つまでしか装着できないので、タップで
+      // 選び直す(既に装着中のものをタップすると外す)単一選択の一覧にしてある
+      const bossLearnedActive = state.learnedBossActiveSkills || [];
+      if(bossLearnedActive.length > 0){
+        const equippedActive = state.equippedBossActiveSkill;
+        html += `<div class="ap-charge-title">スキル3(ボスから習得した能動技・付け替え可能)</div>
+          <div class="boss-ability-row"><div class="boss-ability-list">`;
+        bossLearnedActive.forEach(key=>{
+          const def = BOSS_ACTIVE_SKILLS[key];
+          if(!def) return;
+          const isEq = equippedActive===key;
+          html += `<div class="boss-ability-item ${isEq?'equipped':''}" data-boss-active-skill="${key}">
+            <div class="boss-ability-icon">${def.icon}</div>
+            <div class="boss-ability-info">
+              <div class="boss-ability-name">${def.name}</div>
+              <div class="boss-ability-desc">${def.desc}(再使用${def.cd}秒)</div>
+            </div>
+            <div class="boss-ability-toggle">${isEq?'装着中':'装着する'}</div>
+          </div>`;
+        });
+        html += '</div></div>';
+      } else {
+        html += '<div class="gear-empty-note">まだボスからスキル3を習得していない。ボス撃破報酬で入手できる。</div>';
+      }
+    }
+
+    else if(skillSubTab==='ult'){
+      const ult = state.classDef.ult;
+      html += `<div class="ap-charge-title">必殺技(専用ゲージ・固定)</div>
+        <div class="ap-charge-variants"><div class="ap-charge-card active" style="cursor:default;">
+          <div class="ap-charge-icon">${ult.icon}</div>
+          <div class="ap-charge-name">${ult.name}</div>
+          <div class="ap-charge-desc">威力倍率 x${ult.mult.toFixed(2)}${ult.radial?'・全方位':''}</div>
         </div></div>`;
     }
-    SKILL_DEFS.forEach(sk=>{
-      const lvl = state.skills[sk.key];
-      html += `<div class="ap-skill-row"><div class="ap-skill-info">
-        <div class="ap-skill-name">${sk.name} <span class="ap-skill-lv">Lv.${lvl}/${sk.max}</span></div>
-        <div class="ap-skill-desc">${sk.desc}</div>
-      </div>`;
-      if(lvl>=sk.max){
-        html += `<div class="ap-maxed-small">MAX</div></div>`;
-      } else {
-        const cost = sk.costs[lvl];
-        const can = state.inventory.gem>=cost;
-        html += `<button type="button" class="ap-skill-btn" data-skill="${sk.key}" ${can?'':'disabled'}>💎${cost}</button></div>`;
-      }
-    });
 
-    // ---- ボス由来の力(ボス能力/スキル3/常時パッシブ) ----
-    // 以前は装備品タブに混ざっていたが、「装備品タブは装備品だけに」という
-    // 整理でこちらへ移した。3つとも別々の習得元(3択報酬)を持つが、
-    // どれも「ボスを倒して得る力」という点でまとめて見せた方が分かりやすい
-    const bossLearned = state.learnedBossAbilities || [];
-    const bossLearnedActive = state.learnedBossActiveSkills || [];
-    const bossLearnedPassive = state.learnedBossSkills || [];
-    if(bossLearned.length>0 || bossLearnedActive.length>0 || bossLearnedPassive.length>0){
-      html += '<div class="ap-charge-title">ボス由来の力</div>';
-    }
-    if(bossLearned.length > 0){
-      const equipped = state.equippedBossAbilities || [];
-      html += `<div class="boss-ability-row">
-        <div class="gear-slot-label">👑 ボス能力 <span class="boss-ability-slots">(${equipped.length}/${BOSS_ABILITY_SLOTS} 装着中)</span></div>
-        <div class="boss-ability-list">`;
-      bossLearned.forEach(key=>{
-        const def = BOSS_ABILITIES[key];
-        if(!def) return;
-        const isEq = equipped.includes(key);
-        html += `<div class="boss-ability-item ${isEq?'equipped':''}" data-boss-ability="${key}">
-          <div class="boss-ability-icon">${def.icon}</div>
-          <div class="boss-ability-info">
-            <div class="boss-ability-name">${def.name}</div>
-            <div class="boss-ability-desc">${def.desc}</div>
-          </div>
-          <div class="boss-ability-toggle">${isEq?'装着中':'装着する'}</div>
-        </div>`;
-      });
-      html += '</div></div>';
-    }
-    // スキル3: ボス能力と違い同時に1つまでしか装着できないので、タップで
-    // 選び直す(既に装着中のものをタップすると外す)単一選択の一覧にしてある
-    if(bossLearnedActive.length > 0){
-      const equippedActive = state.equippedBossActiveSkill;
-      html += `<div class="boss-ability-row">
-        <div class="gear-slot-label">💥 スキル3 <span class="boss-ability-slots">(${equippedActive?'1':'0'}/1 装着中)</span></div>
-        <div class="boss-ability-list">`;
-      bossLearnedActive.forEach(key=>{
-        const def = BOSS_ACTIVE_SKILLS[key];
-        if(!def) return;
-        const isEq = equippedActive===key;
-        html += `<div class="boss-ability-item ${isEq?'equipped':''}" data-boss-active-skill="${key}">
-          <div class="boss-ability-icon">${def.icon}</div>
-          <div class="boss-ability-info">
-            <div class="boss-ability-name">${def.name}</div>
-            <div class="boss-ability-desc">${def.desc}(再使用${def.cd}秒)</div>
-          </div>
-          <div class="boss-ability-toggle">${isEq?'装着中':'装着する'}</div>
-        </div>`;
-      });
-      html += '</div></div>';
-    }
-    // 常時パッシブ(BOSS_SKILLS): 装着枠が無く、習得すれば常に有効なので
-    // 一覧はすべて表示専用(タップでの切り替えは無い)。以前はこの一覧
-    // 自体がどこにも表示されておらず、「2個しか表示されない」という
-    // 報告(実際には👑ボス能力の2枠表示と混同されていた)につながっていた
-    if(bossLearnedPassive.length > 0){
-      html += `<div class="boss-ability-row">
-        <div class="gear-slot-label">🎯 常時発動パッシブ <span class="boss-ability-slots">(${bossLearnedPassive.length}個・すべて常時有効)</span></div>
-        <div class="boss-ability-list">`;
-      bossLearnedPassive.forEach(key=>{
-        const def = BOSS_SKILLS[key];
-        if(!def) return;
-        html += `<div class="boss-ability-item equipped">
-          <div class="boss-ability-icon">${def.icon}</div>
-          <div class="boss-ability-info">
-            <div class="boss-ability-name">${def.name}</div>
-            <div class="boss-ability-desc">${def.desc}</div>
-          </div>
-          <div class="boss-ability-toggle">常時発動</div>
-        </div>`;
-      });
-      html += '</div></div>';
-    }
-
+    html += '</div>';
     panel.innerHTML = html;
+
+    panel.querySelectorAll('[data-skill-subtab]').forEach(tab=>{
+      tab.addEventListener('click', ()=>{ skillSubTab = tab.dataset.skillSubtab; renderSkillPanel(); });
+    });
     panel.querySelectorAll('[data-boss-ability]').forEach(row=>{
       row.addEventListener('click', ()=>{ toggleEquippedBossAbility(row.dataset.bossAbility); refreshAppraisal(); });
     });

@@ -843,6 +843,17 @@
   .ap-tab.active{ color:#1a1108; background:linear-gradient(180deg,var(--ember),#9c5e2c); border-color:var(--ember-bright); font-weight:700; }
 
   .ap-panel{ min-height:120px; }
+
+  /* スキルタブ内のサブタブ(パッシブ/スキル1/スキル2/スキル3/必殺技)。
+     以前は全カテゴリを1本の縦リストに並べていて画面が縦長すぎたため、
+     .ap-tabと同じ見た目でカテゴリを横並びにし、選んだ1つだけ表示する */
+  .skill-subtabs{ display:flex; gap:4px; margin-bottom:12px; }
+  .skill-subtab{
+    flex:1; text-align:center; padding:7px 2px; font-size:10.5px; color:var(--text-dim);
+    border:1px solid var(--panel-line); border-radius:4px; cursor:pointer; background:#0f0c14;
+  }
+  .skill-subtab.active{ color:#1a1108; background:linear-gradient(180deg,var(--ember),#9c5e2c); border-color:var(--ember-bright); font-weight:700; }
+  .skill-subtab-body{ min-height:80px; }
   .ap-equip-current{ font-size:13px; color:var(--text-dim); margin-bottom:14px; }
   .ap-equip-current b{ color:var(--ember-bright); }
   .ap-upgrade-row{
