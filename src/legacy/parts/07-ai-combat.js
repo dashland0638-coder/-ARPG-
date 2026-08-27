@@ -291,6 +291,16 @@
       enemies.push(buildEnemy(new THREE.Vector3(204,0,88),
         {color:0x9ad86a, hp:520, atk:64, speed:1.9, atkType:'fire', xp:190, goldBonus:[42,60], projColor:0xa8ff5a}));
     }
+    // 時計塔「山を登る」拡張(★3・第6弾): 置時計の間の奥、隠し歯車庫。
+    // 洋館と同じ「行き止まり分岐」型で、buildClocktowerDepths()が同じ★条件
+    // でしか部屋自体を建てないので、床のない場所に敵だけ浮く事故は起きない。
+    // y=9はTOWER_SLABSに追加した専用フロア(t1depths)の高さに合わせてある
+    if(_spawnWorldKey==='clocktower' && scenarioStars('clocktower') >= TOWER_HOUSE1_DEPTHS_STARS){
+      enemies.push(buildEnemy(new THREE.Vector3(-356,9,131),
+        {color:0x9a5a3a, hp:380, atk:52, speed:2.4, atkType:'charge', xp:170, goldBonus:[36,52], strongMob:true, guardian:true}));
+      enemies.push(buildEnemy(new THREE.Vector3(-336,9,131),
+        {color:0x6a8a9a, hp:280, atk:46, speed:1.1, atkType:'fire', xp:150, goldBonus:[32,46], projColor:0x66aacc}));
+    }
     // 屋根裏へは主を倒した後にしか上れない(buildStairsのgateTag参照)。
     // ★4未満はgateTagがそもそも付かず、階段自体もbuildMansion側で建てない
     if(_spawnWorldKey==='mansion') enemies.push(buildBoss(new THREE.Vector3(0,0,-56),

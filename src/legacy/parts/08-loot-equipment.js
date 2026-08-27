@@ -535,6 +535,8 @@
       [new THREE.Vector3(-172,18,58)],                    // clocktower 3F
       [new THREE.Vector3(-244,27,146),'armoury'],         // clocktower 4F: 無音の鐘室
       [new THREE.Vector3(-292,36,192),'supply'],          // clocktower 5F, before the warden
+      ...(scenarioStars('clocktower') >= TOWER_HOUSE1_DEPTHS_STARS
+        ? [[new THREE.Vector3(-346,9,124), 'armoury']] : []), // clocktower: 隠し歯車庫(周回★3+)
       [new THREE.Vector3(184,0,-54)],                     // conservatory: 枯れた前庭
       [new THREE.Vector3(316,0,-52)],                     // conservatory: 日時計の間
       [new THREE.Vector3(290,0,-2)],                      // conservatory: 胞子の苗床

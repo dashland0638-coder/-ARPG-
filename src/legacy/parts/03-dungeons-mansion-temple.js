@@ -110,6 +110,9 @@
   const MANSION_ATTIC_STARS = 4;         // 主を倒した先、屋根裏が開く周回★
   const TEMPLE_DEPTHS_STARS = 4;         // 守り手の間の奥、神殿の最深部が開く周回★(第3弾)
   const CONSERVATORY_DEPTHS_STARS = 4;   // 主の温室の奥、最深部が開く周回★(第5弾)
+  const TOWER_HOUSE1_DEPTHS_STARS = 3;   // 止まった置時計の間の奥、隠し歯車庫が開く周回★(第6弾)
+                                          // 時計塔はボス撃破後の枠(見晴台からの脱出)を既存演出が
+                                          // 占有しているため、洋館と同じ「行き止まり分岐」型のみ採用
 
   /* ---- ルートグラフのランタイム ----
      グラフを持たないシナリオでは全ての問い合わせが素通しになるので、
@@ -477,6 +480,9 @@
     {fl:'f5', x0:-302, x1:-194, z0:162, z1:210, y:36},
     {fl:'rf', x0:-260, x1:-204, z0:234, z1:278, y:45},
     {fl:'is', x0:-256, x1:-202, z0:316, z1:374, y:0},
+    // 隠し歯車庫(★3で開く行き止まり分岐)。どの既存フロアとも重ならない
+    // 独立した空間なので、階段(ワープ)で繋いでも周囲の物理には影響しない
+    {fl:'t1depths', x0:-365, x1:-327, z0:103, z1:137, y:9},
   ];
 
   const TOWER_ROOMS = [
@@ -831,6 +837,56 @@
            '「降りる階段は無い。技師たちも、そう気づいたはずだ」',
            '「……あの台座に乗れ、ということだな」']
     );
+
+    // ---- 行き止まり分岐: 止まった置時計の間の奥(★3で開く) ----
+    if(scenarioStars('clocktower') >= TOWER_HOUSE1_DEPTHS_STARS){
+      buildStairs(new THREE.Vector3(-356, slabY['f1'], -70),
+                  new THREE.Vector3(-346, 9, 120), '止まった時計の裏側へ', 0x6a5a3a, 'down');
+      buildClocktowerDepths();
+    }
+  }
+
+  function buildClocktowerDepths(){
+    const cx = -346, cz = 120, y = 9;
+    const x0 = -361, x1 = -331, z0 = 107, z1 = 133;
+    const stoneTex = makeStoneTileTexture('#3a3630', '#232019', '#4e4636', 3, 10, 10, {bump:0.06});
+    const floorMat = new THREE.MeshStandardMaterial({map:stoneTex, roughness:0.9});
+    const wallStoneTex = makeMasonryTexture('#4a4238', '#2c2820', 4, 6, 3, 2, {crack:true, moss:'#3c5228'});
+    const wallMat = new THREE.MeshStandardMaterial({map:wallStoneTex, roughness:0.8, metalness:0.15});
+    const darkMat = new THREE.MeshStandardMaterial({color:0x2a2620, roughness:0.85});
+    const brassMat = new THREE.MeshStandardMaterial({color:0xb08a3a, roughness:0.35, metalness:0.75,
+                        emissive:0x3a2a08, emissiveIntensity:0.25});
+
+    addFloorWithHoles(x0, x1, z0, z1, [], floorMat, y + 0.08);
+    addStaticBox(cx, y - 0.45, cz, x1-x0, 0.9, z1-z0, darkMat, false);
+    function wall(cx2, cz2, sx, sz){
+      addStaticBox(cx2, y + 1.15, cz2, sx, 2.3, sz, wallMat, false);
+      walls.push({minX:cx2-sx/2, maxX:cx2+sx/2, minZ:cz2-sz/2, maxZ:cz2+sz/2});
+    }
+    wall(cx, z1, x1-x0, 0.6);
+    wall(cx, z0, x1-x0, 0.6);
+    wall(x0, cz, 0.6, z1-z0);
+    wall(x1, cz, 0.6, z1-z0);
+
+    // 止まったままの巨大歯車が積み上げられている、時計塔の「裏側」
+    [[-8,-8,3.2],[7,-4,2.4],[-4,7,2.0]].forEach(([dx,dz,r])=>{
+      const gear = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.6, 16), brassMat);
+      gear.rotation.x = Math.PI/2;
+      gear.position.set(cx+dx, y+0.6+r*0.15, cz+dz);
+      gear.castShadow = true;
+      scene.add(gear);
+    });
+    const glow = new THREE.PointLight(0xffb347, 0.9, 24);
+    glow.position.set(cx, y+4, cz);
+    scene.add(glow);
+
+    const f1y = TOWER_SLABS.find(s=>s.fl==='f1').y;
+    buildStairs(new THREE.Vector3(cx, y, cz-10), new THREE.Vector3(-356, f1y, -74), '置時計の間へ戻った……', 0x3a3020, 'up');
+
+    registerProximityEvent(new THREE.Vector3(cx, y, cz+3), 4, '???', [
+      'あの置時計が止まった理由は、盤面ではなく――この裏側にあったらしい。',
+      '積み上がった歯車は、どれも噛み合う相手を失ったまま眠っている。'
+    ]);
   }
 
   /* =========================================================
