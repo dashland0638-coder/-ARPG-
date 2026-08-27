@@ -23,7 +23,11 @@ import * as THREE from 'three';
     vel:new THREE.Vector3(0,0,0),
     yVel:0, grounded:true, groundY:0,
     facing:0,           // player facing yaw (radians)
-    camDist:5, camHeight:9.5, camYaw:0, camRotateTouch:0, // closer still - manual view adjustment now matters more
+    // 見下ろし角を約62度(旧: dist5/height9.5)から約53度に少し寝かせ、
+    // 単調な真上見下ろし感を弱めて参考ビジュアルに近づける実験値。
+    // 距離も少し伸ばし、角度を寝かせた分だけ画面内に収まる範囲が
+    // 狭くならないようにしてある(被弾テレグラフの視認性を落とさない)
+    camDist:6, camHeight:8, camYaw:0, camRotateTouch:0,
     moveInput:{x:0,y:0},
     attackCD:0, dodgeCD:0, dodging:false, dodgeT:0, dodgeDir:new THREE.Vector3(), dodgeAttackWindowT:0,
     // ジャストドッジ: 被弾する寸前(=state.dodgingの無敵で判定を吸収した瞬間)に
