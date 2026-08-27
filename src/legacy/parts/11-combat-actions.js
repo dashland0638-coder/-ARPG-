@@ -418,11 +418,11 @@
     const cdef = state.classDef;
     const skill2 = SKILL2_BY_CLASS[cdef.key];
     if(!skill2) return;
-    state.skill2CD = skill2.cd * rankCD('skill2');
+    state.skill2CD = skill2.cd * rankCD('skill2') * Math.max(0.4, 1 + sphereValue('skill2CDSphereMul'));   // スフィア「神速の一撃」
     state.swinging = true; beginMove('skill2');
     if(sequenceLocks.length) tryStrikeBell(state.pos);
     state.swingLockFacing = state.facing;
-    const dmg = Math.round(cdef.atk * skill2.mult * rankDmg('skill2')) + Math.round(Math.random()*5);
+    const dmg = Math.round(cdef.atk * skill2.mult * rankDmg('skill2') * (1 + sphereValue('skill2DmgSphereMul'))) + Math.round(Math.random()*5);   // スフィア「二の太刀」
     const fwd = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
     if(cdef.key==='warrior') castGroundSplit(dmg, fwd);
     else if(cdef.key==='rogue') castKnifeBarrage(dmg, fwd);

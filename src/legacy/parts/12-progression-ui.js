@@ -438,10 +438,18 @@
   /* =========================================================
      奥義の環(旧称: スフィア盤) ―― ARPG開発アイデアまとめ 14番「スキル獲得」18番。
      design docが明記する通り、最初から巨大にはせず「攻撃・回避・
-     スキル・MP・必殺」あたりの小さな分岐から始める。root(目覚め)から
-     2本の枝(攻撃/俊敏)がそれぞれ3段伸びる、計7ノードの小盤面。
+     スキル・MP・必殺」あたりの小さな分岐から始めた(第1弾: 2本×3段の
+     小盤面)。第2弾でスキル/必殺の2本を追加して4本×3段に、第3弾で
+     全4本を6段まで伸ばした ―― 「スフィア盤はもっと長期的に、レベル
+     100でもまだまだ残っているくらい」という方針を受けたもの。
+     1〜3段目のコストは1/2/3のまま据え置き、4〜6段目は6/10/16と
+     一段と重くしてある(4本×(1+2+3+6+10+16)=152pt。レベルアップ毎+1pt
+     なので、1本に集中してもレベル100超えまで飲み込み続ける計算)。
      隣接ノードを順番にしか解放できない(前提ノードが必要)ので、
-     「どちらの枝を伸ばすか」という選択が生まれる。
+     「どの枝をどこまで伸ばすか」という長期的な選択が生まれる。
+     4〜6段目の一部はスキル1(付け替え可能な「スキル」ボタン)・
+     スキル2(クラス固有の専用ボタン2)自体を強化する効果にしてあり、
+     「スキル1・2の強化も随時解放」という要望に応えている。
      ポイントはレベルアップごとに1点(grantXPを参照)。 */
   const SPHERE_NODES = {
     root:  {name:'目覚め', icon:'✨', cost:0, requires:[], effect:null, desc:'旅の始まり(自動解放)'},
@@ -460,6 +468,23 @@
     ult1:  {name:'力の奔流', icon:'🔥', cost:1, requires:['root'], effect:{type:'atkMul', value:0.04}, desc:'攻撃力+4%'},
     ult2:  {name:'満ちる刻', icon:'⏳', cost:2, requires:['ult1'], effect:{type:'ultGaugeSphereMul', value:0.10}, desc:'必殺ゲージ獲得+10%'},
     ult3:  {name:'絶対の一撃', icon:'💫', cost:3, requires:['ult2'], effect:{type:'ultDmgSphereMul', value:0.12}, desc:'必殺技威力+12%'},
+
+    // ---- 拡張(第3弾): 全4本を6段まで延長。4〜6段目はコストを
+    // 6/10/16と重くし、「まだまだ残っている」長期の目標にしてある
+    atk4:  {name:'剛力の系譜', icon:'🦾', cost:6,  requires:['atk3'], effect:{type:'atkMul', value:0.05}, desc:'攻撃力+5%'},
+    atk5:  {name:'会心の極み', icon:'🌟', cost:10, requires:['atk4'], effect:{type:'staggerDealtSphereMul', value:0.10}, desc:'体幹削り+10%'},
+    atk6:  {name:'覇道', icon:'👹', cost:16, requires:['atk5'], effect:{type:'atkMul', value:0.06}, desc:'攻撃力+6%'},
+    dodge4:{name:'残心', icon:'🍃', cost:6,  requires:['dodge3'], effect:{type:'staminaCostMul', value:-0.08}, desc:'スタミナ消費-8%'},
+    dodge5:{name:'見切りの間', icon:'🕊️', cost:10, requires:['dodge4'], effect:{type:'dodgeInvulnSphereMul', value:0.10}, desc:'回避の無敵時間+10%'},
+    dodge6:{name:'無形', icon:'🌀', cost:16, requires:['dodge5'], effect:{type:'atkCooldownMul', value:-0.05}, desc:'攻撃間隔-5%'},
+    // スキル系統4〜6段目は「スキル1(付け替え可能なスキルボタン)・
+    // スキル2(クラス固有の専用ボタン2)自体の強化」を担う枠にしてある
+    skill4:{name:'見切りの真髄', icon:'🎴', cost:6,  requires:['skill3'], effect:{type:'skillDmgSphereMul', value:0.10}, desc:'スキル(専用ボタン)の威力+10%'},
+    skill5:{name:'受け流しの理', icon:'🔷', cost:10, requires:['skill4'], effect:{type:'barrierHealSphereMul', value:0.15}, desc:'バリアのHP吸収量+15%'},
+    skill6:{name:'二の太刀', icon:'⚔️', cost:16, requires:['skill5'], effect:{type:'skill2DmgSphereMul', value:0.15}, desc:'スキル2の威力+15%'},
+    ult4:  {name:'力の高まり', icon:'🔆', cost:6,  requires:['ult3'], effect:{type:'atkMul', value:0.05}, desc:'攻撃力+5%'},
+    ult5:  {name:'刻の加護', icon:'⌛', cost:10, requires:['ult4'], effect:{type:'ultGaugeSphereMul', value:0.10}, desc:'必殺ゲージ獲得+10%'},
+    ult6:  {name:'神速の一撃', icon:'⚡', cost:16, requires:['ult5'], effect:{type:'skill2CDSphereMul', value:-0.12}, desc:'スキル2の再使用時間-12%'},
   };
 
   function sphereUnlocked(id){ return (state.unlockedSphereNodes||['root']).includes(id); }
@@ -1736,27 +1761,16 @@
     let html = `<div class="sphere-points">✨ <b>${state.spherePoints||0}</b>pt<span class="sphere-points-note">(レベルアップ毎+1)</span></div>`;
     html += '<div class="sphere-board">';
     html += `<div class="sphere-board-root">${node('root','root-node')}</div>`;
+    // 各系統6段(第3弾で3→6段に延長)。列を組み立てる部分を共通化し、
+    // 段数が変わっても4本の列で書き分ける必要が無いようにしてある
+    const col = (ids)=> `<div class="sphere-board-col">` +
+      ids.map((id,i)=> node(id) + (i<ids.length-1 ? `<div class="sphere-link ${sphereUnlocked(id)?'lit':''}"></div>` : '')).join('') +
+      `</div>`;
     html += '<div class="sphere-board-branches">';
-    html += `<div class="sphere-board-col">
-        ${node('atk1')}<div class="sphere-link ${sphereUnlocked('atk1')?'lit':''}"></div>
-        ${node('atk2')}<div class="sphere-link ${sphereUnlocked('atk2')?'lit':''}"></div>
-        ${node('atk3')}
-      </div>`;
-    html += `<div class="sphere-board-col">
-        ${node('dodge1')}<div class="sphere-link ${sphereUnlocked('dodge1')?'lit':''}"></div>
-        ${node('dodge2')}<div class="sphere-link ${sphereUnlocked('dodge2')?'lit':''}"></div>
-        ${node('dodge3')}
-      </div>`;
-    html += `<div class="sphere-board-col">
-        ${node('skill1')}<div class="sphere-link ${sphereUnlocked('skill1')?'lit':''}"></div>
-        ${node('skill2')}<div class="sphere-link ${sphereUnlocked('skill2')?'lit':''}"></div>
-        ${node('skill3')}
-      </div>`;
-    html += `<div class="sphere-board-col">
-        ${node('ult1')}<div class="sphere-link ${sphereUnlocked('ult1')?'lit':''}"></div>
-        ${node('ult2')}<div class="sphere-link ${sphereUnlocked('ult2')?'lit':''}"></div>
-        ${node('ult3')}
-      </div>`;
+    html += col(['atk1','atk2','atk3','atk4','atk5','atk6']);
+    html += col(['dodge1','dodge2','dodge3','dodge4','dodge5','dodge6']);
+    html += col(['skill1','skill2','skill3','skill4','skill5','skill6']);
+    html += col(['ult1','ult2','ult3','ult4','ult5','ult6']);
     html += '</div></div>';
 
     const selDef = SPHERE_NODES[sphereSelectedNode];

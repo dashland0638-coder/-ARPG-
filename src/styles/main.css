@@ -564,7 +564,9 @@
   .joy-base{
     position:absolute; width:112px; height:112px; border-radius:50%;
     border:2px solid rgba(240,160,92,0.45); background:rgba(20,16,26,0.4);
-    left:26px; bottom:calc(26px + env(safe-area-inset-bottom));
+    /* 画面の一番外側だと親指が届きにくい・操作しづらいという指摘を受けて、
+       左下の角からやや右上(内側)へ寄せてある */
+    left:56px; bottom:calc(56px + env(safe-area-inset-bottom));
     display:flex; align-items:center; justify-content:center;
   }
   .joy-knob{
@@ -598,8 +600,9 @@
   #btn-charge{ width:44px; height:44px; right:96px; bottom:calc(112px + env(safe-area-inset-bottom)); font-size:15px; z-index:3; }
   #btn-skill2{ width:42px; height:42px; right:152px; bottom:calc(128px + env(safe-area-inset-bottom)); font-size:14px; z-index:3; }
   /* スキル3(ボスから習得した能動技)。skill1->skill2->ultと同じ右上への
-     並びをそのまま続け、何も装着していない間は薄く表示するだけにしてある */
-  #btn-skill3{ width:46px; height:46px; right:258px; bottom:calc(136px + env(safe-area-inset-bottom)); font-size:16px; z-index:3; }
+     並びをそのまま続け、何も装着していない間は薄く表示するだけにしてある。
+     以前はultとほぼ隙間0pxで接触していたため、右上へさらに離してある */
+  #btn-skill3{ width:46px; height:46px; right:284px; bottom:calc(146px + env(safe-area-inset-bottom)); font-size:16px; z-index:3; }
   #btn-skill3.unequipped{ opacity:0.4; }
   #screen-fade{
     position:fixed; inset:0; background:#05040a; z-index:60;
@@ -968,25 +971,26 @@
 
   /* 盤面: 高さを固定し、ノード数が増えても縦にだらだら伸びないようにする。
      root(頂点)から左右2本の細い糸(sphere-link)で下段へ繋がる、
-     簡易的な「ボード」の見た目 */
+     簡易的な「ボード」の見た目。第3弾で各系統3→6段に伸びた分、
+     ノードを一回り小さくした上で縦横ともスクロールに逃がしてある */
   .sphere-board{
-    height:200px; display:flex; flex-direction:column; align-items:center;
+    height:264px; display:flex; flex-direction:column; align-items:center;
     background:radial-gradient(circle at 50% 0%, rgba(240,160,92,0.06), transparent 70%);
     border:1px solid var(--panel-line); border-radius:8px; padding:10px 6px; margin-bottom:8px;
-    overflow-x:auto;   /* 4系統(攻撃/俊敏/スキル/必殺)になった分、狭い画面では横スクロールに逃がす */
+    overflow:auto;   /* 4系統×6段になった分、狭い画面では縦横スクロールに逃がす */
   }
-  .sphere-board-root{ margin-bottom:6px; }
+  .sphere-board-root{ margin-bottom:5px; flex-shrink:0; }
   .sphere-board-branches{ display:flex; gap:14px; flex:1; }
   .sphere-board-col{ display:flex; flex-direction:column; align-items:center; gap:0; }
-  .sphere-link{ width:2px; height:14px; background:var(--panel-line); }
+  .sphere-link{ width:2px; height:11px; background:var(--panel-line); flex-shrink:0; }
   .sphere-link.lit{ background:var(--ember-bright); }
 
   .sphere-node{
-    width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    font-size:16px; background:#1a1420; border:1.5px solid var(--panel-line); opacity:0.45; cursor:pointer;
-    transition:transform .1s;
+    width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:14px; background:#1a1420; border:1.5px solid var(--panel-line); opacity:0.45; cursor:pointer;
+    transition:transform .1s; flex-shrink:0;
   }
-  .sphere-node.root-node{ width:34px; height:34px; opacity:1; border-color:var(--ember-bright); background:#241a12; cursor:default; }
+  .sphere-node.root-node{ width:30px; height:30px; opacity:1; border-color:var(--ember-bright); background:#241a12; cursor:default; }
   .sphere-node.unlocked{ opacity:1; border-color:#5a8a4a; background:#182418; }
   .sphere-node.can-unlock{ opacity:0.9; border-color:var(--ember-bright); }
   .sphere-node.selected{ transform:scale(1.15); box-shadow:0 0 0 2px var(--ember-bright); }

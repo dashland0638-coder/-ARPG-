@@ -176,7 +176,10 @@
 
   function executeVariant(variant, chargeT, chargeMax, rankKey){
     const chargeRatio = Math.min(1, chargeT / chargeMax);
-    const skillBonus = 1 + (state.skills.chargeUp||0)*0.15;
+    // スフィア「見切りの真髄」はスキル(専用ボタン、rankKey==='skill')だけに
+    // 乗る ―― 溜め技(releaseChargeAttackはrankKeyを渡さない)には乗せない
+    const skillDmgBonus = rankKey==='skill' ? sphereValue('skillDmgSphereMul') : 0;
+    const skillBonus = 1 + (state.skills.chargeUp||0)*0.15 + skillDmgBonus;
     const rankBonus = rankKey ? rankDmg(rankKey) : 1;
     const mult = (variant.baseMult + chargeRatio*(variant.maxMult-variant.baseMult)) * skillBonus * rankBonus;
     const dmg = Math.round(state.classDef.atk * mult) + Math.round(Math.random()*5);
