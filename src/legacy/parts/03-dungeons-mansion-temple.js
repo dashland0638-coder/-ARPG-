@@ -1778,7 +1778,12 @@
     // 敵の総量は基準ルート(使用人通路)より明確に多い。実際のスポーンは
     // spawnEnemies() の spots 配列(grand帯)で行う。
 
-    buildStairs(new THREE.Vector3(cx,0,cz-12), new THREE.Vector3(100,0,124), '大広間へ戻った……', 0x3a3448, 'up');
+    // 着地先はz=120(大広間側のstairsToGrandと同じ「壁から4離れた室内」の帯)。
+    // 以前はz=124になっていたが、これは大広間の北壁(cz+14=124)のAABBの
+    // ど真ん中で、着地即座に壁へ完全に埋まってしまうバグだった
+    // (resolveWallCollisions()は「壁のふちに接している」状態からしか
+    // 押し出せず、めり込み量ゼロの完全埋没では押し出し方向を計算できない)
+    buildStairs(new THREE.Vector3(cx,0,cz-12), new THREE.Vector3(100,0,120), '大広間へ戻った……', 0x3a3448, 'up');
 
     const forward = buildStairs(new THREE.Vector3(cx,0,cz+12), new THREE.Vector3(0,0,-48), '主の間へ向かった……', 0x241018, 'down');
     forward.routeNode = 'boss';

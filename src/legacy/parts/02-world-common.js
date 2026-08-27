@@ -1109,10 +1109,27 @@
       const dx = pos.x - closestX, dz = pos.z - closestZ;
       const distSq = dx*dx + dz*dz;
       if(distSq < r*r){
-        const dist = Math.sqrt(distSq) || 0.0001;
-        const overlap = r - dist;
-        pos.x += (dx/dist)*overlap;
-        pos.z += (dz/dist)*overlap;
+        if(distSq > 1e-6){
+          const dist = Math.sqrt(distSq);
+          const overlap = r - dist;
+          pos.x += (dx/dist)*overlap;
+          pos.z += (dz/dist)*overlap;
+        } else {
+          // pos is dead-on the box (distSq~0 - most often a bad teleport
+          // target landing fully inside a wall's AABB, not just grazing its
+          // edge). The closest-point vector is (0,0) here, so it carries no
+          // escape direction and the player would sit embedded forever
+          // (this was exactly the "stairs backtrack -> stuck in the wall"
+          // bug report). Push out through whichever face of the box is
+          // nearest instead of relying on that vector.
+          const pushW = pos.x - w.minX, pushE = w.maxX - pos.x;
+          const pushS = pos.z - w.minZ, pushN = w.maxZ - pos.z;
+          const minPush = Math.min(pushW, pushE, pushS, pushN);
+          if(minPush === pushW) pos.x = w.minX - r;
+          else if(minPush === pushE) pos.x = w.maxX + r;
+          else if(minPush === pushS) pos.z = w.minZ - r;
+          else pos.z = w.maxZ + r;
+        }
       }
     }
   }
