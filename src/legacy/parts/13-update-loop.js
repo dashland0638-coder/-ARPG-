@@ -224,6 +224,8 @@
           spawnArrow(f, dmg, {color:variant.vfxColor, speed:24, hitR:1.15});
         }, i*110);
       });
+    } else if(variant.mode==='barrier'){
+      activateBarrier(variant);
     } else if(variant.mode==='fan5'){
       // five-way spread, each arrow homing onto whatever is nearest
       const right = new THREE.Vector3(Math.cos(state.facing),0,-Math.sin(state.facing));
@@ -234,6 +236,49 @@
       });
     }
     flashScreen();
+  }
+
+  /* =========================================================
+     バリア(パリィしてHP吸収)
+     発動中は無敵(state.invulnerable)にして、既存の被ダメ判定に何も
+     手を入れずに素通りさせる。「素通りした」ことをジャストドッジと
+     同じ検出経路(tryPerfectDodge、07-ai-combat.js)で受け取り、
+     state.barrierActiveの時だけHPを吸収する側の処理を追加してある
+     ―― ドッジと発動条件が排他なので、同じ関数に同居させても衝突しない。
+  ========================================================= */
+  function activateBarrier(variant){
+    state.barrierActive = true;
+    state.barrierT = variant.duration || 0.5;
+    state.barrierHealFrac = variant.healFrac || 0.12;
+    state.barrierParryCD = 0;   // 念のため明示的に0から始める(undefinedだと<=0比較が常にfalseになる)
+    state.invulnerable = true;
+    spawnBarrierVFX(variant.vfxColor, state.barrierT);
+  }
+
+  function spawnBarrierVFX(colorHex, duration){
+    const mat = new THREE.MeshBasicMaterial({color:colorHex, transparent:true, opacity:0.4, side:THREE.DoubleSide, depthWrite:false});
+    const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.95, 1), mat);
+    mesh.position.copy(state.pos); mesh.position.y += 1.0;
+    scene.add(mesh);
+    const glow = takeLight(colorHex, 1.6, 6);
+    glow.position.copy(mesh.position);
+    let elapsed = 0, last = performance.now();
+    const life = duration*1000;
+    function tick(){
+      const now = performance.now();
+      if(!state.paused && !state.dialogueActive) elapsed += now-last;
+      last = now;
+      const t = Math.min(1, elapsed/life);
+      if(state.started){
+        mesh.position.copy(state.pos); mesh.position.y += 1.0;
+        glow.position.copy(mesh.position);
+        mesh.rotation.y += 0.12;
+      }
+      mat.opacity = 0.4 * (1 - t*t);
+      if(t<1){ requestAnimationFrame(tick); }
+      else { scene.remove(mesh); giveLight(glow); }
+    }
+    tick();
   }
 
   // a large, slow-moving magic bolt with an enlarged hit radius - explodes
@@ -298,6 +343,11 @@
     if(state.invulnExtraT>0){
       state.invulnExtraT -= dt;
       if(state.invulnExtraT<=0){ state.invulnExtraT=0; state.invulnerable=false; }
+    }
+    if(state.barrierActive){
+      state.barrierT -= dt;
+      if(state.barrierParryCD>0) state.barrierParryCD = Math.max(0, state.barrierParryCD-dt);
+      if(state.barrierT<=0){ state.barrierT=0; state.barrierActive=false; state.invulnerable=false; }
     }
     // 性格・装備特殊効果まわりの補助タイマー。無傷継続(慎重)、直近ドッジ(かげぬいの小刀用)、
     // 撃破連鎖(陽気)の3つを毎フレーム進める。性格や装備が無関係でも害はない。

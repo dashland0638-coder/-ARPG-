@@ -760,6 +760,7 @@
     camera.position.copy(state.pos).add(getCamOffset());
     state.dodgeCD = 0; state.attackCD = 0; state.dodging=false; state.invulnerable=false;
     state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0;
+    state.barrierActive = false; state.barrierT = 0; state.barrierParryCD = 0;
     state.paralyzed=false; state.paralyzeT=0; state.paralyzeInvulnT=0;
     state.ultGauge = 0; state.ultLockT = 0;
     state.stamina = state.maxStamina; state.staminaRegenDelayT = 0;

@@ -793,6 +793,7 @@
     state.yVel = 0; state.grounded = true; state.facing = 0;
     state.camYaw = Math.PI*0.75; // always southeast in the tavern
     state.dodging = false; state.invulnerable = false;
+    state.barrierActive = false; state.barrierT = 0;   // ダンジョンから戻る途中でバリア中だった場合の後始末
     state.dodgeCD = 0; state.attackCD = 0;   // 必殺ゲージは戦闘performanceの蓄積なので、酒場帰還時にリセットしない
     // clear any half-finished attack/skill input, otherwise a swing left
     // pending from the dungeon fires the moment we land in the tavern
@@ -1339,6 +1340,10 @@
         key:'spin', name:'回転斬り', icon:'🌀', desc:'その場で一回転し、周囲を薙ぎ払う',
         baseMult:0.85, maxMult:1.8, mode:'aoe', radius:4.2, vfxColor:0x44ddaa,
         movement:'spin', duration:0.4
+      },
+      barrier: {
+        key:'barrier', name:'剛絶の盾', icon:'🛡️', desc:'大剣を構えてバリアを展開する。命中を受けると弾き、HPを少し吸収する(発動中は無敵)',
+        mode:'barrier', vfxColor:0x66aaff, duration:0.5, healFrac:0.12
       }
     },
     rogue: {
@@ -1356,6 +1361,10 @@
         key:'spin', name:'双刃旋風', icon:'🗡️', desc:'高速回転で周囲を斬り刻む',
         baseMult:0.7, maxMult:1.6, mode:'aoe', radius:3.4, vfxColor:0x9ad66a,
         movement:'spin', duration:0.28
+      },
+      barrier: {
+        key:'barrier', name:'影の受け流し', icon:'🌑', desc:'両の短刀を交差させて構える。命中を受けると弾き、HPを少し吸収する(発動中は無敵)',
+        mode:'barrier', vfxColor:0x9ad66a, duration:0.5, healFrac:0.12
       }
     },
     mage: {
@@ -1373,6 +1382,10 @@
         key:'spin', name:'魔導旋風', icon:'🌌', desc:'周囲に魔力の渦を発生させる',
         baseMult:0.9, maxMult:2.0, mode:'aoe', radius:4.8, vfxColor:0x8a6aff,
         movement:'spin', duration:0.45
+      },
+      barrier: {
+        key:'barrier', name:'魔導障壁', icon:'🔷', desc:'杖を掲げて魔法障壁を展開する。命中を受けると弾き、HPを少し吸収する(発動中は無敵)',
+        mode:'barrier', vfxColor:0x8a6aff, duration:0.5, healFrac:0.12
       }
     },
     archer: {
@@ -1390,6 +1403,10 @@
         key:'spin', name:'回転乱れ撃ち', icon:'🎯', desc:'回転しながら周囲に矢をばら撒く',
         baseMult:0.8, maxMult:1.9, mode:'aoe', radius:5.2, vfxColor:0xffcf7a,
         movement:'spin', duration:0.4
+      },
+      barrier: {
+        key:'barrier', name:'弓の盾構え', icon:'🔰', desc:'弓を体の前に掲げて構える。命中を受けると弾き、HPを少し吸収する(発動中は無敵)',
+        mode:'barrier', vfxColor:0xffcf7a, duration:0.5, healFrac:0.12
       }
     }
   };
@@ -1754,7 +1771,7 @@
         <div class="ap-charge-desc">${fixedTech.desc}</div>
       </div></div>`;
     html += '<div class="ap-charge-title">スキル(専用ボタン・付け替え可能)</div><div class="ap-charge-variants">';
-    ['retreat','spin'].forEach(key=>{
+    ['retreat','spin','barrier'].forEach(key=>{
       const v = variants[key];
       const active = state.skillChoice===key;
       html += `<div class="ap-charge-card ${active?'active':''}" data-variant="${key}">

@@ -656,7 +656,7 @@
        the skill is the overhead split, and the charge is a running iai draw
        that passes through the target. */
     warrior: {
-      dur:{basic:0.36, basic2:0.32, skill2:0.52, dash:0.44, retreat:0.40, spin:0.46, ult:0.66, altBasic:0.30, altBasic2:0.34},
+      dur:{basic:0.36, basic2:0.32, skill2:0.52, dash:0.44, retreat:0.40, spin:0.46, ult:0.66, altBasic:0.30, altBasic2:0.34, barrier:0.5},
 
       // 袈裟斬り: off the right shoulder, down across to the left hip
       basic:[
@@ -773,6 +773,15 @@
         F(1.00, S('warrior'))
       ],
 
+      // バリア: 大剣を体の前に立てて構え、パリィの窓が終わるまで保持する
+      barrier:[
+        F(0.00, Object.assign({}, S('warrior'), {e:'snap',
+          waist:[0.10,0,0], shL:[-0.10,0.35,0.85], elL:-2.05, shR:[0.15,-0.30,-0.60], elR:-2.05})),
+        F(0.75, Object.assign({}, S('warrior'), {e:'settle',
+          waist:[0.10,0,0], shL:[-0.10,0.35,0.85], elL:-2.05, shR:[0.15,-0.30,-0.60], elR:-2.05})),
+        F(1.00, S('warrior'))
+      ],
+
       // 必殺: a long wind-up over the shoulder, then everything at once
       ult:[
         F(0.00, Object.assign({}, S('warrior'), {e:'slow', push:-0.20})),
@@ -799,7 +808,7 @@
 
     /* ---------------- ROGUE: short blade, everything is wrist and hip --- */
     rogue: {
-      dur:{basic:0.22, basic2:0.20, skill2:0.34, dash:0.26, retreat:0.26, spin:0.30, ult:0.46, altBasic:0.24, altBasic2:0.26},
+      dur:{basic:0.22, basic2:0.20, skill2:0.34, dash:0.26, retreat:0.26, spin:0.30, ult:0.46, altBasic:0.24, altBasic2:0.26, barrier:0.5},
 
       basic:[   // 横薙ぎ: coiled out to the right, whipped across to the left
         F(0.00, Object.assign({}, S('rogue'), {e:'slow', push:-0.04})),
@@ -892,6 +901,15 @@
         F(1.00, S('rogue'))
       ],
 
+      // バリア: 両の短刀を交差させて構え、パリィの窓が終わるまで保持する
+      barrier:[
+        F(0.00, Object.assign({}, S('rogue'), {e:'snap',
+          waist:[0.08,0.05,0], shL:[-0.60,0.15,0.70], elL:-1.60, shR:[-0.45,-0.15,-0.55], elR:-1.55})),
+        F(0.75, Object.assign({}, S('rogue'), {e:'settle',
+          waist:[0.08,0.05,0], shL:[-0.60,0.15,0.70], elL:-1.60, shR:[-0.45,-0.15,-0.55], elR:-1.55})),
+        F(1.00, S('rogue'))
+      ],
+
       ult:[     // 影の乱舞: coil low, then explode outward
         F(0.00, Object.assign({}, S('rogue'), {e:'slow', push:-0.10, drop:0.14})),
         F(0.30, {e:'snap', push:0.20, drop:0.20, waist:[ 0.42,-0.55, 0.14], shL:[-1.25, 0.20, 0.34], elL:-1.60,
@@ -913,7 +931,7 @@
 
     /* ---------------- MAGE: the staff leads, the body follows ----------- */
     mage: {
-      dur:{basic:0.30, basic2:0.28, skill2:0.50, dash:0.38, retreat:0.34, spin:0.48, ult:0.62, altBasic:0.26, altBasic2:0.30},
+      dur:{basic:0.30, basic2:0.28, skill2:0.50, dash:0.38, retreat:0.34, spin:0.48, ult:0.62, altBasic:0.26, altBasic2:0.30, barrier:0.5},
 
       basic:[   // 杖を引き、まっすぐ突き出す
         F(0.00, Object.assign({}, S('mage'), {e:'slow', push:-0.06})),
@@ -995,6 +1013,15 @@
         F(1.00, S('mage'))
       ],
 
+      // バリア: 杖を立てて護りの姿勢を取り、パリィの窓が終わるまで保持する
+      barrier:[
+        F(0.00, Object.assign({}, S('mage'), {e:'snap',
+          waist:[0.05,0,0], shL:[-0.30,0.20,0.55], elL:-1.30, shR:[-0.20,-0.05,-0.20], elR:-0.55})),
+        F(0.75, Object.assign({}, S('mage'), {e:'settle',
+          waist:[0.05,0,0], shL:[-0.30,0.20,0.55], elL:-1.30, shR:[-0.20,-0.05,-0.20], elR:-0.55})),
+        F(1.00, S('mage'))
+      ],
+
       spin:[    // 魔導旋風: the staff swept in a flat circle overhead
         F(0.00, Object.assign({}, S('mage'), {e:'slow', push:-0.04, drop:0.04})),
         F(0.24, {e:'snap', push:0.06, lift:0.10, waist:[-0.14,-0.55, 0], shL:[-1.05, 0.15, 0.45], elL:-1.10,
@@ -1037,7 +1064,7 @@
        The bow lives in the LEFT hand and the string is pulled by the right,
        which is also where every arrow now leaves from. */
     archer: {
-      dur:{basic:0.30, basic2:0.26, skill2:0.36, dash:0.40, retreat:0.34, spin:0.44, ult:0.85},
+      dur:{basic:0.30, basic2:0.26, skill2:0.36, dash:0.40, retreat:0.34, spin:0.44, ult:0.85, barrier:0.5},
 
       basic:[   // 引き絞りから解き放ち、弓が跳ね返る
         F(0.00, {e:'snap', push:0.06, waist:[0.03, 0.62, 0.00], shL:[-0.85,-0.15,0.35], elL:-0.25, shR:[-0.15,-0.30,-0.90], elR:-1.15, wep:[0.000,1.000,0.000, 0.000,0.000,-1.000], hipL:0.10, hipR:-0.16, kneeL:0.10, kneeR:0.12, draw:1.00, grip:'L'}),
@@ -1049,6 +1076,15 @@
       basic2:[  // 返し矢: a snap shot off a shallower draw
         F(0.00, {e:'snap', push:0.04, waist:[0.03, 0.62, 0.00], shL:[-0.85,-0.15,0.35], elL:-0.25, shR:[-0.15,-0.30,-0.90], elR:-2.10, wep:[0.000,1.000,0.000, 0.000,0.000,-1.000], hipL:0.06, hipR:-0.12, kneeL:0.10, kneeR:0.08, draw:0.82, grip:'L'}),
         F(0.20, {e:'settle', push:-0.08, waist:[0.01, 0.46, 0.00], shL:[-0.88,-0.18,0.32], elL:-0.20, shR:[-0.02,-0.08,-1.12], elR:-0.70, wep:[0.000,1.000,0.000, 0.000,0.000,-1.000], hipL:0.06, hipR:-0.12, kneeL:0.10, kneeR:0.08, draw:0.00, grip:'L'}),
+        F(1.00, S('archer'))
+      ],
+
+      // バリア: 弓を体の前に構えて盾のように掲げ、パリィの窓が終わるまで保持する
+      barrier:[
+        F(0.00, Object.assign({}, S('archer'), {e:'snap',
+          waist:[0.05,0.10,0], shL:[-0.35,-0.05,0.55], elL:-1.10, shR:[-0.25,0.10,-0.50], elR:-1.00})),
+        F(0.75, Object.assign({}, S('archer'), {e:'settle',
+          waist:[0.05,0.10,0], shL:[-0.35,-0.05,0.55], elL:-1.10, shR:[-0.25,0.10,-0.50], elR:-1.00})),
         F(1.00, S('archer'))
       ],
 

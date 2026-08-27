@@ -104,6 +104,7 @@
     state.personality = selectedPersonality;
     state.cautiousTimer = 0; state.killStreak = 0; state.killStreakT = 0; state.justDodgedT = 0; state.dodgeAttackWindowT = 0;
     state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0;
+    state.barrierActive = false; state.barrierT = 0; state.barrierParryCD = 0;
     state.comboStage = 0; state.comboCount = 0; state.comboWindowT = 0; state.jumpAttacking = false; state.jumpAttackCD = 0;
 
     state.equipLevel = data.equipLevel || 0;

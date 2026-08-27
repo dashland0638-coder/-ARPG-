@@ -1603,8 +1603,23 @@
      このファイル内の被ダメ判定5箇所(通常敵の攻撃・ボス共通ヒット
      ヘルパー・突進・フェイズ移行バースト、および13-update-loop.jsの
      敵弾)それぞれから、無敵で素通りした分岐に対になる形で呼ぶ。
+
+     バリア(パリィしてHP吸収、新スキル)も同じ「無敵で素通りした」
+     検出に相乗りする。ドッジとバリアは同時に成立し得ない排他状態
+     (どちらも移動/他行動をロックする)なので、1つの関数に同居させても
+     二重発火の心配はない。
   ========================================================= */
   function tryPerfectDodge(){
+    if(state.barrierActive && state.barrierParryCD<=0){
+      state.barrierParryCD = 0.35;   // 同じ1回のバリア中に多重発火しないためのクールダウン
+      const healAmt = Math.max(1, Math.round(state.maxHp * (state.barrierHealFrac||0.12)));
+      state.hp = Math.min(state.maxHp, state.hp + healAmt);
+      spawnDamagePopup(state.pos.clone(), healAmt, true, false, false);
+      hitStop(0.05);
+      addShake(0.06);
+      sfx('perfectDodge');
+      spawnToast(`🛡️ パリィ成功! HP+${healAmt}`, '#7ecbe8');
+    }
     if(!state.dodging || state.perfectDodgeCD > 0) return;
     // 同じ1回のロール中に複数の判定ソースへ多重発火しないための
     // 短いクールダウン(例: 突進の距離判定は毎フレーム再評価される)
