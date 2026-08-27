@@ -1901,6 +1901,16 @@
       '「若様に伝えねば。だが、若様もまた、近頃は様子が違う」'
     ], {kind:'note'});
 
+    // 庭の隅、荷物を抱えて振り返る使用人の影。近づくと消える ―― 屋敷を
+    // 去ろうとする使用人たちの残影(洋館の"幻影再生"、中庭ルート編)
+    registerProximityEvent(new THREE.Vector3(cx+10,0,cz-10), 6, '???', ()=>{
+      spawnApparition(new THREE.Vector3(cx+8,0,cz-8), {vanishDist:5.5, color:0x2a3a26, facing:Math.PI*0.75});
+      return [
+        '庭の隅、荷物を抱えて屋敷を振り返る影がある。逃げようとしているのか。',
+        '足を止めた瞬間、その姿はもう無かった。'
+      ];
+    });
+
     const courtOut = buildStairs(new THREE.Vector3(cx,0,cz-14), new THREE.Vector3(100,0,99), '大広間へ向かった……', 0x2a3a24, 'up');
     courtOut.routeNode = 'greathall';
 
@@ -2259,6 +2269,16 @@
       '引き返すなら、今のうちだ。'
     ]);
 
+    // 地下室の奥、跪いて祈るように佇む影。近づくと消える ―― まだ呪術に
+    // 手を染める前、ただ喪に服していた頃の残影(洋館の"幻影再生"、地下ルート編)
+    registerProximityEvent(new THREE.Vector3(cx,0,cz+4), 6, '???', ()=>{
+      spawnApparition(new THREE.Vector3(cx,0,cz+2), {vanishDist:5.5, color:0x2a2028});
+      return [
+        '地下室の奥、誰かが跪いて祈るように佇んでいる。',
+        '近づくと、その姿は闇に溶けるように消えていた。'
+      ];
+    });
+
     // damp green torch-light and a few stone pillars for atmosphere
     [[cx-7,cz-7],[cx+7,cz-7],[cx-7,cz+7],[cx+7,cz+7]].forEach(([x,z])=>{
       const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.6,3.2,8), wallMat);
@@ -2382,6 +2402,17 @@
       '扉の向こうから、紙をめくる音がかすかに聞こえる。',
       '誰かが、今もまだ書き続けているようだ。'
     ]);
+
+    // 書斎の隅、机に向かって書き続ける影。近づくと消える ―― 弟を
+    // 治す術を探し始めた頃、まだ後戻りできた頃の残影(洋館の"幻影再生"、
+    // 書斎ルート編)
+    registerProximityEvent(new THREE.Vector3(cx-3,0,cz+2), 6, '???', ()=>{
+      spawnApparition(new THREE.Vector3(cx-5,0,cz), {vanishDist:5.5, color:0x3a2c1c});
+      return [
+        '書斎の隅、机に向かって書き続ける影がある。',
+        '近づくと、羽ペンの音だけを残して消えていた。'
+      ];
+    });
 
     // bookshelves lining the wall (skipping the doorway itself)
     const shelfMat = new THREE.MeshStandardMaterial({color:0x2a1c10, roughness:0.75});

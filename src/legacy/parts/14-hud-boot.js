@@ -890,6 +890,7 @@
     state.dialogueKind = null;
     state.dialogueLines = [
       'ようやく、噂に聞いていた街に辿り着いた。',
+      '道中、老いた旅人からこんな話を聞いた。「この土地では、あまりに強い想いは、死してなお消えず、居座り続けるのだ」と。',
       'まずは酒場で情報を集めるとしよう。'
     ];
     state.dialogueIndex = 0;
