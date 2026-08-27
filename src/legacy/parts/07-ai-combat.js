@@ -22,8 +22,11 @@
     { name:'双牙の追跡者', pos:[-100,-38],
       variant:{color:0xd05a8a, hp:280, atk:38, speed:3.2, atkType:'charge', xp:115,
                goldBonus:[23,35], strongMob:true} },
+    // 敵デザイン強化#21: 五連戦の最終ラウンドだけでも突進/据え置きの
+    // 型から外し、引き撃ち(kite)にして「詰めるか押し切られるか」の
+    // 駆け引きで締める
     { name:'水路の副主',   pos:[-100,-42],
-      variant:{color:0x7a3ac0, hp:520, atk:42, speed:2.2, atkType:'fire',   xp:150,
+      variant:{color:0x7a3ac0, hp:520, atk:42, speed:2.2, atkType:'kite',   xp:150,
                goldBonus:[30,46], projColor:0xc06ae0, isElectric:true, strongMob:true} },
   ];
   const GAUNTLET_ARENA = {x:-100, z:-45, radius:14};
@@ -133,7 +136,9 @@
       {pos:new THREE.Vector3(-32,0,105),  variant:{color:0x4a6a8a, hp:95, atk:20, speed:2.5, atkType:'charge', xp:33, goldBonus:[11,17]}},
       {pos:new THREE.Vector3(-24,0,120),  variant:{color:0x6a8ab5, hp:80, atk:18, speed:0.7, atkType:'fire', xp:34, goldBonus:[11,17], projColor:0x7ecbe8}},
       // waterway underground - electric-themed enemies (fire-type behavior, cyan/purple color)
-      {pos:new THREE.Vector3(-106,0,6),   variant:{color:0x4ac8b8, hp:149, atk:30, speed:0.8, atkType:'fire', xp:61, goldBonus:[11,17], projColor:0x9a6ae0, isElectric:true}},
+      // 引き撃ち(kite、敵デザイン強化#21): 感電の術士。細い水路で距離を
+      // 保ちながら電撃を撃ってくるため、直進で詰めるだけでは押し切れない
+      {pos:new THREE.Vector3(-106,0,6),   variant:{color:0x4ac8b8, hp:149, atk:30, speed:0.8, atkType:'kite', xp:61, goldBonus:[11,17], projColor:0x9a6ae0, isElectric:true}},
       {pos:new THREE.Vector3(-94,0,17),   variant:{color:0x8a5ad0, hp:158, atk:32, speed:2.6, atkType:'charge', xp:63, goldBonus:[11,17], isElectric:true}},
       {pos:new THREE.Vector3(-120,0,-15), variant:{color:0x4ac8b8, hp:166, atk:34, speed:0.8, atkType:'fire', xp:66, goldBonus:[12,18], projColor:0x9a6ae0, isElectric:true}},
       {pos:new THREE.Vector3(-110,0,-26), variant:{color:0x6a5ad0, hp:192, atk:37, speed:2.7, atkType:'charge', xp:72, goldBonus:[13,19], isElectric:true, strongMob:true, guardian:true}},
@@ -190,7 +195,9 @@
       {pos:new THREE.Vector3(-352,0,-74), variant:{color:0x8a7a4a, hp:125, atk:26, speed:2.5, atkType:'charge', xp:56, goldBonus:[16,24], roomTag:'towerHouse1'}},
       {pos:new THREE.Vector3(-330,0,-74), variant:{color:0x8a7a4a, hp:125, atk:26, speed:2.5, atkType:'charge', xp:56, goldBonus:[16,24], roomTag:'towerHouse1'}},
       {pos:new THREE.Vector3(-341,0,-81), variant:{color:0x9a5a3a, hp:215, atk:32, speed:2.3, atkType:'charge', xp:96, goldBonus:[26,38], strongMob:true, roomTag:'towerHouse1'}},
-      {pos:new THREE.Vector3(-286,9,-50), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'charge', xp:58, goldBonus:[17,25]}},
+      // 跳躍(jumper、敵デザイン強化#21): 歯車の足場を飛び移る絡繰り兵。
+      // 塔の階層構造(足場が飛び飛びの構造)に一番合う動きとして採用
+      {pos:new THREE.Vector3(-286,9,-50), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'jumper', xp:58, goldBonus:[17,25]}},
       {pos:new THREE.Vector3(-244,9,-60), variant:{color:0x6a8a9a, hp:118, atk:30, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
       {pos:new THREE.Vector3(-212,9,-40), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'charge', xp:58, goldBonus:[17,25]}},
       {pos:new THREE.Vector3(-232,9,-16), variant:{color:0x9a5a3a, hp:225, atk:34, speed:2.4, atkType:'charge', xp:102, goldBonus:[28,40], strongMob:true, guardian:true}},
@@ -1424,8 +1431,12 @@
     dir.normalize();
 
     if(en.key==='mansionBoss'){
-      // charge from range - closes the gap and punishes standing still
-      if(dist > 5 && dist < 26){
+      // ボスAI強化(#21): これまで突進(charge)一辺倒で、密着され続けると
+      // 特殊行動を一切出せない=単調、という弱点があった。他ボスと同じ
+      // 「距離帯で使い分ける2択+瀕死時の身構え」構成に揃える
+      en.specialIdx = ((en.specialIdx||0) + 1) % 2;
+      if(en.specialIdx===0 && dist > 5 && dist < 26){
+        // 距離を詰める突進(予兆レーン表示つき)
         en.special='charge'; en.specialPhase='wind';
         en.windDur = 1.15;                 // long enough to actually react to
         en.specialT = en.windDur;
@@ -1443,6 +1454,19 @@
         lane.position.set(mid.x, 0.2, mid.z);
         scene.add(lane);
         en.chargeLane = lane;
+        return true;
+      }
+      if(en.specialIdx===1 && dist < 8){
+        // 近距離用の薙ぎ払い。突進の間合い(5以上)より内側に潜り込まれた
+        // 時に出せる技が無かったため新設
+        startArcSweep(en, {wind:0.75, dmg:Math.round(en.atk*1.15), radius:6.5, halfAngle:1.1, color:0xff3a2a});
+        spawnToast('⚠️ 館の主が腕を振りかぶった――薙ぎ払いが来る!');
+        return true;
+      }
+      if(hpRatio <= 0.35){
+        // 瀕死になると一度身を固めて防御し、直後に強い一撃で返す
+        en.special='guard'; en.specialT = 2.2; en.guardT = 2.2;
+        spawnToast('🕯️ 館の主が身を固めた……!');
         return true;
       }
       en.specialCD = 2;
