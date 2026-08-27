@@ -10,6 +10,11 @@
   const WATERWAY_PIER_ENTRY = new THREE.Vector3(-105,0,40);
   const WATERWAY_UNDERGROUND_ENTRY = new THREE.Vector3(-100,0,10);
 
+  // 「山を登る」拡張の第2弾(洋館の試験導入を踏襲)。幽霊船は「登る」より
+  // 「潜る」が似合うので、船倉のさらに深部という形にした。踏破の仕組みは
+  // 洋館の屋根裏と同じ: 主(船長)を倒した後だけ現れる階段+gateTag
+  const GHOSTSHIP_DEPTHS_STARS = 4;
+
   /* =========================================================
      WATERWAY: PIER + RESTROOM (surface) -> falls asleep in the
      leftmost stall -> wakes in the underground waterway
@@ -310,6 +315,56 @@
     ], {kind:'book'});
 
     buildStairs(new THREE.Vector3(-32,0,102), new THREE.Vector3(36,0,124), '貨物室へ戻った……', 0x3a2818, 'up');
+
+    // 周回★4以上でのみ、船長を倒した後に北壁の先へ続く階段が現れる
+    // (gateTagは撃破前ずっとnull=階段自体が現れないので、ここでは
+    // 「船長を倒した後だけ」を素直にgateTagで表現できる)
+    if(scenarioStars('ghostship') >= GHOSTSHIP_DEPTHS_STARS){
+      buildStairs(new THREE.Vector3(-32,0,126), new THREE.Vector3(-32,0,145),
+        '船倉のさらに奥へ下りた……', 0x1a2430, 'down', 'ghostCaptain');
+      buildGhostShipDepths();
+    }
+  }
+
+  // 船長の間のさらに奥、周回★4で開く行き止まり拡張(洋館の屋根裏に相当)。
+  // 座標はworldKeyForPos()の'ghostship'帯(x:-46〜42, z>28)の中で、
+  // 既存のどの区画とも重ならない北側の空き地(z>128)を選んである
+  function buildGhostShipDepths(){
+    const cx = -32, cz = 145;
+    const wallMat = new THREE.MeshStandardMaterial({color:0x141820, roughness:0.9});
+    const floorTex = makePlankTexture('#1c2430', 5, 5, 6);
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.95});
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20,18), floorMat);
+    floor.rotation.x = -Math.PI/2;
+    floor.position.set(cx, 0.08, cz);
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    addWallBox(cx, cz-9, 20.8, 0.6, wallMat);
+    addWallBox(cx, cz+9, 20.8, 0.6, wallMat);
+    addWallBox(cx-10, cz, 0.6, 18, wallMat);
+    addWallBox(cx+10, cz, 0.6, 18, wallMat);
+
+    // 浸水した最深部。割れた竜骨の残骸が積み上がっている
+    const wreckMat = new THREE.MeshStandardMaterial({color:0x2a2018, roughness:0.85});
+    [[-5,-3],[5,2],[0,4]].forEach(([x,z],i)=>{
+      const wreck = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.8+i*0.3,1.6), wreckMat);
+      wreck.position.set(cx+x, (0.8+i*0.3)/2, cz+z);
+      wreck.rotation.y = Math.random();
+      wreck.castShadow = true; wreck.receiveShadow = true;
+      scene.add(wreck);
+    });
+    const glow = new THREE.PointLight(0x4a8ab0, 0.8, 16);
+    glow.position.set(cx, 3, cz);
+    scene.add(glow);
+
+    buildStairs(new THREE.Vector3(cx,0,cz-7), new THREE.Vector3(-32,0,124), '船長の間へ戻った……', 0x1a2430, 'up');
+
+    registerProximityEvent(new THREE.Vector3(cx,0,cz+3), 5, '???', [
+      '船長がここまで沈むのを拒み続けた理由が、積荷の奥に眠っている。',
+      'ここまで潜ってきた甲斐は、あったようだ。'
+    ]);
   }
 
   /* =========================================================

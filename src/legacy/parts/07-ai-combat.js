@@ -254,15 +254,28 @@
       enemies.push(buildEnemy(new THREE.Vector3(168,0,-36),
         {color:0x6a3a8a, hp:180, atk:31, speed:0.9, atkType:'fire', xp:64, goldBonus:[19,28], projColor:0xd8b0ff}));
     }
+    // 幽霊船「山を登る」拡張(★4): 船倉最深部。buildGhostShipDepths()が
+    // 同じ★条件でしか部屋を建てないので、こちらも床のない場所に敵だけ
+    // 浮く事故は起きない
+    if(_spawnWorldKey==='ghostship' && scenarioStars('ghostship') >= GHOSTSHIP_DEPTHS_STARS){
+      enemies.push(buildEnemy(new THREE.Vector3(-38,0,140),
+        {color:0x3a5568, hp:220, atk:34, speed:2.6, atkType:'charge', xp:70, goldBonus:[20,30], strongMob:true, guardian:true}));
+      enemies.push(buildEnemy(new THREE.Vector3(-26,0,152),
+        {color:0x4a6a8a, hp:160, atk:29, speed:0.8, atkType:'fire', xp:62, goldBonus:[18,26], projColor:0x7ecbe8}));
+    }
     // 屋根裏へは主を倒した後にしか上れない(buildStairsのgateTag参照)。
     // ★4未満はgateTagがそもそも付かず、階段自体もbuildMansion側で建てない
     if(_spawnWorldKey==='mansion') enemies.push(buildBoss(new THREE.Vector3(0,0,-56),
       scenarioStars('mansion') >= MANSION_ATTIC_STARS
         ? {gateTag:'mansionBoss', endsRun:false}
         : {}));
+    // 幽霊船も洋館と同じ「山を登る」拡張(★4以上): 撃破後に船倉の最深部への
+    // 階段が現れる(gateTag、buildGhostShipBossHold側で階段自体を建てる)
     if(_spawnWorldKey==='ghostship') enemies.push(buildBoss(new THREE.Vector3(-32,0,120), {
       key:'ghostCaptain', bossDoorKey:'bossHoldDoor', bodyColor:0x3a5568, emissive:0x1a3a4a, eyeColor:0x7ecbe8, auraColor:0x4a8ab0,
       hpMax:820, atk:40, speed:1.95, xp:340,
+      gateTag: scenarioStars('ghostship') >= GHOSTSHIP_DEPTHS_STARS ? 'ghostCaptain' : null,
+      endsRun: scenarioStars('ghostship') < GHOSTSHIP_DEPTHS_STARS,
       dialogueName:'亡霊船長',
       ambushDialogueLines:[
         '……おのれ、無礼な客人だ!礼儀も知らんのか!',

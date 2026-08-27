@@ -492,6 +492,8 @@
       [new THREE.Vector3(0,0,48)],                        // crew quarters
       [new THREE.Vector3(-13.5,0,40), 'supply'],          // brig dead end
       [new THREE.Vector3(-38,0,107),  'supply'],          // the room before the captain
+      ...(scenarioStars('ghostship') >= GHOSTSHIP_DEPTHS_STARS
+        ? [[new THREE.Vector3(-32,0,150), 'armoury']] : []), // 船倉最深部(周回★4+)
       [new THREE.Vector3(-108,0,20)],                     // waterway underground
       [new THREE.Vector3(-108,0,-28), 'armoury'],         // pump room dead end
       [new THREE.Vector3(-124,0,-86), 'supply'],          // drowned cistern, before the descent
