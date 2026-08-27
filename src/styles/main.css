@@ -1087,3 +1087,12 @@
     position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
     background:#0c0a10; color:var(--text-dim); font-size:13px; letter-spacing:0.1em;
   }
+
+  /* ゲームパッドのメニュー操作(#25): 現在フォーカス中の項目を示す枠。
+     実DOM focus(:focus)は使わず専用クラスで管理しているので、
+     .selected/.activeなど他の状態クラスと重なっても衝突しない */
+  .gp-focused{
+    outline:2px solid var(--ember-bright) !important;
+    outline-offset:2px;
+    box-shadow:0 0 10px var(--ember-bright) !important;
+  }

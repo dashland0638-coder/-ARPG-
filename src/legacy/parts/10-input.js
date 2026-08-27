@@ -197,6 +197,116 @@
     setOverlay('menu');
   }
 
+  /* =========================================================
+     ゲームパッドのメニュー操作(#25)
+     これまでゲームパッドはワールド移動と一部のD-pad開閉トグルにしか
+     対応しておらず、メニュー/シナリオ選択/鑑定所などの画面内では
+     何も選べなかった。実DOMのfocus()には寄せず(PCでゲームパッドを
+     挿したままだとクリックが暴発する既存の対策=クリック後に
+     activeElementをblurする仕組みと衝突するため)、専用の
+     .gp-focusedクラスで「今選んでいる項目」だけを管理する。
+     D-pad/左スティックで移動、A(0)で決定=クリック、B(1)で戻る。
+     どのオーバーレイも開いていない(=ゲームプレイ中)場合はnullを
+     返す。呼び出し元は14-hud-boot.jsのanimate()で、state.pausedまたは
+     state.dialogueActiveの間だけ毎フレーム呼ばれる(通常のゲームプレイ中は
+     そもそもこのブロック自体が実行されないので、既存のジャンプ/回避等の
+     ゲームパッド操作と衝突しない)。
+  ========================================================= */
+  const GP_NAV_SELECTOR = 'button:not([disabled]), .class-card, .gender-card, .personality-card, .ap-tab, .menu-btn';
+
+  function gpNavContext(){
+    if(document.getElementById('confirm-overlay').classList.contains('active')) return document.getElementById('confirm-overlay');
+    if(document.getElementById('clear-overlay').classList.contains('active')) return document.getElementById('clear-overlay');
+    if(document.getElementById('down-overlay').classList.contains('active')) return document.getElementById('down-overlay');
+    if(state.activeOverlay==='menu') return document.getElementById('menu-overlay');
+    if(state.activeOverlay==='appraisal') return document.getElementById('appraisal-overlay');
+    if(state.activeOverlay==='scenario') return document.getElementById('scenario-overlay');
+    return null;
+  }
+
+  function gpNavItems(container){
+    return Array.from(container.querySelectorAll(GP_NAV_SELECTOR))
+      .filter(el => el.offsetParent !== null && !el.disabled);
+  }
+
+  function gpNavClearHighlight(){
+    document.querySelectorAll('.gp-focused').forEach(el=> el.classList.remove('gp-focused'));
+  }
+
+  let gpNavIndex = 0, gpNavContainerEl = null, gpNavStickCD = 0;
+
+  // 画面が切り替わった/初めて開いた瞬間にも、操作前からどこかに
+  // ハイライトが出ているようにする(でないと「どこを触れば良いか
+  // わからない」状態になる)
+  function gpNavEnsureHighlight(container){
+    const items = gpNavItems(container);
+    if(!items.length) return;
+    if(container !== gpNavContainerEl){ gpNavContainerEl = container; gpNavIndex = 0; }
+    gpNavIndex = Math.min(gpNavIndex, items.length-1);
+    if(!container.querySelector('.gp-focused')){
+      gpNavClearHighlight();
+      items[gpNavIndex].classList.add('gp-focused');
+    }
+  }
+
+  function gpNavMove(dir){
+    const container = gpNavContext();
+    if(!container) return;
+    const items = gpNavItems(container);
+    if(!items.length) return;
+    if(container !== gpNavContainerEl) gpNavContainerEl = container;
+    gpNavIndex = ((gpNavIndex + dir) % items.length + items.length) % items.length;
+    gpNavClearHighlight();
+    const el = items[gpNavIndex];
+    el.classList.add('gp-focused');
+    el.scrollIntoView({block:'nearest'});
+  }
+
+  function gpNavConfirm(){
+    const container = gpNavContext();
+    if(!container) return;
+    const items = gpNavItems(container);
+    if(!items.length) return;
+    items[Math.min(gpNavIndex, items.length-1)].click();
+  }
+
+  function gpNavCancel(){
+    if(document.getElementById('confirm-overlay').classList.contains('active')){ sfx('ui'); closeConfirm(false); return; }
+    // クリア/戦闘不能の結果画面には「戻る」概念が無いので何もしない
+    if(document.getElementById('clear-overlay').classList.contains('active')) return;
+    if(document.getElementById('down-overlay').classList.contains('active')) return;
+    if(state.activeOverlay !== 'none'){ setOverlay('none'); sfx('ui'); }
+  }
+
+  // 14-hud-boot.jsのanimate()から、state.paused中とstate.dialogueActive中の
+  // それぞれで毎フレーム呼ばれる。D-pad/左スティック/A/Bを丸ごとここで
+  // 処理する。クリア/戦闘不能画面はdialogueActive=trueかつ専用オーバーレイが
+  // 開いている状態なので、gpNavContext()が拾って選択肢のナビゲーションに
+  // 回す(旧実装はA=常にclear-return-btnを叩いていたため、「探索を続ける」
+  // ボタンが出ている周回中クリアで押し間違えると強制的に街へ戻ってしまう
+  // 不具合があった)。選択肢の無い素の会話文だけは、コンテナが無い
+  // (=gpNavContext()がnullを返す)ので、A=advanceDialogueにフォールバックする
+  function updateGamepadMenuNav(gp, dt){
+    gpNavStickCD = Math.max(0, gpNavStickCD - dt);
+    const container = gpNavContext();
+    if(!container){
+      if(state.dialogueActive && btnPressed(gp,0)) advanceDialogue();
+      return;
+    }
+    gpNavEnsureHighlight(container);
+    let dir = 0;
+    if(btnPressed(gp,12) || btnPressed(gp,14)) dir = -1;   // D-pad 上/左
+    if(btnPressed(gp,13) || btnPressed(gp,15)) dir = 1;    // D-pad 下/右
+    if(dir===0 && gpNavStickCD<=0){
+      const ax0 = gp.axes[0]||0, ax1 = gp.axes[1]||0;
+      if(ax1 < -0.5 || ax0 < -0.5){ dir = -1; gpNavStickCD = 0.22; }
+      else if(ax1 > 0.5 || ax0 > 0.5){ dir = 1; gpNavStickCD = 0.22; }
+    }
+    if(dir !== 0) gpNavMove(dir);
+    if(btnPressed(gp,0)) gpNavConfirm();
+    if(btnPressed(gp,1)) gpNavCancel();
+  }
+
   function refreshMenuStats(){
     document.getElementById('menu-name').textContent = state.name;
     document.getElementById('menu-class').textContent = `${state.classDef.name} (Lv.${state.level})`;

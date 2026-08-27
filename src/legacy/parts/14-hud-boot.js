@@ -754,27 +754,26 @@
       hideMobBars();
       clearMovementInput(false); wasPlayable = false;   // never leave the stick held
       // controller support for reading dialogue/lore notes and the clear/down screens
+      // (#25: クリア/戦闘不能画面はボス報酬選択・ステータス振り分け・
+      // 「探索を続ける」等の選択肢を持つため、単なるA=決定固定ではなく
+      // gpNavで項目移動できるようにしてある。updateGamepadMenuNav()参照)
       const gp = pollGamepad();
-      if(gp && btnPressed(gp,0)){ // A / Cross confirms/advances
-        if(document.getElementById('clear-overlay').classList.contains('active')){
-          document.getElementById('clear-return-btn').click();
-        } else if(document.getElementById('down-overlay').classList.contains('active')){
-          document.getElementById('down-return-btn').click();
-        } else {
-          advanceDialogue();
-        }
-      }
+      if(gp) updateGamepadMenuNav(gp, dt);
     } else if(state.started && state.paused){
       hideMobBars();
       clearMovementInput(false); wasPlayable = false;
       const gp = pollGamepad();
-      if(gp && (btnPressed(gp,9) || btnPressed(gp,8))){
-        // Start/Select closes whichever menu screen is currently open
-        if(state.activeOverlay==='menu') toggleMenu();
-        else if(state.activeOverlay==='appraisal') toggleAppraisal();
-        else if(state.activeOverlay==='scenario') toggleScenarioSelect();
+      if(gp){
+        if(btnPressed(gp,9) || btnPressed(gp,8)){
+          // Start/Select closes whichever menu screen is currently open
+          if(state.activeOverlay==='menu') toggleMenu();
+          else if(state.activeOverlay==='appraisal') toggleAppraisal();
+          else if(state.activeOverlay==='scenario') toggleScenarioSelect();
+        }
+        // #25: D-pad/左スティックで項目移動、Aで決定、Bで戻る
+        // (confirm-overlayが開いている時はBがそちらのキャンセルを優先する)
+        updateGamepadMenuNav(gp, dt);
       }
-      if(gp && btnPressed(gp,1)) setOverlay('none'); // B / Circle always backs out
     }
     renderScene();
   }
