@@ -54,7 +54,10 @@
     updateChargeHold(dt);
     updateMageOrbs(dt);
     updatePlatforms(dt);
-    if(Math.abs(camRot)>0.01){ state.camYaw += camRot * 1.9 * dt; }
+    // ボス戦ロックオン中は手動回転を無視する(updateCamera側が
+    // camYawを自動で操作するため、Q/E・タッチ・右スティックが
+    // 割り込むと綱引きになって毎フレーム震える)
+    if(Math.abs(camRot)>0.01 && !findLockOnBoss()){ state.camYaw += camRot * 1.9 * dt; }
 
     ix = Math.max(-1,Math.min(1,ix));
     iy = Math.max(-1,Math.min(1,iy));
@@ -1358,6 +1361,33 @@
     );
   }
 
+  /* =========================================================
+     BOSS LOCK-ON CAMERA
+     Trigger済みの生存ボスが射程内にいる間、camYawをボスの正反対側
+     (プレイヤーを挟んでボスが画面奥に見える向き)へ自動で寄せ続け、
+     注視点もプレイヤーとボスの中間へ寄せる。「もっと強いロックオン」
+     を狙っているため、ロック中は手動回転(updateInput側)を完全に
+     無視する ―― 綱引きにせず、カメラを丸ごとシステム任せにする。
+  ========================================================= */
+  const LOCK_ON_RANGE = 40;
+
+  function findLockOnBoss(){
+    let best = null, bestD = LOCK_ON_RANGE;
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      if(!en.isBoss || !en.triggered || en.dead) continue;
+      const d = state.pos.distanceTo(en.group.position);
+      if(d < bestD){ best = en; bestD = d; }
+    }
+    return best;
+  }
+
+  // 角度の最短経路で補間する(単純なlerpだと-πとπの境界で逆回りする)
+  function lerpAngle(a, b, t){
+    let diff = ((b - a + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
+    return a + diff * t;
+  }
+
   function updateCamera(dt){
     if(state.dialogueActive && state.dialogueBoss && !state.dialogueBoss.dead){
       // dramatic close-up on the boss while they're talking
@@ -1368,6 +1398,26 @@
       camera.position.lerp(desiredB, 1-Math.pow(0.00002,dt));
       const lookAtB = bp.clone(); lookAtB.y += 1.6;
       camera.lookAt(lookAtB);
+      return;
+    }
+    const lockBoss = findLockOnBoss();
+    if(lockBoss){
+      const bp = lockBoss.group.position;
+      const dirX = state.pos.x - bp.x, dirZ = state.pos.z - bp.z;
+      // プレイヤーとボスがほぼ重なる一瞬(ゼロベクトル)だけ向き変更を
+      // 飛ばす。それ以外は毎フレーム、ボスの反対側へcamYawを寄せる
+      if(Math.abs(dirX)>0.001 || Math.abs(dirZ)>0.001){
+        const desiredYaw = Math.atan2(dirX, dirZ);
+        state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(0.0006,dt));
+      }
+      const desired = new THREE.Vector3().copy(state.pos).add(getCamOffset());
+      camera.position.lerp(desired, 1-Math.pow(0.001,dt));
+      // 注視点もプレイヤー側だけでなくボス側へ寄せ、画面内に両方収まる
+      // 時間を長くする(「注視点も操作」の要望に対応)
+      const lookAt = state.pos.clone().lerp(bp, 0.3);
+      lookAt.y += 0.6;
+      camera.lookAt(lookAt);
+      camera.position.add(shakeOffset);
       return;
     }
     const desired = new THREE.Vector3().copy(state.pos).add(getCamOffset());
