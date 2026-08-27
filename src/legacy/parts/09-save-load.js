@@ -175,7 +175,7 @@
     try{
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
         v:1, sfxIdx, bgmIdx, shakeIdx, brightIdx, qualityIdx, hitStopIdx, dotIdx, shadowOn,
-        camAutoOn, camInvertOn
+        camAutoOn, camInvertOn, camHeightIdx
       }));
     }catch(err){ console.error('saveSettings failed:', err); }
   }
@@ -197,6 +197,8 @@
     if(typeof data.shadowOn === 'boolean'){ shadowOn = data.shadowOn; }
     if(typeof data.camAutoOn === 'boolean'){ camAutoOn = data.camAutoOn; }
     if(typeof data.camInvertOn === 'boolean'){ camInvertOn = data.camInvertOn; }
+    if(Number.isInteger(data.camHeightIdx) && CAMHEIGHT_STEPS[data.camHeightIdx]){ camHeightIdx = data.camHeightIdx; }
+    applyCamHeightSetting();
     applyShadowSetting();
     applyQualitySetting();
     applyDotSetting();
