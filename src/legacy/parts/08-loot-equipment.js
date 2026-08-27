@@ -506,6 +506,8 @@
       [new THREE.Vector3(-25,0,-186)],                    // temple: 滑石の回廊
       [new THREE.Vector3(100,0,-180)],                    // temple: 星読みの間
       [new THREE.Vector3(140,0,-150), 'armoury'],         // temple: 宝物庫 (branch)
+      ...(scenarioStars('temple') >= TEMPLE_DEPTHS_STARS
+        ? [[new THREE.Vector3(156,0,-118), 'armoury']] : []), // temple: 最深部(周回★4+)
       [new THREE.Vector3(88,0,-114),  'supply'],          // temple: 前室, before the guardian
       [new THREE.Vector3(-316,0,-90), 'armoury'],         // clocktower 1F dead end
       [new THREE.Vector3(-244,9,-12)],                    // clocktower 2F: 錘の保管室

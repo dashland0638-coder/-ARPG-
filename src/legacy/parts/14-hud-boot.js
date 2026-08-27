@@ -298,6 +298,15 @@
     waterway:'埠頭の地下水路', temple:'古代神殿',
     clocktower:'狂いの時計塔', conservatory:'硝子の温室',
   };
+  // 「山を登る」拡張の各部屋(周回★でしか現れず、テーブル駆動の部屋一覧
+  // には乗っていない)にも、迷わないよう固有の場所名を出す。星条件を
+  // 満たすまでは誰もこの座標に立てないので、ここでは無条件でよい
+  const EXTRA_ROOM_NAMES = [
+    {x0:60,  x1:80,  z0:-92,  z1:-73,  name:'地下納骨堂・最奥'},   // 洋館 (周回★3+)
+    {x0:150, x1:180, z0:-56,  z1:-24,  name:'屋根裏の間'},        // 洋館 (周回★4+)
+    {x0:-44, x1:-20, z0:132,  z1:158,  name:'船倉・最深部'},      // 幽霊船 (周回★4+)
+    {x0:152, x1:161, z0:-131, z1:-105, name:'神殿・最深部'},      // 神殿 (周回★4+)
+  ];
   function roomNameAt(x, z){
     const tables = [
       {rooms: typeof TOWER_ROOMS !== 'undefined' ? TOWER_ROOMS : null, floors:true},
@@ -316,6 +325,9 @@
           return r.name;
         }
       }
+    }
+    for(const r of EXTRA_ROOM_NAMES){
+      if(x>=r.x0 && x<=r.x1 && z>=r.z0 && z<=r.z1) return r.name;
     }
     return null;
   }

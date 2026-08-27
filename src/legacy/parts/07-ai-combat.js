@@ -263,6 +263,16 @@
       enemies.push(buildEnemy(new THREE.Vector3(-26,0,152),
         {color:0x4a6a8a, hp:160, atk:29, speed:0.8, atkType:'fire', xp:62, goldBonus:[18,26], projColor:0x7ecbe8}));
     }
+    // 神殿「山を登る」拡張(★4): 最深部。buildTempleDepths()が同じ★条件
+    // でしか部屋を建てないので、こちらも床のない場所に敵だけ浮く事故は
+    // 起きない。部屋の幅が6しかない細い区画なので、2体ともx=156の
+    // 通路上、z方向に離して配置してある
+    if(_spawnWorldKey==='temple' && scenarioStars('temple') >= TEMPLE_DEPTHS_STARS){
+      enemies.push(buildEnemy(new THREE.Vector3(156,0,-124),
+        {color:0xc9a44a, hp:320, atk:56, speed:2.5, atkType:'charge', xp:130, goldBonus:[30,44], strongMob:true, guardian:true}));
+      enemies.push(buildEnemy(new THREE.Vector3(156,0,-111),
+        {color:0xe0b860, hp:260, atk:52, speed:1.9, atkType:'fire', xp:118, goldBonus:[27,40], projColor:0xffd24a}));
+    }
     // 屋根裏へは主を倒した後にしか上れない(buildStairsのgateTag参照)。
     // ★4未満はgateTagがそもそも付かず、階段自体もbuildMansion側で建てない
     if(_spawnWorldKey==='mansion') enemies.push(buildBoss(new THREE.Vector3(0,0,-56),
@@ -296,9 +306,13 @@
       rewardLoot:{type:'gem', name:'海神の涙(欠片)', icon:'💎', color:0x7ecbe8}
     }));
 
+    // 神殿も同じ「山を登る」拡張(★4): 撃破後に守り手の間の東側の
+    // 未使用区画への階段が現れる(gateTag、buildTemple側で階段を建てる)
     if(_spawnWorldKey==='temple') enemies.push(buildBoss(new THREE.Vector3(126,0,-118), {
       key:'templeGuardian', bodyColor:0xc9a44a, emissive:0x8a6a1a, eyeColor:0xfff0a0, auraColor:0xffd24a,
       hpMax:1150, atk:50, speed:1.7, xp:520,
+      gateTag: scenarioStars('temple') >= TEMPLE_DEPTHS_STARS ? 'templeGuardian' : null,
+      endsRun: scenarioStars('temple') < TEMPLE_DEPTHS_STARS,
       dialogueName:'神殿の守り手',
       ambushDialogueLines:[
         '……眠りを妨げるばかりか、不意を打つとは。',

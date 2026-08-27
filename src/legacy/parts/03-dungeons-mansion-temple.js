@@ -108,6 +108,7 @@
      クリア回数がそのまま基準になる(既存のdifficultyFor()と同じ物差し)。 */
   const MANSION_CRYPT_DEPTHS_STARS = 3;  // 地下納骨堂の最奥が開く周回★
   const MANSION_ATTIC_STARS = 4;         // 主を倒した先、屋根裏が開く周回★
+  const TEMPLE_DEPTHS_STARS = 4;         // 守り手の間の奥、神殿の最深部が開く周回★(第3弾)
 
   /* ---- ルートグラフのランタイム ----
      グラフを持たないシナリオでは全ての問い合わせが素通しになるので、
@@ -1356,6 +1357,51 @@
       '「次の者が来るまで、その務めは終わらない」',
       '碑の前に、真新しい荷袋が置かれている。中身は、まだ乾いていない。'
     ], {kind:'sign', wall:true, facing:-Math.PI/2});
+
+    // 周回★4以上でのみ、守り手を倒した後に東壁の先へ続く階段が現れる。
+    // TEMPLE_ROOMSはテーブル駆動で全部屋の壁を一括生成するため、洋館の
+    // ように壁そのものを条件分岐させるのではなく、既存の壁はそのままに
+    // (bossの東側は元々gaps未指定=完全な壁)、内側から階段でテレポート
+    // する形にした(worldKeyForPos()の'temple'帯 x<160に収まる、
+    // vault/bossの東側の未使用の細い隙間 x:153〜159 を使う)
+    if(scenarioStars('temple') >= TEMPLE_DEPTHS_STARS){
+      buildStairs(new THREE.Vector3(149,0,-118), new THREE.Vector3(156,0,-122),
+        '神殿の最深部へ下りた……', 0x3a3020, 'down', 'templeGuardian');
+      buildTempleDepths();
+    }
+  }
+
+  // 守り手の間のさらに奥、周回★4で開く拡張(洋館の屋根裏・幽霊船の
+  // 最深部と同じ位置づけ)。vault/boss両部屋の東壁(x=152)のすぐ外、
+  // x:153〜159 の未使用の細い区画を使う(x<160を超えるとconservatory
+  // 判定に食われるため、この幅に収めてある)
+  function buildTempleDepths(){
+    const cx = 156, cz = -118;
+    const wallMat = new THREE.MeshStandardMaterial({color:0x4a4335, roughness:0.9});
+    const floorTex = makeStoneTileTexture('#6a5f48', '#3e3626', '#8a7a4e', 3, 0.14, 0.14, {bump:0.08});
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(6,22), floorMat);
+    floor.rotation.x = -Math.PI/2;
+    floor.position.set(cx, 0.08, cz);
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    addWallBox(cx, cz-11, 6.6, 0.6, wallMat);
+    addWallBox(cx, cz+11, 6.6, 0.6, wallMat);
+    addWallBox(cx-3, cz, 0.6, 22, wallMat);
+    addWallBox(cx+3, cz, 0.6, 22, wallMat);
+
+    const glow = new THREE.PointLight(0xffd24a, 0.8, 14);
+    glow.position.set(cx, 3, cz);
+    scene.add(glow);
+
+    buildStairs(new THREE.Vector3(cx,0,cz+8), new THREE.Vector3(149,0,-114), '守り手の間へ戻った……', 0x3a3020, 'up');
+
+    registerProximityEvent(new THREE.Vector3(cx,0,cz-5), 4, '???', [
+      '守り手が何を守っていたのか、その本当の答えがここに眠っている。',
+      'ここまで踏み込んできた甲斐は、あったようだ。'
+    ]);
   }
 
   function buildTavern(){
