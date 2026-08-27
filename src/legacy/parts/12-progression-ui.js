@@ -451,6 +451,15 @@
     dodge1:{name:'俊敏の心得', icon:'🌬️', cost:1, requires:['root'], effect:{type:'staminaCostMul', value:-0.10}, desc:'スタミナ消費-10%'},
     dodge2:{name:'残影の一歩', icon:'👤', cost:2, requires:['dodge1'], effect:{type:'dodgeInvulnSphereMul', value:0.10}, desc:'回避の無敵時間+10%'},
     dodge3:{name:'疾風', icon:'💨', cost:3, requires:['dodge2'], effect:{type:'atkCooldownMul', value:-0.05}, desc:'攻撃間隔-5%'},
+    // ---- 拡張(第2弾): 「スキル」「必殺」の2系統を追加。design docの
+    // 「攻撃・回避・スキル・MP・必殺」構想のうち残り2本にあたる。
+    // 既存の攻撃/俊敏と同じ3段構成にして見た目・難易度感を揃えてある
+    skill1:{name:'見切りの経験', icon:'🧭', cost:1, requires:['root'], effect:{type:'skillCDMul', value:-0.08}, desc:'スキルの再使用時間-8%'},
+    skill2:{name:'反射の極意', icon:'💠', cost:2, requires:['skill1'], effect:{type:'barrierHealSphereMul', value:0.15}, desc:'バリアのHP吸収量+15%'},
+    skill3:{name:'澄んだ集中', icon:'🌊', cost:3, requires:['skill2'], effect:{type:'atkCooldownMul', value:-0.05}, desc:'攻撃間隔-5%'},
+    ult1:  {name:'力の奔流', icon:'🔥', cost:1, requires:['root'], effect:{type:'atkMul', value:0.04}, desc:'攻撃力+4%'},
+    ult2:  {name:'満ちる刻', icon:'⏳', cost:2, requires:['ult1'], effect:{type:'ultGaugeSphereMul', value:0.10}, desc:'必殺ゲージ獲得+10%'},
+    ult3:  {name:'絶対の一撃', icon:'💫', cost:3, requires:['ult2'], effect:{type:'ultDmgSphereMul', value:0.12}, desc:'必殺技威力+12%'},
   };
 
   function sphereUnlocked(id){ return (state.unlockedSphereNodes||['root']).includes(id); }
@@ -1128,7 +1137,7 @@
       mp: base.mp + allocPoints.mp*2 + state.levelGrowth.mp,
       atk: Math.round((base.atk + allocPoints.atk*1 + state.skills.atkUp*2 + state.equipLevel*4 + state.levelGrowth.atk + gearAtk) * atkMul),
       spd: +(base.spd + allocPoints.spd*0.1 + state.levelGrowth.spd).toFixed(2),
-      ult: Object.assign({}, base.ult, { mult: +(base.ult.mult * (1 + state.skills.ultUp*0.1)).toFixed(2) })
+      ult: Object.assign({}, base.ult, { mult: +(base.ult.mult * (1 + state.skills.ultUp*0.1) * (1 + sphereValue('ultDmgSphereMul'))).toFixed(2) })   // スフィア「絶対の一撃」
     });
     const hpRatio = state.maxHp>0 ? state.hp/state.maxHp : 1;
     const mpRatio = state.maxMp>0 ? state.mp/state.maxMp : 1;
@@ -1737,6 +1746,16 @@
         ${node('dodge1')}<div class="sphere-link ${sphereUnlocked('dodge1')?'lit':''}"></div>
         ${node('dodge2')}<div class="sphere-link ${sphereUnlocked('dodge2')?'lit':''}"></div>
         ${node('dodge3')}
+      </div>`;
+    html += `<div class="sphere-board-col">
+        ${node('skill1')}<div class="sphere-link ${sphereUnlocked('skill1')?'lit':''}"></div>
+        ${node('skill2')}<div class="sphere-link ${sphereUnlocked('skill2')?'lit':''}"></div>
+        ${node('skill3')}
+      </div>`;
+    html += `<div class="sphere-board-col">
+        ${node('ult1')}<div class="sphere-link ${sphereUnlocked('ult1')?'lit':''}"></div>
+        ${node('ult2')}<div class="sphere-link ${sphereUnlocked('ult2')?'lit':''}"></div>
+        ${node('ult3')}
       </div>`;
     html += '</div></div>';
 

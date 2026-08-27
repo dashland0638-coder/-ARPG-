@@ -970,12 +970,13 @@
      root(頂点)から左右2本の細い糸(sphere-link)で下段へ繋がる、
      簡易的な「ボード」の見た目 */
   .sphere-board{
-    height:180px; display:flex; flex-direction:column; align-items:center;
+    height:200px; display:flex; flex-direction:column; align-items:center;
     background:radial-gradient(circle at 50% 0%, rgba(240,160,92,0.06), transparent 70%);
     border:1px solid var(--panel-line); border-radius:8px; padding:10px 6px; margin-bottom:8px;
+    overflow-x:auto;   /* 4系統(攻撃/俊敏/スキル/必殺)になった分、狭い画面では横スクロールに逃がす */
   }
   .sphere-board-root{ margin-bottom:6px; }
-  .sphere-board-branches{ display:flex; gap:26px; flex:1; }
+  .sphere-board-branches{ display:flex; gap:14px; flex:1; }
   .sphere-board-col{ display:flex; flex-direction:column; align-items:center; gap:0; }
   .sphere-link{ width:2px; height:14px; background:var(--panel-line); }
   .sphere-link.lit{ background:var(--ember-bright); }

@@ -158,7 +158,7 @@
     state.skillCharging = false;
     releaseSkill();
     state.skillChargeT = 0;
-    state.skillCD = 1.6 * rankCD('skill');
+    state.skillCD = 1.6 * rankCD('skill') * Math.max(0.4, 1 + sphereValue('skillCDMul'));   // スフィア「見切りの経験」
   }
 
   // charge technique (attack-button hold): fixed per class, not swappable
@@ -249,7 +249,7 @@
   function activateBarrier(variant){
     state.barrierActive = true;
     state.barrierT = variant.duration || 0.5;
-    state.barrierHealFrac = variant.healFrac || 0.12;
+    state.barrierHealFrac = (variant.healFrac || 0.12) * (1 + sphereValue('barrierHealSphereMul'));   // スフィア「反射の極意」
     state.barrierParryCD = 0;   // 念のため明示的に0から始める(undefinedだと<=0比較が常にfalseになる)
     state.invulnerable = true;
     spawnBarrierVFX(variant.vfxColor, state.barrierT);
