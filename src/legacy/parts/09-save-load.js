@@ -17,6 +17,7 @@
       v:1, savedAt:Date.now(),
       selectedClass, selectedGender, selectedPersonality, playerName,
       allocPoints:Object.assign({}, allocPoints),
+      diceTotal,
       level:state.level, xp:state.xp, xpToNext:state.xpToNext,
       levelGrowth:Object.assign({}, state.levelGrowth),
       equipLevel:state.equipLevel,
@@ -87,6 +88,16 @@
     selectedPersonality = data.selectedPersonality || null;
     playerName = data.playerName || '';
     allocPoints = Object.assign({atk:0, spd:0, hp:0, mp:0}, data.allocPoints);
+    // diceTotal(振れる合計ポイント)は元々セーブに含まれておらず、続きから
+    // 再開するとスクリプト読み込み時の初期値0のままになっていた。既に
+    // 振った分(allocPoints)はそのまま残るため、remaining = diceTotal -
+    // 振った分 が毎回マイナスになり、「1ポイントも振れない」上に「残りが
+    // マイナス表示」というバグになっていた。data.diceTotalが無い旧セーブは
+    // 正確な合計を復元できないので、既に振った分をそのまま合計にして
+    // 残り0扱いにする(マイナスにはならないが、無から新規ポイントも
+    // 発生させない安全側のフォールバック)
+    diceTotal = (data.diceTotal!=null) ? data.diceTotal
+      : (allocPoints.atk+allocPoints.spd+allocPoints.hp+allocPoints.mp);
 
     state.gender = selectedGender;
     state.name = playerName || '名もなき冒険者';
