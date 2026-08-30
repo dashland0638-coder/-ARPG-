@@ -1023,6 +1023,17 @@
   }
   .sphere-respec-btn:disabled{ opacity:0.4; cursor:default; background:#1a1620; color:var(--text-dim); }
 
+  /* ズーム操作(操作性改善): 盤面はドラッグでパン、この2ボタンで拡縮する。
+     全リセットが無い時はsphere-respec-btnが無いのでmargin-leftで右寄せする */
+  .sphere-zoom-controls{ display:flex; align-items:center; gap:4px; margin-left:auto; }
+  .sphere-points .sphere-respec-btn + .sphere-zoom-controls{ margin-left:0; }
+  .sphere-zoom-btn{
+    width:22px; height:22px; padding:0; font-size:11px; border-radius:5px; cursor:pointer;
+    background:#1a1420; border:1px solid var(--panel-line); color:var(--text); line-height:1;
+  }
+  .sphere-zoom-btn:hover{ border-color:var(--ember-bright); }
+  .sphere-zoom-pct{ font-size:9px; color:var(--text-dim); width:32px; text-align:center; font-variant-numeric:tabular-nums; }
+
   /* 盤面(2026-08-27再設計): rootを中心に東西南北へ広がる網目状のマップ。
      ノードはpos:{dir,tier,lane}から計算した絶対座標(sphere-board-canvas
      内のpx)に配置し、結線はSVGで描く。盤面自体は正方形の固定サイズ
@@ -1033,8 +1044,9 @@
     height:280px; position:relative;
     background:radial-gradient(circle at 50% 50%, rgba(240,160,92,0.07), transparent 65%);
     border:1px solid var(--panel-line); border-radius:8px; margin-bottom:8px;
-    overflow:auto;
+    overflow:auto; cursor:grab; touch-action:none;   /* touch-action:none - ドラッグパンをブラウザの標準スクロールと衝突させない */
   }
+  .sphere-board.dragging{ cursor:grabbing; }
   .sphere-board-canvas{ position:relative; }
   .sphere-svg{ position:absolute; left:0; top:0; pointer-events:none; }
   .sphere-edge{ stroke:var(--panel-line); stroke-width:2; }

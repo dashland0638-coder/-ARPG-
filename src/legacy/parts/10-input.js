@@ -286,8 +286,40 @@
   // ボタンが出ている周回中クリアで押し間違えると強制的に街へ戻ってしまう
   // 不具合があった)。選択肢の無い素の会話文だけは、コンテナが無い
   // (=gpNavContext()がnullを返す)ので、A=advanceDialogueにフォールバックする
+  // スフィア盤の操作性改善: 奥義の環タブが開いている間は、汎用の
+  // フラットリストナビゲーション(gpNavMove、1次元の前後移動)ではなく
+  // ノードの実座標を使った2次元方向移動に切り替える。汎用ナビだと
+  // 個々の.sphere-node(<div>でボタンではない)がそもそも対象に入らず、
+  // 解放済み/リセットの2つのボタンしか選べなかったため専用化した
+  let sphereGpStickCD = 0;
+  function updateSphereGamepadNav(gp, dt){
+    sphereGpStickCD = Math.max(0, sphereGpStickCD - dt);
+    if(btnPressed(gp,4)){ cycleApTab(-1); return; }   // L1: 前のタブ(gear等)へ
+    if(btnPressed(gp,5)){ cycleApTab(1); return; }    // R1: 次のタブへ
+    let dx = 0, dy = 0;
+    if(btnPressed(gp,14)) dx = -1;   // D-pad 左
+    if(btnPressed(gp,15)) dx = 1;    // D-pad 右
+    if(btnPressed(gp,12)) dy = -1;   // D-pad 上
+    if(btnPressed(gp,13)) dy = 1;    // D-pad 下
+    if(dx===0 && dy===0 && sphereGpStickCD<=0){
+      const ax0 = gp.axes[0]||0, ax1 = gp.axes[1]||0;
+      if(Math.abs(ax0)>0.5 || Math.abs(ax1)>0.5){
+        dx = Math.abs(ax0)>0.35 ? Math.sign(ax0) : 0;
+        dy = Math.abs(ax1)>0.35 ? Math.sign(ax1) : 0;
+        sphereGpStickCD = 0.22;
+      }
+    }
+    if(dx!==0 || dy!==0) sphereMoveSelection(dx, dy);
+    if(btnPressed(gp,0)) sphereTryQuickUnlock();   // A: 選択中ノードを即解放
+    if(btnPressed(gp,1)) gpNavCancel();            // B: 鑑定所を閉じる(他画面と同じ挙動)
+  }
+
   function updateGamepadMenuNav(gp, dt){
     gpNavStickCD = Math.max(0, gpNavStickCD - dt);
+    if(state.activeOverlay==='appraisal' && currentApTab()==='sphere'){
+      updateSphereGamepadNav(gp, dt);
+      return;
+    }
     const container = gpNavContext();
     if(!container){
       if(state.dialogueActive && btnPressed(gp,0)) advanceDialogue();

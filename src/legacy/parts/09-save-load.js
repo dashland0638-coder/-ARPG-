@@ -284,6 +284,17 @@
     if(e.code==='KeyU' && !e.repeat){ castBossSkill3(); }
     if(e.code==='Backquote'){ toggleDebugMode(); }
     if(e.code==='ShiftLeft' || e.code==='ShiftRight'){ tryDodge(); }
+    // スフィア盤の操作性改善: 奥義の環タブが開いている間だけ、矢印キーで
+    // ノード間を移動、Enterで選択中ノードを即解放する(選択→別ボタンを
+    // 押すという二度手間をなくす)。sphereTabVisible()がfalseの間は
+    // すべて素通りするので、通常のゲームプレイ中は一切影響しない
+    if(sphereTabVisible()){
+      if(e.code==='ArrowUp'){ e.preventDefault(); sphereMoveSelection(0,-1); }
+      else if(e.code==='ArrowDown'){ e.preventDefault(); sphereMoveSelection(0,1); }
+      else if(e.code==='ArrowLeft'){ e.preventDefault(); sphereMoveSelection(-1,0); }
+      else if(e.code==='ArrowRight'){ e.preventDefault(); sphereMoveSelection(1,0); }
+      else if(e.code==='Enter'){ e.preventDefault(); sphereTryQuickUnlock(); }
+    }
   });
   window.addEventListener('keyup', e=>{
     keys[e.code]=false;

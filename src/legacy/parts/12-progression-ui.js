@@ -2215,21 +2215,118 @@
   let sphereSelectedNode = null;
   // 盤面のレイアウト定数。tierが増えるほど中心から離れ、laneが盤面と
   // 垂直な向きへ広がる。dir別に「どちらの軸を伸ばすか」を振り分けるだけの
-  // 単純な計算なので、段数やレーン数を増やしてもここは変えずに済む
-  const SPHERE_TIER_SPACING = 66, SPHERE_LANE_SPACING = 50;
-  const SPHERE_CANVAS = 1200, SPHERE_CENTER = 600;
+  // 単純な計算なので、段数やレーン数を増やしてもここは変えずに済む。
+  // 操作性改善(#29系): sphereZoomを掛けた実効値で配置するズーム対応。
+  // ホイール/ボタンでsphereZoomを変えてrenderSpherePanel()を呼び直すだけで、
+  // 盤面サイズ自体が変わる(CSS transformではなくレイアウトそのものを
+  // 拡縮するので、overflow:autoのスクロール範囲も正しく追従する)
+  const SPHERE_TIER_SPACING_BASE = 66, SPHERE_LANE_SPACING_BASE = 50;
+  const SPHERE_CANVAS_BASE = 1200, SPHERE_CENTER_BASE = 600;
+  const SPHERE_ZOOM_MIN = 0.6, SPHERE_ZOOM_MAX = 1.7;
+  let sphereZoom = 1.0;
+  function sphereCanvasSize(){ return SPHERE_CANVAS_BASE * sphereZoom; }
+  function sphereCenterPx(){ return SPHERE_CENTER_BASE * sphereZoom; }
   function sphereNodePixelPos(id){
     const def = SPHERE_NODES[id];
     const p = def && def.pos;
-    if(!p || !p.tier) return {x:SPHERE_CENTER, y:SPHERE_CENTER};
-    const laneOffset = (p.lane - 1) * SPHERE_LANE_SPACING; // lane 0/1/2 -> -1/0/+1段ぶん
-    const t = p.tier * SPHERE_TIER_SPACING;
-    if(p.dir==='N') return {x:SPHERE_CENTER+laneOffset, y:SPHERE_CENTER-t};
-    if(p.dir==='S') return {x:SPHERE_CENTER+laneOffset, y:SPHERE_CENTER+t};
-    if(p.dir==='E') return {x:SPHERE_CENTER+t, y:SPHERE_CENTER+laneOffset};
-    if(p.dir==='W') return {x:SPHERE_CENTER-t, y:SPHERE_CENTER+laneOffset};
-    return {x:SPHERE_CENTER, y:SPHERE_CENTER};
+    const center = sphereCenterPx();
+    if(!p || !p.tier) return {x:center, y:center};
+    const laneOffset = (p.lane - 1) * SPHERE_LANE_SPACING_BASE * sphereZoom; // lane 0/1/2 -> -1/0/+1段ぶん
+    const t = p.tier * SPHERE_TIER_SPACING_BASE * sphereZoom;
+    if(p.dir==='N') return {x:center+laneOffset, y:center-t};
+    if(p.dir==='S') return {x:center+laneOffset, y:center+t};
+    if(p.dir==='E') return {x:center+t, y:center+laneOffset};
+    if(p.dir==='W') return {x:center-t, y:center+laneOffset};
+    return {x:center, y:center};
   }
+  // 現在選んでいるノードから見て、押された方向(dx/dy、いずれも-1〜1)に
+  // 最も自然な次のノードを探す。「距離」だけでなく「向きの一致度」も
+  // score化することで、斜め入力でも直感的な隣接ノードへ飛べるようにする
+  function sphereNodeInDirection(fromId, dx, dy){
+    if(dx===0 && dy===0) return null;
+    const from = sphereNodePixelPos(fromId);
+    const mag = Math.hypot(dx,dy) || 1;
+    const ndx = dx/mag, ndy = dy/mag;
+    let best = null, bestScore = Infinity;
+    Object.keys(SPHERE_NODES).forEach(id=>{
+      if(id===fromId) return;
+      const p = sphereNodePixelPos(id);
+      const vx = p.x-from.x, vy = p.y-from.y;
+      const dist = Math.hypot(vx,vy);
+      if(dist < 1) return;
+      const dot = (vx/dist)*ndx + (vy/dist)*ndy;
+      if(dot < 0.35) return;   // 押した方向からおおよそ70度以内でないと候補にしない
+      const score = dist / dot;   // 近くて、かつ方向が合っているものほど小さくなる
+      if(score < bestScore){ bestScore = score; best = id; }
+    });
+    return best;
+  }
+  // キーボード(矢印キー)・ゲームパッド(D-pad/スティック)共通の選択移動。
+  // 選択後は必ずその場所が見える位置までスクロールする(sphereFocusNode)
+  function sphereMoveSelection(dx, dy){
+    const next = sphereNodeInDirection(sphereSelectedNode, dx, dy);
+    if(!next) return;
+    sphereSelectedNode = next;
+    sphereFocusNode = next;
+    renderSpherePanel();
+  }
+  function sphereTryQuickUnlock(){
+    if(!sphereCanUnlock(sphereSelectedNode)) return;
+    if(unlockSphereNode(sphereSelectedNode)) refreshAppraisal();
+  }
+  function sphereZoomBy(mul){
+    const next = Math.max(SPHERE_ZOOM_MIN, Math.min(SPHERE_ZOOM_MAX, sphereZoom*mul));
+    if(Math.abs(next-sphereZoom) < 0.001) return;
+    sphereZoom = next;
+    sphereFocusNode = sphereSelectedNode;
+    renderSpherePanel();
+  }
+  // 現在アクティブな鑑定タブのキー('gear'|'stat'|'skill'|'sphere'|'shop')
+  function currentApTab(){
+    const t = document.querySelector('.ap-tab.active');
+    return t ? t.dataset.tab : null;
+  }
+  function sphereTabVisible(){
+    return state.activeOverlay==='appraisal' && currentApTab()==='sphere';
+  }
+  function cycleApTab(dir){
+    const order = ['gear','stat','skill','sphere','shop'];
+    const idx = Math.max(0, order.indexOf(currentApTab()));
+    const next = order[(idx+dir+order.length)%order.length];
+    const tab = Array.from(document.querySelectorAll('.ap-tab')).find(t=>t.dataset.tab===next);
+    if(tab) tab.click();
+  }
+  // ドラッグでのパン(マウス/タッチ共通、Pointer Events)とホイールでの
+  // ズームをまとめて面倒を見る。renderSpherePanel()がinnerHTMLを丸ごと
+  // 差し替えるたびに新しい.sphere-board要素へ張り直す必要があるため、
+  // 呼び出し側(renderSpherePanel)から毎回呼んでもらう
+  let sphereBoardDragMoved = false;
+  function bindSphereBoardDrag(board){
+    let dragging = false, lastX = 0, lastY = 0;
+    board.addEventListener('pointerdown', e=>{
+      dragging = true; sphereBoardDragMoved = false;
+      lastX = e.clientX; lastY = e.clientY;
+      board.classList.add('dragging');
+      try{ board.setPointerCapture(e.pointerId); }catch(err){ /* 対応外環境は無視 */ }
+    });
+    board.addEventListener('pointermove', e=>{
+      if(!dragging) return;
+      const dx = e.clientX-lastX, dy = e.clientY-lastY;
+      if(Math.abs(dx)>3 || Math.abs(dy)>3) sphereBoardDragMoved = true;
+      if(sphereBoardDragMoved){
+        board.scrollLeft -= dx; board.scrollTop -= dy;
+        lastX = e.clientX; lastY = e.clientY;
+      }
+    });
+    const endDrag = ()=>{ dragging = false; board.classList.remove('dragging'); };
+    board.addEventListener('pointerup', endDrag);
+    board.addEventListener('pointercancel', endDrag);
+    board.addEventListener('wheel', e=>{
+      e.preventDefault();
+      sphereZoomBy(e.deltaY < 0 ? 1.12 : 1/1.12);
+    }, {passive:false});
+  }
+
   // 各ノードの前提(requiresAny優先、無ければ旧来のrequires)ぶんだけ
   // 結線を張る。網目なので1ノードが複数本の線を持つことがある
   function sphereEdges(){
@@ -2256,6 +2353,10 @@
   // 正として保持し続けてしまう(タブを開いても直らない)。実際に
   // 表示された回だけ中央寄せを行うよう、このフラグで一度きりに制御する
   let sphereBoardCentered = false;
+  // 特定ノードの位置までスクロールしてから描画してほしい時だけセットする
+  // (ズーム変更・キーボード/パッドでの選択移動)。通常のクリック選択では
+  // 既に画面内に見えているはずなので使わない
+  let sphereFocusNode = null;
   function renderSpherePanel(){
     const panel = document.getElementById('ap-panel-sphere');
     if(!panel) return;
@@ -2273,10 +2374,16 @@
     const respecCost = sphereRespecCost();
     let html = `<div class="sphere-points">✨ <b>${state.spherePoints||0}</b>pt<span class="sphere-points-note">(レベルアップ毎+1)</span>
       ${respecSpent>0 ? `<button type="button" class="sphere-respec-btn" id="sphere-respec-btn" ${state.inventory.gold<respecCost?'disabled':''}>🌀 全リセット(🪙${respecCost})</button>` : ''}
+      <div class="sphere-zoom-controls">
+        <button type="button" class="sphere-zoom-btn" id="sphere-zoom-out" title="縮小">🔍−</button>
+        <span class="sphere-zoom-pct">${Math.round(sphereZoom*100)}%</span>
+        <button type="button" class="sphere-zoom-btn" id="sphere-zoom-in" title="拡大">🔍+</button>
+      </div>
     </div>`;
 
     // ---- 盤面本体: SVGで結線、その上にノードを絶対配置で重ねる ----
-    let svg = `<svg class="sphere-svg" width="${SPHERE_CANVAS}" height="${SPHERE_CANVAS}">`;
+    const canvasPx = sphereCanvasSize();
+    let svg = `<svg class="sphere-svg" width="${canvasPx}" height="${canvasPx}">`;
     sphereEdges().forEach(e=>{
       svg += `<line x1="${e.x1}" y1="${e.y1}" x2="${e.x2}" y2="${e.y2}" class="sphere-edge ${e.lit?'lit':''}"/>`;
     });
@@ -2291,7 +2398,7 @@
       nodesHtml += `<div class="sphere-node ${unlocked?'unlocked':''} ${can?'can-unlock':''} ${sel?'selected':''} ${id==='root'?'root-node':''}"
         data-sphere-node="${id}" title="${def.name}" style="left:${pos.x}px; top:${pos.y}px;">${def.icon}</div>`;
     });
-    html += `<div class="sphere-board"><div class="sphere-board-canvas" style="width:${SPHERE_CANVAS}px; height:${SPHERE_CANVAS}px;">${svg}${nodesHtml}</div></div>`;
+    html += `<div class="sphere-board"><div class="sphere-board-canvas" style="width:${canvasPx}px; height:${canvasPx}px;">${svg}${nodesHtml}</div></div>`;
 
     const selDef = SPHERE_NODES[sphereSelectedNode];
     const selUnlocked = sphereUnlocked(sphereSelectedNode);
@@ -2305,12 +2412,20 @@
 
     panel.innerHTML = html;
     const board = panel.querySelector('.sphere-board');
+    const focusId = sphereFocusNode; sphereFocusNode = null;
     if(board){
-      if(!sphereBoardCentered && board.clientWidth > 0){
+      if(focusId && board.clientWidth > 0){
+        // ズーム変更・キーボード/パッドでの選択移動の直後: そのノードが
+        // 画面中央に来るよう明示的にスクロールする(前回位置の復元より優先)
+        const p = sphereNodePixelPos(focusId);
+        board.scrollLeft = p.x - board.clientWidth/2;
+        board.scrollTop = p.y - board.clientHeight/2;
+        sphereBoardCentered = true;
+      } else if(!sphereBoardCentered && board.clientWidth > 0){
         // タブが実際に表示され、有効なサイズが取れた最初の回だけ、
         // rootが盤面の中央に来るようスクロール位置を合わせる
-        board.scrollLeft = SPHERE_CENTER - board.clientWidth/2;
-        board.scrollTop = SPHERE_CENTER - board.clientHeight/2;
+        board.scrollLeft = sphereCenterPx() - board.clientWidth/2;
+        board.scrollTop = sphereCenterPx() - board.clientHeight/2;
         sphereBoardCentered = true;
       } else if(sphereBoardCentered){
         board.scrollTop = prevScrollTop || 0;
@@ -2318,10 +2433,20 @@
       }
       // まだ一度も表示されていない(clientWidth===0のまま)場合は何もしない。
       // タブが開かれてこの関数が再度呼ばれた時に、上のif分岐で中央寄せされる
+      bindSphereBoardDrag(board);
     }
+    // ドラッグでパンした後のクリックがノード選択として暴発しないよう、
+    // 実際に動いた回だけこのフラグでノードのclickハンドラを無効化する
     panel.querySelectorAll('[data-sphere-node]').forEach(elm=>{
-      elm.addEventListener('click', ()=>{ sphereSelectedNode = elm.dataset.sphereNode; renderSpherePanel(); });
+      elm.addEventListener('click', ()=>{
+        if(sphereBoardDragMoved) return;
+        sphereSelectedNode = elm.dataset.sphereNode; renderSpherePanel();
+      });
     });
+    const zoomOutBtn = panel.querySelector('#sphere-zoom-out');
+    if(zoomOutBtn) zoomOutBtn.addEventListener('click', ()=> sphereZoomBy(1/1.2));
+    const zoomInBtn = panel.querySelector('#sphere-zoom-in');
+    if(zoomInBtn) zoomInBtn.addEventListener('click', ()=> sphereZoomBy(1.2));
     const unlockBtn = panel.querySelector('#sphere-unlock-btn');
     if(unlockBtn) unlockBtn.addEventListener('click', ()=>{
       if(unlockSphereNode(sphereSelectedNode)) refreshAppraisal();
