@@ -23,8 +23,11 @@
     ATTACK_TIERS.forEach(t=>{ if(state.level >= t.level) n++; });
     return n;   // 0..3
   }
-  function attackRangeMul(){ return attackTier() >= 1 ? 1.22 : 1; }
-  function attackAngleMul(){ return attackTier() >= 1 ? 1.18 : 1; }
+  // スフィア「剛力II」「薙ぎ払い」(atkRangeSphereMul/atkAngleSphereMul)は
+  // 数値ではなく実際のヒットボックス(間合い/扇角)を広げるモーション変化
+  // なので、レベル依存の基礎倍率へ加算する形で乗せている
+  function attackRangeMul(){ return (attackTier() >= 1 ? 1.22 : 1) + sphereValue('atkRangeSphereMul'); }
+  function attackAngleMul(){ return (attackTier() >= 1 ? 1.18 : 1) + sphereValue('atkAngleSphereMul'); }
   // 陽気: 連続で敵を倒すほど攻撃間隔が縮む(最大-20%)。倒してから4秒で連鎖が切れる
   function personalityAtkSpeedMul(){
     if(state.personality!=='cheerful' || !state.killStreak) return 1;

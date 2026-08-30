@@ -501,160 +501,133 @@
   /* =========================================================
      奥義の環(スフィア盤)のデータ本体
      ---------------------------------------------------------
-     2026-08-27の再設計: 「下に伸びるだけの一本道」から、rootを中心に
-     東西南北へ広がる網目状の盤面に組み替えた(ユーザー提供のレイアウト
-     案に基づく)。各方向は3本の"レーン"が並行して伸び、隣り合うレーンの
-     同じ段・一つ隣の段へなら乗り換えられる(requiresAny=前段のうち
-     自レーン±1のいずれか一つでも解放していればよい、というOR条件)。
-     一本道だった頃と違い、「どのレーンを伸ばすか」自体がビルドの選択
-     になる。
+     2026-08-30の再設計(ユーザー提供の手描きレイアウト案に基づく):
+     「4方向に3本ずつ平行なレーンが伸び、隣接段どうしが総当たりで
+     つながる網目」から、「rootから伸びる1本の幹が、要所でだけ枝分かれ
+     する疎な木」に組み替えた。旧仕様はrequiresAny=[lane-1,lane,lane+1]
+     で全レーンが常に隣と繋がっており、見た目は扇型でも実質「どこへでも
+     横移動できる」広い一枚岩だった。新仕様は各ノードが明示した
+     requiresAny(基本は単一の親)しか持たず、フォーク地点だけが2〜3個の
+     子を持つ。これに合わせてpos.laneも廃止し、pos:{dir,depth,fan}
+     (depth=rootからの距離、fan=幹からの角度のずれ)による極座標配置に
+     変えた(位置計算はsphereNodePixelPos参照)。depthが増すほどfanの
+     角度差が実ピクセル距離としても開いていくので、末広がりの扇形になる。
 
-     方向とその中身の対応:
+     方向とその中身の対応は従来通り:
        北 = atk(攻撃)   東 = dodge(回避)
        西 = skill(スキル) 南 = ult(必殺技)
-     skill系統だけ、レーンの正体が「特定バリアント(切り下がり/回転斬り/
-     ダッシュ)への投資」なので、3レーンの意味がそのまま3スキルの系統に
-     対応する。最後は3レーン共通の「新技の会得」2マス(職業固有スキルの
-     習得)へ収束する。ult系統も同様に、3レーン共通の必殺技新技習得マスへ
-     収束する。
 
-     pos:{dir, tier, lane} はrenderSpherePanel()側のレイアウト計算専用の
-     メタ情報で、解放条件そのものには関与しない(解放条件はrequiresAny/
-     requiresが持つ)。
+     中身の混在(ユーザー要望): 従来は1系統=1種類の数値倍率だけで
+     埋まっていたが、今回は各系統の道の途中に種類の違う強化を混ぜている。
+       ・ステ強化: atkMul/staminaCostMul等、既存の汎用倍率
+       ・専用技威力強化: variantEffect(retreat/spin/dash) ―― skill系統
+       ・新スキル/新必殺技の習得: unlockフィールド(既存の収束点方式を継続)
+       ・モーション変化: 数値ではなく動き自体が変わる新設2種
+         - atkRangeSphereMul/atkAngleSphereMul: 通常攻撃の間合い/範囲が
+           物理的に広がる(attackRangeMul/attackAngleMul、11-combat-actions.js)
+         - dodgeAtkWindowSphereMul: 回避攻撃の受付時間が伸びる
+           (10-input.jsのdodgeAttackWindowT)
+     skill系統だけは元々の設計思想(3レーン=3バリアントへの投資)を保つため
+     フォークだけ3方向にしている。いずれか1本を伸ばしきれば新技を会得できる。
   ========================================================= */
-  const SPHERE_TIER_COSTS = [1, 2, 2, 2, 3]; // 各系統5段の費用(第4弾からの「平坦なコスト」方針を踏襲)
-  const SPHERE_TIER_LABELS = ['I','II','III','IV','V'];
+  const SPHERE_NODES = {
+    root: {name:'目覚め', icon:'✨', cost:0, requires:[], effect:null, desc:'旅の始まり(自動解放)', pos:{dir:null, depth:0, fan:0}},
 
-  // 1レーン(5段)ぶんのノードを機械的に組み立てる。tierEffects は長さ5の
-  // 配列で、各要素が {effect:{type,value}, desc} か {variantEffect:{variant,value}, desc} を持つ
-  function sphereLane(prefix, dir, lane, laneName, icon, tierEffects){
-    const out = {};
-    for(let t=1; t<=5; t++){
-      const id = `${prefix}_${t}_${lane}`;
-      const reqTier = t - 1;
-      const requiresAny = reqTier === 0
-        ? ['root']
-        : [lane-1, lane, lane+1].filter(l=> l>=0 && l<=2).map(l=> `${prefix}_${reqTier}_${l}`);
-      const te = tierEffects[t-1];
-      out[id] = Object.assign(
-        { name:`${laneName}${SPHERE_TIER_LABELS[t-1]}`, icon, cost:SPHERE_TIER_COSTS[t-1], requiresAny,
-          pos:{dir, tier:t, lane} },
-        te.effect ? {effect:te.effect} : {variantEffect:te.variantEffect},
-        {desc:te.desc}
-      );
-    }
-    return out;
-  }
+    // ---- 北: 攻撃(atk)。剛力(生の威力)から、会心(体幹)/疾風(速度)へ分岐 ----
+    atk1: {name:'剛力I', icon:'⚔️', cost:1, requiresAny:['root'], pos:{dir:'N', depth:1, fan:0},
+      effect:{type:'atkMul', value:0.05}, desc:'攻撃力+5%'},
+    atk2: {name:'剛力II', icon:'⚔️', cost:1, requiresAny:['atk1'], pos:{dir:'N', depth:2, fan:0},
+      effect:{type:'atkRangeSphereMul', value:0.12}, desc:'【モーション変化】剣筋が伸び、通常攻撃の間合いがわずかに広がる'},
+    atk3a: {name:'会心I', icon:'💥', cost:2, requiresAny:['atk2'], pos:{dir:'N', depth:3, fan:-1},
+      effect:{type:'staggerDealtSphereMul', value:0.10}, desc:'体幹削り+10%'},
+    atk3b: {name:'疾風I', icon:'💨', cost:2, requiresAny:['atk2'], pos:{dir:'N', depth:3, fan:1},
+      effect:{type:'atkCooldownMul', value:-0.06}, desc:'攻撃間隔-6%'},
+    atk4a: {name:'会心II', icon:'💥', cost:2, requiresAny:['atk3a'], pos:{dir:'N', depth:4, fan:-1.4},
+      effect:{type:'staggerDealtSphereMul', value:0.08}, desc:'体幹削り+8%'},
+    atk4b: {name:'疾風II', icon:'💨', cost:2, requiresAny:['atk3b'], pos:{dir:'N', depth:4, fan:1.4},
+      effect:{type:'dodgeAtkWindowSphereMul', value:0.15}, desc:'【モーション変化】回避攻撃の受付時間+15%(回避直後に攻撃を繋げやすくなる)'},
+    atk5a1: {name:'会心III', icon:'💥', cost:3, requiresAny:['atk4a'], pos:{dir:'N', depth:5, fan:-2.2},
+      effect:{type:'staggerDealtSphereMul', value:0.14}, desc:'体幹削り+14%'},
+    atk5a2: {name:'薙ぎ払い', icon:'🌀', cost:3, requiresAny:['atk4a'], pos:{dir:'N', depth:5, fan:-0.6},
+      effect:{type:'atkAngleSphereMul', value:0.25}, desc:'【モーション変化】通常攻撃3段目の斬撃が横薙ぎに変わり、攻撃範囲が大きく広がる'},
+    atk5b: {name:'剛力III', icon:'⚔️', cost:3, requiresAny:['atk4b'], pos:{dir:'N', depth:5, fan:1.4},
+      effect:{type:'atkMul', value:0.10}, desc:'攻撃力+10%'},
 
-  const SPHERE_NODES = Object.assign({
-    root: {name:'目覚め', icon:'✨', cost:0, requires:[], effect:null, desc:'旅の始まり(自動解放)', pos:{dir:null, tier:0, lane:0}},
-  },
-    // ---- 北: 攻撃(atk)。剛力(生の威力)/会心(体幹削り)/疾風(攻撃間隔)の3レーン ----
-    sphereLane('atk', 'N', 0, '剛力', '⚔️', [
-      {effect:{type:'atkMul', value:0.04}, desc:'攻撃力+4%'},
-      {effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
-      {effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
-      {effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
-      {effect:{type:'atkMul', value:0.06}, desc:'攻撃力+6%'},
-    ]),
-    sphereLane('atk', 'N', 1, '会心', '💥', [
-      {effect:{type:'staggerDealtSphereMul', value:0.08}, desc:'体幹削り+8%'},
-      {effect:{type:'staggerDealtSphereMul', value:0.06}, desc:'体幹削り+6%'},
-      {effect:{type:'staggerDealtSphereMul', value:0.06}, desc:'体幹削り+6%'},
-      {effect:{type:'staggerDealtSphereMul', value:0.06}, desc:'体幹削り+6%'},
-      {effect:{type:'staggerDealtSphereMul', value:0.10}, desc:'体幹削り+10%'},
-    ]),
-    sphereLane('atk', 'N', 2, '疾風', '💨', [
-      {effect:{type:'atkCooldownMul', value:-0.05}, desc:'攻撃間隔-5%'},
-      {effect:{type:'atkCooldownMul', value:-0.04}, desc:'攻撃間隔-4%'},
-      {effect:{type:'atkCooldownMul', value:-0.04}, desc:'攻撃間隔-4%'},
-      {effect:{type:'atkCooldownMul', value:-0.04}, desc:'攻撃間隔-4%'},
-      {effect:{type:'atkCooldownMul', value:-0.06}, desc:'攻撃間隔-6%'},
-    ]),
-    // ---- 東: 回避(dodge)。俊敏(スタミナ)/残影(無敵時間)/刻の余裕(必殺ゲージ)の3レーン ----
-    sphereLane('dodge', 'E', 0, '俊敏', '🌬️', [
-      {effect:{type:'staminaCostMul', value:-0.10}, desc:'スタミナ消費-10%'},
-      {effect:{type:'staminaCostMul', value:-0.05}, desc:'スタミナ消費-5%'},
-      {effect:{type:'staminaCostMul', value:-0.05}, desc:'スタミナ消費-5%'},
-      {effect:{type:'staminaCostMul', value:-0.05}, desc:'スタミナ消費-5%'},
-      {effect:{type:'staminaCostMul', value:-0.08}, desc:'スタミナ消費-8%'},
-    ]),
-    sphereLane('dodge', 'E', 1, '残影', '👤', [
-      {effect:{type:'dodgeInvulnSphereMul', value:0.10}, desc:'回避の無敵時間+10%'},
-      {effect:{type:'dodgeInvulnSphereMul', value:0.06}, desc:'回避の無敵時間+6%'},
-      {effect:{type:'dodgeInvulnSphereMul', value:0.06}, desc:'回避の無敵時間+6%'},
-      {effect:{type:'dodgeInvulnSphereMul', value:0.06}, desc:'回避の無敵時間+6%'},
-      {effect:{type:'dodgeInvulnSphereMul', value:0.10}, desc:'回避の無敵時間+10%'},
-    ]),
-    sphereLane('dodge', 'E', 2, '刻の余裕', '⏳', [
-      {effect:{type:'ultGaugeSphereMul', value:0.10}, desc:'必殺ゲージ獲得+10%'},
-      {effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
-      {effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
-      {effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
-      {effect:{type:'ultGaugeSphereMul', value:0.08}, desc:'必殺ゲージ獲得+8%'},
-    ]),
-    // ---- 西: スキル(skill)。3レーンがそのまま「切り下がり/回転斬り/
-    // ダッシュ」3系統への投資になる。序盤3段はその変種一本槍、終盤2段は
-    // 各レーンごとに違う汎用効果へ分岐させ、レーンの個性を保っている ----
-    sphereLane('skill', 'W', 0, '退き足', '⬇️', [
-      {variantEffect:{variant:'retreat', value:0.10}, desc:'「切り下がり」系スキルの威力+10%'},
-      {variantEffect:{variant:'retreat', value:0.10}, desc:'「切り下がり」系スキルの威力+10%'},
-      {variantEffect:{variant:'retreat', value:0.10}, desc:'「切り下がり」系スキルの威力+10%'},
-      {effect:{type:'barrierHealSphereMul', value:0.15}, desc:'バリアのHP吸収量+15%'},
-      {effect:{type:'skillCDMul', value:-0.08}, desc:'スキルの再使用時間-8%'},
-    ]),
-    sphereLane('skill', 'W', 1, '旋風', '🌀', [
-      {variantEffect:{variant:'spin', value:0.10}, desc:'「回転斬り」系スキルの威力+10%'},
-      {variantEffect:{variant:'spin', value:0.10}, desc:'「回転斬り」系スキルの威力+10%'},
-      {variantEffect:{variant:'spin', value:0.10}, desc:'「回転斬り」系スキルの威力+10%'},
-      {effect:{type:'skill2DmgSphereMul', value:0.15}, desc:'スキル2の威力+15%'},
-      {effect:{type:'skill2CDSphereMul', value:-0.10}, desc:'スキル2の再使用時間-10%'},
-    ]),
-    sphereLane('skill', 'W', 2, '踏込み', '⚡', [
-      {variantEffect:{variant:'dash', value:0.10}, desc:'溜め技(ダッシュ系)の威力+10%'},
-      {variantEffect:{variant:'dash', value:0.10}, desc:'溜め技(ダッシュ系)の威力+10%'},
-      {variantEffect:{variant:'dash', value:0.10}, desc:'溜め技(ダッシュ系)の威力+10%'},
-      {effect:{type:'barrierHealSphereMul', value:0.15}, desc:'バリアのHP吸収量+15%'},
-      {effect:{type:'skillDmgSphereMul', value:0.15}, desc:'スキル(専用ボタン)の威力+15%(装着中の技を問わず)'},
-    ]),
-    // ---- 南: 必殺技(ult)。力の高まり(威力)/満ちる刻(ゲージ)/絶対の一撃(必殺威力)の3レーン ----
-    sphereLane('ult', 'S', 0, '力の高まり', '🔥', [
-      {effect:{type:'atkMul', value:0.04}, desc:'攻撃力+4%'},
-      {effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
-      {effect:{type:'atkMul', value:0.03}, desc:'攻撃力+3%'},
-      {effect:{type:'atkMul', value:0.04}, desc:'攻撃力+4%'},
-      {effect:{type:'atkMul', value:0.06}, desc:'攻撃力+6%'},
-    ]),
-    sphereLane('ult', 'S', 1, '満ちる刻', '⏳', [
-      {effect:{type:'ultGaugeSphereMul', value:0.10}, desc:'必殺ゲージ獲得+10%'},
-      {effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
-      {effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
-      {effect:{type:'ultGaugeSphereMul', value:0.06}, desc:'必殺ゲージ獲得+6%'},
-      {effect:{type:'ultGaugeSphereMul', value:0.08}, desc:'必殺ゲージ獲得+8%'},
-    ]),
-    sphereLane('ult', 'S', 2, '絶対の一撃', '💫', [
-      {effect:{type:'ultDmgSphereMul', value:0.12}, desc:'必殺技威力+12%'},
-      {effect:{type:'ultDmgSphereMul', value:0.08}, desc:'必殺技威力+8%'},
-      {effect:{type:'ultDmgSphereMul', value:0.08}, desc:'必殺技威力+8%'},
-      {effect:{type:'ultDmgSphereMul', value:0.08}, desc:'必殺技威力+8%'},
-      {effect:{type:'ultDmgSphereMul', value:0.12}, desc:'必殺技威力+12%'},
-    ]),
-    {
-      // ---- 収束点: 3レーンいずれかの最終段(tier5)まで届けば習得できる、
-      // 新スキル/新必殺技の会得マス。スキルは2つ(スキル1→スキル2の順)、
-      // 必殺技は1つ。unlockフィールドを持つノードは「強化」ではなく
-      // 「新スキルの習得」なのでunlockSphereNode側で専用フラグを立てる
-      skill_cap1: {name:'新技の会得: スキル1', icon:'✨', cost:2,
-        requiresAny:['skill_5_0','skill_5_1','skill_5_2'], unlock:'skill1Alt',
-        desc:'クラス専用の新しいスキル(専用ボタン)を習得する', pos:{dir:'W', tier:6, lane:0}},
-      skill_cap2: {name:'新技の会得: スキル2', icon:'✨', cost:2,
-        requiresAny:['skill_cap1'], unlock:'skill2Alt',
-        desc:'クラス専用の新しいスキル2を習得する', pos:{dir:'W', tier:7, lane:0}},
-      ult_cap: {name:'新技の会得: 必殺技', icon:'✨', cost:2,
-        requiresAny:['ult_5_0','ult_5_1','ult_5_2'], unlock:'ultAlt',
-        desc:'クラス専用の新しい必殺技を習得する', pos:{dir:'S', tier:6, lane:0}},
-    }
-  );
+    // ---- 東: 回避(dodge)。俊敏(コスト)から、残影(無敵)/刻の余裕(ゲージ)へ分岐 ----
+    dodge1: {name:'俊敏I', icon:'🌬️', cost:1, requiresAny:['root'], pos:{dir:'E', depth:1, fan:0},
+      effect:{type:'staminaCostMul', value:-0.10}, desc:'スタミナ消費-10%'},
+    dodge2: {name:'残影I', icon:'👤', cost:1, requiresAny:['dodge1'], pos:{dir:'E', depth:2, fan:0},
+      effect:{type:'dodgeAtkWindowSphereMul', value:0.15}, desc:'【モーション変化】回避攻撃の受付時間+15%'},
+    dodge3a: {name:'残影II', icon:'👤', cost:2, requiresAny:['dodge2'], pos:{dir:'E', depth:3, fan:-1},
+      effect:{type:'dodgeInvulnSphereMul', value:0.10}, desc:'回避の無敵時間+10%'},
+    dodge3b: {name:'刻の余裕I', icon:'⏳', cost:2, requiresAny:['dodge2'], pos:{dir:'E', depth:3, fan:1},
+      effect:{type:'ultGaugeSphereMul', value:0.08}, desc:'必殺ゲージ獲得+8%'},
+    dodge4a: {name:'俊敏II', icon:'🌬️', cost:2, requiresAny:['dodge3a'], pos:{dir:'E', depth:4, fan:-1.4},
+      effect:{type:'staminaCostMul', value:-0.08}, desc:'スタミナ消費-8%'},
+    dodge4b: {name:'刻の余裕II', icon:'⏳', cost:2, requiresAny:['dodge3b'], pos:{dir:'E', depth:4, fan:1.4},
+      effect:{type:'ultGaugeSphereMul', value:0.08}, desc:'必殺ゲージ獲得+8%'},
+    dodge5a1: {name:'残影III', icon:'👤', cost:3, requiresAny:['dodge4a'], pos:{dir:'E', depth:5, fan:-2.2},
+      effect:{type:'dodgeInvulnSphereMul', value:0.14}, desc:'回避の無敵時間+14%'},
+    dodge5a2: {name:'俊敏III', icon:'🌬️', cost:3, requiresAny:['dodge4a'], pos:{dir:'E', depth:5, fan:-0.6},
+      effect:{type:'staminaCostMul', value:-0.10}, desc:'スタミナ消費-10%'},
+    dodge5b: {name:'刻の余裕III', icon:'⏳', cost:3, requiresAny:['dodge4b'], pos:{dir:'E', depth:5, fan:1.4},
+      effect:{type:'ultGaugeSphereMul', value:0.10}, desc:'必殺ゲージ獲得+10%'},
+
+    // ---- 西: スキル(skill)。共通強化2段のあと「切り下がり/回転斬り/
+    // ダッシュ」3方向へフォーク(3系統への投資という設計思想を維持するため
+    // ここだけ3分岐)。いずれか1本を伸ばしきれば新技の会得に届く ----
+    skill1: {name:'退き足I', icon:'⬇️', cost:1, requiresAny:['root'], pos:{dir:'W', depth:1, fan:0},
+      effect:{type:'skillCDMul', value:-0.08}, desc:'スキルの再使用時間-8%'},
+    skill2: {name:'旋風I', icon:'🌀', cost:1, requiresAny:['skill1'], pos:{dir:'W', depth:2, fan:0},
+      effect:{type:'barrierHealSphereMul', value:0.15}, desc:'バリアのHP吸収量+15%'},
+    skill3a: {name:'切り下がりI', icon:'⬇️', cost:2, requiresAny:['skill2'], pos:{dir:'W', depth:3, fan:-1.6},
+      variantEffect:{variant:'retreat', value:0.12}, desc:'「切り下がり」系スキルの威力+12%'},
+    skill3b: {name:'回転斬りI', icon:'🌀', cost:2, requiresAny:['skill2'], pos:{dir:'W', depth:3, fan:0},
+      variantEffect:{variant:'spin', value:0.12}, desc:'「回転斬り」系スキルの威力+12%'},
+    skill3c: {name:'踏込みI', icon:'⚡', cost:2, requiresAny:['skill2'], pos:{dir:'W', depth:3, fan:1.6},
+      variantEffect:{variant:'dash', value:0.12}, desc:'溜め技(ダッシュ系)の威力+12%'},
+    skill4a: {name:'切り下がりII', icon:'⬇️', cost:2, requiresAny:['skill3a'], pos:{dir:'W', depth:4, fan:-1.6},
+      variantEffect:{variant:'retreat', value:0.12}, desc:'「切り下がり」系スキルの威力+12%'},
+    skill4b: {name:'回転斬りII', icon:'🌀', cost:2, requiresAny:['skill3b'], pos:{dir:'W', depth:4, fan:0},
+      variantEffect:{variant:'spin', value:0.12}, desc:'「回転斬り」系スキルの威力+12%'},
+    skill4c: {name:'踏込みII', icon:'⚡', cost:2, requiresAny:['skill3c'], pos:{dir:'W', depth:4, fan:1.6},
+      variantEffect:{variant:'dash', value:0.12}, desc:'溜め技(ダッシュ系)の威力+12%'},
+
+    // ---- 南: 必殺技(ult)。力の高まり(威力の芽)から、絶対の一撃(威力)/
+    // 満ちる刻(ゲージ)へ分岐 ----
+    ult1: {name:'力の高まりI', icon:'🔥', cost:1, requiresAny:['root'], pos:{dir:'S', depth:1, fan:0},
+      effect:{type:'atkMul', value:0.05}, desc:'攻撃力+5%'},
+    ult2: {name:'満ちる刻I', icon:'⏳', cost:1, requiresAny:['ult1'], pos:{dir:'S', depth:2, fan:0},
+      effect:{type:'ultGaugeSphereMul', value:0.10}, desc:'必殺ゲージ獲得+10%'},
+    ult3a: {name:'絶対の一撃I', icon:'💫', cost:2, requiresAny:['ult2'], pos:{dir:'S', depth:3, fan:-1},
+      effect:{type:'ultDmgSphereMul', value:0.10}, desc:'必殺技威力+10%'},
+    ult3b: {name:'満ちる刻II', icon:'⏳', cost:2, requiresAny:['ult2'], pos:{dir:'S', depth:3, fan:1},
+      effect:{type:'ultGaugeSphereMul', value:0.08}, desc:'必殺ゲージ獲得+8%'},
+    ult4a: {name:'絶対の一撃II', icon:'💫', cost:2, requiresAny:['ult3a'], pos:{dir:'S', depth:4, fan:-1.4},
+      effect:{type:'ultDmgSphereMul', value:0.10}, desc:'必殺技威力+10%'},
+    ult4b: {name:'力の高まりII', icon:'🔥', cost:2, requiresAny:['ult3b'], pos:{dir:'S', depth:4, fan:1.4},
+      effect:{type:'atkMul', value:0.06}, desc:'攻撃力+6%'},
+    ult5a1: {name:'絶対の一撃III', icon:'💫', cost:3, requiresAny:['ult4a'], pos:{dir:'S', depth:5, fan:-2.2},
+      effect:{type:'ultDmgSphereMul', value:0.14}, desc:'必殺技威力+14%'},
+    ult5a2: {name:'満ちる刻III', icon:'⏳', cost:3, requiresAny:['ult4a'], pos:{dir:'S', depth:5, fan:-0.6},
+      effect:{type:'ultGaugeSphereMul', value:0.12}, desc:'必殺ゲージ獲得+12%'},
+    ult5b: {name:'力の高まりIII', icon:'🔥', cost:3, requiresAny:['ult4b'], pos:{dir:'S', depth:5, fan:1.4},
+      effect:{type:'ultDmgSphereMul', value:0.12}, desc:'必殺技威力+12%'},
+
+    // ---- 収束点: 各系統の末端まで届けば習得できる、新スキル/新必殺技の
+    // 会得マス。スキルは2つ(スキル1→スキル2の順)、必殺技は1つ。
+    // unlockフィールドを持つノードは「強化」ではなく「新スキルの習得」
+    // なのでunlockSphereNode側で専用フラグを立てる ----
+    skill_cap1: {name:'新技の会得: スキル1', icon:'✨', cost:2,
+      requiresAny:['skill4a','skill4b','skill4c'], unlock:'skill1Alt',
+      desc:'クラス専用の新しいスキル(専用ボタン)を習得する', pos:{dir:'W', depth:5, fan:0}},
+    skill_cap2: {name:'新技の会得: スキル2', icon:'✨', cost:2,
+      requiresAny:['skill_cap1'], unlock:'skill2Alt',
+      desc:'クラス専用の新しいスキル2を習得する', pos:{dir:'W', depth:6, fan:0}},
+    ult_cap: {name:'新技の会得: 必殺技', icon:'✨', cost:2,
+      requiresAny:['ult5a1','ult5a2','ult5b'], unlock:'ultAlt',
+      desc:'クラス専用の新しい必殺技を習得する', pos:{dir:'S', depth:6, fan:0}},
+  };
 
   function sphereUnlocked(id){ return (state.unlockedSphereNodes||['root']).includes(id); }
   function sphereCanUnlock(id){
@@ -2336,9 +2309,18 @@
   // ホイール/ボタンでsphereZoomを変えてrenderSpherePanel()を呼び直すだけで、
   // 盤面サイズ自体が変わる(CSS transformではなくレイアウトそのものを
   // 拡縮するので、overflow:autoのスクロール範囲も正しく追従する)
-  const SPHERE_TIER_SPACING_BASE = 66, SPHERE_LANE_SPACING_BASE = 50;
+  // 盤面配置(2026-08-30再設計): 手描きのイメージ図に合わせ、方向ごとの
+  // レーンを「同じ長さの平行線が並ぶグリッド」から「rootから伸びる1本の
+  // 幹が、要所でだけ枝分かれする疎な木」へ変更した。pos:{dir,depth,fan}の
+  // depthがrootからの距離(リング)、fanが幹からの角度のずれ(枝分かれの
+  // 度合い)で、depthが増すほどfanの角度差が開いていく=末広がりの扇形に
+  // なる。旧グリッド式のようにtier×laneの全組み合わせが自動接続される
+  // ことはなく、接続(requires/requiresAny)は各ノードで個別に指定した
+  // ものだけが線として引かれる
+  const SPHERE_RADIUS_UNIT_BASE = 62, SPHERE_FAN_STEP = 0.24; // fan 1につき約14度
   const SPHERE_CANVAS_BASE = 1200, SPHERE_CENTER_BASE = 600;
   const SPHERE_ZOOM_MIN = 0.6, SPHERE_ZOOM_MAX = 1.7;
+  const SPHERE_DIR_ANGLE = { N:-Math.PI/2, E:0, S:Math.PI/2, W:Math.PI };
   let sphereZoom = 1.0;
   function sphereCanvasSize(){ return SPHERE_CANVAS_BASE * sphereZoom; }
   function sphereCenterPx(){ return SPHERE_CENTER_BASE * sphereZoom; }
@@ -2346,14 +2328,10 @@
     const def = SPHERE_NODES[id];
     const p = def && def.pos;
     const center = sphereCenterPx();
-    if(!p || !p.tier) return {x:center, y:center};
-    const laneOffset = (p.lane - 1) * SPHERE_LANE_SPACING_BASE * sphereZoom; // lane 0/1/2 -> -1/0/+1段ぶん
-    const t = p.tier * SPHERE_TIER_SPACING_BASE * sphereZoom;
-    if(p.dir==='N') return {x:center+laneOffset, y:center-t};
-    if(p.dir==='S') return {x:center+laneOffset, y:center+t};
-    if(p.dir==='E') return {x:center+t, y:center+laneOffset};
-    if(p.dir==='W') return {x:center-t, y:center+laneOffset};
-    return {x:center, y:center};
+    if(!p || !p.depth) return {x:center, y:center};
+    const r = p.depth * SPHERE_RADIUS_UNIT_BASE * sphereZoom;
+    const angle = (SPHERE_DIR_ANGLE[p.dir]||0) + (p.fan||0) * SPHERE_FAN_STEP;
+    return {x:center + r*Math.cos(angle), y:center + r*Math.sin(angle)};
   }
   // 現在選んでいるノードから見て、押された方向(dx/dy、いずれも-1〜1)に
   // 最も自然な次のノードを探す。「距離」だけでなく「向きの一致度」も

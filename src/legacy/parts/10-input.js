@@ -467,7 +467,10 @@
     state.invulnerable = true;
     state.comboWindowT = 0; state.comboStage = 0; state.comboCount = 0; // 回避で通常コンボは打ち切る
     state.justDodgedT = 1.0;   // 「回避直後」の判定窓。かげぬいの小刀のクリティカルに使う
-    state.dodgeAttackWindowT = 0.55;  // 回避攻撃の判定窓。ロール中(0.2秒)+直後の余裕(0.35秒)
+    // 回避攻撃の判定窓。ロール中(0.2秒)+直後の余裕(0.35秒)。
+    // スフィア「残影I」「疾風II」(dodgeAtkWindowSphereMul)はこの受付時間
+    // 自体を伸ばすモーション変化
+    state.dodgeAttackWindowT = 0.55 * (1 + sphereValue('dodgeAtkWindowSphereMul'));
     if(state.personality==='calm'){
       // 冷静: 回避すると少しMPが戻る
       state.mp = Math.min(state.maxMp, state.mp + state.maxMp*0.08);
