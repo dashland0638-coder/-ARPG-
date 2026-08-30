@@ -292,6 +292,9 @@
       } else if(state.dialogueKind==='bossEnding'){
         state.dialogueKind = null;
         returnToTown(false);
+      } else if(state.dialogueKind==='jobPromotion'){
+        state.dialogueKind = null;
+        applyPendingJobPromotion();
       }
       return;
     }
@@ -1583,17 +1586,84 @@
     if(leveled){
       recomputeStats();
       spawnLevelUpPopup();
-      checkJobPromotion();
+      checkJobPromotion(currentWorldKey==='tavern');
     }
   }
 
-  /* 上位ジョブ(#9 / Phase B): レベル50到達で1回だけ発動する自動転身。
-     資料の「基本職→上位職」は1対1対応なので選択肢UIは不要 ――
-     到達した瞬間にそのまま転身させ、トーストで告知する。 */
-  function checkJobPromotion(){
+  /* 上位ジョブ(#9 / Phase B、酒場イベント化: Phase F): レベル50到達で
+     1回だけ発動する転身。資料の「基本職→上位職」は1対1対応なので
+     選択肢UIは不要だが、以前はダンジョンの最中でも問答無用でトースト
+     一枚だけ出して即転身しており、「上位職のイベントが無い」という
+     不満につながっていた。酒場の主人との掛け合い(dialogue-overlay)を
+     挟む演出イベントに変更し、酒場にいない時は何もしない ――
+     inTavern=falseで呼ばれた場合は条件を満たしていても発動を見送り、
+     次に酒場へ戻った瞬間(WORLD_DEFS.tavern.build、buildTavern()の直後)
+     に同じこの関数がinTavern=trueで再度呼ばれ、そこで初めて発火する。
+     buildWorld()はdef.build()の完了後にcurrentWorldKeyを書き換えるため、
+     酒場構築中のその時点ではcurrentWorldKeyがまだ'tavern'になっておらず
+     判定に使えない ―― そのため呼び出し側に「今まさに酒場にいるか」を
+     明示的に渡してもらう形にしてある */
+  function checkJobPromotion(inTavern){
     if(state.job) return;   // 転身済み
     const uj = upperJobFor(selectedClass);
     if(!uj || state.level < uj.unlockLv) return;
+    if(!inTavern) return;   // 酒場に戻った時に改めて呼ばれるので、ここでは何もしない
+    startJobPromotionDialogue(uj);
+  }
+
+  // 転身する上位職ごとの、酒場の主人と主人公の短い掛け合い。最後の一文だけ
+  // 主人公自身の呟きにして(state.name)、資料の「他愛のない会話」に寄せた
+  const JOB_PROMOTION_DIALOGUE = {
+    battleKnight: ()=>[
+      {name:'酒場の主人', text:'……お前さん、この頃ずいぶん面構えが変わったな。'},
+      {name:'酒場の主人', text:'そろそろ潮時か。奥に仕舞ってあった得物を出してこよう。'},
+      {name: state.name || 'あなた', text:'これは……'},
+      {name:'酒場の主人', text:'先代の誰かが置いていったものだ。今のお前になら、ちょうど良いだろう。'},
+      {name:'酒場の主人', text:'――『戦騎士』。守るための剣を、その手で掲げてみせろ。'},
+    ],
+    berserker: ()=>[
+      {name:'酒場の主人', text:'盗賊風情が、いつの間にそんな目つきになった。'},
+      {name:'酒場の主人', text:'防具なんぞ脱ぎ捨てちまえ。お前の身のこなしなら、その方が速い。'},
+      {name: state.name || 'あなた', text:'……ああ、その通りだ。'},
+      {name:'酒場の主人', text:'双つの得物を持ってみろ。もう盗賊なんぞと呼ばせやしない。'},
+      {name:'酒場の主人', text:'――『バーサーカー』。狂うほどに速く、狂うほどに強くなれ。'},
+    ],
+    archmage: ()=>[
+      {name:'酒場の主人', text:'杖の先が、前より熱を持ってるな。'},
+      {name:'酒場の主人', text:'そろそろ、人間の器じゃ収まらなくなってきたか。'},
+      {name: state.name || 'あなた', text:'……自分でも、少し怖くなる時がある。'},
+      {name:'酒場の主人', text:'怖がるな。それは魔法そのものに近づいてる証だ。'},
+      {name:'酒場の主人', text:'――『魔導士』。人であることに、しがみつく必要はもうない。'},
+    ],
+    hawkEye: ()=>[
+      {name:'酒場の主人', text:'お前の目、俺には見えん場所まで見えてるんじゃないか。'},
+      {name:'酒場の主人', text:'弓が窮屈になってきた頃だろう。'},
+      {name: state.name || 'あなた', text:'……最近、狙う前に当たる場所が分かるようになった。'},
+      {name:'酒場の主人', text:'なら、もう一段研ぎ澄ませ。鷹を連れて帰るといい。'},
+      {name:'酒場の主人', text:'――『鷹の目』。お前が見た場所に、もう外れはない。'},
+    ],
+  };
+  function startJobPromotionDialogue(uj){
+    sfx('bossWake');
+    state.dialogueActive = true;
+    state.dialogueBoss = null;
+    state.dialogueKind = 'jobPromotion';
+    state.pendingJobPromotionKey = uj.key;
+    state.dialogueIndex = 0;
+    const factory = JOB_PROMOTION_DIALOGUE[uj.key];
+    state.dialogueLines = factory ? factory() : [{name:'酒場の主人', text:uj.flavor}];
+    document.getElementById('dialogue-name').textContent = '酒場の主人';
+    renderDialogueLine(state.dialogueLines[0]);
+    document.getElementById('dialogue-overlay').classList.add('active');
+  }
+  // 掛け合いの最後まで送り終えた瞬間(advanceDialogue参照)に呼ばれ、
+  // ここで初めてstate.jobを実際に書き換える ―― 台詞を読ませてから
+  // 効果を反映するので、トーストだけだった頃より転身の重みが出る
+  function applyPendingJobPromotion(){
+    const key = state.pendingJobPromotionKey;
+    state.pendingJobPromotionKey = null;
+    const uj = upperJobFor(selectedClass);
+    if(!uj || uj.key !== key || state.job) return;   // 念のための二重発火防止
     state.job = uj.key;
     recomputeStats();
     applyJobPromotionVisual();

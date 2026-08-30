@@ -118,7 +118,7 @@
      that world's objects.
   ========================================================= */
   const WORLD_DEFS = {
-    tavern:   { build: ()=>{ buildTavern(); } },
+    tavern:   { build: ()=>{ buildTavern(); checkJobPromotion(true); } },
     mansion:  { build: ()=>{
       buildForest(); buildMansion(); buildBasement(); buildSecondFloor(); buildMansionCourtyard();
       buildMansionGreathall(); buildMansionGrand(); buildMansionServant();
