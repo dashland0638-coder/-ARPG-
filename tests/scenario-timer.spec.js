@@ -24,7 +24,15 @@ async function sortieInto(page, key) {
   for (let i = 0; i < 10; i++) {
     const active = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
     if (!active) break;
-    await page.click('#dialogue-overlay');
+    // The last line of this dialogue triggers the dungeon-load world switch.
+    // Playwright's own page.click() actionability engine (its "waiting for
+    // scheduled navigations to finish" step) can hang for minutes on that
+    // specific click in this environment even though the click itself lands
+    // instantly and the world switch completes normally - confirmed by
+    // dispatching the click via evaluate() instead, which never hangs.
+    // Bypassing Playwright's click machinery here sidesteps that false
+    // positive entirely.
+    await page.evaluate(() => document.getElementById('dialogue-overlay').click());
     await page.waitForTimeout(400);
   }
   await page.waitForTimeout(500);
@@ -75,6 +83,7 @@ test.describe('scenario time limit', () => {
     await page.click('#cc-continue-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);
+    await disableCameraAutoFollow(page);
 
     await expect(page.locator('#scenario-timer')).toBeHidden(); // not yet sortied - still just standing in town
 

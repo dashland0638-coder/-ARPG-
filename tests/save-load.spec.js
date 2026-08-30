@@ -66,7 +66,13 @@ test.describe('sortie', () => {
     for (let i = 0; i < 6; i++) {
       const active = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
       if (!active) break;
-      await page.click('#dialogue-overlay');
+      // The last line triggers the dungeon-load world switch. Playwright's
+      // own page.click() actionability engine can hang for minutes on that
+      // specific click in this environment even though the click lands
+      // instantly and the world switch completes normally (confirmed by
+      // dispatching via evaluate() instead, which never hangs) - see the
+      // matching comment in scenario-timer.spec.js's sortieInto().
+      await page.evaluate(() => document.getElementById('dialogue-overlay').click());
       await page.waitForTimeout(400);
     }
     await page.waitForTimeout(1000);
