@@ -82,8 +82,18 @@
       // sinカーブに通し、前後で30%・真横で100%(=現行速度そのまま)になる
       // よう速度係数を作る。1-k^dtの収束レートをm倍にするには減衰定数kを
       // k^mへ置き換えればよい(k^(m*dt) = (k^m)^dt)
+      //
+      // 追加調整: 後ろに下がる(移動方向を反転する)瞬間、desiredYawが
+      // 180°反転してcamYawとの差が0→90°→180°(=前後→真横→前後)を
+      // 一気に横切るため、素のsinカーブだと中間の「真横」区間で
+      // 一瞬フル速度(=3倍速)まで跳ね上がり、そこが体感の大部分を
+      // 占めて「反転時だけ急に速く回る」ように見えていた。sinを3乗して
+      // 0°/180°付近の緩やかな区間を大きく広げ、フル速度になるのは
+      // 真横に近い狭い範囲だけに絞ることで、反転時の体感も含めて
+      // 全体になめらかにした(真横への意図的な素早い振り向きの速さは
+      // 変えていない)
       let diff = ((desiredYaw - state.camYaw + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
-      const speedFactor = 0.30 + 0.70*Math.sin(Math.abs(diff));   // diffは[-π,π]なのでsin(|diff|)は前後で0、真横(π/2)で最大の1
+      const speedFactor = 0.30 + 0.70*Math.pow(Math.sin(Math.abs(diff)), 3);   // diffは[-π,π]なのでsin(|diff|)は前後で0、真横(π/2)で最大の1
       const baseDecay = 0.82*0.82*0.82;   // 真横(=従来の基準速度)での減衰定数
       state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(baseDecay, speedFactor*dt));
     }

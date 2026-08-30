@@ -287,12 +287,18 @@
 
   // まとめて売却: 特殊効果武器(specialId)は一つしかない上に見た目のオーラも
   // 付く思い入れの強い品なので誤って一括処理に巻き込まないよう対象から
-  // 常に除外する。それ以外の鑑定済み・未装備の品だけをまとめて現金化する
+  // 常に除外する。それ以外の鑑定済み・未装備の品だけをまとめて現金化する。
+  // バグ修正: レベル未達でまだ装備できない上位装備(item.itemLevel >
+  // state.level)も「未装備」というだけで一括売却に巻き込まれてしまい、
+  // レベルが追いつくまで温存していた装備を誤って売ってしまう不具合が
+  // あった。装備可能な品だけを対象にする(isSellableJunk()参照)
+  function isSellableJunk(item){
+    if(!item.identified || item.specialId) return false;
+    if(item.itemLevel > state.level) return false;
+    return !['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===item.id);
+  }
   function sellAllJunk(){
-    const targets = state.equipmentInventory.filter(item=>{
-      if(!item.identified || item.specialId) return false;
-      return !['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===item.id);
-    });
+    const targets = state.equipmentInventory.filter(isSellableJunk);
     if(targets.length===0){ spawnToast('🪙 売却できる装備がない'); return; }
     const total = targets.reduce((s,it)=> s+equipmentSellPrice(it), 0);
     targets.forEach(item=>{

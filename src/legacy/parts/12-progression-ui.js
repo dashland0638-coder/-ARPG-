@@ -2134,13 +2134,12 @@
     if(bestBtn) bestBtn.addEventListener('click', equipBestGear);
     const sellAllBtn = panel.querySelector('#gear-sell-all-btn');
     if(sellAllBtn) sellAllBtn.addEventListener('click', ()=>{
-      const targets = state.equipmentInventory.filter(item=>{
-        if(!item.identified || item.specialId) return false;
-        return !['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===item.id);
-      });
+      // isSellableJunk()と同じ条件(08-loot-equipment.js) ―― プレビュー
+      // (件数・合計額)と実際の売却対象がズレないよう、フィルタを共有する
+      const targets = state.equipmentInventory.filter(isSellableJunk);
       if(targets.length===0){ spawnToast('🪙 売却できる装備がない'); return; }
       const total = targets.reduce((s,it)=> s+equipmentSellPrice(it), 0);
-      askConfirm('まとめて売却', `未装備の装備 <b>${targets.length}個</b> を売却して <b>🪙${total}</b> を得ます。<br>⭐特殊効果武器は対象外です。よろしいですか?`, ()=>{
+      askConfirm('まとめて売却', `未装備の装備 <b>${targets.length}個</b> を売却して <b>🪙${total}</b> を得ます。<br>⭐特殊効果武器・レベル未達で装備できない品は対象外です。よろしいですか?`, ()=>{
         sellAllJunk();
         refreshAppraisal();
       });
