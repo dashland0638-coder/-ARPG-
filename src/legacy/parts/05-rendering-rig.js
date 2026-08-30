@@ -1385,6 +1385,40 @@
     archmage:     1.0,
     hawkEye:      1.08    // 静止と精密さ: わずかに溜めて、狙いを外さない構え
   };
+
+  // 通常攻撃のモーション大幅強化(2026-08-30、上位職差別化の続き):
+  // JOB_ATTACK_TEMPOは再生速度だけを伸縮させていたため、動きの「形」自体は
+  // 基礎職と全く同じままだった。新しいクリップを1本ずつ作る代わりに、
+  // 通常攻撃(basic系クリップ)中の肩・肘の可動域を安全に底上げすることで
+  // 「一目で違うと分かる」大振りの一撃に変える ―― applyPose()自体は
+  // 触らず、渡す直前のポーズを差し替えるだけの追加処理なので、既存の
+  // 全クリップ(スキル/回避/必殺技/持続ホールド)には一切影響しない
+  const JOB_SWING_AMPLIFY = {
+    battleKnight: 1.28,   // 大剣の一撃をひときわ大きく見せる
+    berserker:    1.22,   // 双剣の振りをより鋭く、広く
+    archmage:     1.12,   // 杖の一薙ぎをひとまわり大きく
+    hawkEye:      1.15    // 弓の構え/リリースをひとまわり大きく
+  };
+  function amplifyEuler(target, base, amp){
+    return [
+      base.x + (target[0]-base.x)*amp,
+      base.y + (target[1]-base.y)*amp,
+      base.z + (target[2]-base.z)*amp,
+    ];
+  }
+  // 肩(shL/shR)・肘(elL/elR)を、buildPlayer()が記録した休め姿勢
+  // (armLBase等)からの差分だけamp倍する。武器(wep)や体の押し出し(push等)
+  // は手・武器位置の連動計算に任せ、ここでは触らない
+  function amplifySwingPose(p, amp){
+    const P = playerMixerParts;
+    const out = Object.assign({}, p);
+    if(p.shL && P.armLBase) out.shL = amplifyEuler(p.shL, P.armLBase, amp);
+    if(p.shR && P.armRBase) out.shR = amplifyEuler(p.shR, P.armRBase, amp);
+    if(p.elL !== undefined && P.elbowLBase) out.elL = P.elbowLBase.x + (p.elL - P.elbowLBase.x)*amp;
+    if(p.elR !== undefined && P.elbowRBase) out.elR = P.elbowRBase.x + (p.elR - P.elbowRBase.x)*amp;
+    return out;
+  }
+
   function beginMove(name){
     const lib = CLIPS[state.classDef.key];
     // サブ武器装備中は basic/basic2 を altBasic/altBasic2 へ透過的に差し替える。
@@ -1409,7 +1443,13 @@
     _poseShift.set(0,0,0);
     if(state.swinging){
       const clip = lib[state.moveClip] || lib.basic;
-      applyPose(sampleClip(clip, Math.min(1, state.swingT)));
+      let pose = sampleClip(clip, Math.min(1, state.swingT));
+      // 上位職の通常攻撃モーション大幅強化: basic系クリップ(通常攻撃の
+      // コンボ)にだけ効かせ、スキル/回避/必殺技の型には触れない
+      const amp = (state.job && JOB_SWING_AMPLIFY[state.job] && /^(basic|altBasic)/.test(state.moveClip))
+        ? JOB_SWING_AMPLIFY[state.job] : null;
+      if(amp) pose = amplifySwingPose(pose, amp);
+      applyPose(pose);
     } else if(state.ultAiming && (lib.ultHold || lib.hold)){
       const r = Math.min(1, state.ultAimT / 0.35);   // the aim ramps in, then holds
       applyPose(sampleClip(lib.ultHold || lib.hold, r));

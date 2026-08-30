@@ -165,13 +165,25 @@
     state.clearedScenarios = Object.assign({}, data.clearedScenarios);
 
     state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
+
+    // 上位ジョブ(#9/Phase B)。v2セーブにはこのフィールドが無い(undefined)
+    // ため、その場合はnull=未転身のまま扱う。selectedClassの上位職キーと
+    // 一致しない値が保存されていた場合(改変セーブ等)も安全側でnullに倒す。
+    // 直後のskillChoice復元(unlockKey:'job'の判定にstate.jobを使う)より
+    // 先に確定させておく必要があるため、ここへ繰り上げてある
+    {
+      const uj = upperJobFor(data.selectedClass);
+      state.job = (uj && data.job === uj.key) ? data.job : null;
+    }
+
     // 以前はここでretreat固定に戻していた(skillChoice自体が未保存だった
     // ため)。クラスの持ち技として実在し、かつ未解放の新技(unlockKey付き)
     // でなければ、保存されていた選択をそのまま復元する
     {
       const variants = CHARGE_VARIANTS_BY_CLASS[data.selectedClass] || {};
       const saved = variants[data.skillChoice];
-      const savedOk = saved && (!saved.unlockKey || state.unlockedSkill1Alt);
+      const savedOk = saved && (!saved.unlockKey ||
+        (saved.unlockKey==='job' ? !!state.job : state.unlockedSkill1Alt));
       state.skillChoice = savedOk ? data.skillChoice : 'retreat';
     }
     state.skillCharging = false; state.skillChargeT = 0;
@@ -181,14 +193,6 @@
     state.xpToNext = data.xpToNext || xpToNextForLevel(state.level);
     state.levelGrowth = Object.assign(zeroAlloc(), data.levelGrowth);
     state.usingAltWeapon = false;   // 保存された装備のnative武器種に合わせる
-
-    // 上位ジョブ(#9/Phase B)。v2セーブにはこのフィールドが無い(undefined)
-    // ため、その場合はnull=未転身のまま扱う。selectedClassの上位職キーと
-    // 一致しない値が保存されていた場合(改変セーブ等)も安全側でnullに倒す
-    {
-      const uj = upperJobFor(data.selectedClass);
-      state.job = (uj && data.job === uj.key) ? data.job : null;
-    }
 
     state.inventory = Object.assign({gold:0, gem:0, potion:0, shard:0, mppotion:0}, data.inventory);
 

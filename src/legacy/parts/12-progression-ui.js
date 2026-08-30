@@ -1500,16 +1500,20 @@
     } : {};
     const atkMul = (state.usingAltWeapon ? (weaponDef.atkMul||1) : 1) * (1 + sphereValue('atkMul'));   // スフィア「攻撃の心得」
     const hpAbilityMul = 1 + bossAbilityValue('maxHpMul');   // ボス能力「百年花の芯」
-    // 必殺技の新規選択肢(スフィア盤で解放): 未解放ならaltを選んでいても
-    // 強制的にdefaultへ戻す(セーブデータ改変や解放前の選択残りに対する安全策)
-    const ultBase = (state.ultChoice==='alt' && state.unlockedUltAlt && ULT_ALT_BY_CLASS[selectedClass])
-      ? ULT_ALT_BY_CLASS[selectedClass] : base.ult;
     // 基礎ステータス制(#28): 職業基礎値+ダイス配分+レベル成長を6項目分
     // 合算してから、HP/MP/攻撃力をそれぞれの式で導出する。
     // 上位ジョブ(#9)に転身済みなら、そのstatBonusも同じ列で合算する
     const upperJob = upperJobFor(selectedClass);
     const jobActive = !!(state.job && upperJob && upperJob.key === state.job);
     const jobBonus = jobActive ? upperJob.statBonus : null;
+    // 必殺技: 上位職に転身済みならJOB_ULT_BY_JOB(職業専用の強化必殺技)が
+    // 常に最優先。転身前はスフィア盤の新規選択肢(alt)、どちらも無ければ
+    // 基礎職の必殺技のまま。未解放ならaltを選んでいても強制的にdefaultへ
+    // 戻す(セーブデータ改変や解放前の選択残りに対する安全策)
+    const ultBase = (jobActive && JOB_ULT_BY_JOB[state.job])
+      ? JOB_ULT_BY_JOB[state.job]
+      : (state.ultChoice==='alt' && state.unlockedUltAlt && ULT_ALT_BY_CLASS[selectedClass])
+        ? ULT_ALT_BY_CLASS[selectedClass] : base.ult;
     const merged = jobBonus
       ? mergeStatPoints(mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth), jobBonus)
       : mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth);
@@ -1848,6 +1852,11 @@
       cleave: {
         key:'cleave', name:'轟斬', icon:'👹', desc:'大剣を大きく振り抜き、周囲の敵をまとめて薙ぎ払う(スフィア盤で解放)',
         baseMult:1.3, maxMult:2.6, mode:'aoe', radius:5.0, vfxColor:0xff5a3a, unlockKey:'skill1Alt'
+      },
+      // 上位職専用スキル(転身と同時に習得。轟斬をさらに上回る範囲と威力)
+      smite: {
+        key:'smite', name:'覇道の一薙ぎ', icon:'👑', desc:'戦騎士に転身した証。轟斬をさらに上回る範囲と威力の大薙ぎ(転身で習得)',
+        baseMult:1.7, maxMult:3.4, mode:'aoe', radius:5.8, vfxColor:0xffcf6a, unlockKey:'job'
       }
     },
     rogue: {
@@ -1877,6 +1886,12 @@
         key:'poison', name:'毒霧', icon:'☠️', desc:'眼前に毒霧を放つ。当たった敵は数秒間、継続ダメージを受ける(スフィア盤で解放)',
         baseMult:0.55, maxMult:1.1, mode:'aoe', radius:3.8, vfxColor:0x5ac95a,
         dotFrac:0.4, dotDuration:3.0, unlockKey:'skill1Alt'
+      },
+      // 上位職専用スキル(転身と同時に習得。常軌を逸した速さで斬り抜ける)
+      bloodrush: {
+        key:'bloodrush', name:'血刀一閃', icon:'🩸', desc:'バーサーカーに転身した証。常軌を逸した速さで斬り抜ける(転身で習得)',
+        baseMult:1.3, maxMult:2.8, mode:'line', length:7.5, width:1.7, vfxColor:0xff5a3a,
+        movement:'dash', dist:5.8, duration:0.15, unlockKey:'job'
       }
     },
     mage: {
@@ -1905,6 +1920,12 @@
         key:'chain', name:'連鎖雷撃', icon:'⚡', desc:'雷撃を放つ。命中した敵の近くにいる別の敵へも雷が飛び移る(スフィア盤で解放)',
         baseMult:1.0, maxMult:2.2, mode:'chain', vfxColor:0x8ac8ff,
         chainRadius:6.5, chainMul:0.6, unlockKey:'skill1Alt'
+      },
+      // 上位職専用スキル(転身と同時に習得。周囲に強力な魔力の波動を放つ)
+      nova: {
+        key:'nova', name:'天の焦土', icon:'🌠', desc:'魔導士に転身した証。周囲に強力な魔力の波動を放つ(転身で習得)',
+        baseMult:1.6, maxMult:3.2, mode:'aoe', radius:5.4, vfxColor:0xb08aff,
+        dotFrac:0.5, dotDuration:4.0, unlockKey:'job'
       }
     },
     archer: {
@@ -1932,6 +1953,11 @@
       pierce: {
         key:'pierce', name:'貫通の一矢', icon:'🏹', desc:'渾身の一射で、直線上の敵を全て貫通する(スフィア盤で解放)',
         baseMult:1.2, maxMult:2.6, mode:'line', length:11, width:1.3, vfxColor:0xe8d38a, unlockKey:'skill1Alt'
+      },
+      // 上位職専用スキル(転身と同時に習得。貫通の一矢をさらに超える必中の一射)
+      skyPierce: {
+        key:'skyPierce', name:'天賦の一矢', icon:'🦅', desc:'鷹の目に転身した証。貫通の一矢をさらに超える必中の一射(転身で習得)',
+        baseMult:1.5, maxMult:3.0, mode:'line', length:14, width:1.5, vfxColor:0x6adfc0, unlockKey:'job'
       }
     }
   };
@@ -1987,6 +2013,26 @@
       radius:4.0, mult:3.8 },
     archer:  { name:'百矢の雨', icon:'🌧️', cd:22, vfxColor:0xffe0a0,
       radial:true, sweep:true, sweepDur:1.3, sweepArrows:36, radius:9.0, mult:1.0 },
+  };
+
+  /* 上位職専用の必殺技(#9/#35の続き。2026-08-30改訂)。ULT_ALT_BY_CLASS
+     (スフィア盤で解放する「別の型」)とは違い、こちらは転身の到達点その
+     ものとして常に最優先で使われる(recomputeStats参照)。新しい当たり
+     判定の形は増やさず、各職の基礎必殺技と全く同じ形(warrior/rogue=単発
+     範囲、mage=狙い撃ち溜め、archer=旋回連続判定)のまま数値だけを
+     大きく強化してある ―― 判定ロジックはfireUltimate()側がult.radial/
+     aimed等のフィールドを見て分岐するだけの汎用実装なので、この形さえ
+     踏襲すれば新しいクラス分岐を一切書かずに済む */
+  const JOB_ULT_BY_JOB = {
+    battleKnight: { name:'覇王の一閃', icon:'👑', cd:20, vfxColor:0xffcf6a,
+      radius:4.8, mult:5.2 },   // 基礎(渾身の斬撃 mult:3.2)から+62%
+    berserker:    { name:'血刃乱舞', icon:'🩸', cd:16, vfxColor:0xff5a3a,
+      radius:3.9, mult:6.0 },   // 基礎(影閃乱舞 mult:3.6)から+67%
+    archmage:     { name:'天変異変', icon:'🌠', cd:22, vfxColor:0xb08aff,
+      aimed:true, aimDist:6.5, aimMax:2.2, aimRadiusMul:2.1, aimDmgMul:2.2, aimMpPerSec:16,
+      radius:4.3, mult:5.4 },  // 基礎(メテオフォール mult:3.4)から+59%
+    hawkEye:      { name:'天翔ける鏃', icon:'🦅', cd:18, vfxColor:0x6adfc0,
+      radial:true, sweep:true, sweepDur:0.85, sweepArrows:26, radius:8.6, mult:4.3 },   // 基礎(八方の矢 mult:2.6)から+65%
   };
 
   function updateSkillButtonIcon(){
@@ -2644,10 +2690,12 @@
         </div></div>`;
       html += '<div class="ap-charge-title">スキル(専用ボタン・付け替え可能)</div><div class="ap-charge-variants">';
       // 新技(unlockKey:'skill1Alt'付き)は、スフィア盤「新技の会得」で
-      // 解放するまでは一覧に出さない
-      ['retreat','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt')).forEach(key=>{
+      // 解放するまでは一覧に出さない。unlockKey:'job'付き(上位職専用)は
+      // 転身(state.job)するまで一覧に出さない
+      ['retreat','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt' || variants[k].unlockKey==='job')).forEach(key=>{
         const v = variants[key];
         if(v.unlockKey==='skill1Alt' && !state.unlockedSkill1Alt) return;
+        if(v.unlockKey==='job' && !state.job) return;
         const active = state.skillChoice===key;
         html += `<div class="ap-charge-card ${active?'active':''}" data-variant="${key}">
           <div class="ap-charge-icon">${v.icon}</div>
@@ -2705,24 +2753,39 @@
 
     else if(skillSubTab==='ult'){
       const clsKey = state.classDef.key;
-      const ultOptions = state.unlockedUltAlt
-        ? [['default', CLASSES[clsKey].ult], ['alt', ULT_ALT_BY_CLASS[clsKey]]]
-        : [['default', CLASSES[clsKey].ult]];
-      html += `<div class="ap-charge-title">必殺技(専用ゲージ・${state.unlockedUltAlt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
-      ultOptions.forEach(([choiceKey, def])=>{
-        if(!def) return;
-        const active = (state.ultChoice||'default')===choiceKey;
-        // 表示中の威力倍率は「今選ばれている方」に限りstate.classDef.ult
-        // (スフィア等の倍率込み)を使い、選ばれていない方は素の値を出す
-        const shownMult = active ? state.classDef.ult.mult : def.mult;
-        const clickable = state.unlockedUltAlt;
-        html += `<div class="ap-charge-card ${active?'active':''}" ${clickable?`data-ult-choice="${choiceKey}"`:'style="cursor:default;"'}>
-          <div class="ap-charge-icon">${def.icon}</div>
-          <div class="ap-charge-name">${def.name}</div>
-          <div class="ap-charge-desc">威力倍率 x${shownMult.toFixed(2)}${def.radial?'・全方位':''}${def.executeMul?'・瀕死の敵に特大ダメージ':''}</div>
+      const upperJob = upperJobFor(clsKey);
+      const jobUltActive = !!(state.job && upperJob && upperJob.key===state.job && JOB_ULT_BY_JOB[state.job]);
+      if(jobUltActive){
+        // 上位職専用の必殺技は転身の到達点そのものなので、スフィア盤の
+        // alt選択肢とは違い選び直せない(recomputeStatsで常に最優先される)
+        const def = JOB_ULT_BY_JOB[state.job];
+        html += `<div class="ap-charge-title">必殺技(転身により固定)</div><div class="ap-charge-variants">
+          <div class="ap-charge-card active" style="cursor:default;">
+            <div class="ap-charge-icon">${def.icon}</div>
+            <div class="ap-charge-name">${def.name}</div>
+            <div class="ap-charge-desc">威力倍率 x${state.classDef.ult.mult.toFixed(2)}${def.radial?'・全方位':''}${def.executeMul?'・瀕死の敵に特大ダメージ':''}</div>
+          </div>
         </div>`;
-      });
-      html += '</div>';
+      } else {
+        const ultOptions = state.unlockedUltAlt
+          ? [['default', CLASSES[clsKey].ult], ['alt', ULT_ALT_BY_CLASS[clsKey]]]
+          : [['default', CLASSES[clsKey].ult]];
+        html += `<div class="ap-charge-title">必殺技(専用ゲージ・${state.unlockedUltAlt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
+        ultOptions.forEach(([choiceKey, def])=>{
+          if(!def) return;
+          const active = (state.ultChoice||'default')===choiceKey;
+          // 表示中の威力倍率は「今選ばれている方」に限りstate.classDef.ult
+          // (スフィア等の倍率込み)を使い、選ばれていない方は素の値を出す
+          const shownMult = active ? state.classDef.ult.mult : def.mult;
+          const clickable = state.unlockedUltAlt;
+          html += `<div class="ap-charge-card ${active?'active':''}" ${clickable?`data-ult-choice="${choiceKey}"`:'style="cursor:default;"'}>
+            <div class="ap-charge-icon">${def.icon}</div>
+            <div class="ap-charge-name">${def.name}</div>
+            <div class="ap-charge-desc">威力倍率 x${shownMult.toFixed(2)}${def.radial?'・全方位':''}${def.executeMul?'・瀕死の敵に特大ダメージ':''}</div>
+          </div>`;
+        });
+        html += '</div>';
+      }
     }
 
     html += '</div>';
