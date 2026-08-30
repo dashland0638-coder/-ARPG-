@@ -81,6 +81,8 @@ import * as THREE from 'three';
     // 集中力(foc)の6項目。beginGame()/applySaveData()で実際の値に上書きされる
     // までの単なる初期プレースホルダ
     levelGrowth:{vit:0, str:0, mag:0, mnd:0, agi:0, foc:0},
+    // #9/Phase B 上位ジョブ: null="未転身"、転身後は'battleKnight'等の上位職キー
+    job:null,
     debugMode:false
   };
 

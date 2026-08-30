@@ -55,6 +55,10 @@
       scenarioClears:Object.assign({}, state.scenarioClears),
       clearedScenarios:Object.assign({}, state.clearedScenarios),
       routeCombosSeen:JSON.parse(JSON.stringify(state.routeCombosSeen || {})),
+      // 上位ジョブ(#9/Phase B)。v2セーブの時点では存在しないフィールドの
+      // 純追加なので、フォーマットの互換性は壊れない(v2セーブはロード時に
+      // data.job === undefined → null 扱いになるだけで正しく動く)
+      job:state.job || null,
     };
   }
 
@@ -178,10 +182,21 @@
     state.levelGrowth = Object.assign(zeroAlloc(), data.levelGrowth);
     state.usingAltWeapon = false;   // 保存された装備のnative武器種に合わせる
 
+    // 上位ジョブ(#9/Phase B)。v2セーブにはこのフィールドが無い(undefined)
+    // ため、その場合はnull=未転身のまま扱う。selectedClassの上位職キーと
+    // 一致しない値が保存されていた場合(改変セーブ等)も安全側でnullに倒す
+    {
+      const uj = upperJobFor(data.selectedClass);
+      state.job = (uj && data.job === uj.key) ? data.job : null;
+    }
+
     state.inventory = Object.assign({gold:0, gem:0, potion:0, shard:0, mppotion:0}, data.inventory);
 
     state.maxHp = 0; state.maxMp = 0; // force a full heal on the recompute below
     recomputeStats();
+    // 見た目(applyJobPromotionVisual)はここでは呼ばない ―― この時点では
+    // まだplayerが存在せず(buildPlayer()はこの後finishEnteringGame()側で
+    // 走る)、そちらで state.job を見て後追いで乗せている
   }
 
   function saveSettings(){

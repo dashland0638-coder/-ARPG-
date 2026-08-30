@@ -75,6 +75,57 @@
     const aff = WEAPON_AFFINITY[classKey] || {str:1};
     return STAT_KEYS.reduce((sum,k)=> sum + (aff[k]||0)*(stats[k]||0), 0);
   }
+
+  /* =========================================================
+     上位ジョブ (#9 / Phase B)
+
+     4基礎職はそれぞれレベル50到達で1つの上位職へ転身できる。
+     資料の指示通り「親職と完全に別キャラクターにしない」方式を採り、
+     state.classDef.key(warrior/rogue/mage/archer)自体は変更しない ――
+     WEAPON_TYPES/STANCE/CLIPS/BOSS_ABILITIESなど、基礎職キーに紐づく
+     大量の既存システムに一切触れずに済む。転身の実体は state.job
+     (null|'battleKnight'|'berserker'|'archmage'|'hawkEye')という
+     上乗せフラグで、以下だけに影響する:
+       ・見た目(applyJobPromotionVisual, 06-player-enemy.js)
+       ・ステータス(statBonusの加算 + JOB_PASSIVEの倍率、recomputeStats)
+       ・表示名(jobLabel())
+     セーブは v3(09-save-load.js)で state.job を追加。 */
+  const UPPER_JOBS = {
+    warrior: {key:'battleKnight', name:'戦騎士', icon:'🛡', unlockLv:50,
+      trim:0xffcf6a, capeColor:0x6a1a1a,
+      statBonus:{vit:10, str:6},
+      flavor:'守るための剣。重装を纏い、大剣を掲げる者へ。'},
+    rogue: {key:'berserker', name:'バーサーカー', icon:'🪓', unlockLv:50,
+      trim:0xff5a3a, capeColor:0x3a0a10,
+      statBonus:{str:10, agi:6},
+      flavor:'盗賊の身軽さを残した狂戦士。防具を減らし、双武器を振るう。'},
+    mage: {key:'archmage', name:'魔導士', icon:'🔮', unlockLv:50,
+      trim:0xb08aff, capeColor:0x241a4a,
+      statBonus:{mag:10, foc:6},
+      flavor:'人間から魔法そのものへ近づいていく術者。'},
+    archer: {key:'hawkEye', name:'鷹の目', icon:'🦅', unlockLv:50,
+      trim:0x6adfc0, capeColor:0x0a3a30,
+      statBonus:{foc:10, agi:6},
+      flavor:'見ることを極限まで研ぎ澄ました狩人。傍らに鷹を伴う。'}
+  };
+  // 上位職の「役割を強める」常時倍率。statBonus(素の6ステータス加算)だけだと
+  // レベル成長(STAT_GROWTH_RATE)の伸びに埋もれてしまうため、職業の個性が
+  // 数字にもはっきり表れるよう、控えめな役割特化倍率を別途載せている
+  const JOB_PASSIVE = {
+    battleKnight: {hpMul:0.08},              // 戦騎士: 守りの体現として最大HP+8%
+    berserker:    {atkMul:0.08},             // バーサーカー: 攻めの体現として攻撃力+8%
+    archmage:     {mpMul:0.10},              // 魔導士: 魔力の器として最大MP+10%
+    hawkEye:      {atkMul:0.05, mpMul:0.05}  // 鷹の目: 攻撃・集中(SP)双方を少しずつ底上げ
+  };
+  function upperJobFor(classKey){ return UPPER_JOBS[classKey] || null; }
+  // HUD/会話などでの表示名。転身前は基礎職名のまま
+  function jobLabel(classDef, job){
+    if(job){
+      const uj = UPPER_JOBS[classDef.key];
+      if(uj && uj.key === job) return uj.name;
+    }
+    return classDef.name;
+  }
   function mergeStatPoints(base, pts){
     const out = {};
     STAT_KEYS.forEach(k=> out[k] = (base[k]||0) + (pts[k]||0));

@@ -727,6 +727,184 @@
     P.weapon = weapon;
     P.weaponBasePos = weapon.position.clone();
     P.weaponBaseRot = weapon.rotation.clone();
+    // 上位ジョブ(#9)転身済みなら、持ち替えた新しい武器にも「一回り大きい」
+    // 拡大を掛け直す(素のweapon.scaleは常に1で作られるため、素直に上書きでよい)
+    const uj = upperJobFor(classDef.key);
+    if(uj && state.job === uj.key) weapon.scale.setScalar(1.32);
+  }
+
+  /* =========================================================
+     上位ジョブ(#9 / Phase B)の見た目差分
+
+     資料(Canvasキャラクター描画刷新指示書)の「上位職は基本職と完全に
+     別キャラクターにしない。基本職の装備やシルエットを残しながら進化
+     したデザインにする」という方針を、Three.jsの実際のリグに対して
+     "差分だけ追加"する形で実装した。buildPlayer()が組んだ既存メッシュは
+     一切壊さず、waist(上半身の親グループ)や各腕グループへ新しい
+     メッシュを継ぎ足すだけ ―― 全身を作り直すより低リスクで、資料が
+     禁止する「既存システムを理由なく作り直す」ことも避けられる。
+     二重付与を防ぐため、before何か付いていれば先に外してから組み直す。 */
+  function clearJobPromotionVisual(){
+    const P = playerMixerParts;
+    if(!P.jobDecorMeshes) return;
+    P.jobDecorMeshes.forEach(m=>{
+      if(m.parent) m.parent.remove(m);
+      m.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); if(c.material) c.material.dispose(); } });
+    });
+    P.jobDecorMeshes = null;
+    P.jobDecorAnim = null;
+  }
+
+  function applyJobPromotionVisual(){
+    const P = playerMixerParts;
+    clearJobPromotionVisual();
+    if(!player || !P.waist || !P.build || !state.job) return;
+    const uj = upperJobFor(state.classDef.key);
+    if(!uj || uj.key !== state.job) return;
+
+    const B = P.build;
+    const bodyH = B.height, HIP_Y = B.hipY, bodyR = B.chest;
+    const meshes = [];
+    const anim = {};
+    const trimMat = new THREE.MeshStandardMaterial({color:uj.trim, roughness:0.35, metalness:0.4,
+      emissive:uj.trim, emissiveIntensity:0.35});
+    const capeMat = new THREE.MeshStandardMaterial({color:uj.capeColor, roughness:0.75, side:THREE.DoubleSide});
+
+    // 武器はどの上位職も「一回り大きく、格が上がって見える」ことを最優先
+    // にする(資料 3.優先順位: シルエット>人体比率>ポーズ>武器)。
+    // scaleを掛けるだけなので、GRIP_OFFSET/aimWeapon()等の既存の武器配置
+    // ロジックには一切触れない
+    if(P.weapon) P.weapon.scale.setScalar(1.32);
+
+    if(uj.key === 'battleKnight'){
+      // 大型肩当て: 既存の小さいpauldronの外側に、ひとまわり大きい殻を重ねる
+      [P.armL, P.armR].forEach(arm=>{
+        if(!arm) return;
+        const big = new THREE.Mesh(new THREE.SphereGeometry(B.upper*2.0, 8, 6, 0, Math.PI*2, 0, Math.PI*0.6), trimMat);
+        big.position.y = -0.03; big.castShadow = true;
+        arm.add(big); meshes.push(big);
+      });
+      // 大きく波打つ長いマント、背中から二枚
+      [-1, 1].forEach(s=>{
+        const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.46, bodyH*1.05), capeMat);
+        cape.position.set(s*0.16, bodyH*0.62, -bodyR-0.06);
+        cape.rotation.set(0.12, 0, s*0.04);
+        P.waist.add(cape); meshes.push(cape);
+      });
+      // 胸甲の増設(既存chestPlateより一回り大きい帯)
+      const bigChest = new THREE.Mesh(
+        new THREE.CylinderGeometry(bodyR*0.92, bodyR*0.98, bodyH*0.5, 10, 1, false, -1.05, 2.1), trimMat);
+      bigChest.position.y = bodyH*0.62;
+      bigChest.scale.set(1.05, 1, 1.05);
+      P.waist.add(bigChest); meshes.push(bigChest);
+
+    } else if(uj.key === 'berserker'){
+      // 荒々しさ: 頭上に逆立つ髪(既存の角兜はそのまま、その上へ重ねる)
+      const hairMat = new THREE.MeshStandardMaterial({color:0x1a1410, roughness:0.85});
+      for(let i=-2;i<=2;i++){
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.24+Math.abs(i)*0.03, 5), hairMat);
+        spike.position.set(i*0.05, bodyH*0.985, -0.02);
+        spike.rotation.set(-0.15 - Math.abs(i)*0.08, 0, i*0.12);
+        P.waist.add(spike); meshes.push(spike);
+      }
+      // 前傾姿勢: 常時飛びかかりそうな体勢(idle姿勢の基準そのものを傾ける)
+      P.waist.rotation.x = 0.10;
+      // 双武器が両方とも巨大化している凄み(既存native/altどちらでも武器自体は
+      // 上のweapon.scaleで拡大済み。ここでは腰だめの闘気オーラのみ追加)
+      const auraRing = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 16),
+        new THREE.MeshBasicMaterial({color:0xff3a1a, transparent:true, opacity:0.55, side:THREE.DoubleSide}));
+      auraRing.rotation.x = -Math.PI/2;
+      auraRing.position.y = 0.02;
+      scene.add(auraRing); meshes.push(auraRing);   // player直下ではなくscene直下: 毎フレームworld座標へ同期する(下のupdateJobDecor)
+      anim.auraRing = auraRing;
+
+    } else if(uj.key === 'archmage'){
+      // 大型化した帽子の房飾り(既存の帽子の上に追加)
+      const bigCone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 12), trimMat);
+      bigCone.position.set(0, bodyH*1.42, 0);
+      P.waist.add(bigCone); meshes.push(bigCone);
+      // 浮遊魔法石: 身体の周囲を巡る発光する石を2つ
+      const crystalGeo = new THREE.OctahedronGeometry(0.09, 0);
+      const crystalMat = new THREE.MeshStandardMaterial({color:uj.trim, emissive:uj.trim, emissiveIntensity:0.9, roughness:0.3});
+      const crystals = [0, Math.PI].map(offset=>{
+        const c = new THREE.Mesh(crystalGeo, crystalMat);
+        scene.add(c); meshes.push(c);   // player直下ではなくscene直下: 顔の向きに引きずられず円軌道を保つ
+        return {mesh:c, offset};
+      });
+      anim.crystals = crystals;
+      // 足元の魔法陣(ゆっくり回転するリング。地面に張り付く決まりごとなので
+      // waistではなくgroup直下に置き、上半身の傾きに引きずられないようにする)
+      const circleMat = new THREE.MeshBasicMaterial({color:uj.trim, transparent:true, opacity:0.4, side:THREE.DoubleSide});
+      const circle = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.6, 24), circleMat);
+      circle.rotation.x = -Math.PI/2;
+      circle.position.y = 0.03;
+      scene.add(circle); meshes.push(circle);   // player直下ではなくscene直下: 上半身の傾き・向きに引きずられない
+      anim.circle = circle;
+
+    } else if(uj.key === 'hawkEye'){
+      // 長いマント(片側だけ、鷹師の非対称なシルエット)
+      const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.36, bodyH*0.92), capeMat);
+      cape.position.set(-0.12, bodyH*0.6, -bodyR-0.05);
+      cape.rotation.set(0.1, 0, -0.06);
+      P.waist.add(cape); meshes.push(cape);
+      // 肩に乗る小さな鷹(胴体+翼2枚+頭)。資料の「巨大にしない、肩に乗る
+      // 小さな存在」の指示通り、右肩(利き手と逆側)に控えめなサイズで乗せる
+      const hawk = new THREE.Group();
+      const featherMat = new THREE.MeshStandardMaterial({color:0x5a4530, roughness:0.7});
+      const hawkBody = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), featherMat);
+      hawkBody.scale.set(1, 0.85, 1.3);
+      hawk.add(hawkBody);
+      const hawkHead = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), featherMat);
+      hawkHead.position.set(0, 0.05, 0.11);
+      hawk.add(hawkHead);
+      const beak = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.05, 4), new THREE.MeshStandardMaterial({color:0xd8a030, roughness:0.5}));
+      beak.rotation.x = Math.PI/2; beak.position.set(0, 0.04, 0.16);
+      hawk.add(beak);
+      [-1, 1].forEach(s=>{
+        const wing = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.16, 4), featherMat);
+        wing.rotation.set(0, 0, s*Math.PI*0.42);
+        wing.position.set(s*0.09, 0.01, -0.02);
+        hawk.add(wing);
+      });
+      if(P.armL) P.armL.add(hawk);
+      hawk.position.set(0, 0.32, 0);   // 肩の少し上、pauldronの外側
+      meshes.push(hawk);
+      anim.hawk = hawk;
+    }
+
+    P.jobDecorMeshes = meshes;
+    P.jobDecorAnim = anim;
+  }
+
+  // 浮遊魔法石・闘気オーラ・肩の鷹など、常時アニメーションが要る上位職装飾の
+  // 更新。updateLocomotion()と同じ場所(13-update-loop.jsのメインループ)
+  // から毎フレーム呼ばれる。state.jobが無ければ即return
+  let _jobDecorT = 0;
+  function updateJobDecor(dt){
+    const P = playerMixerParts;
+    if(!state.job || !P.jobDecorAnim || !player) return;
+    _jobDecorT += dt;
+    const a = P.jobDecorAnim;
+    if(a.crystals){
+      const _wp = new THREE.Vector3(); player.getWorldPosition(_wp);
+      a.crystals.forEach(c=>{
+        const ang = _jobDecorT*1.4 + c.offset;
+        c.mesh.position.set(_wp.x + Math.cos(ang)*0.62, _wp.y + 1.15 + Math.sin(_jobDecorT*2.2)*0.08, _wp.z + Math.sin(ang)*0.62);
+      });
+    }
+    if(a.circle){
+      a.circle.rotation.z += dt*0.5;
+      const _wp = new THREE.Vector3(); player.getWorldPosition(_wp);
+      a.circle.position.set(_wp.x, 0.03, _wp.z);
+    }
+    if(a.auraRing){
+      a.auraRing.rotation.z += dt*0.8;
+      const _wp = new THREE.Vector3(); player.getWorldPosition(_wp);
+      a.auraRing.position.set(_wp.x, 0.02, _wp.z);
+    }
+    if(a.hawk){
+      a.hawk.position.y = 0.32 + Math.sin(_jobDecorT*2.6)*0.012;   // 呼吸のような小さな上下動
+    }
   }
 
   /* =========================================================

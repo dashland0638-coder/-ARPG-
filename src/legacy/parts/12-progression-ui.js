@@ -1478,12 +1478,27 @@
     const ultBase = (state.ultChoice==='alt' && state.unlockedUltAlt && ULT_ALT_BY_CLASS[selectedClass])
       ? ULT_ALT_BY_CLASS[selectedClass] : base.ult;
     // 基礎ステータス制(#28): 職業基礎値+ダイス配分+レベル成長を6項目分
-    // 合算してから、HP/MP/攻撃力をそれぞれの式で導出する
-    const merged = mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth);
-    const hp = Math.round((STAT_COEF.hpBase + merged.vit*STAT_COEF.hpPerVit + state.skills.hpUp*15 + gearHp) * hpAbilityMul);
-    const mp = Math.round(STAT_COEF.mpBase + (merged.mag+merged.mnd)*STAT_COEF.mpPerMagMnd);
+    // 合算してから、HP/MP/攻撃力をそれぞれの式で導出する。
+    // 上位ジョブ(#9)に転身済みなら、そのstatBonusも同じ列で合算する
+    const upperJob = upperJobFor(selectedClass);
+    const jobActive = !!(state.job && upperJob && upperJob.key === state.job);
+    const jobBonus = jobActive ? upperJob.statBonus : null;
+    const merged = jobBonus
+      ? mergeStatPoints(mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth), jobBonus)
+      : mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth);
+    let hp = Math.round((STAT_COEF.hpBase + merged.vit*STAT_COEF.hpPerVit + state.skills.hpUp*15 + gearHp) * hpAbilityMul);
+    let mp = Math.round(STAT_COEF.mpBase + (merged.mag+merged.mnd)*STAT_COEF.mpPerMagMnd);
     const atkBase = affinityStatValue(selectedClass, merged) * STAT_COEF.atkCoef;
-    const atk = Math.round((atkBase + state.skills.atkUp*2 + state.equipLevel*4 + gearAtk) * atkMul);
+    let atk = Math.round((atkBase + state.skills.atkUp*2 + state.equipLevel*4 + gearAtk) * atkMul);
+    // 上位ジョブの役割特化倍率(JOB_PASSIVE, 01-character-creation.js)
+    if(jobActive){
+      const jp = JOB_PASSIVE[state.job];
+      if(jp){
+        if(jp.hpMul) hp = Math.round(hp * (1+jp.hpMul));
+        if(jp.mpMul) mp = Math.round(mp * (1+jp.mpMul));
+        if(jp.atkMul) atk = Math.round(atk * (1+jp.atkMul));
+      }
+    }
     // 移動速度: 職業固定値(base.spd)を基準に、レベルに応じてごく緩やかに
     // 収束しながら上昇し(Lv25で約+6%、上限+10%)、装備補正を加えても
     // 合計で+25%までしか上がらない(修正案2: 「移動速度は上げ過ぎると
@@ -1494,7 +1509,12 @@
       hp, mp, atk,
       spd: +(base.spd * spdTotalMul).toFixed(2),
       baseSpd: base.spd,   // 回避ダッシュ距離用。レベル/装備の速度上昇を乗せない基準値
-      ult: Object.assign({}, ultBase, { mult: +(ultBase.mult * (1 + state.skills.ultUp*0.1) * (1 + sphereValue('ultDmgSphereMul'))).toFixed(2) })   // スフィア「絶対の一撃」
+      ult: Object.assign({}, ultBase, { mult: +(ultBase.mult * (1 + state.skills.ultUp*0.1) * (1 + sphereValue('ultDmgSphereMul'))).toFixed(2) }),   // スフィア「絶対の一撃」
+      // 上位ジョブ(#9)転身済みなら表示名/アイコンだけ差し替える。key(warrior等)は
+      // 変えない ―― WEAPON_TYPES/STANCE/CLIPS等、基礎職キーに紐づく既存システムは
+      // そのまま動かす必要があるため
+      name: jobActive ? upperJob.name : base.name,
+      icon: jobActive ? upperJob.icon : base.icon,
     });
     const hpRatio = state.maxHp>0 ? state.hp/state.maxHp : 1;
     const mpRatio = state.maxMp>0 ? state.mp/state.maxMp : 1;
@@ -1539,7 +1559,22 @@
     if(leveled){
       recomputeStats();
       spawnLevelUpPopup();
+      checkJobPromotion();
     }
+  }
+
+  /* 上位ジョブ(#9 / Phase B): レベル50到達で1回だけ発動する自動転身。
+     資料の「基本職→上位職」は1対1対応なので選択肢UIは不要 ――
+     到達した瞬間にそのまま転身させ、トーストで告知する。 */
+  function checkJobPromotion(){
+    if(state.job) return;   // 転身済み
+    const uj = upperJobFor(selectedClass);
+    if(!uj || state.level < uj.unlockLv) return;
+    state.job = uj.key;
+    recomputeStats();
+    applyJobPromotionVisual();
+    spawnToast(`✨ ${uj.name}へ転身した! ――${uj.flavor}`);
+    sfx('levelUp');
   }
 
   function spawnLevelUpPopup(){

@@ -809,6 +809,7 @@
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
     state.level = 1; state.xp = 0; state.xpToNext = xpToNextForLevel(1);
     state.levelGrowth = zeroAlloc();
+    state.job = null;   // 上位ジョブ(#9)は新規キャラでは常に未転身から始まる
     state.maxHp = 0; state.maxMp = 0; // force a full heal on the first recompute
     recomputeStats();          // establishes state.classDef
     grantStarterGear();        // needs classDef to pick class-appropriate gear
@@ -896,6 +897,7 @@
     if(player) scene.remove(player);
     playerMixerParts = {};
     player = buildPlayer(state.classDef, selectedGender);
+    if(state.job) applyJobPromotionVisual();   // 上位ジョブ(#9)転身済みなら見た目を再度乗せる
 
     if(companion){ scene.remove(companion.group); companion = null; }
 

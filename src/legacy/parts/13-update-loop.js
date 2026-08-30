@@ -640,6 +640,7 @@
         player.rotation.y = visualFacing;
       }
       updateLocomotion(dt, dt > 0 ? moveVec.length() / dt : 0);   // metres per second
+      updateJobDecor(dt);   // 上位ジョブ(#9): 浮遊魔法石/闘気オーラ/肩の鷹などの常時アニメーション
       updateUltAim(dt);
       updateUltSweep(dt);
       updateDecals(dt);
@@ -798,6 +799,34 @@
     trailMat.opacity = 0.17 * trailFade;   // a suggestion of the arc, not the headline
   }
 
+  /* 修正案3: 職業ごとの回避/ジャンプモーション差別化。
+     それまでは4職とも同じ「屈んで丸まる」ロールと同じ「膝を抱える」滞空
+     ポーズを共有しており、剣士も魔法使いも空中では見分けがつかなかった。
+     既存のwaist/knee/leg/torsoノードに掛かる係数だけを職業ごとに変え、
+     ロール/滞空にかかる時間そのもの(回避の無敵窓など)は一切変更しない
+     ―― 見た目だけの差別化に留めて、既存のバランスに触れないようにした。 */
+  const DODGE_MOTION = {
+    // 剣士: 重装らしく、大きく丸まって転がる正統派ロール
+    warrior: {waistPitch:0.62, waistRoll:0.05, kneeCurl:1.50, legCurl:0.55, torsoSquash:0},
+    // 盗賊: 低く速いタンブル、腰を横にひねって逃げる
+    rogue:   {waistPitch:0.42, waistRoll:0.20, kneeCurl:1.85, legCurl:0.68, torsoSquash:0},
+    // 魔法使い: ロールというより短い瞬き――脚はほとんど動かさず、
+    // ローブ(torso)を一瞬だけ縮めて伸ばす「明滅」で誤魔化す
+    mage:    {waistPitch:0.16, waistRoll:0.10, kneeCurl:0.45, legCurl:0.18, torsoSquash:0.12},
+    // 弓師: 横っ跳びの回避。前後の丸まりより左右の傾きを強くする
+    archer:  {waistPitch:0.34, waistRoll:0.26, kneeCurl:1.15, legCurl:0.50, torsoSquash:0}
+  };
+  const JUMP_AIR_MOTION = {
+    // 剣士: 重量のぶん膝の抱え込みが浅い(装甲が畳むのを邪魔する)
+    warrior: {tuckMul:0.75, armMul:0.85},
+    // 盗賊: 軽装なぶん深く鋭く抱え込む
+    rogue:   {tuckMul:1.25, armMul:1.10},
+    // 魔法使い: 脚をほぼ動かさず、ローブに空気を孕ませるだけの滞空
+    mage:    {tuckMul:0.35, armMul:0.60},
+    // 弓師: 弓を構え続けられるよう、脚の抱え込みは控えめ・腕の流れは大きめ
+    archer:  {tuckMul:0.85, armMul:1.20}
+  };
+
   function updateLocomotion(dt, moveSpeed){
     const P = playerMixerParts;
     const moving = state.grounded && moveSpeed > 0.35;   // m/s
@@ -876,27 +905,39 @@
 
     // ---- airborne: knees tuck on the way up, legs reach on the way down ----
     if(!state.grounded && P.legL && P.legR && P.kneeL && P.kneeR){
+      const jm = (state.classDef && JUMP_AIR_MOTION[state.classDef.key]) || JUMP_AIR_MOTION.warrior;
       const rise = Math.max(-1, Math.min(1, state.yVel/7));
-      const tuck = rise > 0 ? rise : rise*0.45;
+      const tuck = (rise > 0 ? rise : rise*0.45) * jm.tuckMul;
       P.legL.rotation.x = -0.30*tuck - 0.06;
       P.legR.rotation.x = -0.22*tuck + 0.10;
       P.kneeL.rotation.x = Math.max(0.05, 1.15*tuck);
       P.kneeR.rotation.x = Math.max(0.05, 0.85*tuck);
       if(!busy && P.armL && P.armR && P.armLBase && P.armRBase){
-        P.armL.rotation.x = P.armLBase.x - 0.35*tuck;
-        P.armR.rotation.x = P.armRBase.x - 0.28*tuck;
+        P.armL.rotation.x = P.armLBase.x - 0.35*tuck*jm.armMul;
+        P.armR.rotation.x = P.armRBase.x - 0.28*tuck*jm.armMul;
       }
     }
 
     // ---- the dodge: tuck low and lean hard into the roll ----
     if(state.dodging && P.waist && P.kneeL && P.kneeR){
+      const dm = (state.classDef && DODGE_MOTION[state.classDef.key]) || DODGE_MOTION.warrior;
       const dodgeK = Math.max(0, Math.min(1, state.dodgeT/0.2));
       const curl = Math.sin(dodgeK*Math.PI);      // 0 -> 1 -> 0 across the roll
-      P.waist.rotation.x = 0.55*curl;
-      P.kneeL.rotation.x = 0.10 + 1.5*curl;
-      P.kneeR.rotation.x = 0.10 + 1.5*curl;
-      P.legL.rotation.x = -0.55*curl;
-      P.legR.rotation.x = -0.55*curl;
+      // 横っ跳び系(盗賊/弓師)は入力方向に応じて左右どちらかへ傾ける。
+      // 無入力(その場ロール)ならsignは0になり、waistRollは掛からない
+      const sideSign = state.moveInput ? Math.sign(state.moveInput.x||0) : 0;
+      P.waist.rotation.x = dm.waistPitch*curl;
+      P.waist.rotation.z = dm.waistRoll*curl*sideSign;
+      P.kneeL.rotation.x = 0.10 + dm.kneeCurl*curl;
+      P.kneeR.rotation.x = 0.10 + dm.kneeCurl*curl;
+      P.legL.rotation.x = -dm.legCurl*curl;
+      P.legR.rotation.x = -dm.legCurl*curl;
+      if(dm.torsoSquash && P.torso && P.torsoBaseScale){
+        const sq = 1 - dm.torsoSquash*curl;
+        P.torso.scale.set(P.torsoBaseScale.x*(1+dm.torsoSquash*curl*0.6), P.torsoBaseScale.y*sq, P.torsoBaseScale.z*(1+dm.torsoSquash*curl*0.6));
+      }
+    } else if(P.torso && P.torsoBaseScale && P.torso.scale.y !== P.torsoBaseScale.y){
+      P.torso.scale.copy(P.torsoBaseScale);   // 魔法使いの明滅ロール後、次のロールに備えて確実に戻す
     }
 
     // lean into the direction of travel, and out of it when stopping
