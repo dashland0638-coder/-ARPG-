@@ -1159,6 +1159,12 @@
       '崩れゆく根の間から、乾いた白衣の切れ端がいくつも覗いていた。',
       '最後に、地面に小さな芽が一つだけ残る。',
       'かすかに、声が聞こえた気がした。「……ありがとう。」'
+    ],
+    duskCollective: [
+      '光に炙られた輪郭が、一つ、また一つとほどけて消えていく。',
+      '最後まで残っていた小さな影が、名残惜しむようにその場に立ち尽くしていた。',
+      '……灯りに照らされたその顔には、うっすらと笑みのようなものが浮かんでいた。',
+      '広場に静寂が戻る。誰もいないはずの村に、もう囁き声はしなかった。'
     ]
   };
 
@@ -1193,6 +1199,10 @@
     towerWarden: {
       hi: '「進ませぬ……時を、進ませてはならぬ……」',
       lo: '「まだだ……鐘は……鳴らさせぬ……」'
+    },
+    duskCollective: {
+      hi: '「まだ……消えたくない……忘れられたく、ない……」',
+      lo: '「灯りを……その灯りを、消してくれ……!」'
     }
   };
 
@@ -1251,6 +1261,11 @@
     {key:'temple',     name:'🏛️ 古代神殿',       levelRange:'10〜50(★8)', minLevel:10, desc:'跳び、渡り、乗り継いで越えてゆく長い試練の神殿。落ちれば痛い目を見るぞ。', unlocked:true},
     {key:'clocktower', name:'🕰️ 狂いの時計塔', levelRange:'11〜55(★8)', minLevel:11, desc:'街の時を司る塔。針が狂い、六層すべての仕掛けが動き出した。最上階の天蓋には、使われたことのない脱出装置がひとつ。', unlocked:true},
     {key:'conservatory', name:'🌿 硝子の温室', levelRange:'22〜80(★8)', minLevel:22, desc:'飢饉を絶つ作物を求め国が興した研究施設跡。茨が時計仕掛けのように開閉し、緑の靄が肺を蝕む。奥では、研究員たちを取り込んだ母樹が根を張っている。', unlocked:true},
+    // Phase D(#37): 新規7層目。沼地に沈みかけた廃村を、灯りを頼りに渡っていく
+    // ステージ。「暗闇だから見えない」のではなく「灯りが怪異をこちらの世界へ
+    // 引き出す」という逆転の発想がこのステージの核(詳細はbuildDuskVillage
+    // 参照、15-dungeon-duskvillage.js)
+    {key:'duskvillage', name:'🏮 宵待ちの村', levelRange:'26〜85(★8)', minLevel:26, desc:'湖沼に沈みかけた廃村。高床式の桟橋が水上に張り巡らされている。灯りを点せば、そこにいるはずのないものが見えてしまう。', unlocked:true},
     {key:'pyramid',    name:'🏜️ 砂漠のピラミッド', levelRange:'16〜20', minLevel:16, desc:'黄金の呪いに満ちた古の墓所。目覚めた王が眠りへの帰還を拒む者を裁く。', unlocked:false},
     {key:'volcano',    name:'🌋 業火の火山',     levelRange:'21〜25', minLevel:21, desc:'絶えず溶岩が滾る山の奥、炎そのものと化した支配者が待つ。', unlocked:false},
   ];
@@ -1442,6 +1457,15 @@
       camera.position.copy(state.pos).add(getCamOffset());
       state.waterwayColdTimerT = 5;
       state.waterwayColdTimerFired = false;
+    } else if(key==='duskvillage'){
+      state.pos.copy(DUSKVILLAGE_ENTRY);
+      state.camYaw = Math.PI;   // facing north, up the boardwalk into the village
+      state.vel.set(0,0,0);
+      if(companion){
+        companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
+        companion.target = null;
+      }
+      camera.position.copy(state.pos).add(getCamOffset());
     }
   }
 

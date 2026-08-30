@@ -699,6 +699,7 @@
       updateEscapeFall(dt);
       updateCollapse(dt);
       updateAltitude(dt);
+      updateDuskVillage(dt);   // Phase D(#37): 昼夜進行+ランタン近接+ボスの光ギミック
       updateCutscene(dt);
       updateSwingVFX(dt);
       updateWeaponAura(dt);
@@ -960,5 +961,4 @@
     document.getElementById('boot-msg').textContent = '読み込みに失敗しました: ' + err.message;
     console.error(err);
   }
-
 

@@ -472,6 +472,25 @@
       clearName:'水路の主', clearFlavor:'巨体はゆっくりと水底へ沈んでいき、水路に静寂が戻った。',
       rewardLoot:{type:'gem', name:'帯電した甲羅の欠片', icon:'💎', color:0x9a6ae0}
     }));
+    // 宵待ちの村(Phase D/#37): 村人・影の子供・ボスの生成はここで行う
+    // (buildDuskVillage()はランタンなど地形側だけを先に用意している ――
+    // 詳細は14-dungeon-duskvillage.js冒頭のコメント参照)
+    if(_spawnWorldKey==='duskvillage'){
+      enemies.push(villager(-3, 340));
+      enemies.push(villager(4, 400));
+      enemies.push(villager(-20, 430));
+      enemies.push(villager(22, 440));
+      enemies.push(villager(0, 470));
+      addDuskShadowChild(duskLanterns[0], 6, 396);
+      addDuskShadowChild(duskLanterns[0], -6, 388);
+      addDuskShadowChild(duskLanterns[1], -28, 420);
+      addDuskShadowChild(duskLanterns[1], -18, 428);
+      addDuskShadowChild(duskLanterns[2], 30, 444);
+      addDuskShadowChild(duskLanterns[2], 18, 450);
+      const boss = buildDuskBoss();
+      enemies.push(boss);
+      duskBossRef = boss;
+    }
   }
 
   function updateEnemies(dt){
@@ -2040,6 +2059,14 @@
   function dealDamageToEnemy(en, amount, isAlly, opts){
     opts = opts || {};
     if(!en || en.dead) return;
+    // 宵影の群れ(Phase D/#37)の核心ギミック: 「光が当たっていない間は
+    // 攻撃が効かない」。updateDuskVillage()(15-dungeon-duskvillage.js)が
+    // 毎フレーム、点いたランタンの近くにいるかどうかでen.lightDimmedを
+    // 切り替える。DoT(燃焼など)も含めて完全に無効化する
+    if(en.lightDimmed){
+      if(!(en._dimHintCD>0)){ en._dimHintCD = 2.2; spawnToast('💡 灯りを当てないと効かない……'); }
+      return;
+    }
     let isCrit = false;
     if(!opts.isDot && !isAlly){
       const mods = applyOutgoingDamageMods(amount, en);

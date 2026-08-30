@@ -114,6 +114,7 @@
     templeGuardian: {prefix:'守護神像の', icon:'🏛️', atkMul:1.52, hpMul:1.52},
     conservatoryBloom: {prefix:'母樹の', icon:'🌿', atkMul:1.68, hpMul:1.68},
     towerWarden: {prefix:'時喰らいの', icon:'🕰️', atkMul:1.34, hpMul:1.34},
+    duskCollective: {prefix:'宵影の群れの', icon:'🏮', atkMul:1.75, hpMul:1.75},
   };
   function rollBossSignatureGear(bossKey, baseLevel){
     const sig = BOSS_SIGNATURE_GEAR[bossKey];

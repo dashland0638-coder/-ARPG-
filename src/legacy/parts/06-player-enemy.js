@@ -1417,6 +1417,10 @@
     temple:       'stone',
     clocktower:   'clockwork',
     conservatory: 'plant',
+    // Phase D(#37): 濡れた村人/影の子供は、既存の'wraith'(フード付き・
+    // 輪郭が曖昧・脚が隠れ浮遊するように見える)がそのまま「顔の見えない
+    // 元村人」という資料の意図と噛み合うため、新規テーマは起こさず流用
+    duskvillage:  'wraith',
   };
 
   /* Scenario dressing. The rig underneath is identical for every theme, so
@@ -2295,6 +2299,33 @@
         if(p.handL) p.handL.scale.set(1.35, 1.35, 1.5);
         if(p.handR) p.handR.scale.set(1.35, 1.35, 1.5);
       }
+
+    } else if(en.key==='duskCollective'){
+      // 宵影の群れ(Phase D/#37)。humanoidデフォルト形状(parts無し)を
+      // そのまま使い、Phase2で「村人たちの記憶・感情の残滓が混ざり合った
+      // 集合体」を仄めかす淡い球を身体の周りに増やし、Phase3で中心に
+      // 小さな子供の輪郭(最終形態の予兆)を灯す
+      const memMat = new THREE.MeshStandardMaterial({color:0xd8ccc0, emissive:0xd8ccc0, emissiveIntensity:0.7, transparent:true, opacity:0.75});
+      if(phase===2){
+        for(let i=0;i<5;i++){
+          const a = (i/5)*Math.PI*2;
+          const orb = new THREE.Mesh(new THREE.SphereGeometry(0.13,7,6), memMat);
+          orb.position.set(Math.cos(a)*0.9, 2.2+Math.sin(i*1.7)*0.6, Math.sin(a)*0.9);
+          g.add(orb);
+        }
+      } else if(phase===3){
+        for(let i=0;i<8;i++){
+          const a = (i/8)*Math.PI*2 + 0.3;
+          const orb = new THREE.Mesh(new THREE.SphereGeometry(0.15,7,6), memMat);
+          orb.position.set(Math.cos(a)*1.15, 1.6+Math.sin(i*1.3)*0.9, Math.sin(a)*1.15);
+          g.add(orb);
+        }
+        // 中心に小さな子供の輪郭(撃破直前、最終形態でここに焦点が合う)
+        const childMat = new THREE.MeshStandardMaterial({color:0xf0e8dc, emissive:0xf0e8dc, emissiveIntensity:0.5});
+        const child = new THREE.Mesh(new THREE.CapsuleGeometry(0.22,0.55,4,8), childMat);
+        child.position.set(0, 2.0, 0);
+        g.add(child);
+      }
     }
   }
 
@@ -2324,6 +2355,7 @@
     if(key==='conservatory')  worldBounds = boundsFromRooms(CONS_ROOMS, 6);
     else if(key==='temple')   worldBounds = boundsFromRooms(TEMPLE_ROOMS, 6);
     else if(key==='clocktower') worldBounds = boundsFromRooms(TOWER_ROOMS, 10);
+    else if(key==='duskvillage') worldBounds = boundsFromRooms(DUSK_ROOMS, 6);
     else                      worldBounds = null;   // fall back to the circle
   }
 
@@ -2341,6 +2373,10 @@
 
   function worldKeyForPos(p){
     const x = p.x, z = p.z;
+    // Phase D(#37): 宵待ちの村は他のどのダンジョンとも重ならない、
+    // ずっと南(z>260)の未使用領域に置いてある。最初にこれだけ判定すれば、
+    // x帯を気にせず(x>-46&&x<42&&z>28のghostship判定などと)衝突しない
+    if(z > 260) return 'duskvillage';
     // the conservatory owns everything east of x=170; nothing else reaches it
     // (the temple's easternmost room ends at x=152)
     if(x > 170) return 'conservatory';
