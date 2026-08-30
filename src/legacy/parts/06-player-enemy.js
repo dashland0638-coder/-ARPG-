@@ -1498,17 +1498,17 @@
     cfg = Object.assign({
       key:'mansionBoss', bodyColor:0x5a1a2a, emissive:0x8a1020, eyeColor:0xff4433, auraColor:0xff3322,
       hpMax:620, atk:26, speed:1.6, xp:150,
-      dialogueName:'館の主', dialogueLines:BOSS_DIALOGUE_DEFAULT,
+      dialogueName:'館主アルベルト', dialogueLines:BOSS_DIALOGUE_DEFAULT,
       ambushDialogueLines:[
         '……ぐっ!問答無用か……!',
-        'よかろう、力を隠す理由もない――禁書の力、その身で味わうがいい!'
+        'よかろう、力を隠す理由もない――禁忌の呪術、その身で味わうがいい!'
       ],
       repeatDialogueLines:[
         '……また、お前か。',
-        '何度倒されようと、禁書がこの館にある限り、私は膝をつくたびに引き戻される。',
-        'ならば今度こそ――お前が倒れるまで、付き合ってもらおう!'
+        '幾度砕かれようと、この館に呪術がある限り、私は何度でも立ち上がる。',
+        '今度こそ――私の家族に、指一本触れさせはせん!'
       ],
-      clearName:'館の主', clearFlavor:'その魂は、ようやく安らぎを得たようだった。',
+      clearName:'館主アルベルト', clearFlavor:'崩れ落ちた主人の傍らに、束の間だけ温かい灯りが差し込んだ。',
       rewardLoot:{type:'gem', name:'解き放たれた魂の欠片', icon:'💎', color:0x6fd1e6}
     }, cfg||{});
     const _D = difficultyFor(_spawnWorldKey);

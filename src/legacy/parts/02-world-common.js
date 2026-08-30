@@ -1005,7 +1005,7 @@
     state.dialogueBoss = null;
     state.dialogueKind = 'towerCollapse';
     state.dialogueLines = [
-      '刻番が砕けると同時に、足元が大きく傾いだ。',
+      '時喰らいが砕けると同時に、足元が大きく傾いだ。',
       '歯車の軋みが、塔じゅうの壁を伝って降りてくる。',
       '――塔が、こちらを拒んでいる。',
       '「降りる階段は無い。……ならば、上だ」',

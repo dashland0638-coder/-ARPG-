@@ -333,15 +333,15 @@
       hpMax:820, atk:40, speed:1.95, xp:340,
       gateTag: scenarioStars('ghostship') >= GHOSTSHIP_DEPTHS_STARS ? 'ghostCaptain' : null,
       endsRun: scenarioStars('ghostship') < GHOSTSHIP_DEPTHS_STARS,
-      dialogueName:'亡霊船長',
+      dialogueName:'帰港を望む船長',
       ambushDialogueLines:[
         '……おのれ、無礼な客人だ!礼儀も知らんのか!',
         'ならば容赦はせん――海の底へ、諸共に沈むがいい!'
       ],
       dialogueLines:[
         '……ここまで辿り着いた者は、久しいな。',
-        '"海神の涙"に触れたが最後、この船と乗組員もろとも、呪いに囚われた。',
-        '儂はもう人ではない。乗員も皆、幽世の住人だ。この船を降りることは誰にも許されん。',
+        'あの日、沈没船から引き上げた"錨"に触れたが最後、この船と乗組員もろとも、呪いに縛られた。',
+        '儂はもう人ではない。乗員も皆、幽世の住人だ。錨がある限り、この船を降りることは誰にも許されん。',
         'ならばお前も――この霧の底で、永久に眠るがいい!'
       ],
       repeatDialogueLines:[
@@ -349,8 +349,8 @@
         '沈めても沈めても、この船は霧の中へ帰ってくる。儂もまた然り。',
         'ならば何度でも見せてやろう――海の底の景色をな!'
       ],
-      clearName:'亡霊船長', clearFlavor:'船長の霊魂は、静かに海の彼方へと消えていった。',
-      rewardLoot:{type:'gem', name:'海神の涙(欠片)', icon:'💎', color:0x7ecbe8}
+      clearName:'帰港を望む船長', clearFlavor:'「港が……見える……」――そう呟いて、船長の姿は静かに海の彼方へと消えていった。',
+      rewardLoot:{type:'gem', name:'錆びついた錨の欠片', icon:'💎', color:0x7ecbe8}
     }));
 
     // 神殿も同じ「山を登る」拡張(★4): 撃破後に守り手の間の東側の
@@ -360,24 +360,24 @@
       hpMax:1150, atk:50, speed:1.7, xp:520,
       gateTag: scenarioStars('temple') >= TEMPLE_DEPTHS_STARS ? 'templeGuardian' : null,
       endsRun: scenarioStars('temple') < TEMPLE_DEPTHS_STARS,
-      dialogueName:'神殿の守り手',
+      dialogueName:'守護神像',
       ambushDialogueLines:[
-        '……眠りを妨げるばかりか、不意を打つとは。',
-        '石の身に痛みはない。だが、怒りはある――'
+        '……侵入者を、感知した。',
+        '排除する――それが、我に与えられた唯一の役目だ。'
       ],
       dialogueLines:[
-        '祭壇の上の石像が、軋みを上げて立ち上がる。',
-        '……試練を越えたか。だが、ここから先は通せぬ。',
-        'この地に眠るものは、誰の手にも渡さぬ。',
-        '砕けるまで、我は退かぬ!'
+        '祭壇の奥、巨大な石像がゆっくりと目を開ける。',
+        '……我は、神になれなかった者。だが、神殿を守るという役目だけは、今も色褪せぬ。',
+        'この地に踏み入る者は、等しく退けねばならぬ。',
+        '恨みはない。ただ、務めを果たすのみ――!'
       ],
       repeatDialogueLines:[
-        '砂が集まり、見覚えのある巨躯を形づくっていく。',
-        '……試練を越えた者は、幾度でも試される。それが此処の理だ。',
-        'さあ、もう一度だ!'
+        '砂が集い、見覚えのある巨躯を再び形づくる。',
+        '……幾度でも、我は立ち上がる。それが、我に許された唯一のことだ。',
+        'さあ、再びだ!'
       ],
-      clearName:'神殿の守り手', clearFlavor:'守り手は静かに崩れ落ち、砂となって祭壇に還っていった。',
-      rewardLoot:{type:'gem', name:'守り手の核', icon:'💎', color:0xffd24a}
+      clearName:'守護神像', clearFlavor:'守護神像は静かに膝を折り、砂となって祭壇に還っていった。',
+      rewardLoot:{type:'gem', name:'人工神の核', icon:'💎', color:0xffd24a}
     }));
     if(_spawnWorldKey==='clocktower') enemies.push(buildBoss(new THREE.Vector3(-228,36,196), {
       key:'towerWarden', gateTag:'towerWarden', endsRun:false, afterDefeat:'towerCollapse',
@@ -385,7 +385,7 @@
       bodyColor:0x6a5a3a, emissive:0xffb347, eyeColor:0xffe6a0, auraColor:0xffd27a,
       hpMax:1180, atk:48, speed:2.3, xp:430,
       bossDoorKey:'towerBossDoor',
-      dialogueName:'刻番',
+      dialogueName:'時喰らい',
       ambushDialogueLines:[
         '文字盤の裏で、無数の歯車が一斉に噛み合った。',
         '不用意に踏み込んだな――刻を乱す者め!'
@@ -393,15 +393,15 @@
       dialogueLines:[
         '巨大な文字盤の裏側、歯車の壁の中心に、それは座っていた。',
         '……何時だ。',
-        '答えられまい。この塔が狂って以来、正しい時刻を言えた者はいない。',
-        'ならば貴様も、狂った刻の一部になれ!'
+        '答えられまい。この塔が、人々の時間を吸い続けて、幾年になるか。',
+        'ならば貴様の時間も――この身に、くれてやれ!'
       ],
       repeatDialogueLines:[
         '歯車が、聞き覚えのある軋みを立てて回り出す。',
         '……また来たか。何度巻き戻しても、貴様は同じ時刻に現れる。',
         'ならば今度こそ、止めてやろう。'
       ],
-      clearName:'刻番', clearFlavor:'歯車が一つ、また一つと止まり、塔にようやく静寂が戻った。',
+      clearName:'時喰らい', clearFlavor:'歯車が一つ、また一つと止まり、塔にようやく静寂が戻った。',
       rewardLoot:{type:'gem', name:'狂った時針', icon:'💎', color:0xffd27a}
     }));
     // 温室も同じ「山を登る」拡張(★4): 撃破後に温室の奥、最深部への
@@ -413,24 +413,24 @@
       bossDoorKey:'consBossDoor',
       gateTag: scenarioStars('conservatory') >= CONSERVATORY_DEPTHS_STARS ? 'conservatoryBloom' : null,
       endsRun: scenarioStars('conservatory') < CONSERVATORY_DEPTHS_STARS,
-      dialogueName:'庭の主',
+      dialogueName:'母樹',
       ambushDialogueLines:[
         '花弁が一斉に開き、内側の棘がこちらを向いた。',
-        '不用意に触れたな――百年ぶんの根が、いま地面ごと持ち上がる!'
+        '不用意に踏み込んだな――お前も、ここで永遠に生きるといい!'
       ],
       dialogueLines:[
         '硝子の天井を突き破った蔓の根元で、巨大な花がゆっくりと開く。',
-        '……久しいな。人の足音を聞くのは。',
-        '園丁たちは皆、わたしの根の下だ。水をやり、土を替え、そして肥えになった。',
-        'お前も、この庭の一部になるといい――!'
+        '……久しいな。新しい"先生"が、また迷い込んできた。',
+        '研究員たちは皆、わたしの中だ。誰も死んではいない――ただ、ずっとここにいるだけ。',
+        'お前も、皆と一緒にしてあげよう――!'
       ],
       repeatDialogueLines:[
         '切り株から、また同じ花が持ち上がってくる。',
-        '……幾度刈られようと、根はこの庭の底まで届いている。',
-        'さあ、今日はどちらが肥えになる?'
+        '……幾度刈られようと、わたしの中の皆は消えない。',
+        'さあ、今度はお前の番だ?'
       ],
-      clearName:'庭の主', clearFlavor:'巨大な花は音もなく萎れ、硝子の天井から一条の光が差し込んだ。',
-      rewardLoot:{type:'gem', name:'百年花の種核', icon:'💎', color:0x9ad86a}
+      clearName:'母樹', clearFlavor:'巨大な花は音もなく萎れ、硝子の天井から一条の光が差し込んだ。',
+      rewardLoot:{type:'gem', name:'記憶を宿す種核', icon:'💎', color:0x9ad86a}
     }));
     // 水路も同じ「山を登る」拡張(★4): 撃破後に主の間の南側の未使用
     // 区画への階段が現れる(gateTag、buildWaterwayMaze側で階段を建てる)
@@ -1391,7 +1391,7 @@
         if(en.specialT <= 0){
           if(en.body && en.body.material) en.body.material.emissiveIntensity = 0.25;
           en.hp = Math.min(en.hpMax, en.hp + en.rewindHeal);
-          spawnToast('🕰️ 刻番が時を巻き戻した');
+          spawnToast('🕰️ 時喰らいが時を巻き戻した');
           sfx('chime');
           en.special = null; en.specialCD = 14 + Math.random()*4;
           clearBossVfx(en);
@@ -1478,7 +1478,7 @@
       if(hpRatio <= 0.65){
         const alive = enemies.filter(e=>e.summonedBy===en && !e.dead).length;
         if(alive < 4){
-          spawnToast('👻 亡霊船長が乗員を呼び寄せた!');
+          spawnToast('👻 帰港を望む船長が乗員を呼び寄せた!');
           flashScreen();
           for(let i=0;i<2;i++){
             const a = Math.random()*Math.PI*2;
@@ -1557,12 +1557,12 @@
       if(en.specialIdx===1 && dist < 9){
         startArcSweep(en, {wind:0.85, dmg:Math.round(en.atk*1.25), radius:8.5,
                            halfAngle:1.15, color:0xffd24a});
-        spawnToast('⚠️ 守り手が腕を引いた――薙ぎ払いが来る!');
+        spawnToast('⚠️ 守護神像が腕を引いた――薙ぎ払いが来る!');
         return true;
       }
       if(hpRatio <= 0.6){
         en.special='guard'; en.specialT = 2.6; en.guardT = 2.6;
-        spawnToast('🛡️ 守り手が身を固めた……硬い!');
+        spawnToast('🛡️ 守護神像が身を固めた……硬い!');
         return true;
       }
       en.specialCD = 3;
@@ -1610,7 +1610,7 @@
           }, en.group.position.y);
         }
       }
-      spawnToast('☁️ 庭の主が胞子を吐き出した!');
+      spawnToast('☁️ 母樹が胞子を吐き出した!');
       sfx('spore');
       en.specialCD = 11 + Math.random()*3;
       return false;
@@ -1631,7 +1631,7 @@
         projectiles.push({mesh, dir:dir.clone(), speed:15, life:2.6,
                           dmg:Math.round(en.atk*0.85), hostile:true, spin:14,
                           boomerang:{base:15, dur:1.9}});
-        spawnToast('🕰️ 刻番が針を投げた!');
+        spawnToast('🕰️ 時喰らいが針を投げた!');
         sfx('slashSpin');   // a thrown clock hand, not a sword stroke
         en.specialCD = 5 + Math.random()*2;
         return false;
@@ -2116,7 +2116,7 @@
       if(en.postureMax && !en.knockedDown && (en.postureGraceT||0) <= 0){
         const staggerMul = (opts.staggerMul!=null) ? opts.staggerMul : 1;
         const classMul = (state.classDef && state.classDef.staggerMul) || 1;
-        const abilityMul = 1 + bossAbilityValue('staggerDealtMul') + sphereValue('staggerDealtSphereMul');   // ボス能力「守り手の重心」+ スフィア「会心の兆し」
+        const abilityMul = 1 + bossAbilityValue('staggerDealtMul') + sphereValue('staggerDealtSphereMul');   // ボス能力「守護神像の重心」+ スフィア「会心の兆し」
         en.posture = Math.min(en.postureMax, en.posture + 10*staggerMul*classMul*abilityMul);
         if(en.posture >= en.postureMax){
           triggerKnockdown(en);

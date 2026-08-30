@@ -109,11 +109,11 @@
   // so farming the same boss is how you complete its set.
   const BOSS_SIGNATURE_GEAR = {
     mansionBoss:    {prefix:'館主の',   icon:'🕯️', atkMul:1.35, hpMul:1.35},
-    ghostCaptain:   {prefix:'亡霊船長の', icon:'🧭', atkMul:1.45, hpMul:1.45},
+    ghostCaptain:   {prefix:'帰港を望む船長の', icon:'🧭', atkMul:1.45, hpMul:1.45},
     waterwayTurtle: {prefix:'水路の主の', icon:'⚡', atkMul:1.60, hpMul:1.60},
-    templeGuardian: {prefix:'守り手の', icon:'🏛️', atkMul:1.52, hpMul:1.52},
-    conservatoryBloom: {prefix:'庭の主の', icon:'🌿', atkMul:1.68, hpMul:1.68},
-    towerWarden: {prefix:'刻番の', icon:'🕰️', atkMul:1.34, hpMul:1.34},
+    templeGuardian: {prefix:'守護神像の', icon:'🏛️', atkMul:1.52, hpMul:1.52},
+    conservatoryBloom: {prefix:'母樹の', icon:'🌿', atkMul:1.68, hpMul:1.68},
+    towerWarden: {prefix:'時喰らいの', icon:'🕰️', atkMul:1.34, hpMul:1.34},
   };
   function rollBossSignatureGear(bossKey, baseLevel){
     const sig = BOSS_SIGNATURE_GEAR[bossKey];
