@@ -1001,9 +1001,13 @@
     ring.position.copy(center); ring.position.y = center.y + 0.18;   // just above the room floor
     scene.add(ring);
 
-    const glow = new THREE.PointLight(ult.vfxColor, 3, ult.radius*2.2);
+    // 修正案3: 毎回new THREE.PointLight()していたため、必殺技/ボスの
+    // フェイズ移行/レベルアップ演出のたびにライト数がプールの想定ピークを
+    // 超え、シェーダ再コンパイルによる一瞬のカクツキが起きていた
+    // (画質「標準」以上でシェーダ数・解像度が増えるほど体感しやすい)。
+    // takeLight()/giveLight()のプールに乗せて使い回す
+    const glow = takeLight(ult.vfxColor, 3, ult.radius*2.2);
     glow.position.copy(center); glow.position.y = center.y + 1.2;
-    scene.add(glow);
 
     let elapsed = 0, last = performance.now();
     const duration = 550;
@@ -1019,7 +1023,7 @@
       ringMat.opacity = 0.85*(1-t);
       glow.intensity = 3*(1-t);
       if(t<1){ requestAnimationFrame(tick); }
-      else { scene.remove(ring); scene.remove(glow); }
+      else { scene.remove(ring); giveLight(glow); }
     }
     tick();
   }

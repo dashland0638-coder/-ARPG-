@@ -4,13 +4,20 @@
 
   /* =========================================================
      CLASS DEFINITIONS
+
+     修正案2(#28): 職業ごとの「攻撃力/HP/MP」を直接の固定値として持つのを
+     やめ、体力(VIT)・力(STR)・魔力(MAG)・精神力(MND)・敏性(AGI)・
+     集中力(FOC)の6基礎ステータスへ置き換えた。各職業の基礎値は
+     どれも合計60ptの配分違いになっている(役割の違いを配分だけで表現)。
+     実際のHP/MP/攻撃力は STAT_COEF の式でここから算出する
+     (recomputeStats()、12-progression-ui.js参照)。
   ========================================================= */
   const CLASSES = {
     warrior:{
       key:'warrior', name:'剣士', icon:'⚔',
       color:0xb03a3a, trim:0xf0a05c,
       desc:'高いHPと広い攻撃範囲を誇る前衛。横薙ぎで複数の敵を巻き込める。',
-      hp:140, mp:30, atk:22, spd:5.0, range:'melee',
+      vit:18, str:16, mag:4, mnd:6, agi:8, foc:8, spd:5.0, range:'melee',
       atkCooldown:0.52, atkColorHex:'#e05a4a',
       meleeRange:3.6, meleeAngle:Math.PI/1.7, cleave:true, staggerMul:1.3,
       ult:{ name:'渾身の斬撃', icon:'💥', cd:20, radius:4.2, mult:3.2, vfxColor:0xe05a4a }
@@ -19,7 +26,7 @@
       key:'rogue', name:'盗賊', icon:'🗡',
       color:0x3a6b4a, trim:0xc9a24b,
       desc:'俊敏な身のこなしで急所を突く。攻撃速度に優れるが範囲は狭い。',
-      hp:100, mp:40, atk:15, spd:7.0, range:'melee',
+      vit:12, str:12, mag:4, mnd:6, agi:16, foc:10, spd:7.0, range:'melee',
       atkCooldown:0.38, atkColorHex:'#63c98a',
       meleeRange:2.8, meleeAngle:(Math.PI/2.3)/2, cleave:false, staggerMul:0.7,
       ult:{ name:'影閃乱舞', icon:'🌀', cd:16, radius:3.6, mult:3.6, vfxColor:0x63c98a }
@@ -28,7 +35,7 @@
       key:'mage', name:'魔法使い', icon:'✦',
       color:0x3a5b9b, trim:0x8fc7ff,
       desc:'魔力を纏い、遠距離から敵を撃つ。',
-      hp:75, mp:120, atk:26, spd:4.4, range:'ranged',
+      vit:10, str:2, mag:19, mnd:15, agi:6, foc:8, spd:4.4, range:'ranged',
       atkCooldown:0.6, atkColorHex:'#7ec8ff', staggerMul:1.0,
       ult:{ name:'メテオフォール', icon:'☄️', cd:24, radius:3.6, mult:3.4, vfxColor:0x7ec8ff,
             // Placed at a fixed distance that stays on screen; holding grows
@@ -41,13 +48,46 @@
       key:'archer', name:'弓師', icon:'➶',
       color:0x8a6a2f, trim:0xdcbf7a,
       desc:'正確な射撃で距離を支配する。MPの代わりにスタミナで矢を放つ。',
-      hp:95, mp:60, atk:18, spd:5.6, range:'ranged',
+      vit:11, str:8, mag:6, mnd:12, agi:10, foc:13, spd:5.6, range:'ranged',
       atkCooldown:0.5, atkColorHex:'#e8d38a',
       resourceLabel:'SP', resourceCost:4, regenMult:4.5, staggerMul:0.8,
       ult:{ name:'八方の矢', icon:'🏹', cd:18, mult:2.6, vfxColor:0xe8d38a, radial:true, radius:7.5,
             arrowCount:8, sweep:true, sweepDur:0.85, sweepArrows:22 }
     }
   };
+
+  // 基礎ステータス→実数値の変換係数と、武器種ごとの補正配分(#29)。
+  // 魔法使いの杖はユーザー指示によりINT70%+MND30%(他クラスは主軸1本 or 2軸60/40)
+  const STAT_KEYS = ['vit','str','mag','mnd','agi','foc'];
+  const STAT_LABELS = {vit:'体力', str:'力', mag:'魔力', mnd:'精神力', agi:'敏性', foc:'集中力'};
+  const STAT_COEF = { hpBase:18, hpPerVit:7.0, mpBase:8, mpPerMagMnd:2.4, atkCoef:1.6 };
+  // レベルアップ成長は「その職業の基礎配分に比例」させる(#28)。フラット加算だと
+  // 魔力/精神力に触れない職業までMPが際限なく伸びる等、職業間の役割が薄れるため、
+  // 各ステータスは自分の基礎値に応じてだけ伸びる(=職業の得意分野がより伸びる)
+  const STAT_GROWTH_RATE = 0.065;
+  const WEAPON_AFFINITY = {
+    warrior: {str:1.0},
+    rogue:   {str:0.6, agi:0.4},
+    mage:    {mag:0.7, mnd:0.3},
+    archer:  {foc:0.6, mnd:0.4},
+  };
+  function affinityStatValue(classKey, stats){
+    const aff = WEAPON_AFFINITY[classKey] || {str:1};
+    return STAT_KEYS.reduce((sum,k)=> sum + (aff[k]||0)*(stats[k]||0), 0);
+  }
+  function mergeStatPoints(base, pts){
+    const out = {};
+    STAT_KEYS.forEach(k=> out[k] = (base[k]||0) + (pts[k]||0));
+    return out;
+  }
+  // キャラ作成のクラスカード・確認画面など、レベル/装備/スキルを考慮しない
+  // 「素の状態」でのHP/攻撃力を見せたい場面向けの簡易プレビュー
+  function previewClassStats(c){
+    return {
+      hp: Math.round(STAT_COEF.hpBase + c.vit*STAT_COEF.hpPerVit),
+      atk: Math.round(affinityStatValue(c.key, c)*STAT_COEF.atkCoef),
+    };
+  }
 
   let selectedClass = null;
   let selectedGender = null;
@@ -62,14 +102,18 @@
     const card = document.createElement('div');
     card.className = 'class-card';
     card.dataset.key = c.key;
+    const preview = previewClassStats(c);
+    // バーの基準値は4職業中の素のHP/攻撃力の最大値(warrior/mage相当)を
+    // 目安に固定してある。基礎ステータスを直接見せてもピンとこないため、
+    // ここでは算出後のHP/攻撃力だけを見せる
     card.innerHTML = `
       <div class="class-icon">${c.icon}</div>
       <div class="class-name">${c.name}</div>
       <div class="class-desc">${c.desc}</div>
-      <div class="stat-row"><span>HP</span><span>${c.hp}</span></div>
-      <div class="stat-bar-mini"><div style="width:${c.hp/140*100}%"></div></div>
-      <div class="stat-row"><span>攻撃</span><span>${c.atk}</span></div>
-      <div class="stat-bar-mini"><div style="width:${c.atk/26*100}%"></div></div>
+      <div class="stat-row"><span>HP</span><span>${preview.hp}</span></div>
+      <div class="stat-bar-mini"><div style="width:${preview.hp/130*100}%"></div></div>
+      <div class="stat-row"><span>攻撃</span><span>${preview.atk}</span></div>
+      <div class="stat-bar-mini"><div style="width:${preview.atk/29*100}%"></div></div>
     `;
     card.addEventListener('click', ()=>{
       document.querySelectorAll('.class-card').forEach(el=>el.classList.remove('selected'));
@@ -122,19 +166,23 @@
   let diceAccum = 0;
   let yakuRerollUsed = false;
   let yakuLog = [];
-  let allocPoints = {atk:0, spd:0, hp:0, mp:0};
+  function zeroAlloc(){ const o={}; STAT_KEYS.forEach(k=>o[k]=0); return o; }
+  let allocPoints = zeroAlloc();
   /* The +/- buttons used to edit allocPoints directly, which recomputeStats()
      reads - so points took effect whether or not 反映する was pressed. They
      now edit a draft, and only 反映する copies it across. */
-  let allocDraft = {atk:0, spd:0, hp:0, mp:0};
+  let allocDraft = zeroAlloc();
   function allocDraftDirty(){
-    return ['atk','spd','hp','mp'].some(k=> allocDraft[k] !== allocPoints[k]);
+    return STAT_KEYS.some(k=> allocDraft[k] !== allocPoints[k]);
   }
   function resetAllocDraft(){
-    allocDraft = {atk:allocPoints.atk, spd:allocPoints.spd, hp:allocPoints.hp, mp:allocPoints.mp};
+    allocDraft = Object.assign(zeroAlloc(), allocPoints);
   }
   function commitAllocDraft(){
-    allocPoints = {atk:allocDraft.atk, spd:allocDraft.spd, hp:allocDraft.hp, mp:allocDraft.mp};
+    allocPoints = Object.assign(zeroAlloc(), allocDraft);
+  }
+  function allocPointsSpent(pts){
+    return STAT_KEYS.reduce((sum,k)=> sum + (pts[k]||0), 0);
   }
   let allocRemaining = 0;
   let rollingInProgress = false;
@@ -197,22 +245,27 @@
 
   // shows each class's base stats next to whatever is being allocated, so
   // the differences between classes are visible while spending points
+  // 基礎ステータス6項目そのままに加えて、実際に反映されるHP/MP/攻撃力も
+  // 一緒に見せる(#28での改善点: 装備/ステータス画面のUI/UXで「値の変化・
+  // 補正がわかりやすいように」という要望に沿って、生の配分だけでなく
+  // 算出後の数値まで常時見える形にした)
   function refreshAllocPreview(){
     const el = document.getElementById('alloc-preview');
     if(!el) return;
     const base = CLASSES[selectedClass];
     if(!base){ el.innerHTML = ''; return; }
-    const rows = [
-      ['攻撃', base.atk, allocPoints.atk*1, 0],
-      ['素早さ', base.spd, allocPoints.spd*0.1, 1],
-      ['HP', base.hp, allocPoints.hp*3, 0],
-      [(base.resourceLabel||'MP'), base.mp, allocPoints.mp*2, 0],
-    ];
-    el.innerHTML = rows.map(([k,b,add,dp])=>{
-      const total = (b+add).toFixed(dp);
-      const addTxt = add>0 ? ` <span class="ap-add">(+${add.toFixed(dp)})</span>` : '';
-      return `<span><span class="ap-k">${k}</span> <span class="ap-base">${total}</span>${addTxt}</span>`;
+    const statSpans = STAT_KEYS.map(k=>{
+      const add = allocPoints[k];
+      const total = base[k] + add;
+      const addTxt = add>0 ? ` <span class="ap-add">(+${add})</span>` : '';
+      return `<span><span class="ap-k">${STAT_LABELS[k]}</span> <span class="ap-base">${total}</span>${addTxt}</span>`;
     }).join('');
+    const merged = mergeStatPoints(base, allocPoints);
+    const hp = Math.round(STAT_COEF.hpBase + merged.vit*STAT_COEF.hpPerVit);
+    const mp = Math.round(STAT_COEF.mpBase + (merged.mag+merged.mnd)*STAT_COEF.mpPerMagMnd);
+    const atk = Math.round(affinityStatValue(selectedClass, merged)*STAT_COEF.atkCoef);
+    const derived = `<span class="alloc-derived">→ HP ${hp} ／ ${base.resourceLabel||'MP'} ${mp} ／ 攻撃力 ${atk}</span>`;
+    el.innerHTML = statSpans + derived;
   }
 
   function rollWeightedDie(){
@@ -238,7 +291,7 @@
       yakuLog = [];
       const histEl0 = document.getElementById('dice-history');
       if(histEl0) histEl0.innerHTML = '';
-      allocPoints = {atk:0, spd:0, hp:0, mp:0};
+      allocPoints = zeroAlloc();
       allocRemaining = 0;
       document.getElementById('stat-alloc').style.display = 'none';
     }
@@ -310,11 +363,11 @@
       }
       diceRolled = true;
       diceTotal = diceAccum + 12; // base points; 20 made the early game far too easy
-      allocPoints = {atk:0, spd:0, hp:0, mp:0};
+      allocPoints = zeroAlloc();
       allocRemaining = diceTotal;
       document.getElementById('alloc-remaining').textContent = allocRemaining;
       refreshAllocPreview();
-      ['atk','spd','hp','mp'].forEach(k=> document.getElementById('alloc-'+k).textContent = '0');
+      STAT_KEYS.forEach(k=> document.getElementById('alloc-'+k).textContent = '0');
       document.getElementById('stat-alloc').style.display = 'block';
       document.getElementById('dice-roll-btn').textContent = '🎲 最初からやり直す';
     }

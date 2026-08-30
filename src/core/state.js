@@ -76,7 +76,11 @@ import * as THREE from 'three';
     ultAiming:false, ultAimT:0, ultSweep:null,
     skillChoice:'retreat', skillCharging:false, skillChargeT:0, skillChargeMax:1.1,
     chargeCD:0, skillCD:0, skill2CD:0, followUpT:0, mageOrbs:[],
-    level:1, xp:0, xpToNext:40, levelGrowth:{atk:0, hp:0, mp:0, spd:0},
+    level:1, xp:0, xpToNext:40,
+    // #28 基礎ステータス制: 体力(vit)/力(str)/魔力(mag)/精神力(mnd)/敏性(agi)/
+    // 集中力(foc)の6項目。beginGame()/applySaveData()で実際の値に上書きされる
+    // までの単なる初期プレースホルダ
+    levelGrowth:{vit:0, str:0, mag:0, mnd:0, agi:0, foc:0},
     debugMode:false
   };
 

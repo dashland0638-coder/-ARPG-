@@ -12,9 +12,17 @@
   const SAVE_KEY = 'soulforge_save_v1';
   const SETTINGS_KEY = 'soulforge_settings_v1';
 
+  // v2: 基礎ステータス制(#28)でallocPoints/levelGrowthの形が
+  // {atk,spd,hp,mp} から {vit,str,mag,mnd,agi,foc} へ根本的に変わったため、
+  // v1のセーブはそのまま読み込むと数値が意味を持たなくなる。互換変換は
+  // 行わず、v1セーブはloadSaveData()で「セーブなし」として扱い、
+  // 新規キャラクター作成を促す(継続タイトルのバナーも出なくなるだけで、
+  // 古いセーブ自体は上書きも削除もしない)
+  const SAVE_VERSION = 2;
+
   function buildSaveData(){
     return {
-      v:1, savedAt:Date.now(),
+      v:SAVE_VERSION, savedAt:Date.now(),
       selectedClass, selectedGender, selectedPersonality, playerName,
       allocPoints:Object.assign({}, allocPoints),
       diceTotal,
@@ -71,6 +79,11 @@
       // guard against a corrupted/foreign payload rather than crashing deep
       // inside applySaveData with half-applied state
       if(!data || !data.selectedClass || !CLASSES[data.selectedClass] || !data.selectedGender) return null;
+      // v1(旧ステータス制)のセーブは互換変換せず「セーブなし」扱いにする。
+      // allocPoints/levelGrowthの形が{atk,spd,hp,mp}から{vit,str,mag,mnd,agi,foc}へ
+      // 変わっており、そのまま読み込むと数値が意味を持たなくなるため
+      // (#28 基礎ステータス制。古いセーブ自体は上書き・削除しない)
+      if(data.v !== SAVE_VERSION) return null;
       return data;
     }catch(err){
       console.error('loadSaveData failed:', err);
@@ -92,7 +105,7 @@
     selectedGender = data.selectedGender;
     selectedPersonality = data.selectedPersonality || null;
     playerName = data.playerName || '';
-    allocPoints = Object.assign({atk:0, spd:0, hp:0, mp:0}, data.allocPoints);
+    allocPoints = Object.assign(zeroAlloc(), data.allocPoints);
     // diceTotal(振れる合計ポイント)は元々セーブに含まれておらず、続きから
     // 再開するとスクリプト読み込み時の初期値0のままになっていた。既に
     // 振った分(allocPoints)はそのまま残るため、remaining = diceTotal -
@@ -102,7 +115,7 @@
     // 残り0扱いにする(マイナスにはならないが、無から新規ポイントも
     // 発生させない安全側のフォールバック)
     diceTotal = (data.diceTotal!=null) ? data.diceTotal
-      : (allocPoints.atk+allocPoints.spd+allocPoints.hp+allocPoints.mp);
+      : allocPointsSpent(allocPoints);
 
     state.gender = selectedGender;
     state.name = playerName || '名もなき冒険者';
@@ -162,7 +175,7 @@
     state.level = data.level || 1;
     state.xp = data.xp || 0;
     state.xpToNext = data.xpToNext || xpToNextForLevel(state.level);
-    state.levelGrowth = Object.assign({atk:0, hp:0, mp:0, spd:0}, data.levelGrowth);
+    state.levelGrowth = Object.assign(zeroAlloc(), data.levelGrowth);
     state.usingAltWeapon = false;   // 保存された装備のnative武器種に合わせる
 
     state.inventory = Object.assign({gold:0, gem:0, potion:0, shard:0, mppotion:0}, data.inventory);
@@ -221,6 +234,18 @@
     if(el && el !== document.body && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA'){
       setTimeout(()=>{ if(document.activeElement === el) el.blur(); }, 0);
     }
+  });
+
+  // バグ報告(修正案3): PC Chromeでゲームパッド使用時、R1を押すとAltキーを
+  // 押した時と同じ挙動(ブラウザ右側のパネルが開く)が起きる。Edgeでは
+  // 発生しないため、コントローラーのドライバ/OS側がR1をAltキーとして
+  // 合成しているのが原因と見られ、ページ側からは「Altキーが実際に
+  // 押された」ようにしか見えず、ゲームパッド由来かどうかは区別できない。
+  // preventDefault()で完全に防げる保証はない(ブラウザ側のパネル開閉は
+  // ページより手前で処理されることがある)が、副作用の無い対策として
+  // プレイ中はAltキー単体のデフォルト動作を止めておく
+  window.addEventListener('keydown', e=>{
+    if(state.started && (e.key==='Alt' || e.code==='AltLeft' || e.code==='AltRight')) e.preventDefault();
   });
 
   const keys = {};

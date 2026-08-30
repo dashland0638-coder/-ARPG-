@@ -76,10 +76,16 @@
     const moveMag = Math.sqrt(ix*ix + iy*iy);
     if(camAutoOn && !manualCamInput && camAutoResumeT<=0 && moveMag>0.35 && !findLockOnBoss()){
       const desiredYaw = state.facing + Math.PI;
-      // 体感が遅すぎるとのフィードバックにより約3倍速に変更。
-      // フレームレート非依存のイージング(1-k^dt)で速度を3倍にするには
-      // 減衰定数kを3乗する(k^3は同じ時間でkの3倍速く0へ収束する)
-      state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(0.82*0.82*0.82, dt));
+      // 修正案3: 進む/下がる方向への小さな向き直しは違和感が出やすいので
+      // ゆっくり、真横への大きな向き直しは今の速度(3倍速)のまま、という
+      // 緩急を付ける。現在のcamYawとdesiredYawの角度差(0=前後、90°=真横)を
+      // sinカーブに通し、前後で30%・真横で100%(=現行速度そのまま)になる
+      // よう速度係数を作る。1-k^dtの収束レートをm倍にするには減衰定数kを
+      // k^mへ置き換えればよい(k^(m*dt) = (k^m)^dt)
+      let diff = ((desiredYaw - state.camYaw + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
+      const speedFactor = 0.30 + 0.70*Math.sin(Math.abs(diff));   // diffは[-π,π]なのでsin(|diff|)は前後で0、真横(π/2)で最大の1
+      const baseDecay = 0.82*0.82*0.82;   // 真横(=従来の基準速度)での減衰定数
+      state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(baseDecay, speedFactor*dt));
     }
   }
   let camAutoResumeT = 0;

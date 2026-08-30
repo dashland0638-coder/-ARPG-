@@ -919,7 +919,7 @@
 
     renderBossChoicePanel(boss.key);
 
-    const remaining = diceTotal - (allocPoints.atk+allocPoints.spd+allocPoints.hp+allocPoints.mp);
+    const remaining = diceTotal - allocPointsSpent(allocPoints);
     const panel = document.getElementById('result-stat-panel');
     if(remaining>0){
       panel.style.display = 'block';
@@ -942,11 +942,11 @@
   }
 
   function refreshResultStatPanel(){
-    ['atk','spd','hp','mp'].forEach(k=>{
+    STAT_KEYS.forEach(k=>{
       const el = document.getElementById('ralloc-'+k);
       if(el) el.textContent = allocPoints[k];
     });
-    const remaining = diceTotal - (allocPoints.atk+allocPoints.spd+allocPoints.hp+allocPoints.mp);
+    const remaining = diceTotal - allocPointsSpent(allocPoints);
     document.getElementById('ralloc-remaining').textContent = remaining;
   }
 
@@ -1115,7 +1115,7 @@
     const stat = btn.dataset.rstat;
     const isPlus = btn.classList.contains('plus');
     bindRepeatButton(btn, ()=>{
-      const remaining = diceTotal - (allocPoints.atk+allocPoints.spd+allocPoints.hp+allocPoints.mp);
+      const remaining = diceTotal - allocPointsSpent(allocPoints);
       if(isPlus){
         if(remaining<=0) return false;
         allocPoints[stat]++;
@@ -1454,10 +1454,10 @@
   ========================================================= */
   function recomputeStats(){
     const base = CLASSES[selectedClass];
-    let gearAtk = 0, gearHp = 0;
+    let gearAtk = 0, gearHp = 0, gearSpdMul = 0;
     ['weapon','upper','lower'].forEach(sl=>{
       const it = state.equipped && state.equipped[sl];
-      if(it){ gearAtk += it.atkBonus||0; gearHp += it.hpBonus||0; }
+      if(it){ gearAtk += it.atkBonus||0; gearHp += it.hpBonus||0; gearSpdMul += it.spdBonus||0; }
     });
     // 2武器切り替え: サブ武器が有効なら、射程・角度・cleave・攻撃間隔・
     // 体幹倍率・間合い種別(近接/遠隔)をサブ武器の値で上書きする。
@@ -1475,12 +1475,23 @@
     // 強制的にdefaultへ戻す(セーブデータ改変や解放前の選択残りに対する安全策)
     const ultBase = (state.ultChoice==='alt' && state.unlockedUltAlt && ULT_ALT_BY_CLASS[selectedClass])
       ? ULT_ALT_BY_CLASS[selectedClass] : base.ult;
+    // 基礎ステータス制(#28): 職業基礎値+ダイス配分+レベル成長を6項目分
+    // 合算してから、HP/MP/攻撃力をそれぞれの式で導出する
+    const merged = mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth);
+    const hp = Math.round((STAT_COEF.hpBase + merged.vit*STAT_COEF.hpPerVit + state.skills.hpUp*15 + gearHp) * hpAbilityMul);
+    const mp = Math.round(STAT_COEF.mpBase + (merged.mag+merged.mnd)*STAT_COEF.mpPerMagMnd);
+    const atkBase = affinityStatValue(selectedClass, merged) * STAT_COEF.atkCoef;
+    const atk = Math.round((atkBase + state.skills.atkUp*2 + state.equipLevel*4 + gearAtk) * atkMul);
+    // 移動速度: 職業固定値(base.spd)を基準に、レベルに応じてごく緩やかに
+    // 収束しながら上昇し(Lv25で約+6%、上限+10%)、装備補正を加えても
+    // 合計で+25%までしか上がらない(修正案2: 「移動速度は上げ過ぎると
+    // 世界観崩壊」への対応。ステータスに際限なく比例させない)
+    const spdLevelMul = 1 + 0.10*(1 - Math.exp(-state.level/25));
+    const spdTotalMul = Math.min(1.25, spdLevelMul + gearSpdMul);
     const cdef = Object.assign({}, base, weaponOverrides, {
-      hp: Math.round((base.hp + allocPoints.hp*3 + state.skills.hpUp*15 + state.levelGrowth.hp + gearHp) * hpAbilityMul),
-      mp: base.mp + allocPoints.mp*2 + state.levelGrowth.mp,
-      atk: Math.round((base.atk + allocPoints.atk*1 + state.skills.atkUp*2 + state.equipLevel*4 + state.levelGrowth.atk + gearAtk) * atkMul),
-      spd: +(base.spd + allocPoints.spd*0.1 + state.levelGrowth.spd).toFixed(2),
-      baseSpd: base.spd,   // 回避ダッシュ距離用。ステータス振り/レベル成長の速度上昇を乗せない基準値
+      hp, mp, atk,
+      spd: +(base.spd * spdTotalMul).toFixed(2),
+      baseSpd: base.spd,   // 回避ダッシュ距離用。レベル/装備の速度上昇を乗せない基準値
       ult: Object.assign({}, ultBase, { mult: +(ultBase.mult * (1 + state.skills.ultUp*0.1) * (1 + sphereValue('ultDmgSphereMul'))).toFixed(2) })   // スフィア「絶対の一撃」
     });
     const hpRatio = state.maxHp>0 ? state.hp/state.maxHp : 1;
@@ -1514,10 +1525,13 @@
       state.xpToNext = xpToNextForLevel(state.level);
       diceTotal += 1; // free stat points banked, spend them at the appraisal - less than before, since auto-growth now covers more
       state.spherePoints = (state.spherePoints||0) + 1;   // 奥義の環: レベルアップごとに1点
-      state.levelGrowth.atk += 2;
-      state.levelGrowth.hp += 7;
-      state.levelGrowth.mp += 3;
-      state.levelGrowth.spd = +(state.levelGrowth.spd + 0.03).toFixed(2);
+      // 基礎ステータス制(#28): 職業ごとの基礎配分に「比例」した分だけ
+      // 毎レベル伸びる。フラット加算だと魔力/精神力に触れない職業まで
+      // MPが際限なく伸びてしまう等、職業の得意分野が薄れるのを避けるため
+      const base = CLASSES[selectedClass];
+      STAT_KEYS.forEach(k=>{
+        state.levelGrowth[k] = +(state.levelGrowth[k] + base[k]*STAT_GROWTH_RATE).toFixed(3);
+      });
       leveled = true;
     }
     if(leveled){
@@ -1898,14 +1912,14 @@
   function refreshAppraisal(){
     document.getElementById('ap-gold').textContent = state.inventory.gold;
     document.getElementById('ap-gem').textContent = state.inventory.gem;
-    ['atk','spd','hp','mp'].forEach(k=>{
+    STAT_KEYS.forEach(k=>{
       const el = document.getElementById('ap-alloc-'+k);
       if(!el) return;
       el.textContent = allocDraft[k];
       // show unapplied points distinctly, so the state of the panel is obvious
       el.style.color = (allocDraft[k] !== allocPoints[k]) ? '#ffd27a' : '';
     });
-    const remaining = diceTotal - (allocDraft.atk+allocDraft.spd+allocDraft.hp+allocDraft.mp);
+    const remaining = diceTotal - allocPointsSpent(allocDraft);
     document.getElementById('ap-alloc-remaining').textContent = remaining;
     const applyBtn = document.getElementById('ap-apply-btn');
     if(applyBtn){
@@ -2560,7 +2574,7 @@
     const stat = btn.dataset.apstat;
     const isPlus = btn.classList.contains('plus');
     bindRepeatButton(btn, ()=>{
-      const remaining = diceTotal - (allocDraft.atk+allocDraft.spd+allocDraft.hp+allocDraft.mp);
+      const remaining = diceTotal - allocPointsSpent(allocDraft);
       if(isPlus){
         if(remaining<=0) return false;
         allocDraft[stat]++;

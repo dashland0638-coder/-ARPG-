@@ -1,6 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, createCharacter, dismissIntroDialogue } from './helpers.js';
+import { watchErrors, openGame, createCharacter, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
 
 test.describe('boot', () => {
   test('reaches the title screen with an empty continue banner', async ({ page }) => {
@@ -40,6 +40,7 @@ test.describe('sortie', () => {
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);
+    await disableCameraAutoFollow(page);
 
     // Walk to the bartender (spawns at z=10, bartender sits at z=20) rather
     // than reach into game internals to teleport there. Movement is
@@ -150,9 +151,9 @@ test.describe('save / load', () => {
     // script runs, so it's in place for boot's refreshContinueBanner().
     await page.addInitScript(() => {
       localStorage.setItem('soulforge_save_v1', JSON.stringify({
-        v: 1, selectedClass: 'warrior', selectedGender: 'male', selectedPersonality: 'brave',
-        playerName: '壊れたセーブ', allocPoints: { atk: 0, spd: 0, hp: 0, mp: 0 },
-        level: 5, xp: 10, xpToNext: 100, levelGrowth: { atk: 0, hp: 0, mp: 0, spd: 0 },
+        v: 2, selectedClass: 'warrior', selectedGender: 'male', selectedPersonality: 'brave',
+        playerName: '壊れたセーブ', allocPoints: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 },
+        level: 5, xp: 10, xpToNext: 100, levelGrowth: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 },
         equipLevel: 0, inventory: { gold: 0, gem: 0, potion: 0, shard: 0, mppotion: 0 },
         equipmentInventory: 'not-an-array', // <- breaks applySaveData's .map()
         equipped: { weapon: null, upper: null, lower: null },

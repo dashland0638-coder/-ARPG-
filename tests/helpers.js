@@ -48,7 +48,7 @@ async function openGame(page) {
  * 始める" button enabled but does not click it - the caller decides whether
  * that's a fresh start or an overwrite.
  */
-async function createCharacter(page, { classKey = 'warrior', gender = 'male', personality = 'brave', name = 'テスト勇者', spendOn = 'hp' } = {}) {
+async function createCharacter(page, { classKey = 'warrior', gender = 'male', personality = 'brave', name = 'テスト勇者', spendOn = 'vit' } = {}) {
   await page.click(`#class-grid .class-card[data-key="${classKey}"]`);
   await page.click(`#gender-grid .gender-card[data-gender="${gender}"]`);
   await page.click(`#personality-grid .personality-card[data-personality="${personality}"]`);
@@ -104,4 +104,23 @@ async function dismissIntroDialogue(page) {
   }
 }
 
-export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue };
+/**
+ * Turns off the "カメラ自動追従" setting via the pause menu. Several tests
+ * walk to the bartender with a fixed W+A/W hold that assumes the tavern's
+ * spawn camYaw never changes for the duration of the walk (camera-relative
+ * movement - see inputToWorldDir()). The camera auto-follow feature rotates
+ * the camera to face the player's own movement direction while walking,
+ * which invalidates that fixed-heading assumption and can walk the
+ * character off course. Call this after dismissIntroDialogue() (the pause
+ * menu won't open while dialogueActive) and before any such fixed-key walk.
+ */
+async function disableCameraAutoFollow(page) {
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.getElementById('menu-overlay').classList.contains('active'));
+  const label = await page.$eval('#set-camauto', el => el.textContent.trim());
+  if (label !== 'なし') await page.click('#set-camauto');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.getElementById('menu-overlay').classList.contains('active'));
+}
+
+export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue, disableCameraAutoFollow };

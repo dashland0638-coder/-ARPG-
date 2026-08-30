@@ -161,6 +161,13 @@
   .alloc-preview .ap-k{ color:var(--text-dim); }
   .alloc-preview .ap-base{ color:var(--text); font-weight:700; }
   .alloc-preview .ap-add{ color:var(--ember-bright); font-weight:700; }
+  /* #28: 基礎ステータスの配分行とは別に、算出後のHP/MP/攻撃力をひと目で
+     わかるよう独立した行として下に表示する */
+  .alloc-preview .alloc-derived{
+    flex-basis:100%; margin-top:4px; padding-top:6px;
+    border-top:1px solid var(--panel-line);
+    color:var(--ember-bright); font-weight:700; text-align:center;
+  }
 
   .dice-stage{ display:flex; align-items:flex-start; justify-content:center; gap:14px; }
   .dice-history{ display:flex; flex-direction:column; gap:8px; }

@@ -73,35 +73,51 @@
 
       <div class="stat-alloc" id="stat-alloc" style="display:none;">
         <div class="stat-alloc-row">
-          <span class="stat-alloc-label">攻撃力 +1 / pt</span>
+          <span class="stat-alloc-label">体力(HP) +1 / pt</span>
           <div class="stat-alloc-ctrl">
-            <button type="button" class="stat-btn minus" data-stat="atk">−</button>
-            <span class="stat-alloc-val" id="alloc-atk">0</span>
-            <button type="button" class="stat-btn plus" data-stat="atk">＋</button>
+            <button type="button" class="stat-btn minus" data-stat="vit">−</button>
+            <span class="stat-alloc-val" id="alloc-vit">0</span>
+            <button type="button" class="stat-btn plus" data-stat="vit">＋</button>
           </div>
         </div>
         <div class="stat-alloc-row">
-          <span class="stat-alloc-label">素早さ +0.1 / pt</span>
+          <span class="stat-alloc-label">力(物理攻撃) +1 / pt</span>
           <div class="stat-alloc-ctrl">
-            <button type="button" class="stat-btn minus" data-stat="spd">−</button>
-            <span class="stat-alloc-val" id="alloc-spd">0</span>
-            <button type="button" class="stat-btn plus" data-stat="spd">＋</button>
+            <button type="button" class="stat-btn minus" data-stat="str">−</button>
+            <span class="stat-alloc-val" id="alloc-str">0</span>
+            <button type="button" class="stat-btn plus" data-stat="str">＋</button>
           </div>
         </div>
         <div class="stat-alloc-row">
-          <span class="stat-alloc-label">HP +3 / pt</span>
+          <span class="stat-alloc-label">魔力(魔法攻撃/MP) +1 / pt</span>
           <div class="stat-alloc-ctrl">
-            <button type="button" class="stat-btn minus" data-stat="hp">−</button>
-            <span class="stat-alloc-val" id="alloc-hp">0</span>
-            <button type="button" class="stat-btn plus" data-stat="hp">＋</button>
+            <button type="button" class="stat-btn minus" data-stat="mag">−</button>
+            <span class="stat-alloc-val" id="alloc-mag">0</span>
+            <button type="button" class="stat-btn plus" data-stat="mag">＋</button>
           </div>
         </div>
         <div class="stat-alloc-row">
-          <span class="stat-alloc-label">MP +2 / pt</span>
+          <span class="stat-alloc-label">精神力(MP) +1 / pt</span>
           <div class="stat-alloc-ctrl">
-            <button type="button" class="stat-btn minus" data-stat="mp">−</button>
-            <span class="stat-alloc-val" id="alloc-mp">0</span>
-            <button type="button" class="stat-btn plus" data-stat="mp">＋</button>
+            <button type="button" class="stat-btn minus" data-stat="mnd">−</button>
+            <span class="stat-alloc-val" id="alloc-mnd">0</span>
+            <button type="button" class="stat-btn plus" data-stat="mnd">＋</button>
+          </div>
+        </div>
+        <div class="stat-alloc-row">
+          <span class="stat-alloc-label">敏性(スタミナ/回避) +1 / pt</span>
+          <div class="stat-alloc-ctrl">
+            <button type="button" class="stat-btn minus" data-stat="agi">−</button>
+            <span class="stat-alloc-val" id="alloc-agi">0</span>
+            <button type="button" class="stat-btn plus" data-stat="agi">＋</button>
+          </div>
+        </div>
+        <div class="stat-alloc-row">
+          <span class="stat-alloc-label">集中力(命中/会心) +1 / pt</span>
+          <div class="stat-alloc-ctrl">
+            <button type="button" class="stat-btn minus" data-stat="foc">−</button>
+            <span class="stat-alloc-val" id="alloc-foc">0</span>
+            <button type="button" class="stat-btn plus" data-stat="foc">＋</button>
           </div>
         </div>
         <div class="stat-remaining">残りポイント: <span id="alloc-remaining">0</span></div>
@@ -320,35 +336,51 @@
     <div class="result-stat-panel" id="result-stat-panel" style="display:none;">
       <div class="result-stat-title">レベルアップで得たポイントを振り分けよう</div>
       <div class="stat-alloc-row">
-        <span class="stat-alloc-label">攻撃力 +1 / pt</span>
+        <span class="stat-alloc-label">体力(HP) +1 / pt</span>
         <div class="stat-alloc-ctrl">
-          <button type="button" class="stat-btn minus" data-rstat="atk">−</button>
-          <span class="stat-alloc-val" id="ralloc-atk">0</span>
-          <button type="button" class="stat-btn plus" data-rstat="atk">＋</button>
+          <button type="button" class="stat-btn minus" data-rstat="vit">−</button>
+          <span class="stat-alloc-val" id="ralloc-vit">0</span>
+          <button type="button" class="stat-btn plus" data-rstat="vit">＋</button>
         </div>
       </div>
       <div class="stat-alloc-row">
-        <span class="stat-alloc-label">素早さ +0.1 / pt</span>
+        <span class="stat-alloc-label">力(物理攻撃) +1 / pt</span>
         <div class="stat-alloc-ctrl">
-          <button type="button" class="stat-btn minus" data-rstat="spd">−</button>
-          <span class="stat-alloc-val" id="ralloc-spd">0</span>
-          <button type="button" class="stat-btn plus" data-rstat="spd">＋</button>
+          <button type="button" class="stat-btn minus" data-rstat="str">−</button>
+          <span class="stat-alloc-val" id="ralloc-str">0</span>
+          <button type="button" class="stat-btn plus" data-rstat="str">＋</button>
         </div>
       </div>
       <div class="stat-alloc-row">
-        <span class="stat-alloc-label">HP +3 / pt</span>
+        <span class="stat-alloc-label">魔力(魔法攻撃/MP) +1 / pt</span>
         <div class="stat-alloc-ctrl">
-          <button type="button" class="stat-btn minus" data-rstat="hp">−</button>
-          <span class="stat-alloc-val" id="ralloc-hp">0</span>
-          <button type="button" class="stat-btn plus" data-rstat="hp">＋</button>
+          <button type="button" class="stat-btn minus" data-rstat="mag">−</button>
+          <span class="stat-alloc-val" id="ralloc-mag">0</span>
+          <button type="button" class="stat-btn plus" data-rstat="mag">＋</button>
         </div>
       </div>
       <div class="stat-alloc-row">
-        <span class="stat-alloc-label">MP +2 / pt</span>
+        <span class="stat-alloc-label">精神力(MP) +1 / pt</span>
         <div class="stat-alloc-ctrl">
-          <button type="button" class="stat-btn minus" data-rstat="mp">−</button>
-          <span class="stat-alloc-val" id="ralloc-mp">0</span>
-          <button type="button" class="stat-btn plus" data-rstat="mp">＋</button>
+          <button type="button" class="stat-btn minus" data-rstat="mnd">−</button>
+          <span class="stat-alloc-val" id="ralloc-mnd">0</span>
+          <button type="button" class="stat-btn plus" data-rstat="mnd">＋</button>
+        </div>
+      </div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">敏性(スタミナ/回避) +1 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-rstat="agi">−</button>
+          <span class="stat-alloc-val" id="ralloc-agi">0</span>
+          <button type="button" class="stat-btn plus" data-rstat="agi">＋</button>
+        </div>
+      </div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">集中力(命中/会心) +1 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-rstat="foc">−</button>
+          <span class="stat-alloc-val" id="ralloc-foc">0</span>
+          <button type="button" class="stat-btn plus" data-rstat="foc">＋</button>
         </div>
       </div>
       <div class="stat-remaining">残りポイント: <span id="ralloc-remaining">0</span></div>
@@ -388,35 +420,51 @@
 
     <div class="ap-panel" id="ap-panel-stat" style="display:none;">
       <div class="stat-alloc-row">
-        <span class="stat-alloc-label">攻撃力 +1 / pt</span>
+        <span class="stat-alloc-label">体力(HP) +1 / pt</span>
         <div class="stat-alloc-ctrl">
-          <button type="button" class="stat-btn minus" data-apstat="atk">−</button>
-          <span class="stat-alloc-val" id="ap-alloc-atk">0</span>
-          <button type="button" class="stat-btn plus" data-apstat="atk">＋</button>
+          <button type="button" class="stat-btn minus" data-apstat="vit">−</button>
+          <span class="stat-alloc-val" id="ap-alloc-vit">0</span>
+          <button type="button" class="stat-btn plus" data-apstat="vit">＋</button>
         </div>
       </div>
       <div class="stat-alloc-row">
-        <span class="stat-alloc-label">素早さ +0.1 / pt</span>
+        <span class="stat-alloc-label">力(物理攻撃) +1 / pt</span>
         <div class="stat-alloc-ctrl">
-          <button type="button" class="stat-btn minus" data-apstat="spd">−</button>
-          <span class="stat-alloc-val" id="ap-alloc-spd">0</span>
-          <button type="button" class="stat-btn plus" data-apstat="spd">＋</button>
+          <button type="button" class="stat-btn minus" data-apstat="str">−</button>
+          <span class="stat-alloc-val" id="ap-alloc-str">0</span>
+          <button type="button" class="stat-btn plus" data-apstat="str">＋</button>
         </div>
       </div>
       <div class="stat-alloc-row">
-        <span class="stat-alloc-label">HP +3 / pt</span>
+        <span class="stat-alloc-label">魔力(魔法攻撃/MP) +1 / pt</span>
         <div class="stat-alloc-ctrl">
-          <button type="button" class="stat-btn minus" data-apstat="hp">−</button>
-          <span class="stat-alloc-val" id="ap-alloc-hp">0</span>
-          <button type="button" class="stat-btn plus" data-apstat="hp">＋</button>
+          <button type="button" class="stat-btn minus" data-apstat="mag">−</button>
+          <span class="stat-alloc-val" id="ap-alloc-mag">0</span>
+          <button type="button" class="stat-btn plus" data-apstat="mag">＋</button>
         </div>
       </div>
       <div class="stat-alloc-row">
-        <span class="stat-alloc-label">MP +2 / pt</span>
+        <span class="stat-alloc-label">精神力(MP) +1 / pt</span>
         <div class="stat-alloc-ctrl">
-          <button type="button" class="stat-btn minus" data-apstat="mp">−</button>
-          <span class="stat-alloc-val" id="ap-alloc-mp">0</span>
-          <button type="button" class="stat-btn plus" data-apstat="mp">＋</button>
+          <button type="button" class="stat-btn minus" data-apstat="mnd">−</button>
+          <span class="stat-alloc-val" id="ap-alloc-mnd">0</span>
+          <button type="button" class="stat-btn plus" data-apstat="mnd">＋</button>
+        </div>
+      </div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">敏性(スタミナ/回避) +1 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-apstat="agi">−</button>
+          <span class="stat-alloc-val" id="ap-alloc-agi">0</span>
+          <button type="button" class="stat-btn plus" data-apstat="agi">＋</button>
+        </div>
+      </div>
+      <div class="stat-alloc-row">
+        <span class="stat-alloc-label">集中力(命中/会心) +1 / pt</span>
+        <div class="stat-alloc-ctrl">
+          <button type="button" class="stat-btn minus" data-apstat="foc">−</button>
+          <span class="stat-alloc-val" id="ap-alloc-foc">0</span>
+          <button type="button" class="stat-btn plus" data-apstat="foc">＋</button>
         </div>
       </div>
       <div class="stat-remaining">残りポイント: <span id="ap-alloc-remaining">0</span></div>

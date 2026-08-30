@@ -808,7 +808,7 @@
     state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
     state.level = 1; state.xp = 0; state.xpToNext = xpToNextForLevel(1);
-    state.levelGrowth = {atk:0, hp:0, mp:0, spd:0};
+    state.levelGrowth = zeroAlloc();
     state.maxHp = 0; state.maxMp = 0; // force a full heal on the first recompute
     recomputeStats();          // establishes state.classDef
     grantStarterGear();        // needs classDef to pick class-appropriate gear
