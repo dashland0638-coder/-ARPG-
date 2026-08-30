@@ -1688,12 +1688,21 @@
     addXrayShell(g, {filter:n=> n === body || n === head || n === snout ||
                                  M.legs.some(l=> l.children.indexOf(n) >= 0)});
 
-    if(variant.strongMob) g.scale.setScalar(1.5); // visually larger, doesn't affect hitboxes
+    // Phase C(#36): 名前付き中ボス級の個体は、既存のstrongMob(1.5倍)より
+    // もう一段大きくして「ただの強い雑魚ではない」ことをシルエットで示す
+    if(variant.midbossName) g.scale.setScalar(1.7);
+    else if(variant.strongMob) g.scale.setScalar(1.5); // visually larger, doesn't affect hitboxes
 
     g.position.copy(pos);
     scene.add(g);
     return {
       group:g, body, mob:M, flinch:0, hitDir:null,
+      // Phase C(#36): 名前付き中ボス。近づいた瞬間に一度だけ名乗り(update
+      // Enemies)、撃破時に一度だけ短い余韻(finishEnemyDeath)を出す。
+      // 本家ボスのようなdialogueOverlay/ゲートは使わず、既存のstrongMob/
+      // guardianフラグの上に「名前と台詞」だけを足す軽量な仕組みにしてある
+      midbossName: variant.midbossName || null, midbossAnnounced:false,
+      midbossFlavor: variant.midbossFlavor || null,
       // the themes rescale the body, and hit/charge/breath reactions used to
       // stamp over that with hard-coded numbers - everything scales relative
       // to this now, so a stone mob stays blocky after it gets hit

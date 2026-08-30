@@ -96,7 +96,10 @@
       {pos:new THREE.Vector3(65,0,-45), variant:{color:0x8a3a5a, hp:85, atk:18, speed:2.7, atkType:'charge', xp:24, goldBonus:[8,14]}},
       {pos:new THREE.Vector3(75,0,-35), variant:{color:0x5fcf7a, hp:55, atk:13, speed:0.7, atkType:'fire', xp:23, goldBonus:[8,14]}},
       // basement -> crypt (deeper room beyond the cellar door)
-      {pos:new THREE.Vector3(70,0,-64), variant:{color:0x6a2a7a, hp:120, atk:22, speed:2.9, atkType:'charge', xp:34, goldBonus:[12,18], strongMob:true, guardian:true}},
+      // 中ボス(Phase C/#36)「黒衣の執事」: かつて館の主人に仕えた者。
+      // 呪術によって身体の一部が影と化し、地下納骨堂の奥を今も守っている
+      {pos:new THREE.Vector3(70,0,-64), variant:{color:0x6a2a7a, hp:120, atk:22, speed:2.9, atkType:'charge', xp:34, goldBonus:[12,18], strongMob:true, guardian:true,
+        midbossName:'黒衣の執事', midbossFlavor:'黒衣がふっと解け、影だけが静かに闇へ溶けていった。'}},
       // 2F study (bonus vault)
       {pos:new THREE.Vector3(-65,0,-45), variant:{color:0x8a5a2a, hp:85, atk:17, speed:2.7, atkType:'charge', xp:24, goldBonus:[8,14]}},
       {pos:new THREE.Vector3(-75,0,-35), variant:{color:0xd06a2a, hp:55, atk:13, speed:0.7, atkType:'fire', xp:23, goldBonus:[8,14]}},
@@ -131,7 +134,10 @@
       {pos:new THREE.Vector3(6,0,65),    variant:{color:0x7ecbe8, hp:65, atk:16, speed:0.7, atkType:'fire', xp:30, goldBonus:[9,15], projColor:0x9fe0ff}},
       // ghost ship -> brig / treasury (side chambers flanking the boss room)
       {pos:new THREE.Vector3(-13.5,0,44), variant:{color:0x3a3428, hp:90, atk:19, speed:2.7, atkType:'charge', xp:31, goldBonus:[10,16]}},
-      {pos:new THREE.Vector3(13.5,0,44),  variant:{color:0x8a6a2a, hp:135, atk:24, speed:2.4, atkType:'charge', xp:40, goldBonus:[14,20], strongMob:true}},
+      // 中ボス(Phase C/#36)「沈んだ航海士」: 元航海士。身体の半分が魚と
+      // 化し果て、それでも宝物庫の脇を離れずにいる
+      {pos:new THREE.Vector3(13.5,0,44),  variant:{color:0x8a6a2a, hp:135, atk:24, speed:2.4, atkType:'charge', xp:40, goldBonus:[14,20], strongMob:true,
+        midbossName:'沈んだ航海士', midbossFlavor:'航海士だったものは、静かに水底へ沈んでいった。'}},
       // ghost ship -> boss hold (entry room + chamber, under the deck)
       {pos:new THREE.Vector3(-32,0,105),  variant:{color:0x4a6a8a, hp:95, atk:20, speed:2.5, atkType:'charge', xp:33, goldBonus:[11,17]}},
       {pos:new THREE.Vector3(-24,0,120),  variant:{color:0x6a8ab5, hp:80, atk:18, speed:0.7, atkType:'fire', xp:34, goldBonus:[11,17], projColor:0x7ecbe8}},
@@ -200,7 +206,10 @@
       {pos:new THREE.Vector3(-286,9,-50), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'jumper', xp:58, goldBonus:[17,25]}},
       {pos:new THREE.Vector3(-244,9,-60), variant:{color:0x6a8a9a, hp:118, atk:30, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
       {pos:new THREE.Vector3(-212,9,-40), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'charge', xp:58, goldBonus:[17,25]}},
-      {pos:new THREE.Vector3(-232,9,-16), variant:{color:0x9a5a3a, hp:225, atk:34, speed:2.4, atkType:'charge', xp:102, goldBonus:[28,40], strongMob:true, guardian:true}},
+      // 中ボス(Phase C/#36)「止まった番人」: 巨大な時計兵。塔が狂う前の
+      // 姿のまま、身体の一部だけが完全に停止している
+      {pos:new THREE.Vector3(-232,9,-16), variant:{color:0x9a5a3a, hp:225, atk:34, speed:2.4, atkType:'charge', xp:102, goldBonus:[28,40], strongMob:true, guardian:true,
+        midbossName:'止まった番人', midbossFlavor:'止まっていた歯車が、最後に一度だけ回って砕けた。'}},
       // sealed 'towerHouse2'
       {pos:new THREE.Vector3(-306,9,-20), variant:{color:0x8a7a4a, hp:138, atk:29, speed:2.6, atkType:'charge', xp:60, goldBonus:[18,26], roomTag:'towerHouse2'}},
       {pos:new THREE.Vector3(-280,9,-20), variant:{color:0x8a7a4a, hp:138, atk:29, speed:2.6, atkType:'charge', xp:60, goldBonus:[18,26], roomTag:'towerHouse2'}},
@@ -226,7 +235,10 @@
       {pos:new THREE.Vector3(212,0,-40), variant:{color:0x6f9c4a, hp:240, atk:48, speed:0.9, atkType:'fire', xp:118, goldBonus:[26,40], projColor:11075418}},
       {pos:new THREE.Vector3(246,0,-52), variant:{color:0x4f7a3a, hp:270, atk:46, speed:2.6, atkType:'charge', xp:118, goldBonus:[26,40]}},
       {pos:new THREE.Vector3(280,0,-38), variant:{color:0x6f9c4a, hp:240, atk:48, speed:0.9, atkType:'fire', xp:118, goldBonus:[26,40], projColor:11075418}},
-      {pos:new THREE.Vector3(308,0,-50), variant:{color:0x8a9c3a, hp:330, atk:51, speed:2.5, atkType:'charge', xp:148, goldBonus:[32,48], strongMob:true, guardian:true}},
+      // 中ボス(Phase C/#36)「実験体」: 研究所が生み出した失敗作。
+      // 巨大な植物と動物が歪に融合し、母樹の周りをうろついている
+      {pos:new THREE.Vector3(308,0,-50), variant:{color:0x8a9c3a, hp:330, atk:51, speed:2.5, atkType:'charge', xp:148, goldBonus:[32,48], strongMob:true, guardian:true,
+        midbossName:'実験体', midbossFlavor:'歪な融合体は、ゆっくりと土に還っていった。'}},
       {pos:new THREE.Vector3(292,0,-2), variant:{color:0x6f9c4a, hp:250, atk:49, speed:0.9, atkType:'fire', xp:124, goldBonus:[27,42], projColor:11075418}},
       {pos:new THREE.Vector3(314,0,-18), variant:{color:0x4f7a3a, hp:275, atk:47, speed:2.7, atkType:'charge', xp:124, goldBonus:[27,42]}},
       // 石像(turret、敵デザイン強化#21): 蔦に埋もれた庭園の石像。台座に
@@ -473,6 +485,12 @@
       // scenario runs its update every frame regardless of where the
       // player actually is.
       if(en.group.position.distanceToSquared(state.pos) > 10000) return; // 100 units
+      // Phase C(#36): 名前付き中ボスは近づいた瞬間に一度だけ名乗りを上げる
+      if(en.midbossName && !en.midbossAnnounced && en.group.position.distanceToSquared(state.pos) < 144){ // 12 units
+        en.midbossAnnounced = true;
+        spawnToast(`⚔️ ${en.midbossName}が立ちはだかる!`);
+        flashScreen();
+      }
       if(en.dormant) return; // mimic in disguise - not yet revealed
       if(en.dead){
         if(en.dying) updateDeathFall(en, dt);
@@ -2174,6 +2192,7 @@
         onBossDefeated(en, levelBefore);
       } else {
         en.respawnT = 20;
+        if(en.midbossName && en.midbossFlavor) spawnToast(en.midbossFlavor);   // Phase C(#36): 中ボスだけの短い余韻
         // topple away from the killing blow, then sink through the floor
         startDeathFall(en, from);
         if(en.isBoss){
