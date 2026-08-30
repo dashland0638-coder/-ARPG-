@@ -2026,6 +2026,11 @@
   }
 
   // equips the strongest usable piece in every slot
+  // バグ修正: 以前はここで state.equipped[slot] を直接書き換えていたため、
+  // 武器スロットが別のweaponType(native/alt)の武器に切り替わっても
+  // state.usingAltWeaponが更新されず、swapPlayerWeaponVisual()も呼ばれず、
+  // 見た目とモーションだけ古い武器種のまま残ってしまっていた。
+  // 通常の装備直しと同じequipItem()経由にして、この2つを確実に伴わせる
   function equipBestGear(){
     let changed = 0;
     ['weapon','upper','lower'].forEach(slot=>{
@@ -2036,9 +2041,8 @@
         if(it.itemLevel > state.level) return;  // level-gated
         if(!best || gearScore(it) > gearScore(best)) best = it;
       });
-      if(best && best !== state.equipped[slot]){ state.equipped[slot] = best; changed++; }
+      if(best && best !== state.equipped[slot]){ equipItem(best); changed++; }
     });
-    recomputeStats();
     spawnToast(changed ? `⚙️ ${changed}部位を最強装備に更新した` : '⚙️ すでに最適な装備だ');
     refreshAppraisal();
   }
