@@ -1842,6 +1842,7 @@
     spawnToast(`⚡ ${en.dialogueName||'敵'}が${label}!`);
     flashScreen();
     en.body.material.emissiveIntensity = Math.min(1, (en.body.material.emissiveIntensity||0.2) + 0.25);
+    applyBossPhaseVisual(en, phase);   // Phase C(#36): ボスごとの変質演出(06-player-enemy.js)
 
     const burstRadius = 4.5;
     const d = state.pos.distanceTo(en.group.position);

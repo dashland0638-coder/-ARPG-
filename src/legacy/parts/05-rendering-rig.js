@@ -1371,6 +1371,20 @@
     sfx((t && t[name]) || 'swing');
   }
 
+  // 上位ジョブ(#9)の攻撃モーション差別化(資料23番: 戦騎士=重量感/
+  // バーサーカー=速度と前傾/魔導士=溜めと魔力/鷹の目=静止と精密さ)。
+  // クリップそのもの(CLIPS)は基礎職と共有し、再生速度(swingDur)だけを
+  // 職業ごとに伸縮させる ―― ダメージ判定はswingOnce()が入力の瞬間に
+  // 即時処理するためswingDurの影響を受けず、atkCooldown(#28で調整済みの
+  // DPS)にも一切触れない。純粋に見た目の間合い・重さだけが変わる。
+  // 魔導士は基本攻撃ではなく詠唱チャージ側(updateJobDecorの浮遊石演出)で
+  // 「溜めと魔力」を表現しているため、ここでは1.0(無変更)のまま。
+  const JOB_ATTACK_TEMPO = {
+    battleKnight: 1.25,   // 重量感: ワンテンポ長く、大剣の重さを見せる
+    berserker:    0.82,   // 速度: コンボを畳みかけるように短く鋭く
+    archmage:     1.0,
+    hawkEye:      1.08    // 静止と精密さ: わずかに溜めて、狙いを外さない構え
+  };
   function beginMove(name){
     const lib = CLIPS[state.classDef.key];
     // サブ武器装備中は basic/basic2 を altBasic/altBasic2 へ透過的に差し替える。
@@ -1382,7 +1396,8 @@
       else if(name==='basic2') want = 'altBasic2';
     }
     state.moveClip = (lib && lib[want]) ? want : 'basic';
-    state.swingDur = (lib && lib.dur && lib.dur[state.moveClip]) || 0.28;
+    const tempoMul = JOB_ATTACK_TEMPO[state.job] || 1;
+    state.swingDur = ((lib && lib.dur && lib.dur[state.moveClip]) || 0.28) * tempoMul;
     state.swingT = 0;
     moveSfx(state.moveClip);   // the sound belongs to the technique, not the button
   }

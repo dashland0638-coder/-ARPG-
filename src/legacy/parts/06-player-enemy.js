@@ -753,6 +753,7 @@
     });
     P.jobDecorMeshes = null;
     P.jobDecorAnim = null;
+    _jobDecorLastFacing = null;   // 再構築直後の1フレーム目に見せかけの急旋回を検出しないようにする
   }
 
   function applyJobPromotionVisual(){
@@ -784,13 +785,18 @@
         big.position.y = -0.03; big.castShadow = true;
         arm.add(big); meshes.push(big);
       });
-      // 大きく波打つ長いマント、背中から二枚
+      // 大きく波打つ長いマント、背中から二枚。資料20/26番
+      // (「マントの揺れ」「キャラクター回転に少し遅れてついてくる動き」)に
+      // 対応するバネ追従(updateJobDecor)の対象としてanim.capesに登録する
+      const knightCapes = [];
       [-1, 1].forEach(s=>{
         const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.46, bodyH*1.05), capeMat);
         cape.position.set(s*0.16, bodyH*0.62, -bodyR-0.06);
         cape.rotation.set(0.12, 0, s*0.04);
         P.waist.add(cape); meshes.push(cape);
+        knightCapes.push({mesh:cape, baseRotY:0, baseRotZ:s*0.04, swayPhase:s*1.7, springAngle:0, springVel:0});
       });
+      anim.capes = knightCapes;
       // 胸甲の増設(既存chestPlateより一回り大きい帯)
       const bigChest = new THREE.Mesh(
         new THREE.CylinderGeometry(bodyR*0.92, bodyR*0.98, bodyH*0.5, 10, 1, false, -1.05, 2.1), trimMat);
@@ -799,16 +805,25 @@
       P.waist.add(bigChest); meshes.push(bigChest);
 
     } else if(uj.key === 'berserker'){
-      // 荒々しさ: 頭上に逆立つ髪(既存の角兜はそのまま、その上へ重ねる)
+      // 荒々しさ: 頭上に逆立つ髪(既存の角兜はそのまま、その上へ重ねる)。
+      // 資料20番(「髪の揺れ」)に対応し、常時ごく小さくジッターさせる
+      // (updateJobDecorのanim.hairSpikes)対象として登録する
       const hairMat = new THREE.MeshStandardMaterial({color:0x1a1410, roughness:0.85});
+      const hairSpikes = [];
       for(let i=-2;i<=2;i++){
         const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.24+Math.abs(i)*0.03, 5), hairMat);
         spike.position.set(i*0.05, bodyH*0.985, -0.02);
-        spike.rotation.set(-0.15 - Math.abs(i)*0.08, 0, i*0.12);
+        const baseRotZ = i*0.12;
+        spike.rotation.set(-0.15 - Math.abs(i)*0.08, 0, baseRotZ);
         P.waist.add(spike); meshes.push(spike);
+        hairSpikes.push({mesh:spike, baseRotZ, phase:i*0.9});
       }
-      // 前傾姿勢: 常時飛びかかりそうな体勢(idle姿勢の基準そのものを傾ける)
-      P.waist.rotation.x = 0.10;
+      anim.hairSpikes = hairSpikes;
+      // 前傾姿勢: 常時飛びかかりそうな体勢。ここで一度だけP.waist.rotation.xへ
+      // 書いても、歩行/待機のidle姿勢が毎フレームwaist.rotation.xを上書きする
+      // (updateLocomotion)ため即座に消えてしまっていた。恒久的な前傾は
+      // state.jobを見てupdateLocomotion側のpitch計算に加算する形に直した
+      // (13-update-loop.js「バーサーカーは前傾のぶんだけpitchを底上げ」参照)
       // 双武器が両方とも巨大化している凄み(既存native/altどちらでも武器自体は
       // 上のweapon.scaleで拡大済み。ここでは腰だめの闘気オーラのみ追加)
       const auraRing = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 16),
@@ -842,11 +857,13 @@
       anim.circle = circle;
 
     } else if(uj.key === 'hawkEye'){
-      // 長いマント(片側だけ、鷹師の非対称なシルエット)
+      // 長いマント(片側だけ、鷹師の非対称なシルエット)。バネ追従+揺れの
+      // 対象としてanim.capesへ登録(戦騎士のケースと共有、updateJobDecor参照)
       const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.36, bodyH*0.92), capeMat);
       cape.position.set(-0.12, bodyH*0.6, -bodyR-0.05);
       cape.rotation.set(0.1, 0, -0.06);
       P.waist.add(cape); meshes.push(cape);
+      anim.capes = [{mesh:cape, baseRotY:0, baseRotZ:-0.06, swayPhase:0.4, springAngle:0, springVel:0}];
       // 肩に乗る小さな鷹(胴体+翼2枚+頭)。資料の「巨大にしない、肩に乗る
       // 小さな存在」の指示通り、右肩(利き手と逆側)に控えめなサイズで乗せる
       const hawk = new THREE.Group();
@@ -876,10 +893,11 @@
     P.jobDecorAnim = anim;
   }
 
-  // 浮遊魔法石・闘気オーラ・肩の鷹など、常時アニメーションが要る上位職装飾の
-  // 更新。updateLocomotion()と同じ場所(13-update-loop.jsのメインループ)
-  // から毎フレーム呼ばれる。state.jobが無ければ即return
+  // 浮遊魔法石・闘気オーラ・肩の鷹・マント・逆立つ髪など、常時アニメーション
+  // が要る上位職装飾の更新。updateLocomotion()と同じ場所(13-update-loop.js
+  // のメインループ)から毎フレーム呼ばれる。state.jobが無ければ即return
   let _jobDecorT = 0;
+  let _jobDecorLastFacing = null;
   function updateJobDecor(dt){
     const P = playerMixerParts;
     if(!state.job || !P.jobDecorAnim || !player) return;
@@ -887,13 +905,19 @@
     const a = P.jobDecorAnim;
     if(a.crystals){
       const _wp = new THREE.Vector3(); player.getWorldPosition(_wp);
+      // 魔導士の詠唱中(charging/skillCharging)は「溜めと魔力」(資料23番)を
+      // 視覚化するため、公転速度と上下動を一時的に速める
+      const casting = state.job==='archmage' && (state.charging || state.skillCharging);
+      const spinMul = casting ? 2.4 : 1;
       a.crystals.forEach(c=>{
-        const ang = _jobDecorT*1.4 + c.offset;
-        c.mesh.position.set(_wp.x + Math.cos(ang)*0.62, _wp.y + 1.15 + Math.sin(_jobDecorT*2.2)*0.08, _wp.z + Math.sin(ang)*0.62);
+        const ang = _jobDecorT*1.4*spinMul + c.offset;
+        c.mesh.position.set(_wp.x + Math.cos(ang)*0.62, _wp.y + 1.15 + Math.sin(_jobDecorT*2.2*spinMul)*0.08, _wp.z + Math.sin(ang)*0.62);
+        c.mesh.material.emissiveIntensity = casting ? 1.4 : 0.9;
       });
     }
     if(a.circle){
-      a.circle.rotation.z += dt*0.5;
+      const casting = state.job==='archmage' && (state.charging || state.skillCharging);
+      a.circle.rotation.z += dt*(casting ? 2.2 : 0.5);
       const _wp = new THREE.Vector3(); player.getWorldPosition(_wp);
       a.circle.position.set(_wp.x, 0.03, _wp.z);
     }
@@ -904,6 +928,30 @@
     }
     if(a.hawk){
       a.hawk.position.y = 0.32 + Math.sin(_jobDecorT*2.6)*0.012;   // 呼吸のような小さな上下動
+    }
+    if(a.hairSpikes){
+      // 資料20番「髪の揺れ」: ごく小さく、常時ばらばらの位相でジッターさせる
+      a.hairSpikes.forEach(h=>{
+        h.mesh.rotation.z = h.baseRotZ + Math.sin(_jobDecorT*5 + h.phase)*0.025;
+      });
+    }
+    if(a.capes){
+      // 資料26番「キャラクター回転に少し遅れてついてくる動き」: 向きの
+      // 変化量を臨界減衰バネに入力し、追従の遅れ+収まる揺れを安価に作る。
+      // 常時の「揺れ」(資料20番)も同じ角度に上乗せする
+      const facing = player.rotation.y;
+      let dFacing = _jobDecorLastFacing==null ? 0 : facing - _jobDecorLastFacing;
+      dFacing = ((dFacing + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
+      const turnRate = dt>0 ? dFacing/dt : 0;
+      a.capes.forEach(c=>{
+        c.springVel += (-turnRate*0.55 - c.springAngle*16) * dt;
+        c.springAngle += c.springVel * dt;
+        c.springVel *= Math.max(0, 1 - 7*dt);
+        const sway = Math.sin(_jobDecorT*1.5 + c.swayPhase)*0.035;
+        c.mesh.rotation.y = c.baseRotY + c.springAngle + sway;
+        c.mesh.rotation.z = c.baseRotZ + sway*0.4;
+      });
+      _jobDecorLastFacing = facing;
     }
   }
 
@@ -2100,6 +2148,145 @@
       posture:0, postureMax:Math.round(cfg.hpMax*0.28*_D.hp),
       knockedDown:false, knockdownT:0, postureGraceT:0, bigFlinched:false
     };
+  }
+
+  /* =========================================================
+     ボスPhase遷移の見た目演出(Phase C / #36)
+
+     triggerBossPhaseSkill()(07-ai-combat.js)はHPが65%/30%を切った瞬間に
+     「発光を上げる+範囲攻撃+トースト」という全ボス共通の演出を出すが、
+     これだと戦騎士も母樹も同じ「光って強くなった」にしか見えず、新資料
+     (敵・中ボス・ボスキャラクターデザイン刷新指示書)が求める
+     「Phase2で身体が変質し、Phase3でその場所そのものと一体化していく」
+     体験にならない。ここではbuildBoss()が返すen.parts(colossus/bloom/
+     clockworkの名前付きサブパーツ)を使って、ボスごとに異なる変質を
+     一度だけ加える。en.parts が無い(humanoid/ghost/turtle)ボストも、
+     en.groupへ新しいメッシュを継ぎ足す形で対応した。
+     ボスは撃破/ステージ遷移のたびにワールドごと作り直されるため、
+     プレイヤーのjobDecorのような明示的な破棄(clearJobPromotionVisual
+     相当)は不要 ―― シーン全体の再構築で自然に片付く。 */
+  function applyBossPhaseVisual(en, phase){
+    const g = en.group, p = en.parts;
+    const shadowMat = new THREE.MeshStandardMaterial({color:0x1a0a18, roughness:0.6,
+      emissive:0x2a0a20, emissiveIntensity:0.45});
+
+    if(en.key==='mansionBoss'){
+      if(phase===2){
+        // Phase2: 「衣服が触手化、腕が増える」―― 胴から2本の触手腕が生える
+        [-1,1].forEach(s=>{
+          const tendril = new THREE.Mesh(new THREE.CapsuleGeometry(0.09,1.25,4,6), shadowMat);
+          tendril.position.set(s*0.85, 1.95, 0.35);
+          tendril.rotation.set(0.35, 0, s*0.55);
+          tendril.castShadow = true;
+          g.add(tendril);
+        });
+      } else if(phase===3){
+        // Phase3: 「館そのものと融合」―― 影の腕が周囲を漂う残影を静的に配置
+        for(let i=0;i<4;i++){
+          const a = (i/4)*Math.PI*2 + 0.4;
+          const claw = new THREE.Mesh(new THREE.ConeGeometry(0.15,0.55,5), shadowMat);
+          claw.position.set(Math.cos(a)*1.9, 1.6+Math.sin(i)*0.5, Math.sin(a)*1.9);
+          claw.rotation.z = a;
+          g.add(claw);
+        }
+        const ring = new THREE.Mesh(new THREE.RingGeometry(1.6,1.9,20),
+          new THREE.MeshBasicMaterial({color:0x2a0a30, transparent:true, opacity:0.55, side:THREE.DoubleSide}));
+        ring.rotation.x = -Math.PI/2; ring.position.y = 0.05;
+        g.add(ring);
+      }
+
+    } else if(en.key==='ghostCaptain'){
+      if(phase===2){
+        // Phase2: 「背中から海洋生物が出現」―― 触手状のシルエットを背に生やす
+        const tentMat = new THREE.MeshStandardMaterial({color:0x1a3a48, roughness:0.5,
+          emissive:0x2a5a68, emissiveIntensity:0.4, transparent:true, opacity:0.8});
+        for(let i=0;i<3;i++){
+          const a = -0.5 + i*0.5;
+          const tent = new THREE.Mesh(new THREE.ConeGeometry(0.13,1.3,5), tentMat);
+          tent.position.set(Math.sin(a)*0.5, 2.6, -0.5);
+          tent.rotation.set(-0.5+a*0.3, a, 0);
+          g.add(tent);
+        }
+      } else if(phase===3){
+        // Phase3: 「船長+海洋怪物+船の残骸が融合、巨大異形」―― 一回り大きくし、残骸を漂わせる
+        g.scale.setScalar(1.22);
+        const debrisMat = new THREE.MeshStandardMaterial({color:0x241e28, roughness:0.9});
+        [[-1.4,2.0,0.6],[1.3,3.0,-0.5]].forEach(([x,y,z])=>{
+          const plank = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.16,0.3), debrisMat);
+          plank.position.set(x,y,z); plank.rotation.set(Math.random()*0.6,Math.random()*Math.PI,Math.random()*0.4);
+          g.add(plank);
+        });
+      }
+
+    } else if(en.key==='waterwayTurtle'){
+      // 水路の主は資料でも既存の「悪意なき番人」路線が踏襲されているため
+      // 大改造はせず、甲羅の発光と電撃の走りだけをPhaseごとに強める
+      const arcMat = new THREE.MeshBasicMaterial({color:0x9a6ae0, transparent:true, opacity:0.7});
+      const arcCount = phase===3 ? 3 : 2;
+      for(let i=0;i<arcCount;i++){
+        const a = (i/arcCount)*Math.PI*2 + phase;
+        const arc = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.03, 4, 8, Math.PI*0.6), arcMat);
+        arc.position.set(0, 1.2, 0);
+        arc.rotation.set(Math.PI/2, 0, a);
+        g.add(arc);
+      }
+
+    } else if(en.key==='templeGuardian' && p){
+      if(phase===2){
+        // Phase2: 「身体に古代文字が発光」―― 核の発光を強め、肩に発光ルーンを追加
+        const runeMat = new THREE.MeshBasicMaterial({color:0xfff0a0});
+        [[-1.9,3.9,0.6],[1.9,3.8,-0.6]].forEach(([x,y,z])=>{
+          const rune = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.06), runeMat);
+          rune.position.set(x,y,z); rune.rotation.y = x<0 ? 0.4 : -0.4;
+          g.add(rune);
+        });
+        if(p.eye && p.eye.material) p.eye.material.color.set(0xffffff);
+      } else if(phase===3){
+        // Phase3: 「神殿と融合」―― 頭上の瓦礫(halo)を増やし、範囲を広げる
+        if(p.halo && p.shards){
+          for(let i=0;i<4;i++){
+            const a = (i/4)*Math.PI*2 + 0.3;
+            const sh = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5), p.shards[0].material);
+            sh.position.set(Math.cos(a)*3.0, Math.sin(a*1.5)*0.4, Math.sin(a)*3.0);
+            sh.rotation.set(Math.random()*0.6, Math.random()*Math.PI, Math.random()*0.6);
+            p.halo.add(sh);
+          }
+        }
+        if(p.armL) p.armL.scale.set(1.1,1.1,1.1);
+        if(p.armR) p.armR.scale.set(1.1,1.1,1.1);
+      }
+
+    } else if(en.key==='conservatoryBloom' && p){
+      if(phase===2 && p.vines){
+        // Phase2: 「根が腕のようになる」―― 蔓を長く太く、より腕らしく伸ばす
+        p.vines.forEach(vine=>{ vine.scale.set(1.25, 1.4, 1.25); });
+      } else if(phase===3){
+        // Phase3: 「花が大きく開き、内部に無数の人間の顔」―― 花弁をさらに開き、
+        // 内部に小さな発光する球(記憶の残滓を抽象化。生々しい顔は描かない)を灯す
+        if(p.petals) p.petals.forEach(hinge=>{ hinge.rotation.x = -0.35; });
+        const memMat = new THREE.MeshStandardMaterial({color:0xf0e8d0, emissive:0xf0e8d0, emissiveIntensity:0.8});
+        for(let i=0;i<6;i++){
+          const a = (i/6)*Math.PI*2;
+          const glow = new THREE.Mesh(new THREE.SphereGeometry(0.1,6,6), memMat);
+          glow.position.set(Math.cos(a)*0.65, 3.3+Math.sin(a*2)*0.2, Math.sin(a)*0.65);
+          g.add(glow);
+        }
+      }
+
+    } else if(en.key==='towerWarden' && p){
+      if(phase===2 && p.face){
+        // Phase2: 「文字盤が割れる、中央に巨大な目」―― 文字盤を暗く染め、目を追加
+        if(p.face.material) p.face.material.color.set(0x5a4a3a);
+        const eyeCore = new THREE.Mesh(new THREE.SphereGeometry(0.22,10,8), new THREE.MeshStandardMaterial({
+          color:0xffd27a, emissive:0xffd27a, emissiveIntensity:1.0}));
+        eyeCore.position.set(0, 4.2, 0.62);
+        g.add(eyeCore);
+      } else if(phase===3){
+        // Phase3: 「針が腕になる、巨大人型時計怪物に」―― 針(=腕)を長く太く伸ばす
+        if(p.handL) p.handL.scale.set(1.35, 1.35, 1.5);
+        if(p.handR) p.handR.scale.set(1.35, 1.35, 1.5);
+      }
+    }
   }
 
   // Classifies a world position into its owning scenario. Bounds are kept

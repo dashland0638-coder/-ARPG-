@@ -900,7 +900,13 @@
     // back to the stride pose on its own once the swing releases.
     if(P.waist && !busy){
       const twist = -s * swing * 0.30 * B.shoulderRoll;
-      const pitch = moving ? 0.02 + run*0.11 : Math.sin(strideT*0.8)*0.014;
+      // 上位ジョブ「バーサーカー」の常時前傾姿勢(資料16.2番「常に敵へ
+      // 飛びかかりそうなシルエット」)。以前はapplyJobPromotionVisual側で
+      // P.waist.rotation.xへ一度だけ書いていたが、この関数が毎フレーム
+      // pitchを上書きするため即座に消えてしまっていた。恒久的な前傾は
+      // ここのpitch自体に加算する
+      const jobPitchBias = state.job==='berserker' ? 0.10 : 0;
+      const pitch = (moving ? 0.02 + run*0.11 : Math.sin(strideT*0.8)*0.014) + jobPitchBias;
       const roll  = s * swing * 0.07 * B.shoulderRoll;
       P.waist.rotation.y += (twist - P.waist.rotation.y) * Math.min(1, dt*15);
       P.waist.rotation.x += (pitch - P.waist.rotation.x) * Math.min(1, dt*8);
