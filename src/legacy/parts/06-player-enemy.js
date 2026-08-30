@@ -651,6 +651,57 @@
     playerMixerParts.elbowLBase = elbowL.rotation.clone();
     playerMixerParts.elbowRBase = elbowR.rotation.clone();
 
+    /* キャラクター意匠刷新(棒人間感の払拭): 「怪異の影」案をベースに
+       「重厚甲冑」案の裾広がりを輸入したハイブリッド。骨格・関節構造
+       (アニメーション基盤)には一切触れず、上位職の装飾(applyJobPromotionVisual、
+       このファイル内)と全く同じ「既存リグへの追加メッシュ」という手法だけで
+       実現している。素材は宵影の群れ(14-dungeon-duskvillage.js)と同系統の
+       「闇布+発光する縫い目」を流用し、クラス固有色(classDef.trim)を
+       縫い目の発光色に使うことで、既存のクラス識別(色)を壊さず馴染ませた。
+       裾のボロマントは重厚甲冑案の「シルエットに量感を足す」考え方だけを
+       輸入したもので、複雑な破れ形状を新規に起こす代わりに、長さの違う
+       帯を数枚重ねるという既存コードと同じ手法(布3枚重ね)で表現している */
+    // 見下ろし視点の実際のカメラ距離で検証した結果、幅0.03/発光0.85では
+    // ほぼ視認できなかったため、太さ・発光ともに引き上げてある
+    const seamMat = new THREE.MeshStandardMaterial({
+      color:0x0a0810, emissive:classDef.trim, emissiveIntensity:1.3, roughness:0.5});
+    // 背骨に沿った発光する縫い目(トルソーの子として追加、トルソーの
+    // 姿勢変化にそのまま追従する)
+    const spineSeam = new THREE.Mesh(new THREE.BoxGeometry(0.055, bodyH*0.94, 0.03), seamMat);
+    spineSeam.position.set(0, 0, -bodyR*0.98);
+    torso.add(spineSeam);
+    // 両上腕にも同じ発光縫い目を一本ずつ(既存のupperメッシュと同じ
+    // y=-0.16、上腕の付け根から肘まで)
+    [armL, armR].forEach(sh=>{
+      const armSeam = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.30, 0.03), seamMat);
+      armSeam.position.set(0, -0.16, -B.upper*0.96);
+      sh.add(armSeam);
+    });
+
+    // 裾を裂けたボロマント状に広げ、下半身のシルエットに量感を足す。
+    // 破れ具合は、長さ・角度の異なる帯を複数重ねるだけで表現する。
+    // 幅0.24/発光0.05では見下ろし視点でほぼ埋もれたため、帯を太く・
+    // 体からより離して(bodyR*0.7→0.9)、発光も少し強めてある
+    const tatterMat = new THREE.MeshStandardMaterial({
+      color:0x120e16, roughness:0.85, side:THREE.DoubleSide,
+      emissive:classDef.trim, emissiveIntensity:0.16});
+    const hemCapes = [];
+    const tatterStrips = [
+      {x:-0.34, len:0.98, rotZ:-0.06},
+      {x:-0.12, len:0.82, rotZ: 0.04},
+      {x: 0.12, len:0.90, rotZ:-0.03},
+      {x: 0.34, len:0.74, rotZ: 0.07},
+    ];
+    tatterStrips.forEach((t,i)=>{
+      const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.34, HIP_Y*t.len), tatterMat);
+      cape.position.set(t.x, -HIP_Y*t.len/2 - 0.02, -bodyR*0.9);
+      cape.rotation.set(0.06, 0, t.rotZ);
+      waist.add(cape);
+      hemCapes.push({mesh:cape, baseRotY:0, baseRotZ:t.rotZ, swayPhase:i*1.3, springAngle:0, springVel:0});
+    });
+    playerMixerParts.baseDecorAnim = { capes: hemCapes };
+    _baseDecorLastFacing = null;   // 新しいplayerの初回フレームで見せかけの急旋回を検出しないようにする
+
     // shadow-catcher friendly small base ring (visual footing indicator)
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.35,0.42,20), new THREE.MeshBasicMaterial({color:classDef.trim, transparent:true, opacity:0.5, side:THREE.DoubleSide}));
     ring.rotation.x = -Math.PI/2;
@@ -952,6 +1003,34 @@
         c.mesh.rotation.z = c.baseRotZ + sway*0.4;
       });
       _jobDecorLastFacing = facing;
+    }
+  }
+
+  // buildPlayer()が常時(職業に関わらず)追加するボロマントの揺れ更新。
+  // updateJobDecor()と処理内容(向きの変化量→臨界減衰バネ→常時の揺れの
+  // 上乗せ)は同じだが、state.jobを問わず毎フレーム呼ぶ必要があるため
+  // 別関数にしてある(updateJobDecor自体はstate.job無しだと即returnする)
+  let _baseDecorT = 0;
+  let _baseDecorLastFacing = null;
+  function updateBaseDecor(dt){
+    const P = playerMixerParts;
+    if(!P.baseDecorAnim || !player) return;
+    _baseDecorT += dt;
+    const a = P.baseDecorAnim;
+    if(a.capes){
+      const facing = player.rotation.y;
+      let dFacing = _baseDecorLastFacing==null ? 0 : facing - _baseDecorLastFacing;
+      dFacing = ((dFacing + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
+      const turnRate = dt>0 ? dFacing/dt : 0;
+      a.capes.forEach(c=>{
+        c.springVel += (-turnRate*0.5 - c.springAngle*15) * dt;
+        c.springAngle += c.springVel * dt;
+        c.springVel *= Math.max(0, 1 - 7*dt);
+        const sway = Math.sin(_baseDecorT*1.3 + c.swayPhase)*0.04;
+        c.mesh.rotation.y = c.baseRotY + c.springAngle + sway;
+        c.mesh.rotation.z = c.baseRotZ + sway*0.4;
+      });
+      _baseDecorLastFacing = facing;
     }
   }
 
