@@ -9,6 +9,41 @@
   // not CSS strings. Shared by buildPlayer/buildEnemy/buildBoss.
   const hexStr = n => '#'+n.toString(16).padStart(6,'0');
 
+  /* ---- 布のシワ・素材感(ユーザー指摘: マントが板っぽい) ----
+     これまでマント/コート類は単色フラットのPlaneGeometry1枚で、光の
+     当たり方が変わらないため「プラスチックの板」に見えていた。対策は
+     2つを組み合わせる:
+       1. 幾何形状: PlaneGeometryを縦に分割し、中央の列だけ緩いS字で
+          前後にずらして、布の折り目(縦のひだ)を立体的に示唆する
+          (両端は0のまま固定して「垂れた布の縁」の読みを保つ)
+       2. 素材: 胴体のclothMatと同じ手法(makeLeatherTexture+applyBump)
+          でバンプ入りの生地テクスチャを与え、しわ・質感の陰影を足す
+     形状のみ(色は呼び出し側のclassDef/uj.trim等に依存するため)を返す
+     ヘルパーで、マント/コート系の全箇所から共通で呼ぶ。 */
+  function makeClothPanel(w, h, colorHex, opts){
+    opts = opts || {};
+    const rows = opts.rows || 6;
+    const geo = new THREE.PlaneGeometry(w, h, 2, rows);   // 3列(左端/中央/右端) x (rows+1)行
+    const pos = geo.attributes.position;
+    const foldDepth = opts.foldDepth != null ? opts.foldDepth : w*0.16;
+    const waves = opts.waves != null ? opts.waves : 2.2;
+    const phase = opts.phase || 0;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getX(i)) > w*0.001) continue;   // 中央列だけを動かす
+      const rowT = (pos.getY(i)/h) + 0.5;   // 0(下端)〜1(上端)
+      pos.setZ(i, Math.sin(rowT*Math.PI*waves + phase) * foldDepth);
+    }
+    geo.computeVertexNormals();
+    const mat = applyBump(new THREE.MeshStandardMaterial({
+      map: makeLeatherTexture(hexStr(colorHex), opts.rx||1, opts.ry||2, {bump:0.07}),
+      roughness: opts.roughness != null ? opts.roughness : 0.82,
+      side: THREE.DoubleSide,
+      emissive: opts.emissive != null ? opts.emissive : undefined,
+      emissiveIntensity: opts.emissiveIntensity || 0,
+    }));
+    return new THREE.Mesh(geo, mat);
+  }
+
   /* ---- 武器メッシュ(見た目) ----
      weaponKey で武器種ごとに全く別の形状を組み立てる。位置は仮置きで、
      呼び出し側(buildPlayer / swapPlayerWeaponVisual)が握りの位置に
@@ -342,16 +377,19 @@
     const trimMat = applyBump(new THREE.MeshStandardMaterial({
       map: makeMetalTexture(hexStr(classDef.trim), 3, 1), roughness:0.4, metalness:0.3,
       emissive:classDef.trim, emissiveIntensity:0.12}));
-    /* Flat-shaded twins for the newly-lathed head/pelvis/pauldron. A low
-       segment count alone doesn't read as faceted - LatheGeometry's default
-       smooth vertex normals blend right through the facets, which is why
-       the torso/limbs already read as smoothly round despite being lathed
-       too. flatShading swaps that for per-face normals, which is what
-       actually turns "a lathe with few segments" into a visible gem-cut.
-       Cloned rather than set on skinMat/clothMat/trimMat directly, since
-       those are shared with the (still meant to be smooth) limbs, torso,
-       weapon trim and so on. */
-    const skinMatFlat = skinMat.clone();  skinMatFlat.flatShading = true;
+    /* Flat-shaded twins for the lathed pelvis/pauldron/cuffs (armor and
+       underlayers - the "hard plate" gem-cut look still suits those). The
+       head used to get the same flatShading treatment, but the user asked
+       for a rounder, softer face closer to a reference image, so the head
+       now uses smooth skinMat directly instead of a flat-shaded twin - see
+       the head lathe below. A low segment count alone doesn't read as
+       faceted - LatheGeometry's default smooth vertex normals blend right
+       through the facets, which is why the torso/limbs already read as
+       smoothly round despite being lathed too. flatShading swaps that for
+       per-face normals, which is what actually turns "a lathe with few
+       segments" into a visible gem-cut. Cloned rather than set on
+       clothMat/trimMat directly, since those are shared with the (still
+       meant to be smooth) limbs, torso, weapon trim and so on. */
     const clothMatFlat = clothMat.clone(); clothMatFlat.flatShading = true;
     const trimMatFlat = trimMat.clone();  trimMatFlat.flatShading = true;
     // 軽装(ユーザー指摘: 盗賊は「鎧の部位が少なめの軽装」に)。全クラス
@@ -460,29 +498,57 @@
     belt.position.y = HIP_Y;
     group.add(belt);
 
-    // head - lathed from HEAD_PROFILE (chin to crown) at a low segment count
-    // for a faceted, gem-cut look instead of a plain sphere. See the long
-    // comment on HEAD_PROFILE in 05-rendering-rig.js for why.
+    // head - lathed from HEAD_PROFILE (chin to crown)。ユーザー提示の参考
+    // 画像(頭身の低い丸顔キャラ)を受けて、以前の低分割+フラットシェード
+    // による「宝石カットの顔」路線をやめ、分割数を上げて滑らかな丸い顔に
+    // 変更した(skinMatFlatではなくskinMatを使う)
     const head = new THREE.Mesh(
-      limbGeo(HEAD_PROFILE[isFemale ? 'female' : 'male'], B.headR, B.headR*2, 8), skinMatFlat);
+      limbGeo(HEAD_PROFILE[isFemale ? 'female' : 'male'], B.headR, B.headR*2, 20), skinMat);
     head.position.y = HIP_Y + bodyH + B.headGap;
     head.castShadow = true;
     group.add(head);
     playerMixerParts.head = head;
 
-    // eyes on the front of the head (local +Z) - the clearest possible cue
-    // for which way the character is actually facing, from any camera angle
-    const eyeMat = new THREE.MeshBasicMaterial({color:0x1a140f});
+    // 目(ユーザー指摘: 参考画像のような大きな瞳に)。以前は黒い点球
+    // 1つだけだったのを、白目(強膜)+黒目(瞳)+ハイライトの3層に
+    // 分けて、アニメ的な大きく丸い目にした。位置・向きを決める役割
+    // (顔の正面を示す)は変えていない
     const headR = B.headR;
-    [-0.09*(headR/0.26), 0.09*(headR/0.26)].forEach(x=>{
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.033,6,6), eyeMat);
-      eye.position.set(x, head.position.y+0.02, headR*0.92);
-      group.add(eye);
+    const eyeScale = headR/0.26;
+    const scleraMat = new THREE.MeshBasicMaterial({color:0xfaf6ee});
+    const pupilMat = new THREE.MeshBasicMaterial({color:0x241a14});
+    const highlightMat = new THREE.MeshBasicMaterial({color:0xffffff});
+    // 見下ろし視点のカメラ(かなり上から見下ろす角度)で検証した結果、
+    // 2つの落とし穴があった: (1) 瞳(pupil)を白目の中心と同じ奥行きに
+    // 置くと、白目自体の膨らみの内側に収まってしまい隠れて見えなく
+    // なる ―― 白目の前面(中心z + 半径*Z方向スケール)より確実に手前
+    // (+Z)に出す必要がある。(2) 瞳をZ方向に強く潰す(scale.z<0.5)と、
+    // このカメラ角度ではほぼ真横から見ることになり、潰した向きが
+    // カメラ視線とほぼ平行になって「消えて見える」。潰さず球のまま
+    // にすることで解決した
+    const scleraR = 0.062;
+    const scleraZScale = 0.6;
+    const scleraFrontZ = headR*0.90 + scleraR*scleraZScale*eyeScale;
+    [-0.115*eyeScale, 0.115*eyeScale].forEach(x=>{
+      const sclera = new THREE.Mesh(new THREE.SphereGeometry(scleraR*eyeScale,10,8), scleraMat);
+      sclera.scale.set(1, 1.15, scleraZScale);
+      sclera.position.set(x, head.position.y+0.02, headR*0.90);
+      group.add(sclera);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.042*eyeScale,8,7), pupilMat);
+      pupil.position.set(x, head.position.y+0.02, scleraFrontZ + 0.03*eyeScale);
+      group.add(pupil);
+      const highlight = new THREE.Mesh(new THREE.SphereGeometry(0.014*eyeScale,6,6), highlightMat);
+      highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ + 0.045*eyeScale);
+      group.add(highlight);
     });
 
-    // hair suggestion - segment count trimmed to match the head's faceted
-    // look rather than reading as a smooth cap over an angular skull
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(B.hairR, 9,8, 0, Math.PI*2, 0, Math.PI*0.62),
+    // hair suggestion - now smooth-segmented to match the rounder head
+    // (previously matched the old faceted head's low segment count).
+    // 頭身を上げた際(#39系)、以前のthetaLength(0.62π、頭の中心よりだいぶ
+    // 下まで覆う)だと生え際の下端が新しい大きな目とほぼ同じ高さまで
+    // 伸びてしまい、影のように重なって見えていた。目の上でしっかり
+    // 止まるよう0.46πに引き上げた(生え際がやや高い位置になる)
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(B.hairR, 14,12, 0, Math.PI*2, 0, Math.PI*0.46),
       new THREE.MeshStandardMaterial({color:isFemale?0x2c1e14:0x1b140f, roughness:0.7}));
     hair.position.copy(head.position);
     hair.position.y += 0.02;
@@ -569,10 +635,10 @@
       // より明確に短く、肩甲骨あたりまでしか届かない小さな一枚。検証で
       // 正面(x=0)に平らな一枚を大きく置くと真っ黒な板のように見えて
       // しまったため、戦騎士のケープと同じ「二枚を左右へ開く」技法を
-      // 小さく縮めて流用し、単色でも布らしいシルエットになるようにした
-      const shortCapeMat = new THREE.MeshStandardMaterial({color:0x4a1c1c, roughness:0.85, side:THREE.DoubleSide});
+      // 小さく縮めて流用した。板っぽさ対策(ユーザー指摘)としてmakeClothPanel
+      // (縦のひだ形状+革テクスチャのバンプ)で素材感を出している
       [-1,1].forEach(s=>{
-        const shortCape = new THREE.Mesh(new THREE.PlaneGeometry(0.22, bodyH*0.4), shortCapeMat);
+        const shortCape = makeClothPanel(0.22, bodyH*0.4, 0x4a1c1c, {rows:5, foldDepth:0.03, phase:s*1.2});
         shortCape.position.set(s*0.14, HIP_Y+bodyH*0.82, -bodyR-0.02);
         shortCape.rotation.set(0.12, s*0.5, s*0.06);
         shortCape.castShadow = true; group.add(shortCape);
@@ -662,8 +728,12 @@
       cap.position.set(0, hY+0.05, 0); cap.castShadow = true; group.add(cap);
       const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*0.85, 0.3, 4), clothMat);
       peak.position.set(0, hY+0.16, 0.02); peak.rotation.y = Math.PI/4; group.add(peak);
-      const brim2 = new THREE.Mesh(new THREE.BoxGeometry(headR*1.7, 0.04, 0.26), darkMat);
-      brim2.position.set(0, hY+0.04, headR*0.85); group.add(brim2);
+      // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
+      // 上げた際(#39系「参考画像のような頭身に」)、見下ろし視点の
+      // カメラ角度では前方へ張り出す水平な板が必ず目の上に重なって見える
+      // ことが分かった(headR連動のオフセットに直しても解決しなかった)。
+      // 帽子のシルエット自体はcap+peakで十分読めるため、大きくした新しい
+      // 目(下記)を隠さないよう、ひさし自体を撤去した
       // quiver slung across the back, arrows poking out
       const quiver = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,0.5,10),
         new THREE.MeshStandardMaterial({color:0x5a4028, roughness:0.85}));
@@ -1007,7 +1077,6 @@
     const anim = {};
     const trimMat = new THREE.MeshStandardMaterial({color:uj.trim, roughness:0.35, metalness:0.4,
       emissive:uj.trim, emissiveIntensity:0.35});
-    const capeMat = new THREE.MeshStandardMaterial({color:uj.capeColor, roughness:0.75, side:THREE.DoubleSide});
 
     // 武器はどの上位職も「一回り大きく、格が上がって見える」ことを最優先
     // にする(資料 3.優先順位: シルエット>人体比率>ポーズ>武器)。
@@ -1041,7 +1110,10 @@
       // バネ追従(updateJobDecor)もこの新しい開き角を中心に揺れる)
       const knightCapes = [];
       [-1, 1].forEach(s=>{
-        const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.5, bodyH*1.2), capeMat);
+        // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す。
+        // 揺れ(updateJobDecorのバネ追従)はcape.rotationを直接動かすため
+        // makeClothPanelの静的な折り目形状とは独立して問題なく共存する
+        const cape = makeClothPanel(0.5, bodyH*1.2, uj.capeColor, {rows:8, foldDepth:0.05, phase:s*0.8});
         cape.position.set(s*0.30, bodyH*0.60, -bodyR-0.02);
         const baseRotY = s*0.62;   // 横に大きく開く(真後ろに垂らさない)
         cape.rotation.set(0.1, baseRotY, s*0.08);
@@ -1145,10 +1217,10 @@
       // ローブの前を開けて羽織るように(ユーザー指摘)。素のローブ
       // (buildPlayerの closed cylinder)は閉じたままなので、その上に
       // 前開きの襟(コート状の合わせ)を左右一枚ずつ重ねて「開けて羽織る」
-      // シルエットに寄せる。魔法使いより身軽に見えるよう、幅は細め
-      const coatMat = new THREE.MeshStandardMaterial({color:uj.capeColor, roughness:0.7, side:THREE.DoubleSide});
+      // シルエットに寄せる。魔法使いより身軽に見えるよう、幅は細め。
+      // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す
       [-1,1].forEach(s=>{
-        const flap = new THREE.Mesh(new THREE.PlaneGeometry(0.16, bodyH*0.78), coatMat);
+        const flap = makeClothPanel(0.16, bodyH*0.78, uj.capeColor, {rows:6, foldDepth:0.022});
         flap.position.set(s*0.13, bodyH*0.48, bodyR*0.62);
         flap.rotation.set(0.05, s*0.42, 0);
         P.waist.add(flap); meshes.push(flap);
@@ -1173,8 +1245,9 @@
 
     } else if(uj.key === 'hawkEye'){
       // 長いマント(片側だけ、鷹師の非対称なシルエット)。バネ追従+揺れの
-      // 対象としてanim.capesへ登録(戦騎士のケースと共有、updateJobDecor参照)
-      const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.36, bodyH*0.92), capeMat);
+      // 対象としてanim.capesへ登録(戦騎士のケースと共有、updateJobDecor参照)。
+      // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す
+      const cape = makeClothPanel(0.36, bodyH*0.92, uj.capeColor, {rows:7, foldDepth:0.04});
       cape.position.set(-0.12, bodyH*0.6, -bodyR-0.05);
       cape.rotation.set(0.1, 0, -0.06);
       P.waist.add(cape); meshes.push(cape);

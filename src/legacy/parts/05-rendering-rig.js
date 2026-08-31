@@ -317,7 +317,10 @@
       // headR sets the heads-tall ratio. Stature is fixed by the camera and
       // the collision radius, so this is the only lever on it - a bigger head
       // on the same body is a lower ratio, which is the stylised read.
-      headR:0.290, hairR:0.312, headGap:0.27,
+      // ユーザー提示の参考画像(頭身の低いチビキャラ)に寄せて0.290→0.39へ
+      // 引き上げた(約4.7頭身→約3.5頭身)。hairRは元の比率(headRの約1.076倍)
+      // を保っている
+      headR:0.390, hairR:0.420, headGap:0.27,
       chest:0.345, shoulderOut:0.105, stanceW:0.150, hipR:0.265,
       thigh:0.132, calf:0.106, upper:0.098, forearm:0.083, neck:0.088,
       strideAmp:1.00, armSwing:1.00, hipSway:0.55, shoulderRoll:1.15,
@@ -326,7 +329,8 @@
     female: {
       // shorter overall, and proportionally longer in the leg
       height:0.74, hipY:1.05, thighLen:0.535, calfLen:0.515,
-      headR:0.270, hairR:0.292, headGap:0.26,
+      // headR/hairR: maleと同じ理由・同じ比率で引き上げ(0.270→0.37)
+      headR:0.370, hairR:0.398, headGap:0.26,
       chest:0.295, shoulderOut:0.078, stanceW:0.124, hipR:0.252,
       thigh:0.120, calf:0.094, upper:0.080, forearm:0.069, neck:0.072,
       strideAmp:0.93, armSwing:1.18, hipSway:1.45, shoulderRoll:0.80,
