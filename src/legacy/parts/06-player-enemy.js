@@ -421,6 +421,19 @@
     const metalMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.35, metalness:0.7});
     const darkMat  = new THREE.MeshStandardMaterial({color:0x2a2420, roughness:0.7});
     const clothAcc = new THREE.MeshStandardMaterial({color:classDef.trim, roughness:0.85, side:THREE.DoubleSide});
+    // 意匠参考(ユーザー提示の4枚のイメージボード、#39系): フードの魔女杖術士
+    // →魔法使い、鷹を連れた狩人→弓師/鷹の目、毛皮縁の甲冑騎士→剣士/戦騎士、
+    // 双斧の蛮族戦士→盗賊/バーサーカーに対応させた。以前は「怪異の影+
+    // 重厚甲冑」という全クラス共通のオーバーレイ(発光する縫い目+ボロマント、
+    // updateBaseDecor)で量感を足していたが、クラスごとの意匠を均してしまう
+    // (ユーザー指摘)ため撤去し、代わりに各クラス固有の意匠へ寄せる方向で
+    // 個別に足す。既存の骨格・関節・武器選択ロジックには一切触れず、この
+    // if/elseブロック(既存リグへの追加メッシュ)に収めた
+    const furMat = new THREE.MeshStandardMaterial({color:0xe6dcc6, roughness:0.9});
+    // ゆらぎが要る意匠(現状は魔法使いのローブの裾のみ)をここに集め、
+    // waistへの再親付け後にplayerMixerParts.classDecorAnimへ登録する
+    // (updateClassDecor、下部で毎フレーム呼ばれる)
+    const classDecorCapes = [];
 
     if(classDef.key==='warrior'){
       // full helm + a long scarf trailing off the neck
@@ -440,6 +453,14 @@
         tail.rotation.set(0.5, s*0.22, s*0.12);
         group.add(tail);
       });
+      // 毛皮の縁飾り(意匠参考: 毛皮縁の甲冑騎士案)。スカーフの外側に
+      // もう一段大きな毛皮のリングを重ね、肩回りに量感を足す。戦騎士
+      // 転身時の大型ケープ(applyJobPromotionVisual)と役割が被らないよう、
+      // ケープそのものではなく襟に留めてある
+      const furCollar = new THREE.Mesh(new THREE.TorusGeometry(headR*1.18, 0.09, 6, 14, Math.PI*1.5), furMat);
+      furCollar.rotation.set(Math.PI/2, 0, -Math.PI*0.7);
+      furCollar.position.set(0, hY-headR*1.0, -0.02);
+      furCollar.castShadow = true; group.add(furCollar);
 
     } else if(classDef.key==='rogue'){
       // barbaric helm with curved horns
@@ -463,6 +484,15 @@
       const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.16,0.1),
         new THREE.MeshStandardMaterial({color:0x5a4630, roughness:0.85}));
       pouch.position.set(bodyR+0.07, 0.7, 0.02); group.add(pouch);
+      // 片肩の毛皮当て(意匠参考: 双斧の蛮族戦士案)。バーサーカー転身
+      // (防具を減らし、双武器を振るう)への布石として、防具ではなく
+      // 毛皮を一枚だけ首元から片肩に垂らし、荒々しさを足す。腕の可動域と
+      // 干渉しないよう、肩関節(この後で作るarmL/armR)ではなく胴体側の
+      // 首元に留めてある
+      const furTuft = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.36), furMat);
+      furTuft.position.set(-bodyR*0.7, hY-headR*1.35, bodyR*0.25);
+      furTuft.rotation.set(0.35, 0.55, 0.2);
+      furTuft.castShadow = true; group.add(furTuft);
 
     } else if(classDef.key==='mage'){
       // wide-brimmed pointed hat
@@ -483,6 +513,23 @@
       // robe hem widening to the floor
       const robe = new THREE.Mesh(new THREE.CylinderGeometry(bodyR*0.98, bodyR*1.5, 0.62, 12), clothMat);
       robe.position.y = 0.42; robe.castShadow = true; group.add(robe);
+      // 裾のほつれ布(意匠参考: フードの魔女杖術士案)。ローブの裾
+      // (下端y≈0.11、半径bodyR*1.5)からさらに垂れる、長さ違いの布を
+      // 4枚・周囲に配置して「着古した魔女」のシルエットを足す。
+      // クラス色(classDef.trim)をごく弱く発光させ、既存のクラス識別を
+      // 保ったまま馴染ませてある。常時の揺れはupdateClassDecorで処理
+      const robeTatterMat = new THREE.MeshStandardMaterial({
+        color:0x1a1620, roughness:0.85, side:THREE.DoubleSide,
+        emissive:classDef.trim, emissiveIntensity:0.14});
+      [0, Math.PI*0.55, Math.PI, Math.PI*1.45].forEach((ang,i)=>{
+        const len = 0.30 + (i%2)*0.14;
+        const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.22, len), robeTatterMat);
+        const r = bodyR*1.45;
+        strip.position.set(Math.sin(ang)*r, 0.11 - len*0.42, Math.cos(ang)*r);
+        strip.rotation.set(0.1, ang, i%2 ? 0.04 : -0.04);
+        strip.castShadow = true; group.add(strip);
+        classDecorCapes.push({mesh:strip, baseRotY:ang, baseRotZ:i%2?0.04:-0.04, swayPhase:i*1.3});
+      });
 
     } else if(classDef.key==='archer'){
       // hunting cap: shallow dome + a forward peak
@@ -505,6 +552,15 @@
         fl.position.set(-0.14+o-0.06, HIP_Y+bodyH*1.02, -bodyR-0.19);
         fl.rotation.set(0.25, 0, 0.42); group.add(fl);
       });
+      // 毛皮縁のフード襟(意匠参考: 鷹を連れた狩人案)。ハンチング帽の下、
+      // 首回りに毛羽立った襟を足し、フード付きの狩人らしいシルエットに
+      // 寄せる。鷹の目転身の非対称マント(applyJobPromotionVisual)とは
+      // 役割が被らないよう、襟だけに留めてある
+      const archerFurMat = new THREE.MeshStandardMaterial({color:0xa89068, roughness:0.9});
+      const archerCollar = new THREE.Mesh(new THREE.TorusGeometry(headR*0.95, 0.075, 6, 12, Math.PI*1.6), archerFurMat);
+      archerCollar.rotation.set(Math.PI/2, 0, -Math.PI*0.75);
+      archerCollar.position.set(0, hY-headR*1.0, -0.03);
+      archerCollar.castShadow = true; group.add(archerCollar);
     }
 
     // arms - shoulder and elbow pivots, with the pauldron on the shoulder
@@ -651,56 +707,11 @@
     playerMixerParts.elbowLBase = elbowL.rotation.clone();
     playerMixerParts.elbowRBase = elbowR.rotation.clone();
 
-    /* キャラクター意匠刷新(棒人間感の払拭): 「怪異の影」案をベースに
-       「重厚甲冑」案の裾広がりを輸入したハイブリッド。骨格・関節構造
-       (アニメーション基盤)には一切触れず、上位職の装飾(applyJobPromotionVisual、
-       このファイル内)と全く同じ「既存リグへの追加メッシュ」という手法だけで
-       実現している。素材は宵影の群れ(14-dungeon-duskvillage.js)と同系統の
-       「闇布+発光する縫い目」を流用し、クラス固有色(classDef.trim)を
-       縫い目の発光色に使うことで、既存のクラス識別(色)を壊さず馴染ませた。
-       裾のボロマントは重厚甲冑案の「シルエットに量感を足す」考え方だけを
-       輸入したもので、複雑な破れ形状を新規に起こす代わりに、長さの違う
-       帯を数枚重ねるという既存コードと同じ手法(布3枚重ね)で表現している */
-    // 見下ろし視点の実際のカメラ距離で検証した結果、幅0.03/発光0.85では
-    // ほぼ視認できなかったため、太さ・発光ともに引き上げてある
-    const seamMat = new THREE.MeshStandardMaterial({
-      color:0x0a0810, emissive:classDef.trim, emissiveIntensity:1.3, roughness:0.5});
-    // 背骨に沿った発光する縫い目(トルソーの子として追加、トルソーの
-    // 姿勢変化にそのまま追従する)
-    const spineSeam = new THREE.Mesh(new THREE.BoxGeometry(0.055, bodyH*0.94, 0.03), seamMat);
-    spineSeam.position.set(0, 0, -bodyR*0.98);
-    torso.add(spineSeam);
-    // 両上腕にも同じ発光縫い目を一本ずつ(既存のupperメッシュと同じ
-    // y=-0.16、上腕の付け根から肘まで)
-    [armL, armR].forEach(sh=>{
-      const armSeam = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.30, 0.03), seamMat);
-      armSeam.position.set(0, -0.16, -B.upper*0.96);
-      sh.add(armSeam);
-    });
-
-    // 裾を裂けたボロマント状に広げ、下半身のシルエットに量感を足す。
-    // 破れ具合は、長さ・角度の異なる帯を複数重ねるだけで表現する。
-    // 幅0.24/発光0.05では見下ろし視点でほぼ埋もれたため、帯を太く・
-    // 体からより離して(bodyR*0.7→0.9)、発光も少し強めてある
-    const tatterMat = new THREE.MeshStandardMaterial({
-      color:0x120e16, roughness:0.85, side:THREE.DoubleSide,
-      emissive:classDef.trim, emissiveIntensity:0.16});
-    const hemCapes = [];
-    const tatterStrips = [
-      {x:-0.34, len:0.98, rotZ:-0.06},
-      {x:-0.12, len:0.82, rotZ: 0.04},
-      {x: 0.12, len:0.90, rotZ:-0.03},
-      {x: 0.34, len:0.74, rotZ: 0.07},
-    ];
-    tatterStrips.forEach((t,i)=>{
-      const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.34, HIP_Y*t.len), tatterMat);
-      cape.position.set(t.x, -HIP_Y*t.len/2 - 0.02, -bodyR*0.9);
-      cape.rotation.set(0.06, 0, t.rotZ);
-      waist.add(cape);
-      hemCapes.push({mesh:cape, baseRotY:0, baseRotZ:t.rotZ, swayPhase:i*1.3, springAngle:0, springVel:0});
-    });
-    playerMixerParts.baseDecorAnim = { capes: hemCapes };
-    _baseDecorLastFacing = null;   // 新しいplayerの初回フレームで見せかけの急旋回を検出しないようにする
+    // クラス固有意匠のうち常時ゆらぎが要るもの(現状は魔法使いのローブの裾
+    // のみ)をここで登録する。waistへの再親付けは上のforEachで既に済んで
+    // いるので、classDecorCapes内のmeshはこの時点でwaistの子になっている
+    playerMixerParts.classDecorAnim = classDecorCapes.length ? { capes: classDecorCapes } : null;
+    _classDecorLastFacing = null;   // 新しいplayerの初回フレームで見せかけの急旋回を検出しないようにする
 
     // shadow-catcher friendly small base ring (visual footing indicator)
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.35,0.42,20), new THREE.MeshBasicMaterial({color:classDef.trim, transparent:true, opacity:0.5, side:THREE.DoubleSide}));
@@ -1006,31 +1017,34 @@
     }
   }
 
-  // buildPlayer()が常時(職業に関わらず)追加するボロマントの揺れ更新。
-  // updateJobDecor()と処理内容(向きの変化量→臨界減衰バネ→常時の揺れの
-  // 上乗せ)は同じだが、state.jobを問わず毎フレーム呼ぶ必要があるため
-  // 別関数にしてある(updateJobDecor自体はstate.job無しだと即returnする)
-  let _baseDecorT = 0;
-  let _baseDecorLastFacing = null;
-  function updateBaseDecor(dt){
+  // buildPlayer()がクラスごとに追加する意匠のうち、常時ゆらぎが要るもの
+  // (現状は魔法使いのローブの裾のみ、playerMixerParts.classDecorAnim)の
+  // 更新。updateJobDecor()と処理内容(向きの変化量→臨界減衰バネ→常時の
+  // 揺れの上乗せ)は同じだが、state.jobを問わず毎フレーム呼ぶ必要がある
+  // ため別関数にしてある(updateJobDecor自体はstate.job無しだと即return
+  // する)。以前はクラスを問わず全員に付く「怪異の影」意匠(updateBaseDecor)
+  // だったが、クラスごとの意匠に寄せる方向へ撤去・置き換えた(#39系)
+  let _classDecorT = 0;
+  let _classDecorLastFacing = null;
+  function updateClassDecor(dt){
     const P = playerMixerParts;
-    if(!P.baseDecorAnim || !player) return;
-    _baseDecorT += dt;
-    const a = P.baseDecorAnim;
+    if(!P.classDecorAnim || !player) return;
+    _classDecorT += dt;
+    const a = P.classDecorAnim;
     if(a.capes){
       const facing = player.rotation.y;
-      let dFacing = _baseDecorLastFacing==null ? 0 : facing - _baseDecorLastFacing;
+      let dFacing = _classDecorLastFacing==null ? 0 : facing - _classDecorLastFacing;
       dFacing = ((dFacing + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
       const turnRate = dt>0 ? dFacing/dt : 0;
       a.capes.forEach(c=>{
         c.springVel += (-turnRate*0.5 - c.springAngle*15) * dt;
         c.springAngle += c.springVel * dt;
         c.springVel *= Math.max(0, 1 - 7*dt);
-        const sway = Math.sin(_baseDecorT*1.3 + c.swayPhase)*0.04;
+        const sway = Math.sin(_classDecorT*1.3 + c.swayPhase)*0.04;
         c.mesh.rotation.y = c.baseRotY + c.springAngle + sway;
         c.mesh.rotation.z = c.baseRotZ + sway*0.4;
       });
-      _baseDecorLastFacing = facing;
+      _classDecorLastFacing = facing;
     }
   }
 

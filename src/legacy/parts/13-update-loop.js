@@ -651,7 +651,7 @@
       }
       updateLocomotion(dt, dt > 0 ? moveVec.length() / dt : 0);   // metres per second
       updateJobDecor(dt);   // 上位ジョブ(#9): 浮遊魔法石/闘気オーラ/肩の鷹などの常時アニメーション
-      updateBaseDecor(dt);  // キャラ意匠刷新: 職業を問わず常時のボロマント揺れ
+      updateClassDecor(dt); // クラス意匠(#39系): マント/フードなど各クラス固有装飾の常時揺れ
       updateUltAim(dt);
       updateUltSweep(dt);
       updateDecals(dt);
