@@ -521,24 +521,33 @@
     // 見下ろし視点のカメラ(かなり上から見下ろす角度)で検証した結果、
     // 2つの落とし穴があった: (1) 瞳(pupil)を白目の中心と同じ奥行きに
     // 置くと、白目自体の膨らみの内側に収まってしまい隠れて見えなく
-    // なる ―― 白目の前面(中心z + 半径*Z方向スケール)より確実に手前
-    // (+Z)に出す必要がある。(2) 瞳をZ方向に強く潰す(scale.z<0.5)と、
-    // このカメラ角度ではほぼ真横から見ることになり、潰した向きが
-    // カメラ視線とほぼ平行になって「消えて見える」。潰さず球のまま
-    // にすることで解決した
+    // なる ―― 白目の前面(中心z + 半径*Z方向スケール)より手前(+Z)に
+    // 出す必要がある。(2) 瞳をZ方向に強く潰す(scale.z<0.5)と、この
+    // カメラ角度ではほぼ真横から見ることになり、潰した向きがカメラ
+    // 視線とほぼ平行になって「消えて見える」。潰さず球のままにする
+    // ことで解決した。
+    // ただしその時点では「白目の前面よりさらに手前」に球の中心その
+    // ものを置いていたため、瞳が白目の表面から大きく浮き上がって
+    // 見えてしまっていた(ユーザー指摘: 「目が飛び出てる」)。正しくは
+    // 球の【表面】が白目の表面よりわずかに前へ出ればよいだけで、
+    // 球の【中心】まで前に出す必要は無い ―― 中心は白目の表面より
+    // 半径ぶん奥に置き、そこにpoke(ごくわずかな飛び出し量)だけ
+    // 上乗せする形に直した
     const scleraR = 0.062;
     const scleraZScale = 0.6;
     const scleraFrontZ = headR*0.90 + scleraR*scleraZScale*eyeScale;
+    const pupilR = 0.038, pupilPoke = 0.008;
+    const highlightR = 0.013, highlightPoke = 0.014;
     [-0.115*eyeScale, 0.115*eyeScale].forEach(x=>{
       const sclera = new THREE.Mesh(new THREE.SphereGeometry(scleraR*eyeScale,10,8), scleraMat);
       sclera.scale.set(1, 1.15, scleraZScale);
       sclera.position.set(x, head.position.y+0.02, headR*0.90);
       group.add(sclera);
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.042*eyeScale,8,7), pupilMat);
-      pupil.position.set(x, head.position.y+0.02, scleraFrontZ + 0.03*eyeScale);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(pupilR*eyeScale,8,7), pupilMat);
+      pupil.position.set(x, head.position.y+0.02, scleraFrontZ - pupilR*eyeScale + pupilPoke*eyeScale);
       group.add(pupil);
-      const highlight = new THREE.Mesh(new THREE.SphereGeometry(0.014*eyeScale,6,6), highlightMat);
-      highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ + 0.045*eyeScale);
+      const highlight = new THREE.Mesh(new THREE.SphereGeometry(highlightR*eyeScale,6,6), highlightMat);
+      highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ - highlightR*eyeScale + highlightPoke*eyeScale);
       group.add(highlight);
     });
 
