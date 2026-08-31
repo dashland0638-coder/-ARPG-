@@ -1417,6 +1417,20 @@
     archmage:     1.12,   // 杖の一薙ぎをひとまわり大きく
     hawkEye:      1.15    // 弓の構え/リリースをひとまわり大きく
   };
+  // 静→動のメリハリ(ユーザー指摘: 戦騎士は「落ち着いたモーションで
+  // 振りが静→動のメリハリを極端に」)。JOB_ATTACK_TEMPOは全体を一律に
+  // 間延びさせるだけで、静止している時間と振り抜く時間の「配分」自体は
+  // 変わらない(クリップのキーフレーム比率がそのまま引き伸ばされるだけ)。
+  // ここではsampleClip()へ渡す直前のt(0〜1の進行度)自体を指数カーブで
+  // ゆがめ、前半をほぼ静止に近い状態のまま溜め、後半で一気に加速させる。
+  // ダメージ判定はswingOnce()が入力の瞬間に即時処理するため
+  // (JOB_ATTACK_TEMPOのコメント参照)、見た目の進み方をゆがめても
+  // 当たり判定のタイミングには一切影響しない
+  const JOB_SWING_ANTICIPATION = {
+    battleKnight: 3.2,   // 大きいほど溜めが長く、振り抜きが急激になる
+  };
+  function warpSwingT(t, pow){ return Math.pow(Math.max(0, Math.min(1, t)), pow); }
+
   function amplifyEuler(target, base, amp){
     return [
       base.x + (target[0]-base.x)*amp,
@@ -1434,6 +1448,23 @@
     if(p.shR && P.armRBase) out.shR = amplifyEuler(p.shR, P.armRBase, amp);
     if(p.elL !== undefined && P.elbowLBase) out.elL = P.elbowLBase.x + (p.elL - P.elbowLBase.x)*amp;
     if(p.elR !== undefined && P.elbowRBase) out.elR = P.elbowRBase.x + (p.elR - P.elbowRBase.x)*amp;
+    return out;
+  }
+
+  // 鷹の目の「攻撃の度に打つ姿勢を変える」動的な射撃(ユーザー指摘)。
+  // 素の弓師と同じクリップ(コンボ段ごとにbasic/basic2/spin/skill2を
+  // 使い分ける既存の仕組み、CLIPS定義末尾のbasic3/basic4割り当て参照)
+  // をそのまま使うので新しいクリップは作らず、鷹の目だけコンボ段の
+  // 偶奇で腰の向き・踏み込み足を左右入れ替えることで、同じ段のクリップを
+  // 引いても毎回微妙に違う立ち姿に見えるようにする
+  function hawkEyeStanceVariant(p, stage){
+    const odd = (stage % 2) === 1;
+    const out = Object.assign({}, p);
+    if(Array.isArray(p.waist)){
+      out.waist = [p.waist[0], p.waist[1] + (odd ? 0.10 : -0.10), p.waist[2] + (odd ? 0.05 : -0.05)];
+    }
+    if(p.hipL != null) out.hipL = p.hipL + (odd ? 0.05 : -0.05);
+    if(p.hipR != null) out.hipR = p.hipR + (odd ? -0.05 : 0.05);
     return out;
   }
 
@@ -1461,12 +1492,21 @@
     _poseShift.set(0,0,0);
     if(state.swinging){
       const clip = lib[state.moveClip] || lib.basic;
-      let pose = sampleClip(clip, Math.min(1, state.swingT));
+      const isBasicCombo = /^(basic|altBasic)/.test(state.moveClip);
+      // 静→動のメリハリ(戦騎士のみ): クリップに渡すt自体をゆがめて
+      // 溜め→急加速の配分に振る。JOB_SWING_AMPLIFYと同じくbasic系
+      // (通常攻撃コンボ)にだけ効かせ、スキル/回避/必殺技には触れない
+      const antic = (state.job && isBasicCombo) ? JOB_SWING_ANTICIPATION[state.job] : null;
+      const sampleT = antic ? warpSwingT(Math.min(1, state.swingT), antic) : Math.min(1, state.swingT);
+      let pose = sampleClip(clip, sampleT);
       // 上位職の通常攻撃モーション大幅強化: basic系クリップ(通常攻撃の
       // コンボ)にだけ効かせ、スキル/回避/必殺技の型には触れない
-      const amp = (state.job && JOB_SWING_AMPLIFY[state.job] && /^(basic|altBasic)/.test(state.moveClip))
+      const amp = (state.job && JOB_SWING_AMPLIFY[state.job] && isBasicCombo)
         ? JOB_SWING_AMPLIFY[state.job] : null;
       if(amp) pose = amplifySwingPose(pose, amp);
+      // 鷹の目の構え差し替え(上のコメント参照)。basic系のみ、コンボ段の
+      // 偶奇で毎回わずかに構えを変える
+      if(state.job==='hawkEye' && isBasicCombo) pose = hawkEyeStanceVariant(pose, state.comboStage || 1);
       applyPose(pose);
     } else if(state.ultAiming && (lib.ultHold || lib.hold)){
       const r = Math.min(1, state.ultAimT / 0.35);   // the aim ramps in, then holds

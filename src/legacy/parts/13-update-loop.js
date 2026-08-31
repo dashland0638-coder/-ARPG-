@@ -909,8 +909,14 @@
       P.legL.rotation.x =  s * swing;
       P.legR.rotation.x = -s * swing;
       if(P.kneeL && P.kneeR){
-        P.kneeL.rotation.x = Math.max(0,  s) * swing * 1.55 * B.kneeLift + 0.05;
-        P.kneeR.rotation.x = Math.max(0, -s) * swing * 1.55 * B.kneeLift + 0.05;
+        // バーサーカーの低い構え(ユーザー指摘: 既存の前傾バイアスだけでは
+        // 足りない、「姿勢を低くした」蛮族らしい構えそのもの)。常時の
+        // 膝の曲がりをベースラインへ上乗せする ―― ストライドで動く量
+        // (swing起点の項)には触れず、+0.05だった静的なベースラインだけ
+        // 職業分を追加するので、歩行アニメの形自体は変えていない
+        const jobKneeBias = state.job==='berserker' ? 0.20 : 0;
+        P.kneeL.rotation.x = Math.max(0,  s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias;
+        P.kneeR.rotation.x = Math.max(0, -s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias;
       }
     }
     // arms counter-swing from the shoulder, elbows keeping a live bend
@@ -1022,7 +1028,11 @@
     }
     const bob = (moving ? Math.abs(Math.sin(strideT))*(0.05 + run*0.035)
                         : Math.sin(strideT)*0.022) * B.bobAmp;
-    player.position.y += bob;
+    // バーサーカーの低い構え(続き): 膝の曲がりだけでなく、全身をわずかに
+    // 沈めて姿勢そのものの低さを見せる。state.pos.y(当たり判定・接地)
+    // には触れず、bobと同じくplayerメッシュの見た目のY位置だけを動かす
+    const jobCrouchY = state.job==='berserker' ? -0.045 : 0;
+    player.position.y += bob + jobCrouchY;
     player.rotation.x = -leanZ*0.55;
     player.rotation.z =  leanX*0.55;
 

@@ -275,6 +275,10 @@
         triggerBossSkills('onFinishHit2', {target: hitTarget});
       }
     } else {
+      // 魔導士の攻撃時魔法陣(ユーザー指摘: 「攻撃の度に魔法陣が床や目の
+      // 前に出現するように」)。弾の発射そのものには影響しない演出のみの
+      // 追加で、魔導士(archmage)昇格時だけ足元に出す
+      if(state.job==='archmage') spawnMagicCircleVFX(state.classDef.trim);
       // 魔法使いのフィニッシュ(杖)は貫通弾、弓師のフィニッシュは武器種で分かれる
       // ―― 小弓=正面3連射、ボウガン=重い貫通ボルト(「遅いが重い」という思想)。
       // かいじんの杖(武器固有アクション)は通常攻撃(全段)が常に貫通する

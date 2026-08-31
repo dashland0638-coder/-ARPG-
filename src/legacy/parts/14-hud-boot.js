@@ -702,6 +702,7 @@
       updateDuskVillage(dt);   // Phase D(#37): 昼夜進行+ランタン近接+ボスの光ギミック
       updateCutscene(dt);
       updateSwingVFX(dt);
+      updateMagicCircleVFX(dt);
       updateWeaponAura(dt);
       updateSparks(dt);
       updateShake(dt);

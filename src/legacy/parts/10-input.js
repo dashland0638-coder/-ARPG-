@@ -574,6 +574,84 @@
     activeSwings = [];
   }
 
+  /* 魔導士の攻撃時に足元へ出す魔法陣(ユーザー指摘: 「攻撃の度に魔法陣が
+     床や目の前に出現するように」)。spawnMeleeSwingVFX/updateSwingVFXと
+     同じ「ジオメトリはキャッシュ、メッシュ/マテリアルはプールして使い
+     回す」設計を丸ごと踏襲している ―― 新しい仕組みを作らず、実績のある
+     パターンをもう一系統増やすだけに留めた。
+     外側のリング+内側のリング+放射状の符(小さな菱形6枚)の3パーツで、
+     単純な円1枚よりも「魔法陣」らしいシルエットにしてある。 */
+  const magicCircleGeo = (() => {
+    const outer = new THREE.RingGeometry(0.62, 0.70, 32);
+    const inner = new THREE.RingGeometry(0.34, 0.40, 32);
+    const runeShape = new THREE.Shape();
+    runeShape.moveTo(0, 0.09); runeShape.lineTo(0.045, 0); runeShape.lineTo(0, -0.09); runeShape.lineTo(-0.045, 0);
+    runeShape.closePath();
+    const rune = new THREE.ShapeGeometry(runeShape);
+    return {outer, inner, rune};
+  })();
+  const magicCirclePool = [];
+  let activeMagicCircles = [];
+  function spawnMagicCircleVFX(colorHex){
+    if(!player) return;
+    let entry = magicCirclePool.pop();
+    if(!entry){
+      const mat = new THREE.MeshBasicMaterial({transparent:true, side:THREE.DoubleSide, depthWrite:false});
+      const group = new THREE.Group();
+      const outerMesh = new THREE.Mesh(magicCircleGeo.outer, mat);
+      const innerMesh = new THREE.Mesh(magicCircleGeo.inner, mat);
+      const runes = [];
+      for(let i=0;i<6;i++){
+        const r = new THREE.Mesh(magicCircleGeo.rune, mat);
+        const ang = (i/6) * Math.PI*2;
+        r.position.set(Math.sin(ang)*0.52, 0, Math.cos(ang)*0.52);
+        r.rotation.z = -ang;
+        group.add(r);
+        runes.push(r);
+      }
+      group.add(outerMesh, innerMesh);
+      entry = {group, mat, outerMesh, innerMesh, runes};
+    }
+    entry.mat.color.setHex(colorHex!=null ? colorHex : 0x5fd8ff);
+    entry.mat.opacity = 0.85;
+    entry.group.rotation.set(-Math.PI/2, 0, 0);   // lay flat, facing up
+    entry.group.position.set(0, 0.04, 0.55);      // 目の前の床
+    entry.group.scale.setScalar(0.4);
+    entry.spin = 0;
+    entry.t = 0;
+    entry.life = 0.62;
+    entry.hold = 0.14;
+    player.add(entry.group);
+    activeMagicCircles.push(entry);
+  }
+  function updateMagicCircleVFX(dt){
+    for(let i=activeMagicCircles.length-1;i>=0;i--){
+      const s = activeMagicCircles[i];
+      s.t += dt;
+      s.spin += dt;
+      const k = Math.min(1, s.t / s.life);
+      // 出現(scale伸び)→保持→フェードアウト、というswingVFXと同じ
+      // 「保持してから落ちる」カーブ。加えて常時ゆっくり回転させ、
+      // 静止画の円1枚に見えないようにする
+      const hold = (s.hold || 0) / s.life;
+      const grow = Math.min(1, s.t / (s.hold || 0.001));
+      const fade = k <= hold ? 1 : 1 - (k - hold) / (1 - hold);
+      s.mat.opacity = 0.85 * fade * fade;
+      s.group.scale.setScalar(0.4 + 0.6*Math.min(1, grow));
+      s.outerMesh.rotation.z = s.spin * 0.9;
+      s.innerMesh.rotation.z = -s.spin * 1.3;
+      if(k >= 1){
+        if(s.group.parent) s.group.parent.remove(s.group);
+        if(magicCirclePool.length < 4) magicCirclePool.push(s);
+        activeMagicCircles.splice(i, 1);
+      }
+    }
+  }
+  function clearMagicCircleVFX(){
+    activeMagicCircles.forEach(s=>{ if(s.group.parent) s.group.parent.remove(s.group); });
+    activeMagicCircles = [];
+  }
+
   // checks unrevealed mimic chests within the attack's reach; if found, the
   // mimic reveals itself and takes the damage that would have opened it
   function checkMimicRevealInRange(range, angleMax, dmg){

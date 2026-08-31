@@ -268,7 +268,7 @@
     state.routeNode = null;
     state.bossMods = [];
     state.chandelierUsed = false;
-    clearMobBars(); clearSparks(); clearSwingVFX();
+    clearMobBars(); clearSparks(); clearSwingVFX(); clearMagicCircleVFX();
     bossBarChip = 100;
     document.getElementById('boss-bar-wrap').classList.remove('show');
     nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false;
