@@ -516,7 +516,9 @@
     const headR = B.headR;
     const eyeScale = headR/0.26;
     const scleraMat = new THREE.MeshBasicMaterial({color:0xfaf6ee});
-    const pupilMat = new THREE.MeshBasicMaterial({color:0x241a14});
+    // 瞳の色: 既定は焦げ茶(0x241a14)だが、classDef.eyeColorが指定されて
+    // いればそちらを使う(現状は参考画像に合わせた魔法使いの緑目のみ)
+    const pupilMat = new THREE.MeshBasicMaterial({color: classDef.eyeColor!=null ? classDef.eyeColor : 0x241a14});
     const highlightMat = new THREE.MeshBasicMaterial({color:0xffffff});
     // 見下ろし視点のカメラ(かなり上から見下ろす角度)で検証した結果、
     // 2つの落とし穴があった: (1) 瞳(pupil)を白目の中心と同じ奥行きに
@@ -557,8 +559,11 @@
     // 下まで覆う)だと生え際の下端が新しい大きな目とほぼ同じ高さまで
     // 伸びてしまい、影のように重なって見えていた。目の上でしっかり
     // 止まるよう0.46πに引き上げた(生え際がやや高い位置になる)
+    // 髪色: 既定は性別ごとの黒〜焦げ茶だが、classDef.hairColorが指定されて
+    // いればそちらを使う(現状は参考画像に合わせた魔法使いの紫髪のみ)
+    const hairColor = classDef.hairColor!=null ? classDef.hairColor : (isFemale?0x2c1e14:0x1b140f);
     const hair = new THREE.Mesh(new THREE.SphereGeometry(B.hairR, 14,12, 0, Math.PI*2, 0, Math.PI*0.46),
-      new THREE.MeshStandardMaterial({color:isFemale?0x2c1e14:0x1b140f, roughness:0.7}));
+      new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7}));
     hair.position.copy(head.position);
     hair.position.y += 0.02;
     group.add(hair);
@@ -686,15 +691,39 @@
       pouch.position.set(bodyR+0.07, 0.7, 0.02); group.add(pouch);
 
     } else if(classDef.key==='mage'){
-      // wide-brimmed pointed hat
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 16), clothMat);
+      // wide-brimmed pointed hat。ユーザー提示の参考画像(緑目・紫髪・
+      // 薄紫の三角帽子の魔女)を受けて、帽子だけclothMat(ローブと共通の
+      // クラス色=青系)から切り離し、classDef.hatColorの薄紫専用素材に
+      // 変更した。ローブ本体・袖は「そのまま」の指示を尊重し従来のまま
+      const hatMat = classDef.hatColor!=null
+        ? new THREE.MeshStandardMaterial({color:classDef.hatColor, roughness:0.75})
+        : clothMat;
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 16), hatMat);
       brim.position.set(0, hY+headR*0.55, 0); brim.castShadow = true; group.add(brim);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*1.25, 0.62, 14), clothMat);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*1.25, 0.62, 14), hatMat);
       cone.position.set(0, hY+headR*0.55+0.31, 0);
       cone.rotation.set(-0.16, 0, 0.1); cone.castShadow = true; group.add(cone);
       const band = new THREE.Mesh(new THREE.TorusGeometry(headR*1.2, 0.035, 8, 14), clothAcc);
       band.rotation.x = Math.PI/2;
       band.position.set(0, hY+headR*0.6, 0); group.add(band);
+      // 前髪(参考画像: 額にかかる紫の前髪)。中央+左右の3房を、目の
+      // すぐ上・生え際の少し下に配置。目の視認性を優先し完全に覆っては
+      // いない(ユーザー許可: 目がうまく出来なければ帽子や髪で半分隠して
+      // 良いとのことだったが、目自体は既に修正済みのため、隠す量は最小限の
+      // 前髪らしい房に留めた)。PlaneGeometryは過去に特定角度で描画されない
+      // 不具合を確認しているため、球ジオメトリを潰して房状にしている
+      const bangMat = new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7});
+      [-1,1].forEach(s=>{
+        const bang = new THREE.Mesh(new THREE.SphereGeometry(headR*0.4, 8, 6), bangMat);
+        bang.scale.set(1, 0.85, 0.55);
+        bang.position.set(s*headR*0.42, hY+headR*0.34, headR*0.74);
+        bang.rotation.z = s*0.25;
+        bang.castShadow = true; group.add(bang);
+      });
+      const bangCenter = new THREE.Mesh(new THREE.SphereGeometry(headR*0.3, 8, 6), bangMat);
+      bangCenter.scale.set(1, 0.8, 0.55);
+      bangCenter.position.set(0, hY+headR*0.4, headR*0.84);
+      bangCenter.castShadow = true; group.add(bangCenter);
       // long flared sleeves over the arms
       [-1,1].forEach(s=>{
         const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.21,0.4,10), clothMat);

@@ -34,6 +34,11 @@
     mage:{
       key:'mage', name:'魔法使い', icon:'✦',
       color:0x3a5b9b, trim:0x8fc7ff,
+      // hairColor/hatColor/eyeColor: 見た目専用の追加フィールド(ステータスには
+      // 一切影響しない)。ユーザー提示の参考画像(緑目・紫髪・薄紫の三角帽子の
+      // 魔女)に合わせるため、06-player-enemy.js側の髪・帽子・瞳メッシュが
+      // これらを見て色を上書きする(未指定のクラスは従来通りの既定色のまま)
+      hairColor:0x6a4a92, hatColor:0xb9a0d9, eyeColor:0x4a9b64,
       desc:'魔力を纏い、遠距離から敵を撃つ。',
       vit:10, str:2, mag:19, mnd:15, agi:6, foc:8, spd:4.4, range:'ranged',
       atkCooldown:0.6, atkColorHex:'#7ec8ff', staggerMul:1.0,
