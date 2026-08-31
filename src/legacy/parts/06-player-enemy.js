@@ -488,10 +488,12 @@
       // (防具を減らし、双武器を振るう)への布石として、防具ではなく
       // 毛皮を一枚だけ首元から片肩に垂らし、荒々しさを足す。腕の可動域と
       // 干渉しないよう、肩関節(この後で作るarmL/armR)ではなく胴体側の
-      // 首元に留めてある
-      const furTuft = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.36), furMat);
-      furTuft.position.set(-bodyR*0.7, hY-headR*1.35, bodyR*0.25);
-      furTuft.rotation.set(0.35, 0.55, 0.2);
+      // 首元に留めてある。半径はbodyRの外側(stock/pouchと同じ考え方)に
+      // 出さないと胴体メッシュに埋もれて見えなくなる(検証済み)
+      const furTuft = new THREE.Mesh(
+        new THREE.SphereGeometry(bodyR*0.5, 8, 6, 0, Math.PI*2, 0, Math.PI*0.68), furMat);
+      furTuft.position.set(-(bodyR+0.15), hY-headR*1.55, -0.03);
+      furTuft.rotation.z = 0.3;
       furTuft.castShadow = true; group.add(furTuft);
 
     } else if(classDef.key==='mage'){
