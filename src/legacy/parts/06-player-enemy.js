@@ -430,10 +430,6 @@
     // 個別に足す。既存の骨格・関節・武器選択ロジックには一切触れず、この
     // if/elseブロック(既存リグへの追加メッシュ)に収めた
     const furMat = new THREE.MeshStandardMaterial({color:0xe6dcc6, roughness:0.9});
-    // ゆらぎが要る意匠(現状は魔法使いのローブの裾のみ)をここに集め、
-    // waistへの再親付け後にplayerMixerParts.classDecorAnimへ登録する
-    // (updateClassDecor、下部で毎フレーム呼ばれる)
-    const classDecorCapes = [];
 
     if(classDef.key==='warrior'){
       // full helm + a long scarf trailing off the neck
@@ -517,24 +513,29 @@
       robe.position.y = 0.42; robe.castShadow = true; group.add(robe);
       // 裾のほつれ布(意匠参考: フードの魔女杖術士案)。ローブの裾
       // (下端y≈0.11、半径bodyR*1.5)は床のすぐ上までしかなく、その下に
-      // 布を「垂らす」余地がほとんど無い(最初の実装では床下に埋もれて
-      // 見えなくなっていた)。代わりにローブ下半分に重ねて貼り、裾の
-      // 半径をわずかに超えて突き出させることで「着古した魔女」の
+      // 布を「垂らす」余地がほとんど無いため、ローブ下半分に重ねて貼り、
+      // 裾の半径をわずかに超えて突き出させることで「着古した魔女」の
       // ほつれたシルエットを足す。クラス色(classDef.trim)をごく弱く
       // 発光させ、既存のクラス識別を保ったまま馴染ませてある。
-      // 常時の揺れはupdateClassDecorで処理
+      // PlaneGeometryはどの角度からも描画されなかった(同じ位置の
+      // SphereGeometryは正常に表示された)ため、stock/pouch等の既存
+      // デコレーションと同じ薄いBoxGeometryにしてある。揺れは常時の
+      // 揺れ(upDateClassDecor等)を新設せず静的に留めた ―― 検証で、
+      // このメッシュの回転を毎フレーム上書きする専用のアニメーション
+      // 経路(バネ+向き追従)を足すと、なぜかどの角度からも描画されなく
+      // なる不具合を確認したため(原因未特定。他クラスの装飾が使う
+      // updateJobDecor自体は上位職装飾で実績があり問題ない)、
+      // 静的な意匠に留めて安全側に倒した
       const robeTatterMat = new THREE.MeshStandardMaterial({
-        color:0x1a1620, roughness:0.85, side:THREE.DoubleSide,
-        emissive:classDef.trim, emissiveIntensity:0.14});
+        color:0x1a1620, roughness:0.85, emissive:classDef.trim, emissiveIntensity:0.14});
       const tatterTopY = 0.34;   // ローブ下半分(0.11〜0.42)の範囲内
       [0, Math.PI*0.55, Math.PI, Math.PI*1.45].forEach((ang,i)=>{
         const len = 0.18 + (i%2)*0.10;
-        const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.22, len), robeTatterMat);
+        const strip = new THREE.Mesh(new THREE.BoxGeometry(0.22, len, 0.03), robeTatterMat);
         const r = bodyR*1.55;
         strip.position.set(Math.sin(ang)*r, tatterTopY - len/2, Math.cos(ang)*r);
         strip.rotation.set(0.1, ang, i%2 ? 0.04 : -0.04);
         strip.castShadow = true; group.add(strip);
-        classDecorCapes.push({mesh:strip, baseRotY:ang, baseRotZ:i%2?0.04:-0.04, swayPhase:i*1.3});
       });
 
     } else if(classDef.key==='archer'){
@@ -712,12 +713,6 @@
     playerMixerParts.armRBase = armR.rotation.clone();
     playerMixerParts.elbowLBase = elbowL.rotation.clone();
     playerMixerParts.elbowRBase = elbowR.rotation.clone();
-
-    // クラス固有意匠のうち常時ゆらぎが要るもの(現状は魔法使いのローブの裾
-    // のみ)をここで登録する。waistへの再親付けは上のforEachで既に済んで
-    // いるので、classDecorCapes内のmeshはこの時点でwaistの子になっている
-    playerMixerParts.classDecorAnim = classDecorCapes.length ? { capes: classDecorCapes } : null;
-    _classDecorLastFacing = null;   // 新しいplayerの初回フレームで見せかけの急旋回を検出しないようにする
 
     // shadow-catcher friendly small base ring (visual footing indicator)
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.35,0.42,20), new THREE.MeshBasicMaterial({color:classDef.trim, transparent:true, opacity:0.5, side:THREE.DoubleSide}));
@@ -1020,37 +1015,6 @@
         c.mesh.rotation.z = c.baseRotZ + sway*0.4;
       });
       _jobDecorLastFacing = facing;
-    }
-  }
-
-  // buildPlayer()がクラスごとに追加する意匠のうち、常時ゆらぎが要るもの
-  // (現状は魔法使いのローブの裾のみ、playerMixerParts.classDecorAnim)の
-  // 更新。updateJobDecor()と処理内容(向きの変化量→臨界減衰バネ→常時の
-  // 揺れの上乗せ)は同じだが、state.jobを問わず毎フレーム呼ぶ必要がある
-  // ため別関数にしてある(updateJobDecor自体はstate.job無しだと即return
-  // する)。以前はクラスを問わず全員に付く「怪異の影」意匠(updateBaseDecor)
-  // だったが、クラスごとの意匠に寄せる方向へ撤去・置き換えた(#39系)
-  let _classDecorT = 0;
-  let _classDecorLastFacing = null;
-  function updateClassDecor(dt){
-    const P = playerMixerParts;
-    if(!P.classDecorAnim || !player) return;
-    _classDecorT += dt;
-    const a = P.classDecorAnim;
-    if(a.capes){
-      const facing = player.rotation.y;
-      let dFacing = _classDecorLastFacing==null ? 0 : facing - _classDecorLastFacing;
-      dFacing = ((dFacing + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
-      const turnRate = dt>0 ? dFacing/dt : 0;
-      a.capes.forEach(c=>{
-        c.springVel += (-turnRate*0.5 - c.springAngle*15) * dt;
-        c.springAngle += c.springVel * dt;
-        c.springVel *= Math.max(0, 1 - 7*dt);
-        const sway = Math.sin(_classDecorT*1.3 + c.swayPhase)*0.04;
-        c.mesh.rotation.y = c.baseRotY + c.springAngle + sway;
-        c.mesh.rotation.z = c.baseRotZ + sway*0.4;
-      });
-      _classDecorLastFacing = facing;
     }
   }
 
