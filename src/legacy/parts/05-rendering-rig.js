@@ -392,7 +392,19 @@
 
   /* rim=false gives just the dark contour, which is what the common mobs get:
      a second shell per mesh across a screen full of enemies is a lot of draw
-     calls for an edge nobody is looking at that closely. */
+     calls for an edge nobody is looking at that closely.
+
+     opts.always: prototype flag (2026-08-31, "参考画像のようなキャラデザを
+     今の方式で再現できるのか" request) - normally the dark contour only
+     shows in dot mode (see refreshOutlines() below for why: at full
+     resolution it was judged to look like a filter rather than linework).
+     That judgement predates this rig's current level of per-part detail
+     (straps/rivets/fur spikes/etc. each being their own separate mesh, and
+     therefore their own separate outlined shell) and is worth re-checking
+     rather than assuming it still holds - opts.always keeps the dark shell
+     visible outside dot mode too, scoped to whichever caller opts in
+     (currently just the mage class, to test on one character before any
+     wider rollout). */
   function addOutline(root, opts){
     opts = opts || {};
     const [dark, rim] = outlineMats();
@@ -411,9 +423,10 @@
         const shell = new THREE.Mesh(m.geometry, mat);
         shell.userData.isOutline = true;
         shell.userData.outlineKind = kind;
+        shell.userData.outlineAlways = !!opts.always;
         shell.castShadow = false;
         shell.receiveShadow = false;
-        shell.visible = (kind === 'rim') || on;
+        shell.visible = (kind === 'rim') || on || (opts.always && kind === 'dark');
         m.add(shell);
       });
     });
@@ -509,11 +522,12 @@
     });
   }
 
-  /* The dark contour is a dot-mode device: at full resolution a hard black
-     line around everything looks like a filter. The bright rim earns its
-     place either way - it is what lifts a character off ground of the same
-     tone - so it stays on, just narrower when the pixels are small enough to
-     show it honestly. */
+  /* The dark contour is normally a dot-mode device: at full resolution a
+     hard black line around everything looks like a filter. The bright rim
+     earns its place either way - it is what lifts a character off ground
+     of the same tone - so it stays on, just narrower when the pixels are
+     small enough to show it honestly. A shell built with addOutline's
+     opts.always stays visible regardless of dot mode - see addOutline(). */
   function refreshOutlines(){
     const on = dotOn();
     if(_outlineRim) _outlineRim.uniforms.uWidth.value = on ? 0.014 : 0.008;
@@ -521,7 +535,7 @@
     scene.traverse(n=>{
       const k = n.userData && n.userData.outlineKind;
       if(!k) return;
-      n.visible = (k === 'rim') ? true : on;
+      n.visible = (k === 'rim') ? true : (on || n.userData.outlineAlways);
     });
   }
 

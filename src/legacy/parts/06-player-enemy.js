@@ -502,6 +502,16 @@
     // 画像(頭身の低い丸顔キャラ)を受けて、以前の低分割+フラットシェード
     // による「宝石カットの顔」路線をやめ、分割数を上げて滑らかな丸い顔に
     // 変更した(skinMatFlatではなくskinMatを使う)
+    //
+    // 顔をCanvasへ描いた絵としてUVマッピングする案(2026-08-31、「参考画像の
+    // ようなキャラデザを今の方式で再現できるのか」への検証)も魔法使いで
+    // 試作したが不採用: この見下ろしカメラでは頭の正面(u=0.5相当の高さ)が
+    // ほぼ真横から見るグレージング角になり、球のような外向きに突き出た
+    // ジオメトリでない限り、面上に描いた絵は極端に圧縮されて視認できない
+    // ―― 縞模様のテクスチャで検証済み。既存の球3層アイが機能しているのは
+    // 頭の表面そのものではなく、そこから外側へ張り出した独立した球だから
+    // (かつMeshBasicMaterialで陰影の影響も受けない)。よって顔は今まで
+    // 通り球の組み合わせのままとした
     const head = new THREE.Mesh(
       limbGeo(HEAD_PROFILE[isFemale ? 'female' : 'male'], B.headR, B.headR*2, 20), skinMat);
     head.position.y = HIP_Y + bodyH + B.headGap;
@@ -978,7 +988,12 @@
     // The footing ring is a flat decal on the floor; an inverted hull around
     // it would just be a dark disc.
     if(playerMixerParts.ring) playerMixerParts.ring.userData.noOutline = true;
-    addOutline(group);
+    // always: 常時アウトライン(2026-08-31指示、addOutlineのコメント参照)。
+    // 魔法使い1体で試作・検証した結果、パーツ数が多くても線がうるさく
+    // ならず、参考画像に近い「線画+ベタ塗り」の質感が得られたため、
+    // プレイヤー全クラスへ展開した(敵・ボスは別途指示があるまで従来通り
+    // ドットモード時のみ)
+    addOutline(group, {always: true});
     addXrayShell(group);   // visible through walls/terrain when they occlude the player
 
     group.position.set(0,0,4);

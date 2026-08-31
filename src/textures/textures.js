@@ -188,6 +188,18 @@ function applyOverride(name, tex){
     }, opts.name);
   }
 
+  /* 顔をCanvasに描いてUVマッピングする案(2026-08-31、「参考画像のような
+     キャラデザを今の方式で再現できるのか」の検証として、球で作る瞳の
+     グラデーション・睫毛の描線・頬の赤みをテクスチャに逃がす案)は魔法使い
+     で試作し、不採用と判断した。この見下ろしカメラでは頭の正面
+     (顔を描く高さ)がほぼ真横から見るグレージング角になり、球のような
+     外向きに突き出たジオメトリでない限り、面上に描いた絵は極端に圧縮
+     されて視認できない(縞模様のテクスチャを貼って検証済み)。既存の
+     球3層アイ(06-player-enemy.js)が機能しているのは、頭の表面そのもの
+     ではなく、そこから外側へ張り出した独立した球だからで、この制約は
+     テクスチャでは回避できない。よって顔は今まで通り球の組み合わせの
+     ままとした。 */
+
   /* ---- metal: armor plate, trim, blades - brushed streaks and old scars -
      A flat metallic colour with metalness turned up reads as plastic, not
      steel - what actually sells "worked metal" is directional brushing and
