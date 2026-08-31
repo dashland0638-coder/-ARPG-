@@ -491,6 +491,16 @@
       enemies.push(boss);
       duskBossRef = boss;
     }
+    // テストモードのカカシ(訓練用の的)。hp/atk/speedはdifficultyFor()の
+    // 補正(_D)がそのままかかるが、'training'は星取りデータが無いキーの
+    // ためscenarioStars()は既定の1扱いになり、_D.hpも1倍で素直に効く。
+    // atkType:'passive'+speed:0で、追ってこず攻撃もしてこない静止した的
+    if(_spawnWorldKey==='training'){
+      [[455,-4],[455,4],[463,0]].forEach(([x,z])=>{
+        enemies.push(buildEnemy(new THREE.Vector3(x,0,z),
+          {dummy:true, hp:50000, atk:0, speed:0, atkType:'passive', xp:0, color:0xd9b968}));
+      });
+    }
   }
 
   function updateEnemies(dt){

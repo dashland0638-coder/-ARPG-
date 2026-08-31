@@ -134,6 +134,10 @@
     conservatory: { build: ()=>{ buildConservatory(); } },
     clocktower:   { build: ()=>{ buildClocktower(); } },
     duskvillage:  { build: ()=>{ buildDuskVillage(); } },
+    // テストモード(タイトル画面 → 🛠テストモード)専用。上位職のデバッグ
+    // 用に、職業/転身/レベルを直接指定してここへ入る(14-training-ground.js
+    // /14-hud-boot.jsのbeginTestMode参照)
+    training: { build: ()=>{ buildTrainingGround(); } },
   };
   /* Every scenario used to share one dark blue fog, which flattened them into
      the same place with different props. Each now owns its sky, fog density,
@@ -151,6 +155,8 @@
     // 15-dungeon-duskvillage.js) ―― ここはワールド構築直後、補間が
     // 最初に走るまでの一瞬だけ使われる暫定値
     duskvillage:  {sky:0x2a1a28, fog:0.020, sun:0xff9a5a, sunI:0.5, hemi:0.30, hemiSky:0x8a5a6a, hemiGnd:0x1a1018, rim:0xff8a4a, rimI:0.22, exp:0.78},
+    // テストモード: 色味の判断を邪魔しない、明るく中立なライティング
+    training:     {sky:0x181c22, fog:0.006, sun:0xf2f4f8, sunI:0.85, hemi:0.42, hemiSky:0xaeb8c8, hemiGnd:0x22262e, rim:0x8fb0d0, rimI:0.14, exp:0.86},
   };
 
   /* =========================================================

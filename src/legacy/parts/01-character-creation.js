@@ -541,3 +541,90 @@
   document.getElementById('cc-continue-btn').addEventListener('click', ()=>{ continueGame(); });
 
   /* =========================================================
+     TEST MODE(上位職デバッグ用、2026-08-31)
+     タイトル画面から直接、職業・転身・レベルを指定してトレーニング空間
+     (カカシ配置済み)へ入るための軽量な別画面。本来のキャラ作成
+     (ダイス振り・ステータス配分)は経由しない。実際の状態リセット・
+     ワールド遷移はbeginTestMode()(14-hud-boot.js)側で行い、ここは
+     選択UIの組み立てだけを担当する
+  ========================================================= */
+  (function setupTestModeScreen(){
+    const titleScreen = document.getElementById('title-screen');
+    const testScreen = document.getElementById('testmode-screen');
+    const openBtn = document.getElementById('open-testmode-btn');
+    const backBtn = document.getElementById('testmode-back-btn');
+    const testClassGrid = document.getElementById('testmode-class-grid');
+    const testJobGrid = document.getElementById('testmode-job-grid');
+    const testLevelInput = document.getElementById('testmode-level');
+    const testLevelVal = document.getElementById('testmode-level-val');
+    const testStartBtn = document.getElementById('testmode-start-btn');
+    if(!titleScreen || !testScreen || !openBtn || !testClassGrid) return; // DOM構成がずれていたら黙って何もしない(安全側)
+
+    let tmClass = null, tmJob = null;   // tmJob: null=基礎職のまま(転身しない)
+
+    openBtn.addEventListener('click', ()=>{
+      titleScreen.style.display = 'none';
+      testScreen.style.display = 'flex';
+    });
+    backBtn.addEventListener('click', ()=>{
+      testScreen.style.display = 'none';
+      titleScreen.style.display = 'flex';
+    });
+
+    function renderJobGrid(){
+      testJobGrid.innerHTML = '';
+      if(!tmClass) return;
+      const base = CLASSES[tmClass];
+      const uj = upperJobFor(tmClass);
+      const baseCard = document.createElement('div');
+      baseCard.className = 'testmode-job-card selected';
+      baseCard.textContent = `${base.icon} ${base.name}(基礎)`;
+      baseCard.addEventListener('click', ()=>{
+        testJobGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+        baseCard.classList.add('selected');
+        tmJob = null;
+      });
+      testJobGrid.appendChild(baseCard);
+      if(uj){
+        const ujCard = document.createElement('div');
+        ujCard.className = 'testmode-job-card';
+        ujCard.textContent = `${uj.icon} ${uj.name}(転身)`;
+        ujCard.addEventListener('click', ()=>{
+          testJobGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+          ujCard.classList.add('selected');
+          tmJob = uj.key;
+        });
+        testJobGrid.appendChild(ujCard);
+      }
+    }
+
+    Object.values(CLASSES).forEach(c=>{
+      const card = document.createElement('div');
+      card.className = 'class-card';
+      card.dataset.key = c.key;
+      card.innerHTML = `
+        <div class="class-icon">${c.icon}</div>
+        <div class="class-name">${c.name}</div>
+        <div class="class-desc">${c.desc}</div>
+      `;
+      card.addEventListener('click', ()=>{
+        testClassGrid.querySelectorAll('.class-card').forEach(el=>el.classList.remove('selected'));
+        card.classList.add('selected');
+        tmClass = c.key;
+        tmJob = null;
+        renderJobGrid();
+        testStartBtn.disabled = false;
+      });
+      testClassGrid.appendChild(card);
+    });
+
+    testLevelInput.addEventListener('input', ()=>{ testLevelVal.textContent = testLevelInput.value; });
+
+    testStartBtn.addEventListener('click', ()=>{
+      if(testStartBtn.disabled || !tmClass) return;
+      testScreen.style.display = 'none';
+      beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1);
+    });
+  })();
+
+  /* =========================================================

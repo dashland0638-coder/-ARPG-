@@ -64,7 +64,14 @@
 
   // Only ever called while a character is actually in play, so there is
   // always something worth persisting.
+  //
+  // テストモード(2026-08-31、上位職デバッグ用)は既存のセーブに一切
+  // 触れない約束のため、ここ一箇所で止める。呼び出し元(自動セーブの
+  // beforeunload/visibilitychange、酒場の主人との会話終了時、メニューの
+  // 「セーブする」等)は複数あるが、全て最終的にこの関数を経由するため、
+  // 個別に呼び出し側をガードして回るより確実
   function saveGame(){
+    if(state.testMode) return false;
     if(!state.started || !state.classDef) return false;
     try{
       localStorage.setItem(SAVE_KEY, JSON.stringify(buildSaveData()));

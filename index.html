@@ -127,6 +127,35 @@
 
     <button id="cc-start-btn" disabled>冒険を始める</button>
     <div class="cc-start-hint">職業・性別・性格・名前・ダイスでの能力値割り振りをすべて完了してください</div>
+
+    <div class="testmode-link-row">
+      <button type="button" id="open-testmode-btn" class="testmode-link-btn">🛠 テストモード(上位職デバッグ用)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TEST MODE (上位職デバッグ用: セーブに触れず、職業/転身/レベルを
+     直接指定してトレーニング空間へ入る) ============ -->
+<div id="testmode-screen" style="display:none;">
+  <div class="cc-frame">
+    <div class="cc-eyebrow">Test Mode</div>
+    <h1 class="cc-title display">テストモード</h1>
+    <p class="cc-sub">職業・転身・レベルを直接指定して、カカシのあるトレーニング空間へ入ります。既存のセーブは一切変更されません。</p>
+
+    <div class="cc-section-label">職業</div>
+    <div class="class-grid" id="testmode-class-grid"></div>
+
+    <div class="cc-section-label">転身</div>
+    <div class="testmode-job-grid" id="testmode-job-grid"></div>
+
+    <div class="cc-section-label">レベル</div>
+    <div class="testmode-level-row">
+      <input type="range" id="testmode-level" min="1" max="99" value="50" />
+      <span id="testmode-level-val">50</span>
+    </div>
+
+    <button id="testmode-start-btn" disabled>🛠 トレーニング開始</button>
+    <button type="button" id="testmode-back-btn" class="testmode-back-btn">← タイトルへ戻る</button>
   </div>
 </div>
 

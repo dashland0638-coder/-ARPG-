@@ -2159,6 +2159,30 @@
     if(variant.midbossName) g.scale.setScalar(1.7);
     else if(variant.strongMob) g.scale.setScalar(1.5); // visually larger, doesn't affect hitboxes
 
+    // テストモードのカカシ(訓練用の的、2026-08-31指示: 「上位職のデバッグ
+    // がしづらいのでテストモードをタイトルから入れるように新装しましょう。
+    // トレーニング空間とカカシを配置」)。獣型の見た目(脚・鼻先・テーマ
+    // ごとの装飾)をすべて隠し、胴体(body)と頭(head)の2つだけを straw
+    // 色のまま残して藁人形のシルエットに仕立て直す。ダメージ判定・被弾
+    // 演出・体幹・ノックバックなど戦闘まわりの仕組みはここより上の
+    // 通常の敵構築ロジックをそのまま使う(このブロックは見た目だけを
+    // 差し替える後処理で、buildEnemy()の他の分岐には一切触れていない)
+    if(variant.dummy){
+      g.traverse(o=>{ if(o.isMesh) o.visible = false; });
+      body.visible = true; head.visible = true; eyeL.visible = true; eyeR.visible = true;
+      const woodMat = new THREE.MeshStandardMaterial({color:0x6a4a2e, roughness:0.85});
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.0,8), woodMat);
+      post.position.y = 0.5; post.castShadow = true;
+      g.add(post);
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.9,6), woodMat);
+      beam.rotation.z = Math.PI/2; beam.position.y = 0.55; beam.castShadow = true;
+      g.add(beam);
+      const hatMat = new THREE.MeshStandardMaterial({color:0xc9a24b, roughness:0.9});
+      const hat = new THREE.Mesh(new THREE.ConeGeometry(0.26,0.2,10), hatMat);
+      hat.position.y = 0.26; hat.castShadow = true;
+      neck.add(hat);
+    }
+
     g.position.copy(pos);
     scene.add(g);
     return {
@@ -2818,6 +2842,10 @@
     else if(key==='temple')   worldBounds = boundsFromRooms(TEMPLE_ROOMS, 6);
     else if(key==='clocktower') worldBounds = boundsFromRooms(TOWER_ROOMS, 10);
     else if(key==='duskvillage') worldBounds = boundsFromRooms(DUSK_ROOMS, 6);
+    // テストモード(上位職デバッグ用)のトレーニング空間。他のどのダンジョン
+    // とも重ならない、ずっと東(x>400)の未使用領域に置いてある
+    // (worldKeyForPos参照)。専用の部屋テーブルは無いので直接座標を指定
+    else if(key==='training') worldBounds = {x0:420, x1:490, z0:-26, z1:26};
     else                      worldBounds = null;   // fall back to the circle
   }
 
@@ -2835,6 +2863,10 @@
 
   function worldKeyForPos(p){
     const x = p.x, z = p.z;
+    // テストモードのトレーニング空間: 他のどのダンジョンとも重ならない、
+    // ずっと東(x>400)の未使用領域。conservatory側のx>170判定より先に
+    // 判定しないと吸われてしまうため、他のどの分岐よりも先に置く
+    if(x > 400) return 'training';
     // Phase D(#37): 宵待ちの村は他のどのダンジョンとも重ならない、
     // ずっと南(z>260)の未使用領域に置いてある。最初にこれだけ判定すれば、
     // x帯を気にせず(x>-46&&x<42&&z>28のghostship判定などと)衝突しない

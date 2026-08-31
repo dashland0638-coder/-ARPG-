@@ -845,18 +845,104 @@
     }
   }
 
+  // テストモード(2026-08-31、上位職デバッグ用)。タイトル画面の
+  // 「🛠テストモード」から、職業・転身・レベルを直接指定してカカシの
+  // あるトレーニング空間へ入る。実際のキャラ作成(ダイス振り・ステータス
+  // 配分)は経由せず、beginGame()の状態リセット相当をここで再現しつつ、
+  // deleteSaveGame()は呼ばない(既存のセーブに一切触れない約束)。
+  // state.testModeを立てておけば、以降のsaveGame()呼び出しは
+  // (自動セーブ含め)すべて何もしなくなる(09-save-load.js参照)ので、
+  // うっかり上書きされる心配もない
+  function beginTestMode(classKey, jobKey, level){
+    selectedClass = classKey;
+    selectedGender = 'male';
+    selectedPersonality = 'brave';
+    playerName = 'テスト冒険者';
+    // state.testMode自体はfinishEnteringGame()側でopts.world==='training'
+    // から立てる(下記)。ここで直接立てないのは、beginGame()/continueGame()
+    // 経由で本当のセーブへ戻った際に確実にfalseへ戻すため ―― 片方でだけ
+    // trueにして戻し忘れると、以後ずっと本セーブが保存されなくなる事故に
+    // なるので、単一の場所でしか書き換えないようにしてある
+
+    state.gender = selectedGender;
+    state.name = playerName;
+    state.personality = selectedPersonality;
+    state.cautiousTimer = 0; state.killStreak = 0; state.killStreakT = 0; state.justDodgedT = 0; state.dodgeAttackWindowT = 0;
+    state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0;
+    state.comboStage = 0; state.comboCount = 0; state.comboWindowT = 0; state.jumpAttacking = false; state.jumpAttackCD = 0;
+    state.equipLevel = 0;
+    state.equipmentInventory = []; state.equipped = {weapon:null, upper:null, lower:null};
+    state.bossClears = {};
+    state.learnedBossAbilities = []; state.equippedBossAbilities = []; state.learnedBossSkills = [];
+    state.learnedBossActiveSkills = []; state.equippedBossActiveSkill = null; state.bossSkill3CD = 0;
+    state.unlockedSphereNodes = ['root']; state.spherePoints = 0;
+    state.skill2Choice = 'default'; state.ultChoice = 'default';
+    state.unlockedSkill1Alt = false; state.unlockedSkill2Alt = false; state.unlockedUltAlt = false;
+    state.scenarioClears = {};
+    state.routeCombosSeen = {};
+    state.skills = {atkUp:0, hpUp:0, ultUp:0, companion:0, chargeUp:0};
+    state.ranks = {skill:0, skill2:0, ult:0};
+    state.freeRanks = 0;
+    state.clearedScenarios = {};
+    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
+    state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
+
+    // レベル: grantXP()の成長式(12-progression-ui.js)と同じ計算を、
+    // XP/レベルアップ演出/ダイス追加ポイントといった副作用抜きに、
+    // 指定レベル分だけまとめて適用する
+    state.level = level; state.xp = 0; state.xpToNext = xpToNextForLevel(level);
+    state.levelGrowth = zeroAlloc();
+    const base = CLASSES[classKey];
+    for(let lv=1; lv<level; lv++){
+      STAT_KEYS.forEach(k=>{
+        state.levelGrowth[k] = +(state.levelGrowth[k] + base[k]*STAT_GROWTH_RATE).toFixed(3);
+      });
+    }
+    // 上位職: 酒場での転身ダイアログ(applyPendingJobPromotion、
+    // 12-progression-ui.js)を経由せず直接指定する。recomputeStats()より
+    // 前にstate.jobを立てる必要がある(職業補正が最初の計算に乗るよう)
+    const uj = upperJobFor(classKey);
+    state.job = (jobKey && uj && uj.key===jobKey) ? jobKey : null;
+
+    state.maxHp = 0; state.maxMp = 0; // force a full heal on the first recompute
+    recomputeStats();          // establishes state.classDef
+    grantStarterGear();        // needs classDef to pick class-appropriate gear
+    recomputeStats();          // fold the starter bonuses in
+    state.usingAltWeapon = false;
+    // 道具の残数を気にせず試せるよう、テストモードでは潤沢に持たせる
+    state.inventory = {gold:0, gem:0, potion:99, shard:0, mppotion:99};
+
+    finishEnteringGame({showIntro:false, world:'training'});
+  }
+
+  // テストモード(2026-08-31)のスポーン地点。トレーニング空間はタヴァン
+  // とは無関係の座標(x>400、14-training-ground.js参照)にあるため、
+  // カカシの並び(x:455〜463, z:0付近)を正面に見る位置から始める
+  const TESTMODE_SPAWN = {x:455, z:-14, camYaw:Math.PI};
+
   /* Shared tail for both beginGame() and continueGame(): reset combat-
      transient state, drop the player in the tavern, and show the HUD.
      Everything that differs between "brand new character" and "resume a
      save" (level, gear, inventory, ...) is already written onto `state`
-     and the character-creation module vars before this runs. */
+     and the character-creation module vars before this runs.
+
+     opts.world: どのワールドへ入るか('tavern'既定、テストモードは
+     'training')。位置・カメラ向きはワールドごとに異なるため、下の
+     2箇所(仮位置→buildWorld→実位置)ともopts.worldで分岐している */
   function finishEnteringGame(opts){
     opts = opts || {};
-    state.pos.set(0,0,10);
+    const world = opts.world || 'tavern';
+    // state.testModeの唯一の書き換え場所。beginGame()/continueGame()
+    // (world==='tavern')経由なら必ずfalseに戻るので、テストモードを
+    // 経由した後で本当のセーブへ戻ってもsaveGame()が黙って止まったまま
+    // にはならない(09-save-load.js参照)
+    state.testMode = (world==='training');
+    const spawn = world==='training' ? TESTMODE_SPAWN : {x:0, z:10, camYaw:Math.PI*0.75};
+    state.pos.set(spawn.x, 0, spawn.z);
     state.vel.set(0,0,0);
     state.yVel = 0; state.grounded = true;
     state.facing = 0;
-    state.camYaw = Math.PI*0.75; // southeast, per fixed per-scenario camera directions
+    state.camYaw = spawn.camYaw; // southeast in town, per fixed per-scenario camera directions
     camera.position.copy(state.pos).add(getCamOffset());
     state.dodgeCD = 0; state.attackCD = 0; state.dodging=false; state.invulnerable=false;
     state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0;
@@ -894,7 +980,7 @@
     // one of those later actions happens to fire.
     resumeAudio();
     currentWorldKey = null; // force a full rebuild even if we're already nominally in the tavern
-    buildWorld('tavern');
+    buildWorld(world);
 
     if(player) scene.remove(player);
     playerMixerParts = {};
@@ -912,15 +998,16 @@
     if(isTouchDevice) document.getElementById('hud-hint').style.display = 'none';
     checkOrientation();
 
-    // Put the player inside the tavern. The state default is (0,0,4), which
-    // is south of the tavern's own wall at z=6 - every other route into town
-    // sets this explicitly and this one did not, so a new character was
+    // Put the player inside the tavern (or the training ground - see
+    // TESTMODE_SPAWN above). The state default is (0,0,4), which is south
+    // of the tavern's own wall at z=6 - every other route into town sets
+    // this explicitly and this one did not, so a new character was
     // spawned outside the room and walled out of it.
-    state.pos.set(0, 0, 10);
+    state.pos.set(spawn.x, 0, spawn.z);
     state.vel.set(0,0,0);
     state.yVel = 0; state.grounded = true;
     state.facing = 0;
-    state.camYaw = Math.PI*0.75;
+    state.camYaw = spawn.camYaw;
     if(state.safePos) state.safePos.copy(state.pos);
     if(companion){ companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2)); }
 
@@ -928,8 +1015,10 @@
     camera.lookAt(state.pos.x, state.pos.y+0.6, state.pos.z);
 
     state.paused = false;      // state.started was set above, before the pad refresh
-    if(opts.showIntro !== false) triggerTownIntroEvent();
-    saveGame();
+    // 酒場の到着セリフはタヴァン専用の内容なので、トレーニング空間では
+    // showIntroの値に関係なく出さない
+    if(world==='tavern' && opts.showIntro !== false) triggerTownIntroEvent();
+    saveGame();   // テストモード中はstate.testModeによりsaveGame()自体が何もしない(09-save-load.js)
   }
 
   function triggerTownIntroEvent(){
