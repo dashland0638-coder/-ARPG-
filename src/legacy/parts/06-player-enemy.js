@@ -63,8 +63,34 @@
     const steel = new THREE.MeshStandardMaterial({color:0xd8dce0, roughness:0.3, metalness:0.7});
     const darkSteel = new THREE.MeshStandardMaterial({color:0x9aa4ae, roughness:0.4, metalness:0.6});
     const woodMat = new THREE.MeshStandardMaterial({color:0x3a2818});
+    // 二刀流/両手斧のオフハンド(#39系)。dualblades以外では毎回nullに戻す
+    // ―― swapPlayerWeaponVisual()で武器種を替えた時、前の武器の対が
+    // 残ったままにならないようにするため
+    playerMixerParts.offhandGeo = null;
 
     if(weaponKey==='greatsword'){
+      if(state.job==='battleKnight'){
+        // 戦騎士(#39系、意匠参考: 歴戦の騎士のエクスカリバー案): 大剣の
+        // 重厚さではなく、細く長い装飾剣にする。刀身の幅を大剣の半分
+        // 以下に絞り、長さを伸ばして「シュッとした」印象に寄せた
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.062,1.55,0.028), steel);
+        blade.position.y = 0.90;
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.044,0.24,4), steel);
+        tip.position.y = 1.79;
+        const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.018,1.3,0.032), darkSteel);
+        fuller.position.y = 0.88;
+        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.045,0.05), trimMat);
+        guard.position.y = 0.10;
+        const guardTipL = new THREE.Mesh(new THREE.SphereGeometry(0.032,7,6), trimMat);
+        guardTipL.position.set(0.18,0.10,0);
+        const guardTipR = guardTipL.clone(); guardTipR.position.x = -0.18;
+        const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.028,0.36,8), trimMat);
+        hilt.position.y = -0.10;
+        const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.06,0), trimMat);
+        pommel.position.y = -0.30;
+        weapon.add(blade, tip, fuller, guard, guardTipL, guardTipR, hilt, pommel);
+        weapon.position.set(0, HIP_Y+bodyH*0.55, 0.30);
+      } else {
       const blade = new THREE.Mesh(new THREE.BoxGeometry(0.15,1.15,0.045), steel);
       blade.position.y = 0.72;
       const tip = new THREE.Mesh(new THREE.ConeGeometry(0.108,0.26,4), steel);
@@ -79,6 +105,7 @@
       pommel.position.y = -0.22;
       weapon.add(blade, tip, fuller, guard, hilt, pommel);
       weapon.position.set(0, HIP_Y+bodyH*0.55, 0.30);
+      }
 
     } else if(weaponKey==='spear'){
       // 大剣とは対照的に、細長い柄の先に小さな穂先。両手持ちで柄の中程を握る
@@ -99,11 +126,42 @@
       weapon.position.set(0, HIP_Y+bodyH*0.50, 0.30);
 
     } else if(weaponKey==='dualblades'){
-      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.05,0.42,6), trimMat);
-      blade.position.y = 0.24;
-      const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.14,6), new THREE.MeshStandardMaterial({color:0x2a1c10}));
-      weapon.add(blade, hilt);
-      weapon.position.set(bodyR+0.12, HIP_Y+bodyH*0.72+0.05, 0.05);
+      // 二刀流(#39系)。バーサーカー転身時は双剣ではなく両手斧(意匠参考:
+      // 双斧の蛮族戦士案)に差し替える。片手分の形状をbuildDualUnit()に
+      // まとめ、左右反転した対をplayerMixerParts.offhandGeoへ積んで
+      // おくことで、呼び出し側(buildPlayer/swapPlayerWeaponVisual)が
+      // 左手基準で配置する ―― 骨格・武器選択ロジックには触れず、
+      // 「主武器と同じ形をもう一つ、逆の手に追加する」だけで二刀流の
+      // シルエットを作っている
+      const isAxe = state.job === 'berserker';
+      function buildDualUnit(){
+        const u = new THREE.Group();
+        if(isAxe){
+          const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.026,0.46,6), woodMat);
+          const headL = new THREE.Mesh(new THREE.ConeGeometry(0.15,0.20,3), trimMat);
+          headL.position.set(-0.11,0.19,0); headL.rotation.z = Math.PI/2;
+          const headR = headL.clone(); headR.position.x = 0.11; headR.rotation.z = -Math.PI/2;
+          const spike = new THREE.Mesh(new THREE.ConeGeometry(0.028,0.13,4), darkSteel);
+          spike.position.y = 0.32;
+          u.add(handle, headL, headR, spike);
+        } else {
+          const blade = new THREE.Mesh(new THREE.ConeGeometry(0.032,0.30,4), trimMat);
+          blade.position.y = 0.20;
+          const guard = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.024,0.03), darkSteel);
+          guard.position.y = 0.03;
+          const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.14,6), new THREE.MeshStandardMaterial({color:0x2a1c10}));
+          hilt.position.y = -0.06;
+          const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.024,6,6), darkSteel);
+          pommel.position.y = -0.14;
+          u.add(blade, guard, hilt, pommel);
+        }
+        return u;
+      }
+      weapon.add(buildDualUnit());
+      weapon.position.set(bodyR+0.12, HIP_Y+bodyH*(isAxe?0.62:0.72)+0.05, 0.05);
+      const offUnit = buildDualUnit();
+      offUnit.scale.x = -1;   // 左右反転(刃/斧頭の向きを揃える)
+      playerMixerParts.offhandGeo = offUnit;
 
     } else if(weaponKey==='katana'){
       // 双剣の短い刃とは対照的に、長く反りのある一振り。鍔と柄糸を巻いた柄で
@@ -205,8 +263,14 @@
       weapon.position.set(0.02, HIP_Y+bodyH*0.46, 0.18);
 
     } else {
-      // shortbow (デフォルト/初期武器)
-      const bow = new THREE.Mesh(new THREE.TorusGeometry(0.34,0.028,6,18,Math.PI*1.35), trimMat);
+      // shortbow (デフォルト/初期武器)。鷹の目(#39系)は「小弓→大弓」の
+      // 指示により、半径・弦・矢とも一回り大きい専用寸法にする。scaleで
+      // はなく寸法そのものを変えているのは、上位職共通の1.32倍
+      // (applyJobPromotionVisual)と掛け合わさっても不自然にならないよう
+      // にするため
+      const isHawkEye = state.job === 'hawkEye';
+      const bowR = isHawkEye ? 0.50 : 0.34;
+      const bow = new THREE.Mesh(new THREE.TorusGeometry(bowR,isHawkEye?0.034:0.028,6,18,Math.PI*1.35), trimMat);
       bow.rotation.z = Math.PI*0.32;
       /* The string is two segments meeting at the nock, not one rigid bar.
          A single cylinder can only ever be pulled straight back along one
@@ -218,32 +282,33 @@
       const strMat = new THREE.MeshStandardMaterial({color:0xe8e0cc});
       const strGeo = new THREE.CylinderGeometry(0.006,0.006,1,4);
       const nock = new THREE.Object3D();
-      nock.position.set(0.05,0,0);
+      nock.position.set(isHawkEye?0.07:0.05,0,0);
       const segUp = new THREE.Mesh(strGeo, strMat);
       const segDn = new THREE.Mesh(strGeo, strMat);
       weapon.add(bow, nock, segUp, segDn);
       playerMixerParts.bowString = nock;        // the nocking point itself
       playerMixerParts.bowSegs = [segUp, segDn];
-      playerMixerParts.bowLimbY = 0.315;        // where the string meets the limbs
+      playerMixerParts.bowLimbY = bowR*0.926;   // where the string meets the limbs (元寸法の比率のまま)
       // an arrow sitting on the string while the bow is drawn. It points
       // along the bow's local -X, which becomes the character's forward once
       // the bow is turned into the aiming plane.
       const arrow = new THREE.Group();
-      const nshaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.62,5),
+      const arrowLen = isHawkEye ? 0.80 : 0.62;
+      const nshaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,arrowLen,5),
         new THREE.MeshStandardMaterial({color:0x6a5236, roughness:0.9}));
       const nhead = new THREE.Mesh(new THREE.ConeGeometry(0.032,0.10,4),
         new THREE.MeshStandardMaterial({color:0xc8ccd4, metalness:0.5, roughness:0.4}));
-      nhead.position.y = 0.35;
+      nhead.position.y = arrowLen*0.56;
       const nfl = new THREE.Mesh(new THREE.BoxGeometry(0.005,0.09,0.07),
         new THREE.MeshStandardMaterial({color:0xd8c078, roughness:0.9}));
-      nfl.position.y = -0.27;
+      nfl.position.y = -arrowLen*0.44;
       arrow.add(nshaft, nhead, nfl);
       arrow.rotation.z = Math.PI/2;      // lay the arrow along local -X
-      arrow.position.set(0.05, 0, 0);
+      arrow.position.set(isHawkEye?0.07:0.05, 0, 0);
       arrow.visible = false;
       weapon.add(arrow);
       playerMixerParts.nockArrow = arrow;
-      weapon.position.set(0.06, HIP_Y+bodyH*0.62, 0.34);
+      weapon.position.set(0.06, HIP_Y+bodyH*0.62, isHawkEye?0.30:0.34);
     }
     const auraColor = SPECIAL_WEAPON_AURA[specialId];
     if(auraColor){
@@ -289,6 +354,11 @@
     const skinMatFlat = skinMat.clone();  skinMatFlat.flatShading = true;
     const clothMatFlat = clothMat.clone(); clothMatFlat.flatShading = true;
     const trimMatFlat = trimMat.clone();  trimMatFlat.flatShading = true;
+    // 軽装(ユーザー指摘: 盗賊は「鎧の部位が少なめの軽装」に)。全クラス
+    // 共通の脛当て/籠手を盗賊だけ外し、肩当ても一回り小さくして防具の
+    // 面積そのものを減らす ―― 素肌・布の見える面積が増えることで
+    // 身軽さを表現する
+    const lightArmor = classDef.key==='rogue';
 
     // legs - hip and knee are separate pivots and the boot hangs off the
     // shin, so the whole leg articulates. Previously the thigh swung while
@@ -315,10 +385,12 @@
 
       // greave: a metal cuff on the shin, midway between the kneecap and
       // the boot - the calf alone read as a bare cloth leg with only the
-      // kneepad marking it as armoured
-      const greave = new THREE.Mesh(limbGeo(CUFF_PROFILE, B.calf*1.25, 0.13, 8), trimMatFlat);
-      greave.position.y = -B.calfLen*0.62; greave.castShadow = true;
-      knee.add(greave);
+      // kneepad marking it as armoured。盗賊は軽装のため省く
+      if(!lightArmor){
+        const greave = new THREE.Mesh(limbGeo(CUFF_PROFILE, B.calf*1.25, 0.13, 8), trimMatFlat);
+        greave.position.y = -B.calfLen*0.62; greave.castShadow = true;
+        knee.add(greave);
+      }
 
       const bw = B.calf*1.62;
       /* Put the sole on the floor. The knee group sits at world
@@ -449,28 +521,85 @@
         tail.rotation.set(0.5, s*0.22, s*0.12);
         group.add(tail);
       });
-      // 毛皮の縁飾り(意匠参考: 毛皮縁の甲冑騎士案)。スカーフの外側に
-      // もう一段大きな毛皮のリングを重ね、肩回りに量感を足す。戦騎士
-      // 転身時の大型ケープ(applyJobPromotionVisual)と役割が被らないよう、
-      // ケープそのものではなく襟に留めてある
-      const furCollar = new THREE.Mesh(new THREE.TorusGeometry(headR*1.18, 0.09, 6, 14, Math.PI*1.5), furMat);
-      furCollar.rotation.set(Math.PI/2, 0, -Math.PI*0.7);
-      furCollar.position.set(0, hY-headR*1.0, -0.02);
-      furCollar.castShadow = true; group.add(furCollar);
+      // 毛皮の縁飾り(意匠参考: 毛皮縁の甲冑騎士案 + ユーザー指摘「もっと
+      // モコモコ、トゲトゲに」)。滑らかなトーラス1本ではなく、根元の
+      // 細いリング(モコモコの量感)+首の周囲を一周する棘(トゲトゲ)の
+      // 群れに置き換えた。棘は長さを3種類ローテーションさせて不揃いに
+      // し、単なる連続パターンに見えないようにしてある
+      const furBase = new THREE.Mesh(new THREE.TorusGeometry(headR*1.1, 0.05, 6, 16), furMat);
+      furBase.rotation.x = Math.PI/2;
+      furBase.position.set(0, hY-headR*1.0, 0);
+      furBase.castShadow = true; group.add(furBase);
+      // 見下ろし視点の実際の距離で検証した結果、半径0.038/14本では
+      // 判別できないほど小さく埋もれてしまったため、本数を減らして
+      // 一本ずつを大きく太くした(数より個々の視認性を優先)
+      const spikeLens = [0.16, 0.10, 0.22];
+      for(let i=0;i<10;i++){
+        const ang = (i/10)*Math.PI*2;
+        const len = spikeLens[i%3];
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.055, len, 5), furMat);
+        const r = headR*1.14;
+        spike.position.set(Math.sin(ang)*r, hY-headR*1.0, Math.cos(ang)*r);
+        spike.rotation.set(Math.PI/2-0.4, ang, 0);
+        spike.castShadow = true;
+        group.add(spike);
+      }
+      // 鎧のディテール強化(ユーザー指摘「鎧のパーツを細かく分割して」)。
+      // 胸当てだけの単調な塊にならないよう、交差する2本の革帯+留め具
+      // (丸鋲)を重ね、下半身側にも段差のある腰帯プレートを足した
+      const strapMat = new THREE.MeshStandardMaterial({color:0x3a2a1a, roughness:0.75});
+      [-1,1].forEach(s=>{
+        const strap = new THREE.Mesh(new THREE.BoxGeometry(0.09, bodyH*0.62, 0.03), strapMat);
+        strap.position.set(0, HIP_Y+bodyH*0.62, s*bodyR*0.62);
+        strap.rotation.x = s*0.62;
+        group.add(strap);
+      });
+      const clasp = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.025,10), trimMat);
+      clasp.rotation.x = Math.PI/2;
+      clasp.position.set(0, HIP_Y+bodyH*0.6, bodyR*0.55);
+      clasp.castShadow = true; group.add(clasp);
+      [-0.55,0,0.55].forEach(o=>{
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.05), trimMat);
+        plate.position.set(o*bodyR, HIP_Y-0.08, bodyR*0.85);
+        plate.rotation.x = -0.15;
+        plate.castShadow = true; group.add(plate);
+      });
+      // 短いマント(ユーザー指摘「マントは短く」、意匠参考: 毛皮縁の甲冑
+      // 騎士案)。戦騎士転身時の長い二枚ケープ(applyJobPromotionVisual)
+      // より明確に短く、肩甲骨あたりまでしか届かない小さな一枚。検証で
+      // 正面(x=0)に平らな一枚を大きく置くと真っ黒な板のように見えて
+      // しまったため、戦騎士のケープと同じ「二枚を左右へ開く」技法を
+      // 小さく縮めて流用し、単色でも布らしいシルエットになるようにした
+      const shortCapeMat = new THREE.MeshStandardMaterial({color:0x4a1c1c, roughness:0.85, side:THREE.DoubleSide});
+      [-1,1].forEach(s=>{
+        const shortCape = new THREE.Mesh(new THREE.PlaneGeometry(0.22, bodyH*0.4), shortCapeMat);
+        shortCape.position.set(s*0.14, HIP_Y+bodyH*0.82, -bodyR-0.02);
+        shortCape.rotation.set(0.12, s*0.5, s*0.06);
+        shortCape.castShadow = true; group.add(shortCape);
+      });
 
     } else if(classDef.key==='rogue'){
-      // barbaric helm with curved horns
-      const helm = new THREE.Mesh(new THREE.SphereGeometry(headR*1.12, 10, 8, 0, Math.PI*2, 0, Math.PI*0.55), darkMat);
-      helm.position.set(0, hY+0.04, 0); helm.castShadow = true; group.add(helm);
+      // 鉢巻+長髪(ユーザー指摘: 軽装の盗賊は角兜ではなく鉢巻と長髪に)。
+      // 「蛮族」寄りの意匠(角兜・片肩の毛皮)はバーサーカー転身側
+      // (applyJobPromotionVisual)へ寄せ、素の盗賊は軽装・敏捷な印象に
+      // 振り直した
+      const headband = new THREE.Mesh(new THREE.TorusGeometry(headR*1.02, 0.026, 6, 14, Math.PI*1.9), clothAcc);
+      headband.rotation.set(Math.PI/2, 0, Math.PI*0.55);
+      headband.position.set(0, hY+0.06, 0);
+      headband.castShadow = true; group.add(headband);
       [-1,1].forEach(s=>{
-        const horn = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.055, 7, 12, Math.PI*1.15),
-          new THREE.MeshStandardMaterial({color:0xe0d8c4, roughness:0.55}));
-        horn.position.set(s*headR*1.0, hY+0.14, 0);
-        horn.rotation.set(Math.PI/2, 0, s*1.15);
-        horn.castShadow = true;
-        group.add(horn);
+        const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.055, 0.3), clothAcc);
+        tail.position.set(s*0.05, hY-0.06, -headR*1.05);
+        tail.rotation.set(0.35, 0, s*0.15);
+        group.add(tail);
       });
-      // knife stock + pouch on the belt, one each side
+      // 長髪: 頭頂の短い髪(hair)の下から、背中を伝って垂れる房を追加
+      const longHairMat = new THREE.MeshStandardMaterial({color:isFemale?0x2c1e14:0x1b140f, roughness:0.7});
+      const ponytail = new THREE.Mesh(new THREE.ConeGeometry(0.075, bodyH*0.5, 7), longHairMat);
+      ponytail.position.set(0, hY-headR*1.9, -headR*0.85);
+      ponytail.rotation.set(-0.32, 0, 0);
+      ponytail.castShadow = true; group.add(ponytail);
+      // knife stock + pouch on the belt, one each side(軽装ゆえの最小限の防具)
       const stock = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.22,0.07), darkMat);
       stock.position.set(-bodyR-0.06, 0.72, 0.02); group.add(stock);
       [0.05,-0.05].forEach(o=>{
@@ -480,17 +609,6 @@
       const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.16,0.1),
         new THREE.MeshStandardMaterial({color:0x5a4630, roughness:0.85}));
       pouch.position.set(bodyR+0.07, 0.7, 0.02); group.add(pouch);
-      // 片肩の毛皮当て(意匠参考: 双斧の蛮族戦士案)。バーサーカー転身
-      // (防具を減らし、双武器を振るう)への布石として、防具ではなく
-      // 毛皮を一枚だけ首元から片肩に垂らし、荒々しさを足す。腕の可動域と
-      // 干渉しないよう、肩関節(この後で作るarmL/armR)ではなく胴体側の
-      // 首元に留めてある。半径はbodyRの外側(stock/pouchと同じ考え方)に
-      // 出さないと胴体メッシュに埋もれて見えなくなる(検証済み)
-      const furTuft = new THREE.Mesh(
-        new THREE.SphereGeometry(bodyR*0.5, 8, 6, 0, Math.PI*2, 0, Math.PI*0.68), furMat);
-      furTuft.position.set(-(bodyR+0.15), hY-headR*1.55, -0.03);
-      furTuft.rotation.z = 0.3;
-      furTuft.castShadow = true; group.add(furTuft);
 
     } else if(classDef.key==='mage'){
       // wide-brimmed pointed hat
@@ -595,10 +713,13 @@
       el.add(elbowCap);
       // vambrace: a metal cuff banded around the forearm just above the
       // hand, lathed the same way as the pauldron - the forearm alone read
-      // as a bare cloth sleeve with nothing marking it as armoured
-      const vambrace = new THREE.Mesh(limbGeo(CUFF_PROFILE, B.forearm*1.2, 0.11, 8), trimMatFlat);
-      vambrace.position.y = -0.27; vambrace.castShadow = true;
-      el.add(vambrace);
+      // as a bare cloth sleeve with nothing marking it as armoured。
+      // 盗賊は軽装のため省く
+      if(!lightArmor){
+        const vambrace = new THREE.Mesh(limbGeo(CUFF_PROFILE, B.forearm*1.2, 0.11, 8), trimMatFlat);
+        vambrace.position.y = -0.27; vambrace.castShadow = true;
+        el.add(vambrace);
+      }
       hand.position.y = -0.32; hand.castShadow = true;
       el.add(hand);
       // fingers: a bare scaled sphere read as a mitten from any distance
@@ -624,8 +745,10 @@
       // lathed hex-cut dome instead of a squashed sphere - see
       // PAULDRON_PROFILE's comment for why the low segment count is
       // deliberate (a hard "armor plate" read, not a soft one)
+      // 盗賊は軽装のため肩当ても一回り小さく(#39系)
+      const pauldronScale = lightArmor ? 0.6 : 1.0;
       const pauldron = new THREE.Mesh(
-        limbGeo(PAULDRON_PROFILE, B.upper*1.52, B.upper*2.1, 6), trimMatFlat);
+        limbGeo(PAULDRON_PROFILE, B.upper*1.52*pauldronScale, B.upper*2.1*pauldronScale, 6), trimMatFlat);
       pauldron.position.y = -0.02;
       pauldron.castShadow = true;
       sh.add(pauldron);
@@ -682,6 +805,29 @@
 
     weapon.traverse(child => { if(child.isMesh) child.castShadow = true; });
     group.add(weapon);
+
+    // 二刀流/両手斧のオフハンド(#39系): 主武器と同じ手順(手の位置から
+    // 座標を出し、GRIP_OFFSETを左右反転して適用)で、逆の手を基準に
+    // 配置する。updateGrip()が毎フレーム位置だけ追従させ続けるが、
+    // コンボの振り自体には追従しない(主武器のようにアニメーションで
+    // 直接動かされることはない)割り切りとした ―― 待機姿勢で「二刀流に
+    // 見える」ことを優先している
+    if(playerMixerParts.offhandGeo){
+      const offG = playerMixerParts.offhandGeo;
+      const offHand = st.grip === 'L' ? handR : handL;
+      const offGripOff = new THREE.Vector3(-go[0], go[1], go[2]);
+      aimWeapon(offG, st.wep);
+      offG.position.copy(offHand === handL ? _hL : _hR).add(offGripOff);
+      offG.traverse(c=>{ if(c.isMesh) c.castShadow = true; });
+      group.add(offG);
+      playerMixerParts.offhandWeapon = offG;
+      playerMixerParts.offhandGripHand = offHand;
+      playerMixerParts.offhandGripOff = offGripOff;
+    } else {
+      playerMixerParts.offhandWeapon = null;
+      playerMixerParts.offhandGripHand = null;
+      playerMixerParts.offhandGripOff = null;
+    }
 
     /* Everything above the belt moves onto a waist pivot, so the torso can
        counter-rotate against the stride instead of the whole body turning as
@@ -746,6 +892,13 @@
     old.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); if(c.material) c.material.dispose(); } });
     // 弓系の参照は一旦クリアしておく(次の武器が弓系でなければ古い参照を残さない)
     P.bowString = null; P.bowSegs = null; P.nockArrow = null; P.bowLimbX = 0; P.bowLimbZ = 0;
+    // 二刀流/両手斧のオフハンド(#39系)も、次の武器が二刀流でなければ
+    // 古い対が残ったままにならないよう先に外す
+    if(P.offhandWeapon){
+      P.waist.remove(P.offhandWeapon);
+      P.offhandWeapon.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); if(c.material) c.material.dispose(); } });
+      P.offhandWeapon = null;
+    }
 
     const classDef = state.classDef;
     const B = P.build;
@@ -790,10 +943,32 @@
     P.weapon = weapon;
     P.weaponBasePos = weapon.position.clone();
     P.weaponBaseRot = weapon.rotation.clone();
-    // 上位ジョブ(#9)転身済みなら、持ち替えた新しい武器にも「一回り大きい」
-    // 拡大を掛け直す(素のweapon.scaleは常に1で作られるため、素直に上書きでよい)
+
+    // 二刀流/両手斧のオフハンド(#39系): buildPlayer()と同じ手順
+    if(P.offhandGeo){
+      const offG = P.offhandGeo;
+      const offHand = st.grip === 'L' ? P.handR : P.handL;
+      const offGripOff = new THREE.Vector3(-go[0], go[1], go[2]);
+      aimWeapon(offG, st.wep);
+      offG.position.copy(offHand === P.handL ? _hL : _hR).add(offGripOff);
+      offG.position.y -= HIP_Y;
+      offG.traverse(c=>{ if(c.isMesh) c.castShadow = true; });
+      P.waist.add(offG);
+      P.offhandWeapon = offG;
+      P.offhandGripHand = offHand;
+      P.offhandGripOff = offGripOff;
+    } else {
+      P.offhandWeapon = null; P.offhandGripHand = null; P.offhandGripOff = null;
+    }
+
+    // 上位ジョブ(#9)転身済みなら、持ち替えた新しい武器(オフハンド含む)にも
+    // 「一回り大きい」拡大を掛け直す(素のweapon.scaleは常に1で作られる
+    // ため、素直に上書きでよい)
     const uj = upperJobFor(classDef.key);
-    if(uj && state.job === uj.key) weapon.scale.setScalar(1.32);
+    if(uj && state.job === uj.key){
+      weapon.scale.setScalar(1.32);
+      if(P.offhandWeapon) P.offhandWeapon.scale.setScalar(1.32);
+    }
   }
 
   /* =========================================================
@@ -839,25 +1014,39 @@
     // scaleを掛けるだけなので、GRIP_OFFSET/aimWeapon()等の既存の武器配置
     // ロジックには一切触れない
     if(P.weapon) P.weapon.scale.setScalar(1.32);
+    if(P.offhandWeapon) P.offhandWeapon.scale.setScalar(1.32);
 
     if(uj.key === 'battleKnight'){
-      // 大型肩当て: 既存の小さいpauldronの外側に、ひとまわり大きい殻を重ねる
-      [P.armL, P.armR].forEach(arm=>{
-        if(!arm) return;
-        const big = new THREE.Mesh(new THREE.SphereGeometry(B.upper*2.0, 8, 6, 0, Math.PI*2, 0, Math.PI*0.6), trimMat);
-        big.position.y = -0.03; big.castShadow = true;
-        arm.add(big); meshes.push(big);
-      });
-      // 大きく波打つ長いマント、背中から二枚。資料20/26番
-      // (「マントの揺れ」「キャラクター回転に少し遅れてついてくる動き」)に
-      // 対応するバネ追従(updateJobDecor)の対象としてanim.capesに登録する
+      // 非対称の鎧(ユーザー指摘: 歴戦の騎士のようにアシンメトリーに)。
+      // 左右同じ殻を足していたのをやめ、利き手と逆側(左)には大型の殻+
+      // 追加のリベット段、利き手側(右)は動きを妨げない小ぶりな殻という
+      // 「補修を重ねてきた歴戦の装備」の非対称さを付けた
+      if(P.armL){
+        const bigL = new THREE.Mesh(new THREE.SphereGeometry(B.upper*2.15, 8, 6, 0, Math.PI*2, 0, Math.PI*0.62), trimMat);
+        bigL.position.y = -0.03; bigL.castShadow = true;
+        P.armL.add(bigL); meshes.push(bigL);
+        const rivetRing = new THREE.Mesh(new THREE.TorusGeometry(B.upper*1.7, 0.025, 5, 10), trimMat);
+        rivetRing.rotation.x = Math.PI/2;
+        rivetRing.position.y = 0.08;
+        P.armL.add(rivetRing); meshes.push(rivetRing);
+      }
+      if(P.armR){
+        const smallR = new THREE.Mesh(new THREE.SphereGeometry(B.upper*1.55, 7, 6, 0, Math.PI*2, 0, Math.PI*0.55), trimMat);
+        smallR.position.y = -0.02; smallR.castShadow = true;
+        P.armR.add(smallR); meshes.push(smallR);
+      }
+      // 長いマント、背中から二枚(ユーザー指摘: マントは長く。ただし
+      // 後ろから見て体が隠れないよう、真後ろではなく左右に大きく開いて
+      // 靡く角度にした ―― baseRotYを0から左右へ大きく振り、資料26番の
+      // バネ追従(updateJobDecor)もこの新しい開き角を中心に揺れる)
       const knightCapes = [];
       [-1, 1].forEach(s=>{
-        const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.46, bodyH*1.05), capeMat);
-        cape.position.set(s*0.16, bodyH*0.62, -bodyR-0.06);
-        cape.rotation.set(0.12, 0, s*0.04);
+        const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.5, bodyH*1.2), capeMat);
+        cape.position.set(s*0.30, bodyH*0.60, -bodyR-0.02);
+        const baseRotY = s*0.62;   // 横に大きく開く(真後ろに垂らさない)
+        cape.rotation.set(0.1, baseRotY, s*0.08);
         P.waist.add(cape); meshes.push(cape);
-        knightCapes.push({mesh:cape, baseRotY:0, baseRotZ:s*0.04, swayPhase:s*1.7, springAngle:0, springVel:0});
+        knightCapes.push({mesh:cape, baseRotY, baseRotZ:s*0.08, swayPhase:s*1.7, springAngle:0, springVel:0});
       });
       anim.capes = knightCapes;
       // 胸甲の増設(既存chestPlateより一回り大きい帯)
@@ -896,15 +1085,78 @@
       scene.add(auraRing); meshes.push(auraRing);   // player直下ではなくscene直下: 毎フレームworld座標へ同期する(下のupdateJobDecor)
       anim.auraRing = auraRing;
 
+      // 上半身の肌面積を増やす(ユーザー指摘)。既存の胴体クロスの上に、
+      // 素肌色の帯を前面へ重ねるだけの割り切り ―― 胴体メッシュそのもの
+      // (buildPlayerの torso)は全クラス共通のため作り直さず、上位職の
+      // 装飾として肌面を足す手法にした
+      const skinTone = 0xe8b98a;
+      const skinMat2 = new THREE.MeshStandardMaterial({color:skinTone, roughness:0.8});
+      const barePatch = new THREE.Mesh(new THREE.PlaneGeometry(bodyR*1.1, bodyH*0.7), skinMat2);
+      barePatch.position.set(0, bodyH*0.62, bodyR*0.92);
+      barePatch.rotation.x = 0.05;
+      P.waist.add(barePatch); meshes.push(barePatch);
+      // 毛皮パーツ: 肩・腰・足首(ユーザー指摘)
+      const furMat2 = new THREE.MeshStandardMaterial({color:0xd8c8a0, roughness:0.9});
+      [P.armL, P.armR].forEach(arm=>{
+        if(!arm) return;
+        const shoulderFur = new THREE.Mesh(new THREE.SphereGeometry(B.upper*1.3, 7, 6, 0, Math.PI*2, 0, Math.PI*0.6), furMat2);
+        shoulderFur.position.y = 0.02; shoulderFur.castShadow = true;
+        arm.add(shoulderFur); meshes.push(shoulderFur);
+      });
+      const waistFur = new THREE.Mesh(new THREE.TorusGeometry(bodyR*1.05, 0.09, 6, 16), furMat2);
+      waistFur.rotation.x = Math.PI/2;
+      waistFur.position.y = 0.0;
+      P.waist.add(waistFur); meshes.push(waistFur);
+      [P.kneeL, P.kneeR].forEach(knee=>{
+        if(!knee) return;
+        const ankleFur = new THREE.Mesh(new THREE.TorusGeometry(B.calf*1.5, 0.075, 6, 12), furMat2);
+        ankleFur.rotation.x = Math.PI/2;
+        ankleFur.position.y = 0.075 - (HIP_Y + 0.03 - B.thighLen) - 0.18;
+        knee.add(ankleFur); meshes.push(ankleFur);
+      });
+      // 長髪+長髭(ユーザー指摘)。既存の逆立つ髪(hairSpikes)はそのまま
+      // 残し、後頭部から流れる長髪と顎の長い髭を追加した
+      const wildHairMat = new THREE.MeshStandardMaterial({color:0x241a10, roughness:0.75});
+      const longHair = new THREE.Mesh(new THREE.ConeGeometry(0.09, bodyH*0.6, 7), wildHairMat);
+      longHair.position.set(0, bodyH*0.86, -bodyR*0.9);
+      longHair.rotation.set(-0.35, 0, 0);
+      P.waist.add(longHair); meshes.push(longHair);
+      const beard = new THREE.Mesh(new THREE.ConeGeometry(0.11, bodyH*0.38, 7), wildHairMat);
+      beard.position.set(0, bodyH*1.0, bodyR*0.55);
+      beard.rotation.set(Math.PI, 0, 0);
+      P.waist.add(beard); meshes.push(beard);
+
     } else if(uj.key === 'archmage'){
       // 大型化した帽子の房飾り(既存の帽子の上に追加)
       const bigCone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 12), trimMat);
       bigCone.position.set(0, bodyH*1.42, 0);
       P.waist.add(bigCone); meshes.push(bigCone);
-      // 浮遊魔法石: 身体の周囲を巡る発光する石を2つ
+      // 帽子から伸びる髪(ユーザー指摘: 蛍光ライトブルー色)。帽子のつば
+      // (buildPlayerのbrim、hY+headR*0.55)の下から、後方へ流れる房を
+      // 数本追加した
+      const glowHairMat = new THREE.MeshStandardMaterial({
+        color:0x5fd8ff, emissive:0x2ab0ff, emissiveIntensity:0.9, roughness:0.4});
+      [-0.09,-0.03,0.03,0.09].forEach((x,i)=>{
+        const strand = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.34+((i%2)*0.08), 5), glowHairMat);
+        strand.position.set(x, bodyH*1.06, -0.08);
+        strand.rotation.set(-0.55, 0, x*0.6);
+        P.waist.add(strand); meshes.push(strand);
+      });
+      // ローブの前を開けて羽織るように(ユーザー指摘)。素のローブ
+      // (buildPlayerの closed cylinder)は閉じたままなので、その上に
+      // 前開きの襟(コート状の合わせ)を左右一枚ずつ重ねて「開けて羽織る」
+      // シルエットに寄せる。魔法使いより身軽に見えるよう、幅は細め
+      const coatMat = new THREE.MeshStandardMaterial({color:uj.capeColor, roughness:0.7, side:THREE.DoubleSide});
+      [-1,1].forEach(s=>{
+        const flap = new THREE.Mesh(new THREE.PlaneGeometry(0.16, bodyH*0.78), coatMat);
+        flap.position.set(s*0.13, bodyH*0.48, bodyR*0.62);
+        flap.rotation.set(0.05, s*0.42, 0);
+        P.waist.add(flap); meshes.push(flap);
+      });
+      // 浮遊魔法石: 身体の周囲を巡る発光する石(2→4個に増量、ユーザー指摘)
       const crystalGeo = new THREE.OctahedronGeometry(0.09, 0);
       const crystalMat = new THREE.MeshStandardMaterial({color:uj.trim, emissive:uj.trim, emissiveIntensity:0.9, roughness:0.3});
-      const crystals = [0, Math.PI].map(offset=>{
+      const crystals = [0, Math.PI*0.5, Math.PI, Math.PI*1.5].map(offset=>{
         const c = new THREE.Mesh(crystalGeo, crystalMat);
         scene.add(c); meshes.push(c);   // player直下ではなくscene直下: 顔の向きに引きずられず円軌道を保つ
         return {mesh:c, offset};
@@ -950,6 +1202,27 @@
       hawk.position.set(0, 0.32, 0);   // 肩の少し上、pauldronの外側
       meshes.push(hawk);
       anim.hawk = hawk;
+
+      // 左目に眼帯(ユーザー指摘)。既存の眼(buildPlayerのeye、
+      // 頭中心からy+0.02/半径headR*0.92)のうち左目側だけを覆う
+      const headYLocal = bodyH + B.headGap;
+      const eyeX = -0.09*(B.headR/0.26);   // 「character's own left」= -X側
+      const patchMat = new THREE.MeshStandardMaterial({color:0x1a1410, roughness:0.8});
+      const patch = new THREE.Mesh(new THREE.CircleGeometry(0.055, 10), patchMat);
+      patch.position.set(eyeX, headYLocal+0.02, B.headR*0.94);
+      P.waist.add(patch); meshes.push(patch);
+      const patchStrap = new THREE.Mesh(new THREE.TorusGeometry(B.headR*1.02, 0.012, 5, 12, Math.PI*1.3), patchMat);
+      patchStrap.rotation.set(Math.PI/2, 0, Math.PI*0.15);
+      patchStrap.position.set(0, headYLocal+0.02, 0);
+      P.waist.add(patchStrap); meshes.push(patchStrap);
+
+      // フードコートのような見た目(ユーザー指摘)。既存のハンチング帽の
+      // 上に大きめのフードを重ね、頭巾をかぶったシルエットに寄せる
+      const hoodMat = new THREE.MeshStandardMaterial({color:uj.capeColor, roughness:0.85});
+      const hood = new THREE.Mesh(new THREE.SphereGeometry(B.headR*1.35, 10, 8, 0, Math.PI*2, 0, Math.PI*0.68), hoodMat);
+      hood.position.set(0, headYLocal+0.06, -0.03);
+      hood.castShadow = true;
+      P.waist.add(hood); meshes.push(hood);
     }
 
     P.jobDecorMeshes = meshes;

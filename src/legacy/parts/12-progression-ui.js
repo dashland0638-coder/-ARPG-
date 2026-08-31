@@ -1659,6 +1659,13 @@
     if(!uj || uj.key !== key || state.job) return;   // 念のための二重発火防止
     state.job = uj.key;
     recomputeStats();
+    // 武器の見た目そのもの(戦騎士の細身の長剣・バーサーカーの両手斧・
+    // 鷹の目の大弓、#39系)はbuildWeaponMesh()内でstate.jobを見て分岐
+    // させているため、転身の瞬間にstate.jobを書き換えただけでは反映
+    // されない(既存のweaponメッシュは転身前に作られたまま)。
+    // applyJobPromotionVisual()が上位職の装飾を足す前に、武器メッシュ
+    // 自体をここで作り直す
+    swapPlayerWeaponVisual();
     applyJobPromotionVisual();
     spawnToast(`✨ ${uj.name}へ転身した! ――${uj.flavor}`);
     sfx('levelUp');

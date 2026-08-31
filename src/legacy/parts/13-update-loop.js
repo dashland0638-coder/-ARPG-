@@ -705,7 +705,7 @@
      in the waist's frame - which keeps the swing arcs readable - but its
      position is resolved from the hand every frame, so the two never drift
      apart mid-animation the way a fixed offset does. */
-  const _gripW = new THREE.Vector3(), _gripW2 = new THREE.Vector3();
+  const _gripW = new THREE.Vector3(), _gripW2 = new THREE.Vector3(), _gripW3b = new THREE.Vector3();
   function updateGrip(){
     const P = playerMixerParts;
     if(!P.weapon || !P.gripHand || !P.gripOff || !P.waist) return;
@@ -720,6 +720,16 @@
     }
     P.waist.worldToLocal(_gripW);
     P.weapon.position.copy(_gripW).add(P.gripOff);
+
+    // 二刀流/両手斧のオフハンド(#39系): 逆の手に追従させるだけの、
+    // 主武器より簡易な追従。コンボの振りアニメーションは主武器
+    // (P.weapon)だけを直接動かす仕組みのため、オフハンドは常に
+    // 「その手の今の位置」に留め置かれる ―― 振り自体には追従しない
+    if(P.offhandWeapon && P.offhandGripHand && P.offhandGripOff){
+      P.offhandGripHand.getWorldPosition(_gripW3b);
+      P.waist.worldToLocal(_gripW3b);
+      P.offhandWeapon.position.copy(_gripW3b).add(P.offhandGripOff);
+    }
   }
 
 
