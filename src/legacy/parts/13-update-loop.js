@@ -846,12 +846,32 @@
     // 弓師: 弓を構え続けられるよう、脚の抱え込みは控えめ・腕の流れは大きめ
     archer:  {tuckMul:0.85, armMul:1.20}
   };
+  // 低HP時の「苦しんでいる」立ち姿・動きの差別化(ユーザー指摘「低HPでの
+  // 動き、立ち姿の差分」)。DODGE_MOTION/JUMP_AIR_MOTIONと同じ考え方で、
+  // 新規のアニメーション経路は作らず、既存のupdateLocomotionが毎フレーム
+  // 書き込むpitch(前傾)・sway(左右の揺れ)・breath(胸の上下)へ職業ごとの
+  // 係数を上乗せするだけに留めている
+  const LOW_HP_RATIO = 0.3;   // ボスのphase切り替わり(07-ai-combat.js)の閾値と揃えた
+  const LOW_HP_MOTION = {
+    // 剣士: 肩で息をするように、前傾と呼吸の両方を強める
+    warrior: {pitchBias:0.09, breathMul:1.9, swayMul:1.3},
+    // 盗賊: 前傾は控えめだが、左右にふらつく(体重を移し替えるような)動き
+    rogue:   {pitchBias:0.05, breathMul:1.6, swayMul:2.0},
+    // 魔法使い: 姿勢そのものはあまり崩さず、呼吸の乱れで表現する
+    mage:    {pitchBias:0.04, breathMul:2.3, swayMul:1.2},
+    // 弓師: 弓を構える都合上あまり深く前傾できないため、呼吸と揺れで表現
+    archer:  {pitchBias:0.06, breathMul:1.8, swayMul:1.6}
+  };
 
   function updateLocomotion(dt, moveSpeed){
     const P = playerMixerParts;
     const moving = state.grounded && moveSpeed > 0.35;   // m/s
     const busy = state.swinging || state.skillAnim || state.charging
               || state.skillCharging || state.ultAiming;
+    // state.maxHpが未確定(0)の間はhpRatio=1(苦しんでいない)扱いにする安全弁
+    const hpRatio = state.maxHp>0 ? state.hp/state.maxHp : 1;
+    const lhm = (hpRatio>0 && hpRatio<=LOW_HP_RATIO)
+      ? ((state.classDef && LOW_HP_MOTION[state.classDef.key]) || LOW_HP_MOTION.warrior) : null;
 
     // stride phase advances with ground covered
     // roughly 0.85 strides per metre covered, so the feet track the ground
@@ -916,7 +936,9 @@
       // pitchを上書きするため即座に消えてしまっていた。恒久的な前傾は
       // ここのpitch自体に加算する
       const jobPitchBias = state.job==='berserker' ? 0.10 : 0;
-      const pitch = (moving ? 0.02 + run*0.11 : Math.sin(strideT*0.8)*0.014) + jobPitchBias;
+      // 低HP時の前傾(職業ごとの上乗せ、LOW_HP_MOTION参照)
+      const lowHpPitchBias = lhm ? lhm.pitchBias : 0;
+      const pitch = (moving ? 0.02 + run*0.11 : Math.sin(strideT*0.8)*0.014) + jobPitchBias + lowHpPitchBias;
       const roll  = s * swing * 0.07 * B.shoulderRoll;
       P.waist.rotation.y += (twist - P.waist.rotation.y) * Math.min(1, dt*15);
       P.waist.rotation.x += (pitch - P.waist.rotation.x) * Math.min(1, dt*8);
@@ -924,8 +946,10 @@
       // hips travel laterally against the shoulders. This is the single
       // clearest read on how somebody walks, and it is where the two builds
       // differ most: a wider pelvis swings further for the same stride.
-      const sway = moving ? -s * swing * 0.055 * B.hipSway
-                          : Math.sin(strideT*0.55) * 0.008 * B.idleShift;
+      // 低HP時のふらつき(職業ごとの上乗せ、LOW_HP_MOTION参照)
+      const lowHpSwayMul = lhm ? lhm.swayMul : 1;
+      const sway = (moving ? -s * swing * 0.055 * B.hipSway
+                           : Math.sin(strideT*0.55) * 0.008 * B.idleShift) * lowHpSwayMul;
       P.waist.position.x += (sway - P.waist.position.x) * Math.min(1, dt*12);
     }
 
@@ -991,7 +1015,9 @@
     player.scale.set(stretch, squash, stretch);
 
     if(P.torso && P.torsoBaseScale){
-      const breath = 1 + (moving ? 0.012 : 0.028) * Math.sin(strideT * (moving ? 1.0 : 0.62));
+      // 低HP時は息が乱れて呼吸の振幅が大きくなる(職業ごとの倍率、LOW_HP_MOTION参照)
+      const lowHpBreathMul = lhm ? lhm.breathMul : 1;
+      const breath = 1 + (moving ? 0.012 : 0.028) * lowHpBreathMul * Math.sin(strideT * (moving ? 1.0 : 0.62));
       P.torso.scale.set(P.torsoBaseScale.x*breath, P.torsoBaseScale.y, P.torsoBaseScale.z*breath);
     }
     const bob = (moving ? Math.abs(Math.sin(strideT))*(0.05 + run*0.035)
