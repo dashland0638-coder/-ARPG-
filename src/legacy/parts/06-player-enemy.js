@@ -516,18 +516,22 @@
       const robe = new THREE.Mesh(new THREE.CylinderGeometry(bodyR*0.98, bodyR*1.5, 0.62, 12), clothMat);
       robe.position.y = 0.42; robe.castShadow = true; group.add(robe);
       // 裾のほつれ布(意匠参考: フードの魔女杖術士案)。ローブの裾
-      // (下端y≈0.11、半径bodyR*1.5)からさらに垂れる、長さ違いの布を
-      // 4枚・周囲に配置して「着古した魔女」のシルエットを足す。
-      // クラス色(classDef.trim)をごく弱く発光させ、既存のクラス識別を
-      // 保ったまま馴染ませてある。常時の揺れはupdateClassDecorで処理
+      // (下端y≈0.11、半径bodyR*1.5)は床のすぐ上までしかなく、その下に
+      // 布を「垂らす」余地がほとんど無い(最初の実装では床下に埋もれて
+      // 見えなくなっていた)。代わりにローブ下半分に重ねて貼り、裾の
+      // 半径をわずかに超えて突き出させることで「着古した魔女」の
+      // ほつれたシルエットを足す。クラス色(classDef.trim)をごく弱く
+      // 発光させ、既存のクラス識別を保ったまま馴染ませてある。
+      // 常時の揺れはupdateClassDecorで処理
       const robeTatterMat = new THREE.MeshStandardMaterial({
         color:0x1a1620, roughness:0.85, side:THREE.DoubleSide,
         emissive:classDef.trim, emissiveIntensity:0.14});
+      const tatterTopY = 0.34;   // ローブ下半分(0.11〜0.42)の範囲内
       [0, Math.PI*0.55, Math.PI, Math.PI*1.45].forEach((ang,i)=>{
-        const len = 0.30 + (i%2)*0.14;
+        const len = 0.18 + (i%2)*0.10;
         const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.22, len), robeTatterMat);
-        const r = bodyR*1.45;
-        strip.position.set(Math.sin(ang)*r, 0.11 - len*0.42, Math.cos(ang)*r);
+        const r = bodyR*1.55;
+        strip.position.set(Math.sin(ang)*r, tatterTopY - len/2, Math.cos(ang)*r);
         strip.rotation.set(0.1, ang, i%2 ? 0.04 : -0.04);
         strip.castShadow = true; group.add(strip);
         classDecorCapes.push({mesh:strip, baseRotY:ang, baseRotZ:i%2?0.04:-0.04, swayPhase:i*1.3});
