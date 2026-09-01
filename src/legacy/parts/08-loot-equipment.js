@@ -945,3 +945,135 @@
   }
 
   /* =========================================================
+     GUEST COMPANION(2部制 #41 ―― 章ごとに交代するゲストの実体)
+
+     原案は「主人公＋ゲスト」の2人で本編を攻略する構成。CHAPTER_CAST
+     (01-character-creation.js)がゲストのクラスキーを章ごとに定義して
+     いるが、章の自動進行(洋館クリア→魔法使いへ交代、等)はまだ実装
+     しておらず、state.guestClassKeyを実際に書き換える経路が今は無い
+     ―― この段階ではセーブデータへ直接guestClassKeyを仕込むか、
+     章進行の実装(次のフェーズ)を待つ形になる。
+
+     見た目は上のCOMPANION(浮遊する球体の使い魔)とは別物 ――
+     CLASSES[classKey]の色を纏った人型NPCで、酒場の店主/鍛冶士と同じ
+     簡易な組み合わせ図形で作ってある(このゲームの装飾NPC共通の作法)。
+     AIは追従・索敵・攻撃ともCOMPANIONと同じ骨格を流用しつつ、
+     ダメージ量だけは主人公の実際の攻撃力(state.classDef.atk)に
+     比例させてある ―― ゲストは装備やスフィアで個別に強化される
+     存在ではなく、「主人公と一緒に育っていく」原案の思想に合わせた
+  ========================================================= */
+  function buildGuestCompanion(classKey){
+    const cdef = CLASSES[classKey];
+    if(!cdef) return null;
+    const skinMat = new THREE.MeshStandardMaterial({color:0xd8a878, roughness:0.7});
+    const clothMat = new THREE.MeshStandardMaterial({color:cdef.color, roughness:0.8});
+    const trimMat = new THREE.MeshStandardMaterial({color:cdef.trim, roughness:0.5, metalness:0.2});
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.46,1.1,10), clothMat);
+    body.position.y = 0.9;
+    body.castShadow = true;
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.32,12,10), skinMat);
+    head.position.y = 1.66;
+    g.add(head);
+    // 武器の代わりの簡易アクセント: クラスの攻撃色を纏った小さな柄。
+    // プレイヤー本体のような専用リグは持たせない(装飾NPC相当の
+    // 簡易ビルドで済ませる、という方針は酒場のNPC群と同じ)
+    const accent = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.5,0.1), trimMat);
+    accent.position.set(0.32, 1.0, 0);
+    accent.rotation.z = 0.3;
+    g.add(accent);
+    scene.add(g);
+    return {group:g, head, classKey, pos:new THREE.Vector3(), target:null, attackCD:0, bobT:Math.random()*10};
+  }
+
+  function updateGuestCompanion(dt){
+    if(!guestCompanion) return;
+    const cdef = CLASSES[guestCompanion.classKey] || CLASSES.warrior;
+    const AGGRO=8.5, ATK_RANGE=cdef.meleeRange||1.8, ATK_CD=(cdef.atkCooldown||0.6)*1.6, DMG_MUL=0.55;
+    if(guestCompanion.attackCD>0) guestCompanion.attackCD -= dt;
+
+    if(guestCompanion.target && guestCompanion.target.dead) guestCompanion.target = null;
+    if(!guestCompanion.target){
+      let best=null, bestDist=AGGRO;
+      enemies.forEach(en=>{
+        if(en.dead || en.dormant) return;
+        if(!isBossAccessible(en)) return;
+        const d = guestCompanion.pos.distanceTo(en.group.position);
+        if(d<bestDist){ bestDist=d; best=en; }
+      });
+      guestCompanion.target = best;
+    } else if(guestCompanion.pos.distanceTo(guestCompanion.target.group.position) > AGGRO*1.4){
+      guestCompanion.target = null;
+    }
+
+    if(guestCompanion.target){
+      const targetPos = guestCompanion.target.group.position;
+      const dist = guestCompanion.pos.distanceTo(targetPos);
+      const dir = new THREE.Vector3().subVectors(targetPos, guestCompanion.pos); dir.y=0;
+      if(dir.lengthSq()>0.0001) guestCompanion.group.rotation.y = Math.atan2(dir.x, dir.z);
+      if(dist > ATK_RANGE){
+        if(dir.lengthSq()>0.0001){ dir.normalize(); guestCompanion.pos.addScaledVector(dir, (cdef.spd||5)*dt); }
+      } else if(guestCompanion.attackCD<=0){
+        const dmg = Math.max(4, Math.round(state.classDef.atk*DMG_MUL + (Math.random()*4-2)));
+        dealDamageToEnemy(guestCompanion.target, dmg, true);
+        guestCompanion.attackCD = ATK_CD;
+      }
+    } else {
+      // COMPANION(浮遊球)とは反対の右後方に追従させ、二体が同じ位置で
+      // 重ならないようにしてある
+      const followPoint = state.pos.clone().add(new THREE.Vector3(
+        Math.sin(state.facing+0.9)*1.6, 0, Math.cos(state.facing+0.9)*1.6
+      ));
+      const dist = guestCompanion.pos.distanceTo(followPoint);
+      if(dist > 0.4){
+        const dir = new THREE.Vector3().subVectors(followPoint, guestCompanion.pos); dir.y=0;
+        if(dir.lengthSq()>0.0001){
+          dir.normalize();
+          guestCompanion.group.rotation.y = Math.atan2(dir.x, dir.z);
+          const spd = Math.min(dist*3.2, (cdef.spd||5)*1.7);
+          guestCompanion.pos.addScaledVector(dir, spd*dt);
+        }
+      }
+    }
+
+    guestCompanion.bobT += dt;
+    guestCompanion.group.position.set(guestCompanion.pos.x, Math.sin(guestCompanion.bobT*8)*0.015, guestCompanion.pos.z);
+  }
+
+  // COMPANION/GUEST COMPANION、双方の「プレイヤーの近くへスナップする」
+  // 処理をここへ一本化した。以前は世界遷移のたびに個別のif(companion){...}
+  // ブロックが12-progression-ui.js/02-world-common.jsへ10箇所以上
+  // コピーされており、ゲストを新設するたびに同じ複製を増やすのは
+  // 保守性が悪い(実際、修正漏れも起きやすい)ため、共通ヘルパーへ
+  // まとめてから両者を同時に扱えるようにした
+  function repositionAlliesToPlayer(){
+    if(companion){
+      companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
+      companion.target = null;
+    }
+    if(guestCompanion){
+      guestCompanion.pos.copy(state.pos).add(new THREE.Vector3(1.6,0,1.2));
+      guestCompanion.target = null;
+    }
+  }
+
+  // ワールド(再)入場のたびに呼び、state(=セーブから復元された可能性がある
+  // 永続状態)と実際に画面上へ出ているCOMPANION/GUEST COMPANIONを
+  // 一致させる。以前はfinishEnteringGame()がcompanionを問答無用で
+  // 消すだけで、続きから再開すると「仲間を雇う」で買ったはずの
+  // COMPANIONが二度と出てこないバグがあった(state.skills.companionは
+  // セーブされているのに、それを見て再構築する経路が無かったため)
+  function syncAlliesToState(){
+    if(companion){ scene.remove(companion.group); companion = null; }
+    if(state.skills && state.skills.companion>=1){
+      companion = buildCompanion();
+    }
+    if(guestCompanion){ scene.remove(guestCompanion.group); guestCompanion = null; }
+    if(state.guestClassKey && CLASSES[state.guestClassKey]){
+      guestCompanion = buildGuestCompanion(state.guestClassKey);
+    }
+    repositionAlliesToPlayer();
+  }
+
+  /* =========================================================

@@ -362,10 +362,7 @@
         fadeTransition(()=>{
         state.pos.copy(WATERWAY_UNDERGROUND_ENTRY);
         state.vel.set(0,0,0);
-        if(companion){
-          companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-          companion.target = null;
-        }
+        repositionAlliesToPlayer();
         camera.position.copy(state.pos).add(getCamOffset());
         spawnToast('……気づくと、見知らぬ場所にいた');
         });
@@ -374,10 +371,7 @@
         fadeTransition(()=>{
           state.pos.set(-99,0,-67);
           state.vel.set(0,0,0);
-          if(companion){
-            companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-            companion.target = null;
-          }
+          repositionAlliesToPlayer();
           camera.position.copy(state.pos).add(getCamOffset());
           spawnToast('🪨 瓦礫の底に落ちた……');
         });
@@ -1180,10 +1174,7 @@
     }
     closeAllDoors(); // re-seal everything: pick a scenario in town to sortie again
     state.sortied = false;
-    if(companion){
-      companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-      companion.target = null;
-    }
+    repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
     saveGame();   // town is always a safe checkpoint - retreat, clear, or defeat alike
   }
@@ -1484,55 +1475,37 @@
       state.pos.copy(MANSION_ENTRY);
       state.camYaw = Math.PI*0.25; // northeast
       state.vel.set(0,0,0);
-      if(companion){
-        companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-        companion.target = null;
-      }
+      repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
     } else if(key==='ghostship'){
       state.pos.copy(GHOST_SHIP_ENTRY);
       state.camYaw = Math.PI*0.25; // northeast
       state.vel.set(0,0,0);
-      if(companion){
-        companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-        companion.target = null;
-      }
+      repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
     } else if(key==='temple'){
       state.pos.copy(TEMPLE_ENTRY);
       state.camYaw = Math.PI;      // facing into the temple (north)
       state.vel.set(0,0,0);
-      if(companion){
-        companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-        companion.target = null;
-      }
+      repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
     } else if(key==='clocktower'){
       state.pos.copy(TOWER_ENTRY);
       state.camYaw = 0;
       state.vel.set(0,0,0);
-      if(companion){
-        companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-        companion.target = null;
-      }
+      repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
     } else if(key==='conservatory'){
       state.pos.copy(CONSERVATORY_ENTRY);
       state.camYaw = 0;            // facing north, up the length of the glasshouse
       state.vel.set(0,0,0);
-      if(companion){
-        companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-        companion.target = null;
-      }
+      repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
     } else if(key==='waterway'){
       state.pos.copy(WATERWAY_PIER_ENTRY);
       state.vel.set(0,0,0);
       state.camYaw = Math.PI*0.25; // northeast, per fixed per-scenario camera directions
-      if(companion){
-        companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-        companion.target = null;
-      }
+      repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
       state.waterwayColdTimerT = 5;
       state.waterwayColdTimerFired = false;
@@ -1540,10 +1513,7 @@
       state.pos.copy(DUSKVILLAGE_ENTRY);
       state.camYaw = Math.PI;   // facing north, up the boardwalk into the village
       state.vel.set(0,0,0);
-      if(companion){
-        companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-        companion.target = null;
-      }
+      repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
     }
   }

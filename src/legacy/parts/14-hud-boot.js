@@ -536,6 +536,7 @@
       }
     });
     if(companion) blip(companion.pos.x, companion.pos.z, '#8ae0c0', 4);
+    if(guestCompanion) blip(guestCompanion.pos.x, guestCompanion.pos.z, '#ffd27a', 4);
 
     // off-map arrow: the stairs are the one thing you always want to be able
     // to find, but once they're outside MINIMAP_RANGE the dot above just
@@ -716,6 +717,7 @@
       updateTownReturnPoints();
       updateItemDrops(dt);
       updateCompanion(dt);
+      updateGuestCompanion(dt);
       updateCamera(dt);
       updateSunShadow();
       updateHUD();
@@ -813,6 +815,7 @@
     diceTotal = 12; allocPoints = zeroAlloc(); allocDraft = zeroAlloc();
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;   // 5人目「影の旅人」の酒場会話進行
+    state.guestClassKey = CHAPTER_CAST[1].guestClassKey || null;   // 第一章は剣士単独(#41)
     state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
     state.level = 1; state.xp = 0; state.xpToNext = xpToNextForLevel(1);
@@ -859,7 +862,7 @@
   // state.testModeを立てておけば、以降のsaveGame()呼び出しは
   // (自動セーブ含め)すべて何もしなくなる(09-save-load.js参照)ので、
   // うっかり上書きされる心配もない
-  function beginTestMode(classKey, jobKey, level){
+  function beginTestMode(classKey, jobKey, level, guestKey){
     selectedClass = classKey;
     selectedGender = 'male';
     selectedPersonality = 'brave';
@@ -891,6 +894,11 @@
     state.freeRanks = 0;
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;
+    // 通常は常にnull(単独)だが、テストモード画面の「同行ゲスト」で
+    // 選ばれていれば、GUEST COMPANION(08-loot-equipment.js)の検証用に
+    // そのクラスを立てる ―― 章の自動進行(#41)がまだ無いため、これが
+    // 現状唯一guestClassKeyを非nullにできる経路
+    state.guestClassKey = (guestKey && CLASSES[guestKey]) ? guestKey : null;
     state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
 
@@ -994,8 +1002,6 @@
     player = buildPlayer(state.classDef, selectedGender);
     if(state.job) applyJobPromotionVisual();   // 上位ジョブ(#9)転身済みなら見た目を再度乗せる
 
-    if(companion){ scene.remove(companion.group); companion = null; }
-
     document.getElementById('title-screen').style.display = 'none';
     document.getElementById('hud').classList.add('active');
     document.getElementById('menu-overlay').classList.remove('active');
@@ -1016,7 +1022,7 @@
     state.facing = 0;
     state.camYaw = spawn.camYaw;
     if(state.safePos) state.safePos.copy(state.pos);
-    if(companion){ companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2)); }
+    syncAlliesToState();   // COMPANION/GUEST COMPANIONをセーブの内容に合わせて再構築する
 
     camera.position.copy(state.pos).add(getCamOffset());
     camera.lookAt(state.pos.x, state.pos.y+0.6, state.pos.z);

@@ -62,6 +62,9 @@
       // 5人目「影の旅人」の酒場会話進行。同じく純追加のフィールド
       shadowGuideMet:!!state.shadowGuideMet,
       shadowGuideTalks:state.shadowGuideTalks || 0,
+      // 2部制(#41)のゲスト実体。章の自動進行を実装するまでは常にnullの
+      // まま保存されるが、フィールド自体は先に用意しておく
+      guestClassKey:state.guestClassKey || null,
     };
   }
 
@@ -187,6 +190,8 @@
     }
     state.shadowGuideMet = !!data.shadowGuideMet;
     state.shadowGuideTalks = data.shadowGuideTalks || 0;
+    // 改変セーブ等で未知のクラスキーが紛れ込んでいても安全側へ倒す
+    state.guestClassKey = (data.guestClassKey && CLASSES[data.guestClassKey]) ? data.guestClassKey : null;
 
     // 以前はここでretreat固定に戻していた(skillChoice自体が未保存だった
     // ため)。クラスの持ち技として実在し、かつ未解放の新技(unlockKey付き)

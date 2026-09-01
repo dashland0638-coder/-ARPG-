@@ -335,12 +335,39 @@
     const backBtn = document.getElementById('testmode-back-btn');
     const testClassGrid = document.getElementById('testmode-class-grid');
     const testJobGrid = document.getElementById('testmode-job-grid');
+    const testGuestGrid = document.getElementById('testmode-guest-grid');
     const testLevelInput = document.getElementById('testmode-level');
     const testLevelVal = document.getElementById('testmode-level-val');
     const testStartBtn = document.getElementById('testmode-start-btn');
     if(!titleScreen || !testScreen || !openBtn || !testClassGrid) return; // DOM構成がずれていたら黙って何もしない(安全側)
 
     let tmClass = null, tmJob = null;   // tmJob: null=基礎職のまま(転身しない)
+    let tmGuest = null;   // null=単独。ゲストのパーティメンバーAI(08-loot-equipment.jsのGUEST COMPANION)を
+                           // 章の自動進行を待たずに直接検証できるようにするためのテストモード専用オプション
+
+    if(testGuestGrid){
+      const noneCard = document.createElement('div');
+      noneCard.className = 'testmode-job-card selected';
+      noneCard.textContent = '単独(なし)';
+      noneCard.addEventListener('click', ()=>{
+        testGuestGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+        noneCard.classList.add('selected');
+        tmGuest = null;
+      });
+      testGuestGrid.appendChild(noneCard);
+      Object.values(CLASSES).forEach(c=>{
+        const card = document.createElement('div');
+        card.className = 'testmode-job-card';
+        card.dataset.guestKey = c.key;
+        card.textContent = `${c.icon} ${c.name}`;
+        card.addEventListener('click', ()=>{
+          testGuestGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+          card.classList.add('selected');
+          tmGuest = c.key;
+        });
+        testGuestGrid.appendChild(card);
+      });
+    }
 
     openBtn.addEventListener('click', ()=>{
       titleScreen.style.display = 'none';
@@ -403,7 +430,7 @@
     testStartBtn.addEventListener('click', ()=>{
       if(testStartBtn.disabled || !tmClass) return;
       testScreen.style.display = 'none';
-      beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1);
+      beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1, tmGuest);
     });
   })();
 

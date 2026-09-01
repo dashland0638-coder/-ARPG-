@@ -17,6 +17,7 @@
   let anomalyRoomState = null;  // {group, wallList, returnRift, mons, rewardGiven}
   let itemDrops = [];
   let companion = null;
+  let guestCompanion = null;  // 2部制(#41)のゲスト実体。state.guestClassKeyに追従(08-loot-equipment.js参照)
   let projectiles = [];
   let walls = []; // {minX,maxX,minZ,maxZ} solid collision boxes (mansion walls)
   let groundSize = 480;   // grown again so the ancient temple fits south of the mansion
@@ -1940,10 +1941,7 @@
       voidT = 0;
       lastSolid = state.pos.clone();
       if(state.safePos) state.safePos.copy(state.pos);
-      if(companion){
-        companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
-        companion.target = null;
-      }
+      repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
       spawnToast('🪜 ' + s.label);
       if(s.routeNode && routeEnter(s.routeNode)){
