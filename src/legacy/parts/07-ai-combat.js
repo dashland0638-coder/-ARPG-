@@ -476,17 +476,19 @@
     // (buildDuskVillage()はランタンなど地形側だけを先に用意している ――
     // 詳細は14-dungeon-duskvillage.js冒頭のコメント参照)
     if(_spawnWorldKey==='duskvillage'){
-      enemies.push(villager(-3, 340));
-      enemies.push(villager(4, 400));
-      enemies.push(villager(-20, 430));
-      enemies.push(villager(22, 440));
-      enemies.push(villager(0, 470));
-      addDuskShadowChild(duskLanterns[0], 6, 396);
-      addDuskShadowChild(duskLanterns[0], -6, 388);
-      addDuskShadowChild(duskLanterns[1], -28, 420);
-      addDuskShadowChild(duskLanterns[1], -18, 428);
-      addDuskShadowChild(duskLanterns[2], 30, 444);
-      addDuskShadowChild(duskLanterns[2], 18, 450);
+      // マップ刷新(狭い桟橋の蜘蛛の巣状レイアウト)に伴い、各村人・影の子供の
+      // 立ち位置もハブ/小屋の足場の内側(DUSK_ROOMS参照)に合わせて置き直した
+      enemies.push(villager(0, 345));    // 桟橋の分岐(hub1)
+      enemies.push(villager(-27, 389));  // 民家A
+      enemies.push(villager(27, 389));   // 民家B
+      enemies.push(villager(0, 433));    // 役場裏口(hub3)
+      enemies.push(villager(0, 474));    // 商店街
+      addDuskShadowChild(duskLanterns[0], 3, 341);
+      addDuskShadowChild(duskLanterns[0], -3, 349);
+      addDuskShadowChild(duskLanterns[1], -24, 385);
+      addDuskShadowChild(duskLanterns[1], -30, 393);
+      addDuskShadowChild(duskLanterns[2], 24, 385);
+      addDuskShadowChild(duskLanterns[2], 30, 393);
       const boss = buildDuskBoss();
       enemies.push(boss);
       duskBossRef = boss;

@@ -13,11 +13,17 @@
      6項目を実装し、次点以降は簡略化・一部のみ実装している(詳細はコミット
      メッセージの「技術的妥協」参照)。
 
-     資料の9エリア構成を、実装コストとのバランスを取って6エリアに圧縮した:
-       湖沼入口 → 長い桟橋 → 最初の灯り → 水上住宅街 → 商店街 → 商店街広場(ボス)
-     他ダンジョンの「壁で仕切られた部屋」ではなく、水上の桟橋という舞台に
-     自然に合うよう、addLowRailBox(元々「水辺の境界」用に用意されていた
-     ヘルパー)で桟橋の縁を縁取り、水面はただの装飾(当たり判定なし)にした。
+     マップ構造刷新(イメージ図準拠): 当初は広い長方形の部屋を線形に繋ぐ
+     構成だったが、参考イメージ(蜘蛛の巣のように木の細道が水上に張り巡らされ、
+     中央の広場だけ少し広い)に合わせて作り直した。太い部屋ではなく、
+     細い桟橋(cor:true、幅4)で繋いだハブ(小さな足場、幅14)から
+     左右に小屋(漁師の小屋/見張り台跡/民家A・B・C)へ分岐する構成にし、
+     広い場所は最終エリアの商店街広場(ボス戦)だけに絞ってある。
+     壁テーブルの authoring パターン自体は他ダンジョンと同じ(gaps宣言 +
+     buildWalls())で、部屋を小さく・細くしただけなので、ロジック側の
+     変更は最小限で済んでいる。水面はただの装飾(当たり判定なし)、
+     桟橋の縁はaddLowRailBox(元々「水辺の境界」用に用意されていた
+     ヘルパー)で縁取っている。
      どのファイルも前後のファイルとコメントの開き/閉じを跨いで連結される
      (concat-plugin.jsで単純結合されるため)ので、このファイル自身は
      このセクション見出しコメントで前のファイルの末尾コメントを閉じ、
@@ -28,23 +34,46 @@
 
   const DUSKVILLAGE_ENTRY = new THREE.Vector3(0, 0, 300);
 
+  // 蜘蛛の巣状のレイアウト: 細い桟橋(cor:true、幅4)が縦の背骨として
+  // 3つのハブ(桟橋の分岐/舫い場/役場裏口、いずれも幅14の小さな足場)を
+  // 繋ぎ、各ハブから東西に細い桟橋がもう一本ずつ伸びて小屋(漁師の小屋・
+  // 見張り台跡・民家A・民家B・民家C)へ至る。広い場所は商店街広場
+  // (ボスエリア)だけ。gapsの数値は「繋ぐ相手の部屋のx0/x1(またはz0/z1)と
+  // 一致させる」という他ダンジョンと同じ規約通りに、桟橋の幅(4、広場前後
+  // のみ6)へ揃えてある
   const DUSK_ROOMS = [
-    {id:'entry',   x0:-20, x1:20, z0:284, z1:316, cor:false, gaps:{N:[-6,6]}, name:'湖沼の入口'},
-    {id:'pier',    x0:-8,  x1:8,  z0:316, z1:380, cor:false, gaps:{S:[-6,6], N:[-5,5]}, name:'長い桟橋'},
-    {id:'lantern1',x0:-16, x1:16, z0:380, z1:410, cor:false, gaps:{S:[-5,5], N:[-8,8]}, name:'最初の灯り'},
-    {id:'village', x0:-40, x1:40, z0:410, z1:462, cor:false, gaps:{S:[-8,8], N:[-10,10]}, name:'水上住宅街'},
-    {id:'market',  x0:-14, x1:14, z0:462, z1:500, cor:false, gaps:{S:[-10,10], N:[-8,8]}, name:'商店街'},
-    {id:'square',  x0:-30, x1:30, z0:500, z1:540, cor:false, gaps:{S:[-8,8]}, name:'商店街広場'},
+    {id:'entry',    x0:-8,  x1:8,  z0:284, z1:308, cor:false, gaps:{N:[-2,2]}, name:'湖沼の入口'},
+    {id:'pier1',    x0:-2,  x1:2,  z0:308, z1:338, cor:true,  gaps:{N:'full', S:'full'}, name:'桟橋'},
+    {id:'hub1',     x0:-7,  x1:7,  z0:338, z1:352, cor:false, gaps:{S:[-2,2], N:[-2,2], W:[343,347], E:[343,347]}, name:'桟橋の分岐'},
+    {id:'fishCor',  x0:-20, x1:-7, z0:343, z1:347, cor:true,  gaps:{E:'full', W:'full'}, name:'桟橋'},
+    {id:'fisher',   x0:-34, x1:-20,z0:336, z1:354, cor:false, gaps:{E:[343,347]}, name:'漁師の小屋'},
+    {id:'watchCor', x0:7,   x1:20, z0:343, z1:347, cor:true,  gaps:{E:'full', W:'full'}, name:'桟橋'},
+    {id:'watch',    x0:20,  x1:34, z0:336, z1:354, cor:false, gaps:{W:[343,347]}, name:'見張り台跡'},
+    {id:'pier2',    x0:-2,  x1:2,  z0:352, z1:382, cor:true,  gaps:{N:'full', S:'full'}, name:'桟橋'},
+    {id:'hub2',     x0:-7,  x1:7,  z0:382, z1:396, cor:false, gaps:{S:[-2,2], N:[-2,2], W:[387,391], E:[387,391]}, name:'舫い場'},
+    {id:'houseACor',x0:-20, x1:-7, z0:387, z1:391, cor:true,  gaps:{E:'full', W:'full'}, name:'桟橋'},
+    {id:'houseA',   x0:-34, x1:-20,z0:380, z1:398, cor:false, gaps:{E:[387,391]}, name:'民家A'},
+    {id:'houseBCor',x0:7,   x1:20, z0:387, z1:391, cor:true,  gaps:{E:'full', W:'full'}, name:'桟橋'},
+    {id:'houseB',   x0:20,  x1:34, z0:380, z1:398, cor:false, gaps:{W:[387,391]}, name:'民家B'},
+    {id:'pier3',    x0:-2,  x1:2,  z0:396, z1:426, cor:true,  gaps:{N:'full', S:'full'}, name:'桟橋'},
+    {id:'hub3',     x0:-7,  x1:7,  z0:426, z1:440, cor:false, gaps:{S:[-2,2], N:[-2,2], W:[431,435]}, name:'役場裏口'},
+    {id:'houseCCor',x0:-20, x1:-7, z0:431, z1:435, cor:true,  gaps:{E:'full', W:'full'}, name:'桟橋'},
+    {id:'houseC',   x0:-34, x1:-20,z0:424, z1:442, cor:false, gaps:{E:[431,435]}, name:'民家C'},
+    {id:'pier4',    x0:-2,  x1:2,  z0:440, z1:466, cor:true,  gaps:{N:'full', S:'full'}, name:'桟橋'},
+    {id:'market',   x0:-8,  x1:8,  z0:466, z1:482, cor:false, gaps:{S:[-2,2], N:[-3,3]}, name:'商店街'},
+    {id:'pier5',    x0:-3,  x1:3,  z0:482, z1:500, cor:true,  gaps:{N:'full', S:'full'}, name:'桟橋'},
+    // 唯一「少し広くなっている」場所。とはいえ元の全長60より遥かに小さい
+    {id:'square',   x0:-15, x1:15, z0:500, z1:536, cor:false, gaps:{S:[-3,3]}, name:'商店街広場'},
   ];
 
   // 昼夜進行(ALTITUDE_BANDSと同じ「進行度で色を補間する」手法を、高さでは
   // なくzの進み具合に置き換えて流用した)。z=284(入口)で夕焼け、
-  // z=540(広場)で完全な夜になる
+  // z=536(広場)で完全な夜になる
   const DUSK_BANDS = [
     {z:284, sky:0x3a2038, fog:0.014, sun:0xff9a5a, sunI:0.55, hemi:0.32, hemiSky:0x9a6a6a, hemiGnd:0x1e1420, rim:0xff8a4a, rimI:0.24, exp:0.82},   // 夕焼け
     {z:380, sky:0x261a3a, fog:0.020, sun:0xc07aa0, sunI:0.40, hemi:0.26, hemiSky:0x6a5a8a, hemiGnd:0x161022, rim:0x9a6ac0, rimI:0.22, exp:0.76},   // 薄暮/ブルーアワー
-    {z:462, sky:0x141428, fog:0.028, sun:0x6a7ac0, sunI:0.24, hemi:0.18, hemiSky:0x3a4a7a, hemiGnd:0x0a0a16, rim:0x5a7ad0, rimI:0.20, exp:0.70},   // 夜
-    {z:540, sky:0x080814, fog:0.036, sun:0x3a4a90, sunI:0.14, hemi:0.12, hemiSky:0x22305a, hemiGnd:0x06060c, rim:0x3a5ac0, rimI:0.18, exp:0.62},   // 完全な夜(ボス)
+    {z:460, sky:0x141428, fog:0.028, sun:0x6a7ac0, sunI:0.24, hemi:0.18, hemiSky:0x3a4a7a, hemiGnd:0x0a0a16, rim:0x5a7ad0, rimI:0.20, exp:0.70},   // 夜
+    {z:536, sky:0x080814, fog:0.036, sun:0x3a4a90, sunI:0.14, hemi:0.12, hemiSky:0x22305a, hemiGnd:0x06060c, rim:0x3a5ac0, rimI:0.18, exp:0.62},   // 完全な夜(ボス)
   ];
 
   let duskLanterns = [];
@@ -136,9 +165,9 @@
 
     // 水面: 全域を覆う一枚板。当たり判定はなく、桟橋の縁(addLowRailBox)の
     // 外に落ちても見た目としてそこに水がある、というだけの装飾
-    const water = new THREE.Mesh(new THREE.PlaneGeometry(140, 280), waterMat);
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(90, 270), waterMat);
     water.rotation.x = -Math.PI/2;
-    water.position.set(0, -0.35, 412);
+    water.position.set(0, -0.35, 410);
     scene.add(water);
 
     function buildWalls(r){
@@ -161,7 +190,7 @@
       buildWalls(r);
     });
 
-    // ---- 家屋のシルエット(水上住宅街) ----
+    // ---- 家屋のシルエット(各小屋の足場の上に1棟ずつ) ----
     function house(x, z, w, d, h){
       addStaticBox(x, h/2, z, w, h, d, houseMat, true);
       const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*0.72, h*0.55, 4), roofMat);
@@ -169,12 +198,21 @@
       roof.rotation.y = Math.PI/4;
       scene.add(roof);
     }
-    house(-26, 420, 8, 7, 4.2);
-    house(-14, 445, 6, 6, 3.6);
-    house(16,  424, 7, 6, 3.8);
-    house(28,  448, 6, 7, 4.0);
-    house(-8,  480, 5, 5, 3.4);   // 商店街の廃店舗
-    house(8,   485, 5, 5, 3.4);
+    house(-27, 345, 7, 7, 3.8);   // 漁師の小屋
+    house(-27, 389, 6, 6, 3.6);   // 民家A
+    house(27,  389, 6, 6, 3.6);   // 民家B
+    house(-27, 433, 6, 6, 3.6);   // 民家C
+    house(-4,  472, 5, 5, 3.2);   // 商店街の廃店舗
+    house(4,   476, 5, 5, 3.2);   // 商店街の廃店舗
+
+    // 見張り台跡: 屋根のある小屋ではなく、崩れた塔の柱として立たせる
+    // (「跡」という名前通り、他の小屋とはっきり見た目を分ける)
+    const watchTower = new THREE.Mesh(new THREE.CylinderGeometry(1.6,2.0,5.5,8), houseMat);
+    watchTower.position.set(27, 2.75, 345);
+    watchTower.rotation.z = 0.06;
+    watchTower.castShadow = true;
+    scene.add(watchTower);
+    walls.push({minX:27-1.8, maxX:27+1.8, minZ:345-1.8, maxZ:345+1.8});
 
     // ---- ランタン(最重要ギミック) ----
     // 消灯時は暗い柱にしか見えず、interact()で点けると:
@@ -203,10 +241,10 @@
     // (07-ai-combat.js、_spawnWorldKey==='duskvillage'の分岐)側で行う。
     // ここではランタンだけ先に用意しておき、spawnEnemies()がduskLanterns
     // 配列を参照してshadowChildをreveals配列へ後付けする
-    addLantern(0, 392);
-    addLantern(-22, 424);
-    addLantern(24, 446);
-    const marketLantern = addLantern(0, 478);   // 商店街の灯り: 敵は出さず環境イベント専用
+    addLantern(0, 345);    // 桟橋の分岐(hub1)中央の、最初の灯り
+    addLantern(-27, 389);  // 民家Aの前
+    addLantern(27, 389);   // 民家Bの前
+    const marketLantern = addLantern(0, 474);   // 商店街の灯り: 敵は出さず環境イベント専用
     const squareLantern = addLantern(0, 518);   // 広場中央の大灯り: ボス戦の光源
 
     // ---- 環境イベント(商店街) ----
@@ -220,17 +258,17 @@
     // ---- ボス:宵影の群れ ----
     // ボス本体の生成(buildDuskBoss())とenemies.push/duskBossRefへの
     // 代入はspawnEnemies()側で行う。ここではボスの間の扉だけ用意する
-    buildDoor('duskBossDoor', 0, 500, 16, 0x2a2438, 'NS');
+    buildDoor('duskBossDoor', 0, 500, 6, 0x2a2438, 'NS');
 
     // ---- ロア ----
     buildLoreNote(new THREE.Vector3(0, 0, 306), '朽ちた道標', [
       '「宵待ちの村へ ようこそ」',
       '文字の下に、小さく彫り足された跡がある。「――もう、誰も来ないと思っていた」'
     ], {kind:'sign', wall:false});
-    buildLoreNote(new THREE.Vector3(-10, 0, 420), '軒先に吊るされたままのランタン', [
+    buildLoreNote(new THREE.Vector3(-30, 0, 430), '軒先に吊るされたままのランタン', [
       '灯油はとうに切れている。それでも、誰かが定期的に磨いているような跡がある。'
     ], {kind:'book'});
-    buildLoreNote(new THREE.Vector3(6, 0, 486), '商店の看板', [
+    buildLoreNote(new THREE.Vector3(5, 0, 470), '商店の看板', [
       '「――屋」としか読めない。屋号の残りは、色褪せて消えている。',
       '扉の隙間から、かすかに灯油の匂いがした。'
     ], {kind:'sign', wall:false});

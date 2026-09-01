@@ -1259,7 +1259,7 @@
     // ステージ。「暗闇だから見えない」のではなく「灯りが怪異をこちらの世界へ
     // 引き出す」という逆転の発想がこのステージの核(詳細はbuildDuskVillage
     // 参照、15-dungeon-duskvillage.js)
-    {key:'duskvillage', name:'🏮 宵待ちの村', levelRange:'26〜85(★8)', minLevel:26, desc:'湖沼に沈みかけた廃村。高床式の桟橋が水上に張り巡らされている。灯りを点せば、そこにいるはずのないものが見えてしまう。', unlocked:true},
+    {key:'duskvillage', name:'🏮 宵待ちの村', levelRange:'26〜85(★8)', minLevel:26, desc:'湖沼に沈みかけた廃村。蜘蛛の巣のように、狭い木の桟橋だけが水上に張り巡らされている。灯りを点せば、そこにいるはずのないものが見えてしまう。', unlocked:true},
     {key:'pyramid',    name:'🏜️ 砂漠のピラミッド', levelRange:'16〜20', minLevel:16, desc:'黄金の呪いに満ちた古の墓所。目覚めた王が眠りへの帰還を拒む者を裁く。', unlocked:false},
     {key:'volcano',    name:'🌋 業火の火山',     levelRange:'21〜25', minLevel:21, desc:'絶えず溶岩が滾る山の奥、炎そのものと化した支配者が待つ。', unlocked:false},
   ];
