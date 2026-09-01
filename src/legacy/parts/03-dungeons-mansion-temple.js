@@ -1578,6 +1578,74 @@
     ]);
   }
 
+  /* =========================================================
+     酒場の家具・装飾NPC共通部品
+
+     以前は円卓の天板だけが浮いている簡素な作りで、椅子も座っている人も
+     いなかった。「キャラやNPCが座ったり会話できるような酒場」に
+     作り込むため、卓・丸椅子・座った装飾NPCをここで共通部品化し、
+     buildTavern()側は配置(どこに何卓置き、誰を座らせるか)だけを
+     書けばよいようにしてある。装飾NPCは話しかけられない(interact対象は
+     店主・鍛冶士・5人目のみ)雰囲気作り専用で、酒場を歩く他の客たちが
+     いつも同じ席で飲んでいる、という「生活感」を出す狙い
+  ========================================================= */
+  // 丸椅子。座っている人物の下に添えるだけの装飾で、当たり判定は
+  // 持たない(卓の周りを人が歩き回れるように、椅子自体では塞がない)
+  function addStool(x, z, ry){
+    const stoolMat = new THREE.MeshStandardMaterial({color:0x4a3624, roughness:0.85});
+    const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.24,0.12,10), stoolMat);
+    seat.position.set(x, 0.42, z);
+    seat.rotation.y = ry||0;
+    seat.castShadow = true;
+    scene.add(seat);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.42,6), stoolMat);
+    leg.position.set(x, 0.21, z);
+    scene.add(leg);
+  }
+
+  // 円卓+丸椅子のセット。座席数ぶん均等配置し、各座席のワールド座標を
+  // 返す(呼び出し側がそこへ装飾NPCを座らせたり、5人目のような固有NPCの
+  // 定位置として使えるように)。卓自体には控えめな当たり判定を持たせて
+  // あるので、椅子だけの旧実装と違い上を歩いて通り抜けることはない
+  function addTavernTable(x, z, radius, seatCount){
+    const tableMat = new THREE.MeshStandardMaterial({color:0x3a2c1c, roughness:0.8});
+    const table = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.6, 12), tableMat);
+    table.position.set(x, 0.3, z);
+    table.castShadow = true;
+    scene.add(table);
+    const hw = radius*0.75;
+    walls.push({minX:x-hw, maxX:x+hw, minZ:z-hw, maxZ:z+hw});
+    const seats = [];
+    for(let i=0;i<seatCount;i++){
+      const a = (i/seatCount)*Math.PI*2;
+      const sx = x + Math.sin(a)*(radius+0.55);
+      const sz = z + Math.cos(a)*(radius+0.55);
+      const ry = a+Math.PI; // 卓の中心を向く
+      addStool(sx, sz, ry);
+      seats.push({x:sx, z:sz, ry});
+    }
+    return seats;
+  }
+
+  // 装飾用の「座っている一般客」。会話は持たない雰囲気作り専用で、
+  // 店主/鍛冶士と同じ簡易な組み合わせ図形で作る。座高が低いぶん、
+  // 立像(buildTavern内の店主等)よりも胴体を短く・低い位置に置いてある
+  function addSeatedPatron(x, z, ry, clothColor){
+    const skinMat = new THREE.MeshStandardMaterial({color:0xd8a878, roughness:0.7});
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.4,0.6,10),
+      new THREE.MeshStandardMaterial({color:clothColor, roughness:0.85}));
+    body.position.y = 0.55;
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.29,12,10), skinMat);
+    head.position.y = 1.0;
+    g.add(head);
+    g.position.set(x, 0, z);
+    g.rotation.y = ry;
+    scene.add(g);
+    return g;
+  }
+
   function buildTavern(){
     const wallTex = makeNoiseTexture('#e8e2d4', ['#dcd4c2','#f0ebe0','#d4cab8'], 5, 3);
     const wallMat = new THREE.MeshStandardMaterial({map:wallTex, color:0xe8e2d4, roughness:0.8});
@@ -1608,21 +1676,40 @@
     tavernLamp.position.set(0, 3.5, 15);
     scene.add(tavernLamp);
 
-    // a couple of tables for atmosphere
-    const tableMat = new THREE.MeshStandardMaterial({color:0x3a2c1c, roughness:0.8});
-    [[-5,10],[5,11]].forEach(([x,z])=>{
-      const table = new THREE.Mesh(new THREE.CylinderGeometry(0.9,0.9,0.6,8), tableMat);
-      table.position.set(x, 0.3, z);
-      
-      scene.add(table);
-    });
+    // 卓A: 西側。二人が向き合って話し込んでいる ―― 「酒場で誰かと誰かが
+    // 話している」という光景を作るための、一番分かりやすい組み合わせ
+    const tableAMat = new THREE.MeshStandardMaterial({color:0x3a2c1c, roughness:0.8});
+    const seatsA = addTavernTable(-5, 10, 0.9, 3);
+    addSeatedPatron(seatsA[0].x, seatsA[0].z, seatsA[0].ry, 0x5a4a6a);
+    addSeatedPatron(seatsA[1].x, seatsA[1].z, seatsA[1].ry, 0x3a5a4a);
+
+    // 卓B: 東側、入口寄り。一人客が手前を向いて座っている ―― 卓Aとは
+    // 距離を取り(z=15)、桟橋検証テスト等が使う入口→5人目の導線
+    // (spawn付近z≈10)や、店主・鍛冶士へ向かう導線と重ならないようにした
+    const seatsB = addTavernTable(5, 15, 0.9, 3);
+    addSeatedPatron(seatsB[0].x, seatsB[0].z, seatsB[0].ry, 0x6a4030);
 
     // the counter, near the back, with the bartender behind it
-    const counter = new THREE.Mesh(new THREE.BoxGeometry(8,1,1.4), tableMat);
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(8,1,1.4), tableAMat);
     counter.position.set(0, 0.5, 19);
     counter.castShadow = true;
     scene.add(counter);
     walls.push({minX:-4, maxX:4, minZ:18.3, maxZ:19.7});
+
+    // 棚: 店主の背後の壁際に酒瓶を並べた棚を一段追加。カウンターだけだと
+    // 殺風景なので、簡易な箱の組み合わせで最低限の「酒場らしさ」を足す
+    const shelfMat = new THREE.MeshStandardMaterial({color:0x2e2018, roughness:0.75});
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(6,0.15,0.5), shelfMat);
+    shelf.position.set(0, 1.7, 22.6);
+    shelf.castShadow = true;
+    scene.add(shelf);
+    const bottleColors = [0x3a6a4a,0x5a3a2a,0x2a4a6a,0x6a5a2a,0x4a2a4a];
+    for(let i=0;i<9;i++){
+      const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.34,8),
+        new THREE.MeshStandardMaterial({color:bottleColors[i%bottleColors.length], roughness:0.4, metalness:0.1}));
+      bottle.position.set(-2.6 + i*0.65, 1.94, 22.6);
+      scene.add(bottle);
+    }
 
     const skinMat = new THREE.MeshStandardMaterial({color:0xd8a878, roughness:0.7});
     const clothMat = new THREE.MeshStandardMaterial({color:0x5a2c22, roughness:0.8});
@@ -1665,22 +1752,31 @@
       '差出人の名前は、とうに読めなくなっていた。'
     ], {kind:'sign'});
 
-    // 5人目「影の旅人」。北の壁際、酒場の片隅にずっと座っている謎めいた
-    // 人物 ―― まだ戦えるとは誰も知らない(会話はtalkToShadowGuide()、
-    // 12-progression-ui.js参照)。黒ずくめの装いに、足元だけ紫がかった
-    // 影がまとわりつく見た目にしてある
+    // 5人目「影の旅人」。北の壁際、酒場の片隅の小卓にずっと一人で
+    // 座っている謎めいた人物 ―― まだ戦えるとは誰も知らない(会話は
+    // talkToShadowGuide()、12-progression-ui.js参照)。黒ずくめの装いに、
+    // 足元だけ紫がかった影がまとわりつく見た目にしてある。
+    // SHADOW_GUIDE_POS(=本人の着席位置、nearbyShadowGuideの距離判定の
+    // 基準)は変えず、その位置に丸椅子を、少しだけ東壁寄りに彼専用の
+    // 小卓を添えて「一人で卓についている」構図にした
+    const sgTableX = SHADOW_GUIDE_POS.x + 0.7, sgTableZ = SHADOW_GUIDE_POS.z - 0.2;
+    addTavernTable(sgTableX, sgTableZ, 0.55, 0); // 座席0=椅子は自前で置く(本人だけの専用卓)
+    addStool(SHADOW_GUIDE_POS.x, SHADOW_GUIDE_POS.z, Math.PI*0.15);
+
     const shadowCloakMat = new THREE.MeshStandardMaterial({color:0x0c0a10, roughness:0.9});
     const shadowSkinMat = new THREE.MeshStandardMaterial({color:0xcabcd6, roughness:0.6});
     const shadowGuide = new THREE.Group();
-    const sgBody = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.48,1.1,10), shadowCloakMat);
-    sgBody.position.y = 0.9;
+    // 座った姿勢: 立像(店主・鍛冶士)より胴を短く低くし、椅子に腰掛けて
+    // いるシルエットにする
+    const sgBody = new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.46,0.68,10), shadowCloakMat);
+    sgBody.position.y = 0.62;
     shadowGuide.add(sgBody);
     const sgHead = new THREE.Mesh(new THREE.SphereGeometry(0.32,12,10), shadowSkinMat);
-    sgHead.position.y = 1.68;
+    sgHead.position.y = 1.1;
     shadowGuide.add(sgHead);
     const sgHair = new THREE.Mesh(new THREE.SphereGeometry(0.35,12,10,0,Math.PI*2,0,Math.PI*0.6),
       new THREE.MeshStandardMaterial({color:0x0a0810, roughness:0.7}));
-    sgHair.position.y = 1.78;
+    sgHair.position.y = 1.2;
     shadowGuide.add(sgHair);
     // 影だまり: 本人の足元に不自然に広がる、紫みを帯びた影。「本人とは
     // 少し違う意思を持つ影」というインフォグラフィックの設定を、まだ
@@ -1694,7 +1790,7 @@
     shadowGlow.position.set(0, 1.2, 0);
     shadowGuide.add(shadowGlow);
     shadowGuide.position.copy(SHADOW_GUIDE_POS);
-    shadowGuide.rotation.y = -Math.PI/2.4; // 壁際で少し店内側を向いて座っている
+    shadowGuide.rotation.y = Math.PI*0.15 + Math.PI; // 隣の小卓(sgTableX方向)を向いて座っている
     scene.add(shadowGuide);
   }
 
