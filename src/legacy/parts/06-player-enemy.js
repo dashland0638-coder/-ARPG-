@@ -108,12 +108,19 @@
         // 戦騎士(#39系、意匠参考: 歴戦の騎士のエクスカリバー案): 大剣の
         // 重厚さではなく、細く長い装飾剣にする。刀身の幅を大剣の半分
         // 以下に絞り、長さを伸ばして「シュッとした」印象に寄せた
-        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.062,1.55,0.028), steel);
-        blade.position.y = 0.90;
+        //
+        // グラフィック刷新: 平板2枚(blade+fuller)の組み合わせだった刀身を
+        // 1本のPrism(先細りの六角断面押し出し)に置き換えた。断面自体が
+        // 稜(鎬)のある形なので、fuller(添え板)無しでも「刀身に厚みが
+        // ある」ことが伝わり、メッシュ数はむしろ1枚減っている
+        const bladeGeo = makePrism({
+          shape:[{x:0,z:0.020},{x:0.048,z:0.007},{x:0.048,z:-0.007},{x:0,z:-0.020},{x:-0.048,z:-0.007},{x:-0.048,z:0.007}],
+          length:1.55, scaleStart:1, scaleEnd:0.42,
+        });
+        const blade = new THREE.Mesh(bladeGeo, steel);
+        blade.position.y = 0.13;
         const tip = new THREE.Mesh(new THREE.ConeGeometry(0.044,0.24,4), steel);
         tip.position.y = 1.79;
-        const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.018,1.3,0.032), darkSteel);
-        fuller.position.y = 0.88;
         const guard = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.045,0.05), trimMat);
         guard.position.y = 0.10;
         const guardTipL = new THREE.Mesh(new THREE.SphereGeometry(0.032,7,6), trimMat);
@@ -123,7 +130,7 @@
         hilt.position.y = -0.10;
         const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.06,0), trimMat);
         pommel.position.y = -0.30;
-        weapon.add(blade, tip, fuller, guard, guardTipL, guardTipR, hilt, pommel);
+        weapon.add(blade, tip, guard, guardTipL, guardTipR, hilt, pommel);
         weapon.position.set(0, HIP_Y+bodyH*0.55, 0.30);
       } else {
       const blade = new THREE.Mesh(new THREE.BoxGeometry(0.15,1.15,0.045), steel);
@@ -550,17 +557,24 @@
     const scleraFrontZ = headR*0.90 + scleraR*scleraZScale*eyeScale;
     const pupilR = 0.038, pupilPoke = 0.008;
     const highlightR = 0.013, highlightPoke = 0.014;
+    // グラフィック刷新(戦騎士#低頭身化): 頭部一式(頭+髪+目)をまとめて
+    // 縮小できるよう、目のメッシュをここで配列に集めておく。既存の
+    // 「白目/瞳/ハイライトの3層」自体には一切手を加えていない
+    const faceMeshes = [];
     [-0.115*eyeScale, 0.115*eyeScale].forEach(x=>{
       const sclera = new THREE.Mesh(new THREE.SphereGeometry(scleraR*eyeScale,10,8), scleraMat);
       sclera.scale.set(1, 1.15, scleraZScale);
       sclera.position.set(x, head.position.y+0.02, headR*0.90);
       group.add(sclera);
+      faceMeshes.push(sclera);
       const pupil = new THREE.Mesh(new THREE.SphereGeometry(pupilR*eyeScale,8,7), pupilMat);
       pupil.position.set(x, head.position.y+0.02, scleraFrontZ - pupilR*eyeScale + pupilPoke*eyeScale);
       group.add(pupil);
+      faceMeshes.push(pupil);
       const highlight = new THREE.Mesh(new THREE.SphereGeometry(highlightR*eyeScale,6,6), highlightMat);
       highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ - highlightR*eyeScale + highlightPoke*eyeScale);
       group.add(highlight);
+      faceMeshes.push(highlight);
     });
 
     // hair suggestion - now smooth-segmented to match the rounder head
@@ -578,6 +592,11 @@
     hair.position.y += 0.02;
     group.add(hair);
 
+    // グラフィック刷新(戦騎士#低頭身化): 頭+髪+目をapplyJobPromotionVisual側
+    // からまとめて縮小できるよう、参照をplayerMixerPartsに残しておく
+    // (既存クラスの見た目・挙動には一切影響しない、参照の追加のみ)
+    playerMixerParts.headGroupParts = [head, hair, ...faceMeshes];
+
     /* ---------- class-specific headgear & flourishes ---------- */
     const hY = head.position.y;
     const metalMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.35, metalness:0.7});
@@ -594,22 +613,34 @@
     const furMat = new THREE.MeshStandardMaterial({color:0xe6dcc6, roughness:0.9});
 
     if(classDef.key==='warrior'){
+      // グラフィック刷新(戦騎士): 以下で作る素の剣士の兜・襟巻・毛皮・
+      // 革帯・短いマントは、戦騎士へ転身した際にapplyJobPromotionVisual側で
+      // まとめて非表示にし、代わりに一回り大きい低ポリ専用の意匠に差し替える
+      // (2章で解析した「既存キャラクター構造と競合しない」ための差分方式)。
+      // ここではその対象を1配列に集めておくだけで、素の剣士の見た目・挙動は
+      // 一切変えていない
+      const warriorBaseDecor = [];
       // full helm + a long scarf trailing off the neck
       const helm = new THREE.Mesh(new THREE.SphereGeometry(headR*1.16, 10, 8, 0, Math.PI*2, 0, Math.PI*0.62), metalMat);
       helm.position.set(0, hY+0.03, 0); helm.castShadow = true; group.add(helm);
+      warriorBaseDecor.push(helm);
       const visor = new THREE.Mesh(new THREE.BoxGeometry(headR*1.9, 0.07, 0.1), darkMat);
       visor.position.set(0, hY+0.02, headR*0.86); group.add(visor);
+      warriorBaseDecor.push(visor);
       const crest = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.34), clothAcc);
       crest.position.set(0, hY+0.28, -0.02); group.add(crest);
+      warriorBaseDecor.push(crest);
       // scarf: collar plus two streamers blown back
       const collar = new THREE.Mesh(new THREE.TorusGeometry(headR*0.85, 0.06, 8, 14), clothAcc);
       collar.rotation.x = Math.PI/2;
       collar.position.set(0, hY-headR*0.95, 0); group.add(collar);
+      warriorBaseDecor.push(collar);
       [-1,1].forEach(s=>{
         const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.72), clothAcc);
         tail.position.set(s*0.1, hY-headR*1.5, -0.28);
         tail.rotation.set(0.5, s*0.22, s*0.12);
         group.add(tail);
+        warriorBaseDecor.push(tail);
       });
       // 毛皮の縁飾り(意匠参考: 毛皮縁の甲冑騎士案 + ユーザー指摘「もっと
       // モコモコ、トゲトゲに」)。滑らかなトーラス1本ではなく、根元の
@@ -620,6 +651,7 @@
       furBase.rotation.x = Math.PI/2;
       furBase.position.set(0, hY-headR*1.0, 0);
       furBase.castShadow = true; group.add(furBase);
+      warriorBaseDecor.push(furBase);
       // 見下ろし視点の実際の距離で検証した結果、半径0.038/14本では
       // 判別できないほど小さく埋もれてしまったため、本数を減らして
       // 一本ずつを大きく太くした(数より個々の視認性を優先)
@@ -633,6 +665,7 @@
         spike.rotation.set(Math.PI/2-0.4, ang, 0);
         spike.castShadow = true;
         group.add(spike);
+        warriorBaseDecor.push(spike);
       }
       // 鎧のディテール強化(ユーザー指摘「鎧のパーツを細かく分割して」)。
       // 胸当てだけの単調な塊にならないよう、交差する2本の革帯+留め具
@@ -643,16 +676,19 @@
         strap.position.set(0, HIP_Y+bodyH*0.62, s*bodyR*0.62);
         strap.rotation.x = s*0.62;
         group.add(strap);
+        warriorBaseDecor.push(strap);
       });
       const clasp = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.025,10), trimMat);
       clasp.rotation.x = Math.PI/2;
       clasp.position.set(0, HIP_Y+bodyH*0.6, bodyR*0.55);
       clasp.castShadow = true; group.add(clasp);
+      warriorBaseDecor.push(clasp);
       [-0.55,0,0.55].forEach(o=>{
         const plate = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.05), trimMat);
         plate.position.set(o*bodyR, HIP_Y-0.08, bodyR*0.85);
         plate.rotation.x = -0.15;
         plate.castShadow = true; group.add(plate);
+        warriorBaseDecor.push(plate);
       });
       // 短いマント(ユーザー指摘「マントは短く」、意匠参考: 毛皮縁の甲冑
       // 騎士案)。戦騎士転身時の長い二枚ケープ(applyJobPromotionVisual)
@@ -666,7 +702,9 @@
         shortCape.position.set(s*0.14, HIP_Y+bodyH*0.82, -bodyR-0.02);
         shortCape.rotation.set(0.12, s*0.5, s*0.06);
         shortCape.castShadow = true; group.add(shortCape);
+        warriorBaseDecor.push(shortCape);
       });
+      playerMixerParts.warriorBaseDecor = warriorBaseDecor;
 
     } else if(classDef.key==='rogue'){
       // 鉢巻+長髪(ユーザー指摘: 軽装の盗賊は角兜ではなく鉢巻と長髪に)。
@@ -870,6 +908,9 @@
       pauldron.position.y = -0.02;
       pauldron.castShadow = true;
       sh.add(pauldron);
+      // グラフィック刷新(戦騎士): 素の丸い肩当てを転身時に隠して、より
+      // 大きい低ポリの肩鎧(Wedge)に差し替えられるよう参照を残しておく
+      if(s < 0) playerMixerParts.pauldronL = pauldron; else playerMixerParts.pauldronR = pauldron;
     });
     group.add(armL, armR);
     playerMixerParts.armR = armR;
@@ -1107,6 +1148,25 @@
      二重付与を防ぐため、before何か付いていれば先に外してから組み直す。 */
   function clearJobPromotionVisual(){
     const P = playerMixerParts;
+    // グラフィック刷新(戦騎士): 頭部縮小グループ(headScaleGroup)は
+    // jobDecorMeshesとは別管理 ―― 中身が「本体の」頭/髪/目そのものなので、
+    // 誤って dispose() すると素の剣士に戻った瞬間に顔が消える事故になる。
+    // ここでは dispose せず、waist の子へ元の位置のまま戻すだけにする
+    if(P.headScaleGroup){
+      const hg = P.headScaleGroup;
+      hg.children.slice().forEach(m=>{
+        m.position.add(hg.position);   // headScaleGroup local -> waist local(縮小前の座標に戻る)
+        if(P.waist) P.waist.add(m);
+      });
+      if(hg.parent) hg.parent.remove(hg);
+      P.headScaleGroup = null;
+    }
+    // 戦騎士転身時に隠した素の剣士装飾(兜・毛皮・革帯・肩当て)を可視に戻す。
+    // battleKnight以外はそもそもこれらを隠さないので、他クラスには無関係
+    if(P.warriorBaseDecor) P.warriorBaseDecor.forEach(m=>{ m.visible = true; });
+    if(P.pauldronL) P.pauldronL.visible = true;
+    if(P.pauldronR) P.pauldronR.visible = true;
+
     if(!P.jobDecorMeshes) return;
     P.jobDecorMeshes.forEach(m=>{
       if(m.parent) m.parent.remove(m);
@@ -1139,47 +1199,173 @@
     if(P.offhandWeapon) P.offhandWeapon.scale.setScalar(1.32);
 
     if(uj.key === 'battleKnight'){
-      // 非対称の鎧(ユーザー指摘: 歴戦の騎士のようにアシンメトリーに)。
-      // 左右同じ殻を足していたのをやめ、利き手と逆側(左)には大型の殻+
-      // 追加のリベット段、利き手側(右)は動きを妨げない小ぶりな殻という
-      // 「補修を重ねてきた歴戦の装備」の非対称さを付けた
+      /* =====================================================
+         グラフィック刷新(戦騎士、2026-09-01合意の設計に基づく実装)
+         「旋盤図形を組み合わせた人形」から「Low Polyのファンタジー
+         キャラクター」へ。既存の剣士の骨格(waist/armL/armR等のピボット、
+         STANCE/CLIPSのモーション)は一切変更せず、素の剣士が着ている
+         丸い兜・毛皮・肩当て・短マント(warriorBaseDecor/pauldronL/R、
+         buildPlayer側)をこの転身時だけ隠し、低ポリ専用Primitive
+         (TrapezoidBox/Wedge/Plate、src/render/lowpoly-primitives.js)で
+         作った一回り大きい装備に差し替える。細部の装飾より「重厚な
+         シルエット」を優先し、追加メッシュ数は素のwarriorBaseDecorと
+         同程度に抑えてある(パフォーマンス優先)。
+      ===================================================== */
+      const headYLocal = bodyH + B.headGap;         // 頭の中心(waist基準)
+      const hR = B.headR * 0.86;                    // 縮小後の見た目の頭半径(下記)
+
+      // ---- 頭身調整: 頭+髪+目をまとめて縮小し、5〜6頭身に近づける ----
+      // (「頭を小さくする」指示。目・髪はbuildPlayer側で作った実体を
+      // 一切壊さず、位置関係を保ったまま1つのグループへ包んで縮小する
+      // だけ ―― clearJobPromotionVisualで素の剣士に戻る際は、このグループ
+      // を分解して元の位置・スケールへ戻す。詳細はclearJobPromotionVisual
+      // 冒頭のコメント参照)
+      if(P.headGroupParts && P.headGroupParts.length && P.waist){
+        const headPivot = new THREE.Group();
+        headPivot.position.set(0, headYLocal, 0);
+        P.waist.add(headPivot);
+        P.headGroupParts.forEach(m=>{
+          m.position.sub(headPivot.position);
+          headPivot.add(m);
+        });
+        headPivot.scale.setScalar(0.86);
+        P.headScaleGroup = headPivot;   // jobDecorMeshesとは別管理(dispose禁止)
+      }
+
+      // 素の剣士の丸い兜・毛皮棘・革帯・丸い肩当てを隠す(dispose無し、
+      // 転身解除時にclearJobPromotionVisualが可視へ戻す)
+      if(P.warriorBaseDecor) P.warriorBaseDecor.forEach(m=>{ m.visible = false; });
+      if(P.pauldronL) P.pauldronL.visible = false;
+      if(P.pauldronR) P.pauldronR.visible = false;
+
+      // flatShading済みマテリアル(既存clothMatFlat/trimMatFlatと同じ
+      // 「低分割ジオメトリ+flatShading = 低ポリの面ごとの陰影」手法)。
+      // 鎧本体は金トリム(trimMat=uj.trim)そのものではなく、暗めの鋼色を
+      // 主色にする ―― trimMatを鎧全面に使うと「金色の球」一色になって
+      // シルエットが説明できなくなる事故が最初の実装で起きたため、
+      // 参考画像(赤/臙脂+鋼+金の縁取り)の配色に合わせて分離した。
+      // 金(knightGold)は兜の鶏冠飾りなど、ごく一部の縁取りにのみ使う
+      const knightSteel = new THREE.MeshStandardMaterial({color:0x6a6f78, roughness:0.4, metalness:0.55, flatShading:true});
+      const knightGold = trimMat.clone(); knightGold.flatShading = true;
+      const knightDark = new THREE.MeshStandardMaterial({color:0x241d18, roughness:0.6, metalness:0.3, flatShading:true});
+      const knightFur = new THREE.MeshStandardMaterial({color:0xe6dcc6, roughness:0.92, side:THREE.DoubleSide, flatShading:true});
+
+      // ---- 兜(Polyhedron相当): 低分割の部分球+flatShadingで「面取りされた
+      // 兜」に。頭自体を0.86倍に縮小した(下記)ぶん、兜もその縮小後の頭に
+      // フィットする大きさへ合わせてある(縮小前の頭を覆っていた素の兜と
+      // ほぼ同じ絶対サイズ)。thetaLengthは素の兜(0.62π)よりやや浅い
+      // 0.58πにして、顎・口元がより見えるようにした(「兜の隙間から
+      // 少し顔が見える」) ----
+      const helmet = new THREE.Mesh(new THREE.SphereGeometry(hR*1.02, 7, 5, 0, Math.PI*2, 0, Math.PI*0.58), knightSteel);
+      helmet.position.set(0, headYLocal+0.02, 0);
+      helmet.castShadow = true; P.waist.add(helmet); meshes.push(helmet);
+      // 顔の開口部を示す暗い縁(visor) - 既存と同じ「目の高さの薄い帯」
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(hR*1.7, 0.07, 0.10), knightDark);
+      visor.position.set(0, headYLocal+0.01, hR*0.92);
+      P.waist.add(visor); meshes.push(visor);
+      // 兜の鶏冠飾り(Wedge): 平らな板ではなく、根元から稜線へ向けて
+      // 傾斜するくさび形にして低ポリらしい面の切り替わりを出す。
+      // ここだけ金(knightGold)にして、鋼色の兜に対する縁取りにする
+      const crestGeo = makeWedge({baseW:0.075, baseD:0.24, height:0.22, ridgeW:0, ridgeOffsetZ:-0.04});
+      const crest = new THREE.Mesh(crestGeo, knightGold);
+      crest.position.set(0, headYLocal + hR*0.98, -0.02);
+      crest.castShadow = true; P.waist.add(crest); meshes.push(crest);
+
+      // ---- 大きな毛皮(Plate複数枚、不規則な輪郭): 首まわりに6枚 + 肩に
+      // 大きめを2枚。既存の「棘のリング」(小さく尖った突起)より面積が
+      // あり、「毛皮が多い」印象を安く出す。1枚ごとに輪郭点を少しずつ
+      // ずらして、単調な繰り返しに見えないようにしてある ----
+      const furTuftOutline = (variant)=>[
+        {x:-0.16,y:0.03}, {x:0.16,y:0.00+variant}, {x:0.22,y:-0.22-variant},
+        {x:0.08,y:-0.42}, {x:-0.07,y:-0.28-variant}, {x:-0.22,y:-0.20},
+      ];
+      for(let i=0;i<6;i++){
+        const ang = (i/6)*Math.PI*2;
+        const variant = (i%2===0) ? 0.05 : -0.03;
+        const tuft = new THREE.Mesh(makePlate(furTuftOutline(variant), {foldWaves:1.4, foldDepth:0.025, phase:i}), knightFur);
+        const r = hR*1.15;
+        tuft.position.set(Math.sin(ang)*r, headYLocal - hR*0.85, Math.cos(ang)*r);
+        tuft.rotation.y = -ang;
+        tuft.castShadow = true; P.waist.add(tuft); meshes.push(tuft);
+      }
+      // 肩の毛皮(左右とも一回り大きく) - 肩当ての付け根を覆い隠すように
+      // 上へ乗せる。腕グループの子なので歩行/振りの動きに追従する
+      [-1,1].forEach(s=>{
+        const shoulderFur = new THREE.Mesh(
+          makePlate(furTuftOutline(s*0.06).map(p=>({x:p.x*2.1,y:p.y*1.9})), {foldWaves:1.6, foldDepth:0.035, phase:s}),
+          knightFur);
+        const arm = s<0 ? P.armL : P.armR;
+        if(arm){ shoulderFur.position.set(0, 0.16, 0.04); shoulderFur.rotation.set(0.9, 0, s*0.2); arm.add(shoulderFur); meshes.push(shoulderFur); }
+      });
+
+      // ---- 胸鎧(TrapezoidBox): 回転体では作れない、肩幅で広く腰で絞る
+      // 前後非対称の絞り。既存bigChest(円柱の一部)より鎧らしい硬質な
+      // シルエットになる。鋼色(knightSteel)で、下の赤い胴着(既存torso)
+      // との色差でシルエットが説明できるようにする ----
+      const chestArmor = new THREE.Mesh(makeTrapezoidBox({
+        topW:bodyR*1.85, topD:bodyR*1.05, botW:bodyR*1.35, botD:bodyR*0.80,
+        height:bodyH*0.56, topOffsetZ:0.02, botOffsetZ:0.04,
+      }), knightSteel);
+      chestArmor.position.y = bodyH*0.62;
+      chestArmor.castShadow = true; P.waist.add(chestArmor); meshes.push(chestArmor);
+
+      // ---- 腰鎧(TrapezoidBox): ベルトの下、腰から裾に向けて開くフォールド
+      // 状の帯。胸鎧と同じPrimitiveだが上下を逆にして「開く」向きにする ----
+      const waistArmor = new THREE.Mesh(makeTrapezoidBox({
+        topW:bodyR*1.15, topD:bodyR*0.7, botW:bodyR*1.65, botD:bodyR*1.0,
+        height:bodyH*0.30, botOffsetZ:0.03,
+      }), knightSteel);
+      waistArmor.position.y = -bodyH*0.02;
+      waistArmor.castShadow = true; P.waist.add(waistArmor); meshes.push(waistArmor);
+
+      // ---- 肩鎧(Wedge、左右非対称): 利き手と逆側(左)は大きく前へ鋭く
+      // 傾斜する殻、利き手側(右)は動きを妨げない小ぶりな殻。既存の球殻
+      // (bigL/smallR)より輪郭にインパクトが出る。
+      // 見下ろし視点のカメラでは「上から見て広い面」が最もシルエットに
+      // 効くため、makeWedgeの既定(底面が下・稜線が上)を180度反転させ、
+      // 広い底面を上(肩の上面)に、先端を下(腕側)へ向けている ----
       if(P.armL){
-        const bigL = new THREE.Mesh(new THREE.SphereGeometry(B.upper*2.15, 8, 6, 0, Math.PI*2, 0, Math.PI*0.62), trimMat);
-        bigL.position.y = -0.03; bigL.castShadow = true;
+        const bigL = new THREE.Mesh(makeWedge({
+          baseW:B.upper*2.3, baseD:B.upper*2.1, height:B.upper*1.7,
+          ridgeW:B.upper*0.5, ridgeOffsetZ:B.upper*0.35,
+        }), knightSteel);
+        bigL.rotation.x = Math.PI;   // 反転: 広い面を上に
+        bigL.position.y = 0.10; bigL.castShadow = true;
         P.armL.add(bigL); meshes.push(bigL);
-        const rivetRing = new THREE.Mesh(new THREE.TorusGeometry(B.upper*1.7, 0.025, 5, 10), trimMat);
-        rivetRing.rotation.x = Math.PI/2;
-        rivetRing.position.y = 0.08;
-        P.armL.add(rivetRing); meshes.push(rivetRing);
       }
       if(P.armR){
-        const smallR = new THREE.Mesh(new THREE.SphereGeometry(B.upper*1.55, 7, 6, 0, Math.PI*2, 0, Math.PI*0.55), trimMat);
-        smallR.position.y = -0.02; smallR.castShadow = true;
+        const smallR = new THREE.Mesh(makeWedge({
+          baseW:B.upper*1.6, baseD:B.upper*1.5, height:B.upper*1.15,
+          ridgeW:0, ridgeOffsetZ:B.upper*0.25,
+        }), knightSteel);
+        smallR.rotation.x = Math.PI;
+        smallR.position.y = 0.06; smallR.castShadow = true;
         P.armR.add(smallR); meshes.push(smallR);
       }
-      // 長いマント、背中から二枚(ユーザー指摘: マントは長く。ただし
-      // 後ろから見て体が隠れないよう、真後ろではなく左右に大きく開いて
-      // 靡く角度にした ―― baseRotYを0から左右へ大きく振り、資料26番の
-      // バネ追従(updateJobDecor)もこの新しい開き角を中心に揺れる)
+
+      // ---- 長いマント(Plate、不規則な裾): 既存のmakeClothPanel(矩形+
+      // 正弦波)からmakePlateへ強化し、裾を左右非対称・ギザギザの輪郭に
+      // した。updateJobDecorのバネ追従(anim.capes)はそのまま流用 ----
+      const capeOutline = [
+        {x:-0.36,y:1.0}, {x:0.40,y:0.96},
+        {x:0.62,y:0.30}, {x:0.50,y:-0.15}, {x:0.40,y:0.05},
+        {x:0.16,y:-0.30}, {x:0.02,y:-0.05},
+        {x:-0.18,y:-0.34}, {x:-0.34,y:-0.02},
+        {x:-0.62,y:0.22},
+      ];
       const knightCapes = [];
       [-1, 1].forEach(s=>{
-        // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す。
-        // 揺れ(updateJobDecorのバネ追従)はcape.rotationを直接動かすため
-        // makeClothPanelの静的な折り目形状とは独立して問題なく共存する
-        const cape = makeClothPanel(0.5, bodyH*1.2, uj.capeColor, {rows:8, foldDepth:0.05, phase:s*0.8});
-        cape.position.set(s*0.30, bodyH*0.60, -bodyR-0.02);
-        const baseRotY = s*0.62;   // 横に大きく開く(真後ろに垂らさない)
+        const outline = capeOutline.map(p=>({x:p.x*s, y:p.y}));   // 左右で鏡映(非対称の歯型は保つ)
+        const cape = new THREE.Mesh(makePlate(outline, {foldWaves:2.4, foldDepth:0.045, phase:s*0.8}),
+          new THREE.MeshStandardMaterial({map: makeLeatherTexture(hexStr(uj.capeColor), 2, 2), roughness:0.82, side:THREE.DoubleSide}));
+        cape.position.set(s*0.30, bodyH*0.66, -bodyR-0.02);
+        const baseRotY = s*0.62;
         cape.rotation.set(0.1, baseRotY, s*0.08);
+        cape.castShadow = true;
         P.waist.add(cape); meshes.push(cape);
         knightCapes.push({mesh:cape, baseRotY, baseRotZ:s*0.08, swayPhase:s*1.7, springAngle:0, springVel:0});
       });
       anim.capes = knightCapes;
-      // 胸甲の増設(既存chestPlateより一回り大きい帯)
-      const bigChest = new THREE.Mesh(
-        new THREE.CylinderGeometry(bodyR*0.92, bodyR*0.98, bodyH*0.5, 10, 1, false, -1.05, 2.1), trimMat);
-      bigChest.position.y = bodyH*0.62;
-      bigChest.scale.set(1.05, 1, 1.05);
-      P.waist.add(bigChest); meshes.push(bigChest);
 
     } else if(uj.key === 'berserker'){
       // 荒々しさ: 頭上に逆立つ髪(既存の角兜はそのまま、その上へ重ねる)。

@@ -17,6 +17,10 @@ src/
   audio/audio.js               SE合成・BGM再生(WebAudio)。state.sfxVolume/bgmVolume以外への依存なし
   audio/procedural-bgm.js      ワールドごとの生成音楽(ドローン+疎らな旋律+簡易リバーブ)。実ファイル未登録時のBGM
   textures/textures.js         手続きテクスチャ/バンプマップ生成。state依存なし
+  render/lowpoly-primitives.js Low Polyキャラクター用の追加ジオメトリ生成
+                                (TrapezoidBox/Wedge/Plate/Prism)。three.js標準に
+                                無い「回転体では作れない自由な輪郭」だけを補う
+                                純粋関数。state依存なし(グラフィック刷新、#42系)
   legacy/
     concat-plugin.js           Viteプラグイン。下記parts/を1つの仮想モジュールへ結合する
     parts/01〜14-*.js           まだ独立モジュール化されていない残り(約15,900行)を

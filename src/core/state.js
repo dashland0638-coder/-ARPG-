@@ -11,6 +11,11 @@ import * as THREE from 'three';
     started:false, paused:false,
     classDef:null, gender:null, name:'', personality:null,
     cautiousTimer:0, killStreak:0, killStreakT:0, justDodgedT:0,
+    // グラフィック刷新: 被弾時に上半身がわずかに仰け反るモーション用の
+    // 残り時間(秒)。applyIncomingDamageMul(07-ai-combat.js)が一元的に
+    // セットし、updateLocomotion(13-update-loop.js)が消費してwaistへ
+    // 加算する。セーブ対象外(戦闘中の一時状態、cautiousTimer等と同じ扱い)
+    playerHitReactT:0,
     routePath:[],        // 実際に通った区画のkey列
     routeNode:null,      // 現在いる区画
     bossMods:[],         // 第2分岐で積まれるボス戦修飾(例: 'chandelier')
