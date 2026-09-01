@@ -2223,18 +2223,24 @@
     cfg = Object.assign({
       key:'mansionBoss', bodyColor:0x5a1a2a, emissive:0x8a1020, eyeColor:0xff4433, auraColor:0xff3322,
       hpMax:620, atk:26, speed:1.6, xp:150,
-      dialogueName:'館主アルベルト', dialogueLines:BOSS_DIALOGUE_DEFAULT,
+      dialogueName:'境界の研究者',
+      dialogueLines:[
+        '書物の山の奥、人のかたちをした何かが顔を上げる。',
+        '……ここまで来たか。私はかつて、怪異を研究していた学者だ。',
+        '助手を人へ戻す方法を探るうち、自ら境界を越えてしまった。もう、戻り方が分からない。',
+        'すまない――だが、確かめさせてもらう。お前もまた、境界の向こうの何かなのか!'
+      ],
       ambushDialogueLines:[
         '……ぐっ!問答無用か……!',
-        'よかろう、力を隠す理由もない――禁忌の呪術、その身で味わうがいい!'
+        'よかろう、力を隠す理由もない――この身に巣食う境界、その身で味わうがいい!'
       ],
       repeatDialogueLines:[
-        '……また、お前か。',
-        '幾度砕かれようと、この館に呪術がある限り、私は何度でも立ち上がる。',
-        '今度こそ――私の家族に、指一本触れさせはせん!'
+        '書物の山が、聞き覚えのある気配とともに崩れ落ちる。',
+        '……また来たのか。私はまだ、答えを見つけられずにいる。',
+        '今度こそ――あれを、人の姿のまま返してやりたい!'
       ],
-      clearName:'館主アルベルト', clearFlavor:'崩れ落ちた主人の傍らに、束の間だけ温かい灯りが差し込んだ。',
-      rewardLoot:{type:'gem', name:'解き放たれた魂の欠片', icon:'💎', color:0x6fd1e6}
+      clearName:'境界の研究者', clearFlavor:'書物の山が崩れ、人影は静かに膝を折る。「……すまなかった」――消え際に、そう聞こえた気がした。',
+      rewardLoot:{type:'gem', name:'境界の欠片', icon:'💎', color:0xb08aff}
     }, cfg||{});
     const _D = difficultyFor(_spawnWorldKey);
     const g = new THREE.Group();
