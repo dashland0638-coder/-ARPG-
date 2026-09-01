@@ -13,15 +13,17 @@ test.describe('boot', () => {
   });
 });
 
-test.describe('character creation', () => {
-  test('creating a character shows the HUD and drops the player in the tavern', async ({ page }) => {
+test.describe('new game', () => {
+  // キャラメイク廃止(#41)により「はじめる」を押すだけで即座に第一章
+  // (剣士、固定キャスト)が始まる。カード選択やダイス振りの手順はもう無い
+  test('clicking "はじめる" shows the HUD and drops the player in the tavern as 剣士', async ({ page }) => {
     const errors = watchErrors(page);
     await openGame(page);
-    await createCharacter(page, { classKey: 'mage', gender: 'female', personality: 'calm', name: '検証マージ' });
 
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await expect(page.locator('#title-screen')).toBeHidden();
+    await expect(page.locator('#hud-name')).toContainText('剣士');
     expect(errors).toEqual([]);
   });
 });
@@ -36,7 +38,7 @@ test.describe('sortie', () => {
     test.setTimeout(90_000);
     const errors = watchErrors(page);
     await openGame(page);
-    await createCharacter(page, { classKey: 'warrior', gender: 'male', personality: 'brave', name: '出撃検証' });
+    await createCharacter(page);
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);
@@ -94,7 +96,7 @@ test.describe('save / load', () => {
   test('menu save writes localStorage, and continue restores the same character', async ({ page }) => {
     const errors = watchErrors(page);
     await openGame(page);
-    await createCharacter(page, { classKey: 'warrior', gender: 'male', personality: 'brave', name: 'セーブ検証' });
+    await createCharacter(page);
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);
@@ -107,7 +109,7 @@ test.describe('save / load', () => {
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('soulforge_save_v1') || 'null'));
     expect(saved).not.toBeNull();
     expect(saved.selectedClass).toBe('warrior');
-    expect(saved.playerName).toBe('セーブ検証');
+    expect(saved.playerName).toBe('剣士'); // キャラメイク廃止(#41)により、表示名は常にクラス名
 
     await page.keyboard.press('Escape'); // close menu
 
@@ -115,18 +117,18 @@ test.describe('save / load', () => {
     await page.waitForFunction(() => document.getElementById('title-screen').style.display === 'flex');
 
     await expect(page.locator('#continue-banner')).toBeVisible();
-    await expect(page.locator('#continue-summary')).toContainText('セーブ検証');
+    await expect(page.locator('#continue-summary')).toContainText('剣士');
 
     await page.click('#cc-continue-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
-    await expect(page.locator('#hud-name')).toContainText('セーブ検証');
+    await expect(page.locator('#hud-name')).toContainText('剣士');
     expect(errors).toEqual([]);
   });
 
   test('starting fresh over an existing save asks for confirmation first', async ({ page }) => {
     const errors = watchErrors(page);
     await openGame(page);
-    await createCharacter(page, { name: '上書き元' });
+    await createCharacter(page);
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);
@@ -138,14 +140,19 @@ test.describe('save / load', () => {
     await page.waitForFunction(() => document.getElementById('title-screen').style.display === 'flex');
     await expect(page.locator('#continue-banner')).toBeVisible();
 
-    await createCharacter(page, { name: '上書き先' });
+    // every new game is the same fixed 剣士 cast now, so there's no
+    // player-chosen field left to prove "this is a different character" -
+    // what actually matters here is that starting over an existing save
+    // asks for confirmation at all, and that confirming genuinely resets
+    // progress (level back to 1) rather than silently keeping the old save.
+    await createCharacter(page);
     await page.click('#cc-start-btn');
 
     await expect(page.locator('#confirm-overlay')).toHaveClass(/active/);
     await page.click('#confirm-ok');
 
     await expect(page.locator('#hud')).toHaveClass(/active/);
-    await expect(page.locator('#hud-name')).toContainText('上書き先');
+    await expect(page.locator('#hud-name')).toContainText('Lv.1');
     expect(errors).toEqual([]);
   });
 
@@ -185,7 +192,7 @@ test.describe('save / load', () => {
     expect(pageErrors).toEqual([]); // caught inside continueGame, not thrown to the page
 
     // the page must still be fully usable afterwards
-    await createCharacter(page, { name: '復旧確認' });
+    await createCharacter(page);
     await page.click('#cc-start-btn');
     // a (broken) save still exists, so this is an overwrite confirmation
     await expect(page.locator('#confirm-overlay')).toHaveClass(/active/);

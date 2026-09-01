@@ -44,7 +44,7 @@ test.describe('scenario time limit', () => {
   test('a first-time sortie has no time limit', async ({ page }) => {
     const errors = watchErrors(page);
     await openGame(page);
-    await createCharacter(page, { classKey: 'warrior', gender: 'male', personality: 'brave', name: '初回出撃' });
+    await createCharacter(page);
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);

@@ -21,7 +21,7 @@ test.describe('audio unlock', () => {
     const stateAtBoot = await page.evaluate(() => window.__testAudioCtx ? window.__testAudioCtx.state : null);
     expect(stateAtBoot).toBe('suspended'); // sanity check: the context exists (tavern pre-built) but isn't unlocked yet
 
-    await createCharacter(page, { classKey: 'mage', gender: 'female', personality: 'calm', name: '無音検証' });
+    await createCharacter(page);
 
     const stateBeforeStart = await page.evaluate(() => window.__testAudioCtx.state);
     expect(stateBeforeStart).toBe('suspended'); // character creation alone must not be the trigger

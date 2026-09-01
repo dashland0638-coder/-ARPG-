@@ -806,6 +806,11 @@
     state.skills = {atkUp:0, hpUp:0, ultUp:0, companion:0, chargeUp:0};
     state.ranks = {skill:0, skill2:0, ult:0};
     state.freeRanks = 0;
+    // キャラメイク廃止(#41)により、以前はダイスロール直後のfinishRoll()が
+    // 毎回ここをリセットしていた。今は新規開始のたびにここで明示的に
+    // 初期値へ戻さないと、上書き前のキャラが鑑定所で振っていた
+    // allocPoints/diceTotalがそのまま引き継がれてしまう
+    diceTotal = 12; allocPoints = zeroAlloc(); allocDraft = zeroAlloc();
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;   // 5人目「影の旅人」の酒場会話進行
     state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;

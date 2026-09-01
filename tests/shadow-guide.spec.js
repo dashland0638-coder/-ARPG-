@@ -13,7 +13,7 @@ test.describe('shadow guide NPC (5人目)', () => {
     test.setTimeout(90_000);
     const errors = watchErrors(page);
     await openGame(page);
-    await createCharacter(page, { classKey: 'warrior', gender: 'male', personality: 'brave', name: '影確認' });
+    await createCharacter(page);
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);

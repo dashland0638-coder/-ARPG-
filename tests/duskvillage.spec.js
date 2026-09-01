@@ -1,6 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, createCharacter, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
+import { watchErrors, openGame, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
 
 // Regression test for the duskvillage map rework (narrow boardwalk web,
 // see 14-dungeon-duskvillage.js). Builds the world, then walks a short
@@ -18,9 +18,27 @@ test.describe('duskvillage map rework', () => {
   test('builds the world and walks off the spine into a hub spur without errors', async ({ page }) => {
     test.setTimeout(120_000);
     const errors = watchErrors(page);
+    // duskvillage's minLevel is 26 (SCENARIO_DEFS, 12-progression-ui.js),
+    // and every new game now starts at Lv.1 as the fixed 剣士 cast (#41,
+    // キャラメイク廃止) with no way to grind levels from the title screen -
+    // so seed a save that's already past the gate and continue from it,
+    // rather than starting fresh. Same minimal-but-valid save shape as the
+    // repeat-run test in scenario-timer.spec.js.
+    await page.addInitScript(() => {
+      localStorage.setItem('soulforge_save_v1', JSON.stringify({
+        v: 2, selectedClass: 'warrior', selectedGender: 'male', selectedPersonality: 'cautious',
+        playerName: '剣士', allocPoints: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 },
+        level: 30, xp: 0, xpToNext: 999999, levelGrowth: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 },
+        equipLevel: 0, inventory: { gold: 0, gem: 0, potion: 0, shard: 0, mppotion: 0 },
+        equipmentInventory: [], equipped: { weapon: null, upper: null, lower: null },
+        skills: {}, ranks: {}, freeRanks: 0, unlockedSphereNodes: ['root'], spherePoints: 0,
+        bossClears: {}, learnedBossAbilities: [], equippedBossAbilities: [], learnedBossSkills: [],
+        scenarioClears: {}, clearedScenarios: {}, routeCombosSeen: {},
+      }));
+    });
     await openGame(page);
-    await createCharacter(page, { classKey: 'warrior', gender: 'male', personality: 'brave', name: '桟橋検証' });
-    await page.click('#cc-start-btn');
+    await expect(page.locator('#continue-banner')).toBeVisible();
+    await page.click('#cc-continue-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);
     await disableCameraAutoFollow(page);

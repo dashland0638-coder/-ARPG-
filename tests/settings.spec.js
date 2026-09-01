@@ -19,7 +19,7 @@ test.describe('dot-mode setting', () => {
     // not a pixel-level check of the visual result).
     const errors = watchErrors(page);
     await openGame(page);
-    await createCharacter(page, { name: 'ドット表現検証' });
+    await createCharacter(page);
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);

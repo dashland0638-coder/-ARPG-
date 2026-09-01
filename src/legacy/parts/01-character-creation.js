@@ -157,78 +157,66 @@
   let playerName = '';
 
   /* =========================================================
-     CHARACTER CREATION UI
+     固有キャラクター(2部制導入 #41)
+
+     以前はここで職業・性別・性格・名前をプレイヤーが選び、ダイスを
+     振ってステータス配分するキャラメイク画面を組み立てていた。2部制の
+     原案(第一部は5人の固有キャラクターを巡る一本道の物語で、主人公と
+     ゲストが章ごとに交代する)に合わせてキャラメイクは廃止し、
+     タイトル画面からも該当のUI(職業/性別/性格カード・名前欄・
+     ダイスパネル)を撤去した(index.html参照)。
+
+     CHAPTER_CAST が新しい「キャラ作成」にあたる ―― 各章の主人公の
+     性別・性格をあらかじめ固定してある。プレイヤーが名前を入力する
+     欄はもう無いため、表示名は原案の台本と同じくクラス名そのものを
+     使う(例:「剣士:「……」」)。
+       chapter:      章番号(1-indexed)
+       classKey:     その章の主人公のクラス(CLASSESのキー)。5人目
+                     「影の旅人」はまだ専用クラス/戦闘キットを実装
+                     していないため、第五章はnullのまま(プレイ不可)
+       gender/personality: 固定の性別・性格(既存のCLASSES/PERSONALITY_LINES
+                     をそのまま使うための割り当て。原案には性別の指定が
+                     ないため、既存システムと矛盾しない範囲でこちらで割り振った)
+       guestClassKey: その章で同行するゲストの元クラス(将来のパーティ
+                     メンバーAI実装で使う想定。まだ未実装 ―― ARCHITECTURE.md参照)
+       dungeonKey:   その章のメインダンジョン(③④は原案では2つの
+                     ダンジョームがまたがるが、章とダンジョンの1:1対応は
+                     まだ実装していないため、代表的な1つだけを仮に載せてある)
+     現時点で実際にプレイできるのは第一章(剣士)のみ。第二章以降への
+     自動進行・ゲストのパーティAI・シナリオ選択の章連動ロックは、
+     別途スコープの大きい実装が必要なため未着手(次のフェーズで対応)。
   ========================================================= */
-  const classGrid = document.getElementById('class-grid');
-  Object.values(CLASSES).forEach(c=>{
-    const card = document.createElement('div');
-    card.className = 'class-card';
-    card.dataset.key = c.key;
-    const preview = previewClassStats(c);
-    // バーの基準値は4職業中の素のHP/攻撃力の最大値(warrior/mage相当)を
-    // 目安に固定してある。基礎ステータスを直接見せてもピンとこないため、
-    // ここでは算出後のHP/攻撃力だけを見せる
-    card.innerHTML = `
-      <div class="class-icon">${c.icon}</div>
-      <div class="class-name">${c.name}</div>
-      <div class="class-desc">${c.desc}</div>
-      <div class="stat-row"><span>HP</span><span>${preview.hp}</span></div>
-      <div class="stat-bar-mini"><div style="width:${preview.hp/130*100}%"></div></div>
-      <div class="stat-row"><span>攻撃</span><span>${preview.atk}</span></div>
-      <div class="stat-bar-mini"><div style="width:${preview.atk/29*100}%"></div></div>
-    `;
-    card.addEventListener('click', ()=>{
-      document.querySelectorAll('.class-card').forEach(el=>el.classList.remove('selected'));
-      card.classList.add('selected');
-      selectedClass = c.key;
-      refreshAllocPreview();   // base stats update the moment a class is picked
-      checkReady();
-    });
-    classGrid.appendChild(card);
-  });
+  const CHAPTER_CAST = [
+    null, // 1-indexed
+    {chapter:1, classKey:'warrior', gender:'male',   personality:'cautious', guestClassKey:null,     dungeonKey:'mansion'},
+    {chapter:2, classKey:'mage',    gender:'female', personality:'cheerful', guestClassKey:'warrior', dungeonKey:'duskvillage'},
+    {chapter:3, classKey:'archer',  gender:'female', personality:'calm',    guestClassKey:'mage',    dungeonKey:'ghostship'},
+    {chapter:4, classKey:'rogue',   gender:'male',   personality:'brave',   guestClassKey:'archer',  dungeonKey:'clocktower'},
+    {chapter:5, classKey:null,      gender:null,     personality:'calm',    guestClassKey:'rogue',   dungeonKey:null}, // ？？？(影の旅人) ―― 未実装
+  ];
 
-  document.querySelectorAll('#gender-grid .gender-card').forEach(card=>{
-    card.addEventListener('click', ()=>{
-      document.querySelectorAll('#gender-grid .gender-card').forEach(el=>el.classList.remove('selected'));
-      card.classList.add('selected');
-      selectedGender = card.dataset.gender;
-      checkReady();
-    });
-  });
+  // 指定した章の固定キャストをselectedClass等へ反映する。classKeyが
+  // 未実装(null)の章は何もせずfalseを返す ―― 呼び出し側はfalseの場合、
+  // 章を進めてはいけない
+  function applyChapterCast(n){
+    const cast = CHAPTER_CAST[n];
+    if(!cast || !cast.classKey) return false;
+    selectedClass = cast.classKey;
+    selectedGender = cast.gender;
+    selectedPersonality = cast.personality;
+    playerName = CLASSES[cast.classKey].name; // 名前入力欄が無いため、表示名はクラス名をそのまま使う
+    return true;
+  }
 
-  document.querySelectorAll('.personality-card').forEach(card=>{
-    card.addEventListener('click', ()=>{
-      document.querySelectorAll('.personality-card').forEach(el=>el.classList.remove('selected'));
-      card.classList.add('selected');
-      selectedPersonality = card.dataset.personality;
-      checkReady();
-    });
-  });
-
-  const nameInput = document.getElementById('name-input');
-  nameInput.addEventListener('input', ()=>{ playerName = nameInput.value.trim(); checkReady(); });
-
-  const NAMES_MALE = ['アルドリック','ガレス','セドリック','ロデリック','ウィレム','バルドウィン','エドマー','ケイン','ソーンウォール','グリフィン','ハロルド','オズワルド','レナード','ヴィクトア','ダンカン','アーチボルド'];
-  const NAMES_FEMALE = ['エレノア','イザベラ','ロザリンド','セレスト','ミランダ','グウェンドリン','アデライン','ヴィヴィアン','セラフィナ','ブランシュ','マリゴールド','エヴァンジェリン','オードリー','リリアン','フィオナ','イゾルデ'];
-
-  document.getElementById('name-random-btn').addEventListener('click', ()=>{
-    const pool = selectedGender==='female' ? NAMES_FEMALE : selectedGender==='male' ? NAMES_MALE : NAMES_MALE.concat(NAMES_FEMALE);
-    const pick = pool[Math.floor(Math.random()*pool.length)];
-    nameInput.value = pick;
-    playerName = pick;
-    checkReady();
-  });
-
-  /* =========================================================
-     DICE STAT ALLOCATION
-  ========================================================= */
-  const DIE_FACES = { 1:[5], 2:[1,9], 3:[1,5,9], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
-  let diceRolled = false;
-  let diceTotal = 0;
-  let diceAccum = 0;
-  let yakuRerollUsed = false;
-  let yakuLog = [];
+  // ステータス配分系(zeroAlloc/allocPoints/allocDraft/diceTotal等)は
+  // ダイスキャラメイクの名残ではなく、鍛冶士の鑑定所パネルで使う
+  // レベルアップ時の恒久ステータス振り分け機能(12-progression-ui.jsの
+  // refreshAppraisal/[data-apstat]参照)が今も依存している共有基盤なので、
+  // キャラメイクUIを撤去した後もそのまま残してある。diceTotalは以前は
+  // キャラ作成時のダイス合計+12から始まっていたが、キャラメイクが
+  // 無くなったため固定12から始まり、以後はレベルアップ時の+1のみで増える
   function zeroAlloc(){ const o={}; STAT_KEYS.forEach(k=>o[k]=0); return o; }
+  let diceTotal = 12;
   let allocPoints = zeroAlloc();
   /* The +/- buttons used to edit allocPoints directly, which recomputeStats()
      reads - so points took effect whether or not 反映する was pressed. They
@@ -246,199 +234,6 @@
   function allocPointsSpent(pts){
     return STAT_KEYS.reduce((sum,k)=> sum + (pts[k]||0), 0);
   }
-  let allocRemaining = 0;
-  let rollingInProgress = false;
-
-  function renderDie(el, value){
-    el.innerHTML = '';
-    const on = DIE_FACES[value] || [];
-    for(let i=1;i<=9;i++){
-      const pip = document.createElement('div');
-      pip.className = 'pip' + (on.includes(i) ? ' on' : '');
-      el.appendChild(pip);
-    }
-  }
-  // initial blank dice
-  [0,1,2].forEach(i=>renderDie(document.getElementById('die-'+i), 1));
-
-  // keeps the dice that earned a reroll visible (smaller, to the left) with
-  // their yaku written underneath, so the run of rolls stays readable
-  function addDiceHistoryEntry(vals, wildIndex, caption){
-    const host = document.getElementById('dice-history');
-    if(!host) return;
-    const entry = document.createElement('div');
-    entry.className = 'dice-history-entry';
-    const row = document.createElement('div');
-    row.className = 'dice-row';
-    vals.forEach((v,i)=>{
-      const d = document.createElement('div');
-      d.className = 'die' + (i===wildIndex ? ' wild' : '');
-      renderDie(d, v);
-      row.appendChild(d);
-    });
-    const cap = document.createElement('div');
-    cap.className = 'dice-history-cap';
-    cap.textContent = caption;
-    entry.appendChild(row);
-    entry.appendChild(cap);
-    host.appendChild(entry);
-  }
-
-  function animateDie(el, finalValue, duration, onDone){
-    el.classList.remove('settled');
-    el.classList.add('rolling');
-    let elapsed = 0, interval = 55;
-    function tick(){
-      renderDie(el, 1+Math.floor(Math.random()*6));
-      elapsed += interval;
-      if(elapsed < duration){
-        interval = Math.min(interval*1.18, 170);
-        setTimeout(tick, interval);
-      } else {
-        el.classList.remove('rolling');
-        renderDie(el, finalValue);
-        el.classList.add('settled');
-        setTimeout(()=>el.classList.remove('settled'), 420);
-        if(onDone) onDone();
-      }
-    }
-    tick();
-  }
-
-  // shows each class's base stats next to whatever is being allocated, so
-  // the differences between classes are visible while spending points
-  // 基礎ステータス6項目そのままに加えて、実際に反映されるHP/MP/攻撃力も
-  // 一緒に見せる(#28での改善点: 装備/ステータス画面のUI/UXで「値の変化・
-  // 補正がわかりやすいように」という要望に沿って、生の配分だけでなく
-  // 算出後の数値まで常時見える形にした)
-  function refreshAllocPreview(){
-    const el = document.getElementById('alloc-preview');
-    if(!el) return;
-    const base = CLASSES[selectedClass];
-    if(!base){ el.innerHTML = ''; return; }
-    const statSpans = STAT_KEYS.map(k=>{
-      const add = allocPoints[k];
-      const total = base[k] + add;
-      const addTxt = add>0 ? ` <span class="ap-add">(+${add})</span>` : '';
-      return `<span><span class="ap-k">${STAT_LABELS[k]}</span> <span class="ap-base">${total}</span>${addTxt}</span>`;
-    }).join('');
-    const merged = mergeStatPoints(base, allocPoints);
-    const hp = Math.round(STAT_COEF.hpBase + merged.vit*STAT_COEF.hpPerVit);
-    const mp = Math.round(STAT_COEF.mpBase + (merged.mag+merged.mnd)*STAT_COEF.mpPerMagMnd);
-    const atk = Math.round(affinityStatValue(selectedClass, merged)*STAT_COEF.atkCoef);
-    const derived = `<span class="alloc-derived">→ HP ${hp} ／ ${base.resourceLabel||'MP'} ${mp} ／ 攻撃力 ${atk}</span>`;
-    el.innerHTML = statSpans + derived;
-  }
-
-  function rollWeightedDie(){
-    const weights = [3,4,4,4,4,3]; // 1 and 6 slightly less likely than 2-5
-    const total = 22;
-    let r = Math.random()*total;
-    for(let i=0;i<6;i++){
-      if(r < weights[i]) return i+1;
-      r -= weights[i];
-    }
-    return 6;
-  }
-
-  function rollDice(){
-    if(rollingInProgress) return;
-    rollingInProgress = true;
-
-    // if the previous sequence was already locked in, a fresh click starts over from zero
-    if(diceRolled){
-      diceAccum = 0;
-      diceRolled = false;
-      yakuRerollUsed = false; // fresh sequence - the once-per-session yaku bonus is available again
-      yakuLog = [];
-      const histEl0 = document.getElementById('dice-history');
-      if(histEl0) histEl0.innerHTML = '';
-      allocPoints = zeroAlloc();
-      allocRemaining = 0;
-      document.getElementById('stat-alloc').style.display = 'none';
-    }
-
-    const rollBtn = document.getElementById('dice-roll-btn');
-    rollBtn.disabled = true;
-    const yakuEl = document.getElementById('dice-yaku');
-    yakuEl.textContent = ''; yakuEl.classList.remove('active');
-
-    let wildIndex = -1;
-    for(let i=0;i<3;i++){
-      if(Math.random() < 1/16){ wildIndex = i; break; } // check left-to-right, first hit wins, only one die can be wild
-    }
-    [0,1,2].forEach(i=>document.getElementById('die-'+i).classList.remove('wild'));
-    const vals = [0,1,2].map(i => i===wildIndex ? 6 : rollWeightedDie());
-    const durations = [650, 820, 990];
-    let doneCount = 0;
-    vals.forEach((v,i)=>{
-      animateDie(document.getElementById('die-'+i), v, durations[i], ()=>{
-        doneCount++;
-        if(i===wildIndex) document.getElementById('die-'+i).classList.add('wild');
-        if(doneCount===3) finishRoll(vals, wildIndex);
-      });
-    });
-  }
-
-  function finishRoll(vals, wildIndex){
-    const rollTotal = vals[0]+vals[1]+vals[2];
-    diceAccum += rollTotal;
-    document.getElementById('dice-total-val').textContent = diceAccum;
-
-    const sorted = [...vals].sort((a,b)=>a-b);
-    let isTriple, isStraight, wildUsed = false;
-    if(wildIndex>=0){
-      const other = vals.filter((_,i)=>i!==wildIndex);
-      isTriple = other[0]===other[1];
-      isStraight = false;
-      for(let w=1;w<=6;w++){
-        const combo = [...other, w].sort((a,b)=>a-b);
-        if(combo[1]===combo[0]+1 && combo[2]===combo[1]+1 && new Set(combo).size===3){ isStraight = true; break; }
-      }
-      wildUsed = isTriple || isStraight;
-    } else {
-      isTriple = sorted[0]===sorted[1] && sorted[1]===sorted[2];
-      isStraight = (sorted[1]===sorted[0]+1) && (sorted[2]===sorted[1]+1);
-    }
-    const yakuEl = document.getElementById('dice-yaku');
-
-    if((isTriple || isStraight) && !yakuRerollUsed){
-      yakuRerollUsed = true;
-      const capText = (isTriple ? `ゾロ目 ${sorted[0]}-${sorted[0]}-${sorted[0]}` : `階段 ${sorted.join('-')}`) + ` +${rollTotal}pt`;
-      yakuLog.push(capText);
-      addDiceHistoryEntry(vals, wildIndex, capText);
-      const wildTag = wildUsed ? '✨ワイルド発動! ' : '';
-      const yakuName = isTriple ? `ゾロ目(${sorted[0]}-${sorted[0]}-${sorted[0]})` : `階段(${sorted.join('-')})`;
-      yakuEl.textContent = `🎉 ${wildTag}${yakuName}が出た!(今回+${rollTotal}pt・合計${diceAccum}pt) もう一度振れます`;
-      yakuEl.classList.add('active');
-      diceRolled = false;
-      document.getElementById('stat-alloc').style.display = 'none';
-      document.getElementById('dice-roll-btn').textContent = '🎲 もう一度振る';
-    } else {
-      if((isTriple || isStraight) && yakuRerollUsed){
-        const yakuName = isTriple ? `ゾロ目(${sorted[0]}-${sorted[0]}-${sorted[0]})` : `階段(${sorted.join('-')})`;
-        yakuEl.textContent = `🎉 ${yakuName}が出た!(役ボーナスは使用済み・+${rollTotal}pt・合計${diceAccum}pt)`;
-        yakuEl.classList.add('active');
-      } else {
-        yakuEl.textContent = '';
-        yakuEl.classList.remove('active');
-      }
-      diceRolled = true;
-      diceTotal = diceAccum + 12; // base points; 20 made the early game far too easy
-      allocPoints = zeroAlloc();
-      allocRemaining = diceTotal;
-      document.getElementById('alloc-remaining').textContent = allocRemaining;
-      refreshAllocPreview();
-      STAT_KEYS.forEach(k=> document.getElementById('alloc-'+k).textContent = '0');
-      document.getElementById('stat-alloc').style.display = 'block';
-      document.getElementById('dice-roll-btn').textContent = '🎲 最初からやり直す';
-    }
-    document.getElementById('dice-roll-btn').disabled = false;
-    rollingInProgress = false;
-    checkReady();
-  }
-
-  document.getElementById('dice-roll-btn').addEventListener('click', rollDice);
 
   /* Hold-to-repeat for the +/- buttons. Spending twenty points one click at a
      time is busywork, so a press that is held starts repeating after a short
@@ -472,34 +267,14 @@
     window.addEventListener('blur', stop);
   }
 
-  document.querySelectorAll('#stat-alloc .stat-btn').forEach(btn=>{
-    const stat = btn.dataset.stat;
-    const isPlus = btn.classList.contains('plus');
-    bindRepeatButton(btn, ()=>{
-      if(isPlus){
-        if(allocRemaining<=0) return false;
-        allocPoints[stat]++; allocRemaining--;
-      } else {
-        if(allocPoints[stat]<=0) return false;
-        allocPoints[stat]--; allocRemaining++;
-      }
-      document.getElementById('alloc-'+stat).textContent = allocPoints[stat];
-      document.getElementById('alloc-remaining').textContent = allocRemaining;
-      refreshAllocPreview();
-      checkReady();
-      return true;
-    });
-  });
-
+  // タイトル画面の「はじめる」。キャラメイクが無いので、常に第一章
+  // (剣士)の固定キャストで新規開始する
   const startBtn = document.getElementById('cc-start-btn');
-  function checkReady(){
-    startBtn.disabled = !(selectedClass && selectedGender && selectedPersonality && playerName.length>0 && diceRolled && allocRemaining===0);
-  }
   startBtn.addEventListener('click', ()=>{
-    if(startBtn.disabled) return;
+    if(!applyChapterCast(1)) return; // 安全側: 万一キャストが壊れていたら何もしない
     if(hasSaveGame()){
       askConfirm('新しく始める',
-        '既存のセーブデータを上書きして、新しい冒険者を作成します。<br>よろしいですか?',
+        '既存のセーブデータを上書きして、最初から始めます。<br>よろしいですか?',
         beginGame,
         {okLabel:'新しく始める', cancelLabel:'やめる'});
     } else {

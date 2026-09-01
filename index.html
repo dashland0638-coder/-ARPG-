@@ -18,7 +18,12 @@
 <div id="boot-msg">読み込み中 ...</div>
 <div id="canvas-wrap"></div>
 
-<!-- ============ TITLE / CHARACTER CREATION ============ -->
+<!-- ============ TITLE ============
+     2部制(#41)導入に伴い、キャラメイク(職業/性別/性格/名前/ダイス割り振り)は
+     廃止した。物語は5人の固有キャラクターを巡る一本道の第一部から始まる
+     ため、プレイヤーが「作る」ものは何もない ―― 「はじめる」を押すと、
+     そのまま第一章の主人公(剣士)としてゲームが始まる(CHAPTER_CAST、
+     01-character-creation.js参照)。 -->
 <div id="title-screen" style="display:none;">
   <div class="cc-frame">
     <div class="continue-banner" id="continue-banner" style="display:none;">
@@ -28,105 +33,11 @@
       </div>
       <button type="button" id="cc-continue-btn">⏵ つづきから</button>
     </div>
-    <div class="cc-eyebrow">Character Creation</div>
-    <h1 class="cc-title display">冒険者を創る</h1>
-    <p class="cc-sub">職業と性別、名を定めよ。すべてはこの街から始まる。</p>
+    <div class="cc-eyebrow">Chapter I</div>
+    <h1 class="cc-title display">ソウルフォージ</h1>
+    <p class="cc-sub">酒場に流れ着いた5人の物語。まずは、剣士から。</p>
 
-    <div class="cc-section-label">職業</div>
-    <div class="class-grid" id="class-grid"></div>
-
-    <div class="cc-section-label">性別</div>
-    <div class="gender-grid" id="gender-grid">
-      <div class="gender-card" data-gender="male">♂ 男</div>
-      <div class="gender-card" data-gender="female">♀ 女</div>
-    </div>
-
-    <div class="cc-section-label">性格</div>
-    <div class="gender-grid" id="personality-grid" style="grid-template-columns:repeat(4,1fr);">
-      <div class="gender-card personality-card" data-personality="brave">勇敢<small class="personality-desc">HPが減るほど攻撃力が上がる</small></div>
-      <div class="gender-card personality-card" data-personality="calm">冷静<small class="personality-desc">かわした直後にMPが少し戻る</small></div>
-      <div class="gender-card personality-card" data-personality="cheerful">陽気<small class="personality-desc">連続で倒すと攻撃が速くなる</small></div>
-      <div class="gender-card personality-card" data-personality="cautious">慎重<small class="personality-desc">無傷が続くと被ダメージが減る</small></div>
-    </div>
-
-    <div class="cc-section-label">名前</div>
-    <div class="name-row">
-      <input class="name-input" id="name-input" maxlength="12" placeholder="例）レイン" />
-      <button type="button" class="name-random-btn" id="name-random-btn">🎲 中世風に生成</button>
-    </div>
-
-    <div class="cc-section-label">能力値(サイコロで決定)</div>
-    <div class="dice-panel">
-      <div class="dice-stage">
-        <div class="dice-history" id="dice-history"></div>
-        <div class="dice-current">
-          <div class="dice-row">
-            <div class="die" id="die-0"></div>
-            <div class="die" id="die-1"></div>
-            <div class="die" id="die-2"></div>
-          </div>
-        </div>
-      </div>
-      <div class="dice-total">合計 <span id="dice-total-val">-</span> pt</div>
-      <div class="dice-yaku" id="dice-yaku"></div>
-      <button type="button" id="dice-roll-btn">🎲 ダイスを振る</button>
-
-      <div class="stat-alloc" id="stat-alloc" style="display:none;">
-        <div class="stat-alloc-row">
-          <span class="stat-alloc-label">体力(HP) +1 / pt</span>
-          <div class="stat-alloc-ctrl">
-            <button type="button" class="stat-btn minus" data-stat="vit">−</button>
-            <span class="stat-alloc-val" id="alloc-vit">0</span>
-            <button type="button" class="stat-btn plus" data-stat="vit">＋</button>
-          </div>
-        </div>
-        <div class="stat-alloc-row">
-          <span class="stat-alloc-label">力(物理攻撃) +1 / pt</span>
-          <div class="stat-alloc-ctrl">
-            <button type="button" class="stat-btn minus" data-stat="str">−</button>
-            <span class="stat-alloc-val" id="alloc-str">0</span>
-            <button type="button" class="stat-btn plus" data-stat="str">＋</button>
-          </div>
-        </div>
-        <div class="stat-alloc-row">
-          <span class="stat-alloc-label">魔力(魔法攻撃/MP) +1 / pt</span>
-          <div class="stat-alloc-ctrl">
-            <button type="button" class="stat-btn minus" data-stat="mag">−</button>
-            <span class="stat-alloc-val" id="alloc-mag">0</span>
-            <button type="button" class="stat-btn plus" data-stat="mag">＋</button>
-          </div>
-        </div>
-        <div class="stat-alloc-row">
-          <span class="stat-alloc-label">精神力(MP) +1 / pt</span>
-          <div class="stat-alloc-ctrl">
-            <button type="button" class="stat-btn minus" data-stat="mnd">−</button>
-            <span class="stat-alloc-val" id="alloc-mnd">0</span>
-            <button type="button" class="stat-btn plus" data-stat="mnd">＋</button>
-          </div>
-        </div>
-        <div class="stat-alloc-row">
-          <span class="stat-alloc-label">敏性(スタミナ/回避) +1 / pt</span>
-          <div class="stat-alloc-ctrl">
-            <button type="button" class="stat-btn minus" data-stat="agi">−</button>
-            <span class="stat-alloc-val" id="alloc-agi">0</span>
-            <button type="button" class="stat-btn plus" data-stat="agi">＋</button>
-          </div>
-        </div>
-        <div class="stat-alloc-row">
-          <span class="stat-alloc-label">集中力(命中/会心) +1 / pt</span>
-          <div class="stat-alloc-ctrl">
-            <button type="button" class="stat-btn minus" data-stat="foc">−</button>
-            <span class="stat-alloc-val" id="alloc-foc">0</span>
-            <button type="button" class="stat-btn plus" data-stat="foc">＋</button>
-          </div>
-        </div>
-        <div class="stat-remaining">残りポイント: <span id="alloc-remaining">0</span></div>
-        <div class="alloc-preview" id="alloc-preview"></div>
-      </div>
-    </div>
-
-    <button id="cc-start-btn" disabled>冒険を始める</button>
-    <div class="cc-start-hint">職業・性別・性格・名前・ダイスでの能力値割り振りをすべて完了してください</div>
+    <button id="cc-start-btn">はじめる</button>
 
     <div class="testmode-link-row">
       <button type="button" id="open-testmode-btn" class="testmode-link-btn">🛠 テストモード(上位職デバッグ用)</button>
