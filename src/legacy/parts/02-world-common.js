@@ -277,7 +277,7 @@
     clearMobBars(); clearSparks(); clearSwingVFX(); clearMagicCircleVFX();
     bossBarChip = 100;
     document.getElementById('boss-bar-wrap').classList.remove('show');
-    nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false;
+    nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false;
     nearbyLantern = null;   // Phase D(#37, 宵待ちの村): 前のダンジョンの灯りを指したまま残らないように
     mansionRoof = null; restroomRoof = null; platform = null;
     currentWorldKey = null;
@@ -1807,11 +1807,12 @@
 
   function updateBartenderProximity(){
     if(!state.started || currentWorldKey!=='tavern'){
-      nearbyBartender = false; nearbySmith = false; updateInteractPrompt(); return;
+      nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false; updateInteractPrompt(); return;
     }
     const free = !nearbyDoor && !nearbyStairs && !nearbyStallTrigger;
     nearbyBartender = free && !state.sortied && state.pos.distanceTo(BARTENDER_POS) < 3;
     nearbySmith = free && !nearbyBartender && state.pos.distanceTo(SMITH_POS) < 3;
+    nearbyShadowGuide = free && !nearbyBartender && !nearbySmith && state.pos.distanceTo(SHADOW_GUIDE_POS) < 3;
     updateInteractPrompt();
   }
   function updateWaterwayColdTimer(dt){
@@ -1860,7 +1861,7 @@
   // single interact prompt shared by doors, staircases and lore notes: shows
   // a plain message, not a flashy call-to-action button
   function updateInteractPrompt(){
-    const target = nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith || nearbyCheckpoint || nearbyLantern;
+    const target = nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith || nearbyShadowGuide || nearbyCheckpoint || nearbyLantern;
     const el = document.getElementById('interact-btn');
     if(!el) return;
     el.classList.toggle('show', !!target && !state.paused && !state.dialogueActive);
@@ -1887,6 +1888,7 @@
     else if(nearbyStallTrigger) el.textContent = '個室に入る';
     else if(nearbyBartender) el.textContent = '🗺️ 店主と話す(出撃)';
     else if(nearbySmith) el.textContent = '🔨 鍛冶士と話す(鑑定・強化)';
+    else if(nearbyShadowGuide) el.textContent = '💬 話しかける';
     else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)' : '🏕️ 休憩する(回復+装備整理)';
     else if(nearbyLantern) el.textContent = nearbyLantern.lit ? '🏮 灯りは点いている' : '🏮 灯りを点ける';
   }
@@ -1900,6 +1902,7 @@
     else if(nearbyStallTrigger){ triggerStallSleep(); }
     else if(nearbyBartender){ toggleScenarioSelect(); }
     else if(nearbySmith){ toggleAppraisal(); }
+    else if(nearbyShadowGuide){ talkToShadowGuide(); }
     else if(nearbyCheckpoint){ useCheckpoint(); }
     else if(nearbyLantern){ lightLantern(nearbyLantern); }
   }

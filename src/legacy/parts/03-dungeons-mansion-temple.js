@@ -271,6 +271,10 @@
   const BARTENDER_POS = new THREE.Vector3(0,0,20);
   const SMITH_POS = new THREE.Vector3(-6.5,0,12);
   let nearbySmith = false;
+  // 5人目「影の旅人」。まだ仲間ではなく、酒場の片隅に座る謎めいたNPC
+  // (プレイアブル化までの流れは12-progression-ui.jsのSHADOW_GUIDE_*参照)
+  const SHADOW_GUIDE_POS = new THREE.Vector3(7.5,0,8.5);
+  let nearbyShadowGuide = false;
 
   // Forest decorations, hedge maze and the jump platform. Part of the
   // mansion world rather than global scenery, so they only exist while
@@ -1660,6 +1664,38 @@
       '「腕に覚えのある者、力を貸してくれ」――そんな貼り紙が、色褪せて残っている。',
       '差出人の名前は、とうに読めなくなっていた。'
     ], {kind:'sign'});
+
+    // 5人目「影の旅人」。北の壁際、酒場の片隅にずっと座っている謎めいた
+    // 人物 ―― まだ戦えるとは誰も知らない(会話はtalkToShadowGuide()、
+    // 12-progression-ui.js参照)。黒ずくめの装いに、足元だけ紫がかった
+    // 影がまとわりつく見た目にしてある
+    const shadowCloakMat = new THREE.MeshStandardMaterial({color:0x0c0a10, roughness:0.9});
+    const shadowSkinMat = new THREE.MeshStandardMaterial({color:0xcabcd6, roughness:0.6});
+    const shadowGuide = new THREE.Group();
+    const sgBody = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.48,1.1,10), shadowCloakMat);
+    sgBody.position.y = 0.9;
+    shadowGuide.add(sgBody);
+    const sgHead = new THREE.Mesh(new THREE.SphereGeometry(0.32,12,10), shadowSkinMat);
+    sgHead.position.y = 1.68;
+    shadowGuide.add(sgHead);
+    const sgHair = new THREE.Mesh(new THREE.SphereGeometry(0.35,12,10,0,Math.PI*2,0,Math.PI*0.6),
+      new THREE.MeshStandardMaterial({color:0x0a0810, roughness:0.7}));
+    sgHair.position.y = 1.78;
+    shadowGuide.add(sgHair);
+    // 影だまり: 本人の足元に不自然に広がる、紫みを帯びた影。「本人とは
+    // 少し違う意思を持つ影」というインフォグラフィックの設定を、まだ
+    // 戦闘に出ない段階でも視覚的にほのめかす
+    const shadowPoolMat = new THREE.MeshBasicMaterial({color:0x2a1a3a, transparent:true, opacity:0.55});
+    const shadowPool = new THREE.Mesh(new THREE.CircleGeometry(0.85,16), shadowPoolMat);
+    shadowPool.rotation.x = -Math.PI/2;
+    shadowPool.position.set(0.35, 0.03, 0.15);
+    shadowGuide.add(shadowPool);
+    const shadowGlow = new THREE.PointLight(0x8a5ad6, 0.35, 5);
+    shadowGlow.position.set(0, 1.2, 0);
+    shadowGuide.add(shadowGlow);
+    shadowGuide.position.copy(SHADOW_GUIDE_POS);
+    shadowGuide.rotation.y = -Math.PI/2.4; // 壁際で少し店内側を向いて座っている
+    scene.add(shadowGuide);
   }
 
   function buildMansion(){

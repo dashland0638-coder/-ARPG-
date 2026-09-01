@@ -59,6 +59,9 @@
       // 純追加なので、フォーマットの互換性は壊れない(v2セーブはロード時に
       // data.job === undefined → null 扱いになるだけで正しく動く)
       job:state.job || null,
+      // 5人目「影の旅人」の酒場会話進行。同じく純追加のフィールド
+      shadowGuideMet:!!state.shadowGuideMet,
+      shadowGuideTalks:state.shadowGuideTalks || 0,
     };
   }
 
@@ -182,6 +185,8 @@
       const uj = upperJobFor(data.selectedClass);
       state.job = (uj && data.job === uj.key) ? data.job : null;
     }
+    state.shadowGuideMet = !!data.shadowGuideMet;
+    state.shadowGuideTalks = data.shadowGuideTalks || 0;
 
     // 以前はここでretreat固定に戻していた(skillChoice自体が未保存だった
     // ため)。クラスの持ち技として実在し、かつ未解放の新技(unlockKey付き)

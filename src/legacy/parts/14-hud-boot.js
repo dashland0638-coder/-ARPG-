@@ -807,6 +807,7 @@
     state.ranks = {skill:0, skill2:0, ult:0};
     state.freeRanks = 0;
     state.clearedScenarios = {};
+    state.shadowGuideMet = false; state.shadowGuideTalks = 0;   // 5人目「影の旅人」の酒場会話進行
     state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
     state.level = 1; state.xp = 0; state.xpToNext = xpToNextForLevel(1);
@@ -884,6 +885,7 @@
     state.ranks = {skill:0, skill2:0, ult:0};
     state.freeRanks = 0;
     state.clearedScenarios = {};
+    state.shadowGuideMet = false; state.shadowGuideTalks = 0;
     state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
 

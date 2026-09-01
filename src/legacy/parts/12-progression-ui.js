@@ -193,6 +193,89 @@
     return (p[state.gender] || p.male).slice();
   }
 
+  /* =========================================================
+     5人目「影の旅人」―― 酒場の片隅にいる謎めいたNPC(まだ仲間ではない)
+
+     このキャラは「ある日いきなり仲間になる」のではなく、最初から
+     ずっと酒場にいた人物が、後にプレイアブル化する……という体験に
+     したいという設計意図があるため、まずこの段階では戦闘に一切
+     関わらない「話しかけると短い会話が返ってくるだけのNPC」として
+     実装してある。プレイアブル化(名もなき街道クリア後)は別途、
+     行方不明者の捜索イベントを起点に追って実装する。
+     state.shadowGuideMet: 初回の会話(酒場の案内)を済ませたか
+     state.shadowGuideTalks: 以後の会話回数(反応のバリエーション用)
+  ========================================================= */
+  const SHADOW_GUIDE_NAME = '影の旅人';
+
+  // 初対面: インフォグラフィック本文の「最初の会話」をほぼそのまま採用。
+  // 後半は完全なチュートリアルNPCとして、酒場の主要施設(店主/鍛冶士)を
+  // 一言で案内する ―― プレイヤーが「ああ、この子は案内役か」と自然に
+  // 誤解する下地を作るための会話
+  const SHADOW_GUIDE_FIRST_MEET = ()=>{ const S=SHADOW_GUIDE_NAME, Y=state.name||'あなた'; return [
+    {name:S, text:'……こんにちは。'},
+    {name:Y, text:'……こんにちは。'},
+    {name:S, text:'ここは、初めてですか?'},
+    {name:Y, text:'そうだ。'},
+    {name:S, text:'そうでしょうね。'},
+    {name:Y, text:'分かるのか?'},
+    {name:S, text:'見れば。'},
+    {name:S, text:'あちらが、この酒場の主人です。依頼や出撃の相談は、あの人に。'},
+    {name:S, text:'奥にいるのが鍛冶士。装備の鑑定や強化は、そちらで頼めます。'},
+    {name:S, text:'依頼を受けて、外の廃墟や遺跡へ向かう……それが、この街での仕事のようです。'},
+    {name:S, text:'……私も、詳しいわけではありませんが。見ていれば、分かることもあります。'}
+  ]; };
+
+  // 二回目以降: インフォグラフィックの「酒場での役割」「他のNPCとの
+  // 関係」から、テンポの良い掛け合いを数種類抜粋。会話のたびに
+  // shadowGuideTalksを進めて順番に出す(会話回数で分岐する以外のロジックは
+  // まだ持たせていない ―― 行方不明者の捜索イベントを実装する際に、
+  // ここへ「一人が帰ってこない」の分岐を追加する想定)
+  const SHADOW_GUIDE_REPEAT = [
+    ()=>{ const S=SHADOW_GUIDE_NAME, Y=state.name||'あなた'; return [
+      {name:S, text:'……近く、新しい人が来ます。'},
+      {name:Y, text:'誰だ?'},
+      {name:S, text:'分かりません。'},
+      {name:Y, text:'分からないのに、よく分かるな。'},
+      {name:S, text:'……そうですね。'}
+    ]; },
+    ()=>{ const S=SHADOW_GUIDE_NAME, Y=state.name||'あなた'; return [
+      {name:S, text:'マスターが、何か考え込んでいるようです。'},
+      {name:Y, text:'よくあることなのか?'},
+      {name:S, text:'……分かりません。でも、聞いてあげてください。'}
+    ]; },
+    ()=>{ const S=SHADOW_GUIDE_NAME, Y=state.name||'あなた'; return [
+      {name:Y, text:'……お前は、いつからここにいる?'},
+      {name:S, text:'……。'},
+      {name:S, text:'分かりません。'},
+      {name:Y, text:'覚えていないのか?'},
+      {name:S, text:'ずっと、ここにいた気がします。それだけです。'}
+    ]; },
+    ()=>{ const S=SHADOW_GUIDE_NAME, Y=state.name||'あなた'; return [
+      {name:S, text:'……ここは、落ち着きます。'},
+      {name:Y, text:'意外だな。'},
+      {name:S, text:'そうですか?'},
+      {name:Y, text:'いや……何でもない。'}
+    ]; },
+  ];
+
+  function talkToShadowGuide(){
+    if(state.dialogueActive) return;
+    state.dialogueActive = true;
+    state.dialogueBoss = null;
+    state.dialogueKind = 'shadowGuide';
+    state.dialogueIndex = 0;
+    if(!state.shadowGuideMet){
+      state.dialogueLines = SHADOW_GUIDE_FIRST_MEET();
+      state.shadowGuideMet = true;
+    } else {
+      const variant = SHADOW_GUIDE_REPEAT[state.shadowGuideTalks % SHADOW_GUIDE_REPEAT.length];
+      state.dialogueLines = variant();
+      state.shadowGuideTalks++;
+    }
+    renderDialogueLine(state.dialogueLines[0]);
+    document.getElementById('dialogue-overlay').classList.add('active');
+  }
+
   function startScenarioTavernDialogue(scenarioKey){
     // 一覧側でボタンごと出さないようにしてあるが、ここでも二重に防ぐ
     // (renderScenarioList()参照)
@@ -313,6 +396,8 @@
       } else if(state.dialogueKind==='jobPromotion'){
         state.dialogueKind = null;
         applyPendingJobPromotion();
+      } else if(state.dialogueKind==='shadowGuide'){
+        state.dialogueKind = null;
       }
       return;
     }
