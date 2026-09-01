@@ -1250,25 +1250,41 @@
       const knightDark = new THREE.MeshStandardMaterial({color:0x241d18, roughness:0.6, metalness:0.3, flatShading:true});
       const knightFur = new THREE.MeshStandardMaterial({color:0xe6dcc6, roughness:0.92, side:THREE.DoubleSide, flatShading:true});
 
-      // ---- 兜(Polyhedron相当): 低分割の部分球+flatShadingで「面取りされた
-      // 兜」に。頭自体を0.86倍に縮小した(下記)ぶん、兜もその縮小後の頭に
-      // フィットする大きさへ合わせてある(縮小前の頭を覆っていた素の兜と
-      // ほぼ同じ絶対サイズ)。thetaLengthは素の兜(0.62π)よりやや浅い
-      // 0.58πにして、顎・口元がより見えるようにした(「兜の隙間から
-      // 少し顔が見える」) ----
-      const helmet = new THREE.Mesh(new THREE.SphereGeometry(hR*1.02, 7, 5, 0, Math.PI*2, 0, Math.PI*0.58), knightSteel);
-      helmet.position.set(0, headYLocal+0.02, 0);
-      helmet.castShadow = true; P.waist.add(helmet); meshes.push(helmet);
+      // ---- 兜(Polyhedron): 低分割の部分球はやめ、七角柱(頂点数の少ない
+      // CylinderGeometry、openEnded)+上面キャップに置き換えた。
+      // 低分割の球は面ごとの陰影(flatShading)こそ付くが、輪郭(シルエット)
+      // は分割数を上げても丸いまま ―― flatShadingは陰影だけを変え、
+      // アウトラインは変えないため、見下ろし視点の実プレイでは結局
+      // 「丸い球」にしか見えない。Cylinder/Coneは分割数を下げるほど輪郭
+      // 自体が多角形になるため、七角柱なら側面からでも上から見ても
+      // 明確に角ばった兜として読める。頬〜顎にかけて広がり(radiusBottom)、
+      // 頭頂に向けて絞る(radiusTop)ことで兜らしい傾斜も付けた。
+      // 底面は開放(openEnded) - 下は頭部メッシュに隠れるため不要
+      const helmetR = hR*1.10;
+      const helmetH = hR*1.55;
+      const helmetSegs = 7;
+      const helmetSide = new THREE.Mesh(
+        new THREE.CylinderGeometry(helmetR*0.42, helmetR, helmetH, helmetSegs, 1, true), knightSteel);
+      const helmetY = headYLocal + hR*0.30;
+      helmetSide.position.set(0, helmetY, 0);
+      helmetSide.castShadow = true; P.waist.add(helmetSide); meshes.push(helmetSide);
+      // 頭頂キャップ(七角形の板) - 見下ろし視点では兜のうち最も大きく
+      // 見える面なので、これも多角形であることが重要
+      const helmetCap = new THREE.Mesh(new THREE.CircleGeometry(helmetR*0.42, helmetSegs), knightSteel);
+      helmetCap.rotation.x = -Math.PI/2;
+      helmetCap.position.set(0, helmetY + helmetH/2, 0);
+      helmetCap.castShadow = true; P.waist.add(helmetCap); meshes.push(helmetCap);
       // 顔の開口部を示す暗い縁(visor) - 既存と同じ「目の高さの薄い帯」
       const visor = new THREE.Mesh(new THREE.BoxGeometry(hR*1.7, 0.07, 0.10), knightDark);
       visor.position.set(0, headYLocal+0.01, hR*0.92);
       P.waist.add(visor); meshes.push(visor);
       // 兜の鶏冠飾り(Wedge): 平らな板ではなく、根元から稜線へ向けて
       // 傾斜するくさび形にして低ポリらしい面の切り替わりを出す。
+      // 参考画像の兜飾りに近づけるため前回よりはっきり大きくした。
       // ここだけ金(knightGold)にして、鋼色の兜に対する縁取りにする
-      const crestGeo = makeWedge({baseW:0.075, baseD:0.24, height:0.22, ridgeW:0, ridgeOffsetZ:-0.04});
+      const crestGeo = makeWedge({baseW:0.13, baseD:0.42, height:0.32, ridgeW:0, ridgeOffsetZ:-0.08});
       const crest = new THREE.Mesh(crestGeo, knightGold);
-      crest.position.set(0, headYLocal + hR*0.98, -0.02);
+      crest.position.set(0, helmetY + helmetH/2 - 0.02, -0.02);
       crest.castShadow = true; P.waist.add(crest); meshes.push(crest);
 
       // ---- 大きな毛皮(Plate複数枚、不規則な輪郭): 首まわりに6枚 + 肩に
@@ -1303,8 +1319,8 @@
       // シルエットになる。鋼色(knightSteel)で、下の赤い胴着(既存torso)
       // との色差でシルエットが説明できるようにする ----
       const chestArmor = new THREE.Mesh(makeTrapezoidBox({
-        topW:bodyR*1.85, topD:bodyR*1.05, botW:bodyR*1.35, botD:bodyR*0.80,
-        height:bodyH*0.56, topOffsetZ:0.02, botOffsetZ:0.04,
+        topW:bodyR*2.2, topD:bodyR*1.3, botW:bodyR*1.6, botD:bodyR*0.95,
+        height:bodyH*0.58, topOffsetZ:0.04, botOffsetZ:0.05,
       }), knightSteel);
       chestArmor.position.y = bodyH*0.62;
       chestArmor.castShadow = true; P.waist.add(chestArmor); meshes.push(chestArmor);
@@ -1312,8 +1328,8 @@
       // ---- 腰鎧(TrapezoidBox): ベルトの下、腰から裾に向けて開くフォールド
       // 状の帯。胸鎧と同じPrimitiveだが上下を逆にして「開く」向きにする ----
       const waistArmor = new THREE.Mesh(makeTrapezoidBox({
-        topW:bodyR*1.15, topD:bodyR*0.7, botW:bodyR*1.65, botD:bodyR*1.0,
-        height:bodyH*0.30, botOffsetZ:0.03,
+        topW:bodyR*1.35, topD:bodyR*0.85, botW:bodyR*2.0, botD:bodyR*1.25,
+        height:bodyH*0.34, botOffsetZ:0.04,
       }), knightSteel);
       waistArmor.position.y = -bodyH*0.02;
       waistArmor.castShadow = true; P.waist.add(waistArmor); meshes.push(waistArmor);
@@ -1326,8 +1342,8 @@
       // 広い底面を上(肩の上面)に、先端を下(腕側)へ向けている ----
       if(P.armL){
         const bigL = new THREE.Mesh(makeWedge({
-          baseW:B.upper*2.3, baseD:B.upper*2.1, height:B.upper*1.7,
-          ridgeW:B.upper*0.5, ridgeOffsetZ:B.upper*0.35,
+          baseW:B.upper*3.0, baseD:B.upper*2.7, height:B.upper*2.3,
+          ridgeW:B.upper*0.6, ridgeOffsetZ:B.upper*0.55,
         }), knightSteel);
         bigL.rotation.x = Math.PI;   // 反転: 広い面を上に
         bigL.position.y = 0.10; bigL.castShadow = true;
@@ -1335,8 +1351,8 @@
       }
       if(P.armR){
         const smallR = new THREE.Mesh(makeWedge({
-          baseW:B.upper*1.6, baseD:B.upper*1.5, height:B.upper*1.15,
-          ridgeW:0, ridgeOffsetZ:B.upper*0.25,
+          baseW:B.upper*2.1, baseD:B.upper*1.95, height:B.upper*1.55,
+          ridgeW:0, ridgeOffsetZ:B.upper*0.4,
         }), knightSteel);
         smallR.rotation.x = Math.PI;
         smallR.position.y = 0.06; smallR.castShadow = true;
