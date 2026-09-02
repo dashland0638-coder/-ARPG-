@@ -562,6 +562,13 @@
     // 1つだけだったのを、白目(強膜)+黒目(瞳)+ハイライトの3層に
     // 分けて、アニメ的な大きく丸い目にした。位置・向きを決める役割
     // (顔の正面を示す)は変えていない
+    // グラフィック刷新(Face再設計フェーズ Phase B): 3層とも
+    // THREE.SphereGeometryだったものを、makeEyeSclera()/makeEyePupil()/
+    // makeEyeHighlight()(既存makePlate()を使った低ポリ多角形の薄板、
+    // 05-rendering-rig.js)へ置き換え。Position/eyeScale/poke量の計算
+    // 方針は維持し、Geometryの形状だけをSphereから多角形に差し替えた
+    // (詳細は各ヘルパー側のコメント参照)。classDef.eyeColorによる瞳色・
+    // MeshBasicMaterialの仕組みは変更していない
     const headR = B.headR;
     const eyeScale = headR/0.26;
     const scleraMat = new THREE.MeshBasicMaterial({color:0xfaf6ee});
@@ -575,36 +582,42 @@
     // なる ―― 白目の前面(中心z + 半径*Z方向スケール)より手前(+Z)に
     // 出す必要がある。(2) 瞳をZ方向に強く潰す(scale.z<0.5)と、この
     // カメラ角度ではほぼ真横から見ることになり、潰した向きがカメラ
-    // 視線とほぼ平行になって「消えて見える」。潰さず球のままにする
-    // ことで解決した。
+    // 視線とほぼ平行になって「消えて見える」。旧実装(球のまま)では
+    // 潰さないことで解決していたが、今回Pupil/Highlightも低ポリ薄板に
+    // する必要があるため、この閾値(0.5)より安全な0.6倍(Scleraと同じ
+    // 比率)の厚みにして、消える問題を再発させないようにしてある。
     // ただしその時点では「白目の前面よりさらに手前」に球の中心その
     // ものを置いていたため、瞳が白目の表面から大きく浮き上がって
     // 見えてしまっていた(ユーザー指摘: 「目が飛び出てる」)。正しくは
     // 球の【表面】が白目の表面よりわずかに前へ出ればよいだけで、
     // 球の【中心】まで前に出す必要は無い ―― 中心は白目の表面より
     // 半径ぶん奥に置き、そこにpoke(ごくわずかな飛び出し量)だけ
-    // 上乗せする形に直した
+    // 上乗せする形に直した(薄板化後もこの考え方は維持、「半径」を
+    // 「Z方向の半厚み」に読み替えただけ)
     const scleraR = 0.062;
     const scleraZScale = 0.6;
-    const scleraFrontZ = headR*0.90 + scleraR*scleraZScale*eyeScale;
-    const pupilR = 0.038, pupilPoke = 0.008;
-    const highlightR = 0.013, highlightPoke = 0.014;
+    const scleraHalfDepth = scleraR*scleraZScale;
+    const scleraFrontZ = headR*0.90 + scleraHalfDepth*eyeScale;
+    const pupilR = 0.038, pupilPoke = 0.008, pupilZScale = 0.6;
+    const pupilHalfDepth = pupilR*pupilZScale;
+    const highlightR = 0.013, highlightPoke = 0.014, highlightZScale = 0.6;
+    const highlightHalfDepth = highlightR*highlightZScale;
     // グラフィック刷新(戦騎士#低頭身化): 頭部一式(頭+髪+目)をまとめて
     // 縮小できるよう、目のメッシュをここで配列に集めておく。既存の
     // 「白目/瞳/ハイライトの3層」自体には一切手を加えていない
     const faceMeshes = [];
     [-0.115*eyeScale, 0.115*eyeScale].forEach(x=>{
-      const sclera = new THREE.Mesh(new THREE.SphereGeometry(scleraR*eyeScale,10,8), scleraMat);
-      sclera.scale.set(1, 1.15, scleraZScale);
+      const sclera = new THREE.Mesh(
+        makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*1.15, scleraHalfDepth*eyeScale), scleraMat);
       sclera.position.set(x, head.position.y+0.02, headR*0.90);
       group.add(sclera);
       faceMeshes.push(sclera);
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(pupilR*eyeScale,8,7), pupilMat);
-      pupil.position.set(x, head.position.y+0.02, scleraFrontZ - pupilR*eyeScale + pupilPoke*eyeScale);
+      const pupil = new THREE.Mesh(makeEyePupil(pupilR*eyeScale, pupilHalfDepth*eyeScale), pupilMat);
+      pupil.position.set(x, head.position.y+0.02, scleraFrontZ - pupilHalfDepth*eyeScale + pupilPoke*eyeScale);
       group.add(pupil);
       faceMeshes.push(pupil);
-      const highlight = new THREE.Mesh(new THREE.SphereGeometry(highlightR*eyeScale,6,6), highlightMat);
-      highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ - highlightR*eyeScale + highlightPoke*eyeScale);
+      const highlight = new THREE.Mesh(makeEyeHighlight(highlightR*eyeScale, highlightHalfDepth*eyeScale), highlightMat);
+      highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ - highlightHalfDepth*eyeScale + highlightPoke*eyeScale);
       group.add(highlight);
       faceMeshes.push(highlight);
     });

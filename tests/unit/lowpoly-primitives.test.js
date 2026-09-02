@@ -4,6 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../../src/render/lowpoly-primitives.js';
 
 function assertSaneGeometry(geo, minTris){
@@ -907,6 +909,179 @@ test('makeCharacterHead(Loft頭部) Face再設計Phase A: 鼻〜口(nosePush)の
     const expectedBackZ = 1.15 * (headR*0.86);   // HEAD_HEX_TEMPLATEの後頭部点(|z|=1.15)*depthMul
     assert.ok(Math.abs(maxBackZ - expectedBackZ) < 1e-6,
       `後頭部側のZ(${maxBackZ.toFixed(4)})がnosePush導入前と同じ計算値(${expectedBackZ.toFixed(4)})のまま`);
+  });
+});
+
+// makeEyeSclera()/makeEyePupil()/makeEyeHighlight()自体も(makeCharacterHead
+// 等と同じ理由で)このテストファイルから直接importできないため、
+// 05-rendering-rig.js内のmakeEyeOutline()/makeEyeSclera()/makeEyePupil()/
+// makeEyeHighlight()と同じロジックをここに複製して検証する(値を変えたら
+// このコピーも合わせて更新すること)
+function makeEyeOutlineForTest(n, rx, ry){
+  const pts = [];
+  for(let i=0;i<n;i++){
+    const a = (i/n)*Math.PI*2;
+    pts.push({x:Math.cos(a)*rx, y:Math.sin(a)*ry});
+  }
+  return pts;
+}
+function makeEyeScleraForTest(rx, ry, halfDepth){
+  return makePlate(makeEyeOutlineForTest(8, rx, ry), { thickness: halfDepth*2 });
+}
+function makeEyePupilForTest(r, halfDepth){
+  return makePlate(makeEyeOutlineForTest(6, r, r), { thickness: halfDepth*2 });
+}
+function makeEyeHighlightForTest(r, halfDepth){
+  return makePlate(makeEyeOutlineForTest(4, r, r), { thickness: halfDepth*2 });
+}
+
+// 06-player-enemy.js内のEye構築部分と同じ数値(headR/eyeScale/各半径/
+// poke量/Z比率)をここに複製し、実際にゲーム内で使われる値でジオメトリの
+// 妥当性(NaN無し・低ポリ・薄い・左右対称・前後関係)を検証する
+function computeEyeParamsForTest(headR){
+  const eyeScale = headR/0.26;
+  const scleraR = 0.062, scleraZScale = 0.6;
+  const scleraHalfDepth = scleraR*scleraZScale;
+  const scleraFrontZ = headR*0.90 + scleraHalfDepth*eyeScale;
+  const pupilR = 0.038, pupilPoke = 0.008, pupilZScale = 0.6;
+  const pupilHalfDepth = pupilR*pupilZScale;
+  const highlightR = 0.013, highlightPoke = 0.014, highlightZScale = 0.6;
+  const highlightHalfDepth = highlightR*highlightZScale;
+  return {
+    eyeScale, scleraR, scleraZScale, scleraHalfDepth, scleraFrontZ,
+    pupilR, pupilPoke, pupilZScale, pupilHalfDepth,
+    highlightR, highlightPoke, highlightZScale, highlightHalfDepth,
+  };
+}
+
+function boundingBoxOf(geo){
+  geo.computeBoundingBox();
+  const b = geo.boundingBox;
+  return { w: b.max.x-b.min.x, h: b.max.y-b.min.y, d: b.max.z-b.min.z };
+}
+
+test('Eye(Sclera/Pupil/Highlight) Face再設計フェーズ Phase B: 低ポリ多角形化要件', async (t) => {
+  const headR = 0.390;   // BUILD.male相当の実際の値
+  const P = computeEyeParamsForTest(headR);
+
+  const sclera = makeEyeScleraForTest(P.scleraR*P.eyeScale, P.scleraR*P.eyeScale*1.15, P.scleraHalfDepth*P.eyeScale);
+  const pupil = makeEyePupilForTest(P.pupilR*P.eyeScale, P.pupilHalfDepth*P.eyeScale);
+  const highlight = makeEyeHighlightForTest(P.highlightR*P.eyeScale, P.highlightHalfDepth*P.eyeScale);
+
+  await t.test('Sclera/Pupil/Highlightいずれも妥当なジオメトリ(NaN無し・法線あり)', () => {
+    assertSaneGeometry(sclera, 8*2);       // 8点押し出し: 側面16 + 前後キャップ(8-2)*2
+    assertSaneGeometry(pupil, 6*2);
+    assertSaneGeometry(highlight, 4*2);
+  });
+
+  // ExtrudeGeometryは面ごとに頂点を複製する(共有しない)ため、position.count
+  // 自体は輪郭点数と一致しない。代わりに(X,Y)座標の「異なる位置」の個数
+  // (前後キャップでX,Yは共通、Zだけ違う)を数えることで、実質の輪郭点数を
+  // 取り出す ―― SphereGeometryのUV分割(経度×緯度の格子)ならここが
+  // widthSegments×heightSegmentsの粗い格子にはならず、8/6/4個のような
+  // 小さな値にきれいに収まらない
+  function countDistinctXY(geo){
+    const pos = geo.attributes.position;
+    const seen = new Set();
+    for(let i=0;i<pos.count;i++){
+      const key = `${pos.getX(i).toFixed(5)},${pos.getY(i).toFixed(5)}`;
+      seen.add(key);
+    }
+    return seen.size;
+  }
+
+  await t.test('Sclera/Pupil/HighlightいずれもSphereGeometryではない(makeEyeOutline+makePlateのExtrudeGeometryベース)', () => {
+    // SphereGeometryはUV球面分割特有の「経度×緯度」の格子頂点配置になるが、
+    // ここでは8/6/4角形の押し出しのみのため、XY平面上の異なる頂点位置が
+    // 輪郭点数と厳密に一致する
+    assert.strictEqual(countDistinctXY(sclera), 8, 'Scleraの異なる(X,Y)頂点位置が8点押し出しと一致 ―― 球のUV分割ではない');
+    assert.strictEqual(countDistinctXY(pupil), 6, 'Pupilの異なる(X,Y)頂点位置が6点押し出しと一致 ―― 球のUV分割ではない');
+    assert.strictEqual(countDistinctXY(highlight), 4, 'Highlightの異なる(X,Y)頂点位置が4点押し出しと一致 ―― 球のUV分割ではない');
+  });
+
+  await t.test('実装コード上もSphereGeometryが使われていない(05-rendering-rig.js内のmakeEyeXxx定義を直接検査)', () => {
+    const srcPath = fileURLToPath(new URL('../../src/legacy/parts/05-rendering-rig.js', import.meta.url));
+    const src = fs.readFileSync(srcPath, 'utf8');
+    const start = src.indexOf('function makeEyeOutline');
+    const end = src.indexOf('/* Pauldron:');
+    assert.ok(start >= 0 && end > start, 'makeEyeOutline〜Pauldronコメントの区間が見つかる');
+    const eyeSrc = src.slice(start, end);
+    assert.ok(!/SphereGeometry/.test(eyeSrc), 'Eye生成コード(makeEyeOutline/makeEyeSclera/makeEyePupil/makeEyeHighlight)にSphereGeometryが含まれない');
+  });
+
+  await t.test('Scleraの多角形数は8点程度(16点以上の滑らかな円ではない、低ポリ要件)', () => {
+    assert.strictEqual(countDistinctXY(sclera), 8, 'Scleraの輪郭点数が8(過剰に滑らかな円ではない)');
+    assert.strictEqual(countDistinctXY(pupil), 6, 'Pupilの輪郭点数が6');
+    assert.strictEqual(countDistinctXY(highlight), 4, 'Highlightの輪郭点数が4');
+  });
+
+  const scleraBox = boundingBoxOf(sclera);
+  const pupilBox = boundingBoxOf(pupil);
+  const highlightBox = boundingBoxOf(highlight);
+
+  await t.test('PupilはScleraより小さい、HighlightはPupilより小さい(白目>瞳>ハイライトのサイズ順)', () => {
+    assert.ok(pupilBox.w < scleraBox.w && pupilBox.h < scleraBox.h,
+      `Pupil(${pupilBox.w.toFixed(3)}x${pupilBox.h.toFixed(3)})がSclera(${scleraBox.w.toFixed(3)}x${scleraBox.h.toFixed(3)})より小さい`);
+    assert.ok(highlightBox.w < pupilBox.w && highlightBox.h < pupilBox.h,
+      `Highlight(${highlightBox.w.toFixed(3)}x${highlightBox.h.toFixed(3)})がPupil(${pupilBox.w.toFixed(3)}x${pupilBox.h.toFixed(3)})より小さい`);
+  });
+
+  await t.test('Scleraは縦にやや長い(横幅<縦幅) ―― 丸いボールではなく少し縦長のLow Poly Eye', () => {
+    assert.ok(scleraBox.h > scleraBox.w, `Sclera縦幅(${scleraBox.h.toFixed(3)})が横幅(${scleraBox.w.toFixed(3)})より大きい`);
+  });
+
+  await t.test('奥行き(Depth)が幅・高さより十分薄い ―― 球体のような厚みになっていない', () => {
+    assert.ok(scleraBox.d < scleraBox.w*0.7 && scleraBox.d < scleraBox.h*0.7,
+      `Scleraの奥行き(${scleraBox.d.toFixed(4)})が幅(${scleraBox.w.toFixed(3)})・高さ(${scleraBox.h.toFixed(3)})の70%未満(薄い板状)`);
+    assert.ok(pupilBox.d < pupilBox.w*0.7 && pupilBox.d < pupilBox.h*0.7,
+      `Pupilの奥行き(${pupilBox.d.toFixed(4)})が幅(${pupilBox.w.toFixed(3)})・高さ(${pupilBox.h.toFixed(3)})の70%未満(薄い板状)`);
+    assert.ok(highlightBox.d < highlightBox.w*0.7 && highlightBox.d < highlightBox.h*0.7,
+      `Highlightの奥行き(${highlightBox.d.toFixed(4)})が幅(${highlightBox.w.toFixed(3)})・高さ(${highlightBox.h.toFixed(3)})の70%未満(薄い板状)`);
+  });
+
+  await t.test('左右対称(X=0を軸に鏡映対称) ―― 個々のジオメトリ自体が左右非対称な形になっていない', () => {
+    function assertMirrorSymmetric(geo, label){
+      const pos = geo.attributes.position;
+      const pts = [];
+      for(let i=0;i<pos.count;i++) pts.push([pos.getX(i), pos.getY(i), pos.getZ(i)]);
+      for(const [x,y,z] of pts){
+        const hasMirror = pts.some(([mx,my,mz]) => Math.abs(mx-(-x))<1e-5 && Math.abs(my-y)<1e-5 && Math.abs(mz-z)<1e-5);
+        assert.ok(hasMirror, `${label}: 頂点(${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)})に対応する鏡映頂点(-x)が存在する`);
+      }
+    }
+    assertMirrorSymmetric(sclera, 'Sclera');
+    assertMirrorSymmetric(pupil, 'Pupil');
+    assertMirrorSymmetric(highlight, 'Highlight');
+  });
+
+  await t.test('eyeScaleでHead全体のサイズに追従して拡大縮小できる(半径に比例したサイズ変化)', () => {
+    const bigHeadR = headR*1.5;
+    const Pbig = computeEyeParamsForTest(bigHeadR);
+    const scleraBig = makeEyeScleraForTest(Pbig.scleraR*Pbig.eyeScale, Pbig.scleraR*Pbig.eyeScale*1.15, Pbig.scleraHalfDepth*Pbig.eyeScale);
+    const bigBox = boundingBoxOf(scleraBig);
+    const ratio = bigHeadR/headR;
+    assert.ok(Math.abs(bigBox.w/scleraBox.w - ratio) < 1e-6, `Sclera幅がheadR比率(${ratio})に比例して拡大している`);
+    assert.ok(Math.abs(bigBox.h/scleraBox.h - ratio) < 1e-6, `Sclera高さがheadR比率(${ratio})に比例して拡大している`);
+  });
+
+  await t.test('Sclera→Pupil→Highlightの前後(Z)関係が正しく、Z-fightingを避ける十分な間隔がある', () => {
+    // 06-player-enemy.jsの実際の配置式(scleraFrontZ、pupil/highlightの
+    // position.z計算)を複製し、各層の「自分自身の前面Z」を比較する
+    const pupilCenterZ = P.scleraFrontZ - P.pupilHalfDepth*P.eyeScale + P.pupilPoke*P.eyeScale;
+    const pupilFrontZ = pupilCenterZ + P.pupilHalfDepth*P.eyeScale;
+    const highlightCenterZ = P.scleraFrontZ - P.highlightHalfDepth*P.eyeScale + P.highlightPoke*P.eyeScale;
+    const highlightFrontZ = highlightCenterZ + P.highlightHalfDepth*P.eyeScale;
+
+    assert.ok(pupilFrontZ > P.scleraFrontZ,
+      `Pupilの前面Z(${pupilFrontZ.toFixed(4)})がScleraの前面Z(${P.scleraFrontZ.toFixed(4)})よりわずかに前方(埋没しない)`);
+    assert.ok(highlightFrontZ > pupilCenterZ,
+      `Highlightの前面Z(${highlightFrontZ.toFixed(4)})がPupilの中心Z(${pupilCenterZ.toFixed(4)})より前方`);
+
+    const scleraPupilGap = pupilFrontZ - P.scleraFrontZ;
+    const pupilHighlightGap = Math.abs(highlightCenterZ - pupilCenterZ);
+    assert.ok(scleraPupilGap > 1e-4, `Sclera-Pupil間に十分な隙間(${scleraPupilGap.toFixed(5)})がある(Z-fighting回避)`);
+    assert.ok(pupilHighlightGap > 1e-4 || highlightFrontZ - pupilFrontZ > 1e-4,
+      'Pupil-Highlight間、または両者の前面同士に十分な隙間がある(Z-fighting回避)');
   });
 });
 

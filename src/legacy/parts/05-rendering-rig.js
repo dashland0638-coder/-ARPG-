@@ -815,6 +815,48 @@
     });
   }
 
+  /* =========================================================
+     Face再設計フェーズ Phase B: Eye(Sclera/Pupil/Highlight)の低ポリ化
+
+     旧EyeはいずれもTHREE.SphereGeometryだった(Scleraはscale.set(1,1.15,
+     0.6)で縦長・偏平にしていたが、Geometry自体は球のまま)。Head/Hairが
+     Loft/Plate/Prismで低ポリ化された後も、Eyeだけ滑らかな球が顔に貼り
+     付いている印象を作っていた。
+
+     既存のmakePlate()(src/render/lowpoly-primitives.js、自由な2D輪郭+
+     薄いExtrudeGeometry。cape/ローブ等で実績あり)をそのまま使い、正多角形
+     ではなく「縦にやや長い8点(Sclera)/6点(Pupil)/4点(Highlight)の輪郭」を
+     thickness>0で薄く押し出す。新しいGeometry Systemは追加していない。
+
+     重要: 見下ろしカメラで「瞳をZ方向に強く潰す(scale.z<0.5)と、ほぼ
+     真横から見ることになり消えて見える」という過去の実験結果があり
+     (旧実装のコメント参照、Pupil/Highlightはそれを避けるため潰さず
+     球のままにしていた)、この閾値を踏まえてPupil/Highlightの厚みも
+     Scleraと同じ安全な比率(半径の0.6倍)にしてある ―― 完全な0厚みの
+     Planeにはしていない。 */
+  function makeEyeOutline(n, rx, ry){
+    const pts = [];
+    for(let i=0;i<n;i++){
+      const a = (i/n)*Math.PI*2;
+      pts.push({x:Math.cos(a)*rx, y:Math.sin(a)*ry});
+    }
+    return pts;
+  }
+  // Sclera(白目): 8点、縦にやや長い(ry>rx)。halfDepthは中心から前面
+  // までのZ距離(呼び出し側のscleraFrontZ計算と対応させるため、
+  // thickness=halfDepth*2で渡す)
+  function makeEyeSclera(rx, ry, halfDepth){
+    return makePlate(makeEyeOutline(8, rx, ry), { thickness: halfDepth*2 });
+  }
+  // Pupil(瞳): 6点、六角形に近い形。Scleraより小さい
+  function makeEyePupil(r, halfDepth){
+    return makePlate(makeEyeOutline(6, r, r), { thickness: halfDepth*2 });
+  }
+  // Highlight(ハイライト): 4点の小さな菱形。Pupilよりさらに小さい
+  function makeEyeHighlight(r, halfDepth){
+    return makePlate(makeEyeOutline(4, r, r), { thickness: halfDepth*2 });
+  }
+
   /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
      for both genders - the shoulder-armor read is a class/armor thing, not
      a body-shape thing, and B.upper already differs by gender for sizing.
