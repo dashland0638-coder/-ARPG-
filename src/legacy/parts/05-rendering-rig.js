@@ -415,6 +415,54 @@
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }
 
+  /* =========================================================
+     LOFT CALF(グラフィック刷新: LatheGeometry脱却・第四弾、Torso/Pelvis/
+     Thighに続く)
+
+     LIMB_PROFILE.calf/limbGeo自体は削除・変更していない(Enemy/Bossが
+     今後使う可能性に備えて残す、他の部位と同じ扱い)。差し替えるのは
+     buildPlayer()側のCalf生成呼び出し1箇所だけ。Knee関節(飾り球)・
+     Ankle関節・Foot(Boot)は今回変更しない。
+
+     Thighとは違い、Calfは上から下への単調なテーパーにしない ―― Knee側
+     (upperCalf)はほどほどの太さ、中央付近(midCalf)でふくらはぎらしい
+     量感のピークを作り、そこからAnkle側(lowerCalf→ankle)へ絞る、
+     という「山型」のシルエットにする(旧LIMB_PROFILE.calfも同じ向き:
+     踝の細さ0.62→中腹の山1.00→膝側0.88で、この山型自体は踏襲している)。
+     width/depthはB.calf基準の倍率 ―― 全断面でwidthMul>depthMulにしてあり
+     (Torso/Pelvis/Thighと同じ、左右にやや広く前後は薄い非円形)、
+     upperCalfの実効サイズはThigh側のknee断面(B.thigh*0.70/0.62)と
+     近いオーダーになるよう合わせてあるので、Knee飾り球を挟んでThigh→
+     Calfが自然に繋がる。ankleの断面はBoot(BoxGeometry, 半幅B.calf*0.81)
+     の中に収まる大きさに絞ってあるので、Boot側との段差も出ない。
+  ========================================================= */
+  const CALF_SECTION_RATIOS = {
+    upperCalf: { yFrac:1.00, widthMul:0.90, depthMul:0.80 },  // Knee側、Thigh下端と近いオーダー
+    midCalf:   { yFrac:0.62, widthMul:1.05, depthMul:0.92 },  // ふくらはぎの量感のピーク
+    lowerCalf: { yFrac:0.30, widthMul:0.78, depthMul:0.68 },  // Ankleへ向けて絞り始める
+    ankle:     { yFrac:0.00, widthMul:0.55, depthMul:0.48 },  // Ankle側の下端、Boot内に収まる細さ
+  };
+
+  /* makeCharacterCalf({width, depth, height}): makeCharacterThigh()と同じ
+     考え方の、脛専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの基準値
+     (旧limbGeo()のradius引数と同じ意味)で、呼び出し側はB.calfを、
+     heightにはB.calfLenをそのまま渡せばよい。ローカルy座標の範囲は
+     旧limbGeo()と同じ-height/2〜+height/2(y=+height/2がKnee側=上、
+     y=-height/2がAnkle側=下)なので、呼び出し側のposition/回転は
+     変更不要。 */
+  function makeCharacterCalf(opts){
+    const o = Object.assign({ width:0.106, depth:0.106, height:0.54 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(CALF_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
   /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
      for both genders - the shoulder-armor read is a class/armor thing, not
      a body-shape thing, and B.upper already differs by gender for sizing.

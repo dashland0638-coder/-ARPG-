@@ -415,9 +415,14 @@
     // (太い)→中央(自然な量感)→Knee(絞る)というテーパーを、旋盤の
     // 「あらゆる高さで断面が円」という制約なしに表現している(詳細は
     // makeCharacterThigh()側のコメント参照)。LIMB_PROFILE.thigh/limbGeo自体
-    // は削除していない。Calfは今回変更しないため、shinGeoは従来通り
+    // は削除していない
     const thighGeo = makeCharacterThigh({width:B.thigh, depth:B.thigh, height:B.thighLen});
-    const shinGeo  = limbGeo(LIMB_PROFILE.calf,  B.calf,  B.calfLen, 10);
+    // 同様にCalf(脛)もmakeCharacterCalf()(Loft)へ置き換え。ThighのLoftとは
+    // 逆に単調なテーパーではなく、Knee側→中腹(ふくらはぎの量感)→Ankle側
+    // (絞る)という山型のシルエットにしている(詳細はmakeCharacterCalf()側の
+    // コメント参照)。LIMB_PROFILE.calf/limbGeo自体は削除していない。Knee飾り球・
+    // Ankle・Boot(Foot)は今回変更しないため、以降のコードは従来通り
+    const shinGeo  = makeCharacterCalf({width:B.calf, depth:B.calf, height:B.calfLen});
     const legL = new THREE.Group(), legR = new THREE.Group();
     const kneeL = new THREE.Group(), kneeR = new THREE.Group();
     [[legL,kneeL,-B.stanceW],[legR,kneeR,B.stanceW]].forEach(([hip,knee,x])=>{

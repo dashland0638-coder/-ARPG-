@@ -429,3 +429,91 @@ test('makeCharacterThigh(Loft太腿): PelvisからKneeへ絞られるテーパ�
       `Thigh Knee側の幅(${kneeW.toFixed(3)})がKnee飾り球の半径(${kneeCapR.toFixed(3)})と近いオーダーにある`);
   });
 });
+
+// makeCharacterCalf()自体も(makeCharacterTorso/Pelvis/Thighと同じ理由で)
+// このテストファイルから直接importできないため、05-rendering-rig.js内の
+// CALF_SECTION_RATIOSと同じ比率をここに複製して検証する(比率を変えたら
+// このコピーも合わせて更新すること)
+const CALF_SECTION_RATIOS = {
+  upperCalf: { yFrac:1.00, widthMul:0.90, depthMul:0.80 },
+  midCalf:   { yFrac:0.62, widthMul:1.05, depthMul:0.92 },
+  lowerCalf: { yFrac:0.30, widthMul:0.78, depthMul:0.68 },
+  ankle:     { yFrac:0.00, widthMul:0.55, depthMul:0.48 },
+};
+function makeCharacterCalfForTest({width, depth, height}){
+  const hh = height/2;
+  const sections = Object.values(CALF_SECTION_RATIOS).map(r => {
+    const hw = width*r.widthMul, hd = depth*r.depthMul;
+    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+  });
+  return makeLoft({ sections, closedTop:true, closedBottom:true });
+}
+
+test('makeCharacterCalf(Loft脛): Knee-Mid-Ankleの山型シルエット要件', async (t) => {
+  const calfR = 0.106, calfLen = 0.54;   // BUILD.male相当の実際の値
+  const geo = makeCharacterCalfForTest({ width:calfR, depth:calfR, height:calfLen });
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    assertSaneGeometry(geo, 3*4*2 + 2);   // 側面3段x4面x2 + キャップ2段x2三角形
+  });
+
+  const pos = geo.attributes.position;
+  const hh = calfLen/2;
+  const maxAbsXNear = (yTarget) => {
+    let m = 0;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getY(i) - yTarget) < 1e-6) m = Math.max(m, Math.abs(pos.getX(i)));
+    }
+    return m;
+  };
+  const upperW = maxAbsXNear(-hh + calfLen*1.00);
+  const midW   = maxAbsXNear(-hh + calfLen*0.62);
+  const lowerW = maxAbsXNear(-hh + calfLen*0.30);
+  const ankleW = maxAbsXNear(-hh + calfLen*0.00);
+
+  await t.test('MidCalfがUpperCalf・LowerCalf・Ankleより太い ―― Thighのような単調テーパーではなく山型', () => {
+    assert.ok(midW > upperW, `MidCalf幅(${midW.toFixed(3)})がUpperCalf幅(${upperW.toFixed(3)})より広い`);
+    assert.ok(midW > lowerW, `MidCalf幅(${midW.toFixed(3)})がLowerCalf幅(${lowerW.toFixed(3)})より広い`);
+    assert.ok(midW > ankleW, `MidCalf幅(${midW.toFixed(3)})がAnkle幅(${ankleW.toFixed(3)})より広い`);
+  });
+
+  await t.test('Ankleが最も細い ―― Ankle側へ明確に絞られている', () => {
+    assert.ok(ankleW < upperW, `Ankle幅(${ankleW.toFixed(3)})がUpperCalf幅(${upperW.toFixed(3)})より細い`);
+    assert.ok(ankleW < lowerW, `Ankle幅(${ankleW.toFixed(3)})がLowerCalf幅(${lowerW.toFixed(3)})より細い`);
+  });
+
+  await t.test('各断面で幅(X)と厚み(Z)が異なる ―― 円形断面(width==depth)ではない', () => {
+    const seen = new Map();
+    for(let i=0;i<pos.count;i++){
+      const y = Math.round(pos.getY(i)*1000)/1000;
+      const e = seen.get(y) || {maxX:0, maxZ:0};
+      e.maxX = Math.max(e.maxX, Math.abs(pos.getX(i)));
+      e.maxZ = Math.max(e.maxZ, Math.abs(pos.getZ(i)));
+      seen.set(y, e);
+    }
+    assert.ok(seen.size >= 4, '4段の断面がそれぞれ別の高さに存在する');
+    for(const [, e] of seen){
+      assert.notEqual(e.maxX, e.maxZ, `幅(${e.maxX})と厚み(${e.maxZ})が一致していない(円形断面ではない)`);
+    }
+  });
+
+  await t.test('閉じた立体として面が一貫して外向きに巻かれている(裏返り無し)', () => {
+    assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
+  });
+
+  await t.test('UpperCalf側の幅がThigh Knee断面(B.thigh*0.70相当)とオーダーが近い ―― Thighとの段差なし', () => {
+    // 完全一致は不要。Thigh下端(Knee)の実効半幅はB.thigh(男0.132)*0.70≒0.092。
+    // Calf上端(UpperCalf)の実効半幅がこのオーダー(0.5〜2倍)に収まっていれば、
+    // 間のKnee飾り球を挟んでThigh→Calfが視覚的に自然につながる。
+    const thighKneeW = 0.132*0.70;
+    assert.ok(upperW > thighKneeW*0.5 && upperW < thighKneeW*2.0,
+      `Calf UpperCalf側の幅(${upperW.toFixed(3)})がThigh Knee側の幅(${thighKneeW.toFixed(3)})と近いオーダーにある`);
+  });
+
+  await t.test('Ankle側の幅がBoot(半幅B.calf*0.81相当)に収まる ―― Bootとの段差・はみ出しなし', () => {
+    // BootはBoxGeometry(bw,0.15,0.26)、bw=B.calf(男0.106)*1.62なので半幅は
+    // B.calf*0.81≒0.086。Ankle側がこれより細ければBoot内に収まる。
+    const bootHalfW = 0.106*0.81;
+    assert.ok(ankleW < bootHalfW, `Ankle幅(${ankleW.toFixed(3)})がBoot半幅(${bootHalfW.toFixed(3)})より細い(Boot内に収まる)`);
+  });
+});
