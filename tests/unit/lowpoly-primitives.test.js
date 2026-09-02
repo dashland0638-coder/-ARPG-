@@ -697,3 +697,131 @@ test('makeCharacterForearm(Loft前腕): Elbow側は太さを保ちWristへ絞る
       `Forearm Wrist側の幅(${wristW.toFixed(3)})が旧Lathe Wrist側の幅(${oldWristW.toFixed(3)})と近いオーダーにある`);
   });
 });
+
+// makeCharacterHead()自体も(makeCharacterTorso〜Forearmと同じ理由で)この
+// テストファイルから直接importできないため、05-rendering-rig.js内の
+// HEAD_HEX_TEMPLATE/HEAD_SECTION_RATIOSと同じ値をここに複製して検証する
+// (値を変えたらこのコピーも合わせて更新すること)
+const HEAD_HEX_TEMPLATE = [
+  [-0.78, 1.00],
+  [-1.00, 0.05],
+  [-0.22,-1.15],
+  [ 0.22,-1.15],
+  [ 1.00, 0.05],
+  [ 0.78, 1.00],
+];
+const HEAD_SECTION_RATIOS = {
+  chin:      { yFrac:0.00, widthMul:0.38, depthMul:0.42 },
+  jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.68 },
+  cheek:     { yFrac:0.52, widthMul:1.00, depthMul:0.88 },
+  upperHead: { yFrac:0.80, widthMul:0.92, depthMul:1.00 },
+  crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75 },
+};
+function makeCharacterHeadForTest({width, depth, height}){
+  const hh = height/2;
+  const sections = Object.values(HEAD_SECTION_RATIOS).map(r => {
+    const hw = width*r.widthMul, hd = depth*r.depthMul;
+    return { y: -hh + height*r.yFrac, points: HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]) };
+  });
+  return makeLoft({ sections, closedTop:true, closedBottom:true });
+}
+
+test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称頭部シルエット要件', async (t) => {
+  const headR = 0.390, headLen = 0.780;   // BUILD.male相当の実際の値(height=B.headR*2)
+  const geo = makeCharacterHeadForTest({ width:headR, depth:headR, height:headLen });
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    assertSaneGeometry(geo, 4*6*2 + 4*2);   // 側面4段x6面x2 + キャップ2段x(6-2)三角形
+  });
+
+  const pos = geo.attributes.position;
+  const hh = headLen/2;
+  const maxAbsXNear = (yTarget) => {
+    let m = 0;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getY(i) - yTarget) < 1e-6) m = Math.max(m, Math.abs(pos.getX(i)));
+    }
+    return m;
+  };
+  const chinW  = maxAbsXNear(-hh + headLen*0.00);
+  const cheekW = maxAbsXNear(-hh + headLen*0.52);
+  const crownW = maxAbsXNear(-hh + headLen*1.00);
+
+  await t.test('Cheekが最大幅 ―― Chin/Crownより広い(樽/球ではなく頬骨で最大幅になる)', () => {
+    assert.ok(cheekW > chinW,  `Cheek幅(${cheekW.toFixed(3)})がChin幅(${chinW.toFixed(3)})より広い`);
+    assert.ok(cheekW > crownW, `Cheek幅(${cheekW.toFixed(3)})がCrown幅(${crownW.toFixed(3)})より広い`);
+  });
+
+  await t.test('各断面で幅(X)と厚み(Z)が異なる ―― 円形/正六角形断面ではない', () => {
+    const seen = new Map();
+    for(let i=0;i<pos.count;i++){
+      const y = Math.round(pos.getY(i)*1000)/1000;
+      const e = seen.get(y) || {maxX:0, maxZ:0};
+      e.maxX = Math.max(e.maxX, Math.abs(pos.getX(i)));
+      e.maxZ = Math.max(e.maxZ, Math.abs(pos.getZ(i)));
+      seen.set(y, e);
+    }
+    assert.ok(seen.size >= 5, '5段の断面がそれぞれ別の高さに存在する');
+    for(const [, e] of seen){
+      assert.notEqual(e.maxX, e.maxZ, `幅(${e.maxX})と厚み(${e.maxZ})が一致していない(円形断面ではない)`);
+    }
+  });
+
+  await t.test('顔側(+Z)は平ら・後頭部側(-Z)は絞られている ―― 前後対称な球ではない', () => {
+    // Cheek断面(中心付近の高さ)で、+Z側(顔)の最大Zと-Z側(後頭部)の
+    // 最大|Z|を比較する。正六角形/円ならほぼ同じになるはずだが、今回の
+    // テンプレートは意図的に非対称(顔は平らな広い辺、後頭部は中心寄りの
+    // 狭い辺)にしてある。
+    let maxFrontZ = 0, maxBackZ = 0;
+    const yTarget = -hh + headLen*0.52;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getY(i) - yTarget) < 1e-6){
+        const z = pos.getZ(i);
+        if(z > 0) maxFrontZ = Math.max(maxFrontZ, z);
+        else maxBackZ = Math.max(maxBackZ, -z);
+      }
+    }
+    assert.notEqual(maxFrontZ, maxBackZ,
+      `顔側のZ(${maxFrontZ.toFixed(3)})と後頭部側のZ(${maxBackZ.toFixed(3)})が異なる(前後非対称)`);
+  });
+
+  await t.test('閉じた立体として面が一貫して外向きに巻かれている(裏返り無し)', () => {
+    assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
+  });
+
+  await t.test('Chinの幅がNeck上端(B.neck*1.15相当)と極端に乖離していない ―― 首に刺さった棒に見えない', () => {
+    // 完全一致は不要。既存NeckはB.neck(男0.088)*1.15≒0.101が上端半径。
+    // Chinの実効半幅がこれより十分大きければ(下限0.8倍以上)、Headの
+    // 下端がNeckより明らかに細い「串刺し」状態にはならない。
+    const neckTopR = 0.088*1.15;
+    assert.ok(chinW > neckTopR*0.8,
+      `Chin幅(${chinW.toFixed(3)})がNeck上端(${neckTopR.toFixed(3)})に対して極端に細くない`);
+  });
+
+  await t.test('Cheekの顔側(+Z)実効Depthが既存Eye基準(headR*0.90)と近いオーダーにある ―― Eyeが浮かない/埋まらない', () => {
+    // 完全一致は不要。既存Eye(sclera/pupil/highlight)はheadR*0.90付近の
+    // Z位置に配置されている。Cheek断面(Eyeの高さに最も近い)の顔側Z実効値が
+    // headRの0.75〜1.10倍程度のオーダーに収まっていれば、Head Loft化後も
+    // Eyeが新しい顔面から極端に浮いたり埋まったりしない。
+    let maxFrontZ = 0;
+    const yTarget = -hh + headLen*0.52;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getY(i) - yTarget) < 1e-6){
+        const z = pos.getZ(i);
+        if(z > 0) maxFrontZ = Math.max(maxFrontZ, z);
+      }
+    }
+    assert.ok(maxFrontZ > headR*0.75 && maxFrontZ < headR*1.10,
+      `Cheek顔側のZ(${maxFrontZ.toFixed(3)})がheadR*0.90(${(headR*0.90).toFixed(3)})に近いオーダーにある`);
+  });
+
+  await t.test('Head最大外形がB.headRの極端な倍率になっていない ―― Helmet/Hat/Hoodとの互換性', () => {
+    // 完全一致は不要。既存Helmet/Hood/HatはheadR基準(概ねheadR*1.1〜1.35)で
+    // 配置されているため、Head自体の最大半幅がheadRから極端に離れて
+    // いなければ、装備の浮き/埋没リスクは低い。
+    let maxW = 0;
+    for(let i=0;i<pos.count;i++) maxW = Math.max(maxW, Math.abs(pos.getX(i)));
+    assert.ok(maxW > headR*0.8 && maxW < headR*1.2,
+      `Head最大幅(${maxW.toFixed(3)})がheadR(${headR.toFixed(3)})から極端に離れていない`);
+  });
+});

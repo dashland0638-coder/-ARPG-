@@ -557,6 +557,79 @@
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }
 
+  /* =========================================================
+     LOFT HEAD(グラフィック刷新: LatheGeometry脱却・第七弾、Torso/Pelvis/
+     Thigh/Calf/UpperArm/Forearmに続く。Player人体部位としては最後の1つ)
+
+     HEAD_PROFILE/limbGeo自体は削除・変更していない(buildBoss()が今も
+     直接使っているため、他の部位と同じ扱い)。差し替えるのはbuildPlayer()
+     側のPlayer Head生成呼び出し1箇所だけ。Hair(SphereGeometry)・Eye・
+     Neck・Helmet/Hat/Hood・Animation・headScaleGroupは今回一切変更しない
+     ―― 「頭が球に見える」原因はHead本体(Lathe)とHair(Sphere)の両方に
+     あるが、今回はHead本体だけを切り分けて置き換える(Hairは別フェーズ)。
+
+     他部位までの4点矩形と違い、Headは6点断面にする(4点だと箱型に
+     見えすぎるため)。ただし正六角形にはしない ―― 顔の向きを持たない
+     形になってしまうため、下記HEAD_HEX_TEMPLATEで意図的に非対称にした:
+       - 顔側(+Z。既存Eyeが headR*0.90 のZ位置に張り出しているのと同じ
+         向き)は、幅広く・ほぼ平らな1辺(P0-P1)。
+       - 後頭部側(-Z)は、中心近くに寄った2点(P3-P4)による短い辺 ――
+         正面から見た輪郭上は「頂点1つ」に近く読める、緩やかに絞った
+         後頭部にする。
+       - 左右の頬(P2/P5)がその断面のWidthそのもの(最大幅)を持つ。
+     このテンプレート自体はどの断面でも共通で、断面ごとのwidth/depthで
+     一様にスケールするだけ(Torso等のrectangleテンプレートと同じ考え方)。
+
+     高さ方向はChin(顎、下端)→Jaw→Cheek(頬骨、最大幅)→UpperHead→
+     Crown(頭頂、上端)の5段。Cheekの幅(widthMul=1.00)は旧HEAD_PROFILEの
+     最大半径(u=0.46男/0.62女、値1.00×B.headR)とそのまま同じ実効値に
+     している。Cheekの高さ(yFrac=0.52)がちょうどEye/Head中心付近に来る
+     よう合わせてあり、CheekのFace側Z(depthMul0.88×テンプレート1.00倍)
+     は headR×0.88 ―― 既存Eyeの headR*0.90 という基準値とほぼ同じ
+     オーダーになるため、Eyeが新しい顔面から浮いたり埋まったりしない。
+     Chinの幅(widthMul=0.38)もNeck半径(B.neck*1.15)より十分大きく、
+     「首に刺さった棒」には見えない大きさを保っている。
+  ========================================================= */
+  // 点の並びは反時計回り(既存Torso等の矩形テンプレート
+  // [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] と同じ巻き方向)。makeLoft()の
+  // 面の向き(外向き法線)はこの並び順を前提にしているため、時計回りに
+  // 並べると signedVolume が負になる(裏返る) ―― 実装時にテストで検出済み
+  const HEAD_HEX_TEMPLATE = [
+    [-0.78, 1.00],   // 顔側左(平らな顔の辺)
+    [-1.00, 0.05],   // 頬(左)―― この断面の最大幅
+    [-0.22,-1.15],   // 後頭部(左)―― 中心寄りに絞った短い辺
+    [ 0.22,-1.15],   // 後頭部(右)―― 中心寄りに絞った短い辺
+    [ 1.00, 0.05],   // 頬(右)―― この断面の最大幅
+    [ 0.78, 1.00],   // 顔側右(平らな顔の辺)
+  ];
+  const HEAD_SECTION_RATIOS = {
+    chin:      { yFrac:0.00, widthMul:0.38, depthMul:0.42 },  // 顎、下端(Neckと近いオーダーを維持)
+    jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.68 },
+    cheek:     { yFrac:0.52, widthMul:1.00, depthMul:0.88 },  // 頬骨、最大幅。Eyeの高さ・奥行き基準と近い
+    upperHead: { yFrac:0.80, widthMul:0.92, depthMul:1.00 },
+    crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75 },  // 頭頂、上端
+  };
+
+  /* makeCharacterHead({width, depth, height}): makeCharacterForearm()と
+     同じ考え方の、頭部専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの
+     基準値(旧limbGeo()のradius引数と同じ意味、B.headRをそのまま渡す)。
+     heightは既存のHead高さ(buildPlayer()側で使っているB.headR*2)を
+     そのまま渡す。ローカルy座標の範囲は旧limbGeo()と同じ-height/2〜
+     +height/2(y=+height/2がCrown側=上、y=-height/2がChin側=下)なので、
+     呼び出し側のposition/回転は変更不要。 */
+  function makeCharacterHead(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(HEAD_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]),
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
   /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
      for both genders - the shoulder-armor read is a class/armor thing, not
      a body-shape thing, and B.upper already differs by gender for sizing.

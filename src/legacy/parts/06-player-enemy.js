@@ -530,10 +530,17 @@
     belt.position.y = HIP_Y;
     group.add(belt);
 
-    // head - lathed from HEAD_PROFILE (chin to crown)。ユーザー提示の参考
-    // 画像(頭身の低い丸顔キャラ)を受けて、以前の低分割+フラットシェード
-    // による「宝石カットの顔」路線をやめ、分割数を上げて滑らかな丸い顔に
-    // 変更した(skinMatFlatではなくskinMatを使う)
+    // head - グラフィック刷新: LatheGeometry(limbGeo/HEAD_PROFILE)から
+    // makeCharacterHead()(Loft、05-rendering-rig.js)へ置き換え。「頭が
+    // 球に見える」原因はHead本体とHair(SphereGeometry)の両方にあるが、
+    // 今回はHead本体だけを切り分けて置き換える(Hairは今回変更しない、
+    // 別フェーズで検討)。Chin→Jaw→Cheek(最大幅)→UpperHead→Crownの
+    // 5段・6点断面で、顔側(+Z)は平ら、後頭部側(-Z)は絞った非対称な
+    // シルエットにしている(詳細はmakeCharacterHead()側のコメント参照)。
+    // HEAD_PROFILE/limbGeo自体は削除していない ―― buildBoss()が今も
+    // 直接使っているため。B.headRをそのままWidth/Depthの基準に渡している
+    // ため、Eye/Neck/Helmet/Hat/Hood等、既存装備・パーツの位置計算
+    // (いずれもheadRベース)には触れていない
     //
     // 顔をCanvasへ描いた絵としてUVマッピングする案(2026-08-31、「参考画像の
     // ようなキャラデザを今の方式で再現できるのか」への検証)も魔法使いで
@@ -545,7 +552,7 @@
     // (かつMeshBasicMaterialで陰影の影響も受けない)。よって顔は今まで
     // 通り球の組み合わせのままとした
     const head = new THREE.Mesh(
-      limbGeo(HEAD_PROFILE[isFemale ? 'female' : 'male'], B.headR, B.headR*2, 20), skinMat);
+      makeCharacterHead({width:B.headR, depth:B.headR, height:B.headR*2}), skinMat);
     head.position.y = HIP_Y + bodyH + B.headGap;
     head.castShadow = true;
     group.add(head);
