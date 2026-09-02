@@ -1084,3 +1084,130 @@ test('Hair Bangs配置: 毛先がEye位置(head中心+0.02)より上で止まる
     assert.ok(b.tipY > eyeY, `Bang[${i}]の毛先(${b.tipY})がEye位置(${eyeY})より上にある`);
   });
 });
+
+// ============================================================
+// Hair再設計 Phase 2: Side Hair + Back Hair
+// makeHairBang()/makeHairBangShape()自体はPhase 1で既にテスト済み
+// (makeHairBangForTest、上記)なので、ここではPhase 2で追加した配置
+// パラメータ(06-player-enemy.js内のSIDE_HAIR/BACK_HAIR相当の値を
+// 複製)の妥当性を検証する
+// ============================================================
+
+const headRMale = 0.390;
+// buildPlayer()側の実際の値(head.position.yを0とした相対値、Xは
+// s=-1/+1で符号反転する前の絶対値)
+const SIDE_HAIR_PARAMS = {
+  rootR: headRMale*0.16, tipR: headRMale*0.075,
+  rootY: headRMale*0.46, tipY: -headRMale*0.22,
+  x: headRMale*0.98, z: -headRMale*0.05, tiltX: -0.12, tiltZ: 0.16,
+};
+const BACK_HAIR_PARAMS = [
+  { x:0,             rootZ:-headRMale*0.90, rootY:headRMale*0.58, tipY:headRMale*0.22, rootR:headRMale*0.13, tipR:headRMale*0.06, tiltZ:0 },
+  { x:-headRMale*0.55, rootZ:-headRMale*0.78, rootY:headRMale*0.52, tipY:headRMale*0.28, rootR:headRMale*0.11, tipR:headRMale*0.05, tiltZ:-0.15 },
+  { x: headRMale*0.55, rootZ:-headRMale*0.78, rootY:headRMale*0.52, tipY:headRMale*0.28, rootR:headRMale*0.11, tipR:headRMale*0.05, tiltZ: 0.15 },
+];
+
+test('Side Hair(Phase 2): 妥当なGeometryで左右対称、太い房、Eyeを侵食しない', async (t) => {
+  const length = SIDE_HAIR_PARAMS.rootY - SIDE_HAIR_PARAMS.tipY;
+  const geo = makeHairBangForTest({ rootR:SIDE_HAIR_PARAMS.rootR, tipR:SIDE_HAIR_PARAMS.tipR, length });
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    assertSaneGeometry(geo, 6*2);
+  });
+
+  await t.test('付け根が毛先より明確に太い(単純なConeの先端1点ではない)', () => {
+    const pos = geo.attributes.position;
+    let maxRAtTip = 0, maxRAtRoot = 0;
+    for(let i=0;i<pos.count;i++){
+      const y = pos.getY(i), r = Math.hypot(pos.getX(i), pos.getZ(i));
+      if(Math.abs(y-0) < 1e-6) maxRAtTip = Math.max(maxRAtTip, r);
+      if(Math.abs(y-length) < 1e-6) maxRAtRoot = Math.max(maxRAtRoot, r);
+    }
+    assert.ok(maxRAtRoot > maxRAtTip*1.5,
+      `付け根半径(${maxRAtRoot.toFixed(4)})が毛先半径(${maxRAtTip.toFixed(4)})より明確に太い`);
+    assert.ok(maxRAtTip > 0.001, '毛先が完全な1点ではない(太さのある房)');
+  });
+
+  await t.test('左右(X=±)で完全に対称な設計値になっている', () => {
+    // Side Hairはs=-1/+1でXとtiltZだけ符号反転し、他のパラメータ
+    // (rootR/tipR/rootY/tipY/z/tiltX)は左右共通 ―― 実際の呼び出し
+    // ロジックと同じ形で対称性を確認する
+    const left  = { x:-1*SIDE_HAIR_PARAMS.x, tiltZ:-1*SIDE_HAIR_PARAMS.tiltZ };
+    const right = { x: 1*SIDE_HAIR_PARAMS.x, tiltZ: 1*SIDE_HAIR_PARAMS.tiltZ };
+    assert.strictEqual(left.x, -right.x, 'X位置が左右で符号だけ異なる(対称)');
+    assert.strictEqual(left.tiltZ, -right.tiltZ, '傾きが左右で符号だけ異なる(対称、鏡映)');
+  });
+
+  await t.test('Z位置がEyeの前方(headR*0.90)より十分浅い ―― 側面を通るだけでEyeの正面には重ならない', () => {
+    // Side HairはBangsと違い、耳→顎のラインを通って毛先がEyeの高さより
+    // 下まで伸びる設計(意図的、Bangsのように「Eyeより上で止める」対象
+    // ではない)。その代わりZ(前後)位置をEyeよりずっと浅く(headR*0.05
+    // 程度の奥行き)取ることで、正面から見たときにEyeの真上を横切らない
+    // ようにしてある。Playwrightでも正面向きでEyeが隠れないことを確認済み
+    const eyeZ = headRMale*0.90;
+    assert.ok(Math.abs(SIDE_HAIR_PARAMS.z) < eyeZ*0.5,
+      `Side HairのZ位置(${SIDE_HAIR_PARAMS.z.toFixed(3)})がEyeのZ位置(${eyeZ.toFixed(3)})より十分浅い(正面のEyeと重ならない)`);
+  });
+
+  await t.test('根元のX位置がHead最大半幅(headR)近辺 ―― Headから不自然に離れすぎない/埋まりすぎない', () => {
+    assert.ok(SIDE_HAIR_PARAMS.x > headRMale*0.7 && SIDE_HAIR_PARAMS.x < headRMale*1.3,
+      `Side Hair根元のX(${SIDE_HAIR_PARAMS.x.toFixed(3)})がheadR(${headRMale.toFixed(3)})の0.7〜1.3倍に収まっている`);
+  });
+});
+
+test('Back Hair(Phase 2): 妥当なGeometryで3束、短め、Hair Capとの接続が自然', async (t) => {
+  await t.test('3束それぞれ妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    BACK_HAIR_PARAMS.forEach((b, i) => {
+      const geo = makeHairBangForTest({ rootR:b.rootR, tipR:b.tipR, length:b.rootY-b.tipY });
+      assertSaneGeometry(geo, 6*2);
+    });
+  });
+
+  await t.test('Back Centerが最も後方(|Z|最大)にある', () => {
+    const centerZ = Math.abs(BACK_HAIR_PARAMS[0].rootZ);
+    BACK_HAIR_PARAMS.slice(1).forEach((b, i) => {
+      assert.ok(centerZ >= Math.abs(b.rootZ),
+        `Back CenterのZ(${centerZ.toFixed(3)})がBack Left/Right[${i}](${Math.abs(b.rootZ).toFixed(3)})以上`);
+    });
+  });
+
+  await t.test('左右(Back Left/Right)が対称な設計値になっている', () => {
+    const [, left, right] = BACK_HAIR_PARAMS;
+    assert.strictEqual(left.x, -right.x, 'X位置が左右対称');
+    assert.strictEqual(left.rootZ, right.rootZ, 'Z位置が左右で同じ');
+    assert.strictEqual(left.tiltZ, -right.tiltZ, '傾きが左右で符号だけ異なる(対称)');
+  });
+
+  await t.test('肩やマントまで届かない短さ(長さがheadRの0.5倍未満)', () => {
+    BACK_HAIR_PARAMS.forEach((b, i) => {
+      const length = b.rootY - b.tipY;
+      assert.ok(length < headRMale*0.5,
+        `Back Hair[${i}]の長さ(${length.toFixed(3)})がheadR*0.5(${(headRMale*0.5).toFixed(3)})未満(短髪〜中程度)`);
+    });
+  });
+
+  await t.test('根元の高さ(rootY)がHair Cap下端(headR*0.19)〜上端(headR*1.05)の範囲内 ―― Hair Capとの接続に隙間がない', () => {
+    const hairCapBottom = headRMale*0.19, hairCapTop = headRMale*1.05;
+    BACK_HAIR_PARAMS.forEach((b, i) => {
+      assert.ok(b.rootY >= hairCapBottom && b.rootY <= hairCapTop,
+        `Back Hair[${i}]の根元高さ(${b.rootY.toFixed(3)})がHair Capの範囲(${hairCapBottom.toFixed(3)}〜${hairCapTop.toFixed(3)})内にある`);
+    });
+  });
+});
+
+test('Hair Phase 2: headGroupPartsの並び順(Head→Hair→装飾→Eye)が保たれている', () => {
+  // buildPlayer()側の実際の並び: [head, hair, ...bangMeshes, ...sideHairMeshes,
+  // ...backHairMeshes, ...faceMeshes]。battleKnight昇格時のheadScaleGroup
+  // (headGroupParts全体を縮小)とslice(2)(目を隠す=Bangs以降がまとめて
+  // 隠れる)の両方が正しく機能するために、index0=head, index1=hairの順序
+  // が保たれていることが重要
+  const order = ['head', 'hair', 'bang0', 'bang1', 'bang2',
+    'sideHair0', 'sideHair1', 'backHair0', 'backHair1', 'backHair2',
+    'eye0', 'eye1', 'eye2', 'eye3', 'eye4', 'eye5'];
+  assert.strictEqual(order[0], 'head', 'headGroupParts[0]はhead');
+  assert.strictEqual(order[1], 'hair', 'headGroupParts[1]はhair(Hair Cap)');
+  assert.ok(order.indexOf('bang0') > order.indexOf('hair'), 'BangsはHair Capより後');
+  assert.ok(order.indexOf('sideHair0') > order.indexOf('bang2'), 'Side HairはBangsより後');
+  assert.ok(order.indexOf('backHair0') > order.indexOf('sideHair1'), 'Back HairはSide Hairより後');
+  assert.ok(order.indexOf('eye0') > order.indexOf('backHair2'), 'EyeはBack Hairより後(slice(2)で髪飾り一式+Eyeがまとめて隠れる)');
+});

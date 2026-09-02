@@ -652,15 +652,60 @@
       bangMeshes.push(bang);
     });
 
-    // グラフィック刷新(戦騎士#低頭身化): 頭+髪+Bangs+目をapplyJobPromotionVisual
-    // 側からまとめて縮小できるよう、参照をplayerMixerPartsに残しておく
-    // (既存クラスの見た目・挙動には一切影響しない、参照の追加のみ)。Bangsは
-    // hairの直後・faceMeshesの直前に挿入 ―― battleKnight昇格時の
-    // headGroupParts.slice(2)(目を隠す処理)がBangsも一緒に隠すようになる
-    // (完全に頭を覆うbattleKnight兜の下からBangsだけ突き出て見える事故を
-    // 防ぐ)。盗賊(faceMeshesを直接参照)や他クラスの挙動には影響しない
-    playerMixerParts.headGroupParts = [head, hair, ...bangMeshes, ...faceMeshes];
+    // Side Hair(左右の髪束、Hair再設計Phase 2): 顔の左右を囲み、頭部を
+    // 単なる球体ではなく明確な髪型として認識させる。BangsやHair Cap下端
+    // (widthMul=1.00の側面点、head中心+headR*0.49あたり)から自然に続く
+    // よう、根元をHair Capの側面とほぼ同じ高さ・幅に合わせ、耳の高さを
+    // 通って顎関節あたりで止める(肩やマントまでは垂らさない)短め〜中
+    // 程度の長さ。BangsとおなじmakeHairBang()(六角形断面のPrism)を
+    // そのまま流用 ―― トゲ状のConeではなく太さのある房になる
+    const sideHairMeshes = [];
+    [-1, 1].forEach(s=>{
+      const rootY = head.position.y + headR*0.46;
+      const tipY  = head.position.y - headR*0.22;
+      const sideHair = new THREE.Mesh(
+        makeHairBang({rootR:headR*0.16, tipR:headR*0.075, length:rootY-tipY}), hairMat);
+      sideHair.position.set(s*headR*0.98, tipY, -headR*0.05);
+      sideHair.rotation.set(-0.12, 0, s*0.16);
+      sideHair.castShadow = true;
+      group.add(sideHair);
+      sideHairMeshes.push(sideHair);
+    });
+
+    // Back Hair(後頭部の髪束、Hair再設計Phase 2): 見下ろしカメラで最も
+    // 長時間映る背面が「丸い塊」に見えないよう、Hair Cap後方の膨らみ
+    // (HAIR_CAP_HEX_TEMPLATEの後頭部中央・左右の各点付近)から、うなじに
+    // 向けてわずかに垂れる短い房を3束(Back Left/Center/Right)加える。
+    // 「わずかな凹凸」に留める指示のとおり、Bangs/Side Hairより明確に
+    // 短くしてある
+    const backHairMeshes = [];
+    [
+      { x:0,            rootZ:-headR*0.90, rootY:head.position.y+headR*0.58, tipY:head.position.y+headR*0.22, rootR:headR*0.13, tipR:headR*0.06, tiltZ:0 },
+      { x:-headR*0.55,  rootZ:-headR*0.78, rootY:head.position.y+headR*0.52, tipY:head.position.y+headR*0.28, rootR:headR*0.11, tipR:headR*0.05, tiltZ:-0.15 },
+      { x: headR*0.55,  rootZ:-headR*0.78, rootY:head.position.y+headR*0.52, tipY:head.position.y+headR*0.28, rootR:headR*0.11, tipR:headR*0.05, tiltZ: 0.15 },
+    ].forEach(b=>{
+      const backHair = new THREE.Mesh(
+        makeHairBang({rootR:b.rootR, tipR:b.tipR, length:b.rootY-b.tipY}), hairMat);
+      backHair.position.set(b.x, b.tipY, b.rootZ);
+      backHair.rotation.set(0.10, 0, b.tiltZ);
+      backHair.castShadow = true;
+      group.add(backHair);
+      backHairMeshes.push(backHair);
+    });
+
+    // グラフィック刷新(戦騎士#低頭身化): 頭+髪+Bangs/Side/Back Hair+目を
+    // applyJobPromotionVisual側からまとめて縮小できるよう、参照を
+    // playerMixerPartsに残しておく(既存クラスの見た目・挙動には一切
+    // 影響しない、参照の追加のみ)。髪飾り一式はhairの直後・faceMeshesの
+    // 直前に挿入 ―― battleKnight昇格時のheadGroupParts.slice(2)(目を
+    // 隠す処理)がこれらも一緒に隠すようになる(完全に頭を覆うbattleKnight
+    // 兜の下から髪束だけ突き出て見える事故を防ぐ)。盗賊(faceMeshesを
+    // 直接参照)や他クラスの挙動には影響しない
+    playerMixerParts.headGroupParts =
+      [head, hair, ...bangMeshes, ...sideHairMeshes, ...backHairMeshes, ...faceMeshes];
     playerMixerParts.bangMeshes = bangMeshes;
+    playerMixerParts.sideHairMeshes = sideHairMeshes;
+    playerMixerParts.backHairMeshes = backHairMeshes;
 
     /* ---------- class-specific headgear & flourishes ---------- */
     const hY = head.position.y;
