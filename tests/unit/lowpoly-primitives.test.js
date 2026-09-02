@@ -701,8 +701,8 @@ test('makeCharacterForearm(Loft前腕): Elbow側は太さを保ちWristへ絞る
 
 // makeCharacterHead()自体も(makeCharacterTorso〜Forearmと同じ理由で)この
 // テストファイルから直接importできないため、05-rendering-rig.js内の
-// HEAD_HEX_TEMPLATE/HEAD_SECTION_RATIOSと同じ値をここに複製して検証する
-// (値を変えたらこのコピーも合わせて更新すること)
+// HEAD_HEX_TEMPLATE/HEAD_NOSE_TEMPLATE/HEAD_SECTION_RATIOSと同じ値を
+// ここに複製して検証する(値を変えたらこのコピーも合わせて更新すること)
 const HEAD_HEX_TEMPLATE = [
   [-0.78, 1.00],
   [-1.00, 0.05],
@@ -711,18 +711,27 @@ const HEAD_HEX_TEMPLATE = [
   [ 1.00, 0.05],
   [ 0.78, 1.00],
 ];
+// Face再設計フェーズ(Phase A): 鼻〜口のぷっくりした隆起(顔側右→
+// noseMouthR→noseMouthL→顔側左、の順で挿入)。倍率(noseMul)ではなく
+// 前方への加算オフセット(nosePush、下記HEAD_SECTION_RATIOS参照)方式。
+const HEAD_NOSE_TEMPLATE = [
+  [ 0.30, 1.00],
+  [-0.30, 1.00],
+];
 const HEAD_SECTION_RATIOS = {
-  chin:      { yFrac:0.00, widthMul:0.38, depthMul:0.42 },
-  jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.68 },
-  cheek:     { yFrac:0.52, widthMul:1.00, depthMul:0.88 },
-  upperHead: { yFrac:0.80, widthMul:0.92, depthMul:1.00 },
-  crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75 },
+  chin:      { yFrac:0.00, widthMul:0.38, depthMul:0.40, nosePush:0.03 },
+  jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.62, nosePush:0.12 },
+  cheek:     { yFrac:0.52, widthMul:1.06, depthMul:0.86, nosePush:0.07 },
+  upperHead: { yFrac:0.80, widthMul:0.92, depthMul:1.00, nosePush:0.01 },
+  crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75, nosePush:0.00 },
 };
 function makeCharacterHeadForTest({width, depth, height}){
   const hh = height/2;
   const sections = Object.values(HEAD_SECTION_RATIOS).map(r => {
     const hw = width*r.widthMul, hd = depth*r.depthMul;
-    return { y: -hh + height*r.yFrac, points: HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]) };
+    const facePts = HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]);
+    const nosePts = HEAD_NOSE_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd + depth*r.nosePush]);
+    return { y: -hh + height*r.yFrac, points: [...facePts, ...nosePts] };
   });
   return makeLoft({ sections, closedTop:true, closedBottom:true });
 }
@@ -732,7 +741,7 @@ test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称�
   const geo = makeCharacterHeadForTest({ width:headR, depth:headR, height:headLen });
 
   await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
-    assertSaneGeometry(geo, 4*6*2 + 4*2);   // 側面4段x6面x2 + キャップ2段x(6-2)三角形
+    assertSaneGeometry(geo, 4*8*2 + 6*2);   // 側面4段x8面x2 + キャップ2段x(8-2)三角形
   });
 
   const pos = geo.attributes.position;
@@ -753,7 +762,7 @@ test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称�
     assert.ok(cheekW > crownW, `Cheek幅(${cheekW.toFixed(3)})がCrown幅(${crownW.toFixed(3)})より広い`);
   });
 
-  await t.test('各断面で幅(X)と厚み(Z)が異なる ―― 円形/正六角形断面ではない', () => {
+  await t.test('各断面で幅(X)と厚み(Z)が異なる ―― 円形/正八角形断面ではない', () => {
     const seen = new Map();
     for(let i=0;i<pos.count;i++){
       const y = Math.round(pos.getY(i)*1000)/1000;
@@ -769,10 +778,6 @@ test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称�
   });
 
   await t.test('顔側(+Z)は平ら・後頭部側(-Z)は絞られている ―― 前後対称な球ではない', () => {
-    // Cheek断面(中心付近の高さ)で、+Z側(顔)の最大Zと-Z側(後頭部)の
-    // 最大|Z|を比較する。正六角形/円ならほぼ同じになるはずだが、今回の
-    // テンプレートは意図的に非対称(顔は平らな広い辺、後頭部は中心寄りの
-    // 狭い辺)にしてある。
     let maxFrontZ = 0, maxBackZ = 0;
     const yTarget = -hh + headLen*0.52;
     for(let i=0;i<pos.count;i++){
@@ -786,14 +791,11 @@ test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称�
       `顔側のZ(${maxFrontZ.toFixed(3)})と後頭部側のZ(${maxBackZ.toFixed(3)})が異なる(前後非対称)`);
   });
 
-  await t.test('閉じた立体として面が一貫して外向きに巻かれている(裏返り無し)', () => {
+  await t.test('閉じた立体として面が一貫して外向きに巻かれている(裏返り無し) ―― 8点断面化後もsignedVolumeが正', () => {
     assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
   });
 
   await t.test('Chinの幅がNeck上端(B.neck*1.15相当)と極端に乖離していない ―― 首に刺さった棒に見えない', () => {
-    // 完全一致は不要。既存NeckはB.neck(男0.088)*1.15≒0.101が上端半径。
-    // Chinの実効半幅がこれより十分大きければ(下限0.8倍以上)、Headの
-    // 下端がNeckより明らかに細い「串刺し」状態にはならない。
     const neckTopR = 0.088*1.15;
     assert.ok(chinW > neckTopR*0.8,
       `Chin幅(${chinW.toFixed(3)})がNeck上端(${neckTopR.toFixed(3)})に対して極端に細くない`);
@@ -803,17 +805,21 @@ test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称�
     // 完全一致は不要。既存Eye(sclera/pupil/highlight)はheadR*0.90付近の
     // Z位置に配置されている。Cheek断面(Eyeの高さに最も近い)の顔側Z実効値が
     // headRの0.75〜1.10倍程度のオーダーに収まっていれば、Head Loft化後も
-    // Eyeが新しい顔面から極端に浮いたり埋まったりしない。
-    let maxFrontZ = 0;
+    // Eyeが新しい顔面から極端に浮いたり埋まったりしない。ここでは
+    // noseMouth点(中央寄り)ではなく、Eyeと同じ側面寄りにあるfaceL/R点
+    // (|X|>0.5*hw)側のZを見る ―― Eyeの実際のX位置(headR*0.44程度)は
+    // noseMouth点(X=0.30*hw)より外側にあるため、こちらがEye直下の実効面
+    assert.ok(cheekW > 0, 'Cheek幅が正');
+    let maxFrontZAtFace = 0;
     const yTarget = -hh + headLen*0.52;
     for(let i=0;i<pos.count;i++){
-      if(Math.abs(pos.getY(i) - yTarget) < 1e-6){
+      if(Math.abs(pos.getY(i) - yTarget) < 1e-6 && Math.abs(pos.getX(i)) > cheekW*0.5){
         const z = pos.getZ(i);
-        if(z > 0) maxFrontZ = Math.max(maxFrontZ, z);
+        if(z > 0) maxFrontZAtFace = Math.max(maxFrontZAtFace, z);
       }
     }
-    assert.ok(maxFrontZ > headR*0.75 && maxFrontZ < headR*1.10,
-      `Cheek顔側のZ(${maxFrontZ.toFixed(3)})がheadR*0.90(${(headR*0.90).toFixed(3)})に近いオーダーにある`);
+    assert.ok(maxFrontZAtFace > headR*0.75 && maxFrontZAtFace < headR*1.10,
+      `Cheek顔側(faceL/R付近)のZ(${maxFrontZAtFace.toFixed(3)})がheadR*0.90(${(headR*0.90).toFixed(3)})に近いオーダーにある`);
   });
 
   await t.test('Head最大外形がB.headRの極端な倍率になっていない ―― Helmet/Hat/Hoodとの互換性', () => {
@@ -824,6 +830,83 @@ test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称�
     for(let i=0;i<pos.count;i++) maxW = Math.max(maxW, Math.abs(pos.getX(i)));
     assert.ok(maxW > headR*0.8 && maxW < headR*1.2,
       `Head最大幅(${maxW.toFixed(3)})がheadR(${headR.toFixed(3)})から極端に離れていない`);
+  });
+});
+
+test('makeCharacterHead(Loft頭部) Face再設計Phase A: 鼻〜口(nosePush)の隆起要件', async (t) => {
+  const headR = 0.390, headLen = 0.780;
+  const geo = makeCharacterHeadForTest({ width:headR, depth:headR, height:headLen });
+  const pos = geo.attributes.position;
+  const hh = headLen/2;
+
+  // 指定の高さ(yFrac)における、noseMouth点(|X| <= 0.30*hw、中央寄り)の
+  // 最大Zと、顔側の面(faceL/R、|X|に0.30*hwより大きい点)の最大Zを
+  // それぞれ取り出すヘルパー
+  function noseAndFaceZ(yFrac, widthMul){
+    const yTarget = -hh + headLen*yFrac;
+    const noseXMax = headR*widthMul*0.30 + 1e-4;   // noseMouth点のX上限(境界含む)
+    let noseZ = 0, faceZ = 0;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getY(i) - yTarget) < 1e-6){
+        const x = Math.abs(pos.getX(i)), z = pos.getZ(i);
+        if(z <= 0) continue;
+        if(x <= noseXMax) noseZ = Math.max(noseZ, z);
+        else faceZ = Math.max(faceZ, z);
+      }
+    }
+    return { noseZ, faceZ };
+  }
+
+  await t.test('noseMouthL/Rが存在し、8点(6+2)断面になっている ―― Jaw高さで顔面より前方へ突出', () => {
+    const { noseZ, faceZ } = noseAndFaceZ(0.22, 0.72);   // jaw
+    assert.ok(noseZ > faceZ,
+      `Jaw高さのnoseMouth Z(${noseZ.toFixed(3)})が顔面Z(${faceZ.toFixed(3)})より前方(nosePushの効果)`);
+  });
+
+  await t.test('nosePushはJawで最大・Cheekでそれより控えめ ―― 「口はさらに下」の高さバランス', () => {
+    const jawExtra   = noseAndFaceZ(0.22, 0.72).noseZ  - noseAndFaceZ(0.22, 0.72).faceZ;
+    const cheekExtra = noseAndFaceZ(0.52, 1.06).noseZ - noseAndFaceZ(0.52, 1.06).faceZ;
+    assert.ok(jawExtra > cheekExtra,
+      `Jawの突出量(${jawExtra.toFixed(3)})がCheekの突出量(${cheekExtra.toFixed(3)})より大きい`);
+  });
+
+  await t.test('Crown/UpperHeadでは隆起がほぼ無い ―― 頭頂に鼻が飛び出さない', () => {
+    const crownExtra = noseAndFaceZ(1.00, 0.60).noseZ - noseAndFaceZ(1.00, 0.60).faceZ;
+    assert.ok(crownExtra < headR*0.02, `Crownの突出量(${crownExtra.toFixed(4)})がごく小さい(ほぼ0)`);
+  });
+
+  await t.test('隆起は「幅を持った2点」―― 中央1点に収束する鋭いV字ではない', () => {
+    // noseMouthL/Rが同じX(=0)に潰れていない(左右に十分な間隔がある)ことを
+    // Jaw断面で確認する
+    const yTarget = -hh + headLen*0.22;
+    const xs = [];
+    const noseXMax = headR*0.72*0.30 + 1e-4;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getY(i) - yTarget) < 1e-6){
+        const x = pos.getX(i), z = pos.getZ(i);
+        if(z > 0 && Math.abs(x) <= noseXMax) xs.push(x);
+      }
+    }
+    const spread = Math.max(...xs) - Math.min(...xs);
+    assert.ok(spread > headR*0.3, `noseMouthL/Rの左右間隔(${spread.toFixed(3)})が十分にある(単一点ではない)`);
+  });
+
+  await t.test('後頭部側の4点はnosePushの影響を受けない(既存設計を維持)', () => {
+    // 後頭部点(z<0)の最大|Z|が、旧HEAD_SECTION_RATIOS(depthMulのみ、
+    // nosePush導入前)と同じ計算式で求まることを確認する ―― nosePushは
+    // noseMouth点にしか加算されないため、後頭部側は従来どおりdepthMul
+    // だけで決まるはず
+    const yTarget = -hh + headLen*0.52;   // cheek
+    let maxBackZ = 0;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getY(i) - yTarget) < 1e-6){
+        const z = pos.getZ(i);
+        if(z < 0) maxBackZ = Math.max(maxBackZ, -z);
+      }
+    }
+    const expectedBackZ = 1.15 * (headR*0.86);   // HEAD_HEX_TEMPLATEの後頭部点(|z|=1.15)*depthMul
+    assert.ok(Math.abs(maxBackZ - expectedBackZ) < 1e-6,
+      `後頭部側のZ(${maxBackZ.toFixed(4)})がnosePush導入前と同じ計算値(${expectedBackZ.toFixed(4)})のまま`);
   });
 });
 

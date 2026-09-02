@@ -602,12 +602,38 @@
     [ 1.00, 0.05],   // 頬(右)―― この断面の最大幅
     [ 0.78, 1.00],   // 顔側右(平らな顔の辺)
   ];
+  /* Face再設計フェーズ(Phase A): 鼻〜口のぷっくりした隆起。従来の
+     HEAD_HEX_TEMPLATEは顔側が「faceR→faceL」の1本の平らな辺だけだった
+     ため、そこに鼻〜口を表現する頂点が無かった。この2点(顔側右→
+     鼻〜口右→鼻〜口左→顔側左、の順で挿入)を追加し、平らな1辺を
+     「幅を持った浅い台形の隆起」に変える。1点(鋭い頂点、中央一点に
+     収束するV字)ではなく左右2点にしているのは、指示の「シャープな
+     稜線を作らず柔らかい印象に」「鼻先のような尖った頂点を作らない」を
+     低ポリのまま満たすため。X係数は±0.30 ―― faceL/R(±0.78)より内側
+     だが、極端に中央へ寄せず十分な横幅を残した「台形」にしてある。
+     Z係数は顔側の面(faceL/R)と同じ1.00 ―― 実際の突出量は倍率では
+     なく、makeCharacterHead()側でsectionごとのnosePush(前方への
+     加算オフセット、後述)を足す方式にする(倍率方式は「断面ごとに
+     Head全体のサイズ感が変わって見える」「nosePush=0で頂点が中心へ
+     潰れて退化三角形になりやすい」というリスクがあるため不採用)。 */
+  const HEAD_NOSE_TEMPLATE = [
+    [ 0.30, 1.00],   // 鼻〜口(右)
+    [-0.30, 1.00],   // 鼻〜口(左)
+  ];
   const HEAD_SECTION_RATIOS = {
-    chin:      { yFrac:0.00, widthMul:0.38, depthMul:0.42 },  // 顎、下端(Neckと近いオーダーを維持)
-    jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.68 },
-    cheek:     { yFrac:0.52, widthMul:1.00, depthMul:0.88 },  // 頬骨、最大幅。Eyeの高さ・奥行き基準と近い
-    upperHead: { yFrac:0.80, widthMul:0.92, depthMul:1.00 },
-    crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75 },  // 頭頂、上端
+    // widthMul/depthMulは顔側の平らな面(頬・顎・頭頂側)の比率(従来通り)。
+    // nosePushは鼻〜口点だけに加算する前方オフセット ―― depth(呼び出し側
+    // のheadR)に対する比率で、他の点のスケールには一切影響しない。鼻は
+    // 目のすぐ下(Jaw付近)〜口はさらに下、という指示の高さバランスに
+    // 合わせ、Jawでピーク・Cheekでは控えめにしてある(Cheek付近はEyeの
+    // 高さと重なるため、隆起を強くしすぎるとEyeが新しい顔面に埋もれる
+    // ―― Eyeの再配置はPhase Bで行うため、Phase AではCheekのnosePushを
+    // 小さく抑えて既存Eye位置(headR*0.90)との整合を崩さないようにした)
+    chin:      { yFrac:0.00, widthMul:0.38, depthMul:0.40, nosePush:0.03 },  // 顎、下端。あご後退のためdepthMulをわずかに絞る
+    jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.62, nosePush:0.12 },  // 口の高さ。鼻〜口の隆起がピーク
+    cheek:     { yFrac:0.52, widthMul:1.06, depthMul:0.86, nosePush:0.07 },  // 頬骨、最大幅(強調)。Eyeの高さと近いためnosePushは小さく
+    upperHead: { yFrac:0.80, widthMul:0.92, depthMul:1.00, nosePush:0.01 },
+    crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75, nosePush:0.00 },  // 頭頂、上端。隆起なし
   };
 
   /* makeCharacterHead({width, depth, height}): makeCharacterForearm()と
@@ -616,15 +642,23 @@
      heightは既存のHead高さ(buildPlayer()側で使っているB.headR*2)を
      そのまま渡す。ローカルy座標の範囲は旧limbGeo()と同じ-height/2〜
      +height/2(y=+height/2がCrown側=上、y=-height/2がChin側=下)なので、
-     呼び出し側のposition/回転は変更不要。 */
+     呼び出し側のposition/回転は変更不要。断面の点は
+     HEAD_HEX_TEMPLATE(顔側の平らな面・頬・後頭部)の6点に、
+     HEAD_NOSE_TEMPLATE(鼻〜口の隆起)の2点を「顔側右」の直後・
+     「顔側左」の直前に挿入した計8点 ―― 反時計回りの巻き順を保っている
+     (詳細はHEAD_NOSE_TEMPLATE側のコメント参照)。鼻〜口点のZだけ、
+     顔側の面と同じ基準(hd*1.00)に、そのsectionのnosePush
+     (o.depth基準の加算オフセット、倍率ではない)を足す。 */
   function makeCharacterHead(opts){
     const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
     const hh = o.height/2;
     const sections = Object.values(HEAD_SECTION_RATIOS).map(r => {
       const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      const facePts = HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]);
+      const nosePts = HEAD_NOSE_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd + o.depth*r.nosePush]);
       return {
         y: -hh + o.height*r.yFrac,
-        points: HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]),
+        points: [...facePts, ...nosePts],
       };
     });
     return makeLoft({ sections, closedTop:true, closedBottom:true });
