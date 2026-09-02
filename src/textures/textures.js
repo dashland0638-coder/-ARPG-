@@ -198,7 +198,16 @@ function applyOverride(name, tex){
      球3層アイ(06-player-enemy.js)が機能しているのは、頭の表面そのもの
      ではなく、そこから外側へ張り出した独立した球だからで、この制約は
      テクスチャでは回避できない。よって顔は今まで通り球の組み合わせの
-     ままとした。 */
+     ままとした。
+
+     追記(2026-09-02、戦騎士のグラフィック刷新): 上記の制約自体を回避する
+     「頭の表面に貼らず、常にカメラへ正対する独立した板(ビルボード)に
+     顔を描いて頭の手前に浮かせる」案も試作した。技術的には機能した
+     (見下ろし視点でも顔が潰れずに読めた)が、ユーザー判断により
+     「顔の作り込みは優先しない、兜/帽子/フードでの差別化を優先する」
+     という方針転換のため撤去した。makeFaceTexture()自体は削除済み ――
+     技術的に不可能だったわけではないので、今後また顔を作り込む方針に
+     戻す場合はこのコメントとgit historyから実装を復元できる。 */
 
   /* ---- metal: armor plate, trim, blades - brushed streaks and old scars -
      A flat metallic colour with metalness turned up reads as plastic, not
@@ -249,61 +258,6 @@ function applyOverride(name, tex){
     const rec = mat.map && bumpFor.get(mat.map);
     if(rec){ mat.bumpMap = rec.tex; mat.bumpScale = scale != null ? scale : rec.scale; }
     return mat;
-  }
-
-  /* ---- face billboard (グラフィック刷新: 顔のビルボード化) --------------
-     頭の球面に絵を貼っても、見下ろしカメラでは顔の正面がほぼ真横から見る
-     グレージング角になり、貼った絵は極端に圧縮されて視認できない(06-
-     player-enemy.jsのbuildPlayer()内コメント参照、検証済み)。この制約は
-     「頭の表面に描く」かぎり回避できないため、ここでは頭の表面ではなく
-     独立した1枚の板(常にカメラの方を向くビルボード)に顔を描き、頭の
-     手前に浮かせて貼る。既存の球3層アイ(白目+瞳+ハイライト)が同じ
-     見下ろし視点でも機能しているのは「頭の外側へ張り出した独立した形状
-     だから」という理由も同じで、ビルボードはその考え方をさらに徹底した
-     もの(常にカメラへ正対するぶん、球目より正面性が高い)。
-     makeSurface()系の「タイル張りする表面素材」とは別物(1回だけ描く
-     ユニークな絵、UVは0-1一枚のまま)なので、あえてmakeSurfaceは使わず
-     独立したCanvasTextureとして描く。 */
-  function makeFaceTexture(opts){
-    opts = opts || {};
-    const S = 160;
-    const skin = opts.skin || '#e8b98a';
-    const hair = opts.hair || '#1b140f';
-    const eye  = opts.eye  || '#241a14';
-    const c = document.createElement('canvas'); c.width = c.height = S;
-    const cx = c.getContext('2d');
-    // 背景は透明のまま(顔の輪郭だけが板から浮かんで見えるように)
-    cx.clearRect(0, 0, S, S);
-    // 肌: 卵型のベース
-    cx.fillStyle = skin;
-    cx.beginPath(); cx.ellipse(S*0.5, S*0.56, S*0.30, S*0.34, 0, 0, Math.PI*2); cx.fill();
-    // 頬の赤み
-    cx.fillStyle = 'rgba(224,120,108,0.30)';
-    [-1,1].forEach(s=>{
-      cx.beginPath(); cx.ellipse(S*0.5+s*S*0.20, S*0.62, S*0.055, S*0.036, 0, 0, Math.PI*2); cx.fill();
-    });
-    // 眉
-    cx.strokeStyle = hair; cx.lineWidth = S*0.018; cx.lineCap = 'round';
-    [-1,1].forEach(s=>{
-      cx.beginPath();
-      cx.moveTo(S*0.5+s*S*0.24, S*0.395);
-      cx.quadraticCurveTo(S*0.5+s*S*0.155, S*0.355, S*0.5+s*S*0.075, S*0.39);
-      cx.stroke();
-    });
-    // 目: 白目+瞳+ハイライトの3層(既存の球3層アイと同じ配色・構図を絵にする)
-    [-1,1].forEach(s=>{
-      const ex = S*0.5 + s*S*0.15, ey = S*0.50;
-      cx.fillStyle = '#faf6ee';
-      cx.beginPath(); cx.ellipse(ex, ey, S*0.075, S*0.09, 0, 0, Math.PI*2); cx.fill();
-      cx.fillStyle = eye;
-      cx.beginPath(); cx.ellipse(ex, ey+S*0.01, S*0.048, S*0.068, 0, 0, Math.PI*2); cx.fill();
-      cx.fillStyle = '#ffffff';
-      cx.beginPath(); cx.ellipse(ex-S*0.018, ey-S*0.02, S*0.016, S*0.016, 0, 0, Math.PI*2); cx.fill();
-    });
-    // 口
-    cx.strokeStyle = '#8a4a3a'; cx.lineWidth = S*0.016; cx.lineCap = 'round';
-    cx.beginPath(); cx.moveTo(S*0.46, S*0.715); cx.quadraticCurveTo(S*0.5, S*0.73, S*0.54, S*0.715); cx.stroke();
-    return new THREE.CanvasTexture(c);
   }
 
   /* ---- masonry: ashlar blocks, brickwork, tomb walls -------------------
@@ -663,4 +617,4 @@ function applyOverride(name, tex){
     return tex;
   }
 
-export { makePlankTexture, makeMasonryTexture, makeCobbleTexture, makeWallpaperTexture, makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture, getMaxAnisotropy, makeLeatherTexture, makeMetalTexture, applyBump, makeFaceTexture };
+export { makePlankTexture, makeMasonryTexture, makeCobbleTexture, makeWallpaperTexture, makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture, getMaxAnisotropy, makeLeatherTexture, makeMetalTexture, applyBump };

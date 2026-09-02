@@ -1166,10 +1166,6 @@
     if(P.warriorBaseDecor) P.warriorBaseDecor.forEach(m=>{ m.visible = true; });
     if(P.pauldronL) P.pauldronL.visible = true;
     if(P.pauldronR) P.pauldronR.visible = true;
-    // 顔のビルボード化(戦騎士)で隠した球目(sclera/pupil/highlight)も
-    // 同様に可視へ戻す。head/hairも含めて念のため一括で可視にしておく
-    // (誤って隠したまま残る事故を防ぐ)
-    if(P.headGroupParts) P.headGroupParts.forEach(m=>{ m.visible = true; });
 
     if(!P.jobDecorMeshes) return;
     P.jobDecorMeshes.forEach(m=>{
@@ -1242,39 +1238,10 @@
       if(P.pauldronL) P.pauldronL.visible = false;
       if(P.pauldronR) P.pauldronR.visible = false;
 
-      /* ---- 顔のビルボード化(根本的に異なる技術、ユーザー承認済み) ----
-         頭の球面(sclera/pupil/highlightの3層アイ)は見下ろし視点では
-         機能するが、「絵として描き込んだ表情」までは出せない。頭の表面に
-         絵を貼る案は既に検証済みで不採用(buildPlayer()内コメント参照:
-         見下ろし視点では顔の正面がグレージング角になり潰れて見えない)。
-         この板は頭の表面に「貼る」のではなく、独立した1枚の板を常に
-         カメラの方へ向けて頭の手前に浮かせる ―― 球目が「頭の外へ張り
-         出しているから機能する」のと同じ理屈をさらに徹底したもの。
-         既存の球目(P.headGroupPartsの3〜8番目=sclera/pupil/highlight
-         ×2)は重複して見えないよう非表示にする(head/hairは残す) */
-      if(P.headGroupParts && P.headGroupParts.length > 2){
-        P.headGroupParts.slice(2).forEach(m=>{ m.visible = false; });
-      }
-      const faceTex = makeFaceTexture({
-        hair: state.classDef.hairColor!=null ? hexStr(state.classDef.hairColor) : undefined,
-        eye:  state.classDef.eyeColor!=null  ? hexStr(state.classDef.eyeColor)  : undefined,
-      });
-      const faceMat = new THREE.MeshBasicMaterial({map:faceTex, transparent:true, depthWrite:false, side:THREE.DoubleSide});
-      const facePlaneSize = hR*1.55;
-      const facePlane = new THREE.Mesh(new THREE.PlaneGeometry(facePlaneSize, facePlaneSize), faceMat);
-      // waist/headScaleGroupの子にはしない ―― ビルボードの向きは毎フレーム
-      // 「カメラの方向」から直接計算する必要があり、親の回転(体の向き・
-      // 揺れ)を継承すると二重に回転してしまう。魔導士の浮遊魔法石と同じ
-      // 理由でscene直下に置き、位置・向きはupdateJobDecor()で追従させる
-      scene.add(facePlane);
-      meshes.push(facePlane);
-      anim.faceBillboard = facePlane;
-      // 頭の外へ張り出す量。頭(HEAD_PROFILE)は頬骨の高さで半径ちょうど
-      // hR相当まで膨らむため、1.0だと頭の表面ぎりぎり(=実質めり込む)に
-      // なってしまう。既存の球目が「白目の表面よりわずかに前へ」出す
-      // poke(headGap*0.008相当)を確保していたのと同じ理由で、確実に
-      // 頭の外に出るよう1.15倍の余裕を持たせている
-      anim.faceOffsetR = hR*1.15;
+      // 顔のビルボード化は検証の結果撤去(ユーザー判断: 「顔の作り込みは
+      // やめる、兜/帽子/フードでの差別化を優先する」)。素の球目
+      // (sclera/pupil/highlight、他クラスと共通の表現)はそのまま使う ――
+      // ここで意図的に何もしない(P.headGroupPartsは非表示にしない)
 
       // flatShading済みマテリアル(既存clothMatFlat/trimMatFlatと同じ
       // 「低分割ジオメトリ+flatShading = 低ポリの面ごとの陰影」手法)。
@@ -1614,26 +1581,6 @@
     if(!state.job || !P.jobDecorAnim || !player) return;
     _jobDecorT += dt;
     const a = P.jobDecorAnim;
-    if(a.faceBillboard && P.head){
-      // 顔のビルボード(戦騎士): 毎フレーム、頭の現在位置(縮小・待機の
-      // 上下動込み)からカメラの方向を計算し、板の位置と向きをそこへ
-      // 合わせ直す。waistの子にしていないのは、親の回転(体の向き)を
-      // 継承すると二重に回転してしまうため ―― 常に「カメラ方向」だけを
-      // 基準に向きを決め直す真のビルボードにしてある
-      const fp = a.faceBillboard;
-      const _headWp = new THREE.Vector3(); P.head.getWorldPosition(_headWp);
-      const dx = camera.position.x - _headWp.x;
-      const dz = camera.position.z - _headWp.z;
-      const dist = Math.hypot(dx, dz) || 1;
-      const offsetR = a.faceOffsetR || 0.28;
-      fp.position.set(_headWp.x + dx/dist*offsetR, _headWp.y + 0.02, _headWp.z + dz/dist*offsetR);
-      // Y軸だけの向き(水平方向のみカメラを向く)だと、このゲームの
-      // カメラは常に約53〜62度見下ろしているため、板が正面から見て
-      // 縦につぶれて見えてしまう(旋盤ヘッドに絵を貼った時と同じ現象が
-      // 弱まった形で再発する)。カメラの向き(ピッチ込み)をそのまま
-      // コピーする「真のビルボード」にして、常にカメラへ正対させる
-      fp.quaternion.copy(camera.quaternion);
-    }
     if(a.crystals){
       const _wp = new THREE.Vector3(); player.getWorldPosition(_wp);
       // 魔導士の詠唱中(charging/skillCharging)は「溜めと魔力」(資料23番)を
