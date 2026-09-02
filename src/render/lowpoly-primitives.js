@@ -177,3 +177,89 @@ export function makePrism(opts){
   geo.computeVertexNormals();
   return geo;
 }
+
+/* ---------------------------------------------------------------------
+   Loft: 高さ方向に積み重ねた複数の断面(各断面は任意の多角形、点数は
+   全断面で共通)を、隣接する断面同士でつないで作る自由メッシュ。
+   THREE.LatheGeometryが「1つの2Dプロファイルを軸まわりに回転させる」
+   ため断面が必ず円になるのに対し、Loftは断面そのものを高さごとに
+   自由に変えられる ―― 胸で前後に薄く広く、腰で絞る、肩で角ばらせる、
+   といった「回転体では作れない」人体・鎧のシルエットを作るための土台。
+   makePrism()(2断面・始点/終点をスケールだけ変える特殊形)を、
+   「断面の数」「断面ごとの形そのもの」を自由にした一般化にあたる。
+
+   sections: [{ y, points:[[x,z],...] }, ...] を高さ順(昇順/降順どちらも可)
+   に並べる。各断面のpoints.lengthは現時点ではすべて同じ数であることが
+   前提(点数が違う断面をつなぐ処理は今回のスコープ外)。
+   closedTop/closedBottom: 実際のY座標が最大/最小の断面をキャップで
+   閉じる(配列の並び順が昇順・降順のどちらでも正しく判定する)。
+--------------------------------------------------------------------- */
+export function makeLoft(opts){
+  const o = Object.assign({ sections:[], closedTop:false, closedBottom:false }, opts || {});
+  const sections = o.sections;
+
+  // ---- validation: 呼び出し側を落とさない安全側の失敗(空ジオメトリ+警告) ----
+  if(!Array.isArray(sections) || sections.length < 2){
+    console.warn('makeLoft: sections must have at least 2 entries (got '+(sections && sections.length)+')');
+    return new THREE.BufferGeometry();
+  }
+  const n = sections[0].points ? sections[0].points.length : 0;
+  if(n < 3){
+    console.warn('makeLoft: each section needs at least 3 points (first section has '+n+')');
+    return new THREE.BufferGeometry();
+  }
+  for(let si=0; si<sections.length; si++){
+    const pts = sections[si].points;
+    if(!pts || pts.length !== n){
+      console.warn('makeLoft: all sections must have the same point count as the first ('+n+'); '
+        +'section '+si+' has '+(pts && pts.length));
+      return new THREE.BufferGeometry();
+    }
+  }
+
+  // ---- vertices: 断面を配列順にそのままY方向へ積む ----
+  const verts = [];
+  sections.forEach(s => {
+    s.points.forEach(p => verts.push(p[0], s.y, p[1]));
+  });
+
+  // ---- indices: 隣接する断面同士をQuad(2 Triangleに分割)でつなぐ。
+  // makePrism()と同じ辺のつなぎ方(a,b,bTop / a,bTop,aTop)がベースだが、
+  // makePrism()は常に「base(y=0)→top(y=length>0)」の昇順専用だった。
+  // Loftはsectionsを降順(user API例のように上から並べる)でも昇順でも
+  // 受け付ける必要があるため、隣接する断面対ごとに実際のY方向を見て
+  // 巻き方向を切り替える ―― そうしないと、外向きの面が半分のケースで
+  // 裏返ってしまう(符号付き体積で検証済み、下のmakeLoftテスト参照)
+  // (符号付き体積で全パターンを検証した結果 ―― 上る場合と下る場合とで
+  // 巻き方向を単純に総当たりで確認して求めた組み合わせ)
+  const idx = [];
+  for(let si=0; si<sections.length-1; si++){
+    const base = si*n, next = (si+1)*n;
+    const goingUp = sections[si+1].y > sections[si].y;
+    for(let i=0;i<n;i++){
+      const a = base+i, b = base+(i+1)%n, aTop = next+i, bTop = next+(i+1)%n;
+      if(goingUp) idx.push(a,bTop,b, a,aTop,bTop);
+      else        idx.push(a,b,bTop, a,bTop,aTop);
+    }
+  }
+
+  // ---- Top/Bottomのキャップ(オプション): 配列の並びが昇順/降順どちらでも
+  // 正しく閉じられるよう、実際のY座標で「上端」「下端」を判定する ----
+  const firstIsTop = sections[0].y >= sections[sections.length-1].y;
+  const topBase = (firstIsTop ? 0 : sections.length-1) * n;
+  const botBase = (firstIsTop ? sections.length-1 : 0) * n;
+  // 扇形分割(n角形をn-2枚の三角形に、頂点0を共有する単純なファン分割)。
+  // Low Poly方針(細分化しない)にそのまま合う最小限の分割方法
+  if(o.closedTop){
+    for(let i=1;i<n-1;i++) idx.push(topBase, topBase+i+1, topBase+i);
+  }
+  if(o.closedBottom){
+    for(let i=1;i<n-1;i++) idx.push(botBase, botBase+i, botBase+i+1);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}

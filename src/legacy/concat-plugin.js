@@ -39,7 +39,7 @@ import { groupsFromGraph, allCombos, comboKey, comboKeyFromPath, comboProgress, 
 import { applyIncomingDamage, applyOutgoingDamage } from '../core/damage-math.js';
 import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../core/loot-math.js';
 import { timeLimitForStars } from '../core/scenario-timer.js';
-import { makeTrapezoidBox, makeWedge, makePlate, makePrism } from '../render/lowpoly-primitives.js';
+import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 
 `;
 
