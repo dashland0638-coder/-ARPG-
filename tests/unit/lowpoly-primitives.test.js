@@ -517,3 +517,88 @@ test('makeCharacterCalf(Loft脛): Knee-Mid-Ankleの山型シルエット要件',
     assert.ok(ankleW < bootHalfW, `Ankle幅(${ankleW.toFixed(3)})がBoot半幅(${bootHalfW.toFixed(3)})より細い(Boot内に収まる)`);
   });
 });
+
+// makeCharacterUpperArm()自体も(makeCharacterTorso/Pelvis/Thigh/Calfと
+// 同じ理由で)このテストファイルから直接importできないため、
+// 05-rendering-rig.js内のUPPERARM_SECTION_RATIOSと同じ比率をここに複製して
+// 検証する(比率を変えたらこのコピーも合わせて更新すること)
+const UPPERARM_SECTION_RATIOS = {
+  upperArmTop:   { yFrac:1.00, widthMul:1.00, depthMul:0.88 },
+  midUpperArm:   { yFrac:0.62, widthMul:0.96, depthMul:0.84 },
+  lowerUpperArm: { yFrac:0.30, widthMul:0.90, depthMul:0.78 },
+  elbow:         { yFrac:0.00, widthMul:0.82, depthMul:0.72 },
+};
+function makeCharacterUpperArmForTest({width, depth, height}){
+  const hh = height/2;
+  const sections = Object.values(UPPERARM_SECTION_RATIOS).map(r => {
+    const hw = width*r.widthMul, hd = depth*r.depthMul;
+    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+  });
+  return makeLoft({ sections, closedTop:true, closedBottom:true });
+}
+
+test('makeCharacterUpperArm(Loft二の腕): ShoulderからElbowへ緩やかに絞られる要件', async (t) => {
+  const upperR = 0.098, upperLen = 0.32;   // BUILD.male相当の実際の値(upperArm長は既存の固定値0.32)
+  const geo = makeCharacterUpperArmForTest({ width:upperR, depth:upperR, height:upperLen });
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    assertSaneGeometry(geo, 3*4*2 + 2);   // 側面3段x4面x2 + キャップ2段x2三角形
+  });
+
+  const pos = geo.attributes.position;
+  const hh = upperLen/2;
+  const maxAbsXNear = (yTarget) => {
+    let m = 0;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getY(i) - yTarget) < 1e-6) m = Math.max(m, Math.abs(pos.getX(i)));
+    }
+    return m;
+  };
+  const topW   = maxAbsXNear(-hh + upperLen*1.00);
+  const midW   = maxAbsXNear(-hh + upperLen*0.62);
+  const lowerW = maxAbsXNear(-hh + upperLen*0.30);
+  const elbowW = maxAbsXNear(-hh + upperLen*0.00);
+
+  await t.test('Shoulder側(UpperArmTop)が最も太く、Elbow側へ向けて単調に絞られる', () => {
+    assert.ok(topW   > midW,   `UpperArmTop幅(${topW.toFixed(3)})がMidUpperArm幅(${midW.toFixed(3)})より広い`);
+    assert.ok(midW   > lowerW, `MidUpperArm幅(${midW.toFixed(3)})がLowerUpperArm幅(${lowerW.toFixed(3)})より広い`);
+    assert.ok(lowerW > elbowW, `LowerUpperArm幅(${lowerW.toFixed(3)})がElbow幅(${elbowW.toFixed(3)})より広い`);
+  });
+
+  await t.test('絞り幅は太腿ほど大きくない ―― 過度な筋肉表現になっていない(Thighより緩やか)', () => {
+    // ThighはUpperThigh(1.10)→Knee(0.70)で約36%の絞り。UpperArmは
+    // UpperArmTop(1.00)→Elbow(0.82)で約18%程度に留め、脚のような
+    // 大きな量感変化にならないようにしてある。
+    const shrinkRatio = (topW - elbowW) / topW;
+    assert.ok(shrinkRatio < 0.30, `Shoulder→Elbowの絞り幅比率(${shrinkRatio.toFixed(3)})が太腿ほど極端ではない(<0.30)`);
+  });
+
+  await t.test('各断面で幅(X)と厚み(Z)が異なる ―― 円形断面(width==depth)ではない', () => {
+    const seen = new Map();
+    for(let i=0;i<pos.count;i++){
+      const y = Math.round(pos.getY(i)*1000)/1000;
+      const e = seen.get(y) || {maxX:0, maxZ:0};
+      e.maxX = Math.max(e.maxX, Math.abs(pos.getX(i)));
+      e.maxZ = Math.max(e.maxZ, Math.abs(pos.getZ(i)));
+      seen.set(y, e);
+    }
+    assert.ok(seen.size >= 4, '4段の断面がそれぞれ別の高さに存在する');
+    for(const [, e] of seen){
+      assert.notEqual(e.maxX, e.maxZ, `幅(${e.maxX})と厚み(${e.maxZ})が一致していない(円形断面ではない)`);
+    }
+  });
+
+  await t.test('閉じた立体として面が一貫して外向きに巻かれている(裏返り無し)', () => {
+    assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
+  });
+
+  await t.test('Elbow側の幅がElbow飾り球(B.forearm*1.06相当)・Forearm上端とオーダーが近い ―― 段差なし', () => {
+    // 完全一致は不要。Elbowの飾り球はB.forearm(男0.083)*1.06≒0.088が半径。
+    // Forearm上端(LIMB_PROFILE.forearmのu=1側)の実効半径は0.083*0.94≒0.078。
+    // UpperArm下端(Elbow)の実効半幅がこのオーダー(0.5〜2倍)に収まっていれば、
+    // ElbowからForearmへ視覚的に自然につながる。
+    const elbowCapR = 0.083*1.06;
+    assert.ok(elbowW > elbowCapR*0.5 && elbowW < elbowCapR*2.0,
+      `UpperArm Elbow側の幅(${elbowW.toFixed(3)})がElbow飾り球の半径(${elbowCapR.toFixed(3)})と近いオーダーにある`);
+  });
+});

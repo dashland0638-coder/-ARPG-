@@ -914,7 +914,14 @@
     // arms - shoulder and elbow pivots, with the pauldron on the shoulder
     // and the hand on the forearm, so both travel with the limb instead of
     // hanging in space while the arm rotates out from under them
-    const upperGeo = limbGeo(LIMB_PROFILE.upper,   B.upper,   0.32, 9);
+    // グラフィック刷新: UpperArm(二の腕)をLatheGeometry(limbGeo/
+    // LIMB_PROFILE.upper)からmakeCharacterUpperArm()(Loft、
+    // 05-rendering-rig.js)へ置き換え。Shoulder側で適度な量感、Elbowへ
+    // 向けて緩やかに絞るテーパーを、旋盤の円形断面の制約なしに表現している
+    // (詳細はmakeCharacterUpperArm()側のコメント参照)。LIMB_PROFILE.upper/
+    // limbGeo自体は削除していない。Forearmは今回変更しないため、foreGeoは
+    // 従来通り
+    const upperGeo = makeCharacterUpperArm({width:B.upper, depth:B.upper, height:0.32});
     const foreGeo  = limbGeo(LIMB_PROFILE.forearm, B.forearm, 0.30, 9);
     const armL = new THREE.Group(), armR = new THREE.Group();
     const elbowL = new THREE.Group(), elbowR = new THREE.Group();
