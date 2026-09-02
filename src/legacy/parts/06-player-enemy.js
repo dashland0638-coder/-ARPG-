@@ -477,9 +477,14 @@
     pelvis.castShadow = true;
     group.add(pelvis);
 
-    // torso
+    // torso - グラフィック刷新: LatheGeometry(limbGeo/TORSO_PROFILE)から
+    // makeCharacterTorso()(Loft、05-rendering-rig.js)へ置き換え。「あらゆる
+    // 高さで断面が円」という旋盤の制約を外し、肩>胸>腰の非回転対称な
+    // シルエットにした(詳細はmakeCharacterTorso()側のコメント参照)。
+    // TORSO_PROFILE/limbGeo自体は削除していない ―― ボス(templeGuardian等)
+    // が今も直接使っているため
     const torso = new THREE.Mesh(
-      limbGeo(TORSO_PROFILE[isFemale ? 'female' : 'male'], bodyR, bodyH, 12), clothMat);
+      makeCharacterTorso({width:bodyR, depth:bodyR, height:bodyH}), clothMatFlat);
     torso.position.y = HIP_Y + bodyH/2;
     torso.castShadow = true;
     group.add(torso);
@@ -499,8 +504,13 @@
     neck.castShadow = true;
     group.add(neck);
 
-    // belt / trim
-    const belt = new THREE.Mesh(new THREE.TorusGeometry(bodyR*0.97,0.05,6,16), trimMat);
+    // belt / trim - 新しい胴体(makeCharacterTorso)の腰は、旧Lathe胴体
+    // (u=0で半径0.96bodyR、ほぼ胸と同じ太さ=樽の原因そのもの)よりも
+    // 意図的にずっと細くなった。ベルトの半径を旧来のbodyR*0.97のままに
+    // すると腰から大きく浮いてしまうため、TORSO_SECTION_RATIOS.waist
+    // (胴体側と同じ比率定数)を基準に、幅・厚みの平均へ合わせ直した
+    const waistR = TORSO_SECTION_RATIOS.waist;
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(bodyR*(waistR.widthMul+waistR.depthMul)/2, 0.05, 6, 16), trimMat);
     belt.rotation.x = Math.PI/2;
     belt.position.y = HIP_Y;
     group.add(belt);

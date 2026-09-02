@@ -263,6 +263,53 @@
              [1.02,0.60],[0.92,0.73],[0.81,0.85],[0.55,0.95],[0.24,1.00]],
   };
 
+  /* =========================================================
+     LOFT TORSO(グラフィック刷新: LatheGeometry脱却・第一弾)
+
+     TORSO_PROFILEは今も残してある(templeGuardian等のボスがそのまま
+     limbGeo(TORSO_PROFILE...)経由で使い続けているため、削除・変更禁止)。
+     プレイヤーの胴体だけを、この新しいmakeCharacterTorso()に差し替える。
+
+     limbGeo()(=LatheGeometry)は「その高さでの断面は必ず円」という
+     数学的制約があり、プロファイルの半径をどう調整しても胴体は樽にしか
+     ならない。ここでは断面そのものを高さごとに変えられるmakeLoft()
+     (src/render/lowpoly-primitives.js)を使い、「肩は左右に広く前後に
+     薄い」「胸は肩よりわずかに狭いが前後に厚い」「腰は最も細く薄い」と
+     いう、回転体では表現できない人体らしいシルエットにする。
+
+     最初の実装として、断面はWaist/Abdomen/Chest/Shoulderの4段・
+     いずれも4点の矩形(左右幅と前後厚みを別々に持てる、最小限の凸多角形)
+     に留めてある。断面を増やす/多角形にする改良は将来の課題。
+  ========================================================= */
+  // 肩→胸→腹→腰の比率(bodyR/bodyHに対する倍率)。chest(u=0.66)を
+  // 「1.00倍」の基準にしてあるのは、旧TORSO_PROFILEの最大半径がここに
+  // あった(=見た目の全体サイズをなるべく維持する)ため。
+  const TORSO_SECTION_RATIOS = {
+    waist:    { yFrac:0.00, widthMul:0.62, depthMul:0.55 },  // 腰(ベルト側、最も細く薄い)
+    abdomen:  { yFrac:0.33, widthMul:0.80, depthMul:0.85 },  // 腹部
+    chest:    { yFrac:0.66, widthMul:1.00, depthMul:0.90 },  // 胸(最も前後に厚い)
+    shoulder: { yFrac:1.00, widthMul:1.15, depthMul:0.75 },  // 肩(最も左右に広く、前後は薄い)
+  };
+
+  /* makeCharacterTorso({width, depth, height}): 胴体専用のLoft生成ヘルパー。
+     widthとdepthは「半幅・半厚み」の基準値(旧limbGeo()のradius引数と
+     同じ意味)で、呼び出し側はbodyR/bodyHをそのまま渡せばよい ―― 数値を
+     固定値にせず、クラス/性別ごとにbodyR/bodyHが変わっても自動的に
+     追従する。内部でTORSO_SECTION_RATIOSを使ってmakeLoft()を呼ぶだけの
+     薄いラッパーで、buildPlayer()側に断面の頂点リストを書かせない。 */
+  function makeCharacterTorso(opts){
+    const o = Object.assign({ width:0.35, depth:0.35, height:0.8 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(TORSO_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
   /* Head, pelvis and pauldron profiles, added alongside the torso/limb ones
      above for the same reason: a lathe of a handful of points reads as a
      deliberately-shaped part, where a plain sphere reads as a placeholder.

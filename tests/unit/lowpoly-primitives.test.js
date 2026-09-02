@@ -205,3 +205,71 @@ test('makeLoft', async (t) => {
     assert.ok(maxXAt05 > maxZAt05, '胸の断面が前後(Z)より左右(X)に広い非円形の形状のまま生成されている');
   });
 });
+
+// makeCharacterTorso()自体(src/legacy/parts/05-rendering-rig.js)は、state等
+// 90個の共有可変変数に依存する「concatされた1つの共有スコープ」の一部
+// (ARCHITECTURE.md参照)であり、真のESモジュールであるこのテストファイルから
+// 直接importすることはできない。そのため、そこで実際に使っている
+// TORSO_SECTION_RATIOSと同じ比率をここに複製し、makeLoft()自体を通して
+// 「肩>胸>腰」「円形ではない(width≠depth)」という設計要件を検証する
+// (比率の値を変えた場合はこのコピーも合わせて更新すること)。
+const TORSO_SECTION_RATIOS = {
+  waist:    { yFrac:0.00, widthMul:0.62, depthMul:0.55 },
+  abdomen:  { yFrac:0.33, widthMul:0.80, depthMul:0.85 },
+  chest:    { yFrac:0.66, widthMul:1.00, depthMul:0.90 },
+  shoulder: { yFrac:1.00, widthMul:1.15, depthMul:0.75 },
+};
+function makeCharacterTorsoForTest({width, depth, height}){
+  const hh = height/2;
+  const sections = Object.values(TORSO_SECTION_RATIOS).map(r => {
+    const hw = width*r.widthMul, hd = depth*r.depthMul;
+    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+  });
+  return makeLoft({ sections, closedTop:true, closedBottom:true });
+}
+
+test('makeCharacterTorso(Loft胴体): 肩>胸>腰・非円形のシルエット要件', async (t) => {
+  const bodyR = 0.345, bodyH = 0.80;   // BUILD.male相当の実際の値
+  const geo = makeCharacterTorsoForTest({ width:bodyR, depth:bodyR, height:bodyH });
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    assertSaneGeometry(geo, 8*2 + 2);   // 側面3段x4面x2 + キャップ2段x2三角形
+  });
+
+  await t.test('肩幅(shoulder) > 胸幅(chest) > 腰幅(waist) ―― 樽ではない', () => {
+    const pos = geo.attributes.position;
+    const maxAbsXNear = (yTarget) => {
+      let m = 0;
+      for(let i=0;i<pos.count;i++){
+        if(Math.abs(pos.getY(i) - yTarget) < 1e-6) m = Math.max(m, Math.abs(pos.getX(i)));
+      }
+      return m;
+    };
+    const hh = bodyH/2;
+    const shoulderW = maxAbsXNear(-hh + bodyH*1.00);
+    const chestW    = maxAbsXNear(-hh + bodyH*0.66);
+    const waistW    = maxAbsXNear(-hh + bodyH*0.00);
+    assert.ok(shoulderW > chestW, `肩幅(${shoulderW.toFixed(3)})が胸幅(${chestW.toFixed(3)})より広い`);
+    assert.ok(chestW > waistW, `胸幅(${chestW.toFixed(3)})が腰幅(${waistW.toFixed(3)})より広い`);
+  });
+
+  await t.test('各断面で幅(X)と厚み(Z)が異なる ―― Latheのような円形断面(width==depth)ではない', () => {
+    const pos = geo.attributes.position;
+    const seen = new Map();   // y(丸め) -> {maxX, maxZ}
+    for(let i=0;i<pos.count;i++){
+      const y = Math.round(pos.getY(i)*1000)/1000;
+      const e = seen.get(y) || {maxX:0, maxZ:0};
+      e.maxX = Math.max(e.maxX, Math.abs(pos.getX(i)));
+      e.maxZ = Math.max(e.maxZ, Math.abs(pos.getZ(i)));
+      seen.set(y, e);
+    }
+    assert.ok(seen.size >= 4, '4段の断面がそれぞれ別の高さに存在する');
+    for(const [, e] of seen){
+      assert.notEqual(e.maxX, e.maxZ, `幅(${e.maxX})と厚み(${e.maxZ})が一致していない(円形断面ではない)`);
+    }
+  });
+
+  await t.test('閉じた立体として面が一貫して外向きに巻かれている(裏返り無し)', () => {
+    assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
+  });
+});
