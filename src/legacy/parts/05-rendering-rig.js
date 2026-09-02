@@ -337,6 +337,42 @@
     female: [[0.48,0.00],[0.85,0.18],[1.10,0.40],[1.18,0.58],[1.00,0.80],[0.76,1.00]],
   };
 
+  /* =========================================================
+     LOFT PELVIS(グラフィック刷新: LatheGeometry脱却・第二弾、Torsoに続く)
+
+     PELVIS_PROFILE/limbGeo自体は削除・変更していない(他のCharacterが
+     将来使う可能性に備えて残す、TORSO_PROFILEと同じ扱い)。差し替えるのは
+     buildPlayer()側の呼び出し1箇所だけ。
+
+     腰(Torsoの細いWaist)→骨盤(左右に張り出すHip)→脚の付け根
+     (Lower Pelvis、再び絞る)という、旋盤では出せない「くびれ」を
+     makeLoft()の3断面(いずれも矩形)で表現する。widthMul/depthMulは
+     旧PELVIS_PROFILEと同じくB.hipR基準の倍率 ―― Hipの1.10/0.95は
+     旧プロファイルの山(男1.06)とほぼ同じ実効幅になるよう合わせてある。
+  ========================================================= */
+  const PELVIS_SECTION_RATIOS = {
+    upperWaist:  { yFrac:1.00, widthMul:0.85, depthMul:0.75 },  // Torsoの細いWaistと繋がる上端
+    hip:         { yFrac:0.50, widthMul:1.10, depthMul:0.95 },  // 骨盤(最も左右に広がる)
+    lowerPelvis: { yFrac:0.00, widthMul:0.70, depthMul:0.60 },  // 脚の付け根へ再び絞る下端
+  };
+
+  /* makeCharacterPelvis({width, depth, height}): makeCharacterTorso()と同じ
+     考え方の、骨盤専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの基準値
+     (旧limbGeo()のradius引数と同じ意味)で、呼び出し側はB.hipRをそのまま
+     渡せばよい。 */
+  function makeCharacterPelvis(opts){
+    const o = Object.assign({ width:0.265, depth:0.265, height:0.32 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(PELVIS_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
   /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
      for both genders - the shoulder-armor read is a class/armor thing, not
      a body-shape thing, and B.upper already differs by gender for sizing.

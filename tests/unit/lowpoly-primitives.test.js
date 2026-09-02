@@ -273,3 +273,83 @@ test('makeCharacterTorso(Loft胴体): 肩>胸>腰・非円形のシルエット�
     assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
   });
 });
+
+// makeCharacterPelvis()自体も(makeCharacterTorsoと同じ理由で)このテスト
+// ファイルから直接importできないため、05-rendering-rig.js内のPELVIS_SECTION_
+// RATIOSと同じ比率をここに複製して検証する(比率を変えたらこのコピーも
+// 合わせて更新すること)
+const PELVIS_SECTION_RATIOS = {
+  upperWaist:  { yFrac:1.00, widthMul:0.85, depthMul:0.75 },
+  hip:         { yFrac:0.50, widthMul:1.10, depthMul:0.95 },
+  lowerPelvis: { yFrac:0.00, widthMul:0.70, depthMul:0.60 },
+};
+function makeCharacterPelvisForTest({width, depth, height}){
+  const hh = height/2;
+  const sections = Object.values(PELVIS_SECTION_RATIOS).map(r => {
+    const hw = width*r.widthMul, hd = depth*r.depthMul;
+    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+  });
+  return makeLoft({ sections, closedTop:true, closedBottom:true });
+}
+
+test('makeCharacterPelvis(Loft骨盤): Torso-Hip-Legをつなぐくびれ形状の要件', async (t) => {
+  const hipR = 0.265, pelvisH = 0.34;   // BUILD.male相当の実際の値
+  const geo = makeCharacterPelvisForTest({ width:hipR, depth:hipR, height:pelvisH });
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    assertSaneGeometry(geo, 2*4*2 + 2);   // 側面2段x4面x2 + キャップ2段x2三角形
+  });
+
+  await t.test('Hip(中央)がUpperWaist(上端)・LowerPelvis(下端)より左右に広い ―― くびれている', () => {
+    const pos = geo.attributes.position;
+    const maxAbsXNear = (yTarget) => {
+      let m = 0;
+      for(let i=0;i<pos.count;i++){
+        if(Math.abs(pos.getY(i) - yTarget) < 1e-6) m = Math.max(m, Math.abs(pos.getX(i)));
+      }
+      return m;
+    };
+    const hh = pelvisH/2;
+    const upperW = maxAbsXNear(-hh + pelvisH*1.00);
+    const hipW   = maxAbsXNear(-hh + pelvisH*0.50);
+    const lowerW = maxAbsXNear(-hh + pelvisH*0.00);
+    assert.ok(hipW > upperW, `Hip幅(${hipW.toFixed(3)})がUpperWaist幅(${upperW.toFixed(3)})より広い`);
+    assert.ok(hipW > lowerW, `Hip幅(${hipW.toFixed(3)})がLowerPelvis幅(${lowerW.toFixed(3)})より広い`);
+  });
+
+  await t.test('各断面で幅(X)と厚み(Z)が異なる ―― 円形断面(width==depth)ではない', () => {
+    const pos = geo.attributes.position;
+    const seen = new Map();
+    for(let i=0;i<pos.count;i++){
+      const y = Math.round(pos.getY(i)*1000)/1000;
+      const e = seen.get(y) || {maxX:0, maxZ:0};
+      e.maxX = Math.max(e.maxX, Math.abs(pos.getX(i)));
+      e.maxZ = Math.max(e.maxZ, Math.abs(pos.getZ(i)));
+      seen.set(y, e);
+    }
+    assert.ok(seen.size >= 3, '3段の断面がそれぞれ別の高さに存在する');
+    for(const [, e] of seen){
+      assert.notEqual(e.maxX, e.maxZ, `幅(${e.maxX})と厚み(${e.maxZ})が一致していない(円形断面ではない)`);
+    }
+  });
+
+  await t.test('閉じた立体として面が一貫して外向きに巻かれている(裏返り無し)', () => {
+    assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
+  });
+
+  await t.test('Torsoの細いWaist(bodyR*0.62/0.55)と視覚的に近い規模でつながる', () => {
+    // 完全一致は不要(指示どおり)だが、桁違いに大きい/小さいと「自然に
+    // つながる」とは言えないため、上端(UpperWaist)の実効半径がTorso側の
+    // Waist半径のだいたい半分〜2倍のオーダーに収まることだけ確認する
+    const bodyR = 0.345;
+    const torsoWaistW = bodyR*0.62;
+    const pos = geo.attributes.position;
+    let upperW = 0;
+    const hh = pelvisH/2;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getY(i) - (-hh+pelvisH*1.00)) < 1e-6) upperW = Math.max(upperW, Math.abs(pos.getX(i)));
+    }
+    assert.ok(upperW > torsoWaistW*0.5 && upperW < torsoWaistW*2.0,
+      `Pelvis上端の幅(${upperW.toFixed(3)})がTorso Waist幅(${torsoWaistW.toFixed(3)})と近いオーダーにある`);
+  });
+});

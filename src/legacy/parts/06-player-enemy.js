@@ -466,13 +466,17 @@
     playerMixerParts.kneeR = kneeR;
 
     // hips, so the thighs meet something instead of hanging off the tunic.
-    // Lathed from PELVIS_PROFILE instead of a squashed sphere - the flare
-    // (widest at the waist, narrowing to the crotch) is baked into the
-    // profile itself now, same technique as the torso just below.
+    // グラフィック刷新: LatheGeometry(limbGeo/PELVIS_PROFILE)から
+    // makeCharacterPelvis()(Loft、05-rendering-rig.js)へ置き換え。Torsoの
+    // 細いWaistから、左右に張り出すHipを経て、脚の付け根で再び絞る
+    // ―― 旋盤の「あらゆる高さで断面が円」という制約では出せない、
+    // 人体らしいくびれをつけている(詳細はmakeCharacterPelvis()側の
+    // コメント参照)。PELVIS_PROFILE/limbGeo自体は削除していない。
+    // 旧コードのpelvis.scale.z=0.94(円形断面を無理やり前後に潰す
+    // ハック)は、新しいジオメトリ自体が幅≠厚みを持つため不要になった
     const pelvisH = isFemale ? 0.30 : 0.34;
     const pelvis = new THREE.Mesh(
-      limbGeo(PELVIS_PROFILE[isFemale ? 'female' : 'male'], B.hipR, pelvisH, 10), clothMatFlat);
-    pelvis.scale.z = 0.94;
+      makeCharacterPelvis({width:B.hipR, depth:B.hipR, height:pelvisH}), clothMatFlat);
     pelvis.position.y = 0.80;
     pelvis.castShadow = true;
     group.add(pelvis);
