@@ -828,9 +828,27 @@
       // 後方へ。Headだけ後退してHelmが元の位置に取り残される事故を防ぐ
       helm.position.set(0, helmBottomY, HEAD_BACK_Z); helm.castShadow = true; group.add(helm);
       warriorBaseDecor.push(helm);
-      const visor = new THREE.Mesh(new THREE.BoxGeometry(headR*1.9, 0.07, 0.1), darkMat);
-      visor.position.set(0, hY+0.02, headR*0.86 + HEAD_BACK_Z); group.add(visor);
-      warriorBaseDecor.push(visor);
+      // Headwear Silhouette Integration Phase(Priority A): 旧Visorは
+      // headR*1.9(顔幅の1.8倍相当)の1枚板をEye位置(hY+0.02)にそのまま
+      // 重ねていたため、Default Game CameraではEyeの高さを顔の端から端
+      // まで横断する「黒い横板」にしか見えず、Eyeの可読性を阻害していた
+      // (Headwear + Head Silhouette Audit、Head/Hair/Headwear Integration
+      // Auditで単体Visibility比較により実証済み)。単純な縮小ではなく、
+      // 中央(鼻筋・鼻〜口の隆起の真上)を空けた左右2枚のBrow Guardに
+      // 分割した ―― Eyeの真上(眉の高さ、Eye上端より上)に置くことで、
+      // Eyeの高さを横断する1本の帯にはならず、兜の眉当てとして自然に
+      // 見えるようにしてある。X方向の外縁(headR*0.60)はHelmet Face
+      // Openingの実効半幅(中腹リングでheadR*0.55*1.15≒headR*0.63)の
+      // 内側に収まるようにし、兜の縁から横に飛び出さないようにした
+      const browGuardW = headR*0.40, browGuardH = 0.055, browGuardD = 0.09;
+      [-1, 1].forEach(s=>{
+        const brow = new THREE.Mesh(new THREE.BoxGeometry(browGuardW, browGuardH, browGuardD), darkMat);
+        brow.position.set(s*headR*0.40, hY+0.115, headR*0.88 + HEAD_BACK_Z);
+        brow.rotation.y = -s*0.10;   // Helmetの丸みに沿わせてわずかに外向きへ振る
+        brow.castShadow = true;
+        group.add(brow);
+        warriorBaseDecor.push(brow);
+      });
       const crest = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.34), clothAcc);
       crest.position.set(0, hY+0.28, -0.02 + HEAD_BACK_Z); group.add(crest);
       warriorBaseDecor.push(crest);

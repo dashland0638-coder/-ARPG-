@@ -1469,10 +1469,14 @@ const WARRIOR_HELM_ARC_TEMPLATE = [
   [ 1.00, -0.05],
   [ 0.55,  0.45],
 ];
+// Headwear Silhouette Integration Phase(Priority B)で中間リングを追加
+// (05-rendering-rig.jsのWARRIOR_HELM_RINGSと同じ値、上記コメントの通り
+// 値を変えたらこのコピーも合わせて更新すること)
 const WARRIOR_HELM_RINGS = [
   { yFrac:0.00, widthMul:1.12, depthMul:1.05 },
   { yFrac:0.50, widthMul:1.15, depthMul:1.08 },
-  { yFrac:1.00, widthMul:0.70, depthMul:0.65 },
+  { yFrac:0.78, widthMul:1.02, depthMul:0.98 },
+  { yFrac:1.00, widthMul:0.78, depthMul:0.74 },
 ];
 function makeWarriorBaseHelmForTest({width, depth, height}){
   const n = WARRIOR_HELM_ARC_TEMPLATE.length;
@@ -2078,4 +2082,79 @@ test('Player Material Calibration Phase A: Warrior Helmet専用Material(warriorH
   //    Material数値のみを調整する、というPhaseの制約通り)
   assert.strictEqual(warriorHelmMat.color, sharedMetalMat.color,
     'colorは既存metalMatと同じ0x9aa0a8のまま(今回はmetalness/roughnessのみ調整)');
+});
+
+// Headwear Silhouette Integration Phase: Priority A(Visor→Brow Guard)+
+// Priority B(Helmet Rear/Crown Coverage)のregressionテスト。06-player-
+// enemy.js/05-rendering-rig.jsは単体テストから直接importできない結合済み
+// scopeのため(makeWarriorBaseHelm等と同じ理由)、実際のsrc値をここに複製
+// して比較する ―― 数値がずれたらこのテストが検出する。
+test('Headwear Silhouette Integration Phase(Priority A): Warrior Brow Guardが顔全幅を横断する黒帯にならず、Eye高さより上にある', () => {
+  const headR = 0.390;   // BUILD.male相当
+  const eyeScale = headR/0.26;
+  const eyeX = 0.115*eyeScale;               // 既存Eyeの左右X位置
+  const eyeYOffset = 0.02;                   // 既存EyeのY(hY基準)
+  // 06-player-enemy.js内の実際の定義値(意図的な複製、上記コメント参照)
+  const browGuardW = headR*0.40, browCenterX = headR*0.40, browY = 0.115;
+
+  // 1. 左右2枚に分割されている(1枚で顔全幅を横断する旧Visorではない)
+  //    ―― 中央(鼻筋)に隙間が空いていることを、各Brow Guardの内側の縁
+  //    (中心X - 半幅)が0より大きいことで確認する
+  const innerEdgeX = browCenterX - browGuardW/2;
+  assert.ok(innerEdgeX > 0, `Brow Guard内側の縁(${innerEdgeX.toFixed(3)})が中央(鼻筋)を塞がず隙間がある`);
+
+  // 2. Eyeの高さ(hY+0.02)より上にある ―― Eyeの高さを横断する帯にならない
+  assert.ok(browY > eyeYOffset,
+    `Brow GuardのY(hY+${browY})がEyeのY(hY+${eyeYOffset})より上にあり、Eye高さを横断しない`);
+
+  // 3. Helmet Face Openingの実効半幅(中腹リングでheadR*0.55*1.15)より
+  //    内側に収まっている(兜の縁から横に飛び出さない)
+  const openingHalfWidthAtMid = 0.55*1.15*headR;
+  const browOuterEdgeX = browCenterX + browGuardW/2;
+  assert.ok(browOuterEdgeX < openingHalfWidthAtMid,
+    `Brow Guard外側の縁(${browOuterEdgeX.toFixed(3)})がHelmet Face Openingの実効半幅(${openingHalfWidthAtMid.toFixed(3)})より内側`);
+
+  // 4. 1枚あたりの幅が旧Visor(headR*1.9、顔全幅の1.8倍相当)より大幅に
+  //    狭い ―― 「単純な縮小ではなく分割」の要件を数値でも裏付ける
+  assert.ok(browGuardW < headR*0.6,
+    `Brow Guard1枚の幅(${browGuardW.toFixed(3)})が旧Visor(headR*1.9)よりはるかに狭い`);
+});
+
+test('Headwear Silhouette Integration Phase(Priority B): Warrior Helmetの中間リングがHead/Hair Capの背面プロファイルに沿って緩やかに絞られている', () => {
+  // 05-rendering-rig.js内の実際の定義値(意図的な複製、上記コメント参照)
+  const RINGS = [
+    { yFrac:0.00, widthMul:1.12, depthMul:1.05 },
+    { yFrac:0.50, widthMul:1.15, depthMul:1.08 },
+    { yFrac:0.78, widthMul:1.02, depthMul:0.98 },
+    { yFrac:1.00, widthMul:0.78, depthMul:0.74 },
+  ];
+
+  // 1. 中腹(最大幅)から頭頂へ向けて単調に絞られている(逆転していない)
+  for(let i=1;i<RINGS.length;i++){
+    assert.ok(RINGS[i].widthMul <= RINGS[i-1].widthMul || i===1,
+      `リング${i}のwidthMul(${RINGS[i].widthMul})が中腹以降は単調非増加`);
+  }
+
+  // 2. 頭頂リングは、旧値(0.70/0.65)より緩め(Head/Hair Crownとの整合
+  //    改善)だが、中腹(1.15/1.08)ほど大きくはない(兜全体を巨大化しない)
+  const crown = RINGS[RINGS.length-1];
+  assert.ok(crown.widthMul > 0.70 && crown.widthMul < 1.15,
+    `頭頂widthMul(${crown.widthMul})が旧値(0.70)より緩く、中腹(1.15)未満`);
+  assert.ok(crown.depthMul > 0.65 && crown.depthMul < 1.08,
+    `頭頂depthMul(${crown.depthMul})が旧値(0.65)より緩く、中腹(1.08)未満`);
+
+  // 3. 中腹と頭頂の間に中間リングが追加されている(急激な絞りを緩和)
+  assert.strictEqual(RINGS.length, 4, 'リング数が3→4(中間リング追加)になっている');
+  const mid = RINGS[1], between = RINGS[2];
+  assert.ok(between.yFrac > mid.yFrac && between.yFrac < crown.yFrac,
+    '中間リングのyFracが中腹と頭頂の間にある');
+  assert.ok(between.widthMul < mid.widthMul && between.widthMul > crown.widthMul,
+    '中間リングのwidthMulが中腹と頭頂の間の値になっている(段差の無い滑らかな絞り)');
+
+  // 4. Face Opening側(下端・中腹)の値は今回変更していない(前面シルエット
+  //    は維持する、というPhaseの制約)
+  assert.deepStrictEqual(RINGS[0], { yFrac:0.00, widthMul:1.12, depthMul:1.05 },
+    '下端リングは変更していない');
+  assert.deepStrictEqual(RINGS[1], { yFrac:0.50, widthMul:1.15, depthMul:1.08 },
+    '中腹(最大幅)リングは変更していない');
 });

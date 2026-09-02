@@ -731,10 +731,25 @@
     [ 1.00, -0.05],   // 右側面(最大幅)
     [ 0.55,  0.45],   // 顔側右(開口の縁。ここと配列先頭の間は繋がない)
   ];
+  // Headwear Silhouette Integration Phase(Priority B): 従来は中腹
+  // (yFrac0.50, widthMul1.15/depthMul1.08)から頭頂(yFrac1.00,
+  // widthMul0.70/depthMul0.65)へ一気に絞っていたため、その間の高さに
+  // ある実際のHead本体(upperHead/crown断面、widthMul0.92〜0.60・
+  // depthMul1.00〜0.75)やHair Cap(lowerCap/upperCap断面、生え際+headR*
+  // 0.19〜+headR*0.79あたり)の背面の張り出しをHelmet側が追い越して
+  // 覆いきれず、Head/Hair Capが兜の背面・頭頂から突き抜けて見える原因に
+  // なっていた(Headwear + Head Silhouette Audit、Head/Hair/Headwear
+  // Integration Auditで実機Playwright比較・Mesh単位のVisibility比較の
+  // 両方で確認済み)。Face Opening自体(WARRIOR_HELM_ARC_TEMPLATE、
+  // 下端・中腹のwidthMul/depthMul)には触れず、中腹から頭頂の間に
+  // 中間リングを1段追加してHead/Hair Capの背面プロファイルに沿う
+  // 緩やかな絞りにし、頭頂リング自体もわずかに緩めた(0.70/0.65→
+  // 0.78/0.74)。中腹までの前面シルエット・Face Openingの見え方は不変
   const WARRIOR_HELM_RINGS = [
     { yFrac:0.00, widthMul:1.12, depthMul:1.05 },  // 下端(耳・顎関節あたりの高さ)
     { yFrac:0.50, widthMul:1.15, depthMul:1.08 },  // 中腹の膨らみ(最大幅)
-    { yFrac:1.00, widthMul:0.70, depthMul:0.65 },  // 頭頂(やや平坦に絞る)
+    { yFrac:0.78, widthMul:1.02, depthMul:0.98 },  // 新設: Hair Cap後方の膨らみに沿う中間リング
+    { yFrac:1.00, widthMul:0.78, depthMul:0.74 },  // 頭頂(従来より緩めに絞り、Head/Hair Crownとの整合を改善)
   ];
 
   /* makeWarriorBaseHelm({width, depth, height}): widthとdepthは半幅・
