@@ -707,20 +707,36 @@
       playerMixerParts.warriorBaseDecor = warriorBaseDecor;
 
     } else if(classDef.key==='rogue'){
-      // 鉢巻+長髪(ユーザー指摘: 軽装の盗賊は角兜ではなく鉢巻と長髪に)。
-      // 「蛮族」寄りの意匠(角兜・片肩の毛皮)はバーサーカー転身側
-      // (applyJobPromotionVisual)へ寄せ、素の盗賊は軽装・敏捷な印象に
-      // 振り直した
-      const headband = new THREE.Mesh(new THREE.TorusGeometry(headR*1.02, 0.026, 6, 14, Math.PI*1.9), clothAcc);
-      headband.rotation.set(Math.PI/2, 0, Math.PI*0.55);
-      headband.position.set(0, hY+0.06, 0);
-      headband.castShadow = true; group.add(headband);
-      [-1,1].forEach(s=>{
-        const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.055, 0.3), clothAcc);
-        tail.position.set(s*0.05, hY-0.06, -headR*1.05);
-        tail.rotation.set(0.35, 0, s*0.15);
-        group.add(tail);
-      });
+      // フード+マスク(ユーザー指摘「兜/帽子/フードで差別化」、意匠参考:
+      // 月夜の暗殺者案)。以前の鉢巻+長髪(角兜を避けて軽装に振った経緯)
+      // から、フードを主役にする方向へ変更。ただし「軽装・敏捷」の方針
+      // 自体は維持 ―― 鎧のような硬質さではなく、頭を浅く覆うだけの柔らかい
+      // 布のフードにして、剣士の兜(重装)とは対照的な軽さを出している。
+      // 兜/帽子と同じ技法(低分割の開放型CylinderGeometry+上面キャップ)
+      // だが、後方へ深く垂れ下がる向きに傾け、素材も布(clothAcc)にして
+      // 「軽い布のフード」と「重い金属の兜」を作り分けている
+      const hoodSegs = 7;
+      const hoodR = headR*1.16, hoodH = headR*1.5;
+      const hood = new THREE.Mesh(new THREE.CylinderGeometry(hoodR*0.1, hoodR, hoodH, hoodSegs, 1, true), clothAcc);
+      hood.rotation.x = -0.4;   // 後方へ深く垂らす(硬い兜の「まっすぐ立つ」向きと対照的)
+      hood.position.set(0, hY+hoodH*0.28, -headR*0.22);
+      hood.castShadow = true; group.add(hood);
+      const hoodCap = new THREE.Mesh(new THREE.CircleGeometry(hoodR*0.1, hoodSegs), clothAcc);
+      hoodCap.rotation.x = -Math.PI/2 - 0.4;
+      hoodCap.position.set(0, hY+hoodH*0.28+Math.cos(0.4)*hoodH/2, -headR*0.22-Math.sin(0.4)*hoodH/2);
+      group.add(hoodCap);
+      // マスク(鼻から下を覆う布) - 目だけ見えるフード付き暗殺者の顔
+      const maskMat = new THREE.MeshStandardMaterial({color:0x1c1a20, roughness:0.85});
+      const mask = new THREE.Mesh(new THREE.BoxGeometry(headR*1.05, headR*0.62, headR*0.5), maskMat);
+      mask.position.set(0, hY-headR*0.42, headR*0.55);
+      mask.castShadow = true; group.add(mask);
+      // フード+マスクで顔をほぼ覆っているため、既存の球目(白目+瞳+
+      // ハイライト、頭の外へ張り出す形状)をそのまま出すと、覆面の上に
+      // 目玉だけが浮いて見えて不気味(ユーザー指摘)。この見た目のクラスは
+      // 「顔が見える」ことを狙っていない(月夜の暗殺者、覆面で正体を隠す)
+      // ため、ここでは非表示にする ―― 他クラス(魔法使い/弓師は顔が
+      // 見える帽子なので目はそのまま)には影響しない
+      faceMeshes.forEach(m=>{ m.visible = false; });
       // 長髪: 頭頂の短い髪(hair)の下から、背中を伝って垂れる房を追加
       const longHairMat = new THREE.MeshStandardMaterial({color:isFemale?0x2c1e14:0x1b140f, roughness:0.7});
       const ponytail = new THREE.Mesh(new THREE.ConeGeometry(0.075, bodyH*0.5, 7), longHairMat);
@@ -743,16 +759,28 @@
       // 薄紫の三角帽子の魔女)を受けて、帽子だけclothMat(ローブと共通の
       // クラス色=青系)から切り離し、classDef.hatColorの薄紫専用素材に
       // 変更した。ローブ本体・袖は「そのまま」の指示を尊重し従来のまま
-      const hatMat = classDef.hatColor!=null
+      // グラフィック刷新: 三角帽(cone)には単色べた塗りをやめ、既存の
+      // 手続きテクスチャ(makeLeatherTexture+applyBump、他パーツ・他
+      // クラスで実績のある技法)を適用した。clothMatと同じ質感の作り方に
+      // 揃えている。
+      // ただしCylinderGeometryの上下キャップ(brim=薄い円盤)はUVが中心
+      // から放射状に広がる特殊な貼り方になり、タイル張り前提のこの
+      // テクスチャを乗せると(バンプの有無に関わらず)白く飛んで見える
+      // 不具合を確認した(側面が主体のConeGeometry/円柱側面では問題
+      // ない)。円盤面は素材変更前の単色のまま据え置いている
+      const hatMatCone = classDef.hatColor!=null
+        ? applyBump(new THREE.MeshStandardMaterial({map: makeLeatherTexture(hexStr(classDef.hatColor), 2, 2), roughness:0.75}))
+        : clothMat;
+      const hatMatBrim = classDef.hatColor!=null
         ? new THREE.MeshStandardMaterial({color:classDef.hatColor, roughness:0.75})
         : clothMat;
       // グラフィック刷新(ユーザー指摘「兜/帽子/フードで差別化」): 分割数の
       // 多い円柱/円錐は面ごとの陰影はともかく輪郭(シルエット)が丸いまま
       // 読めてしまう(戦騎士の兜で判明した問題と同じ)。ここも分割数を
       // 大きく落とし、つばと三角帽の輪郭自体を多角形にした
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 8), hatMat);
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 8), hatMatBrim);
       brim.position.set(0, hY+headR*0.55, 0); brim.castShadow = true; group.add(brim);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*1.25, 0.62, 7), hatMat);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*1.25, 0.62, 7), hatMatCone);
       cone.position.set(0, hY+headR*0.55+0.31, 0);
       cone.rotation.set(-0.16, 0, 0.1); cone.castShadow = true; group.add(cone);
       const band = new THREE.Mesh(new THREE.TorusGeometry(headR*1.2, 0.035, 8, 14), clothAcc);
@@ -1180,6 +1208,9 @@
     if(P.warriorBaseDecor) P.warriorBaseDecor.forEach(m=>{ m.visible = true; });
     if(P.pauldronL) P.pauldronL.visible = true;
     if(P.pauldronR) P.pauldronR.visible = true;
+    // 戦騎士の兜で隠した球目(sclera/pupil/highlight)も可視へ戻す。
+    // head/hairも含め一括で可視にしておく(誤って隠れたまま残る事故を防ぐ)
+    if(P.headGroupParts) P.headGroupParts.forEach(m=>{ m.visible = true; });
 
     if(!P.jobDecorMeshes) return;
     P.jobDecorMeshes.forEach(m=>{
@@ -1253,9 +1284,15 @@
       if(P.pauldronR) P.pauldronR.visible = false;
 
       // 顔のビルボード化は検証の結果撤去(ユーザー判断: 「顔の作り込みは
-      // やめる、兜/帽子/フードでの差別化を優先する」)。素の球目
-      // (sclera/pupil/highlight、他クラスと共通の表現)はそのまま使う ――
-      // ここで意図的に何もしない(P.headGroupPartsは非表示にしない)
+      // やめる、兜/帽子/フードでの差別化を優先する」)。
+      // 兜が頭のほとんどを覆うため、頭の外へ張り出す球目(sclera/pupil/
+      // highlight)をそのまま出すと、兜の下から目玉だけが浮いて見えて
+      // 不気味(ユーザー指摘)。ここでは非表示にする ―― head/hairは
+      // 残す(headGroupParts[0]=head, [1]=hair, [2]以降=目)。
+      // clearJobPromotionVisualで転身解除時に可視へ戻す
+      if(P.headGroupParts && P.headGroupParts.length > 2){
+        P.headGroupParts.slice(2).forEach(m=>{ m.visible = false; });
+      }
 
       // flatShading済みマテリアル(既存clothMatFlat/trimMatFlatと同じ
       // 「低分割ジオメトリ+flatShading = 低ポリの面ごとの陰影」手法)。
