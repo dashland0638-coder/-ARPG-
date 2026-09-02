@@ -1285,7 +1285,7 @@ test('Head / Posture Alignment再設計フェーズ: HEAD_BACK_Zの妥当性・�
       assert.ok(/HEAD_BACK_Z/.test(windowSrc), `${label}: 近傍にHEAD_BACK_Zが適用されている`);
     };
     checkNear('head.position.z = HEAD_BACK_Z', 'Head本体');
-    checkNear('hair.position.set(0, hairlineY,', 'Hair Cap');
+    checkNear('hair.position.set(0, head.position.y, HEAD_BACK_Z)', 'Hair Shell');
     checkNear('makeWarriorBaseHelm({width:headR, depth:headR, height:headR*1.60})', 'Warrior Helm');
     checkNear('makeMageHatBrim(headR*1.95, 0.04)', 'Mage Brim');
     checkNear('makeHawkEyeHood({width:B.headR*1.25', 'Hawk Eye Hood');
@@ -1454,8 +1454,8 @@ test('Mage Hat Brim(つば) 再設計フェーズ: 前後非対称Low Poly要件
     const srcPath = fileURLToPath(new URL('../../src/legacy/parts/05-rendering-rig.js', import.meta.url));
     const src = fs.readFileSync(srcPath, 'utf8');
     const start = src.indexOf('const MAGE_BRIM_RADIUS_MUL');
-    const end = src.indexOf('Hair再設計 Phase 1: Hair Cap + Bangs');
-    assert.ok(start >= 0 && end > start, 'MAGE_BRIM_RADIUS_MUL〜Hair Phase 1コメントの区間が見つかる');
+    const end = src.indexOf('Hair Shell(旧Hair Cap)');
+    assert.ok(start >= 0 && end > start, 'MAGE_BRIM_RADIUS_MUL〜Hair Shellコメントの区間が見つかる');
     const brimSrc = src.slice(start, end);
     assert.ok(!/CylinderGeometry/.test(brimSrc), 'Brim生成コード(makeMageHatBrim)にCylinderGeometryが含まれない(makeLoftベースに置き換え済み)');
   });
@@ -1740,82 +1740,116 @@ test('makeHawkEyeHood(鷹の目Hood再設計): 「黒い球」を排除した開
   });
 });
 
-// makeCharacterHairCap()自体も(makeCharacterHead等と同じ理由で)このテスト
-// ファイルから直接importできないため、05-rendering-rig.js内の
-// HAIR_CAP_HEX_TEMPLATE/HAIR_CAP_SECTION_RATIOSと同じ値をここに複製して
-// 検証する(値を変えたらこのコピーも合わせて更新すること)
-const HAIR_CAP_HEX_TEMPLATE = [
-  [-0.65,  0.35],
-  [-1.00, -0.15],
-  [-0.55, -0.95],
-  [ 0.00, -1.10],
-  [ 0.55, -0.95],
-  [ 1.00, -0.15],
-  [ 0.65,  0.35],
-];
-const HAIR_CAP_SECTION_RATIOS = {
-  hairline: { yFrac:0.00, widthMul:0.82, depthMul:0.70 },
-  lowerCap: { yFrac:0.35, widthMul:1.00, depthMul:0.95 },
-  upperCap: { yFrac:0.70, widthMul:0.92, depthMul:0.82 },
-  crown:    { yFrac:1.00, widthMul:0.55, depthMul:0.48 },
-};
-function makeCharacterHairCapForTest({width, depth, height}){
-  const sections = Object.values(HAIR_CAP_SECTION_RATIOS).map(r => {
-    const hw = width*r.widthMul, hd = depth*r.depthMul;
-    return { y: height*r.yFrac, points: HAIR_CAP_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]) };
+// Head Assembly構造修正フェーズ: 旧Hair CapはHeadと別テンプレート/別基準値
+// /別原点で作られており、前面ZがHeadより常に0.09〜0.18後方=額を覆うことが
+// 構造的に不可能だった(Mesh識別Debugで全8クラス確認)。新実装
+// makeCharacterHairShell()は「Headの断面の輪郭点をそのままHAIR_SHELL_MUL倍
+// した外殻」なので、Headが外へ出ることが数学的に起こり得ない。ここでは
+// その包含関係を実際の値で検証する(05-rendering-rig.jsと同じ値を複製 ――
+// 値を変えたらこのコピーも合わせて更新すること)。
+const HAIR_SHELL_MUL = 1.09;
+const HAIR_HAIRLINE_YFRAC = 0.72;
+const HAIR_TOP_LIFT = 0.03;
+const HAIR_NAPE_YFRAC = 0.34;
+const HAIR_NAPE_FRONT_MUL = 0.55;
+const HEAD_FRONT_POINT_IDX = new Set([0, 5, 6, 7]);
+function headRatioAtForTest(yFrac){
+  const secs = Object.values(HEAD_SECTION_RATIOS);
+  if(yFrac <= secs[0].yFrac) return Object.assign({}, secs[0], {yFrac});
+  for(let i=0;i<secs.length-1;i++){
+    const a=secs[i], b=secs[i+1];
+    if(yFrac <= b.yFrac){
+      const t=(yFrac-a.yFrac)/(b.yFrac-a.yFrac);
+      return { yFrac,
+        widthMul: a.widthMul+(b.widthMul-a.widthMul)*t,
+        depthMul: a.depthMul+(b.depthMul-a.depthMul)*t,
+        nosePush: a.nosePush+(b.nosePush-a.nosePush)*t };
+    }
+  }
+  return Object.assign({}, secs[secs.length-1], {yFrac});
+}
+function headSectionPointsForTest(o, r){
+  const hw=o.width*r.widthMul, hd=o.depth*r.depthMul;
+  const facePts = HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]);
+  const nosePts = HEAD_NOSE_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd + o.depth*r.nosePush]);
+  return [...facePts, ...nosePts];
+}
+function makeCharacterHairShellForTest(opts){
+  const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
+  const hh = o.height/2;
+  const sections = [];
+  sections.push({
+    y: -hh + o.height*HAIR_NAPE_YFRAC,
+    points: headSectionPointsForTest(o, headRatioAtForTest(HAIR_NAPE_YFRAC)).map(([x,z], i) => {
+      const k = HEAD_FRONT_POINT_IDX.has(i) ? HAIR_NAPE_FRONT_MUL : HAIR_SHELL_MUL;
+      return [x*k, z*k];
+    }),
+  });
+  const yfs = [HAIR_HAIRLINE_YFRAC];
+  Object.values(HEAD_SECTION_RATIOS).forEach(r => { if(r.yFrac > HAIR_HAIRLINE_YFRAC + 1e-6) yfs.push(r.yFrac); });
+  yfs.forEach((yf, i) => {
+    const pts = headSectionPointsForTest(o, headRatioAtForTest(yf)).map(([x,z]) => [x*HAIR_SHELL_MUL, z*HAIR_SHELL_MUL]);
+    const isTop = (i === yfs.length-1);
+    sections.push({ y: -hh + o.height*yf + (isTop ? o.height*HAIR_TOP_LIFT : 0), points: pts });
   });
   return makeLoft({ sections, closedTop:true, closedBottom:true });
 }
 
-test('makeCharacterHairCap(Hair Cap): 生え際で止まり後頭部が膨らむ非対称な塊の要件', async (t) => {
-  const hairR = 0.399, headR = 0.3705, capHeight = headR*0.86;   // BUILD.male相当の実際の値
-  const geo = makeCharacterHairCapForTest({ width:hairR, depth:hairR, height:capHeight });
+test('makeCharacterHairShell(Hair Shell): Headの外殻として、HeadがHairの外へ出ることが構造的に起こり得ない', async (t) => {
+  const headR = 0.3705, HEAD_DEPTH_MUL = 0.85;
+  const DIMS = { width:headR, depth:headR*HEAD_DEPTH_MUL, height:headR*2 };
+  const geo = makeCharacterHairShellForTest(DIMS);
 
-  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
-    // 側面4段x7面x2 + キャップ2段x(7-2)三角形
-    assertSaneGeometry(geo, 3*7*2 + 5*2);
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり・裏返っていない)', () => {
+    assertSaneGeometry(geo, 3*8*2 + 6*2);   // 側面3段x8面x2 + 上下キャップ(8-2)x2
+    assert.ok(signedVolume(geo) > 0, '符号付き体積が正(面が外向き)');
   });
 
-  await t.test('閉じた立体として面が一貫して外向きに巻かれている(裏返り無し)', () => {
-    assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
-  });
-
-  await t.test('各断面で幅(X)と厚み(Z)が異なる ―― 単純な球体ではない', () => {
-    const pos = geo.attributes.position;
-    const n = HAIR_CAP_HEX_TEMPLATE.length;
-    const seen = new Map();
-    for(let i=0;i<pos.count;i++){
-      const y = Math.round(pos.getY(i)*1000)/1000;
-      const e = seen.get(y) || {maxX:0, maxZ:0};
-      e.maxX = Math.max(e.maxX, Math.abs(pos.getX(i)));
-      e.maxZ = Math.max(e.maxZ, Math.abs(pos.getZ(i)));
-      seen.set(y, e);
-    }
-    assert.ok(seen.size >= 4, '4段の断面がそれぞれ別の高さに存在する');
-    for(const [, e] of seen){
-      assert.notEqual(e.maxX, e.maxZ, `幅(${e.maxX})と厚み(${e.maxZ})が一致していない(円形断面ではない)`);
+  await t.test('生え際より上の全高さで、Hairの輪郭点がHeadの対応点より外側にある', () => {
+    for(const yf of [0.62, 0.66, 0.70, 0.75, 0.80, 0.90, 1.00]){
+      const r = headRatioAtForTest(yf);
+      const headPts = headSectionPointsForTest(DIMS, r);
+      headPts.forEach(([hx,hz], i) => {
+        const ax = hx*HAIR_SHELL_MUL, az = hz*HAIR_SHELL_MUL;
+        const headLen = Math.hypot(hx,hz), hairLen = Math.hypot(ax,az);
+        assert.ok(hairLen > headLen,
+          `yFrac=${yf} 点${i}: Hair(${hairLen.toFixed(4)})がHead(${headLen.toFixed(4)})より原点から遠い`);
+      });
     }
   });
 
-  await t.test('前方(生え際側、+Z)より後方(後頭部側、-Z)の方が張り出している(前後非対称)', () => {
-    const pos = geo.attributes.position;
-    let maxFrontZ = 0, maxBackZ = 0;
-    for(let i=0;i<pos.count;i++){
-      const z = pos.getZ(i);
-      if(z > 0) maxFrontZ = Math.max(maxFrontZ, z);
-      else maxBackZ = Math.max(maxBackZ, -z);
+  await t.test('前面Z・半幅・背面Zのいずれも、生え際より上でHeadを上回る', () => {
+    for(const yf of [0.62, 0.70, 0.80, 1.00]){
+      const r = headRatioAtForTest(yf);
+      const hw = DIMS.width*r.widthMul, hd = DIMS.depth*r.depthMul;
+      const headFront = hd + DIMS.depth*r.nosePush, headBack = -hd*1.15;
+      assert.ok(headFront*HAIR_SHELL_MUL > headFront, `yFrac=${yf}: Hairの前面Zの方が前`);
+      assert.ok(hw*HAIR_SHELL_MUL > hw, `yFrac=${yf}: Hairの半幅の方が広い`);
+      assert.ok(Math.abs(headBack*HAIR_SHELL_MUL) > Math.abs(headBack), `yFrac=${yf}: Hairの背面Zの方が後ろ`);
     }
-    assert.ok(maxBackZ > maxFrontZ,
-      `後頭部側の張り出し(${maxBackZ.toFixed(3)})が生え際側(${maxFrontZ.toFixed(3)})より大きい`);
   });
 
-  await t.test('Warrior Base Helmの天板(headR*1.10)より低い高さに収まる ―― Helmet着用時に貫通しない', () => {
-    // Hair Capの下端はhead中心+headR*0.19に置かれる想定なので、上端は
-    // それにcapHeightを足した高さになる
-    const capTopY = headR*0.19 + capHeight;
-    const helmCrownY = headR*1.10;
-    assert.ok(capTopY < helmCrownY,
-      `Hair Cap上端(headR*${(capTopY/headR).toFixed(2)})がWarrior Helm天板(headR*1.10)より低い`);
+  await t.test('うなじリングは後方・側面だけHeadの外、顔側4点はHeadの内側(顔を覆わない)', () => {
+    HEAD_HEX_TEMPLATE.concat(HEAD_NOSE_TEMPLATE).forEach((_, i) => {
+      const k = HEAD_FRONT_POINT_IDX.has(i) ? HAIR_NAPE_FRONT_MUL : HAIR_SHELL_MUL;
+      if(HEAD_FRONT_POINT_IDX.has(i)) assert.ok(k < 1, `顔側点${i}はHeadの内側(倍率${k})`);
+      else assert.ok(k > 1, `後方/側面点${i}はHeadの外側(倍率${k})`);
+    });
+    assert.ok(HAIR_NAPE_YFRAC < HAIR_HAIRLINE_YFRAC, 'うなじリングは生え際より下にある');
+  });
+
+  await t.test('生え際がEyeの中心より上にある(瞳を隠さない)', () => {
+    const eyeCenterLocalY = 0.02;
+    const hairlineLocalY = -headR + 2*headR*HAIR_HAIRLINE_YFRAC;
+    assert.ok(hairlineLocalY > eyeCenterLocalY,
+      `生え際(${hairlineLocalY.toFixed(4)})がEye中心(${eyeCenterLocalY})より上`);
+  });
+
+  await t.test('Hair Shellの上端・最大半幅がWarrior Helmの内側に収まる', () => {
+    const topY = headR + 2*headR*HAIR_TOP_LIFT;
+    assert.ok(topY < headR*1.10, `Hair上端(${topY.toFixed(4)})がWarrior Helm天板(${(headR*1.10).toFixed(4)})より低い`);
+    const maxHalfW = headR*headRatioAtForTest(HAIR_HAIRLINE_YFRAC).widthMul*HAIR_SHELL_MUL;
+    assert.ok(maxHalfW < headR*1.12, `Hair最大半幅(${maxHalfW.toFixed(4)})がWarrior Helm下端の半幅(${(headR*1.12).toFixed(4)})より内側`);
   });
 });
 

@@ -665,18 +665,70 @@
      (詳細はHEAD_NOSE_TEMPLATE側のコメント参照)。鼻〜口点のZだけ、
      顔側の面と同じ基準(hd*1.00)に、そのsectionのnosePush
      (o.depth基準の加算オフセット、倍率ではない)を足す。 */
+  /* =========================================================
+     Head Assembly 共通プロファイル(Single Source of Truth)
+
+     Mesh識別Debug(全8クラス)で、額・側頭部・頬・後頭部下側の「外側
+     シルエット」をSkin Head本体が形成し、Hair Capは頭頂の細い帯、Side
+     Hairはほぼ埋没、Back Hairは完全埋没していることが判明した。原因は
+     HeadとHairが別テンプレート(HEAD_HEX_TEMPLATE vs 旧HAIR_CAP_HEX_
+     TEMPLATE)・別基準値(headR vs hairR)・別原点(頭の中心 vs 生え際)で
+     生成されており、「HairがHeadの外側にある」ことがコード上どこにも
+     保証されていなかったこと。実測でもHair Capの前面Zは全高さでHeadの
+     前面Zより0.09〜0.18後方にあり、額を覆うことが構造的に不可能だった。
+
+     そこで、Headの断面情報を唯一の基準(Single Source of Truth)にし、
+     Hairはそこから導出する構造へ変更した。以下の3つのヘルパーが基準:
+       headRatioAt(yFrac)      : 任意の高さの断面比率(断面間は線形補間)
+       headSectionPoints(o,r)  : その断面の実際の輪郭点(8点)
+       headOutlineAt(o,yFrac)  : その高さの実寸(半幅/前面Z/背面Z/側面Z)
+     Hair Shell・Side Hair・Back Hair・Bangsはすべてこれらを経由して
+     配置されるため、headR / HEAD_DEPTH_MUL / HEAD_SECTION_RATIOS を
+     変更してもHairが自動的にHeadの外側へ追従する。 */
+  function headRatioAt(yFrac){
+    const secs = Object.values(HEAD_SECTION_RATIOS);
+    if(yFrac <= secs[0].yFrac) return Object.assign({}, secs[0], {yFrac});
+    for(let i=0;i<secs.length-1;i++){
+      const a = secs[i], b = secs[i+1];
+      if(yFrac <= b.yFrac){
+        const t = (yFrac - a.yFrac) / (b.yFrac - a.yFrac);
+        return {
+          yFrac,
+          widthMul: a.widthMul + (b.widthMul - a.widthMul)*t,
+          depthMul: a.depthMul + (b.depthMul - a.depthMul)*t,
+          nosePush: a.nosePush + (b.nosePush - a.nosePush)*t,
+        };
+      }
+    }
+    return Object.assign({}, secs[secs.length-1], {yFrac});
+  }
+  function headSectionPoints(o, r){
+    const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+    const facePts = HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]);
+    const nosePts = HEAD_NOSE_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd + o.depth*r.nosePush]);
+    return [...facePts, ...nosePts];
+  }
+  /* headOutlineAt: その高さでのHeadの実寸。Hair/装飾の配置は必ずこれを
+     基準にする(headRに独自係数を掛けた手打ち座標を使わない)。 */
+  function headOutlineAt(o, yFrac){
+    const r = headRatioAt(yFrac);
+    const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+    return {
+      y:         -o.height/2 + o.height*yFrac,
+      halfWidth: hw*1.00,                       // 最大幅点(テンプレート|x|=1.00)
+      sideZ:     hd*0.05,                       // その最大幅点のZ
+      frontZ:    hd*1.00 + o.depth*r.nosePush,  // 鼻〜口点(最前面)
+      backZ:     hd*(-1.15),                    // 後頭部点(最後面)
+      backHalfWidth: hw*0.22,                   // 後頭部点のX
+    };
+  }
   function makeCharacterHead(opts){
     const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
     const hh = o.height/2;
-    const sections = Object.values(HEAD_SECTION_RATIOS).map(r => {
-      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
-      const facePts = HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]);
-      const nosePts = HEAD_NOSE_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd + o.depth*r.nosePush]);
-      return {
-        y: -hh + o.height*r.yFrac,
-        points: [...facePts, ...nosePts],
-      };
-    });
+    const sections = Object.values(HEAD_SECTION_RATIOS).map(r => ({
+      y: -hh + o.height*r.yFrac,
+      points: headSectionPoints(o, r),
+    }));
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }
 
@@ -961,48 +1013,73 @@
   }
 
   /* =========================================================
-     Hair再設計 Phase 1: Hair Cap + Bangs
+     Hair Shell(旧Hair Cap): Headプロファイルから導出する「外殻」
 
-     旧HairはTHREE.SphereGeometry(B.hairR, 14,12, 0,2π, 0,0.46π) ――
-     滑らかな部分球で、Player全身のLoft化・Warrior Helmの低ポリ化が
-     済んだ後も、頭部にだけ「滑らかな球体」の印象を残していた。
+     旧実装は独自のHAIR_CAP_HEX_TEMPLATE(顔側の点がz=+0.35。Headの顔側
+     はz=+1.00)と独自の基準値(B.hairR)・独自の原点(生え際)で作られて
+     いたため、Hairの前面ZがHeadの前面Zより常に0.09〜0.18後方になり、
+     額を覆うことが構造的に不可能だった(Mesh識別Debugで、額・側頭部の
+     外側シルエットをSkin Headが形成していることを全8クラスで確認)。
 
-     Hair CapはmakeLoft()をそのまま利用する(閉じた輪でよい ――
-     Warrior Helmと違い、顔を覗かせるための開口は不要。前方が
-     生え際付近で止まり、後頭部が膨らむという非対称さだけで
-     「顔にかぶさらない」を表現できるため)。断面は正六角形ではなく、
-     Head Loftと同じ考え方の非対称6点([-hw,-hd]方式ではなく、前方
-     (+Z、既存Eyeと同じ向き)が控えめ・後方が大きく張り出す形)。
-  ========================================================= */
-  const HAIR_CAP_HEX_TEMPLATE = [
-    [-0.65,  0.35],   // 生え際左
-    [-1.00, -0.15],   // 左側面(最大幅)
-    [-0.55, -0.95],   // 後頭部左
-    [ 0.00, -1.10],   // 後頭部中央(最もボリュームが出る)
-    [ 0.55, -0.95],   // 後頭部右
-    [ 1.00, -0.15],   // 右側面(最大幅)
-    [ 0.65,  0.35],   // 生え際右
-  ];
-  const HAIR_CAP_SECTION_RATIOS = {
-    hairline: { yFrac:0.00, widthMul:0.82, depthMul:0.70 },  // 下端(生え際)
-    lowerCap: { yFrac:0.35, widthMul:1.00, depthMul:0.95 },
-    upperCap: { yFrac:0.70, widthMul:0.92, depthMul:0.82 },
-    crown:    { yFrac:1.00, widthMul:0.55, depthMul:0.48 },  // 頭頂側、絞る
-  };
+     新実装は「Headの各断面の輪郭点を、そのまま HAIR_SHELL_MUL 倍
+     (>1)した外殻」として生成する。Headと同じテンプレート・同じ断面
+     比率・同じ原点・同じ引数(width/depth/height)を使うため:
 
-  /* makeCharacterHairCap({width, depth, height}): makeCharacterHead()と
-     同じ考え方の、髪の塊(Hair Cap)専用Loftヘルパー。widthとdepthは
-     半幅・半奥行きの基準値(呼び出し側はB.hairRを渡す)。heightは下端
-     (生え際)〜上端(頭頂側)の高さ。呼び出し側は下端を世界座標に
-     合わせてposition.yを設定する。 */
-  function makeCharacterHairCap(opts){
-    const o = Object.assign({ width:0.42, depth:0.42, height:0.34 }, opts || {});
-    const sections = Object.values(HAIR_CAP_SECTION_RATIOS).map(r => {
-      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
-      return {
-        y: o.height*r.yFrac,
-        points: HAIR_CAP_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]),
-      };
+       Hairの各頂点 = 対応するHeadの頂点 × HAIR_SHELL_MUL
+
+     となり、断面が原点まわりのstar-convexである限り、生え際より上では
+     「HeadがHairの外側に出る」ことが数学的に起こり得ない。headRや
+     HEAD_DEPTH_MUL、HEAD_SECTION_RATIOSを将来変更しても、Hairは自動的に
+     追従する(手打ち係数による偶然の一致に依存しない)。
+
+     HAIR_HAIRLINE_YFRAC は生え際の高さ(Head断面のyFrac基準。0=顎、
+     1=頭頂)。Eyeの上端(headR*0.26付近 ≒ yFrac0.63)のわずかに下に置き、
+     額全体をHairが覆いつつ、瞳(Eye中心 yFrac0.53)は隠さない。
+     HAIR_TOP_LIFT は頭頂側リングの持ち上げ量(髪のボリューム)。Headの
+     頭頂キャップとの同一平面(Z-fighting)を避けつつ、Warrior Helmの
+     天板(頭中心+headR*1.10)の内側に収まる値にしてある。 */
+  const HAIR_SHELL_MUL = 1.09;
+  /* 生え際の高さ。0.62(Eyeの上端すぐ下)まで下げると、急な見下ろし
+     カメラでは頭の上面が支配的なため髪が顔まで覆い「黒い塊」に戻って
+     しまうことを実機で確認した。眉の少し上(Eye上端 yFrac約0.63 の
+     さらに上)に置き、額が顔として読める高さにしてある。生え際より上の
+     外側シルエットはHair Shellが担当するので、額が肌色で見えること自体は
+     設計通り(人間の額と同じ)―― 旧実装の問題は「額の"外側"をSkin Head
+     が作っていた」ことであり、額が見えること自体ではない。 */
+  const HAIR_HAIRLINE_YFRAC = 0.72;
+  const HAIR_TOP_LIFT = 0.03;   // o.height に対する比率
+  /* うなじ(後頭部下側)まで伸びる最下段リング。生え際(HAIR_HAIRLINE_
+     YFRAC)より下は「顔」なので前方を髪で覆ってはいけないが、後頭部側は
+     うなじまで髪があるのが自然 ―― Mesh識別DebugでもBack Hairの束の
+     すきまからSkin Headが後頭部下側の外側シルエットを作っていた。
+     そこでこのリングだけ、後方・側面の点はHAIR_SHELL_MUL倍(Headの外)、
+     顔側の4点(faceL/R + 鼻〜口2点)はHAIR_NAPE_FRONT_MUL倍(Headの
+     内側=顔の中に隠れて見えない)にする。結果として「前は生え際で
+     終わり、後ろだけうなじまで伸びる髪」になる。 */
+  const HAIR_NAPE_YFRAC = 0.34;
+  const HAIR_NAPE_FRONT_MUL = 0.55;
+  const HEAD_FRONT_POINT_IDX = new Set([0, 5, 6, 7]);   // faceL, faceR, noseR, noseL
+  function makeCharacterHairShell(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
+    const hh = o.height/2;
+    const sections = [];
+    // うなじリング(後方・側面だけHeadの外、顔側はHeadの内側へ隠す)
+    sections.push({
+      y: -hh + o.height*HAIR_NAPE_YFRAC,
+      points: headSectionPoints(o, headRatioAt(HAIR_NAPE_YFRAC)).map(([x,z], i) => {
+        const k = HEAD_FRONT_POINT_IDX.has(i) ? HAIR_NAPE_FRONT_MUL : HAIR_SHELL_MUL;
+        return [x*k, z*k];
+      }),
+    });
+    // 生え際〜頭頂: Headの断面をそのままHAIR_SHELL_MUL倍した外殻
+    const yfs = [HAIR_HAIRLINE_YFRAC];
+    Object.values(HEAD_SECTION_RATIOS).forEach(r => {
+      if(r.yFrac > HAIR_HAIRLINE_YFRAC + 1e-6) yfs.push(r.yFrac);
+    });
+    yfs.forEach((yf, i) => {
+      const pts = headSectionPoints(o, headRatioAt(yf)).map(([x,z]) => [x*HAIR_SHELL_MUL, z*HAIR_SHELL_MUL]);
+      const isTop = (i === yfs.length-1);
+      sections.push({ y: -hh + o.height*yf + (isTop ? o.height*HAIR_TOP_LIFT : 0), points: pts });
     });
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }

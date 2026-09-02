@@ -664,124 +664,114 @@
     });
 
     // hair - グラフィック刷新(Hair再設計 Phase 1): SphereGeometry(滑らかな
-    // 部分球)から、Hair Cap(makeCharacterHairCap()、閉じたLoft。頭頂〜
+    // 部分球)から、Hair Shell(makeCharacterHairShell()、閉じたLoft。
     // 後頭部を覆い、生え際付近で止まる非対称な断面)+ Bangs(前髪束、
     // makeHairBang()、Center/Left/Rightの3束)へ置き換え。設定画のように
-    // 頭部シルエットを複数の髪の塊で作る狙い(詳細はmakeCharacterHairCap()/
+    // 頭部シルエットを複数の髪の塊で作る狙い(詳細はmakeCharacterHairShell()/
     // makeHairBang()側のコメント参照)。Head/Eye Geometry、髪色
     // (hairColor)自体は変更していない。
     // 髪色: 既定は性別ごとの黒〜焦げ茶だが、classDef.hairColorが指定されて
     // いればそちらを使う(現状は参考画像に合わせた魔法使いの紫髪のみ)
     const hairColor = classDef.hairColor!=null ? classDef.hairColor : (isFemale?0x2c1e14:0x1b140f);
     const hairMat = new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7});
-    // Hair Cap: 下端(生え際)を旧Hairの下端とほぼ同じ高さ(head中心+headR*0.19
-    // ≒ 旧SphereGeometryのthetaLength=0.46πでの下端とほぼ同オーダー)に置く。
-    // 上端はWarrior Base Helmの天板(hY+headR*1.10)より内側に収まる高さに
-    // 抑え、Helmet着用時に貫通しないようにしてある
-    // Head Silhouette Global Redesign Phase: Hair Capの奥行きもHead本体と
-    // 同じHEAD_DEPTH_MULで圧縮し、Headが浅くなった後もHair Capが後方だけ
-    // 古い深さのまま張り出さないようにする(widthは変更しない)
-    const hairlineY = head.position.y + headR*0.19;
-    const hair = new THREE.Mesh(
-      makeCharacterHairCap({width:B.hairR, depth:B.hairR*HEAD_DEPTH_MUL, height:headR*0.86}), hairMat);
-    // Head/Posture Alignment再設計フェーズ: HEAD_BACK_ZぶんHeadと同じ量
-    // 後方へ(HairがHeadに取り残されて浮かないように)
-    hair.position.set(0, hairlineY, HEAD_BACK_Z);
+
+    /* Head Assembly構造修正フェーズ: Hair一式をHeadプロファイル由来にする
+
+       Mesh識別Debug(全8クラス)で、額・側頭部・頬・後頭部下側の外側
+       シルエットをSkin Head本体が形成し、Hair Capは頭頂の帯だけ、Side
+       Hairはほぼ埋没、Back Hairは完全埋没していることを確認した。原因は
+       Hairの各パーツがheadRに独自係数を掛けた手打ち座標で置かれており、
+       Headの実際の輪郭と一致する保証が無かったこと。
+
+       ここから下のHairはすべて headOutlineAt()(05-rendering-rig.js、
+       Headの断面から実寸を返す共通API)を経由して配置する。HEAD_DIMSは
+       Head本体の生成に渡したものと同一 ―― Head/Hairが同じ原点・同じ
+       基準値・同じ断面プロファイルを共有する。 */
+    const HEAD_DIMS = { width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2 };
+    const headOut = (yFrac) => headOutlineAt(HEAD_DIMS, yFrac);
+
+    // ---- Hair Shell(旧Hair Cap): Headの外殻。原点・引数はHead本体と同一 ----
+    const hair = new THREE.Mesh(makeCharacterHairShell(HEAD_DIMS), hairMat);
+    hair.position.set(0, head.position.y, HEAD_BACK_Z);
     hair.castShadow = true;
     group.add(hair);
 
-    // Bangs(前髪束): 中央を最長、左右をやや短くした3束。円形断面の
-    // Cone(トゲ)ではなく、makeHairBang()(六角形断面のPrism、太さのある
-    // 房)を使う。付け根(生え際、上)は太く、毛先(下)は細く垂らし、
-    // 毛先はEye(head中心+0.02)より確実に上で止め、Eyeを覆いすぎない
-    // ようにしてある
-    // Head + Hair Integration再設計フェーズ(実際のゲーム画面での指摘:
-    // 「黒い殻+肌色の塊」に見える): Bangsの半径(旧headR*0.115/0.095)は
-    // 実際のゲームカメラ距離では数ピクセルしかなく、Hair Capの艶やかな
-    // ドーム状シルエットに埋もれてほぼ視認できなかった ―― これが「髪に
-    // 見えない」「顔だけ大きな肌色の塊に見える」印象の主因と判明した
-    // (Phase 0/1監査、実機スクリーンショット比較)。半径を約1.8倍に太く
-    // しただけでは実機スケールでの視認性向上が不十分だったため、毛先の
-    // 高さ(tipY)もEyeより確実に上(head中心+0.02)は維持しつつ従来より
-    // 額側へ深く下げ(中央0.050→0.028、左右0.090→0.060)、「額に垂れる
-    // 房」として明確に視認できるシルエットにした。Zも頬面(depthMul*
-    // headR=0.86headR付近)に近づけて、Hair Capの背後に沈み込まず額の
-    // 表面にはっきり重なって見えるようにしてある
-    const bangRootY = head.position.y + headR*0.35;
+    const hairlineOut = headOut(HAIR_HAIRLINE_YFRAC);   // 生え際リムの実寸
+
+    /* ---- Bangs(前髪束): Hair Shellの生え際リムから額へ垂れる装飾 ----
+       Hair ShellがHeadの外殻として額の外側シルエットを担当するように
+       なったため、Bangsは「Headを隠すための応急処置」ではなく、生え際の
+       輪郭に凹凸を与える装飾に戻した。Zは頭の実際の前面(frontZ)から
+       導出し、独自係数(旧 headR*1.20)は廃止。毛先はEye中心
+       (yFrac約0.53)より上で止める。 */
+    // BANG_FRONT_MUL: Headの実際の前面(frontZ)からどれだけ前へ出すか。
+    // Hair Shell自体の前面はfrontZ*HAIR_SHELL_MUL(1.09)なので、それより
+    // さらに前に出さないと房として視認できない(1.06ではMesh識別Debugで
+    // 細い線にしかならず、装飾として機能していなかった)。
+    const BANG_FRONT_MUL = 1.18;
+    const bangRootY = head.position.y + hairlineOut.y;
     const bangMeshes = [];
-    // Head / Hair / Headwear Global Visual Integration再修正フェーズ(2回目):
-    // 前回「Zをheadr*0.86→1.05へ引き上げた」だけでは不十分だった。原因を
-    // 実際のカメラView空間Z(camera.matrixWorldInverseで変換した頂点座標、
-    // Local Z比較ではなくmatrixWorld/Camera向きを考慮した本当の前後関係)
-    // で検証した結果、Headの露出部分(Hair Capの生え際より下、頬の側面
-    // 付近、X=headR*1.06)がBangsの全頂点よりわずかにカメラに近く、実際に
-    // Headが最前面に出ていたことを確認した(Bangsの毛先(tipR)が細すぎて、
-    // 頬の側面まで実際にはカバーできていなかった)。半径を太く
-    // (rootR/tipRを約25%増)、毛先の高さも頬の高さ(head中心+headR*0.0148
-    // 付近)より確実に下まで届くよう深くし、Zも1.05→1.20へさらに前方へ
-    // 押し出した
     [
-      { x:0,           tipY:head.position.y+0.028, rootR:headR*0.320, tipR:headR*0.145, tiltZ: 0.00 },
-      { x:-headR*0.34, tipY:head.position.y+0.045, rootR:headR*0.270, tipR:headR*0.120, tiltZ:-0.22 },
-      { x: headR*0.34, tipY:head.position.y+0.045, rootR:headR*0.270, tipR:headR*0.120, tiltZ: 0.22 },
+      { x:0,             tipYFrac:0.550, rootR:headR*0.20, tipR:headR*0.090, tiltZ: 0.00 },
+      { x:-headR*0.42,   tipYFrac:0.585, rootR:headR*0.18, tipR:headR*0.080, tiltZ:-0.18 },
+      { x: headR*0.42,   tipYFrac:0.585, rootR:headR*0.18, tipR:headR*0.080, tiltZ: 0.18 },
     ].forEach(b=>{
+      const tipOut = headOut(b.tipYFrac);
+      const tipY = head.position.y + tipOut.y;
       const bang = new THREE.Mesh(
-        makeHairBang({rootR:b.rootR, tipR:b.tipR, length:bangRootY-b.tipY}), hairMat);
-      bang.position.set(b.x, b.tipY, headR*1.20*HEAD_DEPTH_MUL + HEAD_BACK_Z);
+        makeHairBang({rootR:b.rootR, tipR:b.tipR, length:bangRootY-tipY}), hairMat);
+      bang.position.set(b.x, tipY, tipOut.frontZ*BANG_FRONT_MUL + HEAD_BACK_Z);
       bang.rotation.z = b.tiltZ;
       bang.castShadow = true;
       group.add(bang);
       bangMeshes.push(bang);
     });
 
-    // Side Hair(左右の髪束、Hair再設計Phase 2): 顔の左右を囲み、頭部を
-    // 単なる球体ではなく明確な髪型として認識させる。BangsやHair Cap下端
-    // (widthMul=1.00の側面点、head中心+headR*0.49あたり)から自然に続く
-    // よう、根元をHair Capの側面とほぼ同じ高さ・幅に合わせ、耳の高さを
-    // 通って顎関節あたりで止める(肩やマントまでは垂らさない)短め〜中
-    // 程度の長さ。BangsとおなじmakeHairBang()(六角形断面のPrism)を
-    // そのまま流用 ―― トゲ状のConeではなく太さのある房になる
-    // Head + Hair Integration再設計フェーズ: Bangsと同じ理由で半径を
-    // 太く(headR*0.16/0.075 → 0.22/0.10)。実際のゲームカメラ距離でも
-    // 顔の両側を囲む「太い房」として視認できるようにした
-    // Head / Hair / Headwear Global Visual Integration再修正フェーズ(2回目):
-    // Camera View空間Zでの検証で、Headの露出部分のうちカメラに最も近い
-    // 頂点が頬の側面(X=headR*1.06、Side Hairが担当する領域)だったことが
-    // 判明した。半径を太く(rootR/tipRを約35%増)、Zも中心寄り(-headR*
-    // 0.05)から前方(+headR*0.12)へ押し出し、頬の側面を確実に覆うように
-    // した
+    /* ---- Side Hair(左右の髪束): 側頭部〜頬の外側シルエットを担当 ----
+       旧実装は X=headR*0.98(頬の実半幅0.393より内側)・Z=headR*0.12
+       (頬の前面0.28より遥かに後ろ)でHeadの内部に埋没していた。頭の
+       実際の最大幅(halfWidth)とそのZ(sideZ)から位置を導出し、
+       SIDE_OUT_MUL 倍だけ外側に置く。頭が上ほど広い(顎→頬)テーパーに
+       合わせて、根元が外へ開くよう傾きも実寸から計算する。 */
+    const SIDE_ROOT_YFRAC = 0.70, SIDE_TIP_YFRAC = 0.28, SIDE_OUT_MUL = 1.10;
+    const sRootOut = headOut(SIDE_ROOT_YFRAC), sTipOut = headOut(SIDE_TIP_YFRAC);
+    const sideRootX = sRootOut.halfWidth*SIDE_OUT_MUL, sideTipX = sTipOut.halfWidth*SIDE_OUT_MUL;
+    const sideLen = sRootOut.y - sTipOut.y;
+    const sideTilt = Math.atan2(sideRootX - sideTipX, sideLen);   // 上ほど外へ開く角度
     const sideHairMeshes = [];
     [-1, 1].forEach(s=>{
-      const rootY = head.position.y + headR*0.46;
-      const tipY  = head.position.y - headR*0.22;
       const sideHair = new THREE.Mesh(
-        makeHairBang({rootR:headR*0.30, tipR:headR*0.135, length:rootY-tipY}), hairMat);
-      sideHair.position.set(s*headR*0.98, tipY, headR*0.12 + HEAD_BACK_Z);
-      sideHair.rotation.set(-0.12, 0, s*0.16);
+        makeHairBang({rootR:headR*0.20, tipR:headR*0.105, length:sideLen}), hairMat);
+      sideHair.position.set(s*sideTipX, head.position.y + sTipOut.y,
+                            (sRootOut.sideZ + sTipOut.sideZ)/2 + HEAD_BACK_Z);
+      sideHair.rotation.set(0, 0, -s*sideTilt);
       sideHair.castShadow = true;
       group.add(sideHair);
       sideHairMeshes.push(sideHair);
     });
 
-    // Back Hair(後頭部の髪束、Hair再設計Phase 2): 見下ろしカメラで最も
-    // 長時間映る背面が「丸い塊」に見えないよう、Hair Cap後方の膨らみ
-    // (HAIR_CAP_HEX_TEMPLATEの後頭部中央・左右の各点付近)から、うなじに
-    // 向けてわずかに垂れる短い房を3束(Back Left/Center/Right)加える。
-    // 「わずかな凹凸」に留める指示のとおり、Bangs/Side Hairより明確に
-    // 短くしてある
+    /* ---- Back Hair(後頭部の髪束): 生え際より下(うなじ)の外側を担当 ----
+       旧実装は根元が生え際より上にありHair Capの内側へ完全に埋没して
+       いた(全8クラスのMesh識別Debugで一度も画面に現れなかった)。
+       Hair Shellが覆う範囲より下(生え際〜うなじ)に移し、頭の実際の
+       後頭部点(backZ / backHalfWidth)から BACK_OUT_MUL 倍だけ外側に
+       置く。後頭部も上ほど深いテーパーに合わせて傾きを実寸から計算。 */
+    const BACK_ROOT_YFRAC = 0.62, BACK_TIP_YFRAC = 0.34, BACK_OUT_MUL = 1.08;
+    const bRootOut = headOut(BACK_ROOT_YFRAC), bTipOut = headOut(BACK_TIP_YFRAC);
+    const backLen = bRootOut.y - bTipOut.y;
+    const backRootZ = bRootOut.backZ*BACK_OUT_MUL, backTipZ = bTipOut.backZ*BACK_OUT_MUL;
+    const backTilt = Math.atan2(backTipZ - backRootZ, backLen);   // 上ほど後方へ
     const backHairMeshes = [];
-    // Head Silhouette Global Redesign Phase: rootZ(後方への基準位置)も
-    // HEAD_DEPTH_MULで圧縮し、Head背面が浅くなった分だけBack Hairの根元も
-    // 前へ引き寄せる(そうしないと後頭部だけ古い深さのまま浮く)
     [
-      { x:0,            rootZ:-headR*0.90*HEAD_DEPTH_MUL, rootY:head.position.y+headR*0.58, tipY:head.position.y+headR*0.22, rootR:headR*0.13, tipR:headR*0.06, tiltZ:0 },
-      { x:-headR*0.55,  rootZ:-headR*0.78*HEAD_DEPTH_MUL, rootY:head.position.y+headR*0.52, tipY:head.position.y+headR*0.28, rootR:headR*0.11, tipR:headR*0.05, tiltZ:-0.15 },
-      { x: headR*0.55,  rootZ:-headR*0.78*HEAD_DEPTH_MUL, rootY:head.position.y+headR*0.52, tipY:head.position.y+headR*0.28, rootR:headR*0.11, tipR:headR*0.05, tiltZ: 0.15 },
+      { xMul: 0.00, rootR:headR*0.155, tipR:headR*0.075 },
+      { xMul:-1.00, rootR:headR*0.130, tipR:headR*0.060 },
+      { xMul: 1.00, rootR:headR*0.130, tipR:headR*0.060 },
     ].forEach(b=>{
       const backHair = new THREE.Mesh(
-        makeHairBang({rootR:b.rootR, tipR:b.tipR, length:b.rootY-b.tipY}), hairMat);
-      backHair.position.set(b.x, b.tipY, b.rootZ + HEAD_BACK_Z);   // Head/Posture Alignment: HEAD_BACK_Zで追従
-      backHair.rotation.set(0.10, 0, b.tiltZ);
+        makeHairBang({rootR:b.rootR, tipR:b.tipR, length:backLen}), hairMat);
+      backHair.position.set(b.xMul*bTipOut.backHalfWidth, head.position.y + bTipOut.y,
+                            backTipZ + HEAD_BACK_Z);
+      backHair.rotation.set(backTilt, 0, 0);
       backHair.castShadow = true;
       group.add(backHair);
       backHairMeshes.push(backHair);
