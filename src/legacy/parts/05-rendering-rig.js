@@ -745,6 +745,76 @@
   }
 
   /* =========================================================
+     Hawk Eye Hood再設計フェーズ: 「黒い球」を低ポリの開いたフードへ
+
+     旧HoodはTHREE.SphereGeometry(headR*1.35, 10,8, 0,2π, 0,0.68π) ――
+     方位角(theta)が全周(2π)、極角(phi)が頭頂から0.68π(赤道より深い
+     位置)までの回転対称なドームだった。前後左右どの向きから見ても
+     同じ輪郭(=正面から見ても真っ黒な円)にしかならず、Face再設計/Eye
+     再設計の成果が一切見えない、8クラス中唯一「黒い球」に見える
+     Headwearになっていた。
+
+     makeWarriorBaseHelm()と全く同じ技法(開いた弧のテンプレートを
+     複数の高さの断面(リング)に積み、最後の点→最初の点の辺だけ繋がない
+     ことでFace Openingを作る、頭頂だけファン分割で閉じる)をそのまま
+     再利用する ―― 新しいGeometry Systemは追加していない。Warrior Helmは
+     3リング・耳の高さで止まる短い帯だったのに対し、Hoodは「頭を包む布」
+     を表現するため5リング(襟元→顎下→頬・こめかみ→頭頂へ絞り→頭頂)に
+     増やし、開口の縁(前方のアーク点)もWarrior Helmよりわずかに前方
+     (fz=0.55、Helmは0.45)にしてこめかみ〜頬まで囲む広めの開口にした。
+     左右対称・前後非対称(後方ほど張り出す)という設計方針もWarrior Helm
+     と共通。Eyeの実際のX位置(headR*0.44程度)・Z位置(headR*0.82系統)は
+     この開口の範囲に収まるよう、Cheek/Templeリング(最大幅の断面)の
+     開口前端ZがEye前面のZより手前(=Eyeより奥)になるよう設計してある
+     (詳細な数値確認はtests/unit/lowpoly-primitives.test.js参照)。 */
+  const HAWKEYE_HOOD_ARC_TEMPLATE = [
+    [-0.62,  0.55],   // 顔側左(開口の縁、こめかみ〜頬)
+    [-1.00, -0.05],   // 左側面(最大幅)
+    [-0.62, -0.85],   // 後頭部左
+    [ 0.00, -1.00],   // 後頭部中央(最も後ろ)
+    [ 0.62, -0.85],   // 後頭部右
+    [ 1.00, -0.05],   // 右側面(最大幅)
+    [ 0.62,  0.55],   // 顔側右(開口の縁。ここと配列先頭の間は繋がない)
+  ];
+  const HAWKEYE_HOOD_RINGS = [
+    { yFrac:0.00, widthMul:0.58, depthMul:0.58 },  // Neck Opening(襟元、最も絞る)
+    { yFrac:0.25, widthMul:0.92, depthMul:0.90 },  // Lower Hood(顎下〜頬の下)
+    { yFrac:0.52, widthMul:1.08, depthMul:1.04 },  // Cheek/Temple(最大幅)
+    { yFrac:0.78, widthMul:0.82, depthMul:0.78 },  // Upper Hood(頭頂へ向け絞る)
+    { yFrac:1.00, widthMul:0.50, depthMul:0.50 },  // Crown(頭頂、ファン分割で閉じる)
+  ];
+
+  /* makeHawkEyeHood({width, depth, height}): makeWarriorBaseHelm()と同じ
+     引数規約(半幅・半奥行き基準値、高さはローカルy=0(下端=襟元)〜
+     y=height(頭頂))。呼び出し側は下端の世界座標にposition.yを合わせる。 */
+  function makeHawkEyeHood(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.68 }, opts || {});
+    const n = HAWKEYE_HOOD_ARC_TEMPLATE.length;
+    const verts = [];
+    HAWKEYE_HOOD_RINGS.forEach(r=>{
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      HAWKEYE_HOOD_ARC_TEMPLATE.forEach(([fx,fz])=>{
+        verts.push(fx*hw, o.height*r.yFrac, fz*hd);
+      });
+    });
+    const idx = [];
+    for(let ri=0; ri<HAWKEYE_HOOD_RINGS.length-1; ri++){
+      const base = ri*n, next = (ri+1)*n;
+      for(let i=0;i<n-1;i++){
+        const a=base+i, b=base+i+1, aTop=next+i, bTop=next+i+1;
+        idx.push(a,bTop,b, a,aTop,bTop);
+      }
+    }
+    const topBase = (HAWKEYE_HOOD_RINGS.length-1)*n;
+    for(let i=1;i<n-1;i++) idx.push(topBase, topBase+i+1, topBase+i);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /* =========================================================
      Mage Hat再設計フェーズ: Brim(つば)の前後非対称Low Poly化
 
      旧BrimはTHREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 8) ――

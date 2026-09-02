@@ -1783,9 +1783,17 @@
 
       // フードコートのような見た目(ユーザー指摘)。既存のハンチング帽の
       // 上に大きめのフードを重ね、頭巾をかぶったシルエットに寄せる
+      // Hawk Eye Hood再設計フェーズ(Headwear Audit指摘: 「黒い球」に
+      // 見える唯一のクラス): 旧SphereGeometry(全方位均等なドーム、正面
+      // からも真っ黒な円にしか見えなかった)を、makeHawkEyeHood()
+      // (05-rendering-rig.js、makeWarriorBaseHelm()と同じ「開いた弧の
+      // 断面を積む」低ポリ技法、顔側にFace Openingを持つ)へ置き換えた。
+      // Material(hoodMat)は変更していない ―― 今回はGeometryだけの改善
       const hoodMat = new THREE.MeshStandardMaterial({color:uj.capeColor, roughness:0.85});
-      const hood = new THREE.Mesh(new THREE.SphereGeometry(B.headR*1.35, 10, 8, 0, Math.PI*2, 0, Math.PI*0.68), hoodMat);
-      hood.position.set(0, headYLocal+0.06, -0.03);
+      const hoodBottomY = headYLocal - B.headR*0.62;
+      const hood = new THREE.Mesh(
+        makeHawkEyeHood({width:B.headR*1.25, depth:B.headR*1.25, height:B.headR*1.75}), hoodMat);
+      hood.position.set(0, hoodBottomY, -0.03);
       hood.castShadow = true;
       P.waist.add(hood); meshes.push(hood);
     }

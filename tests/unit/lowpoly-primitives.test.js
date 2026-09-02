@@ -1424,6 +1424,162 @@ test('makeWarriorBaseHelm(素の剣士のBase Helm): 顔側にFace Openingを持
   });
 });
 
+// makeHawkEyeHood()自体も(makeWarriorBaseHelm等と同じ理由で)このテスト
+// ファイルから直接importできないため、05-rendering-rig.js内の
+// HAWKEYE_HOOD_ARC_TEMPLATE/HAWKEYE_HOOD_RINGSと同じ値をここに複製して
+// 検証する(値を変えたらこのコピーも合わせて更新すること)
+const HAWKEYE_HOOD_ARC_TEMPLATE = [
+  [-0.62,  0.55],
+  [-1.00, -0.05],
+  [-0.62, -0.85],
+  [ 0.00, -1.00],
+  [ 0.62, -0.85],
+  [ 1.00, -0.05],
+  [ 0.62,  0.55],
+];
+const HAWKEYE_HOOD_RINGS = [
+  { yFrac:0.00, widthMul:0.58, depthMul:0.58 },
+  { yFrac:0.25, widthMul:0.92, depthMul:0.90 },
+  { yFrac:0.52, widthMul:1.08, depthMul:1.04 },
+  { yFrac:0.78, widthMul:0.82, depthMul:0.78 },
+  { yFrac:1.00, widthMul:0.50, depthMul:0.50 },
+];
+function makeHawkEyeHoodForTest({width, depth, height}){
+  const n = HAWKEYE_HOOD_ARC_TEMPLATE.length;
+  const verts = [];
+  HAWKEYE_HOOD_RINGS.forEach(r=>{
+    const hw = width*r.widthMul, hd = depth*r.depthMul;
+    HAWKEYE_HOOD_ARC_TEMPLATE.forEach(([fx,fz])=>{
+      verts.push(fx*hw, height*r.yFrac, fz*hd);
+    });
+  });
+  const idx = [];
+  for(let ri=0; ri<HAWKEYE_HOOD_RINGS.length-1; ri++){
+    const base = ri*n, next = (ri+1)*n;
+    for(let i=0;i<n-1;i++){
+      const a=base+i, b=base+i+1, aTop=next+i, bTop=next+i+1;
+      idx.push(a,bTop,b, a,aTop,bTop);
+    }
+  }
+  const topBase = (HAWKEYE_HOOD_RINGS.length-1)*n;
+  for(let i=1;i<n-1;i++) idx.push(topBase, topBase+i+1, topBase+i);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+test('makeHawkEyeHood(鷹の目Hood再設計): 「黒い球」を排除した開いたLow Poly Hoodの要件', async (t) => {
+  const headR = 0.390;   // BUILD.male相当の実際の値
+  const width = headR*1.25, depth = headR*1.25, height = headR*1.75;
+  const geo = makeHawkEyeHoodForTest({ width, depth, height });
+  const n = HAWKEYE_HOOD_ARC_TEMPLATE.length;
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    // 側面: (段数-1)*(n-1)*2三角形 + 天板: (n-2)三角形
+    assertSaneGeometry(geo, (HAWKEYE_HOOD_RINGS.length-1)*(n-1)*2 + (n-2));
+  });
+
+  await t.test('三角形数が想定どおり(開口部に余分な面が無い) ―― Vertex/Triangle Countの妥当性', () => {
+    const expectedTris = (HAWKEYE_HOOD_RINGS.length-1)*(n-1)*2 + (n-2);
+    assert.strictEqual(geo.index.count, expectedTris*3,
+      `インデックス数(${geo.index.count})が想定(${expectedTris*3})と一致 ―― 開口部を塞ぐ余分な面が生成されていない`);
+    assert.strictEqual(geo.attributes.position.count, HAWKEYE_HOOD_RINGS.length*n,
+      `頂点数(${geo.attributes.position.count})がリング数×断面点数と一致`);
+  });
+
+  await t.test('実装コード上もSphereGeometryが使われていない(05-rendering-rig.js内のmakeHawkEyeHood定義を直接検査)', () => {
+    const srcPath = fileURLToPath(new URL('../../src/legacy/parts/05-rendering-rig.js', import.meta.url));
+    const src = fs.readFileSync(srcPath, 'utf8');
+    const start = src.indexOf('const HAWKEYE_HOOD_ARC_TEMPLATE');
+    const end = src.indexOf('Mage Hat再設計フェーズ: Brim');
+    assert.ok(start >= 0 && end > start, 'HAWKEYE_HOOD_ARC_TEMPLATE〜Mage Hatコメントの区間が見つかる');
+    const hoodSrc = src.slice(start, end);
+    assert.ok(!/SphereGeometry/.test(hoodSrc), 'Hood生成コード(makeHawkEyeHood)にSphereGeometryが含まれない');
+  });
+
+  await t.test('円形/正球ではない(断面ごとにwidth/depthの倍率が異なる、単純なSphereGeometryの縮小ではない)', () => {
+    const ratios = HAWKEYE_HOOD_RINGS.map(r => r.widthMul / r.depthMul);
+    const allSame = ratios.every(r => Math.abs(r - ratios[0]) < 1e-9);
+    assert.ok(!allSame || Math.abs(ratios[0]-1) > 1e-9,
+      '断面ごとのwidth/depth比が一定の円形スケールではない(方向性を持つ形状)');
+  });
+
+  const pos = geo.attributes.position;
+
+  await t.test('前方(開口の縁)Zが後方Zより明確に浅い ―― Front/Back非対称性(布が後方に垂れる方向性)', () => {
+    // Cheek/Templeリング(最大幅、index2)で比較
+    const ri = 2;
+    const openingEdgeFrac = HAWKEYE_HOOD_ARC_TEMPLATE[0][1];   // 0.55(前方)
+    const backFrac = Math.abs(HAWKEYE_HOOD_ARC_TEMPLATE[3][1]); // 1.00(後方中央)
+    const hd = depth*HAWKEYE_HOOD_RINGS[ri].depthMul;
+    const frontZ = openingEdgeFrac*hd, backZ = backFrac*hd;
+    assert.ok(frontZ < backZ*0.75,
+      `前方開口縁のZ(${frontZ.toFixed(3)})が後方Z(${backZ.toFixed(3)})より明確に浅い(75%未満、後方が張り出す)`);
+  });
+
+  await t.test('左右Mirror Symmetry ―― アーク・リングの各点がX=0を軸に鏡映対称', () => {
+    HAWKEYE_HOOD_RINGS.forEach((r, ri) => {
+      const base = ri*n;
+      for(let i=0;i<n;i++){
+        const mi = n-1-i;   // アーク配列は前後対称に並んでいるため、i番目とn-1-i番目が鏡映対
+        const x1 = pos.getX(base+i), z1 = pos.getZ(base+i);
+        const x2 = pos.getX(base+mi), z2 = pos.getZ(base+mi);
+        assert.ok(Math.abs(x1+x2) < 1e-5 && Math.abs(z1-z2) < 1e-5,
+          `リング${ri}の点${i}と点${mi}が左右ミラー対(x符号反転・z一致)`);
+      }
+    });
+  });
+
+  await t.test('Headとのサイズ整合性 ―― 最大半幅がheadRの極端な倍率になっていない(旧SphereGeometry半径headR*1.35と近いオーダー)', () => {
+    let maxR = 0;
+    for(let i=0;i<pos.count;i++) maxR = Math.max(maxR, Math.abs(pos.getX(i)), Math.abs(pos.getZ(i)));
+    assert.ok(maxR > headR*0.9 && maxR < headR*1.6,
+      `Hood最大半幅(${maxR.toFixed(3)})がheadR(${headR.toFixed(3)})の0.9〜1.6倍に収まっている(過度に巨大化していない)`);
+  });
+
+  await t.test('Eye X PositionがFace Openingの範囲(開口の縁のXより内側)に入る ―― 埋没しない設計', () => {
+    const eyeScale = headR/0.26;
+    const eyeX = 0.115*eyeScale;
+    // Cheek/Templeリング(Eyeの高さに最も近い、最大幅の断面)の開口縁X
+    const ri = 2;
+    const hw = width*HAWKEYE_HOOD_RINGS[ri].widthMul;
+    const openingEdgeX = Math.abs(HAWKEYE_HOOD_ARC_TEMPLATE[0][0])*hw;
+    assert.ok(eyeX < openingEdgeX,
+      `EyeのX位置(${eyeX.toFixed(3)})が開口縁のX(${openingEdgeX.toFixed(3)})より内側(開口の範囲内)`);
+  });
+
+  await t.test('EyeがHood内部に完全に埋まらない ―― 開口縁のZ(Cheekリング)がEye前面のZより手前(浅い)', () => {
+    // 06-player-enemy.jsの実際の値(headR*0.82系統、eyeSizeMul=0.85込み)で
+    // Eye前面Zを再計算し、Hoodの開口縁Z(Cheekリング)がそれより手前
+    // (小さい)であることを確認する ―― 開口縁が実際のEyeより奥にあると
+    // Eyeがその陰に隠れてしまう
+    const eyeScale = headR/0.26;
+    const eyeFrontZ = headR*0.82;
+    const eyeSizeMul = 0.85;
+    const scleraR = 0.062*eyeSizeMul, scleraZScale = 0.6;
+    const scleraFrontZ = eyeFrontZ + scleraR*scleraZScale*eyeScale;
+    const ri = 2;
+    const hd = depth*HAWKEYE_HOOD_RINGS[ri].depthMul;
+    const openingEdgeZ = HAWKEYE_HOOD_ARC_TEMPLATE[0][1]*hd;
+    assert.ok(openingEdgeZ < scleraFrontZ,
+      `Hood開口縁のZ(${openingEdgeZ.toFixed(3)})がEye(Sclera)前面のZ(${scleraFrontZ.toFixed(3)})より手前 ―― Eyeが開口の奥に埋没しない`);
+  });
+
+  await t.test('頭頂の天板が上向きの法線を持つ(見下ろしカメラから正しく見える)', () => {
+    const topBase = (HAWKEYE_HOOD_RINGS.length-1)*n;
+    const v = i => new THREE.Vector3(pos.getX(topBase+i), pos.getY(topBase+i), pos.getZ(topBase+i));
+    let sumY = 0, count = 0;
+    for(let i=1;i<n-1;i++){
+      const a = v(0), b = v(i+1), c = v(i);
+      const normal = new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a));
+      sumY += normal.y; count++;
+    }
+    assert.ok(sumY/count > 0, `天板の面法線の平均Y成分(${(sumY/count).toFixed(4)})が正(上向き)`);
+  });
+});
+
 // makeCharacterHairCap()自体も(makeCharacterHead等と同じ理由で)このテスト
 // ファイルから直接importできないため、05-rendering-rig.js内の
 // HAIR_CAP_HEX_TEMPLATE/HAIR_CAP_SECTION_RATIOSと同じ値をここに複製して
