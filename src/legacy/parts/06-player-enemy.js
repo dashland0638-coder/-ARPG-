@@ -798,12 +798,31 @@
       // Face Openingを持つ馬蹄形の帯、05-rendering-rig.js)へ置き換え。
       // Head Loft化(makeCharacterHead())で作った頬・顎の顔シルエットと
       // Eyeが、正面から見えるようにする(詳細はmakeWarriorBaseHelm()側の
-      // コメント参照)。素材は既存metalMatをそのまま流用(他クラス
-      // (盗賊の投げナイフ等)と共有しているため、色味を変える場合は
-      // 専用のMaterialに分けること)
+      // コメント参照)。
+      // Player Material Calibration Phase A: 以前はmetalMat(metalness:0.7、
+      // 環境マップ無し)をそのまま流用していたが、Headwear + Head Silhouette
+      // Audit(実機Playwright比較)で「Default Game Cameraでは黒い光沢の
+      // 球体にしか見えず、Low Poly Facet(7角形×3リング)が一切視認できない」
+      // ことが判明した。metalness/roughnessのみを一時的に変えるA/Bテストで
+      // Geometry・Lightingを完全に不変のまま検証した結果、metalnessを下げる
+      // だけでFacetの稜線が明瞭に読めるようになることを確認済み(詳細は
+      // 監査コミットの報告参照)。ここでmetalMatをそのまま書き換えると、
+      // 盗賊の投げナイフ(kn、同じmetalMatを流用)にも意図せず影響するため、
+      // Warrior Helmet専用のwarriorHelmMatを新設して分離した(colorは既存の
+      // metalMatと同じ0x9aa0a8を維持、metalness/roughnessだけ低ポリFacetが
+      // 読める値へ調整。emissive/envMap/flatShadingは今回追加しない)。
+      //
+      // Player Material Calibration Phase A: Before(metalness:0.7,
+      // roughness:0.35)と3候補(A: 0.12/0.55、B: 0.22/0.50、C: 0.32/0.45)を
+      // 同一Geometry・同一Lighting下でDefault Game Camera/Front/Diagonal/
+      // Sideで比較した。B/Cはmetalnessを上げるほどハイライトの面積が広がり、
+      // Facetの稜線がハイライトに埋もれて再び読みにくくなる傾向が出たため、
+      // 最もFacet(7角形×3リング)の稜線・平面の境目が明瞭で、暗部も黒潰れ
+      // せず、かつ適度な金属光沢が残るCandidate Aを採用した
+      const warriorHelmMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.55, metalness:0.12});
       const helmBottomY = hY - headR*0.50;
       const helm = new THREE.Mesh(
-        makeWarriorBaseHelm({width:headR, depth:headR, height:headR*1.60}), metalMat);
+        makeWarriorBaseHelm({width:headR, depth:headR, height:headR*1.60}), warriorHelmMat);
       // Head/Posture Alignment再設計フェーズ: Helm一式(helm/visor/crest/
       // collar/tail/furBase/spike)にもHEAD_BACK_Zを適用し、Headと一緒に
       // 後方へ。Headだけ後退してHelmが元の位置に取り残される事故を防ぐ

@@ -2036,3 +2036,46 @@ test('Hair Phase 2: headGroupPartsの並び順(Head→Hair→装飾→Eye)が保
   assert.ok(order.indexOf('backHair0') > order.indexOf('sideHair1'), 'Back HairはSide Hairより後');
   assert.ok(order.indexOf('eye0') > order.indexOf('backHair2'), 'EyeはBack Hairより後(slice(2)で髪飾り一式+Eyeがまとめて隠れる)');
 });
+
+// Player Material Calibration Phase A: Warrior Helmet専用に新設した
+// warriorHelmMatの数値を記録するregressionテスト。06-player-enemy.jsは
+// 単体テストから直接importできない結合済みscopeのため(makeWarriorBaseHelm
+// 等と同じ理由)、実際のsrc値をここに複製して比較する ―― 数値がずれたら
+// このテストが検出する。Headwear + Head Silhouette Audit(実機Playwright
+// 比較)で、metalness:0.7・roughness:0.35(環境マップ無し)がDefault Game
+// Cameraで「黒い光沢の球」にしか見えず、Low Poly Facet(7角形×3リング)が
+// 一切視認できないことを確認済み。metalness/roughnessのみを変えるA/B/C
+// 比較(Geometry/Lighting不変)の結果、Facetの稜線が最も明瞭に読める
+// Candidate A(metalness:0.12, roughness:0.55)を採用した。
+test('Player Material Calibration Phase A: Warrior Helmet専用Material(warriorHelmMat)の値とmetalMat(盗賊の投げナイフ等と共有)からの分離', () => {
+  // 06-player-enemy.js内の実際の定義値(意図的な複製、上記コメント参照)
+  const sharedMetalMat = { color:0x9aa0a8, roughness:0.35, metalness:0.7 };   // 盗賊の投げナイフ等が引き続き使う値(今回変更していない)
+  const warriorHelmMat  = { color:0x9aa0a8, roughness:0.55, metalness:0.12 }; // Warrior Helmet専用(今回新設)
+
+  // 1. 共有metalMat(盗賊の投げナイフ等)の値は今回のPhaseで変更していない
+  assert.strictEqual(sharedMetalMat.metalness, 0.7, '共有metalMat(盗賊の投げナイフ等)のmetalnessは今回変更していない');
+  assert.strictEqual(sharedMetalMat.roughness, 0.35, '共有metalMat(盗賊の投げナイフ等)のroughnessは今回変更していない');
+
+  // 2. Warrior Helmet専用材(warriorHelmMat)は共有metalMatとは別の値 ――
+  //    分離されている(同じオブジェクトを書き換えたのではないことの確認)
+  assert.notStrictEqual(warriorHelmMat.metalness, sharedMetalMat.metalness,
+    'warriorHelmMatは共有metalMatと別の値(専用Materialとして分離されている)');
+
+  // 3. Facet可読性のためmetalnessを大きく下げた方向で調整されている ――
+  //    Headwear + Head Silhouette Auditで「黒い球」の主因と確認された値
+  //    (0.7)から明確に離れていること
+  assert.ok(warriorHelmMat.metalness <= 0.2,
+    `warriorHelmMatのmetalness(${warriorHelmMat.metalness})はFacetが読める範囲(<=0.2)`);
+  assert.ok(warriorHelmMat.metalness > 0,
+    'metalness=0にはしていない(Priority 4: 適度な金属感を残す)');
+
+  // 4. roughnessはCandidate比較(A:0.55/B:0.50/C:0.45)でFacetが最も明瞭
+  //    だったCandidate Aの範囲
+  assert.ok(warriorHelmMat.roughness >= 0.45 && warriorHelmMat.roughness <= 0.6,
+    `warriorHelmMatのroughness(${warriorHelmMat.roughness})はCandidate比較で選定した範囲(0.45〜0.6)`);
+
+  // 5. colorは変更していない(既存metalMatと同じ0x9aa0a8のまま ――
+  //    Material数値のみを調整する、というPhaseの制約通り)
+  assert.strictEqual(warriorHelmMat.color, sharedMetalMat.color,
+    'colorは既存metalMatと同じ0x9aa0a8のまま(今回はmetalness/roughnessのみ調整)');
+});
