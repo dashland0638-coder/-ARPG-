@@ -3,6 +3,7 @@
 // Run with `npm run test:unit`(node --test)。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../../src/render/lowpoly-primitives.js';
 
 function assertSaneGeometry(geo, minTris){
@@ -823,5 +824,124 @@ test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称�
     for(let i=0;i<pos.count;i++) maxW = Math.max(maxW, Math.abs(pos.getX(i)));
     assert.ok(maxW > headR*0.8 && maxW < headR*1.2,
       `Head最大幅(${maxW.toFixed(3)})がheadR(${headR.toFixed(3)})から極端に離れていない`);
+  });
+});
+
+// makeWarriorBaseHelm()自体も(makeCharacterHead等と同じ理由で)このテスト
+// ファイルから直接importできないため、05-rendering-rig.js内の
+// WARRIOR_HELM_ARC_TEMPLATE/WARRIOR_HELM_RINGSと同じ値をここに複製して
+// 検証する(値を変えたらこのコピーも合わせて更新すること)
+const WARRIOR_HELM_ARC_TEMPLATE = [
+  [-0.55,  0.45],
+  [-1.00, -0.05],
+  [-0.60, -0.85],
+  [ 0.00, -1.00],
+  [ 0.60, -0.85],
+  [ 1.00, -0.05],
+  [ 0.55,  0.45],
+];
+const WARRIOR_HELM_RINGS = [
+  { yFrac:0.00, widthMul:1.12, depthMul:1.05 },
+  { yFrac:0.50, widthMul:1.15, depthMul:1.08 },
+  { yFrac:1.00, widthMul:0.70, depthMul:0.65 },
+];
+function makeWarriorBaseHelmForTest({width, depth, height}){
+  const n = WARRIOR_HELM_ARC_TEMPLATE.length;
+  const verts = [];
+  WARRIOR_HELM_RINGS.forEach(r=>{
+    const hw = width*r.widthMul, hd = depth*r.depthMul;
+    WARRIOR_HELM_ARC_TEMPLATE.forEach(([fx,fz])=>{
+      verts.push(fx*hw, height*r.yFrac, fz*hd);
+    });
+  });
+  const idx = [];
+  for(let ri=0; ri<WARRIOR_HELM_RINGS.length-1; ri++){
+    const base = ri*n, next = (ri+1)*n;
+    for(let i=0;i<n-1;i++){
+      const a=base+i, b=base+i+1, aTop=next+i, bTop=next+i+1;
+      idx.push(a,bTop,b, a,aTop,bTop);
+    }
+  }
+  const topBase = (WARRIOR_HELM_RINGS.length-1)*n;
+  for(let i=1;i<n-1;i++) idx.push(topBase, topBase+i+1, topBase+i);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+test('makeWarriorBaseHelm(素の剣士のBase Helm): 顔側にFace Openingを持つ馬蹄形の要件', async (t) => {
+  const headR = 0.390, helmHeight = headR*1.60;   // BUILD.male相当の実際の値
+  const geo = makeWarriorBaseHelmForTest({ width:headR, depth:headR, height:helmHeight });
+  const n = WARRIOR_HELM_ARC_TEMPLATE.length;
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    // 側面: (段数-1)*(n-1)*2三角形 + 天板: (n-2)三角形
+    assertSaneGeometry(geo, (WARRIOR_HELM_RINGS.length-1)*(n-1)*2 + (n-2));
+  });
+
+  await t.test('三角形数が想定どおり(開口部に余分な面が無い)', () => {
+    const expectedTris = (WARRIOR_HELM_RINGS.length-1)*(n-1)*2 + (n-2);
+    assert.strictEqual(geo.index.count, expectedTris*3,
+      `インデックス数(${geo.index.count})が想定(${expectedTris*3})と一致 ―― 開口部を塞ぐ余分な面が生成されていない`);
+  });
+
+  await t.test('円形/正球ではない(断面ごとにwidth/depthの倍率が異なる、単純なSphereGeometryの縮小ではない)', () => {
+    const ratios = WARRIOR_HELM_RINGS.map(r => r.widthMul / r.depthMul);
+    const allSame = ratios.every(r => Math.abs(r - ratios[0]) < 1e-9);
+    assert.ok(!allSame || Math.abs(ratios[0]-1) > 1e-9,
+      '断面ごとのwidth/depth比が一定の円形スケールではない(方向性を持つ形状)');
+    // 断面(リング)ごとに実際の頂点X/Z範囲も円形(X幅==Z奥行き)にならないことを確認
+    const pos = geo.attributes.position;
+    WARRIOR_HELM_RINGS.forEach((r, ri) => {
+      let maxX = 0, maxZ = 0;
+      for(let i=0;i<n;i++){
+        const idxV = ri*n+i;
+        maxX = Math.max(maxX, Math.abs(pos.getX(idxV)));
+        maxZ = Math.max(maxZ, Math.abs(pos.getZ(idxV)));
+      }
+      assert.notEqual(maxX, maxZ, `リング${ri}の幅(${maxX.toFixed(3)})と奥行き(${maxZ.toFixed(3)})が一致していない`);
+    });
+  });
+
+  await t.test('Face Opening: 顔側(+Z)の開口の縁が、既存Eye位置(headR*0.115*eyeScale)より外側にある', () => {
+    // 完全一致は不要。既存Eyeの左右位置はheadR基準でx=±0.115*eyeScale
+    // (eyeScale=headR/0.26)。Eyeの高さ(head中心付近、helm下端からおよそ
+    // 0.02+headR*0.5の高さ)における開口の縁のX位置が、Eyeのx位置より
+    // 外側(絶対値が大きい)にあれば、EyeがHelmetの側壁に隠れない。
+    const eyeScale = headR/0.26;
+    const eyeX = 0.115*eyeScale;
+    const eyeYLocal = 0.02 + headR*0.50;   // helm下端(hY-headR*0.5)からの相対高さ
+    const eyeYFrac = eyeYLocal / helmHeight;
+    // bottomRingとmidRingの間で線形補間(開口の縁=配列の最初の点、フラグメント[0])
+    const bottom = WARRIOR_HELM_RINGS[0], mid = WARRIOR_HELM_RINGS[1];
+    const t2 = Math.min(1, eyeYFrac / (mid.yFrac - bottom.yFrac));
+    const widthMulAtEye = bottom.widthMul + (mid.widthMul - bottom.widthMul)*t2;
+    const openingEdgeFrac = Math.abs(WARRIOR_HELM_ARC_TEMPLATE[0][0]);   // 0.55
+    const openingEdgeX = openingEdgeFrac * widthMulAtEye * headR;
+    assert.ok(openingEdgeX > eyeX,
+      `Eyeの高さでの開口の縁のX(${openingEdgeX.toFixed(3)})がEyeのX位置(${eyeX.toFixed(3)})より外側にある(Eyeが隠れない)`);
+  });
+
+  await t.test('Helmet最大サイズがheadRの極端な倍率になっていない', () => {
+    const pos = geo.attributes.position;
+    let maxR = 0;
+    for(let i=0;i<pos.count;i++) maxR = Math.max(maxR, Math.abs(pos.getX(i)), Math.abs(pos.getZ(i)));
+    assert.ok(maxR > headR*0.8 && maxR < headR*1.5,
+      `Helmet最大半幅(${maxR.toFixed(3)})がheadR(${headR.toFixed(3)})の0.8〜1.5倍に収まっている`);
+  });
+
+  await t.test('頭頂の天板が上向きの法線を持つ(見下ろしカメラから正しく見える)', () => {
+    const pos = geo.attributes.position;
+    const topBase = (WARRIOR_HELM_RINGS.length-1)*n;
+    const v = i => new THREE.Vector3(pos.getX(topBase+i), pos.getY(topBase+i), pos.getZ(topBase+i));
+    let sumY = 0, count = 0;
+    for(let i=1;i<n-1;i++){
+      const a = v(0), b = v(i+1), c = v(i);
+      const normal = new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a));
+      sumY += normal.y; count++;
+    }
+    assert.ok(sumY/count > 0, `天板の面法線の平均Y成分(${(sumY/count).toFixed(4)})が正(上向き)`);
   });
 });

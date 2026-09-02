@@ -630,6 +630,86 @@
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }
 
+  /* =========================================================
+     素の剣士(Warrior Base)のBase Helm: 球状シルエット改善
+
+     旧HelmはTHREE.SphereGeometry(headR*1.16, ..., thetaLength=0.62π)
+     ―― 中心(hY+0.03)から全方位(前後左右)へ均等に張り出す部分球だった。
+     Head Loft化(makeCharacterHead())で作った頬(Cheek)・顎(Jaw)の
+     非対称な顔シルエットも、Eye(sclera/pupil/highlight、+Z側=顔側に
+     張り出す独立メッシュ)も、この球の内側にすっぽり埋もれてしまい、
+     「黒い球を被ったキャラクター」に見える最大の原因になっていた
+     (metalMatがmetalness:0.7で環境マップ無しのため、その球面自体も
+     暗く見えやすい)。
+
+     Head/Hair/Eyeは今回変更しない。Helmet側だけで対応するため、
+     「Headを全方位から包む球」ではなく「上部・後頭部・左右側面だけを
+     覆う馬蹄形(C字)の帯」にする ―― 顔側(+Z、Eyeと同じ向き)の1辺だけ
+     意図的に繋がない開いた断面をmakeLoft()と同じ考え方(高さごとに
+     断面リングを積む)で組む。makeLoft()自体は「閉じた輪」しか扱えない
+     ため専用に組んだ小さな関数だが、頂点順序・側面/天板の巻き方向は
+     既存のmakeLoft()ヘルパー群(Torso等)と同じCCW規則に揃えてあるので、
+     ここも外向き法線になる。
+
+     開口部の左右の縁(WARRIOR_HELM_ARC_TEMPLATEの最初と最後の点)の間の
+     辺だけ側面を張らない ―― これがFace Opening。上端(crown)はn角形の
+     ファン分割で塞ぐ(頭頂は完全に覆う設計)。下端は開放(既存の
+     兜/帽子/フードと同じ、Headがそこから覗く前提)。
+  ========================================================= */
+  const WARRIOR_HELM_ARC_TEMPLATE = [
+    [-0.55,  0.45],   // 顔側左(開口の縁)
+    [-1.00, -0.05],   // 左側面(最大幅)
+    [-0.60, -0.85],   // 後頭部左
+    [ 0.00, -1.00],   // 後頭部中央(最も後ろ)
+    [ 0.60, -0.85],   // 後頭部右
+    [ 1.00, -0.05],   // 右側面(最大幅)
+    [ 0.55,  0.45],   // 顔側右(開口の縁。ここと配列先頭の間は繋がない)
+  ];
+  const WARRIOR_HELM_RINGS = [
+    { yFrac:0.00, widthMul:1.12, depthMul:1.05 },  // 下端(耳・顎関節あたりの高さ)
+    { yFrac:0.50, widthMul:1.15, depthMul:1.08 },  // 中腹の膨らみ(最大幅)
+    { yFrac:1.00, widthMul:0.70, depthMul:0.65 },  // 頭頂(やや平坦に絞る)
+  ];
+
+  /* makeWarriorBaseHelm({width, depth, height}): widthとdepthは半幅・
+     半奥行きの基準値(呼び出し側はheadRを渡す)、heightはローカルy=0
+     (下端)〜y=height(頭頂)の高さ。呼び出し側はposition.yを下端の
+     世界座標に合わせて配置する(既存のCylinder系兜・フードと同じ、
+     下端基準の置き方)。 */
+  function makeWarriorBaseHelm(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.60 }, opts || {});
+    const n = WARRIOR_HELM_ARC_TEMPLATE.length;
+    const verts = [];
+    WARRIOR_HELM_RINGS.forEach(r=>{
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      WARRIOR_HELM_ARC_TEMPLATE.forEach(([fx,fz])=>{
+        verts.push(fx*hw, o.height*r.yFrac, fz*hd);
+      });
+    });
+    const idx = [];
+    // 側面: 隣接する段同士を弧の各辺(0-1,1-2,...,n-2〜n-1)だけ繋ぐ。
+    // 最後の点(n-1)から最初の点(0)への辺は繋がない(Face Opening)。
+    // 段は下から上へ昇順に並んでいるので、makeLoft()の「昇順」の
+    // 巻き方向(a,bTop,b, a,aTop,bTop)とそろえてある
+    for(let ri=0; ri<WARRIOR_HELM_RINGS.length-1; ri++){
+      const base = ri*n, next = (ri+1)*n;
+      for(let i=0;i<n-1;i++){
+        const a=base+i, b=base+i+1, aTop=next+i, bTop=next+i+1;
+        idx.push(a,bTop,b, a,aTop,bTop);
+      }
+    }
+    // 頭頂の天板(最上段をn角形としてファン分割、makeLoft()のcapと同じ
+    // 手法)。開口部の「弦」(最後の点から最初の点)もこの天板だけは
+    // 塞ぐ ―― 頭頂は完全に覆う設計のため
+    const topBase = (WARRIOR_HELM_RINGS.length-1)*n;
+    for(let i=1;i<n-1;i++) idx.push(topBase, topBase+i+1, topBase+i);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
   /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
      for both genders - the shoulder-armor read is a class/armor thing, not
      a body-shape thing, and B.upper already differs by gender for sizing.

@@ -652,9 +652,18 @@
       // ここではその対象を1配列に集めておくだけで、素の剣士の見た目・挙動は
       // 一切変えていない
       const warriorBaseDecor = [];
-      // full helm + a long scarf trailing off the neck
-      const helm = new THREE.Mesh(new THREE.SphereGeometry(headR*1.16, 10, 8, 0, Math.PI*2, 0, Math.PI*0.62), metalMat);
-      helm.position.set(0, hY+0.03, 0); helm.castShadow = true; group.add(helm);
+      // グラフィック刷新: 球状Helm(SphereGeometry、全方位からHeadを包んで
+      // いたためEyeごと隠していた)から、makeWarriorBaseHelm()(顔側に
+      // Face Openingを持つ馬蹄形の帯、05-rendering-rig.js)へ置き換え。
+      // Head Loft化(makeCharacterHead())で作った頬・顎の顔シルエットと
+      // Eyeが、正面から見えるようにする(詳細はmakeWarriorBaseHelm()側の
+      // コメント参照)。素材は既存metalMatをそのまま流用(他クラス
+      // (盗賊の投げナイフ等)と共有しているため、色味を変える場合は
+      // 専用のMaterialに分けること)
+      const helmBottomY = hY - headR*0.50;
+      const helm = new THREE.Mesh(
+        makeWarriorBaseHelm({width:headR, depth:headR, height:headR*1.60}), metalMat);
+      helm.position.set(0, helmBottomY, 0); helm.castShadow = true; group.add(helm);
       warriorBaseDecor.push(helm);
       const visor = new THREE.Mesh(new THREE.BoxGeometry(headR*1.9, 0.07, 0.1), darkMat);
       visor.position.set(0, hY+0.02, headR*0.86); group.add(visor);
