@@ -716,7 +716,14 @@
     ].forEach(b=>{
       const bang = new THREE.Mesh(
         makeHairBang({rootR:b.rootR, tipR:b.tipR, length:bangRootY-b.tipY}), hairMat);
-      bang.position.set(b.x, b.tipY, headR*0.86*HEAD_DEPTH_MUL + HEAD_BACK_Z);   // Head Silhouette Global Redesign: Headの新しい前面奥行きに追従
+      // Head / Hair / Headwear Global Visual Integration再修正フェーズ:
+      // depthMul=widthMul*0.80のルール変更後、頬(cheek)断面の前面Z
+      // (widthMul1.06*0.80+nosePush0.04を含む)がBangsの旧Z(headR*0.86*
+      // HEAD_DEPTH_MUL)より前に出てしまい、Bangsが顔の下に隠れて
+      // 「顔側Hairがほとんど見えない」原因になっていた。Bangsの基準比率を
+      // 0.86→1.05へ引き上げ、頬の前面よりも確実に手前に出るようにした
+      // (実機Playwright比較で確認済み)
+      bang.position.set(b.x, b.tipY, headR*1.05*HEAD_DEPTH_MUL + HEAD_BACK_Z);
       bang.rotation.z = b.tiltZ;
       bang.castShadow = true;
       group.add(bang);

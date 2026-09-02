@@ -620,43 +620,37 @@
     [ 0.30, 1.00],   // 鼻〜口(右)
     [-0.30, 1.00],   // 鼻〜口(左)
   ];
+  /* Head / Hair / Headwear Global Visual Integration再修正フェーズ:
+     過去2回、depthMulを断面ごとに個別の値で手打ちしていた(chin0.40/
+     jaw0.62/cheek0.86/upperHead1.00→0.78/crown0.75)。1回目はupperHeadの
+     depthMulが全断面中最大になっていて額と後頭部が同時に突き出る「こぶ」
+     になっていたため0.78へ下げたが、その結果「cheekのdepthMul(0.86)が
+     今度は全断面中最大になる」という同種の問題を別の断面へ移しただけに
+     なっていた ―― 実機Playwright比較(Side View)で、頬・鼻口まわりが
+     Helmetの下から丸い塊としてはみ出して見えることを確認した。
+
+     個別断面を都度手で調整するやり方そのものが同じ見逃しを繰り返す
+     原因と判断し、depthMulを断面ごとの独立値にするのをやめ、
+     「depthMul = widthMul * DEPTH_TO_WIDTH_RATIO」という単一のルールに
+     置き換えた。widthMulは各断面の顔の横幅そのもの(頬が最大、顎・頭頂が
+     細い)を表す既存の値で、これに一定比率(0.80)を掛けるだけなので、
+     どの断面also「幅に対して奥行きだけ突出する」ことが構造的に起こらない
+     ―― 特定の断面だけが前後に「こぶ」状に飛び出す問題を、値の調整では
+     なくルールの変更で根本的に防ぐ。実際の突出量(前方=鼻・後方=後頭部)
+     は、この上にnosePush(鼻〜口点だけの前方加算オフセット)とHEAD_DEPTH_
+     MUL(全断面共通の追加圧縮、06-player-enemy.js側で適用)を重ねて
+     微調整する。nosePushはJaw/Cheekのみに残すが、Cheekは目の高さに近い
+     ため以前より控えめ(0.07→0.04)にし、頬の膨らみがEyeより大きく前へ
+     出すぎないようにした */
+  const DEPTH_TO_WIDTH_RATIO = 0.80;
   const HEAD_SECTION_RATIOS = {
-    // widthMul/depthMulは顔側の平らな面(頬・顎・頭頂側)の比率(従来通り)。
-    // nosePushは鼻〜口点だけに加算する前方オフセット ―― depth(呼び出し側
-    // のheadR)に対する比率で、他の点のスケールには一切影響しない。鼻は
-    // 目のすぐ下(Jaw付近)〜口はさらに下、という指示の高さバランスに
-    // 合わせ、Jawでピーク・Cheekでは控えめにしてある(Cheek付近はEyeの
-    // 高さと重なるため、隆起を強くしすぎるとEyeが新しい顔面に埋もれる
-    // ―― Eyeの再配置はPhase Bで行うため、Phase AではCheekのnosePushを
-    // 小さく抑えて既存Eye位置(headR*0.90)との整合を崩さないようにした)
-    chin:      { yFrac:0.00, widthMul:0.38, depthMul:0.40, nosePush:0.03 },  // 顎、下端。あご後退のためdepthMulをわずかに絞る
-    // Head Alignment + Facial Projection Calibrationフェーズ: Jawの
-    // nosePush(旧0.12)は、この断面の後頭部点(depthMul*1.15=0.713)よりも
-    // 鼻〜口点(depthMul*1.00+nosePush=0.74)の方がわずかに前へ出ていた
-    // ―― 8断面中唯一「顔の隆起が後頭部の張り出しを上回る」箇所だった。
-    // 0.10へわずかに下げ、後頭部とほぼ同じ突出量(0.62+0.10=0.72)に
-    // 揃えた。他sectionのnosePush比では引き続き最大(=ピーク)のまま、
-    // 「鼻〜口だけに控えめな立体感」は維持しつつ、顔だけが後頭部より
-    // 前に出て見える印象を和らげる
-    jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.62, nosePush:0.10 },  // 口の高さ。鼻〜口の隆起がピーク
-    cheek:     { yFrac:0.52, widthMul:1.06, depthMul:0.86, nosePush:0.07 },  // 頬骨、最大幅(強調)。Eyeの高さと近いためnosePushは小さく
-    // Head Silhouette Root Cause Fix(実機Playwright再検証): upperHead
-    // (額〜生え際付近、Eye/BrowGuardのすぐ上)のdepthMulが旧1.00で、
-    // 全断面中最大(cheekの0.86さえ上回る)値になっていた。depthMulは
-    // 前面(顔)・背面(後頭部)を「同じ比率」で同時にスケールするため、
-    // このsectionだけ額が前へ・後頭部が後ろへ同時に、他のどの高さよりも
-    // 突き出す「こぶ」になっていた ―― 実機スクリーンショットで
-    // 「額がHelmet/Hairを突き破って見える」「後頭部が飛び出て見える」の
-    // 直接の原因と判明(数値計算でも、旧upperHead前面Zがheadの中心Eyeの
-    // 前面Zより前に出てしまっていたことを確認済み)。cheek(0.86)→
-    // upperHead→crown(0.75)がなだらかに絞られる並びになるよう、
-    // upperHeadのdepthMulを0.78へ引き下げた(cheekより小さく、crownに
-    // 近い値)。nosePushも0(隆起なし、Face再設計時のFace Silhouette上は
-    // 額に隆起は不要)にした。widthMul(横幅)は変更していない ―― 前後
-    // 方向だけを狙った修正
-    upperHead: { yFrac:0.80, widthMul:0.92, depthMul:0.78, nosePush:0.00 },
-    crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75, nosePush:0.00 },  // 頭頂、上端。隆起なし
+    chin:      { yFrac:0.00, widthMul:0.38, nosePush:0.03 },  // 顎、下端
+    jaw:       { yFrac:0.22, widthMul:0.72, nosePush:0.08 },  // 口の高さ。鼻〜口の隆起がピーク
+    cheek:     { yFrac:0.52, widthMul:1.06, nosePush:0.04 },  // 頬骨、最大幅。Eyeの高さに近いため控えめ
+    upperHead: { yFrac:0.80, widthMul:0.92, nosePush:0.00 },  // 額〜生え際、隆起なし
+    crown:     { yFrac:1.00, widthMul:0.60, nosePush:0.00 },  // 頭頂、上端。隆起なし
   };
+  Object.values(HEAD_SECTION_RATIOS).forEach(r => { r.depthMul = r.widthMul * DEPTH_TO_WIDTH_RATIO; });
 
   /* makeCharacterHead({width, depth, height}): makeCharacterForearm()と
      同じ考え方の、頭部専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの

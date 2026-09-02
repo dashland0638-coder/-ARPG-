@@ -720,18 +720,20 @@ const HEAD_NOSE_TEMPLATE = [
   [ 0.30, 1.00],
   [-0.30, 1.00],
 ];
+// Head / Hair / Headwear Global Visual Integration再修正フェーズ:
+// depthMulを断面ごとの独立値にするのをやめ、depthMul=widthMul*0.80という
+// 単一ルールに置き換えた(詳細は05-rendering-rig.js側のコメント参照)。
+// このテストファイルでは複製元と同じ計算結果になるよう、あらかじめ
+// 計算済みの値を直接書いている
+const DEPTH_TO_WIDTH_RATIO = 0.80;
 const HEAD_SECTION_RATIOS = {
-  chin:      { yFrac:0.00, widthMul:0.38, depthMul:0.40, nosePush:0.03 },
-  // Head Alignment + Facial Projection Calibrationフェーズ: 0.12→0.10
-  // (後頭部点の突出量とほぼ揃える、詳細は05-rendering-rig.js側のコメント参照)
-  jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.62, nosePush:0.10 },
-  cheek:     { yFrac:0.52, widthMul:1.06, depthMul:0.86, nosePush:0.07 },
-  // Head Silhouette Root Cause Fix: 旧depthMul1.00(全断面中最大)が
-  // 「額と後頭部が同時に最も突き出るこぶ」の原因だったため0.78へ
-  // (詳細は05-rendering-rig.js側のコメント参照)
-  upperHead: { yFrac:0.80, widthMul:0.92, depthMul:0.78, nosePush:0.00 },
-  crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75, nosePush:0.00 },
+  chin:      { yFrac:0.00, widthMul:0.38, nosePush:0.03 },
+  jaw:       { yFrac:0.22, widthMul:0.72, nosePush:0.08 },
+  cheek:     { yFrac:0.52, widthMul:1.06, nosePush:0.04 },
+  upperHead: { yFrac:0.80, widthMul:0.92, nosePush:0.00 },
+  crown:     { yFrac:1.00, widthMul:0.60, nosePush:0.00 },
 };
+Object.values(HEAD_SECTION_RATIOS).forEach(r => { r.depthMul = r.widthMul * DEPTH_TO_WIDTH_RATIO; });
 function makeCharacterHeadForTest({width, depth, height}){
   const hh = height/2;
   const sections = Object.values(HEAD_SECTION_RATIOS).map(r => {
@@ -921,7 +923,7 @@ test('makeCharacterHead(Loft頭部) Face再設計Phase A: 鼻〜口(nosePush)の
         if(z < 0) maxBackZ = Math.max(maxBackZ, -z);
       }
     }
-    const expectedBackZ = 1.15 * (headR*0.86);   // HEAD_HEX_TEMPLATEの後頭部点(|z|=1.15)*depthMul
+    const expectedBackZ = 1.15 * (headR*1.06*DEPTH_TO_WIDTH_RATIO);   // HEAD_HEX_TEMPLATEの後頭部点(|z|=1.15)*cheekのdepthMul(widthMul1.06*0.80)
     assert.ok(Math.abs(maxBackZ - expectedBackZ) < 1e-6,
       `後頭部側のZ(${maxBackZ.toFixed(4)})がnosePush導入前と同じ計算値(${expectedBackZ.toFixed(4)})のまま`);
   });
