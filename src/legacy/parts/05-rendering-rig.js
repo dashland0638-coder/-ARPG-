@@ -697,6 +697,38 @@
   const HEAD_BACK_Z = -0.05;
 
   /* =========================================================
+     Player Character Head Silhouette Global Redesign Phase
+
+     ユーザー指摘: 実際のゲーム画面で「額が前方へ突き出て見える」
+     「後頭部が後方へ突き出て見える」「頭部が前後に長く見える」―― Head
+     Geometry単体・Mesh貫通チェックでは問題が見えなかった箇所でも、
+     Default Game Cameraの実機スクリーンショットでは明確な違和感が
+     残っていた。
+
+     3種類のCandidateをBare Head(Weapon/Hair/Helmet非表示)・Neutral
+     Pose・Default/Front/3-4/Side/Back全視点で比較した:
+       Candidate A: Uniform Scale(94%)のみ ―― 全体が一様に縮むだけで、
+         「前後に長い」というシルエットの比率自体は変わらなかった。
+       Candidate B: Depth Compression(88%)のみ ―― Side Viewで額・
+         後頭部の突出感が明確に減り、丸みのある輪郭になった。
+       Candidate C: Uniform Scale(95%)+追加Depth Compression(90%、
+         合成で実質85.5%)―― Bと同様の丸みに加え、胴体に対する頭部の
+         存在感も適度に抑えられ、最も「丸く低頭身な頭部」に近づいた。
+     Default Game Camera・Side Viewともに、CandidateCが最も違和感が
+     少なかったため採用した。Uniform成分(95%)はBUILD.male/female側の
+     headR/hairR自体を縮小することでHead/Hair/Eye/Headwear全てに自動的に
+     反映済み(このファイル内、BUILD定義側のコメント参照)。この
+     HEAD_DEPTH_MUL(追加のDepth圧縮90%)は、Head本体の奥行き(makeCharacter
+     Head()のdepth引数)と、Eye/Bangs/Brow Guard/Hair Cap/Back Hairの
+     前後(Z)方向の位置基準(いずれもheadR比の定数)にのみ適用し、Width/
+     Height/横方向(X)には適用しない ―― 「前後にだけ長い」という指摘に
+     対応するため、前後方向だけを狙って圧縮する设計。Headwear(Warrior
+     Helm等)自体のGeometryはこの定数の対象外(Head/Hairが縮んだことで
+     Headwearとの間にわずかな余裕が生まれる方向にしかならないため、
+     明確な浮き/貫通が実機確認で見つかった場合のみ個別に対応する)。 */
+  const HEAD_DEPTH_MUL = 0.90;
+
+  /* =========================================================
      素の剣士(Warrior Base)のBase Helm: 球状シルエット改善
 
      旧HelmはTHREE.SphereGeometry(headR*1.16, ..., thetaLength=0.62π)
@@ -1045,7 +1077,15 @@
       // ユーザー提示の参考画像(頭身の低いチビキャラ)に寄せて0.290→0.39へ
       // 引き上げた(約4.7頭身→約3.5頭身)。hairRは元の比率(headRの約1.076倍)
       // を保っている
-      headR:0.390, hairR:0.420, headGap:0.27,
+      // Player Character Head Silhouette Global Redesign Phase: 実機
+      // Playwright比較(Candidate A: Uniform94%のみ／B: Depth圧縮88%のみ／
+      // C: Uniform95%+追加Depth圧縮90%)の結果、Side ViewでCandidate Cが
+      // 「額と後頭部が前後に突き出た塊」から「丸く収まった低頭身Head」へ
+      // 最も改善したため採用。ここではUniform成分(95%)のみを反映 ――
+      // headR/hairRはHead/Hair/Eye/Headwear全ての基準値のため、ここを
+      // 縮小するだけでほぼ全て追従する。Depth(前後奥行き)の追加圧縮は
+      // HEAD_DEPTH_MUL(HEAD_BACK_Z付近で定義)側で個別に適用する
+      headR:0.3705, hairR:0.399, headGap:0.27,
       chest:0.345, shoulderOut:0.105, stanceW:0.150, hipR:0.265,
       thigh:0.132, calf:0.106, upper:0.098, forearm:0.083, neck:0.088,
       strideAmp:1.00, armSwing:1.00, hipSway:0.55, shoulderRoll:1.15,
@@ -1055,7 +1095,9 @@
       // shorter overall, and proportionally longer in the leg
       height:0.74, hipY:1.05, thighLen:0.535, calfLen:0.515,
       // headR/hairR: maleと同じ理由・同じ比率で引き上げ(0.270→0.37)
-      headR:0.370, hairR:0.398, headGap:0.26,
+      // Head Silhouette Global Redesign Phase: maleと同じ理由・同じ比率
+      // (Uniform95%)で縮小
+      headR:0.3515, hairR:0.3781, headGap:0.26,
       chest:0.295, shoulderOut:0.078, stanceW:0.124, hipR:0.252,
       thigh:0.120, calf:0.094, upper:0.080, forearm:0.069, neck:0.072,
       strideAmp:0.93, armSwing:1.18, hipSway:1.45, shoulderRoll:0.80,

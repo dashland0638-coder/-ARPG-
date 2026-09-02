@@ -551,8 +551,13 @@
     // 頭の表面そのものではなく、そこから外側へ張り出した独立した球だから
     // (かつMeshBasicMaterialで陰影の影響も受けない)。よって顔は今まで
     // 通り球の組み合わせのままとした
+    // Head Silhouette Global Redesign Phase: 奥行き(depth)だけHEAD_DEPTH_MUL
+    // (05-rendering-rig.js参照)で追加圧縮。width/heightは(Uniform成分の
+    // 95%はBUILD.headR自体に反映済みなので)ここでは変更しない ――
+    // 「前後にだけ長い」という指摘に対応するため、前後方向だけを狙って
+    // 縮める
     const head = new THREE.Mesh(
-      makeCharacterHead({width:B.headR, depth:B.headR, height:B.headR*2}), skinMat);
+      makeCharacterHead({width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2}), skinMat);
     head.position.y = HIP_Y + bodyH + B.headGap;
     // Head/Posture Alignment再設計フェーズ: HEAD_BACK_Z(05-rendering-rig.js
     // 参照)ぶんだけHeadを後方(-Z)へ。Torso胸部の前面ZよりHead自身の前面Z
@@ -614,7 +619,10 @@
     // 同じ量だけEye全体(Sclera/Pupil/Highlightいずれも)を後方へ。Eye自身の
     // 前後関係(scleraFrontZ経由のpoke計算)・Z Position自体の設計方針
     // (headR*0.82系統)は変更しない
-    const eyeFrontZ = headR*0.82 + HEAD_BACK_Z;
+    // Head Silhouette Global Redesign Phase: Headの奥行きをHEAD_DEPTH_MULで
+    // 圧縮したため、Eyeの前後基準もHead前面の新しい位置に合わせて同じ比率で
+    // 引き寄せる(そうしないとEyeだけ古い深さのまま浮いてしまう)
+    const eyeFrontZ = headR*0.82*HEAD_DEPTH_MUL + HEAD_BACK_Z;
     // Headwear Audit + Eye Size調整フェーズ(ユーザー指摘: 「目が大きすぎる」):
     // Low Poly化(Phase B)で輪郭がくっきりしたぶん、球のときより大きく
     // 目立って見えるようになっていた。Sclera/Pupil/Highlightの点数・輪郭
@@ -670,9 +678,12 @@
     // ≒ 旧SphereGeometryのthetaLength=0.46πでの下端とほぼ同オーダー)に置く。
     // 上端はWarrior Base Helmの天板(hY+headR*1.10)より内側に収まる高さに
     // 抑え、Helmet着用時に貫通しないようにしてある
+    // Head Silhouette Global Redesign Phase: Hair Capの奥行きもHead本体と
+    // 同じHEAD_DEPTH_MULで圧縮し、Headが浅くなった後もHair Capが後方だけ
+    // 古い深さのまま張り出さないようにする(widthは変更しない)
     const hairlineY = head.position.y + headR*0.19;
     const hair = new THREE.Mesh(
-      makeCharacterHairCap({width:B.hairR, depth:B.hairR, height:headR*0.86}), hairMat);
+      makeCharacterHairCap({width:B.hairR, depth:B.hairR*HEAD_DEPTH_MUL, height:headR*0.86}), hairMat);
     // Head/Posture Alignment再設計フェーズ: HEAD_BACK_ZぶんHeadと同じ量
     // 後方へ(HairがHeadに取り残されて浮かないように)
     hair.position.set(0, hairlineY, HEAD_BACK_Z);
@@ -705,7 +716,7 @@
     ].forEach(b=>{
       const bang = new THREE.Mesh(
         makeHairBang({rootR:b.rootR, tipR:b.tipR, length:bangRootY-b.tipY}), hairMat);
-      bang.position.set(b.x, b.tipY, headR*0.86 + HEAD_BACK_Z);   // Head/Posture Alignment: HEAD_BACK_Zで追従
+      bang.position.set(b.x, b.tipY, headR*0.86*HEAD_DEPTH_MUL + HEAD_BACK_Z);   // Head Silhouette Global Redesign: Headの新しい前面奥行きに追従
       bang.rotation.z = b.tiltZ;
       bang.castShadow = true;
       group.add(bang);
@@ -742,10 +753,13 @@
     // 「わずかな凹凸」に留める指示のとおり、Bangs/Side Hairより明確に
     // 短くしてある
     const backHairMeshes = [];
+    // Head Silhouette Global Redesign Phase: rootZ(後方への基準位置)も
+    // HEAD_DEPTH_MULで圧縮し、Head背面が浅くなった分だけBack Hairの根元も
+    // 前へ引き寄せる(そうしないと後頭部だけ古い深さのまま浮く)
     [
-      { x:0,            rootZ:-headR*0.90, rootY:head.position.y+headR*0.58, tipY:head.position.y+headR*0.22, rootR:headR*0.13, tipR:headR*0.06, tiltZ:0 },
-      { x:-headR*0.55,  rootZ:-headR*0.78, rootY:head.position.y+headR*0.52, tipY:head.position.y+headR*0.28, rootR:headR*0.11, tipR:headR*0.05, tiltZ:-0.15 },
-      { x: headR*0.55,  rootZ:-headR*0.78, rootY:head.position.y+headR*0.52, tipY:head.position.y+headR*0.28, rootR:headR*0.11, tipR:headR*0.05, tiltZ: 0.15 },
+      { x:0,            rootZ:-headR*0.90*HEAD_DEPTH_MUL, rootY:head.position.y+headR*0.58, tipY:head.position.y+headR*0.22, rootR:headR*0.13, tipR:headR*0.06, tiltZ:0 },
+      { x:-headR*0.55,  rootZ:-headR*0.78*HEAD_DEPTH_MUL, rootY:head.position.y+headR*0.52, tipY:head.position.y+headR*0.28, rootR:headR*0.11, tipR:headR*0.05, tiltZ:-0.15 },
+      { x: headR*0.55,  rootZ:-headR*0.78*HEAD_DEPTH_MUL, rootY:head.position.y+headR*0.52, tipY:head.position.y+headR*0.28, rootR:headR*0.11, tipR:headR*0.05, tiltZ: 0.15 },
     ].forEach(b=>{
       const backHair = new THREE.Mesh(
         makeHairBang({rootR:b.rootR, tipR:b.tipR, length:b.rootY-b.tipY}), hairMat);

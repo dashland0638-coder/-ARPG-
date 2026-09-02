@@ -741,7 +741,7 @@ function makeCharacterHeadForTest({width, depth, height}){
 }
 
 test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称頭部シルエット要件', async (t) => {
-  const headR = 0.390, headLen = 0.780;   // BUILD.male相当の実際の値(height=B.headR*2)
+  const headR = 0.3705, headLen = 0.741;   // BUILD.male相当の実際の値(height=B.headR*2)
   const geo = makeCharacterHeadForTest({ width:headR, depth:headR, height:headLen });
 
   await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
@@ -848,7 +848,7 @@ test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称�
 });
 
 test('makeCharacterHead(Loft頭部) Face再設計Phase A: 鼻〜口(nosePush)の隆起要件', async (t) => {
-  const headR = 0.390, headLen = 0.780;
+  const headR = 0.3705, headLen = 0.741;
   const geo = makeCharacterHeadForTest({ width:headR, depth:headR, height:headLen });
   const pos = geo.attributes.position;
   const hh = headLen/2;
@@ -991,7 +991,7 @@ function boundingBoxOf(geo){
 }
 
 test('Eye(Sclera/Pupil/Highlight) Face再設計フェーズ Phase B: 低ポリ多角形化要件', async (t) => {
-  const headR = 0.390;   // BUILD.male相当の実際の値
+  const headR = 0.3705;   // BUILD.male相当の実際の値
   const P = computeEyeParamsForTest(headR);
 
   const sclera = makeEyeScleraForTest(P.scleraR*P.eyeScale, P.scleraR*P.eyeScale*1.15, P.scleraHalfDepth*P.eyeScale);
@@ -1141,7 +1141,7 @@ function makeMageHatBrimForTest(radius, thickness){
 }
 
 test('Eye Size Adjustmentフェーズ: Sclera/Pupil/Highlight Uniform Scaling要件', async (t) => {
-  const headR = 0.390;
+  const headR = 0.3705;
   const P = computeEyeParamsForTest(headR);
 
   await t.test('eyeScaleは引き続きheadRに比例する(固定サイズ化していない)', () => {
@@ -1243,7 +1243,7 @@ test('Eye Size Adjustmentフェーズ: Sclera/Pupil/Highlight Uniform Scaling要
 });
 
 test('Head / Posture Alignment再設計フェーズ: HEAD_BACK_Zの妥当性・全パーツへの適用漏れ確認', async (t) => {
-  const headR = 0.390;
+  const headR = 0.3705;
 
   await t.test('HEAD_BACK_Zが極端な値ではない(headRの15%未満) ―― 猫背修正のつもりで反り返らせていない', () => {
     assert.ok(Math.abs(HEAD_BACK_Z) < headR*0.15,
@@ -1296,7 +1296,7 @@ test('Head / Posture Alignment再設計フェーズ: HEAD_BACK_Zの妥当性・�
 });
 
 test('Head Alignment + Facial Projection Calibrationフェーズ: JawのnosePush調整要件', async (t) => {
-  const headR = 0.390, headLen = 0.780;
+  const headR = 0.3705, headLen = 0.741;
   const geo = makeCharacterHeadForTest({ width:headR, depth:headR, height:headLen });
   const pos = geo.attributes.position;
   const hh = headLen/2;
@@ -1379,7 +1379,7 @@ test('Head Alignment + Facial Projection Calibrationフェーズ: JawのnosePush
 });
 
 test('Mage Hat Brim(つば) 再設計フェーズ: 前後非対称Low Poly要件', async (t) => {
-  const headR = 0.390;
+  const headR = 0.3705;
   const radius = headR*1.95, thickness = 0.04;
   const geo = makeMageHatBrimForTest(radius, thickness);
   const n = MAGE_BRIM_RADIUS_MUL.length;
@@ -1505,7 +1505,7 @@ function makeWarriorBaseHelmForTest({width, depth, height}){
 }
 
 test('makeWarriorBaseHelm(素の剣士のBase Helm): 顔側にFace Openingを持つ馬蹄形の要件', async (t) => {
-  const headR = 0.390, helmHeight = headR*1.60;   // BUILD.male相当の実際の値
+  const headR = 0.3705, helmHeight = headR*1.60;   // BUILD.male相当の実際の値
   const geo = makeWarriorBaseHelmForTest({ width:headR, depth:headR, height:helmHeight });
   const n = WARRIOR_HELM_ARC_TEMPLATE.length;
 
@@ -1626,7 +1626,7 @@ function makeHawkEyeHoodForTest({width, depth, height}){
 }
 
 test('makeHawkEyeHood(鷹の目Hood再設計): 「黒い球」を排除した開いたLow Poly Hoodの要件', async (t) => {
-  const headR = 0.390;   // BUILD.male相当の実際の値
+  const headR = 0.3705;   // BUILD.male相当の実際の値
   const width = headR*1.25, depth = headR*1.25, height = headR*1.75;
   const geo = makeHawkEyeHoodForTest({ width, depth, height });
   const n = HAWKEYE_HOOD_ARC_TEMPLATE.length;
@@ -1763,7 +1763,7 @@ function makeCharacterHairCapForTest({width, depth, height}){
 }
 
 test('makeCharacterHairCap(Hair Cap): 生え際で止まり後頭部が膨らむ非対称な塊の要件', async (t) => {
-  const hairR = 0.420, headR = 0.390, capHeight = headR*0.86;   // BUILD.male相当の実際の値
+  const hairR = 0.399, headR = 0.3705, capHeight = headR*0.86;   // BUILD.male相当の実際の値
   const geo = makeCharacterHairCapForTest({ width:hairR, depth:hairR, height:capHeight });
 
   await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
@@ -1831,7 +1831,7 @@ function makeHairBangForTest({rootR, tipR, length}){
 }
 
 test('makeHairBang(前髪束): Cone(トゲ)ではない太い低ポリ髪束の要件', async (t) => {
-  const headR = 0.390;
+  const headR = 0.3705;
   // Head + Hair Integration再設計フェーズ: 実際のゲームカメラ距離で
   // Bangsが視認できるよう半径を約2.3倍に拡大した(旧0.115/0.050→
   // 0.260/0.115)。ここでは新しい中央Bangsの値でmakeHairBang()自体の
@@ -1865,7 +1865,7 @@ test('makeHairBang(前髪束): Cone(トゲ)ではない太い低ポリ髪束の�
 });
 
 test('Hair Bangs配置: 毛先がEye位置(head中心+0.02)より上で止まる、かつ生え際(hairlineY)より下まで垂れる', () => {
-  const headR = 0.390;
+  const headR = 0.3705;
   // buildPlayer()側の実際の配置ロジック(head.position.yを0とした相対値)。
   // Head + Hair Integration再設計フェーズで、実際のゲームカメラ距離での
   // 視認性向上のため毛先をさらに額側へ下げた(中央0.050→0.028、
@@ -1884,7 +1884,7 @@ test('Hair Bangs配置: 毛先がEye位置(head中心+0.02)より上で止まる
 });
 
 test('Head + Hair Integrationフェーズ: Bangs/Side Hairの左右対称性とHeadwear互換の範囲確認', () => {
-  const headR = 0.390;
+  const headR = 0.3705;
   // buildPlayer()側の実際の配置(06-player-enemy.js)を複製。中央Bangsを
   // 除く左右2束のX/tiltZが符号だけ異なる(鏡映対称)ことを確認する
   const sideBangs = [
@@ -2090,7 +2090,7 @@ test('Player Material Calibration Phase A: Warrior Helmet専用Material(warriorH
 // scopeのため(makeWarriorBaseHelm等と同じ理由)、実際のsrc値をここに複製
 // して比較する ―― 数値がずれたらこのテストが検出する。
 test('Headwear Silhouette Integration Phase(Priority A): Warrior Brow Guardが顔全幅を横断する黒帯にならず、Eye高さより上にある', () => {
-  const headR = 0.390;   // BUILD.male相当
+  const headR = 0.3705;   // BUILD.male相当
   const eyeScale = headR/0.26;
   const eyeX = 0.115*eyeScale;               // 既存Eyeの左右X位置
   const eyeYOffset = 0.02;                   // 既存EyeのY(hY基準)
@@ -2157,4 +2157,96 @@ test('Headwear Silhouette Integration Phase(Priority B): Warrior Helmetの中間
     '下端リングは変更していない');
   assert.deepStrictEqual(RINGS[1], { yFrac:0.50, widthMul:1.15, depthMul:1.08 },
     '中腹(最大幅)リングは変更していない');
+});
+
+// Player Character Head Silhouette Global Redesign Phase: 全8クラス共通の
+// Head本体サイズ・奥行き圧縮のregressionテスト。05-rendering-rig.js/
+// 06-player-enemy.jsは単体テストから直接importできない結合済みscopeの
+// ため(makeWarriorBaseHelm等と同じ理由)、実際のsrc値をここに複製して
+// 比較する ―― 数値がずれたらこのテストが検出する。
+test('Head Silhouette Global Redesign Phase: BUILD.headR/hairRのUniform縮小(95%)とHEAD_DEPTH_MUL(前後奥行きのみ追加90%)', () => {
+  // 05-rendering-rig.js内の実際の定義値(意図的な複製、上記コメント参照)
+  const OLD_HEAD_R_MALE = 0.390, OLD_HAIR_R_MALE = 0.420;
+  const NEW_HEAD_R_MALE = 0.3705, NEW_HAIR_R_MALE = 0.399;
+  const OLD_HEAD_R_FEMALE = 0.370, OLD_HAIR_R_FEMALE = 0.398;
+  const NEW_HEAD_R_FEMALE = 0.3515, NEW_HAIR_R_FEMALE = 0.3781;
+  const HEAD_DEPTH_MUL = 0.90;
+
+  // 1. Uniform Scale成分(95%)がheadR/hairR双方に、male/female同じ比率で
+  //    反映されている
+  const mulHeadMale = NEW_HEAD_R_MALE / OLD_HEAD_R_MALE;
+  const mulHairMale = NEW_HAIR_R_MALE / OLD_HAIR_R_MALE;
+  const mulHeadFemale = NEW_HEAD_R_FEMALE / OLD_HEAD_R_FEMALE;
+  const mulHairFemale = NEW_HAIR_R_FEMALE / OLD_HAIR_R_FEMALE;
+  assert.ok(Math.abs(mulHeadMale - 0.95) < 1e-6, `male headRの縮小率(${mulHeadMale.toFixed(4)})が95%`);
+  assert.ok(Math.abs(mulHairMale - 0.95) < 1e-6, `male hairRの縮小率(${mulHairMale.toFixed(4)})が95%`);
+  assert.ok(Math.abs(mulHeadFemale - 0.95) < 1e-6, `female headRの縮小率(${mulHeadFemale.toFixed(4)})が95%`);
+  assert.ok(Math.abs(mulHairFemale - 0.95) < 1e-6, `female hairRの縮小率(${mulHairFemale.toFixed(4)})が95%`);
+
+  // 2. 縮小前後でhairR/headRの比率(約1.076倍)が保たれている ――
+  //    Uniform Scaleが両方に同じ比率で掛かっている証拠
+  const oldRatio = OLD_HAIR_R_MALE / OLD_HEAD_R_MALE;
+  const newRatio = NEW_HAIR_R_MALE / NEW_HEAD_R_MALE;
+  assert.ok(Math.abs(oldRatio - newRatio) < 1e-6,
+    `hairR/headR比(旧${oldRatio.toFixed(4)}, 新${newRatio.toFixed(4)})が保たれている`);
+
+  // 3. HEAD_DEPTH_MULは前後方向だけを狙った追加圧縮のため、1.0未満かつ
+  //    極端すぎない範囲(顔が潰れて見えない下限)にある
+  assert.ok(HEAD_DEPTH_MUL < 1.0 && HEAD_DEPTH_MUL >= 0.8,
+    `HEAD_DEPTH_MUL(${HEAD_DEPTH_MUL})が1.0未満、かつ0.8以上(過剰な圧縮ではない)`);
+
+  // 4. makeCharacterHead()に渡すdepth引数(headR*HEAD_DEPTH_MUL)は、
+  //    width/height(headRそのまま)より明確に小さい ―― 「前後にだけ長い」
+  //    という指摘に対応するための、前後方向限定の圧縮になっている
+  const headR = NEW_HEAD_R_MALE;
+  const widthArg = headR, depthArg = headR*HEAD_DEPTH_MUL, heightArg = headR*2;
+  assert.ok(depthArg < widthArg, 'Head本体のdepth引数がwidth引数より小さい(前後方向だけ圧縮)');
+  assert.ok(Math.abs(heightArg - headR*2) < 1e-9, 'height引数はHEAD_DEPTH_MULの対象外(widthと同じheadR基準のまま)');
+});
+
+test('Head Silhouette Global Redesign Phase: Head本体の総前後Depthが、総Width/総Heightに対して過大でない', () => {
+  // makeCharacterHead()の実際のGeometryを生成し、bounding boxから
+  // 前後(Z)・左右(X)・上下(Y)の実測サイズを比較する。「額と後頭部が
+  // 前後に長く見える」という指摘に対し、Depthが他の2軸より明確に
+  // 大きくなっていないことを確認する(Candidate比較で選定したCandidate C
+  // ―― Uniform95%+追加Depth圧縮90%の効果を、実際のGeometry出力で検証)
+  const HEAD_DEPTH_MUL = 0.90;
+  const headR = 0.3705, headLen = headR*2;
+  const geo = makeCharacterHeadForTest({ width:headR, depth:headR*HEAD_DEPTH_MUL, height:headLen });
+  const pos = geo.attributes.position;
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;
+  for(let i=0;i<pos.count;i++){
+    minX=Math.min(minX,pos.getX(i)); maxX=Math.max(maxX,pos.getX(i));
+    minY=Math.min(minY,pos.getY(i)); maxY=Math.max(maxY,pos.getY(i));
+    minZ=Math.min(minZ,pos.getZ(i)); maxZ=Math.max(maxZ,pos.getZ(i));
+  }
+  const totalW = maxX-minX, totalH = maxY-minY, totalD = maxZ-minZ;
+  // Depthが最大でもWidth・Heightの1.05倍を超えない(「前後にだけ突出して
+  // 長い」という違和感の直接的な再発防止線)
+  assert.ok(totalD <= totalW*1.05,
+    `Head総Depth(${totalD.toFixed(3)})がWidth(${totalW.toFixed(3)})の1.05倍を超えていない`);
+  assert.ok(totalD <= totalH*1.05,
+    `Head総Depth(${totalD.toFixed(3)})がHeight(${totalH.toFixed(3)})の1.05倍を超えていない`);
+});
+
+test('Head Silhouette Global Redesign Phase: Eye/Bangs/Hair Cap/Back HairのZ位置がHEAD_DEPTH_MULに追従している', () => {
+  // 06-player-enemy.js内の実際の計算式(意図的な複製、上記コメント参照)
+  const HEAD_DEPTH_MUL = 0.90, HEAD_BACK_Z = -0.05, headR = 0.3705;
+  const eyeFrontZ = headR*0.82*HEAD_DEPTH_MUL + HEAD_BACK_Z;
+  const bangZ = headR*0.86*HEAD_DEPTH_MUL + HEAD_BACK_Z;
+  const backHairCenterRootZ = -headR*0.90*HEAD_DEPTH_MUL + HEAD_BACK_Z;
+
+  // 旧式(HEAD_DEPTH_MUL無し)の値より、いずれも中心(HEAD_BACK_Z)寄りに
+  // 引き寄せられている ―― Headが浅くなった分、Eye/Bangs/Back Hairが
+  // 古い深さのまま取り残されていないことの確認
+  const oldEyeFrontZ = headR*0.82 + HEAD_BACK_Z;
+  const oldBangZ = headR*0.86 + HEAD_BACK_Z;
+  const oldBackHairCenterRootZ = -headR*0.90 + HEAD_BACK_Z;
+  assert.ok(eyeFrontZ < oldEyeFrontZ, 'EyeのZが旧式より手前(中心寄り)に引き寄せられている');
+  assert.ok(bangZ < oldBangZ, 'BangsのZが旧式より手前(中心寄り)に引き寄せられている');
+  assert.ok(backHairCenterRootZ > oldBackHairCenterRootZ, 'Back HairのrootZが旧式より手前(中心寄り)に引き寄せられている');
+
+  // Eyeの前面はBangsの基準Zより明確に奥に埋もれていない(既存のEye/Bangs
+  // 前後関係、Eyeが額の房の下に沈み込みすぎない設計は維持されている)
+  assert.ok(eyeFrontZ < bangZ, 'EyeのZがBangsのZより奥(顔の表面寄り)にある(既存の前後関係を維持)');
 });
