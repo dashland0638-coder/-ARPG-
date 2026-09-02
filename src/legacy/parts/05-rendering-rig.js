@@ -710,6 +710,77 @@
     return geo;
   }
 
+  /* =========================================================
+     Hair再設計 Phase 1: Hair Cap + Bangs
+
+     旧HairはTHREE.SphereGeometry(B.hairR, 14,12, 0,2π, 0,0.46π) ――
+     滑らかな部分球で、Player全身のLoft化・Warrior Helmの低ポリ化が
+     済んだ後も、頭部にだけ「滑らかな球体」の印象を残していた。
+
+     Hair CapはmakeLoft()をそのまま利用する(閉じた輪でよい ――
+     Warrior Helmと違い、顔を覗かせるための開口は不要。前方が
+     生え際付近で止まり、後頭部が膨らむという非対称さだけで
+     「顔にかぶさらない」を表現できるため)。断面は正六角形ではなく、
+     Head Loftと同じ考え方の非対称6点([-hw,-hd]方式ではなく、前方
+     (+Z、既存Eyeと同じ向き)が控えめ・後方が大きく張り出す形)。
+  ========================================================= */
+  const HAIR_CAP_HEX_TEMPLATE = [
+    [-0.65,  0.35],   // 生え際左
+    [-1.00, -0.15],   // 左側面(最大幅)
+    [-0.55, -0.95],   // 後頭部左
+    [ 0.00, -1.10],   // 後頭部中央(最もボリュームが出る)
+    [ 0.55, -0.95],   // 後頭部右
+    [ 1.00, -0.15],   // 右側面(最大幅)
+    [ 0.65,  0.35],   // 生え際右
+  ];
+  const HAIR_CAP_SECTION_RATIOS = {
+    hairline: { yFrac:0.00, widthMul:0.82, depthMul:0.70 },  // 下端(生え際)
+    lowerCap: { yFrac:0.35, widthMul:1.00, depthMul:0.95 },
+    upperCap: { yFrac:0.70, widthMul:0.92, depthMul:0.82 },
+    crown:    { yFrac:1.00, widthMul:0.55, depthMul:0.48 },  // 頭頂側、絞る
+  };
+
+  /* makeCharacterHairCap({width, depth, height}): makeCharacterHead()と
+     同じ考え方の、髪の塊(Hair Cap)専用Loftヘルパー。widthとdepthは
+     半幅・半奥行きの基準値(呼び出し側はB.hairRを渡す)。heightは下端
+     (生え際)〜上端(頭頂側)の高さ。呼び出し側は下端を世界座標に
+     合わせてposition.yを設定する。 */
+  function makeCharacterHairCap(opts){
+    const o = Object.assign({ width:0.42, depth:0.42, height:0.34 }, opts || {});
+    const sections = Object.values(HAIR_CAP_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: o.height*r.yFrac,
+        points: HAIR_CAP_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]),
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
+  /* Bangs(前髪束): 「トゲ」に見えるConeGeometry(円形断面・軸上の1点へ
+     収束)ではなく、makePrism()(既存のLow Poly Primitive、断面を保った
+     まま先細りにする押し出し)を六角形の小さな断面で使い、太さのある
+     房として見せる。thick(付け根)側をscaleEnd、thin(毛先)側を
+     scaleStartにして、毛先が下(呼び出し側でy=0を毛先の高さに置く)、
+     付け根が上(y=lengthが生え際の高さ)になるよう組む。 */
+  function makeHairBangShape(r){
+    return [
+      {x:0, z:r}, {x:r*0.75, z:r*0.4}, {x:r*0.75, z:-r*0.4},
+      {x:0, z:-r}, {x:-r*0.75, z:-r*0.4}, {x:-r*0.75, z:r*0.4},
+    ];
+  }
+  function makeHairBang(opts){
+    const o = Object.assign({ rootR:0.045, tipR:0.022, length:0.09 }, opts || {});
+    // makePrism()のshapeは付け根側(y=0=scaleStart)の断面形そのものなので、
+    // rootRで六角形を作り、tip/root比をscaleStart/scaleEndに反映する
+    return makePrism({
+      shape: makeHairBangShape(o.rootR),
+      length: o.length,
+      scaleStart: o.tipR/o.rootR,   // y=0側(呼び出し側で毛先=下に置く)を細く
+      scaleEnd: 1.0,                 // y=length側(呼び出し側で付け根=上に置く)を太く
+    });
+  }
+
   /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
      for both genders - the shoulder-armor read is a class/armor thing, not
      a body-shape thing, and B.upper already differs by gender for sizing.

@@ -609,25 +609,58 @@
       faceMeshes.push(highlight);
     });
 
-    // hair suggestion - now smooth-segmented to match the rounder head
-    // (previously matched the old faceted head's low segment count).
-    // 頭身を上げた際(#39系)、以前のthetaLength(0.62π、頭の中心よりだいぶ
-    // 下まで覆う)だと生え際の下端が新しい大きな目とほぼ同じ高さまで
-    // 伸びてしまい、影のように重なって見えていた。目の上でしっかり
-    // 止まるよう0.46πに引き上げた(生え際がやや高い位置になる)
+    // hair - グラフィック刷新(Hair再設計 Phase 1): SphereGeometry(滑らかな
+    // 部分球)から、Hair Cap(makeCharacterHairCap()、閉じたLoft。頭頂〜
+    // 後頭部を覆い、生え際付近で止まる非対称な断面)+ Bangs(前髪束、
+    // makeHairBang()、Center/Left/Rightの3束)へ置き換え。設定画のように
+    // 頭部シルエットを複数の髪の塊で作る狙い(詳細はmakeCharacterHairCap()/
+    // makeHairBang()側のコメント参照)。Head/Eye Geometry、髪色
+    // (hairColor)自体は変更していない。
     // 髪色: 既定は性別ごとの黒〜焦げ茶だが、classDef.hairColorが指定されて
     // いればそちらを使う(現状は参考画像に合わせた魔法使いの紫髪のみ)
     const hairColor = classDef.hairColor!=null ? classDef.hairColor : (isFemale?0x2c1e14:0x1b140f);
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(B.hairR, 14,12, 0, Math.PI*2, 0, Math.PI*0.46),
-      new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7}));
-    hair.position.copy(head.position);
-    hair.position.y += 0.02;
+    const hairMat = new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7});
+    // Hair Cap: 下端(生え際)を旧Hairの下端とほぼ同じ高さ(head中心+headR*0.19
+    // ≒ 旧SphereGeometryのthetaLength=0.46πでの下端とほぼ同オーダー)に置く。
+    // 上端はWarrior Base Helmの天板(hY+headR*1.10)より内側に収まる高さに
+    // 抑え、Helmet着用時に貫通しないようにしてある
+    const hairlineY = head.position.y + headR*0.19;
+    const hair = new THREE.Mesh(
+      makeCharacterHairCap({width:B.hairR, depth:B.hairR, height:headR*0.86}), hairMat);
+    hair.position.set(0, hairlineY, 0);
+    hair.castShadow = true;
     group.add(hair);
 
-    // グラフィック刷新(戦騎士#低頭身化): 頭+髪+目をapplyJobPromotionVisual側
-    // からまとめて縮小できるよう、参照をplayerMixerPartsに残しておく
-    // (既存クラスの見た目・挙動には一切影響しない、参照の追加のみ)
-    playerMixerParts.headGroupParts = [head, hair, ...faceMeshes];
+    // Bangs(前髪束): 中央を最長、左右をやや短くした3束。円形断面の
+    // Cone(トゲ)ではなく、makeHairBang()(六角形断面のPrism、太さのある
+    // 房)を使う。付け根(生え際、上)は太く、毛先(下)は細く垂らし、
+    // 毛先はEye(head中心+0.02)より確実に上で止め、Eyeを覆いすぎない
+    // ようにしてある
+    const bangRootY = head.position.y + headR*0.35;
+    const bangMeshes = [];
+    [
+      { x:0,           tipY:head.position.y+0.050, rootR:headR*0.115, tipR:headR*0.050, tiltZ: 0.00 },
+      { x:-headR*0.32, tipY:head.position.y+0.090, rootR:headR*0.095, tipR:headR*0.040, tiltZ:-0.22 },
+      { x: headR*0.32, tipY:head.position.y+0.090, rootR:headR*0.095, tipR:headR*0.040, tiltZ: 0.22 },
+    ].forEach(b=>{
+      const bang = new THREE.Mesh(
+        makeHairBang({rootR:b.rootR, tipR:b.tipR, length:bangRootY-b.tipY}), hairMat);
+      bang.position.set(b.x, b.tipY, headR*0.80);
+      bang.rotation.z = b.tiltZ;
+      bang.castShadow = true;
+      group.add(bang);
+      bangMeshes.push(bang);
+    });
+
+    // グラフィック刷新(戦騎士#低頭身化): 頭+髪+Bangs+目をapplyJobPromotionVisual
+    // 側からまとめて縮小できるよう、参照をplayerMixerPartsに残しておく
+    // (既存クラスの見た目・挙動には一切影響しない、参照の追加のみ)。Bangsは
+    // hairの直後・faceMeshesの直前に挿入 ―― battleKnight昇格時の
+    // headGroupParts.slice(2)(目を隠す処理)がBangsも一緒に隠すようになる
+    // (完全に頭を覆うbattleKnight兜の下からBangsだけ突き出て見える事故を
+    // 防ぐ)。盗賊(faceMeshesを直接参照)や他クラスの挙動には影響しない
+    playerMixerParts.headGroupParts = [head, hair, ...bangMeshes, ...faceMeshes];
+    playerMixerParts.bangMeshes = bangMeshes;
 
     /* ---------- class-specific headgear & flourishes ---------- */
     const hY = head.position.y;
@@ -827,24 +860,11 @@
       const band = new THREE.Mesh(new THREE.TorusGeometry(headR*1.2, 0.035, 8, 14), clothAcc);
       band.rotation.x = Math.PI/2;
       band.position.set(0, hY+headR*0.6, 0); group.add(band);
-      // 前髪(参考画像: 額にかかる紫の前髪)。中央+左右の3房を、目の
-      // すぐ上・生え際の少し下に配置。目の視認性を優先し完全に覆っては
-      // いない(ユーザー許可: 目がうまく出来なければ帽子や髪で半分隠して
-      // 良いとのことだったが、目自体は既に修正済みのため、隠す量は最小限の
-      // 前髪らしい房に留めた)。PlaneGeometryは過去に特定角度で描画されない
-      // 不具合を確認しているため、球ジオメトリを潰して房状にしている
-      const bangMat = new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7});
-      [-1,1].forEach(s=>{
-        const bang = new THREE.Mesh(new THREE.SphereGeometry(headR*0.4, 8, 6), bangMat);
-        bang.scale.set(1, 0.85, 0.55);
-        bang.position.set(s*headR*0.42, hY+headR*0.34, headR*0.74);
-        bang.rotation.z = s*0.25;
-        bang.castShadow = true; group.add(bang);
-      });
-      const bangCenter = new THREE.Mesh(new THREE.SphereGeometry(headR*0.3, 8, 6), bangMat);
-      bangCenter.scale.set(1, 0.8, 0.55);
-      bangCenter.position.set(0, hY+headR*0.4, headR*0.84);
-      bangCenter.castShadow = true; group.add(bangCenter);
+      // 前髪(参考画像: 額にかかる紫の前髪)は、Hair再設計Phase 1で全クラス
+      // 共通のBangs(Center/Left/Right、makeHairBang())へ統合されたため、
+      // ここにあった魔法使い専用の球ジオメトリ製の前髪(SphereGeometry3個)は
+      // 削除した ―― 残すと共通Bangsと同じ位置に二重に表示されてしまうため。
+      // 髪色(hairColor)は共通Bangs側にそのまま引き継がれている
       // long flared sleeves over the arms
       [-1,1].forEach(s=>{
         const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.21,0.4,10), clothMat);

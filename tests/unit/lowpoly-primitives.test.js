@@ -945,3 +945,142 @@ test('makeWarriorBaseHelm(素の剣士のBase Helm): 顔側にFace Openingを持
     assert.ok(sumY/count > 0, `天板の面法線の平均Y成分(${(sumY/count).toFixed(4)})が正(上向き)`);
   });
 });
+
+// makeCharacterHairCap()自体も(makeCharacterHead等と同じ理由で)このテスト
+// ファイルから直接importできないため、05-rendering-rig.js内の
+// HAIR_CAP_HEX_TEMPLATE/HAIR_CAP_SECTION_RATIOSと同じ値をここに複製して
+// 検証する(値を変えたらこのコピーも合わせて更新すること)
+const HAIR_CAP_HEX_TEMPLATE = [
+  [-0.65,  0.35],
+  [-1.00, -0.15],
+  [-0.55, -0.95],
+  [ 0.00, -1.10],
+  [ 0.55, -0.95],
+  [ 1.00, -0.15],
+  [ 0.65,  0.35],
+];
+const HAIR_CAP_SECTION_RATIOS = {
+  hairline: { yFrac:0.00, widthMul:0.82, depthMul:0.70 },
+  lowerCap: { yFrac:0.35, widthMul:1.00, depthMul:0.95 },
+  upperCap: { yFrac:0.70, widthMul:0.92, depthMul:0.82 },
+  crown:    { yFrac:1.00, widthMul:0.55, depthMul:0.48 },
+};
+function makeCharacterHairCapForTest({width, depth, height}){
+  const sections = Object.values(HAIR_CAP_SECTION_RATIOS).map(r => {
+    const hw = width*r.widthMul, hd = depth*r.depthMul;
+    return { y: height*r.yFrac, points: HAIR_CAP_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]) };
+  });
+  return makeLoft({ sections, closedTop:true, closedBottom:true });
+}
+
+test('makeCharacterHairCap(Hair Cap): 生え際で止まり後頭部が膨らむ非対称な塊の要件', async (t) => {
+  const hairR = 0.420, headR = 0.390, capHeight = headR*0.86;   // BUILD.male相当の実際の値
+  const geo = makeCharacterHairCapForTest({ width:hairR, depth:hairR, height:capHeight });
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    // 側面4段x7面x2 + キャップ2段x(7-2)三角形
+    assertSaneGeometry(geo, 3*7*2 + 5*2);
+  });
+
+  await t.test('閉じた立体として面が一貫して外向きに巻かれている(裏返り無し)', () => {
+    assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
+  });
+
+  await t.test('各断面で幅(X)と厚み(Z)が異なる ―― 単純な球体ではない', () => {
+    const pos = geo.attributes.position;
+    const n = HAIR_CAP_HEX_TEMPLATE.length;
+    const seen = new Map();
+    for(let i=0;i<pos.count;i++){
+      const y = Math.round(pos.getY(i)*1000)/1000;
+      const e = seen.get(y) || {maxX:0, maxZ:0};
+      e.maxX = Math.max(e.maxX, Math.abs(pos.getX(i)));
+      e.maxZ = Math.max(e.maxZ, Math.abs(pos.getZ(i)));
+      seen.set(y, e);
+    }
+    assert.ok(seen.size >= 4, '4段の断面がそれぞれ別の高さに存在する');
+    for(const [, e] of seen){
+      assert.notEqual(e.maxX, e.maxZ, `幅(${e.maxX})と厚み(${e.maxZ})が一致していない(円形断面ではない)`);
+    }
+  });
+
+  await t.test('前方(生え際側、+Z)より後方(後頭部側、-Z)の方が張り出している(前後非対称)', () => {
+    const pos = geo.attributes.position;
+    let maxFrontZ = 0, maxBackZ = 0;
+    for(let i=0;i<pos.count;i++){
+      const z = pos.getZ(i);
+      if(z > 0) maxFrontZ = Math.max(maxFrontZ, z);
+      else maxBackZ = Math.max(maxBackZ, -z);
+    }
+    assert.ok(maxBackZ > maxFrontZ,
+      `後頭部側の張り出し(${maxBackZ.toFixed(3)})が生え際側(${maxFrontZ.toFixed(3)})より大きい`);
+  });
+
+  await t.test('Warrior Base Helmの天板(headR*1.10)より低い高さに収まる ―― Helmet着用時に貫通しない', () => {
+    // Hair Capの下端はhead中心+headR*0.19に置かれる想定なので、上端は
+    // それにcapHeightを足した高さになる
+    const capTopY = headR*0.19 + capHeight;
+    const helmCrownY = headR*1.10;
+    assert.ok(capTopY < helmCrownY,
+      `Hair Cap上端(headR*${(capTopY/headR).toFixed(2)})がWarrior Helm天板(headR*1.10)より低い`);
+  });
+});
+
+// makeHairBang()自体も同じ理由でテスト用に複製する
+function makeHairBangShapeForTest(r){
+  return [
+    {x:0, z:r}, {x:r*0.75, z:r*0.4}, {x:r*0.75, z:-r*0.4},
+    {x:0, z:-r}, {x:-r*0.75, z:-r*0.4}, {x:-r*0.75, z:r*0.4},
+  ];
+}
+function makeHairBangForTest({rootR, tipR, length}){
+  return makePrism({
+    shape: makeHairBangShapeForTest(rootR),
+    length,
+    scaleStart: tipR/rootR,
+    scaleEnd: 1.0,
+  });
+}
+
+test('makeHairBang(前髪束): Cone(トゲ)ではない太い低ポリ髪束の要件', async (t) => {
+  const headR = 0.390;
+  const geo = makeHairBangForTest({ rootR:headR*0.115, tipR:headR*0.050, length:0.09 });
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    assertSaneGeometry(geo, 6*2);   // 六角形断面x2段の側面
+  });
+
+  await t.test('付け根(太い側)が毛先(細い側)より明確に太い ―― 単純な円錐(先端が1点)ではない', () => {
+    const pos = geo.attributes.position;
+    let maxRAtY0 = 0, maxRAtYLen = 0;
+    for(let i=0;i<pos.count;i++){
+      const y = pos.getY(i), r = Math.hypot(pos.getX(i), pos.getZ(i));
+      if(Math.abs(y-0) < 1e-6) maxRAtY0 = Math.max(maxRAtY0, r);
+      if(Math.abs(y-0.09) < 1e-6) maxRAtYLen = Math.max(maxRAtYLen, r);
+    }
+    assert.ok(maxRAtYLen > maxRAtY0*1.5,
+      `付け根側の半径(${maxRAtYLen.toFixed(4)})が毛先側(${maxRAtY0.toFixed(4)})より明確に太い(1.5倍超)`);
+    assert.ok(maxRAtY0 > 0.001, `毛先が完全な1点(半径0)ではない ―― 太さのある房として残る`);
+  });
+
+  await t.test('断面が6点(六角形) ―― 円形のCone断面ではない', () => {
+    const pos = geo.attributes.position;
+    // y=lengthの段(付け根側)の頂点数を数える
+    let count = 0;
+    for(let i=0;i<pos.count;i++){ if(Math.abs(pos.getY(i)-0.09) < 1e-6) count++; }
+    assert.strictEqual(count, 6, `付け根側断面の頂点数(${count})が6(六角形)`);
+  });
+});
+
+test('Hair Bangs配置: 毛先がEye位置(head中心+0.02)より上で止まる ―― Eyeを覆いすぎない', () => {
+  const headR = 0.390;
+  // buildPlayer()側の実際の配置ロジック(head.position.yを0とした相対値)
+  const eyeY = 0.02;
+  const bangs = [
+    { tipY: 0.050 },   // center
+    { tipY: 0.090 },   // left/right
+    { tipY: 0.090 },
+  ];
+  bangs.forEach((b, i) => {
+    assert.ok(b.tipY > eyeY, `Bang[${i}]の毛先(${b.tipY})がEye位置(${eyeY})より上にある`);
+  });
+});
