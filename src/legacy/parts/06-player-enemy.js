@@ -594,10 +594,20 @@
     // 半径ぶん奥に置き、そこにpoke(ごくわずかな飛び出し量)だけ
     // 上乗せする形に直した(薄板化後もこの考え方は維持、「半径」を
     // 「Z方向の半厚み」に読み替えただけ)
+    // Mage Hat再設計フェーズ(ユーザー指摘: 「目が出っ張って見える」):
+    // Eye多角形化(Phase B)で白目が平らな板になったことで、球のときより
+    // 前方への突出が硬い印象になっていた。Sclera/Pupil/Highlightの形状
+    // (点数・輪郭)自体はPhase Bのまま一切変更せず、3層まとめての基準
+    // Z位置(旧headR*0.90)だけをheadR*0.82へわずかに引き下げ、頬面
+    // (headR*0.86付近、Face再設計Phase A参照)に対して目がわずかに
+    // 沈み込む「眼窩に収まった」見た目にした。Pupil/HighlightがSclera
+    // 前面よりpoke量だけ前へ出るという相対関係(下のscleraFrontZ経由の
+    // 計算)は変えていないため、3層の前後関係・埋没しない設計はそのまま
+    const eyeFrontZ = headR*0.82;
     const scleraR = 0.062;
     const scleraZScale = 0.6;
     const scleraHalfDepth = scleraR*scleraZScale;
-    const scleraFrontZ = headR*0.90 + scleraHalfDepth*eyeScale;
+    const scleraFrontZ = eyeFrontZ + scleraHalfDepth*eyeScale;
     const pupilR = 0.038, pupilPoke = 0.008, pupilZScale = 0.6;
     const pupilHalfDepth = pupilR*pupilZScale;
     const highlightR = 0.013, highlightPoke = 0.014, highlightZScale = 0.6;
@@ -609,7 +619,7 @@
     [-0.115*eyeScale, 0.115*eyeScale].forEach(x=>{
       const sclera = new THREE.Mesh(
         makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*1.15, scleraHalfDepth*eyeScale), scleraMat);
-      sclera.position.set(x, head.position.y+0.02, headR*0.90);
+      sclera.position.set(x, head.position.y+0.02, eyeFrontZ);
       group.add(sclera);
       faceMeshes.push(sclera);
       const pupil = new THREE.Mesh(makeEyePupil(pupilR*eyeScale, pupilHalfDepth*eyeScale), pupilMat);
@@ -910,7 +920,15 @@
       // 多い円柱/円錐は面ごとの陰影はともかく輪郭(シルエット)が丸いまま
       // 読めてしまう(戦騎士の兜で判明した問題と同じ)。ここも分割数を
       // 大きく落とし、つばと三角帽の輪郭自体を多角形にした
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 8), hatMatBrim);
+      // Mage Hat再設計フェーズ: 全方位均等の円盤(CylinderGeometry)だと、
+      // 見下ろしカメラで前方(顔側)にも均等にheadR*1.95まで張り出し、Eye/
+      // 鼻〜口の隆起を含む顔全体を覆い隠していた。makeMageHatBrim()
+      // (05-rendering-rig.js、makeLoftベースの低ポリヘルパー)に差し替え、
+      // 後方・側方の半径は据え置いたまま前方だけ控えめにした非対称の
+      // つばにした(詳細は同関数のコメント参照)。半径・厚みの数値は
+      // 旧CylinderGeometryと同じ(headR*1.95、厚み0.04)ため、帽子全体の
+      // 大きさ・「魔法使いらしさ」は変えていない
+      const brim = new THREE.Mesh(makeMageHatBrim(headR*1.95, 0.04), hatMatBrim);
       brim.position.set(0, hY+headR*0.55, 0); brim.castShadow = true; group.add(brim);
       const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*1.25, 0.62, 7), hatMatCone);
       cone.position.set(0, hY+headR*0.55+0.31, 0);

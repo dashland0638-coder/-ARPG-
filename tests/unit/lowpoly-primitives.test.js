@@ -803,14 +803,17 @@ test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称�
       `Chin幅(${chinW.toFixed(3)})がNeck上端(${neckTopR.toFixed(3)})に対して極端に細くない`);
   });
 
-  await t.test('Cheekの顔側(+Z)実効Depthが既存Eye基準(headR*0.90)と近いオーダーにある ―― Eyeが浮かない/埋まらない', () => {
-    // 完全一致は不要。既存Eye(sclera/pupil/highlight)はheadR*0.90付近の
-    // Z位置に配置されている。Cheek断面(Eyeの高さに最も近い)の顔側Z実効値が
-    // headRの0.75〜1.10倍程度のオーダーに収まっていれば、Head Loft化後も
-    // Eyeが新しい顔面から極端に浮いたり埋まったりしない。ここでは
-    // noseMouth点(中央寄り)ではなく、Eyeと同じ側面寄りにあるfaceL/R点
-    // (|X|>0.5*hw)側のZを見る ―― Eyeの実際のX位置(headR*0.44程度)は
-    // noseMouth点(X=0.30*hw)より外側にあるため、こちらがEye直下の実効面
+  await t.test('Cheekの顔側(+Z)実効Depthが既存Eye基準(headR*0.82、Mage Hat再設計フェーズで0.90から調整)と近いオーダーにある ―― Eyeが浮かない/埋まらない', () => {
+    // 完全一致は不要。既存Eye(sclera/pupil/highlight)はheadR*0.82付近の
+    // Z位置に配置されている(Mage Hat再設計フェーズ「目が出っ張って見える」
+    // 指摘を受け、旧headR*0.90からわずかに引き下げ、頬面へ少し沈み込む
+    // 「眼窩に収まった」見た目にした)。Cheek断面(Eyeの高さに最も近い)の
+    // 顔側Z実効値がheadRの0.65〜1.10倍程度のオーダーに収まっていれば、
+    // Head Loft化後もEyeが新しい顔面から極端に浮いたり埋まったりしない。
+    // ここではnoseMouth点(中央寄り)ではなく、Eyeと同じ側面寄りにある
+    // faceL/R点(|X|>0.5*hw)側のZを見る ―― Eyeの実際のX位置(headR*0.44
+    // 程度)はnoseMouth点(X=0.30*hw)より外側にあるため、こちらがEye直下
+    // の実効面
     assert.ok(cheekW > 0, 'Cheek幅が正');
     let maxFrontZAtFace = 0;
     const yTarget = -hh + headLen*0.52;
@@ -820,8 +823,8 @@ test('makeCharacterHead(Loft頭部): Chin-Jaw-Cheek-UpperHead-Crownの非対称�
         if(z > 0) maxFrontZAtFace = Math.max(maxFrontZAtFace, z);
       }
     }
-    assert.ok(maxFrontZAtFace > headR*0.75 && maxFrontZAtFace < headR*1.10,
-      `Cheek顔側(faceL/R付近)のZ(${maxFrontZAtFace.toFixed(3)})がheadR*0.90(${(headR*0.90).toFixed(3)})に近いオーダーにある`);
+    assert.ok(maxFrontZAtFace > headR*0.65 && maxFrontZAtFace < headR*1.10,
+      `Cheek顔側(faceL/R付近)のZ(${maxFrontZAtFace.toFixed(3)})がheadR*0.82(${(headR*0.82).toFixed(3)})に近いオーダーにある`);
   });
 
   await t.test('Head最大外形がB.headRの極端な倍率になっていない ―― Helmet/Hat/Hoodとの互換性', () => {
@@ -940,9 +943,12 @@ function makeEyeHighlightForTest(r, halfDepth){
 // 妥当性(NaN無し・低ポリ・薄い・左右対称・前後関係)を検証する
 function computeEyeParamsForTest(headR){
   const eyeScale = headR/0.26;
+  // Mage Hat再設計フェーズ(「目が出っ張って見える」指摘): 基準Z位置を
+  // headR*0.90→headR*0.82に調整(06-player-enemy.jsのeyeFrontZと同じ値)
+  const eyeFrontZ = headR*0.82;
   const scleraR = 0.062, scleraZScale = 0.6;
   const scleraHalfDepth = scleraR*scleraZScale;
-  const scleraFrontZ = headR*0.90 + scleraHalfDepth*eyeScale;
+  const scleraFrontZ = eyeFrontZ + scleraHalfDepth*eyeScale;
   const pupilR = 0.038, pupilPoke = 0.008, pupilZScale = 0.6;
   const pupilHalfDepth = pupilR*pupilZScale;
   const highlightR = 0.013, highlightPoke = 0.014, highlightZScale = 0.6;
@@ -1082,6 +1088,109 @@ test('Eye(Sclera/Pupil/Highlight) Face再設計フェーズ Phase B: 低ポリ�
     assert.ok(scleraPupilGap > 1e-4, `Sclera-Pupil間に十分な隙間(${scleraPupilGap.toFixed(5)})がある(Z-fighting回避)`);
     assert.ok(pupilHighlightGap > 1e-4 || highlightFrontZ - pupilFrontZ > 1e-4,
       'Pupil-Highlight間、または両者の前面同士に十分な隙間がある(Z-fighting回避)');
+  });
+});
+
+// makeMageHatBrim()自体も(makeCharacterHead等と同じ理由で)このテストファイル
+// から直接importできないため、05-rendering-rig.js内のMAGE_BRIM_RADIUS_MUL/
+// makeMageHatBrimOutline()/makeMageHatBrim()と同じロジック・数値をここに
+// 複製して検証する(値を変えたらこのコピーも合わせて更新すること)
+const MAGE_BRIM_RADIUS_MUL = [
+  0.58, 0.72, 0.92, 1.00, 1.00, 1.00,
+  1.00, 1.00, 1.00, 1.00, 0.92, 0.72,
+];
+function makeMageHatBrimOutlineForTest(){
+  const n = MAGE_BRIM_RADIUS_MUL.length;
+  return MAGE_BRIM_RADIUS_MUL.map((mul, i) => {
+    const a = (i/n)*Math.PI*2;
+    return [-Math.sin(a)*mul, Math.cos(a)*mul];
+  });
+}
+function makeMageHatBrimForTest(radius, thickness){
+  const outline = makeMageHatBrimOutlineForTest();
+  const half = thickness/2;
+  const toPts = () => outline.map(([fx,fz]) => [fx*radius, fz*radius]);
+  return makeLoft({
+    sections: [ { y:half, points:toPts() }, { y:-half, points:toPts() } ],
+    closedTop:true, closedBottom:true,
+  });
+}
+
+test('Mage Hat Brim(つば) 再設計フェーズ: 前後非対称Low Poly要件', async (t) => {
+  const headR = 0.390;
+  const radius = headR*1.95, thickness = 0.04;
+  const geo = makeMageHatBrimForTest(radius, thickness);
+  const n = MAGE_BRIM_RADIUS_MUL.length;
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    // 側面: (段数-1)*n*2三角形 + 天板/底面2段x(n-2)三角形
+    assertSaneGeometry(geo, n*2 + (n-2)*2);
+  });
+
+  await t.test('閉じた立体として面が外向きに巻かれている(裏返り無し)', () => {
+    assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
+  });
+
+  await t.test('完全な円盤ではない ―― 点ごとに半径倍率(MAGE_BRIM_RADIUS_MUL)が異なる', () => {
+    const allSame = MAGE_BRIM_RADIUS_MUL.every(m => m === MAGE_BRIM_RADIUS_MUL[0]);
+    assert.ok(!allSame, '輪郭上の各点の半径倍率が一様ではない(単純な円柱/円盤ではない)');
+  });
+
+  const outline = makeMageHatBrimOutlineForTest();
+  await t.test('前方(+Z、顔側)のBrimが後方(-Z)より明確に短い ―― Face Opening相当の後退がある', () => {
+    const frontZ = Math.max(...outline.filter(([x,z])=>z>0).map(([x,z])=>z)) * radius;
+    const backZ  = Math.max(...outline.filter(([x,z])=>z<0).map(([x,z])=>-z)) * radius;
+    assert.ok(frontZ < backZ*0.75,
+      `前方Brim Z(${frontZ.toFixed(3)})が後方Brim Z(${backZ.toFixed(3)})より明確に短い(75%未満)`);
+  });
+
+  await t.test('左右対称 ―― X=0を軸に大きな非対称が無い', () => {
+    // outline[i]とoutline[n-i](0を除く)がミラー対(x=-x,z=z)になっている
+    for(let i=1;i<n;i++){
+      const [x1,z1] = outline[i];
+      const [x2,z2] = outline[(n-i)%n];
+      assert.ok(Math.abs(x1+x2) < 1e-9 && Math.abs(z1-z2) < 1e-9,
+        `点${i}と点${(n-i)%n}が左右ミラー対(x符号反転・z一致)になっている`);
+    }
+  });
+
+  await t.test('Face側OpeningがEyeのX位置を覆う ―― 縮小された輪郭点(mul<1)のX範囲がEyeのX位置(headR*0.44程度)を含む', () => {
+    // MAGE_BRIM_RADIUS_MUL<1.00(意図的に縮小された点、前方寄り)のX範囲を
+    // 直接見る(z>0のような幾何学的フィルタは90°付近の浮動小数点誤差で
+    // 側面の点を誤って含みうるため使わない)。縮小域のX範囲がEyeの実際の
+    // X位置(headR*0.44程度)を覆っていれば、つばの縮小がEyeの真上を
+    // 通っていることになる
+    const shrunkXs = outline
+      .filter((_, i) => MAGE_BRIM_RADIUS_MUL[i] < 1.00)
+      .map(([x]) => Math.abs(x)*radius);
+    const maxShrunkX = Math.max(...shrunkXs);
+    const eyeXOrder = 0.115*(headR/0.26);   // 06-player-enemy.jsの実際のEye X位置(0.115*eyeScale)
+    assert.ok(maxShrunkX >= eyeXOrder,
+      `縮小域のX最大値(${maxShrunkX.toFixed(3)})がEyeの実際のX位置(${eyeXOrder.toFixed(3)})以上をカバーしている`);
+  });
+
+  await t.test('Hat全体サイズ(後方・側方の半径)がHeadより極端に小さくなっていない ―― 「魔法使いらしい大きな帽子」を維持', () => {
+    const backSideR = Math.max(...outline.map(([x,z])=>Math.hypot(x,z))) * radius;
+    assert.ok(backSideR > headR*1.5, `後方・側方の最大半径(${backSideR.toFixed(3)})がheadR(${headR.toFixed(3)})の1.5倍以上(縮小しすぎていない)`);
+    assert.ok(Math.abs(backSideR - radius) < 1e-6, '後方・側方は旧CylinderGeometryと同じ半径(縮小していない)');
+  });
+
+  await t.test('厚みが薄い(見下ろしカメラで不自然な板の側面が目立たない程度)', () => {
+    geo.computeBoundingBox();
+    const b = geo.boundingBox;
+    const depth = b.max.y-b.min.y;
+    assert.ok(depth === thickness || Math.abs(depth-thickness) < 1e-6, `Y方向の厚み(${depth.toFixed(3)})が指定厚み(${thickness})と一致`);
+    assert.ok(depth < radius*0.2, `厚み(${depth.toFixed(3)})が半径(${radius.toFixed(3)})の20%未満(薄い板状)`);
+  });
+
+  await t.test('実装コード上もBrimがCylinderGeometryではない(05-rendering-rig.js内のmakeMageHatBrim定義を直接検査)', () => {
+    const srcPath = fileURLToPath(new URL('../../src/legacy/parts/05-rendering-rig.js', import.meta.url));
+    const src = fs.readFileSync(srcPath, 'utf8');
+    const start = src.indexOf('const MAGE_BRIM_RADIUS_MUL');
+    const end = src.indexOf('Hair再設計 Phase 1: Hair Cap + Bangs');
+    assert.ok(start >= 0 && end > start, 'MAGE_BRIM_RADIUS_MUL〜Hair Phase 1コメントの区間が見つかる');
+    const brimSrc = src.slice(start, end);
+    assert.ok(!/CylinderGeometry/.test(brimSrc), 'Brim生成コード(makeMageHatBrim)にCylinderGeometryが含まれない(makeLoftベースに置き換え済み)');
   });
 });
 

@@ -745,6 +745,47 @@
   }
 
   /* =========================================================
+     Mage Hat再設計フェーズ: Brim(つば)の前後非対称Low Poly化
+
+     旧BrimはTHREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 8) ――
+     全方位に均等に張り出す円盤だった。見下ろしゲームカメラでは、この
+     円盤が頭部中心の真上(hY+headR*0.55)から前方(+Z、顔側)へも一様に
+     headR*1.95まで張り出すため、Eye(headR*0.90付近)やFace再設計Phase A
+     で作った鼻〜口の隆起(cheek/jaw付近)を含む顔全体が、カメラの視線上で
+     ほぼ完全に隠れてしまっていた(魔法使い/魔導士で確認済みの問題)。
+
+     単純にBrim全体を縮小すると「魔法使いらしい大きな帽子」という設計
+     意図が失われるため、後方・側方の半径は据え置き、前方(θ=0、+Z方向)
+     だけ半径を落とした12点の非対称リングにする ―― WARRIOR_HELM_ARC_
+     TEMPLATE/HEAD_HEX_TEMPLATEと同じ「前→左→後→右→前」の巻き順
+     (makeLoftのCCW規則、外向き法線)に揃えてある。前方→側方の遷移は
+     3段階(0.58→0.72→0.92→1.00)で急激な段差(=不自然な穴)にならない
+     よう緩やかにしてあり、左右は完全対称(θとπ2-θで同じ倍率)。
+
+     Brim本体はmakeLoft()を2断面(厚みの上下)だけで薄く使う ――
+     新しいGeometry Systemは追加していない。 */
+  const MAGE_BRIM_RADIUS_MUL = [
+    0.58, 0.72, 0.92, 1.00, 1.00, 1.00,   // 0°(正面)→90°(左)→180°(後方)
+    1.00, 1.00, 1.00, 1.00, 0.92, 0.72,   // 180°(後方)→270°(右)→360°(正面)
+  ];
+  function makeMageHatBrimOutline(){
+    const n = MAGE_BRIM_RADIUS_MUL.length;
+    return MAGE_BRIM_RADIUS_MUL.map((mul, i) => {
+      const a = (i/n)*Math.PI*2;
+      return [-Math.sin(a)*mul, Math.cos(a)*mul];   // x=-sin,z=cos: 0°が正面(+Z)、増加で左(-X)へ回る
+    });
+  }
+  function makeMageHatBrim(radius, thickness){
+    const outline = makeMageHatBrimOutline();
+    const half = thickness/2;
+    const toPts = () => outline.map(([fx,fz]) => [fx*radius, fz*radius]);
+    return makeLoft({
+      sections: [ { y:half, points:toPts() }, { y:-half, points:toPts() } ],
+      closedTop:true, closedBottom:true,
+    });
+  }
+
+  /* =========================================================
      Hair再設計 Phase 1: Hair Cap + Bangs
 
      旧HairはTHREE.SphereGeometry(B.hairR, 14,12, 0,2π, 0,0.46π) ――
