@@ -251,6 +251,61 @@ function applyOverride(name, tex){
     return mat;
   }
 
+  /* ---- face billboard (グラフィック刷新: 顔のビルボード化) --------------
+     頭の球面に絵を貼っても、見下ろしカメラでは顔の正面がほぼ真横から見る
+     グレージング角になり、貼った絵は極端に圧縮されて視認できない(06-
+     player-enemy.jsのbuildPlayer()内コメント参照、検証済み)。この制約は
+     「頭の表面に描く」かぎり回避できないため、ここでは頭の表面ではなく
+     独立した1枚の板(常にカメラの方を向くビルボード)に顔を描き、頭の
+     手前に浮かせて貼る。既存の球3層アイ(白目+瞳+ハイライト)が同じ
+     見下ろし視点でも機能しているのは「頭の外側へ張り出した独立した形状
+     だから」という理由も同じで、ビルボードはその考え方をさらに徹底した
+     もの(常にカメラへ正対するぶん、球目より正面性が高い)。
+     makeSurface()系の「タイル張りする表面素材」とは別物(1回だけ描く
+     ユニークな絵、UVは0-1一枚のまま)なので、あえてmakeSurfaceは使わず
+     独立したCanvasTextureとして描く。 */
+  function makeFaceTexture(opts){
+    opts = opts || {};
+    const S = 160;
+    const skin = opts.skin || '#e8b98a';
+    const hair = opts.hair || '#1b140f';
+    const eye  = opts.eye  || '#241a14';
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const cx = c.getContext('2d');
+    // 背景は透明のまま(顔の輪郭だけが板から浮かんで見えるように)
+    cx.clearRect(0, 0, S, S);
+    // 肌: 卵型のベース
+    cx.fillStyle = skin;
+    cx.beginPath(); cx.ellipse(S*0.5, S*0.56, S*0.30, S*0.34, 0, 0, Math.PI*2); cx.fill();
+    // 頬の赤み
+    cx.fillStyle = 'rgba(224,120,108,0.30)';
+    [-1,1].forEach(s=>{
+      cx.beginPath(); cx.ellipse(S*0.5+s*S*0.20, S*0.62, S*0.055, S*0.036, 0, 0, Math.PI*2); cx.fill();
+    });
+    // 眉
+    cx.strokeStyle = hair; cx.lineWidth = S*0.018; cx.lineCap = 'round';
+    [-1,1].forEach(s=>{
+      cx.beginPath();
+      cx.moveTo(S*0.5+s*S*0.24, S*0.395);
+      cx.quadraticCurveTo(S*0.5+s*S*0.155, S*0.355, S*0.5+s*S*0.075, S*0.39);
+      cx.stroke();
+    });
+    // 目: 白目+瞳+ハイライトの3層(既存の球3層アイと同じ配色・構図を絵にする)
+    [-1,1].forEach(s=>{
+      const ex = S*0.5 + s*S*0.15, ey = S*0.50;
+      cx.fillStyle = '#faf6ee';
+      cx.beginPath(); cx.ellipse(ex, ey, S*0.075, S*0.09, 0, 0, Math.PI*2); cx.fill();
+      cx.fillStyle = eye;
+      cx.beginPath(); cx.ellipse(ex, ey+S*0.01, S*0.048, S*0.068, 0, 0, Math.PI*2); cx.fill();
+      cx.fillStyle = '#ffffff';
+      cx.beginPath(); cx.ellipse(ex-S*0.018, ey-S*0.02, S*0.016, S*0.016, 0, 0, Math.PI*2); cx.fill();
+    });
+    // 口
+    cx.strokeStyle = '#8a4a3a'; cx.lineWidth = S*0.016; cx.lineCap = 'round';
+    cx.beginPath(); cx.moveTo(S*0.46, S*0.715); cx.quadraticCurveTo(S*0.5, S*0.73, S*0.54, S*0.715); cx.stroke();
+    return new THREE.CanvasTexture(c);
+  }
+
   /* ---- masonry: ashlar blocks, brickwork, tomb walls -------------------
      Rows are laid in running bond. Blocks are drawn from -1 to cols so the
      half-block at each edge completes across the tile seam. */
@@ -608,4 +663,4 @@ function applyOverride(name, tex){
     return tex;
   }
 
-export { makePlankTexture, makeMasonryTexture, makeCobbleTexture, makeWallpaperTexture, makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture, getMaxAnisotropy, makeLeatherTexture, makeMetalTexture, applyBump };
+export { makePlankTexture, makeMasonryTexture, makeCobbleTexture, makeWallpaperTexture, makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture, getMaxAnisotropy, makeLeatherTexture, makeMetalTexture, applyBump, makeFaceTexture };
