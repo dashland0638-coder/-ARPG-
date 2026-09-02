@@ -945,11 +945,16 @@ function makeEyeHighlightForTest(r, halfDepth){
 // 基準半径(Sclera/Pupil/Highlight)。「変更前より縮小している」ことを
 // 確認するテストの比較基準として使う
 const EYE_BASE_R = { sclera: 0.062, pupil: 0.038, highlight: 0.013 };
+// Head/Posture Alignment再設計フェーズ: 05-rendering-rig.js内のHEAD_BACK_Z
+// と同じ値(値を変えたらこのコピーも合わせて更新すること)。Head/Eye/Hair/
+// Headwearすべてに共通で加算される後方(-Z)Position補正
+const HEAD_BACK_Z = -0.035;
 function computeEyeParamsForTest(headR){
   const eyeScale = headR/0.26;
   // Mage Hat再設計フェーズ(「目が出っ張って見える」指摘): 基準Z位置を
-  // headR*0.90→headR*0.82に調整(06-player-enemy.jsのeyeFrontZと同じ値)
-  const eyeFrontZ = headR*0.82;
+  // headR*0.90→headR*0.82に調整(06-player-enemy.jsのeyeFrontZと同じ値)。
+  // Head/Posture Alignment再設計フェーズでHEAD_BACK_Zも追加加算された
+  const eyeFrontZ = headR*0.82 + HEAD_BACK_Z;
   // Headwear Audit + Eye Size調整フェーズ(「目が大きすぎる」指摘):
   // Sclera/Pupil/Highlightの点数・輪郭は変更せず、3層すべての半径に
   // この一つの倍率(06-player-enemy.jsのeyeSizeMulと同じ値)を掛けて
@@ -1224,6 +1229,59 @@ test('Eye Size Adjustmentフェーズ: Sclera/Pupil/Highlight Uniform Scaling要
     const groupScale = 0.86;
     const scaledW = scleraBoxNow.w * groupScale;
     assert.ok(Math.abs(scaledW - scleraBoxNow.w*0.86) < 1e-9, 'Group scaleは線形にEyeサイズへ適用される(Eye側の特別対応は不要)');
+  });
+});
+
+test('Head / Posture Alignment再設計フェーズ: HEAD_BACK_Zの妥当性・全パーツへの適用漏れ確認', async (t) => {
+  const headR = 0.390;
+
+  await t.test('HEAD_BACK_Zが極端な値ではない(headRの15%未満) ―― 猫背修正のつもりで反り返らせていない', () => {
+    assert.ok(Math.abs(HEAD_BACK_Z) < headR*0.15,
+      `HEAD_BACK_Z(${HEAD_BACK_Z})の絶対値がheadR(${headR})の15%未満(過度な後退/反りではない)`);
+    assert.ok(HEAD_BACK_Z < 0, 'HEAD_BACK_Zは負(後方)方向 ―― 前方へさらに突き出す向きではない');
+  });
+
+  // 06-player-enemy.js内の実際のソースを検査し、Head/Eye/Hair/8クラス
+  // Headwearの位置設定コードにHEAD_BACK_Zが漏れなく反映されていることを
+  // 確認する(数値そのものを固定する脆いテストではなく、「適用箇所の
+  // 存在」だけを見る)。無理に位置の絶対値をテストで固定しない方針
+  // (指示のとおり)のため、出現回数の下限チェックに留める
+  const srcPath = fileURLToPath(new URL('../../src/legacy/parts/06-player-enemy.js', import.meta.url));
+  const src = fs.readFileSync(srcPath, 'utf8');
+  const occurrences = (src.match(/HEAD_BACK_Z/g) || []).length;
+
+  await t.test('HEAD_BACK_Zが十分な数のPosition定義箇所に適用されている(Head本体+Eye+Hair 4種+8クラスHeadwearぶんの下限)', () => {
+    // 定義1箇所 + Head1 + Eye(eyeFrontZ経由)1 + Hair(cap/bangs/sideHair/backHair)4
+    // + Warrior7 + Mage3 + Archer3 + Rogue3 + BattleKnight6 + HawkEye3
+    // + Berserker1 + Archmage2 ≒ 35以上を想定した緩めの下限(数を厳密に
+    // 固定せず、「明らかに適用漏れが大量にある」場合だけ検知する)
+    assert.ok(occurrences >= 30,
+      `HEAD_BACK_Zの出現回数(${occurrences})が30以上(Head/Eye/Hair/8クラスHeadwearへの適用漏れがない)`);
+  });
+
+  await t.test('Head本体・Hair Cap・Warrior Helm・Mage Brim・Hawk Eye Hoodの主要メッシュにHEAD_BACK_Zが適用されている', () => {
+    // 主要な代表箇所だけ、実際にHEAD_BACK_Zを参照しているコード行が
+    // 存在することを個別に確認する(該当箇所の周辺テキストに
+    // HEAD_BACK_Zが含まれるか)
+    const checkNear = (anchor, label) => {
+      const idx = src.indexOf(anchor);
+      assert.ok(idx >= 0, `${label}: アンカー文字列が見つかる`);
+      const windowSrc = src.slice(idx, idx + 400);
+      assert.ok(/HEAD_BACK_Z/.test(windowSrc), `${label}: 近傍にHEAD_BACK_Zが適用されている`);
+    };
+    checkNear('head.position.z = HEAD_BACK_Z', 'Head本体');
+    checkNear('hair.position.set(0, hairlineY,', 'Hair Cap');
+    checkNear('makeWarriorBaseHelm({width:headR, depth:headR, height:headR*1.60})', 'Warrior Helm');
+    checkNear('makeMageHatBrim(headR*1.95, 0.04)', 'Mage Brim');
+    checkNear('makeHawkEyeHood({width:B.headR*1.25', 'Hawk Eye Hood');
+  });
+
+  await t.test('Torso/Neck/BeltにはHEAD_BACK_Zを適用していない(Body Geometry/Positionは維持する方針)', () => {
+    const torsoIdx = src.indexOf('torso.position.y = HIP_Y + bodyH/2;');
+    const neckIdx = src.indexOf('neck.position.y = HIP_Y + bodyH*0.99;');
+    assert.ok(torsoIdx >= 0 && neckIdx >= 0, 'Torso/Neckの位置設定コードが見つかる');
+    assert.ok(!/HEAD_BACK_Z/.test(src.slice(torsoIdx, torsoIdx+80)), 'Torsoの位置設定にHEAD_BACK_Zを適用していない');
+    assert.ok(!/HEAD_BACK_Z/.test(src.slice(neckIdx, neckIdx+80)), 'Neckの位置設定にHEAD_BACK_Zを適用していない');
   });
 });
 
@@ -1556,7 +1614,7 @@ test('makeHawkEyeHood(鷹の目Hood再設計): 「黒い球」を排除した開
     // (小さい)であることを確認する ―― 開口縁が実際のEyeより奥にあると
     // Eyeがその陰に隠れてしまう
     const eyeScale = headR/0.26;
-    const eyeFrontZ = headR*0.82;
+    const eyeFrontZ = headR*0.82 + HEAD_BACK_Z;
     const eyeSizeMul = 0.85;
     const scleraR = 0.062*eyeSizeMul, scleraZScale = 0.6;
     const scleraFrontZ = eyeFrontZ + scleraR*scleraZScale*eyeScale;

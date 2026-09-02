@@ -554,6 +554,13 @@
     const head = new THREE.Mesh(
       makeCharacterHead({width:B.headR, depth:B.headR, height:B.headR*2}), skinMat);
     head.position.y = HIP_Y + bodyH + B.headGap;
+    // Head/Posture Alignment再設計フェーズ: HEAD_BACK_Z(05-rendering-rig.js
+    // 参照)ぶんだけHeadを後方(-Z)へ。Torso胸部の前面ZよりHead自身の前面Z
+    // (nosePush込み)が明確に深く、「猫背/顔だけ前に突き出て見える」印象の
+    // 原因になっていた。Head Geometry自体は変更せず、Position(Z)だけの
+    // 調整。Eye/Hair/各クラスHeadwearにも同じHEAD_BACK_Zを適用し、
+    // Headだけが後退してHair/Headwearが元の位置に取り残される事故を防ぐ
+    head.position.z = HEAD_BACK_Z;
     head.castShadow = true;
     group.add(head);
     playerMixerParts.head = head;
@@ -603,7 +610,11 @@
     // 沈み込む「眼窩に収まった」見た目にした。Pupil/HighlightがSclera
     // 前面よりpoke量だけ前へ出るという相対関係(下のscleraFrontZ経由の
     // 計算)は変えていないため、3層の前後関係・埋没しない設計はそのまま
-    const eyeFrontZ = headR*0.82;
+    // Head/Posture Alignment再設計フェーズ: HEAD_BACK_Zを加算し、Headと
+    // 同じ量だけEye全体(Sclera/Pupil/Highlightいずれも)を後方へ。Eye自身の
+    // 前後関係(scleraFrontZ経由のpoke計算)・Z Position自体の設計方針
+    // (headR*0.82系統)は変更しない
+    const eyeFrontZ = headR*0.82 + HEAD_BACK_Z;
     // Headwear Audit + Eye Size調整フェーズ(ユーザー指摘: 「目が大きすぎる」):
     // Low Poly化(Phase B)で輪郭がくっきりしたぶん、球のときより大きく
     // 目立って見えるようになっていた。Sclera/Pupil/Highlightの点数・輪郭
@@ -662,7 +673,9 @@
     const hairlineY = head.position.y + headR*0.19;
     const hair = new THREE.Mesh(
       makeCharacterHairCap({width:B.hairR, depth:B.hairR, height:headR*0.86}), hairMat);
-    hair.position.set(0, hairlineY, 0);
+    // Head/Posture Alignment再設計フェーズ: HEAD_BACK_ZぶんHeadと同じ量
+    // 後方へ(HairがHeadに取り残されて浮かないように)
+    hair.position.set(0, hairlineY, HEAD_BACK_Z);
     hair.castShadow = true;
     group.add(hair);
 
@@ -680,7 +693,7 @@
     ].forEach(b=>{
       const bang = new THREE.Mesh(
         makeHairBang({rootR:b.rootR, tipR:b.tipR, length:bangRootY-b.tipY}), hairMat);
-      bang.position.set(b.x, b.tipY, headR*0.80);
+      bang.position.set(b.x, b.tipY, headR*0.80 + HEAD_BACK_Z);   // Head/Posture Alignment: HEAD_BACK_Zで追従
       bang.rotation.z = b.tiltZ;
       bang.castShadow = true;
       group.add(bang);
@@ -700,7 +713,7 @@
       const tipY  = head.position.y - headR*0.22;
       const sideHair = new THREE.Mesh(
         makeHairBang({rootR:headR*0.16, tipR:headR*0.075, length:rootY-tipY}), hairMat);
-      sideHair.position.set(s*headR*0.98, tipY, -headR*0.05);
+      sideHair.position.set(s*headR*0.98, tipY, -headR*0.05 + HEAD_BACK_Z);   // Head/Posture Alignment: HEAD_BACK_Zで追従
       sideHair.rotation.set(-0.12, 0, s*0.16);
       sideHair.castShadow = true;
       group.add(sideHair);
@@ -721,7 +734,7 @@
     ].forEach(b=>{
       const backHair = new THREE.Mesh(
         makeHairBang({rootR:b.rootR, tipR:b.tipR, length:b.rootY-b.tipY}), hairMat);
-      backHair.position.set(b.x, b.tipY, b.rootZ);
+      backHair.position.set(b.x, b.tipY, b.rootZ + HEAD_BACK_Z);   // Head/Posture Alignment: HEAD_BACK_Zで追従
       backHair.rotation.set(0.10, 0, b.tiltZ);
       backHair.castShadow = true;
       group.add(backHair);
@@ -776,22 +789,25 @@
       const helmBottomY = hY - headR*0.50;
       const helm = new THREE.Mesh(
         makeWarriorBaseHelm({width:headR, depth:headR, height:headR*1.60}), metalMat);
-      helm.position.set(0, helmBottomY, 0); helm.castShadow = true; group.add(helm);
+      // Head/Posture Alignment再設計フェーズ: Helm一式(helm/visor/crest/
+      // collar/tail/furBase/spike)にもHEAD_BACK_Zを適用し、Headと一緒に
+      // 後方へ。Headだけ後退してHelmが元の位置に取り残される事故を防ぐ
+      helm.position.set(0, helmBottomY, HEAD_BACK_Z); helm.castShadow = true; group.add(helm);
       warriorBaseDecor.push(helm);
       const visor = new THREE.Mesh(new THREE.BoxGeometry(headR*1.9, 0.07, 0.1), darkMat);
-      visor.position.set(0, hY+0.02, headR*0.86); group.add(visor);
+      visor.position.set(0, hY+0.02, headR*0.86 + HEAD_BACK_Z); group.add(visor);
       warriorBaseDecor.push(visor);
       const crest = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.34), clothAcc);
-      crest.position.set(0, hY+0.28, -0.02); group.add(crest);
+      crest.position.set(0, hY+0.28, -0.02 + HEAD_BACK_Z); group.add(crest);
       warriorBaseDecor.push(crest);
       // scarf: collar plus two streamers blown back
       const collar = new THREE.Mesh(new THREE.TorusGeometry(headR*0.85, 0.06, 8, 14), clothAcc);
       collar.rotation.x = Math.PI/2;
-      collar.position.set(0, hY-headR*0.95, 0); group.add(collar);
+      collar.position.set(0, hY-headR*0.95, HEAD_BACK_Z); group.add(collar);
       warriorBaseDecor.push(collar);
       [-1,1].forEach(s=>{
         const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.72), clothAcc);
-        tail.position.set(s*0.1, hY-headR*1.5, -0.28);
+        tail.position.set(s*0.1, hY-headR*1.5, -0.28 + HEAD_BACK_Z);
         tail.rotation.set(0.5, s*0.22, s*0.12);
         group.add(tail);
         warriorBaseDecor.push(tail);
@@ -803,7 +819,7 @@
       // し、単なる連続パターンに見えないようにしてある
       const furBase = new THREE.Mesh(new THREE.TorusGeometry(headR*1.1, 0.05, 6, 16), furMat);
       furBase.rotation.x = Math.PI/2;
-      furBase.position.set(0, hY-headR*1.0, 0);
+      furBase.position.set(0, hY-headR*1.0, HEAD_BACK_Z);
       furBase.castShadow = true; group.add(furBase);
       warriorBaseDecor.push(furBase);
       // 見下ろし視点の実際の距離で検証した結果、半径0.038/14本では
@@ -815,7 +831,7 @@
         const len = spikeLens[i%3];
         const spike = new THREE.Mesh(new THREE.ConeGeometry(0.055, len, 5), furMat);
         const r = headR*1.14;
-        spike.position.set(Math.sin(ang)*r, hY-headR*1.0, Math.cos(ang)*r);
+        spike.position.set(Math.sin(ang)*r, hY-headR*1.0, Math.cos(ang)*r + HEAD_BACK_Z);
         spike.rotation.set(Math.PI/2-0.4, ang, 0);
         spike.castShadow = true;
         group.add(spike);
@@ -871,18 +887,20 @@
       // 「軽い布のフード」と「重い金属の兜」を作り分けている
       const hoodSegs = 7;
       const hoodR = headR*1.16, hoodH = headR*1.5;
+      // Head/Posture Alignment再設計フェーズ: Hood/HoodCap/MaskにもHEAD_BACK_Z
+      // を適用し、Headと一緒に後方へ
       const hood = new THREE.Mesh(new THREE.CylinderGeometry(hoodR*0.1, hoodR, hoodH, hoodSegs, 1, true), clothAcc);
       hood.rotation.x = -0.4;   // 後方へ深く垂らす(硬い兜の「まっすぐ立つ」向きと対照的)
-      hood.position.set(0, hY+hoodH*0.28, -headR*0.22);
+      hood.position.set(0, hY+hoodH*0.28, -headR*0.22 + HEAD_BACK_Z);
       hood.castShadow = true; group.add(hood);
       const hoodCap = new THREE.Mesh(new THREE.CircleGeometry(hoodR*0.1, hoodSegs), clothAcc);
       hoodCap.rotation.x = -Math.PI/2 - 0.4;
-      hoodCap.position.set(0, hY+hoodH*0.28+Math.cos(0.4)*hoodH/2, -headR*0.22-Math.sin(0.4)*hoodH/2);
+      hoodCap.position.set(0, hY+hoodH*0.28+Math.cos(0.4)*hoodH/2, -headR*0.22-Math.sin(0.4)*hoodH/2 + HEAD_BACK_Z);
       group.add(hoodCap);
       // マスク(鼻から下を覆う布) - 目だけ見えるフード付き暗殺者の顔
       const maskMat = new THREE.MeshStandardMaterial({color:0x1c1a20, roughness:0.85});
       const mask = new THREE.Mesh(new THREE.BoxGeometry(headR*1.05, headR*0.62, headR*0.5), maskMat);
-      mask.position.set(0, hY-headR*0.42, headR*0.55);
+      mask.position.set(0, hY-headR*0.42, headR*0.55 + HEAD_BACK_Z);
       mask.castShadow = true; group.add(mask);
       // フード+マスクで顔をほぼ覆っているため、既存の球目(白目+瞳+
       // ハイライト、頭の外へ張り出す形状)をそのまま出すと、覆面の上に
@@ -940,14 +958,16 @@
       // つばにした(詳細は同関数のコメント参照)。半径・厚みの数値は
       // 旧CylinderGeometryと同じ(headR*1.95、厚み0.04)ため、帽子全体の
       // 大きさ・「魔法使いらしさ」は変えていない
+      // Head/Posture Alignment再設計フェーズ: Brim/Cone/BandにもHEAD_BACK_Z
+      // を適用し、Headと一緒に後方へ(帽子だけHeadに取り残さない)
       const brim = new THREE.Mesh(makeMageHatBrim(headR*1.95, 0.04), hatMatBrim);
-      brim.position.set(0, hY+headR*0.55, 0); brim.castShadow = true; group.add(brim);
+      brim.position.set(0, hY+headR*0.55, HEAD_BACK_Z); brim.castShadow = true; group.add(brim);
       const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*1.25, 0.62, 7), hatMatCone);
-      cone.position.set(0, hY+headR*0.55+0.31, 0);
+      cone.position.set(0, hY+headR*0.55+0.31, HEAD_BACK_Z);
       cone.rotation.set(-0.16, 0, 0.1); cone.castShadow = true; group.add(cone);
       const band = new THREE.Mesh(new THREE.TorusGeometry(headR*1.2, 0.035, 8, 14), clothAcc);
       band.rotation.x = Math.PI/2;
-      band.position.set(0, hY+headR*0.6, 0); group.add(band);
+      band.position.set(0, hY+headR*0.6, HEAD_BACK_Z); group.add(band);
       // 前髪(参考画像: 額にかかる紫の前髪)は、Hair再設計Phase 1で全クラス
       // 共通のBangs(Center/Left/Right、makeHairBang())へ統合されたため、
       // ここにあった魔法使い専用の球ジオメトリ製の前髪(SphereGeometry3個)は
@@ -998,13 +1018,15 @@
       // 輪郭にした
       const capSegs = 7;
       const capR = headR*1.12, capH = headR*0.6;
+      // Head/Posture Alignment再設計フェーズ: Cap/CapTop/PeakにもHEAD_BACK_Z
+      // を適用し、Headと一緒に後方へ
       const cap = new THREE.Mesh(new THREE.CylinderGeometry(capR*0.7, capR, capH, capSegs, 1, true), clothMat);
-      cap.position.set(0, hY+0.05, 0); cap.castShadow = true; group.add(cap);
+      cap.position.set(0, hY+0.05, HEAD_BACK_Z); cap.castShadow = true; group.add(cap);
       const capTop = new THREE.Mesh(new THREE.CircleGeometry(capR*0.7, capSegs), clothMat);
       capTop.rotation.x = -Math.PI/2;
-      capTop.position.set(0, hY+0.05+capH/2, 0); capTop.castShadow = true; group.add(capTop);
+      capTop.position.set(0, hY+0.05+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop);
       const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*0.85, 0.3, 4), clothMat);
-      peak.position.set(0, hY+0.16, 0.02); peak.rotation.y = Math.PI/4; group.add(peak);
+      peak.position.set(0, hY+0.16, 0.02 + HEAD_BACK_Z); peak.rotation.y = Math.PI/4; group.add(peak);
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
       // 上げた際(#39系「参考画像のような頭身に」)、見下ろし視点の
       // カメラ角度では前方へ張り出す水平な板が必ず目の上に重なって見える
@@ -1490,20 +1512,23 @@
       const helmetR = hR*1.10;
       const helmetH = hR*1.55;
       const helmetSegs = 7;
+      // Head/Posture Alignment再設計フェーズ: Helmet一式(helmetSide/
+      // helmetCap/visor/brow/crest/tuft)にもHEAD_BACK_Zを適用し、Headと
+      // 一緒に後方へ
       const helmetSide = new THREE.Mesh(
         new THREE.CylinderGeometry(helmetR*0.42, helmetR, helmetH, helmetSegs, 1, true), knightSteel);
       const helmetY = headYLocal + hR*0.30;
-      helmetSide.position.set(0, helmetY, 0);
+      helmetSide.position.set(0, helmetY, HEAD_BACK_Z);
       helmetSide.castShadow = true; P.waist.add(helmetSide); meshes.push(helmetSide);
       // 頭頂キャップ(七角形の板) - 見下ろし視点では兜のうち最も大きく
       // 見える面なので、これも多角形であることが重要
       const helmetCap = new THREE.Mesh(new THREE.CircleGeometry(helmetR*0.42, helmetSegs), knightSteel);
       helmetCap.rotation.x = -Math.PI/2;
-      helmetCap.position.set(0, helmetY + helmetH/2, 0);
+      helmetCap.position.set(0, helmetY + helmetH/2, HEAD_BACK_Z);
       helmetCap.castShadow = true; P.waist.add(helmetCap); meshes.push(helmetCap);
       // 顔の開口部を示す暗い縁(visor) - 既存と同じ「目の高さの薄い帯」
       const visor = new THREE.Mesh(new THREE.BoxGeometry(hR*1.7, 0.07, 0.10), knightDark);
-      visor.position.set(0, headYLocal+0.01, hR*0.92);
+      visor.position.set(0, headYLocal+0.01, hR*0.92 + HEAD_BACK_Z);
       P.waist.add(visor); meshes.push(visor);
       // 眉庇(Wedge): visorの上に、前方へ張り出す角ばった庇を追加。
       // 「兜/帽子で差別化する」方針(ユーザー指摘)を受けて、兜そのものの
@@ -1512,7 +1537,7 @@
       const browGeo = makeWedge({baseW:hR*1.55, baseD:hR*0.55, height:0.09, ridgeW:hR*0.9, ridgeOffsetZ:-hR*0.35});
       const brow = new THREE.Mesh(browGeo, knightSteel);
       brow.rotation.x = Math.PI;   // 広い面を上に(既存の肩鎧と同じ反転)
-      brow.position.set(0, headYLocal+hR*0.18, hR*0.80);
+      brow.position.set(0, headYLocal+hR*0.18, hR*0.80 + HEAD_BACK_Z);
       brow.castShadow = true; P.waist.add(brow); meshes.push(brow);
       // 兜の鶏冠飾り(Wedge): 平らな板ではなく、根元から稜線へ向けて
       // 傾斜するくさび形にして低ポリらしい面の切り替わりを出す。
@@ -1521,7 +1546,7 @@
       // 縁取りにする
       const crestGeo = makeWedge({baseW:0.16, baseD:0.56, height:0.44, ridgeW:0, ridgeOffsetZ:-0.14});
       const crest = new THREE.Mesh(crestGeo, knightGold);
-      crest.position.set(0, helmetY + helmetH/2 - 0.02, -0.02);
+      crest.position.set(0, helmetY + helmetH/2 - 0.02, -0.02 + HEAD_BACK_Z);
       crest.castShadow = true; P.waist.add(crest); meshes.push(crest);
 
       // ---- 大きな毛皮(Plate複数枚、不規則な輪郭): 首まわりに6枚 + 肩に
@@ -1537,7 +1562,7 @@
         const variant = (i%2===0) ? 0.05 : -0.03;
         const tuft = new THREE.Mesh(makePlate(furTuftOutline(variant), {foldWaves:1.4, foldDepth:0.025, phase:i}), knightFur);
         const r = hR*1.15;
-        tuft.position.set(Math.sin(ang)*r, headYLocal - hR*0.85, Math.cos(ang)*r);
+        tuft.position.set(Math.sin(ang)*r, headYLocal - hR*0.85, Math.cos(ang)*r + HEAD_BACK_Z);
         tuft.rotation.y = -ang;
         tuft.castShadow = true; P.waist.add(tuft); meshes.push(tuft);
       }
@@ -1628,7 +1653,8 @@
       const hairSpikes = [];
       for(let i=-2;i<=2;i++){
         const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.24+Math.abs(i)*0.03, 5), hairMat);
-        spike.position.set(i*0.05, bodyH*0.985, -0.02);
+        // Head/Posture Alignment再設計フェーズ: HeadやHairと同じHEAD_BACK_Z
+        spike.position.set(i*0.05, bodyH*0.985, -0.02 + HEAD_BACK_Z);
         const baseRotZ = i*0.12;
         spike.rotation.set(-0.15 - Math.abs(i)*0.08, 0, baseRotZ);
         P.waist.add(spike); meshes.push(spike);
@@ -1692,8 +1718,10 @@
 
     } else if(uj.key === 'archmage'){
       // 大型化した帽子の房飾り(既存の帽子の上に追加)
+      // Head/Posture Alignment再設計フェーズ: bigCone/strandにもHEAD_BACK_Z
+      // を適用し、Mage Hat(既にHEAD_BACK_Z適用済み)と一緒に後方へ
       const bigCone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 12), trimMat);
-      bigCone.position.set(0, bodyH*1.42, 0);
+      bigCone.position.set(0, bodyH*1.42, HEAD_BACK_Z);
       P.waist.add(bigCone); meshes.push(bigCone);
       // 帽子から伸びる髪(ユーザー指摘: 蛍光ライトブルー色)。帽子のつば
       // (buildPlayerのbrim、hY+headR*0.55)の下から、後方へ流れる房を
@@ -1702,7 +1730,7 @@
         color:0x5fd8ff, emissive:0x2ab0ff, emissiveIntensity:0.9, roughness:0.4});
       [-0.09,-0.03,0.03,0.09].forEach((x,i)=>{
         const strand = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.34+((i%2)*0.08), 5), glowHairMat);
-        strand.position.set(x, bodyH*1.06, -0.08);
+        strand.position.set(x, bodyH*1.06, -0.08 + HEAD_BACK_Z);
         strand.rotation.set(-0.55, 0, x*0.6);
         P.waist.add(strand); meshes.push(strand);
       });
@@ -1773,12 +1801,14 @@
       const headYLocal = bodyH + B.headGap;
       const eyeX = -0.09*(B.headR/0.26);   // 「character's own left」= -X側
       const patchMat = new THREE.MeshStandardMaterial({color:0x1a1410, roughness:0.8});
+      // Head/Posture Alignment再設計フェーズ: Patch/PatchStrap/HoodにもHEAD_BACK_Z
+      // を適用し、Headと一緒に後方へ(眼帯がEyeから浮かないように追従)
       const patch = new THREE.Mesh(new THREE.CircleGeometry(0.055, 10), patchMat);
-      patch.position.set(eyeX, headYLocal+0.02, B.headR*0.94);
+      patch.position.set(eyeX, headYLocal+0.02, B.headR*0.94 + HEAD_BACK_Z);
       P.waist.add(patch); meshes.push(patch);
       const patchStrap = new THREE.Mesh(new THREE.TorusGeometry(B.headR*1.02, 0.012, 5, 12, Math.PI*1.3), patchMat);
       patchStrap.rotation.set(Math.PI/2, 0, Math.PI*0.15);
-      patchStrap.position.set(0, headYLocal+0.02, 0);
+      patchStrap.position.set(0, headYLocal+0.02, HEAD_BACK_Z);
       P.waist.add(patchStrap); meshes.push(patchStrap);
 
       // フードコートのような見た目(ユーザー指摘)。既存のハンチング帽の
@@ -1793,7 +1823,7 @@
       const hoodBottomY = headYLocal - B.headR*0.62;
       const hood = new THREE.Mesh(
         makeHawkEyeHood({width:B.headR*1.25, depth:B.headR*1.25, height:B.headR*1.75}), hoodMat);
-      hood.position.set(0, hoodBottomY, -0.03);
+      hood.position.set(0, hoodBottomY, -0.03 + HEAD_BACK_Z);
       hood.castShadow = true;
       P.waist.add(hood); meshes.push(hood);
     }

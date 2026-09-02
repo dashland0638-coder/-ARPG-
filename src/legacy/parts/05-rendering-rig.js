@@ -665,6 +665,30 @@
   }
 
   /* =========================================================
+     Head / Posture Alignment再設計フェーズ
+
+     Phase 0調査の結論: Head/Eye/Hair/Headwearのいずれにも明示的な
+     「前方へのposition.zオフセット」は存在しなかった(Torso/Neck/Headは
+     いずれもZ=0基準)。しかし、Head自身の前面Z(頬のnosePush込みで
+     headR*0.93付近、Eyeの前面はheadR*0.94付近)が、Torso胸部の前面Z
+     (bodyR*0.90、bodyR<headR)より明確に深く、細いNeck(円柱、B.neck
+     基準)の上に「Torsoより出っ張ったHead」が乗る形になっていた。
+     見下ろしカメラでこれが「猫背」「顔だけ前に突き出ている」という
+     視覚的印象を生んでいた(ユーザー指摘)。
+
+     Head/Eye/Hair Geometry自体は一切変更せず、Head/Eye/Hair/Headwear
+     すべての既存Z座標に、この一つの共通オフセット(小さな負の値=後方)を
+     加算するだけの、純粋なTransform(Position)修正で対応する。Torso/Neck
+     側は変更しない(Body Geometryは維持する方針のため)。90%/50%/25%の
+     候補をPlaywrightで比較検証した結果、-0.035(前後Z差のおよそ55%相当)
+     で「猫背には見えないが、低頭身らしいごく僅かな前傾は残る」自然な
+     バランスになったためこの値にした。全クラス共通(素の剣士〜鷹の目まで
+     8クラス全て)のHead/Eye/Hair/Headwearの実際のZ座標定義箇所に、この
+     定数を加算する形で反映してある(05-rendering-rig.js側はこの定数の
+     定義のみ、実際の適用は06-player-enemy.js側の各position.set()参照)。 */
+  const HEAD_BACK_Z = -0.035;
+
+  /* =========================================================
      素の剣士(Warrior Base)のBase Helm: 球状シルエット改善
 
      旧HelmはTHREE.SphereGeometry(headR*1.16, ..., thetaLength=0.62π)
