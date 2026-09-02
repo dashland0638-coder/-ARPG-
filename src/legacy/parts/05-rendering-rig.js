@@ -510,6 +510,53 @@
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }
 
+  /* =========================================================
+     LOFT FOREARM(グラフィック刷新: LatheGeometry脱却・第六弾、Torso/
+     Pelvis/Thigh/Calf/UpperArmに続く)
+
+     LIMB_PROFILE.forearm/limbGeo自体は削除・変更していない(Enemy/Bossが
+     今後使う可能性に備えて残す、他の部位と同じ扱い)。差し替えるのは
+     buildPlayer()側のForearm生成呼び出し1箇所だけ。Elbow Joint(飾り球)・
+     Wrist・Hand・Vambraceは今回変更しない。
+
+     UpperArm/Thigh/Calfとはあえて違うシルエットにする ―― Elbow側
+     (upperForearm)は太さを保ち、MidForearmまではほぼ変化なし(ここが
+     「ほぼ直線的」な部分)、そこからLowerForearm→Wristへ向けてだけ
+     緩やかに絞る。Thigh/UpperArmのような全体にわたる単調な絞りにも、
+     Calfのような中腹が盛り上がる山型にもしない。width/depthはB.forearm
+     基準の倍率 ―― 全断面でwidthMul>depthMulにしつつ、その差はTorso/
+     Pelvisほど極端にしていない(depthMulはwidthMulの約0.87倍程度に統一)。
+     upperForearmの実効サイズはUpperArm側のelbow断面・Elbow飾り球と、
+     wristの実効サイズはVambrace/Hand側と、それぞれ近いオーダーになる
+     よう合わせてあるので、両端で段差は出ない。
+  ========================================================= */
+  const FOREARM_SECTION_RATIOS = {
+    upperForearm: { yFrac:1.00, widthMul:1.00, depthMul:0.87 },  // Elbow側、UpperArm/飾り球と近いオーダー
+    midForearm:   { yFrac:0.65, widthMul:0.97, depthMul:0.84 },  // upperForearmとほぼ同じ太さ(直線的)
+    lowerForearm: { yFrac:0.32, widthMul:0.85, depthMul:0.74 },  // ここからWristへ向けて絞り始める
+    wrist:        { yFrac:0.00, widthMul:0.68, depthMul:0.60 },  // Wrist側の下端、Hand/Vambraceと近いオーダー
+  };
+
+  /* makeCharacterForearm({width, depth, height}): makeCharacterUpperArm()と
+     同じ考え方の、前腕専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの
+     基準値(旧limbGeo()のradius引数と同じ意味、B.forearmをそのまま渡す)。
+     heightは既存のForearm長(buildPlayer()側で使っているリテラル0.30)を
+     そのまま渡す。ローカルy座標の範囲は旧limbGeo()と同じ-height/2〜
+     +height/2(y=+height/2がElbow側=上、y=-height/2がWrist側=下)
+     なので、呼び出し側のposition/回転は変更不要。 */
+  function makeCharacterForearm(opts){
+    const o = Object.assign({ width:0.083, depth:0.083, height:0.30 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(FOREARM_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
   /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
      for both genders - the shoulder-armor read is a class/armor thing, not
      a body-shape thing, and B.upper already differs by gender for sizing.

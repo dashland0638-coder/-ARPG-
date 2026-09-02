@@ -922,7 +922,13 @@
     // limbGeo自体は削除していない。Forearmは今回変更しないため、foreGeoは
     // 従来通り
     const upperGeo = makeCharacterUpperArm({width:B.upper, depth:B.upper, height:0.32});
-    const foreGeo  = limbGeo(LIMB_PROFILE.forearm, B.forearm, 0.30, 9);
+    // 同様にForearm(前腕)もmakeCharacterForearm()(Loft)へ置き換え。
+    // UpperArm/Thigh/Calfとは違い、Elbow側からMidForearmまでほぼ太さを
+    // 保ち、そこからWristへ向けてだけ緩やかに絞るシルエットにしている
+    // (詳細はmakeCharacterForearm()側のコメント参照)。LIMB_PROFILE.forearm/
+    // limbGeo自体は削除していない。Elbow飾り球・Vambrace・Hand(Wrist)は
+    // 今回変更しないため、以降のコードは従来通り
+    const foreGeo  = makeCharacterForearm({width:B.forearm, depth:B.forearm, height:0.30});
     const armL = new THREE.Group(), armR = new THREE.Group();
     const elbowL = new THREE.Group(), elbowR = new THREE.Group();
     const handL = new THREE.Mesh(new THREE.SphereGeometry(B.forearm*1.12,8,8), skinMat);

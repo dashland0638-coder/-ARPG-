@@ -602,3 +602,98 @@ test('makeCharacterUpperArm(Loft二の腕): ShoulderからElbowへ緩やかに�
       `UpperArm Elbow側の幅(${elbowW.toFixed(3)})がElbow飾り球の半径(${elbowCapR.toFixed(3)})と近いオーダーにある`);
   });
 });
+
+// makeCharacterForearm()自体も(makeCharacterTorso/Pelvis/Thigh/Calf/
+// UpperArmと同じ理由で)このテストファイルから直接importできないため、
+// 05-rendering-rig.js内のFOREARM_SECTION_RATIOSと同じ比率をここに複製して
+// 検証する(比率を変えたらこのコピーも合わせて更新すること)
+const FOREARM_SECTION_RATIOS = {
+  upperForearm: { yFrac:1.00, widthMul:1.00, depthMul:0.87 },
+  midForearm:   { yFrac:0.65, widthMul:0.97, depthMul:0.84 },
+  lowerForearm: { yFrac:0.32, widthMul:0.85, depthMul:0.74 },
+  wrist:        { yFrac:0.00, widthMul:0.68, depthMul:0.60 },
+};
+function makeCharacterForearmForTest({width, depth, height}){
+  const hh = height/2;
+  const sections = Object.values(FOREARM_SECTION_RATIOS).map(r => {
+    const hw = width*r.widthMul, hd = depth*r.depthMul;
+    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+  });
+  return makeLoft({ sections, closedTop:true, closedBottom:true });
+}
+
+test('makeCharacterForearm(Loft前腕): Elbow側は太さを保ちWristへ絞る要件', async (t) => {
+  const foreR = 0.083, foreLen = 0.30;   // BUILD.male相当の実際の値(forearm長は既存の固定値0.30)
+  const geo = makeCharacterForearmForTest({ width:foreR, depth:foreR, height:foreLen });
+
+  await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
+    assertSaneGeometry(geo, 3*4*2 + 2);   // 側面3段x4面x2 + キャップ2段x2三角形
+  });
+
+  const pos = geo.attributes.position;
+  const hh = foreLen/2;
+  const maxAbsXNear = (yTarget) => {
+    let m = 0;
+    for(let i=0;i<pos.count;i++){
+      if(Math.abs(pos.getY(i) - yTarget) < 1e-6) m = Math.max(m, Math.abs(pos.getX(i)));
+    }
+    return m;
+  };
+  const upperW = maxAbsXNear(-hh + foreLen*1.00);
+  const midW   = maxAbsXNear(-hh + foreLen*0.65);
+  const lowerW = maxAbsXNear(-hh + foreLen*0.32);
+  const wristW = maxAbsXNear(-hh + foreLen*0.00);
+
+  await t.test('Elbow側(UpperForearm)からMidForearmまでほぼ太さを保つ(直線的)', () => {
+    const stepRatio = (upperW - midW) / upperW;
+    assert.ok(stepRatio < 0.10, `UpperForearm→MidForearmの絞り比率(${stepRatio.toFixed(3)})が小さい(<0.10、ほぼ直線的)`);
+  });
+
+  await t.test('MidForearmからWristへ向けて明確に絞られる', () => {
+    assert.ok(midW   > lowerW, `MidForearm幅(${midW.toFixed(3)})がLowerForearm幅(${lowerW.toFixed(3)})より広い`);
+    assert.ok(lowerW > wristW, `LowerForearm幅(${lowerW.toFixed(3)})がWrist幅(${wristW.toFixed(3)})より広い`);
+    const tailRatio = (midW - wristW) / midW;
+    assert.ok(tailRatio > 0.15, `MidForearm→Wristの絞り比率(${tailRatio.toFixed(3)})が明確にある(>0.15)`);
+  });
+
+  await t.test('各断面で幅(X)と厚み(Z)が異なるが、差は極端ではない(width/depthの比が過度に離れていない)', () => {
+    const seen = new Map();
+    for(let i=0;i<pos.count;i++){
+      const y = Math.round(pos.getY(i)*1000)/1000;
+      const e = seen.get(y) || {maxX:0, maxZ:0};
+      e.maxX = Math.max(e.maxX, Math.abs(pos.getX(i)));
+      e.maxZ = Math.max(e.maxZ, Math.abs(pos.getZ(i)));
+      seen.set(y, e);
+    }
+    assert.ok(seen.size >= 4, '4段の断面がそれぞれ別の高さに存在する');
+    for(const [, e] of seen){
+      assert.notEqual(e.maxX, e.maxZ, `幅(${e.maxX})と厚み(${e.maxZ})が一致していない(円形断面ではない)`);
+      const ratio = e.maxZ / e.maxX;
+      assert.ok(ratio > 0.7 && ratio < 1.0, `厚み/幅の比率(${ratio.toFixed(3)})が極端に離れていない(0.7〜1.0)`);
+    }
+  });
+
+  await t.test('閉じた立体として面が一貫して外向きに巻かれている(裏返り無し)', () => {
+    assert.ok(signedVolume(geo) > 0, '符号付き体積が正');
+  });
+
+  await t.test('Elbow側の幅がUpperArm Elbow断面・Elbow飾り球とオーダーが近い ―― 段差なし', () => {
+    // 完全一致は不要。UpperArm下端(Elbow)の実効半幅はB.upper(男0.098)*0.82
+    // ≒0.080、Elbow飾り球はB.forearm(男0.083)*1.06≒0.088。Forearm上端
+    // (UpperForearm)の実効半幅がこのオーダー(0.5〜2倍)に収まっていれば、
+    // Elbowを挟んでUpperArm→Forearmが視覚的に自然につながる。
+    const upperArmElbowW = 0.098*0.82;
+    assert.ok(upperW > upperArmElbowW*0.5 && upperW < upperArmElbowW*2.0,
+      `Forearm UpperForearm側の幅(${upperW.toFixed(3)})がUpperArm Elbow側の幅(${upperArmElbowW.toFixed(3)})と近いオーダーにある`);
+  });
+
+  await t.test('Wrist側の幅がHand/Vambraceとオーダーが近い ―― Handとの段差なし', () => {
+    // 完全一致は不要。旧LIMB_PROFILE.forearmのu=0(Wrist側)は0.64で、
+    // 実効半幅は0.083*0.64≒0.053。新しいWrist断面の実効半幅がこの
+    // オーダー(0.5〜2倍)に収まっていれば、旧形状からの見た目の変化が
+    // 小さく、既存のHand/Vambraceとの関係を壊さない。
+    const oldWristW = 0.083*0.64;
+    assert.ok(wristW > oldWristW*0.5 && wristW < oldWristW*2.0,
+      `Forearm Wrist側の幅(${wristW.toFixed(3)})が旧Lathe Wrist側の幅(${oldWristW.toFixed(3)})と近いオーダーにある`);
+  });
+});
