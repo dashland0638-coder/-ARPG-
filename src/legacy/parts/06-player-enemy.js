@@ -709,21 +709,25 @@
     // 表面にはっきり重なって見えるようにしてある
     const bangRootY = head.position.y + headR*0.35;
     const bangMeshes = [];
+    // Head / Hair / Headwear Global Visual Integration再修正フェーズ(2回目):
+    // 前回「Zをheadr*0.86→1.05へ引き上げた」だけでは不十分だった。原因を
+    // 実際のカメラView空間Z(camera.matrixWorldInverseで変換した頂点座標、
+    // Local Z比較ではなくmatrixWorld/Camera向きを考慮した本当の前後関係)
+    // で検証した結果、Headの露出部分(Hair Capの生え際より下、頬の側面
+    // 付近、X=headR*1.06)がBangsの全頂点よりわずかにカメラに近く、実際に
+    // Headが最前面に出ていたことを確認した(Bangsの毛先(tipR)が細すぎて、
+    // 頬の側面まで実際にはカバーできていなかった)。半径を太く
+    // (rootR/tipRを約25%増)、毛先の高さも頬の高さ(head中心+headR*0.0148
+    // 付近)より確実に下まで届くよう深くし、Zも1.05→1.20へさらに前方へ
+    // 押し出した
     [
-      { x:0,           tipY:head.position.y+0.028, rootR:headR*0.260, tipR:headR*0.115, tiltZ: 0.00 },
-      { x:-headR*0.34, tipY:head.position.y+0.060, rootR:headR*0.220, tipR:headR*0.095, tiltZ:-0.22 },
-      { x: headR*0.34, tipY:head.position.y+0.060, rootR:headR*0.220, tipR:headR*0.095, tiltZ: 0.22 },
+      { x:0,           tipY:head.position.y+0.028, rootR:headR*0.320, tipR:headR*0.145, tiltZ: 0.00 },
+      { x:-headR*0.34, tipY:head.position.y+0.045, rootR:headR*0.270, tipR:headR*0.120, tiltZ:-0.22 },
+      { x: headR*0.34, tipY:head.position.y+0.045, rootR:headR*0.270, tipR:headR*0.120, tiltZ: 0.22 },
     ].forEach(b=>{
       const bang = new THREE.Mesh(
         makeHairBang({rootR:b.rootR, tipR:b.tipR, length:bangRootY-b.tipY}), hairMat);
-      // Head / Hair / Headwear Global Visual Integration再修正フェーズ:
-      // depthMul=widthMul*0.80のルール変更後、頬(cheek)断面の前面Z
-      // (widthMul1.06*0.80+nosePush0.04を含む)がBangsの旧Z(headR*0.86*
-      // HEAD_DEPTH_MUL)より前に出てしまい、Bangsが顔の下に隠れて
-      // 「顔側Hairがほとんど見えない」原因になっていた。Bangsの基準比率を
-      // 0.86→1.05へ引き上げ、頬の前面よりも確実に手前に出るようにした
-      // (実機Playwright比較で確認済み)
-      bang.position.set(b.x, b.tipY, headR*1.05*HEAD_DEPTH_MUL + HEAD_BACK_Z);
+      bang.position.set(b.x, b.tipY, headR*1.20*HEAD_DEPTH_MUL + HEAD_BACK_Z);
       bang.rotation.z = b.tiltZ;
       bang.castShadow = true;
       group.add(bang);
@@ -740,13 +744,19 @@
     // Head + Hair Integration再設計フェーズ: Bangsと同じ理由で半径を
     // 太く(headR*0.16/0.075 → 0.22/0.10)。実際のゲームカメラ距離でも
     // 顔の両側を囲む「太い房」として視認できるようにした
+    // Head / Hair / Headwear Global Visual Integration再修正フェーズ(2回目):
+    // Camera View空間Zでの検証で、Headの露出部分のうちカメラに最も近い
+    // 頂点が頬の側面(X=headR*1.06、Side Hairが担当する領域)だったことが
+    // 判明した。半径を太く(rootR/tipRを約35%増)、Zも中心寄り(-headR*
+    // 0.05)から前方(+headR*0.12)へ押し出し、頬の側面を確実に覆うように
+    // した
     const sideHairMeshes = [];
     [-1, 1].forEach(s=>{
       const rootY = head.position.y + headR*0.46;
       const tipY  = head.position.y - headR*0.22;
       const sideHair = new THREE.Mesh(
-        makeHairBang({rootR:headR*0.22, tipR:headR*0.10, length:rootY-tipY}), hairMat);
-      sideHair.position.set(s*headR*0.98, tipY, -headR*0.05 + HEAD_BACK_Z);   // Head/Posture Alignment: HEAD_BACK_Zで追従
+        makeHairBang({rootR:headR*0.30, tipR:headR*0.135, length:rootY-tipY}), hairMat);
+      sideHair.position.set(s*headR*0.98, tipY, headR*0.12 + HEAD_BACK_Z);
       sideHair.rotation.set(-0.12, 0, s*0.16);
       sideHair.castShadow = true;
       group.add(sideHair);

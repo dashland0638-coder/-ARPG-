@@ -1841,7 +1841,7 @@ test('makeHairBang(前髪束): Cone(トゲ)ではない太い低ポリ髪束の�
   // Bangsが視認できるよう半径を約2.3倍に拡大した(旧0.115/0.050→
   // 0.260/0.115)。ここでは新しい中央Bangsの値でmakeHairBang()自体の
   // 妥当性を検証する
-  const geo = makeHairBangForTest({ rootR:headR*0.260, tipR:headR*0.115, length:0.09 });
+  const geo = makeHairBangForTest({ rootR:headR*0.320, tipR:headR*0.145, length:0.09 });
 
   await t.test('妥当なジオメトリが返る(NaN無し・法線あり)', () => {
     assertSaneGeometry(geo, 6*2);   // 六角形断面x2段の側面
@@ -1879,8 +1879,8 @@ test('Hair Bangs配置: 毛先がEye位置(head中心+0.02)より上で止まる
   const hairlineY = headR*0.19;   // Hair Capの生え際(下端)、06-player-enemy.jsのhairlineY相当
   const bangs = [
     { tipY: 0.028 },   // center
-    { tipY: 0.060 },   // left/right
-    { tipY: 0.060 },
+    { tipY: 0.045 },   // left/right
+    { tipY: 0.045 },
   ];
   bangs.forEach((b, i) => {
     assert.ok(b.tipY > eyeY, `Bang[${i}]の毛先(${b.tipY})がEye位置(${eyeY})より上にある(Eyeを覆わない)`);
@@ -1893,8 +1893,8 @@ test('Head + Hair Integrationフェーズ: Bangs/Side Hairの左右対称性とH
   // buildPlayer()側の実際の配置(06-player-enemy.js)を複製。中央Bangsを
   // 除く左右2束のX/tiltZが符号だけ異なる(鏡映対称)ことを確認する
   const sideBangs = [
-    { x:-headR*0.34, tiltZ:-0.22, rootR:headR*0.220 },
-    { x: headR*0.34, tiltZ: 0.22, rootR:headR*0.220 },
+    { x:-headR*0.34, tiltZ:-0.22, rootR:headR*0.270 },
+    { x: headR*0.34, tiltZ: 0.22, rootR:headR*0.270 },
   ];
   assert.strictEqual(sideBangs[0].x, -sideBangs[1].x, '左右BangsのX位置が符号だけ異なる(対称)');
   assert.strictEqual(sideBangs[0].tiltZ, -sideBangs[1].tiltZ, '左右Bangsの傾きが符号だけ異なる(対称、鏡映)');
@@ -1906,12 +1906,12 @@ test('Head + Hair Integrationフェーズ: Bangs/Side Hairの左右対称性とH
   // いないか ―― 中央Bangsの根元半径(headR*0.260)自体は房の太さであり
   // Face Opening相当の実効X範囲(概ねheadR*0.55前後、WARRIOR_HELM_ARC_
   // TEMPLATEの開口縁0.55基準)より内側に収まっていることを確認する
-  const centerBangRootR = headR*0.260;
+  const centerBangRootR = headR*0.320;
   const openingHalfWidthOrder = headR*0.55;
   assert.ok(centerBangRootR < openingHalfWidthOrder,
     `中央Bangsの根元半径(${centerBangRootR.toFixed(3)})がWarrior Helm Face Openingの実効半幅(${openingHalfWidthOrder.toFixed(3)})より内側(貫通しない)`);
 
-  const sideHairRootX = headR*0.98, sideHairRootR = headR*0.22;
+  const sideHairRootX = headR*0.98, sideHairRootR = headR*0.30;
   assert.ok(sideHairRootX + sideHairRootR < headR*1.5,
     `Side Hairの根元外縁(${(sideHairRootX+sideHairRootR).toFixed(3)})がheadRの1.5倍未満(Headwearから極端に飛び出さない)`);
 });
@@ -1924,16 +1924,18 @@ test('Head + Hair Integrationフェーズ: Bangs/Side Hairの左右対称性とH
 // 複製)の妥当性を検証する
 // ============================================================
 
-const headRMale = 0.390;
+const headRMale = 0.3705;   // BUILD.male.headR相当の実際の値
 // buildPlayer()側の実際の値(head.position.yを0とした相対値、Xは
 // s=-1/+1で符号反転する前の絶対値)
-// Head + Hair Integration再設計フェーズ: rootR/tipRを拡大(旧0.16/0.075→
-// 0.22/0.10)、実際のゲームカメラ距離でも顔の両側を囲む「太い房」として
-// 視認できるようにした
+// Head / Hair / Headwear Global Visual Integration再修正フェーズ(2回目):
+// Camera View空間Zでの検証で、Headの露出部分(頬の側面、depthMul=
+// widthMul*0.80ルール変更後)がSide Hairより一部カメラに近いことが
+// 判明したため、半径を拡大(0.22/0.10→0.30/0.135)しZも中心寄り
+// (-headR*0.05)から前方(+headR*0.12)へ押し出した
 const SIDE_HAIR_PARAMS = {
-  rootR: headRMale*0.22, tipR: headRMale*0.10,
+  rootR: headRMale*0.30, tipR: headRMale*0.135,
   rootY: headRMale*0.46, tipY: -headRMale*0.22,
-  x: headRMale*0.98, z: -headRMale*0.05, tiltX: -0.12, tiltZ: 0.16,
+  x: headRMale*0.98, z: headRMale*0.12, tiltX: -0.12, tiltZ: 0.16,
 };
 const BACK_HAIR_PARAMS = [
   { x:0,             rootZ:-headRMale*0.90, rootY:headRMale*0.58, tipY:headRMale*0.22, rootR:headRMale*0.13, tipR:headRMale*0.06, tiltZ:0 },
