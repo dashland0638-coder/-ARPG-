@@ -630,7 +630,15 @@
     // ―― Eyeの再配置はPhase Bで行うため、Phase AではCheekのnosePushを
     // 小さく抑えて既存Eye位置(headR*0.90)との整合を崩さないようにした)
     chin:      { yFrac:0.00, widthMul:0.38, depthMul:0.40, nosePush:0.03 },  // 顎、下端。あご後退のためdepthMulをわずかに絞る
-    jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.62, nosePush:0.12 },  // 口の高さ。鼻〜口の隆起がピーク
+    // Head Alignment + Facial Projection Calibrationフェーズ: Jawの
+    // nosePush(旧0.12)は、この断面の後頭部点(depthMul*1.15=0.713)よりも
+    // 鼻〜口点(depthMul*1.00+nosePush=0.74)の方がわずかに前へ出ていた
+    // ―― 8断面中唯一「顔の隆起が後頭部の張り出しを上回る」箇所だった。
+    // 0.10へわずかに下げ、後頭部とほぼ同じ突出量(0.62+0.10=0.72)に
+    // 揃えた。他sectionのnosePush比では引き続き最大(=ピーク)のまま、
+    // 「鼻〜口だけに控えめな立体感」は維持しつつ、顔だけが後頭部より
+    // 前に出て見える印象を和らげる
+    jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.62, nosePush:0.10 },  // 口の高さ。鼻〜口の隆起がピーク
     cheek:     { yFrac:0.52, widthMul:1.06, depthMul:0.86, nosePush:0.07 },  // 頬骨、最大幅(強調)。Eyeの高さと近いためnosePushは小さく
     upperHead: { yFrac:0.80, widthMul:0.92, depthMul:1.00, nosePush:0.01 },
     crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75, nosePush:0.00 },  // 頭頂、上端。隆起なし
@@ -686,7 +694,7 @@
      8クラス全て)のHead/Eye/Hair/Headwearの実際のZ座標定義箇所に、この
      定数を加算する形で反映してある(05-rendering-rig.js側はこの定数の
      定義のみ、実際の適用は06-player-enemy.js側の各position.set()参照)。 */
-  const HEAD_BACK_Z = -0.035;
+  const HEAD_BACK_Z = -0.05;
 
   /* =========================================================
      素の剣士(Warrior Base)のBase Helm: 球状シルエット改善
