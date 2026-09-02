@@ -726,7 +726,10 @@ const HEAD_SECTION_RATIOS = {
   // (後頭部点の突出量とほぼ揃える、詳細は05-rendering-rig.js側のコメント参照)
   jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.62, nosePush:0.10 },
   cheek:     { yFrac:0.52, widthMul:1.06, depthMul:0.86, nosePush:0.07 },
-  upperHead: { yFrac:0.80, widthMul:0.92, depthMul:1.00, nosePush:0.01 },
+  // Head Silhouette Root Cause Fix: 旧depthMul1.00(全断面中最大)が
+  // 「額と後頭部が同時に最も突き出るこぶ」の原因だったため0.78へ
+  // (詳細は05-rendering-rig.js側のコメント参照)
+  upperHead: { yFrac:0.80, widthMul:0.92, depthMul:0.78, nosePush:0.00 },
   crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75, nosePush:0.00 },
 };
 function makeCharacterHeadForTest({width, depth, height}){
@@ -2170,7 +2173,7 @@ test('Head Silhouette Global Redesign Phase: BUILD.headR/hairRのUniform縮小(9
   const NEW_HEAD_R_MALE = 0.3705, NEW_HAIR_R_MALE = 0.399;
   const OLD_HEAD_R_FEMALE = 0.370, OLD_HAIR_R_FEMALE = 0.398;
   const NEW_HEAD_R_FEMALE = 0.3515, NEW_HAIR_R_FEMALE = 0.3781;
-  const HEAD_DEPTH_MUL = 0.90;
+  const HEAD_DEPTH_MUL = 0.85;
 
   // 1. Uniform Scale成分(95%)がheadR/hairR双方に、male/female同じ比率で
   //    反映されている
@@ -2210,7 +2213,7 @@ test('Head Silhouette Global Redesign Phase: Head本体の総前後Depthが、�
   // 前後に長く見える」という指摘に対し、Depthが他の2軸より明確に
   // 大きくなっていないことを確認する(Candidate比較で選定したCandidate C
   // ―― Uniform95%+追加Depth圧縮90%の効果を、実際のGeometry出力で検証)
-  const HEAD_DEPTH_MUL = 0.90;
+  const HEAD_DEPTH_MUL = 0.85;
   const headR = 0.3705, headLen = headR*2;
   const geo = makeCharacterHeadForTest({ width:headR, depth:headR*HEAD_DEPTH_MUL, height:headLen });
   const pos = geo.attributes.position;
@@ -2231,7 +2234,7 @@ test('Head Silhouette Global Redesign Phase: Head本体の総前後Depthが、�
 
 test('Head Silhouette Global Redesign Phase: Eye/Bangs/Hair Cap/Back HairのZ位置がHEAD_DEPTH_MULに追従している', () => {
   // 06-player-enemy.js内の実際の計算式(意図的な複製、上記コメント参照)
-  const HEAD_DEPTH_MUL = 0.90, HEAD_BACK_Z = -0.05, headR = 0.3705;
+  const HEAD_DEPTH_MUL = 0.85, HEAD_BACK_Z = -0.05, headR = 0.3705;
   const eyeFrontZ = headR*0.82*HEAD_DEPTH_MUL + HEAD_BACK_Z;
   const bangZ = headR*0.86*HEAD_DEPTH_MUL + HEAD_BACK_Z;
   const backHairCenterRootZ = -headR*0.90*HEAD_DEPTH_MUL + HEAD_BACK_Z;
@@ -2249,4 +2252,42 @@ test('Head Silhouette Global Redesign Phase: Eye/Bangs/Hair Cap/Back HairのZ位
   // Eyeの前面はBangsの基準Zより明確に奥に埋もれていない(既存のEye/Bangs
   // 前後関係、Eyeが額の房の下に沈み込みすぎない設計は維持されている)
   assert.ok(eyeFrontZ < bangZ, 'EyeのZがBangsのZより奥(顔の表面寄り)にある(既存の前後関係を維持)');
+});
+
+// Battle Knight Helmet再検証フェーズ: 実機Playwright比較で「戦騎士の頭が
+// ほぼ丸出しに見える」ことが判明した。原因はCylinderGeometryの先細り
+// (radiusTop=radiusBottom*0.42)が急すぎ、Head本体の頬(cheek、全断面中
+// 最大幅)の高さに達する頃には兜の半径がすでに頭の半幅を下回っていた
+// ため(06-player-enemy.js、battleKnight昇格処理側のコメント参照)。
+test('Battle Knight Helmet再検証: Cylinderの半径が、頬(cheek)の高さでもHead本体の半幅を上回っている', () => {
+  // 06-player-enemy.js内の実際の値(意図的な複製、上記コメント参照)
+  const headR = 0.3705, HEAD_DEPTH_MUL = 0.85;
+  const hR = headR*0.86;                 // battleKnight昇格時の縮小後head半径
+  const helmetR = hR*1.25;               // 修正後の下端半径
+  const helmetTopMul = 0.75;             // 修正後の先細り比率
+  const helmetH = hR*1.55;
+  const helmetBottomLocalY = -helmetH/2, helmetTopLocalY = helmetH/2;
+
+  // Head本体の頬(cheek)の高さ(headScaleGroupで0.86倍された後の実効半幅)
+  const cheekWidthMul = 1.06;   // HEAD_SECTION_RATIOS.cheek.widthMul(05-rendering-rig.js)
+  const headCheekHalfWidth = hR*cheekWidthMul;   // Headのwidth引数もheadR*0.86倍後の値のため、hR基準でそのまま比較できる
+
+  // cheekのY位置(headScaleGroup内、Headの下端=chin基準、yFrac0.52)を
+  // Helmetのローカル座標系(headYLocal基準)へ変換して、Helmetの該当高さの
+  // 半径を線形補間で求める
+  const headHalfHeightScaled = headR*0.86;   // Head総高さ(headR*2)の半分に0.86倍
+  const cheekYFromHeadCenter = -headHalfHeightScaled + (headHalfHeightScaled*2)*0.52;
+  const helmetY = 0 + hR*0.30;   // headYLocalを0とした相対値(headYLocal + hR*0.30)
+  const cheekWorldYRelative = cheekYFromHeadCenter;   // headYLocal基準でHead中心=0
+  const cheekLocalInHelmet = cheekWorldYRelative - helmetY;   // Helmetのローカル座標(中心=0)
+  const t = (cheekLocalInHelmet - helmetBottomLocalY) / (helmetTopLocalY - helmetBottomLocalY);
+  assert.ok(t >= 0 && t <= 1, `cheekの高さがHelmetの縦範囲内にある(t=${t.toFixed(3)})`);
+
+  const radiusAtCheek = helmetR + t*(helmetR*helmetTopMul - helmetR);
+  assert.ok(radiusAtCheek > headCheekHalfWidth,
+    `頬の高さでのHelmet半径(${radiusAtCheek.toFixed(4)})がHeadの頬半幅(${headCheekHalfWidth.toFixed(4)})を上回っている(Headが側面から突き抜けない)`);
+  // 最低限のマージン(5%以上)も確認 ―― ギリギリの余白では実機スケールで
+  // 再びHeadが透けて見えるリスクがあるため
+  assert.ok(radiusAtCheek > headCheekHalfWidth*1.05,
+    `頬の高さでのHelmet半径に5%以上のマージンがある(実測${((radiusAtCheek/headCheekHalfWidth-1)*100).toFixed(1)}%)`);
 });

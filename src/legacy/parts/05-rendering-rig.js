@@ -640,7 +640,21 @@
     // 前に出て見える印象を和らげる
     jaw:       { yFrac:0.22, widthMul:0.72, depthMul:0.62, nosePush:0.10 },  // 口の高さ。鼻〜口の隆起がピーク
     cheek:     { yFrac:0.52, widthMul:1.06, depthMul:0.86, nosePush:0.07 },  // 頬骨、最大幅(強調)。Eyeの高さと近いためnosePushは小さく
-    upperHead: { yFrac:0.80, widthMul:0.92, depthMul:1.00, nosePush:0.01 },
+    // Head Silhouette Root Cause Fix(実機Playwright再検証): upperHead
+    // (額〜生え際付近、Eye/BrowGuardのすぐ上)のdepthMulが旧1.00で、
+    // 全断面中最大(cheekの0.86さえ上回る)値になっていた。depthMulは
+    // 前面(顔)・背面(後頭部)を「同じ比率」で同時にスケールするため、
+    // このsectionだけ額が前へ・後頭部が後ろへ同時に、他のどの高さよりも
+    // 突き出す「こぶ」になっていた ―― 実機スクリーンショットで
+    // 「額がHelmet/Hairを突き破って見える」「後頭部が飛び出て見える」の
+    // 直接の原因と判明(数値計算でも、旧upperHead前面Zがheadの中心Eyeの
+    // 前面Zより前に出てしまっていたことを確認済み)。cheek(0.86)→
+    // upperHead→crown(0.75)がなだらかに絞られる並びになるよう、
+    // upperHeadのdepthMulを0.78へ引き下げた(cheekより小さく、crownに
+    // 近い値)。nosePushも0(隆起なし、Face再設計時のFace Silhouette上は
+    // 額に隆起は不要)にした。widthMul(横幅)は変更していない ―― 前後
+    // 方向だけを狙った修正
+    upperHead: { yFrac:0.80, widthMul:0.92, depthMul:0.78, nosePush:0.00 },
     crown:     { yFrac:1.00, widthMul:0.60, depthMul:0.75, nosePush:0.00 },  // 頭頂、上端。隆起なし
   };
 
@@ -718,15 +732,33 @@
      少なかったため採用した。Uniform成分(95%)はBUILD.male/female側の
      headR/hairR自体を縮小することでHead/Hair/Eye/Headwear全てに自動的に
      反映済み(このファイル内、BUILD定義側のコメント参照)。この
-     HEAD_DEPTH_MUL(追加のDepth圧縮90%)は、Head本体の奥行き(makeCharacter
-     Head()のdepth引数)と、Eye/Bangs/Brow Guard/Hair Cap/Back Hairの
-     前後(Z)方向の位置基準(いずれもheadR比の定数)にのみ適用し、Width/
-     Height/横方向(X)には適用しない ―― 「前後にだけ長い」という指摘に
-     対応するため、前後方向だけを狙って圧縮する设計。Headwear(Warrior
-     Helm等)自体のGeometryはこの定数の対象外(Head/Hairが縮んだことで
-     Headwearとの間にわずかな余裕が生まれる方向にしかならないため、
-     明確な浮き/貫通が実機確認で見つかった場合のみ個別に対応する)。 */
-  const HEAD_DEPTH_MUL = 0.90;
+     HEAD_DEPTH_MUL(Depth圧縮)は、Head本体の奥行き(makeCharacterHead()の
+     depth引数)と、Eye/Bangs/Brow Guard/Hair Cap/Back Hairの前後(Z)方向の
+     位置基準(いずれもheadR比の定数)にのみ適用し、Width/Height/横方向
+     (X)には適用しない ―― 「前後にだけ長い」という指摘に対応するため、
+     前後方向だけを狙って圧縮する設計。
+
+     【再検証で判明した追加のRoot Cause】: 上記Candidate C(0.90)を適用・
+     コミットした後、実際にDefault Game CameraでFull Character(Hair+
+     Headwear込み)を確認したところ、額の突出はほぼ改善していなかった。
+     Bare Head単体の検証だけで「改善した」と判断したのが誤りだった ――
+     数値で前後Zを再計算した結果、HEAD_SECTION_RATIOSのupperHead
+     (額〜生え際、Eyeのすぐ上)のdepthMulが1.00(全断面中最大、cheekの
+     0.86さえ上回る)のままだったため、Depth圧縮(0.90)をかけてもなお
+     「額が最も前へ・後頭部が最も後ろへ突き出る」というsection単位の
+     構造的な「こぶ」が残り、Eyeの前面Zより額の前面Zの方が前に出てすら
+     いた(Helmet Face Openingの実効前端より0.1超前に出ていたことも判明)。
+     upperHead.depthMulを0.78へ引き下げて解消した(詳細はHEAD_SECTION_
+     RATIOS側のコメント参照)。それに加え、Depth圧縮自体も0.90→0.85へ
+     強め、額・後頭部双方に追加のマージンを持たせた。
+
+     Headwear(Warrior Helm等)自体のGeometryはこの定数の対象外(Head/
+     Hairが縮んだことでHeadwearとの間にわずかな余裕が生まれる方向にしか
+     ならないため)。ただしBattle Knight Helmet(headScaleGroup経由の
+     別実装)は、この再検証で「頭部の下半分がHelmetの被覆範囲から外れて
+     露出する」実装上の位置バグが別途見つかったため、個別に修正した
+     (06-player-enemy.js、battleKnight昇格処理側のコメント参照)。 */
+  const HEAD_DEPTH_MUL = 0.85;
 
   /* =========================================================
      素の剣士(Warrior Base)のBase Helm: 球状シルエット改善

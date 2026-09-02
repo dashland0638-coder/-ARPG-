@@ -1575,20 +1575,37 @@
       // 明確に角ばった兜として読める。頬〜顎にかけて広がり(radiusBottom)、
       // 頭頂に向けて絞る(radiusTop)ことで兜らしい傾斜も付けた。
       // 底面は開放(openEnded) - 下は頭部メッシュに隠れるため不要
-      const helmetR = hR*1.10;
+      //
+      // Head Silhouette再検証フェーズ(実機Playwright): 実際のDefault Game
+      // Cameraで「戦騎士の頭がほぼ丸出しに見える」ことが判明した。原因は
+      // 単純な位置ズレではなく、Coneの先細り(radiusTop=radiusBottom*0.42)
+      // が急すぎたこと ―― Headの頬(cheek、Head全断面中の最大幅)の高さは
+      // 兜の下端からおよそ30%の高さ(t≈0.31)にあり、そこでのCone半径を
+      // 実際に計算すると、旧設定(radiusBottom=hR*1.10、radiusTop=
+      // radiusBottom*0.42)ではHeadの頬の実際の半幅(hR*1.06)を大きく
+      // 下回っていた(約15%不足)。つまり兜下端では頭を覆えていても、
+      // 頬の高さに達する頃には兜の側面がすでに頭より細くなっており、
+      // Headがその隙間から側面へ突き抜けて見えていた(Mesh貫通チェックや
+      // Bounding Box比較では検出しづらい「側面が途中で細くなる」タイプの
+      // 不整合)。radiusBottomを広げ(1.10→1.25)、radiusTopの比率も緩めた
+      // (0.42→0.75、先細りを穏やかに)ことで、頬の高さでも実測で約9%の
+      // 余裕を持って頭を覆うようにした。兜全体が誇張して大きくならないよう
+      // 頭頂側の絞り自体は残している
+      const helmetR = hR*1.25;
+      const helmetTopMul = 0.75;
       const helmetH = hR*1.55;
       const helmetSegs = 7;
       // Head/Posture Alignment再設計フェーズ: Helmet一式(helmetSide/
       // helmetCap/visor/brow/crest/tuft)にもHEAD_BACK_Zを適用し、Headと
       // 一緒に後方へ
       const helmetSide = new THREE.Mesh(
-        new THREE.CylinderGeometry(helmetR*0.42, helmetR, helmetH, helmetSegs, 1, true), knightSteel);
+        new THREE.CylinderGeometry(helmetR*helmetTopMul, helmetR, helmetH, helmetSegs, 1, true), knightSteel);
       const helmetY = headYLocal + hR*0.30;
       helmetSide.position.set(0, helmetY, HEAD_BACK_Z);
       helmetSide.castShadow = true; P.waist.add(helmetSide); meshes.push(helmetSide);
       // 頭頂キャップ(七角形の板) - 見下ろし視点では兜のうち最も大きく
       // 見える面なので、これも多角形であることが重要
-      const helmetCap = new THREE.Mesh(new THREE.CircleGeometry(helmetR*0.42, helmetSegs), knightSteel);
+      const helmetCap = new THREE.Mesh(new THREE.CircleGeometry(helmetR*helmetTopMul, helmetSegs), knightSteel);
       helmetCap.rotation.x = -Math.PI/2;
       helmetCap.position.set(0, helmetY + helmetH/2, HEAD_BACK_Z);
       helmetCap.castShadow = true; P.waist.add(helmetCap); meshes.push(helmetCap);
