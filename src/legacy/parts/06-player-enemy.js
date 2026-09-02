@@ -746,9 +746,13 @@
       const hatMat = classDef.hatColor!=null
         ? new THREE.MeshStandardMaterial({color:classDef.hatColor, roughness:0.75})
         : clothMat;
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 16), hatMat);
+      // グラフィック刷新(ユーザー指摘「兜/帽子/フードで差別化」): 分割数の
+      // 多い円柱/円錐は面ごとの陰影はともかく輪郭(シルエット)が丸いまま
+      // 読めてしまう(戦騎士の兜で判明した問題と同じ)。ここも分割数を
+      // 大きく落とし、つばと三角帽の輪郭自体を多角形にした
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 8), hatMat);
       brim.position.set(0, hY+headR*0.55, 0); brim.castShadow = true; group.add(brim);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*1.25, 0.62, 14), hatMat);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*1.25, 0.62, 7), hatMat);
       cone.position.set(0, hY+headR*0.55+0.31, 0);
       cone.rotation.set(-0.16, 0, 0.1); cone.castShadow = true; group.add(cone);
       const band = new THREE.Mesh(new THREE.TorusGeometry(headR*1.2, 0.035, 8, 14), clothAcc);
@@ -809,9 +813,19 @@
       });
 
     } else if(classDef.key==='archer'){
-      // hunting cap: shallow dome + a forward peak
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(headR*1.12, 10, 8, 0, Math.PI*2, 0, Math.PI*0.5), clothMat);
+      // hunting cap: shallow dome + a forward peak。
+      // グラフィック刷新(ユーザー指摘「兜/帽子/フードで差別化」): 分割数の
+      // 多い球(旧cap)は、面ごとの陰影はともかく輪郭は分割数を上げても
+      // 丸いまま(戦騎士の兜と同じ問題)。低分割の開放型CylinderGeometry+
+      // 上面キャップ(戦騎士の兜と同じ技法)に置き換え、角ばった狩人帽の
+      // 輪郭にした
+      const capSegs = 7;
+      const capR = headR*1.12, capH = headR*0.6;
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(capR*0.7, capR, capH, capSegs, 1, true), clothMat);
       cap.position.set(0, hY+0.05, 0); cap.castShadow = true; group.add(cap);
+      const capTop = new THREE.Mesh(new THREE.CircleGeometry(capR*0.7, capSegs), clothMat);
+      capTop.rotation.x = -Math.PI/2;
+      capTop.position.set(0, hY+0.05+capH/2, 0); capTop.castShadow = true; group.add(capTop);
       const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*0.85, 0.3, 4), clothMat);
       peak.position.set(0, hY+0.16, 0.02); peak.rotation.y = Math.PI/4; group.add(peak);
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
@@ -1292,11 +1306,21 @@
       const visor = new THREE.Mesh(new THREE.BoxGeometry(hR*1.7, 0.07, 0.10), knightDark);
       visor.position.set(0, headYLocal+0.01, hR*0.92);
       P.waist.add(visor); meshes.push(visor);
+      // 眉庇(Wedge): visorの上に、前方へ張り出す角ばった庇を追加。
+      // 「兜/帽子で差別化する」方針(ユーザー指摘)を受けて、兜そのものの
+      // シルエットをもう一段強調する ―― 顔の作り込みをやめた分、兜の
+      // 存在感を増やす狙い
+      const browGeo = makeWedge({baseW:hR*1.55, baseD:hR*0.55, height:0.09, ridgeW:hR*0.9, ridgeOffsetZ:-hR*0.35});
+      const brow = new THREE.Mesh(browGeo, knightSteel);
+      brow.rotation.x = Math.PI;   // 広い面を上に(既存の肩鎧と同じ反転)
+      brow.position.set(0, headYLocal+hR*0.18, hR*0.80);
+      brow.castShadow = true; P.waist.add(brow); meshes.push(brow);
       // 兜の鶏冠飾り(Wedge): 平らな板ではなく、根元から稜線へ向けて
       // 傾斜するくさび形にして低ポリらしい面の切り替わりを出す。
-      // 参考画像の兜飾りに近づけるため前回よりはっきり大きくした。
-      // ここだけ金(knightGold)にして、鋼色の兜に対する縁取りにする
-      const crestGeo = makeWedge({baseW:0.13, baseD:0.42, height:0.32, ridgeW:0, ridgeOffsetZ:-0.08});
+      // 参考画像の兜飾りに近づけるため、さらに一回り大きく・前方へ
+      // 反った形にした。ここだけ金(knightGold)にして、鋼色の兜に対する
+      // 縁取りにする
+      const crestGeo = makeWedge({baseW:0.16, baseD:0.56, height:0.44, ridgeW:0, ridgeOffsetZ:-0.14});
       const crest = new THREE.Mesh(crestGeo, knightGold);
       crest.position.set(0, helmetY + helmetH/2 - 0.02, -0.02);
       crest.castShadow = true; P.waist.add(crest); meshes.push(crest);
