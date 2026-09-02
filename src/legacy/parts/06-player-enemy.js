@@ -684,16 +684,28 @@
     // 房)を使う。付け根(生え際、上)は太く、毛先(下)は細く垂らし、
     // 毛先はEye(head中心+0.02)より確実に上で止め、Eyeを覆いすぎない
     // ようにしてある
+    // Head + Hair Integration再設計フェーズ(実際のゲーム画面での指摘:
+    // 「黒い殻+肌色の塊」に見える): Bangsの半径(旧headR*0.115/0.095)は
+    // 実際のゲームカメラ距離では数ピクセルしかなく、Hair Capの艶やかな
+    // ドーム状シルエットに埋もれてほぼ視認できなかった ―― これが「髪に
+    // 見えない」「顔だけ大きな肌色の塊に見える」印象の主因と判明した
+    // (Phase 0/1監査、実機スクリーンショット比較)。半径を約1.8倍に太く
+    // しただけでは実機スケールでの視認性向上が不十分だったため、毛先の
+    // 高さ(tipY)もEyeより確実に上(head中心+0.02)は維持しつつ従来より
+    // 額側へ深く下げ(中央0.050→0.028、左右0.090→0.060)、「額に垂れる
+    // 房」として明確に視認できるシルエットにした。Zも頬面(depthMul*
+    // headR=0.86headR付近)に近づけて、Hair Capの背後に沈み込まず額の
+    // 表面にはっきり重なって見えるようにしてある
     const bangRootY = head.position.y + headR*0.35;
     const bangMeshes = [];
     [
-      { x:0,           tipY:head.position.y+0.050, rootR:headR*0.115, tipR:headR*0.050, tiltZ: 0.00 },
-      { x:-headR*0.32, tipY:head.position.y+0.090, rootR:headR*0.095, tipR:headR*0.040, tiltZ:-0.22 },
-      { x: headR*0.32, tipY:head.position.y+0.090, rootR:headR*0.095, tipR:headR*0.040, tiltZ: 0.22 },
+      { x:0,           tipY:head.position.y+0.028, rootR:headR*0.260, tipR:headR*0.115, tiltZ: 0.00 },
+      { x:-headR*0.34, tipY:head.position.y+0.060, rootR:headR*0.220, tipR:headR*0.095, tiltZ:-0.22 },
+      { x: headR*0.34, tipY:head.position.y+0.060, rootR:headR*0.220, tipR:headR*0.095, tiltZ: 0.22 },
     ].forEach(b=>{
       const bang = new THREE.Mesh(
         makeHairBang({rootR:b.rootR, tipR:b.tipR, length:bangRootY-b.tipY}), hairMat);
-      bang.position.set(b.x, b.tipY, headR*0.80 + HEAD_BACK_Z);   // Head/Posture Alignment: HEAD_BACK_Zで追従
+      bang.position.set(b.x, b.tipY, headR*0.86 + HEAD_BACK_Z);   // Head/Posture Alignment: HEAD_BACK_Zで追従
       bang.rotation.z = b.tiltZ;
       bang.castShadow = true;
       group.add(bang);
@@ -707,12 +719,15 @@
     // 通って顎関節あたりで止める(肩やマントまでは垂らさない)短め〜中
     // 程度の長さ。BangsとおなじmakeHairBang()(六角形断面のPrism)を
     // そのまま流用 ―― トゲ状のConeではなく太さのある房になる
+    // Head + Hair Integration再設計フェーズ: Bangsと同じ理由で半径を
+    // 太く(headR*0.16/0.075 → 0.22/0.10)。実際のゲームカメラ距離でも
+    // 顔の両側を囲む「太い房」として視認できるようにした
     const sideHairMeshes = [];
     [-1, 1].forEach(s=>{
       const rootY = head.position.y + headR*0.46;
       const tipY  = head.position.y - headR*0.22;
       const sideHair = new THREE.Mesh(
-        makeHairBang({rootR:headR*0.16, tipR:headR*0.075, length:rootY-tipY}), hairMat);
+        makeHairBang({rootR:headR*0.22, tipR:headR*0.10, length:rootY-tipY}), hairMat);
       sideHair.position.set(s*headR*0.98, tipY, -headR*0.05 + HEAD_BACK_Z);   // Head/Posture Alignment: HEAD_BACK_Zで追従
       sideHair.rotation.set(-0.12, 0, s*0.16);
       sideHair.castShadow = true;
