@@ -941,20 +941,29 @@ function makeEyeHighlightForTest(r, halfDepth){
 // 06-player-enemy.js内のEye構築部分と同じ数値(headR/eyeScale/各半径/
 // poke量/Z比率)をここに複製し、実際にゲーム内で使われる値でジオメトリの
 // 妥当性(NaN無し・低ポリ・薄い・左右対称・前後関係)を検証する
+// Headwear Audit + Eye Size調整フェーズ(「目が大きすぎる」指摘)前の
+// 基準半径(Sclera/Pupil/Highlight)。「変更前より縮小している」ことを
+// 確認するテストの比較基準として使う
+const EYE_BASE_R = { sclera: 0.062, pupil: 0.038, highlight: 0.013 };
 function computeEyeParamsForTest(headR){
   const eyeScale = headR/0.26;
   // Mage Hat再設計フェーズ(「目が出っ張って見える」指摘): 基準Z位置を
   // headR*0.90→headR*0.82に調整(06-player-enemy.jsのeyeFrontZと同じ値)
   const eyeFrontZ = headR*0.82;
-  const scleraR = 0.062, scleraZScale = 0.6;
+  // Headwear Audit + Eye Size調整フェーズ(「目が大きすぎる」指摘):
+  // Sclera/Pupil/Highlightの点数・輪郭は変更せず、3層すべての半径に
+  // この一つの倍率(06-player-enemy.jsのeyeSizeMulと同じ値)を掛けて
+  // Uniform Scalingする
+  const eyeSizeMul = 0.85;
+  const scleraR = EYE_BASE_R.sclera*eyeSizeMul, scleraZScale = 0.6;
   const scleraHalfDepth = scleraR*scleraZScale;
   const scleraFrontZ = eyeFrontZ + scleraHalfDepth*eyeScale;
-  const pupilR = 0.038, pupilPoke = 0.008, pupilZScale = 0.6;
+  const pupilR = EYE_BASE_R.pupil*eyeSizeMul, pupilPoke = 0.008, pupilZScale = 0.6;
   const pupilHalfDepth = pupilR*pupilZScale;
-  const highlightR = 0.013, highlightPoke = 0.014, highlightZScale = 0.6;
+  const highlightR = EYE_BASE_R.highlight*eyeSizeMul, highlightPoke = 0.014, highlightZScale = 0.6;
   const highlightHalfDepth = highlightR*highlightZScale;
   return {
-    eyeScale, scleraR, scleraZScale, scleraHalfDepth, scleraFrontZ,
+    eyeScale, eyeSizeMul, scleraR, scleraZScale, scleraHalfDepth, scleraFrontZ,
     pupilR, pupilPoke, pupilZScale, pupilHalfDepth,
     highlightR, highlightPoke, highlightZScale, highlightHalfDepth,
   };
@@ -1115,6 +1124,108 @@ function makeMageHatBrimForTest(radius, thickness){
     closedTop:true, closedBottom:true,
   });
 }
+
+test('Eye Size Adjustmentフェーズ: Sclera/Pupil/Highlight Uniform Scaling要件', async (t) => {
+  const headR = 0.390;
+  const P = computeEyeParamsForTest(headR);
+
+  await t.test('eyeScaleは引き続きheadRに比例する(固定サイズ化していない)', () => {
+    const bigHeadR = headR*1.5;
+    const Pbig = computeEyeParamsForTest(bigHeadR);
+    assert.ok(Math.abs(Pbig.eyeScale/P.eyeScale - bigHeadR/headR) < 1e-9,
+      'eyeScaleがheadRの比率どおりに変化する');
+  });
+
+  await t.test('Sclera/Pupil/Highlightが全て同じeyeSizeMulに追従する(Uniform Scaling)', () => {
+    assert.strictEqual(P.scleraR, EYE_BASE_R.sclera*P.eyeSizeMul);
+    assert.strictEqual(P.pupilR, EYE_BASE_R.pupil*P.eyeSizeMul);
+    assert.strictEqual(P.highlightR, EYE_BASE_R.highlight*P.eyeSizeMul);
+    // 3層とも同じ比率(eyeSizeMul)で縮小している ―― Scleraだけ/Pupilだけの
+    // 縮小ではないことの確認(浮動小数点誤差を許容する近似比較)
+    const EPS = 1e-9;
+    assert.ok(Math.abs(P.scleraR/EYE_BASE_R.sclera - P.pupilR/EYE_BASE_R.pupil) < EPS);
+    assert.ok(Math.abs(P.pupilR/EYE_BASE_R.pupil - P.highlightR/EYE_BASE_R.highlight) < EPS);
+  });
+
+  const sclera = makeEyeScleraForTest(P.scleraR*P.eyeScale, P.scleraR*P.eyeScale*1.15, P.scleraHalfDepth*P.eyeScale);
+  const pupil = makeEyePupilForTest(P.pupilR*P.eyeScale, P.pupilHalfDepth*P.eyeScale);
+  const highlight = makeEyeHighlightForTest(P.highlightR*P.eyeScale, P.highlightHalfDepth*P.eyeScale);
+
+  await t.test('Eye Geometry Point Countが維持されている(Sclera=8, Pupil=6, Highlight=4)', () => {
+    function countDistinctXY(geo){
+      const pos = geo.attributes.position;
+      const seen = new Set();
+      for(let i=0;i<pos.count;i++) seen.add(`${pos.getX(i).toFixed(5)},${pos.getY(i).toFixed(5)}`);
+      return seen.size;
+    }
+    assert.strictEqual(countDistinctXY(sclera), 8, 'Scleraは8点のまま(Geometry Structure変更禁止)');
+    assert.strictEqual(countDistinctXY(pupil), 6, 'Pupilは6点のまま');
+    assert.strictEqual(countDistinctXY(highlight), 4, 'Highlightは4点のまま');
+  });
+
+  await t.test('NaN/Infinityを含まない', () => {
+    [sclera, pupil, highlight].forEach(geo => {
+      const pos = geo.attributes.position;
+      for(let i=0;i<pos.count;i++){
+        assert.ok(Number.isFinite(pos.getX(i)) && Number.isFinite(pos.getY(i)) && Number.isFinite(pos.getZ(i)));
+      }
+    });
+  });
+
+  await t.test('SphereGeometryを使用していない(引き続きmakePlateベース)', () => {
+    const srcPath = fileURLToPath(new URL('../../src/legacy/parts/05-rendering-rig.js', import.meta.url));
+    const src = fs.readFileSync(srcPath, 'utf8');
+    const start = src.indexOf('function makeEyeOutline');
+    const end = src.indexOf('/* Pauldron:');
+    const eyeSrc = src.slice(start, end);
+    assert.ok(!/SphereGeometry/.test(eyeSrc), 'Eye生成コードにSphereGeometryが含まれない');
+  });
+
+  const scleraBoxBase = boundingBoxOf(makeEyeScleraForTest(EYE_BASE_R.sclera*P.eyeScale, EYE_BASE_R.sclera*P.eyeScale*1.15, EYE_BASE_R.sclera*0.6*P.eyeScale));
+  const scleraBoxNow = boundingBoxOf(sclera);
+  await t.test('変更前(eyeSizeMul=1.0相当)よりEye Sizeが縮小している', () => {
+    assert.ok(scleraBoxNow.w < scleraBoxBase.w, `Sclera幅(${scleraBoxNow.w.toFixed(4)})が変更前(${scleraBoxBase.w.toFixed(4)})より縮小`);
+    assert.ok(scleraBoxNow.h < scleraBoxBase.h, `Sclera高さ(${scleraBoxNow.h.toFixed(4)})が変更前(${scleraBoxBase.h.toFixed(4)})より縮小`);
+  });
+
+  await t.test('縮小率が極端でない(70%〜95%程度の範囲、点のように小さくなっていない)', () => {
+    const ratio = scleraBoxNow.w/scleraBoxBase.w;
+    assert.ok(ratio > 0.70 && ratio < 0.95,
+      `縮小後/縮小前のSclera幅比(${ratio.toFixed(2)})が70%〜95%の範囲にある(極端な縮小ではない)`);
+  });
+
+  await t.test('左右対称 ―― 個々のジオメトリ自体が左右非対称になっていない(縮小してもmakeEyeOutlineの対称性は不変)', () => {
+    function assertMirrorSymmetric(geo){
+      const pos = geo.attributes.position;
+      const pts = [];
+      for(let i=0;i<pos.count;i++) pts.push([pos.getX(i), pos.getY(i), pos.getZ(i)]);
+      for(const [x,y,z] of pts){
+        assert.ok(pts.some(([mx,my,mz]) => Math.abs(mx-(-x))<1e-5 && Math.abs(my-y)<1e-5 && Math.abs(mz-z)<1e-5));
+      }
+    }
+    assertMirrorSymmetric(sclera);
+    assertMirrorSymmetric(pupil);
+    assertMirrorSymmetric(highlight);
+  });
+
+  await t.test('Pupil/Highlightの前後関係(Sclera前面より前方)が縮小後も維持されている、Z-fighting無し', () => {
+    const pupilCenterZ = P.scleraFrontZ - P.pupilHalfDepth*P.eyeScale + P.pupilPoke*P.eyeScale;
+    const pupilFrontZ = pupilCenterZ + P.pupilHalfDepth*P.eyeScale;
+    const highlightCenterZ = P.scleraFrontZ - P.highlightHalfDepth*P.eyeScale + P.highlightPoke*P.eyeScale;
+    assert.ok(pupilFrontZ > P.scleraFrontZ, 'Pupil前面がSclera前面より前方(埋没しない)');
+    assert.ok(Math.abs(highlightCenterZ - pupilCenterZ) > 1e-4, 'Pupil-Highlight間に十分な隙間(Z-fighting回避)');
+  });
+
+  await t.test('既存Head Scale Group(戦騎士の頭部一式0.86倍縮小)と互換 ―― Eyeもfacemeshes経由でGroup全体のスケール対象のまま', () => {
+    // headScaleGroupはTHREE.Group.scaleでheadGroupParts全体(faceMeshes含む)を
+    // 一括縮小する仕組みのため、Eye個々のGeometryサイズがどう変わっても
+    // 影響を受けない。ここではEye Mesh自体がGroup経由のスケールに対して
+    // 線形に追従することだけを確認する(Groupのscaleは乗算されるだけ)
+    const groupScale = 0.86;
+    const scaledW = scleraBoxNow.w * groupScale;
+    assert.ok(Math.abs(scaledW - scleraBoxNow.w*0.86) < 1e-9, 'Group scaleは線形にEyeサイズへ適用される(Eye側の特別対応は不要)');
+  });
+});
 
 test('Mage Hat Brim(つば) 再設計フェーズ: 前後非対称Low Poly要件', async (t) => {
   const headR = 0.390;

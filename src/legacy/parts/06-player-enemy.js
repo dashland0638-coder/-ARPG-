@@ -604,13 +604,25 @@
     // 前面よりpoke量だけ前へ出るという相対関係(下のscleraFrontZ経由の
     // 計算)は変えていないため、3層の前後関係・埋没しない設計はそのまま
     const eyeFrontZ = headR*0.82;
-    const scleraR = 0.062;
+    // Headwear Audit + Eye Size調整フェーズ(ユーザー指摘: 「目が大きすぎる」):
+    // Low Poly化(Phase B)で輪郭がくっきりしたぶん、球のときより大きく
+    // 目立って見えるようになっていた。Sclera/Pupil/Highlightの点数・輪郭
+    // (Geometry Structure)は一切変更せず、3層すべての半径にこの一つの
+    // 倍率(eyeSizeMul)を掛けるだけでUniform Scalingする ―― Scleraだけ
+    // 縮小するとPupilが相対的に大きくなりすぎ、Pupilだけ縮小すると白目が
+    // 強くなるため、必ず3層まとめて同じ比率で縮小する。eyeScale
+    // (headR比例のスケール機構)自体は変更しないため、headRが変わっても
+    // 引き続き比例してスケールする(固定サイズ化はしていない)。Visual
+    // Checkで90%→85%の順に試し、85%で「目は見えるが顔の一部として自然」
+    // な釣り合いになったためこの値にした
+    const eyeSizeMul = 0.85;
+    const scleraR = 0.062*eyeSizeMul;
     const scleraZScale = 0.6;
     const scleraHalfDepth = scleraR*scleraZScale;
     const scleraFrontZ = eyeFrontZ + scleraHalfDepth*eyeScale;
-    const pupilR = 0.038, pupilPoke = 0.008, pupilZScale = 0.6;
+    const pupilR = 0.038*eyeSizeMul, pupilPoke = 0.008, pupilZScale = 0.6;
     const pupilHalfDepth = pupilR*pupilZScale;
-    const highlightR = 0.013, highlightPoke = 0.014, highlightZScale = 0.6;
+    const highlightR = 0.013*eyeSizeMul, highlightPoke = 0.014, highlightZScale = 0.6;
     const highlightHalfDepth = highlightR*highlightZScale;
     // グラフィック刷新(戦騎士#低頭身化): 頭部一式(頭+髪+目)をまとめて
     // 縮小できるよう、目のメッシュをここで配列に集めておく。既存の
