@@ -410,7 +410,13 @@
     // the foot stayed planted where it was, which is most of why the
     // character read as a scarecrow being slid across the floor.
     const bootMat = new THREE.MeshStandardMaterial({color:0x2a2018, roughness:0.6, metalness:0.2});
-    const thighGeo = limbGeo(LIMB_PROFILE.thigh, B.thigh, B.thighLen, 10);
+    // グラフィック刷新: LatheGeometry(limbGeo/LIMB_PROFILE.thigh)から
+    // makeCharacterThigh()(Loft、05-rendering-rig.js)へ置き換え。Pelvis下端
+    // (太い)→中央(自然な量感)→Knee(絞る)というテーパーを、旋盤の
+    // 「あらゆる高さで断面が円」という制約なしに表現している(詳細は
+    // makeCharacterThigh()側のコメント参照)。LIMB_PROFILE.thigh/limbGeo自体
+    // は削除していない。Calfは今回変更しないため、shinGeoは従来通り
+    const thighGeo = makeCharacterThigh({width:B.thigh, depth:B.thigh, height:B.thighLen});
     const shinGeo  = limbGeo(LIMB_PROFILE.calf,  B.calf,  B.calfLen, 10);
     const legL = new THREE.Group(), legR = new THREE.Group();
     const kneeL = new THREE.Group(), kneeR = new THREE.Group();

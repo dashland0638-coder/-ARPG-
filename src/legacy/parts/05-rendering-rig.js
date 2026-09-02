@@ -373,6 +373,48 @@
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }
 
+  /* =========================================================
+     LOFT THIGH(グラフィック刷新: LatheGeometry脱却・第三弾、Torso/Pelvisに続く)
+
+     LIMB_PROFILE.thigh/limbGeo自体は削除・変更していない(Enemy/Bossが
+     今後使う可能性に備えて残す、TORSO_PROFILE/PELVIS_PROFILEと同じ扱い)。
+     差し替えるのはbuildPlayer()側のThigh生成呼び出し1箇所だけ。Calfは
+     今回変更しない(引き続きlimbGeo(LIMB_PROFILE.calf,...)のまま)。
+
+     Pelvis下端(比較的太い)→中央付近(自然な量感)→Knee(絞る)という、
+     旋盤では出せないテーパーをmakeLoft()の4断面(いずれも矩形)で表現する。
+     width/depthはB.thigh基準の倍率 ―― 全断面でwidthMul>depthMulにして
+     あり(左右にやや広く、前後はやや薄い、非円形の太腿)、Kneeの断面は
+     Knee関節の飾り球(SphereGeometry, B.calf*0.98)にほぼ収まる大きさに
+     絞ってあるので、Calf側との段差は出ない。
+  ========================================================= */
+  const THIGH_SECTION_RATIOS = {
+    upperThigh: { yFrac:1.00, widthMul:1.10, depthMul:0.95 },  // Pelvis下端と繋がる上端、最も太い
+    midThigh:   { yFrac:0.62, widthMul:1.00, depthMul:0.88 },  // 自然な量感のピーク
+    lowerThigh: { yFrac:0.30, widthMul:0.85, depthMul:0.74 },  // Kneeへ向けて絞り始める
+    knee:       { yFrac:0.00, widthMul:0.70, depthMul:0.62 },  // Knee関節側の下端、さらに絞る
+  };
+
+  /* makeCharacterThigh({width, depth, height}): makeCharacterPelvis()と同じ
+     考え方の、太腿専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの基準値
+     (旧limbGeo()のradius引数と同じ意味)で、呼び出し側はB.thighを、
+     heightにはB.thighLenをそのまま渡せばよい。ローカルy座標の範囲は
+     旧limbGeo()と同じ-height/2〜+height/2(y=+height/2が股関節側=上、
+     y=-height/2がKnee側=下)なので、呼び出し側のposition/回転は
+     変更不要。 */
+  function makeCharacterThigh(opts){
+    const o = Object.assign({ width:0.132, depth:0.132, height:0.56 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(THIGH_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
   /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
      for both genders - the shoulder-armor read is a class/armor thing, not
      a body-shape thing, and B.upper already differs by gender for sizing.
