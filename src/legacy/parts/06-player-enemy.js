@@ -1809,15 +1809,40 @@
       anim.capes = knightCapes;
 
     } else if(uj.key === 'berserker'){
-      // 荒々しさ: 頭上に逆立つ髪(既存の角兜はそのまま、その上へ重ねる)。
-      // 資料20番(「髪の揺れ」)に対応し、常時ごく小さくジッターさせる
-      // (updateJobDecorのanim.hairSpikes)対象として登録する
+      /* Phase 8 Priority 3: Rogue/Berserker差別化(Root Cause)。
+         hairSpikes/longHair/beardはいずれもbodyH比の手打ち座標
+         (例: bodyH*0.985)で置かれていたが、この値は現行のHead/Hood比率
+         (headYLocal=bodyH+B.headGap基準)とかけ離れており、実測すると
+         hairSpikesはHead中心よりかなり下(顎付近の高さ)、longHairは
+         Rogueの素のponytail(buildPlayer側、headR*1.9下)と大きくY/Z範囲が
+         重なり、beardはRogueのMask(顔下部を覆う布)の内側に埋もれていた
+         ―― 「要素が存在するのに実際には見えない」状態だった(実機QAで
+         確認)。ここではGeometry(Cone数・分割数)やHood/Mask自体は一切
+         変更せず、既存のROGUE_HOOD_*定数(makeRogueHood()と同じ値を
+         参照するだけ、Coverage/Geometry生成ロジックは不変)とHead基準
+         (headYLocal)からPositionだけを導出し直す。 */
+      const bHeadR = B.headR;
+      const headYLocal = bodyH + B.headGap;   // P.waist基準のHead中心Y(buildPlayerのhead.position.yに相当)
+      // Hoodの実際の頭頂Y(makeRogueHood()呼び出し側と同じ式:
+      // hoodH=headR*ROGUE_HOOD_HEIGHT_MUL、center=hY+hoodH*ROGUE_HOOD_
+      // CENTER_OFFSET_MUL、頭頂はそのcenterからさらにhoodH/2上)。
+      // Hood自体の傾き(ROGUE_HOOD_TILT_X)による実効高さの目減り分
+      // (cos(tilt)相当、Rogue Hood側のコメントと同じ近似)を見込んで
+      // 少し余裕を持たせてある
+      const hoodCrownY = headYLocal + bHeadR*ROGUE_HOOD_HEIGHT_MUL*(ROGUE_HOOD_CENTER_OFFSET_MUL+0.5);
+      // 荒々しさ: 頭上に逆立つ髪。旧位置(bodyH*0.985、実測でHead中心より
+      // 大きく下 = 顎の高さ相当)から、Hood頭頂を確実に超える高さへ
+      // 引き上げた。Geometry(5本、分割数5、太さ0.035)自体は変更していない
+      // ―― 「巨大化しすぎず、Hoodを覆ったり別の帽子に見えたりしない」
+      // 指示を尊重し、位置調整のみで解決する
+      const spikeBaseY = hoodCrownY + bHeadR*0.06;   // Hood頭頂よりわずかに高い位置を毛束の根元にする
       const hairMat = new THREE.MeshStandardMaterial({color:0x1a1410, roughness:0.85});
       const hairSpikes = [];
       for(let i=-2;i<=2;i++){
-        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.24+Math.abs(i)*0.03, 5), hairMat);
+        const spikeLen = 0.24+Math.abs(i)*0.03;
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, spikeLen, 5), hairMat);
         // Head/Posture Alignment再設計フェーズ: HeadやHairと同じHEAD_BACK_Z
-        spike.position.set(i*0.05, bodyH*0.985, -0.02 + HEAD_BACK_Z);
+        spike.position.set(i*0.05, spikeBaseY + spikeLen/2, -0.02 + HEAD_BACK_Z);
         const baseRotZ = i*0.12;
         spike.rotation.set(-0.15 - Math.abs(i)*0.08, 0, baseRotZ);
         P.waist.add(spike); meshes.push(spike);
@@ -1869,13 +1894,31 @@
       });
       // 長髪+長髭(ユーザー指摘)。既存の逆立つ髪(hairSpikes)はそのまま
       // 残し、後頭部から流れる長髪と顎の長い髭を追加した
+      // Phase 8 Priority 3: longHairは旧位置(bodyH*0.86)だとRogueの素の
+      // ponytail(buildPlayer側、hY-headR*1.9)とY/Z範囲が大きく重なり、
+      // 実質的に同じ房が二重に置かれているだけでBerserker側の追加要素と
+      // して視認できなかった(実測で確認)。hairSpikesの根元(spikeBaseY)
+      // 付近から始めて明確に長く伸ばすことで、Rogueのponytailより高い
+      // 位置から連続する「荒々しいたてがみ」にし、Zもponytail
+      // (-headR*0.85)よりさらに後方へ離して重なりを減らした。Cone自体の
+      // 分割数(7)・Coverage/Hood/Rogue側のコードは変更していない
       const wildHairMat = new THREE.MeshStandardMaterial({color:0x241a10, roughness:0.75});
-      const longHair = new THREE.Mesh(new THREE.ConeGeometry(0.09, bodyH*0.6, 7), wildHairMat);
-      longHair.position.set(0, bodyH*0.86, -bodyR*0.9);
+      const longHairLen = bodyH*0.85;   // 旧0.6→延長。Rogue ponytail(bodyH*0.5)より明確に長い
+      const longHairTopY = spikeBaseY - bHeadR*0.10;   // hairSpikesの根元のすぐ下から流れ始める
+      const longHair = new THREE.Mesh(new THREE.ConeGeometry(0.095, longHairLen, 7), wildHairMat);
+      longHair.position.set(0, longHairTopY - longHairLen/2, -bodyR*1.15);
       longHair.rotation.set(-0.35, 0, 0);
       P.waist.add(longHair); meshes.push(longHair);
-      const beard = new THREE.Mesh(new THREE.ConeGeometry(0.11, bodyH*0.38, 7), wildHairMat);
-      beard.position.set(0, bodyH*1.0, bodyR*0.55);
+      // Phase 8 Priority 3: beardは旧位置(bodyH*1.0)だとRogueのMask
+      // (顔下部を覆う布、底辺はheadYLocal-headR*0.73相当)の内側に大部分が
+      // 埋もれ、Maskの下からわずかに覗く先端(円錐の最も細い部分)しか
+      // 露出していなかった(実測で確認)。Maskの底辺ちょうどから垂れる
+      // 位置へ下げ、根元の太い部分もMaskの外へ出るようにした。サイズ
+      // (太さ0.11・長さbodyH*0.38)・Coverage/Rogue側のコードは変更していない
+      const maskBottomY = headYLocal - bHeadR*0.73;   // Rogue Mask(buildPlayer)の底辺と同じ式
+      const beardLen = bodyH*0.38;
+      const beard = new THREE.Mesh(new THREE.ConeGeometry(0.11, beardLen, 7), wildHairMat);
+      beard.position.set(0, maskBottomY - beardLen/2, bodyR*0.55);
       beard.rotation.set(Math.PI, 0, 0);
       P.waist.add(beard); meshes.push(beard);
 
@@ -2002,11 +2045,17 @@
       // 長いマント(片側だけ、鷹師の非対称なシルエット)。バネ追従+揺れの
       // 対象としてanim.capesへ登録(戦騎士のケースと共有、updateJobDecor参照)。
       // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す
+      // Phase 8 Priority 3: 旧position/rotationだとケープが真後ろ
+      // (-bodyR-0.05、ほぼX=0相当)に近く、Front/Diagonalでは体に完全に
+      // 隠れてArcherとの差が読めなかった(実機QA)。Geometry(makeClothPanel
+      // の輪郭・折り数)は変更せず、X方向へさらに外側へ・rotation.yを
+      // わずかに追加して、非対称マントの端がFront/Diagonalでも覗くように
+      // した。anim.capesのbaseRotY/baseRotZも新しい初期姿勢に合わせている
       const cape = makeClothPanel(0.36, bodyH*0.92, uj.capeColor, {rows:7, foldDepth:0.04});
-      cape.position.set(-0.12, bodyH*0.6, -bodyR-0.05);
-      cape.rotation.set(0.1, 0, -0.06);
+      cape.position.set(-0.17, bodyH*0.6, -bodyR-0.05);
+      cape.rotation.set(0.1, -0.16, -0.06);
       P.waist.add(cape); meshes.push(cape);
-      anim.capes = [{mesh:cape, baseRotY:0, baseRotZ:-0.06, swayPhase:0.4, springAngle:0, springVel:0}];
+      anim.capes = [{mesh:cape, baseRotY:-0.16, baseRotZ:-0.06, swayPhase:0.4, springAngle:0, springVel:0}];
       // 肩に乗る小さな鷹(胴体+翼2枚+頭)。資料の「巨大にしない、肩に乗る
       // 小さな存在」の指示通り、右肩(利き手と逆側)に控えめなサイズで乗せる
       const hawk = new THREE.Group();
@@ -2058,7 +2107,10 @@
       const hoodBottomY = headYLocal - B.headR*0.62;
       const hood = new THREE.Mesh(
         makeHawkEyeHood({width:B.headR*1.25, depth:B.headR*1.25, height:B.headR*1.75}), hoodMat);
-      hood.position.set(0, hoodBottomY, -0.03 + HEAD_BACK_Z);
+      // Phase 8 Priority 3: Z前方+0.05(旧-0.03→+0.02)。Geometry(引数)は
+      // 変更せず、HoodがArcher Capにほぼ重なりFront/Diagonalで隠れていた
+      // 問題(実機QA)を、前方へ出して側面の縁を覗かせることで解消した
+      hood.position.set(0, hoodBottomY, 0.02 + HEAD_BACK_Z);
       hood.castShadow = true;
       P.waist.add(hood); meshes.push(hood);
     }
