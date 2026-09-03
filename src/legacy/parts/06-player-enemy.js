@@ -1225,10 +1225,17 @@
       // (半径・長さはARCHER_PEAK_R_MUL/HEIGHT_MUL側で調整、詳細は同定数の
       // コメント参照)。Peakの可視性はGeometryの向き・形状だけで解決して
       // おり、renderOrder/depthTest等の描画順制御は使っていない。
-      const peakH = headR*ARCHER_PEAK_HEIGHT_MUL;
-      const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*ARCHER_PEAK_R_MUL, peakH, 4), clothMat);
+      // Phase 13-E: ConeGeometryの細い突起から、makeWedge()の平たい
+      // ひさし(bill)へ。ローカル+Yがひさしの前方になるようrotation.xで
+      // 倒すのは旧Peakと同じ考え方で、そこへ先端を下げるTILTを足す
+      const peak = new THREE.Mesh(makeWedge({
+        baseW: headR*ARCHER_BILL_W_MUL,
+        baseD: headR*ARCHER_BILL_THICK_MUL,
+        height: headR*ARCHER_BILL_LEN_MUL,
+        ridgeW: headR*ARCHER_BILL_TIP_W_MUL,
+      }), clothMat);
       peak.position.set(0, hY+headR*ARCHER_PEAK_CENTER_OFFSET_MUL, headR*ARCHER_PEAK_FRONT_Z_MUL + HEAD_BACK_Z);
-      peak.rotation.x = Math.PI/2; group.add(peak);
+      peak.rotation.x = Math.PI/2 + ARCHER_BILL_TILT; group.add(peak);
       archerCapDecor.push(peak);
       playerMixerParts.archerCapDecor = archerCapDecor;
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を

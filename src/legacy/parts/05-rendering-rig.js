@@ -906,11 +906,21 @@
   // 中間リングを1段追加してHead/Hair Capの背面プロファイルに沿う
   // 緩やかな絞りにし、頭頂リング自体もわずかに緩めた(0.70/0.65→
   // 0.78/0.74)。中腹までの前面シルエット・Face Openingの見え方は不変
+  // Phase 13-E: Face Openingを開けておく高さの上限(WARRIOR_HELM_RINGSの
+  // yFrac基準)。この値以上のリング間は前面も閉じる
+  const WARRIOR_HELM_OPENING_TOP_YFRAC = 0.50;
+  /* faceZ: そのリングでの「顔側2点(テンプレート先頭/末尾)」のz。
+     Phase 13-E: 開口より上を塞ぐにあたり、テンプレート既定の0.45のまま
+     前面を張るとその壁がHead/Hair Shellの前面(この高さで約0.68〜0.74×
+     headR相当)より内側を通り、髪が壁を突き抜けて黒い板として見えた。
+     中腹以上のfaceZを頭の前面より前へ出すことで、前面の壁がHeadの外側を
+     通るようにする ―― 開口の上端(中腹リング)が前へせり出すことで、
+     兜の眉庇(まびさし)としても読める。 */
   const WARRIOR_HELM_RINGS = [
-    { yFrac:0.00, widthMul:1.12, depthMul:1.05 },  // 下端(耳・顎関節あたりの高さ)
-    { yFrac:0.50, widthMul:1.15, depthMul:1.08 },  // 中腹の膨らみ(最大幅)
-    { yFrac:0.78, widthMul:1.02, depthMul:0.98 },  // 新設: Hair Cap後方の膨らみに沿う中間リング
-    { yFrac:1.00, widthMul:0.78, depthMul:0.74 },  // 頭頂(従来より緩めに絞り、Head/Hair Crownとの整合を改善)
+    { yFrac:0.00, widthMul:1.12, depthMul:1.05, faceZ:0.45 },  // 下端(耳・顎関節あたりの高さ)
+    { yFrac:0.50, widthMul:1.15, depthMul:1.08, faceZ:0.75 },  // 中腹の膨らみ(最大幅)=開口の上端・眉庇
+    { yFrac:0.78, widthMul:1.02, depthMul:0.98, faceZ:0.95 },  // Hair Cap後方の膨らみに沿う中間リング
+    { yFrac:1.00, widthMul:0.78, depthMul:0.74, faceZ:0.95 },  // 頭頂
   ];
 
   /* makeWarriorBaseHelm({width, depth, height}): widthとdepthは半幅・
@@ -922,21 +932,34 @@
     const o = Object.assign({ width:0.39, depth:0.39, height:0.60 }, opts || {});
     const n = WARRIOR_HELM_ARC_TEMPLATE.length;
     const verts = [];
+    const lastIdx = WARRIOR_HELM_ARC_TEMPLATE.length-1;
     WARRIOR_HELM_RINGS.forEach(r=>{
       const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
-      WARRIOR_HELM_ARC_TEMPLATE.forEach(([fx,fz])=>{
-        verts.push(fx*hw, o.height*r.yFrac, fz*hd);
+      WARRIOR_HELM_ARC_TEMPLATE.forEach(([fx,fz], i)=>{
+        // 顔側2点(開口の縁)だけリングごとのfaceZで上書きする
+        const z = (r.faceZ != null && (i===0 || i===lastIdx)) ? r.faceZ : fz;
+        verts.push(fx*hw, o.height*r.yFrac, z*hd);
       });
     });
     const idx = [];
     // 側面: 隣接する段同士を弧の各辺(0-1,1-2,...,n-2〜n-1)だけ繋ぐ。
     // 最後の点(n-1)から最初の点(0)への辺は繋がない(Face Opening)。
     // 段は下から上へ昇順に並んでいるので、makeLoft()の「昇順」の
-    // 巻き方向(a,bTop,b, a,aTop,bTop)とそろえてある
+    // 巻き方向(a,bTop,b, a,aTop,bTop)とそろえてある。
+    /* Phase 13-E: ただし開口は下2段(下端〜中腹、yFrac0.00〜0.50)の
+       間だけに限定し、それより上は前面も塞ぐ。Mesh Ownership Debugで、
+       旧実装(全高で開口)ではFace Openingから見えるものの大半が
+       「生え際より上のHair Shell(ほぼ黒)」になり、兜の中が空洞に
+       見えていたことを確認した(ユーザー指摘の「兜から髪がはみ出る/
+       中が真っ黒」)。開口を目の高さ(頭中心+0.05×headR)を含む下段に
+       限ると、開口からは顔と目が見え、額から上の髪は兜の内側に隠れる。 */
     for(let ri=0; ri<WARRIOR_HELM_RINGS.length-1; ri++){
       const base = ri*n, next = (ri+1)*n;
-      for(let i=0;i<n-1;i++){
-        const a=base+i, b=base+i+1, aTop=next+i, bTop=next+i+1;
+      const closed = (WARRIOR_HELM_RINGS[ri].yFrac >= WARRIOR_HELM_OPENING_TOP_YFRAC);
+      const edges = closed ? n : n-1;
+      for(let i=0;i<edges;i++){
+        const j=(i+1)%n;
+        const a=base+i, b=base+j, aTop=next+i, bTop=next+j;
         idx.push(a,bTop,b, a,aTop,bTop);
       }
     }
@@ -984,6 +1007,10 @@
     [ 1.00, -0.05],   // 右側面(最大幅)
     [ 0.62,  0.55],   // 顔側右(開口の縁。ここと配列先頭の間は繋がない)
   ];
+  // Phase 13-E: Warrior Helmと同じ考え方で、Face Openingを開けておく
+  // 高さの上限。これ以上のリング間は前面も閉じる(頬・こめかみより上の
+  // 額〜頭頂がフードの開口から素肌のまま見えていた問題への対応)
+  const HAWKEYE_HOOD_OPENING_TOP_YFRAC = 0.52;
   const HAWKEYE_HOOD_RINGS = [
     { yFrac:0.00, widthMul:0.58, depthMul:0.58 },  // Neck Opening(襟元、最も絞る)
     { yFrac:0.25, widthMul:0.92, depthMul:0.90 },  // Lower Hood(顎下〜頬の下)
@@ -1008,8 +1035,11 @@
     const idx = [];
     for(let ri=0; ri<HAWKEYE_HOOD_RINGS.length-1; ri++){
       const base = ri*n, next = (ri+1)*n;
-      for(let i=0;i<n-1;i++){
-        const a=base+i, b=base+i+1, aTop=next+i, bTop=next+i+1;
+      const closed = (HAWKEYE_HOOD_RINGS[ri].yFrac >= HAWKEYE_HOOD_OPENING_TOP_YFRAC);
+      const edges = closed ? n : n-1;
+      for(let i=0;i<edges;i++){
+        const j=(i+1)%n;
+        const a=base+i, b=base+j, aTop=next+i, bTop=next+j;
         idx.push(a,bTop,b, a,aTop,bTop);
       }
     }
@@ -1149,12 +1179,16 @@
      bottomYOffset/heightは、そのHeadwearを実際に配置しているposition.
      set()呼び出しと全く同じ式で呼び出し側から渡すため、Geometry生成側の
      値とずれない。 */
-  function arcHeadwearCoverage(template, rings, bottomYOffset, height, hwBase, hdBase, yOffset, angle){
+  /* closedAboveYFrac: この高さより上ではテンプレートの開口(最後の点→
+     最初の点の辺)も閉じているHeadwear用。省略時(undefined)は従来通り
+     全高さで開口ありとして判定するため、既存クラスの挙動は変わらない。 */
+  function arcHeadwearCoverage(template, rings, bottomYOffset, height, hwBase, hdBase, yOffset, angle, closedAboveYFrac){
     const yFrac = (yOffset - bottomYOffset) / height;
     if(yFrac < -1e-6 || yFrac > 1+1e-6) return { state:'NONE', surfaceRadius:null };
     const r = ringRatioAt(rings, Math.max(0, Math.min(1, yFrac)));
     const hw = hwBase*r.widthMul, hd = hdBase*r.depthMul;
-    const arc = arcSurfaceAt(template, hw, hd, angle, false);
+    const closed = (closedAboveYFrac != null && yFrac >= closedAboveYFrac);
+    const arc = arcSurfaceAt(template, hw, hd, angle, closed);
     if(!arc.inArc) return { state:'FACE_OPENING', surfaceRadius:null };
     return { state:'HEADWEAR', surfaceRadius:arc.radius };
   }
@@ -1179,7 +1213,8 @@
     return arcHeadwearCoverage(
       WARRIOR_HELM_ARC_TEMPLATE, WARRIOR_HELM_RINGS,
       headR*WARRIOR_HELM_BOTTOM_OFFSET_MUL, headR*WARRIOR_HELM_HEIGHT_MUL,
-      headR, headR, yOffset, angle);
+      headR, headR, yOffset, angle,
+      WARRIOR_HELM_OPENING_TOP_YFRAC);   // Phase 13-E: 中腹より上は前面も閉じている
   }
 
   /* ---- Rogue: Hood(Phase 5でNape Opening付きのRing Loftへ変更、詳細は
@@ -1366,10 +1401,20 @@
      ≈1.04×headRとなり、Head自身のcheek widthMul(1.06)をわずかに
      下回っていた。1.25へ引き上げ、同じ高さで≈1.16×headRとなるよう
      マージンを確保した。 */
-  const ARCHER_CAP_R_MUL = 1.25;
-  const ARCHER_CAP_TOP_R_MUL = 1.25*0.7;
-  const ARCHER_CAP_HEIGHT_MUL = 1.45;              // 旧0.6 → Hair Shellの頭頂(+1.06×headR)を実際に超える高さへ(実機QAで、+1.00止まりだと steep Default Cameraから頭頂のHair Shellのわずかな残りが黒い凹みに見えることを確認して調整)
-  const ARCHER_CAP_CENTER_OFFSET_MUL = 0.425;      // 旧ARCHER_CAP_CENTER_OFFSET_ABS(絶対値0.05)を廃止、headR相対に統一。bottom≈-0.30×headR(変更前と同じ)、top≈+1.15×headR
+  /* Phase 13-E: Capを「頭を丸ごと飲み込むバケツ」から「頭に載る帽子」へ。
+     Root Cause(Mesh Ownership Debugで確定): 旧CapはHEIGHT_MUL=1.45・
+     CENTER_OFFSET_MUL=0.425、つまり下端が頭中心の-0.30×headR(目より
+     下)から頭頂+1.15×headRまでを覆う筒だった。そのためFace Opening
+     から見えるのは「目」ではなく生え際より下の額(Skin Head)が大半に
+     なり、目はCap下縁ぎりぎりに押し出されていた ―― ユーザー指摘の
+     「バケツ頭」「額のところだけ地肌が見えている」の直接の原因。
+     設計指示画像の狩人帽と同じく、下端を生え際付近(+0.32×headR、
+     Hair Shellの生え際 yFrac0.72 = +0.44×headR のすぐ下)に置き、顔は
+     帽子の下に丸ごと露出させる。 */
+  const ARCHER_CAP_R_MUL = 1.15;
+  const ARCHER_CAP_TOP_R_MUL = 1.15*0.72;
+  const ARCHER_CAP_HEIGHT_MUL = 0.80;              // Phase 13-E: 1.45→0.80(生え際〜頭頂を覆うだけの高さ)
+  const ARCHER_CAP_CENTER_OFFSET_MUL = 0.72;       // Phase 13-E: 0.425→0.72。bottom=+0.32×headR(生え際直下)、top=+1.12×headR(頭頂のすぐ上)
 
   /* Phase 12-B Priority 2: Archer CapにFace Openingを追加。
      Phase 12-A Root Cause: 旧Capは全周閉じた円筒の回転体(openEnded)の
@@ -1423,10 +1468,16 @@
       });
     });
     const idx = [];
+    /* Phase 13-E: Capが顔の上(生え際より上)に載るようになったため、
+       Phase 12-Bで開けた前方のFace Openingは「顔を見せるための穴」では
+       なく「帽子の前が欠けている切れ込み」にしかならない。側面は全周
+       (n本すべての辺)を張って閉じた帽子に戻す ―― 顔の視認性は開口では
+       なく、Cap自体が顔より上に載ることで確保する。 */
     for(let ri=0; ri<ARCHER_CAP_RINGS.length-1; ri++){
       const base = ri*n, next = (ri+1)*n;
-      for(let i=0;i<n-1;i++){
-        const a=base+i, b=base+i+1, aTop=next+i, bTop=next+i+1;
+      for(let i=0;i<n;i++){
+        const j=(i+1)%n;
+        const a=base+i, b=base+j, aTop=next+i, bTop=next+j;
         idx.push(a,bTop,b, a,aTop,bTop);
       }
     }
@@ -1475,10 +1526,26 @@
      を見ているため、半径を絞るとCoverage判定上のPeak有効範囲もわずかに
      縮む方向に動くが、Cap側のFace Opening判定(Bangs等が経由する部分)
      には影響しない(Peak Coverageは他クラスのCoverage判定と独立)。 */
-  const ARCHER_PEAK_R_MUL = 0.22;                  // Phase 13-D: 0.38→0.22。根本の菱形を縮小(Apex/前後長/Positionは不変)
-  const ARCHER_PEAK_HEIGHT_MUL = 0.60;             // 前方へ倒した後の前後長(headR比)
-  const ARCHER_PEAK_CENTER_OFFSET_MUL = 0.75;      // Y位置は既存のまま維持
-  const ARCHER_PEAK_FRONT_Z_MUL = 1.28;            // Cap前面(≈0.979×headR)+長さの半分(0.30)
+  /* Phase 13-E: Capが頭に載る帽子になったのに合わせ、Peakを「顔の中央に
+     浮かぶ突起」から「帽子の前縁から前へ出るひさし(bill)」へ置き直す。
+     旧Y(+0.75×headR)はCap中腹の高さで、見下ろしカメラでは目と目の間へ
+     投影されて菱形の異物に見えていた。Cap下縁(+0.32×headR)のすぐ上へ
+     下げ、Zもその高さのCap半径(≈1.11×headR)+前後長の半分に合わせる。 */
+  /* Phase 13-E: PeakのGeometryをConeGeometry(細い円錐)からmakeWedge()の
+     平たいひさし(bill)へ変更。見下ろしのDefault Game Cameraでは、前方へ
+     倒した円錐は「顔の中央へ落ちる菱形/角」としてしか投影されず、幅を
+     絞っても位置を変えても目と目の間に異物が残ることを実機で確認した
+     (Phase 13-D/13-E)。実際の狩人帽と同じく、幅広で薄い板を眉の高さで
+     前へ張り出させると、見下ろし視点では「額の上のひさし」として読め、
+     目の高さより上に留まる。Side/Diagonalでも三角の断面が見えるため、
+     鳥の嘴のような前方への張り出しというシルエットは維持される。 */
+  const ARCHER_BILL_W_MUL = 1.15;                  // ひさしの幅(付け根、headR比)
+  const ARCHER_BILL_TIP_W_MUL = 0.72;              // ひさしの先端幅(台形にして嘴らしさを残す)
+  const ARCHER_BILL_LEN_MUL = 0.55;                // 前方への張り出し長
+  const ARCHER_BILL_THICK_MUL = 0.10;              // 板の厚み
+  const ARCHER_BILL_TILT = 0.20;                   // 先端を下げる角度(rad)
+  const ARCHER_PEAK_CENTER_OFFSET_MUL = 0.36;      // ひさしのY(Cap下縁+0.32のすぐ上=眉の高さ)
+  const ARCHER_PEAK_FRONT_Z_MUL = 1.42;            // その高さのCap半径(≈1.14)+長さの半分(0.275)
   // Phase 12-B Priority 2: CapがCylinder(角度に依存しない全周)から
   // Face Opening付きのArc Ring Loft(makeArcherCap()、ARCHER_CAP_ARC_
   // TEMPLATE/RINGS)へ変わったため、Coverage判定もarcHeadwearCoverage()
@@ -1488,14 +1555,17 @@
   // ため従来通りcylinderHeadwearCoverageのまま
   function archerCapCoverageAt(headR, yOffset, angle){
     const capH = headR*ARCHER_CAP_HEIGHT_MUL;
-    const cap = arcHeadwearCoverage(
-      ARCHER_CAP_ARC_TEMPLATE, ARCHER_CAP_RINGS,
+    // Phase 13-E: Capを閉じた帽子に戻したため、Coverageも角度非依存の
+    // 円錐台判定(Phase 12-B以前と同じcylinderHeadwearCoverage)へ戻す
+    const cap = cylinderHeadwearCoverage(
       headR*ARCHER_CAP_CENTER_OFFSET_MUL - capH/2, capH,
-      headR*ARCHER_CAP_R_MUL, headR*ARCHER_CAP_R_MUL, yOffset, angle);
-    const peakH = headR*ARCHER_PEAK_HEIGHT_MUL;
+      headR*ARCHER_CAP_R_MUL, headR*ARCHER_CAP_TOP_R_MUL, yOffset);
+    // Phase 13-E: Peakは薄い水平のひさしになったため、Coverage上の
+    // 縦方向の占有も板の厚み分だけにする(旧: 円錐の全長0.60×headR)
+    const peakH = headR*ARCHER_BILL_THICK_MUL*1.6;
     const peak = cylinderHeadwearCoverage(
       headR*ARCHER_PEAK_CENTER_OFFSET_MUL - peakH/2, peakH,
-      headR*ARCHER_PEAK_R_MUL, 0, yOffset);
+      headR*ARCHER_BILL_W_MUL*0.5, 0, yOffset);
     // Cap/Peakを合成したUnion Coverage: どちらも「そのY方向に実際に存在
     // するSurfaceの半径」に変換した後で比較しているため、単純な
     // max(capRadius, peakRadius)のような異なる基準の値同士の比較には
