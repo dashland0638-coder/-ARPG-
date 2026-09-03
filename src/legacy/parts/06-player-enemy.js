@@ -984,23 +984,22 @@
       // から、フードを主役にする方向へ変更。ただし「軽装・敏捷」の方針
       // 自体は維持 ―― 鎧のような硬質さではなく、頭を浅く覆うだけの柔らかい
       // 布のフードにして、剣士の兜(重装)とは対照的な軽さを出している。
-      // 兜/帽子と同じ技法(低分割の開放型CylinderGeometry+上面キャップ)
-      // だが、後方へ深く垂れ下がる向きに傾け、素材も布(clothAcc)にして
-      // 「軽い布のフード」と「重い金属の兜」を作り分けている
-      const hoodSegs = 7;
+      // Phase 5: 旧CylinderGeometry(全周閉じた回転体、開口なし)から、
+      // makeRogueHood()(05-rendering-rig.js、Warrior Helm/Hawk Eye Hoodと
+      // 同じ「開いた弧のRing Loft」技法、うなじ側にNape Openingを持つ)へ
+      // 置き換えた。position/rotationの値・意味は旧実装から変えていない
+      // (makeRogueHood()のローカルy座標はHead/Hair Shellと同じ中心基準の
+      // ため、旧CylinderGeometryと同じposition.set()がそのまま使える)。
+      // 天板を塞ぐ役割だった旧hoodCap(CircleGeometry)は、makeRogueHood()
+      // 自体が頭頂側をファン分割で閉じるため不要になり削除した。
       // rogueHoodCoverageAt()(05-rendering-rig.js)と同じROGUE_HOOD_*
       // 定数を使う ―― Geometry生成とCoverage判定が同じ値を共有するため
-      const hoodR = headR*ROGUE_HOOD_BOTTOM_R_MUL, hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
-      // Head/Posture Alignment再設計フェーズ: Hood/HoodCap/MaskにもHEAD_BACK_Z
-      // を適用し、Headと一緒に後方へ
-      const hood = new THREE.Mesh(new THREE.CylinderGeometry(headR*ROGUE_HOOD_TOP_R_MUL, hoodR, hoodH, hoodSegs, 1, true), clothAcc);
+      const hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
+      const hood = new THREE.Mesh(
+        makeRogueHood({width:headR, depth:headR, height:hoodH}), clothAcc);
       hood.rotation.x = ROGUE_HOOD_TILT_X;   // 後方へ深く垂らす(硬い兜の「まっすぐ立つ」向きと対照的)
       hood.position.set(0, hY+hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL, -headR*0.22 + HEAD_BACK_Z);
       hood.castShadow = true; group.add(hood);
-      const hoodCap = new THREE.Mesh(new THREE.CircleGeometry(hoodR*0.1, hoodSegs), clothAcc);
-      hoodCap.rotation.x = -Math.PI/2 - 0.4;
-      hoodCap.position.set(0, hY+hoodH*0.28+Math.cos(0.4)*hoodH/2, -headR*0.22-Math.sin(0.4)*hoodH/2 + HEAD_BACK_Z);
-      group.add(hoodCap);
       // マスク(鼻から下を覆う布) - 目だけ見えるフード付き暗殺者の顔
       const maskMat = new THREE.MeshStandardMaterial({color:0x1c1a20, roughness:0.85});
       const mask = new THREE.Mesh(new THREE.BoxGeometry(headR*1.05, headR*0.62, headR*0.5), maskMat);
@@ -1128,15 +1127,23 @@
       // ARCHER_PEAK_*定数を使う ―― Geometry生成とCoverage判定が同じ値を
       // 共有するため
       const capR = headR*ARCHER_CAP_R_MUL, capH = headR*ARCHER_CAP_HEIGHT_MUL;
+      const capCenterY = hY + headR*ARCHER_CAP_CENTER_OFFSET_MUL;
       // Head/Posture Alignment再設計フェーズ: Cap/CapTop/PeakにもHEAD_BACK_Z
       // を適用し、Headと一緒に後方へ
       const cap = new THREE.Mesh(new THREE.CylinderGeometry(headR*ARCHER_CAP_TOP_R_MUL, capR, capH, capSegs, 1, true), clothMat);
-      cap.position.set(0, hY+ARCHER_CAP_CENTER_OFFSET_ABS, HEAD_BACK_Z); cap.castShadow = true; group.add(cap);
+      cap.position.set(0, capCenterY, HEAD_BACK_Z); cap.castShadow = true; group.add(cap);
       const capTop = new THREE.Mesh(new THREE.CircleGeometry(headR*ARCHER_CAP_TOP_R_MUL, capSegs), clothMat);
       capTop.rotation.x = -Math.PI/2;
-      capTop.position.set(0, hY+ARCHER_CAP_CENTER_OFFSET_ABS+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop);
-      const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*ARCHER_PEAK_R_MUL, ARCHER_PEAK_HEIGHT_ABS, 4), clothMat);
-      peak.position.set(0, hY+ARCHER_PEAK_CENTER_OFFSET_ABS, 0.02 + HEAD_BACK_Z); peak.rotation.y = Math.PI/4; group.add(peak);
+      capTop.position.set(0, capCenterY+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop);
+      // Phase 5: Peakの高さ・位置をheadR相対(ARCHER_PEAK_HEIGHT_MUL/
+      // ARCHER_PEAK_CENTER_OFFSET_MUL)に改め、Cap拡大後のつば(bill)の
+      // 位置(眉の高さ付近)に合わせた。前方張り出しも0.02固定から
+      // headR比のARCHER_PEAK_FRONT_Z_MULへ ―― Front/Front-diagonalから
+      // 視認できるようにする(renderOrder等の描画順制御は使わない)
+      const peakH = headR*ARCHER_PEAK_HEIGHT_MUL;
+      const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*ARCHER_PEAK_R_MUL, peakH, 4), clothMat);
+      peak.position.set(0, hY+headR*ARCHER_PEAK_CENTER_OFFSET_MUL, headR*ARCHER_PEAK_FRONT_Z_MUL + HEAD_BACK_Z);
+      peak.rotation.y = Math.PI/4; group.add(peak);
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
       // 上げた際(#39系「参考画像のような頭身に」)、見下ろし視点の
       // カメラ角度では前方へ張り出す水平な板が必ず目の上に重なって見える

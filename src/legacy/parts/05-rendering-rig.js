@@ -1131,42 +1131,156 @@
       headR, headR, yOffset, angle);
   }
 
-  /* ---- Rogue: Hood(単純なCylinder、開口なし)。回転(rotation.x=-0.4)で
-     生じるY方向の実効的な圧縮をcos(tilt)で近似する ―― 厳密な傾き込みの
-     解析解ではないが、Face Openingを持たない全周形状なのでY範囲の近似
-     誤差はCoverageの安全マージン(HAIR_HEADWEAR_INSET)の範囲に収まる */
-  const ROGUE_HOOD_BOTTOM_R_MUL = 1.16;      // hoodR = headR*1.16
-  const ROGUE_HOOD_TOP_R_MUL = 1.16*0.1;     // hoodR*0.1(先端、うなじ側ではなく頭頂側)
+  /* ---- Rogue: Hood(Phase 5でNape Opening付きのRing Loftへ変更、詳細は
+     ROGUE_HOOD_ARC_TEMPLATE/RINGS側のコメント参照)。回転(rotation.x=
+     -0.4)で生じるY方向の実効的な圧縮をcos(tilt)で近似する ―― 厳密な
+     傾き込みの解析解ではないが、この近似誤差はCoverageの安全マージン
+     (HAIR_HEADWEAR_INSET)の範囲に収まる */
   const ROGUE_HOOD_HEIGHT_MUL = 1.5;         // hoodH = headR*1.5
   const ROGUE_HOOD_CENTER_OFFSET_MUL = 0.28; // hood.position.y = hY + hoodH*0.28
   const ROGUE_HOOD_TILT_X = -0.4;
-  function rogueHoodCoverageAt(headR, yOffset){
+  /* Phase 5: Nape Opening ―― Rogue/Berserker共通のHoodを、単純な全周
+     Cylinder(角度に依存しない円筒)から、Warrior Helm/Hawk Eye Hoodと
+     同じ「開いた弧のRing Loft」技法へ変更した。旧実装のCylinder系
+     Geometryは首元まで完全に閉じた回転体だったため、Back Hairの根元(+0.24×headR
+     付近)がHoodの内側に収まってしまい、findCoverageExitAlongStrand()が
+     見つけるHood外の区間がうなじ直下のごく短い範囲(-0.32〜-0.271×headR)
+     に限られていた ―― Ownershipとしては正しいが、Hoodのデザインが
+     「Back Hairの逃げ場」を持っていなかったことが実質的な原因。
+
+     開口は前面(Warrior Helmと同じ位置)ではなく、真後ろ(angle≈PI、
+     うなじ側)の狭い範囲だけに置く。前面はRogueのMask(鼻から下を覆う
+     布)と役割が重なるため閉じたまま維持する。開口の角度幅は
+     Back Hair 3本(中央 angle=PI、左右 angle=PI∓atan(backHalfWidth/
+     |backTipZ|)、既存定数から計算すると概ね±10.8°)を確実に含む
+     ±0.22(テンプレート単位)にしてあり、全周(360°)に対してごく
+     狭い(約7%)ノッチに留めている。Ring/Cover生成の技法自体は
+     makeWarriorBaseHelm()/warriorHelmCoverageAt()と全く同じ
+     (arcHeadwearCoverage/arcSurfaceAtの再利用)で、新しいCoverage判定
+     ロジックは追加していない。
+
+     【実装中に判明した別問題への対応】このRing Loft化の実機QA中に、
+     Rogue(およびa3d8315時点のPhase 4実装)で「Hair ShellではなくSkin
+     Head本体がHoodの外側に出る」severe回帰を発見した。原因は、Phase 4の
+     Coverage/Ownershipが一貫して検証していたのは「Hair Shell(Head×
+     HAIR_SHELL_MUL=1.09)がHeadwearより内側か」だけで、「Skin Head本体
+     (headRそのものの断面、cheekでwidthMul最大1.06)がHeadwearより内側か」
+     は一度も保証されていなかったこと。旧実装のCylinder系Geometry(hoodR=headR×
+     1.16の単純な線形テーパー)は、cheekの高さ(HeadのyFrac0.52)でheadR×
+     0.93程度まで先細っており、Head自身の1.06×headRを下回っていた
+     (実機スクショで確認、素材色ではなくSkin Head本体の色e8b98aが
+     支配的だった)。
+
+     再発防止のため、ARC_TEMPLATEの左右側面点をHead側と同じ規約
+     (headSectionPoints/headOutlineAtの「最大幅点は|x|=1.00」)に揃え、
+     RINGSのwidthMulをheadRatioAt()経由でHead自身の実測プロファイル
+     (chin/jaw/cheek/upperHead/crown)にマージン(概ね+15%、Hair Shellの
+     HAIR_SHELL_MUL=1.09さえも上回る値)を掛けた値として手計算で導出した
+     ―― Hair ShellがheadSectionPoints()を直接呼んで構造的に追従するのと
+     完全に同じ仕組みをHoodにも適用するのが理想だが、Hoodは開口・傾き・
+     独自の襟元/頭頂テーパーを持つため、今回はHeadの実測値(cheek
+     widthMul=1.06@yFrac0.52 등)をこの一覧のコメントとして明示し、値が
+     Head自身を下回らないことを手計算で保証した(将来Head側の値を変えた
+     場合はこのコメントの値と合わせて再計算が必要)。 */
+  const ROGUE_HOOD_ARC_TEMPLATE = [
+    [-0.22, -1.00],   // 後方左(開口の縁、うなじ)
+    [-1.00,  0.10],   // 左側面(Headと同じ規約: 最大幅点|x|=1.00)
+    [-0.60,  0.85],   // 前方左(顔側)
+    [ 0.00,  1.00],   // 正面中央(最前面)
+    [ 0.60,  0.85],   // 前方右(顔側)
+    [ 1.00,  0.10],   // 右側面
+    [ 0.22, -1.00],   // 後方右(開口の縁。ここと配列先頭の間は繋がない=Nape Opening)
+  ];
+  const ROGUE_HOOD_RINGS = [
+    // yFracはHood自身のローカル高さ(0=襟元, 1=頭頂)。widthMulは
+    // headRatioAt()が返すHeadの実測widthMul(chin0.38/jaw0.72/cheek1.06/
+    // upperHead0.92/crown0.60)に、対応する世界オフセットで+15%前後の
+    // マージンを掛けた値(Hair Shell以上、Headより確実に大きい)
+    { yFrac:0.000, widthMul:1.02, depthMul:1.02 },  // 下端(襟元付近、Head jaw〜cheek境界相当)
+    { yFrac:0.225, widthMul:1.22, depthMul:1.22 },  // Headのcheek高さ(widthMul1.06)+15%
+    { yFrac:0.630, widthMul:1.06, depthMul:1.06 },  // HeadのupperHead高さ(widthMul0.92)+15%
+    { yFrac:1.000, widthMul:0.12, depthMul:0.12 },  // 頭頂(先端、フードが布のように絞られる意匠を維持)
+  ];
+  /* makeRogueHood({width,depth,height}): makeWarriorBaseHelm()と同じ
+     引数規約だが、ローカルy座標はHead/Hair Shellと同じ「中心基準」
+     (-height/2〜+height/2)にしてある ―― 旧実装のCylinder系Geometryが中心原点
+     だったため、呼び出し側のposition.set()/rotation.xの値を一切変えずに
+     置き換えられるようにするため。頭頂側だけmakeLoft式のファン分割で
+     閉じ、襟元側(下端)は開いたまま(旧実装も襟元は開放だった)。 */
+  function makeRogueHood(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.60 }, opts || {});
+    const hh = o.height/2;
+    const n = ROGUE_HOOD_ARC_TEMPLATE.length;
+    const verts = [];
+    ROGUE_HOOD_RINGS.forEach(r=>{
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      ROGUE_HOOD_ARC_TEMPLATE.forEach(([fx,fz])=>{
+        verts.push(fx*hw, -hh + o.height*r.yFrac, fz*hd);
+      });
+    });
+    const idx = [];
+    for(let ri=0; ri<ROGUE_HOOD_RINGS.length-1; ri++){
+      const base = ri*n, next = (ri+1)*n;
+      for(let i=0;i<n-1;i++){
+        const a=base+i, b=base+i+1, aTop=next+i, bTop=next+i+1;
+        idx.push(a,bTop,b, a,aTop,bTop);
+      }
+    }
+    const topBase = (ROGUE_HOOD_RINGS.length-1)*n;
+    for(let i=1;i<n-1;i++) idx.push(topBase, topBase+i+1, topBase+i);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  function rogueHoodCoverageAt(headR, yOffset, angle){
     const hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
     const centerOffset = hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL;
     const effH = hoodH*Math.cos(ROGUE_HOOD_TILT_X);
     const bottomOffset = centerOffset - effH/2;
-    return cylinderHeadwearCoverage(bottomOffset, effH, headR*ROGUE_HOOD_BOTTOM_R_MUL, headR*ROGUE_HOOD_TOP_R_MUL, yOffset);
+    return arcHeadwearCoverage(ROGUE_HOOD_ARC_TEMPLATE, ROGUE_HOOD_RINGS, bottomOffset, effH, headR, headR, yOffset, angle);
   }
 
   /* ---- Archer: Cap(Cylinder)+ Peak(Cone、独立した前方の三角装飾)。
-     どちらも開口なし。CapのcenterOffset/PeakのcenterOffsetはheadR比では
-     なく既存コードのままの絶対値(0.05/0.16) ―― Geometry生成側の
-     position.set()と同じ値を使うことを優先し、この場でheadR比に「直す」
-     ことはしない(それ自体が見た目を変える変更になるため)。 */
-  const ARCHER_CAP_R_MUL = 1.12;
-  const ARCHER_CAP_TOP_R_MUL = 1.12*0.7;
-  const ARCHER_CAP_HEIGHT_MUL = 0.6;
-  const ARCHER_CAP_CENTER_OFFSET_ABS = 0.05;
+     どちらも開口なし。
+
+     Phase 5: Capの高さ・位置を見直した。旧ARCHER_CAP_HEIGHT_MUL(0.6)・
+     旧ARCHER_CAP_CENTER_OFFSET_ABS(0.05、headR比ではない絶対値)では、
+     Cap天面が実測で+0.161×headR相当にしかならず、Hair Shellの生え際
+     (+0.44×headR)にすら届いていなかった ―― Ownership自体は正しく
+     動いていたが、Capが「頭を覆う帽子」ではなく「髪の上に乗る小物」に
+     しか見えない高さ不足だった。CENTER_OFFSETをheadR相対のMULへ改め、
+     Capの天面が生え際を超えて頭頂寄り(+1.00×headR)まで届くように
+     引き上げた。ただしWarrior Helm(height×1.60、天面+1.10)ほど深く
+     はせず、「低めの縁なし帽」という既存デザイン意図は高さ・下端位置の
+     両方で保っている(下端-0.30×headRはWarrior Helmの-0.50×headRより
+     浅い)。PeakもCapの拡大に合わせて位置・前方張り出し量を見直した。
+
+     【実装中に判明した別問題への対応】Rogue Hoodの実機QAで、Phase 4の
+     Coverage/Ownershipが「Hair ShellがHeadwearより内側か」だけを検証し、
+     「Skin Head本体がHeadwearより内側か」を一度も保証していなかった
+     ことが判明した(詳細はROGUE_HOOD_RINGS側のコメント参照)。旧
+     ARCHER_CAP_R_MUL(1.12)でも、CapのcheekY相当の高さでの半径が
+     ≈1.04×headRとなり、Head自身のcheek widthMul(1.06)をわずかに
+     下回っていた。1.25へ引き上げ、同じ高さで≈1.16×headRとなるよう
+     マージンを確保した。 */
+  const ARCHER_CAP_R_MUL = 1.25;
+  const ARCHER_CAP_TOP_R_MUL = 1.25*0.7;
+  const ARCHER_CAP_HEIGHT_MUL = 1.45;              // 旧0.6 → Hair Shellの頭頂(+1.06×headR)を実際に超える高さへ(実機QAで、+1.00止まりだと steep Default Cameraから頭頂のHair Shellのわずかな残りが黒い凹みに見えることを確認して調整)
+  const ARCHER_CAP_CENTER_OFFSET_MUL = 0.425;      // 旧ARCHER_CAP_CENTER_OFFSET_ABS(絶対値0.05)を廃止、headR相対に統一。bottom≈-0.30×headR(変更前と同じ)、top≈+1.15×headR
   const ARCHER_PEAK_R_MUL = 0.85;
-  const ARCHER_PEAK_HEIGHT_ABS = 0.3;
-  const ARCHER_PEAK_CENTER_OFFSET_ABS = 0.16;
+  const ARCHER_PEAK_HEIGHT_MUL = 0.40;             // 旧ARCHER_PEAK_HEIGHT_ABS(絶対値0.3)を廃止、headR相対に統一
+  const ARCHER_PEAK_CENTER_OFFSET_MUL = 0.75;      // 旧ARCHER_PEAK_CENTER_OFFSET_ABS(絶対値0.16)を廃止。実機QAで眉の高さ(0.05/0.40)だとDefault Game Cameraの見下ろし角度では顔・肩に隠れて不可視だったため、Capの上寄り(天面に近い高さ、そこはCap自体の半径がTOP_R_MUL側へ絞られていく途中)まで引き上げ、見下ろしカメラで背景に対して輪郭が見えるようにした
+  const ARCHER_PEAK_FRONT_Z_MUL = 0.45;            // 新規: Peakの前方張り出し量(headR比)。旧実装は0.02固定でほぼ前へ出ていなかった
   function archerCapCoverageAt(headR, yOffset){
     const capH = headR*ARCHER_CAP_HEIGHT_MUL;
     const cap = cylinderHeadwearCoverage(
-      ARCHER_CAP_CENTER_OFFSET_ABS - capH/2, capH,
+      headR*ARCHER_CAP_CENTER_OFFSET_MUL - capH/2, capH,
       headR*ARCHER_CAP_R_MUL, headR*ARCHER_CAP_TOP_R_MUL, yOffset);
+    const peakH = headR*ARCHER_PEAK_HEIGHT_MUL;
     const peak = cylinderHeadwearCoverage(
-      ARCHER_PEAK_CENTER_OFFSET_ABS - ARCHER_PEAK_HEIGHT_ABS/2, ARCHER_PEAK_HEIGHT_ABS,
+      headR*ARCHER_PEAK_CENTER_OFFSET_MUL - peakH/2, peakH,
       headR*ARCHER_PEAK_R_MUL, 0, yOffset);
     // Cap/Peakを合成したUnion Coverage: どちらも「そのY方向に実際に存在
     // するSurfaceの半径」に変換した後で比較しているため、単純な
@@ -1214,7 +1328,7 @@
     const headR = o.width;
     switch(classKey){
       case 'warrior': return warriorHelmCoverageAt(headR, yOffset, angle);
-      case 'rogue':   return rogueHoodCoverageAt(headR, yOffset);
+      case 'rogue':   return rogueHoodCoverageAt(headR, yOffset, angle);
       case 'archer':  return archerCapCoverageAt(headR, yOffset);
       case 'mage':    return mageHatCoverageAt(headR, yOffset, angle);
       default:        return { state:'NONE', surfaceRadius:null };
