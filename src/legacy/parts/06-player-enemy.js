@@ -1224,11 +1224,20 @@
         makeArcherBrim(headR*ARCHER_BRIM_RADIUS_MUL, ARCHER_BRIM_THICKNESS), clothMat);
       brim.position.set(0, hY+headR*ARCHER_BRIM_Y_OFFSET_MUL, HEAD_BACK_Z);
       brim.castShadow = true; group.add(brim);
-      // Phase 9: Hawk Eye再設計フェーズ。昇格時にCap/CapTop/Peak/Brimを
-      // 隠して専用Deep Hoodへ差し替えるための参照(battleKnightの
-      // warriorBaseDecorと同じ「差分方式」)。Archer自身の見た目・
-      // Coverageには一切影響しない ―― ここでは参照を配列に集めるだけ
-      const archerCapDecor = [cap, capTop, brim];
+      // ユーザー指摘:「鷹の目の方が下位職っぽい見た目になってしまってる」
+      // 「帽子のつばの透過はあまり意味なく輪郭自体は残ってる。つばハマった
+      // 方がいいので目にめり込まないように上にシフトして存在させて」
+      // Root Cause: 旧実装ではBrimもarcherCapDecorに含めてHawk Eye昇格時に
+      // 完全非表示にしていたため、AddOutline()のアウトラインシェル(輪郭線)
+      // だけがGeometry上に残る「実体の無い縁取り」に見えていた。Brimは
+      // archerCapDecorから外し、Hawk Eyeでも実体として存在させたまま、
+      // 昇格時にY位置とMaterialだけ差し替える(下記hawkEye昇格処理参照)
+      playerMixerParts.archerBrim = brim;
+      // Phase 9: Hawk Eye再設計フェーズ。昇格時にCap/CapTop/Peakを隠して
+      // 専用Deep Hoodへ差し替えるための参照(battleKnightのwarriorBaseDecor
+      // と同じ「差分方式」)。Archer自身の見た目・Coverageには一切影響しない
+      // ―― ここでは参照を配列に集めるだけ(Brimは上記の理由で含めない)
+      const archerCapDecor = [cap, capTop];
       // Phase 6: PeakをDefault Game Camera(ほぼ真上からの見下ろし)でも
       // 視認できる向きへ改めた。ConeGeometryはローカル+Y(鉛直)に頂点を
       // 向ける ―― Phase 5まではこの軸を変えずに位置だけ調整していたため、
@@ -1258,8 +1267,8 @@
       // Rogueのmakeロジックと全く同じ形状(makeRogueMask、makeLoft3段の
       // 低ポリ布)を再利用し、Position式もRogueと同一(Head基準、Cap/Hoodの
       // 高さには依存しない)にしてある。ただしarcherCapDecorには入れない
-      // ―― Hawk Eyeへ昇格してもCap/CapTop/Peak/Brimだけを隠しHoodへ
-      // 差し替える一方、マスクはArcher段階で生成されたまま引き継がれる
+      // ―― Hawk Eyeへ昇格してもCap/CapTop/Peakだけを隠しHoodへ差し替える
+      // 一方、マスクはArcher段階で生成されたまま引き継がれる
       // (Bangs停止の仕組みと同じ「Archerで作ったものをHawk Eyeが継承する」
       // 構造)。素材色はRogueの黒(0x1c1a20、覆面の暗殺者)ではなく、
       // 既存のarcherCollar(毛皮襟)と同じ配色(0xa89068系の革)にして、
@@ -2287,6 +2296,28 @@
       hood.position.set(0, hoodBottomY, HEAD_BACK_Z);
       hood.castShadow = true;
       P.waist.add(hood); meshes.push(hood);
+      // ユーザー指摘:「鷹の目の方が下位職っぽい見た目になってしまってる。
+      // 帽子のつばの透過はあまり意味なく輪郭自体は残ってる。つばハマった
+      // 方がいいので目にめり込まないように上にシフトして存在させて」
+      // Archer段階で作ったBrim(P.archerBrim、buildPlayer側でarcherCapDecor
+      // には含めず参照だけ保持済み)をHawk Eyeでも実体として存在させたまま、
+      // Y位置とMaterialだけHood向けに差し替える。CapのGeometry/Brim自体の
+      // Geometryは変更しない。
+      // Y位置: 実機ではデフォルトのほぼ真上からの見下ろしカメラのため、
+      // Brim(半径headR*1.85の一枚板)はY差がそのまま前方への占有面積に
+      // 変換されにくく、Eyeの高さ(headYLocal+0.02)に対してわずかな
+      // マージンだと前方へ張り出す縁がEyeの真上に重なって見えてしまう
+      // (Mesh Ownership Debugで確認: HAWKEYE_HOOD_RINGS[2]の開口上端
+      // 相当のY(headYLocal+0.37headR)ではまだ目の縁にかかっていた)。
+      // Eyeが明瞭にBrimの外(下)に出る値を実機で確認し、+0.42headRに
+      // 決定した
+      if(P.archerBrim){
+        const brimY = headYLocal + B.headR*0.42;
+        P.archerBrim.position.set(0, brimY, HEAD_BACK_Z);
+        // ArcherのclothMat(カーキ)のままだと濃い緑のHoodと配色が合わず
+        // 浮くため、Hood本体と同じhoodMat(uj.capeColor)へ差し替える
+        P.archerBrim.material = hoodMat;
+      }
       // Phase 9: 額のひさし(Wedge、Warrior/Battle Knightのbrowと同じ技法)。
       // Loft(makeHawkEyeHood)自体はEye可視性を保証するテスト付きの既存
       // 形状のため変更せず、代わりに前方へ張り出す薄いくさびを重ねて額の
