@@ -1838,8 +1838,18 @@
   const STANCE = {
     warrior: {            // greatsword shouldered, blade slung back over the right
       waist:[0.03,-0.14,0.02],
-      shL:[-0.28, 0.12, 0.66], elL:-1.95,
-      shR:[ 0.20,-0.06,-0.22], elR:-2.30,
+      // Phase 10 Priority 1-A: 両手持ち構えでUpper Arm(円柱)がTorsoの
+      // シルエットへ深く重なって見える問題(実機QAで確認)への対処。
+      // grip:'BOTH'自体・武器のサイズ/Geometry・Torso幅は変更しない。
+      // shL.z(左肩の内向き回転)を0.66→0.56、shR.z(右肩の内向き回転、
+      // 負値ほど内側)を-0.22→-0.14へそれぞれ弱め、両腕が胸中心へ
+      // 寄り切る量を減らした。shL.x/shR.xをわずかに前方(負方向)へ
+      // 振り、握り位置を胸面よりも少し前方へ逃がしている。elL/elRも
+      // 深すぎる折り畳みを少し緩め、Forearmが胸内部へ埋まる量を減らした
+      // ―― いずれも「両手で大剣を構えている」という読み取りを保った
+      // ままの最小限の調整(Shoulder Pivot Positionは変更していない)
+      shL:[-0.34, 0.12, 0.56], elL:-1.82,
+      shR:[ 0.22,-0.06,-0.14], elR:-2.16,
       wep:[0.340,0.740,-0.580,-0.479,0.667,0.570],
       hipL:0.05, hipR:-0.05, kneeL:0.07, kneeR:0.07,
       grip:'BOTH', armSwing:0.22, tip:1.55
@@ -1873,8 +1883,14 @@
   };
 
   // where the weapon's origin sits relative to the hand carrying it
+  // Phase 10 Priority 1-A: warriorのZを0.02→0.07へ(武器の握り位置を胸面
+  // からわずかに前方へ)。武器はhandL/handRの実座標から毎フレーム
+  // 再計算される(updateGrip())ため、この値だけではArm自体の位置/
+  // 貫通は変わらない ―― STANCE.warrior側のshL/shR/elL/elR調整(上記)が
+  // Arm/Torso Intersectionの本体の対処、これは武器の見え方をその新しい
+  // 腕の構えに合わせて微調整するだけ
   const GRIP_OFFSET = {
-    warrior:[0, 0.02, 0.02], rogue:[0, 0.02, 0.03],
+    warrior:[0, 0.02, 0.07], rogue:[0, 0.02, 0.03],
     mage:[0,-0.06, 0.02],    archer:[0, 0.02, 0.03]
   };
 

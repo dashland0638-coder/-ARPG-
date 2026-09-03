@@ -1101,12 +1101,15 @@
       // ここにあった魔法使い専用の球ジオメトリ製の前髪(SphereGeometry3個)は
       // 削除した ―― 残すと共通Bangsと同じ位置に二重に表示されてしまうため。
       // 髪色(hairColor)は共通Bangs側にそのまま引き継がれている
-      // long flared sleeves over the arms
-      [-1,1].forEach(s=>{
-        const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.21,0.4,10), clothMat);
-        sleeve.position.set(s*(bodyR+0.12), HIP_Y+bodyH*0.5, 0);
-        group.add(sleeve);
-      });
+      // Phase 10 Priority 1-B: 長い袖(sleeve)はここでは生成しない ――
+      // 旧実装はgroup直下の固定座標(HIP_Y+bodyH*0.5)に置いていたため、
+      // STANCE.mageの腕の回転(shL/shR)に一切追従せず、実際のArm/Handが
+      // 動くと袖だけがその場に取り残され、手がローブの横腹から唐突に
+      // 出現しているように見えていた(実機QAで確認、Archmageも同一
+      // 問題)。Geometry(CylinderGeometry 0.1→0.21、長さ0.4)は変更せず、
+      // 肩ピボット(armL/armR、以下の腕構築コードで生成される)の子として
+      // Upper Armと同じローカル位置に付け直す ―― 詳細は腕構築コード側の
+      // 「Phase 10 Priority 1-B」コメント参照
       // robe hem widening to the floor
       const robe = new THREE.Mesh(new THREE.CylinderGeometry(bodyR*0.98, bodyR*1.5, 0.62, 12), clothMat);
       robe.position.y = 0.42; robe.castShadow = true; group.add(robe);
@@ -1298,6 +1301,29 @@
     playerMixerParts.elbowR = elbowR;
     playerMixerParts.handL = handL;
     playerMixerParts.handR = handR;
+
+    /* Phase 10 Priority 1-B: Mage/Archmageの長い袖(sleeve)。旧実装は
+       group直下の固定座標に置かれ、腕の実際の回転(STANCE.mage)に一切
+       追従しなかった(詳細は上のclassDef.key==='mage'ブロック側の
+       コメント参照)。ここでは肩ピボット(armL/armR、'候補2'のシルエット:
+       Shoulder Pivotの直接の子としてUpper Armと並列に置く ―― Forearm/
+       Elbowの階層は変更しない)の子にし、Upper Armと全く同じローカル
+       位置(y=-0.16)へ揃える。これにより肩の回転(shL/shR)には完全に
+       追従し、肘の折り畳み(elL/elR)までは追従しない(候補1ほど厳密では
+       ない)が、既存のElbow/Forearm階層には一切手を入れずに済み、
+       実機QAで「腕からいきなり手だけが生えて見える」問題を十分に解消
+       できることを確認した(詳細はVisual QA参照)。Geometry
+       (CylinderGeometry、半径0.1→0.21、長さ0.4)自体は変更していない。
+       X位置は肩ピボット自身が既に左右オフセット済みのローカル座標系の
+       ため0(Upper Armと同じ)にしている。 */
+    if(classDef.key === 'mage'){
+      [armL, armR].forEach(sh=>{
+        const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.21,0.4,10), clothMat);
+        sleeve.position.set(0, -0.16, 0);
+        sleeve.castShadow = true;
+        sh.add(sleeve);
+      });
+    }
 
     // class stance, straight out of the choreography table
     {
