@@ -1450,7 +1450,32 @@
      Peakの前後長の中心を意味するため、Cap前面の実測半径(yFrac0.75
      付近で≈0.979×headR)+新しい長さの半分(0.30)から1.28へ再計算した
      (Cap側の値=ARCHER_CAP_*は今回変更していない)。 */
-  const ARCHER_PEAK_R_MUL = 0.38;
+  /* Phase 13-D Root Cause: ConeGeometry(radialSegments=4)は、rotation.x=
+     PI/2で前方(+Z)へ倒した後、根本側(旧Peak中心Z=Cap前面ちょうど)の
+     4頂点断面がFront視点で菱形として見える。ARCHER_PEAK_FRONT_Z_MUL
+     (1.28)は「Peak中心=Cap前面(≈0.979×headR)+長さの半分」という、
+     Capが全周閉じていた(Phase 12-B以前の)前提で調整された値で、根本
+     (菱形の断面)がCap前面ちょうどに来るよう意図的に設計されており、
+     Capが閉じている間はCap自体の陰に隠れて見えなかった。Phase 12-Bで
+     CapにFace Openingが追加されたことで、この根本の断面がそのまま開口
+     越しに見えるようになった(Phase 13-C/13-D接写調査で実機確認、Hawk
+     EyeはPeak自体がarcherCapDecor経由で非表示のため発生しない)。
+
+     Position(ARCHER_PEAK_FRONT_Z_MUL)を後退させる案を実機検証したが、
+     根本をCap前面から奥へ十分離す(菱形をHead本体の陰に隠す)には
+     Peakの前後長の半分近くまで後退させる必要があり、その量ではSideから
+     見た「鳥の嘴」の前方への突き出しがほぼ消えてしまうことを確認した
+     (Front/Side両方を接写比較、Sideでの嘴シルエット消失を確認)。
+     Position/Rotation/Y位置/前後長(HEIGHT_MUL)・Cap前面のZは一切
+     変更せず、菱形の一辺の長さそのものである半径(ARCHER_PEAK_R_MUL)
+     だけを絞ることにした ―― Cone Apexは半径に依存しない単一点のため、
+     この変更はApexの位置・前後長・Sideから見た輪郭の「長さ」には
+     影響せず、菱形(根本の断面積)だけを縮小できる。Coverage System
+     (archerCapCoverageAt/cylinderHeadwearCoverage)はPeakのY範囲・半径
+     を見ているため、半径を絞るとCoverage判定上のPeak有効範囲もわずかに
+     縮む方向に動くが、Cap側のFace Opening判定(Bangs等が経由する部分)
+     には影響しない(Peak Coverageは他クラスのCoverage判定と独立)。 */
+  const ARCHER_PEAK_R_MUL = 0.22;                  // Phase 13-D: 0.38→0.22。根本の菱形を縮小(Apex/前後長/Positionは不変)
   const ARCHER_PEAK_HEIGHT_MUL = 0.60;             // 前方へ倒した後の前後長(headR比)
   const ARCHER_PEAK_CENTER_OFFSET_MUL = 0.75;      // Y位置は既存のまま維持
   const ARCHER_PEAK_FRONT_Z_MUL = 1.28;            // Cap前面(≈0.979×headR)+長さの半分(0.30)
