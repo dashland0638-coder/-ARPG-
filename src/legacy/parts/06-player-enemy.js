@@ -691,7 +691,11 @@
     const headOut = (yFrac) => headOutlineAt(HEAD_DIMS, yFrac);
 
     // ---- Hair Shell(旧Hair Cap): Headの外殻。原点・引数はHead本体と同一 ----
-    const hair = new THREE.Mesh(makeCharacterHairShell(HEAD_DIMS), hairMat);
+    // classKeyを渡すことで、makeCharacterHairShell()内部でHeadwear
+    // Coverageを参照し、Headwearが存在する(Y,angle)ではHairの生成半径
+    // 自体をHeadwear Surfaceの内側に収める(Geometry生成後の頂点クランプ
+    // ではない ―― 詳細はhairShellPointAt()のコメント参照)
+    const hair = new THREE.Mesh(makeCharacterHairShell({...HEAD_DIMS, classKey: classDef.key}), hairMat);
     hair.position.set(0, head.position.y, HEAD_BACK_Z);
     hair.castShadow = true;
     group.add(hair);
@@ -709,7 +713,6 @@
     // さらに前に出さないと房として視認できない(1.06ではMesh識別Debugで
     // 細い線にしかならず、装飾として機能していなかった)。
     const BANG_FRONT_MUL = 1.18;
-    const bangRootY = head.position.y + hairlineOut.y;
     const bangMeshes = [];
     [
       { x:0,             tipYFrac:0.550, rootR:headR*0.20, tipR:headR*0.090, tiltZ: 0.00 },
@@ -717,10 +720,20 @@
       { x: headR*0.42,   tipYFrac:0.585, rootR:headR*0.18, tipR:headR*0.080, tiltZ: 0.18 },
     ].forEach(b=>{
       const tipOut = headOut(b.tipYFrac);
+      const bangZ = tipOut.frontZ*BANG_FRONT_MUL;
+      const bangAngle = Math.atan2(b.x, bangZ);
+      // Headwear Coverage: rootは本来生え際(hairlineOut.y)だが、将来の
+      // Full Face Helm/Mask等でその領域がHEADWEARになった場合に備え、
+      // Strandが伸びる方向(root→tip)に沿ってHEADWEARから抜け出す境界を
+      // 探索し、そこを実際のrootにする(現状4クラスはFace Openingの
+      // ためほぼ無変更のはず ―― Phase 5 QAで確認する)
+      const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, bangAngle, tipOut.y, hairlineOut.y);
+      if(exit.covered) return;   // Bangs全体がHeadwearの内側 ―― 生成しない
       const tipY = head.position.y + tipOut.y;
+      const rootY = head.position.y + exit.y;
       const bang = new THREE.Mesh(
-        makeHairBang({rootR:b.rootR, tipR:b.tipR, length:bangRootY-tipY}), hairMat);
-      bang.position.set(b.x, tipY, tipOut.frontZ*BANG_FRONT_MUL + HEAD_BACK_Z);
+        makeHairBang({rootR:b.rootR, tipR:b.tipR, length:rootY-tipY}), hairMat);
+      bang.position.set(b.x, tipY, bangZ + HEAD_BACK_Z);
       bang.rotation.z = b.tiltZ;
       bang.castShadow = true;
       group.add(bang);
@@ -736,14 +749,21 @@
     const SIDE_ROOT_YFRAC = 0.70, SIDE_TIP_YFRAC = 0.28, SIDE_OUT_MUL = 1.10;
     const sRootOut = headOut(SIDE_ROOT_YFRAC), sTipOut = headOut(SIDE_TIP_YFRAC);
     const sideRootX = sRootOut.halfWidth*SIDE_OUT_MUL, sideTipX = sTipOut.halfWidth*SIDE_OUT_MUL;
-    const sideLen = sRootOut.y - sTipOut.y;
-    const sideTilt = Math.atan2(sideRootX - sideTipX, sideLen);   // 上ほど外へ開く角度
+    const sideLenFull = sRootOut.y - sTipOut.y;
+    const sideTilt = Math.atan2(sideRootX - sideTipX, sideLenFull);   // 上ほど外へ開く角度(anatomical root/tip基準、Coverageで短縮しても向きはこのまま)
+    const sideZ = (sRootOut.sideZ + sTipOut.sideZ)/2;
     const sideHairMeshes = [];
     [-1, 1].forEach(s=>{
+      const angle = Math.atan2(s*sideTipX, sideZ);
+      // root(頬上部)がHeadwear Coverageの内側にある場合、Strandが伸びる
+      // 方向(root→tip)に沿ってHEADWEARから抜け出す境界を探し、そこを
+      // 実際のrootにする(rootを単純にHeadwear下端まで下げるのではない)
+      const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, angle, sTipOut.y, sRootOut.y);
+      if(exit.covered) return;   // Side Hair全体がHeadwearの内側 ―― 生成しない
+      const sideLen = exit.y - sTipOut.y;
       const sideHair = new THREE.Mesh(
         makeHairBang({rootR:headR*0.20, tipR:headR*0.105, length:sideLen}), hairMat);
-      sideHair.position.set(s*sideTipX, head.position.y + sTipOut.y,
-                            (sRootOut.sideZ + sTipOut.sideZ)/2 + HEAD_BACK_Z);
+      sideHair.position.set(s*sideTipX, head.position.y + sTipOut.y, sideZ + HEAD_BACK_Z);
       sideHair.rotation.set(0, 0, -s*sideTilt);
       sideHair.castShadow = true;
       group.add(sideHair);
@@ -758,15 +778,21 @@
        置く。後頭部も上ほど深いテーパーに合わせて傾きを実寸から計算。 */
     const BACK_ROOT_YFRAC = 0.62, BACK_TIP_YFRAC = 0.34, BACK_OUT_MUL = 1.08;
     const bRootOut = headOut(BACK_ROOT_YFRAC), bTipOut = headOut(BACK_TIP_YFRAC);
-    const backLen = bRootOut.y - bTipOut.y;
+    const backLenFull = bRootOut.y - bTipOut.y;
     const backRootZ = bRootOut.backZ*BACK_OUT_MUL, backTipZ = bTipOut.backZ*BACK_OUT_MUL;
-    const backTilt = Math.atan2(backTipZ - backRootZ, backLen);   // 上ほど後方へ
+    const backTilt = Math.atan2(backTipZ - backRootZ, backLenFull);   // 上ほど後方へ(anatomical root/tip基準)
     const backHairMeshes = [];
     [
       { xMul: 0.00, rootR:headR*0.155, tipR:headR*0.075 },
       { xMul:-1.00, rootR:headR*0.130, tipR:headR*0.060 },
       { xMul: 1.00, rootR:headR*0.130, tipR:headR*0.060 },
     ].forEach(b=>{
+      const angle = Math.atan2(b.xMul*bTipOut.backHalfWidth, backTipZ);
+      // root(生え際下)がHeadwear Coverageの内側にある場合、Strandが
+      // 伸びる方向(root→tip)に沿ってHEADWEARから抜け出す境界を探す
+      const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, angle, bTipOut.y, bRootOut.y);
+      if(exit.covered) return;   // Back Hair全体がHeadwearの内側 ―― 生成しない
+      const backLen = exit.y - bTipOut.y;
       const backHair = new THREE.Mesh(
         makeHairBang({rootR:b.rootR, tipR:b.tipR, length:backLen}), hairMat);
       backHair.position.set(b.xMul*bTipOut.backHalfWidth, head.position.y + bTipOut.y,
@@ -841,9 +867,12 @@
       // 最もFacet(7角形×3リング)の稜線・平面の境目が明瞭で、暗部も黒潰れ
       // せず、かつ適度な金属光沢が残るCandidate Aを採用した
       const warriorHelmMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.55, metalness:0.12});
-      const helmBottomY = hY - headR*0.50;
+      // helmBottomY/heightはwarriorHelmCoverageAt()(05-rendering-rig.js)
+      // と同じWARRIOR_HELM_BOTTOM_OFFSET_MUL/WARRIOR_HELM_HEIGHT_MULを
+      // 使う ―― Geometry生成とCoverage判定が同じ値を共有するため
+      const helmBottomY = hY + headR*WARRIOR_HELM_BOTTOM_OFFSET_MUL;
       const helm = new THREE.Mesh(
-        makeWarriorBaseHelm({width:headR, depth:headR, height:headR*1.60}), warriorHelmMat);
+        makeWarriorBaseHelm({width:headR, depth:headR, height:headR*WARRIOR_HELM_HEIGHT_MUL}), warriorHelmMat);
       // Head/Posture Alignment再設計フェーズ: Helm一式(helm/visor/crest/
       // collar/tail/furBase/spike)にもHEAD_BACK_Zを適用し、Headと一緒に
       // 後方へ。Headだけ後退してHelmが元の位置に取り残される事故を防ぐ
@@ -959,12 +988,14 @@
       // だが、後方へ深く垂れ下がる向きに傾け、素材も布(clothAcc)にして
       // 「軽い布のフード」と「重い金属の兜」を作り分けている
       const hoodSegs = 7;
-      const hoodR = headR*1.16, hoodH = headR*1.5;
+      // rogueHoodCoverageAt()(05-rendering-rig.js)と同じROGUE_HOOD_*
+      // 定数を使う ―― Geometry生成とCoverage判定が同じ値を共有するため
+      const hoodR = headR*ROGUE_HOOD_BOTTOM_R_MUL, hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
       // Head/Posture Alignment再設計フェーズ: Hood/HoodCap/MaskにもHEAD_BACK_Z
       // を適用し、Headと一緒に後方へ
-      const hood = new THREE.Mesh(new THREE.CylinderGeometry(hoodR*0.1, hoodR, hoodH, hoodSegs, 1, true), clothAcc);
-      hood.rotation.x = -0.4;   // 後方へ深く垂らす(硬い兜の「まっすぐ立つ」向きと対照的)
-      hood.position.set(0, hY+hoodH*0.28, -headR*0.22 + HEAD_BACK_Z);
+      const hood = new THREE.Mesh(new THREE.CylinderGeometry(headR*ROGUE_HOOD_TOP_R_MUL, hoodR, hoodH, hoodSegs, 1, true), clothAcc);
+      hood.rotation.x = ROGUE_HOOD_TILT_X;   // 後方へ深く垂らす(硬い兜の「まっすぐ立つ」向きと対照的)
+      hood.position.set(0, hY+hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL, -headR*0.22 + HEAD_BACK_Z);
       hood.castShadow = true; group.add(hood);
       const hoodCap = new THREE.Mesh(new THREE.CircleGeometry(hoodR*0.1, hoodSegs), clothAcc);
       hoodCap.rotation.x = -Math.PI/2 - 0.4;
@@ -1033,10 +1064,13 @@
       // 大きさ・「魔法使いらしさ」は変えていない
       // Head/Posture Alignment再設計フェーズ: Brim/Cone/BandにもHEAD_BACK_Z
       // を適用し、Headと一緒に後方へ(帽子だけHeadに取り残さない)
-      const brim = new THREE.Mesh(makeMageHatBrim(headR*1.95, 0.04), hatMatBrim);
-      brim.position.set(0, hY+headR*0.55, HEAD_BACK_Z); brim.castShadow = true; group.add(brim);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*1.25, 0.62, 7), hatMatCone);
-      cone.position.set(0, hY+headR*0.55+0.31, HEAD_BACK_Z);
+      // mageHatCoverageAt()(05-rendering-rig.js)と同じMAGE_BRIM_*/
+      // MAGE_CONE_*定数を使う ―― Geometry生成とCoverage判定が同じ値を
+      // 共有するため
+      const brim = new THREE.Mesh(makeMageHatBrim(headR*MAGE_BRIM_RADIUS_BASE_MUL, MAGE_BRIM_THICKNESS), hatMatBrim);
+      brim.position.set(0, hY+headR*MAGE_BRIM_Y_OFFSET_MUL, HEAD_BACK_Z); brim.castShadow = true; group.add(brim);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*MAGE_CONE_R_MUL, MAGE_CONE_HEIGHT_ABS, 7), hatMatCone);
+      cone.position.set(0, hY+headR*MAGE_CONE_CENTER_OFFSET_MUL+MAGE_CONE_HEIGHT_ABS/2, HEAD_BACK_Z);
       cone.rotation.set(-0.16, 0, 0.1); cone.castShadow = true; group.add(cone);
       const band = new THREE.Mesh(new THREE.TorusGeometry(headR*1.2, 0.035, 8, 14), clothAcc);
       band.rotation.x = Math.PI/2;
@@ -1090,16 +1124,19 @@
       // 上面キャップ(戦騎士の兜と同じ技法)に置き換え、角ばった狩人帽の
       // 輪郭にした
       const capSegs = 7;
-      const capR = headR*1.12, capH = headR*0.6;
+      // archerCapCoverageAt()(05-rendering-rig.js)と同じARCHER_CAP_*/
+      // ARCHER_PEAK_*定数を使う ―― Geometry生成とCoverage判定が同じ値を
+      // 共有するため
+      const capR = headR*ARCHER_CAP_R_MUL, capH = headR*ARCHER_CAP_HEIGHT_MUL;
       // Head/Posture Alignment再設計フェーズ: Cap/CapTop/PeakにもHEAD_BACK_Z
       // を適用し、Headと一緒に後方へ
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(capR*0.7, capR, capH, capSegs, 1, true), clothMat);
-      cap.position.set(0, hY+0.05, HEAD_BACK_Z); cap.castShadow = true; group.add(cap);
-      const capTop = new THREE.Mesh(new THREE.CircleGeometry(capR*0.7, capSegs), clothMat);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(headR*ARCHER_CAP_TOP_R_MUL, capR, capH, capSegs, 1, true), clothMat);
+      cap.position.set(0, hY+ARCHER_CAP_CENTER_OFFSET_ABS, HEAD_BACK_Z); cap.castShadow = true; group.add(cap);
+      const capTop = new THREE.Mesh(new THREE.CircleGeometry(headR*ARCHER_CAP_TOP_R_MUL, capSegs), clothMat);
       capTop.rotation.x = -Math.PI/2;
-      capTop.position.set(0, hY+0.05+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop);
-      const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*0.85, 0.3, 4), clothMat);
-      peak.position.set(0, hY+0.16, 0.02 + HEAD_BACK_Z); peak.rotation.y = Math.PI/4; group.add(peak);
+      capTop.position.set(0, hY+ARCHER_CAP_CENTER_OFFSET_ABS+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop);
+      const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*ARCHER_PEAK_R_MUL, ARCHER_PEAK_HEIGHT_ABS, 4), clothMat);
+      peak.position.set(0, hY+ARCHER_PEAK_CENTER_OFFSET_ABS, 0.02 + HEAD_BACK_Z); peak.rotation.y = Math.PI/4; group.add(peak);
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
       // 上げた際(#39系「参考画像のような頭身に」)、見下ろし視点の
       // カメラ角度では前方へ張り出す水平な板が必ず目の上に重なって見える

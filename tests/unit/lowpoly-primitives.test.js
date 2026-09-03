@@ -1286,8 +1286,8 @@ test('Head / Posture Alignment再設計フェーズ: HEAD_BACK_Zの妥当性・�
     };
     checkNear('head.position.z = HEAD_BACK_Z', 'Head本体');
     checkNear('hair.position.set(0, head.position.y, HEAD_BACK_Z)', 'Hair Shell');
-    checkNear('makeWarriorBaseHelm({width:headR, depth:headR, height:headR*1.60})', 'Warrior Helm');
-    checkNear('makeMageHatBrim(headR*1.95, 0.04)', 'Mage Brim');
+    checkNear('makeWarriorBaseHelm({width:headR, depth:headR, height:headR*WARRIOR_HELM_HEIGHT_MUL})', 'Warrior Helm');
+    checkNear('makeMageHatBrim(headR*MAGE_BRIM_RADIUS_BASE_MUL, MAGE_BRIM_THICKNESS)', 'Mage Brim');
     checkNear('makeHawkEyeHood({width:B.headR*1.25', 'Hawk Eye Hood');
   });
 

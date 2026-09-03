@@ -1013,6 +1013,243 @@
   }
 
   /* =========================================================
+     Headwear ↔ Hair Ownership: 共通Coverage API
+
+     Head/Hair Assembly構造修正(Hair Shell = Head断面×HAIR_SHELL_MUL)は
+     「HairがHeadより外側」だけを保証し、Headwear(Warrior Helm/Rogue
+     Hood/Archer Cap/Mage Hat)との関係を一切見ていなかった。各Headwearは
+     独立した半径・Ring定義で作られているため、同じY・Angleで
+     Hair Surface RadiusがHeadwear Surface Radiusを超える領域が実在する
+     (Mesh Ownership Debugで確認済み: Warriorは頭頂〜側頭部で部分的に、
+     Rogue/Archerは先細るHood/Capの先端でHair Shellの頭頂に完全に埋没、
+     Mageは現状Hair<Hatが成立していて問題は未確認)。
+
+     ここではHeadwearごとに「そのY・Angle方向に実際に存在するSurface
+     Radius」を返す関数を、各Headwearの生成に使っている既存定数
+     (WARRIOR_HELM_RINGS/ARC_TEMPLATE、HAWKEYE_HOOD_*、MAGE_BRIM_
+     RADIUS_MUL、Rogue Hood/Archer Cap・Peak/Mage Coneの既存radius/height)
+     から直接導出する。新しいクラス別の手打ち補正値(WARRIOR_HAIR_FIX_Y
+     のような今回専用の定数)は追加しない ―― Geometry生成に使っている
+     値と、Coverage判定に使う値を完全に同じ定数にすることで、片方を
+     変えればもう片方も自動的に追従する。
+
+     yOffsetはheadOutlineAt()と同じ単位(Head中心=hYからの世界オフセット、
+     headR比ではなく実際のワールド距離)。angleはHead中心を基準にした
+     Local Space連続角度(atan2(x,z)、+Z=正面が0)。 */
+
+  // 角度を(-PI, PI]へ正規化。±PIの境界をまたぐ判定を単純な
+  // angle>start && angle<end で行うと誤判定するため、以降の判定は必ず
+  // このnormalizeAngle/angleDelta経由で行う
+  function normalizeAngle(a){
+    a = a % (Math.PI*2);
+    if(a > Math.PI) a -= Math.PI*2;
+    if(a < -Math.PI) a += Math.PI*2;
+    return a;
+  }
+  // aからbへの符号付き最短角度差、(-PI,PI]
+  function angleDelta(a, b){
+    return normalizeAngle(b - a);
+  }
+  /* arcSurfaceAt(template, hw, hd, angle, closed): WARRIOR_HELM_ARC_
+     TEMPLATE/HAWKEYE_HOOD_ARC_TEMPLATEのような「開いた弧」のテンプレート
+     (最後→最初の点の間だけ面を張らない、makeWarriorBaseHelm()と同じ
+     規約)を使って、指定角度(atan2(x,z)基準)にHeadwear Surfaceが存在
+     するか・存在するなら原点からの実際の半径はいくつかを返す。
+     テンプレートの各点を(hw,hd)で実寸化し、隣接点間(0..n-2、Geometryで
+     実際に面を張っている辺と同じ範囲。closed=trueならn-1→0の辺も含める
+     ―― Mage Brimのような開口のない全周Headwear用)をangleDeltaで円環
+     安全に判定する(単純なangle>start && angle<endではなく、境界(±PI)を
+     またぐ場合も正しく扱う)。 */
+  function arcSurfaceAt(template, hw, hd, angle, closed){
+    const n = template.length;
+    const pts = template.map(([fx, fz]) => {
+      const x = fx*hw, z = fz*hd;
+      return { angle: Math.atan2(x, z), radius: Math.hypot(x, z) };
+    });
+    const edges = closed ? n : n-1;
+    for(let i=0; i<edges; i++){
+      const a = pts[i], b = pts[(i+1)%n];
+      const span = angleDelta(a.angle, b.angle);
+      if(Math.abs(span) < 1e-9) continue;
+      const off = angleDelta(a.angle, angle);
+      const t = off/span;
+      if(t >= -1e-6 && t <= 1+1e-6){
+        return { inArc:true, radius: a.radius + (b.radius - a.radius)*t };
+      }
+    }
+    return { inArc:false, radius:null };
+  }
+  // ring配列(既存のWARRIOR_HELM_RINGS/HAWKEYE_HOOD_RINGSと同じ形
+  // {yFrac,widthMul,depthMul})から、任意のyFracでの{widthMul,depthMul}を
+  // 線形補間する(headRatioAt()のHeadwear版、同じ考え方)
+  function ringRatioAt(rings, yFrac){
+    if(yFrac <= rings[0].yFrac) return rings[0];
+    for(let i=0;i<rings.length-1;i++){
+      const a=rings[i], b=rings[i+1];
+      if(yFrac <= b.yFrac){
+        const t = (yFrac-a.yFrac)/(b.yFrac-a.yFrac);
+        return { widthMul:a.widthMul+(b.widthMul-a.widthMul)*t, depthMul:a.depthMul+(b.depthMul-a.depthMul)*t };
+      }
+    }
+    return rings[rings.length-1];
+  }
+  /* arcHeadwearCoverage(): Warrior Helm/Hawk Eye Hoodのような「Ring配列 +
+     開いた弧のテンプレート」で出来ているHeadwear共通の判定ロジック。
+     bottomYOffset/heightは、そのHeadwearを実際に配置しているposition.
+     set()呼び出しと全く同じ式で呼び出し側から渡すため、Geometry生成側の
+     値とずれない。 */
+  function arcHeadwearCoverage(template, rings, bottomYOffset, height, hwBase, hdBase, yOffset, angle){
+    const yFrac = (yOffset - bottomYOffset) / height;
+    if(yFrac < -1e-6 || yFrac > 1+1e-6) return { state:'NONE', surfaceRadius:null };
+    const r = ringRatioAt(rings, Math.max(0, Math.min(1, yFrac)));
+    const hw = hwBase*r.widthMul, hd = hdBase*r.depthMul;
+    const arc = arcSurfaceAt(template, hw, hd, angle, false);
+    if(!arc.inArc) return { state:'FACE_OPENING', surfaceRadius:null };
+    return { state:'HEADWEAR', surfaceRadius:arc.radius };
+  }
+  /* cylinderHeadwearCoverage(): Rogue Hood/Archer Cap・Peak/Mage Coneの
+     ような、開口(Face Opening)を持たない単純な円筒/円錐型Headwear共通の
+     判定ロジック。全周を覆う形状なので角度には依存せず、高さだけで
+     radiusを線形補間する(bottomR→topRの単純な円錐台)。角度依存なしは
+     判定の簡略化ではなく、実際のGeometry(Cylinder/Cone系の、全周閉じた
+     回転体)がそもそも角度に依存しない形をしているため。 */
+  function cylinderHeadwearCoverage(bottomYOffset, height, bottomR, topR, yOffset){
+    const yFrac = (yOffset - bottomYOffset) / height;
+    if(yFrac < -1e-6 || yFrac > 1+1e-6) return { state:'NONE', surfaceRadius:null };
+    const t = Math.max(0, Math.min(1, yFrac));
+    return { state:'HEADWEAR', surfaceRadius: bottomR + (topR-bottomR)*t };
+  }
+
+  /* ---- Warrior / Battle Knight: Helm(WARRIOR_HELM_RINGS/ARC_TEMPLATE、
+     このファイル上部のmakeWarriorBaseHelm()と同じ定数を再利用) ---- */
+  const WARRIOR_HELM_BOTTOM_OFFSET_MUL = -0.50;   // helmBottomY = hY + headR*この値
+  const WARRIOR_HELM_HEIGHT_MUL = 1.60;
+  function warriorHelmCoverageAt(headR, yOffset, angle){
+    return arcHeadwearCoverage(
+      WARRIOR_HELM_ARC_TEMPLATE, WARRIOR_HELM_RINGS,
+      headR*WARRIOR_HELM_BOTTOM_OFFSET_MUL, headR*WARRIOR_HELM_HEIGHT_MUL,
+      headR, headR, yOffset, angle);
+  }
+
+  /* ---- Rogue: Hood(単純なCylinder、開口なし)。回転(rotation.x=-0.4)で
+     生じるY方向の実効的な圧縮をcos(tilt)で近似する ―― 厳密な傾き込みの
+     解析解ではないが、Face Openingを持たない全周形状なのでY範囲の近似
+     誤差はCoverageの安全マージン(HAIR_HEADWEAR_INSET)の範囲に収まる */
+  const ROGUE_HOOD_BOTTOM_R_MUL = 1.16;      // hoodR = headR*1.16
+  const ROGUE_HOOD_TOP_R_MUL = 1.16*0.1;     // hoodR*0.1(先端、うなじ側ではなく頭頂側)
+  const ROGUE_HOOD_HEIGHT_MUL = 1.5;         // hoodH = headR*1.5
+  const ROGUE_HOOD_CENTER_OFFSET_MUL = 0.28; // hood.position.y = hY + hoodH*0.28
+  const ROGUE_HOOD_TILT_X = -0.4;
+  function rogueHoodCoverageAt(headR, yOffset){
+    const hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
+    const centerOffset = hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL;
+    const effH = hoodH*Math.cos(ROGUE_HOOD_TILT_X);
+    const bottomOffset = centerOffset - effH/2;
+    return cylinderHeadwearCoverage(bottomOffset, effH, headR*ROGUE_HOOD_BOTTOM_R_MUL, headR*ROGUE_HOOD_TOP_R_MUL, yOffset);
+  }
+
+  /* ---- Archer: Cap(Cylinder)+ Peak(Cone、独立した前方の三角装飾)。
+     どちらも開口なし。CapのcenterOffset/PeakのcenterOffsetはheadR比では
+     なく既存コードのままの絶対値(0.05/0.16) ―― Geometry生成側の
+     position.set()と同じ値を使うことを優先し、この場でheadR比に「直す」
+     ことはしない(それ自体が見た目を変える変更になるため)。 */
+  const ARCHER_CAP_R_MUL = 1.12;
+  const ARCHER_CAP_TOP_R_MUL = 1.12*0.7;
+  const ARCHER_CAP_HEIGHT_MUL = 0.6;
+  const ARCHER_CAP_CENTER_OFFSET_ABS = 0.05;
+  const ARCHER_PEAK_R_MUL = 0.85;
+  const ARCHER_PEAK_HEIGHT_ABS = 0.3;
+  const ARCHER_PEAK_CENTER_OFFSET_ABS = 0.16;
+  function archerCapCoverageAt(headR, yOffset){
+    const capH = headR*ARCHER_CAP_HEIGHT_MUL;
+    const cap = cylinderHeadwearCoverage(
+      ARCHER_CAP_CENTER_OFFSET_ABS - capH/2, capH,
+      headR*ARCHER_CAP_R_MUL, headR*ARCHER_CAP_TOP_R_MUL, yOffset);
+    const peak = cylinderHeadwearCoverage(
+      ARCHER_PEAK_CENTER_OFFSET_ABS - ARCHER_PEAK_HEIGHT_ABS/2, ARCHER_PEAK_HEIGHT_ABS,
+      headR*ARCHER_PEAK_R_MUL, 0, yOffset);
+    // Cap/Peakを合成したUnion Coverage: どちらも「そのY方向に実際に存在
+    // するSurfaceの半径」に変換した後で比較しているため、単純な
+    // max(capRadius, peakRadius)のような異なる基準の値同士の比較には
+    // ならない
+    if(cap.state!=='HEADWEAR' && peak.state!=='HEADWEAR') return { state:'NONE', surfaceRadius:null };
+    const rc = cap.state==='HEADWEAR' ? cap.surfaceRadius : -Infinity;
+    const rp = peak.state==='HEADWEAR' ? peak.surfaceRadius : -Infinity;
+    return { state:'HEADWEAR', surfaceRadius: Math.max(rc, rp) };
+  }
+
+  /* ---- Mage: Brim(角度依存、MAGE_BRIM_RADIUS_MULをそのまま利用) +
+     Cone(単純な円錐、開口なし) ---- */
+  const MAGE_BRIM_RADIUS_BASE_MUL = 1.95;
+  const MAGE_BRIM_Y_OFFSET_MUL = 0.55;
+  const MAGE_BRIM_THICKNESS = 0.04;
+  const MAGE_CONE_R_MUL = 1.25;
+  const MAGE_CONE_HEIGHT_ABS = 0.62;
+  const MAGE_CONE_CENTER_OFFSET_MUL = 0.55;   // cone center = hY + headR*0.55 + 0.31(=height/2)
+  function mageHatCoverageAt(headR, yOffset, angle){
+    const brimY = headR*MAGE_BRIM_Y_OFFSET_MUL;
+    const brim = cylinderHeadwearCoverage(brimY-MAGE_BRIM_THICKNESS/2, MAGE_BRIM_THICKNESS, 1, 1, yOffset);
+    let brimRadius = -Infinity;
+    if(brim.state==='HEADWEAR'){
+      const arc = arcSurfaceAt(makeMageHatBrimOutline(), headR*MAGE_BRIM_RADIUS_BASE_MUL, headR*MAGE_BRIM_RADIUS_BASE_MUL, angle, true);
+      if(arc.inArc) brimRadius = arc.radius;
+    }
+    const coneCenter = headR*MAGE_CONE_CENTER_OFFSET_MUL + MAGE_CONE_HEIGHT_ABS/2;
+    const cone = cylinderHeadwearCoverage(
+      coneCenter - MAGE_CONE_HEIGHT_ABS/2, MAGE_CONE_HEIGHT_ABS,
+      headR*MAGE_CONE_R_MUL, 0, yOffset);
+    const coneRadius = cone.state==='HEADWEAR' ? cone.surfaceRadius : -Infinity;
+    if(brimRadius === -Infinity && coneRadius === -Infinity) return { state:'NONE', surfaceRadius:null };
+    return { state:'HEADWEAR', surfaceRadius: Math.max(brimRadius, coneRadius) };
+  }
+
+  /* getHeadwearCoverage(classKey, o, yOffset, angle): 全クラス共通の
+     ディスパッチ。classKeyは各クラスのbuildPlayer()内classDef.keyと同じ
+     値(job promotion後もclassDef.key自体は基底クラスのまま ―― Battle
+     Knight/Berserker/Hawk Eye/Archmageは基底クラスのHair生成コードを
+     そのまま使うため、ここで未対応のキーはNONEを返し、現状の挙動を
+     変えない)。oはheadOutlineAt()と同じ{width,depth,height}、
+     widthがheadRに相当する。 */
+  function getHeadwearCoverage(classKey, o, yOffset, angle){
+    const headR = o.width;
+    switch(classKey){
+      case 'warrior': return warriorHelmCoverageAt(headR, yOffset, angle);
+      case 'rogue':   return rogueHoodCoverageAt(headR, yOffset);
+      case 'archer':  return archerCapCoverageAt(headR, yOffset);
+      case 'mage':    return mageHatCoverageAt(headR, yOffset, angle);
+      default:        return { state:'NONE', surfaceRadius:null };
+    }
+  }
+  // Hair Shell/Bangs/Side Hair/Back Hairが、Coverage境界を超えて
+  // Headwearより外側に出ないための最小限のマージン(Z-fighting回避)。
+  // クラス別に変えない単一の共通値
+  const HAIR_HEADWEAR_INSET = 0.97;
+
+  /* findCoverageExitAlongStrand(classKey, o, angle, yTip, yRoot):
+     Bangs/Side Hair/Back Hairの「root(太い付け根、上)→tip(細い先、下)」
+     という伸びる方向に沿って、Headwear Coverageが HEADWEAR から
+     NONE/FACE_OPENING へ変わる境界(=Strandが実際に露出し始める高さ)を
+     探す。tip側(yTip)は常にHeadwearの下端より下にある前提(Bangs/Side/
+     Back Hairの現在のtipは顎・うなじの高さで、全クラスのHeadwearより
+     低い)なので、tip側から見てcoverageがNONE/FACE_OPENINGであることを
+     まず確認し、root側(yRoot)がHEADWEARなら二分探索で境界を求める。
+
+     単純に「rootをHeadwear下端まで下げる」のではなく、実際にStrandが
+     伸びる方向(この関数の引数であるangle固定・yを動かす経路)に沿って
+     Coverageを追跡し、HEADWEARから抜け出す最初の点を境界として使う。 */
+  function findCoverageExitAlongStrand(classKey, o, angle, yTip, yRoot){
+    const stateAt = (y) => getHeadwearCoverage(classKey, o, y, angle).state;
+    if(stateAt(yRoot) !== 'HEADWEAR') return { y:yRoot, covered:false };
+    if(stateAt(yTip) === 'HEADWEAR') return { y:yTip, covered:true };   // Strand全体がHeadwearの内側
+    let lo = yTip, hi = yRoot;   // stateAt(lo)!=='HEADWEAR', stateAt(hi)==='HEADWEAR'
+    for(let i=0;i<18;i++){
+      const mid = (lo+hi)/2;
+      if(stateAt(mid) === 'HEADWEAR') hi = mid; else lo = mid;
+    }
+    return { y:lo, covered:false };
+  }
+
+  /* =========================================================
      Hair Shell(旧Hair Cap): Headプロファイルから導出する「外殻」
 
      旧実装は独自のHAIR_CAP_HEX_TEMPLATE(顔側の点がz=+0.35。Headの顔側
@@ -1059,27 +1296,61 @@
   const HAIR_NAPE_YFRAC = 0.34;
   const HAIR_NAPE_FRONT_MUL = 0.55;
   const HEAD_FRONT_POINT_IDX = new Set([0, 5, 6, 7]);   // faceL, faceR, noseR, noseL
+  /* hairShellPointAt(classKey, o, x, z, yLocal, baseMul): うなじリングの
+     前方4点(HAIR_NAPE_FRONT_MUL)と生え際〜頭頂の全点(HAIR_SHELL_MUL)の
+     両方が経由する、Headwear Coverageを反映した頂点座標の決定。
+
+     これはGeometry生成後の頂点クランプ(post process)ではない ――
+     makeLoft()に渡すsections配列を組み立てている「その場」で、この点の
+     最終的な座標を決めているだけで、既存のうなじリングが点ごとに
+     HAIR_NAPE_FRONT_MUL/HAIR_SHELL_MULを使い分けているのと全く同じ
+     タイミング・同じ仕組みの延長。
+
+     baseMul(通常時に使うべき倍率)で決まる座標が、その(yLocal,angle)に
+     おけるHeadwear Surfaceより外側にある場合だけ、Headwear Surface×
+     HAIR_HEADWEAR_INSET(内側マージン)へ置き換える。Headwearが存在
+     しない(NONE)/Face Openingの場合はbaseMulそのまま ―― Hair Shellの
+     本来の「HeadよりHAIR_SHELL_MUL倍外側」という保証は変えない。 */
+  function hairShellPointAt(classKey, o, x, z, yLocal, baseMul){
+    const baseX = x*baseMul, baseZ = z*baseMul;
+    if(!classKey) return [baseX, baseZ];
+    const angle = Math.atan2(x, z);
+    const cov = getHeadwearCoverage(classKey, o, yLocal, angle);
+    if(cov.state !== 'HEADWEAR' || cov.surfaceRadius == null) return [baseX, baseZ];
+    const baseR = Math.hypot(baseX, baseZ);
+    const capR = cov.surfaceRadius*HAIR_HEADWEAR_INSET;
+    if(baseR <= capR) return [baseX, baseZ];
+    const headR2 = Math.hypot(x, z);
+    if(headR2 < 1e-9) return [baseX, baseZ];
+    const k = capR/headR2;
+    return [x*k, z*k];
+  }
   function makeCharacterHairShell(opts){
     const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
+    const classKey = opts && opts.classKey;
     const hh = o.height/2;
     const sections = [];
     // うなじリング(後方・側面だけHeadの外、顔側はHeadの内側へ隠す)
-    sections.push({
-      y: -hh + o.height*HAIR_NAPE_YFRAC,
-      points: headSectionPoints(o, headRatioAt(HAIR_NAPE_YFRAC)).map(([x,z], i) => {
-        const k = HEAD_FRONT_POINT_IDX.has(i) ? HAIR_NAPE_FRONT_MUL : HAIR_SHELL_MUL;
-        return [x*k, z*k];
-      }),
-    });
+    {
+      const yLocal = -hh + o.height*HAIR_NAPE_YFRAC;
+      sections.push({
+        y: yLocal,
+        points: headSectionPoints(o, headRatioAt(HAIR_NAPE_YFRAC)).map(([x,z], i) => {
+          const k = HEAD_FRONT_POINT_IDX.has(i) ? HAIR_NAPE_FRONT_MUL : HAIR_SHELL_MUL;
+          return hairShellPointAt(classKey, o, x, z, yLocal, k);
+        }),
+      });
+    }
     // 生え際〜頭頂: Headの断面をそのままHAIR_SHELL_MUL倍した外殻
     const yfs = [HAIR_HAIRLINE_YFRAC];
     Object.values(HEAD_SECTION_RATIOS).forEach(r => {
       if(r.yFrac > HAIR_HAIRLINE_YFRAC + 1e-6) yfs.push(r.yFrac);
     });
     yfs.forEach((yf, i) => {
-      const pts = headSectionPoints(o, headRatioAt(yf)).map(([x,z]) => [x*HAIR_SHELL_MUL, z*HAIR_SHELL_MUL]);
+      const yLocal = -hh + o.height*yf;
+      const pts = headSectionPoints(o, headRatioAt(yf)).map(([x,z]) => hairShellPointAt(classKey, o, x, z, yLocal, HAIR_SHELL_MUL));
       const isTop = (i === yfs.length-1);
-      sections.push({ y: -hh + o.height*yf + (isTop ? o.height*HAIR_TOP_LIFT : 0), points: pts });
+      sections.push({ y: yLocal + (isTop ? o.height*HAIR_TOP_LIFT : 0), points: pts });
     });
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }
