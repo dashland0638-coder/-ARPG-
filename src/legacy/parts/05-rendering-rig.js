@@ -1555,7 +1555,28 @@
      覆う」問題は無いため、旧brim2のような「目に重なる板」の再発はない
      ―― つばの下端(hairlineOut.y付近)はEyeの高さ(headR*0.02付近)より
      十分高い。 */
-  function makeArcherBrimOutline(){ return makeMageHatBrimOutline(); }
+  /* ユーザー指摘: 「弓師も鷹の目も帽子の形が違う。つばといっても丸形状
+     じゃなくて前尖りの三角形っぽい形」(添付のDark Souls風トライコーン
+     参考画像)。MAGE_BRIM系(丸みを帯びた12角形、前だけ半径を落とす)の
+     流用をやめ、前方1点(主峰、強い尖り)+左右後方2点(副峰、控えめな
+     尖り)の3方向だけ外側へ張り出し、その間を大きく窪ませた輪郭にする
+     ―― 上から見て丸/楕円ではなく、三角に近いシルエットになる。
+     角度規約(0°=正面+Z、x=-sin(a)・z=cos(a))はMAGE_BRIM_RADIUS_MULと
+     共通。 */
+  const ARCHER_TRICORN_BRIM_MUL = [
+    1.55, 0.75, 0.50,   // 0°(正面、主峰)→30°→60°
+    0.48, 0.70, 1.00,   // 90°(左)→120°→150°(左後方峰)
+    0.55, 0.55,         // 180°(後方中央、谷になるよう2点)
+    1.00, 0.70, 0.48,   // 210°(右後方峰)→240°→270°(右)
+    0.50, 0.75,         // 300°→330°
+  ];
+  function makeArcherBrimOutline(){
+    const n = ARCHER_TRICORN_BRIM_MUL.length;
+    return ARCHER_TRICORN_BRIM_MUL.map((mul, i) => {
+      const a = (i/n)*Math.PI*2;
+      return [-Math.sin(a)*mul, Math.cos(a)*mul];
+    });
+  }
   function makeArcherBrim(radius, thickness){
     const outline = makeArcherBrimOutline();
     const half = thickness/2;
@@ -1565,22 +1586,28 @@
       closedTop:true, closedBottom:true,
     });
   }
-  const ARCHER_BRIM_RADIUS_MUL = 1.85;              // つばの半径(headR比、後方・側方の最大張り出し)
+  const ARCHER_BRIM_RADIUS_MUL = 1.30;              // つばの半径(headR比。主峰(1.55倍)がここに掛かるため丸つばより小さめに)
   const ARCHER_BRIM_THICKNESS = 0.05;
   const ARCHER_BRIM_Y_OFFSET_MUL = 0.30;            // Cap下端(0.32)のすぐ下、生え際のわずかに上
 
-  const ARCHER_BILL_W_MUL = 1.15;                  // ひさしの幅(付け根、headR比)
-  const ARCHER_BILL_TIP_W_MUL = 0.72;              // ひさしの先端幅(台形にして嘴らしさを残す)
-  const ARCHER_BILL_LEN_MUL = 0.55;                // 前方への張り出し長
-  const ARCHER_BILL_THICK_MUL = 0.10;              // 板の厚み
-  const ARCHER_BILL_TILT = 0.20;                   // 先端を下げる角度(rad)
-  const ARCHER_PEAK_CENTER_OFFSET_MUL = 0.36;      // ひさしのY(Cap下縁+0.32のすぐ上=眉の高さ)
-  /* Phase 13-F: Capは7角形なので、正面中央の「平らな面」までの距離は
-     外接円半径(≈1.14×headR)ではなくcos(π/7)倍の≈1.03×headR。旧1.42は
-     外接円基準で計算していたため、ひさしの付け根がCap前面から約0.11×
-     headR浮き、「帽子とつばが分離している」ように見えていた(ユーザー
-     指摘)。平面までの距離基準に置き直し、さらにわずかに食い込ませる。 */
-  const ARCHER_PEAK_FRONT_Z_MUL = 1.26;            // Cap正面の平面(≈1.03)+長さの半分(0.275)-食い込み(0.045)
+  /* ユーザー指摘の「前尖りの三角形」を、つば(上記、平らな板)だけでなく
+     帽子自体の立体感でも表現する。旧Peak(makeWedge、ridgeWありの平たい
+     ひさし=鳥の嘴)を、ridgeW=0(頂点1つに収束する角錐=尖った刃/角)へ
+     置き換え、前方水平ではなく前方斜め上へ突き上げる ―― 添付のDark
+     Souls参考画像の、帽子前面から斜め上へ伸びる大きな角(つの)状の
+     突起に近づける。 */
+  /* 実機確認(1回目、θ=0.62=水平寄り): 見下ろしのDefault Game Cameraでは
+     「前方(+Z)」は画面奥ではなく「カメラ手前=顔の下側」に投影されるため、
+     水平寄りの角度だと先端が顔へ覆いかぶさる巨大な三角形として見えた
+     (角/horn状ではなく、鼻を覆う布のように見えた)。見下ろしで「頭から
+     立ち上がる角」に見せるには、水平成分を弱めほぼ垂直(θを大きく)に
+     近づけ、かつ付け根もCap前面ではなく頭頂寄りへ動かす必要がある。 */
+  const ARCHER_PEAK_BASE_W_MUL = 0.55;             // 付け根の幅(headR比)
+  const ARCHER_PEAK_BASE_D_MUL = 0.42;             // 付け根の奥行き
+  const ARCHER_PEAK_SPIKE_LEN_MUL = 1.70;          // 付け根→先端の長さ
+  const ARCHER_PEAK_UP_ANGLE = 1.15;               // 水平(前方)からの角度(rad)。0=真前、PI/2=真上
+  const ARCHER_PEAK_MOUNT_Y_MUL = 0.95;            // 突起の付け根のY(hY基準。Cap頭頂寄り)
+  const ARCHER_PEAK_MOUNT_Z_MUL = 0.55;            // 突起の付け根のZ(headR比。頭頂付近は先細りのため小さめ)
   // Phase 12-B Priority 2: CapがCylinder(角度に依存しない全周)から
   // Face Opening付きのArc Ring Loft(makeArcherCap()、ARCHER_CAP_ARC_
   // TEMPLATE/RINGS)へ変わったため、Coverage判定もarcHeadwearCoverage()
@@ -1595,12 +1622,14 @@
     const cap = cylinderHeadwearCoverage(
       headR*ARCHER_CAP_CENTER_OFFSET_MUL - capH/2, capH,
       headR*ARCHER_CAP_R_MUL, headR*ARCHER_CAP_TOP_R_MUL, yOffset);
-    // Phase 13-E: Peakは薄い水平のひさしになったため、Coverage上の
-    // 縦方向の占有も板の厚み分だけにする(旧: 円錐の全長0.60×headR)
-    const peakH = headR*ARCHER_BILL_THICK_MUL*1.6;
+    // ユーザー指摘対応: Peakを水平のひさしから前方斜め上へ伸びる角
+    // (ridgeW=0の尖った角錐)へ変更したため、Coverageの縦方向占有も
+    // その実際の範囲(付け根Y〜先端Yまでの縦の立ち上がり分、付け根の
+    // 半幅→先端0への先細り)に合わせて再計算する
+    const peakRiseY = headR*ARCHER_PEAK_SPIKE_LEN_MUL*Math.sin(ARCHER_PEAK_UP_ANGLE);
     const peak = cylinderHeadwearCoverage(
-      headR*ARCHER_PEAK_CENTER_OFFSET_MUL - peakH/2, peakH,
-      headR*ARCHER_BILL_W_MUL*0.5, 0, yOffset);
+      headR*ARCHER_PEAK_MOUNT_Y_MUL, peakRiseY,
+      headR*ARCHER_PEAK_BASE_W_MUL*0.5, 0, yOffset);
     // Cap/Peakを合成したUnion Coverage: どちらも「そのY方向に実際に存在
     // するSurfaceの半径」に変換した後で比較しているため、単純な
     // max(capRadius, peakRadius)のような異なる基準の値同士の比較には

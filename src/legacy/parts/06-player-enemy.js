@@ -1250,17 +1250,34 @@
       // (半径・長さはARCHER_PEAK_R_MUL/HEIGHT_MUL側で調整、詳細は同定数の
       // コメント参照)。Peakの可視性はGeometryの向き・形状だけで解決して
       // おり、renderOrder/depthTest等の描画順制御は使っていない。
-      // Phase 13-E: ConeGeometryの細い突起から、makeWedge()の平たい
-      // ひさし(bill)へ。ローカル+Yがひさしの前方になるようrotation.xで
-      // 倒すのは旧Peakと同じ考え方で、そこへ先端を下げるTILTを足す
+      // ユーザー指摘:「弓師も鷹の目も帽子の形が違う。つばといっても
+      // 丸形状じゃなくて前尖りの三角形っぽい形」(添付Dark Souls風
+      // トライコーン参考画像)。makeWedge()の平たいひさし(ridgeWあり=
+      // 台形の鳥の嘴)から、ridgeW=0(頂点1つに収束する角錐=尖った角/刃)
+      // へ置き換え、前方水平ではなく前方斜め上へ突き上げる意匠にした。
+      // ローカル+Yが付け根→先端の方向 ―― rotation.x=PI/2で従来通り
+      // ローカル+Y→ワールド+Z(真前)になるところを、ARCHER_PEAK_UP_ANGLE
+      // 分だけ回転量を減らし、真前から真上へ傾けた分だけ斜め上を向かせる
+      // (rotation.x=PI/2-θのとき、ローカル+Yはワールド(0,sinθ,cosθ)へ
+      // 写る ―― θ=0で従来と同じ真前、θ=PI/2で真上)。
+      // Position: makeWedge()の原点は付け根と先端の中間(centered)のため、
+      // 「付け根をCap前面上のマウント点に置く」には、原点を先端方向へ
+      // 半長分ずらす(付け根が原点から見て-ローカルY側にあるため)
+      const peakLen = headR*ARCHER_PEAK_SPIKE_LEN_MUL;
+      const peakHalfLen = peakLen/2;
       const peak = new THREE.Mesh(makeWedge({
-        baseW: headR*ARCHER_BILL_W_MUL,
-        baseD: headR*ARCHER_BILL_THICK_MUL,
-        height: headR*ARCHER_BILL_LEN_MUL,
-        ridgeW: headR*ARCHER_BILL_TIP_W_MUL,
+        baseW: headR*ARCHER_PEAK_BASE_W_MUL,
+        baseD: headR*ARCHER_PEAK_BASE_D_MUL,
+        height: peakLen,
+        ridgeW: 0,
       }), clothMat);
-      peak.position.set(0, hY+headR*ARCHER_PEAK_CENTER_OFFSET_MUL, headR*ARCHER_PEAK_FRONT_Z_MUL + HEAD_BACK_Z);
-      peak.rotation.x = Math.PI/2 + ARCHER_BILL_TILT; group.add(peak);
+      const peakMountY = hY + headR*ARCHER_PEAK_MOUNT_Y_MUL;
+      const peakMountZ = headR*ARCHER_PEAK_MOUNT_Z_MUL + HEAD_BACK_Z;
+      peak.position.set(
+        0,
+        peakMountY + peakHalfLen*Math.sin(ARCHER_PEAK_UP_ANGLE),
+        peakMountZ + peakHalfLen*Math.cos(ARCHER_PEAK_UP_ANGLE));
+      peak.rotation.x = Math.PI/2 - ARCHER_PEAK_UP_ANGLE; group.add(peak);
       archerCapDecor.push(peak);
       playerMixerParts.archerCapDecor = archerCapDecor;
       // Priority 1-2(設計図との差分レポート): 鼻から下を覆う布マスク。
@@ -2304,15 +2321,17 @@
       // Y位置とMaterialだけHood向けに差し替える。CapのGeometry/Brim自体の
       // Geometryは変更しない。
       // Y位置: 実機ではデフォルトのほぼ真上からの見下ろしカメラのため、
-      // Brim(半径headR*1.85の一枚板)はY差がそのまま前方への占有面積に
+      // Brimの前方への張り出しはY差がそのまま画面上の占有面積に
       // 変換されにくく、Eyeの高さ(headYLocal+0.02)に対してわずかな
       // マージンだと前方へ張り出す縁がEyeの真上に重なって見えてしまう
       // (Mesh Ownership Debugで確認: HAWKEYE_HOOD_RINGS[2]の開口上端
       // 相当のY(headYLocal+0.37headR)ではまだ目の縁にかかっていた)。
-      // Eyeが明瞭にBrimの外(下)に出る値を実機で確認し、+0.42headRに
-      // 決定した
+      // その後、つばの輪郭をARCHER_TRICORN_BRIM_MULへ変更し正面の主峰を
+      // 1.55倍(旧丸つばの正面0.58倍より大幅に前方へ張り出す)にしたため、
+      // 同じY(+0.42headR)では主峰が鼻筋にかかって見えた。Eyeが明瞭に
+      // 主峰の外(下)に出る値を実機で再確認し、+0.60headRへ調整した
       if(P.archerBrim){
-        const brimY = headYLocal + B.headR*0.42;
+        const brimY = headYLocal + B.headR*0.60;
         P.archerBrim.position.set(0, brimY, HEAD_BACK_Z);
         // ArcherのclothMat(カーキ)のままだと濃い緑のHoodと配色が合わず
         // 浮くため、Hood本体と同じhoodMat(uj.capeColor)へ差し替える
