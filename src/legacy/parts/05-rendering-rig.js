@@ -1302,8 +1302,49 @@
     return arcHeadwearCoverage(ROGUE_HOOD_ARC_TEMPLATE, ROGUE_HOOD_RINGS, bottomOffset, effH, headR, headR, yOffset, angle);
   }
 
-  /* ---- Archer: Cap(Cylinder)+ Peak(Cone、独立した前方の三角装飾)。
-     どちらも開口なし。
+  /* ---- Rogue/Berserker: Mask(鼻から下を覆う布) ----
+     Phase 12-B Priority 1: 旧実装はBoxGeometry(headR*1.05 × headR*0.62 ×
+     headR*0.5の直方体)そのままで、直角6面のため「顔に貼り付けた黒い板」
+     に見えていた(Phase 12-A Root Cause: A. Geometry Shape、Position/
+     Rotationの問題ではない)。makeLoft()を使い、上部(頬幅、旧Boxの全幅
+     相当)→中央(わずかに絞りつつ奥行きを保つ)→下部(顎へ向けてさらに
+     絞る)の3段・各段6点(Phase 11-BのmakeBodyProfile()と同じ「角を
+     斜めに落とす」考え方、ただしBody用ヘルパーとは独立させた専用の
+     小さな断面)の低ポリMaskへ置き換える。
+
+     ローカルy座標はRogue Hood/Head/Hair Shellと同じ中心基準
+     (-height/2〜+height/2)にしてあり、widthはheadR*0.525(旧Boxの半幅)、
+     depthはheadR*0.25(旧Boxの半奥行き)を基準値としてそのまま踏襲した
+     ―― 呼び出し側のposition.set()は変更不要(Ownership: group直下の
+     独立Mesh、Hoodとは非連結という構造も維持)。全体の大きさ・
+     覆う範囲(顎の高さ、maskBottomY=hY-headR*0.73)は据え置いたまま、
+     断面の形状だけを改善している。 */
+  const ROGUE_MASK_SECTIONS = [
+    { yFrac:0.00, widthMul:0.68, depthMul:0.62 },  // 下端(顎、絞る)
+    { yFrac:0.50, widthMul:0.92, depthMul:1.00 },  // 中央(鼻先付近、最大奥行き)
+    { yFrac:1.00, widthMul:1.00, depthMul:0.80 },  // 上端(頬、旧Boxの全幅相当)
+  ];
+  function makeRogueMask(opts){
+    const o = Object.assign({ width:0.20, depth:0.10, height:0.24 }, opts || {});
+    const hh = o.height/2;
+    const sections = ROGUE_MASK_SECTIONS.map(r=>{
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      const cw = hw*0.6;   // 角を斜めに落とす量(makeBodyProfileと同じ穏やかな比率)
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: [
+          [-cw,-hd], [cw,-hd],
+          [hw, 0],
+          [cw, hd], [-cw, hd],
+          [-hw, 0],
+        ],
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
+  /* ---- Archer: Cap(角ばった低ポリの縁なし帽、Phase 12-BでFace Opening
+     付きに変更)+ Peak(Cone、独立した前方の三角装飾、開口なし)。
 
      Phase 5: Capの高さ・位置を見直した。旧ARCHER_CAP_HEIGHT_MUL(0.6)・
      旧ARCHER_CAP_CENTER_OFFSET_ABS(0.05、headR比ではない絶対値)では、
@@ -1329,6 +1370,73 @@
   const ARCHER_CAP_TOP_R_MUL = 1.25*0.7;
   const ARCHER_CAP_HEIGHT_MUL = 1.45;              // 旧0.6 → Hair Shellの頭頂(+1.06×headR)を実際に超える高さへ(実機QAで、+1.00止まりだと steep Default Cameraから頭頂のHair Shellのわずかな残りが黒い凹みに見えることを確認して調整)
   const ARCHER_CAP_CENTER_OFFSET_MUL = 0.425;      // 旧ARCHER_CAP_CENTER_OFFSET_ABS(絶対値0.05)を廃止、headR相対に統一。bottom≈-0.30×headR(変更前と同じ)、top≈+1.15×headR
+
+  /* Phase 12-B Priority 2: Archer CapにFace Openingを追加。
+     Phase 12-A Root Cause: 旧Capは全周閉じた円筒の回転体(openEnded)の
+     ため、Warrior Helm/Rogue Hood/Hawk Eye Hoodと違い顔側の
+     開口を一切持たず、目・顔が完全に隠れる「バケツ帽子」になっていた
+     (Primary Cause: A. Geometry Shape)。
+
+     Warrior Helm/Rogue Hood/Hawk Eye Hoodと同じ「開いた弧のRing Loft」
+     技法(頂点順序・巻き方向の考え方のみ流用、ARCHER_CAP_ARC_TEMPLATE
+     自体はArcher専用に新設 ―― 既存テンプレートの流用・コピーはしない)
+     でCapの側面だけを作り直す。CapTop(頭頂の円盤)・Peak(前方の嘴状
+     突起)はGeometry・Position・Rotationとも一切変更しない。
+
+     旧Capは正円(width=depthの単純な円筒)・分割数7だったため、
+     ARCHER_CAP_ARC_TEMPLATEも楕円化はせず7点のまま、開口をWarrior
+     Helm(半角≈50.7°、全体約101°)より狭い半角約30°(全体約60°)に
+     留めた ―― 「兜」や「フード」ではなく、あくまで「縁なし帽に
+     控えめな顔窓が開いた」という、Archer Capらしい程度の開口にして
+     ある。半径の補間(ARCHER_CAP_RINGS)は旧円筒のbottomR→topR
+     (capR→capR*0.7)の単純な線形テーパーと完全に同じ値
+     ―― Cap自体の高さ・太さ・シルエットは変えていない。 */
+  const ARCHER_CAP_ARC_TEMPLATE = [
+    [-0.50,  0.87],   // 顔側左(開口の縁)
+    [-0.94,  0.34],   // 左前
+    [-0.94, -0.50],   // 左後
+    [ 0.00, -1.00],   // 後方中央(最も後ろ)
+    [ 0.94, -0.50],   // 右後
+    [ 0.94,  0.34],   // 右前
+    [ 0.50,  0.87],   // 顔側右(開口の縁。ここと配列先頭の間は繋がない)
+  ];
+  const ARCHER_CAP_RINGS = [
+    { yFrac:0.00, widthMul:1.00, depthMul:1.00 },                                            // 下端(旧Cylinderのbottom=capR相当)
+    { yFrac:1.00, widthMul:ARCHER_CAP_TOP_R_MUL/ARCHER_CAP_R_MUL, depthMul:ARCHER_CAP_TOP_R_MUL/ARCHER_CAP_R_MUL },  // 上端(旧Cylinderのtop=capR*0.7相当、CapTopに接続)
+  ];
+  /* makeArcherCap({width,depth,height}): makeRogueHood()と同じ引数規約
+     (半幅/半奥行き基準値、ローカルy座標は中心基準の-height/2〜
+     +height/2)。呼び出し側はwidth=depth=capR(旧円筒のbottom半径)を
+     渡せば、旧実装と同じ位置・同じテーパーになる。
+     頭頂(CapTop)・下端(既存通り開放、Headがそこに続く)はどちらも
+     このGeometry自体では閉じない ―― CapTopは既存の別メッシュのまま
+     残す。 */
+  function makeArcherCap(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.45 }, opts || {});
+    const hh = o.height/2;
+    const n = ARCHER_CAP_ARC_TEMPLATE.length;
+    const verts = [];
+    ARCHER_CAP_RINGS.forEach(r=>{
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      ARCHER_CAP_ARC_TEMPLATE.forEach(([fx,fz])=>{
+        verts.push(fx*hw, -hh + o.height*r.yFrac, fz*hd);
+      });
+    });
+    const idx = [];
+    for(let ri=0; ri<ARCHER_CAP_RINGS.length-1; ri++){
+      const base = ri*n, next = (ri+1)*n;
+      for(let i=0;i<n-1;i++){
+        const a=base+i, b=base+i+1, aTop=next+i, bTop=next+i+1;
+        idx.push(a,bTop,b, a,aTop,bTop);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
   /* Phase 6: PeakをDefault Game Camera(ほぼ真上からの見下ろし)でも
      視認できるようにした。Phase 5まではConeGeometryの軸がローカル+Y
      (鉛直)のままで、位置・高さをどれだけ調整してもカメラ視線とほぼ
@@ -1346,11 +1454,19 @@
   const ARCHER_PEAK_HEIGHT_MUL = 0.60;             // 前方へ倒した後の前後長(headR比)
   const ARCHER_PEAK_CENTER_OFFSET_MUL = 0.75;      // Y位置は既存のまま維持
   const ARCHER_PEAK_FRONT_Z_MUL = 1.28;            // Cap前面(≈0.979×headR)+長さの半分(0.30)
-  function archerCapCoverageAt(headR, yOffset){
+  // Phase 12-B Priority 2: CapがCylinder(角度に依存しない全周)から
+  // Face Opening付きのArc Ring Loft(makeArcherCap()、ARCHER_CAP_ARC_
+  // TEMPLATE/RINGS)へ変わったため、Coverage判定もarcHeadwearCoverage()
+  // (Warrior Helm/Rogue Hoodと同じ関数を再利用、新規ロジックは追加
+  // しない)へ切り替える。angle引数が新たに必要になったため、呼び出し元
+  // (getHeadwearCoverage())からも渡すよう変更した。Peak側は変更していない
+  // ため従来通りcylinderHeadwearCoverageのまま
+  function archerCapCoverageAt(headR, yOffset, angle){
     const capH = headR*ARCHER_CAP_HEIGHT_MUL;
-    const cap = cylinderHeadwearCoverage(
+    const cap = arcHeadwearCoverage(
+      ARCHER_CAP_ARC_TEMPLATE, ARCHER_CAP_RINGS,
       headR*ARCHER_CAP_CENTER_OFFSET_MUL - capH/2, capH,
-      headR*ARCHER_CAP_R_MUL, headR*ARCHER_CAP_TOP_R_MUL, yOffset);
+      headR*ARCHER_CAP_R_MUL, headR*ARCHER_CAP_R_MUL, yOffset, angle);
     const peakH = headR*ARCHER_PEAK_HEIGHT_MUL;
     const peak = cylinderHeadwearCoverage(
       headR*ARCHER_PEAK_CENTER_OFFSET_MUL - peakH/2, peakH,
@@ -1402,7 +1518,7 @@
     switch(classKey){
       case 'warrior': return warriorHelmCoverageAt(headR, yOffset, angle);
       case 'rogue':   return rogueHoodCoverageAt(headR, yOffset, angle);
-      case 'archer':  return archerCapCoverageAt(headR, yOffset);
+      case 'archer':  return archerCapCoverageAt(headR, yOffset, angle);
       case 'mage':    return mageHatCoverageAt(headR, yOffset, angle);
       default:        return { state:'NONE', surfaceRadius:null };
     }

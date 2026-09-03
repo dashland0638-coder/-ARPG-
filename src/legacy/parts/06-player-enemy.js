@@ -717,6 +717,19 @@
     // さらに前に出さないと房として視認できない(1.06ではMesh識別Debugで
     // 細い線にしかならず、装飾として機能していなかった)。
     const BANG_FRONT_MUL = 1.18;
+    // Phase 12-B Priority 4: Warrior Helmの開口(WARRIOR_HELM_ARC_TEMPLATE/
+    // RINGS)は耳〜顎の高さから頭頂まで縦に大きく開いた「馬蹄形」で、
+    // 兜という「顔だけ見える窓」ではなく高さ方向に広い帯になっている。
+    // findCoverageExitAlongStrand()自体は仕様通り動作しているが、この
+    // 広い開口のせいでWarrior側頭部寄りのBangs(左右)のRoot探索結果が
+    // 生え際よりかなり低い位置(顎寄り)まで下がり、前髪が兜前面から
+    // 不自然に低く突出して見えていた(Phase 12-A Root Cause: Coverage
+    // 自体ではなく、その結果としてのB. Position)。
+    // Coverage System本体・Warrior Helm Geometryはどちらも変更せず、
+    // Warriorの前髪Rootだけ、生え際からの落差をWARRIOR_BANGS_ROOT_
+    // MAX_DROPまでに制限する(clamp)。他クラスのBangs計算には一切影響
+    // しない
+    const WARRIOR_BANGS_ROOT_MAX_DROP = 0.12;   // headR比。生え際から下へ落ちてよい最大量
     const bangMeshes = [];
     [
       { x:0,             tipYFrac:0.550, rootR:headR*0.20, tipR:headR*0.090, tiltZ: 0.00 },
@@ -733,6 +746,9 @@
       // ためほぼ無変更のはず ―― Phase 5 QAで確認する)
       const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, bangAngle, tipOut.y, hairlineOut.y);
       if(exit.covered) return;   // Bangs全体がHeadwearの内側 ―― 生成しない
+      if(classDef.key==='warrior'){
+        exit.y = Math.max(exit.y, hairlineOut.y - headR*WARRIOR_BANGS_ROOT_MAX_DROP);
+      }
       const tipY = head.position.y + tipOut.y;
       const rootY = head.position.y + exit.y;
       const bang = new THREE.Mesh(
@@ -1022,9 +1038,19 @@
       hood.rotation.x = ROGUE_HOOD_TILT_X;   // 後方へ深く垂らす(硬い兜の「まっすぐ立つ」向きと対照的)
       hood.position.set(0, hY+hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL, -headR*0.22 + HEAD_BACK_Z);
       hood.castShadow = true; group.add(hood);
+      // Phase 12-B Priority 3: Berserker昇格時にHoodのMaterial Colorだけを
+      // 差し替えられるよう参照を保持しておく(battleKnightのwarriorBaseDecor/
+      // archerCapDecorと同じ「差分方式」)。Rogue自身の見た目には影響しない
+      playerMixerParts.rogueHood = hood;
       // マスク(鼻から下を覆う布) - 目だけ見えるフード付き暗殺者の顔
+      // Phase 12-B Priority 1: 旧BoxGeometryから、makeRogueMask()
+      // (05-rendering-rig.js、makeLoftベースの低ポリ布マスク)へ置き換え。
+      // width/depth/heightの基準値・position.set()はいずれも旧Boxと
+      // 完全に同じ値のまま ―― 変えたのは断面の点配置(makeRogueMask内)
+      // だけ
       const maskMat = new THREE.MeshStandardMaterial({color:0x1c1a20, roughness:0.85});
-      const mask = new THREE.Mesh(new THREE.BoxGeometry(headR*1.05, headR*0.62, headR*0.5), maskMat);
+      const mask = new THREE.Mesh(
+        makeRogueMask({width:headR*0.525, depth:headR*0.25, height:headR*0.62}), maskMat);
       mask.position.set(0, hY-headR*0.42, headR*0.55 + HEAD_BACK_Z);
       mask.castShadow = true; group.add(mask);
       // フード+マスクで顔をほぼ覆っているため、既存の球目(白目+瞳+
@@ -1155,7 +1181,12 @@
       const capCenterY = hY + headR*ARCHER_CAP_CENTER_OFFSET_MUL;
       // Head/Posture Alignment再設計フェーズ: Cap/CapTop/PeakにもHEAD_BACK_Z
       // を適用し、Headと一緒に後方へ
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(headR*ARCHER_CAP_TOP_R_MUL, capR, capH, capSegs, 1, true), clothMat);
+      // Phase 12-B Priority 2: 旧CylinderGeometry(開口なし、Peak12-A Root
+      // Cause)から、makeArcherCap()(05-rendering-rig.js、顔側にFace
+      // Openingを持つArc Ring Loft)へ置き換え。width/depth=capR・
+      // height=capHは旧Cylinderの引数と同じ値のまま ―― position/
+      // CapTop/Peakは変更していない
+      const cap = new THREE.Mesh(makeArcherCap({width:capR, depth:capR, height:capH}), clothMat);
       cap.position.set(0, capCenterY, HEAD_BACK_Z); cap.castShadow = true; group.add(cap);
       const capTop = new THREE.Mesh(new THREE.CircleGeometry(headR*ARCHER_CAP_TOP_R_MUL, capSegs), clothMat);
       capTop.rotation.x = -Math.PI/2;
@@ -1845,6 +1876,26 @@
       anim.capes = knightCapes;
 
     } else if(uj.key === 'berserker'){
+      /* Phase 12-B Priority 3: Berserker HeadwearのIdentity改善。
+         Phase 12-A Root Cause: Hood(makeRogueHood())はRogue段階
+         (buildPlayer)でclassDef.trim(盗賊の金/カーキ)を使って生成される
+         が、Berserker昇格時にGeometryはそのまま流用する一方、Materialは
+         一度も差し替えられていなかった(Primary Cause: G. Material/
+         Color)。そのため頭部だけ「Rogueの色のまま」に見え、Berserker固有
+         のtrim(uj.trim=0xff5a3a、赤オレンジ)・capeColor(uj.capeColor=
+         0x3a0a10、暗い臙脂)のどちらとも無関係になっていた。
+         Hawk Eyeが自身のHood(makeHawkEyeHood())にuj.capeColorを使って
+         いる(このファイル内、hawkEye昇格処理のhoodMat参照)のと同じ
+         考え方を踏襲し、既存Hoodの参照(P.rogueHood、buildPlayer側で
+         保持済み)のMaterial Colorだけをuj.capeColorへ差し替える。
+         Geometry・Position・Rotation・Scaleはいずれも変更しない。Maskは
+         元々黒系(0x1c1a20)でRogueの色問題として指摘されていない
+         (「黄土色の塊」に見えていたのはHoodのみ)ため、Berserkerでも
+         そのまま維持し、Hood(暗い臙脂)とのコントラストを保つ。Rogue
+         自身のHood(buildPlayer側で生成される元のMesh)には一切触れて
+         いないため、Rogueの見た目には影響しない。 */
+      if(P.rogueHood) P.rogueHood.material.color.set(uj.capeColor);
+
       /* Phase 8 Priority 3: Rogue/Berserker差別化(Root Cause)。
          hairSpikes/longHair/beardはいずれもbodyH比の手打ち座標
          (例: bodyH*0.985)で置かれていたが、この値は現行のHead/Hood比率
