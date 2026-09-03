@@ -1290,16 +1290,29 @@
     [ 1.00,  0.10],   // 右側面
     [ 0.30, -1.00],   // 後方右(開口の縁。ここと配列先頭の間は繋がない=Nape Opening)
   ];
+  // yFracはHood自身のローカル高さ(0=襟元, 1=頭頂)。widthMulは
+  // headRatioAt()が返すHeadの実測widthMul(chin0.38/jaw0.72/cheek1.06/
+  // upperHead0.92/crown0.60)に、対応する世界オフセットで+15%前後の
+  // マージンを掛けた値(Hair Shell以上、Headより確実に大きい)
   const ROGUE_HOOD_RINGS = [
-    // yFracはHood自身のローカル高さ(0=襟元, 1=頭頂)。widthMulは
-    // headRatioAt()が返すHeadの実測widthMul(chin0.38/jaw0.72/cheek1.06/
-    // upperHead0.92/crown0.60)に、対応する世界オフセットで+15%前後の
-    // マージンを掛けた値(Hair Shell以上、Headより確実に大きい)
     { yFrac:0.000, widthMul:1.02, depthMul:1.02 },  // 下端(襟元付近、Head jaw〜cheek境界相当)
     { yFrac:0.225, widthMul:1.22, depthMul:1.22 },  // Headのcheek高さ(widthMul1.06)+15%
     { yFrac:0.630, widthMul:1.06, depthMul:1.06 },  // HeadのupperHead高さ(widthMul0.92)+15%
     { yFrac:1.000, widthMul:0.12, depthMul:0.12 },  // 頭頂(先端、フードが布のように絞られる意匠を維持)
   ];
+  /* 実機検証メモ(Rogue Hood色をclassDef.trimの明金/カーキから専用の
+     暗い紺鼠へ変更、06-player-enemy.js参照): 色を変えた直後、頭部側面が
+     肌色っぽい明るい色のまま残る回帰を観測した。原因はこのRINGSのマージン
+     不足ではなく、新設したHood専用Material(rogueHoodMat)に既存の
+     clothAcc(このRINGSの検証時から使われていたMaterial)が持っていた
+     side:THREE.DoubleSideを引き継いでいなかったこと ―― 片面(FrontSide)
+     のままだと、このHoodのLoft Geometryの面の向きによっては外側から
+     見て背面カリングされ、Hood本体は消えてaddOutline()のリム用アウト
+     ライン殻(BackSide、明るいベージュ0xdcd0b0)だけが見えてしまう
+     (Mesh Ownership Debugで、Hoodを一時的に赤へ塗って確認 ――
+     DoubleSide未設定だと赤自体がほぼ見えず、DoubleSideを足すと即座に
+     全面が赤になった)。このRINGS自体(マージン量)は無関係だったため、
+     元の値のまま据え置いている。 */
   /* makeRogueHood({width,depth,height}): makeWarriorBaseHelm()と同じ
      引数規約だが、ローカルy座標はHead/Hair Shellと同じ「中心基準」
      (-height/2〜+height/2)にしてある ―― 旧実装のCylinder系Geometryが中心原点

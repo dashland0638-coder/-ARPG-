@@ -1057,9 +1057,23 @@
       // 自体が頭頂側をファン分割で閉じるため不要になり削除した。
       // rogueHoodCoverageAt()(05-rendering-rig.js)と同じROGUE_HOOD_*
       // 定数を使う ―― Geometry生成とCoverage判定が同じ値を共有するため
+      // Priority 2(設計図との差分レポート、長らく未対応だった指摘):
+      // HoodがclothAcc(=classDef.trim、盗賊は0xc9a24b=明るい金/カーキ)
+      // で塗られており、「月夜の暗殺者」の意匠(Mask=0x1c1a20の暗い布)と
+      // 噛み合わず、頭部だけ明るい黄土色の塊に見えていた。clothAccは
+      // classDef.trimを直接参照する共有Materialで、Rogueの足元リング・
+      // 武器・戦闘VFX色にも同じ値が使われているため、classDef.trim自体を
+      // 変更すると影響範囲が広すぎる(Berserker昇格時のコメント参照)。
+      // Hood専用の暗い布地Material(rogueHoodMat)を新設し、Mask(0x1c1a20)
+      // と近い暗さながら僅かに違う色相(紺鼠、0x2b2f3a)にして
+      // 「暗殺者の頭巾」として馴染ませつつ、フードの折り目の陰影が
+      // 潰れて見えない程度の明度差は残した。Berserker昇格時の
+      // P.rogueHood.material.color.set(uj.capeColor)はMaterial Objectを
+      // 参照しているだけなので、このMaterial差し替え後もそのまま機能する
+      const rogueHoodMat = new THREE.MeshStandardMaterial({color:0x2b2f3a, roughness:0.85, side:THREE.DoubleSide});
       const hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
       const hood = new THREE.Mesh(
-        makeRogueHood({width:headR, depth:headR, height:hoodH}), clothAcc);
+        makeRogueHood({width:headR, depth:headR, height:hoodH}), rogueHoodMat);
       hood.rotation.x = ROGUE_HOOD_TILT_X;   // 後方へ深く垂らす(硬い兜の「まっすぐ立つ」向きと対照的)
       hood.position.set(0, hY+hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL, -headR*0.22 + HEAD_BACK_Z);
       hood.castShadow = true; group.add(hood);
@@ -1951,7 +1965,13 @@
          (「黄土色の塊」に見えていたのはHoodのみ)ため、Berserkerでも
          そのまま維持し、Hood(暗い臙脂)とのコントラストを保つ。Rogue
          自身のHood(buildPlayer側で生成される元のMesh)には一切触れて
-         いないため、Rogueの見た目には影響しない。 */
+         いないため、Rogueの見た目には影響しない。
+         追記(Priority 2、設計図との差分レポート): buildPlayer側のHood
+         生成Materialはその後classDef.trimの共有clothAccから専用の
+         rogueHoodMat(暗い紺鼠、0x2b2f3a)へ差し替えた。ここでの
+         .material.color.set(uj.capeColor)はMaterial Object自体では
+         なくその.colorプロパティだけを書き換えているため、差し替え後の
+         rogueHoodMatに対しても同じ呼び出しでそのまま機能する。 */
       if(P.rogueHood) P.rogueHood.material.color.set(uj.capeColor);
 
       /* Phase 8 Priority 3: Rogue/Berserker差別化(Root Cause)。
