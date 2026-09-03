@@ -678,11 +678,6 @@
     // いればそちらを使う(現状は参考画像に合わせた魔法使いの紫髪のみ)
     const hairColor = classDef.hairColor!=null ? classDef.hairColor : (isFemale?0x2c1e14:0x1b140f);
     const hairMat = new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7});
-    // デザイン設定シート(Phase 6準拠)対応: Berserker昇格時、Hair Shell/
-    // Bangs/Side Hair/Back Hair(すべてこのhairMatを共有)の色を金髪へ
-    // 差し替えられるよう参照を保持しておく(rogueHood/rogueMaskと同じ
-    // 「差分方式」)。Rogue自身の見た目には影響しない
-    playerMixerParts.hairMat = hairMat;
 
     /* Head Assembly構造修正フェーズ: Hair一式をHeadプロファイル由来にする
 
@@ -1106,10 +1101,6 @@
       faceMeshes.forEach(m=>{ m.visible = false; });
       // 長髪: 頭頂の短い髪(hair)の下から、背中を伝って垂れる房を追加
       const longHairMat = new THREE.MeshStandardMaterial({color:isFemale?0x2c1e14:0x1b140f, roughness:0.7});
-      // デザイン設定シート(Phase 6準拠)対応: Berserker昇格時にこの
-      // ポニーテールも金髪へ差し替えられるよう参照を保持しておく
-      // (P.hairMatと同じ「差分方式」)。Rogue自身の見た目には影響しない
-      playerMixerParts.ponytailMat = longHairMat;
       const ponytail = new THREE.Mesh(new THREE.ConeGeometry(0.075, bodyH*0.5, 7), longHairMat);
       ponytail.position.set(0, hY-headR*1.9, -headR*0.85);
       ponytail.rotation.set(-0.32, 0, 0);
@@ -1957,32 +1948,18 @@
       anim.capes = knightCapes;
 
     } else if(uj.key === 'berserker'){
-      /* 過去の履歴(Phase 12-B Priority 3): 以前はHood(makeRogueHood())を
-         隠さず、Materialの色だけをuj.capeColor(暗い臙脂)へ差し替えて
-         いた ―― Rogueの金/カーキのままでは頭部だけ色が浮くという
-         問題への対応だった。
-         デザイン設定シート(Phase 6準拠)対応: シートのBerserkerは
-         「フードを被らない、金髪が逆立つ荒々しい戦士」で、Rogue/
-         Hawk Eyeとは対照的にHeadwear(頭部を覆う布)自体を持たない
-         デザインだった。色を差し替えるだけの前実装はこの前提と根本的に
-         矛盾していた(Hoodをどんな色で塗っても「フードを被った盗賊系」
-         の輪郭のままになる)。Hood自体は非表示にし、代わりに地の髪
-         (hairMat、Hair Shell/Bangs/Side Hair/Back Hairで共有、
-         buildPlayer側で参照を保持済み)と逆立つ髪(hairSpikes)・長髪
-         (longHair)・髭(beard)・こめかみの毛束(下記)の色を金髪へ
-         差し替えることで「フードなしの金髪の荒くれ者」を表現する。
-         Mask(黒、0x1c1a20)・毛皮パーツ(furMat2)はシートの意匠
-         (暗い覆面+毛皮の肩当て)と一致するため変更しない。Rogue自身の
-         Hood(buildPlayer側で生成される元のMesh)自体は非表示にする
-         だけでGeometry/Materialには触れていないため、Rogueの見た目には
-         影響しない */
-      if(P.rogueHood) P.rogueHood.visible = false;
-      // シート準拠の金髪(やや汚れた金/褐色寄りのブロンド)。Hair Shell/
-      // Bangs/Side Hair/Back Hairはすべてこのhairmat(P.hairMat、共有
-      // Material)経由で自動的に染まる
-      if(P.hairMat) P.hairMat.color.set(0xc9973f);
-      // Rogueのponytail(buildPlayer側、longHairMat)も同じ金髪へ
-      if(P.ponytailMat) P.ponytailMat.color.set(0xc9973f);
+      /* デザイン設定シート(Phase 6準拠)ではBerserkerはHoodを持たない
+         (金髪が逆立つ荒くれ者)デザインのため、一度Hood非表示+金髪化を
+         試したが、実機でユーザーから「変だからフード戻して」と明確な
+         差し戻し指示を受けた。Hoodを被った状態に金髪の房(hairSpikes等)
+         だけが浮いて乗る見た目は一貫性が無く不自然だったため、Hoodの
+         表示・色だけでなく金髪化(buildPlayer側で一時追加していた
+         Hair Shell/ponytail用の色差し替え参照も含む)も合わせて差し戻し、
+         Phase 12-B Priority 3時点の見た目(Hood表示+uj.capeColorで
+         色替え、髪は既定の黒〜焦げ茶のまま)に完全復元する。Rogue自身の
+         Hood(buildPlayer側で生成される元のMesh)には一切触れていない
+         ため、Rogueの見た目には影響しない */
+      if(P.rogueHood) P.rogueHood.material.color.set(uj.capeColor);
 
       /* Phase 8 Priority 3: Rogue/Berserker差別化(Root Cause)。
          hairSpikes/longHair/beardはいずれもbodyH比の手打ち座標
@@ -2011,11 +1988,9 @@
       // ―― 「巨大化しすぎず、Hoodを覆ったり別の帽子に見えたりしない」
       // 指示を尊重し、位置調整のみで解決する
       const spikeBaseY = hoodCrownY + bHeadR*0.06;   // Hood頭頂よりわずかに高い位置を毛束の根元にする
-      // デザイン設定シート(Phase 6準拠)対応: 黒(0x1a1410)から金髪へ。
-      // P.hairMat(Hair Shell/Bangs等)と同じ色(0xc9973f)にして、地の
-      // 髪と逆立つ髪/長髪/髭/こめかみの毛束が同一人物の髪として統一
-      // されて見えるようにした
-      const hairMat = new THREE.MeshStandardMaterial({color:0xc9973f, roughness:0.85});
+      // ユーザー指摘「変だからフード戻して」を受け、金髪化は差し戻し、
+      // 元の黒(0x1a1410)に戻した
+      const hairMat = new THREE.MeshStandardMaterial({color:0x1a1410, roughness:0.85});
       const hairSpikes = [];
       for(let i=-2;i<=2;i++){
         const spikeLen = 0.24+Math.abs(i)*0.03;
@@ -2105,9 +2080,9 @@
       // 位置から連続する「荒々しいたてがみ」にし、Zもponytail
       // (-headR*0.85)よりさらに後方へ離して重なりを減らした。Cone自体の
       // 分割数(7)・Coverage/Hood/Rogue側のコードは変更していない
-      // デザイン設定シート(Phase 6準拠)対応: 黒褐色(0x241a10)から、
-      // 地の髪(0xc9973f)よりわずかに暗い金髪の陰トーンへ
-      const wildHairMat = new THREE.MeshStandardMaterial({color:0xa87a30, roughness:0.75});
+      // ユーザー指摘「変だからフード戻して」を受け、金髪化は差し戻し、
+      // 元の黒褐色(0x241a10)に戻した
+      const wildHairMat = new THREE.MeshStandardMaterial({color:0x241a10, roughness:0.75});
       const longHairLen = bodyH*0.85;   // 旧0.6→延長。Rogue ponytail(bodyH*0.5)より明確に長い
       const longHairTopY = spikeBaseY - bHeadR*0.10;   // hairSpikesの根元のすぐ下から流れ始める
       const longHair = new THREE.Mesh(new THREE.ConeGeometry(0.095, longHairLen, 7), wildHairMat);
