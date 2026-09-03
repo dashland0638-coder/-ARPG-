@@ -883,14 +883,18 @@
      ファン分割で塞ぐ(頭頂は完全に覆う設計)。下端は開放(既存の
      兜/帽子/フードと同じ、Headがそこから覗く前提)。
   ========================================================= */
+  /* Phase 13-F: 顔側の縁のxを0.55→0.64へ。開口の縁の点と側面の最大幅点
+     (-1.00,-0.05)を結ぶ直線が、Headの頬(最大幅点はfz=+0.05とやや前方)の
+     外側を通れず、側面から見て頬が兜からはみ出していた(ユーザー指摘。
+     Mesh Ownership DebugでHead本体であることを確認済み)。 */
   const WARRIOR_HELM_ARC_TEMPLATE = [
-    [-0.55,  0.45],   // 顔側左(開口の縁)
+    [-0.64,  0.45],   // 顔側左(開口の縁)
     [-1.00, -0.05],   // 左側面(最大幅)
     [-0.60, -0.85],   // 後頭部左
     [ 0.00, -1.00],   // 後頭部中央(最も後ろ)
     [ 0.60, -0.85],   // 後頭部右
     [ 1.00, -0.05],   // 右側面(最大幅)
-    [ 0.55,  0.45],   // 顔側右(開口の縁。ここと配列先頭の間は繋がない)
+    [ 0.64,  0.45],   // 顔側右(開口の縁。ここと配列先頭の間は繋がない)
   ];
   // Headwear Silhouette Integration Phase(Priority B): 従来は中腹
   // (yFrac0.50, widthMul1.15/depthMul1.08)から頭頂(yFrac1.00,
@@ -917,8 +921,8 @@
      通るようにする ―― 開口の上端(中腹リング)が前へせり出すことで、
      兜の眉庇(まびさし)としても読める。 */
   const WARRIOR_HELM_RINGS = [
-    { yFrac:0.00, widthMul:1.12, depthMul:1.05, faceZ:0.45 },  // 下端(耳・顎関節あたりの高さ)
-    { yFrac:0.50, widthMul:1.15, depthMul:1.08, faceZ:0.75 },  // 中腹の膨らみ(最大幅)=開口の上端・眉庇
+    { yFrac:0.00, widthMul:1.22, depthMul:1.14, faceZ:0.45 },  // 下端(耳・顎関節あたりの高さ)。Phase 13-F: 頬が側面からはみ出さない幅へ
+    { yFrac:0.50, widthMul:1.26, depthMul:1.18, faceZ:0.75 },  // 中腹の膨らみ(最大幅)=開口の上端・眉庇
     { yFrac:0.78, widthMul:1.02, depthMul:0.98, faceZ:0.95 },  // Hair Cap後方の膨らみに沿う中間リング
     { yFrac:1.00, widthMul:0.78, depthMul:0.74, faceZ:0.95 },  // 頭頂
   ];
@@ -1545,7 +1549,12 @@
   const ARCHER_BILL_THICK_MUL = 0.10;              // 板の厚み
   const ARCHER_BILL_TILT = 0.20;                   // 先端を下げる角度(rad)
   const ARCHER_PEAK_CENTER_OFFSET_MUL = 0.36;      // ひさしのY(Cap下縁+0.32のすぐ上=眉の高さ)
-  const ARCHER_PEAK_FRONT_Z_MUL = 1.42;            // その高さのCap半径(≈1.14)+長さの半分(0.275)
+  /* Phase 13-F: Capは7角形なので、正面中央の「平らな面」までの距離は
+     外接円半径(≈1.14×headR)ではなくcos(π/7)倍の≈1.03×headR。旧1.42は
+     外接円基準で計算していたため、ひさしの付け根がCap前面から約0.11×
+     headR浮き、「帽子とつばが分離している」ように見えていた(ユーザー
+     指摘)。平面までの距離基準に置き直し、さらにわずかに食い込ませる。 */
+  const ARCHER_PEAK_FRONT_Z_MUL = 1.26;            // Cap正面の平面(≈1.03)+長さの半分(0.275)-食い込み(0.045)
   // Phase 12-B Priority 2: CapがCylinder(角度に依存しない全周)から
   // Face Opening付きのArc Ring Loft(makeArcherCap()、ARCHER_CAP_ARC_
   // TEMPLATE/RINGS)へ変わったため、Coverage判定もarcHeadwearCoverage()

@@ -936,24 +936,13 @@
       // 見えるようにしてある。X方向の外縁(headR*0.60)はHelmet Face
       // Openingの実効半幅(中腹リングでheadR*0.55*1.15≒headR*0.63)の
       // 内側に収まるようにし、兜の縁から横に飛び出さないようにした
-      const browGuardW = headR*0.40, browGuardH = 0.055, browGuardD = 0.09;
-      // Phase 13-C: Face Visibility改善。darkMat(0x2a2420)をそのまま共有
-      // 使用すると、Face Opening内部の暗いCavity(実測でほぼ純黒)の中で
-      // Brow GuardだけがEyeより先に「黒い板」として視認されてしまう
-      // (Phase 13-B接写調査で確認)。GeometryはExact同一のまま、Material
-      // だけをWarrior Helm本体(warriorHelmMat, 0x9aa0a8)に近い中間トーンの
-      // 金属色へ分離し、「独立した黒い板」ではなく「兜内側の陰影・眉当て」
-      // として自然に読めるようにした。darkMat自体(他パーツで共有)は
-      // 変更していない
-      const warriorBrowMat = new THREE.MeshStandardMaterial({color:0x656b74, roughness:0.55, metalness:0.12});
-      [-1, 1].forEach(s=>{
-        const brow = new THREE.Mesh(new THREE.BoxGeometry(browGuardW, browGuardH, browGuardD), warriorBrowMat);
-        brow.position.set(s*headR*0.40, hY+0.115, headR*0.88 + HEAD_BACK_Z);
-        brow.rotation.y = -s*0.10;   // Helmetの丸みに沿わせてわずかに外向きへ振る
-        brow.castShadow = true;
-        group.add(brow);
-        warriorBaseDecor.push(brow);
-      });
+      /* Phase 13-F: Brow Guard(左右2枚のBoxGeometry)を削除。
+         ユーザー指摘「目の上に兜のパーツ二つが乗っかっておりおかしい」。
+         Phase 13-EでHelm中腹のfaceZを前へ出して眉庇(まびさし)を兜本体の
+         形状として作ったため、Eyeのすぐ上に別メッシュの眉当てを重ねる
+         必要がなくなった。開口が目の高さに絞られた今、この2枚は狭い
+         開口の中で目より先に視認される異物にしかならない。 */
+
       const crest = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.34), clothAcc);
       crest.position.set(0, hY+0.28, -0.02 + HEAD_BACK_Z); group.add(crest);
       warriorBaseDecor.push(crest);
@@ -1822,13 +1811,12 @@
       }
       // 肩の毛皮(左右とも一回り大きく) - 肩当ての付け根を覆い隠すように
       // 上へ乗せる。腕グループの子なので歩行/振りの動きに追従する
-      [-1,1].forEach(s=>{
-        const shoulderFur = new THREE.Mesh(
-          makePlate(furTuftOutline(s*0.06).map(p=>({x:p.x*2.1,y:p.y*1.9})), {foldWaves:1.6, foldDepth:0.035, phase:s}),
-          knightFur);
-        const arm = s<0 ? P.armL : P.armR;
-        if(arm){ shoulderFur.position.set(0, 0.16, 0.04); shoulderFur.rotation.set(0.9, 0, s*0.2); arm.add(shoulderFur); meshes.push(shoulderFur); }
-      });
+      /* Phase 13-F: 肩の毛皮(shoulderFur)を削除。makePlate()は薄い1枚の
+         板なので、見下ろしのDefault Game Cameraでは向きをどう変えても
+         「肩に白い板が貼り付いている」ようにしか見えなかった(ユーザー
+         指摘。角度・サイズ・枚数を変えて実機確認したが改善せず)。
+         首まわりの毛皮(上のfurTuft 6枚)と肩鎧(bigL/smallR)で肩の
+         シルエットと毛皮の情報は足りているため、この2枚は出さない。 */
 
       // ---- 胸鎧(TrapezoidBox): 回転体では作れない、肩幅で広く腰で絞る
       // 前後非対称の絞り。既存bigChest(円柱の一部)より鎧らしい硬質な
@@ -1857,21 +1845,26 @@
       // 効くため、makeWedgeの既定(底面が下・稜線が上)を180度反転させ、
       // 広い底面を上(肩の上面)に、先端を下(腕側)へ向けている ----
       if(P.armL){
+        /* Phase 13-F: 旧値(baseW 3.0/baseD 2.7/height 2.3 の×upper)は
+           肩に対して大きすぎ、さらにrotation.x=PIで広い底面が真上を向く
+           ため、見下ろしカメラでは「左肩に白い板が乗っている」ようにしか
+           見えなかった(ユーザー指摘)。肩を覆う殻として読める大きさまで
+           絞り、外側へ傾けて上面だけが見える状態を避ける。 */
         const bigL = new THREE.Mesh(makeWedge({
-          baseW:B.upper*3.0, baseD:B.upper*2.7, height:B.upper*2.3,
-          ridgeW:B.upper*0.6, ridgeOffsetZ:B.upper*0.55,
+          baseW:B.upper*2.2, baseD:B.upper*2.0, height:B.upper*1.5,
+          ridgeW:B.upper*0.9, ridgeOffsetZ:B.upper*0.35,
         }), knightSteel);
-        bigL.rotation.x = Math.PI;   // 反転: 広い面を上に
-        bigL.position.y = 0.10; bigL.castShadow = true;
+        bigL.rotation.set(Math.PI, 0, -0.30);   // 反転(広い面を上)+外側へ傾ける
+        bigL.position.set(-B.upper*0.35, 0.06, 0); bigL.castShadow = true;
         P.armL.add(bigL); meshes.push(bigL);
       }
       if(P.armR){
         const smallR = new THREE.Mesh(makeWedge({
-          baseW:B.upper*2.1, baseD:B.upper*1.95, height:B.upper*1.55,
-          ridgeW:0, ridgeOffsetZ:B.upper*0.4,
+          baseW:B.upper*1.7, baseD:B.upper*1.6, height:B.upper*1.15,
+          ridgeW:B.upper*0.7, ridgeOffsetZ:B.upper*0.28,
         }), knightSteel);
-        smallR.rotation.x = Math.PI;
-        smallR.position.y = 0.06; smallR.castShadow = true;
+        smallR.rotation.set(Math.PI, 0, 0.26);
+        smallR.position.set(B.upper*0.28, 0.04, 0); smallR.castShadow = true;
         P.armR.add(smallR); meshes.push(smallR);
       }
 
@@ -1890,7 +1883,12 @@
         const outline = capeOutline.map(p=>({x:p.x*s, y:p.y}));   // 左右で鏡映(非対称の歯型は保つ)
         const cape = new THREE.Mesh(makePlate(outline, {foldWaves:2.4, foldDepth:0.045, phase:s*0.8}),
           new THREE.MeshStandardMaterial({map: makeLeatherTexture(hexStr(uj.capeColor), 2, 2), roughness:0.82, side:THREE.DoubleSide}));
-        cape.position.set(s*0.30, bodyH*0.66, -bodyR-0.02);
+        // Phase 13-F: capeOutlineの上端はy=+1.0(絶対値)なので、旧
+        // position.y=bodyH*0.66 だとマント上端が bodyH*0.66+1.0 ≈ 1.66 と
+        // なり、頭頂(headYLocal+headR ≈ 1.44)より上へ突き抜けて「頭から
+        // マントが生えている」ように見えていた。上端が肩の高さに来るよう
+        // 下げる(bodyH*0.95 - 上端1.0)
+        cape.position.set(s*0.30, bodyH*0.95 - 1.0, -bodyR-0.02);
         const baseRotY = s*0.62;
         cape.rotation.set(0.1, baseRotY, s*0.08);
         cape.castShadow = true;
@@ -2250,6 +2248,12 @@
       // 上(rotation.x=PI、Battle Knight browと同じ反転)にして、稜線側
       // (ridgeOffsetZでわずかに後方へ引いた辺)が目の高さ付近に来るように
       // した
+      /* Phase 13-F: Hood自体が額から上を塞ぐようになった(13-E)ため、
+         この額のひさしはFace Openingの内側に残り「帽子のつばが顔の上半分に
+         乗っている」ように見えていた(ユーザー指摘)。Hoodの陰影は閉じた
+         フード本体が作るので、ひさし自体を出さない。 */
+      const HOOD_BROW_ENABLED = false;
+      if(HOOD_BROW_ENABLED){
       const hoodBrow = new THREE.Mesh(makeWedge({
         baseW: B.headR*1.30, baseD: B.headR*0.42, height: B.headR*0.16,
         ridgeW: B.headR*0.70, ridgeOffsetZ: -B.headR*0.30,
@@ -2258,6 +2262,7 @@
       hoodBrow.position.set(0, headYLocal + B.headR*0.20, B.headR*0.78 + HEAD_BACK_Z);
       hoodBrow.castShadow = true;
       P.waist.add(hoodBrow); meshes.push(hoodBrow);
+      }
     }
 
     P.jobDecorMeshes = meshes;
