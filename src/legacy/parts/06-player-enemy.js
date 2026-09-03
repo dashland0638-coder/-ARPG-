@@ -2014,6 +2014,30 @@
         hairSpikes.push({mesh:spike, baseRotZ, phase:i*0.9});
       }
       anim.hairSpikes = hairSpikes;
+      // ユーザー指摘:「バーサーカーのヘッドパーツの隙間から地肌か髪が
+      // 見えてるのが気になる」。Mesh Ownership Debug(skinMatを一時的に
+      // シアンへ差し替え)で確認したところ、こめかみ付近(Hood頭頂と
+      // 逆立つ髪の房の根元の間の高さ)にHead本体の地肌が三角形に露出して
+      // いた。既存のhairSpikes(5本)はx∈[-0.1,0.1]の狭い範囲にしか無く、
+      // この高さでこめかみの幅までは元々何も覆っていなかった(Rogue本体は
+      // この高さで頭が確実にHoodの内側に収まるため露出しないが、
+      // Berserkerは前傾姿勢でカメラから見える角度が変わり露出していた)。
+      // Y位置はmakeRogueHood()のRINGS式から理論値を計算したが、Hood
+      // 断面が単純な円形ではない(7点の非対称多角形)ため理論値だけでは
+      // 実際の露出位置とズレがあり、Mesh Ownership Debug(塞ぎ用の球を
+      // 目立つ色にして位置を可視化)で実機と突き合わせながら微調整した
+      // (最終的にheadYLocal+hoodH*0.615)。中央の5本(逆立つ髪)自体は
+      // 「巨大化しすぎない」既存方針を尊重して変更せず、この高さで
+      // こめかみ側へ張り出す小さな毛の塊(球、回転に左右されず狙った
+      // 位置を確実に覆える形状)を左右1本ずつ追加してこの隙間だけを塞ぐ
+      const hoodH = bHeadR*ROGUE_HOOD_HEIGHT_MUL;
+      const templeTuftY = headYLocal + hoodH*0.615;
+      [-1, 1].forEach(s=>{
+        const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.165, 7, 6), hairMat);
+        tuft.position.set(s*0.185, templeTuftY, 0.13 + HEAD_BACK_Z);
+        tuft.castShadow = true;
+        P.waist.add(tuft); meshes.push(tuft);
+      });
       // 前傾姿勢: 常時飛びかかりそうな体勢。ここで一度だけP.waist.rotation.xへ
       // 書いても、歩行/待機のidle姿勢が毎フレームwaist.rotation.xを上書きする
       // (updateLocomotion)ため即座に消えてしまっていた。恒久的な前傾は
