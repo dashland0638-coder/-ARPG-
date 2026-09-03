@@ -1199,9 +1199,8 @@
       // 上面キャップ(戦騎士の兜と同じ技法)に置き換え、角ばった狩人帽の
       // 輪郭にした
       const capSegs = 7;
-      // archerCapCoverageAt()(05-rendering-rig.js)と同じARCHER_CAP_*/
-      // ARCHER_PEAK_*定数を使う ―― Geometry生成とCoverage判定が同じ値を
-      // 共有するため
+      // archerCapCoverageAt()(05-rendering-rig.js)と同じARCHER_CAP_*
+      // 定数を使う ―― Geometry生成とCoverage判定が同じ値を共有するため
       const capR = headR*ARCHER_CAP_R_MUL, capH = headR*ARCHER_CAP_HEIGHT_MUL;
       const capCenterY = hY + headR*ARCHER_CAP_CENTER_OFFSET_MUL;
       // Head/Posture Alignment再設計フェーズ: Cap/CapTop/PeakにもHEAD_BACK_Z
@@ -1237,48 +1236,12 @@
       // 専用Deep Hoodへ差し替えるための参照(battleKnightのwarriorBaseDecor
       // と同じ「差分方式」)。Archer自身の見た目・Coverageには一切影響しない
       // ―― ここでは参照を配列に集めるだけ(Brimは上記の理由で含めない)
+      // ユーザー指摘(2巡目):「頭から立ち上がるツノはいらないので削除」。
+      // 旧Peak(makeWedge、ridgeW=0の角錐、前方斜め上へ突き上げる意匠)を
+      // 完全に削除した。Cap/CapTopのGeometry/Positionは変更していない。
+      // Coverage側(archerCapCoverageAt)もPeak分の判定を削除済み
+      // (05-rendering-rig.js参照)。
       const archerCapDecor = [cap, capTop];
-      // Phase 6: PeakをDefault Game Camera(ほぼ真上からの見下ろし)でも
-      // 視認できる向きへ改めた。ConeGeometryはローカル+Y(鉛直)に頂点を
-      // 向ける ―― Phase 5まではこの軸を変えずに位置だけ調整していたため、
-      // 見下ろしカメラでは軸がほぼ視線と平行になり、断面(点)にしか
-      // 見えなかった(根本原因は位置ではなく軸の向き)。
-      // rotation.x = +PI/2 で頂点の向きをローカル+Y→ワールド+Z(キャラ
-      // 前方、HEAD_HEX_TEMPLATE等でz=+1.00が顔側になっている規約と同じ)
-      // へ倒す ―― Warrior Helmのcrest(頭頂から前後に走る板、鶏冠)とは
-      // 異なり、Capの前面から鳥の嘴のように細く前へ突き出す意匠にした
-      // (半径・長さはARCHER_PEAK_R_MUL/HEIGHT_MUL側で調整、詳細は同定数の
-      // コメント参照)。Peakの可視性はGeometryの向き・形状だけで解決して
-      // おり、renderOrder/depthTest等の描画順制御は使っていない。
-      // ユーザー指摘:「弓師も鷹の目も帽子の形が違う。つばといっても
-      // 丸形状じゃなくて前尖りの三角形っぽい形」(添付Dark Souls風
-      // トライコーン参考画像)。makeWedge()の平たいひさし(ridgeWあり=
-      // 台形の鳥の嘴)から、ridgeW=0(頂点1つに収束する角錐=尖った角/刃)
-      // へ置き換え、前方水平ではなく前方斜め上へ突き上げる意匠にした。
-      // ローカル+Yが付け根→先端の方向 ―― rotation.x=PI/2で従来通り
-      // ローカル+Y→ワールド+Z(真前)になるところを、ARCHER_PEAK_UP_ANGLE
-      // 分だけ回転量を減らし、真前から真上へ傾けた分だけ斜め上を向かせる
-      // (rotation.x=PI/2-θのとき、ローカル+Yはワールド(0,sinθ,cosθ)へ
-      // 写る ―― θ=0で従来と同じ真前、θ=PI/2で真上)。
-      // Position: makeWedge()の原点は付け根と先端の中間(centered)のため、
-      // 「付け根をCap前面上のマウント点に置く」には、原点を先端方向へ
-      // 半長分ずらす(付け根が原点から見て-ローカルY側にあるため)
-      const peakLen = headR*ARCHER_PEAK_SPIKE_LEN_MUL;
-      const peakHalfLen = peakLen/2;
-      const peak = new THREE.Mesh(makeWedge({
-        baseW: headR*ARCHER_PEAK_BASE_W_MUL,
-        baseD: headR*ARCHER_PEAK_BASE_D_MUL,
-        height: peakLen,
-        ridgeW: 0,
-      }), clothMat);
-      const peakMountY = hY + headR*ARCHER_PEAK_MOUNT_Y_MUL;
-      const peakMountZ = headR*ARCHER_PEAK_MOUNT_Z_MUL + HEAD_BACK_Z;
-      peak.position.set(
-        0,
-        peakMountY + peakHalfLen*Math.sin(ARCHER_PEAK_UP_ANGLE),
-        peakMountZ + peakHalfLen*Math.cos(ARCHER_PEAK_UP_ANGLE));
-      peak.rotation.x = Math.PI/2 - ARCHER_PEAK_UP_ANGLE; group.add(peak);
-      archerCapDecor.push(peak);
       playerMixerParts.archerCapDecor = archerCapDecor;
       // Priority 1-2(設計図との差分レポート): 鼻から下を覆う布マスク。
       // Rogueのmakeロジックと全く同じ形状(makeRogueMask、makeLoft3段の
@@ -2313,26 +2276,30 @@
       hood.position.set(0, hoodBottomY, HEAD_BACK_Z);
       hood.castShadow = true;
       P.waist.add(hood); meshes.push(hood);
-      // ユーザー指摘:「鷹の目の方が下位職っぽい見た目になってしまってる。
-      // 帽子のつばの透過はあまり意味なく輪郭自体は残ってる。つばハマった
-      // 方がいいので目にめり込まないように上にシフトして存在させて」
+      // ユーザー指摘(3巡目):「鷹の目の顔があんまり隠れておらず雰囲気が
+      // 出てないのでつばの三角をもっと鈍角な横広のつばに修正」。
       // Archer段階で作ったBrim(P.archerBrim、buildPlayer側でarcherCapDecor
       // には含めず参照だけ保持済み)をHawk Eyeでも実体として存在させたまま、
-      // Y位置とMaterialだけHood向けに差し替える。CapのGeometry/Brim自体の
-      // Geometryは変更しない。
-      // Y位置: 実機ではデフォルトのほぼ真上からの見下ろしカメラのため、
-      // Brimの前方への張り出しはY差がそのまま画面上の占有面積に
-      // 変換されにくく、Eyeの高さ(headYLocal+0.02)に対してわずかな
-      // マージンだと前方へ張り出す縁がEyeの真上に重なって見えてしまう
-      // (Mesh Ownership Debugで確認: HAWKEYE_HOOD_RINGS[2]の開口上端
-      // 相当のY(headYLocal+0.37headR)ではまだ目の縁にかかっていた)。
-      // その後、つばの輪郭をARCHER_TRICORN_BRIM_MULへ変更し正面の主峰を
-      // 1.55倍(旧丸つばの正面0.58倍より大幅に前方へ張り出す)にしたため、
-      // 同じY(+0.42headR)では主峰が鼻筋にかかって見えた。Eyeが明瞭に
-      // 主峰の外(下)に出る値を実機で再確認し、+0.60headRへ調整した
+      // Position/Scale/MaterialだけHood向けに差し替える。Brim自体の
+      // Geometry(ARCHER_TRICORN_BRIM_MUL、Archerのバケットハット化に伴い
+      // 全周ほぼ均一・短い張り出しへ変更済み)はArcherと共有・変更しない。
+      // 実機検証で判明した内容: 見下ろしのDefault Game Cameraでは、Brim
+      // (半径の大きい水平な板)はYを多少上げた程度では前方(Z)への
+      // 張り出しがそのままEyeの手前を覆ってしまい、Yなしでも・scaleなし
+      // でもEyeが完全に見えなくなった(Mesh Ownership Debugでvisible=
+      // falseにして確認、Brim以外に原因が無いことを確認済み)。Yだけを
+      // 上げるとBrimがCap/Hoodの頭頂寄りに埋もれて「つば」に見えなくなる
+      // トレードオフがあったため、Scaleを非等方(X方向=横だけ拡大、
+      // Z方向=前後は逆に縮小)にして解決した ―― 横(X)を1.35倍にして
+      // 「横広のつば」を満たしつつ、前後(Z)を0.80倍に縮めてEyeの手前を
+      // 覆う量を減らす。Yも+0.50headRへ調整し、Eyeが完全な暗闇ではなく
+      // 影の中にわずかに覗く(隠れすぎない)状態にした。Archer本体の
+      // Brim GeometryはHawk Eyeの都合で変更したくないため、Scaleのみ
+      // Hawk Eye側のインスタンスに上乗せする(Archer自身には影響しない)
       if(P.archerBrim){
-        const brimY = headYLocal + B.headR*0.60;
+        const brimY = headYLocal + B.headR*0.50;
         P.archerBrim.position.set(0, brimY, HEAD_BACK_Z);
+        P.archerBrim.scale.set(1.35, 1, 0.80);
         // ArcherのclothMat(カーキ)のままだと濃い緑のHoodと配色が合わず
         // 浮くため、Hood本体と同じhoodMat(uj.capeColor)へ差し替える
         P.archerBrim.material = hoodMat;

@@ -1555,20 +1555,24 @@
      覆う」問題は無いため、旧brim2のような「目に重なる板」の再発はない
      ―― つばの下端(hairlineOut.y付近)はEyeの高さ(headR*0.02付近)より
      十分高い。 */
-  /* ユーザー指摘: 「弓師も鷹の目も帽子の形が違う。つばといっても丸形状
-     じゃなくて前尖りの三角形っぽい形」(添付のDark Souls風トライコーン
-     参考画像)。MAGE_BRIM系(丸みを帯びた12角形、前だけ半径を落とす)の
-     流用をやめ、前方1点(主峰、強い尖り)+左右後方2点(副峰、控えめな
-     尖り)の3方向だけ外側へ張り出し、その間を大きく窪ませた輪郭にする
-     ―― 上から見て丸/楕円ではなく、三角に近いシルエットになる。
-     角度規約(0°=正面+Z、x=-sin(a)・z=cos(a))はMAGE_BRIM_RADIUS_MULと
-     共通。 */
+  /* ユーザー指摘(2巡目): 「頭から立ち上がるツノはいらないので削除」
+     「弓師の帽子の周りに短いつばをつけて。バケットハットのような」
+     「鷹の目の顔があんまり隠れておらず雰囲気が出てないのでつばの三角を
+     もっと鈍角な横広のつばに修正。弓師の三角のつばも少し角度を広げて」。
+     旧ARCHER_TRICORN_BRIM_MUL(正面1.55倍の鋭い主峰+左右後方1.00倍の
+     副峰、その間を大きく窪ませた輪郭)は、前尖り自体は実現したが
+     「鋭すぎる」「バケットハットらしい短い全周つばではない」という
+     新たな指摘を受けた。全周をほぼ均一な短いつば(バケットハット)にし、
+     正面だけ緩やかに(鈍角に)迫り出す形へ引き直す ―― 前後の差(旧1.55
+     対0.48〜0.55)を大幅に縮め(新1.20対0.92)、かつ前後の遷移も
+     30°/60°で緩やかにして「角」ではなく「緩い峰」にした。左右後方の
+     副峰(旧1.00)も削除し全周ほぼ均一にした。 */
   const ARCHER_TRICORN_BRIM_MUL = [
-    1.55, 0.75, 0.50,   // 0°(正面、主峰)→30°→60°
-    0.48, 0.70, 1.00,   // 90°(左)→120°→150°(左後方峰)
-    0.55, 0.55,         // 180°(後方中央、谷になるよう2点)
-    1.00, 0.70, 0.48,   // 210°(右後方峰)→240°→270°(右)
-    0.50, 0.75,         // 300°→330°
+    1.20, 1.10, 0.98,   // 0°(正面、緩やかな峰)→30°→60°
+    0.92, 0.92, 0.92,   // 90°(左)→120°→150°
+    0.92, 0.92,         // 180°(後方、全周ほぼ均一)
+    0.92, 0.92, 0.92,   // 210°→240°→270°(右)
+    0.98, 1.10,         // 300°→330°
   ];
   function makeArcherBrimOutline(){
     const n = ARCHER_TRICORN_BRIM_MUL.length;
@@ -1586,58 +1590,30 @@
       closedTop:true, closedBottom:true,
     });
   }
-  const ARCHER_BRIM_RADIUS_MUL = 1.30;              // つばの半径(headR比。主峰(1.55倍)がここに掛かるため丸つばより小さめに)
+  /* バケットハットの「短いつば」は、Cap本体(ARCHER_CAP_R_MUL=1.15)より
+     一回り外側にわずかに出る程度の短い張り出しにする ―― 全周均一の
+     アウトライン基準値(0.92)にこの半径を掛けた値がCap半径(1.15×headR)
+     を上回るよう1.45に設定(0.92×1.45=1.334×headR、Cap比+16%の短い
+     張り出し)。正面(峰1.20)はさらにわずかに広がる(1.20×1.45=1.74×
+     headR、Cap比+51%)。 */
+  const ARCHER_BRIM_RADIUS_MUL = 1.45;
   const ARCHER_BRIM_THICKNESS = 0.05;
   const ARCHER_BRIM_Y_OFFSET_MUL = 0.30;            // Cap下端(0.32)のすぐ下、生え際のわずかに上
-
-  /* ユーザー指摘の「前尖りの三角形」を、つば(上記、平らな板)だけでなく
-     帽子自体の立体感でも表現する。旧Peak(makeWedge、ridgeWありの平たい
-     ひさし=鳥の嘴)を、ridgeW=0(頂点1つに収束する角錐=尖った刃/角)へ
-     置き換え、前方水平ではなく前方斜め上へ突き上げる ―― 添付のDark
-     Souls参考画像の、帽子前面から斜め上へ伸びる大きな角(つの)状の
-     突起に近づける。 */
-  /* 実機確認(1回目、θ=0.62=水平寄り): 見下ろしのDefault Game Cameraでは
-     「前方(+Z)」は画面奥ではなく「カメラ手前=顔の下側」に投影されるため、
-     水平寄りの角度だと先端が顔へ覆いかぶさる巨大な三角形として見えた
-     (角/horn状ではなく、鼻を覆う布のように見えた)。見下ろしで「頭から
-     立ち上がる角」に見せるには、水平成分を弱めほぼ垂直(θを大きく)に
-     近づけ、かつ付け根もCap前面ではなく頭頂寄りへ動かす必要がある。 */
-  const ARCHER_PEAK_BASE_W_MUL = 0.55;             // 付け根の幅(headR比)
-  const ARCHER_PEAK_BASE_D_MUL = 0.42;             // 付け根の奥行き
-  const ARCHER_PEAK_SPIKE_LEN_MUL = 1.70;          // 付け根→先端の長さ
-  const ARCHER_PEAK_UP_ANGLE = 1.15;               // 水平(前方)からの角度(rad)。0=真前、PI/2=真上
-  const ARCHER_PEAK_MOUNT_Y_MUL = 0.95;            // 突起の付け根のY(hY基準。Cap頭頂寄り)
-  const ARCHER_PEAK_MOUNT_Z_MUL = 0.55;            // 突起の付け根のZ(headR比。頭頂付近は先細りのため小さめ)
   // Phase 12-B Priority 2: CapがCylinder(角度に依存しない全周)から
   // Face Opening付きのArc Ring Loft(makeArcherCap()、ARCHER_CAP_ARC_
   // TEMPLATE/RINGS)へ変わったため、Coverage判定もarcHeadwearCoverage()
   // (Warrior Helm/Rogue Hoodと同じ関数を再利用、新規ロジックは追加
   // しない)へ切り替える。angle引数が新たに必要になったため、呼び出し元
-  // (getHeadwearCoverage())からも渡すよう変更した。Peak側は変更していない
-  // ため従来通りcylinderHeadwearCoverageのまま
+  // (getHeadwearCoverage())からも渡すよう変更した。
+  // ユーザー指摘(2巡目)でPeak(角/horn)を削除したため、Coverageは
+  // Cap本体だけのcylinderHeadwearCoverage判定に戻す
   function archerCapCoverageAt(headR, yOffset, angle){
     const capH = headR*ARCHER_CAP_HEIGHT_MUL;
     // Phase 13-E: Capを閉じた帽子に戻したため、Coverageも角度非依存の
     // 円錐台判定(Phase 12-B以前と同じcylinderHeadwearCoverage)へ戻す
-    const cap = cylinderHeadwearCoverage(
+    return cylinderHeadwearCoverage(
       headR*ARCHER_CAP_CENTER_OFFSET_MUL - capH/2, capH,
       headR*ARCHER_CAP_R_MUL, headR*ARCHER_CAP_TOP_R_MUL, yOffset);
-    // ユーザー指摘対応: Peakを水平のひさしから前方斜め上へ伸びる角
-    // (ridgeW=0の尖った角錐)へ変更したため、Coverageの縦方向占有も
-    // その実際の範囲(付け根Y〜先端Yまでの縦の立ち上がり分、付け根の
-    // 半幅→先端0への先細り)に合わせて再計算する
-    const peakRiseY = headR*ARCHER_PEAK_SPIKE_LEN_MUL*Math.sin(ARCHER_PEAK_UP_ANGLE);
-    const peak = cylinderHeadwearCoverage(
-      headR*ARCHER_PEAK_MOUNT_Y_MUL, peakRiseY,
-      headR*ARCHER_PEAK_BASE_W_MUL*0.5, 0, yOffset);
-    // Cap/Peakを合成したUnion Coverage: どちらも「そのY方向に実際に存在
-    // するSurfaceの半径」に変換した後で比較しているため、単純な
-    // max(capRadius, peakRadius)のような異なる基準の値同士の比較には
-    // ならない
-    if(cap.state!=='HEADWEAR' && peak.state!=='HEADWEAR') return { state:'NONE', surfaceRadius:null };
-    const rc = cap.state==='HEADWEAR' ? cap.surfaceRadius : -Infinity;
-    const rp = peak.state==='HEADWEAR' ? peak.surfaceRadius : -Infinity;
-    return { state:'HEADWEAR', surfaceRadius: Math.max(rc, rp) };
   }
 
   /* ---- Mage: Brim(角度依存、MAGE_BRIM_RADIUS_MULをそのまま利用) +
