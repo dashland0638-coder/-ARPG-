@@ -280,7 +280,39 @@
      最初の実装として、断面はWaist/Abdomen/Chest/Shoulderの4段・
      いずれも4点の矩形(左右幅と前後厚みを別々に持てる、最小限の凸多角形)
      に留めてある。断面を増やす/多角形にする改良は将来の課題。
-  ========================================================= */
+
+     Phase 11-B: 上記「将来の課題」に対応。Diagonal/Side視点で4点矩形の
+     平らな面・90°の鋭い稜線がそのまま見え、Torso/Pelvis/Thigh/Calf/
+     UpperArm/Forearmが「箱の集合」に見える問題をPhase 11-Aで実機確認した
+     (露出面積の大きいRogue/Berserker/Archerで特に顕著)。Headの
+     HEAD_HEX_TEMPLATE(顔の向きを持つ非対称6点)とは別に、身体パーツ用の
+     左右対称・前後対称な6点断面ヘルパーmakeBodyProfile()を新設し、
+     矩形の4隅だけを斜めに落とす。makeLoft()自体は変更しない(既に任意
+     点数の断面を受け付ける)。最大幅(hw)・最大奥行き(hd)はそのまま
+     維持し(側面中央の点がhw、前後端中央の点がhd)、前後の辺の両端だけ
+     BODY_PROFILE_CORNER_MUL倍だけ内側へ寄せて角を落とす。呼び出し側の
+     width/depth基準値・Position/Rotation/接続部のサイズ計算は一切
+     変更しない ―― 変わるのは断面の「点の並び」だけ。 */
+  // 角を落とす量(前後端の辺の半幅を、最大幅hwの何倍に留めるか)。0.6は
+  // 「四隅を斜めに落とす」程度の穏やかな値 ―― 1.0に近づけるほど矩形に
+  // 戻り、0に近づけるほど菱形に近づく。全パーツ共通のまま様子を見て、
+  // 明らかに不自然な部位があれば個別調整する方針(指示のとおり)
+  const BODY_PROFILE_CORNER_MUL = 0.6;
+  /* makeBodyProfile(hw, hd): 4点矩形[[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]]の
+     代わりに使う、身体パーツ共通の6点断面。左右対称・前後対称。巻き順は
+     既存の矩形テンプレートと同じ経路(前方左→前方右→…→後方左→戻る)を
+     保っており、間に側面の頂点を2つ挟んだだけなので、巻き方向(外向き
+     法線・signedVolume)は矩形版と同じになる。 */
+  function makeBodyProfile(hw, hd){
+    const cw = hw*BODY_PROFILE_CORNER_MUL;
+    return [
+      [-cw,-hd], [cw,-hd],
+      [hw, 0],
+      [cw, hd], [-cw, hd],
+      [-hw, 0],
+    ];
+  }
+
   // 肩→胸→腹→腰の比率(bodyR/bodyHに対する倍率)。chest(u=0.66)を
   // 「1.00倍」の基準にしてあるのは、旧TORSO_PROFILEの最大半径がここに
   // あった(=見た目の全体サイズをなるべく維持する)ため。
@@ -296,7 +328,10 @@
      同じ意味)で、呼び出し側はbodyR/bodyHをそのまま渡せばよい ―― 数値を
      固定値にせず、クラス/性別ごとにbodyR/bodyHが変わっても自動的に
      追従する。内部でTORSO_SECTION_RATIOSを使ってmakeLoft()を呼ぶだけの
-     薄いラッパーで、buildPlayer()側に断面の頂点リストを書かせない。 */
+     薄いラッパーで、buildPlayer()側に断面の頂点リストを書かせない。
+     Phase 11-B Step 1: 断面を4点矩形からmakeBodyProfile()の6点へ変更
+     (このコミット時点ではTorsoのみ、Pelvis/Thigh/Calf/UpperArm/Forearmは
+     次のStepで変更する)。 */
   function makeCharacterTorso(opts){
     const o = Object.assign({ width:0.35, depth:0.35, height:0.8 }, opts || {});
     const hh = o.height/2;
@@ -304,7 +339,7 @@
       const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
       return {
         y: -hh + o.height*r.yFrac,
-        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+        points: makeBodyProfile(hw, hd),
       };
     });
     return makeLoft({ sections, closedTop:true, closedBottom:true });
@@ -360,6 +395,9 @@
      考え方の、骨盤専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの基準値
      (旧limbGeo()のradius引数と同じ意味)で、呼び出し側はB.hipRをそのまま
      渡せばよい。 */
+  // Phase 11-B Step 3: 断面を4点矩形からmakeBodyProfile()の6点へ変更。
+  // Hip/Thigh側の実効サイズ・width/depth基準値・Position/回転は変更して
+  // いないため、Torso/Thighとの接続関係はStep 1-2以前のまま。
   function makeCharacterPelvis(opts){
     const o = Object.assign({ width:0.265, depth:0.265, height:0.32 }, opts || {});
     const hh = o.height/2;
@@ -367,7 +405,7 @@
       const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
       return {
         y: -hh + o.height*r.yFrac,
-        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+        points: makeBodyProfile(hw, hd),
       };
     });
     return makeLoft({ sections, closedTop:true, closedBottom:true });
@@ -401,7 +439,10 @@
      heightにはB.thighLenをそのまま渡せばよい。ローカルy座標の範囲は
      旧limbGeo()と同じ-height/2〜+height/2(y=+height/2が股関節側=上、
      y=-height/2がKnee側=下)なので、呼び出し側のposition/回転は
-     変更不要。 */
+     変更不要。
+     Phase 11-B Step 3: 断面を4点矩形からmakeBodyProfile()の6点へ変更。
+     Knee側の実効サイズ・width/depth基準値・Position/回転は変更していない
+     ため、Pelvis/Calfとの接続関係はStep 1-2以前のまま。 */
   function makeCharacterThigh(opts){
     const o = Object.assign({ width:0.132, depth:0.132, height:0.56 }, opts || {});
     const hh = o.height/2;
@@ -409,7 +450,7 @@
       const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
       return {
         y: -hh + o.height*r.yFrac,
-        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+        points: makeBodyProfile(hw, hd),
       };
     });
     return makeLoft({ sections, closedTop:true, closedBottom:true });
@@ -449,7 +490,10 @@
      heightにはB.calfLenをそのまま渡せばよい。ローカルy座標の範囲は
      旧limbGeo()と同じ-height/2〜+height/2(y=+height/2がKnee側=上、
      y=-height/2がAnkle側=下)なので、呼び出し側のposition/回転は
-     変更不要。 */
+     変更不要。
+     Phase 11-B Step 3: 断面を4点矩形からmakeBodyProfile()の6点へ変更。
+     Ankle側の実効サイズ・width/depth基準値・Position/回転は変更していない
+     ため、Thigh/Bootとの接続関係はStep 1-2以前のまま。 */
   function makeCharacterCalf(opts){
     const o = Object.assign({ width:0.106, depth:0.106, height:0.54 }, opts || {});
     const hh = o.height/2;
@@ -457,7 +501,7 @@
       const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
       return {
         y: -hh + o.height*r.yFrac,
-        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+        points: makeBodyProfile(hw, hd),
       };
     });
     return makeLoft({ sections, closedTop:true, closedBottom:true });
@@ -496,7 +540,11 @@
      B.upperArmLenのような専用変数は存在しないため、呼び出し側の既存値を
      そのまま渡す)。ローカルy座標の範囲は旧limbGeo()と同じ-height/2〜
      +height/2(y=+height/2がShoulder側=上、y=-height/2がElbow側=下)
-     なので、呼び出し側のposition/回転は変更不要。 */
+     なので、呼び出し側のposition/回転は変更不要。
+     Phase 11-B Step 2: 断面を4点矩形からmakeBodyProfile()(Torsoと同じ
+     ヘルパー、05-rendering-rig.js上部で定義)の6点へ変更。Elbow側の
+     実効サイズ・width/depth基準値・Position/回転は一切変更していない
+     ため、Elbow飾り球・Forearmとの接続関係はStep 1以前のまま。 */
   function makeCharacterUpperArm(opts){
     const o = Object.assign({ width:0.098, depth:0.098, height:0.32 }, opts || {});
     const hh = o.height/2;
@@ -504,7 +552,7 @@
       const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
       return {
         y: -hh + o.height*r.yFrac,
-        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+        points: makeBodyProfile(hw, hd),
       };
     });
     return makeLoft({ sections, closedTop:true, closedBottom:true });
@@ -543,7 +591,10 @@
      heightは既存のForearm長(buildPlayer()側で使っているリテラル0.30)を
      そのまま渡す。ローカルy座標の範囲は旧limbGeo()と同じ-height/2〜
      +height/2(y=+height/2がElbow側=上、y=-height/2がWrist側=下)
-     なので、呼び出し側のposition/回転は変更不要。 */
+     なので、呼び出し側のposition/回転は変更不要。
+     Phase 11-B Step 2: 断面を4点矩形からmakeBodyProfile()の6点へ変更。
+     Wrist側の実効サイズ・width/depth基準値・Position/回転は変更して
+     いないため、Hand/Vambraceとの接続関係はStep 1以前のまま。 */
   function makeCharacterForearm(opts){
     const o = Object.assign({ width:0.083, depth:0.083, height:0.30 }, opts || {});
     const hh = o.height/2;
@@ -551,7 +602,7 @@
       const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
       return {
         y: -hh + o.height*r.yFrac,
-        points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]],
+        points: makeBodyProfile(hw, hd),
       };
     });
     return makeLoft({ sections, closedTop:true, closedBottom:true });

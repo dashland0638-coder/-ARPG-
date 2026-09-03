@@ -222,11 +222,25 @@ const TORSO_SECTION_RATIOS = {
   chest:    { yFrac:0.66, widthMul:1.00, depthMul:0.90 },
   shoulder: { yFrac:1.00, widthMul:1.15, depthMul:0.75 },
 };
+// Phase 11-B: 05-rendering-rig.js側のmakeBodyProfile()/BODY_PROFILE_CORNER_MUL
+// と同じ値をここに複製する(makeCharacterTorso等と同じ理由でこのテスト
+// ファイルから直接importできないため)。値を変えたらこのコピーも更新すること。
+// Torso/Pelvis/Thigh/Calf/UpperArm/Forearmの各テストで共通利用する。
+const BODY_PROFILE_CORNER_MUL = 0.6;
+function makeBodyProfileForTest(hw, hd){
+  const cw = hw*BODY_PROFILE_CORNER_MUL;
+  return [
+    [-cw,-hd], [cw,-hd],
+    [hw, 0],
+    [cw, hd], [-cw, hd],
+    [-hw, 0],
+  ];
+}
 function makeCharacterTorsoForTest({width, depth, height}){
   const hh = height/2;
   const sections = Object.values(TORSO_SECTION_RATIOS).map(r => {
     const hw = width*r.widthMul, hd = depth*r.depthMul;
-    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+    return { y: -hh + height*r.yFrac, points: makeBodyProfileForTest(hw, hd) };
   });
   return makeLoft({ sections, closedTop:true, closedBottom:true });
 }
@@ -290,7 +304,7 @@ function makeCharacterPelvisForTest({width, depth, height}){
   const hh = height/2;
   const sections = Object.values(PELVIS_SECTION_RATIOS).map(r => {
     const hw = width*r.widthMul, hd = depth*r.depthMul;
-    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+    return { y: -hh + height*r.yFrac, points: makeBodyProfileForTest(hw, hd) };
   });
   return makeLoft({ sections, closedTop:true, closedBottom:true });
 }
@@ -371,7 +385,7 @@ function makeCharacterThighForTest({width, depth, height}){
   const hh = height/2;
   const sections = Object.values(THIGH_SECTION_RATIOS).map(r => {
     const hw = width*r.widthMul, hd = depth*r.depthMul;
-    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+    return { y: -hh + height*r.yFrac, points: makeBodyProfileForTest(hw, hd) };
   });
   return makeLoft({ sections, closedTop:true, closedBottom:true });
 }
@@ -447,7 +461,7 @@ function makeCharacterCalfForTest({width, depth, height}){
   const hh = height/2;
   const sections = Object.values(CALF_SECTION_RATIOS).map(r => {
     const hw = width*r.widthMul, hd = depth*r.depthMul;
-    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+    return { y: -hh + height*r.yFrac, points: makeBodyProfileForTest(hw, hd) };
   });
   return makeLoft({ sections, closedTop:true, closedBottom:true });
 }
@@ -535,7 +549,7 @@ function makeCharacterUpperArmForTest({width, depth, height}){
   const hh = height/2;
   const sections = Object.values(UPPERARM_SECTION_RATIOS).map(r => {
     const hw = width*r.widthMul, hd = depth*r.depthMul;
-    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+    return { y: -hh + height*r.yFrac, points: makeBodyProfileForTest(hw, hd) };
   });
   return makeLoft({ sections, closedTop:true, closedBottom:true });
 }
@@ -620,7 +634,7 @@ function makeCharacterForearmForTest({width, depth, height}){
   const hh = height/2;
   const sections = Object.values(FOREARM_SECTION_RATIOS).map(r => {
     const hw = width*r.widthMul, hd = depth*r.depthMul;
-    return { y: -hh + height*r.yFrac, points: [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] };
+    return { y: -hh + height*r.yFrac, points: makeBodyProfileForTest(hw, hd) };
   });
   return makeLoft({ sections, closedTop:true, closedBottom:true });
 }
