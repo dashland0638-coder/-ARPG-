@@ -717,25 +717,36 @@
     // さらに前に出さないと房として視認できない(1.06ではMesh識別Debugで
     // 細い線にしかならず、装飾として機能していなかった)。
     const BANG_FRONT_MUL = 1.18;
-    // Phase 12-B Priority 4: Warrior Helmの開口(WARRIOR_HELM_ARC_TEMPLATE/
-    // RINGS)は耳〜顎の高さから頭頂まで縦に大きく開いた「馬蹄形」で、
-    // 兜という「顔だけ見える窓」ではなく高さ方向に広い帯になっている。
-    // findCoverageExitAlongStrand()自体は仕様通り動作しているが、この
-    // 広い開口のせいでWarrior側頭部寄りのBangs(左右)のRoot探索結果が
-    // 生え際よりかなり低い位置(顎寄り)まで下がり、前髪が兜前面から
-    // 不自然に低く突出して見えていた(Phase 12-A Root Cause: Coverage
-    // 自体ではなく、その結果としてのB. Position)。
-    // Coverage System本体・Warrior Helm Geometryはどちらも変更せず、
-    // Warriorの前髪Rootだけ、生え際からの落差をWARRIOR_BANGS_ROOT_
-    // MAX_DROPまでに制限する(clamp)。他クラスのBangs計算には一切影響
-    // しない
-    const WARRIOR_BANGS_ROOT_MAX_DROP = 0.12;   // headR比。生え際から下へ落ちてよい最大量
+    // Phase 12-B Priority 4ではWarrior専用にBangs Rootをclampして対応した
+    // (生え際からの落差を制限)が、Phase 13-B接写調査で「Rootの高さを
+    // 制限してもBang自体は兜前面のFace Opening内に残り、中央〜左右の
+    // 3本がツノ状の突起として見え続ける」ことが判明した。Warrior Helmの
+    // 開口(耳〜頭頂まで縦に大きい馬蹄形)は3本のBang角度(中央0°、左右
+    // 約45°)すべてを内側に含む実効幅を持つため、Root位置の調整だけでは
+    // 「Face Opening内に突起が残らない」という目標を達成できない。
+    // Phase 13-C: Warrior/Archer(→Hawk Eyeへ継承)は、Bangsそのものを
+    // 生成しない(下記forEach先頭のclassDef.key判定)。Archerは元々Cap
+    // 全周に開口が無くBangs自体一度も生成されていなかったが、Phase 12-B
+    // Priority2でCapにFace Openingを追加した結果、同じ理由(Capが顔全体
+    // 高さを覆う縁なし帽で、3本の角度すべてが開口の実効幅に収まる)で
+    // Bangsが新たに露出するようになっていた(Phase 13-B調査で実機確認
+    // 済み、特に中央のBangはRoot探索がclamp無しのため生え際まで完全に
+    // 露出し最も目立っていた)。Coverage System本体
+    // (findCoverageExitAlongStrand/getHeadwearCoverage等)・Warrior Helm/
+    // Archer Cap Geometryはどちらも変更せず、Bangs生成ループの入口で
+    // Warrior/Archerだけ早期returnする(Mage/Archmage/Rogue/Berserkerの
+    // Bangs生成には一切影響しない)。Side Hair/Back Hairは対象外(今回
+    // Face Visibility問題として報告されていないため変更しない)
     const bangMeshes = [];
     [
       { x:0,             tipYFrac:0.550, rootR:headR*0.20, tipR:headR*0.090, tiltZ: 0.00 },
       { x:-headR*0.42,   tipYFrac:0.585, rootR:headR*0.18, tipR:headR*0.080, tiltZ:-0.18 },
       { x: headR*0.42,   tipYFrac:0.585, rootR:headR*0.18, tipR:headR*0.080, tiltZ: 0.18 },
     ].forEach(b=>{
+      // Warrior/Archer(Hawk Eyeはこの時点でclassDef.key==='archer'固定
+      // のためここに含まれる)は、Face Openingの実効角度幅に3本すべてが
+      // 収まるため、生成自体を行わない
+      if(classDef.key==='warrior' || classDef.key==='archer') return;
       const tipOut = headOut(b.tipYFrac);
       const bangZ = tipOut.frontZ*BANG_FRONT_MUL;
       const bangAngle = Math.atan2(b.x, bangZ);
@@ -746,9 +757,6 @@
       // ためほぼ無変更のはず ―― Phase 5 QAで確認する)
       const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, bangAngle, tipOut.y, hairlineOut.y);
       if(exit.covered) return;   // Bangs全体がHeadwearの内側 ―― 生成しない
-      if(classDef.key==='warrior'){
-        exit.y = Math.max(exit.y, hairlineOut.y - headR*WARRIOR_BANGS_ROOT_MAX_DROP);
-      }
       const tipY = head.position.y + tipOut.y;
       const rootY = head.position.y + exit.y;
       const bang = new THREE.Mesh(
@@ -929,8 +937,17 @@
       // Openingの実効半幅(中腹リングでheadR*0.55*1.15≒headR*0.63)の
       // 内側に収まるようにし、兜の縁から横に飛び出さないようにした
       const browGuardW = headR*0.40, browGuardH = 0.055, browGuardD = 0.09;
+      // Phase 13-C: Face Visibility改善。darkMat(0x2a2420)をそのまま共有
+      // 使用すると、Face Opening内部の暗いCavity(実測でほぼ純黒)の中で
+      // Brow GuardだけがEyeより先に「黒い板」として視認されてしまう
+      // (Phase 13-B接写調査で確認)。GeometryはExact同一のまま、Material
+      // だけをWarrior Helm本体(warriorHelmMat, 0x9aa0a8)に近い中間トーンの
+      // 金属色へ分離し、「独立した黒い板」ではなく「兜内側の陰影・眉当て」
+      // として自然に読めるようにした。darkMat自体(他パーツで共有)は
+      // 変更していない
+      const warriorBrowMat = new THREE.MeshStandardMaterial({color:0x656b74, roughness:0.55, metalness:0.12});
       [-1, 1].forEach(s=>{
-        const brow = new THREE.Mesh(new THREE.BoxGeometry(browGuardW, browGuardH, browGuardD), darkMat);
+        const brow = new THREE.Mesh(new THREE.BoxGeometry(browGuardW, browGuardH, browGuardD), warriorBrowMat);
         brow.position.set(s*headR*0.40, hY+0.115, headR*0.88 + HEAD_BACK_Z);
         brow.rotation.y = -s*0.10;   // Helmetの丸みに沿わせてわずかに外向きへ振る
         brow.castShadow = true;
