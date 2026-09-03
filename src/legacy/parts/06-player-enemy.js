@@ -781,11 +781,21 @@
     const backLenFull = bRootOut.y - bTipOut.y;
     const backRootZ = bRootOut.backZ*BACK_OUT_MUL, backTipZ = bTipOut.backZ*BACK_OUT_MUL;
     const backTilt = Math.atan2(backTipZ - backRootZ, backLenFull);   // 上ほど後方へ(anatomical root/tip基準)
+    // Phase 6: Rogue/Berserkerの実機QAで、Back Hair 3本のうち左右2本が
+    // Nape Openingの角度(旧±0.22テンプレート単位)よりわずかに外側
+    // (実測±14.6°、開口は±12.4°)にあり、findCoverageExitAlongStrand()で
+    // ほぼ切り詰められていたことが判明した(ROGUE_HOOD_ARC_TEMPLATE側で
+    // 開口を±0.30へ拡張、詳細は同定数のコメント参照)。この拡張により
+    // 3本とも露出するようになったため、視認性を上げる目的でrootR/tipRを
+    // 太くし、左右2本には軽微な外向きY回転(BACK_HAIR_SPLAY)を追加して
+    // 「わずかに外側・後方へ流れる」自然な広がりにした(左右対称、
+    // b.xMulの符号をそのまま使うため中央は回転0のまま)。
+    const BACK_HAIR_SPLAY = 0.16;   // ラジアン(約9°)、翼のように大きく開かない程度
     const backHairMeshes = [];
     [
-      { xMul: 0.00, rootR:headR*0.155, tipR:headR*0.075 },
-      { xMul:-1.00, rootR:headR*0.130, tipR:headR*0.060 },
-      { xMul: 1.00, rootR:headR*0.130, tipR:headR*0.060 },
+      { xMul: 0.00, rootR:headR*0.185, tipR:headR*0.090 },
+      { xMul:-1.00, rootR:headR*0.150, tipR:headR*0.072 },
+      { xMul: 1.00, rootR:headR*0.150, tipR:headR*0.072 },
     ].forEach(b=>{
       const angle = Math.atan2(b.xMul*bTipOut.backHalfWidth, backTipZ);
       // root(生え際下)がHeadwear Coverageの内側にある場合、Strandが
@@ -797,7 +807,7 @@
         makeHairBang({rootR:b.rootR, tipR:b.tipR, length:backLen}), hairMat);
       backHair.position.set(b.xMul*bTipOut.backHalfWidth, head.position.y + bTipOut.y,
                             backTipZ + HEAD_BACK_Z);
-      backHair.rotation.set(backTilt, 0, 0);
+      backHair.rotation.set(backTilt, b.xMul*BACK_HAIR_SPLAY, 0);
       backHair.castShadow = true;
       group.add(backHair);
       backHairMeshes.push(backHair);
@@ -1135,15 +1145,22 @@
       const capTop = new THREE.Mesh(new THREE.CircleGeometry(headR*ARCHER_CAP_TOP_R_MUL, capSegs), clothMat);
       capTop.rotation.x = -Math.PI/2;
       capTop.position.set(0, capCenterY+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop);
-      // Phase 5: Peakの高さ・位置をheadR相対(ARCHER_PEAK_HEIGHT_MUL/
-      // ARCHER_PEAK_CENTER_OFFSET_MUL)に改め、Cap拡大後のつば(bill)の
-      // 位置(眉の高さ付近)に合わせた。前方張り出しも0.02固定から
-      // headR比のARCHER_PEAK_FRONT_Z_MULへ ―― Front/Front-diagonalから
-      // 視認できるようにする(renderOrder等の描画順制御は使わない)
+      // Phase 6: PeakをDefault Game Camera(ほぼ真上からの見下ろし)でも
+      // 視認できる向きへ改めた。ConeGeometryはローカル+Y(鉛直)に頂点を
+      // 向ける ―― Phase 5まではこの軸を変えずに位置だけ調整していたため、
+      // 見下ろしカメラでは軸がほぼ視線と平行になり、断面(点)にしか
+      // 見えなかった(根本原因は位置ではなく軸の向き)。
+      // rotation.x = +PI/2 で頂点の向きをローカル+Y→ワールド+Z(キャラ
+      // 前方、HEAD_HEX_TEMPLATE等でz=+1.00が顔側になっている規約と同じ)
+      // へ倒す ―― Warrior Helmのcrest(頭頂から前後に走る板、鶏冠)とは
+      // 異なり、Capの前面から鳥の嘴のように細く前へ突き出す意匠にした
+      // (半径・長さはARCHER_PEAK_R_MUL/HEIGHT_MUL側で調整、詳細は同定数の
+      // コメント参照)。Peakの可視性はGeometryの向き・形状だけで解決して
+      // おり、renderOrder/depthTest等の描画順制御は使っていない。
       const peakH = headR*ARCHER_PEAK_HEIGHT_MUL;
       const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*ARCHER_PEAK_R_MUL, peakH, 4), clothMat);
       peak.position.set(0, hY+headR*ARCHER_PEAK_CENTER_OFFSET_MUL, headR*ARCHER_PEAK_FRONT_Z_MUL + HEAD_BACK_Z);
-      peak.rotation.y = Math.PI/4; group.add(peak);
+      peak.rotation.x = Math.PI/2; group.add(peak);
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
       // 上げた際(#39系「参考画像のような頭身に」)、見下ろし視点の
       // カメラ角度では前方へ張り出す水平な板が必ず目の上に重なって見える

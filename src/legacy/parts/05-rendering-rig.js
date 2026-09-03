@@ -1182,14 +1182,23 @@
      widthMul=1.06@yFrac0.52 등)をこの一覧のコメントとして明示し、値が
      Head自身を下回らないことを手計算で保証した(将来Head側の値を変えた
      場合はこのコメントの値と合わせて再計算が必要)。 */
+  /* Phase 6: Nape Openingの角度をわずかに拡張(±0.22→±0.30)。Back Hair
+     3本(中央/左/右)の実際の角度を計算すると、中央(angle=π)は元の
+     開口(±atan(0.22)≈±12.4°)内に収まっていたが、左右(angle=π∓
+     atan(backHalfWidth/|backTipZ|)≈π∓14.6°)はわずかに開口の外側に
+     あり、findCoverageExitAlongStrand()がHood内部と判定してほぼ全長を
+     切り詰めていた ―― 3本用意しているのに実質1本しか露出していなかった
+     原因。±0.30(atan(0.30)≈16.7°)へ広げ、左右3本すべてを開口内へ
+     収めた。「うなじに大きな穴を開ける」ためではなく、既存の3本を
+     意図通り通すための最小限の是正。 */
   const ROGUE_HOOD_ARC_TEMPLATE = [
-    [-0.22, -1.00],   // 後方左(開口の縁、うなじ)
+    [-0.30, -1.00],   // 後方左(開口の縁、うなじ)
     [-1.00,  0.10],   // 左側面(Headと同じ規約: 最大幅点|x|=1.00)
     [-0.60,  0.85],   // 前方左(顔側)
     [ 0.00,  1.00],   // 正面中央(最前面)
     [ 0.60,  0.85],   // 前方右(顔側)
     [ 1.00,  0.10],   // 右側面
-    [ 0.22, -1.00],   // 後方右(開口の縁。ここと配列先頭の間は繋がない=Nape Opening)
+    [ 0.30, -1.00],   // 後方右(開口の縁。ここと配列先頭の間は繋がない=Nape Opening)
   ];
   const ROGUE_HOOD_RINGS = [
     // yFracはHood自身のローカル高さ(0=襟元, 1=頭頂)。widthMulは
@@ -1269,10 +1278,23 @@
   const ARCHER_CAP_TOP_R_MUL = 1.25*0.7;
   const ARCHER_CAP_HEIGHT_MUL = 1.45;              // 旧0.6 → Hair Shellの頭頂(+1.06×headR)を実際に超える高さへ(実機QAで、+1.00止まりだと steep Default Cameraから頭頂のHair Shellのわずかな残りが黒い凹みに見えることを確認して調整)
   const ARCHER_CAP_CENTER_OFFSET_MUL = 0.425;      // 旧ARCHER_CAP_CENTER_OFFSET_ABS(絶対値0.05)を廃止、headR相対に統一。bottom≈-0.30×headR(変更前と同じ)、top≈+1.15×headR
-  const ARCHER_PEAK_R_MUL = 0.85;
-  const ARCHER_PEAK_HEIGHT_MUL = 0.40;             // 旧ARCHER_PEAK_HEIGHT_ABS(絶対値0.3)を廃止、headR相対に統一
-  const ARCHER_PEAK_CENTER_OFFSET_MUL = 0.75;      // 旧ARCHER_PEAK_CENTER_OFFSET_ABS(絶対値0.16)を廃止。実機QAで眉の高さ(0.05/0.40)だとDefault Game Cameraの見下ろし角度では顔・肩に隠れて不可視だったため、Capの上寄り(天面に近い高さ、そこはCap自体の半径がTOP_R_MUL側へ絞られていく途中)まで引き上げ、見下ろしカメラで背景に対して輪郭が見えるようにした
-  const ARCHER_PEAK_FRONT_Z_MUL = 0.45;            // 新規: Peakの前方張り出し量(headR比)。旧実装は0.02固定でほぼ前へ出ていなかった
+  /* Phase 6: PeakをDefault Game Camera(ほぼ真上からの見下ろし)でも
+     視認できるようにした。Phase 5まではConeGeometryの軸がローカル+Y
+     (鉛直)のままで、位置・高さをどれだけ調整してもカメラ視線とほぼ
+     平行な軸のため断面(点)にしか見えなかった ―― 原因は位置ではなく
+     軸の向きだったため、06-player-enemy.js側でpeak.rotation.xにより
+     軸を前方(+Z)へ倒す(詳細は同ファイルのpeak生成コメント参照)。
+     ここではその「前方へ倒した後」を前提に、半径を細く(0.85→0.38、
+     鍔ではなく鳥の嘴のような細い突起にする)・長さ(倒した後は前後長に
+     なる)を0.40→0.60へ延ばし、Cap前面から確実に突き出すようにした。
+     ARCHER_PEAK_FRONT_Z_MULは「Peak中心のZ位置」ではなく、回転後は
+     Peakの前後長の中心を意味するため、Cap前面の実測半径(yFrac0.75
+     付近で≈0.979×headR)+新しい長さの半分(0.30)から1.28へ再計算した
+     (Cap側の値=ARCHER_CAP_*は今回変更していない)。 */
+  const ARCHER_PEAK_R_MUL = 0.38;
+  const ARCHER_PEAK_HEIGHT_MUL = 0.60;             // 前方へ倒した後の前後長(headR比)
+  const ARCHER_PEAK_CENTER_OFFSET_MUL = 0.75;      // Y位置は既存のまま維持
+  const ARCHER_PEAK_FRONT_Z_MUL = 1.28;            // Cap前面(≈0.979×headR)+長さの半分(0.30)
   function archerCapCoverageAt(headR, yOffset){
     const capH = headR*ARCHER_CAP_HEIGHT_MUL;
     const cap = cylinderHeadwearCoverage(
