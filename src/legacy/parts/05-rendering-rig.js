@@ -1543,6 +1543,32 @@
      前へ張り出させると、見下ろし視点では「額の上のひさし」として読め、
      目の高さより上に留まる。Side/Diagonalでも三角の断面が見えるため、
      鳥の嘴のような前方への張り出しというシルエットは維持される。 */
+  /* Priority 1-1: Archer/Hawk Eyeのつば(Brim)。設計図(弓師/鷹の目
+     イメージシート)は「幅の広いつばが下向きに垂れたハンター帽」だが、
+     Phase 13-EでCapを生え際の上に載る帽子へ作り直した際、つば自体を
+     一切作っていなかった(旧BoxGeometry製の水平なひさしは、見下ろし
+     カメラで必ず目に重なるため過去に撤去済み ―― 下記コメント参照)。
+     Mage Hatのつば(makeMageHatBrimOutline、正面だけ半径を落とした
+     12点の非対称リング)がまさに同じ課題を解決済みの形状のため、
+     新しいGeometryを追加せず、そのアウトラインをそのまま再利用する。
+     Archer Capは既に生え際の上にあり、Mage Hatのような「顔の途中まで
+     覆う」問題は無いため、旧brim2のような「目に重なる板」の再発はない
+     ―― つばの下端(hairlineOut.y付近)はEyeの高さ(headR*0.02付近)より
+     十分高い。 */
+  function makeArcherBrimOutline(){ return makeMageHatBrimOutline(); }
+  function makeArcherBrim(radius, thickness){
+    const outline = makeArcherBrimOutline();
+    const half = thickness/2;
+    const toPts = () => outline.map(([fx,fz]) => [fx*radius, fz*radius]);
+    return makeLoft({
+      sections: [ { y:half, points:toPts() }, { y:-half, points:toPts() } ],
+      closedTop:true, closedBottom:true,
+    });
+  }
+  const ARCHER_BRIM_RADIUS_MUL = 1.85;              // つばの半径(headR比、後方・側方の最大張り出し)
+  const ARCHER_BRIM_THICKNESS = 0.05;
+  const ARCHER_BRIM_Y_OFFSET_MUL = 0.30;            // Cap下端(0.32)のすぐ下、生え際のわずかに上
+
   const ARCHER_BILL_W_MUL = 1.15;                  // ひさしの幅(付け根、headR比)
   const ARCHER_BILL_TIP_W_MUL = 0.72;              // ひさしの先端幅(台形にして嘴らしさを残す)
   const ARCHER_BILL_LEN_MUL = 0.55;                // 前方への張り出し長

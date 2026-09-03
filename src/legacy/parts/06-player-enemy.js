@@ -924,6 +924,25 @@
       // 後方へ。Headだけ後退してHelmが元の位置に取り残される事故を防ぐ
       helm.position.set(0, helmBottomY, HEAD_BACK_Z); helm.castShadow = true; group.add(helm);
       warriorBaseDecor.push(helm);
+      // Priority 1-3(設計図との差分レポート): 「頭巾のようにしか見えない」
+      // への対応。Helm本体は単一の低ポリ曲面シェルで、開口部の縁は
+      // 厚みゼロの生のエッジのため、稜線に金属的な段差・トリムが無く、
+      // 「布のフードに穴が開いている」のと見分けがつきにくかった。
+      // 開口の最上端(WARRIOR_HELM_OPENING_TOP_YFRAC=0.50のリング、
+      // faceZで前へせり出した眉庇の位置)に沿って、実際に厚みのある
+      // 眉当てバー(Visor Rim)を1本渡す。Eyeの高さ(hY+0.02付近)より
+      // 十分上(hY+0.30×headR)にあるため、削除済みのBrow Guard(Eyeの
+      // すぐ上、2枚)のように目を隠すことはない。Helm本体のGeometry/
+      // Position/開口の形状は一切変更していない。
+      // makeWarriorBaseHelm()と同じ式(ローカルy = height*yFrac、
+      // 原点はhelmBottomY)でリング1(中腹=開口上端)の実際のワールドYを出す
+      const visorRimY = helmBottomY + headR*WARRIOR_HELM_HEIGHT_MUL*WARRIOR_HELM_RINGS[1].yFrac;
+      const visorRimHW = headR*WARRIOR_HELM_RINGS[1].widthMul*Math.abs(WARRIOR_HELM_ARC_TEMPLATE[0][0]);
+      const visorRimZ = headR*WARRIOR_HELM_RINGS[1].depthMul*WARRIOR_HELM_RINGS[1].faceZ;
+      const visorRim = new THREE.Mesh(new THREE.BoxGeometry(visorRimHW*2, 0.05, 0.10), clothAcc);
+      visorRim.position.set(0, visorRimY, visorRimZ + HEAD_BACK_Z);
+      visorRim.castShadow = true; group.add(visorRim);
+      warriorBaseDecor.push(visorRim);
       // Headwear Silhouette Integration Phase(Priority A): 旧Visorは
       // headR*1.9(顔幅の1.8倍相当)の1枚板をEye位置(hY+0.02)にそのまま
       // 重ねていたため、Default Game CameraではEyeの高さを顔の端から端
@@ -1197,11 +1216,19 @@
       const capTop = new THREE.Mesh(new THREE.CircleGeometry(headR*ARCHER_CAP_TOP_R_MUL, capSegs), clothMat);
       capTop.rotation.x = -Math.PI/2;
       capTop.position.set(0, capCenterY+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop);
-      // Phase 9: Hawk Eye再設計フェーズ。昇格時にCap/CapTop/Peakを隠して
-      // 専用Deep Hoodへ差し替えるための参照(battleKnightのwarriorBaseDecor
-      // と同じ「差分方式」)。Archer自身の見た目・Coverageには一切影響しない
-      // ―― ここでは参照を配列に集めるだけ
-      const archerCapDecor = [cap, capTop];
+      // Priority 1-1(設計図との差分レポート): 幅の広いつば(Brim)。
+      // makeArcherBrim()(05-rendering-rig.js、Mage Hatのつばアウトラインを
+      // そのまま再利用)を、Capの下端(生え際のすぐ上)のさらに少し下に
+      // 重ねる。CapのGeometry/Positionは変更していない
+      const brim = new THREE.Mesh(
+        makeArcherBrim(headR*ARCHER_BRIM_RADIUS_MUL, ARCHER_BRIM_THICKNESS), clothMat);
+      brim.position.set(0, hY+headR*ARCHER_BRIM_Y_OFFSET_MUL, HEAD_BACK_Z);
+      brim.castShadow = true; group.add(brim);
+      // Phase 9: Hawk Eye再設計フェーズ。昇格時にCap/CapTop/Peak/Brimを
+      // 隠して専用Deep Hoodへ差し替えるための参照(battleKnightの
+      // warriorBaseDecorと同じ「差分方式」)。Archer自身の見た目・
+      // Coverageには一切影響しない ―― ここでは参照を配列に集めるだけ
+      const archerCapDecor = [cap, capTop, brim];
       // Phase 6: PeakをDefault Game Camera(ほぼ真上からの見下ろし)でも
       // 視認できる向きへ改めた。ConeGeometryはローカル+Y(鉛直)に頂点を
       // 向ける ―― Phase 5まではこの軸を変えずに位置だけ調整していたため、
@@ -1227,6 +1254,26 @@
       peak.rotation.x = Math.PI/2 + ARCHER_BILL_TILT; group.add(peak);
       archerCapDecor.push(peak);
       playerMixerParts.archerCapDecor = archerCapDecor;
+      // Priority 1-2(設計図との差分レポート): 鼻から下を覆う布マスク。
+      // Rogueのmakeロジックと全く同じ形状(makeRogueMask、makeLoft3段の
+      // 低ポリ布)を再利用し、Position式もRogueと同一(Head基準、Cap/Hoodの
+      // 高さには依存しない)にしてある。ただしarcherCapDecorには入れない
+      // ―― Hawk Eyeへ昇格してもCap/CapTop/Peak/Brimだけを隠しHoodへ
+      // 差し替える一方、マスクはArcher段階で生成されたまま引き継がれる
+      // (Bangs停止の仕組みと同じ「Archerで作ったものをHawk Eyeが継承する」
+      // 構造)。素材色はRogueの黒(0x1c1a20、覆面の暗殺者)ではなく、
+      // 既存のarcherCollar(毛皮襟)と同じ配色(0xa89068系の革)にして、
+      // 隠密ではなく「毛皮縁の狩人」という方向性に合わせた
+      // 実機確認: 0x6b4f34(暗い革)は影に沈んでRogueの黒マスクと
+      // 区別がつかず、0xc9b285(明るい生成り)は肌色(skinMat=0xe8b98a)に
+      // 近すぎて輪郭が消えた。肌より明確に暗く、かつCapの影(ほぼ黒)より
+      // 明確に明るい中間の革色(0x8a5a35)にして、明暗どちらの背景でも
+      // マスクの輪郭が読めるようにした
+      const archerMaskMat = new THREE.MeshStandardMaterial({color:0x8a5a35, roughness:0.85});
+      const archerMask = new THREE.Mesh(
+        makeRogueMask({width:headR*0.525, depth:headR*0.25, height:headR*0.62}), archerMaskMat);
+      archerMask.position.set(0, hY-headR*0.42, headR*0.55 + HEAD_BACK_Z);
+      archerMask.castShadow = true; group.add(archerMask);
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
       // 上げた際(#39系「参考画像のような頭身に」)、見下ろし視点の
       // カメラ角度では前方へ張り出す水平な板が必ず目の上に重なって見える
