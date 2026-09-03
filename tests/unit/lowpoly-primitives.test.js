@@ -1288,7 +1288,7 @@ test('Head / Posture Alignment再設計フェーズ: HEAD_BACK_Zの妥当性・�
     checkNear('hair.position.set(0, head.position.y, HEAD_BACK_Z)', 'Hair Shell');
     checkNear('makeWarriorBaseHelm({width:headR, depth:headR, height:headR*WARRIOR_HELM_HEIGHT_MUL})', 'Warrior Helm');
     checkNear('makeMageHatBrim(headR*MAGE_BRIM_RADIUS_BASE_MUL, MAGE_BRIM_THICKNESS)', 'Mage Brim');
-    checkNear('makeHawkEyeHood({width:B.headR*1.25', 'Hawk Eye Hood');
+    checkNear('makeHawkEyeHood({width:B.headR*1.35', 'Hawk Eye Hood');
   });
 
   await t.test('Torso/Neck/BeltにはHEAD_BACK_Zを適用していない(Body Geometry/Positionは維持する方針)', () => {
@@ -1632,7 +1632,11 @@ function makeHawkEyeHoodForTest({width, depth, height}){
 
 test('makeHawkEyeHood(鷹の目Hood再設計): 「黒い球」を排除した開いたLow Poly Hoodの要件', async (t) => {
   const headR = 0.3705;   // BUILD.male相当の実際の値
-  const width = headR*1.25, depth = headR*1.25, height = headR*1.75;
+  // Phase 9: Hawk Eye Headwear再設計でCap非表示化+Hood拡大(1.25→1.35、
+  // 1.75→1.90、06-player-enemy.jsのmakeHawkEyeHood()呼び出しと同じ値)。
+  // ARC_TEMPLATE/RINGS自体は変更していないため、以下のEye Opening関連の
+  // 不等式チェックはこの新しい寸法でも成立する(単純な拡大のため)
+  const width = headR*1.35, depth = headR*1.35, height = headR*1.90;
   const geo = makeHawkEyeHoodForTest({ width, depth, height });
   const n = HAWKEYE_HOOD_ARC_TEMPLATE.length;
 

@@ -1157,6 +1157,11 @@
       const capTop = new THREE.Mesh(new THREE.CircleGeometry(headR*ARCHER_CAP_TOP_R_MUL, capSegs), clothMat);
       capTop.rotation.x = -Math.PI/2;
       capTop.position.set(0, capCenterY+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop);
+      // Phase 9: Hawk Eye再設計フェーズ。昇格時にCap/CapTop/Peakを隠して
+      // 専用Deep Hoodへ差し替えるための参照(battleKnightのwarriorBaseDecor
+      // と同じ「差分方式」)。Archer自身の見た目・Coverageには一切影響しない
+      // ―― ここでは参照を配列に集めるだけ
+      const archerCapDecor = [cap, capTop];
       // Phase 6: PeakをDefault Game Camera(ほぼ真上からの見下ろし)でも
       // 視認できる向きへ改めた。ConeGeometryはローカル+Y(鉛直)に頂点を
       // 向ける ―― Phase 5まではこの軸を変えずに位置だけ調整していたため、
@@ -1173,6 +1178,8 @@
       const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*ARCHER_PEAK_R_MUL, peakH, 4), clothMat);
       peak.position.set(0, hY+headR*ARCHER_PEAK_CENTER_OFFSET_MUL, headR*ARCHER_PEAK_FRONT_Z_MUL + HEAD_BACK_Z);
       peak.rotation.x = Math.PI/2; group.add(peak);
+      archerCapDecor.push(peak);
+      playerMixerParts.archerCapDecor = archerCapDecor;
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
       // 上げた際(#39系「参考画像のような頭身に」)、見下ろし視点の
       // カメラ角度では前方へ張り出す水平な板が必ず目の上に重なって見える
@@ -1538,6 +1545,9 @@
     if(P.warriorBaseDecor) P.warriorBaseDecor.forEach(m=>{ m.visible = true; });
     if(P.pauldronL) P.pauldronL.visible = true;
     if(P.pauldronR) P.pauldronR.visible = true;
+    // Phase 9: 鷹の目転身時に隠した素の弓師のCap/CapTop/Peakを可視に戻す。
+    // hawkEye以外はそもそもこれらを隠さないので、他クラスには無関係
+    if(P.archerCapDecor) P.archerCapDecor.forEach(m=>{ m.visible = true; });
     // 戦騎士の兜で隠した球目(sclera/pupil/highlight)も可視へ戻す。
     // head/hairも含め一括で可視にしておく(誤って隠れたまま残る事故を防ぐ)
     if(P.headGroupParts) P.headGroupParts.forEach(m=>{ m.visible = true; });
@@ -2095,24 +2105,58 @@
       patchStrap.position.set(0, headYLocal+0.02, HEAD_BACK_Z);
       P.waist.add(patchStrap); meshes.push(patchStrap);
 
-      // フードコートのような見た目(ユーザー指摘)。既存のハンチング帽の
-      // 上に大きめのフードを重ね、頭巾をかぶったシルエットに寄せる
-      // Hawk Eye Hood再設計フェーズ(Headwear Audit指摘: 「黒い球」に
-      // 見える唯一のクラス): 旧SphereGeometry(全方位均等なドーム、正面
-      // からも真っ黒な円にしか見えなかった)を、makeHawkEyeHood()
+      /* Phase 9: Hawk Eye Headwear再設計。「帽子の上にフードを重ねる」から
+         「最初から深いフードを被っている人物」へ。Root Causeは、Archer
+         Cap(CylinderGeometry、headR*1.45の高さの筒)がHood(headR*1.75)と
+         ほぼ同じ場所に同時に存在し、両者の輪郭が競合して「帽子が頭の中に
+         めり込んでいる」バケツ状の塊に見えていたこと(実機QAで確認、
+         Archer単体では同じCapが単独で問題なく機能しているため、Cap自体の
+         Geometryが原因ではなく「Cap+Hoodの二重重ね」が原因と判断)。
+         Archer自身(buildPlayer)のCap/Peak Geometry・Coverageは一切
+         変更せず、Hawk Eye昇格時だけCap/CapTop/Peak(archerCapDecor、
+         buildPlayer側で参照を保持済み)を非表示にし、専用のDeep Hoodへ
+         差し替える(battleKnightがwarriorBaseDecorを隠す既存パターンと
+         同じ差分方式)。Hair生成(Bangs/Side/Back Hair)はbuildPlayer時点の
+         Archer Cap/Peak Coverageを既に使い終えているため、この非表示化・
+         Hood差し替えはHair Coverageに一切影響しない(Coverage System自体は
+         無変更)。 */
+      if(P.archerCapDecor) P.archerCapDecor.forEach(m=>{ m.visible = false; });
+      // フードコートのような見た目(ユーザー指摘)。Hawk Eye Hood再設計
+      // フェーズ(Headwear Audit指摘: 「黒い球」に見える唯一のクラス):
+      // 旧SphereGeometry(全方位均等なドーム)を、makeHawkEyeHood()
       // (05-rendering-rig.js、makeWarriorBaseHelm()と同じ「開いた弧の
       // 断面を積む」低ポリ技法、顔側にFace Openingを持つ)へ置き換えた。
-      // Material(hoodMat)は変更していない ―― 今回はGeometryだけの改善
+      // Phase 9: Cap非表示化に伴い「深いフード」としての存在感を持たせる
+      // ため、width/depth/heightを一回り拡大(1.25→1.35、1.75→1.90)。
+      // ARC_TEMPLATE/RINGS自体(開口・Eye可視性を保証する形状比率)は
+      // 変更していない ―― 単純な拡大なのでEye Opening関連の既存テスト
+      // (tests/unit/lowpoly-primitives.test.js)の不等式はそのまま成立する
       const hoodMat = new THREE.MeshStandardMaterial({color:uj.capeColor, roughness:0.85});
       const hoodBottomY = headYLocal - B.headR*0.62;
       const hood = new THREE.Mesh(
-        makeHawkEyeHood({width:B.headR*1.25, depth:B.headR*1.25, height:B.headR*1.75}), hoodMat);
-      // Phase 8 Priority 3: Z前方+0.05(旧-0.03→+0.02)。Geometry(引数)は
-      // 変更せず、HoodがArcher Capにほぼ重なりFront/Diagonalで隠れていた
-      // 問題(実機QA)を、前方へ出して側面の縁を覗かせることで解消した
-      hood.position.set(0, hoodBottomY, 0.02 + HEAD_BACK_Z);
+        makeHawkEyeHood({width:B.headR*1.35, depth:B.headR*1.35, height:B.headR*1.90}), hoodMat);
+      // Cap非表示化により「HoodをCapの前へ逃がす」必要が薄れたため、Zは
+      // HEAD_BACK_Z基準(他クラスと同じ、Headと同じ後方オフセットのみ)に
+      // 戻した
+      hood.position.set(0, hoodBottomY, HEAD_BACK_Z);
       hood.castShadow = true;
       P.waist.add(hood); meshes.push(hood);
+      // Phase 9: 額のひさし(Wedge、Warrior/Battle Knightのbrowと同じ技法)。
+      // Loft(makeHawkEyeHood)自体はEye可視性を保証するテスト付きの既存
+      // 形状のため変更せず、代わりに前方へ張り出す薄いくさびを重ねて額の
+      // 影を作る ―― 参考イメージの「額から頬付近まで影になる」を、
+      // 実際の3D形状による自然な落影(castShadow)で表現する。広い面を
+      // 上(rotation.x=PI、Battle Knight browと同じ反転)にして、稜線側
+      // (ridgeOffsetZでわずかに後方へ引いた辺)が目の高さ付近に来るように
+      // した
+      const hoodBrow = new THREE.Mesh(makeWedge({
+        baseW: B.headR*1.30, baseD: B.headR*0.42, height: B.headR*0.16,
+        ridgeW: B.headR*0.70, ridgeOffsetZ: -B.headR*0.30,
+      }), hoodMat);
+      hoodBrow.rotation.x = Math.PI;
+      hoodBrow.position.set(0, headYLocal + B.headR*0.20, B.headR*0.78 + HEAD_BACK_Z);
+      hoodBrow.castShadow = true;
+      P.waist.add(hoodBrow); meshes.push(hoodBrow);
     }
 
     P.jobDecorMeshes = meshes;
