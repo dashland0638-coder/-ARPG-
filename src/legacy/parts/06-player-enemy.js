@@ -817,72 +817,13 @@
       backHairMeshes.push(backHair);
     });
 
-    /* ---- Mage限定: Long Hair(Phase 7) ----
-       設定画で「長い髪」がMageの重要な識別要素とされているが、上の
-       Bangs/Side Hair/Back Hairは全クラス共通で頬〜顎の高さまでしか
-       伸びない短い房のため、Hatの下から髪が流れて見える表現が無かった。
-       Hair Shell自体の再設計・Coverage判定・Hat Geometryはここでは
-       一切変更せず、既存のSide Hair(左右)/Back Hair(中央)の毛先
-       (sTipOut/bTipOutの位置、既に計算済みの変数をそのまま再利用)から
-       連続する形で、うなじ〜肩の高さまで伸びる3本のStrandだけをMage
-       限定で追加する。他7クラスの見た目・Ownershipには影響しない。
-
-       headRatioAt()はyFrac<=0(顎)で断面比率をそのままclampして返す
-       ため(05-rendering-rig.js参照)、MAGE_LONG_HAIR_TIP_YFRACのような
-       顎より下のyFracを渡してもy位置だけが線形に伸びて破綻しない。
-       findCoverageExitAlongStrand()は既存Side/Back Hairと同じ呼び方を
-       踏襲 ―― この延長区間はMage Hat(Brim/Cone)のY範囲よりずっと下に
-       あるため、実際にはcovered=false・exit.y=root不変のまま通過する
-       (Coverage判定自体が「Hatを突き破らない」ことを構造的に保証して
-       いる点は他クラスと同じ仕組み)。 */
-    if(classDef.key === 'mage'){
-      // 実機QA(タグ付きMesh Ownership Debugで既存Side/Back Hairを単独
-      // 表示)でGeometry自体は正しく生成・着色されていることを確認したが、
-      // 通常表示(実素材)では肩当て(pauldron)・ローブに隠れてほぼ見えない
-      // ことが判明した。Hat/ローブ側は一切変更せず、Strand自身をpauldron
-      // の外側(X方向)まで押し出す・後方へもう少し流す・太さを増やす、の
-      // 3点だけで対処する(Geometry位置調整のみ、Coverage/Hat/色は不変)
-      const MAGE_LONG_HAIR_SIDE_TIP_YFRAC = -0.55;   // 左右: 肩の高さを明確に超える長さ
-      const MAGE_LONG_HAIR_BACK_TIP_YFRAC = -0.65;   // 中央後方: 左右より少し長めにして自然な差を付ける
-      const MAGE_LONG_HAIR_SIDE_OUT_MUL = 1.55;      // 肩当て(pauldron)の外側まで広げる
-      const mlSideTipOut = headOut(MAGE_LONG_HAIR_SIDE_TIP_YFRAC);
-      const mlBackTipOut = headOut(MAGE_LONG_HAIR_BACK_TIP_YFRAC);
-      [-1, 1].forEach(s=>{
-        const rootX = s*sideTipX, rootY = sTipOut.y, rootZ = sideZ;
-        const tipX = rootX*MAGE_LONG_HAIR_SIDE_OUT_MUL;   // pauldronの外側へ流れるよう根元より外へ広げる
-        const tipZ = rootZ - headR*0.25;           // わずかに後方(肩の丸みに沿って流れる向き)
-        const angle = Math.atan2(rootX, rootZ);   // Coverage判定はroot側の方向で見る(tip側は既にroot外側)
-        const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, angle, mlSideTipOut.y, rootY);
-        if(exit.covered) return;
-        const len = exit.y - mlSideTipOut.y;
-        const tiltX = Math.atan2(tipZ-rootZ, len);
-        const tiltZ = Math.atan2(tipX-rootX, len);
-        const strand = new THREE.Mesh(
-          makeHairBang({rootR:headR*0.13, tipR:headR*0.065, length:len}), hairMat);
-        strand.position.set(tipX, head.position.y+mlSideTipOut.y, tipZ+HEAD_BACK_Z);
-        strand.rotation.set(tiltX, 0, -s*Math.abs(tiltZ));
-        strand.castShadow = true;
-        group.add(strand);
-        sideHairMeshes.push(strand);
-      });
-      {
-        const rootY = bTipOut.y, rootZ = backTipZ;
-        const tipZ = rootZ - headR*0.35;   // 後方へ長めに流し、体幹の陰から抜けさせる
-        const angle = Math.atan2(0, rootZ);
-        const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, angle, mlBackTipOut.y, rootY);
-        if(!exit.covered){
-          const len = exit.y - mlBackTipOut.y;
-          const tiltX = Math.atan2(tipZ-rootZ, len);
-          const strand = new THREE.Mesh(
-            makeHairBang({rootR:headR*0.11, tipR:headR*0.055, length:len}), hairMat);
-          strand.position.set(0, head.position.y+mlBackTipOut.y, tipZ+HEAD_BACK_Z);
-          strand.rotation.set(tiltX, 0, 0);
-          strand.castShadow = true;
-          group.add(strand);
-          backHairMeshes.push(strand);
-        }
-      }
-    }
+    // Phase 8設計方針(8職業の独自性強化): Mageは「長髪キャラクターでは
+    // ない」―― 髪は帽子の下に収まっている設定に統一し、Phase 7で追加した
+    // Mage限定Long Hair Strandはここでは生成しない(Priority 1)。Mageの
+    // 髪は上のBangs/Side Hair/Back Hair(全クラス共通の短い房)のみとし、
+    // 長髪はArchmage昇格時のみapplyJobPromotionVisual()側で追加する
+    // (詳細は同関数のuj.key==='archmage'分岐のコメント参照)。これにより
+    // MageとArchmageが「HatとHairの関係性」で明確に差別化される。
 
     // グラフィック刷新(戦騎士#低頭身化): 頭+髪+Bangs/Side/Back Hair+目を
     // applyJobPromotionVisual側からまとめて縮小できるよう、参照を
@@ -1945,17 +1886,89 @@
       const bigCone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 12), trimMat);
       bigCone.position.set(0, bodyH*1.42, HEAD_BACK_Z);
       P.waist.add(bigCone); meshes.push(bigCone);
-      // 帽子から伸びる髪(ユーザー指摘: 蛍光ライトブルー色)。帽子のつば
-      // (buildPlayerのbrim、hY+headR*0.55)の下から、後方へ流れる房を
-      // 数本追加した
-      const glowHairMat = new THREE.MeshStandardMaterial({
-        color:0x5fd8ff, emissive:0x2ab0ff, emissiveIntensity:0.9, roughness:0.4});
-      [-0.09,-0.03,0.03,0.09].forEach((x,i)=>{
-        const strand = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.34+((i%2)*0.08), 5), glowHairMat);
-        strand.position.set(x, bodyH*1.06, -0.08 + HEAD_BACK_Z);
-        strand.rotation.set(-0.55, 0, x*0.6);
-        P.waist.add(strand); meshes.push(strand);
+      /* Phase 8: Mage/Archmage差別化 ―― 「帽子から伸びる細い縦棒(旧
+         ConeGeometry×4、蛍光ライトブルー)」を、まとまりのある低ポリ
+         毛束(Root→Middle→Tipで位置・角度を変える2セグメント構成)へ
+         全面差し替え。Mage本体(buildPlayer())からはPhase 7のLong Hair
+         Strandを削除済み(髪はHatの下に収まる設定へ統一)、長髪は昇格時の
+         ここでのみ追加する ―― 「Mage: 髪はHat内部」「Archmage: Hatの
+         下から自然に流れる長髪」という関係性そのものが差別化ポイント。
+
+         位置はbuildPlayer()のHead/Hair配置と同じ単一の基準
+         (headOutlineAt()、05-rendering-rig.js)から導出する ―― 独自の
+         手打ち座標(旧実装のx:-0.09〜0.09、y:bodyH*1.06)は使わない。
+         P.waist基準のローカルY(headYLocal=bodyH+B.headGap)がbuildPlayer
+         側のhead.position.yに相当するため、headOutlineAt()が返すy
+         (Head中心からのオフセット)をそのまま加算すれば同じ基準で置ける。
+
+         Root(頭部側面/後頭部、yFrac0.60〜0.66 ―― 既存Side/Back Hairの
+         根元と同程度の高さ)は、Mage Hat(Brim/Cone、Y範囲はもっと上)の
+         Coverageに掛からないことをfindCoverageExitAlongStrand()で確認
+         した上で生成する(Hat/Coverage判定自体は一切変更しない)。
+         Middle(首〜肩)でRootよりさらに外側へ張り出し、Tip(肩〜背中)で
+         Middleよりやや内側(体に沿う)へ戻す ―― 「頭から真下へ一直線」
+         ではなく体の輪郭に沿って流れる形にする2点。オフセットは
+         Root位置からの絶対量(headR比)で指定する ―― 断面幅(halfWidth)
+         基準にすると顎に向かって狭くなるHeadの先細りに引きずられて
+         Middle/TipのX位置がRootより内側に戻ってしまい、意図した「外へ
+         張り出す」曲がりが相殺されてしまうため(実機QAで確認)。
+         各SegmentはmakeHairBang()(既存のmakePrism ベース低ポリ房
+         Geometry、6点断面)をそのまま再利用し、Root/Middle/Tipそれぞれの
+         3D位置からtiltX/tiltZを算出して繋ぐ(Phase 7のSide/Back Hair
+         延長で検証済みの計算方法と同じ)。「細い縦棒」に戻らないよう、
+         半径はHead自身のサイズに対して明確に太く(Root≈headR*0.30)取り、
+         極端な先細りを避けるためTip半径はRoot半径の35%前後に留めている。 */
+      const archHeadR = B.headR;
+      const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2 };
+      const archHeadYLocal = bodyH + B.headGap;   // P.waist基準でのHead中心Y(buildPlayerのhead.position.yに相当)
+      const archHeadOut = (yFrac) => headOutlineAt(archHeadDims, yFrac);
+      // Hair色: 旧glowHairMatの発光ブルーは「縦棒」という形状の弱さを
+      // 光でごまかしていた面があったため、形状で見せる通常の髪材質へ
+      // 変更。Robe(紺)との明度差を確保しつつ「上位魔導士」らしいごく
+      // 淡い発光(emissiveIntensity 0.22、控えめ)だけ残す
+      const archHairMat = new THREE.MeshStandardMaterial({
+        color:0x9b7fe6, emissive:0x2a1a4a, emissiveIntensity:0.22, roughness:0.55});
+      function archSeg(rootP, tipP, rootR, tipR){
+        const len = rootP.y - tipP.y;
+        const tiltX = Math.atan2(tipP.z-rootP.z, len);
+        const tiltZ = Math.atan2(tipP.x-rootP.x, len);
+        const seg = new THREE.Mesh(makeHairBang({rootR, tipR, length:len}), archHairMat);
+        seg.position.set(tipP.x, tipP.y, tipP.z);
+        seg.rotation.set(tiltX, 0, -tiltZ);
+        seg.castShadow = true;
+        P.waist.add(seg); meshes.push(seg);
+      }
+      [-1, 1].forEach(s=>{
+        const oR = archHeadOut(0.66), oM = archHeadOut(0.10), oT = archHeadOut(-0.55);
+        const rootX = s*oR.halfWidth*1.05, rootZ = oR.sideZ + HEAD_BACK_Z;
+        const angle = Math.atan2(rootX, rootZ);
+        const exit = findCoverageExitAlongStrand(state.classDef.key, archHeadDims, angle, oT.y, oR.y);
+        if(exit.covered) return;
+        const root = { x:rootX, y:archHeadYLocal+exit.y, z:rootZ };
+        // Middle/TipはRoot基準のheadR比オフセット(断面幅基準ではない、
+        // 詳細は上のコメント参照)。外へ張り出してから体に沿って内側へ
+        // 戻る、緩やかなS字の流れにする
+        const mid  = { x:rootX + s*archHeadR*0.42, y:archHeadYLocal+oM.y, z:rootZ-archHeadR*0.22 };
+        const tip  = { x:rootX + s*archHeadR*0.20, y:archHeadYLocal+oT.y, z:rootZ-archHeadR*0.48 };
+        archSeg(root, mid, archHeadR*0.30, archHeadR*0.20);
+        archSeg(mid, tip, archHeadR*0.20, archHeadR*0.11);
       });
+      {
+        const oR = archHeadOut(0.60), oM = archHeadOut(0.05), oT = archHeadOut(-0.60);
+        const rootZ = oR.backZ*1.05 + HEAD_BACK_Z;
+        const angle = Math.atan2(0, rootZ);
+        const exit = findCoverageExitAlongStrand(state.classDef.key, archHeadDims, angle, oT.y, oR.y);
+        if(!exit.covered){
+          const root = { x:0, y:archHeadYLocal+exit.y, z:rootZ };
+          // 左右の毛束と同じ考え方(Root基準のheadR比オフセット)。後方
+          // 中央は左右非対称にする必要が無いためx=0のまま、Zだけ段階的に
+          // 後方へ流す(指示の「Hatの下→首の後ろ→背中上部」に対応)
+          const mid  = { x:0, y:archHeadYLocal+oM.y, z:rootZ-archHeadR*0.28 };
+          const tip  = { x:0, y:archHeadYLocal+oT.y, z:rootZ-archHeadR*0.55 };
+          archSeg(root, mid, archHeadR*0.27, archHeadR*0.18);
+          archSeg(mid, tip, archHeadR*0.18, archHeadR*0.10);
+        }
+      }
       // ローブの前を開けて羽織るように(ユーザー指摘)。素のローブ
       // (buildPlayerの closed cylinder)は閉じたままなので、その上に
       // 前開きの襟(コート状の合わせ)を左右一枚ずつ重ねて「開けて羽織る」
