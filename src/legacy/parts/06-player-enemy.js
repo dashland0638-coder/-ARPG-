@@ -647,7 +647,11 @@
     // 縮小できるよう、目のメッシュをここで配列に集めておく。既存の
     // 「白目/瞳/ハイライトの3層」自体には一切手を加えていない
     const faceMeshes = [];
-    [-0.115*eyeScale, 0.115*eyeScale].forEach(x=>{
+    // eyeSpacingMul: classDef.hairColor等と同じ「見た目専用の追加
+    // フィールド」(Phase 7、詳細は01-character-creation.jsのmage側
+    // コメント参照)。未指定クラスは1.0で従来通り無変化
+    const eyeSpacingMul = classDef.eyeSpacingMul!=null ? classDef.eyeSpacingMul : 1.0;
+    [-0.115*eyeScale*eyeSpacingMul, 0.115*eyeScale*eyeSpacingMul].forEach(x=>{
       const sclera = new THREE.Mesh(
         makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*1.15, scleraHalfDepth*eyeScale), scleraMat);
       sclera.position.set(x, head.position.y+0.02, eyeFrontZ);
@@ -812,6 +816,73 @@
       group.add(backHair);
       backHairMeshes.push(backHair);
     });
+
+    /* ---- Mage限定: Long Hair(Phase 7) ----
+       設定画で「長い髪」がMageの重要な識別要素とされているが、上の
+       Bangs/Side Hair/Back Hairは全クラス共通で頬〜顎の高さまでしか
+       伸びない短い房のため、Hatの下から髪が流れて見える表現が無かった。
+       Hair Shell自体の再設計・Coverage判定・Hat Geometryはここでは
+       一切変更せず、既存のSide Hair(左右)/Back Hair(中央)の毛先
+       (sTipOut/bTipOutの位置、既に計算済みの変数をそのまま再利用)から
+       連続する形で、うなじ〜肩の高さまで伸びる3本のStrandだけをMage
+       限定で追加する。他7クラスの見た目・Ownershipには影響しない。
+
+       headRatioAt()はyFrac<=0(顎)で断面比率をそのままclampして返す
+       ため(05-rendering-rig.js参照)、MAGE_LONG_HAIR_TIP_YFRACのような
+       顎より下のyFracを渡してもy位置だけが線形に伸びて破綻しない。
+       findCoverageExitAlongStrand()は既存Side/Back Hairと同じ呼び方を
+       踏襲 ―― この延長区間はMage Hat(Brim/Cone)のY範囲よりずっと下に
+       あるため、実際にはcovered=false・exit.y=root不変のまま通過する
+       (Coverage判定自体が「Hatを突き破らない」ことを構造的に保証して
+       いる点は他クラスと同じ仕組み)。 */
+    if(classDef.key === 'mage'){
+      // 実機QA(タグ付きMesh Ownership Debugで既存Side/Back Hairを単独
+      // 表示)でGeometry自体は正しく生成・着色されていることを確認したが、
+      // 通常表示(実素材)では肩当て(pauldron)・ローブに隠れてほぼ見えない
+      // ことが判明した。Hat/ローブ側は一切変更せず、Strand自身をpauldron
+      // の外側(X方向)まで押し出す・後方へもう少し流す・太さを増やす、の
+      // 3点だけで対処する(Geometry位置調整のみ、Coverage/Hat/色は不変)
+      const MAGE_LONG_HAIR_SIDE_TIP_YFRAC = -0.55;   // 左右: 肩の高さを明確に超える長さ
+      const MAGE_LONG_HAIR_BACK_TIP_YFRAC = -0.65;   // 中央後方: 左右より少し長めにして自然な差を付ける
+      const MAGE_LONG_HAIR_SIDE_OUT_MUL = 1.55;      // 肩当て(pauldron)の外側まで広げる
+      const mlSideTipOut = headOut(MAGE_LONG_HAIR_SIDE_TIP_YFRAC);
+      const mlBackTipOut = headOut(MAGE_LONG_HAIR_BACK_TIP_YFRAC);
+      [-1, 1].forEach(s=>{
+        const rootX = s*sideTipX, rootY = sTipOut.y, rootZ = sideZ;
+        const tipX = rootX*MAGE_LONG_HAIR_SIDE_OUT_MUL;   // pauldronの外側へ流れるよう根元より外へ広げる
+        const tipZ = rootZ - headR*0.25;           // わずかに後方(肩の丸みに沿って流れる向き)
+        const angle = Math.atan2(rootX, rootZ);   // Coverage判定はroot側の方向で見る(tip側は既にroot外側)
+        const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, angle, mlSideTipOut.y, rootY);
+        if(exit.covered) return;
+        const len = exit.y - mlSideTipOut.y;
+        const tiltX = Math.atan2(tipZ-rootZ, len);
+        const tiltZ = Math.atan2(tipX-rootX, len);
+        const strand = new THREE.Mesh(
+          makeHairBang({rootR:headR*0.13, tipR:headR*0.065, length:len}), hairMat);
+        strand.position.set(tipX, head.position.y+mlSideTipOut.y, tipZ+HEAD_BACK_Z);
+        strand.rotation.set(tiltX, 0, -s*Math.abs(tiltZ));
+        strand.castShadow = true;
+        group.add(strand);
+        sideHairMeshes.push(strand);
+      });
+      {
+        const rootY = bTipOut.y, rootZ = backTipZ;
+        const tipZ = rootZ - headR*0.35;   // 後方へ長めに流し、体幹の陰から抜けさせる
+        const angle = Math.atan2(0, rootZ);
+        const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, angle, mlBackTipOut.y, rootY);
+        if(!exit.covered){
+          const len = exit.y - mlBackTipOut.y;
+          const tiltX = Math.atan2(tipZ-rootZ, len);
+          const strand = new THREE.Mesh(
+            makeHairBang({rootR:headR*0.11, tipR:headR*0.055, length:len}), hairMat);
+          strand.position.set(0, head.position.y+mlBackTipOut.y, tipZ+HEAD_BACK_Z);
+          strand.rotation.set(tiltX, 0, 0);
+          strand.castShadow = true;
+          group.add(strand);
+          backHairMeshes.push(strand);
+        }
+      }
+    }
 
     // グラフィック刷新(戦騎士#低頭身化): 頭+髪+Bangs/Side/Back Hair+目を
     // applyJobPromotionVisual側からまとめて縮小できるよう、参照を
