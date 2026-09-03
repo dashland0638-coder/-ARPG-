@@ -1136,6 +1136,13 @@
       const hatMatBrim = classDef.hatColor!=null
         ? new THREE.MeshStandardMaterial({color:classDef.hatColor, roughness:0.75})
         : clothMat;
+      // デザイン設定シート(Phase 6準拠)対応: Archmage昇格時、帽子
+      // (hatMatCone/hatMatBrim)とローブ(clothMat)の色を差し替えられる
+      // よう参照を保持しておく(rogueHood/rogueMaskと同じ「差分方式」)。
+      // Mage自身の見た目には影響しない
+      playerMixerParts.hatMatCone = hatMatCone;
+      playerMixerParts.hatMatBrim = hatMatBrim;
+      playerMixerParts.clothMat = clothMat;
       // グラフィック刷新(ユーザー指摘「兜/帽子/フードで差別化」): 分割数の
       // 多い円柱/円錐は面ごとの陰影はともかく輪郭(シルエット)が丸いまま
       // 読めてしまう(戦騎士の兜で判明した問題と同じ)。ここも分割数を
@@ -2103,6 +2110,34 @@
       P.waist.add(beard); meshes.push(beard);
 
     } else if(uj.key === 'archmage'){
+      /* デザイン設定シート(Phase 6準拠)対応: シートのArchmageはMageの
+         メイン(オリーブ)/サブ(タン)とは逆に、メイン=紫のローブ、
+         サブ=青の帽子という配色。Mage自身のローブ(clothMat)・帽子
+         (hatMatCone/hatMatBrim)は既存のPriority(色調整)でシート準拠の
+         タン/オリーブへ変更済みのため、そのまま昇格すると「Mageと同じ
+         配色の魔導士」になってしまう。
+         hatMatBrimは単色Material(map無しの単純なMeshStandardMaterial)
+         のため.color.set()で直接差し替え可能。一方clothMatとhatMatCone
+         はmakeLeatherTexture()で色を直接キャンバスへ焼き込んだ手続き
+         テクスチャ(.map)を持つため、.color.set()では効果がない
+         (デフォルトのcolor=白がテクスチャにそのまま掛かるだけの状態の
+         ため、後から乗算しても濁った中間色にしかならない) ―― 新しい色で
+         テクスチャを生成し直し、.mapを差し替えてからapplyBump()で
+         バンプマップの対応も更新し直す(テクスチャ生成関数自体・Mage側の
+         元Materialは変更していない) */
+      if(P.clothMat){
+        P.clothMat.map = makeLeatherTexture(hexStr(0x6b6185), 2, 2);
+        applyBump(P.clothMat);
+        P.clothMat.needsUpdate = true;
+      }
+      if(P.hatMatCone){
+        P.hatMatCone.map = makeLeatherTexture(hexStr(0x375776), 2, 2);
+        applyBump(P.hatMatCone);
+        P.hatMatCone.needsUpdate = true;
+      }
+      if(P.hatMatBrim){
+        P.hatMatBrim.color.set(0x375776);
+      }
       // 大型化した帽子の房飾り(既存の帽子の上に追加)
       // Head/Posture Alignment再設計フェーズ: bigCone/strandにもHEAD_BACK_Z
       // を適用し、Mage Hat(既にHEAD_BACK_Z適用済み)と一緒に後方へ
