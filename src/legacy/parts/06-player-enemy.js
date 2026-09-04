@@ -2283,27 +2283,15 @@
       /* Mage自身のローブ(clothMat)・帽子(hatMatCone/hatMatBrim)は
          Mage自体の色調整と連動して変わるため、Archmage側で明示的に
          差し替えないと「Mageと同じ配色の魔導士」になってしまう。
-         ユーザー指摘(色の再調整、参考画像): ダークソウル風の「白い
-         とんがり帽子+黒に近いボロ布のローブ+銀髪」の術者画像が共有され
-         「魔導士はこの色」と明示された。帽子はオフホワイト、ローブは
-         暗色というところまでは合わせたが、続く指摘で以下の3点を
-         さらに調整する:
-         1.「胸元パーツも同じくらい紺系にしてください」―― 胸当てリング
-           (trimMat)がローブ本体(clothMat)と別の暗いピューター調の鋼色
-           (0x46424a)になっており、胸元だけ浮いて見えていた。trimMatも
-           ローブと同系統の紺系(0x1c2440)へ変更し、胸元とローブの色味を
-           揃える。
-         2.「魔導士の色が黒すぎる…青ベースを足して」→「もっと暗くて
-           青みがかった紺がいい」―― 後続の発言が優先。ローブ(clothMat)を
-           無彩色寄りの暗灰(0x1a1a22)から、より暗く、かつ青みをはっきり
-           持たせた紺(0x10182c)へ変更する。
-         3.「帽子やローブの丸い輪っかパーツは白紫系の色に変更」――
-           帽子の輪っか(band、classDef.trim由来のclothAcc)とローブの
-           輪っか(belt、trimMatを.clone()した専用のbeltMat)は、Mage本来の
-           紫(0x8260ab)やtrimMatの色をそのまま引き継いでいたため、
-           白紫系(0xd8c8f0)へ個別に差し替える。beltMat/clothAccは今回
-           新設した「差分方式」の参照(06-player-enemy.js内の宣言箇所
-           参照)。
+
+         色調整の経緯(最新の指摘が優先):
+         1〜3回目の調整で、帽子=淡いオフホワイト/ローブ=暗色/胸当て=
+         ピューター調という「部位ごとに違う色」の配色にしていたが、
+         ユーザーから「魔導士の帽子やローブ全体も胸元と同じ色に」との
+         指摘があり、方針を転換した ―― 帽子・ローブ・胸当てを全て
+         ARCHMAGE_NAVY(単一の紺色)に統一する。淡いオフホワイトの帽子・
+         2種類の紺の使い分けは廃止。丸い輪っか(帽子のband/ローブの
+         beltMat、白紫系0xd8c8f0)だけは差し色として従来通り残す。
 
          hatMatBrim/beltMat/clothAccは単色Material(map無しの単純な
          MeshStandardMaterial、beltMatはtrimMat.clone()だが.mapは
@@ -2317,7 +2305,7 @@
          差し替えてからapplyBump()でバンプマップの対応も更新し直す
          (テクスチャ生成関数自体・Mage側の元Materialは変更していない)。
 
-         実機QAで判明した追加の落とし穴: Torso/Pelvis(体幹の大部分)は
+         実機QAで判明した落とし穴: Torso/Pelvis(体幹の大部分)は
          clothMat自体ではなく、それを.clone()した別ObjectのclothMatFlat
          (フラットシェーディング版)を使っている。同様にPauldron(肩当て)
          はtrimMatFlatを使っている。.clone()は生成時点のプロパティを
@@ -2326,8 +2314,9 @@
          「胸元・肩だけMageの元の色(水色/紫)が残って見える」という
          見た目になっていた(スクリーンショットで実際に確認)。
          clothMatFlat/trimMatFlatも同じ新しいテクスチャで個別に上書きする */
+      const ARCHMAGE_NAVY = 0x1c2440;
       if(P.clothMat){
-        const robeTex = makeLeatherTexture(hexStr(0x10182c), 2, 2);
+        const robeTex = makeLeatherTexture(hexStr(ARCHMAGE_NAVY), 2, 2);
         P.clothMat.map = robeTex;
         applyBump(P.clothMat);
         P.clothMat.needsUpdate = true;
@@ -2338,22 +2327,22 @@
         }
       }
       if(P.hatMatCone){
-        P.hatMatCone.map = makeLeatherTexture(hexStr(0xd6d0c4), 2, 2);
+        P.hatMatCone.map = makeLeatherTexture(hexStr(ARCHMAGE_NAVY), 2, 2);
         applyBump(P.hatMatCone);
         P.hatMatCone.needsUpdate = true;
       }
       if(P.hatMatBrim){
-        P.hatMatBrim.color.set(0xd6d0c4);
+        P.hatMatBrim.color.set(ARCHMAGE_NAVY);
       }
       if(P.trimMat){
-        const trimTex = makeMetalTexture(hexStr(0x1c2440), 3, 1);
+        const trimTex = makeMetalTexture(hexStr(ARCHMAGE_NAVY), 3, 1);
         P.trimMat.map = trimTex;
-        P.trimMat.emissive.set(0x1c2440);
+        P.trimMat.emissive.set(ARCHMAGE_NAVY);
         applyBump(P.trimMat);
         P.trimMat.needsUpdate = true;
         if(P.trimMatFlat){
           P.trimMatFlat.map = trimTex;
-          P.trimMatFlat.emissive.set(0x1c2440);
+          P.trimMatFlat.emissive.set(ARCHMAGE_NAVY);
           applyBump(P.trimMatFlat);
           P.trimMatFlat.needsUpdate = true;
         }
