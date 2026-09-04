@@ -550,6 +550,10 @@
     // 参照の共有ではないため、後から親のmapを差し替えても子には反映
     // されない) ―― Torso/Pelvis(clothMatFlat)・Pauldron(trimMatFlat)も
     // 同じ「差分方式」で個別に公開しておく
+    // clothMat自体もここで公開しておく(以前はMageブロック内でのみ公開
+    // していたため、他クラスの昇格処理(例: Hawk Eyeのボディ色差し替え)
+    // からは参照できなかった)
+    playerMixerParts.clothMat = clothMat;
     playerMixerParts.clothMatFlat = clothMatFlat;
     playerMixerParts.trimMatFlat = trimMatFlat;
     // 軽装(ユーザー指摘: 盗賊は「鎧の部位が少なめの軽装」に)。全クラス
@@ -1307,12 +1311,11 @@
         ? new THREE.MeshStandardMaterial({color:classDef.hatColor, roughness:0.75})
         : clothMat;
       // デザイン設定シート(Phase 6準拠)対応: Archmage昇格時、帽子
-      // (hatMatCone/hatMatBrim)とローブ(clothMat)の色を差し替えられる
-      // よう参照を保持しておく(rogueHood/rogueMaskと同じ「差分方式」)。
-      // Mage自身の見た目には影響しない
+      // (hatMatCone/hatMatBrim)の色を差し替えられるよう参照を保持して
+      // おく(rogueHood/rogueMaskと同じ「差分方式」)。clothMat自体は
+      // 共通コード側で既に公開済み。Mage自身の見た目には影響しない
       playerMixerParts.hatMatCone = hatMatCone;
       playerMixerParts.hatMatBrim = hatMatBrim;
-      playerMixerParts.clothMat = clothMat;
       // グラフィック刷新(ユーザー指摘「兜/帽子/フードで差別化」): 分割数の
       // 多い円柱/円錐は面ごとの陰影はともかく輪郭(シルエット)が丸いまま
       // 読めてしまう(戦騎士の兜で判明した問題と同じ)。ここも分割数を
@@ -2539,6 +2542,30 @@
       anim.circle = circle;
 
     } else if(uj.key === 'hawkEye'){
+      /* ユーザー指摘:「鷹の目のボディの色は帽子と同系色で少し明るい色に
+         統一して」
+
+         Archer本体は帽子(cap/capTop/brim)とボディ(torso/pelvis/腕/脚)が
+         同じclothMat/clothMatFlat(classDef.color=archerの青系)を共有して
+         おり、既に一体の色だった。しかしHawk Eye昇格時は帽子側だけを
+         専用のHood(hoodMat、下記でuj.capeColor=暗い深緑を使って新設)へ
+         差し替えており、ボディ側(clothMat/clothMatFlat)はArcherの青の
+         ままだったため、帽子とボディで色相そのものが違って見えていた。
+         uj.capeColorを基準にした「同系統でやや明るい」色を計算し、
+         ボディにも適用する(Archmage昇格時と同じ「同一テクスチャ
+         インスタンスを複数のMaterialへ割り当てる」差分方式。詳細は
+         Archmage側のmatchRobeLook()のコメント参照 ―― THREE.
+         MeshStandardMaterialは.mapに.colorを乗算するため、.colorは
+         必ず白に戻す) */
+      const HAWKEYE_BODY = 0x1c8c66;   // uj.capeColor(0x0a3a30、暗い深緑)と同じ色相で、明度を上げた色
+      const hawkEyeBodyTex = makeLeatherTexture(hexStr(HAWKEYE_BODY), 2, 2);
+      [P.clothMat, P.clothMatFlat].forEach(mat=>{
+        if(!mat) return;
+        mat.map = hawkEyeBodyTex;
+        mat.color.set(0xffffff);
+        applyBump(mat);
+        mat.needsUpdate = true;
+      });
       // 長いマント(片側だけ、鷹師の非対称なシルエット)。バネ追従+揺れの
       // 対象としてanim.capesへ登録(戦騎士のケースと共有、updateJobDecor参照)。
       // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す
