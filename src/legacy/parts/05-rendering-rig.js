@@ -263,6 +263,88 @@
              [1.02,0.60],[0.92,0.73],[0.81,0.85],[0.55,0.95],[0.24,1.00]],
   };
 
+  /* =========================================================
+     LOFT TORSO(グラフィック刷新: LatheGeometry脱却・第一弾)
+
+     TORSO_PROFILEは今も残してある(templeGuardian等のボスがそのまま
+     limbGeo(TORSO_PROFILE...)経由で使い続けているため、削除・変更禁止)。
+     プレイヤーの胴体だけを、この新しいmakeCharacterTorso()に差し替える。
+
+     limbGeo()(=LatheGeometry)は「その高さでの断面は必ず円」という
+     数学的制約があり、プロファイルの半径をどう調整しても胴体は樽にしか
+     ならない。ここでは断面そのものを高さごとに変えられるmakeLoft()
+     (src/render/lowpoly-primitives.js)を使い、「肩は左右に広く前後に
+     薄い」「胸は肩よりわずかに狭いが前後に厚い」「腰は最も細く薄い」と
+     いう、回転体では表現できない人体らしいシルエットにする。
+
+     最初の実装として、断面はWaist/Abdomen/Chest/Shoulderの4段・
+     いずれも4点の矩形(左右幅と前後厚みを別々に持てる、最小限の凸多角形)
+     に留めてある。断面を増やす/多角形にする改良は将来の課題。
+
+     Phase 11-B: 上記「将来の課題」に対応。Diagonal/Side視点で4点矩形の
+     平らな面・90°の鋭い稜線がそのまま見え、Torso/Pelvis/Thigh/Calf/
+     UpperArm/Forearmが「箱の集合」に見える問題をPhase 11-Aで実機確認した
+     (露出面積の大きいRogue/Berserker/Archerで特に顕著)。Headの
+     HEAD_HEX_TEMPLATE(顔の向きを持つ非対称6点)とは別に、身体パーツ用の
+     左右対称・前後対称な6点断面ヘルパーmakeBodyProfile()を新設し、
+     矩形の4隅だけを斜めに落とす。makeLoft()自体は変更しない(既に任意
+     点数の断面を受け付ける)。最大幅(hw)・最大奥行き(hd)はそのまま
+     維持し(側面中央の点がhw、前後端中央の点がhd)、前後の辺の両端だけ
+     BODY_PROFILE_CORNER_MUL倍だけ内側へ寄せて角を落とす。呼び出し側の
+     width/depth基準値・Position/Rotation/接続部のサイズ計算は一切
+     変更しない ―― 変わるのは断面の「点の並び」だけ。 */
+  // 角を落とす量(前後端の辺の半幅を、最大幅hwの何倍に留めるか)。0.6は
+  // 「四隅を斜めに落とす」程度の穏やかな値 ―― 1.0に近づけるほど矩形に
+  // 戻り、0に近づけるほど菱形に近づく。全パーツ共通のまま様子を見て、
+  // 明らかに不自然な部位があれば個別調整する方針(指示のとおり)
+  const BODY_PROFILE_CORNER_MUL = 0.6;
+  /* makeBodyProfile(hw, hd): 4点矩形[[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]]の
+     代わりに使う、身体パーツ共通の6点断面。左右対称・前後対称。巻き順は
+     既存の矩形テンプレートと同じ経路(前方左→前方右→…→後方左→戻る)を
+     保っており、間に側面の頂点を2つ挟んだだけなので、巻き方向(外向き
+     法線・signedVolume)は矩形版と同じになる。 */
+  function makeBodyProfile(hw, hd){
+    const cw = hw*BODY_PROFILE_CORNER_MUL;
+    return [
+      [-cw,-hd], [cw,-hd],
+      [hw, 0],
+      [cw, hd], [-cw, hd],
+      [-hw, 0],
+    ];
+  }
+
+  // 肩→胸→腹→腰の比率(bodyR/bodyHに対する倍率)。chest(u=0.66)を
+  // 「1.00倍」の基準にしてあるのは、旧TORSO_PROFILEの最大半径がここに
+  // あった(=見た目の全体サイズをなるべく維持する)ため。
+  const TORSO_SECTION_RATIOS = {
+    waist:    { yFrac:0.00, widthMul:0.62, depthMul:0.55 },  // 腰(ベルト側、最も細く薄い)
+    abdomen:  { yFrac:0.33, widthMul:0.80, depthMul:0.85 },  // 腹部
+    chest:    { yFrac:0.66, widthMul:1.00, depthMul:0.90 },  // 胸(最も前後に厚い)
+    shoulder: { yFrac:1.00, widthMul:1.15, depthMul:0.75 },  // 肩(最も左右に広く、前後は薄い)
+  };
+
+  /* makeCharacterTorso({width, depth, height}): 胴体専用のLoft生成ヘルパー。
+     widthとdepthは「半幅・半厚み」の基準値(旧limbGeo()のradius引数と
+     同じ意味)で、呼び出し側はbodyR/bodyHをそのまま渡せばよい ―― 数値を
+     固定値にせず、クラス/性別ごとにbodyR/bodyHが変わっても自動的に
+     追従する。内部でTORSO_SECTION_RATIOSを使ってmakeLoft()を呼ぶだけの
+     薄いラッパーで、buildPlayer()側に断面の頂点リストを書かせない。
+     Phase 11-B Step 1: 断面を4点矩形からmakeBodyProfile()の6点へ変更
+     (このコミット時点ではTorsoのみ、Pelvis/Thigh/Calf/UpperArm/Forearmは
+     次のStepで変更する)。 */
+  function makeCharacterTorso(opts){
+    const o = Object.assign({ width:0.35, depth:0.35, height:0.8 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(TORSO_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: makeBodyProfile(hw, hd),
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
   /* Head, pelvis and pauldron profiles, added alongside the torso/limb ones
      above for the same reason: a lathe of a handful of points reads as a
      deliberately-shaped part, where a plain sphere reads as a placeholder.
@@ -289,6 +371,1515 @@
     male:   [[0.55,0.00],[0.80,0.20],[1.00,0.46],[1.06,0.60],[0.95,0.80],[0.78,1.00]],
     female: [[0.48,0.00],[0.85,0.18],[1.10,0.40],[1.18,0.58],[1.00,0.80],[0.76,1.00]],
   };
+
+  /* =========================================================
+     LOFT PELVIS(グラフィック刷新: LatheGeometry脱却・第二弾、Torsoに続く)
+
+     PELVIS_PROFILE/limbGeo自体は削除・変更していない(他のCharacterが
+     将来使う可能性に備えて残す、TORSO_PROFILEと同じ扱い)。差し替えるのは
+     buildPlayer()側の呼び出し1箇所だけ。
+
+     腰(Torsoの細いWaist)→骨盤(左右に張り出すHip)→脚の付け根
+     (Lower Pelvis、再び絞る)という、旋盤では出せない「くびれ」を
+     makeLoft()の3断面(いずれも矩形)で表現する。widthMul/depthMulは
+     旧PELVIS_PROFILEと同じくB.hipR基準の倍率 ―― Hipの1.10/0.95は
+     旧プロファイルの山(男1.06)とほぼ同じ実効幅になるよう合わせてある。
+  ========================================================= */
+  const PELVIS_SECTION_RATIOS = {
+    upperWaist:  { yFrac:1.00, widthMul:0.85, depthMul:0.75 },  // Torsoの細いWaistと繋がる上端
+    hip:         { yFrac:0.50, widthMul:1.10, depthMul:0.95 },  // 骨盤(最も左右に広がる)
+    lowerPelvis: { yFrac:0.00, widthMul:0.70, depthMul:0.60 },  // 脚の付け根へ再び絞る下端
+  };
+
+  /* makeCharacterPelvis({width, depth, height}): makeCharacterTorso()と同じ
+     考え方の、骨盤専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの基準値
+     (旧limbGeo()のradius引数と同じ意味)で、呼び出し側はB.hipRをそのまま
+     渡せばよい。 */
+  // Phase 11-B Step 3: 断面を4点矩形からmakeBodyProfile()の6点へ変更。
+  // Hip/Thigh側の実効サイズ・width/depth基準値・Position/回転は変更して
+  // いないため、Torso/Thighとの接続関係はStep 1-2以前のまま。
+  function makeCharacterPelvis(opts){
+    const o = Object.assign({ width:0.265, depth:0.265, height:0.32 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(PELVIS_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: makeBodyProfile(hw, hd),
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
+  /* =========================================================
+     LOFT THIGH(グラフィック刷新: LatheGeometry脱却・第三弾、Torso/Pelvisに続く)
+
+     LIMB_PROFILE.thigh/limbGeo自体は削除・変更していない(Enemy/Bossが
+     今後使う可能性に備えて残す、TORSO_PROFILE/PELVIS_PROFILEと同じ扱い)。
+     差し替えるのはbuildPlayer()側のThigh生成呼び出し1箇所だけ。Calfは
+     今回変更しない(引き続きlimbGeo(LIMB_PROFILE.calf,...)のまま)。
+
+     Pelvis下端(比較的太い)→中央付近(自然な量感)→Knee(絞る)という、
+     旋盤では出せないテーパーをmakeLoft()の4断面(いずれも矩形)で表現する。
+     width/depthはB.thigh基準の倍率 ―― 全断面でwidthMul>depthMulにして
+     あり(左右にやや広く、前後はやや薄い、非円形の太腿)、Kneeの断面は
+     Knee関節の飾り球(SphereGeometry, B.calf*0.98)にほぼ収まる大きさに
+     絞ってあるので、Calf側との段差は出ない。
+  ========================================================= */
+  const THIGH_SECTION_RATIOS = {
+    upperThigh: { yFrac:1.00, widthMul:1.10, depthMul:0.95 },  // Pelvis下端と繋がる上端、最も太い
+    midThigh:   { yFrac:0.62, widthMul:1.00, depthMul:0.88 },  // 自然な量感のピーク
+    lowerThigh: { yFrac:0.30, widthMul:0.85, depthMul:0.74 },  // Kneeへ向けて絞り始める
+    knee:       { yFrac:0.00, widthMul:0.70, depthMul:0.62 },  // Knee関節側の下端、さらに絞る
+  };
+
+  /* makeCharacterThigh({width, depth, height}): makeCharacterPelvis()と同じ
+     考え方の、太腿専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの基準値
+     (旧limbGeo()のradius引数と同じ意味)で、呼び出し側はB.thighを、
+     heightにはB.thighLenをそのまま渡せばよい。ローカルy座標の範囲は
+     旧limbGeo()と同じ-height/2〜+height/2(y=+height/2が股関節側=上、
+     y=-height/2がKnee側=下)なので、呼び出し側のposition/回転は
+     変更不要。
+     Phase 11-B Step 3: 断面を4点矩形からmakeBodyProfile()の6点へ変更。
+     Knee側の実効サイズ・width/depth基準値・Position/回転は変更していない
+     ため、Pelvis/Calfとの接続関係はStep 1-2以前のまま。 */
+  function makeCharacterThigh(opts){
+    const o = Object.assign({ width:0.132, depth:0.132, height:0.56 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(THIGH_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: makeBodyProfile(hw, hd),
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
+  /* =========================================================
+     LOFT CALF(グラフィック刷新: LatheGeometry脱却・第四弾、Torso/Pelvis/
+     Thighに続く)
+
+     LIMB_PROFILE.calf/limbGeo自体は削除・変更していない(Enemy/Bossが
+     今後使う可能性に備えて残す、他の部位と同じ扱い)。差し替えるのは
+     buildPlayer()側のCalf生成呼び出し1箇所だけ。Knee関節(飾り球)・
+     Ankle関節・Foot(Boot)は今回変更しない。
+
+     Thighとは違い、Calfは上から下への単調なテーパーにしない ―― Knee側
+     (upperCalf)はほどほどの太さ、中央付近(midCalf)でふくらはぎらしい
+     量感のピークを作り、そこからAnkle側(lowerCalf→ankle)へ絞る、
+     という「山型」のシルエットにする(旧LIMB_PROFILE.calfも同じ向き:
+     踝の細さ0.62→中腹の山1.00→膝側0.88で、この山型自体は踏襲している)。
+     width/depthはB.calf基準の倍率 ―― 全断面でwidthMul>depthMulにしてあり
+     (Torso/Pelvis/Thighと同じ、左右にやや広く前後は薄い非円形)、
+     upperCalfの実効サイズはThigh側のknee断面(B.thigh*0.70/0.62)と
+     近いオーダーになるよう合わせてあるので、Knee飾り球を挟んでThigh→
+     Calfが自然に繋がる。ankleの断面はBoot(BoxGeometry, 半幅B.calf*0.81)
+     の中に収まる大きさに絞ってあるので、Boot側との段差も出ない。
+  ========================================================= */
+  const CALF_SECTION_RATIOS = {
+    upperCalf: { yFrac:1.00, widthMul:0.90, depthMul:0.80 },  // Knee側、Thigh下端と近いオーダー
+    midCalf:   { yFrac:0.62, widthMul:1.05, depthMul:0.92 },  // ふくらはぎの量感のピーク
+    lowerCalf: { yFrac:0.30, widthMul:0.78, depthMul:0.68 },  // Ankleへ向けて絞り始める
+    ankle:     { yFrac:0.00, widthMul:0.55, depthMul:0.48 },  // Ankle側の下端、Boot内に収まる細さ
+  };
+
+  /* makeCharacterCalf({width, depth, height}): makeCharacterThigh()と同じ
+     考え方の、脛専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの基準値
+     (旧limbGeo()のradius引数と同じ意味)で、呼び出し側はB.calfを、
+     heightにはB.calfLenをそのまま渡せばよい。ローカルy座標の範囲は
+     旧limbGeo()と同じ-height/2〜+height/2(y=+height/2がKnee側=上、
+     y=-height/2がAnkle側=下)なので、呼び出し側のposition/回転は
+     変更不要。
+     Phase 11-B Step 3: 断面を4点矩形からmakeBodyProfile()の6点へ変更。
+     Ankle側の実効サイズ・width/depth基準値・Position/回転は変更していない
+     ため、Thigh/Bootとの接続関係はStep 1-2以前のまま。 */
+  function makeCharacterCalf(opts){
+    const o = Object.assign({ width:0.106, depth:0.106, height:0.54 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(CALF_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: makeBodyProfile(hw, hd),
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
+  /* =========================================================
+     LOFT UPPERARM(グラフィック刷新: LatheGeometry脱却・第五弾、Torso/
+     Pelvis/Thigh/Calfに続く)
+
+     LIMB_PROFILE.upper/limbGeo自体は削除・変更していない(Enemy/Bossが
+     今後使う可能性に備えて残す、他の部位と同じ扱い)。差し替えるのは
+     buildPlayer()側のUpperArm生成呼び出し1箇所だけ。Forearmは今回
+     変更しない(引き続きlimbGeo(LIMB_PROFILE.forearm,...)のまま)。
+     Shoulder Joint・Pauldron・Elbow Joint(飾り球)も変更しない。
+
+     脚(Thigh/Calf)ほど太さの変化を大きくすると腕が太腿のように見えて
+     しまうため、Shoulder側(upperArmTop)からElbow側へ「少し絞られる」
+     程度の穏やかな単調テーパーに留めてある(倍率の振れ幅は脚の1/3程度)。
+     width/depthはB.upper基準の倍率 ―― 全断面でwidthMul>depthMulにして
+     あり(Torso/Pelvis/Thigh/Calfと同じ、左右にやや広く前後は薄い非円形)、
+     elbowの実効サイズはElbow飾り球(SphereGeometry, B.forearm*1.06)や
+     Forearm上端(LIMB_PROFILE.forearmのu=1側)と近いオーダーになるよう
+     合わせてあるので、ElbowからForearmへの段差は出ない。
+  ========================================================= */
+  const UPPERARM_SECTION_RATIOS = {
+    upperArmTop:   { yFrac:1.00, widthMul:1.00, depthMul:0.88 },  // Shoulder側、適度な量感
+    midUpperArm:   { yFrac:0.62, widthMul:0.96, depthMul:0.84 },
+    lowerUpperArm: { yFrac:0.30, widthMul:0.90, depthMul:0.78 },  // Elbowへ向けて緩やかに絞る
+    elbow:         { yFrac:0.00, widthMul:0.82, depthMul:0.72 },  // Elbow側の下端、Forearm/飾り球と近いオーダー
+  };
+
+  /* makeCharacterUpperArm({width, depth, height}): makeCharacterCalf()と
+     同じ考え方の、二の腕専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの
+     基準値(旧limbGeo()のradius引数と同じ意味、B.upperをそのまま渡す)。
+     heightは既存のUpperArm長(buildPlayer()側で使っているリテラル0.32、
+     B.upperArmLenのような専用変数は存在しないため、呼び出し側の既存値を
+     そのまま渡す)。ローカルy座標の範囲は旧limbGeo()と同じ-height/2〜
+     +height/2(y=+height/2がShoulder側=上、y=-height/2がElbow側=下)
+     なので、呼び出し側のposition/回転は変更不要。
+     Phase 11-B Step 2: 断面を4点矩形からmakeBodyProfile()(Torsoと同じ
+     ヘルパー、05-rendering-rig.js上部で定義)の6点へ変更。Elbow側の
+     実効サイズ・width/depth基準値・Position/回転は一切変更していない
+     ため、Elbow飾り球・Forearmとの接続関係はStep 1以前のまま。 */
+  function makeCharacterUpperArm(opts){
+    const o = Object.assign({ width:0.098, depth:0.098, height:0.32 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(UPPERARM_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: makeBodyProfile(hw, hd),
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
+  /* =========================================================
+     LOFT FOREARM(グラフィック刷新: LatheGeometry脱却・第六弾、Torso/
+     Pelvis/Thigh/Calf/UpperArmに続く)
+
+     LIMB_PROFILE.forearm/limbGeo自体は削除・変更していない(Enemy/Bossが
+     今後使う可能性に備えて残す、他の部位と同じ扱い)。差し替えるのは
+     buildPlayer()側のForearm生成呼び出し1箇所だけ。Elbow Joint(飾り球)・
+     Wrist・Hand・Vambraceは今回変更しない。
+
+     UpperArm/Thigh/Calfとはあえて違うシルエットにする ―― Elbow側
+     (upperForearm)は太さを保ち、MidForearmまではほぼ変化なし(ここが
+     「ほぼ直線的」な部分)、そこからLowerForearm→Wristへ向けてだけ
+     緩やかに絞る。Thigh/UpperArmのような全体にわたる単調な絞りにも、
+     Calfのような中腹が盛り上がる山型にもしない。width/depthはB.forearm
+     基準の倍率 ―― 全断面でwidthMul>depthMulにしつつ、その差はTorso/
+     Pelvisほど極端にしていない(depthMulはwidthMulの約0.87倍程度に統一)。
+     upperForearmの実効サイズはUpperArm側のelbow断面・Elbow飾り球と、
+     wristの実効サイズはVambrace/Hand側と、それぞれ近いオーダーになる
+     よう合わせてあるので、両端で段差は出ない。
+  ========================================================= */
+  const FOREARM_SECTION_RATIOS = {
+    upperForearm: { yFrac:1.00, widthMul:1.00, depthMul:0.87 },  // Elbow側、UpperArm/飾り球と近いオーダー
+    midForearm:   { yFrac:0.65, widthMul:0.97, depthMul:0.84 },  // upperForearmとほぼ同じ太さ(直線的)
+    lowerForearm: { yFrac:0.32, widthMul:0.85, depthMul:0.74 },  // ここからWristへ向けて絞り始める
+    wrist:        { yFrac:0.00, widthMul:0.68, depthMul:0.60 },  // Wrist側の下端、Hand/Vambraceと近いオーダー
+  };
+
+  /* makeCharacterForearm({width, depth, height}): makeCharacterUpperArm()と
+     同じ考え方の、前腕専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの
+     基準値(旧limbGeo()のradius引数と同じ意味、B.forearmをそのまま渡す)。
+     heightは既存のForearm長(buildPlayer()側で使っているリテラル0.30)を
+     そのまま渡す。ローカルy座標の範囲は旧limbGeo()と同じ-height/2〜
+     +height/2(y=+height/2がElbow側=上、y=-height/2がWrist側=下)
+     なので、呼び出し側のposition/回転は変更不要。
+     Phase 11-B Step 2: 断面を4点矩形からmakeBodyProfile()の6点へ変更。
+     Wrist側の実効サイズ・width/depth基準値・Position/回転は変更して
+     いないため、Hand/Vambraceとの接続関係はStep 1以前のまま。 */
+  function makeCharacterForearm(opts){
+    const o = Object.assign({ width:0.083, depth:0.083, height:0.30 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(FOREARM_SECTION_RATIOS).map(r => {
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: makeBodyProfile(hw, hd),
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
+  /* =========================================================
+     LOFT HEAD(グラフィック刷新: LatheGeometry脱却・第七弾、Torso/Pelvis/
+     Thigh/Calf/UpperArm/Forearmに続く。Player人体部位としては最後の1つ)
+
+     HEAD_PROFILE/limbGeo自体は削除・変更していない(buildBoss()が今も
+     直接使っているため、他の部位と同じ扱い)。差し替えるのはbuildPlayer()
+     側のPlayer Head生成呼び出し1箇所だけ。Hair(SphereGeometry)・Eye・
+     Neck・Helmet/Hat/Hood・Animation・headScaleGroupは今回一切変更しない
+     ―― 「頭が球に見える」原因はHead本体(Lathe)とHair(Sphere)の両方に
+     あるが、今回はHead本体だけを切り分けて置き換える(Hairは別フェーズ)。
+
+     他部位までの4点矩形と違い、Headは6点断面にする(4点だと箱型に
+     見えすぎるため)。ただし正六角形にはしない ―― 顔の向きを持たない
+     形になってしまうため、下記HEAD_HEX_TEMPLATEで意図的に非対称にした:
+       - 顔側(+Z。既存Eyeが headR*0.90 のZ位置に張り出しているのと同じ
+         向き)は、幅広く・ほぼ平らな1辺(P0-P1)。
+       - 後頭部側(-Z)は、中心近くに寄った2点(P3-P4)による短い辺 ――
+         正面から見た輪郭上は「頂点1つ」に近く読める、緩やかに絞った
+         後頭部にする。
+       - 左右の頬(P2/P5)がその断面のWidthそのもの(最大幅)を持つ。
+     このテンプレート自体はどの断面でも共通で、断面ごとのwidth/depthで
+     一様にスケールするだけ(Torso等のrectangleテンプレートと同じ考え方)。
+
+     高さ方向はChin(顎、下端)→Jaw→Cheek(頬骨、最大幅)→UpperHead→
+     Crown(頭頂、上端)の5段。Cheekの幅(widthMul=1.00)は旧HEAD_PROFILEの
+     最大半径(u=0.46男/0.62女、値1.00×B.headR)とそのまま同じ実効値に
+     している。Cheekの高さ(yFrac=0.52)がちょうどEye/Head中心付近に来る
+     よう合わせてあり、CheekのFace側Z(depthMul0.88×テンプレート1.00倍)
+     は headR×0.88 ―― 既存Eyeの headR*0.90 という基準値とほぼ同じ
+     オーダーになるため、Eyeが新しい顔面から浮いたり埋まったりしない。
+     Chinの幅(widthMul=0.38)もNeck半径(B.neck*1.15)より十分大きく、
+     「首に刺さった棒」には見えない大きさを保っている。
+  ========================================================= */
+  // 点の並びは反時計回り(既存Torso等の矩形テンプレート
+  // [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]] と同じ巻き方向)。makeLoft()の
+  // 面の向き(外向き法線)はこの並び順を前提にしているため、時計回りに
+  // 並べると signedVolume が負になる(裏返る) ―― 実装時にテストで検出済み
+  const HEAD_HEX_TEMPLATE = [
+    [-0.78, 1.00],   // 顔側左(平らな顔の辺)
+    [-1.00, 0.05],   // 頬(左)―― この断面の最大幅
+    [-0.22,-1.15],   // 後頭部(左)―― 中心寄りに絞った短い辺
+    [ 0.22,-1.15],   // 後頭部(右)―― 中心寄りに絞った短い辺
+    [ 1.00, 0.05],   // 頬(右)―― この断面の最大幅
+    [ 0.78, 1.00],   // 顔側右(平らな顔の辺)
+  ];
+  /* Face再設計フェーズ(Phase A): 鼻〜口のぷっくりした隆起。従来の
+     HEAD_HEX_TEMPLATEは顔側が「faceR→faceL」の1本の平らな辺だけだった
+     ため、そこに鼻〜口を表現する頂点が無かった。この2点(顔側右→
+     鼻〜口右→鼻〜口左→顔側左、の順で挿入)を追加し、平らな1辺を
+     「幅を持った浅い台形の隆起」に変える。1点(鋭い頂点、中央一点に
+     収束するV字)ではなく左右2点にしているのは、指示の「シャープな
+     稜線を作らず柔らかい印象に」「鼻先のような尖った頂点を作らない」を
+     低ポリのまま満たすため。X係数は±0.30 ―― faceL/R(±0.78)より内側
+     だが、極端に中央へ寄せず十分な横幅を残した「台形」にしてある。
+     Z係数は顔側の面(faceL/R)と同じ1.00 ―― 実際の突出量は倍率では
+     なく、makeCharacterHead()側でsectionごとのnosePush(前方への
+     加算オフセット、後述)を足す方式にする(倍率方式は「断面ごとに
+     Head全体のサイズ感が変わって見える」「nosePush=0で頂点が中心へ
+     潰れて退化三角形になりやすい」というリスクがあるため不採用)。 */
+  const HEAD_NOSE_TEMPLATE = [
+    [ 0.30, 1.00],   // 鼻〜口(右)
+    [-0.30, 1.00],   // 鼻〜口(左)
+  ];
+  /* Head / Hair / Headwear Global Visual Integration再修正フェーズ:
+     過去2回、depthMulを断面ごとに個別の値で手打ちしていた(chin0.40/
+     jaw0.62/cheek0.86/upperHead1.00→0.78/crown0.75)。1回目はupperHeadの
+     depthMulが全断面中最大になっていて額と後頭部が同時に突き出る「こぶ」
+     になっていたため0.78へ下げたが、その結果「cheekのdepthMul(0.86)が
+     今度は全断面中最大になる」という同種の問題を別の断面へ移しただけに
+     なっていた ―― 実機Playwright比較(Side View)で、頬・鼻口まわりが
+     Helmetの下から丸い塊としてはみ出して見えることを確認した。
+
+     個別断面を都度手で調整するやり方そのものが同じ見逃しを繰り返す
+     原因と判断し、depthMulを断面ごとの独立値にするのをやめ、
+     「depthMul = widthMul * DEPTH_TO_WIDTH_RATIO」という単一のルールに
+     置き換えた。widthMulは各断面の顔の横幅そのもの(頬が最大、顎・頭頂が
+     細い)を表す既存の値で、これに一定比率(0.80)を掛けるだけなので、
+     どの断面also「幅に対して奥行きだけ突出する」ことが構造的に起こらない
+     ―― 特定の断面だけが前後に「こぶ」状に飛び出す問題を、値の調整では
+     なくルールの変更で根本的に防ぐ。実際の突出量(前方=鼻・後方=後頭部)
+     は、この上にnosePush(鼻〜口点だけの前方加算オフセット)とHEAD_DEPTH_
+     MUL(全断面共通の追加圧縮、06-player-enemy.js側で適用)を重ねて
+     微調整する。nosePushはJaw/Cheekのみに残すが、Cheekは目の高さに近い
+     ため以前より控えめ(0.07→0.04)にし、頬の膨らみがEyeより大きく前へ
+     出すぎないようにした */
+  const DEPTH_TO_WIDTH_RATIO = 0.80;
+  const HEAD_SECTION_RATIOS = {
+    chin:      { yFrac:0.00, widthMul:0.38, nosePush:0.03 },  // 顎、下端
+    jaw:       { yFrac:0.22, widthMul:0.72, nosePush:0.08 },  // 口の高さ。鼻〜口の隆起がピーク
+    cheek:     { yFrac:0.52, widthMul:1.06, nosePush:0.04 },  // 頬骨、最大幅。Eyeの高さに近いため控えめ
+    upperHead: { yFrac:0.80, widthMul:0.92, nosePush:0.00 },  // 額〜生え際、隆起なし
+    crown:     { yFrac:1.00, widthMul:0.60, nosePush:0.00 },  // 頭頂、上端。隆起なし
+  };
+  Object.values(HEAD_SECTION_RATIOS).forEach(r => { r.depthMul = r.widthMul * DEPTH_TO_WIDTH_RATIO; });
+
+  /* makeCharacterHead({width, depth, height}): makeCharacterForearm()と
+     同じ考え方の、頭部専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの
+     基準値(旧limbGeo()のradius引数と同じ意味、B.headRをそのまま渡す)。
+     heightは既存のHead高さ(buildPlayer()側で使っているB.headR*2)を
+     そのまま渡す。ローカルy座標の範囲は旧limbGeo()と同じ-height/2〜
+     +height/2(y=+height/2がCrown側=上、y=-height/2がChin側=下)なので、
+     呼び出し側のposition/回転は変更不要。断面の点は
+     HEAD_HEX_TEMPLATE(顔側の平らな面・頬・後頭部)の6点に、
+     HEAD_NOSE_TEMPLATE(鼻〜口の隆起)の2点を「顔側右」の直後・
+     「顔側左」の直前に挿入した計8点 ―― 反時計回りの巻き順を保っている
+     (詳細はHEAD_NOSE_TEMPLATE側のコメント参照)。鼻〜口点のZだけ、
+     顔側の面と同じ基準(hd*1.00)に、そのsectionのnosePush
+     (o.depth基準の加算オフセット、倍率ではない)を足す。 */
+  /* =========================================================
+     Head Assembly 共通プロファイル(Single Source of Truth)
+
+     Mesh識別Debug(全8クラス)で、額・側頭部・頬・後頭部下側の「外側
+     シルエット」をSkin Head本体が形成し、Hair Capは頭頂の細い帯、Side
+     Hairはほぼ埋没、Back Hairは完全埋没していることが判明した。原因は
+     HeadとHairが別テンプレート(HEAD_HEX_TEMPLATE vs 旧HAIR_CAP_HEX_
+     TEMPLATE)・別基準値(headR vs hairR)・別原点(頭の中心 vs 生え際)で
+     生成されており、「HairがHeadの外側にある」ことがコード上どこにも
+     保証されていなかったこと。実測でもHair Capの前面Zは全高さでHeadの
+     前面Zより0.09〜0.18後方にあり、額を覆うことが構造的に不可能だった。
+
+     そこで、Headの断面情報を唯一の基準(Single Source of Truth)にし、
+     Hairはそこから導出する構造へ変更した。以下の3つのヘルパーが基準:
+       headRatioAt(yFrac)      : 任意の高さの断面比率(断面間は線形補間)
+       headSectionPoints(o,r)  : その断面の実際の輪郭点(8点)
+       headOutlineAt(o,yFrac)  : その高さの実寸(半幅/前面Z/背面Z/側面Z)
+     Hair Shell・Side Hair・Back Hair・Bangsはすべてこれらを経由して
+     配置されるため、headR / HEAD_DEPTH_MUL / HEAD_SECTION_RATIOS を
+     変更してもHairが自動的にHeadの外側へ追従する。 */
+  function headRatioAt(yFrac){
+    const secs = Object.values(HEAD_SECTION_RATIOS);
+    if(yFrac <= secs[0].yFrac) return Object.assign({}, secs[0], {yFrac});
+    for(let i=0;i<secs.length-1;i++){
+      const a = secs[i], b = secs[i+1];
+      if(yFrac <= b.yFrac){
+        const t = (yFrac - a.yFrac) / (b.yFrac - a.yFrac);
+        return {
+          yFrac,
+          widthMul: a.widthMul + (b.widthMul - a.widthMul)*t,
+          depthMul: a.depthMul + (b.depthMul - a.depthMul)*t,
+          nosePush: a.nosePush + (b.nosePush - a.nosePush)*t,
+        };
+      }
+    }
+    return Object.assign({}, secs[secs.length-1], {yFrac});
+  }
+  function headSectionPoints(o, r){
+    const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+    const facePts = HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]);
+    const nosePts = HEAD_NOSE_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd + o.depth*r.nosePush]);
+    return [...facePts, ...nosePts];
+  }
+  /* headOutlineAt: その高さでのHeadの実寸。Hair/装飾の配置は必ずこれを
+     基準にする(headRに独自係数を掛けた手打ち座標を使わない)。 */
+  function headOutlineAt(o, yFrac){
+    const r = headRatioAt(yFrac);
+    const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+    return {
+      y:         -o.height/2 + o.height*yFrac,
+      halfWidth: hw*1.00,                       // 最大幅点(テンプレート|x|=1.00)
+      sideZ:     hd*0.05,                       // その最大幅点のZ
+      frontZ:    hd*1.00 + o.depth*r.nosePush,  // 鼻〜口点(最前面)
+      backZ:     hd*(-1.15),                    // 後頭部点(最後面)
+      backHalfWidth: hw*0.22,                   // 後頭部点のX
+    };
+  }
+  function makeCharacterHead(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
+    const hh = o.height/2;
+    const sections = Object.values(HEAD_SECTION_RATIOS).map(r => ({
+      y: -hh + o.height*r.yFrac,
+      points: headSectionPoints(o, r),
+    }));
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
+  /* =========================================================
+     Head / Posture Alignment再設計フェーズ
+
+     Phase 0調査の結論: Head/Eye/Hair/Headwearのいずれにも明示的な
+     「前方へのposition.zオフセット」は存在しなかった(Torso/Neck/Headは
+     いずれもZ=0基準)。しかし、Head自身の前面Z(頬のnosePush込みで
+     headR*0.93付近、Eyeの前面はheadR*0.94付近)が、Torso胸部の前面Z
+     (bodyR*0.90、bodyR<headR)より明確に深く、細いNeck(円柱、B.neck
+     基準)の上に「Torsoより出っ張ったHead」が乗る形になっていた。
+     見下ろしカメラでこれが「猫背」「顔だけ前に突き出ている」という
+     視覚的印象を生んでいた(ユーザー指摘)。
+
+     Head/Eye/Hair Geometry自体は一切変更せず、Head/Eye/Hair/Headwear
+     すべての既存Z座標に、この一つの共通オフセット(小さな負の値=後方)を
+     加算するだけの、純粋なTransform(Position)修正で対応する。Torso/Neck
+     側は変更しない(Body Geometryは維持する方針のため)。90%/50%/25%の
+     候補をPlaywrightで比較検証した結果、-0.035(前後Z差のおよそ55%相当)
+     で「猫背には見えないが、低頭身らしいごく僅かな前傾は残る」自然な
+     バランスになったためこの値にした。全クラス共通(素の剣士〜鷹の目まで
+     8クラス全て)のHead/Eye/Hair/Headwearの実際のZ座標定義箇所に、この
+     定数を加算する形で反映してある(05-rendering-rig.js側はこの定数の
+     定義のみ、実際の適用は06-player-enemy.js側の各position.set()参照)。 */
+  const HEAD_BACK_Z = -0.05;
+
+  /* =========================================================
+     Player Character Head Silhouette Global Redesign Phase
+
+     ユーザー指摘: 実際のゲーム画面で「額が前方へ突き出て見える」
+     「後頭部が後方へ突き出て見える」「頭部が前後に長く見える」―― Head
+     Geometry単体・Mesh貫通チェックでは問題が見えなかった箇所でも、
+     Default Game Cameraの実機スクリーンショットでは明確な違和感が
+     残っていた。
+
+     3種類のCandidateをBare Head(Weapon/Hair/Helmet非表示)・Neutral
+     Pose・Default/Front/3-4/Side/Back全視点で比較した:
+       Candidate A: Uniform Scale(94%)のみ ―― 全体が一様に縮むだけで、
+         「前後に長い」というシルエットの比率自体は変わらなかった。
+       Candidate B: Depth Compression(88%)のみ ―― Side Viewで額・
+         後頭部の突出感が明確に減り、丸みのある輪郭になった。
+       Candidate C: Uniform Scale(95%)+追加Depth Compression(90%、
+         合成で実質85.5%)―― Bと同様の丸みに加え、胴体に対する頭部の
+         存在感も適度に抑えられ、最も「丸く低頭身な頭部」に近づいた。
+     Default Game Camera・Side Viewともに、CandidateCが最も違和感が
+     少なかったため採用した。Uniform成分(95%)はBUILD.male/female側の
+     headR/hairR自体を縮小することでHead/Hair/Eye/Headwear全てに自動的に
+     反映済み(このファイル内、BUILD定義側のコメント参照)。この
+     HEAD_DEPTH_MUL(Depth圧縮)は、Head本体の奥行き(makeCharacterHead()の
+     depth引数)と、Eye/Bangs/Brow Guard/Hair Cap/Back Hairの前後(Z)方向の
+     位置基準(いずれもheadR比の定数)にのみ適用し、Width/Height/横方向
+     (X)には適用しない ―― 「前後にだけ長い」という指摘に対応するため、
+     前後方向だけを狙って圧縮する設計。
+
+     【再検証で判明した追加のRoot Cause】: 上記Candidate C(0.90)を適用・
+     コミットした後、実際にDefault Game CameraでFull Character(Hair+
+     Headwear込み)を確認したところ、額の突出はほぼ改善していなかった。
+     Bare Head単体の検証だけで「改善した」と判断したのが誤りだった ――
+     数値で前後Zを再計算した結果、HEAD_SECTION_RATIOSのupperHead
+     (額〜生え際、Eyeのすぐ上)のdepthMulが1.00(全断面中最大、cheekの
+     0.86さえ上回る)のままだったため、Depth圧縮(0.90)をかけてもなお
+     「額が最も前へ・後頭部が最も後ろへ突き出る」というsection単位の
+     構造的な「こぶ」が残り、Eyeの前面Zより額の前面Zの方が前に出てすら
+     いた(Helmet Face Openingの実効前端より0.1超前に出ていたことも判明)。
+     upperHead.depthMulを0.78へ引き下げて解消した(詳細はHEAD_SECTION_
+     RATIOS側のコメント参照)。それに加え、Depth圧縮自体も0.90→0.85へ
+     強め、額・後頭部双方に追加のマージンを持たせた。
+
+     Headwear(Warrior Helm等)自体のGeometryはこの定数の対象外(Head/
+     Hairが縮んだことでHeadwearとの間にわずかな余裕が生まれる方向にしか
+     ならないため)。ただしBattle Knight Helmet(headScaleGroup経由の
+     別実装)は、この再検証で「頭部の下半分がHelmetの被覆範囲から外れて
+     露出する」実装上の位置バグが別途見つかったため、個別に修正した
+     (06-player-enemy.js、battleKnight昇格処理側のコメント参照)。 */
+  const HEAD_DEPTH_MUL = 0.85;
+
+  /* =========================================================
+     素の剣士(Warrior Base)のBase Helm: 球状シルエット改善
+
+     旧HelmはTHREE.SphereGeometry(headR*1.16, ..., thetaLength=0.62π)
+     ―― 中心(hY+0.03)から全方位(前後左右)へ均等に張り出す部分球だった。
+     Head Loft化(makeCharacterHead())で作った頬(Cheek)・顎(Jaw)の
+     非対称な顔シルエットも、Eye(sclera/pupil/highlight、+Z側=顔側に
+     張り出す独立メッシュ)も、この球の内側にすっぽり埋もれてしまい、
+     「黒い球を被ったキャラクター」に見える最大の原因になっていた
+     (metalMatがmetalness:0.7で環境マップ無しのため、その球面自体も
+     暗く見えやすい)。
+
+     Head/Hair/Eyeは今回変更しない。Helmet側だけで対応するため、
+     「Headを全方位から包む球」ではなく「上部・後頭部・左右側面だけを
+     覆う馬蹄形(C字)の帯」にする ―― 顔側(+Z、Eyeと同じ向き)の1辺だけ
+     意図的に繋がない開いた断面をmakeLoft()と同じ考え方(高さごとに
+     断面リングを積む)で組む。makeLoft()自体は「閉じた輪」しか扱えない
+     ため専用に組んだ小さな関数だが、頂点順序・側面/天板の巻き方向は
+     既存のmakeLoft()ヘルパー群(Torso等)と同じCCW規則に揃えてあるので、
+     ここも外向き法線になる。
+
+     開口部の左右の縁(WARRIOR_HELM_ARC_TEMPLATEの最初と最後の点)の間の
+     辺だけ側面を張らない ―― これがFace Opening。上端(crown)はn角形の
+     ファン分割で塞ぐ(頭頂は完全に覆う設計)。下端は開放(既存の
+     兜/帽子/フードと同じ、Headがそこから覗く前提)。
+  ========================================================= */
+  /* Phase 13-F: 顔側の縁のxを0.55→0.64へ。開口の縁の点と側面の最大幅点
+     (-1.00,-0.05)を結ぶ直線が、Headの頬(最大幅点はfz=+0.05とやや前方)の
+     外側を通れず、側面から見て頬が兜からはみ出していた(ユーザー指摘。
+     Mesh Ownership DebugでHead本体であることを確認済み)。 */
+  const WARRIOR_HELM_ARC_TEMPLATE = [
+    [-0.64,  0.45],   // 顔側左(開口の縁)
+    [-1.00, -0.05],   // 左側面(最大幅)
+    [-0.60, -0.85],   // 後頭部左
+    [ 0.00, -1.00],   // 後頭部中央(最も後ろ)
+    [ 0.60, -0.85],   // 後頭部右
+    [ 1.00, -0.05],   // 右側面(最大幅)
+    [ 0.64,  0.45],   // 顔側右(開口の縁。ここと配列先頭の間は繋がない)
+  ];
+  // Headwear Silhouette Integration Phase(Priority B): 従来は中腹
+  // (yFrac0.50, widthMul1.15/depthMul1.08)から頭頂(yFrac1.00,
+  // widthMul0.70/depthMul0.65)へ一気に絞っていたため、その間の高さに
+  // ある実際のHead本体(upperHead/crown断面、widthMul0.92〜0.60・
+  // depthMul1.00〜0.75)やHair Cap(lowerCap/upperCap断面、生え際+headR*
+  // 0.19〜+headR*0.79あたり)の背面の張り出しをHelmet側が追い越して
+  // 覆いきれず、Head/Hair Capが兜の背面・頭頂から突き抜けて見える原因に
+  // なっていた(Headwear + Head Silhouette Audit、Head/Hair/Headwear
+  // Integration Auditで実機Playwright比較・Mesh単位のVisibility比較の
+  // 両方で確認済み)。Face Opening自体(WARRIOR_HELM_ARC_TEMPLATE、
+  // 下端・中腹のwidthMul/depthMul)には触れず、中腹から頭頂の間に
+  // 中間リングを1段追加してHead/Hair Capの背面プロファイルに沿う
+  // 緩やかな絞りにし、頭頂リング自体もわずかに緩めた(0.70/0.65→
+  // 0.78/0.74)。中腹までの前面シルエット・Face Openingの見え方は不変
+  // Phase 13-E: Face Openingを開けておく高さの上限(WARRIOR_HELM_RINGSの
+  // yFrac基準)。この値以上のリング間は前面も閉じる
+  const WARRIOR_HELM_OPENING_TOP_YFRAC = 0.50;
+  /* faceZ: そのリングでの「顔側2点(テンプレート先頭/末尾)」のz。
+     Phase 13-E: 開口より上を塞ぐにあたり、テンプレート既定の0.45のまま
+     前面を張るとその壁がHead/Hair Shellの前面(この高さで約0.68〜0.74×
+     headR相当)より内側を通り、髪が壁を突き抜けて黒い板として見えた。
+     中腹以上のfaceZを頭の前面より前へ出すことで、前面の壁がHeadの外側を
+     通るようにする ―― 開口の上端(中腹リング)が前へせり出すことで、
+     兜の眉庇(まびさし)としても読める。 */
+  const WARRIOR_HELM_RINGS = [
+    { yFrac:0.00, widthMul:1.22, depthMul:1.14, faceZ:0.45 },  // 下端(耳・顎関節あたりの高さ)。Phase 13-F: 頬が側面からはみ出さない幅へ
+    { yFrac:0.50, widthMul:1.26, depthMul:1.18, faceZ:0.75 },  // 中腹の膨らみ(最大幅)=開口の上端・眉庇
+    { yFrac:0.78, widthMul:1.02, depthMul:0.98, faceZ:0.95 },  // Hair Cap後方の膨らみに沿う中間リング
+    { yFrac:1.00, widthMul:0.78, depthMul:0.74, faceZ:0.95 },  // 頭頂
+  ];
+
+  /* makeWarriorBaseHelm({width, depth, height}): widthとdepthは半幅・
+     半奥行きの基準値(呼び出し側はheadRを渡す)、heightはローカルy=0
+     (下端)〜y=height(頭頂)の高さ。呼び出し側はposition.yを下端の
+     世界座標に合わせて配置する(既存のCylinder系兜・フードと同じ、
+     下端基準の置き方)。 */
+  function makeWarriorBaseHelm(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.60 }, opts || {});
+    const n = WARRIOR_HELM_ARC_TEMPLATE.length;
+    const verts = [];
+    const lastIdx = WARRIOR_HELM_ARC_TEMPLATE.length-1;
+    WARRIOR_HELM_RINGS.forEach(r=>{
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      WARRIOR_HELM_ARC_TEMPLATE.forEach(([fx,fz], i)=>{
+        // 顔側2点(開口の縁)だけリングごとのfaceZで上書きする
+        const z = (r.faceZ != null && (i===0 || i===lastIdx)) ? r.faceZ : fz;
+        verts.push(fx*hw, o.height*r.yFrac, z*hd);
+      });
+    });
+    const idx = [];
+    // 側面: 隣接する段同士を弧の各辺(0-1,1-2,...,n-2〜n-1)だけ繋ぐ。
+    // 最後の点(n-1)から最初の点(0)への辺は繋がない(Face Opening)。
+    // 段は下から上へ昇順に並んでいるので、makeLoft()の「昇順」の
+    // 巻き方向(a,bTop,b, a,aTop,bTop)とそろえてある。
+    /* Phase 13-E: ただし開口は下2段(下端〜中腹、yFrac0.00〜0.50)の
+       間だけに限定し、それより上は前面も塞ぐ。Mesh Ownership Debugで、
+       旧実装(全高で開口)ではFace Openingから見えるものの大半が
+       「生え際より上のHair Shell(ほぼ黒)」になり、兜の中が空洞に
+       見えていたことを確認した(ユーザー指摘の「兜から髪がはみ出る/
+       中が真っ黒」)。開口を目の高さ(頭中心+0.05×headR)を含む下段に
+       限ると、開口からは顔と目が見え、額から上の髪は兜の内側に隠れる。 */
+    for(let ri=0; ri<WARRIOR_HELM_RINGS.length-1; ri++){
+      const base = ri*n, next = (ri+1)*n;
+      const closed = (WARRIOR_HELM_RINGS[ri].yFrac >= WARRIOR_HELM_OPENING_TOP_YFRAC);
+      const edges = closed ? n : n-1;
+      for(let i=0;i<edges;i++){
+        const j=(i+1)%n;
+        const a=base+i, b=base+j, aTop=next+i, bTop=next+j;
+        idx.push(a,bTop,b, a,aTop,bTop);
+      }
+    }
+    // 頭頂の天板(最上段をn角形としてファン分割、makeLoft()のcapと同じ
+    // 手法)。開口部の「弦」(最後の点から最初の点)もこの天板だけは
+    // 塞ぐ ―― 頭頂は完全に覆う設計のため
+    const topBase = (WARRIOR_HELM_RINGS.length-1)*n;
+    for(let i=1;i<n-1;i++) idx.push(topBase, topBase+i+1, topBase+i);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /* =========================================================
+     Hawk Eye Hood再設計フェーズ: 「黒い球」を低ポリの開いたフードへ
+
+     旧HoodはTHREE.SphereGeometry(headR*1.35, 10,8, 0,2π, 0,0.68π) ――
+     方位角(theta)が全周(2π)、極角(phi)が頭頂から0.68π(赤道より深い
+     位置)までの回転対称なドームだった。前後左右どの向きから見ても
+     同じ輪郭(=正面から見ても真っ黒な円)にしかならず、Face再設計/Eye
+     再設計の成果が一切見えない、8クラス中唯一「黒い球」に見える
+     Headwearになっていた。
+
+     makeWarriorBaseHelm()と全く同じ技法(開いた弧のテンプレートを
+     複数の高さの断面(リング)に積み、最後の点→最初の点の辺だけ繋がない
+     ことでFace Openingを作る、頭頂だけファン分割で閉じる)をそのまま
+     再利用する ―― 新しいGeometry Systemは追加していない。Warrior Helmは
+     3リング・耳の高さで止まる短い帯だったのに対し、Hoodは「頭を包む布」
+     を表現するため5リング(襟元→顎下→頬・こめかみ→頭頂へ絞り→頭頂)に
+     増やし、開口の縁(前方のアーク点)もWarrior Helmよりわずかに前方
+     (fz=0.55、Helmは0.45)にしてこめかみ〜頬まで囲む広めの開口にした。
+     左右対称・前後非対称(後方ほど張り出す)という設計方針もWarrior Helm
+     と共通。Eyeの実際のX位置(headR*0.44程度)・Z位置(headR*0.82系統)は
+     この開口の範囲に収まるよう、Cheek/Templeリング(最大幅の断面)の
+     開口前端ZがEye前面のZより手前(=Eyeより奥)になるよう設計してある
+     (詳細な数値確認はtests/unit/lowpoly-primitives.test.js参照)。 */
+  const HAWKEYE_HOOD_ARC_TEMPLATE = [
+    [-0.62,  0.55],   // 顔側左(開口の縁、こめかみ〜頬)
+    [-1.00, -0.05],   // 左側面(最大幅)
+    [-0.62, -0.85],   // 後頭部左
+    [ 0.00, -1.00],   // 後頭部中央(最も後ろ)
+    [ 0.62, -0.85],   // 後頭部右
+    [ 1.00, -0.05],   // 右側面(最大幅)
+    [ 0.62,  0.55],   // 顔側右(開口の縁。ここと配列先頭の間は繋がない)
+  ];
+  // Phase 13-E: Warrior Helmと同じ考え方で、Face Openingを開けておく
+  // 高さの上限。これ以上のリング間は前面も閉じる(頬・こめかみより上の
+  // 額〜頭頂がフードの開口から素肌のまま見えていた問題への対応)
+  const HAWKEYE_HOOD_OPENING_TOP_YFRAC = 0.52;
+  const HAWKEYE_HOOD_RINGS = [
+    { yFrac:0.00, widthMul:0.58, depthMul:0.58 },  // Neck Opening(襟元、最も絞る)
+    { yFrac:0.25, widthMul:0.92, depthMul:0.90 },  // Lower Hood(顎下〜頬の下)
+    { yFrac:0.52, widthMul:1.08, depthMul:1.04 },  // Cheek/Temple(最大幅)
+    { yFrac:0.78, widthMul:0.82, depthMul:0.78 },  // Upper Hood(頭頂へ向け絞る)
+    { yFrac:1.00, widthMul:0.50, depthMul:0.50 },  // Crown(頭頂、ファン分割で閉じる)
+  ];
+
+  /* makeHawkEyeHood({width, depth, height}): makeWarriorBaseHelm()と同じ
+     引数規約(半幅・半奥行き基準値、高さはローカルy=0(下端=襟元)〜
+     y=height(頭頂))。呼び出し側は下端の世界座標にposition.yを合わせる。 */
+  function makeHawkEyeHood(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.68 }, opts || {});
+    const n = HAWKEYE_HOOD_ARC_TEMPLATE.length;
+    const verts = [];
+    HAWKEYE_HOOD_RINGS.forEach(r=>{
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      HAWKEYE_HOOD_ARC_TEMPLATE.forEach(([fx,fz])=>{
+        verts.push(fx*hw, o.height*r.yFrac, fz*hd);
+      });
+    });
+    const idx = [];
+    for(let ri=0; ri<HAWKEYE_HOOD_RINGS.length-1; ri++){
+      const base = ri*n, next = (ri+1)*n;
+      const closed = (HAWKEYE_HOOD_RINGS[ri].yFrac >= HAWKEYE_HOOD_OPENING_TOP_YFRAC);
+      const edges = closed ? n : n-1;
+      for(let i=0;i<edges;i++){
+        const j=(i+1)%n;
+        const a=base+i, b=base+j, aTop=next+i, bTop=next+j;
+        idx.push(a,bTop,b, a,aTop,bTop);
+      }
+    }
+    const topBase = (HAWKEYE_HOOD_RINGS.length-1)*n;
+    for(let i=1;i<n-1;i++) idx.push(topBase, topBase+i+1, topBase+i);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /* =========================================================
+     Mage Hat再設計フェーズ: Brim(つば)の前後非対称Low Poly化
+
+     旧BrimはTHREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 8) ――
+     全方位に均等に張り出す円盤だった。見下ろしゲームカメラでは、この
+     円盤が頭部中心の真上(hY+headR*0.55)から前方(+Z、顔側)へも一様に
+     headR*1.95まで張り出すため、Eye(headR*0.90付近)やFace再設計Phase A
+     で作った鼻〜口の隆起(cheek/jaw付近)を含む顔全体が、カメラの視線上で
+     ほぼ完全に隠れてしまっていた(魔法使い/魔導士で確認済みの問題)。
+
+     単純にBrim全体を縮小すると「魔法使いらしい大きな帽子」という設計
+     意図が失われるため、後方・側方の半径は据え置き、前方(θ=0、+Z方向)
+     だけ半径を落とした12点の非対称リングにする ―― WARRIOR_HELM_ARC_
+     TEMPLATE/HEAD_HEX_TEMPLATEと同じ「前→左→後→右→前」の巻き順
+     (makeLoftのCCW規則、外向き法線)に揃えてある。前方→側方の遷移は
+     3段階(0.58→0.72→0.92→1.00)で急激な段差(=不自然な穴)にならない
+     よう緩やかにしてあり、左右は完全対称(θとπ2-θで同じ倍率)。
+
+     Brim本体はmakeLoft()を2断面(厚みの上下)だけで薄く使う ――
+     新しいGeometry Systemは追加していない。 */
+  const MAGE_BRIM_RADIUS_MUL = [
+    0.58, 0.72, 0.92, 1.00, 1.00, 1.00,   // 0°(正面)→90°(左)→180°(後方)
+    1.00, 1.00, 1.00, 1.00, 0.92, 0.72,   // 180°(後方)→270°(右)→360°(正面)
+  ];
+  function makeMageHatBrimOutline(){
+    const n = MAGE_BRIM_RADIUS_MUL.length;
+    return MAGE_BRIM_RADIUS_MUL.map((mul, i) => {
+      const a = (i/n)*Math.PI*2;
+      return [-Math.sin(a)*mul, Math.cos(a)*mul];   // x=-sin,z=cos: 0°が正面(+Z)、増加で左(-X)へ回る
+    });
+  }
+  function makeMageHatBrim(radius, thickness){
+    const outline = makeMageHatBrimOutline();
+    const half = thickness/2;
+    const toPts = () => outline.map(([fx,fz]) => [fx*radius, fz*radius]);
+    return makeLoft({
+      sections: [ { y:half, points:toPts() }, { y:-half, points:toPts() } ],
+      closedTop:true, closedBottom:true,
+    });
+  }
+
+  /* =========================================================
+     Headwear ↔ Hair Ownership: 共通Coverage API
+
+     Head/Hair Assembly構造修正(Hair Shell = Head断面×HAIR_SHELL_MUL)は
+     「HairがHeadより外側」だけを保証し、Headwear(Warrior Helm/Rogue
+     Hood/Archer Cap/Mage Hat)との関係を一切見ていなかった。各Headwearは
+     独立した半径・Ring定義で作られているため、同じY・Angleで
+     Hair Surface RadiusがHeadwear Surface Radiusを超える領域が実在する
+     (Mesh Ownership Debugで確認済み: Warriorは頭頂〜側頭部で部分的に、
+     Rogue/Archerは先細るHood/Capの先端でHair Shellの頭頂に完全に埋没、
+     Mageは現状Hair<Hatが成立していて問題は未確認)。
+
+     ここではHeadwearごとに「そのY・Angle方向に実際に存在するSurface
+     Radius」を返す関数を、各Headwearの生成に使っている既存定数
+     (WARRIOR_HELM_RINGS/ARC_TEMPLATE、HAWKEYE_HOOD_*、MAGE_BRIM_
+     RADIUS_MUL、Rogue Hood/Archer Cap・Peak/Mage Coneの既存radius/height)
+     から直接導出する。新しいクラス別の手打ち補正値(WARRIOR_HAIR_FIX_Y
+     のような今回専用の定数)は追加しない ―― Geometry生成に使っている
+     値と、Coverage判定に使う値を完全に同じ定数にすることで、片方を
+     変えればもう片方も自動的に追従する。
+
+     yOffsetはheadOutlineAt()と同じ単位(Head中心=hYからの世界オフセット、
+     headR比ではなく実際のワールド距離)。angleはHead中心を基準にした
+     Local Space連続角度(atan2(x,z)、+Z=正面が0)。 */
+
+  // 角度を(-PI, PI]へ正規化。±PIの境界をまたぐ判定を単純な
+  // angle>start && angle<end で行うと誤判定するため、以降の判定は必ず
+  // このnormalizeAngle/angleDelta経由で行う
+  function normalizeAngle(a){
+    a = a % (Math.PI*2);
+    if(a > Math.PI) a -= Math.PI*2;
+    if(a < -Math.PI) a += Math.PI*2;
+    return a;
+  }
+  // aからbへの符号付き最短角度差、(-PI,PI]
+  function angleDelta(a, b){
+    return normalizeAngle(b - a);
+  }
+  /* arcSurfaceAt(template, hw, hd, angle, closed): WARRIOR_HELM_ARC_
+     TEMPLATE/HAWKEYE_HOOD_ARC_TEMPLATEのような「開いた弧」のテンプレート
+     (最後→最初の点の間だけ面を張らない、makeWarriorBaseHelm()と同じ
+     規約)を使って、指定角度(atan2(x,z)基準)にHeadwear Surfaceが存在
+     するか・存在するなら原点からの実際の半径はいくつかを返す。
+     テンプレートの各点を(hw,hd)で実寸化し、隣接点間(0..n-2、Geometryで
+     実際に面を張っている辺と同じ範囲。closed=trueならn-1→0の辺も含める
+     ―― Mage Brimのような開口のない全周Headwear用)をangleDeltaで円環
+     安全に判定する(単純なangle>start && angle<endではなく、境界(±PI)を
+     またぐ場合も正しく扱う)。 */
+  function arcSurfaceAt(template, hw, hd, angle, closed){
+    const n = template.length;
+    const pts = template.map(([fx, fz]) => {
+      const x = fx*hw, z = fz*hd;
+      return { angle: Math.atan2(x, z), radius: Math.hypot(x, z) };
+    });
+    const edges = closed ? n : n-1;
+    for(let i=0; i<edges; i++){
+      const a = pts[i], b = pts[(i+1)%n];
+      const span = angleDelta(a.angle, b.angle);
+      if(Math.abs(span) < 1e-9) continue;
+      const off = angleDelta(a.angle, angle);
+      const t = off/span;
+      if(t >= -1e-6 && t <= 1+1e-6){
+        return { inArc:true, radius: a.radius + (b.radius - a.radius)*t };
+      }
+    }
+    return { inArc:false, radius:null };
+  }
+  // ring配列(既存のWARRIOR_HELM_RINGS/HAWKEYE_HOOD_RINGSと同じ形
+  // {yFrac,widthMul,depthMul})から、任意のyFracでの{widthMul,depthMul}を
+  // 線形補間する(headRatioAt()のHeadwear版、同じ考え方)
+  function ringRatioAt(rings, yFrac){
+    if(yFrac <= rings[0].yFrac) return rings[0];
+    for(let i=0;i<rings.length-1;i++){
+      const a=rings[i], b=rings[i+1];
+      if(yFrac <= b.yFrac){
+        const t = (yFrac-a.yFrac)/(b.yFrac-a.yFrac);
+        return { widthMul:a.widthMul+(b.widthMul-a.widthMul)*t, depthMul:a.depthMul+(b.depthMul-a.depthMul)*t };
+      }
+    }
+    return rings[rings.length-1];
+  }
+  /* arcHeadwearCoverage(): Warrior Helm/Hawk Eye Hoodのような「Ring配列 +
+     開いた弧のテンプレート」で出来ているHeadwear共通の判定ロジック。
+     bottomYOffset/heightは、そのHeadwearを実際に配置しているposition.
+     set()呼び出しと全く同じ式で呼び出し側から渡すため、Geometry生成側の
+     値とずれない。 */
+  /* closedAboveYFrac: この高さより上ではテンプレートの開口(最後の点→
+     最初の点の辺)も閉じているHeadwear用。省略時(undefined)は従来通り
+     全高さで開口ありとして判定するため、既存クラスの挙動は変わらない。 */
+  function arcHeadwearCoverage(template, rings, bottomYOffset, height, hwBase, hdBase, yOffset, angle, closedAboveYFrac){
+    const yFrac = (yOffset - bottomYOffset) / height;
+    if(yFrac < -1e-6 || yFrac > 1+1e-6) return { state:'NONE', surfaceRadius:null };
+    const r = ringRatioAt(rings, Math.max(0, Math.min(1, yFrac)));
+    const hw = hwBase*r.widthMul, hd = hdBase*r.depthMul;
+    const closed = (closedAboveYFrac != null && yFrac >= closedAboveYFrac);
+    const arc = arcSurfaceAt(template, hw, hd, angle, closed);
+    if(!arc.inArc) return { state:'FACE_OPENING', surfaceRadius:null };
+    return { state:'HEADWEAR', surfaceRadius:arc.radius };
+  }
+  /* cylinderHeadwearCoverage(): Rogue Hood/Archer Cap・Peak/Mage Coneの
+     ような、開口(Face Opening)を持たない単純な円筒/円錐型Headwear共通の
+     判定ロジック。全周を覆う形状なので角度には依存せず、高さだけで
+     radiusを線形補間する(bottomR→topRの単純な円錐台)。角度依存なしは
+     判定の簡略化ではなく、実際のGeometry(Cylinder/Cone系の、全周閉じた
+     回転体)がそもそも角度に依存しない形をしているため。 */
+  function cylinderHeadwearCoverage(bottomYOffset, height, bottomR, topR, yOffset){
+    const yFrac = (yOffset - bottomYOffset) / height;
+    if(yFrac < -1e-6 || yFrac > 1+1e-6) return { state:'NONE', surfaceRadius:null };
+    const t = Math.max(0, Math.min(1, yFrac));
+    return { state:'HEADWEAR', surfaceRadius: bottomR + (topR-bottomR)*t };
+  }
+
+  /* ---- Warrior / Battle Knight: Helm(WARRIOR_HELM_RINGS/ARC_TEMPLATE、
+     このファイル上部のmakeWarriorBaseHelm()と同じ定数を再利用) ---- */
+  const WARRIOR_HELM_BOTTOM_OFFSET_MUL = -0.50;   // helmBottomY = hY + headR*この値
+  const WARRIOR_HELM_HEIGHT_MUL = 1.60;
+  function warriorHelmCoverageAt(headR, yOffset, angle){
+    return arcHeadwearCoverage(
+      WARRIOR_HELM_ARC_TEMPLATE, WARRIOR_HELM_RINGS,
+      headR*WARRIOR_HELM_BOTTOM_OFFSET_MUL, headR*WARRIOR_HELM_HEIGHT_MUL,
+      headR, headR, yOffset, angle,
+      WARRIOR_HELM_OPENING_TOP_YFRAC);   // Phase 13-E: 中腹より上は前面も閉じている
+  }
+
+  /* ---- Rogue: Hood(Phase 5でNape Opening付きのRing Loftへ変更、詳細は
+     ROGUE_HOOD_ARC_TEMPLATE/RINGS側のコメント参照)。回転(rotation.x=
+     -0.4)で生じるY方向の実効的な圧縮をcos(tilt)で近似する ―― 厳密な
+     傾き込みの解析解ではないが、この近似誤差はCoverageの安全マージン
+     (HAIR_HEADWEAR_INSET)の範囲に収まる */
+  const ROGUE_HOOD_HEIGHT_MUL = 1.5;         // hoodH = headR*1.5
+  const ROGUE_HOOD_CENTER_OFFSET_MUL = 0.28; // hood.position.y = hY + hoodH*0.28
+  const ROGUE_HOOD_TILT_X = -0.4;
+  /* Phase 5: Nape Opening ―― Rogue/Berserker共通のHoodを、単純な全周
+     Cylinder(角度に依存しない円筒)から、Warrior Helm/Hawk Eye Hoodと
+     同じ「開いた弧のRing Loft」技法へ変更した。旧実装のCylinder系
+     Geometryは首元まで完全に閉じた回転体だったため、Back Hairの根元(+0.24×headR
+     付近)がHoodの内側に収まってしまい、findCoverageExitAlongStrand()が
+     見つけるHood外の区間がうなじ直下のごく短い範囲(-0.32〜-0.271×headR)
+     に限られていた ―― Ownershipとしては正しいが、Hoodのデザインが
+     「Back Hairの逃げ場」を持っていなかったことが実質的な原因。
+
+     開口は前面(Warrior Helmと同じ位置)ではなく、真後ろ(angle≈PI、
+     うなじ側)の狭い範囲だけに置く。前面はRogueのMask(鼻から下を覆う
+     布)と役割が重なるため閉じたまま維持する。開口の角度幅は
+     Back Hair 3本(中央 angle=PI、左右 angle=PI∓atan(backHalfWidth/
+     |backTipZ|)、既存定数から計算すると概ね±10.8°)を確実に含む
+     ±0.22(テンプレート単位)にしてあり、全周(360°)に対してごく
+     狭い(約7%)ノッチに留めている。Ring/Cover生成の技法自体は
+     makeWarriorBaseHelm()/warriorHelmCoverageAt()と全く同じ
+     (arcHeadwearCoverage/arcSurfaceAtの再利用)で、新しいCoverage判定
+     ロジックは追加していない。
+
+     【実装中に判明した別問題への対応】このRing Loft化の実機QA中に、
+     Rogue(およびa3d8315時点のPhase 4実装)で「Hair ShellではなくSkin
+     Head本体がHoodの外側に出る」severe回帰を発見した。原因は、Phase 4の
+     Coverage/Ownershipが一貫して検証していたのは「Hair Shell(Head×
+     HAIR_SHELL_MUL=1.09)がHeadwearより内側か」だけで、「Skin Head本体
+     (headRそのものの断面、cheekでwidthMul最大1.06)がHeadwearより内側か」
+     は一度も保証されていなかったこと。旧実装のCylinder系Geometry(hoodR=headR×
+     1.16の単純な線形テーパー)は、cheekの高さ(HeadのyFrac0.52)でheadR×
+     0.93程度まで先細っており、Head自身の1.06×headRを下回っていた
+     (実機スクショで確認、素材色ではなくSkin Head本体の色e8b98aが
+     支配的だった)。
+
+     再発防止のため、ARC_TEMPLATEの左右側面点をHead側と同じ規約
+     (headSectionPoints/headOutlineAtの「最大幅点は|x|=1.00」)に揃え、
+     RINGSのwidthMulをheadRatioAt()経由でHead自身の実測プロファイル
+     (chin/jaw/cheek/upperHead/crown)にマージン(概ね+15%、Hair Shellの
+     HAIR_SHELL_MUL=1.09さえも上回る値)を掛けた値として手計算で導出した
+     ―― Hair ShellがheadSectionPoints()を直接呼んで構造的に追従するのと
+     完全に同じ仕組みをHoodにも適用するのが理想だが、Hoodは開口・傾き・
+     独自の襟元/頭頂テーパーを持つため、今回はHeadの実測値(cheek
+     widthMul=1.06@yFrac0.52 등)をこの一覧のコメントとして明示し、値が
+     Head自身を下回らないことを手計算で保証した(将来Head側の値を変えた
+     場合はこのコメントの値と合わせて再計算が必要)。 */
+  /* Phase 6: Nape Openingの角度をわずかに拡張(±0.22→±0.30)。Back Hair
+     3本(中央/左/右)の実際の角度を計算すると、中央(angle=π)は元の
+     開口(±atan(0.22)≈±12.4°)内に収まっていたが、左右(angle=π∓
+     atan(backHalfWidth/|backTipZ|)≈π∓14.6°)はわずかに開口の外側に
+     あり、findCoverageExitAlongStrand()がHood内部と判定してほぼ全長を
+     切り詰めていた ―― 3本用意しているのに実質1本しか露出していなかった
+     原因。±0.30(atan(0.30)≈16.7°)へ広げ、左右3本すべてを開口内へ
+     収めた。「うなじに大きな穴を開ける」ためではなく、既存の3本を
+     意図通り通すための最小限の是正。 */
+  const ROGUE_HOOD_ARC_TEMPLATE = [
+    [-0.30, -1.00],   // 後方左(開口の縁、うなじ)
+    [-1.00,  0.10],   // 左側面(Headと同じ規約: 最大幅点|x|=1.00)
+    [-0.60,  0.85],   // 前方左(顔側)
+    [ 0.00,  1.00],   // 正面中央(最前面)
+    [ 0.60,  0.85],   // 前方右(顔側)
+    [ 1.00,  0.10],   // 右側面
+    [ 0.30, -1.00],   // 後方右(開口の縁。ここと配列先頭の間は繋がない=Nape Opening)
+  ];
+  // yFracはHood自身のローカル高さ(0=襟元, 1=頭頂)。widthMulは
+  // headRatioAt()が返すHeadの実測widthMul(chin0.38/jaw0.72/cheek1.06/
+  // upperHead0.92/crown0.60)に、対応する世界オフセットで+15%前後の
+  // マージンを掛けた値(Hair Shell以上、Headより確実に大きい)
+  const ROGUE_HOOD_RINGS = [
+    { yFrac:0.000, widthMul:1.02, depthMul:1.02 },  // 下端(襟元付近、Head jaw〜cheek境界相当)
+    { yFrac:0.225, widthMul:1.42, depthMul:1.42 },  // Headのcheek高さ(widthMul1.06)+15%→+34%(実機で頬側面に地肌露出を確認、再調整)
+    { yFrac:0.630, widthMul:1.06, depthMul:1.06 },  // HeadのupperHead高さ(widthMul0.92)+15%
+    { yFrac:1.000, widthMul:0.12, depthMul:0.12 },  // 頭頂(先端、フードが布のように絞られる意匠を維持)
+  ];
+  /* 実機検証メモ(Rogue Hood色をclassDef.trimの明金/カーキから専用の
+     暗い紺鼠へ変更、06-player-enemy.js参照): 色を変えた直後、頭部側面が
+     肌色っぽい明るい色のまま残る回帰を観測した。原因はこのRINGSのマージン
+     不足ではなく、新設したHood専用Material(rogueHoodMat)に既存の
+     clothAcc(このRINGSの検証時から使われていたMaterial)が持っていた
+     side:THREE.DoubleSideを引き継いでいなかったこと ―― 片面(FrontSide)
+     のままだと、このHoodのLoft Geometryの面の向きによっては外側から
+     見て背面カリングされ、Hood本体は消えてaddOutline()のリム用アウト
+     ライン殻(BackSide、明るいベージュ0xdcd0b0)だけが見えてしまう
+     (Mesh Ownership Debugで、Hoodを一時的に赤へ塗って確認 ――
+     DoubleSide未設定だと赤自体がほぼ見えず、DoubleSideを足すと即座に
+     全面が赤になった)。このRINGS自体(マージン量)はこの時点では無関係
+     と判断し、元の値のまま据え置いていた。
+
+     追記(ユーザー指摘「盗賊の頭の地肌が見えてる」): DoubleSide修正後、
+     こめかみ付近(cheekリング、yFrac0.225)にHead本体の地肌が別途露出
+     しているのを実機で確認した ―― こちらは上記のDoubleSide問題とは
+     独立した、真にマージン不足によるもの(Mesh Ownership Debugで
+     Hoodを目立つ色に差し替え、頬側面の縫い目状の隙間から地肌色が
+     覗いているのを確認)。cheekリングのマージンを+15%(1.22)から
+     +34%(1.42)へ広げ、Hood本体の色を差し替えて実機再検証した上で
+     隙間が閉じたことを確認した。 */
+  /* makeRogueHood({width,depth,height}): makeWarriorBaseHelm()と同じ
+     引数規約だが、ローカルy座標はHead/Hair Shellと同じ「中心基準」
+     (-height/2〜+height/2)にしてある ―― 旧実装のCylinder系Geometryが中心原点
+     だったため、呼び出し側のposition.set()/rotation.xの値を一切変えずに
+     置き換えられるようにするため。頭頂側だけmakeLoft式のファン分割で
+     閉じ、襟元側(下端)は開いたまま(旧実装も襟元は開放だった)。 */
+  function makeRogueHood(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.60 }, opts || {});
+    const hh = o.height/2;
+    const n = ROGUE_HOOD_ARC_TEMPLATE.length;
+    const verts = [];
+    ROGUE_HOOD_RINGS.forEach(r=>{
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      ROGUE_HOOD_ARC_TEMPLATE.forEach(([fx,fz])=>{
+        verts.push(fx*hw, -hh + o.height*r.yFrac, fz*hd);
+      });
+    });
+    const idx = [];
+    for(let ri=0; ri<ROGUE_HOOD_RINGS.length-1; ri++){
+      const base = ri*n, next = (ri+1)*n;
+      for(let i=0;i<n-1;i++){
+        const a=base+i, b=base+i+1, aTop=next+i, bTop=next+i+1;
+        idx.push(a,bTop,b, a,aTop,bTop);
+      }
+    }
+    const topBase = (ROGUE_HOOD_RINGS.length-1)*n;
+    for(let i=1;i<n-1;i++) idx.push(topBase, topBase+i+1, topBase+i);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  function rogueHoodCoverageAt(headR, yOffset, angle){
+    const hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
+    const centerOffset = hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL;
+    const effH = hoodH*Math.cos(ROGUE_HOOD_TILT_X);
+    const bottomOffset = centerOffset - effH/2;
+    return arcHeadwearCoverage(ROGUE_HOOD_ARC_TEMPLATE, ROGUE_HOOD_RINGS, bottomOffset, effH, headR, headR, yOffset, angle);
+  }
+
+  /* ---- Rogue/Berserker: Mask(鼻から下を覆う布) ----
+     Phase 12-B Priority 1: 旧実装はBoxGeometry(headR*1.05 × headR*0.62 ×
+     headR*0.5の直方体)そのままで、直角6面のため「顔に貼り付けた黒い板」
+     に見えていた(Phase 12-A Root Cause: A. Geometry Shape、Position/
+     Rotationの問題ではない)。makeLoft()を使い、上部(頬幅、旧Boxの全幅
+     相当)→中央(わずかに絞りつつ奥行きを保つ)→下部(顎へ向けてさらに
+     絞る)の3段・各段6点(Phase 11-BのmakeBodyProfile()と同じ「角を
+     斜めに落とす」考え方、ただしBody用ヘルパーとは独立させた専用の
+     小さな断面)の低ポリMaskへ置き換える。
+
+     ローカルy座標はRogue Hood/Head/Hair Shellと同じ中心基準
+     (-height/2〜+height/2)にしてあり、widthはheadR*0.525(旧Boxの半幅)、
+     depthはheadR*0.25(旧Boxの半奥行き)を基準値としてそのまま踏襲した
+     ―― 呼び出し側のposition.set()は変更不要(Ownership: group直下の
+     独立Mesh、Hoodとは非連結という構造も維持)。全体の大きさ・
+     覆う範囲(顎の高さ、maskBottomY=hY-headR*0.73)は据え置いたまま、
+     断面の形状だけを改善している。 */
+  const ROGUE_MASK_SECTIONS = [
+    { yFrac:0.00, widthMul:0.68, depthMul:0.62 },  // 下端(顎、絞る)
+    { yFrac:0.50, widthMul:0.92, depthMul:1.00 },  // 中央(鼻先付近、最大奥行き)
+    { yFrac:1.00, widthMul:1.00, depthMul:0.80 },  // 上端(頬、旧Boxの全幅相当)
+  ];
+  function makeRogueMask(opts){
+    const o = Object.assign({ width:0.20, depth:0.10, height:0.24 }, opts || {});
+    const hh = o.height/2;
+    const sections = ROGUE_MASK_SECTIONS.map(r=>{
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      const cw = hw*0.6;   // 角を斜めに落とす量(makeBodyProfileと同じ穏やかな比率)
+      return {
+        y: -hh + o.height*r.yFrac,
+        points: [
+          [-cw,-hd], [cw,-hd],
+          [hw, 0],
+          [cw, hd], [-cw, hd],
+          [-hw, 0],
+        ],
+      };
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
+  /* ---- Archer: Cap(角ばった低ポリの縁なし帽、Phase 12-BでFace Opening
+     付きに変更)+ Peak(Cone、独立した前方の三角装飾、開口なし)。
+
+     Phase 5: Capの高さ・位置を見直した。旧ARCHER_CAP_HEIGHT_MUL(0.6)・
+     旧ARCHER_CAP_CENTER_OFFSET_ABS(0.05、headR比ではない絶対値)では、
+     Cap天面が実測で+0.161×headR相当にしかならず、Hair Shellの生え際
+     (+0.44×headR)にすら届いていなかった ―― Ownership自体は正しく
+     動いていたが、Capが「頭を覆う帽子」ではなく「髪の上に乗る小物」に
+     しか見えない高さ不足だった。CENTER_OFFSETをheadR相対のMULへ改め、
+     Capの天面が生え際を超えて頭頂寄り(+1.00×headR)まで届くように
+     引き上げた。ただしWarrior Helm(height×1.60、天面+1.10)ほど深く
+     はせず、「低めの縁なし帽」という既存デザイン意図は高さ・下端位置の
+     両方で保っている(下端-0.30×headRはWarrior Helmの-0.50×headRより
+     浅い)。PeakもCapの拡大に合わせて位置・前方張り出し量を見直した。
+
+     【実装中に判明した別問題への対応】Rogue Hoodの実機QAで、Phase 4の
+     Coverage/Ownershipが「Hair ShellがHeadwearより内側か」だけを検証し、
+     「Skin Head本体がHeadwearより内側か」を一度も保証していなかった
+     ことが判明した(詳細はROGUE_HOOD_RINGS側のコメント参照)。旧
+     ARCHER_CAP_R_MUL(1.12)でも、CapのcheekY相当の高さでの半径が
+     ≈1.04×headRとなり、Head自身のcheek widthMul(1.06)をわずかに
+     下回っていた。1.25へ引き上げ、同じ高さで≈1.16×headRとなるよう
+     マージンを確保した。 */
+  /* Phase 13-E: Capを「頭を丸ごと飲み込むバケツ」から「頭に載る帽子」へ。
+     Root Cause(Mesh Ownership Debugで確定): 旧CapはHEIGHT_MUL=1.45・
+     CENTER_OFFSET_MUL=0.425、つまり下端が頭中心の-0.30×headR(目より
+     下)から頭頂+1.15×headRまでを覆う筒だった。そのためFace Opening
+     から見えるのは「目」ではなく生え際より下の額(Skin Head)が大半に
+     なり、目はCap下縁ぎりぎりに押し出されていた ―― ユーザー指摘の
+     「バケツ頭」「額のところだけ地肌が見えている」の直接の原因。
+     設計指示画像の狩人帽と同じく、下端を生え際付近(+0.32×headR、
+     Hair Shellの生え際 yFrac0.72 = +0.44×headR のすぐ下)に置き、顔は
+     帽子の下に丸ごと露出させる。 */
+  const ARCHER_CAP_R_MUL = 1.15;
+  const ARCHER_CAP_TOP_R_MUL = 1.15*0.72;
+  const ARCHER_CAP_HEIGHT_MUL = 0.80;              // Phase 13-E: 1.45→0.80(生え際〜頭頂を覆うだけの高さ)
+  const ARCHER_CAP_CENTER_OFFSET_MUL = 0.72;       // Phase 13-E: 0.425→0.72。bottom=+0.32×headR(生え際直下)、top=+1.12×headR(頭頂のすぐ上)
+
+  /* Phase 12-B Priority 2: Archer CapにFace Openingを追加。
+     Phase 12-A Root Cause: 旧Capは全周閉じた円筒の回転体(openEnded)の
+     ため、Warrior Helm/Rogue Hood/Hawk Eye Hoodと違い顔側の
+     開口を一切持たず、目・顔が完全に隠れる「バケツ帽子」になっていた
+     (Primary Cause: A. Geometry Shape)。
+
+     Warrior Helm/Rogue Hood/Hawk Eye Hoodと同じ「開いた弧のRing Loft」
+     技法(頂点順序・巻き方向の考え方のみ流用、ARCHER_CAP_ARC_TEMPLATE
+     自体はArcher専用に新設 ―― 既存テンプレートの流用・コピーはしない)
+     でCapの側面だけを作り直す。CapTop(頭頂の円盤)・Peak(前方の嘴状
+     突起)はGeometry・Position・Rotationとも一切変更しない。
+
+     旧Capは正円(width=depthの単純な円筒)・分割数7だったため、
+     ARCHER_CAP_ARC_TEMPLATEも楕円化はせず7点のまま、開口をWarrior
+     Helm(半角≈50.7°、全体約101°)より狭い半角約30°(全体約60°)に
+     留めた ―― 「兜」や「フード」ではなく、あくまで「縁なし帽に
+     控えめな顔窓が開いた」という、Archer Capらしい程度の開口にして
+     ある。半径の補間(ARCHER_CAP_RINGS)は旧円筒のbottomR→topR
+     (capR→capR*0.7)の単純な線形テーパーと完全に同じ値
+     ―― Cap自体の高さ・太さ・シルエットは変えていない。 */
+  const ARCHER_CAP_ARC_TEMPLATE = [
+    [-0.50,  0.87],   // 顔側左(開口の縁)
+    [-0.94,  0.34],   // 左前
+    [-0.94, -0.50],   // 左後
+    [ 0.00, -1.00],   // 後方中央(最も後ろ)
+    [ 0.94, -0.50],   // 右後
+    [ 0.94,  0.34],   // 右前
+    [ 0.50,  0.87],   // 顔側右(開口の縁。ここと配列先頭の間は繋がない)
+  ];
+  const ARCHER_CAP_RINGS = [
+    { yFrac:0.00, widthMul:1.00, depthMul:1.00 },                                            // 下端(旧Cylinderのbottom=capR相当)
+    { yFrac:1.00, widthMul:ARCHER_CAP_TOP_R_MUL/ARCHER_CAP_R_MUL, depthMul:ARCHER_CAP_TOP_R_MUL/ARCHER_CAP_R_MUL },  // 上端(旧Cylinderのtop=capR*0.7相当、CapTopに接続)
+  ];
+  /* makeArcherCap({width,depth,height}): makeRogueHood()と同じ引数規約
+     (半幅/半奥行き基準値、ローカルy座標は中心基準の-height/2〜
+     +height/2)。呼び出し側はwidth=depth=capR(旧円筒のbottom半径)を
+     渡せば、旧実装と同じ位置・同じテーパーになる。
+     頭頂(CapTop)・下端(既存通り開放、Headがそこに続く)はどちらも
+     このGeometry自体では閉じない ―― CapTopは既存の別メッシュのまま
+     残す。 */
+  function makeArcherCap(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.45 }, opts || {});
+    const hh = o.height/2;
+    const n = ARCHER_CAP_ARC_TEMPLATE.length;
+    const verts = [];
+    ARCHER_CAP_RINGS.forEach(r=>{
+      const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
+      ARCHER_CAP_ARC_TEMPLATE.forEach(([fx,fz])=>{
+        verts.push(fx*hw, -hh + o.height*r.yFrac, fz*hd);
+      });
+    });
+    const idx = [];
+    /* Phase 13-E: Capが顔の上(生え際より上)に載るようになったため、
+       Phase 12-Bで開けた前方のFace Openingは「顔を見せるための穴」では
+       なく「帽子の前が欠けている切れ込み」にしかならない。側面は全周
+       (n本すべての辺)を張って閉じた帽子に戻す ―― 顔の視認性は開口では
+       なく、Cap自体が顔より上に載ることで確保する。 */
+    for(let ri=0; ri<ARCHER_CAP_RINGS.length-1; ri++){
+      const base = ri*n, next = (ri+1)*n;
+      for(let i=0;i<n;i++){
+        const j=(i+1)%n;
+        const a=base+i, b=base+j, aTop=next+i, bTop=next+j;
+        idx.push(a,bTop,b, a,aTop,bTop);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /* Phase 6: PeakをDefault Game Camera(ほぼ真上からの見下ろし)でも
+     視認できるようにした。Phase 5まではConeGeometryの軸がローカル+Y
+     (鉛直)のままで、位置・高さをどれだけ調整してもカメラ視線とほぼ
+     平行な軸のため断面(点)にしか見えなかった ―― 原因は位置ではなく
+     軸の向きだったため、06-player-enemy.js側でpeak.rotation.xにより
+     軸を前方(+Z)へ倒す(詳細は同ファイルのpeak生成コメント参照)。
+     ここではその「前方へ倒した後」を前提に、半径を細く(0.85→0.38、
+     鍔ではなく鳥の嘴のような細い突起にする)・長さ(倒した後は前後長に
+     なる)を0.40→0.60へ延ばし、Cap前面から確実に突き出すようにした。
+     ARCHER_PEAK_FRONT_Z_MULは「Peak中心のZ位置」ではなく、回転後は
+     Peakの前後長の中心を意味するため、Cap前面の実測半径(yFrac0.75
+     付近で≈0.979×headR)+新しい長さの半分(0.30)から1.28へ再計算した
+     (Cap側の値=ARCHER_CAP_*は今回変更していない)。 */
+  /* Phase 13-D Root Cause: ConeGeometry(radialSegments=4)は、rotation.x=
+     PI/2で前方(+Z)へ倒した後、根本側(旧Peak中心Z=Cap前面ちょうど)の
+     4頂点断面がFront視点で菱形として見える。ARCHER_PEAK_FRONT_Z_MUL
+     (1.28)は「Peak中心=Cap前面(≈0.979×headR)+長さの半分」という、
+     Capが全周閉じていた(Phase 12-B以前の)前提で調整された値で、根本
+     (菱形の断面)がCap前面ちょうどに来るよう意図的に設計されており、
+     Capが閉じている間はCap自体の陰に隠れて見えなかった。Phase 12-Bで
+     CapにFace Openingが追加されたことで、この根本の断面がそのまま開口
+     越しに見えるようになった(Phase 13-C/13-D接写調査で実機確認、Hawk
+     EyeはPeak自体がarcherCapDecor経由で非表示のため発生しない)。
+
+     Position(ARCHER_PEAK_FRONT_Z_MUL)を後退させる案を実機検証したが、
+     根本をCap前面から奥へ十分離す(菱形をHead本体の陰に隠す)には
+     Peakの前後長の半分近くまで後退させる必要があり、その量ではSideから
+     見た「鳥の嘴」の前方への突き出しがほぼ消えてしまうことを確認した
+     (Front/Side両方を接写比較、Sideでの嘴シルエット消失を確認)。
+     Position/Rotation/Y位置/前後長(HEIGHT_MUL)・Cap前面のZは一切
+     変更せず、菱形の一辺の長さそのものである半径(ARCHER_PEAK_R_MUL)
+     だけを絞ることにした ―― Cone Apexは半径に依存しない単一点のため、
+     この変更はApexの位置・前後長・Sideから見た輪郭の「長さ」には
+     影響せず、菱形(根本の断面積)だけを縮小できる。Coverage System
+     (archerCapCoverageAt/cylinderHeadwearCoverage)はPeakのY範囲・半径
+     を見ているため、半径を絞るとCoverage判定上のPeak有効範囲もわずかに
+     縮む方向に動くが、Cap側のFace Opening判定(Bangs等が経由する部分)
+     には影響しない(Peak Coverageは他クラスのCoverage判定と独立)。 */
+  /* Phase 13-E: Capが頭に載る帽子になったのに合わせ、Peakを「顔の中央に
+     浮かぶ突起」から「帽子の前縁から前へ出るひさし(bill)」へ置き直す。
+     旧Y(+0.75×headR)はCap中腹の高さで、見下ろしカメラでは目と目の間へ
+     投影されて菱形の異物に見えていた。Cap下縁(+0.32×headR)のすぐ上へ
+     下げ、Zもその高さのCap半径(≈1.11×headR)+前後長の半分に合わせる。 */
+  /* Phase 13-E: PeakのGeometryをConeGeometry(細い円錐)からmakeWedge()の
+     平たいひさし(bill)へ変更。見下ろしのDefault Game Cameraでは、前方へ
+     倒した円錐は「顔の中央へ落ちる菱形/角」としてしか投影されず、幅を
+     絞っても位置を変えても目と目の間に異物が残ることを実機で確認した
+     (Phase 13-D/13-E)。実際の狩人帽と同じく、幅広で薄い板を眉の高さで
+     前へ張り出させると、見下ろし視点では「額の上のひさし」として読め、
+     目の高さより上に留まる。Side/Diagonalでも三角の断面が見えるため、
+     鳥の嘴のような前方への張り出しというシルエットは維持される。 */
+  /* Priority 1-1: Archer/Hawk Eyeのつば(Brim)。設計図(弓師/鷹の目
+     イメージシート)は「幅の広いつばが下向きに垂れたハンター帽」だが、
+     Phase 13-EでCapを生え際の上に載る帽子へ作り直した際、つば自体を
+     一切作っていなかった(旧BoxGeometry製の水平なひさしは、見下ろし
+     カメラで必ず目に重なるため過去に撤去済み ―― 下記コメント参照)。
+     Mage Hatのつば(makeMageHatBrimOutline、正面だけ半径を落とした
+     12点の非対称リング)がまさに同じ課題を解決済みの形状のため、
+     新しいGeometryを追加せず、そのアウトラインをそのまま再利用する。
+     Archer Capは既に生え際の上にあり、Mage Hatのような「顔の途中まで
+     覆う」問題は無いため、旧brim2のような「目に重なる板」の再発はない
+     ―― つばの下端(hairlineOut.y付近)はEyeの高さ(headR*0.02付近)より
+     十分高い。 */
+  /* ユーザー指摘(2巡目): 「頭から立ち上がるツノはいらないので削除」
+     「弓師の帽子の周りに短いつばをつけて。バケットハットのような」
+     「鷹の目の顔があんまり隠れておらず雰囲気が出てないのでつばの三角を
+     もっと鈍角な横広のつばに修正。弓師の三角のつばも少し角度を広げて」。
+     旧ARCHER_TRICORN_BRIM_MUL(正面1.55倍の鋭い主峰+左右後方1.00倍の
+     副峰、その間を大きく窪ませた輪郭)は、前尖り自体は実現したが
+     「鋭すぎる」「バケットハットらしい短い全周つばではない」という
+     新たな指摘を受けた。全周をほぼ均一な短いつば(バケットハット)にし、
+     正面だけ緩やかに(鈍角に)迫り出す形へ引き直す ―― 前後の差(旧1.55
+     対0.48〜0.55)を大幅に縮め(新1.20対0.92)、かつ前後の遷移も
+     30°/60°で緩やかにして「角」ではなく「緩い峰」にした。左右後方の
+     副峰(旧1.00)も削除し全周ほぼ均一にした。 */
+  const ARCHER_TRICORN_BRIM_MUL = [
+    1.20, 1.10, 0.98,   // 0°(正面、緩やかな峰)→30°→60°
+    0.92, 0.92, 0.92,   // 90°(左)→120°→150°
+    0.92, 0.92,         // 180°(後方、全周ほぼ均一)
+    0.92, 0.92, 0.92,   // 210°→240°→270°(右)
+    0.98, 1.10,         // 300°→330°
+  ];
+  function makeArcherBrimOutline(){
+    const n = ARCHER_TRICORN_BRIM_MUL.length;
+    return ARCHER_TRICORN_BRIM_MUL.map((mul, i) => {
+      const a = (i/n)*Math.PI*2;
+      return [-Math.sin(a)*mul, Math.cos(a)*mul];
+    });
+  }
+  function makeArcherBrim(radius, thickness){
+    const outline = makeArcherBrimOutline();
+    const half = thickness/2;
+    const toPts = () => outline.map(([fx,fz]) => [fx*radius, fz*radius]);
+    return makeLoft({
+      sections: [ { y:half, points:toPts() }, { y:-half, points:toPts() } ],
+      closedTop:true, closedBottom:true,
+    });
+  }
+  /* バケットハットの「短いつば」は、Cap本体(ARCHER_CAP_R_MUL=1.15)より
+     一回り外側にわずかに出る程度の短い張り出しにする ―― 全周均一の
+     アウトライン基準値(0.92)にこの半径を掛けた値がCap半径(1.15×headR)
+     を上回るよう1.45に設定(0.92×1.45=1.334×headR、Cap比+16%の短い
+     張り出し)。正面(峰1.20)はさらにわずかに広がる(1.20×1.45=1.74×
+     headR、Cap比+51%)。 */
+  const ARCHER_BRIM_RADIUS_MUL = 1.45;
+  const ARCHER_BRIM_THICKNESS = 0.05;
+  const ARCHER_BRIM_Y_OFFSET_MUL = 0.30;            // Cap下端(0.32)のすぐ下、生え際のわずかに上
+  // Phase 12-B Priority 2: CapがCylinder(角度に依存しない全周)から
+  // Face Opening付きのArc Ring Loft(makeArcherCap()、ARCHER_CAP_ARC_
+  // TEMPLATE/RINGS)へ変わったため、Coverage判定もarcHeadwearCoverage()
+  // (Warrior Helm/Rogue Hoodと同じ関数を再利用、新規ロジックは追加
+  // しない)へ切り替える。angle引数が新たに必要になったため、呼び出し元
+  // (getHeadwearCoverage())からも渡すよう変更した。
+  // ユーザー指摘(2巡目)でPeak(角/horn)を削除したため、Coverageは
+  // Cap本体だけのcylinderHeadwearCoverage判定に戻す
+  function archerCapCoverageAt(headR, yOffset, angle){
+    const capH = headR*ARCHER_CAP_HEIGHT_MUL;
+    // Phase 13-E: Capを閉じた帽子に戻したため、Coverageも角度非依存の
+    // 円錐台判定(Phase 12-B以前と同じcylinderHeadwearCoverage)へ戻す
+    return cylinderHeadwearCoverage(
+      headR*ARCHER_CAP_CENTER_OFFSET_MUL - capH/2, capH,
+      headR*ARCHER_CAP_R_MUL, headR*ARCHER_CAP_TOP_R_MUL, yOffset);
+  }
+
+  /* ---- Mage: Brim(角度依存、MAGE_BRIM_RADIUS_MULをそのまま利用) +
+     Cone(単純な円錐、開口なし) ---- */
+  const MAGE_BRIM_RADIUS_BASE_MUL = 1.95;
+  const MAGE_BRIM_Y_OFFSET_MUL = 0.55;
+  const MAGE_BRIM_THICKNESS = 0.04;
+  const MAGE_CONE_R_MUL = 1.25;
+  const MAGE_CONE_HEIGHT_ABS = 0.62;
+  const MAGE_CONE_CENTER_OFFSET_MUL = 0.55;   // cone center = hY + headR*0.55 + 0.31(=height/2)
+  function mageHatCoverageAt(headR, yOffset, angle){
+    const brimY = headR*MAGE_BRIM_Y_OFFSET_MUL;
+    const brim = cylinderHeadwearCoverage(brimY-MAGE_BRIM_THICKNESS/2, MAGE_BRIM_THICKNESS, 1, 1, yOffset);
+    let brimRadius = -Infinity;
+    if(brim.state==='HEADWEAR'){
+      const arc = arcSurfaceAt(makeMageHatBrimOutline(), headR*MAGE_BRIM_RADIUS_BASE_MUL, headR*MAGE_BRIM_RADIUS_BASE_MUL, angle, true);
+      if(arc.inArc) brimRadius = arc.radius;
+    }
+    const coneCenter = headR*MAGE_CONE_CENTER_OFFSET_MUL + MAGE_CONE_HEIGHT_ABS/2;
+    const cone = cylinderHeadwearCoverage(
+      coneCenter - MAGE_CONE_HEIGHT_ABS/2, MAGE_CONE_HEIGHT_ABS,
+      headR*MAGE_CONE_R_MUL, 0, yOffset);
+    const coneRadius = cone.state==='HEADWEAR' ? cone.surfaceRadius : -Infinity;
+    if(brimRadius === -Infinity && coneRadius === -Infinity) return { state:'NONE', surfaceRadius:null };
+    return { state:'HEADWEAR', surfaceRadius: Math.max(brimRadius, coneRadius) };
+  }
+
+  /* getHeadwearCoverage(classKey, o, yOffset, angle): 全クラス共通の
+     ディスパッチ。classKeyは各クラスのbuildPlayer()内classDef.keyと同じ
+     値(job promotion後もclassDef.key自体は基底クラスのまま ―― Battle
+     Knight/Berserker/Hawk Eye/Archmageは基底クラスのHair生成コードを
+     そのまま使うため、ここで未対応のキーはNONEを返し、現状の挙動を
+     変えない)。oはheadOutlineAt()と同じ{width,depth,height}、
+     widthがheadRに相当する。 */
+  function getHeadwearCoverage(classKey, o, yOffset, angle){
+    const headR = o.width;
+    switch(classKey){
+      case 'warrior': return warriorHelmCoverageAt(headR, yOffset, angle);
+      case 'rogue':   return rogueHoodCoverageAt(headR, yOffset, angle);
+      case 'archer':  return archerCapCoverageAt(headR, yOffset, angle);
+      case 'mage':    return mageHatCoverageAt(headR, yOffset, angle);
+      default:        return { state:'NONE', surfaceRadius:null };
+    }
+  }
+  // Hair Shell/Bangs/Side Hair/Back Hairが、Coverage境界を超えて
+  // Headwearより外側に出ないための最小限のマージン(Z-fighting回避)。
+  // クラス別に変えない単一の共通値
+  const HAIR_HEADWEAR_INSET = 0.97;
+
+  /* findCoverageExitAlongStrand(classKey, o, angle, yTip, yRoot):
+     Bangs/Side Hair/Back Hairの「root(太い付け根、上)→tip(細い先、下)」
+     という伸びる方向に沿って、Headwear Coverageが HEADWEAR から
+     NONE/FACE_OPENING へ変わる境界(=Strandが実際に露出し始める高さ)を
+     探す。tip側(yTip)は常にHeadwearの下端より下にある前提(Bangs/Side/
+     Back Hairの現在のtipは顎・うなじの高さで、全クラスのHeadwearより
+     低い)なので、tip側から見てcoverageがNONE/FACE_OPENINGであることを
+     まず確認し、root側(yRoot)がHEADWEARなら二分探索で境界を求める。
+
+     単純に「rootをHeadwear下端まで下げる」のではなく、実際にStrandが
+     伸びる方向(この関数の引数であるangle固定・yを動かす経路)に沿って
+     Coverageを追跡し、HEADWEARから抜け出す最初の点を境界として使う。 */
+  function findCoverageExitAlongStrand(classKey, o, angle, yTip, yRoot){
+    const stateAt = (y) => getHeadwearCoverage(classKey, o, y, angle).state;
+    if(stateAt(yRoot) !== 'HEADWEAR') return { y:yRoot, covered:false };
+    if(stateAt(yTip) === 'HEADWEAR') return { y:yTip, covered:true };   // Strand全体がHeadwearの内側
+    let lo = yTip, hi = yRoot;   // stateAt(lo)!=='HEADWEAR', stateAt(hi)==='HEADWEAR'
+    for(let i=0;i<18;i++){
+      const mid = (lo+hi)/2;
+      if(stateAt(mid) === 'HEADWEAR') hi = mid; else lo = mid;
+    }
+    return { y:lo, covered:false };
+  }
+
+  /* =========================================================
+     Hair Shell(旧Hair Cap): Headプロファイルから導出する「外殻」
+
+     旧実装は独自のHAIR_CAP_HEX_TEMPLATE(顔側の点がz=+0.35。Headの顔側
+     はz=+1.00)と独自の基準値(B.hairR)・独自の原点(生え際)で作られて
+     いたため、Hairの前面ZがHeadの前面Zより常に0.09〜0.18後方になり、
+     額を覆うことが構造的に不可能だった(Mesh識別Debugで、額・側頭部の
+     外側シルエットをSkin Headが形成していることを全8クラスで確認)。
+
+     新実装は「Headの各断面の輪郭点を、そのまま HAIR_SHELL_MUL 倍
+     (>1)した外殻」として生成する。Headと同じテンプレート・同じ断面
+     比率・同じ原点・同じ引数(width/depth/height)を使うため:
+
+       Hairの各頂点 = 対応するHeadの頂点 × HAIR_SHELL_MUL
+
+     となり、断面が原点まわりのstar-convexである限り、生え際より上では
+     「HeadがHairの外側に出る」ことが数学的に起こり得ない。headRや
+     HEAD_DEPTH_MUL、HEAD_SECTION_RATIOSを将来変更しても、Hairは自動的に
+     追従する(手打ち係数による偶然の一致に依存しない)。
+
+     HAIR_HAIRLINE_YFRAC は生え際の高さ(Head断面のyFrac基準。0=顎、
+     1=頭頂)。Eyeの上端(headR*0.26付近 ≒ yFrac0.63)のわずかに下に置き、
+     額全体をHairが覆いつつ、瞳(Eye中心 yFrac0.53)は隠さない。
+     HAIR_TOP_LIFT は頭頂側リングの持ち上げ量(髪のボリューム)。Headの
+     頭頂キャップとの同一平面(Z-fighting)を避けつつ、Warrior Helmの
+     天板(頭中心+headR*1.10)の内側に収まる値にしてある。 */
+  const HAIR_SHELL_MUL = 1.09;
+  /* 生え際の高さ。0.62(Eyeの上端すぐ下)まで下げると、急な見下ろし
+     カメラでは頭の上面が支配的なため髪が顔まで覆い「黒い塊」に戻って
+     しまうことを実機で確認した。眉の少し上(Eye上端 yFrac約0.63 の
+     さらに上)に置き、額が顔として読める高さにしてある。生え際より上の
+     外側シルエットはHair Shellが担当するので、額が肌色で見えること自体は
+     設計通り(人間の額と同じ)―― 旧実装の問題は「額の"外側"をSkin Head
+     が作っていた」ことであり、額が見えること自体ではない。 */
+  const HAIR_HAIRLINE_YFRAC = 0.72;
+  const HAIR_TOP_LIFT = 0.03;   // o.height に対する比率
+  /* うなじ(後頭部下側)まで伸びる最下段リング。生え際(HAIR_HAIRLINE_
+     YFRAC)より下は「顔」なので前方を髪で覆ってはいけないが、後頭部側は
+     うなじまで髪があるのが自然 ―― Mesh識別DebugでもBack Hairの束の
+     すきまからSkin Headが後頭部下側の外側シルエットを作っていた。
+     そこでこのリングだけ、後方・側面の点はHAIR_SHELL_MUL倍(Headの外)、
+     顔側の4点(faceL/R + 鼻〜口2点)はHAIR_NAPE_FRONT_MUL倍(Headの
+     内側=顔の中に隠れて見えない)にする。結果として「前は生え際で
+     終わり、後ろだけうなじまで伸びる髪」になる。 */
+  const HAIR_NAPE_YFRAC = 0.34;
+  const HAIR_NAPE_FRONT_MUL = 0.55;
+  const HEAD_FRONT_POINT_IDX = new Set([0, 5, 6, 7]);   // faceL, faceR, noseR, noseL
+  /* hairShellPointAt(classKey, o, x, z, yLocal, baseMul): うなじリングの
+     前方4点(HAIR_NAPE_FRONT_MUL)と生え際〜頭頂の全点(HAIR_SHELL_MUL)の
+     両方が経由する、Headwear Coverageを反映した頂点座標の決定。
+
+     これはGeometry生成後の頂点クランプ(post process)ではない ――
+     makeLoft()に渡すsections配列を組み立てている「その場」で、この点の
+     最終的な座標を決めているだけで、既存のうなじリングが点ごとに
+     HAIR_NAPE_FRONT_MUL/HAIR_SHELL_MULを使い分けているのと全く同じ
+     タイミング・同じ仕組みの延長。
+
+     baseMul(通常時に使うべき倍率)で決まる座標が、その(yLocal,angle)に
+     おけるHeadwear Surfaceより外側にある場合だけ、Headwear Surface×
+     HAIR_HEADWEAR_INSET(内側マージン)へ置き換える。Headwearが存在
+     しない(NONE)/Face Openingの場合はbaseMulそのまま ―― Hair Shellの
+     本来の「HeadよりHAIR_SHELL_MUL倍外側」という保証は変えない。 */
+  function hairShellPointAt(classKey, o, x, z, yLocal, baseMul){
+    const baseX = x*baseMul, baseZ = z*baseMul;
+    if(!classKey) return [baseX, baseZ];
+    const angle = Math.atan2(x, z);
+    const cov = getHeadwearCoverage(classKey, o, yLocal, angle);
+    if(cov.state !== 'HEADWEAR' || cov.surfaceRadius == null) return [baseX, baseZ];
+    const baseR = Math.hypot(baseX, baseZ);
+    const capR = cov.surfaceRadius*HAIR_HEADWEAR_INSET;
+    if(baseR <= capR) return [baseX, baseZ];
+    const headR2 = Math.hypot(x, z);
+    if(headR2 < 1e-9) return [baseX, baseZ];
+    const k = capR/headR2;
+    return [x*k, z*k];
+  }
+  function makeCharacterHairShell(opts){
+    const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
+    const classKey = opts && opts.classKey;
+    const hh = o.height/2;
+    const sections = [];
+    // うなじリング(後方・側面だけHeadの外、顔側はHeadの内側へ隠す)
+    {
+      const yLocal = -hh + o.height*HAIR_NAPE_YFRAC;
+      sections.push({
+        y: yLocal,
+        points: headSectionPoints(o, headRatioAt(HAIR_NAPE_YFRAC)).map(([x,z], i) => {
+          const k = HEAD_FRONT_POINT_IDX.has(i) ? HAIR_NAPE_FRONT_MUL : HAIR_SHELL_MUL;
+          return hairShellPointAt(classKey, o, x, z, yLocal, k);
+        }),
+      });
+    }
+    // 生え際〜頭頂: Headの断面をそのままHAIR_SHELL_MUL倍した外殻
+    const yfs = [HAIR_HAIRLINE_YFRAC];
+    Object.values(HEAD_SECTION_RATIOS).forEach(r => {
+      if(r.yFrac > HAIR_HAIRLINE_YFRAC + 1e-6) yfs.push(r.yFrac);
+    });
+    yfs.forEach((yf, i) => {
+      const yLocal = -hh + o.height*yf;
+      const pts = headSectionPoints(o, headRatioAt(yf)).map(([x,z]) => hairShellPointAt(classKey, o, x, z, yLocal, HAIR_SHELL_MUL));
+      const isTop = (i === yfs.length-1);
+      sections.push({ y: yLocal + (isTop ? o.height*HAIR_TOP_LIFT : 0), points: pts });
+    });
+    return makeLoft({ sections, closedTop:true, closedBottom:true });
+  }
+
+  /* Bangs(前髪束): 「トゲ」に見えるConeGeometry(円形断面・軸上の1点へ
+     収束)ではなく、makePrism()(既存のLow Poly Primitive、断面を保った
+     まま先細りにする押し出し)を六角形の小さな断面で使い、太さのある
+     房として見せる。thick(付け根)側をscaleEnd、thin(毛先)側を
+     scaleStartにして、毛先が下(呼び出し側でy=0を毛先の高さに置く)、
+     付け根が上(y=lengthが生え際の高さ)になるよう組む。 */
+  function makeHairBangShape(r){
+    return [
+      {x:0, z:r}, {x:r*0.75, z:r*0.4}, {x:r*0.75, z:-r*0.4},
+      {x:0, z:-r}, {x:-r*0.75, z:-r*0.4}, {x:-r*0.75, z:r*0.4},
+    ];
+  }
+  function makeHairBang(opts){
+    const o = Object.assign({ rootR:0.045, tipR:0.022, length:0.09 }, opts || {});
+    // makePrism()のshapeは付け根側(y=0=scaleStart)の断面形そのものなので、
+    // rootRで六角形を作り、tip/root比をscaleStart/scaleEndに反映する
+    return makePrism({
+      shape: makeHairBangShape(o.rootR),
+      length: o.length,
+      scaleStart: o.tipR/o.rootR,   // y=0側(呼び出し側で毛先=下に置く)を細く
+      scaleEnd: 1.0,                 // y=length側(呼び出し側で付け根=上に置く)を太く
+    });
+  }
+
+  /* =========================================================
+     Face再設計フェーズ Phase B: Eye(Sclera/Pupil/Highlight)の低ポリ化
+
+     旧EyeはいずれもTHREE.SphereGeometryだった(Scleraはscale.set(1,1.15,
+     0.6)で縦長・偏平にしていたが、Geometry自体は球のまま)。Head/Hairが
+     Loft/Plate/Prismで低ポリ化された後も、Eyeだけ滑らかな球が顔に貼り
+     付いている印象を作っていた。
+
+     既存のmakePlate()(src/render/lowpoly-primitives.js、自由な2D輪郭+
+     薄いExtrudeGeometry。cape/ローブ等で実績あり)をそのまま使い、正多角形
+     ではなく「縦にやや長い8点(Sclera)/6点(Pupil)/4点(Highlight)の輪郭」を
+     thickness>0で薄く押し出す。新しいGeometry Systemは追加していない。
+
+     重要: 見下ろしカメラで「瞳をZ方向に強く潰す(scale.z<0.5)と、ほぼ
+     真横から見ることになり消えて見える」という過去の実験結果があり
+     (旧実装のコメント参照、Pupil/Highlightはそれを避けるため潰さず
+     球のままにしていた)、この閾値を踏まえてPupil/Highlightの厚みも
+     Scleraと同じ安全な比率(半径の0.6倍)にしてある ―― 完全な0厚みの
+     Planeにはしていない。 */
+  function makeEyeOutline(n, rx, ry){
+    const pts = [];
+    for(let i=0;i<n;i++){
+      const a = (i/n)*Math.PI*2;
+      pts.push({x:Math.cos(a)*rx, y:Math.sin(a)*ry});
+    }
+    return pts;
+  }
+  // Sclera(白目): 8点、縦にやや長い(ry>rx)。halfDepthは中心から前面
+  // までのZ距離(呼び出し側のscleraFrontZ計算と対応させるため、
+  // thickness=halfDepth*2で渡す)
+  function makeEyeSclera(rx, ry, halfDepth){
+    return makePlate(makeEyeOutline(8, rx, ry), { thickness: halfDepth*2 });
+  }
+  // Pupil(瞳): 6点、六角形に近い形。Scleraより小さい
+  function makeEyePupil(r, halfDepth){
+    return makePlate(makeEyeOutline(6, r, r), { thickness: halfDepth*2 });
+  }
+  // Highlight(ハイライト): 4点の小さな菱形。Pupilよりさらに小さい
+  function makeEyeHighlight(r, halfDepth){
+    return makePlate(makeEyeOutline(4, r, r), { thickness: halfDepth*2 });
+  }
 
   /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
      for both genders - the shoulder-armor read is a class/armor thing, not
@@ -320,7 +1911,15 @@
       // ユーザー提示の参考画像(頭身の低いチビキャラ)に寄せて0.290→0.39へ
       // 引き上げた(約4.7頭身→約3.5頭身)。hairRは元の比率(headRの約1.076倍)
       // を保っている
-      headR:0.390, hairR:0.420, headGap:0.27,
+      // Player Character Head Silhouette Global Redesign Phase: 実機
+      // Playwright比較(Candidate A: Uniform94%のみ／B: Depth圧縮88%のみ／
+      // C: Uniform95%+追加Depth圧縮90%)の結果、Side ViewでCandidate Cが
+      // 「額と後頭部が前後に突き出た塊」から「丸く収まった低頭身Head」へ
+      // 最も改善したため採用。ここではUniform成分(95%)のみを反映 ――
+      // headR/hairRはHead/Hair/Eye/Headwear全ての基準値のため、ここを
+      // 縮小するだけでほぼ全て追従する。Depth(前後奥行き)の追加圧縮は
+      // HEAD_DEPTH_MUL(HEAD_BACK_Z付近で定義)側で個別に適用する
+      headR:0.3705, hairR:0.399, headGap:0.27,
       chest:0.345, shoulderOut:0.105, stanceW:0.150, hipR:0.265,
       thigh:0.132, calf:0.106, upper:0.098, forearm:0.083, neck:0.088,
       strideAmp:1.00, armSwing:1.00, hipSway:0.55, shoulderRoll:1.15,
@@ -330,7 +1929,9 @@
       // shorter overall, and proportionally longer in the leg
       height:0.74, hipY:1.05, thighLen:0.535, calfLen:0.515,
       // headR/hairR: maleと同じ理由・同じ比率で引き上げ(0.270→0.37)
-      headR:0.370, hairR:0.398, headGap:0.26,
+      // Head Silhouette Global Redesign Phase: maleと同じ理由・同じ比率
+      // (Uniform95%)で縮小
+      headR:0.3515, hairR:0.3781, headGap:0.26,
       chest:0.295, shoulderOut:0.078, stanceW:0.124, hipR:0.252,
       thigh:0.120, calf:0.094, upper:0.080, forearm:0.069, neck:0.072,
       strideAmp:0.93, armSwing:1.18, hipSway:1.45, shoulderRoll:0.80,
@@ -561,8 +2162,18 @@
   const STANCE = {
     warrior: {            // greatsword shouldered, blade slung back over the right
       waist:[0.03,-0.14,0.02],
-      shL:[-0.28, 0.12, 0.66], elL:-1.95,
-      shR:[ 0.20,-0.06,-0.22], elR:-2.30,
+      // Phase 10 Priority 1-A: 両手持ち構えでUpper Arm(円柱)がTorsoの
+      // シルエットへ深く重なって見える問題(実機QAで確認)への対処。
+      // grip:'BOTH'自体・武器のサイズ/Geometry・Torso幅は変更しない。
+      // shL.z(左肩の内向き回転)を0.66→0.56、shR.z(右肩の内向き回転、
+      // 負値ほど内側)を-0.22→-0.14へそれぞれ弱め、両腕が胸中心へ
+      // 寄り切る量を減らした。shL.x/shR.xをわずかに前方(負方向)へ
+      // 振り、握り位置を胸面よりも少し前方へ逃がしている。elL/elRも
+      // 深すぎる折り畳みを少し緩め、Forearmが胸内部へ埋まる量を減らした
+      // ―― いずれも「両手で大剣を構えている」という読み取りを保った
+      // ままの最小限の調整(Shoulder Pivot Positionは変更していない)
+      shL:[-0.34, 0.12, 0.56], elL:-1.82,
+      shR:[ 0.22,-0.06,-0.14], elR:-2.16,
       wep:[0.340,0.740,-0.580,-0.479,0.667,0.570],
       hipL:0.05, hipR:-0.05, kneeL:0.07, kneeR:0.07,
       grip:'BOTH', armSwing:0.22, tip:1.55
@@ -596,8 +2207,14 @@
   };
 
   // where the weapon's origin sits relative to the hand carrying it
+  // Phase 10 Priority 1-A: warriorのZを0.02→0.07へ(武器の握り位置を胸面
+  // からわずかに前方へ)。武器はhandL/handRの実座標から毎フレーム
+  // 再計算される(updateGrip())ため、この値だけではArm自体の位置/
+  // 貫通は変わらない ―― STANCE.warrior側のshL/shR/elL/elR調整(上記)が
+  // Arm/Torso Intersectionの本体の対処、これは武器の見え方をその新しい
+  // 腕の構えに合わせて微調整するだけ
   const GRIP_OFFSET = {
-    warrior:[0, 0.02, 0.02], rogue:[0, 0.02, 0.03],
+    warrior:[0, 0.02, 0.07], rogue:[0, 0.02, 0.03],
     mage:[0,-0.06, 0.02],    archer:[0, 0.02, 0.03]
   };
 
@@ -1348,7 +2965,15 @@
     const LX = P.bowLimbX || 0;
     const LZ = P.bowLimbZ != null ? P.bowLimbZ : 0.22;
     if(P.bowSegs){
-      if(LX){
+      if(P.bowTipUp && P.bowTipDown){
+        // 非対称弓(鷹の目、武器設定画「大弓(和弓風)」対応): 上下で弓幹の
+        // 長さが違うため、上下対称なbowLimbY一本では弦の取り付け点が
+        // 実際の弓のGeometryとずれる。buildWeaponMesh()側で計算した
+        // 上弦点/下弦点をそのまま使う(いずれか片方でも無ければ従来の
+        // 対称ロジックへフォールバックする ―― 通常の弓/ボウガンは影響なし)
+        fitSegment(P.bowSegs[0], P.bowTipUp.x,   P.bowTipUp.y,   P.bowTipUp.z,   x, y, z);
+        fitSegment(P.bowSegs[1], P.bowTipDown.x, P.bowTipDown.y, P.bowTipDown.z, x, y, z);
+      } else if(LX){
         // ボウガン: 弦は上下ではなく左右(弓腕の先)に張られている
         fitSegment(P.bowSegs[0],  LX, 0, LZ, x, y, z);
         fitSegment(P.bowSegs[1], -LX, 0, LZ, x, y, z);

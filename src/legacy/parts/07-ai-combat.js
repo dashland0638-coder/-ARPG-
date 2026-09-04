@@ -2006,6 +2006,11 @@
     if(!rawDmg || rawDmg<=0) return rawDmg;
     const cautiousUnhurtSeconds = state.cautiousTimer||0;
     state.cautiousTimer = 0;
+    // グラフィック刷新: 被弾した瞬間に一度だけ、上半身がわずかに仰け反る
+    // モーション(updateLocomotion側で消費)を起動する。全被ダメ経路が
+    // 必ずこの関数を通る(applyIncomingDamageMulのJSDoc参照)ため、
+    // ここ1箇所に足すだけで敵の種類やダメージ源を問わず一律に効く
+    state.playerHitReactT = 0.20;
     // 必殺ゲージ: 被弾でもわずかに貯まるが、他の獲得源(通常ヒット+3、撃破+18等)
     // よりはっきり小さくしてあり、「わざと受けて貯める」を最適解にしない
     addUltGauge(2);

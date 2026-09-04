@@ -198,7 +198,16 @@ function applyOverride(name, tex){
      球3層アイ(06-player-enemy.js)が機能しているのは、頭の表面そのもの
      ではなく、そこから外側へ張り出した独立した球だからで、この制約は
      テクスチャでは回避できない。よって顔は今まで通り球の組み合わせの
-     ままとした。 */
+     ままとした。
+
+     追記(2026-09-02、戦騎士のグラフィック刷新): 上記の制約自体を回避する
+     「頭の表面に貼らず、常にカメラへ正対する独立した板(ビルボード)に
+     顔を描いて頭の手前に浮かせる」案も試作した。技術的には機能した
+     (見下ろし視点でも顔が潰れずに読めた)が、ユーザー判断により
+     「顔の作り込みは優先しない、兜/帽子/フードでの差別化を優先する」
+     という方針転換のため撤去した。makeFaceTexture()自体は削除済み ――
+     技術的に不可能だったわけではないので、今後また顔を作り込む方針に
+     戻す場合はこのコメントとgit historyから実装を復元できる。 */
 
   /* ---- metal: armor plate, trim, blades - brushed streaks and old scars -
      A flat metallic colour with metalness turned up reads as plastic, not

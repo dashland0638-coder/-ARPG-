@@ -996,6 +996,17 @@
       P.torso.scale.copy(P.torsoBaseScale);   // 魔法使いの明滅ロール後、次のロールに備えて確実に戻す
     }
 
+    // グラフィック刷新(Hit反応): 被弾時に上半身がわずかに仰け反る。
+    // state.playerHitReactT はapplyIncomingDamageMul(07-ai-combat.js、
+    // 敵/ボス/罠すべての被ダメ経路が必ず通る一元的な関数)がセットする。
+    // 上の通常移動/ジャンプ/ドッジのwaist.rotation.x決定より後にここで
+    // 加算することで、他の姿勢に上書きされず一瞬だけ乗る(0.20秒で減衰)
+    if(state.playerHitReactT > 0 && P.waist){
+      const reactK = state.playerHitReactT / 0.20;   // 1(直後)->0(収まる)
+      P.waist.rotation.x -= 0.18 * Math.sin(reactK*Math.PI);   // 負方向=後ろに仰け反る
+      state.playerHitReactT = Math.max(0, state.playerHitReactT - dt);
+    }
+
     // lean into the direction of travel, and out of it when stopping
     const targetLean = moving ? Math.min(0.13, moveSpeed*0.019) : 0;
     const rel = state.facing;

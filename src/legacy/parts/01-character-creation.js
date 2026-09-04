@@ -15,7 +15,11 @@
   const CLASSES = {
     warrior:{
       key:'warrior', name:'剣士', icon:'⚔',
-      color:0xb03a3a, trim:0xf0a05c,
+      // デザイン設定シート(Phase 6準拠)対応: 従来は色(0xb03a3a、赤系)・
+      // trim(0xf0a05c、明るいオレンジ)だったが、シートのWarriorはメイン
+      // が紺〜濃灰(#324458/#31465d系)、アクセントが落ち着いた金
+      // (#ca9c47)。シートの実測値に合わせて差し替えた
+      color:0x35455e, trim:0xc99c47,
       desc:'高いHPと広い攻撃範囲を誇る前衛。横薙ぎで複数の敵を巻き込める。',
       vit:18, str:16, mag:4, mnd:6, agi:8, foc:8, spd:5.0, range:'melee',
       atkCooldown:0.52, atkColorHex:'#e05a4a',
@@ -24,7 +28,11 @@
     },
     rogue:{
       key:'rogue', name:'盗賊', icon:'🗡',
-      color:0x3a6b4a, trim:0xc9a24b,
+      // デザイン設定シート(Phase 6準拠)対応: colorはシートのメイン
+      // (暗い緑青系、#3d5350前後)に近いためほぼ据え置き、trimは従来の
+      // 明るい金(0xc9a24b、Hood色問題の原因の一つだった値と同じ)から
+      // シートのアクセント(落ち着いた紫、#60496c)へ差し替えた
+      color:0x3d5350, trim:0x60496c,
       desc:'俊敏な身のこなしで急所を突く。攻撃速度に優れるが範囲は狭い。',
       vit:12, str:12, mag:4, mnd:6, agi:16, foc:10, spd:7.0, range:'melee',
       atkCooldown:0.38, atkColorHex:'#63c98a',
@@ -33,12 +41,24 @@
     },
     mage:{
       key:'mage', name:'魔法使い', icon:'✦',
-      color:0x3a5b9b, trim:0x8fc7ff,
-      // hairColor/hatColor/eyeColor: 見た目専用の追加フィールド(ステータスには
-      // 一切影響しない)。ユーザー提示の参考画像(緑目・紫髪・薄紫の三角帽子の
-      // 魔女)に合わせるため、06-player-enemy.js側の髪・帽子・瞳メッシュが
-      // これらを見て色を上書きする(未指定のクラスは従来通りの既定色のまま)
-      hairColor:0x6a4a92, hatColor:0xb9a0d9, eyeColor:0x4a9b64,
+      // ユーザー指摘(色の再調整): デザイン設定シート準拠でcolor(ローブ)
+      // をクリーム/タン、hatColorを濃いオリーブへ変更したが、「魔法使いの
+      // カラーを水色(元々の配色に近い)、魔導士を紺、黒系に修正して」と
+      // 明確な差し戻し指示があった。以前の「紫髪の魔女」参考画像基準の
+      // 配色(ローブ0x3a5b9b=中間の青)より明るい水色寄りへ調整し、
+      // hatColorは指定せずclothMat(ローブと同じ水色)へ落とす ――
+      // ローブと帽子を同色にした単色の水色ウィザードにする。
+      // hairColor(茶)/eyeColor(緑)はデザイン設定シート準拠のままで
+      // 指摘が無かったため維持
+      color:0x6cc4e8, trim:0x8260ab,
+      hairColor:0x6b4a2f, eyeColor:0x4a9b64,
+      // eyeSpacingMul: 見た目専用の追加フィールド(hairColor等と同じ扱い)。
+      // Phase 7調査でEye X位置(±0.115*eyeScale)はheadR比で全クラス共通
+      // (X/headR比は不変)と判明し、Mageの目が「離れて見える」のは数値
+      // バグではなく意匠上の差別化要求(設定画で他クラスより目を寄せた
+      // 可愛い顔にしたい)だったため、Eye X offsetにだけ掛ける倍率を
+      // 追加した。未指定クラスは1.0(無変化)。Eye Geometry自体は不変
+      eyeSpacingMul:0.82,
       desc:'魔力を纏い、遠距離から敵を撃つ。',
       vit:10, str:2, mag:19, mnd:15, agi:6, foc:8, spd:4.4, range:'ranged',
       atkCooldown:0.6, atkColorHex:'#7ec8ff', staggerMul:1.0,
@@ -51,7 +71,11 @@
     },
     archer:{
       key:'archer', name:'弓師', icon:'➶',
-      color:0x8a6a2f, trim:0xdcbf7a,
+      // デザイン設定シート(Phase 6準拠)対応: 従来のcolor(0x8a6a2f、
+      // カーキ)はシートのメイン(青系、#446887前後)と大きく異なり、
+      // 全身が青系の要素を持たないカーキ一色に見えていた。シートの
+      // 実測値(メイン=青、アクセント=茶)に合わせて差し替えた
+      color:0x3f6080, trim:0x78512d,
       desc:'正確な射撃で距離を支配する。MPの代わりにスタミナで矢を放つ。',
       vit:11, str:8, mag:6, mnd:12, agi:10, foc:13, spd:5.6, range:'ranged',
       atkCooldown:0.5, atkColorHex:'#e8d38a',
@@ -105,7 +129,18 @@
       statBonus:{str:10, agi:6},
       flavor:'盗賊の身軽さを残した狂戦士。防具を減らし、双武器を振るう。'},
     mage: {key:'archmage', name:'魔導士', icon:'🔮', unlockLv:50,
-      trim:0xb08aff, capeColor:0x241a4a,
+      // デザイン設定シート(Phase 6準拠)対応: trimをシートのArchmage
+      // アクセント(青緑の結晶、#82c6d4)へ差し替えた(旧0xb08affは薄紫で
+      // シートのメイン=紫と被って見分けが付きにくかった)。浮遊結晶・
+      // 魔法陣のアクセントとして違和感が無いため、trimはそのまま維持。
+      // capeColor(前開きローブの襟/合わせ、胸元の高さに乗る別Material)は
+      // 「胸元とその他で色が違う、全く同じ色に」という指摘で発覚した
+      // 見落とし ―― ローブ/帽子/胸当てを06-player-enemy.js側で単一の
+      // ARCHMAGE_NAVY(0x1c2440)に統一した際、このcapeColorだけ更新し
+      // 忘れており、無彩色寄りのダークグレー(0x242228、青みが無いため
+      // 隣の紺と並ぶと黒っぽく浮いて見えていた)のまま取り残されていた。
+      // ARCHMAGE_NAVYと全く同じ値に合わせる
+      trim:0x82c6d4, capeColor:0x1c2440,
       statBonus:{mag:10, foc:6},
       flavor:'人間から魔法そのものへ近づいていく術者。'},
     archer: {key:'hawkEye', name:'鷹の目', icon:'🦅', unlockLv:50,

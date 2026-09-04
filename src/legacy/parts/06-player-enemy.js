@@ -98,32 +98,67 @@
     const steel = new THREE.MeshStandardMaterial({color:0xd8dce0, roughness:0.3, metalness:0.7});
     const darkSteel = new THREE.MeshStandardMaterial({color:0x9aa4ae, roughness:0.4, metalness:0.6});
     const woodMat = new THREE.MeshStandardMaterial({color:0x3a2818});
+    /* 武器設定画(8職業 武器設定画)対応: 8種の武器すべてで、鍔・柄金具・
+       弓の弭・杖の環飾りが共通してゴールド系の金属で統一されている一方、
+       石(ジェム)の色だけがクラスごとに違う(剣士/戦騎士=青、盗賊=水色、
+       バーサーカー=赤、弓師/鷹の目=赤褐色のビーズ、魔法使い=青、
+       魔導士=紫)。既存のtrimMat(呼び出し元でclassDef.trim/uj.trimを
+       渡されるMaterial)は防具の差し色と共有のため、そのままでは魔法使い
+       (紫)などで金属部が金色にならない。ここでは武器の金属部専用に
+       固定のゴールドMaterial(goldTrim)を新設し、trimMatとは独立に
+       全クラス共通で使う。ジェムはmakeGem()でクラスごとの色を都度指定する */
+    const goldTrim = new THREE.MeshStandardMaterial({color:0xc9a227, roughness:0.35, metalness:0.55});
+    function makeGem(color, radius){
+      return new THREE.Mesh(new THREE.OctahedronGeometry(radius || 0.035, 0),
+        new THREE.MeshStandardMaterial({color, roughness:0.2, metalness:0.1, emissive:color, emissiveIntensity:0.4}));
+    }
     // 二刀流/両手斧のオフハンド(#39系)。dualblades以外では毎回nullに戻す
     // ―― swapPlayerWeaponVisual()で武器種を替えた時、前の武器の対が
     // 残ったままにならないようにするため
     playerMixerParts.offhandGeo = null;
+    // 非対称弓(鷹の目)専用の弦取り付け点。鷹の目以外の武器では毎回
+    // nullに戻す(残っていると他の弓/近接武器がupdateBowDraw()の
+    // 非対称弓分岐に誤って入ってしまう)
+    playerMixerParts.bowTipUp = null;
+    playerMixerParts.bowTipDown = null;
 
     if(weaponKey==='greatsword'){
       if(state.job==='battleKnight'){
         // 戦騎士(#39系、意匠参考: 歴戦の騎士のエクスカリバー案): 大剣の
         // 重厚さではなく、細く長い装飾剣にする。刀身の幅を大剣の半分
         // 以下に絞り、長さを伸ばして「シュッとした」印象に寄せた
-        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.062,1.55,0.028), steel);
-        blade.position.y = 0.90;
+        //
+        // グラフィック刷新: 平板2枚(blade+fuller)の組み合わせだった刀身を
+        // 1本のPrism(先細りの六角断面押し出し)に置き換えた。断面自体が
+        // 稜(鎬)のある形なので、fuller(添え板)無しでも「刀身に厚みが
+        // ある」ことが伝わり、メッシュ数はむしろ1枚減っている
+        const bladeGeo = makePrism({
+          shape:[{x:0,z:0.020},{x:0.048,z:0.007},{x:0.048,z:-0.007},{x:0,z:-0.020},{x:-0.048,z:-0.007},{x:-0.048,z:0.007}],
+          length:1.55, scaleStart:1, scaleEnd:0.42,
+        });
+        const blade = new THREE.Mesh(bladeGeo, steel);
+        blade.position.y = 0.13;
         const tip = new THREE.Mesh(new THREE.ConeGeometry(0.044,0.24,4), steel);
         tip.position.y = 1.79;
-        const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.018,1.3,0.032), darkSteel);
-        fuller.position.y = 0.88;
-        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.045,0.05), trimMat);
+        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.045,0.05), goldTrim);
         guard.position.y = 0.10;
-        const guardTipL = new THREE.Mesh(new THREE.SphereGeometry(0.032,7,6), trimMat);
+        const guardTipL = new THREE.Mesh(new THREE.SphereGeometry(0.032,7,6), goldTrim);
         guardTipL.position.set(0.18,0.10,0);
         const guardTipR = guardTipL.clone(); guardTipR.position.x = -0.18;
-        const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.028,0.36,8), trimMat);
+        // 武器設定画: 柄は青系の巻き革(ジェムと同じ青系統)。柄の途中に
+        // 金の帯を1本入れて「巻き模様」の区切りを示す
+        const gripMat = new THREE.MeshStandardMaterial({color:0x1c2c54, roughness:0.7});
+        const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.028,0.36,8), gripMat);
         hilt.position.y = -0.10;
-        const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.06,0), trimMat);
+        const gripBand = new THREE.Mesh(new THREE.TorusGeometry(0.028,0.008,6,10), goldTrim);
+        gripBand.position.y = -0.10; gripBand.rotation.x = Math.PI/2;
+        const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.06,0), goldTrim);
         pommel.position.y = -0.30;
-        weapon.add(blade, tip, fuller, guard, guardTipL, guardTipR, hilt, pommel);
+        // 鍔の中央に嵌まる青いジェム(設定画の意匠)。鍔の前面にわずかに
+        // 突き出す位置に置く
+        const gem = makeGem(0x2a6fd6, 0.042);
+        gem.position.set(0, 0.10, 0.045);
+        weapon.add(blade, tip, guard, guardTipL, guardTipR, hilt, gripBand, pommel, gem);
         weapon.position.set(0, HIP_Y+bodyH*0.55, 0.30);
       } else {
       const blade = new THREE.Mesh(new THREE.BoxGeometry(0.15,1.15,0.045), steel);
@@ -132,13 +167,23 @@
       tip.position.y = 1.42; tip.rotation.y = Math.PI/4;
       const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.04,1.0,0.06), darkSteel);
       fuller.position.y = 0.72;
-      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.07,0.09), trimMat);
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.07,0.09), goldTrim);
       guard.position.y = 0.12;
-      const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.3,6), woodMat);
+      // 武器設定画: 鍔の両端が外側へ尖った小さな翼状の意匠。フラットな
+      // バーの両端に小さな三角錐を足すだけの軽い装飾
+      const wingL = new THREE.Mesh(new THREE.ConeGeometry(0.05,0.09,3), goldTrim);
+      wingL.position.set(0.25,0.12,0); wingL.rotation.z = -Math.PI/2;
+      const wingR = wingL.clone(); wingR.position.x = -0.25; wingR.rotation.z = Math.PI/2;
+      // 柄は赤系の巻き革(設定画の意匠)
+      const gripMat = new THREE.MeshStandardMaterial({color:0x5a1c1c, roughness:0.75});
+      const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.3,6), gripMat);
       hilt.position.y = -0.06;
-      const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.055,8,8), trimMat);
+      const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.055,8,8), goldTrim);
       pommel.position.y = -0.22;
-      weapon.add(blade, tip, fuller, guard, hilt, pommel);
+      // 鍔中央の青いジェム
+      const gem = makeGem(0x2a6fd6, 0.05);
+      gem.position.set(0, 0.12, 0.07);
+      weapon.add(blade, tip, fuller, guard, wingL, wingR, hilt, pommel, gem);
       weapon.position.set(0, HIP_Y+bodyH*0.55, 0.30);
       }
 
@@ -172,23 +217,40 @@
       function buildDualUnit(){
         const u = new THREE.Group();
         if(isAxe){
-          const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.026,0.46,6), woodMat);
-          const headL = new THREE.Mesh(new THREE.ConeGeometry(0.15,0.20,3), trimMat);
-          headL.position.set(-0.11,0.19,0); headL.rotation.z = Math.PI/2;
-          const headR = headL.clone(); headR.position.x = 0.11; headR.rotation.z = -Math.PI/2;
+          // 武器設定画: 左右対称の双頭斧ではなく、片側だけに大きく張り出す
+          // 三日月刃+反対側の小さな突起(石突)を持つ「隻頭の手斧」を
+          // 対で構える意匠。柄は赤茶の革巻き、刃元に金の座金、赤いジェムを
+          // 一つ添える
+          const handleMat = new THREE.MeshStandardMaterial({color:0x4a2418, roughness:0.75});
+          const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.026,0.46,6), handleMat);
+          const blade = new THREE.Mesh(new THREE.ConeGeometry(0.20,0.11,3), darkSteel);
+          blade.position.set(0.13,0.20,0); blade.rotation.z = -Math.PI/2;
           const spike = new THREE.Mesh(new THREE.ConeGeometry(0.028,0.13,4), darkSteel);
           spike.position.y = 0.32;
-          u.add(handle, headL, headR, spike);
+          const socket = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.038,0.10,6), goldTrim);
+          socket.position.set(0.02,0.20,0);
+          const buttRing = new THREE.Mesh(new THREE.TorusGeometry(0.032,0.010,6,10), goldTrim);
+          buttRing.position.y = -0.27;
+          const gem = makeGem(0xc0392b, 0.026);
+          gem.position.set(0.05,0.20,0.05);
+          u.add(handle, blade, spike, socket, buttRing, gem);
         } else {
-          const blade = new THREE.Mesh(new THREE.ConeGeometry(0.032,0.30,4), trimMat);
+          // 武器設定画: 三角断面のまま幅を広げ奥行きを詰めて、細い錐状の
+          // 刃から穂先(スピアヘッド)状の広い刃へ寄せる。柄頭は環状の
+          // リングポメル(設定画の指ぬき状の意匠)にする
+          const blade = new THREE.Mesh(new THREE.ConeGeometry(0.040,0.30,4), goldTrim);
+          blade.scale.set(1.55, 1, 0.55);
           blade.position.y = 0.20;
-          const guard = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.024,0.03), darkSteel);
+          const guard = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.024,0.03), goldTrim);
           guard.position.y = 0.03;
-          const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.14,6), new THREE.MeshStandardMaterial({color:0x2a1c10}));
+          const gem = makeGem(0x2a8f9e, 0.018);
+          gem.position.set(0, 0.03, 0.025);
+          const hiltMat = new THREE.MeshStandardMaterial({color:0x3a1e14, roughness:0.8});
+          const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.14,6), hiltMat);
           hilt.position.y = -0.06;
-          const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.024,6,6), darkSteel);
-          pommel.position.y = -0.14;
-          u.add(blade, guard, hilt, pommel);
+          const pommelRing = new THREE.Mesh(new THREE.TorusGeometry(0.026,0.009,6,10), goldTrim);
+          pommelRing.position.y = -0.15;
+          u.add(blade, guard, gem, hilt, pommelRing);
         }
         return u;
       }
@@ -215,11 +277,47 @@
       weapon.position.set(bodyR+0.12, HIP_Y+bodyH*0.68, 0.05);
 
     } else if(weaponKey==='staff'){
-      const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.03,0.85,6), woodMat);
-      const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.1,0), trimMat);
-      orb.position.y = 0.46;
-      weapon.add(staff, orb);
-      weapon.position.set(bodyR+0.16, HIP_Y+bodyH*0.42, 0.06);
+      // 武器設定画: 魔法使い/魔導士とも黒っぽい柄軸+金の環飾りは共通で、
+      // 石(ジェム)の色と柄の規模(長さ・石の大きさ・飾りの華やかさ)だけが
+      // 違う ―― 魔導士は「地面に着きそうな長さ」の巨大な杖、頂部は
+      // 星形のゴールドの意匠に紫の石、魔法使いは環に嵌まった青い石の
+      // シンプルな杖
+      const isArchmage = state.job === 'archmage';
+      const shaftMat = new THREE.MeshStandardMaterial({color:0x1c1814, roughness:0.6});
+      const shaftLen = isArchmage ? 1.05 : 0.85;
+      const staff = new THREE.Mesh(new THREE.CylinderGeometry(isArchmage?0.028:0.025, isArchmage?0.034:0.03, shaftLen, 6), shaftMat);
+      const gemY = isArchmage ? 0.58 : 0.46;
+      const gem = makeGem(isArchmage ? 0x8a3fd4 : 0x2a5bc4, isArchmage ? 0.12 : 0.095);
+      gem.position.y = gemY;
+      // 石を抱え込むゴールドの環(魔法使い)/星形の爪(魔導士)
+      const parts = [staff, gem];
+      if(isArchmage){
+        for(let i=0;i<4;i++){
+          const ang = i*Math.PI/2 + Math.PI/4;
+          const claw = new THREE.Mesh(new THREE.ConeGeometry(0.032,0.15,4), goldTrim);
+          claw.position.set(Math.cos(ang)*0.10, gemY+Math.sin(ang)*0.10, 0);
+          claw.rotation.z = ang - Math.PI/2;
+          parts.push(claw);
+        }
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.13,0.018,6,12), goldTrim);
+        ring.position.y = gemY;
+        parts.push(ring);
+      } else {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.105,0.016,6,12), goldTrim);
+        ring.position.y = gemY;
+        parts.push(ring);
+      }
+      // 柄の途中の金の帯+小さなジェム(設定画の中程の飾り)
+      const band = new THREE.Mesh(new THREE.TorusGeometry(isArchmage?0.036:0.032, 0.008, 6, 10), goldTrim);
+      band.position.y = shaftLen*0.18; band.rotation.x = Math.PI/2;
+      const smallGem = makeGem(isArchmage ? 0x8a3fd4 : 0x2a5bc4, isArchmage?0.036:0.03);
+      smallGem.position.y = shaftLen*0.18;
+      // 石突(杖の下端、尖った金具)
+      const ferrule = new THREE.Mesh(new THREE.ConeGeometry(isArchmage?0.034:0.028, 0.11, 4), goldTrim);
+      ferrule.position.y = -shaftLen/2 - 0.02; ferrule.rotation.x = Math.PI;
+      parts.push(band, smallGem, ferrule);
+      weapon.add(...parts);
+      weapon.position.set(bodyR+(isArchmage?0.18:0.16), HIP_Y+bodyH*(isArchmage?0.40:0.42), 0.06);
 
     } else if(weaponKey==='spellblade'){
       // 杖の「掲げる」シルエットから、片手剣の「構える」シルエットへ。
@@ -304,9 +402,58 @@
       // (applyJobPromotionVisual)と掛け合わさっても不自然にならないよう
       // にするため
       const isHawkEye = state.job === 'hawkEye';
-      const bowR = isHawkEye ? 0.50 : 0.34;
-      const bow = new THREE.Mesh(new THREE.TorusGeometry(bowR,isHawkEye?0.034:0.028,6,18,Math.PI*1.35), trimMat);
-      bow.rotation.z = Math.PI*0.32;
+      // 武器設定画: 弓本体は両クラスとも茶色の木部(classDef.trim/uj.trimを
+      // そのまま使うと、鷹の目はuj.trim=青緑になってしまい、設定画の
+      // 茶色い弓と全く違う色になる)。木部は固定色にし、握り部分の赤茶の
+      // ビーズだけジェム色(赤褐色)で差し色にする
+      const bowWoodMat = new THREE.MeshStandardMaterial({color:0x5a3820, roughness:0.7});
+      const bowBeadColor = 0xb0502a;
+      // ユーザー指摘:「弦じゃなくて弓の方をきちんと持つように」―― 従来は
+      // 弓のTorus Geometryが原点(=握りの手の位置)を中心とした「ドーナツの
+      // 穴」になっており、手はリング材(弓本体)ではなく空洞(すぐそばの弦)
+      // に重なって見えていた。握りの位置に弓本体の実体(グリップ材)を
+      // 追加し、手が弓の木部を掴んでいるように見せる
+      const gripMat = new THREE.MeshStandardMaterial({color:0x2a1c14, roughness:0.8});
+      let bow, bowLimbY, bowTipUp = null, bowTipDown = null;
+      if(isHawkEye){
+        /* 武器設定画: 弓師の左右対称な小弓とは違い、鷹の目(大弓/和弓風)は
+           握りが中心ではなく下から1/3の位置にある非対称な長弓 ――
+           上の弓幹(弭まで)がずっと長く、下の弓幹は短い。対称なTorus
+           一つでは表現できないため、半径の異なる2本のTorus Arc(弧、
+           arc=Math.PIのちょうど半円)を、それぞれ「弧のちょうど反対側
+           の点(θ=π)が武器原点(=握りの手の位置)に一致する」よう
+           position/rotationを計算して継ぎ目なく配置する(半円なので
+           θ=πは弧の終点そのもの ―― 計算はコード側のコメント参照)。
+           弦の取り付け点(bowTipUp/bowTipDown)も、この2本の弧の実際の
+           先端(θ=0側、原点から見て弧の反対の端)に正確に合わせて計算する。 */
+        const rUp = 0.58, rDn = 0.28;
+        const rotUp = Math.PI*0.38, rotDn = -Math.PI*0.62;
+        const limbUp = new THREE.Mesh(new THREE.TorusGeometry(rUp,0.034,6,14,Math.PI), bowWoodMat);
+        limbUp.rotation.z = rotUp;
+        limbUp.position.set(rUp*Math.cos(rotUp), rUp*Math.sin(rotUp), 0);
+        const limbDn = new THREE.Mesh(new THREE.TorusGeometry(rDn,0.034,6,14,Math.PI), bowWoodMat);
+        limbDn.rotation.z = rotDn;
+        limbDn.position.set(rDn*Math.cos(rotDn), rDn*Math.sin(rotDn), 0);
+        bow = new THREE.Group();
+        bow.add(limbUp, limbDn);
+        // 弧の「原点でない方の端」(θ=0)の実座標 = position*2(半円のθ=π
+        // が原点に来るよう位置決めしているため、θ=0側はその点対称)
+        bowTipUp = {x: rUp*Math.cos(rotUp)*2, y: rUp*Math.sin(rotUp)*2, z: 0};
+        bowTipDown = {x: rDn*Math.cos(rotDn)*2, y: rDn*Math.sin(rotDn)*2, z: 0};
+        bowLimbY = rUp*0.9;   // 未使用(bowTipUp/Downがある場合はそちら優先)だが保険で残す
+      } else {
+        const bowR = 0.34;
+        bow = new THREE.Mesh(new THREE.TorusGeometry(bowR,0.028,6,18,Math.PI*1.35), bowWoodMat);
+        bow.rotation.z = Math.PI*0.32;
+        bowLimbY = bowR*0.926;
+      }
+      // 握りの実体(グリップ)。弓の弧全体と同じ傾き(archerはbow.rotation.z、
+      // 鷹の目は上下の弧の中間的な傾き)を持たせ、原点(手の位置)に沿わせる
+      const gripTilt = isHawkEye ? (Math.PI*0.38 + -Math.PI*0.62)/2 : Math.PI*0.32;
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.030, isHawkEye?0.22:0.16, 8), gripMat);
+      grip.rotation.z = gripTilt;
+      const bead = makeGem(bowBeadColor, isHawkEye?0.026:0.020);
+      bead.position.z = 0.025;
       /* The string is two segments meeting at the nock, not one rigid bar.
          A single cylinder can only ever be pulled straight back along one
          axis, so the moment the drawing hand is anywhere off that axis the
@@ -320,10 +467,12 @@
       nock.position.set(isHawkEye?0.07:0.05,0,0);
       const segUp = new THREE.Mesh(strGeo, strMat);
       const segDn = new THREE.Mesh(strGeo, strMat);
-      weapon.add(bow, nock, segUp, segDn);
+      weapon.add(bow, grip, bead, nock, segUp, segDn);
       playerMixerParts.bowString = nock;        // the nocking point itself
       playerMixerParts.bowSegs = [segUp, segDn];
-      playerMixerParts.bowLimbY = bowR*0.926;   // where the string meets the limbs (元寸法の比率のまま)
+      playerMixerParts.bowLimbY = bowLimbY;     // where the string meets the limbs (対称弓のみ使用)
+      playerMixerParts.bowTipUp = bowTipUp;     // 非対称弓(鷹の目)の上弦点(あればbowLimbYより優先)
+      playerMixerParts.bowTipDown = bowTipDown; // 非対称弓(鷹の目)の下弦点
       // an arrow sitting on the string while the bow is drawn. It points
       // along the bow's local -X, which becomes the character's forward once
       // the bow is turned into the aiming plane.
@@ -377,6 +526,10 @@
     const trimMat = applyBump(new THREE.MeshStandardMaterial({
       map: makeMetalTexture(hexStr(classDef.trim), 3, 1), roughness:0.4, metalness:0.3,
       emissive:classDef.trim, emissiveIntensity:0.12}));
+    // Archmage昇格時、胸当てリング/ベルト/カフス/武器金具など「硬い金属
+    // トリム」全般(このtrimMat一つで共有)も参考画像に合わせて暗色へ
+    // 差し替えられるよう公開しておく(clothMat等と同じ差分方式)
+    playerMixerParts.trimMat = trimMat;
     /* Flat-shaded twins for the lathed pelvis/pauldron/cuffs (armor and
        underlayers - the "hard plate" gem-cut look still suits those). The
        head used to get the same flatShading treatment, but the user asked
@@ -392,6 +545,13 @@
        meant to be smooth) limbs, torso, weapon trim and so on. */
     const clothMatFlat = clothMat.clone(); clothMatFlat.flatShading = true;
     const trimMatFlat = trimMat.clone();  trimMatFlat.flatShading = true;
+    // Archmage昇格時の色差し替え(clothMat/trimMat)は.clone()で複製した
+    // これらのFlat版には伝播しない(.clone()はプロパティのコピーであって
+    // 参照の共有ではないため、後から親のmapを差し替えても子には反映
+    // されない) ―― Torso/Pelvis(clothMatFlat)・Pauldron(trimMatFlat)も
+    // 同じ「差分方式」で個別に公開しておく
+    playerMixerParts.clothMatFlat = clothMatFlat;
+    playerMixerParts.trimMatFlat = trimMatFlat;
     // 軽装(ユーザー指摘: 盗賊は「鎧の部位が少なめの軽装」に)。全クラス
     // 共通の脛当て/籠手を盗賊だけ外し、肩当ても一回り小さくして防具の
     // 面積そのものを減らす ―― 素肌・布の見える面積が増えることで
@@ -403,8 +563,19 @@
     // the foot stayed planted where it was, which is most of why the
     // character read as a scarecrow being slid across the floor.
     const bootMat = new THREE.MeshStandardMaterial({color:0x2a2018, roughness:0.6, metalness:0.2});
-    const thighGeo = limbGeo(LIMB_PROFILE.thigh, B.thigh, B.thighLen, 10);
-    const shinGeo  = limbGeo(LIMB_PROFILE.calf,  B.calf,  B.calfLen, 10);
+    // グラフィック刷新: LatheGeometry(limbGeo/LIMB_PROFILE.thigh)から
+    // makeCharacterThigh()(Loft、05-rendering-rig.js)へ置き換え。Pelvis下端
+    // (太い)→中央(自然な量感)→Knee(絞る)というテーパーを、旋盤の
+    // 「あらゆる高さで断面が円」という制約なしに表現している(詳細は
+    // makeCharacterThigh()側のコメント参照)。LIMB_PROFILE.thigh/limbGeo自体
+    // は削除していない
+    const thighGeo = makeCharacterThigh({width:B.thigh, depth:B.thigh, height:B.thighLen});
+    // 同様にCalf(脛)もmakeCharacterCalf()(Loft)へ置き換え。ThighのLoftとは
+    // 逆に単調なテーパーではなく、Knee側→中腹(ふくらはぎの量感)→Ankle側
+    // (絞る)という山型のシルエットにしている(詳細はmakeCharacterCalf()側の
+    // コメント参照)。LIMB_PROFILE.calf/limbGeo自体は削除していない。Knee飾り球・
+    // Ankle・Boot(Foot)は今回変更しないため、以降のコードは従来通り
+    const shinGeo  = makeCharacterCalf({width:B.calf, depth:B.calf, height:B.calfLen});
     const legL = new THREE.Group(), legR = new THREE.Group();
     const kneeL = new THREE.Group(), kneeR = new THREE.Group();
     [[legL,kneeL,-B.stanceW],[legR,kneeR,B.stanceW]].forEach(([hip,knee,x])=>{
@@ -459,20 +630,29 @@
     playerMixerParts.kneeR = kneeR;
 
     // hips, so the thighs meet something instead of hanging off the tunic.
-    // Lathed from PELVIS_PROFILE instead of a squashed sphere - the flare
-    // (widest at the waist, narrowing to the crotch) is baked into the
-    // profile itself now, same technique as the torso just below.
+    // グラフィック刷新: LatheGeometry(limbGeo/PELVIS_PROFILE)から
+    // makeCharacterPelvis()(Loft、05-rendering-rig.js)へ置き換え。Torsoの
+    // 細いWaistから、左右に張り出すHipを経て、脚の付け根で再び絞る
+    // ―― 旋盤の「あらゆる高さで断面が円」という制約では出せない、
+    // 人体らしいくびれをつけている(詳細はmakeCharacterPelvis()側の
+    // コメント参照)。PELVIS_PROFILE/limbGeo自体は削除していない。
+    // 旧コードのpelvis.scale.z=0.94(円形断面を無理やり前後に潰す
+    // ハック)は、新しいジオメトリ自体が幅≠厚みを持つため不要になった
     const pelvisH = isFemale ? 0.30 : 0.34;
     const pelvis = new THREE.Mesh(
-      limbGeo(PELVIS_PROFILE[isFemale ? 'female' : 'male'], B.hipR, pelvisH, 10), clothMatFlat);
-    pelvis.scale.z = 0.94;
+      makeCharacterPelvis({width:B.hipR, depth:B.hipR, height:pelvisH}), clothMatFlat);
     pelvis.position.y = 0.80;
     pelvis.castShadow = true;
     group.add(pelvis);
 
-    // torso
+    // torso - グラフィック刷新: LatheGeometry(limbGeo/TORSO_PROFILE)から
+    // makeCharacterTorso()(Loft、05-rendering-rig.js)へ置き換え。「あらゆる
+    // 高さで断面が円」という旋盤の制約を外し、肩>胸>腰の非回転対称な
+    // シルエットにした(詳細はmakeCharacterTorso()側のコメント参照)。
+    // TORSO_PROFILE/limbGeo自体は削除していない ―― ボス(templeGuardian等)
+    // が今も直接使っているため
     const torso = new THREE.Mesh(
-      limbGeo(TORSO_PROFILE[isFemale ? 'female' : 'male'], bodyR, bodyH, 12), clothMat);
+      makeCharacterTorso({width:bodyR, depth:bodyR, height:bodyH}), clothMatFlat);
     torso.position.y = HIP_Y + bodyH/2;
     torso.castShadow = true;
     group.add(torso);
@@ -492,16 +672,35 @@
     neck.castShadow = true;
     group.add(neck);
 
-    // belt / trim
-    const belt = new THREE.Mesh(new THREE.TorusGeometry(bodyR*0.97,0.05,6,16), trimMat);
+    // belt / trim - 新しい胴体(makeCharacterTorso)の腰は、旧Lathe胴体
+    // (u=0で半径0.96bodyR、ほぼ胸と同じ太さ=樽の原因そのもの)よりも
+    // 意図的にずっと細くなった。ベルトの半径を旧来のbodyR*0.97のままに
+    // すると腰から大きく浮いてしまうため、TORSO_SECTION_RATIOS.waist
+    // (胴体側と同じ比率定数)を基準に、幅・厚みの平均へ合わせ直した
+    const waistR = TORSO_SECTION_RATIOS.waist;
+    // Archmage昇格時、ベルト(丸い輪っかパーツ)だけ胸当て/肩当てとは別の
+    // 色(白紫系)へ差し替えられるよう、trimMatをそのまま使わず.clone()した
+    // 専用Materialを与えておく(色は複製時点でtrimMatと同じなので、
+    // 他クラス・Mage本体の見た目は一切変わらない ―― clothMatFlat/
+    // trimMatFlatと同じ「差分方式」)
+    const beltMat = trimMat.clone();
+    playerMixerParts.beltMat = beltMat;
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(bodyR*(waistR.widthMul+waistR.depthMul)/2, 0.05, 6, 16), beltMat);
     belt.rotation.x = Math.PI/2;
     belt.position.y = HIP_Y;
     group.add(belt);
 
-    // head - lathed from HEAD_PROFILE (chin to crown)。ユーザー提示の参考
-    // 画像(頭身の低い丸顔キャラ)を受けて、以前の低分割+フラットシェード
-    // による「宝石カットの顔」路線をやめ、分割数を上げて滑らかな丸い顔に
-    // 変更した(skinMatFlatではなくskinMatを使う)
+    // head - グラフィック刷新: LatheGeometry(limbGeo/HEAD_PROFILE)から
+    // makeCharacterHead()(Loft、05-rendering-rig.js)へ置き換え。「頭が
+    // 球に見える」原因はHead本体とHair(SphereGeometry)の両方にあるが、
+    // 今回はHead本体だけを切り分けて置き換える(Hairは今回変更しない、
+    // 別フェーズで検討)。Chin→Jaw→Cheek(最大幅)→UpperHead→Crownの
+    // 5段・6点断面で、顔側(+Z)は平ら、後頭部側(-Z)は絞った非対称な
+    // シルエットにしている(詳細はmakeCharacterHead()側のコメント参照)。
+    // HEAD_PROFILE/limbGeo自体は削除していない ―― buildBoss()が今も
+    // 直接使っているため。B.headRをそのままWidth/Depthの基準に渡している
+    // ため、Eye/Neck/Helmet/Hat/Hood等、既存装備・パーツの位置計算
+    // (いずれもheadRベース)には触れていない
     //
     // 顔をCanvasへ描いた絵としてUVマッピングする案(2026-08-31、「参考画像の
     // ようなキャラデザを今の方式で再現できるのか」への検証)も魔法使いで
@@ -512,9 +711,21 @@
     // 頭の表面そのものではなく、そこから外側へ張り出した独立した球だから
     // (かつMeshBasicMaterialで陰影の影響も受けない)。よって顔は今まで
     // 通り球の組み合わせのままとした
+    // Head Silhouette Global Redesign Phase: 奥行き(depth)だけHEAD_DEPTH_MUL
+    // (05-rendering-rig.js参照)で追加圧縮。width/heightは(Uniform成分の
+    // 95%はBUILD.headR自体に反映済みなので)ここでは変更しない ――
+    // 「前後にだけ長い」という指摘に対応するため、前後方向だけを狙って
+    // 縮める
     const head = new THREE.Mesh(
-      limbGeo(HEAD_PROFILE[isFemale ? 'female' : 'male'], B.headR, B.headR*2, 20), skinMat);
+      makeCharacterHead({width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2}), skinMat);
     head.position.y = HIP_Y + bodyH + B.headGap;
+    // Head/Posture Alignment再設計フェーズ: HEAD_BACK_Z(05-rendering-rig.js
+    // 参照)ぶんだけHeadを後方(-Z)へ。Torso胸部の前面ZよりHead自身の前面Z
+    // (nosePush込み)が明確に深く、「猫背/顔だけ前に突き出て見える」印象の
+    // 原因になっていた。Head Geometry自体は変更せず、Position(Z)だけの
+    // 調整。Eye/Hair/各クラスHeadwearにも同じHEAD_BACK_Zを適用し、
+    // Headだけが後退してHair/Headwearが元の位置に取り残される事故を防ぐ
+    head.position.z = HEAD_BACK_Z;
     head.castShadow = true;
     group.add(head);
     playerMixerParts.head = head;
@@ -523,6 +734,13 @@
     // 1つだけだったのを、白目(強膜)+黒目(瞳)+ハイライトの3層に
     // 分けて、アニメ的な大きく丸い目にした。位置・向きを決める役割
     // (顔の正面を示す)は変えていない
+    // グラフィック刷新(Face再設計フェーズ Phase B): 3層とも
+    // THREE.SphereGeometryだったものを、makeEyeSclera()/makeEyePupil()/
+    // makeEyeHighlight()(既存makePlate()を使った低ポリ多角形の薄板、
+    // 05-rendering-rig.js)へ置き換え。Position/eyeScale/poke量の計算
+    // 方針は維持し、Geometryの形状だけをSphereから多角形に差し替えた
+    // (詳細は各ヘルパー側のコメント参照)。classDef.eyeColorによる瞳色・
+    // MeshBasicMaterialの仕組みは変更していない
     const headR = B.headR;
     const eyeScale = headR/0.26;
     const scleraMat = new THREE.MeshBasicMaterial({color:0xfaf6ee});
@@ -536,53 +754,290 @@
     // なる ―― 白目の前面(中心z + 半径*Z方向スケール)より手前(+Z)に
     // 出す必要がある。(2) 瞳をZ方向に強く潰す(scale.z<0.5)と、この
     // カメラ角度ではほぼ真横から見ることになり、潰した向きがカメラ
-    // 視線とほぼ平行になって「消えて見える」。潰さず球のままにする
-    // ことで解決した。
+    // 視線とほぼ平行になって「消えて見える」。旧実装(球のまま)では
+    // 潰さないことで解決していたが、今回Pupil/Highlightも低ポリ薄板に
+    // する必要があるため、この閾値(0.5)より安全な0.6倍(Scleraと同じ
+    // 比率)の厚みにして、消える問題を再発させないようにしてある。
     // ただしその時点では「白目の前面よりさらに手前」に球の中心その
     // ものを置いていたため、瞳が白目の表面から大きく浮き上がって
     // 見えてしまっていた(ユーザー指摘: 「目が飛び出てる」)。正しくは
     // 球の【表面】が白目の表面よりわずかに前へ出ればよいだけで、
     // 球の【中心】まで前に出す必要は無い ―― 中心は白目の表面より
     // 半径ぶん奥に置き、そこにpoke(ごくわずかな飛び出し量)だけ
-    // 上乗せする形に直した
-    const scleraR = 0.062;
+    // 上乗せする形に直した(薄板化後もこの考え方は維持、「半径」を
+    // 「Z方向の半厚み」に読み替えただけ)
+    // Mage Hat再設計フェーズ(ユーザー指摘: 「目が出っ張って見える」):
+    // Eye多角形化(Phase B)で白目が平らな板になったことで、球のときより
+    // 前方への突出が硬い印象になっていた。Sclera/Pupil/Highlightの形状
+    // (点数・輪郭)自体はPhase Bのまま一切変更せず、3層まとめての基準
+    // Z位置(旧headR*0.90)だけをheadR*0.82へわずかに引き下げ、頬面
+    // (headR*0.86付近、Face再設計Phase A参照)に対して目がわずかに
+    // 沈み込む「眼窩に収まった」見た目にした。Pupil/HighlightがSclera
+    // 前面よりpoke量だけ前へ出るという相対関係(下のscleraFrontZ経由の
+    // 計算)は変えていないため、3層の前後関係・埋没しない設計はそのまま
+    // Head/Posture Alignment再設計フェーズ: HEAD_BACK_Zを加算し、Headと
+    // 同じ量だけEye全体(Sclera/Pupil/Highlightいずれも)を後方へ。Eye自身の
+    // 前後関係(scleraFrontZ経由のpoke計算)・Z Position自体の設計方針
+    // (headR*0.82系統)は変更しない
+    // Head Silhouette Global Redesign Phase: Headの奥行きをHEAD_DEPTH_MULで
+    // 圧縮したため、Eyeの前後基準もHead前面の新しい位置に合わせて同じ比率で
+    // 引き寄せる(そうしないとEyeだけ古い深さのまま浮いてしまう)
+    const eyeFrontZ = headR*0.82*HEAD_DEPTH_MUL + HEAD_BACK_Z;
+    // Headwear Audit + Eye Size調整フェーズ(ユーザー指摘: 「目が大きすぎる」):
+    // Low Poly化(Phase B)で輪郭がくっきりしたぶん、球のときより大きく
+    // 目立って見えるようになっていた。Sclera/Pupil/Highlightの点数・輪郭
+    // (Geometry Structure)は一切変更せず、3層すべての半径にこの一つの
+    // 倍率(eyeSizeMul)を掛けるだけでUniform Scalingする ―― Scleraだけ
+    // 縮小するとPupilが相対的に大きくなりすぎ、Pupilだけ縮小すると白目が
+    // 強くなるため、必ず3層まとめて同じ比率で縮小する。eyeScale
+    // (headR比例のスケール機構)自体は変更しないため、headRが変わっても
+    // 引き続き比例してスケールする(固定サイズ化はしていない)。Visual
+    // Checkで90%→85%の順に試し、85%で「目は見えるが顔の一部として自然」
+    // な釣り合いになったためこの値にした
+    const eyeSizeMul = 0.85;
+    const scleraR = 0.062*eyeSizeMul;
     const scleraZScale = 0.6;
-    const scleraFrontZ = headR*0.90 + scleraR*scleraZScale*eyeScale;
-    const pupilR = 0.038, pupilPoke = 0.008;
-    const highlightR = 0.013, highlightPoke = 0.014;
-    [-0.115*eyeScale, 0.115*eyeScale].forEach(x=>{
-      const sclera = new THREE.Mesh(new THREE.SphereGeometry(scleraR*eyeScale,10,8), scleraMat);
-      sclera.scale.set(1, 1.15, scleraZScale);
-      sclera.position.set(x, head.position.y+0.02, headR*0.90);
+    const scleraHalfDepth = scleraR*scleraZScale;
+    const scleraFrontZ = eyeFrontZ + scleraHalfDepth*eyeScale;
+    const pupilR = 0.038*eyeSizeMul, pupilPoke = 0.008, pupilZScale = 0.6;
+    const pupilHalfDepth = pupilR*pupilZScale;
+    const highlightR = 0.013*eyeSizeMul, highlightPoke = 0.014, highlightZScale = 0.6;
+    const highlightHalfDepth = highlightR*highlightZScale;
+    // グラフィック刷新(戦騎士#低頭身化): 頭部一式(頭+髪+目)をまとめて
+    // 縮小できるよう、目のメッシュをここで配列に集めておく。既存の
+    // 「白目/瞳/ハイライトの3層」自体には一切手を加えていない
+    const faceMeshes = [];
+    // eyeSpacingMul: classDef.hairColor等と同じ「見た目専用の追加
+    // フィールド」(Phase 7、詳細は01-character-creation.jsのmage側
+    // コメント参照)。未指定クラスは1.0で従来通り無変化
+    const eyeSpacingMul = classDef.eyeSpacingMul!=null ? classDef.eyeSpacingMul : 1.0;
+    [-0.115*eyeScale*eyeSpacingMul, 0.115*eyeScale*eyeSpacingMul].forEach(x=>{
+      const sclera = new THREE.Mesh(
+        makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*1.15, scleraHalfDepth*eyeScale), scleraMat);
+      sclera.position.set(x, head.position.y+0.02, eyeFrontZ);
       group.add(sclera);
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(pupilR*eyeScale,8,7), pupilMat);
-      pupil.position.set(x, head.position.y+0.02, scleraFrontZ - pupilR*eyeScale + pupilPoke*eyeScale);
+      faceMeshes.push(sclera);
+      const pupil = new THREE.Mesh(makeEyePupil(pupilR*eyeScale, pupilHalfDepth*eyeScale), pupilMat);
+      pupil.position.set(x, head.position.y+0.02, scleraFrontZ - pupilHalfDepth*eyeScale + pupilPoke*eyeScale);
       group.add(pupil);
-      const highlight = new THREE.Mesh(new THREE.SphereGeometry(highlightR*eyeScale,6,6), highlightMat);
-      highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ - highlightR*eyeScale + highlightPoke*eyeScale);
+      faceMeshes.push(pupil);
+      const highlight = new THREE.Mesh(makeEyeHighlight(highlightR*eyeScale, highlightHalfDepth*eyeScale), highlightMat);
+      highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ - highlightHalfDepth*eyeScale + highlightPoke*eyeScale);
       group.add(highlight);
+      faceMeshes.push(highlight);
     });
 
-    // hair suggestion - now smooth-segmented to match the rounder head
-    // (previously matched the old faceted head's low segment count).
-    // 頭身を上げた際(#39系)、以前のthetaLength(0.62π、頭の中心よりだいぶ
-    // 下まで覆う)だと生え際の下端が新しい大きな目とほぼ同じ高さまで
-    // 伸びてしまい、影のように重なって見えていた。目の上でしっかり
-    // 止まるよう0.46πに引き上げた(生え際がやや高い位置になる)
+    // hair - グラフィック刷新(Hair再設計 Phase 1): SphereGeometry(滑らかな
+    // 部分球)から、Hair Shell(makeCharacterHairShell()、閉じたLoft。
+    // 後頭部を覆い、生え際付近で止まる非対称な断面)+ Bangs(前髪束、
+    // makeHairBang()、Center/Left/Rightの3束)へ置き換え。設定画のように
+    // 頭部シルエットを複数の髪の塊で作る狙い(詳細はmakeCharacterHairShell()/
+    // makeHairBang()側のコメント参照)。Head/Eye Geometry、髪色
+    // (hairColor)自体は変更していない。
     // 髪色: 既定は性別ごとの黒〜焦げ茶だが、classDef.hairColorが指定されて
     // いればそちらを使う(現状は参考画像に合わせた魔法使いの紫髪のみ)
     const hairColor = classDef.hairColor!=null ? classDef.hairColor : (isFemale?0x2c1e14:0x1b140f);
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(B.hairR, 14,12, 0, Math.PI*2, 0, Math.PI*0.46),
-      new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7}));
-    hair.position.copy(head.position);
-    hair.position.y += 0.02;
+    const hairMat = new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7});
+    // Archmage昇格時、Hatの下から覗く地毛(hairline付近)も銀髪へ差し替え
+    // られるよう、他のPromotion専用Material(clothMat等)と同じ「差分方式」
+    // でMaterial Objectを公開しておく(06-player-enemy.jsのarchmageブロック参照)
+    playerMixerParts.hairMat = hairMat;
+
+    /* Head Assembly構造修正フェーズ: Hair一式をHeadプロファイル由来にする
+
+       Mesh識別Debug(全8クラス)で、額・側頭部・頬・後頭部下側の外側
+       シルエットをSkin Head本体が形成し、Hair Capは頭頂の帯だけ、Side
+       Hairはほぼ埋没、Back Hairは完全埋没していることを確認した。原因は
+       Hairの各パーツがheadRに独自係数を掛けた手打ち座標で置かれており、
+       Headの実際の輪郭と一致する保証が無かったこと。
+
+       ここから下のHairはすべて headOutlineAt()(05-rendering-rig.js、
+       Headの断面から実寸を返す共通API)を経由して配置する。HEAD_DIMSは
+       Head本体の生成に渡したものと同一 ―― Head/Hairが同じ原点・同じ
+       基準値・同じ断面プロファイルを共有する。 */
+    const HEAD_DIMS = { width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2 };
+    const headOut = (yFrac) => headOutlineAt(HEAD_DIMS, yFrac);
+
+    // ---- Hair Shell(旧Hair Cap): Headの外殻。原点・引数はHead本体と同一 ----
+    // classKeyを渡すことで、makeCharacterHairShell()内部でHeadwear
+    // Coverageを参照し、Headwearが存在する(Y,angle)ではHairの生成半径
+    // 自体をHeadwear Surfaceの内側に収める(Geometry生成後の頂点クランプ
+    // ではない ―― 詳細はhairShellPointAt()のコメント参照)
+    const hair = new THREE.Mesh(makeCharacterHairShell({...HEAD_DIMS, classKey: classDef.key}), hairMat);
+    hair.position.set(0, head.position.y, HEAD_BACK_Z);
+    hair.castShadow = true;
     group.add(hair);
+
+    const hairlineOut = headOut(HAIR_HAIRLINE_YFRAC);   // 生え際リムの実寸
+
+    /* ---- Bangs(前髪束): Hair Shellの生え際リムから額へ垂れる装飾 ----
+       Hair ShellがHeadの外殻として額の外側シルエットを担当するように
+       なったため、Bangsは「Headを隠すための応急処置」ではなく、生え際の
+       輪郭に凹凸を与える装飾に戻した。Zは頭の実際の前面(frontZ)から
+       導出し、独自係数(旧 headR*1.20)は廃止。毛先はEye中心
+       (yFrac約0.53)より上で止める。 */
+    // BANG_FRONT_MUL: Headの実際の前面(frontZ)からどれだけ前へ出すか。
+    // Hair Shell自体の前面はfrontZ*HAIR_SHELL_MUL(1.09)なので、それより
+    // さらに前に出さないと房として視認できない(1.06ではMesh識別Debugで
+    // 細い線にしかならず、装飾として機能していなかった)。
+    const BANG_FRONT_MUL = 1.18;
+    // Phase 12-B Priority 4ではWarrior専用にBangs Rootをclampして対応した
+    // (生え際からの落差を制限)が、Phase 13-B接写調査で「Rootの高さを
+    // 制限してもBang自体は兜前面のFace Opening内に残り、中央〜左右の
+    // 3本がツノ状の突起として見え続ける」ことが判明した。Warrior Helmの
+    // 開口(耳〜頭頂まで縦に大きい馬蹄形)は3本のBang角度(中央0°、左右
+    // 約45°)すべてを内側に含む実効幅を持つため、Root位置の調整だけでは
+    // 「Face Opening内に突起が残らない」という目標を達成できない。
+    // Phase 13-C: Warrior/Archer(→Hawk Eyeへ継承)は、Bangsそのものを
+    // 生成しない(下記forEach先頭のclassDef.key判定)。Archerは元々Cap
+    // 全周に開口が無くBangs自体一度も生成されていなかったが、Phase 12-B
+    // Priority2でCapにFace Openingを追加した結果、同じ理由(Capが顔全体
+    // 高さを覆う縁なし帽で、3本の角度すべてが開口の実効幅に収まる)で
+    // Bangsが新たに露出するようになっていた(Phase 13-B調査で実機確認
+    // 済み、特に中央のBangはRoot探索がclamp無しのため生え際まで完全に
+    // 露出し最も目立っていた)。Coverage System本体
+    // (findCoverageExitAlongStrand/getHeadwearCoverage等)・Warrior Helm/
+    // Archer Cap Geometryはどちらも変更せず、Bangs生成ループの入口で
+    // Warrior/Archerだけ早期returnする(Mage/Archmage/Rogue/Berserkerの
+    // Bangs生成には一切影響しない)。Side Hair/Back Hairは対象外(今回
+    // Face Visibility問題として報告されていないため変更しない)
+    const bangMeshes = [];
+    [
+      { x:0,             tipYFrac:0.550, rootR:headR*0.20, tipR:headR*0.090, tiltZ: 0.00 },
+      { x:-headR*0.42,   tipYFrac:0.585, rootR:headR*0.18, tipR:headR*0.080, tiltZ:-0.18 },
+      { x: headR*0.42,   tipYFrac:0.585, rootR:headR*0.18, tipR:headR*0.080, tiltZ: 0.18 },
+    ].forEach(b=>{
+      // Warrior/Archer(Hawk Eyeはこの時点でclassDef.key==='archer'固定
+      // のためここに含まれる)は、Face Openingの実効角度幅に3本すべてが
+      // 収まるため、生成自体を行わない
+      if(classDef.key==='warrior' || classDef.key==='archer') return;
+      const tipOut = headOut(b.tipYFrac);
+      const bangZ = tipOut.frontZ*BANG_FRONT_MUL;
+      const bangAngle = Math.atan2(b.x, bangZ);
+      // Headwear Coverage: rootは本来生え際(hairlineOut.y)だが、将来の
+      // Full Face Helm/Mask等でその領域がHEADWEARになった場合に備え、
+      // Strandが伸びる方向(root→tip)に沿ってHEADWEARから抜け出す境界を
+      // 探索し、そこを実際のrootにする(現状4クラスはFace Openingの
+      // ためほぼ無変更のはず ―― Phase 5 QAで確認する)
+      const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, bangAngle, tipOut.y, hairlineOut.y);
+      if(exit.covered) return;   // Bangs全体がHeadwearの内側 ―― 生成しない
+      const tipY = head.position.y + tipOut.y;
+      const rootY = head.position.y + exit.y;
+      const bang = new THREE.Mesh(
+        makeHairBang({rootR:b.rootR, tipR:b.tipR, length:rootY-tipY}), hairMat);
+      bang.position.set(b.x, tipY, bangZ + HEAD_BACK_Z);
+      bang.rotation.z = b.tiltZ;
+      bang.castShadow = true;
+      group.add(bang);
+      bangMeshes.push(bang);
+    });
+
+    /* ---- Side Hair(左右の髪束): 側頭部〜頬の外側シルエットを担当 ----
+       旧実装は X=headR*0.98(頬の実半幅0.393より内側)・Z=headR*0.12
+       (頬の前面0.28より遥かに後ろ)でHeadの内部に埋没していた。頭の
+       実際の最大幅(halfWidth)とそのZ(sideZ)から位置を導出し、
+       SIDE_OUT_MUL 倍だけ外側に置く。頭が上ほど広い(顎→頬)テーパーに
+       合わせて、根元が外へ開くよう傾きも実寸から計算する。 */
+    const SIDE_ROOT_YFRAC = 0.70, SIDE_TIP_YFRAC = 0.28, SIDE_OUT_MUL = 1.10;
+    const sRootOut = headOut(SIDE_ROOT_YFRAC), sTipOut = headOut(SIDE_TIP_YFRAC);
+    const sideRootX = sRootOut.halfWidth*SIDE_OUT_MUL, sideTipX = sTipOut.halfWidth*SIDE_OUT_MUL;
+    const sideLenFull = sRootOut.y - sTipOut.y;
+    const sideTilt = Math.atan2(sideRootX - sideTipX, sideLenFull);   // 上ほど外へ開く角度(anatomical root/tip基準、Coverageで短縮しても向きはこのまま)
+    const sideZ = (sRootOut.sideZ + sTipOut.sideZ)/2;
+    const sideHairMeshes = [];
+    [-1, 1].forEach(s=>{
+      const angle = Math.atan2(s*sideTipX, sideZ);
+      // root(頬上部)がHeadwear Coverageの内側にある場合、Strandが伸びる
+      // 方向(root→tip)に沿ってHEADWEARから抜け出す境界を探し、そこを
+      // 実際のrootにする(rootを単純にHeadwear下端まで下げるのではない)
+      const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, angle, sTipOut.y, sRootOut.y);
+      if(exit.covered) return;   // Side Hair全体がHeadwearの内側 ―― 生成しない
+      const sideLen = exit.y - sTipOut.y;
+      const sideHair = new THREE.Mesh(
+        makeHairBang({rootR:headR*0.20, tipR:headR*0.105, length:sideLen}), hairMat);
+      sideHair.position.set(s*sideTipX, head.position.y + sTipOut.y, sideZ + HEAD_BACK_Z);
+      sideHair.rotation.set(0, 0, -s*sideTilt);
+      sideHair.castShadow = true;
+      group.add(sideHair);
+      sideHairMeshes.push(sideHair);
+    });
+
+    /* ---- Back Hair(後頭部の髪束): 生え際より下(うなじ)の外側を担当 ----
+       旧実装は根元が生え際より上にありHair Capの内側へ完全に埋没して
+       いた(全8クラスのMesh識別Debugで一度も画面に現れなかった)。
+       Hair Shellが覆う範囲より下(生え際〜うなじ)に移し、頭の実際の
+       後頭部点(backZ / backHalfWidth)から BACK_OUT_MUL 倍だけ外側に
+       置く。後頭部も上ほど深いテーパーに合わせて傾きを実寸から計算。 */
+    const BACK_ROOT_YFRAC = 0.62, BACK_TIP_YFRAC = 0.34, BACK_OUT_MUL = 1.08;
+    const bRootOut = headOut(BACK_ROOT_YFRAC), bTipOut = headOut(BACK_TIP_YFRAC);
+    const backLenFull = bRootOut.y - bTipOut.y;
+    const backRootZ = bRootOut.backZ*BACK_OUT_MUL, backTipZ = bTipOut.backZ*BACK_OUT_MUL;
+    const backTilt = Math.atan2(backTipZ - backRootZ, backLenFull);   // 上ほど後方へ(anatomical root/tip基準)
+    // Phase 6: Rogue/Berserkerの実機QAで、Back Hair 3本のうち左右2本が
+    // Nape Openingの角度(旧±0.22テンプレート単位)よりわずかに外側
+    // (実測±14.6°、開口は±12.4°)にあり、findCoverageExitAlongStrand()で
+    // ほぼ切り詰められていたことが判明した(ROGUE_HOOD_ARC_TEMPLATE側で
+    // 開口を±0.30へ拡張、詳細は同定数のコメント参照)。この拡張により
+    // 3本とも露出するようになったため、視認性を上げる目的でrootR/tipRを
+    // 太くし、左右2本には軽微な外向きY回転(BACK_HAIR_SPLAY)を追加して
+    // 「わずかに外側・後方へ流れる」自然な広がりにした(左右対称、
+    // b.xMulの符号をそのまま使うため中央は回転0のまま)。
+    const BACK_HAIR_SPLAY = 0.16;   // ラジアン(約9°)、翼のように大きく開かない程度
+    const backHairMeshes = [];
+    [
+      { xMul: 0.00, rootR:headR*0.185, tipR:headR*0.090 },
+      { xMul:-1.00, rootR:headR*0.150, tipR:headR*0.072 },
+      { xMul: 1.00, rootR:headR*0.150, tipR:headR*0.072 },
+    ].forEach(b=>{
+      const angle = Math.atan2(b.xMul*bTipOut.backHalfWidth, backTipZ);
+      // root(生え際下)がHeadwear Coverageの内側にある場合、Strandが
+      // 伸びる方向(root→tip)に沿ってHEADWEARから抜け出す境界を探す
+      const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, angle, bTipOut.y, bRootOut.y);
+      if(exit.covered) return;   // Back Hair全体がHeadwearの内側 ―― 生成しない
+      const backLen = exit.y - bTipOut.y;
+      const backHair = new THREE.Mesh(
+        makeHairBang({rootR:b.rootR, tipR:b.tipR, length:backLen}), hairMat);
+      backHair.position.set(b.xMul*bTipOut.backHalfWidth, head.position.y + bTipOut.y,
+                            backTipZ + HEAD_BACK_Z);
+      backHair.rotation.set(backTilt, b.xMul*BACK_HAIR_SPLAY, 0);
+      backHair.castShadow = true;
+      group.add(backHair);
+      backHairMeshes.push(backHair);
+    });
+
+    // Phase 8設計方針(8職業の独自性強化): Mageは「長髪キャラクターでは
+    // ない」―― 髪は帽子の下に収まっている設定に統一し、Phase 7で追加した
+    // Mage限定Long Hair Strandはここでは生成しない(Priority 1)。Mageの
+    // 髪は上のBangs/Side Hair/Back Hair(全クラス共通の短い房)のみとし、
+    // 長髪はArchmage昇格時のみapplyJobPromotionVisual()側で追加する
+    // (詳細は同関数のuj.key==='archmage'分岐のコメント参照)。これにより
+    // MageとArchmageが「HatとHairの関係性」で明確に差別化される。
+
+    // グラフィック刷新(戦騎士#低頭身化): 頭+髪+Bangs/Side/Back Hair+目を
+    // applyJobPromotionVisual側からまとめて縮小できるよう、参照を
+    // playerMixerPartsに残しておく(既存クラスの見た目・挙動には一切
+    // 影響しない、参照の追加のみ)。髪飾り一式はhairの直後・faceMeshesの
+    // 直前に挿入 ―― battleKnight昇格時のheadGroupParts.slice(2)(目を
+    // 隠す処理)がこれらも一緒に隠すようになる(完全に頭を覆うbattleKnight
+    // 兜の下から髪束だけ突き出て見える事故を防ぐ)。盗賊(faceMeshesを
+    // 直接参照)や他クラスの挙動には影響しない
+    playerMixerParts.headGroupParts =
+      [head, hair, ...bangMeshes, ...sideHairMeshes, ...backHairMeshes, ...faceMeshes];
+    playerMixerParts.bangMeshes = bangMeshes;
+    playerMixerParts.sideHairMeshes = sideHairMeshes;
+    playerMixerParts.backHairMeshes = backHairMeshes;
 
     /* ---------- class-specific headgear & flourishes ---------- */
     const hY = head.position.y;
     const metalMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.35, metalness:0.7});
     const darkMat  = new THREE.MeshStandardMaterial({color:0x2a2420, roughness:0.7});
     const clothAcc = new THREE.MeshStandardMaterial({color:classDef.trim, roughness:0.85, side:THREE.DoubleSide});
+    // Archmage昇格時、帽子の丸い輪っか(band、下記classDef.key==='mage'
+    // ブロック参照)を白紫系へ差し替えられるよう公開しておく。Mage本体・
+    // 他クラス(clothAccはwarrior/archerの装飾にも使われる共有Material)
+    // には影響しない ―― 昇格していないクラスの見た目はこの追加行だけでは
+    // 変化しない
+    playerMixerParts.clothAcc = clothAcc;
     // 意匠参考(ユーザー提示の4枚のイメージボード、#39系): フードの魔女杖術士
     // →魔法使い、鷹を連れた狩人→弓師/鷹の目、毛皮縁の甲冑騎士→剣士/戦騎士、
     // 双斧の蛮族戦士→盗賊/バーサーカーに対応させた。以前は「怪異の影+
@@ -594,22 +1049,103 @@
     const furMat = new THREE.MeshStandardMaterial({color:0xe6dcc6, roughness:0.9});
 
     if(classDef.key==='warrior'){
-      // full helm + a long scarf trailing off the neck
-      const helm = new THREE.Mesh(new THREE.SphereGeometry(headR*1.16, 10, 8, 0, Math.PI*2, 0, Math.PI*0.62), metalMat);
-      helm.position.set(0, hY+0.03, 0); helm.castShadow = true; group.add(helm);
-      const visor = new THREE.Mesh(new THREE.BoxGeometry(headR*1.9, 0.07, 0.1), darkMat);
-      visor.position.set(0, hY+0.02, headR*0.86); group.add(visor);
+      // グラフィック刷新(戦騎士): 以下で作る素の剣士の兜・襟巻・毛皮・
+      // 革帯・短いマントは、戦騎士へ転身した際にapplyJobPromotionVisual側で
+      // まとめて非表示にし、代わりに一回り大きい低ポリ専用の意匠に差し替える
+      // (2章で解析した「既存キャラクター構造と競合しない」ための差分方式)。
+      // ここではその対象を1配列に集めておくだけで、素の剣士の見た目・挙動は
+      // 一切変えていない
+      const warriorBaseDecor = [];
+      // グラフィック刷新: 球状Helm(SphereGeometry、全方位からHeadを包んで
+      // いたためEyeごと隠していた)から、makeWarriorBaseHelm()(顔側に
+      // Face Openingを持つ馬蹄形の帯、05-rendering-rig.js)へ置き換え。
+      // Head Loft化(makeCharacterHead())で作った頬・顎の顔シルエットと
+      // Eyeが、正面から見えるようにする(詳細はmakeWarriorBaseHelm()側の
+      // コメント参照)。
+      // Player Material Calibration Phase A: 以前はmetalMat(metalness:0.7、
+      // 環境マップ無し)をそのまま流用していたが、Headwear + Head Silhouette
+      // Audit(実機Playwright比較)で「Default Game Cameraでは黒い光沢の
+      // 球体にしか見えず、Low Poly Facet(7角形×3リング)が一切視認できない」
+      // ことが判明した。metalness/roughnessのみを一時的に変えるA/Bテストで
+      // Geometry・Lightingを完全に不変のまま検証した結果、metalnessを下げる
+      // だけでFacetの稜線が明瞭に読めるようになることを確認済み(詳細は
+      // 監査コミットの報告参照)。ここでmetalMatをそのまま書き換えると、
+      // 盗賊の投げナイフ(kn、同じmetalMatを流用)にも意図せず影響するため、
+      // Warrior Helmet専用のwarriorHelmMatを新設して分離した(colorは既存の
+      // metalMatと同じ0x9aa0a8を維持、metalness/roughnessだけ低ポリFacetが
+      // 読める値へ調整。emissive/envMap/flatShadingは今回追加しない)。
+      //
+      // Player Material Calibration Phase A: Before(metalness:0.7,
+      // roughness:0.35)と3候補(A: 0.12/0.55、B: 0.22/0.50、C: 0.32/0.45)を
+      // 同一Geometry・同一Lighting下でDefault Game Camera/Front/Diagonal/
+      // Sideで比較した。B/Cはmetalnessを上げるほどハイライトの面積が広がり、
+      // Facetの稜線がハイライトに埋もれて再び読みにくくなる傾向が出たため、
+      // 最もFacet(7角形×3リング)の稜線・平面の境目が明瞭で、暗部も黒潰れ
+      // せず、かつ適度な金属光沢が残るCandidate Aを採用した
+      const warriorHelmMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.55, metalness:0.12});
+      // helmBottomY/heightはwarriorHelmCoverageAt()(05-rendering-rig.js)
+      // と同じWARRIOR_HELM_BOTTOM_OFFSET_MUL/WARRIOR_HELM_HEIGHT_MULを
+      // 使う ―― Geometry生成とCoverage判定が同じ値を共有するため
+      const helmBottomY = hY + headR*WARRIOR_HELM_BOTTOM_OFFSET_MUL;
+      const helm = new THREE.Mesh(
+        makeWarriorBaseHelm({width:headR, depth:headR, height:headR*WARRIOR_HELM_HEIGHT_MUL}), warriorHelmMat);
+      // Head/Posture Alignment再設計フェーズ: Helm一式(helm/visor/crest/
+      // collar/tail/furBase/spike)にもHEAD_BACK_Zを適用し、Headと一緒に
+      // 後方へ。Headだけ後退してHelmが元の位置に取り残される事故を防ぐ
+      helm.position.set(0, helmBottomY, HEAD_BACK_Z); helm.castShadow = true; group.add(helm);
+      warriorBaseDecor.push(helm);
+      // Priority 1-3(設計図との差分レポート): 「頭巾のようにしか見えない」
+      // への対応。Helm本体は単一の低ポリ曲面シェルで、開口部の縁は
+      // 厚みゼロの生のエッジのため、稜線に金属的な段差・トリムが無く、
+      // 「布のフードに穴が開いている」のと見分けがつきにくかった。
+      // 開口の最上端(WARRIOR_HELM_OPENING_TOP_YFRAC=0.50のリング、
+      // faceZで前へせり出した眉庇の位置)に沿って、実際に厚みのある
+      // 眉当てバー(Visor Rim)を1本渡す。Eyeの高さ(hY+0.02付近)より
+      // 十分上(hY+0.30×headR)にあるため、削除済みのBrow Guard(Eyeの
+      // すぐ上、2枚)のように目を隠すことはない。Helm本体のGeometry/
+      // Position/開口の形状は一切変更していない。
+      // makeWarriorBaseHelm()と同じ式(ローカルy = height*yFrac、
+      // 原点はhelmBottomY)でリング1(中腹=開口上端)の実際のワールドYを出す
+      const visorRimY = helmBottomY + headR*WARRIOR_HELM_HEIGHT_MUL*WARRIOR_HELM_RINGS[1].yFrac;
+      const visorRimHW = headR*WARRIOR_HELM_RINGS[1].widthMul*Math.abs(WARRIOR_HELM_ARC_TEMPLATE[0][0]);
+      const visorRimZ = headR*WARRIOR_HELM_RINGS[1].depthMul*WARRIOR_HELM_RINGS[1].faceZ;
+      const visorRim = new THREE.Mesh(new THREE.BoxGeometry(visorRimHW*2, 0.05, 0.10), clothAcc);
+      visorRim.position.set(0, visorRimY, visorRimZ + HEAD_BACK_Z);
+      visorRim.castShadow = true; group.add(visorRim);
+      warriorBaseDecor.push(visorRim);
+      // Headwear Silhouette Integration Phase(Priority A): 旧Visorは
+      // headR*1.9(顔幅の1.8倍相当)の1枚板をEye位置(hY+0.02)にそのまま
+      // 重ねていたため、Default Game CameraではEyeの高さを顔の端から端
+      // まで横断する「黒い横板」にしか見えず、Eyeの可読性を阻害していた
+      // (Headwear + Head Silhouette Audit、Head/Hair/Headwear Integration
+      // Auditで単体Visibility比較により実証済み)。単純な縮小ではなく、
+      // 中央(鼻筋・鼻〜口の隆起の真上)を空けた左右2枚のBrow Guardに
+      // 分割した ―― Eyeの真上(眉の高さ、Eye上端より上)に置くことで、
+      // Eyeの高さを横断する1本の帯にはならず、兜の眉当てとして自然に
+      // 見えるようにしてある。X方向の外縁(headR*0.60)はHelmet Face
+      // Openingの実効半幅(中腹リングでheadR*0.55*1.15≒headR*0.63)の
+      // 内側に収まるようにし、兜の縁から横に飛び出さないようにした
+      /* Phase 13-F: Brow Guard(左右2枚のBoxGeometry)を削除。
+         ユーザー指摘「目の上に兜のパーツ二つが乗っかっておりおかしい」。
+         Phase 13-EでHelm中腹のfaceZを前へ出して眉庇(まびさし)を兜本体の
+         形状として作ったため、Eyeのすぐ上に別メッシュの眉当てを重ねる
+         必要がなくなった。開口が目の高さに絞られた今、この2枚は狭い
+         開口の中で目より先に視認される異物にしかならない。 */
+
       const crest = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.34), clothAcc);
-      crest.position.set(0, hY+0.28, -0.02); group.add(crest);
+      crest.position.set(0, hY+0.28, -0.02 + HEAD_BACK_Z); group.add(crest);
+      warriorBaseDecor.push(crest);
       // scarf: collar plus two streamers blown back
       const collar = new THREE.Mesh(new THREE.TorusGeometry(headR*0.85, 0.06, 8, 14), clothAcc);
       collar.rotation.x = Math.PI/2;
-      collar.position.set(0, hY-headR*0.95, 0); group.add(collar);
+      collar.position.set(0, hY-headR*0.95, HEAD_BACK_Z); group.add(collar);
+      warriorBaseDecor.push(collar);
       [-1,1].forEach(s=>{
         const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.72), clothAcc);
-        tail.position.set(s*0.1, hY-headR*1.5, -0.28);
+        tail.position.set(s*0.1, hY-headR*1.5, -0.28 + HEAD_BACK_Z);
         tail.rotation.set(0.5, s*0.22, s*0.12);
         group.add(tail);
+        warriorBaseDecor.push(tail);
       });
       // 毛皮の縁飾り(意匠参考: 毛皮縁の甲冑騎士案 + ユーザー指摘「もっと
       // モコモコ、トゲトゲに」)。滑らかなトーラス1本ではなく、根元の
@@ -618,8 +1154,9 @@
       // し、単なる連続パターンに見えないようにしてある
       const furBase = new THREE.Mesh(new THREE.TorusGeometry(headR*1.1, 0.05, 6, 16), furMat);
       furBase.rotation.x = Math.PI/2;
-      furBase.position.set(0, hY-headR*1.0, 0);
+      furBase.position.set(0, hY-headR*1.0, HEAD_BACK_Z);
       furBase.castShadow = true; group.add(furBase);
+      warriorBaseDecor.push(furBase);
       // 見下ろし視点の実際の距離で検証した結果、半径0.038/14本では
       // 判別できないほど小さく埋もれてしまったため、本数を減らして
       // 一本ずつを大きく太くした(数より個々の視認性を優先)
@@ -629,10 +1166,11 @@
         const len = spikeLens[i%3];
         const spike = new THREE.Mesh(new THREE.ConeGeometry(0.055, len, 5), furMat);
         const r = headR*1.14;
-        spike.position.set(Math.sin(ang)*r, hY-headR*1.0, Math.cos(ang)*r);
+        spike.position.set(Math.sin(ang)*r, hY-headR*1.0, Math.cos(ang)*r + HEAD_BACK_Z);
         spike.rotation.set(Math.PI/2-0.4, ang, 0);
         spike.castShadow = true;
         group.add(spike);
+        warriorBaseDecor.push(spike);
       }
       // 鎧のディテール強化(ユーザー指摘「鎧のパーツを細かく分割して」)。
       // 胸当てだけの単調な塊にならないよう、交差する2本の革帯+留め具
@@ -643,16 +1181,19 @@
         strap.position.set(0, HIP_Y+bodyH*0.62, s*bodyR*0.62);
         strap.rotation.x = s*0.62;
         group.add(strap);
+        warriorBaseDecor.push(strap);
       });
       const clasp = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.025,10), trimMat);
       clasp.rotation.x = Math.PI/2;
       clasp.position.set(0, HIP_Y+bodyH*0.6, bodyR*0.55);
       clasp.castShadow = true; group.add(clasp);
+      warriorBaseDecor.push(clasp);
       [-0.55,0,0.55].forEach(o=>{
         const plate = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.05), trimMat);
         plate.position.set(o*bodyR, HIP_Y-0.08, bodyR*0.85);
         plate.rotation.x = -0.15;
         plate.castShadow = true; group.add(plate);
+        warriorBaseDecor.push(plate);
       });
       // 短いマント(ユーザー指摘「マントは短く」、意匠参考: 毛皮縁の甲冑
       // 騎士案)。戦騎士転身時の長い二枚ケープ(applyJobPromotionVisual)
@@ -666,23 +1207,68 @@
         shortCape.position.set(s*0.14, HIP_Y+bodyH*0.82, -bodyR-0.02);
         shortCape.rotation.set(0.12, s*0.5, s*0.06);
         shortCape.castShadow = true; group.add(shortCape);
+        warriorBaseDecor.push(shortCape);
       });
+      playerMixerParts.warriorBaseDecor = warriorBaseDecor;
 
     } else if(classDef.key==='rogue'){
-      // 鉢巻+長髪(ユーザー指摘: 軽装の盗賊は角兜ではなく鉢巻と長髪に)。
-      // 「蛮族」寄りの意匠(角兜・片肩の毛皮)はバーサーカー転身側
-      // (applyJobPromotionVisual)へ寄せ、素の盗賊は軽装・敏捷な印象に
-      // 振り直した
-      const headband = new THREE.Mesh(new THREE.TorusGeometry(headR*1.02, 0.026, 6, 14, Math.PI*1.9), clothAcc);
-      headband.rotation.set(Math.PI/2, 0, Math.PI*0.55);
-      headband.position.set(0, hY+0.06, 0);
-      headband.castShadow = true; group.add(headband);
-      [-1,1].forEach(s=>{
-        const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.055, 0.3), clothAcc);
-        tail.position.set(s*0.05, hY-0.06, -headR*1.05);
-        tail.rotation.set(0.35, 0, s*0.15);
-        group.add(tail);
-      });
+      // フード+マスク(ユーザー指摘「兜/帽子/フードで差別化」、意匠参考:
+      // 月夜の暗殺者案)。以前の鉢巻+長髪(角兜を避けて軽装に振った経緯)
+      // から、フードを主役にする方向へ変更。ただし「軽装・敏捷」の方針
+      // 自体は維持 ―― 鎧のような硬質さではなく、頭を浅く覆うだけの柔らかい
+      // 布のフードにして、剣士の兜(重装)とは対照的な軽さを出している。
+      // Phase 5: 旧CylinderGeometry(全周閉じた回転体、開口なし)から、
+      // makeRogueHood()(05-rendering-rig.js、Warrior Helm/Hawk Eye Hoodと
+      // 同じ「開いた弧のRing Loft」技法、うなじ側にNape Openingを持つ)へ
+      // 置き換えた。position/rotationの値・意味は旧実装から変えていない
+      // (makeRogueHood()のローカルy座標はHead/Hair Shellと同じ中心基準の
+      // ため、旧CylinderGeometryと同じposition.set()がそのまま使える)。
+      // 天板を塞ぐ役割だった旧hoodCap(CircleGeometry)は、makeRogueHood()
+      // 自体が頭頂側をファン分割で閉じるため不要になり削除した。
+      // rogueHoodCoverageAt()(05-rendering-rig.js)と同じROGUE_HOOD_*
+      // 定数を使う ―― Geometry生成とCoverage判定が同じ値を共有するため
+      // Priority 2(設計図との差分レポート、長らく未対応だった指摘):
+      // HoodがclothAcc(=classDef.trim、盗賊は0xc9a24b=明るい金/カーキ)
+      // で塗られており、「月夜の暗殺者」の意匠(Mask=0x1c1a20の暗い布)と
+      // 噛み合わず、頭部だけ明るい黄土色の塊に見えていた。clothAccは
+      // classDef.trimを直接参照する共有Materialで、Rogueの足元リング・
+      // 武器・戦闘VFX色にも同じ値が使われているため、classDef.trim自体を
+      // 変更すると影響範囲が広すぎる(Berserker昇格時のコメント参照)。
+      // Hood専用のMaterial(rogueHoodMat)を新設した ―― 一度は「暗殺者の
+      // 頭巾」に寄せて紺鼠(0x2b2f3a)にしたが、ユーザーから「フード
+      // パーツは色黄色系」と明確な指定があったため、黄色寄りのマスタード
+      // (0xc9a83a)へ差し替えた。Berserker昇格時の
+      // P.rogueHood.material.color.set(uj.capeColor)はMaterial Objectを
+      // 参照しているだけなので、このMaterial差し替え後もそのまま機能する
+      const rogueHoodMat = new THREE.MeshStandardMaterial({color:0xc9a83a, roughness:0.85, side:THREE.DoubleSide});
+      const hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
+      const hood = new THREE.Mesh(
+        makeRogueHood({width:headR, depth:headR, height:hoodH}), rogueHoodMat);
+      hood.rotation.x = ROGUE_HOOD_TILT_X;   // 後方へ深く垂らす(硬い兜の「まっすぐ立つ」向きと対照的)
+      hood.position.set(0, hY+hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL, -headR*0.22 + HEAD_BACK_Z);
+      hood.castShadow = true; group.add(hood);
+      // Phase 12-B Priority 3: Berserker昇格時にHoodのMaterial Colorだけを
+      // 差し替えられるよう参照を保持しておく(battleKnightのwarriorBaseDecor/
+      // archerCapDecorと同じ「差分方式」)。Rogue自身の見た目には影響しない
+      playerMixerParts.rogueHood = hood;
+      // マスク(鼻から下を覆う布) - 目だけ見えるフード付き暗殺者の顔
+      // Phase 12-B Priority 1: 旧BoxGeometryから、makeRogueMask()
+      // (05-rendering-rig.js、makeLoftベースの低ポリ布マスク)へ置き換え。
+      // width/depth/heightの基準値・position.set()はいずれも旧Boxと
+      // 完全に同じ値のまま ―― 変えたのは断面の点配置(makeRogueMask内)
+      // だけ
+      const maskMat = new THREE.MeshStandardMaterial({color:0x1c1a20, roughness:0.85});
+      const mask = new THREE.Mesh(
+        makeRogueMask({width:headR*0.525, depth:headR*0.25, height:headR*0.62}), maskMat);
+      mask.position.set(0, hY-headR*0.42, headR*0.55 + HEAD_BACK_Z);
+      mask.castShadow = true; group.add(mask);
+      // フード+マスクで顔をほぼ覆っているため、既存の球目(白目+瞳+
+      // ハイライト、頭の外へ張り出す形状)をそのまま出すと、覆面の上に
+      // 目玉だけが浮いて見えて不気味(ユーザー指摘)。この見た目のクラスは
+      // 「顔が見える」ことを狙っていない(月夜の暗殺者、覆面で正体を隠す)
+      // ため、ここでは非表示にする ―― 他クラス(魔法使い/弓師は顔が
+      // 見える帽子なので目はそのまま)には影響しない
+      faceMeshes.forEach(m=>{ m.visible = false; });
       // 長髪: 頭頂の短い髪(hair)の下から、背中を伝って垂れる房を追加
       const longHairMat = new THREE.MeshStandardMaterial({color:isFemale?0x2c1e14:0x1b140f, roughness:0.7});
       const ponytail = new THREE.Mesh(new THREE.ConeGeometry(0.075, bodyH*0.5, 7), longHairMat);
@@ -705,41 +1291,67 @@
       // 薄紫の三角帽子の魔女)を受けて、帽子だけclothMat(ローブと共通の
       // クラス色=青系)から切り離し、classDef.hatColorの薄紫専用素材に
       // 変更した。ローブ本体・袖は「そのまま」の指示を尊重し従来のまま
-      const hatMat = classDef.hatColor!=null
+      // グラフィック刷新: 三角帽(cone)には単色べた塗りをやめ、既存の
+      // 手続きテクスチャ(makeLeatherTexture+applyBump、他パーツ・他
+      // クラスで実績のある技法)を適用した。clothMatと同じ質感の作り方に
+      // 揃えている。
+      // ただしCylinderGeometryの上下キャップ(brim=薄い円盤)はUVが中心
+      // から放射状に広がる特殊な貼り方になり、タイル張り前提のこの
+      // テクスチャを乗せると(バンプの有無に関わらず)白く飛んで見える
+      // 不具合を確認した(側面が主体のConeGeometry/円柱側面では問題
+      // ない)。円盤面は素材変更前の単色のまま据え置いている
+      const hatMatCone = classDef.hatColor!=null
+        ? applyBump(new THREE.MeshStandardMaterial({map: makeLeatherTexture(hexStr(classDef.hatColor), 2, 2), roughness:0.75}))
+        : clothMat;
+      const hatMatBrim = classDef.hatColor!=null
         ? new THREE.MeshStandardMaterial({color:classDef.hatColor, roughness:0.75})
         : clothMat;
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(headR*1.95, headR*1.95, 0.04, 16), hatMat);
-      brim.position.set(0, hY+headR*0.55, 0); brim.castShadow = true; group.add(brim);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*1.25, 0.62, 14), hatMat);
-      cone.position.set(0, hY+headR*0.55+0.31, 0);
+      // デザイン設定シート(Phase 6準拠)対応: Archmage昇格時、帽子
+      // (hatMatCone/hatMatBrim)とローブ(clothMat)の色を差し替えられる
+      // よう参照を保持しておく(rogueHood/rogueMaskと同じ「差分方式」)。
+      // Mage自身の見た目には影響しない
+      playerMixerParts.hatMatCone = hatMatCone;
+      playerMixerParts.hatMatBrim = hatMatBrim;
+      playerMixerParts.clothMat = clothMat;
+      // グラフィック刷新(ユーザー指摘「兜/帽子/フードで差別化」): 分割数の
+      // 多い円柱/円錐は面ごとの陰影はともかく輪郭(シルエット)が丸いまま
+      // 読めてしまう(戦騎士の兜で判明した問題と同じ)。ここも分割数を
+      // 大きく落とし、つばと三角帽の輪郭自体を多角形にした
+      // Mage Hat再設計フェーズ: 全方位均等の円盤(CylinderGeometry)だと、
+      // 見下ろしカメラで前方(顔側)にも均等にheadR*1.95まで張り出し、Eye/
+      // 鼻〜口の隆起を含む顔全体を覆い隠していた。makeMageHatBrim()
+      // (05-rendering-rig.js、makeLoftベースの低ポリヘルパー)に差し替え、
+      // 後方・側方の半径は据え置いたまま前方だけ控えめにした非対称の
+      // つばにした(詳細は同関数のコメント参照)。半径・厚みの数値は
+      // 旧CylinderGeometryと同じ(headR*1.95、厚み0.04)ため、帽子全体の
+      // 大きさ・「魔法使いらしさ」は変えていない
+      // Head/Posture Alignment再設計フェーズ: Brim/Cone/BandにもHEAD_BACK_Z
+      // を適用し、Headと一緒に後方へ(帽子だけHeadに取り残さない)
+      // mageHatCoverageAt()(05-rendering-rig.js)と同じMAGE_BRIM_*/
+      // MAGE_CONE_*定数を使う ―― Geometry生成とCoverage判定が同じ値を
+      // 共有するため
+      const brim = new THREE.Mesh(makeMageHatBrim(headR*MAGE_BRIM_RADIUS_BASE_MUL, MAGE_BRIM_THICKNESS), hatMatBrim);
+      brim.position.set(0, hY+headR*MAGE_BRIM_Y_OFFSET_MUL, HEAD_BACK_Z); brim.castShadow = true; group.add(brim);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*MAGE_CONE_R_MUL, MAGE_CONE_HEIGHT_ABS, 7), hatMatCone);
+      cone.position.set(0, hY+headR*MAGE_CONE_CENTER_OFFSET_MUL+MAGE_CONE_HEIGHT_ABS/2, HEAD_BACK_Z);
       cone.rotation.set(-0.16, 0, 0.1); cone.castShadow = true; group.add(cone);
       const band = new THREE.Mesh(new THREE.TorusGeometry(headR*1.2, 0.035, 8, 14), clothAcc);
       band.rotation.x = Math.PI/2;
-      band.position.set(0, hY+headR*0.6, 0); group.add(band);
-      // 前髪(参考画像: 額にかかる紫の前髪)。中央+左右の3房を、目の
-      // すぐ上・生え際の少し下に配置。目の視認性を優先し完全に覆っては
-      // いない(ユーザー許可: 目がうまく出来なければ帽子や髪で半分隠して
-      // 良いとのことだったが、目自体は既に修正済みのため、隠す量は最小限の
-      // 前髪らしい房に留めた)。PlaneGeometryは過去に特定角度で描画されない
-      // 不具合を確認しているため、球ジオメトリを潰して房状にしている
-      const bangMat = new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7});
-      [-1,1].forEach(s=>{
-        const bang = new THREE.Mesh(new THREE.SphereGeometry(headR*0.4, 8, 6), bangMat);
-        bang.scale.set(1, 0.85, 0.55);
-        bang.position.set(s*headR*0.42, hY+headR*0.34, headR*0.74);
-        bang.rotation.z = s*0.25;
-        bang.castShadow = true; group.add(bang);
-      });
-      const bangCenter = new THREE.Mesh(new THREE.SphereGeometry(headR*0.3, 8, 6), bangMat);
-      bangCenter.scale.set(1, 0.8, 0.55);
-      bangCenter.position.set(0, hY+headR*0.4, headR*0.84);
-      bangCenter.castShadow = true; group.add(bangCenter);
-      // long flared sleeves over the arms
-      [-1,1].forEach(s=>{
-        const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.21,0.4,10), clothMat);
-        sleeve.position.set(s*(bodyR+0.12), HIP_Y+bodyH*0.5, 0);
-        group.add(sleeve);
-      });
+      band.position.set(0, hY+headR*0.6, HEAD_BACK_Z); group.add(band);
+      // 前髪(参考画像: 額にかかる紫の前髪)は、Hair再設計Phase 1で全クラス
+      // 共通のBangs(Center/Left/Right、makeHairBang())へ統合されたため、
+      // ここにあった魔法使い専用の球ジオメトリ製の前髪(SphereGeometry3個)は
+      // 削除した ―― 残すと共通Bangsと同じ位置に二重に表示されてしまうため。
+      // 髪色(hairColor)は共通Bangs側にそのまま引き継がれている
+      // Phase 10 Priority 1-B: 長い袖(sleeve)はここでは生成しない ――
+      // 旧実装はgroup直下の固定座標(HIP_Y+bodyH*0.5)に置いていたため、
+      // STANCE.mageの腕の回転(shL/shR)に一切追従せず、実際のArm/Handが
+      // 動くと袖だけがその場に取り残され、手がローブの横腹から唐突に
+      // 出現しているように見えていた(実機QAで確認、Archmageも同一
+      // 問題)。Geometry(CylinderGeometry 0.1→0.21、長さ0.4)は変更せず、
+      // 肩ピボット(armL/armR、以下の腕構築コードで生成される)の子として
+      // Upper Armと同じローカル位置に付け直す ―― 詳細は腕構築コード側の
+      // 「Phase 10 Priority 1-B」コメント参照
       // robe hem widening to the floor
       const robe = new THREE.Mesh(new THREE.CylinderGeometry(bodyR*0.98, bodyR*1.5, 0.62, 12), clothMat);
       robe.position.y = 0.42; robe.castShadow = true; group.add(robe);
@@ -771,11 +1383,77 @@
       });
 
     } else if(classDef.key==='archer'){
-      // hunting cap: shallow dome + a forward peak
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(headR*1.12, 10, 8, 0, Math.PI*2, 0, Math.PI*0.5), clothMat);
-      cap.position.set(0, hY+0.05, 0); cap.castShadow = true; group.add(cap);
-      const peak = new THREE.Mesh(new THREE.ConeGeometry(headR*0.85, 0.3, 4), clothMat);
-      peak.position.set(0, hY+0.16, 0.02); peak.rotation.y = Math.PI/4; group.add(peak);
+      // hunting cap: shallow dome + a forward peak。
+      // グラフィック刷新(ユーザー指摘「兜/帽子/フードで差別化」): 分割数の
+      // 多い球(旧cap)は、面ごとの陰影はともかく輪郭は分割数を上げても
+      // 丸いまま(戦騎士の兜と同じ問題)。低分割の開放型CylinderGeometry+
+      // 上面キャップ(戦騎士の兜と同じ技法)に置き換え、角ばった狩人帽の
+      // 輪郭にした
+      const capSegs = 7;
+      // archerCapCoverageAt()(05-rendering-rig.js)と同じARCHER_CAP_*
+      // 定数を使う ―― Geometry生成とCoverage判定が同じ値を共有するため
+      const capR = headR*ARCHER_CAP_R_MUL, capH = headR*ARCHER_CAP_HEIGHT_MUL;
+      const capCenterY = hY + headR*ARCHER_CAP_CENTER_OFFSET_MUL;
+      // Head/Posture Alignment再設計フェーズ: Cap/CapTop/PeakにもHEAD_BACK_Z
+      // を適用し、Headと一緒に後方へ
+      // Phase 12-B Priority 2: 旧CylinderGeometry(開口なし、Peak12-A Root
+      // Cause)から、makeArcherCap()(05-rendering-rig.js、顔側にFace
+      // Openingを持つArc Ring Loft)へ置き換え。width/depth=capR・
+      // height=capHは旧Cylinderの引数と同じ値のまま ―― position/
+      // CapTop/Peakは変更していない
+      const cap = new THREE.Mesh(makeArcherCap({width:capR, depth:capR, height:capH}), clothMat);
+      cap.position.set(0, capCenterY, HEAD_BACK_Z); cap.castShadow = true; group.add(cap);
+      const capTop = new THREE.Mesh(new THREE.CircleGeometry(headR*ARCHER_CAP_TOP_R_MUL, capSegs), clothMat);
+      capTop.rotation.x = -Math.PI/2;
+      capTop.position.set(0, capCenterY+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop);
+      // Priority 1-1(設計図との差分レポート): 幅の広いつば(Brim)。
+      // makeArcherBrim()(05-rendering-rig.js、Mage Hatのつばアウトラインを
+      // そのまま再利用)を、Capの下端(生え際のすぐ上)のさらに少し下に
+      // 重ねる。CapのGeometry/Positionは変更していない
+      const brim = new THREE.Mesh(
+        makeArcherBrim(headR*ARCHER_BRIM_RADIUS_MUL, ARCHER_BRIM_THICKNESS), clothMat);
+      brim.position.set(0, hY+headR*ARCHER_BRIM_Y_OFFSET_MUL, HEAD_BACK_Z);
+      brim.castShadow = true; group.add(brim);
+      // ユーザー指摘:「鷹の目の方が下位職っぽい見た目になってしまってる」
+      // 「帽子のつばの透過はあまり意味なく輪郭自体は残ってる。つばハマった
+      // 方がいいので目にめり込まないように上にシフトして存在させて」
+      // Root Cause: 旧実装ではBrimもarcherCapDecorに含めてHawk Eye昇格時に
+      // 完全非表示にしていたため、AddOutline()のアウトラインシェル(輪郭線)
+      // だけがGeometry上に残る「実体の無い縁取り」に見えていた。Brimは
+      // archerCapDecorから外し、Hawk Eyeでも実体として存在させたまま、
+      // 昇格時にY位置とMaterialだけ差し替える(下記hawkEye昇格処理参照)
+      playerMixerParts.archerBrim = brim;
+      // Phase 9: Hawk Eye再設計フェーズ。昇格時にCap/CapTop/Peakを隠して
+      // 専用Deep Hoodへ差し替えるための参照(battleKnightのwarriorBaseDecor
+      // と同じ「差分方式」)。Archer自身の見た目・Coverageには一切影響しない
+      // ―― ここでは参照を配列に集めるだけ(Brimは上記の理由で含めない)
+      // ユーザー指摘(2巡目):「頭から立ち上がるツノはいらないので削除」。
+      // 旧Peak(makeWedge、ridgeW=0の角錐、前方斜め上へ突き上げる意匠)を
+      // 完全に削除した。Cap/CapTopのGeometry/Positionは変更していない。
+      // Coverage側(archerCapCoverageAt)もPeak分の判定を削除済み
+      // (05-rendering-rig.js参照)。
+      const archerCapDecor = [cap, capTop];
+      playerMixerParts.archerCapDecor = archerCapDecor;
+      // Priority 1-2(設計図との差分レポート): 鼻から下を覆う布マスク。
+      // Rogueのmakeロジックと全く同じ形状(makeRogueMask、makeLoft3段の
+      // 低ポリ布)を再利用し、Position式もRogueと同一(Head基準、Cap/Hoodの
+      // 高さには依存しない)にしてある。ただしarcherCapDecorには入れない
+      // ―― Hawk Eyeへ昇格してもCap/CapTop/Peakだけを隠しHoodへ差し替える
+      // 一方、マスクはArcher段階で生成されたまま引き継がれる
+      // (Bangs停止の仕組みと同じ「Archerで作ったものをHawk Eyeが継承する」
+      // 構造)。素材色はRogueの黒(0x1c1a20、覆面の暗殺者)ではなく、
+      // 既存のarcherCollar(毛皮襟)と同じ配色(0xa89068系の革)にして、
+      // 隠密ではなく「毛皮縁の狩人」という方向性に合わせた
+      // 実機確認: 0x6b4f34(暗い革)は影に沈んでRogueの黒マスクと
+      // 区別がつかず、0xc9b285(明るい生成り)は肌色(skinMat=0xe8b98a)に
+      // 近すぎて輪郭が消えた。肌より明確に暗く、かつCapの影(ほぼ黒)より
+      // 明確に明るい中間の革色(0x8a5a35)にして、明暗どちらの背景でも
+      // マスクの輪郭が読めるようにした
+      const archerMaskMat = new THREE.MeshStandardMaterial({color:0x8a5a35, roughness:0.85});
+      const archerMask = new THREE.Mesh(
+        makeRogueMask({width:headR*0.525, depth:headR*0.25, height:headR*0.62}), archerMaskMat);
+      archerMask.position.set(0, hY-headR*0.42, headR*0.55 + HEAD_BACK_Z);
+      archerMask.castShadow = true; group.add(archerMask);
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
       // 上げた際(#39系「参考画像のような頭身に」)、見下ろし視点の
       // カメラ角度では前方へ張り出す水平な板が必ず目の上に重なって見える
@@ -809,8 +1487,21 @@
     // arms - shoulder and elbow pivots, with the pauldron on the shoulder
     // and the hand on the forearm, so both travel with the limb instead of
     // hanging in space while the arm rotates out from under them
-    const upperGeo = limbGeo(LIMB_PROFILE.upper,   B.upper,   0.32, 9);
-    const foreGeo  = limbGeo(LIMB_PROFILE.forearm, B.forearm, 0.30, 9);
+    // グラフィック刷新: UpperArm(二の腕)をLatheGeometry(limbGeo/
+    // LIMB_PROFILE.upper)からmakeCharacterUpperArm()(Loft、
+    // 05-rendering-rig.js)へ置き換え。Shoulder側で適度な量感、Elbowへ
+    // 向けて緩やかに絞るテーパーを、旋盤の円形断面の制約なしに表現している
+    // (詳細はmakeCharacterUpperArm()側のコメント参照)。LIMB_PROFILE.upper/
+    // limbGeo自体は削除していない。Forearmは今回変更しないため、foreGeoは
+    // 従来通り
+    const upperGeo = makeCharacterUpperArm({width:B.upper, depth:B.upper, height:0.32});
+    // 同様にForearm(前腕)もmakeCharacterForearm()(Loft)へ置き換え。
+    // UpperArm/Thigh/Calfとは違い、Elbow側からMidForearmまでほぼ太さを
+    // 保ち、そこからWristへ向けてだけ緩やかに絞るシルエットにしている
+    // (詳細はmakeCharacterForearm()側のコメント参照)。LIMB_PROFILE.forearm/
+    // limbGeo自体は削除していない。Elbow飾り球・Vambrace・Hand(Wrist)は
+    // 今回変更しないため、以降のコードは従来通り
+    const foreGeo  = makeCharacterForearm({width:B.forearm, depth:B.forearm, height:0.30});
     const armL = new THREE.Group(), armR = new THREE.Group();
     const elbowL = new THREE.Group(), elbowR = new THREE.Group();
     const handL = new THREE.Mesh(new THREE.SphereGeometry(B.forearm*1.12,8,8), skinMat);
@@ -870,6 +1561,9 @@
       pauldron.position.y = -0.02;
       pauldron.castShadow = true;
       sh.add(pauldron);
+      // グラフィック刷新(戦騎士): 素の丸い肩当てを転身時に隠して、より
+      // 大きい低ポリの肩鎧(Wedge)に差し替えられるよう参照を残しておく
+      if(s < 0) playerMixerParts.pauldronL = pauldron; else playerMixerParts.pauldronR = pauldron;
     });
     group.add(armL, armR);
     playerMixerParts.armR = armR;
@@ -878,6 +1572,29 @@
     playerMixerParts.elbowR = elbowR;
     playerMixerParts.handL = handL;
     playerMixerParts.handR = handR;
+
+    /* Phase 10 Priority 1-B: Mage/Archmageの長い袖(sleeve)。旧実装は
+       group直下の固定座標に置かれ、腕の実際の回転(STANCE.mage)に一切
+       追従しなかった(詳細は上のclassDef.key==='mage'ブロック側の
+       コメント参照)。ここでは肩ピボット(armL/armR、'候補2'のシルエット:
+       Shoulder Pivotの直接の子としてUpper Armと並列に置く ―― Forearm/
+       Elbowの階層は変更しない)の子にし、Upper Armと全く同じローカル
+       位置(y=-0.16)へ揃える。これにより肩の回転(shL/shR)には完全に
+       追従し、肘の折り畳み(elL/elR)までは追従しない(候補1ほど厳密では
+       ない)が、既存のElbow/Forearm階層には一切手を入れずに済み、
+       実機QAで「腕からいきなり手だけが生えて見える」問題を十分に解消
+       できることを確認した(詳細はVisual QA参照)。Geometry
+       (CylinderGeometry、半径0.1→0.21、長さ0.4)自体は変更していない。
+       X位置は肩ピボット自身が既に左右オフセット済みのローカル座標系の
+       ため0(Upper Armと同じ)にしている。 */
+    if(classDef.key === 'mage'){
+      [armL, armR].forEach(sh=>{
+        const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.21,0.4,10), clothMat);
+        sleeve.position.set(0, -0.16, 0);
+        sleeve.castShadow = true;
+        sh.add(sleeve);
+      });
+    }
 
     // class stance, straight out of the choreography table
     {
@@ -1107,6 +1824,31 @@
      二重付与を防ぐため、before何か付いていれば先に外してから組み直す。 */
   function clearJobPromotionVisual(){
     const P = playerMixerParts;
+    // グラフィック刷新(戦騎士): 頭部縮小グループ(headScaleGroup)は
+    // jobDecorMeshesとは別管理 ―― 中身が「本体の」頭/髪/目そのものなので、
+    // 誤って dispose() すると素の剣士に戻った瞬間に顔が消える事故になる。
+    // ここでは dispose せず、waist の子へ元の位置のまま戻すだけにする
+    if(P.headScaleGroup){
+      const hg = P.headScaleGroup;
+      hg.children.slice().forEach(m=>{
+        m.position.add(hg.position);   // headScaleGroup local -> waist local(縮小前の座標に戻る)
+        if(P.waist) P.waist.add(m);
+      });
+      if(hg.parent) hg.parent.remove(hg);
+      P.headScaleGroup = null;
+    }
+    // 戦騎士転身時に隠した素の剣士装飾(兜・毛皮・革帯・肩当て)を可視に戻す。
+    // battleKnight以外はそもそもこれらを隠さないので、他クラスには無関係
+    if(P.warriorBaseDecor) P.warriorBaseDecor.forEach(m=>{ m.visible = true; });
+    if(P.pauldronL) P.pauldronL.visible = true;
+    if(P.pauldronR) P.pauldronR.visible = true;
+    // Phase 9: 鷹の目転身時に隠した素の弓師のCap/CapTop/Peakを可視に戻す。
+    // hawkEye以外はそもそもこれらを隠さないので、他クラスには無関係
+    if(P.archerCapDecor) P.archerCapDecor.forEach(m=>{ m.visible = true; });
+    // 戦騎士の兜で隠した球目(sclera/pupil/highlight)も可視へ戻す。
+    // head/hairも含め一括で可視にしておく(誤って隠れたまま残る事故を防ぐ)
+    if(P.headGroupParts) P.headGroupParts.forEach(m=>{ m.visible = true; });
+
     if(!P.jobDecorMeshes) return;
     P.jobDecorMeshes.forEach(m=>{
       if(m.parent) m.parent.remove(m);
@@ -1139,63 +1881,329 @@
     if(P.offhandWeapon) P.offhandWeapon.scale.setScalar(1.32);
 
     if(uj.key === 'battleKnight'){
-      // 非対称の鎧(ユーザー指摘: 歴戦の騎士のようにアシンメトリーに)。
-      // 左右同じ殻を足していたのをやめ、利き手と逆側(左)には大型の殻+
-      // 追加のリベット段、利き手側(右)は動きを妨げない小ぶりな殻という
-      // 「補修を重ねてきた歴戦の装備」の非対称さを付けた
+      /* =====================================================
+         グラフィック刷新(戦騎士、2026-09-01合意の設計に基づく実装)
+         「旋盤図形を組み合わせた人形」から「Low Polyのファンタジー
+         キャラクター」へ。既存の剣士の骨格(waist/armL/armR等のピボット、
+         STANCE/CLIPSのモーション)は一切変更せず、素の剣士が着ている
+         丸い兜・毛皮・肩当て・短マント(warriorBaseDecor/pauldronL/R、
+         buildPlayer側)をこの転身時だけ隠し、低ポリ専用Primitive
+         (TrapezoidBox/Wedge/Plate、src/render/lowpoly-primitives.js)で
+         作った一回り大きい装備に差し替える。細部の装飾より「重厚な
+         シルエット」を優先し、追加メッシュ数は素のwarriorBaseDecorと
+         同程度に抑えてある(パフォーマンス優先)。
+      ===================================================== */
+      const headYLocal = bodyH + B.headGap;         // 頭の中心(waist基準)
+      const hR = B.headR * 0.86;                    // 縮小後の見た目の頭半径(下記)
+
+      // ---- 頭身調整: 頭+髪+目をまとめて縮小し、5〜6頭身に近づける ----
+      // (「頭を小さくする」指示。目・髪はbuildPlayer側で作った実体を
+      // 一切壊さず、位置関係を保ったまま1つのグループへ包んで縮小する
+      // だけ ―― clearJobPromotionVisualで素の剣士に戻る際は、このグループ
+      // を分解して元の位置・スケールへ戻す。詳細はclearJobPromotionVisual
+      // 冒頭のコメント参照)
+      if(P.headGroupParts && P.headGroupParts.length && P.waist){
+        const headPivot = new THREE.Group();
+        headPivot.position.set(0, headYLocal, 0);
+        P.waist.add(headPivot);
+        P.headGroupParts.forEach(m=>{
+          m.position.sub(headPivot.position);
+          headPivot.add(m);
+        });
+        headPivot.scale.setScalar(0.86);
+        P.headScaleGroup = headPivot;   // jobDecorMeshesとは別管理(dispose禁止)
+      }
+
+      // 素の剣士の丸い兜・毛皮棘・革帯・丸い肩当てを隠す(dispose無し、
+      // 転身解除時にclearJobPromotionVisualが可視へ戻す)
+      if(P.warriorBaseDecor) P.warriorBaseDecor.forEach(m=>{ m.visible = false; });
+      if(P.pauldronL) P.pauldronL.visible = false;
+      if(P.pauldronR) P.pauldronR.visible = false;
+
+      // 顔のビルボード化は検証の結果撤去(ユーザー判断: 「顔の作り込みは
+      // やめる、兜/帽子/フードでの差別化を優先する」)。
+      // 兜が頭のほとんどを覆うため、頭の外へ張り出す球目(sclera/pupil/
+      // highlight)をそのまま出すと、兜の下から目玉だけが浮いて見えて
+      // 不気味(ユーザー指摘)。ここでは非表示にする ―― head/hairは
+      // 残す(headGroupParts[0]=head, [1]=hair, [2]以降=目)。
+      // clearJobPromotionVisualで転身解除時に可視へ戻す
+      if(P.headGroupParts && P.headGroupParts.length > 2){
+        P.headGroupParts.slice(2).forEach(m=>{ m.visible = false; });
+      }
+
+      // flatShading済みマテリアル(既存clothMatFlat/trimMatFlatと同じ
+      // 「低分割ジオメトリ+flatShading = 低ポリの面ごとの陰影」手法)。
+      // 単色べた塗りだと「安いプラスチック」に見える(ユーザー指摘)ため、
+      // 既存の手続きテクスチャ(makeMetalTexture/makeLeatherTexture+
+      // applyBump、他クラス・敵・ボスで実績のある技法)を全面的に適用し、
+      // 金属のブラッシュ目・傷・毛皮のむら等の質感情報を足した。
+      // 鎧本体は金トリム(trimMat=uj.trim)そのものではなく、暗めの鋼色を
+      // 主色にする ―― trimMatを鎧全面に使うと「金色の球」一色になって
+      // シルエットが説明できなくなる事故が最初の実装で起きたため、
+      // 参考画像(赤/臙脂+鋼+金の縁取り)の配色に合わせて分離した。
+      // 金(knightGold)は兜の鶏冠飾りなど、ごく一部の縁取りにのみ使う
+      const knightSteel = applyBump(new THREE.MeshStandardMaterial({
+        map: makeMetalTexture(hexStr(0x6a6f78), 2, 2), roughness:0.4, metalness:0.55, flatShading:true}));
+      const knightGold = applyBump(new THREE.MeshStandardMaterial({
+        map: makeMetalTexture(hexStr(uj.trim), 2, 1), roughness:0.35, metalness:0.5,
+        emissive:uj.trim, emissiveIntensity:0.16, flatShading:true}));
+      const knightDark = applyBump(new THREE.MeshStandardMaterial({
+        map: makeMetalTexture(hexStr(0x241d18), 1, 1), roughness:0.6, metalness:0.3, flatShading:true}));
+      const knightFur = applyBump(new THREE.MeshStandardMaterial({
+        map: makeLeatherTexture(hexStr(0xe6dcc6), 2, 2, {bump:0.06}), roughness:0.92, side:THREE.DoubleSide, flatShading:true}));
+
+      // ---- 兜(Polyhedron): 低分割の部分球はやめ、七角柱(頂点数の少ない
+      // CylinderGeometry、openEnded)+上面キャップに置き換えた。
+      // 低分割の球は面ごとの陰影(flatShading)こそ付くが、輪郭(シルエット)
+      // は分割数を上げても丸いまま ―― flatShadingは陰影だけを変え、
+      // アウトラインは変えないため、見下ろし視点の実プレイでは結局
+      // 「丸い球」にしか見えない。Cylinder/Coneは分割数を下げるほど輪郭
+      // 自体が多角形になるため、七角柱なら側面からでも上から見ても
+      // 明確に角ばった兜として読める。頬〜顎にかけて広がり(radiusBottom)、
+      // 頭頂に向けて絞る(radiusTop)ことで兜らしい傾斜も付けた。
+      // 底面は開放(openEnded) - 下は頭部メッシュに隠れるため不要
+      //
+      // Head Silhouette再検証フェーズ(実機Playwright): 実際のDefault Game
+      // Cameraで「戦騎士の頭がほぼ丸出しに見える」ことが判明した。原因は
+      // 単純な位置ズレではなく、Coneの先細り(radiusTop=radiusBottom*0.42)
+      // が急すぎたこと ―― Headの頬(cheek、Head全断面中の最大幅)の高さは
+      // 兜の下端からおよそ30%の高さ(t≈0.31)にあり、そこでのCone半径を
+      // 実際に計算すると、旧設定(radiusBottom=hR*1.10、radiusTop=
+      // radiusBottom*0.42)ではHeadの頬の実際の半幅(hR*1.06)を大きく
+      // 下回っていた(約15%不足)。つまり兜下端では頭を覆えていても、
+      // 頬の高さに達する頃には兜の側面がすでに頭より細くなっており、
+      // Headがその隙間から側面へ突き抜けて見えていた(Mesh貫通チェックや
+      // Bounding Box比較では検出しづらい「側面が途中で細くなる」タイプの
+      // 不整合)。radiusBottomを広げ(1.10→1.25)、radiusTopの比率も緩めた
+      // (0.42→0.75、先細りを穏やかに)ことで、頬の高さでも実測で約9%の
+      // 余裕を持って頭を覆うようにした。兜全体が誇張して大きくならないよう
+      // 頭頂側の絞り自体は残している
+      const helmetR = hR*1.25;
+      const helmetTopMul = 0.75;
+      const helmetH = hR*1.55;
+      const helmetSegs = 7;
+      // Head/Posture Alignment再設計フェーズ: Helmet一式(helmetSide/
+      // helmetCap/visor/brow/crest/tuft)にもHEAD_BACK_Zを適用し、Headと
+      // 一緒に後方へ
+      const helmetSide = new THREE.Mesh(
+        new THREE.CylinderGeometry(helmetR*helmetTopMul, helmetR, helmetH, helmetSegs, 1, true), knightSteel);
+      const helmetY = headYLocal + hR*0.30;
+      helmetSide.position.set(0, helmetY, HEAD_BACK_Z);
+      helmetSide.castShadow = true; P.waist.add(helmetSide); meshes.push(helmetSide);
+      // 頭頂キャップ(七角形の板) - 見下ろし視点では兜のうち最も大きく
+      // 見える面なので、これも多角形であることが重要
+      const helmetCap = new THREE.Mesh(new THREE.CircleGeometry(helmetR*helmetTopMul, helmetSegs), knightSteel);
+      helmetCap.rotation.x = -Math.PI/2;
+      helmetCap.position.set(0, helmetY + helmetH/2, HEAD_BACK_Z);
+      helmetCap.castShadow = true; P.waist.add(helmetCap); meshes.push(helmetCap);
+      // 顔の開口部を示す暗い縁(visor) - 既存と同じ「目の高さの薄い帯」
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(hR*1.7, 0.07, 0.10), knightDark);
+      visor.position.set(0, headYLocal+0.01, hR*0.92 + HEAD_BACK_Z);
+      P.waist.add(visor); meshes.push(visor);
+      // 眉庇(Wedge): visorの上に、前方へ張り出す角ばった庇を追加。
+      // 「兜/帽子で差別化する」方針(ユーザー指摘)を受けて、兜そのものの
+      // シルエットをもう一段強調する ―― 顔の作り込みをやめた分、兜の
+      // 存在感を増やす狙い
+      const browGeo = makeWedge({baseW:hR*1.55, baseD:hR*0.55, height:0.09, ridgeW:hR*0.9, ridgeOffsetZ:-hR*0.35});
+      const brow = new THREE.Mesh(browGeo, knightSteel);
+      brow.rotation.x = Math.PI;   // 広い面を上に(既存の肩鎧と同じ反転)
+      brow.position.set(0, headYLocal+hR*0.18, hR*0.80 + HEAD_BACK_Z);
+      brow.castShadow = true; P.waist.add(brow); meshes.push(brow);
+      // 兜の鶏冠飾り(Wedge): 平らな板ではなく、根元から稜線へ向けて
+      // 傾斜するくさび形にして低ポリらしい面の切り替わりを出す。
+      // 参考画像の兜飾りに近づけるため、さらに一回り大きく・前方へ
+      // 反った形にした。ここだけ金(knightGold)にして、鋼色の兜に対する
+      // 縁取りにする
+      const crestGeo = makeWedge({baseW:0.16, baseD:0.56, height:0.44, ridgeW:0, ridgeOffsetZ:-0.14});
+      const crest = new THREE.Mesh(crestGeo, knightGold);
+      crest.position.set(0, helmetY + helmetH/2 - 0.02, -0.02 + HEAD_BACK_Z);
+      crest.castShadow = true; P.waist.add(crest); meshes.push(crest);
+
+      // ---- 大きな毛皮(Plate複数枚、不規則な輪郭): 首まわりに6枚 + 肩に
+      // 大きめを2枚。既存の「棘のリング」(小さく尖った突起)より面積が
+      // あり、「毛皮が多い」印象を安く出す。1枚ごとに輪郭点を少しずつ
+      // ずらして、単調な繰り返しに見えないようにしてある ----
+      const furTuftOutline = (variant)=>[
+        {x:-0.16,y:0.03}, {x:0.16,y:0.00+variant}, {x:0.22,y:-0.22-variant},
+        {x:0.08,y:-0.42}, {x:-0.07,y:-0.28-variant}, {x:-0.22,y:-0.20},
+      ];
+      for(let i=0;i<6;i++){
+        const ang = (i/6)*Math.PI*2;
+        const variant = (i%2===0) ? 0.05 : -0.03;
+        const tuft = new THREE.Mesh(makePlate(furTuftOutline(variant), {foldWaves:1.4, foldDepth:0.025, phase:i}), knightFur);
+        const r = hR*1.15;
+        tuft.position.set(Math.sin(ang)*r, headYLocal - hR*0.85, Math.cos(ang)*r + HEAD_BACK_Z);
+        tuft.rotation.y = -ang;
+        tuft.castShadow = true; P.waist.add(tuft); meshes.push(tuft);
+      }
+      // 肩の毛皮(左右とも一回り大きく) - 肩当ての付け根を覆い隠すように
+      // 上へ乗せる。腕グループの子なので歩行/振りの動きに追従する
+      /* Phase 13-F: 肩の毛皮(shoulderFur)を削除。makePlate()は薄い1枚の
+         板なので、見下ろしのDefault Game Cameraでは向きをどう変えても
+         「肩に白い板が貼り付いている」ようにしか見えなかった(ユーザー
+         指摘。角度・サイズ・枚数を変えて実機確認したが改善せず)。
+         首まわりの毛皮(上のfurTuft 6枚)と肩鎧(bigL/smallR)で肩の
+         シルエットと毛皮の情報は足りているため、この2枚は出さない。 */
+
+      // ---- 胸鎧(TrapezoidBox): 回転体では作れない、肩幅で広く腰で絞る
+      // 前後非対称の絞り。既存bigChest(円柱の一部)より鎧らしい硬質な
+      // シルエットになる。鋼色(knightSteel)で、下の赤い胴着(既存torso)
+      // との色差でシルエットが説明できるようにする ----
+      const chestArmor = new THREE.Mesh(makeTrapezoidBox({
+        topW:bodyR*2.2, topD:bodyR*1.3, botW:bodyR*1.6, botD:bodyR*0.95,
+        height:bodyH*0.58, topOffsetZ:0.04, botOffsetZ:0.05,
+      }), knightSteel);
+      chestArmor.position.y = bodyH*0.62;
+      chestArmor.castShadow = true; P.waist.add(chestArmor); meshes.push(chestArmor);
+
+      // ---- 腰鎧(TrapezoidBox): ベルトの下、腰から裾に向けて開くフォールド
+      // 状の帯。胸鎧と同じPrimitiveだが上下を逆にして「開く」向きにする ----
+      const waistArmor = new THREE.Mesh(makeTrapezoidBox({
+        topW:bodyR*1.35, topD:bodyR*0.85, botW:bodyR*2.0, botD:bodyR*1.25,
+        height:bodyH*0.34, botOffsetZ:0.04,
+      }), knightSteel);
+      waistArmor.position.y = -bodyH*0.02;
+      waistArmor.castShadow = true; P.waist.add(waistArmor); meshes.push(waistArmor);
+
+      // ---- 肩鎧(Wedge、左右非対称): 利き手と逆側(左)は大きく前へ鋭く
+      // 傾斜する殻、利き手側(右)は動きを妨げない小ぶりな殻。既存の球殻
+      // (bigL/smallR)より輪郭にインパクトが出る。
+      // 見下ろし視点のカメラでは「上から見て広い面」が最もシルエットに
+      // 効くため、makeWedgeの既定(底面が下・稜線が上)を180度反転させ、
+      // 広い底面を上(肩の上面)に、先端を下(腕側)へ向けている ----
       if(P.armL){
-        const bigL = new THREE.Mesh(new THREE.SphereGeometry(B.upper*2.15, 8, 6, 0, Math.PI*2, 0, Math.PI*0.62), trimMat);
-        bigL.position.y = -0.03; bigL.castShadow = true;
+        /* Phase 13-F: 旧値(baseW 3.0/baseD 2.7/height 2.3 の×upper)は
+           肩に対して大きすぎ、さらにrotation.x=PIで広い底面が真上を向く
+           ため、見下ろしカメラでは「左肩に白い板が乗っている」ようにしか
+           見えなかった(ユーザー指摘)。肩を覆う殻として読める大きさまで
+           絞り、外側へ傾けて上面だけが見える状態を避ける。 */
+        const bigL = new THREE.Mesh(makeWedge({
+          baseW:B.upper*2.2, baseD:B.upper*2.0, height:B.upper*1.5,
+          ridgeW:B.upper*0.9, ridgeOffsetZ:B.upper*0.35,
+        }), knightSteel);
+        bigL.rotation.set(Math.PI, 0, -0.30);   // 反転(広い面を上)+外側へ傾ける
+        bigL.position.set(-B.upper*0.35, 0.06, 0); bigL.castShadow = true;
         P.armL.add(bigL); meshes.push(bigL);
-        const rivetRing = new THREE.Mesh(new THREE.TorusGeometry(B.upper*1.7, 0.025, 5, 10), trimMat);
-        rivetRing.rotation.x = Math.PI/2;
-        rivetRing.position.y = 0.08;
-        P.armL.add(rivetRing); meshes.push(rivetRing);
       }
       if(P.armR){
-        const smallR = new THREE.Mesh(new THREE.SphereGeometry(B.upper*1.55, 7, 6, 0, Math.PI*2, 0, Math.PI*0.55), trimMat);
-        smallR.position.y = -0.02; smallR.castShadow = true;
+        const smallR = new THREE.Mesh(makeWedge({
+          baseW:B.upper*1.7, baseD:B.upper*1.6, height:B.upper*1.15,
+          ridgeW:B.upper*0.7, ridgeOffsetZ:B.upper*0.28,
+        }), knightSteel);
+        smallR.rotation.set(Math.PI, 0, 0.26);
+        smallR.position.set(B.upper*0.28, 0.04, 0); smallR.castShadow = true;
         P.armR.add(smallR); meshes.push(smallR);
       }
-      // 長いマント、背中から二枚(ユーザー指摘: マントは長く。ただし
-      // 後ろから見て体が隠れないよう、真後ろではなく左右に大きく開いて
-      // 靡く角度にした ―― baseRotYを0から左右へ大きく振り、資料26番の
-      // バネ追従(updateJobDecor)もこの新しい開き角を中心に揺れる)
+
+      // ---- 長いマント(Plate、不規則な裾): 既存のmakeClothPanel(矩形+
+      // 正弦波)からmakePlateへ強化し、裾を左右非対称・ギザギザの輪郭に
+      // した。updateJobDecorのバネ追従(anim.capes)はそのまま流用 ----
+      const capeOutline = [
+        {x:-0.36,y:1.0}, {x:0.40,y:0.96},
+        {x:0.62,y:0.30}, {x:0.50,y:-0.15}, {x:0.40,y:0.05},
+        {x:0.16,y:-0.30}, {x:0.02,y:-0.05},
+        {x:-0.18,y:-0.34}, {x:-0.34,y:-0.02},
+        {x:-0.62,y:0.22},
+      ];
       const knightCapes = [];
       [-1, 1].forEach(s=>{
-        // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す。
-        // 揺れ(updateJobDecorのバネ追従)はcape.rotationを直接動かすため
-        // makeClothPanelの静的な折り目形状とは独立して問題なく共存する
-        const cape = makeClothPanel(0.5, bodyH*1.2, uj.capeColor, {rows:8, foldDepth:0.05, phase:s*0.8});
-        cape.position.set(s*0.30, bodyH*0.60, -bodyR-0.02);
-        const baseRotY = s*0.62;   // 横に大きく開く(真後ろに垂らさない)
+        const outline = capeOutline.map(p=>({x:p.x*s, y:p.y}));   // 左右で鏡映(非対称の歯型は保つ)
+        const cape = new THREE.Mesh(makePlate(outline, {foldWaves:2.4, foldDepth:0.045, phase:s*0.8}),
+          new THREE.MeshStandardMaterial({map: makeLeatherTexture(hexStr(uj.capeColor), 2, 2), roughness:0.82, side:THREE.DoubleSide}));
+        // Phase 13-F: capeOutlineの上端はy=+1.0(絶対値)なので、旧
+        // position.y=bodyH*0.66 だとマント上端が bodyH*0.66+1.0 ≈ 1.66 と
+        // なり、頭頂(headYLocal+headR ≈ 1.44)より上へ突き抜けて「頭から
+        // マントが生えている」ように見えていた。上端が肩の高さに来るよう
+        // 下げる(bodyH*0.95 - 上端1.0)
+        cape.position.set(s*0.30, bodyH*0.95 - 1.0, -bodyR-0.02);
+        const baseRotY = s*0.62;
         cape.rotation.set(0.1, baseRotY, s*0.08);
+        cape.castShadow = true;
         P.waist.add(cape); meshes.push(cape);
         knightCapes.push({mesh:cape, baseRotY, baseRotZ:s*0.08, swayPhase:s*1.7, springAngle:0, springVel:0});
       });
       anim.capes = knightCapes;
-      // 胸甲の増設(既存chestPlateより一回り大きい帯)
-      const bigChest = new THREE.Mesh(
-        new THREE.CylinderGeometry(bodyR*0.92, bodyR*0.98, bodyH*0.5, 10, 1, false, -1.05, 2.1), trimMat);
-      bigChest.position.y = bodyH*0.62;
-      bigChest.scale.set(1.05, 1, 1.05);
-      P.waist.add(bigChest); meshes.push(bigChest);
 
     } else if(uj.key === 'berserker'){
-      // 荒々しさ: 頭上に逆立つ髪(既存の角兜はそのまま、その上へ重ねる)。
-      // 資料20番(「髪の揺れ」)に対応し、常時ごく小さくジッターさせる
-      // (updateJobDecorのanim.hairSpikes)対象として登録する
+      /* デザイン設定シート(Phase 6準拠)ではBerserkerはHoodを持たない
+         (金髪が逆立つ荒くれ者)デザインのため、一度Hood非表示+金髪化を
+         試したが、実機でユーザーから「変だからフード戻して」と明確な
+         差し戻し指示を受けた。Hoodを被った状態に金髪の房(hairSpikes等)
+         だけが浮いて乗る見た目は一貫性が無く不自然だったため、Hoodの
+         表示・色だけでなく金髪化(buildPlayer側で一時追加していた
+         Hair Shell/ponytail用の色差し替え参照も含む)も合わせて差し戻し、
+         Phase 12-B Priority 3時点の見た目(Hood表示+uj.capeColorで
+         色替え、髪は既定の黒〜焦げ茶のまま)に完全復元する。Rogue自身の
+         Hood(buildPlayer側で生成される元のMesh)には一切触れていない
+         ため、Rogueの見た目には影響しない */
+      if(P.rogueHood) P.rogueHood.material.color.set(uj.capeColor);
+
+      /* Phase 8 Priority 3: Rogue/Berserker差別化(Root Cause)。
+         hairSpikes/longHair/beardはいずれもbodyH比の手打ち座標
+         (例: bodyH*0.985)で置かれていたが、この値は現行のHead/Hood比率
+         (headYLocal=bodyH+B.headGap基準)とかけ離れており、実測すると
+         hairSpikesはHead中心よりかなり下(顎付近の高さ)、longHairは
+         Rogueの素のponytail(buildPlayer側、headR*1.9下)と大きくY/Z範囲が
+         重なり、beardはRogueのMask(顔下部を覆う布)の内側に埋もれていた
+         ―― 「要素が存在するのに実際には見えない」状態だった(実機QAで
+         確認)。ここではGeometry(Cone数・分割数)やHood/Mask自体は一切
+         変更せず、既存のROGUE_HOOD_*定数(makeRogueHood()と同じ値を
+         参照するだけ、Coverage/Geometry生成ロジックは不変)とHead基準
+         (headYLocal)からPositionだけを導出し直す。 */
+      const bHeadR = B.headR;
+      const headYLocal = bodyH + B.headGap;   // P.waist基準のHead中心Y(buildPlayerのhead.position.yに相当)
+      // Hoodの実際の頭頂Y(makeRogueHood()呼び出し側と同じ式:
+      // hoodH=headR*ROGUE_HOOD_HEIGHT_MUL、center=hY+hoodH*ROGUE_HOOD_
+      // CENTER_OFFSET_MUL、頭頂はそのcenterからさらにhoodH/2上)。
+      // Hood自体の傾き(ROGUE_HOOD_TILT_X)による実効高さの目減り分
+      // (cos(tilt)相当、Rogue Hood側のコメントと同じ近似)を見込んで
+      // 少し余裕を持たせてある
+      const hoodCrownY = headYLocal + bHeadR*ROGUE_HOOD_HEIGHT_MUL*(ROGUE_HOOD_CENTER_OFFSET_MUL+0.5);
+      // 荒々しさ: 頭上に逆立つ髪。旧位置(bodyH*0.985、実測でHead中心より
+      // 大きく下 = 顎の高さ相当)から、Hood頭頂を確実に超える高さへ
+      // 引き上げた。Geometry(5本、分割数5、太さ0.035)自体は変更していない
+      // ―― 「巨大化しすぎず、Hoodを覆ったり別の帽子に見えたりしない」
+      // 指示を尊重し、位置調整のみで解決する
+      const spikeBaseY = hoodCrownY + bHeadR*0.06;   // Hood頭頂よりわずかに高い位置を毛束の根元にする
+      // ユーザー指摘「変だからフード戻して」を受け、金髪化は差し戻し、
+      // 元の黒(0x1a1410)に戻した
       const hairMat = new THREE.MeshStandardMaterial({color:0x1a1410, roughness:0.85});
       const hairSpikes = [];
       for(let i=-2;i<=2;i++){
-        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.24+Math.abs(i)*0.03, 5), hairMat);
-        spike.position.set(i*0.05, bodyH*0.985, -0.02);
+        const spikeLen = 0.24+Math.abs(i)*0.03;
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, spikeLen, 5), hairMat);
+        // Head/Posture Alignment再設計フェーズ: HeadやHairと同じHEAD_BACK_Z
+        spike.position.set(i*0.05, spikeBaseY + spikeLen/2, -0.02 + HEAD_BACK_Z);
         const baseRotZ = i*0.12;
         spike.rotation.set(-0.15 - Math.abs(i)*0.08, 0, baseRotZ);
         P.waist.add(spike); meshes.push(spike);
         hairSpikes.push({mesh:spike, baseRotZ, phase:i*0.9});
       }
       anim.hairSpikes = hairSpikes;
+      // ユーザー指摘:「バーサーカーのヘッドパーツの隙間から地肌か髪が
+      // 見えてるのが気になる」。Mesh Ownership Debug(skinMatを一時的に
+      // シアンへ差し替え)で確認したところ、こめかみ付近(Hood頭頂と
+      // 逆立つ髪の房の根元の間の高さ)にHead本体の地肌が三角形に露出して
+      // いた。既存のhairSpikes(5本)はx∈[-0.1,0.1]の狭い範囲にしか無く、
+      // この高さでこめかみの幅までは元々何も覆っていなかった(Rogue本体は
+      // この高さで頭が確実にHoodの内側に収まるため露出しないが、
+      // Berserkerは前傾姿勢でカメラから見える角度が変わり露出していた)。
+      // Y位置はmakeRogueHood()のRINGS式から理論値を計算したが、Hood
+      // 断面が単純な円形ではない(7点の非対称多角形)ため理論値だけでは
+      // 実際の露出位置とズレがあり、Mesh Ownership Debug(塞ぎ用の球を
+      // 目立つ色にして位置を可視化)で実機と突き合わせながら微調整した
+      // (最終的にheadYLocal+hoodH*0.615)。中央の5本(逆立つ髪)自体は
+      // 「巨大化しすぎない」既存方針を尊重して変更せず、この高さで
+      // こめかみ側へ張り出す小さな毛の塊(球、回転に左右されず狙った
+      // 位置を確実に覆える形状)を左右1本ずつ追加してこの隙間だけを塞ぐ
+      const hoodH = bHeadR*ROGUE_HOOD_HEIGHT_MUL;
+      const templeTuftY = headYLocal + hoodH*0.615;
+      [-1, 1].forEach(s=>{
+        const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.165, 7, 6), hairMat);
+        tuft.position.set(s*0.185, templeTuftY, 0.13 + HEAD_BACK_Z);
+        tuft.castShadow = true;
+        P.waist.add(tuft); meshes.push(tuft);
+      });
       // 前傾姿勢: 常時飛びかかりそうな体勢。ここで一度だけP.waist.rotation.xへ
       // 書いても、歩行/待機のidle姿勢が毎フレームwaist.rotation.xを上書きする
       // (updateLocomotion)ため即座に消えてしまっていた。恒久的な前傾は
@@ -1241,39 +2249,273 @@
       });
       // 長髪+長髭(ユーザー指摘)。既存の逆立つ髪(hairSpikes)はそのまま
       // 残し、後頭部から流れる長髪と顎の長い髭を追加した
+      // Phase 8 Priority 3: longHairは旧位置(bodyH*0.86)だとRogueの素の
+      // ponytail(buildPlayer側、hY-headR*1.9)とY/Z範囲が大きく重なり、
+      // 実質的に同じ房が二重に置かれているだけでBerserker側の追加要素と
+      // して視認できなかった(実測で確認)。hairSpikesの根元(spikeBaseY)
+      // 付近から始めて明確に長く伸ばすことで、Rogueのponytailより高い
+      // 位置から連続する「荒々しいたてがみ」にし、Zもponytail
+      // (-headR*0.85)よりさらに後方へ離して重なりを減らした。Cone自体の
+      // 分割数(7)・Coverage/Hood/Rogue側のコードは変更していない
+      // ユーザー指摘「変だからフード戻して」を受け、金髪化は差し戻し、
+      // 元の黒褐色(0x241a10)に戻した
       const wildHairMat = new THREE.MeshStandardMaterial({color:0x241a10, roughness:0.75});
-      const longHair = new THREE.Mesh(new THREE.ConeGeometry(0.09, bodyH*0.6, 7), wildHairMat);
-      longHair.position.set(0, bodyH*0.86, -bodyR*0.9);
+      const longHairLen = bodyH*0.85;   // 旧0.6→延長。Rogue ponytail(bodyH*0.5)より明確に長い
+      const longHairTopY = spikeBaseY - bHeadR*0.10;   // hairSpikesの根元のすぐ下から流れ始める
+      const longHair = new THREE.Mesh(new THREE.ConeGeometry(0.095, longHairLen, 7), wildHairMat);
+      longHair.position.set(0, longHairTopY - longHairLen/2, -bodyR*1.15);
       longHair.rotation.set(-0.35, 0, 0);
       P.waist.add(longHair); meshes.push(longHair);
-      const beard = new THREE.Mesh(new THREE.ConeGeometry(0.11, bodyH*0.38, 7), wildHairMat);
-      beard.position.set(0, bodyH*1.0, bodyR*0.55);
+      // Phase 8 Priority 3: beardは旧位置(bodyH*1.0)だとRogueのMask
+      // (顔下部を覆う布、底辺はheadYLocal-headR*0.73相当)の内側に大部分が
+      // 埋もれ、Maskの下からわずかに覗く先端(円錐の最も細い部分)しか
+      // 露出していなかった(実測で確認)。Maskの底辺ちょうどから垂れる
+      // 位置へ下げ、根元の太い部分もMaskの外へ出るようにした。サイズ
+      // (太さ0.11・長さbodyH*0.38)・Coverage/Rogue側のコードは変更していない
+      const maskBottomY = headYLocal - bHeadR*0.73;   // Rogue Mask(buildPlayer)の底辺と同じ式
+      const beardLen = bodyH*0.38;
+      const beard = new THREE.Mesh(new THREE.ConeGeometry(0.11, beardLen, 7), wildHairMat);
+      beard.position.set(0, maskBottomY - beardLen/2, bodyR*0.55);
       beard.rotation.set(Math.PI, 0, 0);
       P.waist.add(beard); meshes.push(beard);
 
     } else if(uj.key === 'archmage'){
-      // 大型化した帽子の房飾り(既存の帽子の上に追加)
-      const bigCone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 12), trimMat);
-      bigCone.position.set(0, bodyH*1.42, 0);
-      P.waist.add(bigCone); meshes.push(bigCone);
-      // 帽子から伸びる髪(ユーザー指摘: 蛍光ライトブルー色)。帽子のつば
-      // (buildPlayerのbrim、hY+headR*0.55)の下から、後方へ流れる房を
-      // 数本追加した
-      const glowHairMat = new THREE.MeshStandardMaterial({
-        color:0x5fd8ff, emissive:0x2ab0ff, emissiveIntensity:0.9, roughness:0.4});
-      [-0.09,-0.03,0.03,0.09].forEach((x,i)=>{
-        const strand = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.34+((i%2)*0.08), 5), glowHairMat);
-        strand.position.set(x, bodyH*1.06, -0.08);
-        strand.rotation.set(-0.55, 0, x*0.6);
-        P.waist.add(strand); meshes.push(strand);
+      /* Mage自身のローブ(clothMat)・帽子(hatMatCone/hatMatBrim)は
+         Mage自体の色調整と連動して変わるため、Archmage側で明示的に
+         差し替えないと「Mageと同じ配色の魔導士」になってしまう。
+
+         色調整の経緯(最新の指摘が優先):
+         1〜3回目の調整で、帽子=淡いオフホワイト/ローブ=暗色/胸当て=
+         ピューター調という「部位ごとに違う色」の配色にしていたが、
+         ユーザーから「魔導士の帽子やローブ全体も胸元と同じ色に」との
+         指摘があり、方針を転換した ―― 帽子・ローブ・胸当てを全て
+         ARCHMAGE_NAVY(単一の紺色)に統一する。淡いオフホワイトの帽子・
+         2種類の紺の使い分けは廃止。丸い輪っか(帽子のband/ローブの
+         beltMat、白紫系0xd8c8f0)だけは差し色として従来通り残す。
+
+         hatMatBrim/beltMat/clothAccは単色Material(map無しの単純な
+         MeshStandardMaterial、beltMatはtrimMat.clone()だが.mapは
+         Textureの参照コピーなので下で明示的に差し替える)のため
+         .color.set()で直接差し替え可能。一方clothMat/hatMatCone/
+         trimMat/trimMatFlatはmakeLeatherTexture()/makeMetalTexture()で
+         色を直接キャンバスへ焼き込んだ手続きテクスチャ(.map)を持つため、
+         .color.set()では効果がない(デフォルトのcolor=白がテクスチャに
+         そのまま掛かるだけの状態のため、後から乗算しても濁った中間色に
+         しかならない) ―― 新しい色でテクスチャを生成し直し、.mapを
+         差し替えてからapplyBump()でバンプマップの対応も更新し直す
+         (テクスチャ生成関数自体・Mage側の元Materialは変更していない)。
+
+         実機QAで判明した落とし穴: Torso/Pelvis(体幹の大部分)は
+         clothMat自体ではなく、それを.clone()した別ObjectのclothMatFlat
+         (フラットシェーディング版)を使っている。同様にPauldron(肩当て)
+         はtrimMatFlatを使っている。.clone()は生成時点のプロパティを
+         コピーするだけで、元のMaterialへの参照を保つわけではないため、
+         clothMat/trimMat側だけ.mapを差し替えてもFlat版には反映されず、
+         「胸元・肩だけMageの元の色(水色/紫)が残って見える」という
+         見た目になっていた(スクリーンショットで実際に確認)。
+         clothMatFlat/trimMatFlatも同じ新しいテクスチャで個別に上書きする */
+      /* ユーザー指摘(色の統一、3回目):「胸元とその他で色違くない?黒すぎる
+         気がするけど。全く同じ色にして。それとも胸元のパーツに別で
+         フィルターかかってる?」
+
+         Root Cause: 色(hex)は既に全部ARCHMAGE_NAVYで一致していたが、
+         「別でフィルターがかかっている」という見立てのほうが正しかった ――
+         違っていたのは色ではなくMaterialの質感設定だった:
+           ・胸当て/肩当て(trimMat/trimMatFlat)はmakeMetalTexture()製。
+             この生成器は基準色の55%まで落とした暗いスクラッチ線と
+             ブラシ目をテクスチャへ直接焼き込む(makeLeatherTexture()の
+             まだら+シワとは絵柄も明度分布も別物)。
+           ・さらにmetalness 0.3(ローブは0.15)・roughness 0.4(同0.6)・
+             emissiveIntensity 0.12の自己発光まで付いており、同じ色でも
+             光の返し方が変わって黒く沈んで見えていた。
+         Fix: Archmageに限り、胸当て/肩当てにもローブと「同一のテクスチャ
+         インスタンス(robeTex)」を割り当て、roughness/metalnessもローブの
+         値へ揃え、emissiveを完全に切る ―― これで胸元とローブは
+         レンダリング上まったく同じ見え方になる(Mage本体・他クラスの
+         trimMatはmetal質感のまま、この分岐に入らないので無変更)。 */
+      const ARCHMAGE_NAVY = 0x1c2440;
+      const ROBE_ROUGHNESS = 0.6, ROBE_METALNESS = 0.15;
+      const robeTex = makeLeatherTexture(hexStr(ARCHMAGE_NAVY), 2, 2);
+      /* ローブと同じ見え方に揃えるための共通処理。
+
+         .color を必ず白へ戻すのが重要 ―― THREE.MeshStandardMaterialは
+         .map のピクセルに .color を「乗算」する。テクスチャ側に既に
+         ARCHMAGE_NAVYを焼き込んでいるので、.colorにも同じ紺を入れると
+         紺×紺で二重に暗くなり、ほぼ黒に潰れてしまう(下記Root Cause)。 */
+      const matchRobeLook = (mat)=>{
+        if(!mat) return;
+        mat.map = robeTex;
+        mat.color.set(0xffffff);
+        mat.roughness = ROBE_ROUGHNESS;
+        mat.metalness = ROBE_METALNESS;
+        if(mat.emissive) mat.emissive.set(0x000000);
+        mat.emissiveIntensity = 0;
+        applyBump(mat);
+        mat.needsUpdate = true;
+      };
+      matchRobeLook(P.clothMat);
+      matchRobeLook(P.clothMatFlat);
+      // 胸当てリング・肩当て・カフス・帽子の房飾り(bigCone)が使う金属
+      // トリムも、ローブと同じ布の質感へ寄せる(上記Root Cause参照)
+      matchRobeLook(P.trimMat);
+      matchRobeLook(P.trimMatFlat);
+      /* 帽子(hatMatCone/hatMatBrim)について ―― Mesh Ownership Debugで
+         判明した本当のRoot Cause:
+
+         buildPlayer()のMageブロックは
+           hatMatCone = classDef.hatColor!=null ? 専用Material : clothMat
+           hatMatBrim = classDef.hatColor!=null ? 専用Material : clothMat
+         という三項演算子で、hatColorが未指定なら「clothMatそのもの」を
+         代入する。以前のラウンドで魔法使いを水色の単色ウィザードにした際
+         CLASSES.mageからhatColorを削除したため、現在は
+           hatMatCone === hatMatBrim === clothMat(全部同じObject)
+         になっている。
+
+         それに気付かず「hatMatBrimはmap無しの単色Materialだから
+         .color.set()で差し替えられる」という(hatColorがあった頃には
+         正しかった)前提のまま .color を設定していたため、実際には
+         ローブ本体のMaterialの.colorへ紺を入れていた ―― 上記のとおり
+         テクスチャの紺と乗算されて全身が黒く潰れ、単独のMaterialである
+         胸当て(trimMat)だけ二重暗化を免れて色が違って見えていた。
+         (ユーザーの「胸元のパーツに別でフィルターかかってる?」は
+          逆で、フィルターが掛かっていたのは胸元以外の方だった)
+
+         対処: 帽子は上のmatchRobeLook()で既にローブと同一Materialとして
+         処理済みなので、ここでは「clothMatとは別Objectのときだけ」
+         (将来hatColorを復活させた場合)単色として色を設定する。 */
+      const hatMats = [P.hatMatCone, P.hatMatBrim].filter(
+        m => m && m !== P.clothMat && m !== P.clothMatFlat);
+      hatMats.forEach(m=>{
+        if(m.map) matchRobeLook(m);
+        else {
+          m.color.set(ARCHMAGE_NAVY);
+          m.roughness = ROBE_ROUGHNESS;
+          m.metalness = ROBE_METALNESS;
+          m.needsUpdate = true;
+        }
       });
+      // ベルト(ローブの丸い輪っか)・帽子の輪っか(band)は、胸当て/ローブの
+      // 紺とは別に白紫系のアクセントにする(ユーザー指摘3)
+      if(P.beltMat){
+        P.beltMat.map = makeMetalTexture(hexStr(0xd8c8f0), 3, 1);
+        P.beltMat.emissive.set(0xd8c8f0);
+        applyBump(P.beltMat);
+        P.beltMat.needsUpdate = true;
+      }
+      if(P.clothAcc){
+        P.clothAcc.color.set(0xd8c8f0);
+      }
+      // 参考画像は帽子の下から覗く髪も銀髪(白髪)。Mage本体のhairMat
+      // (classDef.hairColor由来、通常は茶色)をArchmageだけ銀髪へ差し替える
+      // ―― hairlineから覗く僅かな地毛もHat/archHairMatと統一した色にするため
+      if(P.hairMat){
+        P.hairMat.color.set(0xcac6d2);
+      }
+      // 大型化した帽子の房飾り(既存の帽子の上に追加)
+      // Head/Posture Alignment再設計フェーズ: bigCone/strandにもHEAD_BACK_Z
+      // を適用し、Mage Hat(既にHEAD_BACK_Z適用済み)と一緒に後方へ
+      const bigCone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 12), trimMat);
+      bigCone.position.set(0, bodyH*1.42, HEAD_BACK_Z);
+      P.waist.add(bigCone); meshes.push(bigCone);
+      /* Phase 8: Mage/Archmage差別化 ―― 「帽子から伸びる細い縦棒(旧
+         ConeGeometry×4、蛍光ライトブルー)」を、まとまりのある低ポリ
+         毛束(Root→Middle→Tipで位置・角度を変える2セグメント構成)へ
+         全面差し替え。Mage本体(buildPlayer())からはPhase 7のLong Hair
+         Strandを削除済み(髪はHatの下に収まる設定へ統一)、長髪は昇格時の
+         ここでのみ追加する ―― 「Mage: 髪はHat内部」「Archmage: Hatの
+         下から自然に流れる長髪」という関係性そのものが差別化ポイント。
+
+         位置はbuildPlayer()のHead/Hair配置と同じ単一の基準
+         (headOutlineAt()、05-rendering-rig.js)から導出する ―― 独自の
+         手打ち座標(旧実装のx:-0.09〜0.09、y:bodyH*1.06)は使わない。
+         P.waist基準のローカルY(headYLocal=bodyH+B.headGap)がbuildPlayer
+         側のhead.position.yに相当するため、headOutlineAt()が返すy
+         (Head中心からのオフセット)をそのまま加算すれば同じ基準で置ける。
+
+         Root(頭部側面/後頭部、yFrac0.60〜0.66 ―― 既存Side/Back Hairの
+         根元と同程度の高さ)は、Mage Hat(Brim/Cone、Y範囲はもっと上)の
+         Coverageに掛からないことをfindCoverageExitAlongStrand()で確認
+         した上で生成する(Hat/Coverage判定自体は一切変更しない)。
+         Middle(首〜肩)でRootよりさらに外側へ張り出し、Tip(肩〜背中)で
+         Middleよりやや内側(体に沿う)へ戻す ―― 「頭から真下へ一直線」
+         ではなく体の輪郭に沿って流れる形にする2点。オフセットは
+         Root位置からの絶対量(headR比)で指定する ―― 断面幅(halfWidth)
+         基準にすると顎に向かって狭くなるHeadの先細りに引きずられて
+         Middle/TipのX位置がRootより内側に戻ってしまい、意図した「外へ
+         張り出す」曲がりが相殺されてしまうため(実機QAで確認)。
+         各SegmentはmakeHairBang()(既存のmakePrism ベース低ポリ房
+         Geometry、6点断面)をそのまま再利用し、Root/Middle/Tipそれぞれの
+         3D位置からtiltX/tiltZを算出して繋ぐ(Phase 7のSide/Back Hair
+         延長で検証済みの計算方法と同じ)。「細い縦棒」に戻らないよう、
+         半径はHead自身のサイズに対して明確に太く(Root≈headR*0.30)取り、
+         極端な先細りを避けるためTip半径はRoot半径の35%前後に留めている。 */
+      const archHeadR = B.headR;
+      const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2 };
+      const archHeadYLocal = bodyH + B.headGap;   // P.waist基準でのHead中心Y(buildPlayerのhead.position.yに相当)
+      const archHeadOut = (yFrac) => headOutlineAt(archHeadDims, yFrac);
+      // Hair色: 参考画像(ダークソウル風の白髪術者)指摘により、紫の
+      // 発光ヘアから銀髪(白髪)へ変更。参考画像の髪は光ってはいない
+      // ため、発光(emissive)は付けず、roughnessだけ低めにして絹のような
+      // 光沢感を出す(P.hairMat=hairline付近の地毛も同じ色へ統一済み、
+      // 上のarchmageブロック参照)
+      const archHairMat = new THREE.MeshStandardMaterial({
+        color:0xcac6d2, roughness:0.5});
+      function archSeg(rootP, tipP, rootR, tipR){
+        const len = rootP.y - tipP.y;
+        const tiltX = Math.atan2(tipP.z-rootP.z, len);
+        const tiltZ = Math.atan2(tipP.x-rootP.x, len);
+        const seg = new THREE.Mesh(makeHairBang({rootR, tipR, length:len}), archHairMat);
+        seg.position.set(tipP.x, tipP.y, tipP.z);
+        seg.rotation.set(tiltX, 0, -tiltZ);
+        seg.castShadow = true;
+        P.waist.add(seg); meshes.push(seg);
+      }
+      [-1, 1].forEach(s=>{
+        const oR = archHeadOut(0.66), oM = archHeadOut(0.10), oT = archHeadOut(-0.55);
+        const rootX = s*oR.halfWidth*1.05, rootZ = oR.sideZ + HEAD_BACK_Z;
+        const angle = Math.atan2(rootX, rootZ);
+        const exit = findCoverageExitAlongStrand(state.classDef.key, archHeadDims, angle, oT.y, oR.y);
+        if(exit.covered) return;
+        const root = { x:rootX, y:archHeadYLocal+exit.y, z:rootZ };
+        // Middle/TipはRoot基準のheadR比オフセット(断面幅基準ではない、
+        // 詳細は上のコメント参照)。外へ張り出してから体に沿って内側へ
+        // 戻る、緩やかなS字の流れにする
+        const mid  = { x:rootX + s*archHeadR*0.42, y:archHeadYLocal+oM.y, z:rootZ-archHeadR*0.22 };
+        const tip  = { x:rootX + s*archHeadR*0.20, y:archHeadYLocal+oT.y, z:rootZ-archHeadR*0.48 };
+        archSeg(root, mid, archHeadR*0.30, archHeadR*0.20);
+        archSeg(mid, tip, archHeadR*0.20, archHeadR*0.11);
+      });
+      {
+        const oR = archHeadOut(0.60), oM = archHeadOut(0.05), oT = archHeadOut(-0.60);
+        const rootZ = oR.backZ*1.05 + HEAD_BACK_Z;
+        const angle = Math.atan2(0, rootZ);
+        const exit = findCoverageExitAlongStrand(state.classDef.key, archHeadDims, angle, oT.y, oR.y);
+        if(!exit.covered){
+          const root = { x:0, y:archHeadYLocal+exit.y, z:rootZ };
+          // 左右の毛束と同じ考え方(Root基準のheadR比オフセット)。後方
+          // 中央は左右非対称にする必要が無いためx=0のまま、Zだけ段階的に
+          // 後方へ流す(指示の「Hatの下→首の後ろ→背中上部」に対応)
+          const mid  = { x:0, y:archHeadYLocal+oM.y, z:rootZ-archHeadR*0.28 };
+          const tip  = { x:0, y:archHeadYLocal+oT.y, z:rootZ-archHeadR*0.55 };
+          archSeg(root, mid, archHeadR*0.27, archHeadR*0.18);
+          archSeg(mid, tip, archHeadR*0.18, archHeadR*0.10);
+        }
+      }
       // ローブの前を開けて羽織るように(ユーザー指摘)。素のローブ
       // (buildPlayerの closed cylinder)は閉じたままなので、その上に
       // 前開きの襟(コート状の合わせ)を左右一枚ずつ重ねて「開けて羽織る」
       // シルエットに寄せる。魔法使いより身軽に見えるよう、幅は細め。
       // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す
+      // makeClothPanel()は内部で独自のMaterial(タイリング1x2・roughness0.82・
+      // metalness未設定)を作るため、色を同じ紺(uj.capeColor)にしても
+      // ローブ(2x2・roughness0.6・metalness0.15)とは見え方がわずかにずれる。
+      // 胸の高さに重なるパーツなので、生成後にローブと同一のMaterialの複製
+      // (薄板なのでside:DoubleSideだけ復元する)へ差し替えて完全に揃える
+      const flapMat = P.clothMat ? P.clothMat.clone() : null;
+      if(flapMat) flapMat.side = THREE.DoubleSide;
       [-1,1].forEach(s=>{
         const flap = makeClothPanel(0.16, bodyH*0.78, uj.capeColor, {rows:6, foldDepth:0.022});
+        if(flapMat) flap.material = flapMat;
         flap.position.set(s*0.13, bodyH*0.48, bodyR*0.62);
         flap.rotation.set(0.05, s*0.42, 0);
         P.waist.add(flap); meshes.push(flap);
@@ -1300,11 +2542,17 @@
       // 長いマント(片側だけ、鷹師の非対称なシルエット)。バネ追従+揺れの
       // 対象としてanim.capesへ登録(戦騎士のケースと共有、updateJobDecor参照)。
       // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す
+      // Phase 8 Priority 3: 旧position/rotationだとケープが真後ろ
+      // (-bodyR-0.05、ほぼX=0相当)に近く、Front/Diagonalでは体に完全に
+      // 隠れてArcherとの差が読めなかった(実機QA)。Geometry(makeClothPanel
+      // の輪郭・折り数)は変更せず、X方向へさらに外側へ・rotation.yを
+      // わずかに追加して、非対称マントの端がFront/Diagonalでも覗くように
+      // した。anim.capesのbaseRotY/baseRotZも新しい初期姿勢に合わせている
       const cape = makeClothPanel(0.36, bodyH*0.92, uj.capeColor, {rows:7, foldDepth:0.04});
-      cape.position.set(-0.12, bodyH*0.6, -bodyR-0.05);
-      cape.rotation.set(0.1, 0, -0.06);
+      cape.position.set(-0.17, bodyH*0.6, -bodyR-0.05);
+      cape.rotation.set(0.1, -0.16, -0.06);
       P.waist.add(cape); meshes.push(cape);
-      anim.capes = [{mesh:cape, baseRotY:0, baseRotZ:-0.06, swayPhase:0.4, springAngle:0, springVel:0}];
+      anim.capes = [{mesh:cape, baseRotY:-0.16, baseRotZ:-0.06, swayPhase:0.4, springAngle:0, springVel:0}];
       // 肩に乗る小さな鷹(胴体+翼2枚+頭)。資料の「巨大にしない、肩に乗る
       // 小さな存在」の指示通り、右肩(利き手と逆側)に控えめなサイズで乗せる
       const hawk = new THREE.Group();
@@ -1334,21 +2582,103 @@
       const headYLocal = bodyH + B.headGap;
       const eyeX = -0.09*(B.headR/0.26);   // 「character's own left」= -X側
       const patchMat = new THREE.MeshStandardMaterial({color:0x1a1410, roughness:0.8});
+      // Head/Posture Alignment再設計フェーズ: Patch/PatchStrap/HoodにもHEAD_BACK_Z
+      // を適用し、Headと一緒に後方へ(眼帯がEyeから浮かないように追従)
       const patch = new THREE.Mesh(new THREE.CircleGeometry(0.055, 10), patchMat);
-      patch.position.set(eyeX, headYLocal+0.02, B.headR*0.94);
+      patch.position.set(eyeX, headYLocal+0.02, B.headR*0.94 + HEAD_BACK_Z);
       P.waist.add(patch); meshes.push(patch);
       const patchStrap = new THREE.Mesh(new THREE.TorusGeometry(B.headR*1.02, 0.012, 5, 12, Math.PI*1.3), patchMat);
       patchStrap.rotation.set(Math.PI/2, 0, Math.PI*0.15);
-      patchStrap.position.set(0, headYLocal+0.02, 0);
+      patchStrap.position.set(0, headYLocal+0.02, HEAD_BACK_Z);
       P.waist.add(patchStrap); meshes.push(patchStrap);
 
-      // フードコートのような見た目(ユーザー指摘)。既存のハンチング帽の
-      // 上に大きめのフードを重ね、頭巾をかぶったシルエットに寄せる
+      /* Phase 9: Hawk Eye Headwear再設計。「帽子の上にフードを重ねる」から
+         「最初から深いフードを被っている人物」へ。Root Causeは、Archer
+         Cap(CylinderGeometry、headR*1.45の高さの筒)がHood(headR*1.75)と
+         ほぼ同じ場所に同時に存在し、両者の輪郭が競合して「帽子が頭の中に
+         めり込んでいる」バケツ状の塊に見えていたこと(実機QAで確認、
+         Archer単体では同じCapが単独で問題なく機能しているため、Cap自体の
+         Geometryが原因ではなく「Cap+Hoodの二重重ね」が原因と判断)。
+         Archer自身(buildPlayer)のCap/Peak Geometry・Coverageは一切
+         変更せず、Hawk Eye昇格時だけCap/CapTop/Peak(archerCapDecor、
+         buildPlayer側で参照を保持済み)を非表示にし、専用のDeep Hoodへ
+         差し替える(battleKnightがwarriorBaseDecorを隠す既存パターンと
+         同じ差分方式)。Hair生成(Bangs/Side/Back Hair)はbuildPlayer時点の
+         Archer Cap/Peak Coverageを既に使い終えているため、この非表示化・
+         Hood差し替えはHair Coverageに一切影響しない(Coverage System自体は
+         無変更)。 */
+      if(P.archerCapDecor) P.archerCapDecor.forEach(m=>{ m.visible = false; });
+      // フードコートのような見た目(ユーザー指摘)。Hawk Eye Hood再設計
+      // フェーズ(Headwear Audit指摘: 「黒い球」に見える唯一のクラス):
+      // 旧SphereGeometry(全方位均等なドーム)を、makeHawkEyeHood()
+      // (05-rendering-rig.js、makeWarriorBaseHelm()と同じ「開いた弧の
+      // 断面を積む」低ポリ技法、顔側にFace Openingを持つ)へ置き換えた。
+      // Phase 9: Cap非表示化に伴い「深いフード」としての存在感を持たせる
+      // ため、width/depth/heightを一回り拡大(1.25→1.35、1.75→1.90)。
+      // ARC_TEMPLATE/RINGS自体(開口・Eye可視性を保証する形状比率)は
+      // 変更していない ―― 単純な拡大なのでEye Opening関連の既存テスト
+      // (tests/unit/lowpoly-primitives.test.js)の不等式はそのまま成立する
       const hoodMat = new THREE.MeshStandardMaterial({color:uj.capeColor, roughness:0.85});
-      const hood = new THREE.Mesh(new THREE.SphereGeometry(B.headR*1.35, 10, 8, 0, Math.PI*2, 0, Math.PI*0.68), hoodMat);
-      hood.position.set(0, headYLocal+0.06, -0.03);
+      const hoodBottomY = headYLocal - B.headR*0.62;
+      const hood = new THREE.Mesh(
+        makeHawkEyeHood({width:B.headR*1.35, depth:B.headR*1.35, height:B.headR*1.90}), hoodMat);
+      // Cap非表示化により「HoodをCapの前へ逃がす」必要が薄れたため、Zは
+      // HEAD_BACK_Z基準(他クラスと同じ、Headと同じ後方オフセットのみ)に
+      // 戻した
+      hood.position.set(0, hoodBottomY, HEAD_BACK_Z);
       hood.castShadow = true;
       P.waist.add(hood); meshes.push(hood);
+      // ユーザー指摘(3巡目):「鷹の目の顔があんまり隠れておらず雰囲気が
+      // 出てないのでつばの三角をもっと鈍角な横広のつばに修正」。
+      // Archer段階で作ったBrim(P.archerBrim、buildPlayer側でarcherCapDecor
+      // には含めず参照だけ保持済み)をHawk Eyeでも実体として存在させたまま、
+      // Position/Scale/MaterialだけHood向けに差し替える。Brim自体の
+      // Geometry(ARCHER_TRICORN_BRIM_MUL、Archerのバケットハット化に伴い
+      // 全周ほぼ均一・短い張り出しへ変更済み)はArcherと共有・変更しない。
+      // 実機検証で判明した内容: 見下ろしのDefault Game Cameraでは、Brim
+      // (半径の大きい水平な板)はYを多少上げた程度では前方(Z)への
+      // 張り出しがそのままEyeの手前を覆ってしまい、Yなしでも・scaleなし
+      // でもEyeが完全に見えなくなった(Mesh Ownership Debugでvisible=
+      // falseにして確認、Brim以外に原因が無いことを確認済み)。Yだけを
+      // 上げるとBrimがCap/Hoodの頭頂寄りに埋もれて「つば」に見えなくなる
+      // トレードオフがあったため、Scaleを非等方(X方向=横だけ拡大、
+      // Z方向=前後は逆に縮小)にして解決した ―― 横(X)を1.35倍にして
+      // 「横広のつば」を満たしつつ、前後(Z)を0.80倍に縮めてEyeの手前を
+      // 覆う量を減らす。Yも+0.50headRへ調整し、Eyeが完全な暗闇ではなく
+      // 影の中にわずかに覗く(隠れすぎない)状態にした。Archer本体の
+      // Brim GeometryはHawk Eyeの都合で変更したくないため、Scaleのみ
+      // Hawk Eye側のインスタンスに上乗せする(Archer自身には影響しない)
+      if(P.archerBrim){
+        const brimY = headYLocal + B.headR*0.50;
+        P.archerBrim.position.set(0, brimY, HEAD_BACK_Z);
+        P.archerBrim.scale.set(1.35, 1, 0.80);
+        // ArcherのclothMat(カーキ)のままだと濃い緑のHoodと配色が合わず
+        // 浮くため、Hood本体と同じhoodMat(uj.capeColor)へ差し替える
+        P.archerBrim.material = hoodMat;
+      }
+      // Phase 9: 額のひさし(Wedge、Warrior/Battle Knightのbrowと同じ技法)。
+      // Loft(makeHawkEyeHood)自体はEye可視性を保証するテスト付きの既存
+      // 形状のため変更せず、代わりに前方へ張り出す薄いくさびを重ねて額の
+      // 影を作る ―― 参考イメージの「額から頬付近まで影になる」を、
+      // 実際の3D形状による自然な落影(castShadow)で表現する。広い面を
+      // 上(rotation.x=PI、Battle Knight browと同じ反転)にして、稜線側
+      // (ridgeOffsetZでわずかに後方へ引いた辺)が目の高さ付近に来るように
+      // した
+      /* Phase 13-F: Hood自体が額から上を塞ぐようになった(13-E)ため、
+         この額のひさしはFace Openingの内側に残り「帽子のつばが顔の上半分に
+         乗っている」ように見えていた(ユーザー指摘)。Hoodの陰影は閉じた
+         フード本体が作るので、ひさし自体を出さない。 */
+      const HOOD_BROW_ENABLED = false;
+      if(HOOD_BROW_ENABLED){
+      const hoodBrow = new THREE.Mesh(makeWedge({
+        baseW: B.headR*1.30, baseD: B.headR*0.42, height: B.headR*0.16,
+        ridgeW: B.headR*0.70, ridgeOffsetZ: -B.headR*0.30,
+      }), hoodMat);
+      hoodBrow.rotation.x = Math.PI;
+      hoodBrow.position.set(0, headYLocal + B.headR*0.20, B.headR*0.78 + HEAD_BACK_Z);
+      hoodBrow.castShadow = true;
+      P.waist.add(hoodBrow); meshes.push(hoodBrow);
+      }
     }
 
     P.jobDecorMeshes = meshes;
