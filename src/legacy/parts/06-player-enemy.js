@@ -678,7 +678,14 @@
     // すると腰から大きく浮いてしまうため、TORSO_SECTION_RATIOS.waist
     // (胴体側と同じ比率定数)を基準に、幅・厚みの平均へ合わせ直した
     const waistR = TORSO_SECTION_RATIOS.waist;
-    const belt = new THREE.Mesh(new THREE.TorusGeometry(bodyR*(waistR.widthMul+waistR.depthMul)/2, 0.05, 6, 16), trimMat);
+    // Archmage昇格時、ベルト(丸い輪っかパーツ)だけ胸当て/肩当てとは別の
+    // 色(白紫系)へ差し替えられるよう、trimMatをそのまま使わず.clone()した
+    // 専用Materialを与えておく(色は複製時点でtrimMatと同じなので、
+    // 他クラス・Mage本体の見た目は一切変わらない ―― clothMatFlat/
+    // trimMatFlatと同じ「差分方式」)
+    const beltMat = trimMat.clone();
+    playerMixerParts.beltMat = beltMat;
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(bodyR*(waistR.widthMul+waistR.depthMul)/2, 0.05, 6, 16), beltMat);
     belt.rotation.x = Math.PI/2;
     belt.position.y = HIP_Y;
     group.add(belt);
@@ -1025,6 +1032,12 @@
     const metalMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.35, metalness:0.7});
     const darkMat  = new THREE.MeshStandardMaterial({color:0x2a2420, roughness:0.7});
     const clothAcc = new THREE.MeshStandardMaterial({color:classDef.trim, roughness:0.85, side:THREE.DoubleSide});
+    // Archmage昇格時、帽子の丸い輪っか(band、下記classDef.key==='mage'
+    // ブロック参照)を白紫系へ差し替えられるよう公開しておく。Mage本体・
+    // 他クラス(clothAccはwarrior/archerの装飾にも使われる共有Material)
+    // には影響しない ―― 昇格していないクラスの見た目はこの追加行だけでは
+    // 変化しない
+    playerMixerParts.clothAcc = clothAcc;
     // 意匠参考(ユーザー提示の4枚のイメージボード、#39系): フードの魔女杖術士
     // →魔法使い、鷹を連れた狩人→弓師/鷹の目、毛皮縁の甲冑騎士→剣士/戦騎士、
     // 双斧の蛮族戦士→盗賊/バーサーカーに対応させた。以前は「怪異の影+
@@ -2272,20 +2285,30 @@
          差し替えないと「Mageと同じ配色の魔導士」になってしまう。
          ユーザー指摘(色の再調整、参考画像): ダークソウル風の「白い
          とんがり帽子+黒に近いボロ布のローブ+銀髪」の術者画像が共有され
-         「魔導士はこの色」と明示された。一つ前のラウンドでは「紺、黒系」
-         という言葉から帽子まで黒くしていたが、この参考画像は帽子が
-         むしろ淡いオフホワイト側で、暗いのはローブのほうだと分かった
-         ため、両者の役割を入れ替える形で再調整する:
-         - ローブ(clothMat): 紺(0x1c2840)→ 参考画像のローブ・スカート部
-           から実測した色相寄りの、青みを抑えたほぼ無彩色の暗灰(0x1a1a22)
-         - 帽子(hatMatCone/hatMatBrim): 黒(0x14161e)→ 参考画像の帽子から
-           実測した淡いアイボリー系オフホワイト(0xd6d0c4)
-         - トリム(trimMat/trimMatFlat、胸当てリング・ベルト・カフス・
-           肩当て・武器金具で共有): Mage本来の紫(classDef.trim)のままだと
-           胸〜肩まわりだけ紫が浮いて残ってしまうため、暗いピューター調の
-           鋼色(0x46424a)へ統一する
-         hatMatBrimは単色Material(map無しの単純なMeshStandardMaterial)
-         のため.color.set()で直接差し替え可能。一方clothMat/hatMatCone/
+         「魔導士はこの色」と明示された。帽子はオフホワイト、ローブは
+         暗色というところまでは合わせたが、続く指摘で以下の3点を
+         さらに調整する:
+         1.「胸元パーツも同じくらい紺系にしてください」―― 胸当てリング
+           (trimMat)がローブ本体(clothMat)と別の暗いピューター調の鋼色
+           (0x46424a)になっており、胸元だけ浮いて見えていた。trimMatも
+           ローブと同系統の紺系(0x1c2440)へ変更し、胸元とローブの色味を
+           揃える。
+         2.「魔導士の色が黒すぎる…青ベースを足して」→「もっと暗くて
+           青みがかった紺がいい」―― 後続の発言が優先。ローブ(clothMat)を
+           無彩色寄りの暗灰(0x1a1a22)から、より暗く、かつ青みをはっきり
+           持たせた紺(0x10182c)へ変更する。
+         3.「帽子やローブの丸い輪っかパーツは白紫系の色に変更」――
+           帽子の輪っか(band、classDef.trim由来のclothAcc)とローブの
+           輪っか(belt、trimMatを.clone()した専用のbeltMat)は、Mage本来の
+           紫(0x8260ab)やtrimMatの色をそのまま引き継いでいたため、
+           白紫系(0xd8c8f0)へ個別に差し替える。beltMat/clothAccは今回
+           新設した「差分方式」の参照(06-player-enemy.js内の宣言箇所
+           参照)。
+
+         hatMatBrim/beltMat/clothAccは単色Material(map無しの単純な
+         MeshStandardMaterial、beltMatはtrimMat.clone()だが.mapは
+         Textureの参照コピーなので下で明示的に差し替える)のため
+         .color.set()で直接差し替え可能。一方clothMat/hatMatCone/
          trimMat/trimMatFlatはmakeLeatherTexture()/makeMetalTexture()で
          色を直接キャンバスへ焼き込んだ手続きテクスチャ(.map)を持つため、
          .color.set()では効果がない(デフォルトのcolor=白がテクスチャに
@@ -2304,7 +2327,7 @@
          見た目になっていた(スクリーンショットで実際に確認)。
          clothMatFlat/trimMatFlatも同じ新しいテクスチャで個別に上書きする */
       if(P.clothMat){
-        const robeTex = makeLeatherTexture(hexStr(0x1a1a22), 2, 2);
+        const robeTex = makeLeatherTexture(hexStr(0x10182c), 2, 2);
         P.clothMat.map = robeTex;
         applyBump(P.clothMat);
         P.clothMat.needsUpdate = true;
@@ -2323,17 +2346,28 @@
         P.hatMatBrim.color.set(0xd6d0c4);
       }
       if(P.trimMat){
-        const trimTex = makeMetalTexture(hexStr(0x46424a), 3, 1);
+        const trimTex = makeMetalTexture(hexStr(0x1c2440), 3, 1);
         P.trimMat.map = trimTex;
-        P.trimMat.emissive.set(0x46424a);
+        P.trimMat.emissive.set(0x1c2440);
         applyBump(P.trimMat);
         P.trimMat.needsUpdate = true;
         if(P.trimMatFlat){
           P.trimMatFlat.map = trimTex;
-          P.trimMatFlat.emissive.set(0x46424a);
+          P.trimMatFlat.emissive.set(0x1c2440);
           applyBump(P.trimMatFlat);
           P.trimMatFlat.needsUpdate = true;
         }
+      }
+      // ベルト(ローブの丸い輪っか)・帽子の輪っか(band)は、胸当て/ローブの
+      // 紺とは別に白紫系のアクセントにする(ユーザー指摘3)
+      if(P.beltMat){
+        P.beltMat.map = makeMetalTexture(hexStr(0xd8c8f0), 3, 1);
+        P.beltMat.emissive.set(0xd8c8f0);
+        applyBump(P.beltMat);
+        P.beltMat.needsUpdate = true;
+      }
+      if(P.clothAcc){
+        P.clothAcc.color.set(0xd8c8f0);
       }
       // 参考画像は帽子の下から覗く髪も銀髪(白髪)。Mage本体のhairMat
       // (classDef.hairColor由来、通常は茶色)をArchmageだけ銀髪へ差し替える
