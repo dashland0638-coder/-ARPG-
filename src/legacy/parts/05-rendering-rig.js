@@ -2965,7 +2965,15 @@
     const LX = P.bowLimbX || 0;
     const LZ = P.bowLimbZ != null ? P.bowLimbZ : 0.22;
     if(P.bowSegs){
-      if(LX){
+      if(P.bowTipUp && P.bowTipDown){
+        // 非対称弓(鷹の目、武器設定画「大弓(和弓風)」対応): 上下で弓幹の
+        // 長さが違うため、上下対称なbowLimbY一本では弦の取り付け点が
+        // 実際の弓のGeometryとずれる。buildWeaponMesh()側で計算した
+        // 上弦点/下弦点をそのまま使う(いずれか片方でも無ければ従来の
+        // 対称ロジックへフォールバックする ―― 通常の弓/ボウガンは影響なし)
+        fitSegment(P.bowSegs[0], P.bowTipUp.x,   P.bowTipUp.y,   P.bowTipUp.z,   x, y, z);
+        fitSegment(P.bowSegs[1], P.bowTipDown.x, P.bowTipDown.y, P.bowTipDown.z, x, y, z);
+      } else if(LX){
         // ボウガン: 弦は上下ではなく左右(弓腕の先)に張られている
         fitSegment(P.bowSegs[0],  LX, 0, LZ, x, y, z);
         fitSegment(P.bowSegs[1], -LX, 0, LZ, x, y, z);

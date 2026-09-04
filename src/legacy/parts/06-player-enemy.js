@@ -98,10 +98,29 @@
     const steel = new THREE.MeshStandardMaterial({color:0xd8dce0, roughness:0.3, metalness:0.7});
     const darkSteel = new THREE.MeshStandardMaterial({color:0x9aa4ae, roughness:0.4, metalness:0.6});
     const woodMat = new THREE.MeshStandardMaterial({color:0x3a2818});
+    /* 武器設定画(8職業 武器設定画)対応: 8種の武器すべてで、鍔・柄金具・
+       弓の弭・杖の環飾りが共通してゴールド系の金属で統一されている一方、
+       石(ジェム)の色だけがクラスごとに違う(剣士/戦騎士=青、盗賊=水色、
+       バーサーカー=赤、弓師/鷹の目=赤褐色のビーズ、魔法使い=青、
+       魔導士=紫)。既存のtrimMat(呼び出し元でclassDef.trim/uj.trimを
+       渡されるMaterial)は防具の差し色と共有のため、そのままでは魔法使い
+       (紫)などで金属部が金色にならない。ここでは武器の金属部専用に
+       固定のゴールドMaterial(goldTrim)を新設し、trimMatとは独立に
+       全クラス共通で使う。ジェムはmakeGem()でクラスごとの色を都度指定する */
+    const goldTrim = new THREE.MeshStandardMaterial({color:0xc9a227, roughness:0.35, metalness:0.55});
+    function makeGem(color, radius){
+      return new THREE.Mesh(new THREE.OctahedronGeometry(radius || 0.035, 0),
+        new THREE.MeshStandardMaterial({color, roughness:0.2, metalness:0.1, emissive:color, emissiveIntensity:0.4}));
+    }
     // 二刀流/両手斧のオフハンド(#39系)。dualblades以外では毎回nullに戻す
     // ―― swapPlayerWeaponVisual()で武器種を替えた時、前の武器の対が
     // 残ったままにならないようにするため
     playerMixerParts.offhandGeo = null;
+    // 非対称弓(鷹の目)専用の弦取り付け点。鷹の目以外の武器では毎回
+    // nullに戻す(残っていると他の弓/近接武器がupdateBowDraw()の
+    // 非対称弓分岐に誤って入ってしまう)
+    playerMixerParts.bowTipUp = null;
+    playerMixerParts.bowTipDown = null;
 
     if(weaponKey==='greatsword'){
       if(state.job==='battleKnight'){
@@ -121,16 +140,25 @@
         blade.position.y = 0.13;
         const tip = new THREE.Mesh(new THREE.ConeGeometry(0.044,0.24,4), steel);
         tip.position.y = 1.79;
-        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.045,0.05), trimMat);
+        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.045,0.05), goldTrim);
         guard.position.y = 0.10;
-        const guardTipL = new THREE.Mesh(new THREE.SphereGeometry(0.032,7,6), trimMat);
+        const guardTipL = new THREE.Mesh(new THREE.SphereGeometry(0.032,7,6), goldTrim);
         guardTipL.position.set(0.18,0.10,0);
         const guardTipR = guardTipL.clone(); guardTipR.position.x = -0.18;
-        const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.028,0.36,8), trimMat);
+        // 武器設定画: 柄は青系の巻き革(ジェムと同じ青系統)。柄の途中に
+        // 金の帯を1本入れて「巻き模様」の区切りを示す
+        const gripMat = new THREE.MeshStandardMaterial({color:0x1c2c54, roughness:0.7});
+        const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.028,0.36,8), gripMat);
         hilt.position.y = -0.10;
-        const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.06,0), trimMat);
+        const gripBand = new THREE.Mesh(new THREE.TorusGeometry(0.028,0.008,6,10), goldTrim);
+        gripBand.position.y = -0.10; gripBand.rotation.x = Math.PI/2;
+        const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.06,0), goldTrim);
         pommel.position.y = -0.30;
-        weapon.add(blade, tip, guard, guardTipL, guardTipR, hilt, pommel);
+        // 鍔の中央に嵌まる青いジェム(設定画の意匠)。鍔の前面にわずかに
+        // 突き出す位置に置く
+        const gem = makeGem(0x2a6fd6, 0.042);
+        gem.position.set(0, 0.10, 0.045);
+        weapon.add(blade, tip, guard, guardTipL, guardTipR, hilt, gripBand, pommel, gem);
         weapon.position.set(0, HIP_Y+bodyH*0.55, 0.30);
       } else {
       const blade = new THREE.Mesh(new THREE.BoxGeometry(0.15,1.15,0.045), steel);
@@ -139,13 +167,23 @@
       tip.position.y = 1.42; tip.rotation.y = Math.PI/4;
       const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.04,1.0,0.06), darkSteel);
       fuller.position.y = 0.72;
-      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.07,0.09), trimMat);
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.07,0.09), goldTrim);
       guard.position.y = 0.12;
-      const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.3,6), woodMat);
+      // 武器設定画: 鍔の両端が外側へ尖った小さな翼状の意匠。フラットな
+      // バーの両端に小さな三角錐を足すだけの軽い装飾
+      const wingL = new THREE.Mesh(new THREE.ConeGeometry(0.05,0.09,3), goldTrim);
+      wingL.position.set(0.25,0.12,0); wingL.rotation.z = -Math.PI/2;
+      const wingR = wingL.clone(); wingR.position.x = -0.25; wingR.rotation.z = Math.PI/2;
+      // 柄は赤系の巻き革(設定画の意匠)
+      const gripMat = new THREE.MeshStandardMaterial({color:0x5a1c1c, roughness:0.75});
+      const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.3,6), gripMat);
       hilt.position.y = -0.06;
-      const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.055,8,8), trimMat);
+      const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.055,8,8), goldTrim);
       pommel.position.y = -0.22;
-      weapon.add(blade, tip, fuller, guard, hilt, pommel);
+      // 鍔中央の青いジェム
+      const gem = makeGem(0x2a6fd6, 0.05);
+      gem.position.set(0, 0.12, 0.07);
+      weapon.add(blade, tip, fuller, guard, wingL, wingR, hilt, pommel, gem);
       weapon.position.set(0, HIP_Y+bodyH*0.55, 0.30);
       }
 
@@ -179,23 +217,40 @@
       function buildDualUnit(){
         const u = new THREE.Group();
         if(isAxe){
-          const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.026,0.46,6), woodMat);
-          const headL = new THREE.Mesh(new THREE.ConeGeometry(0.15,0.20,3), trimMat);
-          headL.position.set(-0.11,0.19,0); headL.rotation.z = Math.PI/2;
-          const headR = headL.clone(); headR.position.x = 0.11; headR.rotation.z = -Math.PI/2;
+          // 武器設定画: 左右対称の双頭斧ではなく、片側だけに大きく張り出す
+          // 三日月刃+反対側の小さな突起(石突)を持つ「隻頭の手斧」を
+          // 対で構える意匠。柄は赤茶の革巻き、刃元に金の座金、赤いジェムを
+          // 一つ添える
+          const handleMat = new THREE.MeshStandardMaterial({color:0x4a2418, roughness:0.75});
+          const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.026,0.46,6), handleMat);
+          const blade = new THREE.Mesh(new THREE.ConeGeometry(0.20,0.11,3), darkSteel);
+          blade.position.set(0.13,0.20,0); blade.rotation.z = -Math.PI/2;
           const spike = new THREE.Mesh(new THREE.ConeGeometry(0.028,0.13,4), darkSteel);
           spike.position.y = 0.32;
-          u.add(handle, headL, headR, spike);
+          const socket = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.038,0.10,6), goldTrim);
+          socket.position.set(0.02,0.20,0);
+          const buttRing = new THREE.Mesh(new THREE.TorusGeometry(0.032,0.010,6,10), goldTrim);
+          buttRing.position.y = -0.27;
+          const gem = makeGem(0xc0392b, 0.026);
+          gem.position.set(0.05,0.20,0.05);
+          u.add(handle, blade, spike, socket, buttRing, gem);
         } else {
-          const blade = new THREE.Mesh(new THREE.ConeGeometry(0.032,0.30,4), trimMat);
+          // 武器設定画: 三角断面のまま幅を広げ奥行きを詰めて、細い錐状の
+          // 刃から穂先(スピアヘッド)状の広い刃へ寄せる。柄頭は環状の
+          // リングポメル(設定画の指ぬき状の意匠)にする
+          const blade = new THREE.Mesh(new THREE.ConeGeometry(0.040,0.30,4), goldTrim);
+          blade.scale.set(1.55, 1, 0.55);
           blade.position.y = 0.20;
-          const guard = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.024,0.03), darkSteel);
+          const guard = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.024,0.03), goldTrim);
           guard.position.y = 0.03;
-          const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.14,6), new THREE.MeshStandardMaterial({color:0x2a1c10}));
+          const gem = makeGem(0x2a8f9e, 0.018);
+          gem.position.set(0, 0.03, 0.025);
+          const hiltMat = new THREE.MeshStandardMaterial({color:0x3a1e14, roughness:0.8});
+          const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.14,6), hiltMat);
           hilt.position.y = -0.06;
-          const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.024,6,6), darkSteel);
-          pommel.position.y = -0.14;
-          u.add(blade, guard, hilt, pommel);
+          const pommelRing = new THREE.Mesh(new THREE.TorusGeometry(0.026,0.009,6,10), goldTrim);
+          pommelRing.position.y = -0.15;
+          u.add(blade, guard, gem, hilt, pommelRing);
         }
         return u;
       }
@@ -222,11 +277,47 @@
       weapon.position.set(bodyR+0.12, HIP_Y+bodyH*0.68, 0.05);
 
     } else if(weaponKey==='staff'){
-      const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.03,0.85,6), woodMat);
-      const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.1,0), trimMat);
-      orb.position.y = 0.46;
-      weapon.add(staff, orb);
-      weapon.position.set(bodyR+0.16, HIP_Y+bodyH*0.42, 0.06);
+      // 武器設定画: 魔法使い/魔導士とも黒っぽい柄軸+金の環飾りは共通で、
+      // 石(ジェム)の色と柄の規模(長さ・石の大きさ・飾りの華やかさ)だけが
+      // 違う ―― 魔導士は「地面に着きそうな長さ」の巨大な杖、頂部は
+      // 星形のゴールドの意匠に紫の石、魔法使いは環に嵌まった青い石の
+      // シンプルな杖
+      const isArchmage = state.job === 'archmage';
+      const shaftMat = new THREE.MeshStandardMaterial({color:0x1c1814, roughness:0.6});
+      const shaftLen = isArchmage ? 1.05 : 0.85;
+      const staff = new THREE.Mesh(new THREE.CylinderGeometry(isArchmage?0.028:0.025, isArchmage?0.034:0.03, shaftLen, 6), shaftMat);
+      const gemY = isArchmage ? 0.58 : 0.46;
+      const gem = makeGem(isArchmage ? 0x8a3fd4 : 0x2a5bc4, isArchmage ? 0.12 : 0.095);
+      gem.position.y = gemY;
+      // 石を抱え込むゴールドの環(魔法使い)/星形の爪(魔導士)
+      const parts = [staff, gem];
+      if(isArchmage){
+        for(let i=0;i<4;i++){
+          const ang = i*Math.PI/2 + Math.PI/4;
+          const claw = new THREE.Mesh(new THREE.ConeGeometry(0.032,0.15,4), goldTrim);
+          claw.position.set(Math.cos(ang)*0.10, gemY+Math.sin(ang)*0.10, 0);
+          claw.rotation.z = ang - Math.PI/2;
+          parts.push(claw);
+        }
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.13,0.018,6,12), goldTrim);
+        ring.position.y = gemY;
+        parts.push(ring);
+      } else {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.105,0.016,6,12), goldTrim);
+        ring.position.y = gemY;
+        parts.push(ring);
+      }
+      // 柄の途中の金の帯+小さなジェム(設定画の中程の飾り)
+      const band = new THREE.Mesh(new THREE.TorusGeometry(isArchmage?0.036:0.032, 0.008, 6, 10), goldTrim);
+      band.position.y = shaftLen*0.18; band.rotation.x = Math.PI/2;
+      const smallGem = makeGem(isArchmage ? 0x8a3fd4 : 0x2a5bc4, isArchmage?0.036:0.03);
+      smallGem.position.y = shaftLen*0.18;
+      // 石突(杖の下端、尖った金具)
+      const ferrule = new THREE.Mesh(new THREE.ConeGeometry(isArchmage?0.034:0.028, 0.11, 4), goldTrim);
+      ferrule.position.y = -shaftLen/2 - 0.02; ferrule.rotation.x = Math.PI;
+      parts.push(band, smallGem, ferrule);
+      weapon.add(...parts);
+      weapon.position.set(bodyR+(isArchmage?0.18:0.16), HIP_Y+bodyH*(isArchmage?0.40:0.42), 0.06);
 
     } else if(weaponKey==='spellblade'){
       // 杖の「掲げる」シルエットから、片手剣の「構える」シルエットへ。
@@ -311,9 +402,58 @@
       // (applyJobPromotionVisual)と掛け合わさっても不自然にならないよう
       // にするため
       const isHawkEye = state.job === 'hawkEye';
-      const bowR = isHawkEye ? 0.50 : 0.34;
-      const bow = new THREE.Mesh(new THREE.TorusGeometry(bowR,isHawkEye?0.034:0.028,6,18,Math.PI*1.35), trimMat);
-      bow.rotation.z = Math.PI*0.32;
+      // 武器設定画: 弓本体は両クラスとも茶色の木部(classDef.trim/uj.trimを
+      // そのまま使うと、鷹の目はuj.trim=青緑になってしまい、設定画の
+      // 茶色い弓と全く違う色になる)。木部は固定色にし、握り部分の赤茶の
+      // ビーズだけジェム色(赤褐色)で差し色にする
+      const bowWoodMat = new THREE.MeshStandardMaterial({color:0x5a3820, roughness:0.7});
+      const bowBeadColor = 0xb0502a;
+      // ユーザー指摘:「弦じゃなくて弓の方をきちんと持つように」―― 従来は
+      // 弓のTorus Geometryが原点(=握りの手の位置)を中心とした「ドーナツの
+      // 穴」になっており、手はリング材(弓本体)ではなく空洞(すぐそばの弦)
+      // に重なって見えていた。握りの位置に弓本体の実体(グリップ材)を
+      // 追加し、手が弓の木部を掴んでいるように見せる
+      const gripMat = new THREE.MeshStandardMaterial({color:0x2a1c14, roughness:0.8});
+      let bow, bowLimbY, bowTipUp = null, bowTipDown = null;
+      if(isHawkEye){
+        /* 武器設定画: 弓師の左右対称な小弓とは違い、鷹の目(大弓/和弓風)は
+           握りが中心ではなく下から1/3の位置にある非対称な長弓 ――
+           上の弓幹(弭まで)がずっと長く、下の弓幹は短い。対称なTorus
+           一つでは表現できないため、半径の異なる2本のTorus Arc(弧、
+           arc=Math.PIのちょうど半円)を、それぞれ「弧のちょうど反対側
+           の点(θ=π)が武器原点(=握りの手の位置)に一致する」よう
+           position/rotationを計算して継ぎ目なく配置する(半円なので
+           θ=πは弧の終点そのもの ―― 計算はコード側のコメント参照)。
+           弦の取り付け点(bowTipUp/bowTipDown)も、この2本の弧の実際の
+           先端(θ=0側、原点から見て弧の反対の端)に正確に合わせて計算する。 */
+        const rUp = 0.58, rDn = 0.28;
+        const rotUp = Math.PI*0.38, rotDn = -Math.PI*0.62;
+        const limbUp = new THREE.Mesh(new THREE.TorusGeometry(rUp,0.034,6,14,Math.PI), bowWoodMat);
+        limbUp.rotation.z = rotUp;
+        limbUp.position.set(rUp*Math.cos(rotUp), rUp*Math.sin(rotUp), 0);
+        const limbDn = new THREE.Mesh(new THREE.TorusGeometry(rDn,0.034,6,14,Math.PI), bowWoodMat);
+        limbDn.rotation.z = rotDn;
+        limbDn.position.set(rDn*Math.cos(rotDn), rDn*Math.sin(rotDn), 0);
+        bow = new THREE.Group();
+        bow.add(limbUp, limbDn);
+        // 弧の「原点でない方の端」(θ=0)の実座標 = position*2(半円のθ=π
+        // が原点に来るよう位置決めしているため、θ=0側はその点対称)
+        bowTipUp = {x: rUp*Math.cos(rotUp)*2, y: rUp*Math.sin(rotUp)*2, z: 0};
+        bowTipDown = {x: rDn*Math.cos(rotDn)*2, y: rDn*Math.sin(rotDn)*2, z: 0};
+        bowLimbY = rUp*0.9;   // 未使用(bowTipUp/Downがある場合はそちら優先)だが保険で残す
+      } else {
+        const bowR = 0.34;
+        bow = new THREE.Mesh(new THREE.TorusGeometry(bowR,0.028,6,18,Math.PI*1.35), bowWoodMat);
+        bow.rotation.z = Math.PI*0.32;
+        bowLimbY = bowR*0.926;
+      }
+      // 握りの実体(グリップ)。弓の弧全体と同じ傾き(archerはbow.rotation.z、
+      // 鷹の目は上下の弧の中間的な傾き)を持たせ、原点(手の位置)に沿わせる
+      const gripTilt = isHawkEye ? (Math.PI*0.38 + -Math.PI*0.62)/2 : Math.PI*0.32;
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.030, isHawkEye?0.22:0.16, 8), gripMat);
+      grip.rotation.z = gripTilt;
+      const bead = makeGem(bowBeadColor, isHawkEye?0.026:0.020);
+      bead.position.z = 0.025;
       /* The string is two segments meeting at the nock, not one rigid bar.
          A single cylinder can only ever be pulled straight back along one
          axis, so the moment the drawing hand is anywhere off that axis the
@@ -327,10 +467,12 @@
       nock.position.set(isHawkEye?0.07:0.05,0,0);
       const segUp = new THREE.Mesh(strGeo, strMat);
       const segDn = new THREE.Mesh(strGeo, strMat);
-      weapon.add(bow, nock, segUp, segDn);
+      weapon.add(bow, grip, bead, nock, segUp, segDn);
       playerMixerParts.bowString = nock;        // the nocking point itself
       playerMixerParts.bowSegs = [segUp, segDn];
-      playerMixerParts.bowLimbY = bowR*0.926;   // where the string meets the limbs (元寸法の比率のまま)
+      playerMixerParts.bowLimbY = bowLimbY;     // where the string meets the limbs (対称弓のみ使用)
+      playerMixerParts.bowTipUp = bowTipUp;     // 非対称弓(鷹の目)の上弦点(あればbowLimbYより優先)
+      playerMixerParts.bowTipDown = bowTipDown; // 非対称弓(鷹の目)の下弦点
       // an arrow sitting on the string while the bow is drawn. It points
       // along the bow's local -X, which becomes the character's forward once
       // the bow is turned into the aiming plane.
