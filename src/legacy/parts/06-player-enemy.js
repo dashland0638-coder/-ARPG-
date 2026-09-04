@@ -2314,39 +2314,86 @@
          「胸元・肩だけMageの元の色(水色/紫)が残って見える」という
          見た目になっていた(スクリーンショットで実際に確認)。
          clothMatFlat/trimMatFlatも同じ新しいテクスチャで個別に上書きする */
+      /* ユーザー指摘(色の統一、3回目):「胸元とその他で色違くない?黒すぎる
+         気がするけど。全く同じ色にして。それとも胸元のパーツに別で
+         フィルターかかってる?」
+
+         Root Cause: 色(hex)は既に全部ARCHMAGE_NAVYで一致していたが、
+         「別でフィルターがかかっている」という見立てのほうが正しかった ――
+         違っていたのは色ではなくMaterialの質感設定だった:
+           ・胸当て/肩当て(trimMat/trimMatFlat)はmakeMetalTexture()製。
+             この生成器は基準色の55%まで落とした暗いスクラッチ線と
+             ブラシ目をテクスチャへ直接焼き込む(makeLeatherTexture()の
+             まだら+シワとは絵柄も明度分布も別物)。
+           ・さらにmetalness 0.3(ローブは0.15)・roughness 0.4(同0.6)・
+             emissiveIntensity 0.12の自己発光まで付いており、同じ色でも
+             光の返し方が変わって黒く沈んで見えていた。
+         Fix: Archmageに限り、胸当て/肩当てにもローブと「同一のテクスチャ
+         インスタンス(robeTex)」を割り当て、roughness/metalnessもローブの
+         値へ揃え、emissiveを完全に切る ―― これで胸元とローブは
+         レンダリング上まったく同じ見え方になる(Mage本体・他クラスの
+         trimMatはmetal質感のまま、この分岐に入らないので無変更)。 */
       const ARCHMAGE_NAVY = 0x1c2440;
-      if(P.clothMat){
-        const robeTex = makeLeatherTexture(hexStr(ARCHMAGE_NAVY), 2, 2);
-        P.clothMat.map = robeTex;
-        applyBump(P.clothMat);
-        P.clothMat.needsUpdate = true;
-        if(P.clothMatFlat){
-          P.clothMatFlat.map = robeTex;
-          applyBump(P.clothMatFlat);
-          P.clothMatFlat.needsUpdate = true;
+      const ROBE_ROUGHNESS = 0.6, ROBE_METALNESS = 0.15;
+      const robeTex = makeLeatherTexture(hexStr(ARCHMAGE_NAVY), 2, 2);
+      /* ローブと同じ見え方に揃えるための共通処理。
+
+         .color を必ず白へ戻すのが重要 ―― THREE.MeshStandardMaterialは
+         .map のピクセルに .color を「乗算」する。テクスチャ側に既に
+         ARCHMAGE_NAVYを焼き込んでいるので、.colorにも同じ紺を入れると
+         紺×紺で二重に暗くなり、ほぼ黒に潰れてしまう(下記Root Cause)。 */
+      const matchRobeLook = (mat)=>{
+        if(!mat) return;
+        mat.map = robeTex;
+        mat.color.set(0xffffff);
+        mat.roughness = ROBE_ROUGHNESS;
+        mat.metalness = ROBE_METALNESS;
+        if(mat.emissive) mat.emissive.set(0x000000);
+        mat.emissiveIntensity = 0;
+        applyBump(mat);
+        mat.needsUpdate = true;
+      };
+      matchRobeLook(P.clothMat);
+      matchRobeLook(P.clothMatFlat);
+      // 胸当てリング・肩当て・カフス・帽子の房飾り(bigCone)が使う金属
+      // トリムも、ローブと同じ布の質感へ寄せる(上記Root Cause参照)
+      matchRobeLook(P.trimMat);
+      matchRobeLook(P.trimMatFlat);
+      /* 帽子(hatMatCone/hatMatBrim)について ―― Mesh Ownership Debugで
+         判明した本当のRoot Cause:
+
+         buildPlayer()のMageブロックは
+           hatMatCone = classDef.hatColor!=null ? 専用Material : clothMat
+           hatMatBrim = classDef.hatColor!=null ? 専用Material : clothMat
+         という三項演算子で、hatColorが未指定なら「clothMatそのもの」を
+         代入する。以前のラウンドで魔法使いを水色の単色ウィザードにした際
+         CLASSES.mageからhatColorを削除したため、現在は
+           hatMatCone === hatMatBrim === clothMat(全部同じObject)
+         になっている。
+
+         それに気付かず「hatMatBrimはmap無しの単色Materialだから
+         .color.set()で差し替えられる」という(hatColorがあった頃には
+         正しかった)前提のまま .color を設定していたため、実際には
+         ローブ本体のMaterialの.colorへ紺を入れていた ―― 上記のとおり
+         テクスチャの紺と乗算されて全身が黒く潰れ、単独のMaterialである
+         胸当て(trimMat)だけ二重暗化を免れて色が違って見えていた。
+         (ユーザーの「胸元のパーツに別でフィルターかかってる?」は
+          逆で、フィルターが掛かっていたのは胸元以外の方だった)
+
+         対処: 帽子は上のmatchRobeLook()で既にローブと同一Materialとして
+         処理済みなので、ここでは「clothMatとは別Objectのときだけ」
+         (将来hatColorを復活させた場合)単色として色を設定する。 */
+      const hatMats = [P.hatMatCone, P.hatMatBrim].filter(
+        m => m && m !== P.clothMat && m !== P.clothMatFlat);
+      hatMats.forEach(m=>{
+        if(m.map) matchRobeLook(m);
+        else {
+          m.color.set(ARCHMAGE_NAVY);
+          m.roughness = ROBE_ROUGHNESS;
+          m.metalness = ROBE_METALNESS;
+          m.needsUpdate = true;
         }
-      }
-      if(P.hatMatCone){
-        P.hatMatCone.map = makeLeatherTexture(hexStr(ARCHMAGE_NAVY), 2, 2);
-        applyBump(P.hatMatCone);
-        P.hatMatCone.needsUpdate = true;
-      }
-      if(P.hatMatBrim){
-        P.hatMatBrim.color.set(ARCHMAGE_NAVY);
-      }
-      if(P.trimMat){
-        const trimTex = makeMetalTexture(hexStr(ARCHMAGE_NAVY), 3, 1);
-        P.trimMat.map = trimTex;
-        P.trimMat.emissive.set(ARCHMAGE_NAVY);
-        applyBump(P.trimMat);
-        P.trimMat.needsUpdate = true;
-        if(P.trimMatFlat){
-          P.trimMatFlat.map = trimTex;
-          P.trimMatFlat.emissive.set(ARCHMAGE_NAVY);
-          applyBump(P.trimMatFlat);
-          P.trimMatFlat.needsUpdate = true;
-        }
-      }
+      });
       // ベルト(ローブの丸い輪っか)・帽子の輪っか(band)は、胸当て/ローブの
       // 紺とは別に白紫系のアクセントにする(ユーザー指摘3)
       if(P.beltMat){
@@ -2459,8 +2506,16 @@
       // 前開きの襟(コート状の合わせ)を左右一枚ずつ重ねて「開けて羽織る」
       // シルエットに寄せる。魔法使いより身軽に見えるよう、幅は細め。
       // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す
+      // makeClothPanel()は内部で独自のMaterial(タイリング1x2・roughness0.82・
+      // metalness未設定)を作るため、色を同じ紺(uj.capeColor)にしても
+      // ローブ(2x2・roughness0.6・metalness0.15)とは見え方がわずかにずれる。
+      // 胸の高さに重なるパーツなので、生成後にローブと同一のMaterialの複製
+      // (薄板なのでside:DoubleSideだけ復元する)へ差し替えて完全に揃える
+      const flapMat = P.clothMat ? P.clothMat.clone() : null;
+      if(flapMat) flapMat.side = THREE.DoubleSide;
       [-1,1].forEach(s=>{
         const flap = makeClothPanel(0.16, bodyH*0.78, uj.capeColor, {rows:6, foldDepth:0.022});
+        if(flapMat) flap.material = flapMat;
         flap.position.set(s*0.13, bodyH*0.48, bodyR*0.62);
         flap.rotation.set(0.05, s*0.42, 0);
         P.waist.add(flap); meshes.push(flap);
