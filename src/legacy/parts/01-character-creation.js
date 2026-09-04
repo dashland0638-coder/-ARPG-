@@ -131,9 +131,13 @@
     mage: {key:'archmage', name:'魔導士', icon:'🔮', unlockLv:50,
       // デザイン設定シート(Phase 6準拠)対応: trimをシートのArchmage
       // アクセント(青緑の結晶、#82c6d4)へ差し替えた(旧0xb08affは薄紫で
-      // シートのメイン=紫と被って見分けが付きにくかった)。capeColor
-      // (0x241a4a、暗い紫)はシートのメイン系統に近いため据え置き
-      trim:0x82c6d4, capeColor:0x241a4a,
+      // シートのメイン=紫と被って見分けが付きにくかった)。浮遊結晶・
+      // 魔法陣のアクセントとして違和感が無いため、trimはそのまま維持。
+      // capeColor(前開きローブの襟/合わせ)は、ユーザー共有の参考画像
+      // (ダークソウル風・白い帽子+黒に近いローブの術者)を受けて、暗い
+      // 紫(0x241a4a)からローブ本体(clothMat、06-player-enemy.js側で
+      // 0x1a1a22へ変更済み)に近い無彩色寄りのダークグレーへ調整
+      trim:0x82c6d4, capeColor:0x242228,
       statBonus:{mag:10, foc:6},
       flavor:'人間から魔法そのものへ近づいていく術者。'},
     archer: {key:'hawkEye', name:'鷹の目', icon:'🦅', unlockLv:50,

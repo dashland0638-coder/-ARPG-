@@ -384,6 +384,10 @@
     const trimMat = applyBump(new THREE.MeshStandardMaterial({
       map: makeMetalTexture(hexStr(classDef.trim), 3, 1), roughness:0.4, metalness:0.3,
       emissive:classDef.trim, emissiveIntensity:0.12}));
+    // Archmage昇格時、胸当てリング/ベルト/カフス/武器金具など「硬い金属
+    // トリム」全般(このtrimMat一つで共有)も参考画像に合わせて暗色へ
+    // 差し替えられるよう公開しておく(clothMat等と同じ差分方式)
+    playerMixerParts.trimMat = trimMat;
     /* Flat-shaded twins for the lathed pelvis/pauldron/cuffs (armor and
        underlayers - the "hard plate" gem-cut look still suits those). The
        head used to get the same flatShading treatment, but the user asked
@@ -399,6 +403,13 @@
        meant to be smooth) limbs, torso, weapon trim and so on. */
     const clothMatFlat = clothMat.clone(); clothMatFlat.flatShading = true;
     const trimMatFlat = trimMat.clone();  trimMatFlat.flatShading = true;
+    // Archmage昇格時の色差し替え(clothMat/trimMat)は.clone()で複製した
+    // これらのFlat版には伝播しない(.clone()はプロパティのコピーであって
+    // 参照の共有ではないため、後から親のmapを差し替えても子には反映
+    // されない) ―― Torso/Pelvis(clothMatFlat)・Pauldron(trimMatFlat)も
+    // 同じ「差分方式」で個別に公開しておく
+    playerMixerParts.clothMatFlat = clothMatFlat;
+    playerMixerParts.trimMatFlat = trimMatFlat;
     // 軽装(ユーザー指摘: 盗賊は「鎧の部位が少なめの軽装」に)。全クラス
     // 共通の脛当て/籠手を盗賊だけ外し、肩当ても一回り小さくして防具の
     // 面積そのものを減らす ―― 素肌・布の見える面積が増えることで
@@ -678,6 +689,10 @@
     // いればそちらを使う(現状は参考画像に合わせた魔法使いの紫髪のみ)
     const hairColor = classDef.hairColor!=null ? classDef.hairColor : (isFemale?0x2c1e14:0x1b140f);
     const hairMat = new THREE.MeshStandardMaterial({color:hairColor, roughness:0.7});
+    // Archmage昇格時、Hatの下から覗く地毛(hairline付近)も銀髪へ差し替え
+    // られるよう、他のPromotion専用Material(clothMat等)と同じ「差分方式」
+    // でMaterial Objectを公開しておく(06-player-enemy.jsのarchmageブロック参照)
+    playerMixerParts.hairMat = hairMat;
 
     /* Head Assembly構造修正フェーズ: Hair一式をHeadプロファイル由来にする
 
@@ -2113,33 +2128,76 @@
       /* Mage自身のローブ(clothMat)・帽子(hatMatCone/hatMatBrim)は
          Mage自体の色調整と連動して変わるため、Archmage側で明示的に
          差し替えないと「Mageと同じ配色の魔導士」になってしまう。
-         ユーザー指摘(色の再調整):「魔導士を紺、黒系に修正して」
-         ―― 当初はデザイン設定シート準拠で紫ローブ+青帽子にしていたが、
-         Mage自体を水色ウィザードへ差し戻したこの流れの中で、Archmageは
-         紺のローブ+黒系の帽子という、より深く/暗くなる方向の色に
-         差し替え直した(Mageの明るい水色から一段暗く沈む「深みを増した
-         魔導士」の見た目を狙う)。
+         ユーザー指摘(色の再調整、参考画像): ダークソウル風の「白い
+         とんがり帽子+黒に近いボロ布のローブ+銀髪」の術者画像が共有され
+         「魔導士はこの色」と明示された。一つ前のラウンドでは「紺、黒系」
+         という言葉から帽子まで黒くしていたが、この参考画像は帽子が
+         むしろ淡いオフホワイト側で、暗いのはローブのほうだと分かった
+         ため、両者の役割を入れ替える形で再調整する:
+         - ローブ(clothMat): 紺(0x1c2840)→ 参考画像のローブ・スカート部
+           から実測した色相寄りの、青みを抑えたほぼ無彩色の暗灰(0x1a1a22)
+         - 帽子(hatMatCone/hatMatBrim): 黒(0x14161e)→ 参考画像の帽子から
+           実測した淡いアイボリー系オフホワイト(0xd6d0c4)
+         - トリム(trimMat/trimMatFlat、胸当てリング・ベルト・カフス・
+           肩当て・武器金具で共有): Mage本来の紫(classDef.trim)のままだと
+           胸〜肩まわりだけ紫が浮いて残ってしまうため、暗いピューター調の
+           鋼色(0x46424a)へ統一する
          hatMatBrimは単色Material(map無しの単純なMeshStandardMaterial)
-         のため.color.set()で直接差し替え可能。一方clothMatとhatMatCone
-         はmakeLeatherTexture()で色を直接キャンバスへ焼き込んだ手続き
-         テクスチャ(.map)を持つため、.color.set()では効果がない
-         (デフォルトのcolor=白がテクスチャにそのまま掛かるだけの状態の
-         ため、後から乗算しても濁った中間色にしかならない) ―― 新しい色で
-         テクスチャを生成し直し、.mapを差し替えてからapplyBump()で
-         バンプマップの対応も更新し直す(テクスチャ生成関数自体・Mage側の
-         元Materialは変更していない) */
+         のため.color.set()で直接差し替え可能。一方clothMat/hatMatCone/
+         trimMat/trimMatFlatはmakeLeatherTexture()/makeMetalTexture()で
+         色を直接キャンバスへ焼き込んだ手続きテクスチャ(.map)を持つため、
+         .color.set()では効果がない(デフォルトのcolor=白がテクスチャに
+         そのまま掛かるだけの状態のため、後から乗算しても濁った中間色に
+         しかならない) ―― 新しい色でテクスチャを生成し直し、.mapを
+         差し替えてからapplyBump()でバンプマップの対応も更新し直す
+         (テクスチャ生成関数自体・Mage側の元Materialは変更していない)。
+
+         実機QAで判明した追加の落とし穴: Torso/Pelvis(体幹の大部分)は
+         clothMat自体ではなく、それを.clone()した別ObjectのclothMatFlat
+         (フラットシェーディング版)を使っている。同様にPauldron(肩当て)
+         はtrimMatFlatを使っている。.clone()は生成時点のプロパティを
+         コピーするだけで、元のMaterialへの参照を保つわけではないため、
+         clothMat/trimMat側だけ.mapを差し替えてもFlat版には反映されず、
+         「胸元・肩だけMageの元の色(水色/紫)が残って見える」という
+         見た目になっていた(スクリーンショットで実際に確認)。
+         clothMatFlat/trimMatFlatも同じ新しいテクスチャで個別に上書きする */
       if(P.clothMat){
-        P.clothMat.map = makeLeatherTexture(hexStr(0x1c2840), 2, 2);
+        const robeTex = makeLeatherTexture(hexStr(0x1a1a22), 2, 2);
+        P.clothMat.map = robeTex;
         applyBump(P.clothMat);
         P.clothMat.needsUpdate = true;
+        if(P.clothMatFlat){
+          P.clothMatFlat.map = robeTex;
+          applyBump(P.clothMatFlat);
+          P.clothMatFlat.needsUpdate = true;
+        }
       }
       if(P.hatMatCone){
-        P.hatMatCone.map = makeLeatherTexture(hexStr(0x14161e), 2, 2);
+        P.hatMatCone.map = makeLeatherTexture(hexStr(0xd6d0c4), 2, 2);
         applyBump(P.hatMatCone);
         P.hatMatCone.needsUpdate = true;
       }
       if(P.hatMatBrim){
-        P.hatMatBrim.color.set(0x14161e);
+        P.hatMatBrim.color.set(0xd6d0c4);
+      }
+      if(P.trimMat){
+        const trimTex = makeMetalTexture(hexStr(0x46424a), 3, 1);
+        P.trimMat.map = trimTex;
+        P.trimMat.emissive.set(0x46424a);
+        applyBump(P.trimMat);
+        P.trimMat.needsUpdate = true;
+        if(P.trimMatFlat){
+          P.trimMatFlat.map = trimTex;
+          P.trimMatFlat.emissive.set(0x46424a);
+          applyBump(P.trimMatFlat);
+          P.trimMatFlat.needsUpdate = true;
+        }
+      }
+      // 参考画像は帽子の下から覗く髪も銀髪(白髪)。Mage本体のhairMat
+      // (classDef.hairColor由来、通常は茶色)をArchmageだけ銀髪へ差し替える
+      // ―― hairlineから覗く僅かな地毛もHat/archHairMatと統一した色にするため
+      if(P.hairMat){
+        P.hairMat.color.set(0xcac6d2);
       }
       // 大型化した帽子の房飾り(既存の帽子の上に追加)
       // Head/Posture Alignment再設計フェーズ: bigCone/strandにもHEAD_BACK_Z
@@ -2183,12 +2241,13 @@
       const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2 };
       const archHeadYLocal = bodyH + B.headGap;   // P.waist基準でのHead中心Y(buildPlayerのhead.position.yに相当)
       const archHeadOut = (yFrac) => headOutlineAt(archHeadDims, yFrac);
-      // Hair色: 旧glowHairMatの発光ブルーは「縦棒」という形状の弱さを
-      // 光でごまかしていた面があったため、形状で見せる通常の髪材質へ
-      // 変更。Robe(紺)との明度差を確保しつつ「上位魔導士」らしいごく
-      // 淡い発光(emissiveIntensity 0.22、控えめ)だけ残す
+      // Hair色: 参考画像(ダークソウル風の白髪術者)指摘により、紫の
+      // 発光ヘアから銀髪(白髪)へ変更。参考画像の髪は光ってはいない
+      // ため、発光(emissive)は付けず、roughnessだけ低めにして絹のような
+      // 光沢感を出す(P.hairMat=hairline付近の地毛も同じ色へ統一済み、
+      // 上のarchmageブロック参照)
       const archHairMat = new THREE.MeshStandardMaterial({
-        color:0x9b7fe6, emissive:0x2a1a4a, emissiveIntensity:0.22, roughness:0.55});
+        color:0xcac6d2, roughness:0.5});
       function archSeg(rootP, tipP, rootR, tipR){
         const len = rootP.y - tipP.y;
         const tiltX = Math.atan2(tipP.z-rootP.z, len);
