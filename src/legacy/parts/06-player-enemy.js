@@ -1064,13 +1064,13 @@
       // classDef.trimを直接参照する共有Materialで、Rogueの足元リング・
       // 武器・戦闘VFX色にも同じ値が使われているため、classDef.trim自体を
       // 変更すると影響範囲が広すぎる(Berserker昇格時のコメント参照)。
-      // Hood専用の暗い布地Material(rogueHoodMat)を新設し、Mask(0x1c1a20)
-      // と近い暗さながら僅かに違う色相(紺鼠、0x2b2f3a)にして
-      // 「暗殺者の頭巾」として馴染ませつつ、フードの折り目の陰影が
-      // 潰れて見えない程度の明度差は残した。Berserker昇格時の
+      // Hood専用のMaterial(rogueHoodMat)を新設した ―― 一度は「暗殺者の
+      // 頭巾」に寄せて紺鼠(0x2b2f3a)にしたが、ユーザーから「フード
+      // パーツは色黄色系」と明確な指定があったため、黄色寄りのマスタード
+      // (0xc9a83a)へ差し替えた。Berserker昇格時の
       // P.rogueHood.material.color.set(uj.capeColor)はMaterial Objectを
       // 参照しているだけなので、このMaterial差し替え後もそのまま機能する
-      const rogueHoodMat = new THREE.MeshStandardMaterial({color:0x2b2f3a, roughness:0.85, side:THREE.DoubleSide});
+      const rogueHoodMat = new THREE.MeshStandardMaterial({color:0xc9a83a, roughness:0.85, side:THREE.DoubleSide});
       const hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
       const hood = new THREE.Mesh(
         makeRogueHood({width:headR, depth:headR, height:hoodH}), rogueHoodMat);
@@ -2110,12 +2110,15 @@
       P.waist.add(beard); meshes.push(beard);
 
     } else if(uj.key === 'archmage'){
-      /* デザイン設定シート(Phase 6準拠)対応: シートのArchmageはMageの
-         メイン(オリーブ)/サブ(タン)とは逆に、メイン=紫のローブ、
-         サブ=青の帽子という配色。Mage自身のローブ(clothMat)・帽子
-         (hatMatCone/hatMatBrim)は既存のPriority(色調整)でシート準拠の
-         タン/オリーブへ変更済みのため、そのまま昇格すると「Mageと同じ
-         配色の魔導士」になってしまう。
+      /* Mage自身のローブ(clothMat)・帽子(hatMatCone/hatMatBrim)は
+         Mage自体の色調整と連動して変わるため、Archmage側で明示的に
+         差し替えないと「Mageと同じ配色の魔導士」になってしまう。
+         ユーザー指摘(色の再調整):「魔導士を紺、黒系に修正して」
+         ―― 当初はデザイン設定シート準拠で紫ローブ+青帽子にしていたが、
+         Mage自体を水色ウィザードへ差し戻したこの流れの中で、Archmageは
+         紺のローブ+黒系の帽子という、より深く/暗くなる方向の色に
+         差し替え直した(Mageの明るい水色から一段暗く沈む「深みを増した
+         魔導士」の見た目を狙う)。
          hatMatBrimは単色Material(map無しの単純なMeshStandardMaterial)
          のため.color.set()で直接差し替え可能。一方clothMatとhatMatCone
          はmakeLeatherTexture()で色を直接キャンバスへ焼き込んだ手続き
@@ -2126,17 +2129,17 @@
          バンプマップの対応も更新し直す(テクスチャ生成関数自体・Mage側の
          元Materialは変更していない) */
       if(P.clothMat){
-        P.clothMat.map = makeLeatherTexture(hexStr(0x6b6185), 2, 2);
+        P.clothMat.map = makeLeatherTexture(hexStr(0x1c2840), 2, 2);
         applyBump(P.clothMat);
         P.clothMat.needsUpdate = true;
       }
       if(P.hatMatCone){
-        P.hatMatCone.map = makeLeatherTexture(hexStr(0x375776), 2, 2);
+        P.hatMatCone.map = makeLeatherTexture(hexStr(0x14161e), 2, 2);
         applyBump(P.hatMatCone);
         P.hatMatCone.needsUpdate = true;
       }
       if(P.hatMatBrim){
-        P.hatMatBrim.color.set(0x375776);
+        P.hatMatBrim.color.set(0x14161e);
       }
       // 大型化した帽子の房飾り(既存の帽子の上に追加)
       // Head/Posture Alignment再設計フェーズ: bigCone/strandにもHEAD_BACK_Z

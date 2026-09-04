@@ -1296,7 +1296,7 @@
   // マージンを掛けた値(Hair Shell以上、Headより確実に大きい)
   const ROGUE_HOOD_RINGS = [
     { yFrac:0.000, widthMul:1.02, depthMul:1.02 },  // 下端(襟元付近、Head jaw〜cheek境界相当)
-    { yFrac:0.225, widthMul:1.22, depthMul:1.22 },  // Headのcheek高さ(widthMul1.06)+15%
+    { yFrac:0.225, widthMul:1.42, depthMul:1.42 },  // Headのcheek高さ(widthMul1.06)+15%→+34%(実機で頬側面に地肌露出を確認、再調整)
     { yFrac:0.630, widthMul:1.06, depthMul:1.06 },  // HeadのupperHead高さ(widthMul0.92)+15%
     { yFrac:1.000, widthMul:0.12, depthMul:0.12 },  // 頭頂(先端、フードが布のように絞られる意匠を維持)
   ];
@@ -1311,8 +1311,17 @@
      ライン殻(BackSide、明るいベージュ0xdcd0b0)だけが見えてしまう
      (Mesh Ownership Debugで、Hoodを一時的に赤へ塗って確認 ――
      DoubleSide未設定だと赤自体がほぼ見えず、DoubleSideを足すと即座に
-     全面が赤になった)。このRINGS自体(マージン量)は無関係だったため、
-     元の値のまま据え置いている。 */
+     全面が赤になった)。このRINGS自体(マージン量)はこの時点では無関係
+     と判断し、元の値のまま据え置いていた。
+
+     追記(ユーザー指摘「盗賊の頭の地肌が見えてる」): DoubleSide修正後、
+     こめかみ付近(cheekリング、yFrac0.225)にHead本体の地肌が別途露出
+     しているのを実機で確認した ―― こちらは上記のDoubleSide問題とは
+     独立した、真にマージン不足によるもの(Mesh Ownership Debugで
+     Hoodを目立つ色に差し替え、頬側面の縫い目状の隙間から地肌色が
+     覗いているのを確認)。cheekリングのマージンを+15%(1.22)から
+     +34%(1.42)へ広げ、Hood本体の色を差し替えて実機再検証した上で
+     隙間が閉じたことを確認した。 */
   /* makeRogueHood({width,depth,height}): makeWarriorBaseHelm()と同じ
      引数規約だが、ローカルy座標はHead/Hair Shellと同じ「中心基準」
      (-height/2〜+height/2)にしてある ―― 旧実装のCylinder系Geometryが中心原点
