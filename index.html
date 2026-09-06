@@ -127,6 +127,23 @@
 </div>
 <div id="screen-flash"></div>
 <div id="debug-badge">🐛 DEBUG MODE — 被ダメージ0</div>
+
+<!-- ============ COMBAT TEST ARENA(テストモード専用。通常プレイでは
+     state.testModeが常にfalseなのでJS側で非表示のまま維持される。
+     Combat Design Audit #1/#2/#9-11参照) ============ -->
+<div id="arena-toggle-btn" class="arena-toggle-btn">⚔️ Arena</div>
+<div id="arena-panel" class="arena-panel">
+  <div class="arena-panel-title">Combat Test Arena</div>
+  <div class="arena-roster" id="arena-roster"></div>
+  <div class="arena-panel-row">
+    <button type="button" id="arena-clear-btn">🧹 Clear All</button>
+    <button type="button" id="arena-info-toggle-btn">🔍 Debug Info: OFF</button>
+  </div>
+  <div class="arena-panel-hint">タップで出現 / コントローラー: D-pad右で巡回スポーン</div>
+</div>
+<div id="arena-feedback-log"></div>
+<div id="arena-enemy-info"></div>
+
 <div id="interact-btn">扉を開ける</div>
 <div id="btn-cam-left">⟲</div>
 <div id="btn-cam-right">⟳</div>

@@ -52,3 +52,128 @@
     // spawnEnemies()内でenemies配列を作り直すため、ここでenemiesへ
     // 直接pushしても上書きされて消えてしまう(buildWorldの実行順参照)
   }
+
+  /* =========================================================
+     COMBAT TEST ARENA UI(Combat Design Audit #1/#2/#9-11)
+
+     スポーン/クリア自体(ARENA_ROSTER, arenaSpawn, arenaClear)は
+     07-ai-combat.jsに定義済み。ここはDOM側(パネルの開閉・ロスター
+     ボタンの描画・Debug Feedbackのログ表示・敵情報パネル)だけを担当する。
+
+     操作方針(#10): iPhoneのタップ操作を主対象にした実DOMボタンで、
+     キーボード専用の操作は一切無い。外付けコントローラーは、パネルの
+     細かいナビゲーションまでは実装せず(このパネル自体が「ゲームを
+     止めない」設計のため、ポーズ中しか動かない既存の汎用ゲームパッド
+     メニューナビ(10-input.js)には乗せられない ―― setOverlay()経由に
+     すると戦闘中にstate.pausedがtrueになってしまい、旋回/攻撃/パニッシュ
+     等をコントローラーで確認する用途と矛盾する)、D-pad右(ゲームプレイ中
+     未使用の空きボタン、13-update-loop.js updateInput参照)1つで
+     ロスターを順番にスポーンできるようにして、最低限「操作を阻害しない」
+     を満たす(#10の要件)。
+  ========================================================= */
+  let arenaPanelOpen = false;
+  let arenaDebugInfoOn = false;
+
+  function buildArenaUiOnce(){
+    const wrap = document.getElementById('arena-roster');
+    Object.keys(ARENA_ROSTER).forEach(kind=>{
+      const def = ARENA_ROSTER[kind];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = `${def.icon} ${def.label}`;
+      btn.addEventListener('click', ()=> arenaSpawn(kind));
+      wrap.appendChild(btn);
+    });
+    document.getElementById('arena-toggle-btn').addEventListener('click', toggleArenaPanel);
+    document.getElementById('arena-clear-btn').addEventListener('click', arenaClear);
+    document.getElementById('arena-info-toggle-btn').addEventListener('click', toggleArenaDebugInfo);
+  }
+  buildArenaUiOnce();   // 静的なDOM要素なので起動時に一度だけ配線する
+
+  function toggleArenaPanel(){
+    if(!state.testMode) return;
+    arenaPanelOpen = !arenaPanelOpen;
+    document.getElementById('arena-panel').classList.toggle('show', arenaPanelOpen);
+  }
+
+  function toggleArenaDebugInfo(){
+    arenaDebugInfoOn = !arenaDebugInfoOn;
+    document.getElementById('arena-info-toggle-btn').textContent = `🔍 Debug Info: ${arenaDebugInfoOn ? 'ON' : 'OFF'}`;
+    document.getElementById('arena-enemy-info').style.display = arenaDebugInfoOn ? 'block' : 'none';
+  }
+
+  // コントローラー用の巡回スポーン(D-pad右)。ロスターの定義順に1体ずつ出す
+  let arenaCycleIdx = 0;
+  function arenaCycleSpawn(){
+    if(!state.testMode || currentWorldKey!=='training') return;
+    const keys = Object.keys(ARENA_ROSTER);
+    const kind = keys[arenaCycleIdx % keys.length];
+    arenaCycleIdx++;
+    arenaSpawn(kind);
+  }
+
+  // Debug Feedback(#2/#11): WINDUP PUNISH・RECOVERY PUNISH・PERFECT BRACE・
+  // COUNTER WINDOW・PREDICTIVE AIM・PREDICTIVE HIT・TURN SLOWの発火を、
+  // 通常ゲームのUIには一切出さずここだけに短時間表示する。呼び出し側は
+  // state.testModeを確認していないので、ここで一括してガードする
+  function emitArenaFeedback(title, detail){
+    if(!state.testMode) return;
+    const el = document.getElementById('arena-feedback-log');
+    if(!el) return;
+    const line = document.createElement('div');
+    line.className = 'arena-feedback-line';
+    line.textContent = detail ? `${title} — ${detail}` : title;
+    el.appendChild(line);
+    while(el.children.length > 6) el.firstChild.remove();
+    setTimeout(()=>{ line.classList.add('fade'); setTimeout(()=> line.remove(), 500); }, 2200);
+  }
+
+  // 敵情報パネル(#11): 最も近い敵のHP/体幹/AI状態/旋回速度/向き/
+  // パニッシュ状態。ON/OFFできる(常時表示ではない)
+  function updateArenaEnemyInfo(){
+    const panel = document.getElementById('arena-enemy-info');
+    if(!panel) return;
+    let nearest = null, nearestD = Infinity;
+    enemies.forEach(en=>{
+      if(en.dead || en.dormant) return;
+      const d = state.pos.distanceTo(en.group.position);
+      if(d < nearestD){ nearestD = d; nearest = en; }
+    });
+    if(!nearest){ panel.textContent = '(no enemy nearby)'; return; }
+    const en = nearest;
+    let aiState;
+    if(en.isBoss) aiState = en.atkWindup ? 'WINDUP' : (en.postAtkRecoveryT>0 ? 'RECOVERY' : (en.triggered ? 'CHASE' : 'DORMANT'));
+    else if(en.knockedDown) aiState = 'KNOCKDOWN';
+    else if(en.atkType==='charge') aiState = (en.chargeState||'idle').toUpperCase();
+    else if(en.atkType==='jumper') aiState = (en.jumpState||'idle').toUpperCase();
+    else aiState = (en.atkType||'passive').toUpperCase();
+    const punish = en.atkWindup ? 'WINDUP' : (en.postAtkRecoveryT>0 ? 'RECOVERY' : ((en.arcaneBindT||0)>0 ? 'TURN SLOW' : '-'));
+    panel.innerHTML =
+      `HP: ${Math.max(0,Math.round(en.hp))} / ${en.hpMax}<br>` +
+      `Stagger: ${en.postureMax ? Math.round(en.posture)+' / '+en.postureMax : '-'}<br>` +
+      `AI State: ${aiState}<br>` +
+      `Turn Rate: ${resolveTurnRate(en).toFixed(2)} rad/s<br>` +
+      `Facing: ${en.group.rotation.y.toFixed(2)} rad<br>` +
+      `Punish: ${punish}`;
+  }
+
+  // 14-hud-boot.jsのanimate()から毎フレーム呼ばれる。state.testMode以外
+  // (=通常プレイ)では表示クラスを外すだけで即座に戻る
+  function updateArenaPanel(){
+    const show = !!state.testMode;
+    document.getElementById('arena-toggle-btn').classList.toggle('show', show);
+    if(!show){
+      document.getElementById('arena-panel').classList.remove('show');
+      document.getElementById('arena-enemy-info').style.display = 'none';
+      arenaPanelOpen = false;
+      // フラグも一緒に畳む。ここでdisplayだけ落としてarenaDebugInfoOnを
+      // trueのまま残すと、次にテストモードへ入った時にボタンの表示が
+      // 「ON」なのにパネルが出ない状態になる
+      if(arenaDebugInfoOn){
+        arenaDebugInfoOn = false;
+        document.getElementById('arena-info-toggle-btn').textContent = '🔍 Debug Info: OFF';
+      }
+      return;
+    }
+    if(arenaDebugInfoOn) updateArenaEnemyInfo();
+  }
