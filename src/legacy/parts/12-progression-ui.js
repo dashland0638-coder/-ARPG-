@@ -1028,7 +1028,22 @@
      (装備ロストは理不尽さが強すぎるため見送った)。 */
   const DEFEAT_GOLD_LOSS_MUL = 0.3;
 
+  let testModeSurviveMsgT = 0;
   function triggerPlayerDown(){
+    /* テストモード(Combat Test Arena)では戦闘不能にならず、HP1で踏み止まる。
+       敵の攻撃・パニッシュ窓・Perfect Braceなどを繰り返し試す場に、
+       戦闘不能画面と街への強制帰還を挟みたくないため。全ての被ダメ経路が
+       最終的にここへ来る(呼び出し側は state.hp<=0 でこれを呼ぶ)ので、
+       1箇所の門番で足りる */
+    if(state.testMode){
+      state.hp = 1;
+      const now = performance.now();
+      if(now - testModeSurviveMsgT > 2000){
+        testModeSurviveMsgT = now;
+        emitArenaFeedback('TEST MODE', 'HP1で生存(戦闘不能にならない)');
+      }
+      return;
+    }
     if(state.dialogueActive) return;
     state.dialogueActive = true;
     const goldLost = Math.round((state.inventory.gold||0) * DEFEAT_GOLD_LOSS_MUL);

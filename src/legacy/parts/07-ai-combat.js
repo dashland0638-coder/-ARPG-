@@ -552,6 +552,10 @@
     pos.y = 0;
     const en = def.spawn(pos);
     en.arenaSpawned = true;   // arenaClear()の対象印(既存のtraining的3体には付けない)
+    // 検証用のボスは会話・名乗りを一切挟まず、置いた瞬間から戦闘状態にする。
+    // en.triggeredを立てておくと、近接時の遭遇会話(updateBossAI)も
+    // 不意打ち時の口上(dealDamageToEnemy)も両方スキップされる
+    if(en.isBoss) en.triggered = true;
     enemies.push(en);
     arenaSpawnSeq++;
     spawnToast(`${def.icon} ${def.label} spawned`);
