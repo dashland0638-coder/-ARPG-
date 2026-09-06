@@ -12,6 +12,10 @@ import { test, expect } from '@playwright/test';
 import { openGame, watchErrors } from './helpers.js';
 
 test('Combat Test Arena: 敵選択・Spawn・Clearが一通り動作する', async ({ page }) => {
+  /* テストモードの起動 + 6種のspawn(それぞれログ確認まで待つ)+ Debug Info +
+     Clear まで通すと、既定の45秒では足りない(save-load.spec.jsのsortieケースと
+     同じ事情)。実処理が遅いわけではなく手順が多いだけなので、予算だけ広げる */
+  test.setTimeout(90_000);
   const errors = watchErrors(page);
   await openGame(page);
 

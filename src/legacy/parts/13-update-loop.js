@@ -479,6 +479,8 @@
     if(state.perfectDodgeCD>0) state.perfectDodgeCD = Math.max(0, state.perfectDodgeCD - dt);
     if(state.perfectDodgeWindowT>0) state.perfectDodgeWindowT = Math.max(0, state.perfectDodgeWindowT - dt);
     if(state.braceCounterT>0) state.braceCounterT = Math.max(0, state.braceCounterT - dt);   // 戦騎士Perfect Braceの反撃猶予
+    updatePendingSwing(dt);   // 戦騎士のHitタイミング同期(11-combat-actions.js)
+    updateEnemyStep();        // Enemy Step: 突進中の敵を空中から踏む(07-ai-combat.js)
     if(state.jumpAttackCD>0) state.jumpAttackCD = Math.max(0, state.jumpAttackCD - dt);
     if(state.comboWindowT>0){
       state.comboWindowT = Math.max(0, state.comboWindowT - dt);
@@ -670,6 +672,7 @@
       }
       state.yVel = 0;
       state.grounded = true;
+      state.enemyStepDone = false;   // 着地でEnemy Stepの権利が戻る(Phase H)
     } else {
       state.grounded = false;
     }

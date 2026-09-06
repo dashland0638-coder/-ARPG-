@@ -177,7 +177,7 @@
     state.freeRanks = data.freeRanks || 0;
     state.clearedScenarios = Object.assign({}, data.clearedScenarios);
 
-    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
+    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null;
 
     // 上位ジョブ(#9/Phase B)。v2セーブにはこのフィールドが無い(undefined)
     // ため、その場合はnull=未転身のまま扱う。selectedClassの上位職キーと

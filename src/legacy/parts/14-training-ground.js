@@ -87,6 +87,9 @@
     document.getElementById('arena-toggle-btn').addEventListener('click', toggleArenaPanel);
     document.getElementById('arena-clear-btn').addEventListener('click', arenaClear);
     document.getElementById('arena-info-toggle-btn').addEventListener('click', toggleArenaDebugInfo);
+    // スキル入れ替え/スフィア盤(Phase K)。中身は既存の鑑定所画面
+    // そのままで、テストモードでは場所の制限だけが外れている
+    document.getElementById('arena-loadout-btn').addEventListener('click', ()=> toggleAppraisal());
   }
   buildArenaUiOnce();   // 静的なDOM要素なので起動時に一度だけ配線する
 
@@ -148,12 +151,19 @@
     else if(en.atkType==='jumper') aiState = (en.jumpState||'idle').toUpperCase();
     else aiState = (en.atkType||'passive').toUpperCase();
     const punish = en.atkWindup ? 'WINDUP' : (en.postAtkRecoveryT>0 ? 'RECOVERY' : ((en.arcaneBindT||0)>0 ? 'TURN SLOW' : '-'));
+    // 体幹は「今どれだけ溜まっているか」と「毎秒どれだけ戻るか」を
+    // 並べて出す。Phase Bで減衰を絶対量へ直した効果がその場で読める
+    const stagger = en.postureMax
+      ? `${Math.round(en.posture)} / ${en.postureMax}  (-${postureDecayPerSec(en.isBoss)}/s)`
+      : '-';
     panel.innerHTML =
       `HP: ${Math.max(0,Math.round(en.hp))} / ${en.hpMax}<br>` +
-      `Stagger: ${en.postureMax ? Math.round(en.posture)+' / '+en.postureMax : '-'}<br>` +
+      `Stagger: ${stagger}<br>` +
       `AI State: ${aiState}<br>` +
       `Turn Rate: ${resolveTurnRate(en).toFixed(2)} rad/s<br>` +
       `Facing: ${en.group.rotation.y.toFixed(2)} rad<br>` +
+      `Hit Radius: ${(en.hitRadius||0).toFixed(2)}<br>` +
+      `Stompable: ${isStompableState(en) ? 'YES (Enemy Step可)' : 'no'}<br>` +
       `Punish: ${punish}`;
   }
 

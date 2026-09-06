@@ -61,3 +61,60 @@ export function isBigFlinchThreshold(posture, postureMax) {
 export function isKnockdownThreshold(posture, postureMax) {
   return postureMax > 0 && posture >= postureMax;
 }
+
+/* ---------------------------------------------------------------
+   体幹の自然減衰(Combat Design Audit 2 / Phase B)
+
+   旧実装は updateEnemies() に `posture -= dt * postureMax*0.35` と
+   直接書かれていた。postureMax に比例した減衰は、postureMax が
+   HP から算出されるボス(hpMax*0.28)では致命的に効く:
+
+     館の主   postureMax 173 → 減衰 61/秒
+     守り手   postureMax 322 → 減衰 113/秒
+     最大級   postureMax 728 → 減衰 255/秒
+
+   一方プレイヤー側の獲得は BASE_STAGGER_GAIN(10)を基準にした
+   固定値で、最良ケースでも 45/秒程度にしかならない。つまり
+   全てのボスで「減衰 > 獲得」となり、体幹ゲージは原理的に一度も
+   溜まらなかった(ユーザー報告「ボスHP下のゲージが全く動かない」)。
+
+   修正方針: 減衰を「割合」ではなく「毎秒いくつ減るか」の絶対量に
+   変える。基準は通常敵(postureMax 55)で従来と同じ体感になる
+   19.25/秒。上限が大きい相手ほど減衰が重くなる理不尽を無くし、
+   「殴り続ければ誰でも崩せる / 手を止めれば戻る」を全ての敵で
+   同じルールにする。ボスだけは戻りをやや速くして、崩しに
+   ある程度の継続攻撃を要求する(ただし獲得を上回らない範囲)。
+--------------------------------------------------------------- */
+/* 数値の根拠(通常攻撃の獲得ペース):
+     剣士 10*1.0*1.3 = 13 / 0.52秒 = 25.0 /秒
+     盗賊 10*1.0*0.7 =  7 / 0.38秒 = 18.4 /秒
+   旧値19.25は、盗賊が通常敵ですら減衰に負ける(-0.85/秒)水準だった。
+   通常敵は16まで下げて全職が「殴り続ければ崩せる」を成立させ、
+   ボスはさらに低い12にする ―― ボスは体幹上限そのものが大きいので、
+   通常攻撃だけの崩しは可能だが時間がかかり、パニッシュ窓/Perfect Brace/
+   Enemy Stepを使うと一気に短縮される、という設計にする。 */
+export const POSTURE_DECAY_PER_SEC = 16;
+export const POSTURE_DECAY_PER_SEC_BOSS = 12;
+
+export function postureDecayPerSec(isBoss) {
+  return isBoss ? POSTURE_DECAY_PER_SEC_BOSS : POSTURE_DECAY_PER_SEC;
+}
+
+// 1フレーム分の減衰を適用する。0未満にはならない。
+export function decayPosture(posture, dt, isBoss) {
+  const p = posture > 0 ? posture : 0;
+  if (!(dt > 0)) return p;
+  return Math.max(0, p - dt * postureDecayPerSec(isBoss));
+}
+
+/* ボスの体幹上限。旧実装は hpMax*0.28 で、HP インフレがそのまま
+   体幹ゲージの長さに化けていた(2600HP のボスで 728 = 通常敵の13倍)。
+   HP から切り離し、「通常敵の約4〜6体分」という戦闘テンポ基準の
+   固定レンジに収める。fromHp は残しておくが、上限で頭打ちにする。 */
+export const BOSS_POSTURE_MIN = 180;
+export const BOSS_POSTURE_MAX = 320;
+
+export function bossPostureMax(hpMax, difficultyMul = 1) {
+  const raw = (hpMax || 0) * 0.28 * (difficultyMul || 1);
+  return Math.round(Math.max(BOSS_POSTURE_MIN, Math.min(BOSS_POSTURE_MAX, raw)));
+}

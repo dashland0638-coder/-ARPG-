@@ -26,8 +26,20 @@
   // スフィア「剛力II」「薙ぎ払い」(atkRangeSphereMul/atkAngleSphereMul)は
   // 数値ではなく実際のヒットボックス(間合い/扇角)を広げるモーション変化
   // なので、レベル依存の基礎倍率へ加算する形で乗せている
-  function attackRangeMul(){ return (attackTier() >= 1 ? 1.22 : 1) + sphereValue('atkRangeSphereMul'); }
-  function attackAngleMul(){ return (attackTier() >= 1 ? 1.18 : 1) + sphereValue('atkAngleSphereMul'); }
+  /* 上位職の間合い(Combat Design Audit 2 / Phase E)。
+     戦騎士は剣士と同じクリップ・同じ判定式のままでは「より広く、より重く」
+     という設計(4-1)が数値のどこにも出ていなかった。振りの見た目だけ
+     大きくしても当たり方は剣士と同一だったので、間合いと扇そのものを
+     一回り広げる。バーサーカーは「速さで位置を変える」職なので広げない。 */
+  const JOB_MELEE_REACH = {
+    battleKnight: {range:1.18, angle:1.12},
+  };
+  function jobReachMul(kind){
+    const m = JOB_MELEE_REACH[state.job];
+    return m ? (m[kind] || 1) : 1;
+  }
+  function attackRangeMul(){ return ((attackTier() >= 1 ? 1.22 : 1) + sphereValue('atkRangeSphereMul')) * jobReachMul('range'); }
+  function attackAngleMul(){ return ((attackTier() >= 1 ? 1.18 : 1) + sphereValue('atkAngleSphereMul')) * jobReachMul('angle'); }
   // 陽気: 連続で敵を倒すほど攻撃間隔が縮む(最大-20%)。倒してから4秒で連鎖が切れる
   function personalityAtkSpeedMul(){
     if(state.personality!=='cheerful' || !state.killStreak) return 1;
@@ -116,12 +128,75 @@
     return useAlt ? wt.alt : wt.native;
   }
 
+  /* 剣が実際に敵へ届くまでの待ち(クリップ長に対する割合)。
+     戦騎士の大剣は「静 → 構え → 一瞬の溜め → 大きく高速に振る」なので、
+     クリップの中盤過ぎに刃が通過する。0.45 は 0.45秒のクリップで約0.20秒 ――
+     重さは出るが入力が重くなったとは感じない範囲に置いている。 */
+  const JOB_HIT_DELAY_FRAC = { battleKnight: 0.45 };
+
+  // updatePlayer(13-update-loop.js)から毎フレーム。時間が来たら本来の
+  // swingOnce()(ダメージ判定+範囲表示)をここで実行する
+  function updatePendingSwing(dt){
+    const ps = state.pendingSwing;
+    if(!ps) return;
+    if(!state.started || state.dialogueActive){ state.pendingSwing = null; return; }
+    ps.t -= dt;
+    if(ps.t <= 0){
+      state.pendingSwing = null;
+      /* 判定は「入力した瞬間の向き」で解決する。見た目のモデルは
+         swingLockFacing に固定されている一方、state.facing は振り中も
+         毎秒5radで動き続けるため、そのまま解決すると当たり判定と
+         範囲表示だけが見えている剣から最大60度近くずれる ――
+         このズレを直すのが目的の機能なので、ここで取り違えては本末転倒 */
+      const cur = state.facing;
+      state.facing = ps.facing;
+      try { swingOnce(ps.stage, ps.len); }
+      finally { state.facing = cur; }
+    }
+  }
+
+  /* 鷹の目のターンアシスト(Combat Design Audit 2 / Phase F)
+
+     攻撃入力の瞬間に一度だけ、「直前に読める行動(突進/跳躍)をした敵」が
+     近距離かつ角度内にいれば、そちらへ向きを合わせる。突進を回避した直後に
+     背後へ抜けられて振り向き直す往復を減らすのが目的で、以下は行わない:
+       ・180度の自動ターン(角度上限 約99度)
+       ・遠距離の自動ロックオン(距離上限 14)
+       ・画面内の敵を勝手に選ぶ(予兆状態の敵に限る)
+       ・ホーミング化(向きを変えるだけで、矢は従来どおり直進する)
+     向きを合わせた後は既存の未来位置予測(spawnProjectileSingle)が乗る。 */
+  function applyHawkEyeTurnAssist(){
+    if(state.job !== 'hawkEye') return;
+    let best = null, bestAngle = Infinity, bestDist = 0;
+    enemies.forEach(en=>{
+      if(en.dead || en.dormant || !isTelegraphing(en)) return;
+      if(!isBossAccessible(en)) return;
+      const dx = en.group.position.x - state.pos.x, dz = en.group.position.z - state.pos.z;
+      const dist = Math.hypot(dx, dz);
+      const targetYaw = Math.atan2(dx, dz);
+      let diff = targetYaw - state.facing;
+      while(diff > Math.PI) diff -= Math.PI*2;
+      while(diff < -Math.PI) diff += Math.PI*2;
+      const angle = Math.abs(diff);
+      if(!canTurnAssist({angleToTarget:angle, distance:dist})) return;
+      if(angle < bestAngle){ bestAngle = angle; bestDist = dist; best = {targetYaw}; }
+    });
+    if(!best) return;
+    const yaw = assistedAimYaw({facing:state.facing, targetYaw:best.targetYaw, angleToTarget:bestAngle, distance:bestDist});
+    if(yaw !== state.facing){
+      state.facing = yaw;
+      emitArenaFeedback('TURN ASSIST', `${(bestAngle*180/Math.PI).toFixed(0)}° 補正`);
+    }
+  }
+
   function tryAttack(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging) return;
     checkHealingCrystalBreak();   // 攻撃入力そのものに独立して乗せてあるので、通常のコンボ/CD管理には影響しない
     if(!state.grounded && !state.jumpAttacking){ tryJumpAttack(); return; }
     if(state.dodgeAttackWindowT > 0){ tryDodgeAttack(); return; }
     if(state.attackCD>0) return;
+
+    applyHawkEyeTurnAssist();   // 向きを決めてから以降の判定/発射方向を作る(Phase F)
 
     const clsKey = state.classDef.key;
     // サブ武器は常に2段(1→フィニッシュ)。メインはクラス/武器思想ごとの段数
@@ -141,63 +216,57 @@
     state.swinging = true; beginMove(clipMap[state.comboStage] || 'basic');
     if(sequenceLocks.length) tryStrikeBell(state.pos);
     state.swingLockFacing = state.facing;
-    swingOnce(state.comboStage, len);
+    /* Hit Timing(Phase E / 4-2)
 
-    /* バーサーカー(#11): 「攻撃モーションが移動になる」。振り終わりの勢いを
-       そのまま次の一歩に変換し、入力があればその方向、無ければ今向いている
-       方向へ短く踏み込む。専用の新しい移動処理は増やさず、スキル/溜め技の
-       移動演出(state.skillAnim、13-update-loop.jsのupdatePlayer)にそのまま
-       乗せているだけ ―― ヒット判定(findMeleeTargetsInArc)は既にswingOnce内で
-       この位置基準に解決済みなので、ここでの移動は「次の一撃のための足運び」
-       専用になる。スーパーアーマーは付与しない(#12/#41): 移動中も通常通り
-       被弾する,防御力は「そこに居続けないこと」そのものに委ねる設計。
-       state.skillAnimが既に別の技(スキル/溜め技のdash/retreat/spin)で
-       進行中なら上書きしない ―― スキルボタン→即座に通常攻撃、という
-       入力順でも、その技自身の短い移動演出を踏み台の途中で刈り取らない */
+       従来は入力フレームでそのまま swingOnce() を実行していたため、
+       「判定 → Hit → その後に剣が振られる」という順序で見えていた。
+       戦騎士は JOB_SWING_ANTICIPATION(3.2)で見た目の振りが大きく
+       後ろ倒しになっているぶん、このズレが最も目立つ(ユーザー指摘)。
+
+       入力レスポンス(モーション開始・SE・コンボ受付)は今まで通り
+       即座に走らせたまま、ダメージ判定と範囲表示だけを
+       「剣が敵へ届く頃合い」= クリップ長(state.swingDur、beginMove が
+       たった今設定した値)の一定割合まで遅らせる。遅延を持つのは
+       JOB_HIT_DELAY_FRAC に載っている職業だけで、他クラスの手触りは
+       1フレームも変わらない。 */
+    const hitDelay = (JOB_HIT_DELAY_FRAC[state.job] || 0) * (state.swingDur || 0);
+    if(hitDelay > 0){
+      state.pendingSwing = {t:hitDelay, stage:state.comboStage, len, facing:state.facing};
+    } else {
+      swingOnce(state.comboStage, len);
+    }
+
+    /* バーサーカー(Combat Design Audit 2 / Phase D)
+
+       「攻撃しながら高速に位置を変えられる職」であって、「自動的に敵の
+       周囲を回る職」ではない。前回の接線方向オート移動は、実プレイで
+       「どちらへ動くのか分からない」「ゲームに動かされている感覚」に
+       なっていたため撤去した(接線計算モジュールごと削除)。
+
+       今回の仕様はこれだけ:
+         ・移動入力が無い → ほぼその場で振る(わずかな踏み込みのみ)
+         ・移動入力がある → その入力方向へ短くスライドしながら振る
+       つまり位置取りは常にプレイヤーの入力が決める。自動追尾も、
+       敵中心の強制周回も、コンボ段数による勝手な方向決めもしない。
+       無敵・スーパーアーマーも付与しない(防御は「そこに居続けない」
+       こと自体に委ねる)。
+
+       移動は既存のスキル/溜め技と同じ state.skillAnim に乗せるだけで、
+       新しい移動処理は増やしていない。既に別の技の移動演出が進行中なら
+       上書きしない。 */
     if(state.job==='berserker' && !state.skillAnim){
-      /* 監査#3: 前回実装は「入力方向 or 現在の向き」への直進ダッシュだった
-         ため、敵へ向けて攻撃すると素通りしてしまっていた。今回、直近の
-         交戦相手(6m以内で最も近い敵)が居る場合は、そこへの相対位置
-         (真横=接線方向)を基準にした移動へ差し替える
-         (core/flank-step.js、tests/unit/flank-step.test.jsで検証済み)。
-         プレイヤーの入力方向はそのまま「どちら側へ回り込むか」の意思
-         決定に使われる ―― 完全自動追尾ではなく、無入力時ですら常に
-         プレイヤーが操作しているスティック/タップの延長として振る舞う。
-         敵が居ない場合は前回どおり入力方向 or 現在の向きへの直進に
-         フォールバックする(#11の「無ければ今向いている方向」のまま) */
       const {x:ix, y:iy} = state.moveInput;
       const inputMag = Math.sqrt(ix*ix + iy*iy);
-      const inputWorldDir = inputMag > 0.15 ? inputToWorldDir(ix, iy).normalize() : null;
-
-      let nearest = null, nearestD = 6.0;
-      enemies.forEach(en=>{
-        if(en.dead || en.dormant) return;
-        if(!isBossAccessible(en)) return;
-        const d = state.pos.distanceTo(en.group.position);
-        if(d < nearestD){ nearestD = d; nearest = en; }
-      });
-
       const isFinish = state.comboStage === len;
-      const baseDist = isFinish ? 2.6 : 1.7;
-      let dir, dist = baseDist;
-      if(nearest){
-        const toEnemy = new THREE.Vector3().subVectors(nearest.group.position, state.pos); toEnemy.y = 0;
-        if(toEnemy.lengthSq() > 0.0001){
-          toEnemy.normalize();
-          // 奇数段=左、偶数段=右。無入力時に毎回同じ側へだけ回り込んで
-          // 単調にならないよう、コンボの進行そのものを綾織りの左右に使う
-          const tangentSign = (state.comboStage % 2 === 1) ? 1 : -1;
-          const flat = computeFlankStepDir({
-            toEnemy: {x:toEnemy.x, z:toEnemy.z},
-            inputDir: inputWorldDir ? {x:inputWorldDir.x, z:inputWorldDir.z} : null,
-            tangentSign,
-          });
-          dir = new THREE.Vector3(flat.x, 0, flat.z);
-          dist = clampStepDistance(baseDist, nearestD, 0.9);   // 敵の目の前を素通りしない
-        }
+      if(inputMag > 0.15){
+        // 入力方向へスライド。フィニッシュだけ気持ち大きく踏み込む
+        const dir = inputToWorldDir(ix, iy).normalize();
+        state.skillAnim = {type:'dash', t:0, duration: swingCD*0.8, fwd:dir, dist: isFinish ? 2.2 : 1.5};
+      } else {
+        // 無入力ならその場。振り抜きの重心移動ぶんだけ前へ出る
+        const dir = new THREE.Vector3(Math.sin(state.facing), 0, Math.cos(state.facing));
+        state.skillAnim = {type:'dash', t:0, duration: swingCD*0.8, fwd:dir, dist: isFinish ? 0.75 : 0.4};
       }
-      if(!dir) dir = inputWorldDir || new THREE.Vector3(Math.sin(state.facing), 0, Math.cos(state.facing));
-      state.skillAnim = {type:'dash', t:0, duration: swingCD*0.82, fwd:dir, dist};
     }
   }
 
