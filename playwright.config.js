@@ -24,6 +24,7 @@ export default defineConfig({
     headless: true,
     viewport: { width: 1280, height: 800 },
     launchOptions: {
+      executablePath: '/opt/pw-browsers/chromium',
       args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'],
     },
   },

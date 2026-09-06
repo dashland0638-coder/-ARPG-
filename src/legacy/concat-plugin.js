@@ -40,9 +40,10 @@ import { applyIncomingDamage, applyOutgoingDamage } from '../core/damage-math.js
 import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../core/loot-math.js';
 import { timeLimitForStars } from '../core/scenario-timer.js';
 import { turnTowardAngle, turnBudget, resolveTurnRate } from '../core/enemy-facing.js';
-import { punishWindowMultiplier, staggerGain, applyPostureGain } from '../core/stagger-math.js';
-import { telegraphLead, isTelegraphing, predictLeadPosition } from '../core/predictive-aim.js';
-import { computeFlankStepDir, clampStepDistance } from '../core/flank-step.js';
+import { punishWindowMultiplier, staggerGain, applyPostureGain, decayPosture, bossPostureMax, postureDecayPerSec } from '../core/stagger-math.js';
+import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw } from '../core/predictive-aim.js';
+import { meleeHitTest, surfaceDistance } from '../core/melee-hit.js';
+import { canEnemyStep, isStompableState, ENEMY_STEP_STAGGER, ENEMY_STEP_BOUNCE_VY } from '../core/enemy-step.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 
 `;

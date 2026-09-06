@@ -3367,6 +3367,20 @@
     }
   }
 
+  /* 近接判定用の「体の水平半径」(Combat Design Audit 2 / Phase C)。
+     bodyメッシュのバウンディング球から実測し、XZ方向のスケールを掛ける。
+     テーマごとの体格差(石兵の大型化やボスの巨体)がそのまま反映されるので、
+     敵を1体足すたびに手で数値を書く必要が無い。findMeleeTarget()系が
+     「敵の表面まで」で射程を測るのに使う(core/melee-hit.js)。 */
+  function measureHitRadius(body){
+    if(!body || !body.geometry) return 0.45;
+    if(!body.geometry.boundingSphere) body.geometry.computeBoundingSphere();
+    const bs = body.geometry.boundingSphere;
+    if(!bs) return 0.45;
+    const sx = Math.abs(body.scale.x), sz = Math.abs(body.scale.z);
+    return bs.radius * Math.max(sx, sz);
+  }
+
   function buildEnemy(pos, variant){
     const _D = difficultyFor(_spawnWorldKey);
     const _gb = variant.goldBonus || [3,8];
@@ -3554,6 +3568,7 @@
       // stamp over that with hard-coded numbers - everything scales relative
       // to this now, so a stone mob stays blocky after it gets hit
       bodyScale:body.scale.clone(), strideT:Math.random()*6.28,
+      hitRadius:measureHitRadius(body),   // 近接判定を「敵の表面」基準にするため(Phase C)
       baseColor:variant.color,
       hpMax:Math.max(1, Math.round(variant.hp*_D.hp)), hp:Math.max(1, Math.round(variant.hp*_D.hp)),
       atk:Math.round(variant.atk*_D.atk), speed:variant.speed*_D.speed,
@@ -3996,6 +4011,13 @@
       basePos:pos.clone(), wanderTarget:pos.clone(), wanderT:0,
       flashTO:null,
       isBoss:true, solidR:cfg.solidR || 2.0, gateTag:cfg.gateTag || null,
+      /* 近接判定用の体の半径(Phase C)。ボスは resolveBossCollision() の
+         押し出しにより solidR より内側へ入れないので、「プレイヤーが立てる
+         一番近い位置」= 体の表面そのもの。atkReach がボス側の間合いを
+         solidR から導いているのと対称に、プレイヤー側の間合いも表面から
+         測る。これが無いと、巨体に密着しているのに原点までの距離で弾かれ、
+         盗賊(射程2.8)などはボスにほとんど攻撃が通らなかった */
+      hitRadius: cfg.solidR || 2.0,
       // most bosses end their scenario; the clocktower's does not - beating it
       // only opens the way to the roof, and the leap is the real ending
       endsRun: cfg.endsRun !== false,
@@ -4015,7 +4037,7 @@
       ambushDialogueLines:cfg.ambushDialogueLines,
       clearName:cfg.clearName, clearFlavor:cfg.clearFlavor, rewardLoot:cfg.rewardLoot,
       // 体幹(怯み・ダウン): ボスはHPに対して割合を小さく取り、短時間だけ大きな隙が生まれる
-      posture:0, postureMax:Math.round(cfg.hpMax*0.28*_D.hp),
+      posture:0, postureMax:bossPostureMax(cfg.hpMax, _D.hp),   // HPインフレを体幹ゲージの長さに直結させない(core/stagger-math.js)
       knockedDown:false, knockdownT:0, postureGraceT:0, bigFlinched:false
     };
   }

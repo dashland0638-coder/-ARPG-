@@ -730,7 +730,9 @@
   function sphereCanUnlock(id){
     const def = SPHERE_NODES[id];
     if(!def || sphereUnlocked(id)) return false;
-    if((state.spherePoints||0) < def.cost) return false;
+    // テストモードはポイント無尽蔵(Phase K)。前提ノードの繋がりは
+    // 通常どおり要求するので、盤面の形そのものは検証できる
+    if(!state.testMode && (state.spherePoints||0) < def.cost) return false;
     // requiresAny: 網目状の盤面用。いずれか一つでも解放していればよい
     // (OR)。旧来のrequires(AND、今はrootのみが使う空配列)はそのまま
     // 後方互換で残してある
@@ -740,7 +742,7 @@
   function unlockSphereNode(id){
     if(!sphereCanUnlock(id)) return false;
     const def = SPHERE_NODES[id];
-    state.spherePoints -= def.cost;
+    if(!state.testMode) state.spherePoints -= def.cost;
     if(!state.unlockedSphereNodes) state.unlockedSphereNodes = ['root'];
     state.unlockedSphereNodes.push(id);
     sfx('levelUp');
@@ -1175,7 +1177,7 @@
     state.dodgeCD = 0; state.attackCD = 0;   // 必殺ゲージは戦闘performanceの蓄積なので、酒場帰還時にリセットしない
     // clear any half-finished attack/skill input, otherwise a swing left
     // pending from the dungeon fires the moment we land in the tavern
-    state.swinging = false; state.swingT = 0; state.skillAnim = null; state.moveClip = null;
+    state.swinging = false; state.swingT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null;
     state.ultAiming = false; state.ultSweep = null; hideUltMarker();
     state.charging = false; state.chargeT = 0; state.chargeCD = 0;
     state.skillCharging = false; state.skillChargeT = 0; state.skillCD = 0; state.skill2CD = 0;
@@ -2120,8 +2122,17 @@
     if(state.activeOverlay==='appraisal'){ setOverlay('none'); return; }
     if(state.activeOverlay!=='none') return;
     if(!state.started) return;
-    if(currentWorldKey!=='tavern') return;
-    if(state.pos.distanceTo(SMITH_POS) >= 3) return; // talk to the blacksmith instead of anywhere in town
+    /* テストモード(Combat Design Audit 2 / Phase K)では、酒場の鍛冶屋の
+       前まで行かなくてもこの画面を開ける。鑑定所は「スキル選択」と
+       「スフィア盤」のタブをそのまま持っているので、ここを開けるように
+       するだけで、各職業のスキル入れ替えも育成盤の検証もできる ――
+       Test Mode専用の別UIを新設する必要がない。
+       セーブは saveGame() が state.testMode で必ず弾くため、ここで何を
+       いじっても通常プレイの進行/解放状況には一切書き戻らない。 */
+    if(!state.testMode){
+      if(currentWorldKey!=='tavern') return;
+      if(state.pos.distanceTo(SMITH_POS) >= 3) return; // talk to the blacksmith instead of anywhere in town
+    }
     setOverlay('appraisal');
   }
 

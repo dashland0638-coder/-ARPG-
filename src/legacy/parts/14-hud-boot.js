@@ -817,7 +817,7 @@
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;   // 5人目「影の旅人」の酒場会話進行
     state.guestClassKey = CHAPTER_CAST[1].guestClassKey || null;   // 第一章は剣士単独(#41)
-    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
+    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null;
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
     state.level = 1; state.xp = 0; state.xpToNext = xpToNextForLevel(1);
     state.levelGrowth = zeroAlloc();
@@ -885,9 +885,15 @@
     state.bossClears = {};
     state.learnedBossAbilities = []; state.equippedBossAbilities = []; state.learnedBossSkills = [];
     state.learnedBossActiveSkills = []; state.equippedBossActiveSkill = null; state.bossSkill3CD = 0;
-    state.unlockedSphereNodes = ['root']; state.spherePoints = 0;
+    /* テストモード(Combat Design Audit 2 / Phase K): スキル入れ替えと
+       スフィア盤をすぐ検証できるよう、派生スキルは最初から全解放し、
+       スフィアのポイントも潤沢に持たせる(消費自体も
+       sphereCanUnlock/unlockSphereNode 側で免除される)。
+       この状態は saveGame() が state.testMode で必ず弾くので、通常プレイの
+       セーブ・成長・解放状況には一切書き戻らない。 */
+    state.unlockedSphereNodes = ['root']; state.spherePoints = 999;
     state.skill2Choice = 'default'; state.ultChoice = 'default';
-    state.unlockedSkill1Alt = false; state.unlockedSkill2Alt = false; state.unlockedUltAlt = false;
+    state.unlockedSkill1Alt = true; state.unlockedSkill2Alt = true; state.unlockedUltAlt = true;
     state.scenarioClears = {};
     state.routeCombosSeen = {};
     state.skills = {atkUp:0, hpUp:0, ultUp:0, companion:0, chargeUp:0};
@@ -900,7 +906,7 @@
     // そのクラスを立てる ―― 章の自動進行(#41)がまだ無いため、これが
     // 現状唯一guestClassKeyを非nullにできる経路
     state.guestClassKey = (guestKey && CLASSES[guestKey]) ? guestKey : null;
-    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null;
+    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null;
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
 
     // レベル: grantXP()の成長式(12-progression-ui.js)と同じ計算を、

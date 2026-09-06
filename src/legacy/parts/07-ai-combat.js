@@ -506,6 +506,80 @@
   }
 
   /* =========================================================
+     ENEMY STEP(Combat Design Audit 2 / Phase H)
+
+     敵の突進をジャンプで見切り、その敵を踏み台にして跳ね返るアクション。
+     単なる移動でも常時踏みつけでもなく、「読める攻撃をジャンプで避けた」
+     ことへの報酬として、敵の体幹を大きく削って崩しへ直結させる。
+
+     発動条件(すべて core/enemy-step.js の純粋関数で判定):
+       1. 敵が突進の実行中(雑魚 chargeState==='dash' / ボス
+          special==='charge' && specialPhase==='dash')
+       2. プレイヤーが空中にいる
+       3. 敵の上方(胴の高さ付近)にいて、落下中である
+       4. そのジャンプでまだ踏んでいない(多重発動防止)
+     徘徊中の敵や停止中の敵はどう触れても発動しない。無敵も
+     スーパーアーマーも付与しない ―― 得られるのは体幹と高度だけ。
+
+     成功すると再ジャンプ状態になるので、そのまま既存の落下攻撃
+     (tryJumpAttack/landJumpAttack)へ繋げられる。
+  ========================================================= */
+  function updateEnemyStep(){
+    if(!state.started || state.grounded || state.enemyStepDone) return;
+    for(const en of enemies){
+      if(!isBossAccessible(en)) continue;
+      const dx = en.group.position.x - state.pos.x, dz = en.group.position.z - state.pos.z;
+      const horizontalDist = Math.hypot(dx, dz);
+      const enemyTop = en.isBoss ? 3.4 : 1.4;
+      const ok = canEnemyStep({
+        en,
+        airborne: !state.grounded,
+        alreadyStepped: !!state.enemyStepDone,
+        position: {
+          horizontalDist,
+          radius: en.hitRadius || 0,
+          playerY: state.pos.y,
+          enemyY: en.group.position.y,
+          enemyTop,
+          fallingVelY: state.yVel,
+        },
+      });
+      if(!ok) continue;
+      triggerEnemyStep(en);
+      return;
+    }
+  }
+
+  function triggerEnemyStep(en){
+    state.enemyStepDone = true;          // 同じ滞空で二度は踏めない
+    state.jumpAttacking = false;         // 急降下中でも踏んだ時点で仕切り直す
+    state.yVel = ENEMY_STEP_BOUNCE_VY;   // 踏みつけて跳ね返る(再ジャンプ)
+    state.grounded = false;
+
+    let staggered = false;
+    if(en.postureMax && !en.knockedDown && (en.postureGraceT||0) <= 0){
+      en.posture = applyPostureGain(en.posture, en.postureMax, ENEMY_STEP_STAGGER);
+      staggered = true;
+      if(en.posture >= en.postureMax) triggerKnockdown(en);
+      else if(en.posture >= en.postureMax*0.7 && !en.bigFlinched){
+        en.bigFlinched = true;
+        en.hurtT = Math.max(en.hurtT||0, 0.5);
+      }
+    }
+    // 踏まれた側は突進を中断する(踏み台にされたのに走り続けるのは不自然)
+    if(en.chargeState === 'dash'){ en.chargeState = 'cooldown'; en.chargeT = en.chargeCooldownOverride || 1.5; }
+    if(en.special === 'charge'){ en.special = null; en.specialCD = 6 + Math.random()*3; }
+
+    const contact = en.group.position.clone(); contact.y += en.isBoss ? 2.4 : 1.2;
+    spawnHitSpark(contact, 0xfff0b0, 1.8, null);
+    hitStop(0.05); addShake(0.14);
+    sfx('bigHit');
+    spawnToast('🦶 エネミーステップ!', '#ffe6a0');
+    addUltGauge(6);
+    emitArenaFeedback('ENEMY STEP', staggered ? `STAGGER +${ENEMY_STEP_STAGGER}` : 'STAGGER -');
+  }
+
+  /* =========================================================
      COMBAT TEST ARENA(Combat Design Audit #1/#9-11)
 
      目的は敵コンテンツの追加ではなく、「戦闘システムを意図的に発動・
@@ -673,8 +747,12 @@
         } else {
           if(en.postureGraceT > 0) en.postureGraceT -= dt;
           if(en.posture > 0 && (en.postureGraceT||0) <= 0){
-            // 怯みを与え続けないと体勢を立て直す(=コンボを継続する動機になる)
-            en.posture = Math.max(0, en.posture - dt*(en.postureMax*0.35));
+            // 怯みを与え続けないと体勢を立て直す(=コンボを継続する動機になる)。
+            // 旧実装は postureMax*0.35/秒 という「割合」減衰で、postureMaxが
+            // HP由来で膨らむボスでは減衰が獲得を常に上回り、体幹ゲージが
+            // 一度も動かなかった(Combat Design Audit 2 / Phase B)。
+            // 絶対量の減衰へ変更(core/stagger-math.js)
+            en.posture = decayPosture(en.posture, dt, en.isBoss);
             if(en.posture < en.postureMax*0.7) en.bigFlinched = false;
           }
           // 盾持ちの体幹ゲージを、盾自体の輝きで可視化する。体幹バーを
@@ -2059,17 +2137,36 @@
     return !!gate.opened;
   }
 
+  /* 近接判定(Combat Design Audit 2 / Phase C)
+
+     旧実装は「プレイヤー中心 → 敵の原点(足元)」の距離と角度だけを見ており、
+     敵の体の大きさを完全に無視していた。結果、胴体が武器に重なって見えていても
+     原点が射程外なら必ず外れ、至近距離では角度誤差が爆発して密着した敵が
+     扇の外に落ちていた(ユーザー報告「見た目では当たっているのにHitしない」
+     「盗賊・バーサーカーが当たりにくい」の原因)。
+
+     職業ごとのmeleeRange/meleeAngleは一切変えず、判定の基準だけを
+     「敵の原点」から「敵の表面」へ直す(core/melee-hit.js、
+     tests/unit/melee-hit.test.jsで検証済み)。半径0を渡せば旧挙動と
+     完全に一致するので、体の無いターゲットの扱いも変わらない。 */
+  function meleeHitCheck(en, range, angleMax, fwd){
+    const toE = new THREE.Vector3().subVectors(en.group.position, state.pos); toE.y=0;
+    const dist = toE.length();
+    const radius = en.hitRadius || 0;
+    if(surfaceDistance(dist, radius) > range) return null;
+    const angle = dist > 0.0001 ? fwd.angleTo(toE.clone().normalize()) : 0;
+    if(!meleeHitTest({distance:dist, radius, range, angleToTarget:angle, angleMax})) return null;
+    return surfaceDistance(dist, radius);
+  }
+
   function findMeleeTarget(range, angleMax){
     let best=null, bestDist=Infinity;
     const fwd = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
     enemies.forEach(en=>{
       if(en.dead || en.dormant) return;
       if(!isBossAccessible(en)) return;
-      const toE = new THREE.Vector3().subVectors(en.group.position, state.pos); toE.y=0;
-      const dist = toE.length();
-      if(dist>range) return;
-      const angle = fwd.angleTo(toE.clone().normalize());
-      if(angle < angleMax && dist<bestDist){ bestDist=dist; best=en; }
+      const d = meleeHitCheck(en, range, angleMax, fwd);
+      if(d!==null && d<bestDist){ bestDist=d; best=en; }
     });
     return best;
   }
@@ -2080,11 +2177,7 @@
     enemies.forEach(en=>{
       if(en.dead || en.dormant) return;
       if(!isBossAccessible(en)) return;
-      const toE = new THREE.Vector3().subVectors(en.group.position, state.pos); toE.y=0;
-      const dist = toE.length();
-      if(dist>range) return;
-      const angle = fwd.angleTo(toE.clone().normalize());
-      if(angle < angleMax) hits.push(en);
+      if(meleeHitCheck(en, range, angleMax, fwd)!==null) hits.push(en);
     });
     return hits;
   }

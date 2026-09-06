@@ -76,3 +76,39 @@ export function predictLeadPosition(originPos, lead, leadSeconds) {
     z: originPos.z + lead.dir.z * lead.speed * travelTime,
   };
 }
+
+/* ---------------------------------------------------------------
+   鷹の目の限定ターンアシスト(Combat Design Audit 2 / Phase F)
+
+   実プレイの問題: 敵が突進 → 回避 → 敵が背後を通り抜ける → 振り向いて
+   狙い直す、という往復が煩わしく、「結構狙わないと当たらない」。
+
+   ただし完全オートエイム・自動ロックオン・ホーミング化は禁止。
+   そこで「直前に読める行動(突進/跳躍)をした敵が、近距離かつ
+   ある程度の角度内にいる時だけ、射撃方向をその敵へ寄せる」という
+   限定補助にする。判断材料は3つだけ:
+
+     ・その敵が予兆行動中か(telegraphLead が拾える状態か)
+     ・十分近いか(遠距離の敵は対象外)
+     ・プレイヤーの向きから許容角度内か(真後ろは対象外)
+
+   角度内であれば「向きを敵へ寄せる」だけで、命中そのものは保証しない
+   (寄せた後に既存の未来位置予測が乗る)。
+--------------------------------------------------------------- */
+export const TURN_ASSIST_MAX_ANGLE = Math.PI * 0.55;  // 約99度。真後ろ(180度)は拾わない
+export const TURN_ASSIST_MAX_RANGE = 14;              // これより遠い敵には効かない
+
+// 補助が効く条件を満たすか。angleToTarget はプレイヤーの向きと敵方向の角度差。
+export function canTurnAssist({ angleToTarget, distance, maxAngle = TURN_ASSIST_MAX_ANGLE, maxRange = TURN_ASSIST_MAX_RANGE }) {
+  if (!(distance >= 0) || distance > maxRange) return false;
+  if (!(angleToTarget >= 0) || angleToTarget > maxAngle) return false;
+  return true;
+}
+
+// 補助後の射撃方向(ラジアン)。角度外・射程外なら現在の向きをそのまま返す
+// = 何も起きない。完全に敵の方向へ向き直る(角度内に限る)ので、
+// 「自分で大まかに向けば、あとは職業が精密に合わせてくれる」形になる。
+export function assistedAimYaw({ facing, targetYaw, angleToTarget, distance, maxAngle, maxRange }) {
+  if (!canTurnAssist({ angleToTarget, distance, maxAngle, maxRange })) return facing;
+  return targetYaw;
+}

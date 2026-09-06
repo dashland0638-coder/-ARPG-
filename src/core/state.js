@@ -44,6 +44,11 @@ import * as THREE from 'three';
     // 全職共通スキル)がジャストで当たった瞬間、job==='battleKnight'なら
     // 攻撃元の体幹も一緒に崩しつつこの猶予を開く。tryPerfectDodge()参照
     braceCounterT:0,
+    // 戦騎士のHitタイミング同期: 「剣が届く瞬間」までダメージ判定を
+    // 保留しておくスロット({t, stage, len})。updatePendingSwing()参照
+    pendingSwing:null,
+    // Enemy Step(Phase H): 1回の滞空につき1度だけ踏める。着地でfalseへ戻る
+    enemyStepDone:false,
     comboStage:0, comboCount:0, comboWindowT:0, comboWindowMax:0, comboLen:0, jumpAttacking:false, jumpAttackCD:0,
     invulnerable:false,
     paralyzed:false, paralyzeT:0, paralyzeInvulnT:0,

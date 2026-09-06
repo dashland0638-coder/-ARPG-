@@ -2,7 +2,7 @@
 // `npm run test:unit`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { telegraphLead, isTelegraphing, predictLeadPosition } from '../../src/core/predictive-aim.js';
+import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw } from '../../src/core/predictive-aim.js';
 
 test('telegraphLead', async (t) => {
   await t.test('null for an enemy with no telegraphed motion at all', () => {
@@ -66,5 +66,24 @@ test('predictLeadPosition', async (t) => {
     const lead = { dir: { x: 1, z: 0 }, speed: 10, startDelay: 0, timeLeft: 0.3 };
     const p = predictLeadPosition({ x: 0, z: 0 }, lead, 5); // way more than the dash has left
     assert.ok(Math.abs(p.x - 3) < 1e-9); // capped at 10*0.3
+  });
+});
+
+test('canTurnAssist / assistedAimYaw (鷹の目の限定ターンアシスト)', async (t) => {
+  await t.test('近距離かつ角度内なら補助が効く', () => {
+    assert.equal(canTurnAssist({ angleToTarget: 1.0, distance: 6 }), true);
+  });
+  await t.test('真後ろの敵は拾わない(180度自動ターンにしない)', () => {
+    assert.equal(canTurnAssist({ angleToTarget: Math.PI, distance: 6 }), false);
+  });
+  await t.test('遠距離の敵は拾わない(自動ロックオンにしない)', () => {
+    assert.equal(canTurnAssist({ angleToTarget: 0.1, distance: 40 }), false);
+  });
+  await t.test('条件を満たせば射撃方向が敵へ寄る', () => {
+    assert.equal(assistedAimYaw({ facing: 0, targetYaw: 0.9, angleToTarget: 0.9, distance: 5 }), 0.9);
+  });
+  await t.test('条件を満たさなければ現在の向きのまま(何も起きない)', () => {
+    assert.equal(assistedAimYaw({ facing: 0.2, targetYaw: 3.0, angleToTarget: Math.PI, distance: 5 }), 0.2);
+    assert.equal(assistedAimYaw({ facing: 0.2, targetYaw: 0.3, angleToTarget: 0.1, distance: 99 }), 0.2);
   });
 });

@@ -448,6 +448,12 @@
   function tryDodge(){
     resumeAudio();
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    /* 空中では回避できない(Combat Design Audit 2 / Phase G)。
+       ジャンプ → 空中回避 → さらに空中移動、という自由な空中機動を
+       作りたいわけではなく、空中は「特定攻撃の見切り」「Enemy Step」
+       「落下攻撃」という限定されたアクションのための状態にする。
+       接地していない間はドッジのクールダウンもスタミナも消費しない。 */
+    if(!state.grounded) return;
     if(state.dodgeCD>0) return;
     // 回避はMPではなくスタミナで管理する(roadmap: 「スタミナ=戦闘技術、MP=戦略リソース」)。
     // 旧実装ではMPをごくわずか(2〜2.5)消費していたが、スタミナに一本化した
