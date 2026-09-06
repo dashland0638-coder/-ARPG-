@@ -155,13 +155,49 @@
        進行中なら上書きしない ―― スキルボタン→即座に通常攻撃、という
        入力順でも、その技自身の短い移動演出を踏み台の途中で刈り取らない */
     if(state.job==='berserker' && !state.skillAnim){
+      /* 監査#3: 前回実装は「入力方向 or 現在の向き」への直進ダッシュだった
+         ため、敵へ向けて攻撃すると素通りしてしまっていた。今回、直近の
+         交戦相手(6m以内で最も近い敵)が居る場合は、そこへの相対位置
+         (真横=接線方向)を基準にした移動へ差し替える
+         (core/flank-step.js、tests/unit/flank-step.test.jsで検証済み)。
+         プレイヤーの入力方向はそのまま「どちら側へ回り込むか」の意思
+         決定に使われる ―― 完全自動追尾ではなく、無入力時ですら常に
+         プレイヤーが操作しているスティック/タップの延長として振る舞う。
+         敵が居ない場合は前回どおり入力方向 or 現在の向きへの直進に
+         フォールバックする(#11の「無ければ今向いている方向」のまま) */
       const {x:ix, y:iy} = state.moveInput;
       const inputMag = Math.sqrt(ix*ix + iy*iy);
-      const dir = inputMag > 0.15
-        ? inputToWorldDir(ix, iy).normalize()
-        : new THREE.Vector3(Math.sin(state.facing), 0, Math.cos(state.facing));
+      const inputWorldDir = inputMag > 0.15 ? inputToWorldDir(ix, iy).normalize() : null;
+
+      let nearest = null, nearestD = 6.0;
+      enemies.forEach(en=>{
+        if(en.dead || en.dormant) return;
+        if(!isBossAccessible(en)) return;
+        const d = state.pos.distanceTo(en.group.position);
+        if(d < nearestD){ nearestD = d; nearest = en; }
+      });
+
       const isFinish = state.comboStage === len;
-      state.skillAnim = {type:'dash', t:0, duration: swingCD*0.82, fwd:dir, dist: isFinish ? 2.6 : 1.7};
+      const baseDist = isFinish ? 2.6 : 1.7;
+      let dir, dist = baseDist;
+      if(nearest){
+        const toEnemy = new THREE.Vector3().subVectors(nearest.group.position, state.pos); toEnemy.y = 0;
+        if(toEnemy.lengthSq() > 0.0001){
+          toEnemy.normalize();
+          // 奇数段=左、偶数段=右。無入力時に毎回同じ側へだけ回り込んで
+          // 単調にならないよう、コンボの進行そのものを綾織りの左右に使う
+          const tangentSign = (state.comboStage % 2 === 1) ? 1 : -1;
+          const flat = computeFlankStepDir({
+            toEnemy: {x:toEnemy.x, z:toEnemy.z},
+            inputDir: inputWorldDir ? {x:inputWorldDir.x, z:inputWorldDir.z} : null,
+            tangentSign,
+          });
+          dir = new THREE.Vector3(flat.x, 0, flat.z);
+          dist = clampStepDistance(baseDist, nearestD, 0.9);   // 敵の目の前を素通りしない
+        }
+      }
+      if(!dir) dir = inputWorldDir || new THREE.Vector3(Math.sin(state.facing), 0, Math.cos(state.facing));
+      state.skillAnim = {type:'dash', t:0, duration: swingCD*0.82, fwd:dir, dist};
     }
   }
 
@@ -373,8 +409,41 @@
     mesh.scale.setScalar(st.scale);
     const facing = state.facing + (angleOffset||0);
     const dir = new THREE.Vector3(Math.sin(facing),0,Math.cos(facing));
+    let predictiveTarget = null;
+    /* 鷹の目(#5フェーズ4/デフォルト戦闘体験化): 通常の一射そのものが
+       「未来を読む」対象になる ―― 特定スキルの選択を要らなくするため、
+       ここ(通常攻撃の弾生成)に予兆読みを組み込んだ。矢はあくまで直進する
+       だけ(homing:trueにはしない)なので、発射の瞬間に狙い筋を予測位置へ
+       ほんの少し寄せるだけ。敵がその後に予兆と違う動きをすれば普通に
+       外れる ―― 自動追尾・必中ではない(#5の要求どおり)。対象は正面の
+       ゆるいコーン内かつ予兆状態(telegraphLead、core/predictive-aim.js)の
+       敵に限る。フィーバー(volley)の左右にずらした矢は角度がすでに
+       付いているため、その角度を基準にそれぞれ独立に判定する */
+    if(state.classDef.key==='archer' && state.job==='hawkEye'){
+      const right0 = new THREE.Vector3(dir.z, 0, -dir.x);
+      let best = null, bestFwdDist = Infinity;
+      enemies.forEach(en=>{
+        if(en.dead || en.dormant || !isTelegraphing(en)) return;
+        if(!isBossAccessible(en)) return;
+        const toE = new THREE.Vector3().subVectors(en.group.position, state.pos); toE.y = 0;
+        const fDist = toE.dot(dir);
+        if(fDist <= 0 || fDist > 24) return;               // 矢の実効射程程度
+        if(Math.abs(toE.dot(right0)) > fDist*0.5) return;   // 正面のゆるいコーンのみ
+        if(fDist < bestFwdDist){ bestFwdDist = fDist; best = en; }
+      });
+      if(best){
+        const lead = telegraphLead(best);
+        const arrowSpeed = 20*st.speedMul;
+        const leadSeconds = bestFwdDist / arrowSpeed;   // 現在の距離を飛び切るのに要る時間だけ先を読む
+        const predicted = predictLeadPosition({x:best.group.position.x, z:best.group.position.z}, lead, leadSeconds);
+        if(predicted){
+          const bentDir = new THREE.Vector3(predicted.x - state.pos.x, 0, predicted.z - state.pos.z);
+          if(bentDir.lengthSq() > 0.0001){ dir.copy(bentDir.normalize()); predictiveTarget = best; }
+        }
+      }
+    }
     if(state.classDef.key==='archer'){
-      mesh.rotation.y = facing; // +Z now matches dir at every facing angle
+      mesh.rotation.y = Math.atan2(dir.x, dir.z); // 予測で狙い筋が曲がった分も反映する
     }
     // 段階が進むほど輝きが強くなる後光(魔法使いは魔力の輝き、弓師は矢の煌めき)。
     // takeLight()のプールから借りる - meshの子にせず(=シーングラフに出入り
@@ -395,7 +464,8 @@
     const dmg = Math.round(baseDmg * (opts.dmgMul || 1) * volleyMul);
     // life*speed is the effective range (~44 at speedMul 1 before this) -
     // shortened a bit per feedback that arrows/bolts carried too far
-    const proj = {mesh, light: glow, dir, speed:20*st.speedMul, life:1.6, hitR, dmg, staggerMul: opts.staggerMul, ultGauge: opts.ultGauge};
+    const proj = {mesh, light: glow, dir, speed:20*st.speedMul, life:1.6, hitR, dmg, staggerMul: opts.staggerMul, ultGauge: opts.ultGauge, predictiveTarget};
+    if(predictiveTarget) emitArenaFeedback('PREDICTIVE AIM', '狙い筋を未来位置へ補正');
     // 魔法使いのフィニッシュ: 貫通弾(roadmap「杖: 魔弾→貫通弾」)
     if(opts.pierce){ proj.pierce = true; proj.pierceLeft = 3; proj.pierceHitSet = new Set(); }
     projectiles.push(proj);

@@ -505,6 +505,71 @@
     }
   }
 
+  /* =========================================================
+     COMBAT TEST ARENA(Combat Design Audit #1/#9-11)
+
+     目的は敵コンテンツの追加ではなく、「戦闘システムを意図的に発動・
+     確認できる環境」を用意すること。既存の敵タイプ(atkType:'charge'/
+     'jumper'/'passive')とbuildBoss()をそのまま流用し、新しい敵AIは
+     一切増やしていない。テストモード(state.testMode、'training'
+     ワールドの間だけ)からのみ呼び出される。
+       Dummy       : 既存カカシと同じ(passive, hp巨大)
+       Basic Melee : chargeタイプの標準的な個体(旋回・ジャストドッジ確認)
+       Windup Enemy: chargeタイプだが振りかぶり(telegraph)を意図的に
+                     長くした個体(en.chargeTelegraphOverride)。
+                     Windup Punish確認用
+       Charge Enemy: chargeタイプで速く突進する個体。鷹の目の予測確認用
+       Jump Enemy  : jumperタイプ。鷹の目の予測確認用(跳躍の滞空)
+       Boss Test   : 既存ボス(mansionBoss)を流用。HPを大きくして通常の
+                     撃破報酬フロー(勝利演出・3択報酬)が誤って発火しない
+                     ようにしてある(体幹・旋回・攻撃後の流れの確認が
+                     目的で、撃破すること自体が目的ではないため)
+  ========================================================= */
+  const ARENA_ROSTER = {
+    dummy:      {label:'Dummy',        icon:'🎯',
+      spawn:(pos)=> buildEnemy(pos, {dummy:true, hp:50000, atk:0, speed:0, atkType:'passive', xp:0, color:0xd9b968})},
+    basicMelee: {label:'Basic Melee',  icon:'🗡️',
+      spawn:(pos)=> buildEnemy(pos, {hp:9999, atk:12, speed:3.0, atkType:'charge', xp:0, color:0x8a3a3a, chargeCooldownOverride:1.3})},
+    windup:     {label:'Windup Enemy', icon:'🐢',
+      spawn:(pos)=> buildEnemy(pos, {hp:9999, atk:14, speed:1.2, atkType:'charge', xp:0, color:0x6a5a2a, chargeCooldownOverride:2.6, chargeTelegraphOverride:1.6})},
+    charge:     {label:'Charge Enemy', icon:'💨',
+      spawn:(pos)=> buildEnemy(pos, {hp:9999, atk:16, speed:4.4, atkType:'charge', xp:0, color:0x2a6a7a, chargeCooldownOverride:1.0})},
+    jumper:     {label:'Jump Enemy',   icon:'🦘',
+      spawn:(pos)=> buildEnemy(pos, {hp:9999, atk:14, speed:2.0, atkType:'jumper', xp:0, color:0x7a3ac0})},
+    boss:       {label:'Boss Test',    icon:'👑',
+      spawn:(pos)=> buildBoss(pos, {hpMax:50000, atk:20})},
+  };
+  let arenaSpawnSeq = 0;
+
+  function arenaSpawn(kind){
+    if(!state.testMode || currentWorldKey!=='training') return;
+    const def = ARENA_ROSTER[kind];
+    if(!def) return;
+    const fwd = new THREE.Vector3(Math.sin(state.facing), 0, Math.cos(state.facing));
+    const right = new THREE.Vector3(Math.cos(state.facing), 0, -Math.sin(state.facing));
+    const spread = ((arenaSpawnSeq % 3) - 1) * 2.6;
+    const pos = state.pos.clone().addScaledVector(fwd, 5.5).addScaledVector(right, spread);
+    pos.y = 0;
+    const en = def.spawn(pos);
+    en.arenaSpawned = true;   // arenaClear()の対象印(既存のtraining的3体には付けない)
+    enemies.push(en);
+    arenaSpawnSeq++;
+    spawnToast(`${def.icon} ${def.label} spawned`);
+  }
+
+  function arenaClear(){
+    if(!state.testMode || currentWorldKey!=='training') return;
+    for(let i=enemies.length-1; i>=0; i--){
+      const en = enemies[i];
+      if(en.arenaSpawned){
+        scene.remove(en.group);
+        enemies.splice(i, 1);
+      }
+    }
+    arenaSpawnSeq = 0;
+    spawnToast('🧹 Arena cleared');
+  }
+
   function updateEnemies(dt){
     enemies.forEach(en=>{
       // enemies far from the player belong to a different scenario's area -
@@ -818,7 +883,10 @@
 
     if(en.chargeState==='idle'){
       if(distToPlayer < 6 && hasLineOfSight(en.group.position, state.pos)){
-        en.chargeState = 'telegraph'; en.chargeT = 0.65;
+        // Combat Test Arenaの「Windup Enemy」向け: 振りかぶりを通常より
+        // 長く見せたい場合だけen.chargeTelegraphOverrideを設定する
+        // (未指定の通常個体は今までどおり0.65秒)
+        en.chargeState = 'telegraph'; en.chargeT = en.chargeTelegraphOverride || 0.65;
         en.chargeDir = toPlayer.clone().normalize();
       } else {
         updateWanderAI(en, dt);
@@ -2017,12 +2085,27 @@
      (どちらも移動/他行動をロックする)なので、1つの関数に同居させても
      二重発火の心配はない。
   ========================================================= */
+  /* 戦騎士 Perfect Brace(#4フェーズ4): 攻撃元(attacker)の体幹を崩し、
+     反撃猶予(state.braceCounterT)を開く共通処理。バリア経由・ジャスト
+     ドッジ経由のどちらからも同じ処理を呼べるよう切り出した ――
+     「どのスキルを選んでいても」成立させるための土台(監査#4参照)。
+     staggerMulだけを呼び出し側で変える(バリアは静止して受け切った分
+     やや大きく、ジャストドッジは移動を伴う分やや控えめ)。 */
+  function applyBattleKnightBrace(attacker, staggerMul){
+    if(attacker && !attacker.dead && attacker.postureMax && !attacker.knockedDown && (attacker.postureGraceT||0) <= 0){
+      attacker.posture = applyPostureGain(attacker.posture, attacker.postureMax, staggerGain({staggerMul}));
+      if(attacker.posture >= attacker.postureMax) triggerKnockdown(attacker);
+    }
+    state.braceCounterT = 3.0;
+    hitStop(0.07);
+    addShake(0.10);
+    sfx('perfectDodge');
+    spawnToast('🛡️ 受け流し成功! 反撃の好機!', '#ffcf6a');
+    emitArenaFeedback('PERFECT BRACE', `COUNTER WINDOW ${state.braceCounterT.toFixed(1)}s`);
+  }
+
   // attacker: 素通りした攻撃の発射元の敵(分かる場合のみ、07-ai-combat.js内の
-  // 各被ダメ判定から渡す)。戦騎士のPerfect Brace(#6-1)の実体はここ ―― 既存の
-  // バリア(全職共通スキル、動きは無敵構え+ヒール)に、job==='battleKnight'の
-  // 時だけ追加のボーナスを乗せる形にしてあり、新しい入力もバリア自体の仕組みも
-  // 増やしていない。「敵の攻撃を誘う→見る→受け流す→反撃」という設計(#6)を、
-  // 既存の何もかもを壊さずに一番小さい差分で成立させる狙い
+  // 各被ダメ判定から渡す)。
   function tryPerfectDodge(attacker){
     if(state.barrierActive && state.barrierParryCD<=0){
       state.barrierParryCD = 0.35;   // 同じ1回のバリア中に多重発火しないためのクールダウン
@@ -2032,17 +2115,7 @@
       hitStop(0.05);
       addShake(0.06);
       if(state.job==='battleKnight' && attacker && !attacker.dead){
-        // 受け流した勢いをそのまま攻撃元へ返す: 体幹を大きく崩し、
-        // 次の一撃を強化する反撃猶予を開く
-        if(attacker.postureMax && !attacker.knockedDown && (attacker.postureGraceT||0) <= 0){
-          attacker.posture = applyPostureGain(attacker.posture, attacker.postureMax, staggerGain({staggerMul:2.2}));
-          if(attacker.posture >= attacker.postureMax) triggerKnockdown(attacker);
-        }
-        state.braceCounterT = 3.0;
-        hitStop(0.07);
-        addShake(0.10);
-        sfx('perfectDodge');
-        spawnToast('🛡️ 受け流し成功! 反撃の好機!', '#ffcf6a');
+        applyBattleKnightBrace(attacker, 2.2);   // 静止して受け切った分、やや大きく崩す
       } else {
         sfx('perfectDodge');
         spawnToast(`🛡️ パリィ成功! HP+${healAmt}`, '#7ecbe8');
@@ -2052,11 +2125,23 @@
     // 同じ1回のロール中に複数の判定ソースへ多重発火しないための
     // 短いクールダウン(例: 突進の距離判定は毎フレーム再評価される)
     state.perfectDodgeCD = 0.5;
-    state.perfectDodgeWindowT = 1.4;   // この間に当てた次の一撃が強化される
     hitStop(0.05);
     addShake(0.06);
-    sfx('perfectDodge');
-    spawnToast('⚡ ジャストドッジ!', '#ffd27a');
+    /* 戦騎士のデフォルト戦闘体験(監査#4): スキル選択(バリア)を一切
+       要らないよう、通常のジャストドッジそのものを受け流しにする。
+       転がって逃げるモーションはそのまま(#18の「防御=停止ではない」の
+       通り、動き自体を変える必要はない) ―― 結果として敵の体幹を崩し
+       反撃の好機を作る、という報酬だけを他クラスと差し替える。
+       他クラス/スキル未選択時と同じ「確定クリティカル+50%」ではなく、
+       やや控えめな代わりに攻撃元へも直接影響する、という質の違う
+       報酬にしてあり、単純な上位互換にはしていない */
+    if(state.job==='battleKnight' && attacker && !attacker.dead){
+      applyBattleKnightBrace(attacker, 1.8);
+    } else {
+      state.perfectDodgeWindowT = 1.4;   // この間に当てた次の一撃が強化される
+      sfx('perfectDodge');
+      spawnToast('⚡ ジャストドッジ!', '#ffd27a');
+    }
   }
 
   /* =========================================================
@@ -2258,8 +2343,12 @@
         en.posture = applyPostureGain(en.posture, en.postureMax, staggerGain({staggerMul, classMul, abilityMul, punishBonusMul}));
         if(punishBonusMul > 1){
           // 通常のヒット感触と違うと分かるよう、専用の効果音だけ足す
-          // (見た目のスパーク色は既存のまま ―― 演出を増やしすぎない方針#36)
+          // (見た目のスパーク色は既存のまま ―― 演出を増やしすぎない方針#36)。
+          // Combat Test Arenaでは、監査#5で指摘された「内部処理のみで
+          // プレイヤーが気づけない」を解消するため、実際の倍率つきで
+          // 明示表示する(通常ゲームのUIはこれ以上増やさない)
           sfx('perfectDodge', {weight});
+          emitArenaFeedback(midWindup ? 'WINDUP PUNISH' : 'RECOVERY PUNISH', `STAGGER ×${punishBonusMul.toFixed(1)}`);
         }
         if(en.posture >= en.postureMax){
           triggerKnockdown(en);
@@ -2270,14 +2359,24 @@
         }
       }
 
-      // 魔導士(#20): 命中させた敵の足取り・向き直りを一瞬鈍らせる。
+      // 魔導士(#20/監査#6): 命中させた敵の足取り・向き直りを一瞬鈍らせる。
       // 「戦場そのものを変える」の最小実装 ―― 敵側に新しい状態機械を
       // 増やさず、既存の旋回速度(enemy-facing.js resolveTurnRate)と
       // ボスの追跡速度(updateBossAI)が参照するだけの一時フラグにしてある。
-      // 減衰はupdateEnemies()側で行う
+      // 減衰はupdateEnemies()側で行う。
+      // 監査で指摘された「内部処理のみで体感できない」を解消するため、
+      // 足元に短命の魔法陣(spawnScorch、既存の焦げ跡デカール流用)+専用SEを
+      // 追加した - 派手なエフェクトを増やすのではなく、既存の仕組みに
+      // 色だけ変えて相乗りさせている(#36の演出方針を踏襲)
       if(!isAlly && state.job==='archmage'){
+        const wasBound = (en.arcaneBindT||0) > 0;
         en.arcaneBindT = Math.max(en.arcaneBindT||0, 2.2);
         en.turnRateMul = 0.5;
+        if(!wasBound){
+          spawnScorch(en.group.position, en.isBoss ? 2.6 : 1.4, 0x82c6d4, 2.2);   // 魔導士のアクセント色(01-character-creation.js UPPER_JOBS.mage.trim)と統一
+          sfx('castAim');
+          emitArenaFeedback('TURN SLOW', `${en.arcaneBindT.toFixed(1)}s`);
+        }
       }
 
       // 必殺ゲージ: ヒットを当てるたびに少し貯まる(フィニッシュ等は呼び出し側で

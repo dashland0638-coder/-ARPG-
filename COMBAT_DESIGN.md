@@ -177,3 +177,84 @@
 既存の`npm run test`(Playwright、`tests/save-load.spec.js`の
 sortieケース)で、上記変更を含めた状態でダンジョンに入り実際に
 攻撃してもconsole error/pageerrorが出ないことを確認済み。
+
+## 5. Combat Design Audit(2026-09、監査と回収)
+
+上記フェーズ完了後、「コードとして存在する」≠「プレイヤーがゲームとして
+体験できる」という観点で全体を再監査した。監査の結論は以下の通り
+(詳細はセッションのやり取りに残っているため、ここでは実装差分のみ記録):
+
+- パニッシュ窓・Perfect Brace・鷹の目の予測・魔導士の鈍化は、いずれも
+  「コードは動くが、非デフォルトのスキル選択が前提」「フィードバックが
+  無い」等の理由で、通常プレイではまず体験されない状態だった。
+- バーサーカーの攻撃移動(前フェーズで実装)は動作するが、直進ダッシュの
+  ため敵を素通りしてしまい、設計意図(位置関係を変え続ける)と乖離していた。
+- エネミーステップ・切り上げ攻撃・落下中の切り下げ攻撃は、Git履歴・
+  コード・本ドキュメントのいずれにも痕跡が無く、このリポジトリ単独では
+  設計意図を再構築できないと判断。**今回も実装していない**(要ユーザー確認)。
+
+### 5-1. Combat Test Arena(新規)
+
+テストモード(タイトル→🛠テストモード→'training'ワールド)専用の
+検証環境。目的は敵コンテンツの追加ではなく「戦闘システムを意図的に
+発動・確認できる場」であること。
+
+- `src/legacy/parts/07-ai-combat.js`: `ARENA_ROSTER`(Dummy/Basic Melee/
+  Windup Enemy/Charge Enemy/Jump Enemy/Boss Test)と`arenaSpawn()`/
+  `arenaClear()`/`arenaCycleSpawn()`。既存の`buildEnemy`/`buildBoss`と
+  既存atkType(charge/jumper/passive)をそのまま流用し、新しい敵AIは
+  追加していない。Boss Testは`mansionBoss`をhpMax:50000で流用 ――
+  通常の撃破報酬フロー(3択報酬・勝利演出)を実用上発火させないための
+  措置で、旋回・攻撃後の流れ・体幹・Perfect Braceの検証が目的であり
+  撃破自体は目的ではないため。
+  - `updateChargerAI`に`en.chargeTelegraphOverride`を追加(未指定なら
+    従来通り0.65秒) ―― Windup Enemyだけ振りかぶりを長く見せるための
+    最小限の変更で、既存の突進系モブの挙動は変えていない。
+- `src/legacy/parts/14-training-ground.js`: パネルの開閉・ロスター
+  ボタン描画・Debug Feedbackログ(`emitArenaFeedback`)・敵情報パネル
+  (`updateArenaEnemyInfo`)。すべて`state.testMode`時のみ表示され、
+  通常プレイのUIには一切影響しない。
+- 操作(#10): タップ/クリックの実DOMボタンが主(iPhone想定)。コントローラーは
+  ゲームプレイ中未使用だったD-pad右(`btnPressed(gp,15)`)1つで
+  ロスターを巡回スポーンできるようにした(パネル自体は`state.paused`を
+  立てない設計にしてあり、戦闘を止めずに検証できることを優先したため、
+  既存のポーズ専用ゲームパッドメニューナビ(10-input.js)には乗せていない)。
+- Debug Feedback: WINDUP PUNISH/RECOVERY PUNISH(実際の倍率つき)、
+  PERFECT BRACE+COUNTER WINDOW(残り秒数)、PREDICTIVE AIM/PREDICTIVE HIT、
+  TURN SLOW(残り秒数)を`emitArenaFeedback()`経由で表示。呼び出し側は
+  `state.testMode`を意識せず呼べる(関数内で一括ガード)。
+
+### 5-2. バーサーカー攻撃移動の再設計
+
+`src/core/flank-step.js`(新規、`tests/unit/flank-step.test.js`で検証)。
+直進ダッシュを、直近の交戦相手(6m以内)への相対位置(接線方向)を
+基準にした移動へ差し替えた。プレイヤーの入力方向で「どちら側へ回り込むか」
+を選べる(無入力時はコンボ段数で左右を綾織りにして固定化を避ける)。
+`clampStepDistance()`で、近距離での踏み込みが相手の位置を素通りしないよう
+distanceを制限する。自動追尾・無敵・スーパーアーマーは追加していない。
+
+### 5-3. 戦騎士のデフォルト戦闘体験化
+
+Perfect Brace(体幹を崩す+反撃猶予)の発火条件から「バリア選択」の
+必須を外した。既存のジャストドッジ(全職業共通、ダッジボタンのタイミング
+合わせ)自体が、`state.job==='battleKnight'`の時だけ受け流し(Brace)に
+差し替わる ―― 新しい入力は増やさず、動きも変えていない(転がって
+逃げるモーションはそのまま)。バリア経由のPerfect Brace(既存)は、より
+強い代替手段として引き続き利用できる。`applyBattleKnightBrace()`に
+共通処理を切り出した。
+
+### 5-4. 鷹の目のデフォルト戦闘体験化
+
+通常の弓矢(`spawnProjectileSingle`)自体に予測補正を組み込んだ。
+`state.job==='hawkEye'`かつ正面のゆるいコーン内に予兆状態の敵がいれば、
+矢の飛翔時間(距離÷矢速)を先読み時間として着弾予測位置へ狙い筋を
+一度だけ曲げる。矢はhomingにしていないため、その後の相手の行動次第で
+普通に外れうる(自動追尾ではない)。命中時、対象が引き続き予兆状態
+だった場合のみ体幹ボーナス+専用演出。スキル(貫通の一矢/天賦の一矢)
+側の既存実装は、より強い代替手段として維持。
+
+### 5-5. 魔導士の体感フィードバック
+
+`en.arcaneBindT`が新規に付与された瞬間(既にかかっている間の連打では
+再発火しない)、対象の足元に短命の魔法陣(`spawnScorch`流用、専用色)+
+専用SEを追加。「内部処理のみで気づけない」を解消する最小実装。

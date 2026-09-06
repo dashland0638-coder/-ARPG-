@@ -50,6 +50,10 @@
       if(btnPressed(gp,12)) toggleScenarioSelect(); // D-pad up
       if(btnPressed(gp,13)) toggleAppraisal();      // D-pad down
       if(btnPressed(gp,14)) castBossSkill3();       // D-pad left (skill 3)
+      // D-pad右はゲームプレイ中どのアクションにも割り当てられていない
+      // 空きボタン。Combat Test Arena専用(state.testMode以外は
+      // arenaCycleSpawn()内で即return)の巡回スポーンに使う(#10)
+      if(btnPressed(gp,15)) arenaCycleSpawn();
     }
     updateChargeHold(dt);
     updateMageOrbs(dt);
@@ -1215,7 +1219,18 @@
           // height check is relative to the target, not to world y=0.5:
           // the old absolute form made arrows harmless on every upper storey
           if(d < (p.hitR || 0.6) && Math.abs(p.mesh.position.y - en.group.position.y) < 1.8){
-            dealDamageToEnemy(en, p.dmg, false, {staggerMul: p.staggerMul, ultGauge: p.ultGauge});
+            // 鷹の目(#5): 発射時に未来位置へ狙いを寄せた相手に、その狙い筋
+            // どおり命中した場合だけ体幹ボーナス。矢は誘導されていない
+            // (dirは発射時に一度曲げただけ)ので、相手がその後どこかへ
+            // 動いていれば普通に外れる - 命中できた事実そのものが「読みが
+            // 当たった」証拠になる
+            const predictHit = p.predictiveTarget===en && isTelegraphing(en);
+            dealDamageToEnemy(en, p.dmg, false, {staggerMul: (p.staggerMul||1) * (predictHit?3.0:1), ultGauge: p.ultGauge});
+            if(predictHit){
+              spawnToast('🎯 未来を射抜いた!', '#6adfc0');
+              sfx('perfectDodge');
+              emitArenaFeedback('PREDICTIVE HIT', 'STAGGER ×3.0');
+            }
             if(p.pierce){
               p.pierceHitSet.add(en);
               p.pierceLeft--;

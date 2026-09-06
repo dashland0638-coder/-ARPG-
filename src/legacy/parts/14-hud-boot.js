@@ -722,6 +722,7 @@
       updateSunShadow();
       updateHUD();
       updateComboIndicator();
+      updateArenaPanel(dt);   // Combat Test Arena専用。state.testMode以外では即return
       updateDoors(dt);
       updateMansionRoof();
       updateRestroomRoof();

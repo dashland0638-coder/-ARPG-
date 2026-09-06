@@ -413,6 +413,48 @@
   }
   #debug-badge.show{ display:block; }
 
+  /* ---------- COMBAT TEST ARENA(テストモード専用) ---------- */
+  .arena-toggle-btn{
+    position:fixed; top:calc(96px + env(safe-area-inset-top)); left:16px;
+    z-index:31; display:none; padding:8px 14px; border-radius:10px;
+    background:rgba(60,20,80,0.75); color:#e8d0ff; font-size:12px; font-weight:700;
+    border:1px solid #8a5ac0; cursor:pointer; pointer-events:auto;
+  }
+  .arena-toggle-btn.show{ display:block; }
+  .arena-panel{
+    position:fixed; top:calc(140px + env(safe-area-inset-top)); left:16px; max-width:min(86vw,320px);
+    z-index:31; display:none; padding:12px; border-radius:10px;
+    background:rgba(20,12,28,0.88); border:1px solid #8a5ac0; pointer-events:auto;
+  }
+  .arena-panel.show{ display:block; }
+  .arena-panel-title{ color:#e8d0ff; font-size:12px; font-weight:700; margin-bottom:8px; }
+  .arena-roster{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .arena-roster button, .arena-panel-row button{
+    font-size:11px; padding:7px 10px; border-radius:8px; cursor:pointer;
+    background:rgba(120,80,180,0.28); color:#f0e6ff; border:1px solid #7a4aa8;
+  }
+  .arena-roster button:active, .arena-panel-row button:active{ background:rgba(160,110,220,0.5); }
+  .arena-panel-row{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
+  .arena-panel-hint{ color:#b8a8cc; font-size:10px; line-height:1.4; }
+  #arena-feedback-log{
+    position:fixed; top:calc(16px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+    z-index:31; display:flex; flex-direction:column; align-items:center; gap:3px;
+    pointer-events:none; margin-top:34px;
+  }
+  .arena-feedback-line{
+    background:rgba(20,12,28,0.85); border:1px solid #ffcf6a; color:#ffe6a0;
+    font-size:11px; font-weight:700; padding:4px 12px; border-radius:8px;
+    opacity:1; transition:opacity .5s;
+  }
+  .arena-feedback-line.fade{ opacity:0; }
+  #arena-enemy-info{
+    position:fixed; bottom:calc(16px + env(safe-area-inset-bottom)); left:16px;
+    z-index:31; display:none; padding:8px 12px; border-radius:8px;
+    background:rgba(12,10,16,0.75); border:1px solid var(--panel-line);
+    color:#dfe8f4; font-size:10.5px; line-height:1.55; pointer-events:none;
+    white-space:nowrap;
+  }
+
   #interact-btn{
     position:fixed; left:50%; bottom:22%; transform:translate(-50%,0);
     z-index:22; display:none; opacity:0; pointer-events:none; white-space:nowrap;

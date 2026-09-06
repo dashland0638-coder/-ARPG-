@@ -42,6 +42,7 @@ import { timeLimitForStars } from '../core/scenario-timer.js';
 import { turnTowardAngle, turnBudget, resolveTurnRate } from '../core/enemy-facing.js';
 import { punishWindowMultiplier, staggerGain, applyPostureGain } from '../core/stagger-math.js';
 import { telegraphLead, isTelegraphing, predictLeadPosition } from '../core/predictive-aim.js';
+import { computeFlankStepDir, clampStepDistance } from '../core/flank-step.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 
 `;
