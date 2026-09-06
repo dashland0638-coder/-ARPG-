@@ -30,6 +30,21 @@ test('Combat Test Arena: 敵選択・Spawn・Clearが一通り動作する', asy
   // テストモード中はArenaトグルボタンが見えているはず
   await expect(page.locator('#arena-toggle-btn')).toBeVisible();
 
+  /* 実プレイでの不具合の回帰テスト: Arenaボタンが☰メニューボタンに
+     重なっており(しかもz-indexで勝っていた)、テストモード中はメニューを
+     開けなくなっていた。矩形が重ならないこと + 実際にメニューが開くことを
+     両方確認する */
+  const arenaBox = await page.locator('#arena-toggle-btn').boundingBox();
+  const menuBox = await page.locator('#loot-menu-btn').boundingBox();
+  const overlaps = !!arenaBox && !!menuBox &&
+    arenaBox.x < menuBox.x + menuBox.width && menuBox.x < arenaBox.x + arenaBox.width &&
+    arenaBox.y < menuBox.y + menuBox.height && menuBox.y < arenaBox.y + arenaBox.height;
+  expect(overlaps, 'ArenaボタンとメニューボタンのDOM矩形が重なっていないこと').toBe(false);
+  await page.click('#loot-menu-btn');
+  await expect(page.locator('#menu-overlay')).toHaveClass(/active/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#menu-overlay')).not.toHaveClass(/active/);
+
   // パネルを開く
   await page.click('#arena-toggle-btn');
   await expect(page.locator('#arena-panel')).toHaveClass(/show/);
@@ -53,6 +68,11 @@ test('Combat Test Arena: 敵選択・Spawn・Clearが一通り動作する', asy
   const infoText = await page.locator('#arena-enemy-info').innerText();
   expect(infoText.length).toBeGreaterThan(0);
   await page.click('#arena-info-toggle-btn');
+
+  /* Boss Testは会話(遭遇時の名乗り)を挟まずに戦闘状態で出てくること。
+     ロスターのクリックは上のループで既に済んでいるので、ここでは
+     ダイアログが開いていないことだけを確認する */
+  await expect(page.locator('#dialogue-overlay')).not.toHaveClass(/active/);
 
   // Clear All
   await page.click('#arena-clear-btn');

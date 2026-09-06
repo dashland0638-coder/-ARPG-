@@ -414,17 +414,25 @@
   #debug-badge.show{ display:block; }
 
   /* ---------- COMBAT TEST ARENA(テストモード専用) ---------- */
+  /* 左カラムは上から .hud-topleft(HP/MP/スタミナ、top:16px・高さ約78px)、
+     .hud-loot(☰メニュー/薬草、margin-top:78px で実質y≈94px)と続く。
+     Arenaボタンはその下に置く ―― 以前は96pxでちょうど☰メニューに
+     重なっており、z-index:31が勝ってメニューを開けなくしていた */
   .arena-toggle-btn{
-    position:fixed; top:calc(96px + env(safe-area-inset-top)); left:16px;
+    position:fixed; top:calc(136px + env(safe-area-inset-top)); left:16px;
     z-index:31; display:none; padding:8px 14px; border-radius:10px;
     background:rgba(60,20,80,0.75); color:#e8d0ff; font-size:12px; font-weight:700;
     border:1px solid #8a5ac0; cursor:pointer; pointer-events:auto;
   }
   .arena-toggle-btn.show{ display:block; }
   .arena-panel{
-    position:fixed; top:calc(140px + env(safe-area-inset-top)); left:16px; max-width:min(86vw,320px);
+    position:fixed; top:calc(178px + env(safe-area-inset-top)); left:16px; max-width:min(86vw,320px);
     z-index:31; display:none; padding:12px; border-radius:10px;
     background:rgba(20,12,28,0.88); border:1px solid #8a5ac0; pointer-events:auto;
+    /* iPhone横持ち(高さ390px前後)でも画面外へはみ出さないよう、
+       余った分はパネル内でスクロールさせる */
+    max-height:calc(100vh - 190px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y:auto;
   }
   .arena-panel.show{ display:block; }
   .arena-panel-title{ color:#e8d0ff; font-size:12px; font-weight:700; margin-bottom:8px; }
