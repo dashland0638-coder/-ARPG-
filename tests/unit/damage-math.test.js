@@ -116,6 +116,17 @@ test('outgoingDamageMods', async (t) => {
     assert.ok(Math.abs(mul - 1.15 * 1.4 * 1.5) < 1e-9);
     assert.equal(isCrit, true);
   });
+
+  await t.test('battleKnight brace counter: +40%, not a guaranteed crit, only while the window is open', () => {
+    assert.deepEqual(outgoingDamageMods({ braceCounterOpen: true }), { mul: 1.4, isCrit: false });
+    assert.deepEqual(outgoingDamageMods({ braceCounterOpen: false }), { mul: 1, isCrit: false });
+  });
+
+  await t.test('brace counter stacks with other multipliers and does not force a crit on its own', () => {
+    const { mul, isCrit } = outgoingDamageMods({ personality: 'brave', hpRatio: 0.2, braceCounterOpen: true });
+    assert.ok(Math.abs(mul - 1.15 * 1.4) < 1e-9);
+    assert.equal(isCrit, false);
+  });
 });
 
 test('applyOutgoingDamage', async (t) => {

@@ -536,6 +536,7 @@
           en.burnT = 0; en.burnDmg = 0;
           en.lastPos = null; en.strideT = Math.random()*6.28; en.flinch = 0;
           en.posture = 0; en.knockedDown = false; en.knockdownT = 0; en.postureGraceT = 0; en.bigFlinched = false;
+          en.postAtkRecoveryT = 0; en.arcaneBindT = 0; en.turnRateMul = 1;
           if(en.mob){
             en.mob.legs.forEach(l=>{ l.rotation.x = 0; l.position.y = 0.24; });
             if(en.mob.neck) en.mob.neck.rotation.set(0,0,0);
@@ -553,6 +554,13 @@
         const B = en.bodyScale;
         if(en.body && !en.isBoss && B) en.body.scale.set(B.x*s, B.y/(1+f*0.3), B.z*s);
         if(en.hurtT <= 0 && en.body && !en.isBoss && B) en.body.scale.copy(B);
+      }
+      if(en.arcaneBindT > 0){
+        // 魔導士の一撃で鈍らせた足取り(dealDamageToEnemy参照)。切れたら
+        // turnRateMulを明示的に1へ戻す ―― 戻し忘れると鈍った旋回が
+        // 永続してしまう
+        en.arcaneBindT -= dt;
+        if(en.arcaneBindT <= 0){ en.arcaneBindT = 0; en.turnRateMul = 1; }
       }
       if(en.burnT > 0){
         // かいじんの杖: 燃焼ダメージ。既存のダメージ経路に isDot として渡し、
@@ -798,7 +806,8 @@
     if(toTarget.length()>0.15){
       toTarget.normalize();
       en.group.position.addScaledVector(toTarget, en.speed*dt*0.55);
-      en.group.rotation.y = Math.atan2(toTarget.x, toTarget.z);
+      const rate = turnBudget(resolveTurnRate(en), dt);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toTarget.x, toTarget.z), rate);
     }
   }
 
@@ -844,7 +853,7 @@
           if(state.hp<=0) triggerPlayerDown();
         }
       } else if(d<1.15 && en.hitCD<=0 && state.paralyzeInvulnT<=0){
-        tryPerfectDodge();
+        tryPerfectDodge(en);
       }
       // 攻撃間隔の見直し(#21): 旧2.4sは硬直→cooldownの往復が長すぎ、
       // 通常攻撃が完全に無警戒に振り切れる「ゴリ押し」を許してしまっていた。
@@ -876,7 +885,10 @@
     const dist = toPlayer.length();
     if(dist < 13){
       const sees = hasLineOfSight(en.group.position, state.pos);
-      if(sees) en.group.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+      if(sees){
+        const rate = turnBudget(resolveTurnRate(en), dt);
+        en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate);
+      }
       if(dist<13 && dist>1.5 && en.atkCD<=0 && sees){
         en.fireCharging = true;
         en.fireChargeT = 0.7; // wind-up: gives the player a beat to react/dodge
@@ -933,7 +945,8 @@
     const dist = toPlayer.length();
     const sees = dist < 16 && hasLineOfSight(en.group.position, state.pos);
     if(!sees){ updateWanderAI(en, dt); return; }
-    en.group.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+    { const rate = turnBudget(resolveTurnRate(en), dt);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate); }
     if(dist < KITE_MIN_RANGE){
       // 距離を取りながら後退(引き撃ち) ―― 前を向いたまま後ろへ下がる
       const away = toPlayer.clone().normalize().multiplyScalar(-1);
@@ -975,7 +988,8 @@
     const dist = toPlayer.length();
     const sees = dist < (en.turretRange||15) && hasLineOfSight(en.group.position, state.pos);
     if(sees){
-      en.group.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+      const rate = turnBudget(resolveTurnRate(en), dt);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate);
       if(en.atkCD<=0){ en.fireCharging = true; en.fireChargeT = 0.75; }
     }
     // 視界外でも動かない ―― 徘徊(updateWanderAI)は意図的に呼ばない
@@ -1014,7 +1028,7 @@
             if(state.hp<=0) triggerPlayerDown();
           }
         } else if(d<2.2 && !en.jumpHit && state.paralyzeInvulnT<=0){
-          tryPerfectDodge();
+          tryPerfectDodge(en);
         }
         en.jumpCD = 1.8 + Math.random()*0.8;
       }
@@ -1129,7 +1143,7 @@
           if(state.hp<=0) triggerPlayerDown();
         }
       } else if(d<1.1 && !en.ghostHit && state.paralyzeInvulnT<=0){
-        tryPerfectDodge();
+        tryPerfectDodge(en);
       }
       if(en.ghostT<=0){ en.ghostState = 'cooldown'; en.ghostT = 2.4; }
       return;
@@ -1144,7 +1158,7 @@
   function bossHitPlayer(en, dmg, opts){
     opts = opts || {};
     if(state.invulnerable || state.paralyzeInvulnT>0){
-      if(state.paralyzeInvulnT<=0) tryPerfectDodge();
+      if(state.paralyzeInvulnT<=0) tryPerfectDodge(en);
       return;
     }
     if(tryConsumeOrbShield()) return;
@@ -1837,12 +1851,29 @@
     // boss-specific specials take priority over the basic chase/strike
     if(updateBossSpecial(en, dt)) return;
 
+    /* 攻撃後の身体の流れ(#25/#26): 振り抜いた勢いのぶんだけ、一瞬プレイヤー
+       追尾より体の向き直りが遅れる。この間はdealDamageToEnemy側で
+       postAttackRecoveryとして扱われ、全職業共通のパニッシュ窓になる
+       (stagger-math.js参照)。戦騎士はこの「敵の身体がどちらへ流れるか」を
+       積極的に利用する設計(COMBAT_DESIGN.md参照)なので、ここで方向自体も
+       ちゃんと動かしておく - 止まって見せるだけでは「利用できる」情報にならない */
+    if(en.postAtkRecoveryT > 0){
+      en.postAtkRecoveryT -= dt;
+      en.group.position.addScaledVector(en.postAtkDriftDir, 1.6*dt);
+      const rate = turnBudget(resolveTurnRate(en)*0.6, dt);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y,
+        Math.atan2(en.postAtkDriftDir.x, en.postAtkDriftDir.z), rate);
+      return;
+    }
+
     if(en.atkWindup){
       // mid wind-up: root in place, visibly rear back before the strike lands
       en.atkWindupT -= dt;
       const lean = 1 - en.atkWindupT/en.atkWindupDur;
       const BW = en.bodyScale || {x:1,y:1,z:1};
       en.body.scale.set(BW.x*(1+lean*0.18), BW.y*(1-lean*0.1), BW.z*(1+lean*0.18));
+      // 攻撃中は方向固定(#44完了条件): 振りかぶった時点の向きへ即座に
+      // 揃え、以後は動かさない。この「一気に定まる」こと自体が予兆になる
       en.group.rotation.y = Math.atan2(en.atkFacing.x, en.atkFacing.z);
       if(en.atkWindupT<=0){
         en.atkWindup = false;
@@ -1862,9 +1893,12 @@
             if(state.hp<=0) triggerPlayerDown();
           }
         } else if(stillClose && state.paralyzeInvulnT<=0){
-          tryPerfectDodge();
+          tryPerfectDodge(en);
         }
         en.atkCD = en.atkCdBase || 1.6;
+        // 命中・空振りどちらでも、振り抜いた勢いは同じだけ残る
+        en.postAtkRecoveryT = 0.45;
+        en.postAtkDriftDir = en.atkFacing.clone();
       }
       return;
     }
@@ -1872,10 +1906,18 @@
     const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
     const dist = toPlayer.length();
     const reach = en.atkReach || 2.2;
+    // 魔導士の一撃(#20): 命中した敵の足取り・向き直りを一瞬鈍らせる
+    // (dealDamageToEnemyでen.arcaneBindTを付与。「戦場そのものを変える」の
+    // 最小実装 - 敵側に新しい状態機械を増やさず、既存の速度/旋回速度の
+    // 参照点にだけ倍率を掛けている)
+    const slowMul = en.arcaneBindT > 0 ? 0.5 : 1;
     if(dist > reach){
       toPlayer.normalize();
-      en.group.position.addScaledVector(toPlayer, en.speed*speedMult*dt);
-      en.group.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+      en.group.position.addScaledVector(toPlayer, en.speed*speedMult*slowMul*dt);
+      // 追尾中の向き直りは瞬間スナップにしない(#21/#22): 大型ボスほど
+      // ゆっくり向き直り、プレイヤーが横や後ろへ回り込む価値を作る
+      const rate = turnBudget(resolveTurnRate(en)*slowMul, dt);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate);
     } else if(en.atkCD<=0){
       // wind up before striking - damage lands only once the wind-up completes
       en.atkWindup = true;
@@ -1907,7 +1949,7 @@
         if(state.hp<=0) triggerPlayerDown();
       }
     } else if(d < burstRadius && state.paralyzeInvulnT<=0){
-      tryPerfectDodge();
+      tryPerfectDodge(en);
     }
     sfx('ultimate'); addShake(0.22);
     spawnUltimateVFX(en.group.position.clone(), {radius:burstRadius, vfxColor: en.baseColor});
@@ -1973,7 +2015,13 @@
      (どちらも移動/他行動をロックする)なので、1つの関数に同居させても
      二重発火の心配はない。
   ========================================================= */
-  function tryPerfectDodge(){
+  // attacker: 素通りした攻撃の発射元の敵(分かる場合のみ、07-ai-combat.js内の
+  // 各被ダメ判定から渡す)。戦騎士のPerfect Brace(#6-1)の実体はここ ―― 既存の
+  // バリア(全職共通スキル、動きは無敵構え+ヒール)に、job==='battleKnight'の
+  // 時だけ追加のボーナスを乗せる形にしてあり、新しい入力もバリア自体の仕組みも
+  // 増やしていない。「敵の攻撃を誘う→見る→受け流す→反撃」という設計(#6)を、
+  // 既存の何もかもを壊さずに一番小さい差分で成立させる狙い
+  function tryPerfectDodge(attacker){
     if(state.barrierActive && state.barrierParryCD<=0){
       state.barrierParryCD = 0.35;   // 同じ1回のバリア中に多重発火しないためのクールダウン
       const healAmt = Math.max(1, Math.round(state.maxHp * (state.barrierHealFrac||0.12)));
@@ -1981,8 +2029,22 @@
       spawnDamagePopup(state.pos.clone(), healAmt, true, false, false);
       hitStop(0.05);
       addShake(0.06);
-      sfx('perfectDodge');
-      spawnToast(`🛡️ パリィ成功! HP+${healAmt}`, '#7ecbe8');
+      if(state.job==='battleKnight' && attacker && !attacker.dead){
+        // 受け流した勢いをそのまま攻撃元へ返す: 体幹を大きく崩し、
+        // 次の一撃を強化する反撃猶予を開く
+        if(attacker.postureMax && !attacker.knockedDown && (attacker.postureGraceT||0) <= 0){
+          attacker.posture = applyPostureGain(attacker.posture, attacker.postureMax, staggerGain({staggerMul:2.2}));
+          if(attacker.posture >= attacker.postureMax) triggerKnockdown(attacker);
+        }
+        state.braceCounterT = 3.0;
+        hitStop(0.07);
+        addShake(0.10);
+        sfx('perfectDodge');
+        spawnToast('🛡️ 受け流し成功! 反撃の好機!', '#ffcf6a');
+      } else {
+        sfx('perfectDodge');
+        spawnToast(`🛡️ パリィ成功! HP+${healAmt}`, '#7ecbe8');
+      }
     }
     if(!state.dodging || state.perfectDodgeCD > 0) return;
     // 同じ1回のロール中に複数の判定ソースへ多重発火しないための
@@ -2039,6 +2101,7 @@
     // (あちらは装備限定・ドッジ直後1秒、こちらはタイミングを合わせた
     // ジャストドッジ限定・反撃猶予1.4秒) - tryPerfectDodge()参照
     const perfectDodgeOpen = state.perfectDodgeWindowT > 0;
+    const braceCounterOpen = (state.braceCounterT||0) > 0;
     const weaponKey = state.classDef && weaponDefFor(state.classDef.key, state.usingAltWeapon).key;
     const result = applyOutgoingDamage(amount, {
       personality: state.personality,
@@ -2050,8 +2113,10 @@
       perfectDodgeOpen,
       weaponKey,
       comboStage: state.comboStage,
+      braceCounterOpen,
     });
     if(perfectDodgeOpen) state.perfectDodgeWindowT = 0;   // 反撃は1回だけ強化
+    if(braceCounterOpen) state.braceCounterT = 0;   // Perfect Braceの反撃強化も1回だけ
     if(justDodged) state.justDodgedT = 0;   // 1回のドッジにつき1回だけ発動
     if(specialId==='kaijin' && en){
       // かいじんの杖: 命中した敵を燃焼状態にする(3秒、1秒毎にダメージ)
@@ -2175,12 +2240,25 @@
       en.barT = 3.2;      // keep its health bar up for a few seconds
 
       // 体幹(怯み・ダウン): HPとは別軸で「技を当て続けたか」を測る。
-      // DoTや味方の攻撃では削れない(プレイヤー自身の技倆に紐付ける)
+      // DoTや味方の攻撃では削れない(プレイヤー自身の技倆に紐付ける)。
+      // パニッシュ窓(#27/#28): 敵が振りかぶり中(atkWindup)、または攻撃を
+      // 振り抜いた直後の隙(postAtkRecoveryT)に当てた一撃は、職業を問わず
+      // 体幹ダメージが伸びる ―― 「敵を見て、隙に攻撃する」ことそのものへの
+      // 見返りなので、特定の技やジョブに紐付けず全クラス共通で乗る
+      // (実際の数式はcore/stagger-math.jsでユニットテスト済み)
       if(en.postureMax && !en.knockedDown && (en.postureGraceT||0) <= 0){
         const staggerMul = (opts.staggerMul!=null) ? opts.staggerMul : 1;
         const classMul = (state.classDef && state.classDef.staggerMul) || 1;
         const abilityMul = 1 + bossAbilityValue('staggerDealtMul') + sphereValue('staggerDealtSphereMul');   // ボス能力「守護神像の重心」+ スフィア「会心の兆し」
-        en.posture = Math.min(en.postureMax, en.posture + 10*staggerMul*classMul*abilityMul);
+        const midWindup = !!en.atkWindup;
+        const postAttackRecovery = (en.postAtkRecoveryT||0) > 0;
+        const punishBonusMul = punishWindowMultiplier({midWindup, postAttackRecovery});
+        en.posture = applyPostureGain(en.posture, en.postureMax, staggerGain({staggerMul, classMul, abilityMul, punishBonusMul}));
+        if(punishBonusMul > 1){
+          // 通常のヒット感触と違うと分かるよう、専用の効果音だけ足す
+          // (見た目のスパーク色は既存のまま ―― 演出を増やしすぎない方針#36)
+          sfx('perfectDodge', {weight});
+        }
         if(en.posture >= en.postureMax){
           triggerKnockdown(en);
         } else if(en.posture >= en.postureMax*0.7 && !en.bigFlinched){
@@ -2188,6 +2266,16 @@
           en.hurtT = Math.max(en.hurtT||0, 0.5);   // 大怯み: 通常より長く隙ができる
           spawnToast('💫 体勢を崩した!');
         }
+      }
+
+      // 魔導士(#20): 命中させた敵の足取り・向き直りを一瞬鈍らせる。
+      // 「戦場そのものを変える」の最小実装 ―― 敵側に新しい状態機械を
+      // 増やさず、既存の旋回速度(enemy-facing.js resolveTurnRate)と
+      // ボスの追跡速度(updateBossAI)が参照するだけの一時フラグにしてある。
+      // 減衰はupdateEnemies()側で行う
+      if(!isAlly && state.job==='archmage'){
+        en.arcaneBindT = Math.max(en.arcaneBindT||0, 2.2);
+        en.turnRateMul = 0.5;
       }
 
       // 必殺ゲージ: ヒットを当てるたびに少し貯まる(フィニッシュ等は呼び出し側で
@@ -2207,6 +2295,7 @@
     en.bigFlinched = false;
     if(en.isBoss){
       en.atkWindup = false;
+      en.postAtkRecoveryT = 0;   // 崩された時点で振り抜きの流れも打ち切る
       if(en.bodyScale && en.body) en.body.scale.copy(en.bodyScale);
       clearBossVfx(en);
     } else {

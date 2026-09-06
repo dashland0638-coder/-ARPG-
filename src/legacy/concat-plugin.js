@@ -39,6 +39,9 @@ import { groupsFromGraph, allCombos, comboKey, comboKeyFromPath, comboProgress, 
 import { applyIncomingDamage, applyOutgoingDamage } from '../core/damage-math.js';
 import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../core/loot-math.js';
 import { timeLimitForStars } from '../core/scenario-timer.js';
+import { turnTowardAngle, turnBudget, resolveTurnRate } from '../core/enemy-facing.js';
+import { punishWindowMultiplier, staggerGain, applyPostureGain } from '../core/stagger-math.js';
+import { telegraphLead, isTelegraphing, predictLeadPosition } from '../core/predictive-aim.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 
 `;
