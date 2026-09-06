@@ -150,8 +150,11 @@
        乗せているだけ ―― ヒット判定(findMeleeTargetsInArc)は既にswingOnce内で
        この位置基準に解決済みなので、ここでの移動は「次の一撃のための足運び」
        専用になる。スーパーアーマーは付与しない(#12/#41): 移動中も通常通り
-       被弾する,防御力は「そこに居続けないこと」そのものに委ねる設計 */
-    if(state.job==='berserker'){
+       被弾する,防御力は「そこに居続けないこと」そのものに委ねる設計。
+       state.skillAnimが既に別の技(スキル/溜め技のdash/retreat/spin)で
+       進行中なら上書きしない ―― スキルボタン→即座に通常攻撃、という
+       入力順でも、その技自身の短い移動演出を踏み台の途中で刈り取らない */
+    if(state.job==='berserker' && !state.skillAnim){
       const {x:ix, y:iy} = state.moveInput;
       const inputMag = Math.sqrt(ix*ix + iy*iy);
       const dir = inputMag > 0.15

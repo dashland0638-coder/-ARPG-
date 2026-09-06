@@ -790,7 +790,7 @@
     state.name = playerName || '名もなき冒険者';
     state.personality = selectedPersonality;
     state.cautiousTimer = 0; state.killStreak = 0; state.killStreakT = 0; state.justDodgedT = 0; state.dodgeAttackWindowT = 0;
-    state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0;
+    state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0; state.braceCounterT = 0;
     state.comboStage = 0; state.comboCount = 0; state.comboWindowT = 0; state.jumpAttacking = false; state.jumpAttackCD = 0;
     state.equipLevel = 0;
     state.equipmentInventory = []; state.equipped = {weapon:null, upper:null, lower:null};
@@ -877,7 +877,7 @@
     state.name = playerName;
     state.personality = selectedPersonality;
     state.cautiousTimer = 0; state.killStreak = 0; state.killStreakT = 0; state.justDodgedT = 0; state.dodgeAttackWindowT = 0;
-    state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0;
+    state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0; state.braceCounterT = 0;
     state.comboStage = 0; state.comboCount = 0; state.comboWindowT = 0; state.jumpAttacking = false; state.jumpAttackCD = 0;
     state.equipLevel = 0;
     state.equipmentInventory = []; state.equipped = {weapon:null, upper:null, lower:null};
@@ -960,7 +960,7 @@
     state.camYaw = spawn.camYaw; // southeast in town, per fixed per-scenario camera directions
     camera.position.copy(state.pos).add(getCamOffset());
     state.dodgeCD = 0; state.attackCD = 0; state.dodging=false; state.invulnerable=false;
-    state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0;
+    state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0; state.braceCounterT = 0;
     state.barrierActive = false; state.barrierT = 0; state.barrierParryCD = 0;
     state.paralyzed=false; state.paralyzeT=0; state.paralyzeInvulnT=0;
     state.ultGauge = 0; state.ultLockT = 0;

@@ -1915,8 +1915,10 @@
       toPlayer.normalize();
       en.group.position.addScaledVector(toPlayer, en.speed*speedMult*slowMul*dt);
       // 追尾中の向き直りは瞬間スナップにしない(#21/#22): 大型ボスほど
-      // ゆっくり向き直り、プレイヤーが横や後ろへ回り込む価値を作る
-      const rate = turnBudget(resolveTurnRate(en)*slowMul, dt);
+      // ゆっくり向き直り、プレイヤーが横や後ろへ回り込む価値を作る。
+      // resolveTurnRate()が既にen.turnRateMul(魔導士の鈍化)を織り込むので、
+      // ここでslowMulを重ねて二重に掛けない(移動速度側だけがslowMulを使う)
+      const rate = turnBudget(resolveTurnRate(en), dt);
       en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate);
     } else if(en.atkCD<=0){
       // wind up before striking - damage lands only once the wind-up completes
