@@ -466,6 +466,9 @@
     } else {
       dir = inputToWorldDir(dx, dz).normalize();
     }
+    /* 保留中の攻撃判定(戦騎士のHitタイミング同期)は回避で打ち切る。
+       残しておくと、回避で転がった先から無敵のまま0.2秒後に当たる */
+    state.pendingSwing = null;
     state.dodging = true; sfx('dodge');
     state.dodgeT = 0.2;
     state.dodgeDir = dir;

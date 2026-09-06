@@ -1,7 +1,7 @@
 // src/core/enemy-step.js の単体テスト。`npm run test:unit` で実行。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isStompableState, isStompPosition, canEnemyStep, ENEMY_STEP_STAGGER } from '../../src/core/enemy-step.js';
+import { isStompableState, isStompPosition, canEnemyStep, ENEMY_STEP_STAGGER, STEP_MIN_HEIGHT } from '../../src/core/enemy-step.js';
 
 const OVER_HEAD = { horizontalDist: 0.4, radius: 0.45, playerY: 1.6, enemyY: 0, enemyTop: 1.4, fallingVelY: -3 };
 
@@ -42,6 +42,26 @@ test('isStompPosition', async (t) => {
   });
   await t.test('高すぎる位置(遥か頭上)では踏めない', () => {
     assert.equal(isStompPosition({ ...OVER_HEAD, playerY: 12 }), false);
+  });
+});
+
+test('回帰: ジャンプで届く高さで踏めること', async (t) => {
+  // tryJump() の初速8.0・重力22 → 到達高度は約1.45。背丈から割合で
+  // 高さを要求すると(旧: enemyTop*0.45)、ボス(3.4)では1.53が必要になり
+  // 物理的に到達できず、ボスのEnemy Stepが永久に発動しなかった
+  const JUMP_APEX = 8 * 8 / (2 * 22);
+  await t.test('ジャンプの到達高度が踏める最低高度を超えている', () => {
+    assert.ok(JUMP_APEX > STEP_MIN_HEIGHT, `到達${JUMP_APEX.toFixed(2)} > 必要${STEP_MIN_HEIGHT}`);
+  });
+  await t.test('ボス(背丈3.4)でもジャンプ頂点付近で踏める', () => {
+    assert.equal(isStompPosition({
+      horizontalDist: 1.0, radius: 2.0, playerY: JUMP_APEX, enemyY: 0, enemyTop: 3.4, fallingVelY: -1,
+    }), true);
+  });
+  await t.test('雑魚(背丈1.4)でも同様に踏める', () => {
+    assert.equal(isStompPosition({
+      horizontalDist: 0.4, radius: 0.45, playerY: JUMP_APEX, enemyY: 0, enemyTop: 1.4, fallingVelY: -1,
+    }), true);
   });
 });
 

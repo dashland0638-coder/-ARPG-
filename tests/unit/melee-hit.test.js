@@ -1,7 +1,7 @@
 // src/core/melee-hit.js の単体テスト。`npm run test:unit` で実行。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { surfaceDistance, subtendedHalfAngle, meleeHitTest } from '../../src/core/melee-hit.js';
+import { surfaceDistance, subtendedHalfAngle, meleeHitTest, MAX_EFFECTIVE_HALF_ANGLE } from '../../src/core/melee-hit.js';
 
 test('surfaceDistance', async (t) => {
   await t.test('原点距離から体の半径を引く', () => {
@@ -53,6 +53,16 @@ test('meleeHitTest', async (t) => {
 
   await t.test('真後ろの敵は当たらない(扇そのものは維持)', () => {
     assert.equal(meleeHitTest({ distance: 2, radius: 0.45, angleToTarget: Math.PI, ...ROGUE }), false);
+  });
+
+  await t.test('体に密着していても、背中を向けていれば当たらない', () => {
+    // ボスは resolveBossCollision() により常に距離 == solidR == hitRadius で
+    // 押し出されるため、上限が無いと「常時どの向きでも当たる」状態になる
+    const boss = { distance: 2.0, radius: 2.0, range: 2.8, angleMax: 0.68 };
+    assert.equal(meleeHitTest({ ...boss, angleToTarget: 0.2 }), true, '正面は当たる');
+    assert.equal(meleeHitTest({ ...boss, angleToTarget: 1.2 }), true, '斜めも当たる');
+    assert.equal(meleeHitTest({ ...boss, angleToTarget: Math.PI }), false, '真後ろは当たらない');
+    assert.equal(meleeHitTest({ ...boss, angleToTarget: MAX_EFFECTIVE_HALF_ANGLE + 0.01 }), false, '上限を超えたら当たらない');
   });
 
   await t.test('半径0なら従来の判定と完全に一致する(既存挙動の互換)', () => {

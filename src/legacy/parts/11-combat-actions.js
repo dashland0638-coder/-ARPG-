@@ -143,7 +143,15 @@
     ps.t -= dt;
     if(ps.t <= 0){
       state.pendingSwing = null;
-      swingOnce(ps.stage, ps.len);
+      /* 判定は「入力した瞬間の向き」で解決する。見た目のモデルは
+         swingLockFacing に固定されている一方、state.facing は振り中も
+         毎秒5radで動き続けるため、そのまま解決すると当たり判定と
+         範囲表示だけが見えている剣から最大60度近くずれる ――
+         このズレを直すのが目的の機能なので、ここで取り違えては本末転倒 */
+      const cur = state.facing;
+      state.facing = ps.facing;
+      try { swingOnce(ps.stage, ps.len); }
+      finally { state.facing = cur; }
     }
   }
 
@@ -223,7 +231,7 @@
        1フレームも変わらない。 */
     const hitDelay = (JOB_HIT_DELAY_FRAC[state.job] || 0) * (state.swingDur || 0);
     if(hitDelay > 0){
-      state.pendingSwing = {t:hitDelay, stage:state.comboStage, len};
+      state.pendingSwing = {t:hitDelay, stage:state.comboStage, len, facing:state.facing};
     } else {
       swingOnce(state.comboStage, len);
     }

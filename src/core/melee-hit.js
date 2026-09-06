@@ -37,7 +37,17 @@ export function subtendedHalfAngle(distance, radius) {
 //   range         : 職業/武器の間合い(meleeRange)
 //   angleToTarget : プレイヤーの向きと敵方向の角度差(0以上)
 //   angleMax      : 職業/武器の半扇角(meleeAngle)
+/* 体の幅で角度を広げる時の上限(半扇角)。1.9rad ≒ 109度。
+   密着すると subtendedHalfAngle() は π を返すため、これが無いと
+   「敵の体に触れている間はどの向きでも当たる」= 背中を向けていても
+   命中する状態になる。特にボスは resolveBossCollision() が
+   プレイヤーを solidR(= hitRadius)ちょうどの位置に押し出すので、
+   常時この状態に入ってしまう。正面〜真横あたりまでは寛容に、
+   後ろ向きの攻撃は当たらないように頭打ちにする。 */
+export const MAX_EFFECTIVE_HALF_ANGLE = 1.9;
+
 export function meleeHitTest({ distance, radius = 0, range, angleToTarget, angleMax }) {
   if (surfaceDistance(distance, radius) > range) return false;
-  return angleToTarget - subtendedHalfAngle(distance, radius) < angleMax;
+  const allowance = Math.min(angleMax + subtendedHalfAngle(distance, radius), MAX_EFFECTIVE_HALF_ANGLE);
+  return angleToTarget < allowance;
 }

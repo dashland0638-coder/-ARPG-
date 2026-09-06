@@ -28,11 +28,17 @@ export function isStompableState(en) {
 //   fallingVelY    : プレイヤーの垂直速度(負 = 落下中)
 // 「敵の真上あたりにいて、上から落ちてきている」ことを要求する。
 export const STEP_RADIUS_PAD = 1.1;   // 敵の当たり半径にこれだけ足した円内
+/* 踏める最低の高さ。ジャンプの実際の到達高度から決めている ――
+   tryJump() の初速8.0 / 重力22 で頂点は約1.45。敵の背丈から割合で
+   決めると(旧: enemyTop*0.45)、背の高いボスでは1.53が要求されて
+   物理的に到達できず、ボスのEnemy Stepが永久に発動しなかった。
+   「相手の腰から上まで跳べていれば踏める」という絶対値にする。 */
+export const STEP_MIN_HEIGHT = 0.9;
 export function isStompPosition({ horizontalDist, radius = 0, playerY, enemyY, enemyTop, fallingVelY }) {
   if (horizontalDist > (radius || 0) + STEP_RADIUS_PAD) return false;
   const foot = playerY - enemyY;
-  // 敵の胴の高さ付近〜その少し上。地面を走っている高さでは踏めない
-  if (foot < enemyTop * 0.45) return false;
+  // 地面を走っている高さでは踏めない(体当たりで発動させない)
+  if (foot < Math.min(STEP_MIN_HEIGHT, enemyTop * 0.45)) return false;
   if (foot > enemyTop + 2.2) return false;
   // 上昇中は踏めない(飛び上がりざまに引っかけるのを防ぐ)
   return fallingVelY <= 0.5;
