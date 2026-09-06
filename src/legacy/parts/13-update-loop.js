@@ -271,15 +271,58 @@
         if(second) dealDamageToEnemy(second, Math.round(dmg * (variant.chainMul||0.6)), false);
       }
     } else if(variant.mode==='line'){
-      const right = new THREE.Vector3(Math.cos(state.facing),0,-Math.sin(state.facing));
-      spawnPiercingLineVFX(fwd, variant.length, variant.vfxColor);
+      /* 鷹の目(#14-18): 貫通の一射/天賦の一矢は即着弾(飛翔時間なし)なので、
+         「未来の位置を狙う」を弾の誘導ではなく狙い筋そのものの補正で表現する。
+         正面のゆるいコーン内に、既にAIが追える予兆状態(telegraphLead、
+         core/predictive-aim.js)の敵がいれば、チャージした分だけ先まで
+         「読んで」狙い筋をその着地点へ寄せる ―― 溜め時間そのものを「どれだけ
+         先まで読むか」に使うことで、チャージ中を待ち時間で終わらせない(#18)。
+         対象がいない/予兆していない場合は元のfwdのまま(自動追尾ではなく、
+         あくまで既存の直進判定を寄せているだけ)。鷹の目以外の職業
+         (通常の弓師が「貫通の一矢」を使う場合など)は一切影響を受けない */
+      let lineFwd = fwd;
+      let predictiveTarget = null;
+      if(state.job==='hawkEye'){
+        const right0 = new THREE.Vector3(fwd.z, 0, -fwd.x);
+        let best = null, bestFwdDist = Infinity;
+        enemies.forEach(en=>{
+          if(en.dead || en.dormant || !isTelegraphing(en)) return;
+          if(!isBossAccessible(en)) return;
+          const toE = new THREE.Vector3().subVectors(en.group.position, state.pos); toE.y=0;
+          const fDist = toE.dot(fwd);
+          if(fDist<=0 || fDist>variant.length*1.4) return;
+          if(Math.abs(toE.dot(right0)) > variant.length*0.5) return;   // 正面のゆるいコーンのみ(自動ロックオンにしない)
+          if(fDist<bestFwdDist){ bestFwdDist = fDist; best = en; }
+        });
+        if(best){
+          const lead = telegraphLead(best);
+          const leadSeconds = 0.9 * chargeRatio;   // 長く引くほど先まで読む
+          const predicted = predictLeadPosition({x:best.group.position.x, z:best.group.position.z}, lead, leadSeconds);
+          if(predicted){
+            const dir = new THREE.Vector3(predicted.x - state.pos.x, 0, predicted.z - state.pos.z);
+            if(dir.lengthSq() > 0.0001){ lineFwd = dir.normalize(); predictiveTarget = best; }
+          }
+        }
+      }
+      const right = new THREE.Vector3(lineFwd.z, 0, -lineFwd.x);
+      spawnPiercingLineVFX(lineFwd, variant.length, variant.vfxColor);
       enemies.forEach(en=>{
         if(en.dead || en.dormant) return;
         if(!isBossAccessible(en)) return;
         const toE = new THREE.Vector3().subVectors(en.group.position, state.pos); toE.y=0;
-        const forwardDist = toE.dot(fwd);
+        const forwardDist = toE.dot(lineFwd);
         const sideDist = Math.abs(toE.dot(right));
-        if(forwardDist>0 && forwardDist<=variant.length && sideDist<=variant.width/2) dealDamageToEnemy(en, dmg, false);
+        if(forwardDist>0 && forwardDist<=variant.length && sideDist<=variant.width/2){
+          // 予測が的中: 対象がまだ予兆状態のまま、狙い筋どおりに射抜けた場合は
+          // 体幹への上乗せボーナス(#16/#28) - 自動追尾ではなく「読みが当たった」
+          // ことへの報酬なので、対象がその後もう予兆から外れていれば発生しない
+          const predictHit = en===predictiveTarget && isTelegraphing(en);
+          dealDamageToEnemy(en, dmg, false, predictHit ? {staggerMul:3.0, ultGauge:8} : undefined);
+          if(predictHit){
+            spawnToast('🎯 未来を射抜いた!', '#6adfc0');
+            sfx('perfectDodge');
+          }
+        }
       });
     } else if(variant.mode==='orb'){
       spawnChargeOrb(fwd, variant, dmg);
@@ -426,6 +469,7 @@
     if(state.dodgeAttackWindowT>0) state.dodgeAttackWindowT = Math.max(0, state.dodgeAttackWindowT - dt);
     if(state.perfectDodgeCD>0) state.perfectDodgeCD = Math.max(0, state.perfectDodgeCD - dt);
     if(state.perfectDodgeWindowT>0) state.perfectDodgeWindowT = Math.max(0, state.perfectDodgeWindowT - dt);
+    if(state.braceCounterT>0) state.braceCounterT = Math.max(0, state.braceCounterT - dt);   // 戦騎士Perfect Braceの反撃猶予
     if(state.jumpAttackCD>0) state.jumpAttackCD = Math.max(0, state.jumpAttackCD - dt);
     if(state.comboWindowT>0){
       state.comboWindowT = Math.max(0, state.comboWindowT - dt);
@@ -1136,7 +1180,7 @@
           }
           continue;
         } else if(d < 0.75 && Math.abs(p.mesh.position.y - state.pos.y) < 1.8 && state.paralyzeInvulnT<=0){
-          tryPerfectDodge();
+          tryPerfectDodge(null);   // 弾に発射元の敵を保持していないため、受け流し対象は無し
         }
       } else if(p.isChargeOrb){
         /* The orb was tested with a raw 3D distance against en.group.position,

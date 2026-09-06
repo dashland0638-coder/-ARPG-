@@ -142,6 +142,27 @@
     if(sequenceLocks.length) tryStrikeBell(state.pos);
     state.swingLockFacing = state.facing;
     swingOnce(state.comboStage, len);
+
+    /* バーサーカー(#11): 「攻撃モーションが移動になる」。振り終わりの勢いを
+       そのまま次の一歩に変換し、入力があればその方向、無ければ今向いている
+       方向へ短く踏み込む。専用の新しい移動処理は増やさず、スキル/溜め技の
+       移動演出(state.skillAnim、13-update-loop.jsのupdatePlayer)にそのまま
+       乗せているだけ ―― ヒット判定(findMeleeTargetsInArc)は既にswingOnce内で
+       この位置基準に解決済みなので、ここでの移動は「次の一撃のための足運び」
+       専用になる。スーパーアーマーは付与しない(#12/#41): 移動中も通常通り
+       被弾する,防御力は「そこに居続けないこと」そのものに委ねる設計。
+       state.skillAnimが既に別の技(スキル/溜め技のdash/retreat/spin)で
+       進行中なら上書きしない ―― スキルボタン→即座に通常攻撃、という
+       入力順でも、その技自身の短い移動演出を踏み台の途中で刈り取らない */
+    if(state.job==='berserker' && !state.skillAnim){
+      const {x:ix, y:iy} = state.moveInput;
+      const inputMag = Math.sqrt(ix*ix + iy*iy);
+      const dir = inputMag > 0.15
+        ? inputToWorldDir(ix, iy).normalize()
+        : new THREE.Vector3(Math.sin(state.facing), 0, Math.cos(state.facing));
+      const isFinish = state.comboStage === len;
+      state.skillAnim = {type:'dash', t:0, duration: swingCD*0.82, fwd:dir, dist: isFinish ? 2.6 : 1.7};
+    }
   }
 
   /* 回避攻撃: 回避のロール中〜直後(dodgeAttackWindowT)に攻撃を入力すると、

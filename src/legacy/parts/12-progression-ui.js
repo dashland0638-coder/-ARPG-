@@ -1156,6 +1156,7 @@
     state.camYaw = Math.PI*0.75; // always southeast in the tavern
     state.dodging = false; state.invulnerable = false;
     state.barrierActive = false; state.barrierT = 0;   // ダンジョンから戻る途中でバリア中だった場合の後始末
+    state.braceCounterT = 0;
     state.dodgeCD = 0; state.attackCD = 0;   // 必殺ゲージは戦闘performanceの蓄積なので、酒場帰還時にリセットしない
     // clear any half-finished attack/skill input, otherwise a swing left
     // pending from the dungeon fires the moment we land in the tavern

@@ -40,6 +40,10 @@ import * as THREE from 'three';
     // 多重発火しないための短いクールダウン、perfectDodgeWindowTは反撃の
     // 猶予(この間に当てた次の一撃が強化される)。tryPerfectDodge()参照
     perfectDodgeWindowT:0, perfectDodgeCD:0,
+    // 戦騎士(battleKnight)専用のPerfect Brace反撃猶予。バリア(既存の
+    // 全職共通スキル)がジャストで当たった瞬間、job==='battleKnight'なら
+    // 攻撃元の体幹も一緒に崩しつつこの猶予を開く。tryPerfectDodge()参照
+    braceCounterT:0,
     comboStage:0, comboCount:0, comboWindowT:0, comboWindowMax:0, comboLen:0, jumpAttacking:false, jumpAttackCD:0,
     invulnerable:false,
     paralyzed:false, paralyzeT:0, paralyzeInvulnT:0,

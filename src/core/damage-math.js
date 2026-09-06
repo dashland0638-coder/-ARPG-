@@ -36,13 +36,19 @@ export function applyIncomingDamage(rawDmg, mulInputs) {
 // justDodged: whether かげぬいの小刀's dodge-crit window is open right now.
 // perfectDodgeOpen: whether a well-timed dodge (any weapon) just absorbed a
 // hit and the resulting counter-attack window is still open.
+// braceCounterOpen: whether 戦騎士's Perfect Brace (a timed barrier-parry
+// against a specific attacker, see tryPerfectDodge()) just landed and the
+// resulting counter-attack window is still open. Deliberately a smaller,
+// non-crit bonus compared to perfectDodgeOpen - the brace's own reward is
+// the stagger it dumps on the attacker (dealDamageToEnemy), this is just
+// the follow-up swing being a little heavier while the opening lasts.
 // weaponKey: the currently-wielded weapon's WEAPON_TYPES key (e.g. 'katana'),
 // independent of specialId - this is about the weapon TYPE's own identity,
 // available on any katana rather than gated behind the one named legendary.
 // comboStage: state.comboStage at the moment of this hit (1-indexed).
 export function outgoingDamageMods({
   personality, hpRatio, classKey, distanceToEnemy, specialId, justDodged, perfectDodgeOpen,
-  weaponKey, comboStage,
+  weaponKey, comboStage, braceCounterOpen,
 }) {
   let mul = 1;
   let isCrit = false;
@@ -75,6 +81,9 @@ export function outgoingDamageMods({
   if (perfectDodgeOpen) {
     isCrit = true; // ジャストドッジの反撃: 武器を問わず必ずクリティカル+50%
     mul *= 1.5;
+  }
+  if (braceCounterOpen) {
+    mul *= 1.4; // 戦騎士のPerfect Brace反撃: クリティカルは保証しない、+40%のみ
   }
   return { mul, isCrit };
 }
