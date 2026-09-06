@@ -166,6 +166,13 @@
       document.getElementById('arena-panel').classList.remove('show');
       document.getElementById('arena-enemy-info').style.display = 'none';
       arenaPanelOpen = false;
+      // フラグも一緒に畳む。ここでdisplayだけ落としてarenaDebugInfoOnを
+      // trueのまま残すと、次にテストモードへ入った時にボタンの表示が
+      // 「ON」なのにパネルが出ない状態になる
+      if(arenaDebugInfoOn){
+        arenaDebugInfoOn = false;
+        document.getElementById('arena-info-toggle-btn').textContent = '🔍 Debug Info: OFF';
+      }
       return;
     }
     if(arenaDebugInfoOn) updateArenaEnemyInfo();

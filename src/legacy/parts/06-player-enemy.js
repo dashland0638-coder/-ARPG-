@@ -3560,9 +3560,17 @@
       dead:false, respawnT:0,
       basePos:pos.clone(), wanderTarget:pos.clone(), wanderT:0,
       flashTO:null,
-      atkType, xp:Math.max(1, Math.round((variant.xp||10)*_D.xp)),
+      // xp:0を明示した個体(Combat Test Arenaの検証用敵など)は0のまま扱う。
+      // `variant.xp||10`だと0が10に化けてしまい、調整セッション中に
+      // レベルが勝手に上がってしまっていた
+      atkType, xp: variant.xp===0 ? 0 : Math.max(1, Math.round((variant.xp||10)*_D.xp)),
       goldBonus:[Math.round(_gb[0]*_D.gold), Math.round(_gb[1]*_D.gold)], projColor:variant.projColor, strongMob:!!variant.strongMob, isElectric:!!variant.isElectric, gateTag:variant.gateTag||null, roomTag:variant.roomTag||null,
       chargeState:'idle', chargeT:0, chargeDir:new THREE.Vector3(), hitCD:0, atkCD:0,
+      // 突進タイプの間合い/溜めの個体差(未指定ならupdateChargerAI側の
+      // 既定値0.65秒/1.5秒が使われる)。Combat Test Arenaの
+      // 「Windup Enemy」が振りかぶりを長く見せるために使う
+      chargeTelegraphOverride: variant.chargeTelegraphOverride||null,
+      chargeCooldownOverride: variant.chargeCooldownOverride||null,
       fireCharging:false, fireChargeT:0,
       // 体幹(怯み・ダウン): 数値インフレとは別軸のリソース。HPと違い技倆で削る。
       // ガード持ち(guardian)は削り合いのフェーズそのものが長い前提の敵なので、

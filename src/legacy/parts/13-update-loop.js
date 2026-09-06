@@ -295,7 +295,12 @@
           const toE = new THREE.Vector3().subVectors(en.group.position, state.pos); toE.y=0;
           const fDist = toE.dot(fwd);
           if(fDist<=0 || fDist>variant.length*1.4) return;
-          if(Math.abs(toE.dot(right0)) > variant.length*0.5) return;   // 正面のゆるいコーンのみ(自動ロックオンにしない)
+          // 正面のゆるい「コーン」(自動ロックオンにしない)。以前は
+          // variant.length*0.5という距離に依らない絶対幅だったため、
+          // 目の前(前方1m)の敵でも真横6mまで対象に入り、狙い筋が
+          // 大きく曲がってしまっていた。前方距離に比例させて本来の
+          // 円錐にする(11-combat-actions.jsの通常射撃側と同じ形)
+          if(Math.abs(toE.dot(right0)) > fDist*0.5) return;
           if(fDist<bestFwdDist){ bestFwdDist = fDist; best = en; }
         });
         if(best){

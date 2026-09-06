@@ -567,6 +567,11 @@
       }
     }
     arenaSpawnSeq = 0;
+    // updateMobBars()はenemies配列を走査してバーを更新するので、配列から
+    // 抜いただけだと消した敵のHP/体幹バーがDOMに凍りついたまま残る。
+    // 既存のclearMobBars()で一旦全部畳む(生きている敵のバーは次の
+    // フレームのmobBarFor()で作り直される)
+    clearMobBars();
     spawnToast('🧹 Arena cleared');
   }
 
@@ -886,7 +891,9 @@
         // Combat Test Arenaの「Windup Enemy」向け: 振りかぶりを通常より
         // 長く見せたい場合だけen.chargeTelegraphOverrideを設定する
         // (未指定の通常個体は今までどおり0.65秒)
-        en.chargeState = 'telegraph'; en.chargeT = en.chargeTelegraphOverride || 0.65;
+        en.chargeState = 'telegraph';
+        en.chargeTelegraphDur = en.chargeTelegraphOverride || 0.65;
+        en.chargeT = en.chargeTelegraphDur;
         en.chargeDir = toPlayer.clone().normalize();
       } else {
         updateWanderAI(en, dt);
@@ -895,7 +902,12 @@
     }
     if(en.chargeState==='telegraph'){
       en.chargeT -= dt;
-      const s = 1 + (0.65-en.chargeT)*0.5;
+      // 溜めの進行度(0→1)で膨らませる。以前は0.65秒固定を前提に
+      // (0.65-chargeT)としていたため、chargeTelegraphOverrideで溜めを
+      // 長くすると開始時点のスケールが1を下回って body が縮んでしまっていた。
+      // 進行度で正規化することで、溜めの長さに関わらず 1.0→1.325 になる
+      const dur = en.chargeTelegraphDur || 0.65;
+      const s = 1 + Math.max(0, Math.min(1, (dur-en.chargeT)/dur)) * 0.325;
       const B = en.bodyScale;
       en.body.scale.set(B.x*s, B.y*s*1.05, B.z*s);
       if(en.chargeT<=0){ en.chargeState='dash'; en.chargeT=0.4; en.body.scale.copy(B); }
@@ -1916,17 +1928,23 @@
       }
     }
 
-    // boss-specific specials take priority over the basic chase/strike
-    if(updateBossSpecial(en, dt)) return;
-
     /* 攻撃後の身体の流れ(#25/#26): 振り抜いた勢いのぶんだけ、一瞬プレイヤー
        追尾より体の向き直りが遅れる。この間はdealDamageToEnemy側で
        postAttackRecoveryとして扱われ、全職業共通のパニッシュ窓になる
        (stagger-math.js参照)。戦騎士はこの「敵の身体がどちらへ流れるか」を
        積極的に利用する設計(COMBAT_DESIGN.md参照)なので、ここで方向自体も
-       ちゃんと動かしておく - 止まって見せるだけでは「利用できる」情報にならない */
-    if(en.postAtkRecoveryT > 0){
-      en.postAtkRecoveryT -= dt;
+       ちゃんと動かしておく - 止まって見せるだけでは「利用できる」情報にならない。
+
+       残り時間の消化はupdateBossSpecial()より前に置く: 特殊行動が回復中に
+       割り込むとタイマーが止まってしまい、RECOVERYパニッシュ窓(体幹1.3倍)が
+       その特殊行動の間ずっと開きっぱなしになっていた */
+    const wasInPostAtkRecovery = en.postAtkRecoveryT > 0;
+    if(wasInPostAtkRecovery) en.postAtkRecoveryT -= dt;
+
+    // boss-specific specials take priority over the basic chase/strike
+    if(updateBossSpecial(en, dt)) return;
+
+    if(wasInPostAtkRecovery){
       en.group.position.addScaledVector(en.postAtkDriftDir, 1.6*dt);
       const rate = turnBudget(resolveTurnRate(en)*0.6, dt);
       en.group.rotation.y = turnTowardAngle(en.group.rotation.y,
@@ -2107,6 +2125,11 @@
   // attacker: 素通りした攻撃の発射元の敵(分かる場合のみ、07-ai-combat.js内の
   // 各被ダメ判定から渡す)。
   function tryPerfectDodge(attacker){
+    // バリアとドッジは「同時に成立しない排他状態」と想定していたが、実際には
+    // バリア展開中にドッジを入力できてしまうため、1回の被弾で両方の分岐が
+    // 走り得た(戦騎士なら体幹を2回、トースト/SEも2回)。この呼び出しで
+    // 既に受け流しを発火したかを持ち回り、二重適用を防ぐ
+    let bracedThisCall = false;
     if(state.barrierActive && state.barrierParryCD<=0){
       state.barrierParryCD = 0.35;   // 同じ1回のバリア中に多重発火しないためのクールダウン
       const healAmt = Math.max(1, Math.round(state.maxHp * (state.barrierHealFrac||0.12)));
@@ -2116,6 +2139,7 @@
       addShake(0.06);
       if(state.job==='battleKnight' && attacker && !attacker.dead){
         applyBattleKnightBrace(attacker, 2.2);   // 静止して受け切った分、やや大きく崩す
+        bracedThisCall = true;
       } else {
         sfx('perfectDodge');
         spawnToast(`🛡️ パリィ成功! HP+${healAmt}`, '#7ecbe8');
@@ -2125,6 +2149,9 @@
     // 同じ1回のロール中に複数の判定ソースへ多重発火しないための
     // 短いクールダウン(例: 突進の距離判定は毎フレーム再評価される)
     state.perfectDodgeCD = 0.5;
+    // 上のバリア分岐で既に受け流しが成立している場合、同じ被弾で
+    // もう一度報酬を出さない(体幹・トースト・SEの二重発火防止)
+    if(bracedThisCall) return;
     hitStop(0.05);
     addShake(0.06);
     /* 戦騎士のデフォルト戦闘体験(監査#4): スキル選択(バリア)を一切
