@@ -839,6 +839,17 @@
     if(distanceMul > 1) emitArenaFeedback('DISTANCE BONUS', `×${distanceMul.toFixed(2)}`);
     // 魔法使いのフィニッシュ: 貫通弾(roadmap「杖: 魔弾→貫通弾」)
     if(opts.pierce){ proj.pierce = true; proj.pierceLeft = 3; proj.pierceHitSet = new Set(); }
+    /* 基本魔法使いのCombat Identity: Impact AoE(core/mage-impact-aoe.js)。
+       命中点周辺の別の敵も巻き込む、「敵集団を見て撃つ」報酬型。対象は
+       基本魔法使いのみ ―― 魔導士(archmage)は既にTurn Slowという別の
+       Identityを持つため対象外にする。貫通弾(pierce、フィニッシュ)は
+       1フレームで複数の敵を直接貫通するため、AoE併用は「中心」が
+       フレーム内で入れ替わり二重ダメージになりうる(updateProjectiles参照)。
+       安全のため貫通弾には適用しない ―― 貫通そのものが既に「複数の敵を
+       巻き込む」役割を果たしている */
+    if(cls==='mage' && state.job!=='archmage' && !opts.pierce){
+      proj.impactAoeRadius = MAGE_IMPACT_AOE_RADIUS;
+    }
     projectiles.push(proj);
   }
 

@@ -243,3 +243,75 @@ test('魔法使い(mage): 通常攻撃でprojectileが生成され、命中す�
 
   expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
 });
+
+test('魔法使い(mage): Impact AoE ―― 密集した複数の敵を通常攻撃1回で巻き込める(Phase 2)', async ({ page }) => {
+  const errors = watchErrors(page);
+  await openGame(page);
+  await enterTestMode(page, 'mage');
+
+  /* Arena spawnの横スプレッドは((arenaSpawnSeq%3)-1)*2.6で-2.6→0→+2.6を
+     繰り返す(07-ai-combat.js arenaSpawn())。プレイヤーを動かさずに
+     "同じ座標へ2体を重ねて出す"には、このサイクルが一周してspread=0が
+     再び来るタイミング(2体目と5体目)を使うのが一番確実 ―― 2体目と
+     5体目は現在位置から見て寸分違わず同じ座標(前方5.5m、スプレッド0)に
+     重なって出現する。Phase 1で確認した「移動によるfacing/カメラの
+     ドリフトで狙いが外れる」問題を避けるため、今回も移動なしで組む */
+  await page.click('#arena-toggle-btn');
+  for (let i = 0; i < 5; i++) {
+    await page.click(`#arena-roster button:has-text("Dummy")`);
+    await expect(page.locator('#msg-log')).toContainText('Dummy spawned', { timeout: 3000 });
+  }
+  await page.click('#arena-toggle-btn');
+
+  /* 「被弾した敵が実際に2体いる」ことをdmg-popの個数だけで判定しない
+     (Phase 0/1で確認済みの通り、時間を空けた別々の攻撃をまたぐと
+     プールの再利用で個数が増えないことがある)。より確実な裏取りとして、
+     被弾した敵ごとに個別へ生成される.mob-hp(HPバー、14-hud-boot.js
+     mobBarFor/updateMobBars)のDOM要素を使う ―― enemyオブジェクトを
+     キーにしたMapで管理されており、2体が座標的に完全に重なっていても
+     DOM上は別要素として区別できる */
+  const mobHpWidths = () => page.$$eval('.mob-hp', els =>
+    els.map(e => parseFloat((e.firstChild && e.firstChild.style.width) || '100'))
+  );
+
+  await attack(page);
+  /* 命中の検知そのものはPhase 0/1で実績のあるdmg-pop検出を先に使う
+     (.mob-hp/.$$evalの側だけをポーリングし続けると、頻繁なDOM評価が
+     メインスレッドを奪って描画ループの進行を妨げ、着弾の検知が不安定に
+     なることをPhase 1のarcher Distance Bonusテストで確認済み)。着弾を
+     確認できたその時点で.mob-hpを1回だけ読み直す */
+  await expect.poll(() => dmgPopCount(page), { timeout: 3000 }).toBeGreaterThanOrEqual(1);
+  await page.waitForTimeout(150);
+  const widths = await mobHpWidths();
+  expect(widths, '重なっていた2体それぞれにHPバーが生成されること').toHaveLength(2);
+  for (const w of widths) {
+    expect(w, `重なっていた2体それぞれのHPが減っていること(width=${w}%)`).toBeLessThan(100);
+  }
+
+  // 中心の敵は通常ダメージ(100%)のまま、周辺の敵は減衰ダメージ
+  // (MAGE_IMPACT_AOE_SPLASH_MUL、core/mage-impact-aoe.js)を受けるため、
+  // 2体の被害量(100-width)は同一にならないはず ―― 「同じ処理を2回」
+  // ではなく「中心+周辺」の非対称なAoEになっていることを確認する
+  expect(widths[0], '中心と周辺で被害量が異なること(同一処理の重複ではない)').not.toBeCloseTo(widths[1], 3);
+
+  expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
+});
+
+test('魔法使い(mage): Impact AoE ―― 単体の敵には通常ダメージのみで、AoEの上乗せが無い(Phase 2)', async ({ page }) => {
+  const errors = watchErrors(page);
+  await openGame(page);
+  await enterTestMode(page, 'mage');
+
+  // 正面(spread=0)の1体だけを対象にする ―― 1体目(spread=-2.6)は側方に
+  // 出るため直進弾では届かず、実質「単体の敵」の状況になる
+  await spawnFromArena(page, 'Dummy', 2);
+
+  await attack(page);
+  await expect.poll(() => dmgPopCount(page), { timeout: 2000 }).toBeGreaterThanOrEqual(1);
+  // 単体の状況では、密集時のような「2体目への追加ダメージ表示」が
+  // 発生しないこと(=単体戦の火力を底上げしていないことの裏取り)
+  await page.waitForTimeout(300);
+  expect(await dmgPopCount(page), '単体では1回の攻撃で1件のダメージ表示のみが出ること').toBe(1);
+
+  expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
+});
