@@ -166,7 +166,7 @@
        ・ホーミング化(向きを変えるだけで、矢は従来どおり直進する)
      向きを合わせた後は既存の未来位置予測(spawnProjectileSingle)が乗る。 */
   function applyHawkEyeTurnAssist(){
-    if(state.job !== 'hawkEye') return;
+    // (呼び出し元がJOB_TRAITS.hawkEye.onAttackInput経由でこの職の時だけ呼ぶ)
     /* 回避直後だけ角度上限を広げる(Phase 3)。突進を跳んで避けた敵が
        側面〜後方へ抜けきった直後は、130度では届かないことが多い */
     const justDodged = (state.hawkAssistT||0) > 0;
@@ -187,6 +187,47 @@
       state.facing = yaw;
       emitArenaFeedback('TURN ASSIST', `${(bestAngle*180/Math.PI).toFixed(0)}° 補正${justDodged ? ' (回避直後)' : ''}`);
     }
+  }
+
+  /* 鷹の目のPredictive Aim(共通探索処理、Combat Architecture Refactor
+     Phase 2で抽出): 「正面のゆるいコーン内で、予兆状態(telegraphLead、
+     core/predictive-aim.js)の敵を1体探す」処理そのものは、通常攻撃の
+     直進弾(spawnProjectileSingle)と貫通スキルのlineモード
+     (13-update-loop.jsのexecuteVariant)の2箇所で全く同じロジックが
+     独立に実装されていた。探索部分だけをここへ集約する。
+
+     「どれだけ先を読むか」(leadSeconds)は技によって意味が異なる ――
+     通常攻撃は矢が届くまでの飛翔時間、貫通スキルは溜めた長さ ――
+     ため、探索側では扱わず呼び出し側がleadSecondsFn(forwardDist)として
+     渡す。数式・定数(コーン幅0.5、各技のmaxForwardDist)は元の実装から
+     一切変更していない。 */
+  function findHawkEyePredictiveTarget(fwd, maxForwardDist){
+    const right = new THREE.Vector3(fwd.z, 0, -fwd.x);
+    let best = null, bestFwdDist = Infinity;
+    enemies.forEach(en=>{
+      if(en.dead || en.dormant || !isTelegraphing(en)) return;
+      if(!isBossAccessible(en)) return;
+      const toE = new THREE.Vector3().subVectors(en.group.position, state.pos); toE.y = 0;
+      const fDist = toE.dot(fwd);
+      if(fDist <= 0 || fDist > maxForwardDist) return;
+      if(Math.abs(toE.dot(right)) > fDist*0.5) return;   // 正面のゆるい「コーン」(自動ロックオンにしない)
+      if(fDist < bestFwdDist){ bestFwdDist = fDist; best = en; }
+    });
+    return best ? {target: best, forwardDist: bestFwdDist} : null;
+  }
+
+  // JOB_TRAITS.hawkEye.onProjectileAim本体。見つからなければnull ――
+  // 呼び出し側は「元のfwdのまま、自動追尾ではない」という既存の前提を
+  // そのまま保てる。
+  function hawkEyePredictiveAim(fwd, maxForwardDist, leadSecondsFn){
+    const found = findHawkEyePredictiveTarget(fwd, maxForwardDist);
+    if(!found) return null;
+    const lead = telegraphLead(found.target);
+    const predicted = predictLeadPosition(
+      {x:found.target.group.position.x, z:found.target.group.position.z},
+      lead, leadSecondsFn(found.forwardDist));
+    if(!predicted) return null;
+    return {predicted, target: found.target};
   }
 
   /* 空中スキルの禁止(Combat Feel Phase 4)
@@ -262,6 +303,54 @@
     return lock.yaw;
   }
 
+  /* Job Trait Registry(Combat Architecture Refactor Phase 2)
+
+     監査で判明した実態: 戦闘ロジック上の if(state.job==='xxx') が
+     tryAttack()・dealDamageToEnemy()・tryPerfectDodge()・updatePlayer()・
+     spawnProjectileSingle()・executeVariant() の6箇所に散らばっていた。
+     ここではTrait本体の計算式(applyBattleKnightBrace/
+     updateBerserkerSoftLock/applyHawkEyeTurnAssist/hawkEyePredictiveAim/
+     applyArchmageTurnSlow、いずれも既存のまま1文字も変更していない)を
+     どこから呼ぶかだけを1つのテーブルへ集約する。
+
+     対象は「戦闘ロジック」のみ(指示5-1/5-2)。装備・見た目・リグ・
+     ポーズ・ボーン姿勢のための job 分岐(05/06/13の演出コード)は
+     このテーブルの対象外のまま残してある ―― 無理に統合すると、
+     戦闘とは無関係な描画コードまでこの抽象化に巻き込まれてしまうため。
+
+     Sphere BoardはこのテーブルへJOB_TRAITSへ直接結合していない(指示
+     5-6)。将来Sphereで各Traitの数値を強化する場合も、この呼び出し口
+     (onXxx)はそのまま使えるはずだが、今回はその実装自体は行わない。 */
+  const JOB_TRAITS = {
+    battleKnight: {
+      // Just Dodge / バリアパリィが成立した瞬間に呼ぶ(tryPerfectDodge)。
+      // 数式・Counter Window等はapplyBattleKnightBrace本体のまま
+      onPerfectDodge: applyBattleKnightBrace,
+    },
+    berserker: {
+      // コンボの1段目〜継続中に呼ぶ(tryAttack)。ロックできた方向を
+      // 返し、呼び出し側がstate.facingへ適用する
+      onComboStart(chaining){
+        updateBerserkerSoftLock(chaining);
+        return state.berserkerLock ? state.berserkerLock.yaw : null;
+      },
+      // 毎フレームの移動更新(updatePlayer)から、現在ロック中の方向を
+      // 問い合わせるためだけの読み取り専用フック
+      getLockedFacing: berserkerLockYaw,
+    },
+    hawkEye: {
+      // 攻撃入力のたびに呼ぶ(tryAttack)。向きを予兆中の敵へ寄せる
+      onAttackInput: applyHawkEyeTurnAssist,
+      // 弾を発射する瞬間に呼ぶ(spawnProjectileSingle/executeVariant)。
+      // 予測位置が見つかればその方向とターゲットを返す
+      onProjectileAim: hawkEyePredictiveAim,
+    },
+    archmage: {
+      // 敵への命中が確定した瞬間に呼ぶ(dealDamageToEnemy)
+      onHitLanded: applyArchmageTurnSlow,
+    },
+  };
+
   function tryAttack(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging) return;
     checkHealingCrystalBreak();   // 攻撃入力そのものに独立して乗せてあるので、通常のコンボ/CD管理には影響しない
@@ -288,7 +377,8 @@
     const willDodgeAttack = state.dodgeAttackWindowT > 0;
     if(!willDodgeAttack && state.attackCD>0) return;
 
-    applyHawkEyeTurnAssist();   // 向きを決めてから以降の判定/発射方向を作る
+    // 向きを決めてから以降の判定/発射方向を作る(鷹の目のみ、JOB_TRAITS経由)
+    if(JOB_TRAITS[state.job] && JOB_TRAITS[state.job].onAttackInput) JOB_TRAITS[state.job].onAttackInput();
 
     if(willDodgeAttack){ tryDodgeAttack(); return; }
 
@@ -303,9 +393,8 @@
        回っていても、コンボ中は捕まえた相手へ振る。ここで state.facing を
        合わせておけば、以降の判定・範囲表示・スライドの基準がすべて
        一括で揃う(swingLockFacing も直後にこの値を読む) */
-    if(state.job==='berserker'){
-      updateBerserkerSoftLock(chaining);
-      const lockYaw = state.berserkerLock ? state.berserkerLock.yaw : null;
+    if(JOB_TRAITS[state.job] && JOB_TRAITS[state.job].onComboStart){
+      const lockYaw = JOB_TRAITS[state.job].onComboStart(chaining);
       if(lockYaw != null) state.facing = lockYaw;
     }
 
@@ -681,27 +770,13 @@
        ゆるいコーン内かつ予兆状態(telegraphLead、core/predictive-aim.js)の
        敵に限る。フィーバー(volley)の左右にずらした矢は角度がすでに
        付いているため、その角度を基準にそれぞれ独立に判定する */
-    if(state.classDef.key==='archer' && state.job==='hawkEye'){
-      const right0 = new THREE.Vector3(dir.z, 0, -dir.x);
-      let best = null, bestFwdDist = Infinity;
-      enemies.forEach(en=>{
-        if(en.dead || en.dormant || !isTelegraphing(en)) return;
-        if(!isBossAccessible(en)) return;
-        const toE = new THREE.Vector3().subVectors(en.group.position, state.pos); toE.y = 0;
-        const fDist = toE.dot(dir);
-        if(fDist <= 0 || fDist > 24) return;               // 矢の実効射程程度
-        if(Math.abs(toE.dot(right0)) > fDist*0.5) return;   // 正面のゆるいコーンのみ
-        if(fDist < bestFwdDist){ bestFwdDist = fDist; best = en; }
-      });
-      if(best){
-        const lead = telegraphLead(best);
-        const arrowSpeed = 20*st.speedMul;
-        const leadSeconds = bestFwdDist / arrowSpeed;   // 現在の距離を飛び切るのに要る時間だけ先を読む
-        const predicted = predictLeadPosition({x:best.group.position.x, z:best.group.position.z}, lead, leadSeconds);
-        if(predicted){
-          const bentDir = new THREE.Vector3(predicted.x - state.pos.x, 0, predicted.z - state.pos.z);
-          if(bentDir.lengthSq() > 0.0001){ dir.copy(bentDir.normalize()); predictiveTarget = best; }
-        }
+    if(state.classDef.key==='archer' && JOB_TRAITS[state.job] && JOB_TRAITS[state.job].onProjectileAim){
+      const arrowSpeed = 20*st.speedMul;
+      // 現在の距離を飛び切るのに要る時間だけ先を読む(矢は直進、飛翔時間ぶんの先読み)
+      const aim = JOB_TRAITS[state.job].onProjectileAim(dir, 24, (fDist)=> fDist / arrowSpeed);
+      if(aim){
+        const bentDir = new THREE.Vector3(aim.predicted.x - state.pos.x, 0, aim.predicted.z - state.pos.z);
+        if(bentDir.lengthSq() > 0.0001){ dir.copy(bentDir.normalize()); predictiveTarget = aim.target; }
       }
     }
     if(state.classDef.key==='archer'){

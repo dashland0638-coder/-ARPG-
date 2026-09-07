@@ -2288,6 +2288,28 @@
     emitArenaFeedback('PERFECT BRACE', `COUNTER WINDOW ${state.braceCounterT.toFixed(1)}s`);
   }
 
+  /* 魔導士 Turn Slow(#20/監査#6、Combat Architecture Refactor Phase 2で
+     dealDamageToEnemy()の中から名前付き関数へ抽出): 命中させた敵の
+     足取り・向き直りを一瞬鈍らせる。「戦場そのものを変える」の最小実装
+     ―― 敵側に新しい状態機械を増やさず、既存の旋回速度
+     (enemy-facing.js resolveTurnRate)とボスの追跡速度(updateBossAI)が
+     参照するだけの一時フラグにしてある。減衰はupdateEnemies()側で行う。
+     監査で指摘された「内部処理のみで体感できない」を解消するため、
+     足元に短命の魔法陣(spawnScorch、既存の焦げ跡デカール流用)+専用SEを
+     追加した - 派手なエフェクトを増やすのではなく、既存の仕組みに
+     色だけ変えて相乗りさせている(#36の演出方針を踏襲)。
+     ロジック・数値はdealDamageToEnemy内にあった時から変更していない。 */
+  function applyArchmageTurnSlow(en){
+    const wasBound = (en.arcaneBindT||0) > 0;
+    en.arcaneBindT = Math.max(en.arcaneBindT||0, 2.2);
+    en.turnRateMul = 0.5;
+    if(!wasBound){
+      spawnScorch(en.group.position, en.isBoss ? 2.6 : 1.4, 0x82c6d4, 2.2);   // 魔導士のアクセント色(01-character-creation.js UPPER_JOBS.mage.trim)と統一
+      sfx('castAim');
+      emitArenaFeedback('TURN SLOW', `${en.arcaneBindT.toFixed(1)}s`);
+    }
+  }
+
   // attacker: 素通りした攻撃の発射元の敵(分かる場合のみ、07-ai-combat.js内の
   // 各被ダメ判定から渡す)。
   function tryPerfectDodge(attacker){
@@ -2303,8 +2325,8 @@
       spawnDamagePopup(state.pos.clone(), healAmt, true, false, false);
       hitStop(0.05);
       addShake(0.06);
-      if(state.job==='battleKnight' && attacker && !attacker.dead){
-        applyBattleKnightBrace(attacker, 2.2);   // 静止して受け切った分、やや大きく崩す
+      if(attacker && !attacker.dead && JOB_TRAITS[state.job] && JOB_TRAITS[state.job].onPerfectDodge){
+        JOB_TRAITS[state.job].onPerfectDodge(attacker, 2.2);   // 静止して受け切った分、やや大きく崩す
         bracedThisCall = true;
       } else {
         sfx('perfectDodge');
@@ -2328,8 +2350,8 @@
        他クラス/スキル未選択時と同じ「確定クリティカル+50%」ではなく、
        やや控えめな代わりに攻撃元へも直接影響する、という質の違う
        報酬にしてあり、単純な上位互換にはしていない */
-    if(state.job==='battleKnight' && attacker && !attacker.dead){
-      applyBattleKnightBrace(attacker, 1.8);
+    if(attacker && !attacker.dead && JOB_TRAITS[state.job] && JOB_TRAITS[state.job].onPerfectDodge){
+      JOB_TRAITS[state.job].onPerfectDodge(attacker, 1.8);
     } else {
       state.perfectDodgeWindowT = 1.4;   // この間に当てた次の一撃が強化される
       sfx('perfectDodge');
@@ -2548,24 +2570,12 @@
         applyStaggerResult(en, staggerGain({staggerMul, classMul, abilityMul, punishBonusMul}));
       }
 
-      // 魔導士(#20/監査#6): 命中させた敵の足取り・向き直りを一瞬鈍らせる。
-      // 「戦場そのものを変える」の最小実装 ―― 敵側に新しい状態機械を
-      // 増やさず、既存の旋回速度(enemy-facing.js resolveTurnRate)と
-      // ボスの追跡速度(updateBossAI)が参照するだけの一時フラグにしてある。
-      // 減衰はupdateEnemies()側で行う。
-      // 監査で指摘された「内部処理のみで体感できない」を解消するため、
-      // 足元に短命の魔法陣(spawnScorch、既存の焦げ跡デカール流用)+専用SEを
-      // 追加した - 派手なエフェクトを増やすのではなく、既存の仕組みに
-      // 色だけ変えて相乗りさせている(#36の演出方針を踏襲)
-      if(!isAlly && state.job==='archmage'){
-        const wasBound = (en.arcaneBindT||0) > 0;
-        en.arcaneBindT = Math.max(en.arcaneBindT||0, 2.2);
-        en.turnRateMul = 0.5;
-        if(!wasBound){
-          spawnScorch(en.group.position, en.isBoss ? 2.6 : 1.4, 0x82c6d4, 2.2);   // 魔導士のアクセント色(01-character-creation.js UPPER_JOBS.mage.trim)と統一
-          sfx('castAim');
-          emitArenaFeedback('TURN SLOW', `${en.arcaneBindT.toFixed(1)}s`);
-        }
+      // 魔導士のTurn Slow(Combat Architecture Refactor Phase 2で
+      // applyArchmageTurnSlow()へ抽出。JOB_TRAITS.archmage.onHitLanded
+      // 経由で呼ぶ ―― ロジック・数値は一切変更していない)
+      {
+        const trait = JOB_TRAITS[state.job];
+        if(trait && trait.onHitLanded) trait.onHitLanded(en);
       }
 
       // 必殺ゲージ: ヒットを当てるたびに少し貯まる(フィニッシュ等は呼び出し側で
