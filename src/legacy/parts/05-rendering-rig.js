@@ -2995,19 +2995,19 @@
   const MOVE_SFX = {
     warrior:{ basic:'slashHeavy', basic2:'slashHeavy', skill2:'slashOverhead',
               dash:'slashDraw', retreat:'slashHeavy', spin:'slashSpin', ult:'slashOverhead',
-              basic3:'slashSpin', basic4:'slashOverhead',
+              basic3:'slashSpin', basic4:'slashOverhead', uppercut:'slashDraw',
               altBasic:'slashDraw', altBasic2:'slashDraw' },   // 槍: 突きの音は抜刀のシャープなSEを流用
     rogue:{   basic:'slashLight', basic2:'slashLight', skill2:'knifeThrow',
               dash:'slashLight', retreat:'slashLight', spin:'slashSpin', ult:'slashSpin',
-              basic3:'slashSpin', basic4:'slashLight',
+              basic3:'slashSpin', basic4:'slashLight', uppercut:'slashDraw',
               altBasic:'slashHeavy', altBasic2:'slashHeavy' }, // 刀: 双剣より重いSEにして一撃の質感を変える
     mage:{    basic:'cast', basic2:'cast', skill2:'castBig',
               dash:'castBig', retreat:'cast', spin:'castBig', ult:'meteor',
-              basic3:'castBig', basic4:'castBig',
+              basic3:'castBig', basic4:'castBig', uppercut:'castBig',
               altBasic:'slashLight', altBasic2:'slashLight' }, // 魔法の剣: 詠唱音ではなく剣戟音にする
     archer:{  basic:'bowRelease', basic2:'bowRelease', skill2:'knifeThrow',
               dash:'bowVolley', retreat:'bowVolley', spin:'bowVolley', ult:'bowVolley',
-              basic3:'bowVolley', basic4:'knifeThrow' }       // 3段目=spin, フィニッシュ=skill2 のSEを流用
+              basic3:'bowVolley', basic4:'knifeThrow', uppercut:'slashLight' }       // 3段目=spin, フィニッシュ=skill2 のSEを流用
   };
   function moveSfx(name){
     const t = MOVE_SFX[state.classDef && state.classDef.key];
@@ -3051,10 +3051,10 @@
   // ダメージ判定はswingOnce()が入力の瞬間に即時処理するため
   // (JOB_ATTACK_TEMPOのコメント参照)、見た目の進み方をゆがめても
   // 当たり判定のタイミングには一切影響しない
-  const JOB_SWING_ANTICIPATION = {
-    battleKnight: 3.2,   // 大きいほど溜めが長く、振り抜きが急激になる
-  };
-  function warpSwingT(t, pow){ return Math.pow(Math.max(0, Math.min(1, t)), pow); }
+  // JOB_SWING_ANTICIPATION / warpSwingT は core/swing-timing.js へ移した。
+  // 見た目の歪み(この係数)・Hit判定の遅延・攻撃SEの遅延が、同じ1つの
+  // タイムライン定義を共有しないと必ずズレるため(ユーザー報告:
+  // 「攻撃SEが実際の剣振りより早い」)。
 
   function amplifyEuler(target, base, amp){
     return [
@@ -3093,7 +3093,11 @@
     return out;
   }
 
-  function beginMove(name){
+  /* sfxName: 既存クリップを別の技として流用する時だけ渡す。切り上げ攻撃は
+     各クラスの spin クリップ(振り上げ〜振り抜き)を借りているが、
+     spin本来のSE(旋風・矢の連射)は「切り上げ」の音ではないので、
+     ここだけ音を差し替える。省略時は今まで通りクリップ名で引く。 */
+  function beginMove(name, sfxName){
     const lib = CLIPS[state.classDef.key];
     // サブ武器装備中は basic/basic2 を altBasic/altBasic2 へ透過的に差し替える。
     // 呼び出し側(tryAttack等)は常に 'basic'/'basic2' を渡すだけでよく、
@@ -3107,7 +3111,39 @@
     const tempoMul = JOB_ATTACK_TEMPO[state.job] || 1;
     state.swingDur = ((lib && lib.dur && lib.dur[state.moveClip]) || 0.28) * tempoMul;
     state.swingT = 0;
-    moveSfx(state.moveClip);   // the sound belongs to the technique, not the button
+    /* 攻撃SEのタイミング(Combat Feel Phase 1)
+
+       the sound belongs to the technique, not the button ―― という方針は
+       そのままだが、「技のどの瞬間か」を入力フレームに固定していたのが
+       問題だった。戦騎士のように見た目の振り抜き(anticipation)と
+       Hit判定(JOB_SWING_IMPACT_FRAC)が後ろへずらしてある職では、
+       音だけが 0.26 秒早く鳴っていた。
+
+       swingSfxDelay() が 0 を返す職・クリップ(=遅延を持たない大多数)は
+       今まで通りその場で鳴らす。1フレームも変わらない。 */
+    const sfxClip = sfxName || state.moveClip;
+    const sfxDelay = swingSfxDelay({job: state.job, clip: state.moveClip, swingDur: state.swingDur});
+    if(sfxDelay > 0){
+      state.pendingMoveSfx = {t: sfxDelay, clip: sfxClip};
+    } else {
+      state.pendingMoveSfx = null;
+      moveSfx(sfxClip);
+    }
+  }
+
+  /* 遅延させた攻撃SEの解決。updatePlayer(13-update-loop.js)から毎フレーム。
+     判定側の updatePendingSwing と同じ理由・同じ条件で打ち切る ――
+     ダイアログに入った、回避で振りを中断した、といった場合に
+     「もう存在しない斬撃の音」だけが後から鳴るのを防ぐ。 */
+  function updatePendingMoveSfx(dt){
+    const ps = state.pendingMoveSfx;
+    if(!ps) return;
+    if(!state.started || state.dialogueActive || state.dodging){ state.pendingMoveSfx = null; return; }
+    ps.t -= dt;
+    if(ps.t <= 0){
+      state.pendingMoveSfx = null;
+      moveSfx(ps.clip);   // moveSfx はクリップ名だけを見るので、そのまま渡せばよい
+    }
   }
 
   /* Runs after locomotion, so an attack always wins over the walk cycle. */
@@ -3121,8 +3157,11 @@
       // 静→動のメリハリ(戦騎士のみ): クリップに渡すt自体をゆがめて
       // 溜め→急加速の配分に振る。JOB_SWING_AMPLIFYと同じくbasic系
       // (通常攻撃コンボ)にだけ効かせ、スキル/回避/必殺技には触れない
-      const antic = (state.job && isBasicCombo) ? JOB_SWING_ANTICIPATION[state.job] : null;
-      const sampleT = antic ? warpSwingT(Math.min(1, state.swingT), antic) : Math.min(1, state.swingT);
+      // 見た目の進行度。Hit判定/攻撃SEと同じ core/swing-timing.js の
+      // カーブを使うので、3つが必ず同じ瞬間を指す
+      const sampleT = isBasicCombo
+        ? clipFracAt(Math.min(1, state.swingT), state.job)
+        : Math.min(1, state.swingT);
       let pose = sampleClip(clip, sampleT);
       // 上位職の通常攻撃モーション大幅強化: basic系クリップ(通常攻撃の
       // コンボ)にだけ効かせ、スキル/回避/必殺技の型には触れない

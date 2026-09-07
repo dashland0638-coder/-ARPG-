@@ -147,7 +147,16 @@
       attackHeldStart = null; skillHeldStart = null;
       return;
     }
-    if(attackHeldStart!=null){
+    /* 溜め技も「空中スキル」として禁止する(Phase 4)。ただし攻撃ボタンの
+       タップ自体は空中攻撃(切り上げ/落下攻撃)の入力なので塞げない。
+       そこで「押し続けても溜めへ昇格させない」形にする ―― 離した時は
+       wasCharging=false となり、通常どおり tryAttack() へ落ちる。
+       地上で溜め始めてからジャンプした場合も、ここで溜めを打ち切る。 */
+    if(!state.grounded && state.charging){
+      state.charging = false; state.chargeT = 0;
+      blockedInAir('CHARGE');
+    }
+    if(attackHeldStart!=null && state.grounded){
       const heldSec = (performance.now()-attackHeldStart)/1000;
       if(!state.charging && heldSec >= ATTACK_TAP_THRESHOLD){
         state.charging = true; // grace period passed - now visibly charging
@@ -181,6 +190,7 @@
 
   function skillInputDown(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    if(blockedInAir('SKILL')) return;   // 空中スキル禁止(Phase 4)
     if(skillHeldStart!=null) return;
     if(state.skillCD>0) return; // longer recast keeps skills from being spammed faster than a normal attack
     if(state.swinging || state.charging || attackHeldStart!=null) return; // can't use a skill mid-attack
@@ -480,8 +490,11 @@
     if(state.perfectDodgeWindowT>0) state.perfectDodgeWindowT = Math.max(0, state.perfectDodgeWindowT - dt);
     if(state.braceCounterT>0) state.braceCounterT = Math.max(0, state.braceCounterT - dt);   // 戦騎士Perfect Braceの反撃猶予
     updatePendingSwing(dt);   // 戦騎士のHitタイミング同期(11-combat-actions.js)
+    updatePendingMoveSfx(dt); // 攻撃SEを刃の通過へ同期させる(05-rendering-rig.js)
     updateEnemyStep();        // Enemy Step: 突進中の敵を空中から踏む(07-ai-combat.js)
     if(state.jumpAttackCD>0) state.jumpAttackCD = Math.max(0, state.jumpAttackCD - dt);
+    if(state.hawkAssistT>0) state.hawkAssistT = Math.max(0, state.hawkAssistT - dt);   // 鷹の目: 回避直後の広角猶予(Phase 3)
+    if(state.airBlockToastT>0) state.airBlockToastT = Math.max(0, state.airBlockToastT - dt);   // 空中スキル警告の連打抑制(Phase 4)
     if(state.comboWindowT>0){
       state.comboWindowT = Math.max(0, state.comboWindowT - dt);
       if(state.comboWindowT<=0){ state.comboStage = 0; state.comboCount = 0; }
@@ -568,6 +581,19 @@
       const accelRate = inputMag>0.02 ? 14 : 20;
       state.vel.lerp(targetVel, Math.min(1, dt*accelRate));
       moveVec.copy(state.vel).multiplyScalar(dt);
+    }
+
+    /* バーサーカーのソフトロック(Combat Feel Phase 2)
+
+       上の移動処理が決めた向きを、コンボが続いている間だけロック方向へ
+       上書きする。移動ベクトル(moveVec)には触れていないので、どこへ
+       スライドするかは最後までプレイヤーの入力が決めたまま ―― これが
+       「横へずれながら、攻撃は敵へ」を成立させている実体。
+       スライド中(skillAnim)も含めて毎フレーム効かせるため、移動の
+       if/else の外に置いてある。 */
+    const softLockYaw = (state.job==='berserker') ? berserkerLockYaw() : null;
+    if(softLockYaw != null){
+      state.facing = turnTowardAngle(state.facing, softLockYaw, SOFT_LOCK_TURN_RATE*dt);
     }
 
     // apply movement in small substeps so a fast dash can never tunnel through a thin wall
@@ -673,6 +699,7 @@
       state.yVel = 0;
       state.grounded = true;
       state.enemyStepDone = false;   // 着地でEnemy Stepの権利が戻る(Phase H)
+      state.uppercutUsed = false;    // 着地で切り上げの権利も戻る(Phase 5)
     } else {
       state.grounded = false;
     }

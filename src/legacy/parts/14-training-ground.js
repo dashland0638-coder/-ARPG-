@@ -156,6 +156,16 @@
     const stagger = en.postureMax
       ? `${Math.round(en.posture)} / ${en.postureMax}  (-${postureDecayPerSec(en.isBoss)}/s)`
       : '-';
+    /* プレイヤー側の空中状態(Combat Feel Phase 5/7)。既存のDebug Info
+       パネルへ1行足すだけに留める ―― この確認のために新しいUIは作らない。
+       「今この瞬間に攻撃を押したら何が出るか」がそのまま読める */
+    const airKind = airAttackKind({grounded: state.grounded, yVel: state.yVel, alreadyUsed: state.uppercutUsed});
+    const airLabel = state.grounded
+      ? '接地(通常コンボ)'
+      : `${isRising(state.yVel) ? '上昇中' : '落下中'} vY ${state.yVel.toFixed(1)} → ` +
+        (airKind==='uppercut' ? '切り上げ' : '落下攻撃') +
+        (state.uppercutUsed ? ' / 切り上げ使用済' : '');
+    const weight = enemyWeightClass(en);
     panel.innerHTML =
       `HP: ${Math.max(0,Math.round(en.hp))} / ${en.hpMax}<br>` +
       `Stagger: ${stagger}<br>` +
@@ -164,7 +174,12 @@
       `Facing: ${en.group.rotation.y.toFixed(2)} rad<br>` +
       `Hit Radius: ${(en.hitRadius||0).toFixed(2)}<br>` +
       `Stompable: ${isStompableState(en) ? 'YES (Enemy Step可)' : 'no'}<br>` +
-      `Punish: ${punish}`;
+      `Weight: ${weight === 'light' ? 'LIGHT(切り上げで浮く)' : 'HEAVY(浮かない)'}` +
+        `${isFlying(en) ? ' / FLYING(切り上げで落ちる)' : ''}<br>` +
+      `Punish: ${punish}<br>` +
+      `Player Air: ${airLabel}<br>` +
+      `Soft Lock: ${state.berserkerLock ? 'ON(バーサーカー)' : '-'}` +
+      `${(state.hawkAssistT||0) > 0 ? ' / 鷹の目 広角猶予' : ''}`;
   }
 
   // 14-hud-boot.jsのanimate()から毎フレーム呼ばれる。state.testMode以外
