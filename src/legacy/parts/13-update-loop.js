@@ -296,31 +296,16 @@
          (通常の弓師が「貫通の一矢」を使う場合など)は一切影響を受けない */
       let lineFwd = fwd;
       let predictiveTarget = null;
-      if(state.job==='hawkEye'){
-        const right0 = new THREE.Vector3(fwd.z, 0, -fwd.x);
-        let best = null, bestFwdDist = Infinity;
-        enemies.forEach(en=>{
-          if(en.dead || en.dormant || !isTelegraphing(en)) return;
-          if(!isBossAccessible(en)) return;
-          const toE = new THREE.Vector3().subVectors(en.group.position, state.pos); toE.y=0;
-          const fDist = toE.dot(fwd);
-          if(fDist<=0 || fDist>variant.length*1.4) return;
-          // 正面のゆるい「コーン」(自動ロックオンにしない)。以前は
-          // variant.length*0.5という距離に依らない絶対幅だったため、
-          // 目の前(前方1m)の敵でも真横6mまで対象に入り、狙い筋が
-          // 大きく曲がってしまっていた。前方距離に比例させて本来の
-          // 円錐にする(11-combat-actions.jsの通常射撃側と同じ形)
-          if(Math.abs(toE.dot(right0)) > fDist*0.5) return;
-          if(fDist<bestFwdDist){ bestFwdDist = fDist; best = en; }
-        });
-        if(best){
-          const lead = telegraphLead(best);
-          const leadSeconds = 0.9 * chargeRatio;   // 長く引くほど先まで読む
-          const predicted = predictLeadPosition({x:best.group.position.x, z:best.group.position.z}, lead, leadSeconds);
-          if(predicted){
-            const dir = new THREE.Vector3(predicted.x - state.pos.x, 0, predicted.z - state.pos.z);
-            if(dir.lengthSq() > 0.0001){ lineFwd = dir.normalize(); predictiveTarget = best; }
-          }
+      // 前方距離に比例したコーン判定(variant.length*1.4)は
+      // 11-combat-actions.jsの通常射撃側と同じ形。探索処理自体は
+      // hawkEyePredictiveAim()(11-combat-actions.js)に統一済み
+      // (Combat Architecture Refactor Phase 2)。「溜めた長さぶんだけ
+      // 先まで読む」というこの技固有のleadSeconds計算だけをここで渡す
+      if(JOB_TRAITS[state.job] && JOB_TRAITS[state.job].onProjectileAim){
+        const aim = JOB_TRAITS[state.job].onProjectileAim(fwd, variant.length*1.4, ()=> 0.9 * chargeRatio);
+        if(aim){
+          const dir = new THREE.Vector3(aim.predicted.x - state.pos.x, 0, aim.predicted.z - state.pos.z);
+          if(dir.lengthSq() > 0.0001){ lineFwd = dir.normalize(); predictiveTarget = aim.target; }
         }
       }
       const right = new THREE.Vector3(lineFwd.z, 0, -lineFwd.x);
@@ -591,7 +576,7 @@
        「横へずれながら、攻撃は敵へ」を成立させている実体。
        スライド中(skillAnim)も含めて毎フレーム効かせるため、移動の
        if/else の外に置いてある。 */
-    const softLockYaw = (state.job==='berserker') ? berserkerLockYaw() : null;
+    const softLockYaw = (JOB_TRAITS[state.job] && JOB_TRAITS[state.job].getLockedFacing) ? JOB_TRAITS[state.job].getLockedFacing() : null;
     if(softLockYaw != null){
       state.facing = turnTowardAngle(state.facing, softLockYaw, SOFT_LOCK_TURN_RATE*dt);
     }

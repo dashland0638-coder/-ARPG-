@@ -556,16 +556,9 @@
     state.yVel = ENEMY_STEP_BOUNCE_VY;   // 踏みつけて跳ね返る(再ジャンプ)
     state.grounded = false;
 
-    let staggered = false;
-    if(en.postureMax && !en.knockedDown && (en.postureGraceT||0) <= 0){
-      en.posture = applyPostureGain(en.posture, en.postureMax, ENEMY_STEP_STAGGER);
-      staggered = true;
-      if(en.posture >= en.postureMax) triggerKnockdown(en);
-      else if(en.posture >= en.postureMax*0.7 && !en.bigFlinched){
-        en.bigFlinched = true;
-        en.hurtT = Math.max(en.hurtT||0, 0.5);
-      }
-    }
+    // 大怯びは扱うが、通常攻撃と違いトーストは出さない(既存の体感どおり)
+    const staggerResult = applyStaggerResult(en, ENEMY_STEP_STAGGER, {bigFlinchToast:false});
+    const staggered = !!staggerResult;
     // 踏まれた側は突進を中断する(踏み台にされたのに走り続けるのは不自然)
     if(en.chargeState === 'dash'){ en.chargeState = 'cooldown'; en.chargeT = en.chargeCooldownOverride || 1.5; }
     if(en.special === 'charge'){ en.special = null; en.specialCD = 6 + Math.random()*3; }
@@ -2233,16 +2226,59 @@
      (どちらも移動/他行動をロックする)なので、1つの関数に同居させても
      二重発火の心配はない。
   ========================================================= */
+  /* 体幹反応の中央処理(Combat Architecture Refactor Phase 1)。
+
+     監査で判明した実態: 大怯び(70%)/ノックダウン(100%)の閾値そのものは
+     core/stagger-math.js に既に切り出されていたが(isBigFlinchThreshold/
+     isKnockdownThreshold)、実際のゲームコードは誰もそれを使わず、
+     dealDamageToEnemy・triggerEnemyStep・applyBattleKnightBraceの3箇所が
+     同じ数式を独立に書き直していた。ここへ統一する。
+
+     ただし3箇所には元々こういう挙動差があり、これは既存プレイフィールなので
+     消さない:
+       ・dealDamageToEnemy    : 大怯びでトーストを出す
+       ・triggerEnemyStep     : 大怯びは扱うが、トーストは出さない
+       ・applyBattleKnightBrace: 大怯び自体を一切扱わない(ノックダウンのみ)
+     この差はopts({applyBigFlinch, bigFlinchToast})で呼び出し側が指定する。
+
+     ダメージ・ノックバック・ヒットスパーク等の「見た目」寄りの反応は
+     各アクション側に残したまま ―― 過剰な抽象化はしない(指示4-2/4-6)。
+     ここが統一するのは「体幹の閾値判定」だけ。
+
+     戻り値: {knockdown, bigFlinch}(閾値未到達 / postureMaxが無い等で
+     何も起きなかった場合はnull)。呼び出し側の分岐(例: Enemy Stepの
+     「STAGGER +55」/「STAGGER -」表示)に使う。 */
+  function applyStaggerResult(en, gain, opts){
+    opts = opts || {};
+    if(!en.postureMax || en.knockedDown || (en.postureGraceT||0) > 0) return null;
+    en.posture = applyPostureGain(en.posture, en.postureMax, gain);
+    const { knockdown, bigFlinch } = resolveStaggerReaction({
+      posture: en.posture, postureMax: en.postureMax, alreadyBigFlinched: en.bigFlinched,
+    });
+    if(knockdown){
+      triggerKnockdown(en);
+    } else if(bigFlinch && opts.applyBigFlinch !== false){
+      en.bigFlinched = true;
+      en.hurtT = Math.max(en.hurtT||0, 0.5);   // 大怯み: 通常より長く隙ができる
+      if(opts.bigFlinchToast !== false) spawnToast('💫 体勢を崩した!');
+    }
+    return { knockdown, bigFlinch };
+  }
+
   /* 戦騎士 Perfect Brace(#4フェーズ4): 攻撃元(attacker)の体幹を崩し、
      反撃猶予(state.braceCounterT)を開く共通処理。バリア経由・ジャスト
      ドッジ経由のどちらからも同じ処理を呼べるよう切り出した ――
      「どのスキルを選んでいても」成立させるための土台(監査#4参照)。
      staggerMulだけを呼び出し側で変える(バリアは静止して受け切った分
-     やや大きく、ジャストドッジは移動を伴う分やや控えめ)。 */
+     やや大きく、ジャストドッジは移動を伴う分やや控えめ)。
+
+     大怯び(70%)は意図的に適用しない(applyBigFlinch:false) ―― 元々
+     ノックダウン判定しか存在しなかった経路で、大怯びを新たに発生させると
+     プレイフィールが変わってしまうため、Phase 1で他2経路と統合する際も
+     この既存挙動をそのまま維持している。 */
   function applyBattleKnightBrace(attacker, staggerMul){
-    if(attacker && !attacker.dead && attacker.postureMax && !attacker.knockedDown && (attacker.postureGraceT||0) <= 0){
-      attacker.posture = applyPostureGain(attacker.posture, attacker.postureMax, staggerGain({staggerMul}));
-      if(attacker.posture >= attacker.postureMax) triggerKnockdown(attacker);
+    if(attacker && !attacker.dead){
+      applyStaggerResult(attacker, staggerGain({staggerMul}), {applyBigFlinch:false});
     }
     state.braceCounterT = 3.0;
     hitStop(0.07);
@@ -2250,6 +2286,28 @@
     sfx('perfectDodge');
     spawnToast('🛡️ 受け流し成功! 反撃の好機!', '#ffcf6a');
     emitArenaFeedback('PERFECT BRACE', `COUNTER WINDOW ${state.braceCounterT.toFixed(1)}s`);
+  }
+
+  /* 魔導士 Turn Slow(#20/監査#6、Combat Architecture Refactor Phase 2で
+     dealDamageToEnemy()の中から名前付き関数へ抽出): 命中させた敵の
+     足取り・向き直りを一瞬鈍らせる。「戦場そのものを変える」の最小実装
+     ―― 敵側に新しい状態機械を増やさず、既存の旋回速度
+     (enemy-facing.js resolveTurnRate)とボスの追跡速度(updateBossAI)が
+     参照するだけの一時フラグにしてある。減衰はupdateEnemies()側で行う。
+     監査で指摘された「内部処理のみで体感できない」を解消するため、
+     足元に短命の魔法陣(spawnScorch、既存の焦げ跡デカール流用)+専用SEを
+     追加した - 派手なエフェクトを増やすのではなく、既存の仕組みに
+     色だけ変えて相乗りさせている(#36の演出方針を踏襲)。
+     ロジック・数値はdealDamageToEnemy内にあった時から変更していない。 */
+  function applyArchmageTurnSlow(en){
+    const wasBound = (en.arcaneBindT||0) > 0;
+    en.arcaneBindT = Math.max(en.arcaneBindT||0, 2.2);
+    en.turnRateMul = 0.5;
+    if(!wasBound){
+      spawnScorch(en.group.position, en.isBoss ? 2.6 : 1.4, 0x82c6d4, 2.2);   // 魔導士のアクセント色(01-character-creation.js UPPER_JOBS.mage.trim)と統一
+      sfx('castAim');
+      emitArenaFeedback('TURN SLOW', `${en.arcaneBindT.toFixed(1)}s`);
+    }
   }
 
   // attacker: 素通りした攻撃の発射元の敵(分かる場合のみ、07-ai-combat.js内の
@@ -2267,8 +2325,8 @@
       spawnDamagePopup(state.pos.clone(), healAmt, true, false, false);
       hitStop(0.05);
       addShake(0.06);
-      if(state.job==='battleKnight' && attacker && !attacker.dead){
-        applyBattleKnightBrace(attacker, 2.2);   // 静止して受け切った分、やや大きく崩す
+      if(attacker && !attacker.dead && JOB_TRAITS[state.job] && JOB_TRAITS[state.job].onPerfectDodge){
+        JOB_TRAITS[state.job].onPerfectDodge(attacker, 2.2);   // 静止して受け切った分、やや大きく崩す
         bracedThisCall = true;
       } else {
         sfx('perfectDodge');
@@ -2292,8 +2350,8 @@
        他クラス/スキル未選択時と同じ「確定クリティカル+50%」ではなく、
        やや控えめな代わりに攻撃元へも直接影響する、という質の違う
        報酬にしてあり、単純な上位互換にはしていない */
-    if(state.job==='battleKnight' && attacker && !attacker.dead){
-      applyBattleKnightBrace(attacker, 1.8);
+    if(attacker && !attacker.dead && JOB_TRAITS[state.job] && JOB_TRAITS[state.job].onPerfectDodge){
+      JOB_TRAITS[state.job].onPerfectDodge(attacker, 1.8);
     } else {
       state.perfectDodgeWindowT = 1.4;   // この間に当てた次の一撃が強化される
       sfx('perfectDodge');
@@ -2497,7 +2555,6 @@
         const midWindup = !!en.atkWindup;
         const postAttackRecovery = (en.postAtkRecoveryT||0) > 0;
         const punishBonusMul = punishWindowMultiplier({midWindup, postAttackRecovery});
-        en.posture = applyPostureGain(en.posture, en.postureMax, staggerGain({staggerMul, classMul, abilityMul, punishBonusMul}));
         if(punishBonusMul > 1){
           // 通常のヒット感触と違うと分かるよう、専用の効果音だけ足す
           // (見た目のスパーク色は既存のまま ―― 演出を増やしすぎない方針#36)。
@@ -2507,33 +2564,18 @@
           sfx('perfectDodge', {weight});
           emitArenaFeedback(midWindup ? 'WINDUP PUNISH' : 'RECOVERY PUNISH', `STAGGER ×${punishBonusMul.toFixed(1)}`);
         }
-        if(en.posture >= en.postureMax){
-          triggerKnockdown(en);
-        } else if(en.posture >= en.postureMax*0.7 && !en.bigFlinched){
-          en.bigFlinched = true;
-          en.hurtT = Math.max(en.hurtT||0, 0.5);   // 大怯み: 通常より長く隙ができる
-          spawnToast('💫 体勢を崩した!');
-        }
+        // 大怯び/ノックダウンの閾値判定はapplyStaggerResult()に統一済み
+        // (Combat Architecture Refactor Phase 1)。ここでの既定挙動
+        // (大怯びでトーストを出す)は従来のまま
+        applyStaggerResult(en, staggerGain({staggerMul, classMul, abilityMul, punishBonusMul}));
       }
 
-      // 魔導士(#20/監査#6): 命中させた敵の足取り・向き直りを一瞬鈍らせる。
-      // 「戦場そのものを変える」の最小実装 ―― 敵側に新しい状態機械を
-      // 増やさず、既存の旋回速度(enemy-facing.js resolveTurnRate)と
-      // ボスの追跡速度(updateBossAI)が参照するだけの一時フラグにしてある。
-      // 減衰はupdateEnemies()側で行う。
-      // 監査で指摘された「内部処理のみで体感できない」を解消するため、
-      // 足元に短命の魔法陣(spawnScorch、既存の焦げ跡デカール流用)+専用SEを
-      // 追加した - 派手なエフェクトを増やすのではなく、既存の仕組みに
-      // 色だけ変えて相乗りさせている(#36の演出方針を踏襲)
-      if(!isAlly && state.job==='archmage'){
-        const wasBound = (en.arcaneBindT||0) > 0;
-        en.arcaneBindT = Math.max(en.arcaneBindT||0, 2.2);
-        en.turnRateMul = 0.5;
-        if(!wasBound){
-          spawnScorch(en.group.position, en.isBoss ? 2.6 : 1.4, 0x82c6d4, 2.2);   // 魔導士のアクセント色(01-character-creation.js UPPER_JOBS.mage.trim)と統一
-          sfx('castAim');
-          emitArenaFeedback('TURN SLOW', `${en.arcaneBindT.toFixed(1)}s`);
-        }
+      // 魔導士のTurn Slow(Combat Architecture Refactor Phase 2で
+      // applyArchmageTurnSlow()へ抽出。JOB_TRAITS.archmage.onHitLanded
+      // 経由で呼ぶ ―― ロジック・数値は一切変更していない)
+      {
+        const trait = JOB_TRAITS[state.job];
+        if(trait && trait.onHitLanded) trait.onHitLanded(en);
       }
 
       // 必殺ゲージ: ヒットを当てるたびに少し貯まる(フィニッシュ等は呼び出し側で
