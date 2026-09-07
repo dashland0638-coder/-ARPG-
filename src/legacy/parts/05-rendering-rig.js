@@ -2993,9 +2993,14 @@
      lines up one-to-one with the choreography table rather than being a
      second, independently-drifting notion of what the character is doing. */
   const MOVE_SFX = {
-    warrior:{ basic:'slashHeavy', basic2:'slashHeavy', skill2:'slashOverhead',
-              dash:'slashDraw', retreat:'slashHeavy', spin:'slashSpin', ult:'slashOverhead',
-              basic3:'slashSpin', basic4:'slashOverhead', uppercut:'slashDraw',
+    /* 剣士(大剣)。以前は3段とも slashHeavy が核で、1段目と2段目に至っては
+       完全に同じ音だった ―― しかもその slashHeavy 自体が高域グリッサンド
+       3本で「鳥の鳴き声のよう」だった(audio.js の gsSwing1 上のコメント)。
+       いまは段ごとに別のキューを持ち、音量ではなく構造で差が付いている。
+       槍(altBasic)と回転斬り(spin/basic3)は大剣の振りではないので据え置き。 */
+    warrior:{ basic:'gsSwing1', basic2:'gsSwing2', skill2:'gsOverhead',
+              dash:'slashDraw', retreat:'gsSwing1', spin:'slashSpin', ult:'gsOverhead',
+              basic3:'slashSpin', basic4:'gsSwing3', uppercut:'slashDraw',
               altBasic:'slashDraw', altBasic2:'slashDraw' },   // 槍: 突きの音は抜刀のシャープなSEを流用
     rogue:{   basic:'slashLight', basic2:'slashLight', skill2:'knifeThrow',
               dash:'slashLight', retreat:'slashLight', spin:'slashSpin', ult:'slashSpin',
