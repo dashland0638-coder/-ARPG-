@@ -556,16 +556,9 @@
     state.yVel = ENEMY_STEP_BOUNCE_VY;   // 踏みつけて跳ね返る(再ジャンプ)
     state.grounded = false;
 
-    let staggered = false;
-    if(en.postureMax && !en.knockedDown && (en.postureGraceT||0) <= 0){
-      en.posture = applyPostureGain(en.posture, en.postureMax, ENEMY_STEP_STAGGER);
-      staggered = true;
-      if(en.posture >= en.postureMax) triggerKnockdown(en);
-      else if(en.posture >= en.postureMax*0.7 && !en.bigFlinched){
-        en.bigFlinched = true;
-        en.hurtT = Math.max(en.hurtT||0, 0.5);
-      }
-    }
+    // 大怯びは扱うが、通常攻撃と違いトーストは出さない(既存の体感どおり)
+    const staggerResult = applyStaggerResult(en, ENEMY_STEP_STAGGER, {bigFlinchToast:false});
+    const staggered = !!staggerResult;
     // 踏まれた側は突進を中断する(踏み台にされたのに走り続けるのは不自然)
     if(en.chargeState === 'dash'){ en.chargeState = 'cooldown'; en.chargeT = en.chargeCooldownOverride || 1.5; }
     if(en.special === 'charge'){ en.special = null; en.specialCD = 6 + Math.random()*3; }
@@ -2233,16 +2226,59 @@
      (どちらも移動/他行動をロックする)なので、1つの関数に同居させても
      二重発火の心配はない。
   ========================================================= */
+  /* 体幹反応の中央処理(Combat Architecture Refactor Phase 1)。
+
+     監査で判明した実態: 大怯び(70%)/ノックダウン(100%)の閾値そのものは
+     core/stagger-math.js に既に切り出されていたが(isBigFlinchThreshold/
+     isKnockdownThreshold)、実際のゲームコードは誰もそれを使わず、
+     dealDamageToEnemy・triggerEnemyStep・applyBattleKnightBraceの3箇所が
+     同じ数式を独立に書き直していた。ここへ統一する。
+
+     ただし3箇所には元々こういう挙動差があり、これは既存プレイフィールなので
+     消さない:
+       ・dealDamageToEnemy    : 大怯びでトーストを出す
+       ・triggerEnemyStep     : 大怯びは扱うが、トーストは出さない
+       ・applyBattleKnightBrace: 大怯び自体を一切扱わない(ノックダウンのみ)
+     この差はopts({applyBigFlinch, bigFlinchToast})で呼び出し側が指定する。
+
+     ダメージ・ノックバック・ヒットスパーク等の「見た目」寄りの反応は
+     各アクション側に残したまま ―― 過剰な抽象化はしない(指示4-2/4-6)。
+     ここが統一するのは「体幹の閾値判定」だけ。
+
+     戻り値: {knockdown, bigFlinch}(閾値未到達 / postureMaxが無い等で
+     何も起きなかった場合はnull)。呼び出し側の分岐(例: Enemy Stepの
+     「STAGGER +55」/「STAGGER -」表示)に使う。 */
+  function applyStaggerResult(en, gain, opts){
+    opts = opts || {};
+    if(!en.postureMax || en.knockedDown || (en.postureGraceT||0) > 0) return null;
+    en.posture = applyPostureGain(en.posture, en.postureMax, gain);
+    const { knockdown, bigFlinch } = resolveStaggerReaction({
+      posture: en.posture, postureMax: en.postureMax, alreadyBigFlinched: en.bigFlinched,
+    });
+    if(knockdown){
+      triggerKnockdown(en);
+    } else if(bigFlinch && opts.applyBigFlinch !== false){
+      en.bigFlinched = true;
+      en.hurtT = Math.max(en.hurtT||0, 0.5);   // 大怯み: 通常より長く隙ができる
+      if(opts.bigFlinchToast !== false) spawnToast('💫 体勢を崩した!');
+    }
+    return { knockdown, bigFlinch };
+  }
+
   /* 戦騎士 Perfect Brace(#4フェーズ4): 攻撃元(attacker)の体幹を崩し、
      反撃猶予(state.braceCounterT)を開く共通処理。バリア経由・ジャスト
      ドッジ経由のどちらからも同じ処理を呼べるよう切り出した ――
      「どのスキルを選んでいても」成立させるための土台(監査#4参照)。
      staggerMulだけを呼び出し側で変える(バリアは静止して受け切った分
-     やや大きく、ジャストドッジは移動を伴う分やや控えめ)。 */
+     やや大きく、ジャストドッジは移動を伴う分やや控えめ)。
+
+     大怯び(70%)は意図的に適用しない(applyBigFlinch:false) ―― 元々
+     ノックダウン判定しか存在しなかった経路で、大怯びを新たに発生させると
+     プレイフィールが変わってしまうため、Phase 1で他2経路と統合する際も
+     この既存挙動をそのまま維持している。 */
   function applyBattleKnightBrace(attacker, staggerMul){
-    if(attacker && !attacker.dead && attacker.postureMax && !attacker.knockedDown && (attacker.postureGraceT||0) <= 0){
-      attacker.posture = applyPostureGain(attacker.posture, attacker.postureMax, staggerGain({staggerMul}));
-      if(attacker.posture >= attacker.postureMax) triggerKnockdown(attacker);
+    if(attacker && !attacker.dead){
+      applyStaggerResult(attacker, staggerGain({staggerMul}), {applyBigFlinch:false});
     }
     state.braceCounterT = 3.0;
     hitStop(0.07);
@@ -2497,7 +2533,6 @@
         const midWindup = !!en.atkWindup;
         const postAttackRecovery = (en.postAtkRecoveryT||0) > 0;
         const punishBonusMul = punishWindowMultiplier({midWindup, postAttackRecovery});
-        en.posture = applyPostureGain(en.posture, en.postureMax, staggerGain({staggerMul, classMul, abilityMul, punishBonusMul}));
         if(punishBonusMul > 1){
           // 通常のヒット感触と違うと分かるよう、専用の効果音だけ足す
           // (見た目のスパーク色は既存のまま ―― 演出を増やしすぎない方針#36)。
@@ -2507,13 +2542,10 @@
           sfx('perfectDodge', {weight});
           emitArenaFeedback(midWindup ? 'WINDUP PUNISH' : 'RECOVERY PUNISH', `STAGGER ×${punishBonusMul.toFixed(1)}`);
         }
-        if(en.posture >= en.postureMax){
-          triggerKnockdown(en);
-        } else if(en.posture >= en.postureMax*0.7 && !en.bigFlinched){
-          en.bigFlinched = true;
-          en.hurtT = Math.max(en.hurtT||0, 0.5);   // 大怯み: 通常より長く隙ができる
-          spawnToast('💫 体勢を崩した!');
-        }
+        // 大怯び/ノックダウンの閾値判定はapplyStaggerResult()に統一済み
+        // (Combat Architecture Refactor Phase 1)。ここでの既定挙動
+        // (大怯びでトーストを出す)は従来のまま
+        applyStaggerResult(en, staggerGain({staggerMul, classMul, abilityMul, punishBonusMul}));
       }
 
       // 魔導士(#20/監査#6): 命中させた敵の足取り・向き直りを一瞬鈍らせる。

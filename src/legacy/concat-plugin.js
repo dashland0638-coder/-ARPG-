@@ -41,6 +41,7 @@ import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../core/lo
 import { timeLimitForStars } from '../core/scenario-timer.js';
 import { turnTowardAngle, turnBudget, resolveTurnRate, angleDiff } from '../core/enemy-facing.js';
 import { punishWindowMultiplier, staggerGain, applyPostureGain, decayPosture, bossPostureMax, postureDecayPerSec } from '../core/stagger-math.js';
+import { resolveStaggerReaction } from '../core/combat-result.js';
 import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw, TURN_ASSIST_DODGE_WINDOW } from '../core/predictive-aim.js';
 import { meleeHitTest, surfaceDistance } from '../core/melee-hit.js';
 import { canEnemyStep, isStompableState, ENEMY_STEP_STAGGER, ENEMY_STEP_BOUNCE_VY } from '../core/enemy-step.js';
