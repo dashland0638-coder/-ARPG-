@@ -1231,6 +1231,7 @@
         }
       } else {
         let hit = false;
+        let impactTarget = null;
         for(const en of enemies){
           if(en.dead || en.dormant) continue;
           if(!isBossAccessible(en)) continue;
@@ -1246,6 +1247,7 @@
             // 当たった」証拠になる
             const predictHit = p.predictiveTarget===en && isTelegraphing(en);
             dealDamageToEnemy(en, p.dmg, false, {staggerMul: (p.staggerMul||1) * (predictHit?3.0:1), ultGauge: p.ultGauge});
+            impactTarget = en;
             if(predictHit){
               spawnToast('🎯 未来を射抜いた!', '#6adfc0');
               sfx('perfectDodge');
@@ -1260,6 +1262,25 @@
             }
             if(hit) break;
           }
+        }
+        /* 基本魔法使いのImpact AoE(core/mage-impact-aoe.js)。中心
+           (impactTarget)は上のループで既に通常ダメージを受けているので、
+           ここでは中心以外だけを走査して二重ダメージを防ぐ。命中点
+           (p.mesh.position、着弾した弾自体の位置)を中心に、水平距離が
+           半径内の敵へ減衰ダメージを追加する。既存のp.isChargeOrb分岐
+           (このファイル上部)と同じ「水平距離のみで判定」方式に揃えて
+           あるが、あちらは弾そのものがAoE専用の別種のためコードは
+           共有せず、判定方式だけ揃えている(コピー&ペーストによる
+           重複を避けつつ、実装は最小限の追加に留めた) */
+        if(impactTarget && p.impactAoeRadius){
+          enemies.forEach(en=>{
+            if(en===impactTarget || en.dead || en.dormant) return;
+            if(!isBossAccessible(en)) return;
+            const flat = Math.hypot(en.group.position.x - p.mesh.position.x, en.group.position.z - p.mesh.position.z);
+            if(Math.abs(p.mesh.position.y - en.group.position.y) >= 1.8) return;
+            const splashDmg = mageImpactAoeDamage(flat, p.dmg, p.impactAoeRadius);
+            if(splashDmg > 0) dealDamageToEnemy(en, splashDmg, false);
+          });
         }
         if(!hit){
           for(const c of chests){

@@ -695,7 +695,25 @@
         findMeleeTargetsInArc(range, angle).forEach(t=>{ dealDamageToEnemy(t, dmg, false, staggerOpts); if(!hitTarget) hitTarget = t; });
       } else {
         const target = findMeleeTarget(range, angle);
-        if(target){ dealDamageToEnemy(target, dmg, false, staggerOpts); hitTarget = target; }
+        if(target){
+          /* 基本盗賊のCombat Identity: Back Attack(core/rogue-back-
+             attack.js)。命中対象が確定した「今」の敵の向き・位置で判定
+             する(攻撃開始時点ではなく、実際に命中する瞬間 ―― 盗賊は
+             hitDelayが無く入力と同時に解決するクラスなので、この
+             findMeleeTarget()の瞬間がそのまま「命中の瞬間」にあたる)。
+             対象は基本盗賊のみ ―― バーサーカーは既にSoft Lock/Slideという
+             別のIdentityを持つため対象外にする。正面からの通常攻撃は
+             弱体化せず(倍率1のまま)、背後から命中した一撃にだけ
+             ボーナスが乗る報酬型 */
+          let backAttackMul = 1;
+          if(state.classDef.key==='rogue' && state.job!=='berserker'){
+            backAttackMul = rogueBackAttackDamageMul(target.group.rotation.y, target.group.position, state.pos);
+          }
+          const atkDmg = backAttackMul > 1 ? Math.round(dmg * backAttackMul) : dmg;
+          dealDamageToEnemy(target, atkDmg, false, staggerOpts);
+          if(backAttackMul > 1) emitArenaFeedback('BACK ATTACK', `×${backAttackMul.toFixed(2)}`);
+          hitTarget = target;
+        }
       }
       checkMimicRevealInRange(range, angle, dmg);
       if(isFinish && hitTarget){
@@ -818,13 +836,38 @@
     const baseDmg = state.classDef.atk+Math.round(Math.random()*5);
     // 3連射は1発ごとのダメージを抑える(合計で妥当な威力になるよう)
     const volleyMul = opts.volley ? 0.6 : 1;
-    const dmg = Math.round(baseDmg * (opts.dmgMul || 1) * volleyMul);
+    /* 基本弓師のCombat Identity: Distance Bonus(core/archer-distance.js)。
+       発射時のプレイヤー→ターゲット距離が一定以上離れていれば小さな
+       ボーナスが乗る、近距離を弱くしない報酬型。対象は基本弓師のみ
+       ―― 鷹の目(hawkEye)は既にTurn Assist/Predictive Aimという別の
+       Identityを持つため対象外にする。ターゲットは既存の
+       findRangedTargetInLine()(単発/連鎖スキルの命中先探索と同じ関数)を
+       流用して求める。見つからなければボーナス無し(狙う相手がいない
+       空撃ちに報酬を与えない) */
+    let distanceMul = 1;
+    if(cls==='archer' && state.job!=='hawkEye'){
+      const aimTarget = findRangedTargetInLine(dir, 30, 1.4);
+      if(aimTarget) distanceMul = archerDistanceBonusMul(state.pos.distanceTo(aimTarget.group.position));
+    }
+    const dmg = Math.round(baseDmg * (opts.dmgMul || 1) * volleyMul * distanceMul);
     // life*speed is the effective range (~44 at speedMul 1 before this) -
     // shortened a bit per feedback that arrows/bolts carried too far
     const proj = {mesh, light: glow, dir, speed:20*st.speedMul, life:1.6, hitR, dmg, staggerMul: opts.staggerMul, ultGauge: opts.ultGauge, predictiveTarget};
     if(predictiveTarget) emitArenaFeedback('PREDICTIVE AIM', '狙い筋を未来位置へ補正');
+    if(distanceMul > 1) emitArenaFeedback('DISTANCE BONUS', `×${distanceMul.toFixed(2)}`);
     // 魔法使いのフィニッシュ: 貫通弾(roadmap「杖: 魔弾→貫通弾」)
     if(opts.pierce){ proj.pierce = true; proj.pierceLeft = 3; proj.pierceHitSet = new Set(); }
+    /* 基本魔法使いのCombat Identity: Impact AoE(core/mage-impact-aoe.js)。
+       命中点周辺の別の敵も巻き込む、「敵集団を見て撃つ」報酬型。対象は
+       基本魔法使いのみ ―― 魔導士(archmage)は既にTurn Slowという別の
+       Identityを持つため対象外にする。貫通弾(pierce、フィニッシュ)は
+       1フレームで複数の敵を直接貫通するため、AoE併用は「中心」が
+       フレーム内で入れ替わり二重ダメージになりうる(updateProjectiles参照)。
+       安全のため貫通弾には適用しない ―― 貫通そのものが既に「複数の敵を
+       巻き込む」役割を果たしている */
+    if(cls==='mage' && state.job!=='archmage' && !opts.pierce){
+      proj.impactAoeRadius = MAGE_IMPACT_AOE_RADIUS;
+    }
     projectiles.push(proj);
   }
 
