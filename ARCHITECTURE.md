@@ -45,7 +45,7 @@ basefile.html                移行前の単一ファイル版。凍結スナッ
 |---|---|
 | `01-character-creation.js` | キャラメイクUI・ダイス割り振り |
 | `02-world-common.js` | Three.js初期化・ワールド共通処理(壁/扉/階段/当たり判定/カットシーン) |
-| `03-dungeons-mansion-temple.js` | 洋館・時計塔・温室・神殿 |
+| `03-dungeons-mansion-temple.js` | 酒場・森・洋館(最初のメインシナリオ。間取りは`MANSION_ROOMS`の表が唯一の情報源、詳細は`MANSION_SCENARIO.md`)・時計塔・温室・神殿 |
 | `04-dungeons-ship-waterway.js` | 幽霊船・地下水路 |
 | `05-rendering-rig.js` | ドット表現・体型・アウトライン・コンボ演出 |
 | `06-player-enemy.js` | プレイヤー/敵のリグ構築 |

@@ -75,50 +75,65 @@
   function spawnEnemiesForWorld(key){ _spawnWorldKey = key; spawnEnemies(); }
   function spawnChestsForWorld(key){ _spawnWorldKey = key; spawnChests(); }
 
+  /* ---- 洋館シナリオのイベント湧き ----
+     「置いてある敵に近づいて始まる戦闘」ばかりだと、屋敷が敵の陳列棚に
+     なってしまう。森と使用人区画の2つは、事前配置ではなく、直前の演出
+     (人影が消える / 悲鳴)に続けてその場で湧かせる。
+     roomTag を付けてあるので、倒したらその出撃中は復活しない ―― 復活
+     処理(updateEnemies)そのものは全ダンジョン共通のまま触っていない。
+     多重発火は「もうそのタグの敵が居るなら何もしない」で止める。 */
+  function spawnTaggedGroup(tag, defs){
+    if(enemies.some(en=> en.roomTag === tag)) return;
+    // roomTag: 倒したら復活しない / gateTag: 全員倒すまで先の階段が使えない
+    defs.forEach(d=> enemies.push(buildEnemy(d.pos, Object.assign({roomTag:tag, gateTag:tag}, d.variant))));
+    flashScreen();
+  }
+
+  // 戦闘①: 森。人影が消えた先で、道を塞ぐように現れる
+  function spawnForestAmbush(){
+    spawnTaggedGroup('forestAmbush', [
+      {pos:new THREE.Vector3(10,0,-31.5), variant:{color:0x8a3a3a, hp:58, atk:12, speed:2.6, atkType:'charge', xp:16, goldBonus:[4,8]}},
+      {pos:new THREE.Vector3(13,0,-31),   variant:{color:0x8a3a3a, hp:58, atk:12, speed:2.6, atkType:'charge', xp:16, goldBonus:[4,8]}},
+      {pos:new THREE.Vector3( 6,0,-32.7), variant:{color:0xd06a2a, hp:48, atk:11, speed:0.7, atkType:'fire',   xp:18, goldBonus:[4,8], projColor:0xffb066}},
+    ]);
+    spawnToast('🌿 道の先の茂みが、揺れた');
+  }
+
+  // 戦闘③: 使用人区画。鍛冶士の声のあと、通路の側から回り込んでくる
+  function spawnServantAmbush(){
+    spawnTaggedGroup('servantAmbush', [
+      // 消えて背後へ回り込む型。屋敷の中で「見えているものが全部ではない」
+      // ことを、戦闘そのもので一度だけ体験させる
+      {pos:new THREE.Vector3(88,0,80), variant:{color:0x5a5a70, hp:86, atk:19, speed:1.8, atkType:'ghost',  xp:30, goldBonus:[9,15]}},
+      {pos:new THREE.Vector3(60,0,80), variant:{color:0x8a3a3a, hp:92, atk:18, speed:2.7, atkType:'charge', xp:28, goldBonus:[9,15]}},
+      {pos:new THREE.Vector3(76,0,86), variant:{color:0x8a3a3a, hp:92, atk:18, speed:2.7, atkType:'charge', xp:28, goldBonus:[9,15]}},
+    ]);
+  }
+
   function spawnEnemies(){
     enemies = [];
     resetGauntlet();
     const spots = [
-      // forest - passive (loot farm)
-      {pos:new THREE.Vector3(-6,0,-8),  variant:{color:0xb8946a, hp:50, atk:0, speed:1.0, atkType:'passive', xp:9}}, // was at z:7, inside the tavern's footprint before the building existed there
-      {pos:new THREE.Vector3(15,0,7),   variant:{color:0x7a4a8a, hp:42, atk:0, speed:1.35, atkType:'passive', xp:9}},
-      {pos:new THREE.Vector3(-17,0,13), variant:{color:0x4a8a5a, hp:48, atk:0, speed:1.1, atkType:'passive', xp:10}},
-      // forest maze - dangerous types guarding the path
-      {pos:new THREE.Vector3(9,0,-2),   variant:{color:0x8a3a3a, hp:60, atk:14, speed:2.6, atkType:'charge', xp:16, goldBonus:[4,8]}},
-      {pos:new THREE.Vector3(-7,0,-9),  variant:{color:0xd06a2a, hp:44, atk:11, speed:0.7, atkType:'fire', xp:18, goldBonus:[4,8]}},
-      {pos:new THREE.Vector3(2,0,-13),  variant:{color:0x8a5a3a, hp:65, atk:0, speed:0.9, atkType:'passive', xp:11}},
-      {pos:new THREE.Vector3(-2,0,-17), variant:{color:0x8a3a3a, hp:60, atk:14, speed:2.6, atkType:'charge', xp:16, goldBonus:[4,8]}},
-      // mansion interior
-      {pos:new THREE.Vector3(-9,0,-25), variant:{color:0xd06a2a, hp:50, atk:12, speed:0.7, atkType:'fire', xp:19, goldBonus:[5,9]}},
-      {pos:new THREE.Vector3(-6,0,-40), variant:{color:0x6a3a6a, hp:78, atk:0, speed:1.15, atkType:'passive', xp:13}},
-      {pos:new THREE.Vector3(9,0,-42),  variant:{color:0x8a3a3a, hp:70, atk:16, speed:2.8, atkType:'charge', xp:20, goldBonus:[6,10]}},
-      // basement (bonus vault)
-      {pos:new THREE.Vector3(65,0,-45), variant:{color:0x8a3a5a, hp:85, atk:18, speed:2.7, atkType:'charge', xp:24, goldBonus:[8,14]}},
-      {pos:new THREE.Vector3(75,0,-35), variant:{color:0x5fcf7a, hp:55, atk:13, speed:0.7, atkType:'fire', xp:23, goldBonus:[8,14]}},
-      // basement -> crypt (deeper room beyond the cellar door)
-      // 中ボス(Phase C/#36)「黒衣の執事」: かつて館の主人に仕えた者。
-      // 呪術によって身体の一部が影と化し、地下納骨堂の奥を今も守っている
-      {pos:new THREE.Vector3(70,0,-64), variant:{color:0x6a2a7a, hp:120, atk:22, speed:2.9, atkType:'charge', xp:34, goldBonus:[12,18], strongMob:true, guardian:true,
-        midbossName:'黒衣の執事', midbossFlavor:'黒衣がふっと解け、影だけが静かに闇へ溶けていった。'}},
-      // 2F study (bonus vault)
-      {pos:new THREE.Vector3(-65,0,-45), variant:{color:0x8a5a2a, hp:85, atk:17, speed:2.7, atkType:'charge', xp:24, goldBonus:[8,14]}},
-      {pos:new THREE.Vector3(-75,0,-35), variant:{color:0xd06a2a, hp:55, atk:13, speed:0.7, atkType:'fire', xp:23, goldBonus:[8,14]}},
-      // 2F study -> sealed study (deeper room beyond the library door)
-      {pos:new THREE.Vector3(-70,0,-64), variant:{color:0x9a6a3a, hp:100, atk:19, speed:0.8, atkType:'fire', xp:32, goldBonus:[12,18], projColor:0xffcf7a, strongMob:true}},
-      // courtyard (third mansion route, basement/study より明確に軽い基準ルート)
-      {pos:new THREE.Vector3(92,0,52),  variant:{color:0x5a8a4a, hp:55, atk:11, speed:1.1, atkType:'passive', xp:17, goldBonus:[5,9]}},
-      {pos:new THREE.Vector3(108,0,68), variant:{color:0x6a3a3a, hp:65, atk:13, speed:2.4, atkType:'charge', xp:20, goldBonus:[6,10]}},
-      // greathall (合流点、通行の軽い戦闘のみ)
-      {pos:new THREE.Vector3(92,0,116), variant:{color:0x6a5a8a, hp:70, atk:14, speed:2.3, atkType:'charge', xp:22, goldBonus:[7,11]}},
-      // 引き撃ち(kite、敵デザイン強化#21): 広い大広間で距離を取りながら
-      // 弓を射てくる衛兵。突進一辺倒だった洋館の戦闘に「詰め寄る動機」を作る
-      {pos:new THREE.Vector3(108,0,124), variant:{color:0x7a6a4a, hp:65, atk:15, speed:2.2, atkType:'kite', xp:24, goldBonus:[7,11], projColor:0xd8b878}},
-      // grand: 本館大階段(第2分岐 上振れ) - servantより明確に敵が多い
-      {pos:new THREE.Vector3(90,0,164), variant:{color:0x8a3a5a, hp:120, atk:22, speed:2.6, atkType:'charge', xp:38, goldBonus:[12,18]}},
-      {pos:new THREE.Vector3(110,0,164),variant:{color:0x8a3a5a, hp:120, atk:22, speed:2.6, atkType:'charge', xp:38, goldBonus:[12,18]}},
-      {pos:new THREE.Vector3(100,0,180),variant:{color:0x6a2a7a, hp:170, atk:26, speed:2.7, atkType:'fire',   xp:52, goldBonus:[16,24], projColor:0xc06ae0, strongMob:true}},
-      // servant: 使用人通路(第2分岐 基準線) - 戦闘はほぼ無い
-      {pos:new THREE.Vector3(54,0,112), variant:{color:0x4a3a5a, hp:50, atk:10, speed:1.0, atkType:'passive', xp:15, goldBonus:[4,8]}},
+      /* ---- 囚われの洋館(最初のメインシナリオ) ----
+         徘徊する常設敵は置かない。戦うのはシナリオ上の5点だけで、そのうち
+         森(戦闘①)と使用人区画(戦闘③)は事前配置ではなくイベントで湧く
+         (spawnForestAmbush / spawnServantAmbush、下記)。
+         ここに並ぶのは封鎖部屋の2つ ―― 大広間(戦闘②)と地下奥(戦闘④)。
+         どちらも roomTag 付きなので、倒したあとその出撃中に復活しない
+         (updateEnemies の復活処理そのものには手を触れていない)。 */
+      // 戦闘②: 大広間。踏み込むと扉が落ちる(door.seal, roomTag と同じタグ)
+      {pos:new THREE.Vector3(-11,0,-79), variant:{color:0x8a3a3a, hp:74, atk:15, speed:2.6, atkType:'charge', xp:22, goldBonus:[6,10], roomTag:'manorHall'}},
+      {pos:new THREE.Vector3( 11,0,-79), variant:{color:0x8a3a3a, hp:74, atk:15, speed:2.6, atkType:'charge', xp:22, goldBonus:[6,10], roomTag:'manorHall'}},
+      {pos:new THREE.Vector3(  0,0,-87), variant:{color:0xd06a2a, hp:62, atk:14, speed:0.7, atkType:'fire',   xp:24, goldBonus:[7,11], projColor:0xffb066, roomTag:'manorHall'}},
+      // 引き撃ち。広い部屋で距離を取ってくるので、突進だけを覚えたままでは押し切れない
+      {pos:new THREE.Vector3( 16,0,-88), variant:{color:0x7a6a4a, hp:66, atk:15, speed:2.2, atkType:'kite',   xp:26, goldBonus:[7,11], projColor:0xd8b878, roomTag:'manorHall'}},
+      // 戦闘④: 地下奥。ボスの手前、この出撃でいちばん重い雑魚戦
+      {pos:new THREE.Vector3(130,0,100), variant:{color:0x8a3a5a, hp:118, atk:22, speed:2.6, atkType:'charge', xp:38, goldBonus:[12,18], roomTag:'manorDeep', gateTag:'manorDeep'}},
+      {pos:new THREE.Vector3(150,0,100), variant:{color:0x8a3a5a, hp:118, atk:22, speed:2.6, atkType:'charge', xp:38, goldBonus:[12,18], roomTag:'manorDeep', gateTag:'manorDeep'}},
+      {pos:new THREE.Vector3(140,0,108), variant:{color:0x6a2a7a, hp:104, atk:21, speed:0.8, atkType:'fire',   xp:36, goldBonus:[12,18], projColor:0xc06ae0, roomTag:'manorDeep', gateTag:'manorDeep'}},
+      // Phase C(#36)の中ボス枠。名乗りだけ上げて、正体は語らない
+      {pos:new THREE.Vector3(140,0,113), variant:{color:0x5a2a6a, hp:190, atk:26, speed:2.8, atkType:'charge', xp:58, goldBonus:[18,26], strongMob:true, guardian:true, roomTag:'manorDeep', gateTag:'manorDeep',
+        midbossName:'燭台を提げた影', midbossFlavor:'影がほどけ、床に落ちた燭台だけが、まだ小さく揺れていた。'}},
       // ghost ship deck (Lv.6-10 scenario)
       {pos:new THREE.Vector3(-4,0,108), variant:{color:0x8fb5c9, hp:95, atk:19, speed:2.5, atkType:'charge', xp:30, goldBonus:[10,16]}},
       {pos:new THREE.Vector3(4,0,105),  variant:{color:0x6fa8d8, hp:70, atk:16, speed:0.7, atkType:'fire', xp:32, goldBonus:[10,16], projColor:0x7ecbe8}},
@@ -267,23 +282,20 @@
     ];
     spots.filter(s=>worldKeyForPos(s.pos)===_spawnWorldKey)
          .forEach(s=> enemies.push(buildEnemy(s.pos, s.variant)));
-    // 地下納骨堂の周回変異(★4以上): 亡霊が1体増える
-    if(_spawnWorldKey==='mansion' && routeMutationActive('mansion', 'crypt')){
-      enemies.push(buildEnemy(new THREE.Vector3(80,0,-64),
-        {color:0x5a1a7a, hp:95, atk:20, speed:2.7, atkType:'charge', xp:28, goldBonus:[9,15]}));
-    }
-    // 「山を登る」拡張(★3/★4): 地下納骨堂の最奥・屋根裏。どちらも建物側の
-    // buildMansionCryptDepths()/buildMansionAttic()が同じ★条件でしか部屋自体を
-    // 建てないので、床のない場所に敵だけ浮く事故は起きない
+    /* 「山を登る」拡張(★3/★4): 保管庫の奥・屋根裏。どちらも建物側の
+       buildMansionCryptDepths()/buildMansionAttic()が同じ★条件でしか部屋
+       自体を建てないので、床のない場所に敵だけ浮く事故は起きない。
+       一本道化にあわせて座標だけ新しい間取りへ移してある(周回の仕組み
+       そのものは温存) */
     if(_spawnWorldKey==='mansion' && scenarioStars('mansion') >= MANSION_CRYPT_DEPTHS_STARS){
-      enemies.push(buildEnemy(new THREE.Vector3(70,0,-85),
-        {color:0x6a2a7a, hp:165, atk:27, speed:2.7, atkType:'charge', xp:42, goldBonus:[14,20], strongMob:true, guardian:true}));
+      enemies.push(buildEnemy(new THREE.Vector3(144,0,138),
+        {color:0x6a2a7a, hp:165, atk:27, speed:2.7, atkType:'charge', xp:42, goldBonus:[14,20], strongMob:true, guardian:true, roomTag:'manorDepths'}));
     }
     if(_spawnWorldKey==='mansion' && scenarioStars('mansion') >= MANSION_ATTIC_STARS){
-      enemies.push(buildEnemy(new THREE.Vector3(159,0,-44),
-        {color:0x8a3a5a, hp:250, atk:36, speed:2.7, atkType:'charge', xp:72, goldBonus:[22,32], strongMob:true, guardian:true}));
-      enemies.push(buildEnemy(new THREE.Vector3(168,0,-36),
-        {color:0x6a3a8a, hp:180, atk:31, speed:0.9, atkType:'fire', xp:64, goldBonus:[19,28], projColor:0xd8b0ff}));
+      enemies.push(buildEnemy(new THREE.Vector3(154,0,-44),
+        {color:0x8a3a5a, hp:250, atk:36, speed:2.7, atkType:'charge', xp:72, goldBonus:[22,32], strongMob:true, guardian:true, roomTag:'manorAttic'}));
+      enemies.push(buildEnemy(new THREE.Vector3(164,0,-36),
+        {color:0x6a3a8a, hp:180, atk:31, speed:0.9, atkType:'fire', xp:64, goldBonus:[19,28], projColor:0xd8b0ff, roomTag:'manorAttic'}));
     }
     // 幽霊船「山を登る」拡張(★4): 船倉最深部。buildGhostShipDepths()が
     // 同じ★条件でしか部屋を建てないので、こちらも床のない場所に敵だけ
@@ -334,7 +346,7 @@
     }
     // 屋根裏へは主を倒した後にしか上れない(buildStairsのgateTag参照)。
     // ★4未満はgateTagがそもそも付かず、階段自体もbuildMansion側で建てない
-    if(_spawnWorldKey==='mansion') enemies.push(buildBoss(new THREE.Vector3(0,0,-56),
+    if(_spawnWorldKey==='mansion') enemies.push(buildBoss(MANSION_BOSS_POS.clone(),
       scenarioStars('mansion') >= MANSION_ATTIC_STARS
         ? {gateTag:'mansionBoss', endsRun:false}
         : {}));

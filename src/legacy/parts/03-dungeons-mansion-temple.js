@@ -18,60 +18,22 @@
      three.js を読み込まずにこの定義をそのまま評価できるようにするため。
   ========================================================= */
   const ROUTE_GRAPHS = {
+    /* 洋館は最初のメインシナリオなので、初回プレイの分かりやすさを優先して
+       一本道にしてある。分岐(kind:'branch' + group)を1つも持たないため、
+       routeCanEnter() は常に true を返し、分岐ロックのUI・確定メッセージ・
+       踏破組み合わせ(core/route-combos.js)は自動的に無効化される
+       ―― グラフの仕組み自体は他ダンジョンのために残してある。
+       ここに並ぶのは「階段で階層をまたいだ」区切りだけ。同じ階の中の
+       部屋移動は MANSION_ROOMS の部屋名(ミニマップ)が案内する。 */
     mansion: {
-      start: 'hall',
+      start: 'forest',
       nodes: {
-        hall: {
-          name:'玄関ホール', kind:'common',
-          exits:['crypt','study','court'],
-        },
-        crypt: {
-          name:'地下納骨堂', kind:'branch', group:'m1',
-          tags:['combat','gear'], hiddenTag:'noheal',
-          entry:[70,0,-30],
-          exits:['hall','greathall'],
-          commitMsg:'🕯️ 背後で扉が重く軋んだ。もう書斎へは戻れそうにない……',
-          lockedMsg:'🔒 地下へ続く階段は瓦礫で塞がれている。書斎の道を選んだ以上、後戻りはできない。',
-        },
-        study: {
-          name:'二階書斎', kind:'branch', group:'m1',
-          tags:['puzzle','unid'], hiddenTag:'curse',
-          entry:[-70,0,-30],
-          exits:['hall','greathall'],
-          commitMsg:'🕯️ 階下から扉の閉まる音がした。もう地下へは戻れそうにない……',
-          lockedMsg:'🔒 2階へ続く階段はきつく施錠されている。地下の道を選んだ以上、後戻りはできない。',
-        },
-        court: {
-          name:'荒れた中庭', kind:'branch', group:'m1',
-          tags:['short','heal'], hiddenTag:'lore',
-          entry:[100,0,60],
-          exits:['hall','greathall'],
-          commitMsg:'🌿 くぐった蔦が背後で絡まり合った。もう屋敷の中へは戻れそうにない……',
-          lockedMsg:'🔒 中庭へ続く裏口は蔦で塞がれている。別の道を選んだ以上、後戻りはできない。',
-        },
-        greathall: {
-          name:'大広間', kind:'common', entry:[100,0,110],
-          exits:['grand','servant'],
-        },
-        grand: {
-          name:'本館大階段', kind:'branch', group:'m2',
-          tags:['combat','chest'], hiddenTag:'chandelier',
-          entry:[100,0,172],
-          exits:['greathall','boss'],
-          commitMsg:'⚔️ 背後で燭台の火が一斉に消えた。もう使用人通路へは戻れそうにない……',
-          lockedMsg:'🔒 本館大階段は瓦礫で塞がれている。使用人通路を選んだ以上、後戻りはできない。',
-        },
-        servant: {
-          name:'使用人通路', kind:'branch', group:'m2',
-          tags:['quiet','short'], hiddenTag:'hiddenroom',
-          entry:[54,0,110],
-          exits:['greathall','boss'],
-          commitMsg:'🕯️ 背後で通路の扉に鍵が下りる音がした。もう大階段へは戻れそうにない……',
-          lockedMsg:'🔒 使用人通路の扉は施錠されている。大階段を選んだ以上、後戻りはできない。',
-        },
-        boss: {
-          name:'主の間', kind:'boss',
-        },
+        forest:    {name:'古い森道',   kind:'common', exits:['manor1f']},
+        manor1f:   {name:'洋館一階',   kind:'common', exits:['manor2f']},
+        manor2f:   {name:'洋館二階',   kind:'common', entry:[77,0,-91],  exits:['servant']},
+        servant:   {name:'使用人区画', kind:'common', entry:[74,0,44],   exits:['basement']},
+        basement:  {name:'地下',       kind:'common', entry:[138,0,45],  exits:['boss']},
+        boss:      {name:'主の間',     kind:'boss',   entry:[80,0,137]},
       }
     },
   };
@@ -80,7 +42,10 @@
      よう純粋なデータに保っている。分岐選択に伴う副作用(ボス戦修飾など)は
      ここではなく、この対になる小さな表で扱う。 */
   const ROUTE_ONCOMMIT_EFFECTS = {
-    grand: ()=>{ if(state.bossMods.indexOf('chandelier')<0) state.bossMods.push('chandelier'); },
+    /* 洋館の 'grand'(本館大階段ルート)がボス戦にシャンデリアを足していたが、
+       分岐そのものを初回シナリオから外したので空になった。シャンデリアは
+       主の間の「見上げると気づく」一度きりの仕掛けとして残してある
+       (buildMansionChandelier参照)。表と仕組みは他ダンジョン用に温存。 */
   };
 
   /* ---- 周回変異(ルート単位) ----
@@ -90,7 +55,9 @@
      実際の適用は各シナリオのビルド関数・spawnEnemies() 側で
      routeMutationActive() を参照する形にする(ROUTE_GRAPHS 本体は汚さない)。 */
   const ROUTE_MUTATION_STARS = 4;
-  const ROUTE_MUTATABLE_NODES = { mansion: ['court', 'crypt'] };
+  // 洋館は一本道になり、変異の対象だった中庭/地下納骨堂という「選ぶ道」が
+  // 無くなったため休止中。仕組みは他ダンジョンのために残してある
+  const ROUTE_MUTATABLE_NODES = { };
 
   function routeMutationActive(scKey, nodeKey){
     const list = ROUTE_MUTATABLE_NODES[scKey];
@@ -276,9 +243,47 @@
   const SHADOW_GUIDE_POS = new THREE.Vector3(7.5,0,8.5);
   let nearbyShadowGuide = false;
 
-  // Forest decorations, hedge maze and the jump platform. Part of the
-  // mansion world rather than global scenery, so they only exist while
-  // the player is actually in that scenario.
+  /* =========================================================
+     THE OLD FOREST ROAD (森の入口 → 古い森道 → 荷車 → 戦闘① → 森の奥 → 前庭)
+
+     最初のメインシナリオの導入。生垣の直線迷路をやめ、木立そのもので
+     幅6〜8の自然な道を折り返させてある。道は FOREST_PATH の折れ線1本で
+     定義し、その両脇へ当たり判定つきの木立を並べるだけ ―― 区画を手で
+     組むより、道を1本引くほうが「森を歩いている」形になりやすい。
+
+     ここには常設の徘徊敵を置かない。唯一の戦闘(戦闘①)は、人影が消えた
+     直後にイベントで湧く(spawnForestAmbush、07-ai-combat.js)。
+  ========================================================= */
+  // 出撃地点(0,-1.5)から前庭(0,-38)まで。折り返しながら北上する
+  const FOREST_PATH = [
+    [  0,   2], [  1,  -6], [-14, -11],   // 町の門を出て、西へ緩く逸れる
+    [-15, -17], [  6, -21],               // 東へ長く折り返す(この区間に荷車)
+    [ 15, -25], [ 11, -31],               // 北へ。ここが戦闘①の広がり
+    [ -2, -35], [  0, -39],               // 洋館が見えはじめ、前庭へ出る
+  ];
+  const FOREST_HALF_WIDTH = 4.2;
+  const CART_POS   = new THREE.Vector3(-3, 0, -19.5);   // 放置された荷車
+  const FOREST_OMEN_POS  = new THREE.Vector3(14.5, 0, -26);  // 道の先に立つ人影(次の折れの上)
+  const FOREST_OMEN_TRIG = new THREE.Vector3(10.5, 0, -23);  // 人影に気づく地点(道の上)
+  const FOREST_FIGHT_POS = new THREE.Vector3(13, 0, -28);    // 戦闘①(道の上)
+  const MANSION_VIEW_POS = new THREE.Vector3(3, 0, -33.5); // 木々の間から洋館が見える
+  const MANSION_YARD_POS = new THREE.Vector3(0, 0, -36);   // 前庭
+
+  // 道の折れ線から「そこは道の上か」を答える。飾りを置く時に道を塞がない
+  // ためと、木立の壁を道の外側にだけ並べるために使う
+  function distToForestPath(x, z){
+    let best = Infinity;
+    for(let i=0;i<FOREST_PATH.length-1;i++){
+      const [ax,az] = FOREST_PATH[i], [bx,bz] = FOREST_PATH[i+1];
+      const dx = bx-ax, dz = bz-az;
+      const len2 = dx*dx + dz*dz;
+      let t = len2 ? ((x-ax)*dx + (z-az)*dz) / len2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      best = Math.min(best, Math.hypot(x - (ax+dx*t), z - (az+dz*t)));
+    }
+    return best;
+  }
+
   function buildForest(){
     // ground
     const groundTex = makeGrassTexture('#2a3a2a', ['#3a4a35','#22301f','#354a2e','#1f2b1c','#465a38'], groundSize/5, groundSize/5);
@@ -296,33 +301,91 @@
     boundaryWall.position.y = 3;
     scene.add(boundaryWall);
 
-    // helper: keep decorations out of the mansion footprint / spawn / platform
+    const trunkMat = new THREE.MeshStandardMaterial({color:0x3f2c1c, roughness:0.9});
+    const leafMats = [0x1f4a2c,0x265533,0x2c5e3a].map(c=>new THREE.MeshStandardMaterial({color:c, roughness:0.85}));
+
+    // 一本の木。solid=true なら幹に当たり判定を持たせて道の壁になる
+    function tree(x, z, scale, solid){
+      const h = (2.6 + Math.random()*2.2) * (scale || 1);
+      const g = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.26,h,7), trunkMat);
+      trunk.position.y = h/2; trunk.castShadow = false;
+      g.add(trunk);
+      const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.1+Math.random()*0.5, 2.4+Math.random()*1.2, 8),
+                                  leafMats[Math.floor(Math.random()*leafMats.length)]);
+      leaf.position.y = h + 1.1; leaf.castShadow = false;
+      g.add(leaf);
+      g.position.set(x, 0, z);
+      g.rotation.y = Math.random()*Math.PI*2;
+      scene.add(g);
+      if(solid) walls.push({minX:x-0.55, maxX:x+0.55, minZ:z-0.55, maxZ:z+0.55});
+    }
+
+    // keep decorations out of the mansion footprint / spawn / other zones
     function isBlockedZone(x,z){
-      if(x>-17 && x<17 && z<-17 && z>-65) return true;         // mansion footprint
-      if(x>-10 && x<10 && z>4 && z<26) return true;              // tavern building
-      if(x>-16 && x<16 && z>-2 && z<2) return true;             // town gate
-      if(Math.hypot(x-24, z-(-4)) < 7) return true;             // jump platform
-      if(x>-15 && x<15 && z<-1.5 && z>-19) return true;         // forest maze corridor
-      if(x>55 && x<85 && z<-25 && z>-55) return true;           // basement zone (teleport area)
-      if(x>-85 && x<-55 && z<-25 && z>-55) return true;         // second floor zone (teleport area)
-      if(x>-21 && x<20 && z>30 && z<135) return true;            // ghost ship hull zone (teleport area)
-      if(x>-45 && x<-19 && z>95 && z<135) return true;           // ghost ship boss hold (teleport area)
-      if(x>-116 && x<-74 && z>33 && z<65) return true;           // waterway pier + restroom (teleport area)
-      if(x>-123 && x<-77 && z>-65 && z<25) return true;          // waterway underground (teleport area) - covers the gallery, lower corridor and boss chamber too
+      if(x>-34 && x<24 && z<-38 && z>-104) return true;         // 洋館1階の footprint
+      if(x>-10 && x<10 && z>4 && z<26) return true;              // 酒場の建物
+      if(x>44 && x<70 && z>2 && z<28) return true;               // 酒場2階(テレポート先)
+      if(Math.hypot(x-24, z-(-4)) < 7) return true;              // 岩棚(跳躍用の高台)
+      if(x>0 && x<20 && z>-8 && z<0) return true;                // 岩棚へ抜ける脇道(道の東側)
+      if(x>44 && x<112 && z<-18 && z>-100) return true;          // 洋館2階(テレポート先)
+      if(x>48 && x<104 && z>34 && z<104) return true;            // 洋館1階奥(テレポート先)
+      if(x>114 && x<164 && z>34 && z<122) return true;           // 地下(テレポート先)
+      if(x>52 && x<108 && z>126 && z<186) return true;           // 主の間(テレポート先)
+      if(x>144 && x<176 && z>-58 && z<-22) return true;          // 屋根裏(周回★4)
+      if(x>-21 && x<20 && z>30 && z<135) return true;            // 幽霊船(テレポート先)
+      if(x>-45 && x<-19 && z>95 && z<135) return true;           // 幽霊船ボス倉(テレポート先)
+      if(x>-116 && x<-74 && z>33 && z<65) return true;           // 水路の桟橋+便所(テレポート先)
+      if(x>-123 && x<-77 && z>-65 && z<25) return true;          // 水路の地下(テレポート先)
       return false;
     }
 
-    /* Long grass. The reference shots are carrying most of their depth in
-       the ground cover, not the terrain, so this drops clumps of crossed
-       blades over the open ground. They all weld into one mesh, so the whole
-       lot costs a single draw call and nothing to update. */
+    /* ---- 道の両脇の木立(当たり判定つき) ----
+       折れ線に沿って一定間隔で法線方向へ振り、内側=道、外側=森という
+       関係を作る。外周へ向かって3列重ねるので、隙間から抜けられない。 */
+    for(let i=0;i<FOREST_PATH.length-1;i++){
+      const [ax,az] = FOREST_PATH[i], [bx,bz] = FOREST_PATH[i+1];
+      const dx = bx-ax, dz = bz-az;
+      const len = Math.hypot(dx,dz);
+      const nx = -dz/len, nz = dx/len;                 // 進行方向の法線
+      const steps = Math.max(2, Math.round(len/1.5));
+      for(let s=0;s<=steps;s++){
+        const t = s/steps;
+        const px = ax + dx*t, pz = az + dz*t;
+        [-1, 1].forEach(side=>{
+          for(let row=0; row<3; row++){
+            const off = FOREST_HALF_WIDTH + row*1.7 + Math.random()*0.7;
+            const tx = px + nx*off*side + (Math.random()-0.5)*0.8;
+            const tz = pz + nz*off*side + (Math.random()-0.5)*0.8;
+            if(isBlockedZone(tx,tz)) continue;
+            if(distToForestPath(tx,tz) < FOREST_HALF_WIDTH - 0.2) continue;  // 道を潰さない
+            if(row>0 && Math.random() < 0.45) continue;                       // 外側は疎らでよい
+            tree(tx, tz, 1, row===0);
+          }
+        });
+      }
+    }
+
+    // 道から離れた場所の背景の森。当たり判定は持たせない(描画だけ)
+    for(let i=0;i<70;i++){
+      const ang = Math.random()*Math.PI*2;
+      const rad = 12 + Math.random()*62;
+      const x = Math.cos(ang)*rad, z = Math.sin(ang)*rad;
+      if(isBlockedZone(x,z)) continue;
+      if(distToForestPath(x,z) < FOREST_HALF_WIDTH + 5.5) continue;
+      tree(x, z, 1, false);
+    }
+
+    /* 下草。参考画像の奥行きは地面側が作っているので、道の縁に沿って
+       交差した草の房を落としていく。全部1つのメッシュへ溶接するので
+       ドローコールは1回で済む */
     (()=>{
       const tuftMat = new THREE.MeshStandardMaterial({color:0x375c2c, roughness:0.95,
                         side:THREE.DoubleSide});
       const geos = [];
-      for(let i=0;i<220;i++){
+      for(let i=0;i<240;i++){
         const ang = Math.random()*Math.PI*2;
-        const rad = 8 + Math.random()*70;
+        const rad = 6 + Math.random()*60;
         const x = Math.cos(ang)*rad, z = Math.sin(ang)*rad;
         if(isBlockedZone(x,z)) continue;
         const h = 0.55 + Math.random()*0.75;
@@ -346,14 +409,16 @@
       }
     })();
 
-    // scattered rocks
+    // 道端の岩。道の縁に寄せて、通行の邪魔にならない位置だけ使う
     const rockMat = new THREE.MeshStandardMaterial({color:0x54504a, roughness:1});
-    for(let i=0;i<16;i++){
-      const s = 0.8+Math.random()*1.6;
+    for(let i=0;i<22;i++){
       const ang = Math.random()*Math.PI*2;
-      const rad = 14 + Math.random()*40;
+      const rad = 8 + Math.random()*44;
       const x = Math.cos(ang)*rad, z = Math.sin(ang)*rad;
       if(isBlockedZone(x,z)) continue;
+      const d = distToForestPath(x,z);
+      if(d < FOREST_HALF_WIDTH - 1.2 || d > FOREST_HALF_WIDTH + 4) continue;
+      const s = 0.8+Math.random()*1.6;
       const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s,0), rockMat);
       rock.position.set(x, s*0.4, z);
       rock.rotation.set(Math.random(),Math.random(),Math.random());
@@ -363,93 +428,146 @@
       walls.push({minX:x-hw, maxX:x+hw, minZ:z-hw, maxZ:z+hw});
     }
 
-    // forest trees
-    const trunkMat = new THREE.MeshStandardMaterial({color:0x3f2c1c, roughness:0.9});
-    const leafMats = [0x1f4a2c,0x265533,0x2c5e3a].map(c=>new THREE.MeshStandardMaterial({color:c, roughness:0.85}));
-    for(let i=0;i<46;i++){
-      const ang = Math.random()*Math.PI*2;
-      const rad = 10 + Math.random()*66;
-      const x = Math.cos(ang)*rad, z = Math.sin(ang)*rad;
-      if(isBlockedZone(x,z)) continue;
-      const h = 2.6 + Math.random()*2.2;
-      const tree = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.24,h,7), trunkMat);
-      trunk.position.y = h/2; trunk.castShadow = false;
-      tree.add(trunk);
-      const leafMat = leafMats[Math.floor(Math.random()*leafMats.length)];
-      const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.1+Math.random()*0.5, 2.4+Math.random()*1.2, 8), leafMat);
-      leaf.position.y = h + 1.1; leaf.castShadow = false;
-      tree.add(leaf);
-      tree.position.set(x,0,z);
-      tree.rotation.y = Math.random()*Math.PI*2;
-      const s = 0.85+Math.random()*0.4;
-      tree.scale.set(s,s,s);
-      scene.add(tree);
-    }
-
-    // maze hedges: a winding corridor of dense trees guiding the way to the mansion
-    const hedgeMat = new THREE.MeshStandardMaterial({color:0x1a3320, roughness:0.95});
-    const hedgeRows = [
-      {cx:-6, cz:-3,  sx:14},  // gap on the east side (x > 1) - first weave out of town
-      {cx:6,  cz:-6,  sx:14},  // gap on the west side (x < -1)
-      {cx:-6, cz:-11, sx:14},  // gap on the east side (x > 1)
-      {cx:6,  cz:-16, sx:14},  // gap on the west side (x < -1)
-    ];
-    hedgeRows.forEach(h=>{
-      addWallBox(h.cx, h.cz, h.sx, 1.4, hedgeMat);
-      const steps = 7;
-      for(let i=0;i<=steps;i++){
-        const tx = h.cx - h.sx/2 + (h.sx/steps)*i + (Math.random()-0.5)*0.6;
-        const tz = h.cz + (Math.random()-0.5)*0.9;
-        const th = 2.3 + Math.random()*1.6;
-        const tree = new THREE.Group();
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.2,th,6), trunkMat);
-        trunk.position.y = th/2; trunk.castShadow = false;
-        tree.add(trunk);
-        const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.0+Math.random()*0.4, 2.1+Math.random()*1.0, 7), leafMats[Math.floor(Math.random()*leafMats.length)]);
-        leaf.position.y = th + 1.0; leaf.castShadow = false;
-        tree.add(leaf);
-        tree.position.set(tx, 0, tz);
-        scene.add(tree);
-      }
-    });
-
-    // narrowing stubs: pinch each gap to a ~4-wide passage (widened from the original 2.5)
-    const hedgeStubs = [
-      {cx:5.5,  cz:-3,  h:2.4},
-      {cx:-5.5, cz:-6,  h:6},
-      {cx:5.5,  cz:-11, h:6},
-      {cx:-5.5, cz:-16, h:6},
-    ];
-    hedgeStubs.forEach(s=>{
-      addWallBox(s.cx, s.cz, 1, s.h, hedgeMat);
-      for(let i=0;i<3;i++){
-        const th = 2.2 + Math.random()*1.4;
-        const tree = new THREE.Group();
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.18,th,6), trunkMat);
-        trunk.position.y = th/2; trunk.castShadow = false;
-        tree.add(trunk);
-        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.9+Math.random()*0.4, 2.0+Math.random()*0.9, 7), leafMats[Math.floor(Math.random()*leafMats.length)]);
-        leaf.position.y = th + 0.9; leaf.castShadow = false;
-        tree.add(leaf);
-        tree.position.set(s.cx + (Math.random()-0.5)*0.7, 0, s.cz + (Math.random()-0.5)*(s.h-1));
-        scene.add(tree);
-      }
-    });
-
-    // a raised platform to demonstrate jump/verticality (off to the side, away from the maze)
-    const platMat = new THREE.MeshStandardMaterial({color:0x3d3350, roughness:0.85});
-    platform = new THREE.Mesh(new THREE.BoxGeometry(8,1.6,8), platMat);
+    /* 岩棚(跳躍で登れる高台)。道のすぐ脇にあり、跳べば上の宝箱に届く
+       ―― 「跳べる」ことを寄り道ひとつで思い出させるための場所。
+       高さ1.6の判定は13-update-loop.js側に (24,-4) 決め打ちで入っているので
+       座標は動かせない(platform変数もそこで参照される) */
+    const ledgeMat = new THREE.MeshStandardMaterial({color:0x4a4740, roughness:0.95});
+    platform = new THREE.Mesh(new THREE.BoxGeometry(8,1.6,8), ledgeMat);
     platform.position.set(24,0.8,-4);
     platform.castShadow = true; platform.receiveShadow = true;
     scene.add(platform);
-    // little ramp stair (visual cue)
-    for(let i=0;i<3;i++){
-      const step = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.5+ i*0.5,1.4), platMat);
-      step.position.set(24-5.2, (0.5+i*0.5)/2, -4+2.6-i*1.3);
-      step.castShadow=true; step.receiveShadow=true;
-      scene.add(step);
+    for(let i=0;i<5;i++){   // 苔むした岩を積んで、切り出した箱に見えないようにする
+      const s = 1.0 + Math.random()*1.3;
+      const boulder = new THREE.Mesh(new THREE.DodecahedronGeometry(s,0), rockMat);
+      const a = Math.random()*Math.PI*2;
+      boulder.position.set(24 + Math.cos(a)*4.2, 0.4 + Math.random()*0.8, -4 + Math.sin(a)*4.2);
+      boulder.rotation.set(Math.random(),Math.random(),Math.random());
+      scene.add(boulder);
     }
+
+    /* 脇道と森の入口の囲い。道そのものは折れ線から起こしているので、
+       ここは「その外へ出られない」ことだけを担当する ―― 町の門と、
+       岩棚のある袋小路のふち。 */
+    // 門の開口(x -4..4)だけを残して、南側を左右から塞ぐ
+    for(let x= 4.6; x<=32; x+=2.4) tree(x, 1.5, 1, true);   // 脇道の南縁(町側)
+    for(let x=-30; x<=-4.6; x+=2.4) tree(x, 1.5, 1, true);  // 門の西側
+    for(let x= 5;  x<=32; x+=2.4) tree(x, -9.5, 1, true);   // 脇道の北縁
+    for(let z=-9;  z<=1;  z+=2.2)  tree(32, z, 1, true);    // 脇道の東の突き当たり
+    // 町の門。ここをくぐると森、という区切りをはっきり見せる
+    const gateMat = new THREE.MeshStandardMaterial({color:0x4a4038, roughness:0.9});
+    [-4.2, 4.2].forEach(x=>{
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.7,4.2,0.7), gateMat);
+      post.position.set(x, 2.1, 1.5);
+      post.castShadow = true;
+      scene.add(post);
+      walls.push({minX:x-0.45, maxX:x+0.45, minZ:1.05, maxZ:1.95});
+    });
+    const gateBeam = new THREE.Mesh(new THREE.BoxGeometry(9.8,0.6,0.6), gateMat);
+    gateBeam.position.set(0, 4.0, 1.5);
+    gateBeam.castShadow = true;
+    scene.add(gateBeam);
+
+    buildForestBeats();
+  }
+
+  /* 森のイベント。文章より先に「見える・聞こえる」が来るように組んである。
+     ―― 荷車(視覚)→ 人影(視覚)→ 戦闘(体験)→ 洋館が見える(視覚) の順。 */
+  function buildForestBeats(){
+    // 1. 町の門を出てすぐ。ここだけは短い一言で「これから森へ入る」と示す
+    registerProximityEvent(new THREE.Vector3(0,0,-6), 3.5, '', ()=>{
+      spawnToast('🌲 森へ入った。洋館は、この道の先だという');
+      return null;   // 会話は出さない(linesがnullなら発火だけして黙る)
+    });
+
+    // 2. 放置された荷車。説明しない ―― ただ「なぜここに」と思わせる
+    buildAbandonedCart(CART_POS);
+    registerProximityEvent(CART_POS, 5.2, '', ()=>{
+      sfx('tick');
+      spawnToast('🛒 荷車が一台、道の真ん中に置き去りにされている');
+      return null;
+    });
+
+    // 3. 最初の異常。道の先に誰かが立っている ―― 近づくと消える。無言
+    registerProximityEvent(FOREST_OMEN_TRIG, 5.0, '', ()=>{
+      spawnApparition(FOREST_OMEN_POS, {vanishDist:5.0, color:0x35402f, facing:Math.PI});
+      sfx('chime');
+      return null;
+    });
+
+    // 4. 戦闘①。人影が消えたあたりで、道の先の茂みが動く
+    registerProximityEvent(FOREST_FIGHT_POS, 5.6, '', ()=>{
+      spawnForestAmbush();
+      return null;
+    });
+
+    // 5. 木々の間から洋館。ここで初めて建物が視界に入る
+    registerProximityEvent(MANSION_VIEW_POS, 5.0, '', ()=>{
+      spawnToast('🏚️ 木々の切れ間に、洋館の影が見えた');
+      return null;
+    });
+
+    // 6. 前庭。中に入るしかない、という空気だけ置く
+    registerProximityEvent(MANSION_YARD_POS, 4.6, '', [
+      '前庭は手入れをやめて久しい。踏み固められた道だけが、玄関へ真っ直ぐ続いている。',
+      '窓はどれも暗い。……呼んでも、返事は無さそうだ。'
+    ]);
+  }
+
+  /* 放置された荷車。何を運んでいたのかも、なぜ置いていったのかも書かない。
+     車輪が外れ、積荷が転がったままになっている、という形だけを作る。 */
+  function buildAbandonedCart(pos){
+    const woodMat  = new THREE.MeshStandardMaterial({color:0x4a3524, roughness:0.9});
+    const darkMat  = new THREE.MeshStandardMaterial({color:0x2e2116, roughness:0.9});
+    const clothMat = new THREE.MeshStandardMaterial({color:0x6a5a44, roughness:0.95});
+    const g = new THREE.Group();
+
+    // 荷台。片側の車輪が外れているので、前のめりに傾いている
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 1.7), woodMat);
+    bed.position.set(0, 0.75, 0);
+    bed.rotation.z = 0.18;
+    bed.castShadow = true; bed.receiveShadow = true;
+    g.add(bed);
+    [[-1.2,0.9],[1.2,0.9],[-1.2,-0.9],[1.2,-0.9]].forEach(([x,z],i)=>{
+      const side = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.12), darkMat);
+      side.position.set(x, 0.5, z);
+      g.add(side);
+      if(i===3) return;   // 一本だけ折れている
+    });
+    // 梶棒。地面に突き刺さるように下がっている
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 0.12), woodMat);
+    shaft.position.set(-2.2, 0.5, 0.35);
+    shaft.rotation.z = -0.3;
+    g.add(shaft);
+    // 車輪。3つは付いたまま、1つだけ少し離れて転がっている
+    function wheel(x, z, fallen){
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.62,0.62,0.14,12), darkMat);
+      if(fallen){ w.rotation.x = -Math.PI/2; w.position.set(x, 0.08, z); }
+      else       { w.rotation.z = Math.PI/2; w.position.set(x, 0.62, z); }
+      w.castShadow = true;
+      g.add(w);
+    }
+    wheel(-1.0,  0.95, false);
+    wheel( 1.0,  0.95, false);
+    wheel( 1.0, -0.95, false);
+    wheel( 2.3, -1.9,  true);
+    // 転がり落ちた積荷と、はだけた覆い布
+    const cloth = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.06, 1.4), clothMat);
+    cloth.position.set(-0.6, 0.04, 1.6);
+    cloth.rotation.y = 0.4;
+    g.add(cloth);
+    for(let i=0;i<4;i++){
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.5,0.55), woodMat);
+      crate.position.set(-1.4 + Math.random()*3.2, 0.25, 1.0 + Math.random()*1.6);
+      crate.rotation.y = Math.random()*2;
+      crate.rotation.z = (Math.random()-0.5)*0.5;
+      crate.castShadow = true;
+      g.add(crate);
+    }
+    g.position.copy(pos);
+    g.rotation.y = 0.5;
+    scene.add(g);
+    walls.push({minX:pos.x-1.6, maxX:pos.x+1.6, minZ:pos.z-1.1, maxZ:pos.z+1.1});
   }
 
   /* =========================================================
@@ -1727,25 +1845,82 @@
     bartender.rotation.y = Math.PI; // faces south, toward the entrance
     scene.add(bartender);
 
-    // blacksmith - handles appraisal / gear, so it's no longer a HUD panel
-    const smith = new THREE.Group();
-    const sBody = new THREE.Mesh(new THREE.CylinderGeometry(0.46,0.54,1.15,10),
-      new THREE.MeshStandardMaterial({color:0x3a4450, roughness:0.85}));
-    sBody.position.y = 0.95; smith.add(sBody);
-    const sHead = new THREE.Mesh(new THREE.SphereGeometry(0.34,12,10), skinMat);
-    sHead.position.y = 1.75; smith.add(sHead);
-    const sApron = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.75,0.08),
-      new THREE.MeshStandardMaterial({color:0x4a3a2a, roughness:0.9}));
-    sApron.position.set(0, 0.85, 0.46); smith.add(sApron);
-    smith.position.copy(SMITH_POS);
-    smith.rotation.y = Math.PI/2; // faces east, into the room
-    scene.add(smith);
-    // anvil beside him
-    const anvil = new THREE.Mesh(new THREE.BoxGeometry(1.1,0.55,0.6),
-      new THREE.MeshStandardMaterial({color:0x2e2e34, roughness:0.6, metalness:0.4}));
-    anvil.position.set(SMITH_POS.x, 0.55, SMITH_POS.z+1.6);
-    scene.add(anvil);
-    walls.push({minX:SMITH_POS.x-0.55, maxX:SMITH_POS.x+0.55, minZ:SMITH_POS.z+1.3, maxZ:SMITH_POS.z+1.9});
+    /* 鍛冶士。最初から酒場に居るわけではなく、洋館から連れ帰ってはじめて
+       この一角を間借りして店を開く(state.smithJoined)。ただし鑑定・強化は
+       序盤から必要な機能なので、加入前も同じ場所に「仮設の作業台」を置き、
+       同じ interact(toggleAppraisal)へ繋いである ―― プレイヤーから見ると
+       「間に合わせの台が、本物の鍛冶場になる」という酒場の変化になる。 */
+    if(state.smithJoined){
+      const smith = new THREE.Group();
+      const sBody = new THREE.Mesh(new THREE.CylinderGeometry(0.46,0.54,1.15,10),
+        new THREE.MeshStandardMaterial({color:0x3a4450, roughness:0.85}));
+      sBody.position.y = 0.95; smith.add(sBody);
+      const sHead = new THREE.Mesh(new THREE.SphereGeometry(0.34,12,10), skinMat);
+      sHead.position.y = 1.75; smith.add(sHead);
+      const sApron = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.75,0.08),
+        new THREE.MeshStandardMaterial({color:0x4a3a2a, roughness:0.9}));
+      sApron.position.set(0, 0.85, 0.46); smith.add(sApron);
+      smith.position.copy(SMITH_POS);
+      smith.rotation.y = Math.PI/2; // faces east, into the room
+      scene.add(smith);
+      // 金床と、火の入った炉。加入後の一角は明るくなる
+      const anvil = new THREE.Mesh(new THREE.BoxGeometry(1.1,0.55,0.6),
+        new THREE.MeshStandardMaterial({color:0x2e2e34, roughness:0.6, metalness:0.4}));
+      anvil.position.set(SMITH_POS.x, 0.55, SMITH_POS.z+1.6);
+      scene.add(anvil);
+      walls.push({minX:SMITH_POS.x-0.55, maxX:SMITH_POS.x+0.55, minZ:SMITH_POS.z+1.3, maxZ:SMITH_POS.z+1.9});
+      const forge = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.7,0.9,10),
+        new THREE.MeshStandardMaterial({color:0x2e2a26, roughness:0.95}));
+      forge.position.set(SMITH_POS.x-0.8, 0.45, SMITH_POS.z-1.4);
+      forge.castShadow = true;
+      scene.add(forge);
+      const forgeGlow = new THREE.PointLight(0xff7a30, 0.9, 7);
+      forgeGlow.position.set(SMITH_POS.x-0.8, 1.1, SMITH_POS.z-1.4);
+      scene.add(forgeGlow);
+      walls.push({minX:SMITH_POS.x-1.5, maxX:SMITH_POS.x-0.1, minZ:SMITH_POS.z-2.1, maxZ:SMITH_POS.z-0.7});
+    } else {
+      // 仮設の作業台。旅の道具箱と砥石を並べただけの、間に合わせの一角
+      const benchMat = new THREE.MeshStandardMaterial({color:0x4a3a28, roughness:0.9});
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.75,0.9), benchMat);
+      bench.position.set(SMITH_POS.x, 0.38, SMITH_POS.z+0.6);
+      bench.castShadow = true; bench.receiveShadow = true;
+      scene.add(bench);
+      walls.push({minX:SMITH_POS.x-0.8, maxX:SMITH_POS.x+0.8, minZ:SMITH_POS.z+0.15, maxZ:SMITH_POS.z+1.05});
+      const toolMat = new THREE.MeshStandardMaterial({color:0x6a6a72, roughness:0.5, metalness:0.5});
+      for(let i=0;i<4;i++){
+        const tool = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.06,0.42), toolMat);
+        tool.position.set(SMITH_POS.x-0.5+i*0.32, 0.79, SMITH_POS.z+0.6);
+        tool.rotation.y = (Math.random()-0.5)*0.4;
+        scene.add(tool);
+      }
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.7,0.8), benchMat);
+      crate.position.set(SMITH_POS.x-0.2, 0.35, SMITH_POS.z-1.2);
+      crate.castShadow = true;
+      scene.add(crate);
+    }
+
+    /* 二階(宿場)への階段。今は上がって降りられるだけの空間だが、
+       今後 泊まる/仲間が増える/シナリオの記録が溜まる 場所にする土台。
+       二階の実体は当たり判定が二次元な都合で東の未使用帯へ置いてあり、
+       ここからのテレポートでだけ行き来する(buildTavernUpstairs) */
+    buildStairs(new THREE.Vector3(7.6,0,17.5), new THREE.Vector3(56,0,10),
+                '二階へ上がった……', 0x4a3520, 'up');
+    buildTavernUpstairs();
+
+    /* 洋館から戻った最初の一度だけ、鍛冶士が自分から声をかけてくる。
+       「この冒険で世界が少し変わった」ことを、酒場に入った瞬間に見せる */
+    if(state.smithJoined && !state.smithGreeted){
+      registerProximityEvent(new THREE.Vector3(0,0,13), 6.5, '鍛冶士', ()=>{
+        state.smithGreeted = true;
+        sfx('anvil');
+        return [
+          '「よう。……ちゃんと戻ってきたな」',
+          '「店主に頼んで、この隅を貸してもらった。しばらくここに置いてもらう」',
+          '「屋敷に置いてきた道具は諦めた。代わりに、あんたの得物は俺が見る」',
+          '「……あそこで何があったのかは、俺にも分からん。分からんままでいい気もする」'
+        ];
+      });
+    }
 
     buildLoreNote(new THREE.Vector3(-7,0,21), '酒場の壁に貼られた紙', [
       '「腕に覚えのある者、力を貸してくれ」――そんな貼り紙が、色褪せて残っている。',
@@ -1794,148 +1969,790 @@
     scene.add(shadowGuide);
   }
 
-  function buildMansion(){
-    const paperTex = makeWallpaperTexture('#3a2f42', '#241c2c', 5, 4, 2);
-    const wallMat = new THREE.MeshStandardMaterial({map:paperTex, roughness:0.85});
-    const floorTex = makePlankTexture('#5a4028', 5, 6, 9);
-    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
-    const T = 0.8; // wall thickness
+  /* 酒場の二階 ―― 宿場を兼ねた居住スペース。当たり判定が二次元なので、
+     一階の真上ではなく東の未使用帯(x 48..64, z 6..24)に置き、階段の
+     テレポートだけで行き来する。今は寝台と机が並んでいるだけだが、
+     「泊まる」「仲間が住み着く」「これまでの冒険の記録が溜まる」といった
+     ものを足していく場所として先に器を作ってある。 */
+  function buildTavernUpstairs(){
+    const wallTex = makeNoiseTexture('#e0d8c8', ['#d2c8b4','#eae2d4','#c8bca8'], 5, 3);
+    const wallMat = new THREE.MeshStandardMaterial({map:wallTex, color:0xe0d8c8, roughness:0.8});
+    const floorTex = makePlankTexture('#7a5636', 6, 3, 3);
+    floorTex.repeat.set(3,3);
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.7});
+    const woodMat = new THREE.MeshStandardMaterial({color:0x3a2c1c, roughness:0.85});
+    const cx = 56, cz = 15;
 
-    // interior floor
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 44), floorMat);
+    const fillMat = new THREE.MeshStandardMaterial({color:0x050506, roughness:1});
+    const fill = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), fillMat);
+    fill.rotation.x = -Math.PI/2;
+    fill.position.set(cx, 0.01, cz);
+    scene.add(fill);
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 18), floorMat);
     floor.rotation.x = -Math.PI/2;
-    floor.position.set(0, 0.08, -42);
+    floor.position.set(cx, 0.08, cz);
     floor.receiveShadow = true;
     scene.add(floor);
+    addWallBox(cx, cz-9, 16.6, 0.6, wallMat);
+    addWallBox(cx, cz+9, 16.6, 0.6, wallMat);
+    addWallBox(cx-8, cz, 0.6, 18, wallMat);
+    addWallBox(cx+8, cz, 0.6, 18, wallMat);
+    const lamp = new THREE.PointLight(0xffe8c8, 0.7, 20);
+    lamp.position.set(cx, 3.2, cz);
+    scene.add(lamp);
 
-    // outer south wall (entrance gap x:-3..3) at z=-20
-    addWallBox(-8.5, -20, 11, T, wallMat);
-    addWallBox(8.5, -20, 11, T, wallMat);
-    // outer north wall (solid, back of boss room) at z=-62
-    addWallBox(0, -62, 28.8, T, wallMat);
-    // outer west / east walls, z:-20..-62
-    addWallBox(-14, -41, T, 42, wallMat);
-    addWallBox(14, -41, T, 42, wallMat);
-    // cross wall: foyer -> hall (gap x:-2..2) at z=-34
-    addWallBox(-8, -34, 12, T, wallMat);
-    addWallBox(8, -34, 12, T, wallMat);
-    // cross wall: hall -> boss room, z=-46。以前はここに鍵付きの扉(gap x:-2..2)が
-    // あったが、大広間経由の一方通行ルートが正規の進行手段になったため撤去し、
-    // 完全な壁に変更した(鍵ギミック撤去の経緯を参照)
-    addWallBox(0, -46, 28.8, T, wallMat);
+    // 宿の寝台。今は誰も使っていない
+    const linenMat = new THREE.MeshStandardMaterial({color:0xc8bca4, roughness:0.95});
+    [[cx-5, cz-4],[cx-5, cz+1],[cx-5, cz+6]].forEach(([x,z])=>{
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(2.0,0.45,3.0), woodMat);
+      frame.position.set(x, 0.32, z);
+      frame.castShadow = true; frame.receiveShadow = true;
+      scene.add(frame);
+      const sheet = new THREE.Mesh(new THREE.BoxGeometry(1.9,0.18,2.2), linenMat);
+      sheet.position.set(x, 0.6, z+0.3);
+      scene.add(sheet);
+      walls.push({minX:x-1.0, maxX:x+1.0, minZ:z-1.5, maxZ:z+1.5});
+    });
+    // 窓際の小卓。港の灯りが見える、という体
+    const table = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.12,1.0), woodMat);
+    table.position.set(cx+5, 0.8, cz-5);
+    scene.add(table);
+    addStool(cx+5, cz-3.6, Math.PI);
+    const windowMat = new THREE.MeshStandardMaterial({color:0x2a3a4a, roughness:0.3,
+                        emissive:0x3a5a7a, emissiveIntensity:0.5});
+    [cz-5, cz+2].forEach(z=>{
+      const win = new THREE.Mesh(new THREE.BoxGeometry(0.15,1.4,1.8), windowMat);
+      win.position.set(cx+7.7, 1.9, z);
+      scene.add(win);
+    });
 
-    // entrance archway posts (visual marker for the forest->mansion transition)
+    // 一階へ戻る階段(手動)。到着地点からは十分離してある
+    buildStairs(new THREE.Vector3(cx, 0, cz+5), new THREE.Vector3(5,0,14),
+                '一階へ降りた……', 0x4a3520, 'down');
+
+    buildLoreNote(new THREE.Vector3(cx+5, 0, cz-5), '宿帳', [
+      '「素泊まり一泊、朝の粥つき」――値段の下に、店主の字でひとこと。',
+      '「金が無いなら働け。皿は山ほどある」'
+    ], {kind:'book'});
+  }
+
+  /* =========================================================
+     THE MANOR (囚われの洋館)
+
+     最初のメインシナリオなので一本道。ただし「行って戻る」の往復ではなく、
+     一階 → 大階段 → 二階 → 使用人用階段 → 一階奥 → 地下 → 主の間 と、
+     屋敷をぐるりと巡って降りていく形にしてある。
+
+     間取りは MANSION_ROOMS の1枚の表から、床・壁・ミニマップの区画・
+     部屋名まで全部を生成する(神殿の TEMPLE_ROOMS と同じ作法)。
+     当たり判定は二次元なので、階が違う区画は x/z 上でも離して置き、
+     行き来は階段のテレポートで繋ぐ ―― ただし前進用の階段は auto なので、
+     プレイヤーからは「階段を上ったら次の階だった」ように見える。
+
+     gaps の N は z1 側、S は z0 側。一階ではプレイヤーは -z 方向へ進む。
+  ========================================================= */
+  const MANSION_ROOMS = [
+    // ---- 一階前半 (Z2: x -30..20, z -98..-40) ----
+    {id:'mEntry',  x0: -7, x1:  7, z0:-48, z1:-40, cor:false, gaps:{N:[-3,3], S:[-4,4]},                name:'正面玄関'},
+    {id:'mFoyer',  x0:-17, x1: 17, z0:-66, z1:-48, cor:false, gaps:{N:[-4,4], S:[-3,3], W:[-60,-54]},   name:'玄関ホール'},
+    {id:'mDining', x0:-30, x1:-17, z0:-66, z1:-48, cor:false, gaps:{E:[-60,-54]},                       name:'食堂'},
+    {id:'mCor1',   x0: -3, x1:  3, z0:-74, z1:-66, cor:true , gaps:{N:'full', S:'full'},                name:'一階廊下'},
+    {id:'mHall',   x0:-20, x1: 20, z0:-92, z1:-74, cor:false, gaps:{N:[-3,3], S:[-4,4]},                name:'大広間'},
+    {id:'mStair',  x0: -9, x1:  9, z0:-98, z1:-92, cor:false, gaps:{N:[-4,4]},                          name:'大階段'},
+    // ---- 二階 (Z3: x 50..104, z -96..-24) ----
+    {id:'uLand',   x0: 68, x1: 86, z0:-96, z1:-86, cor:false, gaps:{N:[74,80]},                         name:'二階の踊り場'},
+    {id:'uCor',    x0: 74, x1: 80, z0:-86, z1:-40, cor:true , gaps:{S:'full', N:'full', E:[-80,-74], W:[-64,-58]}, name:'二階廊下'},
+    {id:'uGuest',  x0: 80, x1:104, z0:-84, z1:-66, cor:false, gaps:{W:[-80,-74]},                       name:'客室'},
+    {id:'uStudy',  x0: 50, x1: 74, z0:-72, z1:-52, cor:false, gaps:{E:[-64,-58]},                       name:'書斎'},
+    {id:'uWork',   x0: 62, x1: 92, z0:-40, z1:-24, cor:false, gaps:{S:[74,80]},                         name:'作業室'},
+    // ---- 一階奥 (Z4: x 54..98, z 40..98) ----
+    {id:'sLand',   x0: 66, x1: 82, z0: 40, z1: 52, cor:false, gaps:{N:[70,78]},                         name:'使用人用階段の下'},
+    {id:'sCor',    x0: 70, x1: 78, z0: 52, z1: 64, cor:true , gaps:{S:'full', N:'full'},                name:'使用人通路'},
+    {id:'sQuart',  x0: 54, x1: 98, z0: 64, z1: 88, cor:false, gaps:{S:[70,78], N:[72,80]},              name:'使用人区画'},
+    {id:'sDown',   x0: 66, x1: 86, z0: 88, z1: 98, cor:false, gaps:{S:[72,80]},                         name:'地下入口'},
+    // ---- 地下 (Z5: x 120..158, z 40..116) ----
+    {id:'bCellar', x0:124, x1:152, z0: 40, z1: 62, cor:false, gaps:{N:[134,142]},                       name:'地下室'},
+    {id:'bCor',    x0:134, x1:142, z0: 62, z1: 72, cor:true , gaps:{S:'full', N:'full'},                name:'通路'},
+    {id:'bStore',  x0:120, x1:156, z0: 72, z1: 92, cor:false, gaps:{S:[134,142], N:[136,144]},          name:'保管庫'},
+    {id:'bDeep',   x0:122, x1:158, z0: 92, z1:116, cor:false, gaps:{S:[136,144]},                       name:'地下奥'},
+    // ---- 最奥 (Z6: x 58..102, z 132..180) ----
+    {id:'bAnte',   x0: 68, x1: 92, z0:132, z1:146, cor:false, gaps:{N:[76,84]},                         name:'ボス前'},
+    {id:'bLord',   x0: 58, x1:102, z0:146, z1:180, cor:false, gaps:{S:[76,84]},                         name:'主の間'},
+  ];
+
+  // 主要な座標。階段の行き先と敵/宝箱の配置がここを参照する
+  const MANSION_BOSS_POS   = new THREE.Vector3(80, 0, 166);
+  const MANSION_ATTIC_POS  = new THREE.Vector3(160, 0, -40);   // 周回★4の屋根裏
+
+  function mansionRoomById(id){
+    for(let i=0;i<MANSION_ROOMS.length;i++) if(MANSION_ROOMS[i].id === id) return MANSION_ROOMS[i];
+    return null;
+  }
+
+  // 表から壁を起こす。神殿の buildWalls と同じ考え方(gap の区間だけ抜く)
+  function buildMansionWalls(r, mat){
+    function run(fixed, lo, hi, gap, vertical){
+      if(gap === 'full') return;
+      const parts = gap ? [[lo,gap[0]],[gap[1],hi]] : [[lo,hi]];
+      parts.forEach(([a,b])=>{
+        if(b-a <= 0.01) return;
+        if(vertical) addWallBox(fixed, (a+b)/2, 0.7, b-a, mat);
+        else         addWallBox((a+b)/2, fixed, b-a, 0.7, mat);
+      });
+    }
+    run(r.z1, r.x0, r.x1, r.gaps.N, false);
+    run(r.z0, r.x0, r.x1, r.gaps.S, false);
+    run(r.x0, r.z0, r.z1, r.gaps.W, true);
+    run(r.x1, r.z0, r.z1, r.gaps.E, true);
+  }
+
+  function mansionFloor(r, mat, y){
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(r.x1-r.x0, r.z1-r.z0), mat);
+    floor.rotation.x = -Math.PI/2;
+    floor.position.set((r.x0+r.x1)/2, y===undefined ? 0.08 : y, (r.z0+r.z1)/2);
+    floor.receiveShadow = true;
+    scene.add(floor);
+    return floor;
+  }
+
+  function mansionLamp(x, z, color, intensity, dist){
+    const l = new THREE.PointLight(color, intensity, dist);
+    l.position.set(x, 3.2, z);
+    scene.add(l);
+  }
+
+  // その区画の外側を埋める暗い下地。テレポートで飛ぶ離れ島なので、床の
+  // 外に草地(森の地面)が広がって見えると屋内らしさが崩れる
+  function mansionUnderlay(x0, x1, z0, z1){
+    const mat = new THREE.MeshStandardMaterial({color:0x050506, roughness:1});
+    const fill = new THREE.Mesh(new THREE.PlaneGeometry(x1-x0, z1-z0), mat);
+    fill.rotation.x = -Math.PI/2;
+    fill.position.set((x0+x1)/2, 0.01, (z0+z1)/2);
+    fill.receiveShadow = true;
+    scene.add(fill);
+  }
+
+  /* ---------------------------------------------------------
+     一階前半: 正面玄関 → 玄関ホール →(食堂)→ 一階廊下 → 大広間【戦闘②】→ 大階段
+  --------------------------------------------------------- */
+  function buildMansion(){
+    const paperTex = makeWallpaperTexture('#3a2f42', '#241c2c', 5, 4, 2);
+    const wallMat  = new THREE.MeshStandardMaterial({map:paperTex, roughness:0.85});
+    const floorTex = makePlankTexture('#5a4028', 5, 6, 9);
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
+    const woodMat  = new THREE.MeshStandardMaterial({color:0x3a2818, roughness:0.8});
+
+    mansionUnderlay(-40, 30, -108, -40);   // 前庭(z>-40)は森の草地のままにする
+    ['mEntry','mFoyer','mDining','mCor1','mHall','mStair'].forEach(id=>{
+      const r = mansionRoomById(id);
+      mansionFloor(r, floorMat);
+      buildMansionWalls(r, wallMat);
+    });
+
+    // 玄関の扉。ここだけは自分の手で開ける ―― 中へ入る決断を一度させる
+    buildDoor('manorFront', 0, -40, 6, 0x2a1830);
+    // 玄関アーチの柱(森→洋館の切り替わりを外からも分かるように)
     const postMat = new THREE.MeshStandardMaterial({color:0x2a2030, roughness:0.7});
     [-3,3].forEach(x=>{
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,3.0,8), postMat);
-      post.position.set(x, 1.5, -20);
+      post.position.set(x, 1.5, -40);
       post.castShadow = true;
       scene.add(post);
     });
     const lintel = new THREE.Mesh(new THREE.BoxGeometry(6.6,0.5,0.8), postMat);
-    lintel.position.set(0, 3.0, -20);
+    lintel.position.set(0, 3.0, -40);
     lintel.castShadow = true;
     scene.add(lintel);
 
-    // a couple of dim interior lights so the mansion doesn't read as pitch black
-    [[-6,-27],[6,-40],[0,-56]].forEach(([x,z])=>{
-      const lamp = new THREE.PointLight(0xffb066, 0.6, 14);
-      lamp.position.set(x, 3, z);
-      scene.add(lamp);
-    });
+    mansionLamp(0,  -44, 0xffb066, 0.45, 12);
+    mansionLamp(0,  -57, 0xffb066, 0.60, 20);
+    mansionLamp(-24,-57, 0xffb066, 0.50, 16);
+    mansionLamp(0,  -83, 0xd8c8ff, 0.65, 26);
+    mansionLamp(0,  -95, 0xffcf8a, 0.55, 14);
 
-    // 玄関を抜けてすぐ、暗がりの隅に人影が一瞬だけ立っている。近づくと消える
-    // ―― 「昨日まで人が暮らしていたような」空気を、台詞より先に見せる演出
-    registerProximityEvent(new THREE.Vector3(0,0,-23), 8, '???', ()=>{
-      spawnApparition(new THREE.Vector3(-9,0,-30), {vanishDist:6.5});
-      return [
-        '玄関ホールの隅、暗がりの中に――誰か、佇んでいる。',
-        'こちらに気づいた様子はない。……いや、気のせいか?'
-      ];
-    });
-
-    // real, visible, collidable doors
-    buildDoor('entrance', 0, -20, 6, 0x2a1830);     // opens via normal interaction, like any other door
-    buildDoor('foyerHall', 0, -34, 4, 0x3a2818);    // opens via the center "open door" button
-
-    // staircases down to the basement (from the foyer) and up to the 2F (from the hall);
-    // 中庭へは玄関ホール西側の勝手口から出る(東側の2階段と対称の配置)
-    // ここが洋館の分岐点: 地下室・2階書斎・裏庭、どれか一つしか選べない
-    const stairsToBasement = buildStairs(new THREE.Vector3(6,0,-24), new THREE.Vector3(70,0,-30), '地下室へ降りた……', 0x241a14, 'down');
-    stairsToBasement.routeNode = 'crypt';
-    buildRouteTagSign(stairsToBasement.pos, 'crypt');
-    const stairsToStudy = buildStairs(new THREE.Vector3(6,0,-36), new THREE.Vector3(-70,0,-30), '2階の書斎へ上った……', 0x3a2818, 'up');
-    stairsToStudy.routeNode = 'study';
-    buildRouteTagSign(stairsToStudy.pos, 'study');
-    const stairsToCourt = buildStairs(new THREE.Vector3(-6,0,-24), new THREE.Vector3(100,0,46), '荒れた中庭へ出た……', 0x2a3a24, 'down');
-    stairsToCourt.routeNode = 'court';
-    buildRouteTagSign(stairsToCourt.pos, 'court');
-
-    // 分岐点そのものへの一度きりの案内。ここで「二度と戻れない」ことを明示しておく
-    registerProximityEvent(new THREE.Vector3(0,0,-27), 7.2, '???',
-      ['地下へ続く階段、2階へ続く階段、そして裏庭へ抜ける勝手口――三つの道が並んでいる。',
-       'どの道も、主の間へと繋がっているという。だが――一度足を踏み入れれば、他の道は閉ざされるだろう。'],
-      {condition:()=>!routeBranchTaken('m1')});
-
-    buildLoreNote(new THREE.Vector3(3,0,-30), 'ボロボロの来客名簿', [
-      '……インクは滲み、最後の記帳から何十年も経っているようだ。',
-      '「本日、助手殿の姿見えず。先生は書斎に篭られたまま、応対もされない」――そう走り書きされている。',
-      '名簿はそこで途切れている。'
-    ], {kind:'book'});
-    buildLoreNote(new THREE.Vector3(-3,0,-44), '色あせた日記の一頁', [
-      '「あれに触れてから、助手の様子がおかしい。話しかけても、上の空でこちらを見ている」',
-      '「"人から怪異の影響だけを切り離す"――理論上は可能なはずだ。あれを人へ戻す方法は、必ずある」',
-      'ページの端が黒く焼け焦げている。この先に何があったのかは、記されていない。'
-    ], {kind:'book'});
-
-    // かつてここには鍵付きの扉があったが、大広間経由が正規ルートになった
-    // ことで役目を終えたため撤去した。壁の手触りだけを一度きり案内する
-    registerProximityEvent(new THREE.Vector3(0,0,-42), 3.5, '???', [
-      '奥の壁は分厚く、継ぎ目もなく塗り固められている。ここから主の間へは進めそうにない。',
-      '……別の道を探すしかなさそうだ。'
-    ]);
-    registerProximityEvent(new THREE.Vector3(0,0,-40), 3.5, '???', ()=>
-      isRepeatRun('mansion')
-        ? ['……また来たのか。',
-           '幾度この扉の前に立たれても、私の答えは変わらん。',
-           'あれを――助手を、人の姿のまま返してやれなかった。']
-        : ['……誰か、そこにいるのか？',
-           '私の声が、届いているのか……',
-           'あれを――助手を、人の姿のまま返してやれなかった。']
-    );
-    // The event that used to sit at (0,-58) is gone. The boss triggers its own
-    // dialogue from six units away, so an ambient line planted two units from
-    // the boss could only ever fire mid-fight, with no context.
-
-    // 大広間へは、地下納骨堂/二階書斎/中庭それぞれの「戻り階段」から
-    // 直接向かう(そちらで routeNode='greathall' を設定する)。
-    // 玄関ホールと主の間の間は完全に塗り固められており、大広間経由の
-    // 一方通行ルートだけが正規の進行手段になっている(鍵ギミックは撤去済み)。
-
-    // シャンデリア: 見た目は常にここにあるが、実際に使えるのは「本館大階段」を
-    // 選んで state.bossMods に 'chandelier' が積まれている時だけ
-    buildMansionChandelier();
-
-    // 周回★4以上でのみ、主の間の奥に屋根裏へ続く階段が現れる。実際に上れる
-    // のは主を倒した後だけ(gateTag、spawnEnemiesのbuildBoss呼び出し側で
-    // 付与)。山を登り切った先の一段、という位置づけ
-    if(scenarioStars('mansion') >= MANSION_ATTIC_STARS){
-      buildStairs(new THREE.Vector3(0,0,-60), new THREE.Vector3(165,0,-40),
-        '屋根裏へ続く階段を上った……', 0x2a1830, 'up', 'mansionBoss');
-      buildMansionAttic();
-    }
-
+    buildManorFoyerDressing(woodMat);
+    buildManorDiningDressing(woodMat);
+    buildManorGreatHall(woodMat);
     buildMansionExterior();
     buildMansionForestWall();
   }
 
-  // ボスの間、入ってすぐの天井から下がる鉄鎖のシャンデリア。
-  // 「本館大階段」ルートを選んだ時だけ実際に落とせる(状態は使用時に判定する
-  // ので、ここでは常に同じジオメトリを置くだけでよい)
+  /* 玄関ホール。傘立て・帽子掛け・止まった振り子時計 ―― 「昨日まで人が
+     住んでいた」ことを、文章ではなく物で言う。 */
+  function buildManorFoyerDressing(woodMat){
+    const clockBody = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.6, 0.5), woodMat);
+    clockBody.position.set(14.5, 1.3, -63);
+    clockBody.castShadow = true;
+    scene.add(clockBody);
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.06,16),
+      new THREE.MeshStandardMaterial({color:0xd8cba8, roughness:0.6}));
+    face.rotation.x = Math.PI/2;
+    face.position.set(14.5, 2.2, -62.7);
+    scene.add(face);
+    walls.push({minX:14.0, maxX:15.0, minZ:-63.3, maxZ:-62.7});
+
+    // 帽子掛け。外套が一着だけ、まだ掛かったままになっている
+    const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.16,1.9,6), woodMat);
+    stand.position.set(-14.5, 0.95, -63);
+    scene.add(stand);
+    const coat = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.1, 8),
+      new THREE.MeshStandardMaterial({color:0x3a3040, roughness:0.9}));
+    coat.position.set(-14.5, 1.3, -63);
+    scene.add(coat);
+
+    /* 玄関ホールに入った瞬間。暗がりの隅に誰かが立っていて、目を戻すと
+       もういない ―― このシナリオで最初に起こる「おかしいこと」。無言。 */
+    registerRoomEvent(mansionRoomById('mFoyer'), 0, '', ()=>{
+      spawnApparition(new THREE.Vector3(-12,0,-63), {vanishDist:6.0, color:0x39304a});
+      sfx('chime');
+      return null;
+    });
+
+    // 少し進むと、二階で床が軋む。上を見上げさせるための音だけの合図
+    registerProximityEvent(new THREE.Vector3(0,0,-58), 4.2, '', ()=>{
+      sfx('footstepsAbove');
+      spawnToast('👣 頭の上――二階の床が、ゆっくりと軋んだ');
+      return null;
+    });
+  }
+
+  /* 食堂。食器が並んだままの卓と、倒れた椅子が一脚。 */
+  function buildManorDiningDressing(woodMat){
+    const clothMat = new THREE.MeshStandardMaterial({color:0x7a6a52, roughness:0.95});
+    const table = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.18, 2.2), clothMat);
+    table.position.set(-23.5, 0.85, -57);
+    table.castShadow = true; table.receiveShadow = true;
+    scene.add(table);
+    [[-26.3,-57],[-20.7,-57]].forEach(([x,z])=>{
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.85,1.9), woodMat);
+      leg.position.set(x, 0.42, z);
+      scene.add(leg);
+    });
+    walls.push({minX:-26.9, maxX:-20.1, minZ:-58.2, maxZ:-55.8});
+
+    const plateMat = new THREE.MeshStandardMaterial({color:0xcfc6b0, roughness:0.5});
+    for(let i=0;i<5;i++){
+      const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.26,0.05,14), plateMat);
+      plate.position.set(-26 + i*1.25, 0.97, -57 + (i%2 ? 0.6 : -0.6));
+      scene.add(plate);
+    }
+    // 椅子。4脚は卓につき、1脚だけ倒れている
+    function chair(x, z, fallen){
+      const c = new THREE.Group();
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.1,0.6), woodMat);
+      seat.position.y = 0.45; c.add(seat);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.7,0.08), woodMat);
+      back.position.set(0, 0.8, -0.26); c.add(back);
+      c.position.set(x, 0, z);
+      if(fallen){ c.rotation.x = Math.PI/2; c.position.y = 0.3; }
+      c.castShadow = true;
+      scene.add(c);
+    }
+    chair(-26, -59.2, false); chair(-24.5, -59.2, false);
+    chair(-23, -54.8, false); chair(-21.5, -54.8, false);
+    chair(-27.5, -61.5, true);
+
+    /* 食堂に入ると、卓の上の皿が一枚だけ落ちて割れる。誰も居ない。
+       ―― 「音がして隣を見に行く」の繰り返しにしないため、ここでは
+       プレイヤーが既に居る部屋の中で起こす */
+    registerRoomEvent(mansionRoomById('mDining'), 0, '', ()=>{
+      sfx('crockery');
+      addShake(0.05);
+      spawnToast('🍽️ 卓の上の皿が、ひとりでに滑り落ちて割れた');
+      return null;
+    });
+
+    buildLoreNote(new THREE.Vector3(-28.5, 0, -50.5), 'ボロボロの来客名簿', [
+      '玄関脇に置き去りにされた記帳簿。インクは滲み、最後の記帳から何十年も経っている。',
+      '最後の一行だけ、他とは違う荒れた字で書かれている――「本日、来客なし。誰も来ない」',
+      '同じ一行が、そのあと十数回、同じ日付で繰り返されていた。'
+    ], {kind:'book'});
+  }
+
+  /* 大広間【戦闘②】。天井の高い部屋。入ると両端の扉が落ちる。 */
+  function buildManorGreatHall(woodMat){
+    const hall = mansionRoomById('mHall');
+    const pillarMat = new THREE.MeshStandardMaterial({color:0x3a3448, roughness:0.6});
+    [[-13,-79],[13,-79],[-13,-87],[13,-87]].forEach(([x,z])=>{
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.7,4.4,8), pillarMat);
+      pillar.position.set(x, 2.2, z);
+      pillar.castShadow = true;
+      scene.add(pillar);
+      walls.push({minX:x-0.7, maxX:x+0.7, minZ:z-0.7, maxZ:z+0.7});
+    });
+    // 壁一面の肖像画。顔の部分だけが一様に暗く、誰の顔かは分からない
+    const frameMat = new THREE.MeshStandardMaterial({color:0x6a5330, roughness:0.5, metalness:0.35});
+    const canvasMat = new THREE.MeshStandardMaterial({color:0x2b2530, roughness:0.9});
+    [-84,-80].forEach((z,i)=>{
+      [-19.5, 19.5].forEach(x=>{
+        const fr = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.4, 1.6), frameMat);
+        fr.position.set(x, 2.3, z + i*0.0);
+        scene.add(fr);
+        const cv = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.0, 1.25), canvasMat);
+        cv.position.set(x + (x<0 ? 0.06 : -0.06), 2.3, z);
+        scene.add(cv);
+      });
+    });
+
+    /* 封鎖扉。部屋のどの出入口にも同じタグの扉を置き、踏み込んだ瞬間に
+       一斉に落ちて、部屋の敵を全て倒すと開く(updateSealedRooms) */
+    const seal = {tag:'manorHall', x0:hall.x0+2.5, x1:hall.x1-2.5, z0:hall.z0+2.5, z1:hall.z1-2.5};
+    [['N', 0, hall.z1, 6, 'EW'], ['S', 0, hall.z0, 8, 'EW']].forEach(([side, cx, cz, w, ori])=>{
+      const d = buildDoor('manorHall-'+side, cx, cz, w, 0x2a2438, ori);
+      d.seal = seal;
+      d.clearTag = 'manorHall';
+      resetDoorState(d);   // 罠部屋の扉は開いた状態で生まれる
+    });
+
+    // 階層の合間の休憩(姿見)。大階段の手前、戦闘②のあとに一息つける
+    const mirrorFrameMat = new THREE.MeshStandardMaterial({color:0x8a7a4a, roughness:0.5, metalness:0.5});
+    const mirrorGlassMat = new THREE.MeshStandardMaterial({color:0x6a8ac0, roughness:0.15, metalness:0.3, emissive:0x2a3a5a, emissiveIntensity:0.35});
+    const mirrorFrame = new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,0.12,16), mirrorFrameMat);
+    mirrorFrame.rotation.x = Math.PI/2;
+    mirrorFrame.position.set(-15, 1.8, -90);
+    scene.add(mirrorFrame);
+    const mirrorGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.95,0.95,0.05,16), mirrorGlassMat);
+    mirrorGlass.rotation.x = Math.PI/2;
+    mirrorGlass.position.set(-15, 1.8, -89.9);
+    scene.add(mirrorGlass);
+    mansionLamp(-15, -89.5, 0x6a8ac0, 0.5, 8);
+    registerCheckpoint(new THREE.Vector3(-15, 0, -89.5));
+
+    /* 大階段。上りきった先が二階の踊り場。auto なので、近づけば
+       勝手に数歩あるいて上ってくれる(選択UIは出さない) */
+    const up = buildStairs(new THREE.Vector3(0,0,-95), new THREE.Vector3(77,0,-91),
+                           '二階へ上がった……', 0x3a3448, 'up');
+    up.routeNode = 'manor2f';
+    up.auto = true;
+    // 手すり。階段が「そこにある」ことを遠目にも分からせる
+    [-2.6, 2.6].forEach(x=>{
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.9, 4.4), woodMat);
+      rail.position.set(x, 1.2, -95.4);
+      rail.castShadow = true;
+      scene.add(rail);
+    });
+  }
+
+  /* ---------------------------------------------------------
+     二階: 踊り場 → 廊下 →(客室 / 書斎)→ 作業室【鍛冶屋と出会う】→ 使用人用階段
+  --------------------------------------------------------- */
+  function buildMansionUpper(){
+    const paperTex = makeWallpaperTexture('#453552', '#281f33', 5, 4, 2);
+    const wallMat  = new THREE.MeshStandardMaterial({map:paperTex, roughness:0.85});
+    const floorTex = makePlankTexture('#5c4630', 5, 6, 6);
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
+    const woodMat  = new THREE.MeshStandardMaterial({color:0x33241a, roughness:0.8});
+
+    mansionUnderlay(42, 114, -104, -16);
+    ['uLand','uCor','uGuest','uStudy','uWork'].forEach(id=>{
+      const r = mansionRoomById(id);
+      mansionFloor(r, floorMat);
+      buildMansionWalls(r, wallMat);
+    });
+    mansionLamp(77, -91, 0xffcf8a, 0.55, 14);
+    mansionLamp(77, -60, 0xffb066, 0.40, 26);
+    mansionLamp(92, -75, 0xffcf8a, 0.50, 18);
+    mansionLamp(62, -62, 0xffcf8a, 0.55, 20);
+    mansionLamp(77, -32, 0xffa050, 0.70, 20);
+
+    // 一階へ戻る階段(手動)。到着地点から6以上離してあるので、上がった
+    // 直後に踏み直して戻されることはない
+    buildStairs(new THREE.Vector3(71,0,-94), new THREE.Vector3(-6,0,-88),
+                '大広間へ戻った……', 0x3a3448, 'down');
+
+    buildManorGuestRoom(woodMat);
+    buildManorStudy(woodMat);
+    buildManorWorkshop(woodMat);
+
+    /* 廊下に出た瞬間。突き当たりの扉が、ひとりでに少しだけ開く。
+       ―― プレイヤーはまだ何も説明されていないが、行き先は分かる */
+    registerProximityEvent(new THREE.Vector3(77,0,-83), 4.0, '', ()=>{
+      sfx('distantDoor');
+      spawnToast('🚪 廊下の突き当たり――扉が、音もなく少しだけ開いた');
+      return null;
+    });
+  }
+
+  /* 客室。誰かが泊まっていた形のまま、寝台の上掛けがめくれている。 */
+  function buildManorGuestRoom(woodMat){
+    const linenMat = new THREE.MeshStandardMaterial({color:0x9a9080, roughness:0.95});
+    [[86,-79],[86,-71]].forEach(([x,z])=>{
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(2.0,0.5,3.4), woodMat);
+      frame.position.set(x, 0.35, z);
+      frame.castShadow = true; frame.receiveShadow = true;
+      scene.add(frame);
+      const sheet = new THREE.Mesh(new THREE.BoxGeometry(1.9,0.2,2.4), linenMat);
+      sheet.position.set(x, 0.68, z + 0.4);
+      scene.add(sheet);
+      const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.4,0.22,0.6), linenMat);
+      pillow.position.set(x, 0.72, z - 1.2);
+      scene.add(pillow);
+      walls.push({minX:x-1.0, maxX:x+1.0, minZ:z-1.7, maxZ:z+1.7});
+    });
+    // 旅装の鞄がひとつ、開いたまま置かれている
+    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.5,0.5),
+      new THREE.MeshStandardMaterial({color:0x4a3324, roughness:0.85}));
+    bag.position.set(99, 0.25, -75);
+    bag.rotation.y = 0.4;
+    bag.castShadow = true;
+    scene.add(bag);
+    mansionLamp(99, -75, 0xffb066, 0.35, 10);
+
+    /* 客室に入ると、窓の外を何かが横切る。窓のほうを向かせるだけの一瞬 */
+    registerRoomEvent(mansionRoomById('uGuest'), 0, '', ()=>{
+      spawnApparition(new THREE.Vector3(103,0,-70), {vanishDist:4.2, color:0x2f3a46, fadeIn:2.2, fadeOut:3.2, maxOpacity:0.42});
+      sfx('windGust');
+      return null;
+    });
+  }
+
+  /* 書斎。本棚と机。ここに置く手記は1点だけ ―― 読まなくても筋は追える。 */
+  function buildManorStudy(woodMat){
+    const shelfMat = new THREE.MeshStandardMaterial({color:0x2a1c10, roughness:0.75});
+    [-70,-66,-58,-54].forEach(z=>{
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.6, 2.6), shelfMat);
+      shelf.position.set(51.5, 1.3, z);
+      shelf.castShadow = false;
+      scene.add(shelf);
+      walls.push({minX:51.0, maxX:52.0, minZ:z-1.3, maxZ:z+1.3});
+    });
+    const desk = new THREE.Mesh(new THREE.BoxGeometry(2.8,0.9,1.3), woodMat);
+    desk.position.set(58, 0.45, -62);
+    desk.castShadow = true; desk.receiveShadow = true;
+    scene.add(desk);
+    walls.push({minX:56.6, maxX:59.4, minZ:-62.7, maxZ:-61.3});
+    // 床一面に散らばった紙。誰かが探し物をしたまま出ていったように見える
+    const paperMat = new THREE.MeshStandardMaterial({color:0xbfae86, roughness:0.9});
+    for(let i=0;i<14;i++){
+      const sheet = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.012,0.44), paperMat);
+      sheet.position.set(54 + Math.random()*16, 0.09, -70 + Math.random()*16);
+      sheet.rotation.y = Math.random()*3;
+      scene.add(sheet);
+    }
+
+    /* 書斎に入ると、背後の本棚から本が一冊だけ落ちる。振り返っても誰もいない */
+    registerRoomEvent(mansionRoomById('uStudy'), 0, '', ()=>{
+      sfx('bookFall');
+      spawnToast('📚 背後で、本が一冊だけ床に落ちた');
+      return null;
+    });
+
+    buildLoreNote(new THREE.Vector3(60.5, 0, -62), '書きかけの手紙', [
+      '「……あれが何なのかは、まだ書けない。書こうとすると、言葉のほうが逃げていく」',
+      '「見た者はそれぞれ違うことを言う。病だと言う者、死んだ者の還りだと言う者、',
+      '　ただの見間違いだと笑う者。全員が同じくらい本気だ」',
+      '「私も、まだどれとも決められずにいる」――そこで筆は止まっている。'
+    ], {kind:'letter'});
+  }
+
+  /* 作業室【鍛冶屋と出会う】。屋敷の中で唯一、生きている人間がいる部屋。 */
+  function buildManorWorkshop(woodMat){
+    const benchMat = new THREE.MeshStandardMaterial({color:0x3a2c20, roughness:0.9});
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(4.2,0.9,1.4), benchMat);
+    bench.position.set(70, 0.45, -30);
+    bench.castShadow = true; bench.receiveShadow = true;
+    scene.add(bench);
+    walls.push({minX:67.9, maxX:72.1, minZ:-30.7, maxZ:-29.3});
+    // 打ち捨てられた道具と、火の落ちた小さな炉
+    const forge = new THREE.Mesh(new THREE.CylinderGeometry(0.9,1.1,1.0,10),
+      new THREE.MeshStandardMaterial({color:0x2e2a26, roughness:0.95}));
+    forge.position.set(88, 0.5, -30);
+    forge.castShadow = true;
+    scene.add(forge);
+    walls.push({minX:87, maxX:89, minZ:-31, maxZ:-29});
+    const ember = new THREE.PointLight(0xff7a30, 0.5, 8);
+    ember.position.set(88, 1.1, -30);
+    scene.add(ember);
+    // 家具でバリケードされた扉(=鍛冶屋が塞いだ跡)
+    [[80,-26.5],[82.5,-27.5],[81,-28.8]].forEach(([x,z])=>{
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(1.3,1.1,1.3), woodMat);
+      crate.position.set(x, 0.55, z);
+      crate.rotation.y = Math.random();
+      crate.castShadow = true;
+      scene.add(crate);
+      walls.push({minX:x-0.7, maxX:x+0.7, minZ:z-0.7, maxZ:z+0.7});
+    });
+
+    buildManorSmithNpc(new THREE.Vector3(77, 0, -33));
+
+    /* 出会いは会話より先に音で。金属を打つ音がして、はじめて人の気配になる */
+    registerProximityEvent(new THREE.Vector3(77,0,-40), 4.4, '', ()=>{
+      sfx('anvil');
+      spawnToast('🔨 奥から――金属を打つ音。この屋敷で、初めて聞く生きた音だ');
+      return null;
+    });
+
+    // 部屋に入ったところで本人と短く話す。長い説明はしない
+    registerRoomEvent(mansionRoomById('uWork'), 0, '鍛冶士', [
+      '「――人か!? 人だな!? よかった、生きてるやつだ!」',
+      '「見ての通りだ。ここで足止めを食ってる。降りようとするたび、階段に何か居る」',
+      '「俺は裏の階段から降りる。使用人が使ってたやつだ。……先に行っててくれ、すぐ追う」',
+      '「言っとくが俺は戦えん。鎚は振れるが、振る相手が違う」'
+    ], {inset:1.2});
+
+    /* 使用人用階段。作業室の奥から一階の裏手へ降りる(auto) */
+    const down = buildStairs(new THREE.Vector3(77,0,-28), new THREE.Vector3(74,0,44),
+                             '使用人用の階段を降りた……', 0x2a2438, 'down');
+    down.routeNode = 'servant';
+    down.auto = true;
+  }
+
+  /* 鍛冶士の姿。酒場に立つときと同じ簡易ビルド(装飾NPC共通の作法)。 */
+  function buildManorSmithNpc(pos){
+    const skinMat = new THREE.MeshStandardMaterial({color:0xd8a878, roughness:0.7});
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.46,0.54,1.15,10),
+      new THREE.MeshStandardMaterial({color:0x3a4450, roughness:0.85}));
+    body.position.y = 0.95; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.34,12,10), skinMat);
+    head.position.y = 1.75; g.add(head);
+    const apron = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.75,0.08),
+      new THREE.MeshStandardMaterial({color:0x4a3a2a, roughness:0.9}));
+    apron.position.set(0, 0.85, 0.46); g.add(apron);
+    g.position.copy(pos);
+    g.rotation.y = Math.PI;
+    scene.add(g);
+    return g;
+  }
+
+  /* ---------------------------------------------------------
+     一階奥: 使用人用階段の下 → 使用人通路 → 使用人区画【戦闘③】→ 地下入口
+  --------------------------------------------------------- */
+  function buildMansionServantWing(){
+    const wallMat  = new THREE.MeshStandardMaterial({color:0x2a2231, roughness:0.9});
+    const floorTex = makePlankTexture('#3f3128', 4, 5, 4);
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.92});
+    const woodMat  = new THREE.MeshStandardMaterial({color:0x33241a, roughness:0.85});
+
+    mansionUnderlay(46, 106, 32, 106);
+    ['sLand','sCor','sQuart','sDown'].forEach(id=>{
+      const r = mansionRoomById(id);
+      mansionFloor(r, floorMat);
+      buildMansionWalls(r, wallMat);
+    });
+    mansionLamp(74, 46, 0xffb066, 0.45, 12);
+    mansionLamp(74, 58, 0xffb066, 0.30, 12);
+    mansionLamp(76, 76, 0xffb066, 0.55, 26);
+    mansionLamp(76, 93, 0x8ab0c0, 0.45, 14);
+
+    // 二階へ戻る階段(手動)
+    buildStairs(new THREE.Vector3(79,0,48), new THREE.Vector3(70,0,-34),
+                '作業室へ戻った……', 0x3a2818, 'up');
+
+    // 使用人区画の生活の跡。洗い場・物干し・寝台がわりの簡易寝床
+    const basinMat = new THREE.MeshStandardMaterial({color:0x5a5a52, roughness:0.8});
+    const basin = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.7,1.1), basinMat);
+    basin.position.set(58, 0.35, 84);
+    basin.castShadow = true;
+    scene.add(basin);
+    walls.push({minX:56.9, maxX:59.1, minZ:83.4, maxZ:84.6});
+    const linenMat = new THREE.MeshStandardMaterial({color:0x8e8577, roughness:0.95});
+    for(let i=0;i<3;i++){
+      const cot = new THREE.Mesh(new THREE.BoxGeometry(1.7,0.35,2.6), woodMat);
+      cot.position.set(94, 0.25, 68 + i*6);
+      cot.castShadow = true;
+      scene.add(cot);
+      const sheet = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.16,2.0), linenMat);
+      sheet.position.set(94, 0.5, 68.4 + i*6);
+      scene.add(sheet);
+      walls.push({minX:93.1, maxX:94.9, minZ:66.7+i*6, maxZ:69.3+i*6});
+    }
+
+    buildLoreNote(new THREE.Vector3(60, 0, 70), '使用人の書き置き', [
+      '「先に発ちます。旦那様には申し訳ないが、もう無理です」',
+      '「夜番のたび、廊下の突き当たりに誰か立っている。声をかけると、いない」',
+      '「一人ならまだしも、みんなが同じものを見ています」'
+    ], {kind:'note'});
+
+    /* 戦闘③。使用人区画へ踏み込むと、先へ行ったはずの鍛冶屋の声が上がり、
+       その直後に何かが通路を塞ぐ ―― 「音のあと隣室へ」の型を繰り返さず、
+       今度は音と敵が同時に来る */
+    registerRoomEvent(mansionRoomById('sQuart'), 0, '', ()=>{
+      sfx('shout');
+      spawnToast('❗ 奥から鍛冶士の怒鳴り声――「来るなっ、そっちじゃない!」');
+      spawnServantAmbush();   // 画面フラッシュはこちらが出す
+      return null;
+    });
+
+    /* 戦闘③のあと、地下入口で鍛冶士が待っている。condition で「まだ倒し
+       終えていない間は判定そのものを見送る」ようにしてある ―― lines を
+       null で返すと、その場で fired 扱いになって二度と出なくなるため */
+    registerProximityEvent(new THREE.Vector3(76,0,93), 4.4, '鍛冶士', [
+      '「……無事か。すまん、俺じゃどうにもならん」',
+      '「この下だ。旦那様はずっと下にいるらしい。使用人が誰も降りたがらなかった場所だ」',
+      '「俺はここで待つ。逃げ道は俺が押さえておく。……無茶はするなよ」'
+    ], {condition:()=> isRoomCleared('servantAmbush')});
+    buildManorSmithNpc(new THREE.Vector3(72, 0, 94)).rotation.y = Math.PI*0.15;
+
+    /* 地下への階段(auto)。倒すべきものを倒すまでは降りられない */
+    const down = buildStairs(new THREE.Vector3(76,0,95), new THREE.Vector3(138,0,45),
+                             '地下へ降りた……', 0x241a14, 'down', 'servantAmbush');
+    down.routeNode = 'basement';
+    down.auto = true;
+  }
+
+  /* ---------------------------------------------------------
+     地下: 地下室 → 保管庫 → 地下奥【戦闘④】→(ボス前 → 主の間)
+  --------------------------------------------------------- */
+  function buildMansionBasement(){
+    const wallMat  = new THREE.MeshStandardMaterial({color:0x241820, roughness:0.9});
+    const floorTex = makeCobbleTexture('#3a2f28', '#171210', 4, 5, 5);
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.95});
+
+    mansionUnderlay(112, 168, 32, 126);
+    ['bCellar','bCor','bStore','bDeep'].forEach(id=>{
+      const r = mansionRoomById(id);
+      mansionFloor(r, floorMat);
+      buildMansionWalls(r, wallMat);
+    });
+    mansionLamp(138, 50, 0x5fcf7a, 0.55, 20);
+    mansionLamp(138, 82, 0x7a9a6a, 0.45, 24);
+    mansionLamp(140, 104, 0x8a4fd8, 0.55, 26);
+
+    // 一階奥へ戻る階段(手動)
+    buildStairs(new THREE.Vector3(131,0,49), new THREE.Vector3(70,0,92),
+                '地下入口へ戻った……', 0x3a2818, 'up');
+
+    // 石柱と、積み上がった樽・木箱(保管庫)
+    const pillarMat = new THREE.MeshStandardMaterial({color:0x2a2028, roughness:0.95});
+    [[130,46],[146,46],[130,56],[146,56]].forEach(([x,z])=>{
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.65,3.2,8), pillarMat);
+      p.position.set(x, 1.6, z);
+      scene.add(p);
+      walls.push({minX:x-0.65, maxX:x+0.65, minZ:z-0.65, maxZ:z+0.65});
+    });
+    const barrelMat = new THREE.MeshStandardMaterial({color:0x43301f, roughness:0.9});
+    for(let i=0;i<9;i++){
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.6,1.1,10), barrelMat);
+      const x = 123 + Math.random()*31, z = 74 + Math.random()*16;
+      if(Math.abs(x-138) < 5 && z < 78) continue;   // 通り道は空けておく
+      b.position.set(x, 0.55, z);
+      b.castShadow = true;
+      scene.add(b);
+      walls.push({minX:x-0.6, maxX:x+0.6, minZ:z-0.6, maxZ:z+0.6});
+    }
+
+    /* 地下室に降りた瞬間。何か重いものを引きずる音が、奥のほうで一度だけ */
+    registerRoomEvent(mansionRoomById('bCellar'), 0, '', ()=>{
+      sfx('drag');
+      spawnToast('🔊 ずっと奥のほうで、重い何かを引きずる音がした');
+      return null;
+    });
+
+    /* 保管庫。棚に並んでいるはずの物がひとつも無く、床に置き直されている
+       ―― 誰かが、几帳面に、しかし意味の分からない並べ方をした跡 */
+    registerRoomEvent(mansionRoomById('bStore'), 0, '', ()=>{
+      spawnToast('📦 棚の中身がすべて床に降ろされ、几帳面に並べ直されている');
+      return null;
+    });
+
+    /* 戦闘④。地下奥は封鎖扉つき */
+    const deep = mansionRoomById('bDeep');
+    const seal = {tag:'manorDeep', x0:deep.x0+2.5, x1:deep.x1-2.5, z0:deep.z0+2.5, z1:deep.z1-2.5};
+    const d = buildDoor('manorDeep-S', 140, deep.z0, 8, 0x241018, 'EW');
+    d.seal = seal;
+    d.clearTag = 'manorDeep';
+    resetDoorState(d);
+
+    /* 主の間へ(auto)。戦闘④を終えるまで階段は現れない(gateKey) */
+    const fwd = buildStairs(new THREE.Vector3(140,0,112), new THREE.Vector3(80,0,137),
+                            '主の間へ続く階段を降りた……', 0x241018, 'down', 'manorDeep');
+    fwd.routeNode = 'boss';
+    fwd.auto = true;
+
+    // 周回★3以上でだけ、保管庫の奥にもう一部屋開く(「山を登る」拡張)
+    if(scenarioStars('mansion') >= MANSION_CRYPT_DEPTHS_STARS) buildMansionCryptDepths();
+  }
+
+  /* 周回★3で開く行き止まりの拡張。行き止まりという構造は変えず、地下奥の
+     さらに先へもう一部屋足すだけ。間取りの表(MANSION_ROOMS)は★の有無で
+     変わらないので、繋ぎは扉ではなく階段の対にしてある ―― 表に開口を
+     作っておいて★未満のときだけ塞ぐ、という食い違いを持たせないため。 */
+  function buildMansionCryptDepths(){
+    const cx = 140, cz = 134;
+    const wallMat = new THREE.MeshStandardMaterial({color:0x1c1418, roughness:0.9});
+    const floorTex = makeMasonryTexture('#1c1418', '#0a0608', 3, 4, 5, 4, {crack:true});
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.95});
+
+    mansionUnderlay(cx-16, cx+16, cz-16, cz+16);
+    const r = {x0:cx-10, x1:cx+10, z0:cz-10, z1:cz+10};
+    mansionFloor(r, floorMat);
+    addWallBox(cx, r.z0, 20.7, 0.7, wallMat);
+    addWallBox(cx, r.z1, 20.7, 0.7, wallMat);
+    addWallBox(r.x0, cz, 0.7, 20, wallMat);
+    addWallBox(r.x1, cz, 0.7, 20, wallMat);
+
+    const altarMat = new THREE.MeshStandardMaterial({color:0x2a2020, roughness:0.85});
+    const altar = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.9,1.4), altarMat);
+    altar.position.set(cx, 0.45, cz+6);
+    altar.receiveShadow = true;
+    scene.add(altar);
+    walls.push({minX:cx-1.2, maxX:cx+1.2, minZ:cz+5.3, maxZ:cz+6.7});
+    const glow = new THREE.PointLight(0xc060ff, 0.9, 14);
+    glow.position.set(cx, 2, cz+6);
+    scene.add(glow);
+
+    // 地下奥からの行き来。どちらも手動なので往復に迷いは出ない
+    buildStairs(new THREE.Vector3(150,0,96), new THREE.Vector3(cx,0,cz-6),
+                'さらに奥へ降りた……', 0x1c1418, 'down');
+    buildStairs(new THREE.Vector3(cx,0,cz+8), new THREE.Vector3(146,0,98),
+                '地下奥へ戻った……', 0x1c1418, 'up');
+
+    registerProximityEvent(new THREE.Vector3(cx,0,cz-3), 4, '???', [
+      'これまで踏み込んだことのない、地下のさらに奥……',
+      '空気が、ひときわ重い。'
+    ]);
+  }
+
+  /* ---------------------------------------------------------
+     最奥: ボス前 → 主の間
+  --------------------------------------------------------- */
+  function buildMansionLordsRoom(){
+    const wallMat  = new THREE.MeshStandardMaterial({color:0x241a26, roughness:0.9});
+    const floorTex = makeMasonryTexture('#2e2333', '#140e18', 3, 4, 5, 4, {crack:true});
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.92});
+
+    mansionUnderlay(50, 110, 124, 188);
+    ['bAnte','bLord'].forEach(id=>{
+      const r = mansionRoomById(id);
+      mansionFloor(r, floorMat);
+      buildMansionWalls(r, wallMat);
+    });
+    mansionLamp(80, 139, 0x8a7ad0, 0.45, 16);
+    mansionLamp(80, 163, 0xff6a4a, 0.55, 30);
+
+    // 地下奥へ引き返す階段(手動)。ボス前で装備を整え直せるように残す
+    buildStairs(new THREE.Vector3(86,0,142), new THREE.Vector3(140,0,104),
+                '地下奥へ戻った……', 0x241018, 'up');
+
+    /* ボス前。ここで初めて、屋敷の主が「まだいる」ことがはっきりする。
+       扉の向こうから、規則正しい足音が近づいて――止まる */
+    registerRoomEvent(mansionRoomById('bAnte'), 0, '', ()=>{
+      sfx('drag');
+      spawnToast('🔊 扉の向こうで、足音がゆっくり近づき――ちょうど扉の前で止まった');
+      return null;
+    });
+
+    buildMansionChandelier();
+
+    // 周回★4以上でのみ、主の間の奥に屋根裏へ続く階段が現れる。実際に
+    // 上れるのは主を倒した後だけ(gateTag)
+    if(scenarioStars('mansion') >= MANSION_ATTIC_STARS){
+      buildStairs(new THREE.Vector3(80,0,177), MANSION_ATTIC_POS.clone(),
+        '屋根裏へ続く階段を上った……', 0x2a1830, 'up', 'mansionBoss');
+      buildMansionAttic();
+    }
+  }
+
+  /* 主の間、入ってすぐの天井から下がる鉄鎖のシャンデリア。
+     以前は分岐ルートを選んだ時だけ落とせたが、分岐そのものを外したので
+     「見上げて気づいた人だけが使える一度きりの仕掛け」に変えてある。 */
   function buildMansionChandelier(){
     const chainMat = new THREE.MeshStandardMaterial({color:0x1c1c22, roughness:0.6, metalness:0.5});
     const frameMat = new THREE.MeshStandardMaterial({color:0x3a3020, roughness:0.55, metalness:0.6});
-    const pos = new THREE.Vector3(0, 0, -55);
+    const pos = MANSION_BOSS_POS.clone();
+    pos.z -= 4;   // 主のすぐ手前。ここまで来れば戦闘は既に始まっている
 
     const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,3.4,6), chainMat);
     chain.position.set(pos.x, 5.2, pos.z);
@@ -1958,7 +2775,7 @@
     scene.add(glow);
 
     registerProximityEvent(new THREE.Vector3(pos.x,0,pos.z), 2.5, '???', ()=>{
-      if(state.bossMods.indexOf('chandelier')>=0 && !state.chandelierUsed){
+      if(!state.chandelierUsed){
         state.chandelierUsed = true;
         const boss = enemies.find(en=>en.isBoss && !en.dead);
         if(boss){
@@ -1966,256 +2783,22 @@
           boss.hurtT = 1.4; // 通常より長く怯ませる(強制ダウン相当の演出)
           boss.flinch = Math.min(1.6, (boss.flinch||0) + 1.6);
           spawnToast('⚙️ 鎖を断ち切った!シャンデリアが主に降り注ぐ!!');
+          return ['見上げると、燭台に繋がる鎖が緩んでいる。', '……今なら、断ち切れそうだ。'];
         }
-        return ['見上げると、燭台に繋がる鎖が緩んでいる。', '……今なら、断ち切れそうだ。'];
+        return ['見上げると、燭台に繋がる鎖が緩んでいる。', '……今は、落としても意味が無さそうだ。'];
       }
-      if(state.bossMods.indexOf('chandelier')>=0 && state.chandelierUsed){
-        return ['鎖はもう断ち切ってしまった。燭台はそのまま床に転がっている。'];
-      }
-      return ['天井から古びたシャンデリアが下がっている。鎖はしっかりと固定され、びくともしない。'];
+      return ['鎖はもう断ち切ってしまった。燭台はそのまま床に転がっている。'];
     });
   }
 
-  /* =========================================================
-     COURTYARD (third mansion route, via the west foyer door)
-     基準ルート: 難易度⭐、報酬100%。他の2ルート(crypt/study)は敵の総量・
-     報酬ともにこれより上振れさせる方針(改善アイデア.md「逃げ道は基準線」)。
-  ========================================================= */
-  function buildMansionCourtyard(){
-    const cx = 100, cz = 60;
-    const T = 0.8;
-    const wallMat = new THREE.MeshStandardMaterial({color:0x2a3a26, roughness:0.95});
-    const floorTex = makeGrassTexture('#33422a', ['#3f5030','#28351f','#455a34','#39492c'], 7, 7);
-    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.95});
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(36,36), floorMat);
-    floor.rotation.x = -Math.PI/2;
-    floor.position.set(cx, 0.05, cz);
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    // 崩れかけの庭壁で四方を囲う(出入りは階段のテレポートのみなので扉は不要)
-    addWallBox(cx, cz-18, 37.6, T, wallMat);
-    addWallBox(cx, cz+18, 37.6, T, wallMat);
-    addWallBox(cx-18, cz, T, 36, wallMat);
-    addWallBox(cx+18, cz, T, 36, wallMat);
-
-    // 中央の泉: 触れるとHP/MPが一部回復する(このダンジョンの標準ルートらしい、消耗しない体験)
-    const basinMat = new THREE.MeshStandardMaterial({color:0x6a6a5a, roughness:0.7});
-    const basin = new THREE.Mesh(new THREE.CylinderGeometry(2.0,2.2,0.6,16), basinMat);
-    basin.position.set(cx, 0.3, cz);
-    basin.castShadow = true; basin.receiveShadow = true;
-    scene.add(basin);
-    const waterMat = new THREE.MeshStandardMaterial({color:0x3a6a7a, roughness:0.25, metalness:0.1, emissive:0x1a3a44, emissiveIntensity:0.3});
-    const water = new THREE.Mesh(new THREE.CylinderGeometry(1.7,1.7,0.15,16), waterMat);
-    water.position.set(cx, 0.62, cz);
-    scene.add(water);
-    const fountainGlow = new THREE.PointLight(0x5fb0c0, 0.7, 12);
-    fountainGlow.position.set(cx, 1.2, cz);
-    scene.add(fountainGlow);
-    walls.push({minX:cx-2.2, maxX:cx+2.2, minZ:cz-2.2, maxZ:cz+2.2});
-
-    registerProximityEvent(new THREE.Vector3(cx,0,cz), 3.2, '???', ()=>{
-      if(routeMutationActive('mansion', 'court')){
-        return ['泉は干上がっている。ひび割れた石の底に、乾いた落ち葉が積もっていた。',
-                '……何度も訪れる者への、庭からのささやかな意地悪だろうか。'];
-      }
-      state.hp = Math.min(state.maxHp, state.hp + state.maxHp*0.4);
-      state.mp = Math.min(state.maxMp, state.mp + state.maxMp*0.4);
-      spawnToast('🌿 泉の水に触れた。傷が少し癒えていく……');
-      return ['澄んだ泉が、静かに輝いている。', '手を浸すと、傷の痛みがすっと引いていった。'];
-    });
-
-    // 基準ルートらしい、弱めの敵2体のみ(他2ルートより明確に軽い)
-    // ※実際のスポーンは spawnEnemies() の spots 配列(roomTag無しの courtyard 帯)で行う
-
-    buildLoreNote(new THREE.Vector3(cx-10,0,cz+10), '苔むした庭師の手記', [
-      '……日付は判読できない。ただ、几帳面な字でこう記されている。',
-      '「時計塔の針が七時十三分で止まった日から、庭のものたちの様子がおかしい」',
-      '「先生に伝えねば。だが、先生も近頃は、庭に下りてこられない」'
-    ], {kind:'note'});
-
-    // 庭の隅、荷物を抱えて振り返る使用人の影。近づくと消える ―― 屋敷を
-    // 去ろうとする使用人たちの残影(洋館の"幻影再生"、中庭ルート編)
-    registerProximityEvent(new THREE.Vector3(cx+10,0,cz-10), 6, '???', ()=>{
-      spawnApparition(new THREE.Vector3(cx+8,0,cz-8), {vanishDist:5.5, color:0x2a3a26, facing:Math.PI*0.75});
-      return [
-        '庭の隅、荷物を抱えて屋敷を振り返る影がある。逃げようとしているのか。',
-        '足を止めた瞬間、その姿はもう無かった。'
-      ];
-    });
-
-    const courtOut = buildStairs(new THREE.Vector3(cx,0,cz-14), new THREE.Vector3(100,0,99), '大広間へ向かった……', 0x2a3a24, 'up');
-    courtOut.routeNode = 'greathall';
-
-    return {cx, cz};
-  }
-
-  /* =========================================================
-     GREATHALL (merge point) + 第2分岐: 本館大階段(grand) / 使用人通路(servant)
-     第1分岐(crypt/study/court)を終えると、ここで合流する(鍵は撤去済み、
-     一方通行の戻り階段だけが正規の進行手段)。ここでの選択はボス戦の条件を
-     左右するだけ ―― E(使用人通路)が基準線、D(本館大階段)が上振れ、という第1分岐と同じ考え方。
-  ========================================================= */
-  function buildMansionGreathall(){
-    const cx = 100, cz = 110;
-    const T = 0.8;
-    const wallMat = new THREE.MeshStandardMaterial({color:0x2a2438, roughness:0.85});
-    const floorTex = makePlankTexture('#4a3c50', 5, 6, 6);
-    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.85});
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(32,28), floorMat);
-    floor.rotation.x = -Math.PI/2;
-    floor.position.set(cx, 0.08, cz);
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    addWallBox(cx, cz-14, 32.8, T, wallMat);
-    addWallBox(cx, cz+14, 32.8, T, wallMat);
-    addWallBox(cx-16, cz, T, 28, wallMat);
-    addWallBox(cx+16, cz, T, 28, wallMat);
-
-    const lamp = new THREE.PointLight(0xd8c8ff, 0.7, 20);
-    lamp.position.set(cx, 3.2, cz);
-    scene.add(lamp);
-
-    // 中央の大階段オブジェ(装飾。実際の分岐は左右のstairsで行う)
-    const pillarMat = new THREE.MeshStandardMaterial({color:0x3a3448, roughness:0.6});
-    [[-3,0],[3,0]].forEach(([dx,dz])=>{
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.6,4.2,8), pillarMat);
-      pillar.position.set(cx+dx, 2.1, cz+dz);
-      pillar.castShadow = true;
-      scene.add(pillar);
-    });
-
-    registerProximityEvent(new THREE.Vector3(cx,0,cz), 6.5, '???',
-      ['正面に本館へ続く大階段、右手に使用人通路への扉がある。',
-       'どちらの先にも、主の間へ繋がっているという。だが――一度選べば、もう一方の道は閉ざされるだろう。'],
-      {condition:()=>!routeBranchTaken('m2')});
-
-    // 大階段の上、当主とおぼしき人影が一瞬だけ見える。近づくと消える
-    // ―― まだ館の奥に「何か」が居座っていることを、文章より先に見せる演出
-    registerProximityEvent(new THREE.Vector3(cx+6,0,cz+9), 9, '???', ()=>{
-      spawnApparition(new THREE.Vector3(cx+6,0,cz+13), {vanishDist:6.5, color:0x2a2438});
-      return [
-        '大階段の上、誰かがこちらを見下ろしている。',
-        '……瞬きをした一瞬で、その姿は消えていた。'
-      ];
-    });
-
-    // 階層間の休憩ポイント: 古びた姿見(鏡)。ここで一息つき、装備を整えられる
-    const mirrorFrameMat = new THREE.MeshStandardMaterial({color:0x8a7a4a, roughness:0.5, metalness:0.5});
-    const mirrorGlassMat = new THREE.MeshStandardMaterial({color:0x6a8ac0, roughness:0.15, metalness:0.3, emissive:0x2a3a5a, emissiveIntensity:0.35});
-    const mirrorFrame = new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,0.12,16), mirrorFrameMat);
-    mirrorFrame.rotation.x = Math.PI/2;
-    mirrorFrame.position.set(cx, 1.8, cz-6);
-    scene.add(mirrorFrame);
-    const mirrorGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.95,0.95,0.05,16), mirrorGlassMat);
-    mirrorGlass.rotation.x = Math.PI/2;
-    mirrorGlass.position.set(cx, 1.8, cz-5.9);
-    scene.add(mirrorGlass);
-    const mirrorGlow = new THREE.PointLight(0x6a8ac0, 0.6, 8);
-    mirrorGlow.position.set(cx, 1.8, cz-5.5);
-    scene.add(mirrorGlow);
-    registerCheckpoint(new THREE.Vector3(cx, 0, cz-6));
-
-    const stairsToGrand = buildStairs(new THREE.Vector3(cx-12,0,cz+10), new THREE.Vector3(100,0,160), '本館大階段へ進んだ……', 0x3a3448, 'down');
-    stairsToGrand.routeNode = 'grand';
-    buildRouteTagSign(stairsToGrand.pos, 'grand');
-    const stairsToServant = buildStairs(new THREE.Vector3(cx+12,0,cz+10), new THREE.Vector3(54,0,104), '使用人通路へ入った……', 0x2a2438, 'down');
-    stairsToServant.routeNode = 'servant';
-    buildRouteTagSign(stairsToServant.pos, 'servant');
-
-    return {cx, cz};
-  }
-
-  // D: 本館大階段 ―― 敵の群れを正面突破する。消耗は大きいが、宝箱と
-  // シャンデリア(ボス戦での大ダメージ)が手に入る上振れルート
-  function buildMansionGrand(){
-    const cx = 100, cz = 172;
-    const T = 0.8;
-    const wallMat = new THREE.MeshStandardMaterial({color:0x342c40, roughness:0.8});
-    const floorTex = makeMasonryTexture('#463a54', '#241c2c', 3, 4, 5, 4, {crack:true});
-    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(34,30), floorMat);
-    floor.rotation.x = -Math.PI/2;
-    floor.position.set(cx, 0.08, cz);
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    addWallBox(cx, cz-15, 34.8, T, wallMat);
-    addWallBox(cx, cz+15, 34.8, T, wallMat);
-    addWallBox(cx-17, cz, T, 30, wallMat);
-    addWallBox(cx+17, cz, T, 30, wallMat);
-
-    const chandLight = new THREE.PointLight(0xffcf8a, 0.6, 16);
-    chandLight.position.set(cx, 3.5, cz);
-    scene.add(chandLight);
-
-    // 敵の総量は基準ルート(使用人通路)より明確に多い。実際のスポーンは
-    // spawnEnemies() の spots 配列(grand帯)で行う。
-
-    // 着地先はz=120(大広間側のstairsToGrandと同じ「壁から4離れた室内」の帯)。
-    // 以前はz=124になっていたが、これは大広間の北壁(cz+14=124)のAABBの
-    // ど真ん中で、着地即座に壁へ完全に埋まってしまうバグだった
-    // (resolveWallCollisions()は「壁のふちに接している」状態からしか
-    // 押し出せず、めり込み量ゼロの完全埋没では押し出し方向を計算できない)
-    buildStairs(new THREE.Vector3(cx,0,cz-12), new THREE.Vector3(100,0,120), '大広間へ戻った……', 0x3a3448, 'up');
-
-    const forward = buildStairs(new THREE.Vector3(cx,0,cz+12), new THREE.Vector3(0,0,-48), '主の間へ向かった……', 0x241018, 'down');
-    forward.routeNode = 'boss';
-
-    return {cx, cz};
-  }
-
-  // E: 使用人通路 ―― 標準ルート。戦闘はほぼなく、隠し小部屋に宝箱が1つ
-  function buildMansionServant(){
-    const cx = 54, cz = 110;
-    const T = 0.8;
-    const wallMat = new THREE.MeshStandardMaterial({color:0x241c2c, roughness:0.9});
-    const floorTex = makePlankTexture('#3a2c3c', 4, 5, 4);
-    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20,20), floorMat);
-    floor.rotation.x = -Math.PI/2;
-    floor.position.set(cx, 0.08, cz);
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    addWallBox(cx, cz-10, 20.8, T, wallMat);
-    addWallBox(cx, cz+10, 20.8, T, wallMat);
-    addWallBox(cx-10, cz, T, 20, wallMat);
-    addWallBox(cx+10, cz, T, 20, wallMat);
-
-    const lamp = new THREE.PointLight(0xffb066, 0.5, 12);
-    lamp.position.set(cx, 3, cz);
-    scene.add(lamp);
-
-    // 🗝️隠し小部屋: 壁際にひっそりと宝箱が1つ(実配置はspawnChestsで行う)
-    buildLoreNote(new THREE.Vector3(cx+6,0,cz-6), '使用人の日誌の切れ端', [
-      '「今宵もまた、書斎の奥から声が聞こえる。先生には、聞こえていないようだ」',
-      '「あれは……助手殿の声によく似ている」'
-    ], {kind:'note'});
-
-    buildStairs(new THREE.Vector3(cx,0,cz-8), new THREE.Vector3(92,0,104), '大広間へ戻った……', 0x2a2438, 'up');
-
-    const forward = buildStairs(new THREE.Vector3(cx,0,cz+8), new THREE.Vector3(0,0,-48), '主の間へ向かった……', 0x241018, 'down');
-    forward.routeNode = 'boss';
-
-    return {cx, cz};
-  }
-
-  // 主の間の先、周回★4で開く「山を登り切った先」の一段。座標は
-  // worldKeyForPos()が'mansion'と判定するx帯(160≦x<170、他ダンジョンの
-  // 領域と重ならない隙間)を選んである。徒歩の通路では繋がっておらず、
-  // 既存のbasement/study/courtyardと同じ「階段テレポートで飛ぶ離れ島」
+  /* 主の間の先、周回★4で開く「山を登り切った先」の一段。 */
   function buildMansionAttic(){
-    const cx = 165, cz = -40;
+    const cx = MANSION_ATTIC_POS.x, cz = MANSION_ATTIC_POS.z;
     const wallMat = new THREE.MeshStandardMaterial({color:0x2a2436, roughness:0.85});
     const floorTex = makePlankTexture('#4a3c50', 4, 5, 4);
     const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
 
+    mansionUnderlay(cx-16, cx+16, cz-16, cz+16);
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(20,20), floorMat);
     floor.rotation.x = -Math.PI/2;
     floor.position.set(cx, 0.08, cz);
@@ -2227,7 +2810,6 @@
     addWallBox(cx-10, cz, 0.8, 20, wallMat);
     addWallBox(cx+10, cz, 0.8, 20, wallMat);
 
-    // 傾いた梁と積み上がった家具箱。屋根裏らしい雑然とした飾り
     const beamMat = new THREE.MeshStandardMaterial({color:0x2a2020, roughness:0.8});
     [[-6,-4,0.5],[6,3,-0.4]].forEach(([x,z,rot])=>{
       const beam = new THREE.Mesh(new THREE.BoxGeometry(6,0.3,0.3), beamMat);
@@ -2243,67 +2825,29 @@
       crate.castShadow = true; crate.receiveShadow = true;
       scene.add(crate);
     });
-    const lamp = new THREE.PointLight(0xc9a0ff, 0.6, 16);
-    lamp.position.set(cx, 3.6, cz);
-    scene.add(lamp);
+    mansionLamp(cx, cz, 0xc9a0ff, 0.6, 16);
 
-    buildStairs(new THREE.Vector3(cx,0,cz+8), new THREE.Vector3(0,0,-58), '主の間へ戻った……', 0x2a1830, 'down');
-    // 主の間へ引き返す階段のすぐ隣に、酒場へ直接戻れる帰還の光を置く。
-    // 撃破報酬はここへ来る前に受け取り済みなので、これは退却ではない
+    buildStairs(new THREE.Vector3(cx,0,cz+8), new THREE.Vector3(80,0,173),
+                '主の間へ戻った……', 0x2a1830, 'down');
+    // 帰還の光。撃破報酬はここへ来る前に受け取り済みなので、これは退却ではない
     buildTownReturnPortal(new THREE.Vector3(cx+6, 0, cz+8));
 
     registerProximityEvent(new THREE.Vector3(cx,0,cz-4), 5, '???', [
-      '館の主が、なぜここまで力を蓄えていたのか……その答えが、埃をかぶって眠っている。',
-      '登ってきた甲斐は、あったようだ。'
+      '屋敷の主が何を抱え込んでいたのか……その答えらしきものが、埃をかぶって眠っている。',
+      '見ても、やはり分からない。'
     ]);
   }
 
-  // a dense ring of trees with real collision, ~2 units out from the
-  // mansion's own exterior shell, so the player can't slip past the
-  // building's sides - with a courtyard-sized gap left open in front of
-  // the entrance
-  function buildMansionForestWall(){
-    const wallMat = new THREE.MeshStandardMaterial({color:0x1a3320, roughness:0.95});
-    const trunkMat = new THREE.MeshStandardMaterial({color:0x3a2a1a, roughness:0.9});
-    const leafMats = [0x1e4a28,0x255530,0x1a3f24].map(c=>new THREE.MeshStandardMaterial({color:c, roughness:0.85}));
-
-    function wallSegment(cx,cz,sx,sz){
-      addWallBox(cx,cz,sx,sz,wallMat);
-      const steps = Math.max(2, Math.round(Math.max(sx,sz)/2.2));
-      for(let i=0;i<=steps;i++){
-        const t = i/steps;
-        const tx = sx>=sz ? cx-sx/2+sx*t+(Math.random()-0.5)*0.5 : cx+(Math.random()-0.5)*0.6;
-        const tz = sx>=sz ? cz+(Math.random()-0.5)*0.6 : cz-sz/2+sz*t+(Math.random()-0.5)*0.5;
-        const th = 2.6+Math.random()*1.8;
-        const tree = new THREE.Group();
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.22,th,6), trunkMat);
-        trunk.position.y = th/2;
-        tree.add(trunk);
-        const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.1+Math.random()*0.4, 2.3+Math.random()*1.1, 7), leafMats[Math.floor(Math.random()*leafMats.length)]);
-        leaf.position.y = th+1.1;
-        tree.add(leaf);
-        tree.position.set(tx,0,tz);
-        scene.add(tree);
-      }
-    }
-    wallSegment(0, -64.4, 33.4, 0.8);      // north
-    wallSegment(-16.7, -41.4, 0.8, 46);    // west
-    wallSegment(16.7, -41.4, 0.8, 46);     // east
-    // south, with a courtyard-sized gap left open in front of the entrance
-    wallSegment(-12.35, -18.4, 8.7, 0.8);
-    wallSegment(12.35, -18.4, 8.7, 0.8);
-  }
-
-  // tall exterior facade + roof, so the mansion reads as a real building from
-  // outside; the roof hides once the player steps inside so the top-down
-  // camera can still see the interior, and the forest stays out of view
+  /* 建物の外殻。前庭から見上げたときに「一軒の洋館」に見えればよい。
+     内部の間取り(MANSION_ROOMS の一階前半)を囲う形にしてある。 */
   let mansionRoof = null;
   let restroomRoof = null;
 
   function buildMansionExterior(){
     const shellMat = new THREE.MeshStandardMaterial({color:0x2a2430, roughness:0.85});
-    const roofMat = new THREE.MeshStandardMaterial({color:0x1c1620, roughness:0.7});
+    const roofMat  = new THREE.MeshStandardMaterial({color:0x1c1620, roughness:0.7});
     const h = 7;
+    const X0 = -31, X1 = 21, Z0 = -99, Z1 = -40;   // 一階前半の外周 + 余白
 
     function panel(cx,cz,sx,sz){
       const m = new THREE.Mesh(new THREE.BoxGeometry(sx,h,sz), shellMat);
@@ -2311,293 +2855,71 @@
       m.castShadow = true; m.receiveShadow = true;
       scene.add(m);
     }
-    panel(-8.5, -20.4, 11, 0.5);   // south facade, left of the entrance
-    panel(8.5, -20.4, 11, 0.5);    // south facade, right of the entrance
-    // header above the doorway, closing the gap between the archway lintel and the roofline
+    // 南面(正面)。玄関の開口(x -3..3)だけ空けて左右に立てる
+    panel((X0-3)/2, Z1-0.4, (-3-X0), 0.5);
+    panel((3+X1)/2, Z1-0.4, (X1-3),  0.5);
     const header = new THREE.Mesh(new THREE.BoxGeometry(6.6, h-3.5, 0.5), shellMat);
-    header.position.set(0, 3.5+(h-3.5)/2, -20.4);
+    header.position.set(0, 3.5+(h-3.5)/2, Z1-0.4);
     header.castShadow = true; header.receiveShadow = true;
     scene.add(header);
-    panel(0, -62.4, 29, 0.5);      // north facade (back)
-    panel(-14.7, -41.4, 0.5, 42);  // west facade
-    panel(14.7, -41.4, 0.5, 42);   // east facade
+    panel((X0+X1)/2, Z0+0.4, (X1-X0), 0.5);      // 北面
+    panel(X0+0.4, (Z0+Z1)/2, 0.5, (Z1-Z0));      // 西面
+    panel(X1-0.4, (Z0+Z1)/2, 0.5, (Z1-Z0));      // 東面
 
-    // a few simple window accents for the "real building" silhouette
-    const windowMat = new THREE.MeshStandardMaterial({color:0xffcf7a, emissive:0xffb066, emissiveIntensity:0.5});
-    [-14.6, 14.6].forEach(x=>{
-      [-28,-41,-54].forEach(z=>{
+    // 窓。どれも灯りは点いていない ―― 前庭から見たとき「暗い家」に見せる
+    const windowMat = new THREE.MeshStandardMaterial({color:0x2b2a33, roughness:0.4,
+                        emissive:0x14161f, emissiveIntensity:0.6});
+    [X0+0.7, X1-0.7].forEach(x=>{
+      [-50,-62,-74,-86].forEach(z=>{
         const win = new THREE.Mesh(new THREE.BoxGeometry(0.15,1.2,1.4), windowMat);
         win.position.set(x, 4, z);
         scene.add(win);
       });
     });
 
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(30.4, 0.8, 43), roofMat);
-    roof.position.set(0, h+0.4, -41.4);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(X1-X0+0.6, 0.8, Z1-Z0+0.6), roofMat);
+    roof.position.set((X0+X1)/2, h+0.4, (Z0+Z1)/2);
     roof.castShadow = true;
     scene.add(roof);
     mansionRoof = roof;
+  }
 
-    // a ring of trees around the building (west/east/back) so arriving at
-    // the mansion reads clearly, without blocking the entrance path
-    const ringTrunkMat = new THREE.MeshStandardMaterial({color:0x3f2c1c, roughness:0.9});
-    const ringLeafMats = [0x1f4a2c,0x265533,0x2c5e3a].map(c=>new THREE.MeshStandardMaterial({color:c, roughness:0.85}));
-    function ringTree(x,z){
+  // a dense ring of trees with real collision, just outside the manor's own
+  // shell, so the player can't slip past the building's sides - with the
+  // front yard left open in front of the entrance
+  function buildMansionForestWall(){
+    const trunkMat = new THREE.MeshStandardMaterial({color:0x3a2a1a, roughness:0.9});
+    const leafMats = [0x1e4a28,0x255530,0x1a3f24].map(c=>new THREE.MeshStandardMaterial({color:c, roughness:0.85}));
+    function ringTree(x,z,solid){
       const th = 2.6 + Math.random()*2.0;
       const tree = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.24,th,7), ringTrunkMat);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.26,th,7), trunkMat);
       trunk.position.y = th/2; trunk.castShadow = false;
       tree.add(trunk);
-      const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.1+Math.random()*0.5, 2.4+Math.random()*1.2, 8), ringLeafMats[Math.floor(Math.random()*ringLeafMats.length)]);
+      const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.1+Math.random()*0.5, 2.4+Math.random()*1.2, 8),
+                                  leafMats[Math.floor(Math.random()*leafMats.length)]);
       leaf.position.y = th + 1.1; leaf.castShadow = false;
       tree.add(leaf);
-      tree.position.set(x + (Math.random()-0.5)*1.2, 0, z + (Math.random()-0.5)*1.2);
+      tree.position.set(x + (Math.random()-0.5)*0.8, 0, z + (Math.random()-0.5)*0.8);
       tree.rotation.y = Math.random()*Math.PI*2;
       scene.add(tree);
+      if(solid) walls.push({minX:x-0.6, maxX:x+0.6, minZ:z-0.6, maxZ:z+0.6});
     }
-    for(let z=-22; z>=-60; z-=5.5){ ringTree(-18, z); ringTree(18, z); }
-    for(let x=-15; x<=15; x+=5.5){ ringTree(x, -66); }
+    // 建物の西・東・北を囲う二重の木立
+    for(let z=-38; z>=-102; z-=3.0){ ringTree(-34, z, true); ringTree(24, z, true); }
+    for(let z=-38; z>=-102; z-=4.5){ ringTree(-37, z, false); ringTree(27, z, false); }
+    for(let x=-34; x<=24; x+=3.0){ ringTree(x, -102, true); }
+    // 前庭の左右。玄関前(x -8..8)だけ開けておく
+    for(let x=-34; x<=-9; x+=3.0){ ringTree(x, -37, true); }
+    for(let x=  9; x<= 24; x+=3.0){ ringTree(x, -37, true); }
   }
 
   function updateMansionRoof(){
-    if(mansionRoof) mansionRoof.visible = state.pos.z > -19.5;
+    if(mansionRoof) mansionRoof.visible = state.pos.z > -39.5;
   }
 
   function updateRestroomRoof(){
     if(restroomRoof) restroomRoof.visible = state.pos.x < -95;
-  }
-
-  /* =========================================================
-     BASEMENT (optional bonus floor, reached via the foyer stairs)
-  ========================================================= */
-  function buildBasement(){
-    const cx = 70, cz = -40;
-    const wallMat = new THREE.MeshStandardMaterial({color:0x241820, roughness:0.9});
-    const floorTex = makeCobbleTexture('#3a2f28', '#171210', 4, 5, 5);
-    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.95});
-
-    // covers basement + crypt combined footprint (they're adjacent), with
-    // margin safely under the ~39 unit gap to the nearest other zone
-    const undergroundFillMat = new THREE.MeshStandardMaterial({color:0x050506, roughness:1});
-    const undergroundFill = new THREE.Mesh(new THREE.PlaneGeometry(70, 90), undergroundFillMat);
-    undergroundFill.rotation.x = -Math.PI/2;
-    undergroundFill.position.set(cx, 0.01, cz-10);
-    undergroundFill.receiveShadow = true;
-    scene.add(undergroundFill);
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(24,24), floorMat);
-    floor.rotation.x = -Math.PI/2;
-    floor.position.set(cx, 0.08, cz);
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    // north wall replaced by a partition + door leading to the crypt beyond
-    addWallBox(cx-7, cz-12, 10, 0.8, wallMat);
-    addWallBox(cx+7, cz-12, 10, 0.8, wallMat);
-    addWallBox(cx, cz+12, 24.8, 0.8, wallMat);
-    addWallBox(cx-12, cz, 0.8, 24, wallMat);
-    addWallBox(cx+12, cz, 0.8, 24, wallMat);
-    buildDoor('cryptDoor', cx, cz-12, 4, 0x1a1015);
-    registerProximityEvent(new THREE.Vector3(cx,0,cz-8), 3.5, '???', [
-      '扉の向こうから、低い唸り声が響いてくる。',
-      '引き返すなら、今のうちだ。'
-    ]);
-
-    // 地下室の奥、跪いて祈るように佇む影。近づくと消える ―― まだ呪術に
-    // 手を染める前、ただ喪に服していた頃の残影(洋館の"幻影再生"、地下ルート編)
-    registerProximityEvent(new THREE.Vector3(cx,0,cz+4), 6, '???', ()=>{
-      spawnApparition(new THREE.Vector3(cx,0,cz+2), {vanishDist:5.5, color:0x2a2028});
-      return [
-        '地下室の奥、誰かが跪いて祈るように佇んでいる。',
-        '近づくと、その姿は闇に溶けるように消えていた。'
-      ];
-    });
-
-    // damp green torch-light and a few stone pillars for atmosphere
-    [[cx-7,cz-7],[cx+7,cz-7],[cx-7,cz+7],[cx+7,cz+7]].forEach(([x,z])=>{
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.6,3.2,8), wallMat);
-      pillar.position.set(x, 1.6, z);
-      pillar.castShadow = false;
-      scene.add(pillar);
-    });
-    const torch = new THREE.PointLight(0x5fcf7a, 0.9, 18);
-    torch.position.set(cx, 3, cz);
-    scene.add(torch);
-
-    const cryptOut = buildStairs(new THREE.Vector3(cx,0,cz+10), new THREE.Vector3(100,0,99), '大広間へ向かった……', 0x3a2818, 'up');
-    cryptOut.routeNode = 'greathall';
-
-    // the crypt: a deeper, more dangerous room beyond the cellar
-    const czCrypt = cz - 22;
-    const cryptFloorTex = makeMasonryTexture('#241a20', '#0f0a0c', 3, 4, 5, 4, {crack:true});
-    const cryptFloorMat = new THREE.MeshStandardMaterial({map:cryptFloorTex, roughness:0.95});
-    const cryptFloor = new THREE.Mesh(new THREE.PlaneGeometry(24,20), cryptFloorMat);
-    cryptFloor.rotation.x = -Math.PI/2;
-    cryptFloor.position.set(cx, 0.08, czCrypt);
-    cryptFloor.receiveShadow = true;
-    scene.add(cryptFloor);
-
-    // 周回★3未満はこれまで通りの完全な行き止まり。★3以上になると同じ壁の
-    // 中央だけ扉に差し替わり、さらに奥へ続く(=山を少し登った証)
-    const cryptDepthsUnlocked = scenarioStars('mansion') >= MANSION_CRYPT_DEPTHS_STARS;
-    if(cryptDepthsUnlocked){
-      addWallBox(cx-7, czCrypt-10, 10, 0.8, wallMat);
-      addWallBox(cx+7, czCrypt-10, 10, 0.8, wallMat);
-      buildDoor('cryptDepthsDoor', cx, czCrypt-10, 4, 0x1a1015);
-    } else {
-      addWallBox(cx, czCrypt-10, 24.8, 0.8, wallMat);
-    }
-    addWallBox(cx-12, czCrypt, 0.8, 20, wallMat);
-    addWallBox(cx+12, czCrypt, 0.8, 20, wallMat);
-
-    // sarcophagi lining the crypt walls
-    const sarcMat = new THREE.MeshStandardMaterial({color:0x3a3428, roughness:0.8});
-    [[cx-9,czCrypt-6],[cx-9,czCrypt+6],[cx+9,czCrypt-6],[cx+9,czCrypt+6]].forEach(([x,z])=>{
-      const sarc = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.9,2.6), sarcMat);
-      sarc.position.set(x, 0.45, z);
-      sarc.castShadow = false; sarc.receiveShadow = true;
-      scene.add(sarc);
-    });
-    const cryptGlow = new THREE.PointLight(0x8a4fd8, 0.7, 16);
-    cryptGlow.position.set(cx, 3, czCrypt);
-    scene.add(cryptGlow);
-
-    if(cryptDepthsUnlocked) buildMansionCryptDepths(cx, czCrypt);
-
-    return {cx, cz, czCrypt};
-  }
-
-  // 地下納骨堂のさらに奥、周回★3で開く行き止まり拡張。行き止まりの構造
-  // そのものは変えず、同じ通路の先にもう一部屋足すだけ(既存のcrypt同様、
-  // 徒歩で入って徒歩で戻れる=帰還のための特別な仕掛けは要らない)
-  function buildMansionCryptDepths(cx, czCrypt){
-    const czDepths = czCrypt - 20;
-    const wallMat = new THREE.MeshStandardMaterial({color:0x1c1418, roughness:0.9});
-    const floorTex = makeMasonryTexture('#1c1418', '#0a0608', 3, 4, 5, 4, {crack:true});
-    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.95});
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(18,16), floorMat);
-    floor.rotation.x = -Math.PI/2;
-    floor.position.set(cx, 0.08, czDepths);
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    addWallBox(cx, czDepths-8, 18.8, 0.8, wallMat);
-    addWallBox(cx-9, czDepths, 0.8, 16, wallMat);
-    addWallBox(cx+9, czDepths, 0.8, 16, wallMat);
-
-    // 崩れかけた祭壇。ここまで辿り着いた証として据えてあるだけの飾り
-    const altarMat = new THREE.MeshStandardMaterial({color:0x2a2020, roughness:0.85});
-    const altar = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.9,1.4), altarMat);
-    altar.position.set(cx, 0.45, czDepths-5);
-    altar.castShadow = false; altar.receiveShadow = true;
-    scene.add(altar);
-    const altarGlow = new THREE.PointLight(0xc060ff, 0.9, 14);
-    altarGlow.position.set(cx, 2, czDepths-5);
-    scene.add(altarGlow);
-
-    registerProximityEvent(new THREE.Vector3(cx,0,czDepths+6), 4, '???', [
-      'これまで踏み込んだことのない、納骨堂のさらに奥……',
-      '空気が、ひときわ重い。'
-    ]);
-  }
-
-  /* =========================================================
-     SECOND FLOOR / STUDY (optional bonus floor, via the hall stairs)
-  ========================================================= */
-  function buildSecondFloor(){
-    const cx = -70, cz = -40;
-    const wallMat = new THREE.MeshStandardMaterial({color:0x3a2c1c, roughness:0.85});
-    const floorTex = makePlankTexture('#5a4028', 5, 6, 6);
-    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
-
-    // covers 2F + sealed study combined footprint (they're adjacent)
-    const undergroundFillMat2F = new THREE.MeshStandardMaterial({color:0x050506, roughness:1});
-    const undergroundFill2F = new THREE.Mesh(new THREE.PlaneGeometry(70, 90), undergroundFillMat2F);
-    undergroundFill2F.rotation.x = -Math.PI/2;
-    undergroundFill2F.position.set(cx, 0.01, cz-10);
-    undergroundFill2F.receiveShadow = true;
-    scene.add(undergroundFill2F);
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(24,24), floorMat);
-    floor.rotation.x = -Math.PI/2;
-    floor.position.set(cx, 0.08, cz);
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    // north wall replaced by a partition + door leading to the sealed study beyond
-    addWallBox(cx-7, cz-12, 10, 0.8, wallMat);
-    addWallBox(cx+7, cz-12, 10, 0.8, wallMat);
-    addWallBox(cx, cz+12, 24.8, 0.8, wallMat);
-    addWallBox(cx-12, cz, 0.8, 24, wallMat);
-    addWallBox(cx+12, cz, 0.8, 24, wallMat);
-    buildDoor('atticDoor', cx, cz-12, 4, 0x2a1c10);
-    registerProximityEvent(new THREE.Vector3(cx,0,cz-8), 3.5, '???', [
-      '扉の向こうから、紙をめくる音がかすかに聞こえる。',
-      '誰かが、今もまだ書き続けているようだ。'
-    ]);
-
-    // 書斎の隅、机に向かって書き続ける影。近づくと消える ―― 助手を
-    // 人へ戻す術を探し始めた頃、まだ後戻りできた頃の残影(洋館の"幻影再生"、
-    // 書斎ルート編)
-    registerProximityEvent(new THREE.Vector3(cx-3,0,cz+2), 6, '???', ()=>{
-      spawnApparition(new THREE.Vector3(cx-5,0,cz), {vanishDist:5.5, color:0x3a2c1c});
-      return [
-        '書斎の隅、机に向かって書き続ける影がある。',
-        '近づくと、羽ペンの音だけを残して消えていた。'
-      ];
-    });
-
-    // bookshelves lining the wall (skipping the doorway itself)
-    const shelfMat = new THREE.MeshStandardMaterial({color:0x2a1c10, roughness:0.75});
-    [-8,-4,4,8].forEach(i=>{
-      const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.4, 0.5), shelfMat);
-      shelf.position.set(cx+i, 1.2, cz-11.4);
-      shelf.castShadow = false;
-      scene.add(shelf);
-    });
-    const lamp = new THREE.PointLight(0xffcf8a, 0.8, 18);
-    lamp.position.set(cx, 3, cz);
-    scene.add(lamp);
-
-    const studyOut = buildStairs(new THREE.Vector3(cx,0,cz+10), new THREE.Vector3(100,0,99), '大広間へ向かった……', 0x3a2818, 'down');
-    studyOut.routeNode = 'greathall';
-
-    // the sealed study: a private room beyond the library, kept locked away
-    const czStudy = cz - 22;
-    const studyFloorTex = makePlankTexture('#4a3020', 4, 5, 4);
-    const studyFloorMat = new THREE.MeshStandardMaterial({map:studyFloorTex, roughness:0.9});
-    const studyFloor = new THREE.Mesh(new THREE.PlaneGeometry(24,20), studyFloorMat);
-    studyFloor.rotation.x = -Math.PI/2;
-    studyFloor.position.set(cx, 0.08, czStudy);
-    studyFloor.receiveShadow = true;
-    scene.add(studyFloor);
-
-    addWallBox(cx, czStudy-10, 24.8, 0.8, wallMat);
-    addWallBox(cx-12, czStudy, 0.8, 20, wallMat);
-    addWallBox(cx+12, czStudy, 0.8, 20, wallMat);
-
-    // a writing desk and portrait for atmosphere
-    const deskMat = new THREE.MeshStandardMaterial({color:0x2a1c10, roughness:0.7});
-    const desk = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.9,1.2), deskMat);
-    desk.position.set(cx, 0.45, czStudy-6);
-    desk.castShadow = true; desk.receiveShadow = true;
-    scene.add(desk);
-    const portraitMat = new THREE.MeshStandardMaterial({color:0x6a4a3a, roughness:0.6});
-    const portrait = new THREE.Mesh(new THREE.BoxGeometry(1.8,2.2,0.1), portraitMat);
-    portrait.position.set(cx, 2.2, czStudy-9.5);
-    scene.add(portrait);
-    const studyLamp = new THREE.PointLight(0xffb066, 0.7, 16);
-    studyLamp.position.set(cx, 3, czStudy);
-    scene.add(studyLamp);
-
-    buildLoreNote(new THREE.Vector3(cx+2.5, 0, czStudy-6), '肖像画の裏書き', [
-      '「お前が、人としての姿を取り戻す日まで、私はここで待ち続けよう」',
-      '「たとえこの身がどうなろうとも、後悔はしない」',
-      '署名はない。だが筆跡は、広間の日記と同じものだった――「アルベルト」と読めなくもない。'
-    ], {kind:'letter'});
-
-    return {cx, cz, czStudy};
   }
 
   /* =========================================================

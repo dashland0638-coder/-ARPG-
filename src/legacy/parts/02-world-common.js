@@ -121,13 +121,13 @@
   const WORLD_DEFS = {
     tavern:   { build: ()=>{ buildTavern(); checkJobPromotion(true); } },
     mansion:  { build: ()=>{
-      buildForest(); buildMansion(); buildBasement(); buildSecondFloor(); buildMansionCourtyard();
-      buildMansionGreathall(); buildMansionGrand(); buildMansionServant();
-      // 鍵ギミックは撤去した(下記「鍵ギミック撤去の経緯」を参照)。
-      // 地下室・2階書斎・中庭・大広間・本館大階段/使用人通路という
-      // 一方通行の構造そのものがゲートとして機能するため、鍵という
-      // 別レイヤーのゲートは不要かつ、大広間経由の侵入と噛み合わず
-      // 「扉を内側から開ける」という不自然な動きの原因になっていた。
+      /* 最初のメインシナリオ。森 → 一階 → 二階 → 一階奥 → 地下 → 主の間 と
+         一本道で繋がる区画を、階ごとにまとめて建てる。当たり判定は二次元
+         なので、階が違う区画はx/z上でも離れた場所に置き、行き来は階段の
+         テレポート(前進方向はauto)で繋いである。間取りは MANSION_ROOMS
+         (03-dungeons-mansion-temple.js)の1枚の表が唯一の情報源。 */
+      buildForest(); buildMansion(); buildMansionUpper();
+      buildMansionServantWing(); buildMansionBasement(); buildMansionLordsRoom();
     } },
     ghostship:{ build: ()=>{ buildGhostShip(); } },
     waterway: { build: ()=>{ buildWaterwayPier(); buildWaterwayUnderground(); } },
@@ -258,6 +258,7 @@
     if(state.mageOrbs){ state.mageOrbs.forEach(orb=>scene.remove(orb.mesh)); state.mageOrbs = []; }
     clearDecals();   // scorches belong to the room that got burned
     nearbyDoor = null; nearbyStairs = null; nearbyLore = null;
+    autoStairBusy = false; stairAutoArmed = true;   // auto階段の状態は世界ごとに素の状態へ
     platforms.forEach(p=>scene.remove(p.mesh)); platforms = []; pits = [];
     enemies.forEach(en=>{ if(en.isBoss) clearBossVfx(en); });
     thornGates = []; sporeZones = []; thornTime = 0; sporeTickT = 0;
@@ -759,7 +760,7 @@
   // 各ダンジョンの、歩けることが分かっている場所(宝箱や回復結晶と同じ
   // 発想で、既存の確定枠でない宝箱の近くを選んである)
   const ANOMALY_RIFT_SPOTS = {
-    mansion:       new THREE.Vector3(-14.6, 0, 9.0),     // mansion 1F 東の間 (chest -14,0,10 の隣)
+    mansion:       new THREE.Vector3(-25.5, 0, -61.5),    // mansion 食堂 (chest -27,0,-63 の隣)
     ghostship:     new THREE.Vector3(-3.8, 0, 111.8),    // ghost ship deck (chest -5,0,113 の隣)
     waterway:      new THREE.Vector3(-106.8, 0, 19.0),   // waterway underground (chest -108,0,20 の隣)
     temple:        new THREE.Vector3(76.4, 0, -56.0),    // crypt (chest 75,0,-58 の隣)
@@ -970,6 +971,14 @@
       state.launch.t -= dt;
       state.pos.x += state.launch.vx * dt;
       state.pos.z += state.launch.vz * dt;
+    }
+    /* 演出中の徒歩。行き先ではなく速度で持たせてあるので、止めるのは
+       常にステップ側の責任(state.walkTo = null)。auto階段の「階段口まで
+       数歩あるく」と、時計塔の見晴台へ歩み出る演出が使っている */
+    if(state.walkTo){
+      state.pos.x += state.walkTo.vx * dt;
+      state.pos.z += state.walkTo.vz * dt;
+      if(player) player.rotation.y = state.facing;
     }
     state.yVel -= 22*dt;
     state.pos.y += state.yVel*dt;
@@ -1490,6 +1499,20 @@
     return tagged.length>0 ? tagged.every(e=>e.dead) : true;
   }
 
+  /* ---- 疑似シームレスな階層移動(auto階段) ----
+     エントリに `auto` を立てると、決定ボタンを押さなくても、近づいた
+     時点で「階段の方へ数歩あるく → 短い暗転 → 到着」まで自動で流れる。
+     見た目のうえでは階段を上って次の階へ出ただけに見えるが、内部では
+     従来どおり座標のテレポートをしている。
+
+     二重発火・到着直後の逆走・auto同士の無限往復は、次の2つで止める:
+       autoStairBusy   … 演出が走っている間はいっさい再入しない
+       stairAutoArmed  … 一度どの階段の判定圏からも離れるまで再発火しない
+     さらに到着地点はどの階段からも5以上離してあるので、到着した足元で
+     いきなり次のautoが噛む、ということも起きない。 */
+  let autoStairBusy = false;
+  let stairAutoArmed = true;
+
   function updateStairs(){
     let nearby = null;
     if(!nearbyDoor){
@@ -1499,7 +1522,39 @@
       });
     }
     nearbyStairs = nearby;
+    if(!nearby){
+      stairAutoArmed = true;              // 判定圏の外に出た = 次のautoを許可
+    } else if(nearby.auto && stairAutoArmed && !autoStairBusy && !cutscene &&
+              !state.dialogueActive && !state.paused){
+      triggerAutoStairs(nearby);   // 演出に入るので、下のプロンプト更新で消える
+    }
     updateInteractPrompt();
+  }
+
+  function triggerAutoStairs(s){
+    if(autoStairBusy) return;
+    autoStairBusy = true;
+    stairAutoArmed = false;
+    const from = {x:state.pos.x, z:state.pos.z};
+    const dx = s.pos.x - from.x, dz = s.pos.z - from.z;
+    const walk = 0.55;                     // 階段口まで歩く時間(秒)
+    playCutscene([
+      {t:0, run:()=>{
+        state.facing = Math.atan2(dx, dz);
+        state.walkTo = {vx:dx/walk, vz:dz/walk};
+        sfx('land', 0.3);
+      }},
+      {t:walk, run:()=>{
+        state.walkTo = null;
+        state.pos.x = s.pos.x; state.pos.z = s.pos.z;
+        fadeTransition(()=> stairMoveTo(s));
+      }},
+      {t:0.8, run:()=>{                    // 暗転(230ms)+復帰(60ms)より後
+        state.dialogueActive = false;      // 操作を返す
+        clearMovementInput(false);
+        autoStairBusy = false;
+      }}
+    ]);
   }
 
   /* =========================================================
@@ -1888,7 +1943,7 @@
     else if(nearbyChest) el.textContent = '調べる';
     else if(nearbyStallTrigger) el.textContent = '個室に入る';
     else if(nearbyBartender) el.textContent = '🗺️ 店主と話す(出撃)';
-    else if(nearbySmith) el.textContent = '🔨 鍛冶士と話す(鑑定・強化)';
+    else if(nearbySmith) el.textContent = state.smithJoined ? '🔨 鍛冶士と話す(鑑定・強化)' : '🧰 仮設の作業台(鑑定・強化)';
     else if(nearbyShadowGuide) el.textContent = '💬 話しかける';
     else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)' : '🏕️ 休憩する(回復+装備整理)';
     else if(nearbyLantern) el.textContent = nearbyLantern.lit ? '🏮 灯りは点いている' : '🏮 灯りを点ける';
@@ -1922,6 +1977,28 @@
     }, 230);
   }
 
+  // 実際の移動そのもの。手動(useStairs)からも自動(triggerAutoStairs)からも
+  // 同じものを呼ぶので、どちらの経路でも着地の後始末が食い違わない
+  function stairMoveTo(s){
+    state.pos.copy(s.targetPos);
+    state.vel.set(0,0,0);
+    // land cleanly: no stale fall speed, no stale "safe" spot on the floor
+    // below, and no void timer carried across the transition
+    state.yVel = 0;
+    state.grounded = true;
+    voidT = 0;
+    lastSolid = state.pos.clone();
+    if(state.safePos) state.safePos.copy(state.pos);
+    repositionAlliesToPlayer();
+    camera.position.copy(state.pos).add(getCamOffset());
+    spawnToast('🪜 ' + s.label);
+    if(s.routeNode && routeEnter(s.routeNode)){
+      const def = routeNodeDef(s.routeNode);
+      if(def && def.commitMsg) spawnToast(def.commitMsg);
+      if(ROUTE_ONCOMMIT_EFFECTS[s.routeNode]) ROUTE_ONCOMMIT_EFFECTS[s.routeNode]();
+    }
+  }
+
   function useStairs(){
     if(!nearbyStairs) return;
     const s = nearbyStairs;
@@ -1931,25 +2008,8 @@
       spawnToast((def && def.lockedMsg) || '🔒 こちらの道は、もう選べないようだ……');
       return;
     }
-    fadeTransition(()=>{
-      state.pos.copy(s.targetPos);
-      state.vel.set(0,0,0);
-      // land cleanly: no stale fall speed, no stale "safe" spot on the floor
-      // below, and no void timer carried across the transition
-      state.yVel = 0;
-      state.grounded = true;
-      voidT = 0;
-      lastSolid = state.pos.clone();
-      if(state.safePos) state.safePos.copy(state.pos);
-      repositionAlliesToPlayer();
-      camera.position.copy(state.pos).add(getCamOffset());
-      spawnToast('🪜 ' + s.label);
-      if(s.routeNode && routeEnter(s.routeNode)){
-        const def = routeNodeDef(s.routeNode);
-        if(def && def.commitMsg) spawnToast(def.commitMsg);
-        if(ROUTE_ONCOMMIT_EFFECTS[s.routeNode]) ROUTE_ONCOMMIT_EFFECTS[s.routeNode]();
-      }
-    });
+    stairAutoArmed = false;   // 手動で移動した先で、いきなりautoが噛まないように
+    fadeTransition(()=> stairMoveTo(s));
   }
 
   /* =========================================================

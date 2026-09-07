@@ -519,18 +519,19 @@
        boss, and the dead ends that cost a detour to reach. Everything else
        rolls as before. */
     chests = [
-      [new THREE.Vector3(-14,0,10)],
-      [new THREE.Vector3(18,0,14)],
-      [new THREE.Vector3(-20,0,-16)],
-      [new THREE.Vector3(20,0,22)],                       // forest
-      [new THREE.Vector3(-9,0,-27)],                      // mansion foyer
-      [new THREE.Vector3(9,0,-40),    'supply'],          // mansion hall - before the locked door
-      [new THREE.Vector3(65,0,-33),   'armoury'],         // basement dead end
-      [new THREE.Vector3(-65,0,-33),  'armoury'],         // 2F study dead end
+      // ---- 囚われの洋館(最初のメインシナリオ) ----
+      [new THREE.Vector3(24,1.6,-4)],                     // 森: 岩棚の上(跳ばないと届かない。y=1.6は棚の高さ)
+      [new THREE.Vector3(-6,0,-17)],                      // 森: 荷車の脇
+      [new THREE.Vector3(-27,0,-63)],                     // 洋館: 食堂
+      [new THREE.Vector3(99,0,-80)],                      // 洋館: 客室
+      [new THREE.Vector3(53,0,-56),   'supply'],          // 洋館: 書斎の奥
+      [new THREE.Vector3(57,0,86)],                       // 洋館: 使用人区画
+      [new THREE.Vector3(124,0,89),   'armoury'],         // 洋館: 保管庫
+      [new THREE.Vector3(71,0,136),   'supply'],          // 洋館: ボス前
       ...(scenarioStars('mansion') >= MANSION_CRYPT_DEPTHS_STARS
-        ? [[new THREE.Vector3(74,0,-86), 'armoury']] : []),  // 地下納骨堂・最奥(周回★3+)
+        ? [[new THREE.Vector3(134,0,140), 'armoury']] : []), // 地下のさらに奥(周回★3+)
       ...(scenarioStars('mansion') >= MANSION_ATTIC_STARS
-        ? [[new THREE.Vector3(160,0,-47), 'armoury']] : []), // 屋根裏(周回★4+)
+        ? [[new THREE.Vector3(155,0,-47), 'armoury']] : []), // 屋根裏(周回★4+)
       [new THREE.Vector3(-5,0,113)],                      // ghost ship deck
       [new THREE.Vector3(5,0,90)],                        // ghost ship cabin
       [new THREE.Vector3(33,0,106),   'armoury'],         // cargo hold dead end
@@ -545,11 +546,6 @@
       ...(scenarioStars('waterway') >= WATERWAY_DEPTHS_STARS
         ? [[new THREE.Vector3(-92,0,-140), 'armoury']] : []), // waterway: 最深部(周回★4+)
       [new THREE.Vector3(-124,0,-86), 'supply'],          // drowned cistern, before the descent
-      [new THREE.Vector3(75,0,-58)],                      // crypt
-      [new THREE.Vector3(-75,0,-58)],                     // sealed study
-      [new THREE.Vector3(112,0,50)],                      // courtyard (基準ルート、確定枠なし)
-      [new THREE.Vector3(100,0,182),   'supply'],          // grand: 本館大階段、上振れルートの確定枠
-      [new THREE.Vector3(58,0,116)],                       // servant: 使用人通路の隠し小部屋
       [new THREE.Vector3(-62,0,-196)],                    // temple: 石橋の間
       [new THREE.Vector3(-25,0,-186)],                    // temple: 滑石の回廊
       [new THREE.Vector3(100,0,-180)],                    // temple: 星読みの間
@@ -835,11 +831,11 @@
     // 各配置は既存の(確定枠ではない)宝箱のすぐ隣を選んである - 部屋の中で
     // 実際に歩ける場所だとspawnChests()の実績で分かっているマスだけを使うため
     const spots = [
-      new THREE.Vector3(-15.3,0,10.4),    // mansion 1F 東の間
-      new THREE.Vector3(-9.4,0,-26.2),    // mansion 玄関ホール
+      new THREE.Vector3(13,0,-52),        // mansion 玄関ホール
+      new THREE.Vector3(88,0,72),         // mansion 使用人区画
       new THREE.Vector3(-4.2,0,113.4),    // ghost ship deck
       new THREE.Vector3(-107.2,0,20.9),   // waterway underground
-      new THREE.Vector3(75.9,0,-57.3),    // crypt
+      new THREE.Vector3(126,0,86.5),      // mansion 保管庫
       new THREE.Vector3(-61.2,0,-196.6),  // temple 石橋の間
       new THREE.Vector3(-243.2,9,-11.3),  // clocktower 2F
       new THREE.Vector3(184.8,0,-53.3),   // conservatory 枯れた前庭

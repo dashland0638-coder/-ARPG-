@@ -62,6 +62,10 @@ import * as THREE from 'three';
     learnedBossActiveSkills:[], equippedBossActiveSkill:null, bossSkill3CD:0,
     unlockedSphereNodes:['root'], spherePoints:0,
     bossClears:{},
+    /* 酒場の変化(#洋館シナリオ)。鍛冶士は最初から酒場に居るわけではなく、
+       洋館をクリアして初めてこの街に落ち着く。それまで同じ場所には
+       仮設の作業台があり、鑑定・強化そのものは最初から使える */
+    smithJoined:false, smithGreeted:false,
     escapeFalling:false,        // committed to the leap off the lookout
     walkTo:null,                // a scripted walk during a cutscene
     shakeScale:1,               // 0 = off, 0.5 = gentle, 1 = full (settings)

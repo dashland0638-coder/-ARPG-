@@ -342,14 +342,22 @@
      instead, which is what actually tells you which way you're facing.
   ========================================================= */
   // A single world can still contain several physically separate areas that
-  // are only linked by stairs/teleports (the mansion world holds the forest,
-  // the mansion, the basement+crypt and the 2F+study). Without this, the
-  // minimap would happily draw a neighbouring floor's rooms.
+  // are only linked by stairs/teleports (the mansion world holds the forest
+  // and every floor of the manor; the tavern world holds its own upstairs).
+  // Without this, the minimap would happily draw a neighbouring floor's rooms.
   const MINIMAP_SUBZONES = [
-    {minX:35,   maxX:105,  minZ:-95,  maxZ:-5  },  // basement + crypt
-    {minX:-84,  maxX:-56,  minZ:-95,  maxZ:-5  },  // 2F + sealed study
-    {minX:-30,  maxX:30,   minZ:-80,  maxZ:-17 },  // mansion interior
-    {minX:-60,  maxX:60,   minZ:-17,  maxZ:31  },  // forest / tavern
+    // 囚われの洋館。森 → 一階 → 二階 → 一階奥 → 地下 → 主の間 の6区画と、
+    // 酒場の二階、周回★4の屋根裏。どれも互いに重ならず、他ダンジョンの
+    // 区画とも重ならないことを確認してある(重なると他所のミニマップが壊れる)
+    {minX:46,   maxX:66,   minZ:4,    maxZ:26  },  // 酒場2階(宿場)
+    {minX:-44,  maxX:44,   minZ:-38,  maxZ:31  },  // 森 / 前庭 / 酒場1階
+    {minX:-34,  maxX:34,   minZ:-102, maxZ:-39 },  // 洋館 一階前半
+    {minX:46,   maxX:110,  minZ:-100, maxZ:-20 },  // 洋館 二階
+    {minX:52,   maxX:102,  minZ:36,   maxZ:102 },  // 洋館 一階奥(使用人区画)
+    {minX:116,  maxX:162,  minZ:36,   maxZ:122 },  // 洋館 地下
+    {minX:128,  maxX:152,  minZ:122,  maxZ:146 },  // 洋館 地下のさらに奥(周回★3+)
+    {minX:54,   maxX:106,  minZ:128,  maxZ:184 },  // 洋館 主の間
+    {minX:146,  maxX:174,  minZ:-56,  maxZ:-24 },  // 洋館 屋根裏(周回★4+)
     {minX:15,   maxX:50,   minZ:88,   maxZ:142 },  // ghost ship cargo hold
     {minX:-62,  maxX:-18,  minZ:88,   maxZ:142 },  // ghost ship boss hold
     {minX:-22,  maxX:21,   minZ:32,   maxZ:130 },  // ghost ship hull + deck
@@ -393,8 +401,10 @@
   // には乗っていない)にも、迷わないよう固有の場所名を出す。星条件を
   // 満たすまでは誰もこの座標に立てないので、ここでは無条件でよい
   const EXTRA_ROOM_NAMES = [
-    {x0:60,  x1:80,  z0:-92,  z1:-73,  name:'地下納骨堂・最奥'},   // 洋館 (周回★3+)
-    {x0:150, x1:180, z0:-56,  z1:-24,  name:'屋根裏の間'},        // 洋館 (周回★4+)
+    {x0:129, x1:151, z0:123,  z1:145,  name:'地下のさらに奥'},    // 洋館 (周回★3+)
+    {x0:148, x1:172, z0:-52,  z1:-28,  name:'屋根裏の間'},        // 洋館 (周回★4+)
+    {x0:-45, x1:45,  z0:-38,  z1:4,    name:'古い森道'},          // 洋館シナリオの森
+    {x0:46,  x1:66,  z0:4,    z1:26,   name:'酒場の二階'},
     {x0:-44, x1:-20, z0:132,  z1:158,  name:'船倉・最深部'},      // 幽霊船 (周回★4+)
     {x0:152, x1:161, z0:-131, z1:-105, name:'神殿・最深部'},      // 神殿 (周回★4+)
     {x0:-99, x1:-85, z0:-149, z1:-131, name:'水路・最深部'},      // 水路 (周回★4+)
@@ -402,6 +412,7 @@
   ];
   function roomNameAt(x, z){
     const tables = [
+      {rooms: typeof MANSION_ROOMS !== 'undefined' ? MANSION_ROOMS : null},
       {rooms: typeof TOWER_ROOMS !== 'undefined' ? TOWER_ROOMS : null, floors:true},
       {rooms: typeof CONS_ROOMS !== 'undefined' ? CONS_ROOMS : null},
       {rooms: typeof TEMPLE_ROOMS !== 'undefined' ? TEMPLE_ROOMS : null},
@@ -816,6 +827,7 @@
     diceTotal = 12; allocPoints = zeroAlloc(); allocDraft = zeroAlloc();
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;   // 5人目「影の旅人」の酒場会話進行
+    state.smithJoined = false; state.smithGreeted = false;      // 鍛冶士は洋館クリアまで酒場に居ない
     state.guestClassKey = CHAPTER_CAST[1].guestClassKey || null;   // 第一章は剣士単独(#41)
     state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
@@ -901,6 +913,7 @@
     state.freeRanks = 0;
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;
+    state.smithJoined = false; state.smithGreeted = false;
     // 通常は常にnull(単独)だが、テストモード画面の「同行ゲスト」で
     // 選ばれていれば、GUEST COMPANION(08-loot-equipment.js)の検証用に
     // そのクラスを立てる ―― 章の自動進行(#41)がまだ無いため、これが

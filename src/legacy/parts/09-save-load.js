@@ -62,6 +62,12 @@
       // 5人目「影の旅人」の酒場会話進行。同じく純追加のフィールド
       shadowGuideMet:!!state.shadowGuideMet,
       shadowGuideTalks:state.shadowGuideTalks || 0,
+      /* 酒場の変化。洋館をクリアすると鍛冶士が酒場の一角を間借りして
+         店を開く(それまでは仮設の作業台だけが置いてある)。
+         shadowGuideMet と同じ純追加のフィールドなので、これが無い
+         v3セーブを読んでも undefined → false になるだけで壊れない */
+      smithJoined:!!state.smithJoined,
+      smithGreeted:!!state.smithGreeted,
       // 2部制(#41)のゲスト実体。章の自動進行を実装するまでは常にnullの
       // まま保存されるが、フィールド自体は先に用意しておく
       guestClassKey:state.guestClassKey || null,
@@ -190,6 +196,8 @@
     }
     state.shadowGuideMet = !!data.shadowGuideMet;
     state.shadowGuideTalks = data.shadowGuideTalks || 0;
+    state.smithJoined = !!data.smithJoined;       // 洋館クリアで鍛冶士が酒場へ加入
+    state.smithGreeted = !!data.smithGreeted;     // 加入直後の一度きりの挨拶を済ませたか
     // 改変セーブ等で未知のクラスキーが紛れ込んでいても安全側へ倒す
     state.guestClassKey = (data.guestClassKey && CLASSES[data.guestClassKey]) ? data.guestClassKey : null;
 
