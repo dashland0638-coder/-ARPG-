@@ -128,11 +128,11 @@
     return useAlt ? wt.alt : wt.native;
   }
 
-  /* 剣が実際に敵へ届くまでの待ち(クリップ長に対する割合)。
-     戦騎士の大剣は「静 → 構え → 一瞬の溜め → 大きく高速に振る」なので、
-     クリップの中盤過ぎに刃が通過する。0.45 は 0.45秒のクリップで約0.20秒 ――
-     重さは出るが入力が重くなったとは感じない範囲に置いている。 */
-  const JOB_HIT_DELAY_FRAC = { battleKnight: 0.45 };
+  /* 剣が実際に敵へ届くまでの待ちは core/swing-timing.js の
+     JOB_SWING_IMPACT_FRAC(= impactFrac)へ集約した。攻撃SEと見た目の
+     振り抜きカーブが同じ値を参照するので、3つが必ず同じ瞬間で揃う。
+     戦騎士の 0.45(0.45秒のクリップで約0.20秒)という値そのものは
+     据え置き ―― 既に手触りが良いと確認済みなので動かさない。 */
 
   // updatePlayer(13-update-loop.js)から毎フレーム。時間が来たら本来の
   // swingOnce()(ダメージ判定+範囲表示)をここで実行する
@@ -167,6 +167,9 @@
      向きを合わせた後は既存の未来位置予測(spawnProjectileSingle)が乗る。 */
   function applyHawkEyeTurnAssist(){
     if(state.job !== 'hawkEye') return;
+    /* 回避直後だけ角度上限を広げる(Phase 3)。突進を跳んで避けた敵が
+       側面〜後方へ抜けきった直後は、130度では届かないことが多い */
+    const justDodged = (state.hawkAssistT||0) > 0;
     let best = null, bestAngle = Infinity, bestDist = 0;
     enemies.forEach(en=>{
       if(en.dead || en.dormant || !isTelegraphing(en)) return;
@@ -174,29 +177,120 @@
       const dx = en.group.position.x - state.pos.x, dz = en.group.position.z - state.pos.z;
       const dist = Math.hypot(dx, dz);
       const targetYaw = Math.atan2(dx, dz);
-      let diff = targetYaw - state.facing;
-      while(diff > Math.PI) diff -= Math.PI*2;
-      while(diff < -Math.PI) diff += Math.PI*2;
-      const angle = Math.abs(diff);
-      if(!canTurnAssist({angleToTarget:angle, distance:dist})) return;
+      const angle = Math.abs(angleDiff(state.facing, targetYaw));
+      if(!canTurnAssist({angleToTarget:angle, distance:dist, justDodged})) return;
       if(angle < bestAngle){ bestAngle = angle; bestDist = dist; best = {targetYaw}; }
     });
     if(!best) return;
-    const yaw = assistedAimYaw({facing:state.facing, targetYaw:best.targetYaw, angleToTarget:bestAngle, distance:bestDist});
+    const yaw = assistedAimYaw({facing:state.facing, targetYaw:best.targetYaw, angleToTarget:bestAngle, distance:bestDist, justDodged});
     if(yaw !== state.facing){
       state.facing = yaw;
-      emitArenaFeedback('TURN ASSIST', `${(bestAngle*180/Math.PI).toFixed(0)}° 補正`);
+      emitArenaFeedback('TURN ASSIST', `${(bestAngle*180/Math.PI).toFixed(0)}° 補正${justDodged ? ' (回避直後)' : ''}`);
     }
+  }
+
+  /* 空中スキルの禁止(Combat Feel Phase 4)
+
+     空中は「地上戦闘の延長で何でもできる状態」にはしない。空中で選べる
+     のは、状況を見て使う少数の行動だけにする:
+       上昇中 : 切り上げ攻撃 / Enemy Step
+       落下中 : 落下攻撃 / Enemy Step
+     プレイヤーが能動的に発動する戦闘スキル ―― スキル(専用ボタン)・
+     スキル2・スキル3(ボス技)・必殺技・溜め技 ―― は一律で禁止する。
+
+     Enemy Step や落下攻撃のような「空中に入ったからこそ成立する専用
+     アクション」はここを通らないので、当然そのまま使える。
+
+     トーストは短いクールダウンを噛ませる ―― 空中で連打された時に
+     同じ警告が積み上がるのを防ぐため(禁止そのものは毎回効く)。 */
+  function blockedInAir(label){
+    if(state.grounded) return false;
+    if((state.airBlockToastT||0) <= 0){
+      state.airBlockToastT = 0.6;
+      spawnToast('⚠ 空中ではスキルを使えない');
+    }
+    emitArenaFeedback('AIR SKILL BLOCKED', label);
+    return true;
+  }
+
+  /* バーサーカーのソフトロック(Combat Feel Phase 2)
+
+     コンボの1段目で近距離・正面寄りの敵を1体だけ候補にし、そのコンボの
+     間だけ攻撃方向をそちらへ保つ。移動(どこへスライドするか)は最後まで
+     プレイヤーの入力が決める ―― updatePlayer 側では state.facing を
+     ロック方向へ寄せるだけで、移動ベクトルには一切触れていない。
+
+     解除は「コンボが途切れる」「対象が死ぬ/離れる」の2つだけ。向きでは
+     解除しない ―― 横や後ろへ入力している最中こそ保ってほしい場面なので、
+     そこで切ると要求そのものを壊してしまう。手を止めれば約0.7秒(コンボ
+     受付時間)で完全な自由が戻る。 */
+  function updateBerserkerSoftLock(chaining){
+    const lock = state.berserkerLock;
+    if(chaining && lock && lock.en && !lock.en.dead && !lock.en.dormant && isBossAccessible(lock.en)){
+      const dx = lock.en.group.position.x - state.pos.x, dz = lock.en.group.position.z - state.pos.z;
+      const dist = Math.max(0, Math.hypot(dx, dz) - (lock.en.hitRadius || 0));
+      if(holdsSoftLock({dead:false, distance:dist})){
+        lock.yaw = Math.atan2(dx, dz);   // 動く相手には追従する(狙い直しを要求しない)
+        return;
+      }
+    }
+    state.berserkerLock = null;
+    if(chaining) return;   // 連撃の途中で外れたら、そのコンボ中は取り直さない
+    const cands = [];
+    enemies.forEach(en=>{
+      if(en.dead || en.dormant) return;
+      if(!isBossAccessible(en)) return;
+      const dx = en.group.position.x - state.pos.x, dz = en.group.position.z - state.pos.z;
+      const yaw = Math.atan2(dx, dz);
+      cands.push({
+        ref: en, yaw,
+        distance: Math.max(0, Math.hypot(dx, dz) - (en.hitRadius || 0)),
+        angleToTarget: Math.abs(angleDiff(yaw, state.facing)),
+      });
+    });
+    const best = pickSoftLockTarget(cands);
+    state.berserkerLock = best ? {en: best.ref, yaw: best.yaw} : null;
+    if(best) emitArenaFeedback('SOFT LOCK', `${(best.angleToTarget*180/Math.PI).toFixed(0)}° / ${best.distance.toFixed(1)}m`);
+  }
+
+  // ロック方向(ラジアン)。ロックしていなければ null。updatePlayer からも使う
+  function berserkerLockYaw(){
+    const lock = state.berserkerLock;
+    if(!lock || !lock.en || lock.en.dead || lock.en.dormant) return null;
+    // コンボが途切れたら解除 ―― 攻撃の手を止めれば完全に自由へ戻る
+    if((state.comboWindowT||0) <= 0){ state.berserkerLock = null; return null; }
+    return lock.yaw;
   }
 
   function tryAttack(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging) return;
     checkHealingCrystalBreak();   // 攻撃入力そのものに独立して乗せてあるので、通常のコンボ/CD管理には影響しない
-    if(!state.grounded && !state.jumpAttacking){ tryJumpAttack(); return; }
-    if(state.dodgeAttackWindowT > 0){ tryDodgeAttack(); return; }
-    if(state.attackCD>0) return;
+    /* 空中の攻撃入力は必ず空中アクションへ落とす(Phase 5/7)。
 
-    applyHawkEyeTurnAssist();   // 向きを決めてから以降の判定/発射方向を作る(Phase F)
+       以前は `!state.grounded && !state.jumpAttacking` という条件だったため、
+       急降下(jumpAttacking)に入った後の攻撃入力がこの分岐をすり抜け、
+       そのまま地上コンボが空中で振れてしまっていた。空中は「選択肢を
+       絞った状態」にするのが今回の設計なので、接地していない間の
+       攻撃入力は例外なく tryAirAttack() が引き受ける。 */
+    if(!state.grounded){ tryAirAttack(); return; }
+
+    /* ここから先は「実際に何かが出る」入力だけが通る。
+
+       ターンアシストは攻撃の種類を決める前に走らせる必要がある(Phase 3)
+       ―― 以前は回避攻撃(dodgeAttackWindowT)の分岐がその呼び出しより
+       手前にあったため、鷹の目の狙いどおりの流れ「突進を回避してすぐ撃つ」
+       では補助が一度も走っていなかった。
+
+       ただし順序を入れ替えるだけだと、クールダウン中の連打でも向きだけが
+       回ってしまう(=攻撃が出ないのに勝手に振り向く)。そこで先に
+       「何も出ない入力」を落としてから補助を掛ける。回避攻撃は従来どおり
+       通常のクールダウンを見ない。 */
+    const willDodgeAttack = state.dodgeAttackWindowT > 0;
+    if(!willDodgeAttack && state.attackCD>0) return;
+
+    applyHawkEyeTurnAssist();   // 向きを決めてから以降の判定/発射方向を作る
+
+    if(willDodgeAttack){ tryDodgeAttack(); return; }
 
     const clsKey = state.classDef.key;
     // サブ武器は常に2段(1→フィニッシュ)。メインはクラス/武器思想ごとの段数
@@ -204,6 +298,16 @@
     const chaining = (state.comboWindowT||0) > 0;
     state.comboStage = chaining ? (state.comboStage % len) + 1 : 1;   // 1→2→…→フィニッシュ→1…
     state.comboLen = len;   // HUDのコンボ表示(updateComboIndicator, 14-hud-boot.js)用
+
+    /* バーサーカー: 攻撃方向を決める(Phase 2)。移動でどれだけ体が
+       回っていても、コンボ中は捕まえた相手へ振る。ここで state.facing を
+       合わせておけば、以降の判定・範囲表示・スライドの基準がすべて
+       一括で揃う(swingLockFacing も直後にこの値を読む) */
+    if(state.job==='berserker'){
+      updateBerserkerSoftLock(chaining);
+      const lockYaw = state.berserkerLock ? state.berserkerLock.yaw : null;
+      if(lockYaw != null) state.facing = lockYaw;
+    }
 
     const swingCD = state.classDef.atkCooldown * attackCooldownMul();
     state.attackCD = swingCD;
@@ -227,9 +331,9 @@
        即座に走らせたまま、ダメージ判定と範囲表示だけを
        「剣が敵へ届く頃合い」= クリップ長(state.swingDur、beginMove が
        たった今設定した値)の一定割合まで遅らせる。遅延を持つのは
-       JOB_HIT_DELAY_FRAC に載っている職業だけで、他クラスの手触りは
+       JOB_SWING_IMPACT_FRAC に載っている職業だけで、他クラスの手触りは
        1フレームも変わらない。 */
-    const hitDelay = (JOB_HIT_DELAY_FRAC[state.job] || 0) * (state.swingDur || 0);
+    const hitDelay = impactFrac(state.job) * (state.swingDur || 0);
     if(hitDelay > 0){
       state.pendingSwing = {t:hitDelay, stage:state.comboStage, len, facing:state.facing};
     } else {
@@ -264,6 +368,7 @@
         state.skillAnim = {type:'dash', t:0, duration: swingCD*0.8, fwd:dir, dist: isFinish ? 2.2 : 1.5};
       } else {
         // 無入力ならその場。振り抜きの重心移動ぶんだけ前へ出る
+        // (state.facing は上でロック方向へ揃えてあるので、相手へ踏み込む)
         const dir = new THREE.Vector3(Math.sin(state.facing), 0, Math.cos(state.facing));
         state.skillAnim = {type:'dash', t:0, duration: swingCD*0.8, fwd:dir, dist: isFinish ? 0.75 : 0.4};
       }
@@ -312,6 +417,94 @@
     }
     spawnToast('⚔️ 回避攻撃!');
     flashScreen();
+  }
+
+  /* 空中攻撃の振り分け(Combat Feel Phase 5)
+
+     新しいボタンは追加しない ―― 攻撃ボタンの意味を、垂直速度で
+     読み替えるだけにする。タッチ操作でもコントローラーでも、
+     「ジャンプしてから攻撃を押す」以上のことは要求しない。
+
+       上昇中(まだ切り上げを使っていない) → 切り上げ攻撃
+       それ以外(頂点付近・落下中・使用済み) → 既存の落下攻撃 */
+  function tryAirAttack(){
+    const kind = airAttackKind({grounded: state.grounded, yVel: state.yVel, alreadyUsed: state.uppercutUsed});
+    if(kind === 'uppercut') tryUppercut();
+    else tryJumpAttack();
+  }
+
+  /* 切り上げ攻撃(Combat Feel Phase 5 / 指示 8)
+
+     コンボの一部ではない。通常コンボの4段目に繋がる必須操作でもない
+     ―― 「戦場を見て使う選択肢」として独立している:
+       ・飛んでいる敵を落とす
+       ・軽量の敵を少し浮かせて行動を乱す
+       ・重量敵/ボスには通常攻撃より重い体幹を通す
+
+     1回の滞空につき1度だけ(state.uppercutUsed、着地で戻る)。
+     通常攻撃と同じクールダウン(attackCD)も踏むので、ジャンプの
+     往復ぶんだけ通常攻撃より遅い ―― 連打が最適解にならないのは
+     この構造で担保している(core/uppercut.js のコメント参照)。
+
+     無敵もスーパーアーマーも付けない。既存の空中判定(Enemy Step)も
+     そのまま生きているので、切り上げを出しながら踏むこともできる。 */
+  function tryUppercut(){
+    if(state.attackCD > 0) return;
+    state.uppercutUsed = true;
+    state.attackCD = state.classDef.atkCooldown * attackCooldownMul();
+    state.comboWindowT = 0; state.comboStage = 0;   // 切り上げはコンボの外
+    // 既存の spin クリップ(振り上げ〜振り抜き)を流用し、SEだけ差し替える
+    // ―― 抜刀の立ち上がりの鋭さが、切り上げの「下から掬い上げる」動きに合う
+    state.swinging = true; beginMove('spin', 'uppercut');
+    state.swingLockFacing = state.facing;
+    if(sequenceLocks.length) tryStrikeBell(state.pos);
+
+    const cdef = state.classDef;
+    /* 射程は通常攻撃と同じ間合いを使い、扇は上下に振り抜く動きなので
+       水平方向にはやや狭く取る。遠隔職(魔法使い/弓師)も同じ間合いで
+       「杖/弓を振り上げる」近接の一撃として扱う ―― 空中で弾を撒ける
+       ようにすると、空中スキル禁止の意図が抜けてしまうため。 */
+    const range = (cdef.meleeRange || 2.6) * attackRangeMul();
+    const angle = (cdef.meleeAngle || Math.PI/2.1) * attackAngleMul() * 0.85;
+    const targets = findMeleeTargetsInArc(range, angle);
+    const base = cdef.atk + Math.round(Math.random()*4);
+    const dmg = Math.round(base * UPPERCUT_DMG_MUL);
+
+    spawnMeleeSwingVFX(range, angle, cdef.trim, 3);
+    let landed = 0, lifted = 0, grounded = 0;
+    targets.forEach(en=>{
+      const weight = enemyWeightClass(en);
+      dealDamageToEnemy(en, dmg, false, {staggerMul: uppercutStaggerMul(weight), ultGauge: 3});
+      if(en.dead) { landed++; return; }
+      landed++;
+      // 飛行敵は落とす(将来の飛行敵のためのインターフェース。core/uppercut.js参照)
+      if(isFlying(en)){ groundFlyingEnemy(en); grounded++; }
+      const peak = upliftFor(weight);
+      if(peak > 0){
+        // 軽量敵: 少しだけ浮かせて行動を乱す。打ち上げではない
+        en.liftT = 0; en.liftPeak = peak; en.liftDur = UPLIFT_DURATION;
+        lifted++;
+      } else {
+        // 重量敵/大型/ボス: 浮かせず、短い怯みだけ返す
+        en.flinch = Math.min(1.6, (en.flinch||0) + UPPERCUT_HEAVY_FLINCH);
+      }
+    });
+    checkMimicRevealInRange(range, angle, dmg);
+
+    spawnToast('🗡️ 切り上げ!');
+    if(landed) addShake(0.10);
+    emitArenaFeedback('UPPERCUT',
+      landed ? `HIT ${landed} / 浮かせ ${lifted} / 落下させた ${grounded}` : 'MISS');
+  }
+
+  /* 飛行敵を地上へ降ろす。en.flying を落とし、基準高度(basePos.y)を
+     地面へ向けて詰めていく ―― updateMobAnim が毎フレーム
+     baseYOf(en) を土台に描くので、AIには一切触らずに着地させられる。 */
+  function groundFlyingEnemy(en){
+    en.flying = false;
+    en.flyDropT = FLYER_DROP_TIME;
+    en.flyDropFrom = en.basePos ? en.basePos.y : 0;
+    spawnToast('🪶 撃ち落とした!');
   }
 
   /* ジャンプ攻撃: 空中で攻撃を入力すると急降下する。着地時の演出はクラスで
@@ -578,6 +771,7 @@
 
   function castSkill2(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    if(blockedInAir('SKILL 2')) return;
     if(state.skill2CD>0) return;
     if(state.swinging || state.charging || state.skillCharging) return; // can't overlap with other attack actions
     if(!hasRes('skill2')){ warnNoRes(); return; }
@@ -613,6 +807,7 @@
      既存の仕組みに乗せてあり、新しいダメージ経路は増やしていない */
   function castBossSkill3(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    if(blockedInAir('SKILL 3')) return;
     if(!state.equippedBossActiveSkill){ spawnToast('💥 スキル3が装着されていない(鑑定所で装着できます)'); return; }
     if(state.bossSkill3CD>0) return;
     if(state.swinging || state.charging || state.skillCharging) return;
@@ -1059,6 +1254,7 @@
   // fires straight away
   function tryUltimate(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    if(blockedInAir('ULTIMATE')) return;
     if(!ultReady() || state.ultAiming) return;
     if(state.classDef.ult.aimed){ beginUltAim(); return; }
     fireUltimate(null);

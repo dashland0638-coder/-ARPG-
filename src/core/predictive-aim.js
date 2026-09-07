@@ -95,20 +95,43 @@ export function predictLeadPosition(originPos, lead, leadSeconds) {
    角度内であれば「向きを敵へ寄せる」だけで、命中そのものは保証しない
    (寄せた後に既存の未来位置予測が乗る)。
 --------------------------------------------------------------- */
-export const TURN_ASSIST_MAX_ANGLE = Math.PI * 0.55;  // 約99度。真後ろ(180度)は拾わない
-export const TURN_ASSIST_MAX_RANGE = 14;              // これより遠い敵には効かない
+/* 角度上限(Combat Feel Phase 3 で拡張)
+
+   旧値は 99 度だったが、実プレイで一番効いてほしい「突進を回避 →
+   敵が側面〜後方へ抜ける → その進行方向を読んで射る」場面では、
+   抜けられた直後の角度が 99 度を超えていることが多く、補助が
+   効かないまま振り向き直す往復に戻っていた。
+
+   そこで2段構えにする:
+     ・通常          : 130度(側面へ回り込まれた敵まで拾う)
+     ・回避直後の猶予 : 155度(抜けられた直後だけ、さらに広げる)
+   いずれも 180 度には届かせない ―― 真後ろの敵を勝手に拾って撃つのは
+   「完全自動ターン」であり、禁止事項そのものだから。155 度は
+   「肩越しに振り返って射る」までで、背中を向けたままは撃てない。 */
+export const TURN_ASSIST_MAX_ANGLE = Math.PI * 0.72;         // 約130度
+export const TURN_ASSIST_DODGE_ANGLE = Math.PI * 0.86;       // 約155度(回避直後のみ)
+export const TURN_ASSIST_MAX_RANGE = 16;                     // これより遠い敵には効かない
+/* 回避してから、広い角度が使える時間。突進した敵が抜けきって、こちらが
+   攻撃入力するまでを収める長さ。長く取りすぎると常時ロックオンに近づく。 */
+export const TURN_ASSIST_DODGE_WINDOW = 1.1;
+
+// justDodged のときの角度上限。回避していなければ通常の上限。
+export function turnAssistAngleFor(justDodged) {
+  return justDodged ? TURN_ASSIST_DODGE_ANGLE : TURN_ASSIST_MAX_ANGLE;
+}
 
 // 補助が効く条件を満たすか。angleToTarget はプレイヤーの向きと敵方向の角度差。
-export function canTurnAssist({ angleToTarget, distance, maxAngle = TURN_ASSIST_MAX_ANGLE, maxRange = TURN_ASSIST_MAX_RANGE }) {
+export function canTurnAssist({ angleToTarget, distance, justDodged = false, maxAngle, maxRange = TURN_ASSIST_MAX_RANGE }) {
+  const limit = maxAngle != null ? maxAngle : turnAssistAngleFor(justDodged);
   if (!(distance >= 0) || distance > maxRange) return false;
-  if (!(angleToTarget >= 0) || angleToTarget > maxAngle) return false;
+  if (!(angleToTarget >= 0) || angleToTarget > limit) return false;
   return true;
 }
 
 // 補助後の射撃方向(ラジアン)。角度外・射程外なら現在の向きをそのまま返す
 // = 何も起きない。完全に敵の方向へ向き直る(角度内に限る)ので、
 // 「自分で大まかに向けば、あとは職業が精密に合わせてくれる」形になる。
-export function assistedAimYaw({ facing, targetYaw, angleToTarget, distance, maxAngle, maxRange }) {
-  if (!canTurnAssist({ angleToTarget, distance, maxAngle, maxRange })) return facing;
+export function assistedAimYaw({ facing, targetYaw, angleToTarget, distance, justDodged, maxAngle, maxRange }) {
+  if (!canTurnAssist({ angleToTarget, distance, justDodged, maxAngle, maxRange })) return facing;
   return targetYaw;
 }

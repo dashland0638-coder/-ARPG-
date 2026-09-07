@@ -3555,6 +3555,9 @@
     }
 
     g.position.copy(pos);
+    // 飛行敵は基準高度そのものを上げる。updateMobAnim が baseYOf(en)
+    // = basePos.y を土台に描くので、AIには一切触らずに浮かせられる
+    if(variant.flying) g.position.y = variant.flyHeight || 1.6;
     scene.add(g);
     return {
       group:g, body, mob:M, flinch:0, hitDir:null,
@@ -3573,7 +3576,7 @@
       hpMax:Math.max(1, Math.round(variant.hp*_D.hp)), hp:Math.max(1, Math.round(variant.hp*_D.hp)),
       atk:Math.round(variant.atk*_D.atk), speed:variant.speed*_D.speed,
       dead:false, respawnT:0,
-      basePos:pos.clone(), wanderTarget:pos.clone(), wanderT:0,
+      basePos:g.position.clone(), wanderTarget:pos.clone(), wanderT:0,
       flashTO:null,
       // xp:0を明示した個体(Combat Test Arenaの検証用敵など)は0のまま扱う。
       // `variant.xp||10`だと0が10に化けてしまい、調整セッション中に
@@ -3595,7 +3598,16 @@
       guardian:!!variant.guardian, shieldGroup, shieldMat, shieldBaseRot:0,
       // 新規敵タイプ用のフラグ(敵デザイン強化 #21): turret=台座固定・
       // ノックバック無効、turretRange=砲台の索敵距離(未指定なら既定値)
-      turret:!!variant.turret, turretRange:variant.turretRange||null
+      turret:!!variant.turret, turretRange:variant.turretRange||null,
+      /* 飛行敵インターフェース(Combat Feel Phase 5 / core/uppercut.js)。
+         現時点で flying を立てる敵は Combat Test Arena の検証用個体だけ
+         ―― 「将来飛行敵が追加された時に切り上げが対応できる」ための
+         受け口を用意しておくのが目的で、本編に飛行敵は増やしていない。
+         敵側は variant.flyHeight を指定するだけでこの仕組みに乗る */
+      flying:!!variant.flying, flyHeight:variant.flying ? (variant.flyHeight||1.6) : 0,
+      flyDropT:0, flyDropFrom:0,
+      // 切り上げで浮いている間の状態(基準高度への上乗せ量と経過時間)
+      liftPeak:0, liftT:0, liftDur:0
     };
   }
 
@@ -4008,7 +4020,7 @@
       hpMax:Math.round(cfg.hpMax*_D.hp), hp:Math.round(cfg.hpMax*_D.hp),
       atk:Math.round(cfg.atk*_D.atk), speed:cfg.speed*_D.speed,
       dead:false, respawnT:0,
-      basePos:pos.clone(), wanderTarget:pos.clone(), wanderT:0,
+      basePos:g.position.clone(), wanderTarget:pos.clone(), wanderT:0,
       flashTO:null,
       isBoss:true, solidR:cfg.solidR || 2.0, gateTag:cfg.gateTag || null,
       /* 近接判定用の体の半径(Phase C)。ボスは resolveBossCollision() の

@@ -39,11 +39,17 @@ import { groupsFromGraph, allCombos, comboKey, comboKeyFromPath, comboProgress, 
 import { applyIncomingDamage, applyOutgoingDamage } from '../core/damage-math.js';
 import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../core/loot-math.js';
 import { timeLimitForStars } from '../core/scenario-timer.js';
-import { turnTowardAngle, turnBudget, resolveTurnRate } from '../core/enemy-facing.js';
+import { turnTowardAngle, turnBudget, resolveTurnRate, angleDiff } from '../core/enemy-facing.js';
 import { punishWindowMultiplier, staggerGain, applyPostureGain, decayPosture, bossPostureMax, postureDecayPerSec } from '../core/stagger-math.js';
-import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw } from '../core/predictive-aim.js';
+import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw, TURN_ASSIST_DODGE_WINDOW } from '../core/predictive-aim.js';
 import { meleeHitTest, surfaceDistance } from '../core/melee-hit.js';
 import { canEnemyStep, isStompableState, ENEMY_STEP_STAGGER, ENEMY_STEP_BOUNCE_VY } from '../core/enemy-step.js';
+import { clipFracAt, impactFrac, swingSfxDelay } from '../core/swing-timing.js';
+import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/soft-lock.js';
+import {
+  airAttackKind, isRising, enemyWeightClass, isFlying, upliftFor, upliftOffset,
+  uppercutStaggerMul, UPPERCUT_DMG_MUL, UPPERCUT_HEAVY_FLINCH, UPLIFT_DURATION, FLYER_DROP_TIME,
+} from '../core/uppercut.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 
 `;

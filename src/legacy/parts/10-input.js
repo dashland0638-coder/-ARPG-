@@ -468,7 +468,10 @@
     }
     /* 保留中の攻撃判定(戦騎士のHitタイミング同期)は回避で打ち切る。
        残しておくと、回避で転がった先から無敵のまま0.2秒後に当たる */
-    state.pendingSwing = null;
+    state.pendingSwing = null; state.pendingMoveSfx = null;
+    /* 鷹の目のターンアシスト猶予(Phase 3)。回避してから短い間だけ、
+       抜けていった敵を拾える角度を広げる。他クラスでは参照されない */
+    state.hawkAssistT = TURN_ASSIST_DODGE_WINDOW;
     state.dodging = true; sfx('dodge');
     state.dodgeT = 0.2;
     state.dodgeDir = dir;

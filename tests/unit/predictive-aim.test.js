@@ -2,7 +2,10 @@
 // `npm run test:unit`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw } from '../../src/core/predictive-aim.js';
+import {
+  telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw,
+  turnAssistAngleFor, TURN_ASSIST_MAX_ANGLE, TURN_ASSIST_DODGE_ANGLE, TURN_ASSIST_MAX_RANGE,
+} from '../../src/core/predictive-aim.js';
 
 test('telegraphLead', async (t) => {
   await t.test('null for an enemy with no telegraphed motion at all', () => {
@@ -75,6 +78,7 @@ test('canTurnAssist / assistedAimYaw (鷹の目の限定ターンアシスト)',
   });
   await t.test('真後ろの敵は拾わない(180度自動ターンにしない)', () => {
     assert.equal(canTurnAssist({ angleToTarget: Math.PI, distance: 6 }), false);
+    assert.equal(canTurnAssist({ angleToTarget: Math.PI, distance: 6, justDodged: true }), false);
   });
   await t.test('遠距離の敵は拾わない(自動ロックオンにしない)', () => {
     assert.equal(canTurnAssist({ angleToTarget: 0.1, distance: 40 }), false);
@@ -85,5 +89,39 @@ test('canTurnAssist / assistedAimYaw (鷹の目の限定ターンアシスト)',
   await t.test('条件を満たさなければ現在の向きのまま(何も起きない)', () => {
     assert.equal(assistedAimYaw({ facing: 0.2, targetYaw: 3.0, angleToTarget: Math.PI, distance: 5 }), 0.2);
     assert.equal(assistedAimYaw({ facing: 0.2, targetYaw: 0.3, angleToTarget: 0.1, distance: 99 }), 0.2);
+  });
+});
+
+const deg = (d) => (d * Math.PI) / 180;
+
+test('ターンアシストの角度拡張(Combat Feel Phase 3)', async (t) => {
+  await t.test('通常時は130度まで ―― 側面へ回り込まれた敵を拾える', () => {
+    assert.equal(turnAssistAngleFor(false), TURN_ASSIST_MAX_ANGLE);
+    assert.equal(canTurnAssist({ angleToTarget: deg(120), distance: 8 }), true);
+    // 旧実装(99度)では拾えなかった角度
+    assert.ok(TURN_ASSIST_MAX_ANGLE > Math.PI * 0.55);
+  });
+
+  await t.test('回避直後だけ155度まで広がる', () => {
+    assert.equal(turnAssistAngleFor(true), TURN_ASSIST_DODGE_ANGLE);
+    // 突進を避けて背後寄りへ抜けられた直後の角度
+    assert.equal(canTurnAssist({ angleToTarget: deg(145), distance: 8 }), false);
+    assert.equal(canTurnAssist({ angleToTarget: deg(145), distance: 8, justDodged: true }), true);
+  });
+
+  await t.test('広げても180度には届かせない(完全自動ターンの禁止)', () => {
+    assert.ok(TURN_ASSIST_DODGE_ANGLE < Math.PI * 0.95,
+      '肩越しに振り返るまで。背中を向けたままは撃てない');
+    assert.equal(canTurnAssist({ angleToTarget: deg(170), distance: 8, justDodged: true }), false);
+  });
+
+  await t.test('回避直後でも距離の制限は緩めない(常時ロックオンにしない)', () => {
+    assert.equal(canTurnAssist({ angleToTarget: 0.1, distance: TURN_ASSIST_MAX_RANGE + 1, justDodged: true }), false);
+  });
+
+  await t.test('assistedAimYawもjustDodgedを受け取る', () => {
+    const args = { facing: 0, targetYaw: deg(145), angleToTarget: deg(145), distance: 8 };
+    assert.equal(assistedAimYaw(args), 0, '通常時は何も起きない');
+    assert.equal(assistedAimYaw({ ...args, justDodged: true }), deg(145), '回避直後なら寄る');
   });
 });

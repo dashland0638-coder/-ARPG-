@@ -612,6 +612,13 @@
       spawn:(pos)=> buildEnemy(pos, {hp:9999, atk:14, speed:2.0, atkType:'jumper', xp:0, color:0x7a3ac0})},
     boss:       {label:'Boss Test',    icon:'👑',
       spawn:(pos)=> buildBoss(pos, {hpMax:50000, atk:20})},
+    /* 切り上げの「飛行敵を落とす」経路を実際に確認するための個体
+       (Combat Feel Phase 5)。新しい敵AIは足していない ―― 既存の
+       passive をそのまま浮かせただけで、飛行そのものの挙動も持たない。
+       本編には飛行敵を追加していないので、この経路を目で確かめられるのは
+       ここだけになる */
+    flyer:      {label:'Flying Test',  icon:'🕊️',
+      spawn:(pos)=> buildEnemy(pos, {hp:9999, atk:0, speed:0, atkType:'passive', xp:0, color:0x8ad0e0, flying:true, flyHeight:1.7})},
   };
   let arenaSpawnSeq = 0;
 
@@ -690,6 +697,8 @@
             if(en.mob.neck) en.mob.neck.rotation.set(0,0,0);
           }
           if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+          en.liftPeak = 0; en.liftT = 0; en.flyDropT = 0;   // 切り上げの浮き/落下も戻す
+          if(en.flyHeight){ en.flying = true; en.basePos.y = en.flyHeight; en.group.position.y = en.flyHeight; }
           en.wanderT = 0; en.chargeState = 'idle';
         }
         return;
@@ -778,6 +787,30 @@
           resolveWallCollisions(en.group.position);
         }
       }
+      /* 切り上げで飛行を解かれた敵の着地(Combat Feel Phase 5)。
+         基準高度(basePos.y)を地面へ詰めるだけ ―― updateMobAnim が
+         毎フレーム baseYOf(en) を土台に描くので、AIには触らずに降ろせる */
+      if((en.flyDropT||0) > 0){
+        en.flyDropT = Math.max(0, en.flyDropT - dt);
+        const k = en.flyDropT / FLYER_DROP_TIME;
+        if(en.basePos) en.basePos.y = (en.flyDropFrom||0) * k * k;   // 落ちるので加速する
+      }
+
+      /* 切り上げで浮いている軽量敵(Combat Feel Phase 5)。
+         打ち上げではなく「行動を一瞬乱す」のが目的なので、浮いている
+         約0.5秒だけAIを止め、体を上下させる。無敵にはしない ――
+         この間も通常どおり攻撃を当てられる(=浮かせた側の得になる) */
+      if((en.liftPeak||0) > 0 && !en.knockedDown){
+        en.liftT = (en.liftT||0) + dt;
+        if(en.liftT >= (en.liftDur||UPLIFT_DURATION)){
+          en.liftPeak = 0; en.liftT = 0;
+        } else {
+          updateMobAnim(en, dt);
+          en.group.position.y += upliftOffset(en.liftT, en.liftPeak, en.liftDur);
+          return;   // 浮いている間は通常AIを止める
+        }
+      }
+
       if(en.isBoss){ updateBossAnim(en, dt); updateBossAI(en, dt); return; }
       if(en.atkType==='charge')      updateChargerAI(en, dt);
       else if(en.atkType==='fire')   updateFireEnemyAI(en, dt);

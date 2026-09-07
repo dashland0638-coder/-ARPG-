@@ -817,7 +817,7 @@
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;   // 5人目「影の旅人」の酒場会話進行
     state.guestClassKey = CHAPTER_CAST[1].guestClassKey || null;   // 第一章は剣士単独(#41)
-    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null;
+    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
     state.level = 1; state.xp = 0; state.xpToNext = xpToNextForLevel(1);
     state.levelGrowth = zeroAlloc();
@@ -906,7 +906,7 @@
     // そのクラスを立てる ―― 章の自動進行(#41)がまだ無いため、これが
     // 現状唯一guestClassKeyを非nullにできる経路
     state.guestClassKey = (guestKey && CLASSES[guestKey]) ? guestKey : null;
-    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null;
+    state.charging = false; state.chargeT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
 
     // レベル: grantXP()の成長式(12-progression-ui.js)と同じ計算を、

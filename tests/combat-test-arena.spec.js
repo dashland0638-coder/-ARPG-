@@ -2,7 +2,7 @@
 // Combat Test Arena(Combat Design Audit #1/#2/#9-11)のスモークテスト。
 // テストモードからトレーニング空間へ入り、
 //   (1) Arenaパネルが開閉できる
-//   (2) ロスターの6種すべてがコンソールエラー無しにspawnできる
+//   (2) ロスターの7種すべてがコンソールエラー無しにspawnできる
 //   (3) Clear Allで消せる
 //   (4) Debug Info表示がON/OFFできる
 // ことを確認する。個々の戦闘ロジック(パニッシュ倍率・Perfect Brace・
@@ -12,7 +12,7 @@ import { test, expect } from '@playwright/test';
 import { openGame, watchErrors } from './helpers.js';
 
 test('Combat Test Arena: 敵選択・Spawn・Clearが一通り動作する', async ({ page }) => {
-  /* テストモードの起動 + 6種のspawn(それぞれログ確認まで待つ)+ Debug Info +
+  /* テストモードの起動 + 全種のspawn(それぞれログ確認まで待つ)+ Debug Info +
      Clear まで通すと、既定の45秒では足りない(save-load.spec.jsのsortieケースと
      同じ事情)。実処理が遅いわけではなく手順が多いだけなので、予算だけ広げる */
   test.setTimeout(90_000);
@@ -53,12 +53,12 @@ test('Combat Test Arena: 敵選択・Spawn・Clearが一通り動作する', asy
   await page.click('#arena-toggle-btn');
   await expect(page.locator('#arena-panel')).toHaveClass(/show/);
 
-  // ロスター6種すべてを1回ずつspawn。各spawnはmsg-log(pushMsgLog、
+  // ロスター全種を1回ずつspawn。各spawnはmsg-log(pushMsgLog、
   // 直近6件のみ保持するリングバッファ)に記録が残るので、それを見て
   // 実際に発火経路まで通ったことを確認する。他のゲーム内メッセージと
   // 混ざってバッファから押し出されないよう、クリックのたびに確認する
   const rosterButtons = page.locator('#arena-roster button');
-  await expect(rosterButtons).toHaveCount(6);
+  await expect(rosterButtons).toHaveCount(7);
   const labels = await rosterButtons.allTextContents();
   for (let i = 0; i < labels.length; i++) {
     await rosterButtons.nth(i).click();

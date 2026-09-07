@@ -47,6 +47,11 @@ import * as THREE from 'three';
     // 戦騎士のHitタイミング同期: 「剣が届く瞬間」までダメージ判定を
     // 保留しておくスロット({t, stage, len})。updatePendingSwing()参照
     pendingSwing:null,
+    pendingMoveSfx:null,   // 遅延させた攻撃SE(core/swing-timing.js)
+    berserkerLock:null,    // バーサーカーのソフトロック(core/soft-lock.js)
+    hawkAssistT:0,         // 鷹の目: 回避直後にターンアシストを広げる残り時間
+    airBlockToastT:0,      // 空中スキル禁止の警告トーストの連打抑制
+    uppercutUsed:false,    // 一度の滞空で切り上げを使ったか(core/uppercut.js)
     // Enemy Step(Phase H): 1回の滞空につき1度だけ踏める。着地でfalseへ戻る
     enemyStepDone:false,
     comboStage:0, comboCount:0, comboWindowT:0, comboWindowMax:0, comboLen:0, jumpAttacking:false, jumpAttackCD:0,
