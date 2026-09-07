@@ -156,6 +156,79 @@ test('弓師(archer): 通常攻撃でprojectileが生成され、命中する', 
   expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
 });
 
+test('弓師(archer): Distance Bonus ―― 遠距離ほど通常攻撃のダメージが上がる(Phase 1)', async ({ page }) => {
+  const errors = watchErrors(page);
+  await openGame(page);
+  await enterTestMode(page, 'archer');
+
+  /* Test Mode Arenaへ入ると、Arena UIから明示的にspawnする敵とは別に、
+     固定位置の的が3体常設されている(07-ai-combat.js buildWorld()の
+     _spawnWorldKey==='training'分岐: (455,-4)/(455,4)/(463,0))。
+     プレイヤーの初期スポーンは(455,-14)で固定なので、(455,-4)は
+     移動なしで正面ちょうど10m先 ―― Distance Bonusの閾値
+     (ARCHER_DISTANCE_BONUS_RANGE=10、core/archer-distance.js)ちょうど
+     という、狙って作れる貴重な「遠距離」ケースになる。
+
+     プレイヤーを実際に歩かせて距離を作る方式も試したが、この職の
+     移動仕様(進んだ方向へfacingが追従し、カメラも時間経過でfacingの
+     後方へ追従する)により、長く歩くほどfacing/カメラの向きがずれて
+     直線状の的を外すようになり、E2Eとして安定しなかった。移動せず
+     常設の的を使うことで、この揺れを避けている。 */
+
+  // まず何もspawnしていない状態で撃つ ―― 直線上で一番近いのは固定の
+  // 的(455,-4)なので、これが「遠距離」ケースになる
+  await page.click('#arena-toggle-btn');
+  await page.click('#arena-info-toggle-btn');
+  await page.click('#arena-toggle-btn');
+  const hpOf = async () => {
+    const txt = await page.locator('#arena-enemy-info').innerText();
+    const m = txt.match(/HP:\s*(\d+)/);
+    return m ? Number(m[1]) : NaN;
+  };
+
+  const farHp0 = await hpOf();
+  await attack(page);
+  /* Distance Bonus発生はArena Feedbackにも出る(11-combat-actions.js
+     spawnProjectileSingle)―― 内部倍率だけでなく、実際に見える結果として
+     確認する。発射(クリック)と同時に出るので、着弾を待つ前にここで見る
+     (表示は2200ms+500msで消えるため、着弾確認のあとに回すと間に合わない
+     ことがある) */
+  await expect(page.locator('#arena-feedback-log')).toContainText('DISTANCE BONUS');
+  // 命中の検知そのものはPhase 0で実績のあるdmg-pop検出を使う(.innerText()の
+  // ポーリングだけに頼ると、頻繁なレイアウト計算がメインスレッドを奪い、
+  // 描画ループの進行を妨げてしまい着弾の検知が安定しなかった)。ダメージ量は
+  // 検知できたその時点でHPパネルから1回だけ読み直す
+  await expect.poll(() => dmgPopCount(page), { timeout: 3000 }).toBeGreaterThanOrEqual(1);
+  const farDmg = farHp0 - (await hpOf());
+
+  /* 次にArena Dummyを2体spawnする(5.5m先、2体目が正面)。これで直線上の
+     最短距離が固定の的(10m)から新しいDummy(5.5m)へ変わるので、
+     以降の攻撃は自動的に「近距離」ケースになる ―― 遠距離の的は
+     引き続き健在だが、より近いDummyに遮られて届かなくなる */
+  await spawnFromArena(page, 'Dummy', 2);
+  await page.waitForTimeout(2900); // 直前のDISTANCE BONUS表示が完全に消えるのを待つ(表示寿命2200+500ms)
+
+  const nearHp0 = await hpOf();
+  await attack(page);
+  // 近距離(5.5m、閾値10未満)ではBonusが出ないこと(発射直後に確認する理由は上と同じ)
+  await expect(page.locator('#arena-feedback-log')).not.toContainText('DISTANCE BONUS');
+  // dmg-popはプールされ820ms後に再利用される(spawnDamagePopup)ため、
+  // 遠距離攻撃から2.9秒空けたこの時点では要素の個数は増えず1のまま
+  // (使い回し)のことがある ―― 個数ではなくHPパネルの数値が動いたかで
+  // 命中を確認する。この2発目の待ちだけは.innerText()のポーリングでも
+  // 実際に安定して着弾を拾えている(問題が出たのは1発目、ページ読み込み
+  // 直後の描画がまだ本調子でないタイミングでのポーリングだった)
+  await expect.poll(hpOf, { timeout: 3000 }).toBeLessThan(nearHp0);
+  const nearDmg = nearHp0 - (await hpOf());
+
+  // 同じ弓師の同じ攻撃力から出た一撃同士なので、Distance Bonus(×1.15)の
+  // 分だけ遠距離の方が明確にダメージが高くなる(乱数によるダメージ幅
+  // ±5よりも、この倍率の差の方が十分大きい実際の数値で確認できる)
+  expect(farDmg, `遠距離攻撃(${farDmg})が近距離攻撃(${nearDmg})より高いダメージであること`).toBeGreaterThan(nearDmg);
+
+  expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
+});
+
 test('魔法使い(mage): 通常攻撃でprojectileが生成され、命中する', async ({ page }) => {
   const errors = watchErrors(page);
   await openGame(page);

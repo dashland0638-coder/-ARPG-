@@ -818,11 +818,25 @@
     const baseDmg = state.classDef.atk+Math.round(Math.random()*5);
     // 3連射は1発ごとのダメージを抑える(合計で妥当な威力になるよう)
     const volleyMul = opts.volley ? 0.6 : 1;
-    const dmg = Math.round(baseDmg * (opts.dmgMul || 1) * volleyMul);
+    /* 基本弓師のCombat Identity: Distance Bonus(core/archer-distance.js)。
+       発射時のプレイヤー→ターゲット距離が一定以上離れていれば小さな
+       ボーナスが乗る、近距離を弱くしない報酬型。対象は基本弓師のみ
+       ―― 鷹の目(hawkEye)は既にTurn Assist/Predictive Aimという別の
+       Identityを持つため対象外にする。ターゲットは既存の
+       findRangedTargetInLine()(単発/連鎖スキルの命中先探索と同じ関数)を
+       流用して求める。見つからなければボーナス無し(狙う相手がいない
+       空撃ちに報酬を与えない) */
+    let distanceMul = 1;
+    if(cls==='archer' && state.job!=='hawkEye'){
+      const aimTarget = findRangedTargetInLine(dir, 30, 1.4);
+      if(aimTarget) distanceMul = archerDistanceBonusMul(state.pos.distanceTo(aimTarget.group.position));
+    }
+    const dmg = Math.round(baseDmg * (opts.dmgMul || 1) * volleyMul * distanceMul);
     // life*speed is the effective range (~44 at speedMul 1 before this) -
     // shortened a bit per feedback that arrows/bolts carried too far
     const proj = {mesh, light: glow, dir, speed:20*st.speedMul, life:1.6, hitR, dmg, staggerMul: opts.staggerMul, ultGauge: opts.ultGauge, predictiveTarget};
     if(predictiveTarget) emitArenaFeedback('PREDICTIVE AIM', '狙い筋を未来位置へ補正');
+    if(distanceMul > 1) emitArenaFeedback('DISTANCE BONUS', `×${distanceMul.toFixed(2)}`);
     // 魔法使いのフィニッシュ: 貫通弾(roadmap「杖: 魔弾→貫通弾」)
     if(opts.pierce){ proj.pierce = true; proj.pierceLeft = 3; proj.pierceHitSet = new Set(); }
     projectiles.push(proj);

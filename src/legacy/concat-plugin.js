@@ -47,6 +47,7 @@ import { meleeHitTest, surfaceDistance } from '../core/melee-hit.js';
 import { canEnemyStep, isStompableState, ENEMY_STEP_STAGGER, ENEMY_STEP_BOUNCE_VY } from '../core/enemy-step.js';
 import { clipFracAt, impactFrac, swingSfxDelay } from '../core/swing-timing.js';
 import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/soft-lock.js';
+import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import {
   airAttackKind, isRising, enemyWeightClass, isFlying, upliftFor, upliftOffset,
   uppercutStaggerMul, UPPERCUT_DMG_MUL, UPPERCUT_HEAVY_FLINCH, UPLIFT_DURATION, FLYER_DROP_TIME,
