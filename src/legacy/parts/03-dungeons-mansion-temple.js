@@ -269,6 +269,13 @@
   const MANSION_VIEW_POS = new THREE.Vector3(3, 0, -33.5); // 木々の間から洋館が見える
   const MANSION_YARD_POS = new THREE.Vector3(0, 0, -36);   // 前庭
 
+  /* 森の岩棚(跳躍で登る寄り道)。天板の高さは「ジャンプで実際に届くこと」
+     から決めてある ―― ジャンプの初速は8.0、重力は22なので最高到達点は
+     8²/(2*22) ≈ 1.45。以前の1.6は跳んでも届かず、横から歩いて入ると
+     持ち上がるだけの段差になっていた。座標は13-update-loop.js側の
+     床判定もここを見るので、動かすならこの1箇所でよい */
+  const FOREST_LEDGE = {x:24, z:-4, half:4, top:1.2};
+
   // 道の折れ線から「そこは道の上か」を答える。飾りを置く時に道を塞がない
   // ためと、木立の壁を道の外側にだけ並べるために使う
   function distToForestPath(x, z){
@@ -321,17 +328,24 @@
       if(solid) walls.push({minX:x-0.55, maxX:x+0.55, minZ:z-0.55, maxZ:z+0.55});
     }
 
-    // keep decorations out of the mansion footprint / spawn / other zones
+    /* 飾りを置かない場所。洋館の各階は屋根も外殻も持たない「離れ島」で、
+       床の外には mansionUnderlay() の暗い下地しか無い ―― そこへ森の木が
+       立つと、屋敷の中に木が生えているようにしか見えない。だから各階の
+       除外範囲は、その階の下地より一回り広く取ってある(下地の縁に木が
+       並ぶのを防ぐ)。数値を動かすときは対になる mansionUnderlay() の
+       引数と一緒に見ること。 */
     function isBlockedZone(x,z){
-      if(x>-34 && x<24 && z<-38 && z>-104) return true;         // 洋館1階の footprint
+      if(x>-42 && x<32 && z<-38 && z>-110) return true;          // 洋館1階(下地 -40..30 / -108..-40)
+      if(x>-10 && x<10 && z>-40 && z<-32) return true;           // 前庭 ―― 玄関の正面は開けておく
       if(x>-10 && x<10 && z>4 && z<26) return true;              // 酒場の建物
       if(x>44 && x<70 && z>2 && z<28) return true;               // 酒場2階(テレポート先)
       if(Math.hypot(x-24, z-(-4)) < 7) return true;              // 岩棚(跳躍用の高台)
       if(x>0 && x<20 && z>-8 && z<0) return true;                // 岩棚へ抜ける脇道(道の東側)
-      if(x>44 && x<112 && z<-18 && z>-100) return true;          // 洋館2階(テレポート先)
-      if(x>48 && x<104 && z>34 && z<104) return true;            // 洋館1階奥(テレポート先)
-      if(x>114 && x<164 && z>34 && z<122) return true;           // 地下(テレポート先)
-      if(x>52 && x<108 && z>126 && z<186) return true;           // 主の間(テレポート先)
+      if(x>40 && x<116 && z<-14 && z>-106) return true;          // 洋館2階(下地 42..114 / -104..-16)
+      if(x>44 && x<108 && z>30 && z<108) return true;            // 洋館1階奥(下地 46..106 / 32..106)
+      if(x>110 && x<170 && z>30 && z<128) return true;           // 地下(下地 112..168 / 32..126)
+      if(x>48 && x<112 && z>122 && z<190) return true;           // 主の間(下地 50..110 / 124..188)
+      if(x>126 && x<154 && z>120 && z<148) return true;          // 地下のさらに奥(周回★3)
       if(x>144 && x<176 && z>-58 && z<-22) return true;          // 屋根裏(周回★4)
       if(x>-21 && x<20 && z>30 && z<135) return true;            // 幽霊船(テレポート先)
       if(x>-45 && x<-19 && z>95 && z<135) return true;           // 幽霊船ボス倉(テレポート先)
@@ -430,11 +444,11 @@
 
     /* 岩棚(跳躍で登れる高台)。道のすぐ脇にあり、跳べば上の宝箱に届く
        ―― 「跳べる」ことを寄り道ひとつで思い出させるための場所。
-       高さ1.6の判定は13-update-loop.js側に (24,-4) 決め打ちで入っているので
-       座標は動かせない(platform変数もそこで参照される) */
+       乗るにはジャンプが要る(13-update-loop.js側の床判定が、落ちてくる
+       途中で天板の高さに達しているときだけ床として扱う) */
     const ledgeMat = new THREE.MeshStandardMaterial({color:0x4a4740, roughness:0.95});
-    platform = new THREE.Mesh(new THREE.BoxGeometry(8,1.6,8), ledgeMat);
-    platform.position.set(24,0.8,-4);
+    platform = new THREE.Mesh(new THREE.BoxGeometry(FOREST_LEDGE.half*2, FOREST_LEDGE.top, FOREST_LEDGE.half*2), ledgeMat);
+    platform.position.set(FOREST_LEDGE.x, FOREST_LEDGE.top/2, FOREST_LEDGE.z);
     platform.castShadow = true; platform.receiveShadow = true;
     scene.add(platform);
     for(let i=0;i<5;i++){   // 苔むした岩を積んで、切り出した箱に見えないようにする
@@ -2143,7 +2157,9 @@
     const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
     const woodMat  = new THREE.MeshStandardMaterial({color:0x3a2818, roughness:0.8});
 
-    mansionUnderlay(-40, 30, -108, -40);   // 前庭(z>-40)は森の草地のままにする
+    // 下地は外殻(x -31..21 / z -99..-40)のすぐ外まで。ここを広く取ると、
+    // 建物を囲う木立がこの暗い床の上に立ってしまう(=屋敷の中に木が生えて見える)
+    mansionUnderlay(-32, 22, -101, -40);   // 前庭(z>-40)は森の草地のままにする
     ['mEntry','mFoyer','mDining','mCor1','mHall','mStair'].forEach(id=>{
       const r = mansionRoomById(id);
       mansionFloor(r, floorMat);
@@ -2736,6 +2752,14 @@
 
     buildMansionChandelier();
 
+    /* 主の間に踏み込んだ瞬間、天井の燭台が軋む。仕掛けがあることに
+       気づく手がかりはこれだけ ―― 説明はしない */
+    registerRoomEvent(mansionRoomById('bLord'), 0, '', ()=>{
+      sfx('distantDoor');
+      spawnToast('🕯️ 天井の燭台が、鎖を軋ませて揺れた');
+      return null;
+    });
+
     // 周回★4以上でのみ、主の間の奥に屋根裏へ続く階段が現れる。実際に
     // 上れるのは主を倒した後だけ(gateTag)
     if(scenarioStars('mansion') >= MANSION_ATTIC_STARS){
@@ -2745,14 +2769,23 @@
     }
   }
 
-  /* 主の間、入ってすぐの天井から下がる鉄鎖のシャンデリア。
-     以前は分岐ルートを選んだ時だけ落とせたが、分岐そのものを外したので
-     「見上げて気づいた人だけが使える一度きりの仕掛け」に変えてある。 */
+  /* 主の間の鉄鎖のシャンデリア。以前は主のすぐ手前に吊るしてあり、
+     話しかけようと近づくだけで必ず落ちていた ―― 一度きりの切り札が
+     暴発する上、仕掛けとして何も選ばせていなかった。
+
+     いまは部屋の入口寄り、主の定位置から離れた場所に吊るしてある。
+     落とせるのは「戦いが始まっていて、かつ主が燭台の真下まで来ている」
+     ときだけなので、使うには一度入口側へ下がって主を釣る必要がある。
+     条件を満たさない間はイベント自体が発火しないので、通り抜けても
+     消費されない(lines を返した時点で二度と出なくなるため、判定は
+     condition 側に置いてある)。 */
+  const MANSION_CHANDELIER_POS = new THREE.Vector3(80, 0, 154);
+  const CHANDELIER_DROP_RADIUS = 4.5;   // 主がこの距離まで来ていれば当たる
+
   function buildMansionChandelier(){
     const chainMat = new THREE.MeshStandardMaterial({color:0x1c1c22, roughness:0.6, metalness:0.5});
     const frameMat = new THREE.MeshStandardMaterial({color:0x3a3020, roughness:0.55, metalness:0.6});
-    const pos = MANSION_BOSS_POS.clone();
-    pos.z -= 4;   // 主のすぐ手前。ここまで来れば戦闘は既に始まっている
+    const pos = MANSION_CHANDELIER_POS;
 
     const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,3.4,6), chainMat);
     chain.position.set(pos.x, 5.2, pos.z);
@@ -2773,22 +2806,31 @@
     const glow = new THREE.PointLight(0xffcf8a, 0.6, 10);
     glow.position.set(pos.x, 3.5, pos.z);
     scene.add(glow);
+    // 真下の床に落ちる光。ここが仕掛けの効く場所だと、見れば分かるようにする
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(CHANDELIER_DROP_RADIUS, 24),
+      new THREE.MeshBasicMaterial({color:0xffcf8a, transparent:true, opacity:0.07}));
+    pool.rotation.x = -Math.PI/2;
+    pool.position.set(pos.x, 0.09, pos.z);
+    scene.add(pool);
 
-    registerProximityEvent(new THREE.Vector3(pos.x,0,pos.z), 2.5, '???', ()=>{
-      if(!state.chandelierUsed){
-        state.chandelierUsed = true;
-        const boss = enemies.find(en=>en.isBoss && !en.dead);
-        if(boss){
-          dealDamageToEnemy(boss, Math.round(boss.hpMax*0.22), false, {});
-          boss.hurtT = 1.4; // 通常より長く怯ませる(強制ダウン相当の演出)
-          boss.flinch = Math.min(1.6, (boss.flinch||0) + 1.6);
-          spawnToast('⚙️ 鎖を断ち切った!シャンデリアが主に降り注ぐ!!');
-          return ['見上げると、燭台に繋がる鎖が緩んでいる。', '……今なら、断ち切れそうだ。'];
-        }
-        return ['見上げると、燭台に繋がる鎖が緩んでいる。', '……今は、落としても意味が無さそうだ。'];
-      }
-      return ['鎖はもう断ち切ってしまった。燭台はそのまま床に転がっている。'];
-    });
+    function bossUnderChandelier(){
+      const boss = enemies.find(en=> en.isBoss && en.triggered && !en.dead);
+      if(!boss) return null;
+      return boss.group.position.distanceTo(pos) < CHANDELIER_DROP_RADIUS ? boss : null;
+    }
+
+    registerProximityEvent(pos, 3.0, '???', ()=>{
+      const boss = bossUnderChandelier();
+      if(!boss) return null;              // condition と行き違った時の保険
+      state.chandelierUsed = true;
+      dealDamageToEnemy(boss, Math.round(boss.hpMax*0.22), false, {});
+      boss.hurtT = 1.4;                   // 通常より長く怯ませる(強制ダウン相当の演出)
+      boss.flinch = Math.min(1.6, (boss.flinch||0) + 1.6);
+      addShake(0.2);
+      sfx('seal');
+      spawnToast('⚙️ 鎖を断ち切った!燭台が主の上に落ちる!!');
+      return ['錆びた鎖が、主の真上で鈍く軋んでいる。', '――今だ。'];
+    }, {condition:()=> !state.chandelierUsed && !!bossUnderChandelier()});
   }
 
   /* 主の間の先、周回★4で開く「山を登り切った先」の一段。 */
@@ -2905,13 +2947,15 @@
       scene.add(tree);
       if(solid) walls.push({minX:x-0.6, maxX:x+0.6, minZ:z-0.6, maxZ:z+0.6});
     }
-    // 建物の西・東・北を囲う二重の木立
-    for(let z=-38; z>=-102; z-=3.0){ ringTree(-34, z, true); ringTree(24, z, true); }
-    for(let z=-38; z>=-102; z-=4.5){ ringTree(-37, z, false); ringTree(27, z, false); }
-    for(let x=-34; x<=24; x+=3.0){ ringTree(x, -102, true); }
-    // 前庭の左右。玄関前(x -8..8)だけ開けておく
-    for(let x=-34; x<=-9; x+=3.0){ ringTree(x, -37, true); }
-    for(let x=  9; x<= 24; x+=3.0){ ringTree(x, -37, true); }
+    /* 建物の西・東・北を囲う二重の木立。どれも上の下地(x -32..22 /
+       z -101..-40)の外側に立てること ―― 下地の上に乗せると、屋敷の床に
+       木が生えているようにしか見えない */
+    for(let z=-38; z>=-103; z-=3.0){ ringTree(-35, z, true); ringTree(25, z, true); }
+    for(let z=-38; z>=-103; z-=4.5){ ringTree(-38, z, false); ringTree(28, z, false); }
+    for(let x=-35; x<=25; x+=3.0){ ringTree(x, -103, true); }
+    // 前庭の左右。玄関へ向かう通路(x -10..10)は開けておく
+    for(let x=-35; x<=-11; x+=3.0){ ringTree(x, -37, true); }
+    for(let x= 11; x<= 25; x+=3.0){ ringTree(x, -37, true); }
   }
 
   function updateMansionRoof(){

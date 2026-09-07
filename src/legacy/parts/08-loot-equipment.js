@@ -520,7 +520,7 @@
        rolls as before. */
     chests = [
       // ---- 囚われの洋館(最初のメインシナリオ) ----
-      [new THREE.Vector3(24,1.6,-4)],                     // 森: 岩棚の上(跳ばないと届かない。y=1.6は棚の高さ)
+      [new THREE.Vector3(24,1.2,-4)],                     // 森: 岩棚の上(跳ばないと届かない。yはFOREST_LEDGE.top)
       [new THREE.Vector3(-6,0,-17)],                      // 森: 荷車の脇
       [new THREE.Vector3(-27,0,-63)],                     // 洋館: 食堂
       [new THREE.Vector3(99,0,-80)],                      // 洋館: 客室
@@ -870,7 +870,15 @@
     spawnToast(`💚 結晶を砕いて${healAmt}回復した!`);
     spawnHitSpark(new THREE.Vector3(h.pos.x, h.pos.y+0.6, h.pos.z), 0x7fe8b8, 1.6);
     flashScreen();
-    scene.remove(h.group);
+    /* 見た目だけ消し、シーンからは外さない。結晶は自前のPointLightを
+       抱えているので、group ごと scene.remove するとシーンの点光源の数が
+       減り、three.jsが全マテリアルのシェーダを組み直す ―― 砕くたびに
+       数秒固まる、という症状の原因がこれだった(lightPool/prewarmLightPool
+       が置かれているのと同じ問題。13-update-loop.js のコメント参照)。
+       ライトは強度0にすれば見えず、数は変わらないので組み直しも起きない。
+       実際の破棄はワールド切り替え時の disposeWorld() がまとめて行う。 */
+    if(h.glow) h.glow.intensity = 0;
+    h.group.visible = false;
   }
 
   /* =========================================================

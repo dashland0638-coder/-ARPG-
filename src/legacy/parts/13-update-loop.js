@@ -643,8 +643,18 @@
       if(g === null || g > refY + 0.6){ floorY = -9999; overVoid = true; }
       else floorY = g;
     }
-    const onPlat = currentWorldKey==='mansion' && Math.abs(state.pos.x-24)<4 && Math.abs(state.pos.z-(-4))<4;
-    if(onPlat) floorY = 1.6;
+    /* 森の岩棚(FOREST_LEDGE、03-dungeons-mansion-temple.js)。以前は範囲に
+       入っただけで天板の高さを床にしていたので、横から歩き込むと勝手に
+       持ち上がって登れてしまった ―― 上の宝箱も跳ばずに取れた。落ちてくる
+       途中(yVel<=0)で、かつ天板の高さまで上がっているときだけ床として扱う。
+       参照高さの取り方は上の groundSlabs と同じで、速い落下が床を追い越さない */
+    if(currentWorldKey==='mansion' && typeof FOREST_LEDGE !== 'undefined' &&
+       state.yVel <= 0 &&
+       Math.abs(state.pos.x - FOREST_LEDGE.x) < FOREST_LEDGE.half &&
+       Math.abs(state.pos.z - FOREST_LEDGE.z) < FOREST_LEDGE.half){
+      const ledgeRefY = state.grounded ? state.pos.y : state.pos.y - state.yVel*dt;
+      if(ledgeRefY >= FOREST_LEDGE.top - 0.25) floorY = FOREST_LEDGE.top;
+    }
     if(platforms.length){
       const ph = floorHeightAt(state.pos.x, state.pos.z, state.pos.y);
       if(ph > floorY) floorY = ph;
