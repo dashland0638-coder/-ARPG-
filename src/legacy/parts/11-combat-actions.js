@@ -695,7 +695,25 @@
         findMeleeTargetsInArc(range, angle).forEach(t=>{ dealDamageToEnemy(t, dmg, false, staggerOpts); if(!hitTarget) hitTarget = t; });
       } else {
         const target = findMeleeTarget(range, angle);
-        if(target){ dealDamageToEnemy(target, dmg, false, staggerOpts); hitTarget = target; }
+        if(target){
+          /* 基本盗賊のCombat Identity: Back Attack(core/rogue-back-
+             attack.js)。命中対象が確定した「今」の敵の向き・位置で判定
+             する(攻撃開始時点ではなく、実際に命中する瞬間 ―― 盗賊は
+             hitDelayが無く入力と同時に解決するクラスなので、この
+             findMeleeTarget()の瞬間がそのまま「命中の瞬間」にあたる)。
+             対象は基本盗賊のみ ―― バーサーカーは既にSoft Lock/Slideという
+             別のIdentityを持つため対象外にする。正面からの通常攻撃は
+             弱体化せず(倍率1のまま)、背後から命中した一撃にだけ
+             ボーナスが乗る報酬型 */
+          let backAttackMul = 1;
+          if(state.classDef.key==='rogue' && state.job!=='berserker'){
+            backAttackMul = rogueBackAttackDamageMul(target.group.rotation.y, target.group.position, state.pos);
+          }
+          const atkDmg = backAttackMul > 1 ? Math.round(dmg * backAttackMul) : dmg;
+          dealDamageToEnemy(target, atkDmg, false, staggerOpts);
+          if(backAttackMul > 1) emitArenaFeedback('BACK ATTACK', `×${backAttackMul.toFixed(2)}`);
+          hitTarget = target;
+        }
       }
       checkMimicRevealInRange(range, angle, dmg);
       if(isFinish && hitTarget){

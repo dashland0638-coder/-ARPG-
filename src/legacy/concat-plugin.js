@@ -49,6 +49,7 @@ import { clipFracAt, impactFrac, swingSfxDelay } from '../core/swing-timing.js';
 import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/soft-lock.js';
 import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
+import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import {
   airAttackKind, isRising, enemyWeightClass, isFlying, upliftFor, upliftOffset,
   uppercutStaggerMul, UPPERCUT_DMG_MUL, UPPERCUT_HEAVY_FLINCH, UPLIFT_DURATION, FLYER_DROP_TIME,

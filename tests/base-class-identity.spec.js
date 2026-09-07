@@ -315,3 +315,127 @@ test('魔法使い(mage): Impact AoE ―― 単体の敵には通常ダメージ
 
   expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
 });
+
+/* Phase 3: 盗賊(rogue) Back Attack のE2Eで共通に使う準備。
+   Arena Dummy(訓練用の的)はspeed:0で見た目には静止しているが、内部では
+   他の敵と同じupdateWanderAI()(07-ai-combat.js)を通っており、出現直後
+   から数秒おきにランダムな方角へ向き直る(移動自体はspeed:0で起きない)。
+   そのためDummyの向き(facing)は出現のたびにランダムに決まる ――
+   これを逆手に取り、プレイヤーは常にDummyの正面5.5m南側(2体spawnした
+   ときの2体目の座標)に立ったまま動かさず、Dummyの向きだけをDebug Info
+   パネルから読み取って、狙いどおりの向きで出現するまで出し直す。
+   プレイヤーを複雑な軌道で歩かせて背後へ回り込む方式は、Phase 1で確認
+   済みの「長く歩くほどfacing/カメラがドリフトする」問題に当たるため
+   避けている。
+
+   facing≈0(プレイヤーから見て奥側、つまり北)を向いていれば、南に立つ
+   プレイヤーはDummyの背後にいることになる。facing≈±π(南、プレイヤーの
+   方)を向いていれば、プレイヤーはDummyの正面にいることになる。 */
+async function readEnemyFacing(page) {
+  const txt = await page.locator('#arena-enemy-info').innerText();
+  const m = txt.match(/Facing:\s*(-?\d+\.?\d*)/);
+  return m ? Number(m[1]) : null;
+}
+
+async function clearArena(page) {
+  await page.click('#arena-toggle-btn');
+  await page.click('#arena-clear-btn');
+  await page.click('#arena-toggle-btn');
+}
+
+// targetFacing: 0(背後にしたい) または Math.PI(正面にしたい)。
+// tolerance: ROGUE_BACK_ATTACK_HALF_ANGLE(45度=0.785rad、core/rogue-
+// back-attack.js)に対して十分な余裕を持たせた0.65rad(約37度) ――
+// 判定境界ぎりぎりを狙わず、明確に内側/外側の状況を作る。向きは出現の
+// たびに一様ランダムなので、この許容幅(全体の約41%)で数回の出し直し
+// 以内に見つかる想定
+async function spawnDummyFacing(page, targetFacing, { tolerance = 0.65, maxAttempts = 40 } = {}) {
+  let facing = null;
+  for (let i = 0; i < maxAttempts; i++) {
+    // 1回の出し直しがまれにUIのタイミングでこける(クリックが一瞬
+    // 間に合わない等)ことがあっても、テスト全体を落とさず次の試行へ
+    // 進める ―― 出現位置・角度は次の試行でまた一様ランダムに決まるので、
+    // 1回の失敗は結果の妥当性に影響しない
+    try {
+      if (i > 0) await clearArena(page);
+      await spawnFromArena(page, 'Dummy', 2);
+      facing = await readEnemyFacing(page);
+    } catch {
+      facing = null;
+      continue;
+    }
+    if (facing !== null) {
+      // targetFacingが±πのときはfacingの符号(π/-π)どちらでも一致とみなす
+      const diff = targetFacing === 0 ? Math.abs(facing) : Math.PI - Math.abs(facing);
+      if (diff <= tolerance) break;
+    }
+  }
+  return facing;
+}
+
+test('盗賊(rogue): Back Attack ―― 敵の背後から攻撃するとBonusが発生する(Phase 3)', async ({ page }) => {
+  // Dummyの向きは出現のたびに一様ランダムなため、狙った向きが出るまで
+  // 出し直す(spawnDummyFacing)。既定の45秒では出し直し回数によっては
+  // 足りないことがあるため、余裕を持たせる
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  await openGame(page);
+  await enterTestMode(page, 'rogue');
+
+  await page.click('#arena-toggle-btn');
+  await page.click('#arena-info-toggle-btn');
+  await page.click('#arena-toggle-btn');
+
+  const facing = await spawnDummyFacing(page, 0);
+  expect(facing, '規定回数以内に背後向き(facing≈0)のDummyが出現すること').not.toBeNull();
+  expect(Math.abs(facing), `Dummyの向き(${facing})が背後判定の許容範囲内であること`).toBeLessThanOrEqual(0.65);
+
+  // 盗賊の実効meleeRangeまで詰める(Phase 0で確立した手法: Wを離さず
+  // 一息に詰める。断続的な押し直しは移動距離が大きく目減りする)
+  await page.keyboard.down('KeyW');
+  await page.waitForTimeout(1300);
+  await page.keyboard.up('KeyW');
+
+  // 接近中にDummyが周期的なランダム再ターゲットで向き直っていないか再確認
+  const facingAfterApproach = await readEnemyFacing(page);
+  expect(Math.abs(facingAfterApproach), '接近中にDummyの向きが変わっていないこと').toBeLessThanOrEqual(0.75);
+
+  await attack(page);
+  // Back Attack発生はArena Feedbackに出る(11-combat-actions.js
+  // swingOnce())―― 発射(=命中、盗賊はhitDelay無しで入力と同時に解決する)
+  // と同時に出るので、着弾を待つ前にここで見る
+  await expect(page.locator('#arena-feedback-log')).toContainText('BACK ATTACK');
+  await expect.poll(() => dmgPopCount(page), { timeout: 2000 }).toBeGreaterThanOrEqual(1);
+
+  expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
+});
+
+test('盗賊(rogue): Back Attack ―― 敵の正面から攻撃してもBonusは発生しない(Phase 3)', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  await openGame(page);
+  await enterTestMode(page, 'rogue');
+
+  await page.click('#arena-toggle-btn');
+  await page.click('#arena-info-toggle-btn');
+  await page.click('#arena-toggle-btn');
+
+  const facing = await spawnDummyFacing(page, Math.PI);
+  expect(facing, '規定回数以内に正面向き(facing≈±π)のDummyが出現すること').not.toBeNull();
+  expect(Math.PI - Math.abs(facing), `Dummyの向き(${facing})が正面判定の範囲内であること`).toBeLessThanOrEqual(0.65);
+
+  await page.keyboard.down('KeyW');
+  await page.waitForTimeout(1300);
+  await page.keyboard.up('KeyW');
+
+  const facingAfterApproach = await readEnemyFacing(page);
+  expect(Math.PI - Math.abs(facingAfterApproach), '接近中にDummyの向きが変わっていないこと').toBeLessThanOrEqual(0.75);
+
+  await attack(page);
+  await expect.poll(() => dmgPopCount(page), { timeout: 2000 }).toBeGreaterThanOrEqual(1);
+  // 正面からの通常攻撃ではBack Attack Bonusが出ないこと(=正面を弱体化
+  // せず、通常ダメージのままであることの裏取り)
+  expect(await page.locator('#arena-feedback-log').innerText(), 'Back Attack表示が出ないこと').not.toContain('BACK ATTACK');
+
+  expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
+});
