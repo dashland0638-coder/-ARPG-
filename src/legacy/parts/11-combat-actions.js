@@ -351,6 +351,29 @@
     },
   };
 
+  /* Combat Action Resolver(Combat Architecture Refactor Phase 3)
+
+     tryAttack()から「今回の攻撃入力が何になるか」の判定部分だけを
+     抜き出したもの。優先順位は一切変更していない:
+       1. 何も出ない(クールダウン中、かつ回避攻撃の猶予も無い)
+       2. 回避攻撃(dodgeAttackWindowT中は通常のクールダウンを見ない)
+       3. 通常コンボ
+     空中側は既存の tryAirAttack()(内部で airAttackKind() を使って
+     切り上げ/落下攻撃を振り分けている)がこれと同じ役割を既に果たして
+     いるため、そちらを重複して作り直してはいない ―― tryAttack() 側で
+     「接地していなければ tryAirAttack() へ」という1行の分岐がそのまま
+     Air側のResolver呼び出しに相当する。
+
+     Enemy Stepはこの解決対象に含まない(指示7参照)。Enemy Stepは
+     「空中にいる間の常時判定」(updateEnemyStep、07-ai-combat.js)で
+     あり、攻撃ボタンの入力を起点にしないため、Attack Input Resolverの
+     対象外のまま維持する。 */
+  function resolveGroundAttackAction(){
+    const willDodgeAttack = state.dodgeAttackWindowT > 0;
+    if(!willDodgeAttack && state.attackCD > 0) return 'blocked';
+    return willDodgeAttack ? 'dodgeAttack' : 'combo';
+  }
+
   function tryAttack(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging) return;
     checkHealingCrystalBreak();   // 攻撃入力そのものに独立して乗せてあるので、通常のコンボ/CD管理には影響しない
@@ -363,24 +386,21 @@
        攻撃入力は例外なく tryAirAttack() が引き受ける。 */
     if(!state.grounded){ tryAirAttack(); return; }
 
-    /* ここから先は「実際に何かが出る」入力だけが通る。
-
-       ターンアシストは攻撃の種類を決める前に走らせる必要がある(Phase 3)
-       ―― 以前は回避攻撃(dodgeAttackWindowT)の分岐がその呼び出しより
-       手前にあったため、鷹の目の狙いどおりの流れ「突進を回避してすぐ撃つ」
-       では補助が一度も走っていなかった。
-
-       ただし順序を入れ替えるだけだと、クールダウン中の連打でも向きだけが
-       回ってしまう(=攻撃が出ないのに勝手に振り向く)。そこで先に
-       「何も出ない入力」を落としてから補助を掛ける。回避攻撃は従来どおり
-       通常のクールダウンを見ない。 */
-    const willDodgeAttack = state.dodgeAttackWindowT > 0;
-    if(!willDodgeAttack && state.attackCD>0) return;
+    /* ここから先は「実際に何かが出る」入力だけが通る。resolveGroundAttackAction()
+       で先に「何も出ない入力」を弾いてから、鷹の目のターンアシストを掛ける
+       ―― ターンアシスト自体は攻撃の種類を決める前に走らせる必要がある
+       (Combat Feel Phase 3。以前は回避攻撃(dodgeAttackWindowT)の分岐が
+       その呼び出しより手前にあったため、鷹の目の狙いどおりの流れ「突進を
+       回避してすぐ撃つ」では補助が一度も走っていなかった)。ただし単純に
+       順序を入れ替えるだけだと、クールダウン中の連打でも向きだけが回って
+       しまう(=攻撃が出ないのに勝手に振り向く)ため、判定自体は先に行う。 */
+    const action = resolveGroundAttackAction();
+    if(action === 'blocked') return;
 
     // 向きを決めてから以降の判定/発射方向を作る(鷹の目のみ、JOB_TRAITS経由)
     if(JOB_TRAITS[state.job] && JOB_TRAITS[state.job].onAttackInput) JOB_TRAITS[state.job].onAttackInput();
 
-    if(willDodgeAttack){ tryDodgeAttack(); return; }
+    if(action === 'dodgeAttack'){ tryDodgeAttack(); return; }
 
     const clsKey = state.classDef.key;
     // サブ武器は常に2段(1→フィニッシュ)。メインはクラス/武器思想ごとの段数
