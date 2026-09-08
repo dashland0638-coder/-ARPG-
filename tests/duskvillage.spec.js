@@ -16,7 +16,7 @@ import { watchErrors, openGame, dismissIntroDialogue, disableCameraAutoFollow } 
 // room's floor bounds).
 test.describe('duskvillage map rework', () => {
   test('builds the world and walks off the spine into a hub spur without errors', async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(210_000);   // 店主まで歩き直す回数を増やしたぶん、上限も上げる
     const errors = watchErrors(page);
     // duskvillage's minLevel is 26 (SCENARIO_DEFS, 12-progression-ui.js),
     // and every new game now starts at Lv.1 as the fixed 剣士 cast (#41,

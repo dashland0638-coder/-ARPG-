@@ -42,7 +42,7 @@ async function sortieInto(page, key) {
 }
 
 test.describe('scenario time limit', () => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);   // 店主まで歩き直す回数を増やしたぶん、上限も上げる
 
   test('a first-time sortie has no time limit', async ({ page }) => {
     const errors = watchErrors(page);
