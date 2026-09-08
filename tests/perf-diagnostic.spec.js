@@ -69,4 +69,70 @@ test.describe('performance diagnostic', () => {
 
     expect(errors).toEqual([]);
   });
+
+  /* iPhone(キーボード無し)用の入口。メニュー下端のバージョン表記を
+     素早く5回叩くと、キーボードと同じ toggleDebugMode() が走る。
+
+     注意: この環境はソフトウェア描画で1フレームに1秒近くかかるため、
+     locator.click() や mouse.click() は「素早い連打」にならない(実入力は
+     ブラウザのメインスレッド経由なので、判定時間の1.5秒を必ず越える)。
+     そこで連打そのものは pointerup を直接投げて再現し、実入力で確かめ
+     たい「1タップが二重に数えられないこと」は、iOSで重なりがちな
+     イベント列を1タップぶんまとめて投げることで見ている。 */
+  test('メニューのバージョン表記を素早く5回叩くとデバッグモードが切り替わる', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    await createCharacter(page);
+    await page.click('#cc-start-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await dismissIntroDialogue(page);
+
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('menu-overlay').classList.contains('active'));
+    const version = page.locator('#menu-version');
+    // 通常のバージョン表記に見えること(ボタンらしい見た目を足していない)
+    await expect(version).toHaveText(/^ver \d+\.\d+\.\d+$/);
+
+    const badge = page.locator('#debug-badge');
+    const panel = page.locator('#perf-panel');
+
+    // n回ぶんの連打(同一フレーム内に投げるので必ず判定時間内に収まる)
+    const tap = (n = 1) => page.evaluate(count => {
+      const el = document.getElementById('menu-version');
+      for (let i = 0; i < count; i++) el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    }, n);
+
+    // ゆっくり叩いても発動しない(間隔が空くと数え直される)
+    for (let i = 0; i < 5; i++) {
+      await tap();
+      await page.waitForTimeout(1700);
+    }
+    await expect(badge).toBeHidden();
+
+    // 4回では発動しない
+    await tap(4);
+    await expect(badge).toBeHidden();
+
+    /* 5回目にあたる1タップを、iOSで重なりがちなイベント列で送る。
+       touchend や click も数えていたらここで6回以上になり、
+       このあとのOFF操作が1回ぶんずれて最後の assertion が落ちる */
+    await page.evaluate(() => {
+      const el = document.getElementById('menu-version');
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      el.dispatchEvent(new Event('touchend', { bubbles: true }));
+      el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+      el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await expect(badge).toBeVisible();
+    await expect(panel).toBeVisible();
+
+    // ちょうど5回でOFF、パネルも消える
+    await tap(5);
+    await expect(badge).toBeHidden();
+    await expect(panel).toBeHidden();
+
+    expect(errors).toEqual([]);
+  });
 });

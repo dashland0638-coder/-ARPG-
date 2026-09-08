@@ -1223,3 +1223,17 @@
     outline-offset:2px;
     box-shadow:0 0 10px var(--ember-bright) !important;
   }
+
+/* メニュー下端のバージョン表記。見た目はただの添え字だが、素早く5回
+   叩くとデバッグモードが切り替わる(キーボードの無いiPhone実機テスト用)。
+   通常ユーザーには押せる要素に見えないよう、装飾は一切足していない */
+#menu-version{
+  margin-top:10px;
+  text-align:center;
+  font-size:10px;
+  letter-spacing:.08em;
+  color:rgba(210,200,190,.28);
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}

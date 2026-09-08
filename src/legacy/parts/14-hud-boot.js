@@ -287,7 +287,38 @@
       refreshSettingLabels();
       sfx('ui');
     });
+    bindVersionTap();
     refreshSettingLabels();
+  }
+
+  /* ---- バージョン表記の連打でデバッグモード ----
+     iPhone実機だけでテストしていると、キーボードのバッククォート
+     (09-save-load.js の keydown)に手が届かず、計測パネルを出せない。
+     そこでメニュー下端のバージョン表記を素早く5回叩いたときだけ、
+     キーボードと同じ toggleDebugMode() を呼ぶ。切り替えの中身
+     (トースト・バッジ・当たり判定表示・#perf-panel)は一切いじって
+     いないので、PC操作との差はここの入口だけになる。
+
+     pointerup だけを見る。touchend と click の両方を拾うと iOS では
+     1タップが2回数えられてしまうため、イベントは1種類に絞っている
+     (pointer event は iOS Safari 13 以降で使える)。 */
+  const VERSION_TAP_COUNT = 5;
+  const VERSION_TAP_GAP_MS = 1500;   // これ以上間が空いたら数え直し
+  let versionTaps = 0;
+  let versionTapLast = 0;
+  function bindVersionTap(){
+    const el = document.getElementById('menu-version');
+    if(!el) return;
+    el.textContent = 'ver ' + (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0');
+    el.addEventListener('pointerup', ()=>{
+      const now = performance.now();
+      versionTaps = (now - versionTapLast > VERSION_TAP_GAP_MS) ? 1 : versionTaps + 1;
+      versionTapLast = now;
+      if(versionTaps >= VERSION_TAP_COUNT){
+        versionTaps = 0;
+        toggleDebugMode();
+      }
+    });
   }
 
   // メイン武器なら「M」、サブ武器なら「S」を表示。サブは色も変えて一目で分かるようにする

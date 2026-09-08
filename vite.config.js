@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import legacyConcat from './src/legacy/concat-plugin.js';
+import pkg from './package.json' with { type: 'json' };
 
 // GitHub Pages serves a project site (not a user/org site or custom domain)
 // from a /<repo-name>/ subpath, so every asset URL needs that prefix baked
@@ -9,6 +10,11 @@ const REPO_NAME = '-ARPG-';
 
 export default defineConfig({
   plugins: [legacyConcat()],
+  // メニュー下端のバージョン表記に使う。package.json を唯一の出所にして
+  // 手書きの版番号が二重管理にならないようにしている
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   base: process.env.NODE_ENV === 'production' ? `/${REPO_NAME}/` : '/',
   server: {
     // host:true binds 0.0.0.0 instead of localhost, so an iPhone on the same
