@@ -22,7 +22,10 @@ async function sortieIntoMansion(page) {
   await dismissIntroDialogue(page);
   await disableCameraAutoFollow(page);
   let scenarioOpen = false;
-  for (let attempt = 0; attempt < 10 && !scenarioOpen; attempt++) {
+  /* 店主まで歩けるかどうかは、この環境の描画の遅さでフレーム落ちの
+     しかたが変わるぶんだけ揺れる。歩き直す回数を多めに取っておく
+     (届いた時点で抜けるので、通る場合の所要時間は変わらない) */
+  for (let attempt = 0; attempt < 30 && !scenarioOpen; attempt++) {
     await page.keyboard.down('KeyW');
     await page.keyboard.down('KeyA');
     await page.waitForTimeout(500);
@@ -130,6 +133,50 @@ test.describe('囚われの洋館(最初のメインシナリオ)', () => {
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('soulforge_save_v1') || '{}'));
     expect(saved.smithJoined).toBe(true);
     expect(saved.smithGreeted).toBe(true);
+
+    expect(errors).toEqual([]);
+  });
+
+  /* 静的バッチ(02-world-common.js の batchStatic / disposeWorld)を入れた
+     ときの回帰。バッチしたメッシュは世界専用の BufferGeometry を抱えて
+     いるので、世界を捨てるたびに開放して参照も消さないと、酒場と洋館を
+     往復するだけで増え続ける。ここでは往復しても例外が出ず、壁・敵・
+     宝箱・回復結晶が毎回ちゃんと建ち直ることを見る。 */
+  test('酒場と洋館を往復しても、洋館が毎回同じように組み上がる', async ({ page }) => {
+    test.setTimeout(300_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    await createCharacter(page);
+    await page.click('#cc-start-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+
+    for (let round = 0; round < 2; round++) {
+      if (round === 0) {
+        await sortieIntoMansion(page);
+      } else {
+        // 2周目は導入会話が出ないので、歩いて出撃するところだけ繰り返す
+        await sortieIntoMansion(page);
+      }
+      await expect(page.locator('#minimap-area')).toHaveText('囚われの洋館');
+      await expect(page.locator('#minimap-room')).toHaveText('古い森道');
+
+      // 壁が消えていないこと(森の外周・洋館の壁ぶんの当たり判定が立つ)。
+      // ミニマップは walls / enemies / chests を毎フレーム描いているので、
+      // 中身が空なら描画側で例外になる
+      await page.waitForTimeout(800);
+      expect(errors, `${round + 1}周目でエラーが出ないこと`).toEqual([]);
+
+      // 街へ戻る = disposeWorld() → 酒場を建て直す
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => document.getElementById('menu-overlay').classList.contains('active'));
+      await page.click('#menu-town');
+      // 撤退は確認を挟む(10-input.js の menu-town)
+      await page.waitForFunction(() => document.getElementById('confirm-overlay').classList.contains('active'));
+      await page.evaluate(() => document.getElementById('confirm-ok').click());
+      await page.waitForFunction(() => document.getElementById('minimap-area').textContent === '港町の酒場', { timeout: 60_000 });
+      await page.waitForTimeout(1000);
+      expect(errors, `${round + 1}周目の帰還でエラーが出ないこと`).toEqual([]);
+    }
 
     expect(errors).toEqual([]);
   });

@@ -134,8 +134,17 @@
          なので、階が違う区画はx/z上でも離れた場所に置き、行き来は階段の
          テレポート(前進方向はauto)で繋いである。間取りは MANSION_ROOMS
          (03-dungeons-mansion-temple.js)の1枚の表が唯一の情報源。 */
-      buildForest(); buildMansion(); buildMansionUpper();
-      buildMansionServantWing(); buildMansionBasement(); buildMansionLordsRoom();
+      /* 屋内の壁・柱・什器は動かないので、区画ごとに1回だけ静的バッチへ
+         溶かす(描画だけ。当たり判定の walls 配列は addWallBox が今まで
+         通り積むので、ゲーム側は何も変わらない)。世界全体を1メッシュに
+         せず区画単位で切っているのは、視錐台カリングを効かせたままに
+         するため。森は屋外で壁がほとんど無いので素のまま。 */
+      buildForest();
+      batchStatic(buildMansion);
+      batchStatic(buildMansionUpper);
+      batchStatic(buildMansionServantWing);
+      batchStatic(buildMansionBasement);
+      batchStatic(buildMansionLordsRoom);
     } },
     ghostship:{ build: ()=>{ buildGhostShip(); } },
     waterway: { build: ()=>{ buildWaterwayPier(); buildWaterwayUnderground(); } },
@@ -226,6 +235,16 @@
   let currentWorldObjects = [];
 
   function disposeWorld(){
+    /* 静的バッチのメッシュは、この世界のためだけに endStaticBatch() が
+       new した BufferGeometry を1つずつ抱えている(共有もキャッシュも
+       されておらず、参照はこのメッシュだけ)。scene.remove() だけでは
+       GPUのバッファが残るので、ここで明示的に開放する。
+       マテリアルは各ビルダーが使い回す共有物なので絶対に触らない。
+       batching / batchBuckets は、ビルダーが途中で例外を投げたときに
+       「バッチ中」のまま次の世界へ持ち越さないためのリセット。 */
+    batchedMeshes.forEach(m=>{ scene.remove(m); if(m.geometry) m.geometry.dispose(); });
+    batchedMeshes = [];
+    batching = false; batchBuckets = null;
     currentWorldObjects.forEach(o=>scene.remove(o));
     currentWorldObjects = [];
     // per-world state - rebuilt fresh by the next world
@@ -404,6 +423,13 @@
     const mesh = new THREE.Mesh(welded, mat);
     mesh.castShadow = true; mesh.receiveShadow = true;
     return mesh;
+  }
+
+  /* 1区画ぶんのビルダーを静的バッチで包む。途中で例外が出ても finally で
+     必ず閉じるので、「バッチ中」のフラグが次の世界へ漏れることはない */
+  function batchStatic(fn){
+    beginStaticBatch();
+    try{ fn(); } finally { endStaticBatch(); }
   }
 
   function beginStaticBatch(){
