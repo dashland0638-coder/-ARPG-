@@ -44,7 +44,10 @@ test.describe('duskvillage map rework', () => {
     await disableCameraAutoFollow(page);
 
     let scenarioOpen = false;
-    for (let attempt = 0; attempt < 10 && !scenarioOpen; attempt++) {
+    /* 店主まで歩けるかどうかは、この環境の描画の遅さでフレーム落ちの
+       しかたが変わるぶんだけ揺れる。歩き直す回数を多めに取っておく
+       (届いた時点で抜けるので、通る場合の所要時間は変わらない) */
+    for (let attempt = 0; attempt < 30 && !scenarioOpen; attempt++) {
       await page.keyboard.down('KeyW');
       await page.keyboard.down('KeyA');
       await page.waitForTimeout(500);
