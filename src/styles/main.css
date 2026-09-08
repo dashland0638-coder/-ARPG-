@@ -413,6 +413,20 @@
   }
   #debug-badge.show{ display:block; }
 
+  /* 開発用の計測パネル(デバッグモード時のみ)。左下のHUDと操作ボタンの
+     どちらにも掛からない右上に置き、pointer-events:none で操作を邪魔しない */
+  #perf-panel{
+    position:fixed; top:calc(52px + env(safe-area-inset-top));
+    right:calc(10px + env(safe-area-inset-right));
+    z-index:30; display:none; padding:6px 9px; border-radius:8px;
+    background:rgba(10,10,16,0.78); color:#b8ffd0;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:10px; line-height:1.45; white-space:pre; text-align:left;
+    pointer-events:none; letter-spacing:0.02em;
+  }
+  #perf-panel.show{ display:block; }
+  #perf-panel .perf-warn{ color:#ffb0b0; }
+
   /* ---------- COMBAT TEST ARENA(テストモード専用) ---------- */
   /* 左カラムは上から .hud-topleft(HP/MP/スタミナ、top:16px・高さ約78px)、
      .hud-loot(☰メニュー/薬草、margin-top:78px で実質y≈94px)と続く。

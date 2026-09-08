@@ -684,9 +684,126 @@
     }
   }
 
+  /* =========================================================
+     PERFORMANCE DIAGNOSTIC (デバッグモード専用)
+
+     iPhoneでの発熱・突然の停止を「推測せずに見る」ための計測。通常プレイ
+     では一切表示せず、パネルのDOMにも触れない。
+
+     ■ なぜ実時間で測るのか
+     メインループの dt は `Math.min(0.05, clock.getDelta())` で50msに
+     頭打ちされている。シミュレーションを安定させるための正しい処理だが、
+     そのぶん 2秒のフリーズも dt の上では 50ms にしか見えない ―― つまり
+     dt を眺めていても停止は永遠に見つからない。ここでは performance.now()
+     の素の差分だけを使い、クランプの外側で本当の経過時間を測る。
+
+     ■ 自分自身が重くならないこと
+     毎フレームやるのは「数値を1つ引き算してリングバッファへ書く」だけ。
+     文字列の組み立てとDOMの書き換えは0.5秒に1回に間引いてある。
+  ========================================================= */
+  const PERF_SAMPLES = 120;              // 直近2秒ぶんの実フレーム時間
+  const perfFrames = new Float32Array(PERF_SAMPLES);
+  let perfIdx = 0, perfCount = 0, perfLastNow = 0;
+  let perfPanelT = 0;
+
+  /* イベント直後の数フレームを捕まえるためのモニタ。イベントの瞬間では
+     なく、その2〜3フレーム後にシェーダのコンパイルやGPUの待ちが出る
+     ケースがあるので、後続フレームまで見る。 */
+  const PERF_EVENT_FRAMES = 8;
+  let perfEventCapture = null;           // 取得中のイベント
+  let perfEventLast = null;              // 直近の完了したイベント
+  const perfEventWorst = new Map();      // イベント名 -> これまでの最大frame time
+
+  /* 計測したいイベントの発生地点から呼ぶ。捕獲中に新しいイベントが来たら
+     そちらへ乗り換える ―― テスト中は「いま起こしたこと」が見たいため。 */
+  function markPerfEvent(name){
+    if(!state.debugMode) return;
+    perfEventCapture = {name, frames:[], left:PERF_EVENT_FRAMES};
+  }
+
+  function perfTick(now){
+    // 最初の1フレームは基準が無いので捨てる。タブが背面に回った直後の
+    // 巨大な差分も同じ扱いで、計測を汚さないように上限で切る
+    const raw = perfLastNow ? now - perfLastNow : 0;
+    perfLastNow = now;
+    if(raw <= 0 || raw > 10000) return;
+    perfFrames[perfIdx] = raw;
+    perfIdx = (perfIdx + 1) % PERF_SAMPLES;
+    if(perfCount < PERF_SAMPLES) perfCount++;
+
+    const cap = perfEventCapture;
+    if(cap){
+      cap.frames.push(raw);
+      if(--cap.left <= 0){
+        perfEventCapture = null;
+        const max = cap.frames.reduce((a,b)=>Math.max(a,b), 0);
+        perfEventLast = {name:cap.name, frames:cap.frames, max};
+        const prev = perfEventWorst.get(cap.name) || 0;
+        if(max > prev) perfEventWorst.set(cap.name, max);
+        // イベントが終わった時だけ、1行。毎フレームは出さない
+        if(state.debugMode) console.debug(`[perf] ${cap.name} max=${max.toFixed(1)}ms`,
+          cap.frames.map(f=>+f.toFixed(1)));
+      }
+    }
+  }
+
+  function perfStats(){
+    if(!perfCount) return {fps:0, avg:0, max:0};
+    let sum = 0, max = 0;
+    for(let i=0;i<perfCount;i++){ const v = perfFrames[i]; sum += v; if(v > max) max = v; }
+    const avg = sum / perfCount;
+    return {fps: avg > 0 ? 1000/avg : 0, avg, max};
+  }
+
+  function updatePerfPanel(dt){
+    const el = document.getElementById('perf-panel');
+    if(!el) return;
+    if(!state.debugMode){
+      if(el.classList.contains('show')){ el.classList.remove('show'); el.textContent = ''; }
+      return;
+    }
+    el.classList.add('show');
+    perfPanelT -= dt;
+    if(perfPanelT > 0) return;
+    perfPanelT = 0.5;                    // 文字列とDOMは0.5秒に1回だけ
+
+    const st = perfStats();
+    const info = renderer && renderer.info ? renderer.info.render : null;
+    const lines = [
+      'PERF',
+      'FPS   ' + st.fps.toFixed(0),
+      'AVG   ' + st.avg.toFixed(1) + 'ms',
+      'MAX   ' + st.max.toFixed(1) + 'ms',
+      '',
+      'DRAW  ' + (info ? info.calls : '-'),
+      'TRIS  ' + (info ? (info.triangles >= 1000
+                  ? (info.triangles/1000).toFixed(1) + 'k' : String(info.triangles)) : '-'),
+      '',
+      'DPR   ' + (renderer ? renderer.getPixelRatio().toFixed(2) : '-'),
+      'SHDW  ' + (renderer && renderer.shadowMap.enabled ? 'ON' : 'OFF'),
+      'QLTY  ' + QUALITY_STEPS[qualityIdx].label,
+    ];
+    if(perfEventLast){
+      lines.push('', 'EVENT', perfEventLast.name);
+      perfEventLast.frames.forEach((f,i)=>{
+        lines.push(' F' + (i+1) + '  ' + f.toFixed(1) + 'ms');
+      });
+      lines.push(' MAX ' + perfEventLast.max.toFixed(1) + 'ms');
+    }
+    if(perfEventWorst.size){
+      lines.push('', 'WORST');
+      perfEventWorst.forEach((v, k)=>{ lines.push(' ' + k + ' ' + v.toFixed(0) + 'ms'); });
+    }
+    el.textContent = lines.join('\n');
+  }
+
   function animate(){
     onResize();   // cheap: two reads, and only acts when the viewport moved
     requestAnimationFrame(animate);
+    /* 実時間のフレーム間隔。下の dt はシミュレーション用に50msで頭打ちに
+       されるので、本当の停止時間はここでしか見えない(PERFORMANCE
+       DIAGNOSTICのコメント参照) */
+    perfTick(performance.now());
     let dt = Math.min(0.05, clock.getDelta());
     if(hitStopCD > 0) hitStopCD = Math.max(0, hitStopCD - dt);
     // hit stop: real time still advances, the simulation just eases
@@ -694,6 +811,10 @@
       hitStopT = Math.max(0, hitStopT - dt);
       dt *= HIT_STOP_SCALE;
     }
+    // 計測パネルもポーズ中/メニュー中に更新される(止まっている間の
+    // フレーム時間も、それはそれで知りたいため)。通常プレイでは
+    // state.debugMode が false なので即座に return する
+    updatePerfPanel(dt);
     drawMinimap(); // top-level so it also hides itself while paused / in menus
     if(state.started && !state.paused && !state.dialogueActive){
       updateInput(dt);
@@ -1085,5 +1206,3 @@
     document.getElementById('boot-msg').textContent = '読み込みに失敗しました: ' + err.message;
     console.error(err);
   }
-
-

@@ -2997,9 +2997,12 @@
        完全に同じ音だった ―― しかもその slashHeavy 自体が高域グリッサンド
        3本で「鳥の鳴き声のよう」だった(audio.js の gsSwing1 上のコメント)。
        いまは段ごとに別のキューを持ち、音量ではなく構造で差が付いている。
-       槍(altBasic)と回転斬り(spin/basic3)は大剣の振りではないので据え置き。 */
+       溜め攻撃(dash)も同じ理由で slashDraw から専用キューへ移した ――
+       あちらは抜刀の音で、高域を駆け上がる三角波が「ピィィン」と鳴っていた。
+       槍(altBasic)・切り上げ(uppercut)・回転斬り(spin/basic3)は大剣の
+       振りではないので据え置き(slashDraw もそのまま残っている)。 */
     warrior:{ basic:'gsSwing1', basic2:'gsSwing2', skill2:'gsOverhead',
-              dash:'slashDraw', retreat:'gsSwing1', spin:'slashSpin', ult:'gsOverhead',
+              dash:'gsChargeRelease', retreat:'gsSwing1', spin:'slashSpin', ult:'gsOverhead',
               basic3:'slashSpin', basic4:'gsSwing3', uppercut:'slashDraw',
               altBasic:'slashDraw', altBasic2:'slashDraw' },   // 槍: 突きの音は抜刀のシャープなSEを流用
     rogue:{   basic:'slashLight', basic2:'slashLight', skill2:'knifeThrow',

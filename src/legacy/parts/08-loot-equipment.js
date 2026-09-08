@@ -864,6 +864,9 @@
   }
 
   function breakHealingCrystal(h){
+    // 攻撃が当たった瞬間ではなく、破壊が確定したこの行から計測する
+    // (デバッグモード以外では何もしない。14-hud-boot.js参照)
+    markPerfEvent('CRYSTAL');
     h.broken = true;
     const healAmt = Math.max(1, Math.round(state.maxHp * 0.25));
     state.hp = Math.min(state.maxHp, state.hp + healAmt);

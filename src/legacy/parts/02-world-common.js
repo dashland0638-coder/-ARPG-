@@ -39,7 +39,15 @@
 
     renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5));
+    /* 画質は QUALITY_STEPS(14-hud-boot.js)を唯一の基準にする。以前はここで
+       1.5/1024/28 を直接書いていて、それがたまたま QUALITY_STEPS[1](既定の
+       qualityIdx)と同じ値だったから合っていただけだった ―― 保存された設定が
+       無い初回起動では loadAndApplySettings() が早期returnして
+       applyQualitySetting() を通らないので、表に書いた値と実際の初期状態が
+       静かにずれる余地が残っていた。onResize() が既に同じ引き方をしている
+       (05-rendering-rig.js)ので、作法もそちらに揃う。 */
+    const q0 = QUALITY_STEPS[qualityIdx];
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, q0.ratio));
     // Renders linear by default, which leaves everything looking washed out
     // and grey. Writing sRGB and running a filmic curve costs nothing and is
     // the single largest visual change available.
@@ -65,13 +73,13 @@
     const sun = new THREE.DirectionalLight(0xffe3b0, 1.1);
     sun.position.set(30,45,20);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024,1024);
+    sun.shadow.mapSize.set(q0.shadowSize, q0.shadowSize);
     // small frustum that follows the player each frame (see updateSunShadow)
     // instead of covering the whole spread-out world at once - this is the
     // single biggest performance lever, since the old huge frustum forced a
     // full re-render of every room/tree/rock into the shadow map every frame
-    sun.shadow.camera.left = -28; sun.shadow.camera.right = 28;
-    sun.shadow.camera.top = 28; sun.shadow.camera.bottom = -28;
+    sun.shadow.camera.left = -q0.shadowSpan; sun.shadow.camera.right = q0.shadowSpan;
+    sun.shadow.camera.top = q0.shadowSpan; sun.shadow.camera.bottom = -q0.shadowSpan;
     sun.shadow.camera.far = 90;
     sun.shadow.bias = -0.0015;
     scene.add(sun);
@@ -1157,6 +1165,7 @@
   }
 
   function handleVoidFall(){
+    markPerfEvent('FALL');   // 比較対象(計測はデバッグモード時のみ)
     state.launch = null;
     voidT = 0;
     // prefer the last ground actually stood on; the entrance is the fallback
@@ -1194,6 +1203,7 @@
   }
 
   function handlePitFall(pit){
+    markPerfEvent('FALL');
     const dmg = applyIncomingDamageMul(Math.max(4, Math.round(state.maxHp*0.08)));
     state.hp = Math.max(1, state.hp - dmg);
     spawnDamagePopup(state.pos.clone(), dmg, false, false, true);

@@ -2535,6 +2535,9 @@
     // 感触を出す(実際の敵の材質に関係なく、ガード中はこちらを優先する)
     spawnHitSpark(contact, guardAbsorbed ? 0xdfe8ff : (isAlly ? 0x8fd9ff : 0xffe6a0), weight, away);
     sfx(weight > 1.5 || en.isBoss ? 'bigHit' : 'hit', {weight, material: guardAbsorbed ? 'metal' : materialOf(en)});
+    // 比較対象。結晶の破壊と同じスパーク+SEを通る「普通のヒット」がどれだけ
+    // かかっているかが分かれば、結晶固有の処理を切り分けられる
+    markPerfEvent('HIT');
     if(!isAlly){
       hitStop(en.isBoss ? 0.022 : 0.016);
       addShake(en.isBoss ? 0.09 : 0.06);

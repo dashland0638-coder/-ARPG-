@@ -127,6 +127,10 @@
 </div>
 <div id="screen-flash"></div>
 <div id="debug-badge">🐛 DEBUG MODE — 被ダメージ0</div>
+<!-- 開発用の計測パネル。デバッグモード(state.debugMode)のときだけ表示され、
+     通常プレイでは display:none のまま一度も触られない。中身の更新は
+     14-hud-boot.js の updatePerfPanel() が0.5秒に1回だけ行う -->
+<div id="perf-panel"></div>
 
 <!-- ============ COMBAT TEST ARENA(テストモード専用。通常プレイでは
      state.testModeが常にfalseなのでJS側で非表示のまま維持される。
