@@ -33,6 +33,26 @@ import { startProceduralBgm } from './procedural-bgm.js';
   ========================================================= */
   let audioCtx = null, masterGain = null, noiseBuffer = null;
 
+  /* ---- 3つのレイヤー -------------------------------------------------
+       BGM     感情とエリアの雰囲気。<audio>要素、または procedural-bgm.js が
+               ctx.destination へ直接繋ぐ(ここの masterGain は通らない)
+       環境音   場所の存在感。ambientGain を通す。SFXより一段低い
+       SFX     プレイヤーの操作と戦闘。masterGain をそのまま通る
+     環境音を masterGain の子にしてあるので、SFX音量の設定・セーブ構造は
+     一切変わらない ―― 変わるのは「戦闘音に対して環境音がどれだけ引くか」
+     という比率だけで、それはこの定数1つで決まる。 */
+  let ambientGain = null;
+  /* 環境音がSFXに対してどれだけ引くか。これ1つが「レイヤーの関係」で、
+     個々の音量はキュー側が持つ。0.7 だと風のひと吹き(ピーク0.055)が
+     足音のおよそ半分 ―― 立ち止まれば聞こえ、戦闘中は埋もれる、という
+     狙いの位置。ここを上げるほど環境音が前に出る。 */
+  const AMBIENT_MIX = 0.7;
+
+  /* tone()/noise() の出力先。既定は SFX レイヤーで、ambient() が鳴らして
+     いる間だけ環境音レイヤーへ差し替える(同期呼び出しなので取り違えない) */
+  let sfxDest = null;
+  function dest(){ return sfxDest || masterGain; }
+
   function initAudio(){
     if(audioCtx) return audioCtx;
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -41,6 +61,9 @@ import { startProceduralBgm } from './procedural-bgm.js';
     masterGain = audioCtx.createGain();
     masterGain.gain.value = state.sfxVolume != null ? state.sfxVolume : 0.5;
     masterGain.connect(audioCtx.destination);
+    ambientGain = audioCtx.createGain();
+    ambientGain.gain.value = AMBIENT_MIX;
+    ambientGain.connect(masterGain);
     // one second of white noise, reused by every percussive cue
     const len = audioCtx.sampleRate;
     noiseBuffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
@@ -78,7 +101,7 @@ import { startProceduralBgm } from './procedural-bgm.js';
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(peak, t + dur*0.12);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(g); g.connect(masterGain);
+    osc.connect(g); g.connect(dest());
     osc.start(t); osc.stop(t + dur + 0.02);
   }
 
@@ -94,7 +117,7 @@ import { startProceduralBgm } from './procedural-bgm.js';
     const g = ctx.createGain();
     g.gain.setValueAtTime(peak, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(flt); flt.connect(g); g.connect(masterGain);
+    src.connect(flt); flt.connect(g); g.connect(dest());
     src.start(t); src.stop(t + dur + 0.02);
   }
 
@@ -103,6 +126,16 @@ import { startProceduralBgm } from './procedural-bgm.js';
      上へ跳ねる幅を +4% に抑えてあるのは、高い側へ寄るほど下記の
      「鳥の鳴き声」問題へ逆戻りするため。 */
   function gsVary(){ return 0.96 + Math.random()*0.08; }
+
+  /* 足音の共通引数。ゆらぎは周波数 ±4% / 音量 ±12% までで、
+     「同じ靴で歩いているが完全に同じ音ではない」程度に留める。
+     run(0〜1)は歩き→全力疾走で、速いほど強く踏む */
+  function footArgs(o){
+    o = o || {};
+    const run = Math.max(0, Math.min(1, o.run || 0));
+    return { v: 0.96 + Math.random()*0.08,
+             r: (0.78 + 0.42*run) * (0.94 + Math.random()*0.12) };
+  }
 
   /* 素材別の被弾/撃破音。dealDamageToEnemy()/finishEnemyDeath()
      (07-ai-combat.js)が敵のtheme/bossキーから割り出したmaterialを
@@ -303,6 +336,52 @@ import { startProceduralBgm } from './procedural-bgm.js';
       const o = (arg && typeof arg === 'object') ? arg : { weight: arg };
       hitByMaterial(o.material, Math.min(2, o.weight || 1), true);
     },
+    /* ---- 足音 --------------------------------------------------------
+       材質ごとに「低域・ノイズ感・短さ・硬さ・残響感」を作り分けてある。
+       同じ音の音程違いにはしていない ―― 草は柔らかく短く低い、石は硬い
+       高域のアタックを持つ、木は空洞の響きを持つ、というように構成音の
+       本数と役割そのものが違う。
+
+       引数は {run, v}: run は 0(歩き)〜1(全力疾走)で音量と明るさに効く。
+       v は呼び出し側が作る ±4% ほどのゆらぎ ―― 「同じ靴で歩いているが
+       完全に同じ音ではない」程度に留めてあり、大きなピッチのランダム化は
+       していない(高い側へ跳ねると鳥のような音になるため)。
+
+       音量はどれも戦闘SEより一段低い(ピーク 0.05〜0.13 対 攻撃 0.13〜0.20 /
+       命中 0.21〜0.32)。歩いている間ずっと鳴るものなので、前に出すぎない。 */
+    stepGrass(o){                                    // 柔らかい・短い・低め
+      const {v, r} = footArgs(o);
+      noise(0.075, 0.075*r, 900*v, 380*v, 0.7);
+      noise(0.032, 0.030*r, 2100*v, 1500*v, 0.8, 0.004);   // 葉先のかすれ
+    },
+    stepDirt(o){                                     // 乾いた・少し粒感
+      const {v, r} = footArgs(o);
+      noise(0.062, 0.095*r, 700*v, 260*v, 0.8);
+      noise(0.030, 0.042*r, 1800*v, 900*v, 1.0, 0.006);
+    },
+    stepGravel(o){                                   // 粒が散る
+      const {v, r} = footArgs(o);
+      noise(0.055, 0.085*r, 800*v, 300*v, 0.8);
+      noise(0.028, 0.050*r, 2600*v, 1400*v, 1.2, 0.005);
+      noise(0.045, 0.032*r, 2200*v, 1100*v, 1.4, 0.022);   // 遅れて転がる小石
+    },
+    stepWood(o){                                     // 軽い反響・少し空洞感
+      const {v, r} = footArgs(o);
+      noise(0.048, 0.085*r, 620*v, 250*v, 0.9);
+      tone('sine', 178*v, 128*v, 0.13, 0.045*r, 0.004);    // 床板の胴鳴り
+      noise(0.022, 0.030*r, 1900*v, 1200*v, 1.1, 0.003);
+    },
+    stepStone(o){                                    // 硬い・高域の小さなアタック
+      const {v, r} = footArgs(o);
+      noise(0.030, 0.100*r, 2500*v, 950*v, 1.5);           // 靴底が当たる硬い音
+      noise(0.075, 0.055*r, 520*v, 200*v, 0.8, 0.004);     // その下の体
+    },
+    stepWetStone(o){                                 // 硬いが少し鈍い・湿ったノイズ
+      const {v, r} = footArgs(o);
+      noise(0.030, 0.080*r, 1700*v, 700*v, 1.3);           // 硬さは残すが暗い
+      noise(0.070, 0.055*r, 430*v, 180*v, 0.8, 0.004);
+      noise(0.130, 0.026*r, 900*v, 1800*v, 0.6, 0.012);    // 湿った尾
+    },
     hurt(){ tone('sawtooth', 320, 90, 0.26, 0.22); noise(0.10, 0.16, 900, 300, 1.0); },
     jump(){ tone('sine', 300, 620, 0.14, 0.14); },
     land(power){ noise(0.14, 0.10 + 0.12*(power||0.5), 500, 140, 0.9); },
@@ -357,7 +436,69 @@ import { startProceduralBgm } from './procedural-bgm.js';
       });
     },
     shout(){ tone('sawtooth', 260, 170, 0.34, 0.16); noise(0.16, 0.09, 1200, 500, 0.9, 0.02); },
+    woodCreak(){                                             // 古い木材が風にきしむ
+      tone('sawtooth', 118, 86, 0.55, 0.055);
+      noise(0.50, 0.040, 300, 180, 0.8, 0.03);
+      noise(0.28, 0.025, 900, 500, 1.0, 0.22);               // 荷がわずかに揺れる
+    },
   };
+
+  /* ---- 環境音レイヤー ---------------------------------------------------
+     場所そのものの存在感を作る音。SFXとは別のゲイン(ambientGain)を通る
+     ので、戦闘音を潰さずに敷ける。
+
+     方針は「鳴らしすぎない」。どれも単発で、鳴る間隔は呼び出し側
+     (updateAmbience、02-world-common.js)が十数秒〜数十秒に散らしている。
+     常時鳴り続ける床音(room tone)は意図的に作っていない ―― 静寂も
+     この場所の情報なので、無音の時間を残してある。
+
+     怪異を説明する音は置かない。分かりやすい唸り声や警告音の代わりに、
+     「風が一瞬止まる」(ambienceHold)や「遠くで何かが動いたような音」
+     (distantStir)のように、普通の環境音が少しだけおかしくなる方向で扱う。 */
+  const AMBIENT = {
+    forestWind(){                                     // 梢を渡る風。長く、薄く
+      noise(0.90, 0.055, 480, 900, 0.5);
+      noise(0.70, 0.030, 1400, 700, 0.6, 0.18);
+    },
+    leafRustle(){ noise(0.55, 0.040, 1700, 2900, 0.6); },
+    distantBird(){                                    // 遠くの鳥。ごくたまに、小さく
+      tone('sine', 2300, 2900, 0.05, 0.020);
+      tone('sine', 2700, 2100, 0.06, 0.016, 0.09);
+    },
+    branchSnap(){                                     // 一瞬だけ枝が折れる
+      noise(0.045, 0.075, 1300, 520, 1.7);
+      tone('sine', 150, 95, 0.10, 0.030, 0.01);
+    },
+    distantStir(){                                    // 遠くで何かが動いたような音
+      noise(0.50, 0.045, 320, 170, 0.7);
+      tone('sine', 84, 66, 0.40, 0.022, 0.05);
+    },
+    houseCreak(){                                     // 家鳴り。木がゆっくり軋む
+      tone('sawtooth', 92, 71, 0.65, 0.030);
+      noise(0.55, 0.026, 250, 150, 0.8, 0.04);
+    },
+    floorTick(){ noise(0.05, 0.045, 480, 260, 1.1); }, // どこかで床板が一度だけ鳴る
+    waterDrip(){                                      // 地下の水滴
+      tone('sine', 1500, 720, 0.055, 0.045);
+      noise(0.045, 0.020, 900, 400, 1.4, 0.005);
+    },
+    caveBreath(){ noise(0.85, 0.032, 180, 300, 0.5); },// 地下の空気が動く
+    tavernMurmur(){                                   // 酒場のざわめき。輪郭は出さない
+      noise(0.75, 0.030, 380, 620, 0.6);
+      tone('sine', 118, 96, 0.55, 0.018, 0.10);
+    },
+  };
+
+  function ambient(name){
+    if(!audioCtx || !state.sfxVolume || !ambientGain) return;
+    const buf = sfxBufferCache.get(name);
+    sfxDest = ambientGain;
+    try{
+      if(buf) playSfxBuffer(buf);
+      else { const f = AMBIENT[name]; if(f) f(); }
+    }catch(e){}
+    finally{ sfxDest = null; }
+  }
 
   /* ---- recorded SFX (optional, per-cue override) -------------------------
      A decoded AudioBuffer beats the synthesised cue of the same name -
@@ -383,7 +524,7 @@ import { startProceduralBgm } from './procedural-bgm.js';
     if(!audioCtx || !masterGain) return;
     const src = audioCtx.createBufferSource();
     src.buffer = buf;
-    src.connect(masterGain);
+    src.connect(dest());
     src.start();
   }
 
@@ -451,4 +592,4 @@ import { startProceduralBgm } from './procedural-bgm.js';
     pendingBgmEl = null;
   }
 
-export { initAudio, resumeAudio, setSfxVolume, sfx, setBgmVolume, setBgmIntensity, playBgm, stopBgm };
+export { initAudio, resumeAudio, setSfxVolume, sfx, ambient, setBgmVolume, setBgmIntensity, playBgm, stopBgm };

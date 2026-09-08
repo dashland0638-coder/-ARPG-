@@ -259,6 +259,7 @@
     clearDecals();   // scorches belong to the room that got burned
     nearbyDoor = null; nearbyStairs = null; nearbyLore = null;
     autoStairBusy = false; stairAutoArmed = true;   // auto階段の状態は世界ごとに素の状態へ
+    surfaces = []; defaultSurfaceFn = null; resetAmbience();   // 足元の材質と環境音も世界ごと
     platforms.forEach(p=>scene.remove(p.mesh)); platforms = []; pits = [];
     enemies.forEach(en=>{ if(en.isBoss) clearBossVfx(en); });
     thornGates = []; sporeZones = []; thornTime = 0; sporeTickT = 0;
@@ -564,6 +565,111 @@
   // A hole must not touch the outline or there is nothing to triangulate, so
   // pits are inset half a unit from their room's walls. That leftover strip is
   // narrower than the player's collision radius, so it can never be stood on.
+  /* =========================================================
+     SURFACES ―― 足元の材質
+
+     足音を「森なら草、洋館なら木」と座標で決め打ちすると、間取りを
+     動かすたびに音だけが取り残される。代わりに walls/doors/stairs と
+     同じ「矩形の登録簿」にしてあり、床を実際に建てる関数がその場で
+     材質を宣言する ―― 床と音が同じ1行から生まれるので、ずれようがない。
+
+     後から登録したものが勝つ(後ろから探す)ので、部屋の木床を敷いた後に
+     絨毯を1枚重ねる、といった上書きが自然に書ける。
+
+     surfaceAt() が null を返す場所では足音を鳴らさない。まだ音の設計を
+     していないダンジョン(幽霊船・神殿・水路・時計塔・温室・宵待ちの村)は
+     何も登録しないので、今回の変更で音が変わることはない。
+  ========================================================= */
+  let surfaces = [];
+  let defaultSurfaceFn = null;   // 矩形に当たらなかった場所を答える関数(任意)
+
+  function addSurface(x0, x1, z0, z1, mat){
+    surfaces.push({minX:Math.min(x0,x1), maxX:Math.max(x0,x1),
+                   minZ:Math.min(z0,z1), maxZ:Math.max(z0,z1), mat});
+  }
+  // 部屋テーブル(MANSION_ROOMS等)の1行をそのまま床として登録する
+  function addRoomSurface(r, mat){ addSurface(r.x0, r.x1, r.z0, r.z1, mat); }
+
+  function surfaceAt(x, z){
+    for(let i=surfaces.length-1; i>=0; i--){
+      const s = surfaces[i];
+      if(x>=s.minX && x<=s.maxX && z>=s.minZ && z<=s.maxZ) return s.mat;
+    }
+    return defaultSurfaceFn ? defaultSurfaceFn(x, z) : null;
+  }
+
+  // 材質 -> 足音のキュー名。キュー名を分けてあるので、将来この材質だけを
+  // 録音SEへ差し替える(asset-manifest.js の SFX_FILES)こともできる
+  const STEP_CUE = {
+    grass:'stepGrass', dirt:'stepDirt', gravel:'stepGravel',
+    wood:'stepWood', stone:'stepStone', wetStone:'stepWetStone',
+  };
+  /* 足を踏み出した瞬間に呼ばれる(updateLocomotion、13-update-loop.js)。
+     鳴らす間隔は向こうが持っている歩幅の位相そのものなので、ここでは
+     「今どこを踏んだか」だけを見ればよい */
+  function playFootstep(run){
+    const mat = surfaceAt(state.pos.x, state.pos.z);
+    const cue = mat && STEP_CUE[mat];
+    if(cue) sfx(cue, {run});
+  }
+
+  /* =========================================================
+     AMBIENCE ―― 場所の環境音
+
+     一定間隔で鳴らし続けるのではなく、区画ごとに「何を、どれくらいの
+     間隔で」だけを宣言し、次に鳴るまでの時間は毎回その範囲で引き直す。
+     間隔を十数秒〜数十秒に取ってあるのは、音と音の間の無音がこの場所の
+     情報そのものだから ―― 主の間(lord)にいたっては一切鳴らさない。
+
+     ambienceHold() は「風が一瞬止まる」ためのもの。人影に気づいた瞬間、
+     怪異を説明する音を足す代わりに、鳴っていたはずのものを数秒だけ
+     黙らせる。
+  ========================================================= */
+  const AMBIENCE_ZONES = {
+    forest: [ {cue:'forestWind',  min:11, max:24},
+              {cue:'leafRustle',  min:8,  max:19},
+              {cue:'distantBird', min:17, max:40} ],
+    // 前庭。屋敷を前にして、森の音がすこし遠のく
+    yard:   [ {cue:'forestWind',  min:16, max:32},
+              {cue:'leafRustle',  min:20, max:44} ],
+    manor:  [ {cue:'houseCreak',  min:14, max:34},
+              {cue:'floorTick',   min:18, max:44} ],
+    basement:[{cue:'waterDrip',   min:9,  max:22},
+              {cue:'caveBreath',  min:20, max:46} ],
+    lord:   [],                                    // ボス前と主の間は無音
+    tavern: [ {cue:'tavernMurmur', min:10, max:22} ],
+  };
+
+  let ambienceZone = null;
+  let ambienceTimers = [];
+  let ambienceHoldT = 0;
+
+  function resetAmbience(){ ambienceZone = null; ambienceTimers = []; ambienceHoldT = 0; }
+  // 数秒だけ環境音を止める。「音が途中で消える」ための唯一の操作
+  function ambienceHold(sec){ ambienceHoldT = Math.max(ambienceHoldT, sec || 3); }
+
+  function rollAmbienceTimer(def){ return def.min + Math.random()*(def.max - def.min); }
+
+  function updateAmbience(dt){
+    if(!state.started || state.paused) return;
+    const zone = currentAmbienceZone();
+    if(zone !== ambienceZone){
+      ambienceZone = zone;
+      const defs = AMBIENCE_ZONES[zone] || [];
+      // 区画に入った直後にいきなり鳴らさない。最初の1回も間を置く
+      ambienceTimers = defs.map(d=> rollAmbienceTimer(d) * 0.6);
+    }
+    if(ambienceHoldT > 0){ ambienceHoldT -= dt; return; }
+    const defs = AMBIENCE_ZONES[ambienceZone] || [];
+    for(let i=0;i<defs.length;i++){
+      ambienceTimers[i] -= dt;
+      if(ambienceTimers[i] <= 0){
+        ambienceTimers[i] = rollAmbienceTimer(defs[i]);
+        if(!state.dialogueActive) ambient(defs[i].cue);
+      }
+    }
+  }
+
   function addFloorWithHoles(x0, x1, z0, z1, holes, mat, y){
     const shape = new THREE.Shape();
     shape.moveTo(x0, -z0); shape.lineTo(x1, -z0);

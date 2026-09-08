@@ -745,6 +745,7 @@
       updateCheckpointProximity();
       updateProximityEvents();
       updateApparitions(dt);
+      updateAmbience(dt);   // 場所の環境音(区画ごとに間隔を空けて単発で鳴らす)
       updateWaterwayColdTimer(dt);
       updateScenarioTimer(dt);
       if(state.debugMode){
@@ -1084,4 +1085,5 @@
     document.getElementById('boot-msg').textContent = '読み込みに失敗しました: ' + err.message;
     console.error(err);
   }
+
 

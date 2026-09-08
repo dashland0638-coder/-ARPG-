@@ -482,6 +482,16 @@
     gateBeam.castShadow = true;
     scene.add(gateBeam);
 
+    /* 足元の材質。森は矩形で切るより「道の上か否か」で決まるので、
+       道の折れ線(distToForestPath)をそのまま材質の判定に使う ――
+       道を引き直せば足音の境界も一緒に動く。
+       岩棚と前庭だけは矩形で上書きする(後から登録したものが勝つ) */
+    defaultSurfaceFn = (x, z)=>
+      distToForestPath(x, z) < FOREST_HALF_WIDTH + 0.8 ? 'dirt' : 'grass';
+    addSurface(FOREST_LEDGE.x-FOREST_LEDGE.half, FOREST_LEDGE.x+FOREST_LEDGE.half,
+               FOREST_LEDGE.z-FOREST_LEDGE.half, FOREST_LEDGE.z+FOREST_LEDGE.half, 'stone');
+    addSurface(-11, 11, -40, -31, 'gravel');   // 前庭。玄関前だけ踏み固められている
+
     buildForestBeats();
   }
 
@@ -497,7 +507,7 @@
     // 2. 放置された荷車。説明しない ―― ただ「なぜここに」と思わせる
     buildAbandonedCart(CART_POS);
     registerProximityEvent(CART_POS, 5.2, '', ()=>{
-      sfx('tick');
+      sfx('woodCreak');   // 古い木材と、わずかに揺れる荷
       spawnToast('🛒 荷車が一台、道の真ん中に置き去りにされている');
       return null;
     });
@@ -505,7 +515,11 @@
     // 3. 最初の異常。道の先に誰かが立っている ―― 近づくと消える。無言
     registerProximityEvent(FOREST_OMEN_TRIG, 5.0, '', ()=>{
       spawnApparition(FOREST_OMEN_POS, {vanishDist:5.0, color:0x35402f, facing:Math.PI});
-      sfx('chime');
+      /* 怪異を説明する音は足さない。代わりに、それまで鳴っていた風と
+         葉ずれを数秒だけ黙らせる ―― 「音が増える」ではなく「音が消える」
+         ほうが、何が起きたのか分からないまま気配だけが残る */
+      ambienceHold(5);
+      ambient('distantStir');
       return null;
     });
 
@@ -1795,6 +1809,7 @@
     tavernFill.receiveShadow = true;
     scene.add(tavernFill);
 
+    addSurface(-9, 9, 6, 24, 'wood');   // 酒場の床板(足音)
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(18,18), floorMat);
     floor.rotation.x = -Math.PI/2;
     floor.position.set(0, 0.08, 15);
@@ -2003,6 +2018,7 @@
     fill.position.set(cx, 0.01, cz);
     scene.add(fill);
 
+    addSurface(cx-8, cx+8, cz-9, cz+9, 'wood');
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 18), floorMat);
     floor.rotation.x = -Math.PI/2;
     floor.position.set(cx, 0.08, cz);
@@ -2099,6 +2115,33 @@
   const MANSION_BOSS_POS   = new THREE.Vector3(80, 0, 166);
   const MANSION_ATTIC_POS  = new THREE.Vector3(160, 0, -40);   // 周回★4の屋根裏
 
+  /* いま足元がどの部屋か。足元の材質・環境音の区画判定がここを通る。
+     部屋テーブルが唯一の情報源なので、間取りを動かせば音も一緒に動く */
+  function mansionRoomAt(x, z){
+    for(let i=0;i<MANSION_ROOMS.length;i++){
+      const r = MANSION_ROOMS[i];
+      if(x>=r.x0 && x<=r.x1 && z>=r.z0 && z<=r.z1) return r;
+    }
+    return null;
+  }
+
+  /* 環境音の区画(updateAmbience、02-world-common.js が毎フレーム引く)。
+     部屋のidの頭文字がそのまま階を表しているので、それを使う ――
+     m=一階前半 / u=二階 / s=一階奥 / b=地下。ボス前と主の間だけは
+     'lord' として別扱いにし、環境音を一切鳴らさない。 */
+  function currentAmbienceZone(){
+    if(currentWorldKey === 'tavern') return 'tavern';
+    if(currentWorldKey !== 'mansion') return null;
+    const r = mansionRoomAt(state.pos.x, state.pos.z);
+    if(!r){
+      // 部屋の外 = 森。ただし前庭は屋敷の正面なので森の音を薄くする
+      return (state.pos.z < -33 && state.pos.x > -11 && state.pos.x < 11) ? 'yard' : 'forest';
+    }
+    if(r.id === 'bAnte' || r.id === 'bLord') return 'lord';
+    if(r.id[0] === 'b') return 'basement';
+    return 'manor';
+  }
+
   function mansionRoomById(id){
     for(let i=0;i<MANSION_ROOMS.length;i++) if(MANSION_ROOMS[i].id === id) return MANSION_ROOMS[i];
     return null;
@@ -2121,7 +2164,10 @@
     run(r.x1, r.z0, r.z1, r.gaps.E, true);
   }
 
-  function mansionFloor(r, mat, y){
+  /* 床を1枚張る。surface は足元の材質(足音)。床そのものと同じ1行で
+     宣言しておけば、間取りを動かしたときに音だけ取り残されることがない */
+  function mansionFloor(r, mat, y, surface){
+    if(surface) addRoomSurface(r, surface);
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(r.x1-r.x0, r.z1-r.z0), mat);
     floor.rotation.x = -Math.PI/2;
     floor.position.set((r.x0+r.x1)/2, y===undefined ? 0.08 : y, (r.z0+r.z1)/2);
@@ -2160,9 +2206,10 @@
     // 下地は外殻(x -31..21 / z -99..-40)のすぐ外まで。ここを広く取ると、
     // 建物を囲う木立がこの暗い床の上に立ってしまう(=屋敷の中に木が生えて見える)
     mansionUnderlay(-32, 22, -101, -40);   // 前庭(z>-40)は森の草地のままにする
+    // 一階は板張り(makePlankTexture)なので木の足音
     ['mEntry','mFoyer','mDining','mCor1','mHall','mStair'].forEach(id=>{
       const r = mansionRoomById(id);
-      mansionFloor(r, floorMat);
+      mansionFloor(r, floorMat, undefined, 'wood');
       buildMansionWalls(r, wallMat);
     });
 
@@ -2221,7 +2268,9 @@
        もういない ―― このシナリオで最初に起こる「おかしいこと」。無言。 */
     registerRoomEvent(mansionRoomById('mFoyer'), 0, '', ()=>{
       spawnApparition(new THREE.Vector3(-12,0,-63), {vanishDist:6.0, color:0x39304a});
-      sfx('chime');
+      // 森と同じ扱い。家鳴りが止み、代わりに床板がどこかで一度だけ鳴る
+      ambienceHold(6);
+      ambient('floorTick');
       return null;
     });
 
@@ -2363,7 +2412,7 @@
     mansionUnderlay(42, 114, -104, -16);
     ['uLand','uCor','uGuest','uStudy','uWork'].forEach(id=>{
       const r = mansionRoomById(id);
-      mansionFloor(r, floorMat);
+      mansionFloor(r, floorMat, undefined, 'wood');
       buildMansionWalls(r, wallMat);
     });
     mansionLamp(77, -91, 0xffcf8a, 0.55, 14);
@@ -2544,7 +2593,7 @@
     mansionUnderlay(46, 106, 32, 106);
     ['sLand','sCor','sQuart','sDown'].forEach(id=>{
       const r = mansionRoomById(id);
-      mansionFloor(r, floorMat);
+      mansionFloor(r, floorMat, undefined, 'wood');
       buildMansionWalls(r, wallMat);
     });
     mansionLamp(74, 46, 0xffb066, 0.45, 12);
@@ -2617,9 +2666,11 @@
     const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.95});
 
     mansionUnderlay(112, 168, 32, 126);
+    /* 地下は玉石敷き。奥へ行くほど湿るので、保管庫から先だけ材質を変える
+       ―― 同じ石でも硬さと余韻が変わり、降りてきたことが足元で分かる */
     ['bCellar','bCor','bStore','bDeep'].forEach(id=>{
       const r = mansionRoomById(id);
-      mansionFloor(r, floorMat);
+      mansionFloor(r, floorMat, undefined, (id==='bStore'||id==='bDeep') ? 'wetStone' : 'stone');
       buildMansionWalls(r, wallMat);
     });
     mansionLamp(138, 50, 0x5fcf7a, 0.55, 20);
@@ -2693,7 +2744,7 @@
 
     mansionUnderlay(cx-16, cx+16, cz-16, cz+16);
     const r = {x0:cx-10, x1:cx+10, z0:cz-10, z1:cz+10};
-    mansionFloor(r, floorMat);
+    mansionFloor(r, floorMat, undefined, 'wetStone');
     addWallBox(cx, r.z0, 20.7, 0.7, wallMat);
     addWallBox(cx, r.z1, 20.7, 0.7, wallMat);
     addWallBox(r.x0, cz, 0.7, 20, wallMat);
@@ -2732,7 +2783,7 @@
     mansionUnderlay(50, 110, 124, 188);
     ['bAnte','bLord'].forEach(id=>{
       const r = mansionRoomById(id);
-      mansionFloor(r, floorMat);
+      mansionFloor(r, floorMat, undefined, 'stone');
       buildMansionWalls(r, wallMat);
     });
     mansionLamp(80, 139, 0x8a7ad0, 0.45, 16);
@@ -2841,6 +2892,7 @@
     const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
 
     mansionUnderlay(cx-16, cx+16, cz-16, cz+16);
+    addSurface(cx-10, cx+10, cz-10, cz+10, 'wood');   // 屋根裏も板張り
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(20,20), floorMat);
     floor.rotation.x = -Math.PI/2;
     floor.position.set(cx, 0.08, cz);

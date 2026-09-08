@@ -977,6 +977,13 @@
           spawnLandingDust(_stepAt, 0.26 + run*0.22);
           stepDustCD = 0.10;
         }
+        /* 足音。土煙とまったく同じ瞬間に鳴らす ―― 鳴らす間隔を別に
+           持たせるのではなく、既にここにある歩幅の位相(距離ベースで
+           進み、速度が上がれば詰まり、止まれば -999 でリセットされる)を
+           そのまま使う。踏んだ場所の材質は surfaceAt() が答え、材質が
+           登録されていないダンジョンでは何も鳴らない
+           (playFootstep、02-world-common.js) */
+        if(!state.dodging) playFootstep(run);
       }
     } else lastStrideHalf = -999;
     stepDustCD = Math.max(0, stepDustCD - dt);
