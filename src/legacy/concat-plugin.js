@@ -41,7 +41,11 @@ import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../core/lo
 import { timeLimitForStars } from '../core/scenario-timer.js';
 import { groupMansionLamps, pickMansionLampZone } from '../core/mansion-lamp-zones.js';
 import { turnTowardAngle, turnBudget, resolveTurnRate, angleDiff } from '../core/enemy-facing.js';
-import { punishWindowMultiplier, staggerGain, applyPostureGain, decayPosture, bossPostureMax, postureDecayPerSec } from '../core/stagger-math.js';
+import {
+  punishWindowMultiplier, staggerGain, canGainPosture, gainPosture, stepPostureRecovery,
+  mobPostureMax, bossPostureMax, postureDecayPerSec, POSTURE_RECOVERY_DELAY_SEC,
+} from '../core/stagger-math.js';
+import { punishWindowState, POST_ATTACK_RECOVERY_SEC } from '../core/punish-window.js';
 import { resolveStaggerReaction } from '../core/combat-result.js';
 import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw, TURN_ASSIST_DODGE_WINDOW } from '../core/predictive-aim.js';
 import { meleeHitTest, surfaceDistance } from '../core/melee-hit.js';

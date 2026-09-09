@@ -488,8 +488,11 @@
         break;
       case 'onFinishHit2':
         if(ctx.target && ctx.target.postureMax){
-          ctx.target.posture = Math.min(ctx.target.postureMax, ctx.target.posture + ctx.target.postureMax*def.value);
-          if(ctx.target.posture >= ctx.target.postureMax && !ctx.target.knockedDown) triggerKnockdown(ctx.target);
+          /* 体幹の加算はapplyStaggerResult()へ一本化(Posture Recovery Delay
+             対応)。ダウン判定・遅延の更新が他の経路と同じルールで走る。
+             この経路には元々大怯びが無かったので applyBigFlinch:false で
+             既存の挙動を維持する */
+          applyStaggerResult(ctx.target, ctx.target.postureMax*def.value, {applyBigFlinch:false});
         }
         break;
       case 'onKillBonus':

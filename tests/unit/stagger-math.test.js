@@ -6,7 +6,7 @@ import {
   punishWindowMultiplier, staggerGain, applyPostureGain,
   isBigFlinchThreshold, isKnockdownThreshold,
   BASE_STAGGER_GAIN, PUNISH_WINDUP_MUL, PUNISH_RECOVERY_MUL,
-  decayPosture, postureDecayPerSec, bossPostureMax,
+  decayPosture, postureDecayPerSec, bossPostureMax, mobPostureMax,
   POSTURE_DECAY_PER_SEC, POSTURE_DECAY_PER_SEC_BOSS, BOSS_POSTURE_MIN, BOSS_POSTURE_MAX,
 } from '../../src/core/stagger-math.js';
 
@@ -87,6 +87,15 @@ test('体幹の自然減衰(Combat Design Audit 2 / Phase B)', async (t) => {
   await t.test('dtが0/負なら減らさない(ポーズ中の安全弁)', () => {
     assert.equal(decayPosture(50, 0, false), 50);
     assert.equal(decayPosture(50, -1, false), 50);
+  });
+
+  await t.test('雑魚の体幹上限は 通常55 / 強敵130 / ガード持ち×1.3', () => {
+    // 06-player-enemy.js に直接書かれていた式を関数にしただけ(値は不変)
+    assert.equal(mobPostureMax({}), 55);
+    assert.equal(mobPostureMax({ strongMob: true }), 130);
+    assert.equal(mobPostureMax({ guardian: true }), Math.round(55 * 1.3));
+    assert.equal(mobPostureMax({ strongMob: true, guardian: true }), 169);
+    assert.equal(mobPostureMax({}, 1.2), 66, '難易度倍率はボス側と同じく掛かる');
   });
 
   await t.test('ボスの体幹上限がHPインフレから切り離された', () => {

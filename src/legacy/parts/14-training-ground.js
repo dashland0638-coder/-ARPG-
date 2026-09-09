@@ -150,11 +150,22 @@
     else if(en.atkType==='charge') aiState = (en.chargeState||'idle').toUpperCase();
     else if(en.atkType==='jumper') aiState = (en.jumpState||'idle').toUpperCase();
     else aiState = (en.atkType||'passive').toUpperCase();
-    const punish = en.atkWindup ? 'WINDUP' : (en.postAtkRecoveryT>0 ? 'RECOVERY' : ((en.arcaneBindT||0)>0 ? 'TURN SLOW' : '-'));
+    /* パニッシュ窓の表示は、実際の判定(core/punish-window.js)と同じ関数で
+       出す ―― ボスの atkWindup だけを見ていた頃の表示のままだと、雑魚の
+       溜め(chargeState/fireCharging)で窓が開いていても '-' と出てしまい、
+       Arenaで確認したことと実戦の挙動がずれる */
+    const pw = punishWindowState(en);
+    const punish = pw.midWindup ? 'WINDUP' : (pw.postAttackRecovery ? 'RECOVERY' : ((en.arcaneBindT||0)>0 ? 'TURN SLOW' : '-'));
     // 体幹は「今どれだけ溜まっているか」と「毎秒どれだけ戻るか」を
     // 並べて出す。Phase Bで減衰を絶対量へ直した効果がその場で読める
+    /* 回復開始遅延(Posture Recovery Delay)も同じ行に出す。新しいUIは
+       作らず、既存のArena用デバッグ表示に1項目足すだけ ―― 「今は戻り
+       始めていない/あと何秒で戻り始める」がその場で読める */
+    const recoveryDelay = (en.postureRecoveryDelayT||0) > 0
+      ? `  delay ${en.postureRecoveryDelayT.toFixed(1)}s`
+      : (en.postureMax && en.posture > 0 ? '  decaying' : '');
     const stagger = en.postureMax
-      ? `${Math.round(en.posture)} / ${en.postureMax}  (-${postureDecayPerSec(en.isBoss)}/s)`
+      ? `${Math.round(en.posture)} / ${en.postureMax}  (-${postureDecayPerSec(en.isBoss)}/s, hold ${POSTURE_RECOVERY_DELAY_SEC}s)${recoveryDelay}`
       : '-';
     /* プレイヤー側の空中状態(Combat Feel Phase 5/7)。既存のDebug Info
        パネルへ1行足すだけに留める ―― この確認のために新しいUIは作らない。

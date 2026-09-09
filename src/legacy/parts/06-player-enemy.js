@@ -3593,8 +3593,8 @@
       // 体幹(怯み・ダウン): 数値インフレとは別軸のリソース。HPと違い技倆で削る。
       // ガード持ち(guardian)は削り合いのフェーズそのものが長い前提の敵なので、
       // 体幹ゲージも一回り大きくしてある(dealDamageToEnemyのガード減衰参照)
-      posture:0, postureMax:Math.round((variant.strongMob?130:55)*(variant.guardian?1.3:1)*_D.hp),
-      knockedDown:false, knockdownT:0, postureGraceT:0, bigFlinched:false,
+      posture:0, postureMax:mobPostureMax(variant, _D.hp),   // 55 / 強敵130 / ガード持ち×1.3(core/stagger-math.js、値は不変)
+      knockedDown:false, knockdownT:0, postureGraceT:0, postureRecoveryDelayT:0, bigFlinched:false,
       guardian:!!variant.guardian, shieldGroup, shieldMat, shieldBaseRot:0,
       // 新規敵タイプ用のフラグ(敵デザイン強化 #21): turret=台座固定・
       // ノックバック無効、turretRange=砲台の索敵距離(未指定なら既定値)
@@ -4053,7 +4053,7 @@
       clearName:cfg.clearName, clearFlavor:cfg.clearFlavor, rewardLoot:cfg.rewardLoot,
       // 体幹(怯み・ダウン): ボスはHPに対して割合を小さく取り、短時間だけ大きな隙が生まれる
       posture:0, postureMax:bossPostureMax(cfg.hpMax, _D.hp),   // HPインフレを体幹ゲージの長さに直結させない(core/stagger-math.js)
-      knockedDown:false, knockdownT:0, postureGraceT:0, bigFlinched:false
+      knockedDown:false, knockdownT:0, postureGraceT:0, postureRecoveryDelayT:0, bigFlinched:false
     };
   }
 
