@@ -1716,6 +1716,13 @@
     addOutline(group, {always: true});
     addXrayShell(group);   // visible through walls/terrain when they occlude the player
 
+    /* 武器の収納位置(背中・腰)をこの体格から導き直す。骨格寸法を
+       共有しているので、体型を変えても背中に浮いた剣にならない
+       (core/pose-geometry.js)。立ち姿もここで初期化しておかないと、
+       最初の1フレームだけ旧来の構えで描画されてしまう */
+    refreshHolsterAnchors();
+    resetCharacterMotion(currentWorldKey);
+
     group.position.set(0,0,4);
     group.castShadow = true;
     scene.add(group);
@@ -1812,6 +1819,12 @@
       weapon.scale.setScalar(1.32);
       if(P.offhandWeapon) P.offhandWeapon.scale.setScalar(1.32);
     }
+
+    /* 抜刀/納刀クリップは戦闘の構え(activeStance)を終点に持っているので、
+       サブ武器へ持ち替えたらクリップも組み直す。持ち替えは酒場でしか
+       できないため、ここが走るのはダンジョンへ入る前だけになる */
+    invalidateMotionClips();
+    refreshHolsterAnchors();
   }
 
   /* =========================================================
@@ -3599,6 +3612,12 @@
       // 新規敵タイプ用のフラグ(敵デザイン強化 #21): turret=台座固定・
       // ノックバック無効、turretRange=砲台の索敵距離(未指定なら既定値)
       turret:!!variant.turret, turretRange:variant.turretRange||null,
+      /* 訓練用のカカシ。攻撃も追跡もしてこない「的」なので、プレイヤーの
+         戦闘状態(nearestHostileDistance、05-rendering-rig.js)ではこれを
+         敵として数えない ―― カカシの前に立っているだけで抜刀してしまうと、
+         トレーニング空間で探索中の立ち姿を確認できなくなる。ダメージ・
+         体幹・撃破処理は通常の敵とまったく同じまま */
+      dummy:!!variant.dummy,
       /* 飛行敵インターフェース(Combat Feel Phase 5 / core/uppercut.js)。
          現時点で flying を立てる敵は Combat Test Arena の検証用個体だけ
          ―― 「将来飛行敵が追加された時に切り上げが対応できる」ための

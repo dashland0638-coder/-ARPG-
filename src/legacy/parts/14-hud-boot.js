@@ -814,6 +814,13 @@
       'SHDW  ' + (renderer && renderer.shadowMap.enabled ? 'ON' : 'OFF'),
       'QLTY  ' + QUALITY_STEPS[qualityIdx].label,
     ];
+    /* モーション状態(デバッグモード時のみ)。State が途中で止まっていないか、
+       武器状態と食い違っていないかを、ゲームを止めずにその場で確認できる。
+       state.debugMode が false の間はこの関数自体が最初に return するので、
+       本番のプレイ画面には一切出ない */
+    if(state.started){
+      lines.push('', 'MOTION', ' ' + motionDebugLine());
+    }
     if(perfEventLast){
       lines.push('', 'EVENT', perfEventLast.name);
       perfEventLast.frames.forEach((f,i)=>{

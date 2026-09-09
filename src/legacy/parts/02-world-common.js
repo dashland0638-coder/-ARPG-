@@ -402,6 +402,9 @@
       applySurfaceDetail(currentWorldObjects, qualityIdx > 0, renderer);
       applyDotFiltering();
       currentWorldKey = key;
+      // 酒場かダンジョンかで立ち姿の出発点が変わる。ワールド切り替えは
+      // 暗転を挟むので、ここだけは抜刀/納刀の段階を踏まずに直接置く
+      resetCharacterMotion(key);
       if(!state.routePath || !state.routePath.length) routeReset(); // disposeWorld が潰した分を戻す
       setWorldBounds(key);
       applyWorldMood(key);

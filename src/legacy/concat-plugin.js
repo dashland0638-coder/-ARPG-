@@ -60,6 +60,13 @@ import {
   uppercutStaggerMul, UPPERCUT_DMG_MUL, UPPERCUT_HEAVY_FLINCH, UPLIFT_DURATION, FLYER_DROP_TIME,
 } from '../core/uppercut.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
+import {
+  CHARACTER_STATE, ATTACH, createMotionState, resetForWorld, updateMotionState,
+  forceCombat, isHostileNearby, motionPhase, holsterBlend, attachFor,
+} from '../core/character-motion-state.js';
+import { rigFromBuild, holsterAnchorLocal } from '../core/pose-geometry.js';
+import { COMBAT_STANCES, ALT_WEAPON_STANCES, GRIP_OFFSETS } from '../core/combat-stances.js';
+import { MOTION_POSES } from '../core/motion-poses.js';
 
 `;
 

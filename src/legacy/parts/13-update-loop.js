@@ -727,6 +727,7 @@
         visualFacing = turnToward(visualFacing, state.facing, 13 * dt);
         player.rotation.y = visualFacing;
       }
+      updateCharacterMotion(dt);   // 酒場/探索/抜刀/戦闘/納刀 の状態と立ち姿(05-rendering-rig.js)
       updateLocomotion(dt, dt > 0 ? moveVec.length() / dt : 0);   // metres per second
       updateJobDecor(dt);   // 上位ジョブ(#9): 浮遊魔法石/闘気オーラ/肩の鷹などの常時アニメーション
       updateUltAim(dt);
@@ -796,8 +797,26 @@
     } else {
       (side === 'L' ? P.handL : P.handR).getWorldPosition(_gripW);
     }
+    /* 立ち姿が両手持ちから片手持ちへ移る間(魔法使いの持ち替え)は、
+       どちらの手を基準にするかを連続値で混ぜる。'BOTH'→'R' と離散的に
+       切り替えると、杖が両手の中点から右手へ 20cm 飛ぶ。 */
+    if(!state.swinging && P.stanceGripW != null && P.handL && P.handR){
+      P.handL.getWorldPosition(_gripW2);
+      P.handR.getWorldPosition(_gripW);
+      _gripW.lerp(_gripW2, Math.max(0, Math.min(1, P.stanceGripW)));
+    }
     P.waist.worldToLocal(_gripW);
-    P.weapon.position.copy(_gripW).add(P.gripOff);
+    /* 収納位置とのブレンド。holsterBlend は 0(完全に手の中)と 1(完全に
+       収納位置)の間を必ず連続的に動くので、武器が背中から手へ瞬間移動
+       することがない ―― 抜刀クリップは手が柄に届く瞬間に受け渡しが
+       起きるよう作ってあるので、実際にはこの補間はごく短い距離で終わる。 */
+    const hb = P.holsterBlend || 0;
+    if(hb > 0 && P.holsterMain){
+      _gripW.lerp(P.holsterMain, hb);
+      P.weapon.position.copy(_gripW).addScaledVector(P.gripOff, 1 - hb);
+    } else {
+      P.weapon.position.copy(_gripW).add(P.gripOff);
+    }
 
     // 二刀流/両手斧のオフハンド(#39系): 逆の手に追従させるだけの、
     // 主武器より簡易な追従。コンボの振りアニメーションは主武器
@@ -806,7 +825,15 @@
     if(P.offhandWeapon && P.offhandGripHand && P.offhandGripOff){
       P.offhandGripHand.getWorldPosition(_gripW3b);
       P.waist.worldToLocal(_gripW3b);
-      P.offhandWeapon.position.copy(_gripW3b).add(P.offhandGripOff);
+      // オフハンドも主武器と同じだけ収納位置(反対側の腰)へ寄せる。
+      // 盗賊の「左右同時」は、この2本が常に同じ blend を共有することで
+      // 片方だけ先に抜ける/しまわれることが構造上起きないようにしてある
+      if(hb > 0 && P.holsterOff){
+        _gripW3b.lerp(P.holsterOff, hb);
+        P.offhandWeapon.position.copy(_gripW3b).addScaledVector(P.offhandGripOff, 1 - hb);
+      } else {
+        P.offhandWeapon.position.copy(_gripW3b).add(P.offhandGripOff);
+      }
     }
   }
 
@@ -991,8 +1018,10 @@
     // legs: the hip swings the thigh, and the knee folds as that leg comes
     // through - a straight-legged swing is what reads as a puppet on sticks
     if(P.legL && P.legR){
-      P.legL.rotation.x =  s * swing;
-      P.legR.rotation.x = -s * swing;
+      // 立ち姿ぶんの脚の開き(盗賊の低重心・弓師の半身)。歩幅そのものには
+      // 触らず、基準の角度だけを足す
+      P.legL.rotation.x =  s * swing + (P.stanceHipL || 0);
+      P.legR.rotation.x = -s * swing + (P.stanceHipR || 0);
       if(P.kneeL && P.kneeR){
         // バーサーカーの低い構え(ユーザー指摘: 既存の前傾バイアスだけでは
         // 足りない、「姿勢を低くした」蛮族らしい構えそのもの)。常時の
@@ -1000,8 +1029,8 @@
         // (swing起点の項)には触れず、+0.05だった静的なベースラインだけ
         // 職業分を追加するので、歩行アニメの形自体は変えていない
         const jobKneeBias = state.job==='berserker' ? 0.20 : 0;
-        P.kneeL.rotation.x = Math.max(0,  s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias;
-        P.kneeR.rotation.x = Math.max(0, -s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias;
+        P.kneeL.rotation.x = Math.max(0,  s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias + (P.stanceKneeL || 0);
+        P.kneeR.rotation.x = Math.max(0, -s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias + (P.stanceKneeR || 0);
       }
     }
     // arms counter-swing from the shoulder, elbows keeping a live bend
@@ -1029,9 +1058,15 @@
       const jobPitchBias = state.job==='berserker' ? 0.10 : 0;
       // 低HP時の前傾(職業ごとの上乗せ、LOW_HP_MOTION参照)
       const lowHpPitchBias = lhm ? lhm.pitchBias : 0;
-      const pitch = (moving ? 0.02 + run*0.11 : Math.sin(strideT*0.8)*0.014) + jobPitchBias + lowHpPitchBias;
-      const roll  = s * swing * 0.07 * B.shoulderRoll;
-      P.waist.rotation.y += (twist - P.waist.rotation.y) * Math.min(1, dt*15);
+      /* 立ち姿ぶんの腰の向き。これが無かったため、STANCE に書いてあった
+         弓師の半身(waist.y = 0.42)は攻撃クリップの再生中しか姿勢に現れず、
+         立っている間は正面を向いたままだった ―― 「弓を体の真正面に構えて
+         いる」ように見えていた原因のひとつ。 */
+      const sw = P.stanceWaist;
+      const pitch = (moving ? 0.02 + run*0.11 : Math.sin(strideT*0.8)*0.014) + jobPitchBias + lowHpPitchBias
+                  + (sw ? sw[0] : 0);
+      const roll  = s * swing * 0.07 * B.shoulderRoll + (sw ? sw[2] : 0);
+      P.waist.rotation.y += ((twist + (sw ? sw[1] : 0)) - P.waist.rotation.y) * Math.min(1, dt*15);
       P.waist.rotation.x += (pitch - P.waist.rotation.x) * Math.min(1, dt*8);
       P.waist.rotation.z += (roll  - P.waist.rotation.z) * Math.min(1, dt*13);
       // hips travel laterally against the shoulders. This is the single

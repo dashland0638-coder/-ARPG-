@@ -2159,105 +2159,15 @@
 
   // resting stance per class - used both to build the character and as the
   // first and last keyframe of every clip, so moves always land back home
-  const STANCE = {
-    warrior: {            // greatsword shouldered, blade slung back over the right
-      waist:[0.03,-0.14,0.02],
-      // Phase 10 Priority 1-A: 両手持ち構えでUpper Arm(円柱)がTorsoの
-      // シルエットへ深く重なって見える問題(実機QAで確認)への対処。
-      // grip:'BOTH'自体・武器のサイズ/Geometry・Torso幅は変更しない。
-      // shL.z(左肩の内向き回転)を0.66→0.56、shR.z(右肩の内向き回転、
-      // 負値ほど内側)を-0.22→-0.14へそれぞれ弱め、両腕が胸中心へ
-      // 寄り切る量を減らした。shL.x/shR.xをわずかに前方(負方向)へ
-      // 振り、握り位置を胸面よりも少し前方へ逃がしている。elL/elRも
-      // 深すぎる折り畳みを少し緩め、Forearmが胸内部へ埋まる量を減らした
-      // ―― いずれも「両手で大剣を構えている」という読み取りを保った
-      // ままの最小限の調整(Shoulder Pivot Positionは変更していない)
-      shL:[-0.34, 0.12, 0.56], elL:-1.82,
-      shR:[ 0.22,-0.06,-0.14], elR:-2.16,
-      wep:[0.340,0.740,-0.580,-0.479,0.667,0.570],
-      hipL:0.05, hipR:-0.05, kneeL:0.07, kneeR:0.07,
-      grip:'BOTH', armSwing:0.22, tip:1.55
-    },
-    rogue: {              // low knife guard, point forward, off hand raised
-      waist:[0.05, 0.14, 0],
-      shL:[-0.78, 0.10, 0.46], elL:-1.35,
-      shR:[-0.52,-0.08,-0.34], elR:-1.00,
-      wep:[0.120,0.281,0.952,-0.035,0.960,-0.278],
-      hipL:0.09, hipR:-0.11, kneeL:0.14, kneeR:0.10,
-      grip:'R', armSwing:0.62, tip:0.45
-    },
-    mage: {               // staff carried at the right side, free hand ready
-      waist:[0.01, 0.04, 0],
-      shL:[-0.62, 0.06, 0.34], elL:-0.90,
-      shR:[-0.12, 0.00,-0.10], elR:-0.34,
-      wep:[0.100,0.994,0.050,-0.005,-0.050,0.999],
-      hipL:0.03, hipR:-0.03, kneeL:0.06, kneeR:0.06,
-      grip:'R', armSwing:0.85, tip:0.46
-    },
-    archer: {             // bladed stance, bow lowered and ready in the left hand
-      waist:[0.02, 0.40, 0],
-      shL:[-0.62,-0.10, 0.32], elL:-0.70,
-      shR:[-0.10, 0.05,-0.35], elR:-0.75,
-      // canted down and out; aimWorld keeps the shot line running down the
-      // facing no matter how far the torso is turned under it
-      wep:[0.340,0.940,0.000, 0.000,0.000,-1.000],
-      hipL:0.06, hipR:-0.12, kneeL:0.10, kneeR:0.08,
-      grip:'L', aimWorld:true, armSwing:0.65, tip:0.34, draw:0.0, trail:false
-    }
-  };
+  /* 構えの表そのものは core/combat-stances.js へ移した(three.js にも
+     state にも依存しない純粋なデータなので、ゲームを起動せずに
+     幾何チェックを掛けられるようにするため。tests/unit/stance-geometry.test.js)。
+     ここでの名前(STANCE / STANCE_ALT / GRIP_OFFSET)は既存の全参照が
+     使い続けているものをそのまま維持する。 */
+  const STANCE = COMBAT_STANCES;
+  const GRIP_OFFSET = GRIP_OFFSETS;
+  const STANCE_ALT = ALT_WEAPON_STANCES;
 
-  // where the weapon's origin sits relative to the hand carrying it
-  // Phase 10 Priority 1-A: warriorのZを0.02→0.07へ(武器の握り位置を胸面
-  // からわずかに前方へ)。武器はhandL/handRの実座標から毎フレーム
-  // 再計算される(updateGrip())ため、この値だけではArm自体の位置/
-  // 貫通は変わらない ―― STANCE.warrior側のshL/shR/elL/elR調整(上記)が
-  // Arm/Torso Intersectionの本体の対処、これは武器の見え方をその新しい
-  // 腕の構えに合わせて微調整するだけ
-  const GRIP_OFFSET = {
-    warrior:[0, 0.02, 0.07], rogue:[0, 0.02, 0.03],
-    mage:[0,-0.06, 0.02],    archer:[0, 0.02, 0.03]
-  };
-
-  /* ---- サブ武器専用の構え ----
-     STANCEはクラスごとの初期武器を前提にしていたため、槍やボウガンの
-     ような性質の違う武器を装備しても持ち方(構え)が変わらず、
-     大剣の型のまま槍を担いだような違和感があった。
-     weaponType(alt)ごとに個別の構えを用意し、activeStance() で
-     どちらを使うか解決する。 */
-  const STANCE_ALT = {
-    spear: {              // 槍: 両手で斜め前に構える、大剣の「担ぐ」型とは別物
-      waist:[0.02, 0.02, 0.01],
-      shL:[-0.50, 0.10, 0.30], elL:-1.10,
-      shR:[-0.30,-0.05,-0.15], elR:-1.40,
-      wep:[0.060,0.180,0.982,-0.070,0.980,-0.185],
-      hipL:0.04, hipR:-0.04, kneeL:0.06, kneeR:0.06,
-      grip:'BOTH', armSwing:0.30, tip:1.30
-    },
-    katana: {              // 刀: 腰だめに構え、いつでも抜ける片手持ち
-      waist:[0.04, 0.10, 0],
-      shL:[-0.68, 0.08, 0.40], elL:-1.20,
-      shR:[-0.30,-0.05,-0.20], elR:-0.60,
-      wep:[0.560,0.680,-0.470,-0.520,0.760,0.390],
-      hipL:0.08, hipR:-0.09, kneeL:0.12, kneeR:0.09,
-      grip:'BOTH', armSwing:0.40, tip:0.85
-    },
-    spellblade: {          // 魔法の剣: 片手剣を前方低めに構える(杖の「掲げる」構えとは別物)
-      waist:[0.02, 0.03, 0],
-      shL:[-0.30, 0.05, 0.15], elL:-0.60,
-      shR:[-0.55,-0.05,-0.30], elR:-0.55,
-      wep:[0.020,0.319,0.947,0.063,0.945,-0.320],
-      hipL:0.04, hipR:-0.04, kneeL:0.06, kneeR:0.06,
-      grip:'R', armSwing:0.55, tip:0.70
-    },
-    crossbow: {            // ボウガン: 両手で抱え込むように構える(小弓の片手持ちとは別物)
-      waist:[0.01, 0.06, 0],
-      shL:[-0.55,-0.05, 0.20], elL:-1.00,
-      shR:[-0.35, 0.05,-0.15], elR:-0.85,
-      wep:[0.000,1.000,0.000, 0.000,0.000,-1.000],
-      hipL:0.04, hipR:-0.05, kneeL:0.07, kneeR:0.06,
-      grip:'BOTH', aimWorld:true, armSwing:0.30, tip:0.55, draw:0.0, trail:false
-    }
-  };
   // usingAlt が true かつ、そのクラスのサブ武器に専用の構えが用意されて
   // いればそれを返す。無ければ従来通りクラスの基本構え(STANCE)を返す
   function activeStance(clsKey, usingAlt){
@@ -3106,6 +3016,9 @@
      spin本来のSE(旋風・矢の連射)は「切り上げ」の音ではないので、
      ここだけ音を差し替える。省略時は今まで通りクリップ名で引く。 */
   function beginMove(name, sfxName){
+    // 通常攻撃・スキル・必殺技はすべてここを通る。抜刀/納刀の途中で
+    // 入力が来た場合は、その場で戦闘状態を確定させて状態が詰まるのを防ぐ
+    noteCombatAction();
     const lib = CLIPS[state.classDef.key];
     // サブ武器装備中は basic/basic2 を altBasic/altBasic2 へ透過的に差し替える。
     // 呼び出し側(tryAttack等)は常に 'basic'/'basic2' を渡すだけでよく、
@@ -3188,9 +3101,279 @@
         ? state.chargeT / Math.max(0.001, state.chargeMax)
         : state.skillChargeT / Math.max(0.001, state.skillChargeMax);
       applyPose(sampleClip(lib.hold, Math.min(1, r)));
-    } else if(state.classDef.key === 'archer'){
-      setBowDraw(STANCE.archer.draw);
+    } else {
+      // 振っていない間は「今の立ち姿」が武器の向きと弓の引き具合を決める。
+      // 以前はここが弓師の弦だけを戻していて、他の3職は最後に再生した
+      // クリップの向きが残り続けていた(=構えが変わっても武器は動かない)
+      applyStanceWeapon();
     }
+  }
+
+  /* =========================================================
+     CHARACTER MOTION — 酒場 / 探索 / 抜刀 / 戦闘 / 納刀
+
+     これまでこのゲームには「今どういう立ち方をしているか」という層が
+     無かった。姿勢はクラスごとの STANCE 1種類だけで、酒場でもダンジョン
+     でも敵の目の前でもまったく同じ構えのまま立ち、武器は最初から手の中に
+     あった。ここがその欠けていた層。
+
+     状態遷移そのものは core/character-motion-state.js(純粋な状態機械、
+     単体テスト済み)が持ち、ここはその状態を**見た目へ翻訳する**だけに
+     する ―― 判定と描画を混ぜると、状態がどこで進むのかがフレーム毎の
+     描画コードの中に散らばって追えなくなるため。
+
+     この層が書き込むのは「基準の立ち姿」だけで、歩行サイクル
+     (updateLocomotion)も攻撃クリップ(applyCombatPose)も従来どおり
+     その上に乗る。つまり:
+
+       立ち姿(ここ) → 歩幅・腕振り(locomotion) → 攻撃/回避(clips)
+
+     の順に上書きされる。攻撃が終われば必ずこの立ち姿へ戻るので、
+     「攻撃後に Neutral Pose へ戻る」ことは構造上起きない。
+  ========================================================= */
+
+  // 職業ごとの抜刀/納刀の“重さ”。武器が手や身体に一拍遅れて追従する量で、
+  // 「重い」ではなく「重量を理解して扱っている」を作る。値は追従の速さ
+  // (1秒あたり)で、小さいほど遅れが大きい。剣士の大剣が最も遅れる。
+  const WEAPON_FOLLOW_RATE = { warrior: 7.0, rogue: 22.0, mage: 14.0, archer: 16.0 };
+  // 立ち姿そのものの追従。抜刀/納刀中はクリップの形を潰さないよう速める
+  const STANCE_FOLLOW_RATE = 9.0, STANCE_FOLLOW_RATE_ACTION = 20.0;
+
+  const motionState = createMotionState('warrior');
+
+  /* 立ち姿とクリップの表は core/motion-poses.js に、戦闘の構えは
+     core/combat-stances.js に置いてある(three.js にも state にも依存
+     しない純粋なデータにして、途中のポーズまで幾何チェックを掛けられる
+     ようにするため)。どちらも STANCE と同じ書式なので、sampleClip /
+     applyPose がそのまま読める。 */
+
+  function motionPoseLib(clsKey){ return MOTION_POSES[clsKey] || MOTION_POSES.warrior; }
+
+  /* 抜刀/納刀クリップは戦闘の構えを終点に持つ。サブ武器(槍・刀など)は
+     構えそのものが違う(activeStance)ので、構えが変わったらキャッシュを
+     捨てて組み直す ―― 装備変更は酒場でしかできないため、これが走るのは
+     ダンジョンへ入る前だけになる。 */
+  let _motionClips = null, _motionClipsKey = '';
+  function motionClips(){
+    const clsKey = state.classDef ? state.classDef.key : 'warrior';
+    const key = clsKey + '|' + (state.usingAltWeapon ? 'alt' : 'base');
+    if(_motionClips && _motionClipsKey === key) return _motionClips;
+    const lib = motionPoseLib(clsKey);
+    const combat = activeStance(clsKey, state.usingAltWeapon);
+    _motionClips = {
+      social: lib.social, explore: lib.explore, combat,
+      draw: lib.draw(combat), post: lib.post(combat), sheathe: lib.sheathe(combat),
+    };
+    _motionClipsKey = key;
+    return _motionClips;
+  }
+  function invalidateMotionClips(){ _motionClips = null; _motionClipsKey = ''; }
+
+  // 今フレームの「基準の立ち姿」。状態機械の状態と進行度だけで決まる
+  function targetStancePose(){
+    const C = motionClips();
+    switch(motionState.character){
+      case CHARACTER_STATE.SOCIAL:      return C.social;
+      case CHARACTER_STATE.EXPLORATION: return C.explore;
+      case CHARACTER_STATE.DRAWING:     return sampleClip(C.draw, motionPhase(motionState));
+      case CHARACTER_STATE.POST_COMBAT: return sampleClip(C.post, motionPhase(motionState));
+      case CHARACTER_STATE.SHEATHING:   return sampleClip(C.sheathe, motionPhase(motionState));
+      default:                          return C.combat;
+    }
+  }
+
+  /* 現在の立ち姿(スムージング済み)。目標へ毎フレーム減衰で寄せることで、
+     状態が切り替わった瞬間にポーズが飛ぶことがない ―― 状態遷移そのものは
+     一瞬で起きてよく、見た目だけが追いかける、という分担にしてある。 */
+  let _stance = null;
+  const STANCE_ANGLE_KEYS = ['elL','elR','hipL','hipR','kneeL','kneeR','armSwing','gripW','draw'];
+
+  /* 「武器をどちらの手基準で置くか」の連続値(0=右手, 0.5=両手の中点, 1=左手)。
+     core/motion-poses.js の立ち姿は gripW を直接持つが、戦闘の構え
+     (core/combat-stances.js)は従来どおり grip:'L'/'R'/'BOTH' なので、
+     そちらは同じ意味の数値へ読み替える ―― ここを省くと、gripW を持たない
+     戦闘の構えへ移った瞬間に重みが 0(右手)へ落ち、弓が左手から右手へ
+     滑っていくことになる。 */
+  function poseGripW(pose){
+    if(pose.gripW !== undefined) return pose.gripW;
+    return pose.grip === 'BOTH' ? 0.5 : (pose.grip === 'L' ? 1 : 0);
+  }
+  function resetStance(pose){
+    _stance = {
+      waist: pose.waist.slice(), shL: pose.shL.slice(), shR: pose.shR.slice(),
+      wep: pose.wep.slice(),
+    };
+    STANCE_ANGLE_KEYS.forEach(k=>{ _stance[k] = pose[k] !== undefined ? pose[k] : 0; });
+    _stance.gripW = poseGripW(pose);
+  }
+  function dampStance(target, dt){
+    if(!_stance){ resetStance(target); return; }
+    const acting = motionState.character === CHARACTER_STATE.DRAWING
+                || motionState.character === CHARACTER_STATE.SHEATHING;
+    const k = Math.min(1, dt * (acting ? STANCE_FOLLOW_RATE_ACTION : STANCE_FOLLOW_RATE));
+    ['waist','shL','shR'].forEach(key=>{
+      const a = _stance[key], b = target[key];
+      if(!b) return;
+      for(let i=0;i<3;i++) a[i] += (b[i]-a[i])*k;
+    });
+    STANCE_ANGLE_KEYS.forEach(key=>{
+      const b = key === 'gripW' ? poseGripW(target)
+              : (target[key] !== undefined ? target[key] : 0);
+      _stance[key] += (b - _stance[key]) * k;
+    });
+    /* 武器の向きだけは職業ごとの追従速度で別に遅らせる。手と身体が先に
+       動き、大剣が一拍遅れて付いてくる ―― これが「重量を理解して扱って
+       いる」の実体で、動作を遅くすることでは重さを出さない。 */
+    const wr = WEAPON_FOLLOW_RATE[state.classDef ? state.classDef.key : 'warrior'] || 12;
+    const kw = Math.min(1, dt * wr);
+    const tw = target.wep;
+    if(tw) for(let i=0;i<6;i++) _stance.wep[i] += (tw[i]-_stance.wep[i])*kw;
+  }
+
+  /* 敵が近くにいるか。updateCombatMusic() と同じ「生きていて眠っていない
+     敵との距離」を見るだけで、敵側には新しい状態を一切足していない。 */
+  function nearestHostileDistance(){
+    if(typeof enemies === 'undefined' || !enemies) return null;
+    let best = null;
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      // カカシ(訓練用の的)は「脅威」ではないので数えない
+      if(!en || en.dead || en.dormant || en.dummy || !en.group) continue;
+      const d = state.pos.distanceTo(en.group.position);
+      if(best === null || d < best) best = d;
+    }
+    return best;
+  }
+
+  // 酒場・イベント側のワールドか(戦闘のあるダンジョンと区別する唯一の判定)
+  function isSocialWorld(key){ return key === 'tavern'; }
+
+  /* 途中で切ってはいけない動作の最中か。ここが true の間は、敵が全滅
+     しても戦闘終了処理を始めない(振り抜きや回避を途中で畳まない)。 */
+  function motionBusy(){
+    return !!(state.swinging || state.dodging || state.skillAnim || state.charging
+           || state.skillCharging || state.ultAiming || state.jumpAttacking || !state.grounded);
+  }
+
+  // ワールド切り替え時のリセット。暗転の裏なので段階を踏まず直接置く
+  function resetCharacterMotion(worldKey){
+    motionState.classKey = state.classDef ? state.classDef.key : 'warrior';
+    resetForWorld(motionState, {social: isSocialWorld(worldKey)});
+    motionCombatHoldT = 0;
+    invalidateMotionClips();
+    playerMixerParts.holsterBlend = holsterBlend(motionState);
+    resetStance(targetStancePose());
+    applyStanceToRig(0);
+  }
+
+  /* 抜刀/納刀の途中で攻撃入力が入った時。入力そのものを殺すと既存の
+     戦闘バランス(敵の目の前で何も出せない時間)を勝手に変えてしまうので、
+     代わりにその場で戦闘状態を確定させる。beginMove() から呼ぶので、
+     通常攻撃・スキル・必殺技のどれから入っても取りこぼしが無い。 */
+  /* 攻撃・スキル・必殺技を出した瞬間。beginMove() から呼ぶので、
+     どの技から入っても取りこぼしが無い。
+
+     ・抜刀/納刀の途中なら、その場で戦闘状態を確定させる ―― 入力そのものを
+       殺すと「敵の目の前で何も出せない時間」が生まれ、既存の戦闘バランスを
+       勝手に変えてしまうため。
+     ・探索中でも同じ。武器を振っている以上それは戦闘中で、収納状態のまま
+       振らせると武器が鞘の中にあるまま刃だけが動くことになる。
+     ・そして COMBAT_HOLD_SEC の間は「敵がいる」ものとして扱う。これが
+       無いと、間合いを取った一瞬や、カカシ相手の練習中に、攻撃のたびに
+       抜いてはしまうを繰り返してしまう。 */
+  const COMBAT_HOLD_SEC = 3.0;
+  let motionCombatHoldT = 0;
+  function noteCombatAction(){
+    if(isSocialWorld(currentWorldKey)) return;
+    motionCombatHoldT = COMBAT_HOLD_SEC;
+    if(motionState.character !== CHARACTER_STATE.COMBAT
+    && motionState.character !== CHARACTER_STATE.POST_COMBAT){
+      forceCombat(motionState);
+      invalidateMotionClips();
+    }
+  }
+
+  function updateCharacterMotion(dt){
+    if(!state.classDef) return;
+    if(motionState.classKey !== state.classDef.key){
+      motionState.classKey = state.classDef.key;
+      invalidateMotionClips();
+    }
+    const social = isSocialWorld(currentWorldKey);
+    if(motionCombatHoldT > 0) motionCombatHoldT = Math.max(0, motionCombatHoldT - dt);
+    const hostileNearby = !social
+      && (motionCombatHoldT > 0
+       || isHostileNearby(nearestHostileDistance(), motionState.engaged));
+    updateMotionState(motionState, dt, {hostileNearby, busy: motionBusy(), social});
+    dampStance(targetStancePose(), dt);
+    applyStanceToRig(dt);
+  }
+
+  /* 立ち姿をリグへ書き込む。ここで書くのは「基準値」だけで、実際の
+     腕・脚の角度は updateLocomotion がこの基準に歩幅を足して決める ――
+     だから探索中は探索の構えから腕が振れ、戦闘中は戦闘の構えから振れる。 */
+  function applyStanceToRig(dt){
+    const P = playerMixerParts;
+    if(!P.armLBase || !_stance) return;
+    P.armLBase.set(_stance.shL[0], _stance.shL[1], _stance.shL[2]);
+    P.armRBase.set(_stance.shR[0], _stance.shR[1], _stance.shR[2]);
+    P.elbowLBase.x = _stance.elL;
+    P.elbowRBase.x = _stance.elR;
+    // 肩の捻り/開きは歩行サイクルが触らないので、ここで直接書く
+    if(P.armL){ P.armL.rotation.y = _stance.shL[1]; P.armL.rotation.z = _stance.shL[2]; }
+    if(P.armR){ P.armR.rotation.y = _stance.shR[1]; P.armR.rotation.z = _stance.shR[2]; }
+    P.armSwing = _stance.armSwing;
+    // updateLocomotion が歩幅へ足す立ち姿ぶんのバイアス
+    P.stanceWaist = _stance.waist;
+    P.stanceHipL = _stance.hipL; P.stanceHipR = _stance.hipR;
+    P.stanceKneeL = _stance.kneeL; P.stanceKneeR = _stance.kneeR;
+    P.stanceGripW = _stance.gripW;
+    /* 収納位置への寄り具合。クリップが作る曲線(最大およそ 6.8/秒)より
+       わずかに速い上限で頭打ちにしておく ―― 通常の抜刀/納刀では
+       クリップの形がそのまま出るが、攻撃入力で戦闘状態を強制確定させた
+       ような「状態が一瞬で飛ぶ」場合でも、武器の位置だけは必ず
+       0.13 秒ほどかけて移動する(＝瞬間移動しない)。 */
+    const target = holsterBlend(motionState);
+    if(P.holsterBlend == null) P.holsterBlend = target;
+    else {
+      const maxStep = HOLSTER_MAX_RATE * Math.max(0, dt || 0);
+      P.holsterBlend += Math.max(-maxStep, Math.min(maxStep, target - P.holsterBlend));
+    }
+  }
+  const HOLSTER_MAX_RATE = 8.0;   // 1秒あたりの最大変化量
+
+  /* 振っていない間の武器の向きと、弓の引き具合。収納中は収納位置の向きへ、
+     構えていればその構えの向きへ ―― どちらも _stance.wep が職業ごとの
+     追従速度で補間済みなので、ここは書き込むだけ。 */
+  function applyStanceWeapon(){
+    const P = playerMixerParts;
+    if(!_stance) return;
+    if(P.weapon) aimWeapon(P.weapon, _stance.wep);
+    // オフハンドは主武器と同じ向き(メッシュ側が scale.x = -1 で反転済み。
+    // buildPlayer() / swapPlayerWeaponVisual() と同じ扱い)
+    if(P.offhandWeapon) aimWeapon(P.offhandWeapon, _stance.wep);
+    setBowDraw(_stance.draw || 0);
+  }
+
+  /* 武器の収納位置(waist ローカル)。骨格寸法から導くので、体格が
+     変わっても背中に浮いた剣や腰にめり込んだ短剣にならない。 */
+  function refreshHolsterAnchors(){
+    const P = playerMixerParts;
+    const B = P.build || BUILD.male;
+    const rig = rigFromBuild(B, {headBackZ: HEAD_BACK_Z, headDepthMul: HEAD_DEPTH_MUL});
+    P.poseRig = rig;
+    const clsKey = state.classDef ? state.classDef.key : 'warrior';
+    const att = attachFor(clsKey);
+    P.holsterMain = att.sheathed === ATTACH.HAND_BOTH
+      ? null : holsterAnchorLocal(rig, att.sheathed, clsKey).pos;
+    P.holsterOff = att.offSheathed
+      ? holsterAnchorLocal(rig, att.offSheathed, clsKey).pos : null;
+  }
+
+  // 開発用: 現在の状態を1行で(デバッグモード時のみ表示される)
+  function motionDebugLine(){
+    return `${motionState.character}/${motionState.weapon} `
+         + `t=${motionState.t.toFixed(2)} holster=${holsterBlend(motionState).toFixed(2)}`;
   }
 
   /* =========================================================

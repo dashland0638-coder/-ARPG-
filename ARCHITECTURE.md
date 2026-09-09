@@ -21,6 +21,20 @@ src/
                                 (TrapezoidBox/Wedge/Plate/Prism)。three.js標準に
                                 無い「回転体では作れない自由な輪郭」だけを補う
                                 純粋関数。state依存なし(グラフィック刷新、#42系)
+  core/character-motion-state.js プレイヤーの姿勢/武器状態の状態機械
+                                (SOCIAL / EXPLORATION / DRAWING / COMBAT /
+                                POST_COMBAT / SHEATHING と、それとは別軸の
+                                武器状態)。three.js にも state にも依存しない
+  core/combat-stances.js       4職の戦闘の構えとサブ武器の構え、武器の握り
+                                オフセット。全攻撃クリップの最初と最後の
+                                フレームでもある(純粋データ)
+  core/motion-poses.js         酒場/探索の立ち姿と、抜刀・戦闘終了の余韻・
+                                納刀のクリップ(純粋データ)
+  core/pose-geometry.js        構えの順運動学と幾何チェック(刃が頭/胴を
+                                貫通していないか、肘が逆に折れていないか)。
+                                武器の収納位置(背中・腰)もここが骨格寸法から
+                                導く ―― テスト専用ではなく、ゲーム側も同じ
+                                座標を使う
   legacy/
     concat-plugin.js           Viteプラグイン。下記parts/を1つの仮想モジュールへ結合する
     parts/01〜14-*.js           まだ独立モジュール化されていない残り(約15,900行)を
@@ -78,6 +92,30 @@ ESモジュールは `import` した変数への**再代入を許さない**(参
 4. 対象部分を実際に別ファイル・別importへ切り出す
 
 オーディオとテクスチャ生成は、`state` 以外の共有可変変数への依存がほぼ無かったため、この作業をしなくても安全に真のESモジュールとして切り出せた。
+
+## キャラクターモーション(姿勢と武器状態)
+
+「酒場では人物、ダンジョンでは冒険者、戦闘では職業を持つ戦士」に見せるための層。実装前は、姿勢はクラスごとの`STANCE`1種類だけで、酒場でもダンジョンでも敵の目の前でもまったく同じ構えのまま立ち、武器は最初から最後まで手の中にあった(抜く/しまうという段階が存在しなかった)。
+
+構造は3層に分かれている。
+
+| 層 | 置き場所 | 役割 |
+|---|---|---|
+| 状態 | `core/character-motion-state.js` | 状態機械そのもの。three.js にも`state`にも触らないので、ゲームを起動せずに全遷移を単体テストできる |
+| データ | `core/combat-stances.js` / `core/motion-poses.js` | 構えとクリップ。同じく純粋データなので、`core/pose-geometry.js`で幾何チェックを掛けられる |
+| 描画 | `legacy/parts/05-rendering-rig.js` の CHARACTER MOTION 節 | 状態を毎フレームの立ち姿へ翻訳し、リグへ書き込む |
+
+キャラクター状態と武器状態は同一視しない ―― 「戦闘は終わったが武器はまだ手にある」(`POST_COMBAT` + `DRAWN`)は正しい一時状態で、そこから納刀へ入る。
+
+ポーズは次の順に重なる。攻撃が終われば必ず戦闘の構えへ戻るのは、この順序と、`COMBAT_STANCES`が同時に全攻撃クリップの最初と最後のフレームであることの結果で、攻撃側には何も足していない。
+
+```
+立ち姿(updateCharacterMotion) → 歩幅・腕振り(updateLocomotion) → 攻撃/回避のクリップ(applyCombatPose)
+```
+
+武器の位置は「手」と「収納位置」の間の連続値(`holsterBlend`)で決まる。0と1の間を必ず連続的に動き、さらに1秒あたりの変化量に上限があるので、背中から手へ武器が瞬間移動することがない。収納位置(背中・左右の腰)は`core/pose-geometry.js`が骨格寸法から導くので、体型を変えても背中に浮いた剣にならない。
+
+構えの調整は、以前は「実機で見て角度を少し直す」の繰り返しだった(`combat-stances.js`の剣士のコメント参照)。原因は腕や刃がどこへ行くのかを**測る手段が無かった**ことで、`core/pose-geometry.js`がその手段。`tests/unit/stance-geometry.test.js`・`tests/unit/motion-poses.test.js`が4職の構えとクリップ全域に対してこれを掛けている。
 
 `core/damage-math.js`・`core/loot-math.js`・`core/route-combos.js` は同じ考え方をさらに絞ったケース: 関数全体を切り出すのではなく、`state`・敵オブジェクト・3D座標などへの依存を一切持たない「計算の核」だけを抜き出し、`state`の読み書きは元の関数(`parts/`側)に薄いラッパーとして残してある。たとえば`applyOutgoingDamageMods(amount, en)`は`state.hp`や`en.group.position`を読んでから`core/damage-math.js`の`applyOutgoingDamage()`へ純粋な数値だけを渡す、という形。これにより該当ロジックは`tests/unit/`で(ゲームを起動せず)単体テストできる一方、90個の共有変数問題には一切触れずに済んでいる。
 
