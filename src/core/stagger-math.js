@@ -118,3 +118,80 @@ export function bossPostureMax(hpMax, difficultyMul = 1) {
   const raw = (hpMax || 0) * 0.28 * (difficultyMul || 1);
   return Math.round(Math.max(BOSS_POSTURE_MIN, Math.min(BOSS_POSTURE_MAX, raw)));
 }
+
+/* ---------------------------------------------------------------
+   Posture Recovery Delay(体幹の回復開始遅延)
+
+   Phase B で減衰を絶対量へ直した後も、実プレイでは「大怯み(70%)まで
+   持っていってから追撃してダウン(100%)を狙う」が安定して成立しな
+   かった。原因は減衰の速さそのものではなく、減衰が「当てた次のフレーム
+   から」始まることにある ―― 攻撃の振り・回避・間合い取りといった、
+   このゲームが要求する一拍のあいだ、常に体幹が戻り続けていた。
+
+   そこで減衰の値(16/12)は一切変えず、「体幹が実際に増えてから
+   POSTURE_RECOVERY_DELAY_SEC 秒のあいだは自然回復を始めない」という
+   猶予だけを足す。効果:
+     ・普通に殴っていれば徐々に削れる(遅延中は減らないので目減りしない)
+     ・パニッシュ窓/Perfect Brace/Enemy Step のような「読み」の一撃は
+       大きく増やしたぶんがそのまま残るので、崩しへ直結する
+     ・手を止めれば 1.5 秒後に従来どおりの速度で戻る ―― 連打だけが
+       最適解にはならない(攻撃を止める判断のコストは据え置き)
+
+   遅延を更新するのは「実際に増えた体幹(actualGain)」が正のときだけ。
+   上限で頭打ちになった一撃(actualGain === 0)で遅延を延ばすと、
+   満タンの敵を殴り続けるだけで永久に減衰を止められてしまう。 */
+export const POSTURE_RECOVERY_DELAY_SEC = 1.5;
+
+/* 体幹を加算してよい相手か。ダウン中(既に崩れている)と、ダウン復帰
+   直後の再ダウン防止(postureGraceT)の2つだけが理由 ―― どちらも今回の
+   Recovery Delay とは別物で、意味を変えていない。 */
+export function canGainPosture(en) {
+  if (!en || !(en.postureMax > 0)) return false;
+  if (en.knockedDown) return false;
+  if ((en.postureGraceT || 0) > 0) return false;
+  return true;
+}
+
+/* 体幹を加算し、「実際に増えた量」を返す。加算経路はここ1箇所に
+   集約してあり(applyStaggerResult / Enemy Step / Perfect Brace /
+   ボススキル「崩しの型」まで全て経由する)、増えた場合だけ
+   postureRecoveryDelayT をリセットする(en は 06-player-enemy.js が
+   生成する敵オブジェクト。enemy-step.js の isStompableState と同じく、
+   既存フィールドをそのまま読む方針)。 */
+export function gainPosture(en, gain) {
+  if (!canGainPosture(en)) return 0;
+  const before = en.posture > 0 ? en.posture : 0;
+  const after = applyPostureGain(before, en.postureMax, gain);
+  en.posture = after;
+  const actualGain = after - before;
+  if (actualGain > 0) en.postureRecoveryDelayT = POSTURE_RECOVERY_DELAY_SEC;
+  return actualGain;
+}
+
+/* 今このフレームに自然減衰してよいか。止める理由は3つだけ:
+     postureGraceT         … ダウン復帰直後の再ダウン防止(既存・別用途)
+     postureRecoveryDelayT … 今回の回復開始遅延
+     大怯みリアクション中  … 70%の大怯みで延長された硬直(en.hurtT)が
+                             残っている間。プレイヤーが100%まで追撃
+                             できる猶予を潰さないためで、bigFlinched
+                             そのものは「減衰停止フラグ」ではない
+                             (70%未満へ戻すまで残り続けるため)。 */
+export function canDecayPosture(en) {
+  if (!en || !(en.posture > 0)) return false;
+  if ((en.postureGraceT || 0) > 0) return false;
+  if ((en.postureRecoveryDelayT || 0) > 0) return false;
+  if (en.bigFlinched && (en.hurtT || 0) > 0) return false;
+  return true;
+}
+
+/* 敵1体ぶんの体幹回復(1フレーム)。updateEnemies() のダウンしていない
+   敵に対して毎フレーム呼ぶ。タイマーの減算 → 減衰 → 70%を下回ったら
+   大怯みの再発火を許可、までを1箇所に閉じる。 */
+export function stepPostureRecovery(en, dt) {
+  if (!en || !(en.postureMax > 0)) return;
+  if (en.postureGraceT > 0) en.postureGraceT = Math.max(0, en.postureGraceT - dt);
+  if (en.postureRecoveryDelayT > 0) en.postureRecoveryDelayT = Math.max(0, en.postureRecoveryDelayT - dt);
+  if (!canDecayPosture(en)) return;
+  en.posture = decayPosture(en.posture, dt, en.isBoss);
+  if (en.posture < en.postureMax * 0.7) en.bigFlinched = false;
+}

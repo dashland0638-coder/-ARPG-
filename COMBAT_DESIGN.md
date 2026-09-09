@@ -543,3 +543,99 @@ Enemy Step・切り上げ・落下攻撃はこの経路を通らないので、�
 - **飛行敵そのもの**は追加していない(7-5参照)
 - 職業ごとの切り上げモーション分岐は作っていない。既存クリップの流用と
   SE差し替えに留め、アニメーションシステムには手を入れていない
+
+## 8. 体幹の回復開始遅延(Posture Recovery Delay、2026-09、第4次)
+
+### 8-1. 症状 ― 「意図的な体幹崩し」が成立しなかった
+
+6-1 で減衰を絶対量(通常敵16/秒・ボス12/秒)へ直した後も、実プレイでは
+**70%の大怯みを見てから追撃して100%のダウンまで持っていく**という組み立てが
+安定しなかった。原因は減衰の速さではなく、**減衰が「当てた次のフレームから」
+始まる**こと ―― このゲームが要求する一拍(攻撃の振り、回避、間合いの取り直し、
+敵の攻撃をやり過ごす待ち)のあいだ、体幹は常に戻り続けていた。結果、
+「敵を見る」ほど体幹は削れず、連打だけが唯一の削り手段になっていた。
+
+### 8-2. 対処 ― 減衰の値は変えず、開始を遅らせる
+
+`src/core/stagger-math.js`:
+
+```
+POSTURE_RECOVERY_DELAY_SEC = 1.5
+```
+
+**体幹が実際に増えた瞬間から1.5秒間、自然回復を始めない。** 減衰そのもの
+(16/12)、体幹倍率、Enemy Stepの+55、クラス性能、ボスAIには一切触れていない。
+
+遅延を1.5秒へ戻すのは「**実際に増えた体幹(actualGain)が正のとき**」だけ:
+
+```js
+const actualGain = gainPosture(en, gain);   // 内部で clamp 後の差分を返す
+// actualGain > 0 のときだけ en.postureRecoveryDelayT = 1.5
+```
+
+上限で頭打ちになった一撃(`55/55` に `+10` → actualGain 0)で遅延を延ばすと、
+満タンの敵を殴り続けるだけで永久に減衰を止められてしまうため。
+
+### 8-3. 体幹まわりの正式仕様(現行)
+
+| 項目 | 値 / 挙動 | 実装 |
+| --- | --- | --- |
+| 体幹最大値(通常敵) | 55(強敵130・ガード持ちは×1.3) | `06-player-enemy.js` |
+| 体幹最大値(ボス) | `bossPostureMax()` = 180〜320にclamp(HPインフレと切り離す) | `core/stagger-math.js` |
+| 1撃の基本値 | `BASE_STAGGER_GAIN = 10` ×(技倍率 × クラス倍率 × 能力倍率 × パニッシュ倍率) | `staggerGain()` |
+| 70%到達 | 大怯み(`bigFlinched`、`hurtT`を0.5秒へ延長+トースト) | `applyStaggerResult()` |
+| 100%到達 | ダウン(`triggerKnockdown`、AI停止 2.2〜3.0秒) | `07-ai-combat.js` |
+| 自然回復(通常敵) | 16 /秒 | `POSTURE_DECAY_PER_SEC` |
+| 自然回復(ボス) | 12 /秒 | `POSTURE_DECAY_PER_SEC_BOSS` |
+| **回復開始遅延** | **体幹が実際に増えてから1.5秒は減衰しない。増えるたびに1.5秒へリセット** | `POSTURE_RECOVERY_DELAY_SEC` / `en.postureRecoveryDelayT` |
+| 大怯みリアクション中 | 減衰しない(`bigFlinched` かつ `hurtT > 0` の間)。100%への追撃猶予 | `canDecayPosture()` |
+| ダウン復帰後 | `posture = 0` / `postureGraceT = 1.5` で**再ダウン防止**。`postureRecoveryDelayT` とは別用途 | `07-ai-combat.js` |
+
+`postureGraceT`(ダウン復帰直後は体幹が溜まらない)と
+`postureRecoveryDelayT`(体幹が増えた直後は自然回復しない)は**別の状態**で、
+片方をもう片方で置き換えていない。`bigFlinched` も「減衰停止フラグ」ではない
+――70%未満へ戻るまで残り続ける再発火防止フラグのままで、減衰を止めるのは
+あくまで大怯みリアクション(`hurtT`)が残っている間だけ。
+
+### 8-4. 設計意図 ― 「殴っても崩せる/読めばもっと速く崩せる」
+
+- **普通に攻撃すれば徐々に削れる**: 攻撃間隔(剣士0.52秒)は遅延1.5秒より
+  短いので、殴り続けている限り目減りしない。連打の到達点は従来と同じ。
+- **読むと明確に速い**: パニッシュ窓(振りかぶり×1.6/振り抜き×1.3)、
+  回避攻撃×2.5、落下攻撃×3.0、Perfect Brace×2.2、Enemy Step +55 で
+  一度に増やしたぶんが、次の一拍で戻らずそのまま残る。読みの価値が
+  「削り量」だけでなく「削った体幹が保持されること」にも乗る。
+- **連打だけが最適解にはならない**: 手を止めれば1.5秒後に従来どおりの
+  速度で戻る。回避や間合い取りのコストは据え置きで、遅延は「攻撃の合間」を
+  許容するだけ。
+- **敵ごとの体験**: 通常敵(55)は普通に殴っていれば自然に大怯み→ダウン。
+  強敵(130)は殴っても崩せるが、Punish / Dodge Attack / 切り上げ /
+  Perfect Brace / Enemy Step / フィニッシュを使うと明確に速い。地下の
+  「燭台を提げた影」の チャージ→回避→Enemy Step(+55)→追撃 が、そのまま
+  体幹チュートリアルとして機能する。ボスは既存の攻撃パターン・隙・
+  位置取りを利用して削る設計のままで、AIには手を入れていない。
+
+### 8-5. 実装箇所(体幹加算は1経路に集約)
+
+- `src/core/stagger-math.js`: `POSTURE_RECOVERY_DELAY_SEC` / `canGainPosture()` /
+  `gainPosture()`(加算 + actualGain + 遅延リセット)/ `canDecayPosture()` /
+  `stepPostureRecovery()`(遅延の減算 → 減衰 → 70%未満で大怯み再発火を許可)
+- `src/legacy/parts/07-ai-combat.js`: `applyStaggerResult()` が `gainPosture()` を
+  呼ぶ1本道になった。通常攻撃・コンボ・フィニッシャー・回避攻撃・落下攻撃・
+  切り上げ・弓/魔法のprojectile・パニッシュ・Perfect Brace・Enemy Step・
+  ボススキルは**すべてこの関数を経由する**ので、遅延の更新漏れが起きない。
+  `updateEnemies()` は `stepPostureRecovery(en, dt)` を呼ぶだけ。
+- `src/legacy/parts/12-progression-ui.js`: ボススキル「崩しの型」
+  (`onFinishHit2`)だけが `en.posture` を直接書いていたので、
+  `applyStaggerResult()` 経由へ寄せた(大怯びを発生させない既存挙動は維持)。
+- `src/legacy/parts/06-player-enemy.js`: 敵/ボスの生成時に
+  `postureRecoveryDelayT: 0` を追加。
+- 回帰テスト: `tests/unit/posture-recovery.test.js`(加算・actualGain・遅延の
+  更新/リセット/refresh・遅延中は減衰しない・遅延後は16/12・大怯み・ダウン・
+  `postureGraceT`・Enemy Step +55)。
+
+新しいUI・ボタン・体幹専用スキル・専用装備は追加していない。既存の
+盾の発光(体幹比率で青→橙)、ダウン姿勢、`14-hud-boot.js` の体幹バーが
+そのまま可視化を担う(Combat Test Arenaのデバッグ表示にだけ、遅延の
+残り秒数を1項目追記した)。オーディオ・ライティング・Static batching・
+iPhone向け最適化には一切触れていない。

@@ -696,6 +696,7 @@
           en.burnT = 0; en.burnDmg = 0;
           en.lastPos = null; en.strideT = Math.random()*6.28; en.flinch = 0;
           en.posture = 0; en.knockedDown = false; en.knockdownT = 0; en.postureGraceT = 0; en.bigFlinched = false;
+          en.postureRecoveryDelayT = 0;
           en.postAtkRecoveryT = 0; en.arcaneBindT = 0; en.turnRateMul = 1;
           if(en.mob){
             en.mob.legs.forEach(l=>{ l.rotation.x = 0; l.position.y = 0.24; });
@@ -750,7 +751,8 @@
           if(en.knockdownT <= 0){
             en.knockedDown = false;
             en.posture = 0;
-            en.postureGraceT = 1.5;  // 復帰直後は少しの間だけ体幹が削れない
+            en.postureGraceT = 1.5;  // 復帰直後は少しの間だけ体幹が削れない(Recovery Delayとは別用途)
+            en.postureRecoveryDelayT = 0;
             en.bigFlinched = false;
             en.group.rotation.x = 0;
             if(en.shieldGroup) en.shieldGroup.rotation.x = 0;
@@ -759,16 +761,16 @@
             return; // ダウン中は通常AIを完全に止める
           }
         } else {
-          if(en.postureGraceT > 0) en.postureGraceT -= dt;
-          if(en.posture > 0 && (en.postureGraceT||0) <= 0){
-            // 怯みを与え続けないと体勢を立て直す(=コンボを継続する動機になる)。
-            // 旧実装は postureMax*0.35/秒 という「割合」減衰で、postureMaxが
-            // HP由来で膨らむボスでは減衰が獲得を常に上回り、体幹ゲージが
-            // 一度も動かなかった(Combat Design Audit 2 / Phase B)。
-            // 絶対量の減衰へ変更(core/stagger-math.js)
-            en.posture = decayPosture(en.posture, dt, en.isBoss);
-            if(en.posture < en.postureMax*0.7) en.bigFlinched = false;
-          }
+          /* 体幹の自然回復(core/stagger-math.js stepPostureRecovery)。
+             ・postureGraceT   : ダウン復帰直後の再ダウン防止(既存)
+             ・postureRecoveryDelayT: 体幹が実際に増えてから1.5秒は
+               回復を始めない(Posture Recovery Delay)。これが無いと
+               攻撃の振り・回避・間合い取りの一拍ごとに体幹が戻り、
+               70%の大怯みから100%へ追撃する組み立てが成立しなかった
+             ・大怯みリアクション中(bigFlinched かつ hurtT 残り)も止める
+             減衰そのものは従来どおり絶対量(通常16/秒・ボス12/秒)。
+             70%を下回れば大怯びの再発火が許可されるのも従来どおり */
+          stepPostureRecovery(en, dt);
           // 盾持ちの体幹ゲージを、盾自体の輝きで可視化する。体幹バーを
           // 直視しなくても「そろそろ崩せる」が身体の変化だけで伝わるように
           // ―― 青(平常)から橙(大怯みの閾値=崩し目前)へ、輝きも溜まるほど強く
@@ -2262,8 +2264,12 @@
      「STAGGER +55」/「STAGGER -」表示)に使う。 */
   function applyStaggerResult(en, gain, opts){
     opts = opts || {};
-    if(!en.postureMax || en.knockedDown || (en.postureGraceT||0) > 0) return null;
-    en.posture = applyPostureGain(en.posture, en.postureMax, gain);
+    if(!canGainPosture(en)) return null;   // ダウン中/ダウン復帰直後(postureGraceT)は削れない
+    /* 体幹の加算はgainPosture()に一本化(Posture Recovery Delay)。
+       「要求されたgain」ではなく「実際に増えた量」を見て、増えた時だけ
+       en.postureRecoveryDelayT を1.5秒へ戻す ―― 上限で頭打ちになった
+       一撃(actualGain 0)で自然回復を止め続けられないようにするため */
+    gainPosture(en, gain);
     const { knockdown, bigFlinch } = resolveStaggerReaction({
       posture: en.posture, postureMax: en.postureMax, alreadyBigFlinched: en.bigFlinched,
     });
