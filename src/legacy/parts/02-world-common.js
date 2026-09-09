@@ -140,11 +140,12 @@
          せず区画単位で切っているのは、視錐台カリングを効かせたままに
          するため。森は屋外で壁がほとんど無いので素のまま。 */
       buildForest();
-      batchStatic(buildMansion);
-      batchStatic(buildMansionUpper);
-      batchStatic(buildMansionServantWing);
-      batchStatic(buildMansionBasement);
-      batchStatic(buildMansionLordsRoom);
+      mansionZone('hall',     ()=>batchStatic(buildMansion));
+      mansionZone('upper',    ()=>batchStatic(buildMansionUpper));
+      mansionZone('servant',  ()=>batchStatic(buildMansionServantWing));
+      mansionZone('basement', ()=>batchStatic(buildMansionBasement));
+      mansionZone('lord',     ()=>batchStatic(buildMansionLordsRoom));
+      initMansionLamps();
     } },
     ghostship:{ build: ()=>{ buildGhostShip(); } },
     waterway: { build: ()=>{ buildWaterwayPier(); buildWaterwayUnderground(); } },
@@ -245,6 +246,11 @@
     batchedMeshes.forEach(m=>{ scene.remove(m); if(m.geometry) m.geometry.dispose(); });
     batchedMeshes = [];
     batching = false; batchBuckets = null;
+    /* ランプの実体は scene に直接足したので currentWorldObjects 側の
+       remove で外れる。ここでは参照だけ落として、世界を跨いで古い
+       ライトや区画表が残らないようにする */
+    mansionLampSpecs = []; mansionLampPool = [];
+    mansionLampZones = null; mansionLampZone = null; mansionBuildZone = null;
     currentWorldObjects.forEach(o=>scene.remove(o));
     currentWorldObjects = [];
     // per-world state - rebuilt fresh by the next world
@@ -423,6 +429,88 @@
     const mesh = new THREE.Mesh(welded, mat);
     mesh.castShadow = true; mesh.receiveShadow = true;
     return mesh;
+  }
+
+  /* =========================================================
+     館のランプ(区画ごとの点光源)
+
+     洋館は区画どうしがテレポートで繋がった離れ島で、プレイヤーが2つの
+     区画を同時に見ることはない。それなのに 22 個のランプが常時シーンに
+     居るため、three.js は全区画ぶんの点光源を毎フレーム全マテリアルの
+     シェーダに畳み込んでいた(実測: 洋館の点光源は42個)。
+
+     効くのは「レンダラーが集めるライトの数」を減らすことだけで、
+     intensity=0 では減らない ―― 実測(programs の数と1フレームの時間):
+       intensity=0   : programs 28→28、フレーム時間も変わらず
+       visible=false : programs 20→28、その直後の1フレームが 1220ms
+       scene.remove  : visible=false と同じ扱い
+     つまり visible/remove は本当にライト数を減らせる代わりに、
+     ライト数が変わるたびに全マテリアルのシェーダを作り直す
+     (回復結晶の「数秒固まる」と同じ現象)。区画を移るたびにこれを
+     起こしては本末転倒になる。
+
+     そこで lightPool と同じ作法を採る: 1区画に必要な最大数ぶんだけ
+     PointLight を作って据え置き、区画が変わったらその実体に今の区画の
+     ランプの色・強さ・距離・位置を割り当て直す。ライトの数はワールド
+     生成から最後まで一定なので、シェーダの作り直しは一度も起きない。
+     見た目は、いま居る区画のランプが以前と同じ値で点いたままになる。 */
+  let mansionLampSpecs = [];      // {zone,x,z,color,intensity,dist}
+  let mansionLampPool  = [];      // 実体の PointLight(数は据え置き)
+  let mansionLampZones = null;    // zone -> {specs, x0,x1,z0,z1}
+  let mansionLampZone  = null;    // いま点けている区画
+  let mansionBuildZone = null;    // ビルド中の区画(mansionLamp が見る)
+
+  // ビルダー1つぶんを「この区画のランプ」として登録しながら建てる
+  function mansionZone(name, fn){
+    const prev = mansionBuildZone;
+    mansionBuildZone = name;
+    try{ fn(); } finally { mansionBuildZone = prev; }
+  }
+
+  // 03-dungeons-mansion-temple.js の mansionLamp() から呼ばれる。
+  // ここでは実体を作らず、どの区画のどんなランプかだけ控えておく
+  function registerMansionLamp(x, z, color, intensity, dist){
+    mansionLampSpecs.push({zone: mansionBuildZone || 'hall', x, z, color, intensity, dist});
+  }
+
+  /* 区画ごとにランプをまとめ、その区画のランプが張る矩形も出しておく
+     (区画の判定に使う)。座標を別表に書き写さずランプ自身から作るので、
+     間取りを動かしてもここが取り残されることがない。 */
+  function initMansionLamps(){
+    if(!mansionLampSpecs.length) return;
+    const {zones, budget} = groupMansionLamps(mansionLampSpecs);
+    mansionLampZones = zones;
+    for(let i=0;i<budget;i++){
+      const l = new THREE.PointLight(0xffffff, 0, 1);
+      l.position.set(0, 3.2, 0);
+      scene.add(l);
+      mansionLampPool.push(l);
+    }
+    mansionLampZone = null;
+    updateMansionLamps(true);
+  }
+
+  /* 区画が変わったときだけランプを割り当て直す。毎フレーム走るのは
+     区画の数(6つ)ぶんの矩形判定だけで、ライトには触らない */
+  function updateMansionLamps(force){
+    if(!mansionLampZones || !mansionLampPool.length) return;
+    const best = pickMansionLampZone(mansionLampZones, state.pos.x, state.pos.z);
+    if(!force && best === mansionLampZone) return;
+    mansionLampZone = best;
+    const specs = mansionLampZones.get(best).specs;
+    for(let i=0;i<mansionLampPool.length;i++){
+      const l = mansionLampPool[i], sp = specs[i];
+      if(sp){
+        l.position.set(sp.x, 3.2, sp.z);
+        l.color.setHex(sp.color);
+        l.intensity = sp.intensity;
+        l.distance = sp.dist;
+      } else {
+        // 余りは消しておく。数は変えないのでシェーダは作り直されない
+        l.intensity = 0;
+        l.distance = 1;
+      }
+    }
   }
 
   /* 1区画ぶんのビルダーを静的バッチで包む。途中で例外が出ても finally で
@@ -686,6 +774,7 @@
 
   function updateAmbience(dt){
     if(!state.started || state.paused) return;
+    updateMansionLamps();   // 区画が変わった時だけランプを割り当て直す
     const zone = currentAmbienceZone();
     if(zone !== ambienceZone){
       ambienceZone = zone;

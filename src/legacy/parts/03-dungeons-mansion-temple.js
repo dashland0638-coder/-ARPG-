@@ -2176,10 +2176,11 @@
     return floor;
   }
 
+  /* ランプはここでは作らない。どの区画のランプかを控えておき、実体は
+     区画ぶんだけ使い回す(02-world-common.js の「館のランプ」参照)。
+     見た目の値(色・強さ・距離・位置)はそのまま引き継がれる */
   function mansionLamp(x, z, color, intensity, dist){
-    const l = new THREE.PointLight(color, intensity, dist);
-    l.position.set(x, 3.2, z);
-    scene.add(l);
+    registerMansionLamp(x, z, color, intensity, dist);
   }
 
   // その区画の外側を埋める暗い下地。テレポートで飛ぶ離れ島なので、床の
@@ -2816,7 +2817,7 @@
     if(scenarioStars('mansion') >= MANSION_ATTIC_STARS){
       buildStairs(new THREE.Vector3(80,0,177), MANSION_ATTIC_POS.clone(),
         '屋根裏へ続く階段を上った……', 0x2a1830, 'up', 'mansionBoss');
-      buildMansionAttic();
+      mansionZone('attic', buildMansionAttic);
     }
   }
 

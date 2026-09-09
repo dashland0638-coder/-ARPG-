@@ -39,6 +39,7 @@ import { groupsFromGraph, allCombos, comboKey, comboKeyFromPath, comboProgress, 
 import { applyIncomingDamage, applyOutgoingDamage } from '../core/damage-math.js';
 import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../core/loot-math.js';
 import { timeLimitForStars } from '../core/scenario-timer.js';
+import { groupMansionLamps, pickMansionLampZone } from '../core/mansion-lamp-zones.js';
 import { turnTowardAngle, turnBudget, resolveTurnRate, angleDiff } from '../core/enemy-facing.js';
 import { punishWindowMultiplier, staggerGain, applyPostureGain, decayPosture, bossPostureMax, postureDecayPerSec } from '../core/stagger-math.js';
 import { resolveStaggerReaction } from '../core/combat-result.js';
