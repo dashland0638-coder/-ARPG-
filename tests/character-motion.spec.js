@@ -56,6 +56,19 @@ async function waitForState(page, character, timeout = 45_000) {
     .toBe(character);
 }
 
+/* 視線が完全に解けるのを待つ。敵が消えても目だけは少しの間
+   (EYE_RELEASE_HOLD)的を追い続けるので、その瞬間の表示は 'releasing'
+   になる ―― 身体 → 腰 → 首 → 目 の順に戻すための仕掛けそのもの。
+   'enemy' でなくなっていることをまず確かめ、そのあと完全に解けるまで待つ。 */
+async function waitForLookRelease(page, timeout = 30_000) {
+  const first = (await motionLine(page)).target;
+  expect(['releasing', 'none', 'npc'], `視線がまだ敵に張り付いている (${first})`)
+    .toContain(first);
+  await expect
+    .poll(async () => (await motionLine(page)).target, { timeout, intervals: [120] })
+    .toBe('none');
+}
+
 /** テストモードでその職業のトレーニング空間へ入り、デバッグ表示を開く */
 async function enterTraining(page, classKey) {
   await page.click('#open-testmode-btn');
@@ -108,11 +121,19 @@ for (const cls of CLASSES) {
     expect(afterDodge.character, '回避終了後も Combat のまま').toBe('COMBAT');
     expect(afterDodge.weapon).toBe('DRAWN');
 
-    // ---- 視線が敵を捉えている(Head Rig) ----
+    /* ---- 視線の連動(体 → 腰 → 首 → 目)----
+       それぞれが可動域を守り、合計が的を通り越さないこと。合計が的を
+       ちょうど指すこと自体は tests/unit/look-chain.test.js が数式で
+       固定しているので、ここでは実際のゲームで各段が動いていることと
+       上限が守られていることを見る。 */
     const inCombat = await motionLine(page);
     expect(inCombat.target, '戦闘中は敵を視線の対象にしている').toBe('enemy');
     expect(Math.abs(inCombat.headYaw), '首の可動域(±34度)を越えていない').toBeLessThanOrEqual(35);
-    expect(Math.abs(inCombat.headPitch)).toBeLessThanOrEqual(18);
+    expect(Math.abs(inCombat.eyeYaw), '目の可動域(±10度)を越えていない').toBeLessThanOrEqual(11);
+    expect(Math.abs(inCombat.visualWaist), '上体の追従(±13度)を越えていない').toBeLessThanOrEqual(13);
+    const chain = inCombat.waistTotal + inCombat.headYaw + inCombat.eyeYaw;
+    expect(Math.abs(chain), `視線の合計 ${chain}度 が的 ${inCombat.targetYaw}度 を通り越している`)
+      .toBeLessThanOrEqual(Math.abs(inCombat.targetYaw) + 2);
     await page.screenshot({ path: `test-results/motion-${cls.key}-combat.png` });
 
     // ---- 敵を消す(= 最後の敵を倒した相当)→ 余韻 → 納刀 → 探索 ----
@@ -122,7 +143,8 @@ for (const cls of CLASSES) {
     await waitForState(page, 'EXPLORATION', 60_000);
     const after = await motionLine(page);
     expect(after.weapon, '納刀し切って収納状態へ戻る').toBe('SHEATHED');
-    expect(after.target, '戦闘が終われば視線の対象も外れる').toBe('none');
+    // 目だけがまだ的を追っていてよい(戻りの順序)。完全に解けるまで待つ
+    await waitForLookRelease(page);
     await page.screenshot({ path: `test-results/motion-${cls.key}-explore.png` });
 
     expect(errors, `コンソールエラー/例外が発生していないこと:\n${errors.join('\n')}`).toEqual([]);
@@ -213,7 +235,37 @@ test('弓師の残心: 弓を収めても、体が正面へ戻るまで視線は
     await page.waitForTimeout(80);
   }
   expect(sawHolding, '納刀の状態を観測できていること').toBe(true);
+  await page.screenshot({ path: 'test-results/motion-archer-zanshin.png' });
   await waitForState(page, 'EXPLORATION', 60_000);
-  expect((await motionLine(page)).target, '最後に視線が解ける').toBe('none');
+  await waitForLookRelease(page);   // 最後に視線が解ける
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('酒場では視線が敵に固定されない(4職ぶんの立ち姿も記録する)', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  await openGame(page);
+  await page.click('#cc-start-btn');
+  await expect(page.locator('#hud')).toHaveClass(/active/);
+  await dismissIntroDialogue(page);
+  await page.waitForTimeout(800);
+  await page.keyboard.press('Backquote');
+  await expect(page.locator('#perf-panel')).toHaveClass(/show/);
+
+  /* 酒場では敵を視線の対象にしない。近くに店主などが居れば NPC を見る
+     (既にある近接判定の座標を借りているだけ)、居なければ見回し。
+     どちらにしても 'enemy' にはならない ―― ここが 'enemy' になるのは
+     酒場に敵検索が漏れているということ。 */
+  const seen = new Set();
+  for (let i = 0; i < 30; i++) {
+    const s = await motionLine(page);
+    expect(s.character, '酒場では SOCIAL').toBe('SOCIAL');
+    expect(s.target, '酒場で敵を見ようとしていない').not.toBe('enemy');
+    expect(Math.abs(s.eyeYaw), '目の可動域を越えていない').toBeLessThanOrEqual(11);
+    seen.add(s.target);
+    await page.waitForTimeout(200);
+  }
+  expect([...seen].every(t => t === 'none' || t === 'npc'), `観測した対象: ${[...seen]}`).toBe(true);
+  await page.screenshot({ path: 'test-results/motion-warrior-social.png' });
   expect(errors, errors.join('\n')).toEqual([]);
 });
