@@ -164,6 +164,15 @@ test.describe('囚われの洋館(最初のメインシナリオ)', () => {
       // ミニマップは walls / enemies / chests を毎フレーム描いているので、
       // 中身が空なら描画側で例外になる
       await page.waitForTimeout(800);
+
+      /* 世界を捨てるときに、この世界のジオメトリだけを解放している
+         (disposeWorld の disposeDetachedGeometries)。斬撃や火花の
+         ジオメトリは世界を跨いで使い回す側なので、間違って捨てて
+         いれば2周目の攻撃でここが落ちる */
+      for (let i = 0; i < 3; i++) {
+        await page.mouse.click(640, 400);
+        await page.waitForTimeout(250);
+      }
       expect(errors, `${round + 1}周目でエラーが出ないこと`).toEqual([]);
 
       // 街へ戻る = disposeWorld() → 酒場を建て直す

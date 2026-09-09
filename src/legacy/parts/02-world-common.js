@@ -235,15 +235,74 @@
   let currentWorldKey = null;
   let currentWorldObjects = [];
 
+  /* =========================================================
+     ワールド専用ジオメトリの解放
+
+     scene.remove() はGPU側のバッファを離さない。ワールドを建て直す
+     たびに前の世界のジオメトリが積み上がっていて、実測では酒場と洋館を
+     3往復しただけで renderer.info.memory.geometries が
+     154 → 808 → 863 → 1526 → 1581 → 2259 まで増えていた(1回の洋館で
+     約670)。iPhoneの発熱はここも効いている。
+
+     とはいえ「scene を全部たどって dispose」は禁じ手で、この
+     コードベースには世界を跨いで使い回すジオメトリがある:
+       SPARK_GEO / DUST_GEO   … 火花・土埃のプール(13-update-loop.js)
+       swingGeoCache          … 斬撃の扇(10-input.js)
+       magicCircleGeo         … 魔法陣の輪(10-input.js)
+       projGeoCache           … 弾(11-combat-actions.js)
+     これらを間違って捨てると、次のワールドの戦闘で描画が壊れる。
+
+     そこで「捨ててよい」の判定を推測ではなく到達性で行う。世界の
+     オブジェクトをシーンから外したあとで、
+       ・まだシーンのどこかから辿れる → 誰かが使っている。触らない
+       ・上のキャッシュ/プールに入っている → 使い回す。触らない
+       ・どちらでもない → この世界のためだけに作られ、もう誰も
+                          参照していない。ここだけ dispose する
+     Set で持つので、同じジオメトリを複数のメッシュが共有していても
+     dispose は1回だけになる。 */
+  function collectGeometries(roots, into){
+    roots.forEach(r=>{
+      if(!r || !r.traverse) return;
+      r.traverse(n=>{ if(n.geometry) into.add(n.geometry); });
+    });
+    return into;
+  }
+
+  // 世界を跨いで使い回すジオメトリ。プールに退避中(シーンから外れて
+  // いる)メッシュのぶんも含めて、まとめて「触らない」側に入れる
+  function sharedGeometries(){
+    const keep = new Set([SPARK_GEO, DUST_GEO,
+      magicCircleGeo.outer, magicCircleGeo.inner, magicCircleGeo.rune]);
+    swingGeoCache.forEach(g=> keep.add(g));
+    for(const k in projGeoCache) keep.add(projGeoCache[k]);
+    collectGeometries(sparkPool, keep);
+    collectGeometries(dustPool, keep);
+    collectGeometries(swingPool, keep);
+    magicCirclePool.forEach(e=> e && e.group && collectGeometries([e.group], keep));
+    return keep;
+  }
+
+  /* シーンから外し終えた roots のジオメトリのうち、もうどこからも
+     参照されていないものだけを解放する。戻り値は解放した数(計測用)。 */
+  function disposeDetachedGeometries(roots){
+    const cands = collectGeometries(roots, new Set());
+    if(!cands.size) return 0;
+    scene.traverse(n=>{ if(n.geometry) cands.delete(n.geometry); });
+    sharedGeometries().forEach(g=> cands.delete(g));
+    let n = 0;
+    cands.forEach(g=>{ g.dispose(); n++; });
+    return n;
+  }
+
   function disposeWorld(){
     /* 静的バッチのメッシュは、この世界のためだけに endStaticBatch() が
-       new した BufferGeometry を1つずつ抱えている(共有もキャッシュも
-       されておらず、参照はこのメッシュだけ)。scene.remove() だけでは
-       GPUのバッファが残るので、ここで明示的に開放する。
+       new した BufferGeometry を1つずつ抱えている。GPUバッファの解放は
+       この関数の最後の disposeDetachedGeometries() にまとめて任せる
+       ので、ここでは参照を落とすだけにして二重disposeを避ける。
        マテリアルは各ビルダーが使い回す共有物なので絶対に触らない。
        batching / batchBuckets は、ビルダーが途中で例外を投げたときに
        「バッチ中」のまま次の世界へ持ち越さないためのリセット。 */
-    batchedMeshes.forEach(m=>{ scene.remove(m); if(m.geometry) m.geometry.dispose(); });
+    const batchRoots = batchedMeshes;
     batchedMeshes = [];
     batching = false; batchBuckets = null;
     /* ランプの実体は scene に直接足したので currentWorldObjects 側の
@@ -251,6 +310,15 @@
        ライトや区画表が残らないようにする */
     mansionLampSpecs = []; mansionLampPool = [];
     mansionLampZones = null; mansionLampZone = null; mansionBuildZone = null;
+    /* この世界のためだけに建てたものを控えておく。どれもこの関数の中で
+       シーンから外れるので、最後にまとめてGPUバッファを返しにいく
+       (敵・宝箱・回復結晶・足場・鍵も、世界ごとに作り直される) */
+    const disposedRoots = batchRoots.concat(
+      currentWorldObjects,
+      enemies.map(e=>e.group), chests.map(c=>c.group),
+      healingCrystals.map(h=>h.group), platforms.map(p=>p.mesh),
+      keyPickups.map(k=>k.group)).filter(Boolean);
+    batchRoots.forEach(m=> scene.remove(m));
     currentWorldObjects.forEach(o=>scene.remove(o));
     currentWorldObjects = [];
     // per-world state - rebuilt fresh by the next world
@@ -317,6 +385,9 @@
     nearbyLantern = null;   // Phase D(#37, 宵待ちの村): 前のダンジョンの灯りを指したまま残らないように
     mansionRoof = null; restroomRoof = null; platform = null;
     currentWorldKey = null;
+    /* ここまでで、この世界のものはすべてシーンから外れている。
+       外れたものだけを対象に、共有物を避けてGPUバッファを返す */
+    disposeDetachedGeometries(disposedRoots);
   }
 
   function buildWorld(key){
