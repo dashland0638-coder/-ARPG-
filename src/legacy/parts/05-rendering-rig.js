@@ -3370,6 +3370,7 @@
       && (motionCombatHoldT > 0
        || isHostileNearby(nearestHostileDistance(), motionState.engaged));
     updateMotionState(motionState, dt, {hostileNearby, busy: motionBusy(), social});
+    updateLookTarget(dt);   // 上体が受け持つ捻りを、立ち姿へ足す前に決める
     updateIdleOverlay(dt);
     dampStance(targetStancePose(), dt);
     applyStanceToRig(dt);
@@ -3394,8 +3395,12 @@
     P.stanceDraw = _stance.draw + _idle.draw;
     P.armSwing = _stance.armSwing;
     // updateLocomotion が歩幅へ足す立ち姿ぶんのバイアス
-    _stanceWaistOut[0] = _stance.waist[0] + _idle.waistPitch;
-    _stanceWaistOut[1] = _stance.waist[1] + _idle.waistYaw;
+    /* 立ち姿 + Combat Idle の揺れ + 見た目だけの上体の追従。3つとも
+       「足す」だけで、既存の腰の角度を書き換えるものは1つもない。
+       この合計が updateLocomotion の腰の目標になり、その結果が
+       P.waist.rotation.y として updateHeadRig に渡る */
+    _stanceWaistOut[0] = _stance.waist[0] + _idle.waistPitch + _visualWaistPitch;
+    _stanceWaistOut[1] = _stance.waist[1] + _idle.waistYaw + _visualWaistYaw;
     _stanceWaistOut[2] = _stance.waist[2] + _idle.waistRoll;
     P.stanceWaist = _stanceWaistOut;
     P.stanceHipL = _stance.hipL + _idle.hipL; P.stanceHipR = _stance.hipR + _idle.hipR;
@@ -3458,8 +3463,16 @@
   ========================================================= */
   const _headTarget = new THREE.Vector3();
   let headYaw = 0, headPitch = 0, headRoll = 0;
-  let headHasTarget = false;          // 直前のフレームで敵を見ていたか
+  let eyeYaw = 0, eyePitch = 0;
+  let headHasTarget = false;          // 直前のフレームで見る相手がいたか
   let headLookT = 0;                  // 目標が無い時の「周囲を見る」位相
+  let _lookYawWorld = 0;              // その相手の世界向き
+  let _lookPitch = 0;                 // その相手を見る見下ろし/見上げ角
+  let _lookEnemy = null;              // 捕まえている相手(毎フレーム探し直さない)
+  let _lookRescanT = 0;
+  let _eyeHoldT = 0;                  // 見失ってから目が的を追い続ける残り時間
+  let _visualWaistYaw = 0, _visualWaistPitch = 0;
+  const LOOK_RESCAN_SEC = 0.25;       // 相手を探し直す間隔(毎フレームは探さない)
 
   // いま視線を向けるべき相手。無ければ null
   function headLookEnemy(){
@@ -3474,57 +3487,126 @@
     return best;
   }
 
-  function updateHeadRig(dt){
-    const P = playerMixerParts;
-    if(!P.headPivot || !player) return;
-    headLookT += dt;
+  /* 酒場で見る相手。既にある「近くにいるか」の判定(updateBartenderProximity、
+     02-world-common.js)が持っている座標をそのまま借りるだけで、会話相手を
+     探す新しい仕組みは作っていない。近くに誰もいなければ null を返し、
+     従来どおりの見回しになる。 */
+  const _socialLook = new THREE.Vector3();
+  function socialLookTarget(){
+    if(typeof BARTENDER_POS === 'undefined') return null;
+    const cands = [BARTENDER_POS, typeof SMITH_POS !== 'undefined' ? SMITH_POS : null,
+                   typeof SHADOW_GUIDE_POS !== 'undefined' ? SHADOW_GUIDE_POS : null];
+    let best = null, bestD = 16;   // 4m 以内にいる相手だけ
+    for(let i=0;i<cands.length;i++){
+      if(!cands[i]) continue;
+      const d = state.pos.distanceToSquared(cands[i]);
+      if(d < bestD){ bestD = d; best = cands[i]; }
+    }
+    if(!best) return null;
+    return _socialLook.copy(best);
+  }
 
+  /* 見る相手を決め、上体が受け持つぶんの角度を出す。立ち姿を組み立てる前
+     (applyStanceToRig の前)に走らせるのが要点で、こうすると上体の捻りは
+     既存の腰バイアスへ足すだけで済み、首はそのあと「実際に適用された腰」
+     から残りを計算できる ―― 同じ補正を二度掛けようがない。 */
+  function updateLookTarget(dt){
+    const P = playerMixerParts;
     const C = motionState.character;
+    headLookT += dt;
+    _lookRescanT -= dt;
+
     const aiming = C === CHARACTER_STATE.COMBAT
                 || C === CHARACTER_STATE.DRAWING
                 || C === CHARACTER_STATE.POST_COMBAT;
-    /* 残心。納刀の最中は新しく敵を探さず、直前に見ていた方向をそのまま
+    /* 残心。納刀の最中は新しく相手を探さず、直前に見ていた方向をそのまま
        保つ ―― 弓を収め終えても体が半身のままなので、頭も敵の方を向いた
        ままになる。腰が正面へ戻るのはクリップの最後だけで、その時に
        初めて頭も自然に正面へ戻る(頭を戻す処理はどこにも書いていない)。 */
     const holding = C === CHARACTER_STATE.SHEATHING && headHasTarget;
+    const social = C === CHARACTER_STATE.SOCIAL;
 
-    let targetYaw = null, targetPitch = 0;
+    let at = null;
     if(aiming){
-      const en = headLookEnemy();
-      if(en){
-        _headTarget.copy(en.group.position);
-        headHasTarget = true;
+      // 抜刀中に視線がふらつかないよう、捕まえた相手は死ぬまで持ち続ける
+      if(_lookEnemy && (_lookEnemy.dead || _lookEnemy.dormant || !_lookEnemy.group)) _lookEnemy = null;
+      if(!_lookEnemy || _lookRescanT <= 0){
+        const en = headLookEnemy();
+        if(en) _lookEnemy = en;
+        _lookRescanT = LOOK_RESCAN_SEC;
       }
+      if(_lookEnemy) at = _headTarget.copy(_lookEnemy.group.position);
+    } else if(social){
+      _lookEnemy = null;
+      const npc = socialLookTarget();
+      if(npc) at = _headTarget.copy(npc);
     } else if(!holding){
-      headHasTarget = false;
+      _lookEnemy = null;
     }
 
-    if((aiming || holding) && headHasTarget){
-      targetYaw = yawToTarget(state.pos.x, state.pos.z, _headTarget.x, _headTarget.z);
-      const dist = Math.hypot(_headTarget.x - state.pos.x, _headTarget.z - state.pos.z);
-      // 敵の足元ではなく胴のあたりを見る。真下を覗き込む首にしないため
-      targetPitch = localHeadPitch({
-        dy: (_headTarget.y + 0.9) - (state.pos.y + P.build.hipY + P.headPivot.position.y),
-        dist, waistPitch: P.waist ? P.waist.rotation.x : 0,
-      });
+    if(at){
+      headHasTarget = true;
+      _eyeHoldT = EYE_RELEASE_HOLD;
+    } else if(holding && headHasTarget){
+      at = _headTarget;                       // 覚えている方向を見続ける
+    } else {
+      headHasTarget = false;
+      _eyeHoldT = Math.max(0, _eyeHoldT - dt);
     }
+
+    if(headHasTarget || _eyeHoldT > 0){
+      _lookYawWorld = yawToTarget(state.pos.x, state.pos.z, _headTarget.x, _headTarget.z);
+      const dist = Math.hypot(_headTarget.x - state.pos.x, _headTarget.z - state.pos.z);
+      const eyeY = state.pos.y + (P.build ? P.build.hipY : 1.1)
+                 + (P.headPivot ? P.headPivot.position.y : 0.92);
+      // 相手の足元ではなく胴のあたりを見る。真下を覗き込む首にしないため
+      _lookPitch = Math.atan2(-((_headTarget.y + 0.9) - eyeY), Math.max(0.2, dist));
+    }
+
+    /* 上体が受け持つぶん。首を振り切っても届かないほど横にある時だけ
+       0 でなくなる ―― これが常に効いていると、正面の敵を見ているだけで
+       上体が捻れ続けることになる。見た目にしか使わない値で、
+       state.facing にも攻撃方向にも一切入らない。 */
+    if(headHasTarget){
+      /* 上体が受け持つぶんは「体の正面からどれだけ横か」ではなく、
+         「構えの捻りを差し引いてもなお首に残る量」で決める。弓師は半身に
+         24度捻れているので、正面の敵を見るだけでも首はその分を戻さねば
+         ならず、体の正面からの角度だけを見ていると上体がいつまでも
+         手伝わない ―― 首が振り切っているのに、である。 */
+      const stanceWaistYaw = _stance ? _stance.waist[1] : 0;
+      const err = wrapAngle(_lookYawWorld - visualFacing - stanceWaistYaw);
+      const clsKey = state.classDef ? state.classDef.key : 'warrior';
+      _visualWaistYaw += (visualWaistLookYaw(err, clsKey) - _visualWaistYaw) * Math.min(1, dt * 5);
+      _visualWaistPitch += (visualWaistLookPitch(_lookPitch, clsKey) - _visualWaistPitch) * Math.min(1, dt * 5);
+    } else {
+      // 身体がいちばん先に戻る(戻りの順序 身体 → 腰 → 首 → 目)
+      _visualWaistYaw += (0 - _visualWaistYaw) * Math.min(1, dt * 4);
+      _visualWaistPitch += (0 - _visualWaistPitch) * Math.min(1, dt * 4);
+    }
+  }
+
+  /* 首と目。立ち姿と攻撃クリップが腰を書き終えたあとに走らせる ――
+     ここが読む P.waist.rotation.y は「実際に適用された最終の腰の角度」
+     なので、上体の捻りぶんを引き算するのはこの1箇所だけになる。 */
+  function updateHeadRig(dt){
+    const P = playerMixerParts;
+    if(!P.headPivot || !player) return;
+    const C = motionState.character;
+    const waistYaw = P.waist ? P.waist.rotation.y : 0;
+    const waistPitch = P.waist ? P.waist.rotation.x : 0;
 
     let wantYaw, wantPitch, wantRoll, rate;
-    if(targetYaw !== null){
-      wantYaw = localHeadYaw({
-        targetYaw, bodyYaw: visualFacing,
-        waistYaw: P.waist ? P.waist.rotation.y : 0,
-      });
-      wantPitch = targetPitch;
+    if(headHasTarget){
+      wantYaw = localHeadYaw({targetYaw: _lookYawWorld, bodyYaw: visualFacing, waistYaw});
+      wantPitch = clampAngle(_lookPitch - waistPitch, HEAD_LIMITS.pitch);
       wantRoll = clampAngle(wantYaw * 0.10, HEAD_LIMITS.roll);
       rate = HEAD_FOLLOW_RATE;
     } else {
       const idle = idleHeadAngles(C, headLookT);
       wantYaw = clampAngle(idle.yaw, HEAD_LIMITS.yaw);
-      wantPitch = clampAngle(idle.pitch - (P.waist ? P.waist.rotation.x : 0), HEAD_LIMITS.pitch);
+      wantPitch = clampAngle(idle.pitch - waistPitch, HEAD_LIMITS.pitch);
       wantRoll = clampAngle(idle.roll, HEAD_LIMITS.roll);
-      // 敵を見失った直後はゆっくり周囲へ戻す(急に正面を向き直さない)
+      // 相手を見失った直後はゆっくり周囲へ戻す(急に正面を向き直さない)
       rate = HEAD_RELEASE_RATE;
     }
 
@@ -3532,19 +3614,37 @@
     headPitch = approachAngle(headPitch, wantPitch, rate, dt);
     headRoll = approachAngle(headRoll, wantRoll, rate * 0.7, dt);
     P.headPivot.rotation.set(headPitch, headYaw, headRoll);
+
+    /* 目は「頭がまだ向けていない残り」だけ。首より速く追うので、
+       的を認識した瞬間はまず目が寄り、そのあと首が向く。
+       見失っても _eyeHoldT の間は的を追い続けるので、
+       身体 → 腰 → 首 → 目 の順に戻ることになる。 */
+    if(!P.eyePivot) return;
+    let eyeWantYaw = 0, eyeWantPitch = 0;
+    if(headHasTarget || _eyeHoldT > 0){
+      eyeWantYaw = localEyeYaw({
+        targetYaw: _lookYawWorld, bodyYaw: visualFacing, waistYaw, headYaw});
+      eyeWantPitch = localEyePitch({targetPitch: _lookPitch - waistPitch, headPitch});
+    }
+    eyeYaw = approachAngle(eyeYaw, eyeWantYaw, EYE_FOLLOW_RATE, dt);
+    eyePitch = approachAngle(eyePitch, eyeWantPitch, EYE_FOLLOW_RATE, dt);
+    P.eyePivot.rotation.set(eyePitch, eyeYaw, 0);
   }
 
   // ワールド切り替え時に首もまっすぐへ戻す(暗転の裏なので即座でよい)
   function resetHeadRig(){
     headYaw = headPitch = headRoll = 0;
+    eyeYaw = eyePitch = 0;
     headHasTarget = false;
+    _lookEnemy = null; _eyeHoldT = 0; _lookRescanT = 0;
+    _visualWaistYaw = _visualWaistPitch = 0;
     const P = playerMixerParts;
     if(P.headPivot) P.headPivot.rotation.set(0,0,0);
+    if(P.eyePivot) P.eyePivot.rotation.set(0,0,0);
   }
 
   // 開発用: 現在の状態を1行で(デバッグモード時のみ表示される)
   function motionDebugLine(){
-    const deg = r => (r * 180 / Math.PI).toFixed(0);
     const action = state.swinging ? 'ATTACK'
                  : state.dodging ? 'DODGE'
                  : (state.charging || state.skillCharging || state.ultAiming) ? 'CHARGE'
@@ -3554,9 +3654,25 @@
       `Weapon:    ${motionState.weapon}`,
       `Action:    ${action}`,
       `Holster:   ${holsterBlend(motionState).toFixed(2)}`,
-      `HeadYaw:   ${deg(headYaw)}`,
-      `HeadPitch: ${deg(headPitch)}`,
-      `Target:    ${headHasTarget ? 'enemy' : 'none'}`,
+    ].join('\n ');
+  }
+
+  // 開発用: 視線の内訳。体・腰・首・目がそれぞれ何度ぶん受け持っているか
+  function lookDebugLine(){
+    const P = playerMixerParts;
+    const deg = r => (r * 180 / Math.PI).toFixed(0);
+    const waist = P.waist ? P.waist.rotation.y : 0;
+    const target = headHasTarget
+      ? (motionState.character === CHARACTER_STATE.SOCIAL ? 'NPC' : 'Enemy')
+      : (_eyeHoldT > 0 ? 'Releasing' : 'None');
+    return [
+      `Target:      ${target}`,
+      `TargetYaw:   ${headHasTarget ? deg(wrapAngle(_lookYawWorld - visualFacing)) : '-'}`,
+      `VisualWaist: ${deg(_visualWaistYaw)}`,
+      `WaistTotal:  ${deg(waist)}`,
+      `Head:        ${deg(headYaw)}`,
+      `Eyes:        ${deg(eyeYaw)}`,
+      `EyePitch:    ${deg(eyePitch)}`,
     ].join('\n ');
   }
 

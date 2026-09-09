@@ -36,9 +36,15 @@ async function motionLine(page) {
     character: field('Character'),
     weapon: field('Weapon'),
     action: field('Action'),
-    headYaw: Number(field('HeadYaw')),
-    headPitch: Number(field('HeadPitch')),
-    target: field('Target'),
+    // LOOK ブロック(視線の内訳)。体・腰・首・目がそれぞれ何度ぶん
+    // 受け持っているかがそのまま出ている
+    target: field('Target').toLowerCase(),
+    targetYaw: Number(field('TargetYaw')),
+    visualWaist: Number(field('VisualWaist')),
+    waistTotal: Number(field('WaistTotal')),
+    headYaw: Number(field('Head')),
+    eyeYaw: Number(field('Eyes')),
+    headPitch: Number(field('EyePitch')),
     raw: text,
   };
 }

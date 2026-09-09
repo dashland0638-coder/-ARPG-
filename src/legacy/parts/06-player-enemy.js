@@ -815,19 +815,34 @@
     // フィールド」(Phase 7、詳細は01-character-creation.jsのmage側
     // コメント参照)。未指定クラスは1.0で従来通り無変化
     const eyeSpacingMul = classDef.eyeSpacingMul!=null ? classDef.eyeSpacingMul : 1.0;
+    /* ---- Eye Rig ----
+       目の3層(白目/瞳/ハイライト)×2を、頭の中心を軸にした1つのピボットの
+       子にする。頭の中心で回すのは、眼球が眼窩の中で回るのと同じ関係に
+       なるため ―― 顔の表面に貼った板を平行移動させると、少し動かしただけで
+       目が顔からはみ出す。
+
+       目そのもののGeometry・位置・大きさ・間隔(eyeSpacingMul)は一切
+       変えていない。ここでやっているのは親を1段挟むことだけで、
+       ピボットの回転が0なら見た目は完全に従来どおりになる。 */
+    const eyePivot = new THREE.Group();
+    eyePivot.rotation.order = 'YXZ';
+    eyePivot.position.set(0, head.position.y, HEAD_BACK_Z);
+    group.add(eyePivot);
+    playerMixerParts.eyePivot = eyePivot;
+    const intoEyePivot = (m)=>{ m.position.sub(eyePivot.position); eyePivot.add(m); };
     [-0.115*eyeScale*eyeSpacingMul, 0.115*eyeScale*eyeSpacingMul].forEach(x=>{
       const sclera = new THREE.Mesh(
         makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*1.15, scleraHalfDepth*eyeScale), scleraMat);
       sclera.position.set(x, head.position.y+0.02, eyeFrontZ);
-      group.add(sclera);
+      intoEyePivot(sclera);
       faceMeshes.push(sclera);
       const pupil = new THREE.Mesh(makeEyePupil(pupilR*eyeScale, pupilHalfDepth*eyeScale), pupilMat);
       pupil.position.set(x, head.position.y+0.02, scleraFrontZ - pupilHalfDepth*eyeScale + pupilPoke*eyeScale);
-      group.add(pupil);
+      intoEyePivot(pupil);
       faceMeshes.push(pupil);
       const highlight = new THREE.Mesh(makeEyeHighlight(highlightR*eyeScale, highlightHalfDepth*eyeScale), highlightMat);
       highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ - highlightHalfDepth*eyeScale + highlightPoke*eyeScale);
-      group.add(highlight);
+      intoEyePivot(highlight);
       faceMeshes.push(highlight);
     });
 
@@ -1025,8 +1040,11 @@
     // 隠す処理)がこれらも一緒に隠すようになる(完全に頭を覆うbattleKnight
     // 兜の下から髪束だけ突き出て見える事故を防ぐ)。盗賊(faceMeshesを
     // 直接参照)や他クラスの挙動には影響しない
+    /* 目は EyePivot 1つとして数える ―― 戦騎士の頭部縮小(headScaleGroup)は
+       この配列の要素をそのまま別グループへ移すので、目を6枚バラバラに
+       入れておくと、移した先で EyePivot の外へ出てしまい視線が効かなくなる */
     playerMixerParts.headGroupParts =
-      [head, hair, ...bangMeshes, ...sideHairMeshes, ...backHairMeshes, ...faceMeshes];
+      [head, hair, ...bangMeshes, ...sideHairMeshes, ...backHairMeshes, eyePivot];
     playerMixerParts.bangMeshes = bangMeshes;
     playerMixerParts.sideHairMeshes = sideHairMeshes;
     playerMixerParts.backHairMeshes = backHairMeshes;

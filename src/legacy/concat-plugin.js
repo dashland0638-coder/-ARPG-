@@ -71,6 +71,8 @@ import {
   HEAD_LIMITS, HEAD_FOLLOW_RATE, HEAD_RELEASE_RATE, neckPivotY,
   wrapAngle, clampAngle, approachAngle, yawToTarget,
   localHeadYaw, localHeadPitch, idleHeadAngles,
+  EYE_LIMITS, EYE_FOLLOW_RATE, EYE_RELEASE_HOLD, localEyeYaw, localEyePitch,
+  VISUAL_WAIST_LIMITS, visualWaistLookYaw, visualWaistLookPitch,
 } from '../core/head-rig.js';
 import {
   COMBAT_IDLE, IDLE_MAX_AMPLITUDE, combatIdleProfile, combatIdleOffsets,

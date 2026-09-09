@@ -45,6 +45,13 @@ export function rigFromBuild(B, opts) {
     headZ: headBackZ,
     // Head Rig のピボット(首寄り)。頭を向けると頭の球はこの点を中心に動く
     neckY: B.height + B.headGap * (o.neckPivotFrac !== undefined ? o.neckPivotFrac : 0.45),
+    /* Eye Rig。目は頭の中心を軸に回るので、その中心からの位置を持つ。
+       値は buildPlayer() の目の配置式(eyeScale = headR/0.26、
+       eyeFrontZ = headR*0.82*HEAD_DEPTH_MUL + HEAD_BACK_Z、
+       左右の間隔 ±0.115*eyeScale)をそのまま写したもの。 */
+    eyeX: 0.115 * (B.headR / 0.26),
+    eyeY: 0.02,
+    eyeZ: B.headR * 0.82 * headDepthMul,
     headR: B.headR,
     headDepthR: B.headR * headDepthMul,
     hipR: B.hipR,
@@ -270,4 +277,15 @@ export function holsterAnchorLocal(rig, attach, classKey) {
     default:
       return { pos: new THREE.Vector3(0, 0, 0), wep: [0, 1, 0, 1, 0, 0] };
   }
+}
+
+/* 目の位置(頭の中心からの相対)。頭の中心を軸に回るので、回転しても
+   中心からの距離は変わらない ―― 顔の表面に貼った板を平行移動させる方式だと、
+   少し動かしただけで目が顔からはみ出す。 */
+export function eyeOffsetAt(rig, side, eye) {
+  const yaw = (eye && eye.yaw) || 0;
+  const pitch = (eye && eye.pitch) || 0;
+  const p = new THREE.Vector3((side === 'L' ? -1 : 1) * rig.eyeX, rig.eyeY, rig.eyeZ);
+  p.applyEuler(_e.set(pitch, yaw, 0, 'YXZ'));   // EyePivot と同じ YXZ
+  return p;
 }

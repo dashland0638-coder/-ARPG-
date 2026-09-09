@@ -19,7 +19,9 @@ import {
   bladeHeadPenetration, bladeTorsoPenetration, elbowBroken,
   holsterAnchorLocal, headCenterAt, UPPER_ARM_LEN, FOREARM_LEN,
 } from '../../src/core/pose-geometry.js';
-import { HEAD_LIMITS, NECK_PIVOT_FRAC } from '../../src/core/head-rig.js';
+import {
+  HEAD_LIMITS, NECK_PIVOT_FRAC, VISUAL_WAIST_LIMITS, waistLookPitchMul,
+} from '../../src/core/head-rig.js';
 
 /* buildPlayer() が使う体格。BUILD(05-rendering-rig.js)の male/female を
    そのまま写したもので、寸法が変わればこのテストも一緒に更新する必要が
@@ -176,6 +178,20 @@ const staffHeadWorldY = (pose, gripW) => {
   return BUILDS.male.hipY + y + COMBAT_STANCES.mage.tip * pose.wep[1];
 };
 
+test('魔法使い: 上体の見た目上の前後傾は杖頭の高さを動かさない', () => {
+  /* 上体を傾けると杖頭がその分だけ上下し、至近距離の敵を見下ろした時に
+     弾の当たり判定の窓(1.8m)を越えてしまう ―― 前フェーズで実際に踏んだ
+     不具合の再発防止。左右の捻りは高さを変えないので制限していない。 */
+  assert.equal(waistLookPitchMul('mage'), 0, '魔法使いの上体は前後に傾けない');
+  ['warrior', 'rogue', 'archer'].forEach(c =>
+    assert.ok(waistLookPitchMul(c) > 0, `${c} は前後傾を許してよい`));
+  // 仮に傾いたとして、他職なら杖頭は何 m 動くか(制限の根拠を数値で残す)
+  const armReach = 0.9;   // 腰から杖頭までのおよその距離
+  const lift = armReach * Math.sin(VISUAL_WAIST_LIMITS.pitch);
+  assert.ok(lift > 0.05,
+    `前後傾で杖頭が ${lift.toFixed(3)}m 動く ―― 無視できる量ではない(だから 0 にしている)`);
+});
+
 test('魔法使い: 杖頭が弾の当たり判定の高さに収まる(戦闘・探索・酒場のすべて)', () => {
   const cases = {
     '戦闘の構え': COMBAT_STANCES.mage,
@@ -209,6 +225,80 @@ test('武器の収納位置が骨格から導かれ、手の届く場所にあ�
     const h = holsterAnchorLocal(rig, attach, 'rogue');
     assert.ok(dist(h.pos, shoulder(sx)) < ARM_REACH, `${attach} の柄に手が届く`);
     assert.ok(Math.sign(h.pos.x) === sx, `${attach} は対応する側の腰にある`);
+  }
+});
+
+/* 見た目だけの上体の追従(Visual Look Offset)を入れた状態での検査。
+
+   腰より上は腕・武器・頭ごと1つのグループで回るので、腰を捻っても
+   互いの位置関係は変わらない ―― 貫通の有無は原理的に影響を受けない。
+   ただし例外が1つある: 弓とボウガン(aimWorld)は「キャラクターの向きに
+   射線を乗せる」ため、腰の回転を打ち消す向きに姿勢が付け直される。
+   つまり腰を捻ると弓だけが体に対して相対的に動く。ここはそこを見る。 */
+const WAIST_LOOK_SWEEP = [];
+for (let i = -1; i <= 1; i += 0.25) WAIST_LOOK_SWEEP.push(VISUAL_WAIST_LIMITS.yaw * i);
+
+test('上体を見た目上捻っても、弓が体を貫通しない(aimWorld の武器)', () => {
+  for (const [cls, stance] of [['archer', COMBAT_STANCES.archer],
+                               ['crossbow', ALT_WEAPON_STANCES.crossbow]]) {
+    assert.equal(stance.aimWorld, true, `${cls} は aimWorld のはず`);
+    const gripKey = cls === 'crossbow' ? 'archer' : cls;
+    for (const extra of WAIST_LOOK_SWEEP) {
+      const pose = Object.assign({}, stance, {
+        waist: [stance.waist[0], stance.waist[1] + extra, stance.waist[2]] });
+      const issues = poseIssues(RIGS.male, pose, {
+        gripOffset: GRIP_OFFSETS[gripKey], tipLen: stance.tip,
+        grip: stance.grip, aimWorld: true });
+      assert.deepEqual(issues, [],
+        `${cls}: 上体を ${(extra * 180 / Math.PI).toFixed(0)}度 余分に捻ると ${issues.join(', ')}`);
+    }
+  }
+});
+
+test('上体を見た目上捻っても、腰より上の位置関係は変わらない(近接武器)', () => {
+  /* 剣士の大剣・盗賊の短剣・魔法使いの杖は腰と一緒に回るだけなので、
+     腰を捻っても頭との距離も中心線との関係も一切変わらない。
+     「捻ったら剣が顔に当たるようになった」が起きないことの根拠。 */
+  for (const cls of ['warrior', 'rogue', 'mage']) {
+    const stance = COMBAT_STANCES[cls];
+    const base = weaponSegment(RIGS.male, stance, optsFor(cls));
+    const baseHead = bladeHeadPenetration(RIGS.male, base);
+    const baseTorso = bladeTorsoPenetration(RIGS.male, base);
+    for (const extra of WAIST_LOOK_SWEEP) {
+      const pose = Object.assign({}, stance, {
+        waist: [stance.waist[0], stance.waist[1] + extra, stance.waist[2]] });
+      const seg = weaponSegment(RIGS.male, pose, optsFor(cls));
+      assert.ok(Math.abs(bladeHeadPenetration(RIGS.male, seg) - baseHead) < 1e-9,
+        `${cls}: 腰を捻ると頭との距離が変わっている`);
+      assert.ok(Math.abs(bladeTorsoPenetration(RIGS.male, seg) - baseTorso) < 1e-9,
+        `${cls}: 腰を捻ると胴との距離が変わっている`);
+    }
+    // 盗賊は左右の短剣が中心線を越えないことも、捻っても変わらない
+    if (cls === 'rogue') {
+      for (const extra of WAIST_LOOK_SWEEP) {
+        const pose = Object.assign({}, stance, {
+          waist: [stance.waist[0], stance.waist[1] + extra, stance.waist[2]] });
+        const issues = poseIssues(RIGS.male, pose,
+          Object.assign({ noCross: true }, optsFor('rogue')));
+        assert.deepEqual(issues, [], `rogue: ${issues.join(', ')}`);
+      }
+    }
+  }
+});
+
+test('首・目・上体を同時に振り切っても、武器が頭を貫通しない', () => {
+  for (const cls of CLASSES) {
+    const stance = COMBAT_STANCES[cls];
+    for (const extra of WAIST_LOOK_SWEEP) {
+      const pose = Object.assign({}, stance, {
+        waist: [stance.waist[0], stance.waist[1] + extra, stance.waist[2]] });
+      const seg = weaponSegment(RIGS.male, pose, optsFor(cls));
+      for (const head of HEAD_SWEEP) {
+        const clear = -bladeHeadPenetration(RIGS.male, seg, head);
+        assert.ok(clear > 0,
+          `${cls}: 腰 ${(extra * 180 / Math.PI).toFixed(0)}度 / 首 yaw ${(head.yaw * 180 / Math.PI).toFixed(0)}度 で ${clear.toFixed(3)}m`);
+      }
+    }
   }
 });
 

@@ -820,6 +820,7 @@
        本番のプレイ画面には一切出ない */
     if(state.started){
       lines.push('', 'MOTION', ' ' + motionDebugLine());
+      lines.push('', 'LOOK', ' ' + lookDebugLine());
     }
     if(perfEventLast){
       lines.push('', 'EVENT', perfEventLast.name);
