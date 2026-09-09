@@ -1032,6 +1032,11 @@
     playerMixerParts.backHairMeshes = backHairMeshes;
 
     /* ---------- class-specific headgear & flourishes ---------- */
+    /* Head Rig: 首から上に付くメッシュだけをここへ集める。下で作る
+       HeadPivot の子へまとめて移すためのリストで、頭の向きに追従して
+       ほしいものだけを入れる ―― 襟・毛皮のラフ・マント・矢筒のように
+       肩や背に付くものは、頭が向いても動いてはいけないので入れない。 */
+    const headwear = [];
     const hY = head.position.y;
     const metalMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.35, metalness:0.7});
     const darkMat  = new THREE.MeshStandardMaterial({color:0x2a2420, roughness:0.7});
@@ -1096,7 +1101,7 @@
       // Head/Posture Alignment再設計フェーズ: Helm一式(helm/visor/crest/
       // collar/tail/furBase/spike)にもHEAD_BACK_Zを適用し、Headと一緒に
       // 後方へ。Headだけ後退してHelmが元の位置に取り残される事故を防ぐ
-      helm.position.set(0, helmBottomY, HEAD_BACK_Z); helm.castShadow = true; group.add(helm);
+      helm.position.set(0, helmBottomY, HEAD_BACK_Z); helm.castShadow = true; group.add(helm); headwear.push(helm);
       warriorBaseDecor.push(helm);
       // Priority 1-3(設計図との差分レポート): 「頭巾のようにしか見えない」
       // への対応。Helm本体は単一の低ポリ曲面シェルで、開口部の縁は
@@ -1115,7 +1120,7 @@
       const visorRimZ = headR*WARRIOR_HELM_RINGS[1].depthMul*WARRIOR_HELM_RINGS[1].faceZ;
       const visorRim = new THREE.Mesh(new THREE.BoxGeometry(visorRimHW*2, 0.05, 0.10), clothAcc);
       visorRim.position.set(0, visorRimY, visorRimZ + HEAD_BACK_Z);
-      visorRim.castShadow = true; group.add(visorRim);
+      visorRim.castShadow = true; group.add(visorRim); headwear.push(visorRim);
       warriorBaseDecor.push(visorRim);
       // Headwear Silhouette Integration Phase(Priority A): 旧Visorは
       // headR*1.9(顔幅の1.8倍相当)の1枚板をEye位置(hY+0.02)にそのまま
@@ -1137,7 +1142,7 @@
          開口の中で目より先に視認される異物にしかならない。 */
 
       const crest = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.34), clothAcc);
-      crest.position.set(0, hY+0.28, -0.02 + HEAD_BACK_Z); group.add(crest);
+      crest.position.set(0, hY+0.28, -0.02 + HEAD_BACK_Z); group.add(crest); headwear.push(crest);
       warriorBaseDecor.push(crest);
       // scarf: collar plus two streamers blown back
       const collar = new THREE.Mesh(new THREE.TorusGeometry(headR*0.85, 0.06, 8, 14), clothAcc);
@@ -1250,7 +1255,7 @@
         makeRogueHood({width:headR, depth:headR, height:hoodH}), rogueHoodMat);
       hood.rotation.x = ROGUE_HOOD_TILT_X;   // 後方へ深く垂らす(硬い兜の「まっすぐ立つ」向きと対照的)
       hood.position.set(0, hY+hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL, -headR*0.22 + HEAD_BACK_Z);
-      hood.castShadow = true; group.add(hood);
+      hood.castShadow = true; group.add(hood); headwear.push(hood);
       // Phase 12-B Priority 3: Berserker昇格時にHoodのMaterial Colorだけを
       // 差し替えられるよう参照を保持しておく(battleKnightのwarriorBaseDecor/
       // archerCapDecorと同じ「差分方式」)。Rogue自身の見た目には影響しない
@@ -1265,7 +1270,7 @@
       const mask = new THREE.Mesh(
         makeRogueMask({width:headR*0.525, depth:headR*0.25, height:headR*0.62}), maskMat);
       mask.position.set(0, hY-headR*0.42, headR*0.55 + HEAD_BACK_Z);
-      mask.castShadow = true; group.add(mask);
+      mask.castShadow = true; group.add(mask); headwear.push(mask);
       // フード+マスクで顔をほぼ覆っているため、既存の球目(白目+瞳+
       // ハイライト、頭の外へ張り出す形状)をそのまま出すと、覆面の上に
       // 目玉だけが浮いて見えて不気味(ユーザー指摘)。この見た目のクラスは
@@ -1278,7 +1283,7 @@
       const ponytail = new THREE.Mesh(new THREE.ConeGeometry(0.075, bodyH*0.5, 7), longHairMat);
       ponytail.position.set(0, hY-headR*1.9, -headR*0.85);
       ponytail.rotation.set(-0.32, 0, 0);
-      ponytail.castShadow = true; group.add(ponytail);
+      ponytail.castShadow = true; group.add(ponytail); headwear.push(ponytail);
       // knife stock + pouch on the belt, one each side(軽装ゆえの最小限の防具)
       const stock = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.22,0.07), darkMat);
       stock.position.set(-bodyR-0.06, 0.72, 0.02); group.add(stock);
@@ -1334,13 +1339,13 @@
       // MAGE_CONE_*定数を使う ―― Geometry生成とCoverage判定が同じ値を
       // 共有するため
       const brim = new THREE.Mesh(makeMageHatBrim(headR*MAGE_BRIM_RADIUS_BASE_MUL, MAGE_BRIM_THICKNESS), hatMatBrim);
-      brim.position.set(0, hY+headR*MAGE_BRIM_Y_OFFSET_MUL, HEAD_BACK_Z); brim.castShadow = true; group.add(brim);
+      brim.position.set(0, hY+headR*MAGE_BRIM_Y_OFFSET_MUL, HEAD_BACK_Z); brim.castShadow = true; group.add(brim); headwear.push(brim);
       const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*MAGE_CONE_R_MUL, MAGE_CONE_HEIGHT_ABS, 7), hatMatCone);
       cone.position.set(0, hY+headR*MAGE_CONE_CENTER_OFFSET_MUL+MAGE_CONE_HEIGHT_ABS/2, HEAD_BACK_Z);
-      cone.rotation.set(-0.16, 0, 0.1); cone.castShadow = true; group.add(cone);
+      cone.rotation.set(-0.16, 0, 0.1); cone.castShadow = true; group.add(cone); headwear.push(cone);
       const band = new THREE.Mesh(new THREE.TorusGeometry(headR*1.2, 0.035, 8, 14), clothAcc);
       band.rotation.x = Math.PI/2;
-      band.position.set(0, hY+headR*0.6, HEAD_BACK_Z); group.add(band);
+      band.position.set(0, hY+headR*0.6, HEAD_BACK_Z); group.add(band); headwear.push(band);
       // 前髪(参考画像: 額にかかる紫の前髪)は、Hair再設計Phase 1で全クラス
       // 共通のBangs(Center/Left/Right、makeHairBang())へ統合されたため、
       // ここにあった魔法使い専用の球ジオメトリ製の前髪(SphereGeometry3個)は
@@ -1405,10 +1410,10 @@
       // height=capHは旧Cylinderの引数と同じ値のまま ―― position/
       // CapTop/Peakは変更していない
       const cap = new THREE.Mesh(makeArcherCap({width:capR, depth:capR, height:capH}), clothMat);
-      cap.position.set(0, capCenterY, HEAD_BACK_Z); cap.castShadow = true; group.add(cap);
+      cap.position.set(0, capCenterY, HEAD_BACK_Z); cap.castShadow = true; group.add(cap); headwear.push(cap);
       const capTop = new THREE.Mesh(new THREE.CircleGeometry(headR*ARCHER_CAP_TOP_R_MUL, capSegs), clothMat);
       capTop.rotation.x = -Math.PI/2;
-      capTop.position.set(0, capCenterY+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop);
+      capTop.position.set(0, capCenterY+capH/2, HEAD_BACK_Z); capTop.castShadow = true; group.add(capTop); headwear.push(capTop);
       // Priority 1-1(設計図との差分レポート): 幅の広いつば(Brim)。
       // makeArcherBrim()(05-rendering-rig.js、Mage Hatのつばアウトラインを
       // そのまま再利用)を、Capの下端(生え際のすぐ上)のさらに少し下に
@@ -1416,7 +1421,7 @@
       const brim = new THREE.Mesh(
         makeArcherBrim(headR*ARCHER_BRIM_RADIUS_MUL, ARCHER_BRIM_THICKNESS), clothMat);
       brim.position.set(0, hY+headR*ARCHER_BRIM_Y_OFFSET_MUL, HEAD_BACK_Z);
-      brim.castShadow = true; group.add(brim);
+      brim.castShadow = true; group.add(brim); headwear.push(brim);
       // ユーザー指摘:「鷹の目の方が下位職っぽい見た目になってしまってる」
       // 「帽子のつばの透過はあまり意味なく輪郭自体は残ってる。つばハマった
       // 方がいいので目にめり込まないように上にシフトして存在させて」
@@ -1456,7 +1461,7 @@
       const archerMask = new THREE.Mesh(
         makeRogueMask({width:headR*0.525, depth:headR*0.25, height:headR*0.62}), archerMaskMat);
       archerMask.position.set(0, hY-headR*0.42, headR*0.55 + HEAD_BACK_Z);
-      archerMask.castShadow = true; group.add(archerMask);
+      archerMask.castShadow = true; group.add(archerMask); headwear.push(archerMask);
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
       // 上げた際(#39系「参考画像のような頭身に」)、見下ろし視点の
       // カメラ角度では前方へ張り出す水平な板が必ず目の上に重なって見える
@@ -1667,6 +1672,31 @@
       playerMixerParts.offhandGripOff = null;
     }
 
+    /* ---- Head Rig ----
+       頭・髪・目・帽子はどれも group 直下の独立したメッシュだったので、
+       頭だけを回すと顔と髪が置き去りになって分離した。つまり「視線」という
+       表現がそもそも使えなかった ―― 弓師の残心で「体は半身のまま、視線
+       だけ敵へ」を作れなかったのはこれが理由。
+
+       ここで首の付け根寄りに1つピボットを立て、頭に付くものを全部その子に
+       する。以降、頭を向けるのはこのピボットを回すだけでよく、メッシュ
+       個々には一切触らない。回転順を YXZ にしてあるのは、首が
+       「向いてから上下」の順に動くのが自然なため(既定の XYZ だと
+       左右を向いた状態での頷きが傾きになる)。
+
+       襟・毛皮のラフ・マント・矢筒は入れない ―― 肩や背に付くもので、
+       頭が向いても動いてはいけない(headwear の作り方は上を参照)。 */
+    const headPivot = new THREE.Group();
+    headPivot.rotation.order = 'YXZ';
+    headPivot.position.set(0, HIP_Y + neckPivotY(B), 0);
+    playerMixerParts.headGroupParts.concat(headwear).forEach(m=>{
+      m.position.sub(headPivot.position);
+      headPivot.add(m);
+    });
+    group.add(headPivot);
+    playerMixerParts.headPivot = headPivot;
+    playerMixerParts.headwear = headwear;
+
     /* Everything above the belt moves onto a waist pivot, so the torso can
        counter-rotate against the stride instead of the whole body turning as
        one rigid post. The legs, the pelvis and the footing ring stay on the
@@ -1847,8 +1877,9 @@
     if(P.headScaleGroup){
       const hg = P.headScaleGroup;
       hg.children.slice().forEach(m=>{
-        m.position.add(hg.position);   // headScaleGroup local -> waist local(縮小前の座標に戻る)
-        if(P.waist) P.waist.add(m);
+        m.position.add(hg.position);   // headScaleGroup local -> HeadPivot local(縮小前の座標に戻る)
+        const host = P.headPivot || P.waist;
+        if(host) host.add(m);
       });
       if(hg.parent) hg.parent.remove(hg);
       P.headScaleGroup = null;
@@ -1918,16 +1949,21 @@
       // だけ ―― clearJobPromotionVisualで素の剣士に戻る際は、このグループ
       // を分解して元の位置・スケールへ戻す。詳細はclearJobPromotionVisual
       // 冒頭のコメント参照)
-      if(P.headGroupParts && P.headGroupParts.length && P.waist){
-        const headPivot = new THREE.Group();
-        headPivot.position.set(0, headYLocal, 0);
-        P.waist.add(headPivot);
+      /* Head Rig 導入後: 縮小グループは waist ではなく HeadPivot の子に
+         する。でないと頭を向けた時に、縮小された頭だけがピボットの外に
+         取り残されて首から離れてしまう。位置も HeadPivot からの相対に
+         直してある(中身と縮小の仕方そのものは従来のまま) */
+      const headHost = P.headPivot || P.waist;
+      if(P.headGroupParts && P.headGroupParts.length && headHost){
+        const scaleGroup = new THREE.Group();
+        scaleGroup.position.set(0, headYLocal - (P.headPivot ? P.headPivot.position.y : 0), 0);
+        headHost.add(scaleGroup);
         P.headGroupParts.forEach(m=>{
-          m.position.sub(headPivot.position);
-          headPivot.add(m);
+          m.position.sub(scaleGroup.position);
+          scaleGroup.add(m);
         });
-        headPivot.scale.setScalar(0.86);
-        P.headScaleGroup = headPivot;   // jobDecorMeshesとは別管理(dispose禁止)
+        scaleGroup.scale.setScalar(0.86);
+        P.headScaleGroup = scaleGroup;   // jobDecorMeshesとは別管理(dispose禁止)
       }
 
       // 素の剣士の丸い兜・毛皮棘・革帯・丸い肩当てを隠す(dispose無し、
@@ -2719,6 +2755,29 @@
       hoodBrow.castShadow = true;
       P.waist.add(hoodBrow); meshes.push(hoodBrow);
       }
+    }
+
+    /* Head Rig: 上位職の装飾のうち、首から上に付いたものを HeadPivot の
+       子へ移す。兜・面覆い・前立て・フード・逆立つ髪などがこれに当たり、
+       これをやらないと「基礎職は頭を向けるのに、転身すると兜だけ正面を
+       向いたまま」という壊れ方をする。
+
+       除外するのは、毎フレーム position を書き換える装飾(魔導士の浮遊石・
+       足元の魔法陣・闘気オーラ・鷹の目の肩の鷹) ―― 親が回ると書き込む
+       座標系ごと回ってしまうため。回転しか触らないもの(マント・髪の
+       揺れ)は移してよい。腕や既存ピボットの子として足したものも
+       (waist 直下ではないので)そのまま残る。 */
+    if(P.headPivot && P.waist){
+      const positionDriven = new Set();
+      (anim.crystals || []).forEach(c=> positionDriven.add(c.mesh));
+      [anim.circle, anim.auraRing, anim.hawk].forEach(m=>{ if(m) positionDriven.add(m); });
+      const neckY = P.headPivot.position.y;
+      meshes.forEach(m=>{
+        if(m.parent !== P.waist || positionDriven.has(m)) return;
+        if(m.position.y <= neckY) return;
+        m.position.y -= neckY;
+        P.headPivot.add(m);
+      });
     }
 
     P.jobDecorMeshes = meshes;

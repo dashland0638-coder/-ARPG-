@@ -67,6 +67,11 @@ import {
 import { rigFromBuild, holsterAnchorLocal } from '../core/pose-geometry.js';
 import { COMBAT_STANCES, ALT_WEAPON_STANCES, GRIP_OFFSETS } from '../core/combat-stances.js';
 import { MOTION_POSES } from '../core/motion-poses.js';
+import {
+  HEAD_LIMITS, HEAD_FOLLOW_RATE, HEAD_RELEASE_RATE, neckPivotY,
+  wrapAngle, clampAngle, approachAngle, yawToTarget,
+  localHeadYaw, localHeadPitch, idleHeadAngles,
+} from '../core/head-rig.js';
 
 `;
 

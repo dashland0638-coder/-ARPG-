@@ -3259,6 +3259,7 @@
   function resetCharacterMotion(worldKey){
     motionState.classKey = state.classDef ? state.classDef.key : 'warrior';
     resetForWorld(motionState, {social: isSocialWorld(worldKey)});
+    resetHeadRig();
     motionCombatHoldT = 0;
     invalidateMotionClips();
     playerMixerParts.holsterBlend = holsterBlend(motionState);
@@ -3370,10 +3371,121 @@
       ? holsterAnchorLocal(rig, att.offSheathed, clsKey).pos : null;
   }
 
+  /* =========================================================
+     HEAD RIG ―― 視線
+
+     体 → 肩 → 頭 の順に向きが乗るので、頭に持たせるのは「体と上半身が
+     まだ向けていない残り」だけでよい(core/head-rig.js)。これで、腰が
+     半身に捻れていれば頭は少し戻し、体が正面を向けば頭も自然に正面へ
+     戻る ―― 弓師の残心が、専用の分岐を1つも書かずに成立する。
+
+     見る先は状態が決める:
+       COMBAT / DRAWING / POST_COMBAT   いちばん近い敵
+       SHEATHING                        直前に見ていた敵の方向(残心)
+       EXPLORATION / SOCIAL             目標なし。周囲へゆるく視線を送る
+  ========================================================= */
+  const _headTarget = new THREE.Vector3();
+  let headYaw = 0, headPitch = 0, headRoll = 0;
+  let headHasTarget = false;          // 直前のフレームで敵を見ていたか
+  let headLookT = 0;                  // 目標が無い時の「周囲を見る」位相
+
+  // いま視線を向けるべき相手。無ければ null
+  function headLookEnemy(){
+    if(typeof enemies === 'undefined' || !enemies) return null;
+    let best = null, bestD = Infinity;
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      if(!en || en.dead || en.dormant || en.dummy || !en.group) continue;
+      const d = state.pos.distanceToSquared(en.group.position);
+      if(d < bestD){ bestD = d; best = en; }
+    }
+    return best;
+  }
+
+  function updateHeadRig(dt){
+    const P = playerMixerParts;
+    if(!P.headPivot || !player) return;
+    headLookT += dt;
+
+    const C = motionState.character;
+    const aiming = C === CHARACTER_STATE.COMBAT
+                || C === CHARACTER_STATE.DRAWING
+                || C === CHARACTER_STATE.POST_COMBAT;
+    /* 残心。納刀の最中は新しく敵を探さず、直前に見ていた方向をそのまま
+       保つ ―― 弓を収め終えても体が半身のままなので、頭も敵の方を向いた
+       ままになる。腰が正面へ戻るのはクリップの最後だけで、その時に
+       初めて頭も自然に正面へ戻る(頭を戻す処理はどこにも書いていない)。 */
+    const holding = C === CHARACTER_STATE.SHEATHING && headHasTarget;
+
+    let targetYaw = null, targetPitch = 0;
+    if(aiming){
+      const en = headLookEnemy();
+      if(en){
+        _headTarget.copy(en.group.position);
+        headHasTarget = true;
+      }
+    } else if(!holding){
+      headHasTarget = false;
+    }
+
+    if((aiming || holding) && headHasTarget){
+      targetYaw = yawToTarget(state.pos.x, state.pos.z, _headTarget.x, _headTarget.z);
+      const dist = Math.hypot(_headTarget.x - state.pos.x, _headTarget.z - state.pos.z);
+      // 敵の足元ではなく胴のあたりを見る。真下を覗き込む首にしないため
+      targetPitch = localHeadPitch({
+        dy: (_headTarget.y + 0.9) - (state.pos.y + P.build.hipY + P.headPivot.position.y),
+        dist, waistPitch: P.waist ? P.waist.rotation.x : 0,
+      });
+    }
+
+    let wantYaw, wantPitch, wantRoll, rate;
+    if(targetYaw !== null){
+      wantYaw = localHeadYaw({
+        targetYaw, bodyYaw: visualFacing,
+        waistYaw: P.waist ? P.waist.rotation.y : 0,
+      });
+      wantPitch = targetPitch;
+      wantRoll = clampAngle(wantYaw * 0.10, HEAD_LIMITS.roll);
+      rate = HEAD_FOLLOW_RATE;
+    } else {
+      const idle = idleHeadAngles(C, headLookT);
+      wantYaw = clampAngle(idle.yaw, HEAD_LIMITS.yaw);
+      wantPitch = clampAngle(idle.pitch - (P.waist ? P.waist.rotation.x : 0), HEAD_LIMITS.pitch);
+      wantRoll = clampAngle(idle.roll, HEAD_LIMITS.roll);
+      // 敵を見失った直後はゆっくり周囲へ戻す(急に正面を向き直さない)
+      rate = HEAD_RELEASE_RATE;
+    }
+
+    headYaw = approachAngle(headYaw, wantYaw, rate, dt);
+    headPitch = approachAngle(headPitch, wantPitch, rate, dt);
+    headRoll = approachAngle(headRoll, wantRoll, rate * 0.7, dt);
+    P.headPivot.rotation.set(headPitch, headYaw, headRoll);
+  }
+
+  // ワールド切り替え時に首もまっすぐへ戻す(暗転の裏なので即座でよい)
+  function resetHeadRig(){
+    headYaw = headPitch = headRoll = 0;
+    headHasTarget = false;
+    const P = playerMixerParts;
+    if(P.headPivot) P.headPivot.rotation.set(0,0,0);
+  }
+
   // 開発用: 現在の状態を1行で(デバッグモード時のみ表示される)
   function motionDebugLine(){
-    return `${motionState.character}/${motionState.weapon} `
-         + `t=${motionState.t.toFixed(2)} holster=${holsterBlend(motionState).toFixed(2)}`;
+    const deg = r => (r * 180 / Math.PI).toFixed(0);
+    const action = state.swinging ? 'ATTACK'
+                 : state.dodging ? 'DODGE'
+                 : (state.charging || state.skillCharging || state.ultAiming) ? 'CHARGE'
+                 : state.skillAnim ? 'SKILL' : 'IDLE';
+    return [
+      `Character: ${motionState.character}`,
+      `Weapon:    ${motionState.weapon}`,
+      `Action:    ${action}`,
+      `Holster:   ${holsterBlend(motionState).toFixed(2)}`,
+      `HeadYaw:   ${deg(headYaw)}`,
+      `HeadPitch: ${deg(headPitch)}`,
+      `Target:    ${headHasTarget ? 'enemy' : 'none'}`,
+    ].join('\n ');
   }
 
   /* =========================================================

@@ -1168,6 +1168,10 @@
     player.rotation.z =  leanX*0.55;
 
     applyCombatPose();   // an attack or a charge overrides the walk cycle
+    /* 首は上半身の向きが決まったあとで。頭に持たせるのは「体と腰がまだ
+       向けていない残り」だけなので、腰(この上の歩行サイクルと、直前の
+       攻撃クリップ)より後でなければ計算が1フレーム古くなる */
+    updateHeadRig(dt);   // 視線(05-rendering-rig.js)
     applyPoseShift();    // the lunge and the sink that give a blow its weight
     updateGrip();        // the weapon lands on wherever the hand ended up
     updateBowDraw();     // and the string on wherever the drawing hand ended up

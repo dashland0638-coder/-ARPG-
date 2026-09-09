@@ -27,9 +27,20 @@ const CLASSES = [
 ];
 
 async function motionLine(page) {
-  const text = await page.locator('#perf-panel').textContent();
-  const m = /MOTION\s*\n?\s*([A-Z_]+)\/([A-Z]+)/.exec(text || '');
-  return m ? { character: m[1], weapon: m[2], raw: text } : { character: '?', weapon: '?', raw: text };
+  const text = (await page.locator('#perf-panel').textContent()) || '';
+  const field = (name) => {
+    const m = new RegExp(name + ':\\s*(\\S+)').exec(text);
+    return m ? m[1] : '?';
+  };
+  return {
+    character: field('Character'),
+    weapon: field('Weapon'),
+    action: field('Action'),
+    headYaw: Number(field('HeadYaw')),
+    headPitch: Number(field('HeadPitch')),
+    target: field('Target'),
+    raw: text,
+  };
 }
 
 // デバッグパネルの MOTION 行が期待の状態になるまで待つ

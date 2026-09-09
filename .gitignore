@@ -3,3 +3,4 @@ test-results/
 playwright-report/
 dist/
 qa-shoot.mjs
+.pw-local.config.mjs
