@@ -14,13 +14,14 @@ import assert from 'node:assert/strict';
 import { MOTION_POSES, MOTION_STANCE_POSES } from '../../src/core/motion-poses.js';
 import { COMBAT_STANCES, GRIP_OFFSETS } from '../../src/core/combat-stances.js';
 import { rigFromBuild, poseIssues, armPoints, holsterAnchorLocal } from '../../src/core/pose-geometry.js';
+import { HEAD_LIMITS, NECK_PIVOT_FRAC } from '../../src/core/head-rig.js';
 import {
   CHARACTER_STATE, WEAPON_STATE, ATTACH, holsterBlend, timingFor, attachFor, MOTION_TIMING,
 } from '../../src/core/character-motion-state.js';
 
 const RIG = rigFromBuild(
   {height:0.80, hipY:1.10, chest:0.345, shoulderOut:0.105, headR:0.3705, headGap:0.27, hipR:0.265},
-  {headBackZ:-0.05, headDepthMul:0.85});
+  {headBackZ:-0.05, headDepthMul:0.85, neckPivotFrac: NECK_PIVOT_FRAC});
 const CLASSES = ['warrior', 'rogue', 'mage', 'archer'];
 
 // 05-rendering-rig.js の sampleClip() と同じ補間(イージングは形の検査に
@@ -106,6 +107,39 @@ test('抜刀・納刀・余韻の全フレームで関節が破綻せず、手�
             aimWorld: !!st.aimWorld,
           }, holsterOpts(cls, kind, u)));
           assert.deepEqual(issues, [], `${cls}/${kind} t=${u.toFixed(2)}: ${issues.join(', ')}`);
+        }
+      }
+    });
+  }
+});
+
+test('抜刀・納刀の途中で首を振っても、武器が頭を貫通しない', async (t) => {
+  /* Head Rig を入れたことで頭は正面固定ではなくなった。抜刀で刃が顔の
+     すぐ横を通る職(剣士)では、そこで首を振っているかどうかで当たり方が
+     変わるため、可動域の端でも確かめる。 */
+  const heads = [
+    { yaw: 0, pitch: 0 },
+    { yaw: HEAD_LIMITS.yaw, pitch: 0 },
+    { yaw: -HEAD_LIMITS.yaw, pitch: 0 },
+    { yaw: HEAD_LIMITS.yaw, pitch: HEAD_LIMITS.pitch },
+    { yaw: -HEAD_LIMITS.yaw, pitch: -HEAD_LIMITS.pitch },
+  ];
+  for (const cls of CLASSES) {
+    await t.test(cls, () => {
+      const clips = clipsFor(cls);
+      const st = COMBAT_STANCES[cls];
+      for (const kind of ['draw', 'post', 'sheathe']) {
+        for (let i = 0; i <= 24; i++) {
+          const u = i / 24;
+          const pose = sampleLinear(clips[kind], u);
+          for (const head of heads) {
+            const issues = poseIssues(RIG, pose, Object.assign({
+              gripOffset: GRIP_OFFSETS[cls], tipLen: st.tip,
+              grip: pose.grip || st.grip, aimWorld: !!st.aimWorld, head,
+            }, holsterOpts(cls, kind, u))).filter(x => x.startsWith('bladeThroughHead'));
+            assert.deepEqual(issues, [],
+              `${cls}/${kind} t=${u.toFixed(2)} yaw=${(head.yaw * 180 / Math.PI).toFixed(0)}度: ${issues.join(', ')}`);
+          }
         }
       }
     });

@@ -17,8 +17,9 @@ import { MOTION_POSES, MOTION_STANCE_POSES } from '../../src/core/motion-poses.j
 import {
   rigFromBuild, armPoints, weaponSegment, poseIssues,
   bladeHeadPenetration, bladeTorsoPenetration, elbowBroken,
-  holsterAnchorLocal, UPPER_ARM_LEN, FOREARM_LEN,
+  holsterAnchorLocal, headCenterAt, UPPER_ARM_LEN, FOREARM_LEN,
 } from '../../src/core/pose-geometry.js';
+import { HEAD_LIMITS, NECK_PIVOT_FRAC } from '../../src/core/head-rig.js';
 
 /* buildPlayer() が使う体格。BUILD(05-rendering-rig.js)の male/female を
    そのまま写したもので、寸法が変わればこのテストも一緒に更新する必要が
@@ -27,9 +28,10 @@ const BUILDS = {
   male:   {height:0.80, hipY:1.10, chest:0.345, shoulderOut:0.105, headR:0.3705, headGap:0.27, hipR:0.265},
   female: {height:0.74, hipY:1.05, chest:0.320, shoulderOut:0.098, headR:0.3515, headGap:0.26, hipR:0.250},
 };
+const RIG_OPTS = { headBackZ: -0.05, headDepthMul: 0.85, neckPivotFrac: NECK_PIVOT_FRAC };
 const RIGS = {
-  male: rigFromBuild(BUILDS.male, {headBackZ:-0.05, headDepthMul:0.85}),
-  female: rigFromBuild(BUILDS.female, {headBackZ:-0.05, headDepthMul:0.85}),
+  male: rigFromBuild(BUILDS.male, RIG_OPTS),
+  female: rigFromBuild(BUILDS.female, RIG_OPTS),
 };
 const ARM_REACH = UPPER_ARM_LEN + FOREARM_LEN;
 const CLASSES = ['warrior', 'rogue', 'mage', 'archer'];
@@ -47,6 +49,44 @@ test('4職の戦闘構えに関節破綻・武器の身体貫通が無い', asyn
         assert.deepEqual(issues, [], `${cls}/${build}: ${issues.join(', ')}`);
       }
     });
+  }
+});
+
+/* Head Rig を入れたことで、頭は正面固定ではなくなった ―― 首を振り切った
+   先で武器と当たらないかは、正面向きで測っていては分からない。可動域の
+   隅々まで振ってから、同じ幾何チェックを掛ける。 */
+const HEAD_SWEEP = [];
+for (let i = -1; i <= 1; i += 0.5) {
+  for (let j = -1; j <= 1; j += 0.5) {
+    HEAD_SWEEP.push({ yaw: HEAD_LIMITS.yaw * i, pitch: HEAD_LIMITS.pitch * j });
+  }
+}
+
+test('首を可動域いっぱいに振っても、武器が頭を貫通しない', async (t) => {
+  for (const cls of CLASSES) {
+    await t.test(cls, () => {
+      const seg = weaponSegment(RIGS.male, COMBAT_STANCES[cls], optsFor(cls));
+      for (const head of HEAD_SWEEP) {
+        const clear = -bladeHeadPenetration(RIGS.male, seg, head);
+        assert.ok(clear > 0,
+          `${cls}: yaw ${(head.yaw * 180 / Math.PI).toFixed(0)}度 / pitch ${(head.pitch * 180 / Math.PI).toFixed(0)}度 で ${clear.toFixed(3)}m`);
+      }
+    });
+  }
+});
+
+test('頭を振っても、頭が首から離れない(ピボットの腕の長さが妥当)', () => {
+  const rig = RIGS.male;
+  const rest = headCenterAt(rig, { yaw: 0, pitch: 0 });
+  for (const head of HEAD_SWEEP) {
+    const c = headCenterAt(rig, head);
+    // ピボットからの距離は回転で変わらない(＝首が伸び縮みしない)
+    const lever = Math.hypot(c.x, c.y - rig.neckY, c.z);
+    const restLever = Math.hypot(rest.x, rest.y - rig.neckY, rest.z);
+    assert.ok(Math.abs(lever - restLever) < 1e-9, '首の長さが変わっている');
+    // 振り切っても、頭の球は首の付け根を覆ったまま(＝隙間ができない)
+    const gap = Math.hypot(c.x, c.y - rig.neckY, c.z) - rig.headR;
+    assert.ok(gap < 0.0, `首と頭の間に ${gap.toFixed(3)}m の隙間ができる`);
   }
 });
 

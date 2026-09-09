@@ -102,12 +102,22 @@ for (const cls of CLASSES) {
     expect(afterDodge.character, '回避終了後も Combat のまま').toBe('COMBAT');
     expect(afterDodge.weapon).toBe('DRAWN');
 
+    // ---- 視線が敵を捉えている(Head Rig) ----
+    const inCombat = await motionLine(page);
+    expect(inCombat.target, '戦闘中は敵を視線の対象にしている').toBe('enemy');
+    expect(Math.abs(inCombat.headYaw), '首の可動域(±34度)を越えていない').toBeLessThanOrEqual(35);
+    expect(Math.abs(inCombat.headPitch)).toBeLessThanOrEqual(18);
+    await page.screenshot({ path: `test-results/motion-${cls.key}-combat.png` });
+
     // ---- 敵を消す(= 最後の敵を倒した相当)→ 余韻 → 納刀 → 探索 ----
     await page.click('#arena-clear-btn');
     // POST_COMBAT / SHEATHING は短いので、最終的に EXPLORATION まで
     // 到達すること(=どこかで詰まらないこと)を確認する
     await waitForState(page, 'EXPLORATION', 60_000);
-    expect((await motionLine(page)).weapon, '納刀し切って収納状態へ戻る').toBe('SHEATHED');
+    const after = await motionLine(page);
+    expect(after.weapon, '納刀し切って収納状態へ戻る').toBe('SHEATHED');
+    expect(after.target, '戦闘が終われば視線の対象も外れる').toBe('none');
+    await page.screenshot({ path: `test-results/motion-${cls.key}-explore.png` });
 
     expect(errors, `コンソールエラー/例外が発生していないこと:\n${errors.join('\n')}`).toEqual([]);
   });
@@ -160,5 +170,44 @@ test('酒場では SOCIAL、ダンジョンへ出ると EXPLORATION になる', 
   const inTavern = await motionLine(page);
   expect(inTavern.character, `酒場では SOCIAL (実際: ${inTavern.raw})`).toBe('SOCIAL');
   expect(inTavern.weapon).toBe('SHEATHED');
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('弓師の残心: 弓を収めても、体が正面へ戻るまで視線は敵方向に残る', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  await openGame(page);
+  await enterTraining(page, 'archer');
+  await waitForState(page, 'EXPLORATION');
+
+  await page.click('#arena-toggle-btn');
+  await page.locator('#arena-roster button', { hasText: 'Flying Test' }).click();
+  await waitForState(page, 'COMBAT');
+  const aiming = await motionLine(page);
+  expect(aiming.target).toBe('enemy');
+  const aimingYaw = aiming.headYaw;
+
+  /* 敵を消してから納刀し切るまでの間、視線は「none」へ落ちない ――
+     残心の実体は、納刀の最中に新しく敵を探さず直前の方向を保つこと。
+     体(腰)が正面へ戻るのは納刀クリップの最後だけなので、頭が先に
+     正面へ戻ることも起きない。 */
+  await page.click('#arena-clear-btn');
+  let sawHolding = false;
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    const s = await motionLine(page);
+    if (s.character === 'EXPLORATION') break;
+    if (s.character === 'SHEATHING') {
+      expect(s.target, '納刀中も視線の対象を手放さない(残心)').toBe('enemy');
+      // 敵を見ていた向きから、頭が先に正面(0)へ戻っていないこと
+      expect(Math.abs(s.headYaw), `納刀中に頭だけ正面へ戻っている (yaw=${s.headYaw})`)
+        .toBeGreaterThan(Math.abs(aimingYaw) * 0.35);
+      sawHolding = true;
+    }
+    await page.waitForTimeout(80);
+  }
+  expect(sawHolding, '納刀の状態を観測できていること').toBe(true);
+  await waitForState(page, 'EXPLORATION', 60_000);
+  expect((await motionLine(page)).target, '最後に視線が解ける').toBe('none');
   expect(errors, errors.join('\n')).toEqual([]);
 });

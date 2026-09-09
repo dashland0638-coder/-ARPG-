@@ -3185,6 +3185,61 @@
   /* 現在の立ち姿(スムージング済み)。目標へ毎フレーム減衰で寄せることで、
      状態が切り替わった瞬間にポーズが飛ぶことがない ―― 状態遷移そのものは
      一瞬で起きてよく、見た目だけが追いかける、という分担にしてある。 */
+  /* Combat Idle(core/combat-idle.js)。構えの上に足すごく小さな揺れで、
+     「戦闘中だが次の行動を選んでいる」状態を作る。歩き出したら 0 へ
+     落とす ―― 歩行サイクルが既に腕を振っているところへ重ねない。 */
+  let _idleT = 0, _idleAmount = 0;
+  const _idleZero = combatIdleOffsets('warrior', 0, 0);
+  let _idle = _idleZero;
+  /* 攻撃・回避を終えた直後の「収まり」の経過秒。振り切った勢いが抜けて
+     いく減衰振動を構えの上に足すためのもので、-1 は「今は何も残って
+     いない」。肩と武器の両方に同じ振動が乗り、武器はさらに職業ごとの
+     追従速度を通るので必ず遅れて収まる(core/combat-idle.js 参照)。 */
+  let _settleT = -1, _wasSwinging = false, _wasDodging = false;
+
+  function addOffsets(a, b){
+    const out = {};
+    for(const k in a) out[k] = a[k] + (b[k] || 0);
+    return out;
+  }
+
+  /* 立ち姿の上に足す小さな揺れ。戦闘中は Combat Idle、酒場・探索では
+     何気ない重心の移り(core/combat-idle.js の AMBIENT_IDLE)。抜刀/納刀の
+     最中はクリップ自体が動いているので何も足さない。 */
+  function updateIdleOverlay(dt){
+    const clsKey = state.classDef ? state.classDef.key : 'warrior';
+    const C = motionState.character;
+    const inGuard = C === CHARACTER_STATE.COMBAT || C === CHARACTER_STATE.POST_COMBAT;
+    const ambient = C === CHARACTER_STATE.SOCIAL || C === CHARACTER_STATE.EXPLORATION;
+    const busy = state.swinging || state.dodging || state.skillAnim
+              || state.charging || state.skillCharging || state.ultAiming;
+
+    // 振り/回避が終わった瞬間から収まりを開始する(既存のフラグを見るだけで、
+    // 攻撃側・回避側のタイミングには一切触れていない)
+    if((_wasSwinging && !state.swinging) || (_wasDodging && !state.dodging)) _settleT = 0;
+    _wasSwinging = !!state.swinging;
+    _wasDodging = !!state.dodging;
+    if(busy) _settleT = -1;                       // 次の動作に入ったら打ち切る
+    else if(_settleT >= 0) _settleT += dt;
+
+    const speed = state.vel ? state.vel.length() : 0;
+    // 立ち止まっている時だけ最大。歩き出すと 0.9m/s あたりで消える
+    // ―― 歩行サイクルが既に腕を振っているところへ重ねない
+    const want = ((inGuard || ambient) && !busy && state.grounded)
+      ? Math.max(0, 1 - speed / 0.9) : 0;
+    _idleAmount += (want - _idleAmount) * Math.min(1, dt * 6);
+    _idleT += dt;
+    const idle = _idleAmount > 0.001
+      ? idleOffsetsFor(C, clsKey, _idleT, _idleAmount) : _idleZero;
+    const settleAmt = _settleT >= 0 ? attackSettleAmount(clsKey, _settleT) : 0;
+    if(settleAmt <= 0){
+      if(_settleT >= 0) _settleT = -1;
+      _idle = idle;
+    } else {
+      _idle = addOffsets(idle, attackSettleOffsets(clsKey, _settleT));
+    }
+  }
+
   let _stance = null;
   const STANCE_ANGLE_KEYS = ['elL','elR','hipL','hipR','kneeL','kneeR','armSwing','gripW','draw'];
 
@@ -3227,7 +3282,16 @@
     const wr = WEAPON_FOLLOW_RATE[state.classDef ? state.classDef.key : 'warrior'] || 12;
     const kw = Math.min(1, dt * wr);
     const tw = target.wep;
-    if(tw) for(let i=0;i<6;i++) _stance.wep[i] += (tw[i]-_stance.wep[i])*kw;
+    if(tw){
+      /* Combat Idle の武器の揺れは「目標の向き」へ足す ―― 追従はこの下の
+         補間が職業ごとの速度で行うので、剣士の大剣ほど大きく遅れて付いて
+         くる。武器の速度を落とすのではなく、身体が動いた結果として遅れる、
+         という作り方(だから「よいしょ」に見えない) */
+      for(let i=0;i<6;i++){
+        const bias = i === 0 ? _idle.wepYaw : i === 2 ? _idle.wepPitch : 0;
+        _stance.wep[i] += ((tw[i] + bias) - _stance.wep[i]) * kw;
+      }
+    }
   }
 
   /* 敵が近くにいるか。updateCombatMusic() と同じ「生きていて眠っていない
@@ -3306,6 +3370,7 @@
       && (motionCombatHoldT > 0
        || isHostileNearby(nearestHostileDistance(), motionState.engaged));
     updateMotionState(motionState, dt, {hostileNearby, busy: motionBusy(), social});
+    updateIdleOverlay(dt);
     dampStance(targetStancePose(), dt);
     applyStanceToRig(dt);
   }
@@ -3313,21 +3378,28 @@
   /* 立ち姿をリグへ書き込む。ここで書くのは「基準値」だけで、実際の
      腕・脚の角度は updateLocomotion がこの基準に歩幅を足して決める ――
      だから探索中は探索の構えから腕が振れ、戦闘中は戦闘の構えから振れる。 */
+  const _stanceWaistOut = [0,0,0];
   function applyStanceToRig(dt){
     const P = playerMixerParts;
     if(!P.armLBase || !_stance) return;
-    P.armLBase.set(_stance.shL[0], _stance.shL[1], _stance.shL[2]);
-    P.armRBase.set(_stance.shR[0], _stance.shR[1], _stance.shR[2]);
-    P.elbowLBase.x = _stance.elL;
-    P.elbowRBase.x = _stance.elR;
+    /* Combat Idle は補間の「後」に足す。補間の前に混ぜると、この揺れ自体が
+       立ち姿の追従(9/秒)で鈍らされて、ほとんど消えてしまう */
+    P.armLBase.set(_stance.shL[0] + _idle.shLx, _stance.shL[1], _stance.shL[2]);
+    P.armRBase.set(_stance.shR[0] + _idle.shRx, _stance.shR[1], _stance.shR[2]);
+    P.elbowLBase.x = _stance.elL + _idle.elL;
+    P.elbowRBase.x = _stance.elR + _idle.elR;
     // 肩の捻り/開きは歩行サイクルが触らないので、ここで直接書く
     if(P.armL){ P.armL.rotation.y = _stance.shL[1]; P.armL.rotation.z = _stance.shL[2]; }
     if(P.armR){ P.armR.rotation.y = _stance.shR[1]; P.armR.rotation.z = _stance.shR[2]; }
+    P.stanceDraw = _stance.draw + _idle.draw;
     P.armSwing = _stance.armSwing;
     // updateLocomotion が歩幅へ足す立ち姿ぶんのバイアス
-    P.stanceWaist = _stance.waist;
-    P.stanceHipL = _stance.hipL; P.stanceHipR = _stance.hipR;
-    P.stanceKneeL = _stance.kneeL; P.stanceKneeR = _stance.kneeR;
+    _stanceWaistOut[0] = _stance.waist[0] + _idle.waistPitch;
+    _stanceWaistOut[1] = _stance.waist[1] + _idle.waistYaw;
+    _stanceWaistOut[2] = _stance.waist[2] + _idle.waistRoll;
+    P.stanceWaist = _stanceWaistOut;
+    P.stanceHipL = _stance.hipL + _idle.hipL; P.stanceHipR = _stance.hipR + _idle.hipR;
+    P.stanceKneeL = _stance.kneeL + _idle.kneeL; P.stanceKneeR = _stance.kneeR + _idle.kneeR;
     P.stanceGripW = _stance.gripW;
     /* 収納位置への寄り具合。クリップが作る曲線(最大およそ 6.8/秒)より
        わずかに速い上限で頭打ちにしておく ―― 通常の抜刀/納刀では
@@ -3353,7 +3425,7 @@
     // オフハンドは主武器と同じ向き(メッシュ側が scale.x = -1 で反転済み。
     // buildPlayer() / swapPlayerWeaponVisual() と同じ扱い)
     if(P.offhandWeapon) aimWeapon(P.offhandWeapon, _stance.wep);
-    setBowDraw(_stance.draw || 0);
+    setBowDraw(P.stanceDraw != null ? P.stanceDraw : (_stance.draw || 0));
   }
 
   /* 武器の収納位置(waist ローカル)。骨格寸法から導くので、体格が

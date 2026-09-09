@@ -72,6 +72,11 @@ import {
   wrapAngle, clampAngle, approachAngle, yawToTarget,
   localHeadYaw, localHeadPitch, idleHeadAngles,
 } from '../core/head-rig.js';
+import {
+  COMBAT_IDLE, IDLE_MAX_AMPLITUDE, combatIdleProfile, combatIdleOffsets,
+  ATTACK_SETTLE, attackSettleAmount, attackSettleOffsets,
+  AMBIENT_IDLE, idleProfileFor, idleOffsetsFor,
+} from '../core/combat-idle.js';
 
 `;
 

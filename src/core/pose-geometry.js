@@ -43,6 +43,8 @@ export function rigFromBuild(B, opts) {
     torsoR: B.chest,
     headY: B.height + B.headGap,
     headZ: headBackZ,
+    // Head Rig のピボット(首寄り)。頭を向けると頭の球はこの点を中心に動く
+    neckY: B.height + B.headGap * (o.neckPivotFrac !== undefined ? o.neckPivotFrac : 0.45),
     headR: B.headR,
     headDepthR: B.headR * headDepthMul,
     hipR: B.hipR,
@@ -128,14 +130,26 @@ export function pointToSegment(p, a, b) {
   return p.distanceTo(a.clone().addScaledVector(ab, t));
 }
 
+/* 頭の中心。Head Rig で首を向けると、頭の球はピボット(首寄り)を中心に
+   動く ―― 振り向いた先で武器と当たらないかを測るには、正面向きの位置で
+   測っていては足りない。 */
+export function headCenterAt(rig, head) {
+  const yaw = (head && head.yaw) || 0;
+  const pitch = (head && head.pitch) || 0;
+  const rest = new THREE.Vector3(0, rig.headY - rig.neckY, rig.headZ);
+  // HeadPivot と同じ YXZ(向いてから上下)
+  rest.applyEuler(_e.set(pitch, yaw, 0, 'YXZ'));
+  return new THREE.Vector3(rest.x, rest.y + rig.neckY, rest.z);
+}
+
 /* 線分が「頭の球」にどれだけ食い込むか。頭は前後だけ潰れているので、
    z を headR/headDepthR 倍に伸ばしてから球として測る。
    戻り値 > 0 が貫通量(メートル)。 */
-export function bladeHeadPenetration(rig, seg) {
+export function bladeHeadPenetration(rig, seg, head) {
+  const c = headCenterAt(rig, head);
   const zs = rig.headR / rig.headDepthR;
-  const warp = v => new THREE.Vector3(v.x, v.y, (v.z - rig.headZ) * zs + rig.headZ);
-  const d = pointToSegment(
-    new THREE.Vector3(0, rig.headY, rig.headZ), warp(seg.grip), warp(seg.tip));
+  const warp = v => new THREE.Vector3(v.x, v.y, (v.z - c.z) * zs + c.z);
+  const d = pointToSegment(c, warp(seg.grip), warp(seg.tip));
   return rig.headR - d;
 }
 
@@ -197,7 +211,7 @@ export function poseIssues(rig, pose, opts) {
   if (elbowBroken(pose.elR)) issues.push('elbowR:' + pose.elR);
 
   const seg = weaponSegment(rig, pose, o);
-  const headPen = bladeHeadPenetration(rig, seg);
+  const headPen = bladeHeadPenetration(rig, seg, o.head);
   if (headPen > -headClear) issues.push('bladeThroughHead:' + headPen.toFixed(3));
   /* 鞘から抜いている最中だけは、刃が体表を擦るのが正しい ―― 背中の鞘から
      引き抜く動作は、定義からして刃が背中に沿って滑る動きだから。胴体を
