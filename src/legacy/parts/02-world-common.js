@@ -1816,15 +1816,25 @@
   let stairAutoArmed = true;
 
   function updateStairs(){
-    let nearby = null;
+    let nearby = null, standingOnGated = false;
     if(!nearbyDoor){
       stairs.forEach(s=>{
-        if(s.gateKey && !isGateEnemyDead(s.gateKey)) return; // e.g. the floor only gives way once the mid-boss falls
-        if(state.pos.distanceTo(s.pos) < s.radius) nearby = s;
+        const inRange = state.pos.distanceTo(s.pos) < s.radius;
+        // e.g. the floor only gives way once the mid-boss falls
+        if(s.gateKey && !isGateEnemyDead(s.gateKey)){ if(inRange) standingOnGated = true; return; }
+        if(inRange) nearby = s;
       });
     }
     nearbyStairs = nearby;
-    if(!nearby){
+    /* まだ塞がっている階段の上で戦っている間は、autoを「解除済み」に倒して
+       おく。洋館の地下奥(戦闘④)は中ボス「燭台を提げた影」が階段のほぼ
+       真上に立っているため、これが無いと**倒した瞬間に**床が抜けて主の間へ
+       運ばれ、倒した余韻(影がほどけ、燭台が落ちる短い静寂)がまるごと
+       飛んでしまう。判定圏から一歩出て入り直せば従来どおりautoで流れるし、
+       その場で進みたければ通常の階段プロンプト(nearbyStairs)から進める。 */
+    if(standingOnGated){
+      stairAutoArmed = false;
+    } else if(!nearby){
       stairAutoArmed = true;              // 判定圏の外に出た = 次のautoを許可
     } else if(nearby.auto && stairAutoArmed && !autoStairBusy && !cutscene &&
               !state.dialogueActive && !state.paused){

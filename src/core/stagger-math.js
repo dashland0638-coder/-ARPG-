@@ -107,6 +107,20 @@ export function decayPosture(posture, dt, isBoss) {
   return Math.max(0, p - dt * postureDecayPerSec(isBoss));
 }
 
+/* 雑魚の体幹上限。値は 06-player-enemy.js に直接書かれていたものを
+   そのまま関数にしただけで、55 / 強敵130 / ガード持ち×1.3 は変えていない。
+   bossPostureMax() と並べて置くことで、「通常敵 55 →強敵 130 →ガード持ち
+   169 →ボス 180〜320」という体幹の段差が1ファイルで読めるようにする
+   (森の洋館の学習曲線がこの段差そのものに乗っている。COMBAT_DESIGN.md 9章)。 */
+export const MOB_POSTURE_BASE = 55;
+export const MOB_POSTURE_STRONG = 130;
+export const MOB_POSTURE_GUARDIAN_MUL = 1.3;
+
+export function mobPostureMax({ strongMob = false, guardian = false } = {}, difficultyMul = 1) {
+  const base = strongMob ? MOB_POSTURE_STRONG : MOB_POSTURE_BASE;
+  return Math.round(base * (guardian ? MOB_POSTURE_GUARDIAN_MUL : 1) * (difficultyMul || 1));
+}
+
 /* ボスの体幹上限。旧実装は hpMax*0.28 で、HP インフレがそのまま
    体幹ゲージの長さに化けていた(2600HP のボスで 728 = 通常敵の13倍)。
    HP から切り離し、「通常敵の約4〜6体分」という戦闘テンポ基準の

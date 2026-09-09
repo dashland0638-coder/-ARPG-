@@ -132,7 +132,13 @@
       {pos:new THREE.Vector3(150,0,100), variant:{color:0x8a3a5a, hp:118, atk:22, speed:2.6, atkType:'charge', xp:38, goldBonus:[12,18], roomTag:'manorDeep', gateTag:'manorDeep'}},
       {pos:new THREE.Vector3(140,0,108), variant:{color:0x6a2a7a, hp:104, atk:21, speed:0.8, atkType:'fire',   xp:36, goldBonus:[12,18], projColor:0xc06ae0, roomTag:'manorDeep', gateTag:'manorDeep'}},
       // Phase C(#36)の中ボス枠。名乗りだけ上げて、正体は語らない
+      /* 体幹チュートリアルの中心(COMBAT_DESIGN.md 9章)。突進の溜めだけを
+         既存の chargeTelegraphOverride で 0.65→1.0秒に伸ばしてある ――
+         「体が膨らむ → 突っ込んでくる」を初見でも読み切れる長さにして、
+         回避・パニッシュ・Enemy Step のどれを選ぶか考える一拍を作るため。
+         HP・攻撃力・体幹倍率・Enemy Stepの+55には一切触れていない */
       {pos:new THREE.Vector3(140,0,113), variant:{color:0x5a2a6a, hp:190, atk:26, speed:2.8, atkType:'charge', xp:58, goldBonus:[18,26], strongMob:true, guardian:true, roomTag:'manorDeep', gateTag:'manorDeep',
+        chargeTelegraphOverride:1.0,
         midbossName:'燭台を提げた影', midbossFlavor:'影がほどけ、床に落ちた燭台だけが、まだ小さく揺れていた。'}},
       // ghost ship deck (Lv.6-10 scenario)
       {pos:new THREE.Vector3(-4,0,108), variant:{color:0x8fb5c9, hp:95, atk:19, speed:2.5, atkType:'charge', xp:30, goldBonus:[10,16]}},
@@ -718,6 +724,10 @@
         if(en.body && !en.isBoss && B) en.body.scale.set(B.x*s, B.y/(1+f*0.3), B.z*s);
         if(en.hurtT <= 0 && en.body && !en.isBoss && B) en.body.scale.copy(B);
       }
+      /* パニッシュ窓の「振り抜いた直後」タイマー。ボスは updateBossAI が
+         自分で減らすので、ここでは雑魚のぶんだけ進める(二重に減らさない)。
+         窓そのものの判定は core/punish-window.js に集約してある */
+      if(!en.isBoss && en.postAtkRecoveryT > 0) en.postAtkRecoveryT -= dt;
       if(en.arcaneBindT > 0){
         // 魔導士の一撃で鈍らせた足取り(dealDamageToEnemy参照)。切れたら
         // turnRateMulを明示的に1へ戻す ―― 戻し忘れると鈍った旋回が
@@ -1060,7 +1070,13 @@
       // 攻撃間隔の見直し(#21): 旧2.4sは硬直→cooldownの往復が長すぎ、
       // 通常攻撃が完全に無警戒に振り切れる「ゴリ押し」を許してしまっていた。
       // テレグラフ(0.65s)は据え置いたまま再攻撃までの間隔だけ詰める
-      if(en.chargeT<=0){ en.chargeState='cooldown'; en.chargeT = en.chargeCooldownOverride || 1.5; }
+      // 突進を振り抜いた直後の隙(パニッシュ窓)。ボスが元から使っている
+      // en.postAtkRecoveryT を雑魚でも同じ長さだけ立てるだけで、判定側
+      // (core/punish-window.js)も倍率(stagger-math.js)も共通のまま
+      if(en.chargeT<=0){
+        en.chargeState='cooldown'; en.chargeT = en.chargeCooldownOverride || 1.5;
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+      }
       return;
     }
     if(en.chargeState==='cooldown'){
@@ -1078,6 +1094,7 @@
         en.fireCharging = false;
         en.body.scale.copy(en.bodyScale);
         spawnEnemyFireball(en);
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;   // 撃った直後の隙(パニッシュ窓)
         en.atkCD = 1.8;   // 攻撃間隔の見直し(#21): 旧2.6sは間延びしすぎていた
       }
       return;
@@ -1138,6 +1155,7 @@
         en.fireCharging = false;
         en.body.scale.copy(en.bodyScale);
         spawnEnemyFireball(en);
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;   // 撃った直後の隙(パニッシュ窓)
         en.atkCD = 1.6;   // 攻撃間隔の見直し(#21)
       }
       return;
@@ -1181,6 +1199,7 @@
         en.fireCharging = false;
         en.body.scale.copy(en.bodyScale);
         spawnEnemyFireball(en);
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;   // 撃った直後の隙(パニッシュ窓)
         en.atkCD = 1.6;   // 攻撃間隔の見直し(#21)
       }
       return;
@@ -1233,6 +1252,7 @@
           tryPerfectDodge(en);
         }
         en.jumpCD = 1.8 + Math.random()*0.8;
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;   // 着地際の隙(パニッシュ窓)
       }
       return;
     }
@@ -1347,7 +1367,10 @@
       } else if(d<1.1 && !en.ghostHit && state.paralyzeInvulnT<=0){
         tryPerfectDodge(en);
       }
-      if(en.ghostT<=0){ en.ghostState = 'cooldown'; en.ghostT = 2.4; }
+      if(en.ghostT<=0){
+        en.ghostState = 'cooldown'; en.ghostT = 2.4;
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;   // 咬みついた直後の隙(パニッシュ窓)
+      }
       return;
     }
     if(en.ghostState==='cooldown'){
@@ -2105,7 +2128,7 @@
         }
         en.atkCD = en.atkCdBase || 1.6;
         // 命中・空振りどちらでも、振り抜いた勢いは同じだけ残る
-        en.postAtkRecoveryT = 0.45;
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
         en.postAtkDriftDir = en.atkFacing.clone();
       }
       return;
@@ -2573,8 +2596,12 @@
         const staggerMul = (opts.staggerMul!=null) ? opts.staggerMul : 1;
         const classMul = (state.classDef && state.classDef.staggerMul) || 1;
         const abilityMul = 1 + bossAbilityValue('staggerDealtMul') + sphereValue('staggerDealtSphereMul');   // ボス能力「守護神像の重心」+ スフィア「会心の兆し」
-        const midWindup = !!en.atkWindup;
-        const postAttackRecovery = (en.postAtkRecoveryT||0) > 0;
+        /* 「敵が今、引き返せない行動に入っているか」の判定は
+           core/punish-window.js に一本化した。ボスの atkWindup だけを
+           見ていた頃は、雑魚(突進の溜め・砲撃の溜め・幽霊の実体化・
+           振り抜きの直後)にパニッシュ窓が一度も開かず、「隙を突く」
+           という約束がボス戦以外で成立していなかった */
+        const {midWindup, postAttackRecovery} = punishWindowState(en);
         const punishBonusMul = punishWindowMultiplier({midWindup, postAttackRecovery});
         if(punishBonusMul > 1){
           // 通常のヒット感触と違うと分かるよう、専用の効果音だけ足す
@@ -2622,6 +2649,7 @@
     } else {
       en.chargeState = 'idle';
       en.fireCharging = false;
+      en.postAtkRecoveryT = 0;   // 崩された時点でパニッシュ窓も閉じる(ボス側と同じ扱い)
     }
     spawnToast(en.isBoss ? '💥 体勢を崩した!畳み掛けろ!' : '💥 ダウン!');
     addShake(en.isBoss ? 0.18 : 0.10);
