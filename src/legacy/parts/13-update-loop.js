@@ -1,9 +1,21 @@
 // メインループ・移動・カメラ演出
 // (13-update-loop.js - concatenated with the other src/legacy/parts/*.js files
 // into one shared scope at build time; see src/legacy/concat-plugin.js)
-
      UPDATE LOOP
   ========================================================= */
+  const COMBAT_CAMERA_SHIFT_ENABLED = DEFAULT_COMBAT_CAMERA_SHIFT_ENABLED;
+  const COMBAT_CAMERA_MAX_SHIFT = DEFAULT_COMBAT_CAMERA_MAX_SHIFT;
+  const COMBAT_CAMERA_DEADZONE = DEFAULT_COMBAT_CAMERA_DEADZONE;
+  const COMBAT_CAMERA_SMOOTH = DEFAULT_COMBAT_CAMERA_SMOOTH;
+  const COMBAT_CAMERA_THREAT_RANGE = DEFAULT_COMBAT_CAMERA_THREAT_RANGE;
+  const COMBAT_CAMERA_PLAYER_WEIGHT = DEFAULT_COMBAT_CAMERA_PLAYER_WEIGHT;
+  const COMBAT_CAMERA_ATTACKING_WEIGHT = DEFAULT_COMBAT_CAMERA_ATTACKING_WEIGHT;
+  const COMBAT_CAMERA_RECOVERY_WEIGHT = DEFAULT_COMBAT_CAMERA_RECOVERY_WEIGHT;
+
+  const OFFSCREEN_INDICATOR_ENABLED = DEFAULT_OFFSCREEN_INDICATOR_ENABLED;
+  const OFFSCREEN_INDICATOR_CLUSTER_ANGLE = DEFAULT_OFFSCREEN_INDICATOR_CLUSTER_ANGLE;
+  const OFFSCREEN_INDICATOR_MAX_DISPLAY = DEFAULT_OFFSCREEN_INDICATOR_MAX_DISPLAY;
+
   function updateInput(dt){
     let ix=0, iy=0;
     if(keys['KeyW']||keys['ArrowUp']) iy -= 1;
@@ -1798,8 +1810,37 @@
     return a + diff * t;
   }
 
+  const combatCameraShift = new THREE.Vector3();
+  const combatCameraZero = new THREE.Vector3();
+  const combatCameraTargetShift = new THREE.Vector3();
+  const combatCameraFocusPoint = new THREE.Vector3();
+
+  function updateCombatCameraShift(dt, combatFocus){
+    const t = Math.min(1, COMBAT_CAMERA_SMOOTH * dt);
+    if(!COMBAT_CAMERA_SHIFT_ENABLED || !combatFocus || !combatFocus.hasThreat){
+      combatCameraShift.lerp(combatCameraZero, t);
+      if(combatCameraShift.lengthSq() < 0.000001) combatCameraShift.set(0,0,0);
+      return false;
+    }
+    combatCameraFocusPoint.set(combatFocus.focusPoint.x, state.pos.y, combatFocus.focusPoint.z);
+    combatCameraTargetShift.subVectors(combatCameraFocusPoint, state.pos);
+    if(combatCameraTargetShift.length() <= COMBAT_CAMERA_DEADZONE){
+      combatCameraTargetShift.set(0,0,0);
+    } else {
+      const clamped = clampCombatShift(combatCameraTargetShift, COMBAT_CAMERA_MAX_SHIFT);
+      combatCameraTargetShift.set(clamped.x, 0, clamped.z);
+    }
+    if(camAutoResumeT > 0){
+      const manualFactor = Math.max(0, 1 - Math.min(1, camAutoResumeT / 1.4));
+      combatCameraTargetShift.multiplyScalar(manualFactor);
+    }
+    combatCameraShift.lerp(combatCameraTargetShift, t);
+    return combatCameraShift.lengthSq() > 0.000001;
+  }
+
   function updateCamera(dt){
     if(state.dialogueActive && state.dialogueBoss && !state.dialogueBoss.dead){
+      updateCombatCameraShift(dt, null);
       // dramatic close-up on the boss while they're talking
       const bp = state.dialogueBoss.group.position;
       const desiredB = new THREE.Vector3(bp.x, bp.y+2.2, bp.z).add(
@@ -1812,6 +1853,7 @@
     }
     const lockBoss = findLockOnBoss();
     if(lockBoss){
+      updateCombatCameraShift(dt, null);
       const bp = lockBoss.group.position;
       const dirX = state.pos.x - bp.x, dirZ = state.pos.z - bp.z;
       // プレイヤーとボスがほぼ重なる一瞬(ゼロベクトル)だけ向き変更を
@@ -1830,9 +1872,17 @@
       camera.position.add(shakeOffset);
       return;
     }
-    const desired = new THREE.Vector3().copy(state.pos).add(getCamOffset());
+    const hostileNearby = isHostileNearby(nearestHostileDistance(), motionState.engaged);
+    const combatFocus = hostileNearby ? computeCombatFocus(state.pos, enemies, {
+      threatRange: COMBAT_CAMERA_THREAT_RANGE,
+      playerWeight: COMBAT_CAMERA_PLAYER_WEIGHT,
+      attackingWeight: COMBAT_CAMERA_ATTACKING_WEIGHT,
+      recoveryWeight: COMBAT_CAMERA_RECOVERY_WEIGHT,
+    }) : null;
+    updateCombatCameraShift(dt, combatFocus && combatFocus.hasThreat ? combatFocus : null);
+    const desired = new THREE.Vector3().copy(state.pos).add(combatCameraShift).add(getCamOffset());
     camera.position.lerp(desired, 1-Math.pow(0.001,dt));
-    const lookAt = state.pos.clone(); lookAt.y += 0.6;
+    const lookAt = state.pos.clone().add(combatCameraShift); lookAt.y += 0.6;
     camera.lookAt(lookAt);
     // shake is applied after lookAt so the camera jolts without ever losing
     // the player from frame centre
