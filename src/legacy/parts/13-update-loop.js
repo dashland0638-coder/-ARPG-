@@ -4,6 +4,8 @@
 
      UPDATE LOOP
   ========================================================= */
+  const COMBAT_AUTO_CAMERA_ROTATION_FACTOR = 0.18;
+
   function updateInput(dt){
     let ix=0, iy=0;
     if(keys['KeyW']||keys['ArrowUp']) iy -= 1;
@@ -99,10 +101,21 @@
       let diff = ((desiredYaw - state.camYaw + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
       const speedFactor = 0.30 + 0.70*Math.pow(Math.sin(Math.abs(diff)), 3);   // diffは[-π,π]なのでsin(|diff|)は前後で0、真横(π/2)で最大の1
       const baseDecay = 0.82*0.82*0.82;   // 真横(=従来の基準速度)での減衰定数
-      state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(baseDecay, speedFactor*dt));
+      const combatAutoRotateFactor = shouldDampenAutoCameraRotationInCombat() ? COMBAT_AUTO_CAMERA_ROTATION_FACTOR : 1;
+      state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(baseDecay, speedFactor*combatAutoRotateFactor*dt));
     }
   }
   let camAutoResumeT = 0;
+
+  function shouldDampenAutoCameraRotationInCombat(){
+    const rangeSq = COMBAT_CAMERA_RANGE * COMBAT_CAMERA_RANGE;
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      if(!en || en.dead || en.dormant || en.knockedDown || !en.triggered || !en.group || !en.group.position) continue;
+      if(state.pos.distanceToSquared(en.group.position) < rangeSq) return true;
+    }
+    return false;
+  }
 
   // the attack button now does double duty: a quick tap fires a normal
   // attack, holding it past a short threshold charges the selected skill
