@@ -81,6 +81,7 @@
     else if(camAutoResumeT > 0) camAutoResumeT -= dt;
     const moveMag = Math.sqrt(ix*ix + iy*iy);
     if(camAutoOn && !manualCamInput && camAutoResumeT<=0 && moveMag>0.35 && !findLockOnBoss()){
+      const combatAutoRotateFactor = shouldDampenAutoCameraRotationInCombat() ? COMBAT_AUTO_CAMERA_ROTATION_FACTOR : 1;
       const desiredYaw = state.facing + Math.PI;
       // 修正案3: 進む/下がる方向への小さな向き直しは違和感が出やすいので
       // ゆっくり、真横への大きな向き直しは今の速度(3倍速)のまま、という
@@ -101,7 +102,6 @@
       let diff = ((desiredYaw - state.camYaw + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
       const speedFactor = 0.30 + 0.70*Math.pow(Math.sin(Math.abs(diff)), 3);   // diffは[-π,π]なのでsin(|diff|)は前後で0、真横(π/2)で最大の1
       const baseDecay = 0.82*0.82*0.82;   // 真横(=従来の基準速度)での減衰定数
-      const combatAutoRotateFactor = shouldDampenAutoCameraRotationInCombat() ? COMBAT_AUTO_CAMERA_ROTATION_FACTOR : 1;
       state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(baseDecay, speedFactor*combatAutoRotateFactor*dt));
     }
   }
