@@ -111,8 +111,11 @@
     const rangeSq = COMBAT_CAMERA_RANGE * COMBAT_CAMERA_RANGE;
     for(let i=0;i<enemies.length;i++){
       const en = enemies[i];
-      if(!en || en.dead || en.dormant || en.knockedDown || !en.triggered || !en.group || !en.group.position) continue;
-      if(state.pos.distanceToSquared(en.group.position) < rangeSq) return true;
+      if(!en || en.dead || en.dormant || en.knockedDown || en.isBoss || !en.group || !en.group.position) continue;
+      if(state.pos.distanceToSquared(en.group.position) >= rangeSq) continue;
+      const punish = punishWindowState(en);
+      const activeThreat = punish.midWindup || en.chargeState==='dash' || en.jumpState==='air' || en.ghostState==='lunge';
+      if(activeThreat) return true;
     }
     return false;
   }
