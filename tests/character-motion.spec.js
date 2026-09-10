@@ -105,7 +105,7 @@ async function spawnArenaEnemy(page, label = 'Flying Test') {
 // 敵を全部消す(= 最後の敵を倒した相当)
 async function clearArena(page) {
   await openArena(page);
-  await clearArena(page);
+  await page.click('#arena-clear-btn');
 }
 
 /** テストモードでその職業のトレーニング空間へ入り、デバッグ表示を開く。
