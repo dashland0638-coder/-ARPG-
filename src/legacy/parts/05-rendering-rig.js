@@ -3492,15 +3492,19 @@
      探す新しい仕組みは作っていない。近くに誰もいなければ null を返し、
      従来どおりの見回しになる。 */
   const _socialLook = new THREE.Vector3();
+  let _socialLookCands = null;
   function socialLookTarget(){
     if(typeof BARTENDER_POS === 'undefined') return null;
-    const cands = [BARTENDER_POS, typeof SMITH_POS !== 'undefined' ? SMITH_POS : null,
-                   typeof SHADOW_GUIDE_POS !== 'undefined' ? SHADOW_GUIDE_POS : null];
+    // 候補は固定なので一度だけ組む(毎フレーム配列を作らない)
+    if(!_socialLookCands){
+      _socialLookCands = [BARTENDER_POS];
+      if(typeof SMITH_POS !== 'undefined') _socialLookCands.push(SMITH_POS);
+      if(typeof SHADOW_GUIDE_POS !== 'undefined') _socialLookCands.push(SHADOW_GUIDE_POS);
+    }
     let best = null, bestD = 16;   // 4m 以内にいる相手だけ
-    for(let i=0;i<cands.length;i++){
-      if(!cands[i]) continue;
-      const d = state.pos.distanceToSquared(cands[i]);
-      if(d < bestD){ bestD = d; best = cands[i]; }
+    for(let i=0;i<_socialLookCands.length;i++){
+      const d = state.pos.distanceToSquared(_socialLookCands[i]);
+      if(d < bestD){ bestD = d; best = _socialLookCands[i]; }
     }
     if(!best) return null;
     return _socialLook.copy(best);
@@ -3549,6 +3553,8 @@
       _eyeHoldT = EYE_RELEASE_HOLD;
     } else if(holding && headHasTarget){
       at = _headTarget;                       // 覚えている方向を見続ける
+      // 残心が終わった後も、目だけがもう一拍だけ的に残る
+      _eyeHoldT = EYE_RELEASE_HOLD;
     } else {
       headHasTarget = false;
       _eyeHoldT = Math.max(0, _eyeHoldT - dt);
