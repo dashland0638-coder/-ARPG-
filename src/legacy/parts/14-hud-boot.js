@@ -170,6 +170,10 @@
       hideOffscreenThreatIndicators();
       return;
     }
+    if(findLockOnBoss()){
+      hideOffscreenThreatIndicators();
+      return;
+    }
     const threats = getCombatThreats(state.pos, enemies, {
       threatRange: COMBAT_CAMERA_THREAT_RANGE,
       attackingWeight: COMBAT_CAMERA_ATTACKING_WEIGHT,

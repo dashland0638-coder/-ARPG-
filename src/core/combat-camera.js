@@ -129,9 +129,9 @@ export function clusterOffscreenThreats(threats, opts = {}) {
   const clusters = [];
   for (const threat of sorted) {
     const last = clusters[clusters.length - 1];
-    if (last && angleDiff(threat.angle, last.angle) <= threshold) {
+    const prev = last && last.members[last.members.length - 1];
+    if (prev && angleDiff(threat.angle, prev.angle) <= threshold) {
       last.members.push(threat);
-      last.angle = meanAngle(last.members);
       last.x += threat.x;
       last.y += threat.y;
       if (severityRank(threat.severity) > severityRank(last.severity)) last.severity = threat.severity;
@@ -151,7 +151,9 @@ export function clusterOffscreenThreats(threats, opts = {}) {
   if (clusters.length > 1) {
     const first = clusters[0];
     const last = clusters[clusters.length - 1];
-    if (angleDiff(first.angle, last.angle) <= threshold) {
+    const firstMember = first.members[0];
+    const lastMember = last.members[last.members.length - 1];
+    if (angleDiff(firstMember.angle, lastMember.angle) <= threshold) {
       const mergedMembers = last.members.concat(first.members);
       clusters[0] = {
         angle: meanAngle(mergedMembers),
@@ -167,7 +169,7 @@ export function clusterOffscreenThreats(threats, opts = {}) {
 
   return clusters
     .map(cluster => ({
-      angle: cluster.angle,
+      angle: meanAngle(cluster.members),
       x: cluster.x / cluster.members.length,
       y: cluster.y / cluster.members.length,
       severity: cluster.severity,

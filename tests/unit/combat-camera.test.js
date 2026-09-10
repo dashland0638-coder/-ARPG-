@@ -71,3 +71,14 @@ test('off-screen wraparound clustering keeps edge direction at the -π/π seam',
   assert.equal(cluster.count, 2);
   assert.equal(cluster.severity, 'high');
 });
+
+test('off-screen clustering keeps adjacent chains together even after the mean shifts', () => {
+  const [cluster] = clusterOffscreenThreats([
+    { angle: 0.00, x: 100, y: 0, severity: 'low', distance: 10 },
+    { angle: 20 * Math.PI / 180, x: 104, y: 10, severity: 'medium', distance: 9 },
+    { angle: 40 * Math.PI / 180, x: 108, y: 18, severity: 'high', distance: 8 },
+  ], { clusterAngleDeg: 25, maxDisplay: 8 });
+
+  assert.equal(cluster.count, 3);
+  assert.equal(cluster.severity, 'high');
+});
