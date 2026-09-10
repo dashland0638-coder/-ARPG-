@@ -112,7 +112,7 @@
     for(let i=0;i<enemies.length;i++){
       const en = enemies[i];
       if(!en || en.dead || en.dormant || en.knockedDown || en.isBoss || !en.group || !en.group.position) continue;
-      if(state.pos.distanceToSquared(en.group.position) >= rangeSq) continue;
+      if(state.pos.distanceToSquared(en.group.position) > rangeSq) continue;
       const punish = punishWindowState(en);
       const activeThreat = punish.midWindup || en.chargeState==='dash' || en.jumpState==='air' || en.ghostState==='lunge';
       if(activeThreat) return true;
