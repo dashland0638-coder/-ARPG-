@@ -1722,6 +1722,57 @@
     );
   }
 
+  const COMBAT_CAMERA_RANGE = 8;
+  const COMBAT_CAMERA_MAX_OFFSET = 1.25;
+  const COMBAT_CAMERA_DEADZONE = 0.42;
+  const COMBAT_CAMERA_PLAYER_WEIGHT = 2.8;
+  const COMBAT_CAMERA_Y_OFFSET = 0.6;
+  const COMBAT_CAMERA_ACTIVE_BONUS = 1.8;
+  const COMBAT_CAMERA_ENGAGED_BONUS = 1.08;
+  const COMBAT_CAMERA_ATTACK_LINE_PULL = 0.28;
+  const combatCamFocusOffset = new THREE.Vector3();
+  const _combatFocusCentroid = new THREE.Vector3();
+  const _combatThreatFocus = new THREE.Vector3();
+  const _combatToPlayer = new THREE.Vector3();
+
+  function getCombatCameraFocusOffset(){
+    let found = false, totalWeight = COMBAT_CAMERA_PLAYER_WEIGHT;
+    _combatFocusCentroid.copy(state.pos).multiplyScalar(totalWeight);
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      if(!en || en.dead || en.dormant || en.knockedDown || en.isBoss || !en.group) continue;
+      const ep = en.group.position;
+      const d = state.pos.distanceTo(ep);
+      if(d >= COMBAT_CAMERA_RANGE) continue;
+      found = true;
+      const proximity = 1 - d/COMBAT_CAMERA_RANGE;
+      const punish = punishWindowState(en);
+      const activeThreat = punish.midWindup || en.chargeState==='dash' || en.jumpState==='air' || en.ghostState==='lunge';
+      let weight = 0.35 + proximity*proximity*2.25;
+      if(activeThreat) weight *= COMBAT_CAMERA_ACTIVE_BONUS;
+      else if(en.triggered) weight *= COMBAT_CAMERA_ENGAGED_BONUS;
+      _combatThreatFocus.copy(ep);
+      if(activeThreat){
+        _combatToPlayer.subVectors(state.pos, ep);
+        _combatToPlayer.y = 0;
+        if(_combatToPlayer.lengthSq() > 0.0001){
+          _combatToPlayer.normalize();
+          _combatThreatFocus.addScaledVector(_combatToPlayer, Math.min(COMBAT_CAMERA_ATTACK_LINE_PULL, d*0.1));
+        }
+      }
+      _combatThreatFocus.y = state.pos.y;
+      _combatFocusCentroid.addScaledVector(_combatThreatFocus, weight);
+      totalWeight += weight;
+    }
+    if(!found) return null;
+    _combatThreatFocus.copy(_combatFocusCentroid).multiplyScalar(1/totalWeight).sub(state.pos);
+    _combatThreatFocus.y = 0;
+    const len = _combatThreatFocus.length();
+    if(len <= COMBAT_CAMERA_DEADZONE) return _combatThreatFocus.set(0,0,0);
+    _combatThreatFocus.setLength(Math.min(COMBAT_CAMERA_MAX_OFFSET, len - COMBAT_CAMERA_DEADZONE));
+    return _combatThreatFocus;
+  }
+
   /* =========================================================
      BOSS LOCK-ON CAMERA
      Trigger済みの生存ボスが射程内にいる間、camYawをボスの正反対側
@@ -1776,14 +1827,17 @@
       // 注視点もプレイヤー側だけでなくボス側へ寄せ、画面内に両方収まる
       // 時間を長くする(「注視点も操作」の要望に対応)
       const lookAt = state.pos.clone().lerp(bp, 0.3);
-      lookAt.y += 0.6;
+      lookAt.y += COMBAT_CAMERA_Y_OFFSET;
       camera.lookAt(lookAt);
       camera.position.add(shakeOffset);
       return;
     }
+    const desiredCombatFocus = camAutoResumeT<=0 ? getCombatCameraFocusOffset() : null;
+    if(desiredCombatFocus) combatCamFocusOffset.lerp(desiredCombatFocus, 1-Math.pow(0.0025,dt));
+    else combatCamFocusOffset.lerp(_combatThreatFocus.set(0,0,0), 1-Math.pow(0.0009,dt));
     const desired = new THREE.Vector3().copy(state.pos).add(getCamOffset());
     camera.position.lerp(desired, 1-Math.pow(0.001,dt));
-    const lookAt = state.pos.clone(); lookAt.y += 0.6;
+    const lookAt = state.pos.clone().add(combatCamFocusOffset); lookAt.y += COMBAT_CAMERA_Y_OFFSET;
     camera.lookAt(lookAt);
     // shake is applied after lookAt so the camera jolts without ever losing
     // the player from frame centre
