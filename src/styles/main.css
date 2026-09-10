@@ -610,6 +610,13 @@
     0%,100%{ opacity:0.22; }
     50%{ opacity:1; }
   }
+  @media (prefers-reduced-motion: reduce){
+    .offscreen-threat-dot.medium,
+    .offscreen-threat-dot.high{
+      animation:none;
+      opacity:0.9;
+    }
+  }
 
   .hud-topleft{
     position:absolute; top:16px; left:16px; z-index:30;

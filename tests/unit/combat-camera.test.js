@@ -60,3 +60,14 @@ test('off-screen threats cluster by angle and preserve the highest severity', ()
   assert.equal(clusters[0].count, 2);
   assert.equal(clusters[1].severity, 'medium');
 });
+
+test('off-screen wraparound clustering keeps edge direction at the -π/π seam', () => {
+  const [cluster] = clusterOffscreenThreats([
+    { angle: Math.PI - 0.04, x: -100, y: -8, severity: 'medium', distance: 9 },
+    { angle: -Math.PI + 0.03, x: -96, y: 6, severity: 'high', distance: 7 },
+  ], { clusterAngleDeg: 10, maxDisplay: 8 });
+
+  assert.ok(cluster.angle > 3.0 || cluster.angle < -3.0, `expected seam cluster to stay on the left edge, got ${cluster.angle}`);
+  assert.equal(cluster.count, 2);
+  assert.equal(cluster.severity, 'high');
+});

@@ -159,6 +159,7 @@
   function hideOffscreenThreatIndicators(){
     offscreenThreatDots.forEach(el=>{
       el.style.opacity = '0';
+      el.style.transform = 'translate(-50%, -50%)';
       el.className = 'offscreen-threat-dot';
     });
   }
@@ -214,6 +215,7 @@
     });
     for(let i=clusters.length;i<offscreenThreatDots.length;i++){
       offscreenThreatDots[i].style.opacity = '0';
+      offscreenThreatDots[i].style.transform = 'translate(-50%, -50%)';
       offscreenThreatDots[i].className = 'offscreen-threat-dot';
     }
   }

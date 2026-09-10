@@ -43,6 +43,15 @@ function severityRank(severity) {
   return severity === 'high' ? 3 : severity === 'medium' ? 2 : severity === 'low' ? 1 : 0;
 }
 
+function meanAngle(items) {
+  let sx = 0, sy = 0;
+  for (const item of items || []) {
+    sx += Math.cos(item.angle || 0);
+    sy += Math.sin(item.angle || 0);
+  }
+  return Math.atan2(sy, sx);
+}
+
 export function clampCombatShift(shift, maxShift = COMBAT_CAMERA_MAX_SHIFT) {
   const x = shift && shift.x != null ? shift.x : 0;
   const y = shift && shift.y != null ? shift.y : 0;
@@ -122,7 +131,7 @@ export function clusterOffscreenThreats(threats, opts = {}) {
     const last = clusters[clusters.length - 1];
     if (last && angleDiff(threat.angle, last.angle) <= threshold) {
       last.members.push(threat);
-      last.angle = wrapAngle((last.angle * (last.members.length - 1) + threat.angle) / last.members.length);
+      last.angle = meanAngle(last.members);
       last.x += threat.x;
       last.y += threat.y;
       if (severityRank(threat.severity) > severityRank(last.severity)) last.severity = threat.severity;
@@ -145,7 +154,7 @@ export function clusterOffscreenThreats(threats, opts = {}) {
     if (angleDiff(first.angle, last.angle) <= threshold) {
       const mergedMembers = last.members.concat(first.members);
       clusters[0] = {
-        angle: wrapAngle((last.angle + first.angle) * 0.5),
+        angle: meanAngle(mergedMembers),
         x: last.x + first.x,
         y: last.y + first.y,
         severity: severityRank(last.severity) >= severityRank(first.severity) ? last.severity : first.severity,
