@@ -1740,7 +1740,7 @@
     _combatFocusCentroid.copy(state.pos).multiplyScalar(totalWeight);
     for(let i=0;i<enemies.length;i++){
       const en = enemies[i];
-      if(!en || en.dead || en.dormant || en.knockedDown || en.isBoss || !en.group) continue;
+      if(!en || en.dead || en.dormant || en.knockedDown || en.isBoss || !en.group || !en.group.position) continue;
       const ep = en.group.position;
       const d = state.pos.distanceTo(ep);
       if(d >= COMBAT_CAMERA_RANGE) continue;
