@@ -4,6 +4,8 @@
 
      UPDATE LOOP
   ========================================================= */
+  const COMBAT_AUTO_CAMERA_ROTATION_FACTOR = 0.18;
+
   function updateInput(dt){
     let ix=0, iy=0;
     if(keys['KeyW']||keys['ArrowUp']) iy -= 1;
@@ -79,6 +81,7 @@
     else if(camAutoResumeT > 0) camAutoResumeT -= dt;
     const moveMag = Math.sqrt(ix*ix + iy*iy);
     if(camAutoOn && !manualCamInput && camAutoResumeT<=0 && moveMag>0.35 && !findLockOnBoss()){
+      const combatAutoRotateFactor = shouldDampenAutoCameraRotationInCombat() ? COMBAT_AUTO_CAMERA_ROTATION_FACTOR : 1;
       const desiredYaw = state.facing + Math.PI;
       // 修正案3: 進む/下がる方向への小さな向き直しは違和感が出やすいので
       // ゆっくり、真横への大きな向き直しは今の速度(3倍速)のまま、という
@@ -99,10 +102,23 @@
       let diff = ((desiredYaw - state.camYaw + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
       const speedFactor = 0.30 + 0.70*Math.pow(Math.sin(Math.abs(diff)), 3);   // diffは[-π,π]なのでsin(|diff|)は前後で0、真横(π/2)で最大の1
       const baseDecay = 0.82*0.82*0.82;   // 真横(=従来の基準速度)での減衰定数
-      state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(baseDecay, speedFactor*dt));
+      state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(baseDecay, speedFactor*combatAutoRotateFactor*dt));
     }
   }
   let camAutoResumeT = 0;
+
+  function shouldDampenAutoCameraRotationInCombat(){
+    const rangeSq = COMBAT_CAMERA_RANGE * COMBAT_CAMERA_RANGE;
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      if(!en || en.dead || en.dormant || en.knockedDown || en.isBoss || !en.group || !en.group.position) continue;
+      if(state.pos.distanceToSquared(en.group.position) > rangeSq) continue;
+      const punish = punishWindowState(en);
+      const activeThreat = punish.midWindup || en.chargeState==='dash' || en.jumpState==='air' || en.ghostState==='lunge';
+      if(activeThreat) return true;
+    }
+    return false;
+  }
 
   // the attack button now does double duty: a quick tap fires a normal
   // attack, holding it past a short threshold charges the selected skill
