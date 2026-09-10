@@ -1833,7 +1833,7 @@
       return;
     }
     if(!camAutoOn || camAutoResumeT > 0){
-      combatCamFocusOffset.set(0,0,0);
+      combatCamFocusOffset.lerp(_combatThreatFocus.set(0,0,0), 1-Math.pow(0.00002,dt));
     } else {
       const desiredCombatFocus = getCombatCameraFocusOffset();
       if(desiredCombatFocus) combatCamFocusOffset.lerp(desiredCombatFocus, 1-Math.pow(0.0025,dt));
