@@ -819,8 +819,10 @@
        state.debugMode が false の間はこの関数自体が最初に return するので、
        本番のプレイ画面には一切出ない */
     if(state.started){
+      lines.push('', 'PREVIEW', ' ' + previewDebugLine());
       lines.push('', 'MOTION', ' ' + motionDebugLine());
       lines.push('', 'LOOK', ' ' + lookDebugLine());
+      lines.push('', 'WEAPON', ' ' + weaponDebugLine());
     }
     if(perfEventLast){
       lines.push('', 'EVENT', perfEventLast.name);

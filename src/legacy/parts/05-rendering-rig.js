@@ -3136,6 +3136,15 @@
   // 「重い」ではなく「重量を理解して扱っている」を作る。値は追従の速さ
   // (1秒あたり)で、小さいほど遅れが大きい。剣士の大剣が最も遅れる。
   const WEAPON_FOLLOW_RATE = { warrior: 7.0, rogue: 22.0, mage: 14.0, archer: 16.0 };
+  /* 上位職の武器は一回り大きい(applyJobPromotionVisual が 1.32 倍にする)。
+     魔導士の杖はそのぶん遅れて付いてくる ―― 「大きな杖をゆっくり制御して
+     いる」を、速度を落とすのではなく追従の遅れで出す。書いていない上位職は
+     基礎職の値をそのまま継承する。 */
+  const JOB_WEAPON_FOLLOW_RATE = { archmage: 9.0 };
+  function weaponFollowRate(){
+    const clsKey = state.classDef ? state.classDef.key : 'warrior';
+    return JOB_WEAPON_FOLLOW_RATE[state.job] || WEAPON_FOLLOW_RATE[clsKey] || 12;
+  }
   // 立ち姿そのものの追従。抜刀/納刀中はクリップの形を潰さないよう速める
   const STANCE_FOLLOW_RATE = 9.0, STANCE_FOLLOW_RATE_ACTION = 20.0;
 
@@ -3230,13 +3239,13 @@
     _idleAmount += (want - _idleAmount) * Math.min(1, dt * 6);
     _idleT += dt;
     const idle = _idleAmount > 0.001
-      ? idleOffsetsFor(C, clsKey, _idleT, _idleAmount) : _idleZero;
-    const settleAmt = _settleT >= 0 ? attackSettleAmount(clsKey, _settleT) : 0;
+      ? idleOffsetsFor(C, clsKey, _idleT, _idleAmount, state.job) : _idleZero;
+    const settleAmt = _settleT >= 0 ? attackSettleAmount(clsKey, _settleT, state.job) : 0;
     if(settleAmt <= 0){
       if(_settleT >= 0) _settleT = -1;
       _idle = idle;
     } else {
-      _idle = addOffsets(idle, attackSettleOffsets(clsKey, _settleT));
+      _idle = addOffsets(idle, attackSettleOffsets(clsKey, _settleT, state.job));
     }
   }
 
@@ -3279,8 +3288,7 @@
     /* 武器の向きだけは職業ごとの追従速度で別に遅らせる。手と身体が先に
        動き、大剣が一拍遅れて付いてくる ―― これが「重量を理解して扱って
        いる」の実体で、動作を遅くすることでは重さを出さない。 */
-    const wr = WEAPON_FOLLOW_RATE[state.classDef ? state.classDef.key : 'warrior'] || 12;
-    const kw = Math.min(1, dt * wr);
+    const kw = Math.min(1, dt * weaponFollowRate());
     const tw = target.wep;
     if(tw){
       /* Combat Idle の武器の揺れは「目標の向き」へ足す ―― 追従はこの下の
@@ -3323,6 +3331,7 @@
   function resetCharacterMotion(worldKey){
     motionState.classKey = state.classDef ? state.classDef.key : 'warrior';
     resetForWorld(motionState, {social: isSocialWorld(worldKey)});
+    motionFreeze = false; previewPhaseIdx = 0;
     resetHeadRig();
     motionCombatHoldT = 0;
     invalidateMotionClips();
@@ -3369,7 +3378,11 @@
     const hostileNearby = !social
       && (motionCombatHoldT > 0
        || isHostileNearby(nearestHostileDistance(), motionState.engaged));
-    updateMotionState(motionState, dt, {hostileNearby, busy: motionBusy(), social});
+    // Motion Freeze(デバッグモード限定)の間だけ状態機械を止める。
+    // 視線・攻撃・回避・敵AIはそのまま動き続ける
+    if(!motionFreeze){
+      updateMotionState(motionState, dt, {hostileNearby, busy: motionBusy(), social});
+    }
     updateLookTarget(dt);   // 上体が受け持つ捻りを、立ち姿へ足す前に決める
     updateIdleOverlay(dt);
     dampStance(targetStancePose(), dt);
@@ -3660,6 +3673,119 @@
       `Weapon:    ${motionState.weapon}`,
       `Action:    ${action}`,
       `Holster:   ${holsterBlend(motionState).toFixed(2)}`,
+    ].join('\n ');
+  }
+
+  /* =========================================================
+     MOTION PREVIEW(デバッグモード限定)
+
+     モーションの確認で困るのは「一瞬しか表示されない姿勢」だった ――
+     盗賊の抜刀は 0.34 秒、その途中の腰を落とした形は数フレームしか出ない。
+     ここはそれを止めて見るための道具。
+
+       M  モーションを止める / 動かす
+       N  止めている間、キャラクター状態を1つ進める
+       B  止めている間、その状態の進行度を 0 → 0.25 → … → 1.0 と送る
+
+     止めるのは**状態機械の進行だけ**で、攻撃・回避・ダメージ・敵AI・
+     当たり判定はそのまま動き続ける。つまり「見た目の時間だけを止める」
+     ―― ただし状態機械はゲーム進行の一部でもあるので、これは
+     デバッグモード(state.debugMode)の内側でしか動かない。通常プレイでは
+     キーを押しても何も起きず、表示も出ず、毎フレームの処理も増えない。 */
+  const PREVIEW_STATES = [
+    CHARACTER_STATE.SOCIAL, CHARACTER_STATE.EXPLORATION, CHARACTER_STATE.DRAWING,
+    CHARACTER_STATE.COMBAT, CHARACTER_STATE.POST_COMBAT, CHARACTER_STATE.SHEATHING,
+  ];
+  // その状態で武器がどうなっているか(isConsistent が通る組み合わせ)
+  const PREVIEW_WEAPON = {
+    SOCIAL: WEAPON_STATE.SHEATHED, EXPLORATION: WEAPON_STATE.SHEATHED,
+    DRAWING: WEAPON_STATE.DRAWING, COMBAT: WEAPON_STATE.DRAWN,
+    POST_COMBAT: WEAPON_STATE.DRAWN, SHEATHING: WEAPON_STATE.SHEATHING,
+  };
+  const PREVIEW_PHASES = [0, 0.25, 0.5, 0.75, 1.0];
+  let motionFreeze = false, previewPhaseIdx = 0;
+
+  function toggleMotionFreeze(){
+    if(!state.debugMode) return;
+    motionFreeze = !motionFreeze;
+    previewPhaseIdx = 0;
+    spawnToast(motionFreeze ? '⏸ Motion Freeze: ON (N=状態 B=進行度)' : '▶ Motion Freeze: OFF');
+  }
+
+  // 止めている間だけ、状態を1つ進める(武器状態も矛盾しない組み合わせにする)
+  function previewStepState(){
+    if(!state.debugMode || !motionFreeze) return;
+    const i = PREVIEW_STATES.indexOf(motionState.character);
+    const next = PREVIEW_STATES[(i + 1) % PREVIEW_STATES.length];
+    motionState.character = next;
+    motionState.weapon = PREVIEW_WEAPON[next];
+    motionState.t = 0;
+    previewPhaseIdx = 0;
+    invalidateMotionClips();
+    spawnToast('⏸ ' + next + ' / ' + motionState.weapon);
+  }
+
+  /* 止めている間だけ、その状態の進行度を送る。motionState.t を直接
+     置くので、姿勢だけでなく武器の受け渡し(holsterBlend)も同じ瞬間の
+     値になる ―― 別の経路で上書きするより、状態機械が本来持っている
+     時計をそのまま動かす方が食い違いが起きない。 */
+  function previewStepPhase(){
+    if(!state.debugMode || !motionFreeze) return;
+    previewPhaseIdx = (previewPhaseIdx + 1) % PREVIEW_PHASES.length;
+    const frac = PREVIEW_PHASES[previewPhaseIdx];
+    const T = timingFor(motionState.classKey);
+    const dur = motionState.character === CHARACTER_STATE.DRAWING ? T.draw
+              : motionState.character === CHARACTER_STATE.SHEATHING ? T.sheathe
+              : motionState.character === CHARACTER_STATE.POST_COMBAT ? T.postCombat
+              : 0;
+    motionState.t = dur * frac;
+    spawnToast('⏸ phase ' + frac.toFixed(2));
+  }
+
+  function previewDebugLine(){
+    const uj = state.classDef ? upperJobFor(state.classDef.key) : null;
+    const jobLabel = (uj && state.job === uj.key) ? uj.name : (state.classDef ? state.classDef.name : '-');
+    const p = idleProfileFor(motionState.character,
+      state.classDef ? state.classDef.key : 'warrior', state.job);
+    const settle = attackSettleProfile(state.classDef ? state.classDef.key : 'warrior', state.job);
+    return [
+      `Job:       ${jobLabel}`,
+      `Freeze:    ${motionFreeze ? 'ON  (N=state B=phase)' : 'off (M=freeze)'}`,
+      `Phase:     ${motionPhase(motionState).toFixed(2)}`,
+      `IdleRate:  ${p.rate.toFixed(2)}`,
+      `IdleStaff: ${p.wepYaw.toFixed(3)} / ${p.wepPitch.toFixed(3)}`,
+      `IdleHand:  ${p.elbow.toFixed(3)}`,
+      `IdleWeight:${p.waistRoll.toFixed(4)}`,
+      `Settle:    ${settle.dur.toFixed(2)}s x${settle.amp.toFixed(1)}`,
+      `WepFollow: ${weaponFollowRate().toFixed(1)}`,
+    ].join('\n ');
+  }
+
+  /* 開発用: 武器先端のワールド高さ。
+
+     魔弾は杖頭(weaponTip)から出て水平に飛び、当たり判定は「弾と敵の
+     足元の高さの差 1.8m 未満」で見ている(updateProjectiles、
+     13-update-loop.js)。つまり杖頭が 1.8m を越えると、まっすぐ狙っても
+     弾が一切当たらない ―― 構えを作り直した時に実際に踏んだ制約で、
+     上位職は武器が 1.32 倍に拡大されるぶんさらに高くなる。
+
+     数式で追うより実測できる方が確実なので、その高さをそのまま出す。
+     窓との比較は「敵の足元が y=0 の平地に立っている」前提の目安 ――
+     判定そのものは敵との高さの差で見ているので、階層のある場所では
+     この表示より余裕がある場合もある。 */
+  const _tipProbe = new THREE.Vector3();
+  function weaponDebugLine(){
+    const P = playerMixerParts;
+    if(!P.weaponTip || !player) return 'tip: -';
+    player.updateMatrixWorld(true);
+    P.weaponTip.getWorldPosition(_tipProbe);
+    const limit = PROJECTILE_HEIGHT_WINDOW;
+    const ranged = state.classDef && state.classDef.range === 'ranged';
+    return [
+      `TipWorldY: ${_tipProbe.y.toFixed(3)}`,
+      `Scale:     ${P.weapon ? P.weapon.scale.x.toFixed(2) : '-'}`,
+      ranged ? `HitWindow: ${limit.toFixed(2)} ${_tipProbe.y < limit ? 'OK' : '*** OVER ***'}`
+             : 'HitWindow: n/a (melee)',
     ].join('\n ');
   }
 

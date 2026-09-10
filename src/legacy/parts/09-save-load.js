@@ -312,6 +312,12 @@
     if(e.code==='KeyO' && !e.repeat){ castSkill2(); }
     if(e.code==='KeyU' && !e.repeat){ castBossSkill3(); }
     if(e.code==='Backquote'){ toggleDebugMode(); }
+    /* モーション確認用(デバッグモード限定、05-rendering-rig.js の
+       MOTION PREVIEW 参照)。通常プレイでは3つとも即 return するので、
+       押しても何も起きない */
+    if(e.code==='KeyM' && !e.repeat){ toggleMotionFreeze(); }
+    if(e.code==='KeyN' && !e.repeat){ previewStepState(); }
+    if(e.code==='KeyB' && !e.repeat){ previewStepPhase(); }
     if(e.code==='ShiftLeft' || e.code==='ShiftRight'){ tryDodge(); }
     // スフィア盤の操作性改善: 奥義の環タブが開いている間だけ、矢印キーで
     // ノード間を移動、Enterで選択中ノードを即解放する(選択→別ボタンを

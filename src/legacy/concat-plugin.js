@@ -61,8 +61,9 @@ import {
 } from '../core/uppercut.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 import {
-  CHARACTER_STATE, ATTACH, createMotionState, resetForWorld, updateMotionState,
-  forceCombat, isHostileNearby, motionPhase, holsterBlend, attachFor,
+  CHARACTER_STATE, WEAPON_STATE, ATTACH, createMotionState, resetForWorld,
+  updateMotionState, forceCombat, isHostileNearby, motionPhase, holsterBlend,
+  attachFor, timingFor,
 } from '../core/character-motion-state.js';
 import { rigFromBuild, holsterAnchorLocal } from '../core/pose-geometry.js';
 import { COMBAT_STANCES, ALT_WEAPON_STANCES, GRIP_OFFSETS } from '../core/combat-stances.js';
@@ -78,6 +79,7 @@ import {
   COMBAT_IDLE, IDLE_MAX_AMPLITUDE, combatIdleProfile, combatIdleOffsets,
   ATTACK_SETTLE, attackSettleAmount, attackSettleOffsets,
   AMBIENT_IDLE, idleProfileFor, idleOffsetsFor,
+  JOB_COMBAT_IDLE, JOB_ATTACK_SETTLE, attackSettleProfile,
 } from '../core/combat-idle.js';
 
 `;

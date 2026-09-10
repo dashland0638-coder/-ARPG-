@@ -72,8 +72,40 @@ export const COMBAT_IDLE = {
 // どの職業でも、これを超える揺れは Combat Idle ではなく予備動作に見える
 export const IDLE_MAX_AMPLITUDE = 0.030;
 
-export function combatIdleProfile(classKey) {
-  return COMBAT_IDLE[classKey] || COMBAT_IDLE.warrior;
+/* 上位職の専用プロファイル。基礎職の型をそのまま使う職は書かない
+   (書かなければ自動的に基礎職を継承する)。
+
+   魔導士(archmage)= Control。魔法使いの Focus は「敵に集中している」
+   だったが、魔導士は「強い力を余裕を持って制御している」方向にする。
+   だから速くしない ―― むしろ4職+上位職の中でいちばん遅い。
+
+     速さ      1.25 → 0.75   魔法使いより明確に遅い
+     肩        0.013 → 0.008 最小。上体はほとんど動かさない
+     肘        0.024 → 0.020 左手の制御だけは残す
+     重心      魔法使いの約6割(waistRoll 0.006 → 0.0035)
+     杖(左右) 0.013 → 0.024 大きな杖をゆっくり大きく振る振り子
+
+   杖の上下(wepPitch)だけは魔法使いより小さくしてある。魔弾は杖頭から
+   出て水平に飛び、当たり判定は敵の足元との高さの差 1.8m 未満で見ている
+   ―― 上位職は武器が 1.32 倍に拡大されるため杖頭が 1.78m まで上がって
+   おり、窓まで 2cm しか残っていない(実測)。左右の振りは高さを変えない
+   ので大きく取れるが、上下方向は動かす余地がない。
+   tests/unit/mage-lord-idle.test.js が「揺れが杖頭を持ち上げないこと」を、
+   tests/unit/stance-geometry.test.js が構え側の高さを固定している。 */
+export const JOB_COMBAT_IDLE = {
+  archmage: {
+    rate: 0.75,
+    shoulder: 0.008, shoulderPhase: 2.6,
+    elbow: 0.020,
+    waistPitch: 0.003, waistRoll: 0.0035, waistYaw: 0.003,
+    hip: 0.002, knee: 0.003,
+    wepYaw: 0.024, wepPitch: 0.006,
+    draw: 0,
+  },
+};
+
+export function combatIdleProfile(classKey, job) {
+  return JOB_COMBAT_IDLE[job] || COMBAT_IDLE[classKey] || COMBAT_IDLE.warrior;
 }
 
 /* 位相の違う2つの正弦を重ねる。1つだけだと一定の往復に見え、
@@ -85,8 +117,8 @@ function wave(t, rate, phase) {
 
 /* 構えへ足す差分。amount は 0〜1 で、歩き出すと 0 へ落ちる
    (歩行サイクルが腕を振り始めたら、その上に揺れを重ねない)。 */
-export function combatIdleOffsets(classKey, t, amount) {
-  return offsetsFromProfile(combatIdleProfile(classKey), t, amount);
+export function combatIdleOffsets(classKey, t, amount, job) {
+  return offsetsFromProfile(combatIdleProfile(classKey, job), t, amount);
 }
 
 function offsetsFromProfile(p, t, amount) {
@@ -140,24 +172,31 @@ export const ATTACK_SETTLE = {
   archer:  { dur: 0.36, amp: 1.9, rate: 10.0 },  // 弦を放った反動が上体へ抜ける
 };
 
-export function attackSettleProfile(classKey) {
-  return ATTACK_SETTLE[classKey] || ATTACK_SETTLE.warrior;
+/* 魔導士は攻撃後に大きく反動を取らない。魔法使いより振幅を落とし、
+   代わりに長くゆっくり収束させる ―― 「勢いを持て余している」のではなく
+   「出した力を収めている」ように見せるため。 */
+export const JOB_ATTACK_SETTLE = {
+  archmage: { dur: 0.42, amp: 1.1, rate: 7.0 },
+};
+
+export function attackSettleProfile(classKey, job) {
+  return JOB_ATTACK_SETTLE[job] || ATTACK_SETTLE[classKey] || ATTACK_SETTLE.warrior;
 }
 
 /* 経過秒 t に対する減衰の強さ(0〜1)。dur を過ぎたら 0。 */
-export function attackSettleAmount(classKey, t) {
-  const p = attackSettleProfile(classKey);
+export function attackSettleAmount(classKey, t, job) {
+  const p = attackSettleProfile(classKey, job);
   if (!(t >= 0) || t >= p.dur) return 0;
   const k = 1 - t / p.dur;
   return k * k;                 // 終わりに向けてなめらかに消える
 }
 
 /* 収まりの差分。combatIdleOffsets と同じ形なので、そのまま足し合わせられる。 */
-export function attackSettleOffsets(classKey, t) {
-  const p = attackSettleProfile(classKey);
-  const a = attackSettleAmount(classKey, t);
-  if (a <= 0) return combatIdleOffsets(classKey, 0, 0);
-  const idle = combatIdleProfile(classKey);
+export function attackSettleOffsets(classKey, t, job) {
+  const p = attackSettleProfile(classKey, job);
+  const a = attackSettleAmount(classKey, t, job);
+  if (a <= 0) return combatIdleOffsets(classKey, 0, 0, job);
+  const idle = combatIdleProfile(classKey, job);
   const osc = Math.sin(t * p.rate) * a * p.amp;
   return {
     shLx: osc * idle.shoulder,
@@ -211,12 +250,11 @@ export const AMBIENT_IDLE = {
 
 /* その状態で使う揺れの型。戦闘まわりは職業ごと、酒場・探索は状態ごと
    (くつろぎ方に職業差を付けても読み取れないため、共通にしてある)。 */
-export function idleProfileFor(characterState, classKey) {
+export function idleProfileFor(characterState, classKey, job) {
   const ambient = AMBIENT_IDLE[characterState];
-  return ambient || combatIdleProfile(classKey);
+  return ambient || combatIdleProfile(classKey, job);
 }
 
-export function idleOffsetsFor(characterState, classKey, t, amount) {
-  const p = idleProfileFor(characterState, classKey);
-  return offsetsFromProfile(p, t, amount);
+export function idleOffsetsFor(characterState, classKey, t, amount, job) {
+  return offsetsFromProfile(idleProfileFor(characterState, classKey, job), t, amount);
 }
