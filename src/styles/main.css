@@ -583,6 +583,40 @@
   /* ---------- HUD ---------- */
   #hud{ position:fixed; inset:0; z-index:16; pointer-events:none; display:none; }
   #hud.active{ display:block; }
+  #offscreen-threat-layer{
+    position:absolute; inset:0; z-index:13; pointer-events:none;
+  }
+  .offscreen-threat-dot{
+    position:absolute; width:8px; height:8px;
+    border-radius:50%; background:rgba(224,87,74,0.4);
+    box-shadow:0 0 10px rgba(224,87,74,0.28);
+    opacity:0; transform:translate(-50%, -50%);
+  }
+  .offscreen-threat-dot.medium{
+    width:9px; height:9px; background:rgba(236,92,78,0.8);
+    box-shadow:0 0 12px rgba(236,92,78,0.5);
+    animation:offscreen-threat-blink-slow 1s ease-in-out infinite;
+  }
+  .offscreen-threat-dot.high{
+    width:10px; height:10px; background:rgba(255,98,82,0.95);
+    box-shadow:0 0 14px rgba(255,98,82,0.72);
+    animation:offscreen-threat-blink-fast 0.3s linear infinite;
+  }
+  @keyframes offscreen-threat-blink-slow{
+    0%,100%{ opacity:0.35; }
+    50%{ opacity:1; }
+  }
+  @keyframes offscreen-threat-blink-fast{
+    0%,100%{ opacity:0.22; }
+    50%{ opacity:1; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .offscreen-threat-dot.medium,
+    .offscreen-threat-dot.high{
+      animation:none;
+      opacity:0.9;
+    }
+  }
 
   .hud-topleft{
     position:absolute; top:16px; left:16px; z-index:30;

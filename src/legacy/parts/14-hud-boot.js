@@ -87,6 +87,7 @@
   function hideMobBars(){
     mobBars.forEach(el=> el.style.opacity = '0');
     mobPostureBars.forEach(el=> el.style.opacity = '0');
+    hideOffscreenThreatIndicators();
     const wrap = document.getElementById('boss-bar-wrap');
     if(wrap) wrap.classList.remove('show');
     const lbl = document.getElementById('minimap-label');
@@ -125,6 +126,104 @@
       const ratio = boss.knockedDown ? 1 : (boss.posture / boss.postureMax);
       postureEl.style.width = Math.max(0, ratio*100) + '%';
       postureEl.classList.toggle('brk', ratio >= 0.7);
+    }
+  }
+
+  const offscreenThreatDots = [];
+  const offscreenThreatCameraSpace = new THREE.Vector3();
+  const offscreenThreatProbe = new THREE.Vector3();
+
+  function offscreenThreatLayer(){
+    const hud = document.getElementById('hud');
+    if(!hud) return null;
+    let el = document.getElementById('offscreen-threat-layer');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'offscreen-threat-layer';
+      hud.appendChild(el);
+    }
+    return el;
+  }
+
+  function offscreenThreatDot(i){
+    const layer = offscreenThreatLayer();
+    if(!layer) return null;
+    if(!offscreenThreatDots[i]){
+      const el = document.createElement('div');
+      el.className = 'offscreen-threat-dot';
+      layer.appendChild(el);
+      offscreenThreatDots[i] = el;
+    }
+    return offscreenThreatDots[i];
+  }
+
+  function hideOffscreenThreatIndicators(){
+    offscreenThreatDots.forEach(el=>{
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%, -50%)';
+      el.className = 'offscreen-threat-dot';
+    });
+  }
+
+  function updateOffscreenThreatIndicators(){
+    if(!OFFSCREEN_INDICATOR_ENABLED || !state.started || state.paused || state.dialogueActive || state.activeOverlay!=='none'){
+      hideOffscreenThreatIndicators();
+      return;
+    }
+    if(findLockOnBoss()){
+      hideOffscreenThreatIndicators();
+      return;
+    }
+    const threats = getCombatThreats(state.pos, enemies, {
+      threatRange: COMBAT_CAMERA_THREAT_RANGE,
+      attackingWeight: COMBAT_CAMERA_ATTACKING_WEIGHT,
+      recoveryWeight: COMBAT_CAMERA_RECOVERY_WEIGHT,
+    });
+    const W = window.innerWidth, H = window.innerHeight;
+    const cx = W * 0.5, cy = H * 0.5;
+    const margin = 22;
+    const edgeX = Math.max(1, cx - margin);
+    const edgeY = Math.max(1, cy - margin);
+    const projected = [];
+    threats.forEach(threat=>{
+      if(!threat.indicatorSeverity) return;
+      offscreenThreatCameraSpace.set(threat.focusPoint.x, state.pos.y + 0.8, threat.focusPoint.z).applyMatrix4(camera.matrixWorldInverse);
+      offscreenThreatProbe.set(threat.focusPoint.x, state.pos.y + 0.8, threat.focusPoint.z).project(camera);
+      const behind = offscreenThreatCameraSpace.z > 0;
+      const inFront = offscreenThreatProbe.z >= -1 && offscreenThreatProbe.z <= 1;
+      if(!behind && inFront && Math.abs(offscreenThreatProbe.x) <= 1 && Math.abs(offscreenThreatProbe.y) <= 1) return;
+      let dx = offscreenThreatProbe.x;
+      let dy = -offscreenThreatProbe.y;
+      if(behind){ dx = -dx; dy = -dy; }
+      if(Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001) dy = -1;
+      const angle = Math.atan2(dy, dx);
+      const ux = Math.cos(angle), uy = Math.sin(angle);
+      const scale = Math.min(Math.abs(edgeX / (Math.abs(ux) || 1)), Math.abs(edgeY / (Math.abs(uy) || 1)));
+      projected.push({
+        angle,
+        x: cx + ux * scale,
+        y: cy + uy * scale,
+        severity: threat.indicatorSeverity,
+        distance: threat.distance,
+      });
+    });
+    const clusters = clusterOffscreenThreats(projected, {
+      clusterAngleDeg: OFFSCREEN_INDICATOR_CLUSTER_ANGLE,
+      maxDisplay: OFFSCREEN_INDICATOR_MAX_DISPLAY,
+    });
+    clusters.forEach((cluster, i)=>{
+      const el = offscreenThreatDot(i);
+      if(!el) return;
+      el.className = `offscreen-threat-dot ${cluster.severity}`;
+      el.style.left = `${cluster.x}px`;
+      el.style.top = `${cluster.y}px`;
+      el.style.opacity = '1';
+      el.style.transform = `translate(-50%, -50%) scale(${Math.min(1.4, 1 + (cluster.count - 1) * 0.08)})`;
+    });
+    for(let i=clusters.length;i<offscreenThreatDots.length;i++){
+      offscreenThreatDots[i].style.opacity = '0';
+      offscreenThreatDots[i].style.transform = 'translate(-50%, -50%)';
+      offscreenThreatDots[i].className = 'offscreen-threat-dot';
     }
   }
 
@@ -363,6 +462,7 @@
     document.getElementById('xp-fill').style.width = `${Math.max(0,Math.min(100,state.xp/state.xpToNext*100))}%`;
     updateUltHUD();
     updateCooldownRings();
+    updateOffscreenThreatIndicators();
     if(state.paused) refreshMenuStats();
   }
 
