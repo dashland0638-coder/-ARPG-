@@ -45,6 +45,17 @@ async function motionLine(page) {
     headYaw: Number(field('Head')),
     eyeYaw: Number(field('Eyes')),
     headPitch: Number(field('EyePitch')),
+    // PREVIEW ブロック(どの職業のどの揺れの型が実際に効いているか)
+    job: field('Job'),
+    idleRate: Number(field('IdleRate')),
+    idleStaff: Number(field('IdleStaff')),
+    idleHand: Number(field('IdleHand')),
+    idleWeight: Number(field('IdleWeight')),
+    settle: field('Settle'),
+    wepFollow: Number(field('WepFollow')),
+    // WEAPON ブロック(杖頭のワールド高さと弾の当たり判定の窓)
+    tipY: Number(field('TipWorldY')),
+    hitWindow: Number(field('HitWindow')),
     raw: text,
   };
 }
@@ -69,12 +80,18 @@ async function waitForLookRelease(page, timeout = 30_000) {
     .toBe('none');
 }
 
-/** テストモードでその職業のトレーニング空間へ入り、デバッグ表示を開く */
-async function enterTraining(page, classKey) {
+/** テストモードでその職業のトレーニング空間へ入り、デバッグ表示を開く。
+    upperJob を true にすると転身後(魔法使い→魔導士 など)で始める。 */
+async function enterTraining(page, classKey, { upperJob = false } = {}) {
   await page.click('#open-testmode-btn');
   await page.waitForSelector(`.class-card[data-key="${classKey}"]`);
   await page.click(`.class-card[data-key="${classKey}"]`);
   await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 1);
+  if (upperJob) {
+    // 0 番が基礎職、1 番が転身先(renderJobGrid、01-character-creation.js)
+    await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);
+    await page.locator('#testmode-job-grid .testmode-job-card').nth(1).click();
+  }
   await page.click('#testmode-start-btn');
   await page.waitForFunction(() => {
     const wrap = document.getElementById('canvas-wrap');
@@ -150,6 +167,118 @@ for (const cls of CLASSES) {
     expect(errors, `コンソールエラー/例外が発生していないこと:\n${errors.join('\n')}`).toEqual([]);
   });
 }
+
+/* 魔導士(Mage Lord)。魔法使いが Focus(敵に集中している)なのに対して、
+   こちらは Control ―― 強い力を余裕を持って制御している。速く動くのでは
+   なく、体を止めて杖だけをゆっくり大きく動かす方向に差を付けている。
+
+   揺れの型そのものの差は tests/unit/mage-lord-idle.test.js が数値で
+   固定しているので、ここで見たいのは「転身した実際のゲームの中で本当に
+   その型が使われているか」と「杖から出る魔弾が今までどおり当たるか」。 */
+test('魔導士(archmage): 専用の Combat Idle が実機で効き、魔弾の高さが変わらない', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  await openGame(page);
+  await enterTraining(page, 'mage', { upperJob: true });
+
+  await waitForState(page, 'EXPLORATION');
+  const explore = await motionLine(page);
+  expect(explore.job, `転身後で始まっていない (${explore.raw})`).toContain('魔導士');
+  /* 杖は仕舞わない ―― 魔法使いから引き継いでいる約束。探索中は両手で
+     胸の前に抱え、戦闘では右手に持ち替える(収納状態にはならない)。 */
+  expect(explore.weapon, '杖は納めない').not.toBe('SHEATHED');
+  await page.screenshot({ path: 'test-results/motion-archmage-explore.png' });
+
+  await page.click('#arena-toggle-btn');
+  await page.locator('#arena-roster button', { hasText: 'Flying Test' }).click();
+  await waitForState(page, 'COMBAT');
+
+  // ---- 専用の揺れの型が効いていること(基礎職の使い回しではない)----
+  const combat = await motionLine(page);
+  expect(combat.idleRate, `揺れが遅い側になっていない (${combat.raw})`).toBeLessThan(0.9);
+  expect(combat.idleRate).toBeGreaterThanOrEqual(0.65);
+  expect(combat.idleStaff, '杖はゆっくり大きく振る').toBeGreaterThanOrEqual(0.015);
+  expect(combat.idleStaff).toBeLessThanOrEqual(0.025);
+  expect(combat.idleHand, '左手の制御が残っている').toBeGreaterThan(0.015);
+  expect(combat.idleWeight, '重心はほとんど動かさない').toBeLessThan(0.006);
+  expect(combat.wepFollow, '杖は大きな振り子として遅れて付いてくる').toBeLessThan(14);
+
+  /* ---- 魔弾の発射高さ(杖頭)が当たり判定の窓に収まっていること ----
+     魔弾は杖頭から出て水平に飛び、敵の足元との高さの差が窓を越えると
+     まっすぐ狙っても一切当たらない。上位職は杖が 1.32 倍に拡大される
+     ぶん高くなるので、ここが実機で一番効く検査になる。 */
+  expect(combat.hitWindow, `当たり判定の窓が読めていない (${combat.raw})`).toBeCloseTo(1.8, 2);
+  expect(combat.tipY, `杖頭 ${combat.tipY}m が窓 ${combat.hitWindow}m を越えている`)
+    .toBeLessThan(combat.hitWindow);
+  expect(combat.raw, '窓を越えた警告が出ている').not.toContain('OVER');
+
+  // 視線は既存の仕組みをそのまま引き継ぐ(専用の計算は足していない)
+  expect(combat.target, '戦闘中は敵を視線の対象にしている').toBe('enemy');
+  expect(Math.abs(combat.headYaw)).toBeLessThanOrEqual(35);
+  expect(Math.abs(combat.eyeYaw)).toBeLessThanOrEqual(11);
+  await page.screenshot({ path: 'test-results/motion-archmage-combat.png' });
+
+  // ---- 攻撃・回避を通しても戦闘状態と杖頭の高さが保たれる ----
+  await page.mouse.click(640, 400);
+  await page.waitForTimeout(1200);
+  const attacking = await motionLine(page);
+  expect(attacking.character).toBe('COMBAT');
+  expect(attacking.tipY, `攻撃中に杖頭 ${attacking.tipY}m が窓を越える`)
+    .toBeLessThan(attacking.hitWindow);
+
+  await page.waitForTimeout(1500);
+  const settled = await motionLine(page);
+  expect(settled.character, '攻撃終了後も Combat のまま').toBe('COMBAT');
+  expect(settled.tipY, '攻撃後の収まりで杖頭が窓を越える').toBeLessThan(settled.hitWindow);
+  await page.screenshot({ path: 'test-results/motion-archmage-settle.png' });
+
+  // 回避は魔法使いのものをそのまま使う(専用の回避は足していない)
+  await page.keyboard.press('Shift');
+  await page.waitForTimeout(1500);
+  const afterDodge = await motionLine(page);
+  expect(afterDodge.character, '回避終了後も Combat のまま').toBe('COMBAT');
+  expect(afterDodge.tipY, '回避後に杖頭が窓を越える').toBeLessThan(afterDodge.hitWindow);
+
+  // ---- 敵が消えたら余韻を経て探索へ(杖は仕舞わないまま)----
+  await page.click('#arena-clear-btn');
+  await waitForState(page, 'EXPLORATION', 60_000);
+  expect((await motionLine(page)).weapon, '杖は納めない').not.toBe('SHEATHED');
+  await waitForLookRelease(page);
+
+  expect(errors, `コンソールエラー/例外が発生していないこと:\n${errors.join('\n')}`).toEqual([]);
+});
+
+/* 基礎職の魔法使いの魔弾の高さ。上と同じ検査を転身前でも見ておく ――
+   前フェーズで構えを作り直した時に、ここを実際に越えて魔法使いの命中
+   テストが落ちた。魔導士だけを見ていると同じ穴を踏み直せる。 */
+test('魔法使い(mage): 戦闘の構えでも魔弾の発射高さが当たり判定に収まる', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  await openGame(page);
+  await enterTraining(page, 'mage');
+  await waitForState(page, 'EXPLORATION');
+
+  await page.click('#arena-toggle-btn');
+  await page.locator('#arena-roster button', { hasText: 'Flying Test' }).click();
+  await waitForState(page, 'COMBAT');
+
+  const combat = await motionLine(page);
+  expect(combat.job, '基礎職で始まっていない').toContain('魔法使い');
+  expect(combat.idleRate, '基礎職の揺れの型が使われている').toBeGreaterThan(0.9);
+  expect(combat.tipY, `杖頭 ${combat.tipY}m が窓 ${combat.hitWindow}m を越えている`)
+    .toBeLessThan(combat.hitWindow);
+  /* 転身で杖が 1.32 倍になっても収まるだけの余裕を基礎職側に持たせておく
+     (上位職の杖頭は握りから先が 1.32 倍の位置に来る)。 */
+  expect(combat.raw).not.toContain('OVER');
+  await page.screenshot({ path: 'test-results/motion-mage-combat-tip.png' });
+
+  await page.mouse.click(640, 400);
+  await page.waitForTimeout(1200);
+  expect((await motionLine(page)).tipY, '攻撃中に杖頭が窓を越える')
+    .toBeLessThan(combat.hitWindow);
+
+  expect(errors, errors.join('\n')).toEqual([]);
+});
 
 test('戦闘終了処理が余韻と納刀を必ず経由する(武器が即座に消えない)', async ({ page }) => {
   test.setTimeout(180_000);
