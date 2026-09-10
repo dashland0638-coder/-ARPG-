@@ -877,6 +877,12 @@
      chest, which read as the archer firing out of their own ribcage with the
      bow held off to one side doing nothing. */
   const _muzzle = new THREE.Vector3();
+  /* 開発用の記録。弾が実際に出た高さをそのまま残す ―― 杖頭は攻撃の
+     クリップで大きく動くので、デバッグ表示を眺めても「撃った瞬間の
+     高さ」は掴めない。当たり判定は弾と敵の足元の高さの差で見ているので、
+     ここが窓(PROJECTILE_HEIGHT_WINDOW)を越えていると、まっすぐ狙っても
+     当たらない。値を読むだけで、発射位置そのものには何もしていない。 */
+  let lastMuzzleY = 0;
   function projectileOrigin(){
     const P = playerMixerParts;
     const cls = state.classDef.key;
@@ -887,9 +893,12 @@
       // nudge it clear of the bow riser / staff head so it doesn't clip
       const f = new THREE.Vector3(Math.sin(state.facing), 0, Math.cos(state.facing));
       _muzzle.addScaledVector(f, 0.18);
+      lastMuzzleY = _muzzle.y;
       return _muzzle.clone();
     }
-    const p = state.pos.clone(); p.y += 1.1; return p;
+    const p = state.pos.clone(); p.y += 1.1;
+    lastMuzzleY = p.y;
+    return p;
   }
 
   function spawnArrow(dir, dmg, opts){

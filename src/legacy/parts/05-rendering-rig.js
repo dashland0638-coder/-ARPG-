@@ -3786,6 +3786,11 @@
       `Scale:     ${P.weapon ? P.weapon.scale.x.toFixed(2) : '-'}`,
       ranged ? `HitWindow: ${limit.toFixed(2)} ${_tipProbe.y < limit ? 'OK' : '*** OVER ***'}`
              : 'HitWindow: n/a (melee)',
+      /* 上は「今この瞬間の杖頭」。弾が出るのは攻撃クリップの途中なので、
+         実際に撃った高さは別に記録してある(projectileOrigin、
+         11-combat-actions.js)。命中に効くのはこちら。 */
+      ranged ? `MuzzleY:   ${lastMuzzleY.toFixed(3)} ${lastMuzzleY === 0 ? '(未発射)' : lastMuzzleY < limit ? 'OK' : '*** OVER ***'}`
+             : 'MuzzleY:   n/a (melee)',
     ].join('\n ');
   }
 

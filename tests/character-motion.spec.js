@@ -56,6 +56,7 @@ async function motionLine(page) {
     // WEAPON ブロック(杖頭のワールド高さと弾の当たり判定の窓)
     tipY: Number(field('TipWorldY')),
     hitWindow: Number(field('HitWindow')),
+    muzzleY: Number(field('MuzzleY')),
     raw: text,
   };
 }
@@ -208,9 +209,13 @@ test('魔導士(archmage): 専用の Combat Idle が実機で効き、魔弾の�
   await waitForState(page, 'EXPLORATION');
   const explore = await motionLine(page);
   expect(explore.job, `転身後で始まっていない (${explore.raw})`).toContain('魔導士');
-  /* 杖は仕舞わない ―― 魔法使いから引き継いでいる約束。探索中は両手で
-     胸の前に抱え、戦闘では右手に持ち替える(収納状態にはならない)。 */
-  expect(explore.weapon, '杖は納めない').not.toBe('SHEATHED');
+  /* 武器状態の SHEATHED は「戦闘の握りではない」という意味で、魔法使い系だけは
+     その収納先が背中や腰ではなく「両手で胸の前に抱える」になっている
+     (WEAPON_ATTACH.mage.sheathed = HAND_BOTH)。つまりこの表示は
+     杖を仕舞ったという意味ではない ―― 杖が手から離れないことは
+     tests/unit/character-motion-state.test.js が固定している。
+     ここで見るのは、転身しても基礎職と同じ状態遷移に乗っていること。 */
+  expect(explore.weapon, '基礎職と同じ状態遷移に乗っている').toBe('SHEATHED');
   await page.screenshot({ path: 'test-results/motion-archmage-explore.png' });
 
   await spawnArenaEnemy(page);
@@ -241,18 +246,30 @@ test('魔導士(archmage): 専用の Combat Idle が実機で効き、魔弾の�
   expect(Math.abs(combat.eyeYaw)).toBeLessThanOrEqual(11);
   await page.screenshot({ path: 'test-results/motion-archmage-combat.png' });
 
-  // ---- 攻撃・回避を通しても戦闘状態と杖頭の高さが保たれる ----
+  /* ---- 実際に撃った高さが窓に収まっていること ----
+     杖頭は攻撃のクリップの途中で大きく持ち上がるので、「今の杖頭の高さ」
+     を眺めても意味がない ―― 命中に効くのは弾が出た瞬間の高さだけ。
+     そこは projectileOrigin が記録している(MuzzleY)。 */
   await page.mouse.click(640, 400);
   await page.waitForTimeout(1200);
   const attacking = await motionLine(page);
   expect(attacking.character).toBe('COMBAT');
-  expect(attacking.tipY, `攻撃中に杖頭 ${attacking.tipY}m が窓を越える`)
+  expect(attacking.muzzleY, `弾が出ていない (${attacking.raw})`).toBeGreaterThan(0);
+  expect(attacking.muzzleY,
+    `魔弾が高さ ${attacking.muzzleY}m から出ている ―― 窓 ${attacking.hitWindow}m を越えると、まっすぐ狙っても足元の敵に当たらない`)
     .toBeLessThan(attacking.hitWindow);
 
-  await page.waitForTimeout(1500);
+  /* 攻撃のクリップは杖を大きく振り上げる(実測で杖頭 1.90m ―― 窓より
+     上)。撃った瞬間の高さは上で見たとおり窓の中なので当たるが、振り上げた
+     ままになると次の一撃が当たらなくなる。構えの高さへ戻ることを見る。
+
+     この環境はソフトウェアレンダリングで実時間1秒がゲーム内 0.2〜0.4 秒
+     にしかならないため、待ち時間ではなく「戻るまで待つ」形にしてある。 */
+  await expect
+    .poll(async () => (await motionLine(page)).tipY, { timeout: 45_000, intervals: [200] })
+    .toBeLessThan(1.8);
   const settled = await motionLine(page);
   expect(settled.character, '攻撃終了後も Combat のまま').toBe('COMBAT');
-  expect(settled.tipY, '攻撃後の収まりで杖頭が窓を越える').toBeLessThan(settled.hitWindow);
   await page.screenshot({ path: 'test-results/motion-archmage-settle.png' });
 
   // 回避は魔法使いのものをそのまま使う(専用の回避は足していない)
@@ -265,7 +282,7 @@ test('魔導士(archmage): 専用の Combat Idle が実機で効き、魔弾の�
   // ---- 敵が消えたら余韻を経て探索へ(杖は仕舞わないまま)----
   await clearArena(page);
   await waitForState(page, 'EXPLORATION', 60_000);
-  expect((await motionLine(page)).weapon, '杖は納めない').not.toBe('SHEATHED');
+  expect((await motionLine(page)).weapon, '探索の持ち方へ戻る').toBe('SHEATHED');
   await waitForLookRelease(page);
 
   expect(errors, `コンソールエラー/例外が発生していないこと:\n${errors.join('\n')}`).toEqual([]);
@@ -296,8 +313,10 @@ test('魔法使い(mage): 戦闘の構えでも魔弾の発射高さが当たり
 
   await page.mouse.click(640, 400);
   await page.waitForTimeout(1200);
-  expect((await motionLine(page)).tipY, '攻撃中に杖頭が窓を越える')
-    .toBeLessThan(combat.hitWindow);
+  const fired = await motionLine(page);
+  expect(fired.muzzleY, `弾が出ていない (${fired.raw})`).toBeGreaterThan(0);
+  expect(fired.muzzleY, `魔弾が高さ ${fired.muzzleY}m から出ている(窓 ${fired.hitWindow}m)`)
+    .toBeLessThan(fired.hitWindow);
 
   expect(errors, errors.join('\n')).toEqual([]);
 });
