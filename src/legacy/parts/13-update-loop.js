@@ -1824,6 +1824,7 @@
     }
     combatCameraFocusPoint.set(combatFocus.focusPoint.x, state.pos.y, combatFocus.focusPoint.z);
     combatCameraTargetShift.subVectors(combatCameraFocusPoint, state.pos);
+    combatCameraTargetShift.y = 0;
     if(combatCameraTargetShift.length() <= COMBAT_CAMERA_DEADZONE){
       combatCameraTargetShift.set(0,0,0);
     } else {
