@@ -1194,6 +1194,16 @@
     sparks.push({bits, glow:null, mat, pool:dustPool, t:0, life:0.42});
   }
 
+  /* 弾が敵に当たると見なす高さの差。弾は発射点の高さのまま水平に飛び、
+     敵の基準点は足元にあるので、この窓を越えた高さから撃つと「まっすぐ
+     狙っても一切当たらない」ことになる ―― 魔法使いの構えを作り直した時に
+     実際に踏んだ制約。数値そのものは従来のリテラル 1.8 のままで、
+     デバッグ表示(weaponDebugLine、05-rendering-rig.js)と
+     tests/unit/mage-lord-idle.test.js が同じ値を見られるように
+     名前を付けただけ(そのテストは、ここの値とテスト側の値がずれたら
+     落ちるようにしてある)。 */
+  const PROJECTILE_HEIGHT_WINDOW = 1.8;
+
   function updateProjectiles(dt){
     for(let i=projectiles.length-1;i>=0;i--){
       const p = projectiles[i];
@@ -1295,7 +1305,7 @@
           const d = p.mesh.position.distanceTo(new THREE.Vector3(en.group.position.x, p.mesh.position.y, en.group.position.z));
           // height check is relative to the target, not to world y=0.5:
           // the old absolute form made arrows harmless on every upper storey
-          if(d < (p.hitR || 0.6) && Math.abs(p.mesh.position.y - en.group.position.y) < 1.8){
+          if(d < (p.hitR || 0.6) && Math.abs(p.mesh.position.y - en.group.position.y) < PROJECTILE_HEIGHT_WINDOW){
             // 鷹の目(#5): 発射時に未来位置へ狙いを寄せた相手に、その狙い筋
             // どおり命中した場合だけ体幹ボーナス。矢は誘導されていない
             // (dirは発射時に一度曲げただけ)ので、相手がその後どこかへ
