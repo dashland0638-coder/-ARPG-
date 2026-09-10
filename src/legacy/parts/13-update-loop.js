@@ -1832,9 +1832,13 @@
       camera.position.add(shakeOffset);
       return;
     }
-    const desiredCombatFocus = (camAutoOn && camAutoResumeT<=0) ? getCombatCameraFocusOffset() : null;
-    if(desiredCombatFocus) combatCamFocusOffset.lerp(desiredCombatFocus, 1-Math.pow(0.0025,dt));
-    else combatCamFocusOffset.lerp(_combatThreatFocus.set(0,0,0), 1-Math.pow(0.0009,dt));
+    if(!camAutoOn || camAutoResumeT > 0){
+      combatCamFocusOffset.set(0,0,0);
+    } else {
+      const desiredCombatFocus = getCombatCameraFocusOffset();
+      if(desiredCombatFocus) combatCamFocusOffset.lerp(desiredCombatFocus, 1-Math.pow(0.0025,dt));
+      else combatCamFocusOffset.lerp(_combatThreatFocus.set(0,0,0), 1-Math.pow(0.0009,dt));
+    }
     const desired = new THREE.Vector3().copy(state.pos).add(getCamOffset());
     camera.position.lerp(desired, 1-Math.pow(0.001,dt));
     const lookAt = state.pos.clone().add(combatCamFocusOffset); lookAt.y += COMBAT_CAMERA_Y_OFFSET;
