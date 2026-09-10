@@ -13,8 +13,8 @@ export const OFFSCREEN_INDICATOR_ENABLED = false;
 export const OFFSCREEN_INDICATOR_CLUSTER_ANGLE = 45;
 export const OFFSCREEN_INDICATOR_MAX_DISPLAY = 8;
 
-const OFFSCREEN_LOW_DISTANCE = 12;
-const OFFSCREEN_HIGH_DISTANCE = 7;
+const OFFSCREEN_NEAR_DISTANCE = 12;
+const OFFSCREEN_IMMEDIATE_DISTANCE = 7;
 const TELEGRAPH_DIRECTION_BIAS = 0.6;
 
 function positionOf(en) {
@@ -86,9 +86,9 @@ export function getCombatThreats(playerPos, enemies, opts = {}) {
       z: pos.z + (lead && lead.dir ? (lead.dir.z || 0) * TELEGRAPH_DIRECTION_BIAS : 0),
     };
     let indicatorSeverity = null;
-    if (activeLead && distance < OFFSCREEN_LOW_DISTANCE) indicatorSeverity = 'high';
+    if (activeLead && distance < OFFSCREEN_NEAR_DISTANCE) indicatorSeverity = 'high';
     else if (pw.midWindup) indicatorSeverity = 'medium';
-    else if (distance < OFFSCREEN_HIGH_DISTANCE || (distance < OFFSCREEN_LOW_DISTANCE && pw.postAttackRecovery)) indicatorSeverity = 'low';
+    else if (distance < OFFSCREEN_IMMEDIATE_DISTANCE || (distance < OFFSCREEN_NEAR_DISTANCE && pw.postAttackRecovery)) indicatorSeverity = 'low';
     list.push({ enemy: en, distance, weight, focusPoint, indicatorSeverity, punish: pw, activeLead });
   }
   return list;

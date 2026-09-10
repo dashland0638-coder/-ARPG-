@@ -130,6 +130,7 @@
   }
 
   const offscreenThreatDots = [];
+  const offscreenThreatCameraSpace = new THREE.Vector3();
   const offscreenThreatProbe = new THREE.Vector3();
 
   function offscreenThreatLayer(){
@@ -182,12 +183,14 @@
     const projected = [];
     threats.forEach(threat=>{
       if(!threat.indicatorSeverity) return;
+      offscreenThreatCameraSpace.set(threat.focusPoint.x, state.pos.y + 0.8, threat.focusPoint.z).applyMatrix4(camera.matrixWorldInverse);
       offscreenThreatProbe.set(threat.focusPoint.x, state.pos.y + 0.8, threat.focusPoint.z).project(camera);
+      const behind = offscreenThreatCameraSpace.z > 0;
       const inFront = offscreenThreatProbe.z >= -1 && offscreenThreatProbe.z <= 1;
-      if(inFront && Math.abs(offscreenThreatProbe.x) <= 1 && Math.abs(offscreenThreatProbe.y) <= 1) return;
+      if(!behind && inFront && Math.abs(offscreenThreatProbe.x) <= 1 && Math.abs(offscreenThreatProbe.y) <= 1) return;
       let dx = offscreenThreatProbe.x;
       let dy = -offscreenThreatProbe.y;
-      if(offscreenThreatProbe.z > 1){ dx = -dx; dy = -dy; }
+      if(behind){ dx = -dx; dy = -dy; }
       if(Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001) dy = -1;
       const angle = Math.atan2(dy, dx);
       const ux = Math.cos(angle), uy = Math.sin(angle);
