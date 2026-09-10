@@ -81,6 +81,21 @@ async function waitForLookRelease(page, timeout = 30_000) {
     .toBe('none');
 }
 
+/* 杖頭が構えの高さへ戻るのを待つ。攻撃や回避のクリップは杖を大きく
+   振り上げる(魔導士は実測で 1.90m ―― 当たり判定の窓 1.8m より上)ので、
+   固定の待ち時間で覗くとクリップの途中を測ってしまう ―― この環境は
+   ソフトウェアレンダリングで実時間1秒がゲーム内 0.2〜0.4 秒にしかならず、
+   何秒待てば終わるかを実時間では決められない。
+
+   撃った瞬間の高さは MuzzleY が別に持っているので、ここで見たいのは
+   「振り上げたままにならず構えへ戻ること」。戻らなければ次の一撃が
+   当たらなくなる。 */
+async function waitForStaffLowered(page, timeout = 45_000) {
+  await expect
+    .poll(async () => (await motionLine(page)).tipY, { timeout, intervals: [200] })
+    .toBeLessThan(1.8);
+}
+
 /* テスト用の敵を出す。⚔️ Arena ボタンは押すたびに開閉が反転する
    トグルなので、負荷の高い環境では Playwright のクリック再試行が
    二度発火して「開いて即座に閉じる」ことがある(2ワーカーで実際に
@@ -259,15 +274,7 @@ test('魔導士(archmage): 専用の Combat Idle が実機で効き、魔弾の�
     `魔弾が高さ ${attacking.muzzleY}m から出ている ―― 窓 ${attacking.hitWindow}m を越えると、まっすぐ狙っても足元の敵に当たらない`)
     .toBeLessThan(attacking.hitWindow);
 
-  /* 攻撃のクリップは杖を大きく振り上げる(実測で杖頭 1.90m ―― 窓より
-     上)。撃った瞬間の高さは上で見たとおり窓の中なので当たるが、振り上げた
-     ままになると次の一撃が当たらなくなる。構えの高さへ戻ることを見る。
-
-     この環境はソフトウェアレンダリングで実時間1秒がゲーム内 0.2〜0.4 秒
-     にしかならないため、待ち時間ではなく「戻るまで待つ」形にしてある。 */
-  await expect
-    .poll(async () => (await motionLine(page)).tipY, { timeout: 45_000, intervals: [200] })
-    .toBeLessThan(1.8);
+  await waitForStaffLowered(page);
   const settled = await motionLine(page);
   expect(settled.character, '攻撃終了後も Combat のまま').toBe('COMBAT');
   await page.screenshot({ path: 'test-results/motion-archmage-settle.png' });
@@ -275,9 +282,8 @@ test('魔導士(archmage): 専用の Combat Idle が実機で効き、魔弾の�
   // 回避は魔法使いのものをそのまま使う(専用の回避は足していない)
   await page.keyboard.press('Shift');
   await page.waitForTimeout(1500);
-  const afterDodge = await motionLine(page);
-  expect(afterDodge.character, '回避終了後も Combat のまま').toBe('COMBAT');
-  expect(afterDodge.tipY, '回避後に杖頭が窓を越える').toBeLessThan(afterDodge.hitWindow);
+  expect((await motionLine(page)).character, '回避終了後も Combat のまま').toBe('COMBAT');
+  await waitForStaffLowered(page);
 
   // ---- 敵が消えたら余韻を経て探索へ(杖は仕舞わないまま)----
   await clearArena(page);
