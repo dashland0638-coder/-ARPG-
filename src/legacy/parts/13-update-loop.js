@@ -1800,6 +1800,10 @@
     return a + diff * t;
   }
 
+  function combatCameraLerpAlpha(decay, dt){
+    return Math.max(0, Math.min(1, 1-Math.pow(decay, Math.max(0, dt))));
+  }
+
   function updateCamera(dt){
     if(state.dialogueActive && state.dialogueBoss && !state.dialogueBoss.dead){
       // dramatic close-up on the boss while they're talking
@@ -1833,11 +1837,11 @@
       return;
     }
     if(!camAutoOn || camAutoResumeT > 0){
-      combatCamFocusOffset.lerp(_combatThreatFocus.set(0,0,0), 1-Math.pow(0.00002,dt));
+      combatCamFocusOffset.lerp(_combatThreatFocus.set(0,0,0), combatCameraLerpAlpha(0.00002, dt));
     } else {
       const desiredCombatFocus = getCombatCameraFocusOffset();
-      if(desiredCombatFocus) combatCamFocusOffset.lerp(desiredCombatFocus, 1-Math.pow(0.0025,dt));
-      else combatCamFocusOffset.lerp(_combatThreatFocus.set(0,0,0), 1-Math.pow(0.0009,dt));
+      if(desiredCombatFocus) combatCamFocusOffset.lerp(desiredCombatFocus, combatCameraLerpAlpha(0.0025, dt));
+      else combatCamFocusOffset.lerp(_combatThreatFocus.set(0,0,0), combatCameraLerpAlpha(0.0009, dt));
     }
     const desired = new THREE.Vector3().copy(state.pos).add(getCamOffset());
     camera.position.lerp(desired, 1-Math.pow(0.001,dt));
