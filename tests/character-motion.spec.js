@@ -80,6 +80,34 @@ async function waitForLookRelease(page, timeout = 30_000) {
     .toBe('none');
 }
 
+/* テスト用の敵を出す。⚔️ Arena ボタンは押すたびに開閉が反転する
+   トグルなので、負荷の高い環境では Playwright のクリック再試行が
+   二度発火して「開いて即座に閉じる」ことがある(2ワーカーで実際に
+   踏んだ)。開いていなければ押す、を開くまで繰り返す形にしておく。 */
+async function openArena(page) {
+  const panel = page.locator('#arena-panel');
+  for (let i = 0; i < 5; i++) {
+    if (await panel.evaluate(el => el.classList.contains('show')).catch(() => false)) return;
+    await page.click('#arena-toggle-btn');
+    await page.waitForTimeout(200);
+  }
+  await expect(panel).toHaveClass(/show/);
+}
+
+/* ロスターから敵を1体出す。「Flying Test」は攻撃も移動もしてこないので
+   テストの間にプレイヤーが倒れることがなく(状態遷移だけを見たい)、
+   それでいて Dummy(カカシ)と違って「脅威」として数えられる個体。 */
+async function spawnArenaEnemy(page, label = 'Flying Test') {
+  await openArena(page);
+  await page.locator('#arena-roster button', { hasText: label }).click();
+}
+
+// 敵を全部消す(= 最後の敵を倒した相当)
+async function clearArena(page) {
+  await openArena(page);
+  await clearArena(page);
+}
+
 /** テストモードでその職業のトレーニング空間へ入り、デバッグ表示を開く。
     upperJob を true にすると転身後(魔法使い→魔導士 など)で始める。 */
 async function enterTraining(page, classKey, { upperJob = false } = {}) {
@@ -113,12 +141,8 @@ for (const cls of CLASSES) {
     await waitForState(page, 'EXPLORATION');
     expect((await motionLine(page)).weapon).toBe('SHEATHED');
 
-    /* ---- 敵を出す → 抜刀 → 戦闘 ----
-       ロスターのうち「Flying Test」を使う。攻撃も移動もしてこないので
-       テストの間にプレイヤーが倒れることがなく(状態遷移だけを見たい)、
-       それでいて Dummy(カカシ)と違って「脅威」として数えられる個体。 */
-    await page.click('#arena-toggle-btn');
-    await page.locator('#arena-roster button', { hasText: 'Flying Test' }).click();
+    // ---- 敵を出す → 抜刀 → 戦闘 ----
+    await spawnArenaEnemy(page);
     // DRAWING は職業によっては 0.34 秒しかないので、COMBAT への到達で
     // 抜刀が完走したことを見る(途中で止まらないことがここでの関心事)
     await waitForState(page, 'COMBAT');
@@ -153,8 +177,8 @@ for (const cls of CLASSES) {
       .toBeLessThanOrEqual(Math.abs(inCombat.targetYaw) + 2);
     await page.screenshot({ path: `test-results/motion-${cls.key}-combat.png` });
 
-    // ---- 敵を消す(= 最後の敵を倒した相当)→ 余韻 → 納刀 → 探索 ----
-    await page.click('#arena-clear-btn');
+    // ---- 敵を消す → 余韻 → 納刀 → 探索 ----
+    await clearArena(page);
     // POST_COMBAT / SHEATHING は短いので、最終的に EXPLORATION まで
     // 到達すること(=どこかで詰まらないこと)を確認する
     await waitForState(page, 'EXPLORATION', 60_000);
@@ -189,8 +213,7 @@ test('魔導士(archmage): 専用の Combat Idle が実機で効き、魔弾の�
   expect(explore.weapon, '杖は納めない').not.toBe('SHEATHED');
   await page.screenshot({ path: 'test-results/motion-archmage-explore.png' });
 
-  await page.click('#arena-toggle-btn');
-  await page.locator('#arena-roster button', { hasText: 'Flying Test' }).click();
+  await spawnArenaEnemy(page);
   await waitForState(page, 'COMBAT');
 
   // ---- 専用の揺れの型が効いていること(基礎職の使い回しではない)----
@@ -240,7 +263,7 @@ test('魔導士(archmage): 専用の Combat Idle が実機で効き、魔弾の�
   expect(afterDodge.tipY, '回避後に杖頭が窓を越える').toBeLessThan(afterDodge.hitWindow);
 
   // ---- 敵が消えたら余韻を経て探索へ(杖は仕舞わないまま)----
-  await page.click('#arena-clear-btn');
+  await clearArena(page);
   await waitForState(page, 'EXPLORATION', 60_000);
   expect((await motionLine(page)).weapon, '杖は納めない').not.toBe('SHEATHED');
   await waitForLookRelease(page);
@@ -258,8 +281,7 @@ test('魔法使い(mage): 戦闘の構えでも魔弾の発射高さが当たり
   await enterTraining(page, 'mage');
   await waitForState(page, 'EXPLORATION');
 
-  await page.click('#arena-toggle-btn');
-  await page.locator('#arena-roster button', { hasText: 'Flying Test' }).click();
+  await spawnArenaEnemy(page);
   await waitForState(page, 'COMBAT');
 
   const combat = await motionLine(page);
@@ -288,11 +310,10 @@ test('戦闘終了処理が余韻と納刀を必ず経由する(武器が即座�
   await enterTraining(page, 'archer');
   await waitForState(page, 'EXPLORATION');
 
-  await page.click('#arena-toggle-btn');
-  await page.locator('#arena-roster button', { hasText: 'Flying Test' }).click();
+  await spawnArenaEnemy(page);
   await waitForState(page, 'COMBAT');
 
-  await page.click('#arena-clear-btn');
+  await clearArena(page);
   // 敵が消えた直後、まだ武器は手にある(POST_COMBAT / SHEATHING のどちらか)
   const seen = new Set();
   const deadline = Date.now() + 60_000;
@@ -337,8 +358,7 @@ test('弓師の残心: 弓を収めても、体が正面へ戻るまで視線は
   await enterTraining(page, 'archer');
   await waitForState(page, 'EXPLORATION');
 
-  await page.click('#arena-toggle-btn');
-  await page.locator('#arena-roster button', { hasText: 'Flying Test' }).click();
+  await spawnArenaEnemy(page);
   await waitForState(page, 'COMBAT');
   const aiming = await motionLine(page);
   expect(aiming.target).toBe('enemy');
@@ -348,7 +368,7 @@ test('弓師の残心: 弓を収めても、体が正面へ戻るまで視線は
      残心の実体は、納刀の最中に新しく敵を探さず直前の方向を保つこと。
      体(腰)が正面へ戻るのは納刀クリップの最後だけなので、頭が先に
      正面へ戻ることも起きない。 */
-  await page.click('#arena-clear-btn');
+  await clearArena(page);
   let sawHolding = false;
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
