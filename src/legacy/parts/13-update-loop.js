@@ -1175,10 +1175,119 @@
     player.rotation.z =  leanX*0.55;
 
     applyCombatPose();   // an attack or a charge overrides the walk cycle
+    updateLookRig(dt);   // 視線 → 頭 → 体幹 の配分(core/look-rig.js)。
+                         // applyCombatPose の後、updateGrip の前 ―― 体幹の
+                         // 角度が決まってからでないと手の位置が確定しない
     applyPoseShift();    // the lunge and the sink that give a blow its weight
     updateGrip();        // the weapon lands on wherever the hand ended up
     updateBowDraw();     // and the string on wherever the drawing hand ended up
     updateBladeTrail(dt);
+  }
+
+  /* =========================================================
+     LOOK RIG ―― 「どこを見ているか」を身体へ配分する
+
+     目/頭/体幹の可動域と配分の式そのものは core/look-rig.js(ユニット
+     テスト済み)にあり、ここが担当するのは 2 つだけ:
+       1. 今フレームの「見る相手」を決める
+       2. 出てきた角度を three.js のピボットへ書く
+
+     ■ 見る相手の決め方(引き継ぎ資料のターゲット方針を、この実装に
+        実際にある状態へ対応付けたもの)
+       資料は SOCIAL / EXPLORATION / DRAWING / COMBAT / POST_COMBAT /
+       SHEATHING という状態機械を前提にしていたが、この実装にその状態機械は
+       無い。代わりに、同じ意味を持つ既存の状態がそのまま使える:
+         combat / drawing / post-combat → state.combatStanceT > 0
+             (攻撃・被弾・敵の接近で立つ戦闘態勢。core/combat-stance.js)
+             → 最も近い「見えている」生存敵を見る
+         sheathing                      → 戦闘態勢が切れていく間
+             → linger(0.45秒)が直前の方向を保持したまま薄れる
+         exploration / social           → それ以外
+             → 近くに仲間がいればそちら、いなければゆっくり見回す
+
+     ■ 「見えている」敵しか見ない
+       視界制限(core/enemy-visibility.js)で hidden の敵は、プレイヤーから
+       見えていない。そちらへ顔を向けてしまうと、壁の向こうの敵の位置を
+       視線が漏らしてしまう ―― せっかくの「壁の向こうに何かいるかも
+       しれない」が台無しになるので、visLevel が hidden の敵は選ばない。
+  ========================================================= */
+  const LOOK_TARGET_RANGE = 22;       // これより遠い相手は見ない
+  const LOOK_COMPANION_RANGE = 7;     // 探索中に仲間へ視線を向ける距離
+  let lookYaw = 0, lookPitch = 0;     // 追従後の「見ている向き」(ワールド)
+  let lookLingerT = 0, lookScanT = 0;
+  const _lookAt = new THREE.Vector3();
+
+  function findLookTarget(){
+    // 戦闘態勢中は敵。見えている個体だけが対象(上のコメント参照)
+    if((state.combatStanceT||0) > 0 || state.swinging){
+      let best = null, bestD = LOOK_TARGET_RANGE;
+      for(let i=0;i<enemies.length;i++){
+        const en = enemies[i];
+        if(!en || en.dead || en.dormant || !en.group) continue;
+        if(en.visLevel === 'hidden') continue;
+        const d = state.pos.distanceTo(en.group.position);
+        if(d < bestD){ best = en; bestD = d; }
+      }
+      if(best) return best.group.position;
+    }
+    // 探索中は近くの仲間へ。ゲスト(2部制)も同じ扱い
+    const mate = companion || guestCompanion;
+    if(mate && mate.pos && state.pos.distanceTo(mate.pos) < LOOK_COMPANION_RANGE) return mate.pos;
+    return null;
+  }
+
+  function updateLookRig(dt){
+    const P = playerMixerParts;
+    if(!P.eyePivot || !P.headLookPivot || !P.waist) return;
+
+    const target = findLookTarget();
+    lookLingerT = stepLookLinger(lookLingerT, dt, !!target, EYE_LINGER_SEC);
+    lookScanT += dt;
+
+    let desiredYaw, desiredPitch = 0;
+    if(target){
+      _lookAt.subVectors(target, state.pos);
+      desiredYaw = Math.atan2(_lookAt.x, _lookAt.z);
+      // 見上げ/見下ろし。目の高さ(約1.5m)を基準にした仰角
+      const flat = Math.hypot(_lookAt.x, _lookAt.z);
+      desiredPitch = flat > 0.2 ? Math.atan2((_lookAt.y + 0.9) - 1.5, flat) : 0;
+    } else if(lookLingerT > 0){
+      // 見失った直後。直前の向きをそのまま保持する(資料の sheathing 相当)
+      desiredYaw = lookYaw;
+      desiredPitch = lookPitch;
+    } else {
+      // 誰もいない探索中。進行方向を基準にゆっくり見回す
+      desiredYaw = visualFacing + scanYaw(lookScanT);
+      desiredPitch = 0;
+    }
+
+    lookYaw = followAngle(lookYaw, desiredYaw, EYE_FOLLOW_SPEED, dt);
+    lookPitch = lookPitch + (desiredPitch - lookPitch) * Math.min(1, dt*EYE_FOLLOW_SPEED);
+
+    /* 配分の強さ。相手を見ている間は 1、見失うと linger が 0 まで落ちる
+       ので、視線・頭・体幹が一緒に静かに正面へ戻る。見回し(scan)の時も
+       1 のまま ―― scan の振幅自体が目の可動域の内側なので、体幹と頭は
+       そもそもほとんど動かない。 */
+    const weight = target ? 1 : (lookLingerT > 0 ? lingerWeight(lookLingerT, EYE_LINGER_SEC) : 1);
+
+    const look = distributeLook({
+      targetYaw: lookYaw, bodyYaw: visualFacing, targetPitch: lookPitch,
+      classKey: state.classDef && state.classDef.key, jobKey: state.job, weight,
+    });
+
+    /* 書き込み。waist は歩行・構え・被弾の仰け反りが既に書いた値へ
+       「加算」する ―― 上書きするとそれらが消える。頭と目は Look Rig
+       専用のピボットなので代入でよい。 */
+    /* pitch の符号: この実装の waist.rotation.x は「正 = 前へ傾く(下を向く)」
+       (updateLocomotion の走行時の前傾、被弾の仰け反りが -= なのと同じ向き)。
+       look.*Pitch は「正 = 見上げる」なので、書き込む時に反転する。
+       頭と目のピボットも three.js の +X 回転で顔が下を向くため同じ扱い。 */
+    P.waist.rotation.y += look.waistYaw;
+    P.waist.rotation.x -= look.waistPitch;
+    P.headLookPivot.rotation.y = look.headYaw;
+    P.headLookPivot.rotation.x = -look.headPitch;
+    P.eyePivot.rotation.y = look.eyeYaw;
+    P.eyePivot.rotation.x = -look.eyePitch;
   }
 
   function spawnLandingDust(pos, power){

@@ -21,6 +21,9 @@ src/
                                 戦闘時ハイライトの強さ、ネームドの8方位。state依存なし
   core/execution.js            処刑(瀕死の敵へのフィニッシュ)の成立条件・職業ごとの所作・
                                 削り切るダメージ。state依存なし
+  core/look-rig.js             Eye Rig / Visual Look Offset。「どこを見ているか」を
+                                目(±10°)→頭(±38°)→体幹(デッドゾーン24°、超過の45%を
+                                ±12.6°×職業係数まで)へ配分する。state依存なし
   audio/audio.js               SE合成・BGM再生(WebAudio)。state.sfxVolume/bgmVolume以外への依存なし
   audio/procedural-bgm.js      ワールドごとの生成音楽(ドローン+疎らな旋律+簡易リバーブ)。実ファイル未登録時のBGM
   textures/textures.js         手続きテクスチャ/バンプマップ生成。state依存なし

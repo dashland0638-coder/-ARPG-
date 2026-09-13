@@ -71,6 +71,13 @@ import {
   isFinishable, canExecute, executionStyle, executionDamage,
   EXECUTION_HP_RATIO, EXECUTION_ULT_BONUS,
 } from '../core/execution.js';
+/* normalizeAngle は 05-rendering-rig.js が同名の関数を既に持っている
+   (連結後は1つのスコープなので二重宣言になる)。look-rig 側の
+   normalizeAngle は distributeLook が内部で使うだけなので import しない */
+import {
+  distributeLook, followAngle, stepLookLinger, lingerWeight, scanYaw,
+  EYE_FOLLOW_SPEED, EYE_LINGER_SEC,
+} from '../core/look-rig.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 
 `;
