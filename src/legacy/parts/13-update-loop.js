@@ -470,6 +470,7 @@
   }
   function updatePlayer(dt){
     if(state.attackCD>0) state.attackCD = Math.max(0,state.attackCD-dt);
+    updateCombatStance(dt);
     if(state.dodgeCD>0) state.dodgeCD = Math.max(0,state.dodgeCD-dt);
     if(state.ultLockT>0) state.ultLockT = Math.max(0,state.ultLockT-dt);   // 発動直後の保険的ロックアウトのみ(本体はゲージ制)
     updateStamina(dt);
@@ -720,11 +721,17 @@
     // instead of the two fighting over the same joints every frame.
     if(state.swinging){
       state.swingT += dt / (state.swingDur || 0.28);
+      state.postSwingT = 0;      // 振っている間はゼロ。抜けた瞬間から数え始める
       if(state.swingT >= 1){
         state.swingT = 1;
         state.swinging = false;
         state.moveClip = null;
       }
+    } else if(state.postSwingT < 10){
+      // 振り終わってからの経過秒数。Combat Idle の「まだ収まっていない」
+      // 上乗せ(core/combat-stance.js の settleBoost)が読む。
+      // 上限で止めるのは、放置中に際限なく増えるのを避けるだけの用心
+      state.postSwingT += dt;
     }
 
     // apply to mesh
@@ -956,6 +963,25 @@
     // 弓師: 弓を構える都合上あまり深く前傾できないため、呼吸と揺れで表現
     archer:  {pitchBias:0.06, breathMul:1.8, swayMul:1.6}
   };
+
+  /* 戦闘態勢タイマー(core/combat-stance.js)。攻撃(beginMove)と被弾
+     (applyIncomingDamageMul)が伸ばし、ここで減らす。加えて「こちらを
+     見つけている敵が近くにいる」間も伸ばし続ける ―― 敵を前にして
+     武器を下ろしてしまうと、攻撃していない時間がそのまま棒立ちに
+     見えるため。距離はカメラの戦闘判定と同じ COMBAT_CAMERA_RANGE を
+     使い、判定の基準を1つに揃えている。 */
+  function updateCombatStance(dt){
+    if(state.combatStanceT > 0) state.combatStanceT = Math.max(0, state.combatStanceT - dt);
+    const rangeSq = COMBAT_CAMERA_RANGE * COMBAT_CAMERA_RANGE;
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      if(!en || en.dead || en.dormant || !en.group) continue;
+      if(!en.triggered && !en.isBoss) continue;
+      if(state.pos.distanceToSquared(en.group.position) > rangeSq) continue;
+      state.combatStanceT = refreshCombatStance(state.combatStanceT);
+      return;
+    }
+  }
 
   function updateLocomotion(dt, moveSpeed){
     const P = playerMixerParts;
@@ -1279,7 +1305,7 @@
             // 動いていれば普通に外れる - 命中できた事実そのものが「読みが
             // 当たった」証拠になる
             const predictHit = p.predictiveTarget===en && isTelegraphing(en);
-            dealDamageToEnemy(en, p.dmg, false, {staggerMul: (p.staggerMul||1) * (predictHit?3.0:1), ultGauge: p.ultGauge});
+            dealDamageToEnemy(en, p.dmg, false, {staggerMul: (p.staggerMul||1) * (predictHit?3.0:1), ultGauge: p.ultGauge, isFinish: p.isFinish});
             impactTarget = en;
             if(predictHit){
               spawnToast('🎯 未来を射抜いた!', '#6adfc0');

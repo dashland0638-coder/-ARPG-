@@ -672,6 +672,8 @@
   }
 
   function updateEnemies(dt){
+    // 視界判定(LoS)の1フレームあたりの予算。updateEnemyVisibility 参照
+    losBudget = LOS_BUDGET_PER_FRAME;
     enemies.forEach(en=>{
       // enemies far from the player belong to a different scenario's area -
       // all scenarios sit 80+ units apart, so anything past 100 units can
@@ -715,6 +717,10 @@
         }
         return;
       }
+      // 視界制限(探索システム)。生きている個体だけを見る ―― 倒れた敵の
+      // 輪郭やハイライトを更新しても意味が無く、死亡演出(startDeathFall)と
+      // 取り合いになるだけなので、上の dead 分岐を抜けた後に置いている
+      updateEnemyVisibility(en, dt);
       if(en.hurtT > 0){
         en.hurtT -= dt;
         // a short squash-and-recover so a hit is visible on the body itself
@@ -2038,6 +2044,87 @@
     }
   }
 
+  /* =========================================================
+     視界制限(探索システム) ―― 「見ていない場所の情報は出さない」
+
+     遮蔽判定そのものは既存の hasLineOfSight()(02-world-common.js、
+     walls の AABB を線分サンプリングする)をそのまま使う。新しい遮蔽
+     システムは作らない ―― 敵AIが「壁越しにプレイヤーを見つけない」ために
+     既に使っている、実績のある同じ判定を描画側にも共有させるだけ。
+
+     段階分けと「真っ暗にはしない」保証は core/enemy-visibility.js 側
+     (ユニットテスト済み)。ここは three.js 側への反映だけを担当する。
+
+     LoS のサンプリングは「線分の長さ × walls の数」に比例するので、
+     全個体ぶんを毎フレーム引くと一気に重くなる。二段構えで抑える:
+       1. 個体ごとに約12Hzへ間引き、間は前回の結果を使い回す
+       2. それでも同時に何体も期限が来るので、1フレームに実際に引ける
+          本数を予算で縛る。溢れた個体は次のフレームへ回る
+     視界の変化は 0.1 秒前後の粒度で十分読み取れるので、体感には出ない。
+  ========================================================= */
+  const ENEMY_LOS_INTERVAL = 0.08;
+  const LOS_BUDGET_PER_FRAME = 3;
+  let losBudget = LOS_BUDGET_PER_FRAME;
+
+  function updateEnemyVisibility(en, dt){
+    if(en.isBoss){ en.visLevel = 'visible'; en.visAlpha = 1; return; }
+    const ep = en.group.position;
+    const dist = Math.hypot(ep.x - state.pos.x, ep.z - state.pos.z);
+    en.visCheckT = (en.visCheckT || 0) - dt;
+    if(en.visCheckT <= 0){
+      if(dist > SIGHT_RANGE){
+        // 索敵距離の外なら LoS を引く意味が無い(どのみち見えない)。
+        // 予算も消費しない
+        en.visCheckT = ENEMY_LOS_INTERVAL;
+        en.visLos = false;
+      } else if(losBudget > 0){
+        losBudget--;
+        en.visCheckT = ENEMY_LOS_INTERVAL;
+        en.visLos = hasLineOfSight(ep, state.pos);
+      }
+      // 予算切れの個体は visCheckT を負のままにして次フレームへ回す
+    }
+    const vis = stepVisibility({
+      los: en.visLos !== false, distance: dist, dt,
+      triggered: !!en.triggered, isBoss: false, prevMemoryT: en.visMemoryT || 0,
+    });
+    en.visLevel = vis.level; en.visAlpha = vis.alpha; en.visMemoryT = vis.memoryT;
+
+    // 壁越しの輪郭は「気配」の段階までしか出さない。完全に隠れた敵は
+    // 輪郭も消える ―― これが「壁の向こうに何かいるかもしれない」を作る
+    if(en.xrayShells){
+      const show = vis.level !== 'hidden';
+      for(let i=0;i<en.xrayShells.length;i++){
+        if(en.xrayShells[i].visible !== show) en.xrayShells[i].visible = show;
+      }
+    }
+
+    // 戦闘時ハイライト。通常時は光らせず、交戦・予兆・瀕死という
+    // 「伝えるべき瞬間」だけ強くする(常時発光させない方針)
+    en.finishable = isFinishable(en);
+    const mat = en.body && en.body.material;
+    if(mat && mat.emissive){
+      if(en.baseEmissiveHex === undefined){
+        en.baseEmissiveHex = mat.emissive.getHex();
+        en.baseEmissiveI = mat.emissiveIntensity;
+      }
+      const hl = threatHighlight({
+        level: vis.level, triggered: !!en.triggered,
+        windup: punishWindowState(en).midWindup, finishable: en.finishable,
+      });
+      if(hl > 0.001){
+        mat.emissive.setHex(en.finishable ? 0xffd27a : 0xff6a4a);
+        mat.emissiveIntensity = en.baseEmissiveI + hl * 0.9;
+        en.hlOn = true;
+      } else if(en.hlOn){
+        // 元の自己発光(炎系の敵など)へ必ず戻す
+        mat.emissive.setHex(en.baseEmissiveHex);
+        mat.emissiveIntensity = en.baseEmissiveI;
+        en.hlOn = false;
+      }
+    }
+  }
+
   function updateBossAI(en, dt){
     if(!en.triggered){
       if(!state.dialogueActive){
@@ -2416,6 +2503,8 @@
     // 必ずこの関数を通る(applyIncomingDamageMulのJSDoc参照)ため、
     // ここ1箇所に足すだけで敵の種類やダメージ源を問わず一律に効く
     state.playerHitReactT = 0.20;
+    // 殴られた = 戦闘態勢。仰け反りと同じくここ1箇所で全被ダメ経路を拾える
+    state.combatStanceT = refreshCombatStance(state.combatStanceT);
     // 必殺ゲージ: 被弾でもわずかに貯まるが、他の獲得源(通常ヒット+3、撃破+18等)
     // よりはっきり小さくしてあり、「わざと受けて貯める」を最適解にしない
     addUltGauge(2);
@@ -2522,6 +2611,14 @@
     if(en.knockedDown){
       amount = Math.round(amount * 1.4);   // ダウン中は追撃ボーナス。畳み掛ける動機を作る
     }
+    /* 処刑(core/execution.js)。瀕死(HP10%以下)であることに加えて、
+       プレイヤーが「決めに行った」証拠 ―― コンボのフィニッシュ段、または
+       ダウン中への追撃 ―― が要る。瀕死になった敵を連打で勝手に処刑して
+       しまうと戦闘を「締めた」感触にならないため、自動発動にはしない。
+       ボスは専用の撃破演出・フェーズ・ダイアログを持つので対象外
+       (canExecute が弾く)。DoT・味方の攻撃でも発動しない。 */
+    const executing = !isAlly && !opts.isDot && canExecute(en, {isFinish: !!opts.isFinish});
+    if(executing) amount = executionDamage(en, amount);
     en.hp -= amount;
     spawnDamagePopup(en.group.position, amount, isAlly, isCrit);
     if(opts.isDot){
@@ -2629,6 +2726,19 @@
       // 必殺ゲージ: ヒットを当てるたびに少し貯まる(フィニッシュ等は呼び出し側で
       // opts.ultGauge を明示的に大きくする)。DoT・味方の攻撃では貯まらない
       addUltGauge(opts.ultGauge!=null ? opts.ultGauge : 3);
+    }
+    if(executing){
+      /* フィニッシュの演出。世界観に合わせて「怪異を断つ/祓う/封じる」所作
+         として扱う(吸血の所作は導入しない)。新しい演出システムは足さず、
+         既存の火花・カメラ・SE・トーストを一段強く鳴らすだけにしてある。
+         一瞬止める演出(hitStop)は上限0.022秒+不応期の共有システムで、
+         通常ヒットが直前に消費した後は必ず無視されるため使っていない */
+      const style = executionStyle(state.classDef && state.classDef.key, state.job);
+      spawnHitSpark(contact, style.color, 2.2, away);
+      addShake(style.shake);
+      sfx(style.sfx);
+      spawnToast(`✦ ${style.label}`);
+      addUltGauge(EXECUTION_ULT_BONUS);   // 締めた分だけ次の戦闘へ繋がる
     }
     if(en.hp<=0){
       finishEnemyDeath(en, isAlly, from);

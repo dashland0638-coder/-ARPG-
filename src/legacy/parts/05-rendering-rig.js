@@ -3116,6 +3116,10 @@
       else if(name==='basic2') want = 'altBasic2';
     }
     state.moveClip = (lib && lib[want]) ? want : 'basic';
+    // 技を出した = 戦闘態勢。クリップが終わってもしばらく構えたままにする
+    // (applyCombatIdlePose 参照)。全ての攻撃・スキル・必殺技クリップが
+    // ここを通るので、更新点はこの1箇所だけで済む
+    state.combatStanceT = refreshCombatStance(state.combatStanceT);
     const tempoMul = JOB_ATTACK_TEMPO[state.job] || 1;
     state.swingDur = ((lib && lib.dur && lib.dur[state.moveClip]) || 0.28) * tempoMul;
     state.swingT = 0;
@@ -3188,8 +3192,90 @@
         ? state.chargeT / Math.max(0.001, state.chargeMax)
         : state.skillChargeT / Math.max(0.001, state.skillChargeMax);
       applyPose(sampleClip(lib.hold, Math.min(1, r)));
+    } else if((state.combatStanceT||0) > 0){
+      applyCombatIdlePose();
     } else if(state.classDef.key === 'archer'){
       setBowDraw(STANCE.archer.draw);
+    }
+  }
+
+  /* =========================================================
+     COMBAT IDLE ―― 構えたまま「完全に止まる」のを無くす
+
+     解析メモ(最初の見立ての訂正を含む。詳細は core/combat-stance.js の
+     冒頭):姿勢が飛んでいるわけではない。buildPlayer() が腕の基準姿勢
+     armLBase/armRBase を activeStance() の構えそのものから取っており、
+     クリップの終端フレームも同じ構えなので、振り終わりの接続は元々連続
+     している。問題は時間の方で、剣士はクリップ 0.36 秒に対し攻撃CDが
+     0.52 秒(swingGapSeconds() がこの差を返す)。applyCombatPose() は
+     その 0.16 秒のあいだ何のポーズも当てておらず、立ち止まって連打すれば
+     歩行サイクルも動かないので、文字どおり静止画になっていた。
+
+     ここでは「今 updateLocomotion が書いた姿勢」から「その武器の構え +
+     微細な揺れ」へ、戦闘態勢の残り時間に応じたウェイトで寄せる。
+
+     - クリップ(CLIPS)にも STANCE にも一切触らない。攻撃・スキル・
+       回避・必殺技の型も、攻撃間隔もダメージも変わらない
+     - 振り終わった直後だけ揺れを大きくし(settleBoost)、
+       attack → recovery → next attack という流れにする
+     - 戦闘が終われば 0.75 秒かけてウェイトが 0 へ落ち、揺れが静かに
+       消える(ぶつ切りにしない)
+     - 歩行位相(strideT)をそのまま揺れの位相に使う。新しいタイマーを
+       増やすと歩行・呼吸・構えが別々の周期で動いて気持ち悪くなる
+  ========================================================= */
+  function applyCombatIdlePose(){
+    const P = playerMixerParts;
+    if(!P.waist || !P.armL || !P.armR || !P.elbowL || !P.elbowR) return;
+    /* 回避中と滞空中は手を出さない。どちらも updateLocomotion が全身の
+       専用ポーズ(ロールの丸まり / 空中の膝の抱え込み)を書いており、
+       そこへ構えを混ぜると回避もジャンプも別の動きになってしまう。
+       構えは「地に足が着いていて、今すぐ動ける」状態のためのもの。 */
+    if(state.dodging || !state.grounded) return;
+    const w = combatStanceWeight(state.combatStanceT);
+    if(w <= 0.001) return;
+
+    // 今フレームの歩行/ジャンプ/回避の結果そのものを補間の起点にする。
+    // こうしておくと、ウェイトが低い間は歩行の腕振りがそのまま残り、
+    // 高いほど構えへ寄る ―― 歩きながら構える動きが自然に出る
+    const cur = {
+      waist:[P.waist.rotation.x, P.waist.rotation.y, P.waist.rotation.z],
+      shL:[P.armL.rotation.x, P.armL.rotation.y, P.armL.rotation.z],
+      shR:[P.armR.rotation.x, P.armR.rotation.y, P.armR.rotation.z],
+      elL:P.elbowL.rotation.x, elR:P.elbowR.rotation.x,
+      hipL:P.legL ? P.legL.rotation.x : 0, hipR:P.legR ? P.legR.rotation.x : 0,
+      kneeL:P.kneeL ? P.kneeL.rotation.x : 0, kneeR:P.kneeR ? P.kneeR.rotation.x : 0,
+    };
+
+    const st = activeStance(state.classDef.key, state.usingAltWeapon);
+    const prof = idleProfile(state.classDef.key, state.job);
+    // 振り終わった直後は、まだ身体が収まっていないぶんだけ揺れを大きく取る
+    const idle = combatIdleOffsets(strideT, prof, w, settleBoost(state.postSwingT));
+
+    // 構え + 微細な揺れ。揺れはすべて「構えへの加算」なので、
+    // 構えそのもの(STANCE)の値は書き換えていない
+    const target = Object.assign({}, st);
+    target.waist = [st.waist[0] + idle.waistPitch, st.waist[1], st.waist[2] + idle.waistRoll];
+    target.shR = [st.shR[0] + idle.weaponSway, st.shR[1], st.shR[2]];
+    target.shL = [st.shL[0] - idle.weaponSway*0.4, st.shL[1], st.shL[2]];
+    target.elR = st.elR + idle.elbowSway;
+    target.elL = st.elL - idle.elbowSway*0.4;
+    // 構えている間は腰を落とす。既存の drop チャンネル(applyPose →
+    // applyPoseShift)をそのまま使うので、当たり判定 state.pos には触れない
+    target.drop = -idle.crouch;
+
+    const pose = blendPose(cur, target, w);
+    // 腰の横移動(重心)は applyPose が扱わないチャンネルなので直接書く。
+    // updateLocomotion が毎フレーム sway を書いた後なので、その上へ乗せる
+    P.waist.position.x += idle.waistShift;
+    applyPose(pose);
+    /* 被弾の仰け反り(state.playerHitReactT)は updateLocomotion が
+       waist.rotation.x へ加算しており、cur 経由で (1-w) 倍だけ残る。
+       殴られた瞬間はちょうど戦闘態勢が満タン(w=1)に更新されるので、
+       ここで w 倍を足し直さないと仰け反りが丸ごと消えてしまう。
+       合計すると常に本来の量になる。タイマーの消費は updateLocomotion
+       側の責任なので、ここでは読むだけで減らさない。 */
+    if(state.playerHitReactT > 0){
+      P.waist.rotation.x -= 0.18 * Math.sin((state.playerHitReactT/0.20)*Math.PI) * w;
     }
   }
 

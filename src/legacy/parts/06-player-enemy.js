@@ -3554,6 +3554,15 @@
       neck.add(hat);
     }
 
+    /* 視界制限(core/enemy-visibility.js)用に、この個体のxrayシェルを
+       集めておく。addXrayShell() が付ける「壁の向こうでも光る輪郭」は
+       今まで無条件に表示されていて、「壁の向こうに敵がいるかもしれない」
+       という探索の緊張感を丸ごと打ち消していた。個体ごとに on/off する
+       ために参照を持つ ―― マテリアルは全個体で共有されている
+       (xrayMat() のシングルトン)ので、不透明度では個体差を出せない */
+    const xrayShells = [];
+    g.traverse(n=>{ if(n.userData.isXray) xrayShells.push(n); });
+
     g.position.copy(pos);
     // 飛行敵は基準高度そのものを上げる。updateMobAnim が baseYOf(en)
     // = basePos.y を土台に描くので、AIには一切触らずに浮かせられる
@@ -3561,6 +3570,9 @@
     scene.add(g);
     return {
       group:g, body, mob:M, flinch:0, hitDir:null,
+      // 視界制限の状態(updateEnemyVisibility が毎フレーム更新する)
+      xrayShells, visLevel:'visible', visAlpha:1, visMemoryT:0, visCheckT:0, visLos:true,
+      finishable:false,
       // Phase C(#36): 名前付き中ボス。近づいた瞬間に一度だけ名乗り(update
       // Enemies)、撃破時に一度だけ短い余韻(finishEnemyDeath)を出す。
       // 本家ボスのようなdialogueOverlay/ゲートは使わず、既存のstrongMob/

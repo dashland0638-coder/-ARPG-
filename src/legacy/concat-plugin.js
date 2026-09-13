@@ -59,6 +59,18 @@ import {
   airAttackKind, isRising, enemyWeightClass, isFlying, upliftFor, upliftOffset,
   uppercutStaggerMul, UPPERCUT_DMG_MUL, UPPERCUT_HEAVY_FLINCH, UPLIFT_DURATION, FLYER_DROP_TIME,
 } from '../core/uppercut.js';
+import {
+  combatStanceWeight, refreshCombatStance, idleProfile, combatIdleOffsets, blendPose,
+  settleBoost, COMBAT_STANCE_HOLD, COMBAT_STANCE_FADE, SETTLE_SECONDS,
+} from '../core/combat-stance.js';
+import {
+  stepVisibility, minimapVisible, threatHighlight, bearingLabel,
+  SIGHT_RANGE, THREAT_SENSE_RANGE,
+} from '../core/enemy-visibility.js';
+import {
+  isFinishable, canExecute, executionStyle, executionDamage,
+  EXECUTION_HP_RATIO, EXECUTION_ULT_BONUS,
+} from '../core/execution.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 
 `;

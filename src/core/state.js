@@ -16,6 +16,15 @@ import * as THREE from 'three';
     // セットし、updateLocomotion(13-update-loop.js)が消費してwaistへ
     // 加算する。セーブ対象外(戦闘中の一時状態、cautiousTimer等と同じ扱い)
     playerHitReactT:0,
+    /* Combat Idle(core/combat-stance.js)の残り時間(秒)。攻撃・被弾・
+       敵の接近で refreshCombatStance() が伸ばし、切れるとフェードしながら
+       通常の休め姿勢へ戻る。playerHitReactT と同じ「戦闘中の一時状態」
+       なのでセーブ対象外(09-save-load.js は触らない) */
+    combatStanceT:0,
+    // 直近の攻撃クリップが終わってからの経過秒数。振り終わった直後だけ
+    // Combat Idle の振幅を大きくして「まだ収まっていない身体」を見せる
+    // (core/combat-stance.js の settleBoost)。同じく一時状態なのでセーブ対象外
+    postSwingT:99,
     routePath:[],        // 実際に通った区画のkey列
     routeNode:null,      // 現在いる区画
     bossMods:[],         // 第2分岐で積まれるボス戦修飾(例: 'chandelier')

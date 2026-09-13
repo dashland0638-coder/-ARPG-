@@ -688,7 +688,9 @@
       }
       const base = state.classDef.atk + Math.round(Math.random()*4);
       const dmg = Math.round(base * comboMul);
-      const staggerOpts = {staggerMul, ultGauge: isFinish ? 6 : 3};
+      // isFinish は処刑(core/execution.js)の発動条件。コンボの最終段で
+      // 当てた一撃だけが瀕死の敵を「決められる」
+      const staggerOpts = {staggerMul, ultGauge: isFinish ? 6 : 3, isFinish};
       spawnMeleeSwingVFX(range, angle, state.classDef.trim, styleKey);
       let hitTarget = null;
       if(state.classDef.cleave){
@@ -729,7 +731,7 @@
       // ―― 小弓=正面3連射、ボウガン=重い貫通ボルト(「遅いが重い」という思想)。
       // かいじんの杖(武器固有アクション)は通常攻撃(全段)が常に貫通する
       spawnProjectile(false, {
-        dmgMul: comboMul, staggerMul, styleKey, ultGauge: isFinish ? 6 : 3,
+        dmgMul: comboMul, staggerMul, styleKey, ultGauge: isFinish ? 6 : 3, isFinish,
         pierce: (isFinish && state.classDef.key==='mage') ||
                 (isFinish && state.classDef.key==='archer' && state.usingAltWeapon) ||
                 specialId==='kaijin',
@@ -852,7 +854,7 @@
     const dmg = Math.round(baseDmg * (opts.dmgMul || 1) * volleyMul * distanceMul);
     // life*speed is the effective range (~44 at speedMul 1 before this) -
     // shortened a bit per feedback that arrows/bolts carried too far
-    const proj = {mesh, light: glow, dir, speed:20*st.speedMul, life:1.6, hitR, dmg, staggerMul: opts.staggerMul, ultGauge: opts.ultGauge, predictiveTarget};
+    const proj = {mesh, light: glow, dir, speed:20*st.speedMul, life:1.6, hitR, dmg, staggerMul: opts.staggerMul, ultGauge: opts.ultGauge, isFinish: !!opts.isFinish, predictiveTarget};
     if(predictiveTarget) emitArenaFeedback('PREDICTIVE AIM', '狙い筋を未来位置へ補正');
     if(distanceMul > 1) emitArenaFeedback('DISTANCE BONUS', `×${distanceMul.toFixed(2)}`);
     // 魔法使いのフィニッシュ: 貫通弾(roadmap「杖: 魔弾→貫通弾」)
