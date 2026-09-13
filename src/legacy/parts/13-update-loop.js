@@ -471,6 +471,7 @@
   function updatePlayer(dt){
     if(state.attackCD>0) state.attackCD = Math.max(0,state.attackCD-dt);
     updateCombatStance(dt);
+    updateUltBurst(dt);   // 多段必殺技の残りの段(サブ武器専用)
     if(state.dodgeCD>0) state.dodgeCD = Math.max(0,state.dodgeCD-dt);
     if(state.ultLockT>0) state.ultLockT = Math.max(0,state.ultLockT-dt);   // 発動直後の保険的ロックアウトのみ(本体はゲージ制)
     updateStamina(dt);

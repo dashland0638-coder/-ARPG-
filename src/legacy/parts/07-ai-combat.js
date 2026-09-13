@@ -674,6 +674,7 @@
   function updateEnemies(dt){
     // 視界判定(LoS)の1フレームあたりの予算。updateEnemyVisibility 参照
     losBudget = LOS_BUDGET_PER_FRAME;
+    if(presenceGlobalCD > 0) presenceGlobalCD -= dt;   // 気配の全体間隔
     enemies.forEach(en=>{
       // enemies far from the player belong to a different scenario's area -
       // all scenarios sit 80+ units apart, so anything past 100 units can
@@ -2066,6 +2067,46 @@
   const LOS_BUDGET_PER_FRAME = 3;
   let losBudget = LOS_BUDGET_PER_FRAME;
 
+  /* 「気配」―― 見えていない敵の存在だけを伝える
+
+     視界制限(上記)で壁の向こうの敵を隠したところ、隠した先に何の
+     手掛かりも無いという穴が空いた。これでは「壁の向こうに敵がいるかも
+     しれない」ではなく、ただ「何も無い」になる。
+
+     そこで、近くにいて・まだこちらに気づいていない・今は見えていない敵に
+     限って、ごくたまに足元の土煙と足音だけを出す。姿も位置も出さない:
+       ・音   … 方向は分からないが「近くで何かが動いた」ことは伝わる
+       ・土煙 … 壁の向こうなら壁に隠れる。回り込む/覗き込むと見える
+     つまり「回り込む・壁際から覗く」という行動への報酬になる。
+
+     鳴らしすぎると緊張感ではなく雑音になるので、個体ごとの間隔に加えて
+     全体でも1つずつしか鳴らない予算を持たせてある。交戦が始まった敵
+     (triggered)は既に自分の足音・攻撃音を持っているので対象外。 */
+  const PRESENCE_RANGE = 11;         // これより近い敵だけが気配を漏らす
+  const PRESENCE_MIN_GAP = 2.6;      // 同じ個体が続けて鳴らすまでの最短間隔(秒)
+  const PRESENCE_GLOBAL_GAP = 1.1;   // 群れが一斉に鳴るのを防ぐ全体の間隔
+  let presenceGlobalCD = 0;
+  const _presenceAt = new THREE.Vector3();
+
+  function updateUnseenPresence(en, dt, dist, level){
+    en.presenceCD = (en.presenceCD || 0) - dt;
+    if(level === 'visible') return;          // 見えているなら手掛かりは要らない
+    if(en.triggered || en.isBoss) return;    // 交戦中は自分の音を持っている
+    if(en.flying || en.turret) return;       // 浮いている敵・台座の石像は足音も土煙も立てない
+    if(dist > PRESENCE_RANGE) return;
+    if(en.presenceCD > 0 || presenceGlobalCD > 0) return;
+    // 近いほど頻繁に、遠いほど間遠に
+    const near = 1 - dist/PRESENCE_RANGE;
+    en.presenceCD = PRESENCE_MIN_GAP + Math.random()*3.4 * (1 - near*0.6);
+    presenceGlobalCD = PRESENCE_GLOBAL_GAP;
+    const ep = en.group.position;
+    _presenceAt.set(ep.x, en.basePos ? en.basePos.y : ep.y, ep.z);
+    spawnLandingDust(_presenceAt, 0.30);     // 壁の向こうなら壁に隠れる
+    const mat = surfaceAt(ep.x, ep.z);
+    const cue = mat && STEP_CUE[mat];
+    if(cue) sfx(cue, {run:0});               // 足音。run:0 で最も静かな踏み方
+  }
+
   function updateEnemyVisibility(en, dt){
     if(en.isBoss){ en.visLevel = 'visible'; en.visAlpha = 1; return; }
     const ep = en.group.position;
@@ -2089,6 +2130,7 @@
       triggered: !!en.triggered, isBoss: false, prevMemoryT: en.visMemoryT || 0,
     });
     en.visLevel = vis.level; en.visAlpha = vis.alpha; en.visMemoryT = vis.memoryT;
+    updateUnseenPresence(en, dt, dist, vis.level);
 
     // 壁越しの輪郭は「気配」の段階までしか出さない。完全に隠れた敵は
     // 輪郭も消える ―― これが「壁の向こうに何かいるかもしれない」を作る

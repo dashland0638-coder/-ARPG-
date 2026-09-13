@@ -63,11 +63,14 @@ test('職業係数', async t=>{
     assert.equal(waistCoefFor('nope'), CLASS_WAIST_COEF.warrior);
     assert.equal(waistPitchCoefFor('nope'), CLASS_WAIST_PITCH_COEF.warrior);
   });
-  await t.test('頭を完全に覆う上位職は頭を回さない', ()=>{
-    assert.equal(JOB_HEAD_LOOK_MUL.battleKnight, 0);
-    assert.equal(JOB_HEAD_LOOK_MUL.hawkEye, 0);
+  await t.test('戦騎士だけ頭を回さない(兜が頭ピボットに載っていないため)', ()=>{
+    assert.equal(headMulFor('battleKnight'), 0);
     assert.equal(headMulFor(null), 1);          // 基礎職は制限なし
     assert.equal(headMulFor('unknownJob'), 1);
+  });
+  await t.test('被り物を頭ピボットへ移した上位職は制限なし', ()=>{
+    ['berserker','archmage','hawkEye'].forEach(j=> assert.equal(headMulFor(j), 1));
+    assert.deepEqual(Object.keys(JOB_HEAD_LOOK_MUL), ['battleKnight']);
   });
 });
 

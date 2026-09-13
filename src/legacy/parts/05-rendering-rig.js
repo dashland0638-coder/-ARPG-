@@ -2805,6 +2805,20 @@
     if(!lib.dur) return;
     if(lib.dur.spin) lib.dur.basic3 = lib.dur.spin * 0.85;   // コンボの中では少し詰めて間延びさせない
   });
+  /* 武器別必殺技(WEAPON_ULT_BY_KEY、12-progression-ui.js)の型。
+     新しいキーフレームは起こさず、そのサブ武器の通常攻撃の型をそのまま
+     必殺技のクリップとして流用する。別名にしてあるのは applyCombatPose()
+     が clip 名 /^(basic|altBasic)/ で「通常攻撃コンボ」を判定して上位職の
+     振り幅増幅(JOB_SWING_AMPLIFY)を掛けているため ―― 必殺技にあの増幅は
+     要らない。再生時間だけ必殺技らしく伸ばしてある(ダメージ判定は
+     fireUltimate が入力の瞬間に解決するので、長さは手触りだけに効く)。 */
+  CLIPS.warrior.ultSpear      = CLIPS.warrior.altBasic;
+  CLIPS.warrior.dur.ultSpear  = CLIPS.warrior.dur.altBasic * 1.6;
+  CLIPS.rogue.ultKatana       = CLIPS.rogue.altBasic2;
+  CLIPS.rogue.dur.ultKatana   = CLIPS.rogue.dur.altBasic2 * 1.5;
+  CLIPS.mage.ultSpellblade    = CLIPS.mage.altBasic;
+  CLIPS.mage.dur.ultSpellblade = CLIPS.mage.dur.altBasic * 1.6;
+
   if(CLIPS.warrior.dur.skill2) CLIPS.warrior.dur.basic4 = CLIPS.warrior.dur.skill2 * 0.95;
   if(CLIPS.rogue.dur.dash)     CLIPS.rogue.dur.basic4   = CLIPS.rogue.dur.dash * 0.95;
   if(CLIPS.mage.dur.skill2)    CLIPS.mage.dur.basic4    = CLIPS.mage.dur.skill2 * 0.95;

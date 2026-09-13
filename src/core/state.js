@@ -106,6 +106,9 @@ import * as THREE from 'three';
     charging:false, chargeT:0, chargeMax:1.1, skillAnim:null,
     moveClip:null, swingDur:0.28,
     ultAiming:false, ultAimT:0, ultSweep:null,
+    // 多段の必殺技(サブ武器専用、WEAPON_ULT_BY_KEY の hits)の残り回数。
+    // {left, t, interval, fire}。戦闘中の一時状態なのでセーブ対象外
+    ultBurst:null,
     skillChoice:'retreat', skillCharging:false, skillChargeT:0, skillChargeMax:1.1,
     chargeCD:0, skillCD:0, skill2CD:0, followUpT:0, mageOrbs:[],
     level:1, xp:0, xpToNext:40,

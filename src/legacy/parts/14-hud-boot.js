@@ -1174,7 +1174,7 @@
     state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0; state.braceCounterT = 0;
     state.barrierActive = false; state.barrierT = 0; state.barrierParryCD = 0;
     state.paralyzed=false; state.paralyzeT=0; state.paralyzeInvulnT=0;
-    state.ultGauge = 0; state.ultLockT = 0;
+    state.ultGauge = 0; state.ultLockT = 0; state.ultBurst = null;
     state.stamina = state.maxStamina; state.staminaRegenDelayT = 0;
     state.dialogueActive = false; state.dialogueBoss = null;
     ['potion','mppotion'].forEach(k=>{

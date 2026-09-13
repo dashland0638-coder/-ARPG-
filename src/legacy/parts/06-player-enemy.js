@@ -1923,6 +1923,35 @@
     const bodyH = B.height, HIP_Y = B.hipY, bodyR = B.chest;
     const meshes = [];
     const anim = {};
+
+    /* Look Rig(core/look-rig.js): 上位職の被り物・髪・髭も頭ピボットへ載せる。
+
+       これらは長らく P.waist へ直付けされていて、頭ピボット(buildPlayer の
+       LOOK RIG ブロック)には乗っていなかった。頭だけ回すとフードの中で
+       素頭が回る絵になるため、上位職は頭の可動域を落として凌いでいた
+       (JOB_HEAD_LOOK_MUL)。ここで頭のものだけをピボット側へ移し、
+       上位職でも頭が普通に動くようにする。
+
+       位置は各ブロックが headYLocal(waist基準)で組み立てているので、
+       ピボットの原点ぶんだけ引いて頭ローカルへ移す。どちらの親に付いても
+       jobDecorMeshes の後始末(clearJobPromotionVisual)は parent.remove()
+       なのでそのまま動く。
+
+       戦騎士(battleKnight)だけは例外で waist のまま。あの職は頭ピボット
+       自体へ 0.86 の scale を掛けて頭身を詰めており、同じピボットへ兜を
+       載せると兜まで二重に縮んでしまう。全面を覆う兜なので頭の回転が
+       そもそも見えない職でもあり、JOB_HEAD_LOOK_MUL は 0 のまま据え置く。 */
+    const headPivotY = bodyH + B.headGap;
+    function addHeadPart(m){
+      if(P.headLookPivot){
+        m.position.y -= headPivotY;
+        P.headLookPivot.add(m);
+      } else {
+        P.waist.add(m);
+      }
+      meshes.push(m);
+      return m;
+    }
     const trimMat = new THREE.MeshStandardMaterial({color:uj.trim, roughness:0.35, metalness:0.4,
       emissive:uj.trim, emissiveIntensity:0.35});
 
@@ -2225,7 +2254,7 @@
         spike.position.set(i*0.05, spikeBaseY + spikeLen/2, -0.02 + HEAD_BACK_Z);
         const baseRotZ = i*0.12;
         spike.rotation.set(-0.15 - Math.abs(i)*0.08, 0, baseRotZ);
-        P.waist.add(spike); meshes.push(spike);
+        addHeadPart(spike);
         hairSpikes.push({mesh:spike, baseRotZ, phase:i*0.9});
       }
       anim.hairSpikes = hairSpikes;
@@ -2251,7 +2280,7 @@
         const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.165, 7, 6), hairMat);
         tuft.position.set(s*0.185, templeTuftY, 0.13 + HEAD_BACK_Z);
         tuft.castShadow = true;
-        P.waist.add(tuft); meshes.push(tuft);
+        addHeadPart(tuft);
       });
       // 前傾姿勢: 常時飛びかかりそうな体勢。ここで一度だけP.waist.rotation.xへ
       // 書いても、歩行/待機のidle姿勢が毎フレームwaist.rotation.xを上書きする
@@ -2314,7 +2343,7 @@
       const longHair = new THREE.Mesh(new THREE.ConeGeometry(0.095, longHairLen, 7), wildHairMat);
       longHair.position.set(0, longHairTopY - longHairLen/2, -bodyR*1.15);
       longHair.rotation.set(-0.35, 0, 0);
-      P.waist.add(longHair); meshes.push(longHair);
+      addHeadPart(longHair);
       // Phase 8 Priority 3: beardは旧位置(bodyH*1.0)だとRogueのMask
       // (顔下部を覆う布、底辺はheadYLocal-headR*0.73相当)の内側に大部分が
       // 埋もれ、Maskの下からわずかに覗く先端(円錐の最も細い部分)しか
@@ -2326,7 +2355,7 @@
       const beard = new THREE.Mesh(new THREE.ConeGeometry(0.11, beardLen, 7), wildHairMat);
       beard.position.set(0, maskBottomY - beardLen/2, bodyR*0.55);
       beard.rotation.set(Math.PI, 0, 0);
-      P.waist.add(beard); meshes.push(beard);
+      addHeadPart(beard);
 
     } else if(uj.key === 'archmage'){
       /* Mage自身のローブ(clothMat)・帽子(hatMatCone/hatMatBrim)は
@@ -2465,7 +2494,7 @@
       // を適用し、Mage Hat(既にHEAD_BACK_Z適用済み)と一緒に後方へ
       const bigCone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 12), trimMat);
       bigCone.position.set(0, bodyH*1.42, HEAD_BACK_Z);
-      P.waist.add(bigCone); meshes.push(bigCone);
+      addHeadPart(bigCone);
       /* Phase 8: Mage/Archmage差別化 ―― 「帽子から伸びる細い縦棒(旧
          ConeGeometry×4、蛍光ライトブルー)」を、まとまりのある低ポリ
          毛束(Root→Middle→Tipで位置・角度を変える2セグメント構成)へ
@@ -2517,7 +2546,7 @@
         seg.position.set(tipP.x, tipP.y, tipP.z);
         seg.rotation.set(tiltX, 0, -tiltZ);
         seg.castShadow = true;
-        P.waist.add(seg); meshes.push(seg);
+        addHeadPart(seg);
       }
       [-1, 1].forEach(s=>{
         const oR = archHeadOut(0.66), oM = archHeadOut(0.10), oT = archHeadOut(-0.55);
@@ -2659,11 +2688,11 @@
       // を適用し、Headと一緒に後方へ(眼帯がEyeから浮かないように追従)
       const patch = new THREE.Mesh(new THREE.CircleGeometry(0.055, 10), patchMat);
       patch.position.set(eyeX, headYLocal+0.02, B.headR*0.94 + HEAD_BACK_Z);
-      P.waist.add(patch); meshes.push(patch);
+      addHeadPart(patch);
       const patchStrap = new THREE.Mesh(new THREE.TorusGeometry(B.headR*1.02, 0.012, 5, 12, Math.PI*1.3), patchMat);
       patchStrap.rotation.set(Math.PI/2, 0, Math.PI*0.15);
       patchStrap.position.set(0, headYLocal+0.02, HEAD_BACK_Z);
-      P.waist.add(patchStrap); meshes.push(patchStrap);
+      addHeadPart(patchStrap);
 
       /* Phase 9: Hawk Eye Headwear再設計。「帽子の上にフードを重ねる」から
          「最初から深いフードを被っている人物」へ。Root Causeは、Archer
@@ -2700,7 +2729,7 @@
       // 戻した
       hood.position.set(0, hoodBottomY, HEAD_BACK_Z);
       hood.castShadow = true;
-      P.waist.add(hood); meshes.push(hood);
+      addHeadPart(hood);
       // ユーザー指摘(3巡目):「鷹の目の顔があんまり隠れておらず雰囲気が
       // 出てないのでつばの三角をもっと鈍角な横広のつばに修正」。
       // Archer段階で作ったBrim(P.archerBrim、buildPlayer側でarcherCapDecor
@@ -2722,8 +2751,12 @@
       // Brim GeometryはHawk Eyeの都合で変更したくないため、Scaleのみ
       // Hawk Eye側のインスタンスに上乗せする(Archer自身には影響しない)
       if(P.archerBrim){
+        /* Brim は素の弓師のつばの実体を流用している。Look Rig 導入で
+           被り物一式が頭ピボットの子になったため、waist 基準の Y を
+           そのまま入れると頭ひとつぶん浮く。親に合わせて変換する */
         const brimY = headYLocal + B.headR*0.50;
-        P.archerBrim.position.set(0, brimY, HEAD_BACK_Z);
+        const brimLocalY = P.archerBrim.parent === P.headLookPivot ? brimY - headPivotY : brimY;
+        P.archerBrim.position.set(0, brimLocalY, HEAD_BACK_Z);
         P.archerBrim.scale.set(1.35, 1, 0.80);
         // ArcherのclothMat(カーキ)のままだと濃い緑のHoodと配色が合わず
         // 浮くため、Hood本体と同じhoodMat(uj.capeColor)へ差し替える
@@ -2750,7 +2783,7 @@
       hoodBrow.rotation.x = Math.PI;
       hoodBrow.position.set(0, headYLocal + B.headR*0.20, B.headR*0.78 + HEAD_BACK_Z);
       hoodBrow.castShadow = true;
-      P.waist.add(hoodBrow); meshes.push(hoodBrow);
+      addHeadPart(hoodBrow);
       }
     }
 

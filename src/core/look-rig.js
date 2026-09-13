@@ -48,17 +48,15 @@ export const CLASS_WAIST_COEF = { rogue:0.60, warrior:0.70, archer:0.80, mage:1.
 export const CLASS_WAIST_PITCH_COEF = { rogue:0.60, warrior:0.70, archer:0.80, mage:0 };
 
 /* 頭をどれだけ回してよいか(上位職)。
-   上位職の兜・フード・帽子は applyJobPromotionVisual() が体幹(waist)へ
-   直接取り付けており、頭のピボットには載っていない。頭だけを回すと
-   兜の中で素頭が回る絵になるので、完全に頭部を覆う職では 0 にして、
-   そのぶんを目(顔が見えている職)と体幹へ回す。
-   基礎職4種は buildPlayer() が組んだ頭ピボットに兜・帽子・フードごと
-   載っているため 1(制限なし)。 */
+   バーサーカー/魔導士/鷹の目の被り物・髪・髭は applyJobPromotionVisual()
+   が頭ピボットへ載せているので、基礎職と同じく制限なし(= 表に載せない)。
+
+   戦騎士だけ 0。あの職は頭身を詰めるために頭ピボット自体へ 0.86 の scale を
+   掛けており、同じピボットへ兜を載せると兜まで二重に縮む。そのため兜は
+   waist に残してあり、頭だけ回すと兜の中で素頭が回ってしまう。全面を覆う
+   兜で頭の回転はそもそも見えない職なので、体幹と目だけで見る。 */
 export const JOB_HEAD_LOOK_MUL = {
-  battleKnight: 0,     // 全面を覆う兜
-  hawkEye:      0,     // 目まで隠れる深いフード
-  berserker:    0.6,
-  archmage:     0.6,
+  battleKnight: 0,     // 全面を覆う兜。兜だけ waist に残っている(上記)
 };
 
 export function waistCoefFor(classKey){

@@ -1187,7 +1187,7 @@
     // clear any half-finished attack/skill input, otherwise a swing left
     // pending from the dungeon fires the moment we land in the tavern
     state.swinging = false; state.swingT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
-    state.ultAiming = false; state.ultSweep = null; hideUltMarker();
+    state.ultAiming = false; state.ultSweep = null; state.ultBurst = null; hideUltMarker();
     state.charging = false; state.chargeT = 0; state.chargeCD = 0;
     state.skillCharging = false; state.skillChargeT = 0; state.skillCD = 0; state.skill2CD = 0;
     attackHeldStart = null; skillHeldStart = null;
@@ -1583,10 +1583,18 @@
     // 常に最優先。転身前はスフィア盤の新規選択肢(alt)、どちらも無ければ
     // 基礎職の必殺技のまま。未解放ならaltを選んでいても強制的にdefaultへ
     // 戻す(セーブデータ改変や解放前の選択残りに対する安全策)
-    const ultBase = (jobActive && JOB_ULT_BY_JOB[state.job])
+    const ultTier = (jobActive && JOB_ULT_BY_JOB[state.job])
       ? JOB_ULT_BY_JOB[state.job]
       : (state.ultChoice==='alt' && state.unlockedUltAlt && ULT_ALT_BY_CLASS[selectedClass])
         ? ULT_ALT_BY_CLASS[selectedClass] : base.ult;
+    /* サブ武器を装備している間だけ、その武器専用の型を被せる
+       (WEAPON_ULT_BY_KEY の冒頭コメント参照)。メイン武器では従来どおり
+       段の必殺技がそのまま出るので、既存の見た目・挙動は一切変わらない。
+       recomputeStats() は equipItem/unequipSlot からも呼ばれるので、
+       武器を持ち替えた瞬間に必殺技も入れ替わる */
+    const equippedWeaponKey = weaponDefFor(selectedClass, state.usingAltWeapon).key;
+    const weaponUlt = state.usingAltWeapon ? WEAPON_ULT_BY_KEY[equippedWeaponKey] : null;
+    const ultBase = weaponUlt ? applyWeaponUlt(ultTier, weaponUlt) : ultTier;
     const merged = jobBonus
       ? mergeStatPoints(mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth), jobBonus)
       : mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth);
@@ -2094,6 +2102,88 @@
     archer:  { name:'百矢の雨', icon:'🌧️', cd:22, vfxColor:0xffe0a0,
       radial:true, sweep:true, sweepDur:1.3, sweepArrows:36, radius:9.0, mult:1.0 },
   };
+
+  /* =========================================================
+     武器別の必殺技(#武器切り替え + 必殺技)
+
+     ■ なぜ「サブ武器だけ」なのか
+     必殺技には既に3つの出どころがある ―― 基礎職の ult / スフィア盤で
+     解放する別の型(ULT_ALT_BY_CLASS)/ 上位職専用(JOB_ULT_BY_JOB)。
+     ここに「武器で決まる必殺技」を無条件に被せると、プレイヤーが
+     スフィアを割いて選んだ型も、転身して手に入れた到達点も、武器を
+     持ち替えた瞬間に消えてしまう。
+
+     一方でメイン武器側の必殺技は、資料が挙げている姿(剣士=大きく踏み込む
+     強斬撃=渾身の斬撃、弓師=素早い連射=八方の矢、鷹の目=大きく薙ぐ=
+     天翔ける鏃)と既に一致している。**足りていないのはサブ武器の方**で、
+     槍・刀・魔法の剣・ボウガンへ持ち替えても大剣/双剣/杖/小弓の必殺技が
+     そのまま出ていた。
+
+     そこでサブ武器にだけ専用の型を与える。これで
+     「今この必殺技を使いたいから武器を変更する」という判断が生まれ、
+     かつ既存の選択(スフィア・転身)は一切潰さない。
+
+     ■ 数値は「型」ではなく「格」から引き継ぐ
+     mult / radius は今装備している段(基礎 / スフィア / 上位職)の値へ
+     倍率を掛けて出す。転身して強くなった実感は武器を持ち替えても消えない。
+
+     ■ リキャストは元から共通
+     ult.cd はどこからも読まれていない(必殺ゲージ ULT_GAUGE_MAX と
+     発動直後の 1.5 秒ロックアウトだけが発動条件)。つまり「リキャストの
+     共通化」は既に成立していて、武器を持ち替えてゲージを踏み倒すことは
+     できない。ここでは何も変えない。
+  ========================================================= */
+  const WEAPON_ULT_BY_KEY = {
+    // 槍: 大剣の「薙ぐ」に対して「突き抜ける」。前方へ深く踏み込み、
+    // 狭い範囲を一撃で貫く ―― reach を伸ばし radius を絞る
+    spear: {
+      name:'烈風の一突き', icon:'🔱', vfxColor:0x9fd8ff, clip:'ultSpear',
+      shape:{ reach:5.2 },
+      multMul:1.15, radiusMul:0.62,
+    },
+    // 刀: 双剣の手数に対して「抜刀の二段」。踏み込んで斬り、返しで斬る
+    katana: {
+      name:'月影・二段', icon:'⚔️', vfxColor:0xbfe8ff, clip:'ultKatana',
+      shape:{ reach:2.6, hits:2, hitInterval:0.16 },
+      multMul:1.30, radiusMul:0.85,
+    },
+    // 魔法の剣: 杖の遠隔メテオに対して「近接の三連」。魔法使いが
+    // 間合いへ踏み込む選択肢そのものになる
+    spellblade: {
+      name:'星霜斬', icon:'✨', vfxColor:0xc9a8ff, clip:'ultSpellblade',
+      shape:{ reach:2.2, hits:3, hitInterval:0.13 },
+      multMul:0.95, radiusMul:0.80,
+    },
+    // ボウガン: 小弓の「素早い連射」に対して「大きな溜めからの強射」。
+    // aimed にすることで、既存の溜め(beginUltAim / ultHold クリップ)が
+    // そのまま「引き絞る」演出になる
+    crossbow: {
+      name:'貫穿の一矢', icon:'🎯', vfxColor:0xffd27a,
+      shape:{ aimed:true, aimDist:8.0, aimMax:2.0, aimRadiusMul:1.25, aimDmgMul:2.0, aimMpPerSec:12 },
+      multMul:1.55, radiusMul:0.55,
+    },
+  };
+
+  /* 段(基礎/スフィア/上位職)の数値へ、武器の型を被せる。
+     型に関わるフラグは必ず一度落としてから入れ直す ―― 例えば弓師の段は
+     radial:true を持っているので、消さずに aimed を足すと両方の分岐に
+     引っかかって挙動が壊れる。 */
+  const ULT_SHAPE_KEYS = ['radial','sweep','aimed','reach','hits','hitInterval',
+                          'aimDist','aimMax','aimRadiusMul','aimDmgMul','aimMpPerSec',
+                          'sweepDur','sweepArrows','arrowCount','executeThreshold','executeMul'];
+
+  function applyWeaponUlt(tier, w){
+    const out = Object.assign({}, tier);
+    ULT_SHAPE_KEYS.forEach(k=>{ delete out[k]; });
+    Object.assign(out, w.shape || {});
+    out.name = w.name;
+    out.icon = w.icon;
+    if(w.vfxColor != null) out.vfxColor = w.vfxColor;
+    if(w.clip) out.clip = w.clip;
+    out.mult = +((tier.mult || 1) * (w.multMul || 1)).toFixed(2);
+    out.radius = +((tier.radius || 3.6) * (w.radiusMul || 1)).toFixed(2);
+    return out;
+  }
 
   /* 上位職専用の必殺技(#9/#35の続き。2026-08-30改訂)。ULT_ALT_BY_CLASS
      (スフィア盤で解放する「別の型」)とは違い、こちらは転身の到達点その
