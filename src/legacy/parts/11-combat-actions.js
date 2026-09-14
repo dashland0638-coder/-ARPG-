@@ -688,7 +688,9 @@
       }
       const base = state.classDef.atk + Math.round(Math.random()*4);
       const dmg = Math.round(base * comboMul);
-      const staggerOpts = {staggerMul, ultGauge: isFinish ? 6 : 3};
+      // isFinish は処刑(core/execution.js)の発動条件。コンボの最終段で
+      // 当てた一撃だけが瀕死の敵を「決められる」
+      const staggerOpts = {staggerMul, ultGauge: isFinish ? 6 : 3, isFinish};
       spawnMeleeSwingVFX(range, angle, state.classDef.trim, styleKey);
       let hitTarget = null;
       if(state.classDef.cleave){
@@ -729,7 +731,7 @@
       // ―― 小弓=正面3連射、ボウガン=重い貫通ボルト(「遅いが重い」という思想)。
       // かいじんの杖(武器固有アクション)は通常攻撃(全段)が常に貫通する
       spawnProjectile(false, {
-        dmgMul: comboMul, staggerMul, styleKey, ultGauge: isFinish ? 6 : 3,
+        dmgMul: comboMul, staggerMul, styleKey, ultGauge: isFinish ? 6 : 3, isFinish,
         pierce: (isFinish && state.classDef.key==='mage') ||
                 (isFinish && state.classDef.key==='archer' && state.usingAltWeapon) ||
                 specialId==='kaijin',
@@ -852,7 +854,7 @@
     const dmg = Math.round(baseDmg * (opts.dmgMul || 1) * volleyMul * distanceMul);
     // life*speed is the effective range (~44 at speedMul 1 before this) -
     // shortened a bit per feedback that arrows/bolts carried too far
-    const proj = {mesh, light: glow, dir, speed:20*st.speedMul, life:1.6, hitR, dmg, staggerMul: opts.staggerMul, ultGauge: opts.ultGauge, predictiveTarget};
+    const proj = {mesh, light: glow, dir, speed:20*st.speedMul, life:1.6, hitR, dmg, staggerMul: opts.staggerMul, ultGauge: opts.ultGauge, isFinish: !!opts.isFinish, predictiveTarget};
     if(predictiveTarget) emitArenaFeedback('PREDICTIVE AIM', '狙い筋を未来位置へ補正');
     if(distanceMul > 1) emitArenaFeedback('DISTANCE BONUS', `×${distanceMul.toFixed(2)}`);
     // 魔法使いのフィニッシュ: 貫通弾(roadmap「杖: 魔弾→貫通弾」)
@@ -1412,12 +1414,58 @@
     state.ultGauge = 0;
     state.ultLockT = 1.5;   // 理論上の即時連続発動を防ぐ保険的な最短ロックアウト
     triggerBossSkills('onUltCast');
-    state.swinging = true; beginMove('ult');
+    /* 再生するクリップは ultClipName()(05-rendering-rig.js)が決める:
+       サブ武器の型 → 上位職の専用の型 → クラスの 'ult' の優先順。 */
+    const clipName = ultClipName(ult);
+    state.swinging = true; beginMove(clipName, 'ult');
     if(sequenceLocks.length) tryStrikeBell(state.pos);
     state.swingLockFacing = state.facing;
-    flashScreen();
 
-    const fwd = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
+    /* 一撃が届く瞬間まで、ダメージ・VFX・SE・画面の閃光を保留する。
+
+       通常攻撃は core/swing-timing.js が「判定・SE・見た目」を1点へ
+       揃えているが、必殺技はその対象外で、入力した瞬間に全部が出て
+       モーションだけが後から振られていた。予備動作が大きい技ほどズレが
+       目立ち、剣士の渾身の斬撃は剣が当たりに行くより 0.3 秒早く敵が
+       吹き飛んでいた。
+
+       入力レスポンス(ゲージ消費・ロックアウト・モーション開始)は
+       今までどおり即座に走らせ、解決だけを遅らせる ―― 押した手応えは
+       変えずに、見た目と結果の時刻だけを合わせる。 */
+    const resolve = ()=> resolveUltimate(ult, aimTarget, ultDmgMul, ultAreaMul);
+    const delay = ultImpactDelay(clipName, state.swingDur);
+    if(delay > 0){
+      // 遅延には上限があるので、長く溜める技ほど「クリップの接触フレーム」より
+      // 早く当たることになる。applyCombatPose がこの比率でクリップの進み方を
+      // 折り曲げ、刃が届く絵をちょうどこの瞬間へ持ってくる
+      state.ultHitFrac = state.swingDur > 0 ? delay / state.swingDur : 0;
+      state.pendingUlt = {t: delay, fire: resolve};
+      return;
+    }
+    resolve();
+  }
+
+  /* 保留した必殺技の解決。updatePlayer(13-update-loop.js)から毎フレーム。
+     updatePendingSwing / updateUltBurst と同じ理由・同じ条件で打ち切る。 */
+  function updatePendingUlt(dt){
+    const pu = state.pendingUlt;
+    if(!pu) return;
+    if(!state.started || state.dialogueActive){ state.pendingUlt = null; return; }
+    pu.t -= dt;
+    if(pu.t > 0) return;
+    state.pendingUlt = null;
+    pu.fire();
+  }
+
+  function resolveUltimate(ult, aimTarget, ultDmgMul, ultAreaMul){
+    /* 必殺技の瞬間だけ、通常攻撃よりはっきり分かる光とカメラを出す。
+       通常ヒット(hitStop 0.016 / shake 0.06)→ 必殺技 → 処刑、という
+       順に強くなる階層を作るのが狙いで、常時派手にはしない。 */
+    flashScreen();
+    addShake(ULT_IMPACT_SHAKE);
+    hitStop(ULT_IMPACT_HITSTOP, {force:true, max:ULT_IMPACT_HITSTOP_MAX});
+
+    const fwd = new THREE.Vector3(Math.sin(state.swingLockFacing),0,Math.cos(state.swingLockFacing));
 
     if(ult.radial){
       const radius = (ult.radius || 7.5) * ultAreaMul;
@@ -1425,7 +1473,10 @@
       if(ult.sweep){
         // turn on the spot and loose as the sweep comes round
         state.skillAnim = {type:'spin', t:0, duration: ult.sweepDur || 0.85};
-        state.ultSweep = {t:0, dur: ult.sweepDur || 0.85, start: state.facing,
+        // 旋回の基準は入力時に固定した向き。updatePlayer の回転
+        // (swingLockFacing + spinT*2π)と同じ値を使わないと、
+        // 振り抜くあいだに向きが少し動いた分だけ矢の向きがずれる
+        state.ultSweep = {t:0, dur: ult.sweepDur || 0.85, start: state.swingLockFacing,
                           next: 0, arrows: ult.sweepArrows || 22,
                           radius, color: ult.vfxColor, hit: new Set(), dmg: dmgFn};
         return;
@@ -1439,29 +1490,60 @@
       return;
     }
 
-    const reach = state.classDef.range==='melee' ? 1.6 : 6.5;
+    // 踏み込む距離。槍のように「突き抜ける」武器は ult.reach で前へ伸ばす
+    const reach = ult.reach != null ? ult.reach
+                                    : (state.classDef.range==='melee' ? 1.6 : 6.5);
     const center = aimTarget ? aimTarget.clone()
                              : state.pos.clone().addScaledVector(fwd, reach);
     // the aimed version already carries the floor height it was placed on
     if(!aimTarget) center.y = floorHeightAt(center.x, center.z, state.pos.y + 3) || state.pos.y;
 
     const ultRadius = ult.radius * ultAreaMul;
-    spawnUltimateVFX(center, Object.assign({}, ult, {radius:ultRadius}));
     spawnScorch(center, ultRadius, 0x1a1208, 9);
 
-    enemies.forEach(en=>{
-      if(en.dead || en.dormant) return;
-      if(!isBossAccessible(en)) return;
-      const d = en.group.position.distanceTo(center);
-      if(d <= ultRadius){
-        let dmg = Math.round(state.classDef.atk * ult.mult * ultDmgMul) + Math.round(Math.random()*8);
-        // 処刑人の一撃: 残りHPが閾値を下回っている敵に超過ダメージを与える
-        if(ult.executeMul && en.hpMax>0 && (en.hp/en.hpMax) < (ult.executeThreshold||0.3)){
-          dmg = Math.round(dmg * ult.executeMul);
+    /* 多段の必殺技(刀の二段・魔法の剣の三連)。総ダメージは1発ぶんを
+       分割するので、段数を増やしてもDPSは変わらない ―― 変わるのは
+       「畳み掛けている」手触りだけ。判定そのものは単発と同じコードを
+       そのまま繰り返す(新しい当たり判定の形は増やさない方針)。 */
+    const hits = Math.max(1, Math.round(ult.hits || 1));
+    const perHit = 1 / hits;
+    const applyUltHit = ()=>{
+      spawnUltimateVFX(center, Object.assign({}, ult, {radius:ultRadius}));
+      enemies.forEach(en=>{
+        if(en.dead || en.dormant) return;
+        if(!isBossAccessible(en)) return;
+        const d = en.group.position.distanceTo(center);
+        if(d <= ultRadius){
+          let dmg = Math.round(state.classDef.atk * ult.mult * ultDmgMul * perHit) + Math.round(Math.random()*8);
+          // 処刑人の一撃: 残りHPが閾値を下回っている敵に超過ダメージを与える
+          if(ult.executeMul && en.hpMax>0 && (en.hp/en.hpMax) < (ult.executeThreshold||0.3)){
+            dmg = Math.round(dmg * ult.executeMul);
+          }
+          dealDamageToEnemy(en, dmg, false);
         }
-        dealDamageToEnemy(en, dmg, false);
-      }
-    });
+      });
+    };
+    applyUltHit();
+    if(hits > 1){
+      const interval = ult.hitInterval || 0.14;
+      state.ultBurst = {left: hits - 1, t: interval, interval, fire: applyUltHit};
+    }
+  }
+
+  /* 多段必殺技の残りの段。updatePlayer(13-update-loop.js)から毎フレーム。
+     updatePendingSwing / updatePendingMoveSfx と同じ理由・同じ条件で
+     打ち切る ―― ダイアログへ入った後に「もう存在しない斬撃」だけが
+     後から当たるのを防ぐ。 */
+  function updateUltBurst(dt){
+    const b = state.ultBurst;
+    if(!b) return;
+    if(!state.started || state.dialogueActive){ state.ultBurst = null; return; }
+    b.t -= dt;
+    if(b.t > 0) return;
+    b.t = b.interval;
+    b.left--;
+    b.fire();
+    if(b.left <= 0) state.ultBurst = null;
   }
 
   function spawnRadialArrowsVFX(radius, ult){

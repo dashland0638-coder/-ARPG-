@@ -672,6 +672,9 @@
   }
 
   function updateEnemies(dt){
+    // 視界判定(LoS)の1フレームあたりの予算。updateEnemyVisibility 参照
+    losBudget = LOS_BUDGET_PER_FRAME;
+    if(presenceGlobalCD > 0) presenceGlobalCD -= dt;   // 気配の全体間隔
     enemies.forEach(en=>{
       // enemies far from the player belong to a different scenario's area -
       // all scenarios sit 80+ units apart, so anything past 100 units can
@@ -704,6 +707,10 @@
           en.posture = 0; en.knockedDown = false; en.knockdownT = 0; en.postureGraceT = 0; en.bigFlinched = false;
           en.postureRecoveryDelayT = 0;
           en.postAtkRecoveryT = 0; en.arcaneBindT = 0; en.turnRateMul = 1;
+          en.stunT = 0;   // 大怯みの硬直(core/enemy-tier.js)も持ち越さない
+          en.guardHoldT = 0; en.guardBreakCD = 0; en.guardBreak = false;   // 守護型のガードブレイクも仕切り直す
+          en.triggered = !!en.dummy;   // 湧き直した個体は非敵対から(カカシだけは的のまま)
+          en.leashT = 0;
           if(en.mob){
             en.mob.legs.forEach(l=>{ l.rotation.x = 0; l.position.y = 0.24; });
             if(en.mob.neck) en.mob.neck.rotation.set(0,0,0);
@@ -715,6 +722,10 @@
         }
         return;
       }
+      // 視界制限(探索システム)。生きている個体だけを見る ―― 倒れた敵の
+      // 輪郭やハイライトを更新しても意味が無く、死亡演出(startDeathFall)と
+      // 取り合いになるだけなので、上の dead 分岐を抜けた後に置いている
+      updateEnemyVisibility(en, dt);
       if(en.hurtT > 0){
         en.hurtT -= dt;
         // a short squash-and-recover so a hit is visible on the body itself
@@ -723,6 +734,22 @@
         const B = en.bodyScale;
         if(en.body && !en.isBoss && B) en.body.scale.set(B.x*s, B.y/(1+f*0.3), B.z*s);
         if(en.hurtT <= 0 && en.body && !en.isBoss && B) en.body.scale.copy(B);
+      }
+      /* Leash(core/enemy-aggro.js)。検知(各AIの距離/LoS条件)とは完全に
+         別の条件で敵対を解く ―― 検知範囲から出ただけでは切れず、十分
+         遠い状態が猶予秒数だけ続いて初めて en.triggered を落とす。
+         ここはダウン中・硬直中の早期returnより前に置いてあるので、
+         どの状態の敵でも毎フレーム同じように進む(解除してはいけない
+         状態では stepLeash 側がタイマーを凍結する)。
+         水平距離で測る ―― 飛行敵の高度や被弾の上下動を拾わないため。
+         なお triggered を落とすだけで、basePos へ帰す処理は入れていない */
+      {
+        const dxp = en.group.position.x - state.pos.x, dzp = en.group.position.z - state.pos.z;
+        const dxh = en.basePos ? en.group.position.x - en.basePos.x : 0;
+        const dzh = en.basePos ? en.group.position.z - en.basePos.z : 0;
+        const leash = stepLeash(en, dt, Math.hypot(dxp, dzp), Math.hypot(dxh, dzh));
+        en.leashT = leash.leashT;
+        if(leash.dropped) en.triggered = false;
       }
       /* パニッシュ窓の「振り抜いた直後」タイマー。ボスは updateBossAI が
          自分で減らすので、ここでは雑魚のぶんだけ進める(二重に減らさない)。
@@ -786,8 +813,16 @@
           // ―― 青(平常)から橙(大怯みの閾値=崩し目前)へ、輝きも溜まるほど強く
           if(en.shieldGroup){
             const ratio = en.posture / en.postureMax;
-            en.shieldMat.emissiveIntensity = ratio * 0.85;
-            en.shieldMat.emissive.setHex(ratio >= 0.7 ? 0xff6a3a : 0x3a5aff);
+            if(en.guardBreak && en.chargeState === 'telegraph'){
+              // ガードブレイクの予兆。体幹の青/橙とは別の白熱した光にして、
+              // 「崩せそう」と「崩しに来る」を取り違えないようにする
+              const k = 1 - Math.max(0, Math.min(1, en.chargeT / Math.max(0.001, en.chargeTelegraphDur || 1)));
+              en.shieldMat.emissiveIntensity = 0.5 + k * 1.4;
+              en.shieldMat.emissive.setHex(0xffe8b0);
+            } else {
+              en.shieldMat.emissiveIntensity = ratio * 0.85;
+              en.shieldMat.emissive.setHex(ratio >= 0.7 ? 0xff6a3a : 0x3a5aff);
+            }
           }
         }
       }
@@ -826,6 +861,16 @@
           en.group.position.y += upliftOffset(en.liftT, en.liftPeak, en.liftDur);
           return;   // 浮いている間は通常AIを止める
         }
+      }
+
+      /* 大怯みの短い硬直(通常敵のみ、applyBigFlinchInterrupt)。
+         ダウンと違って無敵も専用姿勢も付けず、AIを止めるだけ ―― この間も
+         今までどおり攻撃を当てられる(潰した側の得になる)。強モブ以上は
+         そもそも stunT が立たないので、この分岐を通らない */
+      if((en.stunT||0) > 0){
+        en.stunT = Math.max(0, en.stunT - dt);
+        updateMobAnim(en, dt);
+        return;
       }
 
       if(en.isBoss){ updateBossAnim(en, dt); updateBossAI(en, dt); return; }
@@ -1018,13 +1063,37 @@
     const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
     const distToPlayer = toPlayer.length();
 
+    /* 守護型強モブのガードブレイク(core/guardian-break.js)。
+       専用のAIステートは足していない ―― 「対峙したまま攻撃しなかった時間」
+       を貯め、溜めきったら次の突進サイクルだけを差し替える。
+       guardBreakCD が連発を止め、guardHoldT が「一定時間ガードしてから来る」
+       テンポを作る。守護型以外ではどちらも常に0のままで、以下の分岐は
+       すべて素通りする */
+    if(en.guardBreakCD > 0) en.guardBreakCD = Math.max(0, en.guardBreakCD - dt);
+    en.guardHoldT = stepGuardHold(en, dt, distToPlayer, en.chargeState);
+
     if(en.chargeState==='idle'){
       if(distToPlayer < 6 && hasLineOfSight(en.group.position, state.pos)){
+        // 索敵成立 = パーティへの敵対(core/enemy-aggro.js)。距離もLoS条件も
+        // 既存のまま ―― 成立した事実を en.triggered に記録するだけ
+        if(aggroOnDetect(en, true)) en.triggered = true;
         // Combat Test Arenaの「Windup Enemy」向け: 振りかぶりを通常より
         // 長く見せたい場合だけen.chargeTelegraphOverrideを設定する
         // (未指定の通常個体は今までどおり0.65秒)
+        const breaking = shouldUseGuardianBreak(en, distToPlayer, en.chargeState);
+        en.guardBreak = breaking;
         en.chargeState = 'telegraph';
-        en.chargeTelegraphDur = en.chargeTelegraphOverride || 0.65;
+        if(breaking){
+          // ガードブレイクは「見てから反応できる」ことが要件なので予兆を
+          // 長く取る。溜めの見た目(body scaleの膨らみ)も既存のまま乗る
+          const plan = guardBreakPlan();
+          en.chargeTelegraphDur = plan.telegraphSec;
+          en.guardBreakCD = plan.specialCDSec;
+          en.guardHoldT = 0;
+          spawnToast('🛡 盾持ちが構えを変えた!');
+        } else {
+          en.chargeTelegraphDur = en.chargeTelegraphOverride || 0.65;
+        }
         en.chargeT = en.chargeTelegraphDur;
         en.chargeDir = toPlayer.clone().normalize();
       } else {
@@ -1050,11 +1119,14 @@
       en.group.position.addScaledVector(en.chargeDir, 11*dt);
       en.group.rotation.y = Math.atan2(en.chargeDir.x, en.chargeDir.z);
       const d = state.pos.distanceTo(en.group.position);
-      if(d<1.15 && en.hitCD<=0 && !state.invulnerable && state.paralyzeInvulnT<=0){
+      // ガードブレイク中だけ接触半径と威力が上がる(core/guardian-break.js)。
+      // 通常の突進はどちらも既存値(1.15 / 等倍)のまま
+      const hitR = chargeHitRadius(en, 1.15);
+      if(d<hitR && en.hitCD<=0 && !state.invulnerable && state.paralyzeInvulnT<=0){
         en.hitCD = 1;
         if(tryConsumeOrbShield()){ /* damage negated */ }
         else {
-          const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
+          const dmg = applyIncomingDamageMul(state.debugMode ? 0 : chargeDamage(en, en.atk));
           state.hp = Math.max(0, state.hp-dmg);
           spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
           flashScreen();
@@ -1064,7 +1136,7 @@
           }
           if(state.hp<=0) triggerPlayerDown();
         }
-      } else if(d<1.15 && en.hitCD<=0 && state.paralyzeInvulnT<=0){
+      } else if(d<hitR && en.hitCD<=0 && state.paralyzeInvulnT<=0){
         tryPerfectDodge(en);
       }
       // 攻撃間隔の見直し(#21): 旧2.4sは硬直→cooldownの往復が長すぎ、
@@ -1074,7 +1146,12 @@
       // en.postAtkRecoveryT を雑魚でも同じ長さだけ立てるだけで、判定側
       // (core/punish-window.js)も倍率(stagger-math.js)も共通のまま
       if(en.chargeT<=0){
-        en.chargeState='cooldown'; en.chargeT = en.chargeCooldownOverride || 1.5;
+        // ガードブレイクを振り抜いた後は硬直(既存のcooldown)だけを長くする。
+        // 「避ければ差し返せる」構造を、新しい硬直の仕組みを足さずに作る。
+        // パニッシュ窓(postAtkRecoveryT)の長さと倍率は既存のまま
+        en.chargeState='cooldown';
+        en.chargeT = en.guardBreak ? guardBreakPlan().cooldownSec : (en.chargeCooldownOverride || 1.5);
+        en.guardBreak = false;
         en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
       }
       return;
@@ -1104,6 +1181,7 @@
     const dist = toPlayer.length();
     if(dist < 13){
       const sees = hasLineOfSight(en.group.position, state.pos);
+      if(aggroOnDetect(en, sees)) en.triggered = true;   // 索敵成立(既存条件のまま)
       if(sees){
         const rate = turnBudget(resolveTurnRate(en), dt);
         en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate);
@@ -1164,6 +1242,7 @@
     const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
     const dist = toPlayer.length();
     const sees = dist < 16 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;   // 索敵成立(既存条件のまま)
     if(!sees){ updateWanderAI(en, dt); return; }
     { const rate = turnBudget(resolveTurnRate(en), dt);
       en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate); }
@@ -1208,6 +1287,7 @@
     const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
     const dist = toPlayer.length();
     const sees = dist < (en.turretRange||15) && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;   // 索敵成立(既存条件のまま)
     if(sees){
       const rate = turnBudget(resolveTurnRate(en), dt);
       en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate);
@@ -1270,7 +1350,12 @@
       if(en.group.position.x!==prevX || en.group.position.z!==prevZ) return;
     }
 
-    if(dist < 8 && dist > 2.5 && hasLineOfSight(en.group.position, state.pos) && en.jumpCD<=0){
+    /* jumperは接近そのものに距離ゲートを持たない(既存仕様、今回変更しない)。
+       敵対の記録点は「跳びかかれる間合いとLoSが揃った」ここ ―― 跳躍自体は
+       en.jumpCD にも依存するが、クールダウンは索敵条件ではないので外す */
+    const jumperSees = dist < 8 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, jumperSees)) en.triggered = true;
+    if(jumperSees && dist > 2.5 && en.jumpCD<=0){
       en.jumpState = 'air';
       en.jumpT = en.jumpDur = 0.55;
       en.jumpDir = toPlayer.clone().normalize();
@@ -1319,7 +1404,11 @@
         en.group.position.addScaledVector(dir, en.speed*dt*0.55);
         en.group.rotation.y = Math.atan2(dir.x, dir.z);
       }
-      if(dist < 7.5 && en.ghostCD<=0 && hasLineOfSight(en.group.position, state.pos)){
+      /* ghostも接近に距離ゲートを持たない(既存仕様、今回変更しない)。
+         敵対の記録点は回り込みを仕掛けられる間合いとLoSが揃った所 */
+      const ghostSees = dist < 7.5 && hasLineOfSight(en.group.position, state.pos);
+      if(aggroOnDetect(en, ghostSees)) en.triggered = true;
+      if(ghostSees && en.ghostCD<=0){
         en.ghostState = 'phaseOut'; en.ghostT = 0.5;
       }
       return;
@@ -2038,6 +2127,128 @@
     }
   }
 
+  /* =========================================================
+     視界制限(探索システム) ―― 「見ていない場所の情報は出さない」
+
+     遮蔽判定そのものは既存の hasLineOfSight()(02-world-common.js、
+     walls の AABB を線分サンプリングする)をそのまま使う。新しい遮蔽
+     システムは作らない ―― 敵AIが「壁越しにプレイヤーを見つけない」ために
+     既に使っている、実績のある同じ判定を描画側にも共有させるだけ。
+
+     段階分けと「真っ暗にはしない」保証は core/enemy-visibility.js 側
+     (ユニットテスト済み)。ここは three.js 側への反映だけを担当する。
+
+     LoS のサンプリングは「線分の長さ × walls の数」に比例するので、
+     全個体ぶんを毎フレーム引くと一気に重くなる。二段構えで抑える:
+       1. 個体ごとに約12Hzへ間引き、間は前回の結果を使い回す
+       2. それでも同時に何体も期限が来るので、1フレームに実際に引ける
+          本数を予算で縛る。溢れた個体は次のフレームへ回る
+     視界の変化は 0.1 秒前後の粒度で十分読み取れるので、体感には出ない。
+  ========================================================= */
+  const ENEMY_LOS_INTERVAL = 0.08;
+  const LOS_BUDGET_PER_FRAME = 3;
+  let losBudget = LOS_BUDGET_PER_FRAME;
+
+  /* 「気配」―― 見えていない敵の存在だけを伝える
+
+     視界制限(上記)で壁の向こうの敵を隠したところ、隠した先に何の
+     手掛かりも無いという穴が空いた。これでは「壁の向こうに敵がいるかも
+     しれない」ではなく、ただ「何も無い」になる。
+
+     そこで、近くにいて・まだこちらに気づいていない・今は見えていない敵に
+     限って、ごくたまに足元の土煙と足音だけを出す。姿も位置も出さない:
+       ・音   … 方向は分からないが「近くで何かが動いた」ことは伝わる
+       ・土煙 … 壁の向こうなら壁に隠れる。回り込む/覗き込むと見える
+     つまり「回り込む・壁際から覗く」という行動への報酬になる。
+
+     鳴らしすぎると緊張感ではなく雑音になるので、個体ごとの間隔に加えて
+     全体でも1つずつしか鳴らない予算を持たせてある。交戦が始まった敵
+     (triggered)は既に自分の足音・攻撃音を持っているので対象外。 */
+  const PRESENCE_RANGE = 11;         // これより近い敵だけが気配を漏らす
+  const PRESENCE_MIN_GAP = 2.6;      // 同じ個体が続けて鳴らすまでの最短間隔(秒)
+  const PRESENCE_GLOBAL_GAP = 1.1;   // 群れが一斉に鳴るのを防ぐ全体の間隔
+  let presenceGlobalCD = 0;
+  const _presenceAt = new THREE.Vector3();
+
+  function updateUnseenPresence(en, dt, dist, level){
+    en.presenceCD = (en.presenceCD || 0) - dt;
+    if(level === 'visible') return;          // 見えているなら手掛かりは要らない
+    if(en.triggered || en.isBoss) return;    // 交戦中は自分の音を持っている
+    if(en.flying || en.turret) return;       // 浮いている敵・台座の石像は足音も土煙も立てない
+    if(dist > PRESENCE_RANGE) return;
+    if(en.presenceCD > 0 || presenceGlobalCD > 0) return;
+    // 近いほど頻繁に、遠いほど間遠に
+    const near = 1 - dist/PRESENCE_RANGE;
+    en.presenceCD = PRESENCE_MIN_GAP + Math.random()*3.4 * (1 - near*0.6);
+    presenceGlobalCD = PRESENCE_GLOBAL_GAP;
+    const ep = en.group.position;
+    _presenceAt.set(ep.x, en.basePos ? en.basePos.y : ep.y, ep.z);
+    spawnLandingDust(_presenceAt, 0.30);     // 壁の向こうなら壁に隠れる
+    const mat = surfaceAt(ep.x, ep.z);
+    const cue = mat && STEP_CUE[mat];
+    if(cue) sfx(cue, {run:0});               // 足音。run:0 で最も静かな踏み方
+  }
+
+  function updateEnemyVisibility(en, dt){
+    if(en.isBoss){ en.visLevel = 'visible'; en.visAlpha = 1; return; }
+    const ep = en.group.position;
+    const dist = Math.hypot(ep.x - state.pos.x, ep.z - state.pos.z);
+    en.visCheckT = (en.visCheckT || 0) - dt;
+    if(en.visCheckT <= 0){
+      if(dist > SIGHT_RANGE){
+        // 索敵距離の外なら LoS を引く意味が無い(どのみち見えない)。
+        // 予算も消費しない
+        en.visCheckT = ENEMY_LOS_INTERVAL;
+        en.visLos = false;
+      } else if(losBudget > 0){
+        losBudget--;
+        en.visCheckT = ENEMY_LOS_INTERVAL;
+        en.visLos = hasLineOfSight(ep, state.pos);
+      }
+      // 予算切れの個体は visCheckT を負のままにして次フレームへ回す
+    }
+    const vis = stepVisibility({
+      los: en.visLos !== false, distance: dist, dt,
+      triggered: !!en.triggered, isBoss: false, prevMemoryT: en.visMemoryT || 0,
+    });
+    en.visLevel = vis.level; en.visAlpha = vis.alpha; en.visMemoryT = vis.memoryT;
+    updateUnseenPresence(en, dt, dist, vis.level);
+
+    // 壁越しの輪郭は「気配」の段階までしか出さない。完全に隠れた敵は
+    // 輪郭も消える ―― これが「壁の向こうに何かいるかもしれない」を作る
+    if(en.xrayShells){
+      const show = vis.level !== 'hidden';
+      for(let i=0;i<en.xrayShells.length;i++){
+        if(en.xrayShells[i].visible !== show) en.xrayShells[i].visible = show;
+      }
+    }
+
+    // 戦闘時ハイライト。通常時は光らせず、交戦・予兆・瀕死という
+    // 「伝えるべき瞬間」だけ強くする(常時発光させない方針)
+    en.finishable = isFinishable(en);
+    const mat = en.body && en.body.material;
+    if(mat && mat.emissive){
+      if(en.baseEmissiveHex === undefined){
+        en.baseEmissiveHex = mat.emissive.getHex();
+        en.baseEmissiveI = mat.emissiveIntensity;
+      }
+      const hl = threatHighlight({
+        level: vis.level, triggered: !!en.triggered,
+        windup: punishWindowState(en).midWindup, finishable: en.finishable,
+      });
+      if(hl > 0.001){
+        mat.emissive.setHex(en.finishable ? 0xffd27a : 0xff6a4a);
+        mat.emissiveIntensity = en.baseEmissiveI + hl * 0.9;
+        en.hlOn = true;
+      } else if(en.hlOn){
+        // 元の自己発光(炎系の敵など)へ必ず戻す
+        mat.emissive.setHex(en.baseEmissiveHex);
+        mat.emissiveIntensity = en.baseEmissiveI;
+        en.hlOn = false;
+      }
+    }
+  }
+
   function updateBossAI(en, dt){
     if(!en.triggered){
       if(!state.dialogueActive){
@@ -2301,9 +2512,55 @@
     } else if(bigFlinch && opts.applyBigFlinch !== false){
       en.bigFlinched = true;
       en.hurtT = Math.max(en.hurtT||0, 0.5);   // 大怯み: 通常より長く隙ができる
+      // 通常敵だけ、振りかぶりを潰して短く硬直させる(core/enemy-tier.js)。
+      // 強モブ・ネームド・ボスはここを素通りする ―― 殴っているだけでは
+      // 攻撃を止められない、という階層差はこの1行だけで生まれる
+      applyBigFlinchInterrupt(en);
       if(opts.bigFlinchToast !== false) spawnToast('💫 体勢を崩した!');
     }
     return { knockdown, bigFlinch };
+  }
+
+  /* 大怯み(体幹70%)による行動中断。
+
+     どの階層が中断されるか、何を打ち切るかの判断は core/enemy-tier.js の
+     bigFlinchInterrupt() が持つ。ここはその結果どおりに en を書き換える
+     だけ ―― 判断(純粋関数)と副作用(THREE/state 依存)を混ぜない、という
+     このリポジトリの既存の切り分けに合わせてある。
+
+     打ち切るのは「まだ振り抜いていない予兆」だけ。踏み込んだ突進や
+     飛びかかりは止めない ―― 宙で当たり判定だけが消えるし、読んで避ける
+     対象そのものが無くなってしまう。
+
+     ダウン(triggerKnockdown)・ノックバック・体幹の倍率には一切触らない。 */
+  function applyBigFlinchInterrupt(en){
+    const { interrupt, cancelWindup, stunSec } = bigFlinchInterrupt(en);
+    if(!interrupt) return;
+
+    if(cancelWindup){
+      if(en.chargeState === 'telegraph'){
+        // 溜めで膨らませた身体を戻してからクールダウンへ落とす。
+        // 再攻撃までの間隔は通常の振り抜き後と同じ値を使う
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+        en.chargeState = 'cooldown';
+        en.chargeT = en.chargeCooldownOverride || 1.5;
+      }
+      if(en.fireCharging){
+        // 溜め射撃(fire / kite / turret 共通)。撃たずに構えを解く
+        en.fireCharging = false;
+        en.fireChargeT = 0;
+        en.atkCD = Math.max(en.atkCD || 0, 0.8);
+      }
+      if(en.ghostState === 'phaseIn'){
+        // 実体化の途中。透明度を戻してから間合いを取り直させる
+        setEnemyOpacity(en, 1);
+        en.ghostState = 'cooldown';
+        en.ghostT = 2.4;
+      }
+    }
+
+    // 短い硬直。ダウンと違って姿勢も無敵も変えず、AIを止めるだけ
+    en.stunT = Math.max(en.stunT || 0, stunSec);
   }
 
   /* 戦騎士 Perfect Brace(#4フェーズ4): 攻撃元(attacker)の体幹を崩し、
@@ -2416,6 +2673,8 @@
     // 必ずこの関数を通る(applyIncomingDamageMulのJSDoc参照)ため、
     // ここ1箇所に足すだけで敵の種類やダメージ源を問わず一律に効く
     state.playerHitReactT = 0.20;
+    // 殴られた = 戦闘態勢。仰け反りと同じくここ1箇所で全被ダメ経路を拾える
+    state.combatStanceT = refreshCombatStance(state.combatStanceT);
     // 必殺ゲージ: 被弾でもわずかに貯まるが、他の獲得源(通常ヒット+3、撃破+18等)
     // よりはっきり小さくしてあり、「わざと受けて貯める」を最適解にしない
     addUltGauge(2);
@@ -2507,21 +2766,46 @@
       en.atk = Math.round(en.atk * 2);
       startBossDialogue(en);
     }
+    /* プレイヤーの攻撃による敵対(core/enemy-aggro.js)。索敵範囲の外から
+       撃たれた敵もここで敵対する。ボスは直前の不意打ち分岐が既に立てて
+       いるので、この行は no-op になる(順序が重要 ―― 先に立ててしまうと
+       不意打ちの口上が二度と出なくなる)。
+       サポートAIの攻撃(isAlly)とDoT(isDot)は敵対を生まない ―― サポートAIが
+       自分で標的を作り出す循環を断つため */
+    if(aggroOnDamage(en, {isAlly, isDot: opts.isDot})) en.triggered = true;
     if(en.guardT > 0){
       amount = Math.max(1, Math.round(amount * 0.25));   // braced: mostly turned aside
     }
-    // ガード持ち雑魚(en.guardian): ボスのguardTのような一時的な身構えでは
-    // なく常時ガードしている雑魚タイプ。体幹を崩す(ダウンさせる)までは
-    // 近接・遠隔問わずダメージの2割程度しか通らない。体幹ゲージ自体は
-    // amountでなくstaggerMulで貯まるので、ガード中でも殴り続ければ確実に
-    // 崩せる ―― 「崩さないと稼げない」ではなく「崩すまで我慢が要る」設計
-    const guardAbsorbed = en.guardian && !en.knockedDown;
+    /* ガード持ち雑魚(en.guardian): ボスのguardTのような一時的な身構えでは
+       なく常時ガードしている雑魚タイプ。体幹を崩す(ダウンさせる)までは
+       ダメージの2割程度しか通らない。体幹ゲージ自体はamountでなく
+       staggerMulで貯まるので、ガード中でも殴り続ければ確実に崩せる
+       ―― 「崩さないと稼げない」ではなく「崩すまで我慢が要る」設計。
+
+       盾は正面にしか無い(core/guardian-break.js)。正面±45度から来た
+       攻撃だけが2割まで減り、側面・背面からは通常どおり通る。角度は
+       既存のBack Attack判定(真後ろ±45度)と同じ扇を鏡像に使っており、
+       新しい角度体系も新しい減衰値も足していない。結果として背後を
+       取ると「減衰を抜ける」+「Back Attack ×1.2」の二重の報酬になる。
+
+       向きは en.group.rotation.y、攻撃者位置は state.pos ―― どちらも
+       すぐ下のノックバック計算やBack Attack判定が既に使っている値。 */
+    const guardBraced = en.guardian && !en.knockedDown;
+    const guardAbsorbed = guardianAbsorbs(en, en.group.rotation.y, en.group.position, state.pos);
     if(guardAbsorbed){
-      amount = Math.max(1, Math.round(amount * 0.2));
+      amount = guardianDamage(true, amount);
     }
     if(en.knockedDown){
       amount = Math.round(amount * 1.4);   // ダウン中は追撃ボーナス。畳み掛ける動機を作る
     }
+    /* 処刑(core/execution.js)。瀕死(HP10%以下)であることに加えて、
+       プレイヤーが「決めに行った」証拠 ―― コンボのフィニッシュ段、または
+       ダウン中への追撃 ―― が要る。瀕死になった敵を連打で勝手に処刑して
+       しまうと戦闘を「締めた」感触にならないため、自動発動にはしない。
+       ボスは専用の撃破演出・フェーズ・ダイアログを持つので対象外
+       (canExecute が弾く)。DoT・味方の攻撃でも発動しない。 */
+    const executing = !isAlly && !opts.isDot && canExecute(en, {isFinish: !!opts.isFinish});
+    if(executing) amount = executionDamage(en, amount);
     en.hp -= amount;
     spawnDamagePopup(en.group.position, amount, isAlly, isCrit);
     if(opts.isDot){
@@ -2572,7 +2856,9 @@
       addShake(en.isBoss ? 0.09 : 0.06);
       // knockback: light mobs get shoved, bosses barely register it。
       // ガード中の雑魚・砲台/石像も「据わっている」感触を出すため弾かない
-      if(from.lengthSq() > 0.0001 && !en.isBoss && !guardAbsorbed && !en.turret){
+      // ノックバック抑制の条件は従来どおり(向きに依存しない)。
+      // 「据わっている」感触はガードの向きとは別の性質として据え置く
+      if(from.lengthSq() > 0.0001 && !en.isBoss && !guardBraced && !en.turret){
         const push = en.strongMob ? 0.16 : 0.32;
         en.group.position.addScaledVector(from, -push * weight);
       }
@@ -2630,6 +2916,22 @@
       // opts.ultGauge を明示的に大きくする)。DoT・味方の攻撃では貯まらない
       addUltGauge(opts.ultGauge!=null ? opts.ultGauge : 3);
     }
+    if(executing){
+      /* フィニッシュの演出。世界観に合わせて「怪異を断つ/祓う/封じる」所作
+         として扱う(吸血の所作は導入しない)。新しい演出システムは足さず、
+         既存の火花・カメラ・閃光・SE・トーストを一段強く鳴らすだけにしてある */
+      const style = executionStyle(state.classDef && state.classDef.key, state.job);
+      spawnHitSpark(contact, style.color, 2.2, away);
+      /* 戦闘を締める一撃なので、演出は必殺技より一段強い(core/execution.js)。
+         直前に通常ヒットの hitStop が走っているため force で不応期を越える
+         ―― 処刑だけは必ず「止まる」ようにしたい */
+      addShake(style.shake);
+      hitStop(style.hitStop, {force:true, max:EXECUTION_HITSTOP_MAX});
+      flashScreen();
+      sfx(style.sfx);
+      spawnToast(`✦ ${style.label}`);
+      addUltGauge(EXECUTION_ULT_BONUS);   // 締めた分だけ次の戦闘へ繋がる
+    }
     if(en.hp<=0){
       finishEnemyDeath(en, isAlly, from);
     }
@@ -2650,6 +2952,22 @@
       en.chargeState = 'idle';
       en.fireCharging = false;
       en.postAtkRecoveryT = 0;   // 崩された時点でパニッシュ窓も閉じる(ボス側と同じ扱い)
+      /* 守護型のガードブレイクを崩した場合だけ、その攻撃を完全に潰す
+         (core/guardian-break.js)。「体幹を削り切った=攻撃を潰した」
+         という因果をはっきりさせるため、溜めの残り時間を破棄し、
+         起き上がりを硬直(cooldown)から始め、guardBreakCDを取り直して
+         即座に撃ち直せないようにする。
+         通常の突進敵は cancel:false になり、従来どおり上の idle のまま */
+      const gb = guardBreakCancel(en);
+      if(gb.cancel){
+        en.guardBreak = false;
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);  // 溜めの膨らみを戻す
+        en.chargeState = gb.chargeState;
+        en.chargeT = gb.chargeT;
+        en.guardHoldT = 0;
+        en.guardBreakCD = gb.specialCDSec;
+        spawnToast('🛡 ガードブレイクを潰した!');
+      }
     }
     spawnToast(en.isBoss ? '💥 体勢を崩した!畳み掛けろ!' : '💥 ダウン!');
     addShake(en.isBoss ? 0.18 : 0.10);

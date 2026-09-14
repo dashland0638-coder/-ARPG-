@@ -470,6 +470,9 @@
   }
   function updatePlayer(dt){
     if(state.attackCD>0) state.attackCD = Math.max(0,state.attackCD-dt);
+    updateCombatStance(dt);
+    updatePendingUlt(dt); // 必殺技の一撃が届く瞬間(core/ult-clips.js)
+    updateUltBurst(dt);   // 多段必殺技の残りの段(サブ武器専用)
     if(state.dodgeCD>0) state.dodgeCD = Math.max(0,state.dodgeCD-dt);
     if(state.ultLockT>0) state.ultLockT = Math.max(0,state.ultLockT-dt);   // 発動直後の保険的ロックアウトのみ(本体はゲージ制)
     updateStamina(dt);
@@ -720,11 +723,17 @@
     // instead of the two fighting over the same joints every frame.
     if(state.swinging){
       state.swingT += dt / (state.swingDur || 0.28);
+      state.postSwingT = 0;      // 振っている間はゼロ。抜けた瞬間から数え始める
       if(state.swingT >= 1){
         state.swingT = 1;
         state.swinging = false;
         state.moveClip = null;
       }
+    } else if(state.postSwingT < 10){
+      // 振り終わってからの経過秒数。Combat Idle の「まだ収まっていない」
+      // 上乗せ(core/combat-stance.js の settleBoost)が読む。
+      // 上限で止めるのは、放置中に際限なく増えるのを避けるだけの用心
+      state.postSwingT += dt;
     }
 
     // apply to mesh
@@ -957,6 +966,25 @@
     archer:  {pitchBias:0.06, breathMul:1.8, swayMul:1.6}
   };
 
+  /* 戦闘態勢タイマー(core/combat-stance.js)。攻撃(beginMove)と被弾
+     (applyIncomingDamageMul)が伸ばし、ここで減らす。加えて「こちらを
+     見つけている敵が近くにいる」間も伸ばし続ける ―― 敵を前にして
+     武器を下ろしてしまうと、攻撃していない時間がそのまま棒立ちに
+     見えるため。距離はカメラの戦闘判定と同じ COMBAT_CAMERA_RANGE を
+     使い、判定の基準を1つに揃えている。 */
+  function updateCombatStance(dt){
+    if(state.combatStanceT > 0) state.combatStanceT = Math.max(0, state.combatStanceT - dt);
+    const rangeSq = COMBAT_CAMERA_RANGE * COMBAT_CAMERA_RANGE;
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      if(!en || en.dead || en.dormant || !en.group) continue;
+      if(!en.triggered && !en.isBoss) continue;
+      if(state.pos.distanceToSquared(en.group.position) > rangeSq) continue;
+      state.combatStanceT = refreshCombatStance(state.combatStanceT);
+      return;
+    }
+  }
+
   function updateLocomotion(dt, moveSpeed){
     const P = playerMixerParts;
     const moving = state.grounded && moveSpeed > 0.35;   // m/s
@@ -1015,7 +1043,10 @@
         // 膝の曲がりをベースラインへ上乗せする ―― ストライドで動く量
         // (swing起点の項)には触れず、+0.05だった静的なベースラインだけ
         // 職業分を追加するので、歩行アニメの形自体は変えていない
-        const jobKneeBias = state.job==='berserker' ? 0.20 : 0;
+        // バーサーカーの低い構え。値の出どころは core/combat-stance.js の
+        // JOB_POSTURE_BIAS 一箇所 ―― Combat Idle 側も同じ表を読むので、
+        // 構えを当てた瞬間にここで書いた分が消える、という事故が起きない
+        const jobKneeBias = jobPostureBias(state.job).knee;
         P.kneeL.rotation.x = Math.max(0,  s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias;
         P.kneeR.rotation.x = Math.max(0, -s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias;
       }
@@ -1042,7 +1073,8 @@
       // P.waist.rotation.xへ一度だけ書いていたが、この関数が毎フレーム
       // pitchを上書きするため即座に消えてしまっていた。恒久的な前傾は
       // ここのpitch自体に加算する
-      const jobPitchBias = state.job==='berserker' ? 0.10 : 0;
+      // バーサーカーの常時前傾。上の膝と同じく JOB_POSTURE_BIAS が出どころ
+      const jobPitchBias = jobPostureBias(state.job).waistPitch;
       // 低HP時の前傾(職業ごとの上乗せ、LOW_HP_MOTION参照)
       const lowHpPitchBias = lhm ? lhm.pitchBias : 0;
       const pitch = (moving ? 0.02 + run*0.11 : Math.sin(strideT*0.8)*0.014) + jobPitchBias + lowHpPitchBias;
@@ -1057,7 +1089,13 @@
       const lowHpSwayMul = lhm ? lhm.swayMul : 1;
       const sway = (moving ? -s * swing * 0.055 * B.hipSway
                            : Math.sin(strideT*0.55) * 0.008 * B.idleShift) * lowHpSwayMul;
-      P.waist.position.x += (sway - P.waist.position.x) * Math.min(1, dt*12);
+      /* Combat Idle の重心移動も「目標値」として合成してから同じ lerp に
+         載せる。以前は lerp の後で position.x へ直接足していたため、
+         足した分が収束率(dt*12)で割った分だけ積み上がり、振幅が fps に
+         比例して膨らんでいた(30fps 3.4cm → 144fps 13.4cm、設計値 1.0cm)。
+         combatIdleWaistTarget が 0 のときの計算は元の式と完全に一致する
+         ので、移動中の既存モーションは変わらない。 */
+      P.waist.position.x = stepWaistShift(P.waist.position.x, sway, combatIdleWaistTarget, dt);
     }
 
     // ---- airborne: knees tuck on the way up, legs reach on the way down ----
@@ -1143,16 +1181,135 @@
     // バーサーカーの低い構え(続き): 膝の曲がりだけでなく、全身をわずかに
     // 沈めて姿勢そのものの低さを見せる。state.pos.y(当たり判定・接地)
     // には触れず、bobと同じくplayerメッシュの見た目のY位置だけを動かす
-    const jobCrouchY = state.job==='berserker' ? -0.045 : 0;
+    const jobCrouchY = jobPostureBias(state.job).bodyY;
     player.position.y += bob + jobCrouchY;
     player.rotation.x = -leanZ*0.55;
     player.rotation.z =  leanX*0.55;
 
     applyCombatPose();   // an attack or a charge overrides the walk cycle
+    updateLookRig(dt);   // 視線 → 頭 → 体幹 の配分(core/look-rig.js)。
+                         // applyCombatPose の後、updateGrip の前 ―― 体幹の
+                         // 角度が決まってからでないと手の位置が確定しない
     applyPoseShift();    // the lunge and the sink that give a blow its weight
     updateGrip();        // the weapon lands on wherever the hand ended up
     updateBowDraw();     // and the string on wherever the drawing hand ended up
     updateBladeTrail(dt);
+  }
+
+  /* =========================================================
+     LOOK RIG ―― 「どこを見ているか」を身体へ配分する
+
+     目/頭/体幹の可動域と配分の式そのものは core/look-rig.js(ユニット
+     テスト済み)にあり、ここが担当するのは 2 つだけ:
+       1. 今フレームの「見る相手」を決める
+       2. 出てきた角度を three.js のピボットへ書く
+
+     ■ 見る相手の決め方(引き継ぎ資料のターゲット方針を、この実装に
+        実際にある状態へ対応付けたもの)
+       資料は SOCIAL / EXPLORATION / DRAWING / COMBAT / POST_COMBAT /
+       SHEATHING という状態機械を前提にしていたが、この実装にその状態機械は
+       無い。代わりに、同じ意味を持つ既存の状態がそのまま使える:
+         combat / drawing / post-combat → state.combatStanceT > 0
+             (攻撃・被弾・敵の接近で立つ戦闘態勢。core/combat-stance.js)
+             → 最も近い「見えている」生存敵を見る
+         sheathing                      → 戦闘態勢が切れていく間
+             → linger(0.45秒)が直前の方向を保持したまま薄れる
+         exploration / social           → それ以外
+             → 近くに仲間がいればそちら、いなければゆっくり見回す
+
+     ■ 「見えている」敵しか見ない
+       視界制限(core/enemy-visibility.js)で hidden の敵は、プレイヤーから
+       見えていない。そちらへ顔を向けてしまうと、壁の向こうの敵の位置を
+       視線が漏らしてしまう ―― せっかくの「壁の向こうに何かいるかも
+       しれない」が台無しになるので、visLevel が hidden の敵は選ばない。
+  ========================================================= */
+  const LOOK_TARGET_RANGE = 22;       // これより遠い相手は見ない
+  const LOOK_COMPANION_RANGE = 7;     // 探索中に仲間へ視線を向ける距離
+  let lookYaw = 0, lookPitch = 0;     // 追従後の「見ている向き」(ワールド)
+  let lookLingerT = 0, lookScanT = 0;
+  const _lookAt = new THREE.Vector3();
+
+  function findLookTarget(){
+    // 戦闘態勢中は敵。見えている個体だけが対象(上のコメント参照)
+    if((state.combatStanceT||0) > 0 || state.swinging){
+      let best = null, bestD = LOOK_TARGET_RANGE;
+      for(let i=0;i<enemies.length;i++){
+        const en = enemies[i];
+        if(!en || en.dead || en.dormant || !en.group) continue;
+        if(en.visLevel === 'hidden') continue;
+        const d = state.pos.distanceTo(en.group.position);
+        if(d < bestD){ best = en; bestD = d; }
+      }
+      if(best) return best.group.position;
+    }
+    // 探索中は近くの仲間へ。ゲスト(2部制)も同じ扱い
+    const mate = companion || guestCompanion;
+    if(mate && mate.pos && state.pos.distanceTo(mate.pos) < LOOK_COMPANION_RANGE) return mate.pos;
+    return null;
+  }
+
+  function updateLookRig(dt){
+    const P = playerMixerParts;
+    if(!P.eyePivot || !P.headLookPivot || !P.waist) return;
+    /* 旋回する必殺技(八方の矢・阿修羅・天翔ける鏃)の最中は手を出さない。
+       あの間 player.rotation.y は swingLockFacing + 回転量 で直接回され、
+       visualFacing は入力時のまま固定される。その差を「見ている向きとの
+       ずれ」として食わせると、首と腰が毎フレーム可動域いっぱいまで
+       振り切れてしまう ―― 回っている間は正面を向いたままにする。 */
+    if(state.skillAnim && state.skillAnim.type === 'spin'){
+      P.headLookPivot.rotation.set(0,0,0);
+      P.eyePivot.rotation.set(0,0,0);
+      return;
+    }
+
+    const target = findLookTarget();
+    lookLingerT = stepLookLinger(lookLingerT, dt, !!target, EYE_LINGER_SEC);
+    lookScanT += dt;
+
+    let desiredYaw, desiredPitch = 0;
+    if(target){
+      _lookAt.subVectors(target, state.pos);
+      desiredYaw = Math.atan2(_lookAt.x, _lookAt.z);
+      // 見上げ/見下ろし。目の高さ(約1.5m)を基準にした仰角
+      const flat = Math.hypot(_lookAt.x, _lookAt.z);
+      desiredPitch = flat > 0.2 ? Math.atan2((_lookAt.y + 0.9) - 1.5, flat) : 0;
+    } else if(lookLingerT > 0){
+      // 見失った直後。直前の向きをそのまま保持する(資料の sheathing 相当)
+      desiredYaw = lookYaw;
+      desiredPitch = lookPitch;
+    } else {
+      // 誰もいない探索中。進行方向を基準にゆっくり見回す
+      desiredYaw = visualFacing + scanYaw(lookScanT);
+      desiredPitch = 0;
+    }
+
+    lookYaw = followAngle(lookYaw, desiredYaw, EYE_FOLLOW_SPEED, dt);
+    lookPitch = lookPitch + (desiredPitch - lookPitch) * Math.min(1, dt*EYE_FOLLOW_SPEED);
+
+    /* 配分の強さ。相手を見ている間は 1、見失うと linger が 0 まで落ちる
+       ので、視線・頭・体幹が一緒に静かに正面へ戻る。見回し(scan)の時も
+       1 のまま ―― scan の振幅自体が目の可動域の内側なので、体幹と頭は
+       そもそもほとんど動かない。 */
+    const weight = target ? 1 : (lookLingerT > 0 ? lingerWeight(lookLingerT, EYE_LINGER_SEC) : 1);
+
+    const look = distributeLook({
+      targetYaw: lookYaw, bodyYaw: visualFacing, targetPitch: lookPitch,
+      classKey: state.classDef && state.classDef.key, jobKey: state.job, weight,
+    });
+
+    /* 書き込み。waist は歩行・構え・被弾の仰け反りが既に書いた値へ
+       「加算」する ―― 上書きするとそれらが消える。頭と目は Look Rig
+       専用のピボットなので代入でよい。 */
+    /* pitch の符号: この実装の waist.rotation.x は「正 = 前へ傾く(下を向く)」
+       (updateLocomotion の走行時の前傾、被弾の仰け反りが -= なのと同じ向き)。
+       look.*Pitch は「正 = 見上げる」なので、書き込む時に反転する。
+       頭と目のピボットも three.js の +X 回転で顔が下を向くため同じ扱い。 */
+    P.waist.rotation.y += look.waistYaw;
+    P.waist.rotation.x -= look.waistPitch;
+    P.headLookPivot.rotation.y = look.headYaw;
+    P.headLookPivot.rotation.x = -look.headPitch;
+    P.eyePivot.rotation.y = look.eyeYaw;
+    P.eyePivot.rotation.x = -look.eyePitch;
   }
 
   function spawnLandingDust(pos, power){
@@ -1279,7 +1436,7 @@
             // 動いていれば普通に外れる - 命中できた事実そのものが「読みが
             // 当たった」証拠になる
             const predictHit = p.predictiveTarget===en && isTelegraphing(en);
-            dealDamageToEnemy(en, p.dmg, false, {staggerMul: (p.staggerMul||1) * (predictHit?3.0:1), ultGauge: p.ultGauge});
+            dealDamageToEnemy(en, p.dmg, false, {staggerMul: (p.staggerMul||1) * (predictHit?3.0:1), ultGauge: p.ultGauge, isFinish: p.isFinish});
             impactTarget = en;
             if(predictHit){
               spawnToast('🎯 未来を射抜いた!', '#6adfc0');
@@ -1357,9 +1514,20 @@
   // threshold - and sustained attacking costs only 7% of real time.
   const HIT_STOP_SCALE = 0.62;
   const HIT_STOP_REFRACTORY = 0.26;
-  function hitStop(seconds){
-    if(hitStopCD > 0) return;               // still inside the last one
-    hitStopT = Math.min(0.022, seconds * state.hitStopScale);
+  /* 命中の瞬間に画面を一瞬だけ止める。
+
+     通常ヒットは「連打しても止まりっぱなしにならない」ことが大事なので、
+     上限 0.022 秒 + 0.26 秒の不応期で強く抑えてある。ただし必殺技と処刑は
+     「今、大きな一撃が入った」を伝える側なので、直前の通常ヒットが不応期を
+     消費していると一切効かないという状態は都合が悪い。そこで opts で
+     不応期の無視(force)と上限の引き上げ(max)を許す ―― 省略時の挙動は
+     従来とまったく同じで、通常ヒット側は1文字も変わらない。 */
+  const HIT_STOP_MAX = 0.022;
+  function hitStop(seconds, opts){
+    const o = opts || {};
+    if(hitStopCD > 0 && !o.force) return;   // still inside the last one
+    const max = o.max != null ? o.max : HIT_STOP_MAX;
+    hitStopT = Math.max(hitStopT, Math.min(max, seconds * state.hitStopScale));
     hitStopCD = HIT_STOP_REFRACTORY;
   }
   function addShake(amount){

@@ -326,8 +326,20 @@
       state.usingAltWeapon = wantAlt;
     }
     recomputeStats();
-    if(weaponTypeChanged) swapPlayerWeaponVisual();
+    if(weaponTypeChanged){ swapPlayerWeaponVisual(); announceWeaponUlt(); }
     return true;
+  }
+
+  /* 武器を持ち替えたときに、その武器の必殺技を名乗る。
+     サブ武器には専用の必殺技がある(WEAPON_ULT_BY_KEY、12-progression-ui.js)
+     が、HUDのアイコンが黙って入れ替わるだけでは「今この必殺技を使いたい
+     から武器を変更する」という判断材料にならない ―― 持ち替えた瞬間に
+     何が撃てるようになったかを一行で伝える。recomputeStats() の後に
+     呼ぶこと(state.classDef.ult はそこで入れ替わる)。 */
+  function announceWeaponUlt(){
+    const u = state.classDef && state.classDef.ult;
+    if(!u || !state.started) return;
+    spawnToast(`${u.icon} 必殺技「${u.name}」`);
   }
 
   function unequipSlot(slot){
@@ -339,7 +351,7 @@
       state.usingAltWeapon = false;   // 武器を外すとnative武器種の構えに戻る
     }
     recomputeStats();
-    if(weaponTypeChanged) swapPlayerWeaponVisual();
+    if(weaponTypeChanged){ swapPlayerWeaponVisual(); announceWeaponUlt(); }
   }
 
   function spawnItemDrop(pos, forced){
@@ -913,6 +925,11 @@
       enemies.forEach(en=>{
         if(en.dead || en.dormant) return;
         if(!isBossAccessible(en)) return;
+        /* サポートAIはパーティが敵対状態にした敵しか狙わない
+           (core/enemy-aggro.js)。近いというだけで殴りに行くと、まだ
+           起きていない strongMob / guardian を勝手に起こして戦線を
+           広げてしまう ―― 戦闘を始めるかどうかはプレイヤーが決める */
+        if(!isPartyHostile(en)) return;
         const d = companion.pos.distanceTo(en.group.position);
         if(d<bestDist){ bestDist=d; best=en; }
       });
@@ -1006,6 +1023,7 @@
       enemies.forEach(en=>{
         if(en.dead || en.dormant) return;
         if(!isBossAccessible(en)) return;
+        if(!isPartyHostile(en)) return;   // 敵対済みの敵だけ(core/enemy-aggro.js)
         const d = guestCompanion.pos.distanceTo(en.group.position);
         if(d<bestDist){ bestDist=d; best=en; }
       });

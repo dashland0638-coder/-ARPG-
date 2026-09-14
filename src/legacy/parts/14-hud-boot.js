@@ -475,6 +475,37 @@
     const rn = roomNameAt(state.pos.x, state.pos.z);
     if(rn) lastRoomName = rn;      // a corridor shows the room you came from
     roomEl.textContent = lastRoomName;
+    updateNamedBearing();
+  }
+
+  /* ネームドモンスターの「方向だけ」の反応(core/enemy-visibility.js の
+     bearingLabel)。正確な位置をマップに出してしまうと、探索が
+     「点へ歩くだけ」になって寄り道の理由が消える。8方位だけを返す
+     関数なので距離も漏れない。
+
+     姿が見えている間は何も出さない ―― 見えているものを指し示すのは
+     ただのノイズで、反応が意味を持つのは「まだ見つけていない」時だけ。 */
+  const NAMED_SENSE_RANGE = 90;
+  function updateNamedBearing(){
+    const el = document.getElementById('minimap-named');
+    if(!el) return;
+    let best = null, bestD = NAMED_SENSE_RANGE;
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      if(!en || !en.midbossName || en.dead || en.dormant || !en.group) continue;
+      if(en.visLevel === 'visible') continue;   // 見えているなら反応は要らない
+      // 各シナリオは80単位以上離して並んでいるだけで、座標としては
+      // 地続きになっている。ワールドキーで絞らないと、隣のダンジョンの
+      // ネームドを拾って幻の反応が出る
+      if(worldKeyForPos(en.group.position) !== currentWorldKey) continue;
+      const d = state.pos.distanceTo(en.group.position);
+      if(d < bestD){ best = en; bestD = d; }
+    }
+    if(!best){ el.classList.remove('show'); el.textContent = ''; return; }
+    const dir = bearingLabel(state.pos.x, state.pos.z, best.group.position.x, best.group.position.z);
+    if(!dir){ el.classList.remove('show'); el.textContent = ''; return; }
+    el.textContent = `◆ ネームド反応 → ${dir}`;
+    el.classList.add('show');
   }
 
   const MINIMAP_RANGE = 30;   // world units from player to the rim (smaller = more zoomed in)
@@ -565,6 +596,13 @@
     anomalyRifts.forEach(r=> blip(r.pos.x, r.pos.z, '#a855f7', 5));
     enemies.forEach(en=>{
       if(en.dead || en.dormant) return;
+      /* 視界制限(core/enemy-visibility.js): 今まではミニマップが生きている
+         敵を全て正確な位置で描いていて、「壁の向こうに何かいるかもしれない」
+         という探索の緊張感を丸ごと打ち消していた。見えている敵だけを出す
+         ―― 追跡してくる敵の「気配」は3D側の輪郭が担当する。
+         visLevel を持たない個体(遠方でAI更新が止まっている等)は
+         従来どおり描く */
+      if(en.visLevel && !minimapVisible(en.visLevel)) return;
       const isBoss = !!en.isBoss;
       const p = blip(en.group.position.x, en.group.position.z, isBoss?'#ff5a4a':'#e0574a', isBoss?7:4);
       // a slow pulsing ring so the boss dot can't be mistaken for a strong
@@ -1136,7 +1174,7 @@
     state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0; state.braceCounterT = 0;
     state.barrierActive = false; state.barrierT = 0; state.barrierParryCD = 0;
     state.paralyzed=false; state.paralyzeT=0; state.paralyzeInvulnT=0;
-    state.ultGauge = 0; state.ultLockT = 0;
+    state.ultGauge = 0; state.ultLockT = 0; state.ultBurst = null; state.pendingUlt = null;
     state.stamina = state.maxStamina; state.staminaRegenDelayT = 0;
     state.dialogueActive = false; state.dialogueBoss = null;
     ['potion','mppotion'].forEach(k=>{
