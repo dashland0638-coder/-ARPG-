@@ -1114,7 +1114,7 @@
         // Arenaの全リセットでは敵対状態も守護型の溜めも仕切り直す
         // (ボスは下の分岐で従来どおり en.triggered=false に戻す)
         en.triggered = !!en.dummy;
-        en.guardHoldT = 0; en.specialCD = 0; en.guardBreak = false;
+        en.guardHoldT = 0; en.guardBreakCD = 0; en.guardBreak = false;
       }
       if(!en.isBoss && en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
       en.lastPos = null; en.strideT = Math.random()*6.28; en.flinch = 0;

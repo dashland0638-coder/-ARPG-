@@ -28,7 +28,7 @@ const named     = (over)=> Object.assign({atkType:'charge', strongMob:true, guar
 const boss      = (over)=> Object.assign({isBoss:true, strongMob:true, guardian:true}, over);
 
 /* ガードを溜めきった、いつでもブレイクへ移れる守護型 */
-const ready = (over)=> guardian(Object.assign({guardHoldT: GUARD_HOLD_SEC, specialCD:0}, over));
+const ready = (over)=> guardian(Object.assign({guardHoldT: GUARD_HOLD_SEC, guardBreakCD:0}, over));
 
 test('守護型の判定', async t=>{
   await t.test('1. guardian かつ strongMob だけが守護型', ()=>{
@@ -99,8 +99,8 @@ test('ガードブレイクへの移行条件', async t=>{
     assert.equal(guardBreakPlan().specialCDSec, GUARD_BREAK_CD_SEC);
   });
   await t.test('8. クールダウン中は連発しない', ()=>{
-    assert.equal(shouldUseGuardianBreak(ready({specialCD:0.01}), 3, 'idle'), false);
-    assert.equal(shouldUseGuardianBreak(ready({specialCD:0}), 3, 'idle'), true);
+    assert.equal(shouldUseGuardianBreak(ready({guardBreakCD:0.01}), 3, 'idle'), false);
+    assert.equal(shouldUseGuardianBreak(ready({guardBreakCD:0}), 3, 'idle'), true);
   });
   await t.test('ガードを溜めきるまでは使わない', ()=>{
     assert.equal(shouldUseGuardianBreak(guardian({guardHoldT: GUARD_HOLD_SEC - 0.01}), 3, 'idle'), false);
@@ -146,7 +146,7 @@ test('想定する状態遷移', async t=>{
     // 実機の updateChargerAI と同じ順序を、純粋関数だけで再現する。
     // 新しいAIステートは1つも増えていない ―― 既存の4状態のままで、
     // 「今回はブレイクである」というフラグだけが差し替わる
-    const en = guardian({guardHoldT:0, specialCD:0, guardBreak:false});
+    const en = guardian({guardHoldT:0, guardBreakCD:0, guardBreak:false});
     let stateName = 'idle';
     const seen = [];
     // 1. 通常行動: 対峙してガードを溜める(まだブレイクへは移らない)
@@ -160,7 +160,7 @@ test('想定する状態遷移', async t=>{
     assert.equal(seen.length, GUARD_HOLD_SEC / 0.5 - 1, 'GUARD_HOLD_SEC ぶんだけ待ってから移行する');
     // 2. telegraph(予兆)
     const plan = guardBreakPlan();
-    stateName = 'telegraph'; en.guardBreak = true; en.specialCD = plan.specialCDSec; en.guardHoldT = 0;
+    stateName = 'telegraph'; en.guardBreak = true; en.guardBreakCD = plan.specialCDSec; en.guardHoldT = 0;
     assert.equal(chargeHitRadius(en, 1.15), GUARD_BREAK_HIT_RADIUS);
     // 3. dash(この間ガードは貯まらない)
     stateName = 'dash';
@@ -169,18 +169,18 @@ test('想定する状態遷移', async t=>{
     stateName = 'cooldown'; en.guardBreak = false;
     assert.equal(chargeHitRadius(en, 1.15), 1.15);
     assert.equal(chargeDamage(en, 34), 34);
-    // 5. idle へ戻っても specialCD が残る間は連発しない
+    // 5. idle へ戻っても guardBreakCD が残る間は連発しない
     stateName = 'idle';
     en.guardHoldT = GUARD_HOLD_SEC;
     assert.equal(shouldUseGuardianBreak(en, 3, stateName), false);
-    en.specialCD = 0;
+    en.guardBreakCD = 0;
     assert.equal(shouldUseGuardianBreak(en, 3, stateName), true);
   });
 });
 
 test('既存仕様との非干渉', async t=>{
   await t.test('9. 大怯みでは守護型の特殊攻撃がキャンセルされない(STEP 1 の仕様を維持)', ()=>{
-    const en = guardian({guardBreak:true, chargeState:'telegraph', guardHoldT:2, specialCD:5});
+    const en = guardian({guardBreak:true, chargeState:'telegraph', guardHoldT:2, guardBreakCD:5});
     assert.equal(shouldInterruptOnBigFlinch(en), false);
     const r = bigFlinchInterrupt(en);
     assert.deepEqual(r, {interrupt:false, cancelWindup:false, stunSec:0});
@@ -191,7 +191,7 @@ test('既存仕様との非干渉', async t=>{
     // ガードブレイクの進行状態は一切触られない
     assert.equal(en.guardBreak, true);
     assert.equal(en.chargeState, 'telegraph');
-    assert.equal(en.specialCD, 5);
+    assert.equal(en.guardBreakCD, 5);
     assert.equal(en.stunT, undefined);
   });
   await t.test('10. ダウン(体幹100%)は従来どおり', ()=>{
@@ -342,7 +342,7 @@ test('守護型の正面防御', async t=>{
 test('ガードブレイク中のダウン', async t=>{
   await t.test('8. 予兆中にダウンするとガードブレイクがキャンセルされる', ()=>{
     const en = guardian({guardBreak:true, chargeState:'telegraph', chargeT:0.9,
-                         chargeTelegraphDur: GUARD_BREAK_TELEGRAPH_SEC, specialCD:8.2, guardHoldT:0});
+                         chargeTelegraphDur: GUARD_BREAK_TELEGRAPH_SEC, guardBreakCD:8.2, guardHoldT:0});
     const gb = guardBreakCancel(en);
     assert.equal(gb.cancel, true);
     assert.equal(gb.chargeState, 'cooldown');
@@ -351,17 +351,17 @@ test('ガードブレイク中のダウン', async t=>{
   });
   await t.test('9. 復帰後に古い予兆/突進が再開されない', ()=>{
     // triggerKnockdown と同じ順序を再現する
-    const en = guardian({guardBreak:true, chargeState:'telegraph', chargeT:0.9, specialCD:8.2, guardHoldT:3.5});
+    const en = guardian({guardBreak:true, chargeState:'telegraph', chargeT:0.9, guardBreakCD:8.2, guardHoldT:3.5});
     en.chargeState = 'idle';                       // 既存の triggerKnockdown
     const gb = guardBreakCancel(en);
     en.guardBreak = false;
     en.chargeState = gb.chargeState; en.chargeT = gb.chargeT;
-    en.guardHoldT = 0; en.specialCD = gb.specialCDSec;
+    en.guardHoldT = 0; en.guardBreakCD = gb.specialCDSec;
     // 残っていた0.9秒の予兆は破棄され、起き上がりは硬直から始まる
     assert.equal(en.chargeState, 'cooldown');
     assert.equal(en.chargeT, GUARD_BREAK_COOLDOWN_SEC);
     assert.equal(en.guardBreak, false);
-    // 硬直が明けて idle に戻っても、specialCD が残る限り撃ち直せない
+    // 硬直が明けて idle に戻っても、guardBreakCD が残る限り撃ち直せない
     en.chargeState = 'idle'; en.guardHoldT = GUARD_HOLD_SEC;
     assert.equal(shouldUseGuardianBreak(en, 3, 'idle'), false);
     // 半径・威力も通常値へ戻っている
@@ -380,7 +380,7 @@ test('ガードブレイク中のダウン', async t=>{
     assert.deepEqual(guardBreakCancel(null), {cancel:false});
   });
   await t.test('キャンセル判定は敵オブジェクトを書き換えない', ()=>{
-    const en = guardian({guardBreak:true, chargeState:'telegraph', chargeT:0.9, specialCD:8.2});
+    const en = guardian({guardBreak:true, chargeState:'telegraph', chargeT:0.9, guardBreakCD:8.2});
     const before = JSON.stringify(en);
     guardBreakCancel(en);
     assert.equal(JSON.stringify(en), before);

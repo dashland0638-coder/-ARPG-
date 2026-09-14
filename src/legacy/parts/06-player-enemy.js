@@ -3704,7 +3704,7 @@
          guardBreak は既存の突進サイクル(telegraph→dash→cooldown)が
          「今回はガードブレイクである」ことを示すフラグにすぎない */
       specialKind: (variant.guardian && variant.strongMob) ? 'guard' : null,
-      guardHoldT:0, specialCD:0, guardBreak:false,
+      guardHoldT:0, guardBreakCD:0, guardBreak:false,
       // 新規敵タイプ用のフラグ(敵デザイン強化 #21): turret=台座固定・
       // ノックバック無効、turretRange=砲台の索敵距離(未指定なら既定値)
       turret:!!variant.turret, turretRange:variant.turretRange||null,

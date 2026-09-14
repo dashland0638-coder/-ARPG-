@@ -708,7 +708,7 @@
           en.postureRecoveryDelayT = 0;
           en.postAtkRecoveryT = 0; en.arcaneBindT = 0; en.turnRateMul = 1;
           en.stunT = 0;   // 大怯みの硬直(core/enemy-tier.js)も持ち越さない
-          en.guardHoldT = 0; en.specialCD = 0; en.guardBreak = false;   // 守護型のガードブレイクも仕切り直す
+          en.guardHoldT = 0; en.guardBreakCD = 0; en.guardBreak = false;   // 守護型のガードブレイクも仕切り直す
           en.triggered = !!en.dummy;   // 湧き直した個体は非敵対から(カカシだけは的のまま)
           if(en.mob){
             en.mob.legs.forEach(l=>{ l.rotation.x = 0; l.position.y = 0.24; });
@@ -1049,10 +1049,10 @@
     /* 守護型強モブのガードブレイク(core/guardian-break.js)。
        専用のAIステートは足していない ―― 「対峙したまま攻撃しなかった時間」
        を貯め、溜めきったら次の突進サイクルだけを差し替える。
-       specialCD が連発を止め、guardHoldT が「一定時間ガードしてから来る」
+       guardBreakCD が連発を止め、guardHoldT が「一定時間ガードしてから来る」
        テンポを作る。守護型以外ではどちらも常に0のままで、以下の分岐は
        すべて素通りする */
-    if(en.specialCD > 0) en.specialCD = Math.max(0, en.specialCD - dt);
+    if(en.guardBreakCD > 0) en.guardBreakCD = Math.max(0, en.guardBreakCD - dt);
     en.guardHoldT = stepGuardHold(en, dt, distToPlayer, en.chargeState);
 
     if(en.chargeState==='idle'){
@@ -1071,7 +1071,7 @@
           // 長く取る。溜めの見た目(body scaleの膨らみ)も既存のまま乗る
           const plan = guardBreakPlan();
           en.chargeTelegraphDur = plan.telegraphSec;
-          en.specialCD = plan.specialCDSec;
+          en.guardBreakCD = plan.specialCDSec;
           en.guardHoldT = 0;
           spawnToast('🛡 盾持ちが構えを変えた!');
         } else {
@@ -2938,7 +2938,7 @@
       /* 守護型のガードブレイクを崩した場合だけ、その攻撃を完全に潰す
          (core/guardian-break.js)。「体幹を削り切った=攻撃を潰した」
          という因果をはっきりさせるため、溜めの残り時間を破棄し、
-         起き上がりを硬直(cooldown)から始め、specialCDを取り直して
+         起き上がりを硬直(cooldown)から始め、guardBreakCDを取り直して
          即座に撃ち直せないようにする。
          通常の突進敵は cancel:false になり、従来どおり上の idle のまま */
       const gb = guardBreakCancel(en);
@@ -2948,7 +2948,7 @@
         en.chargeState = gb.chargeState;
         en.chargeT = gb.chargeT;
         en.guardHoldT = 0;
-        en.specialCD = gb.specialCDSec;
+        en.guardBreakCD = gb.specialCDSec;
         spawnToast('🛡 ガードブレイクを潰した!');
       }
     }

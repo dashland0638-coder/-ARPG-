@@ -141,14 +141,14 @@ export function shouldUseGuardianBreak(en, dist, chargeState){
   if(!isGuardianType(en)) return false;
   if(chargeState !== 'idle') return false;          // 通常行動からのみ移行する
   if(en.knockedDown) return false;                  // ダウン中は既存どおり停止
-  if((en.specialCD || 0) > 0) return false;         // クールダウン中は連発しない
+  if((en.guardBreakCD || 0) > 0) return false;      // クールダウン中は連発しない
   if((en.guardHoldT || 0) < GUARD_HOLD_SEC) return false;  // ガードを溜めきってから
   if(!(dist < GUARD_ENGAGE_RANGE)) return false;
   return true;
 }
 
 /* ガードブレイクサイクルで差し替える値。呼び出し側はこれをそのまま
-   既存フィールド(chargeTelegraphDur / chargeT / specialCD)へ入れる。
+   既存フィールド(chargeTelegraphDur / chargeT / guardBreakCD)へ入れる。
    通常サイクルの値は呼び出し側の既定値(0.65 / 1.5)のまま触らない。 */
 export function guardBreakPlan(){
   return {
