@@ -710,6 +710,7 @@
           en.stunT = 0;   // 大怯みの硬直(core/enemy-tier.js)も持ち越さない
           en.guardHoldT = 0; en.guardBreakCD = 0; en.guardBreak = false;   // 守護型のガードブレイクも仕切り直す
           en.triggered = !!en.dummy;   // 湧き直した個体は非敵対から(カカシだけは的のまま)
+          en.leashT = 0;
           if(en.mob){
             en.mob.legs.forEach(l=>{ l.rotation.x = 0; l.position.y = 0.24; });
             if(en.mob.neck) en.mob.neck.rotation.set(0,0,0);
@@ -733,6 +734,22 @@
         const B = en.bodyScale;
         if(en.body && !en.isBoss && B) en.body.scale.set(B.x*s, B.y/(1+f*0.3), B.z*s);
         if(en.hurtT <= 0 && en.body && !en.isBoss && B) en.body.scale.copy(B);
+      }
+      /* Leash(core/enemy-aggro.js)。検知(各AIの距離/LoS条件)とは完全に
+         別の条件で敵対を解く ―― 検知範囲から出ただけでは切れず、十分
+         遠い状態が猶予秒数だけ続いて初めて en.triggered を落とす。
+         ここはダウン中・硬直中の早期returnより前に置いてあるので、
+         どの状態の敵でも毎フレーム同じように進む(解除してはいけない
+         状態では stepLeash 側がタイマーを凍結する)。
+         水平距離で測る ―― 飛行敵の高度や被弾の上下動を拾わないため。
+         なお triggered を落とすだけで、basePos へ帰す処理は入れていない */
+      {
+        const dxp = en.group.position.x - state.pos.x, dzp = en.group.position.z - state.pos.z;
+        const dxh = en.basePos ? en.group.position.x - en.basePos.x : 0;
+        const dzh = en.basePos ? en.group.position.z - en.basePos.z : 0;
+        const leash = stepLeash(en, dt, Math.hypot(dxp, dzp), Math.hypot(dxh, dzh));
+        en.leashT = leash.leashT;
+        if(leash.dropped) en.triggered = false;
       }
       /* パニッシュ窓の「振り抜いた直後」タイマー。ボスは updateBossAI が
          自分で減らすので、ここでは雑魚のぶんだけ進める(二重に減らさない)。

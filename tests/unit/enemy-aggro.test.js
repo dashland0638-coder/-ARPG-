@@ -228,3 +228,211 @@ test('既存システムへの接続', async t=>{
     assert.equal(JSON.stringify(en), before);
   });
 });
+
+/* ---------------------------------------------------------------
+   Leash(敵対の維持と解除)
+--------------------------------------------------------------- */
+import {
+  LEASH_PROFILE, leashProfile, leashProfileKey, leashExempt,
+  canDropAggro, leashHold, stepLeash,
+} from '../../src/core/enemy-aggro.js';
+
+const hostile  = (over)=> Object.assign({atkType:'charge', triggered:true, leashT:0}, over);
+const hGuard   = (over)=> Object.assign({atkType:'charge', strongMob:true, guardian:true,
+                                         triggered:true, leashT:0}, over);
+
+/* 敵対中の敵を秒単位で進める。実機(updateEnemies)と同じく、
+   返ってきた leashT / triggered をそのまま代入する */
+function run(en, seconds, distToPlayer, distToHome = 0, dt = 1/60){
+  for(let t=0; t<seconds - 1e-9; t+=dt){
+    const r = stepLeash(en, dt, distToPlayer, distToHome);
+    en.leashT = r.leashT;
+    if(r.dropped) en.triggered = false;
+  }
+  return en;
+}
+
+test('Leash プロファイル', async t=>{
+  await t.test('A/B/C. 通常敵: leash 24 / home 30 / grace 4.0秒', ()=>{
+    const p = leashProfile(hostile());
+    assert.equal(p.leashRange, 24);
+    assert.equal(p.homeLeashRange, 30);
+    assert.equal(p.leashGraceSec, 4.0);
+  });
+  await t.test('D/E/F. 守護型: leash 12 / home 10 / grace 2.5秒', ()=>{
+    const p = leashProfile(hGuard());
+    assert.equal(p.leashRange, 12);
+    assert.equal(p.homeLeashRange, 10);
+    assert.equal(p.leashGraceSec, 2.5);
+  });
+  await t.test('O. 通常敵と守護型でプロファイルが分離されている', ()=>{
+    assert.equal(leashProfileKey(hostile()), 'normal');
+    assert.equal(leashProfileKey(hGuard()), 'guardian');
+    assert.notEqual(leashProfile(hostile()), leashProfile(hGuard()));
+    // 強モブでも guardian でなければ通常プロファイル
+    assert.equal(leashProfileKey(hostile({strongMob:true})), 'normal');
+    // ネームドの守護型も「場所を守る」個体なので guardian 側
+    assert.equal(leashProfileKey(hGuard({midbossName:'止まった番人'})), 'guardian');
+  });
+  await t.test('将来の行動タイプを足せる表の形になっている', ()=>{
+    assert.deepEqual(Object.keys(LEASH_PROFILE).sort(), ['guardian','normal']);
+    for(const key of Object.keys(LEASH_PROFILE)){
+      const p = LEASH_PROFILE[key];
+      assert.equal(typeof p.leashRange, 'number');
+      assert.equal(typeof p.homeLeashRange, 'number');
+      assert.equal(typeof p.leashGraceSec, 'number');
+    }
+  });
+  await t.test('未知の敵でも通常プロファイルへ落ちる', ()=>{
+    assert.equal(leashProfile(null), LEASH_PROFILE.normal);
+    assert.equal(leashProfile({}), LEASH_PROFILE.normal);
+  });
+});
+
+test('Leash 解除候補の判定', async t=>{
+  await t.test('G. leash未満なら解除候補にならない', ()=>{
+    assert.equal(canDropAggro(hostile(), 23.9, 0), false);
+    assert.equal(canDropAggro(hostile(), 24.0, 0), false);   // ちょうどは内側
+    assert.equal(canDropAggro(hostile(), 24.1, 0), true);
+  });
+  await t.test('L. homeLeash超過でも解除候補になる(プレイヤーが近くても)', ()=>{
+    assert.equal(canDropAggro(hostile(), 2, 29.9), false);
+    assert.equal(canDropAggro(hostile(), 2, 30.1), true);
+    assert.equal(canDropAggro(hGuard(), 2, 10.1), true);
+  });
+  await t.test('非敵対の敵は解除候補にならない', ()=>{
+    assert.equal(canDropAggro(hostile({triggered:false}), 999, 999), false);
+  });
+  await t.test('ボスと訓練用カカシはLeashの対象外', ()=>{
+    assert.equal(leashExempt({isBoss:true, triggered:true}), true);
+    assert.equal(leashExempt({dummy:true, triggered:true}), true);
+    assert.equal(leashExempt(hostile()), false);
+    assert.equal(canDropAggro({isBoss:true, triggered:true}, 999, 999), false);
+    assert.equal(canDropAggro({dummy:true, triggered:true}, 999, 999), false);
+  });
+});
+
+test('Leash 猶予タイマー', async t=>{
+  await t.test('H. leashを超えても即座には解除されない', ()=>{
+    const en = hostile();
+    const r = stepLeash(en, 1/60, 100, 0);
+    assert.equal(r.dropped, false);
+    assert.equal(r.triggered, true);
+    assert.ok(r.leashT > 0);
+  });
+  await t.test('I. 猶予未満では敵対を維持する', ()=>{
+    const en = run(hostile(), 3.9, 100);
+    assert.equal(en.triggered, true);
+    assert.ok(en.leashT > 3.8 && en.leashT < 4.0);
+    assert.equal(isPartyHostile(en), true);
+  });
+  await t.test('J. 猶予に到達したら解除される', ()=>{
+    const en = run(hostile(), 4.2, 100);
+    assert.equal(en.triggered, false);
+    assert.equal(en.leashT, 0);
+    assert.equal(isPartyHostile(en), false);
+  });
+  await t.test('K. 猶予の途中で距離が戻ればタイマーがリセットされる', ()=>{
+    const en = run(hostile(), 3.5, 100);
+    assert.ok(en.leashT > 3.4);
+    run(en, 0.5, 10);                      // 追いつかれた/引き返した
+    assert.equal(en.leashT, 0);
+    assert.equal(en.triggered, true);
+    run(en, 3.9, 100);                     // 再び離れても、また4秒かかる
+    assert.equal(en.triggered, true);
+    run(en, 0.3, 100);
+    assert.equal(en.triggered, false);
+  });
+  await t.test('守護型は2.5秒で解除される(通常敵より早い)', ()=>{
+    assert.equal(run(hGuard(), 2.4, 100).triggered, true);
+    assert.equal(run(hGuard(), 2.6, 100).triggered, false);
+    // 同じ条件でも通常敵はまだ維持している
+    assert.equal(run(hostile(), 2.6, 100).triggered, true);
+  });
+  await t.test('L. homeLeash超過でも同じ猶予を要する', ()=>{
+    const en = hostile();
+    assert.equal(run(en, 3.9, 2, 50).triggered, true);
+    assert.equal(run(en, 0.3, 2, 50).triggered, false);
+  });
+  await t.test('検知範囲(6)を出ただけでは敵対が切れない', ()=>{
+    // charger の検知は 6。leash 24 まで離れない限り、何秒経っても切れない
+    const en = run(hostile(), 30, 10);
+    assert.equal(en.triggered, true);
+    assert.equal(en.leashT, 0);
+  });
+  await t.test('フレームレートに依存しない', ()=>{
+    for(const dt of [1/30, 1/60, 1/144]){
+      assert.equal(run(hostile(), 3.9, 100, 0, dt).triggered, true, `${dt}`);
+      assert.equal(run(hostile(), 4.2, 100, 0, dt).triggered, false, `${dt}`);
+    }
+  });
+});
+
+test('解除を禁止する状態', async t=>{
+  await t.test('M. ダウン中は解除されない', ()=>{
+    assert.equal(leashHold(hostile({knockedDown:true})), true);
+    const en = run(hostile({knockedDown:true}), 20, 100);
+    assert.equal(en.triggered, true);
+  });
+  await t.test('N. ガードブレイク中は解除されない', ()=>{
+    assert.equal(leashHold(hGuard({guardBreak:true})), true);
+    const en = run(hGuard({guardBreak:true}), 20, 100);
+    assert.equal(en.triggered, true);
+  });
+  await t.test('攻撃の実行中・振りかぶり中は解除されない', ()=>{
+    assert.equal(leashHold(hostile({chargeState:'telegraph'})), true);   // 溜め
+    assert.equal(leashHold(hostile({chargeState:'dash'})), true);        // 突進中
+    assert.equal(leashHold(hostile({fireCharging:true})), true);         // 射撃の溜め
+    assert.equal(leashHold(hostile({jumpState:'air'})), true);           // 跳びかかり中
+    assert.equal(leashHold(hostile({ghostState:'phaseIn'})), true);      // 実体化中
+    assert.equal(leashHold(hostile({ghostState:'lunge'})), true);        // 刺突中
+  });
+  await t.test('待機・硬直中は解除してよい', ()=>{
+    assert.equal(leashHold(hostile({chargeState:'idle'})), false);
+    assert.equal(leashHold(hostile({chargeState:'cooldown'})), false);
+    assert.equal(leashHold(hostile({ghostState:'approach'})), false);
+    assert.equal(leashHold(hostile({jumpState:'idle'})), false);
+    assert.equal(leashHold(null), false);
+  });
+  await t.test('禁止状態では猶予タイマーが凍結し、解けたところから再開する', ()=>{
+    const en = run(hostile(), 3.0, 100);
+    assert.ok(en.leashT > 2.9 && en.leashT < 3.1);
+    en.knockedDown = true;
+    run(en, 5, 100);
+    assert.ok(en.leashT > 2.9 && en.leashT < 3.1, '凍結して進まない');
+    assert.equal(en.triggered, true);
+    en.knockedDown = false;
+    run(en, 0.9, 100);
+    assert.equal(en.triggered, true, '凍結中の5秒は猶予に算入されない(3.0+0.9=3.9秒)');
+    run(en, 0.2, 100);
+    assert.equal(en.triggered, false, '解けた後に残りの猶予を使い切って解除される');
+  });
+});
+
+test('Leash とサポートAIの整合', async t=>{
+  await t.test('P. Leashで解除された敵はサポートAIの標的候補から外れる', ()=>{
+    const en = hostile();
+    assert.equal(pickTarget([{en, dist:3}], null), en);   // 敵対中は標的
+    run(en, 4.2, 100);
+    assert.equal(en.triggered, false);
+    assert.equal(pickTarget([{en, dist:3}], null), null); // 解除後は標的にならない
+  });
+  await t.test('解除された敵をサポートAIが殴り直して再敵対させることはできない', ()=>{
+    const en = run(hostile(), 4.2, 100);
+    assert.equal(aggroOnDamage(en, {isAlly:true}), false);
+    // プレイヤーが殴れば当然また敵対する
+    assert.equal(aggroOnDamage(en, {isAlly:false}), true);
+  });
+});
+
+test('stepLeash の純粋性', async t=>{
+  await t.test('敵オブジェクトを書き換えない', ()=>{
+    const en = hostile({leashT:2.0});
+    const before = JSON.stringify(en);
+    stepLeash(en, 1/60, 100, 0);
+    canDropAggro(en, 100, 0);
+    leashHold(en);
+    leashProfile(en);
+    assert.equal(JSON.stringify(en), before);
+  });
+});

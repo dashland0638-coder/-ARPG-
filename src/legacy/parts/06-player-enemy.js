@@ -3683,6 +3683,9 @@
          ために存在する的であり、「プレイヤーが殴るまでサポートAIも打たない」
          という一般敵のルールを当てはめる対象ではないため */
       triggered: !!variant.dummy,
+      // Leash(core/enemy-aggro.js)の猶予タイマー。敵対中に「十分遠い」
+      // 状態が続いた秒数で、条件が外れると0へ戻る
+      leashT:0,
       // 大怯み(体幹70%)による短い硬直の残り時間。通常敵だけが立てる
       // (core/enemy-tier.js、applyBigFlinchInterrupt)
       stunT:0,
