@@ -925,6 +925,11 @@
       enemies.forEach(en=>{
         if(en.dead || en.dormant) return;
         if(!isBossAccessible(en)) return;
+        /* サポートAIはパーティが敵対状態にした敵しか狙わない
+           (core/enemy-aggro.js)。近いというだけで殴りに行くと、まだ
+           起きていない strongMob / guardian を勝手に起こして戦線を
+           広げてしまう ―― 戦闘を始めるかどうかはプレイヤーが決める */
+        if(!isPartyHostile(en)) return;
         const d = companion.pos.distanceTo(en.group.position);
         if(d<bestDist){ bestDist=d; best=en; }
       });
@@ -1018,6 +1023,7 @@
       enemies.forEach(en=>{
         if(en.dead || en.dormant) return;
         if(!isBossAccessible(en)) return;
+        if(!isPartyHostile(en)) return;   // 敵対済みの敵だけ(core/enemy-aggro.js)
         const d = guestCompanion.pos.distanceTo(en.group.position);
         if(d<bestDist){ bestDist=d; best=en; }
       });

@@ -3675,6 +3675,14 @@
       atkType, xp: variant.xp===0 ? 0 : Math.max(1, Math.round((variant.xp||10)*_D.xp)),
       goldBonus:[Math.round(_gb[0]*_D.gold), Math.round(_gb[1]*_D.gold)], projColor:variant.projColor, strongMob:!!variant.strongMob, isElectric:!!variant.isElectric, gateTag:variant.gateTag||null, roomTag:variant.roomTag||null,
       chargeState:'idle', chargeT:0, chargeDir:new THREE.Vector3(), hitCD:0, atkCD:0,
+      /* パーティに対する敵対状態(core/enemy-aggro.js)。既存の en.triggered を
+         そのまま使う ―― これまではボスにしか立っておらず、視界(交戦中の気配)・
+         ハイライト・Combat Idle・コンバットカメラの「交戦中」分岐が通常モブに
+         対して働いていなかった。
+         訓練用のカカシ(variant.dummy)だけは最初から敵対済みで置く: 打ち込む
+         ために存在する的であり、「プレイヤーが殴るまでサポートAIも打たない」
+         という一般敵のルールを当てはめる対象ではないため */
+      triggered: !!variant.dummy,
       // 大怯み(体幹70%)による短い硬直の残り時間。通常敵だけが立てる
       // (core/enemy-tier.js、applyBigFlinchInterrupt)
       stunT:0,

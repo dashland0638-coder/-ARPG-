@@ -48,6 +48,7 @@ import {
 import { punishWindowState, POST_ATTACK_RECOVERY_SEC } from '../core/punish-window.js';
 import { enemyTier, shouldInterruptOnBigFlinch, bigFlinchInterrupt, TIER } from '../core/enemy-tier.js';
 import { isGuardianType, shouldUseGuardianBreak, stepGuardHold, guardBreakPlan, guardBreakCancel, chargeHitRadius, chargeDamage, isFrontAttack, guardianAbsorbs, guardianDamage } from '../core/guardian-break.js';
+import { isPartyHostile, aggroOnDetect, aggroOnDamage } from '../core/enemy-aggro.js';
 import { resolveStaggerReaction } from '../core/combat-result.js';
 import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw, TURN_ASSIST_DODGE_WINDOW } from '../core/predictive-aim.js';
 import { meleeHitTest, surfaceDistance } from '../core/melee-hit.js';

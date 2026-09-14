@@ -709,6 +709,7 @@
           en.postAtkRecoveryT = 0; en.arcaneBindT = 0; en.turnRateMul = 1;
           en.stunT = 0;   // 大怯みの硬直(core/enemy-tier.js)も持ち越さない
           en.guardHoldT = 0; en.specialCD = 0; en.guardBreak = false;   // 守護型のガードブレイクも仕切り直す
+          en.triggered = !!en.dummy;   // 湧き直した個体は非敵対から(カカシだけは的のまま)
           if(en.mob){
             en.mob.legs.forEach(l=>{ l.rotation.x = 0; l.position.y = 0.24; });
             if(en.mob.neck) en.mob.neck.rotation.set(0,0,0);
@@ -1056,6 +1057,9 @@
 
     if(en.chargeState==='idle'){
       if(distToPlayer < 6 && hasLineOfSight(en.group.position, state.pos)){
+        // 索敵成立 = パーティへの敵対(core/enemy-aggro.js)。距離もLoS条件も
+        // 既存のまま ―― 成立した事実を en.triggered に記録するだけ
+        if(aggroOnDetect(en, true)) en.triggered = true;
         // Combat Test Arenaの「Windup Enemy」向け: 振りかぶりを通常より
         // 長く見せたい場合だけen.chargeTelegraphOverrideを設定する
         // (未指定の通常個体は今までどおり0.65秒)
@@ -1160,6 +1164,7 @@
     const dist = toPlayer.length();
     if(dist < 13){
       const sees = hasLineOfSight(en.group.position, state.pos);
+      if(aggroOnDetect(en, sees)) en.triggered = true;   // 索敵成立(既存条件のまま)
       if(sees){
         const rate = turnBudget(resolveTurnRate(en), dt);
         en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate);
@@ -1220,6 +1225,7 @@
     const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
     const dist = toPlayer.length();
     const sees = dist < 16 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;   // 索敵成立(既存条件のまま)
     if(!sees){ updateWanderAI(en, dt); return; }
     { const rate = turnBudget(resolveTurnRate(en), dt);
       en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate); }
@@ -1264,6 +1270,7 @@
     const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
     const dist = toPlayer.length();
     const sees = dist < (en.turretRange||15) && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;   // 索敵成立(既存条件のまま)
     if(sees){
       const rate = turnBudget(resolveTurnRate(en), dt);
       en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate);
@@ -1326,7 +1333,12 @@
       if(en.group.position.x!==prevX || en.group.position.z!==prevZ) return;
     }
 
-    if(dist < 8 && dist > 2.5 && hasLineOfSight(en.group.position, state.pos) && en.jumpCD<=0){
+    /* jumperは接近そのものに距離ゲートを持たない(既存仕様、今回変更しない)。
+       敵対の記録点は「跳びかかれる間合いとLoSが揃った」ここ ―― 跳躍自体は
+       en.jumpCD にも依存するが、クールダウンは索敵条件ではないので外す */
+    const jumperSees = dist < 8 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, jumperSees)) en.triggered = true;
+    if(jumperSees && dist > 2.5 && en.jumpCD<=0){
       en.jumpState = 'air';
       en.jumpT = en.jumpDur = 0.55;
       en.jumpDir = toPlayer.clone().normalize();
@@ -1375,7 +1387,11 @@
         en.group.position.addScaledVector(dir, en.speed*dt*0.55);
         en.group.rotation.y = Math.atan2(dir.x, dir.z);
       }
-      if(dist < 7.5 && en.ghostCD<=0 && hasLineOfSight(en.group.position, state.pos)){
+      /* ghostも接近に距離ゲートを持たない(既存仕様、今回変更しない)。
+         敵対の記録点は回り込みを仕掛けられる間合いとLoSが揃った所 */
+      const ghostSees = dist < 7.5 && hasLineOfSight(en.group.position, state.pos);
+      if(aggroOnDetect(en, ghostSees)) en.triggered = true;
+      if(ghostSees && en.ghostCD<=0){
         en.ghostState = 'phaseOut'; en.ghostT = 0.5;
       }
       return;
@@ -2733,6 +2749,13 @@
       en.atk = Math.round(en.atk * 2);
       startBossDialogue(en);
     }
+    /* プレイヤーの攻撃による敵対(core/enemy-aggro.js)。索敵範囲の外から
+       撃たれた敵もここで敵対する。ボスは直前の不意打ち分岐が既に立てて
+       いるので、この行は no-op になる(順序が重要 ―― 先に立ててしまうと
+       不意打ちの口上が二度と出なくなる)。
+       サポートAIの攻撃(isAlly)とDoT(isDot)は敵対を生まない ―― サポートAIが
+       自分で標的を作り出す循環を断つため */
+    if(aggroOnDamage(en, {isAlly, isDot: opts.isDot})) en.triggered = true;
     if(en.guardT > 0){
       amount = Math.max(1, Math.round(amount * 0.25));   // braced: mostly turned aside
     }
