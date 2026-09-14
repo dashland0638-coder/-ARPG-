@@ -2736,14 +2736,24 @@
     if(en.guardT > 0){
       amount = Math.max(1, Math.round(amount * 0.25));   // braced: mostly turned aside
     }
-    // ガード持ち雑魚(en.guardian): ボスのguardTのような一時的な身構えでは
-    // なく常時ガードしている雑魚タイプ。体幹を崩す(ダウンさせる)までは
-    // 近接・遠隔問わずダメージの2割程度しか通らない。体幹ゲージ自体は
-    // amountでなくstaggerMulで貯まるので、ガード中でも殴り続ければ確実に
-    // 崩せる ―― 「崩さないと稼げない」ではなく「崩すまで我慢が要る」設計
-    const guardAbsorbed = en.guardian && !en.knockedDown;
+    /* ガード持ち雑魚(en.guardian): ボスのguardTのような一時的な身構えでは
+       なく常時ガードしている雑魚タイプ。体幹を崩す(ダウンさせる)までは
+       ダメージの2割程度しか通らない。体幹ゲージ自体はamountでなく
+       staggerMulで貯まるので、ガード中でも殴り続ければ確実に崩せる
+       ―― 「崩さないと稼げない」ではなく「崩すまで我慢が要る」設計。
+
+       盾は正面にしか無い(core/guardian-break.js)。正面±45度から来た
+       攻撃だけが2割まで減り、側面・背面からは通常どおり通る。角度は
+       既存のBack Attack判定(真後ろ±45度)と同じ扇を鏡像に使っており、
+       新しい角度体系も新しい減衰値も足していない。結果として背後を
+       取ると「減衰を抜ける」+「Back Attack ×1.2」の二重の報酬になる。
+
+       向きは en.group.rotation.y、攻撃者位置は state.pos ―― どちらも
+       すぐ下のノックバック計算やBack Attack判定が既に使っている値。 */
+    const guardBraced = en.guardian && !en.knockedDown;
+    const guardAbsorbed = guardianAbsorbs(en, en.group.rotation.y, en.group.position, state.pos);
     if(guardAbsorbed){
-      amount = Math.max(1, Math.round(amount * 0.2));
+      amount = guardianDamage(true, amount);
     }
     if(en.knockedDown){
       amount = Math.round(amount * 1.4);   // ダウン中は追撃ボーナス。畳み掛ける動機を作る
@@ -2806,7 +2816,9 @@
       addShake(en.isBoss ? 0.09 : 0.06);
       // knockback: light mobs get shoved, bosses barely register it。
       // ガード中の雑魚・砲台/石像も「据わっている」感触を出すため弾かない
-      if(from.lengthSq() > 0.0001 && !en.isBoss && !guardAbsorbed && !en.turret){
+      // ノックバック抑制の条件は従来どおり(向きに依存しない)。
+      // 「据わっている」感触はガードの向きとは別の性質として据え置く
+      if(from.lengthSq() > 0.0001 && !en.isBoss && !guardBraced && !en.turret){
         const push = en.strongMob ? 0.16 : 0.32;
         en.group.position.addScaledVector(from, -push * weight);
       }
@@ -2900,6 +2912,22 @@
       en.chargeState = 'idle';
       en.fireCharging = false;
       en.postAtkRecoveryT = 0;   // 崩された時点でパニッシュ窓も閉じる(ボス側と同じ扱い)
+      /* 守護型のガードブレイクを崩した場合だけ、その攻撃を完全に潰す
+         (core/guardian-break.js)。「体幹を削り切った=攻撃を潰した」
+         という因果をはっきりさせるため、溜めの残り時間を破棄し、
+         起き上がりを硬直(cooldown)から始め、specialCDを取り直して
+         即座に撃ち直せないようにする。
+         通常の突進敵は cancel:false になり、従来どおり上の idle のまま */
+      const gb = guardBreakCancel(en);
+      if(gb.cancel){
+        en.guardBreak = false;
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);  // 溜めの膨らみを戻す
+        en.chargeState = gb.chargeState;
+        en.chargeT = gb.chargeT;
+        en.guardHoldT = 0;
+        en.specialCD = gb.specialCDSec;
+        spawnToast('🛡 ガードブレイクを潰した!');
+      }
     }
     spawnToast(en.isBoss ? '💥 体勢を崩した!畳み掛けろ!' : '💥 ダウン!');
     addShake(en.isBoss ? 0.18 : 0.10);

@@ -1,4 +1,4 @@
-/* 守護型強モブ(guardian && strongMob)の「ガードブレイク攻撃」判定。
+/* 守護型の戦闘特性 ―― 正面防御とガードブレイク攻撃の判定。
 
    役割の分離:
      core/enemy-tier.js      … その敵がどの階層か(TIER.ELITE など)
@@ -27,6 +27,56 @@
      のではなく、その上に「溜めきったら崩しに来る」を足すのが目的。 */
 
 import { enemyTier, TIER } from './enemy-tier.js';
+import { angleDiff } from './enemy-facing.js';
+import { ROGUE_BACK_ATTACK_HALF_ANGLE } from './rogue-back-attack.js';
+
+/* ============================ 正面防御 ============================
+   守護型は「正面からの攻撃に強い」。側面・背面からは通常どおり通る。
+
+   角度定義は新しく決めていない ―― 既存の Back Attack 判定
+   (core/rogue-back-attack.js、敵の真後ろ ±45度)をそのまま鏡像に
+   使い、「敵の正面 ±45度」を正面とする。結果として敵の全方位は
+     正面 90度(×0.2) / 側面 合計180度(等倍) / 背面 90度(等倍)
+   に分かれ、Back Attack の扇と正面の扇が同じ広さで背中合わせに
+   並ぶ。盗賊が背後を取れる角度に入れば、そこは必ず「正面ではない」
+   ―― 二つの判定が矛盾しないことが角度を共有する最大の利点。
+
+   減衰値(0.2)も既存の dealDamageToEnemy のものをそのまま持ってきた
+   だけで、新しいダメージ倍率体系は作っていない。 */
+
+export const GUARD_FRONT_HALF_ANGLE = ROGUE_BACK_ATTACK_HALF_ANGLE;  // ±45度
+export const GUARD_FRONT_DAMAGE_MUL = 0.2;   // 既存 dealDamageToEnemy の値
+
+/* 攻撃者が敵の正面扇内にいるか。角度規約(fwd=(sin(yaw),0,cos(yaw)))も
+   角度演算(angleDiff)も isBackAttack と同一。
+   同座標のときだけ方向が定義できないので、既存挙動(=ガードが効く)を
+   壊さないよう true を返す。 */
+export function isFrontAttack(enemyFacing, enemyPos, attackerPos){
+  if(typeof enemyFacing !== 'number' || Number.isNaN(enemyFacing)) return true;
+  if(!enemyPos || !attackerPos) return true;
+  const dx = attackerPos.x - enemyPos.x;
+  const dz = attackerPos.z - enemyPos.z;
+  if(Number.isNaN(dx) || Number.isNaN(dz)) return true;
+  if(dx === 0 && dz === 0) return true;       // 方向が定義できない
+  const toAttackerYaw = Math.atan2(dx, dz);
+  const diff = angleDiff(enemyFacing, toAttackerYaw);
+  return Math.abs(diff) <= GUARD_FRONT_HALF_ANGLE + 1e-9;
+}
+
+/* 盾で受け止められるか。条件は既存の guardAbsorbed
+   (en.guardian && !en.knockedDown)に「正面から来たか」を足しただけ。
+   guardian の付いていない敵・崩れている敵は従来どおり素通り。 */
+export function guardianAbsorbs(en, enemyFacing, enemyPos, attackerPos){
+  if(!en || !en.guardian || en.knockedDown) return false;
+  return isFrontAttack(enemyFacing, enemyPos, attackerPos);
+}
+
+/* 受け止められた場合の被ダメージ。式も下限も既存のまま */
+export function guardianDamage(absorbed, amount){
+  return absorbed ? Math.max(1, Math.round(amount * GUARD_FRONT_DAMAGE_MUL)) : amount;
+}
+
+/* ========================= ガードブレイク ========================= */
 
 /* 対峙していると見なす距離。突進AIが交戦を始める距離(6)より少しだけ
    広く取り、間合いを出入りしただけでガードの蓄積が途切れないようにする */
@@ -111,6 +161,21 @@ export function guardBreakPlan(){
 /* 突進の接触判定半径。ガードブレイク中だけ広がる */
 export function chargeHitRadius(en, baseRadius){
   return (en && en.guardBreak) ? GUARD_BREAK_HIT_RADIUS : baseRadius;
+}
+
+/* ガードブレイク中にダウン(体幹100%)した時の後始末。
+   「体幹を削り切った = その攻撃を完全に潰した」を成立させるため、
+   予兆の残り時間を破棄し、復帰後に続きを実行させない。
+   守護型のガードブレイク中だけが対象で、通常の突進敵は cancel:false
+   となり既存の triggerKnockdown の挙動から一切変わらない。 */
+export function guardBreakCancel(en){
+  if(!(en && en.guardBreak)) return { cancel:false };
+  return {
+    cancel: true,
+    chargeState: 'cooldown',                       // 起き上がりは硬直から
+    chargeT: GUARD_BREAK_COOLDOWN_SEC,             // 残りの予兆は破棄する
+    specialCDSec: GUARD_BREAK_CD_SEC,              // 即時の再発動を防ぐ
+  };
 }
 
 /* 突進の与ダメージ。ガードブレイク中だけ倍率が乗る */

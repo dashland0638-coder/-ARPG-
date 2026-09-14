@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   isGuardianType, shouldUseGuardianBreak, stepGuardHold, guardBreakPlan,
-  chargeHitRadius, chargeDamage,
+  guardBreakCancel, chargeHitRadius, chargeDamage,
+  isFrontAttack, guardianAbsorbs, guardianDamage,
   GUARD_ENGAGE_RANGE, GUARD_HOLD_SEC, GUARD_BREAK_TELEGRAPH_SEC,
   GUARD_BREAK_COOLDOWN_SEC, GUARD_BREAK_CD_SEC, GUARD_BREAK_HIT_RADIUS,
-  GUARD_BREAK_DAMAGE_MUL,
+  GUARD_BREAK_DAMAGE_MUL, GUARD_FRONT_HALF_ANGLE, GUARD_FRONT_DAMAGE_MUL,
 } from '../../src/core/guardian-break.js';
+import { isBackAttack, rogueBackAttackDamageMul, ROGUE_BACK_ATTACK_HALF_ANGLE, ROGUE_BACK_ATTACK_MUL } from '../../src/core/rogue-back-attack.js';
 import { TIER, enemyTier, bigFlinchInterrupt, shouldInterruptOnBigFlinch } from '../../src/core/enemy-tier.js';
 import { resolveStaggerReaction } from '../../src/core/combat-result.js';
 import {
@@ -219,14 +221,11 @@ test('既存仕様との非干渉', async t=>{
     assert.equal(canExecute(guardian({hp:5, hpMax:100, knockedDown:true}), {isFinish:false}), true);
     assert.equal(canExecute(boss({hp:5, hpMax:100}), {isFinish:true}), false);
   });
-  await t.test('5. ガード中の既存ダメージ軽減(0.2倍)は変更していない', ()=>{
-    // dealDamageToEnemy の guardAbsorbed と同じ式。guardian が立っていて
-    // ダウンしていない間は2割 ―― ガードブレイクを足しても条件も値も同じ
-    const absorb = (en)=> (en.guardian && !en.knockedDown) ? Math.max(1, Math.round(100 * 0.2)) : 100;
-    assert.equal(absorb(guardian()), 20);
-    assert.equal(absorb(guardian({guardBreak:true})), 20);   // ブレイク中でも減衰は変わらない
-    assert.equal(absorb(guardian({knockedDown:true})), 100); // 崩せば通る(既存どおり)
-    assert.equal(absorb(normal()), 100);
+  await t.test('5. ガード減衰の値(0.2倍)と下限は既存のまま', ()=>{
+    assert.equal(GUARD_FRONT_DAMAGE_MUL, 0.2);
+    assert.equal(guardianDamage(true, 100), 20);
+    assert.equal(guardianDamage(true, 2), 1);      // Math.max(1, ...) の下限も既存どおり
+    assert.equal(guardianDamage(false, 100), 100);
   });
 });
 
@@ -240,6 +239,150 @@ test('純粋性', async t=>{
     chargeHitRadius(en, 1.15);
     chargeDamage(en, 34);
     guardBreakPlan();
+    assert.equal(JSON.stringify(en), before);
+  });
+});
+
+/* ============================ 正面防御 ============================
+   敵の向き規約は既存と同じ: fwd = (sin(yaw), 0, cos(yaw))。
+   yaw=0 の敵は +Z を向いているので、攻撃者が +Z 側にいれば正面。 */
+const at = (x, z)=> ({x, z});
+const ORIGIN = at(0, 0);
+// 敵(yaw=0, 原点)から見て、角度 deg の方向に立つ攻撃者。deg=0 が正面(+Z)
+const from = (deg)=>{
+  const r = deg * Math.PI / 180;
+  return at(Math.sin(r) * 5, Math.cos(r) * 5);
+};
+
+test('守護型の正面防御', async t=>{
+  await t.test('角度定義は既存の Back Attack と同じ扇を鏡像に使う', ()=>{
+    assert.equal(GUARD_FRONT_HALF_ANGLE, ROGUE_BACK_ATTACK_HALF_ANGLE);
+    assert.equal(GUARD_FRONT_HALF_ANGLE, Math.PI / 4);   // ±45度
+  });
+  await t.test('1. 正面(±45度)からの攻撃は既存の ×0.2 軽減', ()=>{
+    for(const deg of [0, 20, 44, -20, -44]){
+      assert.equal(guardianAbsorbs(guardian(), 0, ORIGIN, from(deg)), true, `${deg}度`);
+      assert.equal(guardianDamage(guardianAbsorbs(guardian(), 0, ORIGIN, from(deg)), 100), 20, `${deg}度`);
+    }
+  });
+  await t.test('2. 側面からの攻撃は通常ダメージ', ()=>{
+    for(const deg of [46, 90, 134, -46, -90, -134]){
+      assert.equal(guardianAbsorbs(guardian(), 0, ORIGIN, from(deg)), false, `${deg}度`);
+      assert.equal(guardianDamage(guardianAbsorbs(guardian(), 0, ORIGIN, from(deg)), 100), 100, `${deg}度`);
+    }
+  });
+  await t.test('3. 背面からの攻撃は通常ダメージ', ()=>{
+    for(const deg of [180, 160, -160]){
+      assert.equal(guardianAbsorbs(guardian(), 0, ORIGIN, from(deg)), false, `${deg}度`);
+      assert.equal(guardianDamage(guardianAbsorbs(guardian(), 0, ORIGIN, from(deg)), 100), 100, `${deg}度`);
+    }
+  });
+  await t.test('正面の扇と Back Attack の扇は重ならない', ()=>{
+    // 背後を取れた位置は必ず「正面ではない」。二つの判定が矛盾しないこと
+    for(let deg=-180; deg<180; deg+=3){
+      const p = from(deg);
+      const back  = isBackAttack(0, ORIGIN, p);
+      const front = isFrontAttack(0, ORIGIN, p);
+      assert.equal(back && front, false, `${deg}度で両方成立している`);
+    }
+  });
+  await t.test('4. 既存の Back Attack ×1.2 は従来どおり機能する', ()=>{
+    assert.equal(ROGUE_BACK_ATTACK_MUL, 1.2);
+    assert.equal(rogueBackAttackDamageMul(0, ORIGIN, from(180)), 1.2);
+    assert.equal(rogueBackAttackDamageMul(0, ORIGIN, from(0)), 1);
+    assert.equal(rogueBackAttackDamageMul(0, ORIGIN, from(90)), 1);
+  });
+  await t.test('背後を取ると「減衰を抜ける」+「Back Attack」の二重の報酬になる', ()=>{
+    const p = from(180);
+    const absorbed = guardianAbsorbs(guardian(), 0, ORIGIN, p);
+    const dealt = guardianDamage(absorbed, Math.round(100 * rogueBackAttackDamageMul(0, ORIGIN, p)));
+    assert.equal(dealt, 120);
+    // 同じ一撃を正面から入れた場合
+    const pf = from(0);
+    const dealtFront = guardianDamage(guardianAbsorbs(guardian(), 0, ORIGIN, pf), Math.round(100 * rogueBackAttackDamageMul(0, ORIGIN, pf)));
+    assert.equal(dealtFront, 20);
+  });
+  await t.test('敵の向きに追従する(yaw を回しても扇は正面のまま)', ()=>{
+    const north = at(0, -5);   // 敵の位置から -Z 側
+    assert.equal(guardianAbsorbs(guardian(), Math.PI, ORIGIN, north), true);   // -Z を向いていれば正面
+    assert.equal(guardianAbsorbs(guardian(), 0, ORIGIN, north), false);        // +Z を向いていれば背面
+  });
+  await t.test('崩した(ダウン中)守護型には従来どおり全方位で通る', ()=>{
+    assert.equal(guardianAbsorbs(guardian({knockedDown:true}), 0, ORIGIN, from(0)), false);
+  });
+  await t.test('ガードブレイク中でも減衰の条件・値は変わらない', ()=>{
+    assert.equal(guardianAbsorbs(guardian({guardBreak:true}), 0, ORIGIN, from(0)), true);
+    assert.equal(guardianAbsorbs(guardian({guardBreak:true}), 0, ORIGIN, from(180)), false);
+  });
+  await t.test('5. 通常敵のダメージ処理は変化なし', ()=>{
+    for(const deg of [0, 90, 180]) assert.equal(guardianAbsorbs(normal(), 0, ORIGIN, from(deg)), false, `${deg}度`);
+  });
+  await t.test('6. guardian でない strongMob のダメージ処理は変化なし', ()=>{
+    for(const deg of [0, 90, 180]) assert.equal(guardianAbsorbs(strongOnly(), 0, ORIGIN, from(deg)), false, `${deg}度`);
+  });
+  await t.test('7. ボスのダメージ処理は変化なし', ()=>{
+    // ボスは guardian フラグを持たない(一時的な身構えは en.guardT の別系統)
+    const plainBoss = {isBoss:true, strongMob:true};
+    for(const deg of [0, 90, 180]) assert.equal(guardianAbsorbs(plainBoss, 0, ORIGIN, from(deg)), false, `${deg}度`);
+  });
+  await t.test('strongMob でない guardian(ネームド等)の正面防御は従来どおり効く', ()=>{
+    // 正面防御の条件は en.guardian のみ ―― ガードブレイクの対象範囲
+    // (guardian && strongMob)とは別であることを固定しておく
+    assert.equal(guardianAbsorbs(guardOnly(), 0, ORIGIN, from(0)), true);
+    assert.equal(guardianAbsorbs(named(), 0, ORIGIN, from(0)), true);
+    assert.equal(isGuardianType(named()), false);
+  });
+  await t.test('向きや位置が不正な場合は既存挙動(ガードが効く)へ倒す', ()=>{
+    assert.equal(guardianAbsorbs(guardian(), NaN, ORIGIN, from(180)), true);
+    assert.equal(guardianAbsorbs(guardian(), 0, ORIGIN, null), true);
+    assert.equal(guardianAbsorbs(guardian(), 0, ORIGIN, ORIGIN), true);   // 同座標
+  });
+});
+
+test('ガードブレイク中のダウン', async t=>{
+  await t.test('8. 予兆中にダウンするとガードブレイクがキャンセルされる', ()=>{
+    const en = guardian({guardBreak:true, chargeState:'telegraph', chargeT:0.9,
+                         chargeTelegraphDur: GUARD_BREAK_TELEGRAPH_SEC, specialCD:8.2, guardHoldT:0});
+    const gb = guardBreakCancel(en);
+    assert.equal(gb.cancel, true);
+    assert.equal(gb.chargeState, 'cooldown');
+    assert.equal(gb.chargeT, GUARD_BREAK_COOLDOWN_SEC);
+    assert.equal(gb.specialCDSec, GUARD_BREAK_CD_SEC);
+  });
+  await t.test('9. 復帰後に古い予兆/突進が再開されない', ()=>{
+    // triggerKnockdown と同じ順序を再現する
+    const en = guardian({guardBreak:true, chargeState:'telegraph', chargeT:0.9, specialCD:8.2, guardHoldT:3.5});
+    en.chargeState = 'idle';                       // 既存の triggerKnockdown
+    const gb = guardBreakCancel(en);
+    en.guardBreak = false;
+    en.chargeState = gb.chargeState; en.chargeT = gb.chargeT;
+    en.guardHoldT = 0; en.specialCD = gb.specialCDSec;
+    // 残っていた0.9秒の予兆は破棄され、起き上がりは硬直から始まる
+    assert.equal(en.chargeState, 'cooldown');
+    assert.equal(en.chargeT, GUARD_BREAK_COOLDOWN_SEC);
+    assert.equal(en.guardBreak, false);
+    // 硬直が明けて idle に戻っても、specialCD が残る限り撃ち直せない
+    en.chargeState = 'idle'; en.guardHoldT = GUARD_HOLD_SEC;
+    assert.equal(shouldUseGuardianBreak(en, 3, 'idle'), false);
+    // 半径・威力も通常値へ戻っている
+    assert.equal(chargeHitRadius(en, 1.15), 1.15);
+    assert.equal(chargeDamage(en, 34), 34);
+  });
+  await t.test('10. キャンセル後の cooldown は通常のブレイク後と同じ長さ', ()=>{
+    assert.equal(guardBreakCancel(guardian({guardBreak:true})).chargeT, guardBreakPlan().cooldownSec);
+  });
+  await t.test('11. 通常の突進敵はこの変更の影響を受けない', ()=>{
+    assert.deepEqual(guardBreakCancel(normal({chargeState:'telegraph', chargeT:0.3})), {cancel:false});
+    assert.deepEqual(guardBreakCancel(strongOnly({chargeState:'telegraph'})), {cancel:false});
+    assert.deepEqual(guardBreakCancel(boss({chargeState:'telegraph'})), {cancel:false});
+    // ブレイクしていない守護型(通常の突進サイクル中)も対象外
+    assert.deepEqual(guardBreakCancel(guardian({guardBreak:false, chargeState:'telegraph'})), {cancel:false});
+    assert.deepEqual(guardBreakCancel(null), {cancel:false});
+  });
+  await t.test('キャンセル判定は敵オブジェクトを書き換えない', ()=>{
+    const en = guardian({guardBreak:true, chargeState:'telegraph', chargeT:0.9, specialCD:8.2});
+    const before = JSON.stringify(en);
+    guardBreakCancel(en);
     assert.equal(JSON.stringify(en), before);
   });
 });
