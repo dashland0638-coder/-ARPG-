@@ -69,7 +69,7 @@ import {
 } from '../core/enemy-visibility.js';
 import {
   isFinishable, canExecute, executionStyle, executionDamage,
-  EXECUTION_HP_RATIO, EXECUTION_ULT_BONUS,
+  EXECUTION_HP_RATIO, EXECUTION_ULT_BONUS, EXECUTION_HITSTOP_MAX,
 } from '../core/execution.js';
 /* normalizeAngle は 05-rendering-rig.js が同名の関数を既に持っている
    (連結後は1つのスコープなので二重宣言になる)。look-rig 側の
@@ -78,6 +78,10 @@ import {
   distributeLook, followAngle, stepLookLinger, lingerWeight, scanYaw,
   EYE_FOLLOW_SPEED, EYE_LINGER_SEC,
 } from '../core/look-rig.js';
+import {
+  buildUltClips, ultImpactDelay, ultImpactFrac, ultClipWarp, JOB_ULT_CLIP, ULT_DURATION,
+  ULT_IMPACT_SHAKE, ULT_IMPACT_HITSTOP, ULT_IMPACT_HITSTOP_MAX,
+} from '../core/ult-clips.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 
 `;

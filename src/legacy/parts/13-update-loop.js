@@ -471,6 +471,7 @@
   function updatePlayer(dt){
     if(state.attackCD>0) state.attackCD = Math.max(0,state.attackCD-dt);
     updateCombatStance(dt);
+    updatePendingUlt(dt); // 必殺技の一撃が届く瞬間(core/ult-clips.js)
     updateUltBurst(dt);   // 多段必殺技の残りの段(サブ武器専用)
     if(state.dodgeCD>0) state.dodgeCD = Math.max(0,state.dodgeCD-dt);
     if(state.ultLockT>0) state.ultLockT = Math.max(0,state.ultLockT-dt);   // 発動直後の保険的ロックアウトのみ(本体はゲージ制)
@@ -1240,6 +1241,16 @@
   function updateLookRig(dt){
     const P = playerMixerParts;
     if(!P.eyePivot || !P.headLookPivot || !P.waist) return;
+    /* 旋回する必殺技(八方の矢・阿修羅・天翔ける鏃)の最中は手を出さない。
+       あの間 player.rotation.y は swingLockFacing + 回転量 で直接回され、
+       visualFacing は入力時のまま固定される。その差を「見ている向きとの
+       ずれ」として食わせると、首と腰が毎フレーム可動域いっぱいまで
+       振り切れてしまう ―― 回っている間は正面を向いたままにする。 */
+    if(state.skillAnim && state.skillAnim.type === 'spin'){
+      P.headLookPivot.rotation.set(0,0,0);
+      P.eyePivot.rotation.set(0,0,0);
+      return;
+    }
 
     const target = findLookTarget();
     lookLingerT = stepLookLinger(lookLingerT, dt, !!target, EYE_LINGER_SEC);
@@ -1493,9 +1504,20 @@
   // threshold - and sustained attacking costs only 7% of real time.
   const HIT_STOP_SCALE = 0.62;
   const HIT_STOP_REFRACTORY = 0.26;
-  function hitStop(seconds){
-    if(hitStopCD > 0) return;               // still inside the last one
-    hitStopT = Math.min(0.022, seconds * state.hitStopScale);
+  /* 命中の瞬間に画面を一瞬だけ止める。
+
+     通常ヒットは「連打しても止まりっぱなしにならない」ことが大事なので、
+     上限 0.022 秒 + 0.26 秒の不応期で強く抑えてある。ただし必殺技と処刑は
+     「今、大きな一撃が入った」を伝える側なので、直前の通常ヒットが不応期を
+     消費していると一切効かないという状態は都合が悪い。そこで opts で
+     不応期の無視(force)と上限の引き上げ(max)を許す ―― 省略時の挙動は
+     従来とまったく同じで、通常ヒット側は1文字も変わらない。 */
+  const HIT_STOP_MAX = 0.022;
+  function hitStop(seconds, opts){
+    const o = opts || {};
+    if(hitStopCD > 0 && !o.force) return;   // still inside the last one
+    const max = o.max != null ? o.max : HIT_STOP_MAX;
+    hitStopT = Math.max(hitStopT, Math.min(max, seconds * state.hitStopScale));
     hitStopCD = HIT_STOP_REFRACTORY;
   }
   function addShake(amount){

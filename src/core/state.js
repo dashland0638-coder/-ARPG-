@@ -109,6 +109,15 @@ import * as THREE from 'three';
     // 多段の必殺技(サブ武器専用、WEAPON_ULT_BY_KEY の hits)の残り回数。
     // {left, t, interval, fire}。戦闘中の一時状態なのでセーブ対象外
     ultBurst:null,
+    /* 必殺技の「一撃が届く瞬間」まで保留しているダメージ/VFX/SE
+       ({t, fire}、core/ult-clips.js の ULT_IMPACT_FRAC)。通常攻撃の
+       pendingSwing と同じ扱いで、戦闘中の一時状態なのでセーブ対象外 */
+    pendingUlt:null,
+    /* 必殺技の再生で「実時間のどこが接触か」(= 遅延 / クリップ長)。
+       applyCombatPose がこれを使ってクリップの進み方を折り曲げ、
+       見た目の接触フレームを当たる瞬間へ重ねる(core/ult-clips.js の
+       ultClipWarp)。beginMove が毎回 0 へ戻し、fireUltimate だけが入れる */
+    ultHitFrac:0,
     skillChoice:'retreat', skillCharging:false, skillChargeT:0, skillChargeMax:1.1,
     chargeCD:0, skillCD:0, skill2CD:0, followUpT:0, mageOrbs:[],
     level:1, xp:0, xpToNext:40,

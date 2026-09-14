@@ -43,21 +43,33 @@ export function canExecute(en, opts){
 /* 処刑の所作。職業(上位職があればそちら)で引く。
    label はトースト表示、sfx は既存の効果音キー、vfx は既存の
    spawnHitSpark 等へ渡す色。新しい演出システムは増やさない。 */
-/* 注: 「一瞬止める」演出(hitStop)はここに持たせていない。既存の
-   hitStop() は上限 0.022 秒 + 不応期つきの共有システムで、通常ヒットが
-   直前に消費した直後は必ず無視される。処刑のためだけにその上限を
-   広げると全ヒットの手触りが変わってしまうので触らない ―― フィニッシュの
-   強さは カメラ(shake)・火花(color)・専用SE・トースト で出す。 */
+/* 演出の強さ ―― 通常ヒット < 必殺技 < 処刑
+
+   以前ここには hitStop を持たせていなかった。共有の hitStop() が
+   上限 0.022 秒 + 不応期つきで、直前の通常ヒットが不応期を消費した後は
+   必ず無視されるためで、「処刑のためにその上限を広げると全ヒットの
+   手触りが変わる」と判断して見送っていた。
+
+   その後 hitStop() に「不応期を無視する / 上限を引き上げる」任意の指定を
+   足した(13-update-loop.js)。省略時は従来どおりなので通常ヒットの
+   手触りは変わらないまま、必殺技と処刑だけが確実に効かせられる。
+
+   数値は必殺技(core/ult-clips.js の ULT_IMPACT_*)より必ず強くする ――
+   処刑は戦闘を締める一撃で、そこが最大になっていないと階層が逆転する。
+   実際に逆転していないかは tests/unit/execution.test.js が検査する。 */
 export const EXECUTION_STYLE = {
-  warrior:      {label:'断ち斬り', sfx:'gsOverhead',      color:0xffd27a, shake:0.075},
-  rogue:        {label:'影断ち',   sfx:'slashSpin',       color:0x9fe8c0, shake:0.055},
-  mage:         {label:'祓い',     sfx:'castBig',         color:0xa8d8ff, shake:0.050},
-  archer:       {label:'射抜き',   sfx:'bowVolley',       color:0xffe0a0, shake:0.048},
-  battleKnight: {label:'兜断ち',   sfx:'gsChargeRelease', color:0xffc65a, shake:0.090},
-  berserker:    {label:'叩き伏せ', sfx:'slashHeavy',      color:0xff9a7a, shake:0.080},
-  archmage:     {label:'封 印',    sfx:'castBig',         color:0xb79bff, shake:0.058},
-  hawkEye:      {label:'一 矢',    sfx:'bowVolley',       color:0xfff0c0, shake:0.052},
+  warrior:      {label:'断ち斬り', sfx:'gsOverhead',      color:0xffd27a, shake:0.26, hitStop:0.075},
+  rogue:        {label:'影断ち',   sfx:'slashSpin',       color:0x9fe8c0, shake:0.21, hitStop:0.062},
+  mage:         {label:'祓い',     sfx:'castBig',         color:0xa8d8ff, shake:0.20, hitStop:0.068},
+  archer:       {label:'射抜き',   sfx:'bowVolley',       color:0xffe0a0, shake:0.19, hitStop:0.060},
+  battleKnight: {label:'兜断ち',   sfx:'gsChargeRelease', color:0xffc65a, shake:0.30, hitStop:0.085},
+  berserker:    {label:'叩き伏せ', sfx:'slashHeavy',      color:0xff9a7a, shake:0.28, hitStop:0.072},
+  archmage:     {label:'封 印',    sfx:'castBig',         color:0xb79bff, shake:0.22, hitStop:0.078},
+  hawkEye:      {label:'一 矢',    sfx:'bowVolley',       color:0xfff0c0, shake:0.20, hitStop:0.064},
 };
+
+// 処刑の hitStop に許す上限(通常ヒットの 0.022 より大きい)
+export const EXECUTION_HITSTOP_MAX = 0.09;
 
 export function executionStyle(classKey, jobKey){
   return EXECUTION_STYLE[jobKey] || EXECUTION_STYLE[classKey] || EXECUTION_STYLE.warrior;

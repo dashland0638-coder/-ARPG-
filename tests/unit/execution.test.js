@@ -1,9 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  EXECUTION_HP_RATIO, EXECUTION_STYLE,
+  EXECUTION_HP_RATIO, EXECUTION_STYLE, EXECUTION_HITSTOP_MAX,
   isFinishable, canExecute, executionStyle, executionDamage,
 } from '../../src/core/execution.js';
+import { ULT_IMPACT_SHAKE, ULT_IMPACT_HITSTOP, ULT_IMPACT_HITSTOP_MAX }
+  from '../../src/core/ult-clips.js';
+
+/* 通常ヒットの強さ(07-ai-combat.js の dealDamageToEnemy にある実値)。
+   ここを変えたら向こうも変える ―― 階層が逆転していないかを見るための基準 */
+const NORMAL_HIT_SHAKE = 0.06;
+const NORMAL_HIT_HITSTOP = 0.016;
 
 const mob = (over)=> Object.assign({hp:100, hpMax:100, dead:false, isBoss:false}, over);
 
@@ -80,5 +87,31 @@ test('executionDamage は必ず削り切る', async t=>{
   await t.test('端数のHPでも1以上を返す', ()=>{
     assert.equal(executionDamage({hp:0.4}, 0), 1);
     assert.equal(executionDamage({hp:0}, 0), 1);
+  });
+});
+
+test('演出の階層 ―― 通常ヒット < 必殺技 < 処刑', async t=>{
+  await t.test('必殺技は通常ヒットよりはっきり強い', ()=>{
+    assert.ok(ULT_IMPACT_SHAKE > NORMAL_HIT_SHAKE * 2);
+    assert.ok(ULT_IMPACT_HITSTOP > NORMAL_HIT_HITSTOP);
+    assert.ok(ULT_IMPACT_HITSTOP_MAX > 0.022);   // 通常ヒットの上限より広い
+  });
+  await t.test('処刑はどの職でも必殺技より強い(ここが最大)', ()=>{
+    Object.entries(EXECUTION_STYLE).forEach(([job, s])=>{
+      assert.ok(s.shake > ULT_IMPACT_SHAKE, `${job}: shake ${s.shake} <= 必殺技 ${ULT_IMPACT_SHAKE}`);
+      assert.ok(s.hitStop > ULT_IMPACT_HITSTOP, `${job}: hitStop ${s.hitStop} <= 必殺技 ${ULT_IMPACT_HITSTOP}`);
+    });
+  });
+  await t.test('処刑の hitStop は上限に収まる(止まりっぱなしにしない)', ()=>{
+    Object.entries(EXECUTION_STYLE).forEach(([job, s])=>{
+      assert.ok(s.hitStop <= EXECUTION_HITSTOP_MAX, `${job}: ${s.hitStop}`);
+    });
+    assert.ok(EXECUTION_HITSTOP_MAX > ULT_IMPACT_HITSTOP_MAX);
+    assert.ok(EXECUTION_HITSTOP_MAX < 0.12, 'これ以上止めると操作が奪われて感じる');
+  });
+  await t.test('重い職ほど強い(戦騎士・バーサーカーが上)', ()=>{
+    assert.ok(EXECUTION_STYLE.battleKnight.shake > EXECUTION_STYLE.warrior.shake);
+    assert.ok(EXECUTION_STYLE.berserker.shake > EXECUTION_STYLE.rogue.shake);
+    assert.ok(EXECUTION_STYLE.archer.shake < EXECUTION_STYLE.warrior.shake);
   });
 });

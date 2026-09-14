@@ -1187,7 +1187,7 @@
     // clear any half-finished attack/skill input, otherwise a swing left
     // pending from the dungeon fires the moment we land in the tavern
     state.swinging = false; state.swingT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
-    state.ultAiming = false; state.ultSweep = null; state.ultBurst = null; hideUltMarker();
+    state.ultAiming = false; state.ultSweep = null; state.ultBurst = null; state.pendingUlt = null; hideUltMarker();
     state.charging = false; state.chargeT = 0; state.chargeCD = 0;
     state.skillCharging = false; state.skillChargeT = 0; state.skillCD = 0; state.skill2CD = 0;
     attackHeldStart = null; skillHeldStart = null;

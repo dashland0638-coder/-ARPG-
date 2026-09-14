@@ -2772,12 +2772,15 @@
     if(executing){
       /* フィニッシュの演出。世界観に合わせて「怪異を断つ/祓う/封じる」所作
          として扱う(吸血の所作は導入しない)。新しい演出システムは足さず、
-         既存の火花・カメラ・SE・トーストを一段強く鳴らすだけにしてある。
-         一瞬止める演出(hitStop)は上限0.022秒+不応期の共有システムで、
-         通常ヒットが直前に消費した後は必ず無視されるため使っていない */
+         既存の火花・カメラ・閃光・SE・トーストを一段強く鳴らすだけにしてある */
       const style = executionStyle(state.classDef && state.classDef.key, state.job);
       spawnHitSpark(contact, style.color, 2.2, away);
+      /* 戦闘を締める一撃なので、演出は必殺技より一段強い(core/execution.js)。
+         直前に通常ヒットの hitStop が走っているため force で不応期を越える
+         ―― 処刑だけは必ず「止まる」ようにしたい */
       addShake(style.shake);
+      hitStop(style.hitStop, {force:true, max:EXECUTION_HITSTOP_MAX});
+      flashScreen();
       sfx(style.sfx);
       spawnToast(`✦ ${style.label}`);
       addUltGauge(EXECUTION_ULT_BONUS);   // 締めた分だけ次の戦闘へ繋がる
