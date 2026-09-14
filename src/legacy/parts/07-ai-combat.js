@@ -708,6 +708,7 @@
           en.postureRecoveryDelayT = 0;
           en.postAtkRecoveryT = 0; en.arcaneBindT = 0; en.turnRateMul = 1;
           en.stunT = 0;   // 大怯みの硬直(core/enemy-tier.js)も持ち越さない
+          en.guardHoldT = 0; en.specialCD = 0; en.guardBreak = false;   // 守護型のガードブレイクも仕切り直す
           if(en.mob){
             en.mob.legs.forEach(l=>{ l.rotation.x = 0; l.position.y = 0.24; });
             if(en.mob.neck) en.mob.neck.rotation.set(0,0,0);
@@ -794,8 +795,16 @@
           // ―― 青(平常)から橙(大怯みの閾値=崩し目前)へ、輝きも溜まるほど強く
           if(en.shieldGroup){
             const ratio = en.posture / en.postureMax;
-            en.shieldMat.emissiveIntensity = ratio * 0.85;
-            en.shieldMat.emissive.setHex(ratio >= 0.7 ? 0xff6a3a : 0x3a5aff);
+            if(en.guardBreak && en.chargeState === 'telegraph'){
+              // ガードブレイクの予兆。体幹の青/橙とは別の白熱した光にして、
+              // 「崩せそう」と「崩しに来る」を取り違えないようにする
+              const k = 1 - Math.max(0, Math.min(1, en.chargeT / Math.max(0.001, en.chargeTelegraphDur || 1)));
+              en.shieldMat.emissiveIntensity = 0.5 + k * 1.4;
+              en.shieldMat.emissive.setHex(0xffe8b0);
+            } else {
+              en.shieldMat.emissiveIntensity = ratio * 0.85;
+              en.shieldMat.emissive.setHex(ratio >= 0.7 ? 0xff6a3a : 0x3a5aff);
+            }
           }
         }
       }
@@ -1036,13 +1045,34 @@
     const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
     const distToPlayer = toPlayer.length();
 
+    /* 守護型強モブのガードブレイク(core/guardian-break.js)。
+       専用のAIステートは足していない ―― 「対峙したまま攻撃しなかった時間」
+       を貯め、溜めきったら次の突進サイクルだけを差し替える。
+       specialCD が連発を止め、guardHoldT が「一定時間ガードしてから来る」
+       テンポを作る。守護型以外ではどちらも常に0のままで、以下の分岐は
+       すべて素通りする */
+    if(en.specialCD > 0) en.specialCD = Math.max(0, en.specialCD - dt);
+    en.guardHoldT = stepGuardHold(en, dt, distToPlayer, en.chargeState);
+
     if(en.chargeState==='idle'){
       if(distToPlayer < 6 && hasLineOfSight(en.group.position, state.pos)){
         // Combat Test Arenaの「Windup Enemy」向け: 振りかぶりを通常より
         // 長く見せたい場合だけen.chargeTelegraphOverrideを設定する
         // (未指定の通常個体は今までどおり0.65秒)
+        const breaking = shouldUseGuardianBreak(en, distToPlayer, en.chargeState);
+        en.guardBreak = breaking;
         en.chargeState = 'telegraph';
-        en.chargeTelegraphDur = en.chargeTelegraphOverride || 0.65;
+        if(breaking){
+          // ガードブレイクは「見てから反応できる」ことが要件なので予兆を
+          // 長く取る。溜めの見た目(body scaleの膨らみ)も既存のまま乗る
+          const plan = guardBreakPlan();
+          en.chargeTelegraphDur = plan.telegraphSec;
+          en.specialCD = plan.specialCDSec;
+          en.guardHoldT = 0;
+          spawnToast('🛡 盾持ちが構えを変えた!');
+        } else {
+          en.chargeTelegraphDur = en.chargeTelegraphOverride || 0.65;
+        }
         en.chargeT = en.chargeTelegraphDur;
         en.chargeDir = toPlayer.clone().normalize();
       } else {
@@ -1068,11 +1098,14 @@
       en.group.position.addScaledVector(en.chargeDir, 11*dt);
       en.group.rotation.y = Math.atan2(en.chargeDir.x, en.chargeDir.z);
       const d = state.pos.distanceTo(en.group.position);
-      if(d<1.15 && en.hitCD<=0 && !state.invulnerable && state.paralyzeInvulnT<=0){
+      // ガードブレイク中だけ接触半径と威力が上がる(core/guardian-break.js)。
+      // 通常の突進はどちらも既存値(1.15 / 等倍)のまま
+      const hitR = chargeHitRadius(en, 1.15);
+      if(d<hitR && en.hitCD<=0 && !state.invulnerable && state.paralyzeInvulnT<=0){
         en.hitCD = 1;
         if(tryConsumeOrbShield()){ /* damage negated */ }
         else {
-          const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
+          const dmg = applyIncomingDamageMul(state.debugMode ? 0 : chargeDamage(en, en.atk));
           state.hp = Math.max(0, state.hp-dmg);
           spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
           flashScreen();
@@ -1082,7 +1115,7 @@
           }
           if(state.hp<=0) triggerPlayerDown();
         }
-      } else if(d<1.15 && en.hitCD<=0 && state.paralyzeInvulnT<=0){
+      } else if(d<hitR && en.hitCD<=0 && state.paralyzeInvulnT<=0){
         tryPerfectDodge(en);
       }
       // 攻撃間隔の見直し(#21): 旧2.4sは硬直→cooldownの往復が長すぎ、
@@ -1092,7 +1125,12 @@
       // en.postAtkRecoveryT を雑魚でも同じ長さだけ立てるだけで、判定側
       // (core/punish-window.js)も倍率(stagger-math.js)も共通のまま
       if(en.chargeT<=0){
-        en.chargeState='cooldown'; en.chargeT = en.chargeCooldownOverride || 1.5;
+        // ガードブレイクを振り抜いた後は硬直(既存のcooldown)だけを長くする。
+        // 「避ければ差し返せる」構造を、新しい硬直の仕組みを足さずに作る。
+        // パニッシュ窓(postAtkRecoveryT)の長さと倍率は既存のまま
+        en.chargeState='cooldown';
+        en.chargeT = en.guardBreak ? guardBreakPlan().cooldownSec : (en.chargeCooldownOverride || 1.5);
+        en.guardBreak = false;
         en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
       }
       return;

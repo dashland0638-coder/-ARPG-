@@ -3690,6 +3690,13 @@
       posture:0, postureMax:mobPostureMax(variant, _D.hp),   // 55 / 強敵130 / ガード持ち×1.3(core/stagger-math.js、値は不変)
       knockedDown:false, knockdownT:0, postureGraceT:0, postureRecoveryDelayT:0, bigFlinched:false,
       guardian:!!variant.guardian, shieldGroup, shieldMat, shieldBaseRot:0,
+      /* 守護型強モブ(guardian && strongMob)のガードブレイク(core/guardian-break.js)。
+         specialKind は将来 A突進型 / C異形型 を足す時の受け口で、今回は
+         守護型('guard')だけが値を持つ。新しいAIステートは足していない ――
+         guardBreak は既存の突進サイクル(telegraph→dash→cooldown)が
+         「今回はガードブレイクである」ことを示すフラグにすぎない */
+      specialKind: (variant.guardian && variant.strongMob) ? 'guard' : null,
+      guardHoldT:0, specialCD:0, guardBreak:false,
       // 新規敵タイプ用のフラグ(敵デザイン強化 #21): turret=台座固定・
       // ノックバック無効、turretRange=砲台の索敵距離(未指定なら既定値)
       turret:!!variant.turret, turretRange:variant.turretRange||null,

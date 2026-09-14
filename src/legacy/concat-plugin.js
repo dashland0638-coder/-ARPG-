@@ -47,6 +47,7 @@ import {
 } from '../core/stagger-math.js';
 import { punishWindowState, POST_ATTACK_RECOVERY_SEC } from '../core/punish-window.js';
 import { enemyTier, shouldInterruptOnBigFlinch, bigFlinchInterrupt, TIER } from '../core/enemy-tier.js';
+import { isGuardianType, shouldUseGuardianBreak, stepGuardHold, guardBreakPlan, chargeHitRadius, chargeDamage } from '../core/guardian-break.js';
 import { resolveStaggerReaction } from '../core/combat-result.js';
 import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw, TURN_ASSIST_DODGE_WINDOW } from '../core/predictive-aim.js';
 import { meleeHitTest, surfaceDistance } from '../core/melee-hit.js';
