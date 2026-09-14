@@ -124,6 +124,93 @@ export function combatIdleOffsets(phase, profile, weight = 1, amp = 1){
   };
 }
 
+/* =========================================================
+   上位職の恒久的な姿勢バイアス
+
+   updateLocomotion(13-update-loop.js)は、バーサーカーの「常に敵へ
+   飛びかかりそうなシルエット」を毎フレーム腰の前傾と膝の曲げへ足している。
+   もともと applyJobPromotionVisual 側で一度だけ書いていたものが、歩行が
+   毎フレーム上書きするせいで消えていた ―― という事故の再発防止として
+   歩行側へ移された経緯がある。
+
+   Combat Idle はその後に構えのポーズを**絶対値で**当てるため、同じ事故を
+   一段上のレイヤーで起こしていた(構え中だけ前傾と低い膝が消え、沈み込み
+   (crouch)だけが残って「沈むのに膝が伸びる」状態になっていた)。
+
+   三度目を防ぐため、値の出どころをここ一箇所に集める。歩行も Combat Idle も
+   この表を読む。値そのものは移設前と同一。 */
+export const JOB_POSTURE_BIAS = {
+  // バーサーカー: 前傾(腰pitch) + 低い構え(膝) + 全身をわずかに沈める
+  berserker: { waistPitch: 0.10, knee: 0.20, bodyY: -0.045 },
+};
+
+export function jobPostureBias(jobKey){
+  const b = JOB_POSTURE_BIAS[jobKey];
+  return b ? b : { waistPitch: 0, knee: 0, bodyY: 0 };
+}
+
+/* 構えのターゲットへ恒久バイアスを載せる。バイアスを持たない職では
+   渡されたものをそのまま返す(新しいオブジェクトも作らない)。 */
+export function withJobPostureBias(target, jobKey){
+  const b = JOB_POSTURE_BIAS[jobKey];
+  if(!b || !target) return target;
+  const out = Object.assign({}, target);
+  if(b.waistPitch && Array.isArray(out.waist)){
+    out.waist = [out.waist[0] + b.waistPitch, out.waist[1], out.waist[2]];
+  }
+  if(b.knee){
+    if(out.kneeL != null) out.kneeL = out.kneeL + b.knee;
+    if(out.kneeR != null) out.kneeR = out.kneeR + b.knee;
+  }
+  return out;
+}
+
+/* Combat Idle が当てるターゲットの組み立て。
+
+   applyCombatIdlePose(05-rendering-rig.js)が実際に使う唯一の経路にして
+   あるので、ユニットテストは「本番と同じ手順で作ったターゲット」を検査
+   できる ―― テスト側で組み立てを書き写すと、片方だけ直して気づかない。
+
+   戻り値の idle は腰の横移動(waistShift)を呼び出し側が別扱いするために
+   返している(下の stepWaistShift の説明を参照)。 */
+export function buildCombatIdleTarget(stance, profile, phase, weight, amp, jobKey){
+  const idle = combatIdleOffsets(phase, profile, weight, amp);
+  const out = Object.assign({}, stance);
+  out.waist = [stance.waist[0] + idle.waistPitch, stance.waist[1], stance.waist[2] + idle.waistRoll];
+  out.shR = [stance.shR[0] + idle.weaponSway, stance.shR[1], stance.shR[2]];
+  out.shL = [stance.shL[0] - idle.weaponSway*0.4, stance.shL[1], stance.shL[2]];
+  out.elR = stance.elR + idle.elbowSway;
+  out.elL = stance.elL - idle.elbowSway*0.4;
+  // 構えている間は腰を落とす。既存の drop チャンネルをそのまま使う
+  out.drop = -idle.crouch;
+  return { target: withJobPostureBias(out, jobKey), idle };
+}
+
+/* =========================================================
+   腰の横移動(重心)の合成
+
+   updateLocomotion は waist.position.x を「目標値へ毎フレーム寄せる」
+   形(収束率 dt*12)で動かしている。Combat Idle の重心移動を、その lerp の
+   **後で** position.x へ直接足していたのが問題だった ―― 足した分は次の
+   フレームで 1-dt*12 しか戻らないので、収束率で割った分だけ積み上がる。
+   結果として振幅が fps に比例して膨らむ:
+
+     30fps 3.4cm / 60fps 6.0cm / 144fps 13.4cm (設計値 1.0cm)
+
+   直し方は「加算をやめて、目標値の側へ合成する」。lerp の収束率 12/秒 は
+   dt に対して正規化されているので、目標値さえ正しければ最終的な振幅は
+   どの fps でも同じになる。
+
+   歩行側の sway をこの関数へ渡す形にしてあるが、idleShift が 0 のときの
+   計算は元の式と完全に一致する ―― 移動中の既存モーションは変わらない。 */
+export const WAIST_FOLLOW_RATE = 12;
+
+export function stepWaistShift(current, locomotionSway, idleShift, dt, rate = WAIST_FOLLOW_RATE){
+  const a = Math.min(1, Math.max(0, dt) * rate);
+  const target = (locomotionSway || 0) + (idleShift || 0);
+  return current + (target - current) * a;
+}
+
 /* ポーズ(sampleClip が返す形)同士の線形補間。
    数値・配列チャンネルだけを混ぜ、grip のような文字列チャンネルは
    ウェイト 0.5 を境に切り替える(applyPose と同じ扱い)。

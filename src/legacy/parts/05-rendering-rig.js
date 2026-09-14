@@ -2938,6 +2938,15 @@
     _poseShift.set(0, (p.lift || 0) - (p.drop || 0), p.push || 0);
   }
   const _poseShift = new THREE.Vector3();
+  /* Combat Idle が出す腰の横移動(重心)の「目標値」。_poseShift と同じく
+     applyCombatPose が毎フレーム作り直し、別の場所 ―― ここでは
+     updateLocomotion の waist.position.x の lerp ―― が消費する。
+
+     以前はここで position.x へ直接足していたが、足す場所が lerp の後
+     だったため収束率(dt*12)で割った分だけ積み上がり、振幅が fps に
+     比例して膨らんでいた(30fps 3.4cm → 144fps 13.4cm、設計値 1.0cm)。
+     目標値として渡して lerp に載せれば、どの fps でも同じ振幅になる。 */
+  let combatIdleWaistTarget = 0;
   const _poseFwd = new THREE.Vector3();
   function applyPoseShift(){
     if(!player) return;
@@ -3197,6 +3206,7 @@
     const lib = CLIPS[state.classDef.key];
     if(!lib) return;
     _poseShift.set(0,0,0);
+    combatIdleWaistTarget = 0;   // Combat Idle の分岐に入ったときだけ入る
     if(state.swinging){
       const clip = lib[state.moveClip] || lib.basic;
       const isBasicCombo = /^(basic|altBasic)/.test(state.moveClip);
@@ -3287,25 +3297,22 @@
 
     const st = activeStance(state.classDef.key, state.usingAltWeapon);
     const prof = idleProfile(state.classDef.key, state.job);
-    // 振り終わった直後は、まだ身体が収まっていないぶんだけ揺れを大きく取る
-    const idle = combatIdleOffsets(strideT, prof, w, settleBoost(state.postSwingT));
+    /* 構え + 微細な揺れ + 上位職の恒久バイアス。組み立ては
+       core/combat-stance.js の buildCombatIdleTarget() に集約してある ――
+       ユニットテストが「本番と同じ手順で作ったターゲット」を検査できる
+       ようにするため。振り終わった直後は、まだ身体が収まっていない
+       ぶんだけ揺れを大きく取る(settleBoost)。
 
-    // 構え + 微細な揺れ。揺れはすべて「構えへの加算」なので、
-    // 構えそのもの(STANCE)の値は書き換えていない
-    const target = Object.assign({}, st);
-    target.waist = [st.waist[0] + idle.waistPitch, st.waist[1], st.waist[2] + idle.waistRoll];
-    target.shR = [st.shR[0] + idle.weaponSway, st.shR[1], st.shR[2]];
-    target.shL = [st.shL[0] - idle.weaponSway*0.4, st.shL[1], st.shL[2]];
-    target.elR = st.elR + idle.elbowSway;
-    target.elL = st.elL - idle.elbowSway*0.4;
-    // 構えている間は腰を落とす。既存の drop チャンネル(applyPose →
-    // applyPoseShift)をそのまま使うので、当たり判定 state.pos には触れない
-    target.drop = -idle.crouch;
+       恒久バイアス(バーサーカーの前傾と低い膝)をここで載せ直すのが
+       要点。この関数は構えを絶対値で当てるので、載せないと歩行側が
+       書いた分をそのまま消してしまう ―― 実際その退行が起きていた。 */
+    const built = buildCombatIdleTarget(st, prof, strideT, w,
+                                        settleBoost(state.postSwingT), state.job);
 
-    const pose = blendPose(cur, target, w);
-    // 腰の横移動(重心)は applyPose が扱わないチャンネルなので直接書く。
-    // updateLocomotion が毎フレーム sway を書いた後なので、その上へ乗せる
-    P.waist.position.x += idle.waistShift;
+    const pose = blendPose(cur, built.target, w);
+    // 腰の横移動(重心)は applyPose が扱わないチャンネル。ここでは
+    // 目標値を置くだけで、実際に動かすのは updateLocomotion の lerp
+    combatIdleWaistTarget = built.idle.waistShift;
     applyPose(pose);
     /* 被弾の仰け反り(state.playerHitReactT)は updateLocomotion が
        waist.rotation.x へ加算しており、cur 経由で (1-w) 倍だけ残る。

@@ -61,7 +61,8 @@ import {
 } from '../core/uppercut.js';
 import {
   combatStanceWeight, refreshCombatStance, idleProfile, combatIdleOffsets, blendPose,
-  settleBoost, COMBAT_STANCE_HOLD, COMBAT_STANCE_FADE, SETTLE_SECONDS,
+  settleBoost, buildCombatIdleTarget, jobPostureBias, stepWaistShift,
+  COMBAT_STANCE_HOLD, COMBAT_STANCE_FADE, SETTLE_SECONDS,
 } from '../core/combat-stance.js';
 import {
   stepVisibility, minimapVisible, threatHighlight, bearingLabel,

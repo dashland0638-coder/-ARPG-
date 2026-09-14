@@ -1043,7 +1043,10 @@
         // 膝の曲がりをベースラインへ上乗せする ―― ストライドで動く量
         // (swing起点の項)には触れず、+0.05だった静的なベースラインだけ
         // 職業分を追加するので、歩行アニメの形自体は変えていない
-        const jobKneeBias = state.job==='berserker' ? 0.20 : 0;
+        // バーサーカーの低い構え。値の出どころは core/combat-stance.js の
+        // JOB_POSTURE_BIAS 一箇所 ―― Combat Idle 側も同じ表を読むので、
+        // 構えを当てた瞬間にここで書いた分が消える、という事故が起きない
+        const jobKneeBias = jobPostureBias(state.job).knee;
         P.kneeL.rotation.x = Math.max(0,  s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias;
         P.kneeR.rotation.x = Math.max(0, -s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias;
       }
@@ -1070,7 +1073,8 @@
       // P.waist.rotation.xへ一度だけ書いていたが、この関数が毎フレーム
       // pitchを上書きするため即座に消えてしまっていた。恒久的な前傾は
       // ここのpitch自体に加算する
-      const jobPitchBias = state.job==='berserker' ? 0.10 : 0;
+      // バーサーカーの常時前傾。上の膝と同じく JOB_POSTURE_BIAS が出どころ
+      const jobPitchBias = jobPostureBias(state.job).waistPitch;
       // 低HP時の前傾(職業ごとの上乗せ、LOW_HP_MOTION参照)
       const lowHpPitchBias = lhm ? lhm.pitchBias : 0;
       const pitch = (moving ? 0.02 + run*0.11 : Math.sin(strideT*0.8)*0.014) + jobPitchBias + lowHpPitchBias;
@@ -1085,7 +1089,13 @@
       const lowHpSwayMul = lhm ? lhm.swayMul : 1;
       const sway = (moving ? -s * swing * 0.055 * B.hipSway
                            : Math.sin(strideT*0.55) * 0.008 * B.idleShift) * lowHpSwayMul;
-      P.waist.position.x += (sway - P.waist.position.x) * Math.min(1, dt*12);
+      /* Combat Idle の重心移動も「目標値」として合成してから同じ lerp に
+         載せる。以前は lerp の後で position.x へ直接足していたため、
+         足した分が収束率(dt*12)で割った分だけ積み上がり、振幅が fps に
+         比例して膨らんでいた(30fps 3.4cm → 144fps 13.4cm、設計値 1.0cm)。
+         combatIdleWaistTarget が 0 のときの計算は元の式と完全に一致する
+         ので、移動中の既存モーションは変わらない。 */
+      P.waist.position.x = stepWaistShift(P.waist.position.x, sway, combatIdleWaistTarget, dt);
     }
 
     // ---- airborne: knees tuck on the way up, legs reach on the way down ----
@@ -1171,7 +1181,7 @@
     // バーサーカーの低い構え(続き): 膝の曲がりだけでなく、全身をわずかに
     // 沈めて姿勢そのものの低さを見せる。state.pos.y(当たり判定・接地)
     // には触れず、bobと同じくplayerメッシュの見た目のY位置だけを動かす
-    const jobCrouchY = state.job==='berserker' ? -0.045 : 0;
+    const jobCrouchY = jobPostureBias(state.job).bodyY;
     player.position.y += bob + jobCrouchY;
     player.rotation.x = -leanZ*0.55;
     player.rotation.z =  leanX*0.55;
