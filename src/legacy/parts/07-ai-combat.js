@@ -707,6 +707,7 @@
           en.posture = 0; en.knockedDown = false; en.knockdownT = 0; en.postureGraceT = 0; en.bigFlinched = false;
           en.postureRecoveryDelayT = 0;
           en.postAtkRecoveryT = 0; en.arcaneBindT = 0; en.turnRateMul = 1;
+          en.stunT = 0;   // 大怯みの硬直(core/enemy-tier.js)も持ち越さない
           if(en.mob){
             en.mob.legs.forEach(l=>{ l.rotation.x = 0; l.position.y = 0.24; });
             if(en.mob.neck) en.mob.neck.rotation.set(0,0,0);
@@ -833,6 +834,16 @@
           en.group.position.y += upliftOffset(en.liftT, en.liftPeak, en.liftDur);
           return;   // 浮いている間は通常AIを止める
         }
+      }
+
+      /* 大怯みの短い硬直(通常敵のみ、applyBigFlinchInterrupt)。
+         ダウンと違って無敵も専用姿勢も付けず、AIを止めるだけ ―― この間も
+         今までどおり攻撃を当てられる(潰した側の得になる)。強モブ以上は
+         そもそも stunT が立たないので、この分岐を通らない */
+      if((en.stunT||0) > 0){
+        en.stunT = Math.max(0, en.stunT - dt);
+        updateMobAnim(en, dt);
+        return;
       }
 
       if(en.isBoss){ updateBossAnim(en, dt); updateBossAI(en, dt); return; }
@@ -2430,9 +2441,55 @@
     } else if(bigFlinch && opts.applyBigFlinch !== false){
       en.bigFlinched = true;
       en.hurtT = Math.max(en.hurtT||0, 0.5);   // 大怯み: 通常より長く隙ができる
+      // 通常敵だけ、振りかぶりを潰して短く硬直させる(core/enemy-tier.js)。
+      // 強モブ・ネームド・ボスはここを素通りする ―― 殴っているだけでは
+      // 攻撃を止められない、という階層差はこの1行だけで生まれる
+      applyBigFlinchInterrupt(en);
       if(opts.bigFlinchToast !== false) spawnToast('💫 体勢を崩した!');
     }
     return { knockdown, bigFlinch };
+  }
+
+  /* 大怯み(体幹70%)による行動中断。
+
+     どの階層が中断されるか、何を打ち切るかの判断は core/enemy-tier.js の
+     bigFlinchInterrupt() が持つ。ここはその結果どおりに en を書き換える
+     だけ ―― 判断(純粋関数)と副作用(THREE/state 依存)を混ぜない、という
+     このリポジトリの既存の切り分けに合わせてある。
+
+     打ち切るのは「まだ振り抜いていない予兆」だけ。踏み込んだ突進や
+     飛びかかりは止めない ―― 宙で当たり判定だけが消えるし、読んで避ける
+     対象そのものが無くなってしまう。
+
+     ダウン(triggerKnockdown)・ノックバック・体幹の倍率には一切触らない。 */
+  function applyBigFlinchInterrupt(en){
+    const { interrupt, cancelWindup, stunSec } = bigFlinchInterrupt(en);
+    if(!interrupt) return;
+
+    if(cancelWindup){
+      if(en.chargeState === 'telegraph'){
+        // 溜めで膨らませた身体を戻してからクールダウンへ落とす。
+        // 再攻撃までの間隔は通常の振り抜き後と同じ値を使う
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+        en.chargeState = 'cooldown';
+        en.chargeT = en.chargeCooldownOverride || 1.5;
+      }
+      if(en.fireCharging){
+        // 溜め射撃(fire / kite / turret 共通)。撃たずに構えを解く
+        en.fireCharging = false;
+        en.fireChargeT = 0;
+        en.atkCD = Math.max(en.atkCD || 0, 0.8);
+      }
+      if(en.ghostState === 'phaseIn'){
+        // 実体化の途中。透明度を戻してから間合いを取り直させる
+        setEnemyOpacity(en, 1);
+        en.ghostState = 'cooldown';
+        en.ghostT = 2.4;
+      }
+    }
+
+    // 短い硬直。ダウンと違って姿勢も無敵も変えず、AIを止めるだけ
+    en.stunT = Math.max(en.stunT || 0, stunSec);
   }
 
   /* 戦騎士 Perfect Brace(#4フェーズ4): 攻撃元(attacker)の体幹を崩し、

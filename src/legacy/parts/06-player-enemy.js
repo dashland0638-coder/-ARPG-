@@ -3675,6 +3675,9 @@
       atkType, xp: variant.xp===0 ? 0 : Math.max(1, Math.round((variant.xp||10)*_D.xp)),
       goldBonus:[Math.round(_gb[0]*_D.gold), Math.round(_gb[1]*_D.gold)], projColor:variant.projColor, strongMob:!!variant.strongMob, isElectric:!!variant.isElectric, gateTag:variant.gateTag||null, roomTag:variant.roomTag||null,
       chargeState:'idle', chargeT:0, chargeDir:new THREE.Vector3(), hitCD:0, atkCD:0,
+      // 大怯み(体幹70%)による短い硬直の残り時間。通常敵だけが立てる
+      // (core/enemy-tier.js、applyBigFlinchInterrupt)
+      stunT:0,
       // 突進タイプの間合い/溜めの個体差(未指定ならupdateChargerAI側の
       // 既定値0.65秒/1.5秒が使われる)。Combat Test Arenaの
       // 「Windup Enemy」が振りかぶりを長く見せるために使う
