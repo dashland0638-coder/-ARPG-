@@ -866,6 +866,87 @@
     el.textContent = lines.join('\n');
   }
 
+  /* =========================================================
+     DEBUG MOTION PREVIEW(資料 3/24 章)
+
+     モーションを実機で見ながら「今どの職が、どの構えで、どの局面に
+     いて、どこを見ているか」を確認するためだけのパネル。
+     #perf-panel と完全に同じ作法で動く:
+
+       - state.debugMode のときだけ .show が付き、中身が組み立てられる
+       - 文字列と DOM の書き換えは 0.5 秒に1回だけ
+       - pointer-events:none なので操作を一切邪魔しない
+       - 通常プレイでは最初の if で即 return し、textContent は '' のまま
+
+     行の中身そのものは core/motion-preview.js(three.js にもこの
+     ファイルにも依存しない純粋関数)が作る ―― ユニットテストが本番と
+     同じ関数で表示を検査できるようにするため。 */
+  let motionPanelT = 0;
+  /* パネルを出しているか。DOM の classList を毎フレーム読み書きしない
+     ための控え(通常プレイでは false のまま一度も反転しない) */
+  let motionPanelShown = false;
+  /* 通った局面の記録(上記 SEEN)。デバッグモードに入った時に空にする */
+  let motionSeenStates = [];
+
+  function motionPanelSnapshot(){
+    const cls = state.classDef ? state.classDef.key : null;
+    const wt = cls ? WEAPON_TYPES[cls] : null;   // 05-rendering-rig.js。連結後は同じスコープ
+    const prof = cls ? idleProfile(cls, state.job) : null;
+    return {
+      classKey: cls,
+      jobKey: state.job,
+      altKey: wt && wt.alt ? wt.alt.key : null,
+      usingAlt: !!state.usingAltWeapon,
+      dodging: !!state.dodging,
+      swinging: !!state.swinging,
+      skillCharging: !!state.skillCharging,
+      ultAiming: !!state.ultAiming,
+      dialogueActive: !!state.dialogueActive,
+      combatStanceT: state.combatStanceT || 0,
+      postSwingT: state.postSwingT || 0,
+      moveClip: state.moveClip,
+      freeze: !!state.motionFreeze,
+      lookTarget: motionDebugLook.target,
+      lookYaw: motionDebugLook.lookYaw,
+      waistYaw: motionDebugLook.waistYaw,
+      headYaw: motionDebugLook.headYaw,
+      headPitch: motionDebugLook.headPitch,
+      eyeYaw: motionDebugLook.eyeYaw,
+      eyePitch: motionDebugLook.eyePitch,
+      idleProfile: prof,
+      dedicatedIdle: hasDedicatedIdleProfile(state.job),
+      stanceWeight: combatStanceWeight(state.combatStanceT || 0),
+      seen: motionSeenStates,
+    };
+  }
+
+  function updateMotionPanel(dt){
+    /* デバッグモードでない間は DOM にも触らない ―― この関数は
+       animate() から毎フレーム呼ばれるので、通常プレイでの仕事量は
+       この if 1本だけに留める */
+    if(!state.debugMode || !state.started){
+      if(!motionPanelShown) return;
+      const off = document.getElementById('motion-panel');
+      if(off){ off.classList.remove('show'); off.textContent = ''; }
+      motionPanelShown = false;
+      motionSeenStates = [];   // 次にデバッグモードへ入った時は新しい確認セッション
+      return;
+    }
+    const el = document.getElementById('motion-panel');
+    if(!el) return;
+    if(!motionPanelShown){ el.classList.add('show'); motionPanelShown = true; }
+    /* 局面の記録は毎フレーム。文字列と DOM の書き換えだけが0.5秒に1回。
+       ATTACK/DODGE は 0.5 秒より短く終わるので、ここを間引くと
+       「通ったのに一度も出ない」ことになる */
+    const snap = motionPanelSnapshot();
+    const label = motionStateLabel(snap);
+    if(motionSeenStates.indexOf(label) < 0) motionSeenStates.push(label);
+    motionPanelT -= dt;
+    if(motionPanelT > 0) return;
+    motionPanelT = 0.5;
+    el.textContent = motionDebugLines(snap).join('\n');
+  }
+
   function animate(){
     onResize();   // cheap: two reads, and only acts when the viewport moved
     requestAnimationFrame(animate);
@@ -884,6 +965,7 @@
     // フレーム時間も、それはそれで知りたいため)。通常プレイでは
     // state.debugMode が false なので即座に return する
     updatePerfPanel(dt);
+    updateMotionPanel(dt);   // Debug Motion Preview。通常プレイでは即return
     drawMinimap(); // top-level so it also hides itself while paused / in menus
     if(state.started && !state.paused && !state.dialogueActive){
       updateInput(dt);

@@ -207,3 +207,101 @@ test('scanYaw ―― 見る相手がいない時の見回し', async t=>{
     assert.ok(min < -2*DEG && max > 2*DEG);
   });
 });
+
+/* =========================================================
+   Eye Rig 回帰(資料 22 章)
+
+   Motion Polish Phase 3 では Look system に手を入れないことが要求
+   されている(「専用視線計算を作らない」)。ここは「入っていない」
+   ことを固定するための検査 ―― 上の既存テストが式の中身を見るのに対し、
+   こちらは可動域・二重回転・ターゲット整合という**性質**を見る。
+========================================================= */
+test('Eye Rig regression: 可動域', async t=>{
+  const CLASSES = ['warrior','rogue','mage','archer'];
+  const JOBS = [null,'battleKnight','berserker','archmage','hawkEye'];
+
+  await t.test('どの職・どの角度でも目/頭/体幹が上限を超えない', ()=>{
+    for(const classKey of CLASSES){
+      for(const jobKey of JOBS){
+        for(let d=-180; d<=180; d+=3){
+          for(const p of [-40*DEG, -12*DEG, 0, 12*DEG, 40*DEG]){
+            const L = distributeLook({
+              targetYaw: d*DEG, bodyYaw: 0, targetPitch: p, classKey, jobKey,
+            });
+            const tag = `${classKey}/${jobKey} d=${d} p=${deg(p).toFixed(0)}`;
+            assert.ok(Math.abs(L.eyeYaw)   <= EYE_YAW_LIMIT + 1e-9,   `eye yaw ${tag}`);
+            assert.ok(Math.abs(L.eyePitch) <= EYE_PITCH_LIMIT + 1e-9, `eye pitch ${tag}`);
+            assert.ok(Math.abs(L.headYaw)  <= HEAD_YAW_LIMIT + 1e-9,  `head yaw ${tag}`);
+            const cap = WAIST_YAW_CAP * waistCoefFor(classKey);
+            assert.ok(Math.abs(L.waistYaw) <= cap + 1e-9, `waist yaw ${tag}`);
+          }
+        }
+      }
+    }
+  });
+
+  await t.test('二重回転が無い ―― 各段の合計が要求角を超えない', ()=>{
+    /* 目・頭・体幹は「同じ1つの差分を分け合う」のであって、それぞれが
+       独立に対象を向いてはいけない。合計が要求角を超えたらそれは
+       二重に回している。可動域で足りない時は下回る(それは正しい)。 */
+    for(const classKey of CLASSES){
+      for(let d=-180; d<=180; d+=3){
+        const want = normalizeAngle(d*DEG);
+        const L = distributeLook({ targetYaw: d*DEG, bodyYaw: 0, classKey });
+        const sum = L.waistYaw + L.headYaw + L.eyeYaw;
+        assert.ok(Math.abs(sum) <= Math.abs(want) + 1e-9,
+          `${classKey} d=${d}: 合計 ${deg(sum).toFixed(2)}° が要求 ${deg(want).toFixed(2)}° を超えた`);
+        // 符号も必ず要求と同じ側(逆を向く段があってはいけない)
+        if(Math.abs(want) > 1e-9){
+          for(const [name, v] of [['waist',L.waistYaw],['head',L.headYaw],['eye',L.eyeYaw]]){
+            assert.ok(Math.sign(v) === Math.sign(want) || v === 0,
+              `${classKey} d=${d}: ${name} が逆を向いている`);
+          }
+        }
+      }
+    }
+  });
+
+  await t.test('target consistency ―― 同じ相手を指していれば体の向きが変わっても合計は同じ', ()=>{
+    for(const classKey of CLASSES){
+      const base = distributeLook({ targetYaw: 0.4, bodyYaw: 0.0, classKey });
+      const moved = distributeLook({ targetYaw: 0.9, bodyYaw: 0.5, classKey });
+      for(const k of ['waistYaw','headYaw','eyeYaw']){
+        assert.ok(Math.abs(base[k] - moved[k]) < 1e-12,
+          `${classKey}: ${k} が体の向きだけで変わった`);
+      }
+    }
+  });
+
+  await t.test('weight は全段へ一様に掛かる(どれか1段だけ残らない)', ()=>{
+    const full = distributeLook({ targetYaw: 1.2, bodyYaw: 0, targetPitch: 0.2, classKey:'mage' });
+    const half = distributeLook({ targetYaw: 1.2, bodyYaw: 0, targetPitch: 0.2, classKey:'mage', weight:0.5 });
+    for(const k of Object.keys(full)){
+      assert.ok(Math.abs(half[k] - full[k]*0.5) < 1e-12, `${k} に weight が掛かっていない`);
+    }
+    const zero = distributeLook({ targetYaw: 1.2, bodyYaw: 0, classKey:'mage', weight:0 });
+    for(const k of Object.keys(zero)) assert.equal(zero[k], 0, `${k} が weight=0 で残った`);
+  });
+
+  await t.test('魔導士(archmage)は魔法使いの Look 係数をそのまま継承する', ()=>{
+    /* 資料 14 章「既存 Look system を使用。専用視線計算を作らない」。
+       Combat Idle だけを差し替えるので、視線側には魔導士固有の項が
+       1つも増えていないこと ―― 増えていれば基礎職と結果が食い違う。 */
+    for(let d=-180; d<=180; d+=5){
+      const mage = distributeLook({ targetYaw:d*DEG, bodyYaw:0, targetPitch:0.15, classKey:'mage', jobKey:null });
+      const lord = distributeLook({ targetYaw:d*DEG, bodyYaw:0, targetPitch:0.15, classKey:'mage', jobKey:'archmage' });
+      assert.deepEqual(lord, mage, `d=${d}: 魔導士の視線が魔法使いとずれた`);
+    }
+    assert.equal(headMulFor('archmage'), 1);
+  });
+
+  await t.test('弓師(archer)の Look 係数は変わっていない(Zanshin regression)', ()=>{
+    assert.equal(CLASS_WAIST_COEF.archer, 0.80);
+    assert.equal(CLASS_WAIST_PITCH_COEF.archer, 0.80);
+    assert.equal(headMulFor('hawkEye'), 1);
+    assert.equal(JOB_HEAD_LOOK_MUL.hawkEye, undefined);
+    // 半身(体幹を開く)側の配分が剣士より大きいこと ―― 弓師の性格付け
+    assert.ok(waistCoefFor('archer') > waistCoefFor('warrior'));
+    assert.ok(waistCoefFor('archer') < waistCoefFor('mage'));
+  });
+});

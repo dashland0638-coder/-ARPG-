@@ -1218,6 +1218,10 @@
     updateGrip();        // the weapon lands on wherever the hand ended up
     updateBowDraw();     // and the string on wherever the drawing hand ended up
     updateBladeTrail(dt);
+    /* Debug Motion Preview の Visual Freeze(05-rendering-rig.js)。
+       モーションの連鎖が全部書き終わった最後に、見た目だけを書き戻す。
+       通常プレイでは state.motionFreeze が false のまま即 return する */
+    applyMotionFreeze();
   }
 
   /* =========================================================
@@ -1334,7 +1338,27 @@
     P.headLookPivot.rotation.x = -look.headPitch;
     P.eyePivot.rotation.y = look.eyeYaw;
     P.eyePivot.rotation.x = -look.eyePitch;
+
+    /* Debug Motion Preview 用の控え。デバッグモードでなければ一切
+       触らない ―― 通常プレイでは毎フレームの if が1本増えるだけ。
+       ここで取るのは「今フレーム実際に書いた値そのもの」で、パネルの
+       ために計算をやり直さない(やり直すと表示と実物がずれる)。 */
+    if(state.debugMode){
+      motionDebugLook.target = target ? 'enemy/ally' : (lookLingerT > 0 ? 'linger' : 'scan');
+      motionDebugLook.lookYaw = lookYaw;
+      motionDebugLook.waistYaw = look.waistYaw;
+      motionDebugLook.headYaw = look.headYaw;
+      motionDebugLook.headPitch = look.headPitch;
+      motionDebugLook.eyeYaw = look.eyeYaw;
+      motionDebugLook.eyePitch = look.eyePitch;
+    }
   }
+
+  /* updateLookRig が毎フレーム書き、14-hud-boot.js の updateMotionPanel が
+     0.5秒に1回読むだけの受け渡し用。デバッグモード以外では更新されない */
+  const motionDebugLook = {
+    target:'none', lookYaw:0, waistYaw:0, headYaw:0, headPitch:0, eyeYaw:0, eyePitch:0,
+  };
 
   function spawnLandingDust(pos, power){
     if(power < 0.25) return;

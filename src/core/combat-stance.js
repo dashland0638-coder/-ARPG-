@@ -82,12 +82,56 @@ export const CLASS_IDLE = {
 export const JOB_IDLE_MUL = {
   battleKnight: {sway:1.25, rate:0.82, crouch:1.10},   // 重い。ゆったり大きく
   berserker:    {sway:1.10, rate:1.45, crouch:1.80},   // 低く、落ち着かない
-  archmage:     {weapon:1.35, rate:0.78},              // 杖まわりだけが揺れる
   hawkEye:      {sway:0.70, rate:0.90},                // より動かない = 精密さ
+};
+
+/* =========================================================
+   上位職の「専用プロファイル」(倍率ではなく絶対値)
+
+   JOB_IDLE_MUL は基礎職の係数へ倍率を掛けるだけなので、「基礎職と同じ
+   動き方の、速い/遅い版」しか作れない。魔導士(Mage Lord)に必要なのは
+   そこではない ―― 魔法使いの Focus(集中して狙う)に対し、魔導士は
+   Control(既に制御している)で、動きの量ではなく**どこが動くか**が違う。
+
+   魔法使い : 重心が乗り、呼吸で上体が起き、杖がふわりと揺れる
+   魔導士   : 重心はほぼ動かず、呼吸の上下は出さない。動くのは
+              杖の先・杖を握る手首・魔力を抑えている左手だけ
+
+   これは倍率では書けない(breath を 0 にする倍率、左手だけを動かす
+   倍率、というものが無い)ので、専用プロファイルを絶対値で置く表を
+   別に用意する。この表にキーがある職は JOB_IDLE_MUL より優先される。
+   魔導士は倍率表から外してある ―― 両方に載っていると、片方を直しても
+   効かない側を触ってしまう。
+
+   新しいチャンネル handL / wrist は**この表を持つ職だけ**が持つ。
+   持たない職(既存の4基礎職と他の上位職)では undefined のままなので、
+   combatIdleOffsets / buildCombatIdleTarget の計算は従来と1ビットも
+   変わらない ―― 既存モーションへの影響をゼロにするための作り。 */
+export const JOB_IDLE_PROFILE = {
+  /* 魔導士(Mage Lord)。数字の出どころ:
+       sway   0.006 : 魔法使い 0.010 の 60%(設計「50〜70%」の中央)
+       breath 0     : 「呼吸しているように上下する」表現は出さない
+       weapon 0.020 : 杖 ±0.020rad(設計「±0.015〜0.025」の中央)
+       rate   0.48  : 魔法使い 0.62 の 0.78 倍(設計「0.65〜0.85」倍)。
+                      倍率表にあった頃の {weapon:1.35, rate:0.78} のうち、
+                      速さはそのまま引き継ぎ、杖の揺れは逆に小さくした
+                      ―― 1.35 倍は「制御している」ではなく「泳いでいる」
+       crouch 0.004 : 魔法使いと同じ。腰を落として身構えるのではなく、
+                      落ち着いてただ立っている
+       handL  0.012 : 魔力を抑えている左手。肘と手首の微動だけで、
+                      腕そのものは振らない
+       wrist  0.008 : 杖を握る手首。杖先の揺れを「持ち手で殺している」
+                      ように見せるため、杖の揺れとは別位相で入れる */
+  archmage: {
+    sway:0.006, breath:0, weapon:0.020, rate:0.48, crouch:0.004,
+    handL:0.012, wrist:0.008,
+  },
 };
 
 export function idleProfile(classKey, jobKey){
   const base = CLASS_IDLE[classKey] || CLASS_IDLE.warrior;
+  const dedicated = JOB_IDLE_PROFILE[jobKey];
+  if(dedicated) return Object.assign({}, dedicated);
   const mul = JOB_IDLE_MUL[jobKey];
   if(!mul) return Object.assign({}, base);
   return {
@@ -97,6 +141,12 @@ export function idleProfile(classKey, jobKey){
     rate:   base.rate   * (mul.rate   || 1),
     crouch: base.crouch * (mul.crouch || 1),
   };
+}
+
+/* 専用プロファイルを持つ職かどうか。Debug パネルの表示と、
+   「魔導士だけが左手チャンネルを持つ」ことを検査するテストが読む。 */
+export function hasDedicatedIdleProfile(jobKey){
+  return !!JOB_IDLE_PROFILE[jobKey];
 }
 
 /* 構え中の微細な揺れ。phase は既存の strideT(距離ベースで進む歩幅位相、
@@ -110,7 +160,7 @@ export function combatIdleOffsets(phase, profile, weight = 1, amp = 1){
      weight と一緒にクランプしてしまうと効かなくなる ―― 分けてある。 */
   const w = Math.max(0, Math.min(1, weight)) * Math.max(0, amp);
   const t = phase * p.rate;
-  return {
+  const out = {
     // 重心が左右へゆっくり移る(腰のroll + 横移動)
     waistRoll: Math.sin(t*0.55) * p.sway * w,
     waistShift: Math.sin(t*0.55) * p.sway * 0.35 * w,
@@ -122,6 +172,25 @@ export function combatIdleOffsets(phase, profile, weight = 1, amp = 1){
     // 構えている間は腰を少し落とす
     crouch: -p.crouch * w,
   };
+
+  /* ---- 専用プロファイルだけが持つチャンネル(JOB_IDLE_PROFILE 参照) ----
+     p.handL / p.wrist を持たない職ではキー自体が生えないので、
+     buildCombatIdleTarget も従来どおりの式を通る。
+
+     動きの優先順位(杖 → 手首 → 左手 → 肘 → 肩 → 重心)を位相で表現する:
+     杖(weaponSway)を基準に、手首は少し遅れて(+0.5)、左手はさらに
+     遅れて(+2.3)動く。同時に同じ向きへ動かすと「腕ごと揺れている」に
+     見えてしまう ―― 遅れがあるから「先端の揺れを手元で抑えている」に
+     見える。周期も 0.9 倍で、上体のどこよりも遅い。 */
+  if(p.wrist){
+    out.wristSway = Math.sin(t*1.30 + 1.4) * p.wrist * w;
+  }
+  if(p.handL){
+    out.handSway = Math.sin(t*0.90 + 3.2) * p.handL * w;
+    // 指先にあたる細かい成分。肘より小さく、肘より速い
+    out.handElbowSway = Math.sin(t*0.90 + 2.1) * p.handL * 0.6 * w;
+  }
+  return out;
 }
 
 /* =========================================================
@@ -177,10 +246,21 @@ export function buildCombatIdleTarget(stance, profile, phase, weight, amp, jobKe
   const idle = combatIdleOffsets(phase, profile, weight, amp);
   const out = Object.assign({}, stance);
   out.waist = [stance.waist[0] + idle.waistPitch, stance.waist[1], stance.waist[2] + idle.waistRoll];
-  out.shR = [stance.shR[0] + idle.weaponSway, stance.shR[1], stance.shR[2]];
-  out.shL = [stance.shL[0] - idle.weaponSway*0.4, stance.shL[1], stance.shL[2]];
+  /* 杖を持つ側。手首(wristSway)は肩の roll チャンネルへ載せる ――
+     この実装に手首ピボットは無く、前腕の付け根から先を捻る一番近い
+     チャンネルがここだから。持たない職では 0 が足される(= 従来どおり)。 */
+  out.shR = [stance.shR[0] + idle.weaponSway, stance.shR[1],
+             stance.shR[2] + (idle.wristSway || 0)];
+  /* 左手。専用チャンネルを持つ職(魔導士)は「杖側の揺れの巻き添え」では
+     なく、独立した位相でわずかに動く ―― 魔力を抑えている手であって、
+     杖に引きずられている手ではない。持たない職は従来の式のまま。 */
+  out.shL = idle.handSway !== undefined
+    ? [stance.shL[0] - idle.weaponSway*0.4 + idle.handSway, stance.shL[1], stance.shL[2]]
+    : [stance.shL[0] - idle.weaponSway*0.4, stance.shL[1], stance.shL[2]];
   out.elR = stance.elR + idle.elbowSway;
-  out.elL = stance.elL - idle.elbowSway*0.4;
+  out.elL = idle.handElbowSway !== undefined
+    ? stance.elL - idle.elbowSway*0.4 + idle.handElbowSway
+    : stance.elL - idle.elbowSway*0.4;
   // 構えている間は腰を落とす。既存の drop チャンネルをそのまま使う
   out.drop = -idle.crouch;
   return { target: withJobPostureBias(out, jobKey), idle };

@@ -1495,6 +1495,7 @@
       spawnToast('🐛 デバッグモード ON (被ダメージ0・当たり判定を表示)');
     } else {
       hideDebugColliders();
+      clearMotionFreeze();   // Visual Freeze もここで必ず解ける(05-rendering-rig.js)
       spawnToast('🐛 デバッグモード OFF');
     }
     const badge = document.getElementById('debug-badge');

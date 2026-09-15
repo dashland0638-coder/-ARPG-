@@ -66,8 +66,11 @@ import {
 import {
   combatStanceWeight, refreshCombatStance, idleProfile, combatIdleOffsets, blendPose,
   settleBoost, buildCombatIdleTarget, jobPostureBias, stepWaistShift,
+  hasDedicatedIdleProfile,
   COMBAT_STANCE_HOLD, COMBAT_STANCE_FADE, SETTLE_SECONDS,
 } from '../core/combat-stance.js';
+// Debug Motion Preview の行の組み立て(デバッグモード時のみ呼ばれる)
+import { motionDebugLines, motionStateLabel } from '../core/motion-preview.js';
 import {
   stepVisibility, minimapVisible, threatHighlight, bearingLabel,
   SIGHT_RANGE, THREAT_SENSE_RANGE,
