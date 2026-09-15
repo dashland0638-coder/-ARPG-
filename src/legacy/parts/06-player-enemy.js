@@ -2805,7 +2805,7 @@
       const _wp = new THREE.Vector3(); player.getWorldPosition(_wp);
       // 魔導士の詠唱中(charging/skillCharging)は「溜めと魔力」(資料23番)を
       // 視覚化するため、公転速度と上下動を一時的に速める
-      const casting = state.job==='archmage' && (state.charging || state.skillCharging);
+      const casting = state.job==='archmage' && state.skillCharging;
       const spinMul = casting ? 2.4 : 1;
       a.crystals.forEach(c=>{
         const ang = _jobDecorT*1.4*spinMul + c.offset;
@@ -2814,7 +2814,7 @@
       });
     }
     if(a.circle){
-      const casting = state.job==='archmage' && (state.charging || state.skillCharging);
+      const casting = state.job==='archmage' && state.skillCharging;
       a.circle.rotation.z += dt*(casting ? 2.2 : 0.5);
       const _wp = new THREE.Vector3(); player.getWorldPosition(_wp);
       a.circle.position.set(_wp.x, 0.03, _wp.z);

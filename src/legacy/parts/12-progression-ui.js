@@ -1192,9 +1192,8 @@
     state.dodgeCD = 0; state.attackCD = 0;   // 必殺ゲージは戦闘performanceの蓄積なので、酒場帰還時にリセットしない
     // clear any half-finished attack/skill input, otherwise a swing left
     // pending from the dungeon fires the moment we land in the tavern
-    state.swinging = false; state.swingT = 0; state.skillAnim = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
+    state.swinging = false; state.swingT = 0; state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.ultAiming = false; state.ultSweep = null; state.ultBurst = null; state.pendingUlt = null; hideUltMarker();
-    state.charging = false; state.chargeT = 0; state.chargeCD = 0;
     state.skillCharging = false; state.skillChargeT = 0; state.skillCD = 0; state.skill2CD = 0;
     attackHeldStart = null; skillHeldStart = null;
     state.paralyzed = false; state.paralyzeT = 0; state.paralyzeInvulnT = 0;
@@ -1874,11 +1873,11 @@
   const STAMINA_COST = { dodge: 22, jump: 18, parry: 0 };  // parryは将来の拡張枠(未実装)
   const STAMINA_REGEN_DELAY = 0.5;
   const STAMINA_REGEN_RATE = 28;
-  // 溜め攻撃(攻撃ボタン長押し、state.charging)は今まで無料だった。
-  // 毎秒この分だけ継続的に消費するようにし、最大まで溜め切る(chargeMax=1.1秒)
-  // とドッジ1回分(22)とほぼ同じ重さになるよう調整してある。「無限に溜めて
-  // 待つ」を牽制しつつ、スタミナをドッジと奪い合う資源にする狙い
-  const CHARGE_STAMINA_DRAIN_RATE = 20;
+  /* 以前はここに CHARGE_STAMINA_DRAIN_RATE(攻撃ボタン長押しの溜め中、
+     毎秒スタミナを削る)があった。STEP 3-A.2 で通常攻撃の溜め自体が
+     無くなり、唯一の参照元(updateHoldInputs)ごと消えたので削除した。
+     通常攻撃そのものは元からスタミナを消費しない(STAMINA_COST に
+     attack の項が無い)ので、そちらの仕様は変わっていない。 */
   // スフィア「俊敏の心得」でスタミナ消費が下がる(下限は基礎コストの40%)
   function effectiveStaminaCost(kind){
     const base = STAMINA_COST[kind]||0;
@@ -1914,13 +1913,15 @@
     {key:'hpUp',  name:'剛健の心得', desc:'HP +15 / Lv',           costs:[3,5,8],  max:3},
     {key:'ultUp', name:'必殺の奥義', desc:'必殺技威力 +10% / Lv',  costs:[4,6,10], max:3},
     {key:'companion', name:'仲間を雇う', desc:'冒険を手伝う仲間が同行するようになる', costs:[25], max:1},
-    {key:'chargeUp', name:'溜め技の錬磨', desc:'溜め攻撃の威力 +15% / Lv', costs:[5,8,12], max:3},
+    {key:'chargeUp', name:'技の錬磨', desc:'スキルの威力 +15% / Lv', costs:[5,8,12], max:3},   // keyはセーブ互換のため据え置き(効果は元から全variant共通)
   ];
 
-  // charge-attack variants: freely swappable at any time in the appraisal
-  // screen. Each has a distinct hit pattern AND a distinct scripted
-  // movement, so they read as genuinely different techniques rather than
-  // the same swing with different numbers.
+  // 武器スキルのバリアント: 鑑定所でいつでも付け替えられる。それぞれが
+  // 固有の当たり判定 AND 固有の移動演出を持つので、「同じ振りの数値違い」
+  // ではなく別の技として読める。
+  // 'dash' は STEP 3-A.2 までは攻撃ボタン長押し専用の溜め技だったが、
+  // 現在は他のバリアントと同じ「スキルボタンで撃つ技」になっている
+  // (定義そのものは当時から一切変えていない)。
   const CHARGE_VARIANTS_BY_CLASS = {
     warrior: {
       dash: {
@@ -2871,18 +2872,16 @@
     }
 
     else if(skillSubTab==='skill1'){
-      const fixedTech = variants.dash;
-      html += `<div class="ap-charge-title">溜め技(攻撃ボタン長押し・固定)</div>
-        <div class="ap-charge-variants"><div class="ap-charge-card active" style="cursor:default;">
-          <div class="ap-charge-icon">${fixedTech.icon}</div>
-          <div class="ap-charge-name">${fixedTech.name}</div>
-          <div class="ap-charge-desc">${fixedTech.desc}</div>
-        </div></div>`;
       html += '<div class="ap-charge-title">スキル(専用ボタン・付け替え可能)</div><div class="ap-charge-variants">';
-      // 新技(unlockKey:'skill1Alt'付き)は、スフィア盤「新技の会得」で
-      // 解放するまでは一覧に出さない。unlockKey:'job'付き(上位職専用)は
-      // 転身(state.job)するまで一覧に出さない
-      ['retreat','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt' || variants[k].unlockKey==='job')).forEach(key=>{
+      /* 'dash' は STEP 3-A.2 で通常攻撃入力(攻撃ボタン長押しの溜め技)から
+         切り離し、他のバリアントと並ぶ選択肢にした。以前ここにあった
+         「溜め技(攻撃ボタン長押し・固定)」の固定カードは、指す先の入力が
+         無くなったので削除してある。
+
+         新技(unlockKey:'skill1Alt'付き)は、スフィア盤「新技の会得」で
+         解放するまでは一覧に出さない。unlockKey:'job'付き(上位職専用)は
+         転身(state.job)するまで一覧に出さない */
+      ['dash','retreat','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt' || variants[k].unlockKey==='job')).forEach(key=>{
         const v = variants[key];
         if(v.unlockKey==='skill1Alt' && !state.unlockedSkill1Alt) return;
         if(v.unlockKey==='job' && !state.job) return;

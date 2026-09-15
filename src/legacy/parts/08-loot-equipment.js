@@ -911,6 +911,9 @@
     const light = new THREE.PointLight(0x8fe0ff, 0.5, 4);
     g.add(light);
     scene.add(g);
+    // 壁や柱の裏へ回り込んでも位置を見失わないように(STEP 3-B)。
+    // プレイヤー/敵/ボスと同じ addXrayShell(05-rendering-rig.js)をそのまま使う
+    addXrayShell(g);
     return {group:g, ring, pos:new THREE.Vector3(), target:null, attackCD:0, bobT:Math.random()*10};
   }
 
@@ -1008,6 +1011,10 @@
     accent.rotation.z = 0.3;
     g.add(accent);
     scene.add(g);
+    // 同行ゲストも遮蔽物の裏でシルエットが見えるようにする(STEP 3-B)。
+    // 第2章の3人パーティでは味方が壁裏に入る場面が常態になるため、
+    // 位置を見失わないことが前提になる
+    addXrayShell(g);
     return {group:g, head, classKey, pos:new THREE.Vector3(), target:null, attackCD:0, bobT:Math.random()*10};
   }
 

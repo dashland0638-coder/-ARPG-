@@ -429,6 +429,32 @@
     state.swinging = true; beginMove(clipMap[state.comboStage] || 'basic');
     if(sequenceLocks.length) tryStrikeBell(state.pos);
     state.swingLockFacing = state.facing;
+
+    /* 通常攻撃の踏み込み(STEP 5、core/attack-lunge.js)
+
+       1段ごとに、振り始めに固定した向きへ少しだけ前へ出る。狙いは
+       「最大間合いで1段目が出た後、ノックバックで2段目が届かなくなる」
+       という STEP 4 の実測(P1: 0/2、P1b: 4/4)を埋めること。
+
+       敵の位置は一切見ない ―― 向きは state.swingLockFacing だけで決まる
+       ので、当たらない方向へ振れば当たらないまま前へ出る(吸い付かない)。
+       踏み込みは振りの長さ(state.swingDur、beginMove が今設定した値)に
+       沿って進むので、瞬間移動にもならない。
+
+       バーサーカーは除外する ―― すぐ下でコンボのスライド(skillAnim dash)
+       を自前で持っており、そちらは移動を丸ごと置き換える別系統。二重に
+       掛けると既存の間合いが変わってしまう。
+       遠隔職(魔法使い・弓師)は踏み込む動作自体が噛み合わないので、
+       ATTACK_LUNGE_BY_CLASS 側で 0 にしてある。 */
+    const lungeDist = state.job==='berserker' ? 0 : attackLungeDistance(clsKey);
+    if(lungeDist > 0 && state.grounded){
+      state.attackLunge = {
+        t: 0,
+        duration: Math.max(0.12, state.swingDur || 0.3),
+        dist: lungeDist,
+        fwd: new THREE.Vector3(Math.sin(state.facing), 0, Math.cos(state.facing)),
+      };
+    }
     /* Hit Timing(Phase E / 4-2)
 
        従来は入力フレームでそのまま swingOnce() を実行していたため、
@@ -913,7 +939,7 @@
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
     if(blockedInAir('SKILL 2')) return;
     if(state.skill2CD>0) return;
-    if(state.swinging || state.charging || state.skillCharging) return; // can't overlap with other attack actions
+    if(state.swinging || state.skillCharging) return; // can't overlap with other attack actions
     if(!hasRes('skill2')){ warnNoRes(); return; }
     const cdef = state.classDef;
     const skill2 = activeSkill2Def(cdef.key);
@@ -950,7 +976,7 @@
     if(blockedInAir('SKILL 3')) return;
     if(!state.equippedBossActiveSkill){ spawnToast('💥 スキル3が装着されていない(鑑定所で装着できます)'); return; }
     if(state.bossSkill3CD>0) return;
-    if(state.swinging || state.charging || state.skillCharging) return;
+    if(state.swinging || state.skillCharging) return;
     const def = BOSS_ACTIVE_SKILLS[state.equippedBossActiveSkill];
     if(!def) return;
     state.bossSkill3CD = def.cd;

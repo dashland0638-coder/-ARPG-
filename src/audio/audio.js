@@ -280,8 +280,9 @@ import { startProceduralBgm } from './procedural-bgm.js';
       noise(0.05, 0.07, 2600*v, 1500*v, 1.2, 0.075);     // C: 鋼の擦過
       tone('sawtooth', 520*v, 300*v, 0.16, 0.035, 0.09); //    中域の短い鳴り
     },
-    /* 溜め攻撃(攻撃ボタン長押し→離す。releaseChargeAttack → variant 'dash'
-       → MOVE_SFX.warrior.dash)。ここは長く slashDraw ―― 抜刀の音 ―― を
+    /* 武器スキル 'dash'(STEP 3-A.2 以前は攻撃ボタン長押しの溜め技。
+       releaseSkill → variant 'dash' → MOVE_SFX.warrior.dash)。
+       ここは長く slashDraw ―― 抜刀の音 ―― を
        流用していて、その中身が
          noise(0.09, 0.20, 5200→2600, Q=4.0)   高域の狭いバンドパスの下降
          tone('triangle', 2600→5200)            5.2kHzまで駆け上がる三角波
