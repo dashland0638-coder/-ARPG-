@@ -16,6 +16,15 @@ import * as THREE from 'three';
     // セットし、updateLocomotion(13-update-loop.js)が消費してwaistへ
     // 加算する。セーブ対象外(戦闘中の一時状態、cautiousTimer等と同じ扱い)
     playerHitReactT:0,
+    /* Combat Idle(core/combat-stance.js)の残り時間(秒)。攻撃・被弾・
+       敵の接近で refreshCombatStance() が伸ばし、切れるとフェードしながら
+       通常の休め姿勢へ戻る。playerHitReactT と同じ「戦闘中の一時状態」
+       なのでセーブ対象外(09-save-load.js は触らない) */
+    combatStanceT:0,
+    // 直近の攻撃クリップが終わってからの経過秒数。振り終わった直後だけ
+    // Combat Idle の振幅を大きくして「まだ収まっていない身体」を見せる
+    // (core/combat-stance.js の settleBoost)。同じく一時状態なのでセーブ対象外
+    postSwingT:99,
     routePath:[],        // 実際に通った区画のkey列
     routeNode:null,      // 現在いる区画
     bossMods:[],         // 第2分岐で積まれるボス戦修飾(例: 'chandelier')
@@ -99,6 +108,18 @@ import * as THREE from 'three';
 
     moveClip:null, swingDur:0.28,
     ultAiming:false, ultAimT:0, ultSweep:null,
+    // 多段の必殺技(サブ武器専用、WEAPON_ULT_BY_KEY の hits)の残り回数。
+    // {left, t, interval, fire}。戦闘中の一時状態なのでセーブ対象外
+    ultBurst:null,
+    /* 必殺技の「一撃が届く瞬間」まで保留しているダメージ/VFX/SE
+       ({t, fire}、core/ult-clips.js の ULT_IMPACT_FRAC)。通常攻撃の
+       pendingSwing と同じ扱いで、戦闘中の一時状態なのでセーブ対象外 */
+    pendingUlt:null,
+    /* 必殺技の再生で「実時間のどこが接触か」(= 遅延 / クリップ長)。
+       applyCombatPose がこれを使ってクリップの進み方を折り曲げ、
+       見た目の接触フレームを当たる瞬間へ重ねる(core/ult-clips.js の
+       ultClipWarp)。beginMove が毎回 0 へ戻し、fireUltimate だけが入れる */
+    ultHitFrac:0,
     skillChoice:'retreat', skillCharging:false, skillChargeT:0, skillChargeMax:1.1,
     skillCD:0, skill2CD:0, followUpT:0, mageOrbs:[],
     level:1, xp:0, xpToNext:40,

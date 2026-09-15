@@ -14,6 +14,20 @@ src/
   core/loot-math.js            ドロップ抽選・装備ステータス乱数の純粋計算。state依存なし
   core/route-combos.js         分岐ルートの組み合わせ計算(直積・進捗・未踏破の提案)。state依存なし
   core/scenario-timer.js       周回制限時間の★シュリンク計算(基準タイム→星ごとの短縮後タイム)。state依存なし
+  core/combat-stance.js        Combat Idle(構えたまま完全停止させない微細な揺れ)と
+                                振り終わり直後の settle。職業ごとの重心・呼吸・武器の揺れの
+                                係数と、ポーズ補間。state依存なし(ARPG_INTEGRATION.md参照)
+  core/enemy-visibility.js     遮蔽物による視界制限。visible/sensed/hidden の3段階と、
+                                戦闘時ハイライトの強さ、ネームドの8方位。state依存なし
+  core/execution.js            処刑(瀕死の敵へのフィニッシュ)の成立条件・職業ごとの所作・
+                                削り切るダメージ。state依存なし
+  core/ult-clips.js            必殺技(メイン武器)のキーフレーム8職ぶんと、
+                                一撃が届く瞬間の定義。CLIPS表の中で唯一 core にあるのは
+                                「足→腰→肩→武器」の力の伝達と、その逆順の戻りを
+                                ユニットテストで縛るため。state依存なし
+  core/look-rig.js             Eye Rig / Visual Look Offset。「どこを見ているか」を
+                                目(±10°)→頭(±38°)→体幹(デッドゾーン24°、超過の45%を
+                                ±12.6°×職業係数まで)へ配分する。state依存なし
   audio/audio.js               SE合成・BGM再生(WebAudio)。state.sfxVolume/bgmVolume以外への依存なし
   audio/procedural-bgm.js      ワールドごとの生成音楽(ドローン+疎らな旋律+簡易リバーブ)。実ファイル未登録時のBGM
   textures/textures.js         手続きテクスチャ/バンプマップ生成。state依存なし

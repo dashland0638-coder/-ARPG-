@@ -46,6 +46,9 @@ import {
   mobPostureMax, bossPostureMax, postureDecayPerSec, POSTURE_RECOVERY_DELAY_SEC,
 } from '../core/stagger-math.js';
 import { punishWindowState, POST_ATTACK_RECOVERY_SEC } from '../core/punish-window.js';
+import { enemyTier, shouldInterruptOnBigFlinch, bigFlinchInterrupt, TIER } from '../core/enemy-tier.js';
+import { isGuardianType, shouldUseGuardianBreak, stepGuardHold, guardBreakPlan, guardBreakCancel, chargeHitRadius, chargeDamage, isFrontAttack, guardianAbsorbs, guardianDamage } from '../core/guardian-break.js';
+import { isPartyHostile, aggroOnDetect, aggroOnDamage, stepLeash } from '../core/enemy-aggro.js';
 import { resolveStaggerReaction } from '../core/combat-result.js';
 import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw, TURN_ASSIST_DODGE_WINDOW } from '../core/predictive-aim.js';
 import { meleeHitTest, surfaceDistance } from '../core/melee-hit.js';
@@ -60,6 +63,30 @@ import {
   airAttackKind, isRising, enemyWeightClass, isFlying, upliftFor, upliftOffset,
   uppercutStaggerMul, UPPERCUT_DMG_MUL, UPPERCUT_HEAVY_FLINCH, UPLIFT_DURATION, FLYER_DROP_TIME,
 } from '../core/uppercut.js';
+import {
+  combatStanceWeight, refreshCombatStance, idleProfile, combatIdleOffsets, blendPose,
+  settleBoost, buildCombatIdleTarget, jobPostureBias, stepWaistShift,
+  COMBAT_STANCE_HOLD, COMBAT_STANCE_FADE, SETTLE_SECONDS,
+} from '../core/combat-stance.js';
+import {
+  stepVisibility, minimapVisible, threatHighlight, bearingLabel,
+  SIGHT_RANGE, THREAT_SENSE_RANGE,
+} from '../core/enemy-visibility.js';
+import {
+  isFinishable, canExecute, executionStyle, executionDamage,
+  EXECUTION_HP_RATIO, EXECUTION_ULT_BONUS, EXECUTION_HITSTOP_MAX,
+} from '../core/execution.js';
+/* normalizeAngle は 05-rendering-rig.js が同名の関数を既に持っている
+   (連結後は1つのスコープなので二重宣言になる)。look-rig 側の
+   normalizeAngle は distributeLook が内部で使うだけなので import しない */
+import {
+  distributeLook, followAngle, stepLookLinger, lingerWeight, scanYaw,
+  EYE_FOLLOW_SPEED, EYE_LINGER_SEC,
+} from '../core/look-rig.js';
+import {
+  buildUltClips, ultImpactDelay, ultImpactFrac, ultClipWarp, JOB_ULT_CLIP, ULT_DURATION,
+  ULT_IMPACT_SHAKE, ULT_IMPACT_HITSTOP, ULT_IMPACT_HITSTOP_MAX,
+} from '../core/ult-clips.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 
 `;

@@ -2460,19 +2460,9 @@
       ],
 
       // 必殺: a long wind-up over the shoulder, then everything at once
-      ult:[
-        F(0.00, Object.assign({}, S('warrior'), {e:'slow', push:-0.20})),
-        F(0.34, {e:'snap', push:0.05, lift:0.30, waist:[-0.40, 0.55, 0.14], shL:[ 0.20, 0.34, 0.85], elL:-2.50,
-                 shR:[ 0.55,-0.28,-0.42], elR:-2.70, wep:[0.160,0.862,-0.481,0.602,0.301,0.739],
-                 hipL:0.32, hipR:-0.26, kneeL:0.10, kneeR:0.34, grip:'BOTH'}),
-        F(0.56, {e:'settle', push:0.55, drop:0.36, waist:[ 0.50,-0.30,-0.08], shL:[-1.48,-0.10, 0.18], elL:-0.12,
-                 shR:[-1.48, 0.10,-0.18], elR:-0.12, wep:[0.140,-0.621,0.771,-0.607,-0.669,-0.428],
-                 hipL:-0.40, hipR:0.46, kneeL:0.50, kneeR:0.04, grip:'BOTH'}),
-        F(0.78, {e:'settle', push:0.48, drop:0.28, waist:[ 0.42,-0.22,-0.06], shL:[-1.30,-0.08, 0.22], elL:-0.24,
-                 shR:[-1.30, 0.08,-0.22], elR:-0.22, wep:[0.100,-0.481,0.871,-0.588,-0.735,-0.338],
-                 hipL:-0.34, hipR:0.38, kneeL:0.44, kneeR:0.06, grip:'BOTH'}),
-        F(1.00, S('warrior'))
-      ],
+      /* 必殺技(ult)の型は core/ult-clips.js へ移した ―― 力の伝達と
+         戻りの順序をユニットテストで縛るため。この表の直後で
+         buildUltClips(S) の結果を CLIPS[cls] へ流し込んでいる。 */
 
       // ため: the blade wound right back, weight loaded onto the back foot
       hold:[
@@ -2587,16 +2577,9 @@
         F(1.00, S('rogue'))
       ],
 
-      ult:[     // 影の乱舞: coil low, then explode outward
-        F(0.00, Object.assign({}, S('rogue'), {e:'slow', push:-0.10, drop:0.14})),
-        F(0.30, {e:'snap', push:0.20, drop:0.20, waist:[ 0.42,-0.55, 0.14], shL:[-1.25, 0.20, 0.34], elL:-1.60,
-                 shR:[-0.30,-0.24,-0.80], elR:-1.85, wep:[0.340,-0.580,-0.740,0.082,0.802,-0.591],
-                 hipL:0.24, hipR:-0.24, kneeL:0.42, kneeR:0.42, grip:'R'}),
-        F(0.54, {e:'settle', push:0.40, lift:0.18, waist:[-0.30, 0.60,-0.14], shL:[-1.35, 0.10, 0.85], elL:-0.20,
-                 shR:[-1.60, 0.05, 0.30], elR:-0.12, wep:[-0.319,0.718,0.618,-0.143,-0.682,0.718],
-                 hipL:-0.26, hipR:0.30, kneeL:0.14, kneeR:0.14, grip:'R'}),
-        F(1.00, S('rogue'))
-      ],
+      /* 必殺技(ult)の型は core/ult-clips.js へ移した ―― 力の伝達と
+         戻りの順序をユニットテストで縛るため。この表の直後で
+         buildUltClips(S) の結果を CLIPS[cls] へ流し込んでいる。 */
 
       hold:[
         F(0.00, Object.assign({}, S('rogue'), {e:'slow'})),
@@ -2710,16 +2693,9 @@
         F(1.00, S('mage'))
       ],
 
-      ult:[     // 天へ突き上げ、振り下ろす
-        F(0.00, Object.assign({}, S('mage'), {e:'slow', push:-0.16, drop:0.10})),
-        F(0.36, {e:'snap', push:0.06, lift:0.26, waist:[-0.34, 0.00, 0], shL:[-1.30, 0.20, 0.40], elL:-1.20,
-                 shR:[-2.05,-0.10,-0.18], elR:-0.20, wep:[0.020,1.000,0.000,0.085,-0.002,0.996],
-                 hipL:0.14, hipR:-0.14, kneeL:0.05, kneeR:0.05, grip:'R'}),
-        F(0.58, {e:'settle', push:0.42, drop:0.30, waist:[ 0.44, 0.00, 0], shL:[-1.20, 0.15, 0.35], elL:-0.60,
-                 shR:[-1.15,-0.05,-0.20], elR:-0.30, wep:[0.060,-0.551,0.832,-0.064,-0.834,-0.548],
-                 hipL:-0.30, hipR:0.34, kneeL:0.40, kneeR:0.06, grip:'R'}),
-        F(1.00, S('mage'))
-      ],
+      /* 必殺技(ult)の型は core/ult-clips.js へ移した ―― 力の伝達と
+         戻りの順序をユニットテストで縛るため。この表の直後で
+         buildUltClips(S) の結果を CLIPS[cls] へ流し込んでいる。 */
 
       hold:[
         F(0.00, Object.assign({}, S('mage'), {e:'slow'})),
@@ -2795,16 +2771,9 @@
       ],
 
       // 八方の矢: three nock-and-loose cycles carried round by the spin
-      ult:[
-        F(0.00, Object.assign({}, S('archer'), {e:'slow', drop:0.08})),
-        F(0.14, {e:'snap', lift:0.04, waist:[0.03, 0.62, 0.00], shL:[-0.85,-0.15,0.35], elL:-0.25, shR:[-0.15,-0.30,-0.90], elR:-1.15, wep:[0.000,1.000,0.000, 0.000,0.000,-1.000], hipL:0.10, hipR:-0.14, kneeL:0.12, kneeR:0.10, draw:1.00, grip:'L'}),
-        F(0.28, {e:'snap', waist:[0.01, 0.46, 0.00], shL:[-0.88,-0.18,0.32], elL:-0.20, shR:[-0.02,-0.08,-1.12], elR:-0.70, wep:[0.000,1.000,0.000, 0.000,0.000,-1.000], hipL:0.08, hipR:-0.12, kneeL:0.12, kneeR:0.10, draw:0.00, grip:'L'}),
-        F(0.44, {e:'snap', lift:0.04, waist:[0.03, 0.62, 0.00], shL:[-0.85,-0.15,0.35], elL:-0.25, shR:[-0.15,-0.30,-0.90], elR:-1.15, wep:[0.000,1.000,0.000, 0.000,0.000,-1.000], hipL:0.10, hipR:-0.14, kneeL:0.12, kneeR:0.10, draw:1.00, grip:'L'}),
-        F(0.58, {e:'snap', waist:[0.01, 0.46, 0.00], shL:[-0.88,-0.18,0.32], elL:-0.20, shR:[-0.02,-0.08,-1.12], elR:-0.70, wep:[0.000,1.000,0.000, 0.000,0.000,-1.000], hipL:0.08, hipR:-0.12, kneeL:0.12, kneeR:0.10, draw:0.00, grip:'L'}),
-        F(0.74, {e:'snap', lift:0.04, waist:[0.03, 0.62, 0.00], shL:[-0.85,-0.15,0.35], elL:-0.25, shR:[-0.15,-0.30,-0.90], elR:-1.15, wep:[0.000,1.000,0.000, 0.000,0.000,-1.000], hipL:0.10, hipR:-0.14, kneeL:0.12, kneeR:0.10, draw:1.00, grip:'L'}),
-        F(0.88, {e:'settle', waist:[0.01, 0.46, 0.00], shL:[-0.88,-0.18,0.32], elL:-0.20, shR:[-0.02,-0.08,-1.12], elR:-0.70, wep:[0.000,1.000,0.000, 0.000,0.000,-1.000], hipL:0.08, hipR:-0.12, kneeL:0.12, kneeR:0.10, draw:0.00, grip:'L'}),
-        F(1.00, S('archer'))
-      ],
+      /* 必殺技(ult)の型は core/ult-clips.js へ移した ―― 力の伝達と
+         戻りの順序をユニットテストで縛るため。この表の直後で
+         buildUltClips(S) の結果を CLIPS[cls] へ流し込んでいる。 */
 
       // ため: the draw deepens with the hold, elbow climbing to the ear
       // ため: the draw deepens and the elbow climbs towards the ear
@@ -2847,6 +2816,68 @@
     if(!lib.dur) return;
     if(lib.dur.spin) lib.dur.basic3 = lib.dur.spin * 0.85;   // コンボの中では少し詰めて間延びさせない
   });
+  /* =========================================================
+     必殺技(メイン武器)の型 ―― core/ult-clips.js から流し込む
+
+     ここだけ CLIPS の外(core)にキーフレームを置いてあるのは、
+     「足 → 腰 → 胸郭 → 肩 → 腕 → 武器」という力の伝達と、その逆順の
+     戻りが実際に守られているかをユニットテストで縛りたいため
+     (tests/unit/ult-clips.test.js)。言葉のコメントだけでは、あとから
+     1フレーム足した瞬間に「腕だけ動く振り」へ戻ってしまう。
+
+     以前は ult クリップがクラスごとに1本しか無く、上位職4種は
+     JOB_ATTACK_TEMPO(再生速度)だけを変えて同じ型を使い回していた。
+     長剣・両手小斧・大弓・より大きな魔法という「一回り上の得物」に
+     なっているのに振りの形が同じ、という状態だったので、上位職にも
+     専用の型を用意した。 */
+  {
+    const ULT = buildUltClips(S);
+    Object.keys(ULT).forEach(cls=>{
+      if(!CLIPS[cls]) return;
+      Object.keys(ULT[cls]).forEach(name=>{
+        CLIPS[cls][name] = ULT[cls][name];
+        if(ULT_DURATION[name] != null) CLIPS[cls].dur[name] = ULT_DURATION[name];
+      });
+    });
+    // 基礎職の必殺技は従来どおり 'ult' という名前で引かれる(fireUltimate)。
+    // core 側では職ごとに別名で持っているので、ここで 'ult' へ結び直す
+    CLIPS.rogue.ult      = CLIPS.rogue.ultRogue;
+    CLIPS.rogue.dur.ult  = CLIPS.rogue.dur.ultRogue;
+    CLIPS.mage.ult       = CLIPS.mage.ultMage;
+    CLIPS.mage.dur.ult   = CLIPS.mage.dur.ultMage;
+    CLIPS.archer.ult     = CLIPS.archer.ultArcher;
+    CLIPS.archer.dur.ult = CLIPS.archer.dur.ultArcher;
+  }
+
+  /* 今の装備・転身で再生すべき必殺技クリップ名。
+       1. サブ武器の必殺技(WEAPON_ULT_BY_KEY)が型を指定していればそれ
+       2. 上位職に転身していればその専用の型
+       3. どちらでもなければクラスの 'ult'
+     2 と 3 の切り替えは装備ではなく転身で決まるので、武器を持ち替えても
+     必殺技のリキャスト(ゲージ)には一切触らない ―― 将来 D-pad で武器を
+     切り替えるようになっても、この分岐はそのまま通用する。 */
+  function ultClipName(ult){
+    if(ult && ult.clip) return ult.clip;
+    const lib = CLIPS[state.classDef && state.classDef.key];
+    const jobClip = JOB_ULT_CLIP[state.job];
+    if(jobClip && lib && lib[jobClip]) return jobClip;
+    return 'ult';
+  }
+
+  /* 武器別必殺技(WEAPON_ULT_BY_KEY、12-progression-ui.js)の型。
+     新しいキーフレームは起こさず、そのサブ武器の通常攻撃の型をそのまま
+     必殺技のクリップとして流用する。別名にしてあるのは applyCombatPose()
+     が clip 名 /^(basic|altBasic)/ で「通常攻撃コンボ」を判定して上位職の
+     振り幅増幅(JOB_SWING_AMPLIFY)を掛けているため ―― 必殺技にあの増幅は
+     要らない。再生時間だけ必殺技らしく伸ばしてある(ダメージ判定は
+     fireUltimate が入力の瞬間に解決するので、長さは手触りだけに効く)。 */
+  CLIPS.warrior.ultSpear      = CLIPS.warrior.altBasic;
+  CLIPS.warrior.dur.ultSpear  = CLIPS.warrior.dur.altBasic * 1.6;
+  CLIPS.rogue.ultKatana       = CLIPS.rogue.altBasic2;
+  CLIPS.rogue.dur.ultKatana   = CLIPS.rogue.dur.altBasic2 * 1.5;
+  CLIPS.mage.ultSpellblade    = CLIPS.mage.altBasic;
+  CLIPS.mage.dur.ultSpellblade = CLIPS.mage.dur.altBasic * 1.6;
+
   if(CLIPS.warrior.dur.skill2) CLIPS.warrior.dur.basic4 = CLIPS.warrior.dur.skill2 * 0.95;
   if(CLIPS.rogue.dur.dash)     CLIPS.rogue.dur.basic4   = CLIPS.rogue.dur.dash * 0.95;
   if(CLIPS.mage.dur.skill2)    CLIPS.mage.dur.basic4    = CLIPS.mage.dur.skill2 * 0.95;
@@ -2949,6 +2980,15 @@
     _poseShift.set(0, (p.lift || 0) - (p.drop || 0), p.push || 0);
   }
   const _poseShift = new THREE.Vector3();
+  /* Combat Idle が出す腰の横移動(重心)の「目標値」。_poseShift と同じく
+     applyCombatPose が毎フレーム作り直し、別の場所 ―― ここでは
+     updateLocomotion の waist.position.x の lerp ―― が消費する。
+
+     以前はここで position.x へ直接足していたが、足す場所が lerp の後
+     だったため収束率(dt*12)で割った分だけ積み上がり、振幅が fps に
+     比例して膨らんでいた(30fps 3.4cm → 144fps 13.4cm、設計値 1.0cm)。
+     目標値として渡して lerp に載せれば、どの fps でも同じ振幅になる。 */
+  let combatIdleWaistTarget = 0;
   const _poseFwd = new THREE.Vector3();
   function applyPoseShift(){
     if(!player) return;
@@ -3158,6 +3198,13 @@
       else if(name==='basic2') want = 'altBasic2';
     }
     state.moveClip = (lib && lib[want]) ? want : 'basic';
+    // 必殺技の時間伸縮(core/ult-clips.js の ultClipWarp)は fireUltimate が
+    // クリップ長を見てから入れる。他の技へ持ち越さないよう毎回落とす
+    state.ultHitFrac = 0;
+    // 技を出した = 戦闘態勢。クリップが終わってもしばらく構えたままにする
+    // (applyCombatIdlePose 参照)。全ての攻撃・スキル・必殺技クリップが
+    // ここを通るので、更新点はこの1箇所だけで済む
+    state.combatStanceT = refreshCombatStance(state.combatStanceT);
     const tempoMul = JOB_ATTACK_TEMPO[state.job] || 1;
     state.swingDur = ((lib && lib.dur && lib.dur[state.moveClip]) || 0.28) * tempoMul;
     state.swingT = 0;
@@ -3201,6 +3248,7 @@
     const lib = CLIPS[state.classDef.key];
     if(!lib) return;
     _poseShift.set(0,0,0);
+    combatIdleWaistTarget = 0;   // Combat Idle の分岐に入ったときだけ入る
     if(state.swinging){
       const clip = lib[state.moveClip] || lib.basic;
       const isBasicCombo = /^(basic|altBasic)/.test(state.moveClip);
@@ -3209,9 +3257,14 @@
       // (通常攻撃コンボ)にだけ効かせ、スキル/回避/必殺技には触れない
       // 見た目の進行度。Hit判定/攻撃SEと同じ core/swing-timing.js の
       // カーブを使うので、3つが必ず同じ瞬間を指す
+      /* 必殺技は「見た目の接触フレーム」と「実際に当たる瞬間」を重ねるため、
+         再生の進み方を折り曲げる(core/ult-clips.js)。state.ultHitFrac が
+         0 のとき(必殺技以外・遅延なし)は何も歪まない */
       const sampleT = isBasicCombo
         ? clipFracAt(Math.min(1, state.swingT), state.job)
-        : Math.min(1, state.swingT);
+        : (state.ultHitFrac > 0
+            ? ultClipWarp(Math.min(1, state.swingT), ultImpactFrac(state.moveClip), state.ultHitFrac)
+            : Math.min(1, state.swingT));
       let pose = sampleClip(clip, sampleT);
       // 上位職の通常攻撃モーション大幅強化: basic系クリップ(通常攻撃の
       // コンボ)にだけ効かせ、スキル/回避/必殺技の型には触れない
@@ -3230,8 +3283,87 @@
       // (state.charging)は STEP 3-A.2 で廃止した
       const r = state.skillChargeT / Math.max(0.001, state.skillChargeMax);
       applyPose(sampleClip(lib.hold, Math.min(1, r)));
+    } else if((state.combatStanceT||0) > 0){
+      applyCombatIdlePose();
     } else if(state.classDef.key === 'archer'){
       setBowDraw(STANCE.archer.draw);
+    }
+  }
+
+  /* =========================================================
+     COMBAT IDLE ―― 構えたまま「完全に止まる」のを無くす
+
+     解析メモ(最初の見立ての訂正を含む。詳細は core/combat-stance.js の
+     冒頭):姿勢が飛んでいるわけではない。buildPlayer() が腕の基準姿勢
+     armLBase/armRBase を activeStance() の構えそのものから取っており、
+     クリップの終端フレームも同じ構えなので、振り終わりの接続は元々連続
+     している。問題は時間の方で、剣士はクリップ 0.36 秒に対し攻撃CDが
+     0.52 秒(swingGapSeconds() がこの差を返す)。applyCombatPose() は
+     その 0.16 秒のあいだ何のポーズも当てておらず、立ち止まって連打すれば
+     歩行サイクルも動かないので、文字どおり静止画になっていた。
+
+     ここでは「今 updateLocomotion が書いた姿勢」から「その武器の構え +
+     微細な揺れ」へ、戦闘態勢の残り時間に応じたウェイトで寄せる。
+
+     - クリップ(CLIPS)にも STANCE にも一切触らない。攻撃・スキル・
+       回避・必殺技の型も、攻撃間隔もダメージも変わらない
+     - 振り終わった直後だけ揺れを大きくし(settleBoost)、
+       attack → recovery → next attack という流れにする
+     - 戦闘が終われば 0.75 秒かけてウェイトが 0 へ落ち、揺れが静かに
+       消える(ぶつ切りにしない)
+     - 歩行位相(strideT)をそのまま揺れの位相に使う。新しいタイマーを
+       増やすと歩行・呼吸・構えが別々の周期で動いて気持ち悪くなる
+  ========================================================= */
+  function applyCombatIdlePose(){
+    const P = playerMixerParts;
+    if(!P.waist || !P.armL || !P.armR || !P.elbowL || !P.elbowR) return;
+    /* 回避中と滞空中は手を出さない。どちらも updateLocomotion が全身の
+       専用ポーズ(ロールの丸まり / 空中の膝の抱え込み)を書いており、
+       そこへ構えを混ぜると回避もジャンプも別の動きになってしまう。
+       構えは「地に足が着いていて、今すぐ動ける」状態のためのもの。 */
+    if(state.dodging || !state.grounded) return;
+    const w = combatStanceWeight(state.combatStanceT);
+    if(w <= 0.001) return;
+
+    // 今フレームの歩行/ジャンプ/回避の結果そのものを補間の起点にする。
+    // こうしておくと、ウェイトが低い間は歩行の腕振りがそのまま残り、
+    // 高いほど構えへ寄る ―― 歩きながら構える動きが自然に出る
+    const cur = {
+      waist:[P.waist.rotation.x, P.waist.rotation.y, P.waist.rotation.z],
+      shL:[P.armL.rotation.x, P.armL.rotation.y, P.armL.rotation.z],
+      shR:[P.armR.rotation.x, P.armR.rotation.y, P.armR.rotation.z],
+      elL:P.elbowL.rotation.x, elR:P.elbowR.rotation.x,
+      hipL:P.legL ? P.legL.rotation.x : 0, hipR:P.legR ? P.legR.rotation.x : 0,
+      kneeL:P.kneeL ? P.kneeL.rotation.x : 0, kneeR:P.kneeR ? P.kneeR.rotation.x : 0,
+    };
+
+    const st = activeStance(state.classDef.key, state.usingAltWeapon);
+    const prof = idleProfile(state.classDef.key, state.job);
+    /* 構え + 微細な揺れ + 上位職の恒久バイアス。組み立ては
+       core/combat-stance.js の buildCombatIdleTarget() に集約してある ――
+       ユニットテストが「本番と同じ手順で作ったターゲット」を検査できる
+       ようにするため。振り終わった直後は、まだ身体が収まっていない
+       ぶんだけ揺れを大きく取る(settleBoost)。
+
+       恒久バイアス(バーサーカーの前傾と低い膝)をここで載せ直すのが
+       要点。この関数は構えを絶対値で当てるので、載せないと歩行側が
+       書いた分をそのまま消してしまう ―― 実際その退行が起きていた。 */
+    const built = buildCombatIdleTarget(st, prof, strideT, w,
+                                        settleBoost(state.postSwingT), state.job);
+
+    const pose = blendPose(cur, built.target, w);
+    // 腰の横移動(重心)は applyPose が扱わないチャンネル。ここでは
+    // 目標値を置くだけで、実際に動かすのは updateLocomotion の lerp
+    combatIdleWaistTarget = built.idle.waistShift;
+    applyPose(pose);
+    /* 被弾の仰け反り(state.playerHitReactT)は updateLocomotion が
+       waist.rotation.x へ加算しており、cur 経由で (1-w) 倍だけ残る。
+       殴られた瞬間はちょうど戦闘態勢が満タン(w=1)に更新されるので、
+       ここで w 倍を足し直さないと仰け反りが丸ごと消えてしまう。
+       合計すると常に本来の量になる。タイマーの消費は updateLocomotion
+       側の責任なので、ここでは読むだけで減らさない。 */
+    if(state.playerHitReactT > 0){
+      P.waist.rotation.x -= 0.18 * Math.sin((state.playerHitReactT/0.20)*Math.PI) * w;
     }
   }
 
