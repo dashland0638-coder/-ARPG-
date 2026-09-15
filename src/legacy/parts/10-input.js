@@ -365,7 +365,7 @@
     for(const k in keys) keys[k] = false;
     clearMovementInput(false);
     state.camRotateTouch = 0;
-    if(state.debugMode){ state.debugMode = false; hideDebugColliders(); document.getElementById('debug-badge').classList.remove('show'); }
+    if(state.debugMode){ state.debugMode = false; hideDebugColliders(); clearMotionFreeze(); document.getElementById('debug-badge').classList.remove('show'); }
     document.getElementById('menu-overlay').classList.remove('active');
     document.getElementById('appraisal-overlay').classList.remove('active');
     document.getElementById('scenario-overlay').classList.remove('active');

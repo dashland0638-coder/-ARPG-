@@ -437,6 +437,21 @@
   #perf-panel.show{ display:block; }
   #perf-panel .perf-warn{ color:#ffb0b0; }
 
+  /* Debug Motion Preview(デバッグモード時のみ)。#perf-panel と同じ
+     右カラムに、そのすぐ下ではなく左隣へ置く ―― 計測パネルは行数が
+     可変で、下に積むと長い時に画面外へ出るため。色は計測(緑)と
+     区別できるように紫寄りにしてある */
+  #motion-panel{
+    position:fixed; top:calc(52px + env(safe-area-inset-top));
+    right:calc(120px + env(safe-area-inset-right));
+    z-index:30; display:none; padding:6px 9px; border-radius:8px;
+    background:rgba(10,10,16,0.78); color:#d7c4ff;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:10px; line-height:1.45; white-space:pre; text-align:left;
+    pointer-events:none; letter-spacing:0.02em;
+  }
+  #motion-panel.show{ display:block; }
+
   /* ---------- COMBAT TEST ARENA(テストモード専用) ---------- */
   /* 左カラムは上から .hud-topleft(HP/MP/スタミナ、top:16px・高さ約78px)、
      .hud-loot(☰メニュー/薬草、margin-top:78px で実質y≈94px)と続く。

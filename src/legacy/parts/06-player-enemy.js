@@ -2799,6 +2799,13 @@
   function updateJobDecor(dt){
     const P = playerMixerParts;
     if(!state.job || !P.jobDecorAnim || !player) return;
+    /* Visual Freeze(デバッグモード専用、05-rendering-rig.js)の間は
+       上位職の常時アニメーションも止める。浮遊魔法石と魔法陣は player の
+       下ではなくシーン直下(ワールド座標)に置かれていて applyMotionFreeze
+       の traverse が届かず、髪とマントは applyMotionFreeze より後に書かれる
+       ―― どちらも「姿勢を止めて見る」ためには止まっている必要がある。
+       通常プレイでは state.motionFreeze が常に false */
+    if(state.motionFreeze && state.debugMode) return;
     _jobDecorT += dt;
     const a = P.jobDecorAnim;
     if(a.crystals){

@@ -129,7 +129,11 @@ import * as THREE from 'three';
     levelGrowth:{vit:0, str:0, mag:0, mnd:0, agi:0, foc:0},
     // #9/Phase B 上位ジョブ: null="未転身"、転身後は'battleKnight'等の上位職キー
     job:null,
-    debugMode:false
+    debugMode:false,
+    /* Debug Motion Preview の Visual Freeze(05-rendering-rig.js)。
+       デバッグモード中にだけ立てられ、見た目のリグだけを固定する。
+       ゲームロジック側はこのフラグを一切読まない */
+    motionFreeze:false
   };
 
 export { state };

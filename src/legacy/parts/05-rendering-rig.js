@@ -3368,3 +3368,86 @@
   }
 
   /* =========================================================
+     VISUAL FREEZE ―― デバッグモード専用の「見た目だけの静止」
+
+     目的は資料 4 章のとおり、Draw / Attack / Dodge / Sheathe のような
+     一瞬しか映らない姿勢を目視することにある。
+
+     ■ なぜ「ゲームを止める」のではなくこうしたか
+     state.paused を立てれば確かに絵は止まるが、それは updateInput /
+     updatePlayer / updateEnemies もろとも止める ―― つまり「止めた状態」
+     そのものが通常プレイには存在しない状態で、そこで見えた姿勢が実際の
+     プレイ中の姿勢である保証が無い。攻撃の途中で止めたければ、攻撃が
+     途中のまま進行し続けていないと意味がない。
+
+     そこでここでは **リグのローカル変換だけ** を捕まえて、毎フレーム
+     書き戻す。state.swingT もヒット判定も敵 AI も一切止まらない ――
+     裏ではダメージも入るし、クリップの時間も進む。凍っているのは
+     player 以下の見た目だけで、ゲームロジックには何も足していない。
+
+     ■ 何を凍らせ、何を凍らせないか
+       凍らせる : player 以下の全ピボットの position / rotation / scale
+                  (腰・肩・肘・頭・目・武器・弓の弦……漏れが出ないよう、
+                   名前で列挙せず traverse で全部取る)
+       凍らせない: player.position.x / z ―― ここは state.pos そのもので、
+                  固定するとキャラクターが世界の中で動けなくなる。
+                  「姿勢を見る」目的には要らない。y だけは踏み込みと
+                  沈み込み(_poseShift)が乗るので凍らせる。
+
+     デバッグモード(state.debugMode)が落ちた時点で自動的に解除する。
+     通常プレイでは state.motionFreeze が常に false のまま一度も
+     触られないので、captureMotionFreeze / applyMotionFreeze は
+     最初の if で即 return する。
+  ========================================================= */
+  let motionFreezeSnapshot = null;
+
+  function toggleMotionFreeze(){
+    if(!state.debugMode) return;               // デバッグモード以外では何もしない
+    state.motionFreeze = !state.motionFreeze;
+    if(!state.motionFreeze) motionFreezeSnapshot = null;
+    spawnToast(state.motionFreeze
+      ? '❄️ Visual Freeze ON(見た目だけ固定 / ゲームは進行中)'
+      : '❄️ Visual Freeze OFF');
+  }
+
+  function clearMotionFreeze(){
+    state.motionFreeze = false;
+    motionFreezeSnapshot = null;
+  }
+
+  /* updateLocomotion の最後(ポーズ・視線・グリップ・弓弦がすべて
+     書き終わった後)から呼ばれる。凍結中でなければ何もしない。 */
+  function applyMotionFreeze(){
+    if(!state.motionFreeze || !player) return;
+    if(!state.debugMode){ clearMotionFreeze(); return; }
+    if(!motionFreezeSnapshot){
+      // 凍結を始めた最初のフレーム。今の姿勢をそのまま捕まえる
+      const snap = [];
+      player.traverse(o=>{
+        snap.push({
+          o,
+          px:o.position.x, py:o.position.y, pz:o.position.z,
+          rx:o.rotation.x, ry:o.rotation.y, rz:o.rotation.z,
+          sx:o.scale.x, sy:o.scale.y, sz:o.scale.z,
+        });
+      });
+      motionFreezeSnapshot = snap;
+      return;
+    }
+    for(let i=0;i<motionFreezeSnapshot.length;i++){
+      const e = motionFreezeSnapshot[i];
+      const o = e.o;
+      if(o === player){
+        // ルートは向きと高さだけ。x/z はワールド座標なので触らない(上記)
+        o.position.y = e.py;
+        o.rotation.set(e.rx, e.ry, e.rz);
+        continue;
+      }
+      o.position.set(e.px, e.py, e.pz);
+      o.rotation.set(e.rx, e.ry, e.rz);
+      o.scale.set(e.sx, e.sy, e.sz);
+    }
+    player.updateMatrixWorld(true);
+  }
+
+  /* =========================================================
