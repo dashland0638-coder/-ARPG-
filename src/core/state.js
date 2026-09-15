@@ -94,11 +94,13 @@ import * as THREE from 'three';
     ranks:{skill:0, skill2:0, ult:0},
     freeRanks:0,                 // banked from first clears, spendable on any
     clearedScenarios:{},         // scenario key -> true, for the one-time grant
-    charging:false, chargeT:0, chargeMax:1.1, skillAnim:null,
+    skillAnim:null,
+    attackLunge:null,   // 通常攻撃の踏み込み(STEP 5)。移動を奪わず、移動ベクトルへ足すだけ
+
     moveClip:null, swingDur:0.28,
     ultAiming:false, ultAimT:0, ultSweep:null,
     skillChoice:'retreat', skillCharging:false, skillChargeT:0, skillChargeMax:1.1,
-    chargeCD:0, skillCD:0, skill2CD:0, followUpT:0, mageOrbs:[],
+    skillCD:0, skill2CD:0, followUpT:0, mageOrbs:[],
     level:1, xp:0, xpToNext:40,
     // #28 基礎ステータス制: 体力(vit)/力(str)/魔力(mag)/精神力(mnd)/敏性(agi)/
     // 集中力(foc)の6項目。beginGame()/applySaveData()で実際の値に上書きされる

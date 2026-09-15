@@ -55,6 +55,7 @@ import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/
 import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
+import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {
   airAttackKind, isRising, enemyWeightClass, isFlying, upliftFor, upliftOffset,
   uppercutStaggerMul, UPPERCUT_DMG_MUL, UPPERCUT_HEAVY_FLINCH, UPLIFT_DURATION, FLYER_DROP_TIME,

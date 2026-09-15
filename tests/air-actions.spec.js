@@ -35,9 +35,19 @@ async function enterTestMode(page) {
    そこで「跳んだ直後(=確実に上昇中)」だけを固定待ちで扱い、落下中の
    確認は待ち時間を伸ばしながら試す形にしている。 */
 const RISING_MS = 60;    // tryJump は同期的に grounded=false / yVel=8 にするので、ここは確実
-const SETTLE_MS = 1700;  // 着地 + 落下攻撃の再ジャンプ禁止(jumpAttackCD 1.0秒)を跨ぐ
+/* 着地 + 落下攻撃の再ジャンプ禁止(jumpAttackCD 1.0秒)を跨ぐための待ち。
+
+   ジャンプは初速8.0/重力22でゲーム内 約0.73秒だが、ヘッドレスの
+   ソフトウェア描画ではゲーム内時間が実時間の 1/3 程度しか進まないので、
+   実時間では 2.2秒前後かかる。1700ms では着地前に次のジャンプ入力を
+   出してしまい、tryJump が grounded を見て弾く ―― その回は攻撃入力が
+   前の跳躍に乗り、待ち時間の候補を空振りで1つ消費してしまう
+   (実測: 切り上げが出た高さが yVel 5.8 / 3.6 / 2.5 / 1.4 と、
+   一度も落下区間 yVel≦1.2 に届かないまま候補を使い切っていた)。 */
+const SETTLE_MS = 3000;
 
 test('空中アクション: 上昇中は切り上げ、落下中は落下攻撃になる', async ({ page }) => {
+  test.setTimeout(150_000);   // 落下中の候補を最大3巡ぶん試すので既定の45秒では足りない
   const errors = watchErrors(page);
   await openGame(page);
   await enterTestMode(page);
@@ -53,14 +63,28 @@ test('空中アクション: 上昇中は切り上げ、落下中は落下攻撃
      同じボタンなのに、垂直速度だけで行動が変わることを確認する。
      待ち時間を伸ばしながら、落下攻撃が出るまで試す(上のコメント参照) */
   let dived = false;
-  for (const wait of [430, 620, 820, 1020]) {
-    await page.waitForTimeout(SETTLE_MS);
-    await page.keyboard.press('Space');
-    await page.waitForTimeout(wait);
-    await page.keyboard.press('KeyJ');
-    await page.waitForTimeout(400);
-    dived = (await msgLog()).includes('急降下');
-    if (dived) break;
+  /* 待ち時間の候補を1巡するだけでは足りない ―― ジャンプ入力が「まだ前の
+     滞空が終わっていない」という理由で弾かれると(tryJump は grounded を
+     見る)、その回は攻撃入力が前の跳躍に乗ってしまい、候補を1つ空振りで
+     消費する。実測では 1回の巡回で 4回の入力のうち 1回がこれで潰れ、
+     落下中に届く最後の候補(1020ms)まで到達しないことがあった。
+     ―― 上の注記どおり「実時間で滞空の位相を決め打ちできない」以上、
+     回数側にも余裕を持たせて、急降下が出るまで巡回を繰り返す。 */
+  for (let round = 0; round < 3 && !dived; round++) {
+    /* 候補の上限を伸ばしてある。上昇区間はゲーム内 約0.31秒 ―― ヘッドレスの
+       1/3 速度では実時間 約930ms にあたり、旧上限 1020ms はその境目ぎりぎり
+       だった。STEP 3-A.2 で通常攻撃が「離した時」から「押した瞬間」に
+       変わったぶん入力が1フレーム早くなり、1020ms でも yVel が 1.4 と
+       落下判定(≦1.2)に届かなくなっていた(実測)。 */
+    for (const wait of [430, 620, 820, 1020, 1250, 1500]) {
+      await page.waitForTimeout(SETTLE_MS);
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(wait);
+      await page.keyboard.press('KeyJ');
+      await page.waitForTimeout(400);
+      dived = (await msgLog()).includes('急降下');
+      if (dived) break;
+    }
   }
   expect(dived, '滞空の後半で攻撃すると落下攻撃になること').toBe(true);
   await page.waitForTimeout(900);         // 着地して落下攻撃が解決する

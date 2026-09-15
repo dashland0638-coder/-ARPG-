@@ -2536,6 +2536,34 @@
     // impact: sparks at the contact point, a short freeze and a camera knock,
     // all scaled by how big a hit it was relative to the target's health
     const weight = Math.min(2.2, 0.55 + amount / Math.max(40, en.hpMax*0.16));
+    /* 押し出す「距離」だけは weight の伸びをそのまま使わない(STEP 4)。
+
+       weight は 0.55 + ダメージ/max(40, hpMax*0.16)。1章のザコは
+       hpMax*0.16 が 40 を下回る(hp58→hpMax70→11.2)ので分母は常に 40 で
+       止まり、weight は実質「プレイヤーの攻撃力そのもの」になる。一方で
+       間合いは Lv10 の刃風で一度 ×1.22 されるきりで、以降まったく伸びない。
+       つまり「敵が退く距離」だけがレベルと共に伸び続ける。
+
+       剣士・洋館ザコ(hp58)で1撃あたりの後退量と、前進しながら殴った時の
+       自分の進む距離(振り中は移動 ×0.45、13-update-loop.js)を並べると:
+
+         Lv1  段1 +0.643m  段2 +0.726m  段3 +0.096m
+         Lv10 段1 +0.509m  段2 +0.579m  段3 -0.078m
+         Lv20 段1 +0.348m  段2 +0.405m  段3 -0.279m
+         Lv30 段1 -0.384m  段2 -0.301m  段3 -0.537m   (疾撃でCDが0.406秒)
+
+       Lv10以降はフィニッシュ段が、前進しっぱなしでも間合いを維持できない。
+       ―― プレイヤー側の対処では埋められないので、ここは数値の問題。
+
+       ただし weight 自体は上限 2.2 のまま残す。ヒットスパークの大きさ・
+       'bigHit' SE・のけぞり時間がすべて weight>1.5 を見ており(すぐ下)、
+       weight を丸めるとその3つが道連れで消えてしまう。伸びを止めるのは
+       「実際に押し出す距離」だけにする。
+
+       上限 1.5 は Lv1 のフィニッシュが今まさに出している値。つまり
+       「ノックバック距離は Lv1 のフィニッシュ以上には育たない」という
+       だけで、1章(Lv1〜9)の挙動は1ミリも変わらない。 */
+    const kbWeight = Math.min(1.5, weight);
     // 被弾ノックバック: プレイヤーから見た攻撃方向へ短く弾く。ボス・ダウン中・
     // DoTでは発生させない(ボスは据わりが重い設定、ダウン中は既に無力化済み)。
     // 砲台/石像(en.turret)も台座に固定されている設定なので対象外
@@ -2545,7 +2573,7 @@
       if(kdir.lengthSq() < 0.0001) kdir.set(Math.sin(state.facing), 0, Math.cos(state.facing));
       kdir.normalize();
       en.knockbackDir = kdir;
-      en.knockbackVel = Math.min(9, 3 + weight*2.4);
+      en.knockbackVel = Math.min(9, 3 + kbWeight*2.4);
       en.knockbackDur = 0.18;
       en.knockbackT = en.knockbackDur;
     }
@@ -2574,7 +2602,7 @@
       // ガード中の雑魚・砲台/石像も「据わっている」感触を出すため弾かない
       if(from.lengthSq() > 0.0001 && !en.isBoss && !guardAbsorbed && !en.turret){
         const push = en.strongMob ? 0.16 : 0.32;
-        en.group.position.addScaledVector(from, -push * weight);
+        en.group.position.addScaledVector(from, -push * kbWeight);
       }
       // flinch - the mob is knocked off its stride, not just tinted red
       en.hurtT = 0.28;

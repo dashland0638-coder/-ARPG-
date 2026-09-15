@@ -57,7 +57,7 @@
       // arenaCycleSpawn()内で即return)の巡回スポーンに使う(#10)
       if(btnPressed(gp,15)) arenaCycleSpawn();
     }
-    updateChargeHold(dt);
+    updateHoldInputs(dt);
     updateMageOrbs(dt);
     updatePlatforms(dt);
     // カメラ左右反転設定: Q/E・タッチ・右スティック、どの入力元から来た
@@ -120,79 +120,67 @@
     return false;
   }
 
-  // the attack button now does double duty: a quick tap fires a normal
-  // attack, holding it past a short threshold charges the selected skill
-  const ATTACK_TAP_THRESHOLD = 0.5; // grace period before a hold counts as charging
-  let attackHeldStart = null;
+  /* 攻撃ボタン(オートコンボ、STEP 3-A.2)
+
+     タップでも長押しでも通常攻撃。押している間は、既存の attackCD が
+     明けるたびに tryAttack() を1回だけ呼ぶ ―― これが「長押し＝
+     オートコンボ」の実体で、新しいタイマーも新しい攻撃速度補正も
+     持たない。攻撃間隔は従来どおり state.attackCD(剣士なら
+     classDef.atkCooldown 0.52秒 × attackCooldownMul())だけが決める。
+
+     以前ここにあった「0.5秒以上押し続けたら溜め攻撃へ昇格させる」
+     tap/hold 判定(ATTACK_TAP_THRESHOLD / state.charging / chargeT /
+     chargeCD / スタミナの継続消費)は廃止した。溜め技だった variant
+     'dash' は、スキルボタン側の選択肢(state.skillChoice)へ移してある
+     ―― 技の定義そのもの(威力・移動・VFX・CLIPS[].dash のモーション)は
+     一切変えていない。renderSkillPanel(12-progression-ui.js)参照。
+
+     スキルボタン側の溜め(state.skillCharging)は今回の対象外で、
+     従来どおりそのまま残っている。 */
+  let attackHeldStart = null;   // 押下中なら押し始めの時刻、離していれば null
 
   function attackInputDown(){
     resumeAudio();
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
     if(attackHeldStart!=null) return; // already held (e.g. key auto-repeat)
-    if(state.chargeCD>0) return; // recast keeps the movement technique from being spammed
     if(state.skillCharging || skillHeldStart!=null) return; // can't attack while a skill is in progress
     attackHeldStart = performance.now();
-    // state.charging stays false until updateChargeHold confirms the grace
-    // period has passed - this is what keeps a normal quick attack from
-    // flashing the charge-ring visual
+    // 押した瞬間に1発目。2発目以降は updateHoldInputs() が attackCD を
+    // 見ながら繰り返す(以前は「離した時に1発」だったので、タップの
+    // 入力レスポンス自体もここで1フレーム分速くなっている)
+    tryAttack();
   }
 
   function attackInputUp(){
-    if(attackHeldStart==null) return;
-    attackHeldStart = null;
-    const wasCharging = state.charging;
-    state.charging = false;
-    if(!wasCharging){
-      state.chargeT = 0;
-      tryAttack(); // released before the grace period elapsed: normal attack
-    } else {
-      releaseChargeAttack(); // held past the grace period: release the charged skill
-      state.chargeT = 0;
-      state.chargeCD = 0.7;
-    }
+    attackHeldStart = null;   // オートコンボはここで止まる
   }
 
-  function updateChargeHold(dt){
-    if(state.chargeCD>0) state.chargeCD -= dt;
+  /* 押しっぱなしの入力(攻撃ボタンのオートコンボ / スキルボタンの溜め)と、
+     各種クールダウンの消化。旧 updateChargeHold() ―― 通常攻撃側の溜めが
+     無くなったので、名前も実際の役割に合わせてある(呼び出しは
+     updateInput() の1箇所だけ)。 */
+  function updateHoldInputs(dt){
     if(state.skillCD>0) state.skillCD -= dt;
     if(state.skill2CD>0) state.skill2CD -= dt;
     if(state.bossSkill3CD>0) state.bossSkill3CD -= dt;
     if(state.paused || state.dialogueActive || state.dodging){
-      if(state.charging){ state.charging=false; state.chargeT=0; }
       if(state.skillCharging){ state.skillCharging=false; state.skillChargeT=0; }
       attackHeldStart = null; skillHeldStart = null;
       return;
     }
-    /* 溜め技も「空中スキル」として禁止する(Phase 4)。ただし攻撃ボタンの
-       タップ自体は空中攻撃(切り上げ/落下攻撃)の入力なので塞げない。
-       そこで「押し続けても溜めへ昇格させない」形にする ―― 離した時は
-       wasCharging=false となり、通常どおり tryAttack() へ落ちる。
-       地上で溜め始めてからジャンプした場合も、ここで溜めを打ち切る。 */
-    if(!state.grounded && state.charging){
-      state.charging = false; state.chargeT = 0;
-      blockedInAir('CHARGE');
-    }
-    if(attackHeldStart!=null && state.grounded){
-      const heldSec = (performance.now()-attackHeldStart)/1000;
-      if(!state.charging && heldSec >= ATTACK_TAP_THRESHOLD){
-        state.charging = true; // grace period passed - now visibly charging
-      }
-    }
-    if(state.charging){
-      state.chargeT = Math.min(state.chargeMax, state.chargeT + dt);
-      // スタミナ切れ: 構えを維持できず、その時点の溜め具合で強制的に技を放つ
-      // (溜めた分を無駄にはしない。ドッジで既にスタミナを使い切っていた場合の
-      // フォールバックとして自然に機能する)
-      const mul = Math.max(0.4, 1 + sphereValue('staminaCostMul'));
-      state.stamina = Math.max(0, state.stamina - CHARGE_STAMINA_DRAIN_RATE*mul*dt);
-      state.staminaRegenDelayT = STAMINA_REGEN_DELAY;
-      if(state.stamina<=0){
-        attackHeldStart = null;
-        state.charging = false;
-        releaseChargeAttack();
-        state.chargeT = 0;
-        state.chargeCD = 0.7;
-      }
+    /* オートコンボ(STEP 3-A.2)
+
+       攻撃間隔は既存の state.attackCD がそのまま決める ―― ここは
+       「クールダウンが明けたか」を見て tryAttack() を1回呼ぶだけで、
+       毎フレーム呼んだりはしない。tryAttack() 自身も
+       resolveGroundAttackAction() で attackCD を見るので二重に守られる。
+
+       空中(切り上げ/落下攻撃)は「1入力につき1アクション」のままに
+       したいので、接地している間だけ繰り返す ―― 押しっぱなしで
+       ジャンプしても空中攻撃が勝手に出ることはなく、着地した時点で
+       オートコンボが再開する。 */
+    if(attackHeldStart!=null && state.grounded && !state.paralyzed && state.attackCD<=0){
+      tryAttack();
     }
     if(state.skillCharging){
       state.skillChargeT = Math.min(state.skillChargeMax, state.skillChargeT + dt);
@@ -209,7 +197,27 @@
     if(blockedInAir('SKILL')) return;   // 空中スキル禁止(Phase 4)
     if(skillHeldStart!=null) return;
     if(state.skillCD>0) return; // longer recast keeps skills from being spammed faster than a normal attack
-    if(state.swinging || state.charging || attackHeldStart!=null) return; // can't use a skill mid-attack
+    /* ここには以前 `state.swinging || attackHeldStart!=null`(= 攻撃中は
+       スキルを出せない)というガードがあった。STEP 3-A.2 でオートコンボに
+       した時点で、この2つは意味が反転している:
+
+         attackHeldStart!=null は旧仕様では「溜め技を溜めている最中」を
+         指していた。溜めとスキルが同時に走ると技が二重に出るので塞ぐ
+         必要があったが、今の長押しはただのオートコンボで、保留中の技を
+         持たない。
+         state.swinging は「振っている最中」。タップ攻撃だった頃は短い
+         一瞬だったが、オートコンボでは常時これに近い ―― 剣士のクリップ長
+         (0.36/0.32/0.52)と攻撃間隔(0.52)の比から、振っている時間が
+         全体の約77%を占める。
+
+       実測(押下12回、CDを待ち切る間隔): 両方あると受理 0/12、
+       attackHeldStart だけ外しても 1/12(swinging が10回弾く)、
+       両方外して 7/12(残り5回はいずれも正当な skillCD 待ち)。
+       つまり片方だけの除去では「Jを押しながらスキル」が成立しない。
+
+       スキルの押下は溜めを始めるだけでダメージも移動も発生しないので、
+       振りの最中に重なっても二重発動は起きない(実際に撃つのは
+       skillInputUp → releaseSkill の1経路のみ)。 */
     if(!hasRes('skill')){ warnNoRes(); return; }
     spendRes('skill');
     skillHeldStart = performance.now();
@@ -226,14 +234,10 @@
     state.skillCD = 1.6 * rankCD('skill') * Math.max(0.4, 1 + sphereValue('skillCDMul'));   // スフィア「見切りの経験」
   }
 
-  // charge technique (attack-button hold): fixed per class, not swappable
-  function releaseChargeAttack(){
-    const variant = getChargeVariants().dash;
-    executeVariant(variant, state.chargeT, state.chargeMax);
-  }
-
-  // skill (dedicated skill button): swappable between the class's other
-  // two techniques via the appraisal screen
+  // skill (dedicated skill button): swappable between the class's techniques
+  // via the appraisal screen. STEP 3-A.2 で 'dash'(旧・攻撃ボタン長押しの
+  // 溜め技)もこの選択肢に加わったので、溜め技専用だった
+  // releaseChargeAttack() は不要になり削除した
   function releaseSkill(){
     const variant = getChargeVariants()[state.skillChoice] || getChargeVariants().retreat;
     executeVariant(variant, state.skillChargeT, state.skillChargeMax, 'skill');
@@ -242,9 +246,9 @@
   function executeVariant(variant, chargeT, chargeMax, rankKey){
     const chargeRatio = Math.min(1, chargeT / chargeMax);
     // スフィア「会心の型」はスキル(専用ボタン、rankKey==='skill')だけに
-    // 乗る ―― 溜め技(releaseChargeAttackはrankKeyを渡さない)には乗せない。
+    // 乗る ―― スキル2・必殺技など rankKey が違う経路には乗せない。
     // 一方、variantEffect(退き足の妙/旋風の心得/踏込みの型など)は
-    // variant.key単位の強化なので、スキル/溜め技どちらでも該当すれば乗る
+    // variant.key単位の強化なので、どの経路から撃っても該当すれば乗る
     // ―― 「あるバリアントに投資したら、それを使いたくなる」を成立させる
     const skillDmgBonus = rankKey==='skill' ? sphereValue('skillDmgSphereMul') : 0;
     const variantBonus = sphereVariantBonus(variant.key);
@@ -597,6 +601,29 @@
       state.facing = turnTowardAngle(state.facing, softLockYaw, SOFT_LOCK_TURN_RATE*dt);
     }
 
+    /* 通常攻撃の踏み込み(STEP 5、core/attack-lunge.js)
+
+       上の移動の if/else を「置き換えず」、決まった移動ベクトルへ足すだけ
+       にしてある ―― スキル移動(state.skillAnim)は state.vel ごと奪う形
+       なので、同じ作りにすると通常攻撃のたびにWASDが効かなくなる。
+       足すだけなら、その場で振れば踏み込みぶんだけ前へ出て、前進しながら
+       振れば従来どおり歩きに少し乗るだけで済む。
+
+       向きは振り始めに固定した state.swingLockFacing 由来(anim.fwd)。
+       毎フレーム敵を測り直さないので、横へ吸い寄せられることはない。
+       ここは壁判定(下のサブステップ)より手前なので、壁へ向かって
+       踏み込んでもめり込まない。 */
+    if(state.attackLunge){
+      const anim = state.attackLunge;
+      if(state.paralyzed || state.dodging){
+        state.attackLunge = null;   // 割り込まれたら踏み込みも止める
+      } else {
+        moveVec.addScaledVector(anim.fwd, lungeStep(anim, dt));
+        if(lungeFinished(anim, dt)) state.attackLunge = null;
+        else anim.t += dt;
+      }
+    }
+
     // apply movement in small substeps so a fast dash can never tunnel through a thin wall
     const totalMove = moveVec.length();
     const maxStep = 0.22;
@@ -749,13 +776,10 @@
       updateUltSweep(dt);
       updateDecals(dt);
       if(playerMixerParts.ring){
-        if(state.charging){
-          const chargeRatio = Math.min(1, state.chargeT/state.chargeMax);
-          const variant = getChargeVariants().dash;
-          playerMixerParts.ring.material.color.setHex(variant.vfxColor);
-          playerMixerParts.ring.material.opacity = 0.4 + chargeRatio*0.5;
-          playerMixerParts.ring.scale.setScalar(1 + chargeRatio*0.9);
-        } else if(state.skillCharging){
+        // 通常攻撃側のチャージリングは STEP 3-A.2 で廃止した(長押しは
+        // オートコンボになり、溜める状態そのものが無い)。残っているのは
+        // スキルボタン側の溜めリングだけ
+        if(state.skillCharging){
           const chargeRatio = Math.min(1, state.skillChargeT/state.skillChargeMax);
           const variant = getChargeVariants()[state.skillChoice] || getChargeVariants().retreat;
           playerMixerParts.ring.material.color.setHex(variant.vfxColor);
@@ -960,7 +984,7 @@
   function updateLocomotion(dt, moveSpeed){
     const P = playerMixerParts;
     const moving = state.grounded && moveSpeed > 0.35;   // m/s
-    const busy = state.swinging || state.skillAnim || state.charging
+    const busy = state.swinging || state.skillAnim
               || state.skillCharging || state.ultAiming;
     // state.maxHpが未確定(0)の間はhpRatio=1(苦しんでいない)扱いにする安全弁
     const hpRatio = state.maxHp>0 ? state.hp/state.maxHp : 1;

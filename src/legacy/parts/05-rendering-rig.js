@@ -2034,56 +2034,81 @@
   }
 
   /* X-ray silhouette: a translucent yellow shell that only ever draws where
-     something else (a wall, a door, terrain) is already nearer to the
-     camera at that pixel - i.e. exactly the parts of this character a wall
-     is currently hiding. depthFunc GreaterDepth is the trick: normally the
-     depth test keeps the *nearer* fragment (LessEqual), so a shell drawn
-     behind a wall just fails the test and never shows. Flipping to
-     "greater" inverts that - the shell only passes where the depth buffer
-     already holds something CLOSER than it, which can only be true where
-     an occluder is in front. Sharing the target's own geometry (like
-     addOutline above) means this costs one extra draw call per targeted
-     mesh, no new geometry.
+     something else (a wall, a door, a tree, terrain) is already nearer to
+     the camera at that pixel - i.e. exactly the parts of this character an
+     occluder is currently hiding. depthFunc GreaterDepth is the trick:
+     normally the depth test keeps the *nearer* fragment (LessEqual), so a
+     shell drawn behind a wall just fails the test and never shows.
+     Flipping to "greater" inverts that - the shell only passes where the
+     depth buffer already holds something CLOSER than it, which can only be
+     true where an occluder is in front. Sharing the target's own geometry
+     (like addOutline above) means this costs one extra draw call per
+     targeted mesh, no new geometry. The shell never writes depth
+     (depthWrite:false), so it can't disturb anything drawn after it.
 
-     First pass at this rendered the shell on top of the character all the
-     time, occluded or not - GreaterDepth relies on the shell's own depth
-     tying with the opaque body's depth at every unoccluded pixel, but the
-     unlit shell material and the body's own lit material are different
-     shader programs, and two different programs computing "the same"
-     transform can round gl_Position.z to slightly different floats. Where
-     that rounding happened to land the shell a hair *farther* than the
-     body it sits on, GreaterDepth read it as occluded and drew it anyway -
-     the whole reason "twenty enemies at once" all looked jaundiced.
+     ---- なぜ以前は画面に出なかったか(STEP 3-B、実測ベース) ----
 
-     The usual fix is a polygonOffset bias, which turned out unreliable
-     here specifically: this camera's near/far planes are 0.1/500, a
-     5000:1 ratio, which makes the depth buffer's precision wildly
-     non-uniform with distance - an offset large enough to win up close
-     (tried -4, then -100) was still nowhere near enough to matter at
-     typical play distance, where most of the buffer's precision has
-     already been spent on the near field. Biasing in view-space Z instead
-     (see XRAY_VS below) sidesteps that non-linearity, but even so the
-     margin has to be a genuinely large chunk of a world unit (3.0, found
-     empirically - 0.015 and 0.5 both still showed the shell everywhere,
-     2.0 was the first value that reliably hid it) precisely because so
-     little of the depth buffer's precision survives out at gameplay
-     range. The shell ends up biased noticeably closer to the camera than
-     the body it's shadowing, which is a non-issue for a soft translucent
-     silhouette whose whole point is "something is roughly here", not a
-     precise outline. */
+     旧実装は viewPos.z += 3.0(ビュー空間での平行移動)だった。原因は
+     「深度の精度」ではなく、次の2つ:
+
+     1. 画面位置がずれていた。
+        ビュー空間での平行移動は透視除算を通ると x / y まで動かす。
+        つまりシェルは本体を拡大・オフセットした別位置へ描かれていた。
+        実測(色と不透明度を最大にして計測): 森を12フレーム歩いて
+        10フレームは描画 0px、描かれた2フレームも足元の外側に
+        22px / 457px という、本体と無関係な位置だった。
+
+     2. バイアス量は「キャラクター自身の厚み」で決まる。
+        このリグは帯・鋲・毛先まで1つずつ別メッシュで、それぞれが自前の
+        シェルを持つ。あるパーツのシェルにとって「手前にある自分の別の
+        パーツ」も立派な遮蔽物なので、バイアスが薄いと自己遮蔽だけで
+        シルエット全面が塗り潰される。開けた場所(遮蔽なし)での描画量を
+        バイアス別に実測すると:
+            0.15 → 8933px   0.3 → 7321px   0.5 → 4981px
+            0.8  → 2564px   1.2 →   76px   2.0 →    0px
+        見下ろし53度・身長約1.8mだと自分の厚みはビュー深度にして約1.7で、
+        この測定値とよく一致する。3.0 という旧値自体は的外れではなく、
+        「入れ方」だけが間違っていた。
+
+     side も DoubleSide から FrontSide へ変えてある。同じジオメトリの
+     裏面は本体の表面より必ず奥にあるので、DoubleSide だと 2. の自己遮蔽を
+     さらに悪化させる(裏面はどんな姿勢でも必ず条件を満たす)。
+
+     正しいバイアスは「画面位置を一切変えず、深度だけをずらす」もの ――
+     本体と同じ clip.xy / clip.w を使い、z だけをビュー空間で uShrink
+     ぶん手前へ寄せた値から逆算して入れる(XRAY_VS 参照)。ワールド単位の
+     一定量なので、near/far が 0.1/500 という 5000:1 の非線形な深度分布に
+     対しても距離依存しない。
+
+     副作用として「uShrink より手前にある遮蔽物」しか発火しない。
+     カメラは自機から約10ユニット離れているので、実際に体を隠すほどの
+     遮蔽物(木・樹冠・建物)は常にこれを満たす。ただし本作の壁は高さ 2.3 で、
+     この見下ろし角では密着しないと足元しか隠さない ―― 壁で発火しないのは
+     X-ray 側ではなくレベル側の寸法による(STEP 3-B レポート参照)。 */
   const XRAY_VS = [
     'uniform float uShrink;',
     'void main(){',
-    // biasing along the surface normal isn't reliable here - whether
-    // "inward" means toward or away from the camera depends on which way
-    // that particular vertex's normal happens to face, which flips across
-    // the character. Pushing along view-space Z instead is orientation-
-    // independent: the camera always looks down -Z in view space, so
-    // increasing z (making it less negative) moves any vertex closer to
-    // the camera regardless of which way it faces.
+    // 本体とまったく同じ clip 座標をまず作る。画面位置はここから
+    // x / y / w をそのまま持ち出すので、シェルは本体と1pxもずれない。
     '  vec4 viewPos = modelViewMatrix * vec4(position, 1.0);',
-    '  viewPos.z += uShrink;',
-    '  gl_Position = projectionMatrix * viewPos;',
+    '  vec4 clip = projectionMatrix * viewPos;',
+    // 深度だけを「ビュー空間で uShrink ワールド単位ぶんカメラ側」へ寄せた
+    // 値に差し替える。ビュー空間ではカメラは -Z を向いているので、z を
+    // 増やす(負の値を0へ近づける)とカメラに近づく。near より手前へ
+    // 突き抜けると除算が壊れるのでクランプしておく。
+    '  float zb = min(viewPos.z + uShrink, -0.1001);',
+    // バイアス後の clip.z / clip.w は、投影行列の z 行と w 行だけで出せる
+    // ―― mat4 をもう一度掛ける必要はない。ソフトウェア描画の環境では
+    // 頂点段の mat4 乗算がそのままCPU負荷になるため、ここを削っておく
+    // (実測: 2回掛けていた版はヘッドレスのタイミング依存テストを
+    //  落とすほど重かった)
+    '  float bz = projectionMatrix[2][2] * zb + projectionMatrix[3][2];',
+    '  float bw = projectionMatrix[2][3] * zb + projectionMatrix[3][3];',
+    // 透視除算後に bz/bw の NDC z になるよう、本体の w に合わせて逆算した
+    // z を入れる。x / y / w は本体のまま ―― これが「画面位置は同じ、
+    // 深度だけ手前」を成立させている核心。旧実装は viewPos ごと平行移動して
+    // gl_Position を作っていたため、透視除算で x / y まで動いていた。
+    '  gl_Position = vec4(clip.xy, bz * clip.w / bw, clip.w);',
     '}'
   ].join('\n');
   const XRAY_FS = [
@@ -2091,16 +2116,33 @@
     'uniform float uOpacity;',
     'void main(){ gl_FragColor = vec4(uColor, uOpacity); }'
   ].join('\n');
+  // バイアス量(ワールド単位)。上のコメント 2. の実測表から、開けた場所で
+  // 描画量が 0 になる最小値として 2.0 を採っている
+  const XRAY_DEPTH_BIAS = 2.0;
+  /* シェルの不透明度(STEP 3-C)。同一フレーム上で候補値を差し替えて実測した
+     「遮蔽物の色からの持ち上がり量」:
+
+       暗い樹冠 (9,26,7)        0.08 → (+14,+9,+1)    0.16 → (+33,+21,+3)
+       明るい壁 (181,162,135)   0.08 → (+12,+4,-15)   0.16 → (+21,+8,-29)
+
+     0.08 はどちらの背景でも「滲み」にしか見えず、プレイ中に見落とす。
+     0.24 まで上げるとシルエットが塗り絵のように立ってしまい、本体の描画と
+     competing になる(明るい壁の上で特に顕著)。0.16 は暗い背景でも明るい
+     背景でも人型として読め、かつ「奥にいる」感じを保てる最小値だった。
+     色は 0xffe066 のまま ―― 不透明度だけで両方の背景に対応できたため。 */
+  const XRAY_OPACITY = 0.16;
   let _xrayMat = null;
   function xrayMat(){
     if(!_xrayMat){
       _xrayMat = new THREE.ShaderMaterial({
-        uniforms: {uShrink:{value:3.0}, uColor:{value:new THREE.Color(0xffe066)}, uOpacity:{value:0.08}},
+        uniforms: {uShrink:{value:XRAY_DEPTH_BIAS}, uColor:{value:new THREE.Color(0xffe066)}, uOpacity:{value:XRAY_OPACITY}},
         vertexShader: XRAY_VS,
         fragmentShader: XRAY_FS,
         transparent: true,
         depthTest: true, depthFunc: THREE.GreaterDepth, depthWrite: false,
-        side: THREE.DoubleSide, fog: false,
+        // FrontSide が必須(上のコメント 1.)。DoubleSide にすると裏面が
+        // 常に本体より奥に来て、遮蔽されていなくても必ず描画されてしまう
+        side: THREE.FrontSide, fog: false,
       });
     }
     return _xrayMat;
@@ -3183,10 +3225,10 @@
     } else if(state.ultAiming && (lib.ultHold || lib.hold)){
       const r = Math.min(1, state.ultAimT / 0.35);   // the aim ramps in, then holds
       applyPose(sampleClip(lib.ultHold || lib.hold, r));
-    } else if((state.charging || state.skillCharging) && lib.hold){
-      const r = state.charging
-        ? state.chargeT / Math.max(0.001, state.chargeMax)
-        : state.skillChargeT / Math.max(0.001, state.skillChargeMax);
+    } else if(state.skillCharging && lib.hold){
+      // 構えポーズはスキルボタン側の溜めだけが使う。通常攻撃側の溜め
+      // (state.charging)は STEP 3-A.2 で廃止した
+      const r = state.skillChargeT / Math.max(0.001, state.skillChargeMax);
       applyPose(sampleClip(lib.hold, Math.min(1, r)));
     } else if(state.classDef.key === 'archer'){
       setBowDraw(STANCE.archer.draw);
