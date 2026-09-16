@@ -1194,6 +1194,7 @@
     // pending from the dungeon fires the moment we land in the tavern
     state.swinging = false; state.swingT = 0; state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.ultAiming = false; state.ultSweep = null; state.ultBurst = null; state.pendingUlt = null; hideUltMarker();
+    state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
     state.skillCharging = false; state.skillChargeT = 0; state.skillCD = 0; state.skill2CD = 0;
     attackHeldStart = null; skillHeldStart = null;
     state.paralyzed = false; state.paralyzeT = 0; state.paralyzeInvulnT = 0;
@@ -1553,6 +1554,12 @@
   document.getElementById('scenario-close-btn').addEventListener('click', ()=> setOverlay('none'));
 
   document.getElementById('interact-btn').addEventListener('click', interact);
+  // 処刑プロンプト(Phase 4)。スマートフォンでも決められるように、
+  // 表示そのものをタップできるボタンにしてある(資料8章)
+  {
+    const execEl = document.getElementById('execute-prompt');
+    if(execEl) execEl.addEventListener('click', ()=>{ tryExecution(); });
+  }
   document.getElementById('loot-potion-btn').addEventListener('pointerdown', e=>{ e.preventDefault(); usePotion(); });
   document.getElementById('loot-mppotion-btn').addEventListener('pointerdown', e=>{ e.preventDefault(); useMpPotion(); });
 

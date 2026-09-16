@@ -109,6 +109,35 @@ test('motionDebugLines', async t=>{
     assert.ok(!bad.includes('NaN'), 'NaN がそのまま出ている');
   });
 
+  await t.test('RIG ブロック ―― リグの実測値が度で出る(Phase 3.5-B)', ()=>{
+    const rig = {
+      relaxWeight:1, stopBlend:1, combatBlend:0,
+      shL:[-0.16, 0.05, 0.22], shR:[-0.05, 0, -0.08],
+      elL:-0.42, elR:-0.24, wep:[0.1, 0.2, -0.3],
+    };
+    const text = motionDebugLines(Object.assign({}, base, {rig})).join('\n');
+    assert.ok(text.includes('RIG'));
+    assert.match(text, /RELAX\s+1\.00\s+\(stop 1\.00 \/ combat 0\.00\)/);
+    assert.match(text, /SH\.L\s+-9\.2/);       // -0.16 rad = -9.2 deg
+    assert.match(text, /EL\.L\s+-24\.1\s+EL\.R\s+-13\.8/);
+    assert.match(text, /WEP\s+ 5\.7/);
+  });
+
+  await t.test('RIG が無ければブロックごと出ない(通常プレイと同じ経路)', ()=>{
+    const text = motionDebugLines(base).join('\n');
+    assert.ok(!text.includes('RELAX'));
+    assert.ok(!text.includes('SH.L'));
+  });
+
+  await t.test('RIG の値が欠けても桁が崩れない', ()=>{
+    const text = motionDebugLines(Object.assign({}, base, {
+      rig:{relaxWeight:NaN, stopBlend:undefined, combatBlend:0.5, elL:null, elR:0.1, wep:null},
+    })).join('\n');
+    assert.ok(!text.includes('NaN'), 'NaN がそのまま出ている');
+    assert.ok(!text.includes('undefined'));
+    assert.match(text, /WEP\s+-/);            // 武器がまだ無いフレーム
+  });
+
   await t.test('角度は度で出る(ラジアンのままではない)', ()=>{
     const text = motionDebugLines(Object.assign({}, base, {headYaw: Math.PI/6})).join('\n');
     assert.match(text, /HEAD\s+30\.0/);

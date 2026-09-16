@@ -708,6 +708,27 @@
   // を画面下中央に出す。ピップは段数が変わった時だけ作り直し、毎フレームは
   // 猶予バーの幅だけ更新する(DOM再構築を攻撃のたびに繰り返さないため)
   let comboIndicatorShownFor = 0; // 直近に組み立てたコンボの長さ(0=未構築)
+  /* 処刑プロンプト(Phase 4)。
+
+     体幹を崩した敵に短い窓(core/break-window.js)が開いている間だけ
+     出す。常時表示しない・数字を足さない・既存の情報階層(ターゲットHP /
+     強敵 / ボス)に割り込まない、という既存HUDの方針(資料22章)に
+     合わせて、文字は1語だけにしてある。
+
+     押すのは既存の「調べる」と同じ R キー / 同じ位置のボタンで、
+     新しい入力体系は増やしていない(interact() が処刑を先に見る)。
+     PC専用キーだけにしないため、この要素自体がタップできる。 */
+  function updateExecutePrompt(){
+    const el = document.getElementById('execute-prompt');
+    if(!el) return;
+    const show = !!currentExecutionTarget();
+    if(show !== executePromptShown){
+      el.classList.toggle('show', show);
+      executePromptShown = show;
+    }
+  }
+  let executePromptShown = false;
+
   function updateComboIndicator(){
     const wrap = document.getElementById('combo-indicator');
     if(!wrap) return;
@@ -888,6 +909,38 @@
   /* 通った局面の記録(上記 SEEN)。デバッグモードに入った時に空にする */
   let motionSeenStates = [];
 
+  /* 処刑まわりのデバッグ用の読み取り。何も書き換えない。
+     対象は「今決められる敵」を優先し、居なければ一番近い崩れた敵 ――
+     窓が閉じた後の RECOVERY まで追えるようにするため。 */
+  function motionExecSnapshot(){
+    const picked = currentExecutionTarget();
+    /* 窓は開いているのに押せない、という状態の切り分けに要る ――
+       間合いの外なのか、向いていないのか、行動中なのかが数字で読める */
+    let nearest = null;
+    executionCandidates().forEach(c=>{
+      if(!nearest || Math.abs(c.angle) < Math.abs(nearest.angle)) nearest = c;
+    });
+    let en = picked;
+    if(!en){
+      let best = Infinity;
+      enemies.forEach(e=>{
+        if(e.dead || e.dormant || !e.knockedDown) return;
+        const d = state.pos.distanceTo(e.group.position);
+        if(d < best){ best = d; en = e; }
+      });
+    }
+    return {
+      target: picked ? (picked.midbossName || (picked.isBoss ? 'BOSS' : (picked.strongMob ? 'elite' : 'normal'))) : null,
+      reach: nearest ? {dist: nearest.dist, angle: nearest.angle} : null,
+      canInput: canTryExecution(),
+      breakState: en ? breakState(en) : BREAK_STATE.NORMAL,
+      windowT: en ? (en.execWindowT || 0) : null,
+      leadT: en ? (en.execLeadT || 0) : 0,
+      finishable: !!(en && isExecutable(en)),
+      executeT: state.executeT || 0,
+    };
+  }
+
   function motionPanelSnapshot(){
     const cls = state.classDef ? state.classDef.key : null;
     const wt = cls ? WEAPON_TYPES[cls] : null;   // 05-rendering-rig.js。連結後は同じスコープ
@@ -917,6 +970,8 @@
       dedicatedIdle: hasDedicatedIdleProfile(state.job),
       stanceWeight: combatStanceWeight(state.combatStanceT || 0),
       seen: motionSeenStates,
+      rig: motionRigSnapshot(),   // 05-rendering-rig.js。デバッグモード時だけ読む
+      exec: motionExecSnapshot(),  // Break / Execution Window(Phase 4)
     };
   }
 
@@ -1004,6 +1059,7 @@
       updateCamera(dt);
       updateSunShadow();
       updateHUD();
+      updateExecutePrompt();   // 処刑の窓が開いている間だけ出る(Phase 4)
       updateComboIndicator();
       updateArenaPanel(dt);   // Combat Test Arena専用。state.testMode以外では即return
       updateDoors(dt);
@@ -1103,6 +1159,7 @@
     state.smithJoined = false; state.smithGreeted = false;      // 鍛冶士は洋館クリアまで酒場に居ない
     state.guestClassKey = CHAPTER_CAST[1].guestClassKey || null;   // 第一章は剣士単独(#41)
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
+    state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
     state.level = 1; state.xp = 0; state.xpToNext = xpToNextForLevel(1);
     state.levelGrowth = zeroAlloc();
@@ -1193,6 +1250,7 @@
     // 現状唯一guestClassKeyを非nullにできる経路
     state.guestClassKey = (guestKey && CLASSES[guestKey]) ? guestKey : null;
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
+    state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
 
     // レベル: grantXP()の成長式(12-progression-ui.js)と同じ計算を、

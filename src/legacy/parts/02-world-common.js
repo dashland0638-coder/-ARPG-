@@ -2267,6 +2267,10 @@
   }
 
   function interact(){
+    /* 処刑(Phase 4)を最優先で見る。窓は 1.6 秒しか開かないのに対して
+       扉や調べ物は逃げないので、競合したら処刑を優先するのが正しい。
+       成立しなければ false が返り、以降は従来どおり */
+    if(tryExecution()) return;
     if(nearbyShadowGuide){ talkToShadowGuide(); }
     else if(nearbyDoor){ openDoor(nearbyDoor); }
     else if(nearbyStairs){ useStairs(); }

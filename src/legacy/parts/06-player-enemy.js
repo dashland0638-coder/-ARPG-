@@ -3707,6 +3707,10 @@
       // 体幹ゲージも一回り大きくしてある(dealDamageToEnemyのガード減衰参照)
       posture:0, postureMax:mobPostureMax(variant, _D.hp),   // 55 / 強敵130 / ガード持ち×1.3(core/stagger-math.js、値は不変)
       knockedDown:false, knockdownT:0, postureGraceT:0, postureRecoveryDelayT:0, bigFlinched:false,
+      /* Break → Execution Window(core/break-window.js、Phase 4)。
+         体幹を崩した直後だけ開く短い窓。既存の knockedDown/knockdownT の
+         内側に時間を切るだけで、新しいAIステートは足していない */
+      execLeadT:0, execWindowT:0, execConsumed:false, executing:false, execBreakId:0,
       guardian:!!variant.guardian, shieldGroup, shieldMat, shieldBaseRot:0,
       /* 守護型強モブ(guardian && strongMob)のガードブレイク(core/guardian-break.js)。
          specialKind は将来 A突進型 / C異形型 を足す時の受け口で、今回は
@@ -4172,7 +4176,11 @@
       clearName:cfg.clearName, clearFlavor:cfg.clearFlavor, rewardLoot:cfg.rewardLoot,
       // 体幹(怯み・ダウン): ボスはHPに対して割合を小さく取り、短時間だけ大きな隙が生まれる
       posture:0, postureMax:bossPostureMax(cfg.hpMax, _D.hp),   // HPインフレを体幹ゲージの長さに直結させない(core/stagger-math.js)
-      knockedDown:false, knockdownT:0, postureGraceT:0, postureRecoveryDelayT:0, bigFlinched:false
+      knockedDown:false, knockdownT:0, postureGraceT:0, postureRecoveryDelayT:0, bigFlinched:false,
+      /* Break → Execution Window(core/break-window.js、Phase 4)。
+         体幹を崩した直後だけ開く短い窓。既存の knockedDown/knockdownT の
+         内側に時間を切るだけで、新しいAIステートは足していない */
+      execLeadT:0, execWindowT:0, execConsumed:false, executing:false, execBreakId:0,
     };
   }
 

@@ -520,6 +520,31 @@
   #interact-btn.branch-locked{ border-color:#5a5a62; color:#a8a8b0; background:rgba(20,20,26,0.78); }
   #interact-btn.branch-locked::before{ content:'🔒 '; opacity:1; }
 
+  /* 処刑(Phase 4)。体幹を崩した敵に開く短い窓の間だけ出る。
+     #interact-btn と同じ位置・同じ形にしてあるのは、押すキー(R)も
+     触るボタンも既存の「調べる」と同じものだから ―― 新しい操作体系は
+     増やさず、その瞬間だけ意味が入れ替わることを色で示す。
+     常時表示はしない(資料22章)。 */
+  #execute-prompt{
+    /* #interact-btn(bottom:22%)と同時に出ても重ならない位置。
+       押すキーもタップ先も別なので、並んで見えてよい */
+    position:fixed; left:50%; bottom:28%; transform:translate(-50%,0);
+    z-index:23; display:none; opacity:0; pointer-events:none; white-space:nowrap;
+    padding:9px 22px; border-radius:16px; cursor:pointer;
+    background:rgba(58,22,10,0.82); color:#ffe6b0;
+    border:1px solid #ffb257; font-family:'Noto Sans JP',sans-serif;
+    font-size:13.5px; letter-spacing:0.08em; font-weight:700;
+    box-shadow:0 0 18px rgba(255,170,80,0.35);
+    transition:opacity .12s;
+  }
+  #execute-prompt::before{ content:'✦ '; opacity:1; }
+  #execute-prompt.show{ display:block; opacity:1; pointer-events:auto; animation:execPulse 0.62s ease-in-out infinite alternate; }
+  #execute-prompt:active{ background:rgba(255,170,80,0.32); }
+  @keyframes execPulse{
+    from{ box-shadow:0 0 12px rgba(255,170,80,0.28); }
+    to  { box-shadow:0 0 26px rgba(255,190,110,0.62); }
+  }
+
   .continue-banner{
     display:flex; align-items:center; justify-content:space-between; gap:14px;
     flex-wrap:wrap;

@@ -376,6 +376,7 @@
 
   function tryAttack(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging) return;
+    if(state.executeT > 0) return;   // 処刑の再生中は通常攻撃を受け付けない(資料10章)
     checkHealingCrystalBreak();   // 攻撃入力そのものに独立して乗せてあるので、通常のコンボ/CD管理には影響しない
     /* 空中の攻撃入力は必ず空中アクションへ落とす(Phase 5/7)。
 
@@ -937,6 +938,7 @@
 
   function castSkill2(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     if(blockedInAir('SKILL 2')) return;
     if(state.skill2CD>0) return;
     if(state.swinging || state.skillCharging) return; // can't overlap with other attack actions
@@ -973,6 +975,7 @@
      既存の仕組みに乗せてあり、新しいダメージ経路は増やしていない */
   function castBossSkill3(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     if(blockedInAir('SKILL 3')) return;
     if(!state.equippedBossActiveSkill){ spawnToast('💥 スキル3が装着されていない(鑑定所で装着できます)'); return; }
     if(state.bossSkill3CD>0) return;
@@ -1420,6 +1423,7 @@
   // fires straight away
   function tryUltimate(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     if(blockedInAir('ULTIMATE')) return;
     if(!ultReady() || state.ultAiming) return;
     if(state.classDef.ult.aimed){ beginUltAim(); return; }
@@ -1481,6 +1485,172 @@
     if(pu.t > 0) return;
     state.pendingUlt = null;
     pu.fire();
+  }
+
+  /* =========================================================
+     EXECUTION ―― 崩した敵を決めに行く(Phase 4)
+
+     既存のものを作り直していない。体幹を削る/崩す(triggerKnockdown)も、
+     処刑の所作・SE・カメラ(core/execution.js の EXECUTION_STYLE)も、
+     ダメージを通す経路(dealDamageToEnemy)も元からある。ここが足すのは
+     「崩れた敵へ、プレイヤーが自分の意思で決めに行く入力」1つだけ。
+
+     それまでの処刑は dealDamageToEnemy の中で条件(HP10%以下 + コンボの
+     フィニッシュ段)が揃ったときに勝手に乗る倍率で、押した覚えの無いまま
+     決まっていた。体幹を崩したこととも繋がっていない。窓・入力・専用の型を
+     足して、「崩した → 今だ → 押す → 決まる」を1本の因果にする。
+
+     ■ フィニッシャーの型
+     新しいキーフレームは起こさない。その職の**必殺技の型**をそのまま
+     流用する(資料11章)。必殺技の型は8職ぶん既に描き分けられていて、
+     接触フレーム(core/ult-clips.js の ULT_IMPACT_FRAC)まで定義済み ――
+     剣士は踏み込んで振り下ろし、盗賊は低く沈んで一息に、魔法使いは
+     掲げてから振り下ろし、弓師は引き絞って放つ。資料12章が求める
+     職ごとの見え方と、そのまま一致する。通常攻撃(basic/basic2)とは
+     長さも軌道も明確に違うので、見間違えようがない。
+     音と衝撃だけは処刑専用のもの(EXECUTION_STYLE)を鳴らすので、
+     必殺技とも手応えが分かれる。
+  ========================================================= */
+  function executionClipName(){
+    const lib = CLIPS[state.classDef && state.classDef.key];
+    const jobClip = JOB_ULT_CLIP[state.job];
+    if(jobClip && lib && lib[jobClip]) return jobClip;   // 上位職の専用の型
+    return (lib && lib.ult) ? 'ult' : 'basic';
+  }
+
+  /* 窓が開いている敵を {en, 距離, 正面からの角度} に均す。
+     選ぶ規則そのものは core/break-window.js の pickExecutionTarget()
+     ―― THREE をあちらへ持ち込まないための分担で、ここは座標を測るだけ。 */
+  function executionCandidates(){
+    const out = [];
+    if(!state.classDef) return out;
+    enemies.forEach(en=>{
+      if(!isExecutable(en)) return;
+      if(!isBossAccessible(en)) return;
+      const dx = en.group.position.x - state.pos.x;
+      const dz = en.group.position.z - state.pos.z;
+      const d = Math.sqrt(dx*dx + dz*dz);
+      out.push({
+        en,
+        // 間合いは既存の近接判定と同じく「敵の表面」基準で測る
+        dist: Math.max(0, d - (en.hitRadius || 0)),
+        angle: normalizeAngle(Math.atan2(dx, dz) - state.facing),
+      });
+    });
+    return out;
+  }
+
+  // 今この瞬間に決められる敵(居なければ null)。HUD の表示もこれを見る
+  function currentExecutionTarget(){
+    if(!canTryExecution()) return null;
+    return pickExecutionTarget(executionCandidates(), {
+      range: executionRange(state.classDef && state.classDef.key),
+      aim: EXECUTION_AIM_ANGLE,
+    });
+  }
+
+  function canTryExecution(){
+    if(!state.started || state.paused || state.dialogueActive) return false;
+    if(state.activeOverlay && state.activeOverlay !== 'none') return false;
+    if(state.executeT > 0) return false;          // 既に決めに行っている
+    if(state.dodging || !state.grounded) return false;
+    /* 通常攻撃の「振っている最中」は止めない。
+
+       実機で分かったこと: 窓が開くのは体幹を削り切った瞬間 ―― つまり
+       プレイヤーが攻撃を押しっぱなしにしている真っ最中で、state.swinging は
+       ほぼ常に真になっている。ここで弾くと、資料18章の「通常攻撃 →
+       Break → EXECUTE 表示 → 入力」がそもそも成立しない(実際、
+       プロンプトが一度も出なかった)。
+
+       振りかけの通常攻撃は処刑で打ち切る ―― そのぶんの一撃は失うが、
+       決めに行ったのだからそれでよい。打ち切りの後始末は tryExecution()。
+
+       一方、溜め・必殺技の構え・必殺技の再生中は割り込ませない。
+       どれもゲージやスタミナを既に握っていて、途中で消すと
+       「押した資源が消えた」になるため。 */
+    if(state.skillCharging || state.ultAiming || state.skillAnim) return false;
+    if(state.pendingUlt) return false;
+    return true;
+  }
+
+  /* 入力の入口。成立したら true を返す ―― interact() が
+     「処刑が出たなら扉は開けない」を判断するために使う。 */
+  function tryExecution(){
+    const target = currentExecutionTarget();
+    if(!target) return false;
+    /* 多重発火の最終防壁。窓を閉じてから何をするかを決めるので、
+       同じフレームに2回呼ばれても2回目は false で弾かれる
+       (core/break-window.js の consumeExecutionWindow) */
+    if(!consumeExecutionWindow(target)) return false;
+
+    state.executeTarget = target;
+    /* 振りかけの通常攻撃を打ち切る。保留していたダメージ(戦騎士の
+       Hitタイミング同期)と保留SEを捨てるだけで、既に当たった分は
+       そのまま ―― 処刑が二重に当たることはない */
+    state.pendingSwing = null;
+    state.pendingMoveSfx = null;
+    // 決める相手を必ず正面に置く(背中を向けたまま処刑しない)
+    const dx = target.group.position.x - state.pos.x;
+    const dz = target.group.position.z - state.pos.z;
+    if(dx*dx + dz*dz > 0.0001) state.facing = Math.atan2(dx, dz);
+
+    const clip = executionClipName();
+    state.swinging = true;
+    beginMove(clip);          // SE は接触の瞬間に処刑専用のものを鳴らす
+    state.swingLockFacing = state.facing;
+    /* 決めている間は通常の攻撃・スキル・必殺技・回避を受け付けない
+       (資料10章「Execution中に通常攻撃が重複発火しないこと」)。
+       クリップ長 + 余韻。CDも同じ長さだけ伸ばして、クリップが終わった
+       瞬間に通常攻撃が飛び出さないようにする */
+    state.executeT = state.swingDur + 0.12;
+    state.attackCD = Math.max(state.attackCD || 0, state.executeT);
+    state.comboWindowT = 0; state.comboStage = 0;   // 通常コンボとは独立
+
+    /* 一撃が届く瞬間まで、ダメージと演出を保留する。必殺技
+       (pendingUlt)と同じ仕組みで、applyCombatPose が ultHitFrac を
+       見てクリップの進み方を折り曲げ、見た目の接触と結果を重ねる */
+    const base = (state.classDef.atk || 1) + Math.round(Math.random()*4);
+    const delay = ultImpactDelay(clip, state.swingDur);
+    state.ultHitFrac = state.swingDur > 0 ? delay / state.swingDur : 0;
+    const fire = ()=> resolveExecution(target, base);
+    if(delay > 0) state.pendingExecution = {t: delay, fire};
+    else fire();
+    emitArenaFeedback('EXECUTION', executionStyle(state.classDef.key, state.job).label);
+    return true;
+  }
+
+  function resolveExecution(en, base){
+    endExecution(en);
+    if(state.executeTarget === en) state.executeTarget = null;
+    if(!en || en.dead || en.dormant) return;   // 決めに行く間に倒れた/消えた
+    /* 演出(火花・カメラ・閃光・SE・トースト・必殺ゲージ)は
+       dealDamageToEnemy の処刑分岐がそのまま鳴らす ―― 既存の
+       EXECUTION_STYLE をここで二重に鳴らさない */
+    dealDamageToEnemy(en, base, false, {execution:true, isFinish:true, ultGauge:6});
+  }
+
+  function updatePendingExecution(dt){
+    if(state.executeT > 0){
+      state.executeT = Math.max(0, state.executeT - dt);
+      if(state.executeT === 0 && state.executeTarget){
+        endExecution(state.executeTarget);
+        state.executeTarget = null;
+      }
+    }
+    const pe = state.pendingExecution;
+    if(!pe) return;
+    if(!state.started || state.dialogueActive){
+      // ダンジョンを出た/会話に入った ―― 保留を捨て、敵側の印も戻す
+      state.pendingExecution = null;
+      if(state.executeTarget) endExecution(state.executeTarget);
+      state.executeTarget = null;
+      state.executeT = 0;
+      return;
+    }
+    pe.t -= dt;
+    if(pe.t > 0) return;
+    state.pendingExecution = null;
+    pe.fire();
   }
 
   function resolveUltimate(ult, aimTarget, ultDmgMul, ultAreaMul){

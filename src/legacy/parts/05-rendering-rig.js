@@ -2311,6 +2311,118 @@
     return STANCE[clsKey] || STANCE.warrior;
   }
 
+  /* =========================================================
+     EXPLORATION / SOCIAL IDLE ―― 武器を構えていないときの立ち姿
+
+     調査で分かったのは「非戦闘の立ち姿が弱い」ではなく、**存在しない**
+     ということだった。buildPlayer() は腕の基準姿勢 armLBase/armRBase/
+     elbowLBase を activeStance()(= 戦闘の構え)から複製しており、
+     updateLocomotion は停止中 swing=0 になるので腕・肘・脚・膝へ書く値が
+     すべてその基準姿勢そのものになる ―― 酒場でも探索でも、キャラクターは
+     戦闘の構えのまま1ミリも動かずに立っていた。動いていたのは呼吸・
+     全身の上下(bob)・腰のごく小さな傾き/横移動だけで、腕と武器は完全に固定。
+
+     STANCE_RELAXED はその欠けていた「休め」の姿勢。STANCE の同じ形で
+     書いてあり、書いていないフィールド(grip / armSwing / tip / aimWorld /
+     draw / trail、および武器の向き wep)はクラスの構えから引き継ぐ。
+     grip を変えないのは、持ち替え(納刀・武器の収納)が今回の対象外で、
+     手が飛ぶのを避けるため。
+
+     ■ なぜ剣士だけ武器を下ろさないのか
+     大剣は tip=1.55m ある。手の高さは約1.0mなので、切っ先を下へ向けると
+     床を突き抜ける(45°でも手から1.1m下)。そのため剣士だけは「担いだまま
+     力を抜く(刃をより立てて、腕を下ろす)」型にした ―― 休めの読み取りは
+     保ったまま、床の貫通を作らない唯一の選択肢。短剣・杖・弓は短いので
+     そのまま下げられる。
+
+     ■ 魔法使い・弓師の武器の向き(wep)を書き換えていない理由
+     projectileOrigin() は P.weaponTip / P.weapon のワールド座標を読み、
+     かつ mage/archer は impactFrac が 0 なので swingOnce() が入力フレームに
+     走る ―― つまり「1つ前のフレームの武器の位置」から弾が出る。非戦闘で
+     武器の向きまで変えると初弾の発射位置が動くので、肩・肘だけを緩め、
+     武器の向きはクラスの構えのまま残した。
+  ========================================================= */
+  const STANCE_RELAXED = {
+    warrior: {            // 大剣を担いだまま脱力。刃は立て、腕を下ろす
+      waist:[0.01,-0.07, 0.01],
+      shL:[-0.26, 0.10, 0.44], elL:-1.50,
+      shR:[ 0.10,-0.05,-0.12], elR:-1.88,
+      wep:[0.180,0.930,-0.320,-0.940,0.100,-0.240],
+      hipL:0.02, hipR:-0.02, kneeL:0.11, kneeR:0.04
+    },
+    rogue: {              // 短剣を下ろし、片足へ体重を預ける
+      waist:[0.03, 0.09, 0.01],
+      shL:[-0.20, 0.08, 0.28], elL:-0.55,
+      shR:[-0.14,-0.06,-0.22], elR:-0.62,
+      wep:[0.100,-0.720,0.690,-0.990,-0.060,0.080],
+      hipL:0.10, hipR:-0.04, kneeL:0.16, kneeR:0.05
+    },
+    mage: {               // 杖を突いて立つ。腕だけ下ろし、杖の向きは触らない
+      waist:[0.00, 0.03, 0],
+      shL:[-0.16, 0.05, 0.22], elL:-0.42,
+      shR:[-0.05, 0.00,-0.08], elR:-0.24,
+      hipL:0.04, hipR:-0.02, kneeL:0.09, kneeR:0.04
+    },
+    archer: {             // 弓を提げ、半身を解く(射線に関わる wep は触らない)
+      waist:[0.01, 0.24, 0],
+      shL:[-0.34,-0.09, 0.26], elL:-0.48,
+      shR:[-0.08, 0.04,-0.24], elR:-0.44,
+      hipL:0.05, hipR:-0.07, kneeL:0.10, kneeR:0.05
+    }
+  };
+
+  /* 上位職の上書き。基礎職の休め姿勢へ部分的にかぶせるだけなので、
+     8職ぶんキーを足していける(Combat Idle 側の JOB_IDLE_MUL と同じ作法)。
+     ここで表現するのは「戦っていないときのその人物の癖」であって、
+     戦闘の構えの強弱ではない。 */
+  const JOB_RELAXED_STANCE = {
+    // 戦騎士: 騎士らしく直立。重心をほとんど崩さない
+    battleKnight: { waist:[0.01,-0.05, 0.00],
+                    hipL:0.02, hipR:-0.02, kneeL:0.07, kneeR:0.05 },
+    // バーサーカー: 足を広く、肩を落として腕をぶら下げる
+    berserker:    { shL:[-0.14, 0.12, 0.30], shR:[-0.08,-0.10,-0.26],
+                    hipL:0.13, hipR:-0.09, kneeL:0.18, kneeR:0.12 },
+    // 魔導士: 杖を身体の前で軽く支える。ほとんど動かない
+    archmage:     { waist:[0.00, 0.02, 0], shL:[-0.20, 0.05, 0.24], elL:-0.50 },
+    // 鷹の目: 立ったまま遠くを見ている。足元は動かさない
+    hawkEye:      { waist:[0.01, 0.18, 0],
+                    hipL:0.04, hipR:-0.05, kneeL:0.08, kneeR:0.05 }
+  };
+
+  /* サブ武器(槍・刀・魔法剣・ボウガン)には休めの型を書いていない。
+     そこだけ非戦闘で固まると持ち替えた瞬間に生き死にが変わって見えるので、
+     構えを「腕を下ろした状態(回転0)」へ一定割合だけ引いた姿勢を機械的に
+     作る。手で起こした4クラスほどの表情は出ないが、止まりはしない。
+     wep は触らない ―― 上記のとおり発射位置に関わるものがあるため。 */
+  const RELAX_TOWARD_REST = { sh:0.45, shRoll:0.25, el:0.45, waistPitch:0.45, waistYaw:0.40 };
+  function deriveRelaxedStance(st){
+    const f = RELAX_TOWARD_REST;
+    return Object.assign({}, st, {
+      waist:[st.waist[0]*(1-f.waistPitch), st.waist[1]*(1-f.waistYaw), st.waist[2]],
+      shL:[st.shL[0]*(1-f.sh), st.shL[1], st.shL[2]*(1-f.shRoll)],
+      shR:[st.shR[0]*(1-f.sh), st.shR[1], st.shR[2]*(1-f.shRoll)],
+      elL: st.elL*(1-f.el), elR: st.elR*(1-f.el),
+      // 片足重心。左右差を付けるだけで「休んでいる」に見える
+      kneeL: st.kneeL*1.35, kneeR: st.kneeR*0.55
+    });
+  }
+
+  /* 休めの姿勢は定数の合成でしかないので、組み上がったものを覚えておく
+     (毎フレーム Object.assign を3回するのを避けるだけ)。 */
+  const _relaxedStanceCache = new Map();
+  function activeRelaxedStance(clsKey, usingAlt, jobKey){
+    const ck = clsKey + '|' + (usingAlt ? 1 : 0) + '|' + (jobKey || '');
+    const hit = _relaxedStanceCache.get(ck);
+    if(hit) return hit;
+    const combat = activeStance(clsKey, usingAlt);
+    const authored = (combat === STANCE[clsKey]) ? STANCE_RELAXED[clsKey] : null;
+    let out = authored ? Object.assign({}, combat, authored) : deriveRelaxedStance(combat);
+    const ov = JOB_RELAXED_STANCE[jobKey];
+    if(ov) out = Object.assign({}, out, ov);
+    _relaxedStanceCache.set(ck, out);
+    return out;
+  }
+
   /* Keyframes may name the easing of the segment that STARTS at them, and
      may displace the whole body:
        e:'slow'  a long loaded wind-up - the anticipation
@@ -3244,11 +3356,15 @@
   }
 
   /* Runs after locomotion, so an attack always wins over the walk cycle. */
-  function applyCombatPose(){
+  function applyCombatPose(dt, moving){
     const lib = CLIPS[state.classDef.key];
     if(!lib) return;
     _poseShift.set(0,0,0);
     combatIdleWaistTarget = 0;   // Combat Idle の分岐に入ったときだけ入る
+    /* 非戦闘 ↔ 戦闘 と 移動 ↔ 停止 のクロスフェード係数。どの分岐へ
+       入っても必ず進める ―― 攻撃中に止めてしまうと、振り終わった瞬間に
+       係数が古いままで脱力姿勢が一瞬だけ出てしまう */
+    stepRelaxedBlends(dt, moving);
     if(state.swinging){
       const clip = lib[state.moveClip] || lib.basic;
       const isBasicCombo = /^(basic|altBasic)/.test(state.moveClip);
@@ -3285,8 +3401,10 @@
       applyPose(sampleClip(lib.hold, Math.min(1, r)));
     } else if((state.combatStanceT||0) > 0){
       applyCombatIdlePose();
-    } else if(state.classDef.key === 'archer'){
-      setBowDraw(STANCE.archer.draw);
+      applyRelaxedIdlePose();   // 構えを解いていく途中だけ効く(下記)
+    } else {
+      if(state.classDef.key === 'archer') setBowDraw(STANCE.archer.draw);
+      applyRelaxedIdlePose();
     }
   }
 
@@ -3365,6 +3483,93 @@
     if(state.playerHitReactT > 0){
       P.waist.rotation.x -= 0.18 * Math.sin((state.playerHitReactT/0.20)*Math.PI) * w;
     }
+  }
+
+  /* =========================================================
+     EXPLORATION / SOCIAL IDLE の適用
+
+     Combat Idle の「あと」に、もう1段だけ重ねる形にしてある。
+     applyCombatIdlePose() には一切触れていない ―― 触らなければ、戦闘中の
+     見え方が変わっていないことを読んだだけで保証できる。
+
+     重ね方:
+       1. applyCombatIdlePose() がリグへ「歩行姿勢 → 戦闘の構え」を書く
+          (戦闘態勢が 0 ならそのまま何も書かずに戻る)
+       2. ここがその結果を読み、「休めの姿勢」へ w だけ寄せる
+          w = 停止しているか × (1 - 戦闘態勢)
+
+     停止中の 1. の出力は、実質いつもクラスの構えそのものになる ――
+     armLBase 等が構えから作られていて、停止中は歩行の腕振りが 0 だから。
+     つまり w=0.5 のとき、リグは「構え 半分 : 休め 半分」に落ち着く。
+     戦闘態勢が濃いときは w が 0 へ行くので、構えが必ず勝つ。
+
+     ■ 武器の向き(wep)と腰の沈み(drop)を cur に入れてある理由
+     blendPose は「片側にしか無いキーはそのまま採用する」ので、cur に
+     入れておかないとウェイトがいくら小さくても休め側の値へ一足飛びに
+     切り替わってしまう。剣士は休めで刃の角度が変わるため、そこだけ
+     カクッと飛んで見える。今リグに出ている値を起点として渡せば、
+     0.5〜0.8秒かけて回っていく。
+  ========================================================= */
+  // 0 = 移動中, 1 = 立ち止まっている。歩き出し/立ち止まりで姿勢が飛ばない
+  // よう指数追従にする(移動の開始側は構えより気持ち速く抜ける)
+  let relaxStopBlend = 0;
+  // 0 = 完全に非戦闘, 1 = 完全に戦闘態勢。combatStanceWeight を追いかける
+  let relaxCombatBlend = 0;
+  function stepRelaxedBlends(dt, moving){
+    const d = dt > 0 ? dt : 0;
+    relaxCombatBlend = stepRestBlend(relaxCombatBlend, combatStanceWeight(state.combatStanceT), d);
+    relaxStopBlend = stepRestBlend(relaxStopBlend, moving ? 0 : 1, d, REST_STOP_RATE);
+    if(relaxCombatBlend < 0.0005) relaxCombatBlend = 0;
+    if(relaxStopBlend < 0.0005) relaxStopBlend = 0;
+  }
+
+  function applyRelaxedIdlePose(){
+    const P = playerMixerParts;
+    if(!P.waist || !P.armL || !P.armR || !P.elbowL || !P.elbowR) return;
+    /* 回避中と滞空中は Combat Idle と同じ理由で手を出さない ―― どちらも
+       updateLocomotion が全身の専用ポーズを書いている */
+    if(state.dodging || !state.grounded) return;
+    const w = relaxStopBlend * (1 - relaxCombatBlend);
+    if(w <= 0.002) return;
+
+    const cur = {
+      waist:[P.waist.rotation.x, P.waist.rotation.y, P.waist.rotation.z],
+      shL:[P.armL.rotation.x, P.armL.rotation.y, P.armL.rotation.z],
+      shR:[P.armR.rotation.x, P.armR.rotation.y, P.armR.rotation.z],
+      elL:P.elbowL.rotation.x, elR:P.elbowR.rotation.x,
+      hipL:P.legL ? P.legL.rotation.x : 0, hipR:P.legR ? P.legR.rotation.x : 0,
+      kneeL:P.kneeL ? P.kneeL.rotation.x : 0, kneeR:P.kneeR ? P.kneeR.rotation.x : 0,
+      // 上記「cur に入れてある理由」を参照
+      wep: activeStance(state.classDef.key, state.usingAltWeapon).wep,
+      drop: -_poseShift.y
+    };
+
+    const st = activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job);
+    const prof = relaxedIdleProfile(state.classDef.key, state.job);
+    // 組み立ては core/relaxed-idle.js。揺れの式そのものは Combat Idle と
+    // 共有しており(combatIdleOffsets)、振幅の表だけが別
+    const built = buildRelaxedIdleTarget(st, prof, strideT, 1, state.job);
+    applyPose(blendPose(cur, built.target, w));
+    // 腰の横移動(重心)。applyPose が扱わないチャンネルなので、
+    // Combat Idle が置いた目標値へ同じウェイトで寄せる
+    combatIdleWaistTarget += (built.idle.waistShift - combatIdleWaistTarget) * w;
+  }
+
+  /* Debug Motion Preview 用の読み取り(14-hud-boot.js の
+     motionPanelSnapshot から、デバッグモードのときだけ)。
+     ここは何も書き換えない ―― 見るだけの関数。 */
+  function motionRigSnapshot(){
+    const P = playerMixerParts;
+    if(!P || !P.armL || !P.armR || !P.elbowL || !P.elbowR) return null;
+    return {
+      relaxWeight: relaxStopBlend * (1 - relaxCombatBlend),
+      stopBlend: relaxStopBlend,
+      combatBlend: relaxCombatBlend,
+      shL:[P.armL.rotation.x, P.armL.rotation.y, P.armL.rotation.z],
+      shR:[P.armR.rotation.x, P.armR.rotation.y, P.armR.rotation.z],
+      elL: P.elbowL.rotation.x, elR: P.elbowR.rotation.x,
+      wep: P.weapon ? [P.weapon.rotation.x, P.weapon.rotation.y, P.weapon.rotation.z] : null,
+    };
   }
 
   /* =========================================================

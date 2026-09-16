@@ -146,7 +146,10 @@
     const en = nearest;
     let aiState;
     if(en.isBoss) aiState = en.atkWindup ? 'WINDUP' : (en.postAtkRecoveryT>0 ? 'RECOVERY' : (en.triggered ? 'CHASE' : 'DORMANT'));
-    else if(en.knockedDown) aiState = 'KNOCKDOWN';
+    // 崩れている間は、資料の語彙(BREAK / EXECUTION_WINDOW / RECOVERY)を
+    // そのまま出す ―― 「今どの段階か」が Arena で読めないと窓の長さを
+    // 調整できない(core/break-window.js、Phase 4)
+    else if(en.knockedDown) aiState = breakState(en);
     else if(en.atkType==='charge') aiState = (en.chargeState||'idle').toUpperCase();
     else if(en.atkType==='jumper') aiState = (en.jumpState||'idle').toUpperCase();
     else aiState = (en.atkType||'passive').toUpperCase();
