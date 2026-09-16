@@ -71,6 +71,11 @@ import {
 } from '../core/combat-stance.js';
 // Debug Motion Preview の行の組み立て(デバッグモード時のみ呼ばれる)
 import { motionDebugLines, motionStateLabel } from '../core/motion-preview.js';
+// 非戦闘時(酒場・探索)の待機。揺れの式は combat-stance.js と共有し、
+// 振幅の表と「休めの姿勢」だけが別 ―― Combat Idle 側の計算は変えていない
+import {
+  buildRelaxedIdleTarget, relaxedIdleProfile, stepRestBlend, REST_STOP_RATE,
+} from '../core/relaxed-idle.js';
 import {
   stepVisibility, minimapVisible, threatHighlight, bearingLabel,
   SIGHT_RANGE, THREAT_SENSE_RANGE,
@@ -79,6 +84,16 @@ import {
   isFinishable, canExecute, executionStyle, executionDamage,
   EXECUTION_HP_RATIO, EXECUTION_ULT_BONUS, EXECUTION_HITSTOP_MAX,
 } from '../core/execution.js';
+/* Break → Execution Window(Phase 4)。体幹を崩した直後の短い窓と、
+   その窓で成立する処刑のダメージ。既存の knockedDown の内側に時間を
+   切るだけで、新しいステートマシンは足していない */
+import {
+  BREAK_STATE, BREAK_LEAD_SEC, EXECUTION_WINDOW_SEC, EXECUTION_AIM_ANGLE,
+  openExecutionWindow, stepExecutionWindow, clearExecutionWindow,
+  isExecutable, breakState, pickExecutionTarget, executionRange,
+  executionBreakDamage, consumeExecutionWindow, endExecution, shouldFinishOff,
+  BREAK_HITSTOP, BREAK_HITSTOP_MAX,
+} from '../core/break-window.js';
 /* normalizeAngle は 05-rendering-rig.js が同名の関数を既に持っている
    (連結後は1つのスコープなので二重宣言になる)。look-rig 側の
    normalizeAngle は distributeLook が内部で使うだけなので import しない */

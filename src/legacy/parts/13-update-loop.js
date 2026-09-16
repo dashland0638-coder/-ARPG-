@@ -194,6 +194,7 @@
 
   function skillInputDown(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     if(blockedInAir('SKILL')) return;   // 空中スキル禁止(Phase 4)
     if(skillHeldStart!=null) return;
     if(state.skillCD>0) return; // longer recast keeps skills from being spammed faster than a normal attack
@@ -476,6 +477,7 @@
     if(state.attackCD>0) state.attackCD = Math.max(0,state.attackCD-dt);
     updateCombatStance(dt);
     updatePendingUlt(dt); // 必殺技の一撃が届く瞬間(core/ult-clips.js)
+    updatePendingExecution(dt);   // 処刑の一撃が届く瞬間(11-combat-actions.js、Phase 4)
     updateUltBurst(dt);   // 多段必殺技の残りの段(サブ武器専用)
     if(state.dodgeCD>0) state.dodgeCD = Math.max(0,state.dodgeCD-dt);
     if(state.ultLockT>0) state.ultLockT = Math.max(0,state.ultLockT-dt);   // 発動直後の保険的ロックアウトのみ(本体はゲージ制)
@@ -1210,7 +1212,9 @@
     player.rotation.x = -leanZ*0.55;
     player.rotation.z =  leanX*0.55;
 
-    applyCombatPose();   // an attack or a charge overrides the walk cycle
+    // dt と moving は非戦闘Idle(Exploration/Social)のクロスフェードが使う。
+    // 攻撃・スキル・必殺技の分岐は従来どおりで、引数は見ていない
+    applyCombatPose(dt, moving);   // an attack or a charge overrides the walk cycle
     updateLookRig(dt);   // 視線 → 頭 → 体幹 の配分(core/look-rig.js)。
                          // applyCombatPose の後、updateGrip の前 ―― 体幹の
                          // 角度が決まってからでないと手の位置が確定しない

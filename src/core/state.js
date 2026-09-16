@@ -115,6 +115,13 @@ import * as THREE from 'three';
        ({t, fire}、core/ult-clips.js の ULT_IMPACT_FRAC)。通常攻撃の
        pendingSwing と同じ扱いで、戦闘中の一時状態なのでセーブ対象外 */
     pendingUlt:null,
+    /* 処刑(Phase 4)。体幹を崩した敵に開く Execution Window へ
+       プレイヤーが入力したときだけ立つ。
+         executeT       … フィニッシャーの再生残り時間(>0 の間は通常攻撃を止める)
+         executeTarget  … 決めに行っている敵(1体だけ。撃破/離脱で落とす)
+         pendingExecution … 一撃が届く瞬間まで保留したダメージ/演出({t, fire})
+       pendingSwing / pendingUlt と同じ戦闘中の一時状態なのでセーブ対象外 */
+    executeT:0, executeTarget:null, pendingExecution:null,
     /* 必殺技の再生で「実時間のどこが接触か」(= 遅延 / クリップ長)。
        applyCombatPose がこれを使ってクリップの進み方を折り曲げ、
        見た目の接触フレームを当たる瞬間へ重ねる(core/ult-clips.js の

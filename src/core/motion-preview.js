@@ -68,6 +68,15 @@ function deg(v){
   return (d >= 0 ? ' ' : '') + d.toFixed(1);
 }
 
+function num(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(2) : '-';
+}
+function vec3(v){
+  if(!Array.isArray(v)) return '  -  ';
+  return deg(v[0]) + ' /' + deg(v[1]) + ' /' + deg(v[2]);
+}
+
 /* パネル本文。textContent へそのまま入れる行の配列を返す。
    数値の整形までここでやるのは、「表示がずれていないこと」まで
    ユニットテストで見られるようにするため。 */
@@ -107,6 +116,38 @@ export function motionDebugLines(snap){
     lines.push(' WEIGHT ' + p.sway.toFixed(3));
     lines.push(' BREATH ' + p.breath.toFixed(3));
     lines.push(' STANCE ' + (s.stanceWeight != null ? s.stanceWeight.toFixed(2) : '-'));
+  }
+  /* リグの実測値。Phase 3.5-B の実機確認で必要になった ―― 魔法使い系は
+     帽子のつばが真上からの視点で腕と杖を完全に隠すため、非戦闘の腕が
+     本当に下りているのかを画面の絵から判定できない。数字で見るしかない。
+     読み取り元は playerMixerParts の回転そのもの(05-rendering-rig.js の
+     motionRigSnapshot)で、ここも 14-hud-boot.js 側もデバッグモードで
+     しか走らない。通常プレイの HUD には何も足していない。 */
+  /* 処刑(Phase 4)。敵側の Break / Execution Window と、プレイヤー側の
+     フィニッシャー再生を1ブロックにまとめる。デバッグモードでしか
+     走らず、通常HUDには何も足していない(資料29章)。 */
+  if(s.exec){
+    const e = s.exec;
+    lines.push('', 'EXECUTION');
+    lines.push(' E.TGT  ' + (e.target || 'none'));
+    lines.push(' BREAK  ' + (e.breakState || '-'));
+    lines.push(' WINDOW ' + (e.windowT != null ? num(e.windowT) + 's' : '-')
+      + (e.leadT ? '  (lead ' + num(e.leadT) + 's)' : ''));
+    lines.push(' FINISH ' + (e.finishable ? 'yes' : 'no')
+      + '   PLAYING ' + (e.executeT != null ? num(e.executeT) + 's' : '-'));
+    // 「窓は開いているのに押せない」の切り分け(間合い / 向き / 行動中)
+    lines.push(' REACH  ' + (e.reach ? num(e.reach.dist) + 'm /' + deg(e.reach.angle) : '-')
+      + '   INPUT ' + (e.canInput ? 'ok' : 'busy'));
+  }
+  if(s.rig){
+    const r = s.rig;
+    lines.push('', 'RIG');
+    lines.push(' RELAX  ' + num(r.relaxWeight)
+      + '  (stop ' + num(r.stopBlend) + ' / combat ' + num(r.combatBlend) + ')');
+    lines.push(' SH.L  ' + vec3(r.shL));
+    lines.push(' SH.R  ' + vec3(r.shR));
+    lines.push(' EL.L  ' + deg(r.elL) + '   EL.R ' + deg(r.elR));
+    lines.push(' WEP   ' + vec3(r.wep));
   }
   return lines;
 }

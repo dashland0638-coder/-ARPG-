@@ -777,6 +777,9 @@
       if(en.postureMax){
         if(en.knockedDown){
           en.knockdownT -= dt;
+          // Execution Window の進行(lead → window → 期限切れ)。
+          // 処刑の再生中は stepExecutionWindow 側が止める
+          stepExecutionWindow(en, dt);
           const targetLean = -Math.PI*0.42;
           en.group.rotation.x += (targetLean - en.group.rotation.x) * Math.min(1, dt*8);
           if(en.shieldGroup){
@@ -788,6 +791,9 @@
           if(en.knockdownT <= 0){
             en.knockedDown = false;
             en.posture = 0;
+            /* 起き上がったら窓は完全に閉じる。窓を逃した敵に
+               「処刑できる」が残り続けないようにする(資料19章) */
+            clearExecutionWindow(en);
             en.postureGraceT = 1.5;  // 復帰直後は少しの間だけ体幹が削れない(Recovery Delayとは別用途)
             en.postureRecoveryDelayT = 0;
             en.bigFlinched = false;
@@ -2232,12 +2238,18 @@
         en.baseEmissiveHex = mat.emissive.getHex();
         en.baseEmissiveI = mat.emissiveIntensity;
       }
+      /* Break の見せ方(資料15章)。新しいVFXは作らず、瀕死の敵に
+         既に使っている金色の発光をそのまま Execution Window にも
+         かける ―― 「今この敵を決められる」が、姿勢(倒れている)と
+         体幹バー(満タン・橙)に加えて身体の光でも読める。
+         en.finishable(HP10%以下)の意味は変えていない */
+      const execGlow = en.finishable || isExecutable(en);
       const hl = threatHighlight({
         level: vis.level, triggered: !!en.triggered,
-        windup: punishWindowState(en).midWindup, finishable: en.finishable,
+        windup: punishWindowState(en).midWindup, finishable: execGlow,
       });
       if(hl > 0.001){
-        mat.emissive.setHex(en.finishable ? 0xffd27a : 0xff6a4a);
+        mat.emissive.setHex(execGlow ? 0xffd27a : 0xff6a4a);
         mat.emissiveIntensity = en.baseEmissiveI + hl * 0.9;
         en.hlOn = true;
       } else if(en.hlOn){
@@ -2804,8 +2816,21 @@
        しまうと戦闘を「締めた」感触にならないため、自動発動にはしない。
        ボスは専用の撃破演出・フェーズ・ダイアログを持つので対象外
        (canExecute が弾く)。DoT・味方の攻撃でも発動しない。 */
-    const executing = !isAlly && !opts.isDot && canExecute(en, {isFinish: !!opts.isFinish});
-    if(executing) amount = executionDamage(en, amount);
+    /* Break 由来の処刑(Phase 4)。opts.execution が立つのは
+       tryExecution()(11-combat-actions.js)がプレイヤーの入力で
+       決め打ちに来たときだけ ―― 連打や巻き添えでは絶対に立たない。
+       ダメージ式は core/break-window.js 側で、通常敵は倒し切れる一方
+       ボスは最大HPの18%で頭打ちになる(フェーズ設計を壊さないため) */
+    const breakExecuting = !isAlly && !opts.isDot && !!opts.execution;
+    const executing = breakExecuting ||
+      (!isAlly && !opts.isDot && canExecute(en, {isFinish: !!opts.isFinish}));
+    if(breakExecuting){
+      amount = executionBreakDamage(en, amount, enemyTier(en));
+      // 瀕死なら既存の約束どおり必ず削り切る(ボスは isFinishable が弾く)
+      if(shouldFinishOff(en)) amount = executionDamage(en, amount);
+    } else if(executing){
+      amount = executionDamage(en, amount);
+    }
     en.hp -= amount;
     spawnDamagePopup(en.group.position, amount, isAlly, isCrit);
     if(opts.isDot){
@@ -2997,9 +3022,19 @@
         spawnToast('🛡 ガードブレイクを潰した!');
       }
     }
+    /* Break → Execution Window(core/break-window.js、Phase 4)。
+       ダウンの先頭 0.25 秒を「崩れた」の見せ場にして、そのあと 1.6 秒だけ
+       処刑の窓を開く。開くのはここ1箇所だけで、同じダウン中に何度体幹が
+       満たされても openExecutionWindow() が2回目以降を弾く ―― マルチヒット/
+       オートコンボ/AoE/弾が同じフレームに重なっても窓は1つしか開かない */
+    const broke = openExecutionWindow(en);
     spawnToast(en.isBoss ? '💥 体勢を崩した!畳み掛けろ!' : '💥 ダウン!');
     addShake(en.isBoss ? 0.18 : 0.10);
     sfx('bigHit');
+    /* 崩した手応え。崩した一撃そのものが直前に不応期を使っているので、
+       必殺技・処刑と同じ force で1回だけ通す。大きさは
+       通常ヒット < Break < 必殺技 < 処刑 の階層を保つ(core/break-window.js) */
+    if(broke) hitStop(BREAK_HITSTOP, {force:true, max:BREAK_HITSTOP_MAX});
     addUltGauge(8);   // 体幹を崩すこと自体が必殺ゲージの報酬になる(Phase 0との接続)
     triggerBossSkills('onKnockdownHeal');
   }
@@ -3007,6 +3042,9 @@
   // 撃破時の共通処理(通常ヒット・燃焼ティックの両方から呼ばれる)
   function finishEnemyDeath(en, isAlly, from){
       en.hp = 0; en.dead = true;
+      // 死んだ敵が処刑対象に残らないようにする(資料24章の安全性)
+      clearExecutionWindow(en);
+      if(state.executeTarget === en) state.executeTarget = null;
       if(!isAlly){
         addUltGauge(en.isBoss ? 40 : 18);   // 撃破は必殺ゲージの主要な稼ぎどころ(仲間の撃破では貯まらない)
         state.sortieKills = (state.sortieKills||0) + 1;   // 中途撤退ボーナスの進捗計算に使う

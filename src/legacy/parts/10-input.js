@@ -448,6 +448,7 @@
   function tryDodge(){
     resumeAudio();
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
+    if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     /* 空中では回避できない(Combat Design Audit 2 / Phase G)。
        ジャンプ → 空中回避 → さらに空中移動、という自由な空中機動を
        作りたいわけではなく、空中は「特定攻撃の見切り」「Enemy Step」

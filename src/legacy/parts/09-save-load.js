@@ -184,6 +184,7 @@
     state.clearedScenarios = Object.assign({}, data.clearedScenarios);
 
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
+    state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
 
     // 上位ジョブ(#9/Phase B)。v2セーブにはこのフィールドが無い(undefined)
     // ため、その場合はnull=未転身のまま扱う。selectedClassの上位職キーと
@@ -307,6 +308,9 @@
     if(e.code==='KeyI'){ toggleAppraisal(); }
     if(e.code==='KeyF'){ toggleScenarioSelect(); }
     if(e.code==='KeyR'){ interact(); }
+    // 処刑(Phase 4)。R(調べる)でも出せるが、戦闘中に押しやすい位置の
+    // キーも別に用意しておく ―― E は他の操作で使っていない
+    if(e.code==='KeyE' && !e.repeat){ tryExecution(); }
     if(e.code==='KeyV'){ usePotion(); }
     if(e.code==='KeyL' && !e.repeat){ skillInputDown(); }
     if(e.code==='KeyO' && !e.repeat){ castSkill2(); }
