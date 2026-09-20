@@ -438,7 +438,10 @@
      精神を、装着数の上限という形で実装した)。
   ========================================================= */
   const BOSS_ABILITIES = {
-    mansionBoss:   {name:'亡霊の残影', icon:'👻', desc:'回避の無敵時間+20%', effect:'dodgeInvuln', value:0.20},
+    /* 森の洋館(Phase 5-A〜D)は「影が人から離れていく」で通してあるので、
+       持ち帰るものの名前も影に揃える。効果・値・キー(セーブに残るのは
+       bossKey のほう)は一切変えていない ―― 既存の報酬構造への最小接続 */
+    mansionBoss:   {name:'離れゆく影', icon:'🕯️', desc:'回避の無敵時間+20%', effect:'dodgeInvuln', value:0.20},
     ghostCaptain:  {name:'船長の海図', icon:'🧭', desc:'ゴールド獲得量+15%', effect:'goldMul', value:0.15},
     waterwayTurtle:{name:'甲羅の加護', icon:'🐢', desc:'被ダメージ-8%', effect:'dmgTakenMul', value:-0.08},
     templeGuardian:{name:'守護神像の重心', icon:'🗿', desc:'体幹削り+12%(自分から与える方)', effect:'staggerDealtMul', value:0.12},
@@ -454,7 +457,7 @@
      既存の主要な処理フック(フィニッシュ命中/撃破/ダウン/必殺技発動)に
      そのまま相乗りさせているので、新しい入力やUIを増やさずに済む。 */
   const BOSS_SKILLS = {
-    mansionBoss:   {name:'亡霊の連撃', icon:'👻', desc:'フィニッシュ命中時25%の確率で必殺ゲージ+8', hook:'onFinishHit', chance:0.25, value:8},
+    mansionBoss:   {name:'影の追い打ち', icon:'🕯️', desc:'フィニッシュ命中時25%の確率で必殺ゲージ+8', hook:'onFinishHit', chance:0.25, value:8},
     ghostCaptain:  {name:'略奪の一撃', icon:'🧭', desc:'敵を倒すたび25%の確率でゴールド+20', hook:'onKillBonus', chance:0.25, value:20},
     waterwayTurtle:{name:'甲羅の反撃', icon:'🐢', desc:'ダウンを取った時、最大HPの3%回復', hook:'onKnockdownHeal', chance:1.0, value:0.03},
     templeGuardian:{name:'崩しの型', icon:'🗿', desc:'フィニッシュ命中時、追加で体幹を30%削る', hook:'onFinishHit2', chance:1.0, value:0.3},

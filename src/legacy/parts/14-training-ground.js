@@ -145,13 +145,29 @@
     if(!nearest){ panel.textContent = '(no enemy nearby)'; return; }
     const en = nearest;
     let aiState;
-    if(en.isBoss) aiState = en.atkWindup ? 'WINDUP' : (en.postAtkRecoveryT>0 ? 'RECOVERY' : (en.triggered ? 'CHASE' : 'DORMANT'));
+    /* 館の主(Phase 5-D)は専用の相を持つ。既存の 'WINDUP / RECOVERY /
+       CHASE' だけでは分離(SPLIT)・融合(MERGE)・影の突進が読めないので、
+       このボスだけ相をそのまま出す(テストモード専用の表示で、
+       通常プレイのHUDには何も足していない) */
+    if(en.lordState) aiState = (en.lordState||'idle').toUpperCase() +
+      (en.lordAttack ? ` (${en.lordAttack})` : '');
+    else if(en.isBoss) aiState = en.atkWindup ? 'WINDUP' : (en.postAtkRecoveryT>0 ? 'RECOVERY' : (en.triggered ? 'CHASE' : 'DORMANT'));
     // 崩れている間は、資料の語彙(BREAK / EXECUTION_WINDOW / RECOVERY)を
     // そのまま出す ―― 「今どの段階か」が Arena で読めないと窓の長さを
     // 調整できない(core/break-window.js、Phase 4)
     else if(en.knockedDown) aiState = breakState(en);
     else if(en.atkType==='charge') aiState = (en.chargeState||'idle').toUpperCase();
     else if(en.atkType==='jumper') aiState = (en.jumpState||'idle').toUpperCase();
+    /* 森の洋館の使用人/侍女(Phase 5-A)。他のタイプと同じで、既存の
+       AI状態をそのまま文字にするだけ ―― 新しいUIではなく、テストモード
+       専用のこのパネルに1行ぶんの読み方を足しているだけ。
+       使用人は「今どちらの攻撃を振ろうとしているか」まで出す(通常打撃と
+       影腕薙ぎで予兆も射程も隙も違うので、どちらなのかが読めないと
+       調整できない) */
+    else if(en.atkType==='servant') aiState = (en.servantState||'idle').toUpperCase() +
+      (en.servantAttack ? ` (${en.servantAttack})` : '');
+    else if(en.atkType==='kite') aiState = en.fireCharging ? 'CHARGING'
+      : ((en.shotRootT||0) > 0 ? 'SHOT_ROOT' : 'KITE');
     else aiState = (en.atkType||'passive').toUpperCase();
     /* パニッシュ窓の表示は、実際の判定(core/punish-window.js)と同じ関数で
        出す ―― ボスの atkWindup だけを見ていた頃の表示のままだと、雑魚の
@@ -180,8 +196,31 @@
         (airKind==='uppercut' ? '切り上げ' : '落下攻撃') +
         (state.uppercutUsed ? ' / 切り上げ使用済' : '');
     const weight = enemyWeightClass(en);
+    /* 守護型(guardian)の1行。テストモード専用のこのパネルにだけ出す
+       ―― 「今この角度から殴ると通るのか」「ガードがどこまで溜まったか」は
+       実機で見ても分からないが、調整には必要な情報。判定は実戦と同じ
+       core/guardian-break.js の関数をそのまま呼んでいる */
+    let guardLine = '';
+    if(en.guardian){
+      const front = isFrontAttack(en.group.rotation.y, en.group.position, state.pos);
+      const absorbed = guardianAbsorbs(en, en.group.rotation.y, en.group.position, state.pos);
+      const hold = (en.guardHoldT || 0).toFixed(1);
+      guardLine = `Guard: ${front ? 'FRONT' : 'SIDE/BACK'} ` +
+        `${absorbed ? `x${GUARD_FRONT_DAMAGE_MUL}` : 'x1.0'}` +
+        `  hold ${hold}s / ${GUARD_HOLD_SEC}s` +
+        `${en.guardBreak ? '  GUARD BREAK' : ''}` +
+        `${(en.guardBreakCD || 0) > 0 ? `  cd ${en.guardBreakCD.toFixed(1)}s` : ''}<br>`;
+    }
     panel.innerHTML =
       `HP: ${Math.max(0,Math.round(en.hp))} / ${en.hpMax}<br>` +
+      `Tier: ${enemyTier(en).toUpperCase()}` +
+      `${shouldInterruptOnBigFlinch(en) ? '' : '  (SUPER ARMOR)'}` +
+      /* フェーズを持つ敵(黒衣の執事)だけ、今どちらの相かを出す。
+         通常プレイのHUDには何も足していない ―― フェーズの変化は
+         身体と燭台の炎で伝える約束なので(仕様19)、ここだけの表示 */
+      `${en.butlerPhase ? `  PHASE ${en.butlerPhase}` : ''}` +
+      `${en.lordState ? `  PHASE ${en.phase || 1}` : ''}<br>` +
+      guardLine +
       `Stagger: ${stagger}<br>` +
       `AI State: ${aiState}<br>` +
       `Turn Rate: ${resolveTurnRate(en).toFixed(2)} rad/s<br>` +

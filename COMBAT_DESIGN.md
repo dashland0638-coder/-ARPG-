@@ -226,7 +226,8 @@ sortieケース)で、上記変更を含めた状態でダンジョンに入り�
 発動・確認できる場」であること。
 
 - `src/legacy/parts/07-ai-combat.js`: `ARENA_ROSTER`(Dummy/Basic Melee/
-  Windup Enemy/Charge Enemy/Jump Enemy/Boss Test)と`arenaSpawn()`/
+  Windup Enemy/Charge Enemy/Jump Enemy/Boss Test/Flying Test/
+  Manor Servant/Manor Maid/Manor Hound/Manor Warden/Manor Butler/Manor Lord)と`arenaSpawn()`/
   `arenaClear()`/`arenaCycleSpawn()`。既存の`buildEnemy`/`buildBoss`と
   既存atkType(charge/jumper/passive)をそのまま流用し、新しい敵AIは
   追加していない。Boss Testは`mansionBoss`をhpMax:50000で流用 ――
@@ -236,6 +237,29 @@ sortieケース)で、上記変更を含めた状態でダンジョンに入り�
   - `updateChargerAI`に`en.chargeTelegraphOverride`を追加(未指定なら
     従来通り0.65秒) ―― Windup Enemyだけ振りかぶりを長く見せるための
     最小限の変更で、既存の突進系モブの挙動は変えていない。
+  - Manor Servant/Maid/Hound は森の洋館の通常敵3種(Phase 5-A、
+    `src/core/mansion-enemies.js` / MANSION_SCENARIO.md)を本編と同じ
+    プロファイルのまま出す個体。予兆・射程・硬直・体幹→Break→Execution を
+    地下まで歩かずに確認するためで、敵情報パネルの `AI State` に
+    使用人の攻撃相(`WINDUP (sweep)` など)と侍女の `CHARGING`/`SHOT_ROOT`
+    を出す1行を足してある(表示だけで、判定は既存のまま)。
+  - Manor Warden は同じ洋館の Strong Mob「鍵束の番人」(Phase 5-B)。
+    敵情報パネルに `Tier`(ELITE / SUPER ARMOR)と `Guard` の2行を足した
+    ―― 「今この角度から殴ると通るのか(FRONT ×0.2 / SIDE-BACK ×1.0)」
+    「ガードブレイクがどこまで溜まったか」は画面を見ても分からないが、
+    正面耐性とガードブレイクの調整には要る情報。判定は実戦と同じ
+    `core/guardian-break.js` の関数をそのまま呼んでいるだけで、
+    戦闘側には何も足していない。
+  - Manor Butler は同じ洋館の Midboss「黒衣の執事」(Phase 5-C)。
+    `Tier` 行に `PHASE 1/2` を足してある ―― フェーズの変化は身体と
+    燭台の炎で伝える約束(通常プレイのHUDには何も出さない)なので、
+    調整時に「今どちらの相か」を読む手段がここにしか無いため。
+    AI State には移行(`SHIFT`)と影移動(`FADE` / `EMERGE`)もそのまま出る。
+  - Manor Lord は森の洋館のボス「館の主」(Phase 5-D)。HP 2200 の検証用個体で、
+    フェーズ閾値(65% / 30%)に手が届くようにしてある(既存の Boss Test は
+    HP 50000 なのでフェーズが動かない ―― 体幹/Break/処刑の確認用として
+    そのまま残してある)。`Tier` 行に `PHASE 1/2/3`、`AI State` に
+    分離(`SPLIT`)・融合(`MERGE`)と各攻撃(`WINDUP (sweep)` など)が出る。
 - `src/legacy/parts/14-training-ground.js`: パネルの開閉・ロスター
   ボタン描画・Debug Feedbackログ(`emitArenaFeedback`)・敵情報パネル
   (`updateArenaEnemyInfo`)。すべて`state.testMode`時のみ表示され、
@@ -741,3 +765,109 @@ autoを解除しておき、一歩離れて入り直すか、通常の階段プ�
 パニッシュ窓は職業非依存なので、体幹倍率の低い盗賊(0.7)ほど「読む」ことの
 見返りが大きい ―― 倍率をいじらずに役割差を保つ、という6章からの方針の
 そのままの延長になる。上位職の体幹倍率も一切変更していない。
+
+## 10. 敵設計基盤の汎用化(2026-09、第6次)
+
+森の洋館(Phase 5-A〜5-D)で確立した「難易度を体力ではなく、予兆・射程・
+硬直・体幹で作る」という敵の設計を、洋館の外でも同じやり方で書けるように
+**器だけ**を切り出したときの記録。**戦闘の挙動は1つも変えていない** ――
+洋館5体の数値・AI・見た目は完全に据え置きで、変えたのは定義の置き場所だけ。
+
+### 10-1. 何が問題だったか
+
+Phase 5-D 終了時点で、予兆型の敵の設計は `core/mansion-enemies.js` の中に
+閉じていた。攻撃表の引き方(`meleeAttackPlan` / `meleeAttackChoice` /
+`meleeWindupProgress`)が洋館専用のオブジェクトを直接参照していたため、
+他のダンジョンが同じ方式で敵を足すには、このファイルをコピーするしか
+なかった。さらに `core/punish-window.js`(汎用の予兆判定)が
+`core/mansion-enemies.js` を import しており、**汎用の戦闘基盤が特定の
+ダンジョンに依存する**という逆立ちした依存も残っていた。
+
+結果として、戦闘ループの後半(隙 → 体幹 → Break → Execution)は全ダンジョン
+共通で成立しているのに、前半(観察 → 予兆)だけが洋館にしか存在しない、
+という不均衡が固定されかけていた。
+
+### 10-2. 切り分け
+
+| | 置き場所 |
+| --- | --- |
+| 攻撃表の引き方・フェーズ差分の解決・予兆の進行度・variantの組み立て | `core/enemy-profiles.js`(新規・ダンジョン非依存) |
+| 洋館5体の数値・色・テーマ・役割 | `core/mansion-enemies.js`(据え置き) |
+| 執事のフェーズ/影移動、館の主の3フェーズ・影分離AI | `core/mansion-enemies.js`(洋館固有。汎用化しない) |
+| 実際に `en` を書き換える副作用 | `legacy/parts/07-ai-combat.js`(据え置き) |
+
+「敵プロファイル」と「館の主専用AI」は混ぜない ―― 前者は器へ、後者は
+洋館のファイルに残す。ボスの3フェーズ・影分離は洋館という場所の怪異
+そのものなので、汎用化する対象ではない。
+
+### 10-3. 他ダンジョンの足し方
+
+```js
+import { defineMeleeProfile, defineEnemyProfiles } from './enemy-profiles.js';
+
+defineMeleeProfile('deckhand', {
+  attacks: { jab: {...}, cleave: {... phase2:{...} } },
+  light:'jab', heavy:'cleave',
+  heavyCooldown: 3.0, attackCooldown: 0.9,
+  detectRange: 9, approachFactor: 0.8,
+});
+defineEnemyProfiles({
+  deckhand: { key:'deckhand', role:'melee', theme:'deckhand',
+              atkType:'servant', meleeKind:'deckhand', speed:2.0, strongMob:true },
+  lantern:  { key:'lantern',  role:'ranged', theme:'lantern',
+              atkType:'kite', speed:1.2,
+              variant:{ shotWindupSec:0.8, shotRootSec:0.5, shotSfx:'cast' } },
+});
+```
+
+`variant` は役割ごとの追加分の入れ口で、基盤が敵の名前を知らないまま
+「引き撃ちの足止め秒数」「突進の溜め上書き」を扱えるようにしてある
+(以前は `if (key === 'maid')` という分岐が基盤側に直書きされていた)。
+
+登録は **import されたダンジョンの分だけ** 行われる。ゲーム本体では
+`legacy/concat-plugin.js` の HEADER が読み込むので、新しいダンジョンを
+足すときはそこへの import を忘れないこと。
+
+### 10-4. 旧 atkType との並走
+
+`charge` / `fire` / `kite` / `turret` / `jumper` / `ghost` の6種と専用AIは
+**一切変更していない**。プロファイルは `atkType` を「どの既存AIに乗るか」
+として持つだけなので、
+
+- 旧AIをそのまま使う敵(猟犬 = `charge` / 侍女 = `kite`)
+- プロファイル側の状態機械を使う敵(使用人・番人・執事 = `servant`)
+
+がひとつの台帳の中に同居する。他ダンジョンの敵は今回一体も移行していない
+(移行はダンジョン単位で、必要になったときに行う)。
+
+### 10-5. 洋館内部の不統一の解消
+
+★3/★4 で開く `manorDepths` / `manorAttic` の敵だけが旧 `charge` / `fire` の
+ままで、「同じ洋館なのに本編は予兆型、深部は旧突進/旧射撃」という不統一が
+残っていた。役割はそのままに、既存の5体へ置き換えた(新しい敵種は足していない):
+
+| 部屋 | 旧 | 新 | 根拠 |
+| --- | --- | --- | --- |
+| manorDepths ★3 | `charge` + strongMob + guardian | 鍵束の番人 | 守護役がそのまま一致 |
+| manorAttic ★4 | `charge` + strongMob + guardian | 鍵束の番人 | 同上 |
+| manorAttic ★4 | `fire` | 顔のない侍女 | 射撃役がそのまま一致 |
+
+HP・攻撃力・XP・ゴールド・座標・出現数・★条件・`roomTag` はいずれも
+元の値のまま。変わるのは見た目とAI(予兆の見せ方)と移動速度だけで、
+難易度の枠組みには触れていない。
+
+### 10-6. 挙動が変わっていないことの確認
+
+器への移設が数値を動かしていないことは、移設前のモジュールと移設後の
+モジュールを**両方読み込んで総当たりで突き合わせる**ことで確認した:
+
+- `mansionEnemyVariant()` の出力: 5体 × 3種の stats + 未知キー → 全一致
+- 近接API(`meleeProfile` / `meleeAttackPlan` / `meleeHeavyCooldown` /
+  `meleeAttackChoice` / `meleeWindupProgress` と使用人向け別名):
+  3プロファイル × 3フェーズ × 距離0〜7(0.093刻み)× クールダウン有無
+  → **6289件すべて一致**
+- 公開している 67 の export が1つも欠けていないこと
+
+器そのものの回帰は `tests/unit/enemy-profiles.test.js` が担当する。洋館とは
+無関係な架空の敵を登録して検証しているので、テスト自身が「基盤が特定の
+ダンジョンを知らない」ことの証明になっている。

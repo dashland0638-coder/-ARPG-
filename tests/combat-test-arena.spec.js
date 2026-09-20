@@ -58,7 +58,12 @@ test('Combat Test Arena: 敵選択・Spawn・Clearが一通り動作する', asy
   // 実際に発火経路まで通ったことを確認する。他のゲーム内メッセージと
   // 混ざってバッファから押し出されないよう、クリックのたびに確認する
   const rosterButtons = page.locator('#arena-roster button');
-  await expect(rosterButtons).toHaveCount(7);
+  /* Dummy / Basic Melee / Windup / Charge / Jump / Boss / Flying の7種に、
+     森の洋館の通常敵3種(Manor Servant / Maid / Hound、Phase 5-A)、
+     強モブ1種(Manor Warden、Phase 5-B)、中ボス1種(Manor Butler、Phase 5-C)、
+     ボス1種(Manor Lord、Phase 5-D)を足した13種。数を固定してあるのは
+     「ロスターに足したのに描画されない」を落とすため */
+  await expect(rosterButtons).toHaveCount(13);
   const labels = await rosterButtons.allTextContents();
   for (let i = 0; i < labels.length; i++) {
     await rosterButtons.nth(i).click();

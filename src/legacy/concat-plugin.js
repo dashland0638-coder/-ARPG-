@@ -47,7 +47,7 @@ import {
 } from '../core/stagger-math.js';
 import { punishWindowState, POST_ATTACK_RECOVERY_SEC } from '../core/punish-window.js';
 import { enemyTier, shouldInterruptOnBigFlinch, bigFlinchInterrupt, TIER } from '../core/enemy-tier.js';
-import { isGuardianType, shouldUseGuardianBreak, stepGuardHold, guardBreakPlan, guardBreakCancel, chargeHitRadius, chargeDamage, isFrontAttack, guardianAbsorbs, guardianDamage } from '../core/guardian-break.js';
+import { isGuardianType, shouldUseGuardianBreak, stepGuardHold, guardBreakPlan, guardBreakCancel, chargeHitRadius, chargeDamage, isFrontAttack, guardianAbsorbs, guardianDamage, GUARD_BREAK_TELEGRAPH_SEC, GUARD_BREAK_COOLDOWN_SEC, GUARD_FRONT_DAMAGE_MUL, GUARD_HOLD_SEC } from '../core/guardian-break.js';
 import { isPartyHostile, aggroOnDetect, aggroOnDamage, stepLeash } from '../core/enemy-aggro.js';
 import { resolveStaggerReaction } from '../core/combat-result.js';
 import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw, TURN_ASSIST_DODGE_WINDOW } from '../core/predictive-aim.js';
@@ -106,6 +106,26 @@ import {
   ULT_IMPACT_SHAKE, ULT_IMPACT_HITSTOP, ULT_IMPACT_HITSTOP_MAX,
 } from '../core/ult-clips.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
+/* 敵プロファイルの汎用基盤(ダンジョン非依存)。攻撃表の引き方・予兆の
+   進行度・variant の組み立てだけを持ち、どのダンジョンの敵もここへ登録する。
+   既存の戦闘基盤(体幹/パニッシュ窓/Break/Execution)には一切触れていない */
+import {
+  meleeProfile, meleeAttackChoice, meleeAttackPlan, meleeWindupProgress, meleeHeavyCooldown,
+} from '../core/enemy-profiles.js';
+/* 森の洋館の敵(Phase 5-A〜5-D)。上の基盤へ洋館の数値を登録し、
+   洋館固有のもの(執事のフェーズ・影移動、館の主の専用AI)を足す */
+import {
+  MAID_SHOT_WINDUP_SEC, MAID_SHOT_ROOT_SEC, WARDEN_BASE_STATS, BUTLER_BASE_STATS,
+  BUTLER_PHASE_SHIFT_SEC, BUTLER_FADE_SEC, BUTLER_EMERGE_SEC, BUTLER_STEP_COOLDOWN_SEC,
+  BUTLER_PHASE2_HP_RATIO,
+  mansionEnemyVariant,
+  butlerPhaseFor, butlerShouldShiftPhase, butlerCanShadowStep, butlerStepTarget,
+  LORD_ATTACKS, LORD_ECHO, LORD_ECHO_DELAY_SEC, LORD_SPLIT_SEC, LORD_MERGE_SEC,
+  LORD_ATTACK_BREATH_SEC, LORD_SHADOW_REPOSITION_SEC, LORD_SHADOW_CREEP_MAX,
+  LORD_PHASE2_HP_RATIO, LORD_PHASE3_HP_RATIO,
+  lordPhaseFor, lordShouldShiftPhase, lordAttackChoice, lordAttackPlan,
+  lordAttackCooldown, lordShadowTarget, lordShadowCreep,
+} from '../core/mansion-enemies.js';
 
 `;
 

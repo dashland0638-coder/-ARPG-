@@ -28,6 +28,28 @@ src/
   core/look-rig.js             Eye Rig / Visual Look Offset。「どこを見ているか」を
                                 目(±10°)→頭(±38°)→体幹(デッドゾーン24°、超過の45%を
                                 ±12.6°×職業係数まで)へ配分する。state依存なし
+  core/enemy-profiles.js       敵プロファイルの汎用基盤(ダンジョン非依存)。近接の攻撃表を
+                                どう引くか(meleeAttackPlan/Choice、フェーズ差分の解決)・
+                                予兆の進行度(meleeWindupProgress)・buildEnemyへ渡す
+                                variantの組み立て(enemyVariant)だけを持つ「器」。
+                                各ダンジョンが defineMeleeProfile / defineEnemyProfiles で
+                                自分の敵を登録する(登録は import されたダンジョンの分だけ。
+                                ゲーム本体では legacy/concat-plugin.js の HEADER が読み込む)。
+                                旧 atkType(charge/fire/kite/turret/jumper/ghost)とは並走し、
+                                プロファイルは atkType を「どの既存AIに乗るか」として持つだけ。
+                                既存の戦闘基盤(体幹/パニッシュ窓/Break/Execution/階層)は
+                                使うだけで触らない。state依存なし
+  core/mansion-enemies.js      森の洋館の敵(通常敵3種=使用人/侍女/猟犬、強モブ=鍵束の番人、
+                                中ボス=黒衣の執事、ボス=館の主)の**数値**と、上の基盤への登録。
+                                どの攻撃をいつ出すか・予兆と隙の長さ・射程・フェーズ閾値・
+                                ボスの影の移動先(部屋からはみ出さないクランプ込み)。
+                                器の側(enemy-profiles.js)に移した melee* は、Phase 5-A からの
+                                呼び出し名を保つためここから再輸出している。
+                                館の主の3フェーズ/影分離は洋館固有なのでこのファイルに残す。
+                                既存の戦闘基盤(体幹/パニッシュ窓/Super Armor/Guardian/
+                                Guard Break/Break/Execution/ボスのフェーズ管理)は
+                                使うだけで触らない。
+                                state依存なし(MANSION_SCENARIO.md参照)
   audio/audio.js               SE合成・BGM再生(WebAudio)。state.sfxVolume/bgmVolume以外への依存なし
   audio/procedural-bgm.js      ワールドごとの生成音楽(ドローン+疎らな旋律+簡易リバーブ)。実ファイル未登録時のBGM
   textures/textures.js         手続きテクスチャ/バンプマップ生成。state依存なし

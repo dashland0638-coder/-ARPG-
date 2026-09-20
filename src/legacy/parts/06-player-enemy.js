@@ -3328,6 +3328,53 @@
     duskvillage:  'wraith',
   };
 
+
+  /* =========================================================
+     森の洋館の「影」表現(Phase 5-A)
+
+     3種に共通するテーマは「影が普通ではない」こと。ただし画面全体を
+     暗くすると既存のランプ演出・X-ray(壁越しの黄色い輪郭)と喧嘩するので、
+     異常はすべて**局所**にとどめる ―― 片腕・顔・足元・身体の一部だけ。
+     発光させないのも同じ理由で、Break/Execution の光と取り違えさせない。
+  ========================================================= */
+  function mansionShadowMat(col){
+    return new THREE.MeshStandardMaterial({
+      color: col != null ? col : 0x0d0b15, roughness:0.98, metalness:0,
+      transparent:true, opacity:0.94});
+  }
+  /* 足元の影。少しだけ遅れて追従する(updateMansionMobExtras)。
+     影そのものは既存のシャドウマップとは別物の「作り物」なので、
+     castShadow は持たせず、輪郭・X-ray の対象からも外しておく */
+  function mansionGroundShadow(g, r, col){
+    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 14),
+      new THREE.MeshBasicMaterial({color: col != null ? col : 0x0a0812, transparent:true,
+        opacity:0.46, side:THREE.DoubleSide, depthWrite:false}));
+    m.rotation.x = -Math.PI/2;
+    m.position.y = 0.04;
+    m.scale.z = 1.2;
+    m.userData.noOutline = true;
+    g.add(m);
+    return m;
+  }
+  // 手足を1本ぶん。既存の4脚トロットに乗らない人型/獣型のための最小の部品
+  function mansionLimb(parent, x, y, z, len, thick, mat, opts){
+    opts = opts || {};
+    const pivot = new THREE.Group();
+    pivot.position.set(x, y, z);
+    const seg = new THREE.Mesh(new THREE.CylinderGeometry(thick, thick*(opts.taper||0.85), len, 6), mat);
+    seg.position.y = -len/2;
+    seg.castShadow = true;
+    pivot.add(seg);
+    if(opts.foot){
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(thick*2.4, thick*1.5, opts.foot), mat);
+      foot.position.set(0, -len - thick*0.6, opts.foot*0.22);
+      foot.castShadow = true;
+      pivot.add(foot);
+    }
+    parent.add(pivot);
+    return pivot;
+  }
+
   /* Scenario dressing. The rig underneath is identical for every theme, so
      nothing about collision, animation or the charge tell changes - this only
      adds silhouette. */
@@ -3450,6 +3497,561 @@
       bud.position.set(0, 0.86, 0.06); g.add(bud);
       M.bud = bud;
       M.rooted = true;           // it doesn't walk, it sways on the spot
+
+    } else if(theme === 'servant'){
+      /* ---- 影に侵された使用人 ----
+         「怪物」ではなく「人間だったもの」に見せる。仕着せ・シャツ・
+         カフスまで作り込んでおいてから、片腕だけを影へ落とす ―― 整った
+         服装と、そこから伸びる長すぎる影の腕との落差そのものが不気味さ。 */
+      const livery = new THREE.MeshStandardMaterial({color:col, roughness:0.74});
+      const linen  = new THREE.MeshStandardMaterial({color:variant.accentColor||0xc9c0ad, roughness:0.88});
+      const shade  = mansionShadowMat(variant.shadowColor);
+      M.mansionKind = 'servant';
+      M.limbs = [];
+      M.legs.forEach(l=>{ l.visible = false; });   // 四つ足の脚は使わない
+      if(M.snout) M.snout.visible = false;         // 獣の鼻先も
+
+      // 胴: 既存の body をそのまま人型の胴へ作り替える。被弾のスカッシュも
+      // 白フラッシュも「胴体」に乗ったままになる(materialは差し替えない)
+      body.geometry = makeTrapezoidBox({topW:0.50, topD:0.30, botW:0.38, botD:0.25, height:0.62});
+      body.scale.set(1,1,1);
+      body.position.set(0, 1.26, 0);
+
+      // 頭は胴の上へ。首(neck)ごと動かすので、頭の追従・被弾の首振りは
+      // 既存のまま効く
+      M.neck.position.set(0, 1.60, 0.02);
+      M.head.scale.setScalar(1.12);
+      M.eyes.forEach((e,i)=>{ e.position.set(i===0?-0.085:0.085, 0.045, 0.225); });
+      const face = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.20, 0.06),
+                     new THREE.MeshStandardMaterial({color:0xbfae9c, roughness:0.9}));
+      face.position.set(0, 0.015, 0.205);
+      M.neck.add(face);
+      const hair = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.16, 0.28),
+                     new THREE.MeshStandardMaterial({color:0x1b1822, roughness:0.95}));
+      hair.position.set(0, 0.16, -0.02);
+      M.neck.add(hair);
+
+      // シャツの前立てと襟 ―― 使用人の服が「きちんとしている」ことの印
+      const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.44, 0.06), linen);
+      shirt.position.set(0, 1.30, 0.155);
+      g.add(shirt);
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.07, 8), linen);
+      collar.position.set(0, 1.545, 0.01);
+      g.add(collar);
+
+      // 燕尾: 腰から後ろへ垂れる2枚
+      [-0.12, 0.12].forEach(x=>{
+        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.46, 0.05), livery);
+        tail.position.set(x, 0.80, -0.14);
+        tail.castShadow = true;
+        g.add(tail);
+      });
+      const waist = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.24, 0.16, 8), livery);
+      waist.position.set(0, 0.93, 0);
+      waist.castShadow = true;
+      g.add(waist);
+
+      // 脚。既存の4脚アニメには乗らないので、自前の振り子として登録する
+      [-0.12, 0.12].forEach((x,i)=>{
+        const leg = mansionLimb(g, x, 0.88, 0, 0.78, 0.075, livery, {foot:0.22});
+        M.limbs.push({m:leg, axis:'x', base:0, amp:0.62, phase:i*Math.PI, walk:true, idle:0.035});
+      });
+
+      // 右腕(人間のまま)。歩けば振れるし、通常打撃はこの腕で振る
+      const armR = mansionLimb(g, 0.31, 1.48, 0, 0.34, 0.062, livery);
+      const foreR = mansionLimb(armR, 0, -0.34, 0, 0.32, 0.055, livery);
+      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.062, 0.06, 7), linen);
+      cuff.position.y = -0.30; foreR.add(cuff);
+      M.armR = armR; M.foreR = foreR;
+      M.limbs.push({m:armR, axis:'x', base:0.06, amp:0.34, phase:Math.PI, walk:true, idle:0.05});
+
+      /* 左腕だけが影。通常の腕(0.34+0.32=0.66)より明確に長く作り、
+         薙ぎのあいだはさらに伸びる(updateMansionMobExtras)。
+         「近いから安全」ではなく「影腕は届く」を、形そのもので予告する */
+      const shadowArm = new THREE.Group();
+      /* 肩は胴(上端の半幅0.25)と腰(半径0.24)の外側へ置き、傾きも外向きに
+         する ―― 内向き(+z回転)にすると腕が胴に埋まる。回転は
+         R_z(θ)·(0,-1,0) = (sinθ, -cosθ, 0) なので、左腕(-X側)を外へ
+         逃がすのは負の角度 */
+      shadowArm.position.set(-0.31, 1.48, 0.01);
+      shadowArm.rotation.z = -0.16;
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.072, 0.44, 6), shade);
+      upper.position.y = -0.22; upper.castShadow = true; shadowArm.add(upper);
+      const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.08, 7, 6), shade);
+      elbow.position.y = -0.44; shadowArm.add(elbow);
+      const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.05, 0.48, 6), shade);
+      fore.position.y = -0.69; fore.castShadow = true; shadowArm.add(fore);
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.26, 6), shade);
+      claw.position.y = -1.03; claw.rotation.x = Math.PI; shadowArm.add(claw);
+      // 肩の侵食: 服の上から影が這い上がっている
+      const creep = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), shade);
+      creep.scale.set(1, 0.8, 0.85);
+      creep.position.set(-0.27, 1.47, 0);
+      g.add(creep);
+      g.add(shadowArm);
+      M.shadowArm = shadowArm;
+      // 肩の定位置。胴をひねったとき、肩ごと回すために控えておく
+      M.shadowArmHome = {x:-0.31, y:1.48, z:0.01};
+
+      M.groundShadow = mansionGroundShadow(g, 0.46, variant.shadowColor);
+      M.shadowLag = {x:0, z:0, rate:5.0, amount:0.55};
+
+    } else if(theme === 'maid'){
+      /* ---- 顔のない侍女 ----
+         幽霊にはしない。衣装も手足も人のままで、顔だけが無い ――
+         「影に顔を奪われた人間」。動きは使用人より静かで、足元の影は
+         もう一段遅れて付いてくる(M.shadowLag)。 */
+      const dress = new THREE.MeshStandardMaterial({color:col, roughness:0.82});
+      const apron = new THREE.MeshStandardMaterial({color:variant.accentColor||0xd8d4c6, roughness:0.9});
+      const shade = mansionShadowMat(variant.shadowColor);
+      M.mansionKind = 'maid';
+      M.limbs = [];
+      M.legs.forEach(l=>{ l.visible = false; });
+      if(M.snout) M.snout.visible = false;
+      M.eyes.forEach(e=>{ e.visible = false; });   // 顔が無いので目も無い
+
+      // 細身の胴
+      body.geometry = makeTrapezoidBox({topW:0.38, topD:0.24, botW:0.30, botD:0.21, height:0.56});
+      body.scale.set(1,1,1);
+      body.position.set(0, 1.24, 0);
+
+      M.neck.position.set(0, 1.56, 0.01);
+      M.head.scale.setScalar(1.02);
+      /* 顔の影: 頭より前へ出す。頭(半径0.21×1.02=0.214)の前面より
+         さらに手前に来るよう z と厚みを取ってあり、埋まって見えない
+         (Visual Validation の確認項目) */
+      const voidFace = new THREE.Mesh(new THREE.SphereGeometry(0.195, 10, 8),
+                         new THREE.MeshBasicMaterial({color:variant.shadowColor||0x07060d}));
+      voidFace.scale.set(1.0, 1.18, 0.55);
+      voidFace.position.set(0, 0.01, 0.135);
+      voidFace.userData.noOutline = true;
+      M.neck.add(voidFace);
+      M.faceVoid = voidFace;
+      const hairM = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.17, 0.26),
+                      new THREE.MeshStandardMaterial({color:0x14121c, roughness:0.95}));
+      hairM.position.set(0, 0.15, -0.04);
+      M.neck.add(hairM);
+      // ヘッドドレス
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.16, 0.05, 8), apron);
+      cap.position.set(0, 0.24, -0.02);
+      M.neck.add(cap);
+
+      // 長い衣装。裾は床すれすれまで
+      const skirt = new THREE.Mesh(makeLoft({sections:[
+        {y:0.98, points:[[-0.24,-0.18],[0.24,-0.18],[0.24,0.18],[-0.24,0.18]]},
+        {y:0.55, points:[[-0.34,-0.26],[0.34,-0.26],[0.34,0.26],[-0.34,0.26]]},
+        {y:0.10, points:[[-0.42,-0.32],[0.42,-0.32],[0.42,0.32],[-0.42,0.32]]},
+      ], closedTop:true, closedBottom:true}), dress);
+      skirt.castShadow = true;
+      g.add(skirt);
+      M.skirt = skirt;
+      // エプロン
+      const ap = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.62, 0.04), apron);
+      ap.position.set(0, 0.90, 0.30);
+      g.add(ap);
+      const bib = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.34, 0.04), apron);
+      bib.position.set(0, 1.28, 0.125);
+      g.add(bib);
+
+      // 裾から覗く脚
+      [-0.09, 0.09].forEach((x,i)=>{
+        const leg = mansionLimb(g, x, 0.30, 0, 0.26, 0.05, dress, {foot:0.16});
+        M.limbs.push({m:leg, axis:'x', base:0, amp:0.30, phase:i*Math.PI, walk:true, idle:0.02});
+      });
+
+      // 細い腕。影弾はこの右腕を上げて撃つ
+      [[-1,'armL'],[1,'armR']].forEach(([sgn, name])=>{
+        const arm = mansionLimb(g, sgn*0.25, 1.46, 0, 0.30, 0.05, dress);
+        const fore = mansionLimb(arm, 0, -0.30, 0, 0.24, 0.044, dress);
+        M[name] = arm;
+        M[name === 'armR' ? 'foreR' : 'foreL'] = fore;
+        M.limbs.push({m:arm, axis:'x', base:0.05, amp:0.16, phase:sgn>0?Math.PI:0, walk:true, idle:0.03});
+      });
+      // 手元に集まる影(溜めのあいだだけ現れる)
+      const gather = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 7),
+                       new THREE.MeshStandardMaterial({color:variant.projColor||0x9a6ae0,
+                         emissive:variant.projColor||0x9a6ae0, emissiveIntensity:0.55,
+                         transparent:true, opacity:0.85}));
+      gather.position.y = -0.28;
+      gather.visible = false;
+      gather.userData.noOutline = true;
+      M.foreR.add(gather);
+      M.handShadow = gather;
+
+      M.groundShadow = mansionGroundShadow(g, 0.50, variant.shadowColor);
+      // 侍女の影はもう一段遅れて動く(rate が小さいほど遅れる)
+      M.shadowLag = {x:0, z:0, rate:2.6, amount:0.85};
+
+    } else if(theme === 'hound'){
+      /* ---- 館の猟犬 ----
+         四つ足だが、既存の獣リグ(短い脚・丸い胴)のままでは「犬」に
+         見えない。胴を長く低く取り直し、脚・尾を自前で回す。
+         影の侵食は顔の半分と前肩だけに留める。 */
+      const pelt  = new THREE.MeshStandardMaterial({color:col, roughness:0.86});
+      const shade = mansionShadowMat(variant.shadowColor);
+      M.mansionKind = 'hound';
+      M.noHorns = true;                  // 突進タイプだが角は生やさない
+      M.limbs = [];
+      M.legs.forEach(l=>{ l.visible = false; });
+
+      // 胴を前後に長く、地面に近く
+      body.geometry = new THREE.SphereGeometry(0.34, 12, 9);
+      body.scale.set(1.0, 0.92, 1.72);
+      body.position.set(0, 0.62, -0.06);
+      // 胸と尻を足して、ただの楕円に見せない
+      const chest = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), pelt);
+      chest.scale.set(1.05, 0.95, 0.9);
+      chest.position.set(0, 0.64, 0.34);
+      chest.castShadow = true;
+      g.add(chest);
+      const haunch = new THREE.Mesh(new THREE.SphereGeometry(0.27, 10, 8), pelt);
+      haunch.scale.set(1.1, 1.05, 0.95);
+      haunch.position.set(0, 0.62, -0.50);
+      haunch.castShadow = true;
+      g.add(haunch);
+
+      // 首を前へ低く出す。頭と鼻先は獣のまま使う
+      M.neck.position.set(0, 0.76, 0.62);
+      M.neck.rotation.x = 0.22;
+      M.head.scale.set(1.0, 0.92, 1.15);
+      if(M.snout){ M.snout.scale.set(1.0, 0.85, 1.5); M.snout.position.set(0, -0.04, 0.24); }
+      M.eyes.forEach((e,i)=>{ e.position.set(i===0?-0.10:0.10, 0.06, 0.19); });
+      // 垂れ耳
+      [-1,1].forEach(sgn=>{
+        const ear = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.24, 5), pelt);
+        ear.position.set(sgn*0.15, 0.09, -0.06);
+        ear.rotation.set(0.5, 0, sgn*0.45);
+        ear.castShadow = true;
+        M.neck.add(ear);
+      });
+      // 顔の半分だけを影が覆う(局所的な異常)
+      const mask = new THREE.Mesh(new THREE.SphereGeometry(0.19, 8, 7), shade);
+      mask.scale.set(0.62, 1.0, 1.1);
+      mask.position.set(-0.09, 0.0, 0.05);
+      M.neck.add(mask);
+      const shoulderShade = new THREE.Mesh(new THREE.SphereGeometry(0.22, 9, 7), shade);
+      shoulderShade.scale.set(1.05, 0.8, 0.8);
+      shoulderShade.position.set(-0.08, 0.72, 0.28);
+      g.add(shoulderShade);
+
+      // 四肢。前脚は真っ直ぐ、後脚は腿を付けて踏ん張って見せる
+      [[-0.18, 0.42, 'f'], [0.18, 0.42, 'f'], [-0.20, -0.52, 'b'], [0.20, -0.52, 'b']].forEach(([x,z,kind], i)=>{
+        const len = kind === 'f' ? 0.50 : 0.46;
+        const leg = mansionLimb(g, x, 0.54, z, len, 0.062, pelt, {foot:0.20});
+        M.limbs.push({m:leg, axis:'x', base:kind === 'f' ? 0 : -0.12,
+                      amp:0.78, phase:(i===0||i===3) ? 0 : Math.PI, walk:true, idle:0.03});
+      });
+      // 尾
+      const tail = new THREE.Group();
+      tail.position.set(0, 0.70, -0.72);
+      const t1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.035, 0.34, 5), pelt);
+      t1.position.y = -0.17; t1.castShadow = true; tail.add(t1);
+      const t2 = new THREE.Group();
+      t2.position.y = -0.34;
+      const t2m = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.02, 0.28, 5), shade);
+      t2m.position.y = -0.14; t2.add(t2m);
+      tail.add(t2);
+      tail.rotation.x = -0.9;
+      g.add(tail);
+      M.tail = tail; M.tailTip = t2;
+
+      M.groundShadow = mansionGroundShadow(g, 0.62, variant.shadowColor);
+      M.shadowLag = {x:0, z:0, rate:4.0, amount:0.7};
+
+    } else if(theme === 'warden'){
+      /* ---- 鍵束の番人(Strong Mob / Phase 5-B) ----
+         「影に侵された使用人」と同じ系統に見えたうえで、並べた瞬間に
+         格上と分かること。差は色ではなく骨格で出す:
+           ・肩幅と胴が明確に太く、脚も太い(使用人は細身)
+           ・左半身が丸ごと影に呑まれ、影腕は使用人のそれより一回り大きい
+           ・右手に巨大な鍵束 ―― これが守護型の「盾」を兼ねる
+             (buildEnemy 側が M.guardVisual をそのまま shieldGroup として
+              使い、体幹の溜まり具合とガードブレイクの予兆で光る)
+           ・お仕着せは残っているが裾が裂けている
+           ・顔は残す。怪物ではなく「役割だけが残った使用人」 */
+      const livery = new THREE.MeshStandardMaterial({color:col, roughness:0.78});
+      const linen  = new THREE.MeshStandardMaterial({color:variant.accentColor||0xb0a48c, roughness:0.88});
+      const shade  = mansionShadowMat(variant.shadowColor);
+      const brass  = new THREE.MeshStandardMaterial({
+        color:variant.keyColor||0xb9a45c, roughness:0.38, metalness:0.72,
+        emissive:variant.keyColor||0xb9a45c, emissiveIntensity:0});
+      M.mansionKind = 'warden';
+      M.limbs = [];
+      M.legs.forEach(l=>{ l.visible = false; });
+      if(M.snout) M.snout.visible = false;
+
+      // 胴: 肩が広く腰がすぼまる。既存の body を作り替えるので、被弾の
+      // スカッシュも白フラッシュも今までどおり胴に乗る
+      body.geometry = makeTrapezoidBox({topW:0.74, topD:0.42, botW:0.50, botD:0.32, height:0.70});
+      body.scale.set(1,1,1);
+      body.position.set(0, 1.34, 0);
+
+      M.neck.position.set(0, 1.74, 0.02);
+      M.head.scale.setScalar(1.24);
+      M.eyes.forEach((e,i)=>{ e.position.set(i===0?-0.10:0.10, 0.03, 0.245); });
+      const face = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.21, 0.06),
+                     new THREE.MeshStandardMaterial({color:0xa89482, roughness:0.92}));
+      face.position.set(0, 0.0, 0.225);
+      M.neck.add(face);
+      const hair = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.17, 0.32),
+                     new THREE.MeshStandardMaterial({color:0x17141d, roughness:0.96}));
+      hair.position.set(0, 0.17, -0.02);
+      M.neck.add(hair);
+      // 左半分だけ影が顔に這い上がっている(完全な怪物にはしない)
+      const faceCreep = new THREE.Mesh(new THREE.SphereGeometry(0.21, 8, 7), shade);
+      faceCreep.scale.set(0.5, 1.0, 1.0);
+      faceCreep.position.set(-0.13, 0.0, 0.03);
+      M.neck.add(faceCreep);
+
+      // 襟と前立て。使用人と同じ仕立てだが一回り大きい
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.21, 0.09, 8), linen);
+      collar.position.set(0, 1.685, 0.01);
+      g.add(collar);
+      const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.48, 0.06), linen);
+      shirt.position.set(0.02, 1.36, 0.215);
+      g.add(shirt);
+      // 腰。太い
+      const waist = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.34, 0.20, 8), livery);
+      waist.position.set(0, 0.98, 0);
+      waist.castShadow = true;
+      g.add(waist);
+      // 裂けた裾。三角形を不揃いに垂らして「破れている」を作る
+      [[-0.20,-0.10,0.52],[0.04,-0.16,0.40],[0.22,-0.08,0.46]].forEach(([x,z,len])=>{
+        const rag = new THREE.Mesh(new THREE.ConeGeometry(0.15, len, 4), livery);
+        rag.position.set(x, 0.90 - len*0.5, z);
+        rag.rotation.x = Math.PI;
+        rag.rotation.z = x * 0.6;
+        rag.castShadow = true;
+        g.add(rag);
+      });
+      // 左肩に掛かった外套。半分が影に呑まれている
+      const mantle = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.52, 6), shade);
+      mantle.position.set(-0.22, 1.50, -0.06);
+      mantle.rotation.x = Math.PI;
+      mantle.rotation.z = -0.22;
+      mantle.castShadow = true;
+      g.add(mantle);
+
+      // 太い脚
+      [-0.19, 0.19].forEach((x,i)=>{
+        const leg = mansionLimb(g, x, 0.92, 0, 0.82, 0.105, livery, {foot:0.30});
+        M.limbs.push({m:leg, axis:'x', base:0, amp:0.46, phase:i*Math.PI, walk:true, idle:0.028});
+      });
+
+      /* 右腕(人間のまま、ただし太い)。鍵束はこの手に提げる */
+      const armR = mansionLimb(g, 0.42, 1.62, 0, 0.36, 0.090, livery);
+      const foreR = mansionLimb(armR, 0, -0.36, 0, 0.34, 0.080, livery);
+      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.08, 7), linen);
+      cuff.position.y = -0.31; foreR.add(cuff);
+      M.armR = armR; M.foreR = foreR;
+      M.limbs.push({m:armR, axis:'x', base:0.05, amp:0.26, phase:Math.PI, walk:true, idle:0.045});
+
+      /* 巨大な鍵束。守護型の「盾」の実体でもある(M.guardVisual)。
+         buildEnemy がこれを en.shieldGroup / en.shieldMat として受け取り、
+         体幹の溜まり具合(青→橙)とガードブレイクの予兆(白熱)を
+         既存の経路そのままで光らせる ―― 新しいUIは作らない。 */
+      const keyring = new THREE.Group();
+      keyring.position.set(0, -0.38, 0.02);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.035, 6, 12), brass);
+      ring.rotation.x = Math.PI/2;
+      ring.castShadow = true;
+      keyring.add(ring);
+      // 鍵を数本ぶら下げる。長さと角度を散らして「束」に見せる
+      [[-0.12,-0.02,0.34],[-0.04,0.06,0.44],[0.05,-0.05,0.38],[0.12,0.04,0.30],[0.0,-0.09,0.48]]
+        .forEach(([x,z,len])=>{
+          const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.045, len, 0.045), brass);
+          shaft.position.set(x, -0.10 - len*0.5, z*0.6);
+          shaft.castShadow = true;
+          keyring.add(shaft);
+          const bow = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.02, 5, 9), brass);
+          bow.rotation.y = Math.PI/2;
+          bow.position.set(x, -0.10, z*0.6);
+          keyring.add(bow);
+          const bit = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.05, 0.035), brass);
+          bit.position.set(x + 0.04, -0.12 - len, z*0.6);
+          keyring.add(bit);
+        });
+      foreR.add(keyring);
+      M.guardVisual = keyring;
+      M.guardMat = brass;
+      M.keyring = keyring;
+
+      /* 左腕だけが影 ―― 使用人の影腕(上腕0.44/前腕0.48、半径0.085/0.068)
+         より、長さでも太さでも一回り大きい。並べたときに「同じ侵食の、
+         もっと進んだ姿」に見えることを狙っている */
+      const shadowArm = new THREE.Group();
+      shadowArm.position.set(-0.44, 1.60, 0.01);
+      shadowArm.rotation.z = -0.18;
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.135, 0.54, 7), shade);
+      upper.position.y = -0.27; upper.castShadow = true; shadowArm.add(upper);
+      const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), shade);
+      elbow.position.y = -0.54; shadowArm.add(elbow);
+      const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.095, 0.58, 7), shade);
+      fore.position.y = -0.85; fore.castShadow = true; shadowArm.add(fore);
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.135, 0.34, 6), shade);
+      claw.position.y = -1.27; claw.rotation.x = Math.PI; shadowArm.add(claw);
+      g.add(shadowArm);
+      M.shadowArm = shadowArm;
+      M.shadowArmHome = {x:-0.44, y:1.60, z:0.01};
+      // 肩から胸へ這い上がった影(左半身の侵食)
+      const creep = new THREE.Mesh(new THREE.SphereGeometry(0.26, 9, 7), shade);
+      creep.scale.set(1, 0.9, 0.8);
+      creep.position.set(-0.34, 1.54, 0.02);
+      g.add(creep);
+
+      M.groundShadow = mansionGroundShadow(g, 0.66, variant.shadowColor);
+      M.shadowLag = {x:0, z:0, rate:3.4, amount:0.7};
+
+    } else if(theme === 'butler'){
+      /* ---- 黒衣の執事(Midboss / Phase 5-C) ----
+         番人が「太く大きい」で格上を示すのに対し、執事は
+         「細く高い」で示す。並べたとき、同じ屋敷の住人でありながら
+         役割が違うことがシルエットだけで分かることを狙っている。
+           番人  : 肩幅0.74 / 脚半径0.105 / 素の高さ約2.0(×1.5)
+           執事  : 肩幅0.42 / 脚半径0.058 / 素の高さ約1.95(×1.7)
+         右手に燭台、左半身が影。影は身体から少し離れた位置に、
+         もう一体ぶんの薄い人形(M.shadowSelf)として付いてくる ――
+         通常敵「侵食されている」/ 番人「巨大な影腕」から一段進んで、
+         「影そのものが独立しかけている」段階を見せる(仕様17)。 */
+      const coat  = new THREE.MeshStandardMaterial({color:col, roughness:0.62});
+      const linen = new THREE.MeshStandardMaterial({color:variant.accentColor||0xe2ded2, roughness:0.82});
+      const shade = mansionShadowMat(variant.shadowColor);
+      const flameCol = variant.candleColor || 0xffc978;
+      const flameMat = new THREE.MeshBasicMaterial({color:flameCol});
+      const brassMat = new THREE.MeshStandardMaterial({color:0x8a7340, roughness:0.4, metalness:0.7});
+      M.mansionKind = 'butler';
+      M.limbs = [];
+      M.legs.forEach(l=>{ l.visible = false; });
+      if(M.snout) M.snout.visible = false;
+
+      // 胴: 肩が狭く、腰へ向けてさらに絞る
+      body.geometry = makeTrapezoidBox({topW:0.42, topD:0.24, botW:0.28, botD:0.19, height:0.64});
+      body.scale.set(1,1,1);
+      body.position.set(0, 1.30, 0);
+
+      M.neck.position.set(0, 1.66, 0.01);
+      M.head.scale.setScalar(1.02);          // 頭を小さく保つ = 背が高く見える
+      M.eyes.forEach((e,i)=>{ e.position.set(i===0?-0.075:0.075, 0.03, 0.215); });
+      const face = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.19, 0.05),
+                     new THREE.MeshStandardMaterial({color:0xb9a894, roughness:0.9}));
+      face.position.set(0, 0.0, 0.198);
+      M.neck.add(face);
+      const hair = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.13, 0.25),
+                     new THREE.MeshStandardMaterial({color:0x0e0c14, roughness:0.85}));
+      hair.position.set(0, 0.155, -0.02);
+      M.neck.add(hair);
+      // 顔の左側だけに影がかかる。人間らしさは残す(仕様3)
+      const faceShade = new THREE.Mesh(new THREE.SphereGeometry(0.185, 8, 7), shade);
+      faceShade.scale.set(0.42, 1.0, 1.0);
+      faceShade.position.set(-0.115, 0.0, 0.03);
+      M.neck.add(faceShade);
+
+      // 立ち襟・白シャツ・蝶ネクタイ
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.135, 0.09, 8), linen);
+      collar.position.set(0, 1.60, 0.01);
+      g.add(collar);
+      const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.42, 0.05), linen);
+      shirt.position.set(0, 1.33, 0.13);
+      g.add(shirt);
+      const tie = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.05, 0.04), coat);
+      tie.position.set(0, 1.545, 0.15);
+      g.add(tie);
+      const waist = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 0.14, 8), coat);
+      waist.position.set(0, 0.96, 0);
+      waist.castShadow = true;
+      g.add(waist);
+
+      // 長い燕尾。細長い板を2枚、膝下まで垂らす
+      [-0.10, 0.10].forEach(x=>{
+        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.70, 0.04), coat);
+        tail.position.set(x, 0.60, -0.13);
+        tail.castShadow = true;
+        g.add(tail);
+      });
+
+      // 細い脚
+      [-0.095, 0.095].forEach((x,i)=>{
+        const leg = mansionLimb(g, x, 0.92, 0, 0.84, 0.058, coat, {foot:0.20});
+        M.limbs.push({m:leg, axis:'x', base:0, amp:0.52, phase:i*Math.PI, walk:true, idle:0.03});
+      });
+
+      /* 右腕(人間のまま)。燭台をこの手に持つ */
+      const armR = mansionLimb(g, 0.26, 1.54, 0, 0.32, 0.052, coat);
+      const foreR = mansionLimb(armR, 0, -0.32, 0, 0.30, 0.046, coat);
+      const glove = new THREE.Mesh(new THREE.SphereGeometry(0.058, 7, 6), linen);
+      glove.position.y = -0.30; foreR.add(glove);
+      M.armR = armR; M.foreR = foreR;
+      M.limbs.push({m:armR, axis:'x', base:0.05, amp:0.30, phase:Math.PI, walk:true, idle:0.05});
+
+      /* 燭台。装飾ではなく戦闘の核(仕様4) ―― Phase 1 の主武器であり、
+         予兆で炎が強まり、フェーズ移行で一度消えかけ、Phase 2 では
+         冷たい色で灯り直す。光源は生成時に1つだけ足して以後は強さだけを
+         変える(動的な add/remove はシェーダ再コンパイルを誘発するため、
+         既存の takeLight() のコメントと同じ判断) */
+      const candle = new THREE.Group();
+      candle.position.set(0, -0.36, 0.02);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.030, 0.40, 6), brassMat);
+      stem.position.y = -0.20; stem.castShadow = true; candle.add(stem);
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.035, 8), brassMat);
+      foot.position.y = -0.40; candle.add(foot);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.022, 0.022), brassMat);
+      arm.position.y = -0.05; candle.add(arm);
+      M.flames = [];
+      [-0.13, 0, 0.13].forEach((x,i)=>{
+        const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.030, 0.024, 0.09, 6), brassMat);
+        cup.position.set(x, i===1 ? 0.03 : -0.005, 0); candle.add(cup);
+        const flame = new THREE.Mesh(new THREE.ConeGeometry(0.030, 0.10, 6), flameMat);
+        flame.position.set(x, (i===1 ? 0.03 : -0.005) + 0.09, 0);
+        flame.userData.noOutline = true;
+        candle.add(flame);
+        M.flames.push(flame);
+      });
+      const candleLight = new THREE.PointLight(flameCol, 0.85, 5);
+      candleLight.position.y = 0.06;
+      candle.add(candleLight);
+      foreR.add(candle);
+      M.candle = candle;
+      M.candleLight = candleLight;
+      M.flameMat = flameMat;
+
+      /* 左腕だけが影。番人の影腕(上腕0.54 半径0.16)より細く長い ――
+         「重い」ではなく「速くて遠い」ことを形で示す */
+      const shadowArm = new THREE.Group();
+      shadowArm.position.set(-0.26, 1.54, 0.01);
+      shadowArm.rotation.z = -0.14;
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.062, 0.48, 6), shade);
+      upper.position.y = -0.24; upper.castShadow = true; shadowArm.add(upper);
+      const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.07, 7, 6), shade);
+      elbow.position.y = -0.48; shadowArm.add(elbow);
+      const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.040, 0.56, 6), shade);
+      fore.position.y = -0.76; fore.castShadow = true; shadowArm.add(fore);
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.062, 0.30, 6), shade);
+      claw.position.y = -1.14; claw.rotation.x = Math.PI; shadowArm.add(claw);
+      g.add(shadowArm);
+      M.shadowArm = shadowArm;
+      M.shadowArmHome = {x:-0.26, y:1.54, z:0.01};
+
+      /* 身体から離れて動く影(仕様17)。もう一体ぶんの薄い人形を、
+         平常時はわずかに後ろへ、Phase 2 ではもっと離して置く。
+         影移動(fade)のあいだは行き先の方向へ伸びて、どこへ出るかを示す。 */
+      const self = new THREE.Group();
+      const sTorso = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.62, 0.10), shade);
+      sTorso.position.y = 1.30; self.add(sTorso);
+      const sHead = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 7), shade);
+      sHead.scale.set(1, 1, 0.5); sHead.position.y = 1.70; self.add(sHead);
+      const sLegs = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.86, 0.09), shade);
+      sLegs.position.y = 0.50; self.add(sLegs);
+      const sArm = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.66, 0.08), shade);
+      sArm.position.set(-0.24, 1.22, 0); sArm.rotation.z = -0.16; self.add(sArm);
+      self.traverse(o=>{ if(o.isMesh) o.userData.noOutline = true; });
+      self.position.set(-0.14, 0, -0.26);
+      g.add(self);
+      M.shadowSelf = self;
+      M.shadowSelfHome = {x:-0.14, z:-0.26};
+
+      M.groundShadow = mansionGroundShadow(g, 0.48, variant.shadowColor);
+      // 執事の影はいちばん遅れて付いてくる(独立しかけている)
+      M.shadowLag = {x:0, z:0, rate:2.2, amount:0.9};
     }
   }
 
@@ -3496,7 +4098,11 @@
 
     // named limbs, so this mob can be animated instead of sliding along
     const M = {legs:[], segs:[], leaves:[], fins:[], trail:[],
-               neck, head, gear:null, pend:null, bud:null,
+               neck, head, snout, gear:null, pend:null, bud:null,
+               // 人型テーマ(森の洋館の使用人/侍女)が鼻先を隠し、
+               // 独自の手足を回すための受け口。既定は空で、既存テーマは
+               // 一切通らない
+               limbs:null, mansionKind:null, noHorns:false, eyes:[],
                hover:false, rooted:false, heavy:false, lurch:0, theme,
                // poses the idle pass records so the flinch can layer over them
                // by assignment rather than by accumulating offsets
@@ -3527,12 +4133,17 @@
     const eyeL = new THREE.Mesh(eyeGeo,eyeMat); eyeL.position.set(-0.09,0.03,0.15);
     const eyeR = new THREE.Mesh(eyeGeo,eyeMat); eyeR.position.set(0.09,0.03,0.15);
     neck.add(eyeL, eyeR);       // eyes ride the head, so a head turn reads
+    // 人型テーマは頭の大きさも位置も作り変えるので、目の置き場所も
+    // テーマ側に委ねられるようにしておく(顔を持たない個体は消す)
+    M.eyes = [eyeL, eyeR];
 
     dressEnemy(g, body, theme, variant, atkType, M);
     // legless themes: hide the walking gear rather than leaving it poking out
     if(M.hover || M.rooted) M.legs.forEach(l=>{ l.visible = false; });
-
-    if(atkType==='charge'){
+    // M.noHorns: 突進タイプでも角を生やさないテーマ(館の猟犬)。
+    // 角は「突進してくる」ことの既存のテルだが、犬の頭に生えると
+    // 獣に見えなくなる ―― 猟犬は身を低くする予兆と影の侵食で読ませる
+    if(atkType==='charge' && !M.noHorns){
       // large forward-swept horns - the tell for a charging enemy
       const hornGeo = new THREE.ConeGeometry(0.11,0.62,6);
       const hornMat = new THREE.MeshStandardMaterial({color:0xe8e0d0, roughness:0.5});
@@ -3588,18 +4199,28 @@
     // 独立した、純粋な視覚的テル)
     let shieldGroup = null, shieldMat = null;
     if(variant.guardian){
-      shieldMat = new THREE.MeshStandardMaterial({color:0xb8c4d8, roughness:0.35, metalness:0.75,
-                    emissive:0x3a5aff, emissiveIntensity:0});
-      shieldGroup = new THREE.Group();
-      shieldGroup.position.set(0, 0.42, 0.34);
-      const shield = new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.34,0.09,8), shieldMat);
-      shield.rotation.z = Math.PI/2;
-      shield.castShadow = true;
-      shieldGroup.add(shield);
-      const boss = new THREE.Mesh(new THREE.SphereGeometry(0.09,8,6), shieldMat);
-      boss.position.set(0, 0, 0.05);
-      shieldGroup.add(boss);
-      g.add(shieldGroup);
+      if(M.guardVisual){
+        /* テーマが自前の「守りの意匠」を持っている場合はそれを使う
+           (鍵束の番人の鍵束)。既に自分の親へ足されているので g.add はしない。
+           updateEnemies 側の扱い ―― 体幹が溜まるほど光り、70%で橙、
+           ガードブレイクの予兆で白熱、崩れると垂れ下がる ―― は
+           金属の盾と全く同じ経路のまま */
+        shieldGroup = M.guardVisual;
+        shieldMat = M.guardMat;
+      } else {
+        shieldMat = new THREE.MeshStandardMaterial({color:0xb8c4d8, roughness:0.35, metalness:0.75,
+                      emissive:0x3a5aff, emissiveIntensity:0});
+        shieldGroup = new THREE.Group();
+        shieldGroup.position.set(0, 0.42, 0.34);
+        const shield = new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.34,0.09,8), shieldMat);
+        shield.rotation.z = Math.PI/2;
+        shield.castShadow = true;
+        shieldGroup.add(shield);
+        const boss = new THREE.Mesh(new THREE.SphereGeometry(0.09,8,6), shieldMat);
+        boss.position.set(0, 0, 0.05);
+        shieldGroup.add(boss);
+        g.add(shieldGroup);
+      }
     }
 
     // Contour only, and only the big forms: outlining every rag, fin and
@@ -3722,6 +4343,35 @@
       // 新規敵タイプ用のフラグ(敵デザイン強化 #21): turret=台座固定・
       // ノックバック無効、turretRange=砲台の索敵距離(未指定なら既定値)
       turret:!!variant.turret, turretRange:variant.turretRange||null,
+      /* 森の洋館の3種(Phase 5-A)が使う個体差。どれも既存AIの中の
+         1行ぶんの分岐で、指定の無い敵(既存の全個体)は今までどおり
+         素通りする ―― 新しいAIステートを増やさずに役割差を付けるための
+         受け口(core/mansion-enemies.js が値を決める):
+           shotWindupSec … 引き撃ちの溜めの長さ(侍女は影が集まるぶん長い)
+           shotRootSec   … 撃った直後に動けない時間(侍女のパニッシュ窓)
+           shotSfx/dashSfx … 既存SEキーの割り当て */
+      shotWindupSec: variant.shotWindupSec || null,
+      shotRootSec: variant.shotRootSec || null, shotRootT: 0,
+      shotSfx: variant.shotSfx || null, dashSfx: variant.dashSfx || null,
+      /* 使用人(atkType:'servant')の攻撃相。updateShadowServantAI が
+         進める(既存の chargeState/ghostState と同じ位置づけ) */
+      servantState: variant.atkType === 'servant' ? 'idle' : null,
+      servantT:0, servantAttack:null, servantSweepCD:0, servantAtkCD:0, servantHit:false,
+      servantRecoverOverride:0,
+      /* 近接2択のプロファイル名(core/mansion-enemies.js MELEE_PROFILES)。
+         未指定なら使用人。鍵束の番人だけ 'warden' を指す ―― 状態機械は
+         同じで、攻撃表と間合いだけが別になる */
+      meleeKind: variant.meleeKind || null,
+      /* 黒衣の執事(Midboss / Phase 5-C)のフェーズと影移動。
+         ボスの en.phase と同じ「HP閾値で1つ上がるだけ」の値で、
+         フェーズを持たない敵では常に 1 のまま使われない */
+      butlerPhase: variant.meleeKind === 'butler' ? 1 : 0,
+      butlerStepCD:0, butlerStepTo:null, butlerStepSide:1, butlerFaded:false,
+      candleColor: variant.candleColor || null,
+      candleColorP2: variant.candleColorP2 || null,
+      /* 旋回速度(core/enemy-facing.js resolveTurnRate)。未指定(null)は
+         従来どおり既定値。番人だけ鈍くして「側面へ回る」を有効にする */
+      turnRate: variant.turnRate != null ? variant.turnRate : null,
       /* 飛行敵インターフェース(Combat Feel Phase 5 / core/uppercut.js)。
          現時点で flying を立てる敵は Combat Test Arena の検証用個体だけ
          ―― 「将来飛行敵が追加された時に切り上げが対応できる」ための
@@ -3736,7 +4386,10 @@
 
   function buildBoss(pos, cfg){
     cfg = Object.assign({
-      key:'mansionBoss', bodyColor:0x5a1a2a, emissive:0x8a1020, eyeColor:0xff4433, auraColor:0xff3322,
+      /* 館の主(Phase 5-D)。HP・攻撃力・XP・報酬は既存のまま
+         ―― フェーズが3つあるぶん戦闘時間は伸びるので、HPは増やさない(仕様21) */
+      key:'mansionBoss', bodyColor:0x201c2c, emissive:0x140f1e, eyeColor:0xe8dcc0, auraColor:0xb08aff,
+      projColor:0x9a6ae0,
       hpMax:620, atk:26, speed:1.6, xp:150,
       /* 洋館の主。何が起きたのかを説明する役ではない ―― 本人にも
          分かっていない、という一点だけをはっきりさせて退場させる。
@@ -4076,6 +4729,150 @@
       });
       parts = {kind:'clockwork', pend, handL, handR, face, dialH, dialM, gear:body};
 
+    } else if(cfg.key==='mansionBoss'){
+      /* --- 館の主(Boss / Phase 5-D) ---
+         森の洋館の「影が人から離れていく」を完成させるボス。怪物にはしない
+         (仕様2): 顔も人のかたちも最後まで残し、巨大化もさせない。格は
+         体格ではなく仕立ての良さで示す ―― 執事(黒衣・細身)の延長線上に
+         いることが一目で分かるシルエットにする。
+
+         影(M.lordShade)は本体と同じグループの子として持つ。Phase 2 で
+         **en.group そのものが影の側へ移り**、本体は世界に固定された
+         見た目だけの分身として残る(07-ai-combat.js updateMansionLordAI)。
+         敵オブジェクトは最後までひとつなので、影を殴っても本体を殴っても
+         同じ en.hp が減る(仕様23)し、ターゲット・HPバー・当たり判定は
+         既存のまま影へ付いてくる(仕様24)。 */
+      const coatMat = applyBump(new THREE.MeshStandardMaterial({
+        map: makeLeatherTexture(hexStr(cfg.bodyColor), 3, 4), roughness:0.52,
+        emissive:cfg.emissive, emissiveIntensity:0.18}));
+      const coatFlat = coatMat.clone(); coatFlat.flatShading = true;
+      const silkMat = applyBump(new THREE.MeshStandardMaterial({
+        map: makeMetalTexture('#b8ae90', 3, 2), roughness:0.45, metalness:0.25}));
+      const goldMat = new THREE.MeshStandardMaterial({color:0xb8943f, roughness:0.32, metalness:0.78});
+      const skinMat = new THREE.MeshStandardMaterial({color:0xc2ae98, roughness:0.88});
+      const shadeMat = mansionShadowMat(0x08060e);
+
+      /* ---- 本体(館の主) ---- */
+      const lord = new THREE.Group();
+      body = new THREE.Mesh(limbGeo(TORSO_PROFILE.male, 0.70, 1.65, 12), coatMat);
+      body.position.y = 2.05; body.castShadow = true;
+      lord.add(body);
+      // 装飾帯とボタン列。仕立ての良さはここで出す
+      const sash = new THREE.Mesh(limbGeo(CUFF_PROFILE, 0.78, 0.22, 10), goldMat);
+      sash.position.y = 1.52; sash.castShadow = true; lord.add(sash);
+      const placket = new THREE.Mesh(new THREE.BoxGeometry(0.30, 1.35, 0.10), silkMat);
+      placket.position.set(0, 2.10, 0.52); lord.add(placket);
+      for(let i=0;i<4;i++){
+        const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.035,8), goldMat);
+        btn.rotation.x = Math.PI/2;
+        btn.position.set(0, 1.62 + i*0.34, 0.60); lord.add(btn);
+      }
+      // 高い立ち襟
+      const collar = new THREE.Mesh(limbGeo(CUFF_PROFILE, 0.48, 0.42, 10), silkMat);
+      collar.position.y = 2.92; collar.castShadow = true; lord.add(collar);
+      // 床すれすれまで届く長いコート。裾が広がるぶんで solidR 2.0 を満たす
+      const skirt = new THREE.Mesh(makeLoft({sections:[
+        {y:1.70, points:[[-0.62,-0.40],[0.62,-0.40],[0.62,0.40],[-0.62,0.40]]},
+        {y:0.90, points:[[-0.95,-0.62],[0.95,-0.62],[0.95,0.62],[-0.95,0.62]]},
+        {y:0.06, points:[[-1.28,-0.86],[1.28,-0.86],[1.28,0.86],[-1.28,0.86]]},
+      ], closedTop:true, closedBottom:true}), coatFlat);
+      skirt.castShadow = true; lord.add(skirt);
+      // 後ろへ流れる裾。歩かなくても「布を纏っている」ことが読める
+      [-0.42, 0.42].forEach(x=>{
+        const trail = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.55, 0.08), coatFlat);
+        trail.position.set(x, 0.86, -0.92);
+        trail.rotation.x = -0.12;
+        trail.castShadow = true; lord.add(trail);
+      });
+      // 腕。杖を持つ右腕は肘から先を別ピボットにして振れるようにする
+      const armPivots = {};
+      [[-1,'L'],[1,'R']].forEach(([sgn,tag])=>{
+        const shoulder = new THREE.Group();
+        shoulder.position.set(sgn*0.66, 2.70, 0);
+        const upper = new THREE.Mesh(limbGeo(LIMB_PROFILE.upper, 0.20, 0.80, 9), coatMat);
+        upper.position.y = -0.40; upper.castShadow = true; shoulder.add(upper);
+        const fore = new THREE.Group();
+        fore.position.y = -0.80;
+        const foreMesh = new THREE.Mesh(limbGeo(LIMB_PROFILE.upper, 0.17, 0.74, 9), coatMat);
+        foreMesh.position.y = -0.37; foreMesh.castShadow = true; fore.add(foreMesh);
+        const cuff = new THREE.Mesh(limbGeo(CUFF_PROFILE, 0.21, 0.13, 8), silkMat);
+        cuff.position.y = -0.68; fore.add(cuff);
+        shoulder.add(fore);
+        lord.add(shoulder);
+        armPivots['arm'+tag] = shoulder;
+        armPivots['fore'+tag] = fore;
+      });
+      /* 杖。Phase 1 の主武器で、振り上げが予兆になる(仕様6-A)。
+         装飾の握りに小さな宝玉を付け、予兆で光らせる */
+      const cane = new THREE.Group();
+      cane.position.set(0, -0.72, 0.04);
+      const caneRod = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 1.95, 7), goldMat);
+      caneRod.position.y = -0.80; caneRod.castShadow = true; cane.add(caneRod);
+      const caneHead = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), goldMat);
+      caneHead.position.y = 0.16; cane.add(caneHead);
+      const caneGemMat = new THREE.MeshBasicMaterial({color:cfg.auraColor});
+      const caneGem = new THREE.Mesh(new THREE.SphereGeometry(0.095, 8, 7), caneGemMat);
+      caneGem.position.y = 0.16; caneGem.userData.noOutline = true; cane.add(caneGem);
+      armPivots.foreR.add(cane);
+      // 頭。顔・髪・わずかな影の侵食。怪物にはしない
+      const head = new THREE.Mesh(limbGeo(HEAD_PROFILE.male, 0.52, 0.95, 9), skinMat);
+      head.position.y = 3.42; head.castShadow = true; lord.add(head);
+      const hair = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.34, 0.68), coatFlat);
+      hair.position.set(0, 3.82, -0.04); lord.add(hair);
+      [-0.19,0.19].forEach(x=>{
+        const eye = new THREE.Mesh(eyeGeo, eyeMat);
+        eye.position.set(x, 3.44, 0.42); lord.add(eye);
+      });
+      const faceShade = new THREE.Mesh(new THREE.SphereGeometry(0.52, 9, 8), shadeMat);
+      faceShade.scale.set(0.40, 0.9, 0.9);
+      faceShade.position.set(-0.30, 3.40, 0.06);
+      lord.add(faceShade);
+      g.add(lord);
+
+      /* ---- 影 ----
+         「黒い半透明の人形が横にいるだけ」にはしない(仕様4):
+         本体より一回り大きく、姿勢が低く、腕が長い。腕は本体とは
+         別のピボットで動くので、同じ動きを真似るのではなく
+         「影だけが先に動く/遅れて動く」が作れる。 */
+      const shade = new THREE.Group();
+      const shTorso = new THREE.Mesh(limbGeo(TORSO_PROFILE.male, 0.84, 1.55, 10), shadeMat);
+      shTorso.position.y = 1.62; shade.add(shTorso);
+      const shHead = new THREE.Mesh(new THREE.SphereGeometry(0.50, 10, 8), shadeMat);
+      shHead.scale.set(1, 0.92, 0.82);
+      shHead.position.y = 2.72; shade.add(shHead);
+      // 低い姿勢: 腰から下は地面へ溶ける裾にして、脚は作らない
+      const shSkirt = new THREE.Mesh(new THREE.ConeGeometry(1.15, 1.30, 8), shadeMat);
+      shSkirt.position.y = 0.62; shSkirt.rotation.x = Math.PI; shade.add(shSkirt);
+      const shArms = {};
+      [[-1,'L'],[1,'R']].forEach(([sgn,tag])=>{
+        const pivot = new THREE.Group();
+        pivot.position.set(sgn*0.80, 2.30, 0);
+        pivot.rotation.z = sgn * -0.12;
+        const up = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.155, 1.05, 7), shadeMat);
+        up.position.y = -0.52; shade.add(pivot); pivot.add(up);
+        const elb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 7), shadeMat);
+        elb.position.y = -1.05; pivot.add(elb);
+        const lo = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.10, 1.20, 7), shadeMat);
+        lo.position.y = -1.66; pivot.add(lo);
+        const claw = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.46, 6), shadeMat);
+        claw.position.y = -2.48; claw.rotation.x = Math.PI; pivot.add(claw);
+        shArms['arm'+tag] = pivot;
+      });
+      shade.traverse(o=>{ if(o.isMesh) o.userData.noOutline = true; });
+      shade.scale.setScalar(1.12);        // 本体より一回り大きい
+      shade.position.set(0, 0, -0.30);    // Phase 1 は足元(やや後ろ)
+      g.add(shade);
+      // 足元の影。既存の洋館ヘルパーをそのまま使う
+      const shadeDisc = mansionGroundShadow(g, 1.55, 0x07060c);
+
+      parts = {kind:'lord', lord, shade, shadeDisc, cane, caneGem, caneGemMat,
+               head, faceShade, shadeMat,
+               armL:armPivots.armL, armR:armPivots.armR,
+               foreL:armPivots.foreL, foreR:armPivots.foreR,
+               shArmL:shArms.armL, shArmR:shArms.armR,
+               shTorso, shHead,
+               lordHome:{x:0, y:0, z:0}, shadeHome:{x:0, y:0, z:-0.30}};
+
     } else {
       // --- HUMANOID: shoulders, arms and legs, a clear person silhouette ---
       // Lathed from the same profile tables the player rig uses
@@ -4169,6 +4966,8 @@
       // no existing fight changes; only an oversized body needs more.
       atkReach: cfg.atkReach || Math.max(2.2, (cfg.solidR || 2.0) + 0.2),
       triggered:false, sneakAttacked:false, atkCD:0, xp:Math.round(cfg.xp*_D.xp), isElectric:!!cfg.isElectric,
+      // 影弾の色(spawnEnemyFireball が読む)。未指定のボスは従来どおり既定色
+      projColor: cfg.projColor || null,
       key:cfg.key, bossDoorKey:cfg.bossDoorKey || null,
       dialogueName:cfg.dialogueName, dialogueLines:cfg.dialogueLines,
       repeatDialogueLines:cfg.repeatDialogueLines,
@@ -4201,35 +5000,12 @@
      相当)は不要 ―― シーン全体の再構築で自然に片付く。 */
   function applyBossPhaseVisual(en, phase){
     const g = en.group, p = en.parts;
-    const shadowMat = new THREE.MeshStandardMaterial({color:0x1a0a18, roughness:0.6,
-      emissive:0x2a0a20, emissiveIntensity:0.45});
-
-    if(en.key==='mansionBoss'){
-      if(phase===2){
-        // Phase2: 「衣服が触手化、腕が増える」―― 胴から2本の触手腕が生える
-        [-1,1].forEach(s=>{
-          const tendril = new THREE.Mesh(new THREE.CapsuleGeometry(0.09,1.25,4,6), shadowMat);
-          tendril.position.set(s*0.85, 1.95, 0.35);
-          tendril.rotation.set(0.35, 0, s*0.55);
-          tendril.castShadow = true;
-          g.add(tendril);
-        });
-      } else if(phase===3){
-        // Phase3: 「館そのものと融合」―― 影の腕が周囲を漂う残影を静的に配置
-        for(let i=0;i<4;i++){
-          const a = (i/4)*Math.PI*2 + 0.4;
-          const claw = new THREE.Mesh(new THREE.ConeGeometry(0.15,0.55,5), shadowMat);
-          claw.position.set(Math.cos(a)*1.9, 1.6+Math.sin(i)*0.5, Math.sin(a)*1.9);
-          claw.rotation.z = a;
-          g.add(claw);
-        }
-        const ring = new THREE.Mesh(new THREE.RingGeometry(1.6,1.9,20),
-          new THREE.MeshBasicMaterial({color:0x2a0a30, transparent:true, opacity:0.55, side:THREE.DoubleSide}));
-        ring.rotation.x = -Math.PI/2; ring.position.y = 0.05;
-        g.add(ring);
-      }
-
-    } else if(en.key==='ghostCaptain'){
+    /* 館の主(mansionBoss)はここを通らない ―― フェーズ移行は
+       triggerBossPhaseSkill() ではなく専用AI(updateMansionLordAI)の
+       split/merge が受け持つ。以前ここにあった「触手腕を生やす」
+       「影の爪と床の輪を静的に置く」は、Phase 5-D の
+       「影そのものが身体から離れる」という見せ方と両立しないので外した。 */
+    if(en.key==='ghostCaptain'){
       if(phase===2){
         // Phase2: 「背中から海洋生物が出現」―― 触手状のシルエットを背に生やす
         const tentMat = new THREE.MeshStandardMaterial({color:0x1a3a48, roughness:0.5,
