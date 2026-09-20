@@ -16,6 +16,7 @@
      突進(charge)    chargeState==='telegraph'(0.65秒の溜め。体が膨らむ)
      砲撃/引き撃ち/砲台 en.fireCharging        (0.6〜0.7秒の溜め。体が脈打つ)
      幽霊(ghost)     ghostState==='phaseIn'  (背後で実体化しきる 0.35秒)
+     使用人(servant) servantState==='windup' (通常打撃0.34秒 / 影腕薙ぎ0.84秒)
 
    「振り抜いた直後の隙」は、ボスが既に使っている en.postAtkRecoveryT を
    雑魚側でも同じ長さ(POST_ATTACK_RECOVERY_SEC)だけ立てて共有する。
@@ -27,6 +28,17 @@
 // 雑魚もボスも同じ長さの窓になる(職業・敵種を問わない共通ルール)。
 export const POST_ATTACK_RECOVERY_SEC = 0.45;
 
+/* プロファイル方式の近接敵(core/enemy-profiles.js に登録された敵)の
+   振りかぶり。判定そのものは enemy-profiles.js が持ち、ここは
+   「予兆の定義は1箇所」というこのファイルの役割を崩さないために
+   読みに来るだけ ―― プロファイル方式の敵が、パニッシュ窓・大怯みの
+   中断(core/enemy-tier.js)の両方へ既存の定義ひとつでそのまま乗る。
+
+   参照先を core/mansion-enemies.js から移したのは、この判定が森の洋館
+   固有のものではないため ―― 汎用の予兆判定が特定のダンジョンの
+   ファイルに依存したままだと、他のダンジョンが同じ方式で敵を足せない。 */
+import { isProfileMeleeWindup } from './enemy-profiles.js';
+
 /* punishWindowMultiplier() へ渡す形 {midWindup, postAttackRecovery} を返す。
    振りかぶりが回復より優先(punishWindowMultiplier 側の優先順位と同じ)。
    死亡中・ダウン中は窓を開けない ―― ダウン中は既に無力化されていて、
@@ -36,7 +48,8 @@ export function punishWindowState(en) {
   const midWindup = !!en.atkWindup
     || en.chargeState === 'telegraph'
     || !!en.fireCharging
-    || en.ghostState === 'phaseIn';
+    || en.ghostState === 'phaseIn'
+    || isProfileMeleeWindup(en);
   if (midWindup) return { midWindup: true, postAttackRecovery: false };
   return { midWindup: false, postAttackRecovery: (en.postAtkRecoveryT || 0) > 0 };
 }

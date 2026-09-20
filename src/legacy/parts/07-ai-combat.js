@@ -89,24 +89,42 @@
     flashScreen();
   }
 
-  // 戦闘①: 森。人影が消えた先で、道を塞ぐように現れる
+  /* 戦闘①: 森。人影が消えた先で、道を塞ぐように現れる。
+
+     森の洋館の雑魚は3種(mansionEnemyVariant, core/mansion-enemies.js)。
+     HP・攻撃力・XP・金は**これまでの枠の数値をそのまま**渡している ――
+     今回変えたのは「どう戦わせるか」だけで、体力を盛って難しくする方向は
+     取らない(Chapter 1 の最初のダンジョンなので特に)。
+     初戦はまず近接の読み合いから。侍女を1体だけ後ろに置いて、
+     「前を捌きながら遠距離を潰す」形を最初に一度だけ見せる。 */
   function spawnForestAmbush(){
     spawnTaggedGroup('forestAmbush', [
-      {pos:new THREE.Vector3(10,0,-31.5), variant:{color:0x8a3a3a, hp:58, atk:12, speed:2.6, atkType:'charge', xp:16, goldBonus:[4,8]}},
-      {pos:new THREE.Vector3(13,0,-31),   variant:{color:0x8a3a3a, hp:58, atk:12, speed:2.6, atkType:'charge', xp:16, goldBonus:[4,8]}},
-      {pos:new THREE.Vector3( 6,0,-32.7), variant:{color:0xd06a2a, hp:48, atk:11, speed:0.7, atkType:'fire',   xp:18, goldBonus:[4,8], projColor:0xffb066}},
+      {pos:new THREE.Vector3(10,0,-31.5), variant:mansionEnemyVariant('servant', {hp:58, atk:12, xp:16, goldBonus:[4,8]})},
+      {pos:new THREE.Vector3(13,0,-31),   variant:mansionEnemyVariant('servant', {hp:58, atk:12, xp:16, goldBonus:[4,8]})},
+      {pos:new THREE.Vector3( 6,0,-34.5), variant:mansionEnemyVariant('maid',    {hp:48, atk:11, xp:18, goldBonus:[4,8]})},
     ]);
     spawnToast('🌿 道の先の茂みが、揺れた');
   }
 
-  // 戦闘③: 使用人区画。鍛冶士の声のあと、通路の側から回り込んでくる
+  /* 戦闘③: 使用人区画。鍛冶士の声のあと、通路の側から回り込んでくる。
+     ここは屋敷の使用人たちの居住区なので、出てくるのも使用人 ―― 場所と
+     敵が噛み合う唯一の戦闘にしてある。幽霊は既存のまま残す。
+
+     Phase 5-B: ここが鍵束の番人(Strong Mob)の初出。森(①)・大広間(②)で
+     通常敵を二度捌いた直後、同じ「使用人」の系統でありながら、殴っても
+     怯まず、正面からは通らない個体が出てくる ―― 「さっきまでの敵とは
+     違う」を、説明文ではなく戦って気づかせるための位置。
+     体数は3体のまま(使用人2 → 使用人1 + 番人1)で、過密にはしない。
+     ルート・部屋・イベントの発火条件はどれも変えていない。 */
   function spawnServantAmbush(){
     spawnTaggedGroup('servantAmbush', [
       // 消えて背後へ回り込む型。屋敷の中で「見えているものが全部ではない」
       // ことを、戦闘そのもので一度だけ体験させる
       {pos:new THREE.Vector3(88,0,80), variant:{color:0x5a5a70, hp:86, atk:19, speed:1.8, atkType:'ghost',  xp:30, goldBonus:[9,15]}},
-      {pos:new THREE.Vector3(60,0,80), variant:{color:0x8a3a3a, hp:92, atk:18, speed:2.7, atkType:'charge', xp:28, goldBonus:[9,15]}},
-      {pos:new THREE.Vector3(76,0,86), variant:{color:0x8a3a3a, hp:92, atk:18, speed:2.7, atkType:'charge', xp:28, goldBonus:[9,15]}},
+      {pos:new THREE.Vector3(60,0,80), variant:mansionEnemyVariant('servant', {hp:92, atk:18, xp:28, goldBonus:[9,15]})},
+      // 番人。広い側へ置く ―― 薙ぎの間合い(3.9)と「側面へ回る」が
+      // 成立する余地が要るため、壁際には置かない
+      {pos:new THREE.Vector3(76,0,90), variant:mansionEnemyVariant('warden', WARDEN_BASE_STATS)},
     ]);
   }
 
@@ -121,25 +139,35 @@
          ここに並ぶのは封鎖部屋の2つ ―― 大広間(戦闘②)と地下奥(戦闘④)。
          どちらも roomTag 付きなので、倒したあとその出撃中に復活しない
          (updateEnemies の復活処理そのものには手を触れていない)。 */
-      // 戦闘②: 大広間。踏み込むと扉が落ちる(door.seal, roomTag と同じタグ)
-      {pos:new THREE.Vector3(-11,0,-79), variant:{color:0x8a3a3a, hp:74, atk:15, speed:2.6, atkType:'charge', xp:22, goldBonus:[6,10], roomTag:'manorHall'}},
-      {pos:new THREE.Vector3( 11,0,-79), variant:{color:0x8a3a3a, hp:74, atk:15, speed:2.6, atkType:'charge', xp:22, goldBonus:[6,10], roomTag:'manorHall'}},
-      {pos:new THREE.Vector3(  0,0,-87), variant:{color:0xd06a2a, hp:62, atk:14, speed:0.7, atkType:'fire',   xp:24, goldBonus:[7,11], projColor:0xffb066, roomTag:'manorHall'}},
-      // 引き撃ち。広い部屋で距離を取ってくるので、突進だけを覚えたままでは押し切れない
-      {pos:new THREE.Vector3( 16,0,-88), variant:{color:0x7a6a4a, hp:66, atk:15, speed:2.2, atkType:'kite',   xp:26, goldBonus:[7,11], projColor:0xd8b878, roomTag:'manorHall'}},
-      // 戦闘④: 地下奥。ボスの手前、この出撃でいちばん重い雑魚戦
-      {pos:new THREE.Vector3(130,0,100), variant:{color:0x8a3a5a, hp:118, atk:22, speed:2.6, atkType:'charge', xp:38, goldBonus:[12,18], roomTag:'manorDeep', gateTag:'manorDeep'}},
-      {pos:new THREE.Vector3(150,0,100), variant:{color:0x8a3a5a, hp:118, atk:22, speed:2.6, atkType:'charge', xp:38, goldBonus:[12,18], roomTag:'manorDeep', gateTag:'manorDeep'}},
-      {pos:new THREE.Vector3(140,0,108), variant:{color:0x6a2a7a, hp:104, atk:21, speed:0.8, atkType:'fire',   xp:36, goldBonus:[12,18], projColor:0xc06ae0, roomTag:'manorDeep', gateTag:'manorDeep'}},
-      // Phase C(#36)の中ボス枠。名乗りだけ上げて、正体は語らない
-      /* 体幹チュートリアルの中心(COMBAT_DESIGN.md 9章)。突進の溜めだけを
-         既存の chargeTelegraphOverride で 0.65→1.0秒に伸ばしてある ――
-         「体が膨らむ → 突っ込んでくる」を初見でも読み切れる長さにして、
-         回避・パニッシュ・Enemy Step のどれを選ぶか考える一拍を作るため。
-         HP・攻撃力・体幹倍率・Enemy Stepの+55には一切触れていない */
-      {pos:new THREE.Vector3(140,0,113), variant:{color:0x5a2a6a, hp:190, atk:26, speed:2.8, atkType:'charge', xp:58, goldBonus:[18,26], strongMob:true, guardian:true, roomTag:'manorDeep', gateTag:'manorDeep',
-        chargeTelegraphOverride:1.0,
-        midbossName:'燭台を提げた影', midbossFlavor:'影がほどけ、床に落ちた燭台だけが、まだ小さく揺れていた。'}},
+      /* 戦闘②: 大広間。踏み込むと扉が落ちる(door.seal, roomTag と同じタグ)。
+         3種が初めて揃う場所。広い部屋なので猟犬の突進が成立し、
+         「前の使用人を捌く / 後ろの侍女を潰す / 突進を避ける」の
+         三つ巴をここで一度だけ体験させる。過密にならないよう、
+         配置は前2・後1・側1のまま(数は元の4体から増やしていない) */
+      {pos:new THREE.Vector3(-11,0,-79), variant:mansionEnemyVariant('servant', {hp:74, atk:15, xp:22, goldBonus:[6,10], roomTag:'manorHall'})},
+      {pos:new THREE.Vector3( 11,0,-79), variant:mansionEnemyVariant('servant', {hp:74, atk:15, xp:22, goldBonus:[6,10], roomTag:'manorHall'})},
+      {pos:new THREE.Vector3(  0,0,-89), variant:mansionEnemyVariant('maid',    {hp:62, atk:14, xp:24, goldBonus:[7,11], roomTag:'manorHall'})},
+      // 開けた側へ猟犬。突進の助走が取れる場所でないと「見てから避ける」が成立しない
+      {pos:new THREE.Vector3( 17,0,-88), variant:mansionEnemyVariant('hound',   {hp:66, atk:15, xp:26, goldBonus:[7,11], roomTag:'manorHall'})},
+      /* 戦闘④: 地下奥。ボスの手前、この出撃でいちばん重い雑魚戦。
+         広い石の間なので猟犬2体 + 後方に侍女。ここまでに覚えた
+         「突進を横へ避けて差し返す」「撃たせてから詰める」を
+         同時に要求する構成にしてある(数値は元の枠のまま) */
+      {pos:new THREE.Vector3(130,0,100), variant:mansionEnemyVariant('hound', {hp:118, atk:22, xp:38, goldBonus:[12,18], roomTag:'manorDeep', gateTag:'manorDeep'})},
+      {pos:new THREE.Vector3(150,0,100), variant:mansionEnemyVariant('hound', {hp:118, atk:22, xp:38, goldBonus:[12,18], roomTag:'manorDeep', gateTag:'manorDeep'})},
+      // 侍女は入口寄りへ。部屋の奥を中ボスの間合いとして空けておく(仕様18)
+      {pos:new THREE.Vector3(140,0,104), variant:mansionEnemyVariant('maid',  {hp:104, atk:21, xp:36, goldBonus:[12,18], roomTag:'manorDeep', gateTag:'manorDeep'})},
+      /* 中ボス(Phase 5-C)。もとは汎用の突進型に名前と台詞だけを乗せた
+         仮実装(「燭台を提げた影」)だったものを、森の洋館専用の
+         「黒衣の執事」として作り直した。HP・攻撃力・XP・金は
+         BUTLER_BASE_STATS が元の値(190/26/58/[18,26])をそのまま
+         引き継いでいるので、シナリオの難易度曲線には手を触れていない。
+         部屋の奥に置くのは、フェーズ2の影移動が成立する空間が要るため。
+
+         体幹チュートリアルの Enemy Step 練習台は、Phase 5-A でこの同じ
+         部屋に置いた館の猟犬2体(突進型・溜め0.85秒)が引き継いでいる。 */
+      {pos:new THREE.Vector3(140,0,113), variant:mansionEnemyVariant('butler',
+        Object.assign({roomTag:'manorDeep', gateTag:'manorDeep'}, BUTLER_BASE_STATS))},
       // ghost ship deck (Lv.6-10 scenario)
       {pos:new THREE.Vector3(-4,0,108), variant:{color:0x8fb5c9, hp:95, atk:19, speed:2.5, atkType:'charge', xp:30, goldBonus:[10,16]}},
       {pos:new THREE.Vector3(4,0,105),  variant:{color:0x6fa8d8, hp:70, atk:16, speed:0.7, atkType:'fire', xp:32, goldBonus:[10,16], projColor:0x7ecbe8}},
@@ -292,16 +320,26 @@
        buildMansionCryptDepths()/buildMansionAttic()が同じ★条件でしか部屋
        自体を建てないので、床のない場所に敵だけ浮く事故は起きない。
        一本道化にあわせて座標だけ新しい間取りへ移してある(周回の仕組み
-       そのものは温存) */
+       そのものは温存)
+
+       Phase 5-A〜5-D 以前はここだけ汎用の charge / fire のままで、
+       「同じ洋館なのに、本編では予兆型の敵、深部だけ旧突進/旧射撃」と
+       いう設計の不統一が残っていた。役割はそのままに、洋館の敵へ
+       置き換えてある(新しい敵種は足していない):
+         strongMob + guardian(守護役) → 鍵束の番人
+         fire(射撃役)                 → 顔のない侍女
+       HP・攻撃力・XP・ゴールド・座標・出現数・★条件・roomTag は
+       いずれも元の値のまま ―― 変わるのは見た目とAI(予兆の見せ方)だけで、
+       難易度の枠組みには手を触れていない。 */
     if(_spawnWorldKey==='mansion' && scenarioStars('mansion') >= MANSION_CRYPT_DEPTHS_STARS){
       enemies.push(buildEnemy(new THREE.Vector3(144,0,138),
-        {color:0x6a2a7a, hp:165, atk:27, speed:2.7, atkType:'charge', xp:42, goldBonus:[14,20], strongMob:true, guardian:true, roomTag:'manorDepths'}));
+        mansionEnemyVariant('warden', {hp:165, atk:27, xp:42, goldBonus:[14,20], roomTag:'manorDepths'})));
     }
     if(_spawnWorldKey==='mansion' && scenarioStars('mansion') >= MANSION_ATTIC_STARS){
       enemies.push(buildEnemy(new THREE.Vector3(154,0,-44),
-        {color:0x8a3a5a, hp:250, atk:36, speed:2.7, atkType:'charge', xp:72, goldBonus:[22,32], strongMob:true, guardian:true, roomTag:'manorAttic'}));
+        mansionEnemyVariant('warden', {hp:250, atk:36, xp:72, goldBonus:[22,32], roomTag:'manorAttic'})));
       enemies.push(buildEnemy(new THREE.Vector3(164,0,-36),
-        {color:0x6a3a8a, hp:180, atk:31, speed:0.9, atkType:'fire', xp:64, goldBonus:[19,28], projColor:0xd8b0ff, roomTag:'manorAttic'}));
+        mansionEnemyVariant('maid', {hp:180, atk:31, xp:64, goldBonus:[19,28], roomTag:'manorAttic'})));
     }
     // 幽霊船「山を登る」拡張(★4): 船倉最深部。buildGhostShipDepths()が
     // 同じ★条件でしか部屋を建てないので、こちらも床のない場所に敵だけ
@@ -623,6 +661,14 @@
       spawn:(pos)=> buildEnemy(pos, {hp:9999, atk:14, speed:2.0, atkType:'jumper', xp:0, color:0x7a3ac0})},
     boss:       {label:'Boss Test',    icon:'👑',
       spawn:(pos)=> buildBoss(pos, {hpMax:50000, atk:20})},
+    /* 館の主(Boss / Phase 5-D)。Boss Test はHPを50000にしてあり、
+       フェーズ閾値(65% / 30%)へ手が届かないので別枠で用意する ――
+       Phase 1 → 分離 → Phase 2(影が本体になる) → 融合 → Phase 3 の
+       複合攻撃までを、地下の主の間まで歩かずに一連で確認するため
+       (tests/mansion-lord.spec.js)。撃破報酬フローが誤発火しないよう
+       endsRun:false にしてある */
+    manorLord:  {label:'Manor Lord',    icon:'🎩',
+      spawn:(pos)=> buildBoss(pos, {hpMax:2200, atk:12, endsRun:false})},
     /* 切り上げの「飛行敵を落とす」経路を実際に確認するための個体
        (Combat Feel Phase 5)。新しい敵AIは足していない ―― 既存の
        passive をそのまま浮かせただけで、飛行そのものの挙動も持たない。
@@ -630,6 +676,29 @@
        ここだけになる */
     flyer:      {label:'Flying Test',  icon:'🕊️',
       spawn:(pos)=> buildEnemy(pos, {hp:9999, atk:0, speed:0, atkType:'passive', xp:0, color:0x8ad0e0, flying:true, flyHeight:1.7})},
+    /* 森の洋館の通常敵3種(Phase 5-A)。本編と同じプロファイルのまま、
+       HPだけを検証用に大きくした個体 ―― 予兆・射程・硬直・体幹の
+       組み立てを、地下まで歩かずに繰り返し確かめられるようにするため
+       (tests/mansion-enemies.spec.js が実際にここから出す)。
+       体幹を見たい時のためにHPは控えめ(崩してから処刑まで通せる) */
+    manorServant: {label:'Manor Servant', icon:'🕴️',
+      spawn:(pos)=> buildEnemy(pos, mansionEnemyVariant('servant', {hp:260, atk:10, xp:0}))},
+    manorMaid:    {label:'Manor Maid',    icon:'🕯️',
+      spawn:(pos)=> buildEnemy(pos, mansionEnemyVariant('maid',    {hp:260, atk:10, xp:0}))},
+    manorHound:   {label:'Manor Hound',   icon:'🐕',
+      spawn:(pos)=> buildEnemy(pos, mansionEnemyVariant('hound',   {hp:260, atk:10, xp:0}))},
+    /* 鍵束の番人(Strong Mob / Phase 5-B)。本編と同じプロファイルのまま、
+       正面耐性(×0.2)・Super Armor・ガードブレイク・体幹169 →Break→
+       Execution を繰り返し確認できるようにHPだけ厚くした個体
+       (tests/mansion-warden.spec.js が実際にここから出す) */
+    manorWarden:  {label:'Manor Warden',  icon:'🗝️',
+      spawn:(pos)=> buildEnemy(pos, mansionEnemyVariant('warden',  {hp:900, atk:10, xp:0}))},
+    /* 黒衣の執事(Midboss / Phase 5-C)。HPだけは検証用に厚くしてあるが、
+       フェーズ2の閾値(55%)には手が届く量にしてある ―― Phase 1 →
+       HP閾値 → 移行演出 → Phase 2 の影移動まで、地下奥まで歩かずに
+       一連で確認できるようにするため(tests/mansion-butler.spec.js) */
+    manorButler:  {label:'Manor Butler',  icon:'🕯',
+      spawn:(pos)=> buildEnemy(pos, mansionEnemyVariant('butler',  {hp:1400, atk:10, xp:0}))},
   };
   let arenaSpawnSeq = 0;
 
@@ -709,6 +778,11 @@
           en.postAtkRecoveryT = 0; en.arcaneBindT = 0; en.turnRateMul = 1;
           en.stunT = 0;   // 大怯みの硬直(core/enemy-tier.js)も持ち越さない
           en.guardHoldT = 0; en.guardBreakCD = 0; en.guardBreak = false;   // 守護型のガードブレイクも仕切り直す
+          if(en.servantState) servantEnterIdle(en);   // 使用人の攻撃相も持ち越さない
+          en.shotRootT = 0;                            // 侍女の撃ち終わりの足止めも
+          // 執事のフェーズと影移動も仕切り直す(HPが満タンに戻るので Phase 1 から)
+          if(en.butlerPhase) en.butlerPhase = 1;
+          en.butlerStepCD = 0; en.butlerStepTo = null;
           en.triggered = !!en.dummy;   // 湧き直した個体は非敵対から(カカシだけは的のまま)
           en.leashT = 0;
           if(en.mob){
@@ -794,6 +868,11 @@
             /* 起き上がったら窓は完全に閉じる。窓を逃した敵に
                「処刑できる」が残り続けないようにする(資料19章) */
             clearExecutionWindow(en);
+            /* 崩された最中に持っていた攻撃相は捨てる。振りかぶりの途中で
+               崩された敵が、起き上がった瞬間に予兆ゼロで振り抜くのは
+               「読んで避ける」約束を裏切るため(森の洋館の使用人) */
+            if(en.servantState) servantEnterIdle(en);
+            if(en.lordState){ lordEnterIdle(en); en.lordEchoT = 0; }
             en.postureGraceT = 1.5;  // 復帰直後は少しの間だけ体幹が削れない(Recovery Delayとは別用途)
             en.postureRecoveryDelayT = 0;
             en.bigFlinched = false;
@@ -819,10 +898,16 @@
           // ―― 青(平常)から橙(大怯みの閾値=崩し目前)へ、輝きも溜まるほど強く
           if(en.shieldGroup){
             const ratio = en.posture / en.postureMax;
-            if(en.guardBreak && en.chargeState === 'telegraph'){
+            const gbWindup = en.guardBreak &&
+              (en.chargeState === 'telegraph' || en.servantState === 'windup');
+            if(gbWindup){
               // ガードブレイクの予兆。体幹の青/橙とは別の白熱した光にして、
-              // 「崩せそう」と「崩しに来る」を取り違えないようにする
-              const k = 1 - Math.max(0, Math.min(1, en.chargeT / Math.max(0.001, en.chargeTelegraphDur || 1)));
+              // 「崩せそう」と「崩しに来る」を取り違えないようにする。
+              // 突進型は chargeT、近接型(鍵束の番人)は servantT で進行度を測る
+              const remain = en.servantState === 'windup' ? en.servantT : en.chargeT;
+              const dur = en.servantState === 'windup'
+                ? GUARD_BREAK_TELEGRAPH_SEC : (en.chargeTelegraphDur || 1);
+              const k = 1 - Math.max(0, Math.min(1, remain / Math.max(0.001, dur)));
               en.shieldMat.emissiveIntensity = 0.5 + k * 1.4;
               en.shieldMat.emissive.setHex(0xffe8b0);
             } else {
@@ -886,6 +971,7 @@
       else if(en.atkType==='turret') updateTurretAI(en, dt);
       else if(en.atkType==='jumper') updateJumperAI(en, dt);
       else if(en.atkType==='ghost')  updateGhostAI(en, dt);
+      else if(en.atkType==='servant') updateShadowServantAI(en, dt);
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
       updateMobAnim(en, dt);
@@ -1043,9 +1129,450 @@
       });
     }
     if(M.bud) M.bud.scale.setScalar(1 + Math.sin(t*1.6)*0.07);
+    // 森の洋館の3種(Phase 5-A)。自前の手足・足元の影・攻撃モーションは
+    // まとめて updateMansionMobExtras が持つ ―― ここに敵ごとの分岐を
+    // 積み上げないため(他のテーマは M.mansionKind を持たず素通りする)
+    if(M.mansionKind) updateMansionMobExtras(en, M, t, sw, moving, dt);
 
     // the flinch is layered on last, over whatever the mob was doing
     applyMobFlinch(en, dt, M);
+  }
+
+
+  /* =========================================================
+     森の洋館の3種の見た目(Phase 5-A)
+
+     方針は資料どおり「予兆はまずモーションで見せる」。新しいUIも、
+     新しいエフェクト基盤も、敵固有の説明テキストも足していない ――
+     ここでやるのは既存のAI状態(servantState / fireCharging / chargeState)を
+     読んで、身体をその形に置くことだけ。AI側はこの関数の存在を知らない。
+
+       使用人: 影腕を引く → 一瞬止まる → 横へ薙ぐ(薙ぐ間だけ腕が伸びる)
+       侍女  : 腕を上げる → 手元に影が集まる → 撃つ → 腕が落ちる
+       猟犬  : 身を低くする → 短い静止 → 突進
+
+     足元の影が本体より遅れて追う、というのも3種の共通テーマ
+     (M.shadowLag)。画面全体は暗くせず、異常は局所にとどめる。
+  ========================================================= */
+  const _shadowLocal = new THREE.Vector3();
+  function updateMansionMobExtras(en, M, t, sw, moving, dt){
+    // ---- 自前の手足(既存の4脚トロットに乗らない人型/獣型) ----
+    if(M.limbs){
+      for(let i=0;i<M.limbs.length;i++){
+        const L = M.limbs[i];
+        const amp = L.walk ? Math.min(L.amp, 0.16 + sw * L.amp * 1.4) : L.amp;
+        const w = moving ? amp : (L.idle || 0.03);
+        L.m.rotation[L.axis] = L.base + Math.sin(t + (L.phase || 0)) * w;
+      }
+    }
+
+    // ---- 足元の影が遅れて追う ----
+    if(M.groundShadow && M.shadowLag){
+      const S = M.shadowLag;
+      /* 本体がこのフレームで進んだぶんを、影の「置いていかれ」に足す。
+         en.lastPos は updateMobAnim がこの関数より前に今フレームの位置へ
+         更新済みなので使えない ―― 自前で1フレーム前を控えておく */
+      if(!M.shadowPrev) M.shadowPrev = en.group.position.clone();
+      _shadowLocal.subVectors(en.group.position, M.shadowPrev);
+      M.shadowPrev.copy(en.group.position);
+      const cs = Math.cos(-en.group.rotation.y), sn = Math.sin(-en.group.rotation.y);
+      _shadowLocal.y = 0;
+      S.x -= (_shadowLocal.x * cs - _shadowLocal.z * sn) * S.amount;
+      S.z -= (_shadowLocal.x * sn + _shadowLocal.z * cs) * S.amount;
+      const k = Math.min(1, dt * S.rate);          // そのあとゆっくり追いつく
+      S.x -= S.x * k; S.z -= S.z * k;
+      const lim = 0.9;
+      S.x = Math.max(-lim, Math.min(lim, S.x));
+      S.z = Math.max(-lim, Math.min(lim, S.z));
+      M.groundShadow.position.x = S.x;
+      M.groundShadow.position.z = S.z;
+    }
+
+    if(M.mansionKind === 'servant')     poseShadowServant(en, M, t, dt);
+    else if(M.mansionKind === 'maid')   poseFacelessMaid(en, M, t, dt);
+    else if(M.mansionKind === 'hound')  poseManorHound(en, M, t, dt);
+    else if(M.mansionKind === 'warden') poseKeyringWarden(en, M, t, dt);
+    else if(M.mansionKind === 'butler') poseBlackButler(en, M, t, dt);
+  }
+
+  /* 使用人。影腕の形だけで「今から何が来るか」と「今は隙だ」を伝える */
+  function poseShadowServant(en, M, t, dt){
+    const arm = M.shadowArm;
+    if(!arm) return;
+    const st = en.servantState;
+    // roll は負が「外向き」(dressEnemy の肩の置き方のコメント参照)
+    let pitch = 0.0, yaw = 0, roll = -0.16, stretch = 1;
+    let rPitch = 0.06;
+
+    if(st === 'windup'){
+      const k = meleeWindupProgress('servant', en.servantAttack, en.servantT);
+      if(en.servantAttack === 'sweep'){
+        // 影腕を大きく引き、身体を少しひねる。引ききったところで静止
+        // (meleeWindupProgress が最後の一拍を 1 で張り付かせる)
+        pitch = -0.55 * k;
+        yaw   = -1.45 * k;
+        roll  = -0.16 - 0.55 * k;     // 腕を外・上へ引き上げる
+        stretch = 1 + 0.30 * k;
+        M.twist = -0.42 * k;
+      } else {
+        // 通常打撃は右腕を短く引くだけ。影腕はほとんど動かない
+        rPitch = 0.06 - 1.15 * k;
+        M.twist = 0.18 * k;
+      }
+    } else if(st === 'strike'){
+      const plan = meleeAttackPlan('servant', en.servantAttack);
+      const k = 1 - Math.max(0, Math.min(1, en.servantT / Math.max(0.001, plan.active)));
+      if(en.servantAttack === 'sweep'){
+        // 横へ薙ぎ抜く。振り抜く瞬間だけ腕そのものが伸びる ――
+        // 「影腕は届く」を形で示すのがこの攻撃の要
+        pitch = -0.55 + 0.75 * k;
+        yaw   = -1.45 + 3.05 * k;
+        roll  = -0.71 + 0.30 * k;     // 薙ぎながら腕が下りてくる
+        stretch = 1.30 + 0.55 * Math.sin(Math.PI * k);
+        M.twist = -0.42 + 0.84 * k;
+      } else {
+        rPitch = -1.09 + 1.75 * k;
+        M.twist = 0.18 - 0.36 * k;
+      }
+    } else if(st === 'recover'){
+      // 振り抜いた腕がゆっくり戻る = 見て分かる硬直
+      M.twist = (M.twist || 0) * (1 - Math.min(1, dt * 3.2));
+      stretch = 1 + Math.max(0, (M.stretchPrev || 1) - 1) * 0.6;
+      yaw = (M.armYawPrev || 0) * (1 - Math.min(1, dt * 3.0));
+      pitch = (M.armPitchPrev || 0) * (1 - Math.min(1, dt * 3.0));
+      rPitch = (M.rPitchPrev || 0.06) * (1 - Math.min(1, dt * 3.0));
+    } else {
+      // 待機: 影腕だけがわずかに揺れ続ける(服は整っているのに腕だけ)
+      pitch = Math.sin(t * 0.7) * 0.05;
+      roll  = -0.16 + Math.sin(t * 0.5) * 0.04;
+      M.twist = (M.twist || 0) * (1 - Math.min(1, dt * 4));
+    }
+
+    M.armYawPrev = yaw; M.armPitchPrev = pitch; M.stretchPrev = stretch; M.rPitchPrev = rPitch;
+
+    /* 胴のひねり。敵の向き(group.rotation.y)には一切触らない ――
+       あれはAIが「どこを向いて攻撃するか」を決めている値で、見た目の
+       都合で足し込むと毎フレーム積み上がって敵が回ってしまう。
+       ひねるのは胴と肩だけにして、首の追従(M.neckYaw)も残す */
+    const tw = M.twist || 0;
+    if(en.body) en.body.rotation.y = tw;
+    const home = M.shadowArmHome;
+    if(home){
+      const c = Math.cos(tw), sn = Math.sin(tw);
+      arm.position.set(home.x * c + home.z * sn, home.y, -home.x * sn + home.z * c);
+    }
+    arm.rotation.set(pitch, yaw + tw, roll);
+    arm.scale.y = stretch;
+    if(M.armR){
+      M.armR.rotation.y = tw;
+      if(st === 'windup' || st === 'strike' || st === 'recover') M.armR.rotation.x = rPitch;
+    }
+  }
+
+  /* 侍女。停止 → 腕を上げる → 影が集まる → 撃つ → 腕が落ちる */
+  function poseFacelessMaid(en, M, t, dt){
+    const arm = M.armR;
+    if(!arm) return;
+    if(en.fireCharging){
+      const dur = en.shotWindupSec || MAID_SHOT_WINDUP_SEC;
+      const k = Math.max(0, Math.min(1, 1 - (en.fireChargeT || 0) / Math.max(0.001, dur)));
+      arm.rotation.x = 0.05 - 1.75 * k;             // 腕を前方へ上げきる
+      if(M.foreR) M.foreR.rotation.x = -0.35 * k;
+      if(M.handShadow){
+        M.handShadow.visible = true;
+        M.handShadow.scale.setScalar(0.25 + k * 0.95);   // 影が手元へ集まる
+        M.handShadow.material.opacity = 0.35 + k * 0.5;
+      }
+    } else if((en.shotRootT || 0) > 0){
+      // 撃ち終わり。腕が落ちきるまでが隙(=詰めどころ)
+      const k = Math.max(0, Math.min(1, (en.shotRootT || 0) / Math.max(0.001, en.shotRootSec || MAID_SHOT_ROOT_SEC)));
+      arm.rotation.x = -1.70 * k;
+      if(M.foreR) M.foreR.rotation.x = -0.35 * k;
+      if(M.handShadow) M.handShadow.visible = false;
+    } else if(M.handShadow && M.handShadow.visible){
+      M.handShadow.visible = false;
+    }
+    // 顔の影だけがゆっくり脈打つ(幽霊ではなく「奪われた顔」)
+    if(M.faceVoid) M.faceVoid.scale.x = 1.0 + Math.sin(t * 0.6) * 0.04;
+  }
+
+
+  /* 鍵束の番人。使用人と同じ状態機械を見せ方だけで描き分ける ――
+     右手の鍵束を振り上げて叩きつける「鍵束叩き」と、左の巨大な影腕を
+     横へ薙ぐ「影腕薙ぎ」。どちらも身体が攻撃方向へ傾き、振り抜いた後に
+     ゆっくり戻る(＝硬直が目で分かる)。 */
+  function poseKeyringWarden(en, M, t, dt){
+    const arm = M.shadowArm, armR = M.armR;
+    if(!arm || !armR) return;
+    const st = en.servantState;
+    const attack = en.servantAttack;
+    // 影腕(左)。roll は負が外向き
+    let pitch = 0, yaw = 0, roll = -0.18, stretch = 1;
+    // 鍵束の腕(右)。pitch が負ほど前方へ振り上がる
+    let rPitch = 0.05, rRoll = 0.10, lean = 0;
+
+    if(st === 'windup'){
+      const k = meleeWindupProgress('warden', attack, en.servantT);
+      if(attack === 'sweep'){
+        // 影腕を大きく後ろへ引き、上体をひねる。引ききって静止
+        pitch = -0.62 * k;
+        yaw   = -1.55 * k;
+        roll  = -0.18 - 0.62 * k;
+        stretch = 1 + 0.26 * k;
+        M.twist = -0.50 * k;
+        lean = -0.10 * k;                 // 溜めでわずかに後ろへ反る
+      } else {
+        // 鍵束を頭上へ振り上げる。肩を大きく引いてから静止
+        rPitch = 0.05 - 2.55 * k;         // 腕が真上を越えて後ろへ
+        rRoll  = 0.10 + 0.30 * k;
+        M.twist = 0.26 * k;
+        lean = -0.14 * k;
+        if(M.keyring) M.keyring.rotation.z = Math.sin(k * 9) * 0.28 * k;  // 鍵が鳴る
+      }
+    } else if(st === 'strike'){
+      const plan = meleeAttackPlan('warden', attack);
+      const k = 1 - Math.max(0, Math.min(1, en.servantT / Math.max(0.001, plan.active)));
+      if(attack === 'sweep'){
+        // 横へ薙ぎ抜く。振り抜く瞬間だけ影腕そのものが伸びる
+        pitch = -0.62 + 0.80 * k;
+        yaw   = -1.55 + 3.25 * k;
+        roll  = -0.80 + 0.34 * k;
+        stretch = 1.26 + 0.60 * Math.sin(Math.PI * k);
+        M.twist = -0.50 + 1.00 * k;
+        lean = -0.10 + 0.34 * k;
+      } else {
+        // 鍵束を前方へ叩きつける。振り下ろしきって前のめりになる
+        rPitch = -2.50 + 3.05 * k;
+        rRoll  = 0.40 - 0.30 * k;
+        M.twist = 0.26 - 0.52 * k;
+        lean = -0.14 + 0.46 * k;
+        if(M.keyring) M.keyring.rotation.z = Math.sin(k * 6) * 0.5 * (1 - k);
+      }
+    } else if(st === 'recover'){
+      // 振り抜いた形から、重い身体がゆっくり戻る
+      const back = 1 - Math.min(1, dt * 2.4);
+      M.twist = (M.twist || 0) * back;
+      lean = (M.leanPrev || 0) * back;
+      yaw = (M.armYawPrev || 0) * back;
+      pitch = (M.armPitchPrev || 0) * back;
+      roll = -0.18 + ((M.armRollPrev || -0.18) + 0.18) * back;
+      stretch = 1 + Math.max(0, (M.stretchPrev || 1) - 1) * 0.65;
+      rPitch = 0.05 + ((M.rPitchPrev || 0.05) - 0.05) * back;
+      rRoll = 0.10 + ((M.rRollPrev || 0.10) - 0.10) * back;
+      if(M.keyring) M.keyring.rotation.z *= back;
+    } else {
+      // 待機: 影腕と鍵束だけがゆっくり揺れる。番人は歩幅も狭い。
+      // 右腕は M.limbs の歩行スイングが既に入れた値をそのまま残す
+      pitch = Math.sin(t * 0.55) * 0.045;
+      roll  = -0.18 + Math.sin(t * 0.4) * 0.035;
+      rPitch = armR.rotation.x;
+      M.twist = (M.twist || 0) * (1 - Math.min(1, dt * 3.5));
+      if(M.keyring) M.keyring.rotation.z = Math.sin(t * 0.9) * 0.10;
+    }
+
+    M.armYawPrev = yaw; M.armPitchPrev = pitch; M.armRollPrev = roll;
+    M.stretchPrev = stretch; M.rPitchPrev = rPitch; M.rRollPrev = rRoll; M.leanPrev = lean;
+
+    /* 胴のひねりと前後の傾き。敵の向き(group.rotation.y)には触らない
+       ―― あれはAIが決めている値で、見た目の都合で足すと積み上がる。
+       group.rotation.x は被弾リアクション(applyMobFlinch)が所有して
+       いるので、前傾も胴(body)側で表現する */
+    const tw = M.twist || 0;
+    if(en.body){ en.body.rotation.y = tw; en.body.rotation.x = lean; }
+    if(M.neck) M.neck.rotation.z = tw * 0.35;
+    const home = M.shadowArmHome;
+    if(home){
+      const c = Math.cos(tw), sn = Math.sin(tw);
+      arm.position.set(home.x * c + home.z * sn, home.y, -home.x * sn + home.z * c);
+    }
+    arm.rotation.set(pitch, yaw + tw, roll);
+    arm.scale.y = stretch;
+    armR.rotation.set(rPitch, tw, rRoll);
+  }
+
+
+  /* 黒衣の執事。6つの相を見分けられることが要件(仕様16):
+     待機 / 燭台打撃 / 影腕 / 影移動 / フェーズ移行 / 硬直。
+     どの相でも身体のどこかが動いていて、棒立ちにはならない。 */
+  function poseBlackButler(en, M, t, dt){
+    const arm = M.shadowArm, armR = M.armR;
+    if(!arm || !armR) return;
+    const st = en.servantState;
+    const attack = en.servantAttack;
+    const phase = en.butlerPhase || 1;
+    // 影腕(左)。roll は負が外向き
+    let pitch = 0, yaw = 0, roll = -0.14, stretch = 1;
+    // 燭台の腕(右)
+    let rPitch = 0.05, rRoll = 0.08, lean = 0;
+    let flame = 1;                      // 炎の強さ(1 = 平常)
+    let selfPush = phase >= 2 ? 0.55 : 0.18;   // 影がどれだけ身体から離れるか
+    let selfDir = null;                 // 影を伸ばす方向(ローカル)
+
+    if(st === 'windup'){
+      const k = meleeWindupProgress('butler', attack, en.servantT, phase);
+      if(attack === 'lash'){
+        // 影腕を引き、上体をわずかにひねる。引ききって静止
+        pitch = -0.50 * k;
+        yaw   = -1.30 * k;
+        roll  = -0.14 - 0.42 * k;
+        stretch = 1 + 0.22 * k;
+        M.twist = -0.34 * k;
+        selfPush += 0.35 * k;           // 影が身体から余計に離れる
+        flame = 1 - 0.25 * k;           // 影を使う間は炎が弱る
+      } else {
+        // 燭台を引いて掲げる。炎が強まるのが予兆そのもの
+        rPitch = 0.05 - 2.05 * k;
+        rRoll  = 0.08 + 0.26 * k;
+        M.twist = 0.22 * k;
+        lean = -0.10 * k;
+        flame = 1 + 1.10 * k;
+      }
+    } else if(st === 'strike'){
+      const plan = meleeAttackPlan('butler', attack, phase);
+      const k = 1 - Math.max(0, Math.min(1, en.servantT / Math.max(0.001, plan.active)));
+      if(attack === 'lash'){
+        // 影腕が一直線に伸びる。番人の「薙ぐ」に対して執事は「突き出す」
+        pitch = -0.50 + 1.35 * k;
+        yaw   = -1.30 + 1.30 * k;
+        roll  = -0.56 + 0.42 * k;
+        stretch = 1.22 + (phase >= 2 ? 0.95 : 0.60) * Math.sin(Math.PI * k);
+        M.twist = -0.34 + 0.34 * k;
+        selfPush += 0.35 * (1 - k);
+        flame = 0.75;
+      } else {
+        rPitch = -2.00 + 2.45 * k;
+        rRoll  = 0.34 - 0.26 * k;
+        M.twist = 0.22 - 0.44 * k;
+        lean = -0.10 + 0.34 * k;
+        flame = 2.10 - 1.30 * k;
+      }
+    } else if(st === 'recover'){
+      // 振り抜いた形からゆっくり戻る。執事は番人より戻りが速い
+      const back = 1 - Math.min(1, dt * 3.4);
+      M.twist = (M.twist || 0) * back;
+      lean = (M.leanPrev || 0) * back;
+      yaw = (M.armYawPrev || 0) * back;
+      pitch = (M.armPitchPrev || 0) * back;
+      roll = -0.14 + ((M.armRollPrev || -0.14) + 0.14) * back;
+      stretch = 1 + Math.max(0, (M.stretchPrev || 1) - 1) * 0.6;
+      rPitch = 0.05 + ((M.rPitchPrev || 0.05) - 0.05) * back;
+      rRoll = 0.08 + ((M.rRollPrev || 0.08) - 0.08) * back;
+      flame = 1 + ((M.flamePrev || 1) - 1) * back;
+    } else if(st === 'shift'){
+      /* フェーズ移行(仕様7)。止まる → 炎が落ちる → 影が身体から離れる
+         → 影が戻る、を1.5秒の中で順に見せる。UIテキストは一切出さない */
+      const k = 1 - Math.max(0, Math.min(1, en.servantT / BUTLER_PHASE_SHIFT_SEC));
+      const outK = Math.min(1, k / 0.6);            // 0→0.6 で影が離れる
+      const backK = Math.max(0, (k - 0.6) / 0.4);   // 0.6→1 で戻る
+      flame = Math.max(0.05, 1 - k * 1.25 + backK * 0.55);
+      selfPush = 0.18 + outK * 1.35 - backK * 0.75;
+      pitch = -0.18 * outK;
+      roll  = -0.14 - 0.30 * outK;
+      rPitch = 0.05 - 0.45 * outK;                  // 燭台がわずかに下がる
+      lean = -0.16 * outK + 0.10 * backK;
+      M.twist = (M.twist || 0) * (1 - Math.min(1, dt * 4));
+    } else if(st === 'fade' || st === 'emerge'){
+      /* 影移動。溶けるあいだは影が行き先へ伸び、出てくるあいだは
+         その逆でこちらへ戻る ―― 「どこへ出るか」を影が示す(仕様8/9) */
+      const fadeK = st === 'fade'
+        ? 1 - Math.max(0, Math.min(1, en.servantT / BUTLER_FADE_SEC))
+        : Math.max(0, Math.min(1, en.servantT / BUTLER_EMERGE_SEC));
+      flame = Math.max(0.08, 1 - fadeK);
+      selfPush = 0.18 + fadeK * 1.9;
+      pitch = -0.30 * fadeK;
+      roll  = -0.14 - 0.24 * fadeK;
+      rPitch = 0.05 - 0.30 * fadeK;
+      lean = -0.12 * fadeK;
+      if(st === 'fade' && en.butlerStepTo){
+        // 行き先の方向をローカル座標へ直す(親グループの回転を打ち消す)
+        const dx = en.butlerStepTo.x - en.group.position.x;
+        const dz = en.butlerStepTo.z - en.group.position.z;
+        const cs = Math.cos(-en.group.rotation.y), sn = Math.sin(-en.group.rotation.y);
+        const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+        const len = Math.hypot(lx, lz);
+        if(len > 0.001) selfDir = {x: lx / len, z: lz / len};
+      }
+      M.twist = (M.twist || 0) * (1 - Math.min(1, dt * 4));
+    } else {
+      // 待機: 燭台の腕は歩行スイングのまま、影腕と炎だけがゆらぐ
+      pitch = Math.sin(t * 0.62) * 0.05;
+      roll  = -0.14 + Math.sin(t * 0.46) * 0.04;
+      rPitch = armR.rotation.x;
+      flame = 1 + Math.sin(t * 3.1) * 0.10;
+      M.twist = (M.twist || 0) * (1 - Math.min(1, dt * 3.5));
+    }
+
+    M.armYawPrev = yaw; M.armPitchPrev = pitch; M.armRollPrev = roll;
+    M.stretchPrev = stretch; M.rPitchPrev = rPitch; M.rRollPrev = rRoll;
+    M.leanPrev = lean; M.flamePrev = flame;
+
+    const tw = M.twist || 0;
+    if(en.body){ en.body.rotation.y = tw; en.body.rotation.x = lean; }
+    if(M.neck) M.neck.rotation.z = tw * 0.3;
+    const home = M.shadowArmHome;
+    if(home){
+      const c = Math.cos(tw), sn = Math.sin(tw);
+      arm.position.set(home.x * c + home.z * sn, home.y, -home.x * sn + home.z * c);
+    }
+    arm.rotation.set(pitch, yaw + tw, roll);
+    arm.scale.y = stretch;
+    armR.rotation.set(rPitch, tw, rRoll);
+
+    // ---- 燭台の炎。Phase 2 では冷たい色に灯り直す ----
+    if(M.flameMat){
+      const hex = (phase >= 2 && en.candleColorP2) ? en.candleColorP2
+                : (en.candleColor || 0xffc978);
+      if(M.flameHex !== hex){ M.flameMat.color.setHex(hex); M.flameHex = hex; }
+      if(M.candleLight && M.candleLight.color.getHex() !== hex) M.candleLight.color.setHex(hex);
+    }
+    const f = Math.max(0.04, flame);
+    if(M.candleLight) M.candleLight.intensity = 0.85 * f;
+    if(M.flames){
+      for(let i = 0; i < M.flames.length; i++){
+        const fl = M.flames[i];
+        fl.scale.set(0.7 + f * 0.3, Math.max(0.12, f) * (0.9 + Math.sin(t * 5 + i) * 0.12), 0.7 + f * 0.3);
+        fl.visible = f > 0.06;
+      }
+    }
+
+    // ---- 身体から離れた影 ----
+    if(M.shadowSelf){
+      const H = M.shadowSelfHome;
+      const dir = selfDir || {x: -0.42, z: -0.91};   // 既定は斜め後ろ
+      const px = H.x + dir.x * selfPush, pz = H.z + dir.z * selfPush;
+      const sm = Math.min(1, dt * 6);
+      M.shadowSelf.position.x += (px - M.shadowSelf.position.x) * sm;
+      M.shadowSelf.position.z += (pz - M.shadowSelf.position.z) * sm;
+      M.shadowSelf.rotation.y = Math.sin(t * 0.5) * 0.10 + tw * 0.5;
+      // 離れるほど薄く、長く伸びる
+      const far = Math.min(1, selfPush / 1.6);
+      M.shadowSelf.scale.set(1 - far * 0.25, 1 + far * 0.20, 1 - far * 0.25);
+    }
+  }
+
+  /* 猟犬。突進の溜めのあいだ、身体を低く沈めて頭を落とす */
+  function poseManorHound(en, M, t, dt){
+    let crouch = 0;
+    if(en.chargeState === 'telegraph'){
+      const dur = en.chargeTelegraphDur || 0.65;
+      crouch = Math.max(0, Math.min(1, (dur - (en.chargeT || 0)) / dur));
+    } else if(en.chargeState === 'dash'){
+      crouch = 0.45;                      // 走る姿勢も低いまま
+    }
+    if(crouch > 0){
+      en.group.position.y -= 0.16 * crouch;
+      M.baseY = en.group.position.y;      // 被弾リアクションもこの高さを土台にする
+      if(M.neck) M.neck.rotation.x = 0.22 + 0.42 * crouch;
+      if(M.limbs) M.limbs.forEach(L=>{ L.m.rotation.x = L.base - 0.30 * crouch; });
+    } else if(M.neck){
+      M.neck.rotation.x = 0.22;
+    }
+    // 尾。突進の溜めでは真っ直ぐ後ろへ伸び、平常時は左右に振れる
+    if(M.tail){
+      M.tail.rotation.x = -0.9 + crouch * 0.55;
+      M.tail.rotation.z = crouch > 0 ? 0 : Math.sin(t * 1.8) * 0.35;
+    }
+    if(M.tailTip) M.tailTip.rotation.z = Math.sin(t * 2.2 + 0.8) * 0.3;
   }
 
   function updateWanderAI(en, dt){
@@ -1117,7 +1644,10 @@
       const s = 1 + Math.max(0, Math.min(1, (dur-en.chargeT)/dur)) * 0.325;
       const B = en.bodyScale;
       en.body.scale.set(B.x*s, B.y*s*1.05, B.z*s);
-      if(en.chargeT<=0){ en.chargeState='dash'; en.chargeT=0.4; en.body.scale.copy(B); }
+      if(en.chargeT<=0){
+        en.chargeState='dash'; en.chargeT=0.4; en.body.scale.copy(B);
+        if(en.dashSfx) sfx(en.dashSfx);   // 踏み切りの音(未指定なら今までどおり無音)
+      }
       return;
     }
     if(en.chargeState==='dash'){
@@ -1214,6 +1744,8 @@
     const glow = takeLight(color, 1, 3.5);
     glow.position.copy(mesh.position);
     scene.add(mesh);
+    // 敵ごとの発射音(既存のSEキーを割り当てるだけ。未指定なら今までどおり無音)
+    if(en.shotSfx) sfx(en.shotSfx);
     projectiles.push({mesh, light: glow, dir, speed:10, life:3, dmg:en.atk, hostile:true, isElectric:!!en.isElectric});
   }
 
@@ -1231,6 +1763,20 @@
   // 溜め→spawnEnemyFireballをそのまま流用し、移動判断だけ追加した形
   const KITE_MIN_RANGE = 6.5, KITE_MAX_RANGE = 11;
   function updateKiteAI(en, dt){
+    /* 撃った直後の足止め(森の洋館の侍女)。en.shotRootSec を持つ個体
+       だけが通る ―― 既存の引き撃ち(水路の術士など)は shotRootSec を
+       持たないので、この分岐は素通りして今までどおり動く。
+       パニッシュ窓そのもの(postAtkRecoveryT)は全タイプ共通のまま。 */
+    if(en.shotRootT > 0){
+      en.shotRootT -= dt;
+      const face = new THREE.Vector3().subVectors(state.pos, en.group.position); face.y = 0;
+      if(face.lengthSq() > 0.0001){
+        const rate = turnBudget(resolveTurnRate(en) * 0.35, dt);
+        en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(face.x, face.z), rate);
+      }
+      if(en.atkCD > 0) en.atkCD -= dt;
+      return;   // 撃ち終わりの硬直: この間は間合いを取り直せない
+    }
     if(en.fireCharging){
       en.fireChargeT -= dt;
       const pulse = 1 + Math.sin(performance.now()*0.025)*0.18;
@@ -1240,6 +1786,7 @@
         en.body.scale.copy(en.bodyScale);
         spawnEnemyFireball(en);
         en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;   // 撃った直後の隙(パニッシュ窓)
+        en.shotRootT = en.shotRootSec || 0;               // 侍女だけ: 撃ち終わりに動けない
         en.atkCD = 1.6;   // 攻撃間隔の見直し(#21)
       }
       return;
@@ -1260,13 +1807,15 @@
       resolveWallCollisions(en.group.position);
       // 壁に阻まれて下がれない時は無理に押し込まない(その場で撃つ側へ回す)
       if(Math.abs(en.group.position.x-prevX)<0.001 && Math.abs(en.group.position.z-prevZ)<0.001 && en.atkCD<=0){
-        en.fireCharging = true; en.fireChargeT = 0.6;
+        en.fireCharging = true; en.fireChargeT = en.shotWindupSec || 0.6;
       }
     } else if(dist > KITE_MAX_RANGE){
       const dir = toPlayer.clone().normalize();
       en.group.position.addScaledVector(dir, en.speed*dt*0.7);
     } else if(en.atkCD<=0){
-      en.fireCharging = true; en.fireChargeT = 0.6;
+      // 溜めの長さだけ個体差を許す(侍女は「影が手元に集まる」のを
+      // 見せたいぶん長い)。既存個体は未指定なので0.6のまま
+      en.fireCharging = true; en.fireChargeT = en.shotWindupSec || 0.6;
     }
   }
 
@@ -1376,6 +1925,275 @@
       en.group.rotation.y = Math.atan2(dir.x, dir.z);
     } else {
       updateWanderAI(en, dt);
+    }
+  }
+
+  /* =========================================================
+     影に侵された使用人(atkType:'servant' / 森の洋館 Phase 5-A)
+
+     既存の突進(charge)は「踏み込んで通過する」型で、「間合いに入って、
+     その場で振る」型の雑魚AIは無かった。ここだけ最小の状態機械を1つ
+     足すが、戦闘の仕組みそのものは何ひとつ新設していない:
+
+       予兆        servantState==='windup'
+                   → core/punish-window.js が既存の midWindup として拾う
+                     (体幹1.6倍のパニッシュ窓 / 大怯みでの中断も同じ定義)
+       振り抜いた隙 既存の en.postAtkRecoveryT(全タイプ共通 0.45秒)
+       体幹/Break/Execution  一切触れていない(通常敵の共通経路のまま)
+
+     どの攻撃をいつ出すか・各相の秒数・射程は core/mansion-enemies.js の
+     純粋関数が持ち、ここはその結果どおりに en を進めるだけ
+     (このリポジトリの「判断は純粋関数、副作用はlegacy側」の切り分け)。
+
+     2種類の攻撃を持つのが役割の核心 ―― 通常打撃(短い予兆・短い射程)と
+     影腕薙ぎ(長い予兆・長い射程・長い隙)。プレイヤーが学ぶのは
+     「近いから安全」ではなく「影腕が届く距離かどうか」。
+
+     Phase 5-C: 黒衣の執事(Midboss)も同じ状態機械を使う。足したのは
+     3つの相だけで、どれも既存の仕組みの上に乗っている:
+
+       shift   フェーズ移行(HP閾値)。ボスの en.phase + HP閾値と同じ考え方を、
+               ボス専用の演出(dialogueName / 範囲バースト / spawnUltimateVFX)
+               抜きで使う。止まっていること自体が合図になるので、
+               フェーズ変更をUIテキストで説明しない(仕様7/19)
+       fade    影に溶ける(Phase 2 専用)。既存の幽霊AIが使っている
+               setEnemyOpacity() をそのまま流用し、無敵は一切付けない
+       emerge  実体化しきるまでの短い停止。ここを抜けたら通常の windup へ
+               入るので、「再出現 → 攻撃予兆」が必ず挟まる(仕様8)
+
+     Phase 5-B: 鍵束の番人(Strong Mob)も**この状態機械をそのまま共有**する。
+     違うのは en.meleeKind が指す攻撃表(core/mansion-enemies.js の
+     MELEE_PROFILES)と、既存の強モブ基盤のフラグだけ:
+
+       Super Armor  strongMob → core/enemy-tier.js が ELITE と判定し、
+                    大怯みで振りかぶりが中断されない(通常敵だけ中断される)
+       正面耐性     guardian  → dealDamageToEnemy が既存どおり正面±45度を×0.2
+       Guard Break  guardian && strongMob → core/guardian-break.js の
+                    stepGuardHold / shouldUseGuardianBreak / guardBreakPlan を
+                    そのまま使い、「今回の一撃はガードブレイクである」という
+                    1フラグ(en.guardBreak)で予兆と隙の長さだけ差し替える
+     新しい Strong Mob 用のAIステートも判定も足していない。
+  ========================================================= */
+  function servantEnterIdle(en){
+    en.servantState = 'idle';
+    en.servantAttack = null;
+    en.servantT = 0;
+    en.servantRecoverOverride = 0;
+    en.guardBreak = false;
+    // 影移動の途中で崩された/湧き直した場合に、透けたまま残らないようにする
+    if(en.butlerFaded){ setEnemyOpacity(en, 1); en.butlerFaded = false; }
+  }
+
+  /* core/guardian-break.js は突進AIの語彙(idle/telegraph/dash/cooldown)で
+     書かれている。近接の状態機械から呼ぶために、意味の同じ相へ写すだけの
+     変換を1箇所に置く ―― guardian-break.js 側は一切変更しない。 */
+  function servantGuardPhase(st){
+    if(st === 'windup') return 'telegraph';   // 攻撃サイクル中(ガードではない)
+    if(st === 'strike') return 'dash';        // 同上
+    return 'idle';                            // idle / recover はガード継続
+  }
+
+  function updateShadowServantAI(en, dt){
+    /* 攻撃相そのものは buildEnemy が 'idle' で持たせている(既存の
+       chargeState と同じ)。ここで面倒を見るのは THREE 依存の向きだけ */
+    if(!en.servantFacing) en.servantFacing = new THREE.Vector3(0,0,1);
+    if(!en.servantState) servantEnterIdle(en);
+    const kind = en.meleeKind || 'servant';
+    const prof = meleeProfile(kind);
+    const phase = en.butlerPhase || 1;
+    if(en.servantSweepCD > 0) en.servantSweepCD -= dt;
+    if(en.servantAtkCD > 0)   en.servantAtkCD  -= dt;
+    if(en.butlerStepCD > 0)   en.butlerStepCD  -= dt;
+    // 守護型のガードブレイク(既存)。番人以外は常に0のまま素通りする
+    if(en.guardBreakCD > 0) en.guardBreakCD = Math.max(0, en.guardBreakCD - dt);
+
+    const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
+    const dist = toPlayer.length();
+    en.guardHoldT = stepGuardHold(en, dt, dist, servantGuardPhase(en.servantState));
+
+    /* ---- フェーズ移行(執事のみ) ----
+       攻撃を振り抜いている最中には割り込まない ―― 判定が出ている途中で
+       敵が消えるのは読めない。待機か硬直に戻った最初の機会に入る
+       (遅れても 0.6 秒程度)。 */
+    if(prof.phases && (en.servantState === 'idle' || en.servantState === 'recover')
+       && butlerShouldShiftPhase(en)){
+      en.butlerPhase = butlerPhaseFor(en.hp / en.hpMax);
+      en.servantState = 'shift';
+      en.servantT = BUTLER_PHASE_SHIFT_SEC;
+      en.servantAttack = null;
+      en.postAtkRecoveryT = 0;
+      // 影が露出した時点で、影腕はすぐ使える(Phase 2 の主武器になる)
+      en.servantSweepCD = 0;
+      en.butlerStepCD = BUTLER_STEP_COOLDOWN_SEC * 0.5;
+      sfx('bossWake');
+      return;
+    }
+
+    // ---- フェーズ移行中: 完全に停止する。止まること自体が合図 ----
+    if(en.servantState === 'shift'){
+      en.servantT -= dt;
+      if(en.servantT <= 0) servantEnterIdle(en);
+      return;
+    }
+
+    /* ---- 影に溶ける(Phase 2 専用) ----
+       既存の幽霊AIと同じ setEnemyOpacity() を使うだけ。無敵は付けない
+       ので、透けている間も今までどおり攻撃が当たる。 */
+    if(en.servantState === 'fade'){
+      en.servantT -= dt;
+      setEnemyOpacity(en, Math.max(0.12, en.servantT / BUTLER_FADE_SEC));
+      if(en.servantT <= 0){
+        if(en.butlerStepTo){
+          en.group.position.x = en.butlerStepTo.x;
+          en.group.position.z = en.butlerStepTo.z;
+          resolveWallCollisions(en.group.position);
+        }
+        const face = new THREE.Vector3().subVectors(state.pos, en.group.position); face.y = 0;
+        if(face.lengthSq() > 0.0001) en.group.rotation.y = Math.atan2(face.x, face.z);
+        en.servantState = 'emerge';
+        en.servantT = BUTLER_EMERGE_SEC;
+      }
+      return;
+    }
+
+    // ---- 実体化しきるまでの短い停止。ここを抜けたら必ず予兆へ入る ----
+    if(en.servantState === 'emerge'){
+      en.servantT -= dt;
+      setEnemyOpacity(en, 1 - Math.max(0, en.servantT / BUTLER_EMERGE_SEC));
+      if(en.servantT <= 0){
+        setEnemyOpacity(en, 1);
+        en.butlerFaded = false;
+        const pick = prof.light;   // 出てきた直後は燭台。予兆は通常どおり見せる
+        const plan = meleeAttackPlan(kind, pick, phase);
+        en.servantState = 'windup';
+        en.servantAttack = pick;
+        en.servantT = plan.telegraph;
+        en.servantFacing = new THREE.Vector3().subVectors(state.pos, en.group.position);
+        en.servantFacing.y = 0;
+        if(en.servantFacing.lengthSq() > 0.0001) en.servantFacing.normalize();
+        else en.servantFacing.set(0,0,1);
+      }
+      return;
+    }
+
+    // ---- 振りかぶり: 向きを固定して溜める(ここがパニッシュ窓) ----
+    if(en.servantState === 'windup'){
+      en.servantT -= dt;
+      en.group.rotation.y = Math.atan2(en.servantFacing.x, en.servantFacing.z);
+      if(en.servantT <= 0){
+        const plan = meleeAttackPlan(kind, en.servantAttack, phase);
+        en.servantState = 'strike';
+        en.servantT = plan.active;
+        en.servantHit = false;
+        sfx(plan.sfx || 'swing');
+      }
+      return;
+    }
+
+    // ---- 振り抜き: 判定が出ている短い時間 ----
+    if(en.servantState === 'strike'){
+      en.servantT -= dt;
+      const plan = meleeAttackPlan(kind, en.servantAttack, phase);
+      if(!en.servantHit){
+        const facing = Math.atan2(en.servantFacing.x, en.servantFacing.z);
+        const bearing = Math.atan2(toPlayer.x, toPlayer.z);
+        const inArc = Math.abs(angleDiff(facing, bearing)) <= plan.halfAngle;
+        if(dist <= plan.reach && inArc && state.paralyzeInvulnT <= 0){
+          en.servantHit = true;
+          if(state.invulnerable){
+            tryPerfectDodge(en);
+          } else if(!tryConsumeOrbShield()){
+            /* ガードブレイクの一撃だけ威力が乗る。倍率は突進型の
+               ガードブレイクと同じ値を chargeDamage() から引く ――
+               新しいダメージ倍率を作らないため(guardian-break.js) */
+            const base = Math.round(en.atk * plan.damageMul);
+            const dmg = applyIncomingDamageMul(state.debugMode ? 0 : chargeDamage(en, base));
+            state.hp = Math.max(0, state.hp - dmg);
+            spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+            flashScreen();
+            sfx('hurt'); addShake(plan.shake || 0.10);
+            if(state.hp <= 0) triggerPlayerDown();
+          }
+        }
+      }
+      if(en.servantT <= 0){
+        en.servantState = 'recover';
+        // ガードブレイクを振り抜いた後だけ硬直が長い(既存の値をそのまま使う)
+        en.servantT = en.servantRecoverOverride || plan.recovery;
+        en.servantRecoverOverride = 0;
+        en.guardBreak = false;
+        // 命中・空振りどちらでも隙は同じだけ残る(ボス/他の雑魚と同じ扱い)
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+        en.servantAtkCD = prof.attackCooldown;
+        // heavy の再使用間隔はフェーズで変わる(執事の影腕は Phase 2 で半減)
+        if(plan.key === prof.heavy) en.servantSweepCD = meleeHeavyCooldown(kind, phase);
+      }
+      return;
+    }
+
+    // ---- 硬直: 動かない。大振りのあとは目に見えて長い ----
+    if(en.servantState === 'recover'){
+      en.servantT -= dt;
+      if(en.servantT <= 0) servantEnterIdle(en);
+      return;
+    }
+
+    // ---- 待機/接近 ----
+    const sees = dist < prof.detectRange && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;   // 索敵成立(既存の記録点)
+    if(!sees){ updateWanderAI(en, dt); return; }
+
+    const rate = turnBudget(resolveTurnRate(en), dt);
+    en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate);
+
+    /* ガードブレイク(守護型のみ、core/guardian-break.js)。
+       対峙したまま殴られ続けた時間が溜まりきると、次の一撃だけが
+       「長い予兆・長い隙・威力増」の大振りへ差し替わる。専用の攻撃も
+       専用のステートも足していない ―― heavy(影腕薙ぎ)の秒数を
+       guardBreakPlan() の値で上書きするだけ。 */
+    /* 影移動(執事の Phase 2 専用)。間合いを開けられた時に「詰める」
+       のではなく「回り込む」ことで、Phase 1 で覚えた距離の取り方を
+       一度崩す ―― これが Midboss の「間合いを操作する敵」の核心。
+       行き先は core/mansion-enemies.js が決め、ここは動かすだけ。 */
+    if(butlerCanShadowStep({phase, stepCD:en.butlerStepCD, dist})){
+      en.butlerStepSide = -(en.butlerStepSide || 1);
+      const yaw = Math.atan2(en.group.position.x - state.pos.x, en.group.position.z - state.pos.z);
+      en.butlerStepTo = butlerStepTarget(state.pos, yaw, en.butlerStepSide);
+      en.servantState = 'fade';
+      en.servantT = BUTLER_FADE_SEC;
+      en.butlerFaded = true;
+      en.butlerStepCD = BUTLER_STEP_COOLDOWN_SEC;
+      sfx('cast');
+      return;
+    }
+
+    const breaking = en.servantAtkCD <= 0 && shouldUseGuardianBreak(en, dist, 'idle');
+    const pick = breaking ? prof.heavy
+      : meleeAttackChoice(kind, {dist, heavyCD:en.servantSweepCD, atkCD:en.servantAtkCD, phase});
+    if(pick){
+      const plan = meleeAttackPlan(kind, pick, phase);
+      en.servantState = 'windup';
+      en.servantAttack = pick;
+      en.servantFacing = toPlayer.clone().normalize();
+      if(breaking){
+        const gb = guardBreakPlan();
+        en.guardBreak = true;
+        en.servantT = gb.telegraphSec;              // 見てから反応できる長さ
+        en.servantRecoverOverride = gb.cooldownSec; // 避けたら確実に差し返せる隙
+        en.guardBreakCD = gb.specialCDSec;
+        en.guardHoldT = 0;
+        sfx('anvil');   // 鍵束が鳴る。既存SEの割り当てで、新規音源は作らない
+      } else {
+        en.servantT = plan.telegraph;
+        en.servantRecoverOverride = 0;
+      }
+      return;
+    }
+    // まだ届かない(または大振りがクールダウン中)なら詰める。密着しすぎない
+    if(dist > meleeAttackPlan(kind, prof.light, phase).reach * prof.approachFactor){
+      const dir = toPlayer.clone().normalize();
+      en.group.position.addScaledVector(dir, en.speed * dt * (en.arcaneBindT > 0 ? 0.5 : 1));
+      resolveWallCollisions(en.group.position);
     }
   }
 
@@ -1813,48 +2631,12 @@
     if(dir.lengthSq()<0.0001) return false;
     dir.normalize();
 
-    if(en.key==='mansionBoss'){
-      // ボスAI強化(#21): これまで突進(charge)一辺倒で、密着され続けると
-      // 特殊行動を一切出せない=単調、という弱点があった。他ボスと同じ
-      // 「距離帯で使い分ける2択+瀕死時の身構え」構成に揃える
-      en.specialIdx = ((en.specialIdx||0) + 1) % 2;
-      if(en.specialIdx===0 && dist > 5 && dist < 26){
-        // 距離を詰める突進(予兆レーン表示つき)
-        en.special='charge'; en.specialPhase='wind';
-        en.windDur = 1.15;                 // long enough to actually react to
-        en.specialT = en.windDur;
-        en.specialDir = dir.clone();
-        spawnToast('⚠️ 館の主が身構えた……突進が来る!');   // fires at the START of the wind-up
-        // a red lane on the floor showing exactly where the charge will go
-        const laneLen = 26;
-        const laneGeo = new THREE.PlaneGeometry(3.2, laneLen);
-        const laneMat = new THREE.MeshBasicMaterial({color:0xff4a3a, transparent:true,
-                          opacity:0.15, side:THREE.DoubleSide, depthWrite:false});
-        const lane = new THREE.Mesh(laneGeo, laneMat);
-        lane.rotation.x = -Math.PI/2;
-        lane.rotation.z = -Math.atan2(dir.x, dir.z);
-        const mid = en.group.position.clone().addScaledVector(dir, laneLen/2);
-        lane.position.set(mid.x, 0.2, mid.z);
-        scene.add(lane);
-        en.chargeLane = lane;
-        return true;
-      }
-      if(en.specialIdx===1 && dist < 8){
-        // 近距離用の薙ぎ払い。突進の間合い(5以上)より内側に潜り込まれた
-        // 時に出せる技が無かったため新設
-        startArcSweep(en, {wind:0.75, dmg:Math.round(en.atk*1.15), radius:6.5, halfAngle:1.1, color:0xff3a2a});
-        spawnToast('⚠️ 館の主が腕を振りかぶった――薙ぎ払いが来る!');
-        return true;
-      }
-      if(hpRatio <= 0.35){
-        // 瀕死になると一度身を固めて防御し、直後に強い一撃で返す
-        en.special='guard'; en.specialT = 2.2; en.guardT = 2.2;
-        spawnToast('🕯️ 館の主が身を固めた……!');
-        return true;
-      }
-      en.specialCD = 2;
-      return false;
-    }
+    /* 館の主(mansionBoss)はここを通らない ―― updateBossAI の先頭で
+       専用AI(updateMansionLordAI)へ分岐する。以前ここにあった
+       「突進レーン + 薙ぎ払い + 身構え」と、それぞれの予告トーストは、
+       攻撃の内容を文字で説明してしまっていて Phase 5-D の方針
+       (画面上の変化だけで伝える、仕様17/28)と噛み合わないため、
+       専用AI側の予兆モーションへ置き換えた。 */
 
     if(en.key==='ghostCaptain'){
       // only starts calling the crew once it's hurt
@@ -2115,6 +2897,111 @@
       P.pistil.scale.setScalar(1 + Math.sin(t*2.4*rage)*0.12);
       P.stem.rotation.z = Math.sin(t*0.8)*0.05;
 
+    } else if(P.kind === 'lord'){
+      /* 館の主(Phase 5-D)。既存の updateBossAnim のフックへ相乗りする。
+         見せ分けるのは 待機 / 杖打撃 / 影腕 / 影弾 / 影突進 /
+         分離 / 融合 / 硬直 の8つ。AI側はこの関数の存在を知らない。
+
+         Phase 1 では影が足元にいるが、HPが減るほど本体から離れ、
+         腕が本体とは別に動き始める ―― 「この敵の影はおかしい」を、
+         攻撃ではなく影の挙動だけで伝える(仕様3/7)。 */
+      const st = en.lordState;
+      const plan = en.lordAttack ? lordAttackPlan(en.lordAttack) : null;
+      const hpRatio = en.hp / en.hpMax;
+      let k = 0;
+      if(st === 'windup' && plan) k = 1 - Math.max(0, Math.min(1, en.lordT / Math.max(0.001, plan.telegraph)));
+      else if(st === 'strike' && plan) k = 1 - Math.max(0, Math.min(1, en.lordT / Math.max(0.001, plan.active)));
+
+      // --- 本体の腕と杖 ---
+      let rPitch = 0.06, lPitch = 0.04, lean = 0, gem = 0.25;
+      if(st === 'windup' && plan){
+        if(plan.key === 'cane'){ rPitch = 0.06 - 2.30*k; lean = -0.12*k; gem = 0.25 + 1.5*k; }
+        else if(plan.key === 'lash'){ lPitch = 0.04 - 1.55*k; lean = -0.08*k; gem = 0.25 + 0.4*k; }
+        else if(plan.key === 'bolt'){ lPitch = 0.04 - 1.90*k; gem = 0.25 + 1.1*k; }
+      } else if(st === 'strike' && plan){
+        if(plan.key === 'cane'){ rPitch = -2.24 + 2.70*k; lean = -0.12 + 0.42*k; gem = 1.75 - 1.2*k; }
+        else if(plan.key === 'lash'){ lPitch = -1.51 + 1.85*k; lean = -0.08 + 0.30*k; }
+        else if(plan.key === 'bolt'){ lPitch = -1.86 + 0.5*k; gem = 1.35 - 0.9*k; }
+      } else if(st === 'recover'){
+        const back = 1 - Math.min(1, dt*3.2);
+        rPitch = 0.06 + ((P.rPrev || 0.06) - 0.06) * back;
+        lPitch = 0.04 + ((P.lPrev || 0.04) - 0.04) * back;
+        lean = (P.leanPrev || 0) * back;
+        gem = 0.25 + ((P.gemPrev || 0.25) - 0.25) * back;
+      } else if(st === 'split' || st === 'merge'){
+        const dur = st === 'split' ? LORD_SPLIT_SEC : LORD_MERGE_SEC;
+        const kk = 1 - Math.max(0, Math.min(1, en.lordT / dur));
+        // 主は止まり、離れて(戻って)いく影のほうへ手を伸ばす
+        lPitch = 0.04 - 1.30 * Math.sin(Math.PI * kk);
+        lean = -0.16 * Math.sin(Math.PI * kk);
+        gem = Math.max(0.05, 0.25 - kk * 0.2 + (st === 'merge' ? kk * 0.9 : 0));
+      } else {
+        rPitch = 0.06 + Math.sin(t*0.7)*0.05;
+        lPitch = 0.04 + Math.sin(t*0.6 + 1.1)*0.05;
+        gem = 0.25 + Math.sin(t*1.8)*0.08;
+      }
+      P.rPrev = rPitch; P.lPrev = lPitch; P.leanPrev = lean; P.gemPrev = gem;
+      if(P.armR) P.armR.rotation.x = rPitch;
+      if(P.armL) P.armL.rotation.x = lPitch;
+      if(P.foreR) P.foreR.rotation.x = Math.min(0, rPitch) * 0.35;
+      if(P.lord) P.lord.rotation.x = lean;
+      if(P.caneGemMat) P.caneGemMat.color.setRGB(Math.min(1, 0.55 + gem*0.3), Math.min(1, 0.35 + gem*0.2), Math.min(1, 0.25 + gem*0.45));
+      if(P.caneGem) P.caneGem.scale.setScalar(0.8 + Math.min(2.2, gem) * 0.5);
+
+      // --- 影 ---
+      const shade = P.shade;
+      if(shade){
+        const phase = en.phase || 1;
+        let sx = P.shadeHome.x, sz = P.shadeHome.z, sScale = 1.12, sArm = 0.1, sDrop = 0;
+        if(phase === 1){
+          /* 足元の影が、HPが減るほど大きく・遠く・遅れていく。
+             ローカル座標でずらすだけなので、本体の向きに引きずられて
+             「影だけが少し遅れて追う」ようにも見える */
+          const creep = lordShadowCreep(hpRatio);
+          sx = P.shadeHome.x - creep * 0.55;
+          sz = P.shadeHome.z - creep * 1.25;
+          sScale = 1.12 + creep * 0.28;
+          sArm = 0.1 + Math.sin(t*0.8) * (0.12 + creep * 0.55);   // 腕が独立して動き出す
+          sDrop = creep * 0.10;
+        } else if(st === 'split' || st === 'merge'){
+          const dur = st === 'split' ? LORD_SPLIT_SEC : LORD_MERGE_SEC;
+          const kk = 1 - Math.max(0, Math.min(1, en.lordT / dur));
+          const outK = st === 'split' ? kk : 1 - kk;
+          sx = P.shadeHome.x - outK * 2.2;
+          sz = P.shadeHome.z - outK * 3.4;
+          sScale = 1.12 + outK * 0.30;
+          sArm = 0.1 + outK * 0.9;
+          sDrop = outK * 0.18;
+        } else if(phase === 2){
+          // en.group は既に影の位置にある。影は原点、本体は置いていかれる
+          sx = 0; sz = 0; sScale = 1.40; sDrop = 0.18;
+          sArm = 0.15 + Math.sin(t*1.1)*0.18;
+          if(st === 'windup' && plan) sArm = 0.15 + 1.45*k;
+          else if(st === 'strike' && plan) sArm = 1.60 - 2.40*k;
+        } else {
+          // Phase 3: 影は本体と重なるが、動きは常に少し遅れる
+          sx = P.shadeHome.x * 0.4; sz = P.shadeHome.z * 0.5;
+          sScale = 1.34; sDrop = 0.10;
+          const lag = Math.sin(t*0.9 - 0.7) * 0.16;
+          sArm = 0.12 + lag + (en.lordEchoFlash > 0 ? 1.35 : 0);
+        }
+        const sm = Math.min(1, dt * 5);
+        shade.position.x += (sx - shade.position.x) * sm;
+        shade.position.z += (sz - shade.position.z) * sm;
+        shade.position.y += ((-sDrop) - shade.position.y) * sm;
+        const cur = shade.scale.x;
+        shade.scale.setScalar(cur + (sScale - cur) * sm);
+        if(P.shArmL) P.shArmL.rotation.x = -sArm;
+        if(P.shArmR) P.shArmR.rotation.x = -sArm * 0.75;
+        if(P.shTorso) P.shTorso.rotation.z = Math.sin(t*0.6)*0.05;
+        if(P.shHead) P.shHead.rotation.y = Math.sin(t*0.45)*0.3;
+      }
+      if(P.shadeDisc){
+        // 足元の影は本体ではなく「影」の足元に付く
+        P.shadeDisc.position.x = shade ? shade.position.x * 0.8 : 0;
+        P.shadeDisc.position.z = shade ? shade.position.z * 0.8 : 0;
+        P.shadeDisc.scale.setScalar(1 + ((en.phase || 1) >= 2 ? 0.35 : lordShadowCreep(hpRatio) * 0.3));
+      }
     } else if(P.kind === 'clockwork'){
       // the pendulum keeps time, the torso gear turns, and the face runs fast
       P.pend.rotation.z = Math.sin(t*1.9*rage) * 0.42;
@@ -2261,6 +3148,263 @@
     }
   }
 
+  /* =========================================================
+     館の主(Boss / 森の洋館 Phase 5-D)
+
+     既存のボス共通AI(updateBossAI の追尾→振りかぶり→薙ぎ、
+     updateBossSpecial の突進レーン/アークスイープ/身構え)は、
+     「影が人から離れていく」という森の洋館のテーマを一切表現できない
+     ので、このボスだけ専用の相を持つ。ただし**新しい戦闘基盤は
+     1つも足していない**:
+
+       フェーズ管理  en.phase + HP閾値(0.65 / 0.30)。既存ボスと同じ値
+       体幹/Break    既存のまま(bossPostureMax 180 / ダウン2.2秒)
+       Execution     既存のまま。isFinishable が isBoss を弾くので即死しない
+       Projectile    影弾は spawnEnemyFireball() をそのまま使う
+       予兆/隙       windup が midWindup、振り抜き後は postAtkRecoveryT
+       HPバー/ターゲット/当たり判定  すべて en.group 基準のまま
+
+     ■ 影をどう扱うか(仕様23/24)
+     敵オブジェクトは最後までひとつ。Phase 2 では **en.group そのものが
+     影の側へ移り**、本体(parts.lord)を世界固定の分身として置いていく。
+     こうすると「影が実質のターゲットになる」「影を殴ってもHPが減る」が、
+     新しいターゲットUIもダメージ経路も足さずに成立する。本体はその場で
+     影を操る仕草を続ける(棒立ちにしない、仕様13)。
+
+     ■ 相
+       idle/approach → windup → strike → recover      (全フェーズ共通)
+       split   Phase 1→2。影が足元から離れていく
+       merge   Phase 2→3。影が戻って一体化する
+     いずれも止まっている時間そのものが合図なので、フェーズを説明する
+     UIテキストは出さない(仕様28)。
+  ========================================================= */
+  const _lordVec = new THREE.Vector3();
+
+  function lordEnterIdle(en){
+    en.lordState = 'idle';
+    en.lordAttack = null;
+    en.lordT = 0;
+  }
+
+  /* 影(Phase 2)か本体(Phase 1/3)か、いま en.group がどちらに
+     置かれているか。Phase 2 の間だけ true。 */
+  function lordShadowIsBody(en){ return (en.phase || 1) === 2; }
+
+  /* 置いていかれた本体を、世界の定位置(en.lordAnchor)へ見た目上
+     留める。en.group は影と一緒に動くので、その逆変換を毎フレーム
+     ローカル座標へ入れるだけ ―― 新しいシーングラフは作らない。 */
+  function lordPinBody(en, P){
+    if(!P || !P.lord) return;
+    if(!lordShadowIsBody(en) || !en.lordAnchor){
+      P.lord.position.set(0, 0, 0);
+      P.lord.rotation.y = 0;
+      return;
+    }
+    const dx = en.lordAnchor.x - en.group.position.x;
+    const dz = en.lordAnchor.z - en.group.position.z;
+    const cs = Math.cos(-en.group.rotation.y), sn = Math.sin(-en.group.rotation.y);
+    P.lord.position.set(dx * cs - dz * sn, 0, dx * sn + dz * cs);
+    // 本体は置いていかれても、影(=プレイヤー)のほうを向き続ける
+    P.lord.rotation.y = -en.group.rotation.y +
+      Math.atan2(state.pos.x - en.lordAnchor.x, state.pos.z - en.lordAnchor.z);
+  }
+
+  function updateMansionLordAI(en, dt){
+    const P = en.parts;
+    if(en.lordState === undefined){ lordEnterIdle(en); en.lordCds = {}; en.lordSide = 1; }
+    if(!en.lordFacing) en.lordFacing = new THREE.Vector3(0,0,1);
+    if(!en.phase) en.phase = 1;
+
+    // クールダウンを進める(攻撃ごと + 全体の呼吸)
+    for(const k in en.lordCds){ if(en.lordCds[k] > 0) en.lordCds[k] -= dt; }
+    if(en.lordAtkCD > 0) en.lordAtkCD -= dt;
+    if(en.lordRepositionT > 0) en.lordRepositionT -= dt;
+    if(en.postAtkRecoveryT > 0) en.postAtkRecoveryT -= dt;
+    updateBossBark(en, en.hp / en.hpMax);   // 既存のHP段階セリフはそのまま
+
+    const toPlayer = _lordVec.subVectors(state.pos, en.group.position); toPlayer.y = 0;
+    const dist = toPlayer.length();
+
+    /* ---- Phase 3 の二段攻撃(仕様16) ----
+       本体が振り抜いたあと、影が同じ方向へ少し遅れて追撃する。
+       専用のステートは作らず、タイマーひとつで済ませている。 */
+    if(en.lordEchoT > 0){
+      en.lordEchoT -= dt;
+      if(en.lordEchoT <= 0 && !en.dead){
+        const fx = Math.atan2(en.lordEchoDir.x, en.lordEchoDir.z);
+        const bearing = Math.atan2(toPlayer.x, toPlayer.z);
+        if(dist <= LORD_ECHO.reach && Math.abs(angleDiff(fx, bearing)) <= LORD_ECHO.halfAngle){
+          lordHitPlayer(en, Math.round(en.atk * LORD_ECHO.damageMul), 0.16);
+        }
+        sfx('slashHeavy');
+        en.lordEchoFlash = LORD_ECHO.active;   // 見た目側(影の腕)が読む
+      }
+    }
+    if(en.lordEchoFlash > 0) en.lordEchoFlash -= dt;
+
+    // ---- フェーズ移行。攻撃を振り抜いている最中には割り込まない ----
+    if((en.lordState === 'idle' || en.lordState === 'recover') && lordShouldShiftPhase(en)){
+      const next = lordPhaseFor(en.hp / en.hpMax);
+      en.phase = next;
+      en.lordState = next === 2 ? 'split' : 'merge';
+      en.lordT = next === 2 ? LORD_SPLIT_SEC : LORD_MERGE_SEC;
+      en.lordAttack = null;
+      en.postAtkRecoveryT = 0;
+      en.lordCds = {};
+      if(next === 2){
+        // 分離した地点を覚えておく。影の移動範囲はここを中心に縛る(仕様25)
+        en.lordAnchor = {x:en.group.position.x, z:en.group.position.z};
+      }
+      sfx('bossWake');
+      addShake(0.16);
+      return;
+    }
+
+    // ---- 分離 / 融合: 完全に停止する。止まること自体が合図 ----
+    if(en.lordState === 'split' || en.lordState === 'merge'){
+      en.lordT -= dt;
+      if(en.lordT <= 0){
+        if(en.lordState === 'merge'){
+          /* 影が戻ったので、en.group は影の位置のまま本体もそこへ戻す
+             ―― 世界座標は動かさず、置いていった分身を回収する形にする */
+          en.lordAnchor = null;
+        }
+        lordEnterIdle(en);
+      }
+      lordPinBody(en, P);
+      return;
+    }
+
+    lordPinBody(en, P);
+
+    // ---- 振りかぶり: 向きを固定して溜める(ここがパニッシュ窓) ----
+    if(en.lordState === 'windup'){
+      en.lordT -= dt;
+      en.atkWindup = true;    // 既存のパニッシュ窓の定義をそのまま使う
+      en.group.rotation.y = Math.atan2(en.lordFacing.x, en.lordFacing.z);
+      if(en.lordT <= 0){
+        const plan = lordAttackPlan(en.lordAttack);
+        en.atkWindup = false;
+        en.lordState = 'strike';
+        en.lordT = plan.active;
+        en.lordHit = false;
+        sfx(plan.sfx || 'swing');
+        if(plan.projectile){
+          // 影弾。既存の敵用 Projectile をそのまま撃つ
+          spawnEnemyFireball(en);
+        } else if(plan.dash){
+          en.lordDashDir = en.lordFacing.clone();
+        }
+      }
+      return;
+    }
+
+    // ---- 振り抜き ----
+    if(en.lordState === 'strike'){
+      en.lordT -= dt;
+      const plan = lordAttackPlan(en.lordAttack);
+      if(plan.dash){
+        // 影突進。地面を滑るように進む(既存の突進の考え方をそのまま)
+        en.group.position.addScaledVector(en.lordDashDir, (plan.dashSpeed || 13) * dt);
+        resolveWallCollisions(en.group.position);
+        const d = state.pos.distanceTo(en.group.position);
+        if(!en.lordHit && d < (plan.hitRadius || 1.9)){
+          en.lordHit = true;
+          lordHitPlayer(en, Math.round(en.atk * plan.damageMul), plan.shake);
+        }
+      } else if(!plan.projectile && !en.lordHit){
+        const facing = Math.atan2(en.lordFacing.x, en.lordFacing.z);
+        const bearing = Math.atan2(toPlayer.x, toPlayer.z);
+        if(dist <= plan.reach && Math.abs(angleDiff(facing, bearing)) <= plan.halfAngle){
+          en.lordHit = true;
+          lordHitPlayer(en, Math.round(en.atk * plan.damageMul), plan.shake);
+        }
+      }
+      if(en.lordT <= 0){
+        en.lordState = 'recover';
+        en.lordT = plan.recovery;
+        // 命中・空振りどちらでも隙は同じだけ残る(全敵共通の扱い)
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+        en.lordAtkCD = LORD_ATTACK_BREATH_SEC;
+        en.lordCds[plan.key] = lordAttackCooldown(plan.key, en.phase);
+        /* Phase 3 だけ、本体の一撃に影の追撃が続く(仕様16)。
+           「本体だけを見ていると危険」を、新しい攻撃を足さずに作る */
+        if(en.phase === 3 && plan.by === 'body'){
+          en.lordEchoT = LORD_ECHO_DELAY_SEC;
+          en.lordEchoDir = en.lordFacing.clone();
+        }
+      }
+      return;
+    }
+
+    // ---- 硬直: 動かない。ここが差し返しどころ ----
+    if(en.lordState === 'recover'){
+      en.lordT -= dt;
+      if(en.lordT <= 0) lordEnterIdle(en);
+      return;
+    }
+
+    // ---- 待機 / 位置取り ----
+    const rate = turnBudget(resolveTurnRate(en), dt);
+    en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), rate);
+
+    const pick = lordAttackChoice({phase:en.phase, dist, cds:en.lordCds, atkCD:en.lordAtkCD});
+    if(pick){
+      const plan = lordAttackPlan(pick);
+      en.lordState = 'windup';
+      en.lordAttack = pick;
+      en.lordT = plan.telegraph;
+      en.lordFacing = toPlayer.clone().normalize();
+      return;
+    }
+
+    if(lordShadowIsBody(en)){
+      /* Phase 2: 影は詰め続けず、間合いを取り直しながら回り込む。
+         行き先は core/mansion-enemies.js が決め、分離地点からの半径で
+         部屋の外へ出ないよう縛ってある(仕様25)。 */
+      if(en.lordRepositionT <= 0){
+        en.lordRepositionT = LORD_SHADOW_REPOSITION_SEC;
+        en.lordSide = -(en.lordSide || 1);
+        en.lordMoveTo = lordShadowTarget(state.pos, en.lordAnchor || en.basePos, en.lordSide);
+      }
+      if(en.lordMoveTo){
+        const dx = en.lordMoveTo.x - en.group.position.x;
+        const dz = en.lordMoveTo.z - en.group.position.z;
+        const d = Math.hypot(dx, dz);
+        if(d > 0.25){
+          const sp = en.speed * 1.35 * dt;   // 影は本体より身軽に滑る
+          en.group.position.x += (dx / d) * Math.min(sp, d);
+          en.group.position.z += (dz / d) * Math.min(sp, d);
+          resolveWallCollisions(en.group.position);
+        }
+      }
+      return;
+    }
+
+    // Phase 1 / 3: 本体が普通に間合いを詰める
+    if(dist > LORD_ATTACKS.cane.reach * 0.8){
+      toPlayer.normalize();
+      const slow = en.arcaneBindT > 0 ? 0.5 : 1;
+      en.group.position.addScaledVector(toPlayer, en.speed * slow * dt);
+      resolveWallCollisions(en.group.position);
+    }
+  }
+
+  /* 館の主の一撃をプレイヤーへ通す。判定や無敵の扱いは他の敵と完全に同じ
+     経路(オーブシールド → 被ダメージ倍率 → ジャストドッジ)。 */
+  function lordHitPlayer(en, dmg, shake){
+    if(state.paralyzeInvulnT > 0) return;
+    if(state.invulnerable){ tryPerfectDodge(en); return; }
+    if(tryConsumeOrbShield()) return;
+    const out = applyIncomingDamageMul(state.debugMode ? 0 : dmg);
+    state.hp = Math.max(0, state.hp - out);
+    spawnDamagePopup(state.pos.clone(), out, false, false, true);
+    flashScreen();
+    sfx('hurt');
+    addShake(shake || 0.14);
+    if(state.hp <= 0) triggerPlayerDown();
+  }
+
   function updateBossAI(en, dt){
     if(!en.triggered){
       if(!state.dialogueActive){
@@ -2274,6 +3418,12 @@
       }
       return; // dormant until the dialogue completes
     }
+
+    /* 館の主(森の洋館 Phase 5-D)だけは専用の相を持つ。既存ボスの
+       追尾→振りかぶり→薙ぎ + updateBossSpecial の突進レーン/身構えでは
+       「影が人から離れていく」を表現できないため。フェーズ管理・体幹・
+       Break・Execution・報酬・撃破フローは既存のまま使う */
+    if(en.key === 'mansionBoss'){ updateMansionLordAI(en, dt); return; }
 
     // HP-threshold phase changes: faster, harder-hitting, with a one-time burst skill
     if(!en.phase) en.phase = 1;
@@ -2569,6 +3719,22 @@
         en.ghostState = 'cooldown';
         en.ghostT = 2.4;
       }
+      if(en.servantState === 'windup'){
+        /* 使用人(森の洋館)。引いた腕を下ろして硬直へ ―― 大振りを
+           潰されたぶんのクールダウンもそこで消費させる。
+           鍵束の番人(強モブ)はそもそも bigFlinchInterrupt() が
+           interrupt:false を返すのでここへは来ない ―― それが
+           Super Armor の実体(core/enemy-tier.js)。 */
+        const prof = meleeProfile(en.meleeKind || 'servant');
+        en.servantState = 'recover';
+        en.servantT = meleeAttackPlan(en.meleeKind || 'servant', en.servantAttack, en.butlerPhase || 1).recovery;
+        en.servantAtkCD = prof.attackCooldown;
+        if(en.servantAttack === prof.heavy){
+          en.servantSweepCD = meleeHeavyCooldown(en.meleeKind || 'servant', en.butlerPhase || 1);
+        }
+        en.servantAttack = null;
+        en.servantRecoverOverride = 0;
+      }
     }
 
     // 短い硬直。ダウンと違って姿勢も無敵も変えず、AIを止めるだけ
@@ -2745,7 +3911,9 @@
      - 石兵を殴って肉打撃音、のような違和感を防ぐのが目的。表にない
      テーマ/ボスキーはaudio.js側で既定の(元からあった)音にフォールバック
      するので、新しい敵を足してもここへの追記を忘れて壊れることはない */
-  const MOB_MATERIAL = { wraith:'ghost', drowned:'wet', eel:'flesh', stone:'stone', clockwork:'metal', plant:'plant', beast:'flesh' };
+  const MOB_MATERIAL = { wraith:'ghost', drowned:'wet', eel:'flesh', stone:'stone', clockwork:'metal', plant:'plant', beast:'flesh',
+    // 森の洋館の3種(Phase 5-A)。新しい音源は作らず、既存の分類を割り当てるだけ
+    servant:'flesh', maid:'ghost', hound:'flesh', warden:'flesh', butler:'ghost' };
   const BOSS_MATERIAL = { ghostCaptain:'ghost', waterwayTurtle:'shell', templeGuardian:'stone', conservatoryBloom:'plant', towerWarden:'metal', mansionBoss:'flesh' };
   function materialOf(en){
     if(en.isBoss) return BOSS_MATERIAL[en.key];
@@ -3000,6 +4168,8 @@
       en.atkWindup = false;
       en.postAtkRecoveryT = 0;   // 崩された時点で振り抜きの流れも打ち切る
       if(en.bodyScale && en.body) en.body.scale.copy(en.bodyScale);
+      // 館の主(Phase 5-D)も、崩された時点で攻撃相と影の追撃予約を畳む
+      if(en.lordState){ lordEnterIdle(en); en.lordEchoT = 0; }
       clearBossVfx(en);
     } else {
       en.chargeState = 'idle';
@@ -3015,12 +4185,25 @@
       if(gb.cancel){
         en.guardBreak = false;
         if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);  // 溜めの膨らみを戻す
-        en.chargeState = gb.chargeState;
-        en.chargeT = gb.chargeT;
+        if(en.servantState){
+          /* 近接型の守護型(鍵束の番人)。突進の語彙(chargeState)ではなく
+             自分の相をたたみ、起き上がりは待機から。残りの予兆は破棄する */
+          servantEnterIdle(en);
+          en.servantAtkCD = GUARD_BREAK_COOLDOWN_SEC;
+        } else {
+          en.chargeState = gb.chargeState;
+          en.chargeT = gb.chargeT;
+        }
         en.guardHoldT = 0;
         en.guardBreakCD = gb.specialCDSec;
         spawnToast('🛡 ガードブレイクを潰した!');
       }
+      /* 近接型(使用人/鍵束の番人)は、ガードブレイクでなくても崩された
+         時点で攻撃相をたたむ。突進型が chargeState='idle' へ戻されるのと
+         同じ扱い ―― これが無いと、倒れている間じゅう振りかぶった姿勢の
+         まま腕を掲げ続けてしまう(見た目だけの話だが、崩したことが
+         伝わらない)。gb.cancel 側で既に畳まれていれば何も起きない */
+      if(en.servantState && en.servantState !== 'idle') servantEnterIdle(en);
     }
     /* Break → Execution Window(core/break-window.js、Phase 4)。
        ダウンの先頭 0.25 秒を「崩れた」の見せ場にして、そのあと 1.6 秒だけ
@@ -3111,6 +4294,22 @@
   // A mob that simply stops being visible reads as a bug. Give it a fall:
   // tip over away from the blow, sink, and only then hide.
   function startDeathFall(en, from){
+    /* 館の主(Phase 5-D)。Phase 2 で倒された場合、影は本体から離れた
+       位置に居る ―― そのまま倒れると「空の影が倒れ、本体は遠くで
+       突っ立っている」ことになる。倒れ始める瞬間に影を本体へ戻して
+       一体化させ、そこから既存の死亡演出へ入る(仕様26)。
+       既存の死亡フロー(finishEnemyDeath / updateDeathFall / 勝利画面)
+       そのものには手を触れていない ―― 見た目を1フレームで畳むだけ */
+    if(en.parts && en.parts.kind === 'lord'){
+      const P = en.parts;
+      if(P.lord){ P.lord.position.set(0,0,0); P.lord.rotation.set(0,0,0); }
+      if(P.shade){ P.shade.position.set(P.shadeHome.x, 0, P.shadeHome.z); P.shade.scale.setScalar(1.12); }
+      if(P.shadeDisc) P.shadeDisc.position.set(0, P.shadeDisc.position.y, 0);
+      if(P.shArmL) P.shArmL.rotation.x = 0;
+      if(P.shArmR) P.shArmR.rotation.x = 0;
+      en.lordAnchor = null;
+      sfx('bossWake');
+    }
     en.dying = true;
     en.dieT = 0;
     en.dieDur = en.strongMob ? 0.75 : 0.55;
