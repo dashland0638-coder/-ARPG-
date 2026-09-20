@@ -394,6 +394,27 @@
         applyPendingJobPromotion();
       } else if(state.dialogueKind==='shadowGuide'){
         state.dialogueKind = null;
+      } else if(state.dialogueKind==='mansionRubble'){
+        /* 洋館・使用人通路の瓦礫。会話が終わってから鍛冶屋が実際に
+           退ける ―― 見てから閃く、という順序を崩さないため
+           (03-dungeons-mansion-temple.js の playMansionRubbleScene) */
+        state.dialogueKind = null;
+        playMansionRubbleScene();
+      } else if(state.dialogueKind==='mansionInsight'){
+        state.dialogueKind = null;
+        grantChapter1Skill2();
+      } else if(state.dialogueKind==='mansionEscortJoin'){
+        /* 作業室での出会い。ここから鍛冶屋が同行する(仕様 8)。
+           付いてくる実体は既に部屋に立っているので、プレイヤーの
+           斜め後ろへ置き直すだけ(03-dungeons-mansion-temple.js) */
+        state.dialogueKind = null;
+        state.smithEscort = ESCORT.JOINED;
+        repositionManorSmith();
+        spawnToast('🔨 鍛冶士が同行するようになった');
+      } else if(state.dialogueKind==='mansionFarewell'){
+        // ボス撃破 → 正常化 → 再会 のあとの別れ際。工具を回収して脱出する
+        state.dialogueKind = null;
+        finishMansionFarewell();
       }
       return;
     }
@@ -408,6 +429,28 @@
     boss.special = null;
     enemies.filter(e=>e.summonedBy===boss).forEach(e=>scene.remove(e.group));
     enemies = enemies.filter(e=>e.summonedBy!==boss);
+    /* 森の洋館だけは、撃破した瞬間に結果画面へ飛ばさない(仕様 10)。
+
+         撃破 → 怪異が弱まる → 異常空間が解除される → 館の構造が正常化
+              → 鍛冶屋と再会 → 短い会話 → 工具・素材を回収 → 二人で脱出
+
+       が終わってから、いつもの結果画面へ渡す。結果画面・報酬・
+       BOSS_ENDING_LINES はそのまま再利用しているので、増えたのは
+       「その前に一拍置く」ことだけ。 */
+    if(state.scenarioKey === 'mansion' &&
+       shouldReunite({bossDefeated:true, escort:state.smithEscort})){
+      playMansionReunion(()=> {
+        try{ showBossResultScreen(boss, levelBefore); }
+        catch(err){
+          console.error('showBossResultScreen failed:', err);
+          state.dialogueActive = false;
+          state.dialogueKind = null;
+          clearMovementInput(false);
+          spawnToast('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+        }
+      });
+      return;
+    }
     const wrap = document.getElementById('canvas-wrap');
     wrap.classList.add('victory-blur');
     setTimeout(()=>{
@@ -2092,11 +2135,45 @@
       cd:10, baseMult:0.75, maxMult:0.75, mode:'burst3', vfxColor:0xdcbf7a, homing:true },
   };
 
-  // 現在選ばれているスキル2の定義を返す(未解放ならaltを選んでいても
-  // 強制的にdefaultへ戻す)
+  /* ---- Skill 2 の「閃き」(Chapter 1) ----
+     全体基本仕様 §18 / Chapter 1 仕様 §11。同行者から技を教わるのでは
+     なく、同行者の工夫を見た主人公が、それを自分の戦い方へ翻訳する。
+     だから演出は「習得しました」ではなく、主人公の側の一言で終える。
+
+     習得 = 装備。既存の実装では Skill 2 は専用ボタンに固定で載っている
+     ので、閃いた瞬間にボタンが現れることがそのまま自動装備になっている
+     (選ばせる画面は挟まない)。新しいスキル定義も報酬テーブルも足さず、
+     開けるのは既に各職業が持っている SKILL2_BY_CLASS の1つだけ。 */
+  function grantChapter1Skill2(){
+    const before = !!state.learnedSkill2;
+    const r = learnSkill2(state);
+    if(!r.changed) return false;
+    const def = activeSkill2Def(state.classDef && state.classDef.key);
+    state.skill2CD = 0;               // 閃いた直後にすぐ試せる
+    sfx('levelUp');
+    spawnToast(def ? `✴️ 閃いた ―― ${def.icon} ${def.name}(自動で装備した)`
+                   : '✴️ 新しい戦い方を閃いた');
+    // ボタンをその場で出す(updateCooldownRings が .locked を外す)
+    const icon = document.getElementById('btn-skill2-icon');
+    if(icon && def) icon.textContent = def.icon;
+    updateCooldownRings();
+    return before !== true;
+  }
+
+  /* 現在選ばれているスキル2の定義を返す(未解放ならaltを選んでいても
+     強制的にdefaultへ戻す)。
+
+     剣士の default は Chapter 1 の閃きで手に入る「崩し斬り」(D-04)。
+     以前ここにあった地裂斬(SKILL2_BY_CLASS.warrior)は消していない ――
+     スフィア盤・ランク・セーブが参照する枠として残してあり、崩し斬りの
+     数値が正式に決まるまでの比較対象でもある。他の3職は今まで通り。 */
+  function defaultSkill2Def(classKey){
+    if(classKey === 'warrior') return CRUSH_SLASH;
+    return SKILL2_BY_CLASS[classKey];
+  }
   function activeSkill2Def(classKey){
     if(state.skill2Choice==='alt' && state.unlockedSkill2Alt && SKILL2_ALT_BY_CLASS[classKey]) return SKILL2_ALT_BY_CLASS[classKey];
-    return SKILL2_BY_CLASS[classKey];
+    return defaultSkill2Def(classKey);
   }
 
   /* ---- 必殺技の新規選択肢(スフィア盤で解放) ----
@@ -2791,15 +2868,39 @@
   ];
   let skillSubTab = 'skill1';
 
+  /* ---- 付け替えていい瞬間か(全体基本仕様 §19) ----
+     探索中は可、戦闘体勢・会話・演出・ボス戦中は不可。判定そのものは
+     core/chapter1-skills.js にあり、ここは state を詰めて渡すだけ。
+
+     この画面は酒場の鍛冶士の前に加えて、ダンジョン中のチェックポイント
+     (洋館の大広間、02-world-common.js の useCheckpoint)からも開くので、
+     「戦闘中は組み替えられない」は実際に効く。戦闘体勢の判定は
+     state.combatStanceT(core/combat-stance.js)をそのまま使っていて、
+     新しい戦闘状態フラグは足していない。 */
+  function loadoutLockState(){
+    return loadoutChangeState({
+      started:        state.started,
+      dialogueActive: state.dialogueActive,
+      bossActive:     enemies.some(e=> e.isBoss && e.triggered && e.hp > 0),
+      combatStanceT:  state.combatStanceT,
+      swinging:       state.swinging,
+      executeT:       state.executeT,
+    });
+  }
+
   function renderSkillPanel(){
     const panel = document.getElementById('ap-panel-skill');
     const variants = getChargeVariants();
+    const lock = loadoutLockState();
 
     let html = '<div class="skill-subtabs">';
     SKILL_SUBTABS.forEach(t=>{
       html += `<div class="skill-subtab ${skillSubTab===t.key?'active':''}" data-skill-subtab="${t.key}">${t.label}</div>`;
     });
     html += '</div><div class="skill-subtab-body">';
+    if(!lock.allowed && lock.reason !== 'notStarted'){
+      html += `<div class="gear-empty-note">🔒 ${lock.message}</div>`;
+    }
 
     if(skillSubTab==='passive'){
       // ---- ability ranks -----------------------------------------------
@@ -2906,9 +3007,22 @@
     }
 
     else if(skillSubTab==='skill2'){
+      /* Chapter 1 は Skill 1 だけで始まる。まだ閃いていない間は選択肢も
+         出さない ―― 「そのうち手に入る枠」を先に見せない(全体基本仕様 §18) */
+      if(!hasSkill2(state)){
+        html += '<div class="gear-empty-note">まだ二つめの戦い方を持っていない。' +
+                'ダンジョンでの出来事が、それを教えてくれる。</div>';
+        html += '</div>';
+        panel.innerHTML = html;
+        bindSkillPanelHandlers(panel);
+        return;
+      }
+      /* default は defaultSkill2Def が決める ―― 剣士は Chapter 1 の
+         閃きで手に入る崩し斬り(D-04)。ここで SKILL2_BY_CLASS を直接
+         引くと、実際に振る技と画面に出る技が食い違う */
       const skill2Options = state.unlockedSkill2Alt
-        ? [['default', SKILL2_BY_CLASS[state.classDef.key]], ['alt', SKILL2_ALT_BY_CLASS[state.classDef.key]]]
-        : [['default', SKILL2_BY_CLASS[state.classDef.key]]];
+        ? [['default', defaultSkill2Def(state.classDef.key)], ['alt', SKILL2_ALT_BY_CLASS[state.classDef.key]]]
+        : [['default', defaultSkill2Def(state.classDef.key)]];
       html += `<div class="ap-charge-title">スキル2(専用ボタン2・${state.unlockedSkill2Alt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
       skill2Options.forEach(([choiceKey, def])=>{
         if(!def) return;
@@ -2989,15 +3103,27 @@
 
     html += '</div>';
     panel.innerHTML = html;
+    bindSkillPanelHandlers(panel);
+  }
 
+  /* 付け替え系のクリックだけ、押された瞬間にもう一度 loadoutLockState() を
+     見る ―― 画面を開いたまま敵に見つかった、という間に合わないケースを
+     描画時の判定だけに任せないため。購入・ランク上げは「装備の組み替え」
+     ではないので、この鍵は掛からない(既存の挙動のまま) */
+  function bindSkillPanelHandlers(panel){
+    const changeLoadout = (apply)=>{
+      const lock = loadoutLockState();
+      if(!lock.allowed){ sfx('deny'); spawnToast('🔒 ' + lock.message); renderSkillPanel(); return; }
+      apply();
+    };
     panel.querySelectorAll('[data-skill-subtab]').forEach(tab=>{
       tab.addEventListener('click', ()=>{ skillSubTab = tab.dataset.skillSubtab; renderSkillPanel(); });
     });
     panel.querySelectorAll('[data-boss-ability]').forEach(row=>{
-      row.addEventListener('click', ()=>{ toggleEquippedBossAbility(row.dataset.bossAbility); refreshAppraisal(); });
+      row.addEventListener('click', ()=> changeLoadout(()=>{ toggleEquippedBossAbility(row.dataset.bossAbility); refreshAppraisal(); }));
     });
     panel.querySelectorAll('[data-boss-active-skill]').forEach(row=>{
-      row.addEventListener('click', ()=>{ setEquippedBossActiveSkill(row.dataset.bossActiveSkill); refreshAppraisal(); });
+      row.addEventListener('click', ()=> changeLoadout(()=>{ setEquippedBossActiveSkill(row.dataset.bossActiveSkill); refreshAppraisal(); }));
     });
     panel.querySelectorAll('[data-rank]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -3006,25 +3132,25 @@
       });
     });
     panel.querySelectorAll('.ap-charge-card[data-variant]').forEach(card=>{
-      card.addEventListener('click', ()=>{
+      card.addEventListener('click', ()=> changeLoadout(()=>{
         state.skillChoice = card.dataset.variant;
         updateSkillButtonIcon();
         renderSkillPanel();
-      });
+      }));
     });
     panel.querySelectorAll('.ap-charge-card[data-skill2-choice]').forEach(card=>{
-      card.addEventListener('click', ()=>{
+      card.addEventListener('click', ()=> changeLoadout(()=>{
         state.skill2Choice = card.dataset.skill2Choice;
         recomputeStats();
         renderSkillPanel();
-      });
+      }));
     });
     panel.querySelectorAll('.ap-charge-card[data-ult-choice]').forEach(card=>{
-      card.addEventListener('click', ()=>{
+      card.addEventListener('click', ()=> changeLoadout(()=>{
         state.ultChoice = card.dataset.ultChoice;
         recomputeStats();
         renderSkillPanel();
-      });
+      }));
     });
     panel.querySelectorAll('.ap-skill-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{

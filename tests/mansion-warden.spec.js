@@ -276,7 +276,11 @@ test.describe('鍵束の番人(Strong Mob)', () => {
     expect(errors).toEqual([]);
   });
 
-  test('洋館へ出撃すると、番人を含む使用人区画が組み上がる', async ({ page }) => {
+  /* 番人は D-03 で分離後の異常空間(大広間……?)へ移した。ここまで歩き
+     通せる環境ではないので、このテストが見るのは今までどおり「洋館が
+     例外なく組み上がり、森の導線が生きている」ことだけ ―― 配置そのものは
+     tests/mansion-scenario.spec.js の往復テストが押さえている */
+  test('洋館へ出撃でき、森の導線と描画が生きている', async ({ page }) => {
     test.setTimeout(240_000);
     const errors = watchErrors(page);
     await openGame(page);

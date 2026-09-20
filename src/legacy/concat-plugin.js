@@ -106,6 +106,27 @@ import {
   ULT_IMPACT_SHAKE, ULT_IMPACT_HITSTOP, ULT_IMPACT_HITSTOP_MAX,
 } from '../core/ult-clips.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
+/* Chapter 1 のスキル進行(全体基本仕様 §17-19)。Skill 1 だけで出発し、
+   ダンジョン中盤で同行者の行動から Skill 2 を閃いて自動装備する ―― その
+   「閃いたか」と「今それを組み替えていいか」だけを持つ。既存のスキル基盤
+   (SKILL2_BY_CLASS / castSkill2 / 鑑定所のスキルタブ)には手を触れていない */
+import {
+  CHAPTER1_SKILL_SLOTS, hasSkill2, loadedSkill2Flag, learnSkill2,
+  loadoutChangeState, canChangeLoadout, LOADOUT_BLOCK_MESSAGES,
+} from '../core/chapter1-skills.js';
+/* 崩し斬り(D-04)。モーションのキーフレームと前方扇の判定、そして
+   「回転斬りにしない」の機械検査。数値は正式決定まで暫定(PROVISIONAL_*) */
+import {
+  CRUSH_SLASH, CRUSH_SLASH_CLIP, CRUSH_SLASH_STRIKE_T,
+  CRUSH_SLASH_ARC, CRUSH_SLASH_RANGE, crushSlashHit,
+} from '../core/crush-slash.js';
+/* 森の洋館の空間異常(D-01)と鍛冶屋との分離(D-02)。段階・照明の狂い・
+   分離/再会の成立条件・同行の追従だけを持つ。座標は MANSION_ROOMS が本体 */
+import {
+  ANOMALY, ESCORT, roomAnomalyStage, isAnomalyRoom, anomalyLampMods, coolShift,
+  shouldSeparate, shouldReunite, escortFollows, escortFollowStep,
+  ESCORT_STOP_DIST, ESCORT_WARP_DIST,
+} from '../core/mansion-anomaly.js';
 /* 敵プロファイルの汎用基盤(ダンジョン非依存)。攻撃表の引き方・予兆の
    進行度・variant の組み立てだけを持ち、どのダンジョンの敵もここへ登録する。
    既存の戦闘基盤(体幹/パニッシュ窓/Break/Execution)には一切触れていない */

@@ -50,6 +50,29 @@ src/
                                 Guard Break/Break/Execution/ボスのフェーズ管理)は
                                 使うだけで触らない。
                                 state依存なし(MANSION_SCENARIO.md参照)
+  core/chapter1-skills.js      Chapter 1 のスキル進行(全体基本仕様 §17-19)。主人公は
+                                Skill 1 だけを持って酒場を出て、ダンジョン中盤で同行者の
+                                行動を見て Skill 2 を閃き、その場で自動装備する ――
+                                「持っているか」「閃く」「旧セーブをどう読むか」と、
+                                「今それを組み替えていいか」(探索中は可 / 戦闘体勢・
+                                会話・演出・ボス戦中は不可)だけを持つ。戦闘体勢の判定は
+                                新設せず state.combatStanceT(combat-stance.js)を使う。
+                                既存のスキル基盤(SKILL2_BY_CLASS / castSkill2 / 鑑定所の
+                                スキルタブ)は作り直していない。
+                                state依存なし(MANSION_SCENARIO.md参照)
+  core/crush-slash.js          崩し斬り(剣士の Skill 2、D-04)。モーションのキーフレームと
+                                前方扇の判定、そして「回転斬りにしない」(仕様 6-2 の禁止
+                                事項)の機械検査 ―― validateCrushSlashClip() が
+                                360度回転・先に身体を回す・円を描く・空中で捻る・構えへ
+                                戻らない、を全部キーフレームから弾く。キーフレームを
+                                CLIPS ではなくここに置いてあるのはそのため
+                                (tests/unit/crush-slash.test.js が固定している)。
+                                数値は正式決定まで暫定(PROVISIONAL_*)。state依存なし
+  core/mansion-anomaly.js      森の洋館の空間異常(D-01)と鍛冶屋との分離(D-02)。
+                                部屋idごとの異変の段階・段階に応じた照明の狂いと
+                                正常化・分離/再会の成立条件・同行の追従だけを持つ。
+                                部屋の座標は MANSION_ROOMS が唯一の情報源なので
+                                ここには持たない。state依存なし(MANSION_SCENARIO.md参照)
   audio/audio.js               SE合成・BGM再生(WebAudio)。state.sfxVolume/bgmVolume以外への依存なし
   audio/procedural-bgm.js      ワールドごとの生成音楽(ドローン+疎らな旋律+簡易リバーブ)。実ファイル未登録時のBGM
   textures/textures.js         手続きテクスチャ/バンプマップ生成。state依存なし

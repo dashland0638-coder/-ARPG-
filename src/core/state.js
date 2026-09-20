@@ -75,6 +75,22 @@ import * as THREE from 'three';
        洋館をクリアして初めてこの街に落ち着く。それまで同じ場所には
        仮設の作業台があり、鑑定・強化そのものは最初から使える */
     smithJoined:false, smithGreeted:false,
+    /* Chapter 1 のスキル進行(core/chapter1-skills.js)。主人公は Skill 1
+       だけを持って酒場を出て、ダンジョン中盤で同行者の行動を見て Skill 2 を
+       閃く ―― 閃いた時点で自動装備され、専用ボタンがそこで初めて開く。
+       smithJoined と同じ純追加のセーブ対象フィールドで、この機能より前の
+       セーブには存在しない(その場合は習得済みとして読む。
+       core/chapter1-skills.js の loadedSkill2Flag) */
+    learnedSkill2:false,
+    /* 森の洋館の同行/分離(D-02、core/mansion-anomaly.js の ESCORT)と、
+       空間異常が解けたか(D-01)。どちらも一度の出撃の中だけの状態なので
+       セーブしない ―― 洋館を出れば鍛冶屋は酒場にいる(smithJoined の担当)。
+       scenarioKey / routePath と同じ扱い */
+    smithEscort:'none',
+    mansionNormalized:false,
+    /* 洋館の工具・素材を持ち帰ったか。ボス撃破後の再会で立ち、酒場の
+       鍛冶場の作り込みがこれを見る(smithJoined と同じ純追加のセーブ対象) */
+    smithToolsRecovered:false,
     escapeFalling:false,        // committed to the leap off the lookout
     walkTo:null,                // a scripted walk during a cutscene
     shakeScale:1,               // 0 = off, 0.5 = gentle, 1 = full (settings)

@@ -68,6 +68,13 @@
          v3セーブを読んでも undefined → false になるだけで壊れない */
       smithJoined:!!state.smithJoined,
       smithGreeted:!!state.smithGreeted,
+      /* Chapter 1 の Skill 2(洋館の瓦礫イベントで閃く)。同じく純追加で、
+         キーが無い旧セーブは習得済みとして読む ―― 更新しただけで
+         既に使えていたボタンを取り上げないため
+         (core/chapter1-skills.js の loadedSkill2Flag) */
+      learnedSkill2:!!state.learnedSkill2,
+      // 洋館から持ち帰った工具・素材。酒場の鍛冶場の作り込みが見る
+      smithToolsRecovered:!!state.smithToolsRecovered,
       // 2部制(#41)のゲスト実体。章の自動進行を実装するまでは常にnullの
       // まま保存されるが、フィールド自体は先に用意しておく
       guestClassKey:state.guestClassKey || null,
@@ -199,6 +206,14 @@
     state.shadowGuideTalks = data.shadowGuideTalks || 0;
     state.smithJoined = !!data.smithJoined;       // 洋館クリアで鍛冶士が酒場へ加入
     state.smithGreeted = !!data.smithGreeted;     // 加入直後の一度きりの挨拶を済ませたか
+    state.learnedSkill2 = loadedSkill2Flag(data);  // 旧セーブ(キー無し)は習得済み扱い
+    /* 旧セーブには無いので、鍛冶士が加入済みなら回収済みとみなす ――
+       洋館をクリアした以上、工具は持ち帰っているはずだから */
+    state.smithToolsRecovered = data.smithToolsRecovered === undefined
+      ? !!data.smithJoined : !!data.smithToolsRecovered;
+    // 同行/分離と空間異常は出撃中だけの状態。ロード時は必ず初期値へ戻す
+    state.smithEscort = ESCORT.NONE;
+    state.mansionNormalized = false;
     // 改変セーブ等で未知のクラスキーが紛れ込んでいても安全側へ倒す
     state.guestClassKey = (data.guestClassKey && CLASSES[data.guestClassKey]) ? data.guestClassKey : null;
 

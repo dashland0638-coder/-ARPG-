@@ -941,6 +941,10 @@
     if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     if(blockedInAir('SKILL 2')) return;
     if(state.skill2CD>0) return;
+    /* Chapter 1 は Skill 1 だけで出発する(全体基本仕様 §18)。洋館の
+       瓦礫イベントで閃くまで、このボタン自体が HUD に出ていない ――
+       キーボード / ゲームパッドから直接来た入力だけがここへ届く */
+    if(!hasSkill2(state)) return;
     if(state.swinging || state.skillCharging) return; // can't overlap with other attack actions
     if(!hasRes('skill2')){ warnNoRes(); return; }
     const cdef = state.classDef;
@@ -955,12 +959,13 @@
       executeVariant(skill2, 1, 1, 'skill2');
       return;
     }
-    state.swinging = true; beginMove('skill2');
+    state.swinging = true; beginMove(skill2.key === 'crushSlash' ? 'crushSlash' : 'skill2');
     if(sequenceLocks.length) tryStrikeBell(state.pos);
     state.swingLockFacing = state.facing;
     const dmg = Math.round(cdef.atk * skill2.mult * rankDmg('skill2') * (1 + sphereValue('skill2DmgSphereMul'))) + Math.round(Math.random()*5);   // スフィア「二の太刀」
     const fwd = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
-    if(cdef.key==='warrior') castGroundSplit(dmg, fwd);
+    if(skill2.key === 'crushSlash') castCrushSlash(dmg, fwd, skill2);
+    else if(cdef.key==='warrior') castGroundSplit(dmg, fwd);
     else if(cdef.key==='rogue') castKnifeBarrage(dmg, fwd);
     else if(cdef.key==='mage') castOrbGuard();
     else if(cdef.key==='archer') castBombThrow(dmg, fwd);
@@ -1065,6 +1070,87 @@
 
   // warrior: 地裂斬 - a long-range ground-splitting slash, giving a melee
   // class rare reach
+  /* 崩し斬り(D-04 / 仕様 6)。
+
+     主目的は火力ではなく、**足元を崩して姿勢(体幹)を大きく削ること**。
+     そのため:
+
+       ・判定は前方の扇だけ(半扇角 1.15rad)。背後には届かない ――
+         「周囲全方向を攻撃するようなモーション」を判定側からも禁じる
+       ・ダメージは控えめ、ダウン値は通常攻撃の数倍
+       ・吹き飛ばさない。敵を遠くへ飛ばす技ではないので、
+         ノックバックには一切触れていない
+       ・短い踏み込みを1回だけ。既存の踏み込み(core/attack-lunge.js)と
+         同じく「移動を奪わず、移動ベクトルへ足すだけ」の扱い
+
+     体幹・大怯み・ダウン・Break・Execution は既存の共通経路
+     (applyStaggerResult)をそのまま通る ―― 新しい戦闘基盤は作らない。
+     数値(倍率・ダウン値・踏み込み距離)は正式決定まで暫定(仕様 6-3)。 */
+  function castCrushSlash(dmg, fwd, def){
+    // 低く、前方だけを薙ぐ軌跡。円を描くVFXは使わない(回転斬りに見せない)
+    spawnSweepVFX(fwd, def.range, def.arc, 0xffd9a0);
+    /* 一歩ぶんの踏み込み。移動そのものは奪わない ―― 通常攻撃の踏み込みと
+       同じ仕組み(core/attack-lunge.js)にそのまま乗せてあるので、
+       壁抜けも間合いの作り直しも起きない */
+    if(state.grounded){
+      state.attackLunge = {
+        t: 0,
+        duration: Math.max(0.12, (state.swingDur || 0.5) * 0.45),
+        dist: def.lunge,
+        fwd: fwd.clone(),
+      };
+    }
+    let hits = 0;
+    enemies.forEach(en=>{
+      if(en.dead || en.dormant) return;
+      if(!isBossAccessible(en)) return;
+      const r = crushSlashHit(en.group.position.x - state.pos.x,
+                              en.group.position.z - state.pos.z,
+                              state.facing, def.range, def.arc);
+      if(!r.hit) return;
+      hits++;
+      dealDamageToEnemy(en, dmg, false);
+      /* ここがこの技の本体。通常の一撃ぶんのダウン値へ倍率を掛けて渡す。
+         倍率は敵の階層で変えていない ―― 強モブ・中ボス・ボスへの補正は
+         まだ確定していないので(仕様 6-3)、既存の体幹上限の差
+         (core/stagger-math.js)がそのまま効き目の差になる */
+      applyStaggerResult(en, staggerGain({
+        staggerMul: (state.classDef && state.classDef.staggerMul) || 1,
+        abilityMul: def.staggerMul,
+      }));
+    });
+    if(hits) addShake(0.06);
+  }
+
+  /* 崩し斬りの軌跡。前方の扇を床すれすれに薄く光らせるだけの一枚。
+     既存の spawnPiercingLineVFX(直線)とも旋風の円形VFXとも別にしてある
+     のは、**円を描くエフェクトを出した時点で回転斬りに見えてしまう**ため
+     (仕様 6-2)。扇は判定と同じ角度・同じ射程で、背後側には描かない。
+
+     寿命の管理は spawnPiercingLineVFX と同じ自前の rAF で済ませてある
+     (decals は焼け跡専用で形が違うため、そちらへは混ぜない)。 */
+  function spawnSweepVFX(fwd, range, arc, color){
+    const yaw = Math.atan2(fwd.x, fwd.z);
+    const geo = new THREE.RingGeometry(range*0.30, range, 20, 1,
+                                       Math.PI/2 - arc, arc*2);
+    const mat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.55,
+                                             side:THREE.DoubleSide, depthWrite:false});
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.rotation.z = -yaw;
+    mesh.position.set(state.pos.x, state.pos.y + 0.16, state.pos.z);
+    scene.add(mesh);
+    const startT = performance.now(), duration = 260;
+    function tick(){
+      const t = Math.min(1, (performance.now()-startT)/duration);
+      mat.opacity = 0.55*(1-t);
+      mesh.scale.setScalar(1 + t*0.12);
+      if(t<1){ requestAnimationFrame(tick); }
+      else { scene.remove(mesh); geo.dispose(); mat.dispose(); }
+    }
+    tick();
+  }
+
   function castGroundSplit(dmg, fwd){
     const length = 14 * rankArea('skill2'), width = 2.2 * rankArea('skill2');
     spawnPiercingLineVFX(fwd, length, 0xffcf7a);

@@ -116,15 +116,42 @@
      違う」を、説明文ではなく戦って気づかせるための位置。
      体数は3体のまま(使用人2 → 使用人1 + 番人1)で、過密にはしない。
      ルート・部屋・イベントの発火条件はどれも変えていない。 */
+  /* 戦闘③ ―― 崩し斬りの練習戦(D-03 / 仕様 7)。
+
+     以前はここに鍵束の番人(強モブ)が同居していたが、仕様が求める順番は
+
+       崩し斬り習得 → 通常敵だけの練習戦 → 使用人区画 → 分離 → 異常空間
+       → 鍵束の番人
+
+     なので、番人は分離後の異常空間(大広間……?)へ移した。ここに残すのは
+     通常敵だけ ―― 崩し斬りで姿勢を崩し、通常攻撃で追撃する、という
+     基本操作を強敵の圧力が無いところで一度通させるための場所。
+     体数は3体のまま(番人1 → 侍女1 に差し替えただけ)で、ルート・部屋・
+     イベントの発火条件は変えていない。 */
   function spawnServantAmbush(){
     spawnTaggedGroup('servantAmbush', [
       // 消えて背後へ回り込む型。屋敷の中で「見えているものが全部ではない」
       // ことを、戦闘そのもので一度だけ体験させる
       {pos:new THREE.Vector3(88,0,80), variant:{color:0x5a5a70, hp:86, atk:19, speed:1.8, atkType:'ghost',  xp:30, goldBonus:[9,15]}},
       {pos:new THREE.Vector3(60,0,80), variant:mansionEnemyVariant('servant', {hp:92, atk:18, xp:28, goldBonus:[9,15]})},
-      // 番人。広い側へ置く ―― 薙ぎの間合い(3.9)と「側面へ回る」が
-      // 成立する余地が要るため、壁際には置かない
-      {pos:new THREE.Vector3(76,0,90), variant:mansionEnemyVariant('warden', WARDEN_BASE_STATS)},
+      /* 侍女(遠距離)。番人の枠をそのまま引き継いでいるので、HP・攻撃力・
+         XP・金は元の使用人枠のまま ―― 難易度曲線には手を触れていない。
+         入口から見て奥へ置き、崩し斬りで詰める的にしてある */
+      {pos:new THREE.Vector3(76,0,84), variant:mansionEnemyVariant('maid', {hp:82, atk:17, xp:28, goldBonus:[9,15]})},
+    ]);
+  }
+
+  /* 鍵束の番人(強モブ / D-03)。分離後の異常空間「大広間……?」。
+
+     ここに置く理由は配置の都合ではない ―― 鍛冶屋と引き離された直後、
+     一人で入った最初の部屋が「見覚えのある大広間の形をした、別の部屋」で、
+     そこに**戦闘のルールが違う個体**が立っている、という並びそのものが
+     この区間の入口になる。数値(WARDEN_BASE_STATS)は一切変えていない。 */
+  function spawnManorWarden(){
+    spawnTaggedGroup('manorWarden', [
+      // 薙ぎの間合い(3.9)と「側面へ回る」が成立する余地が要るので、
+      // 柱を避けた部屋の中央へ置く(壁際には置かない)
+      {pos:new THREE.Vector3(136,0,26), variant:mansionEnemyVariant('warden', WARDEN_BASE_STATS)},
     ]);
   }
 
