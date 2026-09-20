@@ -385,6 +385,7 @@
     {minX:-34,  maxX:34,   minZ:-102, maxZ:-39 },  // 洋館 一階前半
     {minX:46,   maxX:110,  minZ:-100, maxZ:-20 },  // 洋館 二階
     {minX:52,   maxX:102,  minZ:36,   maxZ:102 },  // 洋館 一階奥(使用人区画)
+    {minX:112,  maxX:161,  minZ:-18,  maxZ:35  },  // 洋館 異常空間(D-01)
     {minX:116,  maxX:162,  minZ:36,   maxZ:122 },  // 洋館 地下
     {minX:128,  maxX:152,  minZ:122,  maxZ:146 },  // 洋館 地下のさらに奥(周回★3+)
     {minX:54,   maxX:106,  minZ:128,  maxZ:184 },  // 洋館 主の間
@@ -687,7 +688,8 @@
   function updateCooldownRings(){
     const skillEl = document.getElementById('btn-charge');
     if(skillEl) skillEl.style.setProperty('--cd-pct', state.skillCD>0 ? Math.max(0,1-state.skillCD/1.6) : 1);
-    const skill2 = SKILL2_BY_CLASS[state.classDef.key];
+    // 実際に振る技のクールダウンでリングを回す(剣士は崩し斬り、D-04)
+    const skill2 = activeSkill2Def(state.classDef.key);
     const skill2El = document.getElementById('btn-skill2');
     /* Chapter 1 は Skill 1 だけで出発する(全体基本仕様 §18)。ボタンを
        薄く出して「まだ無い枠」を見せるのではなく、閃くまで存在しない ――
@@ -1060,6 +1062,7 @@
       updateItemDrops(dt);
       updateCompanion(dt);
       updateGuestCompanion(dt);
+      updateManorSmith(dt);   // 洋館で同行中の鍛冶屋(仕様 8)。戦闘には関与しない
       updateCamera(dt);
       updateSunShadow();
       updateHUD();
@@ -1164,6 +1167,8 @@
     /* Chapter 1 は Skill 1 だけで始まる。Skill 2 は洋館の瓦礫イベントで
        閃くまでボタンごと出ない(core/chapter1-skills.js) */
     state.learnedSkill2 = false;
+    state.smithEscort = ESCORT.NONE; state.mansionNormalized = false;
+    state.smithToolsRecovered = false;   // 洋館の工具はまだ持ち帰っていない
     state.guestClassKey = CHAPTER_CAST[1].guestClassKey || null;   // 第一章は剣士単独(#41)
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
@@ -1252,6 +1257,8 @@
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;
     state.smithJoined = false; state.smithGreeted = false;
     state.learnedSkill2 = false;   // Chapter 1 は Skill 1 だけで始まる
+    state.smithEscort = ESCORT.NONE; state.mansionNormalized = false;
+    state.smithToolsRecovered = false;
     // 通常は常にnull(単独)だが、テストモード画面の「同行ゲスト」で
     // 選ばれていれば、GUEST COMPANION(08-loot-equipment.js)の検証用に
     // そのクラスを立てる ―― 章の自動進行(#41)がまだ無いため、これが

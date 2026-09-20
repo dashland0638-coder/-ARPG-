@@ -2990,6 +2990,23 @@
   CLIPS.mage.ultSpellblade    = CLIPS.mage.altBasic;
   CLIPS.mage.dur.ultSpellblade = CLIPS.mage.dur.altBasic * 1.6;
 
+  /* ---- 崩し斬り(D-04) ----
+     キーフレームは core/crush-slash.js にある。なぜ CLIPS の中ではなく
+     core に置いてあるかというと、仕様 6-2 の禁止事項(回転斬りにしない)を
+     tests/unit/crush-slash.test.js が機械的に検査するため ―― 将来
+     モーションを調整しても、身体が先に回ったり一周したりしたら落ちる。
+
+     stance:true のフレームは「その職業の通常の構えそのまま」という意味。
+     STANCE は描画側の定数なので core からは参照せず、ここで差し込む。 */
+  CLIPS.warrior.crushSlash = CRUSH_SLASH_CLIP.map(f=>{
+    if(!f.stance) return Object.assign({}, f);
+    const out = Object.assign({}, S('warrior'), f);
+    delete out.stance;
+    return out;
+  });
+  // 長さは既存の skill2(地裂斬)と同じ枠。正式な数値は未確定(仕様 6-3)
+  CLIPS.warrior.dur.crushSlash = CLIPS.warrior.dur.skill2;
+
   if(CLIPS.warrior.dur.skill2) CLIPS.warrior.dur.basic4 = CLIPS.warrior.dur.skill2 * 0.95;
   if(CLIPS.rogue.dur.dash)     CLIPS.rogue.dur.basic4   = CLIPS.rogue.dur.dash * 0.95;
   if(CLIPS.mage.dur.skill2)    CLIPS.mage.dur.basic4    = CLIPS.mage.dur.skill2 * 0.95;

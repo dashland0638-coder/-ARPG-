@@ -31,7 +31,9 @@
         forest:    {name:'古い森道',   kind:'common', exits:['manor1f']},
         manor1f:   {name:'洋館一階',   kind:'common', exits:['manor2f']},
         manor2f:   {name:'洋館二階',   kind:'common', entry:[77,0,-91],  exits:['servant']},
-        servant:   {name:'使用人区画', kind:'common', entry:[74,0,44],   exits:['basement']},
+        servant:   {name:'使用人区画', kind:'common', entry:[74,0,44],   exits:['anomaly']},
+        // 分離(D-02)の向こう側。ここから先は剣士ひとり
+        anomaly:   {name:'歪んだ洋館', kind:'common', entry:[135,0,-9],  exits:['basement']},
         basement:  {name:'地下',       kind:'common', entry:[138,0,45],  exits:['boss']},
         boss:      {name:'主の間',     kind:'boss',   entry:[80,0,137]},
       }
@@ -1907,6 +1909,48 @@
       forgeGlow.position.set(SMITH_POS.x-0.8, 1.1, SMITH_POS.z-1.4);
       scene.add(forgeGlow);
       walls.push({minX:SMITH_POS.x-1.5, maxX:SMITH_POS.x-0.1, minZ:SMITH_POS.z-2.1, maxZ:SMITH_POS.z-0.7});
+
+      /* 洋館から担いで帰った工具と鋼(仕様 11 / state.smithToolsRecovered)。
+
+         「施設が解放された」ではなく「あの晩に持ち帰った物が、そこに
+         置いてある」ことが見えるようにする ―― プレイヤーが洋館で
+         見たのと同じ木箱と鋼材を、酒場の一角にそのまま並べる。
+         これが無いと、金床と炉だけが唐突に湧いたように見える。 */
+      if(state.smithToolsRecovered){
+        const crateMat = new THREE.MeshStandardMaterial({color:0x4a3a28, roughness:0.9});
+        const steelMat = new THREE.MeshStandardMaterial({color:0x6a6a72, roughness:0.45, metalness:0.6});
+        // 道具箱。洋館の作業室にあったものと同じ寸法で積んである
+        [[0.4, 2.3, 0], [1.5, 2.6, 0.5]].forEach(([dx, dz, rot])=>{
+          const crate = new THREE.Mesh(new THREE.BoxGeometry(0.85,0.7,0.85), crateMat);
+          crate.position.set(SMITH_POS.x+dx, 0.35, SMITH_POS.z+dz);
+          crate.rotation.y = rot;
+          crate.castShadow = true;
+          scene.add(crate);
+          walls.push({minX:SMITH_POS.x+dx-0.45, maxX:SMITH_POS.x+dx+0.45,
+                      minZ:SMITH_POS.z+dz-0.45, maxZ:SMITH_POS.z+dz+0.45});
+        });
+        // 立てかけた鋼材。長さを揃えずに並べると「運び込んだ荷」に見える
+        [0, 1, 2, 3].forEach(i=>{
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.3 + (i%2)*0.35, 0.09), steelMat);
+          bar.position.set(SMITH_POS.x-1.9, 0.68 + (i%2)*0.18, SMITH_POS.z+0.2+i*0.22);
+          bar.rotation.z = 0.16 + i*0.02;
+          bar.castShadow = true;
+          scene.add(bar);
+        });
+        // 作業台。金床だけでは「直す場所」に見えないので、台と工具を足す
+        const bench = new THREE.Mesh(new THREE.BoxGeometry(1.7,0.75,0.9), crateMat);
+        bench.position.set(SMITH_POS.x+1.9, 0.38, SMITH_POS.z-0.6);
+        bench.castShadow = true; bench.receiveShadow = true;
+        scene.add(bench);
+        walls.push({minX:SMITH_POS.x+1.05, maxX:SMITH_POS.x+2.75,
+                    minZ:SMITH_POS.z-1.05, maxZ:SMITH_POS.z-0.15});
+        for(let i=0;i<4;i++){
+          const tool = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.06,0.44), steelMat);
+          tool.position.set(SMITH_POS.x+1.35+i*0.32, 0.79, SMITH_POS.z-0.6);
+          tool.rotation.y = (i-1.5)*0.12;
+          scene.add(tool);
+        }
+      }
     } else {
       // 仮設の作業台。旅の道具箱と砥石を並べただけの、間に合わせの一角
       const benchMat = new THREE.MeshStandardMaterial({color:0x4a3a28, roughness:0.9});
@@ -2085,8 +2129,11 @@
   const MANSION_ROOMS = [
     // ---- 一階前半 (Z2: x -30..20, z -98..-40) ----
     {id:'mEntry',  x0: -7, x1:  7, z0:-48, z1:-40, cor:false, gaps:{N:[-3,3], S:[-4,4]},                name:'正面玄関'},
-    {id:'mFoyer',  x0:-17, x1: 17, z0:-66, z1:-48, cor:false, gaps:{N:[-4,4], S:[-3,3], W:[-60,-54]},   name:'玄関ホール'},
+    {id:'mFoyer',  x0:-17, x1: 17, z0:-66, z1:-48, cor:false, gaps:{N:[-4,4], S:[-3,3], W:[-60,-54], E:[-60,-54]}, name:'玄関ホール'},
     {id:'mDining', x0:-30, x1:-17, z0:-66, z1:-48, cor:false, gaps:{E:[-60,-54]},                       name:'食堂'},
+    // 厨房(仕様 12)。食堂と対にして、前半を「人が暮らしていた普通の洋館」に
+    // する ―― 後半の異常空間との対比がこの部屋の唯一の役目で、ギミックは無い
+    {id:'mKitchen',x0: 17, x1: 30, z0:-66, z1:-48, cor:false, gaps:{W:[-60,-54]},                       name:'厨房'},
     {id:'mCor1',   x0: -3, x1:  3, z0:-74, z1:-66, cor:true , gaps:{N:'full', S:'full'},                name:'一階廊下'},
     {id:'mHall',   x0:-20, x1: 20, z0:-92, z1:-74, cor:false, gaps:{N:[-3,3], S:[-4,4]},                name:'大広間'},
     {id:'mStair',  x0: -9, x1:  9, z0:-98, z1:-92, cor:false, gaps:{N:[-4,4]},                          name:'大階段'},
@@ -2106,6 +2153,20 @@
     {id:'bCor',    x0:134, x1:142, z0: 62, z1: 72, cor:true , gaps:{S:'full', N:'full'},                name:'通路'},
     {id:'bStore',  x0:120, x1:156, z0: 72, z1: 92, cor:false, gaps:{S:[134,142], N:[136,144]},          name:'保管庫'},
     {id:'bDeep',   x0:122, x1:158, z0: 92, z1:116, cor:false, gaps:{S:[136,144]},                       name:'地下奥'},
+    /* ---- 異常空間 (Z7: x 114..160, z -14..34) ----
+       鍛冶屋と分かれた扉の向こう。**見覚えのある部屋に、違う繋がり方で
+       出る**ための区画で、寸法と壁紙を前半の部屋からそのまま借りている:
+
+         xFoyer = 玄関ホール(34×18)と同じ寸法。だが出口が北にしかない
+         xCor   = この館に存在しない通路
+         xHall  = 大広間(40×18)と同じ寸法。ここに【鍵束の番人】(D-03)
+
+       一本道にしてあるのは、迷わせるのが目的ではないため(仕様 3)。
+       座標帯は他のどのダンジョン・どの区画とも重ならない空きを使っている
+       (二階は x≤110 / 地下は z≥36 / 屋根裏は z≤-24 で、いずれも接しない)。 */
+    {id:'xFoyer',  x0:118, x1:152, z0:-14, z1:  4, cor:false, gaps:{N:[131,139]},                       name:'玄関ホール……?'},
+    {id:'xCor',    x0:131, x1:139, z0:  4, z1: 16, cor:true , gaps:{S:'full', N:'full'},                name:'見覚えのない廊下'},
+    {id:'xHall',   x0:116, x1:156, z0: 16, z1: 34, cor:false, gaps:{S:[131,139]},                       name:'大広間……?'},
     // ---- 最奥 (Z6: x 58..102, z 132..180) ----
     {id:'bAnte',   x0: 68, x1: 92, z0:132, z1:146, cor:false, gaps:{N:[76,84]},                         name:'ボス前'},
     {id:'bLord',   x0: 58, x1:102, z0:146, z1:180, cor:false, gaps:{S:[76,84]},                         name:'主の間'},
@@ -2138,6 +2199,9 @@
       return (state.pos.z < -33 && state.pos.x > -11 && state.pos.x < 11) ? 'yard' : 'forest';
     }
     if(r.id === 'bAnte' || r.id === 'bLord') return 'lord';
+    /* 異常空間は環境音を一切鳴らさない(主の間と同じ扱い)。館の音が
+       すっかり消えていること自体が「ここはもう洋館ではない」の合図 */
+    if(isAnomalyRoom(r.id)) return 'lord';
     if(r.id[0] === 'b') return 'basement';
     return 'manor';
   }
@@ -2180,7 +2244,15 @@
      区画ぶんだけ使い回す(02-world-common.js の「館のランプ」参照)。
      見た目の値(色・強さ・距離・位置)はそのまま引き継がれる */
   function mansionLamp(x, z, color, intensity, dist){
-    registerMansionLamp(x, z, color, intensity, dist);
+    /* 異変の段階(D-01 / 仕様 5)は照明に乗せる。奥へ行くほど灯りが
+       暗く・狭く・冷たくなるだけで、間取りにも材質にも触れない ――
+       「同じ洋館なのに前と違って見える」を一番安く作れる場所。
+       段階は部屋テーブルの id から引くので(core/mansion-anomaly.js)、
+       間取りを動かしても灯りだけが取り残されることはない。 */
+    const room = mansionRoomAt(x, z);
+    const mod = anomalyLampMods(roomAnomalyStage(room && room.id), state.mansionNormalized);
+    registerMansionLamp(x, z, coolShift(color, mod.cool),
+                        intensity * mod.intensity, dist * mod.dist);
   }
 
   // その区画の外側を埋める暗い下地。テレポートで飛ぶ離れ島なので、床の
@@ -2208,7 +2280,7 @@
     // 建物を囲う木立がこの暗い床の上に立ってしまう(=屋敷の中に木が生えて見える)
     mansionUnderlay(-32, 22, -101, -40);   // 前庭(z>-40)は森の草地のままにする
     // 一階は板張り(makePlankTexture)なので木の足音
-    ['mEntry','mFoyer','mDining','mCor1','mHall','mStair'].forEach(id=>{
+    ['mEntry','mFoyer','mDining','mKitchen','mCor1','mHall','mStair'].forEach(id=>{
       const r = mansionRoomById(id);
       mansionFloor(r, floorMat, undefined, 'wood');
       buildMansionWalls(r, wallMat);
@@ -2237,6 +2309,7 @@
 
     buildManorFoyerDressing(woodMat);
     buildManorDiningDressing(woodMat);
+    buildManorKitchen(woodMat);
     buildManorGreatHall(woodMat);
     buildMansionExterior();
     buildMansionForestWall();
@@ -2334,6 +2407,67 @@
       '最後の一行だけ、他とは違う荒れた字で書かれている――「本日、来客なし。誰も来ない」',
       '同じ一行が、そのあと十数回、同じ日付で繰り返されていた。'
     ], {kind:'book'});
+  }
+
+  /* 厨房(仕様 12)。食堂の向かい、玄関ホールの東。
+
+     ここに仕掛けは置かない ―― この部屋の役目は「人が暮らしていた普通の
+     洋館」を一度きちんと見せることだけで、後半の異常空間との対比が
+     そのまま効き目になる。前半で唯一、生活の道具がそのまま残っている
+     場所として作ってある(食堂は「食事の途中」、厨房は「支度の途中」)。 */
+  function buildManorKitchen(woodMat){
+    const stoneMat = new THREE.MeshStandardMaterial({color:0x4a4640, roughness:0.95});
+    const potMat   = new THREE.MeshStandardMaterial({color:0x3c3a36, roughness:0.5, metalness:0.55});
+    // 中央の調理台。一番大きな什器で、部屋の用途が一目で分かる
+    const block = new THREE.Mesh(new THREE.BoxGeometry(3.6,0.95,1.6), woodMat);
+    block.position.set(23.5, 0.48, -57);
+    block.castShadow = true; block.receiveShadow = true;
+    scene.add(block);
+    walls.push({minX:21.7, maxX:25.3, minZ:-57.8, maxZ:-56.2});
+    // 竈。火はとうに落ちている
+    const hearth = new THREE.Mesh(new THREE.BoxGeometry(2.6,1.5,1.1), stoneMat);
+    hearth.position.set(28.2, 0.75, -63);
+    hearth.castShadow = true;
+    scene.add(hearth);
+    walls.push({minX:26.9, maxX:29.5, minZ:-63.6, maxZ:-62.4});
+    // 吊るされた鍋。並びが少しずつ乱れている
+    [0,1,2,3].forEach(i=>{
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.24,0.34,10), potMat);
+      pot.position.set(19.4, 1.85 - (i%2)*0.08, -62 + i*1.5);
+      pot.rotation.z = (i - 1.5) * 0.06;
+      pot.castShadow = true;
+      scene.add(pot);
+    });
+    // 洗い場。水気はとうに無い
+    const basin = new THREE.Mesh(new THREE.BoxGeometry(1.8,0.7,1.0), stoneMat);
+    basin.position.set(19.6, 0.35, -51);
+    basin.castShadow = true;
+    scene.add(basin);
+    walls.push({minX:18.7, maxX:20.5, minZ:-51.5, maxZ:-50.5});
+    // 支度の途中で止まった台。刻みかけの何かと、包丁が置いたまま
+    const boardMat = new THREE.MeshStandardMaterial({color:0x6b5738, roughness:0.85});
+    const board = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.05,0.5), boardMat);
+    board.position.set(23.5, 0.98, -56.4);
+    scene.add(board);
+    const knife = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.03,0.42), potMat);
+    knife.position.set(24.2, 0.99, -57.6);
+    knife.rotation.y = 0.5;
+    scene.add(knife);
+    mansionLamp(24, -57, 0xffb066, 0.42, 14);
+
+    /* 入ると竈の灰が、風も無いのに舞う。音も出来事も小さくしてある ――
+       ここはまだ「普通の洋館」の側で、異変はまだ痕跡ですらない */
+    registerRoomEvent(mansionRoomById('mKitchen'), 0, '', ()=>{
+      sfx('windGust');
+      spawnToast('🍲 竈の灰が、風も無いのにふわりと舞い上がった');
+      return null;
+    });
+
+    buildLoreNote(new THREE.Vector3(22.4, 0, -62.5), '走り書きの献立', [
+      '調理台の端に留められた紙片。几帳面な字で、その日の献立が並んでいる。',
+      '「旦那様、朝は変わらず。……夜の分は、今日も下げることになるだろう」',
+      '同じ献立が、日付だけを変えて何枚も重ねて留められていた。'
+    ], {kind:'note'});
   }
 
   /* 大広間【戦闘②】。天井の高い部屋。入ると両端の扉が落ちる。 */
@@ -2540,7 +2674,7 @@
       walls.push({minX:x-0.7, maxX:x+0.7, minZ:z-0.7, maxZ:z+0.7});
     });
 
-    buildManorSmithNpc(new THREE.Vector3(77, 0, -33));
+    manorSmith = buildManorSmithNpc(new THREE.Vector3(77, 0, -33));
 
     /* 出会いは会話より先に音で。金属を打つ音がして、はじめて人の気配になる */
     registerProximityEvent(new THREE.Vector3(77,0,-40), 4.4, '', ()=>{
@@ -2549,19 +2683,195 @@
       return null;
     });
 
-    // 部屋に入ったところで本人と短く話す。長い説明はしない
+    /* 部屋に入ったところで本人と短く話し、そこから同行が始まる(仕様 8)。
+       洋館に来た理由(工具と素材の回収)をここで明示する ―― 「AI仲間が
+       必要だから居る」のではなく、この男にはこの館へ来た用事がある
+       (シナリオ設計上の原則2)。戦えないことは重く説明せず、軽口で済ませる。 */
     registerRoomEvent(mansionRoomById('uWork'), 0, '鍛冶士', [
       '「――人か!? 人だな!? よかった、生きてるやつだ!」',
-      '「見ての通りだ。ここで足止めを食ってる。降りようとするたび、階段に何か居る」',
-      '「俺は裏の階段から降りる。使用人が使ってたやつだ。……先に行っててくれ、すぐ追う」',
-      '「言っとくが俺は戦えん。鎚は振れるが、振る相手が違う」'
-    ], {inset:1.2});
+      '「鍛冶場を構えるのに要る工具と鋼を、ここへ取りに来たんだ。館主はもう居ないと聞いてな」',
+      '「そしたらこの有様だ。降りようとするたび、階段の先が違う場所に繋がる」',
+      '「一人じゃ埒が明かん。……付いてっていいか。荷物は俺が持つ」',
+      '「言っとくが俺は戦えん。鎚は振れるが、振る相手が違う。手が塞がってるからな」'
+    ], {inset:1.2, kind:'mansionEscortJoin'});
 
     /* 使用人用階段。作業室の奥から一階の裏手へ降りる(auto) */
     const down = buildStairs(new THREE.Vector3(77,0,-28), new THREE.Vector3(74,0,44),
                              '使用人用の階段を降りた……', 0x2a2438, 'down');
     down.routeNode = 'servant';
     down.auto = true;
+  }
+
+  /* =========================================================
+     鍛冶屋の同行(仕様 8)
+
+     作業室で出会ってから、使用人区画の出口で引き離されるまで、
+     鍛冶屋は剣士に付いて歩く。**戦闘には一切関与しない** ――
+     索敵も攻撃判定も持たず、敵からも狙われない。持っているのは
+     「近づきすぎず、離れすぎない」追従だけで、その計算は
+     core/mansion-anomaly.js(escortFollowStep)にある。
+
+     guestCompanion(08-loot-equipment.js)の戦闘AIは使わない。あれは
+     「今操作していないパーティメンバー」の骨格で、鍛冶屋は
+     パーティメンバーではないため ―― 仕様 8「戦闘員ではない」。
+  ========================================================= */
+  let manorSmith = null;          // 洋館内の鍛冶屋の実体(1体だけ)
+  let manorSmithBob = 0;          // 歩いている間の上下(歩いて見せるための最小限)
+
+  /* 出撃をまたいで持ち越してはいけないものを1箇所に集めてある。
+     disposeWorld(02-world-common.js)が世界を捨てるたびに呼ぶので、
+     洋館へ入り直すと必ず「まだ誰にも会っていない、異変も解けていない」
+     状態から始まる。state.smithJoined(酒場への定着)は別物なので触らない。 */
+  function resetMansionSortieState(){
+    manorSmith = null; manorSmithBob = 0;
+    manorAnomalyGroup = null; manorAnomalyWalls = [];
+    manorRubbleGroup = null; manorRubbleWall = null;
+    mansionFarewellDone = null;
+    state.smithEscort = ESCORT.NONE;
+    state.mansionNormalized = false;
+  }
+
+  function updateManorSmith(dt){
+    if(!manorSmith || currentWorldKey !== 'mansion') return;
+    // 分離中は姿ごと消えている。再会の演出が置き直すまで何もしない
+    if(!escortFollows(state.smithEscort)) return;
+    const step = escortFollowStep({
+      dx: state.pos.x - manorSmith.position.x,
+      dz: state.pos.z - manorSmith.position.z,
+      dt,
+    });
+    if(step.warp){
+      /* 階段のテレポートで置いていかれた。追いつけない距離なので飛ぶ ――
+         「気づいたら後ろにいる」のは不自然だが、階段の暗転を挟んでいる
+         ので、プレイヤーから見れば一緒に降りたようにしか見えない */
+      repositionManorSmith();
+      return;
+    }
+    manorSmith.position.x += step.dx;
+    manorSmith.position.z += step.dz;
+    if(step.facing !== null) manorSmith.rotation.y = step.facing;
+    // 歩いているときだけ、わずかに弾ませる。止まれば静止する
+    if(step.moving){
+      manorSmithBob += dt * 9;
+      manorSmith.position.y = Math.abs(Math.sin(manorSmithBob)) * 0.045;
+    } else {
+      manorSmithBob = 0;
+      manorSmith.position.y = 0;
+    }
+  }
+
+  // プレイヤーの斜め後ろへ置き直す。階段テレポート・演出の合間に使う
+  function repositionManorSmith(){
+    if(!manorSmith) return;
+    const back = state.facing + Math.PI;
+    manorSmith.position.set(
+      state.pos.x + Math.sin(back) * ESCORT_STOP_DIST,
+      0,
+      state.pos.z + Math.cos(back) * ESCORT_STOP_DIST);
+    manorSmith.rotation.y = state.facing;
+    manorSmithBob = 0;
+  }
+
+  /* 分離(D-02 / 仕様 4)。
+
+     扉をくぐる → 暗転 → 別の空間に出る → 振り返る → いない。
+     フラグを立てるだけにせず、実際に画面が変わることを重視している ――
+     この一拍が森の洋館で一番大事な演出なので、既存の playCutscene と
+     fadeTransition にそのまま乗せてある(新しい演出基盤は作らない)。 */
+  function playMansionSplitScene(){
+    state.smithEscort = ESCORT.SEPARATED;
+    playCutscene([
+      {t:0.20, run:()=>{
+        sfx('distantDoor');
+        spawnToast('🚪 扉を押す。重い。……二人ぶんの足音が、一人ぶんになった');
+      }},
+      {t:1.10, run:()=>{
+        // 姿を消すのは暗転の直前。振り返ったときには既にいない
+        if(manorSmith){ scene.remove(manorSmith); manorSmith = null; }
+        sfx('bossWake');
+        addShake(0.18);
+      }},
+      {t:0.70, run:()=>{
+        fadeTransition(()=>{
+          state.pos.copy(MANOR_ANOMALY_ENTRY);
+          state.vel.set(0,0,0);
+          state.facing = 0;             // 部屋の奥(北)を向いて出る
+          state.routeNode = 'anomaly';
+          repositionAlliesToPlayer();
+          camera.position.copy(state.pos).add(getCamOffset());
+        });
+      }},
+      {t:1.00, run:()=>{
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }}
+    ]);
+  }
+
+  /* 再会(仕様 10)。ボスを倒し、館が元に戻ってから。
+     深刻にしない ―― 「いやあ、随分と変な館だったな」の温度。 */
+  function playMansionReunion(onDone){
+    normalizeMansionStructure();
+    playCutscene([
+      {t:0.30, run:()=>{
+        sfx('chime');
+        spawnToast('🌅 影が薄れていく。館の軋みが、ふつうの家の軋みに戻った');
+      }},
+      {t:1.40, run:()=>{
+        fadeTransition(()=>{
+          // 本物の玄関ホール ―― 異常空間の「玄関ホール……?」ではない方
+          state.pos.set(0, 0, -57);
+          state.vel.set(0,0,0);
+          state.facing = Math.PI;       // 玄関(南)を向く。出口はそちら
+          state.routeNode = 'manor1f';
+          repositionAlliesToPlayer();
+          camera.position.copy(state.pos).add(getCamOffset());
+          manorSmith = buildManorSmithNpc(new THREE.Vector3(2.4, 0, -54));
+          manorSmith.rotation.y = Math.PI*0.9;
+        });
+      }},
+      {t:1.20, run:()=>{
+        state.smithEscort = ESCORT.REUNITED;
+        sfx('anvil');
+        spawnToast('🔨 玄関ホールに、聞き慣れた金属の音');
+      }},
+      {t:0.60, run:()=>{
+        beginMansionFarewell(onDone);
+      }}
+    ]);
+  }
+
+  /* 再会の会話 → 工具の回収 → 二人で脱出。会話が終わると
+     advanceDialogue(12-progression-ui.js)が続きを呼ぶ。 */
+  let mansionFarewellDone = null;
+  function beginMansionFarewell(onDone){
+    mansionFarewellDone = onDone || null;
+    state.dialogueActive = true;
+    state.dialogueBoss = null;
+    state.dialogueKind = 'mansionFarewell';
+    state.dialogueLines = [
+      '「おう。……生きてるな」',
+      {name:'鍛冶士', text:'「いやあ、随分と変な館だったな。壁の向こうが庭だったり、庭の向こうが廊下だったり」'},
+      {name:'鍛冶士', text:'「まあ、今はただの古い家だ。さっきまでのあれは何だったんだか」'},
+      {name:'鍛冶士', text:'「工具は全部拾った。鋼も、炉の口金も。……担ぐの手伝え、重いんだこれが」'},
+      {name:state.name || '', text:'二人で荷を分けて持ち、玄関の扉を押した。外は、来た時と同じ森だった。'}
+    ];
+    state.dialogueIndex = 0;
+    document.getElementById('dialogue-name').textContent = '鍛冶士';
+    document.getElementById('dialogue-text').textContent = state.dialogueLines[0];
+    document.getElementById('dialogue-overlay').classList.add('active');
+  }
+
+  /* 会話の最後。工具を持ち帰ったことを立てて、クリア処理へ渡す。
+     報酬・結果画面そのものは既存のまま(仕様 10「可能な限り再利用」)。 */
+  function finishMansionFarewell(){
+    state.smithToolsRecovered = true;
+    spawnToast('🧰 洋館の工具と鋼を持ち帰った');
+    const done = mansionFarewellDone;
+    mansionFarewellDone = null;
+    state.dialogueActive = false;
+    clearMovementInput(false);
+    if(done) done();
   }
 
   /* 鍛冶士の姿。酒場に立つときと同じ簡易ビルド(装飾NPC共通の作法)。 */
@@ -2633,31 +2943,48 @@
 
     buildManorRubble(woodMat);
 
-    /* 戦闘③。使用人区画へ踏み込むと、先へ行ったはずの鍛冶屋の声が上がり、
-       その直後に何かが通路を塞ぐ ―― 「音のあと隣室へ」の型を繰り返さず、
-       今度は音と敵が同時に来る */
+    /* 戦闘③ ―― 崩し斬りの練習戦(D-03 / 仕様 7)。
+
+       瓦礫で閃いた直後、最初に入る部屋がここ。**通常敵しか出さない**
+       ようにしてあり、強モブ(鍵束の番人)は分離後の異常空間へ移した。
+       狙いは 崩し斬りを撃つ → 姿勢が崩れる → 通常攻撃で追撃する
+       という流れを、強敵の圧力が無いところで一度通させること。
+       体数は3体のまま(番人1 → 侍女1 に差し替えただけ)。 */
     registerRoomEvent(mansionRoomById('sQuart'), 0, '', ()=>{
       sfx('shout');
-      spawnToast('❗ 奥から鍛冶士の怒鳴り声――「来るなっ、そっちじゃない!」');
+      spawnToast('❗ 奥から物音――何かが起き上がる');
       spawnServantAmbush();   // 画面フラッシュはこちらが出す
       return null;
     });
 
-    /* 戦闘③のあと、地下入口で鍛冶士が待っている。condition で「まだ倒し
-       終えていない間は判定そのものを見送る」ようにしてある ―― lines を
-       null で返すと、その場で fired 扱いになって二度と出なくなるため */
-    registerProximityEvent(new THREE.Vector3(76,0,93), 4.4, '鍛冶士', [
-      '「……無事か。すまん、俺じゃどうにもならん」',
-      '「この下だ。旦那様はずっと下にいるらしい。使用人が誰も降りたがらなかった場所だ」',
-      '「俺はここで待つ。逃げ道は俺が押さえておく。……無茶はするなよ」'
-    ], {condition:()=> isRoomCleared('servantAmbush')});
-    buildManorSmithNpc(new THREE.Vector3(72, 0, 94)).rotation.y = Math.PI*0.15;
+    /* 練習戦のあと、鍛冶屋が短く促す。ここまでは二人で歩いている。
+       condition で「まだ倒し終えていない間は判定そのものを見送る」 ――
+       lines を null で返すと、その場で fired 扱いになって二度と出ない */
+    registerProximityEvent(new THREE.Vector3(76,0,86), 4.4, '鍛冶士', [
+      '「……今の、さっきの梃子と同じ理屈だな。足を払われりゃ人も倒れる」',
+      '「旦那様はこの下だ。使用人が誰も降りたがらなかった場所らしい」',
+      '「工具はあらかた拾った。出るぞ。……この館、そろそろ本気で気味が悪い」'
+    ], {condition:()=> isRoomCleared('servantAmbush') && escortFollows(state.smithEscort)});
 
-    /* 地下への階段(auto)。倒すべきものを倒すまでは降りられない */
-    const down = buildStairs(new THREE.Vector3(76,0,95), new THREE.Vector3(138,0,45),
-                             '地下へ降りた……', 0x241a14, 'down', 'servantAmbush');
-    down.routeNode = 'basement';
-    down.auto = true;
+    /* 分離(D-02)。使用人区画の出口の扉。
+
+       以前はここで鍛冶屋が「俺はここで待つ」と自分から残っていたが、
+       それはゲーム都合の別れで、仕様 4 が求めているのは
+       **洋館の怪異によって自然に引き離される**こと。扉をくぐると
+       剣士だけが別の空間へ出て、振り返ると鍛冶屋も扉も無い。 */
+    buildDoor('manorSplit', MANOR_SPLIT_DOOR.x, MANOR_SPLIT_DOOR.z, 8, 0x2a1830);
+    /* 扉を**くぐった先**で成立させる。扉そのものは既存の buildDoor なので、
+       開けるのはプレイヤー自身の手 ―― 「扉を通る」という動作を挟むことが
+       この演出の入口になる(仕様 4)。
+
+       condition で待つのは、lines(ここでは実行する関数)が null を返すと
+       その場で fired 扱いになり、二度と発火しなくなるため。同行していて
+       まだ分離していないときだけ成立させたい判定は condition 側に置く。 */
+    registerRoomEvent(mansionRoomById('sDown'), 0, '', ()=>{
+      playMansionSplitScene();
+      return null;
+    }, {inset:2.0,
+        condition:()=> shouldSeparate({escort:state.smithEscort, atSplitDoor:true})});
   }
 
   /* =========================================================
@@ -2679,7 +3006,6 @@
   ========================================================= */
   let manorRubbleGroup = null;   // 瓦礫の見た目(退けたら scene から外す)
   let manorRubbleWall  = null;   // 当たり判定(walls から splice する)
-  let manorRubbleSmith = null;   // 山の手前に立っている鍛冶屋
 
   // 通路の北端だけを見る、部屋より狭い判定域。8幅の通路を跨ぐので
   // 回り込んで素通りすることはできない(registerRoomEvent と同じ作法)
@@ -2712,8 +3038,9 @@
     // 天井の穴から落ちる薄明かり。行き止まりだと分かる程度に照らす
     mansionLamp(74, MANOR_RUBBLE_Z - 1.5, 0x9aa8b8, 0.35, 12);
 
-    manorRubbleSmith = buildManorSmithNpc(new THREE.Vector3(74, 0, 59.4));
-    manorRubbleSmith.rotation.y = 0;   // 山のほうを向いている
+    /* 瓦礫を外すのは、作業室から付いてきている本人(manorSmith)。
+       以前はここへ専用のNPCをもう一体建てていたが、同行するように
+       なった以上それは二重になる ―― 実体は1つだけにする */
 
     /* 周回(Skill 2 を既に持っている出撃)では閃きを繰り返さない。
        通路が塞がったままでは進めないので、段取りだけを短く流す */
@@ -2727,7 +3054,11 @@
             {name:'鍛冶士', text:'「重いもんを動かすのに要るのは力じゃねえ。どこが効いてるか、だ」'},
             {name:'鍛冶士', text:'「……少し下がってろ。梃子を噛ませる」'},
           ],
-      {kind:'mansionRubble', area:MANOR_RUBBLE_AREA});
+      /* condition で待つ ―― lines を null で返すと、その場で fired 扱いに
+         なって二度と出なくなる(既存の作法。sDown の再会イベント参照)。
+         同行しているときだけ成立する場面なので、判定はこちら側に置く */
+      {kind:'mansionRubble', area:MANOR_RUBBLE_AREA,
+       condition:()=> escortFollows(state.smithEscort)});
   }
 
   /* 会話のあと、実際に退ける。**見てから閃く**の順序を崩さないため、
@@ -2766,8 +3097,8 @@
       if(i >= 0) walls.splice(i, 1);
       manorRubbleWall = null;
     }
-    // 鍛冶屋は先へ行く ―― 次に声がするのは使用人区画(戦闘③)から
-    if(manorRubbleSmith){ scene.remove(manorRubbleSmith); manorRubbleSmith = null; }
+    /* 鍛冶屋はそのまま付いてくる(以前はここで姿を消していたが、
+       同行するようになったので消さない) */
     sfx('door');
     spawnToast('🪨 道が開いた');
   }
@@ -2792,6 +3123,179 @@
     document.getElementById('dialogue-overlay').classList.add('active');
   }
 
+  /* =========================================================
+     異常空間(D-01)と、鍛冶屋との分離(D-02)
+
+     ■ 何を作っているのか
+     迷路ではない。作っているのは「見覚えのある部屋に、違う繋がり方で
+     出る」一本道で、狙いは仕様 3 の一行に尽きる:
+
+         「さっきまで普通だった洋館がおかしくなった」
+
+     そのため xFoyer / xHall は、前半の 玄関ホール / 大広間 と
+     **同じ寸法・同じ壁紙・同じ什器**で作ってある。違うのは、
+     出口の位置と、灯りの色と、音が消えていることだけ。
+     プレイヤーが「この部屋は知っている。なのに違う」と気づくのが目的。
+
+     ■ 進行不能を作らない
+     区画は一本道(xFoyer → xCor → xHall → 地下室)で、分岐も
+     戻って探し直す要素も無い。既存の階段テレポートに乗せてあるので、
+     新しい移動の仕組みも増やしていない。
+
+     ■ 正常化(仕様 10)
+     ボスを倒すと normalizeMansionStructure() がこの区画を丸ごと畳む。
+     そのためここだけ batchStatic に通さず(02-world-common.js)、
+     メッシュは manorAnomalyGroup に、当たり判定は manorAnomalyWalls に
+     必ず控えておく ―― 静的バッチへ溶かすと個別に外せなくなる。
+  ========================================================= */
+  let manorAnomalyGroup = null;   // 異常空間のメッシュ(正常化で scene から外す)
+  let manorAnomalyWalls = [];     // 同じく当たり判定(walls から抜く)
+
+  // 分離が起きる扉。使用人区画の出口そのもの(sQuart の北の出入口 z=88)
+  const MANOR_SPLIT_DOOR = new THREE.Vector3(76, 0, 88);
+  // 分離後に剣士が出る場所。xFoyer の南寄り
+  const MANOR_ANOMALY_ENTRY = new THREE.Vector3(135, 0, -9);
+
+  /* walls へ積みつつ、あとで抜けるように控える。addWallBox は walls の
+     末尾へ足すので、呼ぶ直前と直後の差分がそのまま「この壁」になる */
+  function anomalyWall(cx, cz, sx, sz, mat){
+    const before = walls.length;
+    addWallBox(cx, cz, sx, sz, mat);
+    for(let i=before;i<walls.length;i++) manorAnomalyWalls.push(walls[i]);
+  }
+
+  function buildMansionAnomaly(){
+    manorAnomalyGroup = new THREE.Group();
+    manorAnomalyWalls = [];
+    scene.add(manorAnomalyGroup);
+
+    // 前半の玄関ホール・大広間と**同じ**材質を使う。ここが肝で、
+    // 違う壁紙にしてしまうと「知らない場所」になってしまう
+    const paperTex = makeWallpaperTexture('#3a2f42', '#241c2c', 5, 4, 2);
+    const wallMat  = new THREE.MeshStandardMaterial({map:paperTex, roughness:0.85});
+    const floorTex = makePlankTexture('#5a4028', 5, 6, 9);
+    const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
+    const woodMat  = new THREE.MeshStandardMaterial({color:0x3a2818, roughness:0.8});
+
+    const fill = new THREE.Mesh(new THREE.PlaneGeometry(50, 54),
+      new THREE.MeshStandardMaterial({color:0x050506, roughness:1}));
+    fill.rotation.x = -Math.PI/2;
+    fill.position.set(135, 0.01, 10);
+    manorAnomalyGroup.add(fill);
+
+    ['xFoyer','xCor','xHall'].forEach(id=>{
+      const r = mansionRoomById(id);
+      addRoomSurface(r, 'wood');
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(r.x1-r.x0, r.z1-r.z0), floorMat);
+      floor.rotation.x = -Math.PI/2;
+      floor.position.set((r.x0+r.x1)/2, 0.08, (r.z0+r.z1)/2);
+      floor.receiveShadow = true;
+      manorAnomalyGroup.add(floor);
+      // 壁は anomalyWall 経由で積む(buildMansionWalls と同じ gap の切り方)
+      const run = (fixed, lo, hi, gap, vertical)=>{
+        if(gap === 'full') return;
+        const parts = gap ? [[lo,gap[0]],[gap[1],hi]] : [[lo,hi]];
+        parts.forEach(([a,b])=>{
+          if(b-a <= 0.01) return;
+          if(vertical) anomalyWall(fixed, (a+b)/2, 0.7, b-a, wallMat);
+          else         anomalyWall((a+b)/2, fixed, b-a, 0.7, wallMat);
+        });
+      };
+      run(r.z1, r.x0, r.x1, r.gaps.N, false);
+      run(r.z0, r.x0, r.x1, r.gaps.S, false);
+      run(r.x0, r.z0, r.z1, r.gaps.W, true);
+      run(r.x1, r.z0, r.z1, r.gaps.E, true);
+    });
+
+    /* 玄関ホールの目印をそのまま置く ―― 傘立ての位置も、止まった
+       振り子時計も、鏡も。プレイヤーが「さっき見た部屋だ」と分かるための
+       手がかりで、違うのは「玄関の扉があるはずの南の壁が塞がっている」
+       ことだけ。そこに気づいた時が、この区画の目的が果たされた時。 */
+    const clock = new THREE.Mesh(new THREE.BoxGeometry(0.7, 2.1, 0.35), woodMat);
+    clock.position.set(122, 1.05, -12.6);
+    clock.castShadow = true;
+    manorAnomalyGroup.add(clock);
+    manorAnomalyWalls.push({minX:121.6, maxX:122.4, minZ:-12.8, maxZ:-12.4});
+    walls.push(manorAnomalyWalls[manorAnomalyWalls.length-1]);
+    const mirrorFrame = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.09, 8, 20),
+      new THREE.MeshStandardMaterial({color:0x3a2f1c, roughness:0.6, metalness:0.35}));
+    mirrorFrame.position.set(148, 1.8, -13.6);
+    manorAnomalyGroup.add(mirrorFrame);
+    const mirrorGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.05, 16),
+      new THREE.MeshStandardMaterial({color:0x10131a, roughness:0.25, metalness:0.5}));
+    mirrorGlass.rotation.x = Math.PI/2;
+    mirrorGlass.position.set(148, 1.8, -13.5);
+    manorAnomalyGroup.add(mirrorGlass);
+
+    // 大広間の柱。ここも前半と同じ間隔で立てる
+    const pillarMat = new THREE.MeshStandardMaterial({color:0x3a3448, roughness:0.6});
+    [[123,21],[149,21],[123,29],[149,29]].forEach(([x,z])=>{
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.7,4.4,8), pillarMat);
+      pillar.position.set(x, 2.2, z);
+      pillar.castShadow = true;
+      manorAnomalyGroup.add(pillar);
+      const w = {minX:x-0.7, maxX:x+0.7, minZ:z-0.7, maxZ:z+0.7};
+      walls.push(w); manorAnomalyWalls.push(w);
+    });
+
+    mansionLamp(135, -9,  0xffcf8a, 0.55, 18);
+    mansionLamp(135, 10,  0xffb066, 0.40, 12);
+    mansionLamp(136, 26,  0xd8c8ff, 0.65, 26);
+
+    /* 出てすぐ。振り返っても、来たはずの扉が無い ―― 分離の演出は
+       playMansionSplitScene が終えているので、ここは気づきの一言だけ */
+    registerRoomEvent(mansionRoomById('xFoyer'), 0, '', ()=>{
+      sfx('windGust');
+      spawnToast('🚪 振り返る。扉は無い。……この部屋は、最初に通った玄関ホールだ');
+      return null;
+    });
+
+    registerRoomEvent(mansionRoomById('xCor'), 0, '', ()=>{
+      sfx('distantDoor');
+      spawnToast('🕯️ こんな廊下は、この館に無かった');
+      return null;
+    });
+
+    /* 大広間……? に踏み込むと、鍵束の番人が起き上がる(D-03)。
+       戦闘③(通常敵だけの練習戦)を抜けた直後に、同じ「使用人」の系統で
+       ありながら戦闘のルールが違う個体を出す ―― 「さっきまでの敵とは
+       違う」を説明文ではなく戦って気づかせる位置。 */
+    registerRoomEvent(mansionRoomById('xHall'), 0, '', ()=>{
+      sfx('bossWake');
+      spawnToast('🗝️ 鍵束の音。……部屋の奥で、何かが立ち上がった');
+      spawnManorWarden();
+      return null;
+    });
+
+    buildLoreNote(new THREE.Vector3(144, 0, -11), '見覚えのある記帳簿', [
+      '玄関ホールで読んだはずの来客名簿が、同じ場所に同じように置かれている。',
+      '最後の一行まで一字一句同じ ――「本日、来客なし。誰も来ない」',
+      'ただし今度は、その下にもう一行だけ増えていた。「本日、来客あり」'
+    ], {kind:'book'});
+
+    /* 大広間……? の北から地下室へ。ここから先は元のままの洋館で、
+       中ボス(黒衣の執事)もボス(館の主)も、今まで通りの場所にいる */
+    const down = buildStairs(new THREE.Vector3(136,0,33), new THREE.Vector3(138,0,45),
+                             '階段を降りた……', 0x241a14, 'down', 'manorWarden');
+    down.routeNode = 'basement';
+    down.auto = true;
+  }
+
+  /* 正常化(仕様 10)。異常空間を畳んで、館を元の構造へ戻す。
+     メッシュも当たり判定も建てた分だけを控えてあるので、他の区画には
+     一切触れずに外せる ―― 世界を建て直さない。 */
+  function normalizeMansionStructure(){
+    if(state.mansionNormalized) return false;
+    state.mansionNormalized = true;
+    if(manorAnomalyGroup){ scene.remove(manorAnomalyGroup); manorAnomalyGroup = null; }
+    manorAnomalyWalls.forEach(w=>{
+      const i = walls.indexOf(w);
+      if(i >= 0) walls.splice(i, 1);
+    });
+    manorAnomalyWalls = [];
+    return true;
+  }
+
   /* ---------------------------------------------------------
      地下: 地下室 → 保管庫 → 地下奥【戦闘④】→(ボス前 → 主の間)
   --------------------------------------------------------- */
@@ -2812,9 +3316,11 @@
     mansionLamp(138, 82, 0x7a9a6a, 0.45, 24);
     mansionLamp(140, 104, 0x8a4fd8, 0.55, 26);
 
-    // 一階奥へ戻る階段(手動)
-    buildStairs(new THREE.Vector3(131,0,49), new THREE.Vector3(70,0,92),
-                '地下入口へ戻った……', 0x3a2818, 'up');
+    /* 戻り階段(手動)。行き先は元の地下入口ではなく、降りてきた異常空間の
+       大広間 ―― 分離後はもう使用人区画へは繋がっていない。戻っても
+       「さっきの部屋」しか無い、というのがこの館の今の構造 */
+    buildStairs(new THREE.Vector3(131,0,49), new THREE.Vector3(136,0,30),
+                '階段を上がった……', 0x3a2818, 'up');
 
     // 石柱と、積み上がった樽・木箱(保管庫)
     const pillarMat = new THREE.MeshStandardMaterial({color:0x2a2028, roughness:0.95});

@@ -403,6 +403,18 @@
       } else if(state.dialogueKind==='mansionInsight'){
         state.dialogueKind = null;
         grantChapter1Skill2();
+      } else if(state.dialogueKind==='mansionEscortJoin'){
+        /* 作業室での出会い。ここから鍛冶屋が同行する(仕様 8)。
+           付いてくる実体は既に部屋に立っているので、プレイヤーの
+           斜め後ろへ置き直すだけ(03-dungeons-mansion-temple.js) */
+        state.dialogueKind = null;
+        state.smithEscort = ESCORT.JOINED;
+        repositionManorSmith();
+        spawnToast('🔨 鍛冶士が同行するようになった');
+      } else if(state.dialogueKind==='mansionFarewell'){
+        // ボス撃破 → 正常化 → 再会 のあとの別れ際。工具を回収して脱出する
+        state.dialogueKind = null;
+        finishMansionFarewell();
       }
       return;
     }
@@ -417,6 +429,28 @@
     boss.special = null;
     enemies.filter(e=>e.summonedBy===boss).forEach(e=>scene.remove(e.group));
     enemies = enemies.filter(e=>e.summonedBy!==boss);
+    /* 森の洋館だけは、撃破した瞬間に結果画面へ飛ばさない(仕様 10)。
+
+         撃破 → 怪異が弱まる → 異常空間が解除される → 館の構造が正常化
+              → 鍛冶屋と再会 → 短い会話 → 工具・素材を回収 → 二人で脱出
+
+       が終わってから、いつもの結果画面へ渡す。結果画面・報酬・
+       BOSS_ENDING_LINES はそのまま再利用しているので、増えたのは
+       「その前に一拍置く」ことだけ。 */
+    if(state.scenarioKey === 'mansion' &&
+       shouldReunite({bossDefeated:true, escort:state.smithEscort})){
+      playMansionReunion(()=> {
+        try{ showBossResultScreen(boss, levelBefore); }
+        catch(err){
+          console.error('showBossResultScreen failed:', err);
+          state.dialogueActive = false;
+          state.dialogueKind = null;
+          clearMovementInput(false);
+          spawnToast('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+        }
+      });
+      return;
+    }
     const wrap = document.getElementById('canvas-wrap');
     wrap.classList.add('victory-blur');
     setTimeout(()=>{
@@ -2126,11 +2160,20 @@
     return before !== true;
   }
 
-  // 現在選ばれているスキル2の定義を返す(未解放ならaltを選んでいても
-  // 強制的にdefaultへ戻す)
+  /* 現在選ばれているスキル2の定義を返す(未解放ならaltを選んでいても
+     強制的にdefaultへ戻す)。
+
+     剣士の default は Chapter 1 の閃きで手に入る「崩し斬り」(D-04)。
+     以前ここにあった地裂斬(SKILL2_BY_CLASS.warrior)は消していない ――
+     スフィア盤・ランク・セーブが参照する枠として残してあり、崩し斬りの
+     数値が正式に決まるまでの比較対象でもある。他の3職は今まで通り。 */
+  function defaultSkill2Def(classKey){
+    if(classKey === 'warrior') return CRUSH_SLASH;
+    return SKILL2_BY_CLASS[classKey];
+  }
   function activeSkill2Def(classKey){
     if(state.skill2Choice==='alt' && state.unlockedSkill2Alt && SKILL2_ALT_BY_CLASS[classKey]) return SKILL2_ALT_BY_CLASS[classKey];
-    return SKILL2_BY_CLASS[classKey];
+    return defaultSkill2Def(classKey);
   }
 
   /* ---- 必殺技の新規選択肢(スフィア盤で解放) ----
@@ -2974,9 +3017,12 @@
         bindSkillPanelHandlers(panel);
         return;
       }
+      /* default は defaultSkill2Def が決める ―― 剣士は Chapter 1 の
+         閃きで手に入る崩し斬り(D-04)。ここで SKILL2_BY_CLASS を直接
+         引くと、実際に振る技と画面に出る技が食い違う */
       const skill2Options = state.unlockedSkill2Alt
-        ? [['default', SKILL2_BY_CLASS[state.classDef.key]], ['alt', SKILL2_ALT_BY_CLASS[state.classDef.key]]]
-        : [['default', SKILL2_BY_CLASS[state.classDef.key]]];
+        ? [['default', defaultSkill2Def(state.classDef.key)], ['alt', SKILL2_ALT_BY_CLASS[state.classDef.key]]]
+        : [['default', defaultSkill2Def(state.classDef.key)]];
       html += `<div class="ap-charge-title">スキル2(専用ボタン2・${state.unlockedSkill2Alt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
       skill2Options.forEach(([choiceKey, def])=>{
         if(!def) return;

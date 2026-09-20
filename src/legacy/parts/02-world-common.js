@@ -143,6 +143,10 @@
       mansionZone('hall',     ()=>batchStatic(buildMansion));
       mansionZone('upper',    ()=>batchStatic(buildMansionUpper));
       mansionZone('servant',  ()=>batchStatic(buildMansionServantWing));
+      /* 異常空間(D-01)。鍛冶屋と分かれた扉の向こう ―― 見覚えのある部屋に
+         違う繋がり方で出る一本道。バッチしないのは、ボス撃破後の正常化で
+         この区画だけを丸ごと消すため(normalizeMansionStructure) */
+      mansionZone('anomaly',  buildMansionAnomaly);
       mansionZone('basement', ()=>batchStatic(buildMansionBasement));
       mansionZone('lord',     ()=>batchStatic(buildMansionLordsRoom));
       initMansionLamps();
@@ -310,6 +314,10 @@
        ライトや区画表が残らないようにする */
     mansionLampSpecs = []; mansionLampPool = [];
     mansionLampZones = null; mansionLampZone = null; mansionBuildZone = null;
+    /* 洋館だけが持つ実体(同行中の鍛冶屋・異常空間・瓦礫)。メッシュは
+       currentWorldObjects 側の remove で外れるので、ここでは参照と
+       出撃中だけの進行状態を落とす ―― 次の出撃へ持ち越さないため */
+    resetMansionSortieState();
     /* この世界のためだけに建てたものを控えておく。どれもこの関数の中で
        シーンから外れるので、最後にまとめてGPUバッファを返しにいく
        (敵・宝箱・回復結晶・足場・鍵も、世界ごとに作り直される) */

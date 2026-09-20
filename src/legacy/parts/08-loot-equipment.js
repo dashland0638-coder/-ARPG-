@@ -1088,6 +1088,10 @@
       guestCompanion.pos.copy(state.pos).add(new THREE.Vector3(1.6,0,1.2));
       guestCompanion.target = null;
     }
+    /* 洋館で同行している鍛冶屋(仕様 8)。戦闘には関与しないが、階段の
+       テレポートで置いていかれると二度と追いつけないので、ここへ相乗り
+       させる ―― 世界遷移ごとに個別の if を撒かない、という既存の方針 */
+    repositionManorSmith();
   }
 
   // ワールド(再)入場のたびに呼び、state(=セーブから復元された可能性がある
