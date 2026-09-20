@@ -941,6 +941,10 @@
     if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     if(blockedInAir('SKILL 2')) return;
     if(state.skill2CD>0) return;
+    /* Chapter 1 は Skill 1 だけで出発する(全体基本仕様 §18)。洋館の
+       瓦礫イベントで閃くまで、このボタン自体が HUD に出ていない ――
+       キーボード / ゲームパッドから直接来た入力だけがここへ届く */
+    if(!hasSkill2(state)) return;
     if(state.swinging || state.skillCharging) return; // can't overlap with other attack actions
     if(!hasRes('skill2')){ warnNoRes(); return; }
     const cdef = state.classDef;

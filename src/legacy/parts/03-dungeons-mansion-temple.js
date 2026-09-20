@@ -2631,6 +2631,8 @@
       '「一人ならまだしも、みんなが同じものを見ています」'
     ], {kind:'note'});
 
+    buildManorRubble(woodMat);
+
     /* 戦闘③。使用人区画へ踏み込むと、先へ行ったはずの鍛冶屋の声が上がり、
        その直後に何かが通路を塞ぐ ―― 「音のあと隣室へ」の型を繰り返さず、
        今度は音と敵が同時に来る */
@@ -2656,6 +2658,138 @@
                              '地下へ降りた……', 0x241a14, 'down', 'servantAmbush');
     down.routeNode = 'basement';
     down.auto = true;
+  }
+
+  /* =========================================================
+     瓦礫の通路 ―― 剣士の Skill 2「閃き」(Chapter 1 仕様 §10-11)
+
+     使用人通路(sCor)の北端を、二階から落ちてきた瓦礫が塞いでいる。
+     主人公は力でどかそうとする。鍛冶屋は山を見て、効いている一つだけに
+     梃子を噛ませて外す。**技を教わるのではなく、その手つきを見た主人公が
+     自分の戦い方へ翻訳する**(シナリオ設計上の原則1)。
+
+     置き場所は「鍛冶屋と出会ってから、次の戦闘(戦闘③)に入るまで」の
+     一本道の途中 ―― 閃いた直後に必ず試す機会が来る(全体基本仕様 §18)。
+     戦闘③は 使用人1 + 幽霊1 + 鍵束の番人1 なので、通常敵で試してから
+     強モブへ、という順序もそのまま成立する。敵の体数・数値は
+     MANSION_SCENARIO.md の表から一切変えていない。
+
+     習得そのものは core/chapter1-skills.js と grantChapter1Skill2()
+     (12-progression-ui.js)が持つ。ここが持つのは舞台と段取りだけ。
+  ========================================================= */
+  let manorRubbleGroup = null;   // 瓦礫の見た目(退けたら scene から外す)
+  let manorRubbleWall  = null;   // 当たり判定(walls から splice する)
+  let manorRubbleSmith = null;   // 山の手前に立っている鍛冶屋
+
+  // 通路の北端だけを見る、部屋より狭い判定域。8幅の通路を跨ぐので
+  // 回り込んで素通りすることはできない(registerRoomEvent と同じ作法)
+  const MANOR_RUBBLE_AREA = {x0:70, x1:78, z0:56, z1:64};
+  const MANOR_RUBBLE_Z    = 62;
+
+  function buildManorRubble(woodMat){
+    manorRubbleGroup = new THREE.Group();
+    const stoneMat = new THREE.MeshStandardMaterial({color:0x4a4048, roughness:0.98});
+    const plasterMat = new THREE.MeshStandardMaterial({color:0x6a6058, roughness:0.95});
+    // 石塊。大小を混ぜ、いちばん下の一つ(下記の keystone)だけが低く前に出る
+    [[70.9,0.42],[72.3,0.72],[73.6,0.55],[74.9,0.80],[76.2,0.50],[77.3,0.66]].forEach(([x,h],i)=>{
+      const chunk = new THREE.Mesh(new THREE.BoxGeometry(1.5, h*2, 1.2), i%2 ? stoneMat : plasterMat);
+      chunk.position.set(x, h, MANOR_RUBBLE_Z + (i%2 ? 0.25 : -0.2));
+      chunk.rotation.y = (i*0.7) % 1.2;
+      chunk.castShadow = true; chunk.receiveShadow = true;
+      manorRubbleGroup.add(chunk);
+    });
+    // 落ちてきた梁。斜めに噛んでいて、これが山全体を支えている
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(8.6, 0.42, 0.42), woodMat);
+    beam.position.set(74, 1.35, MANOR_RUBBLE_Z - 0.1);
+    beam.rotation.z = 0.13;
+    beam.castShadow = true;
+    manorRubbleGroup.add(beam);
+    scene.add(manorRubbleGroup);
+
+    manorRubbleWall = {minX:69.8, maxX:78.2, minZ:MANOR_RUBBLE_Z-0.9, maxZ:MANOR_RUBBLE_Z+0.9};
+    walls.push(manorRubbleWall);
+
+    // 天井の穴から落ちる薄明かり。行き止まりだと分かる程度に照らす
+    mansionLamp(74, MANOR_RUBBLE_Z - 1.5, 0x9aa8b8, 0.35, 12);
+
+    manorRubbleSmith = buildManorSmithNpc(new THREE.Vector3(74, 0, 59.4));
+    manorRubbleSmith.rotation.y = 0;   // 山のほうを向いている
+
+    /* 周回(Skill 2 を既に持っている出撃)では閃きを繰り返さない。
+       通路が塞がったままでは進めないので、段取りだけを短く流す */
+    registerProximityEvent(new THREE.Vector3(74, 0, 60), 1, '鍛冶士',
+      ()=> hasSkill2(state)
+        ? ['「またここか。……下がってろ、同じ手で外す」']
+        : [
+            '「おう、生きてたか。……見ての通りだ。上から落ちてきやがった」',
+            {name:state.name || '', text:'押せば動く。そう思って、肩を入れた。'},
+            {name:'鍛冶士', text:'「待て待て、そこを押すな。そいつが下のを噛んでる」'},
+            {name:'鍛冶士', text:'「重いもんを動かすのに要るのは力じゃねえ。どこが効いてるか、だ」'},
+            {name:'鍛冶士', text:'「……少し下がってろ。梃子を噛ませる」'},
+          ],
+      {kind:'mansionRubble', area:MANOR_RUBBLE_AREA});
+  }
+
+  /* 会話のあと、実際に退ける。**見てから閃く**の順序を崩さないため、
+     瓦礫が外れきってから主人公の一言(mansionInsight)へ繋ぐ */
+  function playMansionRubbleScene(){
+    const learned = hasSkill2(state);
+    playCutscene([
+      {t:0.25, run:()=>{
+        state.facing = 0;                      // 山のほうを向かせる
+        sfx('anvil');
+        spawnToast('🔨 鍛冶屋が、山のいちばん下へ梃子を差し込んだ');
+      }},
+      {t:1.20, run:()=>{
+        sfx('bookFall');
+        spawnToast('🪨 一つだけが、ほとんど音もなく外れた');
+      }},
+      {t:1.00, run:()=>{
+        clearManorRubble();
+      }},
+      {t:0.90, run:()=>{
+        if(learned){
+          // 周回。閃きはもう起きないので、そのまま操作を返す
+          state.dialogueActive = false;
+          clearMovementInput(false);
+        } else {
+          beginManorInsight();
+        }
+      }}
+    ]);
+  }
+
+  function clearManorRubble(){
+    if(manorRubbleGroup){ scene.remove(manorRubbleGroup); manorRubbleGroup = null; }
+    if(manorRubbleWall){
+      const i = walls.indexOf(manorRubbleWall);
+      if(i >= 0) walls.splice(i, 1);
+      manorRubbleWall = null;
+    }
+    // 鍛冶屋は先へ行く ―― 次に声がするのは使用人区画(戦闘③)から
+    if(manorRubbleSmith){ scene.remove(manorRubbleSmith); manorRubbleSmith = null; }
+    sfx('door');
+    spawnToast('🪨 道が開いた');
+  }
+
+  /* 閃き。ここでは戦い方の話を一言も説明しない ―― 崩し方を見た、という
+     事実だけを置いて、あとは実際に振れるようになったボタンに任せる。
+     習得と自動装備は advanceDialogue が grantChapter1Skill2() を呼んで行う */
+  function beginManorInsight(){
+    state.dialogueActive = true;
+    state.dialogueBoss = null;
+    state.dialogueKind = 'mansionInsight';
+    state.dialogueLines = [
+      '山のどこにも、あの男は力を入れなかった。',
+      '効いている一つだけを探して、そこへ梃子を噛ませた。',
+      '――崩れるものには、崩れる順番がある。',
+      '「……立っているものが相手でも、同じことだ」',
+      '構えが、少しだけ変わった。'
+    ];
+    state.dialogueIndex = 0;
+    document.getElementById('dialogue-name').textContent = state.name || '';
+    document.getElementById('dialogue-text').textContent = state.dialogueLines[0];
+    document.getElementById('dialogue-overlay').classList.add('active');
   }
 
   /* ---------------------------------------------------------

@@ -50,6 +50,16 @@ src/
                                 Guard Break/Break/Execution/ボスのフェーズ管理)は
                                 使うだけで触らない。
                                 state依存なし(MANSION_SCENARIO.md参照)
+  core/chapter1-skills.js      Chapter 1 のスキル進行(全体基本仕様 §17-19)。主人公は
+                                Skill 1 だけを持って酒場を出て、ダンジョン中盤で同行者の
+                                行動を見て Skill 2 を閃き、その場で自動装備する ――
+                                「持っているか」「閃く」「旧セーブをどう読むか」と、
+                                「今それを組み替えていいか」(探索中は可 / 戦闘体勢・
+                                会話・演出・ボス戦中は不可)だけを持つ。戦闘体勢の判定は
+                                新設せず state.combatStanceT(combat-stance.js)を使う。
+                                既存のスキル基盤(SKILL2_BY_CLASS / castSkill2 / 鑑定所の
+                                スキルタブ)は作り直していない。
+                                state依存なし(MANSION_SCENARIO.md参照)
   audio/audio.js               SE合成・BGM再生(WebAudio)。state.sfxVolume/bgmVolume以外への依存なし
   audio/procedural-bgm.js      ワールドごとの生成音楽(ドローン+疎らな旋律+簡易リバーブ)。実ファイル未登録時のBGM
   textures/textures.js         手続きテクスチャ/バンプマップ生成。state依存なし

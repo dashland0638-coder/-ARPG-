@@ -800,6 +800,9 @@
      以前はultとほぼ隙間0pxで接触していたため、右上へさらに離してある */
   #btn-skill3{ width:46px; height:46px; right:284px; bottom:calc(146px + env(safe-area-inset-bottom)); font-size:16px; z-index:3; }
   #btn-skill3.unequipped{ opacity:0.4; }
+  /* まだ閃いていないスキル(Chapter 1 の Skill 2)。薄く残さず消す ――
+     ボタンが現れることそのものが習得の合図(core/chapter1-skills.js) */
+  .action-btn.locked{ display:none; }
   #screen-fade{
     position:fixed; inset:0; background:#05040a; z-index:60;
     opacity:0; pointer-events:none; transition:opacity .22s ease;

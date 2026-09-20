@@ -689,6 +689,10 @@
     if(skillEl) skillEl.style.setProperty('--cd-pct', state.skillCD>0 ? Math.max(0,1-state.skillCD/1.6) : 1);
     const skill2 = SKILL2_BY_CLASS[state.classDef.key];
     const skill2El = document.getElementById('btn-skill2');
+    /* Chapter 1 は Skill 1 だけで出発する(全体基本仕様 §18)。ボタンを
+       薄く出して「まだ無い枠」を見せるのではなく、閃くまで存在しない ――
+       ダンジョン中盤でいきなり現れること自体が習得の合図になる */
+    if(skill2El) skill2El.classList.toggle('locked', !hasSkill2(state));
     if(skill2El && skill2) skill2El.style.setProperty('--cd-pct', state.skill2CD>0 ? Math.max(0,1-state.skill2CD/skill2.cd) : 1);
     const ultEl = document.getElementById('btn-ult');
     // 必殺技は待ち時間ではなくゲージ充填率(戦闘performanceで貯まる)。
@@ -1157,6 +1161,9 @@
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;   // 5人目「影の旅人」の酒場会話進行
     state.smithJoined = false; state.smithGreeted = false;      // 鍛冶士は洋館クリアまで酒場に居ない
+    /* Chapter 1 は Skill 1 だけで始まる。Skill 2 は洋館の瓦礫イベントで
+       閃くまでボタンごと出ない(core/chapter1-skills.js) */
+    state.learnedSkill2 = false;
     state.guestClassKey = CHAPTER_CAST[1].guestClassKey || null;   // 第一章は剣士単独(#41)
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
@@ -1244,6 +1251,7 @@
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;
     state.smithJoined = false; state.smithGreeted = false;
+    state.learnedSkill2 = false;   // Chapter 1 は Skill 1 だけで始まる
     // 通常は常にnull(単独)だが、テストモード画面の「同行ゲスト」で
     // 選ばれていれば、GUEST COMPANION(08-loot-equipment.js)の検証用に
     // そのクラスを立てる ―― 章の自動進行(#41)がまだ無いため、これが

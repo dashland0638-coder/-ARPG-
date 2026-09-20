@@ -75,6 +75,13 @@ import * as THREE from 'three';
        洋館をクリアして初めてこの街に落ち着く。それまで同じ場所には
        仮設の作業台があり、鑑定・強化そのものは最初から使える */
     smithJoined:false, smithGreeted:false,
+    /* Chapter 1 のスキル進行(core/chapter1-skills.js)。主人公は Skill 1
+       だけを持って酒場を出て、ダンジョン中盤で同行者の行動を見て Skill 2 を
+       閃く ―― 閃いた時点で自動装備され、専用ボタンがそこで初めて開く。
+       smithJoined と同じ純追加のセーブ対象フィールドで、この機能より前の
+       セーブには存在しない(その場合は習得済みとして読む。
+       core/chapter1-skills.js の loadedSkill2Flag) */
+    learnedSkill2:false,
     escapeFalling:false,        // committed to the leap off the lookout
     walkTo:null,                // a scripted walk during a cutscene
     shakeScale:1,               // 0 = off, 0.5 = gentle, 1 = full (settings)

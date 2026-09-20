@@ -106,6 +106,14 @@ import {
   ULT_IMPACT_SHAKE, ULT_IMPACT_HITSTOP, ULT_IMPACT_HITSTOP_MAX,
 } from '../core/ult-clips.js';
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
+/* Chapter 1 のスキル進行(全体基本仕様 §17-19)。Skill 1 だけで出発し、
+   ダンジョン中盤で同行者の行動から Skill 2 を閃いて自動装備する ―― その
+   「閃いたか」と「今それを組み替えていいか」だけを持つ。既存のスキル基盤
+   (SKILL2_BY_CLASS / castSkill2 / 鑑定所のスキルタブ)には手を触れていない */
+import {
+  CHAPTER1_SKILL_SLOTS, hasSkill2, loadedSkill2Flag, learnSkill2,
+  loadoutChangeState, canChangeLoadout, LOADOUT_BLOCK_MESSAGES,
+} from '../core/chapter1-skills.js';
 /* 敵プロファイルの汎用基盤(ダンジョン非依存)。攻撃表の引き方・予兆の
    進行度・variant の組み立てだけを持ち、どのダンジョンの敵もここへ登録する。
    既存の戦闘基盤(体幹/パニッシュ窓/Break/Execution)には一切触れていない */

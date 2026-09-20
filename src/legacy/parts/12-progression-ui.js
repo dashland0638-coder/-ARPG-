@@ -394,6 +394,15 @@
         applyPendingJobPromotion();
       } else if(state.dialogueKind==='shadowGuide'){
         state.dialogueKind = null;
+      } else if(state.dialogueKind==='mansionRubble'){
+        /* 洋館・使用人通路の瓦礫。会話が終わってから鍛冶屋が実際に
+           退ける ―― 見てから閃く、という順序を崩さないため
+           (03-dungeons-mansion-temple.js の playMansionRubbleScene) */
+        state.dialogueKind = null;
+        playMansionRubbleScene();
+      } else if(state.dialogueKind==='mansionInsight'){
+        state.dialogueKind = null;
+        grantChapter1Skill2();
       }
       return;
     }
@@ -2092,6 +2101,31 @@
       cd:10, baseMult:0.75, maxMult:0.75, mode:'burst3', vfxColor:0xdcbf7a, homing:true },
   };
 
+  /* ---- Skill 2 の「閃き」(Chapter 1) ----
+     全体基本仕様 §18 / Chapter 1 仕様 §11。同行者から技を教わるのでは
+     なく、同行者の工夫を見た主人公が、それを自分の戦い方へ翻訳する。
+     だから演出は「習得しました」ではなく、主人公の側の一言で終える。
+
+     習得 = 装備。既存の実装では Skill 2 は専用ボタンに固定で載っている
+     ので、閃いた瞬間にボタンが現れることがそのまま自動装備になっている
+     (選ばせる画面は挟まない)。新しいスキル定義も報酬テーブルも足さず、
+     開けるのは既に各職業が持っている SKILL2_BY_CLASS の1つだけ。 */
+  function grantChapter1Skill2(){
+    const before = !!state.learnedSkill2;
+    const r = learnSkill2(state);
+    if(!r.changed) return false;
+    const def = activeSkill2Def(state.classDef && state.classDef.key);
+    state.skill2CD = 0;               // 閃いた直後にすぐ試せる
+    sfx('levelUp');
+    spawnToast(def ? `✴️ 閃いた ―― ${def.icon} ${def.name}(自動で装備した)`
+                   : '✴️ 新しい戦い方を閃いた');
+    // ボタンをその場で出す(updateCooldownRings が .locked を外す)
+    const icon = document.getElementById('btn-skill2-icon');
+    if(icon && def) icon.textContent = def.icon;
+    updateCooldownRings();
+    return before !== true;
+  }
+
   // 現在選ばれているスキル2の定義を返す(未解放ならaltを選んでいても
   // 強制的にdefaultへ戻す)
   function activeSkill2Def(classKey){
@@ -2791,15 +2825,39 @@
   ];
   let skillSubTab = 'skill1';
 
+  /* ---- 付け替えていい瞬間か(全体基本仕様 §19) ----
+     探索中は可、戦闘体勢・会話・演出・ボス戦中は不可。判定そのものは
+     core/chapter1-skills.js にあり、ここは state を詰めて渡すだけ。
+
+     この画面は酒場の鍛冶士の前に加えて、ダンジョン中のチェックポイント
+     (洋館の大広間、02-world-common.js の useCheckpoint)からも開くので、
+     「戦闘中は組み替えられない」は実際に効く。戦闘体勢の判定は
+     state.combatStanceT(core/combat-stance.js)をそのまま使っていて、
+     新しい戦闘状態フラグは足していない。 */
+  function loadoutLockState(){
+    return loadoutChangeState({
+      started:        state.started,
+      dialogueActive: state.dialogueActive,
+      bossActive:     enemies.some(e=> e.isBoss && e.triggered && e.hp > 0),
+      combatStanceT:  state.combatStanceT,
+      swinging:       state.swinging,
+      executeT:       state.executeT,
+    });
+  }
+
   function renderSkillPanel(){
     const panel = document.getElementById('ap-panel-skill');
     const variants = getChargeVariants();
+    const lock = loadoutLockState();
 
     let html = '<div class="skill-subtabs">';
     SKILL_SUBTABS.forEach(t=>{
       html += `<div class="skill-subtab ${skillSubTab===t.key?'active':''}" data-skill-subtab="${t.key}">${t.label}</div>`;
     });
     html += '</div><div class="skill-subtab-body">';
+    if(!lock.allowed && lock.reason !== 'notStarted'){
+      html += `<div class="gear-empty-note">🔒 ${lock.message}</div>`;
+    }
 
     if(skillSubTab==='passive'){
       // ---- ability ranks -----------------------------------------------
@@ -2906,6 +2964,16 @@
     }
 
     else if(skillSubTab==='skill2'){
+      /* Chapter 1 は Skill 1 だけで始まる。まだ閃いていない間は選択肢も
+         出さない ―― 「そのうち手に入る枠」を先に見せない(全体基本仕様 §18) */
+      if(!hasSkill2(state)){
+        html += '<div class="gear-empty-note">まだ二つめの戦い方を持っていない。' +
+                'ダンジョンでの出来事が、それを教えてくれる。</div>';
+        html += '</div>';
+        panel.innerHTML = html;
+        bindSkillPanelHandlers(panel);
+        return;
+      }
       const skill2Options = state.unlockedSkill2Alt
         ? [['default', SKILL2_BY_CLASS[state.classDef.key]], ['alt', SKILL2_ALT_BY_CLASS[state.classDef.key]]]
         : [['default', SKILL2_BY_CLASS[state.classDef.key]]];
@@ -2989,15 +3057,27 @@
 
     html += '</div>';
     panel.innerHTML = html;
+    bindSkillPanelHandlers(panel);
+  }
 
+  /* 付け替え系のクリックだけ、押された瞬間にもう一度 loadoutLockState() を
+     見る ―― 画面を開いたまま敵に見つかった、という間に合わないケースを
+     描画時の判定だけに任せないため。購入・ランク上げは「装備の組み替え」
+     ではないので、この鍵は掛からない(既存の挙動のまま) */
+  function bindSkillPanelHandlers(panel){
+    const changeLoadout = (apply)=>{
+      const lock = loadoutLockState();
+      if(!lock.allowed){ sfx('deny'); spawnToast('🔒 ' + lock.message); renderSkillPanel(); return; }
+      apply();
+    };
     panel.querySelectorAll('[data-skill-subtab]').forEach(tab=>{
       tab.addEventListener('click', ()=>{ skillSubTab = tab.dataset.skillSubtab; renderSkillPanel(); });
     });
     panel.querySelectorAll('[data-boss-ability]').forEach(row=>{
-      row.addEventListener('click', ()=>{ toggleEquippedBossAbility(row.dataset.bossAbility); refreshAppraisal(); });
+      row.addEventListener('click', ()=> changeLoadout(()=>{ toggleEquippedBossAbility(row.dataset.bossAbility); refreshAppraisal(); }));
     });
     panel.querySelectorAll('[data-boss-active-skill]').forEach(row=>{
-      row.addEventListener('click', ()=>{ setEquippedBossActiveSkill(row.dataset.bossActiveSkill); refreshAppraisal(); });
+      row.addEventListener('click', ()=> changeLoadout(()=>{ setEquippedBossActiveSkill(row.dataset.bossActiveSkill); refreshAppraisal(); }));
     });
     panel.querySelectorAll('[data-rank]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -3006,25 +3086,25 @@
       });
     });
     panel.querySelectorAll('.ap-charge-card[data-variant]').forEach(card=>{
-      card.addEventListener('click', ()=>{
+      card.addEventListener('click', ()=> changeLoadout(()=>{
         state.skillChoice = card.dataset.variant;
         updateSkillButtonIcon();
         renderSkillPanel();
-      });
+      }));
     });
     panel.querySelectorAll('.ap-charge-card[data-skill2-choice]').forEach(card=>{
-      card.addEventListener('click', ()=>{
+      card.addEventListener('click', ()=> changeLoadout(()=>{
         state.skill2Choice = card.dataset.skill2Choice;
         recomputeStats();
         renderSkillPanel();
-      });
+      }));
     });
     panel.querySelectorAll('.ap-charge-card[data-ult-choice]').forEach(card=>{
-      card.addEventListener('click', ()=>{
+      card.addEventListener('click', ()=> changeLoadout(()=>{
         state.ultChoice = card.dataset.ultChoice;
         recomputeStats();
         renderSkillPanel();
-      });
+      }));
     });
     panel.querySelectorAll('.ap-skill-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
