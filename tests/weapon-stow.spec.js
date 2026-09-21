@@ -20,6 +20,10 @@
 import { test, expect } from '@playwright/test';
 import { watchErrors, openGame } from './helpers.js';
 
+/* 戦闘が切れてから武器/カメラが落ち着くまでの待ち(上の until 参照)。
+   3.0秒(sim) ≒ 9秒(実時間)に対して倍の余裕を取る。 */
+const SETTLE_TRIES = 70;   // × 300ms = 21秒
+
 const JOBS = [
   {key:'warrior', job:null,           name:'剣士',         socket:'back'},
   {key:'warrior', job:'battleKnight', name:'戦騎士',       socket:'back'},
@@ -74,7 +78,17 @@ async function readPanel(page){
   };
 }
 
-// 条件が満たされるまでパネルを読み直す(0.5秒周期の書き換えを跨ぐため)
+/* 条件が満たされるまでパネルを読み直す(0.5秒周期の書き換えを跨ぐため)。
+
+   待ちの予算が要る理由: この環境のソフトウェア描画ではシム時間が実時間の
+   1/3 程度しか進まない(animate() の dt クランプ)。戦闘が終わってから
+   武器が収まるまでには COMBAT_STANCE_HOLD 2.6秒 + 納刀(最長 戦騎士 0.34秒)
+   = 約3.0秒(sim)かかるので、実時間では 9秒前後。
+   既定を 24回 × 300ms = 7.2秒にしていたため、納刀の遅い4職
+   (剣士 0.31 / 戦騎士 0.34 / 弓師 0.26 / 鷹の目 0.29)だけが
+   「まだ sheathing の途中」で時間切れになっていた ―― 速い4職
+   (魔法使い 0.12 / 魔導士 0.14 / 盗賊 0.19 / バーサーカー 0.22)は
+   同じコードで通っていたので、実装ではなく待ちの予算の問題。 */
 async function until(page, pred, tries = 24){
   let last = null;
   for(let i=0;i<tries;i++){
@@ -121,7 +135,7 @@ test.describe('武器収納・抜刀/納刀(8職)', () => {
       }
 
       /* --- 納刀 --- 戦闘態勢(2.6秒)が切れれば、また収まる */
-      const back = await until(page, s => s.phase === 'stowed', 30);
+      const back = await until(page, s => s.phase === 'stowed', SETTLE_TRIES);
       expect(back.phase, '戦闘が終わっても納刀しない').toBe('stowed');
 
       expect(errors).toEqual([]);
@@ -176,7 +190,7 @@ test.describe('武器収納・抜刀/納刀(8職)', () => {
     expect(fight.camDist, '戦闘で寄っていない').toBeLessThan(rest.camDist + 0.01);
 
     // 戦闘が終われば戻る
-    const after = await until(page, s => s.camBlend != null && s.camBlend < 0.05, 30);
+    const after = await until(page, s => s.camBlend != null && s.camBlend < 0.05, SETTLE_TRIES);
     expect(after.camBlend, '戦闘後に非戦闘カメラへ戻らない').toBeLessThan(0.05);
 
     expect(errors).toEqual([]);
