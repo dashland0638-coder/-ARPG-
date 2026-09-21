@@ -983,6 +983,45 @@
       seen: motionSeenStates,
       rig: motionRigSnapshot(),   // 05-rendering-rig.js。デバッグモード時だけ読む
       exec: motionExecSnapshot(),  // Break / Execution Window(Phase 4)
+      stow: motionStowSnapshot(),  // 武器の収納(core/weapon-state.js)
+      cam: motionCameraSnapshot(), // 戦闘/非戦闘カメラ(core/battle-camera.js)
+    };
+  }
+
+  /* 武器の収納の実測値。実機確認のために足した読み取り専用の窓で、
+     デバッグモードでしか呼ばれない(motionPanelSnapshot の他の項目と
+     同じ扱い)。絵から判定しにくいもの ―― 背中の大剣の切っ先が床へ
+     刺さっていないか、収納の補間が本当に進んでいるか ―― を数字で
+     確かめるためのもの。何も書き換えない。 */
+  function motionStowSnapshot(){
+    const ws = state.weapon;
+    if(!ws || !state.classDef) return null;
+    const P = playerMixerParts;
+    const sock = state.usingAltWeapon
+      ? null : weaponSocketFor(state.classDef.key, state.job);
+    const out = {
+      phase: ws.phase,
+      blend: weaponBlend(ws),
+      canAttack: canAttack(ws),
+      queued: ws.queued ? ws.queued.kind : null,
+      socket: sock ? (sock.main.node === 'torso' ? 'back' : 'waist') : 'none',
+      pos: null, tipY: null, gripY: null,
+    };
+    if(P && P.weapon){
+      const q = P.weapon.position;
+      out.pos = [q.x, q.y, q.z];
+      const w = new THREE.Vector3();
+      P.weapon.getWorldPosition(w);
+      out.gripY = w.y;
+      if(P.weaponTip){ P.weaponTip.getWorldPosition(w); out.tipY = w.y; }
+    }
+    return out;
+  }
+
+  function motionCameraSnapshot(){
+    return {
+      blend: combatCamBlend, bonus: combatDistBonus,
+      dist: state.camDist, height: state.camHeight,
     };
   }
 

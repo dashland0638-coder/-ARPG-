@@ -1086,7 +1086,7 @@
     /* 演出中・会話中は納刀を進めない ―― カットシーンの途中で武器が
        背中へ移ると、演出のために組んだ立ち位置と噛み合わなくなる。
        既に抜いているものはそのまま、収納しているものは収納のまま */
-    if(state.cutsceneActive || state.dialogueActive){ return; }
+    if(cutsceneRunning() || state.dialogueActive){ return; }
 
     const times = drawTimesFor(state.classDef.key, state.job);
     stepWeaponState(ws, {

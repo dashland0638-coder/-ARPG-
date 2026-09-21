@@ -1271,6 +1271,12 @@
     if(cutscene && cutscene.i >= cutscene.steps.length) cutscene = null;
   }
   function stopCutscene(){ cutscene = null; state.cutsceneTurn = null; }
+  /* 演出中かどうか。cutscene はこのファイルのモジュールスコープ変数で、
+     state には出ていない ―― 連結後は同じスコープなので他の part からも
+     読めるが、意図が伝わる名前を1つ置いておく方が事故が少ない
+     (実際、武器の収納を足したとき state.cutsceneActive という
+     存在しないフラグを見に行きかけた)。 */
+  function cutsceneRunning(){ return !!cutscene; }
 
   /* 演出中に振り返らせる。角度は最短方向へ回す(π を跨いでも遠回りしない)。
      camYaw を渡すと、カメラも同じ時間で同じように回る ―― 本人が見て
