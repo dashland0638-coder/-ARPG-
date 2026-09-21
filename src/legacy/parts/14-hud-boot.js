@@ -148,11 +148,15 @@
   // カメラ左右反転: Q/E・右スティック・タッチの左右回転ボタンの符号を
   // まとめて反転させるプレイヤー設定
   let camAutoOn = true, camInvertOn = false;
-  // カメラの高さ(#21): 見下ろし角度を好みで変えられるように。基準(0)は
-  // src/core/state.jsの初期値(camHeight:8, camDist:6, 約53度)そのままで、
-  // camDistは固定したままcamHeightだけを前後させる(距離を変えると
-  // 「画面に映る範囲」まで変わってしまうため、角度だけを動かす)
-  const CAM_HEIGHT_BASE = 8;
+  /* カメラの高さ(#21): 見下ろし角度を好みで変えられるように。
+     基準(0)は戦闘カメラの高さ ―― COMBAT_CAMERA.height(core/battle-camera.js)
+     が 8.0 で、この5段はそこからの相対値。高さだけを前後させ、距離は
+     動かさない(距離を変えると「画面に映る範囲」まで変わってしまうため、
+     角度だけを動かす)という元の意味はそのまま。
+
+     戦闘 / 非戦闘の距離切り替えが入ったので、実際に state.camHeight を
+     書くのは applyCameraProfile()(13-update-loop.js)ただ1箇所にした。
+     ここは「ユーザーの好み」を預けるだけ ―― 両方が書くと二重加算になる。 */
   const CAMHEIGHT_STEPS = [
     {v:-3,   label:'低め'},
     {v:-1.5, label:'やや低め'},
@@ -162,7 +166,8 @@
   ];
   let camHeightIdx = 2; // 標準 = 現在の値を基準
   function applyCamHeightSetting(){
-    state.camHeight = CAM_HEIGHT_BASE + CAMHEIGHT_STEPS[camHeightIdx].v;
+    camHeightUserOffset = CAMHEIGHT_STEPS[camHeightIdx].v;
+    applyCameraProfile();   // 設定画面を閉じる前に、その場で反映させる
   }
 
   function refreshSettingLabels(){
@@ -978,6 +983,45 @@
       seen: motionSeenStates,
       rig: motionRigSnapshot(),   // 05-rendering-rig.js。デバッグモード時だけ読む
       exec: motionExecSnapshot(),  // Break / Execution Window(Phase 4)
+      stow: motionStowSnapshot(),  // 武器の収納(core/weapon-state.js)
+      cam: motionCameraSnapshot(), // 戦闘/非戦闘カメラ(core/battle-camera.js)
+    };
+  }
+
+  /* 武器の収納の実測値。実機確認のために足した読み取り専用の窓で、
+     デバッグモードでしか呼ばれない(motionPanelSnapshot の他の項目と
+     同じ扱い)。絵から判定しにくいもの ―― 背中の大剣の切っ先が床へ
+     刺さっていないか、収納の補間が本当に進んでいるか ―― を数字で
+     確かめるためのもの。何も書き換えない。 */
+  function motionStowSnapshot(){
+    const ws = state.weapon;
+    if(!ws || !state.classDef) return null;
+    const P = playerMixerParts;
+    const sock = state.usingAltWeapon
+      ? null : weaponSocketFor(state.classDef.key, state.job);
+    const out = {
+      phase: ws.phase,
+      blend: weaponBlend(ws),
+      canAttack: canAttack(ws),
+      queued: ws.queued ? ws.queued.kind : null,
+      socket: sock ? (sock.main.node === 'torso' ? 'back' : 'waist') : 'none',
+      pos: null, tipY: null, gripY: null,
+    };
+    if(P && P.weapon){
+      const q = P.weapon.position;
+      out.pos = [q.x, q.y, q.z];
+      const w = new THREE.Vector3();
+      P.weapon.getWorldPosition(w);
+      out.gripY = w.y;
+      if(P.weaponTip){ P.weaponTip.getWorldPosition(w); out.tipY = w.y; }
+    }
+    return out;
+  }
+
+  function motionCameraSnapshot(){
+    return {
+      blend: combatCamBlend, bonus: combatDistBonus,
+      dist: state.camDist, height: state.camHeight,
     };
   }
 
@@ -1335,6 +1379,10 @@
     state.camYaw = spawn.camYaw; // southeast in town, per fixed per-scenario camera directions
     camera.position.copy(state.pos).add(getCamOffset());
     state.dodgeCD = 0; state.attackCD = 0; state.dodging=false; state.invulnerable=false;
+    /* ロード直後は必ず収納状態から(仕様 20)。セーブに武器の状態は
+       入っていないので、前回どこで終わったかに関わらず、酒場へは
+       武器を背負って現れる */
+    state.combatStanceT = 0; resetWeaponState(state.weapon);
     state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0; state.braceCounterT = 0;
     state.barrierActive = false; state.barrierT = 0; state.barrierParryCD = 0;
     state.paralyzed=false; state.paralyzeT=0; state.paralyzeInvulnT=0;

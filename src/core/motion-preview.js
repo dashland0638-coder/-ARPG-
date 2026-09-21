@@ -149,5 +149,25 @@ export function motionDebugLines(snap){
     lines.push(' EL.L  ' + deg(r.elL) + '   EL.R ' + deg(r.elR));
     lines.push(' WEP   ' + vec3(r.wep));
   }
+  /* 武器の収納(core/weapon-state.js)。実機確認で必要になった ――
+     「背中に収まっているか」は真上寄りの視点では絵から判定しにくく、
+     特に剣士の大剣が床へ刺さっていないことは切っ先の高さを数字で
+     見るのが確実。POS は腰ローカル、TIP.Y はワールドの高さ(m)。
+     読むだけで、ゲームの状態には一切触れない。 */
+  if(s.stow){
+    const w = s.stow;
+    lines.push('', 'STOW');
+    lines.push(' PHASE  ' + (w.phase || '-') + '   BLEND ' + num(w.blend));
+    lines.push(' SOCKET ' + (w.socket || 'none') + '   ARMED ' + (w.canAttack ? 'yes' : 'no'));
+    lines.push(' QUEUE  ' + (w.queued || '-'));
+    lines.push(' POS    ' + (Array.isArray(w.pos)
+      ? num(w.pos[0]) + ' /' + num(w.pos[1]) + ' /' + num(w.pos[2]) : '-'));
+    lines.push(' TIP.Y  ' + num(w.tipY) + 'm   GRIP.Y ' + num(w.gripY) + 'm');
+  }
+  if(s.cam){
+    lines.push('', 'CAMERA');
+    lines.push(' BLEND  ' + num(s.cam.blend) + '   BONUS ' + num(s.cam.bonus) + 'm');
+    lines.push(' DIST   ' + num(s.cam.dist) + '   HEIGHT ' + num(s.cam.height));
+  }
   return lines;
 }

@@ -1249,6 +1249,10 @@
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
     state.skillCharging = false; state.skillChargeT = 0; state.skillCD = 0; state.skill2CD = 0;
     attackHeldStart = null; skillHeldStart = null;
+    /* 武器も収納状態へ戻す(仕様 20)。戦闘態勢が残ったままダンジョンを
+       出ると、酒場に武器を抜いたまま現れてしまう ―― 上の swinging /
+       ultAiming の後始末と同じ理由で、ここ1箇所に足しておく */
+    state.combatStanceT = 0; resetWeaponState(state.weapon);
     state.paralyzed = false; state.paralyzeT = 0; state.paralyzeInvulnT = 0;
     state.launch = null;
     if(isDefeat){

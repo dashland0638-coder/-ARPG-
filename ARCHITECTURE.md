@@ -77,6 +77,37 @@ src/
                                 正常化・分離/再会の成立条件・同行の追従だけを持つ。
                                 部屋の座標は MANSION_ROOMS が唯一の情報源なので
                                 ここには持たない。state依存なし(MANSION_SCENARIO.md参照)
+  core/weapon-state.js         武器の収納・抜刀・納刀。非戦闘で武器を背中/腰へ収め、
+                                戦闘で手へ戻すまでの4状態(STOWED/DRAWING/ARMED/
+                                SHEATHING)と、抜刀を待っている間の入力キュー。
+                                **戦闘状態機械はここに作らない** ―― combat-stance.js の
+                                state.combatStanceT が既に RELAXED/COMBAT/HOLD そのもの
+                                なので、軸を2つに分けて「戦闘しているか」はそちら、
+                                「武器がどこにあるか」だけをここが持つ。結合規則は
+                                combatStanceT > 0 → wantsArmed の1本だけで、HOLD の
+                                2.6秒が「戦闘終了から納刀まで」をそのまま担う。
+                                状態の実体は blend(0=手、1=収納位置)ひとつで、phase は
+                                そこから導かれる表示用のラベル ―― 納刀の途中で襲われても
+                                「今いる位置から手へ戻る」が場合分け無しで成立する。
+                                キャラクター単位の状態として作ってあるので、Chapter 2 の
+                                3人パーティ・AIコンパニオンでも companion.weapon として
+                                同じ関数で回せる。武器の収納先(ソケット)は職業ごとの
+                                見た目なので WEAPON_SOCKET(05-rendering-rig.js)側。
+                                state依存なし
+  core/battle-camera.js        戦闘/非戦闘のカメラ距離。探索時は約1m引いて俯角を2度
+                                寝かせ(背中の武器と Relaxed Idle を見せる)、戦闘時は
+                                現行値(camDist 6 / camHeight 8)へ戻す ―― 戦闘側を
+                                動かさないことで、調整済みの手触りを変えずに
+                                「戦闘は少し寄る」を成立させる。
+                                扱うのは距離と高さだけで、向き(camYaw)には触れない ――
+                                移動はカメラ相対なので、向きを変えると操作の対応関係まで
+                                変わる。状態 enum を持たず 0..1 のスカラー1本にしてあるのは、
+                                抜けの途中で敵に再遭遇したときの場合分けを作らないため。
+                                戦闘中の自動距離はターゲット1体だけを見て +1.2m で頭打ち
+                                (全敵の重心も外接箱も取らない ―― 敵が増えるたびに引く
+                                設計にしない)。注視点のずらしは既存の
+                                getCombatCameraFocusOffset()、ボスは findLockOnBoss() が
+                                担当していて、どちらもここは通らない。state依存なし
   audio/audio.js               SE合成・BGM再生(WebAudio)。state.sfxVolume/bgmVolume以外への依存なし
   audio/procedural-bgm.js      ワールドごとの生成音楽(ドローン+疎らな旋律+簡易リバーブ)。実ファイル未登録時のBGM
   textures/textures.js         手続きテクスチャ/バンプマップ生成。state依存なし

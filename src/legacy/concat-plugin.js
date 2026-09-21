@@ -76,6 +76,21 @@ import { motionDebugLines, motionStateLabel } from '../core/motion-preview.js';
 import {
   buildRelaxedIdleTarget, relaxedIdleProfile, stepRestBlend, REST_STOP_RATE,
 } from '../core/relaxed-idle.js';
+/* 武器の収納・抜刀・納刀。combatStanceT(= 戦闘状態)はそのままで、
+   「武器がどこにあるか」だけを別の軸として持つ。キャラクター単位の
+   状態なので Chapter 2 の 3 人パーティでもそのまま使える */
+import {
+  WEAPON, createWeaponState, stepWeaponState, weaponBlend, canAttack,
+  queueAction, takeQueued, clearQueued, resetWeaponState,
+  drawTimesFor, queueTtlFor, isStowed, armWeaponNow,
+} from '../core/weapon-state.js';
+/* 戦闘 / 非戦闘のカメラ。距離と高さのプロファイルを1つのスカラーで
+   混ぜるだけで、向き(camYaw)には触れない */
+import {
+  EXPLORE_CAMERA, COMBAT_CAMERA, stepCombatCamBlend, cameraProfileAt,
+  targetDistanceBonus, stepDistanceBonus, cameraTierParams,
+  COMBAT_CAM_IN_RATE, COMBAT_CAM_OUT_RATE, COMBAT_DIST_BONUS_MAX,
+} from '../core/battle-camera.js';
 import {
   stepVisibility, minimapVisible, threatHighlight, bearingLabel,
   SIGHT_RANGE, THREAT_SENSE_RANGE,

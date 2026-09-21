@@ -92,6 +92,46 @@ test('motionDebugLines', async t=>{
     assert.match(text, /WRIST\s+-/);
   });
 
+  /* 実機確認(tests/weapon-stow.spec.js)がこの書式を正規表現で読む。
+     ここが崩れると実機テストだけが黙って読めなくなるので、書式そのものを
+     固定しておく ―― パネルは表示だけの関数なので、これで十分。 */
+  await t.test('STOW ブロックが実機テストの読む書式で出る', ()=>{
+    const text = motionDebugLines(Object.assign({}, base, {
+      stow: {phase:'stowed', blend:1, canAttack:false, queued:'attack',
+             socket:'back', pos:[0.14,-0.02,-0.26], tipY:2.48, gripY:1.08},
+    })).join('\n');
+    assert.match(text, /PHASE\s+stowed\s+BLEND\s+1\.00/);
+    assert.match(text, /SOCKET\s+back\s+ARMED\s+no/);
+    assert.match(text, /QUEUE\s+attack/);
+    assert.match(text, /TIP\.Y\s+2\.48m\s+GRIP\.Y\s+1\.08m/);
+    assert.match(text, /POS\s+0\.14 \/-0\.02 \/-0\.26/);
+  });
+
+  await t.test('武器を抜いていれば ARMED yes、待たせている入力が無ければ "-"', ()=>{
+    const text = motionDebugLines(Object.assign({}, base, {
+      stow: {phase:'armed', blend:0, canAttack:true, queued:null,
+             socket:'none', pos:null, tipY:null, gripY:null},
+    })).join('\n');
+    assert.match(text, /PHASE\s+armed\s+BLEND\s+0\.00/);
+    assert.match(text, /SOCKET\s+none\s+ARMED\s+yes/);
+    assert.match(text, /QUEUE\s+-/);
+    assert.match(text, /POS\s+-/);
+  });
+
+  await t.test('CAMERA ブロックが実機テストの読む書式で出る', ()=>{
+    const text = motionDebugLines(Object.assign({}, base, {
+      cam: {blend:0.42, bonus:0.6, dist:6.58, height:8.25},
+    })).join('\n');
+    assert.match(text, /BLEND\s+0\.42\s+BONUS\s+0\.60m/);
+    assert.match(text, /DIST\s+6\.58\s+HEIGHT\s+8\.25/);
+  });
+
+  await t.test('STOW / CAMERA を渡さなければ、その行は出ない(従来の表示のまま)', ()=>{
+    const text = motionDebugLines(base).join('\n');
+    assert.ok(!text.includes('STOW'));
+    assert.ok(!text.includes('CAMERA'));
+  });
+
   await t.test('Freeze の ON/off が出る', ()=>{
     assert.ok(motionDebugLines(base).join('\n').includes('FREEZE off'));
     assert.ok(motionDebugLines(Object.assign({}, base, {freeze:true}))

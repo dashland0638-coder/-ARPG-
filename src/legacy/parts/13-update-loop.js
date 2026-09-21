@@ -476,6 +476,7 @@
   function updatePlayer(dt){
     if(state.attackCD>0) state.attackCD = Math.max(0,state.attackCD-dt);
     updateCombatStance(dt);
+    updateWeaponState(dt);    // 抜刀 / 納刀(core/weapon-state.js)。戦闘態勢の直後
     updatePendingUlt(dt); // 必殺技の一撃が届く瞬間(core/ult-clips.js)
     updatePendingExecution(dt);   // 処刑の一撃が届く瞬間(11-combat-actions.js、Phase 4)
     updatePendingSkill2(dt);      // 崩し斬りの刃が前を通過する瞬間(D-04)
@@ -834,10 +835,41 @@
   /* Re-pins the weapon to the hand that is holding it. The weapon is authored
      in the waist's frame - which keeps the swing arcs readable - but its
      position is resolved from the hand every frame, so the two never drift
-     apart mid-animation the way a fixed offset does. */
+     apart mid-animation the way a fixed offset does.
+
+     武器収納基盤(core/weapon-state.js)が入ってからは、行き先が2つある:
+     握り手(HandGrip)と収納ソケット(背中・腰。WEAPON_SOCKET、
+     05-rendering-rig.js)。どちらも同じ手順 ―― 基準ノードのワールド座標を
+     腰ローカルへ落として、オフセットを足す ―― で出るので、あとは
+     weaponBlend() で混ぜるだけで抜刀/納刀の途中の絵になる。
+
+     parts / ws を引数で受けるのは Chapter 2 のため。プレイヤー以外の
+     キャラクターが自分のリグと自分の武器状態を持って同じ関数を通れる
+     ようにしてある(既定値は従来どおりプレイヤー)。 */
   const _gripW = new THREE.Vector3(), _gripW2 = new THREE.Vector3(), _gripW3b = new THREE.Vector3();
-  function updateGrip(){
-    const P = playerMixerParts;
+  const _stowW = new THREE.Vector3();
+  const _wepMix = new Array(6);
+
+  // ソケットの握り位置を腰ローカルで出す。node はリグのノード名
+  function socketLocal(P, sock, out){
+    const node = (sock.node === 'waist') ? P.waist
+               : (sock.node === 'torso') ? (P.torso || P.waist)
+               : (P[sock.node] || P.waist);
+    node.getWorldPosition(out);
+    P.waist.worldToLocal(out);
+    out.x += sock.off[0]; out.y += sock.off[1]; out.z += sock.off[2];
+    return out;
+  }
+
+  // 構えの向きと収納の向きを混ぜる。aimWeapon() が内部で再直交化するので、
+  // 補間で直交でなくなった6値をそのまま渡してよい
+  function mixWep(from6, to6, w){
+    for(let i=0;i<6;i++) _wepMix[i] = from6[i] + (to6[i] - from6[i]) * w;
+    return _wepMix;
+  }
+
+  function updateGrip(parts, ws){
+    const P = parts || playerMixerParts;
     if(!P.weapon || !P.gripHand || !P.gripOff || !P.waist) return;
     player.updateMatrixWorld(true);
     const side = P.gripSide || P.handSide;
@@ -849,7 +881,21 @@
       (side === 'L' ? P.handL : P.handR).getWorldPosition(_gripW);
     }
     P.waist.worldToLocal(_gripW);
-    P.weapon.position.copy(_gripW).add(P.gripOff);
+    _gripW.add(P.gripOff);
+
+    /* 収納側。ソケットを持たない職(杖)は blend を位置に効かせない ――
+       「収納しない」が仕様なので、行き先が握り手しか無い。 */
+    const sockets = P.weaponSockets;
+    const blend = sockets ? weaponBlend(ws || state.weapon) : 0;
+    if(blend > 0.0001 && sockets.main){
+      socketLocal(P, sockets.main, _stowW);
+      _gripW.lerp(_stowW, blend);
+      // 収納の向きへ寄せる。構え側は applyPose が既に書いた今の向き
+      if(sockets.main.wep && P.weaponAimedWep){
+        aimWeapon(P.weapon, mixWep(P.weaponAimedWep, sockets.main.wep, blend));
+      }
+    }
+    P.weapon.position.copy(_gripW);
 
     // 二刀流/両手斧のオフハンド(#39系): 逆の手に追従させるだけの、
     // 主武器より簡易な追従。コンボの振りアニメーションは主武器
@@ -858,7 +904,15 @@
     if(P.offhandWeapon && P.offhandGripHand && P.offhandGripOff){
       P.offhandGripHand.getWorldPosition(_gripW3b);
       P.waist.worldToLocal(_gripW3b);
-      P.offhandWeapon.position.copy(_gripW3b).add(P.offhandGripOff);
+      _gripW3b.add(P.offhandGripOff);
+      if(blend > 0.0001 && sockets.off){
+        socketLocal(P, sockets.off, _stowW);
+        _gripW3b.lerp(_stowW, blend);
+        if(sockets.off.wep && P.weaponAimedWep){
+          aimWeapon(P.offhandWeapon, mixWep(P.weaponAimedWep, sockets.off.wep, blend));
+        }
+      }
+      P.offhandWeapon.position.copy(_gripW3b);
     }
   }
 
@@ -1010,6 +1064,69 @@
       state.combatStanceT = refreshCombatStance(state.combatStanceT);
       return;
     }
+  }
+
+  /* =========================================================
+     抜刀 / 納刀(core/weapon-state.js)
+
+     状態機械そのものは core 側にあり、ここが持つのは3つだけ:
+       1. 今フレームの「武器を手に持っていたいか」を決める
+       2. 抜刀が完了した瞬間に、待たせていた入力を1回だけ流す
+       3. 演出・会話・死亡のように「戦闘ではない」局面を除く
+
+     wantsArmed を combatStanceT からしか作らないのが要点 ――
+     戦闘状態の判断はすべて既存の1箇所(updateCombatStance)に残り、
+     ここは「その結果、武器はどこにあるべきか」しか決めない。
+  ========================================================= */
+  function updateWeaponState(dt){
+    const ws = state.weapon;
+    if(!ws || !state.classDef) return;
+    const prevPhase = ws.phase;
+
+    /* 演出中・会話中は納刀を進めない ―― カットシーンの途中で武器が
+       背中へ移ると、演出のために組んだ立ち位置と噛み合わなくなる。
+       既に抜いているものはそのまま、収納しているものは収納のまま */
+    if(cutsceneRunning() || state.dialogueActive){ return; }
+
+    const times = drawTimesFor(state.classDef.key, state.job);
+    stepWeaponState(ws, {
+      dt,
+      // 戦闘態勢が立っている = 武器を手に持っていたい。それだけ
+      wantsArmed: (state.combatStanceT || 0) > 0,
+      drawSec: times.draw,
+      sheatheSec: times.sheathe,
+    });
+
+    // 抜刀が終わった瞬間だけ、待たせていた入力を1回流す(仕様 6)
+    if(ws.phase === WEAPON.ARMED && prevPhase !== WEAPON.ARMED){
+      const kind = takeQueued(ws);
+      if(kind) dispatchQueuedAction(kind);
+    }
+  }
+
+  /* 待たせていた入力の実行。抜刀を待っている間に押されたものだけが
+     ここへ来る ―― 押した本人にとっては「押したら出た」に見える */
+  function dispatchQueuedAction(kind){
+    if(!state.started || state.paused || state.dialogueActive) return;
+    if(kind === 'attack') tryAttack();
+    else if(kind === 'skill2') castSkill2();
+    else if(kind === 'ult') tryUltimate();
+  }
+
+  /* 攻撃系の入口が最初に通る関門。武器が手に無ければ、入力を捨てずに
+     キューへ入れて抜刀を始める ―― 捨ててしまうと、敵に出会った瞬間の
+     1タップが「この基盤を入れたせいで」消えることになる。
+
+     戻り値 true = 呼び出し元はそのまま return(まだ出せない)。 */
+  function gateOnWeaponDrawn(kind){
+    const ws = state.weapon;
+    if(!ws) return false;
+    if(canAttack(ws)) return false;
+    const times = drawTimesFor(state.classDef.key, state.job);
+    queueAction(ws, kind, queueTtlFor(times.draw));
+    // 「抜きたい」という意思表示。これが無いと納刀したまま待ち続ける
+    state.combatStanceT = refreshCombatStance(state.combatStanceT);
+    return true;
   }
 
   function updateLocomotion(dt, moveSpeed){
@@ -1959,11 +2076,84 @@
     );
   }
 
+  /* =========================================================
+     戦闘 / 非戦闘カメラ(core/battle-camera.js)
+
+     動かすのは距離と高さだけで、camYaw(カメラがどちらに居るか)には
+     触れない ―― 移動はカメラ相対なので、向きを変えると操作の対応
+     関係まで変わってしまう。
+
+     ■ camAutoOn とは独立(仕様 17)
+     camAutoOn は「向きを自動で回すか」の設定。自動回転を切っている
+     人にも、戦闘 / 非戦闘の距離の違いは効く。注視点のずらし
+     (combatCamFocusOffset)が camAutoOn に紐づいているのとは別扱い。
+
+     ■ 状態 enum を作らない理由
+     EXPLORE / COMBAT_TRANSITION / COMBAT / COMBAT_EXIT を enum で
+     持つと、抜けの途中で敵に再遭遇したときの場合分けが要る。
+     0..1 のスカラー1本なら、目標値が入れ替わるだけで繋がる。
+
+     ■ state.camHeight の書き手はこの関数だけ
+     ユーザーのカメラ高さ設定(CAMHEIGHT_STEPS、14-hud-boot.js)は
+     camHeightUserOffset として預かり、ここで一度だけ足す。設定側が
+     state.camHeight を直接書くと二重加算になるため、書き手を1つに
+     寄せてある。
+  ========================================================= */
+  let combatCamBlend = 0;       // 0 = 探索、1 = 戦闘
+  let combatDistBonus = 0;      // ターゲットとの距離による追加(0〜+1.2m)
+  let camHeightUserOffset = 0;  // 14-hud-boot.js の applyCamHeightSetting() が入れる
+
+  function applyCameraProfile(){
+    const prof = cameraProfileAt(combatCamBlend, combatDistBonus);
+    state.camDist = prof.dist;
+    state.camHeight = prof.height + camHeightUserOffset;
+  }
+
+  /* 追加距離の相手。ボスは除く ―― ボスには専用のロックオンカメラが
+     あり(findLockOnBoss)、そこへ別の距離調整を混ぜない(仕様 19)。
+     「一番近い1体」しか見ないのが要点で、全敵の重心も外接箱も取らない
+     (仕様 15) ―― 敵が増えるたびに引く設計にしないため。 */
+  function combatCameraTarget(){
+    let best = null, bestD = Infinity;
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      if(!en || en.dead || en.dormant || en.isBoss || !en.group || !en.group.position) continue;
+      if(!en.triggered) continue;
+      const d = state.pos.distanceTo(en.group.position);
+      if(d < bestD){ best = en; bestD = d; }
+    }
+    return best ? {enemy: best, dist: bestD} : null;
+  }
+
+  function updateBattleCamera(dt){
+    const inCombat = (state.combatStanceT || 0) > 0;
+    combatCamBlend = stepCombatCamBlend(combatCamBlend, inCombat, dt);
+
+    let wantBonus = 0;
+    if(inCombat){
+      const t = combatCameraTarget();
+      if(t){
+        // 階層別の上限(仕様 19)。Chapter 1 では全階層が同じ値なので、
+        // 実際の見え方は通常敵と変わらない ―― 差し替えられる形だけ残す
+        const tier = cameraTierParams(enemyTier(t.enemy));
+        wantBonus = targetDistanceBonus(t.dist, tier.distBonusMax);
+      }
+    }
+    combatDistBonus = stepDistanceBonus(combatDistBonus, wantBonus, dt);
+    applyCameraProfile();
+  }
+
   const COMBAT_CAMERA_RANGE = 8;
-  const COMBAT_CAMERA_MAX_OFFSET = 1.25;
+  /* 注視点をプレイヤーからどれだけずらしてよいか。1.25 → 1.60 は
+     「近くの1体と戦っているときだけ、もう少し相手側を見る」ための
+     余地。上限であることに意味があるので、上げても上限は残す ――
+     複数敵を収めるために引くのは相変わらずしない(仕様 15) */
+  const COMBAT_CAMERA_MAX_OFFSET = 1.60;
   const COMBAT_CAMERA_DEADZONE = 0.42;
   const COMBAT_CAMERA_PLAYER_WEIGHT = 2.8;
-  const COMBAT_CAMERA_Y_OFFSET = 0.6;
+  /* 非戦闘で俯角を寝かせたぶん、頭が画面下へ寄る。注視点を少し上げて
+     相殺する(0.60 → 0.75) */
+  const COMBAT_CAMERA_Y_OFFSET = 0.75;
   const COMBAT_CAMERA_ACTIVE_BONUS = 1.8;
   const COMBAT_CAMERA_ENGAGED_BONUS = 1.08;
   const COMBAT_CAMERA_ATTACK_LINE_PULL = 0.28;
@@ -2042,6 +2232,9 @@
   }
 
   function updateCamera(dt){
+    // 距離と高さを先に決める。下の分岐(会話・ボス)も getCamOffset() を
+    // 通るので、ここ1箇所で全経路に効く
+    updateBattleCamera(dt);
     if(state.dialogueActive && state.dialogueBoss && !state.dialogueBoss.dead){
       // dramatic close-up on the boss while they're talking
       const bp = state.dialogueBoss.group.position;

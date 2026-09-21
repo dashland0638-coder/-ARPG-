@@ -1752,6 +1752,13 @@
     playerMixerParts.handSide = st.grip;
     playerMixerParts.weaponBasePos = weapon.position.clone();
     playerMixerParts.weaponBaseRot = weapon.rotation.clone();
+    /* 武器収納(core/weapon-state.js + WEAPON_SOCKET)。ソケットを持たない
+       職(杖)は null のままで、updateGrip() は握り手だけを見る。
+       weaponAimedWep は構え ↔ 収納の向きを混ぜる起点で、最初のフレームで
+       applyPose がまだ走っていなくても updateGrip が使えるよう種を入れる */
+    playerMixerParts.weaponSockets = state.usingAltWeapon
+      ? null : weaponSocketFor(classDef.key, state.job);
+    playerMixerParts.weaponAimedWep = st.wep ? st.wep.slice() : null;
     playerMixerParts.armLBase = armL.rotation.clone();
     playerMixerParts.armRBase = armR.rotation.clone();
     playerMixerParts.elbowLBase = elbowL.rotation.clone();
@@ -1845,6 +1852,10 @@
     P.weapon = weapon;
     P.weaponBasePos = weapon.position.clone();
     P.weaponBaseRot = weapon.rotation.clone();
+    // 持ち替えでも収納先は職業で決まる(サブ武器はまだ表を持たないので、
+    // その場合 null = 手に持ったまま。仕様の範囲外 ―― P3 の課題)
+    P.weaponSockets = state.usingAltWeapon ? null : weaponSocketFor(classDef.key, state.job);
+    P.weaponAimedWep = st.wep ? st.wep.slice() : null;
 
     // 二刀流/両手斧のオフハンド(#39系): buildPlayer()と同じ手順
     if(P.offhandGeo){

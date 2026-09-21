@@ -21,6 +21,14 @@ import * as THREE from 'three';
        通常の休め姿勢へ戻る。playerHitReactT と同じ「戦闘中の一時状態」
        なのでセーブ対象外(09-save-load.js は触らない) */
     combatStanceT:0,
+    /* 武器がどこにあるか(core/weapon-state.js)。combatStanceT が
+       「戦っているか」を持ち、こちらは「武器が手にあるか背中にあるか」
+       だけを持つ ―― 戦闘状態機械を二重に作らないための切り分け。
+       combatStanceT と同じ「一度の出撃の中だけの状態」なのでセーブ
+       対象外で、ロード直後は必ず収納状態から始まる。
+       オブジェクトとして持つのは Chapter 2 のため ―― 仲間も
+       companion.weapon として同じ形を持てば、同じ関数で回せる */
+    weapon:{phase:'stowed', blend:1, queued:null},
     // 直近の攻撃クリップが終わってからの経過秒数。振り終わった直後だけ
     // Combat Idle の振幅を大きくして「まだ収まっていない身体」を見せる
     // (core/combat-stance.js の settleBoost)。同じく一時状態なのでセーブ対象外
