@@ -478,6 +478,7 @@
     updateCombatStance(dt);
     updatePendingUlt(dt); // 必殺技の一撃が届く瞬間(core/ult-clips.js)
     updatePendingExecution(dt);   // 処刑の一撃が届く瞬間(11-combat-actions.js、Phase 4)
+    updatePendingSkill2(dt);      // 崩し斬りの刃が前を通過する瞬間(D-04)
     updateUltBurst(dt);   // 多段必殺技の残りの段(サブ武器専用)
     if(state.dodgeCD>0) state.dodgeCD = Math.max(0,state.dodgeCD-dt);
     if(state.ultLockT>0) state.ultLockT = Math.max(0,state.ultLockT-dt);   // 発動直後の保険的ロックアウトのみ(本体はゲージ制)

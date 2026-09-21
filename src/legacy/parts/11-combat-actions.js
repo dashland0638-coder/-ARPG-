@@ -1087,10 +1087,9 @@
      (applyStaggerResult)をそのまま通る ―― 新しい戦闘基盤は作らない。
      数値(倍率・ダウン値・踏み込み距離)は正式決定まで暫定(仕様 6-3)。 */
   function castCrushSlash(dmg, fwd, def){
-    // 低く、前方だけを薙ぐ軌跡。円を描くVFXは使わない(回転斬りに見せない)
-    spawnSweepVFX(fwd, def.range, def.arc, 0xffd9a0);
-    /* 一歩ぶんの踏み込み。移動そのものは奪わない ―― 通常攻撃の踏み込みと
-       同じ仕組み(core/attack-lunge.js)にそのまま乗せてあるので、
+    /* 一歩ぶんの踏み込みは入力フレームで始める ―― 踏み込みは「振る前の
+       動作」なので、ここだけは待たせない。移動そのものは奪わず、通常攻撃
+       の踏み込みと同じ仕組み(core/attack-lunge.js)に乗せてあるので、
        壁抜けも間合いの作り直しも起きない */
     if(state.grounded){
       state.attackLunge = {
@@ -1100,13 +1099,31 @@
         fwd: fwd.clone(),
       };
     }
+    /* 判定と VFX は「刃が前を通過する瞬間」まで待つ。
+
+       実機レビューで「剣の軌道と攻撃判定/VFX が一致していない」と
+       指摘された点がここ ―― 以前は入力フレームで即座に判定していた
+       ため、当たってから剣が振られる順序で見えていた。既存の
+       pendingUlt / pendingSwing と同じ「一撃が届く瞬間まで保留する」型。
+
+       向きは発生時の state.swingLockFacing(振っている間ロックされる)を
+       使うので、判定・VFX・剣の軌道が必ず同じ方向を指す。 */
+    const delay = Math.max(0, (state.swingDur || 0.5) * CRUSH_SLASH_STRIKE_T);
+    state.pendingSkill2 = {t: delay, fire: ()=> crushSlashStrike(dmg, def)};
+  }
+
+  /* 刃が前を通過した瞬間。判定 → VFX の順で、同じ向き・同じ射程・
+     同じ扇角を使う(VFX で判定のズレを隠さない、という方針) */
+  function crushSlashStrike(dmg, def){
+    const yaw = state.swinging ? state.swingLockFacing : state.facing;
+    const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
     let hits = 0;
     enemies.forEach(en=>{
       if(en.dead || en.dormant) return;
       if(!isBossAccessible(en)) return;
       const r = crushSlashHit(en.group.position.x - state.pos.x,
                               en.group.position.z - state.pos.z,
-                              state.facing, def.range, def.arc);
+                              yaw, def.range, def.arc);
       if(!r.hit) return;
       hits++;
       dealDamageToEnemy(en, dmg, false);
@@ -1119,7 +1136,23 @@
         abilityMul: def.staggerMul,
       }));
     });
+    // 低く、前方だけを薙ぐ軌跡。円を描くVFXは使わない(回転斬りに見せない)
+    spawnSweepVFX(fwd, def.range, def.arc, 0xffd9a0);
+    sfx('slashHeavy');
     if(hits) addShake(0.06);
+  }
+
+  /* 崩し斬りの判定保留。pendingUlt と同じ形で、会話や世界遷移が
+     挟まったら落とす(当たり判定だけが後から飛ばないように) */
+  function updatePendingSkill2(dt){
+    const ps = state.pendingSkill2;
+    if(!ps) return;
+    if(!state.started || state.dialogueActive){ state.pendingSkill2 = null; return; }
+    ps.t -= dt;
+    if(ps.t > 0) return;
+    state.pendingSkill2 = null;
+    try{ ps.fire(); }
+    catch(err){ console.error('crush slash strike failed:', err); }
   }
 
   /* 崩し斬りの軌跡。前方の扇を床すれすれに薄く光らせるだけの一枚。
@@ -1131,20 +1164,26 @@
      (decals は焼け跡専用で形が違うため、そちらへは混ぜない)。 */
   function spawnSweepVFX(fwd, range, arc, color){
     const yaw = Math.atan2(fwd.x, fwd.z);
-    const geo = new THREE.RingGeometry(range*0.30, range, 20, 1,
+    /* **判定と同じ**角度・射程の弧を、床すれすれに1本だけ引く。
+
+       以前は内径 0.30×射程 の広い扇を塗っていたが、それだと派手さで
+       判定の位置をごまかしてしまう(実機レビューの指摘)。いまは刃先が
+       通った帯だけ ―― 内径 0.78×射程 の細い弧 ―― にしてあるので、
+       絵に出ている線がそのまま「当たる範囲の外周」になる。 */
+    const geo = new THREE.RingGeometry(range*0.78, range, 22, 1,
                                        Math.PI/2 - arc, arc*2);
-    const mat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.55,
+    const mat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.62,
                                              side:THREE.DoubleSide, depthWrite:false});
     const mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = -Math.PI/2;
     mesh.rotation.z = -yaw;
-    mesh.position.set(state.pos.x, state.pos.y + 0.16, state.pos.z);
+    // 足元を薙いだ跡なので、腰でも胸でもなく床の高さに置く
+    mesh.position.set(state.pos.x, state.pos.y + 0.10, state.pos.z);
     scene.add(mesh);
-    const startT = performance.now(), duration = 260;
+    const startT = performance.now(), duration = 220;
     function tick(){
       const t = Math.min(1, (performance.now()-startT)/duration);
-      mat.opacity = 0.55*(1-t);
-      mesh.scale.setScalar(1 + t*0.12);
+      mat.opacity = 0.62*(1-t);
       if(t<1){ requestAnimationFrame(tick); }
       else { scene.remove(mesh); geo.dispose(); mat.dispose(); }
     }

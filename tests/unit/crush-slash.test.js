@@ -10,7 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CRUSH_SLASH, CRUSH_SLASH_CLIP, CRUSH_SLASH_STRIKE_T,
+  CRUSH_SLASH, CRUSH_SLASH_CLIP, CRUSH_SLASH_STRIKE_T, CRUSH_SLASH_SWEEP_T,
   CRUSH_SLASH_ARC, CRUSH_SLASH_RANGE,
   crushSlashHit, validateCrushSlashClip, validateCrushSlashArc,
   PROVISIONAL_STAGGER_MUL, PROVISIONAL_DMG_MUL,
@@ -52,10 +52,74 @@ test('崩し斬りは回転斬りではない(仕様 6-2 の禁止事項)', asyn
     assert.equal(last.stance, true);
   });
 
-  await t.test('低い軌道 ―― 一閃のフレームは腰を落としている', ()=>{
-    const strike = CRUSH_SLASH_CLIP.find(f => f.t === CRUSH_SLASH_STRIKE_T);
-    assert.ok(strike, '一閃のフレームが見つからない');
-    assert.ok(strike.drop > 0.15, `drop=${strike.drop} ―― 足元を狙う技として浅い`);
+  await t.test('低い軌道 ―― 薙ぎ抜けのフレームは腰を落としている', ()=>{
+    const sweep = CRUSH_SLASH_CLIP.find(f => f.t === CRUSH_SLASH_SWEEP_T);
+    assert.ok(sweep, '薙ぎ抜けのフレームが見つからない');
+    assert.ok(sweep.drop > 0.15, `drop=${sweep.drop} ―― 足元を狙う技として浅い`);
+  });
+});
+
+/* 実機レビューで「足元を横薙ぎしているように見えない」と指摘された点。
+   見た目の印象ではなく、刃の向き(wep の第1ベクトル = 切っ先が指す方)を
+   数値で縛る。 */
+test('足元を横薙ぎしている(実機レビュー 2)', async t=>{
+  const swung = CRUSH_SLASH_CLIP.filter(f => Array.isArray(f.wep)
+    && f.t > 0 && f.t <= CRUSH_SLASH_SWEEP_T);
+
+  await t.test('薙いでいる区間のフレームが存在する', ()=>{
+    assert.ok(swung.length >= 2, `薙ぎの区間が ${swung.length} フレームしかない`);
+  });
+
+  await t.test('刃が上を向いていない ―― 切っ先は水平か床側', ()=>{
+    swung.forEach(f=>{
+      assert.ok(f.wep[1] <= 0,
+        `t=${f.t} で切っ先が上を向いている (y=${f.wep[1]})`);
+    });
+  });
+
+  await t.test('刃が身体の片側からもう片側へ抜ける(= 横薙ぎ)', ()=>{
+    const sides = swung.map(f => Math.sign(f.wep[0]));
+    assert.ok(sides.some(v => v > 0), '右側を通っていない');
+    assert.ok(sides.some(v => v < 0), '左側へ抜けていない');
+  });
+
+  await t.test('検査器は上から斬り下ろすクリップを blade-not-low で弾く', ()=>{
+    const overhead = CRUSH_SLASH_CLIP.map(f => Array.isArray(f.wep)
+      ? Object.assign({}, f, {wep:[f.wep[0], 0.9, f.wep[2], f.wep[3], f.wep[4], f.wep[5]]})
+      : f);
+    assert.ok(validateCrushSlashClip(overhead).violations.includes('blade-not-low'));
+  });
+
+  await t.test('検査器は片側だけで振る(突き)クリップを not-a-horizontal-sweep で弾く', ()=>{
+    const thrust = CRUSH_SLASH_CLIP.map(f => Array.isArray(f.wep)
+      ? Object.assign({}, f, {wep:[0.1, f.wep[1], 0.99, f.wep[3], f.wep[4], f.wep[5]]})
+      : f);
+    assert.ok(validateCrushSlashClip(thrust).violations.includes('not-a-horizontal-sweep'));
+  });
+
+  await t.test('検査器は腰を落とさないクリップを not-crouched で弾く', ()=>{
+    const tall = CRUSH_SLASH_CLIP.map(f => f.t === CRUSH_SLASH_SWEEP_T
+      ? Object.assign({}, f, {drop:0.02}) : f);
+    assert.ok(validateCrushSlashClip(tall).violations.includes('not-crouched'));
+  });
+});
+
+/* 判定・VFX・モーションが同じ瞬間を指していること。
+   判定を遅らせる実体は 11-combat-actions.js(state.pendingSkill2)側だが、
+   「いつ当たるか」の定義はここが持つ。 */
+test('判定は刃が前を通過する瞬間に起きる(実機レビュー 3)', async t=>{
+  await t.test('入力フレームではなく、振りの途中で当たる', ()=>{
+    assert.ok(CRUSH_SLASH_STRIKE_T > 0, '入力と同時に当たってしまう');
+  });
+
+  await t.test('当たるのは薙ぎ抜けが完成するより前(振り抜き後ではない)', ()=>{
+    assert.ok(CRUSH_SLASH_STRIKE_T < CRUSH_SLASH_SWEEP_T);
+  });
+
+  await t.test('当たる瞬間は予備動作より後 ―― 引いている最中には当たらない', ()=>{
+    const windup = CRUSH_SLASH_CLIP.find(f => f.t === 0.22);
+    assert.ok(windup, '予備動作のフレームが見つからない');
+    assert.ok(CRUSH_SLASH_STRIKE_T > windup.t);
   });
 });
 
@@ -82,7 +146,7 @@ test('検査器そのものが禁止事項を検出できる', async t=>{
   });
 
   await t.test('跳ね上がるクリップは airborne-lift で落ちる', ()=>{
-    const air = good.map(f => f.t === 0.38 ? Object.assign({}, f, {lift:0.4}) : f);
+    const air = good.map(f => f.t === CRUSH_SLASH_SWEEP_T ? Object.assign({}, f, {lift:0.4}) : f);
     assert.ok(validateCrushSlashClip(air).violations.includes('airborne-lift'));
   });
 

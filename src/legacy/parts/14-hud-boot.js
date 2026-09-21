@@ -1097,6 +1097,15 @@
       updateCutscenePhysics(dt);
       updateCollapse(dt);
       updateAltitude(dt);
+      /* 屋根の出し入れは演出中も要る。ここを止めていると、カットシーンで
+         別の階へ飛ばした直後に屋根が前の階のままになり、プレイヤーが
+         屋根の下に埋まって X-ray(壁越しの輪郭)で描かれる ―― 実機で
+         「再会イベントの冒頭でシルエット・透過状態になる」と報告された
+         のがこれ。判定は state.pos を見るだけなので、演出中に呼んでも
+         副作用は無い */
+      updateMansionRoof();
+      updateRestroomRoof();
+      updateManorSmith(dt);   // 再会演出で鍛冶屋が歩み寄る(仕様 7)
       updateShake(dt);
       updateSparks(dt);
       updateCamera(dt);

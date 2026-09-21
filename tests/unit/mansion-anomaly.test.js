@@ -142,6 +142,29 @@ test('ボス撃破後の再会(仕様 10)', async t=>{
   });
 });
 
+/* 実機レビュー 4: 作業室で合流する前の場所(森の入口・二階入口)に
+   鍛冶屋が立っていた。原因は repositionAlliesToPlayer() が世界へ入る
+   たびに鍛冶屋をプレイヤーの後ろへ引きずっていたことで、同行状態を
+   見ていなかったため。「どの状態なら動かしてよいか」はここが決める。 */
+test('作業室で合流するまで、鍛冶屋は動かない(実機レビュー 4)', async t=>{
+  await t.test('出会う前は付いて歩かない', ()=>{
+    assert.equal(escortFollows(ESCORT.NONE), false);
+  });
+
+  await t.test('分離後も付いて歩かない ―― 無理に同行NPCとして維持しない', ()=>{
+    assert.equal(escortFollows(ESCORT.SEPARATED), false);
+  });
+
+  await t.test('再会後も付いて歩かない(そこで洋館は終わる)', ()=>{
+    assert.equal(escortFollows(ESCORT.REUNITED), false);
+  });
+
+  await t.test('同行中だけが true ―― 置き直してよいのもこの状態だけ', ()=>{
+    const all = [ESCORT.NONE, ESCORT.JOINED, ESCORT.SEPARATED, ESCORT.REUNITED];
+    assert.deepEqual(all.filter(escortFollows), [ESCORT.JOINED]);
+  });
+});
+
 test('同行の追従(鍛冶屋は戦闘に関与しない)', async t=>{
   await t.test('付いて歩くのは同行中だけ', ()=>{
     assert.equal(escortFollows(ESCORT.JOINED), true);

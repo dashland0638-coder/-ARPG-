@@ -1247,6 +1247,7 @@
   function playCutscene(steps){
     cutscene = {steps:steps.slice(), i:0, t:0};
     state.dialogueActive = true;      // no input while it runs
+    state.cutsceneTurn = null;        // 前の演出の振り返りを持ち越さない
     clearMovementInput(false);
   }
   function updateCutscene(dt){
@@ -1269,7 +1270,27 @@
     }
     if(cutscene && cutscene.i >= cutscene.steps.length) cutscene = null;
   }
-  function stopCutscene(){ cutscene = null; }
+  function stopCutscene(){ cutscene = null; state.cutsceneTurn = null; }
+
+  /* 演出中に振り返らせる。角度は最短方向へ回す(π を跨いでも遠回りしない)。
+     camYaw を渡すと、カメラも同じ時間で同じように回る ―― 本人が見て
+     いるものを画面に入れたいときに使う。 */
+  function shortestTurn(from, to){
+    let d = to - from;
+    while(d >  Math.PI) d -= Math.PI*2;
+    while(d < -Math.PI) d += Math.PI*2;
+    return from + d;
+  }
+  function cutsceneTurnTo(toYaw, dur, toCamYaw){
+    state.cutsceneTurn = {
+      from: state.facing, to: shortestTurn(state.facing, toYaw),
+      t: 0, dur: Math.max(0.05, dur || 0.6),
+    };
+    if(toCamYaw !== undefined){
+      state.cutsceneTurn.camFrom = state.camYaw;
+      state.cutsceneTurn.camTo = shortestTurn(state.camYaw, toCamYaw);
+    }
+  }
 
   /* Gravity, the scripted arc and the sea, for the frames where the player
      has no control. Deliberately a small subset of updatePlayer: no input, no
@@ -1287,6 +1308,25 @@
       state.pos.x += state.walkTo.vx * dt;
       state.pos.z += state.walkTo.vz * dt;
       if(player) player.rotation.y = state.facing;
+    }
+    /* 演出中の振り返り。walkTo と同じ考え方で、行き先(to)ではなく
+       残り時間で持たせる ―― カットシーンのステップは離散的なので、
+       向きを段々に書くと首が飛ぶ。ここで毎フレーム補間する。
+       洋館の分離(剣士が振り返る)が使っている */
+    if(state.cutsceneTurn){
+      const ct = state.cutsceneTurn;
+      ct.t = Math.min(ct.dur, ct.t + dt);
+      const k = ct.dur > 0 ? ct.t / ct.dur : 1;
+      const eased = k*k*(3-2*k);              // smoothstep。振り向きに勢いを付けない
+      state.facing = ct.from + (ct.to - ct.from) * eased;
+      /* カメラも一緒に回す場合(camTo を持つとき)。見下ろし固定の
+         カメラは camYaw の方向に居てプレイヤーを見るので、向きを
+         変えるだけでは「本人が何を見ているか」が画面に入らない ――
+         洋館の分離で、振り返った先の壁を見せるのに要る */
+      if(ct.camTo !== undefined){
+        state.camYaw = ct.camFrom + (ct.camTo - ct.camFrom) * eased;
+      }
+      if(ct.t >= ct.dur) state.cutsceneTurn = null;
     }
     state.yVel -= 22*dt;
     state.pos.y += state.yVel*dt;

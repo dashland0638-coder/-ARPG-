@@ -93,6 +93,10 @@ import * as THREE from 'three';
     smithToolsRecovered:false,
     escapeFalling:false,        // committed to the leap off the lookout
     walkTo:null,                // a scripted walk during a cutscene
+    /* 演出中の振り返り({from,to,t,dur})。walkTo と同じくカットシーン中
+       だけの一時状態で、updateCutscenePhysics が毎フレーム補間する。
+       洋館の分離で剣士が振り返るのに使う(セーブ対象外) */
+    cutsceneTurn:null,
     shakeScale:1,               // 0 = off, 0.5 = gentle, 1 = full (settings)
     hitStopScale:1,             // 0 disables the impact freeze entirely
     brightness:1,               // multiplies the scenario's own exposure
@@ -138,6 +142,10 @@ import * as THREE from 'three';
          pendingExecution … 一撃が届く瞬間まで保留したダメージ/演出({t, fire})
        pendingSwing / pendingUlt と同じ戦闘中の一時状態なのでセーブ対象外 */
     executeT:0, executeTarget:null, pendingExecution:null,
+    /* 崩し斬り(D-04)の判定保留。刃が前を通過する瞬間まで当たり判定と
+       VFX を待たせる({t, fire})。pendingSwing / pendingUlt と同じ
+       戦闘中の一時状態なのでセーブ対象外 */
+    pendingSkill2:null,
     /* 必殺技の再生で「実時間のどこが接触か」(= 遅延 / クリップ長)。
        applyCombatPose がこれを使ってクリップの進み方を折り曲げ、
        見た目の接触フレームを当たる瞬間へ重ねる(core/ult-clips.js の

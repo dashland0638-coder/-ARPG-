@@ -192,6 +192,7 @@
 
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
+    state.pendingSkill2 = null;   // 崩し斬りの判定保留(D-04)
 
     // 上位ジョブ(#9/Phase B)。v2セーブにはこのフィールドが無い(undefined)
     // ため、その場合はnull=未転身のまま扱う。selectedClassの上位職キーと
