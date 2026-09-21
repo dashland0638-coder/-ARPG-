@@ -390,7 +390,6 @@
     bossBarChip = 100;
     document.getElementById('boss-bar-wrap').classList.remove('show');
     nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false;
-    nearbyLantern = null;   // Phase D(#37, 宵待ちの村): 前のダンジョンの灯りを指したまま残らないように
     mansionRoof = null; restroomRoof = null; platform = null;
     currentWorldKey = null;
     /* ここまでで、この世界のものはすべてシーンから外れている。
@@ -839,6 +838,17 @@
               {cue:'caveBreath',  min:20, max:46} ],
     lord:   [],                                    // ボス前と主の間は無音
     tavern: [ {cue:'tavernMurmur', min:10, max:22} ],
+    /* 宵待ちの村(DEC-001)。水の村なので、風・家鳴り・水音を薄く敷く。
+       ボスエリアだけは主の間と同じく無音(duskAmbienceZone が null を返す) */
+    duskShore:  [ {cue:'forestWind',  min:13, max:27},
+                  {cue:'leafRustle',  min:11, max:24},
+                  {cue:'distantBird', min:21, max:46} ],
+    duskVillage:[ {cue:'houseCreak',  min:12, max:29},
+                  {cue:'waterDrip',   min:14, max:33},
+                  {cue:'floorTick',   min:20, max:48} ],
+    duskDeep:   [ {cue:'waterDrip',   min:10, max:26},
+                  {cue:'distantStir', min:24, max:52},
+                  {cue:'forestWind',  min:22, max:46} ],
   };
 
   let ambienceZone = null;
@@ -2295,7 +2305,7 @@
   // single interact prompt shared by doors, staircases and lore notes: shows
   // a plain message, not a flashy call-to-action button
   function updateInteractPrompt(){
-    const target = nearbyShadowGuide || nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith || nearbyCheckpoint || nearbyLantern;
+    const target = nearbyShadowGuide || nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith || nearbyCheckpoint;
     const el = document.getElementById('interact-btn');
     if(!el) return;
     el.classList.toggle('show', !!target && !state.paused && !state.dialogueActive);
@@ -2324,7 +2334,6 @@
     else if(nearbyBartender) el.textContent = '🗺️ 店主と話す(出撃)';
     else if(nearbySmith) el.textContent = state.smithJoined ? '🔨 鍛冶士と話す(鑑定・強化)' : '🧰 仮設の作業台(鑑定・強化)';
     else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)' : '🏕️ 休憩する(回復+装備整理)';
-    else if(nearbyLantern) el.textContent = nearbyLantern.lit ? '🏮 灯りは点いている' : '🏮 灯りを点ける';
   }
 
   function interact(){
@@ -2342,7 +2351,6 @@
     else if(nearbyBartender){ toggleScenarioSelect(); }
     else if(nearbySmith){ toggleAppraisal(); }
     else if(nearbyCheckpoint){ useCheckpoint(); }
-    else if(nearbyLantern){ lightLantern(nearbyLantern); }
   }
 
   // wraps any instant relocation in a short fade so the cut isn't jarring

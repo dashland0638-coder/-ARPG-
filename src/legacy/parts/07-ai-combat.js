@@ -555,26 +555,13 @@
       clearName:'水路の主', clearFlavor:'巨体はゆっくりと水底へ沈んでいき、水路に静寂が戻った。',
       rewardLoot:{type:'gem', name:'帯電した甲羅の欠片', icon:'💎', color:0x9a6ae0}
     }));
-    // 宵待ちの村(Phase D/#37): 村人・影の子供・ボスの生成はここで行う
-    // (buildDuskVillage()はランタンなど地形側だけを先に用意している ――
-    // 詳細は14-dungeon-duskvillage.js冒頭のコメント参照)
+    /* 宵待ちの村(正式仕様 / DEC-001)。旧実装の村人・影の子供・宵影の群れは
+       テーマごと差し替えになったため置いていない ―― 水鏡の影・泡沫の群れ・
+       写し身・記憶漁師・水門守の残響・村の残響は WORK 3 以降で、この分岐に
+       足していく(14-dungeon-duskvillage.js 冒頭のコメント参照)。
+       WORK 2 の時点では、マップと環境だけを歩いて確かめられる状態にしてある。 */
     if(_spawnWorldKey==='duskvillage'){
-      // マップ刷新(狭い桟橋の蜘蛛の巣状レイアウト)に伴い、各村人・影の子供の
-      // 立ち位置もハブ/小屋の足場の内側(DUSK_ROOMS参照)に合わせて置き直した
-      enemies.push(villager(0, 345));    // 桟橋の分岐(hub1)
-      enemies.push(villager(-27, 389));  // 民家A
-      enemies.push(villager(27, 389));   // 民家B
-      enemies.push(villager(0, 433));    // 役場裏口(hub3)
-      enemies.push(villager(0, 474));    // 商店街
-      addDuskShadowChild(duskLanterns[0], 3, 341);
-      addDuskShadowChild(duskLanterns[0], -3, 349);
-      addDuskShadowChild(duskLanterns[1], -24, 385);
-      addDuskShadowChild(duskLanterns[1], -30, 393);
-      addDuskShadowChild(duskLanterns[2], 24, 385);
-      addDuskShadowChild(duskLanterns[2], 30, 393);
-      const boss = buildDuskBoss();
-      enemies.push(boss);
-      duskBossRef = boss;
+      duskBossRef = null;
     }
     // テストモードのカカシ(訓練用の的)。hp/atk/speedはdifficultyFor()の
     // 補正(_D)がそのままかかるが、'training'は星取りデータが無いキーの
@@ -3950,14 +3937,6 @@
   function dealDamageToEnemy(en, amount, isAlly, opts){
     opts = opts || {};
     if(!en || en.dead) return;
-    // 宵影の群れ(Phase D/#37)の核心ギミック: 「光が当たっていない間は
-    // 攻撃が効かない」。updateDuskVillage()(15-dungeon-duskvillage.js)が
-    // 毎フレーム、点いたランタンの近くにいるかどうかでen.lightDimmedを
-    // 切り替える。DoT(燃焼など)も含めて完全に無効化する
-    if(en.lightDimmed){
-      if(!(en._dimHintCD>0)){ en._dimHintCD = 2.2; spawnToast('💡 灯りを当てないと効かない……'); }
-      return;
-    }
     let isCrit = false;
     if(!opts.isDot && !isAlly){
       const mods = applyOutgoingDamageMods(amount, en);

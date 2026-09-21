@@ -57,6 +57,7 @@ import { clipFracAt, impactFrac, swingSfxDelay } from '../core/swing-timing.js';
 import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/soft-lock.js';
 import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
+import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor } from '../core/dusk-village-map.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

@@ -1,96 +1,86 @@
 // @ts-check
+// 宵待ちの村(正式仕様「忘れられること」/ DEC-001、WORK 2)のマップ回帰テスト。
+//
+// 旧テストは「蜘蛛の巣状の桟橋」を検証するもので、そのマップごと差し替わった
+// ため、新しい導線を歩くテストへ置き換えてある。入場は Scenario Test Mode
+// (WORK 1)経由 ―― 旧テストは minLevel:26 を越えるための偽セーブを注入し、
+// 酒場の主人まで最大30回歩き直してから出撃していて、それだけで3分かかっていた。
+//
+// ここで見るのは「ワールドが組み上がること」「場所名が切り替わること」
+// 「村の中を実際に歩けること」の3つ。村の端から端までの連結
+// (商店街 → 水門前 → 水門 → 村の奥 → ボスエリア)は
+// tests/unit/dusk-village-map.test.js が部屋テーブルに対して直接固定している
+// ―― この環境(SwiftShader)は実プレイの1割程度の速度しか出ず、1区画進むのに
+// 40秒前後かかるため、歩行での確認は村の入口側だけに絞ってある。
+//
+// 移動はカメラ相対(inputToWorldDir)。入場時の camYaw は π 固定なので、
+// W = 村の奥(+Z) / A = 東(+X) / D = 西(-X)。
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
+import { openGame, watchErrors, startTestMode, disableCameraAutoFollow } from './helpers.js';
 
-// Regression test for the duskvillage map rework (narrow boardwalk web,
-// see 14-dungeon-duskvillage.js). Builds the world, then walks a short
-// stretch of the spine and detours into one side spur - enough to exercise
-// a hub's gap-aligned wall geometry (DUSK_ROOMS) as real collision, not
-// just the static table. The full spine is ~250 units long and this
-// environment's software-rendered (swiftshader) headless Chromium runs far
-// slower than real playback speed, so reaching the boss plaza itself isn't
-// practical within a test timeout - that part of the layout was instead
-// verified with a standalone script that mirrors buildWalls()'s own
-// gap-matching rule against every DUSK_ROOMS entry (all 21 rooms consistent,
-// every placed lantern/villager/lore-note/prop position confirmed inside a
-// room's floor bounds).
-test.describe('duskvillage map rework', () => {
-  test('builds the world and walks off the spine into a hub spur without errors', async ({ page }) => {
-    test.setTimeout(210_000);   // 店主まで歩き直す回数を増やしたぶん、上限も上げる
+// 場所名が変わらない区間(広い部屋の中での位置取り)向けの、時間指定の歩き
+async function walkFor(page, key, ms) {
+  await page.keyboard.down(key);
+  await page.waitForTimeout(ms);
+  await page.keyboard.up(key);
+  await page.waitForTimeout(200);
+}
+
+/* キーは押しっぱなしにしたまま場所名だけを見に行き、着いた瞬間に離す。
+   押す→待つ→離すを繰り返すと毎回加速し直すぶん遅くなる。着いた時点で
+   抜けるので、通る場合の所要時間は上限を伸ばしても変わらない。 */
+async function walkUntilRoom(page, keys, expected, maxMs = 90_000) {
+  const held = Array.isArray(keys) ? keys : [keys];
+  if ((await page.textContent('#minimap-room')) === expected) return true;
+  for (const k of held) await page.keyboard.down(k);
+  try {
+    const deadline = Date.now() + maxMs;
+    while (Date.now() < deadline) {
+      await page.waitForTimeout(400);
+      if ((await page.textContent('#minimap-room')) === expected) return true;
+    }
+    return false;
+  } finally {
+    for (const k of held) await page.keyboard.up(k);
+    await page.waitForTimeout(200);
+  }
+}
+
+test.describe('宵待ちの村 (正式マップ)', () => {
+  test('森から村の入口・中央広場まで歩けて、場所名が切り替わる', async ({ page }) => {
+    test.setTimeout(240_000);
     const errors = watchErrors(page);
-    // duskvillage's minLevel is 26 (SCENARIO_DEFS, 12-progression-ui.js),
-    // and every new game now starts at Lv.1 as the fixed 剣士 cast (#41,
-    // キャラメイク廃止) with no way to grind levels from the title screen -
-    // so seed a save that's already past the gate and continue from it,
-    // rather than starting fresh. Same minimal-but-valid save shape as the
-    // repeat-run test in scenario-timer.spec.js.
-    await page.addInitScript(() => {
-      localStorage.setItem('soulforge_save_v1', JSON.stringify({
-        v: 2, selectedClass: 'warrior', selectedGender: 'male', selectedPersonality: 'cautious',
-        playerName: '剣士', allocPoints: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 },
-        level: 30, xp: 0, xpToNext: 999999, levelGrowth: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 },
-        equipLevel: 0, inventory: { gold: 0, gem: 0, potion: 0, shard: 0, mppotion: 0 },
-        equipmentInventory: [], equipped: { weapon: null, upper: null, lower: null },
-        skills: {}, ranks: {}, freeRanks: 0, unlockedSphereNodes: ['root'], spherePoints: 0,
-        bossClears: {}, learnedBossAbilities: [], equippedBossAbilities: [], learnedBossSkills: [],
-        scenarioClears: {}, clearedScenarios: {}, routeCombosSeen: {},
-      }));
-    });
     await openGame(page);
-    await expect(page.locator('#continue-banner')).toBeVisible();
-    await page.click('#cc-continue-btn');
+
+    // 魔法使い主役パートの構成(Player=魔法使い / Support AI=剣士)で入る
+    await startTestMode(page, { classKey: 'mage', guestKey: 'warrior', scenario: 'duskvillage', level: 30 });
     await expect(page.locator('#hud')).toHaveClass(/active/);
-    await dismissIntroDialogue(page);
     await disableCameraAutoFollow(page);
 
-    let scenarioOpen = false;
-    /* 店主まで歩けるかどうかは、この環境の描画の遅さでフレーム落ちの
-       しかたが変わるぶんだけ揺れる。歩き直す回数を多めに取っておく
-       (届いた時点で抜けるので、通る場合の所要時間は変わらない) */
-    for (let attempt = 0; attempt < 30 && !scenarioOpen; attempt++) {
-      await page.keyboard.down('KeyW');
-      await page.keyboard.down('KeyA');
-      await page.waitForTimeout(500);
-      await page.keyboard.up('KeyW');
-      await page.keyboard.up('KeyA');
-      await page.keyboard.press('KeyF');
-      await page.waitForTimeout(300);
-      scenarioOpen = await page.evaluate(() => document.getElementById('scenario-overlay').classList.contains('active'));
-    }
-    expect(scenarioOpen).toBe(true);
+    // ミニマップに村と入場地点の場所名が出る(AREA_NAMES / roomNameAt へ
+    // duskvillage を登録した回帰)
+    await expect(page.locator('#minimap-area')).toHaveText('宵待ちの村', { timeout: 20_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('湖畔の森道', { timeout: 20_000 });
+    await page.screenshot({ path: 'test-results/dusk-01-forest.png' });
 
-    // duskvillage sits 6th in the scenario list (below the fold), and the
-    // list re-renders its innerHTML continuously while open - that churn
-    // means Playwright's normal click() (which waits for the element to be
-    // "stable") never settles. Scroll and click it directly instead.
-    await page.evaluate(() => {
-      const btn = document.querySelector('.scenario-sortie-btn[data-scenario="duskvillage"]');
-      btn.scrollIntoView({ block: 'center' });
-      btn.click();
-    });
-    // duskvillage's tavern gossip is 9 lines (longer than mansion's 7) - give
-    // this loop enough iterations to actually clear it, or every following
-    // action lands on the still-open dialogue overlay instead of the world.
-    for (let i = 0; i < 16; i++) {
-      const active = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
-      if (!active) break;
-      await page.evaluate(() => document.getElementById('dialogue-overlay').click());
-      await page.waitForTimeout(400);
-    }
-    const stillActive = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
-    expect(stillActive).toBe(false);
-    await page.waitForTimeout(1000);
-    await page.screenshot({ path: 'test-results/dusk-entry.png' });
+    // 森 → 木橋(小道なので場所名は森のまま)→ 村の入口
+    expect(await walkUntilRoom(page, 'KeyW', '村の入口')).toBe(true);
+    await page.screenshot({ path: 'test-results/dusk-02-gate.png' });
 
-    // Walk forward off the entry room and strafe into the first spur - the
-    // narrowest, most gap-alignment-sensitive part of the layout.
-    await page.keyboard.down('KeyW');
-    await page.waitForTimeout(2000);
-    await page.keyboard.up('KeyW');
-    await page.keyboard.down('KeyA');
-    await page.waitForTimeout(1500);
-    await page.keyboard.up('KeyA');
-    await page.screenshot({ path: 'test-results/dusk-pier-spur.png' });
+    // 村の入口 → 中央広場(井戸のある村の中心)
+    expect(await walkUntilRoom(page, 'KeyW', '中央広場')).toBe(true);
+    await page.screenshot({ path: 'test-results/dusk-03-plaza.png' });
+
+    /* 広場の中を歩いて、井戸・掲示板・洗濯物のある村の中心まで入る。
+       ここから先(魚屋・住宅・船小屋への枝、商店街 → 水門前 → 水門 →
+       村の奥 → ボスエリア)は歩かない ―― この環境では1区画に40秒前後かかり、
+       枝の開口へ寄せる動きは秒数の揺れでそのまま不安定になる。開口の
+       突き合わせと入口からの連結は tests/unit/dusk-village-map.test.js が
+       部屋テーブルに対して直接固定しているので、E2Eは「組み上がって、
+       実際に歩けて、場所名が出る」ことの確認に絞る */
+    await walkFor(page, 'KeyW', 15_000);
+    await expect(page.locator('#minimap-room')).toHaveText('中央広場');
+    await page.screenshot({ path: 'test-results/dusk-04-plaza-center.png' });
 
     expect(errors).toEqual([]);
   });

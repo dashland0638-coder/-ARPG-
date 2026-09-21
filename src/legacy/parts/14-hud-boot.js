@@ -433,6 +433,7 @@
     tavern:'港町の酒場', mansion:'囚われの洋館', ghostship:'幽霊船',
     waterway:'埠頭の地下水路', temple:'古代神殿',
     clocktower:'狂いの時計塔', conservatory:'硝子の温室',
+    duskvillage:'宵待ちの村',
   };
   // 「山を登る」拡張の各部屋(周回★でしか現れず、テーブル駆動の部屋一覧
   // には乗っていない)にも、迷わないよう固有の場所名を出す。星条件を
@@ -453,6 +454,7 @@
       {rooms: typeof TOWER_ROOMS !== 'undefined' ? TOWER_ROOMS : null, floors:true},
       {rooms: typeof CONS_ROOMS !== 'undefined' ? CONS_ROOMS : null},
       {rooms: typeof TEMPLE_ROOMS !== 'undefined' ? TEMPLE_ROOMS : null},
+      {rooms: typeof DUSK_ROOMS !== 'undefined' ? DUSK_ROOMS : null},
     ];
     for(const t of tables){
       if(!t.rooms) continue;

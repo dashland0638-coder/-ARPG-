@@ -2254,6 +2254,8 @@
      'lord' として別扱いにし、環境音を一切鳴らさない。 */
   function currentAmbienceZone(){
     if(currentWorldKey === 'tavern') return 'tavern';
+    // 宵待ちの村は区画の決め方が違う(部屋idで分ける)ので、向こうに任せる
+    if(currentWorldKey === 'duskvillage') return duskAmbienceZone();
     if(currentWorldKey !== 'mansion') return null;
     const r = mansionRoomAt(state.pos.x, state.pos.z);
     if(!r){
