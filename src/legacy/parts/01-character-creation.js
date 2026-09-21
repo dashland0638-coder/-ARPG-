@@ -362,6 +362,13 @@
      (ダイス振り・ステータス配分)は経由しない。実際の状態リセット・
      ワールド遷移はbeginTestMode()(14-hud-boot.js)側で行い、ここは
      選択UIの組み立てだけを担当する
+
+     SCENARIO TEST MODE(WORK 1)
+     シナリオを選ぶと、トレーニング空間へ入った直後にそのダンジョンへ
+     出撃する。本編のChapter進行(applyChapterCast/酒場イベント/加入順)は
+     一切再現しない ―― 開発中のシナリオ・キャラクター・戦闘システムを
+     本編を最初から遊ばずに検証するためだけの経路。セーブ保護は既存の
+     state.testModeがそのまま効く(beginTestMode側のコメント参照)
   ========================================================= */
   (function setupTestModeScreen(){
     const titleScreen = document.getElementById('title-screen');
@@ -371,6 +378,7 @@
     const testClassGrid = document.getElementById('testmode-class-grid');
     const testJobGrid = document.getElementById('testmode-job-grid');
     const testGuestGrid = document.getElementById('testmode-guest-grid');
+    const testScenarioGrid = document.getElementById('testmode-scenario-grid');
     const testLevelInput = document.getElementById('testmode-level');
     const testLevelVal = document.getElementById('testmode-level-val');
     const testStartBtn = document.getElementById('testmode-start-btn');
@@ -379,6 +387,7 @@
     let tmClass = null, tmJob = null;   // tmJob: null=基礎職のまま(転身しない)
     let tmGuest = null;   // null=単独。ゲストのパーティメンバーAI(08-loot-equipment.jsのGUEST COMPANION)を
                            // 章の自動進行を待たずに直接検証できるようにするためのテストモード専用オプション
+    let tmScenario = null;  // null=トレーニング空間。キーを選べばそのシナリオへ直接出撃する
 
     if(testGuestGrid){
       const noneCard = document.createElement('div');
@@ -404,7 +413,56 @@
       });
     }
 
+    /* シナリオ一覧(Scenario Test Mode)。一覧の情報源はSCENARIO_DEFSひとつだけ
+       ―― ここに別の表を持たない。ワールド構築関数が無いもの(unlocked:false
+       のpyramid/volcano)は出さない。
+
+       組み立てをこのIIFEの中ではなく「テストモードを開いた瞬間」に遅らせて
+       あるのは、SCENARIO_DEFSが12-progression-ui.jsのconst、つまり連結後
+       このファイルより後ろで初期化されるため ―― 即時実行のこの関数から
+       参照するとTDZ(Temporal Dead Zone)で落ちる。開いた時点なら全ファイルの
+       評価が済んでいるので安全に読める。 */
+    let scenarioGridBuilt = false;
+    function buildScenarioGrid(){
+      if(scenarioGridBuilt || !testScenarioGrid) return;
+      scenarioGridBuilt = true;
+      const noneCard = document.createElement('div');
+      noneCard.className = 'testmode-job-card selected';
+      noneCard.dataset.scenarioKey = '';
+      noneCard.textContent = '🛠 トレーニング空間';
+      noneCard.addEventListener('click', ()=>{
+        testScenarioGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+        noneCard.classList.add('selected');
+        tmScenario = null;
+        refreshStartLabel();
+      });
+      testScenarioGrid.appendChild(noneCard);
+      SCENARIO_DEFS.forEach(sc=>{
+        if(!sc.unlocked) return;   // ワールド構築関数が無いものは起動できない
+        const card = document.createElement('div');
+        card.className = 'testmode-job-card';
+        card.dataset.scenarioKey = sc.key;
+        card.textContent = sc.name;
+        card.addEventListener('click', ()=>{
+          testScenarioGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+          card.classList.add('selected');
+          tmScenario = sc.key;
+          refreshStartLabel();
+        });
+        testScenarioGrid.appendChild(card);
+      });
+    }
+
+    // 行き先が変わるボタンなので、押す前にどちらへ入るのかが分かるようにする
+    function refreshStartLabel(){
+      if(!testStartBtn) return;
+      const sc = tmScenario ? SCENARIO_DEFS.find(s=>s.key===tmScenario) : null;
+      testStartBtn.textContent = sc ? `🛠 ${sc.name} へ出撃` : '🛠 トレーニング開始';
+    }
+
     openBtn.addEventListener('click', ()=>{
+      buildScenarioGrid();
+      refreshStartLabel();
       titleScreen.style.display = 'none';
       testScreen.style.display = 'flex';
     });
@@ -465,7 +523,7 @@
     testStartBtn.addEventListener('click', ()=>{
       if(testStartBtn.disabled || !tmClass) return;
       testScreen.style.display = 'none';
-      beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1, tmGuest);
+      beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1, tmGuest, tmScenario);
     });
   })();
 

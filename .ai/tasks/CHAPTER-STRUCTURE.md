@@ -2,9 +2,29 @@
 
 Chapter構造の仕様修正と Scenario Test Mode の設計
 
-Status: **PLANNED**（実装未着手。Unknowns の決定が必要な項目あり）
+Status: **Scenario Test Mode は実装済み（WORK 1 / DONE）** ／ Chapter 進行の実装は未着手
 
 Analysis: [`../reports/CHAPTER-STRUCTURE-analysis.md`](../reports/CHAPTER-STRUCTURE-analysis.md)
+Decision: [`../decisions/DEC-001-duskvillage-rebuild.md`](../decisions/DEC-001-duskvillage-rebuild.md)
+
+## WORK 1 実装結果（Scenario Test Mode）
+
+| 項目 | 結果 |
+| --- | --- |
+| 入口 | テストモード画面に「シナリオ」選択を追加（`SCENARIO_DEFS` の `unlocked:true` のみ） |
+| 起動順序 | `finishEnteringGame({world:'training'})` → `launchScenario(key)`。`finishEnteringGame` にシナリオ分岐は足していない |
+| セーブ保護 | `state.testMode` の書き換え箇所は1行のまま。E2E で実セーブが不変であることを検証 |
+| 変更ファイル | `index.html` / `01-character-creation.js` / `14-hud-boot.js` / `tests/helpers.js` / `tests/scenario-test-mode.spec.js`（新規） |
+| CSS | 変更なし（既存 `.testmode-job-grid` / `.testmode-job-card` を流用） |
+| 本編への影響 | `applyChapterCast` / `finishEnteringGame` / `launchScenario(Now)` / `startScenarioTavernDialogue` / `SCENARIO_DEFS` / save-load は未変更 |
+
+実装時に判明した制約: `SCENARIO_DEFS` は `12-progression-ui.js` の `const` で、連結後は
+`01-character-creation.js` より後ろで初期化される。`setupTestModeScreen()` は即時実行の
+IIFE なので、その場で参照すると TDZ で落ちる ―― シナリオ一覧の組み立てを
+「テストモード画面を開いた瞬間」まで遅延させてある。
+
+未修正の既知の欠落（WORK 2 の範囲）: `AREA_NAMES`（`14-hud-boot.js`）と `roomNameAt()` に
+`duskvillage` の登録が無いため、宵待ちの村ではミニマップに場所名が出ない。
 
 ## Goal
 

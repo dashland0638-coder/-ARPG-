@@ -1276,8 +1276,11 @@
   // deleteSaveGame()は呼ばない(既存のセーブに一切触れない約束)。
   // state.testModeを立てておけば、以降のsaveGame()呼び出しは
   // (自動セーブ含め)すべて何もしなくなる(09-save-load.js参照)ので、
-  // うっかり上書きされる心配もない
-  function beginTestMode(classKey, jobKey, level, guestKey){
+  // うっかり上書きされる心配もない。
+  //
+  // scenarioKey(Scenario Test Mode / WORK 1): 指定するとトレーニング空間へ
+  // 入った直後にそのシナリオへ出撃する。本編のChapter進行は再現しない
+  function beginTestMode(classKey, jobKey, level, guestKey, scenarioKey){
     selectedClass = classKey;
     selectedGender = 'male';
     selectedPersonality = 'brave';
@@ -1354,6 +1357,26 @@
     state.inventory = {gold:0, gem:0, potion:99, shard:0, mppotion:99};
 
     finishEnteringGame({showIntro:false, world:'training'});
+
+    /* Scenario Test Mode(WORK 1)
+
+       必ず「training で入場 → launchScenario()」の順で行う。
+       finishEnteringGame({world:'duskvillage'}) のようにシナリオのworld keyで
+       直接入場してはいけない ―― state.testMode は finishEnteringGame の
+       `state.testMode = (world==='training')` という1行だけで決まるので、
+       そこへシナリオを渡すと testMode が false になり、以降の自動セーブが
+       本物のセーブデータを上書きしてしまう。
+
+       launchScenario() は本編の出撃と全く同じ経路(scenarioKey設定 →
+       routeReset → buildWorld → 入場座標/カメラ/味方の再配置)で、
+       レベル制限の判定は持たない(それは酒場のUI側=renderScenarioList /
+       startScenarioTavernDialogue の担当)ため、ここから直接呼べる。
+       finishEnteringGame 側にシナリオ固有の分岐は一切足していない。 */
+    if(scenarioKey){
+      const def = SCENARIO_DEFS.find(s=>s.key===scenarioKey);
+      if(def && def.unlocked) launchScenario(scenarioKey);
+      else console.error(`beginTestMode: unknown or locked scenario "${scenarioKey}"`);
+    }
   }
 
   // テストモード(2026-08-31)のスポーン地点。トレーニング空間はタヴァン
