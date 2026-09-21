@@ -148,11 +148,15 @@
   // カメラ左右反転: Q/E・右スティック・タッチの左右回転ボタンの符号を
   // まとめて反転させるプレイヤー設定
   let camAutoOn = true, camInvertOn = false;
-  // カメラの高さ(#21): 見下ろし角度を好みで変えられるように。基準(0)は
-  // src/core/state.jsの初期値(camHeight:8, camDist:6, 約53度)そのままで、
-  // camDistは固定したままcamHeightだけを前後させる(距離を変えると
-  // 「画面に映る範囲」まで変わってしまうため、角度だけを動かす)
-  const CAM_HEIGHT_BASE = 8;
+  /* カメラの高さ(#21): 見下ろし角度を好みで変えられるように。
+     基準(0)は戦闘カメラの高さ ―― COMBAT_CAMERA.height(core/battle-camera.js)
+     が 8.0 で、この5段はそこからの相対値。高さだけを前後させ、距離は
+     動かさない(距離を変えると「画面に映る範囲」まで変わってしまうため、
+     角度だけを動かす)という元の意味はそのまま。
+
+     戦闘 / 非戦闘の距離切り替えが入ったので、実際に state.camHeight を
+     書くのは applyCameraProfile()(13-update-loop.js)ただ1箇所にした。
+     ここは「ユーザーの好み」を預けるだけ ―― 両方が書くと二重加算になる。 */
   const CAMHEIGHT_STEPS = [
     {v:-3,   label:'低め'},
     {v:-1.5, label:'やや低め'},
@@ -162,7 +166,8 @@
   ];
   let camHeightIdx = 2; // 標準 = 現在の値を基準
   function applyCamHeightSetting(){
-    state.camHeight = CAM_HEIGHT_BASE + CAMHEIGHT_STEPS[camHeightIdx].v;
+    camHeightUserOffset = CAMHEIGHT_STEPS[camHeightIdx].v;
+    applyCameraProfile();   // 設定画面を閉じる前に、その場で反映させる
   }
 
   function refreshSettingLabels(){

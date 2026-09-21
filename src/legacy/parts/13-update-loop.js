@@ -2076,11 +2076,84 @@
     );
   }
 
+  /* =========================================================
+     戦闘 / 非戦闘カメラ(core/battle-camera.js)
+
+     動かすのは距離と高さだけで、camYaw(カメラがどちらに居るか)には
+     触れない ―― 移動はカメラ相対なので、向きを変えると操作の対応
+     関係まで変わってしまう。
+
+     ■ camAutoOn とは独立(仕様 17)
+     camAutoOn は「向きを自動で回すか」の設定。自動回転を切っている
+     人にも、戦闘 / 非戦闘の距離の違いは効く。注視点のずらし
+     (combatCamFocusOffset)が camAutoOn に紐づいているのとは別扱い。
+
+     ■ 状態 enum を作らない理由
+     EXPLORE / COMBAT_TRANSITION / COMBAT / COMBAT_EXIT を enum で
+     持つと、抜けの途中で敵に再遭遇したときの場合分けが要る。
+     0..1 のスカラー1本なら、目標値が入れ替わるだけで繋がる。
+
+     ■ state.camHeight の書き手はこの関数だけ
+     ユーザーのカメラ高さ設定(CAMHEIGHT_STEPS、14-hud-boot.js)は
+     camHeightUserOffset として預かり、ここで一度だけ足す。設定側が
+     state.camHeight を直接書くと二重加算になるため、書き手を1つに
+     寄せてある。
+  ========================================================= */
+  let combatCamBlend = 0;       // 0 = 探索、1 = 戦闘
+  let combatDistBonus = 0;      // ターゲットとの距離による追加(0〜+1.2m)
+  let camHeightUserOffset = 0;  // 14-hud-boot.js の applyCamHeightSetting() が入れる
+
+  function applyCameraProfile(){
+    const prof = cameraProfileAt(combatCamBlend, combatDistBonus);
+    state.camDist = prof.dist;
+    state.camHeight = prof.height + camHeightUserOffset;
+  }
+
+  /* 追加距離の相手。ボスは除く ―― ボスには専用のロックオンカメラが
+     あり(findLockOnBoss)、そこへ別の距離調整を混ぜない(仕様 19)。
+     「一番近い1体」しか見ないのが要点で、全敵の重心も外接箱も取らない
+     (仕様 15) ―― 敵が増えるたびに引く設計にしないため。 */
+  function combatCameraTarget(){
+    let best = null, bestD = Infinity;
+    for(let i=0;i<enemies.length;i++){
+      const en = enemies[i];
+      if(!en || en.dead || en.dormant || en.isBoss || !en.group || !en.group.position) continue;
+      if(!en.triggered) continue;
+      const d = state.pos.distanceTo(en.group.position);
+      if(d < bestD){ best = en; bestD = d; }
+    }
+    return best ? {enemy: best, dist: bestD} : null;
+  }
+
+  function updateBattleCamera(dt){
+    const inCombat = (state.combatStanceT || 0) > 0;
+    combatCamBlend = stepCombatCamBlend(combatCamBlend, inCombat, dt);
+
+    let wantBonus = 0;
+    if(inCombat){
+      const t = combatCameraTarget();
+      if(t){
+        // 階層別の上限(仕様 19)。Chapter 1 では全階層が同じ値なので、
+        // 実際の見え方は通常敵と変わらない ―― 差し替えられる形だけ残す
+        const tier = cameraTierParams(enemyTier(t.enemy));
+        wantBonus = targetDistanceBonus(t.dist, tier.distBonusMax);
+      }
+    }
+    combatDistBonus = stepDistanceBonus(combatDistBonus, wantBonus, dt);
+    applyCameraProfile();
+  }
+
   const COMBAT_CAMERA_RANGE = 8;
-  const COMBAT_CAMERA_MAX_OFFSET = 1.25;
+  /* 注視点をプレイヤーからどれだけずらしてよいか。1.25 → 1.60 は
+     「近くの1体と戦っているときだけ、もう少し相手側を見る」ための
+     余地。上限であることに意味があるので、上げても上限は残す ――
+     複数敵を収めるために引くのは相変わらずしない(仕様 15) */
+  const COMBAT_CAMERA_MAX_OFFSET = 1.60;
   const COMBAT_CAMERA_DEADZONE = 0.42;
   const COMBAT_CAMERA_PLAYER_WEIGHT = 2.8;
-  const COMBAT_CAMERA_Y_OFFSET = 0.6;
+  /* 非戦闘で俯角を寝かせたぶん、頭が画面下へ寄る。注視点を少し上げて
+     相殺する(0.60 → 0.75) */
+  const COMBAT_CAMERA_Y_OFFSET = 0.75;
   const COMBAT_CAMERA_ACTIVE_BONUS = 1.8;
   const COMBAT_CAMERA_ENGAGED_BONUS = 1.08;
   const COMBAT_CAMERA_ATTACK_LINE_PULL = 0.28;
@@ -2159,6 +2232,9 @@
   }
 
   function updateCamera(dt){
+    // 距離と高さを先に決める。下の分岐(会話・ボス)も getCamOffset() を
+    // 通るので、ここ1箇所で全経路に効く
+    updateBattleCamera(dt);
     if(state.dialogueActive && state.dialogueBoss && !state.dialogueBoss.dead){
       // dramatic close-up on the boss while they're talking
       const bp = state.dialogueBoss.group.position;

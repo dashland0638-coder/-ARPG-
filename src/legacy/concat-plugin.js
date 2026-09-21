@@ -84,6 +84,13 @@ import {
   queueAction, takeQueued, clearQueued, resetWeaponState,
   drawTimesFor, queueTtlFor, isStowed,
 } from '../core/weapon-state.js';
+/* 戦闘 / 非戦闘のカメラ。距離と高さのプロファイルを1つのスカラーで
+   混ぜるだけで、向き(camYaw)には触れない */
+import {
+  EXPLORE_CAMERA, COMBAT_CAMERA, stepCombatCamBlend, cameraProfileAt,
+  targetDistanceBonus, stepDistanceBonus, cameraTierParams,
+  COMBAT_CAM_IN_RATE, COMBAT_CAM_OUT_RATE, COMBAT_DIST_BONUS_MAX,
+} from '../core/battle-camera.js';
 import {
   stepVisibility, minimapVisible, threatHighlight, bearingLabel,
   SIGHT_RANGE, THREAT_SENSE_RANGE,
