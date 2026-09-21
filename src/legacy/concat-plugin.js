@@ -82,7 +82,7 @@ import {
 import {
   WEAPON, createWeaponState, stepWeaponState, weaponBlend, canAttack,
   queueAction, takeQueued, clearQueued, resetWeaponState,
-  drawTimesFor, queueTtlFor, isStowed,
+  drawTimesFor, queueTtlFor, isStowed, armWeaponNow,
 } from '../core/weapon-state.js';
 /* 戦闘 / 非戦闘のカメラ。距離と高さのプロファイルを1つのスカラーで
    混ぜるだけで、向き(camYaw)には触れない */

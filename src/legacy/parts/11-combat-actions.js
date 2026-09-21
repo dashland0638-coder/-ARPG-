@@ -378,11 +378,6 @@
     if(!state.started||state.paused||state.dialogueActive||state.dodging) return;
     if(state.executeT > 0) return;   // 処刑の再生中は通常攻撃を受け付けない(資料10章)
     checkHealingCrystalBreak();   // 攻撃入力そのものに独立して乗せてあるので、通常のコンボ/CD管理には影響しない
-    /* 武器が手に無ければ、ここで抜刀を始めて入力をキューへ回す(仕様 6)。
-       発射音もVFXもこの先にしか無いので、「音だけ鳴って何も出ない」は
-       構造的に起きない ―― 抜刀が終わった瞬間に updateWeaponState が
-       この関数をもう一度呼ぶ */
-    if(gateOnWeaponDrawn('attack')) return;
     /* 空中の攻撃入力は必ず空中アクションへ落とす(Phase 5/7)。
 
        以前は `!state.grounded && !state.jumpAttacking` という条件だったため、
@@ -390,7 +385,23 @@
        そのまま地上コンボが空中で振れてしまっていた。空中は「選択肢を
        絞った状態」にするのが今回の設計なので、接地していない間の
        攻撃入力は例外なく tryAirAttack() が引き受ける。 */
-    if(!state.grounded){ tryAirAttack(); return; }
+    if(!state.grounded){
+      /* 空中は抜刀を待てない。ジャンプはゲーム内 約0.73秒しかなく、
+         0.26秒の抜刀を挟む余地が無い ―― キューに回すと、抜き終わる頃には
+         滞空が終わっていて「着地後の地上攻撃」という別の行動が出る。
+         押していないものが出るのは、キューが防ごうとしていた失敗そのもの
+         (core/weapon-state.js の armWeaponNow のコメント参照) */
+      if(!canAttack(state.weapon)){
+        state.combatStanceT = refreshCombatStance(state.combatStanceT);
+        armWeaponNow(state.weapon);
+      }
+      tryAirAttack(); return;
+    }
+    /* 地上。武器が手に無ければ、ここで抜刀を始めて入力をキューへ回す
+       (仕様 6)。発射音もVFXもこの先にしか無いので、「音だけ鳴って
+       何も出ない」は構造的に起きない ―― 抜刀が終わった瞬間に
+       updateWeaponState がこの関数をもう一度呼ぶ */
+    if(gateOnWeaponDrawn('attack')) return;
 
     /* ここから先は「実際に何かが出る」入力だけが通る。resolveGroundAttackAction()
        で先に「何も出ない入力」を弾いてから、鷹の目のターンアシストを掛ける

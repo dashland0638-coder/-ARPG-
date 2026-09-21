@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import {
   WEAPON, createWeaponState, stepWeaponState, weaponBlend, canAttack,
   queueAction, takeQueued, clearQueued, resetWeaponState,
-  drawTimesFor, queueTtlFor, isStowed, isArmed,
+  drawTimesFor, queueTtlFor, isStowed, isArmed, armWeaponNow,
   JOB_DRAW_TIME, DEFAULT_DRAW_TIME, QUEUE_TTL_PAD,
 } from '../../src/core/weapon-state.js';
 
@@ -283,6 +283,53 @@ test('出撃・ロードのたびに収納状態へ戻す(仕様 20)', async t=>
   await t.test('渡すものが無ければ新しく作る', ()=>{
     const ws = resetWeaponState(null);
     assert.equal(ws.phase, WEAPON.STOWED);
+  });
+});
+
+/* 空中アクション(切り上げ・落下攻撃)。ジャンプはゲーム内 約0.73秒で、
+   そこへ 0.26秒の抜刀を挟む余地が無い ―― キューに回すと抜き終わる頃には
+   滞空が終わっていて、待たせた入力が「着地後の地上攻撃」という別の行動
+   として出てしまう。 */
+test('抜刀を待てない行動のための即時抜刀', async t=>{
+  await t.test('収納状態から1回で手に収まる', ()=>{
+    const ws = createWeaponState();
+    armWeaponNow(ws);
+    assert.equal(ws.phase, WEAPON.ARMED);
+    assert.equal(ws.blend, 0);
+    assert.equal(canAttack(ws), true);
+  });
+
+  await t.test('納刀の途中からでも手に収まる', ()=>{
+    const ws = createWeaponState();
+    run(ws, T.drawSec + 0.02, true);
+    run(ws, T.sheatheSec * 0.5, false);
+    armWeaponNow(ws);
+    assert.equal(canAttack(ws), true);
+  });
+
+  await t.test('待たせていた入力は消さない ―― 抜刀の理由と入力は別の話', ()=>{
+    const ws = createWeaponState();
+    queueAction(ws, 'attack', 1);
+    armWeaponNow(ws);
+    assert.equal(ws.queued.kind, 'attack');
+  });
+
+  await t.test('その後も戦闘態勢が続く限り手にあり続ける', ()=>{
+    const ws = createWeaponState();
+    armWeaponNow(ws);
+    run(ws, 0.5, true);
+    assert.equal(ws.phase, WEAPON.ARMED);
+  });
+
+  await t.test('戦闘態勢が切れれば普通に納刀へ入る', ()=>{
+    const ws = createWeaponState();
+    armWeaponNow(ws);
+    run(ws, T.sheatheSec + 0.02, false);
+    assert.equal(ws.phase, WEAPON.STOWED);
+  });
+
+  await t.test('引数なしでも落ちない', ()=>{
+    assert.equal(armWeaponNow(null), null);
   });
 });
 
