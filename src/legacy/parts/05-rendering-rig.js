@@ -2324,49 +2324,54 @@
 
      STANCE_RELAXED はその欠けていた「休め」の姿勢。STANCE の同じ形で
      書いてあり、書いていないフィールド(grip / armSwing / tip / aimWorld /
-     draw / trail、および武器の向き wep)はクラスの構えから引き継ぐ。
-     grip を変えないのは、持ち替え(納刀・武器の収納)が今回の対象外で、
-     手が飛ぶのを避けるため。
+     draw / trail)はクラスの構えから引き継ぐ。
 
-     ■ なぜ剣士だけ武器を下ろさないのか
-     大剣は tip=1.55m ある。手の高さは約1.0mなので、切っ先を下へ向けると
-     床を突き抜ける(45°でも手から1.1m下)。そのため剣士だけは「担いだまま
-     力を抜く(刃をより立てて、腕を下ろす)」型にした ―― 休めの読み取りは
-     保ったまま、床の貫通を作らない唯一の選択肢。短剣・杖・弓は短いので
-     そのまま下げられる。
+     ■ 武器収納基盤の導入で変わったこと(2026-09)
+     以前ここには「剣士だけ大剣を肩に担いだまま脱力する」という型が
+     書いてあり、その理由は「大剣は tip=1.55m あるので切っ先を下へ
+     向けると床を突き抜ける」だった。担ぐのは**収納機構が無かったこと
+     による構造上の結果**であって、狙った絵ではない。
 
-     ■ 魔法使い・弓師の武器の向き(wep)を書き換えていない理由
-     projectileOrigin() は P.weaponTip / P.weapon のワールド座標を読み、
-     かつ mage/archer は impactFrac が 0 なので swingOnce() が入力フレームに
-     走る ―― つまり「1つ前のフレームの武器の位置」から弾が出る。非戦闘で
-     武器の向きまで変えると初弾の発射位置が動くので、肩・肘だけを緩め、
-     武器の向きはクラスの構えのまま残した。
+     WEAPON_SOCKET(下記)で武器を背中・腰へ移せるようになったので、
+     剣士・戦騎士は「背中に背負って両手を自由にする」型へ差し替えた ――
+     床の貫通は、武器が手から離れる以上そもそも起きない。
+     弓師・鷹の目も同じく背中へ。盗賊・バーサーカーは左右の腰へ。
+
+     ■ 魔法使い・魔導士だけ wep を書く理由が変わった
+     以前ここが wep を書かなかったのは、projectileOrigin() が
+     P.weaponTip / P.weapon のワールド座標を読むため「非戦闘で武器の
+     向きを変えると初弾の発射位置が動く」ことを避けたかったから。
+
+     今は canAttack()(core/weapon-state.js)が、武器が手に収まる前の
+     発射をそもそも通さない ―― 非戦闘の向きから弾が出る経路が無い。
+     そのうえで杖は唯一「収納しない」武器なので、非戦闘の見た目の差を
+     出す手段が wep しか無い(前回監査で実測した dWEP 0.0° の正体が
+     ここ)。杖だけは非戦闘用の向きを起こしてある。
   ========================================================= */
   const STANCE_RELAXED = {
-    warrior: {            // 大剣を担いだまま脱力。刃は立て、腕を下ろす
-      waist:[0.01,-0.07, 0.01],
-      shL:[-0.26, 0.10, 0.44], elL:-1.50,
-      shR:[ 0.10,-0.05,-0.12], elR:-1.88,
-      wep:[0.180,0.930,-0.320,-0.940,0.100,-0.240],
-      hipL:0.02, hipR:-0.02, kneeL:0.11, kneeR:0.04
+    warrior: {            // 大剣は背中。両手を空けて、力の抜けた自然な立ち姿
+      waist:[0.01,-0.05, 0.01],
+      shL:[-0.14, 0.06, 0.20], elL:-0.34,
+      shR:[-0.12,-0.05,-0.18], elR:-0.30,
+      hipL:0.03, hipR:-0.03, kneeL:0.12, kneeR:0.05
     },
-    rogue: {              // 短剣を下ろし、片足へ体重を預ける
+    rogue: {              // 双剣は左右の腰。両手を空け、片足へ体重を預ける
       waist:[0.03, 0.09, 0.01],
-      shL:[-0.20, 0.08, 0.28], elL:-0.55,
-      shR:[-0.14,-0.06,-0.22], elR:-0.62,
-      wep:[0.100,-0.720,0.690,-0.990,-0.060,0.080],
+      shL:[-0.16, 0.07, 0.24], elL:-0.30,
+      shR:[-0.16,-0.06,-0.24], elR:-0.32,
       hipL:0.10, hipR:-0.04, kneeL:0.16, kneeR:0.05
     },
-    mage: {               // 杖を突いて立つ。腕だけ下ろし、杖の向きは触らない
+    mage: {               // 杖は収納しない。片手で軽く持ち、杖先を下へ向ける
       waist:[0.00, 0.03, 0],
       shL:[-0.16, 0.05, 0.22], elL:-0.42,
       shR:[-0.05, 0.00,-0.08], elR:-0.24,
+      wep:[0.120,-0.960,0.250, -0.980,-0.140,0.140],
       hipL:0.04, hipR:-0.02, kneeL:0.09, kneeR:0.04
     },
-    archer: {             // 弓を提げ、半身を解く(射線に関わる wep は触らない)
-      waist:[0.01, 0.24, 0],
-      shL:[-0.34,-0.09, 0.26], elL:-0.48,
-      shR:[-0.08, 0.04,-0.24], elR:-0.44,
+    archer: {             // 弓は背中。半身を解き、両手を下ろす
+      waist:[0.01, 0.20, 0],
+      shL:[-0.16,-0.06, 0.22], elL:-0.30,
+      shR:[-0.14, 0.04,-0.22], elR:-0.30,
       hipL:0.05, hipR:-0.07, kneeL:0.10, kneeR:0.05
     }
   };
@@ -2382,12 +2387,97 @@
     // バーサーカー: 足を広く、肩を落として腕をぶら下げる
     berserker:    { shL:[-0.14, 0.12, 0.30], shR:[-0.08,-0.10,-0.26],
                     hipL:0.13, hipR:-0.09, kneeL:0.18, kneeR:0.12 },
-    // 魔導士: 杖を身体の前で軽く支える。ほとんど動かない
-    archmage:     { waist:[0.00, 0.02, 0], shL:[-0.20, 0.05, 0.24], elL:-0.50 },
+    /* 魔導士: 杖を身体の横で支える。魔法使いより端正・儀式的で、
+       杖もより立てて持つ(魔法使いは杖先を大きく下げる)。 */
+    archmage:     { waist:[0.00, 0.02, 0], shL:[-0.20, 0.05, 0.24], elL:-0.50,
+                    wep:[0.060,-0.985,0.160, -0.995,-0.070,0.070] },
     // 鷹の目: 立ったまま遠くを見ている。足元は動かさない
-    hawkEye:      { waist:[0.01, 0.18, 0],
+    hawkEye:      { waist:[0.01, 0.16, 0],
                     hipL:0.04, hipR:-0.05, kneeL:0.08, kneeR:0.05 }
   };
+
+  /* =========================================================
+     WEAPON SOCKET ―― 非戦闘時に武器が収まる場所
+
+     ■ 付け替え(reparent)ではなく「参照点の補間」
+     武器(P.weapon)は waist の直接の子で、updateGrip() が毎フレーム
+     握り手のワールド座標から腰ローカル座標を作り直して書き込んでいる。
+     つまり three.js の親子関係は既に「位置の導出」に使われていない ――
+     収納のために親を torso へ付け替えても、得られるものが無い。
+
+     逆に失うものは具体的にある:
+       ・aimWeapon() は武器の姿勢を**腰フレームの値として**書く。弓
+         (aimWorld)に至っては waist の回転の逆を掛けている
+       ・持ち替え(rebuildWeapon)は waist 直下を前提に position.y -= HIP_Y
+         の補正を持つ
+       ・付け替えは1フレームでワープする。0.26秒かけて移す設計と噛み合わない
+
+     そこでソケットは「親」ではなく**位置と向きの導出元**として持つ。
+     updateGrip() が HandGrip 側とソケット側の2点を出し、weaponBlend
+     (core/weapon-state.js)で混ぜる。向きも同じ係数で混ぜるが、
+     aimWeapon() は受け取った6値を内部で再直交化するので、補間で
+     歪んだ基底がそのまま渡っても破綻しない。
+
+     ■ 座標系
+     node は位置の基準にするリグのノード名。そのワールド座標を
+     waist.worldToLocal() で腰ローカルへ落とし、off を足したところが
+     握りの位置になる(HandGrip の gripOff と全く同じ扱い)。
+     off は腰ローカル: +x が右、+y が上(0 = ベルト線)、+z が前。
+
+     wep は [刃の軸xyz, 刃の平xyz] で、STANCE の wep と同じ意味。
+
+     ■ 杖(mage / archmage)にソケットが無い理由
+     仕様上、杖は収納しない。ソケットが無い職は weaponBlend が
+     位置に効かず(HandGrip のまま)、非戦闘の見た目の差は
+     STANCE_RELAXED 側の wep が担う。
+  ========================================================= */
+  const WEAPON_SOCKET = {
+    /* 大剣を背中へ斜めに背負う。握りは右腰の後ろ、刃は左肩の上へ抜ける。
+       切っ先は腰ローカル y≈1.38(ワールド約2.48m)で、頭頂(約2.9m)より
+       下に収まる ―― 床へ刺さらないのは、そもそも手から離れているため。 */
+    warrior: {
+      main: {node:'torso', off:[ 0.14,-0.42,-0.26],
+             wep:[-0.420, 0.900,-0.120, -0.900,-0.420, 0.000]},
+    },
+    /* 戦騎士: 同じ大剣(×1.32)を、剣士より立てて背負う。騎士らしく
+       斜めに流さない ―― 長いぶん、寝かせると切っ先が後ろへ出すぎる。 */
+    battleKnight: {
+      main: {node:'torso', off:[ 0.12,-0.46,-0.26],
+             wep:[-0.260, 0.955,-0.140, -0.955,-0.260, 0.000]},
+    },
+    /* 双剣を左右の腰へ。主武器が右、オフハンドが左。
+       切っ先は腰ローカル y≈-0.52(ワールド約0.58m)で床に届かない。 */
+    rogue: {
+      main: {node:'waist', off:[ 0.26,-0.10,-0.04],
+             wep:[ 0.100,-0.940,-0.320,  0.000,-0.320, 0.940]},
+      off:  {node:'waist', off:[-0.26,-0.10,-0.04],
+             wep:[-0.100,-0.940,-0.320,  0.000, 0.320,-0.940]},
+    },
+    /* バーサーカー: 同じ双剣(×1.32)。盗賊より外へ開き、角度も荒い ――
+       「きちんと鞘へ収めた」ではなく「腰へ引っ掛けてある」読み。 */
+    berserker: {
+      main: {node:'waist', off:[ 0.31,-0.06,-0.09],
+             wep:[ 0.260,-0.880,-0.400,  0.000,-0.414, 0.910]},
+      off:  {node:'waist', off:[-0.31,-0.06,-0.09],
+             wep:[-0.260,-0.880,-0.400,  0.000, 0.414,-0.910]},
+    },
+    /* 小弓を背中へ斜めに。弓幹は左下から右上へ流れ、弓の面は背中に沿う。 */
+    archer: {
+      main: {node:'torso', off:[-0.10,-0.10,-0.27],
+             wep:[ 0.520, 0.840,-0.160, -0.840, 0.520, 0.000]},
+    },
+    /* 鷹の目: 大弓(×1.32)。長いぶん立てて背負う。 */
+    hawkEye: {
+      main: {node:'torso', off:[-0.09,-0.14,-0.27],
+             wep:[ 0.420, 0.900,-0.140, -0.900, 0.420, 0.000]},
+    },
+  };
+
+  /* 職 → ソケット。上位職のキーが優先、無ければ基礎職。
+     どちらも無ければ null = その武器は収納しない(杖)。 */
+  function weaponSocketFor(classKey, jobKey){
+    return WEAPON_SOCKET[jobKey] || WEAPON_SOCKET[classKey] || null;
+  }
 
   /* サブ武器(槍・刀・魔法剣・ボウガン)には休めの型を書いていない。
      そこだけ非戦闘で固まると持ち替えた瞬間に生き死にが変わって見えるので、
@@ -3061,6 +3151,13 @@
      from lerping Euler triples through a big arc. */
   const _bY = new THREE.Vector3(), _bX = new THREE.Vector3(), _bZ = new THREE.Vector3();
   const _bM = new THREE.Matrix4(), _bW = new THREE.Matrix4();
+  const _bQ = new THREE.Quaternion(), _bQI = new THREE.Quaternion();
+  /* aimWorld(弓)の補正をどれだけ効かせるか。1 = 従来どおり。
+     背中へ収納している間は 0 ―― 収納中の弓は「本人の向き」ではなく
+     「背中」に固定されていなければならず、腰の捻りの逆を掛け続けると
+     背中の上で弓が滑って見える。updateGrip() が毎フレーム
+     1 - weaponBlend を入れるので、抜刀の途中も連続して繋がる。 */
+  let weaponAimWorldW = 1;
   function aimWeapon(w, v6){
     _bY.set(v6[0], v6[1], v6[2]);
     if(_bY.lengthSq() < 1e-8) return;
@@ -3082,9 +3179,12 @@
        weapons the authored orientation is read as being in the character's
        frame and converted back into the waist's. Rotation matrices are
        orthonormal, so the inverse is just the transpose. */
-    if(playerMixerParts.aimWorld && playerMixerParts.waist){
-      _bW.makeRotationFromEuler(playerMixerParts.waist.rotation);
-      _bW.transpose();
+    if(playerMixerParts.aimWorld && playerMixerParts.waist && weaponAimWorldW > 0.001){
+      _bQ.setFromEuler(playerMixerParts.waist.rotation).invert();
+      // 収納中(weaponAimWorldW < 1)は補正を無回転へ寄せる。1 のときは
+      // slerp を通さないので、従来の transpose と完全に同じ結果になる
+      if(weaponAimWorldW < 1) _bQ.slerp(_bQI.identity(), 1 - weaponAimWorldW);
+      _bW.makeRotationFromQuaternion(_bQ);
       _bM.premultiply(_bW);
     }
     w.rotation.setFromRotationMatrix(_bM);
@@ -3102,7 +3202,15 @@
     if(p.hipR !== undefined) P.legR.rotation.x = p.hipR;
     if(p.kneeL !== undefined) P.kneeL.rotation.x = p.kneeL;
     if(p.kneeR !== undefined) P.kneeR.rotation.x = p.kneeR;
-    if(p.wep && P.weapon) aimWeapon(P.weapon, p.wep);
+    if(p.wep && P.weapon){
+      aimWeapon(P.weapon, p.wep);
+      /* 収納との補間の起点。updateGrip() が「今フレーム構えとして当てた
+         向き」から収納の向きへ混ぜるので、ここで控えておく。渡された
+         配列は sampleClip / blendPose が毎フレーム作り直すものなので、
+         参照ではなく値で持つ(使い回しの配列を掴まない)。 */
+      const keep = P.weaponAimedWep || (P.weaponAimedWep = new Array(6));
+      for(let i=0;i<6;i++) keep[i] = p.wep[i];
+    }
     if(p.grip) P.gripSide = p.grip;
     if(p.draw !== undefined) setBowDraw(p.draw);
     // body displacement, applied as a visual offset on top of state.pos
@@ -3161,7 +3269,11 @@
   function updateBowDraw(){
     const P = playerMixerParts;
     if(!P.bowString || !P.weapon || !P.handR || !player) return;
-    const d = P.bowDraw || 0;
+    /* 背中へ収納している間は必ず番えていない状態(仕様「収納中は
+       bowDraw = 0 を保証」)。弦の取り付け点は引き手のワールド座標から
+       導いているので、弓だけが背中へ移ると弦が身体を横切って伸びる ――
+       d に収納の進み具合を掛けて、抜き切るまで弦を張らせない */
+    const d = (P.bowDraw || 0) * (1 - weaponBlend(state.weapon));
     player.updateMatrixWorld(true);
     P.handR.getWorldPosition(_drawHand);
     P.weapon.worldToLocal(_drawHand);          // into the bow's own frame
@@ -3381,6 +3493,16 @@
   function applyCombatPose(dt, moving){
     const lib = CLIPS[state.classDef.key];
     if(!lib) return;
+    /* 弓の aimWorld 補正のウェイト。このフレームの aimWeapon() 呼び出しは
+       ここから updateGrip() までの間に全部起きるので、先頭で1回入れれば
+       足りる ―― 収納しきっていれば 0(背中に固定)、手にあれば 1(従来) */
+    weaponAimWorldW = 1 - weaponBlend(state.weapon);
+    /* 収納先は 職 × サブ武器 で決まり、どちらも実行中に変わる(#9 の転身、
+       装備の持ち替え)。引き当ては表引き2回なので、キャッシュを持って
+       古くなるより毎フレーム引き直す方が安い ―― 転身の瞬間に大剣が
+       基礎職のソケットへ残る、のような事故を構造的に起こさないため */
+    playerMixerParts.weaponSockets = state.usingAltWeapon
+      ? null : weaponSocketFor(state.classDef.key, state.job);
     _poseShift.set(0,0,0);
     combatIdleWaistTarget = 0;   // Combat Idle の分岐に入ったときだけ入る
     /* 非戦闘 ↔ 戦闘 と 移動 ↔ 停止 のクロスフェード係数。どの分岐へ

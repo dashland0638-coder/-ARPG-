@@ -1335,6 +1335,10 @@
     state.camYaw = spawn.camYaw; // southeast in town, per fixed per-scenario camera directions
     camera.position.copy(state.pos).add(getCamOffset());
     state.dodgeCD = 0; state.attackCD = 0; state.dodging=false; state.invulnerable=false;
+    /* ロード直後は必ず収納状態から(仕様 20)。セーブに武器の状態は
+       入っていないので、前回どこで終わったかに関わらず、酒場へは
+       武器を背負って現れる */
+    state.combatStanceT = 0; resetWeaponState(state.weapon);
     state.perfectDodgeWindowT = 0; state.perfectDodgeCD = 0; state.braceCounterT = 0;
     state.barrierActive = false; state.barrierT = 0; state.barrierParryCD = 0;
     state.paralyzed=false; state.paralyzeT=0; state.paralyzeInvulnT=0;

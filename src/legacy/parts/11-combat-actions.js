@@ -378,6 +378,11 @@
     if(!state.started||state.paused||state.dialogueActive||state.dodging) return;
     if(state.executeT > 0) return;   // 処刑の再生中は通常攻撃を受け付けない(資料10章)
     checkHealingCrystalBreak();   // 攻撃入力そのものに独立して乗せてあるので、通常のコンボ/CD管理には影響しない
+    /* 武器が手に無ければ、ここで抜刀を始めて入力をキューへ回す(仕様 6)。
+       発射音もVFXもこの先にしか無いので、「音だけ鳴って何も出ない」は
+       構造的に起きない ―― 抜刀が終わった瞬間に updateWeaponState が
+       この関数をもう一度呼ぶ */
+    if(gateOnWeaponDrawn('attack')) return;
     /* 空中の攻撃入力は必ず空中アクションへ落とす(Phase 5/7)。
 
        以前は `!state.grounded && !state.jumpAttacking` という条件だったため、
@@ -910,6 +915,15 @@
     const P = playerMixerParts;
     const cls = state.classDef.key;
     const node = (cls === 'archer') ? P.weapon : (cls === 'mage') ? P.weaponTip : null;
+    /* 二重防御。主たる防御は攻撃入口の gateOnWeaponDrawn() で、収納中は
+       そもそもここへ来ない。それでも将来どこかの経路が漏れたときに
+       「背中から矢が出る」だけは絶対に作らないため、武器が手から
+       離れている間は身体の中心へ落とす ―― ここで発射そのものを
+       握りつぶすと「音だけ鳴って弾が出ない」別の不整合になるので、
+       止めるのではなく位置を安全側へ倒す */
+    if(node && player && weaponBlend(state.weapon) > 0.02){
+      const safe = state.pos.clone(); safe.y += 1.1; return safe;
+    }
     if(node && player){
       player.updateMatrixWorld(true);
       node.getWorldPosition(_muzzle);
@@ -941,6 +955,7 @@
     if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     if(blockedInAir('SKILL 2')) return;
     if(state.skill2CD>0) return;
+    if(gateOnWeaponDrawn('skill2')) return;   // 抜刀待ち(仕様 6)
     /* Chapter 1 は Skill 1 だけで出発する(全体基本仕様 §18)。洋館の
        瓦礫イベントで閃くまで、このボタン自体が HUD に出ていない ――
        キーボード / ゲームパッドから直接来た入力だけがここへ届く */
@@ -1551,6 +1566,7 @@
     if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     if(blockedInAir('ULTIMATE')) return;
     if(!ultReady() || state.ultAiming) return;
+    if(gateOnWeaponDrawn('ult')) return;      // 抜刀待ち(仕様 6)
     if(state.classDef.ult.aimed){ beginUltAim(); return; }
     fireUltimate(null);
   }
