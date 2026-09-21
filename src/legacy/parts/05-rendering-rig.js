@@ -3215,6 +3215,11 @@
     warrior:{ basic:'gsSwing1', basic2:'gsSwing2', skill2:'gsOverhead',
               dash:'gsChargeRelease', retreat:'gsSwing1', spin:'slashSpin', ult:'gsOverhead',
               basic3:'slashSpin', basic4:'gsSwing3', uppercut:'slashDraw',
+              /* 崩し斬り(D-04)は二拍で鳴る。ここは剣を後ろへ引く予備動作の
+                 音だけで、薙ぎ抜けの重い一撃は判定と同じ瞬間に
+                 11-combat-actions.js 側が鳴らす ―― 音・判定・VFX・剣の
+                 軌道が全部同じフレームを指すようにするため */
+              crushSlash:'slashDraw',
               altBasic:'slashDraw', altBasic2:'slashDraw' },   // 槍: 突きの音は抜刀のシャープなSEを流用
     rogue:{   basic:'slashLight', basic2:'slashLight', skill2:'knifeThrow',
               dash:'slashLight', retreat:'slashLight', spin:'slashSpin', ult:'slashSpin',

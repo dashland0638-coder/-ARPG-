@@ -117,7 +117,7 @@ import {
 /* 崩し斬り(D-04)。モーションのキーフレームと前方扇の判定、そして
    「回転斬りにしない」の機械検査。数値は正式決定まで暫定(PROVISIONAL_*) */
 import {
-  CRUSH_SLASH, CRUSH_SLASH_CLIP, CRUSH_SLASH_STRIKE_T,
+  CRUSH_SLASH, CRUSH_SLASH_CLIP, CRUSH_SLASH_STRIKE_T, CRUSH_SLASH_SWEEP_T,
   CRUSH_SLASH_ARC, CRUSH_SLASH_RANGE, crushSlashHit,
 } from '../core/crush-slash.js';
 /* 森の洋館の空間異常(D-01)と鍛冶屋との分離(D-02)。段階・照明の狂い・

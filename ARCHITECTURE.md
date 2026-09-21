@@ -61,11 +61,15 @@ src/
                                 スキルタブ)は作り直していない。
                                 state依存なし(MANSION_SCENARIO.md参照)
   core/crush-slash.js          崩し斬り(剣士の Skill 2、D-04)。モーションのキーフレームと
-                                前方扇の判定、そして「回転斬りにしない」(仕様 6-2 の禁止
-                                事項)の機械検査 ―― validateCrushSlashClip() が
-                                360度回転・先に身体を回す・円を描く・空中で捻る・構えへ
-                                戻らない、を全部キーフレームから弾く。キーフレームを
-                                CLIPS ではなくここに置いてあるのはそのため
+                                前方扇の判定、当たる瞬間(STRIKE_T)、そして禁止事項の
+                                機械検査 ―― validateCrushSlashClip() が 360度回転・
+                                先に身体を回す・円を描く・空中で捻る・構えへ戻らない・
+                                踏み込みが無いに加え、実機レビューで出た
+                                「足元を横薙ぎしているように見えない」も数値で弾く
+                                (刃の向きが上を向いていないか blade-not-low / 片側から
+                                もう片側へ抜けるか not-a-horizontal-sweep / 薙ぎ抜けで
+                                腰が落ちているか not-crouched)。キーフレームを CLIPS
+                                ではなくここに置いてあるのはそのため
                                 (tests/unit/crush-slash.test.js が固定している)。
                                 数値は正式決定まで暫定(PROVISIONAL_*)。state依存なし
   core/mansion-anomaly.js      森の洋館の空間異常(D-01)と鍛冶屋との分離(D-02)。
