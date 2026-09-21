@@ -84,6 +84,12 @@ import {
   queueAction, takeQueued, clearQueued, resetWeaponState,
   drawTimesFor, queueTtlFor, isStowed, armWeaponNow,
 } from '../core/weapon-state.js';
+/* 撃破 → イベント演出 の境界で落とす戦闘状態。メッシュの取り外しは
+   legacy 側(endCombatPresentation)で、ここは「どのキーを落とすか」の表 */
+import {
+  clearTransientCombatState, hasTransientCombat,
+  PENDING_COMBAT_KEYS, ATTACK_ANIM_KEYS,
+} from '../core/combat-cleanup.js';
 /* 戦闘 / 非戦闘のカメラ。距離と高さのプロファイルを1つのスカラーで
    混ぜるだけで、向き(camYaw)には触れない */
 import {
