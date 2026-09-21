@@ -2058,6 +2058,16 @@
       }
     }
   }
+  /* 刃の軌跡のリボンを畳む。updateBladeTrail は state.swinging が落ちてから
+     dt*5.5 で薄めていくが、演出中は updateLocomotion 自体が呼ばれないので
+     「消える途中の形」で固まる ―― 撃破からイベントへ移る境界では、
+     フェードを待たずにここで畳む(endCombatPresentation から呼ぶ)。 */
+  function clearBladeTrail(){
+    trailSamples.length = 0;
+    trailFade = 0;
+    if(trailMat) trailMat.opacity = 0;
+  }
+
   function clearSparks(){
     sparks.forEach(s=>{
       s.bits.forEach(b=> giveMesh(s.pool, b.mesh));

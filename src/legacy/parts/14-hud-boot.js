@@ -1152,6 +1152,13 @@
       updateManorSmith(dt);   // 再会演出で鍛冶屋が歩み寄る(仕様 7)
       updateShake(dt);
       updateSparks(dt);
+      /* 斬撃の弧と魔法陣のフェードも進める。どちらも opacity を下げて
+         消えたらメッシュを外すだけで、判定にもゲーム状態にも触らない ――
+         ここを止めていると、演出へ入る直前の一撃が「消える途中の形」で
+         画面に固まる(撃破の境界では endCombatPresentation が畳むが、
+         分離のように戦闘直後から始まる他の演出もここを通る) */
+      updateSwingVFX(dt);
+      updateMagicCircleVFX(dt);
       updateCamera(dt);
       drawMinimap();
       renderScene();

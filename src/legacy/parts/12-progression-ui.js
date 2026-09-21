@@ -429,6 +429,12 @@
 
   function onBossDefeated(boss, levelBefore){
     state.dialogueActive = true; // freeze gameplay immediately
+    /* 撃破 → イベント演出 の境界。ここから先のフレームループは
+       updatePlayer も updateSwingVFX も呼ばないので、残っている攻撃の
+       エフェクトは「消える途中」で固まって画面に残る ―― 境界で明示的に
+       畳む(11-combat-actions.js の endCombatPresentation)。
+       ボス撃破の経路だけを通るので、通常戦闘には影響しない */
+    endCombatPresentation();
     // the summoner is gone - its crew goes with it
     if(boss.shockRing){ scene.remove(boss.shockRing); boss.shockRing = null; }
     if(boss.chargeLane){ scene.remove(boss.chargeLane); boss.chargeLane = null; }

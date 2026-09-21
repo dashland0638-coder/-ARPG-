@@ -1983,16 +1983,13 @@
     /* 洋館から戻った最初の一度だけ、鍛冶士が自分から声をかけてくる。
        「この冒険で世界が少し変わった」ことを、酒場に入った瞬間に見せる */
     if(state.smithJoined && !state.smithGreeted){
-      registerProximityEvent(new THREE.Vector3(0,0,13), 6.5, '鍛冶士', ()=>{
-        state.smithGreeted = true;
-        sfx('anvil');
-        return [
-          '「よう。……ちゃんと戻ってきたな」',
-          '「店主に頼んで、この隅を貸してもらった。しばらくここに置いてもらう」',
-          '「担いで帰った鋼で炉の口金を打ち直した。あんたの得物も、これからは俺が見る」',
-          '「……あそこで何があったのかは、俺にも分からん。分からんままでいい気もする」'
-        ];
-      });
+      /* 帰還した瞬間に入口で話しかけられるのではなく、鍛冶士が落ち着いた
+         一角まで歩いてから話す。トリガー自体は帰還地点(0,0,10 付近)の
+         ままで、そこから先は playSmithGreeting() が歩く演出を持つ ――
+         「会話だけを別の場所へ移す」のではなく、本人が鍛冶屋の前まで
+         行ってから始める、という形にしてある */
+      registerProximityEvent(new THREE.Vector3(0,0,13), 6.5, '鍛冶士', null,
+        {onEnter: playSmithGreeting});
     }
 
     buildLoreNote(new THREE.Vector3(-7,0,21), '酒場の壁に貼られた紙', [
@@ -2040,6 +2037,71 @@
     shadowGuide.position.copy(SHADOW_GUIDE_POS);
     shadowGuide.rotation.y = Math.PI*0.15 + Math.PI; // 隣の小卓(sgTableX方向)を向いて座っている
     scene.add(shadowGuide);
+  }
+
+  /* =========================================================
+     洋館から帰った夜、鍛冶士との再会(仕様 11)
+
+     実機で「会話位置が鍛冶屋の前ではない」と指摘された点。原因は
+     きっかけの置き方で、帰還地点(0,0,10)を半径6.5で囲むイベントに
+     していたため、酒場に降り立った瞬間、入口に立ったまま会話が始まって
+     いた ―― 鍛冶士は SMITH_POS(-6.5, 0, 12)の一角にいるので、
+     部屋の反対側から喋っている絵になる。
+
+     直し方は「会話を鍛冶屋の側へ動かす」ではなく「本人が鍛冶屋の前まで
+     行ってから話す」。既にある演出の仕組み(playCutscene + state.walkTo +
+     cutsceneTurnTo)をそのまま使う。
+
+     経路は卓を避けて2辺で取る ―― 帰還地点(0,10)から北へ、それから西へ。
+     酒場の丸卓A は (-5,10) に当たり判定 x[-5.68..-4.33] / z[9.33..10.68] を
+     持っているので、まっすぐ斜めに歩くと卓を突き抜ける。z=12.3 まで
+     上がってから西へ進めば、卓の北側を通れる。
+
+     立ち止まる先 (-4.2, 12.3) は鍛冶士から 2.3m ―― nearbySmith の
+     判定(3m、02-world-common.js)の内側なので、会話が終わった位置から
+     そのまま鑑定・強化に入れる。会話後にプレイヤーを動かさないので、
+     不自然なワープも起きない。 */
+  const SMITH_GREET_STAND = {x:-4.2, z:12.3};
+
+  function playSmithGreeting(){
+    playCutscene([
+      // 降り立った直後に歩き出さない。一拍置いて、店の中を見回す間を取る
+      {t:0.45, run:()=>{}},
+      // 北へ。丸卓Aの北側へ回り込む
+      {t:0.05, run:()=>{ state.walkTo = {vx:0, vz:2.2}; }},
+      {t:1.05, run:()=>{
+        state.walkTo = null;
+        /* 西を向く。カメラも東側(camYaw = π/2)へ回して、剣士ごしに
+           鍛冶士の一角が正面に入るようにする ―― camYaw はカメラが
+           居る方向(getCamOffset)なので、西を見るには東へ回す */
+        cutsceneTurnTo(-Math.PI/2, 0.5, Math.PI/2);
+      }},
+      // 鍛冶士の一角へ歩み寄る
+      {t:0.55, run:()=>{ state.walkTo = {vx:-2.2, vz:0}; }},
+      {t:1.91, run:()=>{
+        state.walkTo = null;
+        // 歩幅の誤差を残さない。ここが会話中の立ち位置になる
+        state.pos.x = SMITH_GREET_STAND.x;
+        state.pos.z = SMITH_GREET_STAND.z;
+        state.facing = -Math.PI/2;
+        sfx('anvil');   // 金床を叩く手を止めて、顔を上げる
+      }},
+      {t:0.40, run:()=>{
+        state.smithGreeted = true;
+        state.dialogueKind = null;
+        state.dialogueBoss = null;
+        state.dialogueLines = [
+          '「よう。……ちゃんと戻ってきたな」',
+          '「店主に頼んで、この隅を貸してもらった。しばらくここに置いてもらう」',
+          '「担いで帰った鋼で炉の口金を打ち直した。あんたの得物も、これからは俺が見る」',
+          '「……あそこで何があったのかは、俺にも分からん。分からんままでいい気もする」'
+        ];
+        state.dialogueIndex = 0;
+        document.getElementById('dialogue-name').textContent = '鍛冶士';
+        document.getElementById('dialogue-text').textContent = state.dialogueLines[0];
+        document.getElementById('dialogue-overlay').classList.add('active');
+      }}
+    ]);
   }
 
   /* 酒場の二階 ―― 宿場を兼ねた居住スペース。当たり判定が二次元なので、

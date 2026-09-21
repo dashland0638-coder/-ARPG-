@@ -922,6 +922,43 @@
      chest, which read as the archer firing out of their own ribcage with the
      bow held off to one side doing nothing. */
   const _muzzle = new THREE.Vector3();
+  /* =========================================================
+     戦闘演出の終了 ―― 撃破からイベントへ移る境界
+
+     ボスを倒すと、ゲームは「戦闘」から「イベント演出」へ移る。ところが
+     演出中のフレームループ(14-hud-boot.js の cutscene 分岐)は
+     updatePlayer も updateSwingVFX も呼ばない ―― プレイヤーの入力を
+     取り上げるのが目的の分岐で、攻撃の後始末までは見ていなかった。
+
+     結果、最後の一撃の斬撃エフェクト・魔法陣・飛んでいる矢が、その場で
+     時間ごと止まって画面に残り続ける。フェードで消える仕組みはあるのに、
+     フェードを進める関数が呼ばれない ―― 実機で報告された「ボス撃破時の
+     攻撃エフェクトが鍛冶屋再開イベントまで残る」の正体がこれ。
+
+     そこで境界で明示的に畳む。呼ぶのは onBossDefeated(12-progression-ui.js)
+     ただ1箇所で、通常戦闘・通常のスキル・ボス以外の敵には一切効かない。
+     エフェクトの生成側(spawnMeleeSwingVFX / spawnSparks / 魔法陣)にも
+     触っていないので、技そのものの見た目は変わらない。
+
+     state 側に落とすキーの一覧は core/combat-cleanup.js にある(取りこぼしが
+     いちばん起きやすいところなので、表として外に出してユニットテストで縛る)。
+     ここが持つのは three.js を触る側 ―― メッシュの取り外しだけ。
+  ========================================================= */
+  function endCombatPresentation(){
+    // 斬撃の弧・魔法陣・火花・刃の軌跡。どれも「消える途中」で固まるもの
+    clearSwingVFX();
+    clearMagicCircleVFX();
+    clearSparks();
+    clearBladeTrail();
+    // 飛んでいる最中の矢・魔弾。空中で止まったまま残る
+    projectiles.forEach(p=>{ scene.remove(p.mesh); if(p.light) giveLight(p.light); });
+    projectiles = [];
+    // 保留している判定・SE と、再生中の攻撃アニメーション(core/combat-cleanup.js)
+    clearTransientCombatState(state);
+    // 必殺技の照準マーカーが出たままなら畳む
+    if(typeof hideUltMarker === 'function') hideUltMarker();
+  }
+
   function projectileOrigin(){
     const P = playerMixerParts;
     const cls = state.classDef.key;

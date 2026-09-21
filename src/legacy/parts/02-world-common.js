@@ -2116,11 +2116,16 @@
   // `lines` may be an array, or a function returning one. The function form is
   // resolved at the moment the event fires, so a line can reflect what the
   // player is actually carrying or how many times they have been here before.
+  /* opts.onEnter を渡すと、会話を開く代わりにそれを呼ぶ。「近づいたら
+     演出が始まる」ビートのための口で、会話を出すだけの既存の使い方は
+     何も変わらない(onEnter を渡さなければ従来どおり lines を開く)。
+     酒場に帰ってきた鍛冶士との再会が使っている ―― あの会話は「鍛冶屋の
+     前まで歩いてから」始めたいので、会話そのものではなく歩く演出を起動する。 */
   function registerProximityEvent(pos, radius, speakerName, lines, opts){
     opts = opts || {};
     proximityEvents.push({pos:pos.clone(), radius, speakerName, lines, fired:false,
                           condition:opts.condition||null, kind:opts.kind||null,
-                          area:opts.area||null});
+                          area:opts.area||null, onEnter:opts.onEnter||null});
   }
 
   /* A circle in the middle of a large room is trivially walked around, which
@@ -2147,6 +2152,8 @@
            state.pos.z > ev.area.z0 && state.pos.z < ev.area.z1)
         : (state.pos.distanceTo(ev.pos) < ev.radius);
       if(inside){
+        // 演出を起動するだけのイベント(会話は演出の側が開く)
+        if(ev.onEnter){ ev.fired = true; ev.onEnter(); break; }
         const lines = (typeof ev.lines === 'function') ? ev.lines() : ev.lines;
         if(!lines || !lines.length){ ev.fired = true; continue; }
         ev.fired = true;
