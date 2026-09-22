@@ -70,6 +70,12 @@
      見えない ―― 中にいる間だけその棟の屋根を透かす。建物ごとに持つのは
      位置と大きさと屋根の材質だけで、判定は updateDuskVillage で毎フレーム */
   let duskInteriors = [];
+  /* 水門(WORK 6)。門扉は閉じた状態で建て、水門守の残響を倒すと上がる。
+     歯車・鎖・レバーは演出で動かすので参照を持っておく */
+  let duskGateSlab = null, duskGateWall = null, duskGateLever = null;
+  let duskGateGears = [], duskGateChains = [];
+  let duskGateOpenT = 0;        // 0=閉 1=全開。撃破後にゆっくり上がる
+  let duskGateOpening = false;
   let duskLagProp = null;   // 環境異常(WORK 4): いま揺れが止まっている小舟
   let duskLagT = 0;
   let duskLagCD = 12;
@@ -112,7 +118,13 @@
     duskChildMemoryDone = false; duskBoatMemoryDone = false;
     duskMarketMemoryDone = false; duskGateTalkDone = false;
     duskMarketFight = null;
+    duskWardenSpawned = false; duskBossPreludeDone = false;
+    duskDeepSeen = 0; duskDeepCD = 0;
+    duskGateCreakCD = 0; duskGateChainCD = 0; duskGateFlowCD = 0;
     duskInteriors = [];
+    duskGateSlab = null; duskGateWall = null; duskGateLever = null;
+    duskGateGears = []; duskGateChains = [];
+    duskGateOpenT = 0; duskGateOpening = false;
     duskLagProp = null; duskLagT = 0; duskLagCD = 12;
 
     const plankTex  = makePlankTexture('#4a3a2a', 4, 6, 3);
@@ -596,9 +608,15 @@
       pillar.position.set(px, 3.2, 450); pillar.castShadow = true; scene.add(pillar);
       walls.push({minX:px-1.1, maxX:px+1.1, minZ:448.9, maxZ:451.1});
     });
-    const gateSlab = new THREE.Mesh(new THREE.BoxGeometry(11, 3.4, 0.6), darkWood);
-    gateSlab.position.set(0, 5.0, 450); gateSlab.castShadow = true; scene.add(gateSlab);
-    // 歯車と鎖。動かないまま錆びている
+    /* 門扉は**下りたまま**(WORK 6)。WORK 2 では持ち上がった状態で置いて
+       あったが、水門前の会話(WORK 5)が「閉じたままですね」と言っている
+       ので、閉じている方が正しい ―― 水門守の残響を倒すと上がる */
+    duskGateSlab = new THREE.Mesh(new THREE.BoxGeometry(11, 3.4, 0.6), darkWood);
+    duskGateSlab.position.set(0, 1.7, 450); duskGateSlab.castShadow = true; scene.add(duskGateSlab);
+    duskGateWall = {minX:-5.5, maxX:5.5, minZ:449.6, maxZ:450.4};
+    walls.push(duskGateWall);
+    // 歯車と鎖。止まっているが、錆びついてはいない ―― まだ動く
+    duskGateGears = []; duskGateChains = [];
     [[-6.5, 5.6], [6.5, 5.6]].forEach(([gx, gy])=>{
       const gear = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.22, 12), ironMat);
       gear.position.set(gx, gy, 448.6); gear.rotation.x = Math.PI/2; scene.add(gear);
@@ -608,18 +626,26 @@
         tooth.position.set(gx + Math.cos(a)*1.08, gy + Math.sin(a)*1.08, 448.6);
         tooth.rotation.z = a; scene.add(tooth);
       }
+      duskGateGears.push(gear);
       const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 3.2, 6), ironMat);
       chain.position.set(gx, gy - 1.8, 448.9); scene.add(chain);
-      duskProp(chain, 'sway', {amp:0.02, freq:0.27});
+      duskGateChains.push(duskProp(chain, 'sway', {amp:0.02, freq:0.27}));
     });
     // 操作機構(レバー)と管理小屋
     post(2.6, 444, 1.0, 0.12);
-    const lever = board(2.6, 1.45, 444, 0.12, 0.9, 0.12, ironMat);
-    lever.rotation.z = 0.5;
+    duskGateLever = board(2.6, 1.45, 444, 0.12, 0.9, 0.12, ironMat);
+    duskGateLever.rotation.z = 0.5;
     house(-8, 443, 5.5, 6, 3.4, 'E');
     shelf(-9.5, 444.5, 1.6, 0);
     board(-7, 0.9, 442.5, 1.2, 0.08, 0.6, woodMat);
     lamp(4.5, 440);
+    lamp(-6.4, 444.2);   // 管理小屋の中の灯り(WORK 6)
+    /* 木製の足場(WORK 6)。門の手前を横に渡る板張りで、水門守が
+       行き来する場所でもある ―― 「戦うために水門がある」のではなく、
+       もともと見回りのための足場がそこにある、という形 */
+    [[-9.5, 446.5], [9.5, 446.5]].forEach(([wx, wz])=> post(wx, wz, 1.0, 0.12));
+    board(0, 0.24, 446.5, 20, 0.14, 1.6, plankMat);
+    [-8, -4, 4, 8].forEach(px=> post(px, 446.5, 0.9, 0.09));
     // 水門の下、勢いを失った水路
     reeds(-11, 455, 4); reeds(11, 456, 4);
 
@@ -671,6 +697,23 @@
     buildLoreNote(new THREE.Vector3(-7, 0, 442.2), '水門の古い記録', [
       '開閉の日付と、水位の数字が几帳面に並んでいる。',
       'ある日を境に、水位の欄だけが空白になり、日付だけが続いていく。'
+    ], {kind:'book'});
+    /* 水門まわりの記録(WORK 6)。**全文は完成させない。**
+       破れている / 読めない / 途中で切れている / 同じ行が何度も書き直されて
+       いる ―― 「忘れようとした結果、記録だけが残った」形にしてある。
+       商店街の「もう、その話は」と、魚屋の帳簿の切れた一行と並ぶもの */
+    buildLoreNote(new THREE.Vector3(-9.4, 0, 444.6), '破れた貼り紙', [
+      '「夜間の開放は禁止――」',
+      'そこから下は破り取られている。画鋲の跡だけが四つ残っている。'
+    ], {kind:'sign', wall:false});
+    buildLoreNote(new THREE.Vector3(3.4, 0, 444), '見回りの控え', [
+      '同じ一行が、何度も書き直されている。',
+      '「水面に人影」――「水面に人かげ」――「水面に、」',
+      '最後の行は書きかけで終わっている。筆はまだ手元にあったはずなのに。'
+    ], {kind:'book'});
+    buildLoreNote(new THREE.Vector3(-4.2, 0, 447.0), '足場に落ちていた紙片', [
+      'ふやけて、ほとんど読めない。',
+      '読み取れるのは二か所だけ。「子どもには――」と、「――閉めた」。'
     ], {kind:'book'});
 
     /* ---- 村へ入る(WORK 3) ----
@@ -727,6 +770,21 @@
       playDuskGateTalk();
       return null;
     }, {inset: 1.2});
+
+    /* ---- 水門:水門守の残響(WORK 6) ----
+       ボスらしい名乗りは入れない。レバーが勝手に動き、鎖が鳴り、
+       誰もいないのに門がわずかに下がる ―― 「敵が現れた」ではなく
+       「過去の動作が再生された」ように見せる(§13) */
+    registerRoomEvent(duskRoomById('sluice'), 0, '', ()=>{
+      playDuskWardenArrival();
+      return null;
+    }, {inset: 1.2});
+
+    /* ---- 村の奥の終点:ボスの手前(WORK 6) ----
+       水面がひとつに集まるだけ。戦闘は WORK 7 で始まる */
+    registerProximityEvent(new THREE.Vector3(0, 0, 496), 6.0, '', null, {
+      onEnter: ()=> playDuskBossPrelude(),
+    });
 
     buildTownReturnPortal(new THREE.Vector3(0, 0, 288));
   }
@@ -1069,6 +1127,218 @@
     ]);
   }
 
+  /* =========================================================
+     水門(WORK 6)
+
+     門扉は閉じた状態で建ててある。水門守の残響が引くとレバーと鎖が
+     わずかに動き、撃破するとゆっくり上がる ―― 撃破直後にリザルトを
+     出さず、鎖が止まる → 歯車が回る → 門が上がる → 水音が変わる、を
+     そのままゲーム内の時間で見せる。 ========================================================= */
+  // 水門守がレバーを引いている間だけ、レバーと鎖が動く(0..1)
+  function pullDuskGateLever(prog){
+    if(!duskGateLever) return;
+    const k = Math.sin(Math.max(0, Math.min(1, prog)) * Math.PI);
+    duskGateLever.rotation.z = 0.5 - k * 0.7;
+    duskGateChains.forEach((c, i)=>{
+      if(c && c.obj) c.obj.position.y = 3.8 - k * 0.22 * (i ? 1 : -1);
+    });
+    if(duskGateOpenT <= 0 && k > 0.85 && (duskGateCreakCD -= 0.016) <= 0){
+      duskGateCreakCD = 1.4;
+      sfx('woodCreak');
+    }
+  }
+  let duskGateCreakCD = 0;
+
+  /* 撃破後の開放。カットシーンで画面を止めず、歩ける状態のまま
+     門が上がっていく(§14)。 */
+  function openDuskWaterGate(){
+    if(duskGateOpening || duskGateOpenT > 0) return;
+    duskGateOpening = true;
+    sfx('bossWake');
+    ambienceHold(3);
+  }
+
+  function stepDuskWaterGate(dt){
+    if(!duskGateOpening || duskGateOpenT >= 1) return;
+    duskGateOpenT = Math.min(1, duskGateOpenT + dt * 0.14);   // 約7秒かけて上がる
+    if(duskGateSlab) duskGateSlab.position.y = 1.7 + duskGateOpenT * 3.3;
+    duskGateGears.forEach((g, i)=> g.rotation.z += dt * 1.1 * (i ? 1 : -1));
+    duskGateLever && (duskGateLever.rotation.z = 0.5 - duskGateOpenT * 0.9);
+    if((duskGateChainCD -= dt) <= 0){ duskGateChainCD = 0.9; sfx('woodCreak'); }
+    // 水門の下で、止まっていた水が動き出す
+    if((duskGateFlowCD -= dt) <= 0){
+      duskGateFlowCD = 0.5;
+      spawnDuskRipple(-3 + Math.random()*6, 452 + Math.random()*4, 0.8 + Math.random()*0.6);
+    }
+    if(duskGateOpenT >= 1){
+      // 通れるようになる。壁を外すのは開き切ってから
+      const idx = walls.indexOf(duskGateWall);
+      if(idx >= 0) walls.splice(idx, 1);
+      duskGateOpening = false;
+      spawnToast('🌊 水門が開いた');
+    }
+  }
+  let duskGateChainCD = 0, duskGateFlowCD = 0;
+
+  /* 水門守の残響(WORK 6)。AIは updateKeeperAI(07-ai-combat.js)、
+     残響の数値は core/warden-echo.js。ここは「どんな個体か」だけ。
+     中ボス扱いだが、硬さで強くしていない ―― 強さは「過去の行動が
+     残っている」という性質そのもの。 */
+  function buildDuskWardenEcho(x, z){
+    const en = buildEnemy(new THREE.Vector3(x, 0, z), {
+      color:0x46606f, hp:900, atk:36, speed:2.2, atkType:'keeper',
+      xp:320, goldBonus:[70, 95],
+    });
+    en.baseColor = 0x46606f;
+    en.decoyKind = 'keeper';
+    en.group.scale.multiplyScalar(1.18);   // 一回り大きい。見失わないように
+    en.onDefeat = ()=> onDuskWardenDefeated();
+    en.midbossName = '水門守の残響';
+    en.midbossFlavor = '引く手が止まり、鎖の音だけが少し遅れて消えていった。';
+    en.strongMob = true;
+    return en;
+  }
+
+  /* 撃破。残響が消え、鎖が止まり、門が上がる。
+     リザルトも黒画面も挟まない ―― 歩けるまま、世界の側が変わる */
+  function onDuskWardenDefeated(){
+    clearKeeperEchoes();
+    if(duskGateLever) duskGateLever.rotation.z = 0.5;
+    openDuskWaterGate();
+    playCutscene([
+      {t:2.0, run:()=> cutsceneLine('「……閉めようと、していましたね」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「ずっとか」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「ずっとです。何度も、同じところで」', DUSK_MAGE)},
+      {t:2.4, run:()=>{
+        cutsceneHideLine();
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }},
+    ]);
+  }
+
+  /* 水門守の残響の登場(WORK 6)
+
+     大きなボス演出は入れない(§13)。レバーが動き、鎖が鳴り、誰もいない
+     のに門が少し軋む ―― そのあとで、水面から形が起き上がる。
+     「敵が登場した」のではなく「過去の動作が再生された」ように見せる。 */
+  let duskWardenSpawned = false;
+  function playDuskWardenArrival(){
+    if(duskWardenSpawned) return;
+    duskWardenSpawned = true;
+    playCutscene([
+      {t:0.2, run:()=> ambienceHold(7)},
+      // 誰もいないのにレバーが動く
+      {t:0.6, run:()=>{ pullDuskGateLever(0.5); sfx('woodCreak'); }},
+      {t:0.7, run:()=>{ pullDuskGateLever(1.0); spawnDuskRipple(2.6, 445.6, 0.8); }},
+      {t:0.6, run:()=>{ pullDuskGateLever(0); sfx('woodCreak'); }},
+      // 門がわずかに軋んで、また止まる
+      {t:0.7, run:()=>{
+        if(duskGateSlab) duskGateSlab.position.y = 1.62;
+        addShake(0.06);
+      }},
+      {t:0.5, run:()=>{ if(duskGateSlab) duskGateSlab.position.y = 1.7; }},
+      // 水面に、引いていた人の形
+      {t:0.7, run:()=>{
+        spawnDuskRipple(2.6, 445.6, 1.5);
+        spawnApparition(new THREE.Vector3(2.6, 0, 445.4), {color:0x7fb0c4, fadeIn:1.2,
+                         fadeOut:1.0, maxOpacity:0.36, vanishDist:200});
+      }},
+      {t:0.9, run:()=> cutsceneLine('「……誰も、いませんね」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「いるさ。さっきまで動いてた」', DUSK_KNIGHT)},
+      {t:2.2, run:()=>{
+        cutsceneHideLine();
+        // ここで初めて本体が起き上がる
+        const en = buildDuskWardenEcho(2.6, 446.0);
+        en.triggered = true;
+        enemies.push(en);
+        sfx('bossWake');
+        addShake(0.14);
+        spawnDuskRipple(2.6, 446.0, 2.0);
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }},
+    ]);
+  }
+
+  /* =========================================================
+     村の奥 ―― 静かな時間(WORK 6)
+
+     敵を出さない。ここでやるのは「歩いてきた場所を、水面の側から
+     もう一度見せる」ことだけ。
+
+     台詞で village の過去を説明しない(§17)。水面に一瞬だけ人影や舟が
+     重なるだけで、それが何だったかはプレイヤーが決める ―― 魚屋も
+     住宅も船小屋も商店街も、もう歩いてきた場所なので、説明は要らない。
+  ========================================================= */
+  /* 奥へ進むにつれて、順に1つずつ。z が進んだ距離で出す ――
+     時間で出すと、立ち止まっている人には全部出て、急ぐ人には何も
+     出ない。歩いた人にだけ見えるものにしてある */
+  const DUSK_DEEP_MEMORIES = [
+    {z: 466, x: -13, line: '「明日はもう少し獲れるさ」',   ripple: 1.0},   // 魚屋(WORK 3)
+    {z: 472, x:  12, line: '「明日、船に乗せて!」',        ripple: 0.9},   // 住宅(WORK 4)
+    {z: 478, x: -10, line: '「……ねえ、まだ?」',           ripple: 1.1},   // 船小屋(WORK 4)
+    {z: 485, x:  11, line: '「忘れた方がいい」',            ripple: 0.8},   // 商店街(WORK 5)
+    {z: 492, x:  -8, line: '「水門の件について――」',        ripple: 1.2},   // 水門(WORK 2/6)
+  ];
+  let duskDeepSeen = 0;
+  let duskDeepCD = 0;
+
+  function stepDuskDeepMemories(dt){
+    if(duskDeepCD > 0) duskDeepCD -= dt;
+    if(duskDeepSeen >= DUSK_DEEP_MEMORIES.length) return;
+    if(state.dialogueActive || duskDeepCD > 0) return;
+    const m = DUSK_DEEP_MEMORIES[duskDeepSeen];
+    if(state.pos.z < m.z) return;
+    duskDeepSeen++;
+    duskDeepCD = 2.5;   // 続けざまには出さない
+    /* 会話にしない ―― 画面を止めず、歩いている足は止まらない。
+       水面に一瞬だけ人影が重なり、声が一行だけ流れる */
+    spawnApparition(new THREE.Vector3(m.x, 0, m.z + 3), {color:0x4a5a68, fadeIn:0.9,
+                     fadeOut:1.2, maxOpacity:0.30, vanishDist:200});
+    spawnDuskRipple(m.x, m.z + 3, m.ripple);
+    spawnToast(m.line);
+    sfx('chime');
+  }
+
+  /* ボスの手前(WORK 6)。村の奥の終点で、いままでの水面がひとつに
+     集まる。**ここでは戦闘を始めない**(村の残響は WORK 7)。 */
+  let duskBossPreludeDone = false;
+  function playDuskBossPrelude(){
+    if(duskBossPreludeDone) return;
+    duskBossPreludeDone = true;
+    playCutscene([
+      {t:0.2, run:()=> ambienceHold(8)},
+      // 離れた水面から、ひとつずつ
+      {t:0.9, run:()=>{ spawnDuskRipple(-12, 494, 1.2); spawnApparition(
+        new THREE.Vector3(-12, 0, 494), {color:0x4a5a68, fadeIn:1.0, fadeOut:1.4,
+                                         maxOpacity:0.28, vanishDist:200}); }},
+      {t:1.4, run:()=>{ spawnDuskRipple(11, 496, 1.0); spawnApparition(
+        new THREE.Vector3(11, 0, 496), {color:0x46505c, fadeIn:1.0, fadeOut:1.4,
+                                        maxOpacity:0.26, vanishDist:200}); }},
+      {t:1.4, run:()=>{ spawnDuskRipple(-6, 498, 0.9); spawnDuskRipple(7, 497, 0.8); }},
+      // それが真ん中へ寄っていく
+      {t:1.6, run:()=>{
+        spawnDuskRipple(0, 498, 1.6);
+        spawnApparition(new THREE.Vector3(0, 0, 498.5), {color:0x3f4a58, fadeIn:1.4,
+                         fadeOut:1.8, maxOpacity:0.34, vanishDist:200});
+        sfx('bossWake');
+      }},
+      {t:2.2, run:()=> ambienceHold(6)},
+      /* §17 の通り、ここで村の過去を説明させない。
+         魔法使いは「広く感じます」としか言わない ―― 村が広がったのでは
+         なく、知っている場所が増えただけ */
+      {t:1.0, run:()=> cutsceneLine('「……最初より、広く感じます」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「村は変わってない」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「知っている場所が増えたからでしょう」', DUSK_MAGE)},
+      {t:2.4, run:()=>{
+        cutsceneHideLine();
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }},
+    ]);
+  }
+
   /* 記憶漁師(WORK 5)。AIは updateFisherAI(07-ai-combat.js)、
      網の時間と落ち先は core/memory-fisher.js。ここは「どんな個体か」だけ。
      強モブ扱いだが、硬さで強くしていない ―― 「過去を狙う」という
@@ -1151,6 +1421,11 @@
 
     // 商店街の複合戦闘(WORK 5)。波の時間はゲーム内時間で進む
     stepDuskMarketFight(dt);
+
+    // 水門の開放(WORK 6)。撃破後、歩けるまま門が上がっていく
+    stepDuskWaterGate(dt);
+    // 村の奥の記憶(WORK 6)
+    stepDuskDeepMemories(dt);
 
     /* ---- 入れる建物の屋根(WORK 4) ----
        カメラは真上からなので、屋根があると中が一切見えない ―― 魚屋の帳場も、

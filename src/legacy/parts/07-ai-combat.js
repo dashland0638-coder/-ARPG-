@@ -749,6 +749,13 @@
       spawn:(pos)=> arenaThicken(buildDuskCopyShade(pos.x, pos.z), 900)},
     duskFisher:   {label:'Memory Fisher', icon:'🕸',
       spawn:(pos)=> arenaThicken(buildDuskFisher(pos.x, pos.z), 1200)},
+    /* 水門守の残響(WORK 6)。トレーニング空間では水門もレバーも無いので、
+       動くのは残響の側だけ ―― 本体と残響の見分けは、それでも成立する
+       (予備動作の有無と、始まる時刻の差で見分ける敵なので)。
+       撃破時の水門開放は村でしか起きない(onDefeat を外してある) */
+    duskWarden:   {label:'Warden Echo',   icon:'⚓',
+      spawn:(pos)=>{ const en = arenaThicken(buildDuskWardenEcho(pos.x, pos.z), 1600);
+                     en.onDefeat = null; return en; }},
   };
 
   // アリーナ用にHPだけ差し替える(経験値は入れない)。挙動には触らない
@@ -1032,6 +1039,7 @@
       else if(en.atkType==='foam')  updateFoamAI(en, dt);
       else if(en.atkType==='copy')  updateCopyShadeAI(en, dt);
       else if(en.atkType==='fisher') updateFisherAI(en, dt);
+      else if(en.atkType==='keeper') updateKeeperAI(en, dt);
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
       updateMobAnim(en, dt);
@@ -1040,6 +1048,10 @@
        飛んでいる網はそのまま落ちて発動する ―― 投げた瞬間に落ち先が
        決まっている、という約束をここでも守る */
     if(memoryNets.length) updateMemoryNets(dt);
+    /* 残響も敵とは別に進む(WORK 6)。本体を倒しても、いま再生されている
+       過去はそのまま終わりまでなぞる ―― 撃破の瞬間に消えると、
+       「過去がそこに残っている」という読みのほうが崩れる */
+    if(keeperEchoes.length) updateKeeperEchoes(dt);
   }
 
 
@@ -2969,6 +2981,217 @@
         if(state.hp <= 0) triggerPlayerDown();
       }
       en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+    }
+  }
+
+  /* =========================================================
+     水門守の残響(keeper) ―― 過去の行動が残っている中ボス(WORK 6)
+
+     この敵は最後まで「水門を閉めようとしている」。プレイヤーと戦うために
+     そこにいるのではなく、閉めに行く途中でぶつかってくるだけ ――
+     足場を歩き、レバーへ寄り、引き、また別の場所へ移る、を繰り返す。
+
+     ■ 見分けるもの
+     水鏡の影は「挙動の微妙な差」だったが、こちらは **時間** で見分ける:
+
+       本体   予備動作がある / 足元の水面が強く応える / いま動き出す
+       残響   予備動作が無い / 薄い / 本体が少し前にやったことをなぞる
+
+     文字もマーカーも出さない。残響は追ってこないので、離れていれば
+     巻き込まれない ―― 避ける遊びではなく、見分ける遊びにしてある。
+
+     数値と判定は core/warden-echo.js。ここは見た目と繋ぎ込みだけ。
+     新しい戦闘基盤は作っていない(体幹・パニッシュ窓・処刑・被ダメージ
+     経路はすべて既存のまま)。 ========================================================= */
+  /* 水門守が行き来する持ち場。**出現した場所からの相対**で持つ ――
+     村ではレバーの前に出るので1つめがレバーになり、トレーニング空間
+     (Arena)でも同じように足場を行き来する形で確認できる */
+  const KEEPER_SPOTS = [
+    {dx:  0.0, dz:  0.0, lever: true},
+    {dx: -7.0, dz:  0.5, lever: false},
+    {dx:  4.0, dz:  0.5, lever: false},
+    {dx: -4.0, dz: -2.5, lever: false},
+  ];
+  function keeperSpotFor(en, i){
+    const s = KEEPER_SPOTS[i % KEEPER_SPOTS.length];
+    const home = en.keeperHome || {x: en.group.position.x, z: en.group.position.z};
+    return {x: home.x + s.dx, z: home.z + s.dz, lever: s.lever};
+  }
+
+  let keeperEchoes = [];   // いま見えている残響(本体とは別に進む)
+
+  function clearKeeperEchoes(){
+    keeperEchoes.forEach(e=>{ if(e.group) scene.remove(e.group); });
+    keeperEchoes = [];
+  }
+
+  /* 残響を1つ出す。本体と同じ形の、薄い写し。
+     buildEnemy は使わない ―― 敵ではないので、enemies には入れない */
+  function spawnKeeperEcho(en, rec){
+    const mat = new THREE.MeshBasicMaterial({color:0x7fb0c4, transparent:true,
+                                             opacity:0, depthWrite:false});
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.7, 10), mat);
+    body.position.y = 0.85; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), mat);
+    head.position.y = 1.85; g.add(head);
+    g.position.set(rec.x, 0, rec.z);
+    g.rotation.y = rec.facing;
+    scene.add(g);
+    keeperEchoes.push({
+      x: rec.x, z: rec.z, kind: rec.kind, group: g, mat,
+      life: PROVISIONAL_ECHO_LIFE_SEC, maxLife: PROVISIONAL_ECHO_LIFE_SEC,
+      // 「引いた」動作だけが痛い。歩いただけの残響は当たらない
+      harmAt: rec.kind === 'operate' ? PROVISIONAL_ECHO_LIFE_SEC * 0.45 : null,
+      dmg: Math.round(en.atk * 0.6),
+    });
+    /* 音は少し遅れて届く。鎖の音が本体より後から鳴るので、
+       耳でも「後ろで同じことが起きている」と分かる */
+    if(rec.kind === 'operate') sfx('woodCreak');
+  }
+
+  function updateKeeperEchoes(dt){
+    for(let i=keeperEchoes.length-1;i>=0;i--){
+      const e = keeperEchoes[i];
+      const prevLife = e.life;
+      const step = stepEcho(e, dt);
+      e.life = step.life;
+      // 出てすぐ濃く、消える間際に薄い。予備動作は無い(いきなり始まる)
+      e.mat.opacity = 0.42 * Math.sin(Math.min(1, step.progress) * Math.PI);
+      if(e.kind === 'operate'){
+        // 引く動作をなぞる。腕は無いので、身体の傾きで見せる
+        e.group.rotation.z = Math.sin(step.progress * Math.PI) * 0.34;
+      }
+      if(echoStrikes(e, prevLife, PROVISIONAL_ECHO_RADIUS, state.pos.x, state.pos.z)){
+        if(state.invulnerable || state.paralyzeInvulnT > 0){
+          if(state.paralyzeInvulnT <= 0) tryPerfectDodge(null);
+        } else if(!tryConsumeOrbShield()){
+          const dmg = applyIncomingDamageMul(state.debugMode ? 0 : e.dmg);
+          state.hp = Math.max(0, state.hp - dmg);
+          spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+          if(state.hp <= 0) triggerPlayerDown();
+        }
+      }
+      if(e.kind === 'operate' && !e.rippled && step.progress > 0.4){
+        e.rippled = true;
+        // 残響の足元の水面は弱くしか応えない(本体との差、その2)
+        if(currentWorldKey === 'duskvillage') spawnDuskRipple(e.x, e.z, 0.5);
+      }
+      if(step.expired){ scene.remove(e.group); keeperEchoes.splice(i, 1); }
+    }
+  }
+
+  function updateKeeperAI(en, dt){
+    const aim = aggroPoint(en);
+    const distToPlayer = state.pos.distanceTo(en.group.position);
+    const observing = state.observeLightT > 0 && observeReaches(distToPlayer);
+
+    const sees = distToPlayer < 16 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;
+    if(!en.triggered) return;   // 気づかれるまでは、その場で止まっている
+
+    if(en.keeperState === undefined){
+      en.keeperState = 'move'; en.keeperT = PROVISIONAL_MOVE_SEC;
+      en.keeperSpot = 0; en.keeperRecords = []; en.keeperPlayed = [];
+      en.keeperHome = {x: en.group.position.x, z: en.group.position.z};
+    }
+
+    // ---- 残響を出す。delay 秒前に本体がやったことが、いま始まる ----
+    const delay = echoDelay(observing);
+    const due = dueEchoes(en.keeperRecords, mechTime, delay, en.keeperPlayed);
+    const cap = echoCountFor(wardenPhaseFor(en.hp / Math.max(1, en.hpMax)));
+    due.forEach(rec=>{
+      en.keeperPlayed.push(rec);
+      if(keeperEchoes.length < cap) spawnKeeperEcho(en, rec);
+    });
+    pruneRecords(en.keeperRecords, mechTime);
+
+    const spot = keeperSpotFor(en, en.keeperSpot);
+
+    if(en.keeperState === 'move'){
+      // 次の持ち場へ歩く。プレイヤーではなく、水門の都合で動いている
+      const to = new THREE.Vector3(spot.x - en.group.position.x, 0, spot.z - en.group.position.z);
+      const d = to.length();
+      if(d > 0.4){
+        const dir = to.normalize();
+        en.group.position.addScaledVector(dir, en.speed * dt);
+        en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(dir.x, dir.z), 3.0*dt);
+        resolveWallCollisions(en.group.position);
+      }
+      en.keeperT -= dt;
+      if(d <= 0.6 || en.keeperT <= 0){
+        en.keeperState = 'windup';
+        en.keeperT = PROVISIONAL_ECHO_WINDUP_SEC;
+        en.keeperDur = en.keeperT;
+      }
+      // 歩いた跡も残響になる。ただし当たり判定は持たない
+      if((en.keeperTrailCD = (en.keeperTrailCD || 0) - dt) <= 0){
+        en.keeperTrailCD = 0.9;
+        const rec = recordAction('walk', en.group.position.x, en.group.position.z,
+                                 en.group.rotation.y, mechTime);
+        if(rec) en.keeperRecords.push(rec);
+      }
+    }
+
+    else if(en.keeperState === 'windup'){
+      /* **本体だけが持つ予備動作。** 残響はこれを持たない ―― ここが
+         見分けの一番大きい手がかりなので、身体の沈み込みで見せる */
+      en.keeperT -= dt;
+      const prog = 1 - Math.max(0, en.keeperT)/Math.max(0.01, en.keeperDur);
+      if(en.body && en.bodyScale){
+        const B = en.bodyScale;
+        en.body.scale.set(B.x*(1 + prog*0.18), B.y*(1 - prog*0.14), B.z*(1 + prog*0.18));
+      }
+      // 本体の足元は水面が強く応える(見分けの手がかり、その2)
+      if(!en.keeperRippled && prog > 0.5){
+        en.keeperRippled = true;
+        if(currentWorldKey === 'duskvillage'){
+          spawnDuskRipple(en.group.position.x, en.group.position.z, actorTell(false).ripple * 1.3);
+        }
+      }
+      if(en.keeperT <= 0){
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+        en.keeperRippled = false;
+        en.keeperState = 'operate';
+        en.keeperT = PROVISIONAL_OPERATE_SEC;
+        en.keeperDur = en.keeperT;
+        const rec = recordAction('operate', en.group.position.x, en.group.position.z,
+                                 en.group.rotation.y, mechTime);
+        if(rec) en.keeperRecords.push(rec);
+        sfx('woodCreak');
+      }
+    }
+
+    else if(en.keeperState === 'operate'){
+      /* 引いている。レバーの前なら実際にレバーと鎖が動く ――
+         この敵は最後まで水門を閉めようとしている */
+      en.keeperT -= dt;
+      const prog = 1 - Math.max(0, en.keeperT)/Math.max(0.01, en.keeperDur);
+      en.group.rotation.z = Math.sin(prog * Math.PI) * 0.34;
+      if(spot.lever && currentWorldKey === 'duskvillage') pullDuskGateLever(prog);
+      // 引いた瞬間だけ、まわりを巻き込む
+      if(!en.keeperHit && prog >= 0.45){
+        en.keeperHit = true;
+        if(state.pos.distanceTo(en.group.position) < PROVISIONAL_ECHO_RADIUS){
+          if(state.invulnerable || state.paralyzeInvulnT > 0){
+            if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
+          } else if(!tryConsumeOrbShield()){
+            const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
+            state.hp = Math.max(0, state.hp - dmg);
+            spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+            flashScreen();
+            if(state.hp <= 0) triggerPlayerDown();
+          }
+        }
+      }
+      if(en.keeperT <= 0){
+        en.group.rotation.z = 0;
+        en.keeperHit = false;
+        en.keeperState = 'move';
+        en.keeperT = PROVISIONAL_MOVE_SEC;
+        en.keeperSpot++;
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+      }
     }
   }
 
@@ -4907,6 +5130,10 @@
       en.hp = 0; en.dead = true;
       // 本体が消えれば、水面に映っていたものも残らない(WORK 3)
       if(en.mirrorClones && en.mirrorClones.length) clearMirrorClones(en);
+      /* 撃破したときだけ動く、その個体ごとの後始末(WORK 6)。
+         水門守の残響が「残響を消して水門を開ける」のに使っている ――
+         ボスの onBossDefeated とは別に、中ボスにも一本だけ口を開けておく */
+      if(en.onDefeat){ const fn = en.onDefeat; en.onDefeat = null; fn(en); }
       // 死んだ敵が処刑対象に残らないようにする(資料24章の安全性)
       clearExecutionWindow(en);
       if(state.executeTarget === en) state.executeTarget = null;

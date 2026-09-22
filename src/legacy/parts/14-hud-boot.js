@@ -1413,6 +1413,7 @@
        進行フラグ・敵・イベント登録には触らない ―― 消すのは一時状態だけ */
     clearPhantomDecoys();
     clearMemoryNets();
+    clearKeeperEchoes();
     state.attackSnapshot = null;
     if(state.posHistory) state.posHistory.length = 0;
     repositionAlliesToPlayer();

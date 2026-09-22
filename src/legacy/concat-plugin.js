@@ -90,6 +90,12 @@ import {
 import {
   PROVISIONAL_MARKET_WAVES, dueWaves, allWavesFired,
 } from '../core/encounter-waves.js';
+import {
+  phaseFor as wardenPhaseFor, echoCountFor, echoDelay, recordAction,
+  dueEchoes, pruneRecords, stepEcho, echoStrikes, actorTell,
+  PROVISIONAL_ECHO_LIFE_SEC, PROVISIONAL_ECHO_RADIUS, PROVISIONAL_ECHO_WINDUP_SEC,
+  PROVISIONAL_OPERATE_SEC, PROVISIONAL_MOVE_SEC,
+} from '../core/warden-echo.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {
