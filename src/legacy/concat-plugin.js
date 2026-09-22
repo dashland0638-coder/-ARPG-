@@ -66,6 +66,19 @@ import {
   PROVISIONAL_CLONE_COUNT, PROVISIONAL_SPLIT_RADIUS, PROVISIONAL_REFORM_SEC,
   OBSERVE_LIGHT_SEC, OBSERVE_RADIUS,
 } from '../core/mirror-shade.js';
+import {
+  aggroTarget, pickLureTarget, stepDecoyLife, decoyPullFor,
+  PROVISIONAL_PHANTOM_LIFE_SEC, PROVISIONAL_PHANTOM_LURE_RADIUS,
+} from '../core/decoy.js';
+import {
+  makeAttackSnapshot, replayPlan, consumeSnapshot, isCopyable as isCopyableAttack,
+  PROVISIONAL_COPY_DELAY_SEC, PROVISIONAL_COPY_POWER_MUL,
+} from '../core/attack-snapshot.js';
+import {
+  canGrow as foamCanGrow, stepGrowth as foamStepGrowth, growthOffset as foamGrowthOffset,
+  PROVISIONAL_FOAM_START, PROVISIONAL_FOAM_MAX,
+} from '../core/foam-swarm.js';
+import { waypointsFor, findWaypoint } from '../core/scenario-waypoints.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

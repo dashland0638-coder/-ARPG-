@@ -379,6 +379,7 @@
     const testJobGrid = document.getElementById('testmode-job-grid');
     const testGuestGrid = document.getElementById('testmode-guest-grid');
     const testScenarioGrid = document.getElementById('testmode-scenario-grid');
+    const testWaypointGrid = document.getElementById('testmode-waypoint-grid');
     const testLevelInput = document.getElementById('testmode-level');
     const testLevelVal = document.getElementById('testmode-level-val');
     const testStartBtn = document.getElementById('testmode-start-btn');
@@ -388,6 +389,7 @@
     let tmGuest = null;   // null=単独。ゲストのパーティメンバーAI(08-loot-equipment.jsのGUEST COMPANION)を
                            // 章の自動進行を待たずに直接検証できるようにするためのテストモード専用オプション
     let tmScenario = null;  // null=トレーニング空間。キーを選べばそのシナリオへ直接出撃する
+    let tmWaypoint = null;  // null=そのシナリオの入口。指定すると途中から始める(WORK 4)
 
     if(testGuestGrid){
       const noneCard = document.createElement('div');
@@ -436,6 +438,7 @@
         tmScenario = null;
         refreshStartLabel();
       });
+      noneCard.addEventListener('click', ()=> renderWaypointGrid());
       testScenarioGrid.appendChild(noneCard);
       SCENARIO_DEFS.forEach(sc=>{
         if(!sc.unlocked) return;   // ワールド構築関数が無いものは起動できない
@@ -447,9 +450,44 @@
           testScenarioGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
           card.classList.add('selected');
           tmScenario = sc.key;
+          renderWaypointGrid();
           refreshStartLabel();
         });
         testScenarioGrid.appendChild(card);
+      });
+    }
+
+    /* 開始地点(WORK 4)。ヘッドレス/実機のどちらでも、村の奥のほうを
+       確かめるのに入口から歩き直すのは現実的でないため、選んだシナリオに
+       登録があれば途中から始められるようにしてある(core/scenario-waypoints.js)。
+       登録の無いシナリオでは、この欄そのものが空になる */
+    function renderWaypointGrid(){
+      if(!testWaypointGrid) return;
+      testWaypointGrid.innerHTML = '';
+      tmWaypoint = null;
+      const list = tmScenario ? waypointsFor(tmScenario) : [];
+      if(!list.length) return;
+      const headCard = document.createElement('div');
+      headCard.className = 'testmode-job-card selected';
+      headCard.dataset.waypointId = '';
+      headCard.textContent = '最初から';
+      headCard.addEventListener('click', ()=>{
+        testWaypointGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+        headCard.classList.add('selected');
+        tmWaypoint = null;
+      });
+      testWaypointGrid.appendChild(headCard);
+      list.forEach(wp=>{
+        const card = document.createElement('div');
+        card.className = 'testmode-job-card';
+        card.dataset.waypointId = wp.id;
+        card.textContent = wp.name;
+        card.addEventListener('click', ()=>{
+          testWaypointGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+          card.classList.add('selected');
+          tmWaypoint = wp.id;
+        });
+        testWaypointGrid.appendChild(card);
       });
     }
 
@@ -523,7 +561,7 @@
     testStartBtn.addEventListener('click', ()=>{
       if(testStartBtn.disabled || !tmClass) return;
       testScreen.style.display = 'none';
-      beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1, tmGuest, tmScenario);
+      beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1, tmGuest, tmScenario, tmWaypoint);
     });
   })();
 

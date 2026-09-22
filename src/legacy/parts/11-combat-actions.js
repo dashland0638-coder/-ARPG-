@@ -914,6 +914,22 @@
       proj.impactAoeRadius = MAGE_IMPACT_AOE_RADIUS;
     }
     projectiles.push(proj);
+    /* Attack Snapshot(WORK 4)。写し身が「直前の一撃」を1回だけ返せるよう、
+       撃った形だけを控えておく ―― 記録するのは種類・位置・向き・威力の4つで、
+       装備やスフィアの育成分は写さない(core/attack-snapshot.js)。
+       写せない攻撃(近接・矢など)は makeAttackSnapshot が null を返すので、
+       ここでは種類名を渡すだけでよい。魔法弾以外はまだ写せない */
+    recordAttackSnapshot('magicBolt', dir, dmg);
+  }
+
+  /* 直前の攻撃の記録。写し身(07-ai-combat.js)がこれを消費する。
+     未対応の攻撃種別では何も起きない(null は上書きせず、そのまま保持) */
+  function recordAttackSnapshot(kind, dir, power){
+    const snap = makeAttackSnapshot({
+      kind, x: state.pos.x, z: state.pos.z,
+      dirX: dir.x, dirZ: dir.z, power, at: mechTime,
+    });
+    if(snap) state.attackSnapshot = snap;
   }
 
   // one arrow, optionally homing onto whatever is nearest in front
@@ -1388,6 +1404,67 @@
         }
       }
     }
+  }
+
+  /* =========================================================
+     幻影歩法(魔法使いの Skill 1、WORK 4 / MAGE-001)
+
+     いた場所に自分の輪郭を残して退く。敵は幻影のほうへ向かうが、
+     **命中判定はプレイヤーの座標のまま**なので、敵は幻影に向かって
+     攻撃して自然に空振りする ―― 「デコイが攻撃を受け止める」処理を
+     新設していないのはそのため。
+
+     誰がどれくらい釣られるかは敵ごとに違う(core/decoy.js の DECOY_PULL)。
+     全員が必ず釣られるようにすると、幻影歩法が必須の攻略法になってしまう。
+
+     見た目は buildPlayer() を使わない ―― player と playerMixerParts は
+     連結スコープの共有変数で、2回目の buildPlayer() はプレイヤー本体の
+     リグ参照を壊す(ARCHITECTURE.md)。薄い輪郭で足りる。
+  ========================================================= */
+  function spawnPhantomDecoy(x, z){
+    const color = (state.classDef && state.classDef.trim) || 0x9fd8ff;
+    const mat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.42, depthWrite:false});
+    const g = new THREE.Group();
+    /* 大きさはプレイヤーの見た目に寄せる ―― 小さいと「置いた印」に見えて
+       しまい、敵がそれを人影と取り違えている画に読めない */
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.6, 10), mat);
+    body.position.y = 0.80;
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 10, 8), mat);
+    head.position.y = 1.78;
+    g.add(head);
+    g.position.set(x, 0, z);
+    g.rotation.y = state.facing;
+    scene.add(g);
+    state.decoys.push({x, z, group:g, mat, life:PROVISIONAL_PHANTOM_LIFE_SEC,
+                       maxLife:PROVISIONAL_PHANTOM_LIFE_SEC, kind:'phantom'});
+    // 足元の水面が応える(村では波紋、それ以外では何も起きない)
+    if(currentWorldKey === 'duskvillage' && typeof spawnDuskRipple === 'function'){
+      spawnDuskRipple(x, z, 0.9);
+    }
+    sfx('dodge');
+  }
+
+  function updatePhantomDecoys(dt){
+    if(!state.decoys || !state.decoys.length) return;
+    for(let i=state.decoys.length-1;i>=0;i--){
+      const d = state.decoys[i];
+      const step = stepDecoyLife(d, dt);
+      d.life = step.life;
+      // 消える間際に薄くなる。残り時間が読めるので、引きつけが切れる瞬間が分かる
+      const k = d.maxLife > 0 ? d.life / d.maxLife : 0;
+      d.mat.opacity = 0.42 * Math.min(1, k * 2.2);
+      if(step.expired){
+        scene.remove(d.group);
+        state.decoys.splice(i, 1);
+      }
+    }
+  }
+
+  function clearPhantomDecoys(){
+    if(!state.decoys) { state.decoys = []; return; }
+    state.decoys.forEach(d=> scene.remove(d.group));
+    state.decoys = [];
   }
 
   /* 観測の灯(魔法使いの Skill 2、WORK 3 / DEC-001)

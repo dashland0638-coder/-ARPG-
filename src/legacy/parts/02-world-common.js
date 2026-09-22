@@ -366,6 +366,8 @@
     itemDrops.forEach(d=>{ scene.remove(d.mesh); if(d.light) giveLight(d.light); }); itemDrops = [];
     if(state.mageOrbs){ state.mageOrbs.forEach(orb=>scene.remove(orb.mesh)); state.mageOrbs = []; }
     state.observeLightT = 0;   // 観測の灯は世界をまたいで持ち越さない
+    clearPhantomDecoys();      // 幻影も世界をまたいで残さない(WORK 4)
+    state.attackSnapshot = null;
     clearDecals();   // scorches belong to the room that got burned
     nearbyDoor = null; nearbyStairs = null; nearbyLore = null;
     autoStairBusy = false; stairAutoArmed = true;   // auto階段の状態は世界ごとに素の状態へ

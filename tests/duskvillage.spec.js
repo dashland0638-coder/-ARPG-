@@ -84,3 +84,56 @@ test.describe('宵待ちの村 (正式マップ)', () => {
     expect(errors).toEqual([]);
   });
 });
+
+/* WORK 4 ―― 住宅〜船小屋。
+   入口から歩くと数分かかるので、Scenario Test Mode の開始地点
+   (core/scenario-waypoints.js)で直接そこから始める。開始地点は
+   テストモード専用で、通常プレイの進行には現れない。 */
+test.describe('宵待ちの村 (住宅〜船小屋)', () => {
+  test('住宅から始めると、子どもの記憶が起きる', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+
+    await startTestMode(page, {
+      classKey: 'mage', guestKey: 'warrior', scenario: 'duskvillage',
+      level: 30, waypoint: 'homes',
+    });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+
+    // 開始地点へ運ばれていること(場所名が入場地点の森ではなく住宅になる)
+    await expect(page.locator('#minimap-room')).toHaveText('住宅', { timeout: 30_000 });
+    await expect(page.locator('#minimap-area')).toHaveText('宵待ちの村');
+
+    /* 食卓のそばに着いた時点で一度だけ流れる記憶。声の主は名乗らないので、
+       台詞欄の名前は空のまま出る(playDuskChildMemory)。
+       ここで見るのは最初の一行まで ―― 続く魔法使いの観察まで待つと、
+       この環境(実時間の約1/12でしか進まない)では4分以上かかる。
+       台詞の並びは playDuskChildMemory の担当 */
+    await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
+    await expect(page.locator('#dialogue-text')).toHaveText('「明日、船に乗せて!」', { timeout: 60_000 });
+    await page.screenshot({ path: 'test-results/dusk-04-child-memory.png' });
+
+    expect(errors).toEqual([]);
+  });
+
+  test('船小屋から始めると、水の上から同じ声が返る', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+
+    await startTestMode(page, {
+      classKey: 'mage', guestKey: 'warrior', scenario: 'duskvillage',
+      level: 30, waypoint: 'boat',
+    });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+
+    await expect(page.locator('#minimap-room')).toHaveText('船小屋', { timeout: 30_000 });
+
+    await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
+    await expect(page.locator('#dialogue-text')).toHaveText('「……ねえ、まだ?」', { timeout: 60_000 });
+    await page.screenshot({ path: 'test-results/dusk-06-boat-memory.png' });
+
+    expect(errors).toEqual([]);
+  });
+});

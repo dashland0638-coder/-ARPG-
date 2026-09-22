@@ -66,6 +66,13 @@
   let duskDawnT = 0;         // 0=夜のまま 1=夜明け。WORK 7 の撃破演出が動かす
   let duskCreakCD = 0;       // 木橋の軋み(鳴らしすぎないための間引き)
   let duskRippleCD = 0;
+  /* 入れる建物の屋根(WORK 4)。カメラが真上からなので、中へ入ると屋根しか
+     見えない ―― 中にいる間だけその棟の屋根を透かす。建物ごとに持つのは
+     位置と大きさと屋根の材質だけで、判定は updateDuskVillage で毎フレーム */
+  let duskInteriors = [];
+  let duskLagProp = null;   // 環境異常(WORK 4): いま揺れが止まっている小舟
+  let duskLagT = 0;
+  let duskLagCD = 12;
 
   // 環境音の区画。どの部屋がどの区画かは core 側(duskAmbienceZoneFor)が持つ
   function duskAmbienceZone(){
@@ -102,6 +109,9 @@
     duskDawnT = 0; duskCreakCD = 0; duskRippleCD = 0;
     duskGuestWalk = null;
     duskFishMemoryDone = false;   // 出撃のたびに、記憶はまた一度だけ起きる
+    duskChildMemoryDone = false; duskBoatMemoryDone = false;
+    duskInteriors = [];
+    duskLagProp = null; duskLagT = 0; duskLagCD = 12;
 
     const plankTex  = makePlankTexture('#4a3a2a', 4, 6, 3);
     const plankMat  = new THREE.MeshStandardMaterial({map:plankTex, roughness:0.85});
@@ -166,12 +176,13 @@
        全部の内部は作らない。「入れる」のは魚屋・住宅・船小屋・商店の店・
        水門の管理小屋の5棟で、そこだけ壁に出入口を開けてある。残りは
        シルエットとして village の密度を作るためのもの。 */
-    function roof(x, z, w, d, h, ry){
-      const m = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*0.74, h*0.5, 4), roofMat);
+    function roof(x, z, w, d, h, ry, mat){
+      const m = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*0.74, h*0.5, 4), mat || roofMat);
       m.position.set(x, h + h*0.22, z);
       m.rotation.y = (ry || 0) + Math.PI/4;
       m.castShadow = true;
       scene.add(m);
+      return m;
     }
     // 壁1枚。doorGap を渡すと、その辺の中央に出入口を開ける
     function wallRun(cx, cz, sx, sz, h, doorGap){
@@ -200,7 +211,12 @@
       wallRun(x, z + d/2, w, t, h, door === 'N' ? 2.2 : 0);
       wallRun(x - w/2, z, t, d, h, door === 'W' ? 2.2 : 0);
       wallRun(x + w/2, z, t, d, h, door === 'E' ? 2.2 : 0);
-      roof(x, z, w, d, h);
+      /* 入れる建物の屋根だけは、透かせるように専用の材質を持たせる
+         (roofMat のままだと、透かした瞬間に村中の屋根が消える) */
+      const rmat = new THREE.MeshStandardMaterial({color:0x1d1712, roughness:0.85,
+                                                   transparent:true, opacity:1});
+      const rmesh = roof(x, z, w, d, h, 0, rmat);
+      duskInteriors.push({x, z, w, d, mesh:rmesh, mat:rmat, k:0});
     }
 
     // ---- 小物 ----
@@ -431,11 +447,24 @@
       const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.24, 0.46, 8), woodMat);
       stool.position.set(sx, 0.31, sz); scene.add(stool);
     });
-    // 食器: 人数分ある。3人分並べたまま
-    [[46.0,348.7],[46.6,349.3],[47.2,348.8]].forEach(([dx,dz])=>{
+    /* 食卓(WORK 4)。椅子は3つなのに、食器は4人分ある。
+       怖がらせるための仕掛けではなく、「ここには誰かがいた」と思える
+       ずれを1つだけ置いてある ―― 説明はしないし、イベントにもしない */
+    [[46.0,348.7],[46.6,349.3],[47.2,348.8],[46.3,350.0]].forEach(([dx,dz])=>{
       const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.13, 0.05, 10), potMat);
       dish.position.set(dx, 0.85, dz); scene.add(dish);
     });
+    // 水差しと、伏せたままの椀
+    const jug = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.34, 9), potMat);
+    jug.position.set(45.6, 0.99, 349.6); scene.add(jug);
+    const bowl = new THREE.Mesh(new THREE.SphereGeometry(0.15, 9, 7, 0, Math.PI*2, 0, Math.PI/2), potMat);
+    bowl.position.set(47.6, 0.86, 350.1); bowl.rotation.x = Math.PI; scene.add(bowl);
+    // 畳んでいない衣類と、繕いかけの布
+    board(48.0, 0.30, 344.6, 0.9, 0.22, 0.7, clothMat);
+    board(47.2, 0.24, 344.2, 0.6, 0.14, 0.5, clothMat);
+    // 桶と工具(暮らしの道具。並べすぎない)
+    barrel(43.2, 350.8, 0.3, 0.5);
+    board(48.6, 0.52, 348.2, 0.5, 0.06, 0.12, ironMat);
     // 布団: 敷いたまま
     board(43.5, 0.22, 345.5, 1.5, 0.28, 2.2, clothMat);
     // 玩具: 小さな木彫りの舟。床に転がっている
@@ -451,6 +480,8 @@
     hut(52, 340, 5.5, 5.5, 3.6);
     hut(38, 357, 6, 5.5, 3.8);
     lamp(36, 348);
+    // 屋内の灯り(WORK 4)。消して出た家ではない ―― 点いたまま残っている
+    lamp(44.0, 346.6);
 
     // =====================================================================
     // ⑦ 船小屋 ―― 船・網・浮き・ロープ・滑車・修理道具。水面がいちばん近い
@@ -477,6 +508,7 @@
     board(-44, 0.5, 315.5, 1.4, 0.1, 0.35, woodMat);      // 修理台の上の板
     board(-44.3, 0.62, 315.3, 0.45, 0.06, 0.07, ironMat); // 道具
     reeds(-30, 302, 6); reeds(-50, 300, 5);
+    lamp(-45.5, 312.5);   // 小屋の中の灯り(WORK 4)
 
     // =====================================================================
     // ⑧ 商店街 ―― 看板・商品棚・秤・帳簿・空の棚・木箱
@@ -613,6 +645,21 @@
       onEnter: ()=> playDuskFishMemory(),
     });
 
+    /* ---- 住宅:子供の記憶(WORK 4) ----
+       食卓のそば。玩具の舟と同じ部屋で、「明日、船に乗せて」という
+       約束だけが残っている。船小屋を見たときに、プレイヤーが自分で
+       結びつけられる余地を残すのが目的なので、ここでは説明しない */
+    registerProximityEvent(new THREE.Vector3(45.5, 0, 350), 4.0, '', null, {
+      onEnter: ()=> playDuskChildMemory(),
+    });
+
+    /* ---- 船小屋:船の記憶(WORK 4) ----
+       舟の並ぶ水際。子供の声が一瞬だけ水の上から聞こえる。
+       「この舟があの子の舟だった」とは言わない */
+    registerProximityEvent(new THREE.Vector3(-42, 0, 307), 5.0, '', null, {
+      onEnter: ()=> playDuskBoatMemory(),
+    });
+
     buildTownReturnPortal(new THREE.Vector3(0, 0, 288));
   }
 
@@ -743,6 +790,72 @@
     ]);
   }
 
+  /* 住宅の記憶 ―― 子供の約束(WORK 4)
+
+     食卓のそば、玩具の舟が転がっている部屋で一度だけ。
+     誰の声かも、いつのことかも言わない。船小屋で舟を見たときに、
+     プレイヤーが自分で「さっきの約束」と結びつけられる余地を残す。 */
+  let duskChildMemoryDone = false;
+  function playDuskChildMemory(){
+    if(duskChildMemoryDone) return;
+    duskChildMemoryDone = true;
+    playCutscene([
+      {t:0.1, run:()=>{ ambienceHold(6); sfx('crockery'); }},
+      // 食卓の椅子のあたりに、小さい輪郭がひとつ
+      {t:0.8, run:()=>{
+        spawnApparition(new THREE.Vector3(46.2, 0, 350.4), {color:0x46505c, fadeIn:1.2, fadeOut:1.1,
+                                                            maxOpacity:0.40, vanishDist:200});
+      }},
+      {t:1.2, run:()=> cutsceneLine('「明日、船に乗せて!」', '')},
+      {t:2.2, run:()=> cutsceneLine('「もう少し大きくなったらな」', '')},
+      {t:2.2, run:()=> cutsceneLine('「……約束だよ」', '')},
+      {t:2.4, run:()=> cutsceneHideLine()},
+      /* 魔法使いは怪異の説明をしない。目に入ったものから推測するだけ */
+      {t:0.8, run:()=> cutsceneLine('「……子どもの部屋ですね」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「分かるのか」', DUSK_KNIGHT)},
+      {t:1.9, run:()=> cutsceneLine('「玩具が小さいので。それと、椅子が三つで食器が四つあります」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「……数が合わんな」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「合いません。理由はまだ思いつきません」', DUSK_MAGE)},
+      {t:2.2, run:()=>{
+        cutsceneHideLine();
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }},
+    ]);
+  }
+
+  /* 船小屋の記憶 ―― 水の上から、さっきの声(WORK 4)
+
+     住宅の約束と、目の前の舟を結びつけるのはプレイヤー。
+     「この舟があの子の舟だった」とは言わない。 */
+  let duskBoatMemoryDone = false;
+  function playDuskBoatMemory(){
+    if(duskBoatMemoryDone) return;
+    duskBoatMemoryDone = true;
+    playCutscene([
+      {t:0.1, run:()=>{ ambienceHold(7); sfx('woodCreak'); }},
+      // 水の上をひとつ、波紋が走る
+      {t:0.7, run:()=>{
+        spawnDuskRipple(-38.5, 303.5, 1.1);
+        spawnDuskRipple(-36.0, 301.8, 0.8);
+      }},
+      {t:1.4, run:()=> cutsceneLine('「……ねえ、まだ?」', '')},
+      {t:2.2, run:()=>{
+        cutsceneHideLine();
+        spawnDuskRipple(-41.0, 305.0, 0.9);
+      }},
+      {t:1.2, run:()=> cutsceneLine('「……舟だ」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「ええ。直しかけのまま置いてあります」', DUSK_MAGE)},
+      {t:2.2, run:()=> cutsceneLine('「乗せてやるつもりだったんだろうな」', DUSK_KNIGHT)},
+      {t:2.4, run:()=> cutsceneLine('「……そう思います。確かめようがありませんが」', DUSK_MAGE)},
+      {t:2.4, run:()=>{
+        cutsceneHideLine();
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }},
+    ]);
+  }
+
   /* 水鏡の影(WORK 3)。AIは updateMirrorShadeAI(07-ai-combat.js)、
      観察できる差の数値は core/mirror-shade.js。ここは「どんな個体か」だけ。
      spawnEnemies() から呼ばれる(生成と enemies への登録は向こうの担当) */
@@ -755,6 +868,33 @@
     en.mirrorSplit = false;
     en.mirrorClones = [];
     en.mirrorReformT = 0;
+    en.decoyKind = 'mirror';
+    return en;
+  }
+
+  /* 泡沫の群れ(WORK 4)。1体は弱く、放っておくと増える。
+     増殖の上限と間隔は core/foam-swarm.js、AIは updateFoamAI。 */
+  function buildDuskFoam(x, z){
+    const en = buildEnemy(new THREE.Vector3(x, 0, z), {
+      color:0x7fb8c8, hp:56, atk:16, speed:2.9, atkType:'foam',
+      xp:22, goldBonus:[3, 7],
+    });
+    en.group.scale.multiplyScalar(0.62);
+    en.foamGrowT = Math.random() * 2.0;
+    en.decoyKind = 'foam';
+    return en;
+  }
+
+  /* 写し身(WORK 4)。プレイヤーの直前の一撃を1回だけ返す。
+     Attack Snapshot は core/attack-snapshot.js、AIは updateCopyShadeAI。 */
+  function buildDuskCopyShade(x, z){
+    const en = buildEnemy(new THREE.Vector3(x, 0, z), {
+      color:0x4a6478, hp:230, atk:26, speed:2.4, atkType:'copy',
+      xp:112, goldBonus:[24, 36],
+    });
+    en.baseColor = 0x4a6478;
+    en.decoyKind = 'copy';
+    en.copyState = 'watch';
     return en;
   }
 
@@ -779,6 +919,21 @@
 
     // 演出中の同行者の歩み(洋館の manorSmithWalk と同じ考え方)
     stepDuskGuestWalk(dt);
+
+    /* ---- 入れる建物の屋根(WORK 4) ----
+       カメラは真上からなので、屋根があると中が一切見えない ―― 魚屋の帳場も、
+       住宅の食卓も、船小屋の舟も、置いてあるだけで見えないままになる。
+       中にいる棟の屋根だけを透かす。切り替えは補間なので、出入りのたびに
+       画面が点滅しない。屋根そのものは残る(外から見た村の形は変わらない) */
+    for(let i=0;i<duskInteriors.length;i++){
+      const h = duskInteriors[i];
+      const inside = Math.abs(state.pos.x - h.x) < h.w/2 + 0.8
+                  && Math.abs(state.pos.z - h.z) < h.d/2 + 0.8;
+      const want = inside ? 1 : 0;
+      h.k += (want - h.k) * Math.min(1, dt * 6);
+      h.mat.opacity = 1 - h.k * 0.92;
+      h.mesh.visible = h.mat.opacity > 0.03;
+    }
 
     // ---- 時間帯(zの進み具合で補間。撃破後は dawn へ寄せる) ----
     const z = state.pos.z;
@@ -838,8 +993,12 @@
         p.reactT = near ? Math.min(1, p.reactT + dt*1.6) : Math.max(0, p.reactT - dt*0.7);
         boost = 1 + p.reactT*1.7;
       }
-      const s = Math.sin(t*p.freq*Math.PI*2 + p.phase);
-      const s2 = Math.sin(t*p.freq*1.37*Math.PI*2 + p.phase*1.7);
+      /* 環境異常(WORK 4): 選ばれた小舟だけ、位相を進めずに止める。
+         時間が戻るわけではないので、解けた瞬間に「少し遅れて追いつく」 */
+      if(p === duskLagProp){ p.lagHold = (p.lagHold || 0) + dt; }
+      const lt = t - (p.lagHold || 0);
+      const s = Math.sin(lt*p.freq*Math.PI*2 + p.phase);
+      const s2 = Math.sin(lt*p.freq*1.37*Math.PI*2 + p.phase*1.7);
       switch(p.kind){
         case 'boat':
           o.position.y = p.baseY + s*p.amp*boost;
@@ -888,6 +1047,30 @@
       r.mesh.scale.setScalar(1 + kk*3.2);
       r.mat.opacity = 0.32 * (1 - kk);
       if(kk >= 1){ scene.remove(r.mesh); duskRipples.splice(i,1); }
+    }
+
+    /* ---- 船小屋の環境異常(WORK 4) ----
+       「何か見間違えたかな」程度の小さなずれを1つだけ。船小屋のあたりに
+       いる間、たまに小舟の揺れが一瞬だけ止まって、少し遅れて追いつく。
+       同時に複数を起こさない ―― 全部ずらすと、ただの不具合に見える */
+    if(duskLagT > 0){
+      duskLagT -= dt;
+      if(duskLagT <= 0) duskLagProp = null;
+    } else {
+      duskLagCD -= dt;
+      const room = duskRoomAt(state.pos.x, state.pos.z);
+      if(duskLagCD <= 0 && room && (room.id === 'boat' || room.id === 'boatCor')){
+        duskLagCD = 9 + Math.random()*7;
+        // 近くの小舟をひとつだけ選ぶ
+        for(let i=0;i<duskProps.length;i++){
+          const p = duskProps[i];
+          if(p.kind !== 'boat') continue;
+          if(state.pos.distanceTo(p.obj.position) > 12) continue;
+          duskLagProp = p;
+          duskLagT = 0.9 + Math.random()*0.5;
+          break;
+        }
+      }
     }
 
     // ---- プレイヤーへの反応 ----

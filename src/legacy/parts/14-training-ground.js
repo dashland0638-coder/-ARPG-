@@ -168,6 +168,14 @@
       (en.servantAttack ? ` (${en.servantAttack})` : '');
     else if(en.atkType==='kite') aiState = en.fireCharging ? 'CHARGING'
       : ((en.shotRootT||0) > 0 ? 'SHOT_ROOT' : 'KITE');
+    /* 宵待ちの村の怪異(WORK 3〜4)。他のタイプと同じで、既存のAI状態を
+       文字にするだけ。分裂したどちらが本体かはゲーム中のUIには一切
+       出さないが、このパネルだけは調整用に出す ―― テストモードの
+       トレーニング空間でしか表示されない */
+    else if(en.atkType==='mirror') aiState = (en.mirrorState||'idle').toUpperCase() +
+      (en.mirrorCloneOf ? ' (clone)' : (en.mirrorSplit ? ' (real)' : ''));
+    else if(en.atkType==='copy') aiState = (en.copyState||'watch').toUpperCase();
+    else if(en.atkType==='foam') aiState = 'FOAM' + (en.triggered ? ' (growing)' : '');
     else aiState = (en.atkType||'passive').toUpperCase();
     /* パニッシュ窓の表示は、実際の判定(core/punish-window.js)と同じ関数で
        出す ―― ボスの atkWindup だけを見ていた頃の表示のままだと、雑魚の

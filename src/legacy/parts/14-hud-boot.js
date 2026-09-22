@@ -1287,7 +1287,7 @@
   //
   // scenarioKey(Scenario Test Mode / WORK 1): 指定するとトレーニング空間へ
   // 入った直後にそのシナリオへ出撃する。本編のChapter進行は再現しない
-  function beginTestMode(classKey, jobKey, level, guestKey, scenarioKey){
+  function beginTestMode(classKey, jobKey, level, guestKey, scenarioKey, waypointId){
     selectedClass = classKey;
     selectedGender = 'male';
     selectedPersonality = 'brave';
@@ -1381,9 +1381,31 @@
        finishEnteringGame 側にシナリオ固有の分岐は一切足していない。 */
     if(scenarioKey){
       const def = SCENARIO_DEFS.find(s=>s.key===scenarioKey);
-      if(def && def.unlocked) launchScenario(scenarioKey);
+      if(def && def.unlocked){
+        launchScenario(scenarioKey);
+        /* 開始地点(WORK 4)。launchScenario は fadeTransition を挟むので、
+           入場処理が済んでから運ぶ ―― ワールド構築と入場座標の設定を
+           上書きしないよう、同じ暗転の後ろに置いている。
+           運ぶのは座標だけで、進行状態(フラグ・敵・イベント)には触らない */
+        const wp = findWaypoint(scenarioKey, waypointId);
+        if(wp) setTimeout(()=> teleportTestModeTo(wp), 400);
+      }
       else console.error(`beginTestMode: unknown or locked scenario "${scenarioKey}"`);
     }
+  }
+
+  /* Scenario Test Mode の開始地点へ運ぶ(WORK 4)。テストモード以外からは
+     呼ばれない ―― 通常プレイの進行・セーブ・UIには一切現れない。
+     座標だけを動かし、味方の再配置とカメラの置き直しは既存の関数に任せる */
+  function teleportTestModeTo(wp){
+    if(!state.testMode || !state.started) return;
+    state.pos.set(wp.x, 0, wp.z);
+    state.vel.set(0,0,0);
+    state.yVel = 0; state.grounded = true;
+    if(state.safePos) state.safePos.copy(state.pos);
+    repositionAlliesToPlayer();
+    camera.position.copy(state.pos).add(getCamOffset());
+    spawnToast(`🛠 ${wp.name} から開始`);
   }
 
   // テストモード(2026-08-31)のスポーン地点。トレーニング空間はタヴァン

@@ -125,15 +125,23 @@ async function disableCameraAutoFollow(page) {
  *   scenario  - SCENARIO_DEFS key to sortie into, or null/undefined for the
  *               training ground.
  *   level     - level slider value (default: left as-is).
+ *   waypoint  - scenario-waypoints.js id to start from instead of the
+ *               scenario's entrance (WORK 4), or null/undefined for the
+ *               entrance. Only offered for scenarios that register any.
  */
 async function startTestMode(page, opts) {
-  const { classKey, guestKey, scenario, level } = opts;
+  const { classKey, guestKey, scenario, level, waypoint } = opts;
   await page.click('#open-testmode-btn');
   await page.waitForSelector(`.class-card[data-key="${classKey}"]`);
   await page.click(`.class-card[data-key="${classKey}"]`);
   await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);
   if (guestKey) await page.click(`#testmode-guest-grid .testmode-job-card[data-guest-key="${guestKey}"]`);
   if (scenario) await page.click(`#testmode-scenario-grid .testmode-job-card[data-scenario-key="${scenario}"]`);
+  // 開始地点は選択中シナリオに依存して描き直されるので、シナリオの後で押す
+  if (waypoint) {
+    await page.waitForSelector(`#testmode-waypoint-grid .testmode-job-card[data-waypoint-id="${waypoint}"]`);
+    await page.click(`#testmode-waypoint-grid .testmode-job-card[data-waypoint-id="${waypoint}"]`);
+  }
   if (level != null) {
     await page.$eval('#testmode-level', (el, v) => {
       el.value = String(v);

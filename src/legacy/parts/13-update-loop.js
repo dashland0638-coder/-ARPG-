@@ -59,6 +59,7 @@
     }
     updateHoldInputs(dt);
     updateMageOrbs(dt);
+    updatePhantomDecoys(dt);   // 幻影歩法が置いた幻影(WORK 4)
     updatePlatforms(dt);
     // カメラ左右反転設定: Q/E・タッチ・右スティック、どの入力元から来た
     // ものでも合算後にまとめて反転させれば済む
@@ -365,6 +366,11 @@
                               homing:!!variant.homing, homingTurn:2.6, homingRange:13});
         }, i*110);
       });
+    } else if(variant.mode==='phantom'){
+      /* 幻影歩法(MAGE-001 / WORK 4)。移動そのものは variant.movement が
+         既存の state.skillAnim へ乗るので、ここでやるのは「いた場所に
+         幻影を置く」ことだけ。ダメージ計算(上の dmg)は使わない */
+      spawnPhantomDecoy(state.pos.x, state.pos.z);
     } else if(variant.mode==='barrier'){
       activateBarrier(variant);
     } else if(variant.mode==='fan5'){

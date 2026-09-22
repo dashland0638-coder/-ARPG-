@@ -568,6 +568,14 @@
          数で押さない(updateMirrorShadeAI / core/mirror-shade.js) */
       enemies.push(buildDuskMirrorShade(-13, 362));
       enemies.push(buildDuskMirrorShade(-37, 350));
+      /* WORK 4: 泡沫の群れ(住宅の周り)と写し身(船小屋)。
+         泡沫は最初の3体だけ置き、あとは交戦中に上限まで増える
+         (core/foam-swarm.js)。写し身は舟の並ぶ水際に1体だけ ――
+         「自分の攻撃が返ってくる」を落ち着いて読める場所に置いている */
+      enemies.push(buildDuskFoam(38, 352));
+      enemies.push(buildDuskFoam(41, 346));
+      enemies.push(buildDuskFoam(35, 356));
+      enemies.push(buildDuskCopyShade(-40, 316));
       duskBossRef = null;
     }
     // テストモードのカカシ(訓練用の的)。hp/atk/speedはdifficultyFor()の
@@ -720,7 +728,26 @@
        一連で確認できるようにするため(tests/mansion-butler.spec.js) */
     manorButler:  {label:'Manor Butler',  icon:'🕯',
       spawn:(pos)=> buildEnemy(pos, mansionEnemyVariant('butler',  {hp:1400, atk:10, xp:0}))},
+    /* 宵待ちの村の怪異3種(WORK 3〜4)。洋館の敵をここに置いてあるのと
+       同じ理由 ―― 村の奥まで歩かずに、観察できる差・増え方・写しの
+       読み合いを繰り返し確かめられるようにするため。村は実測1.6fpsで、
+       村の中で戦って確認するのは現実的でない。
+       本編と同じ個体をそのまま出し、HPだけ検証用に厚くしてある
+       (泡沫だけは増殖を見たいので素のまま ―― 硬くすると上限まで増えた
+       群れが延々残る) */
+    duskMirror:   {label:'Mirror Shade',  icon:'🪞',
+      spawn:(pos)=> arenaThicken(buildDuskMirrorShade(pos.x, pos.z), 900)},
+    duskFoam:     {label:'Foam Swarm',    icon:'🫧',
+      spawn:(pos)=> buildDuskFoam(pos.x, pos.z)},
+    duskCopy:     {label:'Copy Shade',    icon:'👤',
+      spawn:(pos)=> arenaThicken(buildDuskCopyShade(pos.x, pos.z), 900)},
   };
+
+  // アリーナ用にHPだけ差し替える(経験値は入れない)。挙動には触らない
+  function arenaThicken(en, hp){
+    en.hp = hp; en.hpMax = hp; en.xp = 0;
+    return en;
+  }
   let arenaSpawnSeq = 0;
 
   function arenaSpawn(kind){
@@ -994,6 +1021,8 @@
       else if(en.atkType==='ghost')  updateGhostAI(en, dt);
       else if(en.atkType==='servant') updateShadowServantAI(en, dt);
       else if(en.atkType==='mirror') updateMirrorShadeAI(en, dt);
+      else if(en.atkType==='foam')  updateFoamAI(en, dt);
+      else if(en.atkType==='copy')  updateCopyShadeAI(en, dt);
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
       updateMobAnim(en, dt);
@@ -2333,6 +2362,18 @@
 
      新しい戦闘基盤は作っていない: 体幹・パニッシュ窓・処刑・敵対(triggered)・
      被ダメージ経路はどれも既存のものをそのまま使う。 ========================================================= */
+  /* 敵が「いま向かっている先」(WORK 4)。幻影歩法が置いた幻影があり、
+     その敵が釣られる性質(core/decoy.js の DECOY_PULL)なら幻影の座標を、
+     無ければプレイヤーの座標を返す。
+
+     **この関数を使ってよいのは、接近・向き直り・攻撃を始める判断だけ。**
+     命中判定は今までどおり state.pos で行う ―― だから敵は幻影へ向かって
+     攻撃し、自然に空振りする。ここを取り違えると無敵バグになる。 */
+  function aggroPoint(en){
+    const kind = en && en.decoyKind ? en.decoyKind : (en && en.atkType);
+    return aggroTarget(en.group.position, state.pos, state.decoys, {pull: decoyPullFor(kind)});
+  }
+
   function isMirrorClone(en){ return !!(en && en.mirrorCloneOf); }
 
   // 分身を1体作る。本体と同じ見た目・同じ大きさで、HPだけ持たない
@@ -2401,11 +2442,18 @@
       en.mirrorState = 'chase'; en.mirrorT = 0; en.mirrorRippleT = Math.random()*0.8;
     }
     const observing = mirrorObserving(en);
-    const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
+    /* 向かう先。幻影歩法の幻影があればそちらへ寄る(WORK 4)。
+       命中判定は下の strike で state.pos を見るので、幻影に釣られた影は
+       プレイヤーに当たらない */
+    const aim = aggroPoint(en);
+    const toPlayer = new THREE.Vector3(aim.x - en.group.position.x, 0, aim.z - en.group.position.z);
     const dist = toPlayer.length();
+    /* 命中と索敵は必ず本物のプレイヤーで測る ―― 幻影で測ると、幻影に
+       向かって振った攻撃が本人に当たってしまう(幻影歩法の意味が消える) */
+    const distToPlayer = state.pos.distanceTo(en.group.position);
 
     // 索敵。条件は他の敵と同じ形(距離 + 視線)で、記録だけ enemy-aggro へ
-    const sees = dist < 9 && hasLineOfSight(en.group.position, state.pos);
+    const sees = distToPlayer < 9 && hasLineOfSight(en.group.position, state.pos);
     if(aggroOnDetect(en, sees)) en.triggered = true;
 
     /* 観察できる差 その1: 水面の波紋。本体はゆっくり、分身は細かい。
@@ -2497,7 +2545,8 @@
 
     if(en.mirrorState === 'strike'){
       en.mirrorT -= dt;
-      if(!en.mirrorHit && dist < 2.4){
+      // 当たるかどうかは本物との距離で決める(幻影に振っていれば空振り)
+      if(!en.mirrorHit && distToPlayer < 2.4){
         en.mirrorHit = true;
         if(state.invulnerable || state.paralyzeInvulnT > 0){
           if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
@@ -2516,6 +2565,209 @@
       }
       return;
     }
+  }
+
+  /* =========================================================
+     泡沫の群れ(foam) ―― 放っておくと増える敵(WORK 4)
+
+     水鏡の影が「観察して見分ける」を教えるのに対して、こちらは
+     「増える前に散らす」という別の判断を教える。1体は弱く、HPで硬くしない
+     ―― 難しさは体力ではなく増える速さで作る(core/foam-swarm.js)。
+
+     上限があるので、範囲攻撃を持たない職でも必ず終わる。まとめて薙げる
+     職は速い、という差にとどめてある。 ========================================================= */
+  function spawnFoamMote(origin, angle, leader){
+    const off = foamGrowthOffset(angle);
+    const pos = origin.clone();
+    pos.x += off.dx; pos.z += off.dz;
+    resolveWallCollisions(pos);
+    const mote = buildEnemy(pos, {
+      color:0x7fb8c8, hp:56, atk:16, speed:2.9, atkType:'foam',
+      xp:22, goldBonus:[3, 7],
+    });
+    mote.group.scale.multiplyScalar(0.62);
+    mote.foamLeader = leader || null;
+    mote.foamGrowT = Math.random() * 2.0;   // 位相をばらす(同時に増えない)
+    mote.decoyKind = 'foam';
+    enemies.push(mote);
+    return mote;
+  }
+
+  // いま生きている泡沫の数。上限の判定に使う
+  function foamAliveCount(){
+    let n = 0;
+    for(let i=0;i<enemies.length;i++){
+      const e = enemies[i];
+      if(e && !e.dead && e.atkType === 'foam') n++;
+    }
+    return n;
+  }
+
+  function updateFoamAI(en, dt){
+    const aim = aggroPoint(en);
+    const to = new THREE.Vector3(aim.x - en.group.position.x, 0, aim.z - en.group.position.z);
+    const dist = to.length();
+    const distToPlayer = state.pos.distanceTo(en.group.position);
+
+    const sees = distToPlayer < 10 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;
+
+    /* 増殖。交戦中だけ増える ―― まだ気づかれていない群れが勝手に増えて
+       いると、部屋へ入った瞬間に上限の群れと出会うことになる */
+    if(en.triggered){
+      const g = foamStepGrowth(en.foamGrowT, dt, foamAliveCount());
+      en.foamGrowT = g.timer;
+      if(g.grow){
+        const mote = spawnFoamMote(en.group.position, Math.random()*Math.PI*2, en.foamLeader || en);
+        mote.triggered = true;
+        if(currentWorldKey === 'duskvillage'){
+          spawnDuskRipple(mote.group.position.x, mote.group.position.z, 0.6);
+        }
+      }
+    }
+
+    if(!en.triggered){ updateWanderAI(en, dt); return; }
+
+    // 近づいて弾ける。予兆は短いが、1体の威力は小さい
+    if(dist > 1.3){
+      const dir = to.normalize();
+      en.group.position.addScaledVector(dir, en.speed * dt);
+      en.group.rotation.y = Math.atan2(dir.x, dir.z);
+      resolveWallCollisions(en.group.position);
+    }
+    if(en.foamAtkCD > 0) en.foamAtkCD -= dt;
+    if(distToPlayer < 1.5 && (en.foamAtkCD || 0) <= 0){
+      en.foamAtkCD = 1.6;
+      if(state.invulnerable || state.paralyzeInvulnT > 0){
+        if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
+      } else if(!tryConsumeOrbShield()){
+        const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
+        state.hp = Math.max(0, state.hp - dmg);
+        spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+        if(state.hp <= 0) triggerPlayerDown();
+      }
+      en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+    }
+  }
+
+  /* =========================================================
+     写し身(copy) ―― プレイヤーの一撃を1回だけ返す怪異(WORK 4)
+
+     水面に映った自分が、少し遅れて同じことをしてくる。返してくるのは
+     **直前の一撃1回だけ**(core/attack-snapshot.js)で、記録できない攻撃は
+     写さずに見送る ―― 「攻撃する → 真似される → 避ける → 攻撃する」が
+     基本の読み合いになる。
+
+     プレイヤー本人を見ている敵なので、幻影歩法には釣られにくい
+     (DECOY_PULL.copy = 0.35)。それでも至近に幻影があれば狙いはずれる ――
+     「使いこなすと面白い」の幅をここで作る。
+
+     観測の灯が効いている間は、写しに入る前の溜めが読みやすくなる
+     (遅延が伸び、身体が沈む)。文字も印も出さない。 ========================================================= */
+  function updateCopyShadeAI(en, dt){
+    const aim = aggroPoint(en);
+    const to = new THREE.Vector3(aim.x - en.group.position.x, 0, aim.z - en.group.position.z);
+    const dist = to.length();
+    const distToPlayer = state.pos.distanceTo(en.group.position);
+    const observing = state.observeLightT > 0 && observeReaches(distToPlayer);
+
+    const sees = distToPlayer < 11 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;
+    if(!en.triggered){ updateWanderAI(en, dt); return; }
+
+    if(en.copyState === undefined){ en.copyState = 'watch'; en.copyT = 0; }
+    if(en.copyRippleT > 0) en.copyRippleT -= dt;
+
+    // 水面が応える。写し身は「水に映ったもの」なので、歩くたびに波が立つ
+    if(currentWorldKey === 'duskvillage' && (en.copyRippleT || 0) <= 0){
+      en.copyRippleT = 1.6;
+      spawnDuskRipple(en.group.position.x, en.group.position.z, 0.8);
+    }
+
+    // 向き直りは常に少し遅れる ―― 「映っているもの」なので一拍ずれる
+    if(dist > 0.001){
+      const want = Math.atan2(to.x, to.z);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y, want, 3.4 * dt);
+    }
+
+    if(en.copyState === 'watch'){
+      // 間合いを取って見ている。近づきすぎず、離れすぎない
+      if(dist > 6.5){
+        const dir = to.clone().normalize();
+        en.group.position.addScaledVector(dir, en.speed * dt * 0.8);
+        resolveWallCollisions(en.group.position);
+      } else if(dist < 3.6){
+        const dir = to.clone().normalize();
+        en.group.position.addScaledVector(dir, -en.speed * dt * 0.7);
+        resolveWallCollisions(en.group.position);
+      }
+      /* プレイヤーが何か写せる攻撃を出していたら、それを取り上げて構える。
+         取り上げた時点で記録は消えるので、同じ一撃を撃ち続けることはない */
+      const snap = consumeSnapshot(state, 'attackSnapshot');
+      if(snap){
+        en.copySnapshot = snap;
+        en.copyState = 'mimic';
+        // 観測の灯が効いていると、溜めが伸びて読みやすくなる
+        en.copyT = PROVISIONAL_COPY_DELAY_SEC * (observing ? 1.45 : 1);
+        en.copyDur = en.copyT;
+        sfx('chime');
+      }
+      return;
+    }
+
+    if(en.copyState === 'mimic'){
+      en.copyT -= dt;
+      // 溜めの見た目。水面から形を起こすように、身体が沈んで伸びる
+      const prog = 1 - Math.max(0, en.copyT) / Math.max(0.01, en.copyDur);
+      if(en.body && en.bodyScale){
+        const B = en.bodyScale;
+        const k = 1 + prog * (observing ? 0.34 : 0.22);
+        en.body.scale.set(B.x*k, B.y*(1 + prog*0.18), B.z*k);
+      }
+      if(en.copyT <= 0){
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+        replayCopiedAttack(en, en.copySnapshot);
+        en.copySnapshot = null;
+        en.copyState = 'watch';
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+      }
+      return;
+    }
+  }
+
+  /* 写しの再生。記録した形のまま、いまの狙い先へ向けて返す。
+     狙い先は aggroPoint なので、幻影歩法で立たせた幻影のほうへ撃たせる
+     こともできる(必須ではない)。 */
+  function replayCopiedAttack(en, snap){
+    if(!snap) return;
+    const aim = aggroPoint(en);
+    const plan = replayPlan(snap, en.group.position.x, en.group.position.z, aim.x, aim.z);
+    if(!plan) return;
+    if(plan.kind === 'magicBolt'){
+      spawnEnemyMirrorBolt(en, plan);
+    }
+    // 未対応の種別はここで静かに見送る(無理に再現しない)
+  }
+
+  /* 返ってくる魔法弾。敵の弾は既存の spawnEnemyFireball とは別に、
+     プレイヤーの魔法弾に似せた見た目で飛ばす ―― 「自分の攻撃が返ってきた」
+     と読めることがこの敵の肝なので、形はプレイヤー側に寄せてある。 */
+  function spawnEnemyMirrorBolt(en, plan){
+    /* 弾は既存の敵弾(spawnEnemyFireball)と同じ projectiles 配列・同じ
+       hostile:true の仕組みに乗せる ―― 新しい弾の経路は作らない。
+       見た目だけプレイヤーの魔法弾に寄せてあるのは、「自分の攻撃が
+       返ってきた」と読めることがこの敵の肝だから */
+    const color = 0x9fd8ff;
+    const mat = new THREE.MeshBasicMaterial({color});
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), mat);
+    const startPos = en.group.position.clone(); startPos.y += 0.95;
+    mesh.position.copy(startPos);
+    const glow = takeLight(color, 1, 3.5);
+    glow.position.copy(mesh.position);
+    scene.add(mesh);
+    sfx('cast');
+    projectiles.push({mesh, light: glow, dir: new THREE.Vector3(plan.dirX, 0, plan.dirZ),
+                      speed: 11, life: 2.4, dmg: plan.power, hostile: true});
   }
 
   // damage helper shared by every boss special

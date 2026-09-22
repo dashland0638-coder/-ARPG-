@@ -2069,6 +2069,18 @@
         baseMult:1.4, maxMult:2.8, mode:'single', vfxColor:0xb08aff,
         movement:'retreat', dist:3.4, duration:0.24
       },
+      /* 幻影歩法(MAGE-001 / WORK 4)。魔法使いの戦い方は「敵の状態を観察し、
+         行動を誘導し、有利な距離を作る」こと ―― これは誘導の側を担う。
+         ステップで下がりながら、いた場所に幻影を残す。敵は幻影のほうへ
+         向かうが、命中判定はプレイヤーの座標のままなので空振りする
+         (core/decoy.js)。ダメージは持たない。
+         釣られ方は敵ごとに違う(DECOY_PULL)ので、これが必須の攻略法には
+         ならない ―― 使わなくても勝てて、使うと有利、の幅にしてある */
+      phantom: {
+        key:'phantom', name:'幻影歩法', icon:'👣', desc:'後方へ退きながら、いた場所に幻影を残す。敵の狙いをそちらへ逸らせる(ダメージは無い)',
+        baseMult:0, maxMult:0, mode:'phantom', vfxColor:0x9fd8ff,
+        movement:'retreat', dist:3.6, duration:0.26
+      },
       spin: {
         key:'spin', name:'魔導旋風', icon:'🌌', desc:'周囲に魔力の渦を発生させる',
         baseMult:0.9, maxMult:2.0, mode:'aoe', radius:4.8, vfxColor:0x8a6aff,
@@ -3014,8 +3026,9 @@
          新技(unlockKey:'skill1Alt'付き)は、スフィア盤「新技の会得」で
          解放するまでは一覧に出さない。unlockKey:'job'付き(上位職専用)は
          転身(state.job)するまで一覧に出さない */
-      ['dash','retreat','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt' || variants[k].unlockKey==='job')).forEach(key=>{
+      ['dash','retreat','phantom','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt' || variants[k].unlockKey==='job')).forEach(key=>{
         const v = variants[key];
+        if(!v) return;   // その職に無いもの(幻影歩法は魔法使いだけ)は並べない
         if(v.unlockKey==='skill1Alt' && !state.unlockedSkill1Alt) return;
         if(v.unlockKey==='job' && !state.job) return;
         const active = state.skillChoice===key;
