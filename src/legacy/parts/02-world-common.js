@@ -368,6 +368,8 @@
     state.observeLightT = 0;   // 観測の灯は世界をまたいで持ち越さない
     clearPhantomDecoys();      // 幻影も世界をまたいで残さない(WORK 4)
     state.attackSnapshot = null;
+    if(state.posHistory) state.posHistory.length = 0;   // 足取りも持ち越さない(WORK 5)
+    clearMemoryNets();
     clearDecals();   // scorches belong to the room that got burned
     nearbyDoor = null; nearbyStairs = null; nearbyLore = null;
     autoStairBusy = false; stairAutoArmed = true;   // auto階段の状態は世界ごとに素の状態へ

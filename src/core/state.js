@@ -172,6 +172,10 @@ import * as THREE from 'three';
     /* 直前に出した攻撃の記録(core/attack-snapshot.js)。写し身が1回だけ
        これを返してくる。写せない攻撃では null のまま */
     attackSnapshot:null,
+    /* 数秒ぶんの足取り(core/position-history.js、WORK 5)。記憶漁師が
+       「少し前にいた場所」へ網を投げるために参照する。古いものから
+       自動で捨てられるので伸び続けない。出撃中の一時状態なので保存しない */
+    posHistory:[],
     level:1, xp:0, xpToNext:40,
     // #28 基礎ステータス制: 体力(vit)/力(str)/魔力(mag)/精神力(mnd)/敏性(agi)/
     // 集中力(foc)の6項目。beginGame()/applySaveData()で実際の値に上書きされる

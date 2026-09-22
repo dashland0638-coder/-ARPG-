@@ -176,6 +176,8 @@
       (en.mirrorCloneOf ? ' (clone)' : (en.mirrorSplit ? ' (real)' : ''));
     else if(en.atkType==='copy') aiState = (en.copyState||'watch').toUpperCase();
     else if(en.atkType==='foam') aiState = 'FOAM' + (en.triggered ? ' (growing)' : '');
+    else if(en.atkType==='fisher') aiState = (en.netWindupT||0) > 0 ? 'NET_WINDUP'
+      : ((en.netCD||0) > 0 ? `RELOAD(${(en.netCD||0).toFixed(1)}s)` : 'READY');
     else aiState = (en.atkType||'passive').toUpperCase();
     /* パニッシュ窓の表示は、実際の判定(core/punish-window.js)と同じ関数で
        出す ―― ボスの atkWindup だけを見ていた頃の表示のままだと、雑魚の

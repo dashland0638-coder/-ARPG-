@@ -1077,6 +1077,10 @@
     if(state.started && !state.paused && !state.dialogueActive){
       updateInput(dt);
       updatePlayer(dt);
+      /* 数秒ぶんの足取りを控える(WORK 5)。記憶漁師が「少し前にいた場所」を
+         引くためのもの。updatePlayer の直後・updateEnemies の直前に置いて
+         あるので、敵が見るのは必ず「このフレームまでの足取り」になる */
+      recordPosition(state.posHistory, mechTime, state.pos.x, state.pos.y, state.pos.z);
       updateProjectiles(dt);
       updateEnemies(dt);
       updateGauntlet(dt);
@@ -1403,6 +1407,14 @@
     state.vel.set(0,0,0);
     state.yVel = 0; state.grounded = true;
     if(state.safePos) state.safePos.copy(state.pos);
+    /* 運ぶ前に持っていた戦闘の残りを落とす(WORK 5)。前の場所に置いた
+       幻影・飛んでいる網・直前の一撃の記録・足取りが残っていると、
+       着いた瞬間に「誰もいない場所から網が落ちてくる」ようなことが起きる。
+       進行フラグ・敵・イベント登録には触らない ―― 消すのは一時状態だけ */
+    clearPhantomDecoys();
+    clearMemoryNets();
+    state.attackSnapshot = null;
+    if(state.posHistory) state.posHistory.length = 0;
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
     spawnToast(`🛠 ${wp.name} から開始`);

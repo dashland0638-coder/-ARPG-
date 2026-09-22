@@ -18,8 +18,20 @@
 // 実機調整前の暫定値
 export const PROVISIONAL_FOAM_START = 3;      // 最初に湧いている数
 export const PROVISIONAL_FOAM_MAX = 7;        // 同時に存在できる上限
+export const PROVISIONAL_FOAM_MAX_CROWDED = 4;// 他の怪異と居合わせている時の上限
 export const PROVISIONAL_FOAM_GROW_SEC = 6.5; // 1体増えるまでの間隔
 export const PROVISIONAL_FOAM_GROW_RADIUS = 2.6;
+
+/* いまの上限。ほかの怪異(水鏡の影・写し身など)と同じ場所にいる間は
+   低くする(WORK 5)。商店街の複合戦闘で、見分ける相手と増える相手が
+   同時に画面を埋めると、判断ではなく反射の戦いになってしまうため ――
+   泡沫だけを相手にしている時の手応えは今までどおり。 */
+export function foamCapFor(otherAnomalies, opts){
+  opts = opts || {};
+  const full = opts.max != null ? opts.max : PROVISIONAL_FOAM_MAX;
+  const crowded = opts.crowded != null ? opts.crowded : PROVISIONAL_FOAM_MAX_CROWDED;
+  return (otherAnomalies || 0) > 0 ? crowded : full;
+}
 
 /* 増やしてよいか。上限に達していたら増やさない。 */
 export function canGrow(aliveCount, max){

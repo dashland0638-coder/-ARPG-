@@ -110,6 +110,8 @@
     duskGuestWalk = null;
     duskFishMemoryDone = false;   // 出撃のたびに、記憶はまた一度だけ起きる
     duskChildMemoryDone = false; duskBoatMemoryDone = false;
+    duskMarketMemoryDone = false; duskGateTalkDone = false;
+    duskMarketFight = null;
     duskInteriors = [];
     duskLagProp = null; duskLagT = 0; duskLagCD = 12;
 
@@ -533,6 +535,47 @@
     [-3.5, 0, 3.5].forEach((lx,i)=>
       hanging(lx, 2.45, 390, 0.7, 0.8, clothMat, 'cloth', {amp:0.10, freq:0.49 + i*0.05}));
 
+    /* ---- 商店街の暮らし(WORK 5) ----
+       ここは村でいちばん「普通の生活」が見える場所。廃墟にはしない ――
+       壊すのではなく、途中で置かれたままにする。
+       戦闘の場でもあるので、真ん中は空けて、物は壁沿いへ寄せている
+       (複数の怪異が同時にいても画面が詰まらないように) */
+    // 屋台。売り物は無いが、天幕だけまだ張ってある
+    post(-4.2, 384.5, 2.2, 0.08); post(-1.2, 384.5, 2.2, 0.08);
+    board(-2.7, 1.0, 384.5, 3.2, 0.08, 1.1, woodMat);          // 台
+    hanging(-2.7, 2.28, 384.2, 3.2, 0.9, clothMat, 'sign', {amp:0.07, freq:0.44});
+    pot(-3.6, 384.3, 0.22); pot(-1.8, 384.7, 0.2);
+    lamp(-6.2, 382.5);   // 屋台の灯り。ここだけは物が見える明るさにする
+    // 作業台と椅子。仕事の途中で立ったまま
+    table(15.5, 386, 1.8, 1.0);
+    board(15.2, 0.86, 386, 0.7, 0.05, 0.3, ironMat);            // 工具
+    [[14.4, 387.2], [16.6, 385.0]].forEach(([sx,sz])=>{
+      const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.24, 0.46, 8), woodMat);
+      stool.position.set(sx, 0.31, sz); scene.add(stool);
+    });
+    // 秤。皿が片方だけ下がったまま釣り合っていない
+    post(-15.2, 386.5, 1.0, 0.07);
+    board(-15.2, 1.06, 386.5, 1.1, 0.05, 0.08, ironMat);
+    [[-15.7, 0.86], [-14.7, 1.02]].forEach(([px, py])=>{
+      const pan = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.05, 10), ironMat);
+      pan.position.set(px, py, 386.5); scene.add(pan);
+    });
+    // 三軒目の店(入れる)。中は棚と台だけ
+    house(15, 397, 7, 7, 3.7, 'W');
+    shelf(17.2, 396, 1.8, Math.PI/2);
+    board(15.5, 0.9, 398.4, 1.4, 0.08, 0.6, woodMat);
+    lamp(13.4, 396.4);   // 屋内の灯り(WORK 4 と同じ扱い)
+    /* 水路。商店街の脇を通り、水門のほうへ流れていく。浅い掘割なので
+       壁にはしていない ―― ここは戦う場所でもあるので、逃げ道を潰さない */
+    const canalMat = new THREE.MeshStandardMaterial({color:0x10242e, roughness:0.3, metalness:0.2,
+      transparent:true, opacity:0.88, emissive:0x0a2a32, emissiveIntensity:0.14});
+    const canal = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 30), canalMat);
+    canal.rotation.x = -Math.PI/2; canal.position.set(-18.6, 0.10, 386); scene.add(canal);
+    [-19.9, -17.3].forEach(cx=> board(cx, 0.16, 386, 0.4, 0.16, 30, stoneMat));
+    // 渡し板。水路をまたぐ所だけ板が渡してある
+    board(-18.6, 0.19, 380, 3.2, 0.1, 1.1, woodMat);
+    reeds(-18.6, 372.5, 3); reeds(-18.6, 400, 3);
+
     // =====================================================================
     // ⑨ 水門前 ―― 建物を減らし、水面を広く見せる
     // =====================================================================
@@ -659,6 +702,31 @@
     registerProximityEvent(new THREE.Vector3(-42, 0, 307), 5.0, '', null, {
       onEnter: ()=> playDuskBoatMemory(),
     });
+
+    /* ---- 商店街:忘れた方がいい(WORK 5) ----
+       屋台のそば。ここだけは「失われたもの」ではなく「話さなかったこと」が
+       残っている。魚屋の帳簿の切れた一行と並べられるように置いてある */
+    registerProximityEvent(new THREE.Vector3(-2.7, 0, 384.5), 4.6, '', null, {
+      onEnter: ()=> playDuskMarketMemory(),
+    });
+
+    /* ---- 商店街:複合戦闘(WORK 5) ----
+       部屋に入った時点で始まる。時間差で水鏡の影 → 泡沫 → 写し身
+       (core/encounter-waves.js)。全部出し切ったら終わりで、湧き足さない */
+    registerRoomEvent(duskRoomById('market'), 0, '', ()=>{
+      startDuskMarketFight();
+      return null;   // 台詞は出さない。戦闘はそのまま始まる
+    }, {inset: 1.2});
+
+    /* ---- 水門前:水門を見る(WORK 5) ----
+       建物が減り、水面が広がった所へ入った時点で一度だけ。倒した報酬では
+       なく、場所の説明でもない ―― 門が見えたことへの、二人の短い相槌。
+       部屋そのものを判定域にしてあるのは、端を回り込んでも必ず通るため
+       (商店街の複合戦闘と同じ registerRoomEvent) */
+    registerRoomEvent(duskRoomById('yard'), 0, '', ()=>{
+      playDuskGateTalk();
+      return null;
+    }, {inset: 1.2});
 
     buildTownReturnPortal(new THREE.Vector3(0, 0, 288));
   }
@@ -856,6 +924,167 @@
     ]);
   }
 
+  /* 商店街の記憶 ―― 「もう、その話は」(WORK 5)
+
+     これまでの記憶(魚屋・住宅・船小屋)は、失われたものを見せるものだった。
+     ここだけは少し違う ―― 村人が何かを話したがらなかったことが残っている。
+
+     何を恐れていたのかは言わない。魚屋の帳簿の「水門の件について――」と、
+     ここの「もう、その話は――」が別の場所に置いてあるのは、プレイヤーが
+     自分で並べられるようにするため。答えはこちらからは出さない。 */
+  let duskMarketMemoryDone = false;
+  function playDuskMarketMemory(){
+    if(duskMarketMemoryDone) return;
+    duskMarketMemoryDone = true;
+    playCutscene([
+      {t:0.1, run:()=>{ ambienceHold(6); sfx('crockery'); }},
+      // 屋台をはさんで、輪郭がふたつ。向かい合ったまま動かない
+      {t:0.7, run:()=>{
+        spawnApparition(new THREE.Vector3(-2.7, 0, 383.0), {color:0x4a5260, fadeIn:1.1, fadeOut:1.0,
+                                                            maxOpacity:0.38, vanishDist:200});
+        spawnApparition(new THREE.Vector3(-2.7, 0, 386.0), {color:0x46505c, fadeIn:1.3, fadeOut:1.0,
+                                                            maxOpacity:0.34, vanishDist:200});
+      }},
+      {t:1.3, run:()=> cutsceneLine('「あの話は、もういいだろ」', '')},
+      {t:2.2, run:()=> cutsceneLine('「……子どもには」', '')},
+      {t:2.2, run:()=> cutsceneLine('「だから、もういい。忘れた方がいい」', '')},
+      {t:2.4, run:()=> cutsceneHideLine()},
+      /* 剣士が先に口を開く。WORK 3 では魔法使いが観察して剣士が聞き返す
+         側だったが、ここでは剣士のほうが「何の話だ」と拾いにいく ――
+         観察する役が入れ替わる、それだけの変化にとどめる */
+      {t:0.9, run:()=> cutsceneLine('「……何の話を、やめたんだ」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「分かりません。ただ、魚屋の帳簿にも途中で切れた一行がありました」', DUSK_MAGE)},
+      {t:2.6, run:()=> cutsceneLine('「水門の、と書いてあったやつか」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「覚えていたんですね」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「お前が読み上げたからな」', DUSK_KNIGHT)},
+      {t:2.2, run:()=>{
+        cutsceneHideLine();
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }},
+    ]);
+  }
+
+  /* =========================================================
+     商店街の複合戦闘(WORK 5)
+
+     水鏡の影・泡沫・写し身を、同じ場所に時間差で出す。目的は数で押すこと
+     ではなく、「いま何に注意するか」を1つずつ足していくこと ――
+     どれから倒してもよく、正解の順番は決めていない(core/encounter-waves.js)。
+
+     ・水鏡の影 → 見分ける
+     ・泡沫     → 増える前に散らす
+     ・写し身   → 自分の攻撃が返ってくる
+
+     出し切ったら終わり。倒しても湧き足さない。 ========================================================= */
+  let duskMarketFight = null;   // {t, fired:[], flags:{}} 交戦が始まってからの経過
+
+  function startDuskMarketFight(){
+    if(duskMarketFight) return;
+    duskMarketFight = {t: 0, fired: [], flags: {}};
+  }
+
+  function stepDuskMarketFight(dt){
+    if(!duskMarketFight) return;
+    /* 記憶や会話の最中は波を進めない(WORK 5)。演出中も村の時間は
+       動き続ける(WORK 3 で updateDuskVillage を演出中も回している)ので、
+       このままだと20秒の記憶を見ている間に次の波が湧いてしまう ――
+       話が終わったところから数え直す */
+    if(state.dialogueActive) return;
+    duskMarketFight.t += dt;
+    /* 合図。水鏡の影に手を出したか(交戦)、分裂したか。時間だけに縛ると
+       棒立ちでも進み、合図だけに縛ると手を出さないと進まないので、
+       どちらか早いほうで次の波が出る */
+    let engaged = false, split = false, alive = 0;
+    for(let i=0;i<enemies.length;i++){
+      const e = enemies[i];
+      if(!e || e.dead || !e.duskMarket) continue;
+      alive++;
+      if(e.atkType === 'mirror' && !e.mirrorCloneOf){
+        if(e.triggered) engaged = true;
+        if(e.mirrorSplit) split = true;
+      }
+    }
+    duskMarketFight.flags.mirrorEngaged = engaged;
+    duskMarketFight.flags.mirrorSplit = split;
+
+    const due = dueWaves(PROVISIONAL_MARKET_WAVES, duskMarketFight.t,
+                         duskMarketFight.flags, duskMarketFight.fired);
+    due.forEach(w=>{
+      duskMarketFight.fired.push(w.id);
+      spawnDuskMarketWave(w);
+    });
+
+    /* 戦闘後の静けさ(§11)。出し切って、残りがいなくなったら
+       それで終わり ―― 次の敵は出さない。終わったことは言葉では言わず、
+       風と水音が戻るだけ */
+    if(alive === 0 && allWavesFired(PROVISIONAL_MARKET_WAVES, duskMarketFight.fired)
+       && duskMarketFight.t > 1){
+      duskMarketFight = null;
+      ambienceHold(4);
+    }
+  }
+
+  /* 波を1つ出す。出現位置は商店街の端 ―― プレイヤーの真上に湧かせない。
+     「気づいたら隣にいた」ではなく「向こうから来る」ように見せるため */
+  const DUSK_MARKET_SPOTS = {
+    mirror: [[-9, 396]],
+    foam:   [[9, 374], [12, 377], [6, 372]],
+    copy:   [[-15, 397]],
+  };
+  function spawnDuskMarketWave(w){
+    const spots = DUSK_MARKET_SPOTS[w.spawn] || [];
+    for(let i=0;i<w.count;i++){
+      const [x, z] = spots[i % spots.length];
+      let en = null;
+      if(w.spawn === 'mirror')      en = buildDuskMirrorShade(x, z);
+      else if(w.spawn === 'foam')   en = buildDuskFoam(x, z);
+      else if(w.spawn === 'copy')   en = buildDuskCopyShade(x, z);
+      if(!en) continue;
+      en.duskMarket = true;
+      enemies.push(en);
+      spawnDuskRipple(x, z, 1.0);
+    }
+    if(w.spawn !== 'mirror') sfx('bossWake');
+  }
+
+  /* 水門前の会話(WORK 5)。水門が見えた所で一度だけ。
+     魔法使いは「分かりません」で止まらない ―― 仮説を持って調べる側へ進む */
+  let duskGateTalkDone = false;
+  function playDuskGateTalk(){
+    if(duskGateTalkDone) return;
+    duskGateTalkDone = true;
+    playCutscene([
+      {t:0.2, run:()=> ambienceHold(5)},
+      {t:1.0, run:()=> cutsceneLine('「この水門、閉じたままですね」', DUSK_MAGE)},
+      {t:2.2, run:()=> cutsceneLine('「閉じた理由があるのか」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「あると思います」', DUSK_MAGE)},
+      {t:1.9, run:()=> cutsceneLine('「調べるか」', DUSK_KNIGHT)},
+      {t:1.8, run:()=> cutsceneLine('「ええ」', DUSK_MAGE)},
+      {t:2.0, run:()=>{
+        cutsceneHideLine();
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }},
+    ]);
+  }
+
+  /* 記憶漁師(WORK 5)。AIは updateFisherAI(07-ai-combat.js)、
+     網の時間と落ち先は core/memory-fisher.js。ここは「どんな個体か」だけ。
+     強モブ扱いだが、硬さで強くしていない ―― 「過去を狙う」という
+     性質そのものが強さになる。 */
+  function buildDuskFisher(x, z){
+    const en = buildEnemy(new THREE.Vector3(x, 0, z), {
+      color:0x3d5260, hp:520, atk:34, speed:2.3, atkType:'fisher',
+      xp:180, goldBonus:[38, 54],
+    });
+    en.baseColor = 0x3d5260;
+    en.decoyKind = 'fisher';
+    en.netCD = 1.2;
+    en.netWindupT = 0;
+    return en;
+  }
+
   /* 水鏡の影(WORK 3)。AIは updateMirrorShadeAI(07-ai-combat.js)、
      観察できる差の数値は core/mirror-shade.js。ここは「どんな個体か」だけ。
      spawnEnemies() から呼ばれる(生成と enemies への登録は向こうの担当) */
@@ -919,6 +1148,9 @@
 
     // 演出中の同行者の歩み(洋館の manorSmithWalk と同じ考え方)
     stepDuskGuestWalk(dt);
+
+    // 商店街の複合戦闘(WORK 5)。波の時間はゲーム内時間で進む
+    stepDuskMarketFight(dt);
 
     /* ---- 入れる建物の屋根(WORK 4) ----
        カメラは真上からなので、屋根があると中が一切見えない ―― 魚屋の帳場も、

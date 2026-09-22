@@ -7,8 +7,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  canGrow, stepGrowth, growthOffset,
-  PROVISIONAL_FOAM_START, PROVISIONAL_FOAM_MAX,
+  canGrow, stepGrowth, growthOffset, foamCapFor,
+  PROVISIONAL_FOAM_START, PROVISIONAL_FOAM_MAX, PROVISIONAL_FOAM_MAX_CROWDED,
   PROVISIONAL_FOAM_GROW_SEC, PROVISIONAL_FOAM_GROW_RADIUS,
 } from '../../src/core/foam-swarm.js';
 
@@ -100,5 +100,31 @@ test('湧く位置', async (t) => {
   await t.test('距離は指定できる', () => {
     const o = growthOffset(0, 5);
     assert.ok(Math.abs(Math.hypot(o.dx, o.dz) - 5) < 1e-9);
+  });
+});
+
+test('他の怪異と居合わせている時(WORK 5)', async (t) => {
+  await t.test('ほかの怪異がいると上限が下がる', () => {
+    assert.ok(foamCapFor(1) < foamCapFor(0));
+    assert.equal(foamCapFor(0), PROVISIONAL_FOAM_MAX);
+    assert.equal(foamCapFor(2), PROVISIONAL_FOAM_MAX_CROWDED);
+  });
+
+  await t.test('下がった上限でも、まだ増える余地はある(初期数より多い)', () => {
+    assert.ok(PROVISIONAL_FOAM_MAX_CROWDED > PROVISIONAL_FOAM_START);
+  });
+
+  await t.test('下がった上限で止まる', () => {
+    const max = foamCapFor(1);
+    let timer = 0;
+    for(let i = 0; i < 200; i++){
+      const r = stepGrowth(timer, 0.1, max, {max});
+      assert.equal(r.grow, false);
+      timer = r.timer;
+    }
+  });
+
+  await t.test('居合わせた敵がいなくなれば、元の上限に戻る', () => {
+    assert.equal(foamCapFor(0), PROVISIONAL_FOAM_MAX);
   });
 });

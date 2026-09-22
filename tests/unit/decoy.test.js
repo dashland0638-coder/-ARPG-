@@ -95,3 +95,17 @@ test('寿命', async (t) => {
     assert.ok(PROVISIONAL_PHANTOM_LIFE_SEC > 0 && PROVISIONAL_PHANTOM_LIFE_SEC < 15);
   });
 });
+
+test('記憶漁師との関係(WORK 5)', async (t) => {
+  await t.test('記憶漁師も釣られるが、写し身よりは素直', () => {
+    assert.ok(DECOY_PULL.fisher > DECOY_PULL.copy);
+    assert.ok(DECOY_PULL.fisher < DECOY_PULL.mirror, '水鏡の影ほどは釣られない');
+  });
+
+  await t.test('幻影を狙わせても、必須にならない距離差がある', () => {
+    const mid = decoy(9, 0);
+    assert.equal(pickLureTarget({x:0, z:0}, [mid], {pull: DECOY_PULL.fisher}), null,
+      'この距離では本物の足取りを見続ける');
+    assert.notEqual(pickLureTarget({x:0, z:0}, [decoy(4, 0)], {pull: DECOY_PULL.fisher}), null);
+  });
+});

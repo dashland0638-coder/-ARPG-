@@ -76,6 +76,42 @@ test.describe('Scenario Test Mode', () => {
     expect(errors).toEqual([]);
   });
 
+  /* 地点ジャンプ(WORK 4 で追加、WORK 5 で水門前を追加)。
+     ここで見るのは UI の出方だけ ―― 実際に運ばれることは
+     duskvillage.spec.js が場所名で確かめている。この環境は歩行が遅く、
+     地点ジャンプ自体に長い E2E を積まない方針(WORK 5 §25) */
+  test('開始地点はテストモードの中だけに出て、シナリオを選ぶと並ぶ', async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+
+    // 通常ゲーム側(タイトル)には、開始地点の選択は出ていない
+    await expect(page.locator('#testmode-waypoint-grid')).toHaveCount(1);
+    await expect(page.locator('#testmode-waypoint-grid')).not.toBeVisible();
+
+    await page.click('#open-testmode-btn');
+    await page.waitForSelector('.class-card[data-key="mage"]');
+    await page.click('.class-card[data-key="mage"]');
+
+    // シナリオを選ぶ前は、地点の選択肢も出ていない
+    await expect(page.locator('#testmode-waypoint-grid .testmode-job-card')).toHaveCount(0);
+
+    await page.click('#testmode-scenario-grid .testmode-job-card[data-scenario-key="duskvillage"]');
+    // 「入口から」に加えて、実装済みの地点が並ぶ(core/scenario-waypoints.js)
+    const cards = page.locator('#testmode-waypoint-grid .testmode-job-card');
+    await expect(cards.first()).toBeVisible();
+    const labels = await cards.allTextContents();
+    ['商店街', '水門前', '住宅', '船小屋'].forEach(name=>{
+      expect(labels.some(l => l.includes(name)), `${name} が並ぶこと`).toBe(true);
+    });
+
+    // 別のシナリオへ切り替えると、地点は登録の無いぶん消える
+    await page.click('#testmode-scenario-grid .testmode-job-card[data-scenario-key="mansion"]');
+    await expect(page.locator('#testmode-waypoint-grid .testmode-job-card')).toHaveCount(0);
+
+    expect(errors).toEqual([]);
+  });
+
   test('シナリオ未選択なら、従来どおりトレーニング空間へ入る', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = watchErrors(page);

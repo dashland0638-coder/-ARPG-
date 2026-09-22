@@ -76,9 +76,20 @@ import {
 } from '../core/attack-snapshot.js';
 import {
   canGrow as foamCanGrow, stepGrowth as foamStepGrowth, growthOffset as foamGrowthOffset,
-  PROVISIONAL_FOAM_START, PROVISIONAL_FOAM_MAX,
+  foamCapFor, PROVISIONAL_FOAM_START, PROVISIONAL_FOAM_MAX,
 } from '../core/foam-swarm.js';
 import { waypointsFor, findWaypoint } from '../core/scenario-waypoints.js';
+import {
+  recordPosition, positionAt, pruneHistory, historySpan,
+  PROVISIONAL_HISTORY_SEC, PROVISIONAL_HISTORY_STEP,
+} from '../core/position-history.js';
+import {
+  planNet, stepNet, netHits, canThrow as canThrowNet, netLookback, netArmSec,
+  PROVISIONAL_NET_CD, PROVISIONAL_NET_RANGE, PROVISIONAL_NET_RADIUS,
+} from '../core/memory-fisher.js';
+import {
+  PROVISIONAL_MARKET_WAVES, dueWaves, allWavesFired,
+} from '../core/encounter-waves.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

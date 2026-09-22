@@ -576,6 +576,12 @@
       enemies.push(buildDuskFoam(41, 346));
       enemies.push(buildDuskFoam(35, 356));
       enemies.push(buildDuskCopyShade(-40, 316));
+      /* WORK 5: 水門前の記憶漁師。1体だけ、水門を背にして置く ――
+         広い水面と門が見えている場所で、網の落ち先が読めるようにするため
+         (updateFisherAI / core/memory-fisher.js)。
+         商店街の複合戦闘はここでは出さない ―― 部屋へ入った時点から
+         時間差で出てくる(14-dungeon-duskvillage.js の stepDuskMarketFight) */
+      enemies.push(buildDuskFisher(0, 424));
       duskBossRef = null;
     }
     // テストモードのカカシ(訓練用の的)。hp/atk/speedはdifficultyFor()の
@@ -741,6 +747,8 @@
       spawn:(pos)=> buildDuskFoam(pos.x, pos.z)},
     duskCopy:     {label:'Copy Shade',    icon:'👤',
       spawn:(pos)=> arenaThicken(buildDuskCopyShade(pos.x, pos.z), 900)},
+    duskFisher:   {label:'Memory Fisher', icon:'🕸',
+      spawn:(pos)=> arenaThicken(buildDuskFisher(pos.x, pos.z), 1200)},
   };
 
   // アリーナ用にHPだけ差し替える(経験値は入れない)。挙動には触らない
@@ -1023,10 +1031,15 @@
       else if(en.atkType==='mirror') updateMirrorShadeAI(en, dt);
       else if(en.atkType==='foam')  updateFoamAI(en, dt);
       else if(en.atkType==='copy')  updateCopyShadeAI(en, dt);
+      else if(en.atkType==='fisher') updateFisherAI(en, dt);
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
       updateMobAnim(en, dt);
     });
+    /* 投げられた網は敵とは別に進む(WORK 5)。漁師を倒しても、すでに
+       飛んでいる網はそのまま落ちて発動する ―― 投げた瞬間に落ち先が
+       決まっている、という約束をここでも守る */
+    if(memoryNets.length) updateMemoryNets(dt);
   }
 
 
@@ -2603,6 +2616,20 @@
     return n;
   }
 
+  /* 泡沫以外の怪異が何体いるか(WORK 5)。商店街のように複数の種類が
+     居合わせている間は、泡沫の上限を下げる ―― 見分ける相手と増える相手が
+     同時に画面を埋めると、判断ではなく反射の戦いになってしまう。
+     泡沫だけを相手にしている時の手応えは今までどおり */
+  const DUSK_ANOMALIES = ['mirror', 'copy', 'fisher'];
+  function otherAnomalyCount(){
+    let n = 0;
+    for(let i=0;i<enemies.length;i++){
+      const e = enemies[i];
+      if(e && !e.dead && !e.mirrorCloneOf && DUSK_ANOMALIES.indexOf(e.atkType) >= 0) n++;
+    }
+    return n;
+  }
+
   function updateFoamAI(en, dt){
     const aim = aggroPoint(en);
     const to = new THREE.Vector3(aim.x - en.group.position.x, 0, aim.z - en.group.position.z);
@@ -2615,7 +2642,8 @@
     /* 増殖。交戦中だけ増える ―― まだ気づかれていない群れが勝手に増えて
        いると、部屋へ入った瞬間に上限の群れと出会うことになる */
     if(en.triggered){
-      const g = foamStepGrowth(en.foamGrowT, dt, foamAliveCount());
+      const g = foamStepGrowth(en.foamGrowT, dt, foamAliveCount(),
+                               {max: foamCapFor(otherAnomalyCount())});
       en.foamGrowT = g.timer;
       if(g.grow){
         const mote = spawnFoamMote(en.group.position, Math.random()*Math.PI*2, en.foamLeader || en);
@@ -2768,6 +2796,180 @@
     sfx('cast');
     projectiles.push({mesh, light: glow, dir: new THREE.Vector3(plan.dirX, 0, plan.dirZ),
                       speed: 11, life: 2.4, dmg: plan.power, hostile: true});
+  }
+
+  /* =========================================================
+     記憶漁師(fisher) ―― 「少し前にいた場所」へ網を投げる敵(WORK 5)
+
+     追尾ではない。網は投げた瞬間に落ち先が決まり、そこから動かない ――
+     だから立ち止まっていると当たり、歩き続けていれば当たらない。
+     逃げ方を覚える敵ではなく、「自分がどこにいたか」を意識させる敵。
+
+     幻影歩法で置いた幻影を狙うときは、その場所へそのまま投げる ――
+     置いたばかりの幻影に「少し前」は無いので、記憶を辿りようがない
+     (core/memory-fisher.js)。応用であって、必須の攻略法ではない。
+
+     観測の灯は予兆を長く・はっきり見せるだけで、落ち先も威力も変えない。
+
+     通常の接近攻撃も持っているので、網を避け続けるだけでは終わらない。
+     新しい戦闘基盤は作っていない ―― 体幹・パニッシュ窓・処刑・被ダメージ
+     経路はどれも既存のものをそのまま使う。 ========================================================= */
+  let memoryNets = [];   // 飛んでいる/据わっている網。ワールド切り替えで空になる
+
+  function clearMemoryNets(){
+    memoryNets.forEach(n=>{
+      if(n.mesh) scene.remove(n.mesh);
+      if(n.ring) scene.remove(n.ring);
+    });
+    memoryNets = [];
+  }
+
+  /* 網を1つ投げる。plan(core/memory-fisher.js)が落ち先と時間を持っている。
+     ここでやるのは見た目と、当たったときの処理だけ。 */
+  function throwMemoryNet(en, plan){
+    // 飛んでいる間の網。水の色をした網目ひとつ
+    const mat = new THREE.MeshBasicMaterial({color:0x8fc8d8, transparent:true,
+                                             opacity:0.55, wireframe:true});
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.55, 7, 5), mat);
+    const from = en.group.position.clone(); from.y += 1.1;
+    mesh.position.copy(from);
+    scene.add(mesh);
+    /* 落ち先の輪。過去を狙ったときだけ色を変えてある ―― 「そこは
+       さっき自分がいた場所だ」と後から気づけるように。文字は出さない */
+    const past = plan.from === 'past';
+    const ringMat = new THREE.MeshBasicMaterial({color: past ? 0x9fd8ff : 0xc8b8a0,
+      transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false});
+    const ring = new THREE.Mesh(new THREE.RingGeometry(plan.radius*0.82, plan.radius, 24), ringMat);
+    ring.rotation.x = -Math.PI/2;
+    ring.position.set(plan.x, 0.06, plan.z);
+    scene.add(ring);
+    memoryNets.push({
+      x: plan.x, z: plan.z, radius: plan.radius,
+      flight: plan.flight, arm: plan.arm, burst: plan.burst,
+      phase: 'fly', t: plan.flight, from: plan.from,
+      dmg: en.atk, mesh, ring, ringMat, mat, startX: from.x, startY: from.y, startZ: from.z,
+      hit: false,
+    });
+    sfx('dodge');
+  }
+
+  function updateMemoryNets(dt){
+    for(let i=memoryNets.length-1;i>=0;i--){
+      const n = memoryNets[i];
+      const step = stepNet(n, dt);
+      n.phase = step.phase; n.t = step.t;
+
+      if(n.phase === 'fly'){
+        // 投げた所から落ち先へ、山なりに
+        const k = step.progress;
+        n.mesh.position.set(n.startX + (n.x - n.startX)*k, 0,
+                            n.startZ + (n.z - n.startZ)*k);
+        n.mesh.position.y = n.startY + Math.sin(Math.PI*k)*1.6 - n.startY*k + 0.25;
+        n.mesh.rotation.y += dt*4;
+        n.ringMat.opacity = 0.12 + k*0.18;
+      } else if(n.phase === 'arm'){
+        // 落ちて据わる。輪が縮んでいくので、残り時間が読める
+        n.mesh.position.set(n.x, 0.3, n.z);
+        n.mesh.scale.setScalar(1 + step.progress*0.9);
+        n.ringMat.opacity = 0.34 + step.progress*0.34;
+        n.ring.scale.setScalar(1 - step.progress*0.28);
+      } else if(n.phase === 'burst'){
+        if(!n.hit){
+          n.hit = true;
+          if(netHits(n, state.pos.x, state.pos.z)){
+            if(state.invulnerable || state.paralyzeInvulnT > 0){
+              if(state.paralyzeInvulnT <= 0) tryPerfectDodge(null);
+            } else if(!tryConsumeOrbShield()){
+              const dmg = applyIncomingDamageMul(state.debugMode ? 0 : n.dmg);
+              state.hp = Math.max(0, state.hp - dmg);
+              spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+              flashScreen();
+              if(state.hp <= 0) triggerPlayerDown();
+            }
+          }
+          sfx('bossWake');
+          addShake(0.08);
+          if(currentWorldKey === 'duskvillage') spawnDuskRipple(n.x, n.z, n.radius*0.7);
+        }
+        n.ringMat.opacity = 0.7 * (1 - step.progress);
+        n.ring.scale.setScalar(1 + step.progress*0.5);
+        n.mesh.scale.setScalar(1.9 + step.progress*0.6);
+        n.mat.opacity = 0.55 * (1 - step.progress);
+      } else {
+        scene.remove(n.mesh); scene.remove(n.ring);
+        memoryNets.splice(i, 1);
+      }
+    }
+  }
+
+  function updateFisherAI(en, dt){
+    const aim = aggroPoint(en);
+    const to = new THREE.Vector3(aim.x - en.group.position.x, 0, aim.z - en.group.position.z);
+    const dist = to.length();
+    const distToPlayer = state.pos.distanceTo(en.group.position);
+    const observing = state.observeLightT > 0 && observeReaches(distToPlayer);
+
+    const sees = distToPlayer < 14 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;
+    if(!en.triggered){ updateWanderAI(en, dt); return; }
+
+    if(en.netCD == null) en.netCD = 1.2;
+    en.netCD -= dt;
+
+    // 向き直りはゆっくり。網を投げる方向が先に見える
+    if(dist > 0.001){
+      const want = Math.atan2(to.x, to.z);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y, want, 2.6 * dt);
+    }
+
+    if(en.netWindupT > 0){
+      /* 投げる前の溜め。ここで身体が沈むので、網が来ることは
+         観測の灯が無くても分かる(灯りは予兆の側を長くする) */
+      en.netWindupT -= dt;
+      if(en.body && en.bodyScale){
+        const B = en.bodyScale, k = 1 + (1 - en.netWindupT/Math.max(0.01, en.netWindupDur))*0.2;
+        en.body.scale.set(B.x*k, B.y*(1 - (1-en.netWindupT/Math.max(0.01,en.netWindupDur))*0.12), B.z*k);
+      }
+      if(en.netWindupT <= 0){
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+        /* 狙う相手を決め(幻影かもしれない)、その相手の「少し前」を引く。
+           幻影には過去が無いので、planNet が今の座標へ落としてくれる */
+        const past = aim.decoy ? null : positionAt(state.posHistory, mechTime, netLookback());
+        const plan = planNet(aim, past, {observing});
+        if(plan) throwMemoryNet(en, plan);
+        en.netCD = PROVISIONAL_NET_CD;
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+      }
+      return;
+    }
+
+    if(canThrowNet(dist, en.netCD)){
+      en.netWindupT = observing ? 0.72 : 0.5;   // 灯りがあると溜めも読みやすい
+      en.netWindupDur = en.netWindupT;
+      sfx('chime');
+      return;
+    }
+
+    /* 網だけの敵にしない。網の合間は近づいて殴ってくるので、
+       予兆を見て動き続けるだけでは終わらない */
+    if(dist > 2.0){
+      const dir = to.clone().normalize();
+      en.group.position.addScaledVector(dir, en.speed * dt);
+      resolveWallCollisions(en.group.position);
+    }
+    if(en.meleeCD > 0) en.meleeCD -= dt;
+    if(distToPlayer < 2.3 && (en.meleeCD || 0) <= 0){
+      en.meleeCD = 2.2;
+      if(state.invulnerable || state.paralyzeInvulnT > 0){
+        if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
+      } else if(!tryConsumeOrbShield()){
+        const dmg = applyIncomingDamageMul(state.debugMode ? 0 : Math.round(en.atk*0.7));
+        state.hp = Math.max(0, state.hp - dmg);
+        spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+        if(state.hp <= 0) triggerPlayerDown();
+      }
+      en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+    }
   }
 
   // damage helper shared by every boss special
