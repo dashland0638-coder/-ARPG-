@@ -1339,9 +1339,15 @@
     arc();
   }
 
-  // mage: 護りの魔球 - two orbs hover at the player's front sides. Each
-  // auto-charges into any enemy that gets close and explodes; taking a hit
-  // while orbs remain consumes one to negate the damage entirely
+  /* mage: 護りの魔球 - two orbs hover at the player's front sides. Each
+     auto-charges into any enemy that gets close and explodes; taking a hit
+     while orbs remain consumes one to negate the damage entirely.
+
+     **現在この関数を呼ぶ経路は無い**(WORK 3 で Skill 2 の座を観測の灯へ
+     譲ったため)。消していないのは、将来また使う可能性があるのと、
+     被弾側の tryConsumeOrbShield() が20箇所の被ダメージ経路から
+     呼ばれている共有処理で、そちらは空配列に対して false を返すだけで
+     安全に動いているから(WORK 8 で参照を確認済み)。 */
   function castOrbGuard(){
     const right = new THREE.Vector3(Math.cos(state.facing),0,-Math.sin(state.facing));
     const fwd = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
