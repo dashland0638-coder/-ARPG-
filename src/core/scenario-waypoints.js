@@ -26,6 +26,7 @@ export const SCENARIO_WAYPOINTS = {
     {id:'yard',     name:'水門前',     x:0,    z:416},
     {id:'sluice',   name:'水門',       x:0,    z:446},
     {id:'deep',     name:'村の奥',     x:0,    z:480},
+    {id:'boss',     name:'水鏡の跡',   x:0,    z:515},
   ],
 };
 

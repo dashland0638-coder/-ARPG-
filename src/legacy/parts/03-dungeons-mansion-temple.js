@@ -1860,6 +1860,27 @@
       scene.add(bottle);
     }
 
+    /* 宵待ちの村の痕跡(WORK 7)。一度でもあの村を終わらせていれば、
+       棚の端に小さな木彫りの舟が置いてある。
+
+       報酬でも、施設でも、NPC でもない ―― 世界に一つだけ残った跡。
+       新しいセーブ項目は作っていない(既存の scenarioClears を見るだけ)。
+       村の住宅に転がっていた玩具の舟(WORK 4)と同じかたちにしてある */
+    if(scenarioClears('duskvillage') > 0){
+      const toyMat = new THREE.MeshStandardMaterial({color:0x4a3a28, roughness:0.85});
+      const toy = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.11, 0.07, 0.34, 6, 1, false, 0, Math.PI), toyMat);
+      toy.rotation.z = Math.PI/2; toy.rotation.x = Math.PI;
+      toy.position.set(3.1, 1.86, 22.6);
+      toy.castShadow = true;
+      scene.add(toy);
+      buildLoreNote(new THREE.Vector3(3.1, 0, 21.9), '棚の端の木彫りの舟', [
+        '子供の手には少し大きい。舳先が何度も削り直してある。',
+        '誰が持ち帰ったのかは、主人も覚えていないという。',
+        'ただ、置き場所だけは決まっているらしい。'
+      ], {kind:'book'});
+    }
+
     const skinMat = new THREE.MeshStandardMaterial({color:0xd8a878, roughness:0.7});
     const clothMat = new THREE.MeshStandardMaterial({color:0x5a2c22, roughness:0.8});
     const bartender = new THREE.Group();

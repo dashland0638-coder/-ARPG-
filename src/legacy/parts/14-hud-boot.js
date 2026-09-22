@@ -475,11 +475,17 @@
     return null;
   }
   let lastRoomName = '';
+  let lastRoomWorld = null;
   function updateMinimapLabel(){
     const areaEl = document.getElementById('minimap-area');
     const roomEl = document.getElementById('minimap-room');
     if(!areaEl || !roomEl) return;
     areaEl.textContent = AREA_NAMES[currentWorldKey] || '';
+    /* 場所名はワールドをまたいで持ち越さない。小道では「さっきいた部屋」を
+       出し続ける仕様(下の行)だが、それは同じワールドの中での話 ――
+       ダンジョンから酒場へ戻った時まで残ると、酒場に「水鏡の跡」と
+       出たままになる */
+    if(lastRoomWorld !== currentWorldKey){ lastRoomWorld = currentWorldKey; lastRoomName = ''; }
     const rn = roomNameAt(state.pos.x, state.pos.z);
     if(rn) lastRoomName = rn;      // a corridor shows the room you came from
     roomEl.textContent = lastRoomName;

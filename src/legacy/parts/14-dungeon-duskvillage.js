@@ -119,6 +119,7 @@
     duskMarketMemoryDone = false; duskGateTalkDone = false;
     duskMarketFight = null;
     duskWardenSpawned = false; duskBossPreludeDone = false;
+    duskDawnRising = false; duskDawnBirdCD = 0; duskDawnRippleCD = 0;
     duskDeepSeen = 0; duskDeepCD = 0;
     duskGateCreakCD = 0; duskGateChainCD = 0; duskGateFlowCD = 0;
     duskInteriors = [];
@@ -148,7 +149,7 @@
     /* ---- 水面 ----
        村のどこからでも見える、この場所の主役。板ではなく分割した平面にして
        あり、updateDuskVillage() が頂点を2つの正弦波で揺らす。当たり判定は
-       持たない(桟橋の縁 addLowRailBox が歩ける範囲を決める)。
+       持たない(岸の縁 addLowRailBox が歩ける範囲を決める)。
        分割数は「うねりが見える最小限」に抑えてある ―― 実機(iPhone)と
        ソフトウェアレンダラのどちらでも毎フレーム全頂点を触るため */
     const waterGeo = new THREE.PlaneGeometry(170, 300, 26, 46);
@@ -821,7 +822,7 @@
   const DUSK_KNIGHT = '剣士';
 
   function playDuskEntranceScene(){
-    // 水面の人影。村の西側、桟橋の縁のすぐ外 ―― 歩いていける場所ではない
+    // 水面の人影。村の西側、岸のすぐ外 ―― 歩いていける場所ではない
     const shadePos = new THREE.Vector3(-13, 0, 326);
     let shade = null;
     playCutscene([
@@ -1180,6 +1181,134 @@
   }
   let duskGateChainCD = 0, duskGateFlowCD = 0;
 
+  /* =========================================================
+     村の残響 ―― 宵待ちの村のボス(WORK 7)
+
+     一人の怨念ではない。魚を獲ったこと、家で過ごした時間、舟を出したこと、
+     商いをしたこと、水門を開け閉めしたこと、誰かを待った時間 ――
+     忘れられた村の記憶が混ざったもの。だから黒幕はいないし、倒しても
+     誰かが帰ってくるわけでもない。
+
+     ボスAIは既存のものをそのまま使い、村で覚えた4つを場に出す層だけを
+     足してある(stepDuskEchoLayer / core/village-echo.js)。 */
+  function buildDuskVillageEcho(){
+    const en = buildBoss(new THREE.Vector3(0, 0, 520), {
+      /* 扉(duskBossDoor)は bossDoorKey に登録していない ―― 扉は村の奥と
+         ボスエリアの境として残るが、目覚めの条件は既存の「近づいたら」
+         だけにしてある。ボスは水面の真ん中(z=520)にいて、扉(z=500)を
+         通らずに 6 ユニットまで近づく道は無いので、通常プレイの挙動は
+         扉を条件にした場合と変わらない。こうしてあるのは、
+         Scenario Test Mode の地点ジャンプで扉を跨いで入った時にも
+         ボスが眠ったままにならないようにするため */
+      key:'duskEcho',
+      bodyColor:0x46566a, emissive:0x22303c, eyeColor:0xbfe0ec, auraColor:0x8fc8d8,
+      projColor:0x8fc8d8,
+      /* HPで長引かせない(§9)。覚えたことを組み合わせて戦う場なので、
+         殴る回数ではなく判断の回数で決まるようにしてある */
+      hpMax:760, atk:30, speed:1.7, xp:260,
+      dialogueName:'村の残響',
+      /* 名乗らない。誰かが喋っているのではなく、village が覚えている
+         ことがそのまま声になっているだけ ―― 「実は○○だった」を出さない */
+      dialogueLines:[
+        '水面がゆっくりと盛り上がり、いくつもの輪郭が重なって、人のかたちになる。',
+        '「……まだ、誰も来ない」',
+        '「網は干したままだ」「舟は明日出す」「棚が空いている」「水門は、閉めた」',
+        '声はどれも別々の時間のもので、どれも途中で切れている。'
+      ],
+      ambushDialogueLines:[
+        '重なった輪郭が、こちらを向いた。',
+        '「……忘れないで」'
+      ],
+      repeatDialogueLines:[
+        '水面がまた盛り上がる。前と同じ場所、前と同じかたち。',
+        '「……まだ、誰も来ない」'
+      ],
+      clearName:'村の残響',
+      clearFlavor:'重なっていた輪郭がほどけ、ひとつずつ水面へ戻っていった。',
+      rewardLoot:{type:'gem', name:'水底に沈んだ木札', icon:'💎', color:0x8fc8d8}
+    });
+    en.baseColor = 0x46566a;
+    en.decoyKind = 'mirror';   // 水面に映るものを追う ―― 幻影歩法も通常どおり効く
+    duskBossRef = en;
+    return en;
+  }
+
+  /* =========================================================
+     記憶の解放 → 最後の記憶 → 夜明け(WORK 7)
+
+     撃破した瞬間に結果画面を出さない。散らばっていた記憶が水面へ戻り、
+     最後にひとつだけ残って、夜が明ける ―― そこまでを見せてから、
+     いつもの結果画面へ渡す(洋館の playMansionReunion と同じ作り)。
+
+     長いムービーにはしない。説明もしない。 ========================================================= */
+  function playDuskEpilogue(onDone){
+    /* 水面に戻っていく記憶。村で実際に通った場所の順に、
+       ボスのまわりの水面へ散らしていく ―― 「これは○○さんの記憶です」
+       とは言わない。歩いた人にだけ、見覚えがある */
+    const SPOTS = [
+      {x:-11, z:512}, {x: 10, z:514}, {x:-7, z:518},
+      {x:  9, z:520}, {x:-12, z:524}, {x: 6, z:526},
+    ];
+    let i = 0;
+    const releaseOne = ()=>{
+      const p = SPOTS[i % SPOTS.length]; i++;
+      spawnDuskRipple(p.x, p.z, 1.0 + Math.random()*0.6);
+      spawnApparition(new THREE.Vector3(p.x, 0, p.z), {color:0x6a8090, fadeIn:1.2,
+                       fadeOut:1.1, maxOpacity:0.30, vanishDist:200});
+      sfx('chime');
+    };
+    playCutscene([
+      {t:0.3, run:()=>{ ambienceHold(9); addShake(0.08); }},
+      // 散らばっていたものが、ひとつずつ水面へ戻る
+      {t:0.9, run:releaseOne},
+      {t:0.8, run:releaseOne},
+      {t:0.8, run:releaseOne},
+      {t:0.9, run:releaseOne},
+      {t:0.8, run:releaseOne},
+      {t:0.9, run:releaseOne},
+      // それが真ん中へ集まって、ひとつになる
+      {t:1.2, run:()=>{
+        spawnDuskRipple(0, 520, 2.6);
+        spawnApparition(new THREE.Vector3(0, 0, 520), {color:0x7f98a8, fadeIn:1.6,
+                         fadeOut:2.0, maxOpacity:0.34, vanishDist:200});
+        ambienceHold(7);
+      }},
+      // 最後の記憶。これ以上は足さない
+      {t:2.0, run:()=> cutsceneLine('「……ありがとう。」', '')},
+      {t:2.6, run:()=>{ cutsceneHideLine(); duskDawnStart(); }},
+      // 夜が明けていく(既存の時間帯システムをそのまま進めるだけ)
+      {t:3.0, run:()=> sfx('chime')},
+      {t:2.4, run:()=> cutsceneLine('「……残ったんですね」', DUSK_MAGE)},
+      {t:2.2, run:()=> cutsceneLine('「何が」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「……消えたわけじゃない、ということです」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「……残るなら、それでいい」', DUSK_KNIGHT)},
+      {t:2.6, run:()=>{
+        cutsceneHideLine();
+        state.dialogueActive = false;
+        clearMovementInput(false);
+        if(onDone) onDone();
+      }},
+    ]);
+  }
+
+  // 夜明けを始める。進行そのものは stepDuskDawn が毎フレーム進める
+  function duskDawnStart(){ duskDawnRising = true; }
+  let duskDawnRising = false;
+  function stepDuskDawn(dt){
+    if(!duskDawnRising || duskDawnT >= 1) return;
+    duskDawnT = Math.min(1, duskDawnT + dt * 0.10);   // 約10秒かけて明ける
+    if((duskDawnBirdCD -= dt) <= 0){
+      duskDawnBirdCD = 3.5 + Math.random()*3;
+      sfx('chime');       // 遠くの鳥。専用の音は足さず、既存の音を弱く使う
+    }
+    // 水音が戻る。止まっていた水面に、ゆっくり波紋が増える
+    if((duskDawnRippleCD -= dt) <= 0){
+      duskDawnRippleCD = 1.2;
+      spawnDuskRipple(-18 + Math.random()*36, 500 + Math.random()*30, 0.6 + Math.random()*0.5);
+    }
+  }
+  let duskDawnBirdCD = 0, duskDawnRippleCD = 0;
+
   /* 水門守の残響(WORK 6)。AIは updateKeeperAI(07-ai-combat.js)、
      残響の数値は core/warden-echo.js。ここは「どんな個体か」だけ。
      中ボス扱いだが、硬さで強くしていない ―― 強さは「過去の行動が
@@ -1424,6 +1553,7 @@
 
     // 水門の開放(WORK 6)。撃破後、歩けるまま門が上がっていく
     stepDuskWaterGate(dt);
+    stepDuskDawn(dt);        // 夜明け(WORK 7)
     // 村の奥の記憶(WORK 6)
     stepDuskDeepMemories(dt);
 

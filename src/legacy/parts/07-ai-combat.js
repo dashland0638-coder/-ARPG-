@@ -582,7 +582,10 @@
          商店街の複合戦闘はここでは出さない ―― 部屋へ入った時点から
          時間差で出てくる(14-dungeon-duskvillage.js の stepDuskMarketFight) */
       enemies.push(buildDuskFisher(0, 424));
-      duskBossRef = null;
+      /* WORK 7: 村の残響。ボスエリアの奥、水面の真ん中に。
+         村の奥 → ボスエリアの扉(duskBossDoor)が開くまでは眠ったまま
+         ―― 既存のボスの扉判定(bossDoorKey)をそのまま使っている */
+      enemies.push(buildDuskVillageEcho());
     }
     // テストモードのカカシ(訓練用の的)。hp/atk/speedはdifficultyFor()の
     // 補正(_D)がそのままかかるが、'training'は星取りデータが無いキーの
@@ -3027,7 +3030,8 @@
 
   /* 残響を1つ出す。本体と同じ形の、薄い写し。
      buildEnemy は使わない ―― 敵ではないので、enemies には入れない */
-  function spawnKeeperEcho(en, rec){
+  function spawnKeeperEcho(en, rec, opts){
+    opts = opts || {};
     const mat = new THREE.MeshBasicMaterial({color:0x7fb0c4, transparent:true,
                                              opacity:0, depthWrite:false});
     const g = new THREE.Group();
@@ -3035,6 +3039,7 @@
     body.position.y = 0.85; g.add(body);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), mat);
     head.position.y = 1.85; g.add(head);
+    if(opts.scale) g.scale.setScalar(opts.scale);
     g.position.set(rec.x, 0, rec.z);
     g.rotation.y = rec.facing;
     scene.add(g);
@@ -3044,6 +3049,8 @@
       // 「引いた」動作だけが痛い。歩いただけの残響は当たらない
       harmAt: rec.kind === 'operate' ? PROVISIONAL_ECHO_LIFE_SEC * 0.45 : null,
       dmg: Math.round(en.atk * 0.6),
+      // 見た目を大きくしたぶんは、当たる範囲も合わせる(見えている通りに当たる)
+      radius: PROVISIONAL_ECHO_RADIUS * (opts.scale || 1),
     });
     /* 音は少し遅れて届く。鎖の音が本体より後から鳴るので、
        耳でも「後ろで同じことが起きている」と分かる */
@@ -3062,7 +3069,7 @@
         // 引く動作をなぞる。腕は無いので、身体の傾きで見せる
         e.group.rotation.z = Math.sin(step.progress * Math.PI) * 0.34;
       }
-      if(echoStrikes(e, prevLife, PROVISIONAL_ECHO_RADIUS, state.pos.x, state.pos.z)){
+      if(echoStrikes(e, prevLife, e.radius || PROVISIONAL_ECHO_RADIUS, state.pos.x, state.pos.z)){
         if(state.invulnerable || state.paralyzeInvulnT > 0){
           if(state.paralyzeInvulnT <= 0) tryPerfectDodge(null);
         } else if(!tryConsumeOrbShield()){
@@ -3192,6 +3199,136 @@
         en.keeperSpot++;
         en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
       }
+    }
+  }
+
+  /* =========================================================
+     村の残響(duskEcho) ―― 宵待ちの村のボス(WORK 7)
+
+     **新しい戦闘システムを1つも足していない。** ボスそのものの動き
+     (追尾・振りかぶり・薙ぎ・特殊行動・体幹・Break・Execution・報酬)は
+     既存のボス処理のまま。ここが足すのは、村で覚えた4つを場に出すことだけ:
+
+       水鏡の影   … 本体が自分と同じ姿の分身を出す(見分ける)
+       泡沫の群れ … 小さいものが増える(散らす)
+       写し身     … 直前の一撃が返ってくる(読み合い)
+       残響       … 過去の行動が時間差で同じ場所になぞられる(離れていれば安全)
+
+     どれも元の実装をそのまま呼んでいる。段階が進んでも性質は変わらず、
+     変わるのは組み合わせだけ(core/village-echo.js)。 ========================================================= */
+  /* 本体と同じ姿の分身。水鏡の影と同じ扱い(当てると散る・ダメージは入らない・
+     本体の見分けは挙動の差でつける)なので、AIもそのまま updateMirrorShadeAI
+     に任せる ―― 見た目だけボスの実体を複製している */
+  function spawnBossMirrorClone(boss, angle){
+    const pos = boss.group.position.clone();
+    pos.x += Math.sin(angle) * (PROVISIONAL_SPLIT_RADIUS + 1.6);
+    pos.z += Math.cos(angle) * (PROVISIONAL_SPLIT_RADIUS + 1.6);
+    resolveWallCollisions(pos);
+    const clone = buildEnemy(pos, {
+      color: boss.baseColor != null ? boss.baseColor : 0x46566a,
+      hp: 1, atk: Math.round(boss.atk * 0.5), speed: boss.speed * 1.15,
+      atkType: 'mirror', xp: 0, goldBonus: [0, 0],
+    });
+    /* buildEnemy が作った雑魚の見た目は捨てて、ボスの実体を複製したものに
+       差し替える。材質は共有のままでよい ―― 本体と見た目で見分けられては
+       いけないので、色を変えないことがそのまま正しい */
+    scene.remove(clone.group);
+    const visual = boss.group.clone(true);
+    visual.position.copy(pos);
+    scene.add(visual);
+    clone.group = visual;
+    clone.body = visual;
+    clone.bodyScale = visual.scale.clone();
+    clone.mob = null;      // 雑魚の歩行アニメは回さない(複製した実体には無い)
+    clone.parts = null;
+    clone.mirrorCloneOf = boss;
+    clone.triggered = true;
+    clone.mirrorRippleT = Math.random() * 0.8;
+    clone.mirrorState = 'chase';
+    clone.mirrorT = 0;
+    clone.roomTag = 'mirrorClone';
+    enemies.push(clone);
+    boss.mirrorClones = boss.mirrorClones || [];
+    boss.mirrorClones.push(clone);
+    if(currentWorldKey === 'duskvillage') spawnDuskRipple(pos.x, pos.z, 1.4);
+    return clone;
+  }
+
+  // いま場に出ているものを数える。上限の判定に使う
+  function duskEchoAlive(boss){
+    let clones = 0, foam = 0, copy = 0;
+    for(let i=0;i<enemies.length;i++){
+      const e = enemies[i];
+      if(!e || e.dead) continue;
+      if(e.mirrorCloneOf === boss) clones++;
+      else if(e.duskEchoAdd && e.atkType === 'foam') foam++;
+      else if(e.duskEchoAdd && e.atkType === 'copy') copy++;
+    }
+    return {clones, foam, copy};
+  }
+
+  function stepDuskEchoLayer(boss, dt){
+    const phase = villageEchoPhase(boss.hp / Math.max(1, boss.hpMax));
+    if(boss.duskPhaseSeen !== phase){
+      boss.duskPhaseSeen = phase;
+      boss.duskSummonT = 0;
+      /* 段階が変わった合図。文字で「Phase 2」とは出さない ――
+         水面がひとつ大きく波立ち、音が一度だけ遅れて返る */
+      if(currentWorldKey === 'duskvillage'){
+        spawnDuskRipple(boss.group.position.x, boss.group.position.z, 2.4);
+      }
+      if(phase > 1){ sfx('bossWake'); addShake(0.10); }
+    }
+
+    // ---- 足りないものを1体ずつ戻す(上限はフェーズごと) ----
+    const alive = duskEchoAlive(boss);
+    const nx = villageNextSummon(phase, alive, boss.duskSummonT || 0, dt);
+    boss.duskSummonT = nx.timer;
+    if(nx.summon === 'clones'){
+      spawnBossMirrorClone(boss, Math.random() * Math.PI * 2);
+    } else if(nx.summon === 'foam'){
+      const a = Math.random() * Math.PI * 2;
+      const mote = spawnFoamMote(boss.group.position, a, null);
+      mote.duskEchoAdd = true;
+      mote.triggered = true;
+    } else if(nx.summon === 'copy'){
+      const a = Math.random() * Math.PI * 2;
+      const p = boss.group.position.clone();
+      p.x += Math.sin(a) * 6.5; p.z += Math.cos(a) * 6.5;
+      resolveWallCollisions(p);
+      const shade = buildDuskCopyShade(p.x, p.z);
+      shade.duskEchoAdd = true;
+      shade.triggered = true;
+      enemies.push(shade);
+      if(currentWorldKey === 'duskvillage') spawnDuskRipple(p.x, p.z, 1.1);
+    }
+
+    // ---- 過去の行動を置く(第3段階だけ) ----
+    const ec = villageShouldEcho(phase, boss.duskEchoT || 0, dt);
+    boss.duskEchoT = ec.timer;
+    if(ec.leave){
+      /* 水門守と同じ残響(core/warden-echo.js)。いま本体がいる場所を控え、
+         遅れて同じ場所で同じ動作がなぞられる。追ってこないので、
+         離れていれば当たらない ―― 「今そこにいれば危険」だけ */
+      const rec = recordAction('operate', boss.group.position.x, boss.group.position.z,
+                               boss.group.rotation.y, mechTime);
+      if(rec){
+        boss.duskEchoRecords = boss.duskEchoRecords || [];
+        boss.duskEchoPlayed = boss.duskEchoPlayed || [];
+        boss.duskEchoRecords.push(rec);
+      }
+    }
+    if(boss.duskEchoRecords && boss.duskEchoRecords.length){
+      const observing = state.observeLightT > 0 &&
+                        observeReaches(state.pos.distanceTo(boss.group.position));
+      const due = dueEchoes(boss.duskEchoRecords, mechTime, echoDelay(observing),
+                            boss.duskEchoPlayed);
+      const cap = villageEchoPlan(phase).echoes;
+      due.forEach(rec=>{
+        boss.duskEchoPlayed.push(rec);
+        if(keeperEchoes.length < cap) spawnKeeperEcho(boss, rec, {scale: 1.5});
+      });
+      pruneRecords(boss.duskEchoRecords, mechTime);
     }
   }
 
@@ -4327,6 +4464,12 @@
        「影が人から離れていく」を表現できないため。フェーズ管理・体幹・
        Break・Execution・報酬・撃破フローは既存のまま使う */
     if(en.key === 'mansionBoss'){ updateMansionLordAI(en, dt); return; }
+
+    /* 村の残響(宵待ちの村 / WORK 7)。**専用のボスAIは作っていない** ――
+       追尾・振りかぶり・薙ぎ・特殊行動・体幹・Break・Execution・報酬は
+       既存のボス処理をそのまま通す。足しているのは「村で覚えた4つの現象を
+       場に出す」層だけ(stepDuskEchoLayer)。だから return しない */
+    if(en.key === 'duskEcho') stepDuskEchoLayer(en, dt);
 
     // HP-threshold phase changes: faster, harder-hitting, with a one-time burst skill
     if(!en.phase) en.phase = 1;

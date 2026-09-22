@@ -84,16 +84,19 @@
       {name:Y, text:'研究員たちは……?'},
       {name:M, text:'誰一人、戻らなかった。今もあそこへ行くと、"助けて"だの"先生"だのと声が聞こえるという話でな。……それでも行くかい?'}
     ]; },
+    /* 宵待ちの村(DEC-001 の正式仕様「忘れられること」)。旧実装の
+       「灯りを消して暮らす村」「桟橋伝いにしか進めない」は仕様ごと
+       差し替わったので、主人の話す内容もそれに合わせてある */
     duskvillage: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
-      {name:M, text:'……宵待ちの村、か。まだそこまで名が広まっているとは思わなんだが。'},
+      {name:M, text:'……宵待ちの村、か。よくその名前が出てきたな。'},
       {name:Y, text:'何か知っているのか?'},
-      {name:M, text:'湖沼に沈みかけた廃村でな。高床の桟橋伝いにしか進めん、妙な場所だ。'},
-      {name:Y, text:'なぜ、そんな所に人が住み着いていた?'},
-      {name:M, text:'さあな。ただ、灯りを消して暮らしていたらしい――点せば、いるはずのないものが見えるからと。'},
-      {name:Y, text:'灯りを点けなければ、何も起きないんじゃないのか?'},
-      {name:M, text:'桟橋の先は暗闇に沈んでてな。灯りなしじゃ、そもそも奥まで進めん場所らしいよ。'},
-      {name:Y, text:'……行くしかない、ということか。'},
-      {name:M, text:'ああ。忘れられることで、まだそこに留まっている者たちがいるという話だ。……それでも行くかい?'}
+      {name:M, text:'湖のほとりの村でな。魚を獲って、舟を出して、それで暮らしていた。'},
+      {name:Y, text:'いまは?'},
+      {name:M, text:'誰もいない。いつからいないのかも、誰が住んでいたのかも、もう誰も言えん。'},
+      {name:Y, text:'……忘れられた、ということか。'},
+      {name:M, text:'ああ。ただな、物は残っているらしい。網も、舟も、干したままだと。'},
+      {name:Y, text:'人だけがいない、と。'},
+      {name:M, text:'そういうことだ。……忘れられたままそこに居るものがいる、という話もある。それでも行くかい?'}
     ]; },
     waterway: [] // unused placeholder - waterway builds its own lines per personality/gender, see WATERWAY_VACATION_LINES below
   };
@@ -129,8 +132,8 @@
     ]; },
     duskvillage: [
       'また宵待ちの村かい。物好きなもんだ。',
-      '灯りを消しても点けても、あそこの連中は居座ったままらしい。',
-      '……気をつけな。今も灯りの下じゃ、何かがざわめいてるって話だよ。'
+      'あそこは何も変わらんだろう。人が戻るわけでもない。',
+      '……ただ、あんたが行ったことだけは、こっちが覚えてるよ。'
     ],
     waterway: []
   };
@@ -449,6 +452,27 @@
        が終わってから、いつもの結果画面へ渡す。結果画面・報酬・
        BOSS_ENDING_LINES はそのまま再利用しているので、増えたのは
        「その前に一拍置く」ことだけ。 */
+    /* 宵待ちの村も、撃破した瞬間に結果画面へ飛ばさない(WORK 7)。
+
+         撃破 → 散らばっていた記憶が水面へ戻る → 最後の記憶
+              → 夜が明ける → 二人の短いやりとり
+
+       が終わってから、いつもの結果画面へ渡す。結果画面・報酬・
+       BOSS_ENDING_LINES はそのまま再利用していて、増えたのは洋館と同じく
+       「その前に一拍置く」ことだけ。 */
+    if(defersResultScreen(state.scenarioKey)){
+      playDuskEpilogue(()=>{
+        try{ showBossResultScreen(boss, levelBefore); }
+        catch(err){
+          console.error('showBossResultScreen failed:', err);
+          state.dialogueActive = false;
+          state.dialogueKind = null;
+          clearMovementInput(false);
+          spawnToast('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+        }
+      });
+      return;
+    }
     if(state.scenarioKey === 'mansion' &&
        shouldReunite({bossDefeated:true, escort:state.smithEscort})){
       playMansionReunion(()=> {
@@ -1325,11 +1349,11 @@
       '最後に、地面に小さな芽が一つだけ残る。',
       'かすかに、声が聞こえた気がした。「……ありがとう。」'
     ],
-    duskCollective: [
-      '光に炙られた輪郭が、一つ、また一つとほどけて消えていく。',
-      '最後まで残っていた小さな影が、名残惜しむようにその場に立ち尽くしていた。',
-      '……灯りに照らされたその顔には、うっすらと笑みのようなものが浮かんでいた。',
-      '広場に静寂が戻る。誰もいないはずの村に、もう囁き声はしなかった。'
+    duskEcho: [
+      '村は静かなままだった。誰も戻ってこないし、誰かが戻ってくる気配もない。',
+      'ただ、干したままの網も、直しかけの舟も、空の棚も、そこに残っている。',
+      '人がいなくても、そこで暮らしていたことまでは消えていない。',
+      '水面はもう、何も映していなかった。'
     ]
   };
 
@@ -1365,9 +1389,9 @@
       hi: '「進ませるな……あの子が、まだ……戻っていない……」',
       lo: '「頼む……鐘だけは……鳴らさせないでくれ……」'
     },
-    duskCollective: {
-      hi: '「まだ……消えたくない……忘れられたく、ない……」',
-      lo: '「灯りを……その灯りを、消してくれ……!」'
+    duskEcho: {
+      hi: '重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」',
+      lo: '「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。'
     }
   };
 
@@ -1426,11 +1450,11 @@
     {key:'temple',     name:'🏛️ 古代神殿',       levelRange:'10〜50(★8)', minLevel:10, desc:'跳び、渡り、乗り継いで越えてゆく長い試練の神殿。落ちれば痛い目を見るぞ。', unlocked:true},
     {key:'clocktower', name:'🕰️ 狂いの時計塔', levelRange:'11〜55(★8)', minLevel:11, desc:'街の時を司る塔。毎晩七時十三分で針が止まり、六層すべての仕掛けが動き出す。最上階の天蓋には、使われたことのない脱出装置がひとつ。', unlocked:true},
     {key:'conservatory', name:'🌿 硝子の温室', levelRange:'22〜80(★8)', minLevel:22, desc:'飢饉を絶つ作物を求め国が興した研究施設跡。茨が時計仕掛けのように開閉し、緑の靄が肺を蝕む。奥では、研究員たちを取り込んだ母樹が根を張っている。', unlocked:true},
-    // Phase D(#37): 新規7層目。沼地に沈みかけた廃村を、灯りを頼りに渡っていく
-    // ステージ。「暗闇だから見えない」のではなく「灯りが怪異をこちらの世界へ
-    // 引き出す」という逆転の発想がこのステージの核(詳細はbuildDuskVillage
-    // 参照、15-dungeon-duskvillage.js)
-    {key:'duskvillage', name:'🏮 宵待ちの村', levelRange:'26〜85(★8)', minLevel:26, desc:'湖沼に沈みかけた廃村。蜘蛛の巣のように、狭い木の桟橋だけが水上に張り巡らされている。灯りを点せば、そこにいるはずのないものが見えてしまう。', unlocked:true},
+    /* 宵待ちの村。正式仕様は「忘れられること」(DEC-001)――
+       灯りで怪異を引き出す旧実装は WORK 2 で仕様ごと差し替えてある。
+       詳細は buildDuskVillage(14-dungeon-duskvillage.js)と
+       .ai/reports/DUSKVILLAGE-WORK2〜7-report.md */
+    {key:'duskvillage', name:'🏮 宵待ちの村', levelRange:'26〜85(★8)', minLevel:26, desc:'湖のほとりの村。網も舟も干したまま、人だけがいない。忘れられたことが、そのまま形になって残っている。', unlocked:true},
     {key:'pyramid',    name:'🏜️ 砂漠のピラミッド', levelRange:'16〜20', minLevel:16, desc:'黄金の呪いに満ちた古の墓所。目覚めた王が眠りへの帰還を拒む者を裁く。', unlocked:false},
     {key:'volcano',    name:'🌋 業火の火山',     levelRange:'21〜25', minLevel:21, desc:'絶えず溶岩が滾る山の奥、炎そのものと化した支配者が待つ。', unlocked:false},
   ];

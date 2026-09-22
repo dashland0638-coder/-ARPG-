@@ -91,6 +91,12 @@ import {
   PROVISIONAL_MARKET_WAVES, dueWaves, allWavesFired,
 } from '../core/encounter-waves.js';
 import {
+  phaseFor as villageEchoPhase, planFor as villageEchoPlan,
+  nextSummon as villageNextSummon, shouldLeaveEcho as villageShouldEcho,
+  defersResultScreen,
+  PHASE_2_HP as VILLAGE_PHASE_2_HP, PHASE_3_HP as VILLAGE_PHASE_3_HP,
+} from '../core/village-echo.js';
+import {
   phaseFor as wardenPhaseFor, echoCountFor, echoDelay, recordAction,
   dueEchoes, pruneRecords, stepEcho, echoStrikes, actorTell,
   PROVISIONAL_ECHO_LIFE_SEC, PROVISIONAL_ECHO_RADIUS, PROVISIONAL_ECHO_WINDUP_SEC,

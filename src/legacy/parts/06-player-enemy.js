@@ -5108,11 +5108,11 @@
         if(p.handR) p.handR.scale.set(1.35, 1.35, 1.5);
       }
 
-    } else if(en.key==='duskCollective'){
-      // 宵影の群れ(Phase D/#37)。humanoidデフォルト形状(parts無し)を
-      // そのまま使い、Phase2で「村人たちの記憶・感情の残滓が混ざり合った
-      // 集合体」を仄めかす淡い球を身体の周りに増やし、Phase3で中心に
-      // 小さな子供の輪郭(最終形態の予兆)を灯す
+    } else if(en.key==='duskEcho'){
+      /* 村の残響(宵待ちの村 / WORK 7)。humanoidデフォルト形状(parts無し)を
+         そのまま使う。Phase2 で「村の記憶がいくつも混ざっている」ことを
+         淡い球で見せ、Phase3 でその中心にもう一つだけ灯る ――
+         誰か一人の姿にはしない(黒幕を作らない) */
       const memMat = new THREE.MeshStandardMaterial({color:0xd8ccc0, emissive:0xd8ccc0, emissiveIntensity:0.7, transparent:true, opacity:0.75});
       if(phase===2){
         for(let i=0;i<5;i++){

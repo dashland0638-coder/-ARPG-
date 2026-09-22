@@ -137,3 +137,37 @@ test.describe('宵待ちの村 (住宅〜船小屋)', () => {
     expect(errors).toEqual([]);
   });
 });
+
+/* WORK 7 ―― 村の残響（ボス）と、その後。
+   ここで見るのは「ボス地点から戦闘が始められること」と、
+   「撃破した瞬間に結果画面が割り込まないこと」の2点。
+   撃破そのものはこの環境では実時間で10分以上かかるので、E2E では
+   ボス戦の入り口までを見て、撃破後の分岐は
+   tests/unit/village-echo.test.js（defersResultScreen）が固定している。 */
+test.describe('宵待ちの村 (村の残響)', () => {
+  test('ボス地点から始めると、村の残響と戦える', async ({ page }) => {
+    test.setTimeout(240_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+
+    await startTestMode(page, {
+      classKey: 'mage', guestKey: 'warrior', scenario: 'duskvillage',
+      level: 50, waypoint: 'boss',
+    });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await expect(page.locator('#minimap-area')).toHaveText('宵待ちの村', { timeout: 30_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('水鏡の跡', { timeout: 30_000 });
+    await page.screenshot({ path: 'test-results/dusk-07-boss-arrive.png' });
+
+    /* ボスは近づくと名乗らずに始まる（dialogueLines は水面の描写だけ）。
+       会話が出ること＝戦闘の入り口まで到達したこと。開始地点が
+       ボスの目の前なので、歩かなくても始まる */
+    await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
+    await page.screenshot({ path: 'test-results/dusk-08-boss-dialogue.png' });
+
+    // 結果画面（クリア表示）は、この時点では出ていない
+    await expect(page.locator('#clear-overlay')).not.toHaveClass(/active/);
+
+    expect(errors).toEqual([]);
+  });
+});
