@@ -58,6 +58,14 @@ import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/
 import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
 import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor } from '../core/dusk-village-map.js';
+import {
+  shouldSplit as mirrorShouldSplit, tellContrast as mirrorTellContrast,
+  rippleInterval as mirrorRippleInterval, turnRate as mirrorTurnRate,
+  windupPlan as mirrorWindupPlan, stepRipple as mirrorStepRipple,
+  stepReform as mirrorStepReform, observeReaches,
+  PROVISIONAL_CLONE_COUNT, PROVISIONAL_SPLIT_RADIUS, PROVISIONAL_REFORM_SEC,
+  OBSERVE_LIGHT_SEC, OBSERVE_RADIUS,
+} from '../core/mirror-shade.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

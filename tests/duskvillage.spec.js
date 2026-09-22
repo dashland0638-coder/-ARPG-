@@ -47,7 +47,7 @@ async function walkUntilRoom(page, keys, expected, maxMs = 90_000) {
 }
 
 test.describe('宵待ちの村 (正式マップ)', () => {
-  test('森から村の入口・中央広場まで歩けて、場所名が切り替わる', async ({ page }) => {
+  test('森から村の入口まで歩けて、入った所で最初の違和感が起きる', async ({ page }) => {
     test.setTimeout(240_000);
     const errors = watchErrors(page);
     await openGame(page);
@@ -67,20 +67,19 @@ test.describe('宵待ちの村 (正式マップ)', () => {
     expect(await walkUntilRoom(page, 'KeyW', '村の入口')).toBe(true);
     await page.screenshot({ path: 'test-results/dusk-02-gate.png' });
 
-    // 村の入口 → 中央広場(井戸のある村の中心)
-    expect(await walkUntilRoom(page, 'KeyW', '中央広場')).toBe(true);
-    await page.screenshot({ path: 'test-results/dusk-03-plaza.png' });
-
-    /* 広場の中を歩いて、井戸・掲示板・洗濯物のある村の中心まで入る。
-       ここから先(魚屋・住宅・船小屋への枝、商店街 → 水門前 → 水門 →
-       村の奥 → ボスエリア)は歩かない ―― この環境では1区画に40秒前後かかり、
-       枝の開口へ寄せる動きは秒数の揺れでそのまま不安定になる。開口の
-       突き合わせと入口からの連結は tests/unit/dusk-village-map.test.js が
-       部屋テーブルに対して直接固定しているので、E2Eは「組み上がって、
-       実際に歩けて、場所名が出る」ことの確認に絞る */
-    await walkFor(page, 'KeyW', 15_000);
-    await expect(page.locator('#minimap-room')).toHaveText('中央広場');
-    await page.screenshot({ path: 'test-results/dusk-04-plaza-center.png' });
+    /* 村へ入った瞬間のセミシームレス演出(WORK 3)。黒画面も場所の
+       切り替えも挟まず、同じ場所のまま剣士が先へ出て、水面に一瞬だけ
+       人影が映る。ここで見るのは「入った所で始まって、二人の会話として
+       表示されること」まで ―― 演出は実時間で15秒ほどあるが、この環境は
+       約1.6fps で dt が 0.05 に丸められるため、ゲーム内時間は実時間の
+       1/12 ほどしか進まない。最後まで待つと数分かかるので、始まりだけを
+       確かめて終える(台詞の中身は playDuskEntranceScene の担当)。
+       ここから先(中央広場まで歩く)も同じ理由で E2E からは外してある ――
+       部屋の連結は tests/unit/dusk-village-map.test.js が固定している */
+    await walkFor(page, 'KeyW', 4000);   // 部屋の縁で止まらず、中へ一歩入る
+    await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
+    await expect(page.locator('#dialogue-name')).toHaveText('魔法使い', { timeout: 60_000 });
+    await page.screenshot({ path: 'test-results/dusk-03-entrance-scene.png' });
 
     expect(errors).toEqual([]);
   });

@@ -1152,6 +1152,11 @@
       updateMansionRoof();
       updateRestroomRoof();
       updateManorSmith(dt);   // 再会演出で鍛冶屋が歩み寄る(仕様 7)
+      /* 宵待ちの村(WORK 3): 演出中も村は動かす ―― 水面・小舟・洗濯物が
+         止まると、その瞬間だけ世界が書き割りになる。同行者を歩かせる
+         スクリプト(stepDuskGuestWalk)もここから進む。
+         他のワールドでは即returnするので、コストも副作用も無い */
+      updateDuskVillage(dt);
       updateShake(dt);
       updateSparks(dt);
       /* 斬撃の弧と魔法陣のフェードも進める。どちらも opacity を下げて

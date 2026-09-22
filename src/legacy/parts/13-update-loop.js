@@ -162,6 +162,9 @@
   function updateHoldInputs(dt){
     if(state.skillCD>0) state.skillCD -= dt;
     if(state.skill2CD>0) state.skill2CD -= dt;
+    // 観測の灯(魔法使いの Skill 2)。効いている残り時間。会話・ポーズ中は
+    // 下の早期returnで止まるので、演出の間に勝手に切れることはない
+    if(state.observeLightT>0) state.observeLightT = Math.max(0, state.observeLightT - dt);
     if(state.bossSkill3CD>0) state.bossSkill3CD -= dt;
     if(state.paused || state.dialogueActive || state.dodging){
       if(state.skillCharging){ state.skillCharging=false; state.skillChargeT=0; }

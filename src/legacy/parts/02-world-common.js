@@ -365,6 +365,7 @@
     projectiles.forEach(p=>{ scene.remove(p.mesh); if(p.light) giveLight(p.light); }); projectiles = [];
     itemDrops.forEach(d=>{ scene.remove(d.mesh); if(d.light) giveLight(d.light); }); itemDrops = [];
     if(state.mageOrbs){ state.mageOrbs.forEach(orb=>scene.remove(orb.mesh)); state.mageOrbs = []; }
+    state.observeLightT = 0;   // 観測の灯は世界をまたいで持ち越さない
     clearDecals();   // scorches belong to the room that got burned
     nearbyDoor = null; nearbyStairs = null; nearbyLore = null;
     autoStairBusy = false; stairAutoArmed = true;   // auto階段の状態は世界ごとに素の状態へ
@@ -1363,12 +1364,16 @@
   }
 
   // a line of narration on its own, without waiting for a click
-  function cutsceneLine(text){
+  /* 演出中の一行。name を渡すと話者名を差し替えられる ―― 洋館は主人公
+     ひとりの独白だったので既定(state.name)で足りていたが、宵待ちの村は
+     魔法使いと剣士の二人組なので、どちらが喋っているかを出す必要がある。
+     省略時の挙動は今までどおり */
+  function cutsceneLine(text, name){
     state.dialogueActive = true;
     state.dialogueKind = null;
     state.dialogueBoss = null;
     state.dialogueLines = null;
-    document.getElementById('dialogue-name').textContent = state.name || '';
+    document.getElementById('dialogue-name').textContent = name != null ? name : (state.name || '');
     document.getElementById('dialogue-text').textContent = text;
     document.getElementById('dialogue-overlay').classList.add('active');
   }

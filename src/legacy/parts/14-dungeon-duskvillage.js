@@ -100,6 +100,8 @@
     duskWater = null; duskWaterBase = null;
     duskBossRef = null;
     duskDawnT = 0; duskCreakCD = 0; duskRippleCD = 0;
+    duskGuestWalk = null;
+    duskFishMemoryDone = false;   // 出撃のたびに、記憶はまた一度だけ起きる
 
     const plankTex  = makePlankTexture('#4a3a2a', 4, 6, 3);
     const plankMat  = new THREE.MeshStandardMaterial({map:plankTex, roughness:0.85});
@@ -390,6 +392,22 @@
     board(-46.5, 0.86, 345, 1.0, 0.07, 0.6, woodMat);     // まな板
     board(-45.8, 0.90, 344.6, 0.5, 0.04, 0.09, ironMat);  // 包丁
     basket(-48.5, 350, 0.55); basket(-47.4, 351, 0.45); basket(-49.2, 348.6, 0.5);
+    /* 籠の中と、まな板の上に残った魚。干からびているので、ここは
+       「いま漁をしている村」ではない ―― 置きすぎると説明用の陳列に
+       見えるので、目に入る2箇所だけ */
+    const fishMat = new THREE.MeshStandardMaterial({color:0x6d7a72, roughness:0.75});
+    [[-48.5, 350, 0.62], [-47.4, 351, 0.5]].forEach(([fx, fz, r])=>{
+      const fish = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), fishMat);
+      fish.scale.set(1, 0.5, 2.1);
+      fish.position.set(fx, r + 0.1, fz);
+      fish.rotation.y = Math.random()*Math.PI;
+      scene.add(fish);
+    });
+    const cutFish = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), fishMat);
+    cutFish.scale.set(1, 0.42, 2.0);
+    cutFish.position.set(-46.5, 0.93, 345);
+    cutFish.rotation.y = 0.3;
+    scene.add(cutFish);
     barrel(-42.5, 351.5, 0.42, 0.9);
     pot(-43.5, 345.5, 0.36);
     // 秤: 竿と両側の皿
@@ -580,7 +598,164 @@
       'ある日を境に、水位の欄だけが空白になり、日付だけが続いていく。'
     ], {kind:'book'});
 
+    /* ---- 村へ入る(WORK 3) ----
+       村の入口の部屋に入った時点で一度だけ。回り込んで素通りできないよう、
+       円ではなく部屋そのものを判定域にしてある(registerRoomEvent) */
+    registerRoomEvent(duskRoomById('gate'), 0, '', ()=>{
+      playDuskEntranceScene();
+      return null;   // 台詞は演出側が出すので、ここでは行を返さない
+    }, {inset: 1.2});   // 入ってすぐ。奥まで歩かせてから始めない
+
+    /* ---- 魚屋の記憶(WORK 3) ----
+       帳場のあたりへ寄ったときだけ。中へ入らなければ起きない ―― 探索した
+       人にだけ残っているものが見える、という作りにしてある */
+    registerProximityEvent(new THREE.Vector3(-46.5, 0, 347), 4.2, '', null, {
+      onEnter: ()=> playDuskFishMemory(),
+    });
+
     buildTownReturnPortal(new THREE.Vector3(0, 0, 288));
+  }
+
+  /* =========================================================
+     村へ入る ―― 最初の違和感(WORK 3)
+
+     説明で始めない。人がいないこと・水面が静かなこと・舟が揺れていることは
+     もう歩いているだけで見えているので、ここで足すのは「一瞬だけ見えて、
+     見直すと消えているもの」ひとつだけ。
+
+     セミシームレスにするため、黒画面も場所の切り替えも挟まない ―― 同じ
+     場所のまま、剣士が数歩先へ出て、魔法使いが立ち止まり、水面を見る。
+     既存の playCutscene / cutsceneTurnTo / state.walkTo / spawnApparition を
+     そのまま使っていて、新しいイベント基盤は作っていない。 ========================================================= */
+  let duskGuestWalk = null;   // 演出中だけ、同行者を歩かせる({x, z, speed})
+
+  // 同行者(剣士)を演出用に歩かせる。戦闘AI(updateGuestCompanion)は
+  // 演出中そもそも回らないので、取り合いにはならない
+  function stepDuskGuestWalk(dt){
+    if(!duskGuestWalk || typeof guestCompanion === 'undefined' || !guestCompanion) return;
+    const g = guestCompanion;
+    const dx = duskGuestWalk.x - g.pos.x, dz = duskGuestWalk.z - g.pos.z;
+    const d = Math.hypot(dx, dz);
+    if(d < 0.15){ duskGuestWalk = null; return; }
+    const step = Math.min(d, (duskGuestWalk.speed || 3.0) * dt);
+    g.pos.x += dx/d * step;
+    g.pos.z += dz/d * step;
+    g.group.position.set(g.pos.x, g.group.position.y, g.pos.z);
+    g.group.rotation.y = Math.atan2(dx, dz);
+  }
+
+  const DUSK_MAGE = '魔法使い';
+  const DUSK_KNIGHT = '剣士';
+
+  function playDuskEntranceScene(){
+    // 水面の人影。村の西側、桟橋の縁のすぐ外 ―― 歩いていける場所ではない
+    const shadePos = new THREE.Vector3(-13, 0, 326);
+    let shade = null;
+    playCutscene([
+      // 剣士が数歩先へ出る。魔法使い(プレイヤー)は歩度を落として止まる
+      {t:0.05, run:()=>{
+        if(typeof guestCompanion !== 'undefined' && guestCompanion){
+          duskGuestWalk = {x: state.pos.x + 1.2, z: state.pos.z + 5.5, speed: 3.2};
+        }
+        state.walkTo = {vx: 0, vz: 1.1};
+      }},
+      {t:0.9, run:()=>{ state.walkTo = null; }},
+      // 水面へ目をやる。カメラも一緒に回して、本人が見ているものを画面へ入れる
+      {t:0.35, run:()=>{
+        const yaw = Math.atan2(shadePos.x - state.pos.x, shadePos.z - state.pos.z);
+        cutsceneTurnTo(yaw, 0.7, yaw + Math.PI);
+        ambienceHold(4);        // 風がふっと止む。音を足さずに、鳴っていたものを止める
+      }},
+      {t:0.8, run:()=>{
+        shade = spawnApparition(shadePos, {color:0x2a3b4a, fadeIn:1.1, fadeOut:1.3,
+                                           maxOpacity:0.46, vanishDist:200});
+        if(shade) shade.rotation.y = Math.PI;
+        spawnDuskRipple(shadePos.x, shadePos.z, 1.2);
+      }},
+      {t:1.2, run:()=> cutsceneLine('「……止まってください」', DUSK_MAGE)},
+      {t:1.7, run:()=>{
+        cutsceneLine('「どうした」', DUSK_KNIGHT);
+        // 剣士が振り返る
+        if(typeof guestCompanion !== 'undefined' && guestCompanion){
+          duskGuestWalk = {x: state.pos.x - 0.8, z: state.pos.z + 2.0, speed: 3.4};
+        }
+      }},
+      {t:1.8, run:()=> cutsceneLine('「水面に、人が映っていました。上には誰もいないのに」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「……今は」', DUSK_KNIGHT)},
+      {t:1.8, run:()=> cutsceneLine('「消えました。急いで帰ったのかもしれません」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「水の中へか」', DUSK_KNIGHT)},
+      {t:1.8, run:()=> cutsceneLine('「ええ。……すみません、今のは冗談です」', DUSK_MAGE)},
+      // 剣士も観察して、自分で決める ―― 説明を待つ側にしない
+      {t:2.0, run:()=>{
+        cutsceneLine('「笑うところが分からん。……足元を見ておけ、濡れてる」', DUSK_KNIGHT);
+        if(typeof guestCompanion !== 'undefined' && guestCompanion){
+          duskGuestWalk = {x: state.pos.x + 1.0, z: state.pos.z + 4.0, speed: 2.6};
+        }
+      }},
+      {t:2.0, run:()=> cutsceneLine('「はい。見ています」', DUSK_MAGE)},
+      // 向き直って操作を返す
+      {t:1.6, run:()=>{
+        cutsceneHideLine();
+        cutsceneTurnTo(0, 0.6, Math.PI);
+      }},
+      {t:0.7, run:()=>{
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }},
+    ]);
+  }
+
+  /* 魚屋の記憶(WORK 3)
+
+     ここで暮らしていた人の、なんでもない一日の切れ端。説明はしない ――
+     誰がいつ言ったのかも、なぜ聞こえるのかも明かさない。
+     姿は輪郭だけを一瞬見せて、すぐ消える。 */
+  let duskFishMemoryDone = false;
+  function playDuskFishMemory(){
+    if(duskFishMemoryDone) return;
+    duskFishMemoryDone = true;
+    playCutscene([
+      {t:0.1, run:()=>{
+        ambienceHold(6);
+        sfx('woodCreak');
+      }},
+      // 帳場の内と外。二人ぶんの輪郭が、一瞬だけ重なって見える
+      {t:0.7, run:()=>{
+        spawnApparition(new THREE.Vector3(-46.5, 0, 344.2), {color:0x3a4550, fadeIn:1.2, fadeOut:1.1,
+                                                             maxOpacity:0.42, vanishDist:200, facing:Math.PI});
+        spawnApparition(new THREE.Vector3(-45.0, 0, 346.6), {color:0x3a4550, fadeIn:1.3, fadeOut:1.2,
+                                                             maxOpacity:0.38, vanishDist:200});
+      }},
+      // 声は名前を持たない。誰なのかは言わない
+      {t:1.3, run:()=> cutsceneLine('「……今日はこれだけか」', '')},
+      {t:2.2, run:()=> cutsceneLine('「明日はもう少し獲れるさ」', '')},
+      {t:2.4, run:()=>{
+        cutsceneHideLine();
+        spawnDuskRipple(-46.0, 346.0, 0.9);
+      }},
+      {t:1.0, run:()=> cutsceneLine('「……聞こえたか」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「はい。まだ残っているんだと思います、ここに」', DUSK_MAGE)},
+      {t:2.4, run:()=>{
+        cutsceneHideLine();
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }},
+    ]);
+  }
+
+  /* 水鏡の影(WORK 3)。AIは updateMirrorShadeAI(07-ai-combat.js)、
+     観察できる差の数値は core/mirror-shade.js。ここは「どんな個体か」だけ。
+     spawnEnemies() から呼ばれる(生成と enemies への登録は向こうの担当) */
+  function buildDuskMirrorShade(x, z){
+    const en = buildEnemy(new THREE.Vector3(x, 0, z), {
+      color:0x2a3b4a, hp:260, atk:30, speed:2.2, atkType:'mirror',
+      xp:104, goldBonus:[22, 34],
+    });
+    en.baseColor = 0x2a3b4a;
+    en.mirrorSplit = false;
+    en.mirrorClones = [];
+    en.mirrorReformT = 0;
+    return en;
   }
 
   /* 波紋。プレイヤーが水際を歩いた時と、小舟に近づいた時に出る。
@@ -601,6 +776,9 @@
   function updateDuskVillage(dt){
     if(currentWorldKey !== 'duskvillage') return;
     const t = mechTime;   // 全体で共有している経過時間(14-hud-boot.js)
+
+    // 演出中の同行者の歩み(洋館の manorSmithWalk と同じ考え方)
+    stepDuskGuestWalk(dt);
 
     // ---- 時間帯(zの進み具合で補間。撃破後は dawn へ寄せる) ----
     const z = state.pos.z;

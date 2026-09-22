@@ -561,6 +561,13 @@
        足していく(14-dungeon-duskvillage.js 冒頭のコメント参照)。
        WORK 2 の時点では、マップと環境だけを歩いて確かめられる状態にしてある。 */
     if(_spawnWorldKey==='duskvillage'){
+      /* WORK 3: 最初の怪異「水鏡の影」。2体だけ置く ――
+         1体目は中央広場の北西(村の中心に着いた所で必ず目に入る)、
+         2体目は魚屋の前(記憶を見たあと、外へ出たところ)。
+         倒し方ではなく「観察すると挙動に規則がある」を教える敵なので、
+         数で押さない(updateMirrorShadeAI / core/mirror-shade.js) */
+      enemies.push(buildDuskMirrorShade(-13, 362));
+      enemies.push(buildDuskMirrorShade(-37, 350));
       duskBossRef = null;
     }
     // テストモードのカカシ(訓練用の的)。hp/atk/speedはdifficultyFor()の
@@ -986,6 +993,7 @@
       else if(en.atkType==='jumper') updateJumperAI(en, dt);
       else if(en.atkType==='ghost')  updateGhostAI(en, dt);
       else if(en.atkType==='servant') updateShadowServantAI(en, dt);
+      else if(en.atkType==='mirror') updateMirrorShadeAI(en, dt);
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
       updateMobAnim(en, dt);
@@ -2303,6 +2311,210 @@
     if(en.ghostState==='cooldown'){
       en.ghostT -= dt;
       if(en.ghostT<=0){ en.ghostState = 'approach'; en.ghostCD = 0; }
+    }
+  }
+
+  /* =========================================================
+     水鏡の影(mirror) ―― 宵待ちの村の最初の怪異(WORK 3)
+
+     倒し方を覚えさせる敵ではなく、「この村の怪異は、観察すると挙動に
+     規則がある」というルールを体験させる敵。一定まで削ると同じ姿へ
+     分裂し、そこからは自分で本体を見つける。
+
+     本体を示す印は出さない。代わりに観察できる差を3つ持たせてある
+     (間隔・向き直りの速さ・予兆の深さ。数値はすべて core/mirror-shade.js):
+       ・本体は水面をゆっくり波立たせ、分身は細かく叩く
+       ・本体は一拍遅れて向き直り、分身は鏡のように即応する
+       ・本体だけ、攻撃前に大きく引く
+
+     分身は攻撃を当てると手応えなく散る(ダメージは入らない)。散らされた
+     分だけ、本体が少し経ってからまた分けて出す ―― 「全部壊せば勝ち」
+     ではなく「どれが本体かを見る」戦いにするため。
+
+     新しい戦闘基盤は作っていない: 体幹・パニッシュ窓・処刑・敵対(triggered)・
+     被ダメージ経路はどれも既存のものをそのまま使う。 ========================================================= */
+  function isMirrorClone(en){ return !!(en && en.mirrorCloneOf); }
+
+  // 分身を1体作る。本体と同じ見た目・同じ大きさで、HPだけ持たない
+  function spawnMirrorClone(real, angle){
+    const pos = real.group.position.clone();
+    pos.x += Math.sin(angle) * PROVISIONAL_SPLIT_RADIUS;
+    pos.z += Math.cos(angle) * PROVISIONAL_SPLIT_RADIUS;
+    resolveWallCollisions(pos);
+    const clone = buildEnemy(pos, {
+      color: real.baseColor != null ? real.baseColor : 0x2a3b4a,
+      hp: 1, atk: Math.round(real.atk * 0.55), speed: real.speed,
+      atkType: 'mirror', xp: 0, goldBonus: [0, 0],
+    });
+    clone.mirrorCloneOf = real;
+    clone.triggered = real.triggered;
+    clone.mirrorRippleT = Math.random() * 0.8;   // 位相はばらす(同時に波立たない)
+    clone.mirrorState = 'chase';
+    clone.mirrorT = 0;
+    // 分身は「散る」ので、死体も復活も持たない
+    clone.roomTag = clone.roomTag || 'mirrorClone';
+    enemies.push(clone);
+    return clone;
+  }
+
+  // 分身を散らす。ダメージは入らず、手応えだけが返る
+  function dispelMirrorClone(clone){
+    const real = clone.mirrorCloneOf;
+    spawnUltimateVFX(clone.group.position.clone(), {radius:1.6, vfxColor:0x8fc8d8});
+    if(currentWorldKey === 'duskvillage'){
+      spawnDuskRipple(clone.group.position.x, clone.group.position.z, 1.0);
+    }
+    sfx('dodge');
+    scene.remove(clone.group);
+    const idx = enemies.indexOf(clone);
+    if(idx >= 0) enemies.splice(idx, 1);
+    if(real && !real.dead){
+      real.mirrorClones = (real.mirrorClones || []).filter(c=> c !== clone);
+      // 散らされた分は、少し経ってから本体がまた分けて出す
+      real.mirrorReformT = PROVISIONAL_REFORM_SEC;
+    }
+  }
+
+  // 本体が倒れたら、分身は残らない
+  function clearMirrorClones(real){
+    (real.mirrorClones || []).forEach(c=>{
+      if(!c) return;
+      scene.remove(c.group);
+      const idx = enemies.indexOf(c);
+      if(idx >= 0) enemies.splice(idx, 1);
+    });
+    real.mirrorClones = [];
+  }
+
+  function mirrorObserving(en){
+    if(!(state.observeLightT > 0)) return false;
+    return observeReaches(en.group.position.distanceTo(state.pos));
+  }
+
+  function updateMirrorShadeAI(en, dt){
+    const isClone = isMirrorClone(en);
+    const real = isClone ? en.mirrorCloneOf : en;
+    // 本体が先に倒れた分身は、次のフレームを待たずに消える
+    if(isClone && (!real || real.dead)){ dispelMirrorClone(en); return; }
+
+    if(en.mirrorState === undefined){
+      en.mirrorState = 'chase'; en.mirrorT = 0; en.mirrorRippleT = Math.random()*0.8;
+    }
+    const observing = mirrorObserving(en);
+    const toPlayer = new THREE.Vector3().subVectors(state.pos, en.group.position); toPlayer.y = 0;
+    const dist = toPlayer.length();
+
+    // 索敵。条件は他の敵と同じ形(距離 + 視線)で、記録だけ enemy-aggro へ
+    const sees = dist < 9 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;
+
+    /* 観察できる差 その1: 水面の波紋。本体はゆっくり、分身は細かい。
+       村の水面の波紋(spawnDuskRipple)をそのまま使っていて、怪異専用の
+       表示を足していない ―― 同じ水面に出るからこそ「差」として読める */
+    const rip = mirrorStepRipple(en.mirrorRippleT, dt, !isClone, observing);
+    en.mirrorRippleT = rip.timer;
+    if(rip.fire && currentWorldKey === 'duskvillage' && en.triggered){
+      spawnDuskRipple(en.group.position.x, en.group.position.z, isClone ? 0.7 : 1.1);
+    }
+
+    /* 観察できる差 その2: 向き直り。本体だけ一拍遅れる。
+       回転そのものは既存の turnTowardAngle(core/enemy-facing.js)に任せる */
+    if(dist > 0.001){
+      const want = Math.atan2(toPlayer.x, toPlayer.z);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y, want,
+        mirrorTurnRate(!isClone, observing) * dt);
+    }
+
+    // ---- 分裂(本体のみ、一度だけ) ----
+    if(!isClone){
+      if(en.mirrorReformT > 0){
+        const rf = mirrorStepReform(en.mirrorReformT, dt);
+        en.mirrorReformT = rf.timer;
+        if(rf.ready && en.mirrorSplit && (en.mirrorClones || []).length < PROVISIONAL_CLONE_COUNT){
+          const missing = PROVISIONAL_CLONE_COUNT - (en.mirrorClones || []).length;
+          en.mirrorClones = en.mirrorClones || [];
+          for(let i=0;i<missing;i++){
+            en.mirrorClones.push(spawnMirrorClone(en, Math.random()*Math.PI*2));
+          }
+          sfx('dodge');
+        }
+      }
+      if(!en.mirrorSplit && mirrorShouldSplit(en.hp / en.hpMax, en.mirrorSplit)){
+        en.mirrorSplit = true;
+        en.mirrorClones = [];
+        for(let i=0;i<PROVISIONAL_CLONE_COUNT;i++){
+          const a = (i / PROVISIONAL_CLONE_COUNT) * Math.PI*2 + Math.random()*0.6;
+          en.mirrorClones.push(spawnMirrorClone(en, a));
+        }
+        /* 何が起きたかは画面で分かる(同じ姿が増える)ので、
+           どれが本体かには触れない一言だけ添える */
+        spawnToast('🌊 水面が揺れ、同じ影が増えた');
+        sfx('bossWake');
+        addShake(0.12);
+        if(currentWorldKey === 'duskvillage'){
+          spawnDuskRipple(en.group.position.x, en.group.position.z, 1.6);
+        }
+      }
+    }
+
+    // ---- 攻撃 ----
+    if(en.mirrorState === 'chase'){
+      if(!en.triggered){ updateWanderAI(en, dt); return; }
+      if(dist > 1.9){
+        const dir = toPlayer.clone().normalize();
+        en.group.position.addScaledVector(dir, en.speed * dt * (isClone ? 0.95 : 0.8));
+        resolveWallCollisions(en.group.position);
+      } else if((en.mirrorAtkCD || 0) <= 0){
+        /* 観察できる差 その3: 予兆。本体だけ大きく引いてから来る。
+           windup の長さと引きの深さは core/mirror-shade.js が返す */
+        const plan = mirrorWindupPlan(!isClone, observing);
+        en.mirrorState = 'windup';
+        en.mirrorT = plan.dur;
+        en.mirrorWindupDur = plan.dur;
+        en.mirrorDepth = plan.depth;
+      }
+      if((en.mirrorAtkCD || 0) > 0) en.mirrorAtkCD -= dt;
+      return;
+    }
+
+    if(en.mirrorState === 'windup'){
+      en.mirrorT -= dt;
+      // 引きの深さ: 体を沈めて後ろへ反る。本体ほど大きい
+      const prog = 1 - Math.max(0, en.mirrorT) / Math.max(0.01, en.mirrorWindupDur);
+      if(en.body && en.bodyScale){
+        const B = en.bodyScale;
+        const k = 1 + prog * 0.30 * en.mirrorDepth;
+        en.body.scale.set(B.x*k, B.y/(1 + prog*0.22*en.mirrorDepth), B.z*k);
+      }
+      if(en.mirrorT <= 0){
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+        en.mirrorState = 'strike';
+        en.mirrorT = 0.22;
+        en.mirrorHit = false;
+      }
+      return;
+    }
+
+    if(en.mirrorState === 'strike'){
+      en.mirrorT -= dt;
+      if(!en.mirrorHit && dist < 2.4){
+        en.mirrorHit = true;
+        if(state.invulnerable || state.paralyzeInvulnT > 0){
+          if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
+        } else if(!tryConsumeOrbShield()){
+          const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
+          state.hp = Math.max(0, state.hp - dmg);
+          spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+          flashScreen();
+          if(state.hp <= 0) triggerPlayerDown();
+        }
+      }
+      if(en.mirrorT <= 0){
+        en.mirrorState = 'chase';
+        en.mirrorAtkCD = isClone ? 1.5 : 2.0;
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;   // 振り抜いた直後の隙(パニッシュ窓)
+      }
+      return;
     }
   }
 
@@ -3937,6 +4149,14 @@
   function dealDamageToEnemy(en, amount, isAlly, opts){
     opts = opts || {};
     if(!en || en.dead) return;
+    /* 水鏡の影の分身(WORK 3)。当てても damage は入らず、手応えなく散る
+       ―― 「全部壊せば勝ち」ではなく「どれが本体かを見る」戦いにするため。
+       散らした事実そのものがプレイヤーの得た情報なので、当たり前に消す
+       だけで、どれが本体かはここでも一切示さない */
+    if(isMirrorClone(en)){
+      if(!opts.isDot) dispelMirrorClone(en);
+      return;
+    }
     let isCrit = false;
     if(!opts.isDot && !isAlly){
       const mods = applyOutgoingDamageMods(amount, en);
@@ -4231,6 +4451,8 @@
   // 撃破時の共通処理(通常ヒット・燃焼ティックの両方から呼ばれる)
   function finishEnemyDeath(en, isAlly, from){
       en.hp = 0; en.dead = true;
+      // 本体が消えれば、水面に映っていたものも残らない(WORK 3)
+      if(en.mirrorClones && en.mirrorClones.length) clearMirrorClones(en);
       // 死んだ敵が処刑対象に残らないようにする(資料24章の安全性)
       clearExecutionWindow(en);
       if(state.executeTarget === en) state.executeTarget = null;
