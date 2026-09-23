@@ -354,9 +354,17 @@ E2E で確認済み: 洋館クリア済みのセーブに `selectedClass:'warrio
 
 テスト6では `chapter` / `chapterProgress` が**保存されていないこと**も固定している。
 
-### 全体
+### 全体（`npx playwright test`、1 worker、SwiftShader）
 
-（下の「全体 E2E」節に記録）
+**108 passed / 3 failed**（1.5h）。失敗した3件を単独で再実行し、分類した:
+
+| テスト | 全体 | 単独再実行 | 分類 | 理由 |
+| --- | --- | --- | --- | --- |
+| `air-actions` 上昇中は切り上げ… | FAIL | **PASS** | **D（flake／環境）** | 実行開始直後に私がコメントを直して再ビルドし、配信中のページがタイトルへ戻った（error-context のスナップショットがタイトル画面）。ゲームコードとは無関係 |
+| `execution-break` 通常敵: 体幹→Break→EXECUTE | FAIL | **PASS** | **D（flake）** | WORK 8/9 から継続する低FPSでの取りこぼし |
+| `mansion-escort` Relaxed Stance | FAIL | FAIL | **C（低FPS）** | WORK 9 と**同一の失敗**（`relax=0.88 < 0.9`）。固定の実時間待ちでクロスフェードを待つ作りで、ゲーム内時間が足りない。WORK 10 の変更は姿勢・リグに触れていない |
+
+**A（今回の回帰）: 0件。** §39 に従い、ゲームコードを変えて PASS にはしていない。
 
 ## 13. 実機確認
 
@@ -370,8 +378,8 @@ E2E で確認済み: 洋館クリア済みのセーブに `selectedClass:'warrio
 | 村クリア後 | 弓師 | `mage` | **found** | `test-results/work10-03-archer-mage.png` |
 | 船クリア後 | 盗賊 | `archer` | **found** | `test-results/work10-04-rogue-archer.png` |
 
-スクリーンショットでは、交代後の主人公（帽子とローブの魔法使い）が
-酒場に立ち、その傍らに支援AIの人型が出ている。
+スクリーンショットでは、交代後の主人公（魔法使い／盗賊）が酒場に立ち、
+その傍らに支援AIの人型が出ている（段ごとにクラス色が変わる）。
 
 **確認できたこと**
 - 主人公が進行に従って自然に交代している（メニュー選択なし）
