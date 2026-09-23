@@ -28,6 +28,12 @@ export const SCENARIO_WAYPOINTS = {
     {id:'deep',     name:'村の奥',     x:0,    z:466},
     {id:'boss',     name:'水鏡の跡',   x:0,    z:515},
   ],
+  // 道(WORK 11)。x は ROAD_X(14-dungeon-road.js)と同じ 640
+  road: [
+    {id:'sign',     name:'道標',       x:640,  z:12},
+    {id:'bridge',   name:'小川の橋',   x:640,  z:52},
+    {id:'rest',     name:'休憩所の手前', x:640, z:68},
+  ],
 };
 
 export function waypointsFor(scenarioKey){

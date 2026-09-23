@@ -89,13 +89,11 @@ test.describe('Chapter 1 本編進行', () => {
 
     await openScenarioList(page);
     const cards = await scenarioCards(page);
-    const mansion = cards.find(c => c.title.includes('囚われの洋館'));
-    const village = cards.find(c => c.title.includes('宵待ちの村'));
-    const ship = cards.find(c => c.title.includes('幽霊船'));
-    expect(mansion.sortie, '洋館へは出撃できる').toBe(true);
-    expect(mansion.title, '洋館が「次はここ」').toContain('次はここ');
-    expect(village.sortie, '宵待ちの村はまだ開かない').toBe(false);
-    expect(ship.sortie, '幽霊船はまだ開かない').toBe(false);
+    // 一本道(WORK 11): 選ぶ画面ではなく、いま行くところが1枚だけ出る
+    expect(cards.length, '出せる行き先は1つだけ').toBe(1);
+    expect(cards[0].title).toContain('囚われの洋館');
+    expect(cards[0].title, '洋館が「次はここ」').toContain('次はここ');
+    expect(cards[0].sortie, '洋館へは出撃できる').toBe(true);
     expect(errors).toEqual([]);
   });
 
@@ -105,15 +103,15 @@ test.describe('Chapter 1 本編進行', () => {
     // セーブの selectedClass は剣士のまま。進行から魔法使いへ入れ替わる
     await continueFrom(page, { mansion: 1 }, 'warrior');
 
-    await expect(page.locator('#hud-name')).toContainText('魔法使い');
+    await expect(page.locator('#hud-name')).toContainText('魔法使い｜魔法使い');
     expect(errors).toEqual([]);
   });
 
-  test('宵待ちの村クリア後は弓師、時計塔クリア後は道が次になる', async ({ page }) => {
+  test('宵待ちの村クリア後は弓師', async ({ page }) => {
     test.setTimeout(120_000);
     const errors = watchErrors(page);
     await continueFrom(page, { mansion: 1, duskvillage: 1 }, 'mage');
-    await expect(page.locator('#hud-name')).toContainText('弓師');
+    await expect(page.locator('#hud-name')).toContainText('弓師｜弓師');
     expect(errors).toEqual([]);
   });
 
@@ -121,28 +119,30 @@ test.describe('Chapter 1 本編進行', () => {
     test.setTimeout(90_000);
     const errors = watchErrors(page);
     await continueFrom(page, { mansion: 1, duskvillage: 1, ghostship: 1 }, 'archer');
-    await expect(page.locator('#hud-name')).toContainText('盗賊');
+    await expect(page.locator('#hud-name')).toContainText('盗賊｜盗賊');
     expect(errors).toEqual([]);
   });
 
-  test('時計塔クリア後、道が「次はここ」として現れる（中身はまだ無い）', async ({ page }) => {
+  /* WORK 11 Test 1: 時計塔クリア → 道が次になる。5人目とは道の途中で会うので、
+     酒場の時点ではまだ盗賊＋弓師 */
+  test('時計塔クリア後、道が次の行き先になる（まだ盗賊＋弓師）', async ({ page }) => {
     test.setTimeout(180_000);
     const errors = watchErrors(page);
     await continueFrom(page, { mansion: 1, duskvillage: 1, ghostship: 1, clocktower: 1 }, 'rogue');
-    // 5人目は戦闘キットが無いので、主人公は盗賊のまま据え置き
     await expect(page.locator('#hud-name')).toContainText('盗賊');
+    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), SAVE_KEY);
+    expect(saved.guestClassKey, '支援は弓師のまま').toBe('archer');
 
     await openScenarioList(page);
     const cards = await scenarioCards(page);
-    const road = cards.find(c => c.title.includes('道'));
-    expect(road, '道が一覧に並ぶ').toBeTruthy();
-    expect(road.title).toContain('次はここ');
-    expect(road.sortie, '中身が無いので出撃はできない').toBe(false);
-    expect(road.label).toContain('まだ誰も歩いていない');
+    expect(cards.length).toBe(1);
+    expect(cards[0].title).toContain('道');
+    expect(cards[0].title).toContain('次はここ');
+    expect(cards[0].sortie, '道へ出撃できる').toBe(true);
     expect(errors).toEqual([]);
   });
 
-  /* 交代したあとのセーブ／ロード（指示書 §26・§36 Test 6）。
+  /* 交代したあとのセーブ／ロード（WORK 10 §26・§36 Test 6）。
      新しい Chapter 用の保存項目は増やしていないので、確かめるのは
      「既存の selectedClass / guestClassKey が交代後の顔ぶれになり、
      入り直しても同じ顔ぶれに戻ること」 */
@@ -155,6 +155,7 @@ test.describe('Chapter 1 本編進行', () => {
     const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), SAVE_KEY);
     expect(saved.selectedClass, '主人公は弓師で保存される').toBe('archer');
     expect(saved.guestClassKey, '支援は前の主人公(魔法使い)').toBe('mage');
+    expect(saved.playerName, '名前も弓師のもの').toBe('弓師');
     // 保存項目そのものは増やしていない
     expect(saved.chapter, 'chapter を保存していない').toBeUndefined();
     expect(saved.chapterProgress).toBeUndefined();
@@ -170,28 +171,85 @@ test.describe('Chapter 1 本編進行', () => {
     expect(errors).toEqual([]);
   });
 
-  test('クリア済みのシナリオへはいつでも戻れる（周回）', async ({ page }) => {
+  /* 再訪なし(WORK 11 §2/§36)。クリア済みの洋館・宵待ちの村は出ない */
+  test('クリア済みのシナリオへは戻れない（再訪なし）', async ({ page }) => {
     test.setTimeout(180_000);
     const errors = watchErrors(page);
     await continueFrom(page, { mansion: 1, duskvillage: 1 }, 'mage');
     await openScenarioList(page);
     const cards = await scenarioCards(page);
-    expect(cards.find(c => c.title.includes('囚われの洋館')).sortie).toBe(true);
-    expect(cards.find(c => c.title.includes('宵待ちの村')).sortie).toBe(true);
+    expect(cards.map(c => c.title).join(' / ')).not.toContain('囚われの洋館');
+    expect(cards.map(c => c.title).join(' / ')).not.toContain('宵待ちの村');
+    expect(cards.length).toBe(1);
+    expect(cards[0].title).toContain('幽霊船');
     expect(errors).toEqual([]);
   });
 
-  test('章の外のシナリオは今までどおりレベルで開く', async ({ page }) => {
+  /* 途中離脱なし(WORK 11 §3)。レベルが足りていても、章の外は出ない */
+  test('Chapter 1 の途中では、章の外のシナリオは出ない', async ({ page }) => {
     test.setTimeout(180_000);
     const errors = watchErrors(page);
     await continueFrom(page, {}, 'warrior');   // Lv.30・クリアなし
     await openScenarioList(page);
-    const cards = await scenarioCards(page);
-    ['古代神殿', '埠頭の地下水路', '硝子の温室'].forEach(name => {
-      const c = cards.find(x => x.title.includes(name));
-      expect(c, `${name} が一覧にある`).toBeTruthy();
-      expect(c.sortie, `${name} はレベルで開いている`).toBe(true);
+    const titles = (await scenarioCards(page)).map(c => c.title).join(' / ');
+    ['古代神殿', '埠頭の地下水路', '硝子の温室', '幽霊船'].forEach(name => {
+      expect(titles, `${name} は出ない`).not.toContain(name);
     });
+    expect(errors).toEqual([]);
+  });
+
+  /* WORK 11 Test 6: Chapter 1 中の死亡 → 酒場 → 同じシナリオをもう一度。
+     HP が 0 になるまで戦うのはこの環境では現実的でないので、倒れたときに
+     出る「酒場へ戻る」ボタン(down-return-btn)の処理を直接呼ぶ ―― 帰還の
+     経路そのもの(returnToTown(true))は本物 */
+  test('死亡しても進行は戻らず、同じシナリオだけが出る', async ({ page }) => {
+    test.setTimeout(420_000);
+    const errors = watchErrors(page);
+    await continueFrom(page, { mansion: 1 }, 'mage');
+    await expect(page.locator('#hud-name')).toContainText('魔法使い');
+    await openScenarioList(page);
+    await page.click('.scenario-sortie-btn[data-scenario="duskvillage"]');
+    for (let i = 0; i < 20; i++) {
+      const active = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
+      if (!active) break;
+      await page.evaluate(() => document.getElementById('dialogue-overlay').click());
+      await page.waitForTimeout(400);
+    }
+    await expect(page.locator('#minimap-area')).toHaveText('宵待ちの村', { timeout: 120_000 });
+
+    await page.evaluate(() => document.getElementById('down-return-btn').click());
+    await expect(page.locator('#minimap-area')).toHaveText('港町の酒場', { timeout: 120_000 });
+    await expect(page.locator('#hud-name'), '主人公は剣士に戻らない').toContainText('魔法使い');
+    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), SAVE_KEY);
+    expect(saved.selectedClass).toBe('mage');
+    expect(saved.guestClassKey).toBe('warrior');
+    expect(saved.scenarioClears).toEqual({ mansion: 1 });
+
+    await dismissIntroDialogue(page);
+    await openScenarioList(page);
+    const cards = await scenarioCards(page);
+    expect(cards.length, '洋館へ戻る選択肢は出ない').toBe(1);
+    expect(cards[0].title).toContain('宵待ちの村');
+    expect(cards[0].sortie).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  /* WORK 11 Test 5: Chapter 1 の終わった状態。影の旅人＋盗賊で、出撃の代わりに
+     Chapter 2 の入口が出る(自由な行き先そのものはまだ無い) */
+  test('道を終えると影の旅人＋盗賊になり、この先の入口が出る', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = watchErrors(page);
+    await continueFrom(page, { mansion: 1, duskvillage: 1, ghostship: 1, clocktower: 1, road: 1 }, 'rogue');
+    await expect(page.locator('#hud-name')).toContainText('影の旅人');
+    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), SAVE_KEY);
+    expect(saved.selectedClass).toBe('wanderer');
+    expect(saved.guestClassKey).toBe('rogue');
+
+    await openScenarioList(page);
+    const cards = await scenarioCards(page);
+    expect(cards.length).toBe(1);
+    expect(cards[0].title).toContain('この先の旅');
+    expect(cards[0].sortie, 'Chapter 2 はまだ始まらない').toBe(false);
     expect(errors).toEqual([]);
   });
 });

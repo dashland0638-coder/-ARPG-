@@ -434,6 +434,7 @@
     waterway:'埠頭の地下水路', temple:'古代神殿',
     clocktower:'狂いの時計塔', conservatory:'硝子の温室',
     duskvillage:'宵待ちの村',
+    road:'名もなき街道',
   };
   // 「山を登る」拡張の各部屋(周回★でしか現れず、テーブル駆動の部屋一覧
   // には乗っていない)にも、迷わないよう固有の場所名を出す。星条件を
@@ -1101,6 +1102,7 @@
       updateCollapse(dt);
       updateAltitude(dt);
       updateDuskVillage(dt);   // Phase D(#37): 昼夜進行+ランタン近接+ボスの光ギミック
+      updateRoad(dt);          // 道(WORK 11)。他のワールドでは即return
       updateCutscene(dt);
       updateSwingVFX(dt);
       updateMagicCircleVFX(dt);
@@ -1167,6 +1169,7 @@
          スクリプト(stepDuskGuestWalk)もここから進む。
          他のワールドでは即returnするので、コストも副作用も無い */
       updateDuskVillage(dt);
+      updateRoad(dt);
       updateShake(dt);
       updateSparks(dt);
       /* 斬撃の弧と魔法陣のフェードも進める。どちらも opacity を下げて
@@ -1409,7 +1412,7 @@
   }
 
   /* =========================================================
-     Chapter 1 の主人公交代(WORK 10)
+     Chapter 1 の主人公交代(WORK 10 / WORK 11)
 
      **新しい進行状態は1つも持たない。** 誰が主人公で誰が支援AIかは、
      既にセーブされている scenarioClears から毎回導く
@@ -1418,10 +1421,12 @@
        洋館クリア → 魔法使い＋剣士 → 宵待ちの村
        村クリア   → 弓師＋魔法使い → 幽霊船
        幽霊船     → 盗賊＋弓師     → 時計塔
-       時計塔     → (5人目)＋盗賊    → 道
+       時計塔     → 盗賊＋弓師     → 道(途中で影の旅人と出会う)
+       道の出会い → 影の旅人＋盗賊 → 道を終えて酒場へ(Chapter 1 の終わり)
 
-     交代が起きるのは**酒場に戻った時だけ**(仕様 §19)。ダンジョンの中で
-     主人公が入れ替わることはないし、メニューから選ぶ画面も作らない。
+     交代が起きるのは**酒場に戻った時**(仕様 §19)と、道の出会いの一幕
+     (WORK 11 §22 ―― 5人目は道の途中で見つかるので、そこから主人公になる)
+     だけ。メニューから選ぶ画面は作らない。
   ========================================================= */
   function chapter1CastNow(){
     return resolveCast(chapter1Stage(state.scenarioClears), CHAPTER_CAST);
@@ -1434,9 +1439,11 @@
 
   /* 酒場へ戻ったところで呼ぶ。進行が一段進んでいれば主人公が入れ替わる。
 
-     レベル・所持金・スフィア・インベントリ・防具は引き継ぐ ―― 原案の
-     「主人公と一緒に育っていく」に合わせてある。持ち替えるのは
-     クラスと武器、それに Skill 1 の選択だけ。 */
+     opts.rebuild … リグを組み直す(酒場へ戻ったとき)。false はセーブから
+                    入り直すときで、この直後に finishEnteringGame が組む
+     opts.announce … 加入の一幕を出してよいか(死亡で戻ったときは false)。
+                    出すのは前へ進んだ交代のときだけ ―― 道の途中で撤退・
+                    全滅して影の旅人から盗賊へ戻るのは「戻るだけ」 */
   function advanceChapter1Cast(opts){
     opts = opts || {};
     if(state.testMode) return false;          // テストモードの構成は進行に触らせない
@@ -1446,20 +1453,49 @@
       return false;
     }
     const prevClass = selectedClass;
-    const stage = chapter1Stage(state.scenarioClears);
-    if(!applyChapterCast(stage)) return false;    // 5人目のように未実装の段では何もしない
+    const forward = isForwardSwitch(prevClass, cast.classKey, CHAPTER_CAST);
+    if(!switchProtagonist(cast, opts.rebuild)) return false;
+    state.guestClassKey = chapter1GuestKey();
+    if(opts.rebuild){
+      syncAlliesToState();
+      refreshTouchControls();
+      if(forward && opts.announce !== false) playChapter1JoinScene(prevClass, selectedClass);
+    }
+    return true;
+  }
+
+  /* 主人公を cast の顔ぶれへ持ち替える(酒場の交代と、道の出会いで共用)。
+
+     レベル・所持金・スフィア・インベントリ・防具は引き継ぐ ―― 原案の
+     「主人公と一緒に育っていく」に合わせてある。持ち替えるのは
+     クラスと武器、それに Skill 1 の選択だけ。 */
+  function switchProtagonist(cast, rebuild){
+    const stage = castIndexFor(cast.classKey);
+    if(!stage || !applyChapterCast(stage)) return false;   // 表に無いクラスへはすり替えない
+    /* 名前・性別・性格も新しい主人公のものへ。applyChapterCast が書くのは
+       selectedClass 系の共有変数だけで、会話や HUD が読む state 側は
+       beginGame/applySaveData でしか写されない ―― WORK 10 ではここが
+       抜けていて、交代後も会話の話者名が前の主人公のままだった */
+    state.gender = selectedGender;
+    state.name = playerName || '名もなき冒険者';
+    state.personality = selectedPersonality;
+    /* 上位職(#9)は「その人」のもの。前の主人公が転身していても、
+       次の主人公へは持ち越さない(持ち越すと、次の主人公がレベル50に
+       なっても state.job が埋まっていて転身イベントが起きない) */
+    const uj = upperJobFor(selectedClass);
+    if(state.job && !(uj && uj.key === state.job)) state.job = null;
 
     /* 見た目とステータスを差し替える。
 
-       opts.rebuild:
-         true  … 酒場で交代したとき。ここでリグを組み直す
+       rebuild:
+         true  … 酒場で交代したとき・道の出会い。ここでリグを組み直す
          false … セーブから入り直したとき。この直後に
                  finishEnteringGame が同じ手順で組むので、ここでは
                  クラスと装備だけ決めておく(buildPlayer は
                  共有変数を書くので、二度呼ばない) */
     state.usingAltWeapon = false;
     recomputeStats();                 // ここで state.classDef が新しいクラスになる
-    if(opts.rebuild){
+    if(rebuild){
       if(player) scene.remove(player);
       playerMixerParts = {};
       player = buildPlayer(state.classDef, selectedGender);
@@ -1487,15 +1523,25 @@
     state.skillChoice = 'retreat';
     state.skillCD = 0; state.skill2CD = 0;
     resetWeaponState(state.weapon);
-    state.guestClassKey = chapter1GuestKey();
-    if(opts.rebuild){
-      /* 支援AI(GUEST COMPANION)も入れ替わる ―― 前の主人公が
-         そのまま隣に立つ。repositionAlliesToPlayer だけでは
-         古いクラスの実体が残るので、state に合わせて組み直す */
-      syncAlliesToState();
-      refreshTouchControls();
-      playChapter1JoinScene(prevClass, selectedClass);
+    return true;
+  }
+  function castIndexFor(classKey){
+    for(let i = 1; i < CHAPTER_CAST.length; i++){
+      if(CHAPTER_CAST[i] && CHAPTER_CAST[i].classKey === classKey) return i;
     }
+    return 0;
+  }
+
+  /* 道の出会いの一幕から呼ぶ(14-dungeon-road.js)。
+     表の5段目(影の旅人＋盗賊)へ持ち替えて、支援AIも組み直す。
+     進行(scenarioClears)には触らない ―― 道を終えるまでに撤退・全滅
+     すれば、酒場で盗賊＋弓師へ戻り、道はもう一度最初から */
+  function meetChapter1Protagonist(stage){
+    const cast = castAfterMeeting(stage, CHAPTER_CAST);
+    if(!cast || !switchProtagonist(cast, true)) return false;
+    state.guestClassKey = (cast.guestClassKey && CLASSES[cast.guestClassKey]) ? cast.guestClassKey : null;
+    syncAlliesToState();
+    refreshTouchControls();
     return true;
   }
 

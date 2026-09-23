@@ -244,6 +244,9 @@
   // (プレイアブル化までの流れは12-progression-ui.jsのSHADOW_GUIDE_*参照)
   const SHADOW_GUIDE_POS = new THREE.Vector3(7.5,0,8.5);
   let nearbyShadowGuide = false;
+  /* 影の旅人がまだ隅の席に座っているか(WORK 11)。時計塔を終えると
+     席を立って街道へ出る(道のシナリオの始まり)。scenarioClears から導く */
+  function shadowGuideSeated(){ return !scenarioClears('clocktower'); }
 
   /* =========================================================
      THE OLD FOREST ROAD (森の入口 → 古い森道 → 荷車 → 戦闘① → 森の奥 → 前庭)
@@ -2028,6 +2031,14 @@
     const sgTableX = SHADOW_GUIDE_POS.x + 0.7, sgTableZ = SHADOW_GUIDE_POS.z - 0.2;
     addTavernTable(sgTableX, sgTableZ, 0.55, 0); // 座席0=椅子は自前で置く(本人だけの専用卓)
     addStool(SHADOW_GUIDE_POS.x, SHADOW_GUIDE_POS.z, Math.PI*0.15);
+    /* 時計塔を終えたあと(WORK 11)、この席は空く ―― 本人は朝から街道へ
+       出ていて、道の途中で見つかる。道を終えたあとは、本人が主人公として
+       酒場に立っているので、ここにはもう座っていない。
+       進行は scenarioClears から導くだけで、新しい状態は持たない */
+    if(!shadowGuideSeated()){
+      buildChapter1TavernTrace(sgTableX, sgTableZ);
+      return;
+    }
 
     const shadowCloakMat = new THREE.MeshStandardMaterial({color:0x0c0a10, roughness:0.9});
     const shadowSkinMat = new THREE.MeshStandardMaterial({color:0xcabcd6, roughness:0.6});
@@ -2277,6 +2288,7 @@
     if(currentWorldKey === 'tavern') return 'tavern';
     // 宵待ちの村は区画の決め方が違う(部屋idで分ける)ので、向こうに任せる
     if(currentWorldKey === 'duskvillage') return duskAmbienceZone();
+    if(currentWorldKey === 'road') return 'forest';   // 道(WORK 11): 屋外の街道。森の音をそのまま
     if(currentWorldKey !== 'mansion') return null;
     const r = mansionRoomAt(state.pos.x, state.pos.z);
     if(!r){

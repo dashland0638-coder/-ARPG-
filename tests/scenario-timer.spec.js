@@ -61,13 +61,17 @@ test.describe('scenario time limit', () => {
     expect(errors).toEqual([]);
   });
 
-  test('a repeat sortie (already cleared once) shows a countdown', async ({ page }) => {
+  /* 周回の制限時間は「一度クリアしたシナリオへもう一度出る」ときだけ付く。
+     Chapter 1 は一本道になり(WORK 11)、クリア済みへの再訪そのものが無くなった
+     ので、本編では周回出撃が起きない ―― 洋館をクリアしたセーブでも、出られるのは
+     初めての宵待ちの村だけで、時間制限は付かない。制限時間の計算そのものは
+     tests/unit/scenario-timer.test.js が固定している(Chapter 2 の周回で使う想定)。
+
+     旧テスト「a repeat sortie shows a countdown」は、洋館へ2度目の出撃が
+     できることを前提にしていた(WORK 11 で仕様として無くなった) */
+  test('Chapter 1 has no repeat sortie: after the mansion, only the (untimed) next scenario is offered', async ({ page }) => {
+    test.setTimeout(420_000);
     const errors = watchErrors(page);
-    // seed a save where mansion has already been cleared once, so this
-    // sortie is a repeat run (scenarioStars('mansion') === 2, the unshrunk
-    // baseline - see SCENARIO_TIME_LIMIT_BASE in 12-progression-ui.js).
-    // Same minimal-but-valid save shape as the corrupted-save test in
-    // save-load.spec.js.
     await page.addInitScript(() => {
       localStorage.setItem('soulforge_save_v1', JSON.stringify({
         v: 2, selectedClass: 'warrior', selectedGender: 'male', selectedPersonality: 'brave',
@@ -88,15 +92,12 @@ test.describe('scenario time limit', () => {
     await dismissIntroDialogue(page);
     await disableCameraAutoFollow(page);
 
-    await expect(page.locator('#scenario-timer')).toBeHidden(); // not yet sortied - still just standing in town
-
     await openScenarioList(page);
-    await sortieInto(page, 'mansion');
-
-    // 8:00 = mansion's base time (480s) at star 2, the first-repeat
-    // baseline where TIME_LIMIT_STAR_SHRINK hasn't kicked in yet
-    await expect(page.locator('#scenario-timer')).toBeVisible();
-    await expect(page.locator('#scenario-timer')).toHaveText('⏱️ 8:00');
+    await expect(page.locator('.scenario-sortie-btn[data-scenario="mansion"]'), 'no second run of the mansion').toHaveCount(0);
+    // Lv.5 でも出られる(本編はレベルで止めない)
+    await sortieInto(page, 'duskvillage');
+    await expect(page.locator('#minimap-area')).toHaveText('宵待ちの村', { timeout: 120_000 });
+    await expect(page.locator('#scenario-timer')).toBeHidden();
     expect(errors).toEqual([]);
   });
 });

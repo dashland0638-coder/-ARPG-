@@ -5164,6 +5164,8 @@
     else if(key==='temple')   worldBounds = boundsFromRooms(TEMPLE_ROOMS, 6);
     else if(key==='clocktower') worldBounds = boundsFromRooms(TOWER_ROOMS, 10);
     else if(key==='duskvillage') worldBounds = boundsFromRooms(DUSK_ROOMS, 6);
+    // 道(WORK 11)。部屋の表を持たない屋外の一本道なので、直接座標で
+    else if(key==='road') worldBounds = Object.assign({}, ROAD_BOUNDS);
     // テストモード(上位職デバッグ用)のトレーニング空間。他のどのダンジョン
     // とも重ならない、ずっと東(x>400)の未使用領域に置いてある
     // (worldKeyForPos参照)。専用の部屋テーブルは無いので直接座標を指定
@@ -5188,6 +5190,8 @@
     // テストモードのトレーニング空間: 他のどのダンジョンとも重ならない、
     // ずっと東(x>400)の未使用領域。conservatory側のx>170判定より先に
     // 判定しないと吸われてしまうため、他のどの分岐よりも先に置く
+    // 道(WORK 11)はトレーニング空間よりさらに東(x>600)。training の判定より先に
+    if(x > 600) return 'road';
     if(x > 400) return 'training';
     // Phase D(#37): 宵待ちの村は他のどのダンジョンとも重ならない、
     // ずっと南(z>260)の未使用領域に置いてある。最初にこれだけ判定すれば、

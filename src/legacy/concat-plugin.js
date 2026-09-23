@@ -93,7 +93,7 @@ import {
 import {
   CHAPTER1_ORDER, stageFor as chapter1Stage, nextScenario as chapter1Next,
   isMainline as isMainlineScenario, mainlineAvailable, chapter1Complete,
-  resolveCast, shouldSwitchCast,
+  offeredScenarios, resolveCast, castAfterMeeting, shouldSwitchCast, isForwardSwitch,
 } from '../core/chapter1-progress.js';
 import {
   phaseFor as villageEchoPhase, planFor as villageEchoPlan,

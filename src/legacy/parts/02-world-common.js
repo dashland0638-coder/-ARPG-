@@ -157,6 +157,7 @@
     conservatory: { build: ()=>{ buildConservatory(); } },
     clocktower:   { build: ()=>{ buildClocktower(); } },
     duskvillage:  { build: ()=>{ buildDuskVillage(); } },
+    road:         { build: ()=>{ buildRoad(); } },   // 道(Chapter 1 の最後、WORK 11)
     // テストモード(タイトル画面 → 🛠テストモード)専用。上位職のデバッグ
     // 用に、職業/転身/レベルを直接指定してここへ入る(14-training-ground.js
     // /14-hud-boot.jsのbeginTestMode参照)
@@ -178,6 +179,9 @@
     // 15-dungeon-duskvillage.js) ―― ここはワールド構築直後、補間が
     // 最初に走るまでの一瞬だけ使われる暫定値
     duskvillage:  {sky:0x2a1a28, fog:0.020, sun:0xff9a5a, sunI:0.5, hemi:0.30, hemiSky:0x8a5a6a, hemiGnd:0x1a1018, rim:0xff8a4a, rimI:0.22, exp:0.78},
+    // 道(WORK 11): 宵待ちの村の夜明けのあと、次の土地へ向かう朝。
+    // これまでのどのシナリオよりも明るく、霧も薄い
+    road:         {sky:0x9ab8d0, fog:0.009, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, exp:0.96},
     // テストモード: 色味の判断を邪魔しない、明るく中立なライティング
     training:     {sky:0x181c22, fog:0.006, sun:0xf2f4f8, sunI:0.85, hemi:0.42, hemiSky:0xaeb8c8, hemiGnd:0x22262e, rim:0x8fb0d0, rimI:0.14, exp:0.86},
   };
@@ -2266,7 +2270,8 @@
     // 酒場の片隅は扉の判定と少し重なる。謎のNPCに近づいたのに、扉が
     // 優先されて会話できないままだと「そこに居るのに話せない」感触になる
     // ため、影の旅人だけは扉の近接中でも少し広めに拾う
-    nearbyShadowGuide = talkFree && !nearbyBartender && !nearbySmith && state.pos.distanceTo(SHADOW_GUIDE_POS) < 4.5;
+    nearbyShadowGuide = talkFree && !nearbyBartender && !nearbySmith && shadowGuideSeated()
+      && state.pos.distanceTo(SHADOW_GUIDE_POS) < 4.5;
     updateInteractPrompt();
   }
   function updateWaterwayColdTimer(dt){

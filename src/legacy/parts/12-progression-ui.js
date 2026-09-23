@@ -84,6 +84,15 @@
       {name:Y, text:'研究員たちは……?'},
       {name:M, text:'誰一人、戻らなかった。今もあそこへ行くと、"助けて"だの"先生"だのと声が聞こえるという話でな。……それでも行くかい?'}
     ]; },
+    /* 道(WORK 11)。酒場の隅にいた「影の旅人」が戻らない ――
+       原案の「行方不明者の捜索」を起点にした導入。主人は理由を知らない */
+    road: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+      {name:M, text:'……隅の席のあいつ、朝から戻っとらん。'},
+      {name:Y, text:'いつもあそこに座ってた奴か。'},
+      {name:M, text:'ああ。街道のほうへ歩いていくのを見た者がいる。……あいつが外へ出るのは、初めて見た。'},
+      {name:Y, text:'探してくる。'},
+      {name:M, text:'街道は一本だ。迷いはせん。……明るいうちに戻れよ。'}
+    ]; },
     /* 宵待ちの村(DEC-001 の正式仕様「忘れられること」)。旧実装の
        「灯りを消して暮らす村」「桟橋伝いにしか進めない」は仕様ごと
        差し替わったので、主人の話す内容もそれに合わせてある */
@@ -290,8 +299,12 @@
   function startScenarioTavernDialogue(scenarioKey){
     // 一覧側でボタンごと出さないようにしてあるが、ここでも二重に防ぐ
     // (renderScenarioList()参照)
+    /* 本編で出せるのは一覧と同じ ―― いま進めているシナリオひとつだけ
+       (WORK 11)。レベルでは止めない(WORK 10 で一覧側はレベル判定を
+       外したのに、ここに旧いレベル判定が残っていて、推奨レベルに
+       届いていないと宵待ちの村へ出られなかった) */
     const def = SCENARIO_DEFS.find(s=>s.key===scenarioKey);
-    if(def && (!def.unlocked || state.level < def.minLevel)) return;
+    if(!def || !def.unlocked || !mainlineAvailable(scenarioKey, state.scenarioClears)) return;
     state.dialogueActive = true;
     state.dialogueBoss = null;
     state.dialogueKind = 'town';
@@ -402,6 +415,10 @@
         state.dialogueKind = null;
         applyPendingJobPromotion();
       } else if(state.dialogueKind==='shadowGuide'){
+        state.dialogueKind = null;
+      } else if(state.dialogueKind==='chapter1Finale'){
+        // Chapter 1 の最後の酒場(14-dungeon-road.js)。閉じるだけ ――
+        // この先の入口は、酒場の主人の「出撃」に出る(renderScenarioList)
         state.dialogueKind = null;
       } else if(state.dialogueKind==='mansionRubble'){
         /* 洋館・使用人通路の瓦礫。会話が終わってから鍛冶屋が実際に
@@ -1293,13 +1310,23 @@
     }
     closeAllDoors(); // re-seal everything: pick a scenario in town to sortie again
     state.sortied = false;
-    /* Chapter 1 の主人公交代はここで起きる(WORK 10)。酒場が境界 ――
-       ダンジョンの中で入れ替わることはない。進行が一段進んでいなければ
-       何もしないので、撤退・全滅で戻ったときは今までどおり */
-    advanceChapter1Cast({rebuild:true});
+    /* Chapter 1 の主人公交代はここで起きる(WORK 10)。酒場が境界。
+       進行が一段進んでいなければ何もしないので、撤退・全滅で戻ったときは
+       顔ぶれもそのまま ―― 例外は道の途中(影の旅人と出会ったあと)で
+       戻った場合で、道を終えるまでは盗賊＋弓師へ戻る(一幕は出さない) */
+    const wasScenario = state.scenarioKey;
+    advanceChapter1Cast({rebuild:true, announce:!isDefeat});
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
     saveGame();   // town is always a safe checkpoint - retreat, clear, or defeat alike
+    /* Chapter 1 の終わり(WORK 11)。道を終えて戻った、その一度だけ */
+    if(!isDefeat && consumeChapter1Finale()) playChapter1Finale();
+    /* 死亡(WORK 11 §5)。進行は巻き戻さず、同じシナリオをもう一度 ――
+       酒場の主人のところで出せるのも、そのシナリオひとつだけ */
+    else if(isDefeat && !state.testMode && wasScenario && wasScenario === chapter1Next(state.scenarioClears)){
+      const def = SCENARIO_DEFS.find(sc=> sc.key === wasScenario);
+      if(def) spawnToast(`${def.name}へ、もう一度。店主に声をかければ出られる`);
+    }
   }
 
   document.getElementById('dialogue-overlay').addEventListener('click', advanceDialogue);
@@ -1459,51 +1486,52 @@
        詳細は buildDuskVillage(14-dungeon-duskvillage.js)と
        .ai/reports/DUSKVILLAGE-WORK2〜7-report.md */
     {key:'duskvillage', name:'🏮 宵待ちの村', levelRange:'26〜85(★8)', minLevel:26, desc:'湖のほとりの村。網も舟も干したまま、人だけがいない。忘れられたことが、そのまま形になって残っている。', unlocked:true},
-    /* 道(Chapter 1 の最後)。**シナリオの中身はまだ無い**(WORK 10 では
-       時計塔クリア → 酒場 → ここが次に出る、という接続までを作る)。
-       unlocked:false のままなので出撃ボタンは出ず、一覧には
-       「次はここ」として並ぶ ―― 仕様が決まっていないものを、
-       中身があるように見せかけない */
-    {key:'road',       name:'🌒 道',             levelRange:'—',      minLevel:1,  desc:'時計塔を出たあと、二人はまだ名の無い道を歩くことになる。その先で誰と会うのかは、まだ誰も知らない。', unlocked:false},
+    /* 道(Chapter 1 の最後、WORK 11)。短い一本道の街道で、ボスはいない。
+       道標 → 先を歩く人影 → 休憩所で影の旅人と出会い、そこから主人公が
+       交代する。終えて酒場へ戻ると Chapter 1 が閉じる(14-dungeon-road.js)。
+       推奨レベルは時計塔の少し上を目安に置いてあるだけで、解放条件ではない */
+    {key:'road',       name:'🌅 道',             levelRange:'20〜',    minLevel:1,  desc:'酒場の隅の席が、朝から空いている。街道のほうへ歩いていくのを見た者がいるという。', unlocked:true},
     {key:'pyramid',    name:'🏜️ 砂漠のピラミッド', levelRange:'16〜20', minLevel:16, desc:'黄金の呪いに満ちた古の墓所。目覚めた王が眠りへの帰還を拒む者を裁く。', unlocked:false},
     {key:'volcano',    name:'🌋 業火の火山',     levelRange:'21〜25', minLevel:21, desc:'絶えず溶岩が滾る山の奥、炎そのものと化した支配者が待つ。', unlocked:false},
   ];
 
+  /* 酒場の主人のところで開く「出撃」。
+
+     Chapter 1(WORK 11)は一本道なので、**選ぶ画面ではない**。出せるのは
+     いま進めているシナリオひとつだけ(core/chapter1-progress.js の
+     offeredScenarios)で、クリア済みへの再訪も、章の外(神殿・水路・温室)
+     への寄り道も出さない。死んで戻ってきたときも同じカードがもう一度出る。
+     レベルでは開かない ―― 推奨レベルは目安として表示だけ残す。
+
+     Chapter 1 を終えたら、行き先の代わりに Chapter 2 の入口を出す。
+     Chapter 2 の自由な行き先・パーティはまだ実装していないので、
+     入口は「ここから先は自由に選べるようになる」ことを示すだけで、
+     出撃はできない。 */
   function renderScenarioList(){
     const list = document.getElementById('scenario-list');
+    const title = document.querySelector('#scenario-overlay .appraisal-title');
     let html = '';
-    const nextKey = chapter1Next(state.scenarioClears);
-    SCENARIO_DEFS.forEach(sc=>{
-      const stars = scenarioStars(sc.key), clears = scenarioClears(sc.key);
-      /* Chapter 1 本編(洋館→宵待ちの村→幽霊船→時計塔→道)は
-         **レベルでは開かない**。前のシナリオを終えたかどうかだけで決まる
-         (core/chapter1-progress.js)。章の外(神殿・水路・温室など)は
-         今までどおりレベルで開く ―― 推奨レベルの表示と敵の強さは
-         どちらの場合もそのまま使う */
-      const mainline = isMainlineScenario(sc.key);
-      const storyLocked = mainline && !mainlineAvailable(sc.key, state.scenarioClears);
-      const levelLocked = sc.unlocked && !mainline && state.level < sc.minLevel;
-      const isNext = mainline && sc.key === nextKey;
-      const starRow = sc.unlocked
-        ? `<div class="scenario-card-stars"><span class="sc-stars">${starLabel(stars)}</span>` +
-          (clears ? `<span class="sc-clears">${clears}周クリア</span>` : `<span class="sc-clears">初挑戦</span>`) +
-          (stars < MAX_STARS
-            ? `<span class="sc-next">あと1周で★${stars+1}</span>`
-            : `<span class="sc-next sc-max">最高難易度</span>`) + `</div>`
-        : '';
-      const openable = sc.unlocked && !levelLocked && !storyLocked;
-      html += `<div class="scenario-card ${openable?'':'locked'}">
-        <div class="scenario-card-title">${sc.name}${isNext ? ' <span class="sc-next">▶ 次はここ</span>' : ''}</div>
+    const offered = offeredScenarios(state.scenarioClears);
+    offered.forEach(key=>{
+      const sc = SCENARIO_DEFS.find(d=> d.key === key);
+      if(!sc) return;
+      html += `<div class="scenario-card" data-card="${sc.key}">
+        <div class="scenario-card-title">${sc.name} <span class="sc-next">▶ 次はここ</span></div>
         <div class="scenario-card-level">推奨レベル: ${sc.levelRange}</div>
-        ${starRow}
         <div class="scenario-card-desc">${sc.desc}</div>
-        ${isNext && !sc.unlocked ? `<div class="scenario-locked-label">🌒 ここから先は、まだ誰も歩いていない</div>`
-          : !sc.unlocked ? `<div class="scenario-locked-label">🔒 近日追加予定</div>`
-          : storyLocked ? `<div class="scenario-locked-label">🔒 その前に行くところがある</div>`
-          : levelLocked ? `<div class="scenario-locked-label">🔒 Lv.${sc.minLevel}以上で挑戦可能(現在Lv.${state.level})</div>`
-          : `<button type="button" class="event-btn scenario-sortie-btn" data-scenario="${sc.key}">出撃する</button>`}
+        ${sc.unlocked
+          ? `<button type="button" class="event-btn scenario-sortie-btn" data-scenario="${sc.key}">出撃する</button>`
+          : `<div class="scenario-locked-label">🔒 近日追加予定</div>`}
       </div>`;
     });
+    if(chapter1Complete(state.scenarioClears)){
+      html += `<div class="scenario-card locked scenario-chapter2" data-card="chapter2">
+        <div class="scenario-card-title">🧭 この先の旅</div>
+        <div class="scenario-card-desc">ここから先は、行き先も、誰と行くかも、自分たちで決められるようになる。</div>
+        <div class="scenario-locked-label">🔒 準備中</div>
+      </div>`;
+    }
+    if(title) title.textContent = chapter1Complete(state.scenarioClears) ? '出撃 - この先' : '出撃 - 次の行き先';
     list.innerHTML = html;
     list.querySelectorAll('.scenario-sortie-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -1650,6 +1678,12 @@
       camera.position.copy(state.pos).add(getCamOffset());
       state.waterwayColdTimerT = 5;
       state.waterwayColdTimerFired = false;
+    } else if(key==='road'){
+      state.pos.copy(ROAD_ENTRY);
+      state.camYaw = Math.PI;   // 北(道の先)を向いて出る
+      state.vel.set(0,0,0);
+      repositionAlliesToPlayer();
+      camera.position.copy(state.pos).add(getCamOffset());
     } else if(key==='duskvillage'){
       state.pos.copy(DUSKVILLAGE_ENTRY);
       state.camYaw = Math.PI;   // facing north, up the boardwalk into the village
@@ -1675,7 +1709,15 @@
      STATS RECOMPUTE (base + dice allocation + equipment + skills)
   ========================================================= */
   function recomputeStats(){
-    const base = CLASSES[selectedClass];
+    /* 影の旅人(WORK 11)は職業ではなく、戦闘の骨格だけ既存の職から借りる
+       (CLASSES.wanderer.kit)。借りた職の値の上へ自前の名前・色・基礎
+       ステータス・必殺技を重ね、key だけは借りた職のまま ―― 上位職(#9)が
+       key を変えないのと同じ理由で、基礎職キーに紐づく既存の仕組み
+       (WEAPON_TYPES/STANCE/CLIPS/リグ)をそのまま動かすため。
+       4職は own.kit が無いので、今までどおり CLASSES[selectedClass] そのもの */
+    const own = CLASSES[selectedClass];
+    const kitKey = kitKeyFor(selectedClass);
+    const base = own.kit ? Object.assign({}, CLASSES[kitKey], own, {key: kitKey, charKey: selectedClass}) : own;
     let gearAtk = 0, gearHp = 0, gearSpdMul = 0;
     ['weapon','upper','lower'].forEach(sl=>{
       const it = state.equipped && state.equipped[sl];
@@ -1685,7 +1727,7 @@
     // 体幹倍率・間合い種別(近接/遠隔)をサブ武器の値で上書きする。
     // atk はクラス基礎値に武器種ごとの倍率(atkMul)を掛けるだけで、
     // レベル・装備・スキルによる加算はそのまま両武器で共有する
-    const weaponDef = weaponDefFor(selectedClass, state.usingAltWeapon);
+    const weaponDef = weaponDefFor(kitKey, state.usingAltWeapon);
     const weaponOverrides = state.usingAltWeapon ? {
       meleeRange: weaponDef.meleeRange, meleeAngle: weaponDef.meleeAngle,
       cleave: !!weaponDef.cleave, atkCooldown: weaponDef.atkCooldown,
@@ -1712,7 +1754,7 @@
        段の必殺技がそのまま出るので、既存の見た目・挙動は一切変わらない。
        recomputeStats() は equipItem/unequipSlot からも呼ばれるので、
        武器を持ち替えた瞬間に必殺技も入れ替わる */
-    const equippedWeaponKey = weaponDefFor(selectedClass, state.usingAltWeapon).key;
+    const equippedWeaponKey = weaponDefFor(kitKey, state.usingAltWeapon).key;
     const weaponUlt = state.usingAltWeapon ? WEAPON_ULT_BY_KEY[equippedWeaponKey] : null;
     const ultBase = weaponUlt ? applyWeaponUlt(ultTier, weaponUlt) : ultTier;
     const merged = jobBonus
@@ -1720,7 +1762,7 @@
       : mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth);
     let hp = Math.round((STAT_COEF.hpBase + merged.vit*STAT_COEF.hpPerVit + state.skills.hpUp*15 + gearHp) * hpAbilityMul);
     let mp = Math.round(STAT_COEF.mpBase + (merged.mag+merged.mnd)*STAT_COEF.mpPerMagMnd);
-    const atkBase = affinityStatValue(selectedClass, merged) * STAT_COEF.atkCoef;
+    const atkBase = affinityStatValue(kitKey, merged) * STAT_COEF.atkCoef;
     let atk = Math.round((atkBase + state.skills.atkUp*2 + state.equipLevel*4 + gearAtk) * atkMul);
     // 上位ジョブの役割特化倍率(JOB_PASSIVE, 01-character-creation.js)
     if(jobActive){
