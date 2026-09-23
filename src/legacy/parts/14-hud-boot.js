@@ -1246,7 +1246,11 @@
     state.learnedSkill2 = false;
     state.smithEscort = ESCORT.NONE; state.mansionNormalized = false;
     state.smithToolsRecovered = false;   // 洋館の工具はまだ持ち帰っていない
-    state.guestClassKey = CHAPTER_CAST[1].guestClassKey || null;   // 第一章は剣士単独(#41)
+    /* 同行者(支援AI)は進行から導く(WORK 10、core/chapter1-progress.js)。
+       ここは新規開始の経路で、すぐ上で scenarioClears を空にしている
+       ので必ず段1 ―― 剣士ひとり(#41 の頃から結果は同じ)。式で書いて
+       あるのは、進行と支援の決め方を1箇所にまとめておくため */
+    state.guestClassKey = chapter1GuestKey();
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
@@ -1339,10 +1343,10 @@
     state.learnedSkill2 = false;   // Chapter 1 は Skill 1 だけで始まる
     state.smithEscort = ESCORT.NONE; state.mansionNormalized = false;
     state.smithToolsRecovered = false;
-    // 通常は常にnull(単独)だが、テストモード画面の「同行ゲスト」で
-    // 選ばれていれば、GUEST COMPANION(08-loot-equipment.js)の検証用に
-    // そのクラスを立てる ―― 章の自動進行(#41)がまだ無いため、これが
-    // 現状唯一guestClassKeyを非nullにできる経路
+    // テストモード画面の「同行ゲスト」で選ばれていれば、
+    // GUEST COMPANION(08-loot-equipment.js)の検証用にそのクラスを立てる。
+    // 本編の支援AIは chapter1GuestKey() が決めるが(WORK 10)、
+    // テストモードは進行から独立した構成なので、ここでは選択を優先する
     state.guestClassKey = (guestKey && CLASSES[guestKey]) ? guestKey : null;
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
@@ -1403,6 +1407,138 @@
       else console.error(`beginTestMode: unknown or locked scenario "${scenarioKey}"`);
     }
   }
+
+  /* =========================================================
+     Chapter 1 の主人公交代(WORK 10)
+
+     **新しい進行状態は1つも持たない。** 誰が主人公で誰が支援AIかは、
+     既にセーブされている scenarioClears から毎回導く
+     (core/chapter1-progress.js + CHAPTER_CAST)。
+
+       洋館クリア → 魔法使い＋剣士 → 宵待ちの村
+       村クリア   → 弓師＋魔法使い → 幽霊船
+       幽霊船     → 盗賊＋弓師     → 時計塔
+       時計塔     → (5人目)＋盗賊    → 道
+
+     交代が起きるのは**酒場に戻った時だけ**(仕様 §19)。ダンジョンの中で
+     主人公が入れ替わることはないし、メニューから選ぶ画面も作らない。
+  ========================================================= */
+  function chapter1CastNow(){
+    return resolveCast(chapter1Stage(state.scenarioClears), CHAPTER_CAST);
+  }
+  function chapter1GuestKey(){
+    const cast = chapter1CastNow();
+    const key = cast && cast.guestClassKey;
+    return (key && CLASSES[key]) ? key : null;
+  }
+
+  /* 酒場へ戻ったところで呼ぶ。進行が一段進んでいれば主人公が入れ替わる。
+
+     レベル・所持金・スフィア・インベントリ・防具は引き継ぐ ―― 原案の
+     「主人公と一緒に育っていく」に合わせてある。持ち替えるのは
+     クラスと武器、それに Skill 1 の選択だけ。 */
+  function advanceChapter1Cast(opts){
+    opts = opts || {};
+    if(state.testMode) return false;          // テストモードの構成は進行に触らせない
+    const cast = chapter1CastNow();
+    if(!shouldSwitchCast(selectedClass, cast)) {
+      state.guestClassKey = chapter1GuestKey();   // 支援だけ変わる場合もある
+      return false;
+    }
+    const prevClass = selectedClass;
+    const stage = chapter1Stage(state.scenarioClears);
+    if(!applyChapterCast(stage)) return false;    // 5人目のように未実装の段では何もしない
+
+    /* 見た目とステータスを差し替える。
+
+       opts.rebuild:
+         true  … 酒場で交代したとき。ここでリグを組み直す
+         false … セーブから入り直したとき。この直後に
+                 finishEnteringGame が同じ手順で組むので、ここでは
+                 クラスと装備だけ決めておく(buildPlayer は
+                 共有変数を書くので、二度呼ばない) */
+    state.usingAltWeapon = false;
+    recomputeStats();                 // ここで state.classDef が新しいクラスになる
+    if(opts.rebuild){
+      if(player) scene.remove(player);
+      playerMixerParts = {};
+      player = buildPlayer(state.classDef, selectedGender);
+      if(state.job) applyJobPromotionVisual();
+    }
+    /* 新しい主人公の得物へ持ち替える。武器はクラス固有なので必ず差し替える
+       ――が、**防具はそのまま引き継ぐ**。前の主人公が拾った胸当てを
+       「擦り切れた〜」へ戻してしまうのは、レベルも所持品も引き継ぐという
+       この交代の考え方に合わない。前の武器は持ち物には残る(捨てない) */
+    const keepUpper = state.equipped.upper, keepLower = state.equipped.lower;
+    grantStarterGear();
+    ['upper','lower'].forEach(slot=>{
+      const keep = slot === 'upper' ? keepUpper : keepLower;
+      if(!keep) return;
+      const fresh = state.equipped[slot];
+      state.equipped[slot] = keep;
+      // 使わなかった初期防具は持ち物にも残さない(交代のたびに増えていく)
+      const i = state.equipmentInventory.indexOf(fresh);
+      if(i >= 0) state.equipmentInventory.splice(i, 1);
+    });
+    recomputeStats();
+    state.hp = state.maxHp; state.mp = state.maxMp;
+    /* Skill 1 の選択はクラスごとに別物なので、既定へ戻す
+       (前の主人公が選んでいた技がそのまま残らないように) */
+    state.skillChoice = 'retreat';
+    state.skillCD = 0; state.skill2CD = 0;
+    resetWeaponState(state.weapon);
+    state.guestClassKey = chapter1GuestKey();
+    if(opts.rebuild){
+      /* 支援AI(GUEST COMPANION)も入れ替わる ―― 前の主人公が
+         そのまま隣に立つ。repositionAlliesToPlayer だけでは
+         古いクラスの実体が残るので、state に合わせて組み直す */
+      syncAlliesToState();
+      refreshTouchControls();
+      playChapter1JoinScene(prevClass, selectedClass);
+    }
+    return true;
+  }
+
+  /* 交代の一幕。長いイベントにはしない(仕様 §11)――
+     前の主人公が席を外し、次の主人公が名乗らずに座る、程度。 */
+  function playChapter1JoinScene(prevKey, nextKey){
+    const prev = CLASSES[prevKey], next = CLASSES[nextKey];
+    if(!next) return;
+    spawnToast(`${next.icon} ${next.name}が酒場にいる`);
+    sfx('chime');
+    const lines = CHAPTER1_JOIN_LINES[nextKey];
+    if(!lines) return;
+    state.dialogueActive = true;
+    state.dialogueBoss = null;
+    state.dialogueKind = 'town';
+    state.dialogueLines = lines(prev ? prev.name : '');
+    state.dialogueIndex = 0;
+    renderDialogueLine(state.dialogueLines[0]);
+    document.getElementById('dialogue-overlay').classList.add('active');
+  }
+
+  /* 交代の台詞。どれも3往復まで ―― 説明しない。
+     「次はあなたが行く」とも言わせない(行き先は酒場の主人が出す) */
+  const CHAPTER1_JOIN_LINES = {
+    mage: (prevName)=> [
+      {name:'酒場の主人', text:'連れが増えたな。そっちの嬢ちゃんは、さっきから湖の話ばかりしている。'},
+      {name:'魔法使い', text:'……失礼。人のいない村の話を聞いて、確かめに行きたくなっただけです。'},
+      {name:prevName, text:'ひとりで行く気か。'},
+      {name:'魔法使い', text:'いいえ。ついて来てくださるなら、助かります。'}
+    ],
+    archer: (prevName)=> [
+      {name:'酒場の主人', text:'霧の港で船が見つかったそうだ。乗員は、ひとりも。'},
+      {name:'弓師', text:'その話、私が引き受けます。……港は歩き慣れているので。'},
+      {name:prevName, text:'ひとりでは行かせません。'},
+      {name:'弓師', text:'そう言うと思っていました。'}
+    ],
+    rogue: (prevName)=> [
+      {name:'酒場の主人', text:'塔の鐘が、毎晩同じ時刻で止まるらしい。'},
+      {name:'盗賊', text:'止まってるなら、入るのは簡単だ。開いてる窓はどこにでもある。'},
+      {name:prevName, text:'……その言い方、あとで詳しく聞かせて。'},
+      {name:'盗賊', text:'着いてからな。'}
+    ],
+  };
 
   /* Scenario Test Mode の開始地点へ運ぶ(WORK 4)。テストモード以外からは
      呼ばれない ―― 通常プレイの進行・セーブ・UIには一切現れない。
@@ -1495,6 +1631,11 @@
     // a still-suspended AudioContext and it never becomes audible until
     // one of those later actions happens to fire.
     resumeAudio();
+    /* 続きから入った場合、セーブに残っているクラスは「その時に操作して
+       いた主人公」だが、正しい主人公は進行(scenarioClears)から決まる
+       (WORK 10)。リグを組む前にここで合わせておく ―― 交代の一幕は
+       酒場へ戻った時のものなので、ここでは出さない */
+    advanceChapter1Cast({rebuild:false});
     currentWorldKey = null; // force a full rebuild even if we're already nominally in the tavern
     buildWorld(world);
 

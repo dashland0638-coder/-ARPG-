@@ -1293,6 +1293,10 @@
     }
     closeAllDoors(); // re-seal everything: pick a scenario in town to sortie again
     state.sortied = false;
+    /* Chapter 1 の主人公交代はここで起きる(WORK 10)。酒場が境界 ――
+       ダンジョンの中で入れ替わることはない。進行が一段進んでいなければ
+       何もしないので、撤退・全滅で戻ったときは今までどおり */
+    advanceChapter1Cast({rebuild:true});
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
     saveGame();   // town is always a safe checkpoint - retreat, clear, or defeat alike
@@ -1455,6 +1459,12 @@
        詳細は buildDuskVillage(14-dungeon-duskvillage.js)と
        .ai/reports/DUSKVILLAGE-WORK2〜7-report.md */
     {key:'duskvillage', name:'🏮 宵待ちの村', levelRange:'26〜85(★8)', minLevel:26, desc:'湖のほとりの村。網も舟も干したまま、人だけがいない。忘れられたことが、そのまま形になって残っている。', unlocked:true},
+    /* 道(Chapter 1 の最後)。**シナリオの中身はまだ無い**(WORK 10 では
+       時計塔クリア → 酒場 → ここが次に出る、という接続までを作る)。
+       unlocked:false のままなので出撃ボタンは出ず、一覧には
+       「次はここ」として並ぶ ―― 仕様が決まっていないものを、
+       中身があるように見せかけない */
+    {key:'road',       name:'🌒 道',             levelRange:'—',      minLevel:1,  desc:'時計塔を出たあと、二人はまだ名の無い道を歩くことになる。その先で誰と会うのかは、まだ誰も知らない。', unlocked:false},
     {key:'pyramid',    name:'🏜️ 砂漠のピラミッド', levelRange:'16〜20', minLevel:16, desc:'黄金の呪いに満ちた古の墓所。目覚めた王が眠りへの帰還を拒む者を裁く。', unlocked:false},
     {key:'volcano',    name:'🌋 業火の火山',     levelRange:'21〜25', minLevel:21, desc:'絶えず溶岩が滾る山の奥、炎そのものと化した支配者が待つ。', unlocked:false},
   ];
@@ -1462,9 +1472,18 @@
   function renderScenarioList(){
     const list = document.getElementById('scenario-list');
     let html = '';
+    const nextKey = chapter1Next(state.scenarioClears);
     SCENARIO_DEFS.forEach(sc=>{
       const stars = scenarioStars(sc.key), clears = scenarioClears(sc.key);
-      const levelLocked = sc.unlocked && state.level < sc.minLevel;
+      /* Chapter 1 本編(洋館→宵待ちの村→幽霊船→時計塔→道)は
+         **レベルでは開かない**。前のシナリオを終えたかどうかだけで決まる
+         (core/chapter1-progress.js)。章の外(神殿・水路・温室など)は
+         今までどおりレベルで開く ―― 推奨レベルの表示と敵の強さは
+         どちらの場合もそのまま使う */
+      const mainline = isMainlineScenario(sc.key);
+      const storyLocked = mainline && !mainlineAvailable(sc.key, state.scenarioClears);
+      const levelLocked = sc.unlocked && !mainline && state.level < sc.minLevel;
+      const isNext = mainline && sc.key === nextKey;
       const starRow = sc.unlocked
         ? `<div class="scenario-card-stars"><span class="sc-stars">${starLabel(stars)}</span>` +
           (clears ? `<span class="sc-clears">${clears}周クリア</span>` : `<span class="sc-clears">初挑戦</span>`) +
@@ -1472,12 +1491,15 @@
             ? `<span class="sc-next">あと1周で★${stars+1}</span>`
             : `<span class="sc-next sc-max">最高難易度</span>`) + `</div>`
         : '';
-      html += `<div class="scenario-card ${sc.unlocked && !levelLocked?'':'locked'}">
-        <div class="scenario-card-title">${sc.name}</div>
+      const openable = sc.unlocked && !levelLocked && !storyLocked;
+      html += `<div class="scenario-card ${openable?'':'locked'}">
+        <div class="scenario-card-title">${sc.name}${isNext ? ' <span class="sc-next">▶ 次はここ</span>' : ''}</div>
         <div class="scenario-card-level">推奨レベル: ${sc.levelRange}</div>
         ${starRow}
         <div class="scenario-card-desc">${sc.desc}</div>
-        ${!sc.unlocked ? `<div class="scenario-locked-label">🔒 近日追加予定</div>`
+        ${isNext && !sc.unlocked ? `<div class="scenario-locked-label">🌒 ここから先は、まだ誰も歩いていない</div>`
+          : !sc.unlocked ? `<div class="scenario-locked-label">🔒 近日追加予定</div>`
+          : storyLocked ? `<div class="scenario-locked-label">🔒 その前に行くところがある</div>`
           : levelLocked ? `<div class="scenario-locked-label">🔒 Lv.${sc.minLevel}以上で挑戦可能(現在Lv.${state.level})</div>`
           : `<button type="button" class="event-btn scenario-sortie-btn" data-scenario="${sc.key}">出撃する</button>`}
       </div>`;

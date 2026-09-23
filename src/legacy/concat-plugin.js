@@ -91,6 +91,11 @@ import {
   PROVISIONAL_MARKET_WAVES, dueWaves, allWavesFired,
 } from '../core/encounter-waves.js';
 import {
+  CHAPTER1_ORDER, stageFor as chapter1Stage, nextScenario as chapter1Next,
+  isMainline as isMainlineScenario, mainlineAvailable, chapter1Complete,
+  resolveCast, shouldSwitchCast,
+} from '../core/chapter1-progress.js';
+import {
   phaseFor as villageEchoPhase, planFor as villageEchoPlan,
   nextSummon as villageNextSummon, shouldLeaveEcho as villageShouldEcho,
   defersResultScreen,
