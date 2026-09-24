@@ -80,6 +80,8 @@ Implementer                     … 承認済み範囲だけ実装
   ↓
 Build / Unit Test / E2E Test
   ↓
+commit / push → Review Handoff  … 成果物を remote へ残して渡す（§5.1 / §7.3。push は Persistence が必要: §6）
+  ↓
 Reviewer                        … 検証（READ ONLY）
   ↓
 PASS → DONE
@@ -91,6 +93,9 @@ PASS → DONE
 Human Intent / Human Approval 以外の各段は、成果物（Markdown）を残してから次へ渡す。
 前の段の成果物が無いまま次の段を始めない。
 
+Implementer → Reviewer と Reviewer → DONE の受け渡しでは、「残す」は **作業ブランチへ commit・push し、remote から取得できる状態にすること** を指す（§7.3）。
+working tree にだけある成果物は、受け渡し済みとみなさない。
+
 ## 5. Roles and Permissions
 
 | Role | 責務 | 入力 | 出力 | 変更権限 | 次工程 |
@@ -98,8 +103,8 @@ Human Intent / Human Approval 以外の各段は、成果物（Markdown）を残
 | Director / Human | 目的・優先度・承認・仕様判断 | User Request / 各成果物 | Task の指示、Approval、`.ai/decisions/` | 全権（判断） | Analyzer / Implementer |
 | Analyzer | 調査・事実確認 | Task / User Request | `.ai/reports/<ID>-analysis.md` | **READ ONLY**（書くのはレポートだけ） | Planner |
 | Planner | 実装計画 | Analysis | `.ai/tasks/<ID>.md`（計画・未確定事項） | **原則 READ ONLY**（書くのは Task だけ） | Human Approval |
-| Implementer | 承認済み Task の実装 | APPROVED な Task | コード・テスト・Task の実装結果欄 | Task の Files To Change の範囲のみ | Test |
-| Reviewer | 仕様適合・回帰・テストの検証 | Task / diff / テスト結果 | `.ai/reports/<ID>-review.md` | **READ ONLY** | DONE / Implementer |
+| Implementer | 承認済み Task の実装 | APPROVED な Task | コード・テスト・Task の実装結果欄、Review Handoff（§5.1） | Task の Files To Change の範囲のみ | Test → Reviewer |
+| Reviewer | 仕様適合・回帰・テストの検証 | Review Handoff（§5.1）が指す Task / diff / テスト結果 | `.ai/reports/<ID>-review.md` | **READ ONLY**（書くのは review report と Task の Status 更新だけ。§7.3） | DONE / Implementer |
 | Debugger | 失敗の原因分析と修正案 | 失敗ログ / diff | `.ai/reports/<ID>-debug.md` | 原則 READ ONLY（修正は Implementer が行う。単独運用で兼務する場合も §9 の上限に従う） | Implementer → Test |
 
 各役割の禁止事項:
@@ -111,16 +116,54 @@ Human Intent / Human Approval 以外の各段は、成果物（Markdown）を残
   - Task の範囲を超えて仕様を変えない（§10）
   - 既存システムを優先して再利用する（§3）
   - 不要なリファクタリングをしない
-- **Reviewer**: コード変更禁止。指摘は CHANGES_REQUIRED として返す。
+- **Reviewer**: コード変更禁止。指摘は CHANGES_REQUIRED として返す。Review Handoff を検証できない場合は PASS も CHANGES_REQUIRED も出さない（§5.1）。
 - **Debugger**: 仕様を変えて通すことをしない。修正後は必ず再テストする。3サイクルで停止する（§9）。
 
 Implementer の手順と出力テンプレートは `.ai/agents/implementer.md`。責務境界は上表と §6・§10 に従う。
 
 1つの AI が複数の役割を兼ねてもよい。ただし **役割ごとの成果物と Gate は省略しない**。
 
-**Reviewer の独立性**: Reviewer は Implementer の判断過程ではなく、Task / Plan / `git diff` / テスト結果だけを入力として検証する。
+**Reviewer の独立性**: Reviewer は Implementer の判断過程ではなく、Review Handoff（§5.1）が指す Implementation SHA 時点の Task / Plan / `git diff`（Diff range）/ テスト結果だけを入力として検証する。
 Review には独立性を1行で明記する（`別の人間` / `別 Agent・別セッション` / `同一セッションで兼務`）。
 `同一セッションで兼務` の場合は、人間による差分確認を Review の推奨事項として必ず残す。
+兼務・別セッションのどちらでも、受け渡しの手順（§5.1 / §7.3）は同じ。
+
+### 5.1 Review Handoff
+
+Implementer は `TESTING → REVIEWING` のとき（§7.3）、Reviewer へ次の Review Handoff を渡す。すべて必須。
+書式は `.ai/agents/implementer.md`。
+
+| 項目 | 内容 |
+| --- | --- |
+| Task ID | `<ID>`（Work Item を持つ Task は `<ID> / T-n`） |
+| Branch | push 先の作業ブランチ（§6 の Persistence に書かれたブランチ） |
+| Implementation SHA | push 済みの最終実装コミット（40桁） |
+| Diff range | その承認単位の差分範囲 `<base-sha>..<Implementation SHA>`（1コミットなら `<sha>^..<sha>`） |
+| Task file | `.ai/tasks/<ID>.md`（Work Item は計画 `<ID>-<ITEM>.md` も） |
+
+Plan / Analyzer report / Test Report / Changed Files は Handoff に重ねて書かない。Task file から次のとおり辿れる:
+Plan は Task file（Work Item は計画ファイル）、Analyzer report は冒頭の `Analysis:` 行、
+Test Report と Changed Files は末尾の Implementation Result（`.ai/agents/implementer.md`）。
+
+Implementation SHA は Task file に書かない（自分を含むコミットの SHA は書けない）。記録の正本は review report の Review Target とする。
+
+**Reviewer の Handoff 検証**: レビュー内容に入る前に、Implementation SHA の時点で次をすべて確認する。
+
+| # | 確認 |
+| --- | --- |
+| V-1 | Branch が remote に存在し、Implementation SHA がそのブランチから到達可能 |
+| V-2 | Implementation SHA から Task file へ到達できる |
+| V-3 | Plan が存在する |
+| V-4 | Analyzer report（Task file の `Analysis:`）が存在する |
+| V-5 | Implementation Result（Test Report・Changed Files）を Task file で確認できる |
+| V-6 | Diff range が空でなく、終点が Implementation SHA と一致する |
+
+1つでも確認できない場合は **BLOCKED（理由: Review Handoff 不備）** として扱う。
+
+- Reviewer は PASS も CHANGES_REQUIRED も出さず、review report を作らない（受け渡しの不備を実装の指摘として扱わない）
+- 満たせなかった V-n を人間へ報告して止まる。Task file の Status は Reviewer が変更しない（対象の Task file が確定しないため）
+- 人間または Implementer が Handoff を出し直した時点で、Reviewer は V-1 から検証し直す
+- レビューは Implementation SHA の内容に対して行う。ブランチ先端・自分の working tree・未 commit の変更は対象にしない
 
 ## 6. Human Approval Gate
 
@@ -142,6 +185,15 @@ Review には独立性を1行で明記する（`別の人間` / `別 Agent・別
 Planner は計画を書き終えた承認単位を `WAITING_APPROVAL` にして止まる。
 `APPROVED` にしてよいのは人間の明示的な GO（会話・Issue・PR コメント等）があった場合だけで、
 その根拠（誰が・いつ・どこで・どの承認単位を）を Approval 欄に書く。**AI が自分で承認しない。**
+
+**Persistence（commit / push の許可）**: Human Approval は、書かれた範囲の実装だけを許可する。commit / push の許可は含まない。
+
+- commit / push は、その承認単位の Approval 欄の `Persistence` が `許可` で、対象ブランチ名が書かれている場合に限り、そのブランチへだけ行ってよい
+  （Implementer はテスト完了後。Reviewer は §7.3 の範囲）
+- `Persistence` を `許可` にしてよいのは、そのブランチへの commit / push を許可する人間の明示的な指示があった場合だけで、その根拠（誰が・いつ・どこで）を書く。
+  Implementation の承認から Persistence を推測・補完しない。**AI が自分で Persistence を許可にしない**
+- `Persistence` が空欄・`許可しない`・行が無い（旧形式の Approval 欄）場合は、許可されていない
+- `main` への push、force push、承認範囲外のファイルの commit は、Persistence が許可でも行わない
 
 承認の範囲はその承認単位に書かれた範囲に限る。
 
@@ -176,10 +228,10 @@ REVIEWING → CHANGES_REQUIRED → IMPLEMENTING → TESTING
 | WAITING_APPROVAL | 人間の GO 待ち。**実装禁止** | Human | 明示的な承認 |
 | APPROVED | 実装してよい | Human | Implementer が着手 |
 | IMPLEMENTING | 実装中 | Implementer | 実装完了 |
-| TESTING | build / unit / E2E 実行中 | Implementer | 全て成功 → REVIEWING、失敗 → FAILED |
+| TESTING | build / unit / E2E 実行中 | Implementer | 全て成功し、commit・push・Review Handoff を終えた（§7.3）→ REVIEWING、失敗 → FAILED |
 | FAILED | テスト失敗 | － | Debugger が着手 |
 | DEBUGGING | 原因分析・最小修正中 | Debugger | 修正後 TESTING |
-| REVIEWING | 検証中 | Reviewer | PASS → DONE、指摘 → CHANGES_REQUIRED |
+| REVIEWING | 検証中 | Reviewer | PASS かつ §7.3 の DONE 条件 → DONE、指摘 → CHANGES_REQUIRED |
 | CHANGES_REQUIRED | レビュー指摘あり | Reviewer | Implementer が着手 |
 | DONE | 完了 | － | － |
 | BLOCKED | 停止中（理由を明記） | － | 人間の判断 |
@@ -218,6 +270,42 @@ Work Item は Task の中の個別の作業項目（`T-1` など、Task 内で�
 
 **読み替え**: 本ファイル・`.ai/agents/*.md` で「Task の Status」「Task を BLOCKED にする」等と書いている箇所は、
 Work Item を持つ Task では **該当する Work Item の Status** を指す（§7.1 の Task Level の値を除く）。
+
+### 7.3 Handoff and Completion Gates
+
+Status は増やさない。成果物の永続化は、既存の2つの遷移の条件として扱う。
+
+**`TESTING → REVIEWING`（担当 Implementer）** — 次の順で行う:
+
+1. §14 のテストが完了し、Implementation Result（Test Report を含む）を書いた（IMPLEMENTATION COMPLETE）
+2. 承認範囲の成果物（コード・テスト・Task file の Implementation Result・Status の `REVIEWING` 更新と Status History 行）を commit する。
+   Status History の Note には Branch を書く
+3. Persistence のブランチへ push し、remote のブランチから Implementation SHA へ到達できることを確かめる
+4. Review Handoff（§5.1）を作り Reviewer へ渡す。ここで `REVIEWING` が成立する
+
+- テスト完了前に push しない
+- Persistence が許可されていない、または push できない場合は `REVIEWING` にしない。`TESTING` のまま止まり、人間に Persistence（または障害の解消）を求める。
+  判断待ちが続く場合は `BLOCKED`（理由: Review Handoff 未完了）
+
+**Reviewer の commit 範囲** — Result が PASS でも CHANGES_REQUIRED でも、Reviewer の commit は次だけを含む1コミットとし、Handoff の Branch へ push する（Persistence の範囲）:
+
+- review report（`.ai/reports/<ID>-review.md`。Work Item は `<ID>-<ITEM>-review.md`）
+- Task file の Status 更新（Work Item を持つ Task では、親 Task の Work Items 表の Status と Work Item 計画の Status。§7.2）
+- Task file の Status History への1行追記
+
+それ以外の変更を同じコミットに混ぜない。これにより、Reviewed SHA と review commit の差分が review report と Status 更新だけになる。
+
+**`REVIEWING → DONE`（担当 Reviewer）** — 次をすべて満たすこと:
+
+- [ ] review report の Result が PASS
+- [ ] review report が remote の Branch に存在する（push を確認するまで、PASS は完了条件として成立しない）
+- [ ] review report の Reviewed SHA が、その承認単位の最新の Implementation SHA と一致する（Reviewed SHA より後に、その承認単位の Files To Change へのコミットが無い）
+
+- テストの要件は §14 のまま（Targeted を許容する）。Full Regression と、完了についての追加の Human Approval は DONE の条件にしない
+- Reviewed SHA より後に実装が変わった場合は、新しい Implementation SHA で Handoff とレビューをやり直す
+- push できない場合は `REVIEWING` のまま、review report の内容を人間へ渡して止まる
+
+**適用範囲**: 本節は、本節の追加後に `TESTING → REVIEWING` へ進む承認単位から適用する。既存の Task・report・Approval 欄は書き換えない。
 
 ## 8. Fact / Inference / Decision
 

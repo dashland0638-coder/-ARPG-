@@ -18,7 +18,7 @@
 3. 各変更について「ファイル / 関数 / 変更内容 / 理由」を書く
 4. 変更しないファイルを明記する
 5. 人間が決めるべき事項を DECISION として列挙する。AI が決めない
-6. Task の Status を `WAITING_APPROVAL` にし、Approval 欄を未チェックのまま残す
+6. Task の Status を `WAITING_APPROVAL` にし、Approval 欄を未チェック・Persistence 行を空欄のまま残す（AGENTS.md §6）
 
 ## Plan Sections（Task に書く）
 

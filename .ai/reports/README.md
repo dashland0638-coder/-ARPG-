@@ -19,3 +19,5 @@ Work Item 専用のレポートは `TASK-ID-<ITEM>-analysis.md` など（規則�
 ## Rule
 
 長大なログ全文を保存しない。重要なエラー・原因・判断だけを残す。
+
+Review report は remote の作業ブランチへ push されて有効になる（`../AGENTS.md` §7.3）。
