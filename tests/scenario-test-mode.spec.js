@@ -48,6 +48,7 @@ test.describe('Scenario Test Mode', () => {
 
     // 選択がUIに反映されている(同行ゲスト/シナリオのカードが選ばれた状態で開始された)
     await expect(page.locator('#hud')).toHaveClass(/active/);
+    await expect(page.locator('#btn-charge-icon'), 'Skill 1 は本編と同じ幻影歩法').toHaveText('👣');
 
     // テストモードが維持されている = saveGame() は何もしない状態のまま。
     // launchScenario() を通った後でもこれが立っていることが WORK 1 の要

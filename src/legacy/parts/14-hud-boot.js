@@ -1372,7 +1372,7 @@
     state.guestClassKey = (guestKey && CLASSES[guestKey]) ? guestKey : null;
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
-    state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
+    state.skillChoice = defaultSkill1For(classKey); state.skillCharging = false; state.skillChargeT = 0;
 
     // レベル: grantXP()の成長式(12-progression-ui.js)と同じ計算を、
     // XP/レベルアップ演出/ダイス追加ポイントといった副作用抜きに、

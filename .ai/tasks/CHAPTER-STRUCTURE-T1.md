@@ -11,7 +11,7 @@ T-1 の Status と Human Approval の正本は親 Task の Work Items 表と「T
 
 ## Status
 
-**WAITING_APPROVAL**
+**DONE**（Review PASS: [`CHAPTER-STRUCTURE-T1-review.md`](../reports/CHAPTER-STRUCTURE-T1-review.md)。2026-09-24 に人間が承認。D-1 A / D-2 A / D-3 Planner 案 / D-4 A / D-5 T-1 のみ）
 
 ## Objective
 

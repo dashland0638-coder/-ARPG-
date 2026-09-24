@@ -14,7 +14,7 @@ Related: [`MAGE-001.md`](MAGE-001.md) / [`../decisions/DEC-001-duskvillage-rebui
 
 | ID | Summary | Status | Approval | Analysis | Plan |
 | --- | --- | --- | --- | --- | --- |
-| T-1 | テストモードの Skill 1 既定値を本編に揃える | WAITING_APPROVAL | [ ] | [`CHAPTER-STRUCTURE-T1-analysis.md`](../reports/CHAPTER-STRUCTURE-T1-analysis.md) | [`CHAPTER-STRUCTURE-T1.md`](CHAPTER-STRUCTURE-T1.md) |
+| T-1 | テストモードの Skill 1 既定値を本編に揃える | DONE | [x] | [`CHAPTER-STRUCTURE-T1-analysis.md`](../reports/CHAPTER-STRUCTURE-T1-analysis.md) | [`CHAPTER-STRUCTURE-T1.md`](CHAPTER-STRUCTURE-T1.md)（Review: [`CHAPTER-STRUCTURE-T1-review.md`](../reports/CHAPTER-STRUCTURE-T1-review.md)） |
 | T-2 | シナリオ一覧を Chapter / Arc で整理する | DRAFT | [ ] | [`CHAPTER-STRUCTURE-analysis.md`](../reports/CHAPTER-STRUCTURE-analysis.md) | 本ファイル Step 2 |
 | T-3 | 進行状態「本編相当」プリセット | DRAFT | [ ] | 同上 | 本ファイル Step 3（Unknown 7 待ち） |
 | T-4 | Skill 2「未習得で開始」 | DRAFT | [ ] | 同上 | 本ファイル Step 4（Unknown 8 待ち） |
@@ -22,11 +22,12 @@ Related: [`MAGE-001.md`](MAGE-001.md) / [`../decisions/DEC-001-duskvillage-rebui
 承認は Work Item ごとに行う。ある Work Item の承認は他の Work Item の承認を意味しない。チェックの無い Work Item は実装しない。
 
 ### T-1 Human Approval
-- [ ] Approved
-- Approved by / date / where:
-- Scope of approval:（[`CHAPTER-STRUCTURE-T1.md`](CHAPTER-STRUCTURE-T1.md) の Files To Change の範囲）
+- [x] Approved
+- Approved by / date / where: ユーザー（人間）/ 2026-09-24 / Claude Code セッションでの明示的な承認メッセージ
+- Decisions: D-1 = A（テストモードでも `defaultSkill1For(classKey)`）、D-2 = A（トレーニング空間・シナリオ起動の両方）、D-3 = Planner の調査結果を採用（上位職も基礎クラスの既定に従う。上位職専用の既定値仕様は追加しない）、D-4 = A（既存 `scenario-test-mode.spec.js` に 👣 の検査を1行追加）、D-5 = T-1 のみを承認単位とする
+- Scope of approval: CHAPTER-STRUCTURE / T-1 のみ（[`CHAPTER-STRUCTURE-T1.md`](CHAPTER-STRUCTURE-T1.md) の Files To Change の範囲）。MAGE-001・T-2・T-3・T-4・魔法使い Skill 1 自体の仕様変更・敵 AI・Chapter 1 本編は承認対象外
 
-Implementation (T-1): **BLOCKED until approval**
+Implementation (T-1): **ALLOWED**
 
 ### T-2 / T-3 / T-4 Human Approval
 - [ ] T-2 Approved
@@ -48,6 +49,11 @@ Implementation (T-2 / T-3 / T-4): **BLOCKED**（Work Item ごとの計画・承�
 | 2026-09-24 | Task | PLANNED → PLANNED | Planner | Work Item 形式へ移行。Status 行を状態名だけの表記に、旧「Human Approval」節を Work Items 表と Work Item ごとの Approval 欄へ置き換え。承認状態は変更なし（全て未承認） |
 | 2026-09-24 | T-1 | WAITING_APPROVAL → WAITING_APPROVAL | Planner | T-1 専用計画 `CHAPTER-STRUCTURE-T1.md` を作成。人間の承認待ちで停止 |
 | 2026-09-24 | T-2 / T-3 / T-4 | － → DRAFT | Planner | Work Item として登録（移行前は Status を持っていなかった）。承認状態は未承認のまま |
+| 2026-09-24 | T-1 | WAITING_APPROVAL → APPROVED | Human | D-1 A / D-2 A / D-3 Planner 案 / D-4 A / D-5 T-1 のみ。T-2〜T-4 は未承認のまま |
+| 2026-09-24 | T-1 | APPROVED → IMPLEMENTING | Implementer | 承認範囲（Files To Change）で実装開始 |
+| 2026-09-24 | T-1 | IMPLEMENTING → TESTING | Implementer | `14-hud-boot.js:1375` を `defaultSkill1For(classKey)` に、`scenario-test-mode.spec.js` に 👣 検査1行。build PASS / unit 1490 PASS |
+| 2026-09-24 | T-1 | TESTING → REVIEWING | Implementer | E2E 対象8ファイル 43 passed / 1 flaky（`job-traits` 鷹の目のタイミング依存テスト、リトライで PASS・T-1 と無関係と判断） |
+| 2026-09-24 | T-1 | REVIEWING → DONE | Reviewer | Review PASS（`CHAPTER-STRUCTURE-T1-review.md`）。Task 全体は PLANNED のまま、T-2〜T-4 は DRAFT・未承認のまま |
 
 > **改訂（WORK 12.1 後）**
 > 旧版は「Scenario Test Mode を新設する」計画だったが、WORK 1 / 4 / 12.1 で
