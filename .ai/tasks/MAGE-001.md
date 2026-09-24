@@ -2,9 +2,148 @@
 
 魔法使い Skill 1「ステップ＋幻影デコイ」
 
-Status: **PLANNED**（実装未着手。実装前に Unknowns の決定が必要）
+Status: WAITING_APPROVAL
 
-Analysis: [`../reports/MAGE-001-analysis.md`](../reports/MAGE-001-analysis.md)
+Analysis: [`../reports/MAGE-001-reanalysis.md`](../reports/MAGE-001-reanalysis.md)（現在の根拠）／ [`../reports/MAGE-001-analysis.md`](../reports/MAGE-001-analysis.md)（2026-09-21・履歴）
+
+本 Task は Work Item を持たない Task（`../AGENTS.md` §7.1）。承認単位は Task 全体。
+
+## Human Approval
+- [ ] Approved（承認の対象: 「新規実装を行わず、既存実装により MAGE-001 の目的は達成済み」として本 Task を完了扱いにすること）
+- Approved by / date / where:
+- Scope of approval:
+
+Implementation: **NOT REQUIRED**（下記 No Implementation Required）。本 Task でのコード変更は承認対象に含まない
+
+## Human Decisions（2026-09-24、ユーザーの明示的な決定）
+
+再分析の DECISION（`MAGE-001-reanalysis.md` D-1〜D-6）への回答。完了の承認（上の Human Approval）とは別。
+
+| # | 決定 |
+| --- | --- |
+| D-1 | **A** ―― 現在の状態で MAGE-001 の目的は達成済みとする。新しいデコイシステムは実装しない。「全通常敵への幻影誘導の拡張」「ボスへの拡張」は **承認しない**（別途ゲームデザインとして決定する） |
+| D-2 | 今回は判断しない。`docs/COMBAT.md` の更新は別 Task 候補 |
+| D-3 | 今回は判断しない。幻影の同時数上限は別 Task 候補 |
+| D-4 | MAGE-001 の完了条件に含めない。誘導の E2E 検証は必要なら別 Work Item / 別 Task |
+| D-5 | 今回は判断しない。`DECOY_PULL.charge` の扱いは別 Task 候補 |
+| D-6 | **YES** ―― 本ファイルを現在の Protocol 形式へ移行する（過去の分析・計画・履歴は保持） |
+
+## Objective
+
+魔法使いの Skill 1 として「ステップ＋幻影デコイ」を持たせる ―― ステップで下がりながら幻影を残し、敵を幻影へ誘導する。
+D-1 により、本 Task の目的は **現在のコードで達成済み** であることを確認して完了とする。新規実装は行わない。
+
+## Current Implementation
+
+すべて `MAGE-001-reanalysis.md` の FACT に基づく（F-番号は同レポート）。実装は DUSKVILLAGE WORK 4（`1a4c543`、2026-09-22）で入った。
+
+| 要素 | 実装 | 根拠 |
+| --- | --- | --- |
+| Skill 1 `phantom`（幻影歩法） | `CHARGE_VARIANTS_BY_CLASS.mage.phantom`（`mode:'phantom'` / `movement:'retreat'` / `baseMult:0`） | F-1 |
+| 魔法使いの既定 Skill 1 | `defaultSkill1For('mage') = 'phantom'`（本編の交代時・テストモード） | Search Record / T-1 |
+| ステップ移動 | 既存の `state.skillAnim`（retreat）で後方へ 3.6 / 0.26 秒 | F-2, F-11 |
+| 幻影の生成 | `executeVariant` の `mode==='phantom'` → `spawnPhantomDecoy(発動前の位置)` | F-2, F-3 |
+| 幻影の登録 | `state.decoys` に `{x, z, life, …, kind:'phantom'}` を追加 | F-3 |
+| 幻影の寿命 | `updatePhantomDecoys` で 5.0 秒（暫定値）後に消える | F-4 |
+| 誘導の仕組み | `core/decoy.js`（`aggroTarget` / `pickLureTarget` / `decoyPullFor`）と `aggroPoint(en)` | F-13 |
+| 誘導される敵 | 宵待ちの村の5種（mirror / foam / copy / fisher / keeper）の AI が `aggroPoint` を参照 | F-14 |
+| 命中判定 | プレイヤー位置（`state.pos`）のまま | F-15 |
+| 敵対の成立・leash | プレイヤー位置のまま | F-15, F-16 |
+| セーブ | 幻影は保存しない。`skillChoice` は保存 | F-6 |
+
+## Analyzer Evidence
+
+- 現在の根拠: [`MAGE-001-reanalysis.md`](../reports/MAGE-001-reanalysis.md)（Search Record 22行、FACT F-1〜F-24、Previous Analysis vs Current Code）
+- 過去の計画（下の「Previous Plan」）との対応: 計画の Step 1〜8 は、名前を変えて実装済み（`core/mage-decoy.js` → `core/decoy.js`、`state.mageDecoys` → `state.decoys`、`spawnMageDecoy` → `spawnPhantomDecoy`、`mode:'decoy'` → `mode:'phantom'`、`aggroPos` → `aggroPoint`）。ただし誘導の対象は計画の通常敵7種ではなく宵待ちの村の5種（reanalysis F-14）
+- 実装の記録: [`DUSKVILLAGE-WORK4-report.md`](../reports/DUSKVILLAGE-WORK4-report.md) §7
+
+## Acceptance Criteria
+
+再分析で確認できた事実だけで定義する。確認方法は `../AGENTS.md` §8 の区分（VERIFIED = テストで確認 / FACT (code) = コードで確認）。
+
+| # | 条件 | 確認方法 | 根拠 |
+| --- | --- | --- | --- |
+| AC-1 | 魔法使いの Skill 1 に `phantom`（幻影歩法）が存在し、選択できる（解放条件なし） | FACT (code) | F-1 |
+| AC-2 | 魔法使いの既定 Skill 1 が `phantom` | **VERIFIED**（unit `chapter1-rules.test.js:53-55`、E2E `chapter1-progression.spec.js:197,203` / `scenario-test-mode.spec.js:51`） | T-1、Search Record |
+| AC-3 | Skill 1 の発動で、ステップ移動（retreat）と同時に発動前の位置へ幻影を生成する | FACT (code) | F-2, F-3, F-11 |
+| AC-4 | 生成した幻影が既存のデコイの仕組み（`state.decoys`）に登録され、寿命で消える | FACT (code)。寿命と選択ロジックは **VERIFIED**（unit `decoy.test.js`） | F-3, F-4 |
+| AC-5 | 宵待ちの村の対象5種（mirror / foam / copy / fisher / keeper）の AI が `aggroPoint(en)` を通じて幻影を参照する | FACT (code) | F-13, F-14 |
+| AC-6 | 命中判定はプレイヤー位置（`state.pos`）を維持する | FACT (code) | F-15 |
+| AC-7 | 敵対の成立と leash はプレイヤー位置を維持する | FACT (code) | F-15, F-16 |
+| AC-8 | 幻影はセーブされない | FACT (code) | F-6 |
+
+「全ての敵が幻影に釣られる」「ボスが幻影に釣られる」は AC に含めない（D-1）。
+
+## No Implementation Required
+
+- AC-1〜AC-8 はすべて現在のコードで満たされている（上表の根拠）
+- D-1 により、誘導の範囲拡大は承認されていない ―― 新たに実装すべき項目が無い
+- 過去の計画（Step 1〜9）のうち Step 1〜8 は別名で実装済み。Step 9（テスト）は unit `decoy.test.js` が存在し、E2E は D-4 により完了条件外
+- したがって本 Task で `src/` / `tests/` / `docs/` を変更しない
+
+## Out of Scope
+
+- 全通常敵（charger / fire / kite / turret / jumper / servant / ghost / wander）への幻影誘導の拡張（D-1）
+- ボス本体（`updateBossAI` / `updateMansionLordAI`）への拡張（D-1）
+- `phantom` / `core/decoy.js` / `aggroPoint` / 敵 AI の変更
+- 数値（寿命・引きつけ距離・`DECOY_PULL`）の確定・調整
+- E2E の追加
+- `docs/COMBAT.md` の更新
+
+## Follow-up Candidates
+
+本 Task では起票しない。人間が必要と判断したら別 Task / 別 Work Item にする。
+
+| # | 候補 | 由来 |
+| --- | --- | --- |
+| FU-1 | `docs/COMBAT.md` §Mage Skill 1 の更新（「デコイのコードは存在しない」という古い記述、設計確定案の扱い） | D-2 / reanalysis F-20 |
+| FU-2 | 幻影の同時数上限 | D-3 / reanalysis F-4, I-4 |
+| FU-3 | 幻影が敵を誘導することの E2E 検証 | D-4 / reanalysis F-22 |
+| FU-4 | 参照経路の無い `DECOY_PULL.charge` の扱い | D-5 / reanalysis F-17 |
+| FU-5 | 通常敵・ボスへの誘導拡張のゲームデザイン判断 | D-1 |
+| FU-6 | `resetDungeon()` で幻影が片付かない経路の確認（最大5秒残る可能性） | reanalysis U-4 |
+| FU-7 | `DUSKVILLAGE-WORK8-report.md` の「全敵に通る」記述が現在のコードと一致しない件の扱い | reanalysis I-2 |
+
+## Test / Verification Status
+
+| 対象 | 状態 |
+| --- | --- |
+| 既定 Skill 1 = phantom | **VERIFIED**（unit・E2E、上記 AC-2） |
+| 幻影の選択ロジック・寿命（`core/decoy.js`） | **VERIFIED**（unit `tests/unit/decoy.test.js`） |
+| 幻影の生成・登録（`spawnPhantomDecoy`） | FACT (code) のみ |
+| 対象5種の誘導（実プレイ） | FACT (code) のみ。過去の実機確認の記録あり（`CHAPTER1-WORK12-report.md:181`「WORK 4/8 実機」）だが本 Task では再現していない |
+| 命中判定・敵対・leash がプレイヤー基準 | FACT (code) のみ |
+| 本 Task で実行したテスト | NOT_RUN（コード変更が無いため。直近の実行結果は T-1: unit 1490 PASS、E2E Targeted 43 passed / 1 flaky ―― `CHAPTER-STRUCTURE-T1-review.md`） |
+
+## Approval Gate
+
+**WAITING_APPROVAL**
+
+| 条件（`../AGENTS.md` §6） | 状態 |
+| --- | --- |
+| Analyzer report | ✅ `MAGE-001-reanalysis.md` |
+| 計画 | ✅ 本ファイル（完了扱いの計画。Implementation は不要） |
+| 必要な DECISION の決定 | ✅ D-1 / D-4 / D-6 決定済み。D-2 / D-3 / D-5 は本 Task の対象外として保留 |
+| 範囲の明確化 | ✅ AC-1〜AC-8 / Out of Scope |
+| Human Approval | ❌ 未承認 |
+
+承認されたら Status を DONE にする（Implementation を経ないため IMPLEMENTING / TESTING / REVIEWING は通らない）。AI は自分で DONE にしない。
+
+## Status History
+
+| Date | Target | From → To | By | Note |
+| --- | --- | --- | --- | --- |
+| 2026-09-21 | Task | － → PLANNED | Planner | 初版の分析・計画（`66cb2b6`）。当時の Status 行: 「Status: **PLANNED**（実装未着手。実装前に Unknowns の決定が必要）」 |
+| 2026-09-24 | Task | PLANNED → WAITING_APPROVAL | Analyzer | 再分析（`MAGE-001-reanalysis.md`）。過去の計画が現在のコードと食い違うことを記録 |
+| 2026-09-24 | Task | WAITING_APPROVAL → WAITING_APPROVAL | Planner | Human Decision（D-1 A / D-6 YES ほか）を受けて Protocol 形式へ移行。「既存実装により達成済み」の計画を記載。過去の計画は下に保持 |
+
+---
+
+# Previous Plan（履歴 ―― 2026-09-21 版。変更していない）
+
+> 以下は初版の計画をそのまま残したもの。**現在の計画ではない。** 当時の前提（「デコイも幻影も無い」等）は
+> 現在のコードと異なる（`MAGE-001-reanalysis.md` の Previous Analysis vs Current Code 参照）。
+> 当時の Status 行は上の Status History に記録した。
 
 ## Request
 
