@@ -22,11 +22,12 @@
 
 ## Output Template
 
+複数サイクルの場合は、同じファイルにサイクルごとの節を追記する（前のサイクルは書き換えない。AGENTS.md §9）。
+
 ```markdown
 # <ID> Debug Report
 
-## Cycle
-n/3
+## Cycle n/3
 
 ## Failure
 

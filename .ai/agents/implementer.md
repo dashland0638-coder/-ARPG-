@@ -17,6 +17,7 @@
 2. 計画の Files To Change だけを変更する。既存システムを再利用する（§3）。範囲外の必要が分かったら実装せず OUT OF SCOPE として記録する（§10）
 3. §14 に従ってテストを実行し、Test Report を書く
 4. Approval 欄の Persistence が `許可` の場合だけ、成果物と Status（`REVIEWING`）・Status History（Note に Branch）の更新を commit し、そのブランチへ push する。
+   Analyzer report と Task file（計画本文・Approval 欄）がそのブランチの remote に無ければ、Human Approval 時点の内容のまま同じ commit に含める（AGENTS.md §6 / §7.3）。
    許可が無い・push できない場合は `TESTING` のまま止まり、人間に求める（AGENTS.md §6 / §7.3）
 5. remote のブランチから Implementation SHA に到達できることを確かめ、Review Handoff を Reviewer へ渡す（AGENTS.md §5.1）
 

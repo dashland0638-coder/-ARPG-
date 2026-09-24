@@ -70,5 +70,7 @@ PASS / CHANGES_REQUIRED
 PASS の場合は「None」
 ```
 
-Review 後、review report と Task の Status 更新・Status History 1行だけを1コミットにして Handoff の Branch へ push する（Persistence の範囲。AGENTS.md §7.3）。
+Review 後、review report と Task の Status 更新・Status History の追記（必要な行だけ）を1コミットにして Handoff の Branch へ push する（Persistence の範囲。AGENTS.md §7.3）。
 push を確認するまで PASS は DONE の条件として成立しない。
+Handoff の Branch へ push できない実行環境では、別ブランチへ push せず、人間が push 先を明示して承認するまで待つ（AGENTS.md §7.3）。
+再テストで FAIL を見つけた場合は CHANGES_REQUIRED とする（AGENTS.md §9）。

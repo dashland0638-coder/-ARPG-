@@ -191,9 +191,14 @@ Planner は計画を書き終えた承認単位を `WAITING_APPROVAL` にして�
 - commit / push は、その承認単位の Approval 欄の `Persistence` が `許可` で、対象ブランチ名が書かれている場合に限り、そのブランチへだけ行ってよい
   （Implementer はテスト完了後。Reviewer は §7.3 の範囲）
 - 1つの `許可` が次の2つを許可する。どちらも同じブランチへだけ行う:
-  - Implementer の commit / push: その承認単位の承認範囲（Files To Change と Task file の Implementation Result・Status・Status History）
-  - Reviewer の §7.3 の commit / push: review report・Task file の Status 更新・Status History 1行だけ。review report はこの範囲に限り承認範囲外のファイルとして扱わない。
+  - Implementer の commit / push: その承認単位の承認範囲（Files To Change と Task file の Implementation Result・Status・Status History）。
+    加えて、その承認単位の Analyzer report と Task file（計画本文・Approval 欄を含む）がそのブランチの remote にまだ無い場合は、
+    それらを Human Approval 時点の内容のまま最初の実装 commit に含める（§7.3 手順2）。Implementer は Analyzer report・計画本文・Approval 欄を変更しない
+  - Reviewer の §7.3 の commit / push: review report・Task file の Status 更新・Status History への追記（必要な行だけ）。review report はこの範囲に限り承認範囲外のファイルとして扱わない。
     Reviewer がそれ以外のファイルを commit する許可にはならない
+- Analyzer / Planner に commit / push の権限は無い。Human Approval より前に Analyzer report・Task file を push する規定も設けない（人間が自分で行うことは妨げない）
+- 同じ承認単位の CHANGES_REQUIRED 後の再実装・Debugger 後の修正は、承認範囲・ブランチ・Files To Change が変わらない限り、既存の `許可` を使い続けてよい。
+  承認範囲や Files To Change を変える場合は、Human Approval と Persistence を取り直す
 - `Persistence` を `許可` にしてよいのは、そのブランチへの commit / push を許可する人間の明示的な指示があった場合だけで、その根拠（誰が・いつ・どこで）を書く。
   Implementation の承認から Persistence を推測・補完しない。**AI が自分で Persistence を許可にしない**
 - `Persistence` が空欄・`許可しない`・行が無い（旧形式の Approval 欄）場合は、許可されていない
@@ -232,7 +237,7 @@ REVIEWING → CHANGES_REQUIRED → IMPLEMENTING → TESTING
 | WAITING_APPROVAL | 人間の GO 待ち。**実装禁止** | Human | 明示的な承認 |
 | APPROVED | 実装してよい | Human | Implementer が着手 |
 | IMPLEMENTING | 実装中 | Implementer | 実装完了 |
-| TESTING | build / unit / E2E 実行中 | Implementer | 全て成功し、commit・push・Review Handoff を終えた（§7.3）→ REVIEWING、失敗 → FAILED |
+| TESTING | build / unit / E2E 実行中 | Implementer | FAIL が無く、FLAKY / NOT_RUN があれば §14 の規則どおり記録して進めてよいと判断し、commit・push・Review Handoff を終えた（§7.3）→ REVIEWING、FAIL → FAILED |
 | FAILED | テスト失敗 | － | Debugger が着手 |
 | DEBUGGING | 原因分析・最小修正中 | Debugger | 修正後 TESTING |
 | REVIEWING | 検証中 | Reviewer | PASS かつ §7.3 の DONE 条件 → DONE、指摘 → CHANGES_REQUIRED |
@@ -279,11 +284,16 @@ Work Item を持つ Task では **該当する Work Item の Status** を指す�
 
 Status は増やさない。成果物の永続化は、既存の2つの遷移の条件として扱う。
 
+**push 前の Status**: remote に push されていない commit に書かれた Status は、正式な Status として効力を持たない。
+push が完了するまで、正式な Status は直前に remote 上にあった Status とする（Implementer の `REVIEWING`、Reviewer の `DONE` / `CHANGES_REQUIRED` のどちらにも適用）。
+push できなかった local commit を削除・書き換えする必要は無い。
+
 **`TESTING → REVIEWING`（担当 Implementer）** — 次の順で行う:
 
-1. §14 のテストが完了し、Implementation Result（Test Report を含む）を書いた（IMPLEMENTATION COMPLETE）
+1. §14 のテストが完了し、Implementation Result（Test Report を含む）を書いた（IMPLEMENTATION COMPLETE）。FAIL が無い
 2. 承認範囲の成果物（コード・テスト・Task file の Implementation Result・Status の `REVIEWING` 更新と Status History 行）を commit する。
-   Status History の Note には Branch を書く
+   Status History の Note には Branch を書く。
+   その承認単位の Analyzer report と Task file（計画本文・Approval 欄を含む）がブランチの remote にまだ無い場合は、Human Approval 時点の内容のまま同じ commit に含める（§6）
 3. Persistence のブランチへ push し、remote のブランチから Implementation SHA へ到達できることを確かめる
 4. Review Handoff（§5.1）を作り Reviewer へ渡す。ここで `REVIEWING` が成立する
 
@@ -295,9 +305,13 @@ Status は増やさない。成果物の永続化は、既存の2つの遷移の
 
 - review report（`.ai/reports/<ID>-review.md`。Work Item は `<ID>-<ITEM>-review.md`）
 - Task file の Status 更新（Work Item を持つ Task では、親 Task の Work Items 表の Status と Work Item 計画の Status。§7.2）
-- Task file の Status History への1行追記
+- Task file の Status History への追記（必要な行だけ。例: Work Item の `REVIEWING → DONE` と、それにより Task Level が `DONE` になる行）
 
 それ以外の変更を同じコミットに混ぜない。これにより、Reviewed SHA と review commit の差分が review report と Status 更新だけになる。
+
+Reviewer の実行環境で Handoff の Branch へ push できない（別ブランチが割り当てられている等）場合、Reviewer は別ブランチへ push しない。
+Reviewer commit を行う前に、人間が push 先ブランチ（Handoff の Branch）を明示して承認するのを待つ。承認があるまでは `REVIEWING` のまま、review report の内容を人間へ渡す。
+DONE 条件の「remote の Branch」は Handoff の Branch のまま変わらない。
 
 **`REVIEWING → DONE`（担当 Reviewer）** — 次をすべて満たすこと:
 
@@ -350,6 +364,12 @@ Debugger → Implementer → Test → Debugger のループは **1 Task あた�
 | 1/3 | 原因調査・最小修正 |
 | 2/3 | 再現条件と根本原因を再確認し、1回目の仮説を検証し直す |
 | 3/3 | 修正方針そのものを見直す。通らなければ人間へエスカレーション |
+
+1サイクルは「Debugger の分析 → Implementer の修正 → 再テスト」を1回とする。§14 のテスト単位の再実行（FAIL / FLAKY の判定）はサイクルに数えない。
+`<ID>-debug.md` はサイクルごとに `## Cycle n/3` 節を追記する（前のサイクルの記述は書き換えない）。
+
+Reviewer が再テストで FAIL を見つけた場合は `CHANGES_REQUIRED` とし、Implementer が再テストする。FAIL が再現すれば `FAILED` として本節のループへ入る。
+サイクルの数は同じ承認単位で通算する。
 
 3回で解決しない場合は修正を繰り返さず、Task を `BLOCKED` にして次をまとめて停止する
 （`.ai/reports/<ID>-debug.md`）:
@@ -457,9 +477,11 @@ Targeted の場合は「実行したもの」「選んだ理由」「実行し�
 | 結果 | 意味 | 扱い |
 | --- | --- | --- |
 | PASS | 初回で通った | － |
-| FAIL | リトライ後も失敗 | Work Item を `FAILED` にして Debugger へ（§9） |
-| FLAKY | 初回失敗・リトライで通った | **PASS として数えない**。テスト名・初回の失敗内容・対象変更との関係（FACT / INFERENCE）・変更前コードで比較したかを記録する。対象変更と無関係と判断できれば Work Item は進めてよいが、Review の Risks に残す |
-| NOT_RUN | 実行しなかった / できなかった | 理由を書く |
+| FAIL | 失敗し、1回の再実行でも失敗 | Work Item を `FAILED` にして Debugger へ（§9） |
+| FLAKY | 初回失敗・1回の再実行で通った | **PASS として数えない**。テスト名・初回の失敗内容・対象変更との関係（FACT / INFERENCE）・変更前コードで比較したかを記録する。対象変更と無関係と判断できれば Work Item は進めてよいが、Review の Risks に残す |
+| NOT_RUN | 実行しなかった / できなかった | 理由を書く。**PASS として数えない**。Test Plan・Targeted の範囲として理由が妥当なら進めてよいが、必要なテストを実行できない場合は下の「実行環境の問題」に従う |
+
+`TESTING → REVIEWING` へ進めるのは FAIL が無い場合だけ（§7）。FLAKY / NOT_RUN は上の扱いどおり記録し、進めてよいと判断した根拠を Test Report に書く。
 
 **実行環境の問題**: テストが起動前に失敗する（ブラウザ未導入など）のはリポジトリではなく実行環境の問題として区別する。
 回避策はスクラッチ領域など **リポジトリ外** に限り、その内容を Test Report に書く。回避できず必要なテストを実行できない場合は、

@@ -22,7 +22,7 @@ Analysis: ../reports/<ID>-analysis.md
 - [ ] Approved
 - Approved by / date / where:
 - Scope of approval:
-- Persistence:（空欄 = 未許可。人間の明示的な指示があった場合だけ `許可（branch: <name>）` と根拠を書く。許可は Implementer の commit・push と、Reviewer の §7.3 の commit・push（review report・Status 更新・Status History 1行のみ）を含む）
+- Persistence:（空欄 = 未許可。人間の明示的な指示があった場合だけ `許可（branch: <name>）` と根拠を書く。許可は Implementer の commit・push と、Reviewer の §7.3 の commit・push（review report・Status 更新・Status History の追記のみ）を含む）
 
 Implementation: BLOCKED until approval
 
