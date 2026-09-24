@@ -120,21 +120,30 @@ Implementer 専用の Agent 定義ファイルは未作成。作る場合も責�
 
 ## 6. Human Approval Gate
 
-**Human Approval が無い Task は実装禁止。**
+**Human Approval が無いものは実装禁止。** 承認は **承認単位** ごとに行う。
 
-Implementation の開始条件（すべて満たすこと）:
+| Task の形 | 承認単位 |
+| --- | --- |
+| Work Item を持たない Task | Task 全体 |
+| Work Item（T-1, T-2 …）を持つ Task | **各 Work Item**（§7.2） |
 
-- [ ] Analyzer report が存在する（`.ai/reports/<ID>-analysis.md`）
-- [ ] Planner task が存在する（`.ai/tasks/<ID>.md`）
-- [ ] 未確定事項（DECISION）が列挙され、実装に必要なものは決定済み
-- [ ] 実装範囲（Files To Change / Files Not To Change）が明確
-- [ ] Task に Human Approval が明示されている（`Status: APPROVED` とチェック済みの Approval 欄）
+承認単位ごとの Implementation 開始条件（すべて満たすこと）:
 
-Planner は計画を書き終えたら `Status: WAITING_APPROVAL` にして止まる。
-Status を `APPROVED` にしてよいのは人間の明示的な GO（会話・Issue・PR コメント等）があった場合だけで、
-その根拠（誰が・いつ・どこで）を Task の Approval 欄に書く。AI が自分で承認しない。
+- [ ] その承認単位を扱う Analyzer report が存在する（Task 全体の analysis、または Work Item 専用の analysis）
+- [ ] Planner task が存在し、その承認単位の計画が書かれている（`.ai/tasks/<ID>.md`）
+- [ ] その承認単位の未確定事項（DECISION）が列挙され、実装に必要なものは決定済み
+- [ ] その承認単位の実装範囲（Files To Change / Files Not To Change）が明確
+- [ ] その承認単位に Human Approval が明示されている（`Status: APPROVED` とチェック済みの Approval 欄）
 
-承認の範囲は Task に書かれた範囲に限る。別の Task・別のフェーズへは及ばない。
+Planner は計画を書き終えた承認単位を `WAITING_APPROVAL` にして止まる。
+`APPROVED` にしてよいのは人間の明示的な GO（会話・Issue・PR コメント等）があった場合だけで、
+その根拠（誰が・いつ・どこで・どの承認単位を）を Approval 欄に書く。**AI が自分で承認しない。**
+
+承認の範囲はその承認単位に書かれた範囲に限る。
+
+- ある Work Item の承認は、同じ Task の他の Work Item の承認を意味しない
+- 別の Task・別のフェーズへも及ばない
+- Task 全体の Status が `PLANNED` のままでも、`APPROVED` の Work Item は実装してよい。未承認の Work Item は実装しない
 
 ## 7. Task State
 
@@ -171,10 +180,37 @@ REVIEWING → CHANGES_REQUIRED → IMPLEMENTING → TESTING
 | DONE | 完了 | － | － |
 | BLOCKED | 停止中（理由を明記） | － | 人間の判断 |
 
-Task ファイルの冒頭に `Status:` を1行で書く。Status を見れば工程上の位置が分かる状態を保つ。
 Status を変えたら、同じ Task の「Status History」に1行追記する（テンプレートは `.ai/tasks/README.md`）。
 
 旧表記の読み替え: `REQUESTED` = DRAFT、`REVIEW` = REVIEWING。
+
+### 7.1 Task Level
+
+Task ファイルの冒頭に `Status:` を1行で書く。
+
+- **Work Item を持たない Task**: 上の状態遷移をそのまま Task の Status として使う（従来どおり）
+- **Work Item を持つ Task**: Task の Status は **Task 全体の調査・計画の進み具合** を表し、
+  使う値は `DRAFT` / `ANALYZING` / `PLANNED` / `DONE` / `BLOCKED` だけとする。
+  承認・実装・テスト・レビューの状態（`WAITING_APPROVAL` 〜 `CHANGES_REQUIRED`）は Work Item 側に持たせる
+  - `DONE`: すべての Work Item が `DONE`、または人間の判断で取り下げ・別 Task へ移動済み（Status History に記録）
+  - `BLOCKED`: Task 全体が止まっている場合だけ（個別の停止は Work Item の `BLOCKED`）
+
+### 7.2 Work Item Level
+
+Work Item は Task の中の個別の作業項目（`T-1` など、Task 内で一意の ID）。
+
+- 各 Work Item は、上の状態遷移・状態表と同じ値の `Status` と、個別の Human Approval 欄を持つ
+- 状態遷移のルール・§6 の開始条件・§9 の3サイクル上限・§10 の Scope は、Work Item ごとに適用する
+- Work Item の Scope は、その Work Item の Files To Change / 計画に書かれた範囲。
+  他の Work Item の範囲に踏み込む変更は OUT OF SCOPE（§10）
+- Work Item を追加・分割・取り下げするのは Planner の提案と人間の判断による。既存の Work Item の ID・履歴は書き換えない
+- Work Item 専用の成果物は `<ID>-<ITEM>-analysis.md` / `-debug.md` / `-review.md`
+  （例: `CHAPTER-STRUCTURE-T1-analysis.md`）。Task 全体の成果物は従来どおり `<ID>-analysis.md`
+
+表記は `.ai/tasks/README.md` のテンプレート（Work Items 表と Work Item ごとの Approval 欄）に従う。
+
+**読み替え**: 本ファイル・`.ai/agents/*.md` で「Task の Status」「Task を BLOCKED にする」等と書いている箇所は、
+Work Item を持つ Task では **該当する Work Item の Status** を指す（§7.1 の Task Level の値を除く）。
 
 ## 8. Fact / Inference / Decision
 
