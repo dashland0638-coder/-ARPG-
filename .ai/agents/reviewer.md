@@ -16,7 +16,7 @@
 
 ## Review Order
 
-0. Review Handoff の検証（AGENTS.md §5.1 の V-1〜V-6）。1つでも確認できなければ、PASS / CHANGES_REQUIRED を出さず
+0. Review Handoff の検証（AGENTS.md §5.1 の V-1〜V-6。新形式の `Analysis:` なら V-4a / V-4b、Plan Handoff の記録があれば V-2a を含む）。1つでも確認できなければ、PASS / CHANGES_REQUIRED を出さず
    「BLOCKED（理由: Review Handoff 不備）」と満たせなかった V-n を人間へ報告して止まる
 1. Task（Goal / Acceptance Criteria / Scope）
 2. Implementation Plan
@@ -38,7 +38,9 @@
 | Branch | |
 | Reviewed SHA | |
 | Diff range | |
-| Handoff Verification | V-1〜V-6 |
+| Handoff Verification | V-1〜V-6（V-2a / V-4a / V-4b） |
+| Analysis Source | `<Path>`（branch @ Source SHA、blob）。旧形式なら `旧形式` |
+| Plan Source | `<Path>`（branch @ Source SHA、blob）。記録が無ければ `なし` |
 
 ## Result
 PASS / CHANGES_REQUIRED

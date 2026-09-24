@@ -16,7 +16,7 @@ Work Item の計画: `TASK-ID-<ITEM>.md`（例: `CHAPTER-STRUCTURE-T1.md`）。�
 
 Status: DRAFT
 
-Analysis: ../reports/<ID>-analysis.md
+Analysis: .ai/reports/<ID>-analysis.md（branch `<Source Branch>` @ `<Source SHA>`、blob `<Blob SHA>`）
 
 ## Human Approval
 - [ ] Approved
@@ -56,6 +56,9 @@ Implementation: BLOCKED until approval
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |
 ```
+
+`Analysis:` 行の書式と検証は `../AGENTS.md` §5.2（Artifact Handoff）。Work Items 表の `Analysis` 列も同じ書式で書いてよい。
+blob の無い既存 Task の `Analysis:` 行は旧形式として書き換えない。
 
 Target は `Task` または Work Item の ID（`T-1` など）。
 既存 Task の4列の Status History（Target 列なし）は書き換えず、そのまま残す。以後の行から5列で追記してよい。

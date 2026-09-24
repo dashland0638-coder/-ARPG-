@@ -96,6 +96,9 @@ Human Intent / Human Approval 以外の各段は、成果物（Markdown）を残
 Implementer → Reviewer と Reviewer → DONE の受け渡しでは、「残す」は **作業ブランチへ commit・push し、remote から取得できる状態にすること** を指す（§7.3）。
 working tree にだけある成果物は、受け渡し済みとみなさない。
 
+Analyzer → Planner（Analyzer report）と Planner → Human Approval → Implementer（承認済み Task file）の受け渡しでは、
+「残す」は **§5.2 の Artifact Handoff が成立していること** を指す。
+
 ## 5. Roles and Permissions
 
 | Role | 責務 | 入力 | 出力 | 変更権限 | 次工程 |
@@ -152,9 +155,9 @@ Implementation SHA は Task file に書かない（自分を含むコミット�
 | # | 確認 |
 | --- | --- |
 | V-1 | Branch が remote に存在し、Implementation SHA がそのブランチから到達可能 |
-| V-2 | Implementation SHA から Task file へ到達できる |
+| V-2 | Implementation SHA から Task file へ到達できる。Implementation Result に Plan Handoff（§5.2、Kind `plan`）が記録されていれば次も確認する:<br>**V-2a** `git diff <Plan の Source SHA>:<Path> <Implementation SHA>:<Path>` の変更が、`Status:` 行・Status History への行追加・Implementation Result 節だけ |
 | V-3 | Plan が存在する |
-| V-4 | Analyzer report（Task file の `Analysis:`）が存在する |
+| V-4 | Analyzer report（Task file の `Analysis:`）が存在する。`Analysis:` が新形式（§5.2）なら次も確認する:<br>**V-4a** `git rev-parse <Implementation SHA>:<Path>` が Blob SHA と一致する（同一性の正本）<br>**V-4b** Source Branch が remote に残っていれば、Source SHA がそこから到達可能（出所の補助。Source Branch が削除済みなら V-4a だけで判定する） |
 | V-5 | Implementation Result（Test Report・Changed Files）を Task file で確認できる |
 | V-6 | Diff range が空でなく、終点が Implementation SHA と一致する |
 
@@ -164,6 +167,82 @@ Implementation SHA は Task file に書かない（自分を含むコミット�
 - 満たせなかった V-n を人間へ報告して止まる。Task file の Status は Reviewer が変更しない（対象の Task file が確定しないため）
 - 人間または Implementer が Handoff を出し直した時点で、Reviewer は V-1 から検証し直す
 - レビューは Implementation SHA の内容に対して行う。ブランチ先端・自分の working tree・未 commit の変更は対象にしない
+
+### 5.2 Artifact Handoff
+
+Analyzer report と承認済み Task file を、別セッション・別ブランチの次の段へ渡すための定義（Pin-by-SHA）。
+Artifact は remote のブランチ上の **commit SHA（固定点）と blob SHA（同一性の正本）** で指す。ブランチの到達性は出所の補助情報とする。
+書式は `.ai/agents/analyzer.md`（Kind `analysis`）。Kind `plan` も同じ書式を使う。
+
+| 項目 | 内容 |
+| --- | --- |
+| Task ID | `<ID>`（Work Item 専用は `<ID> / T-n`） |
+| Kind | `analysis`（Analyzer report）または `plan`（承認済み Task file） |
+| Source Branch | Artifact を push したブランチ |
+| Source SHA | Artifact を追加・更新した commit（40桁） |
+| Path | Artifact のパス |
+| Blob SHA | `git rev-parse <Source SHA>:<Path>`（40桁） |
+| Persisted by | `Human`（git の author / committer で代替しない。自己申告として記録する） |
+
+すべて必須。短縮 SHA は不可（§5.1 と同じ）。
+
+**Persistence**: Artifact を remote に置くのは人間（§6）。Artifact 1ファイルだけの commit を作り、amend / force push しない。
+
+- Kind `analysis`: Analyzer が report を作って止まった後、人間が Analyzer のブランチへ push し、Handoff を Planner へ渡す
+- Kind `plan`: 人間が承認（§6）を Task file に記入した **承認済み版** を push し、Handoff を Implementer へ渡す。Planner の `WAITING_APPROVAL` 版は pin しない
+
+**期待 Path**（ファイル名から Task ID を推定せず、Task ID から組み立てた文字列と一致を見る）:
+
+| Kind | Task 全体 | Work Item 専用 | 1行目 |
+| --- | --- | --- | --- |
+| `analysis` | `.ai/reports/<ID>-analysis.md` | `.ai/reports/<ID>-<ITEM>-analysis.md` | `# <ID> Analysis` で始まる |
+| `plan` | `.ai/tasks/<ID>.md` | `.ai/tasks/<ID>-<ITEM>.md` | `# <ID>` と一致（Work Item 計画は `# <ID>` で始まる） |
+
+命名規則の例外は、P-10 の `.ai/reports/P-10-artifact-handoff-analysis.md`（P10-D9、人間承認済みの一回限り）だけ。他の Task に類推適用しない。
+
+**Handoff 検証（H-1〜H-8）**: 受け取る段（Kind `analysis` は Planner、Kind `plan` は Implementer）は、作業を始める前に Handoff の記載を信用せず git から再計算して、すべて確認する。
+
+| # | 確認 | 手段（すべて read-only） |
+| --- | --- | --- |
+| H-1 | Source Branch が remote に存在し、Source SHA がそこから到達可能。自分のブランチを Source SHA 起点で作った場合（任意の運用）は `HEAD` から到達可能でもよい | `git fetch origin <branch>`、`git merge-base --is-ancestor <sha> origin/<branch>`（または `HEAD`） |
+| H-2 | Source SHA 時点に Path が存在する | `git cat-file -e <sha>:<path>` |
+| H-3 | Source commit の変更が Path の1件だけ（Persistence の主体に依らず、Analyzer / Planner が他を変えていない証跡） | `git diff --name-only <sha>^ <sha>` |
+| H-4 | Path と1行目が、Task ID から組み立てた期待 Path・見出しと一致する | 文字列一致（上の表） |
+| H-5 | Kind が `analysis` / `plan` のどちらかで、Path がその Kind の期待 Path に一致する（上の例外を除く） | 上の表 |
+| H-6 | Blob SHA が一致する | `git rev-parse <sha>:<path>` |
+| H-7 | 同じ `(Task ID, Kind)` の記録が既にあれば、下の「新版」「二重 Handoff」に従う | Task file の `Analysis:` 行 / Implementation Result |
+| H-8 | Source SHA の内容だけを読む（ブランチ先端・working tree の同名ファイルを読まない） | `git show <sha>:<path>` |
+
+1つでも満たせなければ **BLOCKED（理由: Artifact Handoff 不備）** として、満たせない H-n を人間へ報告して止まる。
+Planner は Task file を作らず、Implementer は commit しない。Status は変更しない（§5.1 と同じ扱い）。
+
+Handoff の成立は「どの版を読むか」が確定・検証されたことだけを意味し、**内容の承認ではない**。
+AI は検証失敗を承認で上書きせず、blob 不一致を再コピー・書き換えで自分で解消しない。
+同一セッションで役割を兼務する場合も H-1〜H-8 を省略しない（§5）。
+
+**Task file への記録**（Planner。Kind `analysis`）:
+`Analysis: <Path>（branch \`<Source Branch>\` @ \`<Source SHA>\`、blob \`<Blob SHA>\`）`。
+Work Items 表の `Analysis` 列も同じ書式で書いてよい。Kind `plan` は Implementer が Implementation Result に記録する（Task file は自分の blob を書けないため）。
+blob の無い `Analysis:` 行（パスのみ、または `branch @ SHA` のみ）は旧形式として扱い、H-n / V-4a / V-4b を要求しない。
+
+**Branch の区別**: Source Branch（Artifact を push したブランチ）と、Persistence の作業ブランチ（§6）は別の概念で、異なってよい。
+Source Branch が force push・削除されて H-1 が満たせない場合は BLOCKED として人間へ戻す。Reviewer の V-4b は Source Branch が残っている場合だけ確認する（§5.1）。
+
+**新版**: 同じ `(Task ID, Kind)` で Blob SHA が異なる Handoff は新版。新版は新しい commit で作る（amend / force push で旧 Source SHA を消さない）。
+
+| 新版を受け取った時点の Status | 扱い |
+| --- | --- |
+| `WAITING_APPROVAL` より前 | Planner が新版で H-1〜H-8 をやり直し、`Analysis:` 行を更新して計画を見直す |
+| `WAITING_APPROVAL` | Planner が H-1〜H-8 をやり直し、`Analysis:` 行を更新し、Status History に1行追記する |
+| `APPROVED` 以降 | 旧 Artifact を使い続けない。**BLOCKED（理由: Artifact Handoff 不備 / 承認後の新版）** とし、Human Approval を取り直す（§6） |
+| `DONE` | 既存 Task を変更しない。新しい Task とする |
+
+**二重 Handoff**: 識別キーは `(Task ID, Kind, Blob SHA)`。同じキーの再 Handoff は no-op とし、記録済みの参照（Source SHA を含む）を書き換えない。
+異なる Task ID の Artifact を渡された場合は H-4 で BLOCKED。
+
+**適用範囲**: 本節は、本節が `main` に統合された後に Planner が着手する Task / Work Item から適用する。
+既存の Task・report・Approval 欄・旧形式の `Analysis:` 行は書き換えない（§7.3 の適用範囲と同じ方針）。
+着手前の Task（例: ENEMY-ATTACK-VIS-001。report が remote に無ければ、人間の判断で Analyzer を再実行する）は、統合後に本節どおり扱う。
 
 ## 6. Human Approval Gate
 
@@ -193,10 +272,12 @@ Planner は計画を書き終えた承認単位を `WAITING_APPROVAL` にして�
 - 1つの `許可` が次の2つを許可する。どちらも同じブランチへだけ行う:
   - Implementer の commit / push: その承認単位の承認範囲（Files To Change と Task file の Implementation Result・Status・Status History）。
     加えて、その承認単位の Analyzer report と Task file（計画本文・Approval 欄を含む）がそのブランチの remote にまだ無い場合は、
-    それらを Human Approval 時点の内容のまま最初の実装 commit に含める（§7.3 手順2）。Implementer は Analyzer report・計画本文・Approval 欄を変更しない
+    それらを Human Approval 時点の内容のまま最初の実装 commit に含める（§7.3 手順2）。Implementer は Analyzer report・計画本文・Approval 欄を変更しない。
+    `Analysis:` が新形式（§5.2）なら、Analyzer report は Artifact Handoff の Source SHA から復元し、Blob SHA と一致することを確かめてから含める（I-1 / I-2。§7.3 手順2）
   - Reviewer の §7.3 の commit / push: review report・Task file の Status 更新・Status History への追記（必要な行だけ）。review report はこの範囲に限り承認範囲外のファイルとして扱わない。
     Reviewer がそれ以外のファイルを commit する許可にはならない
-- Analyzer / Planner に commit / push の権限は無い。Human Approval より前に Analyzer report・Task file を push する規定も設けない（人間が自分で行うことは妨げない）
+- Analyzer / Planner に commit / push の権限は無い。Analyzer report と承認済み Task file の remote への Persistence は人間が行い、Handoff の `Persisted by` に `Human` と記録する（§5.2）。
+  これは人間の操作であり、Analyzer / Planner に push の許可を与えるものではない
 - 同じ承認単位の CHANGES_REQUIRED 後の再実装・Debugger 後の修正は、承認範囲・ブランチ・Files To Change が変わらない限り、既存の `許可` を使い続けてよい。
   承認範囲や Files To Change を変える場合は、Human Approval と Persistence を取り直す
 - `Persistence` を `許可` にしてよいのは、そのブランチへの commit / push を許可する人間の明示的な指示があった場合だけで、その根拠（誰が・いつ・どこで）を書く。
@@ -293,7 +374,13 @@ push できなかった local commit を削除・書き換えする必要は無�
 1. §14 のテストが完了し、Implementation Result（Test Report を含む）を書いた（IMPLEMENTATION COMPLETE）。FAIL が無い
 2. 承認範囲の成果物（コード・テスト・Task file の Implementation Result・Status の `REVIEWING` 更新と Status History 行）を commit する。
    Status History の Note には Branch を書く。
-   その承認単位の Analyzer report と Task file（計画本文・Approval 欄を含む）がブランチの remote にまだ無い場合は、Human Approval 時点の内容のまま同じ commit に含める（§6）
+   その承認単位の Analyzer report と Task file（計画本文・Approval 欄を含む）がブランチの remote にまだ無い場合は、Human Approval 時点の内容のまま同じ commit に含める（§6）。
+   Artifact Handoff（§5.2）を受けた Artifact は次を満たしてから含める:
+   - **I-1**: 作業ブランチ上の Path の blob が Blob SHA と一致する。無ければ `git show <Source SHA>:<Path>` で復元し、`git hash-object <Path>` が Blob SHA と一致することを確かめる
+   - **I-2**: 一致しなければ commit しない。自分で書き換え・再コピーせず **BLOCKED（理由: Artifact Handoff 不備）** で人間へ戻す
+   - **I-3**（Kind `plan`）: Task file は Plan Handoff の承認済み版を起点にし、変更は `Status:` 行・Status History への行追加・Implementation Result 節だけにする。検証した Plan Handoff は Implementation Result に記録する
+
+   blob の無い旧形式の `Analysis:` 行を持つ承認単位は従来どおり（存在確認のみ）
 3. Persistence のブランチへ push し、remote のブランチから Implementation SHA へ到達できることを確かめる
 4. Review Handoff（§5.1）を作り Reviewer へ渡す。ここで `REVIEWING` が成立する
 
