@@ -7,6 +7,25 @@ Status: **PLANNED（Analyzer → Planner まで）** ／ 本タスクでのゲ�
 Analysis: [`../reports/CHAPTER-STRUCTURE-analysis.md`](../reports/CHAPTER-STRUCTURE-analysis.md)
 Related: [`MAGE-001.md`](MAGE-001.md) / [`../decisions/DEC-001-duskvillage-rebuild.md`](../decisions/DEC-001-duskvillage-rebuild.md)
 
+T-1 Analysis: [`../reports/CHAPTER-STRUCTURE-T1-analysis.md`](../reports/CHAPTER-STRUCTURE-T1-analysis.md)
+
+## Human Approval
+
+Task 全体の Status は `PLANNED` のまま（T-3 / T-4 は Unknown 7 / 8 が未決定のため、Task 全体を WAITING_APPROVAL にはしない）。
+承認は項目ごとに行い、チェックの無い項目は実装しない。
+
+- [ ] T-1 Approved（Implementation Gate: **WAITING_APPROVAL** ―― 判断事項 D-1〜D-5 は T-1 Analysis 参照）
+- Approved by / date / where:
+- Scope of approval:
+
+Implementation: **BLOCKED until approval**
+
+## Status History
+
+| Date | From → To | By | Note |
+| --- | --- | --- | --- |
+| 2026-09-24 | PLANNED → PLANNED | Analyzer | T-1 Analysis を追加。T-1 のみ WAITING_APPROVAL。Task 全体の Status は変更しない |
+
 > **改訂（WORK 12.1 後）**
 > 旧版は「Scenario Test Mode を新設する」計画だったが、WORK 1 / 4 / 12.1 で
 > **シナリオ直接起動・開始地点・Arc の顔ぶれ自動プリセットは実装済み**になった。
