@@ -1497,7 +1497,15 @@
        ・装備中の武器 … 今の主人公が扱えない武器種なら、その主人公の武器へ
      テストモードは開発用なので触らない */
   function normalizeChapter1Load(){
-    if(state.testMode) return;
+    /* テストモードは、ここで初めて state.testMode が立つ(finishEnteringGame)。
+       beginTestMode が先に計算したステータスは「本編扱い(レベル成長なし)」の
+       ままなので、指定したレベルの値で計算し直す(WORK 12.1 で E2E の
+       mansion-butler が発見: Lv.50 のはずが基礎値で戦っていた) */
+    if(state.testMode){
+      recomputeStats();
+      state.hp = state.maxHp; state.mp = state.maxMp;
+      return;
+    }
     state.job = null;
     const w = state.equipped && state.equipped.weapon;
     if(!w || !canEquipItem(w)){
