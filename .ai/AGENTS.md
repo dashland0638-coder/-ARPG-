@@ -190,6 +190,10 @@ Planner は計画を書き終えた承認単位を `WAITING_APPROVAL` にして�
 
 - commit / push は、その承認単位の Approval 欄の `Persistence` が `許可` で、対象ブランチ名が書かれている場合に限り、そのブランチへだけ行ってよい
   （Implementer はテスト完了後。Reviewer は §7.3 の範囲）
+- 1つの `許可` が次の2つを許可する。どちらも同じブランチへだけ行う:
+  - Implementer の commit / push: その承認単位の承認範囲（Files To Change と Task file の Implementation Result・Status・Status History）
+  - Reviewer の §7.3 の commit / push: review report・Task file の Status 更新・Status History 1行だけ。review report はこの範囲に限り承認範囲外のファイルとして扱わない。
+    Reviewer がそれ以外のファイルを commit する許可にはならない
 - `Persistence` を `許可` にしてよいのは、そのブランチへの commit / push を許可する人間の明示的な指示があった場合だけで、その根拠（誰が・いつ・どこで）を書く。
   Implementation の承認から Persistence を推測・補完しない。**AI が自分で Persistence を許可にしない**
 - `Persistence` が空欄・`許可しない`・行が無い（旧形式の Approval 欄）場合は、許可されていない
@@ -299,7 +303,7 @@ Status は増やさない。成果物の永続化は、既存の2つの遷移の
 
 - [ ] review report の Result が PASS
 - [ ] review report が remote の Branch に存在する（push を確認するまで、PASS は完了条件として成立しない）
-- [ ] review report の Reviewed SHA が、その承認単位の最新の Implementation SHA と一致する（Reviewed SHA より後に、その承認単位の Files To Change へのコミットが無い）
+- [ ] review report の Reviewed SHA が、その承認単位の最新の Implementation SHA と一致する（Reviewed SHA より後に、その承認単位の Files To Change を変更するコミットが無い。上の「Reviewer の commit 範囲」に従う Reviewer commit は除外する。それ以外のコミットが1つでもあれば満たさない）
 
 - テストの要件は §14 のまま（Targeted を許容する）。Full Regression と、完了についての追加の Human Approval は DONE の条件にしない
 - Reviewed SHA より後に実装が変わった場合は、新しい Implementation SHA で Handoff とレビューをやり直す
