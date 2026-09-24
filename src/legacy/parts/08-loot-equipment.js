@@ -114,7 +114,7 @@
     templeGuardian: {prefix:'守護神像の', icon:'🏛️', atkMul:1.52, hpMul:1.52},
     conservatoryBloom: {prefix:'母樹の', icon:'🌿', atkMul:1.68, hpMul:1.68},
     towerWarden: {prefix:'時喰らいの', icon:'🕰️', atkMul:1.34, hpMul:1.34},
-    duskCollective: {prefix:'宵影の群れの', icon:'🏮', atkMul:1.75, hpMul:1.75},
+    duskEcho: {prefix:'村の残響の', icon:'🏮', atkMul:1.75, hpMul:1.75},
   };
   function rollBossSignatureGear(bossKey, baseLevel){
     const sig = BOSS_SIGNATURE_GEAR[bossKey];
@@ -976,10 +976,10 @@
 
      原案は「主人公＋ゲスト」の2人で本編を攻略する構成。CHAPTER_CAST
      (01-character-creation.js)がゲストのクラスキーを章ごとに定義して
-     いるが、章の自動進行(洋館クリア→魔法使いへ交代、等)はまだ実装
-     しておらず、state.guestClassKeyを実際に書き換える経路が今は無い
-     ―― この段階ではセーブデータへ直接guestClassKeyを仕込むか、
-     章進行の実装(次のフェーズ)を待つ形になる。
+     いる。Chapter 1 の自動進行(洋館クリア→魔法使いへ交代、等)は
+     WORK 10 で実装済み ―― advanceChapter1Cast(14-hud-boot.js)が
+     酒場へ戻るたびに state.guestClassKey を書き換え、ここの
+     syncAlliesToState() が実体を組み直す。
 
      見た目は上のCOMPANION(浮遊する球体の使い魔)とは別物 ――
      CLASSES[classKey]の色を纏った人型NPCで、酒場の店主/鍛冶士と同じ

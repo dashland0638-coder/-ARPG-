@@ -914,6 +914,22 @@
       proj.impactAoeRadius = MAGE_IMPACT_AOE_RADIUS;
     }
     projectiles.push(proj);
+    /* Attack Snapshot(WORK 4)。写し身が「直前の一撃」を1回だけ返せるよう、
+       撃った形だけを控えておく ―― 記録するのは種類・位置・向き・威力の4つで、
+       装備やスフィアの育成分は写さない(core/attack-snapshot.js)。
+       写せない攻撃(近接・矢など)は makeAttackSnapshot が null を返すので、
+       ここでは種類名を渡すだけでよい。魔法弾以外はまだ写せない */
+    recordAttackSnapshot('magicBolt', dir, dmg);
+  }
+
+  /* 直前の攻撃の記録。写し身(07-ai-combat.js)がこれを消費する。
+     未対応の攻撃種別では何も起きない(null は上書きせず、そのまま保持) */
+  function recordAttackSnapshot(kind, dir, power){
+    const snap = makeAttackSnapshot({
+      kind, x: state.pos.x, z: state.pos.z,
+      dirX: dir.x, dirZ: dir.z, power, at: mechTime,
+    });
+    if(snap) state.attackSnapshot = snap;
   }
 
   // one arrow, optionally homing onto whatever is nearest in front
@@ -1030,7 +1046,7 @@
     if(skill2.key === 'crushSlash') castCrushSlash(dmg, fwd, skill2);
     else if(cdef.key==='warrior') castGroundSplit(dmg, fwd);
     else if(cdef.key==='rogue') castKnifeBarrage(dmg, fwd);
-    else if(cdef.key==='mage') castOrbGuard();
+    else if(cdef.key==='mage') castObserveLight();
     else if(cdef.key==='archer') castBombThrow(dmg, fwd);
     flashScreen();
   }
@@ -1323,9 +1339,15 @@
     arc();
   }
 
-  // mage: 護りの魔球 - two orbs hover at the player's front sides. Each
-  // auto-charges into any enemy that gets close and explodes; taking a hit
-  // while orbs remain consumes one to negate the damage entirely
+  /* mage: 護りの魔球 - two orbs hover at the player's front sides. Each
+     auto-charges into any enemy that gets close and explodes; taking a hit
+     while orbs remain consumes one to negate the damage entirely.
+
+     **現在この関数を呼ぶ経路は無い**(WORK 3 で Skill 2 の座を観測の灯へ
+     譲ったため)。消していないのは、将来また使う可能性があるのと、
+     被弾側の tryConsumeOrbShield() が20箇所の被ダメージ経路から
+     呼ばれている共有処理で、そちらは空配列に対して false を返すだけで
+     安全に動いているから(WORK 8 で参照を確認済み)。 */
   function castOrbGuard(){
     const right = new THREE.Vector3(Math.cos(state.facing),0,-Math.sin(state.facing));
     const fwd = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
@@ -1390,7 +1412,121 @@
     }
   }
 
+  /* =========================================================
+     幻影歩法(魔法使いの Skill 1、WORK 4 / MAGE-001)
+
+     いた場所に自分の輪郭を残して退く。敵は幻影のほうへ向かうが、
+     **命中判定はプレイヤーの座標のまま**なので、敵は幻影に向かって
+     攻撃して自然に空振りする ―― 「デコイが攻撃を受け止める」処理を
+     新設していないのはそのため。
+
+     誰がどれくらい釣られるかは敵ごとに違う(core/decoy.js の DECOY_PULL)。
+     全員が必ず釣られるようにすると、幻影歩法が必須の攻略法になってしまう。
+
+     見た目は buildPlayer() を使わない ―― player と playerMixerParts は
+     連結スコープの共有変数で、2回目の buildPlayer() はプレイヤー本体の
+     リグ参照を壊す(ARCHITECTURE.md)。薄い輪郭で足りる。
+  ========================================================= */
+  function spawnPhantomDecoy(x, z){
+    const color = (state.classDef && state.classDef.trim) || 0x9fd8ff;
+    const mat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.42, depthWrite:false});
+    const g = new THREE.Group();
+    /* 大きさはプレイヤーの見た目に寄せる ―― 小さいと「置いた印」に見えて
+       しまい、敵がそれを人影と取り違えている画に読めない */
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.6, 10), mat);
+    body.position.y = 0.80;
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 10, 8), mat);
+    head.position.y = 1.78;
+    g.add(head);
+    g.position.set(x, 0, z);
+    g.rotation.y = state.facing;
+    scene.add(g);
+    state.decoys.push({x, z, group:g, mat, life:PROVISIONAL_PHANTOM_LIFE_SEC,
+                       maxLife:PROVISIONAL_PHANTOM_LIFE_SEC, kind:'phantom'});
+    // 足元の水面が応える(村では波紋、それ以外では何も起きない)
+    if(currentWorldKey === 'duskvillage' && typeof spawnDuskRipple === 'function'){
+      spawnDuskRipple(x, z, 0.9);
+    }
+    sfx('dodge');
+  }
+
+  function updatePhantomDecoys(dt){
+    if(!state.decoys || !state.decoys.length) return;
+    for(let i=state.decoys.length-1;i>=0;i--){
+      const d = state.decoys[i];
+      const step = stepDecoyLife(d, dt);
+      d.life = step.life;
+      // 消える間際に薄くなる。残り時間が読めるので、引きつけが切れる瞬間が分かる
+      const k = d.maxLife > 0 ? d.life / d.maxLife : 0;
+      d.mat.opacity = 0.42 * Math.min(1, k * 2.2);
+      if(step.expired){
+        scene.remove(d.group);
+        state.decoys.splice(i, 1);
+      }
+    }
+  }
+
+  function clearPhantomDecoys(){
+    if(!state.decoys) { state.decoys = []; return; }
+    state.decoys.forEach(d=> scene.remove(d.group));
+    state.decoys = [];
+  }
+
+  /* 観測の灯(魔法使いの Skill 2、WORK 3 / DEC-001)
+
+     魔法使いの戦い方は「敵の状態を観察し、行動を誘導し、有利な距離を作る」
+     こと。このスキルはその観察の側を助ける ―― 一定時間 state.observeLightT
+     を立てるだけで、実際に何が見やすくなるかは敵の側が決める
+     (水鏡の影なら波紋の間隔・向き直り・予兆の差が広がる。
+     core/mirror-shade.js と updateMirrorShadeAI を参照)。
+
+     **答えは表示しない。** 本体に印を付ける・色を変える・名前を出すといった
+     ことは一切しない。灯りが無くても同じ差は観察できるので、他職でも同じ敵を
+     攻略できる ―― 魔法使いは「観察しやすい」だけ。
+
+     属性は持たない(そもそもこのゲームに属性は無い)。ダメージも無い。 */
+  function castObserveLight(){
+    state.observeLightT = OBSERVE_LIGHT_SEC;
+    sfx('chime');
+    spawnToast('🔍 灯りを掲げた ―― 周りの動きがよく見える');
+    spawnObserveLightVFX();
+  }
+
+  // 掲げた灯りそのもの。プレイヤーの頭上に短く留まる静かな光
+  function spawnObserveLightVFX(){
+    const mat = new THREE.MeshBasicMaterial({color:0xbfe6ff, transparent:true, opacity:0.5, depthWrite:false});
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 10), mat);
+    mesh.position.copy(state.pos); mesh.position.y += 2.0;
+    scene.add(mesh);
+    const glow = takeLight(0xbfe6ff, 1.1, OBSERVE_RADIUS);
+    glow.position.copy(mesh.position);
+    let elapsed = 0, last = performance.now();
+    const life = OBSERVE_LIGHT_SEC * 1000;
+    function tick(){
+      const now = performance.now();
+      if(!state.paused && !state.dialogueActive) elapsed += now - last;
+      last = now;
+      const t = Math.min(1, elapsed / life);
+      if(state.started){
+        mesh.position.copy(state.pos); mesh.position.y += 2.0 + Math.sin(elapsed*0.004)*0.08;
+        glow.position.copy(mesh.position);
+      }
+      // 最後の1/4で静かに落ちる ―― 切れる瞬間が分かるように
+      const fade = t < 0.75 ? 1 : (1 - (t-0.75)/0.25);
+      mat.opacity = 0.5 * fade;
+      glow.intensity = 1.1 * fade;
+      if(t < 1 && state.started){ requestAnimationFrame(tick); }
+      else { scene.remove(mesh); giveLight(glow); }
+    }
+    tick();
+  }
+
   // returns true if a hit was absorbed by a mage orb (damage should not apply)
+  // (護りの魔球は WORK 3 で Skill 2 の座を観測の灯へ譲ったので、現在この
+  //  配列を積む経路は無い。空配列に対しては false を返すだけなので、
+  //  各被弾経路の呼び出しはそのままで安全 ―― 将来また使う可能性があるため
+  //  実装ごと残してある)
   function tryConsumeOrbShield(){
     if(state.mageOrbs.length===0) return false;
     const orb = state.mageOrbs.shift();

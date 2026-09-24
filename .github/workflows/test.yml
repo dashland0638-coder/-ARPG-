@@ -1,0 +1,41 @@
+name: Test
+
+# deploy.yml (main への push) とは役割を分ける。
+# main への通常 push では実行しない。deploy.yml の build と二重実行になるため。
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      # playwright.config.js の webServer が npm run dev を自動起動し、
+      # headless + SwiftShader で実行する。CI 側で設定を上書きしない。
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm test

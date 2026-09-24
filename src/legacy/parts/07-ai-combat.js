@@ -555,26 +555,44 @@
       clearName:'水路の主', clearFlavor:'巨体はゆっくりと水底へ沈んでいき、水路に静寂が戻った。',
       rewardLoot:{type:'gem', name:'帯電した甲羅の欠片', icon:'💎', color:0x9a6ae0}
     }));
-    // 宵待ちの村(Phase D/#37): 村人・影の子供・ボスの生成はここで行う
-    // (buildDuskVillage()はランタンなど地形側だけを先に用意している ――
-    // 詳細は14-dungeon-duskvillage.js冒頭のコメント参照)
+    /* 宵待ちの村(正式仕様 / DEC-001)。旧実装の村人・影の子供・宵影の群れは
+       テーマごと差し替えになったため置いていない ―― 水鏡の影・泡沫の群れ・
+       写し身・記憶漁師・水門守の残響・村の残響は WORK 3 以降で、この分岐に
+       足していく(14-dungeon-duskvillage.js 冒頭のコメント参照)。
+       WORK 2 の時点では、マップと環境だけを歩いて確かめられる状態にしてある。 */
     if(_spawnWorldKey==='duskvillage'){
-      // マップ刷新(狭い桟橋の蜘蛛の巣状レイアウト)に伴い、各村人・影の子供の
-      // 立ち位置もハブ/小屋の足場の内側(DUSK_ROOMS参照)に合わせて置き直した
-      enemies.push(villager(0, 345));    // 桟橋の分岐(hub1)
-      enemies.push(villager(-27, 389));  // 民家A
-      enemies.push(villager(27, 389));   // 民家B
-      enemies.push(villager(0, 433));    // 役場裏口(hub3)
-      enemies.push(villager(0, 474));    // 商店街
-      addDuskShadowChild(duskLanterns[0], 3, 341);
-      addDuskShadowChild(duskLanterns[0], -3, 349);
-      addDuskShadowChild(duskLanterns[1], -24, 385);
-      addDuskShadowChild(duskLanterns[1], -30, 393);
-      addDuskShadowChild(duskLanterns[2], 24, 385);
-      addDuskShadowChild(duskLanterns[2], 30, 393);
-      const boss = buildDuskBoss();
-      enemies.push(boss);
-      duskBossRef = boss;
+      /* WORK 3: 最初の怪異「水鏡の影」。2体だけ置く ――
+         1体目は中央広場の北西(村の中心に着いた所で必ず目に入る)、
+         2体目は魚屋の前(記憶を見たあと、外へ出たところ)。
+         倒し方ではなく「観察すると挙動に規則がある」を教える敵なので、
+         数で押さない(updateMirrorShadeAI / core/mirror-shade.js) */
+      enemies.push(buildDuskMirrorShade(-13, 362));
+      enemies.push(buildDuskMirrorShade(-37, 350));
+      /* WORK 4: 泡沫の群れ(住宅の周り)と写し身(船小屋)。
+         泡沫は最初の3体だけ置き、あとは交戦中に上限まで増える
+         (core/foam-swarm.js)。写し身は舟の並ぶ水際に1体だけ ――
+         「自分の攻撃が返ってくる」を落ち着いて読める場所に置いている */
+      enemies.push(buildDuskFoam(38, 352));
+      enemies.push(buildDuskFoam(41, 346));
+      enemies.push(buildDuskFoam(35, 356));
+      enemies.push(buildDuskCopyShade(-40, 316));
+      /* WORK 5: 水門前の記憶漁師。1体だけ、水門を背にして置く ――
+         広い水面と門が見えている場所で、網の落ち先が読めるようにするため
+         (updateFisherAI / core/memory-fisher.js)。
+         商店街の複合戦闘はここでは出さない ―― 部屋へ入った時点から
+         時間差で出てくる(14-dungeon-duskvillage.js の stepDuskMarketFight) */
+      enemies.push(buildDuskFisher(0, 424));
+      /* WORK 7: 村の残響。ボスエリアの奥、水面の真ん中に。
+         村の奥 → ボスエリアの扉(duskBossDoor)が開くまでは眠ったまま
+         ―― 既存のボスの扉判定(bossDoorKey)をそのまま使っている */
+      enemies.push(buildDuskVillageEcho());
+    }
+    /* 道(WORK 11)。道標を過ぎた先に、既存の汎用の獣が3体だけ。
+       出会いのあとの戦闘は roadHandOff() がその場で出す(14-dungeon-road.js) */
+    if(_spawnWorldKey==='road'){
+      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X - 3, 0, 38), Object.assign({}, PROVISIONAL_ROAD_BEAST)));
+      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 4, 0, 42), Object.assign({}, PROVISIONAL_ROAD_BEAST)));
+      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 0.5, 0, 49), Object.assign({}, PROVISIONAL_ROAD_SPITTER)));
     }
     // テストモードのカカシ(訓練用の的)。hp/atk/speedはdifficultyFor()の
     // 補正(_D)がそのままかかるが、'training'は星取りデータが無いキーの
@@ -726,7 +744,35 @@
        一連で確認できるようにするため(tests/mansion-butler.spec.js) */
     manorButler:  {label:'Manor Butler',  icon:'🕯',
       spawn:(pos)=> buildEnemy(pos, mansionEnemyVariant('butler',  {hp:1400, atk:10, xp:0}))},
+    /* 宵待ちの村の怪異3種(WORK 3〜4)。洋館の敵をここに置いてあるのと
+       同じ理由 ―― 村の奥まで歩かずに、観察できる差・増え方・写しの
+       読み合いを繰り返し確かめられるようにするため。村は実測1.6fpsで、
+       村の中で戦って確認するのは現実的でない。
+       本編と同じ個体をそのまま出し、HPだけ検証用に厚くしてある
+       (泡沫だけは増殖を見たいので素のまま ―― 硬くすると上限まで増えた
+       群れが延々残る) */
+    duskMirror:   {label:'Mirror Shade',  icon:'🪞',
+      spawn:(pos)=> arenaThicken(buildDuskMirrorShade(pos.x, pos.z), 900)},
+    duskFoam:     {label:'Foam Swarm',    icon:'🫧',
+      spawn:(pos)=> buildDuskFoam(pos.x, pos.z)},
+    duskCopy:     {label:'Copy Shade',    icon:'👤',
+      spawn:(pos)=> arenaThicken(buildDuskCopyShade(pos.x, pos.z), 900)},
+    duskFisher:   {label:'Memory Fisher', icon:'🕸',
+      spawn:(pos)=> arenaThicken(buildDuskFisher(pos.x, pos.z), 1200)},
+    /* 水門守の残響(WORK 6)。トレーニング空間では水門もレバーも無いので、
+       動くのは残響の側だけ ―― 本体と残響の見分けは、それでも成立する
+       (予備動作の有無と、始まる時刻の差で見分ける敵なので)。
+       撃破時の水門開放は村でしか起きない(onDefeat を外してある) */
+    duskWarden:   {label:'Warden Echo',   icon:'⚓',
+      spawn:(pos)=>{ const en = arenaThicken(buildDuskWardenEcho(pos.x, pos.z), 1600);
+                     en.onDefeat = null; return en; }},
   };
+
+  // アリーナ用にHPだけ差し替える(経験値は入れない)。挙動には触らない
+  function arenaThicken(en, hp){
+    en.hp = hp; en.hpMax = hp; en.xp = 0;
+    return en;
+  }
   let arenaSpawnSeq = 0;
 
   function arenaSpawn(kind){
@@ -999,10 +1045,23 @@
       else if(en.atkType==='jumper') updateJumperAI(en, dt);
       else if(en.atkType==='ghost')  updateGhostAI(en, dt);
       else if(en.atkType==='servant') updateShadowServantAI(en, dt);
+      else if(en.atkType==='mirror') updateMirrorShadeAI(en, dt);
+      else if(en.atkType==='foam')  updateFoamAI(en, dt);
+      else if(en.atkType==='copy')  updateCopyShadeAI(en, dt);
+      else if(en.atkType==='fisher') updateFisherAI(en, dt);
+      else if(en.atkType==='keeper') updateKeeperAI(en, dt);
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
       updateMobAnim(en, dt);
     });
+    /* 投げられた網は敵とは別に進む(WORK 5)。漁師を倒しても、すでに
+       飛んでいる網はそのまま落ちて発動する ―― 投げた瞬間に落ち先が
+       決まっている、という約束をここでも守る */
+    if(memoryNets.length) updateMemoryNets(dt);
+    /* 残響も敵とは別に進む(WORK 6)。本体を倒しても、いま再生されている
+       過去はそのまま終わりまでなぞる ―― 撃破の瞬間に消えると、
+       「過去がそこに残っている」という読みのほうが崩れる */
+    if(keeperEchoes.length) updateKeeperEchoes(dt);
   }
 
 
@@ -2319,6 +2378,967 @@
     }
   }
 
+  /* =========================================================
+     水鏡の影(mirror) ―― 宵待ちの村の最初の怪異(WORK 3)
+
+     倒し方を覚えさせる敵ではなく、「この村の怪異は、観察すると挙動に
+     規則がある」というルールを体験させる敵。一定まで削ると同じ姿へ
+     分裂し、そこからは自分で本体を見つける。
+
+     本体を示す印は出さない。代わりに観察できる差を3つ持たせてある
+     (間隔・向き直りの速さ・予兆の深さ。数値はすべて core/mirror-shade.js):
+       ・本体は水面をゆっくり波立たせ、分身は細かく叩く
+       ・本体は一拍遅れて向き直り、分身は鏡のように即応する
+       ・本体だけ、攻撃前に大きく引く
+
+     分身は攻撃を当てると手応えなく散る(ダメージは入らない)。散らされた
+     分だけ、本体が少し経ってからまた分けて出す ―― 「全部壊せば勝ち」
+     ではなく「どれが本体かを見る」戦いにするため。
+
+     新しい戦闘基盤は作っていない: 体幹・パニッシュ窓・処刑・敵対(triggered)・
+     被ダメージ経路はどれも既存のものをそのまま使う。 ========================================================= */
+  /* 敵が「いま向かっている先」(WORK 4)。幻影歩法が置いた幻影があり、
+     その敵が釣られる性質(core/decoy.js の DECOY_PULL)なら幻影の座標を、
+     無ければプレイヤーの座標を返す。
+
+     **この関数を使ってよいのは、接近・向き直り・攻撃を始める判断だけ。**
+     命中判定は今までどおり state.pos で行う ―― だから敵は幻影へ向かって
+     攻撃し、自然に空振りする。ここを取り違えると無敵バグになる。 */
+  function aggroPoint(en){
+    const kind = en && en.decoyKind ? en.decoyKind : (en && en.atkType);
+    return aggroTarget(en.group.position, state.pos, state.decoys, {pull: decoyPullFor(kind)});
+  }
+
+  function isMirrorClone(en){ return !!(en && en.mirrorCloneOf); }
+
+  // 分身を1体作る。本体と同じ見た目・同じ大きさで、HPだけ持たない
+  function spawnMirrorClone(real, angle){
+    const pos = real.group.position.clone();
+    pos.x += Math.sin(angle) * PROVISIONAL_SPLIT_RADIUS;
+    pos.z += Math.cos(angle) * PROVISIONAL_SPLIT_RADIUS;
+    resolveWallCollisions(pos);
+    const clone = buildEnemy(pos, {
+      color: real.baseColor != null ? real.baseColor : 0x2a3b4a,
+      hp: 1, atk: Math.round(real.atk * 0.55), speed: real.speed,
+      atkType: 'mirror', xp: 0, goldBonus: [0, 0],
+    });
+    clone.mirrorCloneOf = real;
+    clone.triggered = real.triggered;
+    clone.mirrorRippleT = Math.random() * 0.8;   // 位相はばらす(同時に波立たない)
+    clone.mirrorState = 'chase';
+    clone.mirrorT = 0;
+    // 分身は「散る」ので、死体も復活も持たない
+    clone.roomTag = clone.roomTag || 'mirrorClone';
+    enemies.push(clone);
+    return clone;
+  }
+
+  // 分身を散らす。ダメージは入らず、手応えだけが返る
+  function dispelMirrorClone(clone){
+    const real = clone.mirrorCloneOf;
+    spawnUltimateVFX(clone.group.position.clone(), {radius:1.6, vfxColor:0x8fc8d8});
+    if(currentWorldKey === 'duskvillage'){
+      spawnDuskRipple(clone.group.position.x, clone.group.position.z, 1.0);
+    }
+    sfx('dodge');
+    scene.remove(clone.group);
+    const idx = enemies.indexOf(clone);
+    if(idx >= 0) enemies.splice(idx, 1);
+    if(real && !real.dead){
+      real.mirrorClones = (real.mirrorClones || []).filter(c=> c !== clone);
+      // 散らされた分は、少し経ってから本体がまた分けて出す
+      real.mirrorReformT = PROVISIONAL_REFORM_SEC;
+    }
+  }
+
+  // 本体が倒れたら、分身は残らない
+  function clearMirrorClones(real){
+    (real.mirrorClones || []).forEach(c=>{
+      if(!c) return;
+      scene.remove(c.group);
+      const idx = enemies.indexOf(c);
+      if(idx >= 0) enemies.splice(idx, 1);
+    });
+    real.mirrorClones = [];
+  }
+
+  function mirrorObserving(en){
+    if(!(state.observeLightT > 0)) return false;
+    return observeReaches(en.group.position.distanceTo(state.pos));
+  }
+
+  function updateMirrorShadeAI(en, dt){
+    const isClone = isMirrorClone(en);
+    const real = isClone ? en.mirrorCloneOf : en;
+    // 本体が先に倒れた分身は、次のフレームを待たずに消える
+    if(isClone && (!real || real.dead)){ dispelMirrorClone(en); return; }
+
+    if(en.mirrorState === undefined){
+      en.mirrorState = 'chase'; en.mirrorT = 0; en.mirrorRippleT = Math.random()*0.8;
+    }
+    const observing = mirrorObserving(en);
+    /* 向かう先。幻影歩法の幻影があればそちらへ寄る(WORK 4)。
+       命中判定は下の strike で state.pos を見るので、幻影に釣られた影は
+       プレイヤーに当たらない */
+    const aim = aggroPoint(en);
+    const toPlayer = new THREE.Vector3(aim.x - en.group.position.x, 0, aim.z - en.group.position.z);
+    const dist = toPlayer.length();
+    /* 命中と索敵は必ず本物のプレイヤーで測る ―― 幻影で測ると、幻影に
+       向かって振った攻撃が本人に当たってしまう(幻影歩法の意味が消える) */
+    const distToPlayer = state.pos.distanceTo(en.group.position);
+
+    // 索敵。条件は他の敵と同じ形(距離 + 視線)で、記録だけ enemy-aggro へ
+    const sees = distToPlayer < 9 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;
+
+    /* 観察できる差 その1: 水面の波紋。本体はゆっくり、分身は細かい。
+       村の水面の波紋(spawnDuskRipple)をそのまま使っていて、怪異専用の
+       表示を足していない ―― 同じ水面に出るからこそ「差」として読める */
+    const rip = mirrorStepRipple(en.mirrorRippleT, dt, !isClone, observing);
+    en.mirrorRippleT = rip.timer;
+    if(rip.fire && currentWorldKey === 'duskvillage' && en.triggered){
+      spawnDuskRipple(en.group.position.x, en.group.position.z, isClone ? 0.7 : 1.1);
+    }
+
+    /* 観察できる差 その2: 向き直り。本体だけ一拍遅れる。
+       回転そのものは既存の turnTowardAngle(core/enemy-facing.js)に任せる */
+    if(dist > 0.001){
+      const want = Math.atan2(toPlayer.x, toPlayer.z);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y, want,
+        mirrorTurnRate(!isClone, observing) * dt);
+    }
+
+    // ---- 分裂(本体のみ、一度だけ) ----
+    if(!isClone){
+      if(en.mirrorReformT > 0){
+        const rf = mirrorStepReform(en.mirrorReformT, dt);
+        en.mirrorReformT = rf.timer;
+        if(rf.ready && en.mirrorSplit && (en.mirrorClones || []).length < PROVISIONAL_CLONE_COUNT){
+          const missing = PROVISIONAL_CLONE_COUNT - (en.mirrorClones || []).length;
+          en.mirrorClones = en.mirrorClones || [];
+          for(let i=0;i<missing;i++){
+            en.mirrorClones.push(spawnMirrorClone(en, Math.random()*Math.PI*2));
+          }
+          sfx('dodge');
+        }
+      }
+      if(!en.mirrorSplit && mirrorShouldSplit(en.hp / en.hpMax, en.mirrorSplit)){
+        en.mirrorSplit = true;
+        en.mirrorClones = [];
+        for(let i=0;i<PROVISIONAL_CLONE_COUNT;i++){
+          const a = (i / PROVISIONAL_CLONE_COUNT) * Math.PI*2 + Math.random()*0.6;
+          en.mirrorClones.push(spawnMirrorClone(en, a));
+        }
+        /* 何が起きたかは画面で分かる(同じ姿が増える)ので、
+           どれが本体かには触れない一言だけ添える */
+        spawnToast('🌊 水面が揺れ、同じ影が増えた');
+        sfx('bossWake');
+        addShake(0.12);
+        if(currentWorldKey === 'duskvillage'){
+          spawnDuskRipple(en.group.position.x, en.group.position.z, 1.6);
+        }
+      }
+    }
+
+    // ---- 攻撃 ----
+    if(en.mirrorState === 'chase'){
+      if(!en.triggered){ updateWanderAI(en, dt); return; }
+      if(dist > 1.9){
+        const dir = toPlayer.clone().normalize();
+        en.group.position.addScaledVector(dir, en.speed * dt * (isClone ? 0.95 : 0.8));
+        resolveWallCollisions(en.group.position);
+      } else if((en.mirrorAtkCD || 0) <= 0){
+        /* 観察できる差 その3: 予兆。本体だけ大きく引いてから来る。
+           windup の長さと引きの深さは core/mirror-shade.js が返す */
+        const plan = mirrorWindupPlan(!isClone, observing);
+        en.mirrorState = 'windup';
+        en.mirrorT = plan.dur;
+        en.mirrorWindupDur = plan.dur;
+        en.mirrorDepth = plan.depth;
+      }
+      if((en.mirrorAtkCD || 0) > 0) en.mirrorAtkCD -= dt;
+      return;
+    }
+
+    if(en.mirrorState === 'windup'){
+      en.mirrorT -= dt;
+      // 引きの深さ: 体を沈めて後ろへ反る。本体ほど大きい
+      const prog = 1 - Math.max(0, en.mirrorT) / Math.max(0.01, en.mirrorWindupDur);
+      if(en.body && en.bodyScale){
+        const B = en.bodyScale;
+        const k = 1 + prog * 0.30 * en.mirrorDepth;
+        en.body.scale.set(B.x*k, B.y/(1 + prog*0.22*en.mirrorDepth), B.z*k);
+      }
+      if(en.mirrorT <= 0){
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+        en.mirrorState = 'strike';
+        en.mirrorT = 0.22;
+        en.mirrorHit = false;
+      }
+      return;
+    }
+
+    if(en.mirrorState === 'strike'){
+      en.mirrorT -= dt;
+      // 当たるかどうかは本物との距離で決める(幻影に振っていれば空振り)
+      if(!en.mirrorHit && distToPlayer < 2.4){
+        en.mirrorHit = true;
+        if(state.invulnerable || state.paralyzeInvulnT > 0){
+          if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
+        } else if(!tryConsumeOrbShield()){
+          const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
+          state.hp = Math.max(0, state.hp - dmg);
+          spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+          flashScreen();
+          if(state.hp <= 0) triggerPlayerDown();
+        }
+      }
+      if(en.mirrorT <= 0){
+        en.mirrorState = 'chase';
+        en.mirrorAtkCD = isClone ? 1.5 : 2.0;
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;   // 振り抜いた直後の隙(パニッシュ窓)
+      }
+      return;
+    }
+  }
+
+  /* =========================================================
+     泡沫の群れ(foam) ―― 放っておくと増える敵(WORK 4)
+
+     水鏡の影が「観察して見分ける」を教えるのに対して、こちらは
+     「増える前に散らす」という別の判断を教える。1体は弱く、HPで硬くしない
+     ―― 難しさは体力ではなく増える速さで作る(core/foam-swarm.js)。
+
+     上限があるので、範囲攻撃を持たない職でも必ず終わる。まとめて薙げる
+     職は速い、という差にとどめてある。 ========================================================= */
+  function spawnFoamMote(origin, angle, leader){
+    const off = foamGrowthOffset(angle);
+    const pos = origin.clone();
+    pos.x += off.dx; pos.z += off.dz;
+    resolveWallCollisions(pos);
+    const mote = buildEnemy(pos, {
+      color:0x7fb8c8, hp:56, atk:16, speed:2.9, atkType:'foam',
+      xp:22, goldBonus:[3, 7],
+    });
+    mote.group.scale.multiplyScalar(0.62);
+    mote.foamLeader = leader || null;
+    mote.foamGrowT = Math.random() * 2.0;   // 位相をばらす(同時に増えない)
+    mote.decoyKind = 'foam';
+    enemies.push(mote);
+    return mote;
+  }
+
+  // いま生きている泡沫の数。上限の判定に使う
+  function foamAliveCount(){
+    let n = 0;
+    for(let i=0;i<enemies.length;i++){
+      const e = enemies[i];
+      if(e && !e.dead && e.atkType === 'foam') n++;
+    }
+    return n;
+  }
+
+  /* 泡沫以外の怪異が何体いるか(WORK 5)。商店街のように複数の種類が
+     居合わせている間は、泡沫の上限を下げる ―― 見分ける相手と増える相手が
+     同時に画面を埋めると、判断ではなく反射の戦いになってしまう。
+     泡沫だけを相手にしている時の手応えは今までどおり */
+  const DUSK_ANOMALIES = ['mirror', 'copy', 'fisher'];
+  function otherAnomalyCount(){
+    let n = 0;
+    for(let i=0;i<enemies.length;i++){
+      const e = enemies[i];
+      if(e && !e.dead && !e.mirrorCloneOf && DUSK_ANOMALIES.indexOf(e.atkType) >= 0) n++;
+    }
+    return n;
+  }
+
+  function updateFoamAI(en, dt){
+    const aim = aggroPoint(en);
+    const to = new THREE.Vector3(aim.x - en.group.position.x, 0, aim.z - en.group.position.z);
+    const dist = to.length();
+    const distToPlayer = state.pos.distanceTo(en.group.position);
+
+    const sees = distToPlayer < 10 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;
+
+    /* 増殖。交戦中だけ増える ―― まだ気づかれていない群れが勝手に増えて
+       いると、部屋へ入った瞬間に上限の群れと出会うことになる */
+    if(en.triggered){
+      const g = foamStepGrowth(en.foamGrowT, dt, foamAliveCount(),
+                               {max: foamCapFor(otherAnomalyCount())});
+      en.foamGrowT = g.timer;
+      if(g.grow){
+        const mote = spawnFoamMote(en.group.position, Math.random()*Math.PI*2, en.foamLeader || en);
+        mote.triggered = true;
+        if(currentWorldKey === 'duskvillage'){
+          spawnDuskRipple(mote.group.position.x, mote.group.position.z, 0.6);
+        }
+      }
+    }
+
+    if(!en.triggered){ updateWanderAI(en, dt); return; }
+
+    // 近づいて弾ける。予兆は短いが、1体の威力は小さい
+    if(dist > 1.3){
+      const dir = to.normalize();
+      en.group.position.addScaledVector(dir, en.speed * dt);
+      en.group.rotation.y = Math.atan2(dir.x, dir.z);
+      resolveWallCollisions(en.group.position);
+    }
+    if(en.foamAtkCD > 0) en.foamAtkCD -= dt;
+    if(distToPlayer < 1.5 && (en.foamAtkCD || 0) <= 0){
+      en.foamAtkCD = 1.6;
+      if(state.invulnerable || state.paralyzeInvulnT > 0){
+        if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
+      } else if(!tryConsumeOrbShield()){
+        const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
+        state.hp = Math.max(0, state.hp - dmg);
+        spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+        if(state.hp <= 0) triggerPlayerDown();
+      }
+      en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+    }
+  }
+
+  /* =========================================================
+     写し身(copy) ―― プレイヤーの一撃を1回だけ返す怪異(WORK 4)
+
+     水面に映った自分が、少し遅れて同じことをしてくる。返してくるのは
+     **直前の一撃1回だけ**(core/attack-snapshot.js)で、記録できない攻撃は
+     写さずに見送る ―― 「攻撃する → 真似される → 避ける → 攻撃する」が
+     基本の読み合いになる。
+
+     プレイヤー本人を見ている敵なので、幻影歩法には釣られにくい
+     (DECOY_PULL.copy = 0.35)。それでも至近に幻影があれば狙いはずれる ――
+     「使いこなすと面白い」の幅をここで作る。
+
+     観測の灯が効いている間は、写しに入る前の溜めが読みやすくなる
+     (遅延が伸び、身体が沈む)。文字も印も出さない。 ========================================================= */
+  function updateCopyShadeAI(en, dt){
+    const aim = aggroPoint(en);
+    const to = new THREE.Vector3(aim.x - en.group.position.x, 0, aim.z - en.group.position.z);
+    const dist = to.length();
+    const distToPlayer = state.pos.distanceTo(en.group.position);
+    const observing = state.observeLightT > 0 && observeReaches(distToPlayer);
+
+    const sees = distToPlayer < 11 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;
+    if(!en.triggered){ updateWanderAI(en, dt); return; }
+
+    if(en.copyState === undefined){ en.copyState = 'watch'; en.copyT = 0; }
+    if(en.copyRippleT > 0) en.copyRippleT -= dt;
+
+    // 水面が応える。写し身は「水に映ったもの」なので、歩くたびに波が立つ
+    if(currentWorldKey === 'duskvillage' && (en.copyRippleT || 0) <= 0){
+      en.copyRippleT = 1.6;
+      spawnDuskRipple(en.group.position.x, en.group.position.z, 0.8);
+    }
+
+    // 向き直りは常に少し遅れる ―― 「映っているもの」なので一拍ずれる
+    if(dist > 0.001){
+      const want = Math.atan2(to.x, to.z);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y, want, 3.4 * dt);
+    }
+
+    if(en.copyState === 'watch'){
+      // 間合いを取って見ている。近づきすぎず、離れすぎない
+      if(dist > 6.5){
+        const dir = to.clone().normalize();
+        en.group.position.addScaledVector(dir, en.speed * dt * 0.8);
+        resolveWallCollisions(en.group.position);
+      } else if(dist < 3.6){
+        const dir = to.clone().normalize();
+        en.group.position.addScaledVector(dir, -en.speed * dt * 0.7);
+        resolveWallCollisions(en.group.position);
+      }
+      /* プレイヤーが何か写せる攻撃を出していたら、それを取り上げて構える。
+         取り上げた時点で記録は消えるので、同じ一撃を撃ち続けることはない */
+      const snap = consumeSnapshot(state, 'attackSnapshot');
+      if(snap){
+        en.copySnapshot = snap;
+        en.copyState = 'mimic';
+        // 観測の灯が効いていると、溜めが伸びて読みやすくなる
+        en.copyT = PROVISIONAL_COPY_DELAY_SEC * (observing ? 1.45 : 1);
+        en.copyDur = en.copyT;
+        sfx('chime');
+      }
+      return;
+    }
+
+    if(en.copyState === 'mimic'){
+      en.copyT -= dt;
+      // 溜めの見た目。水面から形を起こすように、身体が沈んで伸びる
+      const prog = 1 - Math.max(0, en.copyT) / Math.max(0.01, en.copyDur);
+      if(en.body && en.bodyScale){
+        const B = en.bodyScale;
+        const k = 1 + prog * (observing ? 0.34 : 0.22);
+        en.body.scale.set(B.x*k, B.y*(1 + prog*0.18), B.z*k);
+      }
+      if(en.copyT <= 0){
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+        replayCopiedAttack(en, en.copySnapshot);
+        en.copySnapshot = null;
+        en.copyState = 'watch';
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+      }
+      return;
+    }
+  }
+
+  /* 写しの再生。記録した形のまま、いまの狙い先へ向けて返す。
+     狙い先は aggroPoint なので、幻影歩法で立たせた幻影のほうへ撃たせる
+     こともできる(必須ではない)。 */
+  function replayCopiedAttack(en, snap){
+    if(!snap) return;
+    const aim = aggroPoint(en);
+    const plan = replayPlan(snap, en.group.position.x, en.group.position.z, aim.x, aim.z);
+    if(!plan) return;
+    if(plan.kind === 'magicBolt'){
+      spawnEnemyMirrorBolt(en, plan);
+    }
+    // 未対応の種別はここで静かに見送る(無理に再現しない)
+  }
+
+  /* 返ってくる魔法弾。敵の弾は既存の spawnEnemyFireball とは別に、
+     プレイヤーの魔法弾に似せた見た目で飛ばす ―― 「自分の攻撃が返ってきた」
+     と読めることがこの敵の肝なので、形はプレイヤー側に寄せてある。 */
+  function spawnEnemyMirrorBolt(en, plan){
+    /* 弾は既存の敵弾(spawnEnemyFireball)と同じ projectiles 配列・同じ
+       hostile:true の仕組みに乗せる ―― 新しい弾の経路は作らない。
+       見た目だけプレイヤーの魔法弾に寄せてあるのは、「自分の攻撃が
+       返ってきた」と読めることがこの敵の肝だから */
+    const color = 0x9fd8ff;
+    const mat = new THREE.MeshBasicMaterial({color});
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), mat);
+    const startPos = en.group.position.clone(); startPos.y += 0.95;
+    mesh.position.copy(startPos);
+    const glow = takeLight(color, 1, 3.5);
+    glow.position.copy(mesh.position);
+    scene.add(mesh);
+    sfx('cast');
+    projectiles.push({mesh, light: glow, dir: new THREE.Vector3(plan.dirX, 0, plan.dirZ),
+                      speed: 11, life: 2.4, dmg: plan.power, hostile: true});
+  }
+
+  /* =========================================================
+     記憶漁師(fisher) ―― 「少し前にいた場所」へ網を投げる敵(WORK 5)
+
+     追尾ではない。網は投げた瞬間に落ち先が決まり、そこから動かない ――
+     だから立ち止まっていると当たり、歩き続けていれば当たらない。
+     逃げ方を覚える敵ではなく、「自分がどこにいたか」を意識させる敵。
+
+     幻影歩法で置いた幻影を狙うときは、その場所へそのまま投げる ――
+     置いたばかりの幻影に「少し前」は無いので、記憶を辿りようがない
+     (core/memory-fisher.js)。応用であって、必須の攻略法ではない。
+
+     観測の灯は予兆を長く・はっきり見せるだけで、落ち先も威力も変えない。
+
+     通常の接近攻撃も持っているので、網を避け続けるだけでは終わらない。
+     新しい戦闘基盤は作っていない ―― 体幹・パニッシュ窓・処刑・被ダメージ
+     経路はどれも既存のものをそのまま使う。 ========================================================= */
+  let memoryNets = [];   // 飛んでいる/据わっている網。ワールド切り替えで空になる
+
+  function clearMemoryNets(){
+    memoryNets.forEach(n=>{
+      if(n.mesh) scene.remove(n.mesh);
+      if(n.ring) scene.remove(n.ring);
+    });
+    memoryNets = [];
+  }
+
+  /* 網を1つ投げる。plan(core/memory-fisher.js)が落ち先と時間を持っている。
+     ここでやるのは見た目と、当たったときの処理だけ。 */
+  function throwMemoryNet(en, plan){
+    // 飛んでいる間の網。水の色をした網目ひとつ
+    const mat = new THREE.MeshBasicMaterial({color:0x8fc8d8, transparent:true,
+                                             opacity:0.55, wireframe:true});
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.55, 7, 5), mat);
+    const from = en.group.position.clone(); from.y += 1.1;
+    mesh.position.copy(from);
+    scene.add(mesh);
+    /* 落ち先の輪。過去を狙ったときだけ色を変えてある ―― 「そこは
+       さっき自分がいた場所だ」と後から気づけるように。文字は出さない */
+    const past = plan.from === 'past';
+    const ringMat = new THREE.MeshBasicMaterial({color: past ? 0x9fd8ff : 0xc8b8a0,
+      transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false});
+    const ring = new THREE.Mesh(new THREE.RingGeometry(plan.radius*0.82, plan.radius, 24), ringMat);
+    ring.rotation.x = -Math.PI/2;
+    ring.position.set(plan.x, 0.06, plan.z);
+    scene.add(ring);
+    memoryNets.push({
+      x: plan.x, z: plan.z, radius: plan.radius,
+      flight: plan.flight, arm: plan.arm, burst: plan.burst,
+      phase: 'fly', t: plan.flight, from: plan.from,
+      dmg: en.atk, mesh, ring, ringMat, mat, startX: from.x, startY: from.y, startZ: from.z,
+      hit: false,
+    });
+    sfx('dodge');
+  }
+
+  function updateMemoryNets(dt){
+    for(let i=memoryNets.length-1;i>=0;i--){
+      const n = memoryNets[i];
+      const step = stepNet(n, dt);
+      n.phase = step.phase; n.t = step.t;
+
+      if(n.phase === 'fly'){
+        // 投げた所から落ち先へ、山なりに
+        const k = step.progress;
+        n.mesh.position.set(n.startX + (n.x - n.startX)*k, 0,
+                            n.startZ + (n.z - n.startZ)*k);
+        n.mesh.position.y = n.startY + Math.sin(Math.PI*k)*1.6 - n.startY*k + 0.25;
+        n.mesh.rotation.y += dt*4;
+        n.ringMat.opacity = 0.12 + k*0.18;
+      } else if(n.phase === 'arm'){
+        // 落ちて据わる。輪が縮んでいくので、残り時間が読める
+        n.mesh.position.set(n.x, 0.3, n.z);
+        n.mesh.scale.setScalar(1 + step.progress*0.9);
+        n.ringMat.opacity = 0.34 + step.progress*0.34;
+        n.ring.scale.setScalar(1 - step.progress*0.28);
+      } else if(n.phase === 'burst'){
+        if(!n.hit){
+          n.hit = true;
+          if(netHits(n, state.pos.x, state.pos.z)){
+            if(state.invulnerable || state.paralyzeInvulnT > 0){
+              if(state.paralyzeInvulnT <= 0) tryPerfectDodge(null);
+            } else if(!tryConsumeOrbShield()){
+              const dmg = applyIncomingDamageMul(state.debugMode ? 0 : n.dmg);
+              state.hp = Math.max(0, state.hp - dmg);
+              spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+              flashScreen();
+              if(state.hp <= 0) triggerPlayerDown();
+            }
+          }
+          sfx('bossWake');
+          addShake(0.08);
+          if(currentWorldKey === 'duskvillage') spawnDuskRipple(n.x, n.z, n.radius*0.7);
+        }
+        n.ringMat.opacity = 0.7 * (1 - step.progress);
+        n.ring.scale.setScalar(1 + step.progress*0.5);
+        n.mesh.scale.setScalar(1.9 + step.progress*0.6);
+        n.mat.opacity = 0.55 * (1 - step.progress);
+      } else {
+        scene.remove(n.mesh); scene.remove(n.ring);
+        memoryNets.splice(i, 1);
+      }
+    }
+  }
+
+  function updateFisherAI(en, dt){
+    const aim = aggroPoint(en);
+    const to = new THREE.Vector3(aim.x - en.group.position.x, 0, aim.z - en.group.position.z);
+    const dist = to.length();
+    const distToPlayer = state.pos.distanceTo(en.group.position);
+    const observing = state.observeLightT > 0 && observeReaches(distToPlayer);
+
+    const sees = distToPlayer < 14 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;
+    if(!en.triggered){ updateWanderAI(en, dt); return; }
+
+    if(en.netCD == null) en.netCD = 1.2;
+    en.netCD -= dt;
+
+    // 向き直りはゆっくり。網を投げる方向が先に見える
+    if(dist > 0.001){
+      const want = Math.atan2(to.x, to.z);
+      en.group.rotation.y = turnTowardAngle(en.group.rotation.y, want, 2.6 * dt);
+    }
+
+    if(en.netWindupT > 0){
+      /* 投げる前の溜め。ここで身体が沈むので、網が来ることは
+         観測の灯が無くても分かる(灯りは予兆の側を長くする) */
+      en.netWindupT -= dt;
+      if(en.body && en.bodyScale){
+        const B = en.bodyScale, k = 1 + (1 - en.netWindupT/Math.max(0.01, en.netWindupDur))*0.2;
+        en.body.scale.set(B.x*k, B.y*(1 - (1-en.netWindupT/Math.max(0.01,en.netWindupDur))*0.12), B.z*k);
+      }
+      if(en.netWindupT <= 0){
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+        /* 狙う相手を決め(幻影かもしれない)、その相手の「少し前」を引く。
+           幻影には過去が無いので、planNet が今の座標へ落としてくれる */
+        const past = aim.decoy ? null : positionAt(state.posHistory, mechTime, netLookback());
+        const plan = planNet(aim, past, {observing});
+        if(plan) throwMemoryNet(en, plan);
+        en.netCD = PROVISIONAL_NET_CD;
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+      }
+      return;
+    }
+
+    if(canThrowNet(dist, en.netCD)){
+      en.netWindupT = observing ? 0.72 : 0.5;   // 灯りがあると溜めも読みやすい
+      en.netWindupDur = en.netWindupT;
+      sfx('chime');
+      return;
+    }
+
+    /* 網だけの敵にしない。網の合間は近づいて殴ってくるので、
+       予兆を見て動き続けるだけでは終わらない */
+    if(dist > 2.0){
+      const dir = to.clone().normalize();
+      en.group.position.addScaledVector(dir, en.speed * dt);
+      resolveWallCollisions(en.group.position);
+    }
+    if(en.meleeCD > 0) en.meleeCD -= dt;
+    if(distToPlayer < 2.3 && (en.meleeCD || 0) <= 0){
+      en.meleeCD = 2.2;
+      if(state.invulnerable || state.paralyzeInvulnT > 0){
+        if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
+      } else if(!tryConsumeOrbShield()){
+        const dmg = applyIncomingDamageMul(state.debugMode ? 0 : Math.round(en.atk*0.7));
+        state.hp = Math.max(0, state.hp - dmg);
+        spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+        if(state.hp <= 0) triggerPlayerDown();
+      }
+      en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+    }
+  }
+
+  /* =========================================================
+     水門守の残響(keeper) ―― 過去の行動が残っている中ボス(WORK 6)
+
+     この敵は最後まで「水門を閉めようとしている」。プレイヤーと戦うために
+     そこにいるのではなく、閉めに行く途中でぶつかってくるだけ ――
+     足場を歩き、レバーへ寄り、引き、また別の場所へ移る、を繰り返す。
+
+     ■ 見分けるもの
+     水鏡の影は「挙動の微妙な差」だったが、こちらは **時間** で見分ける:
+
+       本体   予備動作がある / 足元の水面が強く応える / いま動き出す
+       残響   予備動作が無い / 薄い / 本体が少し前にやったことをなぞる
+
+     文字もマーカーも出さない。残響は追ってこないので、離れていれば
+     巻き込まれない ―― 避ける遊びではなく、見分ける遊びにしてある。
+
+     数値と判定は core/warden-echo.js。ここは見た目と繋ぎ込みだけ。
+     新しい戦闘基盤は作っていない(体幹・パニッシュ窓・処刑・被ダメージ
+     経路はすべて既存のまま)。 ========================================================= */
+  /* 水門守が行き来する持ち場。**出現した場所からの相対**で持つ ――
+     村ではレバーの前に出るので1つめがレバーになり、トレーニング空間
+     (Arena)でも同じように足場を行き来する形で確認できる */
+  const KEEPER_SPOTS = [
+    {dx:  0.0, dz:  0.0, lever: true},
+    {dx: -7.0, dz:  0.5, lever: false},
+    {dx:  4.0, dz:  0.5, lever: false},
+    {dx: -4.0, dz: -2.5, lever: false},
+  ];
+  function keeperSpotFor(en, i){
+    const s = KEEPER_SPOTS[i % KEEPER_SPOTS.length];
+    const home = en.keeperHome || {x: en.group.position.x, z: en.group.position.z};
+    return {x: home.x + s.dx, z: home.z + s.dz, lever: s.lever};
+  }
+
+  let keeperEchoes = [];   // いま見えている残響(本体とは別に進む)
+
+  function clearKeeperEchoes(){
+    keeperEchoes.forEach(e=>{ if(e.group) scene.remove(e.group); });
+    keeperEchoes = [];
+  }
+
+  /* 残響を1つ出す。本体と同じ形の、薄い写し。
+     buildEnemy は使わない ―― 敵ではないので、enemies には入れない */
+  function spawnKeeperEcho(en, rec, opts){
+    opts = opts || {};
+    const mat = new THREE.MeshBasicMaterial({color:0x7fb0c4, transparent:true,
+                                             opacity:0, depthWrite:false});
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.7, 10), mat);
+    body.position.y = 0.85; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), mat);
+    head.position.y = 1.85; g.add(head);
+    if(opts.scale) g.scale.setScalar(opts.scale);
+    g.position.set(rec.x, 0, rec.z);
+    g.rotation.y = rec.facing;
+    scene.add(g);
+    keeperEchoes.push({
+      x: rec.x, z: rec.z, kind: rec.kind, group: g, mat,
+      life: PROVISIONAL_ECHO_LIFE_SEC, maxLife: PROVISIONAL_ECHO_LIFE_SEC,
+      // 「引いた」動作だけが痛い。歩いただけの残響は当たらない
+      harmAt: rec.kind === 'operate' ? PROVISIONAL_ECHO_LIFE_SEC * 0.45 : null,
+      dmg: Math.round(en.atk * 0.6),
+      // 見た目を大きくしたぶんは、当たる範囲も合わせる(見えている通りに当たる)
+      radius: PROVISIONAL_ECHO_RADIUS * (opts.scale || 1),
+    });
+    /* 音は少し遅れて届く。鎖の音が本体より後から鳴るので、
+       耳でも「後ろで同じことが起きている」と分かる */
+    if(rec.kind === 'operate') sfx('woodCreak');
+  }
+
+  function updateKeeperEchoes(dt){
+    for(let i=keeperEchoes.length-1;i>=0;i--){
+      const e = keeperEchoes[i];
+      const prevLife = e.life;
+      const step = stepEcho(e, dt);
+      e.life = step.life;
+      // 出てすぐ濃く、消える間際に薄い。予備動作は無い(いきなり始まる)
+      e.mat.opacity = 0.42 * Math.sin(Math.min(1, step.progress) * Math.PI);
+      if(e.kind === 'operate'){
+        // 引く動作をなぞる。腕は無いので、身体の傾きで見せる
+        e.group.rotation.z = Math.sin(step.progress * Math.PI) * 0.34;
+      }
+      if(echoStrikes(e, prevLife, e.radius || PROVISIONAL_ECHO_RADIUS, state.pos.x, state.pos.z)){
+        if(state.invulnerable || state.paralyzeInvulnT > 0){
+          if(state.paralyzeInvulnT <= 0) tryPerfectDodge(null);
+        } else if(!tryConsumeOrbShield()){
+          const dmg = applyIncomingDamageMul(state.debugMode ? 0 : e.dmg);
+          state.hp = Math.max(0, state.hp - dmg);
+          spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+          if(state.hp <= 0) triggerPlayerDown();
+        }
+      }
+      if(e.kind === 'operate' && !e.rippled && step.progress > 0.4){
+        e.rippled = true;
+        // 残響の足元の水面は弱くしか応えない(本体との差、その2)
+        if(currentWorldKey === 'duskvillage') spawnDuskRipple(e.x, e.z, 0.5);
+      }
+      if(step.expired){ scene.remove(e.group); keeperEchoes.splice(i, 1); }
+    }
+  }
+
+  function updateKeeperAI(en, dt){
+    const aim = aggroPoint(en);
+    const distToPlayer = state.pos.distanceTo(en.group.position);
+    const observing = state.observeLightT > 0 && observeReaches(distToPlayer);
+
+    const sees = distToPlayer < 16 && hasLineOfSight(en.group.position, state.pos);
+    if(aggroOnDetect(en, sees)) en.triggered = true;
+    if(!en.triggered) return;   // 気づかれるまでは、その場で止まっている
+
+    if(en.keeperState === undefined){
+      en.keeperState = 'move'; en.keeperT = PROVISIONAL_MOVE_SEC;
+      en.keeperSpot = 0; en.keeperRecords = []; en.keeperPlayed = [];
+      en.keeperHome = {x: en.group.position.x, z: en.group.position.z};
+    }
+
+    // ---- 残響を出す。delay 秒前に本体がやったことが、いま始まる ----
+    const delay = echoDelay(observing);
+    const due = dueEchoes(en.keeperRecords, mechTime, delay, en.keeperPlayed);
+    const cap = echoCountFor(wardenPhaseFor(en.hp / Math.max(1, en.hpMax)));
+    due.forEach(rec=>{
+      en.keeperPlayed.push(rec);
+      if(keeperEchoes.length < cap) spawnKeeperEcho(en, rec);
+    });
+    pruneRecords(en.keeperRecords, mechTime);
+
+    const spot = keeperSpotFor(en, en.keeperSpot);
+
+    if(en.keeperState === 'move'){
+      // 次の持ち場へ歩く。プレイヤーではなく、水門の都合で動いている
+      const to = new THREE.Vector3(spot.x - en.group.position.x, 0, spot.z - en.group.position.z);
+      const d = to.length();
+      if(d > 0.4){
+        const dir = to.normalize();
+        en.group.position.addScaledVector(dir, en.speed * dt);
+        en.group.rotation.y = turnTowardAngle(en.group.rotation.y, Math.atan2(dir.x, dir.z), 3.0*dt);
+        resolveWallCollisions(en.group.position);
+      }
+      en.keeperT -= dt;
+      if(d <= 0.6 || en.keeperT <= 0){
+        en.keeperState = 'windup';
+        en.keeperT = PROVISIONAL_ECHO_WINDUP_SEC;
+        en.keeperDur = en.keeperT;
+      }
+      // 歩いた跡も残響になる。ただし当たり判定は持たない
+      if((en.keeperTrailCD = (en.keeperTrailCD || 0) - dt) <= 0){
+        en.keeperTrailCD = 0.9;
+        const rec = recordAction('walk', en.group.position.x, en.group.position.z,
+                                 en.group.rotation.y, mechTime);
+        if(rec) en.keeperRecords.push(rec);
+      }
+    }
+
+    else if(en.keeperState === 'windup'){
+      /* **本体だけが持つ予備動作。** 残響はこれを持たない ―― ここが
+         見分けの一番大きい手がかりなので、身体の沈み込みで見せる */
+      en.keeperT -= dt;
+      const prog = 1 - Math.max(0, en.keeperT)/Math.max(0.01, en.keeperDur);
+      if(en.body && en.bodyScale){
+        const B = en.bodyScale;
+        en.body.scale.set(B.x*(1 + prog*0.18), B.y*(1 - prog*0.14), B.z*(1 + prog*0.18));
+      }
+      // 本体の足元は水面が強く応える(見分けの手がかり、その2)
+      if(!en.keeperRippled && prog > 0.5){
+        en.keeperRippled = true;
+        if(currentWorldKey === 'duskvillage'){
+          spawnDuskRipple(en.group.position.x, en.group.position.z, actorTell(false).ripple * 1.3);
+        }
+      }
+      if(en.keeperT <= 0){
+        if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+        en.keeperRippled = false;
+        en.keeperState = 'operate';
+        en.keeperT = PROVISIONAL_OPERATE_SEC;
+        en.keeperDur = en.keeperT;
+        const rec = recordAction('operate', en.group.position.x, en.group.position.z,
+                                 en.group.rotation.y, mechTime);
+        if(rec) en.keeperRecords.push(rec);
+        sfx('woodCreak');
+      }
+    }
+
+    else if(en.keeperState === 'operate'){
+      /* 引いている。レバーの前なら実際にレバーと鎖が動く ――
+         この敵は最後まで水門を閉めようとしている */
+      en.keeperT -= dt;
+      const prog = 1 - Math.max(0, en.keeperT)/Math.max(0.01, en.keeperDur);
+      en.group.rotation.z = Math.sin(prog * Math.PI) * 0.34;
+      if(spot.lever && currentWorldKey === 'duskvillage') pullDuskGateLever(prog);
+      // 引いた瞬間だけ、まわりを巻き込む
+      if(!en.keeperHit && prog >= 0.45){
+        en.keeperHit = true;
+        if(state.pos.distanceTo(en.group.position) < PROVISIONAL_ECHO_RADIUS){
+          if(state.invulnerable || state.paralyzeInvulnT > 0){
+            if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
+          } else if(!tryConsumeOrbShield()){
+            const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);
+            state.hp = Math.max(0, state.hp - dmg);
+            spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+            flashScreen();
+            if(state.hp <= 0) triggerPlayerDown();
+          }
+        }
+      }
+      if(en.keeperT <= 0){
+        en.group.rotation.z = 0;
+        en.keeperHit = false;
+        en.keeperState = 'move';
+        en.keeperT = PROVISIONAL_MOVE_SEC;
+        en.keeperSpot++;
+        en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+      }
+    }
+  }
+
+  /* =========================================================
+     村の残響(duskEcho) ―― 宵待ちの村のボス(WORK 7)
+
+     **新しい戦闘システムを1つも足していない。** ボスそのものの動き
+     (追尾・振りかぶり・薙ぎ・特殊行動・体幹・Break・Execution・報酬)は
+     既存のボス処理のまま。ここが足すのは、村で覚えた4つを場に出すことだけ:
+
+       水鏡の影   … 本体が自分と同じ姿の分身を出す(見分ける)
+       泡沫の群れ … 小さいものが増える(散らす)
+       写し身     … 直前の一撃が返ってくる(読み合い)
+       残響       … 過去の行動が時間差で同じ場所になぞられる(離れていれば安全)
+
+     どれも元の実装をそのまま呼んでいる。段階が進んでも性質は変わらず、
+     変わるのは組み合わせだけ(core/village-echo.js)。 ========================================================= */
+  /* 本体と同じ姿の分身。水鏡の影と同じ扱い(当てると散る・ダメージは入らない・
+     本体の見分けは挙動の差でつける)なので、AIもそのまま updateMirrorShadeAI
+     に任せる ―― 見た目だけボスの実体を複製している */
+  function spawnBossMirrorClone(boss, angle){
+    const pos = boss.group.position.clone();
+    pos.x += Math.sin(angle) * (PROVISIONAL_SPLIT_RADIUS + 1.6);
+    pos.z += Math.cos(angle) * (PROVISIONAL_SPLIT_RADIUS + 1.6);
+    resolveWallCollisions(pos);
+    const clone = buildEnemy(pos, {
+      color: boss.baseColor != null ? boss.baseColor : 0x46566a,
+      hp: 1, atk: Math.round(boss.atk * 0.5), speed: boss.speed * 1.15,
+      atkType: 'mirror', xp: 0, goldBonus: [0, 0],
+    });
+    /* buildEnemy が作った雑魚の見た目は捨てて、ボスの実体を複製したものに
+       差し替える。材質は共有のままでよい ―― 本体と見た目で見分けられては
+       いけないので、色を変えないことがそのまま正しい */
+    scene.remove(clone.group);
+    const visual = boss.group.clone(true);
+    visual.position.copy(pos);
+    scene.add(visual);
+    clone.group = visual;
+    clone.body = visual;
+    clone.bodyScale = visual.scale.clone();
+    clone.mob = null;      // 雑魚の歩行アニメは回さない(複製した実体には無い)
+    clone.parts = null;
+    clone.mirrorCloneOf = boss;
+    clone.triggered = true;
+    clone.mirrorRippleT = Math.random() * 0.8;
+    clone.mirrorState = 'chase';
+    clone.mirrorT = 0;
+    clone.roomTag = 'mirrorClone';
+    enemies.push(clone);
+    boss.mirrorClones = boss.mirrorClones || [];
+    boss.mirrorClones.push(clone);
+    if(currentWorldKey === 'duskvillage') spawnDuskRipple(pos.x, pos.z, 1.4);
+    return clone;
+  }
+
+  // いま場に出ているものを数える。上限の判定に使う
+  function duskEchoAlive(boss){
+    let clones = 0, foam = 0, copy = 0;
+    for(let i=0;i<enemies.length;i++){
+      const e = enemies[i];
+      if(!e || e.dead) continue;
+      if(e.mirrorCloneOf === boss) clones++;
+      else if(e.duskEchoAdd && e.atkType === 'foam') foam++;
+      else if(e.duskEchoAdd && e.atkType === 'copy') copy++;
+    }
+    return {clones, foam, copy};
+  }
+
+  function stepDuskEchoLayer(boss, dt){
+    const phase = villageEchoPhase(boss.hp / Math.max(1, boss.hpMax));
+    if(boss.duskPhaseSeen !== phase){
+      boss.duskPhaseSeen = phase;
+      boss.duskSummonT = 0;
+      /* 段階が変わった合図。文字で「Phase 2」とは出さない ――
+         水面がひとつ大きく波立ち、音が一度だけ遅れて返る */
+      if(currentWorldKey === 'duskvillage'){
+        spawnDuskRipple(boss.group.position.x, boss.group.position.z, 2.4);
+      }
+      if(phase > 1){ sfx('bossWake'); addShake(0.10); }
+    }
+
+    // ---- 足りないものを1体ずつ戻す(上限はフェーズごと) ----
+    const alive = duskEchoAlive(boss);
+    const nx = villageNextSummon(phase, alive, boss.duskSummonT || 0, dt);
+    boss.duskSummonT = nx.timer;
+    if(nx.summon === 'clones'){
+      spawnBossMirrorClone(boss, Math.random() * Math.PI * 2);
+    } else if(nx.summon === 'foam'){
+      const a = Math.random() * Math.PI * 2;
+      const mote = spawnFoamMote(boss.group.position, a, null);
+      mote.duskEchoAdd = true;
+      mote.triggered = true;
+    } else if(nx.summon === 'copy'){
+      const a = Math.random() * Math.PI * 2;
+      const p = boss.group.position.clone();
+      p.x += Math.sin(a) * 6.5; p.z += Math.cos(a) * 6.5;
+      resolveWallCollisions(p);
+      const shade = buildDuskCopyShade(p.x, p.z);
+      shade.duskEchoAdd = true;
+      shade.triggered = true;
+      enemies.push(shade);
+      if(currentWorldKey === 'duskvillage') spawnDuskRipple(p.x, p.z, 1.1);
+    }
+
+    // ---- 過去の行動を置く(第3段階だけ) ----
+    const ec = villageShouldEcho(phase, boss.duskEchoT || 0, dt);
+    boss.duskEchoT = ec.timer;
+    if(ec.leave){
+      /* 水門守と同じ残響(core/warden-echo.js)。いま本体がいる場所を控え、
+         遅れて同じ場所で同じ動作がなぞられる。追ってこないので、
+         離れていれば当たらない ―― 「今そこにいれば危険」だけ */
+      const rec = recordAction('operate', boss.group.position.x, boss.group.position.z,
+                               boss.group.rotation.y, mechTime);
+      if(rec){
+        boss.duskEchoRecords = boss.duskEchoRecords || [];
+        boss.duskEchoPlayed = boss.duskEchoPlayed || [];
+        boss.duskEchoRecords.push(rec);
+      }
+    }
+    if(boss.duskEchoRecords && boss.duskEchoRecords.length){
+      const observing = state.observeLightT > 0 &&
+                        observeReaches(state.pos.distanceTo(boss.group.position));
+      const due = dueEchoes(boss.duskEchoRecords, mechTime, echoDelay(observing),
+                            boss.duskEchoPlayed);
+      const cap = villageEchoPlan(phase).echoes;
+      due.forEach(rec=>{
+        boss.duskEchoPlayed.push(rec);
+        if(keeperEchoes.length < cap) spawnKeeperEcho(boss, rec, {scale: 1.5});
+      });
+      pruneRecords(boss.duskEchoRecords, mechTime);
+    }
+  }
+
   // damage helper shared by every boss special
   function bossHitPlayer(en, dmg, opts){
     opts = opts || {};
@@ -3452,6 +4472,12 @@
        Break・Execution・報酬・撃破フローは既存のまま使う */
     if(en.key === 'mansionBoss'){ updateMansionLordAI(en, dt); return; }
 
+    /* 村の残響(宵待ちの村 / WORK 7)。**専用のボスAIは作っていない** ――
+       追尾・振りかぶり・薙ぎ・特殊行動・体幹・Break・Execution・報酬は
+       既存のボス処理をそのまま通す。足しているのは「村で覚えた4つの現象を
+       場に出す」層だけ(stepDuskEchoLayer)。だから return しない */
+    if(en.key === 'duskEcho') stepDuskEchoLayer(en, dt);
+
     // HP-threshold phase changes: faster, harder-hitting, with a one-time burst skill
     if(!en.phase) en.phase = 1;
     const hpRatio = en.hp / en.hpMax;
@@ -3950,12 +4976,12 @@
   function dealDamageToEnemy(en, amount, isAlly, opts){
     opts = opts || {};
     if(!en || en.dead) return;
-    // 宵影の群れ(Phase D/#37)の核心ギミック: 「光が当たっていない間は
-    // 攻撃が効かない」。updateDuskVillage()(15-dungeon-duskvillage.js)が
-    // 毎フレーム、点いたランタンの近くにいるかどうかでen.lightDimmedを
-    // 切り替える。DoT(燃焼など)も含めて完全に無効化する
-    if(en.lightDimmed){
-      if(!(en._dimHintCD>0)){ en._dimHintCD = 2.2; spawnToast('💡 灯りを当てないと効かない……'); }
+    /* 水鏡の影の分身(WORK 3)。当てても damage は入らず、手応えなく散る
+       ―― 「全部壊せば勝ち」ではなく「どれが本体かを見る」戦いにするため。
+       散らした事実そのものがプレイヤーの得た情報なので、当たり前に消す
+       だけで、どれが本体かはここでも一切示さない */
+    if(isMirrorClone(en)){
+      if(!opts.isDot) dispelMirrorClone(en);
       return;
     }
     let isCrit = false;
@@ -4252,6 +5278,12 @@
   // 撃破時の共通処理(通常ヒット・燃焼ティックの両方から呼ばれる)
   function finishEnemyDeath(en, isAlly, from){
       en.hp = 0; en.dead = true;
+      // 本体が消えれば、水面に映っていたものも残らない(WORK 3)
+      if(en.mirrorClones && en.mirrorClones.length) clearMirrorClones(en);
+      /* 撃破したときだけ動く、その個体ごとの後始末(WORK 6)。
+         水門守の残響が「残響を消して水門を開ける」のに使っている ――
+         ボスの onBossDefeated とは別に、中ボスにも一本だけ口を開けておく */
+      if(en.onDefeat){ const fn = en.onDefeat; en.onDefeat = null; fn(en); }
       // 死んだ敵が処刑対象に残らないようにする(資料24章の安全性)
       clearExecutionWindow(en);
       if(state.executeTarget === en) state.executeTarget = null;

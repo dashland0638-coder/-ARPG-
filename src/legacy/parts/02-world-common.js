@@ -157,6 +157,7 @@
     conservatory: { build: ()=>{ buildConservatory(); } },
     clocktower:   { build: ()=>{ buildClocktower(); } },
     duskvillage:  { build: ()=>{ buildDuskVillage(); } },
+    road:         { build: ()=>{ buildRoad(); } },   // 道(Chapter 1 の最後、WORK 11)
     // テストモード(タイトル画面 → 🛠テストモード)専用。上位職のデバッグ
     // 用に、職業/転身/レベルを直接指定してここへ入る(14-training-ground.js
     // /14-hud-boot.jsのbeginTestMode参照)
@@ -178,6 +179,9 @@
     // 15-dungeon-duskvillage.js) ―― ここはワールド構築直後、補間が
     // 最初に走るまでの一瞬だけ使われる暫定値
     duskvillage:  {sky:0x2a1a28, fog:0.020, sun:0xff9a5a, sunI:0.5, hemi:0.30, hemiSky:0x8a5a6a, hemiGnd:0x1a1018, rim:0xff8a4a, rimI:0.22, exp:0.78},
+    // 道(WORK 11): 宵待ちの村の夜明けのあと、次の土地へ向かう朝。
+    // これまでのどのシナリオよりも明るく、霧も薄い
+    road:         {sky:0x9ab8d0, fog:0.009, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, exp:0.96},
     // テストモード: 色味の判断を邪魔しない、明るく中立なライティング
     training:     {sky:0x181c22, fog:0.006, sun:0xf2f4f8, sunI:0.85, hemi:0.42, hemiSky:0xaeb8c8, hemiGnd:0x22262e, rim:0x8fb0d0, rimI:0.14, exp:0.86},
   };
@@ -365,6 +369,12 @@
     projectiles.forEach(p=>{ scene.remove(p.mesh); if(p.light) giveLight(p.light); }); projectiles = [];
     itemDrops.forEach(d=>{ scene.remove(d.mesh); if(d.light) giveLight(d.light); }); itemDrops = [];
     if(state.mageOrbs){ state.mageOrbs.forEach(orb=>scene.remove(orb.mesh)); state.mageOrbs = []; }
+    state.observeLightT = 0;   // 観測の灯は世界をまたいで持ち越さない
+    clearPhantomDecoys();      // 幻影も世界をまたいで残さない(WORK 4)
+    state.attackSnapshot = null;
+    if(state.posHistory) state.posHistory.length = 0;   // 足取りも持ち越さない(WORK 5)
+    clearMemoryNets();
+    clearKeeperEchoes();       // 残響も世界をまたいで残さない(WORK 6)
     clearDecals();   // scorches belong to the room that got burned
     nearbyDoor = null; nearbyStairs = null; nearbyLore = null;
     autoStairBusy = false; stairAutoArmed = true;   // auto階段の状態は世界ごとに素の状態へ
@@ -390,7 +400,6 @@
     bossBarChip = 100;
     document.getElementById('boss-bar-wrap').classList.remove('show');
     nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false;
-    nearbyLantern = null;   // Phase D(#37, 宵待ちの村): 前のダンジョンの灯りを指したまま残らないように
     mansionRoof = null; restroomRoof = null; platform = null;
     currentWorldKey = null;
     /* ここまでで、この世界のものはすべてシーンから外れている。
@@ -839,6 +848,17 @@
               {cue:'caveBreath',  min:20, max:46} ],
     lord:   [],                                    // ボス前と主の間は無音
     tavern: [ {cue:'tavernMurmur', min:10, max:22} ],
+    /* 宵待ちの村(DEC-001)。水の村なので、風・家鳴り・水音を薄く敷く。
+       ボスエリアだけは主の間と同じく無音(duskAmbienceZone が null を返す) */
+    duskShore:  [ {cue:'forestWind',  min:13, max:27},
+                  {cue:'leafRustle',  min:11, max:24},
+                  {cue:'distantBird', min:21, max:46} ],
+    duskVillage:[ {cue:'houseCreak',  min:12, max:29},
+                  {cue:'waterDrip',   min:14, max:33},
+                  {cue:'floorTick',   min:20, max:48} ],
+    duskDeep:   [ {cue:'waterDrip',   min:10, max:26},
+                  {cue:'distantStir', min:24, max:52},
+                  {cue:'forestWind',  min:22, max:46} ],
   };
 
   let ambienceZone = null;
@@ -1353,12 +1373,16 @@
   }
 
   // a line of narration on its own, without waiting for a click
-  function cutsceneLine(text){
+  /* 演出中の一行。name を渡すと話者名を差し替えられる ―― 洋館は主人公
+     ひとりの独白だったので既定(state.name)で足りていたが、宵待ちの村は
+     魔法使いと剣士の二人組なので、どちらが喋っているかを出す必要がある。
+     省略時の挙動は今までどおり */
+  function cutsceneLine(text, name){
     state.dialogueActive = true;
     state.dialogueKind = null;
     state.dialogueBoss = null;
     state.dialogueLines = null;
-    document.getElementById('dialogue-name').textContent = state.name || '';
+    document.getElementById('dialogue-name').textContent = name != null ? name : (state.name || '');
     document.getElementById('dialogue-text').textContent = text;
     document.getElementById('dialogue-overlay').classList.add('active');
   }
@@ -2246,7 +2270,8 @@
     // 酒場の片隅は扉の判定と少し重なる。謎のNPCに近づいたのに、扉が
     // 優先されて会話できないままだと「そこに居るのに話せない」感触になる
     // ため、影の旅人だけは扉の近接中でも少し広めに拾う
-    nearbyShadowGuide = talkFree && !nearbyBartender && !nearbySmith && state.pos.distanceTo(SHADOW_GUIDE_POS) < 4.5;
+    nearbyShadowGuide = talkFree && !nearbyBartender && !nearbySmith && shadowGuideSeated()
+      && state.pos.distanceTo(SHADOW_GUIDE_POS) < 4.5;
     updateInteractPrompt();
   }
   function updateWaterwayColdTimer(dt){
@@ -2295,7 +2320,7 @@
   // single interact prompt shared by doors, staircases and lore notes: shows
   // a plain message, not a flashy call-to-action button
   function updateInteractPrompt(){
-    const target = nearbyShadowGuide || nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith || nearbyCheckpoint || nearbyLantern;
+    const target = nearbyShadowGuide || nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith || nearbyCheckpoint;
     const el = document.getElementById('interact-btn');
     if(!el) return;
     el.classList.toggle('show', !!target && !state.paused && !state.dialogueActive);
@@ -2324,7 +2349,6 @@
     else if(nearbyBartender) el.textContent = '🗺️ 店主と話す(出撃)';
     else if(nearbySmith) el.textContent = state.smithJoined ? '🔨 鍛冶士と話す(鑑定・強化)' : '🧰 仮設の作業台(鑑定・強化)';
     else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)' : '🏕️ 休憩する(回復+装備整理)';
-    else if(nearbyLantern) el.textContent = nearbyLantern.lit ? '🏮 灯りは点いている' : '🏮 灯りを点ける';
   }
 
   function interact(){
@@ -2342,7 +2366,6 @@
     else if(nearbyBartender){ toggleScenarioSelect(); }
     else if(nearbySmith){ toggleAppraisal(); }
     else if(nearbyCheckpoint){ useCheckpoint(); }
-    else if(nearbyLantern){ lightLantern(nearbyLantern); }
   }
 
   // wraps any instant relocation in a short fade so the cut isn't jarring

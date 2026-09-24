@@ -244,6 +244,9 @@
   // (プレイアブル化までの流れは12-progression-ui.jsのSHADOW_GUIDE_*参照)
   const SHADOW_GUIDE_POS = new THREE.Vector3(7.5,0,8.5);
   let nearbyShadowGuide = false;
+  /* 影の旅人がまだ隅の席に座っているか(WORK 11)。時計塔を終えると
+     席を立って街道へ出る(道のシナリオの始まり)。scenarioClears から導く */
+  function shadowGuideSeated(){ return !scenarioClears('clocktower'); }
 
   /* =========================================================
      THE OLD FOREST ROAD (森の入口 → 古い森道 → 荷車 → 戦闘① → 森の奥 → 前庭)
@@ -1860,6 +1863,27 @@
       scene.add(bottle);
     }
 
+    /* 宵待ちの村の痕跡(WORK 7)。一度でもあの村を終わらせていれば、
+       棚の端に小さな木彫りの舟が置いてある。
+
+       報酬でも、施設でも、NPC でもない ―― 世界に一つだけ残った跡。
+       新しいセーブ項目は作っていない(既存の scenarioClears を見るだけ)。
+       村の住宅に転がっていた玩具の舟(WORK 4)と同じかたちにしてある */
+    if(scenarioClears('duskvillage') > 0){
+      const toyMat = new THREE.MeshStandardMaterial({color:0x4a3a28, roughness:0.85});
+      const toy = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.11, 0.07, 0.34, 6, 1, false, 0, Math.PI), toyMat);
+      toy.rotation.z = Math.PI/2; toy.rotation.x = Math.PI;
+      toy.position.set(3.1, 1.86, 22.6);
+      toy.castShadow = true;
+      scene.add(toy);
+      buildLoreNote(new THREE.Vector3(3.1, 0, 21.9), '棚の端の木彫りの舟', [
+        '子供の手には少し大きい。舳先が何度も削り直してある。',
+        '誰が持ち帰ったのかは、主人も覚えていないという。',
+        'ただ、置き場所だけは決まっているらしい。'
+      ], {kind:'book'});
+    }
+
     const skinMat = new THREE.MeshStandardMaterial({color:0xd8a878, roughness:0.7});
     const clothMat = new THREE.MeshStandardMaterial({color:0x5a2c22, roughness:0.8});
     const bartender = new THREE.Group();
@@ -2007,6 +2031,14 @@
     const sgTableX = SHADOW_GUIDE_POS.x + 0.7, sgTableZ = SHADOW_GUIDE_POS.z - 0.2;
     addTavernTable(sgTableX, sgTableZ, 0.55, 0); // 座席0=椅子は自前で置く(本人だけの専用卓)
     addStool(SHADOW_GUIDE_POS.x, SHADOW_GUIDE_POS.z, Math.PI*0.15);
+    /* 時計塔を終えたあと(WORK 11)、この席は空く ―― 本人は朝から街道へ
+       出ていて、道の途中で見つかる。道を終えたあとは、本人が主人公として
+       酒場に立っているので、ここにはもう座っていない。
+       進行は scenarioClears から導くだけで、新しい状態は持たない */
+    if(!shadowGuideSeated()){
+      buildChapter1TavernTrace(sgTableX, sgTableZ);
+      return;
+    }
 
     const shadowCloakMat = new THREE.MeshStandardMaterial({color:0x0c0a10, roughness:0.9});
     const shadowSkinMat = new THREE.MeshStandardMaterial({color:0xcabcd6, roughness:0.6});
@@ -2254,6 +2286,9 @@
      'lord' として別扱いにし、環境音を一切鳴らさない。 */
   function currentAmbienceZone(){
     if(currentWorldKey === 'tavern') return 'tavern';
+    // 宵待ちの村は区画の決め方が違う(部屋idで分ける)ので、向こうに任せる
+    if(currentWorldKey === 'duskvillage') return duskAmbienceZone();
+    if(currentWorldKey === 'road') return 'forest';   // 道(WORK 11): 屋外の街道。森の音をそのまま
     if(currentWorldKey !== 'mansion') return null;
     const r = mansionRoomAt(state.pos.x, state.pos.z);
     if(!r){

@@ -75,8 +75,9 @@
       learnedSkill2:!!state.learnedSkill2,
       // 洋館から持ち帰った工具・素材。酒場の鍛冶場の作り込みが見る
       smithToolsRecovered:!!state.smithToolsRecovered,
-      // 2部制(#41)のゲスト実体。章の自動進行を実装するまでは常にnullの
-      // まま保存されるが、フィールド自体は先に用意しておく
+      /* 2部制(#41)のゲスト実体。WORK 10 以降は Chapter 1 の進行
+         (scenarioClears)から毎回導かれる ―― ここに保存されるのは
+         その結果であって、進行そのものではない */
       guestClassKey:state.guestClassKey || null,
     };
   }

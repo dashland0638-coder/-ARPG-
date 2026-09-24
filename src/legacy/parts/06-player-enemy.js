@@ -5108,11 +5108,11 @@
         if(p.handR) p.handR.scale.set(1.35, 1.35, 1.5);
       }
 
-    } else if(en.key==='duskCollective'){
-      // 宵影の群れ(Phase D/#37)。humanoidデフォルト形状(parts無し)を
-      // そのまま使い、Phase2で「村人たちの記憶・感情の残滓が混ざり合った
-      // 集合体」を仄めかす淡い球を身体の周りに増やし、Phase3で中心に
-      // 小さな子供の輪郭(最終形態の予兆)を灯す
+    } else if(en.key==='duskEcho'){
+      /* 村の残響(宵待ちの村 / WORK 7)。humanoidデフォルト形状(parts無し)を
+         そのまま使う。Phase2 で「村の記憶がいくつも混ざっている」ことを
+         淡い球で見せ、Phase3 でその中心にもう一つだけ灯る ――
+         誰か一人の姿にはしない(黒幕を作らない) */
       const memMat = new THREE.MeshStandardMaterial({color:0xd8ccc0, emissive:0xd8ccc0, emissiveIntensity:0.7, transparent:true, opacity:0.75});
       if(phase===2){
         for(let i=0;i<5;i++){
@@ -5164,6 +5164,8 @@
     else if(key==='temple')   worldBounds = boundsFromRooms(TEMPLE_ROOMS, 6);
     else if(key==='clocktower') worldBounds = boundsFromRooms(TOWER_ROOMS, 10);
     else if(key==='duskvillage') worldBounds = boundsFromRooms(DUSK_ROOMS, 6);
+    // 道(WORK 11)。部屋の表を持たない屋外の一本道なので、直接座標で
+    else if(key==='road') worldBounds = Object.assign({}, ROAD_BOUNDS);
     // テストモード(上位職デバッグ用)のトレーニング空間。他のどのダンジョン
     // とも重ならない、ずっと東(x>400)の未使用領域に置いてある
     // (worldKeyForPos参照)。専用の部屋テーブルは無いので直接座標を指定
@@ -5188,6 +5190,8 @@
     // テストモードのトレーニング空間: 他のどのダンジョンとも重ならない、
     // ずっと東(x>400)の未使用領域。conservatory側のx>170判定より先に
     // 判定しないと吸われてしまうため、他のどの分岐よりも先に置く
+    // 道(WORK 11)はトレーニング空間よりさらに東(x>600)。training の判定より先に
+    if(x > 600) return 'road';
     if(x > 400) return 'training';
     // Phase D(#37): 宵待ちの村は他のどのダンジョンとも重ならない、
     // ずっと南(z>260)の未使用領域に置いてある。最初にこれだけ判定すれば、

@@ -161,6 +161,21 @@ import * as THREE from 'three';
     ultHitFrac:0,
     skillChoice:'retreat', skillCharging:false, skillChargeT:0, skillChargeMax:1.1,
     skillCD:0, skill2CD:0, followUpT:0, mageOrbs:[],
+    /* 観測の灯(魔法使いの Skill 2、WORK 3)。効いている残り秒数だけを持つ。
+       答えを表示するスキルではなく、水鏡の影などの「観察できる差」を
+       広げるだけ(core/mirror-shade.js)。出撃中の一時状態なので保存しない */
+    observeLightT:0,
+    /* 幻影歩法(魔法使いの Skill 1、WORK 4 / MAGE-001)が置いた幻影。
+       敵が「誰へ向かうか」を差し替えるためだけの一時オブジェクトで、
+       当たり判定もダメージも持たない(core/decoy.js)。保存しない */
+    decoys:[],
+    /* 直前に出した攻撃の記録(core/attack-snapshot.js)。写し身が1回だけ
+       これを返してくる。写せない攻撃では null のまま */
+    attackSnapshot:null,
+    /* 数秒ぶんの足取り(core/position-history.js、WORK 5)。記憶漁師が
+       「少し前にいた場所」へ網を投げるために参照する。古いものから
+       自動で捨てられるので伸び続けない。出撃中の一時状態なので保存しない */
+    posHistory:[],
     level:1, xp:0, xpToNext:40,
     // #28 基礎ステータス制: 体力(vit)/力(str)/魔力(mag)/精神力(mnd)/敏性(agi)/
     // 集中力(foc)の6項目。beginGame()/applySaveData()で実際の値に上書きされる

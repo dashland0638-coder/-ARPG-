@@ -84,16 +84,28 @@
       {name:Y, text:'研究員たちは……?'},
       {name:M, text:'誰一人、戻らなかった。今もあそこへ行くと、"助けて"だの"先生"だのと声が聞こえるという話でな。……それでも行くかい?'}
     ]; },
+    /* 道(WORK 11)。酒場の隅にいた「影の旅人」が戻らない ――
+       原案の「行方不明者の捜索」を起点にした導入。主人は理由を知らない */
+    road: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+      {name:M, text:'……隅の席のあいつ、朝から戻っとらん。'},
+      {name:Y, text:'いつもあそこに座ってた奴か。'},
+      {name:M, text:'ああ。街道のほうへ歩いていくのを見た者がいる。……あいつが外へ出るのは、初めて見た。'},
+      {name:Y, text:'探してくる。'},
+      {name:M, text:'街道は一本だ。迷いはせん。……明るいうちに戻れよ。'}
+    ]; },
+    /* 宵待ちの村(DEC-001 の正式仕様「忘れられること」)。旧実装の
+       「灯りを消して暮らす村」「桟橋伝いにしか進めない」は仕様ごと
+       差し替わったので、主人の話す内容もそれに合わせてある */
     duskvillage: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
-      {name:M, text:'……宵待ちの村、か。まだそこまで名が広まっているとは思わなんだが。'},
+      {name:M, text:'……宵待ちの村、か。よくその名前が出てきたな。'},
       {name:Y, text:'何か知っているのか?'},
-      {name:M, text:'湖沼に沈みかけた廃村でな。高床の桟橋伝いにしか進めん、妙な場所だ。'},
-      {name:Y, text:'なぜ、そんな所に人が住み着いていた?'},
-      {name:M, text:'さあな。ただ、灯りを消して暮らしていたらしい――点せば、いるはずのないものが見えるからと。'},
-      {name:Y, text:'灯りを点けなければ、何も起きないんじゃないのか?'},
-      {name:M, text:'桟橋の先は暗闇に沈んでてな。灯りなしじゃ、そもそも奥まで進めん場所らしいよ。'},
-      {name:Y, text:'……行くしかない、ということか。'},
-      {name:M, text:'ああ。忘れられることで、まだそこに留まっている者たちがいるという話だ。……それでも行くかい?'}
+      {name:M, text:'湖のほとりの村でな。魚を獲って、舟を出して、それで暮らしていた。'},
+      {name:Y, text:'いまは?'},
+      {name:M, text:'誰もいない。いつからいないのかも、誰が住んでいたのかも、もう誰も言えん。'},
+      {name:Y, text:'……忘れられた、ということか。'},
+      {name:M, text:'ああ。ただな、物は残っているらしい。網も、舟も、干したままだと。'},
+      {name:Y, text:'人だけがいない、と。'},
+      {name:M, text:'そういうことだ。……忘れられたままそこに居るものがいる、という話もある。それでも行くかい?'}
     ]; },
     waterway: [] // unused placeholder - waterway builds its own lines per personality/gender, see WATERWAY_VACATION_LINES below
   };
@@ -129,8 +141,8 @@
     ]; },
     duskvillage: [
       'また宵待ちの村かい。物好きなもんだ。',
-      '灯りを消しても点けても、あそこの連中は居座ったままらしい。',
-      '……気をつけな。今も灯りの下じゃ、何かがざわめいてるって話だよ。'
+      'あそこは何も変わらんだろう。人が戻るわけでもない。',
+      '……ただ、あんたが行ったことだけは、こっちが覚えてるよ。'
     ],
     waterway: []
   };
@@ -287,8 +299,12 @@
   function startScenarioTavernDialogue(scenarioKey){
     // 一覧側でボタンごと出さないようにしてあるが、ここでも二重に防ぐ
     // (renderScenarioList()参照)
+    /* 本編で出せるのは一覧と同じ ―― いま進めているシナリオひとつだけ
+       (WORK 11)。レベルでは止めない(WORK 10 で一覧側はレベル判定を
+       外したのに、ここに旧いレベル判定が残っていて、推奨レベルに
+       届いていないと宵待ちの村へ出られなかった) */
     const def = SCENARIO_DEFS.find(s=>s.key===scenarioKey);
-    if(def && (!def.unlocked || state.level < def.minLevel)) return;
+    if(!def || !def.unlocked || !mainlineAvailable(scenarioKey, state.scenarioClears)) return;
     state.dialogueActive = true;
     state.dialogueBoss = null;
     state.dialogueKind = 'town';
@@ -400,6 +416,10 @@
         applyPendingJobPromotion();
       } else if(state.dialogueKind==='shadowGuide'){
         state.dialogueKind = null;
+      } else if(state.dialogueKind==='chapter1Finale'){
+        // Chapter 1 の最後の酒場(14-dungeon-road.js)。閉じるだけ ――
+        // この先の入口は、酒場の主人の「出撃」に出る(renderScenarioList)
+        state.dialogueKind = null;
       } else if(state.dialogueKind==='mansionRubble'){
         /* 洋館・使用人通路の瓦礫。会話が終わってから鍛冶屋が実際に
            退ける ―― 見てから閃く、という順序を崩さないため
@@ -449,6 +469,27 @@
        が終わってから、いつもの結果画面へ渡す。結果画面・報酬・
        BOSS_ENDING_LINES はそのまま再利用しているので、増えたのは
        「その前に一拍置く」ことだけ。 */
+    /* 宵待ちの村も、撃破した瞬間に結果画面へ飛ばさない(WORK 7)。
+
+         撃破 → 散らばっていた記憶が水面へ戻る → 最後の記憶
+              → 夜が明ける → 二人の短いやりとり
+
+       が終わってから、いつもの結果画面へ渡す。結果画面・報酬・
+       BOSS_ENDING_LINES はそのまま再利用していて、増えたのは洋館と同じく
+       「その前に一拍置く」ことだけ。 */
+    if(defersResultScreen(state.scenarioKey)){
+      playDuskEpilogue(()=>{
+        try{ showBossResultScreen(boss, levelBefore); }
+        catch(err){
+          console.error('showBossResultScreen failed:', err);
+          state.dialogueActive = false;
+          state.dialogueKind = null;
+          clearMovementInput(false);
+          spawnToast('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+        }
+      });
+      return;
+    }
     if(state.scenarioKey === 'mansion' &&
        shouldReunite({bossDefeated:true, escort:state.smithEscort})){
       playMansionReunion(()=> {
@@ -1014,7 +1055,11 @@
     // (=周回を重ねるほど自然と装備固定の周回になる、という設計)
     if(scKey) recordRouteCombo(scKey, state.routePath);
     const routeProgress = scKey ? routeComboProgress(scKey) : null;
-    const routeSuggestion = (routeProgress && routeProgress.done < routeProgress.total) ? routeSuggestUnseen(scKey) : null;
+    /* Chapter 1 の本編は一本道で、クリアしたシナリオへは戻れない(WORK 11)。
+       「次回から敵が強くなる」「次はこちらも(別の経路)」は、もう一度来る
+       前提の案内なので、本編のシナリオでは出さない(WORK 12) */
+    const noReturn = !!scKey && isMainlineScenario(scKey);
+    const routeSuggestion = (!noReturn && routeProgress && routeProgress.done < routeProgress.total) ? routeSuggestUnseen(scKey) : null;
     const starsAfter = scKey ? scenarioStars(scKey) : 1;
     const streakMul = 1 + Math.min(1.5, (clears-1)*0.18);   // +18% per clear, caps at +150%
     const goldGain = Math.round((35 + Math.floor(Math.random()*25)) * streakMul);
@@ -1047,7 +1092,7 @@
         : '') +
       (scKey
         ? `<div class="result-loot-row"><span>難易度</span><span>${starLabel(starsAfter)}` +
-          (starsAfter>starsBefore
+          (starsAfter>starsBefore && !noReturn
             ? ' <b>次回から敵が強くなる!</b>'
             : (starsAfter>=MAX_STARS ? ' (最高難易度)' : '')) + `</span></div>`
         : '') +
@@ -1269,9 +1314,23 @@
     }
     closeAllDoors(); // re-seal everything: pick a scenario in town to sortie again
     state.sortied = false;
+    /* Chapter 1 の主人公交代はここで起きる(WORK 10)。酒場が境界。
+       進行が一段進んでいなければ何もしないので、撤退・全滅で戻ったときは
+       顔ぶれもそのまま ―― 例外は道の途中(影の旅人と出会ったあと)で
+       戻った場合で、道を終えるまでは盗賊＋弓師へ戻る(一幕は出さない) */
+    const wasScenario = state.scenarioKey;
+    advanceChapter1Cast({rebuild:true, announce:!isDefeat});
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
     saveGame();   // town is always a safe checkpoint - retreat, clear, or defeat alike
+    /* Chapter 1 の終わり(WORK 11)。道を終えて戻った、その一度だけ */
+    if(!isDefeat && consumeChapter1Finale()) playChapter1Finale();
+    /* 死亡(WORK 11 §5)。進行は巻き戻さず、同じシナリオをもう一度 ――
+       酒場の主人のところで出せるのも、そのシナリオひとつだけ */
+    else if(isDefeat && !state.testMode && wasScenario && wasScenario === chapter1Next(state.scenarioClears)){
+      const def = SCENARIO_DEFS.find(sc=> sc.key === wasScenario);
+      if(def) spawnToast(`${def.name}へ、もう一度。店主に声をかければ出られる`);
+    }
   }
 
   document.getElementById('dialogue-overlay').addEventListener('click', advanceDialogue);
@@ -1325,11 +1384,11 @@
       '最後に、地面に小さな芽が一つだけ残る。',
       'かすかに、声が聞こえた気がした。「……ありがとう。」'
     ],
-    duskCollective: [
-      '光に炙られた輪郭が、一つ、また一つとほどけて消えていく。',
-      '最後まで残っていた小さな影が、名残惜しむようにその場に立ち尽くしていた。',
-      '……灯りに照らされたその顔には、うっすらと笑みのようなものが浮かんでいた。',
-      '広場に静寂が戻る。誰もいないはずの村に、もう囁き声はしなかった。'
+    duskEcho: [
+      '村は静かなままだった。誰も戻ってこないし、誰かが戻ってくる気配もない。',
+      'ただ、干したままの網も、直しかけの舟も、空の棚も、そこに残っている。',
+      '人がいなくても、そこで暮らしていたことまでは消えていない。',
+      '水面はもう、何も映していなかった。'
     ]
   };
 
@@ -1365,9 +1424,9 @@
       hi: '「進ませるな……あの子が、まだ……戻っていない……」',
       lo: '「頼む……鐘だけは……鳴らさせないでくれ……」'
     },
-    duskCollective: {
-      hi: '「まだ……消えたくない……忘れられたく、ない……」',
-      lo: '「灯りを……その灯りを、消してくれ……!」'
+    duskEcho: {
+      hi: '重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」',
+      lo: '「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。'
     }
   };
 
@@ -1426,38 +1485,57 @@
     {key:'temple',     name:'🏛️ 古代神殿',       levelRange:'10〜50(★8)', minLevel:10, desc:'跳び、渡り、乗り継いで越えてゆく長い試練の神殿。落ちれば痛い目を見るぞ。', unlocked:true},
     {key:'clocktower', name:'🕰️ 狂いの時計塔', levelRange:'11〜55(★8)', minLevel:11, desc:'街の時を司る塔。毎晩七時十三分で針が止まり、六層すべての仕掛けが動き出す。最上階の天蓋には、使われたことのない脱出装置がひとつ。', unlocked:true},
     {key:'conservatory', name:'🌿 硝子の温室', levelRange:'22〜80(★8)', minLevel:22, desc:'飢饉を絶つ作物を求め国が興した研究施設跡。茨が時計仕掛けのように開閉し、緑の靄が肺を蝕む。奥では、研究員たちを取り込んだ母樹が根を張っている。', unlocked:true},
-    // Phase D(#37): 新規7層目。沼地に沈みかけた廃村を、灯りを頼りに渡っていく
-    // ステージ。「暗闇だから見えない」のではなく「灯りが怪異をこちらの世界へ
-    // 引き出す」という逆転の発想がこのステージの核(詳細はbuildDuskVillage
-    // 参照、15-dungeon-duskvillage.js)
-    {key:'duskvillage', name:'🏮 宵待ちの村', levelRange:'26〜85(★8)', minLevel:26, desc:'湖沼に沈みかけた廃村。蜘蛛の巣のように、狭い木の桟橋だけが水上に張り巡らされている。灯りを点せば、そこにいるはずのないものが見えてしまう。', unlocked:true},
+    /* 宵待ちの村。正式仕様は「忘れられること」(DEC-001)――
+       灯りで怪異を引き出す旧実装は WORK 2 で仕様ごと差し替えてある。
+       詳細は buildDuskVillage(14-dungeon-duskvillage.js)と
+       .ai/reports/DUSKVILLAGE-WORK2〜7-report.md */
+    {key:'duskvillage', name:'🏮 宵待ちの村', levelRange:'26〜85(★8)', minLevel:26, desc:'湖のほとりの村。網も舟も干したまま、人だけがいない。忘れられたことが、そのまま形になって残っている。', unlocked:true},
+    /* 道(Chapter 1 の最後、WORK 11)。短い一本道の街道で、ボスはいない。
+       道標 → 先を歩く人影 → 休憩所で影の旅人と出会い、そこから主人公が
+       交代する。終えて酒場へ戻ると Chapter 1 が閉じる(14-dungeon-road.js)。
+       推奨レベルは時計塔の少し上を目安に置いてあるだけで、解放条件ではない */
+    {key:'road',       name:'🌅 道',             levelRange:'20〜',    minLevel:1,  desc:'酒場の隅の席が、朝から空いている。街道のほうへ歩いていくのを見た者がいるという。', unlocked:true},
     {key:'pyramid',    name:'🏜️ 砂漠のピラミッド', levelRange:'16〜20', minLevel:16, desc:'黄金の呪いに満ちた古の墓所。目覚めた王が眠りへの帰還を拒む者を裁く。', unlocked:false},
     {key:'volcano',    name:'🌋 業火の火山',     levelRange:'21〜25', minLevel:21, desc:'絶えず溶岩が滾る山の奥、炎そのものと化した支配者が待つ。', unlocked:false},
   ];
 
+  /* 酒場の主人のところで開く「出撃」。
+
+     Chapter 1(WORK 11)は一本道なので、**選ぶ画面ではない**。出せるのは
+     いま進めているシナリオひとつだけ(core/chapter1-progress.js の
+     offeredScenarios)で、クリア済みへの再訪も、章の外(神殿・水路・温室)
+     への寄り道も出さない。死んで戻ってきたときも同じカードがもう一度出る。
+     レベルでは開かない ―― 推奨レベルは目安として表示だけ残す。
+
+     Chapter 1 を終えたら、行き先の代わりに Chapter 2 の入口を出す。
+     Chapter 2 の自由な行き先・パーティはまだ実装していないので、
+     入口は「ここから先は自由に選べるようになる」ことを示すだけで、
+     出撃はできない。 */
   function renderScenarioList(){
     const list = document.getElementById('scenario-list');
+    const title = document.querySelector('#scenario-overlay .appraisal-title');
     let html = '';
-    SCENARIO_DEFS.forEach(sc=>{
-      const stars = scenarioStars(sc.key), clears = scenarioClears(sc.key);
-      const levelLocked = sc.unlocked && state.level < sc.minLevel;
-      const starRow = sc.unlocked
-        ? `<div class="scenario-card-stars"><span class="sc-stars">${starLabel(stars)}</span>` +
-          (clears ? `<span class="sc-clears">${clears}周クリア</span>` : `<span class="sc-clears">初挑戦</span>`) +
-          (stars < MAX_STARS
-            ? `<span class="sc-next">あと1周で★${stars+1}</span>`
-            : `<span class="sc-next sc-max">最高難易度</span>`) + `</div>`
-        : '';
-      html += `<div class="scenario-card ${sc.unlocked && !levelLocked?'':'locked'}">
-        <div class="scenario-card-title">${sc.name}</div>
+    const offered = offeredScenarios(state.scenarioClears);
+    offered.forEach(key=>{
+      const sc = SCENARIO_DEFS.find(d=> d.key === key);
+      if(!sc) return;
+      html += `<div class="scenario-card" data-card="${sc.key}">
+        <div class="scenario-card-title">${sc.name} <span class="sc-next">▶ 次はここ</span></div>
         <div class="scenario-card-level">推奨レベル: ${sc.levelRange}</div>
-        ${starRow}
         <div class="scenario-card-desc">${sc.desc}</div>
-        ${!sc.unlocked ? `<div class="scenario-locked-label">🔒 近日追加予定</div>`
-          : levelLocked ? `<div class="scenario-locked-label">🔒 Lv.${sc.minLevel}以上で挑戦可能(現在Lv.${state.level})</div>`
-          : `<button type="button" class="event-btn scenario-sortie-btn" data-scenario="${sc.key}">出撃する</button>`}
+        ${sc.unlocked
+          ? `<button type="button" class="event-btn scenario-sortie-btn" data-scenario="${sc.key}">出撃する</button>`
+          : `<div class="scenario-locked-label">🔒 近日追加予定</div>`}
       </div>`;
     });
+    if(chapter1Complete(state.scenarioClears)){
+      html += `<div class="scenario-card locked scenario-chapter2" data-card="chapter2">
+        <div class="scenario-card-title">🧭 この先の旅</div>
+        <div class="scenario-card-desc">ここから先は、行き先も、誰と行くかも、自分たちで決められるようになる。</div>
+        <div class="scenario-locked-label">🔒 準備中</div>
+      </div>`;
+    }
+    if(title) title.textContent = chapter1Complete(state.scenarioClears) ? '出撃 - この先' : '出撃 - 次の行き先';
     list.innerHTML = html;
     list.querySelectorAll('.scenario-sortie-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -1604,6 +1682,12 @@
       camera.position.copy(state.pos).add(getCamOffset());
       state.waterwayColdTimerT = 5;
       state.waterwayColdTimerFired = false;
+    } else if(key==='road'){
+      state.pos.copy(ROAD_ENTRY);
+      state.camYaw = Math.PI;   // 北(道の先)を向いて出る
+      state.vel.set(0,0,0);
+      repositionAlliesToPlayer();
+      camera.position.copy(state.pos).add(getCamOffset());
     } else if(key==='duskvillage'){
       state.pos.copy(DUSKVILLAGE_ENTRY);
       state.camYaw = Math.PI;   // facing north, up the boardwalk into the village
@@ -1629,7 +1713,15 @@
      STATS RECOMPUTE (base + dice allocation + equipment + skills)
   ========================================================= */
   function recomputeStats(){
-    const base = CLASSES[selectedClass];
+    /* 影の旅人(WORK 11)は職業ではなく、戦闘の骨格だけ既存の職から借りる
+       (CLASSES.wanderer.kit)。借りた職の値の上へ自前の名前・色・基礎
+       ステータス・必殺技を重ね、key だけは借りた職のまま ―― 上位職(#9)が
+       key を変えないのと同じ理由で、基礎職キーに紐づく既存の仕組み
+       (WEAPON_TYPES/STANCE/CLIPS/リグ)をそのまま動かすため。
+       4職は own.kit が無いので、今までどおり CLASSES[selectedClass] そのもの */
+    const own = CLASSES[selectedClass];
+    const kitKey = kitKeyFor(selectedClass);
+    const base = own.kit ? Object.assign({}, CLASSES[kitKey], own, {key: kitKey, charKey: selectedClass}) : own;
     let gearAtk = 0, gearHp = 0, gearSpdMul = 0;
     ['weapon','upper','lower'].forEach(sl=>{
       const it = state.equipped && state.equipped[sl];
@@ -1639,7 +1731,7 @@
     // 体幹倍率・間合い種別(近接/遠隔)をサブ武器の値で上書きする。
     // atk はクラス基礎値に武器種ごとの倍率(atkMul)を掛けるだけで、
     // レベル・装備・スキルによる加算はそのまま両武器で共有する
-    const weaponDef = weaponDefFor(selectedClass, state.usingAltWeapon);
+    const weaponDef = weaponDefFor(kitKey, state.usingAltWeapon);
     const weaponOverrides = state.usingAltWeapon ? {
       meleeRange: weaponDef.meleeRange, meleeAngle: weaponDef.meleeAngle,
       cleave: !!weaponDef.cleave, atkCooldown: weaponDef.atkCooldown,
@@ -1666,7 +1758,7 @@
        段の必殺技がそのまま出るので、既存の見た目・挙動は一切変わらない。
        recomputeStats() は equipItem/unequipSlot からも呼ばれるので、
        武器を持ち替えた瞬間に必殺技も入れ替わる */
-    const equippedWeaponKey = weaponDefFor(selectedClass, state.usingAltWeapon).key;
+    const equippedWeaponKey = weaponDefFor(kitKey, state.usingAltWeapon).key;
     const weaponUlt = state.usingAltWeapon ? WEAPON_ULT_BY_KEY[equippedWeaponKey] : null;
     const ultBase = weaponUlt ? applyWeaponUlt(ultTier, weaponUlt) : ultTier;
     const merged = jobBonus
@@ -1674,7 +1766,7 @@
       : mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth);
     let hp = Math.round((STAT_COEF.hpBase + merged.vit*STAT_COEF.hpPerVit + state.skills.hpUp*15 + gearHp) * hpAbilityMul);
     let mp = Math.round(STAT_COEF.mpBase + (merged.mag+merged.mnd)*STAT_COEF.mpPerMagMnd);
-    const atkBase = affinityStatValue(selectedClass, merged) * STAT_COEF.atkCoef;
+    const atkBase = affinityStatValue(kitKey, merged) * STAT_COEF.atkCoef;
     let atk = Math.round((atkBase + state.skills.atkUp*2 + state.equipLevel*4 + gearAtk) * atkMul);
     // 上位ジョブの役割特化倍率(JOB_PASSIVE, 01-character-creation.js)
     if(jobActive){
@@ -2069,6 +2161,18 @@
         baseMult:1.4, maxMult:2.8, mode:'single', vfxColor:0xb08aff,
         movement:'retreat', dist:3.4, duration:0.24
       },
+      /* 幻影歩法(MAGE-001 / WORK 4)。魔法使いの戦い方は「敵の状態を観察し、
+         行動を誘導し、有利な距離を作る」こと ―― これは誘導の側を担う。
+         ステップで下がりながら、いた場所に幻影を残す。敵は幻影のほうへ
+         向かうが、命中判定はプレイヤーの座標のままなので空振りする
+         (core/decoy.js)。ダメージは持たない。
+         釣られ方は敵ごとに違う(DECOY_PULL)ので、これが必須の攻略法には
+         ならない ―― 使わなくても勝てて、使うと有利、の幅にしてある */
+      phantom: {
+        key:'phantom', name:'幻影歩法', icon:'👣', desc:'後方へ退きながら、いた場所に幻影を残す。敵の狙いをそちらへ逸らせる(ダメージは無い)',
+        baseMult:0, maxMult:0, mode:'phantom', vfxColor:0x9fd8ff,
+        movement:'retreat', dist:3.6, duration:0.26
+      },
       spin: {
         key:'spin', name:'魔導旋風', icon:'🌌', desc:'周囲に魔力の渦を発生させる',
         baseMult:0.9, maxMult:2.0, mode:'aoe', radius:4.8, vfxColor:0x8a6aff,
@@ -2129,7 +2233,13 @@
   const SKILL2_BY_CLASS = {
     warrior: { name:'地裂斬', icon:'⚡', desc:'地を裂きながら前方遠くまで斬撃を飛ばす', cd:9, mult:2.0 },
     rogue:   { name:'三連投げナイフ', icon:'🔪', desc:'短剣を3連続で投げつける', cd:8, mult:0.75 },
-    mage:    { name:'護りの魔球', icon:'🔮', desc:'両脇に追尾する魔球を展開。敵に接近すると自爆特攻し、被弾時は身代わりになる', cd:10, mult:1.6 },
+    /* 観測の灯(WORK 3 / DEC-001)。答えを表示するスキルにはしない ――
+       水鏡の影のような怪異が元から持っている「観察できる差」(波紋の間隔・
+       向き直りの速さ・予兆の深さ。core/mirror-shade.js)を広げるだけで、
+       どれが本体かはプレイヤーが決める。使わなくても同じ情報は観察できる
+       ので、他職でも攻略できる ―― 魔法使いは「観察しやすい」だけ。
+       ダメージを持たないので mult は 0 */
+    mage:    { name:'観測の灯', icon:'🔍', desc:'静かな灯りを掲げ、周囲の怪異の挙動の違いをしばらく見やすくする(ダメージは無い)', cd:14, mult:0 },
     archer:  { name:'爆弾投げ', icon:'💣', desc:'目の前に広範囲の爆弾を投げ込む', cd:9, mult:1.7 },
   };
 
@@ -3008,8 +3118,9 @@
          新技(unlockKey:'skill1Alt'付き)は、スフィア盤「新技の会得」で
          解放するまでは一覧に出さない。unlockKey:'job'付き(上位職専用)は
          転身(state.job)するまで一覧に出さない */
-      ['dash','retreat','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt' || variants[k].unlockKey==='job')).forEach(key=>{
+      ['dash','retreat','phantom','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt' || variants[k].unlockKey==='job')).forEach(key=>{
         const v = variants[key];
+        if(!v) return;   // その職に無いもの(幻影歩法は魔法使いだけ)は並べない
         if(v.unlockKey==='skill1Alt' && !state.unlockedSkill1Alt) return;
         if(v.unlockKey==='job' && !state.job) return;
         const active = state.skillChoice===key;

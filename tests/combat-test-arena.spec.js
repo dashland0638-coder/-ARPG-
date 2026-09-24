@@ -14,8 +14,10 @@ import { openGame, watchErrors } from './helpers.js';
 test('Combat Test Arena: 敵選択・Spawn・Clearが一通り動作する', async ({ page }) => {
   /* テストモードの起動 + 全種のspawn(それぞれログ確認まで待つ)+ Debug Info +
      Clear まで通すと、既定の45秒では足りない(save-load.spec.jsのsortieケースと
-     同じ事情)。実処理が遅いわけではなく手順が多いだけなので、予算だけ広げる */
-  test.setTimeout(90_000);
+     同じ事情)。実処理が遅いわけではなく手順が多いだけなので、予算だけ広げる。
+     ロスターが増えるたびに手順も伸びる ―― 16種になった時点で90秒では
+     Clear まで届かなくなったので、さらに広げてある */
+  test.setTimeout(150_000);
   const errors = watchErrors(page);
   await openGame(page);
 
@@ -61,9 +63,11 @@ test('Combat Test Arena: 敵選択・Spawn・Clearが一通り動作する', asy
   /* Dummy / Basic Melee / Windup / Charge / Jump / Boss / Flying の7種に、
      森の洋館の通常敵3種(Manor Servant / Maid / Hound、Phase 5-A)、
      強モブ1種(Manor Warden、Phase 5-B)、中ボス1種(Manor Butler、Phase 5-C)、
-     ボス1種(Manor Lord、Phase 5-D)を足した13種。数を固定してあるのは
+     ボス1種(Manor Lord、Phase 5-D)、宵待ちの村の怪異5種(Mirror Shade /
+     Foam Swarm / Copy Shade / Memory Fisher / Warden Echo、WORK 3〜6)を
+     足した18種。数を固定してあるのは
      「ロスターに足したのに描画されない」を落とすため */
-  await expect(rosterButtons).toHaveCount(13);
+  await expect(rosterButtons).toHaveCount(18);
   const labels = await rosterButtons.allTextContents();
   for (let i = 0; i < labels.length; i++) {
     await rosterButtons.nth(i).click();

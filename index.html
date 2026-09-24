@@ -46,12 +46,13 @@
 </div>
 
 <!-- ============ TEST MODE (上位職デバッグ用: セーブに触れず、職業/転身/レベルを
-     直接指定してトレーニング空間へ入る) ============ -->
+     直接指定してトレーニング空間へ入る。シナリオを選べば、そのまま
+     そのダンジョンへ直接出撃する = Scenario Test Mode) ============ -->
 <div id="testmode-screen" style="display:none;">
   <div class="cc-frame">
     <div class="cc-eyebrow">Test Mode</div>
     <h1 class="cc-title display">テストモード</h1>
-    <p class="cc-sub">職業・転身・レベルを直接指定して、カカシのあるトレーニング空間へ入ります。既存のセーブは一切変更されません。</p>
+    <p class="cc-sub">職業・転身・レベルを直接指定して、カカシのあるトレーニング空間へ入ります。シナリオを選ぶと、そのダンジョンへ直接出撃します。既存のセーブは一切変更されません。</p>
 
     <div class="cc-section-label">職業</div>
     <div class="class-grid" id="testmode-class-grid"></div>
@@ -61,6 +62,12 @@
 
     <div class="cc-section-label">同行ゲスト(2部制#41のパーティメンバーAI検証用)</div>
     <div class="testmode-job-grid" id="testmode-guest-grid"></div>
+
+    <div class="cc-section-label">シナリオ(未選択ならトレーニング空間)</div>
+    <div class="testmode-job-grid" id="testmode-scenario-grid"></div>
+
+    <div class="cc-section-label">開始地点(シナリオを選ぶと出ます)</div>
+    <div class="testmode-job-grid" id="testmode-waypoint-grid"></div>
 
     <div class="cc-section-label">レベル</div>
     <div class="testmode-level-row">

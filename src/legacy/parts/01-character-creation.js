@@ -82,8 +82,44 @@
       resourceLabel:'SP', resourceCost:4, regenMult:4.5, staggerMul:0.8,
       ult:{ name:'八方の矢', icon:'🏹', cd:18, mult:2.6, vfxColor:0xe8d38a, radial:true, radius:7.5,
             arrowCount:8, sweep:true, sweepDur:0.85, sweepArrows:22 }
+    },
+    /* 5人目「影の旅人」(WORK 11)。
+
+       **職業ではない。** 4職のどれの延長でもなく、上位職(8職体系)にも
+       入らない ―― 「この世界の異常に関わる特殊なキャラクター」。
+       UPPER_JOBS に載せていないので転身も起きない。
+
+       ただし「操作できる」ところまでは要るので、戦闘の骨格(通常攻撃・
+       回避・Skill・必殺技の型、武器の持ち方、リグ)は既存の職のものを
+       借りている(kit)。専用の戦闘システムは作らない ―― 攻撃範囲や
+       モーション、WEAPON_TYPES/STANCE/CLIPS など基礎職キーに紐づく
+       既存の仕組みは、上位職(#9)と同じく key を借りた職のまま動かす
+       (recomputeStats が state.classDef.key を kit に揃える)。
+       自前で持つのは名前・見た目の色・基礎ステータス・必殺技の名前だけ。
+
+       どの職を借りるかは暫定(剣。いちばん素直な近接の型)。
+       Boss Ability を取得できるという特殊性は、既存の BOSS_ABILITIES の
+       仕組みを壊さないことだけ確認してある(WORK 11 レポート §4)。
+
+       hidden: テストモードの職業・同行ゲストの一覧には出さない
+       (本編の進行でだけ現れる。道のテストモードでは出会いの場面で交代する) */
+    wanderer:{
+      key:'wanderer', name:'影の旅人', icon:'◐', kit:'warrior', hidden:true,
+      // 酒場の片隅に座っていた姿(buildTavern の shadowGuide)と同じ配色 ――
+      // 黒ずくめに、紫がかった影
+      color:0x1a1622, trim:0x8a5ad6,
+      hairColor:0x0a0810, eyeColor:0x8a5ad6,
+      desc:'酒場の片隅にいた旅人。どこから来たのかは、本人にも分からない。',
+      vit:13, str:13, mag:9, mnd:10, agi:11, foc:10, spd:5.3,
+      ult:{ name:'影送り', icon:'◐', cd:20, radius:4.2, mult:3.2, vfxColor:0x8a5ad6 }
     }
   };
+  /* 戦闘の骨格を借りている職のキー(影の旅人 → warrior)。
+     4職はそれぞれ自分自身を返す */
+  function kitKeyFor(classKey){
+    const c = CLASSES[classKey];
+    return (c && c.kit) || classKey;
+  }
 
   // 基礎ステータス→実数値の変換係数と、武器種ごとの補正配分(#29)。
   // 魔法使いの杖はユーザー指示によりINT70%+MND30%(他クラスは主軸1本 or 2軸60/40)
@@ -205,10 +241,14 @@
      性別・性格をあらかじめ固定してある。プレイヤーが名前を入力する
      欄はもう無いため、表示名は原案の台本と同じくクラス名そのものを
      使う(例:「剣士:「……」」)。
-       chapter:      章番号(1-indexed)
-       classKey:     その章の主人公のクラス(CLASSESのキー)。5人目
-                     「影の旅人」はまだ専用クラス/戦闘キットを実装
-                     していないため、第五章はnullのまま(プレイ不可)
+       chapter:      **Chapter 1 の中の進行段**(1-indexed)。名前は「章」だが、
+                     ここに並んでいるのは第1章〜第5章ではなく、Chapter 1 の
+                     Scenario 1〜5(＝主人公が交代する区切り)。Chapter 番号
+                     そのものを表す runtime state ではない(WORK 9 で指摘、
+                     WORK 10/11 の指示によりフィールド名は変えていない)
+       classKey:     その段の主人公のクラス(CLASSESのキー)。5人目は
+                     'wanderer'(影の旅人、WORK 11)。職業ではなく特殊な
+                     キャラクターで、戦闘の骨格だけ既存の職から借りている
        gender/personality: 固定の性別・性格(既存のCLASSES/PERSONALITY_LINES
                      をそのまま使うための割り当て。原案には性別の指定が
                      ないため、既存システムと矛盾しない範囲でこちらで割り振った)
@@ -232,7 +272,10 @@
     {chapter:2, classKey:'mage',    gender:'female', personality:'cheerful', guestClassKey:'warrior', dungeonKey:'duskvillage'},
     {chapter:3, classKey:'archer',  gender:'female', personality:'calm',    guestClassKey:'mage',    dungeonKey:'ghostship'},
     {chapter:4, classKey:'rogue',   gender:'male',   personality:'brave',   guestClassKey:'archer',  dungeonKey:'clocktower'},
-    {chapter:5, classKey:null,      gender:null,     personality:'calm',    guestClassKey:'rogue',   dungeonKey:null}, // ？？？(影の旅人) ―― 未実装
+    /* 5人目(影の旅人)。道の途中で出会い、そこから主人公になる
+       (core/chapter1-progress.js の MET_INSIDE)。性別の指定は原案に無い ――
+       リグの体格を決めるためだけの割り当てで、台詞や設定では触れない */
+    {chapter:5, classKey:'wanderer', gender:'male',  personality:'calm',    guestClassKey:'rogue',   dungeonKey:'road'},
   ];
 
   // 指定した章の固定キャストをselectedClass等へ反映する。classKeyが
@@ -362,6 +405,13 @@
      (ダイス振り・ステータス配分)は経由しない。実際の状態リセット・
      ワールド遷移はbeginTestMode()(14-hud-boot.js)側で行い、ここは
      選択UIの組み立てだけを担当する
+
+     SCENARIO TEST MODE(WORK 1)
+     シナリオを選ぶと、トレーニング空間へ入った直後にそのダンジョンへ
+     出撃する。本編のChapter進行(applyChapterCast/酒場イベント/加入順)は
+     一切再現しない ―― 開発中のシナリオ・キャラクター・戦闘システムを
+     本編を最初から遊ばずに検証するためだけの経路。セーブ保護は既存の
+     state.testModeがそのまま効く(beginTestMode側のコメント参照)
   ========================================================= */
   (function setupTestModeScreen(){
     const titleScreen = document.getElementById('title-screen');
@@ -371,6 +421,8 @@
     const testClassGrid = document.getElementById('testmode-class-grid');
     const testJobGrid = document.getElementById('testmode-job-grid');
     const testGuestGrid = document.getElementById('testmode-guest-grid');
+    const testScenarioGrid = document.getElementById('testmode-scenario-grid');
+    const testWaypointGrid = document.getElementById('testmode-waypoint-grid');
     const testLevelInput = document.getElementById('testmode-level');
     const testLevelVal = document.getElementById('testmode-level-val');
     const testStartBtn = document.getElementById('testmode-start-btn');
@@ -379,6 +431,8 @@
     let tmClass = null, tmJob = null;   // tmJob: null=基礎職のまま(転身しない)
     let tmGuest = null;   // null=単独。ゲストのパーティメンバーAI(08-loot-equipment.jsのGUEST COMPANION)を
                            // 章の自動進行を待たずに直接検証できるようにするためのテストモード専用オプション
+    let tmScenario = null;  // null=トレーニング空間。キーを選べばそのシナリオへ直接出撃する
+    let tmWaypoint = null;  // null=そのシナリオの入口。指定すると途中から始める(WORK 4)
 
     if(testGuestGrid){
       const noneCard = document.createElement('div');
@@ -391,6 +445,7 @@
       });
       testGuestGrid.appendChild(noneCard);
       Object.values(CLASSES).forEach(c=>{
+        if(c.hidden) return;   // 影の旅人は本編の進行でだけ現れる(WORK 11)
         const card = document.createElement('div');
         card.className = 'testmode-job-card';
         card.dataset.guestKey = c.key;
@@ -404,7 +459,92 @@
       });
     }
 
+    /* シナリオ一覧(Scenario Test Mode)。一覧の情報源はSCENARIO_DEFSひとつだけ
+       ―― ここに別の表を持たない。ワールド構築関数が無いもの(unlocked:false
+       のpyramid/volcano)は出さない。
+
+       組み立てをこのIIFEの中ではなく「テストモードを開いた瞬間」に遅らせて
+       あるのは、SCENARIO_DEFSが12-progression-ui.jsのconst、つまり連結後
+       このファイルより後ろで初期化されるため ―― 即時実行のこの関数から
+       参照するとTDZ(Temporal Dead Zone)で落ちる。開いた時点なら全ファイルの
+       評価が済んでいるので安全に読める。 */
+    let scenarioGridBuilt = false;
+    function buildScenarioGrid(){
+      if(scenarioGridBuilt || !testScenarioGrid) return;
+      scenarioGridBuilt = true;
+      const noneCard = document.createElement('div');
+      noneCard.className = 'testmode-job-card selected';
+      noneCard.dataset.scenarioKey = '';
+      noneCard.textContent = '🛠 トレーニング空間';
+      noneCard.addEventListener('click', ()=>{
+        testScenarioGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+        noneCard.classList.add('selected');
+        tmScenario = null;
+        refreshStartLabel();
+      });
+      noneCard.addEventListener('click', ()=> renderWaypointGrid());
+      testScenarioGrid.appendChild(noneCard);
+      SCENARIO_DEFS.forEach(sc=>{
+        if(!sc.unlocked) return;   // ワールド構築関数が無いものは起動できない
+        const card = document.createElement('div');
+        card.className = 'testmode-job-card';
+        card.dataset.scenarioKey = sc.key;
+        card.textContent = sc.name;
+        card.addEventListener('click', ()=>{
+          testScenarioGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+          card.classList.add('selected');
+          tmScenario = sc.key;
+          renderWaypointGrid();
+          refreshStartLabel();
+        });
+        testScenarioGrid.appendChild(card);
+      });
+    }
+
+    /* 開始地点(WORK 4)。ヘッドレス/実機のどちらでも、村の奥のほうを
+       確かめるのに入口から歩き直すのは現実的でないため、選んだシナリオに
+       登録があれば途中から始められるようにしてある(core/scenario-waypoints.js)。
+       登録の無いシナリオでは、この欄そのものが空になる */
+    function renderWaypointGrid(){
+      if(!testWaypointGrid) return;
+      testWaypointGrid.innerHTML = '';
+      tmWaypoint = null;
+      const list = tmScenario ? waypointsFor(tmScenario) : [];
+      if(!list.length) return;
+      const headCard = document.createElement('div');
+      headCard.className = 'testmode-job-card selected';
+      headCard.dataset.waypointId = '';
+      headCard.textContent = '最初から';
+      headCard.addEventListener('click', ()=>{
+        testWaypointGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+        headCard.classList.add('selected');
+        tmWaypoint = null;
+      });
+      testWaypointGrid.appendChild(headCard);
+      list.forEach(wp=>{
+        const card = document.createElement('div');
+        card.className = 'testmode-job-card';
+        card.dataset.waypointId = wp.id;
+        card.textContent = wp.name;
+        card.addEventListener('click', ()=>{
+          testWaypointGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+          card.classList.add('selected');
+          tmWaypoint = wp.id;
+        });
+        testWaypointGrid.appendChild(card);
+      });
+    }
+
+    // 行き先が変わるボタンなので、押す前にどちらへ入るのかが分かるようにする
+    function refreshStartLabel(){
+      if(!testStartBtn) return;
+      const sc = tmScenario ? SCENARIO_DEFS.find(s=>s.key===tmScenario) : null;
+      testStartBtn.textContent = sc ? `🛠 ${sc.name} へ出撃` : '🛠 トレーニング開始';
+    }
+
     openBtn.addEventListener('click', ()=>{
+      buildScenarioGrid();
+      refreshStartLabel();
       titleScreen.style.display = 'none';
       testScreen.style.display = 'flex';
     });
@@ -441,6 +581,7 @@
     }
 
     Object.values(CLASSES).forEach(c=>{
+      if(c.hidden) return;   // 影の旅人は職業ではないので、ここには並べない(WORK 11)
       const card = document.createElement('div');
       card.className = 'class-card';
       card.dataset.key = c.key;
@@ -465,7 +606,7 @@
     testStartBtn.addEventListener('click', ()=>{
       if(testStartBtn.disabled || !tmClass) return;
       testScreen.style.display = 'none';
-      beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1, tmGuest);
+      beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1, tmGuest, tmScenario, tmWaypoint);
     });
   })();
 

@@ -107,4 +107,52 @@ async function disableCameraAutoFollow(page) {
   await page.waitForFunction(() => !document.getElementById('menu-overlay').classList.contains('active'));
 }
 
-export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue, disableCameraAutoFollow };
+/**
+ * Enters the game through Test Mode (title -> 🛠テストモード), optionally
+ * sortieing straight into a scenario (Scenario Test Mode).
+ *
+ * This is the short way into any dungeon: the alternative is seeding a fake
+ * save past the scenario's minLevel, continuing from it, walking to the
+ * bartender and clicking through the tavern dialogue, which is slow and
+ * flaky under the software renderer (see duskvillage.spec.js).
+ *
+ * Nothing here touches the real save - Test Mode sets state.testMode, and
+ * saveGame() is a no-op while it is set.
+ *
+ * @param {object} opts
+ *   classKey  - CLASSES key ('warrior' | 'rogue' | 'mage' | 'archer'). Required.
+ *   guestKey  - CLASSES key for the guest companion, or null/undefined for solo.
+ *   scenario  - SCENARIO_DEFS key to sortie into, or null/undefined for the
+ *               training ground.
+ *   level     - level slider value (default: left as-is).
+ *   waypoint  - scenario-waypoints.js id to start from instead of the
+ *               scenario's entrance (WORK 4), or null/undefined for the
+ *               entrance. Only offered for scenarios that register any.
+ */
+async function startTestMode(page, opts) {
+  const { classKey, guestKey, scenario, level, waypoint } = opts;
+  await page.click('#open-testmode-btn');
+  await page.waitForSelector(`.class-card[data-key="${classKey}"]`);
+  await page.click(`.class-card[data-key="${classKey}"]`);
+  await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);
+  if (guestKey) await page.click(`#testmode-guest-grid .testmode-job-card[data-guest-key="${guestKey}"]`);
+  if (scenario) await page.click(`#testmode-scenario-grid .testmode-job-card[data-scenario-key="${scenario}"]`);
+  // 開始地点は選択中シナリオに依存して描き直されるので、シナリオの後で押す
+  if (waypoint) {
+    await page.waitForSelector(`#testmode-waypoint-grid .testmode-job-card[data-waypoint-id="${waypoint}"]`);
+    await page.click(`#testmode-waypoint-grid .testmode-job-card[data-waypoint-id="${waypoint}"]`);
+  }
+  if (level != null) {
+    await page.$eval('#testmode-level', (el, v) => {
+      el.value = String(v);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }, level);
+  }
+  await page.click('#testmode-start-btn');
+  await page.waitForFunction(() => {
+    const wrap = document.getElementById('canvas-wrap');
+    return !!(wrap && wrap.querySelector('canvas'));
+  }, { timeout: 20_000 });
+}
+
+export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, startTestMode };

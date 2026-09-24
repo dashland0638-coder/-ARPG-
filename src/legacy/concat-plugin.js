@@ -57,6 +57,56 @@ import { clipFracAt, impactFrac, swingSfxDelay } from '../core/swing-timing.js';
 import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/soft-lock.js';
 import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
+import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor } from '../core/dusk-village-map.js';
+import {
+  shouldSplit as mirrorShouldSplit, tellContrast as mirrorTellContrast,
+  rippleInterval as mirrorRippleInterval, turnRate as mirrorTurnRate,
+  windupPlan as mirrorWindupPlan, stepRipple as mirrorStepRipple,
+  stepReform as mirrorStepReform, observeReaches,
+  PROVISIONAL_CLONE_COUNT, PROVISIONAL_SPLIT_RADIUS, PROVISIONAL_REFORM_SEC,
+  OBSERVE_LIGHT_SEC, OBSERVE_RADIUS,
+} from '../core/mirror-shade.js';
+import {
+  aggroTarget, pickLureTarget, stepDecoyLife, decoyPullFor,
+  PROVISIONAL_PHANTOM_LIFE_SEC, PROVISIONAL_PHANTOM_LURE_RADIUS,
+} from '../core/decoy.js';
+import {
+  makeAttackSnapshot, replayPlan, consumeSnapshot, isCopyable as isCopyableAttack,
+  PROVISIONAL_COPY_DELAY_SEC, PROVISIONAL_COPY_POWER_MUL,
+} from '../core/attack-snapshot.js';
+import {
+  canGrow as foamCanGrow, stepGrowth as foamStepGrowth, growthOffset as foamGrowthOffset,
+  foamCapFor, PROVISIONAL_FOAM_START, PROVISIONAL_FOAM_MAX,
+} from '../core/foam-swarm.js';
+import { waypointsFor, findWaypoint } from '../core/scenario-waypoints.js';
+import {
+  recordPosition, positionAt, pruneHistory, historySpan,
+  PROVISIONAL_HISTORY_SEC, PROVISIONAL_HISTORY_STEP,
+} from '../core/position-history.js';
+import {
+  planNet, stepNet, netHits, canThrow as canThrowNet, netLookback, netArmSec,
+  PROVISIONAL_NET_CD, PROVISIONAL_NET_RANGE, PROVISIONAL_NET_RADIUS,
+} from '../core/memory-fisher.js';
+import {
+  PROVISIONAL_MARKET_WAVES, dueWaves, allWavesFired,
+} from '../core/encounter-waves.js';
+import {
+  CHAPTER1_ORDER, stageFor as chapter1Stage, nextScenario as chapter1Next,
+  isMainline as isMainlineScenario, mainlineAvailable, chapter1Complete,
+  offeredScenarios, resolveCast, castAfterMeeting, shouldSwitchCast, isForwardSwitch,
+} from '../core/chapter1-progress.js';
+import {
+  phaseFor as villageEchoPhase, planFor as villageEchoPlan,
+  nextSummon as villageNextSummon, shouldLeaveEcho as villageShouldEcho,
+  defersResultScreen,
+  PHASE_2_HP as VILLAGE_PHASE_2_HP, PHASE_3_HP as VILLAGE_PHASE_3_HP,
+} from '../core/village-echo.js';
+import {
+  phaseFor as wardenPhaseFor, echoCountFor, echoDelay, recordAction,
+  dueEchoes, pruneRecords, stepEcho, echoStrikes, actorTell,
+  PROVISIONAL_ECHO_LIFE_SEC, PROVISIONAL_ECHO_RADIUS, PROVISIONAL_ECHO_WINDUP_SEC,
+  PROVISIONAL_OPERATE_SEC, PROVISIONAL_MOVE_SEC,
+} from '../core/warden-echo.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

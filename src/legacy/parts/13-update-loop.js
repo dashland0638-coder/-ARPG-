@@ -59,6 +59,7 @@
     }
     updateHoldInputs(dt);
     updateMageOrbs(dt);
+    updatePhantomDecoys(dt);   // 幻影歩法が置いた幻影(WORK 4)
     updatePlatforms(dt);
     // カメラ左右反転設定: Q/E・タッチ・右スティック、どの入力元から来た
     // ものでも合算後にまとめて反転させれば済む
@@ -162,6 +163,9 @@
   function updateHoldInputs(dt){
     if(state.skillCD>0) state.skillCD -= dt;
     if(state.skill2CD>0) state.skill2CD -= dt;
+    // 観測の灯(魔法使いの Skill 2)。効いている残り時間。会話・ポーズ中は
+    // 下の早期returnで止まるので、演出の間に勝手に切れることはない
+    if(state.observeLightT>0) state.observeLightT = Math.max(0, state.observeLightT - dt);
     if(state.bossSkill3CD>0) state.bossSkill3CD -= dt;
     if(state.paused || state.dialogueActive || state.dodging){
       if(state.skillCharging){ state.skillCharging=false; state.skillChargeT=0; }
@@ -362,6 +366,11 @@
                               homing:!!variant.homing, homingTurn:2.6, homingRange:13});
         }, i*110);
       });
+    } else if(variant.mode==='phantom'){
+      /* 幻影歩法(MAGE-001 / WORK 4)。移動そのものは variant.movement が
+         既存の state.skillAnim へ乗るので、ここでやるのは「いた場所に
+         幻影を置く」ことだけ。ダメージ計算(上の dmg)は使わない */
+      spawnPhantomDecoy(state.pos.x, state.pos.z);
     } else if(variant.mode==='barrier'){
       activateBarrier(variant);
     } else if(variant.mode==='fan5'){
@@ -1499,8 +1508,17 @@
   }
 
   function updateProjectiles(dt){
-    for(let i=projectiles.length-1;i>=0;i--){
-      const p = projectiles[i];
+    /* 命中の処理(dealDamageToEnemy)の先で、ボス撃破 → endCombatPresentation()
+       が飛翔体を全部片づけて projectiles を新しい空配列へ差し替えることがある。
+       魔法使い(魔弾)でボスを倒すと必ずそうなる(WORK 12 で宵待ちの村の
+       村の残響を倒したときに発覚)。差し替わったら、この回の更新はそこで
+       やめる ―― 古い添字で新しい配列を読んだり、片づけ済みの灯りを
+       もう一度プールへ返したりしないため */
+    const list = projectiles;
+    for(let i=list.length-1;i>=0;i--){
+      if(projectiles !== list) return;
+      const p = list[i];
+      if(!p) continue;
       if(p.spin) p.mesh.rotation.y += p.spin*dt;
       if(p.boomerang){
         /* The warden's hand flies out, stalls, and comes back along its own
@@ -1585,6 +1603,7 @@
             hitAny = true;
           }
         });
+        if(projectiles !== list) return;   // 命中でボスが倒れ、飛翔体はもう片づけ済み
         if(hitAny){
           spawnUltimateVFX(p.mesh.position.clone(), {radius:p.hitRadius, vfxColor:p.mesh.material.color.getHex()});
           scene.remove(p.mesh); if(p.light) giveLight(p.light); projectiles.splice(i,1); continue;
@@ -1654,6 +1673,7 @@
             }
           }
         }
+        if(projectiles !== list) return;   // 命中でボスが倒れ、飛翔体はもう片づけ済み
         if(hit){ scene.remove(p.mesh); if(p.light) giveLight(p.light); projectiles.splice(i,1); continue; }
       }
 

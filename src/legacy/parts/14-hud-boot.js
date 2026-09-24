@@ -433,6 +433,8 @@
     tavern:'港町の酒場', mansion:'囚われの洋館', ghostship:'幽霊船',
     waterway:'埠頭の地下水路', temple:'古代神殿',
     clocktower:'狂いの時計塔', conservatory:'硝子の温室',
+    duskvillage:'宵待ちの村',
+    road:'名もなき街道',
   };
   // 「山を登る」拡張の各部屋(周回★でしか現れず、テーブル駆動の部屋一覧
   // には乗っていない)にも、迷わないよう固有の場所名を出す。星条件を
@@ -453,6 +455,7 @@
       {rooms: typeof TOWER_ROOMS !== 'undefined' ? TOWER_ROOMS : null, floors:true},
       {rooms: typeof CONS_ROOMS !== 'undefined' ? CONS_ROOMS : null},
       {rooms: typeof TEMPLE_ROOMS !== 'undefined' ? TEMPLE_ROOMS : null},
+      {rooms: typeof DUSK_ROOMS !== 'undefined' ? DUSK_ROOMS : null},
     ];
     for(const t of tables){
       if(!t.rooms) continue;
@@ -473,11 +476,17 @@
     return null;
   }
   let lastRoomName = '';
+  let lastRoomWorld = null;
   function updateMinimapLabel(){
     const areaEl = document.getElementById('minimap-area');
     const roomEl = document.getElementById('minimap-room');
     if(!areaEl || !roomEl) return;
     areaEl.textContent = AREA_NAMES[currentWorldKey] || '';
+    /* 場所名はワールドをまたいで持ち越さない。小道では「さっきいた部屋」を
+       出し続ける仕様(下の行)だが、それは同じワールドの中での話 ――
+       ダンジョンから酒場へ戻った時まで残ると、酒場に「水鏡の跡」と
+       出たままになる */
+    if(lastRoomWorld !== currentWorldKey){ lastRoomWorld = currentWorldKey; lastRoomName = ''; }
     const rn = roomNameAt(state.pos.x, state.pos.z);
     if(rn) lastRoomName = rn;      // a corridor shows the room you came from
     roomEl.textContent = lastRoomName;
@@ -1075,6 +1084,10 @@
     if(state.started && !state.paused && !state.dialogueActive){
       updateInput(dt);
       updatePlayer(dt);
+      /* 数秒ぶんの足取りを控える(WORK 5)。記憶漁師が「少し前にいた場所」を
+         引くためのもの。updatePlayer の直後・updateEnemies の直前に置いて
+         あるので、敵が見るのは必ず「このフレームまでの足取り」になる */
+      recordPosition(state.posHistory, mechTime, state.pos.x, state.pos.y, state.pos.z);
       updateProjectiles(dt);
       updateEnemies(dt);
       updateGauntlet(dt);
@@ -1089,6 +1102,7 @@
       updateCollapse(dt);
       updateAltitude(dt);
       updateDuskVillage(dt);   // Phase D(#37): 昼夜進行+ランタン近接+ボスの光ギミック
+      updateRoad(dt);          // 道(WORK 11)。他のワールドでは即return
       updateCutscene(dt);
       updateSwingVFX(dt);
       updateMagicCircleVFX(dt);
@@ -1150,6 +1164,12 @@
       updateMansionRoof();
       updateRestroomRoof();
       updateManorSmith(dt);   // 再会演出で鍛冶屋が歩み寄る(仕様 7)
+      /* 宵待ちの村(WORK 3): 演出中も村は動かす ―― 水面・小舟・洗濯物が
+         止まると、その瞬間だけ世界が書き割りになる。同行者を歩かせる
+         スクリプト(stepDuskGuestWalk)もここから進む。
+         他のワールドでは即returnするので、コストも副作用も無い */
+      updateDuskVillage(dt);
+      updateRoad(dt);
       updateShake(dt);
       updateSparks(dt);
       /* 斬撃の弧と魔法陣のフェードも進める。どちらも opacity を下げて
@@ -1229,7 +1249,11 @@
     state.learnedSkill2 = false;
     state.smithEscort = ESCORT.NONE; state.mansionNormalized = false;
     state.smithToolsRecovered = false;   // 洋館の工具はまだ持ち帰っていない
-    state.guestClassKey = CHAPTER_CAST[1].guestClassKey || null;   // 第一章は剣士単独(#41)
+    /* 同行者(支援AI)は進行から導く(WORK 10、core/chapter1-progress.js)。
+       ここは新規開始の経路で、すぐ上で scenarioClears を空にしている
+       ので必ず段1 ―― 剣士ひとり(#41 の頃から結果は同じ)。式で書いて
+       あるのは、進行と支援の決め方を1箇所にまとめておくため */
+    state.guestClassKey = chapter1GuestKey();
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;
@@ -1276,8 +1300,11 @@
   // deleteSaveGame()は呼ばない(既存のセーブに一切触れない約束)。
   // state.testModeを立てておけば、以降のsaveGame()呼び出しは
   // (自動セーブ含め)すべて何もしなくなる(09-save-load.js参照)ので、
-  // うっかり上書きされる心配もない
-  function beginTestMode(classKey, jobKey, level, guestKey){
+  // うっかり上書きされる心配もない。
+  //
+  // scenarioKey(Scenario Test Mode / WORK 1): 指定するとトレーニング空間へ
+  // 入った直後にそのシナリオへ出撃する。本編のChapter進行は再現しない
+  function beginTestMode(classKey, jobKey, level, guestKey, scenarioKey, waypointId){
     selectedClass = classKey;
     selectedGender = 'male';
     selectedPersonality = 'brave';
@@ -1319,10 +1346,10 @@
     state.learnedSkill2 = false;   // Chapter 1 は Skill 1 だけで始まる
     state.smithEscort = ESCORT.NONE; state.mansionNormalized = false;
     state.smithToolsRecovered = false;
-    // 通常は常にnull(単独)だが、テストモード画面の「同行ゲスト」で
-    // 選ばれていれば、GUEST COMPANION(08-loot-equipment.js)の検証用に
-    // そのクラスを立てる ―― 章の自動進行(#41)がまだ無いため、これが
-    // 現状唯一guestClassKeyを非nullにできる経路
+    // テストモード画面の「同行ゲスト」で選ばれていれば、
+    // GUEST COMPANION(08-loot-equipment.js)の検証用にそのクラスを立てる。
+    // 本編の支援AIは chapter1GuestKey() が決めるが(WORK 10)、
+    // テストモードは進行から独立した構成なので、ここでは選択を優先する
     state.guestClassKey = (guestKey && CLASSES[guestKey]) ? guestKey : null;
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
@@ -1354,6 +1381,232 @@
     state.inventory = {gold:0, gem:0, potion:99, shard:0, mppotion:99};
 
     finishEnteringGame({showIntro:false, world:'training'});
+
+    /* Scenario Test Mode(WORK 1)
+
+       必ず「training で入場 → launchScenario()」の順で行う。
+       finishEnteringGame({world:'duskvillage'}) のようにシナリオのworld keyで
+       直接入場してはいけない ―― state.testMode は finishEnteringGame の
+       `state.testMode = (world==='training')` という1行だけで決まるので、
+       そこへシナリオを渡すと testMode が false になり、以降の自動セーブが
+       本物のセーブデータを上書きしてしまう。
+
+       launchScenario() は本編の出撃と全く同じ経路(scenarioKey設定 →
+       routeReset → buildWorld → 入場座標/カメラ/味方の再配置)で、
+       レベル制限の判定は持たない(それは酒場のUI側=renderScenarioList /
+       startScenarioTavernDialogue の担当)ため、ここから直接呼べる。
+       finishEnteringGame 側にシナリオ固有の分岐は一切足していない。 */
+    if(scenarioKey){
+      const def = SCENARIO_DEFS.find(s=>s.key===scenarioKey);
+      if(def && def.unlocked){
+        launchScenario(scenarioKey);
+        /* 開始地点(WORK 4)。launchScenario は fadeTransition を挟むので、
+           入場処理が済んでから運ぶ ―― ワールド構築と入場座標の設定を
+           上書きしないよう、同じ暗転の後ろに置いている。
+           運ぶのは座標だけで、進行状態(フラグ・敵・イベント)には触らない */
+        const wp = findWaypoint(scenarioKey, waypointId);
+        if(wp) setTimeout(()=> teleportTestModeTo(wp), 400);
+      }
+      else console.error(`beginTestMode: unknown or locked scenario "${scenarioKey}"`);
+    }
+  }
+
+  /* =========================================================
+     Chapter 1 の主人公交代(WORK 10 / WORK 11)
+
+     **新しい進行状態は1つも持たない。** 誰が主人公で誰が支援AIかは、
+     既にセーブされている scenarioClears から毎回導く
+     (core/chapter1-progress.js + CHAPTER_CAST)。
+
+       洋館クリア → 魔法使い＋剣士 → 宵待ちの村
+       村クリア   → 弓師＋魔法使い → 幽霊船
+       幽霊船     → 盗賊＋弓師     → 時計塔
+       時計塔     → 盗賊＋弓師     → 道(途中で影の旅人と出会う)
+       道の出会い → 影の旅人＋盗賊 → 道を終えて酒場へ(Chapter 1 の終わり)
+
+     交代が起きるのは**酒場に戻った時**(仕様 §19)と、道の出会いの一幕
+     (WORK 11 §22 ―― 5人目は道の途中で見つかるので、そこから主人公になる)
+     だけ。メニューから選ぶ画面は作らない。
+  ========================================================= */
+  function chapter1CastNow(){
+    return resolveCast(chapter1Stage(state.scenarioClears), CHAPTER_CAST);
+  }
+  function chapter1GuestKey(){
+    const cast = chapter1CastNow();
+    const key = cast && cast.guestClassKey;
+    return (key && CLASSES[key]) ? key : null;
+  }
+
+  /* 酒場へ戻ったところで呼ぶ。進行が一段進んでいれば主人公が入れ替わる。
+
+     opts.rebuild … リグを組み直す(酒場へ戻ったとき)。false はセーブから
+                    入り直すときで、この直後に finishEnteringGame が組む
+     opts.announce … 加入の一幕を出してよいか(死亡で戻ったときは false)。
+                    出すのは前へ進んだ交代のときだけ ―― 道の途中で撤退・
+                    全滅して影の旅人から盗賊へ戻るのは「戻るだけ」 */
+  function advanceChapter1Cast(opts){
+    opts = opts || {};
+    if(state.testMode) return false;          // テストモードの構成は進行に触らせない
+    const cast = chapter1CastNow();
+    if(!shouldSwitchCast(selectedClass, cast)) {
+      state.guestClassKey = chapter1GuestKey();   // 支援だけ変わる場合もある
+      return false;
+    }
+    const prevClass = selectedClass;
+    const forward = isForwardSwitch(prevClass, cast.classKey, CHAPTER_CAST);
+    if(!switchProtagonist(cast, opts.rebuild)) return false;
+    state.guestClassKey = chapter1GuestKey();
+    if(opts.rebuild){
+      syncAlliesToState();
+      refreshTouchControls();
+      if(forward && opts.announce !== false) playChapter1JoinScene(prevClass, selectedClass);
+    }
+    return true;
+  }
+
+  /* 主人公を cast の顔ぶれへ持ち替える(酒場の交代と、道の出会いで共用)。
+
+     レベル・所持金・スフィア・インベントリ・防具は引き継ぐ ―― 原案の
+     「主人公と一緒に育っていく」に合わせてある。持ち替えるのは
+     クラスと武器、それに Skill 1 の選択だけ。 */
+  function switchProtagonist(cast, rebuild){
+    const stage = castIndexFor(cast.classKey);
+    if(!stage || !applyChapterCast(stage)) return false;   // 表に無いクラスへはすり替えない
+    /* 名前・性別・性格も新しい主人公のものへ。applyChapterCast が書くのは
+       selectedClass 系の共有変数だけで、会話や HUD が読む state 側は
+       beginGame/applySaveData でしか写されない ―― WORK 10 ではここが
+       抜けていて、交代後も会話の話者名が前の主人公のままだった */
+    state.gender = selectedGender;
+    state.name = playerName || '名もなき冒険者';
+    state.personality = selectedPersonality;
+    /* 上位職(#9)は「その人」のもの。前の主人公が転身していても、
+       次の主人公へは持ち越さない(持ち越すと、次の主人公がレベル50に
+       なっても state.job が埋まっていて転身イベントが起きない) */
+    const uj = upperJobFor(selectedClass);
+    if(state.job && !(uj && uj.key === state.job)) state.job = null;
+
+    /* 見た目とステータスを差し替える。
+
+       rebuild:
+         true  … 酒場で交代したとき・道の出会い。ここでリグを組み直す
+         false … セーブから入り直したとき。この直後に
+                 finishEnteringGame が同じ手順で組むので、ここでは
+                 クラスと装備だけ決めておく(buildPlayer は
+                 共有変数を書くので、二度呼ばない) */
+    state.usingAltWeapon = false;
+    recomputeStats();                 // ここで state.classDef が新しいクラスになる
+    if(rebuild){
+      if(player) scene.remove(player);
+      playerMixerParts = {};
+      player = buildPlayer(state.classDef, selectedGender);
+      if(state.job) applyJobPromotionVisual();
+    }
+    /* 新しい主人公の得物へ持ち替える。武器はクラス固有なので必ず差し替える
+       ――が、**防具はそのまま引き継ぐ**。前の主人公が拾った胸当てを
+       「擦り切れた〜」へ戻してしまうのは、レベルも所持品も引き継ぐという
+       この交代の考え方に合わない。前の武器は持ち物には残る(捨てない) */
+    const keepUpper = state.equipped.upper, keepLower = state.equipped.lower;
+    grantStarterGear();
+    ['upper','lower'].forEach(slot=>{
+      const keep = slot === 'upper' ? keepUpper : keepLower;
+      if(!keep) return;
+      const fresh = state.equipped[slot];
+      state.equipped[slot] = keep;
+      // 使わなかった初期防具は持ち物にも残さない(交代のたびに増えていく)
+      const i = state.equipmentInventory.indexOf(fresh);
+      if(i >= 0) state.equipmentInventory.splice(i, 1);
+    });
+    recomputeStats();
+    state.hp = state.maxHp; state.mp = state.maxMp;
+    /* Skill 1 の選択はクラスごとに別物なので、既定へ戻す
+       (前の主人公が選んでいた技がそのまま残らないように) */
+    state.skillChoice = 'retreat';
+    state.skillCD = 0; state.skill2CD = 0;
+    resetWeaponState(state.weapon);
+    return true;
+  }
+  function castIndexFor(classKey){
+    for(let i = 1; i < CHAPTER_CAST.length; i++){
+      if(CHAPTER_CAST[i] && CHAPTER_CAST[i].classKey === classKey) return i;
+    }
+    return 0;
+  }
+
+  /* 道の出会いの一幕から呼ぶ(14-dungeon-road.js)。
+     表の5段目(影の旅人＋盗賊)へ持ち替えて、支援AIも組み直す。
+     進行(scenarioClears)には触らない ―― 道を終えるまでに撤退・全滅
+     すれば、酒場で盗賊＋弓師へ戻り、道はもう一度最初から */
+  function meetChapter1Protagonist(stage){
+    const cast = castAfterMeeting(stage, CHAPTER_CAST);
+    if(!cast || !switchProtagonist(cast, true)) return false;
+    state.guestClassKey = (cast.guestClassKey && CLASSES[cast.guestClassKey]) ? cast.guestClassKey : null;
+    syncAlliesToState();
+    refreshTouchControls();
+    return true;
+  }
+
+  /* 交代の一幕。長いイベントにはしない(仕様 §11)――
+     前の主人公が席を外し、次の主人公が名乗らずに座る、程度。 */
+  function playChapter1JoinScene(prevKey, nextKey){
+    const prev = CLASSES[prevKey], next = CLASSES[nextKey];
+    if(!next) return;
+    spawnToast(`${next.icon} ${next.name}が酒場にいる`);
+    sfx('chime');
+    const lines = CHAPTER1_JOIN_LINES[nextKey];
+    if(!lines) return;
+    state.dialogueActive = true;
+    state.dialogueBoss = null;
+    state.dialogueKind = 'town';
+    state.dialogueLines = lines(prev ? prev.name : '');
+    state.dialogueIndex = 0;
+    renderDialogueLine(state.dialogueLines[0]);
+    document.getElementById('dialogue-overlay').classList.add('active');
+  }
+
+  /* 交代の台詞。どれも3往復まで ―― 説明しない。
+     「次はあなたが行く」とも言わせない(行き先は酒場の主人が出す) */
+  const CHAPTER1_JOIN_LINES = {
+    mage: (prevName)=> [
+      {name:'酒場の主人', text:'連れが増えたな。そっちの嬢ちゃんは、さっきから湖の話ばかりしている。'},
+      {name:'魔法使い', text:'……失礼。人のいない村の話を聞いて、確かめに行きたくなっただけです。'},
+      {name:prevName, text:'ひとりで行く気か。'},
+      {name:'魔法使い', text:'いいえ。ついて来てくださるなら、助かります。'}
+    ],
+    archer: (prevName)=> [
+      {name:'酒場の主人', text:'霧の港で船が見つかったそうだ。乗員は、ひとりも。'},
+      {name:'弓師', text:'その話、私が引き受けます。……港は歩き慣れているので。'},
+      {name:prevName, text:'ひとりでは行かせません。'},
+      {name:'弓師', text:'そう言うと思っていました。'}
+    ],
+    rogue: (prevName)=> [
+      {name:'酒場の主人', text:'塔の鐘が、毎晩同じ時刻で止まるらしい。'},
+      {name:'盗賊', text:'止まってるなら、入るのは簡単だ。開いてる窓はどこにでもある。'},
+      {name:prevName, text:'……その言い方、あとで詳しく聞かせて。'},
+      {name:'盗賊', text:'着いてからな。'}
+    ],
+  };
+
+  /* Scenario Test Mode の開始地点へ運ぶ(WORK 4)。テストモード以外からは
+     呼ばれない ―― 通常プレイの進行・セーブ・UIには一切現れない。
+     座標だけを動かし、味方の再配置とカメラの置き直しは既存の関数に任せる */
+  function teleportTestModeTo(wp){
+    if(!state.testMode || !state.started) return;
+    state.pos.set(wp.x, 0, wp.z);
+    state.vel.set(0,0,0);
+    state.yVel = 0; state.grounded = true;
+    if(state.safePos) state.safePos.copy(state.pos);
+    /* 運ぶ前に持っていた戦闘の残りを落とす(WORK 5)。前の場所に置いた
+       幻影・飛んでいる網・直前の一撃の記録・足取りが残っていると、
+       着いた瞬間に「誰もいない場所から網が落ちてくる」ようなことが起きる。
+       進行フラグ・敵・イベント登録には触らない ―― 消すのは一時状態だけ */
+    clearPhantomDecoys();
+    clearMemoryNets();
+    clearKeeperEchoes();
+    state.attackSnapshot = null;
+    if(state.posHistory) state.posHistory.length = 0;
+    repositionAlliesToPlayer();
+    camera.position.copy(state.pos).add(getCamOffset());
+    spawnToast(`🛠 ${wp.name} から開始`);
   }
 
   // テストモード(2026-08-31)のスポーン地点。トレーニング空間はタヴァン
@@ -1424,6 +1677,11 @@
     // a still-suspended AudioContext and it never becomes audible until
     // one of those later actions happens to fire.
     resumeAudio();
+    /* 続きから入った場合、セーブに残っているクラスは「その時に操作して
+       いた主人公」だが、正しい主人公は進行(scenarioClears)から決まる
+       (WORK 10)。リグを組む前にここで合わせておく ―― 交代の一幕は
+       酒場へ戻った時のものなので、ここでは出さない */
+    advanceChapter1Cast({rebuild:false});
     currentWorldKey = null; // force a full rebuild even if we're already nominally in the tavern
     buildWorld(world);
 

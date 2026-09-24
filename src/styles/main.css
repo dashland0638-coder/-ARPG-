@@ -1012,6 +1012,8 @@
   }
   .scenario-card.locked{ opacity:0.55; }
   .scenario-card-title{ font-family:'Noto Serif JP',serif; font-size:15px; color:var(--text); margin-bottom:4px; }
+  /* Chapter 1 本編で「次に行くところ」だけに付く印(WORK 10) */
+  .scenario-card-title .sc-next{ font-size:10.5px; color:var(--ember-bright); margin-left:6px; letter-spacing:.06em; }
   .scenario-card-level{ font-size:11.5px; color:var(--ember-bright); margin-bottom:6px; }
   .scenario-card-stars{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
   .scenario-card-stars .sc-stars{ font-size:14px; letter-spacing:1px; color:#ffcf5a; text-shadow:0 0 6px rgba(255,190,70,0.45); }
