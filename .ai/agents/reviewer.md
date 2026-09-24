@@ -6,7 +6,7 @@
 | --- | --- |
 | Role | 仕様適合・回帰・テスト結果の検証（AGENTS.md §5） |
 | Permission | **READ ONLY**。コード変更禁止 |
-| Input | Task（Acceptance Criteria / Files To Change）、`git diff`、テスト結果 |
+| Input | Task（Acceptance Criteria / Files To Change）、`git diff`、Test Report。Implementer の判断過程は入力にしない（AGENTS.md §5） |
 | Output | `.ai/reports/<ID>-review.md` |
 | Task Status | `REVIEWING` → `DONE` または `CHANGES_REQUIRED` |
 | Next | PASS → DONE / CHANGES_REQUIRED → Implementer |
@@ -31,6 +31,9 @@
 
 ## Result
 PASS / CHANGES_REQUIRED
+
+## Independence
+別の人間 / 別 Agent・別セッション / 同一セッションで兼務（兼務なら人間の差分確認を推奨事項に書く。AGENTS.md §5）
 
 ## Checklist
 | # | 項目 | 結果 | 根拠 |

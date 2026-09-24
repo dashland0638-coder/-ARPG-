@@ -26,7 +26,7 @@
 - Current Implementation（FACT、analysis を参照）
 - Implementation Plan（Step ごとに ファイル / 関数 / 変更内容 / 理由）
 - Files To Change / Files Not To Change
-- Test Plan（build / unit / E2E、何を確かめるか）
+- Test Plan（build / unit / E2E、何を確かめるか。Targeted か Full Regression か：AGENTS.md §14）
 - Acceptance Criteria
 - Risks
 - Rollback
