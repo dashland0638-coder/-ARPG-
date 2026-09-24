@@ -2,29 +2,52 @@
 
 Chapter 構造の仕様修正と Scenario Test Mode の設計
 
-Status: **PLANNED（Analyzer → Planner まで）** ／ 本タスクでのゲームコード変更なし
+Status: PLANNED
 
 Analysis: [`../reports/CHAPTER-STRUCTURE-analysis.md`](../reports/CHAPTER-STRUCTURE-analysis.md)
 Related: [`MAGE-001.md`](MAGE-001.md) / [`../decisions/DEC-001-duskvillage-rebuild.md`](../decisions/DEC-001-duskvillage-rebuild.md)
 
-T-1 Analysis: [`../reports/CHAPTER-STRUCTURE-T1-analysis.md`](../reports/CHAPTER-STRUCTURE-T1-analysis.md)
+本 Task は Work Item を持つ Task（`../AGENTS.md` §7.1 / §7.2）。Task Level の Status は Task 全体の調査・計画の進み具合だけを表し、
+承認・実装の状態は下の Work Items 表で Work Item ごとに管理する。本タスク時点でゲームコードの変更は無い。
 
-## Human Approval
+## Work Items
 
-Task 全体の Status は `PLANNED` のまま（T-3 / T-4 は Unknown 7 / 8 が未決定のため、Task 全体を WAITING_APPROVAL にはしない）。
-承認は項目ごとに行い、チェックの無い項目は実装しない。
+| ID | Summary | Status | Approval | Analysis | Plan |
+| --- | --- | --- | --- | --- | --- |
+| T-1 | テストモードの Skill 1 既定値を本編に揃える | WAITING_APPROVAL | [ ] | [`CHAPTER-STRUCTURE-T1-analysis.md`](../reports/CHAPTER-STRUCTURE-T1-analysis.md) | [`CHAPTER-STRUCTURE-T1.md`](CHAPTER-STRUCTURE-T1.md) |
+| T-2 | シナリオ一覧を Chapter / Arc で整理する | DRAFT | [ ] | [`CHAPTER-STRUCTURE-analysis.md`](../reports/CHAPTER-STRUCTURE-analysis.md) | 本ファイル Step 2 |
+| T-3 | 進行状態「本編相当」プリセット | DRAFT | [ ] | 同上 | 本ファイル Step 3（Unknown 7 待ち） |
+| T-4 | Skill 2「未習得で開始」 | DRAFT | [ ] | 同上 | 本ファイル Step 4（Unknown 8 待ち） |
 
-- [ ] T-1 Approved（Implementation Gate: **WAITING_APPROVAL** ―― 判断事項 D-1〜D-5 は T-1 Analysis 参照）
+承認は Work Item ごとに行う。ある Work Item の承認は他の Work Item の承認を意味しない。チェックの無い Work Item は実装しない。
+
+### T-1 Human Approval
+- [ ] Approved
 - Approved by / date / where:
-- Scope of approval:
+- Scope of approval:（[`CHAPTER-STRUCTURE-T1.md`](CHAPTER-STRUCTURE-T1.md) の Files To Change の範囲）
 
-Implementation: **BLOCKED until approval**
+Implementation (T-1): **BLOCKED until approval**
+
+### T-2 / T-3 / T-4 Human Approval
+- [ ] T-2 Approved
+- [ ] T-3 Approved
+- [ ] T-4 Approved
+
+Implementation (T-2 / T-3 / T-4): **BLOCKED**（Work Item ごとの計画・承認が未了）
 
 ## Status History
 
 | Date | From → To | By | Note |
 | --- | --- | --- | --- |
 | 2026-09-24 | PLANNED → PLANNED | Analyzer | T-1 Analysis を追加。T-1 のみ WAITING_APPROVAL。Task 全体の Status は変更しない |
+
+以下は Work Item 形式（`../tasks/README.md`）移行後の記録（5列）。上の行は移行前の記録として変更していない。
+
+| Date | Target | From → To | By | Note |
+| --- | --- | --- | --- | --- |
+| 2026-09-24 | Task | PLANNED → PLANNED | Planner | Work Item 形式へ移行。Status 行を状態名だけの表記に、旧「Human Approval」節を Work Items 表と Work Item ごとの Approval 欄へ置き換え。承認状態は変更なし（全て未承認） |
+| 2026-09-24 | T-1 | WAITING_APPROVAL → WAITING_APPROVAL | Planner | T-1 専用計画 `CHAPTER-STRUCTURE-T1.md` を作成。人間の承認待ちで停止 |
+| 2026-09-24 | T-2 / T-3 / T-4 | － → DRAFT | Planner | Work Item として登録（移行前は Status を持っていなかった）。承認状態は未承認のまま |
 
 > **改訂（WORK 12.1 後）**
 > 旧版は「Scenario Test Mode を新設する」計画だったが、WORK 1 / 4 / 12.1 で
