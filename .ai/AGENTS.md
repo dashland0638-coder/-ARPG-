@@ -1,96 +1,459 @@
-# AI Agent Operating Rules
+# AI Agent Operating Protocol
+
+このファイルは AI エージェント運用ルールの **唯一の正本（Single Source of Truth）** である。
+`.ai/agents/*.md` は各役割の入出力テンプレートだけを持ち、ルールはここを参照する。
+`.ai/tasks/` `.ai/reports/` `.ai/decisions/` の README は命名とテンプレートだけを持つ。
+
+同じルールを他のファイルへ書き写さない。変更はここで行う。
+
+---
 
 ## 1. Purpose
 
-`.ai/` はAIによる開発作業の状態・分析・計画・判断記録を管理する。
+`.ai/` は AI による開発作業の状態・分析・計画・判断記録を管理する。
 
-ゲーム本体の仕様は `docs/` が正とする。
-
-`.ai/` はゲーム仕様そのものを置き換えない。
-
-補足（現状）: 本リポジトリには現時点で `docs/` ディレクトリが存在せず、正式仕様はリポジトリ直下の
-`ARCHITECTURE.md` / `ARPG_INTEGRATION.md` / `COMBAT_DESIGN.md` / `MANSION_SCENARIO.md` / `ASSETS.md` /
-`README.md` / `tests/README.md` が担っている。`docs/` が新設されるまでは、これらを「正式仕様」と読み替える。
+ゲーム本体の仕様は `docs/` が正とする。`.ai/` はゲーム仕様を置き換えない。
+（`docs/` に無い事項は、ルート直下の `ARCHITECTURE.md` / `COMBAT_DESIGN.md` / `MANSION_SCENARIO.md` などを参照する。）
 
 ## 2. Source of Truth
 
-優先順位：
+優先順位:
 
-1. 現在の実装
-2. `docs/` の正式仕様（未整備の間は上記のルート直下Markdown）
+1. 現在の実装（コード・テスト）
+2. `docs/` の正式仕様
 3. `.ai/decisions/` の明示的な決定事項
 4. `.ai/tasks/` の作業指示
-5. AI自身の推測
+5. AI 自身の推測
 
-不明点を推測で埋めない。
+不明点を推測で埋めない。矛盾を発見したら報告する（自分で解消しない）。
 
-矛盾を発見した場合は報告する。
+---
 
-## 3. Task Lifecycle
+## 3. Rule 0: Existing System First（最重要）
 
-基本フロー：
+**新しいシステムを作る前に、既存の同等・類似機能を必ず検索・確認する。**
+
+手順（この順番で行う）:
+
+1. 同じ機能が存在しないか検索する
+2. 類似機能が存在しないか検索する
+3. 既存機能を拡張できないか検討する
+4. 既存のデータ構造・state・イベント・UI・テストを確認する
+5. 再利用できない理由を明文化する
+6. それでも必要な場合のみ新規実装する
+
+優先して検索する対象:
+
+| 分類 | 例 |
+| --- | --- |
+| state | `src/core/state.js`、`state.*` のフィールド |
+| existing systems | `src/core/*.js`、`src/legacy/parts/*.js` の同名・類似関数 |
+| event handlers | 近接/部屋イベント、会話、演出（`playCutscene` 等） |
+| UI | `index.html`、HUD、オーバーレイ、テストモード画面 |
+| scenario flow | `SCENARIO_DEFS`、`launchScenario`、Chapter 1 進行（`core/chapter1-*.js`） |
+| test mode | `beginTestMode`、`state.testMode`、`state.debugMode`、Combat Test Arena |
+| existing tests | `tests/*.spec.js`、`tests/unit/`、`tests/helpers.js` |
+| helper functions | `tests/helpers.js`、`src/core/` の純粋関数 |
+| VFX / animation | `src/render/`、`05-rendering-rig.js`、`core/ult-clips.js` 等 |
+| AI behavior | `07-ai-combat.js`、`core/enemy-*.js`、ゲスト/仲間AI |
+| save/load | `09-save-load.js`（`snapshot` / `applySaveData`） |
+| progression | `scenarioClears`、`core/chapter1-progress.js`、スキル習得 |
+
+**記録の義務**: 「存在しないと思う」は不可。Analyzer のレポートには
+「〇〇を `検索語` で検索した結果、存在しないことを確認した（対象: パス）」の形で、
+検索語と範囲を残す。
+
+## 4. Standard Workflow
 
 ```
-REQUEST
+User Request
   ↓
-ANALYZE
+Director / Human Intent        … 目的・優先度・制約を示す
   ↓
-PLAN
+Analyzer                        … 調査・事実確認（READ ONLY）
   ↓
-IMPLEMENT
+Planner                         … 実装計画（READ ONLY）
   ↓
-TEST
+Human Approval  ◆ GATE          … GO 判断・仕様判断・未確定事項の決定
   ↓
-REVIEW
+Implementer                     … 承認済み範囲だけ実装
   ↓
-DONE
+Build / Unit Test / E2E Test
+  ↓
+commit / push → Review Handoff  … 成果物を remote へ残して渡す（§5.1 / §7.3。push は Persistence が必要: §6）
+  ↓
+Reviewer                        … 検証（READ ONLY）
+  ↓
+PASS → DONE
+  │
+  ├─ テスト失敗 → Debugger → 最小修正 → 再テスト → Reviewer
+  └─ Review 指摘 → Implementer → 再テスト → Reviewer
 ```
 
-失敗時：
+Human Intent / Human Approval 以外の各段は、成果物（Markdown）を残してから次へ渡す。
+前の段の成果物が無いまま次の段を始めない。
+
+Implementer → Reviewer と Reviewer → DONE の受け渡しでは、「残す」は **作業ブランチへ commit・push し、remote から取得できる状態にすること** を指す（§7.3）。
+working tree にだけある成果物は、受け渡し済みとみなさない。
+
+## 5. Roles and Permissions
+
+| Role | 責務 | 入力 | 出力 | 変更権限 | 次工程 |
+| --- | --- | --- | --- | --- | --- |
+| Director / Human | 目的・優先度・承認・仕様判断 | User Request / 各成果物 | Task の指示、Approval、`.ai/decisions/` | 全権（判断） | Analyzer / Implementer |
+| Analyzer | 調査・事実確認 | Task / User Request | `.ai/reports/<ID>-analysis.md` | **READ ONLY**（書くのはレポートだけ） | Planner |
+| Planner | 実装計画 | Analysis | `.ai/tasks/<ID>.md`（計画・未確定事項） | **原則 READ ONLY**（書くのは Task だけ） | Human Approval |
+| Implementer | 承認済み Task の実装 | APPROVED な Task | コード・テスト・Task の実装結果欄、Review Handoff（§5.1） | Task の Files To Change の範囲のみ | Test → Reviewer |
+| Reviewer | 仕様適合・回帰・テストの検証 | Review Handoff（§5.1）が指す Task / diff / テスト結果 | `.ai/reports/<ID>-review.md` | **READ ONLY**（書くのは review report と Task の Status 更新だけ。§7.3） | DONE / Implementer |
+| Debugger | 失敗の原因分析と修正案 | 失敗ログ / diff | `.ai/reports/<ID>-debug.md` | 原則 READ ONLY（修正は Implementer が行う。単独運用で兼務する場合も §9 の上限に従う） | Implementer → Test |
+
+各役割の禁止事項:
+
+- **Analyzer**: コード変更禁止。仕様変更禁止。FACT と INFERENCE を分離する（§8）。
+- **Planner**: 実装しない。コード変更禁止。不明点は「未確定事項（DECISION）」として人間に提示する。
+- **Implementer**:
+  - Human Approval 済みの Task だけ実装する（§6）
+  - Task の範囲を超えて仕様を変えない（§10）
+  - 既存システムを優先して再利用する（§3）
+  - 不要なリファクタリングをしない
+- **Reviewer**: コード変更禁止。指摘は CHANGES_REQUIRED として返す。Review Handoff を検証できない場合は PASS も CHANGES_REQUIRED も出さない（§5.1）。
+- **Debugger**: 仕様を変えて通すことをしない。修正後は必ず再テストする。3サイクルで停止する（§9）。
+
+Implementer の手順と出力テンプレートは `.ai/agents/implementer.md`。責務境界は上表と §6・§10 に従う。
+
+1つの AI が複数の役割を兼ねてもよい。ただし **役割ごとの成果物と Gate は省略しない**。
+
+**Reviewer の独立性**: Reviewer は Implementer の判断過程ではなく、Review Handoff（§5.1）が指す Implementation SHA 時点の Task / Plan / `git diff`（Diff range）/ テスト結果だけを入力として検証する。
+Review には独立性を1行で明記する（`別の人間` / `別 Agent・別セッション` / `同一セッションで兼務`）。
+`同一セッションで兼務` の場合は、人間による差分確認を Review の推奨事項として必ず残す。
+兼務・別セッションのどちらでも、受け渡しの手順（§5.1 / §7.3）は同じ。
+
+### 5.1 Review Handoff
+
+Implementer は `TESTING → REVIEWING` のとき（§7.3）、Reviewer へ次の Review Handoff を渡す。すべて必須。
+書式は `.ai/agents/implementer.md`。
+
+| 項目 | 内容 |
+| --- | --- |
+| Task ID | `<ID>`（Work Item を持つ Task は `<ID> / T-n`） |
+| Branch | push 先の作業ブランチ（§6 の Persistence に書かれたブランチ） |
+| Implementation SHA | push 済みの最終実装コミット（40桁） |
+| Diff range | その承認単位の差分範囲 `<base-sha>..<Implementation SHA>`（1コミットなら `<sha>^..<sha>`） |
+| Task file | `.ai/tasks/<ID>.md`（Work Item は計画 `<ID>-<ITEM>.md` も） |
+
+Plan / Analyzer report / Test Report / Changed Files は Handoff に重ねて書かない。Task file から次のとおり辿れる:
+Plan は Task file（Work Item は計画ファイル）、Analyzer report は冒頭の `Analysis:` 行、
+Test Report と Changed Files は末尾の Implementation Result（`.ai/agents/implementer.md`）。
+
+Implementation SHA は Task file に書かない（自分を含むコミットの SHA は書けない）。記録の正本は review report の Review Target とする。
+
+**Reviewer の Handoff 検証**: レビュー内容に入る前に、Implementation SHA の時点で次をすべて確認する。
+
+| # | 確認 |
+| --- | --- |
+| V-1 | Branch が remote に存在し、Implementation SHA がそのブランチから到達可能 |
+| V-2 | Implementation SHA から Task file へ到達できる |
+| V-3 | Plan が存在する |
+| V-4 | Analyzer report（Task file の `Analysis:`）が存在する |
+| V-5 | Implementation Result（Test Report・Changed Files）を Task file で確認できる |
+| V-6 | Diff range が空でなく、終点が Implementation SHA と一致する |
+
+1つでも確認できない場合は **BLOCKED（理由: Review Handoff 不備）** として扱う。
+
+- Reviewer は PASS も CHANGES_REQUIRED も出さず、review report を作らない（受け渡しの不備を実装の指摘として扱わない）
+- 満たせなかった V-n を人間へ報告して止まる。Task file の Status は Reviewer が変更しない（対象の Task file が確定しないため）
+- 人間または Implementer が Handoff を出し直した時点で、Reviewer は V-1 から検証し直す
+- レビューは Implementation SHA の内容に対して行う。ブランチ先端・自分の working tree・未 commit の変更は対象にしない
+
+## 6. Human Approval Gate
+
+**Human Approval が無いものは実装禁止。** 承認は **承認単位** ごとに行う。
+
+| Task の形 | 承認単位 |
+| --- | --- |
+| Work Item を持たない Task | Task 全体 |
+| Work Item（T-1, T-2 …）を持つ Task | **各 Work Item**（§7.2） |
+
+承認単位ごとの Implementation 開始条件（すべて満たすこと）:
+
+- [ ] その承認単位を扱う Analyzer report が存在する（Task 全体の analysis、または Work Item 専用の analysis）
+- [ ] Planner task が存在し、その承認単位の計画が書かれている（`.ai/tasks/<ID>.md`）
+- [ ] その承認単位の未確定事項（DECISION）が列挙され、実装に必要なものは決定済み
+- [ ] その承認単位の実装範囲（Files To Change / Files Not To Change）が明確
+- [ ] その承認単位に Human Approval が明示されている（`Status: APPROVED` とチェック済みの Approval 欄）
+
+Planner は計画を書き終えた承認単位を `WAITING_APPROVAL` にして止まる。
+`APPROVED` にしてよいのは人間の明示的な GO（会話・Issue・PR コメント等）があった場合だけで、
+その根拠（誰が・いつ・どこで・どの承認単位を）を Approval 欄に書く。**AI が自分で承認しない。**
+
+**Persistence（commit / push の許可）**: Human Approval は、書かれた範囲の実装だけを許可する。commit / push の許可は含まない。
+
+- commit / push は、その承認単位の Approval 欄の `Persistence` が `許可` で、対象ブランチ名が書かれている場合に限り、そのブランチへだけ行ってよい
+  （Implementer はテスト完了後。Reviewer は §7.3 の範囲）
+- 1つの `許可` が次の2つを許可する。どちらも同じブランチへだけ行う:
+  - Implementer の commit / push: その承認単位の承認範囲（Files To Change と Task file の Implementation Result・Status・Status History）。
+    加えて、その承認単位の Analyzer report と Task file（計画本文・Approval 欄を含む）がそのブランチの remote にまだ無い場合は、
+    それらを Human Approval 時点の内容のまま最初の実装 commit に含める（§7.3 手順2）。Implementer は Analyzer report・計画本文・Approval 欄を変更しない
+  - Reviewer の §7.3 の commit / push: review report・Task file の Status 更新・Status History への追記（必要な行だけ）。review report はこの範囲に限り承認範囲外のファイルとして扱わない。
+    Reviewer がそれ以外のファイルを commit する許可にはならない
+- Analyzer / Planner に commit / push の権限は無い。Human Approval より前に Analyzer report・Task file を push する規定も設けない（人間が自分で行うことは妨げない）
+- 同じ承認単位の CHANGES_REQUIRED 後の再実装・Debugger 後の修正は、承認範囲・ブランチ・Files To Change が変わらない限り、既存の `許可` を使い続けてよい。
+  承認範囲や Files To Change を変える場合は、Human Approval と Persistence を取り直す
+- `Persistence` を `許可` にしてよいのは、そのブランチへの commit / push を許可する人間の明示的な指示があった場合だけで、その根拠（誰が・いつ・どこで）を書く。
+  Implementation の承認から Persistence を推測・補完しない。**AI が自分で Persistence を許可にしない**
+- `Persistence` が空欄・`許可しない`・行が無い（旧形式の Approval 欄）場合は、許可されていない
+- `main` への push、force push、承認範囲外のファイルの commit は、Persistence が許可でも行わない
+
+承認の範囲はその承認単位に書かれた範囲に限る。
+
+- ある Work Item の承認は、同じ Task の他の Work Item の承認を意味しない
+- 別の Task・別のフェーズへも及ばない
+- Task 全体の Status が `PLANNED` のままでも、`APPROVED` の Work Item は実装してよい。未承認の Work Item は実装しない
+
+## 7. Task State
 
 ```
-TEST FAIL
-  ↓
-DEBUG
-  ↓
-MINIMAL FIX
-  ↓
-TEST
+DRAFT → ANALYZING → PLANNED → WAITING_APPROVAL → APPROVED → IMPLEMENTING → TESTING → REVIEWING → DONE
 ```
 
-自動修正は最大3サイクルまで。
+失敗時:
 
-3回失敗した場合は停止して人間へ判断を求める。
+```
+TESTING   → FAILED → DEBUGGING → TESTING            （§9 の上限つき）
+REVIEWING → CHANGES_REQUIRED → IMPLEMENTING → TESTING
+```
 
-## 4. Minimal Change Rule
+停止:
 
-既存コードを理解してから変更する。
+```
+任意の状態 → BLOCKED   （外部要因・人間の判断待ち・3サイクル超過。理由を必ず書く）
+```
 
-目的達成に必要な最小変更だけを行う。
+| State | 意味 | 担当 | 次へ進む条件 |
+| --- | --- | --- | --- |
+| DRAFT | 依頼を受けた。未着手 | Director | Analyzer が着手 |
+| ANALYZING | 調査中 | Analyzer | analysis レポート完成 |
+| PLANNED | 計画作成済み | Planner | 未確定事項を整理し終えた |
+| WAITING_APPROVAL | 人間の GO 待ち。**実装禁止** | Human | 明示的な承認 |
+| APPROVED | 実装してよい | Human | Implementer が着手 |
+| IMPLEMENTING | 実装中 | Implementer | 実装完了 |
+| TESTING | build / unit / E2E 実行中 | Implementer | FAIL が無く、FLAKY / NOT_RUN があれば §14 の規則どおり記録して進めてよいと判断し、commit・push・Review Handoff を終えた（§7.3）→ REVIEWING、FAIL → FAILED |
+| FAILED | テスト失敗 | － | Debugger が着手 |
+| DEBUGGING | 原因分析・最小修正中 | Debugger | 修正後 TESTING |
+| REVIEWING | 検証中 | Reviewer | PASS かつ §7.3 の DONE 条件 → DONE、指摘 → CHANGES_REQUIRED |
+| CHANGES_REQUIRED | レビュー指摘あり | Reviewer | Implementer が着手 |
+| DONE | 完了 | － | － |
+| BLOCKED | 停止中（理由を明記） | － | 人間の判断 |
 
-「ついでの改善」はしない。
+Status を変えたら、同じ Task の「Status History」に1行追記する（テンプレートは `.ai/tasks/README.md`）。
 
-不要なリファクタリングは禁止。
+旧表記の読み替え: `REQUESTED` = DRAFT、`REVIEW` = REVIEWING。
 
-## 5. Legacy Rule
+### 7.1 Task Level
 
-`src/legacy/parts/` は共有スコープで動作している。
+Task ファイルの冒頭に `Status:` を1行で書く。
 
-通常のES Moduleとして勝手に分離しない。
+- **Work Item を持たない Task**: 上の状態遷移をそのまま Task の Status として使う（従来どおり）
+- **Work Item を持つ Task**: Task の Status は **Task 全体の調査・計画の進み具合** を表し、
+  使う値は `DRAFT` / `ANALYZING` / `PLANNED` / `DONE` / `BLOCKED` だけとする。
+  承認・実装・テスト・レビューの状態（`WAITING_APPROVAL` 〜 `CHANGES_REQUIRED`）は Work Item 側に持たせる
+  - `DONE`: すべての Work Item が `DONE`、または人間の判断で取り下げ・別 Task へ移動済み（Status History に記録）
+  - `BLOCKED`: Task 全体が止まっている場合だけ（個別の停止は Work Item の `BLOCKED`）
 
-共有変数や関数を不用意に変更しない。
+### 7.2 Work Item Level
 
-module化が必要な場合は、別Taskとして分析・計画を行う。
+Work Item は Task の中の個別の作業項目（`T-1` など、Task 内で一意の ID）。
 
-## 6. Frozen File
+- 各 Work Item は、上の状態遷移・状態表と同じ値の `Status` と、個別の Human Approval 欄を持つ
+- 状態遷移のルール・§6 の開始条件・§9 の3サイクル上限・§10 の Scope は、Work Item ごとに適用する
+- Work Item の Scope は、その Work Item の Files To Change / 計画に書かれた範囲。
+  他の Work Item の範囲に踏み込む変更は OUT OF SCOPE（§10）
+- Work Item を追加・分割・取り下げするのは Planner の提案と人間の判断による。既存の Work Item の ID・履歴は書き換えない
+- Work Item 専用の成果物の命名（`<ITEM>` は Work Item ID からハイフンを除いたもの。例: `T-1` → `T1`）:
+  - 計画: `.ai/tasks/<ID>-<ITEM>.md`（例: `CHAPTER-STRUCTURE-T1.md`）。**独立した Task ではなく**、親 Task `<ID>.md` の Work Item の計画。
+    冒頭に親 Task へのリンクを書き、Status と Human Approval の正本は親 Task の Work Items 表とする（計画側の Status は常にそれと一致させる）
+  - レポート: `.ai/reports/<ID>-<ITEM>-analysis.md` / `-debug.md` / `-review.md`（例: `CHAPTER-STRUCTURE-T1-analysis.md`）
+  - Task 全体の成果物は従来どおり `<ID>.md` / `<ID>-analysis.md`
 
-`basefile.html` は凍結。
+表記は `.ai/tasks/README.md` のテンプレート（Work Items 表と Work Item ごとの Approval 欄）に従う。
 
-変更禁止。
+**読み替え**: 本ファイル・`.ai/agents/*.md` で「Task の Status」「Task を BLOCKED にする」等と書いている箇所は、
+Work Item を持つ Task では **該当する Work Item の Status** を指す（§7.1 の Task Level の値を除く）。
 
-## 7. Testing Rule
+### 7.3 Handoff and Completion Gates
 
-変更後は可能な範囲で、
+Status は増やさない。成果物の永続化は、既存の2つの遷移の条件として扱う。
+
+**push 前の Status**: remote に push されていない commit に書かれた Status は、正式な Status として効力を持たない。
+push が完了するまで、正式な Status は直前に remote 上にあった Status とする（Implementer の `REVIEWING`、Reviewer の `DONE` / `CHANGES_REQUIRED` のどちらにも適用）。
+push できなかった local commit を削除・書き換えする必要は無い。
+
+**`TESTING → REVIEWING`（担当 Implementer）** — 次の順で行う:
+
+1. §14 のテストが完了し、Implementation Result（Test Report を含む）を書いた（IMPLEMENTATION COMPLETE）。FAIL が無い
+2. 承認範囲の成果物（コード・テスト・Task file の Implementation Result・Status の `REVIEWING` 更新と Status History 行）を commit する。
+   Status History の Note には Branch を書く。
+   その承認単位の Analyzer report と Task file（計画本文・Approval 欄を含む）がブランチの remote にまだ無い場合は、Human Approval 時点の内容のまま同じ commit に含める（§6）
+3. Persistence のブランチへ push し、remote のブランチから Implementation SHA へ到達できることを確かめる
+4. Review Handoff（§5.1）を作り Reviewer へ渡す。ここで `REVIEWING` が成立する
+
+- テスト完了前に push しない
+- Persistence が許可されていない、または push できない場合は `REVIEWING` にしない。`TESTING` のまま止まり、人間に Persistence（または障害の解消）を求める。
+  判断待ちが続く場合は `BLOCKED`（理由: Review Handoff 未完了）
+
+**Reviewer の commit 範囲** — Result が PASS でも CHANGES_REQUIRED でも、Reviewer の commit は次だけを含む1コミットとし、Handoff の Branch へ push する（Persistence の範囲）:
+
+- review report（`.ai/reports/<ID>-review.md`。Work Item は `<ID>-<ITEM>-review.md`）
+- Task file の Status 更新（Work Item を持つ Task では、親 Task の Work Items 表の Status と Work Item 計画の Status。§7.2）
+- Task file の Status History への追記（必要な行だけ。例: Work Item の `REVIEWING → DONE` と、それにより Task Level が `DONE` になる行）
+
+それ以外の変更を同じコミットに混ぜない。これにより、Reviewed SHA と review commit の差分が review report と Status 更新だけになる。
+
+Reviewer の実行環境で Handoff の Branch へ push できない（別ブランチが割り当てられている等）場合、Reviewer は別ブランチへ push しない。
+Reviewer commit を行う前に、人間が push 先ブランチ（Handoff の Branch）を明示して承認するのを待つ。承認があるまでは `REVIEWING` のまま、review report の内容を人間へ渡す。
+DONE 条件の「remote の Branch」は Handoff の Branch のまま変わらない。
+
+**`REVIEWING → DONE`（担当 Reviewer）** — 次をすべて満たすこと:
+
+- [ ] review report の Result が PASS
+- [ ] review report が remote の Branch に存在する（push を確認するまで、PASS は完了条件として成立しない）
+- [ ] review report の Reviewed SHA が、その承認単位の最新の Implementation SHA と一致する（Reviewed SHA より後に、その承認単位の Files To Change を変更するコミットが無い。上の「Reviewer の commit 範囲」に従う Reviewer commit は除外する。それ以外のコミットが1つでもあれば満たさない）
+
+- テストの要件は §14 のまま（Targeted を許容する）。Full Regression と、完了についての追加の Human Approval は DONE の条件にしない
+- Reviewed SHA より後に実装が変わった場合は、新しい Implementation SHA で Handoff とレビューをやり直す
+- push できない場合は `REVIEWING` のまま、review report の内容を人間へ渡して止まる
+
+**適用範囲**: 本節は、本節の追加後に `TESTING → REVIEWING` へ進む承認単位から適用する。既存の Task・report・Approval 欄は書き換えない。
+
+## 8. Fact / Inference / Decision
+
+Analyzer と Planner の出力では、記述を次の3種に分ける。
+
+| 種別 | 意味 | 書き方 |
+| --- | --- | --- |
+| **FACT** | コード・テスト・仕様書から確認した事実 | 根拠（`path:line`、テスト名、仕様書の節、検索語）を必ず添える |
+| **INFERENCE** | FACT から推測したこと | 「推測」と明記し、どの FACT に基づくかを書く |
+| **DECISION** | 人間が決める必要があること | 選択肢と、それぞれの影響を書く。AI は決めない |
+
+次の4つを混同しない:
+
+| 表現 | 使ってよい条件 |
+| --- | --- |
+| 実装されている | コード上で確認した（FACT） |
+| 実装されていない | 検索して無いことを確認した（FACT。§3 の記録つき） |
+| 仕様として決まっている | `docs/` または `.ai/decisions/` に記載がある（FACT） |
+| 提案である | それ以外。Planner の案はすべてこれ |
+
+「コードが残っている」と「その機能が有効に動く」も区別する（例: 無効化された旧システム）。
+
+Implementer / Reviewer が Acceptance Criteria の充足を書くときは、確認方法を区別する:
+
+| 表記 | 意味 |
+| --- | --- |
+| **VERIFIED** | 実行したテスト（unit / E2E / 手動操作）で確認した。テスト名を添える |
+| **FACT (code)** | コードを読んで同じ経路を通ることを確認したが、テストでは確かめていない |
+
+`FACT (code)` だけの AC は PASS にしてよいが、未検証である旨を Review の Risks に残す。
+
+## 9. Debugger 3-Cycle Rule
+
+Debugger → Implementer → Test → Debugger のループは **1 Task あたり原則3サイクルまで**。
+
+| Cycle | 行うこと |
+| --- | --- |
+| 1/3 | 原因調査・最小修正 |
+| 2/3 | 再現条件と根本原因を再確認し、1回目の仮説を検証し直す |
+| 3/3 | 修正方針そのものを見直す。通らなければ人間へエスカレーション |
+
+1サイクルは「Debugger の分析 → Implementer の修正 → 再テスト」を1回とする。§14 のテスト単位の再実行（FAIL / FLAKY の判定）はサイクルに数えない。
+`<ID>-debug.md` はサイクルごとに `## Cycle n/3` 節を追記する（前のサイクルの記述は書き換えない）。
+
+Reviewer が再テストで FAIL を見つけた場合は `CHANGES_REQUIRED` とし、Implementer が再テストする。FAIL が再現すれば `FAILED` として本節のループへ入る。
+サイクルの数は同じ承認単位で通算する。
+
+3回で解決しない場合は修正を繰り返さず、Task を `BLOCKED` にして次をまとめて停止する
+（`.ai/reports/<ID>-debug.md`）:
+
+- Failure Summary
+- Reproduction
+- Root Cause Hypothesis
+- Attempted Fixes
+- Remaining Unknowns
+- Recommended Human Decision
+
+テストを skip・無効化・期待値の書き換えで通すことは修正ではない（仕様変更として人間の判断が要る）。
+
+## 10. Scope Control
+
+Task に含まれない変更をしない。
+
+例: 「魔法使いの Skill 1 を変更する Task」で、次は行わない。
+
+- 魔法使いシステム全体のリファクタリング
+- 敵AIの全面改修
+- UI の全面改修
+- Chapter 1 全体の変更
+
+必要だと分かった場合は実装せず、Task/レポートに **OUT OF SCOPE** として
+「何が・なぜ必要か」を記録し、別 Task として扱う。
+
+最小変更の原則:
+
+- 既存コードを理解してから変更する
+- 目的達成に必要な最小変更だけを行う。「ついでの改善」はしない
+
+## 11. Token Efficiency
+
+リポジトリ全体を最初から読むことは **禁止**。
+
+1. まず検索（Grep / Glob）
+2. 関係するファイルを特定
+3. 必要な範囲だけ読む（巨大ファイルは行範囲指定）
+4. 関連する既存テストを確認
+5. 必要な場合のみ周辺コードを追加調査
+
+Analyzer の標準調査順:
+
+1. Task / User Request
+2. 関連ドキュメント（`docs/`、関連する `.ai/reports/` `.ai/decisions/`）
+3. 検索
+4. 関連ソース
+5. 関連テスト
+6. 必要な場合のみ周辺コード
+
+既知の情報を何度も再説明しない。前の成果物に書かれている事実は、参照して再利用する
+（ただし実装が変わっている可能性がある場合は、該当箇所だけ再確認する）。
+
+## 12. Review Checklist
+
+Reviewer は「動いたから OK」ではなく **「要求仕様を満たしているか」** を判定する。
+
+| # | 項目 | 見ること |
+| --- | --- | --- |
+| 1 | Specification compliance | Task の Acceptance Criteria と `docs/` の仕様を満たすか |
+| 2 | Scope compliance | Files To Change の外に差分が無いか。OUT OF SCOPE を勝手にやっていないか |
+| 3 | Regression | 既存の挙動・既存テストを壊していないか |
+| 4 | Build | `npm run build` |
+| 5 | Unit tests | `npm run test:unit` |
+| 6 | E2E tests | `npm test`（関連 spec を優先。未実行なら理由） |
+| 7 | Save/Load integrity | セーブ形式・既存セーブの読み込み・テストモードのセーブ保護 |
+| 8 | Existing behavior | 本編の進行・通常起動・既存 UI が変わっていないか |
+| 9 | Code duplication | 既存の関数・データを再実装していないか（§3） |
+| 10 | Unnecessary architecture changes | 不要なモジュール分割・構造変更・リファクタリングが無いか（§13） |
+
+結果は `PASS` または `CHANGES_REQUIRED`。
+
+## 13. Repository Constraints
+
+- `basefile.html` は凍結。変更禁止
+- `src/legacy/parts/` は共有スコープで連結される。通常の ES Module として勝手に分離しない。
+  共有変数・関数を不用意に変更しない。module 化が必要なら別 Task で分析・計画する
+- `src/core/` は state・THREE・scene に依存しない純粋関数（`ARCHITECTURE.md`）
+- 仕様変更を伴う場合は `docs/` の更新が必要（その Task の範囲に含めて承認を得る）
+
+## 14. Testing
+
+実装後は可能な範囲で実行する:
 
 ```sh
 npm run build
@@ -98,51 +461,46 @@ npm run test:unit
 npm test
 ```
 
-を実行する。
+結果は要約だけを残す（長大なログ全文は保存しない）。Implementer が Test Report（テンプレートは `.ai/agents/implementer.md`）に次を書く。
 
-テストできない場合は理由を明記する。
+**Test Scope**
 
-## 8. Documentation Rule
+| 区分 | 意味 |
+| --- | --- |
+| Targeted | 変更の影響経路を通るテストだけを選んで実行した |
+| Full Regression | `npm run build` / `npm run test:unit` / `npm test` をすべて実行した |
 
-仕様変更を伴う場合は `docs/` の更新が必要。
+Targeted の場合は「実行したもの」「選んだ理由」「実行しなかったもの（とその理由）」を書く。
 
-ただし今回のAI基盤構築ではゲーム仕様を変更しない。
+**結果の区分**（テスト単位。Task / Work Item の Status とは別物で、Status は増やさない）
 
-## 9. Communication Rule
-
-各Agentは以下を優先する。
-
-- 事実
-- 根拠
-- 対象ファイル
-- 最小変更案
-- テスト結果
-- 未確認事項
-
-長い一般論は禁止。
-
-## 10. Token Efficiency
-
-既知の情報を何度も再説明しない。
-
-必要なファイルだけ読む。
-
-巨大ファイルを毎回全文取得しない。
-
-まず検索・部分読み取りを行う。
-
-問題箇所が特定できた場合のみ周辺コードを読む。
-
-## 11. Agent Roles
-
-| Role | 担当 | 権限 |
+| 結果 | 意味 | 扱い |
 | --- | --- | --- |
-| Director / 設計 | ChatGPT | 指示・設計 |
-| Analyzer | `.ai/agents/analyzer.md` | READ ONLY |
-| Planner | `.ai/agents/planner.md` | READ ONLY |
-| Implementer | Claude Code | 実装 |
-| Debugger | `.ai/agents/debugger.md` | 原則READ ONLY |
-| Reviewer | `.ai/agents/reviewer.md` | READ ONLY |
+| PASS | 初回で通った | － |
+| FAIL | 失敗し、1回の再実行でも失敗 | Work Item を `FAILED` にして Debugger へ（§9） |
+| FLAKY | 初回失敗・1回の再実行で通った | **PASS として数えない**。テスト名・初回の失敗内容・対象変更との関係（FACT / INFERENCE）・変更前コードで比較したかを記録する。対象変更と無関係と判断できれば Work Item は進めてよいが、Review の Risks に残す |
+| NOT_RUN | 実行しなかった / できなかった | 理由を書く。**PASS として数えない**。Test Plan・Targeted の範囲として理由が妥当なら進めてよいが、必要なテストを実行できない場合は下の「実行環境の問題」に従う |
 
-共有情報はGitHub上の小さなMarkdownファイル（`.ai/tasks/` `.ai/reports/` `.ai/decisions/` `docs/`）で受け渡す。
-巨大な会話履歴をAI間で共有しない。
+`TESTING → REVIEWING` へ進めるのは FAIL が無い場合だけ（§7）。FLAKY / NOT_RUN は上の扱いどおり記録し、進めてよいと判断した根拠を Test Report に書く。
+
+**実行環境の問題**: テストが起動前に失敗する（ブラウザ未導入など）のはリポジトリではなく実行環境の問題として区別する。
+回避策はスクラッチ領域など **リポジトリ外** に限り、その内容を Test Report に書く。回避できず必要なテストを実行できない場合は、
+Work Item を `BLOCKED`（理由: 実行環境）にして人間に戻す。
+
+## 15. Communication
+
+各成果物は次を優先する: 事実 / 根拠 / 対象ファイル / 最小変更案 / テスト結果 / 未確認事項。
+長い一般論は書かない。
+
+共有情報は GitHub 上の小さな Markdown（`.ai/tasks/` `.ai/reports/` `.ai/decisions/` `docs/`）で受け渡す。
+巨大な会話履歴を AI 間で共有しない。
+
+## 16. File Map
+
+| 場所 | 中身 | ルールの正本 |
+| --- | --- | --- |
+| `.ai/AGENTS.md` | 運用ルール全体 | ここ |
+| `.ai/agents/<role>.md` | 役割ごとの手順・出力テンプレート（analyzer / planner / implementer / debugger / reviewer） | ルールはここを参照 |
+| `.ai/tasks/` | Task（Status・計画・Approval） | 命名とテンプレート: `tasks/README.md` |
+| `.ai/reports/` | analysis / debug / review / retrospective | 命名: `reports/README.md`（Work Item 分は §7.2） |
+| `.ai/decisions/` | 人間の決定の記録 | 命名とテンプレート: `decisions/README.md` |

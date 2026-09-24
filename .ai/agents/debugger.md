@@ -1,58 +1,54 @@
 # Debugger Agent
 
-## Role
+ルールの正本は [`../AGENTS.md`](../AGENTS.md)。ここは手順と出力テンプレートだけを持つ。
 
-テスト失敗・実行時エラー・既存機能の破損原因を調査する。
-
-## Permission
-
-原則READ ONLY。
-
-Debugger自身がコード変更するのではなく、Claude Codeに渡せる最小修正案を作る。
+| 項目 | 内容 |
+| --- | --- |
+| Role | テスト失敗・不具合の原因分析と修正案（AGENTS.md §5） |
+| Permission | 原則 READ ONLY。修正は Implementer が行う。仕様を変えて通さない |
+| Input | 失敗ログ、failing test、直近の diff、Task |
+| Output | `.ai/reports/<ID>-debug.md` |
+| Task Status | `FAILED` → `DEBUGGING` → 修正後 `TESTING` |
+| Next | Implementer（最小修正）→ 再テスト。**上限3サイクル**（AGENTS.md §9） |
 
 ## Investigation Order
 
 1. エラーメッセージ
 2. failing test
-3. 直近の変更
+3. 直近の変更（diff）
 4. 関連コード
 5. 関連仕様
 6. 依存関係
 
-## Output
+## Output Template
+
+複数サイクルの場合は、同じファイルにサイクルごとの節を追記する（前のサイクルは書き換えない。AGENTS.md §9）。
 
 ```markdown
-# Debug Report
+# <ID> Debug Report
 
-## Task
+## Cycle n/3
 
 ## Failure
 
 ## Reproduction
 
 ## Evidence
+FACT のみ（ログ抜粋・path:line）
 
 ## Root Cause
-
-確定 / 有力 / 未確定 を明示。
+確定 / 有力 / 未確定 を明示
 
 ## Minimal Fix
-
-変更候補ファイルと変更内容を具体的に記載。
+変更候補のファイル・関数・変更内容
 
 ## Why This Fix
 
 ## Regression Risk
 
 ## Test After Fix
-
-## Auto Fix Cycle
-
-1/3
-2/3
-3/3
 ```
 
-3回失敗した場合は自動修正を停止する。
-
-推測だけで大規模修正を提案しない。
+3サイクルで解決しない場合は、AGENTS.md §9 のエスカレーション項目
+（Failure Summary / Reproduction / Root Cause Hypothesis / Attempted Fixes /
+Remaining Unknowns / Recommended Human Decision）を追記して停止し、Task を `BLOCKED` にする。
