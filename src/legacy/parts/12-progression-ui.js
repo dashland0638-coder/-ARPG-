@@ -1055,7 +1055,11 @@
     // (=周回を重ねるほど自然と装備固定の周回になる、という設計)
     if(scKey) recordRouteCombo(scKey, state.routePath);
     const routeProgress = scKey ? routeComboProgress(scKey) : null;
-    const routeSuggestion = (routeProgress && routeProgress.done < routeProgress.total) ? routeSuggestUnseen(scKey) : null;
+    /* Chapter 1 の本編は一本道で、クリアしたシナリオへは戻れない(WORK 11)。
+       「次回から敵が強くなる」「次はこちらも(別の経路)」は、もう一度来る
+       前提の案内なので、本編のシナリオでは出さない(WORK 12) */
+    const noReturn = !!scKey && isMainlineScenario(scKey);
+    const routeSuggestion = (!noReturn && routeProgress && routeProgress.done < routeProgress.total) ? routeSuggestUnseen(scKey) : null;
     const starsAfter = scKey ? scenarioStars(scKey) : 1;
     const streakMul = 1 + Math.min(1.5, (clears-1)*0.18);   // +18% per clear, caps at +150%
     const goldGain = Math.round((35 + Math.floor(Math.random()*25)) * streakMul);
@@ -1088,7 +1092,7 @@
         : '') +
       (scKey
         ? `<div class="result-loot-row"><span>難易度</span><span>${starLabel(starsAfter)}` +
-          (starsAfter>starsBefore
+          (starsAfter>starsBefore && !noReturn
             ? ' <b>次回から敵が強くなる!</b>'
             : (starsAfter>=MAX_STARS ? ' (最高難易度)' : '')) + `</span></div>`
         : '') +

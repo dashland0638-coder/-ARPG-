@@ -1508,8 +1508,17 @@
   }
 
   function updateProjectiles(dt){
-    for(let i=projectiles.length-1;i>=0;i--){
-      const p = projectiles[i];
+    /* 命中の処理(dealDamageToEnemy)の先で、ボス撃破 → endCombatPresentation()
+       が飛翔体を全部片づけて projectiles を新しい空配列へ差し替えることがある。
+       魔法使い(魔弾)でボスを倒すと必ずそうなる(WORK 12 で宵待ちの村の
+       村の残響を倒したときに発覚)。差し替わったら、この回の更新はそこで
+       やめる ―― 古い添字で新しい配列を読んだり、片づけ済みの灯りを
+       もう一度プールへ返したりしないため */
+    const list = projectiles;
+    for(let i=list.length-1;i>=0;i--){
+      if(projectiles !== list) return;
+      const p = list[i];
+      if(!p) continue;
       if(p.spin) p.mesh.rotation.y += p.spin*dt;
       if(p.boomerang){
         /* The warden's hand flies out, stalls, and comes back along its own
@@ -1594,6 +1603,7 @@
             hitAny = true;
           }
         });
+        if(projectiles !== list) return;   // 命中でボスが倒れ、飛翔体はもう片づけ済み
         if(hitAny){
           spawnUltimateVFX(p.mesh.position.clone(), {radius:p.hitRadius, vfxColor:p.mesh.material.color.getHex()});
           scene.remove(p.mesh); if(p.light) giveLight(p.light); projectiles.splice(i,1); continue;
@@ -1663,6 +1673,7 @@
             }
           }
         }
+        if(projectiles !== list) return;   // 命中でボスが倒れ、飛翔体はもう片づけ済み
         if(hit){ scene.remove(p.mesh); if(p.light) giveLight(p.light); projectiles.splice(i,1); continue; }
       }
 
