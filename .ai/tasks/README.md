@@ -22,7 +22,7 @@ Analysis: ../reports/<ID>-analysis.md
 - [ ] Approved
 - Approved by / date / where:
 - Scope of approval:
-- Persistence:（空欄 = 未許可。人間の明示的な指示があった場合だけ `許可（branch: <name>）` と根拠を書く）
+- Persistence:（空欄 = 未許可。人間の明示的な指示があった場合だけ `許可（branch: <name>）` と根拠を書く。許可は Implementer の commit・push と、Reviewer の §7.3 の commit・push（review report・Status 更新・Status History 1行のみ）を含む）
 
 Implementation: BLOCKED until approval
 
@@ -81,7 +81,7 @@ Work Item を持つ Task では、上のテンプレートの `Status:` は Task
 - [ ] Approved
 - Approved by / date / where:
 - Scope of approval:（この Work Item の Files To Change の範囲）
-- Persistence:（空欄 = 未許可。規則は ../AGENTS.md §6）
+- Persistence:（空欄 = 未許可。許可は Implementer と Reviewer（§7.3 の範囲のみ）の commit・push を含む。規則は ../AGENTS.md §6）
 
 Implementation (T-1): BLOCKED until approval
 ```
