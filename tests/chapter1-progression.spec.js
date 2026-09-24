@@ -85,7 +85,7 @@ test.describe('Chapter 1 本編進行', () => {
     await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
     await dismissIntroDialogue(page);
 
-    await expect(page.locator('#hud-name')).toContainText('剣士');
+    await expect(page.locator('#hud-name')).toHaveText('剣士');   // 支援なし・レベル表示なし
 
     await openScenarioList(page);
     const cards = await scenarioCards(page);
@@ -103,7 +103,8 @@ test.describe('Chapter 1 本編進行', () => {
     // セーブの selectedClass は剣士のまま。進行から魔法使いへ入れ替わる
     await continueFrom(page, { mansion: 1 }, 'warrior');
 
-    await expect(page.locator('#hud-name')).toContainText('魔法使い｜魔法使い');
+    // HUD は「主人公 ｜ 支援: 前の主人公」。レベルは出さない(WORK 12.1)
+    await expect(page.locator('#hud-name')).toHaveText('魔法使い ｜ 支援: 剣士');
     expect(errors).toEqual([]);
   });
 
@@ -111,7 +112,7 @@ test.describe('Chapter 1 本編進行', () => {
     test.setTimeout(120_000);
     const errors = watchErrors(page);
     await continueFrom(page, { mansion: 1, duskvillage: 1 }, 'mage');
-    await expect(page.locator('#hud-name')).toContainText('弓師｜弓師');
+    await expect(page.locator('#hud-name')).toHaveText('弓師 ｜ 支援: 魔法使い');
     expect(errors).toEqual([]);
   });
 
@@ -119,7 +120,7 @@ test.describe('Chapter 1 本編進行', () => {
     test.setTimeout(90_000);
     const errors = watchErrors(page);
     await continueFrom(page, { mansion: 1, duskvillage: 1, ghostship: 1 }, 'archer');
-    await expect(page.locator('#hud-name')).toContainText('盗賊｜盗賊');
+    await expect(page.locator('#hud-name')).toHaveText('盗賊 ｜ 支援: 弓師');
     expect(errors).toEqual([]);
   });
 
@@ -168,6 +169,46 @@ test.describe('Chapter 1 本編進行', () => {
     await expect(page.locator('#hud-name')).toContainText('弓師');
     const again = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), SAVE_KEY);
     expect(again.guestClassKey).toBe('mage');
+    expect(errors).toEqual([]);
+  });
+
+  /* WORK 12.1 Test B〜E / I: 洋館を終えた状態で入る(旧い剣士のセーブ)。
+     主人公は魔法使い・支援は剣士・武器は杖・Skill 1 は幻影歩法・Skill 2 は未習得。
+     剣士の大剣を装備したままの旧セーブでも、魔法使いは大剣を持てない。
+     鍛冶屋の前まで歩かされる旧い再会イベントも起きない */
+  test('洋館クリア後: 魔法使い＋剣士、杖、幻影歩法、Skill 2 は未習得', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = watchErrors(page);
+    const save = saveWith({ mansion: 1 }, 'warrior');
+    save.learnedSkill2 = true;      // 洋館で剣士が閃いた崩し斬り
+    save.smithGreeted = false;      // 旧い「鍛冶屋の前まで歩いて話す」再会が残っているセーブ
+    save.level = 42; save.job = 'battleKnight';
+    const sword = { id: 'w1', slot: 'weapon', itemLevel: 1, weaponType: 'greatsword', name: '古びた剣', icon: '🗡️',
+                    atkBonus: 2, hpBonus: 0, rarity: 'normal', identified: true, starter: true };
+    save.equipmentInventory = [sword];
+    save.equipped = { weapon: sword, upper: null, lower: null };
+    await page.addInitScript(([key, payload]) => localStorage.setItem(key, payload), [SAVE_KEY, JSON.stringify(save)]);
+    await openGame(page);
+    await page.click('#cc-continue-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
+    await dismissIntroDialogue(page);
+
+    await expect(page.locator('#hud-name')).toHaveText('魔法使い ｜ 支援: 剣士');
+    await expect(page.locator('#btn-charge-icon'), 'Skill 1 は幻影歩法').toHaveText('👣');
+    await expect(page.locator('#btn-skill2'), 'Skill 2 はまだ閃いていない').toHaveClass(/locked/);
+
+    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), SAVE_KEY);
+    expect(saved.selectedClass).toBe('mage');
+    expect(saved.guestClassKey).toBe('warrior');
+    expect(saved.skillChoice).toBe('phantom');
+    expect(saved.learnedSkill2, '剣士の閃きを魔法使いへ持ち越さない').toBe(false);
+    expect(saved.equipped.weapon.weaponType, '装備中の武器は杖').toBe('staff');
+    expect(saved.job, '上位職は Chapter 1 では使わない').toBeFalsy();
+
+    // 旧い再会イベント(鍛冶屋の前まで歩く)が始まらない
+    await page.waitForTimeout(5000);
+    const talking = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
+    expect(talking, '鍛冶屋の前まで歩く再会は起きない').toBe(false);
     expect(errors).toEqual([]);
   });
 

@@ -369,6 +369,8 @@
   }
 
   function advanceDialogue(){
+    // 演出中の台詞は、送られたら演出の次の手順へ(WORK 12.1)
+    if(cutsceneWaitingForInput()){ releaseCutsceneLine(); return; }
     if(!state.dialogueActive || !state.dialogueLines) return;
     state.dialogueIndex++;
     if(state.dialogueIndex >= state.dialogueLines.length){
@@ -415,6 +417,9 @@
         state.dialogueKind = null;
         applyPendingJobPromotion();
       } else if(state.dialogueKind==='shadowGuide'){
+        state.dialogueKind = null;
+      } else if(state.dialogueKind==='chapter1Join'){
+        // 酒場での主人公交代(WORK 10/12.1)。閉じたら操作を返すだけ
         state.dialogueKind = null;
       } else if(state.dialogueKind==='chapter1Finale'){
         // Chapter 1 の最後の酒場(14-dungeon-road.js)。閉じるだけ ――
@@ -1069,34 +1074,41 @@
       `${boss.clearName || '強敵'}を打ち倒した。<br>${boss.clearFlavor || ''}`;
 
     const lootDiv = document.getElementById('result-loot');
-    const leveledUp = state.level > xpBefore;
-    const gearDrop = rollBossSignatureGear(boss.key, state.level);
-    addEquipmentItem(gearDrop);
-    // from the 3rd clear onward a second signature piece drops, so completing
-    // a boss's 3-slot set gets faster the more you commit to it
-    let bonusDrop = null;
-    if(clears >= 3){
-      bonusDrop = rollBossSignatureGear(boss.key, state.level);
-      addEquipmentItem(bonusDrop);
+    /* Chapter 1 の本編(WORK 12.1)には、経験値・ランダムな固有装備・
+       周回(難易度の★・経路の踏破・討伐回数)が無い。結果画面に出すのは
+       ゴールドと、そのボスが残していった品だけ。旧来の行はテストモード
+       (開発用)でだけ出る */
+    const legacy = legacyGrowth();
+    const leveledUp = legacy && state.level > xpBefore;
+    let gearDrop = null, bonusDrop = null;
+    if(legacy){
+      gearDrop = rollBossSignatureGear(boss.key, state.level);
+      addEquipmentItem(gearDrop);
+      // from the 3rd clear onward a second signature piece drops, so completing
+      // a boss's 3-slot set gets faster the more you commit to it
+      if(clears >= 3){
+        bonusDrop = rollBossSignatureGear(boss.key, state.level);
+        addEquipmentItem(bonusDrop);
+      }
     }
     lootDiv.innerHTML =
-      `<div class="result-loot-row"><span>経験値</span><span>+${boss.xp||150}${leveledUp?' (Lv.'+state.level+'に上昇!)':''}</span></div>` +
+      (legacy ? `<div class="result-loot-row"><span>経験値</span><span>+${boss.xp||150}${leveledUp?' (Lv.'+state.level+'に上昇!)':''}</span></div>` : '') +
       `<div class="result-loot-row"><span>🪙 ゴールド</span><span>+${goldGain}</span></div>` +
       `<div class="result-loot-row"><span>${loot.icon} ${loot.name}</span><span>×1</span></div>` +
-      `<div class="result-loot-row"><span>${gearDrop.identified?gearDrop.icon:'❓'} ${gearDrop.identified?gearDrop.name:'未鑑定の装備'}</span><span>Lv.${gearDrop.itemLevel}</span></div>` +
+      (gearDrop ? `<div class="result-loot-row"><span>${gearDrop.identified?gearDrop.icon:'❓'} ${gearDrop.identified?gearDrop.name:'未鑑定の装備'}</span><span>Lv.${gearDrop.itemLevel}</span></div>` : '') +
       (bonusDrop ? `<div class="result-loot-row"><span>❓ 未鑑定の装備(周回報酬)</span><span>Lv.${bonusDrop.itemLevel}</span></div>` : '') +
-      `<div class="result-loot-row"><span>討伐回数</span><span>${clears}回目${streakMul>1?' (報酬 x'+streakMul.toFixed(2)+')':''}</span></div>` +
+      (!noReturn ? `<div class="result-loot-row"><span>討伐回数</span><span>${clears}回目${streakMul>1?' (報酬 x'+streakMul.toFixed(2)+')':''}</span></div>` : '') +
       (firstClear
         ? `<div class="result-loot-row result-first"><span>初制覇</span>` +
           `<span>🏅 習得の証 x1 <b>スキルを1段階強化できる</b></span></div>`
         : '') +
-      (scKey
+      (scKey && !noReturn
         ? `<div class="result-loot-row"><span>難易度</span><span>${starLabel(starsAfter)}` +
-          (starsAfter>starsBefore && !noReturn
+          (starsAfter>starsBefore
             ? ' <b>次回から敵が強くなる!</b>'
             : (starsAfter>=MAX_STARS ? ' (最高難易度)' : '')) + `</span></div>`
         : '') +
-      (routeProgress
+      (routeProgress && !noReturn
         ? `<div class="result-loot-row"><span>分岐踏破</span><span>${routeProgress.done} / ${routeProgress.total} 経路` +
           (routeProgress.done>=routeProgress.total ? ' <b>全経路踏破!</b>' : '') + `</span></div>` +
           (routeSuggestion
@@ -1104,11 +1116,15 @@
             : '')
         : '');
 
-    renderBossChoicePanel(boss.key);
+    /* ボス撃破の3択(固有装備/スキル/アビリティ)と、レベルアップの振り分けは
+       旧ハクスラ系。Chapter 1 の本編では出さない(WORK 12.1) */
+    const choicePanel = document.getElementById('boss-choice-panel');
+    if(legacy) renderBossChoicePanel(boss.key);
+    else if(choicePanel) choicePanel.style.display = 'none';
 
     const remaining = diceTotal - allocPointsSpent(allocPoints);
     const panel = document.getElementById('result-stat-panel');
-    if(remaining>0){
+    if(legacy && remaining>0){
       panel.style.display = 'block';
       refreshResultStatPanel();
     } else {
@@ -1285,6 +1301,7 @@
   function returnToTownNow(isDefeat){
     clearScenarioTimer();   // クリア・撤退・全滅・タイムアップ、どの経路で戻っても次のシナリオへ持ち越さない
     buildWorld('tavern'); // dispose the scenario world, rebuild the tavern
+    if(guestCompanion) guestCompanion.waitAt = null;   // 合流待ちのまま酒場へ戻っても、隣に立つ(WORK 12.1)
     state.pos.set(0,0,10);
     state.vel.set(0,0,0);
     state.yVel = 0; state.grounded = true; state.facing = 0;
@@ -1521,7 +1538,6 @@
       if(!sc) return;
       html += `<div class="scenario-card" data-card="${sc.key}">
         <div class="scenario-card-title">${sc.name} <span class="sc-next">▶ 次はここ</span></div>
-        <div class="scenario-card-level">推奨レベル: ${sc.levelRange}</div>
         <div class="scenario-card-desc">${sc.desc}</div>
         ${sc.unlocked
           ? `<button type="button" class="event-btn scenario-sortie-btn" data-scenario="${sc.key}">出撃する</button>`
@@ -1633,6 +1649,7 @@
   }
 
   function launchScenarioNow(key){
+    if(guestCompanion) guestCompanion.waitAt = null;   // 前のシナリオの合流待ちを持ち越さない(WORK 12.1)
     // set before buildWorld: enemy construction reads the star rating from here
     state.scenarioKey = key;
     routeReset();    // scenarioKey を見てグラフを引くので、必ずこの順で
@@ -1692,6 +1709,9 @@
       state.pos.copy(DUSKVILLAGE_ENTRY);
       state.camYaw = Math.PI;   // facing north, up the boardwalk into the village
       state.vel.set(0,0,0);
+      /* 剣士は村に着く直前(木橋の袂)で待っていて、そこから同行する(WORK 12.1)。
+         森の道は魔法使いがひとりで歩く */
+      if(guestCompanion) placeDuskGuestAtBridge();
       repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
     }
@@ -1743,7 +1763,15 @@
     // 合算してから、HP/MP/攻撃力をそれぞれの式で導出する。
     // 上位ジョブ(#9)に転身済みなら、そのstatBonusも同じ列で合算する
     const upperJob = upperJobFor(selectedClass);
-    const jobActive = !!(state.job && upperJob && upperJob.key === state.job);
+    /* Chapter 1 の本編では、レベル成長・振り分け・パッシブ・武具強化・
+       上位職を数えない(WORK 12.1)。ステータスは「クラスの基礎値＋装備」だけ。
+       古いセーブに残っている値も、本編では効かせない(消しはしない) */
+    const legacy = legacyGrowth();
+    const growth = legacy ? state.levelGrowth : zeroAlloc();
+    const alloc  = legacy ? allocPoints : zeroAlloc();
+    const passive = legacy ? state.skills : {atkUp:0, hpUp:0, ultUp:0};
+    const forged = legacy ? state.equipLevel : 0;
+    const jobActive = legacy && !!(state.job && upperJob && upperJob.key === state.job);
     const jobBonus = jobActive ? upperJob.statBonus : null;
     // 必殺技: 上位職に転身済みならJOB_ULT_BY_JOB(職業専用の強化必殺技)が
     // 常に最優先。転身前はスフィア盤の新規選択肢(alt)、どちらも無ければ
@@ -1762,12 +1790,12 @@
     const weaponUlt = state.usingAltWeapon ? WEAPON_ULT_BY_KEY[equippedWeaponKey] : null;
     const ultBase = weaponUlt ? applyWeaponUlt(ultTier, weaponUlt) : ultTier;
     const merged = jobBonus
-      ? mergeStatPoints(mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth), jobBonus)
-      : mergeStatPoints(mergeStatPoints(base, allocPoints), state.levelGrowth);
-    let hp = Math.round((STAT_COEF.hpBase + merged.vit*STAT_COEF.hpPerVit + state.skills.hpUp*15 + gearHp) * hpAbilityMul);
+      ? mergeStatPoints(mergeStatPoints(mergeStatPoints(base, alloc), growth), jobBonus)
+      : mergeStatPoints(mergeStatPoints(base, alloc), growth);
+    let hp = Math.round((STAT_COEF.hpBase + merged.vit*STAT_COEF.hpPerVit + passive.hpUp*15 + gearHp) * hpAbilityMul);
     let mp = Math.round(STAT_COEF.mpBase + (merged.mag+merged.mnd)*STAT_COEF.mpPerMagMnd);
     const atkBase = affinityStatValue(kitKey, merged) * STAT_COEF.atkCoef;
-    let atk = Math.round((atkBase + state.skills.atkUp*2 + state.equipLevel*4 + gearAtk) * atkMul);
+    let atk = Math.round((atkBase + passive.atkUp*2 + forged*4 + gearAtk) * atkMul);
     // 上位ジョブの役割特化倍率(JOB_PASSIVE, 01-character-creation.js)
     if(jobActive){
       const jp = JOB_PASSIVE[state.job];
@@ -1781,13 +1809,13 @@
     // 収束しながら上昇し(Lv25で約+6%、上限+10%)、装備補正を加えても
     // 合計で+25%までしか上がらない(修正案2: 「移動速度は上げ過ぎると
     // 世界観崩壊」への対応。ステータスに際限なく比例させない)
-    const spdLevelMul = 1 + 0.10*(1 - Math.exp(-state.level/25));
+    const spdLevelMul = legacy ? 1 + 0.10*(1 - Math.exp(-state.level/25)) : 1;
     const spdTotalMul = Math.min(1.25, spdLevelMul + gearSpdMul);
     const cdef = Object.assign({}, base, weaponOverrides, {
       hp, mp, atk,
       spd: +(base.spd * spdTotalMul).toFixed(2),
       baseSpd: base.spd,   // 回避ダッシュ距離用。レベル/装備の速度上昇を乗せない基準値
-      ult: Object.assign({}, ultBase, { mult: +(ultBase.mult * (1 + state.skills.ultUp*0.1) * (1 + sphereValue('ultDmgSphereMul'))).toFixed(2) }),   // スフィア「絶対の一撃」
+      ult: Object.assign({}, ultBase, { mult: +(ultBase.mult * (1 + passive.ultUp*0.1) * (1 + (legacy ? sphereValue('ultDmgSphereMul') : 0))).toFixed(2) }),   // スフィア「絶対の一撃」
       // 上位ジョブ(#9)転身済みなら表示名/アイコンだけ差し替える。key(warrior等)は
       // 変えない ―― WEAPON_TYPES/STANCE/CLIPS等、基礎職キーに紐づく既存システムは
       // そのまま動かす必要があるため
@@ -1801,7 +1829,7 @@
     state.maxMp = cdef.mp; state.mp = Math.round(cdef.mp*mpRatio);
     const portraitIcon = document.getElementById('hud-portrait-icon');
     if(portraitIcon) portraitIcon.textContent = cdef.icon;
-    document.getElementById('hud-name').textContent = `${state.name}｜${cdef.name} Lv.${state.level}`;
+    refreshHudName();
     const mpLabel = document.getElementById('mp-label');
     if(mpLabel) mpLabel.textContent = cdef.resourceLabel || 'MP';
     const btnUltIcon = document.getElementById('btn-ult-icon');
@@ -1813,9 +1841,21 @@
     updateUltHUD();
   }
 
+  /* HUD の見出し(WORK 12.1)。主人公と支援AI ―― レベルは出さない。
+     テストモード(開発用)だけは、確認のためにレベルを添える */
+  function refreshHudName(){
+    const el = document.getElementById('hud-name');
+    if(!el || !state.classDef) return;
+    const guest = state.guestClassKey && CLASSES[state.guestClassKey];
+    const label = hudLabel(state.classDef.name, guest ? guest.name : null);
+    el.textContent = legacyGrowth() ? `${label} Lv.${state.level}` : label;
+  }
+
   function xpToNextForLevel(lv){ return 40 + (lv-1)*30; }
 
   function grantXP(amount){
+    // Chapter 1 の本編には経験値もレベルアップも無い(WORK 12.1)
+    if(!legacyGrowth()) return;
     state.xp += amount;
     let leveled = false;
     while(state.xp >= state.xpToNext){
@@ -1855,6 +1895,7 @@
      判定に使えない ―― そのため呼び出し側に「今まさに酒場にいるか」を
      明示的に渡してもらう形にしてある */
   function checkJobPromotion(inTavern){
+    if(!legacyGrowth()) return;   // Chapter 1 の本編では転身しない(WORK 12.1)
     if(state.job) return;   // 転身済み
     const uj = upperJobFor(selectedClass);
     if(!uj || state.level < uj.unlockLv) return;
@@ -2063,6 +2104,8 @@
   /* First clear of a scenario hands out a free rank. This is the reward for
      going somewhere new, and it fires once per scenario per run. */
   function grantFirstClearRank(scenarioKey){
+    // 「習得の証」はパッシブ(能力の強化)用。Chapter 1 の本編にはパッシブが無い(WORK 12.1)
+    if(!legacyGrowth()) return false;
     if(!scenarioKey || state.clearedScenarios[scenarioKey]) return false;
     state.clearedScenarios[scenarioKey] = true;
     state.freeRanks++;
@@ -2485,7 +2528,23 @@
     if(run && cb) cb();
   }
 
+  /* 鑑定所のタブのうち、旧ハクスラ系のもの(ステータス配分=レベルアップの
+     振り分け、奥義の環=スフィア盤)は Chapter 1 の本編では出さない(WORK 12.1)。
+     仕組みは Chapter 2 の基盤として残し、テストモードでは今までどおり開ける */
+  const LEGACY_AP_TABS = ['stat', 'sphere'];
+  function apTabAvailable(name){ return legacyGrowth() || LEGACY_AP_TABS.indexOf(name) < 0; }
+  function syncApTabsVisibility(){
+    document.querySelectorAll('.ap-tab').forEach(t=>{
+      t.style.display = apTabAvailable(t.dataset.tab) ? '' : 'none';
+    });
+    if(!apTabAvailable(currentApTab())){
+      const gear = Array.from(document.querySelectorAll('.ap-tab')).find(t=>t.dataset.tab==='gear');
+      if(gear) gear.click();
+    }
+  }
+
   function refreshAppraisal(){
+    syncApTabsVisibility();
     document.getElementById('ap-gold').textContent = state.inventory.gold;
     document.getElementById('ap-gem').textContent = state.inventory.gem;
     STAT_KEYS.forEach(k=>{
@@ -2577,7 +2636,7 @@
       state.equipmentInventory.forEach(it=>{
         if(it.slot!==slot) return;
         if(!it.identified) return;              // can't judge what isn't appraised
-        if(it.itemLevel > state.level) return;  // level-gated
+        if(!canEquipItem(it)) return;  // レベル(テストモードのみ)・武器種で装備できない品(WORK 12.1)
         if(!best || gearScore(it) > gearScore(best)) best = it;
       });
       if(best && best !== state.equipped[slot]){ equipItem(best); changed++; }
@@ -2647,21 +2706,21 @@
         });
       sorted.forEach(({item,idx})=>{
         const equipped = ['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===item.id);
-        const canEquip = item.itemLevel <= state.level;
+        const canEquip = canEquipItem(item);
         const lvClass = equipped ? 'lv-eq' : (canEquip ? 'lv-ok' : 'lv-high');
         const weaponTypeChip = (item.identified && item.slot==='weapon' && item.weaponType && state.classDef)
           ? `<span class="gear-item-weapontype">${weaponTypeLabel(state.classDef.key, item.weaponType)}</span>` : '';
         html += `<div class="gear-item-row ${item.rarity==='rare'?'rare':''} ${item.specialId?'special':''} ${lvClass}">
           <div class="gear-item-icon">${item.identified ? item.icon : '❓'}</div>
           <div class="gear-item-info">
-            <div class="gear-item-name ${item.identified?'':'unidentified'}">${item.identified ? item.name : '未鑑定の装備'} <span class="gear-lv">Lv.${item.itemLevel}</span> ${weaponTypeChip}</div>
+            <div class="gear-item-name ${item.identified?'':'unidentified'}">${item.identified ? item.name : '未鑑定の装備'} ${legacyGrowth() ? `<span class="gear-lv">Lv.${item.itemLevel}</span>` : ''} ${weaponTypeChip}</div>
             <div class="gear-item-stat">${item.identified ? `${item.atkBonus?'攻撃+'+item.atkBonus+' ':''}${item.hpBonus?'HP+'+item.hpBonus:''}` : '鑑定するまで効果は分からない'}</div>
             ${item.identified && item.specialId ? `<div class="gear-item-special">⭐ ${item.specialDesc}</div>` : ''}
             ${item.identified && !equipped ? gearCompareChip(item) : ''}
           </div>
           <div class="gear-item-actions">
             ${item.identified
-              ? `<button type="button" class="gear-item-btn" data-equip-idx="${idx}" ${equipped||!canEquip?'disabled':''}>${equipped?'装備中':(canEquip?'装備する':'Lv不足')}</button>`
+              ? `<button type="button" class="gear-item-btn" data-equip-idx="${idx}" ${equipped||!canEquip?'disabled':''}>${equipped?'装備中':(canEquip?'装備する':(legacyGrowth() && item.itemLevel > state.level ? 'Lv不足' : '扱えない'))}</button>`
               : `<button type="button" class="gear-item-btn identify" data-identify-idx="${idx}" ${state.inventory.gold<(15+item.itemLevel*3)?'disabled':''}>鑑定 🪙${15+item.itemLevel*3}</button>`
             }
             ${item.identified && !equipped
@@ -2810,7 +2869,7 @@
     return state.activeOverlay==='appraisal' && currentApTab()==='sphere';
   }
   function cycleApTab(dir){
-    const order = ['gear','stat','skill','sphere','shop'];
+    const order = ['gear','stat','skill','sphere','shop'].filter(apTabAvailable);
     const idx = Math.max(0, order.indexOf(currentApTab()));
     const next = order[(idx+dir+order.length)%order.length];
     const tab = Array.from(document.querySelectorAll('.ap-tab')).find(t=>t.dataset.tab===next);
@@ -3014,13 +3073,19 @@
     });
   }
 
+  /* パッシブ(能力の強化)とスキル3(ボス撃破の報酬)は旧ハクスラ系。
+     Chapter 1 の本編では出さない(WORK 12.1) */
+  const LEGACY_SKILL_SUBTABS = ['passive', 'skill3'];
+  function skillSubTabAvailable(key){ return legacyGrowth() || LEGACY_SKILL_SUBTABS.indexOf(key) < 0; }
+
   function renderSkillPanel(){
     const panel = document.getElementById('ap-panel-skill');
     const variants = getChargeVariants();
     const lock = loadoutLockState();
+    if(!skillSubTabAvailable(skillSubTab)) skillSubTab = 'skill1';
 
     let html = '<div class="skill-subtabs">';
-    SKILL_SUBTABS.forEach(t=>{
+    SKILL_SUBTABS.filter(t=> skillSubTabAvailable(t.key)).forEach(t=>{
       html += `<div class="skill-subtab ${skillSubTab===t.key?'active':''}" data-skill-subtab="${t.key}">${t.label}</div>`;
     });
     html += '</div><div class="skill-subtab-body">';

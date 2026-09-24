@@ -96,6 +96,9 @@ import {
   offeredScenarios, resolveCast, castAfterMeeting, shouldSwitchCast, isForwardSwitch,
 } from '../core/chapter1-progress.js';
 import {
+  legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, hudLabel, joinSceneReady,
+} from '../core/chapter1-rules.js';
+import {
   phaseFor as villageEchoPhase, planFor as villageEchoPlan,
   nextSummon as villageNextSummon, shouldLeaveEcho as villageShouldEcho,
   defersResultScreen,

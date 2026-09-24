@@ -120,6 +120,10 @@
     const c = CLASSES[classKey];
     return (c && c.kit) || classKey;
   }
+  /* 旧ハクスラ系(レベル・経験値・装備ドロップ・転身・パッシブ・スフィア・
+     強化)が動いてよいか(WORK 12.1)。Chapter 1 の本編では動かさず、
+     テストモード(開発用)だけで動く ―― 判定は core/chapter1-rules.js */
+  function legacyGrowth(){ return legacyGrowthEnabled(state.testMode); }
 
   // 基礎ステータス→実数値の変換係数と、武器種ごとの補正配分(#29)。
   // 魔法使いの杖はユーザー指示によりINT70%+MND30%(他クラスは主軸1本 or 2軸60/40)
@@ -371,7 +375,8 @@
   function formatSaveSummary(data){
     const cls = CLASSES[data.selectedClass];
     const clsLabel = cls ? `${cls.icon} ${cls.name}` : '???';
-    return `${clsLabel} Lv.${data.level || 1} ｜ ${data.playerName || '名もなき冒険者'}`;
+    // Chapter 1 にはレベルが無いので、続きからの見出しにも出さない(WORK 12.1)
+    return `${clsLabel} ｜ ${data.playerName || '名もなき冒険者'}`;
   }
   function refreshContinueBanner(){
     const banner = document.getElementById('continue-banner');
@@ -494,11 +499,31 @@
           testScenarioGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
           card.classList.add('selected');
           tmScenario = sc.key;
+          presetChapter1Cast(sc.key);
           renderWaypointGrid();
           refreshStartLabel();
         });
         testScenarioGrid.appendChild(card);
       });
+    }
+
+    /* Chapter 1 のシナリオを選んだら、そのシナリオの顔ぶれを選び直す
+       (WORK 12.1)。宵待ちの村なら 魔法使い＋剣士。あとから職業・同行ゲストを
+       選び直すこともできる(テストモードは開発用なので縛らない)。
+       道は出会う前の顔ぶれ(盗賊＋弓師)。本編の進行・セーブには触らない */
+    function presetChapter1Cast(scenarioKey){
+      const stage = CHAPTER1_ORDER.indexOf(scenarioKey) + 1;
+      if(stage < 1) return;
+      const cast = resolveCast(stage, CHAPTER_CAST);
+      if(!cast || !cast.classKey) return;
+      const classCard = testClassGrid.querySelector(`.class-card[data-key="${cast.classKey}"]`);
+      if(classCard) classCard.click();
+      if(testGuestGrid){
+        const guestCard = cast.guestClassKey
+          ? testGuestGrid.querySelector(`.testmode-job-card[data-guest-key="${cast.guestClassKey}"]`)
+          : testGuestGrid.querySelector('.testmode-job-card:not([data-guest-key])');
+        if(guestCard) guestCard.click();
+      }
     }
 
     /* 開始地点(WORK 4)。ヘッドレス/実機のどちらでも、村の奥のほうを

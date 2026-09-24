@@ -1264,15 +1264,52 @@
   ========================================================= */
   let cutscene = null;
 
+  /* 会話の送りと、始まりの間(WORK 12.1)。
+
+     ・台詞(cutsceneLine)は **プレイヤーが送るまで次へ進まない**。時間で
+       勝手に次の台詞へ行かない。送ると、次の手順はすぐ走る ―― 台詞の後ろに
+       置いてあった待ち時間は「読む時間」だったので、送りがその代わりになる
+     ・最初の台詞までの前置き(歩く・振り向く・人影が出る)は、合計
+       CUTSCENE_FIRST_LINE_SEC 以内に縮める。低FPSで「イベントに入ったら
+       数秒止まってから会話が出る」ように見えていたのを直す。演出の順番は
+       変えず、間だけを詰める。台詞の無い演出(階段の自動移動など)は対象外
+     送りの入力は既存の会話と同じ(dialogue-overlay のクリック/決定) */
+  const CUTSCENE_FIRST_LINE_SEC = 0.8;
+  function stepShowsLine(step){ return /cutsceneLine\(/.test(String(step && step.run)); }
   function playCutscene(steps){
-    cutscene = {steps:steps.slice(), i:0, t:0};
+    let lead = 0, firstLine = -1;
+    for(let i=0;i<steps.length;i++){
+      lead += steps[i].t || 0;
+      if(stepShowsLine(steps[i])){ firstLine = i; break; }
+    }
+    const leadSpeed = (firstLine >= 0 && lead > CUTSCENE_FIRST_LINE_SEC) ? lead / CUTSCENE_FIRST_LINE_SEC : 1;
+    cutscene = {steps:steps.slice(), i:0, t:0, firstLine, leadSpeed, waiting:false};
     state.dialogueActive = true;      // no input while it runs
     state.cutsceneTurn = null;        // 前の演出の振り返りを持ち越さない
     clearMovementInput(false);
   }
+  // 台詞を出して、送りを待っているか
+  function cutsceneWaitingForInput(){ return !!(cutscene && cutscene.waiting); }
+  // 送られた。次の手順を今すぐ走らせる(台詞の後の「読む時間」は送りが代わる)
+  function releaseCutsceneLine(){
+    if(!cutscene || !cutscene.waiting) return false;
+    cutscene.waiting = false;
+    const next = cutscene.steps[cutscene.i];
+    if(!next){
+      // 台詞で終わる演出。送ったら閉じて操作を返す(閉じ忘れで止まらないように)
+      cutscene = null;
+      cutsceneHideLine();
+      state.dialogueActive = false;
+      clearMovementInput(false);
+      return true;
+    }
+    cutscene.t = next.t || 0;
+    return true;
+  }
   function updateCutscene(dt){
     if(!cutscene) return;
-    cutscene.t += dt;
+    if(cutscene.waiting) return;      // 送られるまで進まない
+    cutscene.t += dt * (cutscene.i <= cutscene.firstLine ? cutscene.leadSpeed : 1);
     while(cutscene && cutscene.i < cutscene.steps.length &&
           cutscene.t >= cutscene.steps[cutscene.i].t){
       const step = cutscene.steps[cutscene.i];
@@ -1287,8 +1324,10 @@
         return;
       }
       if(!cutscene) return;           // a step ended it
+      if(cutscene.waiting) return;    // 台詞を出した ―― 送られるまで次へ進まない
     }
-    if(cutscene && cutscene.i >= cutscene.steps.length) cutscene = null;
+    // 最後の手順が台詞なら、送られるまで演出は終わらない
+    if(cutscene && !cutscene.waiting && cutscene.i >= cutscene.steps.length) cutscene = null;
   }
   function stopCutscene(){ cutscene = null; state.cutsceneTurn = null; }
   /* 演出中かどうか。cutscene はこのファイルのモジュールスコープ変数で、
@@ -1378,6 +1417,7 @@
      魔法使いと剣士の二人組なので、どちらが喋っているかを出す必要がある。
      省略時の挙動は今までどおり */
   function cutsceneLine(text, name){
+    if(cutscene) cutscene.waiting = true;   // 送られるまで次の手順へ進まない(WORK 12.1)
     state.dialogueActive = true;
     state.dialogueKind = null;
     state.dialogueBoss = null;
@@ -2149,7 +2189,9 @@
     opts = opts || {};
     proximityEvents.push({pos:pos.clone(), radius, speakerName, lines, fired:false,
                           condition:opts.condition||null, kind:opts.kind||null,
-                          area:opts.area||null, onEnter:opts.onEnter||null});
+                          area:opts.area||null, onEnter:opts.onEnter||null,
+                          // ミニマップに「!」を出すか(WORK 12.1)。既定で出す
+                          marker: opts.marker !== false});
   }
 
   /* A circle in the middle of a large room is trivially walked around, which

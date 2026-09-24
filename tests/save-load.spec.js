@@ -155,7 +155,9 @@ test.describe('save / load', () => {
     await page.click('#confirm-ok');
 
     await expect(page.locator('#hud')).toHaveClass(/active/);
-    await expect(page.locator('#hud-name')).toContainText('Lv.1');
+    /* 以前はここで「Lv.1 に戻った」ことを見ていた。Chapter 1 にはレベルが
+       無くなった(WORK 12.1)ので、新しく始めた剣士(支援なし)に戻ったことを見る */
+    await expect(page.locator('#hud-name')).toHaveText('剣士');
     expect(errors).toEqual([]);
   });
 

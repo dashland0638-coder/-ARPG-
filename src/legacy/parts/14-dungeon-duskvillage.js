@@ -117,6 +117,7 @@
     duskFishMemoryDone = false;   // 出撃のたびに、記憶はまた一度だけ起きる
     duskChildMemoryDone = false; duskBoatMemoryDone = false;
     duskMarketMemoryDone = false; duskGateTalkDone = false;
+    duskInsightDone = false;
     duskMarketFight = null;
     duskWardenSpawned = false; duskBossPreludeDone = false;
     duskDawnRising = false; duskDawnBirdCD = 0; duskDawnRippleCD = 0;
@@ -768,7 +769,8 @@
        部屋そのものを判定域にしてあるのは、端を回り込んでも必ず通るため
        (商店街の複合戦闘と同じ registerRoomEvent) */
     registerRoomEvent(duskRoomById('yard'), 0, '', ()=>{
-      playDuskGateTalk();
+      // 商店街で閃かずに抜けてきた場合は、ここで閃いてから水門を見る(WORK 12.1)
+      playDuskInsight(()=> playDuskGateTalk());
       return null;
     }, {inset: 1.2});
 
@@ -805,6 +807,20 @@
 
   // 同行者(剣士)を演出用に歩かせる。戦闘AI(updateGuestCompanion)は
   // 演出中そもそも回らないので、取り合いにはならない
+  /* 剣士の合流地点(WORK 12.1)。森の道(湖畔の森道)は魔法使いがひとりで歩き、
+     村に着く直前 ―― 木橋の袂で剣士が待っている。近づくと、斜め後ろに
+     付いて歩き出す(updateGuestCompanion の waitAt)。入口の一幕
+     (playDuskEntranceScene)は木橋を渡った先なので、そこでは必ず一緒にいる */
+  const DUSK_GUEST_WAIT = {x: 1.8, z: 305.5, radius: 4.5, passZ: 309};
+  function placeDuskGuestAtBridge(){
+    if(!guestCompanion) return;
+    guestCompanion.waitAt = Object.assign({}, DUSK_GUEST_WAIT);
+    guestCompanion.pos.set(DUSK_GUEST_WAIT.x, 0, DUSK_GUEST_WAIT.z);
+    guestCompanion.target = null;
+    guestCompanion.group.position.set(DUSK_GUEST_WAIT.x, 0, DUSK_GUEST_WAIT.z);
+    guestCompanion.group.rotation.y = Math.PI;   // 森の道(南)のほうを向いて待つ
+  }
+
   function stepDuskGuestWalk(dt){
     if(!duskGuestWalk || typeof guestCompanion === 'undefined' || !guestCompanion) return;
     const g = guestCompanion;
@@ -1081,7 +1097,48 @@
        && duskMarketFight.t > 1){
       duskMarketFight = null;
       ambienceHold(4);
+      // 戦いのあと、剣士の動きを見ていた魔法使いが「観測の灯」を閃く(WORK 12.1)
+      playDuskInsight();
     }
+  }
+
+  /* 観測の灯の閃き(WORK 12.1、Chapter 1 の Skill 2)。
+
+     全体基本仕様の閃きの型そのまま ―― 同行者の「行動」を見て、主人公自身が
+     気づく。剣士は教えない。商店街の複合戦闘(村の中盤)を終えた直後に一度だけ。
+     戦わずに先へ抜けた場合は、水門前に入ったところで同じ場面が起きる
+     (閃かないまま村の奥へ進むことはない)。
+
+     「レベルが上がったから覚える」ではない。習得は既存の
+     grantChapter1Skill2()(core/chapter1-skills.js の learnSkill2)で、
+     閃いた瞬間に自動で装備される */
+  let duskInsightDone = false;
+  function playDuskInsight(onDone){
+    if(duskInsightDone || state.learnedSkill2){
+      if(onDone) onDone();
+      return;
+    }
+    duskInsightDone = true;
+    playCutscene([
+      {t:0.2, run:()=> ambienceHold(6)},
+      {t:0.4, run:()=> cutsceneLine('「……さっき、斬る前に一度止まりましたね」', DUSK_MAGE)},
+      {t:0.1, run:()=> cutsceneLine('「どれが本物か分からんうちは、振らん。見てから決めた」', DUSK_KNIGHT)},
+      {t:0.1, run:()=> cutsceneLine('「見てから、決める」', DUSK_MAGE)},
+      {t:0.1, run:()=>{
+        cutsceneHideLine();
+        grantChapter1Skill2();
+        spawnDuskRipple(state.pos.x, state.pos.z, 1.4);
+      }},
+      {t:0.6, run:()=> cutsceneLine('「……なら、見えるようにすればいいんですね」', DUSK_MAGE)},
+      {t:0.1, run:()=> cutsceneLine('「何をする気だ」', DUSK_KNIGHT)},
+      {t:0.1, run:()=> cutsceneLine('「灯りを。答えは出ません。でも、違いは見えます」', DUSK_MAGE)},
+      {t:0.1, run:()=>{
+        cutsceneHideLine();
+        state.dialogueActive = false;
+        clearMovementInput(false);
+        if(onDone) onDone();
+      }},
+    ]);
   }
 
   /* 波を1つ出す。出現位置は商店街の端 ―― プレイヤーの真上に湧かせない。

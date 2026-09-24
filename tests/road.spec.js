@@ -54,8 +54,16 @@ test.describe('道（Chapter 1 の最後）', () => {
     await expect(page.locator('#dialogue-name')).toHaveText('影の旅人', { timeout: 120_000 });
     await expect(page.locator('#dialogue-text')).toHaveText('「……こんにちは」');
 
-    // Test 3: 一幕が終わると、影の旅人が主人公になる
-    await expect(page.locator('#hud-name')).toContainText('影の旅人', { timeout: 600_000 });
+    // Test 3: 一幕が終わると、影の旅人が主人公になる。
+    // 台詞はプレイヤーが送るまで進まない(WORK 12.1)ので、送りながら待つ
+    for (let i = 0; i < 200; i++) {
+      if ((await page.locator('#hud-name').textContent()).includes('影の旅人')) break;
+      const active = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
+      if (active) await page.evaluate(() => document.getElementById('dialogue-overlay').click());
+      await page.waitForTimeout(1500);
+    }
+    await expect(page.locator('#hud-name')).toContainText('影の旅人', { timeout: 60_000 });
+    await expect(page.locator('#hud-name')).toContainText('支援: 盗賊');
     await expect.poll(() => guestBlip(page), { timeout: 20_000, message: '支援AIが付いている' }).toBe(true);
     expect(errors).toEqual([]);
   });
