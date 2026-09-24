@@ -609,6 +609,24 @@
     chests.forEach(c=> blip(c.pos.x, c.pos.z, c.opened?'rgba(180,150,80,0.35)':'#ffd24a', 5, 'chest'));
     healingCrystals.forEach(h=> blip(h.pos.x, h.pos.z, h.broken?'rgba(140,220,180,0.3)':'#7fe8b8', 4, 'diamond'));
     anomalyRifts.forEach(r=> blip(r.pos.x, r.pos.z, '#a855f7', 5));
+    /* まだ起きていないイベントの地点に「!」(WORK 12.1)。判定は既存の
+       近接/部屋イベント(registerProximityEvent)そのもので、起きたら消える。
+       条件付きのもの(道の丘など)は、条件が満ちてから出す */
+    proximityEvents.forEach(ev=>{
+      if(ev.fired || !ev.marker) return;
+      if(ev.condition && !ev.condition()) return;
+      if(!inSubZone(zone, ev.pos.x, ev.pos.z)) return;
+      const p = proj(ev.pos.x, ev.pos.z);
+      if(Math.hypot(p.x-cx, p.y-cy) > R-4) return;   // 「!」の大きさぶんだけ縁から内側
+      ctx.save();
+      ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,14,8,0.9)';
+      ctx.strokeText('!', p.x, p.y);
+      ctx.fillStyle = '#ffcf4a';
+      ctx.fillText('!', p.x, p.y);
+      ctx.restore();
+    });
     enemies.forEach(en=>{
       if(en.dead || en.dormant) return;
       /* 視界制限(core/enemy-visibility.js): 今まではミニマップが生きている
@@ -1081,6 +1099,7 @@
     updatePerfPanel(dt);
     updateMotionPanel(dt);   // Debug Motion Preview。通常プレイでは即return
     drawMinimap(); // top-level so it also hides itself while paused / in menus
+    updatePendingJoinScene();   // 酒場が描かれてから交代の会話を開く(WORK 12.1)
     if(state.started && !state.paused && !state.dialogueActive){
       updateInput(dt);
       updatePlayer(dt);
@@ -1459,9 +1478,71 @@
     if(opts.rebuild){
       syncAlliesToState();
       refreshTouchControls();
-      if(forward && opts.announce !== false) playChapter1JoinScene(prevClass, selectedClass);
+      /* 加入の一幕は「酒場が画面に出てから」(WORK 12.1)。ここは
+         returnToTownNow の中 ―― fadeTransition の暗転の最中なので、
+         ここで会話を開くと、暗い画面に会話だけが出ていた。
+         酒場が描かれてから updatePendingJoinScene が開く */
+      if(forward && opts.announce !== false) queueChapter1JoinScene(prevClass, selectedClass);
     }
+    refreshHudName();
     return true;
+  }
+
+  /* 古いセーブを Chapter 1 の今の仕様へ寄せる(WORK 12.1)。
+
+     セーブ自体は壊さない(レベル・経験値・振り分けなどの値は残る。本編では
+     使われないだけ ―― recomputeStats / legacyGrowth)。ここで直すのは、
+     残っていると本編の見た目や操作が仕様と食い違うものだけ:
+       ・上位職(state.job) … Chapter 1 では転身しない
+       ・装備中の武器 … 今の主人公が扱えない武器種なら、その主人公の武器へ
+     テストモードは開発用なので触らない */
+  function normalizeChapter1Load(){
+    if(state.testMode) return;
+    state.job = null;
+    const w = state.equipped && state.equipped.weapon;
+    if(!w || !canEquipItem(w)){
+      const keepUpper = state.equipped.upper, keepLower = state.equipped.lower;
+      grantStarterGear();
+      ['upper','lower'].forEach(slot=>{
+        const keep = slot === 'upper' ? keepUpper : keepLower;
+        if(!keep) return;
+        const fresh = state.equipped[slot];
+        state.equipped[slot] = keep;
+        const i = state.equipmentInventory.indexOf(fresh);
+        if(i >= 0) state.equipmentInventory.splice(i, 1);
+      });
+    }
+    state.usingAltWeapon = false;
+    recomputeStats();
+  }
+
+  /* 加入の一幕の順番待ち(WORK 12.1)。
+
+     正しい順序:
+       returnToTown → 酒場のワールド構築 → プレイヤー配置 → HUD →
+       (暗転が明けて、酒場が実際に描かれる) → 交代の会話
+
+     暗転(screen-fade)が外れ、酒場が数フレーム描かれてから始める。
+     時間では待たない ―― 低FPSでも、画面に酒場が出た次の瞬間に会話が出る */
+  let pendingJoinScene = null;
+  function queueChapter1JoinScene(prevKey, nextKey){
+    pendingJoinScene = {prevKey, nextKey, frames: 0};
+  }
+  function updatePendingJoinScene(){
+    if(!pendingJoinScene) return;
+    const fade = document.getElementById('screen-fade');
+    const ctx = {
+      pending: true, started: state.started, paused: state.paused,
+      dialogueActive: state.dialogueActive, world: currentWorldKey,
+      fading: (typeof fadeBusy !== 'undefined' && fadeBusy) || !!(fade && fade.classList.contains('on')),
+    };
+    // 酒場が見えている間だけ数える(暗転中・会話中のフレームは数えない)
+    if(ctx.started && !ctx.paused && !ctx.dialogueActive && ctx.world === 'tavern' && !ctx.fading) pendingJoinScene.frames++;
+    ctx.framesShown = pendingJoinScene.frames;
+    if(!joinSceneReady(ctx)) return;
+    const j = pendingJoinScene;
+    pendingJoinScene = null;
+    playChapter1JoinScene(j.prevKey, j.nextKey);
   }
 
   /* 主人公を cast の顔ぶれへ持ち替える(酒場の交代と、道の出会いで共用)。
@@ -1518,10 +1599,21 @@
     });
     recomputeStats();
     state.hp = state.maxHp; state.mp = state.maxMp;
-    /* Skill 1 の選択はクラスごとに別物なので、既定へ戻す
-       (前の主人公が選んでいた技がそのまま残らないように) */
-    state.skillChoice = 'retreat';
+    /* Skill 1 はクラスごとの正式な技へ(WORK 12.1)。以前は全職共通で
+       'retreat' に戻していたため、魔法使いが幻影歩法ではなく「退避の魔陣」を
+       持って宵待ちの村へ出ていた(core/chapter1-rules.js の defaultSkill1For) */
+    state.skillChoice = defaultSkill1For(selectedClass);
+    updateSkillButtonIcon();
+    /* Skill 2 は「その人」がシナリオの中盤で閃くもの(全体基本仕様)。
+       前の主人公の閃き(洋館で剣士が閃いた崩し斬り)を次の主人公へ
+       持ち越さない ―― 魔法使いは宵待ちの村の中で「観測の灯」を閃く */
+    state.learnedSkill2 = false;
     state.skillCD = 0; state.skill2CD = 0;
+    /* 上位職は Chapter 1 では使わない(WORK 12.1)。転身の状態も持ち越さない */
+    if(!legacyGrowth()) state.job = null;
+    /* 鍛冶士との再会(洋館から帰った夜)は剣士の場面。交代したあとの主人公に
+       「鍛冶屋の前まで歩いて話す」をさせない(WORK 12.1)。鍛冶士は酒場に残る */
+    if(state.smithJoined) state.smithGreeted = true;
     resetWeaponState(state.weapon);
     return true;
   }
@@ -1556,7 +1648,8 @@
     if(!lines) return;
     state.dialogueActive = true;
     state.dialogueBoss = null;
-    state.dialogueKind = 'town';
+    // 'town' だと会話の終わりに出撃(pendingScenario)を拾いに行くので、専用の種類にする
+    state.dialogueKind = 'chapter1Join';
     state.dialogueLines = lines(prev ? prev.name : '');
     state.dialogueIndex = 0;
     renderDialogueLine(state.dialogueLines[0]);
@@ -1626,6 +1719,7 @@
   function finishEnteringGame(opts){
     opts = opts || {};
     const world = opts.world || 'tavern';
+    pendingJoinScene = null;   // タイトルへ戻る前の順番待ちを持ち越さない
     // state.testModeの唯一の書き換え場所。beginGame()/continueGame()
     // (world==='tavern')経由なら必ずfalseに戻るので、テストモードを
     // 経由した後で本当のセーブへ戻ってもsaveGame()が黙って止まったまま
@@ -1682,6 +1776,7 @@
        (WORK 10)。リグを組む前にここで合わせておく ―― 交代の一幕は
        酒場へ戻った時のものなので、ここでは出さない */
     advanceChapter1Cast({rebuild:false});
+    normalizeChapter1Load();
     currentWorldKey = null; // force a full rebuild even if we're already nominally in the tavern
     buildWorld(world);
 

@@ -20,6 +20,8 @@
   ];
   function attackTier(){
     let n = 0;
+    // Chapter 1 の本編にはレベルが無い ―― 通常攻撃はクラスの基本の型のまま(WORK 12.1)
+    if(!legacyGrowth()) return 0;
     ATTACK_TIERS.forEach(t=>{ if(state.level >= t.level) n++; });
     return n;   // 0..3
   }

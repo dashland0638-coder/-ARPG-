@@ -2013,7 +2013,10 @@
          「会話だけを別の場所へ移す」のではなく、本人が鍛冶屋の前まで
          行ってから始める、という形にしてある */
       registerProximityEvent(new THREE.Vector3(0,0,13), 6.5, '鍛冶士', null,
-        {onEnter: playSmithGreeting});
+        {onEnter: playSmithGreeting,
+         // 主人公交代(剣士 → 魔法使い)でこの再会は不要になる(WORK 12.1)。
+         // 酒場を建てた直後に交代が起きるので、発火の時点で見直す
+         condition: ()=> !state.smithGreeted});
     }
 
     buildLoreNote(new THREE.Vector3(-7,0,21), '酒場の壁に貼られた紙', [

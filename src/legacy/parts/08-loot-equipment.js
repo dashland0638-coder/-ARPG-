@@ -17,9 +17,17 @@
      The weighted-pick itself is src/core/loot-math.js's pickWeighted(),
      unit tested in tests/unit/loot-math.test.js - this just supplies the
      situational weight bump. */
+  /* 武具の欠片(武具強化)と魔宝石(パッシブの強化)は、どちらも Chapter 1 の
+     本編には無い仕組みの材料 ―― 本編では落とさない(WORK 12.1)。
+     金貨・薬草・魔力の雫はそのまま */
+  const LEGACY_LOOT_TYPES = ['shard', 'gem'];
   function pickLoot(){
     const hurt = state.maxHp > 0 && (state.hp / state.maxHp) < 0.35;
-    return pickWeighted(LOOT_TABLE, Math.random, l => (hurt && l.type === 'potion') ? l.weight * 1.1 : l.weight);
+    const legacy = legacyGrowth();
+    return pickWeighted(LOOT_TABLE, Math.random, l => {
+      if(!legacy && LEGACY_LOOT_TYPES.indexOf(l.type) >= 0) return 0;
+      return (hurt && l.type === 'potion') ? l.weight * 1.1 : l.weight;
+    });
   }
 
   /* =========================================================
@@ -217,7 +225,11 @@
     return rollEquipment(state.level, rareChance);
   }
 
+  /* ランダムな装備ドロップ(未鑑定・Item Level・特殊武器・別武器種)は旧ハクスラ系。
+     Chapter 1 の本編では落ちない(WORK 12.1) ―― 魔法使いの前に剣が落ちる、
+     ということ自体を起こさない。テストモード(開発用)では従来どおり */
   function maybeDropEquipmentAt(pos, chance, rareChance){
+    if(!legacyGrowth()) return;
     if(Math.random() > chance) return;
     const item = rollDropEquipment(rareChance);
     spawnItemDrop(pos, {
@@ -233,6 +245,7 @@
   // 装備も物理ドロップではなく即時付与にする。敵撃破の装備ドロップは今まで
   // 通り物理ドロップのまま(そちらは意図的に手元で確認させたい)
   function maybeGrantEquipmentInstant(chance, rareChance){
+    if(!legacyGrowth()) return;   // 宝箱の装備も同じ(WORK 12.1)
     if(Math.random() > chance) return;
     addEquipmentItem(rollDropEquipment(rareChance));
   }
@@ -295,7 +308,7 @@
   // あった。装備可能な品だけを対象にする(isSellableJunk()参照)
   function isSellableJunk(item){
     if(!item.identified || item.specialId) return false;
-    if(item.itemLevel > state.level) return false;
+    if(!canEquipItem(item)) return false;
     return !['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===item.id);
   }
   function sellAllJunk(){
@@ -313,8 +326,23 @@
   // 装備した武器の weaponType がそのままモーション・数値を決める
   // (2武器切り替え: メイン/サブの区別はなく、装備欄で選んだ方がそのまま
   // 「今の武器」になる)。武器スロット以外(上半身/下半身)は無関係
+  /* 今の主人公が装備できるか(WORK 12.1)。武器はクラスの武器種だけ ――
+     剣士=大剣 / 盗賊=双剣 / 魔法使い=杖 / 弓師=小弓。サブ武器は
+     テストモード(開発用)だけ。Item Level の制限は旧ハクスラ系なので
+     本編では見ない(本編にはレベルが無い) */
+  function canEquipItem(item){
+    if(!item) return false;
+    if(legacyGrowth() && item.itemLevel > state.level) return false;
+    if(item.slot !== 'weapon') return true;
+    const kit = state.classDef ? state.classDef.key : kitKeyFor(selectedClass);
+    return weaponUsableBy(kit, item.weaponType, WEAPON_TYPES, {allowAlt: legacyGrowth()});
+  }
+
   function equipItem(item){
-    if(item.itemLevel > state.level) return false;
+    if(!canEquipItem(item)){
+      if(item && item.slot === 'weapon' && state.started) spawnToast(`${item.icon||'⚔️'} ${item.name} は今の主人公には扱えない`);
+      return false;
+    }
     const prevWeapon = state.equipped.weapon;
     state.equipped[item.slot] = item;
     let weaponTypeChanged = false;
@@ -1018,8 +1046,31 @@
     return {group:g, head, classKey, pos:new THREE.Vector3(), target:null, attackCD:0, bobT:Math.random()*10};
   }
 
+  /* 支援AIの立ち位置(WORK 12.1)。プレイヤーの斜め後ろ、約2.4m。
+     真横に貼り付かず、前にも出ない ―― 「少し後ろから同行している」見え方 */
+  const GUEST_FOLLOW_DIST = 2.4;
+  const GUEST_FOLLOW_SIDE = 0.55;   // 真後ろからどれだけ横へずらすか(rad)
+  function guestFollowPoint(){
+    const a = state.facing + Math.PI - GUEST_FOLLOW_SIDE;
+    return state.pos.clone().add(new THREE.Vector3(Math.sin(a)*GUEST_FOLLOW_DIST, 0, Math.cos(a)*GUEST_FOLLOW_DIST));
+  }
+
   function updateGuestCompanion(dt){
     if(!guestCompanion) return;
+    /* 合流待ち(WORK 12.1)。シナリオの途中から同行する支援AIは、その地点で
+       待っている。プレイヤーが近づくか、その先へ進んだら同行を始める ――
+       酒場から瞬間移動して付いてくるようには見せない */
+    const W = guestCompanion.waitAt;
+    if(W){
+      const near = Math.hypot(state.pos.x - W.x, state.pos.z - W.z) < W.radius;
+      const passed = W.passZ != null && state.pos.z > W.passZ;
+      if(!near && !passed){
+        guestCompanion.group.position.set(guestCompanion.pos.x, 0, guestCompanion.pos.z);
+        return;
+      }
+      guestCompanion.waitAt = null;
+      if(passed && !near) guestCompanion.pos.copy(guestFollowPoint());   // 地点ジャンプで追い越した場合
+    }
     const cdef = CLASSES[guestCompanion.classKey] || CLASSES.warrior;
     const AGGRO=8.5, ATK_RANGE=cdef.meleeRange||1.8, ATK_CD=(cdef.atkCooldown||0.6)*1.6, DMG_MUL=0.55;
     if(guestCompanion.attackCD>0) guestCompanion.attackCD -= dt;
@@ -1054,9 +1105,7 @@
     } else {
       // COMPANION(浮遊球)とは反対の右後方に追従させ、二体が同じ位置で
       // 重ならないようにしてある
-      const followPoint = state.pos.clone().add(new THREE.Vector3(
-        Math.sin(state.facing+0.9)*1.6, 0, Math.cos(state.facing+0.9)*1.6
-      ));
+      const followPoint = guestFollowPoint();
       const dist = guestCompanion.pos.distanceTo(followPoint);
       if(dist > 0.4){
         const dir = new THREE.Vector3().subVectors(followPoint, guestCompanion.pos); dir.y=0;
@@ -1084,8 +1133,9 @@
       companion.pos.copy(state.pos).add(new THREE.Vector3(-1.6,0,1.2));
       companion.target = null;
     }
-    if(guestCompanion){
-      guestCompanion.pos.copy(state.pos).add(new THREE.Vector3(1.6,0,1.2));
+    // 合流待ちの支援AIは、その場で待たせたまま(WORK 12.1)
+    if(guestCompanion && !guestCompanion.waitAt){
+      guestCompanion.pos.copy(guestFollowPoint());
       guestCompanion.target = null;
     }
     /* 洋館で同行している鍛冶屋(仕様 8)。戦闘には関与しないが、階段の
@@ -1110,6 +1160,7 @@
       guestCompanion = buildGuestCompanion(state.guestClassKey);
     }
     repositionAlliesToPlayer();
+    refreshHudName();   // HUD に支援AIの名前を出している(WORK 12.1)
   }
 
   /* =========================================================

@@ -178,7 +178,12 @@
       document.getElementById('appraisal-overlay').classList.add('active');
       try{ refreshAppraisal(); }catch(err){ console.error('refreshAppraisal failed:', err); }
     } else if(name==='scenario'){
-      document.getElementById('scenario-char-level').textContent = state.level;
+      // 出撃画面のレベル表示(WORK 12.1: Chapter 1 の本編には無い)
+      const lvWrap = document.getElementById('scenario-char-level');
+      if(lvWrap){
+        lvWrap.textContent = state.level;
+        if(lvWrap.parentElement) lvWrap.parentElement.style.display = legacyGrowth() ? '' : 'none';
+      }
       try{ renderScenarioList(); }catch(err){ console.error('renderScenarioList failed:', err); }
       document.getElementById('scenario-overlay').classList.add('active');
     }
@@ -341,7 +346,8 @@
 
   function refreshMenuStats(){
     document.getElementById('menu-name').textContent = state.name;
-    document.getElementById('menu-class').textContent = `${state.classDef.name} (Lv.${state.level})`;
+    document.getElementById('menu-class').textContent = legacyGrowth()
+      ? `${state.classDef.name} (Lv.${state.level})` : state.classDef.name;
     document.getElementById('menu-hp').textContent = `${Math.ceil(state.hp)} / ${state.maxHp}`;
     document.getElementById('menu-mp').textContent = `${Math.ceil(state.mp)} / ${state.maxMp}`;
     document.getElementById('menu-atk').textContent = state.classDef.atk;
@@ -351,7 +357,11 @@
     document.getElementById('menu-shard').textContent = state.inventory.shard;
     document.getElementById('menu-ult').textContent = `${state.classDef.ult.icon} ${state.classDef.ult.name}`;
     const xpEl = document.getElementById('menu-xp');
-    if(xpEl) xpEl.textContent = `${state.xp} / ${state.xpToNext}`;
+    if(xpEl){
+      xpEl.textContent = `${state.xp} / ${state.xpToNext}`;
+      // 経験値の行ごと隠す(WORK 12.1: Chapter 1 の本編には経験値が無い)
+      if(xpEl.parentElement) xpEl.parentElement.style.display = legacyGrowth() ? '' : 'none';
+    }
   }
 
   function returnToTitle(){
