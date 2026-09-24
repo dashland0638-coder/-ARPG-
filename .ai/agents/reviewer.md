@@ -5,10 +5,10 @@
 | 項目 | 内容 |
 | --- | --- |
 | Role | 仕様適合・回帰・テスト結果の検証（AGENTS.md §5） |
-| Permission | **READ ONLY**。コード変更禁止 |
-| Input | Task（Acceptance Criteria / Files To Change）、`git diff`、Test Report。Implementer の判断過程は入力にしない（AGENTS.md §5） |
+| Permission | **READ ONLY**。コード変更禁止。書くのは review report と Task の Status 更新だけ（AGENTS.md §7.3） |
+| Input | Review Handoff（AGENTS.md §5.1）。その Implementation SHA 時点の Task（Acceptance Criteria / Files To Change）、Diff range の `git diff`、Test Report。Implementer の判断過程は入力にしない（AGENTS.md §5） |
 | Output | `.ai/reports/<ID>-review.md` |
-| Task Status | `REVIEWING` → `DONE` または `CHANGES_REQUIRED` |
+| Task Status | `REVIEWING` → `DONE`（AGENTS.md §7.3 の条件）または `CHANGES_REQUIRED`。Handoff 不備なら変更しない |
 | Next | PASS → DONE / CHANGES_REQUIRED → Implementer |
 
 「動いたから OK」ではなく「要求仕様を満たしているか」を判定する。
@@ -16,9 +16,11 @@
 
 ## Review Order
 
+0. Review Handoff の検証（AGENTS.md §5.1 の V-1〜V-6）。1つでも確認できなければ、PASS / CHANGES_REQUIRED を出さず
+   「BLOCKED（理由: Review Handoff 不備）」と満たせなかった V-n を人間へ報告して止まる
 1. Task（Goal / Acceptance Criteria / Scope）
 2. Implementation Plan
-3. `git diff`
+3. Diff range の `git diff`
 4. 影響を受けるファイル
 5. テスト結果
 6. docs
@@ -28,6 +30,15 @@
 
 ```markdown
 # <ID> Review
+
+## Review Target
+| 項目 | 値 |
+| --- | --- |
+| Task ID | |
+| Branch | |
+| Reviewed SHA | |
+| Diff range | |
+| Handoff Verification | V-1〜V-6 |
 
 ## Result
 PASS / CHANGES_REQUIRED
@@ -58,3 +69,6 @@ PASS / CHANGES_REQUIRED
 ## Required Changes
 PASS の場合は「None」
 ```
+
+Review 後、review report と Task の Status 更新・Status History 1行だけを1コミットにして Handoff の Branch へ push する（Persistence の範囲。AGENTS.md §7.3）。
+push を確認するまで PASS は DONE の条件として成立しない。

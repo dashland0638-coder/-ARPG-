@@ -22,6 +22,7 @@ Analysis: ../reports/<ID>-analysis.md
 - [ ] Approved
 - Approved by / date / where:
 - Scope of approval:
+- Persistence:（空欄 = 未許可。人間の明示的な指示があった場合だけ `許可（branch: <name>）` と根拠を書く）
 
 Implementation: BLOCKED until approval
 
@@ -59,6 +60,9 @@ Implementation: BLOCKED until approval
 Target は `Task` または Work Item の ID（`T-1` など）。
 既存 Task の4列の Status History（Target 列なし）は書き換えず、そのまま残す。以後の行から5列で追記してよい。
 
+`Persistence` 行の規則は `../AGENTS.md` §6、`TESTING → REVIEWING` / `REVIEWING → DONE` の条件は §7.3。
+Persistence 行が無い既存 Task の Approval 欄は書き換えない（未許可として扱う）。
+
 ## Work Items（1つの Task に複数の作業項目がある場合）
 
 Work Item を持つ Task では、上のテンプレートの `Status:` は Task Level の値
@@ -77,6 +81,7 @@ Work Item を持つ Task では、上のテンプレートの `Status:` は Task
 - [ ] Approved
 - Approved by / date / where:
 - Scope of approval:（この Work Item の Files To Change の範囲）
+- Persistence:（空欄 = 未許可。規則は ../AGENTS.md §6）
 
 Implementation (T-1): BLOCKED until approval
 ```
