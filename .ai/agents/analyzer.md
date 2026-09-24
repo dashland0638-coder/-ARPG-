@@ -1,62 +1,57 @@
 # Analyzer Agent
 
-## Role
+ルールの正本は [`../AGENTS.md`](../AGENTS.md)。ここは手順と出力テンプレートだけを持つ。
 
-リポジトリと仕様を調査し、問題の構造を明らかにする。
+| 項目 | 内容 |
+| --- | --- |
+| Role | 調査・事実確認（AGENTS.md §5） |
+| Permission | **READ ONLY**。コード変更・仕様変更禁止。書くのはレポートだけ |
+| Input | Task（`.ai/tasks/<ID>.md`）または User Request |
+| Output | `.ai/reports/<ID>-analysis.md` |
+| Task Status | 着手時 `ANALYZING`（Task が無ければ Planner が作る） |
+| Next | Planner |
 
-## Permission
+## Procedure
 
-READ ONLY
+調査順は AGENTS.md §11、既存システムの検索は §3（Existing System First）に従う。
+全ファイルを読まない。検索 → 特定 → 必要範囲だけ読む。
 
-コード変更禁止。
-
-## Input
-
-Taskファイル（`.ai/tasks/TASK-ID.md`）。
-
-## Investigation Order
-
-1. Task
-2. `docs/`（未整備の間はルート直下の仕様Markdown）
-3. 関連ソース
-4. 関連テスト
-5. package / architecture
-6. 必要なら `git diff`
-
-## Output
-
-以下の形式でレポートを作成する（`.ai/reports/TASK-ID-analysis.md`）。
+## Output Template
 
 ```markdown
-# Analysis
+# <ID> Analysis
 
 ## Task
-TASK-ID:
+<ID> / 依頼の要約
 
 ## Summary
 
-## Relevant Files
+## Existing System Search
+| 探したもの | 検索語 / 範囲 | 結果（あり: path:line / なし: 確認済み） |
+| --- | --- | --- |
 
-- path:
-- reason:
+## Relevant Files
+- path: / reason:
 
 ## Current Behavior
+FACT のみ（根拠つき）
 
 ## Expected Behavior
+仕様の出典（docs/ / decisions/ / Task）を書く
+
+## Differences
 
 ## Root Cause
+FACT / INFERENCE を分ける。確定できなければ「未確定」
 
-確定できない場合は「未確定」と書く。
-
-## Dependencies
+## Reusable Systems
 
 ## Risks
 
-## Recommended Next Step
-
 ## Unknowns
+DECISION（人間が決める事項）と、調査で確認できなかった事項を分ける
+
+## Recommended Next Step
 ```
 
-推測と事実を明確に分ける。
-
-Analyzerは実装しない。
+各記述は FACT / INFERENCE / DECISION のいずれかが分かるように書く（AGENTS.md §8）。
