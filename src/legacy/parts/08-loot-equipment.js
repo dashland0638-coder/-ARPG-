@@ -1082,7 +1082,11 @@
         if(en.dead || en.dormant) return;
         if(!isBossAccessible(en)) return;
         if(!isPartyHostile(en)) return;   // 敵対済みの敵だけ(core/enemy-aggro.js)
-        const d = guestCompanion.pos.distanceTo(en.group.position);
+        /* 支援AIは斜め後ろ(約2.4m)を歩く(WORK 12.1)。自分の位置だけで
+           索敵すると、プレイヤーが敵の手前で止まったときに支援だけ射程の外に
+           なる ―― 「プレイヤーの近くの敵」も同じ距離で拾う */
+        const d = Math.min(guestCompanion.pos.distanceTo(en.group.position),
+                           state.pos.distanceTo(en.group.position));
         if(d<bestDist){ bestDist=d; best=en; }
       });
       guestCompanion.target = best;
