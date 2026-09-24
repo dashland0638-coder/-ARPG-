@@ -114,9 +114,13 @@ Human Intent / Human Approval 以外の各段は、成果物（Markdown）を残
 - **Reviewer**: コード変更禁止。指摘は CHANGES_REQUIRED として返す。
 - **Debugger**: 仕様を変えて通すことをしない。修正後は必ず再テストする。3サイクルで停止する（§9）。
 
-Implementer 専用の Agent 定義ファイルは未作成。作る場合も責務境界は上表と §6・§10 に従い、ルールをそこへ複製しない。
+Implementer の手順と出力テンプレートは `.ai/agents/implementer.md`。責務境界は上表と §6・§10 に従う。
 
 1つの AI が複数の役割を兼ねてもよい。ただし **役割ごとの成果物と Gate は省略しない**。
+
+**Reviewer の独立性**: Reviewer は Implementer の判断過程ではなく、Task / Plan / `git diff` / テスト結果だけを入力として検証する。
+Review には独立性を1行で明記する（`別の人間` / `別 Agent・別セッション` / `同一セッションで兼務`）。
+`同一セッションで兼務` の場合は、人間による差分確認を Review の推奨事項として必ず残す。
 
 ## 6. Human Approval Gate
 
@@ -204,8 +208,11 @@ Work Item は Task の中の個別の作業項目（`T-1` など、Task 内で�
 - Work Item の Scope は、その Work Item の Files To Change / 計画に書かれた範囲。
   他の Work Item の範囲に踏み込む変更は OUT OF SCOPE（§10）
 - Work Item を追加・分割・取り下げするのは Planner の提案と人間の判断による。既存の Work Item の ID・履歴は書き換えない
-- Work Item 専用の成果物は `<ID>-<ITEM>-analysis.md` / `-debug.md` / `-review.md`
-  （例: `CHAPTER-STRUCTURE-T1-analysis.md`）。Task 全体の成果物は従来どおり `<ID>-analysis.md`
+- Work Item 専用の成果物の命名（`<ITEM>` は Work Item ID からハイフンを除いたもの。例: `T-1` → `T1`）:
+  - 計画: `.ai/tasks/<ID>-<ITEM>.md`（例: `CHAPTER-STRUCTURE-T1.md`）。**独立した Task ではなく**、親 Task `<ID>.md` の Work Item の計画。
+    冒頭に親 Task へのリンクを書き、Status と Human Approval の正本は親 Task の Work Items 表とする（計画側の Status は常にそれと一致させる）
+  - レポート: `.ai/reports/<ID>-<ITEM>-analysis.md` / `-debug.md` / `-review.md`（例: `CHAPTER-STRUCTURE-T1-analysis.md`）
+  - Task 全体の成果物は従来どおり `<ID>.md` / `<ID>-analysis.md`
 
 表記は `.ai/tasks/README.md` のテンプレート（Work Items 表と Work Item ごとの Approval 欄）に従う。
 
@@ -232,6 +239,15 @@ Analyzer と Planner の出力では、記述を次の3種に分ける。
 | 提案である | それ以外。Planner の案はすべてこれ |
 
 「コードが残っている」と「その機能が有効に動く」も区別する（例: 無効化された旧システム）。
+
+Implementer / Reviewer が Acceptance Criteria の充足を書くときは、確認方法を区別する:
+
+| 表記 | 意味 |
+| --- | --- |
+| **VERIFIED** | 実行したテスト（unit / E2E / 手動操作）で確認した。テスト名を添える |
+| **FACT (code)** | コードを読んで同じ経路を通ることを確認したが、テストでは確かめていない |
+
+`FACT (code)` だけの AC は PASS にしてよいが、未検証である旨を Review の Risks に残す。
 
 ## 9. Debugger 3-Cycle Rule
 
@@ -333,7 +349,29 @@ npm run test:unit
 npm test
 ```
 
-実行できない場合は理由を明記する。結果は要約だけを残す（長大なログ全文は保存しない）。
+結果は要約だけを残す（長大なログ全文は保存しない）。Implementer が Test Report（テンプレートは `.ai/agents/implementer.md`）に次を書く。
+
+**Test Scope**
+
+| 区分 | 意味 |
+| --- | --- |
+| Targeted | 変更の影響経路を通るテストだけを選んで実行した |
+| Full Regression | `npm run build` / `npm run test:unit` / `npm test` をすべて実行した |
+
+Targeted の場合は「実行したもの」「選んだ理由」「実行しなかったもの（とその理由）」を書く。
+
+**結果の区分**（テスト単位。Task / Work Item の Status とは別物で、Status は増やさない）
+
+| 結果 | 意味 | 扱い |
+| --- | --- | --- |
+| PASS | 初回で通った | － |
+| FAIL | リトライ後も失敗 | Work Item を `FAILED` にして Debugger へ（§9） |
+| FLAKY | 初回失敗・リトライで通った | **PASS として数えない**。テスト名・初回の失敗内容・対象変更との関係（FACT / INFERENCE）・変更前コードで比較したかを記録する。対象変更と無関係と判断できれば Work Item は進めてよいが、Review の Risks に残す |
+| NOT_RUN | 実行しなかった / できなかった | 理由を書く |
+
+**実行環境の問題**: テストが起動前に失敗する（ブラウザ未導入など）のはリポジトリではなく実行環境の問題として区別する。
+回避策はスクラッチ領域など **リポジトリ外** に限り、その内容を Test Report に書く。回避できず必要なテストを実行できない場合は、
+Work Item を `BLOCKED`（理由: 実行環境）にして人間に戻す。
 
 ## 15. Communication
 
@@ -348,7 +386,7 @@ npm test
 | 場所 | 中身 | ルールの正本 |
 | --- | --- | --- |
 | `.ai/AGENTS.md` | 運用ルール全体 | ここ |
-| `.ai/agents/<role>.md` | 役割ごとの手順・出力テンプレート | ルールはここを参照 |
+| `.ai/agents/<role>.md` | 役割ごとの手順・出力テンプレート（analyzer / planner / implementer / debugger / reviewer） | ルールはここを参照 |
 | `.ai/tasks/` | Task（Status・計画・Approval） | 命名とテンプレート: `tasks/README.md` |
-| `.ai/reports/` | analysis / debug / review | 命名: `reports/README.md` |
+| `.ai/reports/` | analysis / debug / review / retrospective | 命名: `reports/README.md`（Work Item 分は §7.2） |
 | `.ai/decisions/` | 人間の決定の記録 | 命名とテンプレート: `decisions/README.md` |

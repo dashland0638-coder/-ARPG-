@@ -7,6 +7,8 @@ AI 開発タスクを管理する。運用ルール（状態遷移・Approval Ga
 
 `TASK-ID.md`（例: `COMBAT-001.md` / `MAGE-003.md` / `UI-012.md`）
 
+Work Item の計画: `TASK-ID-<ITEM>.md`（例: `CHAPTER-STRUCTURE-T1.md`）。独立した Task ではなく親 Task の一部（規則は `../AGENTS.md` §7.2）。
+
 ## Task Template
 
 ```markdown
