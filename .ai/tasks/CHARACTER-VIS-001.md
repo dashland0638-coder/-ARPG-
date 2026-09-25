@@ -33,7 +33,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | ID | Summary | Status | Approval | 依存する DECISION | Analysis |
 | --- | --- | --- | --- | --- | --- |
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
-| T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | REVIEWING | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
+| T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | DONE | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い） | APPROVED | [x] | D-6（決定済み） | 同上 |
 | T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
@@ -812,6 +812,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-2 | APPROVED → IMPLEMENTING | Implementer | 第3版。Plan Handoff（Kind `plan`、`f3f9bd5c77ecd906fc82ea5f01de2eba38486bd6`、blob `43826c33…`）確認。起点 `origin/main` `f3f9bd5` |
 | 2026-09-25 | T-2 | IMPLEMENTING → TESTING | Implementer | 実装 commit `2044a6e7eadf27f1cbfd4f705e7f0eedc373fc3f`。unit / build / 関連 E2E、V-1 用スクリーンショット |
 | 2026-09-25 | T-2 | TESTING → REVIEWING | Implementer | FAIL なし。V-1 Human 確認の Decision（5.0頭身維持、キャラクター性は T-4）。Branch `claude/character-vis-001-t2-v3-impl` |
+| 2026-09-25 | T-2 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T2-review.md` PASS（Reviewed SHA `fa3436449a863da0bb56c014edbde33b99832e79`、同一セッションで兼務）。Task Level は T-3〜T-5 未完了のため PLANNED のまま |
 
 ## Implementation Result
 
