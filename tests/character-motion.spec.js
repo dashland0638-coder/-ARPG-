@@ -452,3 +452,70 @@ test('剣士(warrior): 非戦闘の移動は休め基準、戦闘態勢の移動
 
   expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
 });
+
+/* CHARACTER-VIS-001 T-2(第3版): キャラクター系列ごとの絶対値 BUILD。
+   「華奢で、横幅が狭く、縦にスッとしたシルエット」を Panel の数値で見る。
+   BUILD はキャラクター別なので、テストモード(male 固定)でも4人とも
+   各自の BUILD になる。V-1 用に正面・斜め45°・側面相当のショットも残す
+   (カメラは見下ろし固定なので、キャラクターの向きを変えて撮る) */
+const T2_BUILD = {
+  warrior: { stature: 2.54, shoulderMax: 0.30 },
+  mage:    { stature: 2.40, shoulderMax: 0.28 },
+  archer:  { stature: 2.40, shoulderMax: 0.28 },
+  rogue:   { stature: 2.42, shoulderMax: 0.28 },
+};
+const T2_HEADS = 5.0;
+
+// キーを短く押して、その方向へ体を向けてから止まる(移動入力はカメラ相対)
+async function faceBy(page, keys) {
+  for (const k of keys) await page.keyboard.down(k);
+  await page.waitForTimeout(350);
+  for (const k of keys) await page.keyboard.up(k);
+  await page.waitForTimeout(1800);
+}
+
+test.describe('CHARACTER-VIS-001 T-2 体格(第3版)', () => {
+  for (const [classKey, spec] of Object.entries(T2_BUILD)) {
+    test(`${classKey}: 約5頭身・全高・手とベルト・肩幅と腰幅の比`, async ({ page }) => {
+      test.setTimeout(120_000);
+      const errors = watchErrors(page);
+      await openGame(page);
+      await enterTestMode(page, classKey, false);
+      await openMotionPanel(page);
+      expect(await panelValue(page, 'STATE')).toBe('EXPLORATION');
+      await page.waitForTimeout(2500);   // 停止して休め姿勢へ寄り切る
+
+      const hs = /^([\d.]+)\s+STAT ([\d.]+)m$/.exec((await panelValue(page, 'HEADS')) || '');
+      expect(hs, 'HEADS / STAT が読めない').not.toBeNull();
+      expect(Math.abs(Number(hs[1]) - T2_HEADS)).toBeLessThanOrEqual(0.1);
+      expect(Math.abs(Number(hs[2]) - spec.stature)).toBeLessThanOrEqual(0.01);
+
+      const hb = /^([\d.-]+)m\s+BELT ([\d.]+)m$/.exec((await panelValue(page, 'HAND\\.Y')) || '');
+      expect(hb, 'HAND.Y / BELT が読めない').not.toBeNull();
+      expect(Number(hb[1]), `手(${hb[1]})がベルト線(${hb[2]})より上`).toBeLessThanOrEqual(Number(hb[2]));
+
+      const sw = /^([\d.]+)m\s+\/H ([\d.]+)\s+\/head ([\d.]+)$/.exec((await panelValue(page, 'SHLD\\.W')) || '');
+      expect(sw, 'SHLD.W が読めない').not.toBeNull();
+      expect(Number(sw[2]), '肩の外幅 / 全高').toBeLessThanOrEqual(spec.shoulderMax);
+      // 狭すぎない(Task file の V-1a: 肩の外幅 / 頭の幅 1.26〜1.46)
+      expect(Number(sw[3])).toBeGreaterThanOrEqual(1.26 - 0.005);
+      expect(Number(sw[3])).toBeLessThanOrEqual(1.46 + 0.005);
+
+      const hw = /^([\d.]+)m\s+\/H ([\d.]+)$/.exec((await panelValue(page, 'HIP\\.W')) || '');
+      expect(hw, 'HIP.W が読めない').not.toBeNull();
+      expect(Number(hw[2]), '腰の外幅 / 全高').toBeLessThanOrEqual(0.19);
+
+      await page.screenshot({ path: `test-results/t2v3-${classKey}-panel.png` });
+      // V-1 用(リポジトリには含めない。プレイヤーのまわりだけ)。s = カメラ側を向く(正面)、
+      // s+d = 斜め45°、d = 真横(側面相当)
+      await faceBy(page, ['s']);
+      await page.screenshot({ path: `test-results/t2v3-${classKey}-front.png`, clip: PLAYER_CLIP });
+      await faceBy(page, ['s', 'd']);
+      await page.screenshot({ path: `test-results/t2v3-${classKey}-45.png`, clip: PLAYER_CLIP });
+      await faceBy(page, ['d']);
+      await page.screenshot({ path: `test-results/t2v3-${classKey}-side.png`, clip: PLAYER_CLIP });
+
+      expect(errors, `コンソールエラーが無いこと(BUILD の整合検査を含む):\n${errors.join('\n')}`).toEqual([]);
+    });
+  }
+});

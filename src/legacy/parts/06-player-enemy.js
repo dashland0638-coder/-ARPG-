@@ -507,10 +507,29 @@
     return weapon;
   }
 
+  /* BUILD の絶対値同士の整合(CHARACTER-VIS-001 T-2)。外れていれば
+     console.error で知らせるだけで、組み立ては続ける ―― E2E の watchErrors
+     が拾う。正常時は何も出さない。キーごとに1回だけ。 */
+  const _buildChecked = new Set();
+  function checkBuild(key, B){
+    if(_buildChecked.has(key)) return;
+    _buildChecked.add(key);
+    const EPS = 0.001, bad = [];
+    if(Math.abs(B.hipY - (B.thighLen + B.calfLen)) > EPS) bad.push('hipY != thighLen + calfLen');
+    if(Math.abs(B.stature - (B.hipY + B.height + B.headGap + B.headR)) > EPS) bad.push('stature != hipY + height + headGap + headR');
+    if(!(B.headGap - B.headR > 0)) bad.push('neck hidden (headGap <= headR)');
+    if(B.stanceW + B.thigh > B.hipR * PELVIS_SECTION_RATIOS.hip.widthMul + EPS) bad.push('leg root outside pelvis (stanceW + thigh > hipR*1.10)');
+    if(bad.length) console.error(`BUILD[${key}] inconsistent: ${bad.join('; ')}`);
+  }
+
   function buildPlayer(classDef, gender){
     const group = new THREE.Group();
-    const isFemale = gender === 'female';
-    const B = BUILD[isFemale ? 'female' : 'male'];
+    const isFemale = gender === 'female';   // 髪色など見た目の既存用途だけ(体格は BUILD)
+    // CHARACTER-VIS-001 T-2: 体格はキャラクター系列ごとの固定 BUILD。上位職は
+    // classDef.key が基礎職のままなので系列を継承し、影の旅人(wanderer)ほか
+    // 表に無いキーは剣士の BUILD
+    const B = BUILD[classDef.key] || BUILD.warrior;
+    checkBuild(classDef.key, B);
     const bodyH = B.height;
     const HIP_Y = B.hipY;      // the belt line: legs below, torso above
     const bodyR = B.chest;
@@ -642,10 +661,10 @@
     // コメント参照)。PELVIS_PROFILE/limbGeo自体は削除していない。
     // 旧コードのpelvis.scale.z=0.94(円形断面を無理やり前後に潰す
     // ハック)は、新しいジオメトリ自体が幅≠厚みを持つため不要になった
-    const pelvisH = isFemale ? 0.30 : 0.34;
+    const pelvisH = B.pelvisH;   // T-2: 旧 性別の直値 0.30 / 0.34
     const pelvis = new THREE.Mesh(
       makeCharacterPelvis({width:B.hipR, depth:B.hipR, height:pelvisH}), clothMatFlat);
-    pelvis.position.y = 0.80;
+    pelvis.position.y = HIP_Y - B.pelvisDrop;   // T-2: 旧直値 0.80(D-6: 親は root のまま)
     pelvis.castShadow = true;
     group.add(pelvis);
 
@@ -1503,14 +1522,17 @@
     // (詳細はmakeCharacterUpperArm()側のコメント参照)。LIMB_PROFILE.upper/
     // limbGeo自体は削除していない。Forearmは今回変更しないため、foreGeoは
     // 従来通り
-    const upperGeo = makeCharacterUpperArm({width:B.upper, depth:B.upper, height:0.32});
+    // CHARACTER-VIS-001 T-2: 腕長は BUILD の絶対値(upperLen / foreLen)。
+    // 配置は旧直値(上腕 0.32 / 前腕 0.30)と同じ比の式 ―― 旧値なら旧座標に一致する
+    const UA = B.upperLen, FA = B.foreLen, HAND_Y = -(FA + 0.02);
+    const upperGeo = makeCharacterUpperArm({width:B.upper, depth:B.upper, height:UA});
     // 同様にForearm(前腕)もmakeCharacterForearm()(Loft)へ置き換え。
     // UpperArm/Thigh/Calfとは違い、Elbow側からMidForearmまでほぼ太さを
     // 保ち、そこからWristへ向けてだけ緩やかに絞るシルエットにしている
     // (詳細はmakeCharacterForearm()側のコメント参照)。LIMB_PROFILE.forearm/
     // limbGeo自体は削除していない。Elbow飾り球・Vambrace・Hand(Wrist)は
     // 今回変更しないため、以降のコードは従来通り
-    const foreGeo  = makeCharacterForearm({width:B.forearm, depth:B.forearm, height:0.30});
+    const foreGeo  = makeCharacterForearm({width:B.forearm, depth:B.forearm, height:FA});
     const armL = new THREE.Group(), armR = new THREE.Group();
     const elbowL = new THREE.Group(), elbowR = new THREE.Group();
     const handL = new THREE.Mesh(new THREE.SphereGeometry(B.forearm*1.12,8,8), skinMat);
@@ -1520,12 +1542,12 @@
     [[armL,elbowL,handL,-1],[armR,elbowR,handR,1]].forEach(([sh,el,hand,s])=>{
       sh.position.set(s*(bodyR+B.shoulderOut), shoulderY, 0);
       const upper = new THREE.Mesh(upperGeo, clothMat);
-      upper.position.y = -0.16; upper.castShadow = true;
+      upper.position.y = -UA/2; upper.castShadow = true;
       sh.add(upper);
 
-      el.position.y = -0.32;
+      el.position.y = -UA;
       const fore = new THREE.Mesh(foreGeo, clothMat);
-      fore.position.y = -0.15; fore.castShadow = true;
+      fore.position.y = -FA/2; fore.castShadow = true;
       el.add(fore);
       const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(B.forearm*1.06,8,6), clothMat);
       el.add(elbowCap);
@@ -1535,10 +1557,10 @@
       // 盗賊は軽装のため省く
       if(!lightArmor){
         const vambrace = new THREE.Mesh(limbGeo(CUFF_PROFILE, B.forearm*1.2, 0.11, 8), trimMatFlat);
-        vambrace.position.y = -0.27; vambrace.castShadow = true;
+        vambrace.position.y = -FA*0.9; vambrace.castShadow = true;
         el.add(vambrace);
       }
-      hand.position.y = -0.32; hand.castShadow = true;
+      hand.position.y = HAND_Y; hand.castShadow = true;
       el.add(hand);
       // fingers: a bare scaled sphere read as a mitten from any distance
       // closer than the previous armor pass's camera - three short fingers
@@ -1547,14 +1569,14 @@
       const fingerGeo = new THREE.CapsuleGeometry(B.forearm*0.16, B.forearm*0.42, 3, 5);
       [-0.16,0,0.16].forEach(fx=>{
         const finger = new THREE.Mesh(fingerGeo, skinMat);
-        finger.position.set(fx, -0.32 - B.forearm*0.55, B.forearm*0.35);
+        finger.position.set(fx, HAND_Y - B.forearm*0.55, B.forearm*0.35);
         finger.rotation.x = -Math.PI*0.42;
         finger.castShadow = true;
         el.add(finger);
       });
       const thumb = new THREE.Mesh(fingerGeo, skinMat);
       thumb.scale.setScalar(0.85);
-      thumb.position.set(s*B.forearm*0.85, -0.32 - B.forearm*0.15, B.forearm*0.15);
+      thumb.position.set(s*B.forearm*0.85, HAND_Y - B.forearm*0.15, B.forearm*0.15);
       thumb.rotation.set(-Math.PI*0.18, 0, s*Math.PI*0.32);
       thumb.castShadow = true;
       el.add(thumb);

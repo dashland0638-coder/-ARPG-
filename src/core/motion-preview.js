@@ -146,6 +146,15 @@ export function motionDebugLines(snap){
       + '  (stop ' + num(r.stopBlend) + ' / combat ' + num(r.combatBlend) + ')');
     // 移動中の腕の基準(CHARACTER-VIS-001 T-1)。0 = 休め, 1 = 構え。停止中は '-'
     lines.push(' WALK   ' + (r.walkArmW != null ? num(r.walkArmW) : '-'));
+    /* 体格(CHARACTER-VIS-001 T-2)。頭身・全高、手の高さとベルト線(m、足元
+       基準)、肩・腰の外幅(m)と全高比。肩は頭の幅(2·headR)に対する倍率も */
+    const has = v => v != null && Number.isFinite(Number(v));
+    const m = v => has(v) ? num(v) + 'm' : '-';
+    const x = v => has(v) ? num(v) : '-';
+    lines.push(' HEADS  ' + x(r.headsTall) + '   STAT ' + m(r.stature));
+    lines.push(' HAND.Y ' + m(r.handY) + '   BELT ' + m(r.beltY));
+    lines.push(' SHLD.W ' + m(r.shoulderW) + '  /H ' + x(r.shoulderRatio) + '  /head ' + x(r.shoulderPerHead));
+    lines.push(' HIP.W  ' + m(r.hipW) + '  /H ' + x(r.hipRatio));
     lines.push(' SH.L  ' + vec3(r.shL));
     lines.push(' SH.R  ' + vec3(r.shR));
     lines.push(' EL.L  ' + deg(r.elL) + '   EL.R ' + deg(r.elR));

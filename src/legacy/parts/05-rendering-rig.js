@@ -826,7 +826,7 @@
          合成で実質85.5%)―― Bと同様の丸みに加え、胴体に対する頭部の
          存在感も適度に抑えられ、最も「丸く低頭身な頭部」に近づいた。
      Default Game Camera・Side Viewともに、CandidateCが最も違和感が
-     少なかったため採用した。Uniform成分(95%)はBUILD.male/female側の
+     少なかったため採用した。Uniform成分(95%)は当時のBUILD.male/female側の
      headR/hairR自体を縮小することでHead/Hair/Eye/Headwear全てに自動的に
      反映済み(このファイル内、BUILD定義側のコメント参照)。この
      HEAD_DEPTH_MUL(Depth圧縮)は、Head本体の奥行き(makeCharacterHead()の
@@ -1900,44 +1900,71 @@
      way they move. Motion is deliberately in here too: a build that is only
      a different set of radii still walks identically, and that reads as one
      model scaled rather than as two characters. */
+  /* CHARACTER-VIS-001 T-2(第3版): 体格はキャラクター系列ごとの固定 BUILD。
+     性別で選ばない(各キャラクターの性別はゲーム内で固定 ―― 章の固定
+     キャスト CHAPTER_CAST)。上位職は系列の BUILD をそのまま使う
+     (battleKnight→warrior / archmage→mage / hawkEye→archer / berserker→rogue)。
+     影の旅人(wanderer)は剣士の BUILD(buildPlayer のフォールバック)。
+
+     すべて絶対値(m)。相対倍率は持たない。構造上の派生値は buildPlayer 側で
+     計算し、次の整合を checkBuild() が検査する:
+       hipY    = thighLen + calfLen
+       stature = hipY + height + headGap + headR   (頭頂)
+       headGap > headR                              (首が見える)
+       stanceW + thigh <= hipR * 1.10               (脚の付け根が骨盤に収まる)
+
+     目的は「華奢で、横幅が狭く、縦にスッとしたシルエット」(約5頭身)。
+     旧 male/female の表(頭身 約3.4、肩の外幅 / 全高 0.43)からの置き換え。
+
+     height は胴(ベルト〜襟)、hipY はベルト線、headGap は胴上端〜頭の中心、
+     upperLen / foreLen は上腕 / 前腕の長さ、pelvisH / pelvisDrop は骨盤の
+     高さとベルト線から骨盤中心までの下げ幅。chest / shoulderOut / hipR /
+     thigh / calf / upper / forearm / neck は各部の半幅(断面の基準値)。
+     strideAmp 以降は動きの係数で、各キャラクターの固定性別の旧値を
+     そのまま写している(歩き方は変えない ―― T-1 の範囲)。 */
   const BUILD = {
-    male: {
-      // height here is the TORSO, belt to collar - not the whole character.
-      // hipY + height + head clearance is what sets the overall stature.
-      height:0.80, hipY:1.10, thighLen:0.56, calfLen:0.54,
-      // headR sets the heads-tall ratio. Stature is fixed by the camera and
-      // the collision radius, so this is the only lever on it - a bigger head
-      // on the same body is a lower ratio, which is the stylised read.
-      // ユーザー提示の参考画像(頭身の低いチビキャラ)に寄せて0.290→0.39へ
-      // 引き上げた(約4.7頭身→約3.5頭身)。hairRは元の比率(headRの約1.076倍)
-      // を保っている
-      // Player Character Head Silhouette Global Redesign Phase: 実機
-      // Playwright比較(Candidate A: Uniform94%のみ／B: Depth圧縮88%のみ／
-      // C: Uniform95%+追加Depth圧縮90%)の結果、Side ViewでCandidate Cが
-      // 「額と後頭部が前後に突き出た塊」から「丸く収まった低頭身Head」へ
-      // 最も改善したため採用。ここではUniform成分(95%)のみを反映 ――
-      // headR/hairRはHead/Hair/Eye/Headwear全ての基準値のため、ここを
-      // 縮小するだけでほぼ全て追従する。Depth(前後奥行き)の追加圧縮は
-      // HEAD_DEPTH_MUL(HEAD_BACK_Z付近で定義)側で個別に適用する
-      headR:0.3705, hairR:0.399, headGap:0.27,
-      chest:0.345, shoulderOut:0.105, stanceW:0.150, hipR:0.265,
-      thigh:0.132, calf:0.106, upper:0.098, forearm:0.083, neck:0.088,
+    // 剣士: 4人の中では一番しっかりした体格。ただし旧 male のゴツさは削る
+    warrior: {
+      stature:2.54, headR:0.254, hairR:0.2735, headGap:0.29,
+      height:0.796, hipY:1.20, thighLen:0.615, calfLen:0.585,
+      upperLen:0.42, foreLen:0.40,
+      chest:0.24, shoulderOut:0.060, hipR:0.20, pelvisH:0.30, pelvisDrop:0.27,
+      stanceW:0.110, thigh:0.095, calf:0.075, upper:0.070, forearm:0.058, neck:0.065,
       strideAmp:1.00, armSwing:1.00, hipSway:0.55, shoulderRoll:1.15,
       bobAmp:1.05, kneeLift:1.00, idleShift:0.7
     },
-    female: {
-      // shorter overall, and proportionally longer in the leg
-      height:0.74, hipY:1.05, thighLen:0.535, calfLen:0.515,
-      // headR/hairR: maleと同じ理由・同じ比率で引き上げ(0.270→0.37)
-      // Head Silhouette Global Redesign Phase: maleと同じ理由・同じ比率
-      // (Uniform95%)で縮小
-      headR:0.3515, hairR:0.3781, headGap:0.26,
-      chest:0.295, shoulderOut:0.078, stanceW:0.124, hipR:0.252,
-      thigh:0.120, calf:0.094, upper:0.080, forearm:0.069, neck:0.072,
+    // 魔法使い: 肩・胴が最も細く、縦長
+    mage: {
+      stature:2.40, headR:0.240, hairR:0.2585, headGap:0.28,
+      height:0.74, hipY:1.14, thighLen:0.585, calfLen:0.555,
+      upperLen:0.41, foreLen:0.38,
+      chest:0.20, shoulderOut:0.045, hipR:0.19, pelvisH:0.27, pelvisDrop:0.24,
+      stanceW:0.095, thigh:0.085, calf:0.066, upper:0.058, forearm:0.050, neck:0.056,
       strideAmp:0.93, armSwing:1.18, hipSway:1.45, shoulderRoll:0.80,
       bobAmp:0.92, kneeLift:1.12, idleShift:1.35
+    },
+    // 弓師: 細身で腕と脚がやや長め。肩は広げすぎない
+    archer: {
+      stature:2.40, headR:0.240, hairR:0.2585, headGap:0.28,
+      height:0.71, hipY:1.17, thighLen:0.600, calfLen:0.570,
+      upperLen:0.41, foreLen:0.38,
+      chest:0.21, shoulderOut:0.050, hipR:0.19, pelvisH:0.27, pelvisDrop:0.24,
+      stanceW:0.100, thigh:0.088, calf:0.068, upper:0.060, forearm:0.052, neck:0.056,
+      strideAmp:0.93, armSwing:1.18, hipSway:1.45, shoulderRoll:0.80,
+      bobAmp:0.92, kneeLift:1.12, idleShift:1.35
+    },
+    // 盗賊: 小柄寄りの細身。肩幅が狭く身軽
+    rogue: {
+      stature:2.42, headR:0.242, hairR:0.2605, headGap:0.28,
+      height:0.758, hipY:1.14, thighLen:0.585, calfLen:0.555,
+      upperLen:0.40, foreLen:0.38,
+      chest:0.215, shoulderOut:0.045, hipR:0.185, pelvisH:0.28, pelvisDrop:0.25,
+      stanceW:0.100, thigh:0.085, calf:0.066, upper:0.060, forearm:0.052, neck:0.058,
+      strideAmp:1.00, armSwing:1.00, hipSway:0.55, shoulderRoll:1.15,
+      bobAmp:1.05, kneeLift:1.00, idleShift:0.7
     }
   };
+
 
   /* =========================================================
      SILHOUETTE OUTLINES
@@ -2447,18 +2474,24 @@
     },
     /* 双剣を左右の腰へ。主武器が右、オフハンドが左。
        切っ先は腰ローカル y≈-0.52(ワールド約0.58m)で床に届かない。 */
+    /* CHARACTER-VIS-001 T-2: 細身化で骨盤の半幅が 0.2915 → 0.2035(盗賊の
+       BUILD)になり、旧 x ±0.26 では短剣が腰から外へ浮いた(V-1 の正面で確認)。
+       骨盤の表面との位置関係(表面の 0.0315 内側)を保つよう x だけ補正。
+       旧値: ±0.26。武器・向き(wep)・y / z は変えない */
     rogue: {
-      main: {node:'waist', off:[ 0.26,-0.10,-0.04],
+      main: {node:'waist', off:[ 0.172,-0.10,-0.04],
              wep:[ 0.100,-0.940,-0.320,  0.000,-0.320, 0.940]},
-      off:  {node:'waist', off:[-0.26,-0.10,-0.04],
+      off:  {node:'waist', off:[-0.172,-0.10,-0.04],
              wep:[-0.100,-0.940,-0.320,  0.000, 0.320,-0.940]},
     },
     /* バーサーカー: 同じ双剣(×1.32)。盗賊より外へ開き、角度も荒い ――
        「きちんと鞘へ収めた」ではなく「腰へ引っ掛けてある」読み。 */
+    /* T-2: 盗賊と同じ理由で x だけ補正。「盗賊より外へ開く」関係(骨盤の
+       表面の 0.0185 外側)は保つ。旧値: ±0.31 */
     berserker: {
-      main: {node:'waist', off:[ 0.31,-0.06,-0.09],
+      main: {node:'waist', off:[ 0.222,-0.06,-0.09],
              wep:[ 0.260,-0.880,-0.400,  0.000,-0.414, 0.910]},
-      off:  {node:'waist', off:[-0.31,-0.06,-0.09],
+      off:  {node:'waist', off:[-0.222,-0.06,-0.09],
              wep:[-0.260,-0.880,-0.400,  0.000, 0.414,-0.910]},
     },
     /* 小弓を背中へ斜めに。弓幹は左下から右上へ流れ、弓の面は背中に沿う。 */
@@ -3711,10 +3744,36 @@
       combatBlend: relaxCombatBlend,
       // 移動中の腕の基準ウェイト(0 = 休め, 1 = 構え)。停止中は null(13 の updateLocomotion)
       walkArmW: P.walkArmW != null ? P.walkArmW : null,
+      ...motionBodySnapshot(P),
       shL:[P.armL.rotation.x, P.armL.rotation.y, P.armL.rotation.z],
       shR:[P.armR.rotation.x, P.armR.rotation.y, P.armR.rotation.z],
       elL: P.elbowL.rotation.x, elR: P.elbowR.rotation.x,
       wep: P.weapon ? [P.weapon.rotation.x, P.weapon.rotation.y, P.weapon.rotation.z] : null,
+    };
+  }
+
+  /* 体格の読み取り(CHARACTER-VIS-001 T-2)。motionRigSnapshot と同じく
+     見るだけ。頭身・全高・横幅は BUILD の絶対値から、手の高さは左右の手の
+     ワールド Y の高い方を足元基準で測る。肩の外幅 = 2·(chest + shoulderOut
+     + upper)、腰の外幅 = 2·hipR·1.10(PELVIS_SECTION_RATIOS.hip の widthMul) */
+  const _bodyHandW = new THREE.Vector3();
+  function motionBodySnapshot(P){
+    const B = P.build;
+    if(!B) return {};
+    const top = B.hipY + B.height + B.headGap + B.headR;
+    let handY = null;
+    if(P.handL && P.handR && player){
+      player.updateMatrixWorld(true);
+      const yL = P.handL.getWorldPosition(_bodyHandW).y;
+      const yR = P.handR.getWorldPosition(_bodyHandW).y;
+      handY = Math.max(yL, yR) - player.position.y;
+    }
+    const shoulderW = 2 * (B.chest + B.shoulderOut + B.upper);
+    const hipW = 2 * B.hipR * PELVIS_SECTION_RATIOS.hip.widthMul;
+    return {
+      headsTall: top / (2 * B.headR), stature: top, handY, beltY: B.hipY,
+      shoulderW, shoulderRatio: shoulderW / top, shoulderPerHead: shoulderW / (2 * B.headR),
+      hipW, hipRatio: hipW / top,
     };
   }
 

@@ -1153,7 +1153,7 @@
     if(moving) strideT += moveSpeed * dt * 2.7;
     else       strideT += dt * 1.4;               // idle breathing keeps ticking
 
-    const B = P.build || BUILD.male;
+    const B = P.build || BUILD.warrior;   // T-2: BUILD はキャラクター系列キー
     const swing = moving ? Math.min(0.62, 0.045 + 0.085 * moveSpeed) * B.strideAmp : 0;
     const s = Math.sin(strideT);
     const run = Math.min(1, swing / 0.55);        // 0 at a walk, 1 at a sprint
