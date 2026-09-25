@@ -2,7 +2,7 @@
 
 敵攻撃の視認性改善 W1（Forest Mansion 通常近接敵3種の予兆中の床扇表示）
 
-Status: REVIEWING
+Status: DONE
 
 Persistence state: PENDING PERSISTENCE（Human による承認済み Task file の commit / push 待ち。§7 の Status 値ではないため `Status:` 行とは分けて記録する）
 
@@ -394,6 +394,7 @@ D-7 = (a)（Arena テスト専用パネルの1行で表示状態を読む）:
 | 2026-09-25 | Task | APPROVED → IMPLEMENTING | Implementer | Plan Handoff（Kind `plan`、`47785709da12ce0ceab028235b0310a74327f654` / blob `987a90611efe90b0a0ec8e6cbc3a6303202704eb`）H-1〜H-8 PASS。作業ブランチ `claude/enemy-attack-vis-001-impl-jx30t9`（base `main` @ `6edbe10c42fe1ed2d90d222cdaf91870b99bf4c9`） |
 | 2026-09-25 | Task | IMPLEMENTING → TESTING | Implementer | WI-1〜WI-6 実装完了。build PASS / unit PASS / E2E NOT_RUN（Playwright browser revision mismatch）。Persistence 未許可のため commit / push なし・`REVIEWING` にしない（§7.3）。Branch: `claude/enemy-attack-vis-001-impl-jx30t9`（未 push） |
 | 2026-09-25 | Task | TESTING → REVIEWING | Implementer | Human による Persistence 許可（Implementer セッションの会話、対象ブランチ `claude/enemy-attack-vis-001-impl-jx30t9`）。Approval 欄の Persistence を許可へ更新（人間の指示）。実装一式を1コミットで commit・push。Branch: `claude/enemy-attack-vis-001-impl-jx30t9`。E2E は NOT_RUN（Chromium revision mismatch）のまま |
+| 2026-09-25 | Task | REVIEWING → DONE | Reviewer | Review PASS（`.ai/reports/ENEMY-ATTACK-VIS-001-review.md`）。Reviewed Implementation SHA `e31e7df4a4c5c66b0243e73ce3f5deb398df5408`。Blocking findings なし。build PASS / unit 1495/1495 PASS / E2E: Implementer NOT_RUN、Reviewer 独立実行 3 spec 17/17 PASS。Human による Reviewer Persistence 許可（対象 Handoff Branch `claude/enemy-attack-vis-001-impl-jx30t9`）。Branch: `claude/enemy-attack-vis-001-impl-jx30t9` |
 
 ## Implementation Result
 
