@@ -235,6 +235,11 @@
       guardLine +
       `Stagger: ${stagger}<br>` +
       `AI State: ${aiState}<br>` +
+      /* 近接3種の床の予兆の弧(ENEMY-ATTACK-VIS-001)。メッシュの表示状態と
+         形をそのまま読むだけ ―― E2E が「heavy の予兆中だけ出る」を確かめる口 */
+      `${en.atkType==='servant' ? `Floor Arc: ${en.meleeTelegraphMesh && en.meleeTelegraphMesh.visible
+        ? `ON reach ${en.meleeTelegraphMesh.userData.reach.toFixed(2)} half ${en.meleeTelegraphMesh.userData.halfAngle.toFixed(2)}`
+        : 'OFF'}<br>` : ''}` +
       `Turn Rate: ${resolveTurnRate(en).toFixed(2)} rad/s<br>` +
       `Facing: ${en.group.rotation.y.toFixed(2)} rad<br>` +
       `Hit Radius: ${(en.hitRadius||0).toFixed(2)}<br>` +

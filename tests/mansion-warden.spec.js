@@ -117,7 +117,69 @@ async function attackRound(page, seen){
 
 const promptVisible = page => page.locator('#execute-prompt.show').isVisible().catch(() => false);
 
+/* 床の予兆の弧(ENEMY-ATTACK-VIS-001)。AI State と Floor Arc を「同じ
+   1回の読み取り」から取り、組で貯める ―― 別々に読むと、その間に状態が
+   変わって組がずれる */
+async function arcPair(page){
+  const html = await infoPanel(page).innerHTML();
+  const ai = /AI State:\s*([^<]*)/.exec(html || '');
+  const arc = /Floor Arc:\s*([^<]*)/.exec(html || '');
+  return { ai: ai ? ai[1].trim() : null, arc: arc ? arc[1].trim() : null };
+}
+async function watchArc(page, pairs, forwardMs){
+  if(forwardMs > 0){
+    await page.keyboard.down('KeyW');
+    await page.waitForTimeout(forwardMs);
+    await page.keyboard.up('KeyW');
+  }
+  for(let i = 0; i < 6; i++){
+    await page.waitForTimeout(120);
+    const p = await arcPair(page);
+    if(p.ai) pairs.push(p);
+  }
+}
+/* heavy の予兆中だけ ON で形が攻撃の値、light の予兆とそれ以外は OFF */
+function checkArcPairs(pairs, heavyAi, heavyArc, lightAi){
+  const heavy = pairs.filter(p => p.ai.startsWith(heavyAi));
+  const light = pairs.filter(p => p.ai.startsWith(lightAi));
+  const other = pairs.filter(p => !p.ai.startsWith('WINDUP'));
+  expect(heavy.length, `${heavyAi} が観測できない`).toBeGreaterThan(0);
+  for(const p of heavy) expect(p.arc, `${p.ai} で床の弧が違う`).toBe(heavyArc);
+  for(const p of light) expect(p.arc, `${p.ai} で床の弧が出ている`).toBe('OFF');
+  for(const p of other) expect(p.arc, `${p.ai} で床の弧が残っている`).toBe('OFF');
+  return { heavy: heavy.length, light: light.length, other: other.length };
+}
+
 test.describe('鍵束の番人(Strong Mob)', () => {
+  test('番人: 影腕薙ぎ(ガードブレイク含む)の予兆中だけ床に外周の弧が出る', async ({ page }) => {
+    test.setTimeout(420_000);
+    const errors = watchErrors(page);
+    await bootArena(page);
+    await arenaSpawn(page, 'Manor Warden');
+    expect((await arcPair(page)).arc).toBe('OFF');
+
+    /* ガードブレイクは heavy(sweep)の plan で振るので、表示も sweep と
+       同じ形になる。Guard の行を同じ読み取りで拾い、ガードブレイクの
+       予兆中にも弧が出ていることを確かめる */
+    const pairs = [];
+    let gbArc = null;
+    for(let i = 0; i < 60; i++){
+      await watchArc(page, pairs, i < 3 ? 200 : 0);
+      const html = await infoPanel(page).innerHTML();
+      const ai = /AI State:\s*([^<]*)/.exec(html || '');
+      const arc = /Floor Arc:\s*([^<]*)/.exec(html || '');
+      if(ai && arc && /GUARD BREAK/.test(html || '') && ai[1].trim().startsWith('WINDUP (sweep)')){
+        gbArc = arc[1].trim();
+      }
+      if(gbArc && pairs.some(p => p.ai.startsWith('WINDUP (slam)')) &&
+         pairs.some(p => !p.ai.startsWith('WINDUP'))) break;
+    }
+    const n = checkArcPairs(pairs, 'WINDUP (sweep)', 'ON reach 3.90 half 1.85', 'WINDUP (slam)');
+    console.log('番人 Floor Arc:', JSON.stringify(n), 'guard break:', gbArc);
+    if(gbArc !== null) expect(gbArc, 'ガードブレイクの予兆で床の弧が違う').toBe('ON reach 3.90 half 1.85');
+    expect(errors).toEqual([]);
+  });
+
   test('強モブとして認識される: ELITE / Super Armor / 体幹とHPが通常敵と違う', async ({ page }) => {
     test.setTimeout(300_000);
     const errors = watchErrors(page);

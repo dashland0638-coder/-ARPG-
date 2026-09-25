@@ -109,7 +109,60 @@ const promptVisible = page => page.locator('#execute-prompt.show').isVisible().c
 const fresh = () => ({ ai: new Set(), punish: new Set() });
 const has = (set, needle) => Array.from(set).some(v => (v || '').includes(needle));
 
+/* 床の予兆の弧(ENEMY-ATTACK-VIS-001)。AI State と Floor Arc を「同じ
+   1回の読み取り」から取り、組で貯める ―― 別々に読むと、その間に状態が
+   変わって組がずれる */
+async function arcPair(page){
+  const html = await infoPanel(page).innerHTML();
+  const ai = /AI State:\s*([^<]*)/.exec(html || '');
+  const arc = /Floor Arc:\s*([^<]*)/.exec(html || '');
+  return { ai: ai ? ai[1].trim() : null, arc: arc ? arc[1].trim() : null };
+}
+async function watchArc(page, pairs, forwardMs){
+  if(forwardMs > 0){
+    await page.keyboard.down('KeyW');
+    await page.waitForTimeout(forwardMs);
+    await page.keyboard.up('KeyW');
+  }
+  for(let i = 0; i < 6; i++){
+    await page.waitForTimeout(120);
+    const p = await arcPair(page);
+    if(p.ai) pairs.push(p);
+  }
+}
+/* heavy の予兆中だけ ON で形が攻撃の値、light の予兆とそれ以外は OFF */
+function checkArcPairs(pairs, heavyAi, heavyArc, lightAi){
+  const heavy = pairs.filter(p => p.ai.startsWith(heavyAi));
+  const light = pairs.filter(p => p.ai.startsWith(lightAi));
+  const other = pairs.filter(p => !p.ai.startsWith('WINDUP'));
+  expect(heavy.length, `${heavyAi} が観測できない`).toBeGreaterThan(0);
+  for(const p of heavy) expect(p.arc, `${p.ai} で床の弧が違う`).toBe(heavyArc);
+  for(const p of light) expect(p.arc, `${p.ai} で床の弧が出ている`).toBe('OFF');
+  for(const p of other) expect(p.arc, `${p.ai} で床の弧が残っている`).toBe('OFF');
+  return { heavy: heavy.length, light: light.length, other: other.length };
+}
+
 test.describe('森の洋館の通常敵3種', () => {
+  test('使用人: 影腕薙ぎの予兆中だけ床に外周の弧が出る(打撃・予兆以外では出ない)', async ({ page }) => {
+    test.setTimeout(300_000);
+    const errors = watchErrors(page);
+    await bootArena(page);
+    await arenaSpawn(page, 'Manor Servant');
+    // まだ一度も振りかぶっていない間も OFF と読める
+    expect((await arcPair(page)).arc).toBe('OFF');
+
+    const pairs = [];
+    for(let i = 0; i < 40; i++){
+      await watchArc(page, pairs, i < 3 ? 150 : 0);
+      if(pairs.some(p => p.ai.startsWith('WINDUP (sweep)')) &&
+         pairs.some(p => p.ai.startsWith('WINDUP (strike)')) &&
+         pairs.some(p => !p.ai.startsWith('WINDUP'))) break;
+    }
+    const n = checkArcPairs(pairs, 'WINDUP (sweep)', 'ON reach 3.30 half 1.60', 'WINDUP (strike)');
+    console.log('使用人 Floor Arc:', JSON.stringify(n));
+    expect(errors).toEqual([]);
+  });
+
   test('影に侵された使用人: 予兆 → パニッシュ窓 → 体幹 → Break → Execution', async ({ page }) => {
     test.setTimeout(300_000);
     const errors = watchErrors(page);

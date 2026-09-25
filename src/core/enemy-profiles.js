@@ -144,6 +144,32 @@ export function meleeWindupProgress(kind, attack, remainT, phase) {
   return pull > 0 ? Math.min(1, elapsed / pull) : 1;
 }
 
+/* 予兆中に床へ描く扇(外周の弧)の形。判定と同じ meleeAttackPlan の
+   reach / halfAngle をそのまま返す(値を別に定義しない)。
+
+   heavy だけが形を持ち、light は null ―― 床の表示は「大振りが来る」
+   ことだけを伝える(ENEMY-ATTACK-VIS-001 D-2)。守護型のガードブレイクは
+   heavy の plan で振るので、ここでは heavy と同じ扱いになる。
+   外周は reach ちょうどで、プレイヤー半径は足さない(D-3)。 */
+export function meleeTelegraphShape(kind, attack, phase) {
+  const prof = meleeProfile(kind);
+  if (!prof) return null;
+  const plan = meleeAttackPlan(kind, attack, phase);
+  if (!plan || plan.key !== prof.heavy) return null;
+  return { key: plan.key, reach: plan.reach, halfAngle: plan.halfAngle };
+}
+
+/* 床に寝かせた扇メッシュ(rotation.x = -π/2、ジオメトリは局所角
+   0 〜 2·halfAngle)の中心を、判定の向き規約 facing = atan2(x, z)
+   (0 = +Z)へ向ける rotation.z。THREE に依存しない数値関数。
+
+   Rx(-π/2)·Rz(ρ) で局所角 θ の点は (cos(θ+ρ), 0, -sin(θ+ρ)) へ写る。
+   中心 θ = halfAngle の方位 atan2(cos(h+ρ), -sin(h+ρ)) が facing に
+   なる条件が ρ = facing - halfAngle - π/2。 */
+export function groundFanRotationZ(facing, halfAngle) {
+  return facing - halfAngle - Math.PI / 2;
+}
+
 /* ======================================================================
    敵プロファイル(見た目・AI種別・既存フラグの登録)
 ====================================================================== */
