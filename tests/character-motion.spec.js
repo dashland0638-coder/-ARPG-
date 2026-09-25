@@ -20,7 +20,7 @@
  * このファイルはその材料を毎回同じ条件で撮り直すためのものでもある。
  */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, disableCameraAutoFollow } from './helpers.js';
+import { openGame, watchErrors, disableCameraAutoFollow, dismissIntroDialogue } from './helpers.js';
 
 // classKey: 'warrior'|'rogue'|'mage'|'archer'。promote:true で転身(上位職)
 async function enterTestMode(page, classKey, promote) {
@@ -451,4 +451,75 @@ test('剣士(warrior): 非戦闘の移動は休め基準、戦闘態勢の移動
   expect(after).toBeLessThan(0.2);
 
   expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
+});
+
+/* CHARACTER-VIS-001 T-2: 5.0頭身・身長維持・腕長の BUILD 化。
+   パネルの HEADS は BUILD の頭頂 / 頭の高さ、HAND.Y は非戦闘で停止中の
+   左右の手の高い方(足元基準)、BELT はベルト線(hipY)。
+   採用値(初期 5.0)は Human が V-1 で 4.5〜5.0 の範囲で決める。
+   テストモードは male 固定(beginTestMode)で、続きから入ると章の固定キャスト
+   (CHAPTER_CAST)が性別を決める。female は洋館クリア後の主人公(魔法使い・
+   female)のセーブから入る */
+const T2_HEADS = 5.0;
+const T2_SAVE_KEY = 'soulforge_save_v1';
+function t2FemaleSave() {
+  return {
+    v: 2, selectedClass: 'warrior', selectedGender: 'male', selectedPersonality: 'cautious',
+    playerName: '—', allocPoints: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 },
+    level: 10, xp: 0, xpToNext: 999999,
+    levelGrowth: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 },
+    equipLevel: 0, inventory: { gold: 0, gem: 0, potion: 0, shard: 0, mppotion: 0 },
+    equipmentInventory: [], equipped: { weapon: null, upper: null, lower: null },
+    skills: {}, ranks: {}, freeRanks: 0, unlockedSphereNodes: ['root'], spherePoints: 0,
+    bossClears: {}, learnedBossAbilities: [], equippedBossAbilities: [], learnedBossSkills: [],
+    learnedSkill2: true, smithJoined: true, smithGreeted: true,
+    scenarioClears: { mansion: 1 }, clearedScenarios: {}, routeCombosSeen: {},
+  };
+}
+
+async function expectBodyProportions(page, label) {
+  // 停止して休め姿勢へ寄り切るのを待つ(パネルは0.5秒ごと)
+  await page.waitForTimeout(2500);
+  const heads = Number(await panelValue(page, 'HEADS'));
+  expect(heads, `${label}: HEADS が読めない`).not.toBeNaN();
+  expect(heads).toBeGreaterThanOrEqual(4.5 - 1e-9);
+  expect(heads).toBeLessThanOrEqual(5.0 + 1e-9);
+  expect(Math.abs(heads - T2_HEADS)).toBeLessThanOrEqual(0.1);
+  const m = /^([\d.-]+)m\s+BELT\s+([\d.-]+)m$/.exec((await panelValue(page, 'HAND\\.Y')) || '');
+  expect(m, `${label}: HAND.Y / BELT が読めない`).not.toBeNull();
+  const handY = Number(m[1]), beltY = Number(m[2]);
+  expect(handY, `${label}: 手(${handY})がベルト線(${beltY})より上`).toBeLessThanOrEqual(beltY);
+}
+
+test.describe('CHARACTER-VIS-001 T-2 体格', () => {
+  for (const classKey of ['warrior', 'rogue', 'mage', 'archer']) {
+    test(`${classKey}(male): 頭身が採用値±0.1、非戦闘で停止中の手がベルト線以下`, async ({ page }) => {
+      test.setTimeout(90_000);
+      const errors = watchErrors(page);
+      await openGame(page);
+      await enterTestMode(page, classKey, false);
+      await openMotionPanel(page);
+      expect(await panelValue(page, 'STATE')).toBe('EXPLORATION');
+      await expectBodyProportions(page, `${classKey} male`);
+      await page.screenshot({ path: `test-results/t2-${classKey}-male.png` });
+      expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
+    });
+  }
+
+  test('mage(female): 頭身が採用値±0.1、非戦闘で停止中の手がベルト線以下', async ({ page }) => {
+    test.setTimeout(90_000);
+    const errors = watchErrors(page);
+    await page.addInitScript(([key, payload]) => localStorage.setItem(key, payload),
+      [T2_SAVE_KEY, JSON.stringify(t2FemaleSave())]);
+    await openGame(page);
+    await page.click('#cc-continue-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
+    await dismissIntroDialogue(page);
+    await expect(page.locator('#hud-name')).toContainText('魔法使い');
+    await openMotionPanel(page);
+    expect(await panelValue(page, 'CLASS')).toBe('mage');
+    await expectBodyProportions(page, 'mage female');
+    await page.screenshot({ path: 'test-results/t2-mage-female.png' });
+    expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
+  });
 });

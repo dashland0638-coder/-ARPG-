@@ -1904,7 +1904,11 @@
     male: {
       // height here is the TORSO, belt to collar - not the whole character.
       // hipY + height + head clearance is what sets the overall stature.
-      height:0.80, hipY:1.10, thighLen:0.56, calfLen:0.54,
+      // CHARACTER-VIS-001 T-2: 5.0頭身(D-1)。頭頂 2.5405 は維持(D-2)し、
+      // headR を縮めた分(+0.1165)を脚と胴へ 1:1 で按分(D-2')、headGap は
+      // 維持。脚は hipY = thighLen + calfLen を保つよう 0.56:0.54 で比例配分。
+      // 旧値: height 0.80 / hipY 1.10 / thighLen 0.56 / calfLen 0.54
+      height:0.8582, hipY:1.1582, thighLen:0.5896, calfLen:0.5686,
       // headR sets the heads-tall ratio. Stature is fixed by the camera and
       // the collision radius, so this is the only lever on it - a bigger head
       // on the same body is a lower ratio, which is the stylised read.
@@ -1919,7 +1923,15 @@
       // headR/hairRはHead/Hair/Eye/Headwear全ての基準値のため、ここを
       // 縮小するだけでほぼ全て追従する。Depth(前後奥行き)の追加圧縮は
       // HEAD_DEPTH_MUL(HEAD_BACK_Z付近で定義)側で個別に適用する
-      headR:0.3705, hairR:0.399, headGap:0.27,
+      // T-2: 5.0頭身へ(旧 headR 0.3705 / hairR 0.399 ≈ 3.43頭身)。hairR は
+      // 従来と同じ headR の約1.0769倍。最終値は実機(V-1)で Human が 4.5〜5.0 で決める
+      headR:0.2541, hairR:0.2736, headGap:0.27,
+      // T-2: 腕長(男女共通、D-7。旧 0.32 / 0.30 の直値を比を保って ×1.40。
+      // 計画の初期値 ×1.25 では非戦闘の停止で male の手がベルト線より上に
+      // 残ったため、Human 指示で延長 ―― E-2 の実測で決めた値)と、
+      // 骨盤の中心をベルト線(hipY)からどれだけ下げるか(D-6 = (b)。旧値
+      // hipY 1.10 − 0.30 = 0.80 と一致)
+      upperLen:0.448, foreLen:0.42, pelvisDrop:0.30,
       chest:0.345, shoulderOut:0.105, stanceW:0.150, hipR:0.265,
       thigh:0.132, calf:0.106, upper:0.098, forearm:0.083, neck:0.088,
       strideAmp:1.00, armSwing:1.00, hipSway:0.55, shoulderRoll:1.15,
@@ -1927,11 +1939,16 @@
     },
     female: {
       // shorter overall, and proportionally longer in the leg
-      height:0.74, hipY:1.05, thighLen:0.535, calfLen:0.515,
+      // T-2: male と同じ方針(頭頂 2.4015 維持、+0.1114 を脚と胴へ 1:1)。
+      // 旧値: height 0.74 / hipY 1.05 / thighLen 0.535 / calfLen 0.515
+      height:0.7957, hipY:1.1057, thighLen:0.5634, calfLen:0.5423,
       // headR/hairR: maleと同じ理由・同じ比率で引き上げ(0.270→0.37)
       // Head Silhouette Global Redesign Phase: maleと同じ理由・同じ比率
       // (Uniform95%)で縮小
-      headR:0.3515, hairR:0.3781, headGap:0.26,
+      // T-2: 5.0頭身へ(旧 headR 0.3515 / hairR 0.3781)。hairR は headR の約1.0757倍
+      headR:0.2402, hairR:0.2584, headGap:0.26,
+      // T-2: 腕長は male と共通(D-7)。骨盤は旧値 1.05 − 0.25 = 0.80 と一致
+      upperLen:0.448, foreLen:0.42, pelvisDrop:0.25,
       chest:0.295, shoulderOut:0.078, stanceW:0.124, hipR:0.252,
       thigh:0.120, calf:0.094, upper:0.080, forearm:0.069, neck:0.072,
       strideAmp:0.93, armSwing:1.18, hipSway:1.45, shoulderRoll:0.80,
@@ -3711,11 +3728,30 @@
       combatBlend: relaxCombatBlend,
       // 移動中の腕の基準ウェイト(0 = 休め, 1 = 構え)。停止中は null(13 の updateLocomotion)
       walkArmW: P.walkArmW != null ? P.walkArmW : null,
+      ...motionBodySnapshot(P),
       shL:[P.armL.rotation.x, P.armL.rotation.y, P.armL.rotation.z],
       shR:[P.armR.rotation.x, P.armR.rotation.y, P.armR.rotation.z],
       elL: P.elbowL.rotation.x, elR: P.elbowR.rotation.x,
       wep: P.weapon ? [P.weapon.rotation.x, P.weapon.rotation.y, P.weapon.rotation.z] : null,
     };
+  }
+
+  /* 体格の読み取り(CHARACTER-VIS-001 T-2)。motionRigSnapshot と同じく
+     見るだけ。頭身は BUILD の値から(頭頂 / 頭の高さ)、手の高さは
+     左右の手のワールド Y の高い方を足元基準で測る。 */
+  const _bodyHandW = new THREE.Vector3();
+  function motionBodySnapshot(P){
+    const B = P.build;
+    if(!B) return {};
+    const top = B.hipY + B.height + B.headGap + B.headR;
+    let handY = null;
+    if(P.handL && P.handR && player){
+      player.updateMatrixWorld(true);
+      const yL = P.handL.getWorldPosition(_bodyHandW).y;
+      const yR = P.handR.getWorldPosition(_bodyHandW).y;
+      handY = Math.max(yL, yR) - player.position.y;
+    }
+    return { headsTall: top / (2 * B.headR), handY, beltY: B.hipY };
   }
 
   /* =========================================================

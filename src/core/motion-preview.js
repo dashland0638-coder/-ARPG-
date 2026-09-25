@@ -146,6 +146,11 @@ export function motionDebugLines(snap){
       + '  (stop ' + num(r.stopBlend) + ' / combat ' + num(r.combatBlend) + ')');
     // 移動中の腕の基準(CHARACTER-VIS-001 T-1)。0 = 休め, 1 = 構え。停止中は '-'
     lines.push(' WALK   ' + (r.walkArmW != null ? num(r.walkArmW) : '-'));
+    // 体格(CHARACTER-VIS-001 T-2)。頭身と、手の高さ / ベルト線(m、足元基準)
+    // null は num() だと 0.00 になるので、欠けている値は '-' にする
+    const meters = v => (v != null && Number.isFinite(Number(v))) ? num(v) + 'm' : '-';
+    lines.push(' HEADS  ' + (r.headsTall != null ? num(r.headsTall) : '-'));
+    lines.push(' HAND.Y ' + meters(r.handY) + '   BELT ' + meters(r.beltY));
     lines.push(' SH.L  ' + vec3(r.shL));
     lines.push(' SH.R  ' + vec3(r.shR));
     lines.push(' EL.L  ' + deg(r.elL) + '   EL.R ' + deg(r.elR));

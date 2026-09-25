@@ -179,6 +179,23 @@ test('motionDebugLines', async t=>{
     }
   });
 
+  await t.test('RIG ブロック ―― 体格の行(CHARACTER-VIS-001 T-2)', ()=>{
+    const rig = {relaxWeight:1, stopBlend:1, combatBlend:0, walkArmW:null,
+      shL:[0,0,0], shR:[0,0,0], elL:0, elR:0, wep:null,
+      headsTall:4.9995, handY:1.1356, beltY:1.1582};
+    const text = motionDebugLines(Object.assign({}, base, {rig})).join('\n');
+    assert.match(text, /HEADS\s+5\.00/);
+    assert.match(text, /HAND\.Y\s+1\.14m\s+BELT\s+1\.16m/);
+    // T-1 の WALK 行は残る
+    assert.match(text, /WALK\s+-/);
+    // 欠けていても桁が崩れない
+    const bad = motionDebugLines(Object.assign({}, base, {rig:Object.assign({}, rig,
+      {headsTall:undefined, handY:null, beltY:NaN})})).join('\n');
+    assert.match(bad, /HEADS\s+-/);
+    assert.match(bad, /HAND\.Y\s+-\s+BELT\s+-$/m);
+    assert.ok(!bad.includes('NaN') && !bad.includes('undefined'));
+  });
+
   await t.test('RIG が無ければブロックごと出ない(通常プレイと同じ経路)', ()=>{
     const text = motionDebugLines(base).join('\n');
     assert.ok(!text.includes('RELAX'));
