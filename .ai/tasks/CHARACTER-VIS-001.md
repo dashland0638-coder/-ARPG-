@@ -33,7 +33,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | ID | Summary | Status | Approval | 依存する DECISION | Analysis |
 | --- | --- | --- | --- | --- | --- |
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
-| T-2 | 体格パラメータ（BUILD の頭身・脚胴比、腕長の BUILD 化、骨盤 Y の HIP_Y 由来化） | APPROVED | [x] | D-1, D-2, D-2', D-7（決定済み） | 同上 |
+| T-2 | 体格パラメータ（BUILD の頭身・脚胴比、腕長の BUILD 化、骨盤 Y の HIP_Y 由来化） | WAITING_APPROVAL | [ ]（新版の計画の再承認待ち。旧版の承認記録は下に残す） | D-1, D-2, D-2', D-7（決定済み）、DEC-T2-7 / DEC-T2-8（未決定） | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）。Task 全体の analysis も引き続き有効 |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い） | APPROVED | [x] | D-6（決定済み） | 同上 |
 | T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
@@ -59,6 +59,14 @@ Implementation (T-1): BLOCKED — 承認済み版の Human Persistence と Plan 
 - Persistence:（空欄 = 未許可）
 
 Implementation (T-2): BLOCKED — T-1 と同じ理由に加え、T-1 の DONE 待ち
+
+### T-2 Human Approval（新版の計画。2026-09-25 Planner。上の旧版の承認は記録として残す）
+- [ ] Approved
+- Approved by / date / where:
+- Scope of approval:（提案）「T-2 詳細計画（新版）」の Step 1〜7、Files To Change #3 / #4（`BUILD`・条件付き `WEAPON_SOCKET`・`motionRigSnapshot()`）/ #5（`buildPlayer()` の腕・骨盤のみ）/ #9 / #10。DEC-T2-7 / DEC-T2-8 の決定を前提とする
+- Persistence:（空欄 = 未許可。人間の明示的な指示があった場合だけ `許可（branch: <name>）` と根拠を書く）
+
+Implementation (T-2, 新版): BLOCKED until approval — 新版の計画の Human Approval、DEC-T2-7 / DEC-T2-8 の決定、Persistence、承認済み Task file の Plan Handoff（Kind `plan`）が未了
 
 ### T-3 Human Approval
 - [x] Approved
@@ -337,6 +345,90 @@ Human が **候補を2〜3値に絞って T-2 を承認**し、T-2 の Step 1 �
 
 変更しない: `makeCharacter*()` の関数本体、`*_SECTION_RATIOS`（T-3 で必要な場合のみ）、`LIMB_PROFILE/TORSO_PROFILE/HEAD_PROFILE`（ボス）、`projectileOrigin()`（武器ノードに自動追従するため）。
 
+### T-2 詳細計画（新版、2026-09-25 Planner。上の T-2 計画を置き換える）
+
+**入力（Artifact Handoff 検証、AGENTS.md §5.2）** — Planner が git から再計算した結果。T-7（仮）の report は同じ手順で検証したが、本計画の入力にしていない
+
+| # | 確認 | 実行 | 結果 |
+| --- | --- | --- | --- |
+| H-1 | Source Branch が remote に存在し Source SHA が到達可能 | `git fetch origin claude/character-vis-001-t2-analysis`、`git merge-base --is-ancestor f7f246e… origin/claude/character-vis-001-t2-analysis` → 真 | PASS |
+| H-2 | Source SHA 時点に Path が存在 | `git cat-file -e f7f246e…:.ai/reports/CHARACTER-VIS-001-T2-analysis.md` → 成功 | PASS |
+| H-3 | Source commit の変更が Path の1件だけ | `git diff --name-only f7f246e^ f7f246e` → 当該 Path のみ | PASS |
+| H-4 | Path・1行目が期待値と一致 | Work Item 専用の期待 Path `.ai/reports/CHARACTER-VIS-001-T2-analysis.md` と一致。1行目は `# CHARACTER-VIS-001 Analysis` で始まる | PASS |
+| H-5 | Kind が `analysis` で Path が期待 Path | 命名例外の適用なし | PASS |
+| H-6 | Blob SHA が一致 | `git rev-parse f7f246e…:<Path>` → `63abdbe139ad273c449dd694071aa3593dd4690f`（Handoff と一致） | PASS |
+| H-7 | 同じ `(Task ID, Kind)` の既存記録 | `(CHARACTER-VIS-001 / T-2, analysis)` の記録は無い（Task 全体の `Analysis:` 行は別キー）。新規 | PASS |
+| H-8 | Source SHA の内容だけを読む | `git show f7f246e…:<Path>` で読んだ | PASS |
+
+**本 Task file の起点**: 本計画は `origin/main`（`0a56e9ce6ebe7e640d970e02be4c95100a5f29b3`）起点の Planner ブランチ `claude/character-vis-001-t2-planner` で作成した（DEC-T2-5 = origin/main、Human 決定 2026-09-25）。`origin/main` には本 Task file が無いため、最新版 `84c52e5c65e4c3a82c1fd682ebd588bae6282cbf:.ai/tasks/CHARACTER-VIS-001.md`（blob `c0ccc243de4646fc61279603a858d3b6de68bab0`、`origin/claude/character-vis-001-t1-impl` から到達可能。承認済み版 `06990ef` からの差分は T-1 の Status・Status History・Implementation Result だけで、T-1 Review の V-2a で確認済み）を `git show` で復元し、`git hash-object` で blob 一致を確かめてから編集した
+
+**FACT（Planner が再確認。出典は T-2 analysis、★は Planner がコードで再確認）**
+- ★`origin/main` = `0a56e9c`（`26f1b52` と tree 同一の merge）。**T-1 の実装・review・本 Task file・Task 全体の analysis は main に無い**（`git merge-base --is-ancestor 8f4566c origin/main` → 偽）
+- ★T-2 が触る `05` の `motionRigSnapshot()`・`src/core/motion-preview.js`・`tests/unit/motion-preview.test.js`・`tests/character-motion.spec.js` は T-1 も変更したファイル（T-1 の diff `26f1b52..8f4566c`）
+- ★身長維持の 5.0 頭身: male headR 0.2541・再配分 +0.1165、female headR 0.2402・再配分 +0.1114（頭頂 2.5405 / 2.4015）
+- ★`hipY = thighLen + calfLen`（male 1.10 = 0.56+0.54、female 1.05 = 0.535+0.515）。ブーツは `kneeWorldY` 由来で接地
+- ★腕長・配置の直値（`06:1505-1555`）と骨盤 `pelvis.position.y = 0.80`（`06:648`）だけが BUILD に追従しない。胴・首・ベルト・肩・脚は追従
+- ★武器（`updateGrip`）・弾の発射位置（`projectileOrigin`）・収納（`WEAPON_SOCKET`）は手・胴ノードに自動追従。近接判定はメッシュ非依存
+- ★どの Work Item の計画にも含まれていない直値: 盗賊の腰装飾（`06:1290-1297`、0.72 / 0.86 / 0.70）、魔法使いのローブ（`06:1365-1366`、y 0.42・高さ 0.62）（DEC-T2-8）
+
+**INFERENCE**
+- T-2 完了から T-4 完了まで、頭部周りの直値の装飾（例: 兜飾り `hY+0.28`）がずれて見える。承認済みの実施順（T-2 → T-3 → T-4）の帰結で、T-4 で直す
+- 腕が長くなると同じ構えの角度で手・武器の軌跡が大きくなる（STANCE / CLIPS は変えない）。V-1 で確認
+
+**Human Decision（新規。Planner は決めない）**
+
+| # | 論点 | 選択肢 | Planner の推奨候補（提案） |
+| --- | --- | --- | --- |
+| DEC-T2-7 | T-2 Implementer の起点に T-1 が無い（main 未統合） | (a) T-1（`origin/claude/character-vis-001-t1-impl` `84c52e5`）を main へ統合してから、main 起点で T-2 Implementer ブランチを作る / (b) T-1 を含まない main から始める（T-1 と同じファイルを触るため、後で衝突・T-1 の欠落が起きる） | (a)。T-2 の実装開始条件とする |
+| DEC-T2-8 | どの Work Item にも無い職別の腰・裾の直値（盗賊 0.72 / 0.86 / 0.70、魔法使いのローブ 0.42） | (a) T-2 では触らず、見た目のずれは V-1 で確認し、必要なら T-4 の範囲拡大として別途承認 / (b) T-2 の Files To Change #5 に含めて HIP_Y 由来にする（T-2 の範囲拡大） / (c) 変えない | (a)。承認済み T-2 の範囲を変えないため |
+
+D-2' の按分比・腕長の最終値は、承認済みの Decision Record どおり V-1 を見て Human が決める（新規 Decision ではない）。下の値は Implementer が最初に入れる候補
+
+**実装の開始条件**: 新版の Human Approval（上）/ DEC-T2-7・DEC-T2-8 の決定 / Persistence / 本 Task file の Plan Handoff（Kind `plan`）を H-1〜H-8 で検証 / T-1 DONE（済）
+
+| Step | ファイル / 関数 | 変更内容 | 根拠 |
+| --- | --- | --- | --- |
+| 1 | `05` `BUILD`（`:1903-1933`） | 5.0 頭身・身長維持・按分 1:1・headGap 維持の初期値: **male** `headR 0.2541`, `hairR 0.2736`（×1.0769）, `hipY 1.1582`, `thighLen 0.5896`, `calfLen 0.5686`（hipY を 0.56:0.54 で比例配分）, `height 0.8582`, `headGap 0.27`。**female** `headR 0.2402`, `hairR 0.2584`（×1.0757）, `hipY 1.1057`, `thighLen 0.5634`, `calfLen 0.5423`, `height 0.7957`, `headGap 0.26`。コメントの頭身の経緯を更新 | D-1 / D-2 / D-2'。頭頂 2.5405 / 2.4015 を維持 |
+| 2 | 同 | `upperLen` / `foreLen` を male / female に同じ値で追加。初期値 `upperLen 0.40`, `foreLen 0.375`（現状 0.32 / 0.30 の比を保って ×1.25）。手の中心（腕を下ろした場合）は male 1.136（ベルト 1.158 以下）、female 1.027（ベルト 1.106 以下） | D-7 / AC（手の Y ≤ ベルト線）。到達長 `upperLen + foreLen + 0.02 ≥ 0.9 × height`（male 0.772） |
+| 3 | 同 | `pelvisDrop` を追加（male 0.30 / female 0.25）。現 BUILD で `HIP_Y − pelvisDrop` = 0.80 / 0.80 となり、現状の見た目と一致する | D-6 = (b) |
+| 4 | `06` `buildPlayer()` 腕（`:1505-1555`） | `height:0.32` → `B.upperLen`、`height:0.30` → `B.foreLen`。配置は現状の比で置き換え: 上腕中心 `-upperLen/2`、肘 `-upperLen`、前腕中心 `-foreLen/2`、籠手 `-foreLen*0.9`、手 `-(foreLen+0.02)`、指 `-(foreLen+0.02) - forearm*0.55`、親指 `-(foreLen+0.02) - forearm*0.15`。太さ・肩位置・Pauldron・袖（魔法使い）は変えない | Step 2 を反映。現 BUILD の値では現状と同じ座標になる式にする |
+| 5 | `06` `buildPlayer()` 骨盤（`:648`） | `pelvis.position.y = HIP_Y - B.pelvisDrop`。親は root のまま | D-6 = (b) |
+| 6 | `05` `motionRigSnapshot()`、`src/core/motion-preview.js` `motionDebugLines()` | 読み取り行を追加: 頭身 `(hipY+height+headGap+headR)/(2·headR)`（`playerMixerParts.build` から）、手の Y（`handL` / `handR` のワールド Y の大きい方 − `player.position.y`）とベルト線 `hipY`。T-1 の WALK 行は変えない | E-2 で数値確認（旧 Step 6） |
+| 7 | `05` `WEAPON_SOCKET`（`:2434-2476`） | **条件付き**: E2E の tipY 範囲外、または V-1 で Human が「胴に埋まる/浮く」と判断した職だけ `off` を調整。それ以外は変更しない | R-5（旧 Step 5） |
+| 8 | V-1 | 8職×男女 + 上位職4種 + 影の旅人の、正面・見下ろし、停止・非戦闘移動・戦闘態勢移動のスクリーンショットを撮り（リポジトリ外に保存）、Human が 5.0 の見え方・按分・腕長を確認。Human が指示した場合だけ 4.5〜5.0 の範囲で Step 1〜2 の値を変えて撮り直す | D-1（旧 Step 1 の読み替え） |
+
+変更しない（T-2 新版）: `makeCharacter*()` 本体・`*_SECTION_RATIOS`・`LIMB/TORSO/HEAD_PROFILE`、頭部・髪・被り物・目の直値と `applyJobPromotionVisual()`（T-4）、関節球・Pauldron の寸法（T-3）、マテリアル（T-5）、`13-update-loop.js`（T-1 の範囲、移動速度・歩調・脚の swing）、`projectileOrigin()`、`melee-hit.js`、`STANCE` / `STANCE_ALT` / `CLIPS`、支援AI・デコイ（`08` / `11`）、`concat-plugin.js`（本計画は新しい core 関数を legacy から使わないので不要）、`01-character-creation.js`、`basefile.html`
+
+**Files To Change（T-2 新版）**: #3 `src/core/motion-preview.js` / #4 `src/legacy/parts/05-rendering-rig.js`（`BUILD`・`motionRigSnapshot()`・条件付き `WEAPON_SOCKET`）/ #5 `src/legacy/parts/06-player-enemy.js`（`buildPlayer()` の腕・骨盤のみ）/ #9 `tests/unit/motion-preview.test.js` / #10 `tests/character-motion.spec.js` / Task file（Implementation Result・Status・Status History）
+
+**Test Plan（T-2 新版）**
+
+| 区分 | 対象 | 確認 |
+| --- | --- | --- |
+| Build | `npm run build` | 通る |
+| Unit U-2 | `tests/unit/motion-preview.test.js` | 頭身・手の Y・ベルト線の行の整形（欠損時 `-`）。T-1 の WALK 行が不変 |
+| Unit 既存 | `npm run test:unit` 全体 | `lowpoly-primitives`（BUILD 非依存）を含め全 PASS |
+| E2E E-2 | `tests/character-motion.spec.js`（追加） | 男女それぞれで Panel の頭身が 4.5〜5.0 かつ採用値 ±0.1（初期 5.0）、手の Y ≤ ベルト線（非戦闘の停止） |
+| E2E 既存 | `character-motion.spec.js`（E-1 を含む）、`weapon-stow.spec.js`、`battle-knight-visual.spec.js`、`base-class-identity.spec.js`、`base-class-comparison.spec.js`、`combat-test-arena.spec.js`、`guest-companion.spec.js`、`save-load.spec.js` | 収納 tipY・弾の命中・上位職の構築・仲間・セーブの回帰 |
+| Full Regression | `npm test` 全体 | 推奨（旧計画どおり。環境の Chromium revision 不一致時はリポジトリ外の回避策で実行し、不可なら NOT_RUN と理由） |
+| 目視 V-1 | Step 8 | Human 確認 |
+
+**Acceptance Criteria（T-2 新版）**
+- Panel の頭身が 4.5〜5.0 の範囲で Human が決めた値 ±0.1（初期 5.0）。男女とも
+- 頭頂 Y（`hipY + height + headGap + headR`）の変化が ±2% 以内
+- 腕長が `BUILD.upperLen` / `foreLen` 由来（男女共通）。非戦闘の停止で手の Y ≤ ベルト線
+- 骨盤 Y が `HIP_Y − B.pelvisDrop` 由来
+- `hipY = thighLen + calfLen` を保つ（接地が崩れない）
+- 既存 E2E・unit PASS。`STANCE` / `CLIPS` / 移動速度 / T-1 の変更に差分なし。Files To Change 以外に差分なし
+
+**Risks（T-2 新版で追加）**
+- P-R9: T-2 と T-4 の間の頭部装飾のずれ（INFERENCE、実施順の帰結）
+- P-R10: DEC-T2-7 = (b) の場合の T-1 との衝突・欠落
+- P-R11: 腕長の延長で両手持ち・弓の引き・杖の見え方が変わる（角度は範囲外）。V-1
+- P-R12: 標準の Playwright 設定が実行環境の Chromium revision と合わない（T-1 と同じ。リポジトリ外の回避策）
+
+**Rollback**: Step 1〜3 の BUILD 値を旧値（headR 0.3705 / 0.3515、hipY 1.10 / 1.05 ほか、`upperLen 0.32` / `foreLen 0.30`）に戻せば、Step 4〜5 の式は現状と同じ座標になる
+
 ### T-3 関節の接続（T-2 完了後、D-6）
 
 | Step | ファイル / 関数 | 変更内容 | 理由 |
@@ -499,6 +591,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-1 | IMPLEMENTING → TESTING | Implementer | 実装完了。build / unit / T-1 関連 E2E を実行 |
 | 2026-09-25 | T-1 | TESTING → REVIEWING | Implementer | FAIL なし（Test Report）。Branch `claude/character-vis-001-t1-impl` |
 | 2026-09-25 | T-1 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T1-review.md` PASS（Reviewed SHA `8f4566c2a17558b5b7e2310fe05b5735b4173470`、同一セッションで兼務）。Task Level は T-2〜T-5 未完了のため PLANNED のまま |
+| 2026-09-25 | T-2 | APPROVED → WAITING_APPROVAL | Planner | T-2 Artifact Handoff（Kind `analysis`、`f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe1…`）H-1〜H-8 PASS。詳細計画（新版）を作成し、新規 Human Decision DEC-T2-7 / DEC-T2-8 を提示。承認の取り直し（§6）。旧版の承認記録は残す。本ファイルは `origin/main`（`0a56e9c`）起点の `claude/character-vis-001-t2-planner` 上で未 commit（Persistence は Human） |
 
 ## Implementation Result
 
