@@ -32,7 +32,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 
 | ID | Summary | Status | Approval | 依存する DECISION | Analysis |
 | --- | --- | --- | --- | --- | --- |
-| T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | REVIEWING | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
+| T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
 | T-2 | 体格パラメータ（BUILD の頭身・脚胴比、腕長の BUILD 化、骨盤 Y の HIP_Y 由来化） | APPROVED | [x] | D-1, D-2, D-2', D-7（決定済み） | 同上 |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い） | APPROVED | [x] | D-6（決定済み） | 同上 |
 | T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
@@ -498,6 +498,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-1 | APPROVED → IMPLEMENTING | Implementer | Plan Handoff（Kind `plan`、`06990ef513fef9b271beb871c7791277c41f53a8`）H-1〜H-8 PASS。Persistence はユーザー（人間）の Implementer セッションでの明示指示（下の Implementation Result） |
 | 2026-09-25 | T-1 | IMPLEMENTING → TESTING | Implementer | 実装完了。build / unit / T-1 関連 E2E を実行 |
 | 2026-09-25 | T-1 | TESTING → REVIEWING | Implementer | FAIL なし（Test Report）。Branch `claude/character-vis-001-t1-impl` |
+| 2026-09-25 | T-1 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T1-review.md` PASS（Reviewed SHA `8f4566c2a17558b5b7e2310fe05b5735b4173470`、同一セッションで兼務）。Task Level は T-2〜T-5 未完了のため PLANNED のまま |
 
 ## Implementation Result
 
