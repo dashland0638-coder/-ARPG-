@@ -33,7 +33,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | ID | Summary | Status | Approval | 依存する DECISION | Analysis |
 | --- | --- | --- | --- | --- | --- |
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
-| T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | WAITING_APPROVAL | [ ]（第3版の承認待ち。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
+| T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | APPROVED | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い） | APPROVED | [x] | D-6（決定済み） | 同上 |
 | T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
@@ -69,12 +69,12 @@ Implementation (T-2): BLOCKED — T-1 と同じ理由に加え、T-1 の DONE �
 Implementation (T-2, 新版): 取り下げ — 第2版の実装 `claude/character-vis-001-t2-impl` @ `cde399d48a0b668e4cb5ac797ea361abff210950`（REVIEWING、main 未統合）は Human の方針変更（2026-09-25）により Review せず、採用しない。第3版で再計画
 
 ### T-2 Human Approval（第3版。2026-09-25 Planner。上の2つの承認記録は残す）
-- [ ] Approved
-- Approved by / date / where:
-- Scope of approval:（提案）「T-2 詳細計画（第3版）」の Step 1〜9、同節の Files To Change。DEC-T2-9〜12 は決定済み（2026-09-25）
-- Persistence:（空欄 = 未許可）
+- [x] Approved
+- Approved by / date / where: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で「T-2第3版を承認、Persistenceは claude/character-vis-001-t2-v3-impl」と指示。記入: Planner（人間の指示による）
+- Scope of approval: 「T-2 詳細計画（第3版）」の Step 1〜9、同節の Files To Change。DEC-T2-9〜12 は決定済み（2026-09-25）
+- Persistence: 許可（branch: `claude/character-vis-001-t2-v3-impl`）。根拠: ユーザー（人間）/ 2026-09-25 / 同上の会話
 
-Implementation (T-2, 第3版): BLOCKED until approval
+Implementation (T-2, 第3版): BLOCKED — 承認済み Task file の Persistence と Plan Handoff（Kind `plan`）が未了。実装ブランチは `origin/main` `f48247d` 起点（DEC-T2-12）
 
 ### T-3 Human Approval
 - [x] Approved
@@ -785,6 +785,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-2 | WAITING_APPROVAL → APPROVED | Planner（人間の指示による記入） | ユーザー（人間）が「T-2新版を承認、DEC-T2-7は(a)、DEC-T2-8は(a)で確定」と指示。Persistence は未許可 |
 | 2026-09-25 | T-2 | APPROVED → BLOCKED | Planner | 記録: 第2版は `claude/character-vis-001-t2-impl` 上で APPROVED → IMPLEMENTING → TESTING → REVIEWING（`cde399d48a0b668e4cb5ac797ea361abff210950`、main 未統合、未レビュー）まで進んだ。Human の方針変更（華奢で縦に伸びたシルエット、キャラクター別の絶対値 BUILD）により Review せず停止（理由: 承認後の計画変更、§6 の承認取り直し） |
 | 2026-09-25 | T-2 | BLOCKED → WAITING_APPROVAL | Planner | 第3版の計画を作成。DEC-T2-9〜12 を提示。本ファイルは `origin/main` `f48247d` 起点の `claude/character-vis-001-t2-replan` 上で未 commit（Persistence は Human） |
+| 2026-09-25 | T-2 | WAITING_APPROVAL → APPROVED | Planner（人間の指示による記入） | ユーザー（人間）が「T-2第3版を承認、Persistenceは claude/character-vis-001-t2-v3-impl」と指示 |
 
 ## Implementation Result
 
