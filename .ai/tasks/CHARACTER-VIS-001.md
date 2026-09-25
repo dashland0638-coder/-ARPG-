@@ -34,7 +34,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | --- | --- | --- | --- | --- | --- |
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
 | T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | DONE | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
-| T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い）。T-2 第3版基準で再計画 | REVIEWING | [x]（再計画版。旧版の承認記録は下に残す） | D-6、DEC-T3-1〜7（決定済み。DEC-T3-3 は Step 0 の Human 目視判断で確定） | .ai/reports/CHARACTER-VIS-001-T3-analysis.md（branch `main` @ `b6858b11d0739b16d08faa549b2868b91f233ab8`、blob `d2fdc21d99b475dadfc49e465083f6882d785d71`） |
+| T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い）。T-2 第3版基準で再計画 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-6、DEC-T3-1〜7（決定済み。DEC-T3-3 は Step 0 の Human 目視判断で確定） | .ai/reports/CHARACTER-VIS-001-T3-analysis.md（branch `main` @ `b6858b11d0739b16d08faa549b2868b91f233ab8`、blob `d2fdc21d99b475dadfc49e465083f6882d785d71`） |
 | T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
 | T-6 | 支援AI（ゲスト仲間・デコイ）の見た目の寄せ | 取り下げ（Human 判断、2026-09-25。§7.1 / §7.2） | ― | D-5 = 除外 | 同上 |
@@ -960,6 +960,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-3 | APPROVED → IMPLEMENTING | Implementer | Plan Handoff（Kind `plan`、`33a67172ec88d5457e4a4b59a18b7eb318996d7b`、blob `fea9a995…`）H-1〜H-8 PASS。起点 `origin/main` `b6858b1`。Persistence `claude/character-vis-001-t3-impl`（Human 指示） |
 | 2026-09-25 | T-3 | IMPLEMENTING → TESTING | Implementer | Step 0 撮影 → DEC-T3-3 = B（Human）。Step 1・2 実装、Step 3 不実施、Step 4 不実施 |
 | 2026-09-25 | T-3 | TESTING → REVIEWING | Implementer | FAIL なし。Branch `claude/character-vis-001-t3-impl` |
+| 2026-09-25 | T-3 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T3-review.md` PASS（Reviewed SHA `1cbf31534d6d3f98026cc7c6f829a70af9096b13`、同一セッションで兼務）。主 Acceptance は Human が変更後の画像で許容・k = 1.02 確定。Task Level は T-4 / T-5 未完了のため PLANNED のまま |
 
 ## Implementation Result
 
