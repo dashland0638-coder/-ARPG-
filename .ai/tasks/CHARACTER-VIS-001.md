@@ -33,7 +33,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | ID | Summary | Status | Approval | 依存する DECISION | Analysis |
 | --- | --- | --- | --- | --- | --- |
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
-| T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | APPROVED | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
+| T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | REVIEWING | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い） | APPROVED | [x] | D-6（決定済み） | 同上 |
 | T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
@@ -585,6 +585,29 @@ D-2' の按分比・腕長の最終値は、承認済みの Decision Record ど�
 
 最終値（頭身 4.5〜5.0 の範囲を含む各寸法）は V-1 を見て Human が決める。AI は決めない。範囲外が必要なら実装せず Human へ戻す
 
+**V-1 Visual Character Check（Human 追加、2026-09-25。実装後の Human 目視確認を受けた完成確認基準）**
+
+決定者: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話。記入: Implementer（人間の指示による）。承認済み計画の既存項目は書き換えず、本項を追加する。
+
+| # | 基準 |
+| --- | --- |
+| V-1m | 5.0頭身でもキャラクター性が失われない |
+| V-1n | 細身のキャラクターでも棒状・人形状に見えない |
+| V-1o | 頭部が単純な無機質な塊に見えない |
+| V-1p | 職業ごとのシルエットが明確 |
+| V-1q | 実際のゲームカメラ距離でも4職の違いが認識できる |
+| V-1r | 装備だけでなく、キャラクターそのものの違いが感じられる |
+| V-1s | 「可愛さ」は数値化せず、最終的な Human 目視確認とする |
+
+- 注意: V-1 は T-2 でキャラクターデザインを完成させるという意味ではない。T-2 では 5.0頭身を維持し、残ったキャラクター性の課題は T-4 へ引き継ぐ（下の Human Decision）
+
+**Human Decision（V-1 確認後、2026-09-25、ユーザー（人間）/ Claude Code セッションの会話）**
+1. T-2 第3版の 5.0頭身を維持する
+2. 弓師・盗賊の体格を T-2 で戻さない（BUILD 値を再変更しない）
+3. 可愛さ・キャラクター性の不足は T-4 で扱う（V-1m〜V-1s のうち T-2 で満たしきれない部分は T-4 の確認事項へ引き継ぐ）
+4. T-2 第3版を正式な実装候補として Reviewer へ渡す
+5. T-4 の実装はまだ開始しない
+
 #### Acceptance Criteria（第3版）
 - 4キャラクターとも Panel の HEADS が採用値（初期 5.0）±0.1、STAT が BUILD の stature ±0.01
 - BUILD が4キャラクターの絶対値の表で、相対倍率の式を持たない（構造派生の hipY 整合・stature 整合は検査のみ）。整合検査でコンソールエラーなし
@@ -786,6 +809,9 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-2 | APPROVED → BLOCKED | Planner | 記録: 第2版は `claude/character-vis-001-t2-impl` 上で APPROVED → IMPLEMENTING → TESTING → REVIEWING（`cde399d48a0b668e4cb5ac797ea361abff210950`、main 未統合、未レビュー）まで進んだ。Human の方針変更（華奢で縦に伸びたシルエット、キャラクター別の絶対値 BUILD）により Review せず停止（理由: 承認後の計画変更、§6 の承認取り直し） |
 | 2026-09-25 | T-2 | BLOCKED → WAITING_APPROVAL | Planner | 第3版の計画を作成。DEC-T2-9〜12 を提示。本ファイルは `origin/main` `f48247d` 起点の `claude/character-vis-001-t2-replan` 上で未 commit（Persistence は Human） |
 | 2026-09-25 | T-2 | WAITING_APPROVAL → APPROVED | Planner（人間の指示による記入） | ユーザー（人間）が「T-2第3版を承認、Persistenceは claude/character-vis-001-t2-v3-impl」と指示 |
+| 2026-09-25 | T-2 | APPROVED → IMPLEMENTING | Implementer | 第3版。Plan Handoff（Kind `plan`、`f3f9bd5c77ecd906fc82ea5f01de2eba38486bd6`、blob `43826c33…`）確認。起点 `origin/main` `f3f9bd5` |
+| 2026-09-25 | T-2 | IMPLEMENTING → TESTING | Implementer | 実装 commit `2044a6e7eadf27f1cbfd4f705e7f0eedc373fc3f`。unit / build / 関連 E2E、V-1 用スクリーンショット |
+| 2026-09-25 | T-2 | TESTING → REVIEWING | Implementer | FAIL なし。V-1 Human 確認の Decision（5.0頭身維持、キャラクター性は T-4）。Branch `claude/character-vis-001-t2-v3-impl` |
 
 ## Implementation Result
 
@@ -844,4 +870,75 @@ T-1（非戦闘歩行）のみ。T-2〜T-5 には着手していない。Impleme
 ### Out of Scope Found
 - `src/legacy/parts/05-rendering-rig.js` の `applyRelaxedIdlePose()` 前のコメント「停止中の 1. の出力は、実質いつもクラスの構えそのもの」は T-1 後は非戦闘時に当てはまらない（歩行側の基準が休めになったため）。05 は `motionRigSnapshot()` の読み取り追加のみ承認のため変更していない
 - 停止中の非戦闘でも歩行側の腕の基準が休めになるため、立ち止まり直後の休め姿勢への寄りが従来より早い（`relaxStopBlend` の途中でも腕は休め側）。見え方は V-1 で Human 確認
+
+## Implementation Result（T-2 第3版）
+
+T-2 第3版のみ。第2版の実装（`cde399d`）は採用していない（DEC-T2-12）。T-3 以降・T-7（仮）には着手していない。Implementation SHA は本ファイルに書かない（§5.1）。
+
+### Artifact Handoff
+| Kind | Path | Source（branch @ SHA） | Blob SHA | 確認（I-1 / H-1〜H-8） |
+| --- | --- | --- | --- | --- |
+| `plan` | `.ai/tasks/CHARACTER-VIS-001.md` | `claude/character-vis-001-t2-replan` @ `f3f9bd5c77ecd906fc82ea5f01de2eba38486bd6`（= 実装起点の `origin/main`） | `43826c33db20bd7930e58198bc5cbb619197fe03` | 実装起点で `origin/main` = Source SHA、blob 一致、T-2 = APPROVED、Persistence = `claude/character-vis-001-t2-v3-impl` を確認。本節の追加に伴う変更は T-2 の Status・Status History の行追加・本節、および Human 指示による V-1 Visual Character Check と V-1 確認後の Human Decision の追記（承認済み計画の既存項目は変更していない）。**PASS** |
+| `analysis` | `.ai/reports/CHARACTER-VIS-001-T2-analysis.md` | `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd` | `63abdbe139ad273c449dd694071aa3593dd4690f` | main に無いため `git show` で復元し `git hash-object` 一致（I-1）。**PASS** |
+
+- Persistence: Approval 欄（第3版）に `許可（branch: claude/character-vis-001-t2-v3-impl）` と記入済み（T-1・第2版と異なり Approval 欄と一致）
+- 実装 commit は `2044a6e7eadf27f1cbfd4f705e7f0eedc373fc3f`（コード・テスト）。本節を含む Task file と analysis report は後続の commit（Implementation SHA）
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `src/legacy/parts/05-rendering-rig.js` | `BUILD` を male / female から4キャラクター系列（`warrior` / `mage` / `archer` / `rogue`）の絶対値の表へ（値は第3版の表どおり。動きの係数は各キャラクターの固定性別の旧値）。`motionRigSnapshot()` に読み取り専用の `motionBodySnapshot()`（頭身・全高・手の Y・ベルト線・肩 / 腰の外幅と全高比・肩幅 / 頭幅）。`WEAPON_SOCKET` は盗賊 x ±0.26 → ±0.172、バーサーカー x ±0.31 → ±0.222 のみ（DEC-T2-11。V-1 の正面で短剣が細い腰から外へ浮いたため。骨盤の表面との位置関係を保つ値。武器・向き・y / z は不変）。旧 `BUILD.male/female` への言及コメントを更新 |
+| `src/legacy/parts/06-player-enemy.js` | `buildPlayer()`: `BUILD[classDef.key] \|\| BUILD.warrior`（上位職は系列、影の旅人は剣士）。`checkBuild()`（hipY・全高・首・脚の付け根の整合。外れたら `console.error`、キーごとに1回）。腕長を `B.upperLen` / `B.foreLen`（配置は旧直値と同じ比の式）。骨盤 `B.pelvisH`、Y `HIP_Y − B.pelvisDrop` |
+| `src/legacy/parts/13-update-loop.js` | `:1156` の `BUILD.male` → `BUILD.warrior` の1行のみ（T-1 の歩行の式は不変） |
+| `src/core/motion-preview.js` | RIG ブロックに `HEADS … STAT …`、`HAND.Y … BELT …`、`SHLD.W … /H … /head …`、`HIP.W … /H …` の4行（欠損は `-`）。T-1 の WALK 行は不変 |
+| `tests/unit/motion-preview.test.js` | U-2: 体格の行の整形・欠損時・WALK 行が残ること |
+| `tests/character-motion.spec.js` | E-2（第3版）: 4キャラクターで HEADS 5.00 ±0.1、STAT = BUILD の全高 ±0.01、非戦闘の停止で手 ≤ ベルト、肩の外幅 / 全高（剣士 ≤ 0.30、他 ≤ 0.28）、肩幅 / 頭幅 1.26〜1.46、腰の外幅 / 全高 ≤ 0.19、コンソールエラーなし。V-1 用の正面・斜め45°・側面相当のショット（`test-results/`、リポジトリ外） |
+| `.ai/tasks/CHARACTER-VIS-001.md` | 上記の Artifact Handoff の範囲 |
+| `.ai/reports/CHARACTER-VIS-001-T2-analysis.md` | Source SHA から復元（I-1） |
+
+### Test Report
+- Scope: Targeted（Test Plan（第3版）の Unit / E-2 / E2E 既存の行。Full Regression `npm test` 全体は未実行）
+- Executed: `npm run test:unit`、`npm run build`、`npx playwright test tests/character-motion.spec.js tests/weapon-stow.spec.js tests/battle-knight-visual.spec.js tests/base-class-identity.spec.js tests/base-class-comparison.spec.js tests/combat-test-arena.spec.js tests/guest-companion.spec.js tests/save-load.spec.js`
+- Environment: repo 標準の Playwright 設定は Chromium revision 不一致（要求 1234 / 導入 1194）で起動しない。**リポジトリ外（セッションの scratchpad）** の設定で repo の `playwright.config.js` を読み込み、`executablePath: '/opt/pw-browsers/chromium'` だけ差し替えて実行した。repo の Playwright 設定は変更していない
+- Not run: `npm test` 全体（Test Plan では推奨。影響経路の spec は上記で網羅したため Targeted とした）
+
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| `npm run test:unit` | PASS | 1507 / 1507 |
+| `npm run build` | PASS | 既存の chunk size 警告のみ |
+| E-2（第3版、4件） | PASS | 実測: 4人とも HEADS 5.00。剣士 STAT 2.54、手 1.14 / ベルト 1.20、SHLD.W 0.74m /H 0.29 /head 1.46、HIP.W 0.44m /H 0.17（他3人も基準内） |
+| 関連 E2E 既存40件 | PASS | character-motion 10（T-1 E-1 を含む）、weapon-stow 10、base-class-identity 9、save-load 6、base-class-comparison 2、battle-knight-visual 1、combat-test-arena 1、guest-companion 1 |
+| 合計 E2E | 44 passed | 20.0 分 |
+| BUILD の整合検査 | エラーなし | 全 E2E の `watchErrors` で `console.error` 0 件 |
+
+### V-1 Human 確認
+- 撮影: 4職 × 非戦闘（収納）/ 武器装備（抜刀・構え）× 正面・斜め45°・側面相当、拡大と実際のゲームカメラ距離（1280×800）。見下ろし固定カメラのため、キャラクターの向きを変えて撮影（リポジトリには含めない）
+- Human の結論（2026-09-25）: 5.0頭身は維持。可愛さ・キャラクター性はまだ弱く T-4 で改善する。弓師・盗賊の BUILD 値は T-2 で再変更しない（上の Human Decision）
+- Implementer の所見（参考）: 職業は被り物・武器・衣装で判別できる。弓師・盗賊は細い手足で棒状・人形状に近く、被り物（多面体の帽子・頭巾）が無機質な塊に見える懸念。実際のカメラ距離では顔は読めない
+- 剣士 / 戦騎士の大剣、弓師 / 鷹の目の背中の武器の収納位置は、画像の解像度では浮きを確認できず変更していない（計算上は体表から 6〜7 cm 離れる見込み。目視確認事項）
+
+### Acceptance Criteria
+| AC | 確認方法 | 根拠 |
+| --- | --- | --- |
+| 4キャラクターとも HEADS 5.0 ±0.1、STAT = stature ±0.01 | VERIFIED | E-2 |
+| BUILD が4キャラクターの絶対値の表、整合検査でエラーなし | VERIFIED + FACT (code) | E-2・全 E2E の watchErrors、`05` の表 |
+| 非戦闘の停止で手 ≤ ベルト線 | VERIFIED | E-2 |
+| 肩 / 腰の外幅の全高比 | VERIFIED | E-2 |
+| 骨盤が `B.pelvisH` / `HIP_Y − B.pelvisDrop` 由来 | FACT (code) | `06` |
+| 既存 E2E・unit PASS、STANCE / CLIPS / 移動速度 / T-1 の歩行の式に差分なし、Files To Change 以外に差分なし | VERIFIED + FACT (code) | 上表。`git diff f3f9bd5..2044a6e` の変更は Changed Files のみ |
+| V-1 Visual Character Check（V-1m〜V-1s） | Human 目視 | 5.0頭身維持を Human が決定。キャラクター性の不足は T-4 へ引き継ぎ（下） |
+
+### T-4 への引き継ぎ（T-2 では実装しない）
+- 頭部・髪・被り物のキャラクター性
+- 無機質な頭部シルエットの改善
+- 弓師・盗賊の身体シルエット / メリハリ
+- 各職業固有のシルエット強化
+- 5.0頭身を維持したまま可愛さを作る
+- 頭部周りの直値の装飾のずれ（例: 剣士の兜飾りが頭頂より上へ出る）
+- 盗賊の腰装飾・魔法使いのローブ裾の直値（DEC-T2-8 = (a)）の見た目
+
+### Out of Scope Found
+- 上記の T-4 引き継ぎ事項
+- 背中の武器の収納位置の浮き（目視確認待ち。必要なら DEC-T2-11 の範囲で別途補正）
+- サポートキャラ存在時の視線（T-7（仮））
 
