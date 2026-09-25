@@ -1,169 +1,147 @@
-# P-10 Review
+# P-10 Review（Re-Review）
 
 ## Review Target
 | 項目 | 値 |
 | --- | --- |
 | Task ID | P-10 |
-| Branch | `claude/p10-artifact-handoff-implementation-xydzsl`（remote 先端 = `8ad9fd9441d3d9d92afbf30c7c0bb7f57c4b8861`、`git ls-remote` で確認） |
-| Reviewed SHA | `8ad9fd9441d3d9d92afbf30c7c0bb7f57c4b8861`（Files To Change #12 の P-10.md を含む最終 commit。PASS ではないため DONE 条件の Reviewed Implementation SHA としては成立しない） |
-| Diff range | `bd94a5f76dd886bc78d10eb0ae3f3752604a84fc..8ad9fd9441d3d9d92afbf30c7c0bb7f57c4b8861`（2 commits: `8ace518`, `8ad9fd9`。9 files、+1198 / -11） |
-| Handoff Verification | V-1〜V-6 確認。V-4a / V-4b 確認。V-2a は Plan 部分の不変性は確認、ただし許容範囲外の節追加あり（F-4） |
-| Analysis Source | `.ai/reports/P-10-artifact-handoff-analysis.md`（branch `claude/p10-artifact-handoff-analysis-enfr9v` @ `8f1b7872a10f6d2a0d55de84ecdabb9f95733691`、blob `b8034db115203c1947ac2e16789fabbbdac2e454`） |
-| Plan Source | `.ai/tasks/P-10.md`（branch `claude/p10-artifact-handoff-planning-rtn8pj` @ `f68c9bae8e46d947a2f54ce435b0f6e99bd82ca2`、blob `b95908225ab9b1da13180cb9cf27814d5984ffcb`）。**`WAITING_APPROVAL` 版**（F-3） |
+| Branch | `claude/p10-artifact-handoff-implementation-xydzsl`（remote 先端 = `19c62ddbca4cac514e3cd1a3df9722aa7805fb9e`、`git ls-remote` で確認） |
+| Reviewed Implementation SHA | `19c62ddbca4cac514e3cd1a3df9722aa7805fb9e` |
+| Diff range | `bd94a5f76dd886bc78d10eb0ae3f3752604a84fc..19c62ddbca4cac514e3cd1a3df9722aa7805fb9e`（commits: `8ace518`, `8ad9fd9`, `8aab82d`〔前回 Reviewer commit〕, `218c0b8`, `19c62dd`。10 files、`.ai/` 以外 0件） |
+| Previous review | `.ai/reports/P-10-review.md`（Reviewer commit `8aab82d696096e430aeea12c2567db4cc8abfe21`、Reviewed SHA `8ad9fd9`、Result CHANGES_REQUIRED、F-1〜F-4） |
+| Handoff Verification | V-1〜V-6、V-2a、V-4a、V-4b すべて OK |
+| Analysis Source | `.ai/reports/P-10-artifact-handoff-analysis.md`（`claude/p10-artifact-handoff-analysis-enfr9v` @ `8f1b7872a10f6d2a0d55de84ecdabb9f95733691`、blob `b8034db115203c1947ac2e16789fabbbdac2e454`） |
+| Plan Source | `.ai/tasks/P-10.md`（`claude/p10-artifact-handoff-implementation-xydzsl` @ `218c0b8966220119cd059767749dc6360e002e5a`、blob `72b25bb03fb9bd5ddff86cce767158bc44478feb`、`Status: APPROVED` 版） |
 
 ## Result
-**CHANGES_REQUIRED**
+**PASS**
 
-Protocol 本文（§5.1 / §5.2 / §6 / §7.3 / agents / README）の変更内容は Plan（P10-D1〜D9）に適合しており、テスト・SHA 検証も独立に再現できた。
-しかし P-10 自身の Task file が、現行 Protocol（P-9 由来の §6 / §7 / §7.1 / §7.3 と、P-10 が追加した §5.2 / I-3 / V-2a の両方）の
-Status・Approval ゲートに適合していない（F-1〜F-3）。Status 問題は「固定 snapshot + Status History で現在 Status を追跡する」設計として正当化できない（下の「A. Status 問題」）。
+Reviewed Implementation SHA:
+`19c62ddbca4cac514e3cd1a3df9722aa7805fb9e`
+
+前回の F-1〜F-4 はすべて解消。新たな Blocking の Protocol 上の問題は無い（下の Observations は非 Blocking）。
 
 ## Independence
-別セッションの Reviewer（本セッション）。Implementer / Planner / Analyzer のセッションとは別。
-Implementation Result の検証結果は信用せず、以下をすべて git / npm から再計算した。
+別セッションの Reviewer（本セッション）。Implementer（`session_01CHYt6c…`）・Planner・Analyzer・前回 Reviewer とは別。
+Implementation Result の記載は信用せず、以下を git / npm から再計算した。
 
-## Handoff / Artifact 独立検証
+## Artifact Integrity（独立再計算）
 
-| # | 確認 | 結果 | 根拠（再計算） |
+| # | 確認 | 結果 | 根拠 |
 | --- | --- | --- | --- |
-| 1 | Plan Source SHA | OK | `git cat-file -t f68c9ba…` = commit。`origin/claude/p10-artifact-handoff-planning-rtn8pj` の先端と一致（ls-remote）。`git diff --name-only f68c9ba^ f68c9ba` = `.ai/tasks/P-10.md` の1件（H-3）。1行目 `# P-10`（H-4） |
-| 2 | Plan Blob SHA | OK | `git rev-parse f68c9ba:.ai/tasks/P-10.md` = `b95908225ab9b1da13180cb9cf27814d5984ffcb` |
-| 3 | Analysis Source SHA | OK | `8f1b787…` = commit。`origin/claude/p10-artifact-handoff-analysis-enfr9v` の先端と一致。変更は Path 1件（H-3） |
-| 4 | Analysis Blob SHA | OK | `git rev-parse 8f1b787:<Path>` = `8ad9fd9:<Path>` = `8ace518:<Path>` = `b8034db115203c1947ac2e16789fabbbdac2e454`（V-4a / I-1） |
-| 5 | Implementation SHA | OK | `8ad9fd9` はブランチ先端。親 `8ace518`、その親 `bd94a5f`（V-1） |
-| 6 | Diff range | OK | 空でなく、終点 = Implementation SHA（V-6）。`bd94a5f` は `8ad9fd9` の祖先 |
-| 7 | Plan Artifact 不改変 | OK（内容） | `8ad9fd9:.ai/tasks/P-10.md` の先頭 52,684 byte が `f68c9ba` 版と byte 一致（`cmp`）、その部分の `git hash-object` = `b959082…`。`8ace518` 時点は blob 完全一致。変更は末尾追記のみ（544行 → 649行） |
-| 8 | Implementation Record / Status History と snapshot の区別 | 一部 NG | 境界コメント（HTML コメント）と見出しで区別はされている。ただし Status の表現が snapshot と矛盾（F-1）、許容範囲外の節（F-4） |
-| 9 | P-9 既存仕様との互換性 | 一部 NG | §7 状態表・DONE 条件・`.ai/agents/` 5ファイル・P-9.md（blob `b00ce72…` 不変）は維持。ただし P-10 Task 自身が §6 / §7.1 / §7.3 を満たしていない（F-1 / F-2） |
-| 10 | H-1〜H-8 | OK（定義） / NG（適用: Kind plan） | §5.2 の表は Plan WI-3/4 と一致。Analysis Handoff は H-1〜H-8 を満たす（H-5 は P10-D9 例外）。Plan Handoff は H-1〜H-6/H-8 の機械的検査は通るが、pin 対象が §5.2 の「承認済み版」ではない（F-3） |
-| 11 | I-1 | OK | analysis の blob 一致（#4） |
-| 12 | V-2a | 条件付き | Plan 部分は不変（#7）。追加された `## Implementation Record`・`### Human Approval（実装）`・境界 HTML コメントは V-2a の許容範囲（`Status:` 行・Status History 行追加・Implementation Result 節）外（F-4）。一方、許容されている `Status:` 行の更新は行われていない（F-1） |
-| 13 | V-4a | OK | #4 |
-| 14 | V-4b | OK | Source Branch は remote に残存し、Source SHA はその先端 |
-| 15 | Planner → Implementer Kind=plan | 定義 OK / 運用 NG | §5.2・I-3・V-2a・implementer.md 手順1・Implementation Result 表に反映（AC-14）。運用は F-3 |
-| 16 | Analyzer → Planner Kind=analysis | OK | §4 の「残す」定義、§5.2、analyzer.md Template、planner.md 手順0 |
-| 17 | 新版 Artifact 時の再承認 | OK | §5.2「新版」表（`APPROVED` 以降は BLOCKED + Human Approval 取り直し、DONE は新 Task）、amend / force push 禁止（P10-D5） |
-| 18 | Blob SHA を同一性の正 | OK | §5.2 冒頭「blob SHA（同一性の正本）」、V-4a「同一性の正本」 |
-| 19 | Branch 到達性を補助扱い | OK | §5.2 冒頭、V-4b「出所の補助。削除済みなら V-4a だけで判定」（P10-D4 副問 (ii)） |
-| 20 | P10-D1〜D9 の実装 | OK | D1: §6 / §5.2 Persistence（Human）。D2: Pin-by-SHA、H-1 の HEAD 到達（C6'）。D3: H-1〜H-8 必須・planner.md 手順0。D4: I-1/I-2、V-4a/V-4b。D5: 新版表。D6: Kind plan・I-3・V-2a。D7: §5.2 適用範囲。D8: `bd94a5f` 起点、analysis を Source SHA から復元。D9: 命名規則不変・一回限り例外・改名なし |
+| 1 | Plan Source SHA | OK | `218c0b8…` = commit。`origin/claude/p10-artifact-handoff-implementation-xydzsl` の祖先（H-1）。`git diff --name-only 218c0b8^ 218c0b8` = `.ai/tasks/P-10.md` の1件（H-3）。1行目 `# P-10`（H-4） |
+| 2 | Plan Blob SHA | OK | `git rev-parse 218c0b8:.ai/tasks/P-10.md` = `72b25bb03fb9bd5ddff86cce767158bc44478feb`（H-6） |
+| 3 | Analysis Source SHA | OK | `8f1b787…` = commit、`origin/claude/p10-artifact-handoff-analysis-enfr9v` 先端と一致（V-4b）。変更は Path 1件 |
+| 4 | Analysis Blob SHA | OK | `8f1b787:<Path>` = `19c62dd:<Path>` = `b8034db115203c1947ac2e16789fabbbdac2e454`（I-1 / V-4a） |
+| 5 | Implementation SHA | OK | remote 先端。`bd94a5f` は祖先（V-1 / V-6） |
+| 6 | Diff range | OK | 空でない。終点 = Implementation SHA |
+| 7 | 承認済み Plan の不改変（V-2a / I-3） | OK | `git diff 218c0b8 19c62dd -- .ai/tasks/P-10.md`: 削除行は `Status: APPROVED` の2行（冒頭・`## Status` 節）だけで `REVIEWING` に置換。追加は Status History の行7つと末尾の `## Implementation Result` 節だけ。計画本文・Decision Record・Approval 欄は不変 |
+| 8 | 承認済み版と旧 WAITING_APPROVAL 版の差分 | OK | `git diff f68c9ba 218c0b8 -- .ai/tasks/P-10.md`: 冒頭 `Status:`、Human Approval 欄、`Implementation:` 行、`## Status` 節、Status History 1行だけ。計画本文・P10-D1〜D9 は同一 |
+| 9 | Protocol 本文の不変（前回 Review 以降） | OK | `git diff --name-only 8ace518 19c62dd` = `.ai/reports/P-10-review.md`、`.ai/tasks/P-10.md` の2件だけ |
 
-## A. Status 問題（重点事項）
+## 前回指摘の確認
 
-### 事実（`8ad9fd9:.ai/tasks/P-10.md`）
+### F-1（Status）→ 解消
+- `19c62dd:.ai/tasks/P-10.md` L5 / `## Status` 節とも `Status: REVIEWING`（§7.1）
+- Status History: `… → WAITING_APPROVAL → APPROVED → IMPLEMENTING → TESTING → REVIEWING → CHANGES_REQUIRED → IMPLEMENTING → TESTING → REVIEWING`。最終行 = 現在 Status と一致し、各遷移は §7 状態表どおり（Note に Branch あり、§7.3 手順2）
+- remote 上で `REVIEWING` が成立（§7.3「push 前の Status」）
 
-| 箇所 | 内容 |
-| --- | --- |
-| L5 | `Status: WAITING_APPROVAL` |
-| L15-22 | `- [ ] Approved`、Approved by / Scope / `Persistence:` が空欄、`Implementation: BLOCKED until approval` |
-| L531-535（`## Status` 節） | `Status: WAITING_APPROVAL`、「実装の承認（`APPROVED`）・Persistence はまだ無い」、`Implementation: BLOCKED until approval` |
-| L545-548（Status History 追記） | `WAITING_APPROVAL → APPROVED → IMPLEMENTING → TESTING → REVIEWING` |
-| Implementation Record | 実装承認と Persistence の根拠をここに記録（Approval 欄ではない） |
+### F-2（Human Approval）→ 解消
+`218c0b8` 版の Approval 欄:
+- `- [x] Approved`
+- Approved by / date / where: ユーザー（人間）/ 2026-09-24（実装指示）・2026-09-25（CHANGES_REQUIRED 修正の承認と正式記録の指示）/ Implementer セッションの会話
+- Scope of approval: Task 全体、Files To Change #1〜#12。2026-09-25 分は F-1〜F-4 の修正のみで、Protocol 本文・P10-D1〜D9 の拡張を含まない
+- Persistence: `許可（branch: claude/p10-artifact-handoff-implementation-xydzsl）`、根拠記載、`main` / force push を除外（§6）
+- `Status: APPROVED`、`Implementation: ALLOWED`
 
-### 判定: Protocol 上正当ではない（CHANGES_REQUIRED）
+### F-3（Plan pin）→ 解消
+- Implementation Result の Artifact Handoff 表の plan 行は `218c0b8…` / `72b25bb…`（APPROVED 版）
+- 旧 `f68c9ba` / `b959082…` は H-7 の旧 pin として「pin しない」と明記され、正式 Pin として使われていない
+- 机上検証: 旧版 blob を承認済み Blob として渡すと H-6 で BLOCKED になることを確認
 
-「f68c9ba は固定 snapshot であり、現在 Status は Status History / Implementation Record から追跡する」という解釈は、Protocol のどこにも根拠が無く、次の規定と矛盾する。
+### F-4（Implementation Record）→ 解消
+- `## Implementation Record`・`### Human Approval（実装）`・境界 HTML コメントは `19c62dd` に存在しない（`grep` 0件）
+- 記録は `## Implementation Result` 節（Artifact Handoff / Changed Files / Test Report / Acceptance Criteria / Out of Scope Found / Known Limitations）に集約（I-3 / V-2a の許容範囲）
 
-1. **§7.1（AGENTS.md:335）**「Task ファイルの冒頭に `Status:` を1行で書く」。現在の Status を表す場所は冒頭の `Status:` 行である。
-2. **§7（AGENTS.md:329）**「Status を変えたら、同じ Task の Status History に1行追記する」。Status History は Status 変更の**記録**であり、Status の正本ではない。
-3. **§7.3 手順2（AGENTS.md:375）** Implementer の commit は「Status の `REVIEWING` 更新と Status History 行」を含む。`Status:` 行の更新が必須。
-4. **§7.3「push 前の Status」** 正式な Status は remote 上の Status。remote の `Status:` 行は `WAITING_APPROVAL` のため、形式上 `REVIEWING` が成立していない（したがって Reviewer の `REVIEWING → DONE` 遷移の前提も欠ける）。
-5. **P-10 自身の設計**: I-3（AGENTS.md:381）と V-2a（AGENTS.md:158）は、Plan pin からの変更として **`Status:` 行の更新を明示的に許容**している。
-   つまり P-10 設計でも `Status:` 行は現在 Status を運ぶ行であり、snapshot として凍結される対象ではない。「Plan Artifact を変えない」ことと `Status:` 行の更新は両立するよう設計されている。
-6. **Plan Files To Change #12（P-10.md:364）** は P-10.md の変更として「Approval（人間の GO 後）・Status・Status History・Implementation Result」を予定している。
-7. **`.ai/tasks/README.md`（末尾）**「承認後は承認単位の Status を `APPROVED` にし、その Approval 欄をチェックし、対応する `Implementation:` 行を `ALLOWED` に変える」。
+## P-9 Compatibility
 
-Implementer の Known Limitations は「Plan Artifact を変更しない人間の指示」を理由に挙げているが、上記 5 のとおり `Status:` 行は P-10 設計上 Plan Artifact の不変部分ではない。
-また Approval 欄は Implementer が書く欄ではなく（§6「Implementer は…Approval 欄を変更しない」）、承認済み版として人間が記入・Persistence すべきものである（F-2 / F-3）。
-Reviewer は Task file を修正しない（Reviewer 制約）。
+| 項目 | 結果 | 根拠 |
+| --- | --- | --- |
+| Analyzer READ ONLY | OK | AGENTS.md L73 / L107、analyzer.md L8。push 権限なし（§6） |
+| Planner READ ONLY | OK | AGENTS.md L75 / L108。Planner は commit しない |
+| Human Approval | OK | §6 開始条件・「AI が自分で承認しない」不変 |
+| Implementer scope control | OK | Files To Change 外の変更なし（`src/` / `tests/` / `docs/` / `.github/` / `debugger.md` / `.ai/decisions/` 変更 0件） |
+| Reviewer independence | OK | §7.3 Reviewer commit 範囲不変 |
+| Debugger max 3 cycles | OK | AGENTS.md L461、`debugger.md` 未変更 |
+| Artifact Handoff | OK | §5.1 V-2/V-4 は拡張のみ（V-2a / V-4a / V-4b 追加） |
+| DONE 条件 / Status / Status History | OK | §7 状態表・§7.3 DONE 条件は削除・変更なし（`bd94a5f..19c62dd` の削除行は V-2 / V-4 / §6 / §7.3 手順2 / agents の該当行の拡張置換だけ） |
+| `.ai/agents/` ファイル数 | OK | 5 = `bd94a5f` と同じ |
+| P-9.md の Blob | OK | `bd94a5f` / `19c62dd` とも `b00ce7286ecac1bd065fd46ae44bd3968f1bbc78` |
 
-## B. Plan Artifact integrity
+## P-10 仕様
 
-- `f68c9ba:.ai/tasks/P-10.md`（52,684 byte、544行）は `8ad9fd9:.ai/tasks/P-10.md` の先頭と byte 一致。先頭部分の blob は `b95908225ab9…` と一致。
-- 差分は末尾追記のみ: Status History 4行、境界 HTML コメント、`## Implementation Record`（`### Human Approval（実装）`）、`## Implementation Result`。
-- 計画本文・Decision Record・Artifact Handoff Metadata・Analyzer Reference・Approval 欄の改変は無い。
-- 境界の区別自体は明確だが、F-4 のとおり V-2a の許容カテゴリ外の節がある。
+| 項目 | 結果 | 根拠 |
+| --- | --- | --- |
+| H-1〜H-8 | OK | AGENTS.md §5.2 L203-214 |
+| I-1 / I-3 | OK | §7.3 手順2 L378-381。I-1 は #4、I-3 は #7 で実適用を確認 |
+| V-2a / V-4a / V-4b | OK | §5.1 L158 ほか。本 Review で適用 |
+| Kind=analysis / Kind=plan | OK | §5.2 L180 / L191-192 |
+| Pin-by-SHA / Blob SHA が正 / Branch 到達性は補助 | OK | §5.2 冒頭、V-4a / V-4b |
+| 新版 Artifact の再承認 | OK | §5.2「新版」表（L235-236 ほか） |
+| Planner → Implementer Handoff | OK | §5.2 Persistence（Kind plan）、implementer.md 手順1 |
+| Branch mismatch / 二重 Handoff | OK | H-1、H-7、§5.2「二重 Handoff」 |
+| P-9 DONE 互換性 | OK | §7.3 適用範囲（L413）、旧形式 `Analysis:` は存在確認のみ |
 
-## C. DONE 条件（§7.3）
-
-| 条件 | 結果 |
-| --- | --- |
-| review report の Result が PASS | **未達**（CHANGES_REQUIRED） |
-| review report が remote の Branch に存在 | **未達**（下の「Persistence」参照。push していない） |
-| Reviewed SHA = 最新 Implementation SHA | `8ad9fd9` は Handoff Branch の先端で、以後の commit は無い（条件としては満たす） |
-
-→ DONE にしない。
-
-## D. Tests（独立再実行）
-
-`8ad9fd9` を detached worktree に checkout し実行（`npm ci` 後）。
+## Tests（独立再実行、`19c62dd`、`npm ci` 後）
 
 | テスト | 結果 | メモ |
 | --- | --- | --- |
 | `npm run build` | PASS | exit 0。chunk size 警告のみ（従来どおり） |
-| `npm run test:unit`（`node --test`） | PASS | tests 1490 / pass 1490 / fail 0 |
-| E2E | NOT_RUN（妥当） | Diff range の変更ファイルは `.ai/` 配下の Markdown 9件のみ（`.ai/` 以外 0件）。`src/` / `tests/` / Playwright 設定 / package 定義に変更なし。§14 の Targeted として妥当 |
-| Git desk checks | 再現 | 上の「Handoff / Artifact 独立検証」#1〜#7、#13、#14。H-3（両 Source commit が1ファイル）、`8ace518` 時点の analysis blob 一致、P-9.md blob 不変 |
+| `npm run test:unit` | PASS | tests 1490 / pass 1490 / fail 0 |
+| Positive: Plan Handoff `218c0b8` / `72b25bb` | PASS | H-1〜H-6 OK |
+| Positive: Analysis Handoff `8f1b787` / `b8034db` | PASS | H-1〜H-6 OK（H-5 は P10-D9 例外） |
+| Negative: 旧 WAITING_APPROVAL 版 `f68c9ba` を承認済み blob で | PASS | BLOCKED（H-6） |
+| Negative: Blob 1文字変更 | PASS | BLOCKED（H-6） |
+| Negative: Task ID 不一致（MAGE-001） | PASS | BLOCKED（H-4/H-5） |
+| Negative: Kind 不一致（analysis を plan）/ 未定義 Kind `debug` | PASS | BLOCKED（H-4/H-5）/ BLOCKED（H-5） |
+| Negative: Branch mismatch（analysis SHA を planning ブランチで） | PASS | BLOCKED（H-1） |
+| Negative: 短縮 SHA | PASS | BLOCKED |
+| Negative: 複数ファイル commit（`8ace518`） | PASS | BLOCKED（H-3） |
+| P-9 regression | PASS | 上の P-9 Compatibility |
+| E2E | NOT_RUN（妥当） | Diff range の変更は `.ai/` 配下の Markdown のみ（`.ai/` 以外 0件）。実行時挙動に影響なし（§14 Targeted） |
 
 ## Checklist
-| # | 項目 | 結果 | 根拠 |
-| --- | --- | --- | --- |
-| 1 | Specification compliance | NG | Protocol 文書は Plan に適合。P-10 Task file 自身が §6 / §7.1 / §7.3 / §5.2 Kind plan に不適合（F-1〜F-3） |
-| 2 | Scope compliance | OK | 変更は Files To Change #1〜#12 の範囲。Out of Scope（src / tests / docs / .github / debugger.md / decisions / 既存 Task）変更なし |
-| 3 | Regression | OK | §7 状態表・DONE 条件・agents ファイル数不変。旧形式 `Analysis:` は H-n / V-4a を要求しない |
-| 4 | Build | PASS | 独立再実行 |
-| 5 | Unit tests | PASS | 1490/1490 独立再実行 |
-| 6 | E2E tests | NOT_RUN | Markdown のみの変更で妥当 |
-| 7 | Save/Load integrity | N/A | ゲームコード変更なし |
-| 8 | Existing behavior | OK | 同上 |
-| 9 | Code duplication | OK | H-n の定義は §5.2 の1か所、他は参照のみ |
-| 10 | Unnecessary architecture changes | OK | 新 Agent / 新 Status なし |
-
-## Changed Files
-`.ai/AGENTS.md`、`.ai/agents/analyzer.md`、`.ai/agents/implementer.md`、`.ai/agents/planner.md`、`.ai/agents/reviewer.md`、`.ai/reports/P-10-artifact-handoff-analysis.md`（追加、blob 一致）、`.ai/reports/README.md`、`.ai/tasks/P-10.md`（追加 + 追記）、`.ai/tasks/README.md`
+| # | 項目 | 結果 |
+| --- | --- | --- |
+| 1 | Specification compliance | OK |
+| 2 | Scope compliance | OK |
+| 3 | Regression | OK |
+| 4 | Build | PASS |
+| 5 | Unit tests | PASS（1490/1490） |
+| 6 | E2E tests | NOT_RUN（妥当） |
+| 7 | Save/Load integrity | N/A |
+| 8 | Existing behavior | OK |
+| 9 | Code duplication | OK |
+| 10 | Unnecessary architecture changes | OK |
 
 ## Out of Scope Changes
 None
 
-## Findings
+## Observations（非 Blocking）
 
-### F-1（Blocking）Task file の `Status:` が現在 Status を表していない
-- 該当: `8ad9fd9:.ai/tasks/P-10.md` L5 / L533（`WAITING_APPROVAL`）、L22 / L535（`Implementation: BLOCKED until approval`）と L545-548（History 上は `REVIEWING`）
-- 違反: AGENTS.md §7.1（L335）、§7（Status History は変更記録）、§7.3 手順2（`REVIEWING` 更新を commit）、§7.3「push 前の Status」
-- 詳細は「A. Status 問題」
+- O-1: Status History の行が日付順でない（2026-09-25 の `WAITING_APPROVAL → APPROVED` の後に 2026-09-24 の `APPROVED → IMPLEMENTING` 以下が続く）。1回目の実装時に未記録だった遷移を事後に記録したもので、Note に「当時は `Status:` 行・Approval 欄を未更新」と明記されており、現在 Status との矛盾は無い
+- O-2: 承認済み版 `218c0b8` の Approval 欄記入と commit / push は、人間の明示的な指示により Implementer セッションが実行した（`Persisted by: Human` は §5.2 どおり自己申告）。人間の GO の実在は Reviewer から検証できないが、本 Re-Review の依頼で人間が `218c0b8` / `72b25bb` を APPROVED の正式 Pin として明示しているため、承認の根拠として扱う
+- O-3: Plan Source Branch が実装ブランチと同一。§5.2「Branch の区別」上許容
 
-### F-2（Blocking）Human Approval / Persistence が Approval 欄に無い状態で実装・commit・push された
-- 該当: P-10.md L15-22（未チェック、Persistence 空欄）。承認と Persistence の根拠は `## Implementation Record` に記載
-- 違反: AGENTS.md §6 開始条件（L262「`Status: APPROVED` とチェック済みの Approval 欄」）、§6 Persistence（「Approval 欄の `Persistence` が `許可` で、対象ブランチ名が書かれている場合に限り」「空欄…は許可されていない」）、`implementer.md` 手順1（「Approval 欄がチェック済みで、根拠が書かれている。無ければ着手しない」）
-- 注記: Reviewer は Implementer セッションの会話を確認できないため、人間の GO と Persistence 指示の実在は検証していない（Implementer の自己申告）。人間の確認が必要
+## DONE 条件（§7.3）
 
-### F-3（Blocking）Plan Handoff の pin が承認済み版ではない
-- 該当: Plan Source `f68c9ba`（`Status: WAITING_APPROVAL`、Approval 未チェック）
-- 違反: AGENTS.md §5.2 Persistence「Kind `plan`: 人間が承認を Task file に記入した **承認済み版** を push し…Planner の `WAITING_APPROVAL` 版は pin しない」、I-3「Plan Handoff の承認済み版を起点にし」、Plan WI-8（P-10.md:303）、P10-D8 (a)（「本 Task file は人間が Persistence した版を起点にする（新規則の自己適用）」）
-- 補足: §5.2 の適用範囲（P10-D7）上、P-10 自身は本来 §5.2 の強制対象ではないが、Implementer は Plan Handoff（Kind plan）として記録しており V-2a の対象になる。§5.2 を適用しない場合でも P-9 規則（§6 / §7.3 手順2「Human Approval 時点の内容」）で F-2 と同じく不適合
-
-### F-4（Required）V-2a の許容範囲外の節が Task file に追加されている
-- 該当: 境界 HTML コメント、`## Implementation Record（Implementer 追記。Plan Artifact ではない）`、`### Human Approval（実装）`
-- 違反: V-2a（AGENTS.md:158）/ I-3（AGENTS.md:381）の許容は「`Status:` 行・Status History への行追加・Implementation Result 節だけ」
-- 判定: Plan 部分の不変性（V-2a の目的）は byte 一致で確認でき、Review 対象（SHA / 範囲）の特定には支障が無いため、Review Handoff 不備（BLOCKED）ではなく CHANGES_REQUIRED の指摘として扱う。人間が V-2a の字義どおり BLOCKED と扱う判断も可能
-
-## Risks
-- F-1〜F-3 を放置すると、P-10 が新設した Kind plan / I-3 / V-2a の最初の実運用例が、自らの規定（承認済み版の pin、`Status:` 行の更新）に反した前例になる
-- 「人間が Plan Artifact を変更しないと指示した」ことを理由に Approval 欄外で承認を記録する運用が前例化すると、§6 の Approval ゲート（Approval 欄が承認の正本）が形骸化する
-- `Persisted by` は自己申告（Known Limitations のとおり。設計上の既知事項）
-
-## Required Changes
-
-AI は Approval 欄を記入しない（§6）。以下は人間の操作と Implementer の操作を分けて記す。
-
-1. **Human**: `f68c9ba` 版を起点に P-10.md の Approval 欄を記入した承認済み版を作る（`- [x] Approved`、Approved by / date / where、Scope of approval、`Persistence: 許可（branch: claude/p10-artifact-handoff-implementation-xydzsl、根拠）`、`Status: APPROVED`、`Implementation: ALLOWED`、`## Status` 節の同内容）。
-   Planning ブランチ（または人間が指定するブランチ）へ **P-10.md 1ファイルだけの新しい commit** として Persistence し（amend / force push しない）、新しい Plan Handoff（Source SHA / Blob SHA / `Persisted by: Human`）を Implementer へ渡す。
-   remote 上の正式 Status は `WAITING_APPROVAL` のため、これは §5.2「新版」の `APPROVED` 以降の扱いには当たらない
-2. **Implementer**: 新しい Plan Handoff を H-1〜H-8 で検証し、I-3 に従って承認済み版を起点に P-10.md を作り直す。変更は `Status:` 行（`REVIEWING`）・Status History 行追加・Implementation Result 節だけにする（F-1）。
-   `## Implementation Record` / `### Human Approval（実装）` / 境界 HTML コメントは除き、必要な記録は Implementation Result 節内（Artifact Handoff 表・Test Report・Known Limitations）に置く（F-4）
-3. **Implementer**: Protocol 本文（`8ace518` の #1〜#11）は変更不要。上の P-10.md 修正を新しい commit で push し、新しい Implementation SHA で Review Handoff を出し直す（Diff range は `bd94a5f..<新 SHA>`）
-4. 代替案（非推奨）: 「Task file の Plan 部分は Approval 欄を含め完全凍結し、現在 Status は Status History で追跡する」運用を採るなら、§6 / §7.1 / §7.3 / I-3 / V-2a / tasks README の変更が必要で、P-10 の承認範囲外。別 Task と Human Approval が要る
+| 条件 | 結果 |
+| --- | --- |
+| review report の Result が PASS | 満たす |
+| review report が remote の Branch に存在 | 本 report の push で満たす |
+| Reviewed SHA = 最新 Implementation SHA | 満たす（`19c62dd` 以後の commit は本 Reviewer commit のみ） |
 
 ## Persistence（Reviewer commit）
-- 本 report は Reviewer のセッション作業ツリー（ブランチ `claude/p10-review-2ui9rk`）に作成した。**commit / push していない**
-- §7.3「Reviewer の commit 範囲」: Reviewer の commit は Handoff の Branch（`claude/p10-artifact-handoff-implementation-xydzsl`）へ push するもの。本実行環境の割り当てブランチは異なるため、別ブランチへは push しない。人間が push 先を明示して承認するまで待つ
-- Task file の Status 更新（`CHANGES_REQUIRED`）・Status History 追記も未実施（同上。加えて F-1 により現在の `Status:` 行が `WAITING_APPROVAL` のため、`REVIEWING → CHANGES_REQUIRED` の Status 更新の前提自体を人間に確認する必要がある）
+- 本 report 1ファイルだけを、Handoff の Branch `claude/p10-artifact-handoff-implementation-xydzsl` へ1 commit で push する（人間の明示指示、§7.3 Reviewer commit 範囲）
+- 人間の指示（「1ファイルだけ commit/push」）により、Task file の `Status: DONE` 更新と Status History の `REVIEWING → DONE` 行は本 commit に含めない。
+  §7.3 はこれを Reviewer commit に含めることを許容しているため、`Status:` 行を `DONE` に更新するかどうか、誰が行うかは人間が判断する
+- report のパスは §7.3 の `.ai/reports/<ID>-review.md` に従い、前回 report を本 Re-Review の内容で置き換える。前回 report（CHANGES_REQUIRED）は commit `8aab82d` に残る
