@@ -106,9 +106,9 @@ Implementation (T-4): BLOCKED — T-1 と同じ理由に加え、T-3 の DONE �
 - Approval 対象: T-4 再計画版。Approved Task Blob: `190976e7f1938799d95ffa6a697600398ca653db`（Persistence commit `672232ffdbdd655cb8efe49343b0e8e53188d457`、branch `claude/character-vis-001-t4-planner`）
 - Scope of approval: 「T-4 詳細計画（再計画版）」全体。Step 0〜8（Step 5 は不実施）、同節の Files To Change（確定版）、HDR-T4-1〜15 の Human Decision（T-4 を分割しない、弓師 A を先行パイロット、弓師 A / 剣士 A / 魔法使い C / 盗賊 A、F-b、H-a、S-a、P-a、W-a、武器収納状態の識別を Acceptance に含める、武器収納の補正は収納状態の `off` のみ、衣服構築 E2E を必須、眉・口などの新しい顔の造形を追加しない）、T-4 / T-5 の境界、V-1 をパイロット時と全体完成時の2回、最終的な可愛さ・キャラクター性は Human の目視で判断
 - 承認条件（変更禁止）: BUILD の体格値 / T-1 の歩行 / STANCE / CLIPS / T-3 の関節球 / T-3 の Pauldron / 骨盤 / Material の値 / 輪郭線 / 敵 / ボス / 支援AI / 共有の Lathe 表 / `13-update-loop.js`。新しい衣服システムは作らず、既存の Loft と既存の可動部への取り付け方式を使う
-- Persistence:（空欄 = 未許可。実装用ブランチは未指定）
+- Persistence: 許可（branch: `claude/character-vis-001-t4-impl`）。根拠: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で「T-4 の Implementation Persistence を許可します」と明示（起点 `main` `c17951b978c2d5efb6d715bed7fb73f45f169e53`、Approved Task Blob `3526f842c77b509d8a38c3804ebad727fa38416a` の Task file を実装ブランチへ固定）。記入: Implementer（人間の指示による）
 
-Implementation (T-4, 再計画版): BLOCKED — 実装用 Persistence と、承認済み Task file の Plan Handoff（Kind `plan`）が未了
+Implementation (T-4, 再計画版): 開始可 — 実施順は Step 0 → 弓師パイロット（Step 1〜4・7）→ build / unit / 関連 E2E → 弓師パイロットの V-1 → **Human 確認**。Human 確認なしに残り3職へ展開しない
 
 ### T-5 Human Approval
 - [x] Approved
