@@ -35,7 +35,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
 | T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | DONE | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い）。T-2 第3版基準で再計画 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-6、DEC-T3-1〜7（決定済み。DEC-T3-3 は Step 0 の Human 目視判断で確定） | .ai/reports/CHARACTER-VIS-001-T3-analysis.md（branch `main` @ `b6858b11d0739b16d08faa549b2868b91f233ab8`、blob `d2fdc21d99b475dadfc49e465083f6882d785d71`） |
-| T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
+| T-4 | キャラクター性の再設計（頭部・顔の見せ方・髪・被り物・服装 Geometry・身体シルエット・職業固有シルエット・上位職の形状）。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）を含む再計画版 | WAITING_APPROVAL | [ ]（再計画版の承認待ち。旧版の承認記録は下に残す） | D-1, D-8、HDR-T4-1〜15（決定済み。デザインは初期案、V-1 で形状調整） | .ai/reports/CHARACTER-VIS-001-T4-analysis.md（branch `claude/character-vis-001-t4-analysis` @ `6ea91565d255849aaee1134666da04256543f00c`、blob `f15713384131f85bc9ee57c8219d2e836b24dd0c`） |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
 | T-6 | 支援AI（ゲスト仲間・デコイ）の見た目の寄せ | 取り下げ（Human 判断、2026-09-25。§7.1 / §7.2） | ― | D-5 = 除外 | 同上 |
 
@@ -99,6 +99,14 @@ Implementation (T-3, 再計画版): BLOCKED — Persistence（実装用ブラン
 - Persistence:（空欄 = 未許可）
 
 Implementation (T-4): BLOCKED — T-1 と同じ理由に加え、T-3 の DONE 待ち
+
+### T-4 Human Approval（再計画版。2026-09-25 Planner。上の旧版の承認記録は残す）
+- [ ] Approved
+- Approved by / date / where:
+- Scope of approval:（提案）「T-4 詳細計画（再計画版）」の Step 0〜8（Step 5 は不実施）、同節の Files To Change（確定版）。デザインは「Human Decision（確定、デザイン）」の HDR-T4-2〜15 に従う
+- Persistence:（空欄 = 未許可）
+
+Implementation (T-4, 再計画版): BLOCKED until approval — 再計画版の Human Approval、Persistence、Plan Handoff（Kind `plan`）が未了（デザインの選択 HDR-T4-2〜15 は決定済み）
 
 ### T-5 Human Approval
 - [x] Approved
@@ -801,6 +809,227 @@ T-2 第3版の細い体格を前提に、膝・肘・肩・骨盤の繋ぎ目を
 | 2 | `05` 頭部 Coverage / `HEAD_*` 定数（`:714-935`） | 兜 Face Opening・Coverage の再調整（必要な場合のみ） | R-11 |
 | 3 | `06` `applyJobPromotionVisual()`（`:1926-`） | 上位職装飾の直値、戦騎士 `headLookPivot.scale` 0.86（D-8） | R-2 |
 
+### T-4 詳細計画（再計画版、2026-09-25 Planner。上の T-4 計画（旧スコープ）を含めて置き換える）
+
+**Human Decision（確定、ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話。記入: Planner（人間の指示による））**
+- HDR-T4-1: T-4 を再計画し、キャラクター性・可愛さ・頭部・顔の見せ方・髪・被り物・頭部装飾・弓師 / 盗賊の身体シルエット・職業固有シルエット・中世×現代リバイバルファッション・服装 Geometry・服装によるキャラクター差・上位職の形状デザインまで含める。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）だけに限定しない。**具体的なデザインは確定していない**（Planner が候補を整理し、Human が選ぶ）
+- HDR-T4-8: **T-4 = 形状・Geometry・シルエット・配置・デザイン / T-5 = Material・色・質感・マット化・共通 Material 値**。T-4 で Material 値を設計変更しない。T-5 で T-4 の Geometry を再設計しない。上位職装飾の Material 調整は T-5
+- 服装の方針: 「中世ファンタジーを、現代風にリメイクしたようなリバイバルファッション」を T-4 の形状デザイン方針として採用。具体的な採用内容（誰に何を）は未決定
+
+**入力（Artifact Handoff 検証、AGENTS.md §5.2）** — Planner が git から再計算した結果
+
+| # | 確認 | 実行 | 結果 |
+| --- | --- | --- | --- |
+| H-1 | Source Branch / Source SHA | `git fetch`、`git merge-base --is-ancestor 6ea9156… origin/claude/character-vis-001-t4-analysis` → 真（先端と同 SHA） | PASS |
+| H-2 | Path の存在 | `git cat-file -e 6ea9156…:.ai/reports/CHARACTER-VIS-001-T4-analysis.md` → 成功 | PASS |
+| H-3 | Source commit の変更が Path の1件だけ | `git diff --name-only 6ea9156^ 6ea9156` → 当該 Path のみ。親 = `f0d68ca`（T-3 統合後の `origin/main` と同 SHA） | PASS |
+| H-4 | Path・1行目 | Work Item 専用の期待 Path、1行目は `# CHARACTER-VIS-001 Analysis` で始まる | PASS |
+| H-5 | Kind / 期待 Path | `analysis`、命名例外なし | PASS |
+| H-6 | Blob SHA | `git rev-parse 6ea9156…:<Path>` → `f15713384131f85bc9ee57c8219d2e836b24dd0c` | PASS |
+| H-7 | 既存記録 | `(CHARACTER-VIS-001 / T-4, analysis)` の記録なし。新規 | PASS |
+| H-8 | Source SHA の内容だけを読む | `git show 6ea9156…:<Path>` で読んだ | PASS |
+
+- 本計画は `origin/main` `f0d68cadf389669759f51be432108a1c867bb0b9`（T-3 DONE 統合後）起点の `claude/character-vis-001-t4-planner` で作成した
+
+#### Objective
+T-2 / T-3 で確定した 5.0頭身・体格・関節を土台に、**頭部・顔の見せ方・被り物・服装の形・身体の外形**でキャラクター性を作り、ゲームカメラ距離でも「誰か」「どの職業か」が武器に頼らず読めるようにする。「可愛さ」は Planner が定義・数値化しない。最終判断は Human の目視（V-1）
+
+#### Scope / Non-Scope
+| Scope（T-4） | Non-Scope |
+| --- | --- |
+| 頭部周りの直値・絶対値の比率修正（旧 T-4 Step 1〜2）と戦騎士 0.86 の再調整（D-8、旧 Step 3） | Material・色・質感・マット化（T-5） |
+| 顔の見せ方（マスク・面頬の扱い） | BUILD の体格値（T-2）、関節球・Pauldron（T-3）、骨盤構造 |
+| 髪・被り物・頭部装飾の形状 | T-1 の歩行、STANCE / STANCE_ALT / CLIPS、移動速度、攻撃・判定 |
+| 服装 Geometry（リバイバルファッション候補の形状）と配置 | 武器の形状・寸法・攻撃処理 |
+| 弓師・盗賊を中心とした身体の外形（衣服の量感、必要なら中間断面の比率） | 支援AI（D-5）、敵・ボス、共有の Lathe 表（`LIMB/TORSO/HEAD_PROFILE`・`PAULDRON_PROFILE`・`CUFF_PROFILE`） |
+| 上位職の形状（`applyJobPromotionVisual()` の Geometry） | 新しいキャラクターシステム・衣服シミュレーション・skinning |
+| 影の旅人の形状（HDR-T4-7 次第） | サポートキャラの視線（T-7（仮）） |
+
+#### FACT（T-4 analysis と Planner の再確認 ★）
+- 顔: 剣士は面頬付きの兜、盗賊は頭巾 + マスクで目も非表示（★`06:1303-1313`）、弓師は帽子 + 口元マスク。表情の手がかりは目の3メッシュだけ
+- 被り物の比率: 魔法使いの帽子の円錐は高さ 0.62 m の絶対値（★`05:1647`、headR 比 約 1.76 → 2.58）。剣士の前立ては `hY + 0.28` の直値（★`06:1177`）
+- 服: 胴・腕・脚の Loft がそのまま服。衣服として独立した形は魔法使いのローブ・袖、剣士の短いマント・スカーフのみ。材質の差は色だけ
+- 頭部の階層: 頭・髪・被り物は `headLookPivot`（waist の子）に付け替えられ、Look Rig で頭と一緒に回る（★`06:1755-1770`）
+- 脚の階層: 太腿は股関節ピボット（`legL/R`）、すね以下は膝ピボット（`kneeL/R`）の子。脚の間隔 `stanceW` は 0.095〜0.11、太腿の半幅は 0.085〜0.095（T-2）
+- 上位職: `applyJobPromotionVisual()`（★`06:1967-`）が基礎の装飾を隠して差し替える
+- 見下ろし固定カメラで、顔の細部はゲームカメラ距離では読めない（T-2 / T-3 の撮影記録）
+
+#### INFERENCE（キャラクター性が弱く見える構造上の原因。T-4 analysis I-1〜I-6）
+- 顔が隠れ、頭部が「被り物の塊」として読まれる
+- 被り物の比率が旧頭身前提のまま崩れている
+- 服が体の外形そのもので、細身化により「塗り分けた人形」に見える（弓師・盗賊で強い）
+- 判別が武器・被り物・色に依存している
+
+#### DESIGN OPTION（候補。採用は Human。既存コードで実現しやすい案を中心に各3案）
+**共通の作り方（実現性の根拠）**: 衣服は既存の Loft（`makeLoft` / `makeCharacter*()` と同じ断面方式）で作り、動く部位の子にする。上着・ストールは waist（胴と一緒に動く）、パンツは太腿の部分を股関節ピボット・すねの部分を膝ピボット（膝で曲がる）、フードの頭部側は `headLookPivot`・背中側は waist、ブーツは膝ピボット（接地の式を保つ）
+
+| 職 | 案 A | 案 B | 案 C（控えめ） |
+| --- | --- | --- | --- |
+| 剣士（4人で最もしっかり。騎士） | 短丈上着（胸〜ベルト上の前開きジャケット形状）+ 中世風ロングブーツ（筒型）+ 既存スカーフを大判ストール化 | レイヤード（胴の外側に膝上丈のサーコート形状）+ 既存兜 | 兜の比率・前立ての修正 + ブーツ形状のみ |
+| 魔法使い（縦長。「分かっているつもりだった人」） | ローブを維持し、パーカー的フード（背中に下ろした形）+ 大判ストール | ローブの裾を短くしワイドパンツ + 短丈ケープ（ローブ形状の再構成） | ローブ維持 + 大判ストール + 帽子の比率修正 |
+| 弓師（軽快。「どこにも属さなかった人」） | ワイドパンツ + 短丈上着 | ワイドパンツ + 大判ストール | 細身パンツ + レイヤード（丈違いの上着） |
+| 盗賊（小柄・身軽。過去を後悔する元盗賊） | パーカー的フード（既存頭巾をフード形状へ、マスク無し）+ 裾を絞ったワイドパンツ | パーカー的フード + 短丈上着 + 細身パンツ | 大判ストール（口元まで覆うスヌード形状でマスクを置き換え）+ ワイドパンツ |
+| 共通の小物 | ベルト・ポーチ・留め具を BUILD / HIP_Y 由来の位置で配置（アクセサリー的） | 既存の小物のみ維持 | ― |
+
+- 各案の形状の具体寸法は、Human が案を選んだ後に Implementer が BUILD / headR 由来の式で作り、V-1 で Human が確認する
+- 色・素材感はすべて T-5。T-4 の衣服は**既存の Material インスタンス**（`clothMat` / `clothMatFlat` / `trimMat` など）を仮に割り当て、Material の値は変更しない
+
+**顔の見せ方（DESIGN OPTION）**: F-a 現状維持（マスク・面頬を残す）/ F-b 弓師・盗賊のマスクを外して目を見せ、剣士の面頬は維持 / F-c 全員の顔を出す（剣士は開いた兜へ）
+
+**被り物の比率（DESIGN OPTION）**: H-a 絶対値・直値を headR 比へ直し、旧頭身での見た目の比率に戻す（例: 帽子の円錐 高さ = headR × 1.76、前立て = headR 比）/ H-b 5.0頭身での新しい比率を Human が V-1 で決める / H-c 現状の大きさを意図として残す
+
+**身体シルエットの変更方法（DESIGN OPTION）**: S-a 衣服の量感で外形を作る（BUILD と断面比率は変えない）/ S-b キャラクター別の中間断面比率（`*_SECTION_RATIOS` を系列ごとに持たせる。DEC-T3-4 で T-4 へ送った領域）/ S-c 両方
+
+#### 上位職・影の旅人の扱い（DESIGN OPTION）
+- 上位職: P-a 基礎職の衣服を継承し、既存の差し替え（戦騎士の兜・肩鎧、バーサーカーの毛皮など）を新しい衣服に合わせて形状調整 / P-b 上位職ごとに衣服の形を変える。戦騎士 0.86（D-8）は新しい頭部に合わせて再調整（旧 T-4 Step 3）
+- 影の旅人: W-a 剣士の衣服を使う（色は T-5）/ W-b 独自の形状（`docs/CHARACTERS.md` の「黒ずくめ・影だまり」を形状に反映するが、新しい設定を足すことになる）
+
+#### 武器なしでの識別・ゲームカメラ距離での視認性
+- 遠距離で効く要素（INFERENCE）: 頭部の外形（被り物・髪の輪郭）、肩の形（ストール・上着の肩線）、腰〜裾の広がり（上着の丈・パンツ・ローブ）、背中の輪郭（フード・矢筒・大剣）
+- 各案は、これらのうち少なくとも「頭部の外形」「腰〜裾」の2つで4人が異なる形になるよう組み合わせる（Human が案を選ぶときの比較軸として提示）
+
+#### 干渉リスク
+| # | 干渉 | 内容 | 対応（計画） |
+| --- | --- | --- | --- |
+| P-R25 | 衣服 × 歩行 | ワイドパンツは左右の脚が近い（`stanceW` 0.095〜0.11 に対し太腿の半幅 0.085〜0.095）ため、内側へ広げると左右の裾が重なる。外側・前後へ広げる非対称の断面が要る | 内側の幅は `stanceW` を超えない制約で形状を作る。V-1 の歩行で確認 |
+| P-R26 | 衣服 × 構え・攻撃（CLIPS） | 上着・ストールは waist の子で腕とは別に動く。腕を大きく振るクリップで貫通の可能性 | STANCE / CLIPS は変えない。停止・歩行・構え・攻撃の V-1 で確認し、形状（丈・厚み）で逃がす |
+| P-R27 | 衣服 × Look Rig | 頭部側の被り物は頭と一緒に最大 ±38° 回る。背中に垂れるフードを頭の子にすると胴に対して回る | フードは頭部側と背中側を分け、背中側は waist の子にする |
+| P-R28 | 衣服 × 武器収納 | 背中の大剣（剣士・戦騎士）・弓（弓師・鷹の目）とフード・ストール・上着、腰の短剣（盗賊・バーサーカー）とワイドパンツ・短丈上着が重なる可能性 | 収納位置の補正が必要になった場合は `WEAPON_SOCKET` の `off` の調整だけを許す（HDR-T4-13）。武器の形状は変えない |
+| P-R29 | 衣服 × 上位職の差し替え | 上位職が基礎の装飾を隠す前提（`visible=false`）に、新しい衣服の参照を加える必要 | `applyJobPromotionVisual()` で衣服の表示 / 非表示を明示 |
+| P-R30 | 顔を出す変更 | 過去の Head / Helm 調整フェーズの判断（`05:796-935`）を覆す | HDR-T4-2 で Human が決める |
+| P-R31 | Material | 新しい衣服に Material が要るが、値は T-5 | 既存インスタンスの流用のみ。値の変更は差分チェックで検出 |
+
+#### Implementation Steps（HDR の選択に従う）
+| Step | 内容 | ファイル |
+| --- | --- | --- |
+| 0 | V-1 の基準撮影（T-3 後の状態。4基本職・上位職4種・影の旅人 × 停止 / 歩行 / 構え / 攻撃 × 正面 / 斜め45° / 側面相当）。コード変更なし | リポジトリ外 |
+| 1 | 頭部周りの直値・絶対値の比率修正（HDR-T4-3）と戦騎士 0.86 の再調整（D-8） | `06` 頭部・被り物、`05` 被り物の定数・Coverage |
+| 2 | 顔の見せ方（HDR-T4-2）: マスク・面頬・`faceMeshes` の表示 | `06`、`05`（兜の開口を変える場合） |
+| 3 | 髪・被り物の形状（選んだ案のフード等） | `06`、`05`（`makeRogueHood` 等の生成関数・定数、髪シェル） |
+| 4 | 服装 Geometry（選んだ案の上着・ストール・パンツ・ブーツ・小物）。Loft で作り、上の「共通の作り方」の親へ付ける | `06` `buildPlayer()`、`05`（衣服用の Loft 生成を足す場合） |
+| 5 | 身体シルエット（HDR-T4-4 = S-b / S-c の場合のみ、キャラクター別の中間断面比率） | `05` `*_SECTION_RATIOS`、`tests/unit/lowpoly-primitives.test.js`（複製の同期） |
+| 6 | 上位職・影の旅人の形状（HDR-T4-7） | `06` `applyJobPromotionVisual()` |
+| 7 | 武器収納の干渉があった職だけ `WEAPON_SOCKET` の `off` を補正（HDR-T4-13 が許す場合） | `05` `WEAPON_SOCKET` |
+| 8 | V-1（下）。Human の確認で形状を調整 | リポジトリ外 |
+
+- 実施順（提案、HDR-T4-12）: 1 → 2 → 3 を全員で行い、4〜5 は **1キャラクターを先行（パイロット）** して Human が方向性を確認してから残り3人へ広げる
+
+#### Files To Change（再計画版）
+| ファイル | 内容 | 条件 |
+| --- | --- | --- |
+| `src/legacy/parts/06-player-enemy.js` | `buildPlayer()` の頭部・顔・髪・被り物・衣服・小物、`applyJobPromotionVisual()` の形状 | 常に |
+| `src/legacy/parts/05-rendering-rig.js` | 被り物の生成関数と定数・`HEAD_*`・Coverage、衣服用の Loft 生成（必要な場合）、キャラクター別の中間断面比率（S-b / S-c の場合）、`WEAPON_SOCKET` の `off`（HDR-T4-13 の場合） | 条件付き |
+| `src/legacy/parts/01-character-creation.js` | `classDef` の見た目専用フィールド（形状の選択を持たせる場合のみ。色は T-5） | HDR 次第 |
+| `tests/unit/lowpoly-primitives.test.js` | 断面比率を変えた場合の複製の同期 | S-b / S-c の場合 |
+| `tests/character-motion.spec.js` | 衣服・被り物の構築の回帰（HDR-T4-14 で追加する場合） | HDR 次第 |
+| `docs/CHARACTERS.md` | 外見の仕様の記述（HDR-T4-10） | HDR 次第 |
+| Task file | Implementation Result・Status・Status History | 常に |
+
+変更しない: `13-update-loop.js`、STANCE / STANCE_ALT / CLIPS、BUILD の体格値、関節球・Pauldron（T-3）、骨盤構造、Material の値（color / roughness / metalness / emissive / bump、`textures.js`）、`outlineMats()`、敵・ボス・支援AI、共有の Lathe 表、`playwright.config.js`
+
+#### Test Plan（再計画版）
+| 区分 | 対象 | 確認 |
+| --- | --- | --- |
+| Build / Unit | `npm run build`、`npm run test:unit` | PASS。断面比率を変えた場合は複製の同期 |
+| E2E 既存 | `character-motion`（T-1 E-1、T-2 E-2 を含む）、`weapon-stow`、`battle-knight-visual`、`base-class-identity` / `comparison`、`combat-test-arena`、`guest-companion`、`save-load` | 回帰。T-2 E-2（頭身・手とベルト・肩 / 腰の幅の比）は BUILD 由来なので衣服で変わらないこと |
+| E2E 追加（任意） | 衣服・被り物のメッシュが4人 + 上位職で構築され、コンソールエラーが無い | HDR-T4-14 |
+| Material 不変の確認 | `git diff` で Material の値（color / roughness / metalness / emissive / bumpScale）の追加・変更が無いこと | Review の確認項目 |
+| Full Regression | `npm test` 全体 | 推奨（Chromium 不一致の環境ではリポジトリ外の回避策、不可なら NOT_RUN） |
+| 目視 V-1（T-4） | 下の V-1 | **Human が確認（Acceptance の中心）** |
+
+**V-1（T-4）**: Step 0 と同じセットで変更前後を並べる。加えて HDR-T4-6 が「含める」なら、武器を収納した状態（非戦闘）での識別も確認する
+| # | 確認（Human） |
+| --- | --- |
+| V-1-T4a | 5.0頭身でもキャラクター性が失われていない（T-2 V-1m） |
+| V-1-T4b | 細身でも棒状・人形状に見えない（V-1n。弓師・盗賊を中心に） |
+| V-1-T4c | 頭部が単純な無機質な塊に見えない（V-1o） |
+| V-1-T4d | 職業ごとのシルエットが明確で、ゲームカメラ距離でも4職の違いが認識できる（V-1p / V-1q） |
+| V-1-T4e | 装備だけでなくキャラクターそのものの違いが感じられる（V-1r） |
+| V-1-T4f | 「可愛さ」は数値化せず Human の目視で判断する（V-1s） |
+| V-1-T4g | 歩行・構え・攻撃で衣服が脚・腕・武器と目立って貫通しない（P-R25〜R28） |
+| V-1-T4h | 上位職・影の旅人の形状に破綻が無い |
+
+#### Acceptance Criteria（再計画版）
+- **主: V-1-T4a〜h を Human が目視で許容する**（数値だけでは合格としない）
+- Human が選んだデザイン案（HDR-T4-2〜7・9〜15）どおりに形状が作られている
+- Material の値の追加・変更が無い（T-5 の範囲）。新しい衣服は既存の Material インスタンスを流用
+- BUILD の体格値・関節球・Pauldron・骨盤・T-1 の歩行・STANCE / CLIPS・移動速度に差分なし
+- 既存の unit・build・関連 E2E が PASS（T-1 E-1、T-2 E-2 を含む）。Files To Change 以外に差分なし
+
+#### Human Decision Required（T-4 再計画版。Planner は決めない）
+| # | 論点 | 選択肢 | Planner の推奨候補（提案） |
+| --- | --- | --- | --- |
+| HDR-T4-2 | 顔の見せ方 | F-a / F-b / F-c | F-b（弓師・盗賊の顔を出し、剣士の兜は騎士の記号として残す） |
+| HDR-T4-3 | 被り物の比率 | H-a / H-b / H-c | H-a を初期値にして V-1 で調整 |
+| HDR-T4-4 | 身体シルエットの手段 | S-a / S-b / S-c | S-a（BUILD と断面比率を変えずに済む）。不足なら S-c |
+| HDR-T4-5 | 4職のデザイン案 | 各職 案 A / B / C（上の表） | 剣士 A・魔法使い C・弓師 A・盗賊 A（頭部外形と腰〜裾の2軸で4人が分かれる組み合わせ） |
+| HDR-T4-6 | 武器を収納した状態での識別を Acceptance に入れるか | 入れる / 入れない | 入れる（非戦闘の収納状態で確認。装備を外す機能は新規になるため作らない） |
+| HDR-T4-7 | 上位職・影の旅人 | P-a / P-b、W-a / W-b | P-a、W-a |
+| HDR-T4-9 | デザインの参照 | Human がラフ・参考画像を追加する / 本計画の案から選ぶ | 本計画の案から選び、パイロットの V-1 で調整 |
+| HDR-T4-10 | `docs/CHARACTERS.md` の更新（外見の仕様、影の旅人の記述の食い違い） | 本 T-4 で外見の記述を追加 / 別 Task | 外見の記述は T-4 の最後に追加。影の旅人の食い違いは別 Task |
+| HDR-T4-11 | T-4 の分割 | 1つの Work Item のまま / 頭部（Step 1〜3）と服装（Step 4〜6）で分ける | 分ける（承認・レビューの単位を小さくする。例: T-4a 頭部、T-4b 服装） |
+| HDR-T4-12 | 実施順 | 全員同時 / パイロット（1キャラクター先行） | パイロット（弓師か盗賊。棒状の問題が最も大きい） |
+| HDR-T4-13 | 武器収納の補正を T-4 に含めるか | 含める（`off` のみ）/ 含めない | 含める（衣服との干渉の直接の帰結。武器の形状は変えない） |
+| HDR-T4-14 | 衣服の構築の E2E を追加するか | 追加 / 追加しない | 追加（構築とコンソールエラーの回帰のみ。見た目は V-1） |
+| HDR-T4-15 | 顔の造形の追加（眉・口など） | 追加しない / 追加する | 追加しない（ゲームカメラ距離では効果が小さい。必要なら V-1 後に検討） |
+
+#### Human Decision（確定、デザイン。ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話。記入: Planner（人間の指示による））
+上の「Human Decision Required」表の推奨候補ではなく、**Human が確定した決定**。デザインは T-4 の初期実装案で、V-1 の目視確認による形状調整を許容する。
+
+| # | 決定 |
+| --- | --- |
+| HDR-T4-2 | **F-b**: 弓師・盗賊は顔を見せる。剣士の兜は残す。顔の造形を新規に足すのではなく、既存の頭部・髪・被り物の形状調整で顔の見え方を改善する |
+| HDR-T4-3 | **H-a**: 被り物の比率を headR 比に合わせて修正する（例: 魔法使いの帽子の円錐の高さ、剣士の前立て）。最終判断は V-1 の目視 |
+| HDR-T4-4 | **S-a**: 体の外形の改善は衣服の量感を中心に行う。BUILD の体格値は変更しない。S-b / S-c（中間断面比率の変更）は今回行わない → **Step 5 は不実施** |
+| HDR-T4-5 | 初期デザイン案: **剣士 A**（短丈上着 + ロングブーツ + スカーフを大判ストール化）/ **魔法使い C**（ローブ + 大判ストール + 帽子の比率修正）/ **弓師 A**（ワイドパンツ + 短丈上着）/ **盗賊 A**（既存の頭巾をパーカー的フードに変更（マスク無し）+ 裾を絞ったワイドパンツ）。V-1 の目視で必要な形状調整を許容 |
+| HDR-T4-6 | 武器を収納した状態（非戦闘）でもキャラクター識別性を確認し、Acceptance Criteria に含める |
+| HDR-T4-7 | 上位職は **P-a**（基礎職の衣服形状を継承し、既存の上位職差し替え形状を調整。戦騎士の頭 0.86 も再調整）。影の旅人は **W-a**（剣士系の衣服形状を使用。色・Material は T-5）。影の旅人の設定上の食い違いは別 Task |
+| HDR-T4-9 | デザイン参照は本 Task file の案を使う。承認した初期案をパイロットで実装し、目視結果に応じて形状を調整する。外部デザイン資料は必須としない |
+| HDR-T4-10 | `docs/CHARACTERS.md` の外見の記述は T-4 の最後に追加する。影の旅人の設定上の食い違いは別 Task とし、今回は修正しない |
+| HDR-T4-11 | **T-4 は分割しない**。頭部と服装を同一の T-4 Work Item で扱う（理由: 目的は頭部単体ではなく、頭部・服装・腰〜裾のシルエットを含めたキャラクター性の改善で、分けると目視調整の往復が増える） |
+| HDR-T4-12 | **弓師を先行パイロット**とする。弓師 A（ワイドパンツ + 短丈上着）を最初に実装し、形状・シルエット・可愛さ・カメラ距離での識別性を Human が確認する。問題がなければ同じ原則を他職へ展開する |
+| HDR-T4-13 | 武器収納の補正を含める。ただし非戦闘（収納状態）の収納位置の調整（`WEAPON_SOCKET` の `off`）のみ。武器システムそのもの、攻撃中の武器位置、武器のロジックは変更しない |
+| HDR-T4-14 | 衣服が4基礎職と上位職で正常に構築されることを確認する E2E を追加する |
+| HDR-T4-15 | 眉・口などの新しい顔の造形は追加しない |
+
+**確定後の実施順**: Step 0（基準撮影）→ **弓師パイロット**（弓師の Step 1〜4・7 → V-1 で Human 確認）→ 残り3職（剣士・魔法使い・盗賊）の Step 1〜4・7 → Step 6（上位職・影の旅人）→ V-1（全体）→ `docs/CHARACTERS.md` の外見記述（最後）。Step 5 は不実施
+
+**Files To Change（確定版）**
+| ファイル | 内容 |
+| --- | --- |
+| `src/legacy/parts/06-player-enemy.js` | `buildPlayer()` の頭部・顔の見え方（マスクの扱い）・髪・被り物・衣服（上着・ストール・パンツ・ブーツ・フード）・小物、`applyJobPromotionVisual()` の形状（戦騎士 0.86 を含む） |
+| `src/legacy/parts/05-rendering-rig.js` | 被り物の生成関数と定数（headR 比化）・`HEAD_*`・Coverage、衣服用の Loft 生成（必要な場合）、`WEAPON_SOCKET` の `off`（収納状態の補正のみ） |
+| `tests/character-motion.spec.js`（または新しい spec） | 衣服が4基礎職・上位職で構築され、コンソールエラーが無いことの E2E（HDR-T4-14） |
+| `docs/CHARACTERS.md` | 外見の記述（T-4 の最後、HDR-T4-10）。影の旅人の食い違いは修正しない |
+| Task file | Implementation Result・Status・Status History |
+
+- `src/legacy/parts/01-character-creation.js` は形状の選択を `classDef` に持たせる必要が生じた場合のみ（色は T-5 のため変えない）。`tests/unit/lowpoly-primitives.test.js` は変更しない（S-a のため断面比率を変えない）
+
+**実装上の固定条件（変更禁止）**: BUILD の体格値 / T-1 で確定した歩行・STANCE / CLIPS / T-3 で確定した関節球 / T-3 で確定した Pauldron / 骨盤 / Material の値 / 輪郭線 / 敵 / ボス / 支援AI / 共有の Lathe 表 / `13-update-loop.js`。Existing System First を維持し、新しい衣服システムは作らない。既存の Loft と既存の可動部（waist・肩・股関節・膝・`headLookPivot`）への取り付けで作る
+
+**Test Plan（確定版の差分）**: 上の Test Plan のうち「E2E 追加（任意）」は **必須**（HDR-T4-14）。断面比率の複製の同期は対象外（S-a）。V-1 は弓師パイロットの時点と全体の完了時の2回
+
+**Acceptance Criteria（確定版の差分）**: 上の Acceptance Criteria に次を加える
+- 武器を収納した状態（非戦闘）でも4職のキャラクターが識別できることを Human が目視で許容する（HDR-T4-6）
+- 衣服の構築 E2E が4基礎職・上位職で PASS（HDR-T4-14）
+- 顔の造形（眉・口など）の追加が無い（HDR-T4-15）。弓師・盗賊の顔は既存の頭部・髪・被り物の形状調整で見える（HDR-T4-2）
+- 中間断面比率・BUILD の体格値に差分なし（HDR-T4-4）
+
+#### T-5 との境界（HDR-T4-8、確定）
+- T-4: 頭部形状・髪・フード・パーカー的形状・大判ストール・ワイドパンツ・短丈上着・ブーツ形状・レイヤード・職業固有の服装形状・上位職の形状
+- T-5: 色・Material・マット感・質感・共通 Material 値・上位職装飾の Material 調整
+- T-4 は Geometry / 形状 / シルエット / 配置 / 衣服の構築を扱い、Material の値を決めない（新しい衣服は既存の Material インスタンスを流用するだけ）。T-5 は色 / Material / 質感 / マット化 / 共通 Material 値を扱い、T-4 の Geometry を変えない。T-5 は T-4 で追加された衣服も対象に含めるよう、将来の T-5 Planner で対象範囲を更新する
+
+#### Risks（再計画版で追加）
+P-R25〜P-R31（上の干渉リスク）に加えて:
+- P-R32: 「可愛さ」は Human の目視でしか判定できず、V-1 の往復が増える（パイロットで緩和）
+- P-R33: 変更量が大きい（4職 × 頭部・衣服、上位職、影の旅人）。1つの承認単位ではレビューが重い（HDR-T4-11）
+- P-R34: 顔を出す場合、被り物の開口・Coverage・髪の干渉の再調整が要る
+
+#### Artifact Handoff（本計画の引き渡し）
+- 本 Task file は `claude/character-vis-001-t4-planner`（起点 `origin/main` `f0d68ca`）上で未 commit。Planner は commit / push しない
+- Human が Persistence し、再計画版の Human Approval・HDR の選択・Persistence 先を記入した承認済み版で Plan Handoff（Kind `plan`、`CHARACTER-VIS-001 / T-4`）を Implementer へ渡す
+
 ### T-5 質感（D-4）
 
 | Step | ファイル / 関数 | 変更内容 | 理由 |
@@ -961,6 +1190,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-3 | IMPLEMENTING → TESTING | Implementer | Step 0 撮影 → DEC-T3-3 = B（Human）。Step 1・2 実装、Step 3 不実施、Step 4 不実施 |
 | 2026-09-25 | T-3 | TESTING → REVIEWING | Implementer | FAIL なし。Branch `claude/character-vis-001-t3-impl` |
 | 2026-09-25 | T-3 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T3-review.md` PASS（Reviewed SHA `1cbf31534d6d3f98026cc7c6f829a70af9096b13`、同一セッションで兼務）。主 Acceptance は Human が変更後の画像で許容・k = 1.02 確定。Task Level は T-4 / T-5 未完了のため PLANNED のまま |
+| 2026-09-25 | T-4 | APPROVED → WAITING_APPROVAL | Planner | T-4 Artifact Handoff（Kind `analysis`、`6ea91565d255849aaee1134666da04256543f00c`、blob `f1571338…`）H-1〜H-8 PASS。HDR-T4-1 / HDR-T4-8（Human）により範囲を再計画（キャラクター性・服装・シルエットまで）。デザイン候補と HDR-T4-2〜7・9〜15 を提示。承認の取り直し（§6）。旧版の承認記録は残す。本ファイルは `origin/main` `f0d68ca` 起点の `claude/character-vis-001-t4-planner` 上で未 commit |
 
 ## Implementation Result
 
