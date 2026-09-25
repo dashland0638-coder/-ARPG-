@@ -33,7 +33,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | ID | Summary | Status | Approval | 依存する DECISION | Analysis |
 | --- | --- | --- | --- | --- | --- |
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
-| T-2 | 体格パラメータ（BUILD の頭身・脚胴比、腕長の BUILD 化、骨盤 Y の HIP_Y 由来化） | APPROVED | [x]（新版。旧版の承認記録は下に残す） | D-1, D-2, D-2', D-7、DEC-T2-7 = (a)、DEC-T2-8 = (a)（決定済み） | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）。Task 全体の analysis も引き続き有効 |
+| T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | WAITING_APPROVAL | [ ]（第3版の承認待ち。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い） | APPROVED | [x] | D-6（決定済み） | 同上 |
 | T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
@@ -66,7 +66,15 @@ Implementation (T-2): BLOCKED — T-1 と同じ理由に加え、T-1 の DONE �
 - Scope of approval: 「T-2 詳細計画（新版）」の Step 1〜8、Files To Change #3 / #4（`BUILD`・条件付き `WEAPON_SOCKET`・`motionRigSnapshot()`）/ #5（`buildPlayer()` の腕・骨盤のみ）/ #9 / #10。DEC-T2-7 = (a)、DEC-T2-8 = (a)
 - Persistence:（空欄 = 未許可。人間の明示的な指示があった場合だけ `許可（branch: <name>）` と根拠を書く）
 
-Implementation (T-2, 新版): BLOCKED — Persistence と、承認済み Task file の Plan Handoff（Kind `plan`）が未了
+Implementation (T-2, 新版): 取り下げ — 第2版の実装 `claude/character-vis-001-t2-impl` @ `cde399d48a0b668e4cb5ac797ea361abff210950`（REVIEWING、main 未統合）は Human の方針変更（2026-09-25）により Review せず、採用しない。第3版で再計画
+
+### T-2 Human Approval（第3版。2026-09-25 Planner。上の2つの承認記録は残す）
+- [ ] Approved
+- Approved by / date / where:
+- Scope of approval:（提案）「T-2 詳細計画（第3版）」の Step 1〜9、同節の Files To Change。DEC-T2-9〜12 は決定済み（2026-09-25）
+- Persistence:（空欄 = 未許可）
+
+Implementation (T-2, 第3版): BLOCKED until approval
 
 ### T-3 Human Approval
 - [x] Approved
@@ -116,6 +124,10 @@ Implementation (T-6): 取り下げ（実装しない）
 | D-7 | Planner 案 (a) **腕長は男女共通のまま BUILD 化** | T-2 Step 2 / 3。`upperLen` / `foreLen` は male / female に同じ値 |
 | D-8 | Planner 案 (c) **戦騎士の頭 0.86 は新頭身に合わせて再調整（実機確認）** | T-4 Step 3。値は V-1 で Human が確認する |
 | 共通 | **新しい仕様を勝手に追加しない** | Implementer は上表と Implementation Plan に無い変更をしない（§10） |
+| D-2（改訂、2026-09-25、DEC-T2-9） | **「全キャラクターで同一の全高を維持する」方針を撤回。キャラクターごとの絶対値 BUILD で基準全高を定義する** | T-2 第3版。旧 D-2 の記載は上に残す |
+| D-2'（改訂、2026-09-25、DEC-T2-9） | **「頭を小さくした分を脚と胴へ一定比率で按分する」方針を撤回。頭・脚・胴をキャラクターごとの絶対値として定義し、構造上必要な座標だけを各絶対値から算出する** | T-2 第3版 |
+| D-7（改訂、2026-09-25、DEC-T2-9） | **「男女共通の腕長」を撤回。キャラクターごとの固定絶対値として upperLen / foreLen を定義する** | T-2 第3版 |
+| 目的（2026-09-25、DEC-T2-9） | **5頭身という数字だけでなく、「華奢で、横幅が狭く、縦にスッとしたシルエット」を実現する** | T-2 第3版の AC・V-1 |
 
 ## Request
 
@@ -431,6 +443,182 @@ D-2' の按分比・腕長の最終値は、承認済みの Decision Record ど�
 
 **Rollback**: Step 1〜3 の BUILD 値を旧値（headR 0.3705 / 0.3515、hipY 1.10 / 1.05 ほか、`upperLen 0.32` / `foreLen 0.30`）に戻せば、Step 4〜5 の式は現状と同じ座標になる
 
+### T-2 詳細計画（第3版、2026-09-25 Planner。第2版（上）を置き換える）
+
+**方針（Human 指示 2026-09-25）**: 「華奢で、縦にスッと伸びたシルエット」。頭身だけでなく横方向の厚みを減らし、脚・腕・胴の縦を活かす。体格は male / female の2種ではなく **キャラクター別の固定 BUILD（絶対値）**。上位職は系列の BUILD を使う。makeCharacter*()・Loft・STANCE / STANCE_ALT / CLIPS・攻撃/武器判定・projectileOrigin()・AI・移動速度・セーブ・支援AI・マテリアル・頭部装飾・関節球 / Pauldron の本格調整は変えない（T-3〜T-5 の範囲を維持）
+
+**入力**: Task 全体の analysis（main、blob `cd682826…`）、T-2 analysis（H-1〜H-8 検証済み、上の第2版の表）、第2版実装 `cde399d` の実測値（参考のみ。Task file ではなく `claude/character-vis-001-t2-impl` 上の Implementation Result（T-2））、Planner のコード再確認（★）。本計画は `origin/main` `f48247d23cf5652b87e0ce02d2e8527882981d1f` 起点
+
+#### 現状（FACT）
+| 項目 | 根拠 | male（剣士・盗賊・影の旅人） | female（魔法使い・弓師） |
+| --- | --- | --- | --- |
+| BUILD の選び方 | ★`06:512-513` `BUILD[gender]`。性別は章の固定キャスト（`01:274-282`: 剣士 male / 魔法使い female / 弓師 female / 盗賊 male / 影の旅人 male）。テストモードは常に male（`14:1328`） | | |
+| 全高（頭頂） | `hipY + height + headGap + headR` | 2.5405 | 2.4015 |
+| 頭身 | 頭頂 / 2·headR | 3.43 | 3.42 |
+| 胸（胴の半幅の基準）`chest` | 胴の断面は肩で ×1.15（★`05:319-324`） | 0.345 | 0.295 |
+| 肩の張り出し `shoulderOut` | 肩ピボット x = chest + shoulderOut（★`06:1524`） | 0.105 | 0.078 |
+| 肩の外幅 ≈ 2·(chest + shoulderOut + upper) | | **1.096（全高の 0.43）** | 0.906（0.38） |
+| 腰 `hipR`（骨盤の断面は hip で ×1.10、★`05:388-392`）/ 骨盤高さ | ★`06:645` `pelvisH` は性別の直値 | 0.265 / 0.34 | 0.252 / 0.30 |
+| 脚の間隔 `stanceW` / 太腿 `thigh` / ふくらはぎ `calf` | | 0.150 / 0.132 / 0.106 | 0.124 / 0.120 / 0.094 |
+| 上腕 `upper` / 前腕 `forearm` / 首 `neck` | 首は `CylinderGeometry(neck*0.92, neck*1.15)`（★`06:674`） | 0.098 / 0.083 / 0.088 | 0.080 / 0.069 / 0.072 |
+| 腕長 | ★`06:1506, 1513` の直値（男女共通） | 0.32 / 0.30 | 同 |
+| 動きの係数（strideAmp 等） | BUILD 内（T-1 の腕振り `B.armSwing` もここ） | male の値 | female の値 |
+| `BUILD.male` の直接参照 | ★`13-update-loop.js:1156` `P.build \|\| BUILD.male` | | |
+| 収納ソケット | ★`05:2434-2476` の `off` は絶対値（例: 盗賊 waist x ±0.26、剣士 torso z −0.26） | | |
+
+- ★肩のめり込み量 `0.15·chest + upper − shoulderOut`（胴の肩断面の外縁 + 上腕の太さ − 肩ピボット）: male 0.045 / female 0.046。現状もわずかに重なり、Pauldron が隠している
+- 第2版の実測（参考）: 休め姿勢の手の高さは、腕を真下に伸ばした到達点より +0.07（剣士）〜 +0.10（魔法使い）高い
+
+#### BUILD の設計（Step 1〜2）
+- `BUILD` をキャラクター系列キーの表にする: `warrior`（剣士）/ `mage` / `archer` / `rogue`。上位職は系列の BUILD をそのまま使う（`battleKnight`→warrior、`archmage`→mage、`hawkEye`→archer、`berserker`→rogue）。上位職別の上書きは今回作らない（必要になったら表に上書きを足せる形にだけしておく）
+- 選び方は `buildPlayer()` で `BUILD[classDef.key] || BUILD.warrior`。`gender` 引数は髪色など見た目の既存用途にだけ残す
+- 影の旅人（`wanderer`、kit 剣士）: 剣士の BUILD を使う（DEC-T2-10 = (a)）
+- 各 BUILD は **絶対値**を直接持つ（相対倍率を最終仕様にしない）: `stature, headR, hairR, headGap, hipY, height(torso), thighLen, calfLen, upperLen, foreLen, chest, shoulderOut, hipR, pelvisH, pelvisDrop, stanceW, thigh, calf, upper, forearm, neck` + 既存の動きの係数（`strideAmp, armSwing, hipSway, shoulderRoll, bobAmp, kneeLift, idleShift`。各キャラクターの固定性別の現在値をそのまま写し、動きは変えない）
+- 構造上の派生値は計算してよい。**整合規則**（`buildPlayer()` で検査し、外れたら `console.error`。E2E の `watchErrors` が拾う）:
+  - `hipY === thighLen + calfLen`（±0.001）
+  - `stature === hipY + height + headGap + headR`（±0.001）
+  - 首が見える: `headGap − headR > 0`
+  - 脚の付け根が骨盤に収まる: `stanceW + thigh ≤ hipR × 1.10`
+
+#### 各キャラクターの初期寸法案（絶対値。単位 m）
+| 値 | 剣士 warrior | 魔法使い mage | 弓師 archer | 盗賊 rogue | 参考: 現 male / female |
+| --- | --- | --- | --- | --- | --- |
+| stature（全高） | 2.54 | 2.40 | 2.40 | 2.42 | 2.5405 / 2.4015 |
+| headR | 0.254 | 0.240 | 0.240 | 0.242 | 0.3705 / 0.3515 |
+| hairR | 0.2735 | 0.2585 | 0.2585 | 0.2605 | 0.399 / 0.3781 |
+| headGap | 0.29 | 0.28 | 0.28 | 0.28 | 0.27 / 0.26 |
+| height（胴、ベルト〜襟） | 0.796 | 0.74 | 0.71 | 0.758 | 0.80 / 0.74 |
+| hipY | 1.20 | 1.14 | 1.17 | 1.14 | 1.10 / 1.05 |
+| thighLen / calfLen | 0.615 / 0.585 | 0.585 / 0.555 | 0.600 / 0.570 | 0.585 / 0.555 | 0.56/0.54 ・ 0.535/0.515 |
+| upperLen / foreLen | 0.42 / 0.40 | 0.41 / 0.38 | 0.41 / 0.38 | 0.40 / 0.38 | 0.32 / 0.30 |
+| chest | 0.24 | 0.20 | 0.21 | 0.215 | 0.345 / 0.295 |
+| shoulderOut | 0.060 | 0.045 | 0.050 | 0.045 | 0.105 / 0.078 |
+| hipR | 0.20 | 0.19 | 0.19 | 0.185 | 0.265 / 0.252 |
+| pelvisH / pelvisDrop | 0.30 / 0.27 | 0.27 / 0.24 | 0.27 / 0.24 | 0.28 / 0.25 | 0.34/0.30 ・ 0.30/0.25 |
+| stanceW | 0.110 | 0.095 | 0.100 | 0.100 | 0.150 / 0.124 |
+| thigh / calf | 0.095 / 0.075 | 0.085 / 0.066 | 0.088 / 0.068 | 0.085 / 0.066 | 0.132/0.106 ・ 0.120/0.094 |
+| upper / forearm | 0.070 / 0.058 | 0.058 / 0.050 | 0.060 / 0.052 | 0.060 / 0.052 | 0.098/0.083 ・ 0.080/0.069 |
+| neck | 0.065 | 0.056 | 0.056 | 0.058 | 0.088 / 0.072 |
+| 動きの係数 | male の現在値 | female の現在値 | female の現在値 | male の現在値 | |
+
+方向性（Human 指示）との対応: 剣士は4人で一番しっかり（胸・肩・腕が最大）/ 魔法使いは肩・胴が最も細く縦長 / 弓師は脚と腕の到達が最も長く肩は控えめ / 盗賊は全高を少し低く（2.42）細身で肩が狭い。これ以外の設定は足していない
+
+#### 算出（初期値での確認値）
+| 項目 | 式 | 剣士 | 魔法使い | 弓師 | 盗賊 | 現 male / female |
+| --- | --- | --- | --- | --- | --- | --- |
+| 頭身 | stature / 2·headR | 5.00 | 5.00 | 5.00 | 5.00 | 3.43 / 3.42 |
+| 全高の整合 | hipY + height + headGap + headR | 2.540 | 2.400 | 2.400 | 2.420 | |
+| 脚の比 | hipY / stature | 0.472 | 0.475 | 0.488 | 0.471 | 0.433 / 0.437 |
+| 首の見え | headGap − headR | +0.036 | +0.040 | +0.040 | +0.038 | −0.10 / −0.09 |
+| 肩の外幅 / 全高 | 2·(chest+shoulderOut+upper) / stature | 0.74 → **0.29** | 0.606 → **0.25** | 0.64 → **0.27** | 0.64 → **0.26** | 0.43 / 0.38 |
+| 腰の外幅 / 全高 | 2·hipR·1.10 / stature | 0.173 | 0.174 | 0.174 | 0.168 | 0.230 / 0.231 |
+| 肩のめり込み | 0.15·chest + upper − shoulderOut | 0.046 | 0.043 | 0.0415 | 0.047 | 0.045 / 0.046 |
+| 肩の高さ | hipY + 0.9·height | 1.916 | 1.806 | 1.809 | 1.822 | |
+| 腕の到達点（真下） | 肩 − (upperLen + foreLen + 0.02) | 1.076 | 1.016 | 0.999 | 1.022 | |
+| 休め姿勢の手の見込み | 到達点 + 0.07〜0.10（第2版の実測） | 1.15〜1.18 | 1.09〜1.12 | 1.07〜1.10 | 1.09〜1.12 | |
+| ベルト線 | hipY | 1.20 | 1.14 | 1.17 | 1.14 | |
+
+- 横の厚みは概ね現状の 65〜75% に下げ、縦は脚を長く（脚の比 0.43 → 0.47〜0.49）して寸詰まりを避ける
+- 腕は第2版（0.448 / 0.42）より短いが、肩が低く狭くなるため到達点はベルト線より十分下（休め姿勢の見込みでもベルト線以下）
+
+#### Implementation Plan（第3版）
+| Step | ファイル / 関数 | 変更内容 |
+| --- | --- | --- |
+| 1 | `05` `BUILD`（`:1903-1933`） | male / female の表を上の4キャラクターの絶対値の表に置き換える。頭身の経緯コメントを更新。`05:829` の `BUILD.male/female` への言及コメントも更新 |
+| 2 | `06` `buildPlayer()`（`:510-517`） | `BUILD[classDef.key] \|\| BUILD.warrior`。影の旅人（`wanderer`）は剣士の BUILD（DEC-T2-10 = (a)。フォールバックで剣士になる）。整合規則の検査（`console.error`） |
+| 3 | `06` `buildPlayer()` 腕（`:1506-1557`） | 長さを `B.upperLen` / `B.foreLen` に。配置は旧直値と同じ比の式（上腕中心 −UA/2、肘 −UA、前腕中心 −FA/2、籠手 −FA·0.9、手・指・親指 −(FA+0.02) 基準）。第2版と同じ形 |
+| 4 | `06` `buildPlayer()` 骨盤（`:645-648`） | `pelvisH` を `B.pelvisH`、Y を `HIP_Y − B.pelvisDrop`（親は root のまま、D-6） |
+| 5 | `13-update-loop.js:1156` | `BUILD.male` → `BUILD.warrior`（フォールバックの参照先の名前だけ。T-1 の歩行の式は変えない） |
+| 6 | `05` `motionRigSnapshot()`、`core/motion-preview.js` | 読み取り行: `HEADS`（頭身）、`STAT`（全高）、`HAND.Y … BELT …`、`SHLD.W`（肩の外幅と全高比）、`HIP.W`（腰の外幅と全高比）。T-1 の WALK 行は維持 |
+| 7 | `05` `WEAPON_SOCKET`（`:2434-2476`） | 胴・腰が細くなるため、収納位置の `off`（絶対値）が体から浮く職を E2E と V-1 で確認し、該当職だけ `off` を絶対値で補正（DEC-T2-11 = (a)。武器の形状・寸法・デザイン・攻撃処理は変えない） |
+| 8 | 構造派生で自動追従するもの（変更しない） | 胸当て・ベルト・首（`B.neck`）・手/指（`B.forearm` 比）・肩当て（`B.upper` 比）・盗賊/弓師の装飾の x（`bodyR` 由来）・魔法使いのローブの半径（`bodyR` 由来）・武器（`updateGrip()` が手に追従） |
+| 9 | V-1 | 下の Visual Verification |
+
+**Files To Change（第3版）**: `src/legacy/parts/05-rendering-rig.js`（`BUILD`・`motionRigSnapshot()`・条件付き `WEAPON_SOCKET`・コメント）/ `src/legacy/parts/06-player-enemy.js`（`buildPlayer()` の BUILD 選択・整合検査・腕・骨盤のみ）/ `src/legacy/parts/13-update-loop.js`（`:1156` の1行のみ）/ `src/core/motion-preview.js` / `tests/unit/motion-preview.test.js` / `tests/character-motion.spec.js` / Task file（Implementation Result・Status・Status History）
+
+**変更しない（第3版）**: `makeCharacter*()` 本体・`*_SECTION_RATIOS`・`LIMB/TORSO/HEAD_PROFILE`、`STANCE` / `STANCE_ALT` / `CLIPS`、`melee-hit.js`、`projectileOrigin()`、AI、`CLASSES.spd`・歩調・脚の swing（T-1）、セーブ形式（BUILD は保存されない。★`09-save-load.js` に BUILD の参照なし）、支援AI（`08` / `11`）、マテリアル（T-5）、頭部・髪・被り物・目の直値と `applyJobPromotionVisual()`（T-4）、関節球・Pauldron の寸法（T-3）、盗賊の腰装飾・魔法使いのローブの Y 直値（DEC-T2-8 = (a)）、`concat-plugin.js`、`playwright.config.js`
+
+#### 武器・手の位置への影響
+- FACT: 武器は `updateGrip()` が毎フレーム手のワールド座標から置く。腕の長さ・肩の位置・手の大きさ（`B.forearm` 比）が変わっても自動で追従する。両手持ち（剣士）は両手の中点
+- FACT: 弾の発射位置（`projectileOrigin()`）は弓/杖ノードのワールド座標に追従。命中判定の高さ許容は 1.8〜2.2 m で、数 cm の変化では変わらない
+- FACT: 近接判定はメッシュ非依存
+- INFERENCE: 肩幅が狭くなると、構え（角度は不変）で両手・武器が体の中心に寄って見える。剣士の両手持ち・弓の引き・杖の位置は V-1 で確認
+- INFERENCE: 収納ソケットの `off` は絶対値なので、細い胴・腰では背中の大剣・弓が体から離れ、盗賊の腰の短剣が外へ浮く可能性が高い（Step 7）
+
+#### 既存テストへの影響
+| テスト | 影響 |
+| --- | --- |
+| `tests/unit/lowpoly-primitives.test.js` | BUILD 非依存のリテラル検査。失敗しない（コメントの「BUILD.male相当」が古くなるのは記録のみ） |
+| `tests/unit/motion-preview.test.js` | 新しい行の整形テストを追加（U-2） |
+| `tests/character-motion.spec.js` | E-2 を第3版の値で書く（下）。T-1 の E-1 は不変のはず |
+| `tests/weapon-stow.spec.js` | 収納 tipY 0.15〜3.6 / 抜刀 > −0.2。全高を大きく変えないため範囲内の見込み。Step 7 の調整後も確認 |
+| `battle-knight-visual` / `base-class-identity` / `base-class-comparison` / `combat-test-arena` | 構築・弾の生成と命中の回帰 |
+| `guest-companion` / `save-load` | 回帰のみ |
+
+**Test Plan（第3版）**
+| 区分 | 対象 | 確認 |
+| --- | --- | --- |
+| Build | `npm run build` | 通る |
+| Unit | `npm run test:unit`（U-2 を含む） | 全 PASS |
+| E2E E-2 | `character-motion.spec.js`（テストモードで4キャラクター。BUILD がキャラクター別になるため性別に依らず4人とも入れる） | HEADS 5.00 ±0.1、STAT が BUILD の全高 ±0.01、非戦闘の停止で手 ≤ ベルト、SHLD.W の全高比 ≤ 0.30（剣士）/ ≤ 0.28（他）、HIP.W の全高比 ≤ 0.19、コンソールエラーなし（整合検査） |
+| E2E 既存 | 上の表のすべて | 回帰 |
+| Full Regression | `npm test` 全体 | 推奨。Chromium revision 不一致の環境ではリポジトリ外の回避策、不可なら NOT_RUN |
+
+#### Visual Verification（V-1、第3版）
+対象: 剣士・魔法使い・弓師・盗賊（基礎職）+ 戦騎士・魔導士・鷹の目・バーサーカー（上位職は系列の BUILD）+ 影の旅人。状態: 停止（非戦闘）・非戦闘移動・戦闘態勢。
+視点: **正面・斜め45°・側面**（ゲームのカメラは見下ろしの仰角固定なので、Q/E のカメラ旋回で yaw 0° / 45° / 90° を撮る。真横の水平視点は取れない ― 制約として記録）
+
+| # | 視点 | 確認項目（Human が見る） | 数値の手掛かり（Panel） |
+| --- | --- | --- | --- |
+| V-1a | 正面 | 肩幅が「横に広い」印象にならず、かつ頭に対して狭すぎない（初期値の肩の外幅 / 頭の幅 2·headR: 剣士 1.46・魔法使い 1.26・弓師 1.33・盗賊 1.32。現 male 1.48 は頭が大きいための値で比較不可。全高比 0.43 → 0.25〜0.29 が主指標） | SHLD.W / STAT |
+| V-1b | 正面 | 胴が細く、腰・骨盤が胸より細い/同程度で、樽型に見えない | HIP.W / STAT |
+| V-1c | 正面 | 首が見え、頭が胴に埋まっていない | HEADS、headGap − headR |
+| V-1d | 正面 | 脚が長く見え、股下が全高の半分近い（短足・寸詰まりでない） | BELT / STAT |
+| V-1e | 正面 | 腕を下ろした手が腿の付け根〜腿の中ほどにある | HAND.Y / BELT |
+| V-1f | 斜め45° | 胸・腰の前後の厚みが薄く、ずんぐりしない | ― |
+| V-1g | 斜め45° | 肩・上腕・前腕、太腿・ふくらはぎが細く、関節で急に太くならない（関節球・Pauldron の本格調整は T-3。明らかな破綻だけ記録） | ― |
+| V-1h | 側面 | 胴・骨盤・脚が前後に途切れず繋がる（頭・首・胴・骨盤・脚の接続） | ― |
+| V-1i | 側面 | 背中の大剣・弓、腰の短剣が体から浮いていない/埋まっていない | STOW の POS / TIP.Y |
+| V-1j | 全視点 | 4人の差（剣士がややしっかり、魔法使いが最も縦長、弓師が手足長め、盗賊が小柄で身軽）が読める | ― |
+| V-1k | 全視点 | 構え・両手持ち・弓の引き・杖の位置が破綻しない | ― |
+| V-1l | 全視点 | 頭部装飾のずれ（T-4 の範囲）を記録する | ― |
+
+最終値（頭身 4.5〜5.0 の範囲を含む各寸法）は V-1 を見て Human が決める。AI は決めない。範囲外が必要なら実装せず Human へ戻す
+
+#### Acceptance Criteria（第3版）
+- 4キャラクターとも Panel の HEADS が採用値（初期 5.0）±0.1、STAT が BUILD の stature ±0.01
+- BUILD が4キャラクターの絶対値の表で、相対倍率の式を持たない（構造派生の hipY 整合・stature 整合は検査のみ）。整合検査でコンソールエラーなし
+- 非戦闘の停止で手の Y ≤ ベルト線（4キャラクター）
+- 肩の外幅 / 全高: 剣士 ≤ 0.30、他 ≤ 0.28。腰の外幅 / 全高 ≤ 0.19
+- 骨盤が `B.pelvisH` / `HIP_Y − B.pelvisDrop` 由来
+- 既存 E2E・unit PASS。STANCE / CLIPS / 移動速度 / T-1 の歩行の式に差分なし。Files To Change 以外に差分なし
+
+#### Human Decision（第3版で新規・改訂。Planner は決めない）
+| # | 論点 | 選択肢 | Planner の推奨候補（提案） |
+| --- | --- | --- | --- |
+| DEC-T2-9 | 既存の Decision Record の改訂: D-2（身長維持）/ D-2'（脚と胴へ按分）/ D-7（腕長は男女共通）が、キャラクター別の絶対値 BUILD で前提から変わる | (a) 第3版の表のとおり改訂（全高は剣士 2.54・魔法使い/弓師 2.40 で現状維持、盗賊だけ 2.42 に下げる。腕長はキャラクター別）/ (b) 盗賊も現状の 2.54 を維持 | (a)（盗賊の「小柄寄り」の指示に沿う。カメラ・当たり判定・高さ直値への影響は全高の −5% 以内） |
+| DEC-T2-10 | 影の旅人（`wanderer`、kit 剣士、固定性別 male）の BUILD | (a) 剣士の BUILD を使う / (b) 専用の BUILD を追加 | (a)（新しい設定を足さない） |
+| DEC-T2-11 | 収納ソケット `WEAPON_SOCKET` の調整 | (a) 第3版に含め、浮き/埋まりが出た職だけ絶対値で直す / (b) 別 Work Item | (a)（細身化の直接の帰結） |
+| DEC-T2-12 | 第2版の実装 `cde399d`（`claude/character-vis-001-t2-impl`、未レビュー・未統合）の扱いと第3版の実装ブランチ | (a) 第2版は採用せず残置。第3版は `origin/main` 起点の新しい実装ブランチ（force push をしないため別名）/ (b) 同じブランチ名で再開（履歴に第2版が残る） | (a) |
+
+**決定（ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話）**:
+- DEC-T2-9 = **(a)**: 第3版の初期寸法表を採用。D-2 / D-2' / D-7 を改訂（Decision Record の改訂行）。目的は「華奢で、横幅が狭く、縦にスッとしたシルエット」
+- DEC-T2-10 = **(a)**: 影の旅人は剣士の BUILD を使う。専用 BUILD は作らない
+- DEC-T2-11 = **(a)**: 収納位置の調整を T-2 に含める。対象は細身化で身体から浮く既存武器の収納位置（`WEAPON_SOCKET` の `off`）の補正のみ。武器の形状・寸法・デザイン・攻撃処理は変更しない
+- DEC-T2-12 = **(a)**: 第2版の実装 `cde399d` は採用しない。第3版は `origin/main` `f48247d23cf5652b87e0ce02d2e8527882981d1f` 起点の新しい実装ブランチで開始する
+
+維持する決定: D-1（約5頭身、最終値は V-1 で Human が 4.5〜5.0 で決める）、D-6（骨盤は root 直下、Y だけ HIP_Y 由来）、DEC-T2-7（T-1 を含む main 起点）、DEC-T2-8 = (a)
+
+#### Risks（第3版）
+- P-R13: 細身化で関節球・Pauldron（`B.upper` / `B.forearm` 比で縮む）と断面の見え方が変わる。本格調整は T-3
+- P-R14: 頭部の直値の装飾が小さい頭からずれる（T-4、第2版実装の目視で兜飾りの突出を確認済み）
+- P-R15: 収納位置の絶対値 `off` が細い体から浮く（Step 7）
+- P-R16: 肩が狭くなり、構えで武器・両手が体に近づく（角度は変えないため V-1 で判断）
+- P-R17: 見下ろし固定カメラのため、真横・水平の側面は撮れない（V-1 の制約）
+- P-R18: 盗賊の全高 −5%（DEC-T2-9）で、カメラ注視点・VFX・弾の高さ直値（Task 全体 analysis R-6）との差がわずかに出る
+
+**Rollback**: `BUILD` の表を旧 male / female に戻し、選び方を性別へ戻せば、Step 3〜4 の式は旧座標に一致する（腕 0.32 / 0.30、骨盤 0.34/0.30・0.80）
+
 ### T-3 関節の接続（T-2 完了後、D-6）
 
 | Step | ファイル / 関数 | 変更内容 | 理由 |
@@ -595,6 +783,8 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-1 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T1-review.md` PASS（Reviewed SHA `8f4566c2a17558b5b7e2310fe05b5735b4173470`、同一セッションで兼務）。Task Level は T-2〜T-5 未完了のため PLANNED のまま |
 | 2026-09-25 | T-2 | APPROVED → WAITING_APPROVAL | Planner | T-2 Artifact Handoff（Kind `analysis`、`f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe1…`）H-1〜H-8 PASS。詳細計画（新版）を作成し、新規 Human Decision DEC-T2-7 / DEC-T2-8 を提示。承認の取り直し（§6）。旧版の承認記録は残す。本ファイルは `origin/main`（`0a56e9c`）起点の `claude/character-vis-001-t2-planner` 上で未 commit（Persistence は Human） |
 | 2026-09-25 | T-2 | WAITING_APPROVAL → APPROVED | Planner（人間の指示による記入） | ユーザー（人間）が「T-2新版を承認、DEC-T2-7は(a)、DEC-T2-8は(a)で確定」と指示。Persistence は未許可 |
+| 2026-09-25 | T-2 | APPROVED → BLOCKED | Planner | 記録: 第2版は `claude/character-vis-001-t2-impl` 上で APPROVED → IMPLEMENTING → TESTING → REVIEWING（`cde399d48a0b668e4cb5ac797ea361abff210950`、main 未統合、未レビュー）まで進んだ。Human の方針変更（華奢で縦に伸びたシルエット、キャラクター別の絶対値 BUILD）により Review せず停止（理由: 承認後の計画変更、§6 の承認取り直し） |
+| 2026-09-25 | T-2 | BLOCKED → WAITING_APPROVAL | Planner | 第3版の計画を作成。DEC-T2-9〜12 を提示。本ファイルは `origin/main` `f48247d` 起点の `claude/character-vis-001-t2-replan` 上で未 commit（Persistence は Human） |
 
 ## Implementation Result
 
