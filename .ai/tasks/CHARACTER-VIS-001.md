@@ -33,7 +33,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | ID | Summary | Status | Approval | 依存する DECISION | Analysis |
 | --- | --- | --- | --- | --- | --- |
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
-| T-2 | 体格パラメータ（BUILD の頭身・脚胴比、腕長の BUILD 化、骨盤 Y の HIP_Y 由来化） | WAITING_APPROVAL | [ ]（新版の計画の再承認待ち。旧版の承認記録は下に残す） | D-1, D-2, D-2', D-7（決定済み）、DEC-T2-7 / DEC-T2-8（未決定） | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）。Task 全体の analysis も引き続き有効 |
+| T-2 | 体格パラメータ（BUILD の頭身・脚胴比、腕長の BUILD 化、骨盤 Y の HIP_Y 由来化） | APPROVED | [x]（新版。旧版の承認記録は下に残す） | D-1, D-2, D-2', D-7、DEC-T2-7 = (a)、DEC-T2-8 = (a)（決定済み） | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）。Task 全体の analysis も引き続き有効 |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い） | APPROVED | [x] | D-6（決定済み） | 同上 |
 | T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
@@ -61,12 +61,12 @@ Implementation (T-1): BLOCKED — 承認済み版の Human Persistence と Plan 
 Implementation (T-2): BLOCKED — T-1 と同じ理由に加え、T-1 の DONE 待ち
 
 ### T-2 Human Approval（新版の計画。2026-09-25 Planner。上の旧版の承認は記録として残す）
-- [ ] Approved
-- Approved by / date / where:
-- Scope of approval:（提案）「T-2 詳細計画（新版）」の Step 1〜7、Files To Change #3 / #4（`BUILD`・条件付き `WEAPON_SOCKET`・`motionRigSnapshot()`）/ #5（`buildPlayer()` の腕・骨盤のみ）/ #9 / #10。DEC-T2-7 / DEC-T2-8 の決定を前提とする
+- [x] Approved
+- Approved by / date / where: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で「T-2新版を承認、DEC-T2-7は(a)、DEC-T2-8は(a)で確定」と指示。記入: Planner（人間の指示による）
+- Scope of approval: 「T-2 詳細計画（新版）」の Step 1〜8、Files To Change #3 / #4（`BUILD`・条件付き `WEAPON_SOCKET`・`motionRigSnapshot()`）/ #5（`buildPlayer()` の腕・骨盤のみ）/ #9 / #10。DEC-T2-7 = (a)、DEC-T2-8 = (a)
 - Persistence:（空欄 = 未許可。人間の明示的な指示があった場合だけ `許可（branch: <name>）` と根拠を書く）
 
-Implementation (T-2, 新版): BLOCKED until approval — 新版の計画の Human Approval、DEC-T2-7 / DEC-T2-8 の決定、Persistence、承認済み Task file の Plan Handoff（Kind `plan`）が未了
+Implementation (T-2, 新版): BLOCKED — Persistence と、承認済み Task file の Plan Handoff（Kind `plan`）が未了
 
 ### T-3 Human Approval
 - [x] Approved
@@ -382,6 +382,8 @@ Human が **候補を2〜3値に絞って T-2 を承認**し、T-2 の Step 1 �
 | DEC-T2-7 | T-2 Implementer の起点に T-1 が無い（main 未統合） | (a) T-1（`origin/claude/character-vis-001-t1-impl` `84c52e5`）を main へ統合してから、main 起点で T-2 Implementer ブランチを作る / (b) T-1 を含まない main から始める（T-1 と同じファイルを触るため、後で衝突・T-1 の欠落が起きる） | (a)。T-2 の実装開始条件とする |
 | DEC-T2-8 | どの Work Item にも無い職別の腰・裾の直値（盗賊 0.72 / 0.86 / 0.70、魔法使いのローブ 0.42） | (a) T-2 では触らず、見た目のずれは V-1 で確認し、必要なら T-4 の範囲拡大として別途承認 / (b) T-2 の Files To Change #5 に含めて HIP_Y 由来にする（T-2 の範囲拡大） / (c) 変えない | (a)。承認済み T-2 の範囲を変えないため |
 
+**決定（ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話）**: DEC-T2-7 = **(a)**（T-1 は `main` `59f5b643b50680a4eeb2edba02e3bbc622875fcb` で統合済み。T-2 Implementer ブランチは T-1 を含む `main` 起点）、DEC-T2-8 = **(a)**（T-2 では盗賊の腰装飾・魔法使いのローブを変えない。見た目のずれは V-1 で確認し、必要なら T-4 の範囲拡大として別途承認）
+
 D-2' の按分比・腕長の最終値は、承認済みの Decision Record どおり V-1 を見て Human が決める（新規 Decision ではない）。下の値は Implementer が最初に入れる候補
 
 **実装の開始条件**: 新版の Human Approval（上）/ DEC-T2-7・DEC-T2-8 の決定 / Persistence / 本 Task file の Plan Handoff（Kind `plan`）を H-1〜H-8 で検証 / T-1 DONE（済）
@@ -592,6 +594,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-1 | TESTING → REVIEWING | Implementer | FAIL なし（Test Report）。Branch `claude/character-vis-001-t1-impl` |
 | 2026-09-25 | T-1 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T1-review.md` PASS（Reviewed SHA `8f4566c2a17558b5b7e2310fe05b5735b4173470`、同一セッションで兼務）。Task Level は T-2〜T-5 未完了のため PLANNED のまま |
 | 2026-09-25 | T-2 | APPROVED → WAITING_APPROVAL | Planner | T-2 Artifact Handoff（Kind `analysis`、`f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe1…`）H-1〜H-8 PASS。詳細計画（新版）を作成し、新規 Human Decision DEC-T2-7 / DEC-T2-8 を提示。承認の取り直し（§6）。旧版の承認記録は残す。本ファイルは `origin/main`（`0a56e9c`）起点の `claude/character-vis-001-t2-planner` 上で未 commit（Persistence は Human） |
+| 2026-09-25 | T-2 | WAITING_APPROVAL → APPROVED | Planner（人間の指示による記入） | ユーザー（人間）が「T-2新版を承認、DEC-T2-7は(a)、DEC-T2-8は(a)で確定」と指示。Persistence は未許可 |
 
 ## Implementation Result
 
