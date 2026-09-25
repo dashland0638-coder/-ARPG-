@@ -1204,14 +1204,33 @@
         P.kneeR.rotation.x = Math.max(0, -s) * swing * 1.55 * B.kneeLift + 0.05 + jobKneeBias;
       }
     }
+    /* 非戦闘の移動(CHARACTER-VIS-001 T-1)。腕の基準姿勢と上半身の
+       run 由来項を、構え ↔ 休め(STANCE_RELAXED)で混ぜる。ウェイトは
+       relaxCombatBlend(05-rendering-rig.js)で、stepRelaxedBlends() は
+       この関数の後の applyCombatPose() で進むため **1フレーム前の値**。
+       更新順は戦闘ポーズ全体へ波及するので変えていない。
+       walkW = 1 のとき従来の armLBase / 係数そのもの。 */
+    const walkW = relaxCombatBlend;
+    const armBase = (P.armLBase && P.armRBase && P.elbowLBase && P.elbowRBase)
+      ? locomotionArmBase(
+          { shL:[P.armLBase.x, P.armLBase.y, P.armLBase.z],
+            shR:[P.armRBase.x, P.armRBase.y, P.armRBase.z],
+            elL:P.elbowLBase.x, elR:P.elbowRBase.x },
+          activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job),
+          walkW)
+      : null;
+    const runUpper = run * locomotionMix(RELAXED_WALK_UPPER.run, 1, walkW);
+    P.walkArmW = moving ? walkW : null;   // Motion Panel の読み取り用(motionRigSnapshot)
     // arms counter-swing from the shoulder, elbows keeping a live bend
-    if(!busy && P.armL && P.armR && P.armLBase && P.armRBase){
-      const asw = (P.armSwing !== undefined ? P.armSwing : 1) * 0.62 * B.armSwing;
-      P.armL.rotation.x = P.armLBase.x - s * swing * asw;
-      P.armR.rotation.x = P.armRBase.x + s * swing * asw;
-      if(P.elbowL && P.elbowR && P.elbowLBase && P.elbowRBase){
-        P.elbowL.rotation.x = P.elbowLBase.x - Math.max(0, -s) * swing * 0.5;
-        P.elbowR.rotation.x = P.elbowRBase.x - Math.max(0,  s) * swing * 0.5;
+    if(!busy && P.armL && P.armR && armBase){
+      const stanceSwing = P.armSwing !== undefined ? P.armSwing : 1;
+      const relaxedSwing = RELAXED_WALK_ARM_SWING[state.classDef.key] ?? stanceSwing;
+      const asw = locomotionMix(relaxedSwing, stanceSwing, walkW) * 0.62 * B.armSwing;
+      P.armL.rotation.set(armBase.shL[0] - s * swing * asw, armBase.shL[1], armBase.shL[2]);
+      P.armR.rotation.set(armBase.shR[0] + s * swing * asw, armBase.shR[1], armBase.shR[2]);
+      if(P.elbowL && P.elbowR){
+        P.elbowL.rotation.x = armBase.elL - Math.max(0, -s) * swing * 0.5;
+        P.elbowR.rotation.x = armBase.elR - Math.max(0,  s) * swing * 0.5;
       }
     }
     // waist: the shoulders lead the hips through the stride and the chest
@@ -1230,7 +1249,7 @@
       const jobPitchBias = jobPostureBias(state.job).waistPitch;
       // 低HP時の前傾(職業ごとの上乗せ、LOW_HP_MOTION参照)
       const lowHpPitchBias = lhm ? lhm.pitchBias : 0;
-      const pitch = (moving ? 0.02 + run*0.11 : Math.sin(strideT*0.8)*0.014) + jobPitchBias + lowHpPitchBias;
+      const pitch = (moving ? 0.02 + runUpper*0.11 : Math.sin(strideT*0.8)*0.014) + jobPitchBias + lowHpPitchBias;
       const roll  = s * swing * 0.07 * B.shoulderRoll;
       P.waist.rotation.y += (twist - P.waist.rotation.y) * Math.min(1, dt*15);
       P.waist.rotation.x += (pitch - P.waist.rotation.x) * Math.min(1, dt*8);
@@ -1260,9 +1279,9 @@
       P.legR.rotation.x = -0.22*tuck + 0.10;
       P.kneeL.rotation.x = Math.max(0.05, 1.15*tuck);
       P.kneeR.rotation.x = Math.max(0.05, 0.85*tuck);
-      if(!busy && P.armL && P.armR && P.armLBase && P.armRBase){
-        P.armL.rotation.x = P.armLBase.x - 0.35*tuck*jm.armMul;
-        P.armR.rotation.x = P.armRBase.x - 0.28*tuck*jm.armMul;
+      if(!busy && P.armL && P.armR && armBase){
+        P.armL.rotation.x = armBase.shL[0] - 0.35*tuck*jm.armMul;
+        P.armR.rotation.x = armBase.shR[0] - 0.28*tuck*jm.armMul;
       }
     }
 
@@ -1300,7 +1319,7 @@
     }
 
     // lean into the direction of travel, and out of it when stopping
-    const targetLean = moving ? Math.min(0.13, moveSpeed*0.019) : 0;
+    const targetLean = moving ? Math.min(0.13, moveSpeed*0.019) * locomotionMix(RELAXED_WALK_UPPER.lean, 1, walkW) : 0;
     const rel = state.facing;
     leanX += ((Math.sin(rel)*targetLean) - leanX) * Math.min(1, dt*8);
     leanZ += ((Math.cos(rel)*targetLean) - leanZ) * Math.min(1, dt*8);
@@ -1329,7 +1348,7 @@
       const breath = 1 + (moving ? 0.012 : 0.028) * lowHpBreathMul * Math.sin(strideT * (moving ? 1.0 : 0.62));
       P.torso.scale.set(P.torsoBaseScale.x*breath, P.torsoBaseScale.y, P.torsoBaseScale.z*breath);
     }
-    const bob = (moving ? Math.abs(Math.sin(strideT))*(0.05 + run*0.035)
+    const bob = (moving ? Math.abs(Math.sin(strideT))*(0.05 + runUpper*0.035)
                         : Math.sin(strideT)*0.022) * B.bobAmp;
     // バーサーカーの低い構え(続き): 膝の曲がりだけでなく、全身をわずかに
     // 沈めて姿勢そのものの低さを見せる。state.pos.y(当たり判定・接地)

@@ -25,7 +25,7 @@
    非戦闘側で同じ式を使い回せば、周期の取り方・fps 非依存性・
    チャンネルの意味がそのまま揃う ―― 新しい揺れの仕組みは増やさない。 */
 
-import { combatIdleOffsets, withJobPostureBias } from './combat-stance.js';
+import { combatIdleOffsets, withJobPostureBias, blendPose } from './combat-stance.js';
 
 /* 非戦闘の揺れの振幅。チャンネルの意味は CLASS_IDLE と同じで、
    値だけが別(すべて戦闘時より小さく、そして遅い)。
@@ -140,4 +140,56 @@ export function stepRestBlend(current, target, dt, rate = REST_BLEND_RATE){
   if(!(dt > 0)) return current;
   const k = 1 - Math.exp(-Math.max(0, rate) * dt);
   return current + (target - current) * k;
+}
+
+/* =========================================================
+   非戦闘の移動(CHARACTER-VIS-001 T-1)
+
+   updateLocomotion の腕は、これまで armLBase 等(buildPlayer() が
+   activeStance() = 戦闘の構え から1回だけ複製した値)を基準に振っていた。
+   休め姿勢(STANCE_RELAXED)は移動中ウェイト 0 になるので、非戦闘の移動は
+   「武器を収納した空手のまま、構えの腕で走る」絵になっていた。
+
+   ここで足すのは「移動中の腕の基準を、構え ↔ 休め で混ぜる」1段だけ。
+   新しい歩行システムは作らない:
+     - 補間は blendPose(core/combat-stance.js)をそのまま使う
+     - ウェイトは relaxCombatBlend(05-rendering-rig.js、戦闘態勢を
+       REST_BLEND_RATE で追う既存の係数)を呼び出し側が渡す
+     - 脚の swing・歩調(strideT の 2.7)・移動速度・inputMag には触れない
+   combatW = 1 のとき構えそのもの(= 従来の armLBase)に一致するので、
+   戦闘態勢中の移動は従来どおり。
+   ========================================================= */
+
+/* 移動中の腕の基準姿勢。combatW = 0 で休め、1 で構え。
+   返すのは腕の4チャンネル(shL / shR / elL / elR)だけ ―― 腰・脚は
+   歩行側が書くので、ここで混ぜると歩行の式を上書きしてしまう。 */
+export function locomotionArmBase(combatStance, relaxedStance, combatW){
+  const pick = st => ({ shL: st.shL, shR: st.shR, elL: st.elL, elR: st.elR });
+  const w = Number.isFinite(combatW) ? combatW : 1;
+  const pose = blendPose(pick(relaxedStance), pick(combatStance), w);
+  return { shL: pose.shL, shR: pose.shR, elL: pose.elL, elR: pose.elR };
+}
+
+/* 非戦闘で歩くときの腕振り係数(STANCE.*.armSwing と同じ意味)。
+   構え側の値は武器の握り方で決まっていて(剣士 0.22 = 両手で大剣、
+   魔法使い 0.85 = 片手の杖)、空手で歩くときの振りとしては両極端 ――
+   武器は収納済みなので、非戦闘側は職ごとの差を小さくした「普通に
+   歩く腕」の値にする。上位職は基礎職の値を使う。 */
+export const RELAXED_WALK_ARM_SWING = {
+  warrior: 0.45,
+  rogue:   0.50,
+  mage:    0.40,
+  archer:  0.45,
+};
+
+/* 非戦闘の移動で、上半身の run 由来項に掛ける倍率。
+     run  : 腰の前傾(0.02 + run*0.11)と上下動(0.05 + run*0.035)の run
+     lean : 進行方向への前傾 min(0.13, v*0.019)
+   脚・足音・土煙の run には掛けない(下半身は従来の歩調のまま)。 */
+export const RELAXED_WALK_UPPER = { run: 0.35, lean: 0.5 };
+
+/* 非戦闘値 ↔ 戦闘値 の線形補間。combatW = 1 で戦闘側の値そのもの。 */
+export function locomotionMix(relaxedValue, combatValue, combatW){
+  const k = Number.isFinite(combatW) ? Math.max(0, Math.min(1, combatW)) : 1;
+  return relaxedValue + (combatValue - relaxedValue) * k;
 }

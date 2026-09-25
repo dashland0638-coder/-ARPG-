@@ -386,3 +386,69 @@ for (const [classKey, label] of [['warrior', '剣士'], ['rogue', '盗賊']]) {
     expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
   });
 }
+
+/* CHARACTER-VIS-001 T-1: 非戦闘の移動は休め姿勢(STANCE_RELAXED)基準。
+   パネルの WALK は updateLocomotion が使った腕の基準ウェイト
+   (relaxCombatBlend。0 = 休め, 1 = 構え、停止中は '-')。
+   脚の歩調・移動速度は変えていないので、ここでは腕の基準だけを見る */
+test('剣士(warrior): 非戦闘の移動は休め基準、戦闘態勢の移動は構え基準へ遷移し、態勢が切れると休めへ戻る', async ({ page }) => {
+  test.setTimeout(240_000);
+  const errors = watchErrors(page);
+  await openGame(page);
+  await enterTestMode(page, 'warrior', false);
+  await openMotionPanel(page);
+  expect(await panelValue(page, 'STATE')).toBe('EXPLORATION');
+  // 停止中は '-'
+  expect(await panelValue(page, 'WALK')).toBe('-');
+
+  /* パネルは0.5秒に1回しか書き換えず、敵やカカシに押し戻されると
+     移動判定(0.35m/s)を割って '-' に戻る。キーを押したまま、
+     移動中の値が出るまで待ってから読む */
+  const walkWhile = async (key, ms, read) => {
+    await page.keyboard.down(key);
+    await page.waitForTimeout(ms);
+    let v = null;
+    for (let i = 0; i < 16 && v === null; i++) {
+      v = await read();
+      if (v === null) await page.waitForTimeout(250);
+    }
+    await page.keyboard.up(key);
+    return v;
+  };
+  const walkW = async () => {
+    const v = await panelValue(page, 'WALK');
+    return v === null || v === '-' ? null : Number(v);
+  };
+
+  // 非戦闘で移動中: 腕の基準は休め側(≈0)
+  const explore = await walkWhile('s', 1500, walkW);
+  expect(explore, '非戦闘の移動で WALK が読めない').not.toBeNull();
+  expect(explore).toBeLessThan(0.05);
+  await page.screenshot({ path: 'test-results/motion-warrior-walk-exploration.png' });
+  await page.waitForTimeout(600);
+
+  // 攻撃して戦闘態勢へ。態勢の内側で動くと構え側(≈1)へ寄る
+  await spawnFromArena(page, 'Dummy', 2);
+  await page.keyboard.down('KeyJ');
+  await page.waitForTimeout(2000);
+  await page.keyboard.up('KeyJ');
+  await page.waitForTimeout(300);
+  expect(await panelValue(page, 'SEEN'), 'ATTACK を通っていない').toContain('ATTACK');
+  const combat = await walkWhile('a', 1200, walkW);
+  expect(combat, '戦闘態勢の移動で WALK が読めない').not.toBeNull();
+  expect(combat).toBeGreaterThan(0.8);
+  await page.screenshot({ path: 'test-results/motion-warrior-walk-combat.png' });
+
+  // 敵を消して離れ、態勢が切れたら休めへ戻る
+  await page.click('#arena-toggle-btn');
+  await page.click('#arena-clear-btn');
+  await page.click('#arena-toggle-btn');
+  const faded = await walkUntilStanceFades(page, () => panelValue(page, 'SEEN'));
+  expect(faded, 'SHEATHING を通っていない').toBe(true);
+  await expect.poll(() => panelValue(page, 'STATE'), { timeout: 30_000 }).toBe('EXPLORATION');
+  const after = await walkWhile('s', 2500, walkW);
+  expect(after, '態勢が切れた後の移動で WALK が読めない').not.toBeNull();
+  expect(after).toBeLessThan(0.2);
+
+  expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
+});

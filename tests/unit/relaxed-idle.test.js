@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   CLASS_RELAXED_IDLE, JOB_RELAXED_MUL, relaxedIdleProfile,
   buildRelaxedIdleTarget, stepRestBlend, REST_BLEND_RATE, REST_STOP_RATE,
+  locomotionArmBase, locomotionMix, RELAXED_WALK_ARM_SWING, RELAXED_WALK_UPPER,
 } from '../../src/core/relaxed-idle.js';
 import { idleProfile, blendPose } from '../../src/core/combat-stance.js';
 
@@ -171,4 +172,62 @@ test('実際の重ね方(Combat Idle の結果 → 休め)が構えを壊さな�
   }
   // 戦闘態勢が満タンなら休めは一切効かない
   assert.deepEqual(blendPose(STANCE, relaxed, 0).shL, STANCE.shL);
+});
+
+/* CHARACTER-VIS-001 T-1: 非戦闘の移動。腕の基準は 構え ↔ 休め を
+   relaxCombatBlend(combatW)で混ぜる。combatW = 1 で従来(構え)と一致。 */
+test('移動中の腕の基準(locomotionArmBase)', async t=>{
+  const RELAXED = Object.assign({}, STANCE, {
+    shL:[-0.14, 0.06, 0.20], elL:-0.34, shR:[-0.12,-0.05,-0.18], elR:-0.30,
+  });
+  const ARMS = st => ({ shL: st.shL, shR: st.shR, elL: st.elL, elR: st.elR });
+
+  await t.test('combatW=0 で休め姿勢と一致', ()=>{
+    assert.deepEqual(locomotionArmBase(STANCE, RELAXED, 0), ARMS(RELAXED));
+  });
+
+  await t.test('combatW=1 で構え(従来の armLBase)と一致', ()=>{
+    assert.deepEqual(locomotionArmBase(STANCE, RELAXED, 1), ARMS(STANCE));
+  });
+
+  await t.test('combatW=0.5 で中間。blendPose と同じ結果', ()=>{
+    const got = locomotionArmBase(STANCE, RELAXED, 0.5);
+    assert.deepEqual(got, ARMS(blendPose(ARMS(RELAXED), ARMS(STANCE), 0.5)));
+    assert.ok(Math.abs(got.shL[0] - (STANCE.shL[0] + RELAXED.shL[0]) / 2) < 1e-12);
+    assert.ok(Math.abs(got.elR - (STANCE.elR + RELAXED.elR) / 2) < 1e-12);
+  });
+
+  await t.test('腕以外(腰・脚・武器)は返さない ―― 歩行の式を上書きしない', ()=>{
+    assert.deepEqual(Object.keys(locomotionArmBase(STANCE, RELAXED, 0.3)).sort(),
+      ['elL','elR','shL','shR']);
+  });
+
+  await t.test('範囲外・非数のウェイトでも壊れない', ()=>{
+    assert.deepEqual(locomotionArmBase(STANCE, RELAXED, -1), ARMS(RELAXED));
+    assert.deepEqual(locomotionArmBase(STANCE, RELAXED, 2), ARMS(STANCE));
+    assert.deepEqual(locomotionArmBase(STANCE, RELAXED, NaN), ARMS(STANCE));
+  });
+});
+
+test('非戦闘の移動の係数(locomotionMix / RELAXED_WALK_*)', async t=>{
+  await t.test('combatW=1 で戦闘側の値そのもの、0 で非戦闘側', ()=>{
+    assert.equal(locomotionMix(0.35, 1, 1), 1);
+    assert.equal(locomotionMix(0.35, 1, 0), 0.35);
+    assert.ok(Math.abs(locomotionMix(0.4, 0.8, 0.5) - 0.6) < 1e-12);
+    assert.equal(locomotionMix(0.35, 1, 5), 1);
+    assert.equal(locomotionMix(0.35, 1, -5), 0.35);
+    assert.equal(locomotionMix(0.35, 1, NaN), 1);
+  });
+
+  await t.test('4職すべてに非戦闘の腕振り係数がある', ()=>{
+    for(const cls of ['warrior','rogue','mage','archer']){
+      const v = RELAXED_WALK_ARM_SWING[cls];
+      assert.ok(Number.isFinite(v) && v > 0 && v < 1, `${cls}: ${v}`);
+    }
+  });
+
+  await t.test('上半身の run 由来項は非戦闘で抑える(1 未満)', ()=>{
+    assert.ok(RELAXED_WALK_UPPER.run > 0 && RELAXED_WALK_UPPER.run < 1);
+    assert.ok(RELAXED_WALK_UPPER.lean > 0 && RELAXED_WALK_UPPER.lean < 1);
+  });
 });
