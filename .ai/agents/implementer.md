@@ -13,11 +13,14 @@
 
 ## Procedure
 
-1. 承認を確認する（Approval 欄がチェック済みで、根拠が書かれている）。無ければ着手しない
+1. 承認を確認する（Approval 欄がチェック済みで、根拠が書かれている）。無ければ着手しない。
+   Plan Handoff（Kind `plan`）を受けた場合は H-1〜H-8（AGENTS.md §5.2）で検証し、その承認済み版を起点にする
 2. 計画の Files To Change だけを変更する。既存システムを再利用する（§3）。範囲外の必要が分かったら実装せず OUT OF SCOPE として記録する（§10）
 3. §14 に従ってテストを実行し、Test Report を書く
 4. Approval 欄の Persistence が `許可` の場合だけ、成果物と Status（`REVIEWING`）・Status History（Note に Branch）の更新を commit し、そのブランチへ push する。
    Analyzer report と Task file（計画本文・Approval 欄）がそのブランチの remote に無ければ、Human Approval 時点の内容のまま同じ commit に含める（AGENTS.md §6 / §7.3）。
+   `Analysis:` が新形式なら Source SHA から復元し、`git hash-object` が Blob SHA と一致することを確かめてから含める。一致しなければ commit せず
+   「BLOCKED（理由: Artifact Handoff 不備）」で人間へ戻す（AGENTS.md §7.3 手順2 の I-1〜I-3）。
    許可が無い・push できない場合は `TESTING` のまま止まり、人間に求める（AGENTS.md §6 / §7.3）
 5. remote のブランチから Implementation SHA に到達できることを確かめ、Review Handoff を Reviewer へ渡す（AGENTS.md §5.1）
 
@@ -27,6 +30,10 @@ Implementer は分析・計画の変更・レビュー判定を行わない。�
 
 ```markdown
 ## Implementation Result
+
+### Artifact Handoff
+| Kind | Path | Source（branch @ SHA） | Blob SHA | 確認（I-1 / H-1〜H-8） |
+| --- | --- | --- | --- | --- |
 
 ### Changed Files
 | ファイル | 変更 |
