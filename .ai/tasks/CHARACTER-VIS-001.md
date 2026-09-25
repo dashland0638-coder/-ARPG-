@@ -34,7 +34,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | --- | --- | --- | --- | --- | --- |
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
 | T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | DONE | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
-| T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い） | APPROVED | [x] | D-6（決定済み） | 同上 |
+| T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い）。T-2 第3版基準で再計画 | APPROVED | [x]（再計画版。旧版の承認記録は下に残す） | D-6、DEC-T3-1〜7（決定済み。DEC-T3-3 は Step 0 の Human 目視判断で確定） | .ai/reports/CHARACTER-VIS-001-T3-analysis.md（branch `main` @ `b6858b11d0739b16d08faa549b2868b91f233ab8`、blob `d2fdc21d99b475dadfc49e465083f6882d785d71`） |
 | T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
 | T-6 | 支援AI（ゲスト仲間・デコイ）の見た目の寄せ | 取り下げ（Human 判断、2026-09-25。§7.1 / §7.2） | ― | D-5 = 除外 | 同上 |
@@ -83,6 +83,14 @@ Implementation (T-2, 第3版): BLOCKED — 承認済み Task file の Persistenc
 - Persistence:（空欄 = 未許可）
 
 Implementation (T-3): BLOCKED — T-1 と同じ理由に加え、T-2 の DONE 待ち
+
+### T-3 Human Approval（再計画版。2026-09-25 Planner。上の旧版の承認記録は残す）
+- [x] Approved
+- Approved by / date / where: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で T-3 再計画版の承認と DEC-T3-3〜7 の確定を指示。記入: Planner（人間の指示による）
+- Scope of approval: 「T-3 詳細計画（再計画版）」の Step 0〜4、同節の Files To Change。DEC-T3-3〜7 の決定（同節「Human Decision（確定）」）に従う
+- Persistence:（空欄 = 未許可。実装用ブランチは未指定）
+
+Implementation (T-3, 再計画版): BLOCKED — Persistence（実装用ブランチ）と、承認済み Task file の Plan Handoff（Kind `plan`）が未了
 
 ### T-4 Human Approval
 - [x] Approved
@@ -651,6 +659,139 @@ D-2' の按分比・腕長の最終値は、承認済みの Decision Record ど�
 | 3（D-6 = (a) の場合） | 同 waist 付け替えループ（`:1680-1688`） | 骨盤を waist 配下へ付け替え、waist の hip sway / twist で骨盤も動くようにする | 骨盤と胴の分離 |
 | 4（必要な場合のみ） | `05` プレイヤー専用の `*_SECTION_RATIOS` | 首・肩・肘・膝の断面比率の微調整 | ボス用 Lathe 表には触れない |
 
+### T-3 詳細計画（再計画版、2026-09-25 Planner。上の T-3 計画を置き換える）
+
+**Human Decision（決定済み、ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話）**
+- DEC-T3-1 = **(a)**: T-2 を main へ統合してから、main を起点に T-3 を実装する（T-2 は `main` `b6858b1` に統合済み）
+- DEC-T3-2 = **(a)**: T-2 第3版の細い体格を正式な基準として T-3 を再計画する。承認済みの4つの Step は維持し、範囲は広げない。旧計画に残る T-2 第1版前提の値・表現（例: Step 2「T-2 の肩位置」）を第3版の BUILD 値に合わせて更新する
+
+**入力（Artifact Handoff 検証、AGENTS.md §5.2）** — Planner が git から再計算した結果
+
+| # | 確認 | 実行 | 結果 |
+| --- | --- | --- | --- |
+| H-1 | Source Branch が remote に存在し Source SHA が到達可能 | `git fetch origin main`、`git merge-base --is-ancestor b6858b1… origin/main` → 真（先端と同 SHA） | PASS |
+| H-2 | Source SHA 時点に Path が存在 | `git cat-file -e b6858b1…:.ai/reports/CHARACTER-VIS-001-T3-analysis.md` → 成功 | PASS |
+| H-3 | Source commit の変更が Path の1件だけ | `git diff --name-only b6858b1^ b6858b1` → 当該 Path のみ | PASS |
+| H-4 | Path・1行目が期待値と一致 | Work Item 専用の期待 Path `.ai/reports/CHARACTER-VIS-001-T3-analysis.md`、1行目は `# CHARACTER-VIS-001 Analysis` で始まる | PASS |
+| H-5 | Kind `analysis`、期待 Path | 命名例外の適用なし | PASS |
+| H-6 | Blob SHA が一致 | `git rev-parse b6858b1…:<Path>` → `d2fdc21d99b475dadfc49e465083f6882d785d71` | PASS |
+| H-7 | 同じ `(Task ID, Kind)` の既存記録 | `(CHARACTER-VIS-001 / T-3, analysis)` の記録は無い（Task 全体の `Analysis:` 行は別キー）。新規 | PASS |
+| H-8 | Source SHA の内容だけを読む | `git show b6858b1…:<Path>` で読んだ | PASS |
+
+- 本計画は `origin/main` `b6858b11d0739b16d08faa549b2868b91f233ab8`（T-2 DONE を含む）起点の `claude/character-vis-001-t3-planner` で作成した
+
+#### Objective
+T-2 第3版の細い体格を前提に、膝・肘・肩・骨盤の繋ぎ目を既存の覆い物（関節球・Pauldron）と既存の階層（waist 付け替え）・断面比率の範囲で整え、**Human が目視で許容できる接続**にする。キャラクター性・可愛さ・体のメリハリは扱わない（T-4）
+
+#### Scope / Non-Scope
+| Scope（承認済みの4 Step を維持） | Non-Scope（T-3 では実装しない） |
+| --- | --- |
+| Step 1 膝・肘の関節球の大きさを隣接断面に整合 | 頭部・髪・被り物のキャラクター性、無機質な頭部シルエット（T-4） |
+| Step 2 Pauldron の大きさ調整（方針は DEC-T3-5） | 弓師・盗賊の身体のメリハリ（T-2 Human Decision で T-4） |
+| Step 3 骨盤を waist へ付け替え（条件付き、DEC-T3-3） | 職業固有シルエットのデザイン変更・可愛さ・上位職固有装飾（戦騎士の肩鎧、バーサーカーの毛皮の肩など `applyJobPromotionVisual()`）（T-4） |
+| Step 4 プレイヤー専用断面比率の微調整（必要な場合のみ、DEC-T3-4） | モーション（歩行・構え・CLIPS の式）、武器（背中の大剣・弓の浮きを含む）、マテリアル（T-5）、支援AI（D-5）、BUILD の体格値（T-2 で確定） |
+| Step 0 V-1 の撮影（判断材料。コード変更なし） | 新しい関節システム・skinning・新しい rig |
+
+#### Preconditions
+- T-2 DONE かつ main に統合済み（`b6858b1` に `bc1d0e4` を含む。確認済み）
+- 本再計画版の Human Approval、DEC-T3-3〜7 の決定、Persistence 先ブランチ、承認済み Task file の Plan Handoff（Kind `plan`）を H-1〜H-8 で検証
+- 実装ブランチは `origin/main` 起点（DEC-T3-1）
+
+#### 現在の値（T-2 第3版、Analyzer report の FACT をコードで再確認 ★）
+| 項目 | 式（★コード） | 剣士 | 魔法使い | 弓師 | 盗賊 |
+| --- | --- | --- | --- | --- | --- |
+| 太腿下端 / ふくらはぎ上端の半幅 | ★thigh·0.70 / calf·0.90（`05:429-433, 480-484`） | 0.0665 / 0.0675 | 0.0595 / 0.0594 | 0.0616 / 0.0612 | 0.0595 / 0.0594 |
+| 膝球の半径 | ★`calf·0.98`、scale (1, 0.72, 0.92)（`06:614-616`） | 0.0735 | 0.0647 | 0.0666 | 0.0647 |
+| 上腕下端 / 前腕上端の半幅 | ★upper·0.82 / forearm·1.00（`05:529-533, 581-585`） | 0.0574 / 0.058 | 0.0476 / 0.050 | 0.0492 / 0.052 | 0.0492 / 0.052 |
+| 肘球の半径 | ★`forearm·1.06`（`06:1552`） | 0.0615 | 0.0530 | 0.0551 | 0.0551 |
+| Pauldron 半径 / 高さ | ★`upper·1.52·s` / `upper·2.1·s`、盗賊 s = 0.6（`06:1587-1592`） | 0.106 / 0.147 | 0.088 / 0.122 | 0.091 / 0.126 | 0.055 / 0.076 |
+| Pauldron 込みの肩の外幅 / 全高 | 2·(chest + shoulderOut + Pauldron 半径) / stature | 0.32 | 0.28 | 0.29 | 0.26 |
+| 骨盤の上端 / 胴の下端（ベルト線） | ★`HIP_Y − pelvisDrop + pelvisH/2` / `HIP_Y`（`06:664-667`） | 1.080 / 1.200 | 1.035 / 1.140 | 1.065 / 1.170 | 1.030 / 1.140 |
+| 骨盤の親 | ★root 直下（waist 付け替えループの除外 `06:1705`） | | | | |
+
+- 上表は計算値。**実機での見え方（膝球・肘球の出っ張り、肩の接続、骨盤と胴の分離）は未確認**（Analyzer report でも visual confirmation unavailable）。Step 0 で撮影し Human が見る
+
+#### Implementation Steps
+| Step | ファイル / 関数 | 内容 | 条件 |
+| --- | --- | --- | --- |
+| 0 | V-1 撮影（コード変更なし。リポジトリ外に保存） | 変更前の基準として、4キャラクター（+ 上位職4種・影の旅人は回帰確認用）× 停止・非戦闘移動（歩行中）・戦闘態勢 × 正面・斜め45°・側面相当（T-2 と同じくキャラクターの向きを変えて撮る）。膝・肘・肩・骨盤の拡大も撮る。**骨盤と胴の分離は歩行中（特に hip sway の大きい魔法使い・弓師）で撮る** | 常に行う。DEC-T3-3 の判断材料 |
+| 1 | `06` `buildPlayer()` 膝球（`:614-616`）・肘球（`:1552`） | 半径を「隣り合う2つの断面端の大きい方 × k」に置き換える（膝: `max(thigh·0.70, calf·0.90)·k`、肘: `max(upper·0.82, forearm·1.00)·k`）。初期値 **k = 1.02**（現状は膝 1.09、肘 1.06 倍相当）。膝球の scale (1, 0.72, 0.92) と材質は変えない。k の最終値は V-1 で Human が確認 | 常に行う |
+| 2 | `06` `buildPlayer()` Pauldron（`:1587-1592`）。(c) の場合は `05` `BUILD` に項目追加 | DEC-T3-5 の決定どおり: (a) 現状維持 / (b) 全職共通の係数へ（案: 半径 upper·1.30、高さ upper·1.80、盗賊の 0.6 は維持）/ (c) キャラクター別の絶対値（`pauldronR` / `pauldronH` を BUILD に追加）。戦騎士は転身時に基礎の Pauldron を隠すので影響しない | DEC-T3-5 |
+| 3 | `06` waist 付け替えループ（`:1702-1710`） | 除外リストから `pelvis` を外し、waist 配下にする（ループの `position.y -= HIP_Y` がそのまま効く）。歩行・回避・戦闘の式は変えない | DEC-T3-3 が「付け替える」の場合だけ |
+| 4 | `05` プレイヤー専用 `*_SECTION_RATIOS`（`TORSO` / `PELVIS` / `THIGH` / `CALF` / `UPPERARM` / `FOREARM`） | 関節に接する断面の比率だけを微調整（膝: Thigh `knee` / Calf `upperCalf`、肘: UpperArm `elbow` / Forearm `upperForearm`、手首: Forearm `wrist`、ベルト側: Torso `waist` / Pelvis `upperWaist`）。中間断面（`midThigh` / `midCalf` / `chest` など、体のメリハリに当たる部分）は変えない。ボス用 `LIMB/TORSO/HEAD_PROFILE`、共有の `PAULDRON_PROFILE` / `CUFF_PROFILE` の表は変えない | Step 1〜3 の後の V-1 で Human が必要と判断し、かつ DEC-T3-4 が許す範囲だけ |
+
+- すべて既存の覆い物・`limbGeo`・`makeCharacter*()`・比率表・付け替えループの再利用。新しい関節システム・skinning・rig は導入しない
+
+#### Files To Change（再計画版）
+| ファイル | 内容 | 条件 |
+| --- | --- | --- |
+| `src/legacy/parts/06-player-enemy.js` | `buildPlayer()` の膝球・肘球（Step 1）、Pauldron（Step 2）、waist 付け替えの除外（Step 3） | Step 2・3 は DEC 次第 |
+| `src/legacy/parts/05-rendering-rig.js` | プレイヤー専用 `*_SECTION_RATIOS`（Step 4）、`BUILD` の Pauldron 項目（DEC-T3-5 = (c) の場合のみ） | 条件付き |
+| `tests/unit/lowpoly-primitives.test.js` | Step 4 で比率を変えた場合の複製の同期、膝球の検査値（旧 male の直値）の更新 | DEC-T3-6（**承認済み旧 T-3 の Files To Change に無い**） |
+| `src/core/motion-preview.js` / `tests/unit/motion-preview.test.js` / `tests/character-motion.spec.js` | 関節の値の Panel 読み取り行と E2E | DEC-T3-6（**旧 T-3 に無い**） |
+| Task file | Implementation Result・Status・Status History | 常に |
+
+変更しない: `13-update-loop.js`（T-1 の歩行の式）、`STANCE` / `STANCE_ALT` / `CLIPS`、`BUILD` の体格値（T-2）、`WEAPON_SOCKET`、`applyJobPromotionVisual()`、マテリアル、頭部・髪・被り物、支援AI（`08` / `11`）、`concat-plugin.js`、`playwright.config.js`
+
+#### Test Plan（再計画版）
+| 区分 | 対象 | 確認 |
+| --- | --- | --- |
+| Build | `npm run build` | 通る |
+| Unit | `npm run test:unit` | 全 PASS。Step 4 を行った場合は `lowpoly-primitives.test.js` の比率の複製が 05 と一致していること（DEC-T3-6） |
+| E2E 既存 | `character-motion.spec.js`（T-1 E-1、T-2 E-2 を含む）、`weapon-stow.spec.js`、`battle-knight-visual.spec.js`、`base-class-identity.spec.js`、`base-class-comparison.spec.js`、`guest-companion.spec.js` | 構築・状態遷移・T-1 / T-2 の AC の回帰。Step 3 を行った場合も T-2 E-2（頭身・手とベルト・幅の比）が不変 |
+| E2E 追加（任意） | 関節の Panel 読み取り（膝球 / 肘球の断面比、骨盤の親） | DEC-T3-6 = 含める場合だけ |
+| Full Regression | `npm test` 全体 | 推奨。標準の Playwright 設定は Chromium revision 不一致の環境があり、その場合はリポジトリ外の回避策、不可なら NOT_RUN |
+| 目視 V-1（T-3） | 下の V-1 | **Human が確認（Acceptance の中心）** |
+
+**V-1（T-3）**: Step 0 と同じ条件で、実装後に撮り直して変更前と並べる
+| # | 確認（Human） |
+| --- | --- |
+| V-1-T3a | 膝: 太腿とふくらはぎの繋ぎ目に「玉が挟まった」出っ張りが無い（停止・歩行で膝が曲がった時も） |
+| V-1-T3b | 肘: 上腕と前腕の繋ぎ目に球の出っ張りが目立たない（構え・腕振り時も） |
+| V-1-T3c | 肩: 胴と上腕が Pauldron で自然に繋がり、Pauldron が細い体に対して大きすぎ / 小さすぎに見えない |
+| V-1-T3d | 骨盤: 停止・歩行中に骨盤と胴が分離して見えない（魔法使い・弓師の歩行を含む） |
+| V-1-T3e | 4キャラクターと上位職で、関節の見え方に破綻が無い（戦騎士は基礎の Pauldron を隠す経路） |
+| V-1-T3f | T-2 の V-1（細身・縦長）と T-4 引き継ぎ事項を悪化させていない |
+
+#### Acceptance Criteria（再計画版）
+- **主: 膝・肘・肩・骨盤の接続を、Human が V-1（T-3）で目視で許容する**（数値の一致だけでは合格としない）
+- 関節球の半径が隣接断面から決まる（Step 1 の式。k は Human 確認値）
+- DEC-T3-3〜7 の決定どおりに Step 2〜4 が実施 / 不実施されている
+- 既存の unit・build・関連 E2E が PASS（T-1 E-1、T-2 E-2 を含む）。`STANCE` / `CLIPS` / 移動速度 / T-1 の歩行の式 / T-2 の BUILD 体格値に差分なし。Files To Change 以外に差分なし
+- T-4 の範囲（頭部・メリハリ・職業固有シルエット・上位職装飾）を実装していない
+
+#### Risks（再計画版）
+| # | リスク |
+| --- | --- |
+| P-R19 | 関節の見え方は数値で決めにくく、Human の目視に依存する（見下ろし固定カメラで真横の水平視点は撮れない） |
+| P-R20 | Step 3 で骨盤が waist の twist / sway / 回避の回転に一緒に動くようになる。脚の付け根との見え方が変わる |
+| P-R21 | Step 4 と T-4 の「体のメリハリ」の境界（DEC-T3-4）。中間断面に触れると T-4 の範囲に入る |
+| P-R22 | Pauldron を小さくすると肩の繋ぎ目（胴の肩断面と上腕の重なり 0.04〜0.05）が見えやすくなる可能性 |
+| P-R23 | Step 4 で比率を変えると `lowpoly-primitives.test.js` の複製が古くなる（自動では失敗しない） |
+| P-R24 | 共有の `PAULDRON_PROFILE`（ボスも使用）を誤って変えるとボスへ波及。係数は呼び出し側で扱う |
+
+#### Human Decision Required（DEC-T3-3〜7。Planner は決めない）
+| # | 論点 | 判断の要否 | 選択肢 | 影響 | Planner の推奨候補（提案） |
+| --- | --- | --- | --- | --- | --- |
+| DEC-T3-3 | 骨盤を waist 追従へ変更するか（Step 3）。実機確認を条件にするか | **必要**（D-6 で「Human が V-1 で分離が目立つと判断した場合だけ」と既に定めている。現時点で Human の判断は無い） | (a) Step 0 の歩行中の撮影を Human が見て決める（D-6 どおり）/ (b) 撮影なしで付け替える / (c) 付け替えない | (b) は D-6 の条件を満たさない。付け替えると骨盤も腰の動きで揺れる | (a) |
+| DEC-T3-4 | Step 4（断面比率）と T-4 の身体のメリハリの境界 | **必要**（T-2 Human Decision で「メリハリは T-4」が確定しており、比率の変更はその境界に触れる） | (a) T-3 は関節に接する断面（膝・肘・手首・ベルト側）だけ、中間断面は T-4 / (b) 断面比率は T-3 で一切触れず T-4 へ / (c) メリハリも T-3 で扱う（T-2 の Human Decision の変更） | (a) Step 4 が残る。(b) Step 4 は不実施になり T-3 は Step 1〜3 のみ。(c) 範囲拡張 | (a)（Step 4 は「必要な場合のみ」のまま） |
+| DEC-T3-5 | Pauldron のサイズ（Step 2） | **必要**（承認済み Step 2 の「T-2 の肩位置」は第1版前提で、第3版での方針が未決） | (a) 現状維持（upper·1.52 / 2.1）/ (b) 全職共通の係数で縮小（案 1.30 / 1.80、盗賊 0.6 維持）/ (c) キャラクター別の絶対値を BUILD に追加 | (a) 肩の外幅 / 全高 0.26〜0.32。(b) 0.25〜0.31。(c) BUILD の項目追加（05 の変更範囲が増える） | (b) を初期値とし、V-1 で Human が確認。職業別が必要なら (c) |
+| DEC-T3-6 | テストの範囲 | **必要**（旧 T-3 の Files To Change にテストが無い） | (a) Step 4 を行う場合だけ `lowpoly-primitives.test.js` の複製を同期（膝球の検査値も第3版へ）。関節の Panel 読み取りは入れない / (b) (a) + 関節の Panel 読み取り行と E2E / (c) テストは変更しない | (c) は Step 4 実施時に複製が古くなる（P-R23） | (a)（AC は目視が中心のため、Panel の数値検査は必須にしない） |
+| DEC-T3-7 | 籠手・脛当ての長さの直値（0.11 / 0.13）を T-3 に含めるか | **必要**（承認済みの4 Step に無い。含めると範囲拡張） | (a) 含めない（T-3 の範囲を維持）/ (b) Step 1 の関節整合に付随して BUILD 由来にする | (b) は範囲拡張 | (a) |
+
+**Human Decision（確定、ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話。記入: Planner（人間の指示による））**
+- DEC-T3-3 = **(a)**: Step 0 の歩行中の画像を Human が確認してから、骨盤を waist 追従へ変更するか決める。**現時点では「追従する」とは決定しない**。Step 0 で骨盤と胴の分離が目立つ → 骨盤を waist 配下へ付け替える（Step 3 実施）／分離が許容範囲 → 現状維持（Step 3 不実施）。判断は Human の目視
+- DEC-T3-4 = **(a)**: T-3 は関節に接する断面だけを扱う（膝、肘、手首側、ベルト / 骨盤側など関節の接続に直接関係する断面）。中間断面の体格・メリハリは T-4。T-2 の Human Decision「弓師・盗賊の体のメリハリは T-4 で扱う」は変更しない
+- DEC-T3-5 = **(b)**: Pauldron は全職共通の係数で少し縮小する。半径 = upper × 1.30、高さ = upper × 1.80、盗賊の 0.6 倍は維持。Pauldron 込みの肩の外幅は全高比で概ね 0.26〜0.32 → 0.25〜0.31。T-3 の関節接続の調整として扱い、職業ごとのキャラクターデザイン変更にはしない
+- DEC-T3-6 = **(a)**: Step 4 を実施する場合のみ、`tests/unit/lowpoly-primitives.test.js` の断面比率の複製を実装値と同期する。関節の値を Motion Panel へ追加する変更は行わない
+- DEC-T3-7 = **(a)**: 籠手・脛当ての長さの直値（0.11 / 0.13 等）は T-3 に含めず、変更しない
+
+これにより Files To Change（再計画版）は次に確定する: `src/legacy/parts/06-player-enemy.js`（Step 1・2、Step 3 は DEC-T3-3 の判断次第）/ `src/legacy/parts/05-rendering-rig.js`（Step 4 を実施する場合のプレイヤー専用 `*_SECTION_RATIOS` のみ。DEC-T3-5 = (b) のため BUILD への項目追加はしない）/ `tests/unit/lowpoly-primitives.test.js`（Step 4 を実施する場合のみ）/ Task file。`src/core/motion-preview.js`・`tests/unit/motion-preview.test.js`・`tests/character-motion.spec.js` は変更しない（DEC-T3-6 = (a)）
+
+#### Artifact Handoff（本計画の引き渡し）
+- 本 Task file は Planner ブランチ `claude/character-vis-001-t3-planner`（起点 `origin/main` `b6858b1`）上で未 commit。Planner は commit / push しない
+- Human が1ファイル commit で Persistence し、Human Approval（再計画版）と DEC-T3-3〜7 の決定、Persistence 先を記入した承認済み版で Plan Handoff（Kind `plan`、`CHARACTER-VIS-001 / T-3`）を Implementer へ渡す
+
 ### T-4 頭部周り・装飾の直値再調整（T-2 完了後、D-1 / D-8）
 
 | Step | ファイル / 関数 | 変更内容 | 理由 |
@@ -813,6 +954,8 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-2 | IMPLEMENTING → TESTING | Implementer | 実装 commit `2044a6e7eadf27f1cbfd4f705e7f0eedc373fc3f`。unit / build / 関連 E2E、V-1 用スクリーンショット |
 | 2026-09-25 | T-2 | TESTING → REVIEWING | Implementer | FAIL なし。V-1 Human 確認の Decision（5.0頭身維持、キャラクター性は T-4）。Branch `claude/character-vis-001-t2-v3-impl` |
 | 2026-09-25 | T-2 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T2-review.md` PASS（Reviewed SHA `fa3436449a863da0bb56c014edbde33b99832e79`、同一セッションで兼務）。Task Level は T-3〜T-5 未完了のため PLANNED のまま |
+| 2026-09-25 | T-3 | APPROVED → WAITING_APPROVAL | Planner | T-3 Artifact Handoff（Kind `analysis`、`b6858b11d0739b16d08faa549b2868b91f233ab8`、blob `d2fdc21d…`）H-1〜H-8 PASS。DEC-T3-1 / DEC-T3-2 = (a)（Human）により T-2 第3版基準で再計画。DEC-T3-3〜7 を提示。承認の取り直し（§6）。旧版の承認記録は残す。本ファイルは `origin/main` `b6858b1` 起点の `claude/character-vis-001-t3-planner` 上で未 commit |
+| 2026-09-25 | T-3 | WAITING_APPROVAL → APPROVED | Planner（人間の指示による記入） | ユーザー（人間）が T-3 再計画版を承認し、DEC-T3-3〜7 を確定（DEC-T3-3 は Step 0 の Human 目視で Step 3 の実施可否を決める）。実装用 Persistence は未許可 |
 
 ## Implementation Result
 
