@@ -35,7 +35,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
 | T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | DONE | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い）。T-2 第3版基準で再計画 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-6、DEC-T3-1〜7（決定済み。DEC-T3-3 は Step 0 の Human 目視判断で確定） | .ai/reports/CHARACTER-VIS-001-T3-analysis.md（branch `main` @ `b6858b11d0739b16d08faa549b2868b91f233ab8`、blob `d2fdc21d99b475dadfc49e465083f6882d785d71`） |
-| T-4 | キャラクター性の再設計（頭部・顔の見せ方・髪・被り物・服装 Geometry・身体シルエット・職業固有シルエット・上位職の形状）。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）を含む再計画版 | WAITING_APPROVAL | [ ]（再計画版の承認待ち。旧版の承認記録は下に残す） | D-1, D-8、HDR-T4-1〜15（決定済み。デザインは初期案、V-1 で形状調整） | .ai/reports/CHARACTER-VIS-001-T4-analysis.md（branch `claude/character-vis-001-t4-analysis` @ `6ea91565d255849aaee1134666da04256543f00c`、blob `f15713384131f85bc9ee57c8219d2e836b24dd0c`） |
+| T-4 | キャラクター性の再設計（頭部・顔の見せ方・髪・被り物・服装 Geometry・身体シルエット・職業固有シルエット・上位職の形状）。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）を含む再計画版 | APPROVED | [x]（再計画版。旧版の承認記録は下に残す） | D-1, D-8、HDR-T4-1〜15（決定済み。デザインは初期案、V-1 で形状調整） | .ai/reports/CHARACTER-VIS-001-T4-analysis.md（branch `claude/character-vis-001-t4-analysis` @ `6ea91565d255849aaee1134666da04256543f00c`、blob `f15713384131f85bc9ee57c8219d2e836b24dd0c`） |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
 | T-6 | 支援AI（ゲスト仲間・デコイ）の見た目の寄せ | 取り下げ（Human 判断、2026-09-25。§7.1 / §7.2） | ― | D-5 = 除外 | 同上 |
 
@@ -101,12 +101,14 @@ Implementation (T-3, 再計画版): BLOCKED — Persistence（実装用ブラン
 Implementation (T-4): BLOCKED — T-1 と同じ理由に加え、T-3 の DONE 待ち
 
 ### T-4 Human Approval（再計画版。2026-09-25 Planner。上の旧版の承認記録は残す）
-- [ ] Approved
-- Approved by / date / where:
-- Scope of approval:（提案）「T-4 詳細計画（再計画版）」の Step 0〜8（Step 5 は不実施）、同節の Files To Change（確定版）。デザインは「Human Decision（確定、デザイン）」の HDR-T4-2〜15 に従う
-- Persistence:（空欄 = 未許可）
+- [x] Approved
+- Approved by / date / where: ユーザー（人間、Decision Maker: Human）/ 2026-09-25 / Claude Code セッションの会話で「T-4 再計画版を正式に承認します。承認範囲は Task file に記載された T-4 全体」と指示。記入: Planner（人間の指示による）
+- Approval 対象: T-4 再計画版。Approved Task Blob: `190976e7f1938799d95ffa6a697600398ca653db`（Persistence commit `672232ffdbdd655cb8efe49343b0e8e53188d457`、branch `claude/character-vis-001-t4-planner`）
+- Scope of approval: 「T-4 詳細計画（再計画版）」全体。Step 0〜8（Step 5 は不実施）、同節の Files To Change（確定版）、HDR-T4-1〜15 の Human Decision（T-4 を分割しない、弓師 A を先行パイロット、弓師 A / 剣士 A / 魔法使い C / 盗賊 A、F-b、H-a、S-a、P-a、W-a、武器収納状態の識別を Acceptance に含める、武器収納の補正は収納状態の `off` のみ、衣服構築 E2E を必須、眉・口などの新しい顔の造形を追加しない）、T-4 / T-5 の境界、V-1 をパイロット時と全体完成時の2回、最終的な可愛さ・キャラクター性は Human の目視で判断
+- 承認条件（変更禁止）: BUILD の体格値 / T-1 の歩行 / STANCE / CLIPS / T-3 の関節球 / T-3 の Pauldron / 骨盤 / Material の値 / 輪郭線 / 敵 / ボス / 支援AI / 共有の Lathe 表 / `13-update-loop.js`。新しい衣服システムは作らず、既存の Loft と既存の可動部への取り付け方式を使う
+- Persistence:（空欄 = 未許可。実装用ブランチは未指定）
 
-Implementation (T-4, 再計画版): BLOCKED until approval — 再計画版の Human Approval、Persistence、Plan Handoff（Kind `plan`）が未了（デザインの選択 HDR-T4-2〜15 は決定済み）
+Implementation (T-4, 再計画版): BLOCKED — 実装用 Persistence と、承認済み Task file の Plan Handoff（Kind `plan`）が未了
 
 ### T-5 Human Approval
 - [x] Approved
@@ -1191,6 +1193,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-3 | TESTING → REVIEWING | Implementer | FAIL なし。Branch `claude/character-vis-001-t3-impl` |
 | 2026-09-25 | T-3 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T3-review.md` PASS（Reviewed SHA `1cbf31534d6d3f98026cc7c6f829a70af9096b13`、同一セッションで兼務）。主 Acceptance は Human が変更後の画像で許容・k = 1.02 確定。Task Level は T-4 / T-5 未完了のため PLANNED のまま |
 | 2026-09-25 | T-4 | APPROVED → WAITING_APPROVAL | Planner | T-4 Artifact Handoff（Kind `analysis`、`6ea91565d255849aaee1134666da04256543f00c`、blob `f1571338…`）H-1〜H-8 PASS。HDR-T4-1 / HDR-T4-8（Human）により範囲を再計画（キャラクター性・服装・シルエットまで）。デザイン候補と HDR-T4-2〜7・9〜15 を提示。承認の取り直し（§6）。旧版の承認記録は残す。本ファイルは `origin/main` `f0d68ca` 起点の `claude/character-vis-001-t4-planner` 上で未 commit |
+| 2026-09-25 | T-4 | WAITING_APPROVAL → APPROVED | Planner（人間の指示による記入） | ユーザー（人間）が T-4 再計画版（Approved Task Blob `190976e7…`）を正式に承認。実装用 Persistence は未許可 |
 
 ## Implementation Result
 
