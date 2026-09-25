@@ -25,6 +25,7 @@ import {
   setFallbackMeleeKind, fallbackMeleeKind,
   meleeProfile, meleeAttackPlan, meleeHeavyCooldown, meleeAttackChoice, meleeWindupProgress,
   enemyProfile, enemyVariant, isProfileMeleeWindup,
+  meleeTelegraphShape, groundFanRotationZ,
 } from '../../src/core/enemy-profiles.js';
 import { punishWindowState } from '../../src/core/punish-window.js';
 import { enemyTier, TIER, bigFlinchInterrupt } from '../../src/core/enemy-tier.js';
@@ -280,4 +281,92 @@ test('defineEnemyProfile / defineMeleeProfile は登録した spec を返す', (
                   heavyCooldown:1, attackCooldown:1, detectRange:1, approachFactor:1 };
   assert.equal(defineMeleeProfile('spec:tmpm', mspec), mspec);
   assert.equal(meleeProfile('spec:tmpm'), mspec);
+});
+
+/* ---- 予兆中の床の弧(ENEMY-ATTACK-VIS-001) ------------------------------
+   表示は判定と同じ形・同じ向きでなければ意味が無い。形は meleeAttackPlan
+   と一致すること、向きは判定の規約 atan2(x, z)(0 = +Z)で servantFacing と
+   一致することをここで固定する。 */
+
+test('床の弧の形: heavy は meleeAttackPlan の reach / halfAngle と一致する(U-1)', () => {
+  const heavy = [
+    ['servant', 'sweep', 3.30, 1.60],
+    ['warden',  'sweep', 3.90, 1.85],
+    ['butler',  'lash',  3.60, 1.25],
+  ];
+  for (const [kind, attack, reach, half] of heavy) {
+    const shape = meleeTelegraphShape(kind, attack, 1);
+    const plan = meleeAttackPlan(kind, attack, 1);
+    assert.ok(shape, `${kind} ${attack} に形が無い`);
+    assert.equal(shape.reach, plan.reach);
+    assert.equal(shape.halfAngle, plan.halfAngle);
+    assert.equal(shape.reach, reach);       // 外周 = reach ちょうど(D-3)
+    assert.equal(shape.halfAngle, half);
+  }
+  // light の判定値そのものは変わっていない(表示が無いだけ)
+  assert.equal(meleeAttackPlan('servant', 'strike', 1).reach, 2.05);
+  assert.equal(meleeAttackPlan('warden', 'slam', 1).reach, 2.95);
+  assert.equal(meleeAttackPlan('butler', 'candle', 1).reach, 2.55);
+});
+
+test('床の弧の形: 執事 Phase 2 の lash はフェーズ差分込みの値になる(U-2)', () => {
+  const shape = meleeTelegraphShape('butler', 'lash', 2);
+  const plan = meleeAttackPlan('butler', 'lash', 2);
+  assert.equal(shape.reach, 4.60);
+  assert.equal(shape.halfAngle, 1.35);
+  assert.equal(shape.reach, plan.reach);
+  assert.equal(shape.halfAngle, plan.halfAngle);
+});
+
+test('床の弧は heavy だけ。light には出さない(U-3、D-2)', () => {
+  for (const [kind, light] of [['servant', 'strike'], ['warden', 'slam'], ['butler', 'candle']]) {
+    assert.equal(meleeTelegraphShape(kind, light, 1), null, `${kind} ${light} に形がある`);
+    assert.equal(meleeTelegraphShape(kind, light, 2), null, `${kind} ${light}(phase 2) に形がある`);
+  }
+  // 未知の攻撃キーは light へ落ちるので、表示も出ない
+  assert.equal(meleeTelegraphShape('servant', 'nope', 1), null);
+  // ガードブレイクは heavy の plan で振る(07-ai-combat.js)ので heavy と同じ形
+  assert.deepEqual(meleeTelegraphShape('warden', meleeProfile('warden').heavy, 1),
+                   meleeTelegraphShape('warden', 'sweep', 1));
+});
+
+/* rotation.x = -π/2 → rotation.z = ρ(three の Euler 'XYZ' = Rx·Ry·Rz)を
+   局所角 θ の点へ数値で適用し、その方位を atan2(x, z) で読む */
+function fanBearing(rhoZ, theta) {
+  const lx = Math.cos(theta), ly = Math.sin(theta);
+  const x1 = lx * Math.cos(rhoZ) - ly * Math.sin(rhoZ);   // Rz
+  const y1 = lx * Math.sin(rhoZ) + ly * Math.cos(rhoZ);
+  const a = -Math.PI / 2;                                  // Rx(-π/2)
+  const x = x1, z = y1 * Math.sin(a);
+  return Math.atan2(x, z);
+}
+function wrapDiff(a, b) {
+  let d = a - b;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+const FAN_FACINGS = [0, Math.PI / 2, -Math.PI / 2, Math.PI, 0.70, 2.50, -1.20];
+
+test('床の弧の向き: 中心の方位が servantFacing と一致する(U-4)', () => {
+  for (const h of [1.00, 1.25, 1.35, 1.60, 1.85]) {
+    for (const f of FAN_FACINGS) {
+      const center = fanBearing(groundFanRotationZ(f, h), h);
+      assert.ok(Math.abs(wrapDiff(center, f)) < 1e-9, `f=${f} h=${h} → 中心 ${center}`);
+    }
+  }
+});
+
+test('床の弧の向き: 両端の方位が facing ± halfAngle になる(U-5)', () => {
+  for (const h of [1.00, 1.60, 1.85]) {
+    for (const f of FAN_FACINGS) {
+      const rho = groundFanRotationZ(f, h);
+      const ends = [fanBearing(rho, 0), fanBearing(rho, 2 * h)];
+      const want = [f - h, f + h];
+      for (const w of want) {
+        assert.ok(ends.some(e => Math.abs(wrapDiff(e, w)) < 1e-9),
+          `f=${f} h=${h} → 端 ${ends} に ${w} が無い`);
+      }
+    }
+  }
 });

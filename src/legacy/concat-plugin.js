@@ -206,6 +206,7 @@ import {
    既存の戦闘基盤(体幹/パニッシュ窓/Break/Execution)には一切触れていない */
 import {
   meleeProfile, meleeAttackChoice, meleeAttackPlan, meleeWindupProgress, meleeHeavyCooldown,
+  meleeTelegraphShape, groundFanRotationZ, isProfileMeleeWindup,
 } from '../core/enemy-profiles.js';
 /* 森の洋館の敵(Phase 5-A〜5-D)。上の基盤へ洋館の数値を登録し、
    洋館固有のもの(執事のフェーズ・影移動、館の主の専用AI)を足す */

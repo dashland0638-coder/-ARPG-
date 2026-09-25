@@ -801,6 +801,7 @@
       const en = enemies[i];
       if(en.arenaSpawned){
         scene.remove(en.group);
+        if(en.meleeTelegraphMesh) scene.remove(en.meleeTelegraphMesh);   // 床の予兆の弧は scene 直下
         enemies.splice(i, 1);
       }
     }
@@ -1279,6 +1280,56 @@
     else if(M.mansionKind === 'hound')  poseManorHound(en, M, t, dt);
     else if(M.mansionKind === 'warden') poseKeyringWarden(en, M, t, dt);
     else if(M.mansionKind === 'butler') poseBlackButler(en, M, t, dt);
+
+    updateMansionMeleeTelegraph(en, M);
+  }
+
+  /* 近接3種(使用人/番人/執事)の大振りの予兆中だけ、床に外周の弧を置く
+     (ENEMY-ATTACK-VIS-001)。見た目だけの表示で、判定・AI・state へは
+     何も書かない ―― 形は判定と同じ meleeAttackPlan(meleeTelegraphShape)、
+     向きは servantFacing、原点は group.position を読むだけ。
+
+     ・light の予兆には出さない(meleeTelegraphShape が null)
+     ・壁越しで見えていない敵(visLevel が visible 以外)には出さない
+     ・en.group の子にしない ―― 番人/執事のスケールが掛かって外周が
+       reach とずれるので、scene 直下に個体ごと1つを置いて使い回す
+     ・ON/OFF は毎フレーム状態を読んで決めるので、予兆の中断経路ごとの
+       後始末は要らない(死亡・Arena clear・世界切り替えだけ別途外す)
+     ・startArcSweep は判定と一体なので呼ばない。不透明度は予兆中一定 */
+  const MANSION_MELEE_TELEGRAPH_KINDS = { servant:true, warden:true, butler:true };
+  const MANSION_MELEE_TELEGRAPH_WIDTH = 0.14;   // 弧の太さ(見た目だけ。判定には使わない)
+  function updateMansionMeleeTelegraph(en, M){
+    const kind = en.meleeKind || 'servant';
+    const shape = (MANSION_MELEE_TELEGRAPH_KINDS[M.mansionKind] && !en.dead &&
+                   isProfileMeleeWindup(en) && en.visLevel === 'visible' && en.servantFacing)
+      ? meleeTelegraphShape(kind, en.servantAttack, en.butlerPhase || 1) : null;
+    let m = en.meleeTelegraphMesh;
+    if(!shape){
+      if(m) m.visible = false;
+      return;
+    }
+    if(!m){
+      const mat = new THREE.MeshBasicMaterial({color:0xff5a3c, transparent:true, opacity:0.55,
+                    side:THREE.DoubleSide, depthWrite:false});
+      m = new THREE.Mesh(new THREE.BufferGeometry(), mat);
+      m.rotation.x = -Math.PI/2;
+      m.userData.reach = -1; m.userData.halfAngle = -1;
+      scene.add(m);
+      en.meleeTelegraphMesh = m;
+    }
+    // 形が変わった時(攻撃・フェーズの切り替え)だけ作り直す
+    if(m.userData.reach !== shape.reach || m.userData.halfAngle !== shape.halfAngle){
+      m.geometry.dispose();
+      m.geometry = new THREE.RingGeometry(Math.max(0, shape.reach - MANSION_MELEE_TELEGRAPH_WIDTH),
+                     shape.reach, 32, 1, 0, shape.halfAngle * 2);
+      m.userData.reach = shape.reach; m.userData.halfAngle = shape.halfAngle;
+    }
+    const facing = Math.atan2(en.servantFacing.x, en.servantFacing.z);
+    m.rotation.z = groundFanRotationZ(facing, shape.halfAngle);
+    const x = en.group.position.x, z = en.group.position.z;
+    const gy = groundSlabs.length ? (groundYAt(x, z, en.group.position.y) || 0) : 0;
+    m.position.set(x, gy + 0.14, z);
+    m.visible = true;
   }
 
   /* 使用人。影腕の形だけで「今から何が来るか」と「今は隙だ」を伝える */
@@ -5278,6 +5329,8 @@
   // 撃破時の共通処理(通常ヒット・燃焼ティックの両方から呼ばれる)
   function finishEnemyDeath(en, isAlly, from){
       en.hp = 0; en.dead = true;
+      // 死亡後は updateMobAnim が呼ばれないので、床の予兆の弧をここで畳む
+      if(en.meleeTelegraphMesh) en.meleeTelegraphMesh.visible = false;
       // 本体が消えれば、水面に映っていたものも残らない(WORK 3)
       if(en.mirrorClones && en.mirrorClones.length) clearMirrorClones(en);
       /* 撃破したときだけ動く、その個体ごとの後始末(WORK 6)。

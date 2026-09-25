@@ -344,7 +344,7 @@
     clearApparitions();
     stallTriggers = [];
     checkpointTriggers = []; nearbyCheckpoint = null;
-    enemies.forEach(en=>{ if(en.shockRing) scene.remove(en.shockRing); if(en.chargeLane) scene.remove(en.chargeLane); scene.remove(en.group); });
+    enemies.forEach(en=>{ if(en.shockRing) scene.remove(en.shockRing); if(en.chargeLane) scene.remove(en.chargeLane); if(en.meleeTelegraphMesh) scene.remove(en.meleeTelegraphMesh); scene.remove(en.group); });
     enemies = [];
     chests.forEach(c=>{ if(c.group) scene.remove(c.group); });
     chests = [];

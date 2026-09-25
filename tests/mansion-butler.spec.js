@@ -111,7 +111,60 @@ const hpRatio = async page => {
   return m ? parseInt(m[1], 10) / parseInt(m[2], 10) : 1;
 };
 
+/* 床の予兆の弧(ENEMY-ATTACK-VIS-001)。AI State と Floor Arc を「同じ
+   1回の読み取り」から取り、組で貯める ―― 別々に読むと、その間に状態が
+   変わって組がずれる */
+async function arcPair(page){
+  const html = await infoPanel(page).innerHTML();
+  const ai = /AI State:\s*([^<]*)/.exec(html || '');
+  const arc = /Floor Arc:\s*([^<]*)/.exec(html || '');
+  return { ai: ai ? ai[1].trim() : null, arc: arc ? arc[1].trim() : null };
+}
+async function watchArc(page, pairs, forwardMs){
+  if(forwardMs > 0){
+    await page.keyboard.down('KeyW');
+    await page.waitForTimeout(forwardMs);
+    await page.keyboard.up('KeyW');
+  }
+  for(let i = 0; i < 6; i++){
+    await page.waitForTimeout(120);
+    const p = await arcPair(page);
+    if(p.ai) pairs.push(p);
+  }
+}
+/* heavy の予兆中だけ ON で形が攻撃の値、light の予兆とそれ以外は OFF */
+function checkArcPairs(pairs, heavyAi, heavyArc, lightAi){
+  const heavy = pairs.filter(p => p.ai.startsWith(heavyAi));
+  const light = pairs.filter(p => p.ai.startsWith(lightAi));
+  const other = pairs.filter(p => !p.ai.startsWith('WINDUP'));
+  expect(heavy.length, `${heavyAi} が観測できない`).toBeGreaterThan(0);
+  for(const p of heavy) expect(p.arc, `${p.ai} で床の弧が違う`).toBe(heavyArc);
+  for(const p of light) expect(p.arc, `${p.ai} で床の弧が出ている`).toBe('OFF');
+  for(const p of other) expect(p.arc, `${p.ai} で床の弧が残っている`).toBe('OFF');
+  return { heavy: heavy.length, light: light.length, other: other.length };
+}
+
 test.describe('黒衣の執事(Midboss)', () => {
+  test('執事: 影腕の予兆中だけ床に外周の弧が出る(燭台打撃・予兆以外では出ない)', async ({ page }) => {
+    test.setTimeout(300_000);
+    const errors = watchErrors(page);
+    await bootArena(page);
+    await arenaSpawn(page, 'Manor Butler');
+    expect((await arcPair(page)).arc).toBe('OFF');
+
+    const pairs = [];
+    for(let i = 0; i < 40; i++){
+      await watchArc(page, pairs, i < 3 ? 200 : 0);
+      if(pairs.some(p => p.ai.startsWith('WINDUP (lash)')) &&
+         pairs.some(p => p.ai.startsWith('WINDUP (candle)')) &&
+         pairs.some(p => !p.ai.startsWith('WINDUP'))) break;
+    }
+    // Phase 1 の lash(フェーズ差分なし)
+    const n = checkArcPairs(pairs, 'WINDUP (lash)', 'ON reach 3.60 half 1.25', 'WINDUP (candle)');
+    console.log('執事 Floor Arc:', JSON.stringify(n));
+    expect(errors).toEqual([]);
+  });
+
   test('Midboss として認識される: NAMED / 体幹130 / 番人とは別の性質', async ({ page }) => {
     test.setTimeout(300_000);
     const errors = watchErrors(page);
