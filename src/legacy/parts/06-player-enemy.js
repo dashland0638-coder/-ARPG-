@@ -522,6 +522,16 @@
     if(bad.length) console.error(`BUILD[${key}] inconsistent: ${bad.join('; ')}`);
   }
 
+  /* 関節球の半径(CHARACTER-VIS-001 T-3 Step 1)。隣り合う2つの断面の
+     端(05 の *_SECTION_RATIOS の widthMul)の大きい方 × JOINT_CAP_K。
+     球が断面より大きく出っ張って「玉が挟まった」ように見えないよう、
+     ほぼ断面と同じ太さで繋ぎ目だけを覆う。旧: 膝 calf×0.98(断面の約1.09倍)、
+     肘 forearm×1.06(約1.06倍)。k の最終値は V-1 で Human が確認する */
+  const JOINT_CAP_K = 1.02;
+  function jointCapRadius(aHalfWidth, bHalfWidth){
+    return Math.max(aHalfWidth, bHalfWidth) * JOINT_CAP_K;
+  }
+
   function buildPlayer(classDef, gender){
     const group = new THREE.Group();
     const isFemale = gender === 'female';   // 髪色など見た目の既存用途だけ(体格は BUILD)
@@ -611,7 +621,10 @@
       const shin = new THREE.Mesh(shinGeo, clothMat);
       shin.position.y = -B.calfLen/2; shin.castShadow = true;
       knee.add(shin);
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(B.calf*0.98,8,6), trimMat);
+      // T-3: 太腿の下端(knee)とふくらはぎの上端(upperCalf)に揃える
+      const kneeCapR = jointCapRadius(B.thigh*THIGH_SECTION_RATIOS.knee.widthMul,
+                                      B.calf*CALF_SECTION_RATIOS.upperCalf.widthMul);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(kneeCapR,8,6), trimMat);
       cap.scale.set(1,0.72,0.92);
       knee.add(cap);
 
@@ -1549,7 +1562,10 @@
       const fore = new THREE.Mesh(foreGeo, clothMat);
       fore.position.y = -FA/2; fore.castShadow = true;
       el.add(fore);
-      const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(B.forearm*1.06,8,6), clothMat);
+      // T-3: 上腕の下端(elbow)と前腕の上端(upperForearm)に揃える
+      const elbowCapR = jointCapRadius(B.upper*UPPERARM_SECTION_RATIOS.elbow.widthMul,
+                                       B.forearm*FOREARM_SECTION_RATIOS.upperForearm.widthMul);
+      const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(elbowCapR,8,6), clothMat);
       el.add(elbowCap);
       // vambrace: a metal cuff banded around the forearm just above the
       // hand, lathed the same way as the pauldron - the forearm alone read
@@ -1586,9 +1602,12 @@
       // PAULDRON_PROFILE's comment for why the low segment count is
       // deliberate (a hard "armor plate" read, not a soft one)
       // 盗賊は軽装のため肩当ても一回り小さく(#39系)
+      // CHARACTER-VIS-001 T-3 Step 2(DEC-T3-5): 全職共通の係数で少し縮小。
+      // 細い体に対して肩の塊が大きすぎないよう、肩の繋ぎ目を覆う大きさへ。
+      // 旧: 半径 upper×1.52 / 高さ upper×2.1。盗賊の 0.6 倍は維持
       const pauldronScale = lightArmor ? 0.6 : 1.0;
       const pauldron = new THREE.Mesh(
-        limbGeo(PAULDRON_PROFILE, B.upper*1.52*pauldronScale, B.upper*2.1*pauldronScale, 6), trimMatFlat);
+        limbGeo(PAULDRON_PROFILE, B.upper*1.30*pauldronScale, B.upper*1.80*pauldronScale, 6), trimMatFlat);
       pauldron.position.y = -0.02;
       pauldron.castShadow = true;
       sh.add(pauldron);
