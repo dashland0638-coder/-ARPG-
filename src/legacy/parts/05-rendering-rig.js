@@ -3709,6 +3709,8 @@
       relaxWeight: relaxStopBlend * (1 - relaxCombatBlend),
       stopBlend: relaxStopBlend,
       combatBlend: relaxCombatBlend,
+      // 移動中の腕の基準ウェイト(0 = 休め, 1 = 構え)。停止中は null(13 の updateLocomotion)
+      walkArmW: P.walkArmW != null ? P.walkArmW : null,
       shL:[P.armL.rotation.x, P.armL.rotation.y, P.armL.rotation.z],
       shR:[P.armR.rotation.x, P.armR.rotation.y, P.armR.rotation.z],
       elL: P.elbowL.rotation.x, elR: P.elbowR.rotation.x,

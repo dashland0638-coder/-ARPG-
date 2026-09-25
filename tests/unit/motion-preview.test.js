@@ -163,6 +163,22 @@ test('motionDebugLines', async t=>{
     assert.match(text, /WEP\s+ 5\.7/);
   });
 
+  await t.test('RIG ブロック ―― 移動中の腕の基準ウェイト(CHARACTER-VIS-001 T-1)', ()=>{
+    const rig = {relaxWeight:0, stopBlend:0, combatBlend:0, walkArmW:0,
+      shL:[0,0,0], shR:[0,0,0], elL:0, elR:0, wep:null};
+    const moving = motionDebugLines(Object.assign({}, base, {rig})).join('\n');
+    assert.match(moving, /WALK\s+0\.00/);
+    const combat = motionDebugLines(Object.assign({}, base,
+      {rig:Object.assign({}, rig, {walkArmW:1})})).join('\n');
+    assert.match(combat, /WALK\s+1\.00/);
+    // 停止中(null)と欠けている場合は '-'
+    for(const walkArmW of [null, undefined]){
+      const text = motionDebugLines(Object.assign({}, base,
+        {rig:Object.assign({}, rig, {walkArmW})})).join('\n');
+      assert.match(text, /WALK\s+-/);
+    }
+  });
+
   await t.test('RIG が無ければブロックごと出ない(通常プレイと同じ経路)', ()=>{
     const text = motionDebugLines(base).join('\n');
     assert.ok(!text.includes('RELAX'));

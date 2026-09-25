@@ -128,6 +128,7 @@ import { motionDebugLines, motionStateLabel } from '../core/motion-preview.js';
 // 振幅の表と「休めの姿勢」だけが別 ―― Combat Idle 側の計算は変えていない
 import {
   buildRelaxedIdleTarget, relaxedIdleProfile, stepRestBlend, REST_STOP_RATE,
+  locomotionArmBase, locomotionMix, RELAXED_WALK_ARM_SWING, RELAXED_WALK_UPPER,
 } from '../core/relaxed-idle.js';
 /* 武器の収納・抜刀・納刀。combatStanceT(= 戦闘状態)はそのままで、
    「武器がどこにあるか」だけを別の軸として持つ。キャラクター単位の

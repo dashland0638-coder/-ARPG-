@@ -32,7 +32,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 
 | ID | Summary | Status | Approval | 依存する DECISION | Analysis |
 | --- | --- | --- | --- | --- | --- |
-| T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | APPROVED | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
+| T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
 | T-2 | 体格パラメータ（BUILD の頭身・脚胴比、腕長の BUILD 化、骨盤 Y の HIP_Y 由来化） | APPROVED | [x] | D-1, D-2, D-2', D-7（決定済み） | 同上 |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い） | APPROVED | [x] | D-6（決定済み） | 同上 |
 | T-4 | 頭部周り・職別/上位職装飾の直値再調整、戦騎士の頭 0.86 | APPROVED | [x] | D-1, D-8（決定済み） | 同上 |
@@ -495,3 +495,66 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-1〜T-6 | DRAFT → WAITING_APPROVAL | Planner | 計画作成済み。D-1〜D-8 未決定のため、各 WI は関係 DECISION の決定まで承認不可 |
 | 2026-09-25 | T-1〜T-5 | WAITING_APPROVAL → APPROVED | Planner（人間の指示による記入） | ユーザー（人間）が Planner セッションの会話で Human Decision（D-1〜D-8）と実施順 T-1 → T-5（並行禁止）を承認。Persistence は未許可（承認済み Task file は Human が push する前提） |
 | 2026-09-25 | T-6 | WAITING_APPROVAL → 取り下げ | Planner（人間の指示による記入） | ユーザー（人間）が「T-6: D-5に従い取り下げる」と指示（§7.1 / §7.2 の人間の判断による取り下げ） |
+| 2026-09-25 | T-1 | APPROVED → IMPLEMENTING | Implementer | Plan Handoff（Kind `plan`、`06990ef513fef9b271beb871c7791277c41f53a8`）H-1〜H-8 PASS。Persistence はユーザー（人間）の Implementer セッションでの明示指示（下の Implementation Result） |
+| 2026-09-25 | T-1 | IMPLEMENTING → TESTING | Implementer | 実装完了。build / unit / T-1 関連 E2E を実行 |
+| 2026-09-25 | T-1 | TESTING → REVIEWING | Implementer | FAIL なし（Test Report）。Branch `claude/character-vis-001-t1-impl` |
+| 2026-09-25 | T-1 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T1-review.md` PASS（Reviewed SHA `8f4566c2a17558b5b7e2310fe05b5735b4173470`、同一セッションで兼務）。Task Level は T-2〜T-5 未完了のため PLANNED のまま |
+
+## Implementation Result
+
+T-1（非戦闘歩行）のみ。T-2〜T-5 には着手していない。Implementation SHA は本ファイルに書かない（§5.1。記録の正本は review report の Review Target）。
+
+### Artifact Handoff
+| Kind | Path | Source（branch @ SHA） | Blob SHA | 確認（I-1 / H-1〜H-8） |
+| --- | --- | --- | --- | --- |
+| `plan` | `.ai/tasks/CHARACTER-VIS-001.md` | `claude/character-vis-001-planner-kzh5di` @ `06990ef513fef9b271beb871c7791277c41f53a8` | `59b180881c86e990135706bae77610868fbcaece` | H-1 `merge-base --is-ancestor` 真 / H-2 `cat-file -e` 成功 / H-3 `diff --name-only 06990ef^ 06990ef` = 本 Path のみ / H-4 1行目 `# CHARACTER-VIS-001` 一致 / H-5 Kind `plan`・期待 Path 一致 / H-6 `rev-parse` 一致 / H-7 既存の Kind `plan` 記録なし（新規）/ H-8 `git show <sha>:<path>` で読んだ。I-1: `git show` で復元し `git hash-object` = Blob SHA 一致。I-3: 変更は T-1 の Status（Work Items 表）・Status History への行追加・本節のみ。**PASS** |
+| `analysis` | `.ai/reports/CHARACTER-VIS-001-analysis.md` | `claude/character-vis-001-analysis-g029kj` @ `25b13a17f7b2f3ec9d61df8657b3c8f03ec5d054` | `cd6828266e4d29dffe3bc296ea210dd50d12472e` | I-1: 作業ブランチに無かったため `git show` で復元し `git hash-object` = Blob SHA 一致。**PASS** |
+
+### Persistence / 承認範囲の根拠
+- Persistence: ユーザー（人間）/ 2026-09-25 / Claude Code の Implementer セッションの会話で「Implementation Persistence: Branch: claude/character-vis-001-t1-impl. Persistence is permitted for T-1 only.」と明示。上の T-1 Approval 欄の `Persistence:` 行は I-3（承認済み版は Status 行・Status History・本節以外を変更しない）のため空欄のまま。**Approval 欄と会話上の許可の食い違いを Reviewer の確認事項として残す**
+- Files To Change の追加: `src/legacy/concat-plugin.js`（import 1行）。legacy parts は concat-plugin の HEADER 経由でしか `src/core/` を import できず（ARCHITECTURE.md）、Step 1 の関数を Step 2 で使うために構造上必須。ユーザー（人間）/ 2026-09-25 / 同セッションの質問への回答で「1行追加を承認」。変更は relaxed-idle.js の import 一覧への4識別子の追加のみ
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `src/core/relaxed-idle.js` | `locomotionArmBase(combatStance, relaxedStance, combatW)`（腕4チャンネルを `blendPose` で補間）、`locomotionMix()`、非戦闘の腕振り係数 `RELAXED_WALK_ARM_SWING`（4職）、上半身の run 由来項の非戦闘倍率 `RELAXED_WALK_UPPER`（run 0.35 / lean 0.5）を追加（Step 1 / 3 / 4） |
+| `src/legacy/parts/13-update-loop.js` | `updateLocomotion()`: 腕の基準を `armLBase` 等の固定値から `locomotionArmBase(armLBase 由来の構え, activeRelaxedStance(), relaxCombatBlend)` へ（Step 2。滞空中の腕も同じ基準を使う）。腕振り係数を `STANCE.armSwing` と非戦闘値の補間へ（Step 3）。腰 pitch・bob の `run` を `runUpper` へ、前傾に非戦闘倍率（Step 4）。`relaxCombatBlend` が1フレーム前の値である旨をコメント（Step 5）。脚の swing・`2.7`・移動速度・`inputMag`・足音/土煙の `run` は不変 |
+| `src/legacy/parts/05-rendering-rig.js` | `motionRigSnapshot()` に `walkArmW` の読み取りのみ追加（Step 6） |
+| `src/core/motion-preview.js` | RIG ブロックに ` WALK` 行（移動中の腕の基準ウェイト、停止中 `-`）（Step 6） |
+| `src/legacy/concat-plugin.js` | 上記 import 1行（承認範囲の追加。上記） |
+| `tests/unit/relaxed-idle.test.js` | U-1: combatW=0/1/0.5、`blendPose` との一致、腕以外を返さない、範囲外・NaN、係数表 |
+| `tests/unit/motion-preview.test.js` | U-2: WALK 行の整形（0.00 / 1.00 / null・undefined → `-`） |
+| `tests/character-motion.spec.js` | E-1: 剣士で 非戦闘移動 WALK < 0.05 → 攻撃後の戦闘態勢で移動 WALK > 0.8 → 態勢が切れた後の移動 WALK < 0.2 |
+| `.ai/tasks/CHARACTER-VIS-001.md` / `.ai/reports/CHARACTER-VIS-001-analysis.md` | 承認済み版・Analyzer report を Source SHA から復元して同梱（§6 / §7.3）。Task file は T-1 Status・Status History・本節のみ変更 |
+
+### Test Report
+- Scope: Targeted
+- Executed: `npm run test:unit`（U-1 / U-2 を含む全 unit）、`npm run build`、`npx playwright test tests/character-motion.spec.js tests/weapon-stow.spec.js tests/battle-knight-visual.spec.js tests/save-load.spec.js tests/scenario-timer.spec.js`（リポジトリ外の設定経由。下記 Environment）
+- Why this scope: Test Plan の T-1 行（U-1 / U-2 / Unit 既存 / E-1 / E2E 既存 `character-motion`・`weapon-stow`・`battle-knight-visual` / `save-load`・`scenario-timer`）
+- Not run: 上記以外の E2E（`npm test` 全体）。T-1 の影響経路（`updateLocomotion` の腕・上半身と Motion Panel）を通らないため。V-1（目視）は Human 確認事項（スクリーンショット `test-results/motion-warrior-walk-exploration.png` / `motion-warrior-walk-combat.png` は保存のみ、リポジトリには含めない）
+- Environment: repo の Playwright（1.62.1）が要求する Chromium revision 1234 が未導入で、`npx playwright test` は起動前に `Executable doesn't exist .../chromium_headless_shell-1234` で失敗（実行環境の問題、NOT_RUN 相当）。**リポジトリ外**（セッションの scratchpad）に repo の `playwright.config.js` を import して `use.launchOptions.executablePath: '/opt/pw-browsers/chromium'`（導入済み revision 1194）だけ差し替えた設定を置いて実行した。repo の Playwright 設定・依存は変更していない
+
+| テスト | 結果（PASS / FAIL / FLAKY / NOT_RUN） | メモ |
+| --- | --- | --- |
+| `npm run test:unit` | PASS | 1506 / 1506（U-1 / U-2 を含む） |
+| `npm run build` | PASS | 既存の chunk size 警告のみ |
+| E-1 `character-motion.spec.js:394`（新規） | PASS | 一括実行の初回は `戦闘態勢の移動で WALK が読めない`（キー押下中に読んだ時点のパネルが停止中の `-`。失敗時スナップショットのパネルは `WALK 1.00`）。**テスト側の読み取りタイミング**が原因（FACT: パネルは0.5秒ごと更新）で、移動中の値が出るまで待つ形へ修正後、単独で2回連続 PASS。実装コードは修正していない |
+| `character-motion.spec.js` 既存 10件 | PASS | 状態遷移・Visual Freeze・魔導士 Combat Idle・魔弾・弓師残心・剣士/盗賊 |
+| `weapon-stow.spec.js` 10件 | PASS | 8職の収納/抜刀、弓師、カメラ |
+| `battle-knight-visual.spec.js` | PASS | |
+| `save-load.spec.js` 6件 | PASS | |
+| `scenario-timer.spec.js` 2件 | PASS | 移動速度不変の回帰 |
+
+### Acceptance Criteria
+| AC | 確認方法（VERIFIED / FACT (code)） | 根拠 |
+| --- | --- | --- |
+| 非戦闘で移動中、腕の基準が休め姿勢 | VERIFIED | E-1: WALK < 0.05（実測 0.00） |
+| 戦闘態勢中の移動は構え基準、態勢が切れると休めへ戻る | VERIFIED | E-1: WALK > 0.8（実測 1.00）→ SHEATHING / EXPLORATION 後 < 0.2 |
+| 上半身の `run` 由来項が非戦闘時に抑えられる | FACT (code) | `13` の腰 pitch・bob は `runUpper = run * locomotionMix(0.35, 1, walkW)`、前傾に `locomotionMix(0.5, 1, walkW)`。U-1 で倍率 < 1 |
+| 戦闘態勢中の移動・攻撃・スキル・回避は従来どおり | VERIFIED + FACT (code) | 既存 E2E PASS。walkW = 1 で基準・係数が従来値に一致（U-1） |
+| `STANCE` / `CLIPS` 差分なし、移動速度・脚の swing・`2.7` 不変 | FACT (code) | `git diff` で該当行に変更なし |
+
+### Out of Scope Found
+- `src/legacy/parts/05-rendering-rig.js` の `applyRelaxedIdlePose()` 前のコメント「停止中の 1. の出力は、実質いつもクラスの構えそのもの」は T-1 後は非戦闘時に当てはまらない（歩行側の基準が休めになったため）。05 は `motionRigSnapshot()` の読み取り追加のみ承認のため変更していない
+- 停止中の非戦闘でも歩行側の腕の基準が休めになるため、立ち止まり直後の休め姿勢への寄りが従来より早い（`relaxStopBlend` の途中でも腕は休め側）。見え方は V-1 で Human 確認
+

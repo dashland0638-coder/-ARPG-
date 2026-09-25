@@ -144,6 +144,8 @@ export function motionDebugLines(snap){
     lines.push('', 'RIG');
     lines.push(' RELAX  ' + num(r.relaxWeight)
       + '  (stop ' + num(r.stopBlend) + ' / combat ' + num(r.combatBlend) + ')');
+    // 移動中の腕の基準(CHARACTER-VIS-001 T-1)。0 = 休め, 1 = 構え。停止中は '-'
+    lines.push(' WALK   ' + (r.walkArmW != null ? num(r.walkArmW) : '-'));
     lines.push(' SH.L  ' + vec3(r.shL));
     lines.push(' SH.R  ' + vec3(r.shR));
     lines.push(' EL.L  ' + deg(r.elL) + '   EL.R ' + deg(r.elR));
