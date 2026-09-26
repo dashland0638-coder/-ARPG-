@@ -2113,6 +2113,19 @@
     P.paletteKey = key;
   }
 
+  /* CHARACTER-VIS-001 T-7(S-5): 武器・上位職の装飾を外すときの破棄。輪郭線・X 線の
+     シェル(userData.isOutline / isXray)は元メッシュと geometry を共有し、Material は
+     全メッシュ共有(outlineMats() / xrayMat())なので破棄しない。本体の役割別
+     Material(P.roleMats)も本体が使い続けるので破棄しない */
+  function disposePlayerPartTree(root, P){
+    const keep = new Set(Object.values((P && P.roleMats) || {}));
+    root.traverse(c=>{
+      if(!c.isMesh || c.userData.isOutline || c.userData.isXray) return;
+      if(c.geometry) c.geometry.dispose();
+      if(c.material && !keep.has(c.material)) c.material.dispose();
+    });
+  }
+
   /* 装備欄で武器種を持ち替えた時、プレイヤーの手元の見た目を差し替える。
      buildPlayer() で作った腕・waist などのリグはそのまま使い回し、
      武器メッシュだけを buildWeaponMesh() で作り直して同じ握り位置に
@@ -2123,14 +2136,14 @@
     if(!player || !P.weapon || !P.waist || !P.handL || !P.handR) return;
     const old = P.weapon;
     P.waist.remove(old);
-    old.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); if(c.material) c.material.dispose(); } });
+    disposePlayerPartTree(old, P);
     // 弓系の参照は一旦クリアしておく(次の武器が弓系でなければ古い参照を残さない)
     P.bowString = null; P.bowSegs = null; P.nockArrow = null; P.bowLimbX = 0; P.bowLimbZ = 0;
     // 二刀流/両手斧のオフハンド(#39系)も、次の武器が二刀流でなければ
     // 古い対が残ったままにならないよう先に外す
     if(P.offhandWeapon){
       P.waist.remove(P.offhandWeapon);
-      P.offhandWeapon.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); if(c.material) c.material.dispose(); } });
+      disposePlayerPartTree(P.offhandWeapon, P);
       P.offhandWeapon = null;
     }
 
@@ -2248,11 +2261,11 @@
     if(P.basePaletteKey) applyPlayerPalette(P, P.basePaletteKey);
 
     if(!P.jobDecorMeshes) return;
-    // 上位職の装飾が共有して使う役割別 Material(白いレイヤー等)は本体も使うので破棄しない
-    const roleMatSet = new Set(Object.values(P.roleMats || {}));
+    // 上位職の装飾が共有して使う役割別 Material(白いレイヤー等)・輪郭線・X 線の
+    // 共有 Material は破棄しない(disposePlayerPartTree、T-7 S-5)
     P.jobDecorMeshes.forEach(m=>{
       if(m.parent) m.parent.remove(m);
-      m.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); if(c.material && !roleMatSet.has(c.material)) c.material.dispose(); } });
+      disposePlayerPartTree(m, P);
     });
     P.jobDecorMeshes = null;
     P.jobDecorAnim = null;
