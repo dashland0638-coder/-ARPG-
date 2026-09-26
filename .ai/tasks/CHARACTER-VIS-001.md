@@ -38,6 +38,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | T-4 | キャラクター性の再設計（頭部・顔の見せ方・髪・被り物・服装 Geometry・身体シルエット・職業固有シルエット・上位職の形状）。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）を含む再計画版 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-1, D-8、HDR-T4-1〜15（決定済み。デザインは初期案、V-1 で形状調整） | .ai/reports/CHARACTER-VIS-001-T4-analysis.md（branch `claude/character-vis-001-t4-analysis` @ `6ea91565d255849aaee1134666da04256543f00c`、blob `f15713384131f85bc9ee57c8219d2e836b24dd0c`） |
 | T-5 | プレイヤー用マテリアル値の統一（マット化）。再計画版で配色・Material・質感へ拡大（HDR-T5-1） | DONE | [x]（再計画版 2026-09-26。旧版の承認記録は下に残す） | D-4（決定済み）、HDR-T5-1〜12、P-D0〜11 | `.ai/reports/CHARACTER-VIS-001-T5-analysis.md` |
 | T-6 | 支援AI（ゲスト仲間・デコイ）の見た目の寄せ | 取り下げ（Human 判断、2026-09-25。§7.1 / §7.2） | ― | D-5 = 除外 | 同上 |
+| T-7 | 武器・装飾の Material と輪郭線の一貫性（Planner Candidate B。会話上の呼称は「T-6」、ID は取り下げ済み T-6 を再利用せず T-7） | APPROVED | [x]（2026-09-26） | P-D0〜P-D10（T-7） | `.ai/reports/CHARACTER-VIS-001-T6-analysis.md` / `.ai/reports/CHARACTER-VIS-001-T6-plan.md` |
 
 - T-6 は D-5 に従い人間の判断で取り下げた。§7 に取り下げ用の Status 値は無いため Status 列は「取り下げ」と記す。ID と履歴は残す（§7.2）。§7.1 の Task Level `DONE` 条件では「人間の判断で取り下げ」として扱う
 - **実施順（Human 承認済み）: T-1 → T-2 → T-3 → T-4 → T-5。並行実装は禁止**。前の Work Item が `DONE` になるまで次の Work Item の実装に着手しない
@@ -148,6 +149,15 @@ Implementation (T-5, 再計画版): 開始可 — 配色表・構造 → 基礎4
 - Persistence: ―
 
 Implementation (T-6): 取り下げ（実装しない）
+
+### T-7 Human Approval（武器・装飾の Material と輪郭線。2026-09-26）
+- [x] Approved
+- Approved by / date / where: ユーザー（人間、Decision Maker: Human）/ 2026-09-26 / Claude Code セッションの会話で「CHARACTER-VIS-001 次Work ItemについてHuman Approvalを確定します」「PlannerのCandidate Bを採用します」と指示。記入: Planner（人間の指示による）
+- Approval 対象: Planner report `.ai/reports/CHARACTER-VIS-001-T6-plan.md` の Candidate B（Input: `.ai/reports/CHARACTER-VIS-001-T6-analysis.md`、baseline `main` `7bce8db4fd32618d439119bde907408359ce3b2f`）。Planner report と下の P-D が食い違う箇所は **P-D を正**とする
+- Task ID（P-D0）: **T-7**。既存の T-6 は「支援AI の見た目」として登録後に取り下げ済みのため ID を再利用しない。Analyzer / Planner report の「T-6」は本 Work Item（T-7）を指す
+- Persistence:（空欄 = 未許可。実装ブランチは P-D10 の `claude/character-vis-001-t7-impl`。本 Persistence の完了後、別工程で `main` `7bce8db` を起点に作成する）
+
+Implementation (T-7): BLOCKED — Implementer の Persistence（実装ブランチの作成）が未了
 
 ### Decision Record
 
@@ -1074,6 +1084,79 @@ P-R25〜P-R31（上の干渉リスク）に加えて:
 
 ---
 
+
+### T-7 武器・装飾の Material と輪郭線の一貫性（Human Approval 済み、2026-09-26）
+
+出典: `.ai/reports/CHARACTER-VIS-001-T6-plan.md`（Candidate B）。以下は Human Approval の文言を正とする。
+
+#### Human Decisions（T-7）
+| # | 決定 |
+| --- | --- |
+| P-D0 | 正式 Task ID は **T-7** |
+| P-D1 | 武器装飾の色は `src/render/player-palette.js` の各職の **`trim`** を使用する。`buildWeaponMesh()` 内の固定 `goldTrim` をそのまま維持しない。T-5 の Human Decision（P-D9「武器装飾は palette の accent / trim 系に統一」）を正式な T-7 仕様として引き継ぐ |
+| P-D2 | 武器の形状・サイズ・太さ・位置・収納位置・持ち方は T-7 に含めない |
+| P-D3 | 武器質感表は `src/render/player-palette.js` に別 export として追加する（例: `WEAPON_FINISH`）。player palette の衣服 Material と武器 Material の責務は混同しない |
+| P-D4 | 既存方式の outline + X-ray shell を付与する: `swapPlayerWeaponVisual()` で生成される差し替え武器 / オフハンド武器 / `applyJobPromotionVisual()` で生成される上位職装飾。既存の outline Material・outline 方式そのものは変更しない。魔法エフェクト系（Mage crystal / magic circle / Berserker aura / その他 VFX）は outline 対象外 |
+| P-D5 | 攻撃 VFX・魔法陣・投射物・足元リング等の色変更は T-7 に含めない |
+| P-D6 | Shadow Traveler の武器・素手化・barehanded shadow attack・設定変更は T-7 に含めない（別 Task 候補として記録）。T-7 では現在の「非表示の剣士 weapon kit」をそのまま維持し、差し替え経路でも非表示状態が維持されることだけ検証する |
+| P-D7 | E2E 検証用として Motion Preview に「輪郭線の無い表示メッシュ数」を出す行を追加する。T-4 / T-5 の CLOTH / PAL と同じ検証用途の表示方式とし、本番 UI を変更しない |
+| P-D8 | 戦闘中の Visual は T-7 に含めない。T-7 完了後に READ ONLY Analyzer として「戦闘中の見た目」の撮影・事実確認を行い、その結果を見て別 Work Item を作る |
+| P-D9 | motion 変更は T-7 に含めない（STANCE / CLIPS / attack motion / dodge / lunge / hit stop / camera / update loop はいずれも変更禁止） |
+| P-D10 | 実装 branch は `claude/character-vis-001-t7-impl`。本 Persistence の完了後、`main` `7bce8db` を起点として作成する |
+
+#### Scope（T-7）
+| # | 内容 |
+| --- | --- |
+| S-1 | native weapon の `goldTrim` 固定値を player palette の `trim` へ接続する |
+| S-2 | weapon Material の質感を `WEAPON_FINISH` に集約する（対象: steel / darkSteel / goldTrim / woodMat / gem emissive） |
+| S-3 | 差し替え武器・オフハンドに outline + X-ray shell を追加 |
+| S-4 | 上位職装飾に outline + X-ray shell を追加 |
+| S-5 | weapon / promotion decoration の dispose 処理を修正し、共有 Material（role Material / outline shared ShaderMaterial / X-ray shared Material）を誤って dispose しない |
+| S-6 | 生成時と差し替え時の weapon Material 生成方式を統一する |
+
+#### Out of Scope（T-7、変更禁止）
+BUILD / body geometry / head-body ratio / face / hair / clothing geometry / T-5 palette / T-5 Material architecture / weapon geometry / weapon size / weapon position / `WEAPON_SOCKET` / weapon holding method / STANCE / CLIPS / attack motion / dodge / hit stop / lunge / camera / `10-input` / `11-combat-actions` / `13-update-loop` / attack VFX / magic circle / projectile / foot ring / `CLASSES.color` / `CLASSES.trim` / NPC / enemy / boss / support AI / Shadow Traveler barehanded attack / Playwright configuration / `textures.js`
+
+#### Material（T-7 の初期候補値。V-1 で Human が最終確認）
+| Material | roughness | metalness | その他 |
+| --- | --- | --- | --- |
+| steel | 0.45〜0.55 | 0.45〜0.55 | |
+| darkSteel | 0.55 | 0.45 | |
+| goldTrim | 0.55 | 0.35 | 色は P-D1（各職の palette `trim`） |
+| gem | ― | ― | emissive 0.2〜0.4 |
+- 武器形状やキャラクター本体の Material を変更する理由にはしない
+
+#### Files To Change（T-7。Planner report §15 を P-D で確定）
+| ファイル | 変更 |
+| --- | --- |
+| `src/legacy/parts/06-player-enemy.js` | `buildWeaponMesh` の Material（trim・`WEAPON_FINISH`）、`swapPlayerWeaponVisual` の outline・X-ray・dispose、`applyJobPromotionVisual` の装飾への outline・X-ray、`clearJobPromotionVisual` の dispose |
+| `src/render/player-palette.js` | `WEAPON_FINISH`（別 export） |
+| `src/core/motion-preview.js` + `tests/unit/motion-preview.test.js` + `src/legacy/parts/05-rendering-rig.js`（`motionBodySnapshot` のみ） | 「輪郭線の無い表示メッシュ数」の行（P-D7） |
+| `tests/unit/player-palette.test.js`（または新規 unit） | `WEAPON_FINISH`、`buildWeaponMesh` / dispose のソース検査 |
+| `tests/character-weapon-visual.spec.js`（新規） | 8職 + 影の旅人の outline 欠落 0、影の旅人の武器非表示 |
+| `docs/CHARACTERS.md` | 外見の節に武器の質感・輪郭線（V-1 OK 後） |
+
+#### V-1（T-7）
+- **V-1a**: 8職の武器を同一条件（トレーニング空間）で撮影。確認: 武器装飾の trim 色 / 武器金属の質感 / ジェムの発光 / キャラクター衣服との色関係。**Human OK まで V-1b へ進まない**
+- **V-1b**: 上位職装飾と武器の outline を確認（戦騎士 / 魔導士 / 鷹の目 / バーサーカー / 差し替え武器 / オフハンド）。**Human OK まで終了しない**
+- 影の旅人: 武器が見えないことだけ確認する
+
+#### Acceptance Criteria（T-7）
+| # | 基準 |
+| --- | --- |
+| AC-1 | weapon decoration の色が player palette の trim と一致 |
+| AC-2 | weapon Material の質感が `WEAPON_FINISH` から生成される |
+| AC-3 | 差し替え武器・オフハンド・上位職装飾に outline が存在する |
+| AC-4 | 必要な対象に X-ray shell が存在する |
+| AC-5 | Mage crystal / magic circle / Berserker aura 等の VFX には outline が付かない |
+| AC-6 | weapon / promotion visual の dispose で共有 Material を破棄しない |
+| AC-7 | Shadow Traveler の非表示 weapon が差し替え経路でも表示されない |
+| AC-8 | キャラクター本体・T-5 配色・weapon geometry / position・motion・VFX・CLASSES に意図しない変更がない |
+| AC-9 | build PASS、unit PASS、E2E は既知の baseline failure / FLAKY 以外 PASS。FLAKY は PASS に数えない |
+| AC-10 | V-1a Human OK |
+| AC-11 | V-1b Human OK |
+- 既知の baseline failure: `execution-break.spec.js:99`、`mansion-escort.spec.js:126`。既知の FLAKY: `job-traits.spec.js:162`、`base-class-identity.spec.js:413`、`air-actions.spec.js:128`。標準 `npm test` は Chromium version mismatch で NOT_RUN（Playwright 設定は変更しない）
+
 ## Files To Change（候補。承認された Work Item の行だけが有効）
 
 | # | WI | ファイル | 対象 |
@@ -1234,6 +1317,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-26 | T-5 | IMPLEMENTING → TESTING | Implementer | V-1 3段階すべて Human OK（盗賊のトップス #526A78、影の旅人のマフラー #A3B1BF は Human 指定）。docs 更新 |
 | 2026-09-26 | T-5 | TESTING → REVIEWING | Implementer | build / unit 1521 / 全 E2E 146件（143 PASS / 2 FAIL = main でも FAIL / 1 FLAKY）。Test Report は Implementation Result（T-5）|
 | 2026-09-26 | T-5 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T5-review.md` PASS（Reviewed SHA `257e8ffbc75aba288fe41c0abc8b598dfabdf1c1`、同一セッションで兼務）。Findings 0、Record-only notes 12。AC-3 は部分確認（下の「T-5 Review 結果」）。Human の指示で DONE |
+| 2026-09-26 | T-7 | （新規）→ APPROVED | Planner（人間の指示による記入） | Human Approval（Planner Candidate B、P-D0〜P-D10）。ID は取り下げ済み T-6 を再利用せず T-7。Persistence（実装ブランチ）は未了 |
 
 ## Implementation Result
 
