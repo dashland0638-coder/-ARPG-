@@ -38,7 +38,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | T-4 | キャラクター性の再設計（頭部・顔の見せ方・髪・被り物・服装 Geometry・身体シルエット・職業固有シルエット・上位職の形状）。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）を含む再計画版 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-1, D-8、HDR-T4-1〜15（決定済み。デザインは初期案、V-1 で形状調整） | .ai/reports/CHARACTER-VIS-001-T4-analysis.md（branch `claude/character-vis-001-t4-analysis` @ `6ea91565d255849aaee1134666da04256543f00c`、blob `f15713384131f85bc9ee57c8219d2e836b24dd0c`） |
 | T-5 | プレイヤー用マテリアル値の統一（マット化）。再計画版で配色・Material・質感へ拡大（HDR-T5-1） | DONE | [x]（再計画版 2026-09-26。旧版の承認記録は下に残す） | D-4（決定済み）、HDR-T5-1〜12、P-D0〜11 | `.ai/reports/CHARACTER-VIS-001-T5-analysis.md` |
 | T-6 | 支援AI（ゲスト仲間・デコイ）の見た目の寄せ | 取り下げ（Human 判断、2026-09-25。§7.1 / §7.2） | ― | D-5 = 除外 | 同上 |
-| T-7 | 武器・装飾の Material と輪郭線の一貫性（Planner Candidate B。会話上の呼称は「T-6」、ID は取り下げ済み T-6 を再利用せず T-7） | REVIEWING | [x]（2026-09-26） | P-D0〜P-D10（T-7） | `.ai/reports/CHARACTER-VIS-001-T6-analysis.md` / `.ai/reports/CHARACTER-VIS-001-T6-plan.md` |
+| T-7 | 武器・装飾の Material と輪郭線の一貫性（Planner Candidate B。会話上の呼称は「T-6」、ID は取り下げ済み T-6 を再利用せず T-7） | DONE | [x]（2026-09-26） | P-D0〜P-D10（T-7） | `.ai/reports/CHARACTER-VIS-001-T6-analysis.md` / `.ai/reports/CHARACTER-VIS-001-T6-plan.md` |
 
 - T-6 は D-5 に従い人間の判断で取り下げた。§7 に取り下げ用の Status 値は無いため Status 列は「取り下げ」と記す。ID と履歴は残す（§7.2）。§7.1 の Task Level `DONE` 条件では「人間の判断で取り下げ」として扱う
 - **実施順（Human 承認済み）: T-1 → T-2 → T-3 → T-4 → T-5。並行実装は禁止**。前の Work Item が `DONE` になるまで次の Work Item の実装に着手しない
@@ -1319,6 +1319,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-26 | T-5 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T5-review.md` PASS（Reviewed SHA `257e8ffbc75aba288fe41c0abc8b598dfabdf1c1`、同一セッションで兼務）。Findings 0、Record-only notes 12。AC-3 は部分確認（下の「T-5 Review 結果」）。Human の指示で DONE |
 | 2026-09-26 | T-7 | （新規）→ APPROVED | Planner（人間の指示による記入） | Human Approval（Planner Candidate B、P-D0〜P-D10）。ID は取り下げ済み T-6 を再利用せず T-7。Persistence（実装ブランチ）は未了 |
 | 2026-09-26 | T-7 | APPROVED → REVIEWING | Implementer（人間の指示による） | S-1〜S-6 + S-7（Human Decision）実装、V-1a / V-1b / V-1c Human OK、docs 更新済み。Test Report は Implementation Result（T-7）。Human の指示で REVIEWING へ |
+| 2026-09-26 | T-7 | REVIEWING → DONE | Reviewer（人間の指示による） | `.ai/reports/CHARACTER-VIS-001-T7-review.md` Reviewer verdict **PASS**（Reviewed SHA `e1af174985bea6b7283e55f74b7261289c121cd1`、同一セッションで兼務）。修正必須 Finding 0、Record-only notes 10（R-1〜R-10）。Human の指示で DONE |
 
 ## Implementation Result
 
