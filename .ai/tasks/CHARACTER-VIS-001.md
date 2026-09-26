@@ -155,9 +155,9 @@ Implementation (T-6): 取り下げ（実装しない）
 - Approved by / date / where: ユーザー（人間、Decision Maker: Human）/ 2026-09-26 / Claude Code セッションの会話で「CHARACTER-VIS-001 次Work ItemについてHuman Approvalを確定します」「PlannerのCandidate Bを採用します」と指示。記入: Planner（人間の指示による）
 - Approval 対象: Planner report `.ai/reports/CHARACTER-VIS-001-T6-plan.md` の Candidate B（Input: `.ai/reports/CHARACTER-VIS-001-T6-analysis.md`、baseline `main` `7bce8db4fd32618d439119bde907408359ce3b2f`）。Planner report と下の P-D が食い違う箇所は **P-D を正**とする
 - Task ID（P-D0）: **T-7**。既存の T-6 は「支援AI の見た目」として登録後に取り下げ済みのため ID を再利用しない。Analyzer / Planner report の「T-6」は本 Work Item（T-7）を指す
-- Persistence:（空欄 = 未許可。実装ブランチは P-D10 の `claude/character-vis-001-t7-impl`。本 Persistence の完了後、別工程で `main` `7bce8db` を起点に作成する）
+- Persistence: 許可（branch: `claude/character-vis-001-t7-impl`）。根拠: ユーザー（人間）/ 2026-09-26 / 会話で「T-7 Implementation開始前のブランチ作成・Task固定を行ってください」と指示（起点 `main` `7bce8db4fd32618d439119bde907408359ce3b2f`、Approved Task Blob `b8234f69aed12844bec979d3562ec6c4ffff1a7b`（Planner persistence commit `e0375fedd620c82fd7dff602e6f9a17633cdfe98`）の Task file を実装ブランチへ固定）。記入: Implementer（人間の指示による）
 
-Implementation (T-7): BLOCKED — Implementer の Persistence（実装ブランチの作成）が未了
+Implementation (T-7): 開始可（実装は Human の次の指示から）— 実施順は S-1〜S-6 → build / unit / 関連 E2E → V-1a → **Human OK** → V-1b → **Human OK**
 
 ### Decision Record
 
