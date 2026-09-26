@@ -42,6 +42,20 @@ export const PLAYER_FINISH = {
   knightDark:  { roughness: 0.70, metalness: 0.20 },
 };
 
+/* 武器の質感(CHARACTER-VIS-001 T-7、P-D3)。衣服の PLAYER_FINISH とは別の表 ――
+   服と武器の Material の責務を混ぜない。buildWeaponMesh()(06)が武器ごとに
+   新しい Material を作るときに読む。装飾(trim)の色は配色表の各職の trim(P-D1)。
+   値は Human 承認の初期候補(steel 0.45〜0.55、darkSteel 0.55 / 0.45、
+   trim 0.55 / 0.35、ジェムの発光 0.2〜0.4)。最終は V-1 で Human が確認する。
+   wood は T-7 以前と同じ(MeshStandardMaterial の既定値)で、表へ集約するだけ */
+export const WEAPON_FINISH = {
+  steel:     { roughness: 0.50, metalness: 0.50 },   // 旧 0.3 / 0.7
+  darkSteel: { roughness: 0.55, metalness: 0.45 },   // 旧 0.4 / 0.6
+  trim:      { roughness: 0.55, metalness: 0.35 },   // 旧 goldTrim 0.35 / 0.55(色は固定 0xc9a227)
+  wood:      { roughness: 1.00, metalness: 0 },
+  gem:       { roughness: 0.20, metalness: 0.10, emissiveIntensity: 0.30 },   // 旧 発光 0.4
+};
+
 const DEFAULT_BOOT = 0x2a2018;
 
 /* inherit: 上位職は基礎職の行を引き継ぎ、差分だけ書く。バーサーカーは

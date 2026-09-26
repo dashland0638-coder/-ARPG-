@@ -183,7 +183,7 @@ import {
 import { makeTrapezoidBox, makeWedge, makePlate, makePrism, makeLoft } from '../render/lowpoly-primitives.js';
 /* プレイヤー専用の配色表・質感表(CHARACTER-VIS-001 T-5)。CLASSES の color / trim は
    支援AI・VFX・足元リングも読むため変えず、プレイヤーの服の色だけをこの表から取る */
-import { PLAYER_FINISH, paletteKeyFor, resolvePalette } from '../render/player-palette.js';
+import { PLAYER_FINISH, WEAPON_FINISH, paletteKeyFor, resolvePalette } from '../render/player-palette.js';
 /* Chapter 1 のスキル進行(全体基本仕様 §17-19)。Skill 1 だけで出発し、
    ダンジョン中盤で同行者の行動から Skill 2 を閃いて自動装備する ―― その
    「閃いたか」と「今それを組み替えていいか」だけを持つ。既存のスキル基盤

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
-  PLAYER_ROLES, PLAYER_FINISH, PLAYER_PALETTE, paletteKeyFor, resolvePalette,
+  PLAYER_ROLES, PLAYER_FINISH, WEAPON_FINISH, PLAYER_PALETTE, paletteKeyFor, resolvePalette,
 } from '../../src/render/player-palette.js';
 
 const readPart = name => fs.readFileSync(
@@ -150,4 +150,17 @@ test('上位職は基本 Material を直接書き換えない(HDR-T5-10)', ()=>{
   // 解除でも基礎職の行へ全 role を戻す
   const clear = src.slice(src.indexOf('function clearJobPromotionVisual('), start);
   assert.match(clear, /applyPlayerPalette\(P, P\.basePaletteKey\)/);
+});
+
+test('武器の質感表 WEAPON_FINISH: T-7 の初期候補の範囲(P-D3 / S-2)', ()=>{
+  const inRange = (v, lo, hi, what) => assert.ok(v >= lo && v <= hi, `${what} = ${v}(${lo}〜${hi})`);
+  assert.deepEqual(Object.keys(WEAPON_FINISH).sort(), ['darkSteel', 'gem', 'steel', 'trim', 'wood']);
+  inRange(WEAPON_FINISH.steel.roughness, 0.45, 0.55, 'steel.roughness');
+  inRange(WEAPON_FINISH.steel.metalness, 0.45, 0.55, 'steel.metalness');
+  assert.deepEqual(WEAPON_FINISH.darkSteel, { roughness: 0.55, metalness: 0.45 });
+  assert.deepEqual(WEAPON_FINISH.trim, { roughness: 0.55, metalness: 0.35 });
+  inRange(WEAPON_FINISH.gem.emissiveIntensity, 0.2, 0.4, 'gem.emissiveIntensity');
+  // 服の表とは別オブジェクト(責務を混ぜない)
+  assert.notEqual(WEAPON_FINISH, PLAYER_FINISH);
+  assert.equal(PLAYER_FINISH.steel, undefined);
 });
