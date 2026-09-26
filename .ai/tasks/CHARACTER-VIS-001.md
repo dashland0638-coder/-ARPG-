@@ -36,7 +36,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | DONE | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い）。T-2 第3版基準で再計画 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-6、DEC-T3-1〜7（決定済み。DEC-T3-3 は Step 0 の Human 目視判断で確定） | .ai/reports/CHARACTER-VIS-001-T3-analysis.md（branch `main` @ `b6858b11d0739b16d08faa549b2868b91f233ab8`、blob `d2fdc21d99b475dadfc49e465083f6882d785d71`） |
 | T-4 | キャラクター性の再設計（頭部・顔の見せ方・髪・被り物・服装 Geometry・身体シルエット・職業固有シルエット・上位職の形状）。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）を含む再計画版 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-1, D-8、HDR-T4-1〜15（決定済み。デザインは初期案、V-1 で形状調整） | .ai/reports/CHARACTER-VIS-001-T4-analysis.md（branch `claude/character-vis-001-t4-analysis` @ `6ea91565d255849aaee1134666da04256543f00c`、blob `f15713384131f85bc9ee57c8219d2e836b24dd0c`） |
-| T-5 | プレイヤー用マテリアル値の統一（マット化）。再計画版で配色・Material・質感へ拡大（HDR-T5-1） | REVIEWING | [x]（再計画版 2026-09-26。旧版の承認記録は下に残す） | D-4（決定済み）、HDR-T5-1〜12、P-D0〜11 | `.ai/reports/CHARACTER-VIS-001-T5-analysis.md` |
+| T-5 | プレイヤー用マテリアル値の統一（マット化）。再計画版で配色・Material・質感へ拡大（HDR-T5-1） | DONE | [x]（再計画版 2026-09-26。旧版の承認記録は下に残す） | D-4（決定済み）、HDR-T5-1〜12、P-D0〜11 | `.ai/reports/CHARACTER-VIS-001-T5-analysis.md` |
 | T-6 | 支援AI（ゲスト仲間・デコイ）の見た目の寄せ | 取り下げ（Human 判断、2026-09-25。§7.1 / §7.2） | ― | D-5 = 除外 | 同上 |
 
 - T-6 は D-5 に従い人間の判断で取り下げた。§7 に取り下げ用の Status 値は無いため Status 列は「取り下げ」と記す。ID と履歴は残す（§7.2）。§7.1 の Task Level `DONE` 条件では「人間の判断で取り下げ」として扱う
@@ -1233,6 +1233,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-26 | T-5 | APPROVED → IMPLEMENTING | Implementer | 再計画版の Human Approval（HDR-T5-1〜12、P-D0〜11）と Persistence（`claude/character-vis-001-t5-impl`、起点 `7ea0170`）。V-1 第1段階（基礎4職）まで実装 |
 | 2026-09-26 | T-5 | IMPLEMENTING → TESTING | Implementer | V-1 3段階すべて Human OK（盗賊のトップス #526A78、影の旅人のマフラー #A3B1BF は Human 指定）。docs 更新 |
 | 2026-09-26 | T-5 | TESTING → REVIEWING | Implementer | build / unit 1521 / 全 E2E 146件（143 PASS / 2 FAIL = main でも FAIL / 1 FLAKY）。Test Report は Implementation Result（T-5）|
+| 2026-09-26 | T-5 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T5-review.md` PASS（Reviewed SHA `257e8ffbc75aba288fe41c0abc8b598dfabdf1c1`、同一セッションで兼務）。Findings 0、Record-only notes 12。AC-3 は部分確認（下の「T-5 Review 結果」）。Human の指示で DONE |
 
 ## Implementation Result
 
@@ -1793,3 +1794,18 @@ T-4 の固定条件（Geometry / シルエットのみ、Material の値は変�
 - **V-1 第3段階の Human OK**: ユーザー（人間）/ 2026-09-26 / 会話で9キャラクターの比較画像を見て「OKです」。T-5 の配色・質感を Human 確認済みとする
 - `docs/CHARACTERS.md`: 「外見」節に配色の表を追加（T-5 の実装事実）。影の旅人の表の「（チャコール）」を削除（色は配色の表へ）
 - Acceptance Criteria（Planner report §16）: 1 CLASSES の値不変（unit）/ 2 9キャラクターの色が配色表どおり（E2E 9件）/ 3 転身・解除で全 role を上書き、基本 Material の直接書き換え無し（unit のソース検査。ゲーム内に転身解除の経路は無く、解除は `buildPlayer` の再生成のため、E2E は上位職の生成で確認）/ 4 影の旅人の紫 ≠ 影 VFX、全身黒でない（unit + V-1）/ 5 バーサーカー独立（unit）/ 6 質感範囲（unit）/ 7 Geometry・衣服数不変（`character-clothing` 9 PASS）/ 8 build・unit PASS、E2E は既存の FAIL 2件（main でも FAIL）と FLAKY 1件以外 PASS / 9・10 V-1 3段階の Human OK
+
+### T-5 Review 結果（Reviewer、2026-09-26）
+- Review report: `.ai/reports/CHARACTER-VIS-001-T5-review.md`（Reviewed SHA `257e8ffbc75aba288fe41c0abc8b598dfabdf1c1`）
+- **Review conclusion: PASS** / **Findings: 0** / **Record-only notes: 12**（R-1〜R-12）
+- **AC-3「転身を解除すると基礎職の色に戻る」は部分確認**: 上位職の生成側は E2E で確認済み（上位4職の PAL 行が上位職の行と一致）。解除側は source inspection / unit で確認（`clearJobPromotionVisual` が `applyPlayerPalette(P, P.basePaletteKey)` を呼び、`applyPlayerPalette` が全 role を上書き、`applyJobPromotionVisual` に基本 Material の直接書き換えが無い）。ゲーム上に転身解除の操作が存在しないため、実機 E2E による解除確認は不能。魔導士の髪色の直接書き換えは P-D4 により残る設計
+- テスト結果（変更せず記録）:
+  | テスト | 結果 |
+  | --- | --- |
+  | build | PASS |
+  | unit | 1521 / 1521 PASS |
+  | T-5 関連 E2E（Reviewer 再実行 38件） | 37 PASS / 1 FLAKY |
+  | 全 E2E 146件（Implementer 実行。Reviewer は全146件を再実行していない） | 143 PASS / 2 FAIL / 1 FLAKY |
+  | baseline failure（変更前 main でも FAIL。T-5 起因とは扱わない） | `execution-break.spec.js:99`、`mansion-escort.spec.js:126` |
+  | FLAKY（PASS に数えない） | `job-traits.spec.js:162`、`base-class-identity.spec.js:413`、`air-actions.spec.js:128` |
+  | NOT_RUN | 標準 `npm test`（Chromium version mismatch） |
