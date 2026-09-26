@@ -1920,3 +1920,17 @@ T-4 の固定条件（Geometry / シルエットのみ、Material の値は変�
 - 撮影: T-6 前（`main` `7bce8db`）と T-7（`f8bcdb6`）で同じ撮影セット（標準カメラ: 収納 正面 / 斜め45° / 背面、攻撃入力 1.2 秒後の抜刀、低いカメラ: 抜刀・収納）。加えて剣士の生成時の武器と酒場での持ち替え後の武器（ちぞめの大剣）を T-7 で撮影
 - 事実（画像）: 武器の形状・大きさ・位置・収納位置・持ち方は T-6 前と同じに見える（Geometry の差分なし）。装飾の色は剣士・戦騎士 #C49A4A / 魔法使い・魔導士 #C7A45A で旧金 #C9A227 に近く、弓師・鷹の目は Off White #E6E4DD、盗賊は Dark Navy #263449（双剣の刃が金から暗色へ）、バーサーカーは Dark Brown #59483D。影の旅人の武器は持ち替え後も表示されない（E2E）
 - Human 確認: 未
+
+### Test Report（T-7、commit `f8bcdb6` の内容で実行）
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| `npm run build` | PASS | |
+| `npm run test:unit` | PASS | 1526 / 1526（T-7 で `WEAPON_FINISH`・OUTL 行・ソース検査を追加） |
+| T-7 関連 E2E `tests/character-weapon-visual.spec.js`（新規 10件） | PASS | 8職（OUTL: 武器・上位職の装飾の輪郭線 / X 線シェルの欠け 0）、酒場での持ち替え（ちぞめの大剣、`swapPlayerWeaponVisual`）、影の旅人の武器が持ち替え後も非表示。影の旅人のテストは単独で3回連続 PASS |
+| 回帰（`character-palette`・`character-clothing`・`weapon-stow`・`battle-knight-visual` ほか） | PASS | 全 E2E の中で PASS |
+| 全 E2E 156件（scratchpad の設定） | 152 PASS / 3 FAIL / 1 FLAKY | 下の4件以外はすべて PASS |
+| `execution-break.spec.js:99` | FAIL（**既知の baseline failure**） | `main` でも FAIL（T-5 で確認）。T-7 起因ではない |
+| `mansion-escort.spec.js:126` | FAIL（**既知の baseline failure**） | 同上 |
+| `base-class-identity.spec.js:413` | FAIL → 単独再実行 PASS = **FLAKY**（既知） | T-5 Review で `main` でも3回中1回 FAIL を確認済み。PASS に数えない |
+| `job-traits.spec.js:162` | **FLAKY**（既知） | spec 内蔵のリトライで PASS。PASS に数えない |
+| repo 標準設定の E2E（`npm test`） | NOT_RUN | Chromium revision 不一致（実行環境）。Playwright 設定は変更していない |
