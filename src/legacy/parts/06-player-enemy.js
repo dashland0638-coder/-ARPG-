@@ -1755,9 +1755,12 @@
       // plus a thumb, angled to close around a grip, is enough to break
       // that read without the cost of a fully articulated hand
       const fingerGeo = new THREE.CapsuleGeometry(B.forearm*0.16, B.forearm*0.42, 3, 5);
-      [-0.16,0,0.16].forEach(fx=>{
+      /* CHARACTER-VIS-001 T-7(S-7、Human Decision): 指の左右位置は手の大きさ
+         (B.forearm)に比例させる。旧 ±0.16 の絶対値は T-2 で手を細くした後も
+         そのままで、外側の2本が手の球(半径 forearm×1.12)から離れて浮いていた */
+      [-0.6, 0, 0.6].forEach(fxMul=>{
         const finger = new THREE.Mesh(fingerGeo, skinMat);
-        finger.position.set(fx, HAND_Y - B.forearm*0.55, B.forearm*0.35);
+        finger.position.set(fxMul*B.forearm, HAND_Y - B.forearm*0.55, B.forearm*0.35);
         finger.rotation.x = -Math.PI*0.42;
         finger.castShadow = true;
         el.add(finger);

@@ -218,3 +218,13 @@ test('T-7: 持ち替えた武器・上位職の装飾に既存の輪郭線と X 
   assert.match(rig, /_outlineDark = makeOutlineMat\(0\.032, 0x0d0a12\);/);
   assert.match(rig, /_outlineRim  = makeOutlineMat\(0\.014, 0xdcd0b0\);/);
 });
+
+test('T-7 S-7: 指の左右位置は手の大きさに比例し、手の球の内側に収まる', ()=>{
+  const src = readPart('06-player-enemy.js');
+  assert.ok(!src.includes('[-0.16,0,0.16].forEach(fx=>'), '旧 絶対値 ±0.16 の指の位置が残っていない');
+  const m = src.match(/\[(-?[0-9.]+), 0, ([0-9.]+)\]\.forEach\(fxMul=>\{[\s\S]*?finger\.position\.set\(fxMul\*B\.forearm,/);
+  assert.ok(m, '指の x = fxMul × B.forearm');
+  // 指(カプセル半径 forearm×0.16)の外側の端が手の球(半径 forearm×1.12)の内側
+  const outer = Math.max(Math.abs(+m[1]), Math.abs(+m[2])) + 0.16;
+  assert.ok(outer < 1.12, `指の外端 ${outer} × forearm < 手の半径 1.12 × forearm`);
+});
