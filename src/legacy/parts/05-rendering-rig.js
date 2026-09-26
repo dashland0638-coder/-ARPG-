@@ -3879,10 +3879,20 @@
       cloth = 0;
       player.traverseVisible(o=>{ if(o.isMesh && o.geometry && o.geometry.userData && o.geometry.userData.garment) cloth++; });
     }
+    /* 配色(CHARACTER-VIS-001 T-5)。applyPlayerPalette() が役割別 Material に
+       書いた色(userData.paletteHex)を読む ―― 表の値ではなく Material の実際の値 */
+    let pal = null;
+    const R = playerMixerParts.roleMats;
+    if(player && R){
+      const v = m => (m && m.userData && m.userData.paletteHex != null) ? m.userData.paletteHex : null;
+      pal = { key: playerMixerParts.paletteKey || null,
+        main: v(R.main), sub: v(R.sub), accent: v(R.accent), layer: v(R.layer),
+        hat: v(R.hat), trim: v(R.trim), boot: v(R.boot) };
+    }
     return {
       headsTall: top / (2 * B.headR), stature: top, handY, beltY: B.hipY,
       shoulderW, shoulderRatio: shoulderW / top, shoulderPerHead: shoulderW / (2 * B.headR),
-      hipW, hipRatio: hipW / top, cloth,
+      hipW, hipRatio: hipW / top, cloth, pal,
     };
   }
 

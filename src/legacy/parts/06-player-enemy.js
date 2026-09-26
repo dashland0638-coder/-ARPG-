@@ -559,11 +559,16 @@
     // procedural surface technique the world's walls/floors already use
     // (textures.js), pointed at the class's own colour instead of a fixed
     // stone/wood palette, so a "worked material" reads on the character too
+    /* CHARACTER-VIS-001 T-5: 色はプレイヤー専用の配色表(player-palette.js)から
+       取る。CLASSES の color / trim は支援AI・VFX・足元リングも読むため変えない。
+       ここでは表の行の色で作り、最後に applyPlayerPalette() が全 role を上書きする */
+    const palKey = paletteKeyFor(classDef.key, null, classDef.charKey);
+    const pal = resolvePalette(palKey);
     const clothMat = applyBump(new THREE.MeshStandardMaterial({
-      map: makeLeatherTexture(hexStr(classDef.color), 2, 2), roughness:0.6, metalness:0.15}));
+      map: makeLeatherTexture(hexStr(pal.main), 2, 2), ...PLAYER_FINISH.cloth}));
     const trimMat = applyBump(new THREE.MeshStandardMaterial({
-      map: makeMetalTexture(hexStr(classDef.trim), 3, 1), roughness:0.4, metalness:0.3,
-      emissive:classDef.trim, emissiveIntensity:0.12}));
+      map: makeMetalTexture(hexStr(pal.trim), 3, 1), ...PLAYER_FINISH.trim,
+      emissive:pal.trim}));
     // Archmage昇格時、胸当てリング/ベルト/カフス/武器金具など「硬い金属
     // トリム」全般(このtrimMat一つで共有)も参考画像に合わせて暗色へ
     // 差し替えられるよう公開しておく(clothMat等と同じ差分方式)
@@ -583,6 +588,14 @@
        meant to be smooth) limbs, torso, weapon trim and so on. */
     const clothMatFlat = clothMat.clone(); clothMatFlat.flatShading = true;
     const trimMatFlat = trimMat.clone();  trimMatFlat.flatShading = true;
+    /* T-5 の役割別 Material(P-D3)。sub = メインと分けたい層(パンツ・袖)、
+       layer = 白系の中のレイヤー、hat = 帽子。flat の双子は、今 flat の Material を
+       使っている部品を flat のまま保つためだけに作る */
+    const subMat = applyBump(new THREE.MeshStandardMaterial({
+      map: makeLeatherTexture(hexStr(pal.sub), 2, 2), ...PLAYER_FINISH.cloth}));
+    const subMatFlat = subMat.clone(); subMatFlat.flatShading = true;
+    const layerMat = new THREE.MeshStandardMaterial({color:pal.layer, ...PLAYER_FINISH.layer});
+    const hatMat = new THREE.MeshStandardMaterial({color:pal.hat, ...PLAYER_FINISH.hat, side:THREE.DoubleSide});
     // Archmage昇格時の色差し替え(clothMat/trimMat)は.clone()で複製した
     // これらのFlat版には伝播しない(.clone()はプロパティのコピーであって
     // 参照の共有ではないため、後から親のmapを差し替えても子には反映
@@ -604,7 +617,7 @@
     // shin, so the whole leg articulates. Previously the thigh swung while
     // the foot stayed planted where it was, which is most of why the
     // character read as a scarecrow being slid across the floor.
-    const bootMat = new THREE.MeshStandardMaterial({color:0x2a2018, roughness:0.6, metalness:0.2});
+    const bootMat = new THREE.MeshStandardMaterial({color:pal.boot, ...PLAYER_FINISH.boot});
     // グラフィック刷新: LatheGeometry(limbGeo/LIMB_PROFILE.thigh)から
     // makeCharacterThigh()(Loft、05-rendering-rig.js)へ置き換え。Pelvis下端
     // (太い)→中央(自然な量感)→Knee(絞る)というテーパーを、旋盤の
@@ -1093,9 +1106,10 @@
 
     /* ---------- class-specific headgear & flourishes ---------- */
     const hY = head.position.y;
-    const metalMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.35, metalness:0.7});
+    const metalMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, ...PLAYER_FINISH.knife});
     const darkMat  = new THREE.MeshStandardMaterial({color:0x2a2420, roughness:0.7});
-    const clothAcc = new THREE.MeshStandardMaterial({color:classDef.trim, roughness:0.85, side:THREE.DoubleSide});
+    // T-5: 布のアクセント(role accent)。色は配色表から(classDef.trim ではない)
+    const clothAcc = new THREE.MeshStandardMaterial({color:pal.accent, ...PLAYER_FINISH.accent, side:THREE.DoubleSide});
     // Archmage昇格時、帽子の丸い輪っか(band、下記classDef.key==='mage'
     // ブロック参照)を白紫系へ差し替えられるよう公開しておく。Mage本体・
     // 他クラス(clothAccはwarrior/archerの装飾にも使われる共有Material)
@@ -1132,8 +1146,8 @@
          寸法はすべて BUILD / headR 由来の候補値(V-1 で Human が調整)。
          Material は既存インスタンスの流用のみ(色は T-5)。新しい部品はすべて
          戦騎士への転身で隠す対象(warriorBaseDecor)に入れる(上位職は Step 6) */
-      // 兜の Material(色・金属感の値は不変)をキャップに流用する
-      const warriorHelmMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.55, metalness:0.12});
+      // T-5: キャップは role hat(布のキャップとしてマット)
+      const warriorHelmMat = hatMat;
       const addDecor = (mesh, parent, isHeadwear)=>{
         mesh.castShadow = true; (parent || group).add(mesh);
         warriorBaseDecor.push(mesh);
@@ -1148,11 +1162,8 @@
          同じ部品の作り方で、キャップ無し(髪と顔を見せる)・短いコート・中に
          レイヤード・裾まで長いワイドパンツにする */
       const isWanderer = classDef.charKey === 'wanderer';
-      /* Human Decision(上位職 + 影の旅人の色だけ T-4 で先行、「影の旅人が黒すぎる」):
-         影の旅人のコートと背中のフードだけ、真っ黒(classDef.color)から一段明るい
-         チャコールグレーの専用 Material にする。基礎4職の色は T-5 */
-      const wandererCoatMat = isWanderer ? new THREE.MeshStandardMaterial({color:0x5e5a6c, roughness:0.8}) : null;
-      playerMixerParts.wandererCoatMat = wandererCoatMat;   // 袖(腕の構築)でも使う
+      /* T-5: 影の旅人のコート・背中のフード・袖は role main(T-4 で先行した専用の
+         wandererCoatMat は配色表の影の旅人の行へ統合)。パンツは role sub */
       if(!isWanderer){
       // キャップ(WARRIOR_CAP_*、warriorCapCoverageAt と共有、05-rendering-rig.js)
       warriorKnightHidden.push(addDecor(new THREE.Mesh(makeGarmentLoft(WARRIOR_CAP_RINGS.map(r => (
@@ -1182,7 +1193,7 @@
         { y:hY - headR*0.55,     hw:headR*0.70, hd:headR*0.30, dz:-headR*0.85 + HEAD_BACK_Z },
         { y:hY - headR*0.95,     hw:headR*0.95, hd:headR*0.40, dz:-headR*0.95 + HEAD_BACK_Z },
         { y:HIP_Y + bodyH*0.84,  hw:bodyR*0.74, hd:bodyR*0.22, dz:-bodyR*0.98 },
-      ], {closedTop:true}), wandererCoatMat || clothMat)));
+      ], {closedTop:true}), clothMat)));
       // ロング丈のマウンテンパーカー: 肩から膝まで。前はファスナー程度に細く
       // 開け、裾だけ広く開けて(A 字)歩行で脚が前へ出ても突き抜けにくくする
       const parkaHemY = HIP_Y + 0.03 - B.thighLen + 0.02;
@@ -1198,12 +1209,11 @@
         { y:HIP_Y,              hw:bodyR*1.10, hd:bodyR*1.04, open:bodyR*0.14, t:bodyR*0.08 },
         { y:HIP_Y - 0.25,       hw:bodyR*1.24, hd:bodyR*1.22, open:bodyR*0.30, t:bodyR*0.08 },
         { y:parkaHemY,          hw:bodyR*1.36, hd:bodyR*1.32, open:bodyR*0.45, t:bodyR*0.08 },
-      ]), wandererCoatMat || clothMat));
+      ]), clothMat));
       if(isWanderer){
         /* 中のレイヤード(白いシャツ): 胸から、コートの裾の下まで長く覗く。
-           Human Decision(上位職 + 影の旅人の色だけ T-4 で先行): 白の専用
-           Material を影の旅人に限って使う(基礎4職の色は T-5) */
-        const wandererWhite = new THREE.MeshStandardMaterial({color:0xe6e2da, roughness:0.85});
+           T-5: role layer(T-4 で先行した専用の wandererWhite を統合) */
+        const wandererWhite = layerMat;
         addDecor(new THREE.Mesh(makeGarmentLoft([
           { y:HIP_Y + bodyH*0.92, hw:bodyR*1.00, hd:bodyR*0.86 },
           { y:HIP_Y + bodyH*0.40, hw:bodyR*0.96, hd:bodyR*0.95 },
@@ -1257,7 +1267,7 @@
           warriorPantsRing(0.04,            B.thigh*1.20, B.thigh*1.15, outSign),
           warriorPantsRing(-B.thighLen*0.5, B.thigh*1.40, B.thigh*1.32, outSign),
           warriorPantsRing(-B.thighLen,     B.thigh*1.50, B.thigh*1.40, outSign),
-        ], {closedTop:true}), clothMatFlat), hip);
+        ], {closedTop:true}), subMatFlat), hip);
         // 剣士はすねの中ほどで切る。影の旅人は裾まで長く、足首で少し絞る
         const wandererHemY = 0.14 - (HIP_Y + 0.03 - B.thighLen);
         addDecor(new THREE.Mesh(makeGarmentLoft(isWanderer ? [
@@ -1268,7 +1278,7 @@
           warriorPantsRing(0,               B.thigh*1.50, B.thigh*1.40, outSign),
           warriorPantsRing(-B.calfLen*0.30, B.thigh*1.55, B.thigh*1.45, outSign),
           warriorPantsRing(-B.calfLen*0.58, B.thigh*1.55, B.thigh*1.45, outSign),
-        ], {closedTop:true}), clothMatFlat), knee);
+        ], {closedTop:true}), subMatFlat), knee);
       });
       /* 短いブーツの胴: 既存のブーツ(BoxGeometry、全職共通)は変えず、足首から
          パンツの裾の内側まで。Material は既存のブーツのもの */
@@ -1310,7 +1320,8 @@
       // (0xc9a83a)へ差し替えた。Berserker昇格時の
       // P.rogueHood.material.color.set(uj.capeColor)はMaterial Objectを
       // 参照しているだけなので、このMaterial差し替え後もそのまま機能する
-      const rogueHoodMat = new THREE.MeshStandardMaterial({color:0xc9a83a, roughness:0.85, side:THREE.DoubleSide});
+      // T-5: 帽子は role hat(色は配色表の盗賊の行)
+      const rogueHoodMat = hatMat;
       /* CHARACTER-VIS-001 T-4 盗賊 A(Human Decision: 修正イメージ): 顔側が
          開き、後ろが閉じた丸いパーカーのフード。形は鷹の目の既存フード
          (makeHawkEyeHood)をそのまま使い、大きさ・位置は ROGUE_PARKA_HOOD_*
@@ -1452,12 +1463,9 @@
       // テクスチャを乗せると(バンプの有無に関わらず)白く飛んで見える
       // 不具合を確認した(側面が主体のConeGeometry/円柱側面では問題
       // ない)。円盤面は素材変更前の単色のまま据え置いている
-      const hatMatCone = classDef.hatColor!=null
-        ? applyBump(new THREE.MeshStandardMaterial({map: makeLeatherTexture(hexStr(classDef.hatColor), 2, 2), roughness:0.75}))
-        : clothMat;
-      const hatMatBrim = classDef.hatColor!=null
-        ? new THREE.MeshStandardMaterial({color:classDef.hatColor, roughness:0.75})
-        : clothMat;
+      // T-5: キャスケットは role hat(コートの clothMat から独立、P-D6)
+      const hatMatCone = hatMat;
+      const hatMatBrim = hatMat;
       // デザイン設定シート(Phase 6準拠)対応: Archmage昇格時、帽子
       // (hatMatCone/hatMatBrim)の色を差し替えられるよう参照を保持して
       // おく(rogueHood/rogueMaskと同じ「差分方式」)。clothMat自体は
@@ -1501,7 +1509,7 @@
       const turtleneck = new THREE.Mesh(makeGarmentLoft([
         { y:hY - headR*0.82,     hw:B.neck*1.75, hd:B.neck*1.70 },
         { y:HIP_Y + bodyH*0.98,  hw:B.neck*2.10, hd:B.neck*2.00 },
-      ], {closedTop:true}), clothMatFlat);
+      ], {closedTop:true}), layerMat);   // T-5: role layer
       turtleneck.castShadow = true; group.add(turtleneck);
       /* 前開きのロングコート: 肩からすねの中ほどまで。前が開いているので
          歩行で脚が前へ出ても裾を突き抜けにくい。group → waist(胴と一緒に動く) */
@@ -1528,13 +1536,13 @@
           magePantsRing(0.04,            B.thigh*1.20, B.thigh*1.15, outSign),
           magePantsRing(-B.thighLen*0.5, B.thigh*1.40, B.thigh*1.32, outSign),
           magePantsRing(-B.thighLen,     B.thigh*1.50, B.thigh*1.40, outSign),
-        ], {closedTop:true}), clothMatFlat);
+        ], {closedTop:true}), subMatFlat);   // T-5: パンツは role sub
         upper.castShadow = true; hip.add(upper);
         const lower = new THREE.Mesh(makeGarmentLoft([
           magePantsRing(0,              B.thigh*1.50, B.thigh*1.40, outSign),
           magePantsRing(mageHemY*0.5,   B.thigh*1.62, B.thigh*1.50, outSign),
           magePantsRing(mageHemY,       B.thigh*1.72, B.thigh*1.58, outSign),
-        ], {closedTop:true}), clothMatFlat);
+        ], {closedTop:true}), subMatFlat);
         lower.castShadow = true; knee.add(lower);
       });
 
@@ -1660,13 +1668,13 @@
           pantsRing(0,             1.20, 1.10, outSign),
           pantsRing(-B.thighLen*0.5, 1.35, 1.20, outSign),
           pantsRing(-B.thighLen,   1.45, 1.28, outSign),
-        ], {closedTop:true}), clothMat);
+        ], {closedTop:true}), subMat);   // T-5: パンツは role sub
         upper.castShadow = true; hip.add(upper);
         const lower = new THREE.Mesh(makeGarmentLoft([
           pantsRing(0,              1.45, 1.28, outSign),
           pantsRing(pantsHemY*0.5,  1.55, 1.34, outSign),
           pantsRing(pantsHemY,      1.60, 1.38, outSign),
-        ], {closedTop:true}), clothMat);
+        ], {closedTop:true}), subMat);
         lower.castShadow = true; knee.add(lower);
       });
       // 短丈上着: 襟〜胸下で止める(ベルト線の上)。胴の断面より一回り外側
@@ -1799,7 +1807,7 @@
           { y:-0.04,              hw:B.upper*1.45, hd:B.upper*1.40 },
           { y:-B.upperLen*0.35,   hw:B.upper*1.55, hd:B.upper*1.48 },
           { y:-B.upperLen*0.62,   hw:B.upper*1.50, hd:B.upper*1.44 },
-        ], {closedTop:true}), clothMatFlat);
+        ], {closedTop:true}), subMatFlat);   // T-5: 袖は role sub
         sleeve.castShadow = true;
         sh.add(sleeve);
       });
@@ -1808,8 +1816,8 @@
        前腕は肘ピボットの子(肘で曲がる)。肩当て(T-3、不変)を上から覆う。
        戦騎士への転身で隠す対象に入れる(上位職は Step 6) */
     if(classDef.key === 'warrior' && playerMixerParts.warriorBaseDecor){
-      // 影の旅人はコートと同じチャコールグレー(下の warrior 分岐で作った専用 Material)
-      const sleeveMat = playerMixerParts.wandererCoatMat || clothMat;
+      // パーカー(影の旅人はコート)と同じ role main
+      const sleeveMat = clothMat;
       [[armL, elbowL], [armR, elbowR]].forEach(([sh, el])=>{
         const upperSleeve = new THREE.Mesh(makeGarmentLoft([
           { y:0.05,      hw:B.upper*1.55, hd:B.upper*1.50 },
@@ -2033,6 +2041,14 @@
     // ならず、参考画像に近い「線画+ベタ塗り」の質感が得られたため、
     // プレイヤー全クラスへ展開した(敵・ボスは別途指示があるまで従来通り
     // ドットモード時のみ)
+    /* T-5: 役割別 Material(P-D3)を公開し、配色表の行で全 role を上書きする。
+       転身・解除でも同じ関数を呼ぶので、結果は行のキーだけで決まる(HDR-T5-10) */
+    playerMixerParts.roleMats = {
+      main:clothMat, mainFlat:clothMatFlat, sub:subMat, subFlat:subMatFlat,
+      accent:clothAcc, layer:layerMat, hat:hatMat,
+      trim:trimMat, trimFlat:trimMatFlat, belt:beltMat, boot:bootMat,
+    };
+    applyPlayerPalette(playerMixerParts, palKey);
     addOutline(group, {always: true});
     addXrayShell(group);   // visible through walls/terrain when they occlude the player
 
@@ -2040,6 +2056,49 @@
     group.castShadow = true;
     scene.add(group);
     return group;
+  }
+
+  /* CHARACTER-VIS-001 T-5: 配色表(player-palette.js)の行 key を、プレイヤーの
+     役割別 Material(P.roleMats)すべてへ書き込む。差分ではなく全 role の上書き
+     なので、呼ぶ前にどの職の色だったかに依存しない(転身・解除で前の職の色が
+     残らない、HDR-T5-10)。leather / metal の色はテクスチャに焼き込まれている
+     (.color では変わらない)ため、map を同じ作り方(textures.js のキャッシュ)で
+     差し替え、bump も付け直す */
+  function applyPlayerPalette(P, key){
+    const R = P && P.roleMats;
+    const pal = resolvePalette(key);
+    if(!R || !pal) return;
+    const setLeather = (mat, hex)=>{
+      if(!mat) return;
+      mat.map = makeLeatherTexture(hexStr(hex), 2, 2);
+      mat.color.setHex(0xffffff);
+      applyBump(mat);
+      Object.assign(mat, PLAYER_FINISH.cloth);
+      mat.userData.paletteHex = hex;
+    };
+    const setMetal = (mat, hex)=>{
+      if(!mat) return;
+      mat.map = makeMetalTexture(hexStr(hex), 3, 1);
+      mat.color.setHex(0xffffff);
+      applyBump(mat);
+      Object.assign(mat, PLAYER_FINISH.trim);
+      mat.emissive.setHex(hex);
+      mat.userData.paletteHex = hex;
+    };
+    const setPlain = (mat, hex, finish)=>{
+      if(!mat) return;
+      mat.color.setHex(hex);
+      Object.assign(mat, finish);
+      mat.userData.paletteHex = hex;
+    };
+    setLeather(R.main, pal.main); setLeather(R.mainFlat, pal.main);
+    setLeather(R.sub, pal.sub);   setLeather(R.subFlat, pal.sub);
+    setPlain(R.accent, pal.accent, PLAYER_FINISH.accent);
+    setPlain(R.layer, pal.layer, PLAYER_FINISH.layer);
+    setPlain(R.hat, pal.hat, PLAYER_FINISH.hat);
+    setMetal(R.trim, pal.trim); setMetal(R.trimFlat, pal.trim); setMetal(R.belt, pal.trim);
+    setPlain(R.boot, pal.boot, PLAYER_FINISH.boot);
+    P.paletteKey = key;
   }
 
   /* 装備欄で武器種を持ち替えた時、プレイヤーの手元の見た目を差し替える。
@@ -2066,7 +2125,10 @@
     const classDef = state.classDef;
     const B = P.build;
     const bodyH = B.height, HIP_Y = B.hipY, bodyR = B.chest;
-    const trimMat = new THREE.MeshStandardMaterial({color:classDef.trim, roughness:0.4, metalness:0.3, emissive:classDef.trim, emissiveIntensity:0.12});
+    // T-5(P-D9): 武器装飾は buildPlayer() と同じく配色表の trim(classDef.trim ではない)
+    const palTrim = (resolvePalette(P.paletteKey || paletteKeyFor(classDef.key, null, classDef.charKey)) || {}).trim;
+    const trimHex = palTrim != null ? palTrim : classDef.trim;
+    const trimMat = new THREE.MeshStandardMaterial({color:trimHex, ...PLAYER_FINISH.trim, emissive:trimHex});
     const weaponKey = weaponDefFor(classDef.key, state.usingAltWeapon).key;
     const equippedWeapon = state.equipped && state.equipped.weapon;
     const weapon = buildWeaponMesh(weaponKey, classDef, trimMat, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);

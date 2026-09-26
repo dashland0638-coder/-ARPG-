@@ -191,6 +191,21 @@ test('motionDebugLines', async t=>{
     assert.match(zero, /CLOTH\s+0$/m);
   });
 
+  await t.test('RIG ブロック ―― 配色の行(CHARACTER-VIS-001 T-5)', ()=>{
+    const rig = {relaxWeight:1, stopBlend:1, combatBlend:0, walkArmW:null,
+      shL:[0,0,0], shR:[0,0,0], elL:0, elR:0, wep:null, cloth:12,
+      pal:{key:'warrior', main:0x263a55, sub:0x52657a, accent:0xe6e4dd, layer:0xe6e4dd,
+           hat:0x52657a, trim:0xc49a4a, boot:0x2a2018}};
+    const text = motionDebugLines(Object.assign({}, base, {rig})).join('\n');
+    // main sub accent layer hat trim boot の順、16進6桁(先頭の 0 も残す)
+    assert.match(text, /^ PAL\s+warrior  263a55 52657a e6e4dd e6e4dd 52657a c49a4a 2a2018$/m);
+    const missing = motionDebugLines(Object.assign({}, base,
+      {rig:Object.assign({}, rig, {pal:{key:'mage', main:0x8fb9d6, sub:null}})})).join('\n');
+    assert.match(missing, /^ PAL\s+mage  8fb9d6 - - - - - -$/m);
+    const none = motionDebugLines(Object.assign({}, base, {rig:Object.assign({}, rig, {pal:null})})).join('\n');
+    assert.match(none, /^ PAL\s+-$/m);
+  });
+
   await t.test('RIG ブロック ―― 体格の行(CHARACTER-VIS-001 T-2)', ()=>{
     const rig = {relaxWeight:1, stopBlend:1, combatBlend:0, walkArmW:null,
       shL:[0,0,0], shR:[0,0,0], elL:0, elR:0, wep:null,

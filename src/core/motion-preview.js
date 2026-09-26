@@ -157,6 +157,15 @@ export function motionDebugLines(snap){
     lines.push(' HIP.W  ' + m(r.hipW) + '  /H ' + x(r.hipRatio));
     // 衣服の構築数(CHARACTER-VIS-001 T-4 HDR-T4-14)。見えている衣服メッシュの数
     lines.push(' CLOTH  ' + (has(r.cloth) ? String(Math.round(Number(r.cloth))) : '-'));
+    /* 配色(CHARACTER-VIS-001 T-5)。今の配色表の行と、役割別 Material に実際に
+       入っている色(main sub accent layer hat trim boot の順、16進6桁) */
+    if(r.pal){
+      const hex = v => has(v) ? Math.round(Number(v)).toString(16).padStart(6, '0') : '-';
+      const roles = ['main', 'sub', 'accent', 'layer', 'hat', 'trim', 'boot'];
+      lines.push(' PAL    ' + (r.pal.key || '-') + '  ' + roles.map(k => hex(r.pal[k])).join(' '));
+    } else {
+      lines.push(' PAL    -');
+    }
     lines.push(' SH.L  ' + vec3(r.shL));
     lines.push(' SH.R  ' + vec3(r.shR));
     lines.push(' EL.L  ' + deg(r.elL) + '   EL.R ' + deg(r.elR));
