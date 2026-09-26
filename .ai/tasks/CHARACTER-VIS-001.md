@@ -1726,3 +1726,36 @@ T-4 の固定条件（Geometry / シルエットのみ、Material の値は変�
 | `.ai/tasks/CHARACTER-VIS-001.md` | T-4 の Status・Status History・Implementation Result（Human Decision の記録を含む。既存行は変更なし、Status 列のみ更新） |
 
 変更しないと決めた範囲（BUILD の体格値・T-1 の歩行・STANCE / CLIPS・関節球・Pauldron の形状・骨盤・輪郭線・敵・ボス・支援AI・共有 Lathe 表・`13-update-loop.js`・`playwright.config.js`）に差分なし。Material の値の変更は Human Decision の例外（上位職 + 影の旅人の色、職ごとの肌色）に限る。T-5（配色）は未着手（Human Decision: T-4 を先に完了）
+
+## Implementation Result（T-5 再計画版、途中: V-1 第1段階 = 基礎4職まで）
+
+### 状態
+- Status: IMPLEMENTING。V-1 第1段階（基礎4職）の Human 確認待ち。上位4職・影の旅人の配色は未着手（P-D11。影の旅人と上位職は T-4 の見た目を保つ暫定の行）
+
+### 変更内容
+| ファイル | 内容 |
+| --- | --- |
+| `src/render/player-palette.js`（新規） | プレイヤー専用の配色表 `PLAYER_PALETTE`（役割 main / sub / accent / layer / hat / trim / boot、P-D3）と質感表 `PLAYER_FINISH`（HDR-T5-9 の初期候補、投げナイフ 0.75 / 0.45 = P-D9）、`paletteKeyFor` / `resolvePalette`。上位職は `inherit`、バーサーカーは独立（HDR-T5-8） |
+| `src/legacy/concat-plugin.js` | HEADER に import 1行（P-D2） |
+| `src/legacy/parts/06-player-enemy.js` | `buildPlayer()` の色を `CLASSES.color / trim` から配色表へ。新規 `subMat` / `subMatFlat` / `layerMat` / `hatMat`（帽子は既存の兜・盗賊の帽子・魔法使いの帽子 Material を1つに）。`wandererCoatMat` / `wandererWhite` を role main / layer へ統合。衣服メッシュの Material の割り当てのみ変更（剣士・魔法使い・弓師のパンツ = sub、弓師の袖 = sub、魔法使いのタートルネック = layer）。`applyPlayerPalette(P, key)` が全 role を上書き。`swapPlayerWeaponVisual()` の武器装飾を配色表の trim に（P-D9） |
+| `src/legacy/parts/05-rendering-rig.js` / `src/core/motion-preview.js` | `motionBodySnapshot` の `pal`、Motion Preview の PAL 行（P-D10） |
+| `tests/unit/player-palette.test.js`（新規）/ `tests/unit/motion-preview.test.js` | 配色表の形・承認色・継承・質感範囲・`CLASSES` の値の不変・肌色の不変、PAL 行 |
+| `tests/character-palette.spec.js`（新規） | 基礎4職で役割別 Material の色が配色表どおり（PAL 行） |
+
+変更していない: `01`（CLASSES / UPPER_JOBS）、`08`、`11`、`12`、`13`、`14`、`textures.js`、`playwright.config.js`、BUILD、Geometry（衣服数 E2E 不変）、`applyJobPromotionVisual()`（第2段階）
+
+### Test Report（V-1 第1段階の時点）
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| `npm run build` | PASS | |
+| `npm run test:unit` | PASS | 1518 / 1518 |
+| `tests/character-palette.spec.js`（新規 4件）・`tests/character-clothing.spec.js`（9件） | PASS | 13 / 13 |
+| 全 E2E 141件（scratchpad の設定） | 138 PASS / 2 FAIL / 1 FLAKY | 下の3件 |
+| `air-actions.spec.js:128`（Enemy Step） | FAIL → 単独再実行 PASS | 全体実行で「突進中の敵を空中から踏めること」false。単独では PASS。**FLAKY 扱い（PASS に数えない）** |
+| `job-traits.spec.js:162`（鷹の目 Turn Assist） | FLAKY | spec 内蔵のリトライで PASS、単独再実行 PASS |
+| `mansion-escort.spec.js:126`（Relaxed Stance、仕様 13） | FAIL（**既存**） | relax 0.89（期待 > 0.9）。**変更前の `main` `2a9674b` でも2回とも FAIL（0.89 / 0.84）**。T-5 の差分（Material のみ）とは無関係。原因は未調査（別 Task 候補） |
+| repo 標準設定の E2E | NOT_RUN | Chromium revision 不一致（実行環境）。repo の Playwright 設定は変更していない |
+
+### V-1 第1段階（基礎4職）
+- 撮影: T-4 と同じ撮影セット（停止 正面 / 斜め45° / 側面 / 背面、歩行、戦闘）で、T-4 最終と並べて比較
+- Human 確認: 未（Human が色を直した場合は配色表の値だけ変え、ここに「候補値 → Human 指定値」で記録する）
