@@ -166,6 +166,17 @@ export function motionDebugLines(snap){
     } else {
       lines.push(' PAL    -');
     }
+    /* 輪郭線(CHARACTER-VIS-001 T-7)。武器(オフハンド含む)と上位職の装飾で、見えている
+       メッシュのうち輪郭線が無い数 / 対象の数。xray = X 線シェルが無い数(両方の合計)。
+       エフェクト(魔法陣・オーラ等)は対象に数えない */
+    if(r.outl && r.outl.wep && r.outl.deco){
+      const w = r.outl.wep, d = r.outl.deco;
+      const n = v => has(v) ? String(Math.round(Number(v))) : '-';
+      lines.push(' OUTL   wep ' + n(w.missing) + '/' + n(w.target) + '  deco ' + n(d.missing) + '/' + n(d.target)
+        + '  xray ' + (has(w.xrayMissing) && has(d.xrayMissing) ? String(Math.round(Number(w.xrayMissing) + Number(d.xrayMissing))) : '-'));
+    } else {
+      lines.push(' OUTL   -');
+    }
     lines.push(' SH.L  ' + vec3(r.shL));
     lines.push(' SH.R  ' + vec3(r.shR));
     lines.push(' EL.L  ' + deg(r.elL) + '   EL.R ' + deg(r.elR));

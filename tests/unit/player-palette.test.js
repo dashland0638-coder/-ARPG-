@@ -164,3 +164,57 @@ test('武器の質感表 WEAPON_FINISH: T-7 の初期候補の範囲(P-D3 / S-2)
   assert.notEqual(WEAPON_FINISH, PLAYER_FINISH);
   assert.equal(PLAYER_FINISH.steel, undefined);
 });
+
+/* CHARACTER-VIS-001 T-7(武器・装飾の Material と輪郭線)のソース検査 */
+function fnBody(src, name){
+  const start = src.indexOf(`function ${name}(`);
+  assert.ok(start > 0, `${name} がある`);
+  const end = src.indexOf('\n  }\n', start);
+  return src.slice(start, end);
+}
+
+test('T-7: 武器の Material は WEAPON_FINISH と配色表の trim から(S-1 / S-2 / S-6)', ()=>{
+  const src = readPart('06-player-enemy.js');
+  const body = fnBody(src, 'buildWeaponMesh');
+  assert.ok(!/color:\s*0xc9a227/.test(body), '固定ゴールド 0xc9a227 の Material が残っていない');
+  assert.match(body, /resolvePalette\(paletteKeyFor\(classDef\.key, state\.job, classDef\.charKey\)\)\.trim/);
+  for(const k of ['steel', 'darkSteel', 'wood', 'trim', 'gem']){
+    assert.ok(body.includes(`WEAPON_FINISH.${k}`), `WEAPON_FINISH.${k} を読む`);
+  }
+  assert.ok(!/roughness:0\.3, metalness:0\.7|roughness:0\.4, metalness:0\.6|roughness:0\.35, metalness:0\.55/.test(body),
+    'steel / darkSteel / goldTrim の旧い直値が残っていない');
+  // 生成時と差し替え時で同じ関数・同じ引数の形(呼び出し側で trim Material を渡さない)
+  assert.ok(src.includes('function buildWeaponMesh(weaponKey, classDef, bodyR, bodyH, HIP_Y, specialId)'));
+  const calls = src.match(/buildWeaponMesh\([^)]*\)/g).filter(c => !c.includes('weaponKey, classDef, bodyR'));
+  assert.deepEqual(calls.filter(c => /trimMat/.test(c)), [], '呼び出しで trimMat を渡していない');
+});
+
+test('T-7: 武器・上位職の装飾の破棄は共有 Material を dispose しない(S-5)', ()=>{
+  const src = readPart('06-player-enemy.js');
+  const dispose = fnBody(src, 'disposePlayerPartTree');
+  assert.match(dispose, /c\.userData\.isOutline \|\| c\.userData\.isXray/);
+  assert.match(dispose, /P\.roleMats/);
+  for(const name of ['swapPlayerWeaponVisual', 'clearJobPromotionVisual']){
+    const body = fnBody(src, name);
+    assert.ok(!/c\.material\.dispose\(\)/.test(body), `${name} が Material を直接 dispose しない`);
+    assert.match(body, /disposePlayerPartTree\(/);
+  }
+});
+
+test('T-7: 持ち替えた武器・上位職の装飾に既存の輪郭線と X 線シェル、エフェクトは対象外(S-3 / S-4 / P-D4)', ()=>{
+  const src = readPart('06-player-enemy.js');
+  const helper = fnBody(src, 'addPartOutlines');
+  assert.match(helper, /addOutline\(r, \{always:true/);
+  assert.match(helper, /addXrayShell\(r,/);
+  assert.match(fnBody(src, 'swapPlayerWeaponVisual'), /addPartOutlines\(\[weapon, P\.offhandWeapon\]/);
+  assert.match(fnBody(src, 'applyJobPromotionVisual'), /addPartOutlines\(meshes\)/);
+  // 魔法エフェクト(魔導士の結晶・魔法陣、バーサーカーのオーラ)は noOutline
+  const promo = fnBody(src, 'applyJobPromotionVisual');
+  for(const v of ['auraRing', 'c', 'circle']){
+    assert.ok(new RegExp(`\\b${v}\\.userData\\.noOutline = true`).test(promo), `${v} は輪郭線の対象外`);
+  }
+  // 輪郭線の方式そのもの(outlineMats / addOutline)は変えない
+  const rig = readPart('05-rendering-rig.js');
+  assert.match(rig, /_outlineDark = makeOutlineMat\(0\.032, 0x0d0a12\);/);
+  assert.match(rig, /_outlineRim  = makeOutlineMat\(0\.014, 0xdcd0b0\);/);
+});

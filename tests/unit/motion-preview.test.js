@@ -206,6 +206,17 @@ test('motionDebugLines', async t=>{
     assert.match(none, /^ PAL\s+-$/m);
   });
 
+  await t.test('RIG ブロック ―― 輪郭線の行(CHARACTER-VIS-001 T-7)', ()=>{
+    const rig = {relaxWeight:1, stopBlend:1, combatBlend:0, walkArmW:null,
+      shL:[0,0,0], shR:[0,0,0], elL:0, elR:0, wep:null, cloth:12,
+      outl:{wep:{target:14, missing:0, xrayMissing:0}, deco:{target:9, missing:2, xrayMissing:1}}};
+    const text = motionDebugLines(Object.assign({}, base, {rig})).join('\n');
+    // 欠けている数 / 対象の数、xray は武器と装飾の合計
+    assert.match(text, /^ OUTL\s+wep 0\/14  deco 2\/9  xray 1$/m);
+    const none = motionDebugLines(Object.assign({}, base, {rig:Object.assign({}, rig, {outl:null})})).join('\n');
+    assert.match(none, /^ OUTL\s+-$/m);
+  });
+
   await t.test('RIG ブロック ―― 体格の行(CHARACTER-VIS-001 T-2)', ()=>{
     const rig = {relaxWeight:1, stopBlend:1, combatBlend:0, walkArmW:null,
       shL:[0,0,0], shR:[0,0,0], elL:0, elR:0, wep:null,

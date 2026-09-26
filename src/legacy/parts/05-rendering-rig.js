@@ -3889,10 +3889,38 @@
         main: v(R.main), sub: v(R.sub), accent: v(R.accent), layer: v(R.layer),
         hat: v(R.hat), trim: v(R.trim), boot: v(R.boot) };
     }
+    /* 輪郭線の確認(CHARACTER-VIS-001 T-7、P-D7)。武器(オフハンド含む)と上位職の
+       装飾のうち、見えているメッシュで輪郭線 / X 線シェルが付いていない数。
+       エフェクト(userData.noOutline、特殊武器のオーラ)は対象外 ―― 全メッシュを
+       機械的に数えるのではなく、T-7 の対象だけを数える */
+    let outl = null;
+    if(player){
+      const P = playerMixerParts;
+      const aura = P.weaponAura;
+      const inAura = n => { for(let o = n; o; o = o.parent){ if(o === aura) return true; } return false; };
+      const count = roots => {
+        const seen = new Set();
+        let target = 0, missing = 0, xrayMissing = 0;
+        roots.forEach(r => {
+          if(!r) return;
+          r.traverseVisible(n => {
+            if(!n.isMesh || seen.has(n)) return;
+            seen.add(n);
+            const u = n.userData || {};
+            if(u.isOutline || u.isXray || u.noOutline || (aura && inAura(n))) return;
+            target++;
+            if(!n.children.some(c => c.userData && c.userData.isOutline)) missing++;
+            if(!n.children.some(c => c.userData && c.userData.isXray)) xrayMissing++;
+          });
+        });
+        return { target, missing, xrayMissing };
+      };
+      outl = { wep: count([P.weapon, P.offhandWeapon]), deco: count(P.jobDecorMeshes || []) };
+    }
     return {
       headsTall: top / (2 * B.headR), stature: top, handY, beltY: B.hipY,
       shoulderW, shoulderRatio: shoulderW / top, shoulderPerHead: shoulderW / (2 * B.headR),
-      hipW, hipRatio: hipW / top, cloth, pal,
+      hipW, hipRatio: hipW / top, cloth, pal, outl,
     };
   }
 
