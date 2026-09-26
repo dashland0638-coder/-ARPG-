@@ -36,7 +36,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | DONE | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い）。T-2 第3版基準で再計画 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-6、DEC-T3-1〜7（決定済み。DEC-T3-3 は Step 0 の Human 目視判断で確定） | .ai/reports/CHARACTER-VIS-001-T3-analysis.md（branch `main` @ `b6858b11d0739b16d08faa549b2868b91f233ab8`、blob `d2fdc21d99b475dadfc49e465083f6882d785d71`） |
 | T-4 | キャラクター性の再設計（頭部・顔の見せ方・髪・被り物・服装 Geometry・身体シルエット・職業固有シルエット・上位職の形状）。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）を含む再計画版 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-1, D-8、HDR-T4-1〜15（決定済み。デザインは初期案、V-1 で形状調整） | .ai/reports/CHARACTER-VIS-001-T4-analysis.md（branch `claude/character-vis-001-t4-analysis` @ `6ea91565d255849aaee1134666da04256543f00c`、blob `f15713384131f85bc9ee57c8219d2e836b24dd0c`） |
-| T-5 | プレイヤー用マテリアル値の統一（マット化）。再計画版で配色・Material・質感へ拡大（HDR-T5-1） | IMPLEMENTING | [x]（再計画版 2026-09-26。旧版の承認記録は下に残す） | D-4（決定済み）、HDR-T5-1〜12、P-D0〜11 | `.ai/reports/CHARACTER-VIS-001-T5-analysis.md` |
+| T-5 | プレイヤー用マテリアル値の統一（マット化）。再計画版で配色・Material・質感へ拡大（HDR-T5-1） | REVIEWING | [x]（再計画版 2026-09-26。旧版の承認記録は下に残す） | D-4（決定済み）、HDR-T5-1〜12、P-D0〜11 | `.ai/reports/CHARACTER-VIS-001-T5-analysis.md` |
 | T-6 | 支援AI（ゲスト仲間・デコイ）の見た目の寄せ | 取り下げ（Human 判断、2026-09-25。§7.1 / §7.2） | ― | D-5 = 除外 | 同上 |
 
 - T-6 は D-5 に従い人間の判断で取り下げた。§7 に取り下げ用の Status 値は無いため Status 列は「取り下げ」と記す。ID と履歴は残す（§7.2）。§7.1 の Task Level `DONE` 条件では「人間の判断で取り下げ」として扱う
@@ -1231,6 +1231,8 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-26 | T-4 | TESTING → REVIEWING | Implementer | FAIL なし（関連 E2E 60 件 = 59 PASS / 1 FLAKY、unit 1510 / 1510、build PASS。Test Report は Implementation Result（T-4）の「T-4 最終 Test Report」）。Human の指示「E2E完了したらcommit/pushしてREVIEWINGへ進めて」。Branch `claude/character-vis-001-t4-impl` |
 | 2026-09-26 | T-4 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T4-review.md` PASS（Reviewed SHA `737da5fabecc230fb2dd0ec78274f6756ca12297`、同一セッションで兼務）。主 Acceptance は Human が最終コードの9キャラクターで許容（「完了で良いです」）。Task Level は T-5 未完了のため PLANNED のまま |
 | 2026-09-26 | T-5 | APPROVED → IMPLEMENTING | Implementer | 再計画版の Human Approval（HDR-T5-1〜12、P-D0〜11）と Persistence（`claude/character-vis-001-t5-impl`、起点 `7ea0170`）。V-1 第1段階（基礎4職）まで実装 |
+| 2026-09-26 | T-5 | IMPLEMENTING → TESTING | Implementer | V-1 3段階すべて Human OK（盗賊のトップス #526A78、影の旅人のマフラー #A3B1BF は Human 指定）。docs 更新 |
+| 2026-09-26 | T-5 | TESTING → REVIEWING | Implementer | build / unit 1521 / 全 E2E 146件（143 PASS / 2 FAIL = main でも FAIL / 1 FLAKY）。Test Report は Implementation Result（T-5）|
 
 ## Implementation Result
 
@@ -1785,3 +1787,9 @@ T-4 の固定条件（Geometry / シルエットのみ、Material の値は変�
 | `mansion-escort.spec.js:126`（Relaxed Stance） | FAIL（**既存**） | relax 0.88。第1段階で `main` でも FAIL を確認済み |
 | `job-traits.spec.js:162`（鷹の目 Turn Assist） | FLAKY | spec 内蔵のリトライで PASS。第1段階と同じ。PASS に数えない |
 | repo 標準設定の E2E | NOT_RUN | Chromium revision 不一致（実行環境） |
+
+### V-1 第3段階（9キャラクター）と完了
+- 撮影: 基礎4職・上位4職はトレーニング空間の同一カメラ（停止 正面 / 斜め45° / 背面、歩行）、影の旅人は酒場。9人を1か所に揃えることは不可（FACT: 上位職はトレーニング空間のみ、影の旅人は本編のみ。空のクリア状況のセーブで酒場に入ると第1章の主人公 = 剣士に固定され、基礎職を酒場で選べない）
+- **V-1 第3段階の Human OK**: ユーザー（人間）/ 2026-09-26 / 会話で9キャラクターの比較画像を見て「OKです」。T-5 の配色・質感を Human 確認済みとする
+- `docs/CHARACTERS.md`: 「外見」節に配色の表を追加（T-5 の実装事実）。影の旅人の表の「（チャコール）」を削除（色は配色の表へ）
+- Acceptance Criteria（Planner report §16）: 1 CLASSES の値不変（unit）/ 2 9キャラクターの色が配色表どおり（E2E 9件）/ 3 転身・解除で全 role を上書き、基本 Material の直接書き換え無し（unit のソース検査。ゲーム内に転身解除の経路は無く、解除は `buildPlayer` の再生成のため、E2E は上位職の生成で確認）/ 4 影の旅人の紫 ≠ 影 VFX、全身黒でない（unit + V-1）/ 5 バーサーカー独立（unit）/ 6 質感範囲（unit）/ 7 Geometry・衣服数不変（`character-clothing` 9 PASS）/ 8 build・unit PASS、E2E は既存の FAIL 2件（main でも FAIL）と FLAKY 1件以外 PASS / 9・10 V-1 3段階の Human OK
