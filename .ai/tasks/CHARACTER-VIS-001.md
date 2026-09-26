@@ -1759,3 +1759,4 @@ T-4 の固定条件（Geometry / シルエットのみ、Material の値は変�
 ### V-1 第1段階（基礎4職）
 - 撮影: T-4 と同じ撮影セット（停止 正面 / 斜め45° / 側面 / 背面、歩行、戦闘）で、T-4 最終と並べて比較
 - Human 確認: 未（Human が色を直した場合は配色表の値だけ変え、ここに「候補値 → Human 指定値」で記録する）
+- **Human Decision（盗賊のトップス）**: ユーザー（人間）/ 2026-09-26 / 会話で「盗賊の紫は少し浮いて見える。トップスは紫を主役にせず、オーバーオールの緑と帽子の黄色をつなぐ色に」と指摘し、候補 A Dark Navy #263449 / B Deep Teal #28565A / C Warm Brown #665044 / D Dusty Blue #526A78 をゲーム画面で比較のうえ「**D で確定**」。配色表 `rogue.accent`（パーカーのフード・胴・袖）: 候補値 Muted Purple #5B4B78 → **Human 指定値 Dusty Blue #526A78**。他の盗賊の値（オーバーオール #304D45 / 帽子 #D2A83E / ブーツ・金具 #263449）は変更なし。確認: `npm run test:unit` 1518 / 1518 PASS、`npm run build` PASS、`character-palette` + `character-clothing` E2E 13 / 13 PASS（配色表の1値の変更のみのため全 E2E は再実行していない）

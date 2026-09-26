@@ -39,7 +39,8 @@ test('配色表: 基礎4職は Human 承認の色(HDR-T5 配色体系 / P-D5 / P
   const a = resolvePalette('archer');
   assert.deepEqual([a.main, a.sub, a.accent, a.trim], [0x315c50, 0x617a82, 0xb99652, 0xe6e4dd]);
   const r = resolvePalette('rogue');
-  assert.deepEqual([r.main, r.accent, r.hat], [0x304d45, 0x5b4b78, 0xd2a83e]);
+  // パーカーは V-1 第1段階の Human 指定(#5B4B78 → #526A78)
+  assert.deepEqual([r.main, r.accent, r.hat], [0x304d45, 0x526a78, 0xd2a83e]);
 });
 
 test('配色表: 上位職は基礎職を継承し、バーサーカーだけ独立(HDR-T5-8)', ()=>{

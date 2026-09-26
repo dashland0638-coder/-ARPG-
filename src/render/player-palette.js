@@ -48,8 +48,10 @@ export const PLAYER_PALETTE = {
   mage:    { main: 0x8fb9d6, sub: 0xb7c7d2, accent: 0xe7e8e5, layer: 0xe7e8e5, hat: 0x6f8ca3, trim: 0xc7a45a, boot: DEFAULT_BOOT },
   // 弓師(P-D5): Forest Green / Blue Gray / Muted Gold / trim Off White。帽子は main
   archer:  { main: 0x315c50, sub: 0x617a82, accent: 0xb99652, layer: 0xe6e4dd, hat: 0x315c50, trim: 0xe6e4dd, boot: DEFAULT_BOOT },
-  // 盗賊: Deep Green のオーバーオール / Muted Purple のパーカー / Warm Yellow の帽子 / Dark Navy
-  rogue:   { main: 0x304d45, sub: 0x304d45, accent: 0x5b4b78, layer: 0xe6e4dd, hat: 0xd2a83e, trim: 0x263449, boot: 0x263449 },
+  /* 盗賊: Deep Green のオーバーオール / Dusty Blue のパーカー / Warm Yellow の帽子 / Dark Navy。
+     パーカーは Human V-1 第1段階で Muted Purple #5B4B78 → Dusty Blue #526A78(緑と黄色を
+     冷色でつなぐ。紫を主役にしない) */
+  rogue:   { main: 0x304d45, sub: 0x304d45, accent: 0x526a78, layer: 0xe6e4dd, hat: 0xd2a83e, trim: 0x263449, boot: 0x263449 },
   /* 影の旅人: V-1 第1段階(基礎4職)の間は T-4 の見た目を保つ暫定値
      (コート 0x5e5a6c / パンツ・素体 0x1a1622 / マフラー 0x8a5ad6 / シャツ 0xe6e2da)。
      配色案(Charcoal / Dark Purple / Shadow Purple / Off White)への変更は
