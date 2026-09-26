@@ -60,8 +60,10 @@ export const PLAYER_PALETTE = {
   /* 影の旅人(HDR-T5-6): Charcoal のコート / Dark Purple のパンツ / Shadow Purple の
      マフラー・金具 / Off White のシャツ。全身黒にしない(P-D8: 暗く見えれば明るくして
      よい)。衣服の紫は影 VFX・足元リングの紫(CLASSES.wanderer.trim 0x8a5ad6)と
-     別の値(unit テストで検査)。キャップは無い(hat は未使用) */
-  wanderer: { main: 0x30323a, sub: 0x403454, accent: 0x654f86, layer: 0xd8d4d0, hat: 0x30323a, trim: 0x654f86, boot: DEFAULT_BOOT },
+     別の値(unit テストで検査)。キャップは無い(hat は未使用)。
+     首元のマフラー(accent)は Human V-1 第2段階で Shadow Purple #654F86 → シルバーブルー
+     (値 #A3B1BF は Implementer の候補。最終は Human の目視) */
+  wanderer: { main: 0x30323a, sub: 0x403454, accent: 0xa3b1bf, layer: 0xd8d4d0, hat: 0x30323a, trim: 0x654f86, boot: DEFAULT_BOOT },
 
   /* 上位職。role 以外のキーは上位職の装飾だけが使う色
      (steel / gold = 戦騎士の強化肩・ハーネス、cape = 鷹の目の背中のフード) */

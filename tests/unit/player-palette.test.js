@@ -117,7 +117,8 @@ test('影の旅人: 衣服の紫は影 VFX の紫と別の値 / 全身黒でな�
   // 全身黒の検出: T-4 の黒ずくめ(0x1a1622)より明るいメイン、明るい白系レイヤーがある
   assert.ok(luminance(w.main) > luminance(0x1a1622) * 2, `main が黒ずくめより明るい(${luminance(w.main).toFixed(3)})`);
   assert.ok(luminance(w.layer) > 0.5, 'Off White のレイヤーがある');
-  assert.deepEqual([w.main, w.sub, w.accent, w.layer], [0x30323a, 0x403454, 0x654f86, 0xd8d4d0]);
+  // マフラーは V-1 第2段階の Human 指定(紫 → シルバーブルー)
+  assert.deepEqual([w.main, w.sub, w.accent, w.layer], [0x30323a, 0x403454, 0xa3b1bf, 0xd8d4d0]);
 });
 
 test('上位職: 白系レイヤーと専用色(P-D7、HDR-T5 配色体系)', ()=>{
