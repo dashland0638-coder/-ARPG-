@@ -2126,6 +2126,26 @@
     });
   }
 
+  /* CHARACTER-VIS-001 T-7(S-3 / S-4): buildPlayer() の後から足す武器・上位職の装飾にも、
+     本体と同じ既存の輪郭線(addOutline、常時表示)と X 線シェル(addXrayShell)を付ける。
+     buildPlayer() 末尾の1回の付与では、後から足したメッシュに線が付かなかった。
+     方式・Material は既存のまま(呼び出し箇所を増やすだけ)。
+     対象外(P-D4): userData.noOutline の付いたメッシュ(魔法エフェクト系)と、
+     skip(n) が true を返すメッシュ(特殊武器のオーラ等)。同じメッシュに二重に
+     付けないよう、1回の呼び出しの中で処理済みを覚える */
+  function addPartOutlines(roots, skip){
+    const doneO = new Set(), doneX = new Set();
+    const pick = done => n => {
+      if(done.has(n) || (skip && skip(n))) return false;
+      done.add(n); return true;
+    };
+    roots.forEach(r=>{
+      if(!r) return;
+      addOutline(r, {always:true, filter:pick(doneO)});
+      addXrayShell(r, {filter:pick(doneX)});
+    });
+  }
+
   /* 装備欄で武器種を持ち替えた時、プレイヤーの手元の見た目を差し替える。
      buildPlayer() で作った腕・waist などのリグはそのまま使い回し、
      武器メッシュだけを buildWeaponMesh() で作り直して同じ握り位置に
@@ -2212,6 +2232,11 @@
     } else {
       P.offhandWeapon = null; P.offhandGripHand = null; P.offhandGripOff = null;
     }
+    // T-7(S-3): 持ち替えた武器・オフハンドにも輪郭線と X 線シェル。特殊武器のオーラ
+    // (エフェクト)は対象外 ―― buildPlayer() の生成時の武器は本体と一緒に付与される
+    const auraRoot = P.weaponAura;
+    const inAura = n => { for(let o = n; o; o = o.parent){ if(o === auraRoot) return true; } return false; };
+    addPartOutlines([weapon, P.offhandWeapon], auraRoot ? inAura : null);
 
     // 上位ジョブ(#9)転身済みなら、持ち替えた新しい武器(オフハンド含む)にも
     // 「一回り大きい」拡大を掛け直す(素のweapon.scaleは常に1で作られる
@@ -2440,6 +2465,7 @@
         new THREE.MeshBasicMaterial({color:0xff3a1a, transparent:true, opacity:0.55, side:THREE.DoubleSide}));
       auraRing.rotation.x = -Math.PI/2;
       auraRing.position.y = 0.02;
+      auraRing.userData.noOutline = true;   // T-7(P-D4): エフェクトは輪郭線の対象外
       scene.add(auraRing); meshes.push(auraRing);   // player直下ではなくscene直下: 毎フレームworld座標へ同期する(下のupdateJobDecor)
       anim.auraRing = auraRing;
       // 半袖の上着: パーカー・胸当ての上に羽織る前開きの上着(胴 → waist)
@@ -2602,6 +2628,7 @@
       const crystalMat = new THREE.MeshStandardMaterial({color:uj.trim, emissive:uj.trim, emissiveIntensity:0.9, roughness:0.3});
       const crystals = [0, Math.PI*0.5, Math.PI, Math.PI*1.5].map(offset=>{
         const c = new THREE.Mesh(crystalGeo, crystalMat);
+        c.userData.noOutline = true;   // T-7(P-D4): 魔法エフェクトは輪郭線の対象外
         scene.add(c); meshes.push(c);   // player直下ではなくscene直下: 顔の向きに引きずられず円軌道を保つ
         return {mesh:c, offset};
       });
@@ -2610,6 +2637,7 @@
       // waistではなくgroup直下に置き、上半身の傾きに引きずられないようにする)
       const circleMat = new THREE.MeshBasicMaterial({color:uj.trim, transparent:true, opacity:0.4, side:THREE.DoubleSide});
       const circle = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.6, 24), circleMat);
+      circle.userData.noOutline = true;   // T-7(P-D4): 魔法陣は輪郭線の対象外
       circle.rotation.x = -Math.PI/2;
       circle.position.y = 0.03;
       scene.add(circle); meshes.push(circle);   // player直下ではなくscene直下: 上半身の傾き・向きに引きずられない
@@ -2679,6 +2707,8 @@
       });
     }
 
+    // T-7(S-4): 上位職の装飾にも輪郭線と X 線シェル(エフェクトは noOutline で除外)
+    addPartOutlines(meshes);
     P.jobDecorMeshes = meshes;
     P.jobDecorAnim = anim;
   }
