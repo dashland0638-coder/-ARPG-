@@ -36,7 +36,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | DONE | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い）。T-2 第3版基準で再計画 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-6、DEC-T3-1〜7（決定済み。DEC-T3-3 は Step 0 の Human 目視判断で確定） | .ai/reports/CHARACTER-VIS-001-T3-analysis.md（branch `main` @ `b6858b11d0739b16d08faa549b2868b91f233ab8`、blob `d2fdc21d99b475dadfc49e465083f6882d785d71`） |
 | T-4 | キャラクター性の再設計（頭部・顔の見せ方・髪・被り物・服装 Geometry・身体シルエット・職業固有シルエット・上位職の形状）。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）を含む再計画版 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-1, D-8、HDR-T4-1〜15（決定済み。デザインは初期案、V-1 で形状調整） | .ai/reports/CHARACTER-VIS-001-T4-analysis.md（branch `claude/character-vis-001-t4-analysis` @ `6ea91565d255849aaee1134666da04256543f00c`、blob `f15713384131f85bc9ee57c8219d2e836b24dd0c`） |
-| T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
+| T-5 | プレイヤー用マテリアル値の統一（マット化）。再計画版で配色・Material・質感へ拡大（HDR-T5-1） | IMPLEMENTING | [x]（再計画版 2026-09-26。旧版の承認記録は下に残す） | D-4（決定済み）、HDR-T5-1〜12、P-D0〜11 | `.ai/reports/CHARACTER-VIS-001-T5-analysis.md` |
 | T-6 | 支援AI（ゲスト仲間・デコイ）の見た目の寄せ | 取り下げ（Human 判断、2026-09-25。§7.1 / §7.2） | ― | D-5 = 除外 | 同上 |
 
 - T-6 は D-5 に従い人間の判断で取り下げた。§7 に取り下げ用の Status 値は無いため Status 列は「取り下げ」と記す。ID と履歴は残す（§7.2）。§7.1 の Task Level `DONE` 条件では「人間の判断で取り下げ」として扱う
@@ -117,6 +117,29 @@ Implementation (T-4, 再計画版): 開始可 — 実施順は Step 0 → 弓師
 - Persistence:（空欄 = 未許可）
 
 Implementation (T-5): BLOCKED — T-1 と同じ理由に加え、T-4 の DONE 待ち
+
+### T-5 Human Approval（再計画版: 配色・Material・質感。2026-09-26。上の旧版の承認記録は残す）
+- [x] Approved
+- Approved by / date / where: ユーザー（人間、Decision Maker: Human）/ 2026-09-26 / Claude Code セッションの会話で HDR-T5-1〜12 と「CHARACTER-VIS-001 T-5 の Human Approval を確定します」（P-D0〜P-D11）を指示。記入: Implementer（人間の指示による）
+- Approval 対象: Planner report `.ai/reports/CHARACTER-VIS-001-T5-plan.md`（Input: `.ai/reports/CHARACTER-VIS-001-T5-analysis.md`）。Persistence commit `7ea0170cda309907b2f5ca83b0eb14d90bffcbb7`（branch `claude/character-vis-001-t5-planner`）
+- Scope of approval: HDR-T5-1（範囲拡大: 職業別配色 / プレイヤー専用配色 Material / 最小限の Material 分離 / 共有による色波及の解消 / matte 化 / 上位職の Material 切り替え整理 / 影の旅人の衣服色と影 VFX 色の分離）と Planner report 全体。Planner report と下の P-D が食い違う箇所は **P-D を正**とする
+- P-D（Human 確定）:
+  - P-D0: 肌色は T-4 最終確定値のまま変えない（剣士 0xffe6d2 / 魔法使い 0xffeee5 / 盗賊 0xffe7d4 / 弓師 0xe8bd98 / 影の旅人 0xe8dce0）。0xf2d6bf 等の途中候補値は採用しない
+  - P-D1: Planner 成果物は `claude/character-vis-001-t5-planner`
+  - P-D2: 配色表は新規 `src/render/player-palette.js`
+  - P-D3: Material 役割は main / sub / accent / layer / hat / trim / boot の7つで固定。新規は subMat / subMatFlat / layerMat の3系統を基本
+  - P-D4: 魔導士の髪色の既存直接書き換えは変えない（髪は範囲外）
+  - P-D5: 弓師 main Forest Green #315C50 / sub Blue Gray #617A82 / accent Muted Gold #B99652 / trim Off White #E6E4DD
+  - P-D6: 魔法使いの帽子 #6F8CA3
+  - P-D7: 上位職の白系レイヤー: 戦騎士 Cool Gray #9AA5B1 / 鷹の目 Off White #E5E1D9
+  - P-D8: 影の旅人は全身黒に見えないよう必要に応じて明るくしてよい（形状・頭身・衣服構成は変えない）。衣服と影エフェクトの紫は別 Material・別色
+  - P-D9: 武器装飾は配色表の accent / trim 系に統一。投げナイフの初期質感 roughness 0.75 / metalness 0.45
+  - P-D10: E2E の色検証は Planner 案（Motion Preview の行）。Playwright 設定は変えない
+  - P-D11: V-1 は3段階を厳守（1. 基礎4職 → 2. 上位4職 + 影の旅人（酒場で同一条件撮影、必須）→ 3. 9キャラクターを同一条件で並べる）。各段階で Human OK を得るまで次へ進まない
+- 承認条件（変更禁止）: BUILD / 5.0頭身 / Geometry / 衣服形状・配置 / シルエット / 顔 / 目 / 髪 / STANCE / CLIPS / 歩行 / 戦闘モーション / 武器形状・位置 / 影の旅人の武器システム / 敵 / ボス / 支援AI / `13-update-loop.js` / Playwright 設定 / `CLASSES.color` / `CLASSES.trim`
+- Persistence: 許可（branch: `claude/character-vis-001-t5-impl`）。根拠: ユーザー（人間）/ 2026-09-26 / 会話で「T-5 Implementer branchを作成して実装を開始して」と指示（起点 `7ea0170`）。記入: Implementer（人間の指示による）
+
+Implementation (T-5, 再計画版): 開始可 — 配色表・構造 → 基礎4職 → build / unit / 関連 E2E → V-1 第1段階（基礎4職）→ **Human OK**。Human OK なしに上位職・影の旅人へ進まない
 
 ### T-6 Human Approval
 - [ ] Approved
@@ -1207,6 +1230,7 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-26 | T-4 | IMPLEMENTING → TESTING | Implementer | 全職の実装・Step 6・HDR-T4-14・docs 完了、T-4 全体の V-1 を Human が許容（「完了で良いです」）。build / unit / 関連 E2E を実行 |
 | 2026-09-26 | T-4 | TESTING → REVIEWING | Implementer | FAIL なし（関連 E2E 60 件 = 59 PASS / 1 FLAKY、unit 1510 / 1510、build PASS。Test Report は Implementation Result（T-4）の「T-4 最終 Test Report」）。Human の指示「E2E完了したらcommit/pushしてREVIEWINGへ進めて」。Branch `claude/character-vis-001-t4-impl` |
 | 2026-09-26 | T-4 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T4-review.md` PASS（Reviewed SHA `737da5fabecc230fb2dd0ec78274f6756ca12297`、同一セッションで兼務）。主 Acceptance は Human が最終コードの9キャラクターで許容（「完了で良いです」）。Task Level は T-5 未完了のため PLANNED のまま |
+| 2026-09-26 | T-5 | APPROVED → IMPLEMENTING | Implementer | 再計画版の Human Approval（HDR-T5-1〜12、P-D0〜11）と Persistence（`claude/character-vis-001-t5-impl`、起点 `7ea0170`）。V-1 第1段階（基礎4職）まで実装 |
 
 ## Implementation Result
 
