@@ -1954,4 +1954,5 @@ T-4 の固定条件（Geometry / シルエットのみ、Material の値は変�
 ### S-7（指の位置）の実装と確認
 - 実装: `2fd5760`。`06` `buildPlayer()` の指3本の x を `[-0.6, 0, 0.6] × B.forearm` に（旧 `[-0.16, 0, 0.16]` の絶対値）。指の形・本数・親指・y / z・手の球は不変。unit に「指の外端（0.6 + 0.16）× forearm < 手の半径 1.12 × forearm」の検査を追加
 - テスト: `npm run build` PASS、`npm run test:unit` 1527 / 1527 PASS、関連 E2E（`character-weapon-visual`・`character-clothing`・`character-palette`・`character-motion`・`weapon-stow`）52 / 52 PASS。全 E2E 156件は S-7 の後に再実行していない（S-7 は指の x 位置のみ。前回の全 E2E は `f8bcdb6` で 152 PASS / 3 FAIL（既知の baseline 2 + FLAKY 1）/ 1 FLAKY）
-- V-1c（手元）: 8職の低いカメラ・攻撃入力 1.2 秒後の手元を拡大して修正前（`f8bcdb6`）と比較。修正前は弓師・盗賊・バーサーカーなどで手の横に浮いた丸い粒が写り、修正後は写らない（指が手に付いている）。Human 確認: 未
+- V-1c（手元）: 8職の低いカメラ・攻撃入力 1.2 秒後の手元を拡大して修正前（`f8bcdb6`）と比較。修正前は弓師・盗賊・バーサーカーなどで手の横に浮いた丸い粒が写り、修正後は写らない（指が手に付いている）。**V-1c Human OK**: ユーザー（人間）/ 2026-09-26 / 会話で手元の比較画像を見て「OK」
+- `docs/CHARACTERS.md`: 外見の節に武器の装飾色・質感・輪郭線の記述を追加（V-1 OK 後、Files To Change どおり）
