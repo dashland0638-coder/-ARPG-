@@ -93,11 +93,14 @@
       s.material.opacity = 0.6 + 0.35*Math.sin(t*3 + i*2.1);
     });
   }
-  function buildWeaponMesh(weaponKey, classDef, trimMat, bodyR, bodyH, HIP_Y, specialId){
+  function buildWeaponMesh(weaponKey, classDef, bodyR, bodyH, HIP_Y, specialId){
     const weapon = new THREE.Group();
-    const steel = new THREE.MeshStandardMaterial({color:0xd8dce0, roughness:0.3, metalness:0.7});
-    const darkSteel = new THREE.MeshStandardMaterial({color:0x9aa4ae, roughness:0.4, metalness:0.6});
-    const woodMat = new THREE.MeshStandardMaterial({color:0x3a2818});
+    /* CHARACTER-VIS-001 T-7(S-2): 武器の質感は WEAPON_FINISH(player-palette.js、
+       服の PLAYER_FINISH とは別の表)から。Material は武器ごとに新しく作り、
+       本体の役割別 Material とは共有しない(差し替え時の破棄で本体を巻き込まない) */
+    const steel = new THREE.MeshStandardMaterial({color:0xd8dce0, ...WEAPON_FINISH.steel});
+    const darkSteel = new THREE.MeshStandardMaterial({color:0x9aa4ae, ...WEAPON_FINISH.darkSteel});
+    const woodMat = new THREE.MeshStandardMaterial({color:0x3a2818, ...WEAPON_FINISH.wood});
     /* 武器設定画(8職業 武器設定画)対応: 8種の武器すべてで、鍔・柄金具・
        弓の弭・杖の環飾りが共通してゴールド系の金属で統一されている一方、
        石(ジェム)の色だけがクラスごとに違う(剣士/戦騎士=青、盗賊=水色、
@@ -106,11 +109,19 @@
        渡されるMaterial)は防具の差し色と共有のため、そのままでは魔法使い
        (紫)などで金属部が金色にならない。ここでは武器の金属部専用に
        固定のゴールドMaterial(goldTrim)を新設し、trimMatとは独立に
-       全クラス共通で使う。ジェムはmakeGem()でクラスごとの色を都度指定する */
-    const goldTrim = new THREE.MeshStandardMaterial({color:0xc9a227, roughness:0.35, metalness:0.55});
+       全クラス共通で使う。ジェムはmakeGem()でクラスごとの色を都度指定する
+       T-7(P-D1 / S-1): 武器装飾の色は全職共通の固定ゴールド(旧 0xc9a227)をやめ、
+       配色表の各職の trim(転身中は上位職の行)にする。T-5 の Human Decision
+       「武器装飾は palette の trim 系に統一」を引き継ぐ。変数名は既存のまま。
+       T-7(S-6): 生成時(buildPlayer)と差し替え時(swapPlayerWeaponVisual)で
+       作り方を分けないよう、槍・刀・魔法の剣・ボウガンの装飾(旧 引数 trimMat =
+       呼び出し側の Material)もこの武器専用の trim に統一した */
+    const weaponTrimHex = resolvePalette(paletteKeyFor(classDef.key, state.job, classDef.charKey)).trim;
+    const goldTrim = new THREE.MeshStandardMaterial({color:weaponTrimHex, ...WEAPON_FINISH.trim});
+    const trimMat = goldTrim;
     function makeGem(color, radius){
       return new THREE.Mesh(new THREE.OctahedronGeometry(radius || 0.035, 0),
-        new THREE.MeshStandardMaterial({color, roughness:0.2, metalness:0.1, emissive:color, emissiveIntensity:0.4}));
+        new THREE.MeshStandardMaterial({color, ...WEAPON_FINISH.gem, emissive:color}));
     }
     // 二刀流/両手斧のオフハンド(#39系)。dualblades以外では毎回nullに戻す
     // ―― swapPlayerWeaponVisual()で武器種を替えた時、前の武器の対が
@@ -1875,7 +1886,7 @@
     // weapon / focus item, attached to right arm
     const activeWeaponKey = weaponDefFor(classDef.key, state.usingAltWeapon).key;
     const equippedWeapon = state.equipped && state.equipped.weapon;
-    const weapon = buildWeaponMesh(activeWeaponKey, classDef, trimMat, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
+    const weapon = buildWeaponMesh(activeWeaponKey, classDef, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
     // Sit the weapon where the hands actually ended up, rather than at a
     // hard-coded offset that goes stale the moment the rig is retuned.
     group.updateMatrixWorld(true);
@@ -2126,15 +2137,10 @@
     const classDef = state.classDef;
     const B = P.build;
     const bodyH = B.height, HIP_Y = B.hipY, bodyR = B.chest;
-    // T-5(P-D9): 武器装飾は buildPlayer() と同じく配色表の trim(classDef.trim ではない)
-    // 転身の瞬間(state.job を書き換えた直後、applyJobPromotionVisual の前)にも呼ばれる
-    // ため、今の P.paletteKey ではなく state.job から行を決める
-    const palTrim = (resolvePalette(paletteKeyFor(classDef.key, state.job, classDef.charKey)) || {}).trim;
-    const trimHex = palTrim != null ? palTrim : classDef.trim;
-    const trimMat = new THREE.MeshStandardMaterial({color:trimHex, ...PLAYER_FINISH.trim, emissive:trimHex});
+    // T-7(S-6): 武器の Material(装飾の trim 色を含む)は buildWeaponMesh() が生成時と同じ規則で作る
     const weaponKey = weaponDefFor(classDef.key, state.usingAltWeapon).key;
     const equippedWeapon = state.equipped && state.equipped.weapon;
-    const weapon = buildWeaponMesh(weaponKey, classDef, trimMat, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
+    const weapon = buildWeaponMesh(weaponKey, classDef, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
 
     const st = activeStance(classDef.key, state.usingAltWeapon);
     // 武器の向きだけでなく、腕そのものの構え(肩・肘の角度)も持ち替え先の
