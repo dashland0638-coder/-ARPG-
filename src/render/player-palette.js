@@ -35,6 +35,11 @@ export const PLAYER_FINISH = {
   trim:   { roughness: 0.60, metalness: 0.25, emissiveIntensity: 0.04 },
   boot:   { roughness: 0.75, metalness: 0.08 },
   knife:  { roughness: 0.75, metalness: 0.45 }, // 盗賊の投げナイフ(P-D9)
+  // 上位職の装飾(applyJobPromotionVisual)。現在値 → 候補は Planner report §9
+  upperTrim:   { roughness: 0.55, metalness: 0.30, emissiveIntensity: 0.08 },
+  knightSteel: { roughness: 0.50, metalness: 0.35 },
+  knightGold:  { roughness: 0.50, metalness: 0.35, emissiveIntensity: 0.05 },
+  knightDark:  { roughness: 0.70, metalness: 0.20 },
 };
 
 const DEFAULT_BOOT = 0x2a2018;
@@ -52,16 +57,21 @@ export const PLAYER_PALETTE = {
      パーカーは Human V-1 第1段階で Muted Purple #5B4B78 → Dusty Blue #526A78(緑と黄色を
      冷色でつなぐ。紫を主役にしない) */
   rogue:   { main: 0x304d45, sub: 0x304d45, accent: 0x526a78, layer: 0xe6e4dd, hat: 0xd2a83e, trim: 0x263449, boot: 0x263449 },
-  /* 影の旅人: V-1 第1段階(基礎4職)の間は T-4 の見た目を保つ暫定値
-     (コート 0x5e5a6c / パンツ・素体 0x1a1622 / マフラー 0x8a5ad6 / シャツ 0xe6e2da)。
-     配色案(Charcoal / Dark Purple / Shadow Purple / Off White)への変更は
-     V-1 第2段階(P-D11) */
-  wanderer: { main: 0x5e5a6c, sub: 0x1a1622, accent: 0x8a5ad6, layer: 0xe6e2da, hat: 0x5e5a6c, trim: 0x8a5ad6, boot: DEFAULT_BOOT },
+  /* 影の旅人(HDR-T5-6): Charcoal のコート / Dark Purple のパンツ / Shadow Purple の
+     マフラー・金具 / Off White のシャツ。全身黒にしない(P-D8: 暗く見えれば明るくして
+     よい)。衣服の紫は影 VFX・足元リングの紫(CLASSES.wanderer.trim 0x8a5ad6)と
+     別の値(unit テストで検査)。キャップは無い(hat は未使用) */
+  wanderer: { main: 0x30323a, sub: 0x403454, accent: 0x654f86, layer: 0xd8d4d0, hat: 0x30323a, trim: 0x654f86, boot: DEFAULT_BOOT },
 
-  // 上位職(V-1 第2段階で配色を反映する。今は applyJobPromotionVisual から使わない)
-  battleKnight: { inherit: 'warrior', layer: 0x9aa5b1 },
+  /* 上位職。role 以外のキーは上位職の装飾だけが使う色
+     (steel / gold = 戦騎士の強化肩・ハーネス、cape = 鷹の目の背中のフード) */
+  // 戦騎士: 剣士を継承 + 白いレイヤー Cool Gray(P-D7)+ 肩 Muted Silver + 金具 Warm Gold
+  battleKnight: { inherit: 'warrior', layer: 0x9aa5b1, steel: 0xc8cdd2, gold: 0xc49a4a },
+  // 魔導士: Deep Blue のコート / Indigo Purple のパンツ・帽子 / Off White のドレス / Muted Gold
   archmage:     { inherit: 'mage', main: 0x334a72, sub: 0x514b86, hat: 0x514b86, layer: 0xe4e6e3 },
-  hawkEye:      { inherit: 'archer', sub: 0x24463e, layer: 0xe5e1d9 },
+  // 鷹の目: 弓師を継承 + Deep Green のフード + Off White のベスト(P-D7)
+  hawkEye:      { inherit: 'archer', layer: 0xe5e1d9, cape: 0x24463e },
+  // バーサーカー: 盗賊を継承しない(HDR-T5-8)。Charcoal / Deep Red / Off White / Dark Brown
   berserker:    { main: 0x45484d, sub: 0x45484d, accent: 0x8a3438, layer: 0xe5e1d9, hat: 0x59483d, trim: 0x59483d, boot: 0x59483d },
 };
 

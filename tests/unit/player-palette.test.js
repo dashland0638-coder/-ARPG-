@@ -101,3 +101,52 @@ test('buildPlayer の服の色は配色表から取る(CLASSES の color / trim 
   // 肌色は T-4 最終確定値のまま(P-D0)
   assert.ok(src.includes('const SKIN_COLOR = { warrior:0xffe6d2, mage:0xffeee5, rogue:0xffe7d4, archer:0xe8bd98, wanderer:0xe8dce0 };'));
 });
+
+// 相対輝度(sRGB → 線形、WCAG と同じ式)
+function luminance(hex){
+  const ch = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * ch((hex >> 16) & 255) + 0.7152 * ch((hex >> 8) & 255) + 0.0722 * ch(hex & 255);
+}
+
+test('影の旅人: 衣服の紫は影 VFX の紫と別の値 / 全身黒でない(HDR-T5-6、P-D8)', ()=>{
+  const w = resolvePalette('wanderer');
+  const SHADOW_VFX = 0x8a5ad6;   // CLASSES.wanderer.trim(影 VFX・足元リング)
+  for(const role of ['main', 'sub', 'accent', 'layer', 'trim']){
+    assert.notEqual(w[role], SHADOW_VFX, `wanderer.${role} が影 VFX の紫と同じでない`);
+  }
+  // 全身黒の検出: T-4 の黒ずくめ(0x1a1622)より明るいメイン、明るい白系レイヤーがある
+  assert.ok(luminance(w.main) > luminance(0x1a1622) * 2, `main が黒ずくめより明るい(${luminance(w.main).toFixed(3)})`);
+  assert.ok(luminance(w.layer) > 0.5, 'Off White のレイヤーがある');
+  assert.deepEqual([w.main, w.sub, w.accent, w.layer], [0x30323a, 0x403454, 0x654f86, 0xd8d4d0]);
+});
+
+test('上位職: 白系レイヤーと専用色(P-D7、HDR-T5 配色体系)', ()=>{
+  const k = resolvePalette('battleKnight');
+  assert.equal(k.layer, 0x9aa5b1);
+  assert.equal(k.steel, 0xc8cdd2);
+  const h = resolvePalette('hawkEye');
+  assert.equal(h.layer, 0xe5e1d9);
+  assert.equal(h.main, 0x315c50);
+  assert.equal(h.cape, 0x24463e);
+  const a = resolvePalette('archmage');
+  assert.deepEqual([a.main, a.sub, a.layer], [0x334a72, 0x514b86, 0xe4e6e3]);
+  const b = resolvePalette('berserker');
+  assert.deepEqual([b.main, b.accent, b.layer, b.hat], [0x45484d, 0x8a3438, 0xe5e1d9, 0x59483d]);
+});
+
+test('上位職は基本 Material を直接書き換えない(HDR-T5-10)', ()=>{
+  const src = readPart('06-player-enemy.js');
+  const start = src.indexOf('function applyJobPromotionVisual(');
+  const end = src.indexOf('\n  }\n', start);
+  assert.ok(start > 0 && end > start);
+  const body = src.slice(start, end);
+  assert.ok(!/const matchRobeLook/.test(body), 'matchRobeLook が無い');
+  assert.ok(!/const HAWKEYE_BODY/.test(body), 'HAWKEYE_BODY が無い');
+  assert.ok(!/P\.(clothMat|clothMatFlat|trimMat|trimMatFlat|beltMat)\.map\s*=/.test(body), '基本 Material の map を書き換えない');
+  assert.ok(!/P\.clothAcc\.color\.set/.test(body), 'clothAcc の色を書き換えない');
+  assert.ok(!/P\.rogueHood\.material\.color\.set/.test(body), '盗賊の帽子の色を書き換えない');
+  assert.match(body, /applyPlayerPalette\(P, upPalKey\)/);
+  // 解除でも基礎職の行へ全 role を戻す
+  const clear = src.slice(src.indexOf('function clearJobPromotionVisual('), start);
+  assert.match(clear, /applyPlayerPalette\(P, P\.basePaletteKey\)/);
+});

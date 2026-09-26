@@ -2048,6 +2048,7 @@
       accent:clothAcc, layer:layerMat, hat:hatMat,
       trim:trimMat, trimFlat:trimMatFlat, belt:beltMat, boot:bootMat,
     };
+    playerMixerParts.basePaletteKey = palKey;
     applyPlayerPalette(playerMixerParts, palKey);
     addOutline(group, {always: true});
     addXrayShell(group);   // visible through walls/terrain when they occlude the player
@@ -2126,7 +2127,9 @@
     const B = P.build;
     const bodyH = B.height, HIP_Y = B.hipY, bodyR = B.chest;
     // T-5(P-D9): 武器装飾は buildPlayer() と同じく配色表の trim(classDef.trim ではない)
-    const palTrim = (resolvePalette(P.paletteKey || paletteKeyFor(classDef.key, null, classDef.charKey)) || {}).trim;
+    // 転身の瞬間(state.job を書き換えた直後、applyJobPromotionVisual の前)にも呼ばれる
+    // ため、今の P.paletteKey ではなく state.job から行を決める
+    const palTrim = (resolvePalette(paletteKeyFor(classDef.key, state.job, classDef.charKey)) || {}).trim;
     const trimHex = palTrim != null ? palTrim : classDef.trim;
     const trimMat = new THREE.MeshStandardMaterial({color:trimHex, ...PLAYER_FINISH.trim, emissive:trimHex});
     const weaponKey = weaponDefFor(classDef.key, state.usingAltWeapon).key;
@@ -2234,11 +2237,16 @@
     // 戦騎士の兜で隠した球目(sclera/pupil/highlight)も可視へ戻す。
     // head/hairも含め一括で可視にしておく(誤って隠れたまま残る事故を防ぐ)
     if(P.headGroupParts) P.headGroupParts.forEach(m=>{ m.visible = true; });
+    /* T-5(HDR-T5-10): 役割別 Material を基礎職(影の旅人は自分)の配色表の行へ
+       戻す。全 role の上書きなので、どの上位職の色だったかに依存せず残らない */
+    if(P.basePaletteKey) applyPlayerPalette(P, P.basePaletteKey);
 
     if(!P.jobDecorMeshes) return;
+    // 上位職の装飾が共有して使う役割別 Material(白いレイヤー等)は本体も使うので破棄しない
+    const roleMatSet = new Set(Object.values(P.roleMats || {}));
     P.jobDecorMeshes.forEach(m=>{
       if(m.parent) m.parent.remove(m);
-      m.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); if(c.material) c.material.dispose(); } });
+      m.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); if(c.material && !roleMatSet.has(c.material)) c.material.dispose(); } });
     });
     P.jobDecorMeshes = null;
     P.jobDecorAnim = null;
@@ -2285,13 +2293,20 @@
       meshes.push(m);
       return m;
     }
-    const trimMat = new THREE.MeshStandardMaterial({color:uj.trim, roughness:0.35, metalness:0.4,
-      emissive:uj.trim, emissiveIntensity:0.35});
+    /* T-5: 上位職の色は配色表の上位職の行(CLASSES / UPPER_JOBS の trim・capeColor は
+       VFX などが読むので変えない)。役割別 Material へ全 role を書き込む(基本 Material を
+       個別に書き換えない、HDR-T5-10) */
+    const upPalKey = paletteKeyFor(state.classDef.key, uj.key, state.classDef.charKey);
+    applyPlayerPalette(P, upPalKey);
+    const upPal = resolvePalette(upPalKey);
+    const trimMat = new THREE.MeshStandardMaterial({color:upPal.trim, ...PLAYER_FINISH.upperTrim,
+      emissive:upPal.trim});
     /* CHARACTER-VIS-001 T-4(Human Decision: 上位職 + 影の旅人の色だけ T-4 で先行、
        「上位職は白いレイヤードが強調されるとわかりやすい」): 上位職の白い
        レイヤー用の専用 Material。転身の間だけ作り、解除時に破棄される
        (jobDecorMeshes の後始末)。基礎4職の Material は変えない */
-    const layerWhite = new THREE.MeshStandardMaterial({color:0xe8e6df, roughness:0.82});
+    // T-5: 白いレイヤーは role layer(色は配色表の上位職の行。HDR-T5-5)
+    const layerWhite = (P.roleMats && P.roleMats.layer) || new THREE.MeshStandardMaterial({color:upPal.layer, ...PLAYER_FINISH.layer});
 
     // 武器はどの上位職も「一回り大きく、格が上がって見える」ことを最優先
     // にする(資料 3.優先順位: シルエット>人体比率>ポーズ>武器)。
@@ -2312,13 +2327,16 @@
       // 素の肩当て(T-3)は強化した肩パーツへ差し替える
       if(P.pauldronL) P.pauldronL.visible = false;
       if(P.pauldronR) P.pauldronR.visible = false;
+      // T-5: 強化肩 = Muted Silver、ハーネスの金具 = Warm Gold(配色表)。質感は PLAYER_FINISH
+      const knightSteelHex = upPal.steel != null ? upPal.steel : 0x6a6f78;
+      const knightGoldHex = upPal.gold != null ? upPal.gold : upPal.trim;
       const knightSteel = applyBump(new THREE.MeshStandardMaterial({
-        map: makeMetalTexture(hexStr(0x6a6f78), 2, 2), roughness:0.4, metalness:0.55, flatShading:true}));
+        map: makeMetalTexture(hexStr(knightSteelHex), 2, 2), ...PLAYER_FINISH.knightSteel, flatShading:true}));
       const knightGold = applyBump(new THREE.MeshStandardMaterial({
-        map: makeMetalTexture(hexStr(uj.trim), 2, 1), roughness:0.35, metalness:0.5,
-        emissive:uj.trim, emissiveIntensity:0.16, flatShading:true}));
+        map: makeMetalTexture(hexStr(knightGoldHex), 2, 1), ...PLAYER_FINISH.knightGold,
+        emissive:knightGoldHex, flatShading:true}));
       const knightDark = applyBump(new THREE.MeshStandardMaterial({
-        map: makeMetalTexture(hexStr(0x241d18), 1, 1), roughness:0.6, metalness:0.3, flatShading:true}));
+        map: makeMetalTexture(hexStr(0x241d18), 1, 1), ...PLAYER_FINISH.knightDark, flatShading:true}));
       // 強化肩パーツ(左を大きく、右を小さく ―― 旧 肩鎧 bigL / smallR と同じ形)
       if(P.armL){
         const bigL = new THREE.Mesh(makeWedge({
@@ -2390,8 +2408,8 @@
          盗賊のパーカー・オーバーオールを引き継ぎ(P-a)、フードを大きくし、
          半袖の上着を重ねる(上半身レイヤー)。旧 逆立つ髪の房・長髪・髭・
          素肌の板・肩 / 腰 / 足首の毛皮は作らない(フードの中の顔を見せる)。
-         帽子の色の差し替えと足元のオーラは既存のまま。寸法は候補値 */
-      if(P.rogueHood) P.rogueHood.material.color.set(uj.capeColor);
+         足元のオーラは既存のまま。寸法は候補値。
+         T-5: 帽子の色は配色表の hat(旧 uj.capeColor の直接書き換えは廃止) */
       if(P.rogueParkaHood){
         P.rogueParkaHood.scale.setScalar(1.14);   // 大型フード
         // 白いレイヤー: 大きなフードを白に(共有の clothAcc は変えず、フードの
@@ -2424,131 +2442,11 @@
       });
 
     } else if(uj.key === 'archmage'){
-      /* Mage自身のローブ(clothMat)・帽子(hatMatCone/hatMatBrim)は
-         Mage自体の色調整と連動して変わるため、Archmage側で明示的に
-         差し替えないと「Mageと同じ配色の魔導士」になってしまう。
-
-         色調整の経緯(最新の指摘が優先):
-         1〜3回目の調整で、帽子=淡いオフホワイト/ローブ=暗色/胸当て=
-         ピューター調という「部位ごとに違う色」の配色にしていたが、
-         ユーザーから「魔導士の帽子やローブ全体も胸元と同じ色に」との
-         指摘があり、方針を転換した ―― 帽子・ローブ・胸当てを全て
-         ARCHMAGE_NAVY(単一の紺色)に統一する。淡いオフホワイトの帽子・
-         2種類の紺の使い分けは廃止。丸い輪っか(帽子のband/ローブの
-         beltMat、白紫系0xd8c8f0)だけは差し色として従来通り残す。
-
-         hatMatBrim/beltMat/clothAccは単色Material(map無しの単純な
-         MeshStandardMaterial、beltMatはtrimMat.clone()だが.mapは
-         Textureの参照コピーなので下で明示的に差し替える)のため
-         .color.set()で直接差し替え可能。一方clothMat/hatMatCone/
-         trimMat/trimMatFlatはmakeLeatherTexture()/makeMetalTexture()で
-         色を直接キャンバスへ焼き込んだ手続きテクスチャ(.map)を持つため、
-         .color.set()では効果がない(デフォルトのcolor=白がテクスチャに
-         そのまま掛かるだけの状態のため、後から乗算しても濁った中間色に
-         しかならない) ―― 新しい色でテクスチャを生成し直し、.mapを
-         差し替えてからapplyBump()でバンプマップの対応も更新し直す
-         (テクスチャ生成関数自体・Mage側の元Materialは変更していない)。
-
-         実機QAで判明した落とし穴: Torso/Pelvis(体幹の大部分)は
-         clothMat自体ではなく、それを.clone()した別ObjectのclothMatFlat
-         (フラットシェーディング版)を使っている。同様にPauldron(肩当て)
-         はtrimMatFlatを使っている。.clone()は生成時点のプロパティを
-         コピーするだけで、元のMaterialへの参照を保つわけではないため、
-         clothMat/trimMat側だけ.mapを差し替えてもFlat版には反映されず、
-         「胸元・肩だけMageの元の色(水色/紫)が残って見える」という
-         見た目になっていた(スクリーンショットで実際に確認)。
-         clothMatFlat/trimMatFlatも同じ新しいテクスチャで個別に上書きする */
-      /* ユーザー指摘(色の統一、3回目):「胸元とその他で色違くない?黒すぎる
-         気がするけど。全く同じ色にして。それとも胸元のパーツに別で
-         フィルターかかってる?」
-
-         Root Cause: 色(hex)は既に全部ARCHMAGE_NAVYで一致していたが、
-         「別でフィルターがかかっている」という見立てのほうが正しかった ――
-         違っていたのは色ではなくMaterialの質感設定だった:
-           ・胸当て/肩当て(trimMat/trimMatFlat)はmakeMetalTexture()製。
-             この生成器は基準色の55%まで落とした暗いスクラッチ線と
-             ブラシ目をテクスチャへ直接焼き込む(makeLeatherTexture()の
-             まだら+シワとは絵柄も明度分布も別物)。
-           ・さらにmetalness 0.3(ローブは0.15)・roughness 0.4(同0.6)・
-             emissiveIntensity 0.12の自己発光まで付いており、同じ色でも
-             光の返し方が変わって黒く沈んで見えていた。
-         Fix: Archmageに限り、胸当て/肩当てにもローブと「同一のテクスチャ
-         インスタンス(robeTex)」を割り当て、roughness/metalnessもローブの
-         値へ揃え、emissiveを完全に切る ―― これで胸元とローブは
-         レンダリング上まったく同じ見え方になる(Mage本体・他クラスの
-         trimMatはmetal質感のまま、この分岐に入らないので無変更)。 */
-      const ARCHMAGE_NAVY = 0x1c2440;
-      const ROBE_ROUGHNESS = 0.6, ROBE_METALNESS = 0.15;
-      const robeTex = makeLeatherTexture(hexStr(ARCHMAGE_NAVY), 2, 2);
-      /* ローブと同じ見え方に揃えるための共通処理。
-
-         .color を必ず白へ戻すのが重要 ―― THREE.MeshStandardMaterialは
-         .map のピクセルに .color を「乗算」する。テクスチャ側に既に
-         ARCHMAGE_NAVYを焼き込んでいるので、.colorにも同じ紺を入れると
-         紺×紺で二重に暗くなり、ほぼ黒に潰れてしまう(下記Root Cause)。 */
-      const matchRobeLook = (mat)=>{
-        if(!mat) return;
-        mat.map = robeTex;
-        mat.color.set(0xffffff);
-        mat.roughness = ROBE_ROUGHNESS;
-        mat.metalness = ROBE_METALNESS;
-        if(mat.emissive) mat.emissive.set(0x000000);
-        mat.emissiveIntensity = 0;
-        applyBump(mat);
-        mat.needsUpdate = true;
-      };
-      matchRobeLook(P.clothMat);
-      matchRobeLook(P.clothMatFlat);
-      // 胸当てリング・肩当て・カフス・帽子の房飾り(bigCone)が使う金属
-      // トリムも、ローブと同じ布の質感へ寄せる(上記Root Cause参照)
-      matchRobeLook(P.trimMat);
-      matchRobeLook(P.trimMatFlat);
-      /* 帽子(hatMatCone/hatMatBrim)について ―― Mesh Ownership Debugで
-         判明した本当のRoot Cause:
-
-         buildPlayer()のMageブロックは
-           hatMatCone = classDef.hatColor!=null ? 専用Material : clothMat
-           hatMatBrim = classDef.hatColor!=null ? 専用Material : clothMat
-         という三項演算子で、hatColorが未指定なら「clothMatそのもの」を
-         代入する。以前のラウンドで魔法使いを水色の単色ウィザードにした際
-         CLASSES.mageからhatColorを削除したため、現在は
-           hatMatCone === hatMatBrim === clothMat(全部同じObject)
-         になっている。
-
-         それに気付かず「hatMatBrimはmap無しの単色Materialだから
-         .color.set()で差し替えられる」という(hatColorがあった頃には
-         正しかった)前提のまま .color を設定していたため、実際には
-         ローブ本体のMaterialの.colorへ紺を入れていた ―― 上記のとおり
-         テクスチャの紺と乗算されて全身が黒く潰れ、単独のMaterialである
-         胸当て(trimMat)だけ二重暗化を免れて色が違って見えていた。
-         (ユーザーの「胸元のパーツに別でフィルターかかってる?」は
-          逆で、フィルターが掛かっていたのは胸元以外の方だった)
-
-         対処: 帽子は上のmatchRobeLook()で既にローブと同一Materialとして
-         処理済みなので、ここでは「clothMatとは別Objectのときだけ」
-         (将来hatColorを復活させた場合)単色として色を設定する。 */
-      const hatMats = [P.hatMatCone, P.hatMatBrim].filter(
-        m => m && m !== P.clothMat && m !== P.clothMatFlat);
-      hatMats.forEach(m=>{
-        if(m.map) matchRobeLook(m);
-        else {
-          m.color.set(ARCHMAGE_NAVY);
-          m.roughness = ROBE_ROUGHNESS;
-          m.metalness = ROBE_METALNESS;
-          m.needsUpdate = true;
-        }
-      });
-      // ベルト(ローブの丸い輪っか)・帽子の輪っか(band)は、胸当て/ローブの
-      // 紺とは別に白紫系のアクセントにする(ユーザー指摘3)
-      if(P.beltMat){
-        P.beltMat.map = makeMetalTexture(hexStr(0xd8c8f0), 3, 1);
-        P.beltMat.emissive.set(0xd8c8f0);
-        applyBump(P.beltMat);
-        P.beltMat.needsUpdate = true;
-      }
-      if(P.clothAcc){
-        P.clothAcc.color.set(0xd8c8f0);
-      }
+      /* T-5(HDR-T5-10): 旧 ARCHMAGE_NAVY の matchRobeLook() による clothMat /
+         clothMatFlat / trimMat / trimMatFlat / 帽子 / beltMat / clothAcc の直接書き換えは
+         廃止。色は上の applyPlayerPalette(P, 'archmage') が配色表の魔導士の行
+         (Deep Blue / Indigo Purple / Off White / Muted Gold)で役割別 Material に入れる。
+         髪の色の書き換え(下)は髪 = T-5 の範囲外のため既存のまま(P-D4) */
       // 参考画像は帽子の下から覗く髪も銀髪(白髪)。Mage本体のhairMat
       // (classDef.hairColor由来、通常は茶色)をArchmageだけ銀髪へ差し替える
       // ―― hairlineから覗く僅かな地毛もHat/archHairMatと統一した色にするため
@@ -2699,30 +2597,8 @@
       anim.circle = circle;
 
     } else if(uj.key === 'hawkEye'){
-      /* ユーザー指摘:「鷹の目のボディの色は帽子と同系色で少し明るい色に
-         統一して」
-
-         Archer本体は帽子(cap/capTop/brim)とボディ(torso/pelvis/腕/脚)が
-         同じclothMat/clothMatFlat(classDef.color=archerの青系)を共有して
-         おり、既に一体の色だった。しかしHawk Eye昇格時は帽子側だけを
-         専用のHood(hoodMat、下記でuj.capeColor=暗い深緑を使って新設)へ
-         差し替えており、ボディ側(clothMat/clothMatFlat)はArcherの青の
-         ままだったため、帽子とボディで色相そのものが違って見えていた。
-         uj.capeColorを基準にした「同系統でやや明るい」色を計算し、
-         ボディにも適用する(Archmage昇格時と同じ「同一テクスチャ
-         インスタンスを複数のMaterialへ割り当てる」差分方式。詳細は
-         Archmage側のmatchRobeLook()のコメント参照 ―― THREE.
-         MeshStandardMaterialは.mapに.colorを乗算するため、.colorは
-         必ず白に戻す) */
-      const HAWKEYE_BODY = 0x1c8c66;   // uj.capeColor(0x0a3a30、暗い深緑)と同じ色相で、明度を上げた色
-      const hawkEyeBodyTex = makeLeatherTexture(hexStr(HAWKEYE_BODY), 2, 2);
-      [P.clothMat, P.clothMatFlat].forEach(mat=>{
-        if(!mat) return;
-        mat.map = hawkEyeBodyTex;
-        mat.color.set(0xffffff);
-        applyBump(mat);
-        mat.needsUpdate = true;
-      });
+      /* T-5(HDR-T5-10): 旧 HAWKEYE_BODY による clothMat / clothMatFlat の map の
+         直接書き換えは廃止。ボディは弓師を継承した配色表の鷹の目の行(Forest Green) */
       // 長いマント(片側だけ、鷹師の非対称なシルエット)。バネ追従+揺れの
       // 対象としてanim.capesへ登録(戦騎士のケースと共有、updateJobDecor参照)。
       // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す
@@ -2759,7 +2635,8 @@
       meshes.push(hawk);
       anim.hawk = hawk;
       const headYLocal = bodyH + B.headGap;
-      const hoodMat = new THREE.MeshStandardMaterial({color:uj.capeColor, roughness:0.85});
+      // T-5: 背中のフード = Deep Green(配色表の cape。旧 uj.capeColor)
+      const hoodMat = new THREE.MeshStandardMaterial({color:upPal.cape != null ? upPal.cape : uj.capeColor, ...PLAYER_FINISH.accent});
       // 背中に下ろしたフード(胴と一緒に動く waist 側)
       const hoodDown = new THREE.Mesh(makeGarmentLoft([
         { y:headYLocal - B.headR*0.55, hw:B.headR*0.72, hd:B.headR*0.30, dz:-B.headR*0.85 + HEAD_BACK_Z },

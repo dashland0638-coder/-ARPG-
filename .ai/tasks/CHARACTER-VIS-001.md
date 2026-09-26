@@ -1760,3 +1760,11 @@ T-4 の固定条件（Geometry / シルエットのみ、Material の値は変�
 - 撮影: T-4 と同じ撮影セット（停止 正面 / 斜め45° / 側面 / 背面、歩行、戦闘）で、T-4 最終と並べて比較
 - Human 確認: 未（Human が色を直した場合は配色表の値だけ変え、ここに「候補値 → Human 指定値」で記録する）
 - **Human Decision（盗賊のトップス）**: ユーザー（人間）/ 2026-09-26 / 会話で「盗賊の紫は少し浮いて見える。トップスは紫を主役にせず、オーバーオールの緑と帽子の黄色をつなぐ色に」と指摘し、候補 A Dark Navy #263449 / B Deep Teal #28565A / C Warm Brown #665044 / D Dusty Blue #526A78 をゲーム画面で比較のうえ「**D で確定**」。配色表 `rogue.accent`（パーカーのフード・胴・袖）: 候補値 Muted Purple #5B4B78 → **Human 指定値 Dusty Blue #526A78**。他の盗賊の値（オーバーオール #304D45 / 帽子 #D2A83E / ブーツ・金具 #263449）は変更なし。確認: `npm run test:unit` 1518 / 1518 PASS、`npm run build` PASS、`character-palette` + `character-clothing` E2E 13 / 13 PASS（配色表の1値の変更のみのため全 E2E は再実行していない）
+
+### V-1 第2段階（上位4職 + 影の旅人）の実装
+- 第1段階の Human OK: ユーザー（人間）/ 2026-09-26 / 会話で「OKです。次に進めてください」（盗賊のトップス変更後）
+- 変更: `applyJobPromotionVisual()` は冒頭で `applyPlayerPalette(P, 上位職の行)`、`clearJobPromotionVisual()` は `applyPlayerPalette(P, 基礎職の行)`（全 role の上書き。HDR-T5-10）。魔導士の `matchRobeLook()`（ARCHMAGE_NAVY）、鷹の目の `HAWKEYE_BODY`、バーサーカーの帽子の `uj.capeColor` 書き換え、魔導士の `beltMat` / `clothAcc` の書き換えを削除。白いレイヤーは role layer（`layerWhite` の専用生成を廃止）。戦騎士の強化肩 = Muted Silver #C8CDD2、金具 = Warm Gold #C49A4A、質感は `PLAYER_FINISH`。鷹の目の背中のフード = Deep Green #24463E（配色表の cape）。上位職の装飾用 trim（魔導士の帽子の房）は配色表の trim。魔導士の髪の書き換えは変更なし（P-D4）。結晶・魔法陣・オーラ（`uj.trim` / 0xff3a1a）は魔法エフェクトとして変更なし。解除時、役割別 Material は破棄しない（本体も使うため）
+- 影の旅人: 配色表の行を HDR-T5-6 の値へ（コート #30323A / パンツ #403454 / マフラー・金具 #654F86 / シャツ #D8D4D0）
+- 武器装飾（`swapPlayerWeaponVisual()`）は `state.job` から配色表の行を決める（転身の瞬間は `applyJobPromotionVisual()` より前に呼ばれるため）
+- テスト: unit 1521 / 1521 PASS（影の旅人の紫 ≠ 0x8a5ad6・明るさ、上位職の色、上位職が基本 Material を直接書き換えないことのソース検査）、`character-palette`（9キャラクター）+ `character-clothing` E2E 18 / 18 PASS、build PASS。全 E2E は第2段階の Human 判断の後に実行する
+- **撮影条件の制約（FACT）**: 上位職は本編のセーブから読み込めない（`14-hud-boot.js:1621` `if(!legacyGrowth()) state.job = null;`、上位職はテストモード = トレーニング空間でのみ有効）。そのため上位4職は**酒場で撮影できない**。上位4職はトレーニング空間（T-4 と同じ撮影セット）、影の旅人は酒場で撮影した。P-D11 の「酒場での同一条件撮影」を上位4職に適用する方法は Human 判断待ち（ソースを変えずに撮る方法は無い）
