@@ -545,7 +545,16 @@
     const bodyR = B.chest;
     playerMixerParts.build = B;
 
-    const skinMat = new THREE.MeshStandardMaterial({color:0xe8b98a, roughness:0.8});
+    /* CHARACTER-VIS-001 T-4(Human Decision: 「肌の色黒くない？各職業で肌色を分けて
+       欲しい」): 職ごとの肌色(候補値)。剣士 = アジア系の色白 / 魔法使い = イギリス系の
+       色白 / 盗賊 = 日本人の色白 / 弓師 = 日本人の色黒。上位職は基礎職の値を継承。
+       値は Human 指定(「肌色そのものをリアルにするより、見下ろしのゲームカメラで
+       自然な肌色に見える値」を優先。顔より手・腕の肌色が識別に効く)。
+       影の旅人(charKey)は剣士と分け、やや青白く血色を抑えた肌(服を真っ黒に
+       しなくても「普通の人間とは少し違う」感じ)。旧: 全職 0xe8b98a */
+    const SKIN_COLOR = { warrior:0xffe6d2, mage:0xffeee5, rogue:0xffe7d4, archer:0xe8bd98, wanderer:0xe8dce0 };
+    const skinKey = classDef.charKey === 'wanderer' ? 'wanderer' : classDef.key;
+    const skinMat = new THREE.MeshStandardMaterial({color:SKIN_COLOR[skinKey] ?? 0xe8b98a, roughness:0.8});
     // cloth/leather and armor trim used to be flat colour fills - the same
     // procedural surface technique the world's walls/floors already use
     // (textures.js), pointed at the class's own colour instead of a fixed
@@ -830,12 +839,19 @@
     // 引き続き比例してスケールする(固定サイズ化はしていない)。Visual
     // Checkで90%→85%の順に試し、85%で「目は見えるが顔の一部として自然」
     // な釣り合いになったためこの値にした
-    const eyeSizeMul = 0.85;
+    /* CHARACTER-VIS-001 T-4(Human: 「頭身に対して全キャラ顔の見た目がおかしい。目が
+       大きすぎるし離れすぎてる。もっと普通に」): 0.85 → 0.72(候補値、V-1 で調整)。
+       左右の間隔は下の EYE_SPACING(旧 0.115)。目の点数・輪郭・3層構造は不変 */
+    const eyeSizeMul = 0.72;
     const scleraR = 0.062*eyeSizeMul;
     const scleraZScale = 0.6;
     const scleraHalfDepth = scleraR*scleraZScale;
     const scleraFrontZ = eyeFrontZ + scleraHalfDepth*eyeScale;
-    const pupilR = 0.038*eyeSizeMul, pupilPoke = 0.008, pupilZScale = 0.6;
+    /* T-4(Human: 「もう少し可愛く。黒目を大きくするか目を縦長に」): 目全体の大きさ・
+       間隔(上の eyeSizeMul / 下の EYE_SPACING)は Human が OK とした値のまま、
+       黒目の基準半径を 0.038 → 0.046、白目の縦横比を 1.15 → 1.28 にする(候補値) */
+    const EYE_SCLERA_ASPECT = 1.28;
+    const pupilR = 0.046*eyeSizeMul, pupilPoke = 0.008, pupilZScale = 0.6;
     const pupilHalfDepth = pupilR*pupilZScale;
     const highlightR = 0.013*eyeSizeMul, highlightPoke = 0.014, highlightZScale = 0.6;
     const highlightHalfDepth = highlightR*highlightZScale;
@@ -847,9 +863,10 @@
     // フィールド」(Phase 7、詳細は01-character-creation.jsのmage側
     // コメント参照)。未指定クラスは1.0で従来通り無変化
     const eyeSpacingMul = classDef.eyeSpacingMul!=null ? classDef.eyeSpacingMul : 1.0;
-    [-0.115*eyeScale*eyeSpacingMul, 0.115*eyeScale*eyeSpacingMul].forEach(x=>{
+    const EYE_SPACING = 0.095;   // T-4: 旧 0.115(目の中心の左右位置、eyeScale 倍)
+    [-EYE_SPACING*eyeScale*eyeSpacingMul, EYE_SPACING*eyeScale*eyeSpacingMul].forEach(x=>{
       const sclera = new THREE.Mesh(
-        makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*1.15, scleraHalfDepth*eyeScale), scleraMat);
+        makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*EYE_SCLERA_ASPECT, scleraHalfDepth*eyeScale), scleraMat);
       sclera.position.set(x, head.position.y+0.02, eyeFrontZ);
       group.add(sclera);
       faceMeshes.push(sclera);
@@ -899,7 +916,12 @@
     // Coverageを参照し、Headwearが存在する(Y,angle)ではHairの生成半径
     // 自体をHeadwear Surfaceの内側に収める(Geometry生成後の頂点クランプ
     // ではない ―― 詳細はhairShellPointAt()のコメント参照)
-    const hair = new THREE.Mesh(makeCharacterHairShell({...HEAD_DIMS, classKey: classDef.key}), hairMat);
+    /* CHARACTER-VIS-001 T-4 Step 6: 髪の隠れ判定(Coverage)のキー。影の旅人は
+       classDef.key が剣士(kit)のまま charKey で区別される(recomputeStats)。
+       影の旅人は帽子を被らない(Human: 操作時デザイン案)ので、剣士のキャップの
+       判定を使わず、表に無いキー(= 被り物なし)で髪を作る */
+    const hairCoverageKey = classDef.charKey === 'wanderer' ? 'wanderer' : classDef.key;
+    const hair = new THREE.Mesh(makeCharacterHairShell({...HEAD_DIMS, classKey: hairCoverageKey}), hairMat);
     hair.position.set(0, head.position.y, HEAD_BACK_Z);
     hair.castShadow = true;
     group.add(hair);
@@ -946,7 +968,7 @@
       // Warrior/Archer(Hawk Eyeはこの時点でclassDef.key==='archer'固定
       // のためここに含まれる)は、Face Openingの実効角度幅に3本すべてが
       // 収まるため、生成自体を行わない
-      if(classDef.key==='warrior' || classDef.key==='archer') return;
+      if((classDef.key==='warrior' && hairCoverageKey!=='wanderer') || classDef.key==='archer') return;
       const tipOut = headOut(b.tipYFrac);
       const bangZ = tipOut.frontZ*BANG_FRONT_MUL;
       const bangAngle = Math.atan2(b.x, bangZ);
@@ -955,7 +977,7 @@
       // Strandが伸びる方向(root→tip)に沿ってHEADWEARから抜け出す境界を
       // 探索し、そこを実際のrootにする(現状4クラスはFace Openingの
       // ためほぼ無変更のはず ―― Phase 5 QAで確認する)
-      const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, bangAngle, tipOut.y, hairlineOut.y);
+      const exit = findCoverageExitAlongStrand(hairCoverageKey, HEAD_DIMS, bangAngle, tipOut.y, hairlineOut.y);
       if(exit.covered) return;   // Bangs全体がHeadwearの内側 ―― 生成しない
       const tipY = head.position.y + tipOut.y;
       const rootY = head.position.y + exit.y;
@@ -986,7 +1008,7 @@
       // root(頬上部)がHeadwear Coverageの内側にある場合、Strandが伸びる
       // 方向(root→tip)に沿ってHEADWEARから抜け出す境界を探し、そこを
       // 実際のrootにする(rootを単純にHeadwear下端まで下げるのではない)
-      const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, angle, sTipOut.y, sRootOut.y);
+      const exit = findCoverageExitAlongStrand(hairCoverageKey, HEAD_DIMS, angle, sTipOut.y, sRootOut.y);
       if(exit.covered) return;   // Side Hair全体がHeadwearの内側 ―― 生成しない
       const sideLen = exit.y - sTipOut.y;
       const sideHair = new THREE.Mesh(
@@ -1028,7 +1050,7 @@
       const angle = Math.atan2(b.xMul*bTipOut.backHalfWidth, backTipZ);
       // root(生え際下)がHeadwear Coverageの内側にある場合、Strandが
       // 伸びる方向(root→tip)に沿ってHEADWEARから抜け出す境界を探す
-      const exit = findCoverageExitAlongStrand(classDef.key, HEAD_DIMS, angle, bTipOut.y, bRootOut.y);
+      const exit = findCoverageExitAlongStrand(hairCoverageKey, HEAD_DIMS, angle, bTipOut.y, bRootOut.y);
       if(exit.covered) return;   // Back Hair全体がHeadwearの内側 ―― 生成しない
       const backLen = exit.y - bTipOut.y;
       const backHair = new THREE.Mesh(
@@ -1090,6 +1112,9 @@
     // if/elseブロック(既存リグへの追加メッシュ)に収めた
     const furMat = new THREE.MeshStandardMaterial({color:0xe6dcc6, roughness:0.9});
 
+    /* CHARACTER-VIS-001 T-4 Step 6(HDR-T4-7 = W-a): 影の旅人は classDef.key が
+       剣士(kit)のままなので、この剣士の分岐で剣士の衣服の作り方を使い、
+       charKey で形を変える(下の isWanderer)。色は classDef の色(T-5) */
     if(classDef.key==='warrior'){
       // グラフィック刷新(戦騎士): 以下で作る素の剣士の兜・襟巻・毛皮・
       // 革帯・短いマントは、戦騎士へ転身した際にapplyJobPromotionVisual側で
@@ -1098,158 +1123,161 @@
       // ここではその対象を1配列に集めておくだけで、素の剣士の見た目・挙動は
       // 一切変えていない
       const warriorBaseDecor = [];
-      // グラフィック刷新: 球状Helm(SphereGeometry、全方位からHeadを包んで
-      // いたためEyeごと隠していた)から、makeWarriorBaseHelm()(顔側に
-      // Face Openingを持つ馬蹄形の帯、05-rendering-rig.js)へ置き換え。
-      // Head Loft化(makeCharacterHead())で作った頬・顎の顔シルエットと
-      // Eyeが、正面から見えるようにする(詳細はmakeWarriorBaseHelm()側の
-      // コメント参照)。
-      // Player Material Calibration Phase A: 以前はmetalMat(metalness:0.7、
-      // 環境マップ無し)をそのまま流用していたが、Headwear + Head Silhouette
-      // Audit(実機Playwright比較)で「Default Game Cameraでは黒い光沢の
-      // 球体にしか見えず、Low Poly Facet(7角形×3リング)が一切視認できない」
-      // ことが判明した。metalness/roughnessのみを一時的に変えるA/Bテストで
-      // Geometry・Lightingを完全に不変のまま検証した結果、metalnessを下げる
-      // だけでFacetの稜線が明瞭に読めるようになることを確認済み(詳細は
-      // 監査コミットの報告参照)。ここでmetalMatをそのまま書き換えると、
-      // 盗賊の投げナイフ(kn、同じmetalMatを流用)にも意図せず影響するため、
-      // Warrior Helmet専用のwarriorHelmMatを新設して分離した(colorは既存の
-      // metalMatと同じ0x9aa0a8を維持、metalness/roughnessだけ低ポリFacetが
-      // 読める値へ調整。emissive/envMap/flatShadingは今回追加しない)。
-      //
-      // Player Material Calibration Phase A: Before(metalness:0.7,
-      // roughness:0.35)と3候補(A: 0.12/0.55、B: 0.22/0.50、C: 0.32/0.45)を
-      // 同一Geometry・同一Lighting下でDefault Game Camera/Front/Diagonal/
-      // Sideで比較した。B/Cはmetalnessを上げるほどハイライトの面積が広がり、
-      // Facetの稜線がハイライトに埋もれて再び読みにくくなる傾向が出たため、
-      // 最もFacet(7角形×3リング)の稜線・平面の境目が明瞭で、暗部も黒潰れ
-      // せず、かつ適度な金属光沢が残るCandidate Aを採用した
+      /* CHARACTER-VIS-001 T-4 剣士(Human: 参考画像「放浪騎士」の現代風リメイク
+         へ大幅変更): 兜・前立て・眉当て・襟巻・毛皮・棘・革帯・留め具・腰帯
+         プレート・短いマント(旧 素の剣士の意匠)と、剣士 A 初版の短丈上着・
+         大判ストール・ロングブーツをやめ、キャップ + ネックゲイター + 背中に
+         下ろしたフード + ロング丈のマウンテンパーカー(ポケット・長袖)+
+         裾を短く切ったワイドパンツ + 短いブーツの胴にする。顔は見せる。
+         寸法はすべて BUILD / headR 由来の候補値(V-1 で Human が調整)。
+         Material は既存インスタンスの流用のみ(色は T-5)。新しい部品はすべて
+         戦騎士への転身で隠す対象(warriorBaseDecor)に入れる(上位職は Step 6) */
+      // 兜の Material(色・金属感の値は不変)をキャップに流用する
       const warriorHelmMat = new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:0.55, metalness:0.12});
-      // helmBottomY/heightはwarriorHelmCoverageAt()(05-rendering-rig.js)
-      // と同じWARRIOR_HELM_BOTTOM_OFFSET_MUL/WARRIOR_HELM_HEIGHT_MULを
-      // 使う ―― Geometry生成とCoverage判定が同じ値を共有するため
-      const helmBottomY = hY + headR*WARRIOR_HELM_BOTTOM_OFFSET_MUL;
-      const helm = new THREE.Mesh(
-        makeWarriorBaseHelm({width:headR, depth:headR, height:headR*WARRIOR_HELM_HEIGHT_MUL}), warriorHelmMat);
-      // Head/Posture Alignment再設計フェーズ: Helm一式(helm/visor/crest/
-      // collar/tail/furBase/spike)にもHEAD_BACK_Zを適用し、Headと一緒に
-      // 後方へ。Headだけ後退してHelmが元の位置に取り残される事故を防ぐ
-      helm.position.set(0, helmBottomY, HEAD_BACK_Z); helm.castShadow = true; group.add(helm);
-      warriorBaseDecor.push(helm); headwearMeshes.push(helm);
-      // Priority 1-3(設計図との差分レポート): 「頭巾のようにしか見えない」
-      // への対応。Helm本体は単一の低ポリ曲面シェルで、開口部の縁は
-      // 厚みゼロの生のエッジのため、稜線に金属的な段差・トリムが無く、
-      // 「布のフードに穴が開いている」のと見分けがつきにくかった。
-      // 開口の最上端(WARRIOR_HELM_OPENING_TOP_YFRAC=0.50のリング、
-      // faceZで前へせり出した眉庇の位置)に沿って、実際に厚みのある
-      // 眉当てバー(Visor Rim)を1本渡す。Eyeの高さ(hY+0.02付近)より
-      // 十分上(hY+0.30×headR)にあるため、削除済みのBrow Guard(Eyeの
-      // すぐ上、2枚)のように目を隠すことはない。Helm本体のGeometry/
-      // Position/開口の形状は一切変更していない。
-      // makeWarriorBaseHelm()と同じ式(ローカルy = height*yFrac、
-      // 原点はhelmBottomY)でリング1(中腹=開口上端)の実際のワールドYを出す
-      const visorRimY = helmBottomY + headR*WARRIOR_HELM_HEIGHT_MUL*WARRIOR_HELM_RINGS[1].yFrac;
-      const visorRimHW = headR*WARRIOR_HELM_RINGS[1].widthMul*Math.abs(WARRIOR_HELM_ARC_TEMPLATE[0][0]);
-      const visorRimZ = headR*WARRIOR_HELM_RINGS[1].depthMul*WARRIOR_HELM_RINGS[1].faceZ;
-      const visorRim = new THREE.Mesh(new THREE.BoxGeometry(visorRimHW*2, 0.05, 0.10), clothAcc);
-      visorRim.position.set(0, visorRimY, visorRimZ + HEAD_BACK_Z);
-      visorRim.castShadow = true; group.add(visorRim);
-      warriorBaseDecor.push(visorRim); headwearMeshes.push(visorRim);
-      // Headwear Silhouette Integration Phase(Priority A): 旧Visorは
-      // headR*1.9(顔幅の1.8倍相当)の1枚板をEye位置(hY+0.02)にそのまま
-      // 重ねていたため、Default Game CameraではEyeの高さを顔の端から端
-      // まで横断する「黒い横板」にしか見えず、Eyeの可読性を阻害していた
-      // (Headwear + Head Silhouette Audit、Head/Hair/Headwear Integration
-      // Auditで単体Visibility比較により実証済み)。単純な縮小ではなく、
-      // 中央(鼻筋・鼻〜口の隆起の真上)を空けた左右2枚のBrow Guardに
-      // 分割した ―― Eyeの真上(眉の高さ、Eye上端より上)に置くことで、
-      // Eyeの高さを横断する1本の帯にはならず、兜の眉当てとして自然に
-      // 見えるようにしてある。X方向の外縁(headR*0.60)はHelmet Face
-      // Openingの実効半幅(中腹リングでheadR*0.55*1.15≒headR*0.63)の
-      // 内側に収まるようにし、兜の縁から横に飛び出さないようにした
-      /* Phase 13-F: Brow Guard(左右2枚のBoxGeometry)を削除。
-         ユーザー指摘「目の上に兜のパーツ二つが乗っかっておりおかしい」。
-         Phase 13-EでHelm中腹のfaceZを前へ出して眉庇(まびさし)を兜本体の
-         形状として作ったため、Eyeのすぐ上に別メッシュの眉当てを重ねる
-         必要がなくなった。開口が目の高さに絞られた今、この2枚は狭い
-         開口の中で目より先に視認される異物にしかならない。 */
-
-      const crest = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.34), clothAcc);
-      crest.position.set(0, hY+0.28, -0.02 + HEAD_BACK_Z); group.add(crest);
-      warriorBaseDecor.push(crest); headwearMeshes.push(crest);
-      // scarf: collar plus two streamers blown back
-      const collar = new THREE.Mesh(new THREE.TorusGeometry(headR*0.85, 0.06, 8, 14), clothAcc);
-      collar.rotation.x = Math.PI/2;
-      collar.position.set(0, hY-headR*0.95, HEAD_BACK_Z); group.add(collar);
-      warriorBaseDecor.push(collar);
-      [-1,1].forEach(s=>{
-        const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.72), clothAcc);
-        tail.position.set(s*0.1, hY-headR*1.5, -0.28 + HEAD_BACK_Z);
-        tail.rotation.set(0.5, s*0.22, s*0.12);
-        group.add(tail);
-        warriorBaseDecor.push(tail);
+      const addDecor = (mesh, parent, isHeadwear)=>{
+        mesh.castShadow = true; (parent || group).add(mesh);
+        warriorBaseDecor.push(mesh);
+        if(isHeadwear) headwearMeshes.push(mesh);
+        return mesh;
+      };
+      // 戦騎士への転身で兜に差し替える(隠す)部品。パーカー・パンツ等は戦騎士も
+      // 着たまま(HDR-T4-7 = P-a、Step 6)
+      const warriorKnightHidden = [];
+      playerMixerParts.warriorKnightHidden = warriorKnightHidden;
+      /* 影の旅人(Human: 操作時デザイン案「ショートコート × レイヤード」): 剣士と
+         同じ部品の作り方で、キャップ無し(髪と顔を見せる)・短いコート・中に
+         レイヤード・裾まで長いワイドパンツにする */
+      const isWanderer = classDef.charKey === 'wanderer';
+      /* Human Decision(上位職 + 影の旅人の色だけ T-4 で先行、「影の旅人が黒すぎる」):
+         影の旅人のコートと背中のフードだけ、真っ黒(classDef.color)から一段明るい
+         チャコールグレーの専用 Material にする。基礎4職の色は T-5 */
+      const wandererCoatMat = isWanderer ? new THREE.MeshStandardMaterial({color:0x5e5a6c, roughness:0.8}) : null;
+      playerMixerParts.wandererCoatMat = wandererCoatMat;   // 袖(腕の構築)でも使う
+      if(!isWanderer){
+      // キャップ(WARRIOR_CAP_*、warriorCapCoverageAt と共有、05-rendering-rig.js)
+      warriorKnightHidden.push(addDecor(new THREE.Mesh(makeGarmentLoft(WARRIOR_CAP_RINGS.map(r => (
+        { y:hY + headR*r.y, hw:headR*r.r, hd:headR*r.r, dz:headR*r.dz + HEAD_BACK_Z }))
+      , {closedTop:true}), warriorHelmMat), null, true));
+      warriorKnightHidden.push(addDecor(new THREE.Mesh(makeGarmentLoft([
+        { y:hY + headR*WARRIOR_CAP_BRIM.yTop,    hw:headR*WARRIOR_CAP_BRIM.hw, hd:headR*WARRIOR_CAP_BRIM.hd, dz:headR*WARRIOR_CAP_BRIM.dz + HEAD_BACK_Z },
+        { y:hY + headR*WARRIOR_CAP_BRIM.yBottom, hw:headR*WARRIOR_CAP_BRIM.hw, hd:headR*WARRIOR_CAP_BRIM.hd, dz:headR*WARRIOR_CAP_BRIM.dz + HEAD_BACK_Z },
+      ], {closedTop:true}), warriorHelmMat), null, true));
+      [-1, 1].forEach(sx=>{
+        const e = WARRIOR_CAP_EAR;
+        warriorKnightHidden.push(addDecor(new THREE.Mesh(makeGarmentLoft([
+          { y:hY + headR*e.yTop,    hw:headR*e.rTop,    hd:headR*e.rTop,    dx:sx*headR*e.dx, dz:headR*e.dz + HEAD_BACK_Z },
+          { y:hY + headR*e.yBottom, hw:headR*e.rBottom, hd:headR*e.rBottom, dx:sx*headR*e.dx, dz:headR*e.dz + HEAD_BACK_Z },
+        ], {closedTop:true}), warriorHelmMat), null, true));
       });
-      // 毛皮の縁飾り(意匠参考: 毛皮縁の甲冑騎士案 + ユーザー指摘「もっと
-      // モコモコ、トゲトゲに」)。滑らかなトーラス1本ではなく、根元の
-      // 細いリング(モコモコの量感)+首の周囲を一周する棘(トゲトゲ)の
-      // 群れに置き換えた。棘は長さを3種類ローテーションさせて不揃いに
-      // し、単なる連続パターンに見えないようにしてある
-      const furBase = new THREE.Mesh(new THREE.TorusGeometry(headR*1.1, 0.05, 6, 16), furMat);
-      furBase.rotation.x = Math.PI/2;
-      furBase.position.set(0, hY-headR*1.0, HEAD_BACK_Z);
-      furBase.castShadow = true; group.add(furBase);
-      warriorBaseDecor.push(furBase);
-      // 見下ろし視点の実際の距離で検証した結果、半径0.038/14本では
-      // 判別できないほど小さく埋もれてしまったため、本数を減らして
-      // 一本ずつを大きく太くした(数より個々の視認性を優先)
-      const spikeLens = [0.16, 0.10, 0.22];
-      for(let i=0;i<10;i++){
-        const ang = (i/10)*Math.PI*2;
-        const len = spikeLens[i%3];
-        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.055, len, 5), furMat);
-        const r = headR*1.14;
-        spike.position.set(Math.sin(ang)*r, hY-headR*1.0, Math.cos(ang)*r + HEAD_BACK_Z);
-        spike.rotation.set(Math.PI/2-0.4, ang, 0);
-        spike.castShadow = true;
-        group.add(spike);
-        warriorBaseDecor.push(spike);
       }
-      // 鎧のディテール強化(ユーザー指摘「鎧のパーツを細かく分割して」)。
-      // 胸当てだけの単調な塊にならないよう、交差する2本の革帯+留め具
-      // (丸鋲)を重ね、下半身側にも段差のある腰帯プレートを足した
-      const strapMat = new THREE.MeshStandardMaterial({color:0x3a2a1a, roughness:0.75});
-      [-1,1].forEach(s=>{
-        const strap = new THREE.Mesh(new THREE.BoxGeometry(0.09, bodyH*0.62, 0.03), strapMat);
-        strap.position.set(0, HIP_Y+bodyH*0.62, s*bodyR*0.62);
-        strap.rotation.x = s*0.62;
-        group.add(strap);
-        warriorBaseDecor.push(strap);
+      // ネックゲイター(影の旅人ではマフラー): 肩から口元の下まで首を高く覆う(顔の目より上は出す)
+      addDecor(new THREE.Mesh(makeGarmentLoft([
+        { y:hY - headR*0.55,     hw:headR*0.80, hd:headR*0.78, dz:HEAD_BACK_Z },
+        { y:hY - headR*0.95,     hw:headR*0.96, hd:headR*0.92, dz:HEAD_BACK_Z },
+        { y:HIP_Y + bodyH*0.96,  hw:bodyR*0.82, hd:bodyR*0.72 },
+      ], {closedTop:true}), clothAcc));
+      // 背中に下ろしたフード(パーカーの一部)。頭と一緒に回らないよう waist 側。
+      // 戦騎士では背中の2枚のマントに役割を譲る(隠す)
+      warriorKnightHidden.push(addDecor(new THREE.Mesh(makeGarmentLoft([
+        { y:hY - headR*0.55,     hw:headR*0.70, hd:headR*0.30, dz:-headR*0.85 + HEAD_BACK_Z },
+        { y:hY - headR*0.95,     hw:headR*0.95, hd:headR*0.40, dz:-headR*0.95 + HEAD_BACK_Z },
+        { y:HIP_Y + bodyH*0.84,  hw:bodyR*0.74, hd:bodyR*0.22, dz:-bodyR*0.98 },
+      ], {closedTop:true}), wandererCoatMat || clothMat)));
+      // ロング丈のマウンテンパーカー: 肩から膝まで。前はファスナー程度に細く
+      // 開け、裾だけ広く開けて(A 字)歩行で脚が前へ出ても突き抜けにくくする
+      const parkaHemY = HIP_Y + 0.03 - B.thighLen + 0.02;
+      addDecor(new THREE.Mesh(makeOpenGarmentLoft(isWanderer ? [
+        // 影の旅人: 腰までのショートコート。前を大きく開けて中のレイヤードを見せる
+        { y:HIP_Y + bodyH*1.00, hw:bodyR*1.24, hd:bodyR*0.90, open:bodyR*0.30, t:bodyR*0.08 },
+        { y:HIP_Y + bodyH*0.62, hw:bodyR*1.16, hd:bodyR*1.05, open:bodyR*0.38, t:bodyR*0.08 },
+        { y:HIP_Y,              hw:bodyR*1.12, hd:bodyR*1.06, open:bodyR*0.44, t:bodyR*0.08 },
+        { y:HIP_Y - 0.20,       hw:bodyR*1.24, hd:bodyR*1.20, open:bodyR*0.52, t:bodyR*0.08 },
+      ] : [
+        { y:HIP_Y + bodyH*1.00, hw:bodyR*1.24, hd:bodyR*0.90, open:bodyR*0.12, t:bodyR*0.08 },
+        { y:HIP_Y + bodyH*0.62, hw:bodyR*1.14, hd:bodyR*1.04, open:bodyR*0.12, t:bodyR*0.08 },
+        { y:HIP_Y,              hw:bodyR*1.10, hd:bodyR*1.04, open:bodyR*0.14, t:bodyR*0.08 },
+        { y:HIP_Y - 0.25,       hw:bodyR*1.24, hd:bodyR*1.22, open:bodyR*0.30, t:bodyR*0.08 },
+        { y:parkaHemY,          hw:bodyR*1.36, hd:bodyR*1.32, open:bodyR*0.45, t:bodyR*0.08 },
+      ]), wandererCoatMat || clothMat));
+      if(isWanderer){
+        /* 中のレイヤード(白いシャツ): 胸から、コートの裾の下まで長く覗く。
+           Human Decision(上位職 + 影の旅人の色だけ T-4 で先行): 白の専用
+           Material を影の旅人に限って使う(基礎4職の色は T-5) */
+        const wandererWhite = new THREE.MeshStandardMaterial({color:0xe6e2da, roughness:0.85});
+        addDecor(new THREE.Mesh(makeGarmentLoft([
+          { y:HIP_Y + bodyH*0.92, hw:bodyR*1.00, hd:bodyR*0.86 },
+          { y:HIP_Y + bodyH*0.40, hw:bodyR*0.96, hd:bodyR*0.95 },
+          { y:HIP_Y - 0.10,       hw:bodyR*1.06, hd:bodyR*1.02 },
+          { y:HIP_Y - 0.34,       hw:bodyR*1.16, hd:bodyR*1.12 },
+        ], {closedTop:true}), wandererWhite));
+        /* 髪: 共通の髪(低ポリの殻 + 前髪・横・後ろの房)の外側に、薄く平たい
+           尖った毛束(板状の毛束、makePlate)を重ねて、柔らかく跳ねた髪の輪郭を
+           作る(Human: 太い円錐の房はドレッドに見えた → 細く平たい毛束の候補)。
+           髪色は既存の hairMat */
+        const hairCard = (w, L) => makePlate([
+          {x:-w, y:0}, {x:w, y:0}, {x:w*0.55, y:-L*0.55}, {x:w*0.08, y:-L}, {x:-w*0.40, y:-L*0.60},
+        ], { thickness: headR*0.035 });
+        // [頭のまわりの角度(0 = 前), 根元の高さ(headR 比), 幅, 長さ, 外への開き]。顔の前は空ける
+        const cards = [
+          [ 0.85, 0.62, 0.20, 0.62, 0.45], [-0.85, 0.62, 0.20, 0.62, 0.45],
+          [ 1.25, 0.55, 0.22, 0.70, 0.50], [-1.25, 0.55, 0.22, 0.70, 0.50],
+          [ 1.65, 0.50, 0.22, 0.74, 0.55], [-1.65, 0.50, 0.22, 0.74, 0.55],
+          [ 2.05, 0.50, 0.22, 0.76, 0.50], [-2.05, 0.50, 0.22, 0.76, 0.50],
+          [ 2.45, 0.55, 0.22, 0.78, 0.45], [-2.45, 0.55, 0.22, 0.78, 0.45],
+          [ 2.85, 0.58, 0.22, 0.80, 0.40], [-2.85, 0.58, 0.22, 0.80, 0.40],
+          [ Math.PI, 0.60, 0.24, 0.82, 0.38],
+        ];
+        cards.forEach(([ang, yMul, wMul, lenMul, splay])=>{
+          const pivot = new THREE.Group();
+          pivot.position.set(Math.sin(ang)*headR*0.98, hY + headR*yMul, Math.cos(ang)*headR*0.98*0.9 + HEAD_BACK_Z);
+          pivot.rotation.y = ang;   // 板の面を頭の外向きに
+          const card = new THREE.Mesh(hairCard(headR*wMul, headR*lenMul), hairMat);
+          card.rotation.x = -splay;  // 毛先を外へ開く(板の表 = 頭の外側の向きへ倒す)
+          card.castShadow = true;
+          pivot.add(card);
+          group.add(pivot); headwearMeshes.push(pivot);
+        });
+      }
+      // ポケット(胸に1つ、腰の左右に1つずつ)。パーカーの前面に重ねる薄い板
+      [[-1, bodyH*0.78, bodyH*0.60, 0.45, 0.95, 0.22], [-1, -0.02, -0.20, 0.62, 1.02, 0.28], [1, -0.02, -0.20, 0.62, 1.02, 0.28]]
+        .forEach(([sx, yT, yB, xMul, zMul, wMul])=>{
+          addDecor(new THREE.Mesh(makeGarmentLoft([
+            { y:HIP_Y + yT, hw:bodyR*wMul, hd:bodyR*0.05, dx:sx*bodyR*xMul, dz:bodyR*zMul },
+            { y:HIP_Y + yB, hw:bodyR*wMul, hd:bodyR*0.05, dx:sx*bodyR*xMul, dz:bodyR*zMul },
+          ], {closedTop:true}), clothMat));
+        });
+      /* 裾を短く切ったワイドパンツ(太腿側は股関節ピボット、すね側は膝ピボット)。
+         裾はすねの中ほど。左右の脚の内側で重ならないよう、stanceW を超える分
+         だけ断面の中心を外側へずらす(P-R25) */
+      const WARRIOR_PANTS_INNER_LIMIT = B.stanceW - 0.004;
+      const warriorPantsRing = (y, hw, hd, outSign) =>
+        ({ y, hw, hd, dx: outSign*Math.max(0, hw - WARRIOR_PANTS_INNER_LIMIT) });
+      [[legL, kneeL, -1], [legR, kneeR, 1]].forEach(([hip, knee, outSign])=>{
+        addDecor(new THREE.Mesh(makeGarmentLoft([
+          warriorPantsRing(0.04,            B.thigh*1.20, B.thigh*1.15, outSign),
+          warriorPantsRing(-B.thighLen*0.5, B.thigh*1.40, B.thigh*1.32, outSign),
+          warriorPantsRing(-B.thighLen,     B.thigh*1.50, B.thigh*1.40, outSign),
+        ], {closedTop:true}), clothMatFlat), hip);
+        // 剣士はすねの中ほどで切る。影の旅人は裾まで長く、足首で少し絞る
+        const wandererHemY = 0.14 - (HIP_Y + 0.03 - B.thighLen);
+        addDecor(new THREE.Mesh(makeGarmentLoft(isWanderer ? [
+          warriorPantsRing(0,                B.thigh*1.50, B.thigh*1.40, outSign),
+          warriorPantsRing(wandererHemY*0.5, B.thigh*1.55, B.thigh*1.45, outSign),
+          warriorPantsRing(wandererHemY,     B.thigh*1.30, B.thigh*1.30, outSign),
+        ] : [
+          warriorPantsRing(0,               B.thigh*1.50, B.thigh*1.40, outSign),
+          warriorPantsRing(-B.calfLen*0.30, B.thigh*1.55, B.thigh*1.45, outSign),
+          warriorPantsRing(-B.calfLen*0.58, B.thigh*1.55, B.thigh*1.45, outSign),
+        ], {closedTop:true}), clothMatFlat), knee);
       });
-      const clasp = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.025,10), trimMat);
-      clasp.rotation.x = Math.PI/2;
-      clasp.position.set(0, HIP_Y+bodyH*0.6, bodyR*0.55);
-      clasp.castShadow = true; group.add(clasp);
-      warriorBaseDecor.push(clasp);
-      [-0.55,0,0.55].forEach(o=>{
-        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.05), trimMat);
-        plate.position.set(o*bodyR, HIP_Y-0.08, bodyR*0.85);
-        plate.rotation.x = -0.15;
-        plate.castShadow = true; group.add(plate);
-        warriorBaseDecor.push(plate);
-      });
-      // 短いマント(ユーザー指摘「マントは短く」、意匠参考: 毛皮縁の甲冑
-      // 騎士案)。戦騎士転身時の長い二枚ケープ(applyJobPromotionVisual)
-      // より明確に短く、肩甲骨あたりまでしか届かない小さな一枚。検証で
-      // 正面(x=0)に平らな一枚を大きく置くと真っ黒な板のように見えて
-      // しまったため、戦騎士のケープと同じ「二枚を左右へ開く」技法を
-      // 小さく縮めて流用した。板っぽさ対策(ユーザー指摘)としてmakeClothPanel
-      // (縦のひだ形状+革テクスチャのバンプ)で素材感を出している
-      [-1,1].forEach(s=>{
-        const shortCape = makeClothPanel(0.22, bodyH*0.4, 0x4a1c1c, {rows:5, foldDepth:0.03, phase:s*1.2});
-        shortCape.position.set(s*0.14, HIP_Y+bodyH*0.82, -bodyR-0.02);
-        shortCape.rotation.set(0.12, s*0.5, s*0.06);
-        shortCape.castShadow = true; group.add(shortCape);
-        warriorBaseDecor.push(shortCape);
+      /* 短いブーツの胴: 既存のブーツ(BoxGeometry、全職共通)は変えず、足首から
+         パンツの裾の内側まで。Material は既存のブーツのもの */
+      const warriorKneeWorldY = HIP_Y + 0.03 - B.thighLen;
+      [kneeL, kneeR].forEach(knee=>{
+        addDecor(new THREE.Mesh(makeGarmentLoft([
+          { y:-B.calfLen*0.52,              hw:B.calf*1.46, hd:B.calf*1.52 },
+          { y:0.13 - warriorKneeWorldY,     hw:B.calf*1.40, hd:B.calf*1.50 },
+        ], {closedTop:true}), bootMat), knee);
       });
       playerMixerParts.warriorBaseDecor = warriorBaseDecor;
 
@@ -1283,34 +1311,46 @@
       // P.rogueHood.material.color.set(uj.capeColor)はMaterial Objectを
       // 参照しているだけなので、このMaterial差し替え後もそのまま機能する
       const rogueHoodMat = new THREE.MeshStandardMaterial({color:0xc9a83a, roughness:0.85, side:THREE.DoubleSide});
-      const hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
+      /* CHARACTER-VIS-001 T-4 盗賊 A(Human Decision: 修正イメージ): 顔側が
+         開き、後ろが閉じた丸いパーカーのフード。形は鷹の目の既存フード
+         (makeHawkEyeHood)をそのまま使い、大きさ・位置は ROGUE_PARKA_HOOD_*
+         (rogueHoodCoverageAt() と同じ値、05-rendering-rig.js)。頭頂が髪・肌
+         より上に来る。旧 makeRogueHood(うなじ側が開き、後ろへ傾けた形)は
+         使わない */
       const hood = new THREE.Mesh(
-        makeRogueHood({width:headR, depth:headR, height:hoodH}), rogueHoodMat);
-      hood.rotation.x = ROGUE_HOOD_TILT_X;   // 後方へ深く垂らす(硬い兜の「まっすぐ立つ」向きと対照的)
-      hood.position.set(0, hY+hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL, -headR*0.22 + HEAD_BACK_Z);
+        makeHawkEyeHood({width:headR*ROGUE_PARKA_HOOD_WIDTH_MUL, depth:headR*ROGUE_PARKA_HOOD_WIDTH_MUL,
+                         height:headR*ROGUE_PARKA_HOOD_HEIGHT_MUL}), clothAcc);
+      hood.position.set(0, hY + headR*ROGUE_PARKA_HOOD_BOTTOM_OFFSET_MUL, HEAD_BACK_Z);
       hood.castShadow = true; group.add(hood); headwearMeshes.push(hood);
+      playerMixerParts.rogueParkaHood = hood;   // バーサーカーでフードを大きくする(Step 6)
+      /* フードの中の帽子(つば付き)。頭頂を覆う部分は髪の殻より外・フードより
+         内側、つばは額の上から短く前へ出す(長く出すと見下ろしカメラで目に
+         重なるため短く)。Material は既存インスタンスの流用(色は T-5)。
+         仮の割り当て: パーカー部(フード・胴・袖)= clothAcc、帽子 =
+         rogueHoodMat(今の黄色)、オーバーオール部 = clothMat / clothMatFlat
+         ―― Human が示した色分けの部品のまとまりに合わせてある */
+      const capCrown = new THREE.Mesh(makeGarmentLoft([
+        { y:hY + headR*1.05, hw:headR*0.60, hd:headR*0.60, dz:HEAD_BACK_Z },
+        { y:hY + headR*0.75, hw:headR*1.05, hd:headR*1.05, dz:HEAD_BACK_Z },
+        { y:hY + headR*0.30, hw:headR*1.20, hd:headR*1.20, dz:HEAD_BACK_Z },
+      ], {closedTop:true}), rogueHoodMat);
+      capCrown.castShadow = true; group.add(capCrown); headwearMeshes.push(capCrown);
+      const capBrim = new THREE.Mesh(makeGarmentLoft([
+        { y:hY + headR*0.44, hw:headR*0.62, hd:headR*0.23, dz:headR*1.22 + HEAD_BACK_Z },
+        { y:hY + headR*0.38, hw:headR*0.62, hd:headR*0.23, dz:headR*1.22 + HEAD_BACK_Z },
+      ], {closedTop:true}), rogueHoodMat);
+      capBrim.castShadow = true; group.add(capBrim); headwearMeshes.push(capBrim);
       // Phase 12-B Priority 3: Berserker昇格時にHoodのMaterial Colorだけを
       // 差し替えられるよう参照を保持しておく(battleKnightのwarriorBaseDecor/
       // archerCapDecorと同じ「差分方式」)。Rogue自身の見た目には影響しない
-      playerMixerParts.rogueHood = hood;
-      // マスク(鼻から下を覆う布) - 目だけ見えるフード付き暗殺者の顔
-      // Phase 12-B Priority 1: 旧BoxGeometryから、makeRogueMask()
-      // (05-rendering-rig.js、makeLoftベースの低ポリ布マスク)へ置き換え。
-      // width/depth/heightの基準値・position.set()はいずれも旧Boxと
-      // 完全に同じ値のまま ―― 変えたのは断面の点配置(makeRogueMask内)
-      // だけ
-      const maskMat = new THREE.MeshStandardMaterial({color:0x1c1a20, roughness:0.85});
-      const mask = new THREE.Mesh(
-        makeRogueMask({width:headR*0.525, depth:headR*0.25, height:headR*0.62}), maskMat);
-      mask.position.set(0, hY-headR*0.42, headR*0.55 + HEAD_BACK_Z);
-      mask.castShadow = true; group.add(mask); headwearMeshes.push(mask);
-      // フード+マスクで顔をほぼ覆っているため、既存の球目(白目+瞳+
-      // ハイライト、頭の外へ張り出す形状)をそのまま出すと、覆面の上に
-      // 目玉だけが浮いて見えて不気味(ユーザー指摘)。この見た目のクラスは
-      // 「顔が見える」ことを狙っていない(月夜の暗殺者、覆面で正体を隠す)
-      // ため、ここでは非表示にする ―― 他クラス(魔法使い/弓師は顔が
-      // 見える帽子なので目はそのまま)には影響しない
-      faceMeshes.forEach(m=>{ m.visible = false; });
+      // T-4: フードは共有の clothAcc(足元のリング・VFX と共用)になったため、
+      // バーサーカーの色差し替え(material.color.set)が clothAcc を書き換え
+      // ないよう、rogueHoodMat を持つ帽子を指す。上位職の調整は T-4 Step 6
+      playerMixerParts.rogueHood = capCrown;
+      /* CHARACTER-VIS-001 T-4(HDR-T4-2 = F-b、HDR-T4-5 盗賊 A): 盗賊は顔を
+         見せる。鼻から下のマスク(makeRogueMask)を付けず、マスクに合わせて
+         既存の目(faceMeshes)を隠していた処理もやめる ―― 顔の造形は足さず、
+         既存の目をそのまま表示するだけ(HDR-T4-15) */
       // 長髪: 頭頂の短い髪(hair)の下から、背中を伝って垂れる房を追加
       const longHairMat = new THREE.MeshStandardMaterial({color:isFemale?0x2c1e14:0x1b140f, roughness:0.7});
       const ponytail = new THREE.Mesh(new THREE.ConeGeometry(0.075, bodyH*0.5, 7), longHairMat);
@@ -1327,6 +1367,76 @@
       const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.16,0.1),
         new THREE.MeshStandardMaterial({color:0x5a4630, roughness:0.85}));
       pouch.position.set(bodyR+0.07, 0.7, 0.02); group.add(pouch);
+
+      /* パーカーの胴(胸元の上着部分): 胴を一周し、胸当て・腰まわりの内側へ
+         入る。フードの背面に別パーツは置かない(Human Decision: 修正イメージ)。
+         Material はフードと同じ既存インスタンス(パーカー部、色は T-5) */
+      const hoodieBody = new THREE.Mesh(makeGarmentLoft([
+        { y:HIP_Y + bodyH*1.00, hw:bodyR*1.20, hd:bodyR*0.82 },
+        { y:HIP_Y + bodyH*0.80, hw:bodyR*1.08, hd:bodyR*0.98 },
+        { y:HIP_Y + bodyH*0.45, hw:bodyR*0.92, hd:bodyR*0.93 },
+      ], {closedTop:true}), clothAcc);
+      hoodieBody.castShadow = true; group.add(hoodieBody);
+
+      /* CHARACTER-VIS-001 T-4 盗賊 A(Human Decision: オーバーオール案):
+         パーカー的フード + オーバーオール。弓師(胴を一周する短丈上着 + 袖 +
+         ワイドパンツ)と違い、袖は付けず、胸の前の胸当て・前側の肩ベルト・
+         腰まわり・パンツで「胸から足首まで縦に続く一体型の服」に見せる
+         (オーバーオール部。パーカー部とは別の部品で、Material も別の既存
+         インスタンスにしてある ―― 色分けは T-5)。
+         胴と脚は別の可動部(waist / 股関節 / 膝)なので、継ぎ目はベルト線に
+         置き、腰まわりの布とパンツ上端を重ねて隠す。寸法はすべて BUILD
+         由来の候補値(V-1 で Human が調整)。Material は既存インスタンスの
+         流用のみ(値は T-5)。股の布・背中の肩ベルト・ポケットは作らない */
+      // 胸当て: 胸の前だけの薄い板(胴の前面より少し前)。group → waist
+      const overallBib = new THREE.Mesh(makeGarmentLoft([
+        { y:HIP_Y + bodyH*0.86, hw:bodyR*0.62, hd:bodyR*0.07, dz:bodyR*0.94 },
+        { y:HIP_Y + bodyH*0.66, hw:bodyR*0.66, hd:bodyR*0.07, dz:bodyR*1.01 },
+        { y:HIP_Y + bodyH*0.48, hw:bodyR*0.70, hd:bodyR*0.07, dz:bodyR*1.00 },
+      ], {closedTop:true}), clothMatFlat);
+      overallBib.castShadow = true; group.add(overallBib);
+      // 腰まわり: 胸当ての下からベルト線の下までを一周(胴→腰を連続した面に)
+      const overallWaist = new THREE.Mesh(makeGarmentLoft([
+        { y:HIP_Y + bodyH*0.52, hw:bodyR*0.98, hd:bodyR*0.99 },
+        { y:HIP_Y + bodyH*0.20, hw:bodyR*0.88, hd:bodyR*0.86 },
+        { y:HIP_Y - 0.06,       hw:bodyR*0.94, hd:bodyR*0.88 },
+      ], {closedTop:true}), clothMatFlat);
+      overallWaist.castShadow = true; group.add(overallWaist);
+      // 前側の肩ベルト(左右): 胸当ての上端から肩の上へ。背中側はフードの
+      // 垂れで隠れるため作らない
+      [-1, 1].forEach(sx=>{
+        const strap = new THREE.Mesh(makeGarmentLoft([
+          { y:HIP_Y + bodyH*1.02, hw:bodyR*0.09, hd:bodyR*0.05, dx:sx*bodyR*0.50, dz:bodyR*0.38 },
+          { y:HIP_Y + bodyH*0.93, hw:bodyR*0.09, hd:bodyR*0.05, dx:sx*bodyR*0.50, dz:bodyR*0.92 },
+          { y:HIP_Y + bodyH*0.82, hw:bodyR*0.09, hd:bodyR*0.05, dx:sx*bodyR*0.50, dz:bodyR*1.03 },
+        ], {closedTop:true}), clothMatFlat);
+        strap.castShadow = true; group.add(strap);
+      });
+      /* パンツ(太腿側は股関節ピボット、すね側は膝ピボット)。上端はベルト線
+         の上まで延ばして腰まわりの布の内側へ差し込む。双剣(waist の横)と
+         重ならないよう上端の横幅は抑え、太腿の中ほどから広げる(Human
+         Decision 3)。横より前後へ厚くしてワイド寄りに見せ、裾は足首で軽く
+         絞る。左右の脚の内側で重ならないよう、stanceW を超える分だけ断面の
+         中心を外側へずらす(P-R25) */
+      const ROGUE_PANTS_INNER_LIMIT = B.stanceW - 0.004;
+      const roguePantsRing = (y, hw, hd, outSign) =>
+        ({ y, hw, hd, dx: outSign*Math.max(0, hw - ROGUE_PANTS_INNER_LIMIT) });
+      const rogueKneeWorldY = HIP_Y + 0.03 - B.thighLen;
+      const rogueHemY = -rogueKneeWorldY + 0.17;   // 膝ローカル。ブーツ(高さ 0.15)の上の足首で止める
+      [[legL, kneeL, -1], [legR, kneeR, 1]].forEach(([hip, knee, outSign])=>{
+        const upper = new THREE.Mesh(makeGarmentLoft([
+          roguePantsRing(0.06,            B.thigh*1.15, B.thigh*1.15, outSign),
+          roguePantsRing(-B.thighLen*0.5, B.thigh*1.30, B.thigh*1.50, outSign),
+          roguePantsRing(-B.thighLen,     B.thigh*1.35, B.thigh*1.45, outSign),
+        ], {closedTop:true}), clothMat);
+        upper.castShadow = true; hip.add(upper);
+        const lower = new THREE.Mesh(makeGarmentLoft([
+          roguePantsRing(0,              B.thigh*1.35, B.thigh*1.45, outSign),
+          roguePantsRing(rogueHemY*0.45, B.calf*1.45,  B.calf*1.55,  outSign),
+          roguePantsRing(rogueHemY,      B.calf*1.20,  B.calf*1.20,  outSign),
+        ], {closedTop:true}), clothMat);
+        lower.castShadow = true; knee.add(lower);
+      });
 
     } else if(classDef.key==='mage'){
       // wide-brimmed pointed hat。ユーザー提示の参考画像(緑目・紫髪・
@@ -1354,31 +1464,21 @@
       // 共通コード側で既に公開済み。Mage自身の見た目には影響しない
       playerMixerParts.hatMatCone = hatMatCone;
       playerMixerParts.hatMatBrim = hatMatBrim;
-      // グラフィック刷新(ユーザー指摘「兜/帽子/フードで差別化」): 分割数の
-      // 多い円柱/円錐は面ごとの陰影はともかく輪郭(シルエット)が丸いまま
-      // 読めてしまう(戦騎士の兜で判明した問題と同じ)。ここも分割数を
-      // 大きく落とし、つばと三角帽の輪郭自体を多角形にした
-      // Mage Hat再設計フェーズ: 全方位均等の円盤(CylinderGeometry)だと、
-      // 見下ろしカメラで前方(顔側)にも均等にheadR*1.95まで張り出し、Eye/
-      // 鼻〜口の隆起を含む顔全体を覆い隠していた。makeMageHatBrim()
-      // (05-rendering-rig.js、makeLoftベースの低ポリヘルパー)に差し替え、
-      // 後方・側方の半径は据え置いたまま前方だけ控えめにした非対称の
-      // つばにした(詳細は同関数のコメント参照)。半径・厚みの数値は
-      // 旧CylinderGeometryと同じ(headR*1.95、厚み0.04)ため、帽子全体の
-      // 大きさ・「魔法使いらしさ」は変えていない
-      // Head/Posture Alignment再設計フェーズ: Brim/Cone/BandにもHEAD_BACK_Z
-      // を適用し、Headと一緒に後方へ(帽子だけHeadに取り残さない)
-      // mageHatCoverageAt()(05-rendering-rig.js)と同じMAGE_BRIM_*/
-      // MAGE_CONE_*定数を使う ―― Geometry生成とCoverage判定が同じ値を
-      // 共有するため
-      const brim = new THREE.Mesh(makeMageHatBrim(headR*MAGE_BRIM_RADIUS_BASE_MUL, MAGE_BRIM_THICKNESS), hatMatBrim);
-      brim.position.set(0, hY+headR*MAGE_BRIM_Y_OFFSET_MUL, HEAD_BACK_Z); brim.castShadow = true; group.add(brim); headwearMeshes.push(brim);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(headR*MAGE_CONE_R_MUL, MAGE_CONE_HEIGHT_ABS, 7), hatMatCone);
-      cone.position.set(0, hY+headR*MAGE_CONE_CENTER_OFFSET_MUL+MAGE_CONE_HEIGHT_ABS/2, HEAD_BACK_Z);
-      cone.rotation.set(-0.16, 0, 0.1); cone.castShadow = true; group.add(cone); headwearMeshes.push(cone);
-      const band = new THREE.Mesh(new THREE.TorusGeometry(headR*1.2, 0.035, 8, 14), clothAcc);
-      band.rotation.x = Math.PI/2;
-      band.position.set(0, hY+headR*0.6, HEAD_BACK_Z); group.add(band); headwearMeshes.push(band);
+      /* CHARACTER-VIS-001 T-4 魔法使い(Human: 参考画像「E. ロングコート×
+         ワイドパンツ」へ変更): 三角帽(つば・円錐・帯)をやめ、キャスケット
+         (膨らんだ頭頂 + 短いつば)にする。断面は MAGE_CAP_RINGS / MAGE_CAP_BRIM
+         (mageHatCoverageAt と共有、05-rendering-rig.js)。つばは見下ろし
+         カメラで目に重ならないよう短く。Material は既存の帽子のもの
+         (hatMatCone / hatMatBrim、魔導士の色差し替えもそのまま効く) */
+      const capCrown = new THREE.Mesh(makeGarmentLoft(MAGE_CAP_RINGS.map(r => (
+        { y:hY + headR*r.y, hw:headR*r.r, hd:headR*r.r, dz:headR*r.dz + HEAD_BACK_Z }))
+      , {closedTop:true}), hatMatCone);
+      capCrown.castShadow = true; group.add(capCrown); headwearMeshes.push(capCrown);
+      const capBrim = new THREE.Mesh(makeGarmentLoft([
+        { y:hY + headR*MAGE_CAP_BRIM.yTop,    hw:headR*MAGE_CAP_BRIM.hw, hd:headR*MAGE_CAP_BRIM.hd, dz:headR*MAGE_CAP_BRIM.dz + HEAD_BACK_Z },
+        { y:hY + headR*MAGE_CAP_BRIM.yBottom, hw:headR*MAGE_CAP_BRIM.hw, hd:headR*MAGE_CAP_BRIM.hd, dz:headR*MAGE_CAP_BRIM.dz + HEAD_BACK_Z },
+      ], {closedTop:true}), hatMatBrim);
+      capBrim.castShadow = true; group.add(capBrim); headwearMeshes.push(capBrim);
       // 前髪(参考画像: 額にかかる紫の前髪)は、Hair再設計Phase 1で全クラス
       // 共通のBangs(Center/Left/Right、makeHairBang())へ統合されたため、
       // ここにあった魔法使い専用の球ジオメトリ製の前髪(SphereGeometry3個)は
@@ -1393,34 +1493,49 @@
       // 肩ピボット(armL/armR、以下の腕構築コードで生成される)の子として
       // Upper Armと同じローカル位置に付け直す ―― 詳細は腕構築コード側の
       // 「Phase 10 Priority 1-B」コメント参照
-      // robe hem widening to the floor
-      const robe = new THREE.Mesh(new THREE.CylinderGeometry(bodyR*0.98, bodyR*1.5, 0.62, 12), clothMat);
-      robe.position.y = 0.42; robe.castShadow = true; group.add(robe);
-      // 裾のほつれ布(意匠参考: フードの魔女杖術士案)。ローブの裾
-      // (下端y≈0.11、半径bodyR*1.5)は床のすぐ上までしかなく、その下に
-      // 布を「垂らす」余地がほとんど無いため、ローブ下半分に重ねて貼り、
-      // 裾の半径をわずかに超えて突き出させることで「着古した魔女」の
-      // ほつれたシルエットを足す。クラス色(classDef.trim)をごく弱く
-      // 発光させ、既存のクラス識別を保ったまま馴染ませてある。
-      // PlaneGeometryはどの角度からも描画されなかった(同じ位置の
-      // SphereGeometryは正常に表示された)ため、stock/pouch等の既存
-      // デコレーションと同じ薄いBoxGeometryにしてある。揺れは常時の
-      // 揺れ(upDateClassDecor等)を新設せず静的に留めた ―― 検証で、
-      // このメッシュの回転を毎フレーム上書きする専用のアニメーション
-      // 経路(バネ+向き追従)を足すと、なぜかどの角度からも描画されなく
-      // なる不具合を確認したため(原因未特定。他クラスの装飾が使う
-      // updateJobDecor自体は上位職装飾で実績があり問題ない)、
-      // 静的な意匠に留めて安全側に倒した
-      const robeTatterMat = new THREE.MeshStandardMaterial({
-        color:0x1a1620, roughness:0.85, emissive:classDef.trim, emissiveIntensity:0.14});
-      const tatterTopY = 0.34;   // ローブ下半分(0.11〜0.42)の範囲内
-      [0, Math.PI*0.55, Math.PI, Math.PI*1.45].forEach((ang,i)=>{
-        const len = 0.18 + (i%2)*0.10;
-        const strip = new THREE.Mesh(new THREE.BoxGeometry(0.22, len, 0.03), robeTatterMat);
-        const r = bodyR*1.55;
-        strip.position.set(Math.sin(ang)*r, tatterTopY - len/2, Math.cos(ang)*r);
-        strip.rotation.set(0.1, ang, i%2 ? 0.04 : -0.04);
-        strip.castShadow = true; group.add(strip);
+      /* T-4 魔法使い(参考画像 E): ローブ・ストール・裾のほつれ布をやめ、
+         タートルネック + 前開きのロングコート + ワイドパンツにする。
+         寸法はすべて BUILD / headR 由来の候補値(V-1 で Human が調整)。
+         Material は既存インスタンスの流用のみ(色は T-5) */
+      // タートルネック: 首を覆う筒(胴の上端から顎の下まで)。group → waist
+      const turtleneck = new THREE.Mesh(makeGarmentLoft([
+        { y:hY - headR*0.82,     hw:B.neck*1.75, hd:B.neck*1.70 },
+        { y:HIP_Y + bodyH*0.98,  hw:B.neck*2.10, hd:B.neck*2.00 },
+      ], {closedTop:true}), clothMatFlat);
+      turtleneck.castShadow = true; group.add(turtleneck);
+      /* 前開きのロングコート: 肩からすねの中ほどまで。前が開いているので
+         歩行で脚が前へ出ても裾を突き抜けにくい。group → waist(胴と一緒に動く) */
+      const coatHemY = HIP_Y + 0.03 - B.thighLen - B.calfLen*0.40;
+      const coat = new THREE.Mesh(makeOpenGarmentLoft([
+        { y:HIP_Y + bodyH*1.00, hw:bodyR*1.22, hd:bodyR*0.86, open:bodyR*0.30, t:bodyR*0.08 },
+        { y:HIP_Y + bodyH*0.66, hw:bodyR*1.12, hd:bodyR*1.00, open:bodyR*0.38, t:bodyR*0.08 },
+        { y:HIP_Y,              hw:bodyR*1.02, hd:bodyR*0.96, open:bodyR*0.46, t:bodyR*0.08 },
+        { y:HIP_Y - 0.25,       hw:bodyR*1.16, hd:bodyR*1.16, open:bodyR*0.62, t:bodyR*0.08 },
+        { y:coatHemY,           hw:bodyR*1.34, hd:bodyR*1.30, open:bodyR*0.80, t:bodyR*0.08 },
+      ]), clothMat);
+      coat.castShadow = true; group.add(coat);
+      /* ワイドパンツ(裾まで広い)。付け方は弓師・盗賊と同じ(太腿側は股関節
+         ピボット、すね側は膝ピボット)。形は裾まで広がったまま足首より下の
+         ブーツの上で止める。左右の脚の内側で重ならないよう、stanceW を
+         超える分だけ断面の中心を外側へずらす(P-R25) */
+      const MAGE_PANTS_INNER_LIMIT = B.stanceW - 0.004;
+      const magePantsRing = (y, hw, hd, outSign) =>
+        ({ y, hw, hd, dx: outSign*Math.max(0, hw - MAGE_PANTS_INNER_LIMIT) });
+      const mageKneeWorldY = HIP_Y + 0.03 - B.thighLen;
+      const mageHemY = -mageKneeWorldY + 0.12;   // 膝ローカル。ブーツ(高さ 0.15)にかぶせる
+      [[legL, kneeL, -1], [legR, kneeR, 1]].forEach(([hip, knee, outSign])=>{
+        const upper = new THREE.Mesh(makeGarmentLoft([
+          magePantsRing(0.04,            B.thigh*1.20, B.thigh*1.15, outSign),
+          magePantsRing(-B.thighLen*0.5, B.thigh*1.40, B.thigh*1.32, outSign),
+          magePantsRing(-B.thighLen,     B.thigh*1.50, B.thigh*1.40, outSign),
+        ], {closedTop:true}), clothMatFlat);
+        upper.castShadow = true; hip.add(upper);
+        const lower = new THREE.Mesh(makeGarmentLoft([
+          magePantsRing(0,              B.thigh*1.50, B.thigh*1.40, outSign),
+          magePantsRing(mageHemY*0.5,   B.thigh*1.62, B.thigh*1.50, outSign),
+          magePantsRing(mageHemY,       B.thigh*1.72, B.thigh*1.58, outSign),
+        ], {closedTop:true}), clothMatFlat);
+        lower.castShadow = true; knee.add(lower);
       });
 
     } else if(classDef.key==='archer'){
@@ -1490,11 +1605,9 @@
       // 近すぎて輪郭が消えた。肌より明確に暗く、かつCapの影(ほぼ黒)より
       // 明確に明るい中間の革色(0x8a5a35)にして、明暗どちらの背景でも
       // マスクの輪郭が読めるようにした
-      const archerMaskMat = new THREE.MeshStandardMaterial({color:0x8a5a35, roughness:0.85});
-      const archerMask = new THREE.Mesh(
-        makeRogueMask({width:headR*0.525, depth:headR*0.25, height:headR*0.62}), archerMaskMat);
-      archerMask.position.set(0, hY-headR*0.42, headR*0.55 + HEAD_BACK_Z);
-      archerMask.castShadow = true; group.add(archerMask); headwearMeshes.push(archerMask);
+      /* CHARACTER-VIS-001 T-4 Step 2(HDR-T4-2 = F-b): 弓師は顔を見せる。
+         口元のマスク(makeRogueMask の流用)を付けない ―― 顔の造形は
+         足さず、被り物の構成だけで顔の見え方を変える(HDR-T4-15) */
       // 以前はここに水平なひさし(brim2、BoxGeometry)があったが、頭身を
       // 上げた際(#39系「参考画像のような頭身に」)、見下ろし視点の
       // カメラ角度では前方へ張り出す水平な板が必ず目の上に重なって見える
@@ -1519,10 +1632,50 @@
       // 寄せる。鷹の目転身の非対称マント(applyJobPromotionVisual)とは
       // 役割が被らないよう、襟だけに留めてある
       const archerFurMat = new THREE.MeshStandardMaterial({color:0xa89068, roughness:0.9});
-      const archerCollar = new THREE.Mesh(new THREE.TorusGeometry(headR*0.95, 0.075, 6, 12, Math.PI*1.6), archerFurMat);
+      // T-4 Step 1(HDR-T4-3 = H-a): 毛皮の襟の太さを headR 比へ(旧 0.075 直値 = 旧 headR 0.3705 の 0.2024 倍)
+      const archerCollar = new THREE.Mesh(new THREE.TorusGeometry(headR*0.95, headR*0.2024, 6, 12, Math.PI*1.6), archerFurMat);
       archerCollar.rotation.set(Math.PI/2, 0, -Math.PI*0.75);
       archerCollar.position.set(0, hY-headR*1.0, -0.03);
       archerCollar.castShadow = true; group.add(archerCollar);
+
+      /* CHARACTER-VIS-001 T-4 Step 4 弓師パイロット(HDR-T4-5 弓師 A、HDR-T4-12):
+         「中世×現代リバイバルファッション」のワイドパンツ + 短丈上着。
+         細身の体(T-2 BUILD は不変)に衣服の量感で外形を作る(HDR-T4-4 = S-a)。
+         寸法はすべて BUILD 由来。Material は既存インスタンスの流用のみ
+         (値は T-5)。新しい衣服システムは作らず、Loft(makeGarmentLoft)を
+         既存の可動部へ付ける:
+           パンツ上 → 股関節ピボット(legL/R)、パンツ下 → 膝ピボット(kneeL/R)
+           上着     → group(下の付け替えループで waist へ移る)
+         左右の脚の間隔が狭い(stanceW)ため、パンツは内側へは広げず、
+         断面の中心を外側へずらして広げる(左右の裾が重ならない) */
+      const PANTS_INNER_LIMIT = B.stanceW - 0.004;
+      const pantsRing = (y, hwMul, hdMul, outSign) => {
+        const hw = B.thigh*hwMul;
+        return { y, hw, hd:B.thigh*hdMul, dx: outSign*Math.max(0, hw - PANTS_INNER_LIMIT) };
+      };
+      const archerKneeWorldY = HIP_Y + 0.03 - B.thighLen;
+      const pantsHemY = -archerKneeWorldY + 0.17;   // 膝ローカル。ブーツ(高さ 0.15)の上で止める
+      [[legL, kneeL, -1], [legR, kneeR, 1]].forEach(([hip, knee, outSign])=>{
+        const upper = new THREE.Mesh(makeGarmentLoft([
+          pantsRing(0,             1.20, 1.10, outSign),
+          pantsRing(-B.thighLen*0.5, 1.35, 1.20, outSign),
+          pantsRing(-B.thighLen,   1.45, 1.28, outSign),
+        ], {closedTop:true}), clothMat);
+        upper.castShadow = true; hip.add(upper);
+        const lower = new THREE.Mesh(makeGarmentLoft([
+          pantsRing(0,              1.45, 1.28, outSign),
+          pantsRing(pantsHemY*0.5,  1.55, 1.34, outSign),
+          pantsRing(pantsHemY,      1.60, 1.38, outSign),
+        ], {closedTop:true}), clothMat);
+        lower.castShadow = true; knee.add(lower);
+      });
+      // 短丈上着: 襟〜胸下で止める(ベルト線の上)。胴の断面より一回り外側
+      const jacket = new THREE.Mesh(makeGarmentLoft([
+        { y:HIP_Y + bodyH*0.97, hw:bodyR*1.20, hd:bodyR*0.95 },
+        { y:HIP_Y + bodyH*0.70, hw:bodyR*1.10, hd:bodyR*1.02 },
+        { y:HIP_Y + bodyH*0.42, hw:bodyR*1.08, hd:bodyR*1.02 },
+      ]), clothMatFlat);
+      jacket.castShadow = true; group.add(jacket);
     }
 
     // arms - shoulder and elbow pivots, with the pauldron on the shoulder
@@ -1637,6 +1790,62 @@
        (CylinderGeometry、半径0.1→0.21、長さ0.4)自体は変更していない。
        X位置は肩ピボット自身が既に左右オフセット済みのローカル座標系の
        ため0(Upper Armと同じ)にしている。 */
+    /* T-4 弓師パイロット: 短丈上着の袖。肩ピボットの子(魔法使いの袖と同じ
+       付け方)で、Pauldron(T-3、不変)の下から上腕の中ほどまで。
+       肘から先は付けない(前腕の動きと干渉しないため) */
+    if(classDef.key === 'archer'){
+      [armL, armR].forEach(sh=>{
+        const sleeve = new THREE.Mesh(makeGarmentLoft([
+          { y:-0.04,              hw:B.upper*1.45, hd:B.upper*1.40 },
+          { y:-B.upperLen*0.35,   hw:B.upper*1.55, hd:B.upper*1.48 },
+          { y:-B.upperLen*0.62,   hw:B.upper*1.50, hd:B.upper*1.44 },
+        ], {closedTop:true}), clothMatFlat);
+        sleeve.castShadow = true;
+        sh.add(sleeve);
+      });
+    }
+    /* T-4 剣士(参考画像の現代風リメイク): パーカーの長袖。上腕は肩ピボット、
+       前腕は肘ピボットの子(肘で曲がる)。肩当て(T-3、不変)を上から覆う。
+       戦騎士への転身で隠す対象に入れる(上位職は Step 6) */
+    if(classDef.key === 'warrior' && playerMixerParts.warriorBaseDecor){
+      // 影の旅人はコートと同じチャコールグレー(下の warrior 分岐で作った専用 Material)
+      const sleeveMat = playerMixerParts.wandererCoatMat || clothMat;
+      [[armL, elbowL], [armR, elbowR]].forEach(([sh, el])=>{
+        const upperSleeve = new THREE.Mesh(makeGarmentLoft([
+          { y:0.05,      hw:B.upper*1.55, hd:B.upper*1.50 },
+          { y:-UA*0.50,  hw:B.upper*1.62, hd:B.upper*1.55 },
+          { y:-UA,       hw:B.upper*1.52, hd:B.upper*1.46 },
+        ], {closedTop:true}), sleeveMat);
+        upperSleeve.castShadow = true; sh.add(upperSleeve);
+        const lowerSleeve = new THREE.Mesh(makeGarmentLoft([
+          { y:0,         hw:B.forearm*1.75, hd:B.forearm*1.70 },
+          { y:-FA*0.50,  hw:B.forearm*1.70, hd:B.forearm*1.65 },
+          { y:-FA*0.80,  hw:B.forearm*1.55, hd:B.forearm*1.50 },
+        ], {closedTop:true}), sleeveMat);
+        lowerSleeve.castShadow = true; el.add(lowerSleeve);
+        playerMixerParts.warriorBaseDecor.push(upperSleeve, lowerSleeve);
+      });
+    }
+    /* T-4 盗賊 A(Human Decision: 修正イメージ): パーカーの長袖。上腕は肩
+       ピボット、前腕は肘ピボットの子(肘で曲がる)。手首の少し上で止める。
+       Material はフード・胴と同じパーカー部の既存インスタンス(色は T-5) */
+    if(classDef.key === 'rogue'){
+      const hoodieMat = clothAcc;
+      [[armL, elbowL], [armR, elbowR]].forEach(([sh, el])=>{
+        const upperSleeve = new THREE.Mesh(makeGarmentLoft([
+          { y:-0.03,     hw:B.upper*1.55, hd:B.upper*1.50 },
+          { y:-UA*0.50,  hw:B.upper*1.60, hd:B.upper*1.55 },
+          { y:-UA,       hw:B.upper*1.50, hd:B.upper*1.45 },
+        ], {closedTop:true}), hoodieMat);
+        upperSleeve.castShadow = true; sh.add(upperSleeve);
+        const lowerSleeve = new THREE.Mesh(makeGarmentLoft([
+          { y:0,         hw:B.forearm*1.70, hd:B.forearm*1.65 },
+          { y:-FA*0.50,  hw:B.forearm*1.65, hd:B.forearm*1.60 },
+          { y:-FA*0.82,  hw:B.forearm*1.40, hd:B.forearm*1.35 },
+        ], {closedTop:true}), hoodieMat);
+        lowerSleeve.castShadow = true; el.add(lowerSleeve);
+      });
+    }
     if(classDef.key === 'mage'){
       [armL, armR].forEach(sh=>{
         const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.21,0.4,10), clothMat);
@@ -1783,6 +1992,10 @@
     // the reparent shifted everything down by the waist height; the grip
     // offset is a difference of two points, so it survives unchanged
 
+    /* CHARACTER-VIS-001 T-4(Human Decision: 影の旅人は最終的に素手想定): 影の
+       旅人だけ武器メッシュを見せない(見た目のみ。攻撃処理・判定・モーションは
+       剣士の kit のまま。素手の演出は別 Task) */
+    if(classDef.charKey === 'wanderer') weapon.visible = false;
     playerMixerParts.weapon = weapon;
     playerMixerParts.gripHand = gripHand;
     playerMixerParts.gripHandB = st.grip === 'BOTH' ? handL : null;
@@ -1889,6 +2102,7 @@
 
     weapon.traverse(c=>{ if(c.isMesh) c.castShadow = true; });
     P.waist.add(weapon);
+    if(classDef.charKey === 'wanderer') weapon.visible = false;   // T-4: 影の旅人は見た目だけ素手
 
     P.weapon = weapon;
     P.weaponBasePos = weapon.position.clone();
@@ -1950,6 +2164,11 @@
     // Phase 9: 鷹の目転身時に隠した素の弓師のCap/CapTop/Peakを可視に戻す。
     // hawkEye以外はそもそもこれらを隠さないので、他クラスには無関係
     if(P.archerCapDecor) P.archerCapDecor.forEach(m=>{ m.visible = true; });
+    // T-4 Step 6: バーサーカーで大きくした盗賊のフードを元の大きさへ戻す
+    if(P.rogueParkaHood){
+      P.rogueParkaHood.scale.setScalar(1);
+      if(P.rogueParkaHoodBaseMat) P.rogueParkaHood.material = P.rogueParkaHoodBaseMat;
+    }
     // 戦騎士の兜で隠した球目(sclera/pupil/highlight)も可視へ戻す。
     // head/hairも含め一括で可視にしておく(誤って隠れたまま残る事故を防ぐ)
     if(P.headGroupParts) P.headGroupParts.forEach(m=>{ m.visible = true; });
@@ -2006,6 +2225,11 @@
     }
     const trimMat = new THREE.MeshStandardMaterial({color:uj.trim, roughness:0.35, metalness:0.4,
       emissive:uj.trim, emissiveIntensity:0.35});
+    /* CHARACTER-VIS-001 T-4(Human Decision: 上位職 + 影の旅人の色だけ T-4 で先行、
+       「上位職は白いレイヤードが強調されるとわかりやすい」): 上位職の白い
+       レイヤー用の専用 Material。転身の間だけ作り、解除時に破棄される
+       (jobDecorMeshes の後始末)。基礎4職の Material は変えない */
+    const layerWhite = new THREE.MeshStandardMaterial({color:0xe8e6df, roughness:0.82});
 
     // 武器はどの上位職も「一回り大きく、格が上がって見える」ことを最優先
     // にする(資料 3.優先順位: シルエット>人体比率>ポーズ>武器)。
@@ -2015,63 +2239,17 @@
     if(P.offhandWeapon) P.offhandWeapon.scale.setScalar(1.32);
 
     if(uj.key === 'battleKnight'){
-      /* =====================================================
-         グラフィック刷新(戦騎士、2026-09-01合意の設計に基づく実装)
-         「旋盤図形を組み合わせた人形」から「Low Polyのファンタジー
-         キャラクター」へ。既存の剣士の骨格(waist/armL/armR等のピボット、
-         STANCE/CLIPSのモーション)は一切変更せず、素の剣士が着ている
-         丸い兜・毛皮・肩当て・短マント(warriorBaseDecor/pauldronL/R、
-         buildPlayer側)をこの転身時だけ隠し、低ポリ専用Primitive
-         (TrapezoidBox/Wedge/Plate、src/render/lowpoly-primitives.js)で
-         作った一回り大きい装備に差し替える。細部の装飾より「重厚な
-         シルエット」を優先し、追加メッシュ数は素のwarriorBaseDecorと
-         同程度に抑えてある(パフォーマンス優先)。
-      ===================================================== */
-      const headYLocal = bodyH + B.headGap;         // 頭の中心(waist基準)
-      const hR = B.headR * 0.86;                    // 縮小後の見た目の頭半径(下記)
-
-      // ---- 頭身調整: 頭+髪+目をまとめて縮小し、5〜6頭身に近づける ----
-      // (「頭を小さくする」指示。目・髪はbuildPlayer側で作った実体を
-      // 一切壊さず、位置関係を保ったまま1つのグループへ包んで縮小する
-      // だけ ―― clearJobPromotionVisualで素の剣士に戻る際は、このグループ
-      // を分解して元の位置・スケールへ戻す。詳細はclearJobPromotionVisual
-      // 冒頭のコメント参照)
-      /* Look Rig(buildPlayer の LOOK RIG ブロック)が作った headLookPivot が
-         既に「頭の中心を原点とする、頭+髪+被り物+目のグループ」なので、
-         ここではそれへ scale を掛けるだけでよい。以前はこの場で専用の
-         headPivot を作って中身を付け替え、転身解除時に元へ戻していたが、
-         付け替え先の原点(headYLocal)は headLookPivot と同一なので
-         見た目は変わらず、往復の付け替えごと消える */
-      if(P.headLookPivot) P.headLookPivot.scale.setScalar(0.86);
-
-      // 素の剣士の丸い兜・毛皮棘・革帯・丸い肩当てを隠す(dispose無し、
-      // 転身解除時にclearJobPromotionVisualが可視へ戻す)
-      if(P.warriorBaseDecor) P.warriorBaseDecor.forEach(m=>{ m.visible = false; });
+      /* CHARACTER-VIS-001 T-4 Step 6(Human: 上位職4職デザイン案「戦騎士」):
+         重い鎧・兜ではなく、剣士の現代テック系の装い(キャップ・ネックゲイター・
+         背中のフード・パーカー・パンツ・ブーツ)をそのまま引き継ぎ(P-a)、
+         強化した肩パーツ・胸のハーネス・ベルトで「守りと突進の専門家」に
+         進化させる。顔は見せる。旧 兜・面頬・眉庇・前立て・首の毛皮・胸甲・
+         腰鎧・2枚のマントは作らない。寸法は候補値(V-1 で Human が調整) */
+      const KNIGHT_HEAD_SCALE = 1.0;   // D-8 の再調整(旧 0.86)。頭を縮めない
+      if(P.headLookPivot) P.headLookPivot.scale.setScalar(KNIGHT_HEAD_SCALE);
+      // 素の肩当て(T-3)は強化した肩パーツへ差し替える
       if(P.pauldronL) P.pauldronL.visible = false;
       if(P.pauldronR) P.pauldronR.visible = false;
-
-      // 顔のビルボード化は検証の結果撤去(ユーザー判断: 「顔の作り込みは
-      // やめる、兜/帽子/フードでの差別化を優先する」)。
-      // 兜が頭のほとんどを覆うため、頭の外へ張り出す球目(sclera/pupil/
-      // highlight)をそのまま出すと、兜の下から目玉だけが浮いて見えて
-      // 不気味(ユーザー指摘)。ここでは非表示にする ―― head/hairは
-      // 残す(headGroupParts[0]=head, [1]=hair, [2]以降=目)。
-      // clearJobPromotionVisualで転身解除時に可視へ戻す
-      if(P.headGroupParts && P.headGroupParts.length > 2){
-        P.headGroupParts.slice(2).forEach(m=>{ m.visible = false; });
-      }
-
-      // flatShading済みマテリアル(既存clothMatFlat/trimMatFlatと同じ
-      // 「低分割ジオメトリ+flatShading = 低ポリの面ごとの陰影」手法)。
-      // 単色べた塗りだと「安いプラスチック」に見える(ユーザー指摘)ため、
-      // 既存の手続きテクスチャ(makeMetalTexture/makeLeatherTexture+
-      // applyBump、他クラス・敵・ボスで実績のある技法)を全面的に適用し、
-      // 金属のブラッシュ目・傷・毛皮のむら等の質感情報を足した。
-      // 鎧本体は金トリム(trimMat=uj.trim)そのものではなく、暗めの鋼色を
-      // 主色にする ―― trimMatを鎧全面に使うと「金色の球」一色になって
-      // シルエットが説明できなくなる事故が最初の実装で起きたため、
-      // 参考画像(赤/臙脂+鋼+金の縁取り)の配色に合わせて分離した。
-      // 金(knightGold)は兜の鶏冠飾りなど、ごく一部の縁取りにのみ使う
       const knightSteel = applyBump(new THREE.MeshStandardMaterial({
         map: makeMetalTexture(hexStr(0x6a6f78), 2, 2), roughness:0.4, metalness:0.55, flatShading:true}));
       const knightGold = applyBump(new THREE.MeshStandardMaterial({
@@ -2079,140 +2257,14 @@
         emissive:uj.trim, emissiveIntensity:0.16, flatShading:true}));
       const knightDark = applyBump(new THREE.MeshStandardMaterial({
         map: makeMetalTexture(hexStr(0x241d18), 1, 1), roughness:0.6, metalness:0.3, flatShading:true}));
-      const knightFur = applyBump(new THREE.MeshStandardMaterial({
-        map: makeLeatherTexture(hexStr(0xe6dcc6), 2, 2, {bump:0.06}), roughness:0.92, side:THREE.DoubleSide, flatShading:true}));
-
-      // ---- 兜(Polyhedron): 低分割の部分球はやめ、七角柱(頂点数の少ない
-      // CylinderGeometry、openEnded)+上面キャップに置き換えた。
-      // 低分割の球は面ごとの陰影(flatShading)こそ付くが、輪郭(シルエット)
-      // は分割数を上げても丸いまま ―― flatShadingは陰影だけを変え、
-      // アウトラインは変えないため、見下ろし視点の実プレイでは結局
-      // 「丸い球」にしか見えない。Cylinder/Coneは分割数を下げるほど輪郭
-      // 自体が多角形になるため、七角柱なら側面からでも上から見ても
-      // 明確に角ばった兜として読める。頬〜顎にかけて広がり(radiusBottom)、
-      // 頭頂に向けて絞る(radiusTop)ことで兜らしい傾斜も付けた。
-      // 底面は開放(openEnded) - 下は頭部メッシュに隠れるため不要
-      //
-      // Head Silhouette再検証フェーズ(実機Playwright): 実際のDefault Game
-      // Cameraで「戦騎士の頭がほぼ丸出しに見える」ことが判明した。原因は
-      // 単純な位置ズレではなく、Coneの先細り(radiusTop=radiusBottom*0.42)
-      // が急すぎたこと ―― Headの頬(cheek、Head全断面中の最大幅)の高さは
-      // 兜の下端からおよそ30%の高さ(t≈0.31)にあり、そこでのCone半径を
-      // 実際に計算すると、旧設定(radiusBottom=hR*1.10、radiusTop=
-      // radiusBottom*0.42)ではHeadの頬の実際の半幅(hR*1.06)を大きく
-      // 下回っていた(約15%不足)。つまり兜下端では頭を覆えていても、
-      // 頬の高さに達する頃には兜の側面がすでに頭より細くなっており、
-      // Headがその隙間から側面へ突き抜けて見えていた(Mesh貫通チェックや
-      // Bounding Box比較では検出しづらい「側面が途中で細くなる」タイプの
-      // 不整合)。radiusBottomを広げ(1.10→1.25)、radiusTopの比率も緩めた
-      // (0.42→0.75、先細りを穏やかに)ことで、頬の高さでも実測で約9%の
-      // 余裕を持って頭を覆うようにした。兜全体が誇張して大きくならないよう
-      // 頭頂側の絞り自体は残している
-      const helmetR = hR*1.25;
-      const helmetTopMul = 0.75;
-      const helmetH = hR*1.55;
-      const helmetSegs = 7;
-      // Head/Posture Alignment再設計フェーズ: Helmet一式(helmetSide/
-      // helmetCap/visor/brow/crest/tuft)にもHEAD_BACK_Zを適用し、Headと
-      // 一緒に後方へ
-      const helmetSide = new THREE.Mesh(
-        new THREE.CylinderGeometry(helmetR*helmetTopMul, helmetR, helmetH, helmetSegs, 1, true), knightSteel);
-      const helmetY = headYLocal + hR*0.30;
-      helmetSide.position.set(0, helmetY, HEAD_BACK_Z);
-      helmetSide.castShadow = true; P.waist.add(helmetSide); meshes.push(helmetSide);
-      // 頭頂キャップ(七角形の板) - 見下ろし視点では兜のうち最も大きく
-      // 見える面なので、これも多角形であることが重要
-      const helmetCap = new THREE.Mesh(new THREE.CircleGeometry(helmetR*helmetTopMul, helmetSegs), knightSteel);
-      helmetCap.rotation.x = -Math.PI/2;
-      helmetCap.position.set(0, helmetY + helmetH/2, HEAD_BACK_Z);
-      helmetCap.castShadow = true; P.waist.add(helmetCap); meshes.push(helmetCap);
-      // 顔の開口部を示す暗い縁(visor) - 既存と同じ「目の高さの薄い帯」
-      const visor = new THREE.Mesh(new THREE.BoxGeometry(hR*1.7, 0.07, 0.10), knightDark);
-      visor.position.set(0, headYLocal+0.01, hR*0.92 + HEAD_BACK_Z);
-      P.waist.add(visor); meshes.push(visor);
-      // 眉庇(Wedge): visorの上に、前方へ張り出す角ばった庇を追加。
-      // 「兜/帽子で差別化する」方針(ユーザー指摘)を受けて、兜そのものの
-      // シルエットをもう一段強調する ―― 顔の作り込みをやめた分、兜の
-      // 存在感を増やす狙い
-      const browGeo = makeWedge({baseW:hR*1.55, baseD:hR*0.55, height:0.09, ridgeW:hR*0.9, ridgeOffsetZ:-hR*0.35});
-      const brow = new THREE.Mesh(browGeo, knightSteel);
-      brow.rotation.x = Math.PI;   // 広い面を上に(既存の肩鎧と同じ反転)
-      brow.position.set(0, headYLocal+hR*0.18, hR*0.80 + HEAD_BACK_Z);
-      brow.castShadow = true; P.waist.add(brow); meshes.push(brow);
-      // 兜の鶏冠飾り(Wedge): 平らな板ではなく、根元から稜線へ向けて
-      // 傾斜するくさび形にして低ポリらしい面の切り替わりを出す。
-      // 参考画像の兜飾りに近づけるため、さらに一回り大きく・前方へ
-      // 反った形にした。ここだけ金(knightGold)にして、鋼色の兜に対する
-      // 縁取りにする
-      const crestGeo = makeWedge({baseW:0.16, baseD:0.56, height:0.44, ridgeW:0, ridgeOffsetZ:-0.14});
-      const crest = new THREE.Mesh(crestGeo, knightGold);
-      crest.position.set(0, helmetY + helmetH/2 - 0.02, -0.02 + HEAD_BACK_Z);
-      crest.castShadow = true; P.waist.add(crest); meshes.push(crest);
-
-      // ---- 大きな毛皮(Plate複数枚、不規則な輪郭): 首まわりに6枚 + 肩に
-      // 大きめを2枚。既存の「棘のリング」(小さく尖った突起)より面積が
-      // あり、「毛皮が多い」印象を安く出す。1枚ごとに輪郭点を少しずつ
-      // ずらして、単調な繰り返しに見えないようにしてある ----
-      const furTuftOutline = (variant)=>[
-        {x:-0.16,y:0.03}, {x:0.16,y:0.00+variant}, {x:0.22,y:-0.22-variant},
-        {x:0.08,y:-0.42}, {x:-0.07,y:-0.28-variant}, {x:-0.22,y:-0.20},
-      ];
-      for(let i=0;i<6;i++){
-        const ang = (i/6)*Math.PI*2;
-        const variant = (i%2===0) ? 0.05 : -0.03;
-        const tuft = new THREE.Mesh(makePlate(furTuftOutline(variant), {foldWaves:1.4, foldDepth:0.025, phase:i}), knightFur);
-        const r = hR*1.15;
-        tuft.position.set(Math.sin(ang)*r, headYLocal - hR*0.85, Math.cos(ang)*r + HEAD_BACK_Z);
-        tuft.rotation.y = -ang;
-        tuft.castShadow = true; P.waist.add(tuft); meshes.push(tuft);
-      }
-      // 肩の毛皮(左右とも一回り大きく) - 肩当ての付け根を覆い隠すように
-      // 上へ乗せる。腕グループの子なので歩行/振りの動きに追従する
-      /* Phase 13-F: 肩の毛皮(shoulderFur)を削除。makePlate()は薄い1枚の
-         板なので、見下ろしのDefault Game Cameraでは向きをどう変えても
-         「肩に白い板が貼り付いている」ようにしか見えなかった(ユーザー
-         指摘。角度・サイズ・枚数を変えて実機確認したが改善せず)。
-         首まわりの毛皮(上のfurTuft 6枚)と肩鎧(bigL/smallR)で肩の
-         シルエットと毛皮の情報は足りているため、この2枚は出さない。 */
-
-      // ---- 胸鎧(TrapezoidBox): 回転体では作れない、肩幅で広く腰で絞る
-      // 前後非対称の絞り。既存bigChest(円柱の一部)より鎧らしい硬質な
-      // シルエットになる。鋼色(knightSteel)で、下の赤い胴着(既存torso)
-      // との色差でシルエットが説明できるようにする ----
-      const chestArmor = new THREE.Mesh(makeTrapezoidBox({
-        topW:bodyR*2.2, topD:bodyR*1.3, botW:bodyR*1.6, botD:bodyR*0.95,
-        height:bodyH*0.58, topOffsetZ:0.04, botOffsetZ:0.05,
-      }), knightSteel);
-      chestArmor.position.y = bodyH*0.62;
-      chestArmor.castShadow = true; P.waist.add(chestArmor); meshes.push(chestArmor);
-
-      // ---- 腰鎧(TrapezoidBox): ベルトの下、腰から裾に向けて開くフォールド
-      // 状の帯。胸鎧と同じPrimitiveだが上下を逆にして「開く」向きにする ----
-      const waistArmor = new THREE.Mesh(makeTrapezoidBox({
-        topW:bodyR*1.35, topD:bodyR*0.85, botW:bodyR*2.0, botD:bodyR*1.25,
-        height:bodyH*0.34, botOffsetZ:0.04,
-      }), knightSteel);
-      waistArmor.position.y = -bodyH*0.02;
-      waistArmor.castShadow = true; P.waist.add(waistArmor); meshes.push(waistArmor);
-
-      // ---- 肩鎧(Wedge、左右非対称): 利き手と逆側(左)は大きく前へ鋭く
-      // 傾斜する殻、利き手側(右)は動きを妨げない小ぶりな殻。既存の球殻
-      // (bigL/smallR)より輪郭にインパクトが出る。
-      // 見下ろし視点のカメラでは「上から見て広い面」が最もシルエットに
-      // 効くため、makeWedgeの既定(底面が下・稜線が上)を180度反転させ、
-      // 広い底面を上(肩の上面)に、先端を下(腕側)へ向けている ----
+      // 強化肩パーツ(左を大きく、右を小さく ―― 旧 肩鎧 bigL / smallR と同じ形)
       if(P.armL){
-        /* Phase 13-F: 旧値(baseW 3.0/baseD 2.7/height 2.3 の×upper)は
-           肩に対して大きすぎ、さらにrotation.x=PIで広い底面が真上を向く
-           ため、見下ろしカメラでは「左肩に白い板が乗っている」ようにしか
-           見えなかった(ユーザー指摘)。肩を覆う殻として読める大きさまで
-           絞り、外側へ傾けて上面だけが見える状態を避ける。 */
         const bigL = new THREE.Mesh(makeWedge({
           baseW:B.upper*2.2, baseD:B.upper*2.0, height:B.upper*1.5,
           ridgeW:B.upper*0.9, ridgeOffsetZ:B.upper*0.35,
         }), knightSteel);
-        bigL.rotation.set(Math.PI, 0, -0.30);   // 反転(広い面を上)+外側へ傾ける
-        bigL.position.set(-B.upper*0.35, 0.06, 0); bigL.castShadow = true;
+        bigL.rotation.set(Math.PI, 0, -0.30);
+        bigL.position.set(-B.upper*0.35, 0.08, 0); bigL.castShadow = true;
         P.armL.add(bigL); meshes.push(bigL);
       }
       if(P.armR){
@@ -2221,193 +2273,93 @@
           ridgeW:B.upper*0.7, ridgeOffsetZ:B.upper*0.28,
         }), knightSteel);
         smallR.rotation.set(Math.PI, 0, 0.26);
-        smallR.position.set(B.upper*0.28, 0.04, 0); smallR.castShadow = true;
+        smallR.position.set(B.upper*0.28, 0.06, 0); smallR.castShadow = true;
         P.armR.add(smallR); meshes.push(smallR);
       }
-
-      // ---- 長いマント(Plate、不規則な裾): 既存のmakeClothPanel(矩形+
-      // 正弦波)からmakePlateへ強化し、裾を左右非対称・ギザギザの輪郭に
-      // した。updateJobDecorのバネ追従(anim.capes)はそのまま流用 ----
-      const capeOutline = [
-        {x:-0.36,y:1.0}, {x:0.40,y:0.96},
-        {x:0.62,y:0.30}, {x:0.50,y:-0.15}, {x:0.40,y:0.05},
-        {x:0.16,y:-0.30}, {x:0.02,y:-0.05},
-        {x:-0.18,y:-0.34}, {x:-0.34,y:-0.02},
-        {x:-0.62,y:0.22},
-      ];
-      const knightCapes = [];
+      // 胸のハーネス: パーカーの前面で交差する2本のベルト(左肩→右腰、右肩→左腰)
       [-1, 1].forEach(s=>{
-        const outline = capeOutline.map(p=>({x:p.x*s, y:p.y}));   // 左右で鏡映(非対称の歯型は保つ)
-        const cape = new THREE.Mesh(makePlate(outline, {foldWaves:2.4, foldDepth:0.045, phase:s*0.8}),
-          new THREE.MeshStandardMaterial({map: makeLeatherTexture(hexStr(uj.capeColor), 2, 2), roughness:0.82, side:THREE.DoubleSide}));
-        // Phase 13-F: capeOutlineの上端はy=+1.0(絶対値)なので、旧
-        // position.y=bodyH*0.66 だとマント上端が bodyH*0.66+1.0 ≈ 1.66 と
-        // なり、頭頂(headYLocal+headR ≈ 1.44)より上へ突き抜けて「頭から
-        // マントが生えている」ように見えていた。上端が肩の高さに来るよう
-        // 下げる(bodyH*0.95 - 上端1.0)
-        cape.position.set(s*0.30, bodyH*0.95 - 1.0, -bodyR-0.02);
-        const baseRotY = s*0.62;
-        cape.rotation.set(0.1, baseRotY, s*0.08);
-        cape.castShadow = true;
-        P.waist.add(cape); meshes.push(cape);
-        knightCapes.push({mesh:cape, baseRotY, baseRotZ:s*0.08, swayPhase:s*1.7, springAngle:0, springVel:0});
+        const strap = new THREE.Mesh(makeGarmentLoft([
+          { y:bodyH*0.95, hw:bodyR*0.09, hd:bodyR*0.04, dx: s*bodyR*0.55, dz:bodyR*1.00 },
+          { y:bodyH*0.65, hw:bodyR*0.09, hd:bodyR*0.04, dx: s*bodyR*0.05, dz:bodyR*1.16 },
+          { y:bodyH*0.35, hw:bodyR*0.09, hd:bodyR*0.04, dx:-s*bodyR*0.45, dz:bodyR*1.10 },
+        ], {closedTop:true}), knightDark);
+        strap.castShadow = true; P.waist.add(strap); meshes.push(strap);
       });
-      anim.capes = knightCapes;
+      /* 白いレイヤー: パーカーの上に羽織る白いテック系ジャケット(前開きで
+         紺のパーカーを見せる)と、その袖(上腕・前腕) */
+      const whiteJacket = new THREE.Mesh(makeOpenGarmentLoft([
+        { y:bodyH*1.02, hw:bodyR*1.32, hd:bodyR*0.98, open:bodyR*0.34, t:bodyR*0.07 },
+        { y:bodyH*0.62, hw:bodyR*1.22, hd:bodyR*1.12, open:bodyR*0.42, t:bodyR*0.07 },
+        { y:0,          hw:bodyR*1.18, hd:bodyR*1.12, open:bodyR*0.48, t:bodyR*0.07 },
+        { y:-0.18,      hw:bodyR*1.30, hd:bodyR*1.24, open:bodyR*0.58, t:bodyR*0.07 },
+      ]), layerWhite);
+      whiteJacket.castShadow = true; P.waist.add(whiteJacket); meshes.push(whiteJacket);
+      [[P.armL, P.elbowL], [P.armR, P.elbowR]].forEach(([sh, el])=>{
+        if(sh){
+          const up = new THREE.Mesh(makeGarmentLoft([
+            { y:0.04,             hw:B.upper*1.70, hd:B.upper*1.64 },
+            { y:-B.upperLen*0.50, hw:B.upper*1.76, hd:B.upper*1.70 },
+            { y:-B.upperLen,      hw:B.upper*1.66, hd:B.upper*1.60 },
+          ], {closedTop:true}), layerWhite);
+          up.castShadow = true; sh.add(up); meshes.push(up);
+        }
+        if(el){
+          const lo = new THREE.Mesh(makeGarmentLoft([
+            { y:0,              hw:B.forearm*1.92, hd:B.forearm*1.86 },
+            { y:-B.foreLen*0.72, hw:B.forearm*1.80, hd:B.forearm*1.74 },
+          ], {closedTop:true}), layerWhite);
+          lo.castShadow = true; el.add(lo); meshes.push(lo);
+        }
+      });
+      // ベルト(白いジャケットの外側を一周)と留め金
+      const belt = new THREE.Mesh(makeGarmentLoft([
+        { y:0.05,  hw:bodyR*1.24, hd:bodyR*1.18 },
+        { y:-0.02, hw:bodyR*1.25, hd:bodyR*1.19 },
+      ], {closedTop:true}), knightDark);
+      belt.castShadow = true; P.waist.add(belt); meshes.push(belt);
+      const buckle = new THREE.Mesh(makeGarmentLoft([
+        { y:0.06,  hw:bodyR*0.16, hd:bodyR*0.04, dz:bodyR*1.20 },
+        { y:-0.03, hw:bodyR*0.16, hd:bodyR*0.04, dz:bodyR*1.20 },
+      ], {closedTop:true}), knightGold);
+      P.waist.add(buckle); meshes.push(buckle);
 
     } else if(uj.key === 'berserker'){
-      /* デザイン設定シート(Phase 6準拠)ではBerserkerはHoodを持たない
-         (金髪が逆立つ荒くれ者)デザインのため、一度Hood非表示+金髪化を
-         試したが、実機でユーザーから「変だからフード戻して」と明確な
-         差し戻し指示を受けた。Hoodを被った状態に金髪の房(hairSpikes等)
-         だけが浮いて乗る見た目は一貫性が無く不自然だったため、Hoodの
-         表示・色だけでなく金髪化(buildPlayer側で一時追加していた
-         Hair Shell/ponytail用の色差し替え参照も含む)も合わせて差し戻し、
-         Phase 12-B Priority 3時点の見た目(Hood表示+uj.capeColorで
-         色替え、髪は既定の黒〜焦げ茶のまま)に完全復元する。Rogue自身の
-         Hood(buildPlayer側で生成される元のMesh)には一切触れていない
-         ため、Rogueの見た目には影響しない */
+      /* CHARACTER-VIS-001 T-4 Step 6(Human: 上位職4職デザイン案「バーサーカー」):
+         盗賊のパーカー・オーバーオールを引き継ぎ(P-a)、フードを大きくし、
+         半袖の上着を重ねる(上半身レイヤー)。旧 逆立つ髪の房・長髪・髭・
+         素肌の板・肩 / 腰 / 足首の毛皮は作らない(フードの中の顔を見せる)。
+         帽子の色の差し替えと足元のオーラは既存のまま。寸法は候補値 */
       if(P.rogueHood) P.rogueHood.material.color.set(uj.capeColor);
-
-      /* Phase 8 Priority 3: Rogue/Berserker差別化(Root Cause)。
-         hairSpikes/longHair/beardはいずれもbodyH比の手打ち座標
-         (例: bodyH*0.985)で置かれていたが、この値は現行のHead/Hood比率
-         (headYLocal=bodyH+B.headGap基準)とかけ離れており、実測すると
-         hairSpikesはHead中心よりかなり下(顎付近の高さ)、longHairは
-         Rogueの素のponytail(buildPlayer側、headR*1.9下)と大きくY/Z範囲が
-         重なり、beardはRogueのMask(顔下部を覆う布)の内側に埋もれていた
-         ―― 「要素が存在するのに実際には見えない」状態だった(実機QAで
-         確認)。ここではGeometry(Cone数・分割数)やHood/Mask自体は一切
-         変更せず、既存のROGUE_HOOD_*定数(makeRogueHood()と同じ値を
-         参照するだけ、Coverage/Geometry生成ロジックは不変)とHead基準
-         (headYLocal)からPositionだけを導出し直す。 */
-      const bHeadR = B.headR;
-      const headYLocal = bodyH + B.headGap;   // P.waist基準のHead中心Y(buildPlayerのhead.position.yに相当)
-      // Hoodの実際の頭頂Y(makeRogueHood()呼び出し側と同じ式:
-      // hoodH=headR*ROGUE_HOOD_HEIGHT_MUL、center=hY+hoodH*ROGUE_HOOD_
-      // CENTER_OFFSET_MUL、頭頂はそのcenterからさらにhoodH/2上)。
-      // Hood自体の傾き(ROGUE_HOOD_TILT_X)による実効高さの目減り分
-      // (cos(tilt)相当、Rogue Hood側のコメントと同じ近似)を見込んで
-      // 少し余裕を持たせてある
-      const hoodCrownY = headYLocal + bHeadR*ROGUE_HOOD_HEIGHT_MUL*(ROGUE_HOOD_CENTER_OFFSET_MUL+0.5);
-      // 荒々しさ: 頭上に逆立つ髪。旧位置(bodyH*0.985、実測でHead中心より
-      // 大きく下 = 顎の高さ相当)から、Hood頭頂を確実に超える高さへ
-      // 引き上げた。Geometry(5本、分割数5、太さ0.035)自体は変更していない
-      // ―― 「巨大化しすぎず、Hoodを覆ったり別の帽子に見えたりしない」
-      // 指示を尊重し、位置調整のみで解決する
-      const spikeBaseY = hoodCrownY + bHeadR*0.06;   // Hood頭頂よりわずかに高い位置を毛束の根元にする
-      // ユーザー指摘「変だからフード戻して」を受け、金髪化は差し戻し、
-      // 元の黒(0x1a1410)に戻した
-      const hairMat = new THREE.MeshStandardMaterial({color:0x1a1410, roughness:0.85});
-      const hairSpikes = [];
-      for(let i=-2;i<=2;i++){
-        const spikeLen = 0.24+Math.abs(i)*0.03;
-        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, spikeLen, 5), hairMat);
-        // Head/Posture Alignment再設計フェーズ: HeadやHairと同じHEAD_BACK_Z
-        spike.position.set(i*0.05, spikeBaseY + spikeLen/2, -0.02 + HEAD_BACK_Z);
-        const baseRotZ = i*0.12;
-        spike.rotation.set(-0.15 - Math.abs(i)*0.08, 0, baseRotZ);
-        addHeadPart(spike);
-        hairSpikes.push({mesh:spike, baseRotZ, phase:i*0.9});
+      if(P.rogueParkaHood){
+        P.rogueParkaHood.scale.setScalar(1.14);   // 大型フード
+        // 白いレイヤー: 大きなフードを白に(共有の clothAcc は変えず、フードの
+        // 割り当てだけ差し替える。解除時に元の Material へ戻す)
+        P.rogueParkaHoodBaseMat = P.rogueParkaHoodBaseMat || P.rogueParkaHood.material;
+        P.rogueParkaHood.material = layerWhite;
       }
-      anim.hairSpikes = hairSpikes;
-      // ユーザー指摘:「バーサーカーのヘッドパーツの隙間から地肌か髪が
-      // 見えてるのが気になる」。Mesh Ownership Debug(skinMatを一時的に
-      // シアンへ差し替え)で確認したところ、こめかみ付近(Hood頭頂と
-      // 逆立つ髪の房の根元の間の高さ)にHead本体の地肌が三角形に露出して
-      // いた。既存のhairSpikes(5本)はx∈[-0.1,0.1]の狭い範囲にしか無く、
-      // この高さでこめかみの幅までは元々何も覆っていなかった(Rogue本体は
-      // この高さで頭が確実にHoodの内側に収まるため露出しないが、
-      // Berserkerは前傾姿勢でカメラから見える角度が変わり露出していた)。
-      // Y位置はmakeRogueHood()のRINGS式から理論値を計算したが、Hood
-      // 断面が単純な円形ではない(7点の非対称多角形)ため理論値だけでは
-      // 実際の露出位置とズレがあり、Mesh Ownership Debug(塞ぎ用の球を
-      // 目立つ色にして位置を可視化)で実機と突き合わせながら微調整した
-      // (最終的にheadYLocal+hoodH*0.615)。中央の5本(逆立つ髪)自体は
-      // 「巨大化しすぎない」既存方針を尊重して変更せず、この高さで
-      // こめかみ側へ張り出す小さな毛の塊(球、回転に左右されず狙った
-      // 位置を確実に覆える形状)を左右1本ずつ追加してこの隙間だけを塞ぐ
-      const hoodH = bHeadR*ROGUE_HOOD_HEIGHT_MUL;
-      const templeTuftY = headYLocal + hoodH*0.615;
-      [-1, 1].forEach(s=>{
-        const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.165, 7, 6), hairMat);
-        tuft.position.set(s*0.185, templeTuftY, 0.13 + HEAD_BACK_Z);
-        tuft.castShadow = true;
-        addHeadPart(tuft);
-      });
-      // 前傾姿勢: 常時飛びかかりそうな体勢。ここで一度だけP.waist.rotation.xへ
-      // 書いても、歩行/待機のidle姿勢が毎フレームwaist.rotation.xを上書きする
-      // (updateLocomotion)ため即座に消えてしまっていた。恒久的な前傾は
-      // state.jobを見てupdateLocomotion側のpitch計算に加算する形に直した
-      // (13-update-loop.js「バーサーカーは前傾のぶんだけpitchを底上げ」参照)
-      // 双武器が両方とも巨大化している凄み(既存native/altどちらでも武器自体は
-      // 上のweapon.scaleで拡大済み。ここでは腰だめの闘気オーラのみ追加)
       const auraRing = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 16),
         new THREE.MeshBasicMaterial({color:0xff3a1a, transparent:true, opacity:0.55, side:THREE.DoubleSide}));
       auraRing.rotation.x = -Math.PI/2;
       auraRing.position.y = 0.02;
       scene.add(auraRing); meshes.push(auraRing);   // player直下ではなくscene直下: 毎フレームworld座標へ同期する(下のupdateJobDecor)
       anim.auraRing = auraRing;
-
-      // 上半身の肌面積を増やす(ユーザー指摘)。既存の胴体クロスの上に、
-      // 素肌色の帯を前面へ重ねるだけの割り切り ―― 胴体メッシュそのもの
-      // (buildPlayerの torso)は全クラス共通のため作り直さず、上位職の
-      // 装飾として肌面を足す手法にした
-      const skinTone = 0xe8b98a;
-      const skinMat2 = new THREE.MeshStandardMaterial({color:skinTone, roughness:0.8});
-      const barePatch = new THREE.Mesh(new THREE.PlaneGeometry(bodyR*1.1, bodyH*0.7), skinMat2);
-      barePatch.position.set(0, bodyH*0.62, bodyR*0.92);
-      barePatch.rotation.x = 0.05;
-      P.waist.add(barePatch); meshes.push(barePatch);
-      // 毛皮パーツ: 肩・腰・足首(ユーザー指摘)
-      const furMat2 = new THREE.MeshStandardMaterial({color:0xd8c8a0, roughness:0.9});
+      // 半袖の上着: パーカー・胸当ての上に羽織る前開きの上着(胴 → waist)
+      const outerMat = layerWhite;   // 白いレイヤー(半袖の上着)
+      const outer = new THREE.Mesh(makeOpenGarmentLoft([
+        { y:bodyH*1.02, hw:bodyR*1.30, hd:bodyR*0.96, open:bodyR*0.40, t:bodyR*0.07 },
+        { y:bodyH*0.66, hw:bodyR*1.22, hd:bodyR*1.14, open:bodyR*0.52, t:bodyR*0.07 },
+        { y:bodyH*0.28, hw:bodyR*1.12, hd:bodyR*1.10, open:bodyR*0.56, t:bodyR*0.07 },
+      ]), outerMat);
+      outer.castShadow = true; P.waist.add(outer); meshes.push(outer);
       [P.armL, P.armR].forEach(arm=>{
         if(!arm) return;
-        const shoulderFur = new THREE.Mesh(new THREE.SphereGeometry(B.upper*1.3, 7, 6, 0, Math.PI*2, 0, Math.PI*0.6), furMat2);
-        shoulderFur.position.y = 0.02; shoulderFur.castShadow = true;
-        arm.add(shoulderFur); meshes.push(shoulderFur);
+        const sleeve = new THREE.Mesh(makeGarmentLoft([
+          { y:0.07,          hw:B.upper*1.72, hd:B.upper*1.66 },
+          { y:-B.upperLen*0.25, hw:B.upper*1.80, hd:B.upper*1.72 },
+          { y:-B.upperLen*0.48, hw:B.upper*1.78, hd:B.upper*1.70 },
+        ], {closedTop:true}), outerMat);
+        sleeve.castShadow = true; arm.add(sleeve); meshes.push(sleeve);
       });
-      const waistFur = new THREE.Mesh(new THREE.TorusGeometry(bodyR*1.05, 0.09, 6, 16), furMat2);
-      waistFur.rotation.x = Math.PI/2;
-      waistFur.position.y = 0.0;
-      P.waist.add(waistFur); meshes.push(waistFur);
-      [P.kneeL, P.kneeR].forEach(knee=>{
-        if(!knee) return;
-        const ankleFur = new THREE.Mesh(new THREE.TorusGeometry(B.calf*1.5, 0.075, 6, 12), furMat2);
-        ankleFur.rotation.x = Math.PI/2;
-        ankleFur.position.y = 0.075 - (HIP_Y + 0.03 - B.thighLen) - 0.18;
-        knee.add(ankleFur); meshes.push(ankleFur);
-      });
-      // 長髪+長髭(ユーザー指摘)。既存の逆立つ髪(hairSpikes)はそのまま
-      // 残し、後頭部から流れる長髪と顎の長い髭を追加した
-      // Phase 8 Priority 3: longHairは旧位置(bodyH*0.86)だとRogueの素の
-      // ponytail(buildPlayer側、hY-headR*1.9)とY/Z範囲が大きく重なり、
-      // 実質的に同じ房が二重に置かれているだけでBerserker側の追加要素と
-      // して視認できなかった(実測で確認)。hairSpikesの根元(spikeBaseY)
-      // 付近から始めて明確に長く伸ばすことで、Rogueのponytailより高い
-      // 位置から連続する「荒々しいたてがみ」にし、Zもponytail
-      // (-headR*0.85)よりさらに後方へ離して重なりを減らした。Cone自体の
-      // 分割数(7)・Coverage/Hood/Rogue側のコードは変更していない
-      // ユーザー指摘「変だからフード戻して」を受け、金髪化は差し戻し、
-      // 元の黒褐色(0x241a10)に戻した
-      const wildHairMat = new THREE.MeshStandardMaterial({color:0x241a10, roughness:0.75});
-      const longHairLen = bodyH*0.85;   // 旧0.6→延長。Rogue ponytail(bodyH*0.5)より明確に長い
-      const longHairTopY = spikeBaseY - bHeadR*0.10;   // hairSpikesの根元のすぐ下から流れ始める
-      const longHair = new THREE.Mesh(new THREE.ConeGeometry(0.095, longHairLen, 7), wildHairMat);
-      longHair.position.set(0, longHairTopY - longHairLen/2, -bodyR*1.15);
-      longHair.rotation.set(-0.35, 0, 0);
-      addHeadPart(longHair);
-      // Phase 8 Priority 3: beardは旧位置(bodyH*1.0)だとRogueのMask
-      // (顔下部を覆う布、底辺はheadYLocal-headR*0.73相当)の内側に大部分が
-      // 埋もれ、Maskの下からわずかに覗く先端(円錐の最も細い部分)しか
-      // 露出していなかった(実測で確認)。Maskの底辺ちょうどから垂れる
-      // 位置へ下げ、根元の太い部分もMaskの外へ出るようにした。サイズ
-      // (太さ0.11・長さbodyH*0.38)・Coverage/Rogue側のコードは変更していない
-      const maskBottomY = headYLocal - bHeadR*0.73;   // Rogue Mask(buildPlayer)の底辺と同じ式
-      const beardLen = bodyH*0.38;
-      const beard = new THREE.Mesh(new THREE.ConeGeometry(0.11, beardLen, 7), wildHairMat);
-      beard.position.set(0, maskBottomY - beardLen/2, bodyR*0.55);
-      beard.rotation.set(Math.PI, 0, 0);
-      addHeadPart(beard);
 
     } else if(uj.key === 'archmage'){
       /* Mage自身のローブ(clothMat)・帽子(hatMatCone/hatMatBrim)は
@@ -2544,8 +2496,12 @@
       // 大型化した帽子の房飾り(既存の帽子の上に追加)
       // Head/Posture Alignment再設計フェーズ: bigCone/strandにもHEAD_BACK_Z
       // を適用し、Mage Hat(既にHEAD_BACK_Z適用済み)と一緒に後方へ
+      // T-4 Step 6: 魔法使いの帽子をキャスケット(MAGE_CAP_RINGS)へ替えたため、
+      // 房飾りはキャスケットの頭頂に小さく載せる(旧: 三角帽の上、bodyH*1.42)
       const bigCone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 12), trimMat);
-      bigCone.position.set(0, bodyH*1.42, HEAD_BACK_Z);
+      bigCone.scale.setScalar(0.55);
+      bigCone.position.set(0, bodyH + B.headGap + B.headR*MAGE_CAP_RINGS[0].y + 0.34*0.55/2,
+                           B.headR*MAGE_CAP_RINGS[0].dz + HEAD_BACK_Z);
       addHeadPart(bigCone);
       /* Phase 8: Mage/Archmage差別化 ―― 「帽子から伸びる細い縦棒(旧
          ConeGeometry×4、蛍光ライトブルー)」を、まとまりのある低ポリ
@@ -2631,24 +2587,36 @@
           archSeg(mid, tip, archHeadR*0.18, archHeadR*0.10);
         }
       }
-      // ローブの前を開けて羽織るように(ユーザー指摘)。素のローブ
-      // (buildPlayerの closed cylinder)は閉じたままなので、その上に
-      // 前開きの襟(コート状の合わせ)を左右一枚ずつ重ねて「開けて羽織る」
-      // シルエットに寄せる。魔法使いより身軽に見えるよう、幅は細め。
-      // 板っぽさ対策(ユーザー指摘)としてmakeClothPanelで素材感を出す
-      // makeClothPanel()は内部で独自のMaterial(タイリング1x2・roughness0.82・
-      // metalness未設定)を作るため、色を同じ紺(uj.capeColor)にしても
-      // ローブ(2x2・roughness0.6・metalness0.15)とは見え方がわずかにずれる。
-      // 胸の高さに重なるパーツなので、生成後にローブと同一のMaterialの複製
-      // (薄板なのでside:DoubleSideだけ復元する)へ差し替えて完全に揃える
-      const flapMat = P.clothMat ? P.clothMat.clone() : null;
-      if(flapMat) flapMat.side = THREE.DoubleSide;
-      [-1,1].forEach(s=>{
-        const flap = makeClothPanel(0.16, bodyH*0.78, uj.capeColor, {rows:6, foldDepth:0.022});
-        if(flapMat) flap.material = flapMat;
-        flap.position.set(s*0.13, bodyH*0.48, bodyR*0.62);
-        flap.rotation.set(0.05, s*0.42, 0);
-        P.waist.add(flap); meshes.push(flap);
+      /* CHARACTER-VIS-001 T-4 Step 6(Human: 上位職4職デザイン案「魔導士」):
+         魔法使いのコート・ワイドパンツ・キャスケットを引き継ぎ(P-a)、肩から
+         胸の下までの短い上掛け(二重コート)と、手首で広がる袖口(袖レイヤー)を
+         重ねる。旧 ローブの前開きの襟(makeClothPanel 2枚)は作らない(魔法使い
+         のローブを廃止したため)。寸法は候補値 */
+      const archCoatMat = P.clothMat || P.clothMatFlat;
+      const capelet = new THREE.Mesh(makeOpenGarmentLoft([
+        { y:bodyH*1.03, hw:bodyR*1.34, hd:bodyR*1.00, open:bodyR*0.30, t:bodyR*0.07 },
+        { y:bodyH*0.80, hw:bodyR*1.34, hd:bodyR*1.12, open:bodyR*0.36, t:bodyR*0.07 },
+        { y:bodyH*0.56, hw:bodyR*1.30, hd:bodyR*1.16, open:bodyR*0.42, t:bodyR*0.07 },
+      ]), archCoatMat);
+      capelet.castShadow = true; P.waist.add(capelet); meshes.push(capelet);
+      // 白いレイヤー: コートの前開きから見える白いドレス(胸から膝下まで)
+      const kneeLocal = (HIP_Y + 0.03 - B.thighLen) - HIP_Y;
+      const whiteDress = new THREE.Mesh(makeGarmentLoft([
+        { y:bodyH*0.80,        hw:bodyR*0.98, hd:bodyR*0.93 },
+        { y:bodyH*0.30,        hw:bodyR*0.92, hd:bodyR*0.95 },
+        { y:-0.20,             hw:bodyR*1.12, hd:bodyR*1.12 },
+        { y:kneeLocal - 0.12,  hw:bodyR*1.24, hd:bodyR*1.20 },
+      ], {closedTop:true}), layerWhite);
+      whiteDress.castShadow = true; P.waist.add(whiteDress); meshes.push(whiteDress);
+      [P.elbowL, P.elbowR].forEach(el=>{
+        if(!el) return;
+        const FA = B.foreLen;
+        const cuff = new THREE.Mesh(makeGarmentLoft([
+          { y:-FA*0.40, hw:B.forearm*1.90, hd:B.forearm*1.85 },
+          { y:-FA*0.62, hw:B.forearm*2.25, hd:B.forearm*2.15 },
+          { y:-FA*0.86, hw:B.forearm*2.65, hd:B.forearm*2.50 },
+        ], {closedTop:true}), archCoatMat);
+        cuff.castShadow = true; el.add(cuff); meshes.push(cuff);
       });
       // 浮遊魔法石: 身体の周囲を巡る発光する石(2→4個に増量、ユーザー指摘)
       const crystalGeo = new THREE.OctahedronGeometry(0.09, 0);
@@ -2702,13 +2670,11 @@
       // の輪郭・折り数)は変更せず、X方向へさらに外側へ・rotation.yを
       // わずかに追加して、非対称マントの端がFront/Diagonalでも覗くように
       // した。anim.capesのbaseRotY/baseRotZも新しい初期姿勢に合わせている
-      const cape = makeClothPanel(0.36, bodyH*0.92, uj.capeColor, {rows:7, foldDepth:0.04});
-      cape.position.set(-0.17, bodyH*0.6, -bodyR-0.05);
-      cape.rotation.set(0.1, -0.16, -0.06);
-      P.waist.add(cape); meshes.push(cape);
-      anim.capes = [{mesh:cape, baseRotY:-0.16, baseRotZ:-0.06, swayPhase:0.4, springAngle:0, springVel:0}];
-      // 肩に乗る小さな鷹(胴体+翼2枚+頭)。資料の「巨大にしない、肩に乗る
-      // 小さな存在」の指示通り、右肩(利き手と逆側)に控えめなサイズで乗せる
+      /* CHARACTER-VIS-001 T-4 Step 6(Human: 上位職4職デザイン案「鷹の目」):
+         弓師の帽子・短丈上着・ワイドパンツを引き継ぎ(P-a)、背中に下ろした
+         フードと、ポケット付きのベスト(ユーティリティベスト)を重ねる。
+         弓師の帽子は隠さない(顔を見せる)。旧 深いフード・眼帯・ひさし・
+         マントは作らない。鷹(肩に乗る)は職の記号として残す。寸法は候補値 */
       const hawk = new THREE.Group();
       const featherMat = new THREE.MeshStandardMaterial({color:0x5a4530, roughness:0.7});
       const hawkBody = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), featherMat);
@@ -2730,113 +2696,29 @@
       hawk.position.set(0, 0.32, 0);   // 肩の少し上、pauldronの外側
       meshes.push(hawk);
       anim.hawk = hawk;
-
-      // 左目に眼帯(ユーザー指摘)。既存の眼(buildPlayerのeye、
-      // 頭中心からy+0.02/半径headR*0.92)のうち左目側だけを覆う
       const headYLocal = bodyH + B.headGap;
-      const eyeX = -0.09*(B.headR/0.26);   // 「character's own left」= -X側
-      const patchMat = new THREE.MeshStandardMaterial({color:0x1a1410, roughness:0.8});
-      // Head/Posture Alignment再設計フェーズ: Patch/PatchStrap/HoodにもHEAD_BACK_Z
-      // を適用し、Headと一緒に後方へ(眼帯がEyeから浮かないように追従)
-      const patch = new THREE.Mesh(new THREE.CircleGeometry(0.055, 10), patchMat);
-      patch.position.set(eyeX, headYLocal+0.02, B.headR*0.94 + HEAD_BACK_Z);
-      addHeadPart(patch);
-      const patchStrap = new THREE.Mesh(new THREE.TorusGeometry(B.headR*1.02, 0.012, 5, 12, Math.PI*1.3), patchMat);
-      patchStrap.rotation.set(Math.PI/2, 0, Math.PI*0.15);
-      patchStrap.position.set(0, headYLocal+0.02, HEAD_BACK_Z);
-      addHeadPart(patchStrap);
-
-      /* Phase 9: Hawk Eye Headwear再設計。「帽子の上にフードを重ねる」から
-         「最初から深いフードを被っている人物」へ。Root Causeは、Archer
-         Cap(CylinderGeometry、headR*1.45の高さの筒)がHood(headR*1.75)と
-         ほぼ同じ場所に同時に存在し、両者の輪郭が競合して「帽子が頭の中に
-         めり込んでいる」バケツ状の塊に見えていたこと(実機QAで確認、
-         Archer単体では同じCapが単独で問題なく機能しているため、Cap自体の
-         Geometryが原因ではなく「Cap+Hoodの二重重ね」が原因と判断)。
-         Archer自身(buildPlayer)のCap/Peak Geometry・Coverageは一切
-         変更せず、Hawk Eye昇格時だけCap/CapTop/Peak(archerCapDecor、
-         buildPlayer側で参照を保持済み)を非表示にし、専用のDeep Hoodへ
-         差し替える(battleKnightがwarriorBaseDecorを隠す既存パターンと
-         同じ差分方式)。Hair生成(Bangs/Side/Back Hair)はbuildPlayer時点の
-         Archer Cap/Peak Coverageを既に使い終えているため、この非表示化・
-         Hood差し替えはHair Coverageに一切影響しない(Coverage System自体は
-         無変更)。 */
-      if(P.archerCapDecor) P.archerCapDecor.forEach(m=>{ m.visible = false; });
-      // フードコートのような見た目(ユーザー指摘)。Hawk Eye Hood再設計
-      // フェーズ(Headwear Audit指摘: 「黒い球」に見える唯一のクラス):
-      // 旧SphereGeometry(全方位均等なドーム)を、makeHawkEyeHood()
-      // (05-rendering-rig.js、makeWarriorBaseHelm()と同じ「開いた弧の
-      // 断面を積む」低ポリ技法、顔側にFace Openingを持つ)へ置き換えた。
-      // Phase 9: Cap非表示化に伴い「深いフード」としての存在感を持たせる
-      // ため、width/depth/heightを一回り拡大(1.25→1.35、1.75→1.90)。
-      // ARC_TEMPLATE/RINGS自体(開口・Eye可視性を保証する形状比率)は
-      // 変更していない ―― 単純な拡大なのでEye Opening関連の既存テスト
-      // (tests/unit/lowpoly-primitives.test.js)の不等式はそのまま成立する
       const hoodMat = new THREE.MeshStandardMaterial({color:uj.capeColor, roughness:0.85});
-      const hoodBottomY = headYLocal - B.headR*0.62;
-      const hood = new THREE.Mesh(
-        makeHawkEyeHood({width:B.headR*1.35, depth:B.headR*1.35, height:B.headR*1.90}), hoodMat);
-      // Cap非表示化により「HoodをCapの前へ逃がす」必要が薄れたため、Zは
-      // HEAD_BACK_Z基準(他クラスと同じ、Headと同じ後方オフセットのみ)に
-      // 戻した
-      hood.position.set(0, hoodBottomY, HEAD_BACK_Z);
-      hood.castShadow = true;
-      addHeadPart(hood);
-      // ユーザー指摘(3巡目):「鷹の目の顔があんまり隠れておらず雰囲気が
-      // 出てないのでつばの三角をもっと鈍角な横広のつばに修正」。
-      // Archer段階で作ったBrim(P.archerBrim、buildPlayer側でarcherCapDecor
-      // には含めず参照だけ保持済み)をHawk Eyeでも実体として存在させたまま、
-      // Position/Scale/MaterialだけHood向けに差し替える。Brim自体の
-      // Geometry(ARCHER_TRICORN_BRIM_MUL、Archerのバケットハット化に伴い
-      // 全周ほぼ均一・短い張り出しへ変更済み)はArcherと共有・変更しない。
-      // 実機検証で判明した内容: 見下ろしのDefault Game Cameraでは、Brim
-      // (半径の大きい水平な板)はYを多少上げた程度では前方(Z)への
-      // 張り出しがそのままEyeの手前を覆ってしまい、Yなしでも・scaleなし
-      // でもEyeが完全に見えなくなった(Mesh Ownership Debugでvisible=
-      // falseにして確認、Brim以外に原因が無いことを確認済み)。Yだけを
-      // 上げるとBrimがCap/Hoodの頭頂寄りに埋もれて「つば」に見えなくなる
-      // トレードオフがあったため、Scaleを非等方(X方向=横だけ拡大、
-      // Z方向=前後は逆に縮小)にして解決した ―― 横(X)を1.35倍にして
-      // 「横広のつば」を満たしつつ、前後(Z)を0.80倍に縮めてEyeの手前を
-      // 覆う量を減らす。Yも+0.50headRへ調整し、Eyeが完全な暗闇ではなく
-      // 影の中にわずかに覗く(隠れすぎない)状態にした。Archer本体の
-      // Brim GeometryはHawk Eyeの都合で変更したくないため、Scaleのみ
-      // Hawk Eye側のインスタンスに上乗せする(Archer自身には影響しない)
-      if(P.archerBrim){
-        /* Brim は素の弓師のつばの実体を流用している。Look Rig 導入で
-           被り物一式が頭ピボットの子になったため、waist 基準の Y を
-           そのまま入れると頭ひとつぶん浮く。親に合わせて変換する */
-        const brimY = headYLocal + B.headR*0.50;
-        const brimLocalY = P.archerBrim.parent === P.headLookPivot ? brimY - headPivotY : brimY;
-        P.archerBrim.position.set(0, brimLocalY, HEAD_BACK_Z);
-        P.archerBrim.scale.set(1.35, 1, 0.80);
-        // ArcherのclothMat(カーキ)のままだと濃い緑のHoodと配色が合わず
-        // 浮くため、Hood本体と同じhoodMat(uj.capeColor)へ差し替える
-        P.archerBrim.material = hoodMat;
-      }
-      // Phase 9: 額のひさし(Wedge、Warrior/Battle Knightのbrowと同じ技法)。
-      // Loft(makeHawkEyeHood)自体はEye可視性を保証するテスト付きの既存
-      // 形状のため変更せず、代わりに前方へ張り出す薄いくさびを重ねて額の
-      // 影を作る ―― 参考イメージの「額から頬付近まで影になる」を、
-      // 実際の3D形状による自然な落影(castShadow)で表現する。広い面を
-      // 上(rotation.x=PI、Battle Knight browと同じ反転)にして、稜線側
-      // (ridgeOffsetZでわずかに後方へ引いた辺)が目の高さ付近に来るように
-      // した
-      /* Phase 13-F: Hood自体が額から上を塞ぐようになった(13-E)ため、
-         この額のひさしはFace Openingの内側に残り「帽子のつばが顔の上半分に
-         乗っている」ように見えていた(ユーザー指摘)。Hoodの陰影は閉じた
-         フード本体が作るので、ひさし自体を出さない。 */
-      const HOOD_BROW_ENABLED = false;
-      if(HOOD_BROW_ENABLED){
-      const hoodBrow = new THREE.Mesh(makeWedge({
-        baseW: B.headR*1.30, baseD: B.headR*0.42, height: B.headR*0.16,
-        ridgeW: B.headR*0.70, ridgeOffsetZ: -B.headR*0.30,
-      }), hoodMat);
-      hoodBrow.rotation.x = Math.PI;
-      hoodBrow.position.set(0, headYLocal + B.headR*0.20, B.headR*0.78 + HEAD_BACK_Z);
-      hoodBrow.castShadow = true;
-      addHeadPart(hoodBrow);
-      }
+      // 背中に下ろしたフード(胴と一緒に動く waist 側)
+      const hoodDown = new THREE.Mesh(makeGarmentLoft([
+        { y:headYLocal - B.headR*0.55, hw:B.headR*0.72, hd:B.headR*0.30, dz:-B.headR*0.85 + HEAD_BACK_Z },
+        { y:headYLocal - B.headR*0.95, hw:B.headR*0.98, hd:B.headR*0.40, dz:-B.headR*0.95 + HEAD_BACK_Z },
+        { y:bodyH*0.84,                hw:bodyR*0.76,   hd:bodyR*0.22,   dz:-bodyR*0.98 },
+      ], {closedTop:true}), hoodMat);
+      hoodDown.castShadow = true; P.waist.add(hoodDown); meshes.push(hoodDown);
+      // ユーティリティベスト: 弓師の短丈上着の上から腰まで。前開き
+      const vest = new THREE.Mesh(makeOpenGarmentLoft([
+        { y:bodyH*0.96, hw:bodyR*1.26, hd:bodyR*1.02, open:bodyR*0.32, t:bodyR*0.06 },
+        { y:bodyH*0.70, hw:bodyR*1.18, hd:bodyR*1.10, open:bodyR*0.40, t:bodyR*0.06 },
+        { y:bodyH*0.28, hw:bodyR*1.14, hd:bodyR*1.08, open:bodyR*0.45, t:bodyR*0.06 },
+      ]), layerWhite);   // 白いレイヤー(ユーティリティベスト)
+      vest.castShadow = true; P.waist.add(vest); meshes.push(vest);
+      [-1, 1].forEach(s=>{
+        const pocket = new THREE.Mesh(makeGarmentLoft([
+          { y:bodyH*0.74, hw:bodyR*0.22, hd:bodyR*0.05, dx:s*bodyR*0.62, dz:bodyR*0.95 },
+          { y:bodyH*0.54, hw:bodyR*0.22, hd:bodyR*0.05, dx:s*bodyR*0.62, dz:bodyR*0.95 },
+        ], {closedTop:true}), layerWhite);
+        P.waist.add(pocket); meshes.push(pocket);
+      });
     }
 
     P.jobDecorMeshes = meshes;

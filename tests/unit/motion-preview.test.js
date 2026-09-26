@@ -179,6 +179,18 @@ test('motionDebugLines', async t=>{
     }
   });
 
+  await t.test('RIG ブロック ―― 衣服の構築数の行(CHARACTER-VIS-001 T-4 HDR-T4-14)', ()=>{
+    const rig = {relaxWeight:1, stopBlend:1, combatBlend:0, walkArmW:null,
+      shL:[0,0,0], shR:[0,0,0], elL:0, elR:0, wep:null, cloth:12};
+    const text = motionDebugLines(Object.assign({}, base, {rig})).join('\n');
+    assert.match(text, /CLOTH\s+12$/m);
+    // 取れないときは '-'(0 は 0 のまま出す)
+    const none = motionDebugLines(Object.assign({}, base, {rig:Object.assign({}, rig, {cloth:null})})).join('\n');
+    assert.match(none, /CLOTH\s+-$/m);
+    const zero = motionDebugLines(Object.assign({}, base, {rig:Object.assign({}, rig, {cloth:0})})).join('\n');
+    assert.match(zero, /CLOTH\s+0$/m);
+  });
+
   await t.test('RIG ブロック ―― 体格の行(CHARACTER-VIS-001 T-2)', ()=>{
     const rig = {relaxWeight:1, stopBlend:1, combatBlend:0, walkArmW:null,
       shL:[0,0,0], shR:[0,0,0], elL:0, elR:0, wep:null,
