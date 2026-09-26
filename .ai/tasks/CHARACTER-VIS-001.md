@@ -1774,3 +1774,14 @@ T-4 の固定条件（Geometry / シルエットのみ、Material の値は変�
   3. 「影の旅人の首元の紫パーツはシルバーブルーに変更」: 配色表 `wanderer.accent`（マフラー）: Shadow Purple #654F86 → シルバーブルー **#A3B1BF**（Human は色名で指定。値は Implementer の候補で、Human の目視で最終決定）。金具（trim）の #654F86 は変更なし
   - 上位4職の配色への修正指示は無し
 - **V-1 第2段階の Human OK**: ユーザー（人間）/ 2026-09-26 / 会話で、マフラー #A3B1BF の比較画像（酒場）を見て「この色でよい」。上位4職・影の旅人の配色を第2段階として確定（マフラー #A3B1BF を Human 確認済みの値とする）
+
+### Test Report（V-1 第2段階の時点、commit `c762a4a` の内容で実行）
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| `npm run build` | PASS | |
+| `npm run test:unit` | PASS | 1521 / 1521 |
+| 全 E2E 146件（scratchpad の設定。`character-palette` は9キャラクター分に拡張） | 143 PASS / 2 FAIL / 1 FLAKY | 下の3件以外はすべて PASS（`character-palette` 9件・`character-clothing` 9件を含む） |
+| `execution-break.spec.js:99`（通常敵の Break → EXECUTE） | FAIL（**変更前の main でも FAIL**） | 「Execution で通常攻撃の型が再生されている」Received "basic"。単独で3回 FAIL、**`main` `2a9674b` でも単独で3回 FAIL**。第1段階の全体実行では PASS していた。T-5 の差分（Material・色のみ）とは無関係。原因は未調査（実行環境・時刻依存の可能性。別 Task 候補） |
+| `mansion-escort.spec.js:126`（Relaxed Stance） | FAIL（**既存**） | relax 0.88。第1段階で `main` でも FAIL を確認済み |
+| `job-traits.spec.js:162`（鷹の目 Turn Assist） | FLAKY | spec 内蔵のリトライで PASS。第1段階と同じ。PASS に数えない |
+| repo 標準設定の E2E | NOT_RUN | Chromium revision 不一致（実行環境） |
