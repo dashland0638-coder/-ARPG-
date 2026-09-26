@@ -1893,3 +1893,30 @@ T-4 の固定条件（Geometry / シルエットのみ、Material の値は変�
   | baseline failure（変更前 main でも FAIL。T-5 起因とは扱わない） | `execution-break.spec.js:99`、`mansion-escort.spec.js:126` |
   | FLAKY（PASS に数えない） | `job-traits.spec.js:162`、`base-class-identity.spec.js:413`、`air-actions.spec.js:128` |
   | NOT_RUN | 標準 `npm test`（Chromium version mismatch） |
+
+## Implementation Result（T-7、途中: V-1a まで）
+
+### 状態
+- Status: APPROVED（Task Status の更新は Human の指示で行う。実装は `claude/character-vis-001-t7-impl` の Persistence の範囲）。V-1a の Human 確認待ち。V-1b は未実施（P-D / V-1: V-1a の Human OK まで進まない）
+
+### 変更内容（commit ごと）
+| commit | Scope | 内容 |
+| --- | --- | --- |
+| `170de03` C1 | S-2 | `src/render/player-palette.js` に別 export `WEAPON_FINISH`（steel 0.50 / 0.50、darkSteel 0.55 / 0.45、trim 0.55 / 0.35、wood 1.0 / 0（T-7 以前の既定値のまま集約）、gem 0.2 / 0.1 / 発光 0.30）。`concat-plugin.js` の既存の import 行に `WEAPON_FINISH` を1語追加（legacy から使うため）。unit |
+| `07e1895` C2 / C3 | S-1 / S-2 / S-6 | `buildWeaponMesh()`: steel / darkSteel / wood / goldTrim / ジェムを `WEAPON_FINISH` から生成。装飾（`goldTrim`）の色を固定 0xc9a227 から `resolvePalette(paletteKeyFor(classDef.key, state.job, classDef.charKey)).trim` へ。引数 `trimMat` を削除し、槍・刀・魔法の剣・ボウガンの装飾（旧 呼び出し側の Material）も同じ武器専用 trim に統一。`swapPlayerWeaponVisual()` の単色 trim の生成を削除（生成時と同じ規則） |
+| `78b6b24` C4 | S-5 | `disposePlayerPartTree()`: 輪郭線・X 線シェル（`userData.isOutline` / `isXray`）と本体の役割別 Material を dispose しない。`swapPlayerWeaponVisual()`（旧武器・オフハンド）と `clearJobPromotionVisual()`（上位職の装飾）で使用 |
+| `91ed72f` C5 | S-3 / S-4 | `addPartOutlines()`: 既存の `addOutline(root, {always:true})` と `addXrayShell(root)` を、持ち替えた武器・オフハンド、上位職の装飾メッシュへ適用（同じメッシュへの二重付与を防止）。対象外: 魔導士の結晶・魔法陣・バーサーカーのオーラ（`userData.noOutline = true` を付与）、特殊武器のオーラ（持ち替え時は skip） |
+| `f8bcdb6` C6 | P-D7 | `motionBodySnapshot().outl` と Motion Preview の `OUTL` 行（武器 / 上位職の装飾の「見えているメッシュで輪郭線が無い数 / 対象の数」と X 線シェルが無い数。エフェクトは対象外）。unit（OUTL 行・ソース検査）、E2E `tests/character-weapon-visual.spec.js`（8職 + 酒場での持ち替え + 影の旅人） |
+
+変更していない（差分なしを確認）: 武器の形状・サイズ・位置・`WEAPON_SOCKET`・持ち方、本体の Geometry・BUILD・T-5 の配色表と役割別 Material の値、STANCE / CLIPS / モーション、`10` / `11` / `13`、攻撃 VFX・魔法陣の色・投射物・足元リング、`CLASSES`、NPC / 敵 / ボス / 支援AI、`outlineMats` / `addOutline` / `addXrayShell` の実装、`textures.js`、Playwright 設定
+
+### Record-only findings（T-7 では実装しない）
+- RF-1: 生成時の武器（`buildPlayer` 末尾の `addOutline(group)`）では、特殊武器のオーラ（エフェクト）にも輪郭線が付く（T-7 以前から）。持ち替え時は P-D4 に従いオーラを対象外にしたため、特殊武器のオーラの輪郭線の有無が生成時と持ち替え時で異なる。生成時側を直すには `buildPlayer` の輪郭線付与の対象を変える必要があり、T-7 の範囲（既存の付与を変えない）の外
+- RF-2: `buildWeaponMesh()` 内の grip / 弦 / 矢 / 魔法の剣の光る刃などの個別 Material（`gripMat` 等）は S-2 の対象（steel / darkSteel / goldTrim / woodMat / gem）の外で、直値のまま
+- RF-3: 盗賊の双剣・バーサーカーの斧は刀身の一部が `goldTrim`（装飾 Material）で作られているため、P-D1 の trim（盗賊 Dark Navy #263449、バーサーカー Dark Brown #59483D）で刃の色が大きく変わる（形状は不変）。V-1a の Human 判断材料
+- RF-4: `concat-plugin.js` は T-7 の Files To Change の表に無いが、`WEAPON_FINISH` を legacy から使うため既存の import 行に1語追加した（T-5 の P-D2 と同じ仕組み）
+
+### V-1a（8職の武器、トレーニング空間の同一条件）
+- 撮影: T-6 前（`main` `7bce8db`）と T-7（`f8bcdb6`）で同じ撮影セット（標準カメラ: 収納 正面 / 斜め45° / 背面、攻撃入力 1.2 秒後の抜刀、低いカメラ: 抜刀・収納）。加えて剣士の生成時の武器と酒場での持ち替え後の武器（ちぞめの大剣）を T-7 で撮影
+- 事実（画像）: 武器の形状・大きさ・位置・収納位置・持ち方は T-6 前と同じに見える（Geometry の差分なし）。装飾の色は剣士・戦騎士 #C49A4A / 魔法使い・魔導士 #C7A45A で旧金 #C9A227 に近く、弓師・鷹の目は Off White #E6E4DD、盗賊は Dark Navy #263449（双剣の刃が金から暗色へ）、バーサーカーは Dark Brown #59483D。影の旅人の武器は持ち替え後も表示されない（E2E）
+- Human 確認: 未
