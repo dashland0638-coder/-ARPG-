@@ -155,6 +155,8 @@ export function motionDebugLines(snap){
     lines.push(' HAND.Y ' + m(r.handY) + '   BELT ' + m(r.beltY));
     lines.push(' SHLD.W ' + m(r.shoulderW) + '  /H ' + x(r.shoulderRatio) + '  /head ' + x(r.shoulderPerHead));
     lines.push(' HIP.W  ' + m(r.hipW) + '  /H ' + x(r.hipRatio));
+    // 衣服の構築数(CHARACTER-VIS-001 T-4 HDR-T4-14)。見えている衣服メッシュの数
+    lines.push(' CLOTH  ' + (has(r.cloth) ? String(Math.round(Number(r.cloth))) : '-'));
     lines.push(' SH.L  ' + vec3(r.shL));
     lines.push(' SH.R  ' + vec3(r.shR));
     lines.push(' EL.L  ' + deg(r.elL) + '   EL.R ' + deg(r.elR));

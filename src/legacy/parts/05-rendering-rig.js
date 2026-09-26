@@ -608,6 +608,47 @@
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }
 
+  /* makeGarmentLoft(rings, opts): 衣服用の Loft(CHARACTER-VIS-001 T-4)。
+     体の makeCharacter*() と同じ断面(makeBodyProfile)と makeLoft を使い、
+     ring ごとに半幅 hw・半厚み hd と中心のずれ dx / dz を指定できるように
+     しただけの薄いラッパー ―― 新しい衣服システムではない。rings は
+     makeCharacter*() と同じく上から下の順(y の降順)で渡す(面の向きが揃う)。
+     寸法はすべて呼び出し側で BUILD / headR 由来の式にする。 */
+  function makeGarmentLoft(rings, opts){
+    const o = Object.assign({ closedTop:false, closedBottom:true }, opts || {});
+    const sections = rings.map(r => ({
+      y: r.y,
+      points: makeBodyProfile(r.hw, r.hd).map(([x, z]) => [x + (r.dx || 0), z + (r.dz || 0)]),
+    }));
+    const geo = makeLoft({ sections, closedTop:o.closedTop, closedBottom:o.closedBottom });
+    geo.userData.garment = true;   // 衣服の構築数の確認用(HDR-T4-14、motionBodySnapshot の cloth)
+    return geo;
+  }
+
+  /* makeOpenGarmentLoft(rings): 前が開いた衣服(前開きのコート)用の Loft
+     (CHARACTER-VIS-001 T-4 魔法使い)。makeGarmentLoft と同じく makeLoft を
+     使い、各断面を「前に開口のある厚みを持った C 字」にしただけ ―― 新しい
+     衣服システムではない。ring は { y, hw, hd, open(前の開口の半幅), t(厚み) }。
+     外周は makeBodyProfile と同じ向き(左→後ろ→右)に並べ、内周は逆向きに
+     戻るので、外周・内周とも面の向きが外(布の表面)を向く。上下は塞がない */
+  const OPEN_GARMENT_SEGMENTS = 10;
+  function makeOpenGarmentLoft(rings){
+    const sections = rings.map(r => {
+      const a0 = Math.asin(Math.min(0.95, r.open / r.hw));
+      const outer = [], inner = [];
+      for(let i=0;i<=OPEN_GARMENT_SEGMENTS;i++){
+        // 角度は前(+z)から測る。左前(2π - a0)から後ろを回って右前(a0)へ
+        const th = (Math.PI*2 - a0) - (Math.PI*2 - 2*a0)*i/OPEN_GARMENT_SEGMENTS;
+        outer.push([r.hw*Math.sin(th), r.hd*Math.cos(th)]);
+        inner.push([(r.hw - r.t)*Math.sin(th), (r.hd - r.t)*Math.cos(th)]);
+      }
+      return { y: r.y, points: outer.concat(inner.reverse()) };
+    });
+    const geo = makeLoft({ sections, closedTop:false, closedBottom:false });
+    geo.userData.garment = true;   // 衣服の構築数の確認用(HDR-T4-14)
+    return geo;
+  }
+
   /* =========================================================
      LOFT HEAD(グラフィック刷新: LatheGeometry脱却・第七弾、Torso/Pelvis/
      Thigh/Calf/UpperArm/Forearmに続く。Player人体部位としては最後の1つ)
@@ -1355,12 +1396,26 @@
     geo.computeVertexNormals();
     return geo;
   }
+  /* CHARACTER-VIS-001 T-4 盗賊 A(Human Decision: 修正イメージ): 盗賊の
+     フードを、うなじに開口を持つ makeRogueHood() から、顔側に開口を持ち
+     後ろが閉じた丸いパーカーのフードへ替えた。形は鷹の目の既存フード
+     (makeHawkEyeHood / HAWKEYE_HOOD_*、目の可視性をテストで保証済み)を
+     そのまま使い、新しい Geometry System は足していない。大きさ・位置も
+     鷹の目と同じ headR 比(幅 1.35、高さ 1.90、下端 -0.62)で、頭頂が
+     髪・肌より上へ来る。Coverage も同じテンプレート・リング・開口の
+     上限で判定する(Geometry と Coverage が同じ値を共有する)。
+     旧 ROGUE_HOOD_*・makeRogueHood() は削除していない ―― バーサーカーの
+     髪の房の位置計算(applyJobPromotionVisual)が参照しているため
+     (上位職の調整は T-4 Step 6) */
+  const ROGUE_PARKA_HOOD_WIDTH_MUL = 1.35;
+  const ROGUE_PARKA_HOOD_HEIGHT_MUL = 1.90;
+  const ROGUE_PARKA_HOOD_BOTTOM_OFFSET_MUL = -0.62;   // hoodBottomY = hY + headR*この値
   function rogueHoodCoverageAt(headR, yOffset, angle){
-    const hoodH = headR*ROGUE_HOOD_HEIGHT_MUL;
-    const centerOffset = hoodH*ROGUE_HOOD_CENTER_OFFSET_MUL;
-    const effH = hoodH*Math.cos(ROGUE_HOOD_TILT_X);
-    const bottomOffset = centerOffset - effH/2;
-    return arcHeadwearCoverage(ROGUE_HOOD_ARC_TEMPLATE, ROGUE_HOOD_RINGS, bottomOffset, effH, headR, headR, yOffset, angle);
+    return arcHeadwearCoverage(
+      HAWKEYE_HOOD_ARC_TEMPLATE, HAWKEYE_HOOD_RINGS,
+      headR*ROGUE_PARKA_HOOD_BOTTOM_OFFSET_MUL, headR*ROGUE_PARKA_HOOD_HEIGHT_MUL,
+      headR*ROGUE_PARKA_HOOD_WIDTH_MUL, headR*ROGUE_PARKA_HOOD_WIDTH_MUL, yOffset, angle,
+      HAWKEYE_HOOD_OPENING_TOP_YFRAC);
   }
 
   /* ---- Rogue/Berserker: Mask(鼻から下を覆う布) ----
@@ -1646,21 +1701,59 @@
   const MAGE_CONE_R_MUL = 1.25;
   const MAGE_CONE_HEIGHT_ABS = 0.62;
   const MAGE_CONE_CENTER_OFFSET_MUL = 0.55;   // cone center = hY + headR*0.55 + 0.31(=height/2)
-  function mageHatCoverageAt(headR, yOffset, angle){
-    const brimY = headR*MAGE_BRIM_Y_OFFSET_MUL;
-    const brim = cylinderHeadwearCoverage(brimY-MAGE_BRIM_THICKNESS/2, MAGE_BRIM_THICKNESS, 1, 1, yOffset);
-    let brimRadius = -Infinity;
-    if(brim.state==='HEADWEAR'){
-      const arc = arcSurfaceAt(makeMageHatBrimOutline(), headR*MAGE_BRIM_RADIUS_BASE_MUL, headR*MAGE_BRIM_RADIUS_BASE_MUL, angle, true);
-      if(arc.inArc) brimRadius = arc.radius;
+  /* CHARACTER-VIS-001 T-4 魔法使い(Human: 参考画像「E. ロングコート×ワイド
+     パンツ」へ変更): 帽子を三角帽(つば + 円錐)からキャスケットへ。頭頂を
+     覆う膨らんだ部分の断面(y と半径は headR 比、頭の中心 hY 基準、dz は
+     前へのずれ)。Geometry(06、makeGarmentLoft)と Coverage(下)が同じ表を
+     使う。値は候補値で、最終値は V-1 で Human が調整する。旧三角帽の定数
+     (MAGE_BRIM_* / MAGE_CONE_*)と makeMageHatBrim() は削除していない */
+  const MAGE_CAP_RINGS = [
+    { y:1.24, r:0.50, dz:-0.16 },   // 頭頂(上から順に並べる)
+    { y:1.06, r:1.02, dz:-0.14 },
+    { y:0.82, r:1.10, dz:-0.10 },   // 最も膨らむ高さ
+    { y:0.44, r:1.07, dz:-0.04 },   // かぶり口(額の上)。後ろへ深くかぶり、額と目を出す
+  ];
+  const MAGE_CAP_BRIM = { yTop:0.50, yBottom:0.45, hw:0.58, hd:0.12, dz:0.92 };
+  // makeBodyProfile の断面の内接半径 / 半幅(角を落とした6点、CORNER 0.6 で
+  // 1/√(1+0.4²) ≒ 0.928)。Coverage はこの内側で判定する(髪が帽子の外へ出ない側)
+  const MAGE_CAP_INSCRIBED_MUL = 1/Math.hypot(1, 1 - BODY_PROFILE_CORNER_MUL);
+  /* capRingsCoverageAt(rings, headR, yOffset): キャップ型の帽子(魔法使い・
+     剣士)共通の Coverage。rings は MAGE_CAP_RINGS と同じ形式(上から順、headR 比)。
+     makeBodyProfile の断面の内接半径から前後のずれ(dz)を引いた、帽子の表面より
+     内側の半径を返す(髪がこの内側に収まり、帽子の外へ出ない側) */
+  function capRingsCoverageAt(rings, headR, yOffset){
+    const y = yOffset / headR;
+    const top = rings[0], bottom = rings[rings.length-1];
+    if(y > top.y + 1e-6 || y < bottom.y - 1e-6) return { state:'NONE', surfaceRadius:null };
+    for(let i=0;i<rings.length-1;i++){
+      const a = rings[i], b = rings[i+1];
+      if(y <= a.y && y >= b.y){
+        const t = (a.y - y) / (a.y - b.y);
+        const r = a.r + (b.r - a.r)*t, dz = a.dz + (b.dz - a.dz)*t;
+        return { state:'HEADWEAR', surfaceRadius: headR*(r*MAGE_CAP_INSCRIBED_MUL - Math.abs(dz)) };
+      }
     }
-    const coneCenter = headR*MAGE_CONE_CENTER_OFFSET_MUL + MAGE_CONE_HEIGHT_ABS/2;
-    const cone = cylinderHeadwearCoverage(
-      coneCenter - MAGE_CONE_HEIGHT_ABS/2, MAGE_CONE_HEIGHT_ABS,
-      headR*MAGE_CONE_R_MUL, 0, yOffset);
-    const coneRadius = cone.state==='HEADWEAR' ? cone.surfaceRadius : -Infinity;
-    if(brimRadius === -Infinity && coneRadius === -Infinity) return { state:'NONE', surfaceRadius:null };
-    return { state:'HEADWEAR', surfaceRadius: Math.max(brimRadius, coneRadius) };
+    return { state:'NONE', surfaceRadius:null };
+  }
+  function mageHatCoverageAt(headR, yOffset, angle){
+    return capRingsCoverageAt(MAGE_CAP_RINGS, headR, yOffset);
+  }
+  /* CHARACTER-VIS-001 T-4 剣士(Human: 参考画像の現代風リメイク、放浪騎士の
+     キャップ + マウンテンパーカー): 兜(makeWarriorBaseHelm)をやめ、キャップ
+     (丸い頭頂 + つば + 頭頂の小さな耳状の突起)にする。断面は headR 比の候補値
+     (V-1 で Human が調整)。Geometry(06)と Coverage が同じ表を使う。
+     旧 WARRIOR_HELM_* / makeWarriorBaseHelm() は削除していない(テストの複製と、
+     戦騎士側の既存コメントが参照しているため) */
+  const WARRIOR_CAP_RINGS = [
+    { y:1.20, r:0.55, dz:-0.10 },   // 頭頂(上から順)
+    { y:1.02, r:1.02, dz:-0.10 },
+    { y:0.78, r:1.12, dz:-0.07 },
+    { y:0.42, r:1.08, dz:-0.03 },   // かぶり口(額の上)
+  ];
+  const WARRIOR_CAP_BRIM = { yTop:0.48, yBottom:0.43, hw:0.62, hd:0.18, dz:1.00 };
+  const WARRIOR_CAP_EAR = { yTop:1.38, yBottom:1.06, rTop:0.05, rBottom:0.20, dx:0.44, dz:-0.12 };
+  function warriorCapCoverageAt(headR, yOffset, angle){
+    return capRingsCoverageAt(WARRIOR_CAP_RINGS, headR, yOffset);
   }
 
   /* getHeadwearCoverage(classKey, o, yOffset, angle): 全クラス共通の
@@ -1673,7 +1766,7 @@
   function getHeadwearCoverage(classKey, o, yOffset, angle){
     const headR = o.width;
     switch(classKey){
-      case 'warrior': return warriorHelmCoverageAt(headR, yOffset, angle);
+      case 'warrior': return warriorCapCoverageAt(headR, yOffset, angle);
       case 'rogue':   return rogueHoodCoverageAt(headR, yOffset, angle);
       case 'archer':  return archerCapCoverageAt(headR, yOffset, angle);
       case 'mage':    return mageHatCoverageAt(headR, yOffset, angle);
@@ -2462,15 +2555,23 @@
     /* 大剣を背中へ斜めに背負う。握りは右腰の後ろ、刃は左肩の上へ抜ける。
        切っ先は腰ローカル y≈1.38(ワールド約2.48m)で、頭頂(約2.9m)より
        下に収まる ―― 床へ刺さらないのは、そもそも手から離れているため。 */
+    /* CHARACTER-VIS-001 T-4(Human: 「背中の剣の向きが逆、刃が上を向いている」):
+       握りを右肩の後ろ(柄が肩の上に出る)、刃を下 = 左腰の方へ向ける。
+       旧: off [0.14,-0.42,-0.26] / wep [-0.420,0.900,-0.120, -0.900,-0.420,0.000]
+       (握りが右腰の後ろ、刃が左肩の上へ)。武器の形状・攻撃中の位置は不変 */
     warrior: {
-      main: {node:'torso', off:[ 0.14,-0.42,-0.26],
-             wep:[-0.420, 0.900,-0.120, -0.900,-0.420, 0.000]},
+      main: {node:'torso', off:[ 0.15, 0.30,-0.26],
+             wep:[-0.420,-0.900,-0.050,  0.900,-0.420, 0.000]},
     },
     /* 戦騎士: 同じ大剣(×1.32)を、剣士より立てて背負う。騎士らしく
        斜めに流さない ―― 長いぶん、寝かせると切っ先が後ろへ出すぎる。 */
+    /* T-4: 剣士と同じ理由で上下を逆に(握りが右肩の後ろ、刃が下)。大剣が剣士より
+       長い(×1.32)ため、握りを少し高く・刃を少し寝かせて切っ先を床から離す
+       (weapon-stow.spec の「切っ先が床を突き抜けない」)。
+       旧: off [0.12,-0.46,-0.26] / wep [-0.260,0.955,-0.140, -0.955,-0.260,0.000] */
     battleKnight: {
-      main: {node:'torso', off:[ 0.12,-0.46,-0.26],
-             wep:[-0.260, 0.955,-0.140, -0.955,-0.260, 0.000]},
+      main: {node:'torso', off:[ 0.12, 0.42,-0.26],
+             wep:[-0.450,-0.890,-0.050,  0.890,-0.450, 0.000]},
     },
     /* 双剣を左右の腰へ。主武器が右、オフハンドが左。
        切っ先は腰ローカル y≈-0.52(ワールド約0.58m)で床に届かない。 */
@@ -3770,10 +3871,18 @@
     }
     const shoulderW = 2 * (B.chest + B.shoulderOut + B.upper);
     const hipW = 2 * B.hipR * PELVIS_SECTION_RATIOS.hip.widthMul;
+    /* 衣服の構築数(CHARACTER-VIS-001 T-4 HDR-T4-14)。makeGarmentLoft /
+       makeOpenGarmentLoft で作った衣服のうち、実際に見えているメッシュの数
+       (親まで含めて visible)。上位職で隠した部品は数えない */
+    let cloth = null;
+    if(player){
+      cloth = 0;
+      player.traverseVisible(o=>{ if(o.isMesh && o.geometry && o.geometry.userData && o.geometry.userData.garment) cloth++; });
+    }
     return {
       headsTall: top / (2 * B.headR), stature: top, handY, beltY: B.hipY,
       shoulderW, shoulderRatio: shoulderW / top, shoulderPerHead: shoulderW / (2 * B.headR),
-      hipW, hipRatio: hipW / top,
+      hipW, hipRatio: hipW / top, cloth,
     };
   }
 

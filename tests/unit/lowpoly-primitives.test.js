@@ -972,7 +972,8 @@ function makeEyeHighlightForTest(r, halfDepth){
 // Headwear Audit + Eye Size調整フェーズ(「目が大きすぎる」指摘)前の
 // 基準半径(Sclera/Pupil/Highlight)。「変更前より縮小している」ことを
 // 確認するテストの比較基準として使う
-const EYE_BASE_R = { sclera: 0.062, pupil: 0.038, highlight: 0.013 };
+const EYE_BASE_R = { sclera: 0.062, pupil: 0.046, highlight: 0.013 };   // T-4: 黒目 0.038 → 0.046(06 と同じ値)
+const EYE_SCLERA_ASPECT = 1.28;   // T-4: 白目の縦横比 1.15 → 1.28(06 と同じ値)
 // Head/Posture Alignment再設計フェーズ: 05-rendering-rig.js内のHEAD_BACK_Z
 // と同じ値(値を変えたらこのコピーも合わせて更新すること)。Head/Eye/Hair/
 // Headwearすべてに共通で加算される後方(-Z)Position補正。Head Alignment +
@@ -988,7 +989,7 @@ function computeEyeParamsForTest(headR){
   // Sclera/Pupil/Highlightの点数・輪郭は変更せず、3層すべての半径に
   // この一つの倍率(06-player-enemy.jsのeyeSizeMulと同じ値)を掛けて
   // Uniform Scalingする
-  const eyeSizeMul = 0.85;
+  const eyeSizeMul = 0.72;   // CHARACTER-VIS-001 T-4: 06-player-enemy.js と同じ値(旧 0.85)
   const scleraR = EYE_BASE_R.sclera*eyeSizeMul, scleraZScale = 0.6;
   const scleraHalfDepth = scleraR*scleraZScale;
   const scleraFrontZ = eyeFrontZ + scleraHalfDepth*eyeScale;
@@ -1013,7 +1014,7 @@ test('Eye(Sclera/Pupil/Highlight) Face再設計フェーズ Phase B: 低ポリ�
   const headR = 0.3705;   // BUILD.male相当の実際の値
   const P = computeEyeParamsForTest(headR);
 
-  const sclera = makeEyeScleraForTest(P.scleraR*P.eyeScale, P.scleraR*P.eyeScale*1.15, P.scleraHalfDepth*P.eyeScale);
+  const sclera = makeEyeScleraForTest(P.scleraR*P.eyeScale, P.scleraR*P.eyeScale*EYE_SCLERA_ASPECT, P.scleraHalfDepth*P.eyeScale);
   const pupil = makeEyePupilForTest(P.pupilR*P.eyeScale, P.pupilHalfDepth*P.eyeScale);
   const highlight = makeEyeHighlightForTest(P.highlightR*P.eyeScale, P.highlightHalfDepth*P.eyeScale);
 
@@ -1106,7 +1107,7 @@ test('Eye(Sclera/Pupil/Highlight) Face再設計フェーズ Phase B: 低ポリ�
   await t.test('eyeScaleでHead全体のサイズに追従して拡大縮小できる(半径に比例したサイズ変化)', () => {
     const bigHeadR = headR*1.5;
     const Pbig = computeEyeParamsForTest(bigHeadR);
-    const scleraBig = makeEyeScleraForTest(Pbig.scleraR*Pbig.eyeScale, Pbig.scleraR*Pbig.eyeScale*1.15, Pbig.scleraHalfDepth*Pbig.eyeScale);
+    const scleraBig = makeEyeScleraForTest(Pbig.scleraR*Pbig.eyeScale, Pbig.scleraR*Pbig.eyeScale*EYE_SCLERA_ASPECT, Pbig.scleraHalfDepth*Pbig.eyeScale);
     const bigBox = boundingBoxOf(scleraBig);
     const ratio = bigHeadR/headR;
     assert.ok(Math.abs(bigBox.w/scleraBox.w - ratio) < 1e-6, `Sclera幅がheadR比率(${ratio})に比例して拡大している`);
@@ -1181,7 +1182,7 @@ test('Eye Size Adjustmentフェーズ: Sclera/Pupil/Highlight Uniform Scaling要
     assert.ok(Math.abs(P.pupilR/EYE_BASE_R.pupil - P.highlightR/EYE_BASE_R.highlight) < EPS);
   });
 
-  const sclera = makeEyeScleraForTest(P.scleraR*P.eyeScale, P.scleraR*P.eyeScale*1.15, P.scleraHalfDepth*P.eyeScale);
+  const sclera = makeEyeScleraForTest(P.scleraR*P.eyeScale, P.scleraR*P.eyeScale*EYE_SCLERA_ASPECT, P.scleraHalfDepth*P.eyeScale);
   const pupil = makeEyePupilForTest(P.pupilR*P.eyeScale, P.pupilHalfDepth*P.eyeScale);
   const highlight = makeEyeHighlightForTest(P.highlightR*P.eyeScale, P.highlightHalfDepth*P.eyeScale);
 
@@ -1288,7 +1289,7 @@ test('Head / Posture Alignment再設計フェーズ: HEAD_BACK_Zの妥当性・�
       `HEAD_BACK_Zの出現回数(${occurrences})が30以上(Head/Eye/Hair/8クラスHeadwearへの適用漏れがない)`);
   });
 
-  await t.test('Head本体・Hair Cap・Warrior Helm・Mage Brim・Hawk Eye Hoodの主要メッシュにHEAD_BACK_Zが適用されている', () => {
+  await t.test('Head本体・Hair Cap・Warrior Cap・Mage Cap・Hawk Eye Hoodの主要メッシュにHEAD_BACK_Zが適用されている', () => {
     // 主要な代表箇所だけ、実際にHEAD_BACK_Zを参照しているコード行が
     // 存在することを個別に確認する(該当箇所の周辺テキストに
     // HEAD_BACK_Zが含まれるか)
@@ -1300,9 +1301,96 @@ test('Head / Posture Alignment再設計フェーズ: HEAD_BACK_Zの妥当性・�
     };
     checkNear('head.position.z = HEAD_BACK_Z', 'Head本体');
     checkNear('hair.position.set(0, head.position.y, HEAD_BACK_Z)', 'Hair Shell');
-    checkNear('makeWarriorBaseHelm({width:headR, depth:headR, height:headR*WARRIOR_HELM_HEIGHT_MUL})', 'Warrior Helm');
-    checkNear('makeMageHatBrim(headR*MAGE_BRIM_RADIUS_BASE_MUL, MAGE_BRIM_THICKNESS)', 'Mage Brim');
-    checkNear('makeHawkEyeHood({width:B.headR*1.35', 'Hawk Eye Hood');
+    // CHARACTER-VIS-001 T-4(Human: 剣士を参考画像の現代風リメイクへ変更): 剣士の
+    // 兜(makeWarriorBaseHelm)はキャップ(WARRIOR_CAP_RINGS / WARRIOR_CAP_BRIM /
+    // WARRIOR_CAP_EAR を makeGarmentLoft で構築)へ置き換えた。旧アンカーの代わりに
+    // 新しい構築の呼び出しを同じ規則(近傍に HEAD_BACK_Z)で確認する
+    checkNear('makeGarmentLoft(WARRIOR_CAP_RINGS.map(', 'Warrior Cap(頭頂)');
+    checkNear('headR*WARRIOR_CAP_BRIM.yTop', 'Warrior Cap(つば)');
+    checkNear('headR*e.yTop', 'Warrior Cap(耳状の突起)');
+    // CHARACTER-VIS-001 T-4(Human Decision: 魔法使い C を参考画像 E へ変更):
+    // 魔法使いの帽子は三角帽(makeMageHatBrim のつば + 円錐)からキャスケット
+    // (MAGE_CAP_RINGS / MAGE_CAP_BRIM を makeGarmentLoft で構築)へ置き換えた。
+    // 旧アンカー(makeMageHatBrim の呼び出し)は存在しないため、新しい構築の
+    // 呼び出しを同じ規則(近傍に HEAD_BACK_Z)で確認する
+    checkNear('makeGarmentLoft(MAGE_CAP_RINGS.map(', 'Mage Cap(頭頂)');
+    checkNear('headR*MAGE_CAP_BRIM.yTop', 'Mage Cap(つば)');
+    // CHARACTER-VIS-001 T-4 Step 6(Human: 上位職デザイン案): 鷹の目の深いフード
+    // (makeHawkEyeHood を B.headR*1.35 で構築)は背中に下ろしたフードへ替えた。
+    // 同じ makeHawkEyeHood は盗賊のパーカーのフード(ROGUE_PARKA_HOOD_*)で
+    // 頭の被り物として使っているため、そちらで同じ規則を確認する
+    checkNear('makeHawkEyeHood({width:headR*ROGUE_PARKA_HOOD_WIDTH_MUL', 'Rogue Parka Hood(makeHawkEyeHood)');
+  });
+
+  await t.test('剣士のキャップは headR 比の WARRIOR_CAP_RINGS で構築され、Coverage も同じ表を使い、旧兜の構築に依存しない', () => {
+    const capIdx = src.indexOf('makeGarmentLoft(WARRIOR_CAP_RINGS.map(');
+    assert.ok(capIdx >= 0, 'キャップの頭頂を WARRIOR_CAP_RINGS から makeGarmentLoft で作っている');
+    const capSrc = src.slice(capIdx, capIdx + 400);
+    assert.ok(/headR\*r\.y/.test(capSrc) && /headR\*r\.r/.test(capSrc),
+      'キャップの高さ・半径が headR 比(headR*r.y / headR*r.r)で決まる');
+    assert.ok(!/makeWarriorBaseHelm\(\{/.test(src), '06 に旧兜(makeWarriorBaseHelm({...}))の構築呼び出しが残っていない(技法を説明するコメント中の関数名は対象外)');
+
+    const rigPath = fileURLToPath(new URL('../../src/legacy/parts/05-rendering-rig.js', import.meta.url));
+    const rig = fs.readFileSync(rigPath, 'utf8');
+    const ringsIdx = rig.indexOf('const WARRIOR_CAP_RINGS = [');
+    assert.ok(ringsIdx >= 0, 'WARRIOR_CAP_RINGS が定義されている');
+    const ringsSrc = rig.slice(ringsIdx, rig.indexOf('];', ringsIdx));
+    const rings = [...ringsSrc.matchAll(/\{\s*y:\s*([-\d.]+),\s*r:\s*([-\d.]+),\s*dz:\s*([-\d.]+)\s*\}/g)]
+      .map(m => ({ y:Number(m[1]), r:Number(m[2]), dz:Number(m[3]) }));
+    assert.ok(rings.length >= 3, `WARRIOR_CAP_RINGS の断面が3つ以上読める(${rings.length})`);
+    for(let i=0;i<rings.length-1;i++){
+      assert.ok(rings[i].y > rings[i+1].y, `WARRIOR_CAP_RINGS は上から下の順(y 降順、断面${i})`);
+    }
+    rings.forEach((r, i) => {
+      assert.ok(r.y > 0 && r.y < 2 && r.r > 0 && r.r < 2 && Math.abs(r.dz) < 0.5,
+        `WARRIOR_CAP_RINGS[${i}] が headR 比として妥当な範囲(y ${r.y} / r ${r.r} / dz ${r.dz})`);
+    });
+    const covIdx = rig.indexOf('function warriorCapCoverageAt(');
+    assert.ok(covIdx >= 0, 'warriorCapCoverageAt が定義されている');
+    const covSrc = rig.slice(covIdx, rig.indexOf('\n  }\n', covIdx));
+    assert.ok(/WARRIOR_CAP_RINGS/.test(covSrc), 'warriorCapCoverageAt が WARRIOR_CAP_RINGS で判定している(Geometry と同じ表)');
+    assert.ok(!/WARRIOR_HELM_/.test(covSrc), 'warriorCapCoverageAt が旧兜の定数に依存していない');
+    const dispatchIdx = rig.indexOf('function getHeadwearCoverage(');
+    const dispatchSrc = rig.slice(dispatchIdx, rig.indexOf('\n  }\n', dispatchIdx));
+    assert.ok(/case 'warrior':\s*return warriorCapCoverageAt\(/.test(dispatchSrc),
+      '剣士の髪の隠れ判定がキャップの Coverage(warriorCapCoverageAt)へ振り分けられている');
+  });
+
+  await t.test('魔法使いの帽子は headR 比の MAGE_CAP_RINGS で構築され、Coverage も同じ表を使い、旧三角帽の構築に依存しない', () => {
+    // buildPlayer(06)側: キャスケットの断面は MAGE_CAP_RINGS / MAGE_CAP_BRIM の
+    // headR 倍で作られ、旧三角帽(つば・円錐)の構築呼び出しが残っていない
+    const capIdx = src.indexOf('makeGarmentLoft(MAGE_CAP_RINGS.map(');
+    assert.ok(capIdx >= 0, 'キャスケットの頭頂を MAGE_CAP_RINGS から makeGarmentLoft で作っている');
+    const capSrc = src.slice(capIdx, capIdx + 400);
+    assert.ok(/headR\*r\.y/.test(capSrc) && /headR\*r\.r/.test(capSrc),
+      'キャスケットの高さ・半径が headR 比(headR*r.y / headR*r.r)で決まる');
+    assert.ok(!/makeMageHatBrim\(/.test(src), '06 に旧三角帽のつば(makeMageHatBrim)の構築呼び出しが残っていない');
+    assert.ok(!/MAGE_CONE_/.test(src), '06 に旧三角帽の円錐(MAGE_CONE_*)の参照が残っていない');
+
+    // 05-rendering-rig.js 側: 帽子の定義と Coverage 判定が同じ MAGE_CAP_RINGS を使う
+    // (Geometry と髪の隠れ判定が矛盾しない)。Coverage は旧三角帽の定数に依存しない
+    const rigPath = fileURLToPath(new URL('../../src/legacy/parts/05-rendering-rig.js', import.meta.url));
+    const rig = fs.readFileSync(rigPath, 'utf8');
+    const ringsIdx = rig.indexOf('const MAGE_CAP_RINGS = [');
+    assert.ok(ringsIdx >= 0, 'MAGE_CAP_RINGS が定義されている');
+    const ringsSrc = rig.slice(ringsIdx, rig.indexOf('];', ringsIdx));
+    const rings = [...ringsSrc.matchAll(/\{\s*y:\s*([-\d.]+),\s*r:\s*([-\d.]+),\s*dz:\s*([-\d.]+)\s*\}/g)]
+      .map(m => ({ y:Number(m[1]), r:Number(m[2]), dz:Number(m[3]) }));
+    assert.ok(rings.length >= 3, `MAGE_CAP_RINGS の断面が3つ以上読める(${rings.length})`);
+    for(let i=0;i<rings.length-1;i++){
+      assert.ok(rings[i].y > rings[i+1].y, `MAGE_CAP_RINGS は上から下の順(y 降順、断面${i})`);
+    }
+    rings.forEach((r, i) => {
+      // headR 比の値であること(絶対値[m]ではなく、頭の大きさに対する倍率として妥当な範囲)
+      assert.ok(r.y > 0 && r.y < 2 && r.r > 0 && r.r < 2 && Math.abs(r.dz) < 0.5,
+        `MAGE_CAP_RINGS[${i}] が headR 比として妥当な範囲(y ${r.y} / r ${r.r} / dz ${r.dz})`);
+    });
+    const covIdx = rig.indexOf('function mageHatCoverageAt(');
+    assert.ok(covIdx >= 0, 'mageHatCoverageAt が定義されている');
+    const covSrc = rig.slice(covIdx, rig.indexOf('\n  }\n', covIdx));
+    assert.ok(/MAGE_CAP_RINGS/.test(covSrc), 'mageHatCoverageAt が MAGE_CAP_RINGS で判定している(Geometry と同じ表)');
+    assert.ok(!/MAGE_CONE_|MAGE_BRIM_|makeMageHatBrimOutline/.test(covSrc),
+      'mageHatCoverageAt が旧三角帽の定数・つばの輪郭に依存していない');
   });
 
   await t.test('Torso/Neck/BeltにはHEAD_BACK_Zを適用していない(Body Geometry/Positionは維持する方針)', () => {

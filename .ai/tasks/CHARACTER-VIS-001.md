@@ -35,7 +35,7 @@ Handoff の成立は「どの版を読むか」の確定であり、Analyzer rep
 | T-1 | 非戦闘移動の腕の基準姿勢と上半身の歩き寄り化（`updateLocomotion` + `relaxCombatBlend` + `blendPose`） | DONE | [x] | D-3（決定済み） | 上記 `Analysis:` と同じ |
 | T-2 | 体格の再設計（キャラクター別の絶対値 BUILD・約5頭身・細身化。第3版） | DONE | [x]（第3版。旧版・新版（第2版）の承認記録は下に残す） | D-1, D-6 維持。D-2 / D-2' / D-7 は改訂済み（DEC-T2-9）。DEC-T2-8 = (a)、DEC-T2-9〜12 = 決定済み | .ai/reports/CHARACTER-VIS-001-T2-analysis.md（branch `claude/character-vis-001-t2-analysis` @ `f7f246e2909e3dc63f9c2f0d1b122f0b42a576cd`、blob `63abdbe139ad273c449dd694071aa3593dd4690f`）+ Planner のコード再確認（★） |
 | T-3 | 関節の接続（関節キャップ球と断面の整合、骨盤の扱い）。T-2 第3版基準で再計画 | DONE | [x]（再計画版。旧版の承認記録は下に残す） | D-6、DEC-T3-1〜7（決定済み。DEC-T3-3 は Step 0 の Human 目視判断で確定） | .ai/reports/CHARACTER-VIS-001-T3-analysis.md（branch `main` @ `b6858b11d0739b16d08faa549b2868b91f233ab8`、blob `d2fdc21d99b475dadfc49e465083f6882d785d71`） |
-| T-4 | キャラクター性の再設計（頭部・顔の見せ方・髪・被り物・服装 Geometry・身体シルエット・職業固有シルエット・上位職の形状）。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）を含む再計画版 | APPROVED | [x]（再計画版。旧版の承認記録は下に残す） | D-1, D-8、HDR-T4-1〜15（決定済み。デザインは初期案、V-1 で形状調整） | .ai/reports/CHARACTER-VIS-001-T4-analysis.md（branch `claude/character-vis-001-t4-analysis` @ `6ea91565d255849aaee1134666da04256543f00c`、blob `f15713384131f85bc9ee57c8219d2e836b24dd0c`） |
+| T-4 | キャラクター性の再設計（頭部・顔の見せ方・髪・被り物・服装 Geometry・身体シルエット・職業固有シルエット・上位職の形状）。旧スコープ（頭部周りの直値再調整・戦騎士 0.86）を含む再計画版 | REVIEWING | [x]（再計画版。旧版の承認記録は下に残す） | D-1, D-8、HDR-T4-1〜15（決定済み。デザインは初期案、V-1 で形状調整） | .ai/reports/CHARACTER-VIS-001-T4-analysis.md（branch `claude/character-vis-001-t4-analysis` @ `6ea91565d255849aaee1134666da04256543f00c`、blob `f15713384131f85bc9ee57c8219d2e836b24dd0c`） |
 | T-5 | プレイヤー用マテリアル値の統一（マット化） | APPROVED | [x] | D-4（決定済み） | 同上 |
 | T-6 | 支援AI（ゲスト仲間・デコイ）の見た目の寄せ | 取り下げ（Human 判断、2026-09-25。§7.1 / §7.2） | ― | D-5 = 除外 | 同上 |
 
@@ -106,9 +106,9 @@ Implementation (T-4): BLOCKED — T-1 と同じ理由に加え、T-3 の DONE �
 - Approval 対象: T-4 再計画版。Approved Task Blob: `190976e7f1938799d95ffa6a697600398ca653db`（Persistence commit `672232ffdbdd655cb8efe49343b0e8e53188d457`、branch `claude/character-vis-001-t4-planner`）
 - Scope of approval: 「T-4 詳細計画（再計画版）」全体。Step 0〜8（Step 5 は不実施）、同節の Files To Change（確定版）、HDR-T4-1〜15 の Human Decision（T-4 を分割しない、弓師 A を先行パイロット、弓師 A / 剣士 A / 魔法使い C / 盗賊 A、F-b、H-a、S-a、P-a、W-a、武器収納状態の識別を Acceptance に含める、武器収納の補正は収納状態の `off` のみ、衣服構築 E2E を必須、眉・口などの新しい顔の造形を追加しない）、T-4 / T-5 の境界、V-1 をパイロット時と全体完成時の2回、最終的な可愛さ・キャラクター性は Human の目視で判断
 - 承認条件（変更禁止）: BUILD の体格値 / T-1 の歩行 / STANCE / CLIPS / T-3 の関節球 / T-3 の Pauldron / 骨盤 / Material の値 / 輪郭線 / 敵 / ボス / 支援AI / 共有の Lathe 表 / `13-update-loop.js`。新しい衣服システムは作らず、既存の Loft と既存の可動部への取り付け方式を使う
-- Persistence:（空欄 = 未許可。実装用ブランチは未指定）
+- Persistence: 許可（branch: `claude/character-vis-001-t4-impl`）。根拠: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で「T-4 の Implementation Persistence を許可します」と明示（起点 `main` `c17951b978c2d5efb6d715bed7fb73f45f169e53`、Approved Task Blob `3526f842c77b509d8a38c3804ebad727fa38416a` の Task file を実装ブランチへ固定）。記入: Implementer（人間の指示による）
 
-Implementation (T-4, 再計画版): BLOCKED — 実装用 Persistence と、承認済み Task file の Plan Handoff（Kind `plan`）が未了
+Implementation (T-4, 再計画版): 開始可 — 実施順は Step 0 → 弓師パイロット（Step 1〜4・7）→ build / unit / 関連 E2E → 弓師パイロットの V-1 → **Human 確認**。Human 確認なしに残り3職へ展開しない
 
 ### T-5 Human Approval
 - [x] Approved
@@ -1194,6 +1194,18 @@ Analyzer report の R-1〜R-12 を前提とし、Planner が追加・具体化�
 | 2026-09-25 | T-3 | REVIEWING → DONE | Reviewer | `.ai/reports/CHARACTER-VIS-001-T3-review.md` PASS（Reviewed SHA `1cbf31534d6d3f98026cc7c6f829a70af9096b13`、同一セッションで兼務）。主 Acceptance は Human が変更後の画像で許容・k = 1.02 確定。Task Level は T-4 / T-5 未完了のため PLANNED のまま |
 | 2026-09-25 | T-4 | APPROVED → WAITING_APPROVAL | Planner | T-4 Artifact Handoff（Kind `analysis`、`6ea91565d255849aaee1134666da04256543f00c`、blob `f1571338…`）H-1〜H-8 PASS。HDR-T4-1 / HDR-T4-8（Human）により範囲を再計画（キャラクター性・服装・シルエットまで）。デザイン候補と HDR-T4-2〜7・9〜15 を提示。承認の取り直し（§6）。旧版の承認記録は残す。本ファイルは `origin/main` `f0d68ca` 起点の `claude/character-vis-001-t4-planner` 上で未 commit |
 | 2026-09-25 | T-4 | WAITING_APPROVAL → APPROVED | Planner（人間の指示による記入） | ユーザー（人間）が T-4 再計画版（Approved Task Blob `190976e7…`）を正式に承認。実装用 Persistence は未許可 |
+| 2026-09-25 | T-4 | APPROVED（変更なし） | Implementer（人間の指示による記入） | **Human Decision（弓師パイロットの V-1 Human Acceptance）**: ユーザー（人間）が「弓師とてもよくなった」と判断し、弓師パイロットを承認、残り3職への展開を承認（詳細は Implementation Result（T-4、途中）の「弓師パイロットの V-1 Human Decision」）。T-4 全体の DONE ではない。関連 E2E は `character-motion.spec.js:394` が FLAKY。パイロットのコードは未 commit |
+| 2026-09-25 | T-4 | APPROVED（変更なし） | Implementer（人間の指示による記入） | **Human Decision（盗賊 A のデザイン変更）**: ユーザー（人間）が「盗賊Aをオーバーオール案に変更」と指示。HDR-T4-5 の盗賊 A を「パーカー的フード + 裾を絞ったワイドパンツ」から「パーカー的フード + オーバーオール」へ変更（詳細は Implementation Result（T-4、途中）の「盗賊 A のデザイン変更」）。既存の HDR-T4-5 の行は書き換えていない |
+| 2026-09-25 | T-4 | APPROVED（変更なし） | Implementer（人間の指示による記入） | **Human Decision（魔法使い C のデザイン変更・unit テスト更新・変更対象ファイル追加）**: 詳細は Implementation Result（T-4、途中）の「魔法使い C のデザイン変更（Human Decision）」。T-4 全体の DONE・V-1 承認ではない |
+| 2026-09-25 | T-4 | APPROVED（変更なし） | Implementer（人間の指示による記入） | **Human Decision（剣士 A のデザイン変更・HDR-T4-2 の剣士の変更）**: 詳細は Implementation Result（T-4、途中）の「剣士 A のデザイン変更（Human Decision）」。T-4 全体の DONE・V-1 承認ではない |
+| 2026-09-25 | T-4 | APPROVED（変更なし） | Implementer（人間の指示による記入） | **Human Decision（剣士 A の V-1 Human Acceptance）**: ユーザー（人間）が剣士の現代テック系リメイクを「この見た目でokです」と判断。T-4 全体の DONE・全体 V-1 ではない。コードは未 commit |
+| 2026-09-25 | T-4 | APPROVED（変更なし） | Implementer（人間の指示による記入） | **Human Decision（Step 6: 上位4職 + 影の旅人のリニューアル、色の T-4 先行、影の旅人の武器の非表示、背中の剣の向き）**: 詳細は Implementation Result（T-4、途中）の「Step 6: 上位4職 + 影の旅人（Human Decision）」。V-1 は未承認 |
+| 2026-09-25 | T-4 | APPROVED（変更なし） | Implementer（人間の指示による記入） | **Human Decision（上位4職の V-1 Human Acceptance、影の旅人・全キャラの顔の指摘）**: 詳細は「Step 6: 上位4職 + 影の旅人（Human Decision）」末尾。T-4 全体の DONE ではない |
+| 2026-09-25 | T-4 | APPROVED（変更なし） | Implementer（人間の指示による記入） | **Human Decision（影の旅人の髪・目の大きさと間隔の承認、目をより可愛く、職ごとの肌色）**: 詳細は「Step 6: 上位4職 + 影の旅人（Human Decision）」末尾 |
+| 2026-09-26 | T-4 | APPROVED（変更なし） | Implementer（人間の指示による記入） | **Human Decision（T-5 より先に T-4 を完了させる、HDR-T4-14 の検証方法と変更対象ファイルの追加）**: 詳細は Implementation Result（T-4、途中）の「T-4 の仕上げ（HDR-T4-14・HDR-T4-10）」 |
+| 2026-09-26 | T-4 | APPROVED → IMPLEMENTING | Implementer | 記録: 実装は 2026-09-25 から `claude/character-vis-001-t4-impl`（起点 `e07c6d4`、Implementation Persistence）で実施。Human の指示で、全体完了まで Status を APPROVED のまま据え置いていた（上の各 Human Decision の行を参照）。Plan は承認済み Task file（Approved Task Blob `3526f842…`）|
+| 2026-09-26 | T-4 | IMPLEMENTING → TESTING | Implementer | 全職の実装・Step 6・HDR-T4-14・docs 完了、T-4 全体の V-1 を Human が許容（「完了で良いです」）。build / unit / 関連 E2E を実行 |
+| 2026-09-26 | T-4 | TESTING → REVIEWING | Implementer | FAIL なし（関連 E2E 60 件 = 59 PASS / 1 FLAKY、unit 1510 / 1510、build PASS。Test Report は Implementation Result（T-4）の「T-4 最終 Test Report」）。Human の指示「E2E完了したらcommit/pushしてREVIEWINGへ進めて」。Branch `claude/character-vis-001-t4-impl` |
 
 ## Implementation Result
 
@@ -1402,3 +1414,290 @@ T-3（再計画版）のみ。T-4 以降・T-7（仮）には着手していな�
 - 背中の武器（大剣・弓）の収納位置の浮き（T-2 Review N-2、目視確認事項のまま）
 - サポートキャラ存在時の視線（T-7（仮））
 
+## Implementation Result（T-4、途中: 弓師パイロットまで）
+
+T-4 は未完了（Status は APPROVED のまま）。本節は弓師パイロットの V-1 Human Decision とテスト結果の記録。Implementation SHA は本ファイルに書かない（§5.1）。
+
+### 状態
+| 項目 | 値 |
+| --- | --- |
+| Implementation branch | `claude/character-vis-001-t4-impl`（remote 先端 `e07c6d4731f71024734116e11ad56f92280aef93` = Implementation Persistence の記録。ローカル HEAD と一致） |
+| Persistence | 許可済み（上の T-4 Approval 欄。変更していない） |
+| 実施済み | Step 0（基準撮影。T-3 後の撮影をリポジトリ外で再利用）、弓師パイロット（Step 1〜4 の弓師分） |
+| 未実施 | Step 7（武器収納の補正）、残り3職（剣士・魔法使い・盗賊）、Step 6（上位職・影の旅人）、HDR-T4-14 の E2E、全体の V-1、`docs/CHARACTERS.md`。Step 5 は不実施（HDR-T4-4） |
+| パイロットのコード | 未 commit・未 push（下の Changed Files の2ファイル） |
+
+### 弓師パイロットの変更内容（未 commit）
+| ファイル | 内容 |
+| --- | --- |
+| `src/legacy/parts/05-rendering-rig.js` | 衣服用 Loft 生成 `makeGarmentLoft()` を追加（既存の `makeBodyProfile` / `makeLoft` を使う。共有の表は不変） |
+| `src/legacy/parts/06-player-enemy.js` | 弓師のみ: ワイドパンツ（股関節側・膝側の2分割、内側の重なりを避けて外側へずらす。裾は膝から 0.17 下）、短丈上着（胴の上側約4割、waist 配下）、短い袖（肩の可動部、上腕の約6割）、襟の太さを headR 比へ（旧 0.075 → `headR*0.2024`、H-a）、覆面を削除（F-b。顔の造形の追加なし、HDR-T4-15）。Material は既存インスタンスを流用（値の変更なし） |
+
+変更禁止の項目（BUILD の体格値・T-1 の歩行・STANCE / CLIPS・関節球・Pauldron・骨盤・Material の値・輪郭線・敵・ボス・支援AI・共有の Lathe 表・`13-update-loop.js`）に差分なし。
+
+### Test Report（弓師パイロット）
+| テスト | 結果（PASS / FAIL / FLAKY / NOT_RUN） | メモ |
+| --- | --- | --- |
+| `npm run build` | PASS | |
+| `npm run test:unit` | PASS | 1507 / 1507 |
+| 関連 E2E（`character-motion`・`weapon-stow`・`save-load`・`battle-knight-visual`・`scenario-timer`、29件） | 28 PASS / 1 FLAKY | 下の FLAKY 記録。FLAKY は PASS として数えない（§14） |
+| `tests/character-motion.spec.js:394`（剣士(warrior): 非戦闘の移動は休め基準、戦闘態勢の移動は構え基準へ遷移し、態勢が切れると休めへ戻る） | **FLAKY** | 初回 FAIL: `戦闘態勢の移動で WALK が読めない`（`expect(combat).not.toBeNull()`、Received: null、`character-motion.spec.js:431`）。同一テストを1回だけ再実行して PASS。対象変更との関係: FACT (code) パイロットの差分は弓師の分岐（`classDef.key === 'archer'`）と未使用の職には呼ばれないヘルパーのみで、剣士の構築・歩行・STANCE に差分なし。INFERENCE 対象変更とは無関係。**原因は未特定**。変更前コードでの比較は未実施。Review の Risks に残す |
+| 撮影用の一時テスト（弓師・鷹の目・剣士・魔法使い・盗賊） | PASS（参考） | V-1 撮影用、コンソールエラーなし。一時 spec は削除済み（リポジトリに残していない） |
+| repo 標準設定の E2E | NOT_RUN | 実行環境の問題（Chromium revision 不一致: 要求 1234 / 導入済み 1194）。repo の Playwright 設定は変更していない |
+| scratchpad の設定での E2E | 実行 | リポジトリ外の回避策: repo の設定を読み込み `executablePath: '/opt/pw-browsers/chromium'` のみ差し替え（上の E2E はこの方法で実行） |
+| HDR-T4-14 の衣服構築 E2E | NOT_RUN | 未追加（残り3職・上位職の実装後に追加する） |
+| `npm test` 全体 | NOT_RUN | |
+
+### 弓師パイロットの V-1 Human Decision
+**Human Decision（V-1 Human Acceptance、弓師パイロット）**: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で「**弓師とてもよくなった**」。記入: Implementer（人間の指示による）。判断に使った資料: 変更前（Step 0）と変更後の比較画像（弓師・鷹の目 × 停止 / 歩行 / 戦闘 × 正面 / 斜め45° / 側面相当、リポジトリ外）
+
+この判断により、次を承認する（Human の指示どおり）:
+| # | 承認内容 |
+| --- | --- |
+| 1 | ワイドパンツ + 短丈上着のシルエットを弓師 A として承認 |
+| 2 | パンツの太さ・裾の高さを現状値で承認 |
+| 3 | 上着の丈・袖の長さを現状値で承認 |
+| 4 | 覆面の削除と襟の比率変更を承認 |
+| 5 | 鷹の目への衣服の継承を現状の方針として承認 |
+| 6 | 背中の弓・矢筒と上着の干渉は、現状で大きな問題なしとして承認 |
+| 7 | 弓師パイロットの方向性を残り3職（剣士 A・魔法使い C・盗賊 A）へ展開することを承認 |
+
+- これは **弓師パイロットの V-1 承認** であり、T-4 全体の DONE ではない。全体の V-1 は残り3職・Step 6 の後に行う
+- 上の T-4 Approval 欄・Human Decision（HDR-T4-2〜15）は変更していない
+
+### 次工程
+残り3職（剣士・魔法使い・盗賊）の Step 1〜4・7 へ進める状態。弓師パイロットの変更の commit 時期は Human の指示に従う
+
+### 盗賊 A のデザイン変更（Human Decision）
+**Human Decision**: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で「**盗賊Aをオーバーオール案に変更、Human Decisionとして記録して**」。記入: Implementer（人間の指示による）
+
+| 項目 | 旧（HDR-T4-5 の確定時） | 新（本 Human Decision） |
+| --- | --- | --- |
+| 盗賊 A | パーカー的フード（既存頭巾をフード形状へ、マスク無し）+ 裾を絞ったワイドパンツ | **パーカー的フード（マスク無し）+ オーバーオール** |
+
+新しい盗賊 A の意図（Human の提示）: 顔を見せる / マスク無し / パーカー的フード / 胴から脚まで一体感のあるオーバーオール / ワイド寄りのパンツシルエット / 裾は軽く絞る / 盗賊らしい軽装感を維持 / 武器収納状態でも識別できる / 中世服を現代風にリメイクしたリバイバルファッション / 弓師の「短丈上着 + ワイドパンツ」と明確に差別化する
+
+T-4 の固定条件（Geometry / シルエットのみ、Material の値は変更しない、新しい衣服システムを作らない、`makeGarmentLoft()` と既存の可動部を使う、BUILD・T-1 の歩行・STANCE / CLIPS・関節球・Pauldron・骨盤・共有 Lathe 表・`13-update-loop.js` は変更しない、顔の新規造形なし）は変わらない。
+
+- 上の「Human Decision（確定、デザイン）」表の HDR-T4-5 の行は書き換えていない（本節が変更の記録）
+- Implementer の READ ONLY 検討（2026-09-25、会話）での構成案（未確定）: 胸当て（胸の前の薄い板）・腰まわり（胸当ての下〜ベルト下を一周）・前側の肩ベルト2本を waist へ、パンツ（腰〜太もも / 膝下、裾を軽く絞る）を `legL/R` / `kneeL/R` へ。背中の肩ベルト・ポケット・留め具は作らない。寸法は候補値で V-1 の Human 目視で調整
+
+**未決定（Human の判断待ち。本記録では決めていない）**
+| # | 論点 |
+| --- | --- |
+| 1 | 本変更を承認済み計画内のデザイン変更の記録として扱うか、§6 の Human Approval の取り直しとするか（Files To Change 確定版の `06` の「衣服（上着・ストール・パンツ・ブーツ・フード）」にオーバーオールが含まれると読むかを含む） |
+| 2 | 未 commit の盗賊実装（マスク削除・背中側のフードの垂れ・裾を絞ったワイドパンツ）の扱い（マスク削除とフードの垂れは継続、パンツはオーバーオールの脚部分へ作り替える想定） |
+| 3 | 双剣（`WEAPON_SOCKET.rogue`、waist x ±0.172）との干渉への対応: パンツ上端の横幅を抑えるか、Step 7 で `off` を補正するか（現在のワイドパンツの撮影で、正面から見て右の短剣が太腿の布に埋もれることを確認） |
+| 4 | 股の部分の布を作らない（骨盤に触れない）方針でよいか |
+| 5 | 肩ベルトを前側だけにする（背中はフードの垂れで隠れる）方針でよいか |
+
+**未決定 1〜5 の確定（Human Decision）**: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で「**未決定1〜5は推奨どおりで確定、オーバーオールを実装して**」。記入: Implementer（人間の指示による）
+| # | 確定内容 |
+| --- | --- |
+| 1 | 承認済み計画内のデザイン変更の記録として扱い、実装する（Human の実装指示による。Implementer の検討は本論点で推奨を明示していなかったため、Human の実装指示をもって確定とした） |
+| 2 | マスク削除・背中側のフードの垂れは継続。裾を絞ったワイドパンツはオーバーオールの脚部分へ作り替える |
+| 3 | パンツ上端の横幅を抑えて対応する（Step 7 の `off` 補正は実施しない。盗賊 A 実装指示の「Step 7 は今回実施しない」と整合。検討では両案を併記し推奨を明示していなかったため、既存の指示に沿う側を採った） |
+| 4 | 股の部分の布は作らない（骨盤に触れない） |
+| 5 | 肩ベルトは前側だけ（背中はフードの垂れで隠れる） |
+
+**盗賊 A の修正イメージ（Human Decision）**: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で、修正イメージ画像（「盗賊A：オーバーオール（新デザイン案）フード・頭部・背面・色分け・シルエットの修正イメージ」）を提示し「オーバーオールとカラーの分け方はこのイメージに修正。色はオーバーオールが今の緑系のままで、ベージュのパーカー部は薄紺色、帽子は今の黄色のままでOK」。色の扱いは Implementer の確認に対し「形状は T-4、色は T-5」を選択。記入: Implementer（人間の指示による）
+| # | 内容 | 扱い |
+| --- | --- | --- |
+| 1 | フードは自然な丸み、後ろ側に割れた形状を作らない（うなじの開口なし）、髪と肌が上から突き出さないよう上へ、顔が見える（マスク無し） | T-4（形状）。上の盗賊 A 実装指示の「`makeRogueHood` / `ROGUE_HOOD_*` を原則維持」は本決定で置き換える |
+| 2 | フードの背面に同色の別パーツを置かない（自然なパーカーのシルエット）、ポニーテールとの干渉に配慮 | T-4（形状） |
+| 3 | パーカー部（フード・袖・胸元の上着部分）とオーバーオール部を別の部品として構成する。フードの中に帽子（つば付き） | T-4（形状） |
+| 4 | 色: オーバーオール = 今の緑系のまま / パーカー部 = 薄紺色 / 帽子 = 今の黄色のまま | **T-5 へ記録のみ**（HDR-T4-8。T-4 では Material の値を変えない） |
+
+### 魔法使い C のデザイン変更（Human Decision）
+**Human Decision 1〜3**: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話。参考画像「E. ロングコート×ワイドパンツ　大人っぽいシルエット」を提示し「このデザインに変更して。色は後で修正する」、続けて Human Decision 1〜3 として確定。記入: Implementer（人間の指示による）
+
+**Human Decision 1（魔法使い C のデザイン変更）**
+| 項目 | 旧（HDR-T4-5 の確定時） | 新（本 Human Decision） |
+| --- | --- | --- |
+| 魔法使い C | ローブ維持 + 大判ストール + 帽子の比率修正（とんがり帽子） | **参考画像 E「ロングコート × ワイドパンツ」をベースとした現代風リメイク** |
+
+- 採用する形状方針: キャスケット / 長く広がった髪 / タートルネック / 前開きロングコート / ワイドパンツ / 既存ブーツ / 既存杖
+- 旧ローブ・旧大判ストール・旧とんがり帽子は廃止（魔法使い C の形状から置き換える）
+- T-4 の Geometry / Silhouette の範囲で扱う。Material の値は変更しない。色の最終調整は T-5
+- 上の「Human Decision（確定、デザイン）」表の HDR-T4-5 の行は書き換えていない（本節が変更の記録）
+- 途中経過の記録: 同日、Human の魔法使い C 実装指示（参考画像の新デザインのとんがり帽子案、ドレスは裾があまり広がらないように）で、とんがり帽子の headR 比化・ローブ裾の絞り・ローブ上部・大判ストールを実装したが、本 Human Decision 1 で置き換えた（コードには残っていない）
+
+**Human Decision 2（unit テストの更新と変更対象ファイルの追加）**
+- `tests/unit/lowpoly-primitives.test.js:1291` の旧テストは、旧とんがり帽子の実装（`makeMageHatBrim(headR*MAGE_BRIM_RADIUS_BASE_MUL, MAGE_BRIM_THICKNESS)`）の存在を直接要求しており、新仕様と一致しないため FAIL していた。新仕様に合わせた更新を Human が承認（assert を削除して弱くすることは禁止。新しい帽子の構築が存在し、旧帽子実装への依存が無いことを検証するテストへ置き換える）
+- **Human Decision による T-4 変更対象ファイルの追加**: `tests/unit/lowpoly-primitives.test.js`（仕様変更に伴うテスト更新）。上の Files To Change（確定版）と Approved Task Blob は書き換えていない（Approved Task identity は保持）
+
+**Human Decision 3（本記録）とテスト結果**
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| 盗賊 A（修正イメージ版）関連 E2E 39件 | **39 PASS** | `character-motion`・`weapon-stow`・`base-class-identity`・`base-class-comparison`・`job-traits` |
+| 魔法使い E 版 関連 E2E 39件 | **37 PASS / 2 FLAKY / 0 FAIL** | FLAKY は PASS として数えない（§14）。下の2件 |
+| `base-class-identity.spec.js:376`（盗賊: Back Attack） | FLAKY | 初回 FAIL（「規定回数以内に背後向き(facing≈0)のDummyが出現すること」、Received: null、タイムアウト）。同一テストを1回だけ再実行して PASS。対象変更との関係: FACT (code) 盗賊のコードは直前の 39 PASS の回と同一。INFERENCE 魔法使いの変更とは無関係。原因は未特定。変更前コードでの比較は未実施 |
+| `job-traits.spec.js:162`（鷹の目: Predictive Aim / Turn Assist） | FLAKY | 初回 FAIL（「回避直後の攻撃でTURN ASSISTが発火すること」、Received: false）。spec 内蔵の自動リトライ（retry #1）で PASS。鷹の目は対象外。原因は未特定 |
+| 途中で停止した E2E | 参考（結果として数えない） | デザイン変更のたびに実行中の E2E を停止した（開発サーバー経由のため途中のコード変更が混ざる）: 盗賊の裾を絞ったワイドパンツ版 20 件 PASS 時点、オーバーオール初版 14 件 PASS 時点、魔法使い とんがり帽子版 12 件 PASS 時点。いずれも置き換え済みのコードに対する途中結果 |
+| repo 標準設定の E2E | NOT_RUN | Chromium revision 不一致（実行環境）。上の E2E はすべてリポジトリ外の scratchpad 設定（`executablePath` のみ差し替え）での結果。repo の Playwright 設定は変更していない |
+
+**魔法使い C の V-1 状態**: 未承認（Human 確認待ち）
+| # | 確認事項 | 扱い |
+| --- | --- | --- |
+| 1 | 見下ろしカメラで顔がほぼ隠れる（HDR-T4-2「魔法使いは顔を見せる」との整合） | T-4 Geometry の調整候補 |
+| 2 | キャスケットの六角形的な角張り | T-4 Geometry の調整候補 |
+| 3 | Material が同色で服の構造が見分けにくい | T-4 の評価対象にしない（T-5 で色分け） |
+
+**キャスケットの形状（Human Decision）**: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で「キャスケットは候補Bで確定」。記入: Implementer（人間の指示による）
+- 候補 B（確定）: 後ろへ深くかぶり、つばを短くして額と目を出す形。`MAGE_CAP_RINGS`（headR 比、上から順に y / r / dz）= 1.24 / 0.50 / −0.16、1.06 / 1.02 / −0.14、0.82 / 1.10 / −0.10、0.44 / 1.07 / −0.04。`MAGE_CAP_BRIM` = yTop 0.50 / yBottom 0.45 / hw 0.58 / hd 0.12 / dz 0.92
+- 候補 A（不採用）: 1.25 / 0.50 / 0.08、1.05 / 1.05 / 0.06、0.78 / 1.16 / 0.03、0.36 / 1.10 / 0.00、つば yTop 0.41 / yBottom 0.35 / hw 0.62 / hd 0.14 / dz 1.00
+- 魔法使い C の V-1 は未承認のまま（上の確認事項 1〜3 は Human 確認待ち）。「長く広がった髪」は未実装（既存の共通の髪のまま。髪の新規造形は今回の範囲外として実施していない）
+- 現在のコード（魔法使い E 版・キャスケット候補 B・unit テスト更新後）の関連 E2E 39件（`character-motion`・`weapon-stow`・`base-class-identity`・`base-class-comparison`・`job-traits`）: **39 PASS**（FLAKY 0 / FAIL 0。scratchpad 設定での結果。repo 標準設定は NOT_RUN）。`npm run build` PASS、`npm run test:unit` 1508 / 1508 PASS
+
+### 剣士 A のデザイン変更（Human Decision）
+**Human Decision**: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話。参考画像（「〜い放浪騎士デザイン」側面図と、マウンテンパーカー・キャップ・ネックゲイターの実写コーディネート）を提示し「ブーツのアイデアもいいけど、剣士も現代風に大幅リメイクする。このデザインをうまく落とし込んで」、続けて本記録を指示。記入: Implementer（人間の指示による）
+
+| 項目 | 従来の剣士 A 案（HDR-T4-5 / HDR-T4-2 の確定時） | 今回の Human による方向変更 |
+| --- | --- | --- |
+| 上着 | 短丈上着 | テック系ハーフコート / パーカー系上着（ゆったりした現代的シルエット） |
+| 首元 | 大判ストール | ハイネック / フード系のレイヤー |
+| 頭 | 兜 | 現代的なキャップ系ヘッドウェア |
+| 顔 | 見せない | **見せる** |
+| 足元 | ロングブーツ | ロングブーツ |
+| 武器 | 大剣 | 大剣 |
+
+- **コンセプト**: 「中世ファンタジーの騎士を、現代のテック系ストリート / アウトドアウェアとしてリメイクした放浪騎士」（「現代テックウェアを着た放浪騎士」）
+- **デザイン意図**: 鎧を現代服に単純に置き換えるのではなく、騎士のシルエットや装備感をテックウェアの構造へ翻訳する
+- **HDR-T4-2 の剣士の変更（Human によるデザイン変更）**: 従来「剣士の兜を残す・顔を見せない」→ 今回「現代的ヘッドウェアへ変更・顔を見せる」。上の「Human Decision（確定、デザイン）」表の HDR-T4-2 / HDR-T4-5 の行は書き換えていない（本節が変更の記録）
+- 途中経過の記録: 同日、剣士 A 初版（短丈上着・背中へ流す大判ストール・ロングブーツ・前立ての headR 比化、兜は維持）を実装し関連 E2E 40件 40 PASS だったが、本 Human Decision で置き換えた（コードには残っていない）
+- 本記録時点の実装（形状のみ、寸法はすべて候補値、Material は既存インスタンスの流用で値は不変、色は T-5）: キャップ（`WARRIOR_CAP_RINGS` / `WARRIOR_CAP_BRIM` / `WARRIOR_CAP_EAR`、headR 比、頭頂に小さな耳状の突起2つ。髪の隠れ判定 `warriorCapCoverageAt` も同じ表）、ネックゲイター（肩〜口元の下）、背中に下ろしたフード、膝丈のマウンテンパーカー（前は細く開け裾だけ広く開ける、胸と腰左右のポケット、長袖）、すね中ほどで切ったワイドパンツ、既存ブーツ + パンツ裾の内側までのブーツの胴、大剣の収納位置は不変（Step 7 は未実施）。旧 素の剣士の意匠（兜・前立て・眉当て・毛皮・棘・革帯・留め具・腰帯プレート・短いマント）は作らない。新しい部品はすべて `warriorBaseDecor`（戦騎士への転身で隠す対象）に入れた（上位職の調整は Step 6）
+- unit テスト: 旧兜の構築（`makeWarriorBaseHelm({...})` の呼び出し）を直接要求するアンカーが `tests/unit/lowpoly-primitives.test.js` に存在したため、魔法使い C の Human Decision 2 と同じ扱いで、新しいキャップの構築を検証するテストへ置き換えた（下の「unit テストの更新（剣士）」）
+
+**unit テストの更新（剣士）**
+| 変更 | 内容 |
+| --- | --- |
+| 置き換え | `checkNear('makeWarriorBaseHelm({width:headR, depth:headR, height:headR*WARRIOR_HELM_HEIGHT_MUL})', 'Warrior Helm')` → キャップの頭頂（`makeGarmentLoft(WARRIOR_CAP_RINGS.map(`）・つば（`headR*WARRIOR_CAP_BRIM.yTop`）・耳状の突起（`headR*e.yTop`）の3箇所で、同じ規則（近傍に `HEAD_BACK_Z`）を確認 |
+| 追加 | 「剣士のキャップは headR 比の WARRIOR_CAP_RINGS で構築され、Coverage も同じ表を使い、旧兜の構築に依存しない」: キャップの高さ・半径が headR 比 / 06 に `makeWarriorBaseHelm({` の呼び出しが無い / `WARRIOR_CAP_RINGS` が上から下の順で headR 比として妥当 / `warriorCapCoverageAt` が同じ表で判定し旧兜の定数に依存しない / `getHeadwearCoverage` の剣士がキャップの Coverage へ振り分けられている |
+| 削除した assert | なし |
+
+**テスト結果（剣士リメイク版）**
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| `npm run build` | PASS | |
+| `npm run test:unit` | PASS | 1509 / 1509 |
+| 関連 E2E 40件（`character-motion`・`weapon-stow`・`base-class-identity`・`base-class-comparison`・`job-traits`・`battle-knight-visual`） | **39 PASS / 1 FLAKY / 0 FAIL** | FLAKY は PASS として数えない（§14） |
+| `job-traits.spec.js:97`（戦騎士: Perfect Brace） | FLAKY | 初回 FAIL（「Charge Enemyが交戦(TELEGRAPH/DASH)状態に入ること」、Received: false）。spec 内蔵の自動リトライ（retry #1）で PASS。原因は未特定。剣士の衣服形状との直接的な関係は確認されていない。変更前コードでの比較は未実施 |
+| 撮影用の一時テスト（剣士・戦騎士） | PASS（参考） | コンソールエラーなし。一時 spec は削除済み |
+| repo 標準設定の E2E | NOT_RUN | Chromium revision 不一致（実行環境）。上の E2E はリポジトリ外の scratchpad 設定（ブラウザの位置 `executablePath` のみ差し替え）での結果。repo の Playwright 設定は変更していない |
+
+**剣士 A の V-1 状態**: **未承認（Human の目視確認待ち）**。重要なのは「現代服として自然」と「放浪騎士として認識できる」の両立。可愛さ・キャラクター性の合否は Human が判断する
+| # | 確認項目 |
+| --- | --- |
+| 1 | キャップの大きさ |
+| 2 | キャップの形状 |
+| 3 | 耳の突起が不自然でないか |
+| 4 | 顔の見え方 |
+| 5 | 首元のハイネック / フード |
+| 6 | ハーフコートの丈 |
+| 7 | 肩・袖のボリューム |
+| 8 | パンツのシルエット |
+| 9 | パンツ裾とロングブーツの接続（現在の実装は、既存ブーツ + パンツ裾の内側までのブーツの胴） |
+| 10 | 大剣と背面衣服の干渉 |
+| 11 | 正面シルエット |
+| 12 | 側面シルエット |
+| 13 | 背面シルエット |
+| 14 | 武器収納状態でも剣士と分かるか |
+| 15 | 歩行時の衣服破綻 |
+| 16 | 戦闘時の衣服破綻 |
+| 17 | 「現代テック系の放浪騎士」に見えるか |
+| 18 | 既存のファンタジー騎士感を完全に失っていないか |
+| 19 | 5.0頭身でも服が大きすぎて身体が埋もれていないか |
+| 20 | 4職を並べたときに剣士として識別できるか |
+
+**剣士 A の V-1 Human Decision**: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話で「**この見た目でokです**」。判断に使った資料: 剣士の旧デザイン／現在の比較画像と4職比較画像（停止〔武器収納〕の正面・斜め45°・側面相当・背面、歩行、戦闘。リポジトリ外）。記入: Implementer（人間の指示による）
+- 上の V-1 確認項目 1〜20 を含め、現在の実装（キャップ・ネックゲイター・背中のフード・膝丈マウンテンパーカー・すね中ほどのワイドパンツ・ブーツの胴・大剣）を剣士 A の形状として承認
+- これは **剣士 A の V-1 承認** であり、T-4 全体の DONE・全体 V-1 ではない。残り: Step 6（上位職・影の旅人）、Step 7（必要な職のみ）、HDR-T4-14 の衣服構築 E2E、全体 V-1、`docs/CHARACTERS.md` の外見記述
+
+### Step 6: 上位4職 + 影の旅人（Human Decision）
+記入: Implementer（人間の指示による）。いずれもユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話
+
+| # | Human Decision | 内容 |
+| --- | --- | --- |
+| 1 | 上位4職 + 影の旅人のデザイン案 | 参考画像「上位職4職 デザイン案」「影の旅人 操作時デザイン案」「上位職 4 職 + 影の旅人 デザイン案（現代リメイク × 身軽なファッション）」を提示し「下位職のデザインを生かしたまま、より動きやすく現代的に落とし込んだデザインにリニューアル」。HDR-T4-7（P-a / W-a）の方針で、基礎職の衣服を引き継ぎ、上位職ごとの部品を置き換える |
+| 2 | フィードバック | 「上位職は白いレイヤードが強調されるとわかりやすい」「影の旅人も黒すぎる、なんで剣を持ってるかわからん、髪の毛の表現がポリゴンすぎる」「剣士と戦騎士の背中の剣の向き逆、刃が上を向いちゃってる」 |
+| 3 | **色の T-4 先行（上位職 + 影の旅人のみ）** | Implementer の確認に対し「上位職 + 影の旅人の色だけ T-4 で先行」を選択。HDR-T4-8（Material は T-5）の例外として、上位職の白いレイヤー用の専用 Material（転身の間だけ作り、解除時に破棄）と、影の旅人の白いシャツ・チャコールのコート用の専用 Material を追加する。**基礎4職の Material の値は変えない（T-5 のまま）** |
+| 4 | **影の旅人の武器** | 「見た目だけ剣を非表示」を選択。影の旅人だけ武器メッシュを表示しない。攻撃処理・判定・モーションは剣士の kit のまま（素手の演出・モーションは別 Task） |
+| 5 | **背中の剣の向き（Step 7）** | 剣士・戦騎士の `WEAPON_SOCKET` の収納の向きを上下逆に（握りを右肩の後ろ、刃を下 = 左腰の方へ）。HDR-T4-13 は `off` のみの補正だったが、Human の指示により収納時の向き（`wep`）も変える。武器の形状・攻撃中の位置は不変 |
+
+**実装（形状 + 上記3の色、寸法・色は候補値）**
+| 対象 | 引き継ぐもの | 足したもの | やめたもの |
+| --- | --- | --- | --- |
+| 戦騎士 | 剣士のキャップ・ネックゲイター・フード・パーカー・パンツ・ブーツ（顔を見せる、頭の縮小 0.86 → 1.0） | 白いテック系ジャケット（前開き）と白い袖、強化肩パーツ（左大・右小）、胸で交差するハーネス、ベルトと留め金 | 兜・面頬・眉庇・前立て・首の毛皮・胸甲・腰鎧・マント2枚・頭部の非表示 |
+| 鷹の目 | 弓師の帽子（隠さない）・短丈上着・ワイドパンツ、肩の鷹 | 背中に下ろしたフード、白いユーティリティベスト（胸ポケット2つ） | 深いフード・眼帯・ひさしの差し替え・マント |
+| バーサーカー | 盗賊のパーカー・オーバーオール、足元のオーラ | フードを 1.14 倍・白に（解除時に元へ）、白い半袖の上着 | 逆立つ髪の房・こめかみの球・長髪・髭・素肌の板・肩 / 腰 / 足首の毛皮 |
+| 魔導士 | 魔法使いのキャスケット（房飾りを頭頂へ）・コート・ワイドパンツ、長い銀髪、魔法石 | 肩〜胸下の上掛け（二重コート）、手首で広がる袖口、コートの前から見える白いドレス | ローブの前開きの襟（makeClothPanel 2枚） |
+| 影の旅人 | 剣士の部品の作り方（charKey で区別。classDef.key は剣士の kit のまま） | キャップ無し（髪と顔を見せる、髪の隠れ判定は被り物なし）、マフラー、背中のフード、腰丈のショートコート（チャコール）、白いシャツ（コートの裾の下まで）、裾まで長いワイドパンツ、頭のまわりの髪の房 9 本、武器の非表示 | 剣士のキャップ、膝丈のパーカー |
+
+- unit テスト: 鷹の目の深いフードの構築（`makeHawkEyeHood({width:B.headR*1.35`）を要求するアンカーを、同じ `makeHawkEyeHood` を頭の被り物に使う盗賊のパーカーのフード（`makeHawkEyeHood({width:headR*ROGUE_PARKA_HOOD_WIDTH_MUL`）へ、同じ規則（近傍に `HEAD_BACK_Z`）で置き換えた（Human Decision 2 と同じ扱い。assert の削除なし）
+- 途中で停止した E2E（結果として数えない）: Step 6 初版の関連 E2E を 25 件 PASS の時点で停止（フィードバック反映で置き換えたコード）。Step 6 の最初の調整版（戦騎士の鎧をパーカーに重ねた版）は 51 件 51 PASS だったが、本 Human Decision で置き換えた
+- 酒場で会話する影の旅人（フードの深いロングコート）は酒場の NPC 側の見た目で、操作キャラクターの範囲外のため未実施
+- **Step 6 の V-1: 未承認（Human 確認待ち）**
+
+**Step 6 の V-1 Human Decision**: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話。記入: Implementer（人間の指示による）
+- **上位4職（戦騎士・鷹の目・バーサーカー・魔導士）: 「上位職はこの見た目でOK」** → 上位4職の V-1 を承認（白いレイヤー・背中の剣の向き修正を含む現在の実装）
+- 影の旅人: 「透け感は良い」。**髪は未承認**（「髪の房が太すぎてドレッドっぽい」「他に表現する方法ある？」）→ 候補として、太い円錐の房（makeHairBang）をやめ、細く平たい尖った毛束（makePlate の板、13 枚）を頭のまわりに重ねる形へ変更（Human 確認待ち）
+- 全キャラの顔: 「頭身に対して目が大きすぎるし離れすぎてる。もっと普通に」→ 目の大きさ `eyeSizeMul` 0.85 → 0.72、左右の間隔 0.115 → 0.095（`EYE_SPACING`、eyeScale 倍）へ変更（候補値、Human 確認待ち）。目の点数・輪郭・3層構造は不変、顔の造形の追加なし（HDR-T4-15）。unit テストの複製値（`computeEyeParamsForTest` の eyeSizeMul）も 0.72 に同期（既存の「縮小率 70〜95%」の範囲内）
+- テスト（目・髪の候補を入れたコード）: 関連 E2E 51件（`character-motion`・`weapon-stow`・`base-class-identity`・`base-class-comparison`・`job-traits`・`battle-knight-visual`・`chapter1-progression`）= **50 PASS / 1 FAIL**。FAIL は `weapon-stow.spec.js:104`（戦騎士: 非戦闘で収納され、攻撃で抜刀して手に収まる）「切っ先が床を突き抜けている (y=-0.02m)」（期待 > 0.15）。原因: 背中の剣の上下を逆にした際、戦騎士の大剣（×1.32）が長く切っ先が床に届いた（FACT: 剣士は PASS、戦騎士の収納値の変更による）。修正: 戦騎士の収納の `off` を [0.12, 0.34, -0.26] → [0.12, 0.42, -0.26]、`wep` を [-0.260,-0.955,-0.050, 0.955,-0.260,0] → [-0.450,-0.890,-0.050, 0.890,-0.450,0]（握りを少し高く、刃を少し寝かせる）。修正後の再実行: `weapon-stow` 10 PASS、`battle-knight-visual` + `job-traits` 5 PASS、`npm run test:unit` 1509 / 1509 PASS、`npm run build` PASS（scratchpad 設定。repo 標準設定は NOT_RUN）。修正後に 51件全体の再実行はしていない
+
+**髪・目・肌の Human Decision**: ユーザー（人間）/ 2026-09-25 / Claude Code セッションの会話。記入: Implementer（人間の指示による）
+- **影の旅人の髪: 「平たい毛束でOK」** → 細く平たい尖った毛束（makePlate の板、13 枚）で確定。これで影の旅人の V-1 の指摘事項（髪）は解消（影の旅人全体の V-1 は全体 V-1 で確認）
+- **目: 「普通に見えるのでこれでOK」**（`eyeSizeMul` 0.72、`EYE_SPACING` 0.095 で確定）。「ただしもう少し可愛くできるか？黒目を大きくするか目を縦長にするか」→ 候補として黒目の基準半径 0.038 → 0.046、白目の縦横比 1.15 → 1.28（`EYE_SCLERA_ASPECT`）に変更（目全体の大きさ・間隔は変えない。Human 確認待ち）。unit テストの複製値（`EYE_BASE_R.pupil`、白目の縦横比）も同期
+- **肌色: 「肌の色黒くない？各職業で肌色を分けて欲しい」** → HDR-T4-8（Material は T-5）の例外として、Human の指示により T-4 で職ごとの肌色を設定（skinMat の色、候補値）: 剣士（アジア系の色白）0xf2d6bf / 魔法使い（イギリス系の色白）0xf8e3d8 / 盗賊（日本人の色白）0xf5dcc8 / 弓師（日本人の色黒）0xd6a47e。旧: 全職 0xe8b98a。上位職は基礎職の値を継承。影の旅人は classDef.key が剣士（kit）のため剣士の値（Human 未指定。必要なら別の値を指定する）。ゲームカメラでは帽子・フードの陰で顔が実際より暗く見える（照明による。色の値の問題ではない）
+- **肌色の値（Human Decision、確定）**: ユーザー（人間）/ 2026-09-25 / 会話で値を指定。剣士 0xffe6d2 / 魔法使い 0xffeee5 / 盗賊 0xffe7d4 / 弓師 0xe8bd98 / **影の旅人 0xe8dce0**（剣士と分ける。やや青白く血色を抑え、服を真っ黒にしなくても「普通の人間とは少し違う」感じ）。方針: 「肌色そのものをリアルにする」より「見下ろしのゲームカメラで自然な肌色に見える値」を優先。顔より手・腕の肌色がキャラクター識別に効く。影の旅人は charKey で判定（classDef.key は剣士の kit）。前の候補値（0xf2d6bf / 0xf8e3d8 / 0xf5dcc8 / 0xd6a47e）で走らせていた関連 E2E は 22 件 PASS の時点で停止（置き換えたコード）
+- **目と肌色の Human Decision（確定）**: ユーザー（人間）/ 2026-09-25 / 会話で「目と肌色これでOKです」。目 = `eyeSizeMul` 0.72 / `EYE_SPACING` 0.095 / 黒目の基準半径 0.046 / 白目の縦横比 1.28、肌色 = 上記の Human 指定値で確定
+- テスト（目・肌色確定後の現在のコード）: 関連 E2E 51件（`character-motion`・`weapon-stow`・`base-class-identity`・`base-class-comparison`・`job-traits`・`battle-knight-visual`・`chapter1-progression`）= **51 PASS**（FLAKY 0 / FAIL 0、scratchpad 設定。repo 標準設定は NOT_RUN）、`npm run build` PASS、`npm run test:unit` 1509 / 1509 PASS
+
+### T-4 の仕上げ（HDR-T4-14・HDR-T4-10）
+記入: Implementer（人間の指示による）
+
+**Human Decision（2026-09-26、Claude Code セッションの会話）**
+| # | 論点 | Human の選択 |
+| --- | --- | --- |
+| 1 | ユーザー（人間）が「T-5 の最終的な衣服 Material・配色調整を開始」と指示。Implementer が (1) 承認済みの実施順（T-1 → T-5、並行禁止、前の WI が DONE）に対し T-4 が未 DONE、(2) 承認済み T-5 計画（マット化）の範囲を配色が超える（§6 の承認取り直し）の2点を提示 | **「T-4 を先に完了させる」**。T-4 を仕上げ（HDR-T4-14 の E2E・docs・全体 V-1）→ commit / push → Review。T-5 は配色の範囲で再計画（Planner）→ 承認 → 実装。T-5 はまだ始めない |
+| 2 | HDR-T4-14 の衣服の構築の検証方法 | **「デバッグパネルに衣服数を出す」**。**Human Decision による T-4 変更対象ファイルの追加**: `src/core/motion-preview.js`（RIG ブロックに CLOTH 行）、`tests/unit/motion-preview.test.js`（CLOTH 行の unit テスト）、新しい spec `tests/character-clothing.spec.js`（Files To Change 確定版の「`tests/character-motion.spec.js`（または新しい spec）」の新しい spec）。上の Files To Change（確定版）と Approved Task Blob は書き換えていない |
+
+- 補足: 指示文の肌色の一覧（剣士 0xf2d6bf / 魔法使い 0xf8e3d8 / 盗賊 0xf5dcc8 / 弓師 0xd6a47e / 影の旅人は剣士系）は、その後に Human が指定して確定した値（剣士 0xffe6d2 / 魔法使い 0xffeee5 / 盗賊 0xffe7d4 / 弓師 0xe8bd98 / 影の旅人 0xe8dce0）より前の候補値。コードは確定値のまま（変更していない）
+
+**HDR-T4-14（衣服の構築 E2E）の実装**
+| ファイル | 内容 |
+| --- | --- |
+| `src/legacy/parts/05-rendering-rig.js` | `makeGarmentLoft` / `makeOpenGarmentLoft` の Geometry に `userData.garment = true`。デバッグ用の `motionBodySnapshot` に `cloth`（player の中で見えている衣服メッシュの数、`traverseVisible`）を追加。ゲームの状態・通常の HUD は変えない |
+| `src/core/motion-preview.js` | RIG ブロックに ` CLOTH  n` の1行（取れないときは `-`） |
+| `tests/unit/motion-preview.test.js` | CLOTH 行の表示（数・`-`・0）の unit テストを1件追加 |
+| `tests/character-clothing.spec.js`（新規） | 4基礎職・上位4職（テストモード）と影の旅人（Chapter 1 を終えたセーブから「つづきから」）で、Debug Motion Preview の CLOTH が各キャラクターの下限（5〜6）以上で、コンソールエラーが無いこと。9 件 |
+
+- 実行結果（scratchpad 設定）: `tests/character-clothing.spec.js` 9 件 **9 PASS**、`npm run test:unit` 1510 / 1510 PASS、`npm run build` PASS
+
+**HDR-T4-10（`docs/CHARACTERS.md`）**: 「## 外見（プレイヤーキャラクターの見た目）」の節を「## Party」の前に追加（9キャラクターの頭・上半身・下半身・顔の表、目・肌色・武器の収納・影の旅人の武器）。影の旅人の既存の記述（黒ずくめ・戦闘に関わらない等）とプレイアブル実装の食い違いは直していない（別 Task、節の末尾に明記）
+
+**T-4 全体の V-1 Human Decision**: ユーザー（人間）/ 2026-09-26 / Claude Code セッションの会話で、最終コードの9キャラクター（4基礎職・上位4職・影の旅人、停止〔武器収納〕の正面・斜め45°・側面相当・背面、歩行、戦闘。リポジトリ外の比較画像）を確認し「**完了で良いです**」。記入: Implementer（人間の指示による）。T-4 の主 Acceptance（V-1-T4a〜h、HDR-T4-6 の武器収納状態での識別を含む）を Human が許容。T-4 の DONE は Reviewer の判定による（§7.3）
+
+### T-4 最終 Test Report（REVIEWING 時点）
+| テスト | 結果（PASS / FAIL / FLAKY / NOT_RUN） | メモ |
+| --- | --- | --- |
+| `npm run build` | PASS | |
+| `npm run test:unit` | PASS | 1510 / 1510 |
+| 関連 E2E 60 件（`character-motion`・`weapon-stow`・`base-class-identity`・`base-class-comparison`・`job-traits`・`battle-knight-visual`・`chapter1-progression`・`character-clothing`〔新規、9件〕） | 59 PASS / **1 FLAKY** / 0 FAIL | FLAKY は PASS として数えない（§14） |
+| `job-traits.spec.js:97`（戦騎士: Perfect Brace） | FLAKY | 初回 FAIL「戦騎士のバリアパリィがPerfect Braceとして成立すること」（Received: false）、spec 内蔵の自動リトライ（retry #1）で PASS。同じテストは剣士リメイク版の実行でも FLAKY（そのときは「Charge Enemyが交戦状態に入ること」で失敗）、他の回は PASS。対象変更との関係: INFERENCE タイミング依存のテスト（spec 名のとおり自動リトライ前提）で、衣服の形状との直接の関係は確認されていない。原因は未特定。変更前コードでの比較は未実施。Review の Risks に残す |
+| repo 標準設定の E2E | NOT_RUN | Chromium revision 不一致（要求 1234 / 導入済み 1194、実行環境）。repo の Playwright 設定は変更していない |
+| scratchpad の設定での E2E | 実行 | リポジトリ外の回避策（repo の設定を読み込み `executablePath: '/opt/pw-browsers/chromium'` のみ差し替え）。上の E2E はすべてこの方法 |
+| `npm test` 全体 | NOT_RUN | |
+
+**Changed Files（T-4）**
+| ファイル | 内容 |
+| --- | --- |
+| `src/legacy/parts/05-rendering-rig.js` | `makeGarmentLoft` / `makeOpenGarmentLoft`、盗賊のパーカーのフード（ROGUE_PARKA_HOOD_*）と Coverage、魔法使い・剣士のキャップ（MAGE_CAP_* / WARRIOR_CAP_*）と Coverage（`capRingsCoverageAt`）、剣士・戦騎士の `WEAPON_SOCKET`（背中の剣の向き、Human Decision）、デバッグ用の衣服数（HDR-T4-14） |
+| `src/legacy/parts/06-player-enemy.js` | 4基礎職・影の旅人の衣服・頭部・顔、上位4職（`applyJobPromotionVisual`）、目（大きさ・間隔・黒目・縦横比）、職ごとの肌色、影の旅人の武器の非表示（見た目のみ） |
+| `src/core/motion-preview.js` | RIG ブロックの CLOTH 行（Human Decision で追加） |
+| `tests/unit/lowpoly-primitives.test.js` | 旧帽子・旧兜・鷹の目の深いフードに依存したアンカーの置き換え、剣士・魔法使いのキャップのテスト追加、目の複製値の同期（Human Decision で追加） |
+| `tests/unit/motion-preview.test.js` | CLOTH 行のテスト（Human Decision で追加） |
+| `tests/character-clothing.spec.js`（新規） | 衣服の構築 E2E（HDR-T4-14） |
+| `docs/CHARACTERS.md` | 外見の節（HDR-T4-10） |
+| `.ai/tasks/CHARACTER-VIS-001.md` | T-4 の Status・Status History・Implementation Result（Human Decision の記録を含む。既存行は変更なし、Status 列のみ更新） |
+
+変更しないと決めた範囲（BUILD の体格値・T-1 の歩行・STANCE / CLIPS・関節球・Pauldron の形状・骨盤・輪郭線・敵・ボス・支援AI・共有 Lathe 表・`13-update-loop.js`・`playwright.config.js`）に差分なし。Material の値の変更は Human Decision の例外（上位職 + 影の旅人の色、職ごとの肌色）に限る。T-5（配色）は未着手（Human Decision: T-4 を先に完了）
