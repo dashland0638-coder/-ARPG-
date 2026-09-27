@@ -124,6 +124,10 @@
      強化)が動いてよいか(WORK 12.1)。Chapter 1 の本編では動かさず、
      テストモード(開発用)だけで動く ―― 判定は core/chapter1-rules.js */
   function legacyGrowth(){ return legacyGrowthEnabled(state.testMode); }
+  /* 開発用 UI(テストモード入口・デバッグモード)を使ってよいか(UI-002-B)。
+     URL に ?dev=1 がある時だけ true ―― 判定は core/dev-ui.js。起動時に
+     1回だけ読み、どこにも保存しない(通常 URL で開き直せば本番扱い) */
+  const DEV_UI = devUiEnabled(location.search);
 
   // 基礎ステータス→実数値の変換係数と、武器種ごとの補正配分(#29)。
   // 魔法使いの杖はユーザー指示によりINT70%+MND30%(他クラスは主軸1本 or 2軸60/40)
@@ -432,6 +436,9 @@
     const testLevelVal = document.getElementById('testmode-level-val');
     const testStartBtn = document.getElementById('testmode-start-btn');
     if(!titleScreen || !testScreen || !openBtn || !testClassGrid) return; // DOM構成がずれていたら黙って何もしない(安全側)
+    // 入口の行は index.html で hidden(初期非表示)。?dev=1 の時だけ出す(UI-002-B)
+    const openRow = openBtn.closest('.testmode-link-row');
+    if(DEV_UI && openRow) openRow.hidden = false;
 
     let tmClass = null, tmJob = null;   // tmJob: null=基礎職のまま(転身しない)
     let tmGuest = null;   // null=単独。ゲストのパーティメンバーAI(08-loot-equipment.jsのGUEST COMPANION)を
@@ -568,6 +575,7 @@
     }
 
     openBtn.addEventListener('click', ()=>{
+      if(!DEV_UI) return;   // 非表示でも念のため、通常 URL では開かない
       buildScenarioGrid();
       refreshStartLabel();
       titleScreen.style.display = 'none';
