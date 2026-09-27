@@ -2,13 +2,14 @@
 
 ## ID
 
-UI-002-HD（UI-002 Human Decisions: HD-1〜HD-5）
+UI-002-HD（UI-002 Human Decisions: HD-1〜HD-5、第一章ゲームデザイン境界、UI-002-A の HD-P1〜HD-P9 / AP-5 / AP-8 / AP-9 / AP-10）
 
 ファイル名は Human の指定により `UI-002-human-decisions.md` とした（`.ai/decisions/README.md` の `DEC-00n-*` 命名とは異なる）。
 
 ## Date
 
-2026-09-26
+- 2026-09-26: HD-1〜HD-5
+- 2026-09-27: 第一章ゲームデザイン境界、HD-P1〜HD-P9、AP-5、AP-8、AP-9、AP-10
 
 ## Source
 
@@ -16,6 +17,10 @@ UI-002-HD（UI-002 Human Decisions: HD-1〜HD-5）
 - 判断の対象とした資料（参照のみ）:
   - UI-001 Analyzer report: `.ai/reports/UI-001-analysis.md`（branch `claude/ui-001-analysis-380kl5` @ `4830a3804ea0874ae803b951c01dabaad68cfe88`、blob `c976f1c3b3e0a0b089e6b7eacde2b39f6f07b10a`）
   - UI-002 Planner report: `.ai/reports/UI-002-plan.md`（branch `claude/ui-002-planner` @ `eadb5e3cac983cf90911610d6da3deadc0af34a5`、blob `a23563e8c481e97c9b01fd063407c357c8c7668e`）
+  - UI-002-A Analyzer report: `.ai/reports/UI-002-A-analysis.md`（branch `claude/ui-002-a-analysis` @ `99f1fbd07c474625007a6f90a703d4f70224189d`、blob `583bd83e937b748fb5a17e330591f49897aeb8dd`）
+  - UI-002-A Planner report v1: `.ai/reports/UI-002-A-plan.md`（branch `claude/ui-002-a-planner` @ `7ebea4f0db4e8d4f58479ad5e4ff6074e3f7a515`）
+  - UI-002-A Planner report v2: `.ai/reports/UI-002-A-plan-v2.md`（branch `claude/ui-002-a-planner-v2` @ `2b00483943ab35af027af6b157a014e3a2fc6e61`、blob `e250c12da31bd6ead46126f1168988e3ba9d93f3`）
+- 2026-09-27 の決定は、UI-002-A Planner report v1 / v2 確認後の Human の指示（会話）による
 
 本記録には Human が確定した内容だけを書く。AI の推奨・評価・推測は含めない。
 
@@ -64,6 +69,103 @@ UI-002-HD（UI-002 Human Decisions: HD-1〜HD-5）
   - I は D〜H の完了後
 - 実機 iPhone 確認は、必要な時点で Human Decision として追加する。
 
+### 第一章のゲームデザイン境界（2026-09-27）
+
+第一章では、以下をゲームシステムとして存在させない。
+
+- Level
+- XP
+- XP 報酬
+- 鑑定武器
+- 細かな武器ドロップ
+- 鑑定用素材
+- 能力強化用ダイヤ
+- スキル強化用ダイヤ
+- ステータス強化
+- スフィア盤ライクな成長システム
+- スキル習得・変化システム
+- 本格的な鍛冶・武器強化
+
+第一章で存在するもの:
+
+- 固定武器入手
+- 宝箱
+- Skill 1
+- Skill 2
+- Ult
+- 通常の戦闘報酬
+- アイテム購入
+- 酒場
+- 鍛冶屋は「準備中」という位置付け
+
+第二章以降で解禁するもの:
+
+- スフィア盤ライクな成長システム
+- キャラクター強化
+- スキル習得
+- スキル変化
+- 鑑定武器
+- 武器ドロップ
+- 鑑定素材
+- 各種強化要素
+
+第二章以降の詳細仕様は決定していない。
+
+### 旧セーブを破壊しない原則（2026-09-27）
+
+- 「第一章では存在しない」ことと「データとして存在してはいけない」ことは別である。
+- 第一章（本編）: 表示・入力・使用・新規入手を抑制する。
+- 第二章以降: 既存の成長 / 鑑定データを利用できる可能性を残す。
+- 旧セーブ: 削除・破壊・勝手な正規化をしない。既存セーブデータの正規化は別 Task で扱う。
+
+### UI-002-A: HD-P1〜HD-P9（2026-09-27）
+
+- **HD-P1**: 💎 / 🔩 等の第一章で不要な強化・鑑定系素材は、第一章のゲームシステムとして扱わない。第一章では入手・表示・消費・用途のいずれも必要としない。第二章以降で使用する可能性のあるデータを旧セーブから勝手に削除・変換してはいけない。既存セーブデータの正規化は別 Task で扱う。
+- **HD-P2**: Skill 3 は、第一章では「UI だけ存在しない」のではなく、第一章では使用できないゲーム機能として扱う。HUD ボタン・U キー・十字キー左・タップ入力・Skill 3 関連トースト・Skill 3 関連警告・Skill 3 発動を第一章本編では停止する。既存セーブデータそのものを削除・書き換えることは UI-002-A では行わない。
+- **HD-P3**: 旧セーブに Skill 3 装着状態が残っていても、セーブデータ自体は変更せず、第一章本編では Skill 3 を発動できない。旧セーブの正規化・移行処理は別 Task 候補として扱う。
+- **HD-P4**: 第一章では Level が存在しないため、「Lv不足」「レベル未達」などの表現は使用しない。武器種など別の条件を伝える必要がある場合は、Level を意味しない表現に置き換える。具体的な文言は Implementer が決めず、Planner が候補を提示し Human Approval を受ける。
+- **HD-P5**: 一括鑑定は第一章本編では不要。第一章では鑑定武器を扱わないため、本編 UI から除外する。第二章以降の鑑定システム自体の設計は別 Task。
+- **HD-P6**: メニュー等に存在する明確な事実誤り（存在しない「鑑定ボタン」、存在しない「出撃ボタン」、必殺技を「リチャージ制」とする誤表記）は UI-002-A で修正対象として扱う。Skill 1 の呼称・Skill 2 の説明追加・処刑の説明・パッド注記・全体的な操作説明の再設計は後続 Task へ送る。
+- **HD-P7**: 第一章では XP が存在しないため、撤退時 XP+・XP 報酬表示・XP 関連トーストを本編では表示しない。撤退時に残す報酬情報がある場合は、XP 以外の実在する報酬だけを表示する。
+- **HD-P8**: UI-002-A では表示可否判定の architecture を全面的に再設計しない。既存の構造を利用して最小限の変更を行う。表示可否判定の本格的な集約は T-ARCH 等の別 Task 候補として扱う。A の実装で必要になる最小限の判定変更は許可する。
+- **HD-P9**: docs/README.md D-02 の記述差異は UI-002-A では修正しない。T-DOCS 等の別 Task で扱う。
+
+### UI-002-A: AP-5（2026-09-27）
+
+- 第一章では 💎 / 🔩 を新規入手させない。
+- 旧セーブの所持数は変更しない。旧セーブを削除・変換しない。
+- 宝箱報酬を別報酬へ自動置換しない。
+- ボス報酬の固有名については、物語上の意味を確認してから別途判断する（未決定）。
+
+### UI-002-A: AP-8 送り先（2026-09-27）
+
+| # | 論点 | 送り先 |
+| --- | --- | --- |
+| N-1 | Skill 1 の付け替え | UI-002-F |
+| N-2 | 鍛冶屋が装備・スキル・商店として機能している問題 | UI-002-G |
+| N-3 | 「最強装備」「まとめて売却」「外す」 | UI-002-F |
+| N-4 | 旧セーブの Skill 2・必殺技の付け替え | UI 部分は UI-002-F。セーブ / ゲーム状態部分は別 Task 候補 |
+| N-5 | 旧セーブのスフィア解放・ボス能力が本編の戦闘値に影響 | T-SAVE / 別ゲーム状態 Task 候補 |
+| N-6 | 「鑑定所」という画面名称 | UI-002-G |
+
+### UI-002-A: AP-9（2026-09-27）
+
+- ここまでに決定した Human Decision を `.ai/decisions/` に正式記録する（本記録の更新）。
+
+### UI-002-A: AP-10（2026-09-27）
+
+- UI-002-A は Work Item ごとに Human Approval する。
+- Skill 3 については、WI-A2 の中で UI・入力・トースト / 警告・発動を一体として扱う。
+
+### UI-002-A: Work Item 構成（2026-09-27）
+
+- WI-A1: 第一章から Level / XP 関連 UI および XP 報酬表示を除去（XP bar、撤退時 XP+、XP 関連 toast、Lv不足、レベル未達）。撤退時に表示する報酬は第一章で実際に存在するものだけとする。具体的な文言は未確定。第二章以降の成長システム自体は変更しない。
+- WI-A2: 第一章における Skill 3 の UI・入力・発動停止（Skill 3 HUD、Skill 3 操作ヒント、U キー、十字キー左、タップ入力、Skill 3 関連 toast、Skill 3 関連 warning、Skill 3 発動）。旧セーブデータ自体は変更しない。第一章でのみ使用不能とする。
+- WI-A3: 第一章から一括鑑定を除去（「一括鑑定」UI、第一章に存在しない鑑定導線）。未鑑定品のデータそのものは削除・変換しない。第二章以降の鑑定システムは変更しない。
+- WI-A4: 第一章 UI に存在する明確な事実誤りを修正（存在しない鑑定ボタン、存在しない出撃ボタン、必殺技をリチャージ制とする誤表記）。Skill 1 / Skill 2 / 処刑等のより広い説明設計は後続 Task へ送る。
+- WI-A5: 第一章で不要な鑑定・強化系素材について、本編 UI 上の表示・報酬導線を整理する（対象候補: 💎、🔩、鑑定素材、強化素材 / メニュー表示、鑑定所ヘッダ、宝箱報酬、ボス報酬）。既存セーブデータの削除・正規化は行わない。第二章以降の素材仕様は決定しない。
+- UI-002-A の Scope 外: UI 全体の visual redesign、Combat HUD の全面再設計（D）、Character / Equipment 画面の全面再設計（F）、Tavern UI（G）、Notification / Result UI の visual redesign（H）、Design system（C1 / C2）、Icon system（E）、Final responsive（I）、第二章以降の成長システム設計、第二章以降の鑑定システム設計、旧セーブの正規化、docs/README.md の修正、architecture 全体の表示可否集約。
+
 ## Undecided（未決定事項）
 
 以下は現時点では決定しない。必要になった Task の Analyzer / Planner を通して改めて判断する。
@@ -78,20 +180,31 @@ UI-002-HD（UI-002 Human Decisions: HD-1〜HD-5）
 - 設定項目
 - 通知履歴
 - 実機 iPhone での最終調整
+- 第二章以降の成長・鑑定・素材システムの詳細仕様
+- UI-002-A: ボス報酬の固有名（「主の袖飾り」等）の扱い（物語上の意味の確認後に判断）
+- UI-002-A: 各 Work Item の Human Approval（Scope・Files To Change・Persistence）、WI-A1 / WI-A4 の具体的な文言、旧セーブ未鑑定品の本編での扱い、固定文言を本編だけ変えるか両モード共通か、検証用 E2E の追加先と tests 変更の可否
 
 ## Reason
 
-Human による理由の記述は無い。UI-001 Analyzer report と UI-002 Planner report を確認した上での判断として記録する。
+Human による理由の記述は無い。UI-001 Analyzer report・UI-002 Planner report（2026-09-26）、UI-002-A Analyzer report・Planner report v1 / v2（2026-09-27）を確認した上での判断として記録する。
 
 ## Alternatives Considered
 
-UI-002 Planner report §16 に Planner が提示した選択肢（例: HD-1 の「テストモード限定 / 削除 / 後半解放」、HD-3 の G1〜G3）がある。上記 Decision に書かれていない選択肢は採否を決定していない。
+UI-002 Planner report §16 に Planner が提示した選択肢（例: HD-1 の「テストモード限定 / 削除 / 後半解放」、HD-3 の G1〜G3）がある。UI-002-A Planner report v1 / v2 にも Planner が提示した選択肢・推奨・文言候補がある。上記 Decision に書かれていない選択肢・推奨・文言候補は採否を決定していない。
 
 ## Consequences
 
 - Human の指示により、UI-002-A〜I の Task file を `.ai/tasks/UI-002-*.md` に起票する。
 - UI-002 Planner report のうち、上記 Decision に書かれていない内容は Human Decision ではない。
+- Human の指示により、`.ai/tasks/UI-002-A.md` に上記 Decision を反映し、WI-A1〜WI-A5 を Work Item として記載する（いずれも未承認）。
 
 ## Related Tasks
 
 UI-001 / UI-002 / UI-002-A / UI-002-B / UI-002-C1 / UI-002-D / UI-002-V / UI-002-C2 / UI-002-E / UI-002-F / UI-002-G / UI-002-H / UI-002-I
+
+## Decision History
+
+| Date | 内容 | Where |
+| --- | --- | --- |
+| 2026-09-26 | HD-1〜HD-5、Undecided を記録 | 本セッションの会話（UI-002 Planner report 確認後）。branch `claude/ui-002-task-planning` |
+| 2026-09-27 | 第一章ゲームデザイン境界、旧セーブを破壊しない原則、HD-P1〜HD-P9、AP-5、AP-8、AP-9、AP-10、UI-002-A の Work Item 構成を追記 | 本セッションの会話（UI-002-A Planner report v1 / v2 確認後）。branch `claude/ui-002-a-task-update` |
