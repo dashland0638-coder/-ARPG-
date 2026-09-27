@@ -187,6 +187,26 @@ UI-002-HD（UI-002 Human Decisions: HD-1〜HD-5、第一章ゲームデザイン
 - 許可範囲: WI-A1〜A5 の承認済み内容の実装 / 必要なテストコードの追加・期待値更新 / build・unit・E2E による検証 / 上記ブランチへの commit / 上記ブランチへの push。
 - 許可しないもの: main への直接 push / main への merge / 他の Task の実装 / UI-002-F / G 等の先行実装 / 承認されていない仕様変更 / Artifact Identity の変更 / セーブデータの削除・変換・初期化 / Test Mode の変更。
 
+### UI-002-B: D-1〜D-7 と追加方針（2026-09-27）
+
+UI-002-B Analyzer report（`.ai/reports/UI-002-B-analysis.md`、branch `claude/ui-002-b-analysis` @ `7595db4`）§6 の論点に対する Human Decision。
+
+- **D-1（分離方式）**: `?dev=1` 方式を採用する。通常 URL では開発用 UI を表示・操作できない。`?dev=1` が付いている場合のみ開発用 UI を有効化する。`?dev=1` の状態を localStorage 等へ永続保存して覚える方式は採用しない。本番ビルドから開発コードそのものを除去する方式も今回は採用しない。目的は開発機能の完全秘匿ではなく、通常プレイと開発用 UI の明確な分離とする。
+- **D-2（実機確認）**: 実機確認は今後も GitHub Pages の本番 URL を使用する。通常 URL と `?dev=1` の両方を確認対象とする。
+- **D-3（デバッグモード入口）**: `` ` `` キーと、メニュー下のバージョン表記 5 回連打も分離対象とする。通常 URL からこれらの操作によって開発用 UI へ到達できないようにする。`?dev=1` の場合は従来どおり利用可能とする。
+- **D-4（ホーム画面起動）**: ホーム画面から起動した場合も通常 URL と同じ本番扱いとする。ホーム画面起動時に開発用 UI を使える必要はない。開発確認時は明示的に `?dev=1` を使用する。
+- **D-5（テスト変更）**: 今回の開発 UI 分離によって必要になる範囲のテスト修正を許可する。テストの意味や検証内容を変える修正、不要なテスト改変、機能追加は行わない。既存 FAIL / FLAKY / NOT_RUN は勝手に PASS 扱いしない。
+- **D-6（テストモード中の設定保存）**: 現状維持。UI-002-B では設定保存の仕様変更やセーブ形式変更を行わない。
+- **D-7（タイトルのテストモードボタン）**: 「🛠 テストモード」ボタンは通常 URL では非表示とする。`?dev=1` の場合は従来どおり表示・利用可能とする。UI デザイン変更ではなく、開発機能の可視性制御として UI-002-B の範囲に含める。
+- **追加方針**:
+  - 通常 URL で開発用 UI へ到達できる別経路が残らないことを確認する。
+  - `?dev=1` では既存の Test Mode / DEBUG / Arena / PERF / Motion Preview 等を従来どおり利用できることを確認する。
+  - CSS や通常 UI のデザイン刷新は行わない。
+  - Chapter 1 のゲーム仕様変更は行わない。
+  - UI-002-A の完了済み仕様には手を入れない。
+  - 実装前に Planner へ進み、Task / Work Item を提示する。
+  - Human 承認なしに Implementer へ進まない。
+
 ## Undecided（未決定事項）
 
 以下は現時点では決定しない。必要になった Task の Analyzer / Planner を通して改めて判断する。
@@ -231,3 +251,4 @@ UI-001 / UI-002 / UI-002-A / UI-002-B / UI-002-C1 / UI-002-D / UI-002-V / UI-002
 | 2026-09-27 | 第一章ゲームデザイン境界、旧セーブを破壊しない原則、HD-P1〜HD-P9、AP-5、AP-8、AP-9、AP-10、UI-002-A の Work Item 構成を追記 | 本セッションの会話（UI-002-A Planner report v1 / v2 確認後）。branch `claude/ui-002-a-task-update` |
 | 2026-09-27 | HD-P6 と WI-A4 の構成記述を、WI-A4 の Human Approval（5 項目）と整合するよう改訂。Skill 1 の旧仕様説明（溜め攻撃）と Skill 2 の操作説明の修正を WI-A4 で扱う（新しい Skill 1 / Skill 2 の仕様決定ではない）。改訂前の「UI-002-F へ送る」部分を取り消し | 本セッションの会話（WI-A4 承認後の Human 指示）。branch `claude/ui-002-a-task-update` |
 | 2026-09-27 | UI-002-A WI-A5 の結果画面における 💎 / 🔩 報酬表示の扱い、実装開始と Persistence（`claude/ui-002-a-impl`）を追記。既存の Human Decision は変更していない | 本セッションの会話（実装開始前の Human 指示）。branch `claude/ui-002-a-task-update` |
+| 2026-09-27 | UI-002-B の D-1〜D-7 と追加方針を追記。既存の Human Decision は変更していない | 本セッションの会話（UI-002-B Analyzer report 確認後）。branch `claude/ui-002-b-planner` |
