@@ -102,7 +102,7 @@
     <div class="loot-chip" id="loot-mppotion-btn" style="cursor:pointer;">🔷<span class="count" id="loot-mppotion">0</span></div>
   </div>
   <div class="hud-gamepad-badge" id="gamepad-badge">🎮 コントローラー接続中</div>
-  <div class="hud-hint" id="hud-hint">WASD 移動 / Space ジャンプ / クリック(J) 攻撃 / L スキル / O スキル2 / U スキル3 / Shift 回避 / K 必殺技 / Q・E カメラ回転 / R インタラクト / V 薬草 / Esc メニュー</div>
+  <div class="hud-hint" id="hud-hint">WASD 移動 / Space ジャンプ / クリック(J) 攻撃 / L スキル / O スキル2 / <span id="hud-hint-skill3">U スキル3 / </span>Shift 回避 / K 必殺技 / Q・E カメラ回転 / R インタラクト / V 薬草 / Esc メニュー</div>
 </div>
 <div id="combo-indicator">
   <div class="combo-pips" id="combo-pips"></div>
@@ -275,11 +275,12 @@
       ジャンプ: Space / A・× / JUMPボタン<br>
       攻撃: 左クリック・J / X・□ / 攻撃ボタン<br>
       回避: Shift / B・○ / 回避ボタン<br>
-      必殺技: K / R2・RT / 必殺ボタン(リチャージ制)<br>
-      溜め攻撃: L(長押し) / Y・△(長押し) / 溜めボタン(長押し・鑑定所でタイプ変更可)<br>
+      必殺技: K / R2・RT / 必殺ボタン(戦ってゲージを溜めると使える)<br>
+      スキル1: L / Y・△ / スキルボタン<br>
+      スキル2: O / L2・LT / スキル2ボタン(閃いた後に使える)<br>
       カメラ回転: Q・E / 右スティック<br>
-      鑑定所(街の近くで): I / 十字キー下 / 鑑定ボタン<br>
-      出撃メニュー(街で): F / 十字キー上 / 出撃ボタン<br>
+      鑑定所(鍛冶士の前で): I / 十字キー下 / 画面下のメッセージをタップ<br>
+      出撃メニュー(店主の前で): F / 十字キー上 / 画面下のメッセージをタップ<br>
       扉を開ける・階段を使う: R / L1・LB / 画面下のメッセージをタップ<br>
       薬草を使う: V / R1・RB / HUD左上の🧪をタップ<br>
       対話・手記を進める: クリック / A・×<br>
@@ -388,7 +389,7 @@
   <div class="appraisal-box">
     <div class="appraisal-header">
       <div class="appraisal-title display">鑑定所</div>
-      <div class="appraisal-currency">🪙<span id="ap-gold">0</span>　💎<span id="ap-gem">0</span></div>
+      <div class="appraisal-currency">🪙<span id="ap-gold">0</span><span id="ap-gem-wrap">　💎<span id="ap-gem">0</span></span></div>
     </div>
 
     <div class="ap-tabs">
