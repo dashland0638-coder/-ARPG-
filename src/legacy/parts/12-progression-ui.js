@@ -1094,7 +1094,8 @@
     lootDiv.innerHTML =
       (legacy ? `<div class="result-loot-row"><span>経験値</span><span>+${boss.xp||150}${leveledUp?' (Lv.'+state.level+'に上昇!)':''}</span></div>` : '') +
       `<div class="result-loot-row"><span>🪙 ゴールド</span><span>+${goldGain}</span></div>` +
-      `<div class="result-loot-row"><span>${loot.icon} ${loot.name}</span><span>×1</span></div>` +
+      // WI-A5: Chapter 1 では付与されない素材(💎/🔩)の行は出さない。名前はそのまま
+      ((legacy || LEGACY_LOOT_TYPES.indexOf(loot.type) < 0) ? `<div class="result-loot-row"><span>${loot.icon} ${loot.name}</span><span>×1</span></div>` : '') +
       (gearDrop ? `<div class="result-loot-row"><span>${gearDrop.identified?gearDrop.icon:'❓'} ${gearDrop.identified?gearDrop.name:'未鑑定の装備'}</span><span>Lv.${gearDrop.itemLevel}</span></div>` : '') +
       (bonusDrop ? `<div class="result-loot-row"><span>❓ 未鑑定の装備(周回報酬)</span><span>Lv.${bonusDrop.itemLevel}</span></div>` : '') +
       (!noReturn ? `<div class="result-loot-row"><span>討伐回数</span><span>${clears}回目${streakMul>1?' (報酬 x'+streakMul.toFixed(2)+')':''}</span></div>` : '') +
@@ -1289,7 +1290,8 @@
     if(bonus.kills > 0){
       grantXP(bonus.xp);
       const finalGold = grantGold(bonus.gold);
-      spawnToast(`🏳️ 撤退ボーナス: XP+${bonus.xp} 🪙+${finalGold}`);
+      // WI-A1: Chapter 1 に XP は無い。実際に得たゴールドだけを出す
+      spawnToast(legacyGrowth() ? `🏳️ 撤退ボーナス: XP+${bonus.xp} 🪙+${finalGold}` : `🏳️ 撤退ボーナス: 🪙+${finalGold}`);
     }
     returnToTown(false);
   }
@@ -2547,6 +2549,9 @@
     syncApTabsVisibility();
     document.getElementById('ap-gold').textContent = state.inventory.gold;
     document.getElementById('ap-gem').textContent = state.inventory.gem;
+    // WI-A5: 素材の所持数は Chapter 1 では出さない(値は保持)
+    const apGemWrap = document.getElementById('ap-gem-wrap');
+    if(apGemWrap) apGemWrap.style.display = legacyGrowth() ? '' : 'none';
     STAT_KEYS.forEach(k=>{
       const el = document.getElementById('ap-alloc-'+k);
       if(!el) return;
@@ -2682,9 +2687,9 @@
 
     html += `<div class="gear-tools">
         <button type="button" class="gear-tool-btn" id="gear-best-btn">⚙️ 最強装備</button>
-        <button type="button" class="gear-tool-btn" id="gear-identify-all-btn">🔍 一括鑑定</button>
+        ${legacyGrowth() ? '<button type="button" class="gear-tool-btn" id="gear-identify-all-btn">🔍 一括鑑定</button>' : ''}
         <button type="button" class="gear-tool-btn sell-all" id="gear-sell-all-btn">🪙 まとめて売却</button>
-        <span class="gear-legend"><i class="lg-ok"></i>装備可 <i class="lg-hi"></i>Lv不足 <i class="lg-eq"></i>装備中</span>
+        <span class="gear-legend"><i class="lg-ok"></i>装備可 <i class="lg-hi"></i>${legacyGrowth() ? 'Lv不足' : '装備できない'} <i class="lg-eq"></i>装備中</span>
       </div>`;
 
     if(state.equipmentInventory.length===0){
@@ -2721,7 +2726,7 @@
           <div class="gear-item-actions">
             ${item.identified
               ? `<button type="button" class="gear-item-btn" data-equip-idx="${idx}" ${equipped||!canEquip?'disabled':''}>${equipped?'装備中':(canEquip?'装備する':(legacyGrowth() && item.itemLevel > state.level ? 'Lv不足' : '扱えない'))}</button>`
-              : `<button type="button" class="gear-item-btn identify" data-identify-idx="${idx}" ${state.inventory.gold<(15+item.itemLevel*3)?'disabled':''}>鑑定 🪙${15+item.itemLevel*3}</button>`
+              : (legacyGrowth() ? `<button type="button" class="gear-item-btn identify" data-identify-idx="${idx}" ${state.inventory.gold<(15+item.itemLevel*3)?'disabled':''}>鑑定 🪙${15+item.itemLevel*3}</button>` : '')
             }
             ${item.identified && !equipped
               ? `<button type="button" class="gear-item-btn sell" data-sell-idx="${idx}">売却 🪙${equipmentSellPrice(item)}</button>` : ''
@@ -2741,7 +2746,7 @@
       const targets = state.equipmentInventory.filter(isSellableJunk);
       if(targets.length===0){ spawnToast('🪙 売却できる装備がない'); return; }
       const total = targets.reduce((s,it)=> s+equipmentSellPrice(it), 0);
-      askConfirm('まとめて売却', `未装備の装備 <b>${targets.length}個</b> を売却して <b>🪙${total}</b> を得ます。<br>⭐特殊効果武器・レベル未達で装備できない品は対象外です。よろしいですか?`, ()=>{
+      askConfirm('まとめて売却', `未装備の装備 <b>${targets.length}個</b> を売却して <b>🪙${total}</b> を得ます。<br>⭐特殊効果武器・${legacyGrowth() ? 'レベル未達で' : ''}装備できない品は対象外です。よろしいですか?`, ()=>{
         sellAllJunk();
         refreshAppraisal();
       });

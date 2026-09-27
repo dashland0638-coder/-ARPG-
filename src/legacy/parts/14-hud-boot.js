@@ -733,6 +733,8 @@
     // リング表示の仕組みはそのまま流用し、値の意味だけ変えてある
     if(ultEl) ultEl.style.setProperty('--cd-pct', Math.max(0, Math.min(1, state.ultGauge / ULT_GAUGE_MAX)));
     const skill3El = document.getElementById('btn-skill3');
+    // WI-A2: Chapter 1 では Skill 3 ボタンを出さない(Skill 2 の未習得と同じ .locked)
+    if(skill3El) skill3El.classList.toggle('locked', !legacyGrowth());
     if(skill3El){
       const activeDef = state.equippedBossActiveSkill && BOSS_ACTIVE_SKILLS[state.equippedBossActiveSkill];
       skill3El.classList.toggle('unequipped', !activeDef);   // 何も装着していない間は薄く表示するだけ
@@ -1800,6 +1802,13 @@
     state.started = true;      // the pad derives from this, so set it first
     refreshTouchControls();
     if(isTouchDevice) document.getElementById('hud-hint').style.display = 'none';
+    /* Chapter 1 に無い旧成長系の HUD 表示(UI-002-A)。state.testMode は
+       この関数の冒頭で確定しているので、ここで一度だけ合わせればよい。
+       XP の値そのもの(state.xp)には触れない */
+    const xpTrack = document.getElementById('xp-fill');
+    if(xpTrack && xpTrack.parentElement) xpTrack.parentElement.style.display = legacyGrowth() ? '' : 'none';   // WI-A1
+    const hintSkill3 = document.getElementById('hud-hint-skill3');
+    if(hintSkill3) hintSkill3.style.display = legacyGrowth() ? '' : 'none';   // WI-A2
     checkOrientation();
 
     // Put the player inside the tavern (or the training ground - see

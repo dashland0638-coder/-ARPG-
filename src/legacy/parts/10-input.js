@@ -145,7 +145,7 @@
     if(currentWorldKey === 'tavern'){ setOverlay('none'); return; }
     const bonus = retreatBonusPreview();
     const bonusLine = bonus.kills > 0
-      ? `<br><br>撤退ボーナス: <b>XP+${bonus.xp} 🪙+${bonus.gold}</b>(このダンジョンでの撃破数から算出)`
+      ? `<br><br>撤退ボーナス: <b>${legacyGrowth() ? `XP+${bonus.xp} ` : ''}🪙+${bonus.gold}</b>(このダンジョンでの撃破数から算出)`
       : '';
     askConfirm('撤退する',
       '探索を切り上げて街に戻ります。<br>このダンジョンの進行はここまでになります。' + bonusLine,
@@ -355,6 +355,11 @@
     document.getElementById('menu-gold').textContent = state.inventory.gold;
     document.getElementById('menu-gem').textContent = state.inventory.gem;
     document.getElementById('menu-shard').textContent = state.inventory.shard;
+    // WI-A5: 魔宝石・武具の欠片は Chapter 1 では出さない(所持数は保持)
+    ['menu-gem','menu-shard'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el && el.parentElement) el.parentElement.style.display = legacyGrowth() ? '' : 'none';
+    });
     document.getElementById('menu-ult').textContent = `${state.classDef.ult.icon} ${state.classDef.ult.name}`;
     const xpEl = document.getElementById('menu-xp');
     if(xpEl){

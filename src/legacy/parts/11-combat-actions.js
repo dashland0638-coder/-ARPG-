@@ -1060,6 +1060,10 @@
      律速している。効果自体はdealDamageToEnemy/posture/invulnExtraTなど
      既存の仕組みに乗せてあり、新しいダメージ経路は増やしていない */
   function castBossSkill3(){
+    /* Skill 3 は Chapter 1 に存在しない(UI-002-A WI-A2)。U・十字キー左・
+       タップはすべてここへ来るので、入口で止めればトースト・警告・発動が
+       まとめて出なくなる。旧セーブの装着データには触れない */
+    if(!legacyGrowth()) return;
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
     if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     if(blockedInAir('SKILL 3')) return;

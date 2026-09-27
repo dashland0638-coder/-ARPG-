@@ -251,6 +251,8 @@
   }
 
   function identifyEquipment(item){
+    // 鑑定は Chapter 1 に存在しない(UI-002-A WI-A3)。未鑑定品のデータは残す
+    if(!legacyGrowth()) return false;
     const cost = 15 + item.itemLevel*3;
     if(state.inventory.gold < cost) return false;
     state.inventory.gold -= cost;
@@ -269,6 +271,7 @@
   // 個別のトースト(spawnToast)は積み上げず、呼び出し側が結果を
   // まとめて1つのトーストで表示する
   function identifyAllEquipment(){
+    if(!legacyGrowth()) return {total:0, count:0, spent:0};   // WI-A3: Chapter 1 に鑑定は無い
     const targets = state.equipmentInventory
       .filter(it=>!it.identified)
       .sort((a,b)=> a.itemLevel - b.itemLevel);
@@ -433,12 +436,16 @@
   }
 
   function grantItem(type, amount){
+    /* 魔宝石・武具の欠片は Chapter 1 に存在しない素材(UI-002-A WI-A5)。
+       本編では新しく増やさない ―― 旧セーブの所持数には触れない */
+    if(!legacyGrowth() && LEGACY_LOOT_TYPES.indexOf(type) >= 0) return;
     state.inventory[type] = (state.inventory[type]||0) + amount;
     const chip = document.getElementById('loot-'+type);
     if(chip) chip.textContent = state.inventory[type];
   }
 
   function addItem(loot){
+    if(!legacyGrowth() && LEGACY_LOOT_TYPES.indexOf(loot.type) >= 0) return;   // WI-A5(grantItem と同じ)
     if(loot.type==='equipment'){
       addEquipmentItem(loot.equipItem);
       spawnPickupPopup(loot, 1);
@@ -764,7 +771,8 @@
     grantGold(gold);
     spawnToast(`🪙 金貨${gold}枚を手に入れた!`);
 
-    if(Math.random() < 0.55){
+    // WI-A5: Chapter 1 では素材を出さない。別の報酬には置き換えない
+    if(legacyGrowth() && Math.random() < 0.55){
       const isGem = Math.random() < 0.5;
       const type = isGem ? 'gem' : 'shard';
       grantItem(type, 1 + Math.floor(Math.random()*2));
