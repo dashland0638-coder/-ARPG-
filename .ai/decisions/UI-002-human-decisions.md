@@ -170,6 +170,23 @@ UI-002-HD（UI-002 Human Decisions: HD-1〜HD-5、第一章ゲームデザイン
 - WI-A5: 第一章で不要な鑑定・強化系素材について、本編 UI 上の表示・報酬導線を整理する（対象候補: 💎、🔩、鑑定素材、強化素材 / メニュー表示、鑑定所ヘッダ、宝箱報酬、ボス報酬）。既存セーブデータの削除・正規化は行わない。第二章以降の素材仕様は決定しない。
 - UI-002-A の Scope 外: UI 全体の visual redesign、Combat HUD の全面再設計（D）、Character / Equipment 画面の全面再設計（F）、Tavern UI（G）、Notification / Result UI の visual redesign（H）、Design system（C1 / C2）、Icon system（E）、Final responsive（I）、第二章以降の成長システム設計、第二章以降の鑑定システム設計、旧セーブの正規化、docs/README.md の修正、architecture 全体の表示可否集約。
 
+### UI-002-A: WI-A5 結果画面の 💎 / 🔩 報酬表示（2026-09-27 追加）
+
+- Chapter 1 通常プレイでは、実際に付与されない 💎 / 🔩 報酬を結果画面に表示しない。
+  - 「💎 主の袖飾り ×1」のような 💎 / 🔩 の報酬行を表示しない。
+  - 実際に付与される報酬のみ結果画面に表示する。
+  - 💎 / 🔩 の加算も行わない。
+  - 報酬名そのものを別のアイテム名へ勝手に変更しない。
+  - 宝箱・ボス報酬を別報酬へ自動置換しない。
+- 「主の袖飾り」等の名称自体は UI-002-A では変更・削除・置換しない。本決定は「実際に付与されない 💎 / 🔩 報酬を Chapter 1 の結果画面に表示しない」という UI 上の扱いだけである。報酬名や報酬そのもののゲームデザイン変更が必要になった場合は、別途シナリオ／ゲームデザイン側で Human Decision を取る。
+
+### UI-002-A: 実装開始と Persistence（2026-09-27 追加）
+
+- WI-A1〜A5 の Implementer 実装を開始してよい。
+- 実装結果の commit / push を、専用実装ブランチ `claude/ui-002-a-impl` に限り許可する。
+- 許可範囲: WI-A1〜A5 の承認済み内容の実装 / 必要なテストコードの追加・期待値更新 / build・unit・E2E による検証 / 上記ブランチへの commit / 上記ブランチへの push。
+- 許可しないもの: main への直接 push / main への merge / 他の Task の実装 / UI-002-F / G 等の先行実装 / 承認されていない仕様変更 / Artifact Identity の変更 / セーブデータの削除・変換・初期化 / Test Mode の変更。
+
 ## Undecided（未決定事項）
 
 以下は現時点では決定しない。必要になった Task の Analyzer / Planner を通して改めて判断する。
@@ -213,3 +230,4 @@ UI-001 / UI-002 / UI-002-A / UI-002-B / UI-002-C1 / UI-002-D / UI-002-V / UI-002
 | 2026-09-26 | HD-1〜HD-5、Undecided を記録 | 本セッションの会話（UI-002 Planner report 確認後）。branch `claude/ui-002-task-planning` |
 | 2026-09-27 | 第一章ゲームデザイン境界、旧セーブを破壊しない原則、HD-P1〜HD-P9、AP-5、AP-8、AP-9、AP-10、UI-002-A の Work Item 構成を追記 | 本セッションの会話（UI-002-A Planner report v1 / v2 確認後）。branch `claude/ui-002-a-task-update` |
 | 2026-09-27 | HD-P6 と WI-A4 の構成記述を、WI-A4 の Human Approval（5 項目）と整合するよう改訂。Skill 1 の旧仕様説明（溜め攻撃）と Skill 2 の操作説明の修正を WI-A4 で扱う（新しい Skill 1 / Skill 2 の仕様決定ではない）。改訂前の「UI-002-F へ送る」部分を取り消し | 本セッションの会話（WI-A4 承認後の Human 指示）。branch `claude/ui-002-a-task-update` |
+| 2026-09-27 | UI-002-A WI-A5 の結果画面における 💎 / 🔩 報酬表示の扱い、実装開始と Persistence（`claude/ui-002-a-impl`）を追記。既存の Human Decision は変更していない | 本セッションの会話（実装開始前の Human 指示）。branch `claude/ui-002-a-task-update` |
