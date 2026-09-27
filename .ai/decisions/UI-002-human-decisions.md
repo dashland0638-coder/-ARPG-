@@ -207,6 +207,11 @@ UI-002-B Analyzer report（`.ai/reports/UI-002-B-analysis.md`、branch `claude/u
   - 実装前に Planner へ進み、Task / Work Item を提示する。
   - Human 承認なしに Implementer へ進まない。
 
+### UI-002-B: Planner 承認と Persistence（2026-09-27）
+
+- AP-B1〜AP-B7 をすべて承認（内容は `.ai/tasks/UI-002-B.md`「Human Approval 内容」）。
+- 実装ブランチ `claude/ui-002-b-impl` への commit / push を許可。main への push / merge、Reviewer への移行は許可していない。
+
 ## Undecided（未決定事項）
 
 以下は現時点では決定しない。必要になった Task の Analyzer / Planner を通して改めて判断する。
@@ -252,3 +257,4 @@ UI-001 / UI-002 / UI-002-A / UI-002-B / UI-002-C1 / UI-002-D / UI-002-V / UI-002
 | 2026-09-27 | HD-P6 と WI-A4 の構成記述を、WI-A4 の Human Approval（5 項目）と整合するよう改訂。Skill 1 の旧仕様説明（溜め攻撃）と Skill 2 の操作説明の修正を WI-A4 で扱う（新しい Skill 1 / Skill 2 の仕様決定ではない）。改訂前の「UI-002-F へ送る」部分を取り消し | 本セッションの会話（WI-A4 承認後の Human 指示）。branch `claude/ui-002-a-task-update` |
 | 2026-09-27 | UI-002-A WI-A5 の結果画面における 💎 / 🔩 報酬表示の扱い、実装開始と Persistence（`claude/ui-002-a-impl`）を追記。既存の Human Decision は変更していない | 本セッションの会話（実装開始前の Human 指示）。branch `claude/ui-002-a-task-update` |
 | 2026-09-27 | UI-002-B の D-1〜D-7 と追加方針を追記。既存の Human Decision は変更していない | 本セッションの会話（UI-002-B Analyzer report 確認後）。branch `claude/ui-002-b-planner` |
+| 2026-09-27 | UI-002-B の AP-B1〜AP-B7 承認と Persistence（`claude/ui-002-b-impl`）を追記 | 本セッションの会話（UI-002-B Planner 確認後）。branch `claude/ui-002-b-impl` |
