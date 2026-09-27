@@ -1607,6 +1607,8 @@
   let debugRefreshCounter = 0;
 
   function toggleDebugMode(){
+    // 開発用 UI の門番(UI-002-B)。` キーとバージョン表記5連打の両方がここを通る
+    if(!DEV_UI) return;
     state.debugMode = !state.debugMode;
     if(state.debugMode){
       showDebugColliders();

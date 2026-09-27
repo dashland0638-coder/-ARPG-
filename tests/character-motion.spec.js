@@ -212,7 +212,7 @@ test.describe('Mage Lord Combat Idle', () => {
     await shots(page, 'mage-exploration');
 
     // ---- 魔導士(Mage Lord): 専用プロファイル ----
-    await page.goto('/');
+    await page.goto('/?dev=1');
     await page.waitForFunction(() =>
       document.getElementById('title-screen').style.display === 'flex', { timeout: 15_000 });
     await enterTestMode(page, 'mage', true);
