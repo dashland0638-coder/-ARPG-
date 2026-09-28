@@ -12,3 +12,10 @@
 export function devUiEnabled(search){
   return new URLSearchParams(search || '').get('dev') === '1';
 }
+
+/* Combat HUD Visual Prototype の見本オーバーレイ(UI-002-C2、AP-C2-08)。
+   `?dev=1` かつ `uiproto=1` の時だけ有効。判定は devUiEnabled と同じ
+   規則(値の完全一致・最初の値・保存しない)。通常 URL では常に無効。 */
+export function uiProtoEnabled(search){
+  return devUiEnabled(search) && new URLSearchParams(search || '').get('uiproto') === '1';
+}

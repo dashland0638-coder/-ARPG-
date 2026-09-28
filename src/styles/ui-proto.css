@@ -1,0 +1,191 @@
+/* =========================================================
+   Combat HUD Visual Prototype(UI-002-C2)
+
+   ?dev=1&uiproto=1 の時だけ 15-ui-proto.js が #uip-root を作る。
+   本番 HUD の selector には一切触れない(.uip-* だけ)。
+   見本の並びは仮配置で、HUD の配置案ではない(D2〜D6 を先取りしない)。
+
+   V-1〜V-7:
+     - トゥーン・プレート: 暗い面+厚い輪郭(--ui-outline)+小さな内側の縁
+     - matte: blur / 半透明パネル / 光沢 / 常時 glow / 点滅を使わない
+     - 状態は形・塗り・進捗・overlay で示す(色だけにしない)
+   token は C1 / C2 の --ui-* を参照する(AP-C2-04)。
+   寸法は現行 HUD の実寸を基準にしている(AP-C2-05。最終値ではない)
+   ========================================================= */
+#uip-root{
+  /* 現行 HUD の実寸(UI-002-D §15.2)を基準にした Prototype の寸法 */
+  --uip-attack: 82px;       /* #btn-attack */
+  --uip-skill: 44px;        /* #btn-charge */
+  --uip-ult: 52px;          /* #btn-ult(菱形の一辺) */
+  --uip-heal: 40px;
+  --uip-portrait: 44px;     /* #hud-portrait */
+  --uip-badge: 22px;        /* #weapon-badge は 18px。シルエットが潰れないよう +4px */
+  --uip-outline-w: 3px;
+  --uip-rim-w: 2px;
+  --uip-drop: 0 2px 0 rgba(0,0,0,0.55);   /* 落ち影は 1 種だけ(subtle shadow) */
+  --s: 1;                   /* 見本板で縮小する時の倍率 */
+
+  position:fixed; inset:0; z-index:var(--ui-z-hud-button);
+  pointer-events:none;      /* ゲームの操作を妨げない(入力に接続しない。H-6) */
+  display:none;
+  font-family:var(--ui-font-body); color:var(--ui-text);
+}
+#uip-root.show{ display:block; }
+
+/* ---- アイコン(インライン SVG) ---- */
+.uip-ico{ width:100%; height:100%; display:block; overflow:visible; }
+.uip-ico .f{ fill:currentColor; stroke:var(--ui-outline); stroke-width:1.6; stroke-linejoin:round; paint-order:stroke; }
+.uip-ico .s{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; }
+.uip-ico .a{ fill:var(--ui-outline); }
+.uip-ico .cut{ fill:none; stroke:var(--ui-outline); stroke-width:2.6; stroke-linecap:round; }
+
+/* ---- プレート(共通) ---- */
+.uip-plate{
+  position:relative; display:flex; align-items:center; justify-content:center; flex:none;
+  background:var(--ui-surface-panel-top);
+  border:var(--uip-outline-w) solid var(--ui-outline);
+  box-shadow:inset 0 0 0 var(--uip-rim-w) var(--ui-line), var(--uip-drop);
+  color:var(--ui-text);
+}
+.uip-plate > .uip-icon{ position:relative; z-index:1; }
+.uip-plate::after{ content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
+
+/* 通常攻撃: 大きな円。最も基本の操作 */
+.uip-btn-attack{ width:calc(var(--s)*var(--uip-attack)); height:calc(var(--s)*var(--uip-attack)); border-radius:var(--ui-p-radius-round); }
+.uip-btn-attack > .uip-icon{ width:58%; height:58%; }
+/* Skill: 角の丸い四角(円の Attack・菱形の Ultimate と形で区別) */
+.uip-btn-skill{ width:calc(var(--s)*var(--uip-skill)); height:calc(var(--s)*var(--uip-skill)); border-radius:var(--ui-p-radius-8); }
+.uip-btn-skill > .uip-icon{ width:64%; height:64%; }
+/* 回復: 小さな円+所持数 */
+.uip-btn-heal{ width:calc(var(--s)*var(--uip-heal)); height:calc(var(--s)*var(--uip-heal)); border-radius:var(--ui-p-radius-round); color:var(--ui-recovery); }
+.uip-btn-heal > .uip-icon{ width:66%; height:66%; }
+.uip-count{
+  position:absolute; right:-6px; bottom:-6px; z-index:2;
+  min-width:18px; height:18px; padding:0 4px; border-radius:9px;
+  background:var(--ui-outline); border:2px solid var(--ui-line);
+  font-size:11px; font-weight:var(--ui-fw-bold); line-height:14px; text-align:center; color:var(--ui-text);
+}
+/* 必殺: 菱形の紋章。ゲージは菱形の中を下から満たす */
+.uip-btn-ult{
+  width:calc(var(--s)*var(--uip-ult)); height:calc(var(--s)*var(--uip-ult));
+  border-radius:var(--ui-p-radius-8); transform:rotate(45deg); margin:calc(var(--s)*11px);
+  color:var(--ui-text-muted);
+}
+.uip-btn-ult > .uip-icon{ width:70%; height:70%; transform:rotate(-45deg); }
+.uip-btn-ult::before{
+  content:''; position:absolute; inset:var(--uip-rim-w); border-radius:5px;
+  background:linear-gradient(to top right, var(--ui-special) calc(var(--g,0)*100%), transparent 0);
+  opacity:0.35;
+}
+
+/* ---- 状態(V-6) ---- */
+/* pressed: 板が沈む(落ち影が消えて 2px 下がる)+内側の縁が明るくなる */
+.uip-plate.is-pressed{ box-shadow:inset 0 0 0 var(--uip-rim-w) var(--ui-selected); translate:0 2px; }
+/* disabled: アイコンは輪郭だけ(塗りなし)+斜線。暗くするだけにしない */
+.uip-plate.is-disabled{ color:var(--ui-disabled); box-shadow:inset 0 0 0 var(--uip-rim-w) var(--ui-line); }
+.uip-plate.is-disabled .uip-ico .f{ fill:none; stroke:var(--ui-disabled); }
+.uip-plate.is-disabled .uip-ico .s{ stroke:var(--ui-disabled); }
+.uip-plate.is-disabled::after{
+  background:repeating-linear-gradient(45deg, rgba(12,10,16,0.55) 0 3px, transparent 3px 7px);
+}
+/* cooldown: 残り時間ぶんの扇形が上から覆う(--cd = 残りの割合) */
+.uip-plate.is-cd{ color:var(--ui-text-muted); }
+.uip-plate.is-cd::after{
+  z-index:2;
+  background:conic-gradient(rgba(12,10,16,0.78) calc(var(--cd,0)*1turn), transparent 0);
+}
+/* Ultimate ready: 紋章の縁が太い Special 色になり、中が満ちる。常時 glow・点滅なし */
+.uip-btn-ult.is-ready{ color:var(--ui-special); border-color:var(--ui-outline); box-shadow:inset 0 0 0 4px var(--ui-special), var(--uip-drop); }
+.uip-btn-ult.is-ready::before{ opacity:0.5; }
+/* ready になった瞬間だけの 1 回の反応(繰り返さない) */
+.uip-btn-ult.uip-pop{ animation:uip-pop 0.45s ease-out 1; }
+@keyframes uip-pop{
+  0%{ scale:1; }
+  45%{ scale:1.14; }
+  100%{ scale:1; }
+}
+
+/* ---- Character Status ---- */
+.uip-status{ display:flex; align-items:center; gap:10px; }
+.uip-portrait{ width:var(--uip-portrait); height:var(--uip-portrait); border-radius:var(--ui-p-radius-round); color:var(--ui-text-muted); }
+.uip-portrait > .uip-icon{ width:70%; height:70%; }
+.uip-badge{
+  position:absolute; right:-9px; bottom:-9px; z-index:2;
+  width:var(--uip-badge); height:var(--uip-badge); border-radius:var(--ui-p-radius-round);
+  border-width:2px; color:var(--ui-text);
+}
+.uip-badge > .uip-icon{ width:78%; height:78%; }
+.uip-badge.is-placeholder > .uip-icon{ display:none; }
+.uip-status-body{ display:flex; flex-direction:column; gap:4px; min-width:150px; }
+.uip-name{ font-size:12px; font-weight:var(--ui-fw-bold); text-shadow:0 1px 0 var(--ui-outline); }
+.uip-hp{ display:flex; align-items:center; gap:6px; }
+.uip-hp-mark{ width:16px; height:16px; color:var(--ui-danger); flex:none; }
+.uip-hp-track{
+  position:relative; flex:1; height:12px; border-radius:6px;
+  background:var(--ui-outline); border:2px solid var(--ui-outline);
+  box-shadow:inset 0 0 0 1px var(--ui-line), var(--uip-drop);
+  overflow:hidden;
+}
+.uip-hp-fill{ height:100%; width:100%; background:var(--ui-danger); border-radius:4px; box-shadow:inset 0 2px 0 rgba(255,255,255,0.18); }
+.uip-hp-num{ font-size:10.5px; color:var(--ui-text-muted); min-width:44px; text-align:right; }
+
+/* ---- 通知(アイコン主体) ---- */
+.uip-note{
+  display:flex; align-items:center; gap:8px; padding:4px 12px 4px 4px;
+  border-radius:20px; width:max-content;
+}
+.uip-note-icon{ width:30px; height:30px; border-radius:var(--ui-p-radius-round); }
+.uip-note-icon > .uip-icon{ width:70%; height:70%; }
+.uip-note-recovery .uip-note-icon{ color:var(--ui-recovery); }
+.uip-note-interact .uip-note-icon{ color:var(--ui-text); }
+.uip-note-val{ font-size:13px; font-weight:var(--ui-fw-bold); }
+.uip-note-recovery .uip-note-val{ color:var(--ui-recovery); }
+
+/* ---- 仮配置(見本シート。HUD の配置案ではない) ---- */
+.uip-tag{
+  position:absolute; top:6px; left:50%; translate:-50% 0;
+  display:flex; align-items:center; gap:6px; pointer-events:auto;
+}
+.uip-tag-label{
+  font-size:10px; color:var(--ui-text-muted); padding:2px 8px; border-radius:var(--ui-p-radius-4);
+  background:var(--ui-outline); border:1px solid var(--ui-line);
+}
+.uip-tool{ width:24px; height:24px; border-radius:var(--ui-p-radius-6); cursor:pointer; color:var(--ui-text-muted); border-width:2px; }
+.uip-tool > .uip-icon{ width:70%; height:70%; }
+.uip-live-status{ position:absolute; top:40px; left:50%; translate:-50% 0; }
+.uip-notes{ position:absolute; top:30%; left:50%; translate:-50% 0; display:flex; flex-direction:column; gap:8px; align-items:center; }
+.uip-live-actions{
+  position:absolute; bottom:64px; left:50%; translate:-50% 0;   /* 非タッチの操作ヒント(#hud-hint)の上 */
+  display:flex; align-items:center; gap:14px;
+}
+.uip-board{
+  position:absolute; left:14px; top:50%; translate:0 -40%;
+  padding:8px 10px; border-radius:var(--ui-p-radius-8);
+  background:var(--ui-surface-panel-top); border:var(--uip-outline-w) solid var(--ui-outline);
+  box-shadow:inset 0 0 0 var(--uip-rim-w) var(--ui-line), var(--uip-drop);
+  --s: 0.6;
+}
+/* 見本板の中の所持数は部品に合わせて小さくする */
+.uip-board .uip-count{ right:-4px; bottom:-4px; min-width:13px; height:13px; padding:0 2px; border-width:1px; font-size:8.5px; line-height:11px; }
+#uip-root.board-off .uip-board{ display:none; }
+.uip-grid{ display:grid; grid-template-columns:repeat(5, auto); gap:6px 10px; align-items:center; justify-items:center; }
+.uip-grid-h{ font-size:9px; color:var(--ui-text-muted); }
+.uip-ladder{ display:flex; align-items:flex-end; gap:8px; margin-top:8px; padding-top:6px; border-top:1px solid var(--ui-line); }
+.uip-ladder-cell{ color:var(--ui-text); }
+.uip-ladder-cell.l16{ width:16px; height:16px; }
+.uip-ladder-cell.l20{ width:20px; height:20px; }
+.uip-ladder-cell.l24{ width:24px; height:24px; }
+.uip-ladder-cell.l48{ width:48px; height:48px; }
+.uip-ladder-sep{ width:1px; align-self:stretch; background:var(--ui-line); }
+
+/* 狭い画面(844×390 等): 部品の寸法は変えず(AP-C2-05)、見本板の位置と縮小率だけ詰める */
+@media (max-height: 480px){
+  .uip-live-status{ top:34px; }
+  .uip-notes{ top:26%; }
+  .uip-live-actions{ bottom:10px; }                      /* タッチでは操作ヒントが無い */
+  .uip-board{ left:auto; right:8px; top:38px; translate:0 0; padding:5px 7px; --s:0.42; }   /* 既存の左上パネル・下のボタンを隠さない位置 */
+  .uip-grid{ gap:3px 7px; }
+  .uip-grid-h{ font-size:8px; }
+  .uip-ladder{ margin-top:4px; padding-top:4px; gap:6px; }
+  .uip-ladder-cell.l48{ display:none; }
+}
