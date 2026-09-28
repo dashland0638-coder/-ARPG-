@@ -1,0 +1,99 @@
+/* =========================================================
+   UI DESIGN TOKENS(UI-002-C1)
+
+   見た目を変えないための「値の置き場所」。ここにある値はすべて
+   UI-002-C1 時点の main.css の値そのままで、新しい値は 1 つも無い。
+   値の変更(色・サイズ・形)は UI-002-V(Human Visual Decision)以降。
+
+   階層(AP-C1-02):
+     --ui-p-*          primitive  値そのものの名前(意味は持たない)
+     --ui-*            semantic   値と意味が 1 対 1 のものだけ
+     --ui-<部品>-*     component  部品固有(C1 では panel のみ)
+
+   決まりごと:
+   - 既存の :root 10 変数(--bg 〜 --text-dim、main.css)は名前も値も
+     変えない。ここでは参照するだけ。
+   - 同じ色が複数の意味で使われている箇所(ember = 押せる / 選択中 /
+     フォーカス 等)に、C1 では意味名を付けない(AP-C1-02)。
+   - 3D キャラクターの配色(CLASSES の color / trim、
+     src/render/player-palette.js)はここに入れない(--ui-* に職業名を
+     含む token を作らない)。
+   - 開発用 UI(Arena / DEBUG / PERF / Motion / テストモード専用)の
+     CSS はこの token を参照しない(AP-C1-08)。
+   ========================================================= */
+:root{
+  /* ---- color: semantic(1 値 1 意味) ---- */
+  --ui-text: var(--text);
+  --ui-text-muted: var(--text-dim);
+  --ui-line: var(--panel-line);
+  --ui-surface-bg: var(--bg);
+  --ui-surface-panel-top: var(--panel);
+  --ui-surface-panel-bottom: #100d16;
+  --ui-surface-hud: rgba(12,10,16,0.55);          /* HUD の小パネル */
+  --ui-hp-start: #7a1c2c;
+  --ui-hp-end: var(--hp);
+  --ui-mp-start: #1c4a5f;
+  --ui-mp-end: var(--mp);
+  --ui-stamina-start: #5a6a1c;
+  --ui-stamina-end: #c9d94b;
+
+  /* ---- typography ---- */
+  --ui-font-body: 'Noto Sans JP', sans-serif;
+  --ui-font-display: 'Cinzel','Noto Serif JP',serif;
+  --ui-font-serif: 'Noto Serif JP',serif;
+  --ui-font-latin-display: 'Cinzel',serif;
+  --ui-fw-regular: 400;
+  --ui-fw-bold: 700;
+  /* role: 現行値が 1 つに揃っているものだけ(AP-C1-04) */
+  --ui-fs-hud-label: 8.5px;                         /* HUD のバーラベル */
+  --ui-fs-hud-badge: 9.5px;                         /* HUD の武器バッジ */
+  --ui-fs-heading: 20px;                            /* 画面見出し(メニュー) */
+
+  /* ---- radius: primitive ---- */
+  --ui-p-radius-4: 4px;
+  --ui-p-radius-6: 6px;
+  --ui-p-radius-8: 8px;
+  --ui-p-radius-round: 50%;
+
+  /* ---- shadow: primitive(パネル外影。値が違うものは統合しない) ---- */
+  --ui-p-shadow-drop-16-50: 0 16px 50px rgba(0,0,0,0.6);
+  --ui-p-shadow-drop-18-50: 0 18px 50px rgba(0,0,0,0.6);
+  --ui-p-shadow-drop-20-60: 0 20px 60px rgba(0,0,0,0.6);
+  --ui-p-shadow-drop-24-70: 0 24px 70px rgba(0,0,0,0.65);
+  --ui-p-shadow-frame: 0 0 0 1px rgba(240,160,92,0.06), 0 30px 80px rgba(0,0,0,0.6);
+
+  /* ---- z-index: 重なり順(値は変えない。名前だけ付ける) ----
+     開発用 UI の層(テストモード画面 20 / DEBUG・PERF・Motion 30 /
+     Arena 31)は開発用 CSS 側にそのまま残している(AP-C1-08) */
+  --ui-z-behind: -1;          /* クールダウンリングの下地 */
+  --ui-z-local-2: 2;          /* 部品内の重なり(奥義の環の起点) */
+  --ui-z-local-3: 3;          /* 部品内の重なり(アクションボタン・選択ノード) */
+  --ui-z-local-5: 5;          /* スティックの操作領域 */
+  --ui-z-minimap: 14;
+  --ui-z-touch: 15;
+  --ui-z-hud: 16;
+  --ui-z-screen: 20;          /* タイトル画面 */
+  --ui-z-msg-log: 21;
+  --ui-z-interact: 22;
+  --ui-z-execute: 23;
+  --ui-z-flash: 25;
+  --ui-z-hud-button: 25;
+  --ui-z-hud-panel: 30;
+  --ui-z-mob-bar: 30;
+  --ui-z-menu: 30;
+  --ui-z-event: 35;           /* 結果・戦闘不能・鑑定所・出撃 */
+  --ui-z-dialogue: 35;
+  --ui-z-timer: 39;
+  --ui-z-boss-bar: 40;
+  --ui-z-boot: 40;
+  --ui-z-fade: 60;
+  --ui-z-rotate: 60;
+  --ui-z-confirm: 120;
+
+  /* ---- component: panel(WI-C1-2) ----
+     .cc-frame / .menu-box / .event-box / .appraisal-box の共通部分。
+     幅・padding・影は各 selector に残している(値が違うため) */
+  --ui-panel-bg: linear-gradient(180deg, var(--ui-surface-panel-top), var(--ui-surface-panel-bottom));
+  --ui-panel-border: 1px solid var(--ui-line);
+  --ui-panel-radius: var(--ui-p-radius-6);
+}
