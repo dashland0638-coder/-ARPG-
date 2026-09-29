@@ -5,6 +5,7 @@
 - Date: 2026-09-29
 - Session: UI-001 以降と同一の Claude Code セッション（独立性なし）
 - 本計画は **提案**。デザインの最終決定はしない。Human Approval があるまで実装しない。
+- **改訂（2026-09-29、Human の指示による再分析）**: 影の旅人を剣士と同一視していた前提を撤回した。影の旅人は武器を持たず、通常攻撃は「素手＋影」、Skill 1 / 2 は影を使った独自の表現、Ultimate は影送りで、剣士とは戦闘表現が別物（Human 確定情報）。内部ロジックが剣士の kit と共通でも、UI アイコンを剣士と同じ絵柄にしない。改訂した節: §0、§3.4（新設）、§4.5、§4.6（新設）、§7、§8.3、§11、§15、§16、§20（新設）
 
 ## 0. 入力と Artifact Handoff 検証
 
@@ -13,7 +14,7 @@
 | Analyzer report | `.ai/reports/UI-002-E-analysis.md`、Source Branch `claude/ui-002-c1-impl`、Source SHA `a073dc82f2192bef67932eeac595bb82219f11d2`、Blob SHA `cff1e310ac8625ff753a91627c5847d9bc6198d2`、Persisted by Human |
 | Handoff 検証（Planner、2026-09-29） | H-1 到達可能 / H-2 Path 存在 / H-3 変更 1 件 / H-4 期待 Path 一致 / H-5 見出し `# UI-002-E Analysis` 一致 / H-6 Blob 一致 / H-7 同キーの既存記録なし / H-8 Source SHA の内容を読んだ — すべて PASS |
 | Human Decision | HDE-1〜HDE-3（`.ai/tasks/UI-002-E.md` の作業ツリー上の記録。未 commit） |
-| 追加で確認した FACT | 影の旅人は `kit:'warrior'`。classDef は `Object.assign({}, CLASSES.warrior, own, {key:'warrior'})` で組まれ、技の参照は `classDef.key`（= warrior）で行われる（`12-progression-ui.js:1745-1746`、`01-character-creation.js:107-116`）。よって **影の旅人の Attack / Skill 1 / Skill 2 は剣士と同じ技**、Ultimate だけが固有（影送り）。魔法使い・弓師は `range:'ranged'`（`01-character-creation.js:63, 80`） |
+| 追加で確認した FACT | 魔法使い・弓師は `range:'ranged'`（`01-character-creation.js:63, 80`）。影の旅人については §20 に再調査の結果をまとめた。要点: 内部ロジックは剣士の kit（`kit:'warrior'`、`12-progression-ui.js:1745-1746`）だが、武器メッシュは表示しない（`06-player-enemy.js:2017-2020, 2212`、T-4 の Human Decision「最終的に素手」）。**この内部共通性をアイコンの共通化の根拠にしない**（Human 確定情報） |
 
 ## 1. Purpose
 
@@ -63,6 +64,20 @@ C2 の外形（円 = Attack、角丸四角 = Skill、菱形 = Ultimate、小円 
 - L2 は太さ 2px 以上（24 グリッド換算）の主形 1 つ
 - 内部の空白（穴・隙間）は 2px 以上。1px の隙間は輪郭で埋まる（Analyzer §7: C2 の十字・星が潰れた原因）
 
+### 3.4 25 枠の扱い（改訂）
+
+- **Chapter 1 の 5 人 × Attack / Skill 1 / Skill 2 / Ultimate / Heal の 25 枠を正式設計対象とする**（HDE-2）。
+- 25 枠すべてを別 SVG として作るという意味ではない。次のように分ける。
+
+| 区分 | 内容 | 例 |
+| --- | --- | --- |
+| 共通化できるもの | 操作種別の外形（L1）4 種 / キャラクター差が不要な UI 表現 / Human が共通化を判断したもの | Attack・Skill・Ultimate・Heal の外形、Heal の回復形状（HDE-E7 で共通化を選んだ場合） |
+| 個別化すべきもの | キャラクターの戦闘表現（武器・身体・魔法・影）/ 技固有のモチーフ | 剣士＝大剣、影の旅人＝素手＋影、各技のモチーフ |
+
+- 「同じ技だから同じアイコン」ではなく、「同じ操作種別を共通の外形で示し、技・キャラクターの違いを内部モチーフで示す」。
+- ゲーム内部で技の処理を共有しているか（例: 影の旅人の kit が剣士）は、アイコンの共通化の判断基準にしない。
+- 旧版の「実際に異なる絵柄は 18 個の見込み」は**撤回**した。個別の絵柄の数は、HDE-E7（Heal の共通化）等の Human Decision の後に決まる。
+
 ## 4. 5×5 icon design matrix
 
 凡例: 外形 = L1（§3.2 のどちらでも同じ考え方）、16px = 16px で残す要素、20/24 = 追加できる要素。モチーフは**候補**で、最終形は Human が撮影を見て決める（§16）。
@@ -107,17 +122,29 @@ C2 の外形（円 = Attack、角丸四角 = Skill、菱形 = Ultimate、小円 
 | Ultimate | 影閃乱舞 | Ultimate | 交差する斬線 3 本（星形にしない） | 3 本の交差 | 残像 | 多段の斬撃 |
 | Heal | 薬草 | Heal | §6 | — | — | — |
 
-### 4.5 影の旅人（wanderer、kit = warrior）
+### 4.5 影の旅人（wanderer）（改訂）
 
-| 操作 | 技（FACT） | 外形 | 技固有モチーフ（候補） | 16px | 20/24px | 根拠 |
+前提（Human 確定情報）: 武器を持たない。剣を持たない。通常攻撃は「素手＋影」。Skill 1 / Skill 2 は剣技ではなく影を使った独自の表現。Ultimate は影送り。剣士とはキャラクター性・攻撃表現・武器表現が別物。
+ソース上の事実（§20）: 攻撃処理・判定・モーションは剣士の kit のまま、武器を表示しないだけ。素手・影の攻撃演出、影の旅人固有の Skill 1 / 2 の名前・内容、影送り固有の演出は**実装も仕様も見つからない**（OPEN QUESTION §4.6）。
+
+| 操作 | 技（確認できた範囲） | 外形 | 技固有モチーフ（候補。Human が決める） | 16px | 20/24px | 根拠 |
 | --- | --- | --- | --- | --- | --- | --- |
-| Attack | 剣士と同じ（大剣） | Attack | 剣士と同じ大剣 | 同 | 同 | 同じ技には同じ形（V-5）。キャラクター差は HDE-E6 で判断 |
-| Skill 1 | 剣士と同じ（切り下がり） | Skill | 剣士と同じ | 同 | 同 | 同上 |
-| Skill 2 | 剣士と同じ（崩し斬り） | Skill | 剣士と同じ | 同 | 同 | 同上 |
-| Ultimate | 影送り（固有） | Ultimate | 半月 / 半分影の円（◐ の形を**自前のシルエット**で）＋外へ伸びる影 | 半分塗りの円 | 影の尾 | 肖像の記号 `◐` と同じ意味系統。Unicode 文字は使わず SVG で描く |
-| Heal | 薬草 | Heal | §6 | — | — | — |
+| Attack | 素手＋影の通常攻撃（Human 確定）。内部は剣士の kit | Attack | 開いた手（または拳）＋手から伸びる影の爪 / 影の塊 | 手のシルエット＋影の塊 1 つ | 影の爪を 2〜3 本に分ける | Human 確定の「素手＋影」。**剣・大剣・剣撃をモチーフにしない** |
+| Skill 1 | 影を使った独自の技（Human 確定）。名前・内容はソース・仕様に無い（OQ-W1） | Skill | 仮の候補: (a) 影が地面を這って伸びる / (b) 手から放つ影の弾 / (c) 影の中へ沈み別の場所へ出る | 候補ごとの主形 1 つ | 候補ごと | 技の内容が決まっていないため、**候補のまま**。剣士の切り下がりと同じアイコンにしない |
+| Skill 2 | 影を使った独自の技（Human 確定）。名前・内容はソース・仕様に無い（OQ-W1） | Skill | 仮の候補: (a) 影の手が敵をつかむ / (b) 足元の影だまりが広がる / (c) 影の分身 | 同上 | 同上 | 同上。剣士の崩し斬りと同じアイコンにしない |
+| Ultimate | 影送り（固有の名前・icon `◐`・紫の VFX 色 `0x8a5ad6`。処理・範囲・倍率は剣士の Ultimate と同じ値、固有の演出は未実装） | Ultimate | 候補（決定しない）: (a) 影・残像: 人影と、ずれた輪郭だけの残像 / (b) 転移: 影だまり（楕円）から人影が抜け出る / (c) 送り出す動き: 開いた手から前方へ押し出される影の波 / (d) 半分影の円（肖像の記号 `◐` の意味系統を自前のシルエットで） | 候補ごとの主形 1 つ | 影の尾・残像の段 | 剣士の「渾身の斬撃」とは完全に別アイコン。技の意味（影・送る）が実装に無いため、名前から読み取れる範囲の候補にとどめる（OQ-W2） |
+| Heal | 薬草（効果は全員共通） | Heal | §6 | — | — | キャラクター差を付けるかは HDE-E7 |
 
-- 25 のうち実際に異なる絵柄: Attack 4（大剣・杖・弓・双剣）＋ Skill 1 が 4 ＋ Skill 2 が 4 ＋ Ultimate 5 ＋ Heal 1（全員共通の場合）= **18**。影の旅人の Attack / Skill 1 / Skill 2 は剣士と共有（HDE-E6 で変える場合は増える）。
+### 4.6 影の旅人の OPEN QUESTION（新設）
+
+| # | 問い |
+| --- | --- |
+| OQ-W1 | 影の旅人の Skill 1 / Skill 2 の技の名前・内容・演出。ソース（`CHARGE_VARIANTS_BY_CLASS` / `SKILL2_BY_CLASS` / `crush-slash.js`）にも docs にも定義が無い。現在の内部処理は剣士の切り下がり・崩し斬り |
+| OQ-W2 | 影送りの効果・演出（何を「送る」のか、転移・残像・影の放出など）。現在は剣士の Ultimate と同じ処理で色だけ紫 |
+| OQ-W3 | 通常攻撃「素手＋影」の具体的な見た目（拳か開いた手か、影は爪・塊・波のどれか）。素手の演出は未実装（`docs/CHARACTERS.md` 武器の見た目の節） |
+| OQ-W4 | Weapon Badge で「武器なし」を表すか、Badge 自体を出さないか（表示条件は D。E は絵柄を用意するかどうか） |
+| OQ-W5 | 影の旅人の技アイコンを、技の内容が決まる前に作るか（仮モチーフで作る / 技の内容の決定を待つ） |
+| OQ-W6 | 影の表現の色: 影の VFX の紫（`0x8a5ad6`）を icon accent に使うか（HDE-E9 と関係）。キャラクターパレットの金具の紫 `#654F86` とは別の値（`player-palette.js:74-80`） |
 
 ## 5. Ultimate alternatives（決定しない）
 
@@ -149,11 +176,14 @@ C2 の外形（円 = Attack、角丸四角 = Skill、菱形 = Ultimate、小円 
 
 | 武器 | 持ち主 | 16px の識別 | Attack との共通性 |
 | --- | --- | --- | --- |
-| 大剣 | 剣士・影の旅人 | 1 本・太い刃・大きな鍔 | Attack（剣士）の L2 と**同じ大剣**（C2 で確認済みの方針） |
+| 大剣 | 剣士 | 1 本・太い刃・大きな鍔 | Attack（剣士）の L2 と**同じ大剣**（C2 で確認済みの方針） |
 | 双剣 | 盗賊 | 2 本・細い刃の X 字 | Attack（盗賊）の L2 と同じ |
 | 杖 | 魔法使い | 縦の長い柄＋先端の丸い頭 | Attack（魔法使い）の杖 |
 | 小弓 | 弓師 | 弧＋弦（矢は省く） | Attack（弓師）の弓 |
 
+| 武器なし（改訂） | 影の旅人 | 候補（決定しない）: 素手（開いた手）/ 手＋影 / 影そのもの（影だまりの楕円） | Attack（影の旅人）の L2 と同じ系統。**大剣・剣・武器シルエットを使わない** |
+
+- 影の旅人は武器を持たない（Human 確定、`docs/CHARACTERS.md`「最終的に素手の想定」）。現行の本番 HUD では、kit が剣士のため Weapon Badge に大剣の `🗡️` が出る（`14-hud-boot.js:353-360` が `weaponDefFor(kitKey)` を使う。INFERENCE: `WEAPON_TYPES` に wanderer の行が無く、kit の warrior で引かれる）。E では「武器なし」を表す絵柄の候補を用意し、Badge に何を出すか・出さないかの表示条件は D（OQ-W4）。
 - Weapon Badge = 「Attack の L2（武器モチーフ）を、枠なし・または Badge 用の小さな円枠で」再利用する。現行の大剣と双剣が同じ `🗡️` という問題（Analyzer §1.6）は、1 本 / 2 本・太い / 細いのシルエット差で解消する。
 - **表示位置・サイズ・表示条件・「M」の修正・交代時の同期は D の範囲**（WI-D1 / D2 / D4）。E は絵柄だけを用意する。
 - Badge は 18px の枠内（現行）で使われているため、武器モチーフは 14px 程度でも成立する必要がある（INFERENCE: 枠の輪郭ぶん小さくなる）。W-E6 で 14 / 16px の撮影を行う。
@@ -192,7 +222,7 @@ src/core/ui-icons.js          既存の対応表(C1)。正式アイコンの名�
 ```
 
 - キャラクター追加 = モチーフの追加＋表の行の追加だけ（HDE-2 の拡張性）。
-- 影の旅人は表で剣士のモチーフを参照する（複製しない）。
+- 影の旅人は独自のモチーフ（素手＋影など）を持つ行として表に入れる。内部の kit（剣士）とは結び付けない（キーはキャラクター `charKey` で引く案。`classDef.key` は kit の warrior になるため使わない。FACT: `12-progression-ui.js:1746`）。
 
 ### 8.4 LOD の出し分け
 
@@ -226,9 +256,9 @@ src/core/ui-icons.js          既存の対応表(C1)。正式アイコンの名�
 
 | 区分 | 内容 |
 | --- | --- |
-| 再利用 | viewBox 24、`fill:currentColor`＋CSS の輪郭、SVG に色を書かない規則、ASCII のみの unit test、状態の表し方（pressed / disabled / cooldown / ready）、`--ui-*` の意味色 6 種、剣士の大剣シルエット（Attack / Weapon Badge） |
+| 再利用 | （影の旅人には C2 の大剣を使わない）viewBox 24、`fill:currentColor`＋CSS の輪郭、SVG に色を書かない規則、ASCII のみの unit test、状態の表し方（pressed / disabled / cooldown / ready）、`--ui-*` の意味色 6 種、剣士の大剣シルエット（Attack / Weapon Badge） |
 | 再設計 | Ultimate（八芒星を廃止し §5 から選ぶ）、Heal（十字 → §6）、Skill 1（下向き矢印 → 切り下がり）、Skill 2（断たれた円 → 水平の崩し）、Attack の斬撃の弧（16px では省く） |
-| 廃止 / 引き継がない | 八芒星、C2 の見本オーバーレイ（`15-ui-proto.js` / `ui-proto.css`）を本番の仕組みとして使うこと（見本は C2 に残す）、`uiProtoIcon` の名前体系 |
+| 廃止 / 引き継がない | C2 の Weapon Badge が kit（剣士）経由で大剣を出す仕組み（`uiProtoWeaponIcon(weaponKey)`。影の旅人でも greatsword になる）、八芒星、C2 の見本オーバーレイ（`15-ui-proto.js` / `ui-proto.css`）を本番の仕組みとして使うこと（見本は C2 に残す）、`uiProtoIcon` の名前体系 |
 | 未定 | C2 ブランチ自体を main へ入れるか（HDE-E8） |
 
 ## 12. D / E boundary
@@ -247,7 +277,7 @@ src/core/ui-icons.js          既存の対応表(C1)。正式アイコンの名�
 | W-E2 | Ultimate 外形の試作比較（§5 の 2〜4 案）と撮影 | W-E1 | 比較用の見本（開発用 URL 限定、C2 と同じ方式）と撮影。Human が HDE-E1 を決める |
 | W-E3 | Heal 案の試作比較（§6）と撮影 | W-E1 | 同上。Human が HDE-E7 を決める |
 | W-E4 | 剣士のモチーフ（大剣・切り下がり・崩し斬り・渾身の斬撃） | W-E1、HDE-E1 | `ui-icon-motifs.js`（剣士分）と撮影 |
-| W-E5 | 魔法使い・弓師・盗賊・影の旅人のモチーフ | W-E4 | 同（残り 4 人分） |
+| W-E5 | 魔法使い・弓師・盗賊・影の旅人のモチーフ（影の旅人は §4.5 の候補。HDE-E6 / E14 次第で仮モチーフ） | W-E4、HDE-E6、HDE-E14 | 同（残り 4 人分） |
 | W-E6 | Weapon Badge の武器モチーフ 4 種（Attack モチーフの再利用） | W-E4 / W-E5 | 14 / 16px の撮影 |
 | W-E7 | アイコンの組み立て（キャラクター × 操作 → SVG）と表 | W-E4〜W-E6 | `ui-icon-set.js`、unit（25 の組み合わせすべて） |
 | W-E8 | 状態表現の共通 CSS（HDE-E10 で E に含める場合） | W-E7 | 状態 class と撮影（グレースケール含む） |
@@ -268,7 +298,7 @@ src/core/ui-icons.js          既存の対応表(C1)。正式アイコンの名�
 
 | 種類 | 内容 |
 | --- | --- |
-| unit | 全アイコンが `viewBox="0 0 24 24"` の SVG / ASCII のみ / 色を書かない / 25 の組み合わせすべてが組み立てられる / 影の旅人の Attack・Skill が剣士と同じ形 / LOD の class が付いている / 外形 4 種が互いに異なる |
+| unit | 全アイコンが `viewBox="0 0 24 24"` の SVG / ASCII のみ / 色を書かない / 25 の組み合わせすべてが組み立てられる / 影の旅人の Attack・Skill 1・Skill 2・Ultimate・Weapon Badge が剣士の形（大剣・剣技）を含まない / LOD の class が付いている / 外形 4 種が互いに異なる |
 | E2E | 開発用 URL の比較見本（W-E2 / W-E3）が通常 URL で出ない。本番 HUD に適用する場合は、既存の HUD の id・可視判定を読む spec（`chapter1-legacy-ui` 等）が通る |
 | 撮影（Visual） | DPR 1 の 16 / 20 / 24px（等倍＋8 倍拡大）、グレースケール、文字を隠した表示、5 人分の一覧、Ultimate の Not Ready / Ready、Weapon Badge の 14 / 16px |
 | 判定 | 形だけで「操作の種類」が分かるか・「どの技か」が分かるかを **Human が撮影で判断**（AI の自己チェックは参考） |
@@ -283,7 +313,9 @@ src/core/ui-icons.js          既存の対応表(C1)。正式アイコンの名�
 | HDE-E3 | SVG の形式 | S-1 インライン / S-2 sprite / S-3 ファイル（§8.1） |
 | HDE-E4 | 共通外形の系統 | F-A（C2 継承）/ F-B（盾形系）（§3.2） |
 | HDE-E5 | Skill 1 と Skill 2 の外形上の区別 | モチーフだけ / 外形の小さな印（切り欠き 1・2 か所）/ 番号以外の別の印 |
-| HDE-E6 | 影の旅人の Attack / Skill 1 / Skill 2 | 剣士と同じ形 / 影の意匠を加えた別形 |
+| HDE-E6（改訂） | 影の旅人のモチーフの方向 | §4.5 の候補から選ぶ / 別案。前提: 剣・大剣・剣撃を使わない（Human 確定） |
+| HDE-E14（新設） | 影の旅人の Skill 1 / Skill 2 / 影送りの技の内容（OQ-W1〜W3）をどこで決めるか | 技の内容を別 Task（ゲームデザイン）で決めてからアイコン化 / E では仮モチーフで作り、技の確定後に差し替え |
+| HDE-E15（新設） | 影の旅人の Weapon Badge の絵柄 | 素手 / 手＋影 / 影そのもの / Badge 用の絵柄を用意しない（表示条件は D） |
 | HDE-E7 | Heal の回復形状と共通化 | H-1〜H-4（§6）、全員共通 1 種 / キャラクター別 |
 | HDE-E8 | C2 の意味色 token を main へ入れる方法 | C2 ブランチを main へ merge / E で同じ定義を入れる |
 | HDE-E9 | 職業色を icon accent に使うか | 使う（キャラクター定義から）/ 使わない |
@@ -321,3 +353,18 @@ src/core/ui-icons.js          既存の対応表(C1)。正式アイコンの名�
 ## 19. 変更したファイル
 
 - `.ai/reports/UI-002-E-plan.md`（新規、本ファイル）のみ。commit / push はしていない。
+
+## 20. 影の旅人の再調査（FACT、2026-09-29 改訂時）
+
+| # | 調査項目 | FACT | 根拠 |
+| --- | --- | --- | --- |
+| 1 | Attack の攻撃表現 | 攻撃処理・判定・モーションは剣士の kit のまま。武器メッシュだけ `visible=false`（見た目は素手）。素手・影の攻撃演出は未実装 | `06-player-enemy.js:2017-2020, 2212`、`docs/CHARACTERS.md`「影の旅人の武器」 |
+| 2 | Skill 1 の技内容 | 影の旅人専用の定義は無い。classDef の key が kit の `warrior` になるため、剣士の Skill 1（切り下がり）が使われる | `12-progression-ui.js:1745-1746`、`chapter1-rules.js:42-53` |
+| 3 | Skill 2 の技内容 | 同上。剣士の Skill 2（崩し斬り）が使われる | `12-progression-ui.js:2341-2344` |
+| 4 | Ultimate「影送り」 | `{name:'影送り', icon:'◐', cd:20, radius:4.2, mult:3.2, vfxColor:0x8a5ad6}`。cd・radius・mult は剣士の渾身の斬撃と同じ値で、違うのは名前・icon・VFX の色（紫）。影送り固有の演出コードは見つからない（`wanderer` / `charKey` を ult・combat のコードで検索） | `01-character-creation.js:27, 114` |
+| 5 | 武器を持たないことを示す定義 | 専用の武器定義は無い（`WEAPON_TYPES` に wanderer の行が無い）。見た目の非表示は T-4 の Human Decision（「最終的に素手の想定」）。classDef は `kit:'warrior'` を土台に組まれる | `11-combat-actions.js:104-127`、`06-player-enemy.js:2017-2020`、`01-character-creation.js:107` |
+| 6 | 影・残像・手などの既存モチーフ | 酒場の NPC の足元の「影だまり」（紫がかった円、`0x2a1a3a`）と紫の点光源（`0x8a5ad6`）。影 VFX・足元リングの紫は `CLASSES.wanderer.trim` `0x8a5ad6`。肖像・Ultimate の記号は `◐`。残像・手の既存モチーフは見つからない | `03-dungeons-mansion-temple.js:2030, 2061-2069`、`player-palette.js:74-80`、`01-character-creation.js:107-114` |
+| 7 | V / T-5 / T-7 の視覚仕様 | T-5: 配色（コート Charcoal `#30323A`、パンツ Dark Purple `#403454`、マフラー `#A3B1BF`、シャツ `#D8D4D0`、金具 Shadow Purple `#654F86`。影の演出の紫 `0x8a5ad6` とは別）、全身黒にしない（P-D8）。T-2: BUILD は剣士（DEC-T2-10 (a)）。T-4: 形状は W-a、武器は見た目だけ非表示。V（V-1〜V-7）に影の旅人専用の記述は無い（V-5 の職業例にも無い） | `docs/CHARACTERS.md:143-175`、`.ai/tasks/CHARACTER-VIS-001.md:128-140, 674-680, 1002-1021`、`.ai/tasks/UI-002-V.md` |
+| 8 | docs の食い違い | `docs/CHARACTERS.md` の「5人目」の節は「戦闘には一切関わらない・専用クラス未実装」のまま、プレイアブル化の実装と食い違っている（HDR-T4-10 で未修正）。専用クラス・武器・戦闘スタイルは「未確定」 | `docs/CHARACTERS.md:102-125, 174-176` |
+
+- 結論（INFERENCE ではなく記録の整理）: 影の旅人の「素手＋影」「影の技」「影送り」は Human の確定情報として扱う。ソースと docs には、その具体的な中身（技の名前・効果・演出）が無い。したがってアイコンのモチーフは候補にとどめ、技の内容は OQ-W1〜W3 とする。
