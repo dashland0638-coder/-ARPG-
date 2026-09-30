@@ -229,6 +229,10 @@ import {
   lordAttackCooldown, lordShadowTarget, lordShadowCreep,
 } from '../core/mansion-enemies.js';
 import { UI_GLYPH_VIEWBOX, uiGlyph, resolveSwordsmanGlyphIds } from '../core/ui-icons.js';
+import {
+  legacyHudVisible, skill2ButtonVisible, skill3ButtonVisible, minimapPanelVisible,
+  touchControlsMode, staminaVisible, unlockedPcHintOps, stepPcHint,
+} from '../core/combat-hud-visibility.js';
 
 `;
 
