@@ -350,13 +350,67 @@
     if(label) el.textContent = label;
   }
 
+  /* 承認済み glyph があれば inline SVG、無ければ従来どおりの文字(UI-002-E WI-EPI-2)。
+     今回の Production Integration の fallback 専用で、アイコン全体の仕組みではない。
+     el の属性・クラス(ボタンの状態)には触れず、中身だけを差し替える。
+     updateHUD から毎回呼ばれるので、表示中の ID が同じなら作り直さない。 */
+  const GLYPH_SVG_NS = 'http://www.w3.org/2000/svg';
+  function setGlyphOrText(el, glyphId, fallbackText){
+    if(!el) return;
+    const glyph = uiGlyph(glyphId);
+    if(!glyph){
+      if(el.dataset.glyph) delete el.dataset.glyph;
+      el.textContent = fallbackText;
+      return;
+    }
+    if(el.dataset.glyph === glyphId) return;
+    const svg = document.createElementNS(GLYPH_SVG_NS, 'svg');
+    svg.setAttribute('viewBox', UI_GLYPH_VIEWBOX);
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    svg.setAttribute('class', 'ui-glyph');
+    for(const d of glyph.paths){
+      const path = document.createElementNS(GLYPH_SVG_NS, 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'currentColor');
+      svg.appendChild(path);
+    }
+    el.replaceChildren(svg);
+    el.dataset.glyph = glyphId;
+  }
+
+  /* いまの剣士の装備から glyph の semantic ID を決める(既存の key を読むだけ)。
+     剣士本人以外(影の旅人・上位職・他職業)は全部 null になる(ui-icons.js) */
+  function currentSwordsmanGlyphIds(){
+    const cdef = state.classDef;
+    if(!cdef) return resolveSwordsmanGlyphIds(null);
+    const variant = getChargeVariants()[state.skillChoice] || getChargeVariants().retreat;
+    const skill2 = activeSkill2Def(cdef.key);
+    return resolveSwordsmanGlyphIds({
+      classKey: cdef.key,
+      charKey: cdef.charKey,
+      job: state.job,
+      weaponKey: weaponDefFor(cdef.key, state.usingAltWeapon).key,
+      skillChoice: variant && variant.key,
+      skill2Key: skill2 && skill2.key,
+    });
+  }
+
   function updateWeaponBadge(){
     const el = document.getElementById('weapon-badge');
     if(!el || !state.classDef) return;
     const def = weaponDefFor(state.classDef.key, state.usingAltWeapon);
-    el.textContent = def.icon;
+    setGlyphOrText(el, currentSwordsmanGlyphIds().weapon, def.icon);
     el.title = def.name;
     el.classList.toggle('secondary', state.usingAltWeapon);
+  }
+
+  /* 攻撃ボタンの glyph(「攻撃」の文字は index.html のまま残す)。
+     glyph が無いときは空 = 従来どおり文字だけ */
+  function updateAttackGlyph(){
+    const el = document.getElementById('btn-attack-glyph');
+    if(!el || !state.classDef) return;
+    setGlyphOrText(el, currentSwordsmanGlyphIds().attack, '');
   }
 
   function updateHUD(){
@@ -364,6 +418,7 @@
     document.getElementById('mp-fill').style.width = `${Math.max(0,state.mp/state.maxMp*100)}%`;
     document.getElementById('sta-fill').style.width = `${Math.max(0,state.stamina/state.maxStamina*100)}%`;
     updateWeaponBadge();
+    updateAttackGlyph();
     updateFloorLabel();
     document.getElementById('xp-fill').style.width = `${Math.max(0,Math.min(100,state.xp/state.xpToNext*100))}%`;
     updateUltHUD();
