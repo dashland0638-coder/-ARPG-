@@ -159,4 +159,35 @@ async function startTestMode(page, opts) {
   }, { timeout: 20_000 });
 }
 
-export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, startTestMode };
+/**
+ * Measures how much each element's bounding box enters the central 60%×60%
+ * of the viewport (UI-002-D HD-D02 / HD-D30). Returns, per selector,
+ * { x, y, w, h, visible, center } where center is the overlap area in px²
+ * (0 when the element is hidden or absent). Used by the HUD layout specs of
+ * WI-D2 and later (D3 / D4) so they all judge "the centre" the same way.
+ */
+async function centralIntrusion(page, selectors) {
+  return page.evaluate(sels => {
+    const W = innerWidth, H = innerHeight;
+    const cx0 = W * 0.2, cx1 = W * 0.8, cy0 = H * 0.2, cy1 = H * 0.8;
+    const out = {};
+    for (const sel of sels) {
+      const el = document.querySelector(sel);
+      if (!el) { out[sel] = null; continue; }
+      let n = el, visible = true;
+      while (n && n !== document.body) {
+        const cs = getComputedStyle(n);
+        if (cs.display === 'none' || cs.visibility === 'hidden') { visible = false; break; }
+        n = n.parentElement;
+      }
+      const r = el.getBoundingClientRect();
+      const ix = Math.max(0, Math.min(r.right, cx1) - Math.max(r.left, cx0));
+      const iy = Math.max(0, Math.min(r.bottom, cy1) - Math.max(r.top, cy0));
+      out[sel] = { x: r.left, y: r.top, w: r.width, h: r.height, visible,
+        center: visible && r.width > 0 && r.height > 0 ? Math.round(ix * iy) : 0 };
+    }
+    return out;
+  }, selectors);
+}
+
+export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, startTestMode, centralIntrusion };

@@ -82,27 +82,46 @@
 
 <!-- ============ HUD ============ -->
 <div id="hud">
-  <div class="hud-topleft">
-    <div class="hud-portrait" id="hud-portrait"><span id="hud-portrait-icon">⚔</span><span id="weapon-badge" class="weapon-badge">M</span></div>
-    <div class="hud-bars">
-      <div class="hud-name" id="hud-name">-</div>
-      <div class="hud-floor" id="hud-floor" style="display:none;"></div>
-      <div class="bar-label">HP</div>
-      <div class="bar-track"><div class="bar-fill hp" id="hp-fill" style="width:100%"></div></div>
-      <div class="bar-label" id="mp-label">MP</div>
-      <div class="bar-track"><div class="bar-fill mp" id="mp-fill" style="width:100%"></div></div>
-      <div class="bar-label">スタミナ</div>
-      <div class="bar-track"><div class="bar-fill sta" id="sta-fill" style="width:100%"></div></div>
-      <div class="bar-track xp"><div class="bar-fill xp" id="xp-fill" style="width:0%"></div></div>
+  <!-- 左上ゾーン(UI-002-D WI-D2): キャラクター表示と所持品を上から順に並べる。
+       テストモード専用の Arena ボタン・パネルも末尾に置く(表示は従来どおり JS の .show) -->
+  <div class="hud-zone hud-zone-tl" id="hud-zone-tl">
+    <div class="hud-topleft">
+      <div class="hud-portrait" id="hud-portrait"><span id="hud-portrait-icon">⚔</span><span id="weapon-badge" class="weapon-badge">M</span></div>
+      <div class="hud-bars">
+        <div class="hud-name" id="hud-name">-</div>
+        <div class="hud-floor" id="hud-floor" style="display:none;"></div>
+        <div class="bar-label">HP</div>
+        <div class="bar-track"><div class="bar-fill hp" id="hp-fill" style="width:100%"></div></div>
+        <div class="bar-label" id="mp-label">MP</div>
+        <div class="bar-track"><div class="bar-fill mp" id="mp-fill" style="width:100%"></div></div>
+        <div class="bar-label">スタミナ</div>
+        <div class="bar-track"><div class="bar-fill sta" id="sta-fill" style="width:100%"></div></div>
+        <div class="bar-track xp"><div class="bar-fill xp" id="xp-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="hud-loot" id="hud-loot">
+      <div class="loot-chip" id="loot-menu-btn" style="cursor:pointer;">☰</div>
+      <div class="loot-chip" id="loot-potion-btn" style="cursor:pointer;">🧪<span class="count" id="loot-potion">0</span></div>
+      <div class="loot-chip" id="loot-mppotion-btn" style="cursor:pointer;">🔷<span class="count" id="loot-mppotion">0</span></div>
+    </div>
+    <div id="arena-toggle-btn" class="arena-toggle-btn">⚔️ Arena</div>
+    <div id="arena-panel" class="arena-panel">
+      <div class="arena-panel-title">Combat Test Arena</div>
+      <div class="arena-roster" id="arena-roster"></div>
+      <div class="arena-panel-row">
+        <button type="button" id="arena-clear-btn">🧹 Clear All</button>
+        <button type="button" id="arena-info-toggle-btn">🔍 Debug Info: OFF</button>
+      </div>
+      <div class="arena-panel-row">
+        <button type="button" id="arena-loadout-btn">🎛 スキル / スフィア盤</button>
+      </div>
+      <div class="arena-panel-hint">タップで出現 / コントローラー: D-pad右で巡回スポーン</div>
     </div>
   </div>
-  <div class="hud-loot" id="hud-loot">
-    <div class="loot-chip" id="loot-menu-btn" style="cursor:pointer;">☰</div>
-    <div class="loot-chip" id="loot-potion-btn" style="cursor:pointer;">🧪<span class="count" id="loot-potion">0</span></div>
-    <div class="loot-chip" id="loot-mppotion-btn" style="cursor:pointer;">🔷<span class="count" id="loot-mppotion">0</span></div>
+  <!-- 下中央ゾーン(UI-002-D WI-D2) -->
+  <div class="hud-zone hud-zone-bc" id="hud-zone-bc">
+    <div class="hud-hint" id="hud-hint">WASD 移動 / Space ジャンプ / クリック(J) 攻撃 / L スキル / O スキル2 / <span id="hud-hint-skill3">U スキル3 / </span>Shift 回避 / K 必殺技 / Q・E カメラ回転 / R インタラクト / V 薬草 / Esc メニュー</div>
   </div>
-  <div class="hud-gamepad-badge" id="gamepad-badge">🎮 コントローラー接続中</div>
-  <div class="hud-hint" id="hud-hint">WASD 移動 / Space ジャンプ / クリック(J) 攻撃 / L スキル / O スキル2 / <span id="hud-hint-skill3">U スキル3 / </span>Shift 回避 / K 必殺技 / Q・E カメラ回転 / R インタラクト / V 薬草 / Esc メニュー</div>
 </div>
 <div id="combo-indicator">
   <div class="combo-pips" id="combo-pips"></div>
@@ -147,19 +166,6 @@
 <!-- ============ COMBAT TEST ARENA(テストモード専用。通常プレイでは
      state.testModeが常にfalseなのでJS側で非表示のまま維持される。
      Combat Design Audit #1/#2/#9-11参照) ============ -->
-<div id="arena-toggle-btn" class="arena-toggle-btn">⚔️ Arena</div>
-<div id="arena-panel" class="arena-panel">
-  <div class="arena-panel-title">Combat Test Arena</div>
-  <div class="arena-roster" id="arena-roster"></div>
-  <div class="arena-panel-row">
-    <button type="button" id="arena-clear-btn">🧹 Clear All</button>
-    <button type="button" id="arena-info-toggle-btn">🔍 Debug Info: OFF</button>
-  </div>
-  <div class="arena-panel-row">
-    <button type="button" id="arena-loadout-btn">🎛 スキル / スフィア盤</button>
-  </div>
-  <div class="arena-panel-hint">タップで出現 / コントローラー: D-pad右で巡回スポーン</div>
-</div>
 <div id="arena-feedback-log"></div>
 <div id="arena-enemy-info"></div>
 
@@ -195,8 +201,12 @@
   </div>
 </div>
 <div id="screen-fade"></div>
-<div id="minimap-wrap"><canvas id="minimap" width="248" height="248"></canvas></div>
-<div id="minimap-label"><span id="minimap-area">-</span><span id="minimap-room"></span><span id="minimap-named"></span></div>
+<!-- 右上ゾーン(UI-002-D WI-D2): ミニマップの重なり順(z-index 14)を保つため #hud の外に置く -->
+<div class="hud-zone hud-zone-tr" id="hud-zone-tr">
+  <div id="minimap-wrap"><canvas id="minimap" width="248" height="248"></canvas></div>
+  <div id="minimap-label"><span id="minimap-area">-</span><span id="minimap-room"></span><span id="minimap-named"></span></div>
+  <div class="hud-gamepad-badge" id="gamepad-badge">🎮 コントローラー接続中</div>
+</div>
 
 <!-- ============ ROTATE TO LANDSCAPE ============ -->
 <div id="rotate-overlay">
