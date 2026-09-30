@@ -223,6 +223,52 @@ UI-002-B Analyzer report（`.ai/reports/UI-002-B-analysis.md`、branch `claude/u
 - C1 の最重要条件は「見た目が変わっていないこと」。意図しない見た目変更は FAIL として扱う。
 - 実装ブランチ `claude/ui-002-c1-impl` への commit / push を許可。main への push / merge は許可していない。
 
+### UI-002-D: HD-D01〜HD-D20（2026-09-28）
+
+UI-002-D Analyzer report（`.ai/reports/UI-002-D-analysis.md`）と Planner report（`.ai/reports/UI-002-D-plan.md`）の確認後に Human が確定した。**実装の承認ではない**（各 Work Item は WAITING_APPROVAL のまま。実装開始の許可は別途）。
+
+- **HD-D01（実測ゲート）**: 実装開始前に WI-D0 の実測を必須とする。対象: 1280×800 / 844×390、戦闘 HUD 各要素の位置・大きさ、中央 60%×60% への侵入、virtual stick との干渉、safe-area、他 UI との重なり。実測できていない値を実測値として扱わない。CSS から計算した値は参考値に留める。
+- **HD-D02（中央 60%×60%）**: 常時表示 UI は画面中央 60%×60% を避ける。ただし処刑・インタラクト・トーストなどの一時・条件付き表示は中央への表示を許可する。
+- **HD-D03（既存 UI の扱い）**: 既存 UI を設計上の制約にしない。既存 UI は実装依存関係・既存仕様・テスト依存を確認するための資料として扱うが、「現在そうなっているから残す」「変更量が少ないから残す」という理由だけで新 HUD の設計を制約しない。**D の設計方針であり、既存仕様を無視してコードを変更してよいという意味ではない。**
+- **HD-D04（レスポンシブ）**: 1280×800 と 844×390 では同じ HUD コンポーネントを使用しつつ、viewport サイズに応じて配置を変更する（画面サイズに応じた responsive layout）。UI-002-C1 で不採用となった body 属性方式を復活させない。
+- **HD-D05（D で扱わないもの）**: 支援 AI HP / 目的表示 / 3 人パーティ HUD / 影の旅人専用 HUD / パッド表記は UI-002-D で扱わない。将来の別 Task / Game Design Decision として保留する（Undecided の記載は変更しない）。
+- **HD-D06（武器バッジ）**: 武器バッジは Chapter 1 戦闘 HUD でも表示する。現在の「M」誤表示は修正する。
+- **HD-D07（PC 操作ヒント）**: PC 操作ヒントは常時表示しない。初回・新しい操作の解禁時などに短時間だけ表示する方式へ変更する。
+- **HD-D08（PC のタッチ用ボタン）**: PC ではタッチ操作用の攻撃・Skill 1・Ultimate ボタンを常時表示しない。戦闘操作自体や必要な戦闘情報を廃止する決定ではない。PC 用の操作表示は別途設計する。
+- **HD-D09（常時表示）**: 戦闘 HUD ではキャラクター名・肖像・HP・武器バッジを常時表示する。
+- **HD-D10（MP 廃止）**: MP を廃止する。単なる HUD 非表示ではなく、ゲーム内リソースとしての MP を廃止する方針である。実装時には combat logic / skill / item / state / save / old save など MP 参照箇所への影響を Analyzer で確認する。旧セーブデータの MP 値を無断で削除・変換しない。影響範囲が大きい場合は別 Task へ分離する。
+- **HD-D11（スタミナ）**: スタミナは残す。戦闘 HUD では常時表示せず、必要時のみ表示する。
+- **HD-D12（所持品）**: 通常の所持品チップは戦闘 HUD から除外する。戦闘中の回復アイテム使用は維持し、回復アイテム専用のクイック使用 UI を Action Zone に配置する。回復以外の通常所持品は戦闘 HUD に表示しない。
+- **HD-D13（ゾーン DOM）**: HUD を役割別のゾーンに分けるため、必要な DOM コンテナを新設する。既存 DOM 構造を維持することを目的にしない。既存 E2E への影響は実装時に整理する。
+- **HD-D14（Action Zone）**: Action Zone を再設計する。対象: 通常攻撃 / Skill 1 / Skill 2 / Ultimate / 回復アイテム。5 つを同格にすることは決定していない。具体的なサイズ・形・アイコン・色・階層は V / C2 で決定する。
+- **HD-D15（Ultimate）**: Ultimate のチャージ情報は Action Zone 内に集約する。別 HUD に同じ Ultimate ゲージを重複表示しない。％・リング・READY など具体的な視覚表現は V / C2 で決定する。
+- **HD-D16（インタラクト・処刑・コンボ）**: 現在の下中央単一列から分離する。インタラクト: 対象との関係が分かる位置。処刑: 対象との関係が分かり、操作可能であることが分かる位置。コンボ: 戦闘を邪魔しない位置。具体的な位置・サイズ・デザインは V / C2 で決定する。
+- **HD-D17（通知）**: 同じ通知を中央トーストとログの 2 か所へ重複表示する方式を廃止する。情報の種類ごとに適切な 1 つの表示先へ統合する。単純にログを削除するのではなく、通知の役割と表示先を再設計する。既存 E2E の変更が必要になった場合は、D 実装の範囲として必要な変更を許可する。
+- **HD-D18（表示条件の集約）**: HUD の表示条件を 1 か所の純粋関数モジュールに集約し、unit test を作成する。実際の DOM 更新処理は legacy 側に残してよい。C1 の legacy concat 構造を維持し、`basefile.html` を変更しない。
+- **HD-D19（レポートの Persistence）**: Analyzer / Planner report の commit / push は Human が行う。Claude Code は今回の Task / Decision record 更新では commit / push しない。
+- **HD-D20（実装ブランチ名）**: D の実装ブランチ名は `claude/ui-002-d-impl` とする。ただし実装開始の許可はまだ与えていない（Persistence も未許可）。
+
+#### UI-002-D: HD-D21〜HD-D27（WI-D1、2026-09-28）
+
+WI-D1（HUD 表示条件の整理）の実装計画の再確認（READ ONLY）を受けて Human が決定した。**WI-D1 の実装承認ではない**（WI-D1 は WAITING_APPROVAL のまま。Persistence も未許可のまま）。
+
+- **HD-D21（ミニマップ）**: D1 ではミニマップの「必要な状態」を決定しない。pure function には必要条件を入力できる構造だけ用意し、Human Decision が確定するまでは現行の表示条件を維持する。ゲームデザイン上の必要条件を AI が決定してはいけない。
+- **HD-D22（PC タッチボタン）**: D1 では PC のタッチ用ボタンを実際には非表示化しない。表示条件の pure function と unit test までを D1 で実施し、実際の PC 用 UI 変更は D3 で行う。これにより D3 の PC 操作 UI が存在しない状態で操作・情報表示手段を失うことを防ぐ。
+- **HD-D23（PC 操作ヒントの表示済み状態）**: 初回または新しい操作の解禁時に表示する。「表示済み」の状態はセッション内だけ保持し、セーブデータには保存しない。セーブ形式・旧セーブ互換性への影響を発生させない。
+- **HD-D24（PC 操作ヒントの表示時間）**: 表示時間は 5 秒とする。初回または新しい操作の解禁時に表示し、5 秒経過後に非表示とする。
+- **HD-D25（スタミナ表示）**: スタミナが満タンかつ直近の消費がない場合は非表示。スタミナの消費中・回復中、および最後の消費から 3 秒間は表示する。D1 ではこの表示条件だけを扱い、スタミナのゲームロジック自体は変更しない。
+- **HD-D26（E2E）**: D1 の仕様変更に伴う既存 E2E の修正および必要な E2E の追加を許可する。ただし既存検証を弱めたり、単に assert を削除して PASS させたりしてはいけない。新しい仕様を明示的に検証すること。既存 FAIL（mansion-escort、execution-break）および FLAKY（job-traits）の分類は変更しない。
+- **HD-D27（Persistence）**: D1 実装は `claude/ui-002-d-impl` で行う。実装後に build / unit / E2E を実行し、Reviewer の独立レビューを経た後に commit / push することを許可する。ただし、現時点ではまだ実装承認ではない（WI-D1 の Approval 欄の Persistence は、WI-D1 の Human Approval 時に記入する）。
+
+WI-D1 の受入条件の整理（Human の指示）: D1 での「常時表示」は DOM 上の表示状態を意味する。名前・肖像・HP・武器バッジは HUD が有効な間、表示状態であること。実際の画面上での位置・サイズ・他 UI との重なり・safe-area・中央 60%×60% への侵入・視認性は D2 / D3 / D4 の受入条件とする。
+
+### UI-002-D: HD-D28〜HD-D29（2026-09-30）
+
+- 決定者: Human（本セッションの会話「UI-002-D Planner Update」）。記録は AI（Planner）。WI-D1〜D6 の実装承認・Persistence ではない
+- **HD-D28（C2 / V の参照）**: C2 / V は Human 承認・DONE・main 統合済み（main `790bde05283414234c6c53c951b72c6f29d52f91`）。D では C2 / V で確定した視覚方針（V-1〜V-7、C2 の semantic UI token と Prototype の視覚文法）を参照し、同じ視覚方針を D で再決定しない。HUD の具体的な位置・寸法・viewport ごとのレイアウト・safe-area・表示 / 非表示条件は D の責務。C2 Prototype の DOM を本番 HUD へそのままコピーすることを前提にしない
+- **HD-D29（MP）**: MP 廃止は D では実装しない。ゲームシステム変更を含む別 Task として扱う。D では MP を単純に非表示にする実装も行わない（HD-D10 の D 内での扱いを置き換える。HD-D10 の「旧セーブの MP 値を無断で削除・変換しない」は別 Task でも維持する前提）
+- 併せて Human が決定: WI-D0 は既存の実測（`.ai/reports/UI-002-D-analysis.md` §15.2）をもって DONE。再測定しない。E で変わった Weapon Badge / Attack glyph の内容は WI-D1 の実装前確認事項
+
 ## Undecided（未決定事項）
 
 以下は現時点では決定しない。必要になった Task の Analyzer / Planner を通して改めて判断する。
@@ -271,3 +317,7 @@ UI-001 / UI-002 / UI-002-A / UI-002-B / UI-002-C1 / UI-002-D / UI-002-V / UI-002
 | 2026-09-27 | UI-002-B の AP-B1〜AP-B7 承認と Persistence（`claude/ui-002-b-impl`）を追記 | 本セッションの会話（UI-002-B Planner 確認後）。branch `claude/ui-002-b-impl` |
 | 2026-09-27 | UI-002-B: execution-break を既存 FAIL として扱う決定、Reviewer 移行の承認を追記 | 本セッションの会話（UI-002-B 実装報告後）。branch `claude/ui-002-b-impl` |
 | 2026-09-27 | UI-002-C1 の AP-C1-01〜12 承認（WI-C1-4 不採用）と Persistence（`claude/ui-002-c1-impl`）を追記 | 本セッションの会話（UI-002-C1 Planner 確認後）。branch `claude/ui-002-c1-impl` |
+| 2026-09-28 | UI-002-D の HD-D01〜HD-D20 を追記（実装承認・Persistence ではない）。既存の Human Decision・Undecided は変更していない | 本セッションの会話（UI-002-D Analyzer / Planner report 確認後）。作業ツリー（未 commit） |
+| 2026-09-28 | UI-002-D WI-D0（実装前実測・確認ゲート）の Human Approval（履歴のみ。承認内容の正本は `.ai/tasks/UI-002-D.md` の WI-D0 Human Approval）。WI-D1〜D6 の承認・Persistence ではない。既存の Human Decision 本文は変更していない | 本セッションの会話（WI-D0 承認指示）。作業ツリー（未 commit） |
+| 2026-09-28 | UI-002-D の HD-D21〜HD-D27（WI-D1）を追記（WI-D1 の実装承認・Persistence の発効ではない）。既存の Human Decision・Undecided は変更していない | 本セッションの会話（WI-D1 実装計画の再確認後）。作業ツリー（未 commit） |
+| 2026-09-30 | UI-002-D の HD-D28（C2 / V の視覚方針を参照）・HD-D29（MP 廃止は別 Task）と WI-D0 DONE の決定を追記（WI-D1〜D6 の実装承認・Persistence ではない）。既存の Human Decision・Undecided は変更していない | 本セッションの会話（UI-002-D Planner Update） |
