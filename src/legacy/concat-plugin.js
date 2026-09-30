@@ -227,6 +227,7 @@ import {
   lordPhaseFor, lordShouldShiftPhase, lordAttackChoice, lordAttackPlan,
   lordAttackCooldown, lordShadowTarget, lordShadowCreep,
 } from '../core/mansion-enemies.js';
+import { UI_GLYPH_VIEWBOX, uiGlyph, resolveSwordsmanGlyphIds } from '../core/ui-icons.js';
 
 `;
 

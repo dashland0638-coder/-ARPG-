@@ -1839,7 +1839,7 @@
     updateSkillButtonIcon();
     const btnSkill2Icon = document.getElementById('btn-skill2-icon');
     const skill2Def = activeSkill2Def(cdef.key);
-    if(btnSkill2Icon && skill2Def) btnSkill2Icon.textContent = skill2Def.icon;
+    if(btnSkill2Icon && skill2Def) setGlyphOrText(btnSkill2Icon, currentSwordsmanGlyphIds().skill2, skill2Def.icon);
     updateUltHUD();
   }
 
@@ -2326,7 +2326,7 @@
                    : '✴️ 新しい戦い方を閃いた');
     // ボタンをその場で出す(updateCooldownRings が .locked を外す)
     const icon = document.getElementById('btn-skill2-icon');
-    if(icon && def) icon.textContent = def.icon;
+    if(icon && def) setGlyphOrText(icon, currentSwordsmanGlyphIds().skill2, def.icon);
     updateCooldownRings();
     return before !== true;
   }
@@ -2474,7 +2474,7 @@
     const icon = document.getElementById('btn-charge-icon');
     if(!icon || !state.classDef) return;
     const variant = getChargeVariants()[state.skillChoice] || getChargeVariants().retreat;
-    icon.textContent = variant.icon;
+    setGlyphOrText(icon, currentSwordsmanGlyphIds().skill1, variant.icon);
   }
 
   function getChargeVariants(){

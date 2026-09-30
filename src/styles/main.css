@@ -798,6 +798,11 @@
   #btn-dodge{ width:58px; height:58px; right:30px; bottom:calc(110px + env(safe-area-inset-bottom)); }
   #btn-charge{ width:44px; height:44px; right:96px; bottom:calc(112px + env(safe-area-inset-bottom)); font-size:15px; z-index:var(--ui-z-local-3); }
   #btn-skill2{ width:42px; height:42px; right:152px; bottom:calc(128px + env(safe-area-inset-bottom)); font-size:14px; z-index:var(--ui-z-local-3); }
+  /* UI-002-E WI-EPI-3〜5: 承認済み glyph(inline SVG)の表示寸法。既存のボタン・器の px 値は変えない。
+     Action の glyph は 24px、Weapon Badge は器と同じ 18px(HDE-EPI-05)。色は親の color を受ける */
+  .ui-glyph{ display:block; flex:none; width:24px; height:24px; }
+  .weapon-badge .ui-glyph{ width:18px; height:18px; }
+  #btn-attack-glyph:not(:empty){ display:block; flex:none; margin-right:3px; }
   /* スキル3(ボスから習得した能動技)。skill1->skill2->ultと同じ右上への
      並びをそのまま続け、何も装着していない間は薄く表示するだけにしてある。
      以前はultとほぼ隙間0pxで接触していたため、右上へさらに離してある */
