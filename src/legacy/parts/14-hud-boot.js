@@ -413,6 +413,71 @@
     setGlyphOrText(el, currentSwordsmanGlyphIds().attack, '');
   }
 
+  /* HUD の表示条件(UI-002-D WI-D1)。条件そのものは core/combat-hud-visibility.js。
+     ここは結果を DOM に写すだけで、位置・大きさ・見た目は変えない。
+
+     updateHUD() は animate() の通常プレイ分岐からしか呼ばれず、導入会話など
+     会話中は動かない ―― そのため HUD を出した時点と主人公の交代時に
+     syncHudDisplay() で一度合わせる(武器バッジの初期文字「M」や、未習得の
+     Skill 2・本編の Skill 3 が会話中に見えていた件。D0 §15.2.6) */
+  const pcHintState = { seen: [], shownAtSec: null };   // セッション内だけ。セーブしない(HD-D23)
+  let hudStaminaPrev = null, hudStaminaLastUseSec = null;
+  function hudNowSec(){ return performance.now() / 1000; }
+
+  /* 旧成長系(XP バー・操作ヒントの Skill 3 表記)。本編は出さない(UI-002-A) */
+  function applyLegacyHudVisibility(){
+    const legacy = legacyHudVisible(state);
+    const xpTrack = document.getElementById('xp-fill');
+    if(xpTrack && xpTrack.parentElement) xpTrack.parentElement.style.display = legacy ? '' : 'none';   // WI-A1
+    const hintSkill3 = document.getElementById('hud-hint-skill3');
+    if(hintSkill3) hintSkill3.style.display = legacy ? '' : 'none';   // WI-A2
+  }
+
+  /* スタミナ(HD-D25)と PC 操作ヒント(HD-D23 / D24)。
+     allowNewHint が false のとき(会話が始まる前の同期)は新しいヒントを出さない ――
+     会話中は updateHUD() が止まって 5 秒で消せないため、ヒントは通常プレイに戻ってから出す */
+  function updateHudVisibility(allowNewHint){
+    const now = hudNowSec();
+    // スタミナは値を読むだけ(減ったら「使った」とみなす)。ロジックには触れない
+    if(hudStaminaPrev !== null && state.stamina < hudStaminaPrev) hudStaminaLastUseSec = now;
+    hudStaminaPrev = state.stamina;
+    const staTrack = document.getElementById('sta-fill');
+    const staRow = staTrack && staTrack.parentElement;
+    if(staRow){
+      const show = staminaVisible({
+        stamina: state.stamina, maxStamina: state.maxStamina,
+        sinceLastUseSec: hudStaminaLastUseSec === null ? null : now - hudStaminaLastUseSec,
+      });
+      // 並びを動かさないよう visibility で隠す(配置の変更は D2 / D4)
+      const v = show ? '' : 'hidden';
+      staRow.style.visibility = v;
+      if(staRow.previousElementSibling) staRow.previousElementSibling.style.visibility = v;   // 「スタミナ」の見出し
+    }
+    const hint = document.getElementById('hud-hint');
+    if(hint){
+      const r = stepPcHint({
+        isTouchDevice, nowSec: now,
+        unlocked: allowNewHint ? unlockedPcHintOps(state) : [],
+        seen: pcHintState.seen, shownAtSec: pcHintState.shownAtSec,
+      });
+      pcHintState.seen = r.seen; pcHintState.shownAtSec = r.shownAtSec;
+      hint.style.display = r.visible ? '' : 'none';
+    }
+  }
+
+  /* HUD を今の state に合わせて一度だけ同期する。武器バッジ・攻撃 / Skill の
+     glyph は E の既存経路(updateWeaponBadge / updateAttackGlyph /
+     updateSkillButtonIcon)のまま使い、ここから icon の DOM を直接書かない */
+  function syncHudDisplay(){
+    if(!state.classDef) return;
+    updateWeaponBadge();
+    updateAttackGlyph();
+    updateSkillButtonIcon();
+    updateCooldownRings();
+    applyLegacyHudVisibility();
+    updateHudVisibility(false);
+  }
+
   function updateHUD(){
     document.getElementById('hp-fill').style.width = `${Math.max(0,state.hp/state.maxHp*100)}%`;
     document.getElementById('mp-fill').style.width = `${Math.max(0,state.mp/state.maxMp*100)}%`;
@@ -423,6 +488,7 @@
     document.getElementById('xp-fill').style.width = `${Math.max(0,Math.min(100,state.xp/state.xpToNext*100))}%`;
     updateUltHUD();
     updateCooldownRings();
+    updateHudVisibility(true);
     if(state.paused) refreshMenuStats();
   }
 
@@ -586,7 +652,8 @@
     const canvas = document.getElementById('minimap');
     const label = document.getElementById('minimap-label');
     if(!wrap || !canvas) return;
-    const visible = state.started && !state.paused && !state.dialogueActive && state.activeOverlay==='none';
+    // 現行の条件のまま(HD-D21。「必要な状態」は未決定なので needed は渡さない)
+    const visible = minimapPanelVisible(state);
     wrap.classList.toggle('show', visible);
     if(label) label.classList.toggle('show', visible);
     if(!visible) return;
@@ -781,7 +848,7 @@
     /* Chapter 1 は Skill 1 だけで出発する(全体基本仕様 §18)。ボタンを
        薄く出して「まだ無い枠」を見せるのではなく、閃くまで存在しない ――
        ダンジョン中盤でいきなり現れること自体が習得の合図になる */
-    if(skill2El) skill2El.classList.toggle('locked', !hasSkill2(state));
+    if(skill2El) skill2El.classList.toggle('locked', !skill2ButtonVisible(state));
     if(skill2El && skill2) skill2El.style.setProperty('--cd-pct', state.skill2CD>0 ? Math.max(0,1-state.skill2CD/skill2.cd) : 1);
     const ultEl = document.getElementById('btn-ult');
     // 必殺技は待ち時間ではなくゲージ充填率(戦闘performanceで貯まる)。
@@ -789,7 +856,7 @@
     if(ultEl) ultEl.style.setProperty('--cd-pct', Math.max(0, Math.min(1, state.ultGauge / ULT_GAUGE_MAX)));
     const skill3El = document.getElementById('btn-skill3');
     // WI-A2: Chapter 1 では Skill 3 ボタンを出さない(Skill 2 の未習得と同じ .locked)
-    if(skill3El) skill3El.classList.toggle('locked', !legacyGrowth());
+    if(skill3El) skill3El.classList.toggle('locked', !skill3ButtonVisible(state));
     if(skill3El){
       const activeDef = state.equippedBossActiveSkill && BOSS_ACTIVE_SKILLS[state.equippedBossActiveSkill];
       skill3El.classList.toggle('unequipped', !activeDef);   // 何も装着していない間は薄く表示するだけ
@@ -1680,6 +1747,8 @@
        「鍛冶屋の前まで歩いて話す」をさせない(WORK 12.1)。鍛冶士は酒場に残る */
     if(state.smithJoined) state.smithGreeted = true;
     resetWeaponState(state.weapon);
+    // 交代の一幕(会話)の間も、HUD が前の主人公のままにならないように(UI-002-D WI-D1)
+    syncHudDisplay();
     return true;
   }
   function castIndexFor(classKey){
@@ -1860,10 +1929,9 @@
     /* Chapter 1 に無い旧成長系の HUD 表示(UI-002-A)。state.testMode は
        この関数の冒頭で確定しているので、ここで一度だけ合わせればよい。
        XP の値そのもの(state.xp)には触れない */
-    const xpTrack = document.getElementById('xp-fill');
-    if(xpTrack && xpTrack.parentElement) xpTrack.parentElement.style.display = legacyGrowth() ? '' : 'none';   // WI-A1
-    const hintSkill3 = document.getElementById('hud-hint-skill3');
-    if(hintSkill3) hintSkill3.style.display = legacyGrowth() ? '' : 'none';   // WI-A2
+    applyLegacyHudVisibility();
+    // 導入会話の前に HUD の中身を今の主人公へ合わせる(UI-002-D WI-D1)
+    syncHudDisplay();
     checkOrientation();
 
     // Put the player inside the tavern (or the training ground - see

@@ -25,14 +25,14 @@
     if(!tc) return;
     const camL = document.getElementById('btn-cam-left');
     const camR = document.getElementById('btn-cam-right');
-    const playing = !!state.started;
     // a physical controller drives movement, so the pad drops back to just
-    // the ability buttons and their cooldown rings
-    const padDriven = playing && isTouchDevice && gpIndex === null;
-    tc.classList.toggle('active', padDriven);
-    tc.classList.toggle('gamepad-min', playing && !padDriven);
-    if(camL) camL.classList.toggle('active', padDriven);
-    if(camR) camR.classList.toggle('active', padDriven);
+    // the ability buttons and their cooldown rings. 条件は
+    // core/combat-hud-visibility.js(UI-002-D WI-D1。結果は従来と同じ)
+    const mode = touchControlsMode({ started: state.started, isTouchDevice, gamepadConnected: gpIndex !== null });
+    tc.classList.toggle('active', mode.active);
+    tc.classList.toggle('gamepad-min', mode.gamepadMin);
+    if(camL) camL.classList.toggle('active', mode.cameraButtons);
+    if(camR) camR.classList.toggle('active', mode.cameraButtons);
   }
 
   function checkOrientation(){
