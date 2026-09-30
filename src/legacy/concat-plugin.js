@@ -98,7 +98,8 @@ import {
 import {
   legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, hudLabel, joinSceneReady,
 } from '../core/chapter1-rules.js';
-import { devUiEnabled } from '../core/dev-ui.js';
+import { devUiEnabled, uiProtoEnabled } from '../core/dev-ui.js';
+import { uiProtoIcon, uiProtoWeaponIcon } from '../core/ui-proto-icons.js';
 import {
   phaseFor as villageEchoPhase, planFor as villageEchoPlan,
   nextSummon as villageNextSummon, shouldLeaveEcho as villageShouldEcho,

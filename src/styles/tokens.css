@@ -90,6 +90,19 @@
   --ui-z-rotate: 60;
   --ui-z-confirm: 120;
 
+  /* ---- color: semantic(UI-002-C2 追加。AP-C2-02 / 03、V-7) ----
+     UI の意味色。いずれも既存の値を再利用しており、新しい色は無い
+     (--ui-recovery は回復結晶の既存色 #7fe8b8 ―― 08-loot-equipment.js /
+     ミニマップの印と同じ)。職業色はここに入れない(V-7)。
+     C1 の既存 selector はこれらを参照しない ―― 参照するのは
+     C2 Prototype(ui-proto.css、AP-C2-04)だけで、見た目は変わらない */
+  --ui-selected: var(--ember);
+  --ui-danger: var(--hp);
+  --ui-recovery: #7fe8b8;
+  --ui-special: var(--gold);
+  --ui-disabled: var(--text-dim);
+  --ui-outline: var(--bg);                          /* 厚い輪郭(V-2) */
+
   /* ---- component: panel(WI-C1-2) ----
      .cc-frame / .menu-box / .event-box / .appraisal-box の共通部分。
      幅・padding・影は各 selector に残している(値が違うため) */
