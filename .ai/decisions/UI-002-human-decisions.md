@@ -269,6 +269,17 @@ WI-D1 の受入条件の整理（Human の指示）: D1 での「常時表示」
 - **HD-D29（MP）**: MP 廃止は D では実装しない。ゲームシステム変更を含む別 Task として扱う。D では MP を単純に非表示にする実装も行わない（HD-D10 の D 内での扱いを置き換える。HD-D10 の「旧セーブの MP 値を無断で削除・変換しない」は別 Task でも維持する前提）
 - 併せて Human が決定: WI-D0 は既存の実測（`.ai/reports/UI-002-D-analysis.md` §15.2）をもって DONE。再測定しない。E で変わった Weapon Badge / Attack glyph の内容は WI-D1 の実装前確認事項
 
+### UI-002-D: HD-D30〜HD-D35（2026-09-30、WI-D2）
+
+- 決定者: Human（本セッションの会話「UI-002-D / WI-D2 Human Decision + Analyzer Persistence → Planner」）。記録は AI（Planner）。WI-D2 の実装承認・Persistence ではない
+- 入力: WI-D2 Analyzer report `.ai/reports/UI-002-D-D2-analysis.md` §7
+- **HD-D30（中央 60%×60%）**: D2 では「HUD ゾーンが中央 60%×60% へ侵入しない」ことを D2 の AC とする。ゾーン内部の個別 UI が中央へ侵入する問題は各担当 WI（D3 / D4 等）で解決する。D2 では左上のキャラクターパネルそのものを縮小しない
+- **HD-D31（☰ メニュー）**: D2 では移動先を固定しない。所持品チップの整理と合わせて、Planner が配置案を提示する
+- **HD-D32（🧪 回復）**: D3 の Quick-use Action Zone が完成するまで、既存の回復 UI を D2 では削除しない
+- **HD-D33（🔷 MP）**: HD-D29 を維持する。D2 では MP を変更しない。MP 廃止は別 Task で扱う
+- **HD-D34（viewport の切り替え）**: 正式対象の viewport は 1280×800 と 844×390。responsive layout は body 属性ではなく CSS の viewport 条件で行う。具体的な breakpoint の値は Planner が提案する
+- **HD-D35（safe-area）**: 現時点では iPhone 実機で確認できない。CSS の safe-area 対応を実装対象とするが、実機確認済みとは扱わない。E2E では safe-area をエミュレーションできる値で検証する
+
 ## Undecided（未決定事項）
 
 以下は現時点では決定しない。必要になった Task の Analyzer / Planner を通して改めて判断する。
@@ -321,3 +332,4 @@ UI-001 / UI-002 / UI-002-A / UI-002-B / UI-002-C1 / UI-002-D / UI-002-V / UI-002
 | 2026-09-28 | UI-002-D WI-D0（実装前実測・確認ゲート）の Human Approval（履歴のみ。承認内容の正本は `.ai/tasks/UI-002-D.md` の WI-D0 Human Approval）。WI-D1〜D6 の承認・Persistence ではない。既存の Human Decision 本文は変更していない | 本セッションの会話（WI-D0 承認指示）。作業ツリー（未 commit） |
 | 2026-09-28 | UI-002-D の HD-D21〜HD-D27（WI-D1）を追記（WI-D1 の実装承認・Persistence の発効ではない）。既存の Human Decision・Undecided は変更していない | 本セッションの会話（WI-D1 実装計画の再確認後）。作業ツリー（未 commit） |
 | 2026-09-30 | UI-002-D の HD-D28（C2 / V の視覚方針を参照）・HD-D29（MP 廃止は別 Task）と WI-D0 DONE の決定を追記（WI-D1〜D6 の実装承認・Persistence ではない）。既存の Human Decision・Undecided は変更していない | 本セッションの会話（UI-002-D Planner Update） |
+| 2026-09-30 | UI-002-D の HD-D30〜HD-D35（WI-D2: 中央 60%×60% はゾーン単位、☰ の配置は Planner が提案、🧪 は D3 まで残す、🔷 / MP は変更しない、viewport は CSS 条件、safe-area は CSS 対応・実機未確認）を追記（WI-D2 の実装承認・Persistence ではない）。既存の Human Decision・Undecided は変更していない | 本セッションの会話（UI-002-D / WI-D2 Human Decision） |
