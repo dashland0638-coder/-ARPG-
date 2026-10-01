@@ -231,7 +231,7 @@ import {
 import { UI_GLYPH_VIEWBOX, uiGlyph, resolveSwordsmanGlyphIds } from '../core/ui-icons.js';
 import {
   legacyHudVisible, skill2ButtonVisible, skill3ButtonVisible, minimapPanelVisible,
-  touchControlsMode, staminaVisible, unlockedPcHintOps, stepPcHint,
+  touchControlsMode, actionZoneLayout, staminaVisible, unlockedPcHintOps, stepPcHint,
 } from '../core/combat-hud-visibility.js';
 
 `;

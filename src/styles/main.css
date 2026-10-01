@@ -730,14 +730,12 @@
   .menu-mat{ display:flex; align-items:center; gap:5px; color:var(--text-dim); }
   .menu-mat b{ color:var(--text); font-weight:var(--ui-fw-bold); }
 
-  #loot-potion-btn{ pointer-events:auto; transition:transform .1s; position:relative; z-index:var(--ui-z-hud-button); }
   #loot-menu-btn{
     pointer-events:auto; transition:transform .1s; position:relative; z-index:var(--ui-z-hud-button);
     color:var(--ember-bright); font-size:15px;
     border-right:1px solid var(--panel-line); padding-right:10px; margin-right:2px;
   }
   #loot-menu-btn:active{ transform:scale(0.9); }
-  #loot-potion-btn:active{ transform:scale(0.9); }
   .loot-chip span.count{ color:var(--text); font-weight:600; }
 
   .item-pop{
@@ -804,7 +802,7 @@
   #touch-controls.gamepad-min .cam-btn{ display:none; }
   #touch-controls.gamepad-min .action-btn{ opacity:0.9; pointer-events:none; }
   .joy-zone{
-    position:absolute; left:0; bottom:0; width:48%; height:46%; z-index:var(--ui-z-local-5);
+    position:absolute; left:env(safe-area-inset-left); bottom:0; width:48%; height:46%; z-index:var(--ui-z-local-5);
     pointer-events:auto; touch-action:none;
   }
   .joy-base{
@@ -820,7 +818,8 @@
     background:radial-gradient(circle at 35% 30%, var(--ember-bright), var(--ember));
     box-shadow:0 2px 10px rgba(0,0,0,0.5);
   }
-  .action-zone{ position:absolute; right:0; bottom:0; width:54%; height:68%; pointer-events:none; }
+  /* 右の inset は Action Zone の基準点で扱う(UI-002-D WI-D3。各ボタンの bottom は従来どおり下の inset を含む) */
+  .action-zone{ position:absolute; right:env(safe-area-inset-right); bottom:0; width:54%; height:68%; pointer-events:none; }
   .action-btn{
     position:absolute; pointer-events:auto; touch-action:none;
     border-radius:var(--ui-p-radius-round); display:flex; align-items:center; justify-content:center;
@@ -855,6 +854,44 @@
      以前はultとほぼ隙間0pxで接触していたため、右上へさらに離してある */
   #btn-skill3{ width:46px; height:46px; right:284px; bottom:calc(146px + env(safe-area-inset-bottom)); font-size:16px; z-index:var(--ui-z-local-3); }
   #btn-skill3.unequipped{ opacity:0.4; }
+  /* 回復のクイック使用(UI-002-D WI-D3。HD-D12)。以前の所持品の 🧪 チップを Action Zone へ
+     移したもの。大きさ・文字の大きさは Skill 1(#btn-charge)の既存値、個数の文字は
+     以前のチップ(.loot-chip span.count)の値を使い、新しい見た目は作らない(V / C2)。
+     攻撃ボタンの左隣に置く */
+  #loot-potion-btn{ width:44px; height:44px; right:198px; bottom:calc(26px + env(safe-area-inset-bottom)); font-size:15px; gap:1px; z-index:var(--ui-z-local-3); }
+  #loot-potion-btn span.count{ color:var(--text); font-weight:600; font-size:11px; }
+
+  /* 844×390 相当(HD-D34)のタッチ: 常時表示の Action ボタンを中央 60%×60% の外へ出す
+     (HD-D02 / D30)。攻撃・JUMP・回避は右の帯に縦に、Ult・Skill 1・Skill 2・回復・Skill 3 は
+     下の帯に横に並べる。スティック(.joy-zone、左 48%)と画面下中央のカメラ回転には重ねない。
+     大きさは変えない(位置だけ。V / C2)。パッド接続中のタッチ端末(表示専用)も同じ位置 */
+  @media (max-height: 500px){
+    #touch-controls:not(.pc-indicators) #btn-attack{ right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-jump{ right:21px; bottom:calc(104px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-dodge{ right:24px; bottom:calc(172px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-ult{ right:106px; bottom:calc(4px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-charge{ right:168px; bottom:calc(4px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-skill2{ right:222px; bottom:calc(4px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #loot-potion-btn{ right:274px; bottom:calc(4px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-skill3{ right:328px; bottom:calc(4px + env(safe-area-inset-bottom)); }
+  }
+
+  /* PC(非タッチ)の能力表示(UI-002-D WI-D3。HD-D08 / D22、条件は core の actionZoneLayout)。
+     タッチ用の攻撃ボタンは出さず、Ult・Skill 1・Skill 2・回復・Skill 3 を表示専用
+     (.gamepad-min の規則)で画面右下の帯に 1 列に並べ、戦闘態勢中(.in-combat)だけ出す。
+     キーボードではキー表記(data-key)を添える。大きさ・形・色は変えない */
+  #touch-controls.pc-indicators #btn-attack{ display:none; }
+  #touch-controls.pc-indicators:not(.in-combat) .action-zone{ display:none; }
+  #touch-controls.pc-indicators #btn-ult{ right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #btn-charge{ right:80px; bottom:calc(16px + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #btn-skill2{ right:136px; bottom:calc(16px + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #loot-potion-btn{ right:190px; bottom:calc(16px + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #btn-skill3{ right:246px; bottom:calc(16px + env(safe-area-inset-bottom)); }
+  #touch-controls.key-labels .action-btn[data-key]::after{
+    content:attr(data-key); position:absolute; top:-15px; left:50%; transform:translateX(-50%);
+    font-size:var(--ui-fs-hud-label); font-family:var(--ui-font-latin-display); color:var(--text-dim);
+    pointer-events:none;
+  }
   /* まだ閃いていないスキル(Chapter 1 の Skill 2)。薄く残さず消す ――
      ボタンが現れることそのものが習得の合図(core/chapter1-skills.js) */
   .action-btn.locked{ display:none; }

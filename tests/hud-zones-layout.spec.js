@@ -9,7 +9,8 @@
  *   safe-area     CDP の Emulation.setSafeAreaInsetsOverride(上 0 / 左 47 / 下 21 / 右 47。
  *                 横向き iPhone を想定した仮の値で、実機の値ではない。HD-D35)で、ゾーンの
  *                 基準点が inset の分だけ内側へ移ること
- *   所持品        ☰ 🧪 🔷 は行ごと移しただけで、☰ と 🧪 はタップを受け取れる(HD-D31 / D32 / D33)
+ *   所持品        ☰ 🔷 は行ごと移しただけで、☰ はタップを受け取れる(HD-D31 / D33)。🧪 は
+ *                 WI-D3 で Action Zone の回復ボタンになった(HD-D12 / D32。tests/action-zone.spec.js)
  *   開発用 UI     テストモード専用の Arena は本編に出ず、テストモードでは所持品の下に並ぶ
  */
 import { test, expect } from '@playwright/test';
@@ -61,9 +62,10 @@ async function checkTopLeftStack(page, label) {
   expect(Math.round(loot.left), `${label}: 所持品の左端はパネルと揃う`).toBe(Math.round(panel.left));
 }
 
-/* ☰ と 🧪 の中心がタップを受け取れる(ほかの要素に覆われていない) */
+/* ☰ の中心がタップを受け取れる(ほかの要素に覆われていない)。🧪 は WI-D3 で Action Zone へ移り、
+   タップの確認は tests/action-zone.spec.js で行う */
 async function checkChipsHittable(page, label) {
-  for (const id of ['loot-menu-btn', 'loot-potion-btn']) {
+  for (const id of ['loot-menu-btn']) {
     const hit = await page.evaluate(i => {
       const el = document.getElementById(i);
       const r = el.getBoundingClientRect();
@@ -128,12 +130,13 @@ for (const vp of [
 }
 
 test.describe('UI-002-D WI-D2: 所持品と開発用 UI', () => {
-  test('本編: ☰ でメニューが開き、🧪 🔷 は行の中に残る。Arena は出ない', async ({ page }) => {
+  test('本編: ☰ でメニューが開き、🔷 は行の中に残る(🧪 は WI-D3 で Action Zone へ)。Arena は出ない', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = watchErrors(page);
     await startMainGame(page);
     await expect(page.locator('#hud-zone-tl #hud-loot')).toBeVisible();
-    await expect(page.locator('#hud-loot #loot-potion-btn')).toBeVisible();
+    await expect(page.locator('#hud-loot #loot-potion-btn')).toHaveCount(0);
+    await expect(page.locator('#touch-controls .action-zone #loot-potion-btn')).toHaveCount(1);
     await expect(page.locator('#hud-loot #loot-mppotion-btn')).toBeVisible();
     await expect(page.locator('#arena-toggle-btn'), '本編では Arena を出さない').toBeHidden();
     await expect(page.locator('#arena-panel')).toBeHidden();

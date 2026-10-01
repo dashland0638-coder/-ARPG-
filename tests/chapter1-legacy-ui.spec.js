@@ -90,8 +90,15 @@ test.describe('UI-002-A: Chapter 1 本編に旧成長系の UI が出ない', ()
     // WI-A2: ボタン・操作ヒント・U キー(トーストも出ない)
     expect(await shown(page, 'btn-skill3'), 'Skill 3 ボタン').toBe(false);
     expect(await shown(page, 'hud-hint-skill3'), '操作ヒントの Skill 3').toBe(false);
+    // Skill 1 / Ult は残る。PC では UI-002-D WI-D3(HD-D08)により能力の表示が戦闘態勢中だけに
+    // なったため、攻撃で戦闘態勢に入ってから確かめる
+    await expect(page.locator('#btn-charge')).not.toHaveClass(/locked/);
+    await expect(page.locator('#btn-ult')).not.toHaveClass(/locked/);
+    await page.keyboard.press('KeyJ');
+    await expect(page.locator('#touch-controls')).toHaveClass(/in-combat/);
     expect(await shown(page, 'btn-charge'), 'Skill 1 ボタンは残る').toBe(true);
     expect(await shown(page, 'btn-ult'), 'Ult ボタンは残る').toBe(true);
+    expect(await shown(page, 'btn-skill3'), '戦闘態勢中も Skill 3 ボタンは出ない').toBe(false);
     await page.keyboard.press('KeyU');
     await page.waitForTimeout(400);
     const log = await page.evaluate(() => (document.getElementById('msg-log') || {}).textContent || '');
@@ -165,6 +172,9 @@ test.describe('UI-002-A: Chapter 1 本編に旧成長系の UI が出ない', ()
     await page.waitForTimeout(800);
 
     expect(await shown(page, 'xp-fill'), 'XP バー').toBe(true);
+    // PC の能力表示は戦闘態勢中だけ(UI-002-D WI-D3 / HD-D08)。攻撃で戦闘態勢に入ってから確かめる
+    await page.keyboard.press('KeyJ');
+    await expect(page.locator('#touch-controls')).toHaveClass(/in-combat/);
     expect(await shown(page, 'btn-skill3'), 'Skill 3 ボタン').toBe(true);
     expect(await shown(page, 'hud-hint-skill3'), '操作ヒントの Skill 3').toBe(true);
     await page.keyboard.press('KeyU');

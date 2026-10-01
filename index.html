@@ -101,7 +101,6 @@
     </div>
     <div class="hud-loot" id="hud-loot">
       <div class="loot-chip" id="loot-menu-btn" style="cursor:pointer;">☰</div>
-      <div class="loot-chip" id="loot-potion-btn" style="cursor:pointer;">🧪<span class="count" id="loot-potion">0</span></div>
       <div class="loot-chip" id="loot-mppotion-btn" style="cursor:pointer;">🔷<span class="count" id="loot-mppotion">0</span></div>
     </div>
     <div id="arena-toggle-btn" class="arena-toggle-btn">⚔️ Arena</div>
@@ -182,22 +181,25 @@
     </div>
   </div>
   <div class="action-zone">
-    <div class="action-btn has-cd-ring" id="btn-ult">
+    <div class="action-btn has-cd-ring" id="btn-ult" data-key="K">
       <span id="btn-ult-icon">💥</span>
       <div class="ult-btn-cd" id="ult-btn-cd" style="display:none;"></div>
     </div>
-    <div class="action-btn has-cd-ring" id="btn-charge">
+    <div class="action-btn has-cd-ring" id="btn-charge" data-key="L">
       <span id="btn-charge-icon">💢</span>
     </div>
-    <div class="action-btn has-cd-ring" id="btn-skill2">
+    <div class="action-btn has-cd-ring" id="btn-skill2" data-key="O">
       <span id="btn-skill2-icon">✴️</span>
     </div>
-    <div class="action-btn has-cd-ring" id="btn-skill3">
+    <div class="action-btn has-cd-ring" id="btn-skill3" data-key="U">
       <span id="btn-skill3-icon">👑</span>
     </div>
     <div class="action-btn" id="btn-jump">JUMP</div>
     <div class="action-btn" id="btn-dodge">回避</div>
     <div class="action-btn" id="btn-attack"><span class="action-glyph" id="btn-attack-glyph" aria-hidden="true"></span>攻撃</div>
+    <!-- 回復のクイック使用(UI-002-D WI-D3。HD-D12)。以前は左上の所持品の行にあった
+         🧪 チップを要素ごと移した(id・個数・usePotion() の結び付けは従来どおり) -->
+    <div class="action-btn" id="loot-potion-btn" data-key="V">🧪<span class="count" id="loot-potion">0</span></div>
   </div>
 </div>
 <div id="screen-fade"></div>

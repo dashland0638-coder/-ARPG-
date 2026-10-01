@@ -90,6 +90,8 @@ test.describe('Chapter 1 の Skill 2', () => {
     await page.waitForTimeout(800);
 
     await expect(skill2Btn(page)).not.toHaveClass(/locked/);
+    // PC の能力表示は戦闘態勢中だけ(UI-002-D WI-D3 / HD-D08)。攻撃で戦闘態勢に入ってから確かめる
+    await page.keyboard.press('KeyJ');
     await expect(skill2Btn(page)).toBeVisible();
 
     // 往復しても落ちない(smithJoined と同じ純追加フィールド)

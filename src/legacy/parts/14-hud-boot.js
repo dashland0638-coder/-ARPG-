@@ -488,6 +488,7 @@
     document.getElementById('xp-fill').style.width = `${Math.max(0,Math.min(100,state.xp/state.xpToNext*100))}%`;
     updateUltHUD();
     updateCooldownRings();
+    syncActionZoneLayout();   // PC の能力表示は戦闘態勢中だけ(UI-002-D WI-D3)
     updateHudVisibility(true);
     if(state.paused) refreshMenuStats();
   }
