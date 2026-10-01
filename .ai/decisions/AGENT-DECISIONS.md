@@ -28,3 +28,9 @@ Human Decision と矛盾した場合は Human Decision が優先する。上書�
 - Decision: 「report の push は Human が行う」「承認まで止まる」等、承認・Persistence の手順だけを定めた過去の Human Decision は、DEC-002 統合後の遷移では Agent Approval / Agent Persistence として扱う。ゲーム仕様・ゲームデザイン・ブランチ名・「AI が決めてはいけない」と明示された事項は従来どおり拘束する
 - Basis: `.ai/decisions/DEC-002-autonomous-execution.md` Consequences
 - Applies when: 移行前に始まった Task（例: UI-002-D）を再開するとき
+
+### AD-003: 移行前 Task の実装ブランチ指定と実行環境の割当ブランチが異なる場合は割当ブランチで作業する
+- Date / Task: 2026-10-01 / UI-002-D WI-D2
+- Decision: Human Decision で指定された実装ブランチ（例: HD-D20 `claude/ui-002-d-impl`）へ実行環境が push できない場合、セッションに割り当てられた作業ブランチ（最新 main を含む）で作業し、Task の Approval / Status History にブランチと理由を書く。`main` への merge は行わず、Final Report で Human に残す
+- Basis: `.ai/AGENTS.md` §6.1（作業ブランチ = Human がセッション設定で指定したブランチ）、AD-002（ブランチ名の HD は拘束するが、push できない環境では E-10 に当たる前に割当ブランチで代替できる）
+- Applies when: 移行前の Task を別セッションで再開するとき
