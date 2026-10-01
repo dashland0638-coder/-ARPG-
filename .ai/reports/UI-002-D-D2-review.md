@@ -52,3 +52,43 @@ CHANGES_REQUIRED
 | # | ファイル / 箇所 | 問題（根拠） | 期待する状態 | 確認方法 |
 | --- | --- | --- | --- | --- |
 | 1 | `src/legacy/parts/14-training-ground.js` `syncArenaPanelTop()` | 上端の同期が「開いた時」と `resize` だけ。パネルを開いたまま左上パネルの高さが変わる（`#hud-floor` の階層表示が出る: `14-hud-boot.js` `updateFloorLabel()`、テストモードの鑑定所で職業・名前が変わる）と上端が下がり、`max-height` が古いまま下端が画面外へ出る。Round 1 の期待「どの状態でもパネルが画面内」を満たさない | 開いている間は上端の変化に追従する（毎フレーム呼ばれる `updateArenaPanel()` から、開いている時だけ同期し、値が変わった時だけ書き込む） | E2E: 844×390 でパネルを開いた後に `#hud-floor` を表示し、次のフレーム以降もパネル下端が画面内 |
+
+## Round 3/3
+
+### Review Target
+| 項目 | 値 |
+| --- | --- |
+| Task ID | UI-002-D / WI-D2 |
+| Branch | `claude/agent-autonomous-execution-ewtk87` |
+| Reviewed SHA | `974ad70287192674bbaa82df70c82874a94c0063` |
+| Diff range | `7f5e5cd4f538df134ffe34920bed73d677438a4b..974ad70287192674bbaa82df70c82874a94c0063`（WI-D2 の対象は Round 2 と同じ 5 ファイル。`.ai/decisions/AGENT-DECISIONS.md` の AD-003 は §18 の記録で実装範囲外） |
+| Handoff Verification | V-1〜V-6 OK（Round 2 と同じ。Round 2 Fix・Test Report を Task file で確認） |
+
+### Result
+PASS
+
+### Independence
+同一セッションで兼務（Round 2 の指摘を前提にせず Diff range 全体を再確認。Human による差分確認を推奨）
+
+### Checklist
+| # | 項目 | 結果 | 根拠 |
+| --- | --- | --- | --- |
+| 1 | Specification compliance | PASS | AC-D2-1〜9（既存 E2E 7 件）。Round 1 / Round 2 の Required Changes: Arena パネルは 3 viewport で画面内・全ボタンを押せる・開いたまま高さが変わっても画面内（E2E）。修正前の実装で FAIL を再現済み |
+| 2 | Scope compliance | PASS | `index.html`・`main.css`・`helpers.js`・`hud-zones-layout.spec.js`（WI-D2 承認範囲）と `14-training-ground.js`（Round 1 fix の Agent Approval 範囲）だけ |
+| 3 | Regression | PASS | 関連 E2E 47 件 PASS。同期は `state.testMode` かつパネルが開いている時だけで、本編は早期 return |
+| 4 | Build | PASS | Test Report（Round 2 fix） |
+| 5 | Unit tests | PASS | 1580 PASS / 0 FAIL / 1 SKIP（既存） |
+| 6 | E2E tests | PASS（Targeted） | 47 / 47、FLAKY なし |
+| 7 | Save/Load integrity | PASS | `save-load.spec.js` PASS。セーブ形式の変更なし |
+| 8 | Existing behavior | PASS | 本編では Arena を出さない（E2E）。見た目の値・入力処理・ゲームロジックの変更なし |
+| 9 | Code duplication | PASS | 同期関数は 1 つ（開いた時・resize・毎フレームから共有） |
+| 10 | Unnecessary architecture changes | PASS | concat 構造・body 属性・新しい token なし |
+
+### Risks
+- 毎フレームの `getBoundingClientRect` はテストモードでパネルが開いている時だけ（開発用 UI）。書き込みは値が変わった時だけ
+- 844×390 の左上パネル（D4）と所持品の行（D3）の中央 60%×60% への子要素のはみ出しは、WI-D2 の記録どおり引き継ぎ（HD-D30）
+- safe-area はエミュレーション値で確認。iPhone 実機は未確認（HD-D35）
+- WI-D2 は `main` への正式 merge をしていない（暫定統合 `f2ec107` の上に修正を積んだ作業ブランチ。AD-003）
+
+### Required Changes
+None
