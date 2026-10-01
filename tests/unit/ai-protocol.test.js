@@ -97,3 +97,10 @@ test('Planner は承認待ちで停止せず、Escalation Check で Agent Approv
   assert.match(planner, /Human を待たない/);
   assert.doesNotMatch(planner, /AI が決めない/);
 });
+
+test('移行前の承認単位も再承認は Agent Approval(Human Approval は例外条件だけ)', () => {
+  const gate = sectionBody('6');
+  assert.doesNotMatch(gate, /追加前に Human Approval で運用していた承認単位の続き/);
+  assert.match(gate, /移行前に始まった承認単位/);
+  assert.doesNotMatch(sectionBody('5.2'), /Human Approval を取り直す/);
+});

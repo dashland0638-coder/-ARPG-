@@ -260,7 +260,7 @@ Source Branch が force push・削除されて H-1 が満たせない場合は B
 | --- | --- |
 | `WAITING_APPROVAL` より前 | Planner が新版で H-1〜H-8 をやり直し、`Analysis:` 行を更新して計画を見直す |
 | `WAITING_APPROVAL` | Planner が H-1〜H-8 をやり直し、`Analysis:` 行を更新し、Status History に1行追記する |
-| `APPROVED` 以降 | 旧 Artifact を使い続けない。Planner が新版で計画を見直し、Escalation Check と承認（§6）を取り直す。Human Approval で承認された承認単位は Human Approval を取り直す |
+| `APPROVED` 以降 | 旧 Artifact を使い続けない。Planner が新版で計画を見直し、Escalation Check と承認（§6）を取り直す（元の承認の種類に依らず §6 の表で決める） |
 | `DONE` | 既存 Task を変更しない。新しい Task とする |
 
 **二重 Handoff**: 識別キーは `(Task ID, Kind, Blob SHA)`。同じキーの再 Handoff は no-op とし、記録済みの参照（Source SHA を含む）を書き換えない。
@@ -278,7 +278,7 @@ Source Branch が force push・削除されて H-1 が満たせない場合は B
 | 種類 | 使う場合 | 承認者 |
 | --- | --- | --- |
 | **Agent Approval**（標準） | Escalation Check（§17.3）でトリガーが無い承認単位 | Planner（Approval 欄に Escalation Check の結果を書く） |
-| **Human Approval** | Escalation に当たった承認単位、Human が依頼文で段階承認を求めた Task、本節の追加前に Human Approval で運用していた承認単位の続き | Human |
+| **Human Approval** | Escalation に当たった承認単位、Human が依頼文で段階承認を求めた Task、その Task の Human Decision が Human の承認・判断を明示している事項（§17.3 E-9） | Human |
 
 | Task の形 | 承認単位 |
 | --- | --- |
@@ -331,7 +331,8 @@ Human Approval で運用する承認単位では、次の規則に従う（本�
 - 承認範囲や Files To Change を変える場合は、Human Approval と Persistence を取り直す
 
 **適用範囲**: 本節（§6.1 / §6.2）は、DEC-002 が `main` に統合された後に承認へ進む承認単位から適用する。既存の Approval 欄は書き換えない。
-既に `WAITING_APPROVAL` の承認単位は、Planner が Escalation Check を行い、トリガーが無ければ Agent Approval へ移ってよい（Status History に記録）。
+移行前に始まった承認単位（Human Approval で `APPROVED` 済み、または `WAITING_APPROVAL`）も、以後の承認・再承認は §6 の表で決める。
+`WAITING_APPROVAL` の承認単位は Planner が Escalation Check を行い、トリガーが無ければ Agent Approval へ移ってよい（Status History に記録）。既存の Approval 欄は書き換えず、Agent Approval を追記する。
 
 ## 7. Task State
 

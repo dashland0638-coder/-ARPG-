@@ -1,6 +1,6 @@
 # AGENT-AUTONOMY
 
-Status: CHANGES_REQUIRED
+Status: REVIEWING
 
 Analysis: .ai/reports/AGENT-AUTONOMY-analysis.md（branch `claude/agent-autonomous-execution-ewtk87` @ `159351b330d64d19b8d77a1d33a5f70d4fa9c924`、blob `74cd637d46552a821734f081dfcbb435bbbb85b9`）
 
@@ -106,6 +106,7 @@ None
 | 2026-10-01 | Task | PLANNED → APPROVED | Human（依頼文） | Escalation Check: None |
 | 2026-10-01 | Task | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | branch `claude/agent-autonomous-execution-ewtk87` |
 | 2026-10-01 | Task | REVIEWING → CHANGES_REQUIRED | Reviewer | Round 1/3。Reviewed `9f31652`。`AGENT-AUTONOMY-review.md` |
+| 2026-10-01 | Task | CHANGES_REQUIRED → IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | Round 1/3 fix。branch `claude/agent-autonomous-execution-ewtk87` |
 
 ## Implementation Result
 
@@ -153,3 +154,8 @@ None
 
 ### Out of Scope Found
 - `docs/README.md` の `.ai/` 説明は AGENTS.md を参照しているだけで更新不要
+
+### Round 1 Fix
+- Required Changes #1: `.ai/AGENTS.md` §6 承認種類表の Human Approval 行、§5.2 新版表の `APPROVED 以降` 行、§6.2 適用範囲を「移行前の承認単位も再承認は §6 の表で決める（Human Approval は Escalation・段階承認要求・E-9 のみ）」に統一
+- `tests/unit/ai-protocol.test.js` に移行前承認単位の assertion を追加（9 tests）
+- Re-test: Build PASS / Unit 1581 件中 1580 PASS・0 FAIL・1 SKIP（既存）
