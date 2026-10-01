@@ -1,6 +1,6 @@
 # AGENT-PROTOCOL-2
 
-Status: REVIEWING
+Status: CHANGES_REQUIRED
 
 Analysis: .ai/reports/AGENT-PROTOCOL-2-analysis.md（branch `claude/agent-autonomous-execution-ewtk87` @ `79a1c31a7bb3a348497625e77ed9f7caa5e00004`、blob `734200d10d48c40eeb1691bea61f95dd4adfee24`）
 
@@ -64,6 +64,7 @@ None
 | --- | --- | --- | --- | --- |
 | 2026-10-01 | Task | DRAFT → ANALYZING → PLANNED → APPROVED | Orchestrator / Analyzer / Planner (Agent Approval) | Analysis `79a1c31`。Branch `claude/agent-autonomous-execution-ewtk87` |
 | 2026-10-01 | Task | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | Branch `claude/agent-autonomous-execution-ewtk87` |
+| 2026-10-01 | Task | REVIEWING → CHANGES_REQUIRED | Reviewer | Round 1/3。Reviewed `cfdbd79`。Reviewer が DONE にする旧記述の残り（`AGENT-PROTOCOL-2-review.md`） |
 
 ## Implementation Result
 
