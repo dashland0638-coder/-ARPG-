@@ -121,6 +121,52 @@ test.describe('UI-002-D WI-D4: Character Zone(844×390・タッチ)', () => {
   });
 });
 
+/* 名前と階層表示を与え、同じフレームの中で測る(どちらもフレームごとに書き戻されるため) */
+async function measureWithLabels(page, name, floor) {
+  return page.evaluate(([n, f]) => {
+    const nameEl = document.getElementById('hud-name');
+    const floorEl = document.getElementById('hud-floor');
+    const prev = { name: nameEl.textContent, floor: floorEl.textContent, display: floorEl.style.display };
+    nameEl.textContent = n;
+    if (f) { floorEl.textContent = f; floorEl.style.display = 'block'; } else floorEl.style.display = 'none';
+    const box = el => { const b = el.getBoundingClientRect(); return { left: b.left, top: b.top, right: b.right, bottom: b.bottom, width: b.width, height: b.height }; };
+    const out = { name: box(nameEl), floor: f ? box(floorEl) : null, panel: box(document.querySelector('.hud-topleft')),
+      hp: box(document.getElementById('hp-fill')), lineHeight: parseFloat(getComputedStyle(nameEl).lineHeight) || 0 };
+    nameEl.textContent = prev.name; floorEl.textContent = prev.floor; floorEl.style.display = prev.display;
+    return out;
+  }, [name, floor]);
+}
+
+test.describe('UI-002-D WI-D4: Character Zone の名前の長さ(844×390・タッチ)', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true });
+
+  test('長い名前(上位職 ｜ 支援)と階層表示でも名前は 1 行で、パネルは上の帯に収まり、重ならない', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await startMainGame(page);
+    const short = await measureWithLabels(page, '剣士', null);
+    for (const [name, floor] of [
+      ['魔法使い ｜ 支援: 剣士', null],
+      ['バーサーカー ｜ 支援: 魔法使い', null],
+      ['バーサーカー ｜ 支援: バーサーカー', null],
+      ['バーサーカー ｜ 支援: バーサーカー', '4F 本館大階段'],
+      ['剣士 ｜ 支援: 魔法使い', '2F 二階書斎'],
+    ]) {
+      const m = await measureWithLabels(page, name, floor);
+      const label = `${name}${floor ? ` / ${floor}` : ''}`;
+      expect(Math.round(m.name.height), `${label}: 名前は 1 行`).toBe(Math.round(short.name.height));
+      expect(m.panel.bottom, `${label}: パネルは上の帯(78px)に収まる`).toBeLessThanOrEqual(390 * 0.2);
+      expect(m.name.right, `${label}: 名前はパネルの中`).toBeLessThanOrEqual(m.panel.right + 0.5);
+      if (m.floor) {
+        expect(m.floor.left, `${label}: 名前と階層表示は重ならない`).toBeGreaterThanOrEqual(m.name.right);
+        expect(m.floor.right, `${label}: 階層表示はパネルの中`).toBeLessThanOrEqual(m.panel.right + 0.5);
+      }
+      expect(m.panel.right, `${label}: ミニマップ(右上ゾーン)に届かない`).toBeLessThan(844 * 0.8);
+    }
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('UI-002-D WI-D4: Character Zone(1280×800・PC)', () => {
   test('1280×800 は WI-D4 の前と同じ縦 1 列の配置・寸法', async ({ page }) => {
     test.setTimeout(120_000);
