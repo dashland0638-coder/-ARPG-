@@ -9,7 +9,7 @@
  *                   戦闘態勢中だけ出て、切れると消える(HD-D08 / D22)
  */
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, dismissIntroDialogue, centralIntrusion } from './helpers.js';
+import { watchErrors, openGame, dismissIntroDialogue, startTestMode, centralIntrusion } from './helpers.js';
 
 const INSET = { top: 0, left: 47, bottom: 21, right: 47 };
 /* 新規ゲームの Chapter 1 で見えている Action ボタン(Skill 2 は未習得、Skill 3 は本編に出ない) */
@@ -29,6 +29,65 @@ const rectOf = (page, sel) => page.locator(sel).evaluate(el => {
   return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
 });
 const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+// chapter1-skill2.spec.js と同じ最小セーブ(永続フラグだけを extra で差し替える)
+async function seedSave(page, extra) {
+  await page.addInitScript(save => {
+    localStorage.setItem('soulforge_save_v1', JSON.stringify(save));
+  }, Object.assign({
+    v: 2, selectedClass: 'warrior', selectedGender: 'male', selectedPersonality: 'cautious',
+    playerName: '剣士', allocPoints: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 },
+    level: 5, xp: 0, xpToNext: 999999, levelGrowth: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 },
+    equipLevel: 0, inventory: { gold: 0, gem: 0, potion: 0, shard: 0, mppotion: 0 },
+    equipmentInventory: [], equipped: { weapon: null, upper: null, lower: null },
+    skills: {}, ranks: {}, freeRanks: 0, unlockedSphereNodes: ['root'], spherePoints: 0,
+    bossClears: {}, learnedBossAbilities: [], equippedBossAbilities: [], learnedBossSkills: [],
+    scenarioClears: {}, clearedScenarios: {}, routeCombosSeen: {},
+  }, extra));
+}
+
+async function setInset(page, inset) {
+  if (!inset) return;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: inset });
+}
+
+/* タッチの Action ボタン(sels)が見えていて、中央 60%×60% に入らず、スティックの領域・
+   カメラ回転・互いと重ならず、画面内(inset の内側)にあり、タップを受け取れる */
+async function checkTouchLayout(page, label, inset, sels) {
+  await expect(page.locator('#touch-controls')).toHaveClass(/(^|\s)active(\s|$)/);
+  const center = await centralIntrusion(page, sels);
+  for (const sel of sels) {
+    expect(center[sel] && center[sel].visible, `${label}: ${sel} が見えている`).toBe(true);
+    expect(center[sel].center, `${label}: ${sel} は中央 60%×60% に入らない`).toBe(0);
+  }
+  const rects = {};
+  for (const sel of sels) rects[sel] = await rectOf(page, sel);
+  const joy = await rectOf(page, '#joy-zone');
+  for (const sel of sels) {
+    expect(overlaps(rects[sel], joy), `${label}: ${sel} はスティックの領域に重ならない`).toBe(false);
+    expect(rects[sel].bottom, `${label}: ${sel} は画面内`).toBeLessThanOrEqual(390 - (inset ? inset.bottom : 0) + 0.5);
+    expect(rects[sel].right, `${label}: ${sel} は右 inset の内側`).toBeLessThanOrEqual(844 - (inset ? inset.right : 0) + 0.5);
+  }
+  for (const cam of ['#btn-cam-left', '#btn-cam-right']) {
+    const c = await rectOf(page, cam);
+    for (const sel of sels) expect(overlaps(rects[sel], c), `${label}: ${sel} と ${cam}`).toBe(false);
+  }
+  for (let i = 0; i < sels.length; i++) {
+    for (let j = i + 1; j < sels.length; j++) {
+      expect(overlaps(rects[sels[i]], rects[sels[j]]), `${label}: ${sels[i]} と ${sels[j]} は重ならない`).toBe(false);
+    }
+  }
+  for (const sel of sels) {
+    const hit = await page.evaluate(s => {
+      const el = document.querySelector(s);
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!top && (top === el || el.contains(top));
+    }, sel);
+    expect(hit, `${label}: ${sel} がタップを受け取れる`).toBe(true);
+  }
+}
 
 async function msgLogText(page) {
   return page.evaluate(() => (document.getElementById('msg-log') || {}).textContent || '');
@@ -58,52 +117,53 @@ test.describe('UI-002-D WI-D3: Action Zone(844×390・タッチ)', () => {
       test.setTimeout(120_000);
       const errors = watchErrors(page);
       await openGame(page);
-      if (inset) {
-        const cdp = await page.context().newCDPSession(page);
-        await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: inset });
-      }
+      await setInset(page, inset);
       await page.click('#cc-start-btn');
       await expect(page.locator('#hud')).toHaveClass(/active/);
       await dismissIntroDialogue(page);
       await page.waitForTimeout(800);
-      await expect(page.locator('#touch-controls')).toHaveClass(/(^|\s)active(\s|$)/);
+      await checkTouchLayout(page, label, inset, TOUCH_BUTTONS);
+      expect(errors).toEqual([]);
+    });
 
-      const center = await centralIntrusion(page, TOUCH_BUTTONS);
-      for (const sel of TOUCH_BUTTONS) {
-        expect(center[sel] && center[sel].visible, `${label}: ${sel} が見えている`).toBe(true);
-        expect(center[sel].center, `${label}: ${sel} は中央 60%×60% に入らない`).toBe(0);
-      }
-      const rects = {};
-      for (const sel of TOUCH_BUTTONS) rects[sel] = await rectOf(page, sel);
-      const joy = await rectOf(page, '#joy-zone');
-      for (const sel of TOUCH_BUTTONS) {
-        expect(overlaps(rects[sel], joy), `${label}: ${sel} はスティックの領域に重ならない`).toBe(false);
-        expect(rects[sel].bottom, `${label}: ${sel} は画面内`).toBeLessThanOrEqual(390 - (inset ? inset.bottom : 0) + 0.5);
-        expect(rects[sel].right, `${label}: ${sel} は右 inset の内側`).toBeLessThanOrEqual(844 - (inset ? inset.right : 0) + 0.5);
-      }
-      for (const cam of ['#btn-cam-left', '#btn-cam-right']) {
-        const c = await rectOf(page, cam);
-        for (const sel of TOUCH_BUTTONS) expect(overlaps(rects[sel], c), `${label}: ${sel} と ${cam}`).toBe(false);
-      }
-      for (let i = 0; i < TOUCH_BUTTONS.length; i++) {
-        for (let j = i + 1; j < TOUCH_BUTTONS.length; j++) {
-          expect(overlaps(rects[TOUCH_BUTTONS[i]], rects[TOUCH_BUTTONS[j]]),
-            `${label}: ${TOUCH_BUTTONS[i]} と ${TOUCH_BUTTONS[j]} は重ならない`).toBe(false);
-        }
-      }
-      // 各ボタンはタップを受け取れる(ほかの要素に覆われていない)
-      for (const sel of TOUCH_BUTTONS) {
-        const hit = await page.evaluate(s => {
-          const el = document.querySelector(s);
-          const r = el.getBoundingClientRect();
-          const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-          return !!top && (top === el || el.contains(top));
-        }, sel);
-        expect(hit, `${label}: ${sel} がタップを受け取れる`).toBe(true);
-      }
+    test(`${label}: Skill 2 を閃いた後も、下の帯の Action ボタンは条件を満たす`, async ({ page }) => {
+      test.setTimeout(120_000);
+      const errors = watchErrors(page);
+      await seedSave(page, { learnedSkill2: true });
+      await openGame(page);
+      await setInset(page, inset);
+      await page.click('#cc-continue-btn');
+      await expect(page.locator('#hud')).toHaveClass(/active/);
+      await dismissIntroDialogue(page);
+      await page.waitForTimeout(800);
+      await checkTouchLayout(page, `${label}・Skill 2`, inset, [...TOUCH_BUTTONS, '#btn-skill2']);
       expect(errors).toEqual([]);
     });
   }
+
+  test('844×390・テストモード: Skill 3 を含む Action ボタンが条件を満たす', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    await startTestMode(page, { classKey: 'warrior' });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await page.waitForTimeout(800);
+    await checkTouchLayout(page, '844×390・テストモード', null, [...TOUCH_BUTTONS, '#btn-skill3']);
+    expect(errors).toEqual([]);
+  });
+
+  test('回復(🧪)は押している間に縮む(押下の手応え)', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await startMainGame(page);
+    const r = await rectOf(page, '#loot-potion-btn');
+    await page.mouse.move(r.left + r.width / 2, r.top + r.height / 2);
+    await page.mouse.down();
+    const pressed = await page.locator('#loot-potion-btn').evaluate(el => getComputedStyle(el).transform);
+    await page.mouse.up();
+    expect(pressed, '押下中は縮小(scale 0.9)').toMatch(/^matrix\(0\.9, 0, 0, 0\.9,/);
+    expect(errors).toEqual([]);
+  });
 
   test('回復(🧪)は Action Zone にあり、タップで既存の回復処理が働く。所持品の行は ☰ と 🔷', async ({ page }) => {
     test.setTimeout(120_000);

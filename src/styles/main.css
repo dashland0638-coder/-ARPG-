@@ -860,6 +860,7 @@
      攻撃ボタンの左隣に置く */
   #loot-potion-btn{ width:44px; height:44px; right:198px; bottom:calc(26px + env(safe-area-inset-bottom)); font-size:15px; gap:1px; z-index:var(--ui-z-local-3); }
   #loot-potion-btn span.count{ color:var(--text); font-weight:600; font-size:11px; }
+  #loot-potion-btn:active{ transform:scale(0.9); }   /* 押下の手応え(以前のチップと同じ値) */
 
   /* 844×390 相当(HD-D34)のタッチ: 常時表示の Action ボタンを中央 60%×60% の外へ出す
      (HD-D02 / D30)。攻撃・JUMP・回避は右の帯に縦に、Ult・Skill 1・Skill 2・回復・Skill 3 は
