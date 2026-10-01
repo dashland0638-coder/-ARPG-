@@ -386,8 +386,7 @@
   /* Deliberately a sibling of the minimap, not a child: the map is a circle
      with overflow:hidden, which silently clipped the label away. */
   #minimap-label{
-    position:absolute; z-index:var(--ui-z-minimap); display:none; pointer-events:none;
-    right:16px; top:calc(8px + env(safe-area-inset-top) + clamp(104px, 14vmin, 200px) + 5px);
+    position:relative; z-index:var(--ui-z-minimap); display:none; pointer-events:none;   /* 右上ゾーンでミニマップの 5px 下 */
     width:clamp(104px, 14vmin, 200px); text-align:center;
     text-shadow:0 0 10px rgba(0,0,0,0.95);
   }
@@ -458,19 +457,18 @@
   #motion-panel.show{ display:block; }
 
   /* ---------- COMBAT TEST ARENA(テストモード専用) ---------- */
-  /* 左カラムは上から .hud-topleft(HP/MP/スタミナ、top:16px・高さ約78px)、
-     .hud-loot(☰メニュー/薬草、margin-top:78px で実質y≈94px)と続く。
-     Arenaボタンはその下に置く ―― 以前は96pxでちょうど☰メニューに
-     重なっており、z-index:31が勝ってメニューを開けなくしていた */
+  /* 左上ゾーン(.hud-zone-tl)の末尾に、.hud-topleft・.hud-loot の下へ並ぶ
+     (UI-002-D WI-D2)。以前は固定座標で置いていたため、☰メニューや左上パネルに
+     重なっていた(z-index:31 が勝ってメニューを開けなくした時期もある) */
   .arena-toggle-btn{
-    position:fixed; top:calc(136px + env(safe-area-inset-top)); left:16px;
+    position:relative;
     z-index:31; display:none; padding:8px 14px; border-radius:10px;
     background:rgba(60,20,80,0.75); color:#e8d0ff; font-size:12px; font-weight:700;
     border:1px solid #8a5ac0; cursor:pointer; pointer-events:auto;
   }
   .arena-toggle-btn.show{ display:block; }
   .arena-panel{
-    position:fixed; top:calc(178px + env(safe-area-inset-top)); left:16px; max-width:min(86vw,320px);
+    position:relative; max-width:min(86vw,320px);
     z-index:31; display:none; padding:12px; border-radius:10px;
     background:rgba(20,12,28,0.88); border:1px solid #8a5ac0; pointer-events:auto;
     /* iPhone横持ち(高さ390px前後)でも画面外へはみ出さないよう、
@@ -639,8 +637,52 @@
   #hud{ position:fixed; inset:0; z-index:var(--ui-z-hud); pointer-events:none; display:none; }
   #hud.active{ display:block; }
 
+  /* ---------- HUD ゾーン(UI-002-D WI-D2) ----------
+     常時表示の HUD を画面の外周の帯(中央 60%×60% の外側)にあるゾーンへまとめる。
+     safe-area はゾーンの基準点で 1 回だけ扱い、子要素は並び(flex)で置く。
+     ゾーンの大きさは外周の帯に収まる値で、子要素がはみ出す分は隠さない
+     (844×390 の左上パネルのはみ出しは WI-D4 で扱う。HD-D30)。
+     見た目の値は変えない: 画面端の 16px とゾーン内の 5px は既存の値 */
+  .hud-zone{
+    --hud-edge: 16px;
+    --hud-zone-gap: 5px;
+    position:absolute; display:flex; flex-direction:column; gap:var(--hud-zone-gap);
+    pointer-events:none;
+  }
+  .hud-zone > *{ flex:none; }
+  .hud-zone-tl{
+    top:calc(var(--hud-edge) + env(safe-area-inset-top));
+    left:calc(var(--hud-edge) + env(safe-area-inset-left));
+    width:calc(20vw - var(--hud-edge) - env(safe-area-inset-left));
+    height:calc(20vh - var(--hud-edge) - env(safe-area-inset-top));
+    align-items:flex-start;
+  }
+  .hud-zone-tl > *{ width:max-content; }
+  /* 右上はミニマップの重なり順(--ui-z-minimap)を保つため #hud の外にある */
+  .hud-zone-tr{
+    position:fixed; z-index:var(--ui-z-minimap);
+    top:calc(8px + env(safe-area-inset-top));
+    right:calc(var(--hud-edge) + env(safe-area-inset-right));
+    width:calc(20vw - var(--hud-edge) - env(safe-area-inset-right));
+    height:calc(20vh - 8px - env(safe-area-inset-top));
+    align-items:flex-end;
+  }
+  /* パッド接続表示は以前 #hud の中にあり、HUD が出ていない間は見えなかった。それを保つ */
+  #hud:not(.active) ~ .hud-zone-tr .hud-gamepad-badge{ display:none; }
+  .hud-zone-bc{
+    left:env(safe-area-inset-left); right:env(safe-area-inset-right);
+    bottom:calc(14px + env(safe-area-inset-bottom));
+    height:calc(20vh - 14px - env(safe-area-inset-bottom));
+    align-items:center; justify-content:flex-end;
+  }
+  /* 844×390 相当の高さの小さい横向き端末(HD-D34)。D2 では余白を変えない(上と同じ値)。
+     D3 / D4 はこの条件で 844×390 用の配置を切り替える */
+  @media (max-height: 500px){
+    .hud-zone{ --hud-edge: 16px; }
+  }
+
   .hud-topleft{
-    position:absolute; top:16px; left:16px; z-index:var(--ui-z-hud-panel);
+    position:relative; z-index:var(--ui-z-hud-panel);   /* 位置は左上ゾーン(.hud-zone-tl)が決める */
     display:flex; gap:12px; align-items:center;
     background:var(--ui-surface-hud); border:1px solid var(--panel-line);
     border-radius:var(--ui-p-radius-6); padding:10px 16px 10px 10px; backdrop-filter:blur(4px);
@@ -671,8 +713,9 @@
   .bar-label{ font-size:var(--ui-fs-hud-label); color:var(--text-dim); letter-spacing:0.08em; }
 
   .hud-loot{
-    position:absolute; top:calc(16px + env(safe-area-inset-top)); left:16px;
-    margin-top:78px; z-index:var(--ui-z-hud-panel);
+    /* 位置は左上ゾーンの並び(.hud-topleft の下)で決まる。以前の margin-top:78px の
+       固定ずらしはパネルの実際の高さ(約 130px)と合わず、パネルに重なっていた(UI-002-D WI-D2) */
+    position:relative; z-index:var(--ui-z-hud-panel);
     display:flex; gap:10px;
     background:var(--ui-surface-hud); border:1px solid var(--panel-line);
     border-radius:var(--ui-p-radius-6); padding:6px 12px; backdrop-filter:blur(4px);
@@ -708,7 +751,7 @@
   }
 
   .hud-hint{
-    position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    position:relative;   /* 位置は下中央ゾーン(.hud-zone-bc)が決める */
     font-size:11px; color:var(--text-dim); background:rgba(12,10,16,0.5);
     padding:6px 14px; border-radius:20px; border:1px solid var(--panel-line);
     white-space:nowrap;
@@ -734,7 +777,7 @@
     100%{ opacity:0; }
   }
   .hud-gamepad-badge{
-    position:absolute; top:calc(16px + env(safe-area-inset-top)); right:64px;
+    position:relative;   /* 位置は右上ゾーン(.hud-zone-tr)の並びで決まる */
     font-size:11px; color:var(--ember-bright); background:var(--ui-surface-hud);
     border:1px solid var(--panel-line); padding:7px 12px; border-radius:var(--ui-p-radius-6);
     display:none; align-items:center; gap:6px;
@@ -820,7 +863,7 @@
   #screen-fade.on{ opacity:1; }
 
   #minimap-wrap{
-    position:absolute; top:calc(8px + env(safe-area-inset-top)); right:16px; z-index:var(--ui-z-minimap);
+    position:relative; z-index:var(--ui-z-minimap);   /* 位置は右上ゾーン(.hud-zone-tr)が決める */
     width:clamp(104px, 14vmin, 200px); height:clamp(104px, 14vmin, 200px); border-radius:var(--ui-p-radius-round);
     background:rgba(8,6,12,0.62);
     border:2px solid var(--panel-line);
