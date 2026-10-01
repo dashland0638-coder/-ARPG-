@@ -1,6 +1,6 @@
 # AGENT-AUTONOMY
 
-Status: APPROVED
+Status: REVIEWING
 
 Analysis: .ai/reports/AGENT-AUTONOMY-analysis.md（branch `claude/agent-autonomous-execution-ewtk87` @ `159351b330d64d19b8d77a1d33a5f70d4fa9c924`、blob `74cd637d46552a821734f081dfcbb435bbbb85b9`）
 
@@ -104,3 +104,51 @@ None
 | 2026-10-01 | Task | DRAFT → ANALYZING | Orchestrator | branch `claude/agent-autonomous-execution-ewtk87` |
 | 2026-10-01 | Task | ANALYZING → PLANNED | Analyzer / Planner | analysis persisted @ `159351b` |
 | 2026-10-01 | Task | PLANNED → APPROVED | Human（依頼文） | Escalation Check: None |
+| 2026-10-01 | Task | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | branch `claude/agent-autonomous-execution-ewtk87` |
+
+## Implementation Result
+
+### Artifact Handoff
+| Kind | Path | Source（branch @ SHA） | Blob SHA | 確認（I-1 / H-1〜H-8） |
+| --- | --- | --- | --- | --- |
+| analysis | `.ai/reports/AGENT-AUTONOMY-analysis.md` | `claude/agent-autonomous-execution-ewtk87` @ `159351b330d64d19b8d77a1d33a5f70d4fa9c924` | `74cd637d46552a821734f081dfcbb435bbbb85b9` | 同一ブランチ・単独 commit。H-1〜H-8 OK |
+| plan | `.ai/tasks/AGENT-AUTONOMY.md` | `claude/agent-autonomous-execution-ewtk87` @ `ba6054bad33e86a1fe33293bf19f6b0a963505ca` | `29640f144a8b672eb3aaa9fe212a9369606ad652` | 同一ブランチ・単独 commit。I-3: 以後の変更は Status 行・Status History 追記・本節のみ |
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `.ai/AGENTS.md` | §0 追加、§2 / §4 / §5 / §5.1 / §5.2 / §6（§6.1 / §6.2）/ §7 / §7.3 / §8 / §9（§9.1）/ §10 / §13 / §14 / §16 更新、§17 / §18 / §19 追加 |
+| `.ai/agents/orchestrator.md` / `tester.md` | 新規 |
+| `.ai/agents/analyzer.md` / `planner.md` / `implementer.md` / `reviewer.md` / `debugger.md` | Human 待ちの手順を自律実行・Escalation に置換、テンプレート更新 |
+| `.ai/tasks/README.md` / `.ai/decisions/README.md` / `.ai/reports/README.md` | Approval 欄・Agent Decisions・Escalation 節、Decision の種類 |
+| `.ai/decisions/DEC-002-autonomous-execution.md` / `AGENT-DECISIONS.md` | 新規 |
+| `CLAUDE.md` | 新規（Orchestrator の入口） |
+| `tests/unit/ai-protocol.test.js` | 新規（8 tests） |
+
+### Test Report
+- Scope: Targeted
+- Executed: `npm ci`、`npm run build`、`npm run test:unit`、`npx playwright test -c <scratchpad>/pw.config.mjs tests/ui-foundation.spec.js tests/dev-ui-gate.spec.js`
+- Why this scope: 変更は `.ai/`・`CLAUDE.md`・unit test 1件のみで、ゲームの実行経路を通らない。E2E は Tester 手順（AD-001 の回避策）の実証スモーク
+- Not run: E2E 全体（ゲームコード無変更のため影響経路なし）
+- Environment: Playwright の Chromium revision 不一致のため、リポジトリ外（scratchpad）の設定で `executablePath: /opt/pw-browsers/chromium`・`webServer.cwd` だけを上書き。リポジトリの設定は無変更
+
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| Build | PASS | 既存の chunk サイズ警告のみ |
+| Unit | PASS | 1580 件中 1579 PASS / 0 FAIL / 1 SKIP（既存の SKIP）。新規 `ai-protocol.test.js` 8 件 PASS |
+| E2E スモーク（2 spec・6 件） | PASS | `ui-foundation` / `dev-ui-gate` |
+| E2E 全体 | NOT_RUN | 上記理由 |
+
+### Acceptance Criteria
+| AC | 確認方法 | 根拠 |
+| --- | --- | --- |
+| AC-1 | VERIFIED | `ai-protocol.test.js`「標準フローは … GATE を挟まない」 |
+| AC-2 | VERIFIED | 同「Escalation トリガー E-1〜E-10 と回答形式」、§17.1 は FACT (code) |
+| AC-3 | VERIFIED | 同「Review Fix Loop は自動差し戻しで上限 3 Round」 |
+| AC-4 | FACT (code) | AGENTS.md §18、`decisions/README.md`、`AGENT-DECISIONS.md` |
+| AC-5 | VERIFIED | 同「Final Report は Human Decision: None を明示する」 |
+| AC-6 | FACT (code) | V-1〜V-6 / H-1〜H-8 の表は無変更（差分は BLOCKED 時の戻し先と Persisted by のみ）、§7 の Status 名は無変更 |
+| AC-7 | VERIFIED | Test Report |
+
+### Out of Scope Found
+- `docs/README.md` の `.ai/` 説明は AGENTS.md を参照しているだけで更新不要

@@ -4,9 +4,9 @@
 
 | 項目 | 内容 |
 | --- | --- |
-| Role | 調査・事実確認（AGENTS.md §5） |
+| Role | 調査・問題定義。実装可能な問題定義（原因・制約・変更範囲）を作る（AGENTS.md §5） |
 | Permission | **READ ONLY**。コード変更・仕様変更禁止。書くのはレポートだけ |
-| Input | Task（`.ai/tasks/<ID>.md`）または User Request |
+| Input | Task（`.ai/tasks/<ID>.md`）または Goal（Orchestrator から） |
 | Output | `.ai/reports/<ID>-analysis.md`、Artifact Handoff（AGENTS.md §5.2） |
 | Task Status | 着手時 `ANALYZING`（Task が無ければ Planner が作る） |
 | Next | Planner |
@@ -16,8 +16,11 @@
 調査順は AGENTS.md §11、既存システムの検索は §3（Existing System First）に従う。
 全ファイルを読まない。検索 → 特定 → 必要範囲だけ読む。
 
-report を書き終えたら停止する。report の remote への Persistence は人間が行う（AGENTS.md §5.2 / §6）。
-Persistence 前の Handoff は `Source SHA` / `Blob SHA` を空欄にした「Handoff 未成立」として人間へ渡し、人間が push 後に埋めて Planner へ渡す。
+調べる対象: Repository の現状、関連コード、既存仕様（`docs/`）、Decision Record（`.ai/decisions/`）、過去の Task / report、既存テスト。
+既存情報から判断できる事項について Human Decision を求めない（AGENTS.md §17）。分析結果を Human に提示して判断を待たない。
+
+report を書き終えたら Orchestrator へ返す。report の remote への Persistence は Orchestrator が行う（AGENTS.md §5.2 / §6.1）。
+Persistence 前の Handoff は `Source SHA` / `Blob SHA` を空欄にした「Handoff 未成立」として渡し、Orchestrator が push 後に埋めて Planner へ渡す。
 
 ## Output Template
 
@@ -51,13 +54,20 @@ FACT / INFERENCE を分ける。確定できなければ「未確定」
 
 ## Risks
 
+## Constraints
+既存仕様・Decision Record・Repository Constraints（AGENTS.md §13）から来る制約
+
+## Scope of Change
+必要な変更範囲（ファイル・関数）。Planner がそのまま計画にできる粒度
+
 ## Unknowns
-DECISION（人間が決める事項）と、調査で確認できなかった事項を分ける
+調査で確認できなかった事項と、§17.2 で Agent が決められる見込み（Planner へ）。
+Escalation トリガー（AGENTS.md §17.3）に当たる候補があれば ESCALATION 候補として根拠つきで書く
 
 ## Recommended Next Step
 ```
 
-各記述は FACT / INFERENCE / DECISION のいずれかが分かるように書く（AGENTS.md §8）。
+各記述は FACT / INFERENCE / AGENT DECISION / ESCALATION のいずれかが分かるように書く（AGENTS.md §8）。
 
 ## Artifact Handoff Template（会話などで次の段へ渡す。report には書かない）
 
@@ -71,5 +81,5 @@ Artifact Handoff
 - Source SHA: <40桁>（Persistence 前は空欄 = Handoff 未成立）
 - Path: .ai/reports/<ID>-analysis.md
 - Blob SHA: <git rev-parse <Source SHA>:<Path> の40桁>（同上）
-- Persisted by: Human
+- Persisted by: Agent（または Human）
 ```

@@ -6,25 +6,28 @@
 | --- | --- |
 | Role | 承認済みの Task / Work Item の実装とテスト実行（AGENTS.md §5） |
 | Permission | 承認単位の Files To Change の範囲だけ変更できる（§6 / §10） |
-| Input | `APPROVED` の Task / Work Item と、その計画（`.ai/tasks/<ID>.md` / `<ID>-<ITEM>.md`） |
+| Input | `APPROVED` の Task / Work Item と、その計画（`.ai/tasks/<ID>.md` / `<ID>-<ITEM>.md`）。Review Fix Loop では review report の Required Changes |
 | Output | コード・テストの変更、計画ファイル末尾の Implementation Result、Review Handoff（AGENTS.md §5.1） |
 | Status | `APPROVED` → `IMPLEMENTING` → `TESTING` → `REVIEWING`（失敗時 `FAILED`） |
-| Next | Reviewer（失敗時は Debugger） |
+| Next | Tester → Reviewer（失敗時は Debugger） |
 
 ## Procedure
 
-1. 承認を確認する（Approval 欄がチェック済みで、根拠が書かれている）。無ければ着手しない。
+1. 承認を確認する（Approval 欄がチェック済みで、Agent Approval なら Escalation Check の結果、Human Approval なら根拠が書かれている）。無ければ着手しない。
    Plan Handoff（Kind `plan`）を受けた場合は H-1〜H-8（AGENTS.md §5.2）で検証し、その承認済み版を起点にする
 2. 計画の Files To Change だけを変更する。既存システムを再利用する（§3）。範囲外の必要が分かったら実装せず OUT OF SCOPE として記録する（§10）
-3. §14 に従ってテストを実行し、Test Report を書く
+   軽微な実装上の問題（型・import・既存テストの追従・build エラー）は自分で直す。実装詳細を Human に確認しない（AGENTS.md §17.1）
+3. Tester（`tester.md`）として §14 のテストを実行し、Test Report を書く
 4. Approval 欄の Persistence が `許可` の場合だけ、成果物と Status（`REVIEWING`）・Status History（Note に Branch）の更新を commit し、そのブランチへ push する。
-   Analyzer report と Task file（計画本文・Approval 欄）がそのブランチの remote に無ければ、Human Approval 時点の内容のまま同じ commit に含める（AGENTS.md §6 / §7.3）。
+   Analyzer report と Task file（計画本文・Approval 欄）がそのブランチの remote に無ければ、承認時点の内容のまま同じ commit に含める（AGENTS.md §6 / §7.3）。
    `Analysis:` が新形式なら Source SHA から復元し、`git hash-object` が Blob SHA と一致することを確かめてから含める。一致しなければ commit せず
-   「BLOCKED（理由: Artifact Handoff 不備）」で人間へ戻す（AGENTS.md §7.3 手順2 の I-1〜I-3）。
-   許可が無い・push できない場合は `TESTING` のまま止まり、人間に求める（AGENTS.md §6 / §7.3）
+   「BLOCKED（理由: Artifact Handoff 不備）」で Orchestrator へ戻す（AGENTS.md §7.3 手順2 の I-1〜I-3）。
+   許可が無い・push できない場合は `TESTING` のまま止まる（一時的な障害は再試行。続けば Escalation。AGENTS.md §7.3）
 5. remote のブランチから Implementation SHA に到達できることを確かめ、Review Handoff を Reviewer へ渡す（AGENTS.md §5.1）
 
-Implementer は分析・計画の変更・レビュー判定を行わない。計画どおりにできない場合は止めて Planner / 人間へ戻す。
+Implementer は分析・計画の変更・レビュー判定を行わない。計画どおりにできない場合は止めて Planner へ戻す（Planner が計画を更新して承認をやり直す。AGENTS.md §6.1）。
+
+Review Fix Loop（AGENTS.md §9.1）では Required Changes だけを修正し、Tester の再テスト後に新しい Implementation SHA で Review Handoff を出し直す。Implementation Result に `### Round n Fix` として修正内容を追記する。
 
 ## Output Template（計画ファイルの末尾に追記）
 
