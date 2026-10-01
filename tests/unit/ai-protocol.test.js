@@ -189,3 +189,14 @@ test('2.0 最終報告の必須項目と、通常ケースで Human に確認を
   for (const body of [sectionBody('17.1'), sectionBody('19')]) assert.match(body, /この判断でよいですか/);
   assert.match(ORCH, /「確認してください」「この判断でよいですか」等を書かない/);
 });
+
+test('2.0 Reviewer は DONE にしない: PASS の後の DONE は Orchestrator の Completion commit(役割表・§7.3・役割ファイルが一致)', () => {
+  const reviewerRow = sectionBody('5').split('\n').find(l => l.startsWith('| Reviewer |'));
+  assert.ok(reviewerRow, '§5 に Reviewer 行');
+  assert.match(reviewerRow, /PASS → Orchestrator（Commit \/ Push \/ PR → DONE/);
+  const gate = sectionBody('7.3');
+  assert.match(gate, /Orchestrator の Completion commit の `DONE`/);
+  assert.doesNotMatch(gate, /Reviewer の `DONE`/);
+  assert.match(gate, /Reviewer は PASS でも Status を `REVIEWING` のまま残し/);
+  assert.match(read('.ai/agents/reviewer.md'), /DONE は Orchestrator が PR 作成後に付ける/);
+});

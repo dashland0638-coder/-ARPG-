@@ -127,7 +127,7 @@ Analyzer → Planner（Analyzer report）と Planner → Implementer（承認済
 | Planner | 実装計画・Escalation Check・Agent Approval | Analysis | `.ai/tasks/<ID>.md`（計画・Agent Decisions・Approval） | **原則 READ ONLY**（書くのは Task だけ） | Implementer（Escalation 時は Human） |
 | Implementer | 承認済み Task の実装 | APPROVED な Task / Review の Required Changes | コード・テスト・Task の実装結果欄、Review Handoff（§5.1） | Task の Files To Change の範囲のみ | Tester |
 | Tester | build / unit / lint / E2E の実行と結果判定（§14） | 実装後の working tree | Implementation Result の Test Report | **READ ONLY**（テストの実行のみ。修正は Implementer） | Reviewer（FAIL → Debugger） |
-| Reviewer | 仕様適合・回帰・テストの独立検証 | Review Handoff（§5.1）が指す Task / diff / テスト結果 | `.ai/reports/<ID>-review.md`（CHANGES_REQUIRED なら具体的な Required Changes） | **READ ONLY**（書くのは review report と Task の Status 更新だけ。§7.3） | DONE / Implementer（§9.1） |
+| Reviewer | 仕様適合・回帰・テストの独立検証 | Review Handoff（§5.1）が指す Task / diff / テスト結果 | `.ai/reports/<ID>-review.md`（CHANGES_REQUIRED なら具体的な Required Changes） | **READ ONLY**（書くのは review report と Task の Status 更新だけ。§7.3） | PASS → Orchestrator（Commit / Push / PR → DONE。§20）/ Implementer（§9.1） |
 | Debugger | 失敗の原因分析と修正案 | 失敗ログ / diff | `.ai/reports/<ID>-debug.md` | 原則 READ ONLY（修正は Implementer が行う。単独運用で兼務する場合も §9 の上限に従う） | Implementer → Tester |
 
 各役割の禁止事項:
@@ -411,7 +411,7 @@ Work Item を持つ Task では **該当する Work Item の Status** を指す�
 Status は増やさない。成果物の永続化は、既存の2つの遷移の条件として扱う。
 
 **push 前の Status**: remote に push されていない commit に書かれた Status は、正式な Status として効力を持たない。
-push が完了するまで、正式な Status は直前に remote 上にあった Status とする（Implementer の `REVIEWING`、Reviewer の `DONE` / `CHANGES_REQUIRED` のどちらにも適用）。
+push が完了するまで、正式な Status は直前に remote 上にあった Status とする（Implementer の `REVIEWING`、Reviewer の `REVIEWING（Reviewer PASS）` / `CHANGES_REQUIRED`、Orchestrator の Completion commit の `DONE` のいずれにも適用）。
 push できなかった local commit を削除・書き換えする必要は無い。
 
 **`TESTING → REVIEWING`（担当 Implementer）** — 次の順で行う:

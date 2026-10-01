@@ -1,6 +1,6 @@
 # AGENT-PROTOCOL-2
 
-Status: CHANGES_REQUIRED
+Status: REVIEWING
 
 Analysis: .ai/reports/AGENT-PROTOCOL-2-analysis.md（branch `claude/agent-autonomous-execution-ewtk87` @ `79a1c31a7bb3a348497625e77ed9f7caa5e00004`、blob `734200d10d48c40eeb1691bea61f95dd4adfee24`）
 
@@ -65,6 +65,7 @@ None
 | 2026-10-01 | Task | DRAFT → ANALYZING → PLANNED → APPROVED | Orchestrator / Analyzer / Planner (Agent Approval) | Analysis `79a1c31`。Branch `claude/agent-autonomous-execution-ewtk87` |
 | 2026-10-01 | Task | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | Branch `claude/agent-autonomous-execution-ewtk87` |
 | 2026-10-01 | Task | REVIEWING → CHANGES_REQUIRED | Reviewer | Round 1/3。Reviewed `cfdbd79`。Reviewer が DONE にする旧記述の残り（`AGENT-PROTOCOL-2-review.md`） |
+| 2026-10-01 | Task | CHANGES_REQUIRED → IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | Round 1/3 fix。Branch `claude/agent-autonomous-execution-ewtk87` |
 
 ## Implementation Result
 
@@ -102,4 +103,9 @@ None
 | AC-4 | VERIFIED | 「2.0 Commit / Push の責務」 |
 | AC-5 | VERIFIED | 「2.0 PR 本文」「2.0 Autonomy Metrics」「2.0 最終報告」 |
 | AC-6 | VERIFIED + FACT (code) | 状態名の追加なし（§7 の遷移図は無変更）。Full Regression PASS |
+
+### Round 1 Fix
+- Required #1・#2: `.ai/AGENTS.md` §5 の Reviewer の次工程を「PASS → Orchestrator（Commit / Push / PR → DONE）/ Implementer」に、§7.3「push 前の Status」を「Reviewer の `REVIEWING（Reviewer PASS）` / `CHANGES_REQUIRED`、Orchestrator の Completion commit の `DONE`」に修正
+- Required #3: `ai-protocol.test.js` に「Reviewer は DONE にしない」を追加（計 16 件）。修正前の AGENTS.md では FAIL、修正後は PASS
+- Re-test: Build PASS / Unit 1589 件中 1588 PASS・0 FAIL・1 SKIP。変更は文書と unit test のみのため E2E は再実行しない（Full Regression は Round 1 前の実装で実施済み、ゲームコードの差分なし）
 
