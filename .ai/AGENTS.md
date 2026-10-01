@@ -6,12 +6,12 @@
 
 同じルールを他のファイルへ書き写さない。変更はここで行う。
 
-## 0. Operating Mode: Autonomous Execution + Human Escalation
+## 0. Operating Mode: Agent Protocol 2.0（Autonomous Execution + Human Escalation）
 
-標準の運用モードは **Autonomous Execution**（DEC-002）。
+標準の運用モードは **Agent Protocol 2.0**（DEC-002 の Autonomous Execution を DEC-003 で正式化）。
 
-- **Human は WHAT / Goal を与える。Agent は HOW を決める。**
-- Orchestrator（`.ai/agents/orchestrator.md`）が Goal を受け、Analyzer → Planner → Implementer → Tester → Reviewer を **途中の Human 承認なしで** 連続実行し、完成成果物を Human へ報告する（§4）
+- **Human は WHAT / Goal を与える。Agent は HOW を決め、Goal を PR 作成まで完遂する（§20）。main への merge は Human が判断する**
+- Orchestrator（`.ai/agents/orchestrator.md`）が Goal を受け、Analyzer → Planner → Implementer → Tester → Reviewer を **途中の Human 承認なしで** 連続実行し、Commit → Push → PR 作成（§21）まで行ってから Human へ報告する（§4 / §19）
 - Human への質問は通常動作ではなく **Escalation**（§17）。トリガーに当たる場合だけ発生させる
 - 既存仕様・Decision Record・コード・テストから判断できることを Human に質問しない。実装詳細の選択肢を Human に選ばせない（§17.1）
 - Agent の重要な判断は Agent Decision として記録し、同じ問題で再び質問しない（§18）
@@ -99,7 +99,9 @@ commit / push → Review Handoff  … 成果物を作業ブランチへ残して
   ↓
 Reviewer                        … 独立した検証（READ ONLY）
   ↓
-PASS → DONE → Final Report（§19）→ Human は最終確認
+PASS → Commit / Push → PR 作成（§21）→ DONE → Final Report（§19）
+  ↓
+Human: PR 確認 → main への merge 判断（Agent は merge しない。§20）
   │
   ├─ テスト失敗   → Debugger → Implementer → Tester（§9: 最大3サイクル）
   ├─ Review 指摘  → Implementer → Tester → Reviewer（§9.1 Review Fix Loop: 最大3回、自動）
@@ -120,7 +122,7 @@ Analyzer → Planner（Analyzer report）と Planner → Implementer（承認済
 | Role | 責務 | 入力 | 出力 | 変更権限 | 次工程 |
 | --- | --- | --- | --- | --- | --- |
 | Human | Goal 定義・大きな仕様とゲームデザインの決定・Escalation への回答・最終確認 | Final Report / Escalation | Goal、Escalation への回答（`.ai/decisions/` に記録される） | 全権（判断） | Orchestrator |
-| Orchestrator | Entry Point。Task 起票、Context Loader、各段の起動、ループ回数の管理、Escalation と Final Report | Human の Goal | Task file の起票・Status 更新、Final Report（§19） | `.ai/` の Task / report の persist と Status 更新のみ（コードは変えない） | Analyzer |
+| Orchestrator | Entry Point。Task 起票、Context Loader、各段の起動、ループ回数の管理、Commit / Push / PR 作成の責任（§20 / §21）、Autonomy Metrics（§22）、Escalation と Final Report | Human の Goal | Task file の起票・Status 更新、PR、Final Report（§19） | `.ai/` の Task / report の persist と Status 更新、作業ブランチへの push、PR の作成・更新（コードは変えない。`main` へ merge しない） | Analyzer |
 | Analyzer | 調査・問題定義（原因・制約・変更範囲） | Task / Goal | `.ai/reports/<ID>-analysis.md` | **READ ONLY**（書くのはレポートだけ） | Planner |
 | Planner | 実装計画・Escalation Check・Agent Approval | Analysis | `.ai/tasks/<ID>.md`（計画・Agent Decisions・Approval） | **原則 READ ONLY**（書くのは Task だけ） | Implementer（Escalation 時は Human） |
 | Implementer | 承認済み Task の実装 | APPROVED な Task / Review の Required Changes | コード・テスト・Task の実装結果欄、Review Handoff（§5.1） | Task の Files To Change の範囲のみ | Tester |
@@ -310,7 +312,7 @@ Planner は計画を書き終えた承認単位について Escalation Check（�
   - Orchestrator / Implementer の commit / push: Analyzer report・Task file の persist（§5.2）、承認範囲（Files To Change と Task file の Implementation Result・Status・Status History）
   - Reviewer の §7.3 の commit / push: review report・Task file の Status 更新・Status History への追記（必要な行だけ）。review report はこの範囲に限り承認範囲外のファイルとして扱わない
 - `main` への push、force push、amend による公開済み履歴の書き換え、承認範囲外のファイルの commit は、Persistence が許可でも行わない
-- PR の作成・merge は Human の指示がある場合だけ行う
+- PR の作成は Orchestrator が Definition of Done の一部として行う（§20 / §21）。`main` への merge は行わない（Human の判断）
 
 同じ承認単位の CHANGES_REQUIRED 後の再実装（§9.1）・Debugger 後の修正（§9）は、既存の承認と Persistence を使い続けてよい。
 承認範囲や Files To Change を変える場合は、Planner が計画を更新して Escalation Check と承認をやり直す（Goal の範囲内なら Agent Approval でよい）。
@@ -364,9 +366,9 @@ REVIEWING → CHANGES_REQUIRED → IMPLEMENTING → TESTING
 | TESTING | build / unit / E2E 実行中 | Tester（commit・push・Handoff は Implementer） | FAIL が無く、FLAKY / NOT_RUN があれば §14 の規則どおり記録して進めてよいと判断し、commit・push・Review Handoff を終えた（§7.3）→ REVIEWING、FAIL → FAILED |
 | FAILED | テスト失敗 | － | Debugger が着手 |
 | DEBUGGING | 原因分析・最小修正中 | Debugger | 修正後 TESTING |
-| REVIEWING | 検証中 | Reviewer | PASS かつ §7.3 の DONE 条件 → DONE、指摘 → CHANGES_REQUIRED |
+| REVIEWING | 検証中（Reviewer PASS 後の Commit / Push / PR 作成を含む） | Reviewer → Orchestrator | PASS かつ §7.3 の DONE 条件（PR 作成を含む）→ DONE、指摘 → CHANGES_REQUIRED |
 | CHANGES_REQUIRED | レビュー指摘あり | Reviewer | Orchestrator が Implementer へ自動で差し戻す（§9.1） |
-| DONE | 完了 | － | － |
+| DONE | Agent 側の完了（Goal 完遂・PR 作成済み。main への merge は含まない。§20） | － | － |
 | BLOCKED | 停止中（理由を明記） | － | 外部要因の解消、または Escalation への Human の回答 |
 
 Status を変えたら、同じ Task の「Status History」に1行追記する（テンプレートは `.ai/tasks/README.md`）。
@@ -435,7 +437,7 @@ push できなかった local commit を削除・書き換えする必要は無�
 
 - review report（`.ai/reports/<ID>-review.md`。Work Item は `<ID>-<ITEM>-review.md`）
 - Task file の Status 更新（Work Item を持つ Task では、親 Task の Work Items 表の Status と Work Item 計画の Status。§7.2）
-- Task file の Status History への追記（必要な行だけ。例: Work Item の `REVIEWING → DONE` と、それにより Task Level が `DONE` になる行）
+- Task file の Status History への追記（必要な行だけ。例: PASS なら `REVIEWING（Reviewer PASS）`、指摘なら `REVIEWING → CHANGES_REQUIRED`。`DONE` への更新は Orchestrator の Completion commit が行う）
 
 それ以外の変更を同じコミットに混ぜない。これにより、Reviewed SHA と review commit の差分が review report と Status 更新だけになる。
 
@@ -443,11 +445,16 @@ Reviewer の実行環境で Handoff の Branch へ push できない（別ブラ
 Reviewer は review report を Orchestrator へ渡し、Orchestrator（Handoff の Branch へ push できる実行環境）が同じ範囲の1コミットとして push する。それもできない場合だけ `REVIEWING` のまま Escalation（§17）。
 DONE 条件の「remote の Branch」は Handoff の Branch のまま変わらない。
 
-**`REVIEWING → DONE`（担当 Reviewer）** — 次をすべて満たすこと:
+**`REVIEWING → DONE`（Reviewer PASS → Orchestrator の完了処理）** — 次をすべて満たすこと:
 
 - [ ] review report の Result が PASS
 - [ ] review report が remote の Branch に存在する（push を確認するまで、PASS は完了条件として成立しない）
-- [ ] review report の Reviewed SHA が、その承認単位の最新の Implementation SHA と一致する（Reviewed SHA より後に、その承認単位の Files To Change を変更するコミットが無い。上の「Reviewer の commit 範囲」に従う Reviewer commit は除外する。それ以外のコミットが1つでもあれば満たさない）
+- [ ] review report の Reviewed SHA が、その承認単位の最新の Implementation SHA と一致する（Reviewed SHA より後に、その承認単位の Files To Change を変更するコミットが無い。上の「Reviewer の commit 範囲」に従う Reviewer commit と、下の Completion commit は除外する。それ以外のコミットが1つでもあれば満たさない）
+- [ ] 作業ブランチの PR（`main` 向け）が存在し、その承認単位を含む（§21）
+- [ ] Autonomy Metrics（§22）を Task file に記録した
+
+Agent Protocol 2.0 では、Reviewer は PASS でも Status を `REVIEWING` のまま残し、Status History に `REVIEWING（Reviewer PASS）` を記録する。
+Orchestrator が PR を作成（または既存の PR を更新）した後、**Completion commit**（Task file の Status を `DONE`、Status History・Autonomy Metrics・PR 番号の記録だけ）を作って push する。これで DONE が成立する。
 
 - テストの要件は §14 のまま（Targeted を許容する）。Full Regression と、完了についての追加の Human Approval は DONE の条件にしない
 - Reviewed SHA より後に実装が変わった場合は、新しい Implementation SHA で Handoff とレビューをやり直す
@@ -659,6 +666,7 @@ Targeted の場合は「実行したもの」「選んだ理由」「実行し�
 | `.ai/reports/` | analysis / debug / review / retrospective | 命名: `reports/README.md`（Work Item 分は §7.2） |
 | `.ai/decisions/` | Human の決定と、Task を越えて効く Agent Decision の記録（§18） | 命名とテンプレート: `decisions/README.md` |
 | `CLAUDE.md`（ルート） | Claude Code の起動時に Orchestrator として動くための入口 | ここ（§0） |
+| `.ai/decisions/DEC-003-agent-protocol-2.md` | Agent Protocol 2.0（DoD を PR 作成まで拡張、merge は Human） | ここ（§20〜§22） |
 
 ## 17. Human Escalation Policy
 
@@ -677,6 +685,7 @@ Human への質問は **Escalation** であり、通常動作ではない。「�
 - Work Item の分割・追加・取り下げ（Goal を変えない範囲。§7.2）、Test Scope の選択（§14）、実行環境の回避策（§14）
 
 実装詳細について Human に選択肢を提示して選ばせない。
+Escalation に当たらない判断について、最終報告・PR 本文で「確認してください」「この判断でよいですか」等の確認を求めない（判断の内容と根拠を書くだけにする。§19）。
 
 ### 17.2 Resolution Order（判断の手順）
 
@@ -704,7 +713,7 @@ Human への質問は **Escalation** であり、通常動作ではない。「�
 | E-7 | セキュリティ上重大な判断が必要（秘密情報・認証・外部公開範囲・依存の追加による供給網リスク等） |
 | E-8 | ループ上限（§9 Debugger 3 サイクル / §9.1 Review Fix Loop 3 Round / §5.1 Handoff 出し直し2回）を超えた |
 | E-9 | Human が明示的に判断を求めた事項（依頼文・Decision Record で「Human が決める」とされたもの） |
-| E-10 | Agent の権限・実行環境の外にある障害で先へ進めない（作業ブランチへ書けない、必須の検証手段が皆無 等） |
+| E-10 | Agent の権限・実行環境の外にある障害で先へ進めない（作業ブランチへ書けない、必須の検証手段が皆無、GitHub の権限・認証・障害で PR を作れない 等。§20） |
 
 Escalation Check（§6.1）は、承認単位の計画が E-1〜E-7 / E-9 に当たらないことを確かめる手続きである。
 E-8 / E-10 は実行中に発生した時点で Escalation する。
@@ -754,3 +763,83 @@ Decision Record は Human 承認の記録であると同時に、**Agent が将�
 - **Human Decision**: 判断が必要な事項。無ければ `Human Decision: None` と明記する
 
 Escalation で止まった場合も同じ形で報告し、Human Decision 欄に §17.4 の Escalation を載せる。
+
+Agent Protocol 2.0 の最終報告の必須項目（テンプレートは `.ai/agents/orchestrator.md`）:
+
+- Goal / 実施内容 / 主な Agent 判断 / 変更ファイル / Test 結果 / Reviewer 結果
+- Auto Fix Count / Human Escalation Count / Human Decision Count（§22 の実測値）
+- Commit / Branch / PR / Known limitations
+- Human が次に行うこと（通常は「PR 確認 → main への merge 判断」）
+
+Escalation が不要な場合、「確認してください」「問題なければ進めます」「この判断でよいですか」「違和感があれば指示してください」などの確認を Human へ返さない（§17.1）。
+Human は必要なら最終報告や PR を見て、自発的に追加指示を出す。
+
+## 20. Definition of Done と責任境界（Agent Protocol 2.0）
+
+Agent の Definition of Done は「Reviewer PASS まで」ではなく、**Human から与えられた Goal を完遂し、Commit / Push / PR 作成まで行うこと** とする。
+
+| # | Definition of Done | 担当 |
+| --- | --- | --- |
+| 1 | Goal を理解する | Orchestrator |
+| 2 | Context / Specification / Decision Record を確認する（Context Loader） | Orchestrator |
+| 3 | Analyzer 完了 | Analyzer |
+| 4 | Planner 完了（Escalation Check・Agent Approval） | Planner |
+| 5 | Implementer 完了 | Implementer |
+| 6 | Tester 完了 | Tester |
+| 7 | Reviewer PASS | Reviewer |
+| 8 | 必要な自動修正の完了（§9 / §9.1） | Implementer / Tester / Reviewer |
+| 9 | build / unit / relevant E2E 等の検証の完了（§14） | Tester |
+| 10 | Commit | Orchestrator（実装の commit は Implementer、review の commit は Reviewer。§7.3） |
+| 11 | Push（作業ブランチ。§6.1） | Orchestrator |
+| 12 | PR 作成（§21） | Orchestrator |
+| 13 | Human への最終報告（§19） | Orchestrator |
+
+- PR 作成まで完了した時点で、Agent 側の Work Item（承認単位）を `DONE` とする（§7.3）。**`main` への merge は DONE の条件に含めない**
+- 責任境界:
+
+```
+Agent:  Goal → Context Loading → Analyzer → Planner → Implementer → Tester → Reviewer
+        → （必要なら自動修正）→ PASS → Commit → Push → PR 作成 → Human へ完了報告
+Human:  PR 確認 → main への merge 判断
+```
+
+- **Agent は `main` へ merge しない**（PR の merge・`main` への push・auto-merge の有効化を含む）。PR 本文に `Merge required: Human approval` を書き、Human の次の操作を明示する
+- Human が逐次指示しなくてよいもの: Analyzer / Planner / Implementer の開始、計画の承認、テストの実行、Reviewer の開始、Reviewer FAIL への修正、Commit、Push、PR 作成
+- Human の役割: Goal を与える / ゲーム仕様・大きな設計方針を決める / Escalation に答える / PR を確認する / `main` への merge を判断する
+- 読み取り専用の役割（Analyzer / Planner / Reviewer / Tester）の権限は変えない。Commit / Push / PR 作成の責任は Orchestrator が持つ（Implementer・Reviewer の commit は §7.3 の範囲のまま）
+
+**PR 作成の失敗**: PR の作成だけが失敗しても、実装・commit・push を巻き戻さない。原因を調べ、Agent の権限内で回復できる場合（本文の書式、既存 PR の更新で足りる、一時的な通信障害の再試行など）は自律的に回復する。
+GitHub 側の権限・認証・サービス障害など Agent の権限外の問題の場合だけ Escalation（§17.3 E-10）とし、実装状態・Commit・Push 状態・PR 作成が失敗した理由・Human が行う操作を報告する。この場合、承認単位は `REVIEWING` のまま（DONE にしない）。
+
+**適用範囲**: 本節は DEC-003 の後に完了処理へ進む承認単位から適用する。DEC-003 より前に DONE となった承認単位は書き換えないが、同じブランチの PR を作成した時点で Task file に PR 番号を追記してよい。
+
+## 21. Pull Request
+
+PR は、Reviewer PASS と必要なテストの完了後に Orchestrator が作成する。Human が PR 本文を書く必要が無い状態にする。
+
+- 作業ブランチ 1 本につき PR は 1 つ（base は `main`）。同じブランチで続けて Work Item を完遂した場合は、新しい PR を作らず既存の PR の本文を更新する
+- タイトル: 変更の要旨（`<Task ID>: <要旨>` を推奨）。モデル名を入れない
+- 本文の必須項目（テンプレートは `.ai/agents/orchestrator.md`）:
+  - Goal / Summary / Changed files / major changes / Agent decisions / Tests / Reviewer result
+  - Auto-fix count / Human Escalation count（§22）
+  - Related Work Item / Known limitations / Human review points
+  - `Merge required: Human approval`
+- リポジトリに PR テンプレートがあれば、その見出しに上の項目を当てはめる
+- PR を作成した後も、CI の失敗・review の指摘は §9 / §9.1 と同じ規則で扱う（Agent は merge しない）
+
+## 22. Autonomy Metrics
+
+各 Work Item（承認単位）について、次を Task file（Implementation Result の `### Autonomy Metrics`）に記録し、最終報告と PR 本文にも載せる。
+
+| 項目 | 数え方 |
+| --- | --- |
+| Human Escalation Count | §17 の Escalation を Human へ送った回数 |
+| Human Decision Count | その Work Item の実行中に Human が下した判断の数（Escalation への回答・Human Approval・Human の追加指示による方針決定）。Goal の指示そのものは数えない |
+| Auto Fix Count | §9 の Debugger サイクル数 + §9.1 の Review Fix Loop で Implementer が修正した回数 |
+| Reviewer Round Count | Reviewer が判定（PASS / CHANGES_REQUIRED）を出した回数 |
+| Test Retry Count | §14 の「1 回の再実行」を行ったテストの数（FLAKY・FAIL の判定のための再実行） |
+| PR Created | `Yes`（`#番号`）/ `No`（理由） |
+
+- 数値は実際の記録（Status History・review report・Test Report）から数え、推測で埋めない。記録が無い項目は `unknown` と書く
+- これは Agent を評価するスコアではなく、Agent Protocol を改善するための運用メトリクスとする
+- 最終報告での表記例: `Human Escalation: 0 / Human Decision: 0 / Auto Fix: 2 / Reviewer Rounds: 3 / PR: #123`

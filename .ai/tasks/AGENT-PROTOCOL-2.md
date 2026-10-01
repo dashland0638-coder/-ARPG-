@@ -1,6 +1,6 @@
 # AGENT-PROTOCOL-2
 
-Status: APPROVED
+Status: REVIEWING
 
 Analysis: .ai/reports/AGENT-PROTOCOL-2-analysis.md（branch `claude/agent-autonomous-execution-ewtk87` @ `79a1c31a7bb3a348497625e77ed9f7caa5e00004`、blob `734200d10d48c40eeb1691bea61f95dd4adfee24`）
 
@@ -63,3 +63,42 @@ None
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |
 | 2026-10-01 | Task | DRAFT → ANALYZING → PLANNED → APPROVED | Orchestrator / Analyzer / Planner (Agent Approval) | Analysis `79a1c31`。Branch `claude/agent-autonomous-execution-ewtk87` |
+| 2026-10-01 | Task | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | Branch `claude/agent-autonomous-execution-ewtk87` |
+
+## Implementation Result
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `.ai/AGENTS.md` | §0 を Agent Protocol 2.0 に。§4 のフローに Commit / Push / PR 作成と Human の merge 判断。§5 の Orchestrator の責務。§6.1 の PR の行（PR 作成は Orchestrator、merge は Human）。§7 の状態表（REVIEWING は PR 作成までを含む、DONE は main への merge を含まない）。§7.3 の Reviewer の commit 範囲と DONE 条件（PR・Autonomy Metrics・Completion commit）。§17.1 / §19（確認を返さない、最終報告の必須項目）。E-10 に PR 作成の権限外障害。新 §20（DoD 13 項目・責任境界・PR 失敗時）・§21（Pull Request）・§22（Autonomy Metrics）。File Map に DEC-003 |
+| `.ai/agents/orchestrator.md` | 完了処理（push 確認・PR 作成 / 更新・Completion commit・merge しない・PR 失敗時）、Autonomy Metrics / PR Body / Final Report のテンプレート |
+| `.ai/agents/reviewer.md` | PASS でも Status は `REVIEWING`（DONE は Orchestrator） |
+| `.ai/tasks/README.md` | Task テンプレートに Autonomy Metrics |
+| `CLAUDE.md` | DoD（PR 作成まで）と merge しないこと、Autonomy Metrics |
+| `.ai/decisions/DEC-003-agent-protocol-2.md`（新規） | Human の指示の記録 |
+| `tests/unit/ai-protocol.test.js` | 2.0 の検証 6 件を追加（計 15 件）。§20〜§22 を必須節に、DEC-003 を § 参照の検査対象に追加 |
+
+### Test Report
+- Scope: Full Regression（build / unit / E2E 全体）
+- Executed: `npm run build` / `npm run test:unit` / `npx playwright test`（全 42 ファイル・207 件、`--retries=1`）
+- Environment: AD-001 の回避策（リポジトリ外の Playwright 設定で `executablePath`・`webServer.cwd` だけを上書き）。描画は約 3.5 fps
+
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| Build | PASS | 既存の chunk サイズ警告のみ |
+| Unit | PASS | 1588 件中 1587 PASS / 0 FAIL / 1 SKIP（既存）。`ai-protocol.test.js` 15 / 15 |
+| E2E 全体 | PASS 205 / FLAKY 2 / FAIL 0 | 1.9 時間 |
+| `base-class-identity.spec.js:376`（盗賊 Back Attack） | FLAKY | 初回失敗・1 回の再実行で PASS。戦闘のタイミングを見る test。INFERENCE: このブランチの変更（`.ai/`・HUD の配置・表示条件）は戦闘処理を通らないため無関係。変更前コードでの比較は未実施（Risks） |
+| `job-traits.spec.js:162`（鷹の目） | FLAKY | 既存の FLAKY として記録済みの test（UI-002-D の Test Report）。分類は変更しない |
+| 既存 FAIL として記録していた `mansion-escort` / `execution-break` | PASS | 今回は通った。分類の見直しは本 Task の範囲外 |
+
+### Acceptance Criteria
+| AC | 確認方法 | 根拠 |
+| --- | --- | --- |
+| AC-1 | VERIFIED | `ai-protocol.test.js`「2.0 標準フロー」・既存の「標準フロー」 |
+| AC-2 | VERIFIED | 既存の「Review Fix Loop」「Escalation トリガー」 |
+| AC-3 | VERIFIED | 「2.0 Definition of Done」 |
+| AC-4 | VERIFIED | 「2.0 Commit / Push の責務」 |
+| AC-5 | VERIFIED | 「2.0 PR 本文」「2.0 Autonomy Metrics」「2.0 最終報告」 |
+| AC-6 | VERIFIED + FACT (code) | 状態名の追加なし（§7 の遷移図は無変更）。Full Regression PASS |
+

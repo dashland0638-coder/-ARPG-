@@ -63,6 +63,15 @@ Human の Goal（WHAT）をそのまま書く
 ## Escalation
 None（あれば `../AGENTS.md` §17.4 の形式）
 
+## Autonomy Metrics
+（完了処理で記入。`../AGENTS.md` §22。推測で埋めない）
+- Human Escalation Count:
+- Human Decision Count:
+- Auto Fix Count:
+- Reviewer Round Count:
+- Test Retry Count:
+- PR Created:
+
 ## Status History
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |

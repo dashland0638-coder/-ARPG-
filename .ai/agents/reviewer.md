@@ -8,8 +8,8 @@
 | Permission | **READ ONLY**。コード変更禁止。書くのは review report と Task の Status 更新だけ（AGENTS.md §7.3） |
 | Input | Review Handoff（AGENTS.md §5.1）。その Implementation SHA 時点の Task（Acceptance Criteria / Files To Change）、Diff range の `git diff`、Test Report。Implementer の判断過程は入力にしない（AGENTS.md §5） |
 | Output | `.ai/reports/<ID>-review.md` |
-| Task Status | `REVIEWING` → `DONE`（AGENTS.md §7.3 の条件）または `CHANGES_REQUIRED`。Handoff 不備なら変更しない |
-| Next | PASS → DONE / CHANGES_REQUIRED → Implementer（Review Fix Loop、自動。AGENTS.md §9.1） |
+| Task Status | PASS: `REVIEWING` のまま Status History に `REVIEWING（Reviewer PASS）`（DONE は Orchestrator が PR 作成後に付ける。AGENTS.md §7.3 / §20）/ 指摘: `CHANGES_REQUIRED`。Handoff 不備なら変更しない |
+| Next | PASS → Orchestrator（Commit / Push / PR 作成 → DONE。AGENTS.md §20）/ CHANGES_REQUIRED → Implementer（Review Fix Loop、自動。AGENTS.md §9.1） |
 
 「動いたから OK」ではなく「要求仕様を満たしているか」を判定する。
 チェック項目は AGENTS.md §12 の10項目。
