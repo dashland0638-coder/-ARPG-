@@ -4,8 +4,8 @@
  *   ゾーン        左上 #hud-zone-tl(.hud-topleft と #hud-loot)・下中央 #hud-zone-bc(#hud-hint)は
  *                 #hud の中、右上 #hud-zone-tr(ミニマップ・ラベル・パッド接続表示)は #hud の外
  *   中央 60%×60%  ゾーン自体が入らないことを assert する(HD-D30)。ゾーンの中の子要素が
- *                 中央へはみ出す量は隠さずに数値で記録する(844×390 の左上パネルは WI-D4、
- *                 所持品の行は WI-D3 への引き継ぎ)。子要素を縮めたり隠したりはしない
+ *                 中央へはみ出す量は隠さずに数値で記録する。844×390 の左上パネルは WI-D4 で
+ *                 3 列に並べ替えて中央に入らなくなったため、0 を assert する
  *   safe-area     CDP の Emulation.setSafeAreaInsetsOverride(上 0 / 左 47 / 下 21 / 右 47。
  *                 横向き iPhone を想定した仮の値で、実機の値ではない。HD-D35)で、ゾーンの
  *                 基準点が inset の分だけ内側へ移ること
@@ -93,10 +93,8 @@ for (const vp of [
       for (const id of ['hud-name', 'hud-portrait', 'hp-fill', 'weapon-badge', 'minimap-wrap']) {
         await expect(page.locator(`#${id}`)).toBeVisible();
       }
-      if (vp.touch) {
-        // 844×390 の左上パネルはパネルの大きさのため中央へはみ出す(WI-D4 への引き継ぎ。D2 では縮小しない)
-        expect(children['.hud-topleft'].center, '844×390: 左上パネルのはみ出し(D4 への引き継ぎとして記録)').toBeGreaterThan(0);
-      }
+      // WI-D4 で 844×390 の左上パネルも中央へはみ出さなくなった(D2 の引き継ぎの解消。tests/character-zone.spec.js)
+      expect(children['.hud-topleft'].center, `${vp.name}: 左上パネルは中央 60%×60% に入らない`).toBe(0);
       await checkChipsHittable(page, vp.name);
       expect(errors).toEqual([]);
     });
