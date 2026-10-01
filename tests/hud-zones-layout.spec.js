@@ -198,6 +198,14 @@ test.describe('UI-002-D WI-D2: 所持品と開発用 UI', () => {
           }, id);
           expect(hit, `${vp.name}: #${id} をパネル内のスクロールで押せる`).toBe(true);
         }
+        // 開いたまま左上パネルの高さが変わっても(階層表示の出入り・職業変更など)、
+        // 下端は画面内に留まる。#hud-floor は毎フレーム書き戻されるため、高さの変化は
+        // スタイルで与える
+        const topBefore = (await rectOf(page, '#arena-panel')).top;
+        const grow = await page.addStyleTag({ content: '.hud-topleft{ padding-top:30px !important; }' });
+        await expect.poll(async () => (await rectOf(page, '#arena-panel')).top, `${vp.name}: 上端が下がる`).toBeGreaterThan(topBefore);
+        await expect.poll(async () => (await rectOf(page, '#arena-panel')).bottom, `${vp.name}: 高さが変わった後も下端は画面内`).toBeLessThanOrEqual(bottomLimit + 1);
+        await grow.evaluate(el => el.remove());
         // 末尾のボタンが実際に働く(テストモードの鑑定所画面が開く)
         await page.locator('#arena-loadout-btn').click();
         await expect(page.locator('#appraisal-overlay')).toHaveClass(/active/);
