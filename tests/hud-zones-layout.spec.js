@@ -163,6 +163,49 @@ test.describe('UI-002-D WI-D2: 所持品と開発用 UI', () => {
     expect(errors).toEqual([]);
   });
 
+  /* Arena のパネルは左上ゾーンの並びの末尾にあり、上端が固定値ではない。どの viewport・
+     safe-area でも下端が画面内(画面下から 12px + inset)に収まり、末尾のボタンまで
+     パネル内のスクロールで押せること(WI-D2 Review の Major: 844×390 で下端が画面外) */
+  for (const vp of [
+    { name: '1280×800・PC', width: 1280, height: 800, touch: false, inset: null },
+    { name: '844×390・タッチ', width: 844, height: 390, touch: true, inset: null },
+    { name: '844×390・タッチ・safe-area', width: 844, height: 390, touch: true, inset: INSET },
+  ]) {
+    test.describe(vp.name, () => {
+      test.use({ viewport: { width: vp.width, height: vp.height }, hasTouch: vp.touch });
+
+      test('テストモード: Arena のパネルは画面内に収まり、末尾のボタンまで押せる', async ({ page }) => {
+        test.setTimeout(90_000);
+        const errors = watchErrors(page);
+        await openGame(page);
+        if (vp.inset) {
+          const cdp = await page.context().newCDPSession(page);
+          await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: vp.inset });
+        }
+        await startTestMode(page, { classKey: 'warrior' });
+        await page.locator('#arena-toggle-btn').click();
+        await expect(page.locator('#arena-panel')).toBeVisible();
+        const bottomLimit = vp.height - 12 - (vp.inset ? vp.inset.bottom : 0);
+        const arenaPanel = await rectOf(page, '#arena-panel');
+        expect(arenaPanel.bottom, `${vp.name}: パネルの下端は画面内`).toBeLessThanOrEqual(bottomLimit + 1);
+        for (const id of ['arena-clear-btn', 'arena-info-toggle-btn', 'arena-loadout-btn']) {
+          const hit = await page.evaluate(i => {
+            const el = document.getElementById(i);
+            el.scrollIntoView({ block: 'nearest' });
+            const r = el.getBoundingClientRect();
+            const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return !!top && (top === el || el.contains(top));
+          }, id);
+          expect(hit, `${vp.name}: #${id} をパネル内のスクロールで押せる`).toBe(true);
+        }
+        // 末尾のボタンが実際に働く(テストモードの鑑定所画面が開く)
+        await page.locator('#arena-loadout-btn').click();
+        await expect(page.locator('#appraisal-overlay')).toHaveClass(/active/);
+        expect(errors).toEqual([]);
+      });
+    });
+  }
+
   test('パッド接続表示は HUD が出ていない間(タイトル画面)は見えない', async ({ page }) => {
     const errors = watchErrors(page);
     await openGame(page);

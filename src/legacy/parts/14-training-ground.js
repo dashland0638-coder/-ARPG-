@@ -97,7 +97,18 @@
     if(!state.testMode) return;
     arenaPanelOpen = !arenaPanelOpen;
     document.getElementById('arena-panel').classList.toggle('show', arenaPanelOpen);
+    syncArenaPanelTop();
   }
+
+  // パネルは左上ゾーンの並び(左上パネル・所持品・Arenaボタンの下)にあり、上端が
+  // 固定値ではない。CSSのmax-heightが画面下に収まるよう、実際の上端を渡す
+  // (UI-002-D WI-D2。844×390 で下端が画面外へ出て下のボタンを押せなかった)
+  function syncArenaPanelTop(){
+    if(!arenaPanelOpen) return;
+    const panel = document.getElementById('arena-panel');
+    panel.style.setProperty('--arena-panel-top', `${panel.getBoundingClientRect().top}px`);
+  }
+  window.addEventListener('resize', syncArenaPanelTop);
 
   function toggleArenaDebugInfo(){
     arenaDebugInfoOn = !arenaDebugInfoOn;

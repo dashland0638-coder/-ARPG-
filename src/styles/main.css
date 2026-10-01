@@ -472,8 +472,10 @@
     z-index:31; display:none; padding:12px; border-radius:10px;
     background:rgba(20,12,28,0.88); border:1px solid #8a5ac0; pointer-events:auto;
     /* iPhone横持ち(高さ390px前後)でも画面外へはみ出さないよう、
-       余った分はパネル内でスクロールさせる */
-    max-height:calc(100vh - 190px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+       余った分はパネル内でスクロールさせる。下端は画面下から 12px + safe-area。
+       上端は左上ゾーンの並びで決まるため、開いた時と resize 時に JS が実際の値を
+       --arena-panel-top へ入れる(14-training-ground.js。UI-002-D WI-D2) */
+    max-height:calc(100vh - var(--arena-panel-top, calc(178px + env(safe-area-inset-top))) - 12px - env(safe-area-inset-bottom));
     overflow-y:auto;
   }
   .arena-panel.show{ display:block; }
