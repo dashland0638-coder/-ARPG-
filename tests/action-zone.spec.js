@@ -89,6 +89,26 @@ async function checkTouchLayout(page, label, inset, sels) {
   }
 }
 
+/* PC の能力表示は下中央の PC 操作ヒント(#hud-hint、初回・解禁時に 5 秒)と重ならない。
+   ヒントの表示時間に頼らず、出ている状態にして重なりを測る */
+async function checkNoOverlapWithPcHint(page, label, sels) {
+  // ヒントの表示はフレームごとに書き戻されるため、出す・測る・戻すを同じ evaluate の中で行う
+  const r = await page.evaluate(ss => {
+    const hintEl = document.getElementById('hud-hint');
+    const prev = hintEl.style.display;
+    hintEl.style.display = '';
+    const box = el => { const b = el.getBoundingClientRect(); return { left: b.left, top: b.top, right: b.right, bottom: b.bottom, width: b.width }; };
+    const hint = box(hintEl);
+    const items = ss.map(s => [s, box(document.querySelector(s))]);
+    hintEl.style.display = prev;
+    return { hint, items };
+  }, sels);
+  expect(r.hint.width, `${label}: ヒントが出ている`).toBeGreaterThan(0);
+  for (const [sel, rect] of r.items) {
+    expect(overlaps(rect, r.hint), `${label}: ${sel} は PC 操作ヒントに重ならない`).toBe(false);
+  }
+}
+
 async function msgLogText(page) {
   return page.evaluate(() => (document.getElementById('msg-log') || {}).textContent || '');
 }
@@ -187,6 +207,22 @@ test.describe('UI-002-D WI-D3: Action Zone(844×390・タッチ)', () => {
 });
 
 test.describe('UI-002-D WI-D3: PC の能力表示(1280×800)', () => {
+  test('テストモード(Skill 3 を含む): 能力表示の列は PC 操作ヒントと重ならず、中央 60%×60% に入らない', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    await startTestMode(page, { classKey: 'warrior' });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await page.keyboard.press('KeyJ');
+    await expect(page.locator('#touch-controls')).toHaveClass(/in-combat/);
+    const sels = [...PC_INDICATORS, '#btn-skill3'];
+    for (const sel of sels) await expect(page.locator(sel)).toBeVisible();
+    const center = await centralIntrusion(page, sels);
+    for (const sel of sels) expect(center[sel].center, `${sel} は中央 60%×60% に入らない`).toBe(0);
+    await checkNoOverlapWithPcHint(page, '1280×800・テストモード', sels);
+    expect(errors).toEqual([]);
+  });
+
   test('タッチ用の攻撃ボタンは出さず、能力の表示は戦闘態勢中だけ(表示専用・キー表記つき)', async ({ page }) => {
     test.setTimeout(180_000);
     const errors = watchErrors(page);
@@ -212,6 +248,7 @@ test.describe('UI-002-D WI-D3: PC の能力表示(1280×800)', () => {
     for (const i of info) expect(i.pe, `${i.s} は表示専用`).toBe('none');
     const center = await centralIntrusion(page, PC_INDICATORS);
     for (const sel of PC_INDICATORS) expect(center[sel].center, `${sel} は中央 60%×60% に入らない`).toBe(0);
+    await checkNoOverlapWithPcHint(page, '1280×800', PC_INDICATORS);
     await checkUltChargeOnlyInActionZone(page, '1280×800');
 
     // 戦闘態勢が切れると消える(態勢の保持はゲーム内 2.6 秒。dt は 1 フレーム 0.05 秒で

@@ -883,11 +883,13 @@
      キーボードではキー表記(data-key)を添える。大きさ・形・色は変えない */
   #touch-controls.pc-indicators #btn-attack{ display:none; }
   #touch-controls.pc-indicators:not(.in-combat) .action-zone{ display:none; }
-  #touch-controls.pc-indicators #btn-ult{ right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); }
-  #touch-controls.pc-indicators #btn-charge{ right:80px; bottom:calc(16px + env(safe-area-inset-bottom)); }
-  #touch-controls.pc-indicators #btn-skill2{ right:136px; bottom:calc(16px + env(safe-area-inset-bottom)); }
-  #touch-controls.pc-indicators #loot-potion-btn{ right:190px; bottom:calc(16px + env(safe-area-inset-bottom)); }
-  #touch-controls.pc-indicators #btn-skill3{ right:246px; bottom:calc(16px + env(safe-area-inset-bottom)); }
+  /* 列の下端は下中央の PC 操作ヒント(#hud-hint、bottom 14px・高さ約 29px)の上(Review Round 2) */
+  #touch-controls.pc-indicators .action-zone{ --pc-ind-bottom: 48px; }
+  #touch-controls.pc-indicators #btn-ult{ right:16px; bottom:calc(var(--pc-ind-bottom) + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #btn-charge{ right:80px; bottom:calc(var(--pc-ind-bottom) + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #btn-skill2{ right:136px; bottom:calc(var(--pc-ind-bottom) + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #loot-potion-btn{ right:190px; bottom:calc(var(--pc-ind-bottom) + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #btn-skill3{ right:246px; bottom:calc(var(--pc-ind-bottom) + env(safe-area-inset-bottom)); }
   #touch-controls.key-labels .action-btn[data-key]::after{
     content:attr(data-key); position:absolute; top:-15px; left:50%; transform:translateX(-50%);
     font-size:var(--ui-fs-hud-label); font-family:var(--ui-font-latin-display); color:var(--text-dim);
