@@ -55,7 +55,7 @@
     if(gauntlet.index >= WATERWAY_GAUNTLET.length){
       gauntlet.done = true;
       gauntlet.current = null;
-      spawnLog('🌀 五体すべてを退けた。足場が不気味に軋んでいる……');
+      spawnToast('🌀 五体すべてを退けた。足場が不気味に軋んでいる……');   // 崩落の予兆(表の (a)。UI-002-D WI-D5)
       return;
     }
     const def = WATERWAY_GAUNTLET[gauntlet.index];
