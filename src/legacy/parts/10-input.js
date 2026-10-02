@@ -154,7 +154,7 @@
   document.getElementById('menu-resume').addEventListener('click', ()=> setOverlay('none'));
   document.getElementById('menu-save').addEventListener('click', ()=>{
     const ok = saveGame();
-    spawnToast(ok ? '💾 セーブしました' : '⚠️ セーブに失敗しました', ok ? undefined : '#c25a6b');
+    spawnLog(ok ? '💾 セーブしました' : '⚠️ セーブに失敗しました', ok ? undefined : '#c25a6b');
     sfx('ui');
   });
   document.getElementById('menu-town').addEventListener('click', ()=>{

@@ -1423,7 +1423,7 @@
     try{
       applySaveData(data);
       finishEnteringGame({showIntro:false});
-      spawnToast(`🌙 ${state.name} として再開しました`);
+      spawnLog(`🌙 ${state.name} として再開しました`);
       return true;
     }catch(err){
       // Leaves the title screen exactly as it was - a malformed save
@@ -1777,7 +1777,7 @@
   function playChapter1JoinScene(prevKey, nextKey){
     const prev = CLASSES[prevKey], next = CLASSES[nextKey];
     if(!next) return;
-    spawnToast(`${next.icon} ${next.name}が酒場にいる`);
+    spawnLog(`${next.icon} ${next.name}が酒場にいる`);
     sfx('chime');
     const lines = CHAPTER1_JOIN_LINES[nextKey];
     if(!lines) return;
@@ -1834,7 +1834,7 @@
     if(state.posHistory) state.posHistory.length = 0;
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
-    spawnToast(`🛠 ${wp.name} から開始`);
+    spawnLog(`🛠 ${wp.name} から開始`);
   }
 
   // テストモード(2026-08-31)のスポーン地点。トレーニング空間はタヴァン

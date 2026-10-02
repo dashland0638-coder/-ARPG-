@@ -9,7 +9,11 @@
 // 個々の判定式(Enemy Stepの発動条件・体幹の増減)はtests/unit/側で
 // 検証済みなので、ここでは操作経路が実際に繋がっていることを見る。
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors } from './helpers.js';
+import { openGame, watchErrors, watchNotifications, noteMark, notesSince } from './helpers.js';
+
+/* 戦闘のフィードバック(技名・空中のスキル拒否・エネミーステップ)は中央トーストだけに出る
+   (UI-002-D WI-D5 / HD-D17)。1.7 秒で消えるため、表示された瞬間の記録(watchNotifications)を見る */
+const toastSince = async (page, mark) => (await notesSince(page, mark, 'toast')).join(' / ');
 
 async function enterTestMode(page) {
   await page.click('#open-testmode-btn');
@@ -49,15 +53,16 @@ const SETTLE_MS = 3000;
 test('空中アクション: 上昇中は切り上げ、落下中は落下攻撃になる', async ({ page }) => {
   test.setTimeout(150_000);   // 落下中の候補を最大3巡ぶん試すので既定の45秒では足りない
   const errors = watchErrors(page);
+  await watchNotifications(page);
   await openGame(page);
   await enterTestMode(page);
-  const msgLog = () => page.locator('#msg-log').innerText();
 
   // --- 上昇中 + 攻撃 → 切り上げ(Phase 5) ---
   await page.keyboard.press('Space');
   await page.waitForTimeout(RISING_MS);
+  let mark = await noteMark(page);
   await page.keyboard.press('KeyJ');
-  await expect(page.locator('#msg-log')).toContainText('切り上げ', { timeout: 3000 });
+  await expect.poll(() => toastSince(page, mark), { timeout: 3000 }).toContain('切り上げ');
 
   /* --- 滞空の後半 + 攻撃 → 既存の落下攻撃(急降下) ---
      同じボタンなのに、垂直速度だけで行動が変わることを確認する。
@@ -82,7 +87,7 @@ test('空中アクション: 上昇中は切り上げ、落下中は落下攻撃
       await page.waitForTimeout(wait);
       await page.keyboard.press('KeyJ');
       await page.waitForTimeout(400);
-      dived = (await msgLog()).includes('急降下');
+      dived = (await toastSince(page, 0)).includes('急降下');
       if (dived) break;
     }
   }
@@ -94,6 +99,7 @@ test('空中アクション: 上昇中は切り上げ、落下中は落下攻撃
 
 test('空中アクション: 空中では回避もスキルもできない', async ({ page }) => {
   const errors = watchErrors(page);
+  await watchNotifications(page);
   await openGame(page);
   await enterTestMode(page);
 
@@ -103,24 +109,30 @@ test('空中アクション: 空中では回避もスキルもできない', asy
      途切れていないということ ―― 時間に依存せずこれだけで判定できる */
   await page.keyboard.press('Space');
   await page.waitForTimeout(RISING_MS);
+  const mark = await noteMark(page);
   await page.keyboard.press('Shift');      // 空中での回避入力(無視されるはず)
   await page.waitForTimeout(40);
   await page.keyboard.press('KeyJ');
-  await expect(page.locator('#msg-log'), '空中回避が無視され、切り上げが出ること')
-    .toContainText('切り上げ', { timeout: 3000 });
+  await expect.poll(() => toastSince(page, mark), { message: '空中回避が無視され、切り上げが出ること', timeout: 3000 })
+    .toContain('切り上げ');
   await page.waitForTimeout(SETTLE_MS);
 
   /* 空中スキルの禁止(Phase 4)。スキル・スキル2・必殺技のいずれも
      発動せず、警告だけが出ること。地上では同じキーが通ることは
      他のテスト(save-load/scenario)で既に踏まれている */
+  /* 警告のトーストには短いクールダウンがある(blockedInAir: 連打で積み上がらないように。禁止は毎回効く)。
+     ヘッドレスの低速描画ではゲーム内のクールダウンが実時間で長く伸びるため、キーごとの「弾かれた」は
+     テストモードの Arena フィードバック(クールダウンなし)で確かめ、警告のトーストはこの空中の
+     一連の操作の中で中央に出ていることを確かめる(以前は左下ログに 6.5 秒残った行を見ていた) */
   for (const key of ['KeyL', 'KeyO', 'KeyK']) {
     await page.keyboard.press('Space');
     await page.waitForTimeout(RISING_MS);
     await page.keyboard.press(key);
-    await expect(page.locator('#msg-log'), `${key} が空中で弾かれること`)
-      .toContainText('空中ではスキルを使えない', { timeout: 3000 });
+    await expect(page.locator('#arena-feedback-log'), `${key} が空中で弾かれること`)
+      .toContainText('AIR SKILL BLOCKED', { timeout: 3000 });
     await page.waitForTimeout(SETTLE_MS);
   }
+  expect(await toastSince(page, mark), '空中のスキル入力で警告が中央に出ること').toContain('空中ではスキルを使えない');
 
   expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
 });
@@ -129,6 +141,7 @@ test('空中アクション: Enemy Stepが維持されている', async ({ page 
   /* 突進が来るのを待ちながら跳び続けるので、既定の45秒では足りない */
   test.setTimeout(150_000);
   const errors = watchErrors(page);
+  await watchNotifications(page);
   await openGame(page);
   await enterTestMode(page);
 
@@ -156,7 +169,7 @@ test('空中アクション: Enemy Stepが維持されている', async ({ page 
   for (let i = 0; i < 40 && !stepped; i++) {
     await page.keyboard.press('Space');
     await page.waitForTimeout(1160 + (i % 9) * 95);
-    stepped = (await page.locator('#msg-log').innerText()).includes('エネミーステップ');
+    stepped = (await toastSince(page, 0)).includes('エネミーステップ');
   }
   expect(stepped, '突進中の敵を空中から踏めること(Enemy Stepの回帰)').toBe(true);
 

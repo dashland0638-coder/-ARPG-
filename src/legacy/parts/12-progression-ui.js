@@ -390,7 +390,7 @@
         state.vel.set(0,0,0);
         repositionAlliesToPlayer();
         camera.position.copy(state.pos).add(getCamOffset());
-        spawnToast('……気づくと、見知らぬ場所にいた');
+        spawnLog('……気づくと、見知らぬ場所にいた');
         });
       } else if(state.dialogueKind==='waterwayFall'){
         state.dialogueKind = null;
@@ -399,7 +399,7 @@
           state.vel.set(0,0,0);
           repositionAlliesToPlayer();
           camera.position.copy(state.pos).add(getCamOffset());
-          spawnToast('🪨 瓦礫の底に落ちた……');
+          spawnLog('🪨 瓦礫の底に落ちた……');
         });
       } else if(state.dialogueKind==='towerCollapse'){
         state.dialogueKind = null;
@@ -490,7 +490,7 @@
           state.dialogueActive = false;
           state.dialogueKind = null;
           clearMovementInput(false);
-          spawnToast('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+          spawnLog('⚠️ 結果画面の表示に失敗した。探索は続けられる');
         }
       });
       return;
@@ -504,7 +504,7 @@
           state.dialogueActive = false;
           state.dialogueKind = null;
           clearMovementInput(false);
-          spawnToast('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+          spawnLog('⚠️ 結果画面の表示に失敗した。探索は続けられる');
         }
       });
       return;
@@ -524,7 +524,7 @@
         state.dialogueActive = false;
         state.dialogueKind = null;
         clearMovementInput(false);
-        spawnToast('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+        spawnLog('⚠️ 結果画面の表示に失敗した。探索は続けられる');
       }
     }, 2000);
   }
@@ -864,7 +864,7 @@
       else if(def.unlock==='ultAlt') state.unlockedUltAlt = true;
       spawnToast(`${def.icon} 新しい技を習得した!`);
     } else {
-      spawnToast(`${def.icon} スフィア「${def.name}」を解放!`);
+      spawnLog(`${def.icon} スフィア「${def.name}」を解放!`);
     }
     recomputeStats();
     return true;
@@ -908,7 +908,7 @@
     if(state.ultChoice === 'alt') state.ultChoice = 'default';
     sphereSelectedNode = 'root';
     recomputeStats();
-    spawnToast(`🌀 スフィア盤をリセットした(${spent}pt還元)`);
+    spawnLog(`🌀 スフィア盤をリセットした(${spent}pt還元)`);
     sfx('levelUp');
     return true;
   }
@@ -1031,7 +1031,7 @@
     } else {
       const item = rollBossSignatureGear(bossKey, state.level);
       addEquipmentItem(item);
-      spawnToast('⚔️ 固有装備を手に入れた!(鑑定所で確認できます)');
+      spawnLog('⚔️ 固有装備を手に入れた!(鑑定所で確認できます)');
       sfx('levelUp');
     }
   }
@@ -1291,7 +1291,7 @@
       grantXP(bonus.xp);
       const finalGold = grantGold(bonus.gold);
       // WI-A1: Chapter 1 に XP は無い。実際に得たゴールドだけを出す
-      spawnToast(legacyGrowth() ? `🏳️ 撤退ボーナス: XP+${bonus.xp} 🪙+${finalGold}` : `🏳️ 撤退ボーナス: 🪙+${finalGold}`);
+      spawnLog(legacyGrowth() ? `🏳️ 撤退ボーナス: XP+${bonus.xp} 🪙+${finalGold}` : `🏳️ 撤退ボーナス: 🪙+${finalGold}`);
     }
     returnToTown(false);
   }
@@ -1348,7 +1348,7 @@
        酒場の主人のところで出せるのも、そのシナリオひとつだけ */
     else if(isDefeat && !state.testMode && wasScenario && wasScenario === chapter1Next(state.scenarioClears)){
       const def = SCENARIO_DEFS.find(sc=> sc.key === wasScenario);
-      if(def) spawnToast(`${def.name}へ、もう一度。店主に声をかければ出られる`);
+      if(def) spawnLog(`${def.name}へ、もう一度。店主に声をかければ出られる`);
     }
   }
 
@@ -1480,7 +1480,7 @@
     const next = state.pendingAfterDefeat;
     state.pendingAfterDefeat = null;
     if(next === 'towerCollapse') beginTowerCollapse();
-    else spawnToast('🪜 先へ進む道が開いた');
+    else spawnLog('🪜 先へ進む道が開いた');
   });
   document.getElementById('down-return-btn').addEventListener('click', ()=>{
     document.getElementById('down-overlay').classList.remove('active');
@@ -2031,7 +2031,7 @@
     state.ranks[key]++;
     const def = ABILITY_DEFS.find(a=>a.key===key);
     playRankUpFlourish(def, state.ranks[key]);
-    spawnToast(def.icon + ' ' + def.label + ' が ランク' + state.ranks[key] + ' に!(' + paid + ')');
+    spawnLog(def.icon + ' ' + def.label + ' が ランク' + state.ranks[key] + ' に!(' + paid + ')');
     recomputeStats();
     return true;
   }
@@ -2646,7 +2646,7 @@
       });
       if(best && best !== state.equipped[slot]){ equipItem(best); changed++; }
     });
-    spawnToast(changed ? `⚙️ ${changed}部位を最強装備に更新した` : '⚙️ すでに最適な装備だ');
+    spawnLog(changed ? `⚙️ ${changed}部位を最強装備に更新した` : '⚙️ すでに最適な装備だ');
     refreshAppraisal();
   }
 
@@ -2756,8 +2756,8 @@
       const result = identifyAllEquipment();
       if(result.total===0) spawnToast('🔍 鑑定できる装備がない');
       else if(result.count===0) spawnToast('🪙 資金が足りず鑑定できなかった');
-      else if(result.count<result.total) spawnToast(`✨ ${result.count}個を鑑定した(🪙${result.spent}) ―― 資金不足で${result.total-result.count}個は残った`);
-      else spawnToast(`✨ ${result.count}個をまとめて鑑定した(🪙${result.spent})`);
+      else if(result.count<result.total) spawnLog(`✨ ${result.count}個を鑑定した(🪙${result.spent}) ―― 資金不足で${result.total-result.count}個は残った`);
+      else spawnLog(`✨ ${result.count}個をまとめて鑑定した(🪙${result.spent})`);
       refreshAppraisal();
     });
     panel.querySelectorAll('[data-unequip]').forEach(btn=>{
@@ -3436,7 +3436,7 @@
     commitAllocDraft();
     recomputeStats();
     refreshAppraisal();
-    spawnToast('✅ ステータスを反映した');
+    spawnLog('✅ ステータスを反映した');
   });
 
   function closeAppraisal(){

@@ -55,7 +55,7 @@
     if(gauntlet.index >= WATERWAY_GAUNTLET.length){
       gauntlet.done = true;
       gauntlet.current = null;
-      spawnToast('🌀 五体すべてを退けた。足場が不気味に軋んでいる……');
+      spawnLog('🌀 五体すべてを退けた。足場が不気味に軋んでいる……');
       return;
     }
     const def = WATERWAY_GAUNTLET[gauntlet.index];
@@ -792,7 +792,7 @@
     if(en.isBoss) en.triggered = true;
     enemies.push(en);
     arenaSpawnSeq++;
-    spawnToast(`${def.icon} ${def.label} spawned`);
+    spawnLog(`${def.icon} ${def.label} spawned`);
   }
 
   function arenaClear(){
@@ -811,7 +811,7 @@
     // 既存のclearMobBars()で一旦全部畳む(生きている敵のバーは次の
     // フレームのmobBarFor()で作り直される)
     clearMobBars();
-    spawnToast('🧹 Arena cleared');
+    spawnLog('🧹 Arena cleared');
   }
 
   function updateEnemies(dt){
@@ -5353,7 +5353,7 @@
         onBossDefeated(en, levelBefore);
       } else {
         en.respawnT = 20;
-        if(en.midbossName && en.midbossFlavor) spawnToast(en.midbossFlavor);   // Phase C(#36): 中ボスだけの短い余韻
+        if(en.midbossName && en.midbossFlavor) spawnLog(en.midbossFlavor);   // Phase C(#36): 中ボスだけの短い余韻
         // topple away from the killing blow, then sink through the floor
         startDeathFall(en, from);
         if(en.isBoss){

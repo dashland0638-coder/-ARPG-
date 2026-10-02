@@ -9,7 +9,7 @@
  *                   戦闘態勢中だけ出て、切れると消える(HD-D08 / D22)
  */
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, dismissIntroDialogue, startTestMode, centralIntrusion } from './helpers.js';
+import { watchErrors, openGame, dismissIntroDialogue, startTestMode, centralIntrusion, watchNotifications, notesSince } from './helpers.js';
 
 const INSET = { top: 0, left: 47, bottom: 21, right: 47 };
 /* 新規ゲームの Chapter 1 で見えている Action ボタン(Skill 2 は未習得、Skill 3 は本編に出ない) */
@@ -109,8 +109,10 @@ async function checkNoOverlapWithPcHint(page, label, sels) {
   }
 }
 
+/* 回復の反応は種類ごとに中央トースト(満タン・持っていない)かログ(使った)の一方へ出る
+   (UI-002-D WI-D5)。両方の表示先の記録を見る(watchNotifications をページを開く前に呼ぶ) */
 async function msgLogText(page) {
-  return page.evaluate(() => (document.getElementById('msg-log') || {}).textContent || '');
+  return (await notesSince(page, 0)).join(' / ');
 }
 
 /* Ult のチャージ表示は Action Zone の #btn-ult の中だけ。「NN%」の表示が他に無い */
@@ -188,6 +190,7 @@ test.describe('UI-002-D WI-D3: Action Zone(844×390・タッチ)', () => {
   test('回復(🧪)は Action Zone にあり、タップで既存の回復処理が働く。所持品の行は ☰ と 🔷', async ({ page }) => {
     test.setTimeout(120_000);
     const errors = watchErrors(page);
+    await watchNotifications(page);
     await startMainGame(page);
     await expect(page.locator('#touch-controls .action-zone #loot-potion-btn')).toBeVisible();
     await expect(page.locator('#hud-loot #loot-potion-btn')).toHaveCount(0);
@@ -226,6 +229,7 @@ test.describe('UI-002-D WI-D3: PC の能力表示(1280×800)', () => {
   test('タッチ用の攻撃ボタンは出さず、能力の表示は戦闘態勢中だけ(表示専用・キー表記つき)', async ({ page }) => {
     test.setTimeout(180_000);
     const errors = watchErrors(page);
+    await watchNotifications(page);
     await startMainGame(page);
     const tc = page.locator('#touch-controls');
     await expect(tc).toHaveClass(/pc-indicators/);
