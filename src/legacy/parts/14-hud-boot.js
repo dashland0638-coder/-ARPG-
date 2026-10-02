@@ -911,15 +911,22 @@
     return { left: p.left, top: p.top, right: p.left + size.w, bottom: p.top + size.h };
   }
   function updateCombatPromptPositions(){
-    let execRect = null;
+    // コンボは右下の固定位置で、844×390 では中央の領域の右下に少し入る。出ている間は処刑・
+    // インタラクトがコンボを避ける(Review Round 1)
+    const combo = document.getElementById('combo-indicator');
+    const avoid = [];
+    if(combo && combo.classList.contains('show')){
+      const r = combo.getBoundingClientRect();
+      avoid.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+    }
     if(executePromptShown){
       const target = currentExecutionTarget();
       const el = document.getElementById('execute-prompt');
-      if(target && target.group && el) execRect = placePromptOverWorld(el, target.group.position, EXECUTE_PROMPT_LIFT, []);
+      if(target && target.group && el) avoid.push(placePromptOverWorld(el, target.group.position, EXECUTE_PROMPT_LIFT, avoid.slice()));
     }
     const it = document.getElementById('interact-btn');
     if(it && it.classList.contains('show')){
-      placePromptOverWorld(it, interactTargetWorldPos() || state.pos, INTERACT_PROMPT_LIFT, execRect ? [execRect] : []);
+      placePromptOverWorld(it, interactTargetWorldPos() || state.pos, INTERACT_PROMPT_LIFT, avoid);
     }
   }
 

@@ -57,3 +57,40 @@ test('avoid(先に出ている処刑)と重ならない。上が空いていな�
   assert.equal(overlaps({ left: r.left, top: r.top, right: r.left + 135, bottom: r.top + 36 }, tall), false);
   assert.ok(inside(r, { w: 135, h: 36 }, gameplayZone(844, 390)));
 });
+
+test('コンボ(中央の領域の右下に少し入る固定位置)と、先に出た処刑の両方を避ける', () => {
+  const vp = { w: 844, h: 390 };
+  const size = { w: 135, h: 36 };
+  // 844×390・safe-area(右 47 / 下 21)のコンボの矩形(main.css の値から)
+  const combo = { left: 627, top: 287, right: 691, bottom: 305 };
+  const rect = p => ({ left: p.left, top: p.top, right: p.left + size.w, bottom: p.top + size.h });
+  // 対象が画面右下 → 領域の右下へ寄る位置がコンボに重なる
+  const exec = placeAnchoredPrompt({ anchor: { x: 800, y: 380, onScreen: true }, size, viewport: vp, avoid: [combo] });
+  assert.equal(overlaps(rect(exec), combo), false);
+  assert.ok(inside(exec, size, gameplayZone(vp.w, vp.h)));
+  // インタラクトは処刑とコンボの両方を避ける
+  const isz = { w: 222, h: 35 };
+  const it = placeAnchoredPrompt({ anchor: { x: 790, y: 370, onScreen: true }, size: isz, viewport: vp, avoid: [combo, rect(exec)] });
+  const ir = { left: it.left, top: it.top, right: it.left + isz.w, bottom: it.top + isz.h };
+  assert.equal(overlaps(ir, combo), false);
+  assert.equal(overlaps(ir, rect(exec)), false);
+  assert.ok(inside(it, isz, gameplayZone(vp.w, vp.h)));
+});
+
+/* legacy 側(14-hud-boot.js updateCombatPromptPositions)が、出ているコンボの矩形を処刑・インタラクトの
+   avoid に渡していること(Review Round 1。位置の計算そのものは上の unit で確かめている) */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+test('legacy: 処刑・インタラクトの配置がコンボ(と処刑)を避ける', () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const src = fs.readFileSync(path.join(root, 'src/legacy/parts/14-hud-boot.js'), 'utf8');
+  const start = src.indexOf('function updateCombatPromptPositions(');
+  assert.ok(start >= 0);
+  const body = src.slice(start, src.indexOf('\n  }\n', start)).replace(/\/\/.*$/gm, '');
+  assert.match(body, /getElementById\('combo-indicator'\)/);
+  assert.match(body, /classList\.contains\('show'\)[\s\S]*avoid\.push\(/, 'コンボが出ていれば avoid に入れる');
+  assert.match(body, /placePromptOverWorld\(el, target\.group\.position, EXECUTE_PROMPT_LIFT, avoid/, '処刑はコンボを避ける');
+  assert.match(body, /avoid\.push\(placePromptOverWorld\(el/, '処刑の矩形もインタラクトの avoid に入る');
+  assert.match(body, /placePromptOverWorld\(it, interactTargetWorldPos\(\) \|\| state\.pos, INTERACT_PROMPT_LIFT, avoid\)/, 'インタラクトはコンボと処刑を避ける');
+});

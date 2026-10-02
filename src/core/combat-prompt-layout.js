@@ -5,7 +5,7 @@
    置き場所は画面中央 60%×60% の領域(Gameplay Zone)の中に限る ―― 一時表示は中央に
    出てよく(HD-D02)、周りの Character / Mini-map / Action Zone(WI-D2〜D4)は中央の
    外にあるので、中央に収めればそれらのボタンを覆わない。
-   avoid に渡した矩形(先に出ている表示)とは重ならないよう、上か下へずらす。 */
+   avoid に渡した矩形(先に出ている表示・コンボ)とは重ならないよう、上か下(どちらも無理なら横)へずらす。 */
 
 export const GAMEPLAY_ZONE_RATIO = 0.2;   // 中央 60%×60% = 各辺から 20%
 export const PROMPT_ANCHOR_GAP = 10;      // 対象の点と表示の下端の間(px)
@@ -40,15 +40,22 @@ export function placeAnchoredPrompt({ anchor, size, viewport, avoid = [], gap = 
   const ay = anchored ? anchor.y - gap : zone.bottom;
   let left = clamp(ax - w / 2, zone.left, zone.right - w);
   let top = clamp(ay - h, zone.top, zone.bottom - h);
-  for (const a of avoid) {
-    if (!a) continue;
-    const rect = { left, top, right: left + w, bottom: top + h };
-    if (!overlaps(rect, a)) continue;
-    const above = a.top - gap - h;
-    const below = a.bottom + gap;
-    if (above >= zone.top) top = above;
-    else if (below + h <= zone.bottom) top = below;
-    else left = a.right + gap + w <= zone.right ? a.right + gap : clamp(a.left - gap - w, zone.left, zone.right - w);
+  // 避ける矩形が複数あると、1 つを避けた結果が別の 1 つに重なりうるので、重なりが無くなるまで
+  // 数回見直す(表示は 2〜3 個なので回数は小さくてよい)
+  const list = avoid.filter(Boolean);
+  for (let pass = 0; pass < 4; pass++) {
+    let moved = false;
+    for (const a of list) {
+      const rect = { left, top, right: left + w, bottom: top + h };
+      if (!overlaps(rect, a)) continue;
+      moved = true;
+      const above = a.top - gap - h;
+      const below = a.bottom + gap;
+      if (above >= zone.top) top = above;
+      else if (below + h <= zone.bottom) top = below;
+      else left = a.right + gap + w <= zone.right ? a.right + gap : clamp(a.left - gap - w, zone.left, zone.right - w);
+    }
+    if (!moved) break;
   }
   return { left: Math.round(left), top: Math.round(top), anchored };
 }
