@@ -1,6 +1,6 @@
 # PROGRESSION-001
 
-Status: IMPLEMENTING
+Status: DONE
 
 Analysis: .ai/reports/PROGRESSION-001-analysis.md（branch `claude/agent-autonomous-execution-ewtk87` @ `d225e9e0de82d48462dbb85d75879d856ea73752`、blob `4c56d188f0aae9a85dfb7be09a4e299cd1796471`）
 
@@ -79,4 +79,38 @@ PROGRESSION-001 の実装 commit を revert する
 ### 計画の更新（実装中、Agent 裁量。Goal の範囲内）
 - 効果の参照箇所を確かめ直したところ、パッシブ（WORK 12.1 で本編では数えないと決めた値）を `recomputeStats` を通さず直接読む箇所が 2 つあった: Skill 1 の威力の「技の錬磨」（`13-update-loop.js`、`state.skills.chargeUp`）、必殺技の威力の「必殺の奥義」（`11-combat-actions.js`、`state.skills.ultUp`）。同じ決定・同じ種類の値なので対象に含めた（P-5）
 - 「仲間を雇う」（`state.skills.companion`。旧セーブでは本編でも仲間が同行する）は対象にしない（P-6。Known Limitation として報告）
+
+### Changed Files
+- `src/legacy/parts/12-progression-ui.js`（`sphereValue`・`sphereVariantBonus`・`bossAbilityValue`・`triggerBossSkills` の入口、`rankEffect`）
+- `src/legacy/parts/13-update-loop.js`（パッシブ「技の錬磨」）、`src/legacy/parts/11-combat-actions.js`（パッシブ「必殺の奥義」）
+- `tests/unit/chapter1-growth-effects.test.js`（新規、6 件）、`tests/chapter1-old-save-growth.spec.js`（新規）
+
+### Test Report
+- Scope: Full（E2E 全体を 2 CPU = CI 相当で実行）
+
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| Build | PASS | 既存の chunk サイズ警告のみ |
+| Unit | PASS | 1616 件中 1615 PASS / 0 FAIL / 1 SKIP（既存）。新規 6 / 6（変更前の src で 4 件 FAIL） |
+| Protocol | PASS | 16 / 16 |
+| 新規 E2E（変更前の src） | FAIL（期待どおり） | 最大 HP 161 ≠ 152、攻撃力 29 ≠ 28 |
+| 新規 E2E（変更後） | PASS | |
+| E2E 全体（2 CPU） | **222 passed** | 1.3h |
+| GitHub Actions（`7d41064`） | **success** | |
+
+## Status History
+| Date | From → To | By | Note |
+| --- | --- | --- | --- |
+| 2026-10-02 | （新規）→ PLANNED → IMPLEMENTING | Orchestrator / Analyzer / Planner | Analysis `d225e9e`、Plan `041a4d3`（Agent Approval） |
+| 2026-10-02 | IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | Implementation `7d41064`。計画の更新（パッシブ 2 か所を追加） |
+| 2026-10-02 | REVIEWING（Reviewer PASS） | Reviewer | Round 1/3 PASS |
+| 2026-10-02 | REVIEWING → DONE | Orchestrator（Completion commit） | PR #32 の本文を更新。Merge required: Human approval |
+
+### Autonomy Metrics（PROGRESSION-001）
+- Human Escalation Count: 0
+- Human Decision Count: 0
+- Auto Fix Count: 1（実装中の参照箇所の再確認で、パッシブを直接読む 2 か所を追加）
+- Reviewer Round Count: 1
+- Test Retry Count: 0（E2E 全体の 1 回目は src の追加のため途中で止めて再実行。失敗による再実行ではない）
+- PR Created: Yes (#32。同じブランチの既存 PR の本文を更新。AGENTS.md §21)
 
