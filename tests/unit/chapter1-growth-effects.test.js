@@ -58,3 +58,17 @@ test('パッシブ(技の錬磨・必殺の奥義)を直接読む箇所も本編
     }
   }
 });
+
+test('旧セーブの「仲間を雇う」は本編では同行させない。正式な支援 AI の生成は雇用状態に依存しない(PROGRESSION-002)', () => {
+  const loot = fs.readFileSync(path.join(root, 'src/legacy/parts/08-loot-equipment.js'), 'utf8');
+  const a = loot.indexOf('function syncAlliesToState(){');
+  assert.ok(a >= 0);
+  const sync = loot.slice(a, loot.indexOf('\n  }\n', a));
+  assert.match(sync, /if\(legacyGrowth\(\) && state\.skills && state\.skills\.companion>=1\)\{\n\s+companion = buildCompanion\(\);/);
+  // buildCompanion を呼ぶのは gate の中だけ
+  assert.equal(sync.split('buildCompanion(').length - 1, 1);
+  // 支援 AI(第一章の正式な同行)は guestClassKey だけで決まる
+  assert.match(sync, /if\(state\.guestClassKey && CLASSES\[state\.guestClassKey\]\)\{\n\s+guestCompanion = buildGuestCompanion\(state\.guestClassKey\);/);
+  // セーブの値は書き換えない
+  assert.doesNotMatch(sync, /state\.skills(\.companion)?\s*=[^=]/);
+});

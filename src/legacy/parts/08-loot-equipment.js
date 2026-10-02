@@ -1164,7 +1164,9 @@
   // セーブされているのに、それを見て再構築する経路が無かったため)
   function syncAlliesToState(){
     if(companion){ scene.remove(companion.group); companion = null; }
-    if(state.skills && state.skills.companion>=1){
+    // 第一章(本編)では、旧セーブに残る「仲間を雇う」で同行させない(PROGRESSION-002)。
+    // 正式な支援AI(guestClassKey)は下でそのまま組み直す
+    if(legacyGrowth() && state.skills && state.skills.companion>=1){
       companion = buildCompanion();
     }
     if(guestCompanion){ scene.remove(guestCompanion.group); guestCompanion = null; }
