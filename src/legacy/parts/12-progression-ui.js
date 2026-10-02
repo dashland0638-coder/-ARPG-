@@ -577,6 +577,7 @@
   // 指定したhookに該当する習得済みスキルをすべて実行する(装着枠は無く、
   // 習得していれば常時発動する)
   function triggerBossSkills(hook, ctx){
+    if(!legacyGrowth()) return;   // 第一章(本編)では旧セーブのボススキルを発動しない
     (state.learnedBossSkills||[]).forEach(bossKey=>{
       const def = BOSS_SKILLS[bossKey];
       if(!def || def.hook!==hook) return;
@@ -679,6 +680,7 @@
 
   // 装着中のボス能力から、指定した効果IDの合計値を返す(無ければ0)
   function bossAbilityValue(effect){
+    if(!legacyGrowth()) return 0;   // 第一章(本編)では旧セーブのボス能力を効かせない
     if(!state.equippedBossAbilities) return 0;
     let total = 0;
     state.equippedBossAbilities.forEach(key=>{
@@ -915,6 +917,7 @@
 
   // 解放済みノードのうち、指定した効果typeの合計値を返す
   function sphereValue(type){
+    if(!legacyGrowth()) return 0;   // 第一章(本編)では旧セーブのスフィア盤を効かせない
     const unlocked = state.unlockedSphereNodes || ['root'];
     let total = 0;
     unlocked.forEach(id=>{
@@ -928,6 +931,7 @@
   // 合計値を返す。「あるスキルを強化すると、その技を使いたくなる」
   // (skill4以降の設計方針)を実現する仕組み
   function sphereVariantBonus(variantKey){
+    if(!legacyGrowth()) return 0;
     const unlocked = state.unlockedSphereNodes || ['root'];
     let total = 0;
     unlocked.forEach(id=>{
@@ -2011,9 +2015,11 @@
      note:'威力 +22% / 範囲 +12%'},
   ];
   const rankOf   = k => (state.ranks && state.ranks[k]) || 0;
-  const rankDmg  = k => 1 + rankOf(k) * (k==='ult' ? 0.22 : 0.18);
-  const rankArea = k => 1 + rankOf(k) * (k==='ult' ? 0.12 : 0.10);
-  const rankCD   = k => 1 - rankOf(k) * 0.12;
+  // 効果に使うランク。第一章(本編)では旧セーブのランクを効かせない(画面の表示・購入はrankOf)
+  const rankEffect = k => legacyGrowth() ? rankOf(k) : 0;
+  const rankDmg  = k => 1 + rankEffect(k) * (k==='ult' ? 0.22 : 0.18);
+  const rankArea = k => 1 + rankEffect(k) * (k==='ult' ? 0.12 : 0.10);
+  const rankCD   = k => 1 - rankEffect(k) * 0.12;
 
   function canRankUp(key){
     if(rankOf(key) >= MAX_RANK) return false;

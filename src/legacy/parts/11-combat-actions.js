@@ -1770,7 +1770,7 @@
     // a held channel buys area and damage, not range
     const chargeArea = 1 + ((ult.aimRadiusMul || 1) - 1) * charge;
     const chargeDmg  = 1 + ((ult.aimDmgMul || 1) - 1) * charge;
-    const ultDmgMul  = rankDmg('ult') * (1 + state.skills.ultUp*0.10) * chargeDmg;
+    const ultDmgMul  = rankDmg('ult') * (1 + (legacyGrowth() ? state.skills.ultUp : 0)*0.10) * chargeDmg;   // パッシブ「必殺の奥義」は第一章(本編)では数えない(WORK 12.1)
     const ultAreaMul = rankArea('ult') * chargeArea;
     state.ultGauge = 0;
     state.ultLockT = 1.5;   // 理論上の即時連続発動を防ぐ保険的な最短ロックアウト

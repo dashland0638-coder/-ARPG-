@@ -29,12 +29,13 @@ Implementation: ALLOWED
 | --- | --- | --- |
 | 1 | `src/legacy/parts/12-progression-ui.js` | `sphereValue` / `sphereVariantBonus` / `bossAbilityValue` の入口に `if(!legacyGrowth()) return 0;`、`triggerBossSkills` の入口に `if(!legacyGrowth()) return;` |
 | 2 | 同上 | `rankDmg` / `rankArea` / `rankCD` は `rankEffect(k)`（`legacyGrowth() ? rankOf(k) : 0`）を使う。`rankOf` 自体（画面の表示・購入）は変えない |
+| 2b | `src/legacy/parts/13-update-loop.js` / `11-combat-actions.js` | パッシブ「技の錬磨」(`state.skills.chargeUp`)・「必殺の奥義」(`state.skills.ultUp`)を `recomputeStats` を通さず直接読む 2 か所に、`recomputeStats` と同じ `legacyGrowth()` の判定（実装中に追加。下の「計画の更新」）|
 | 3 | 同上 | `recomputeStats` の `legacy ? sphereValue('ultDmgSphereMul') : 0` は `sphereValue` の gate と重複するが、動作は同じなので変えない（不要なリファクタリングをしない） |
 | 4 | `tests/unit/chapter1-growth-effects.test.js`（新規） | legacy の構造: 5 関数の入口に gate があり、rank の効果が `rankEffect` を通ること（変更前の src で FAIL） |
 | 5 | `tests/chapter1-old-save-growth.spec.js`（新規） | 旧セーブ（スフィア「剛力I」・ボス能力「母樹の芯」・ランク・ボススキル）と、成長の値が空のセーブを本編で続きから始め、メニューの最大 HP・攻撃力が同じであること（変更前は異なる）。値はセーブに残る（セーブし直しても消えない） |
 
 ## Files To Change
-上の表のファイルと、`.ai/` の記録（本 Task file、review report）
+上の表のファイル（`12-progression-ui.js`・`13-update-loop.js`・`11-combat-actions.js`・新規テスト 2 件）と、`.ai/` の記録（本 Task file、review report）
 
 ## Files Not To Change
 `basefile.html`、`src/core/chapter1-rules.js`（判定 `legacyGrowthEnabled` はそのまま使う）、セーブの読み書き（`09-save-load.js`。値を消さない・変換しない）、鑑定所の画面（表示・タブの出し分けは UI-002 の範囲）、派生技の付け替え（`activeSkill2Def`・必殺技の alt。Analysis C-2）、既存の spec・assertion、`playwright.config.js`、workflow
@@ -70,3 +71,12 @@ PROGRESSION-001 の実装 commit を revert する
 | P-2 | `rankOf` は変えず、効果の 3 関数だけ gate | `rankOf` は画面の表示・購入判定でも使う。画面の挙動（テストモード）を変えない | `rankOf` を gate（画面の表示が 0 になる） |
 | P-3 | `sphereVariantBonus` も対象に含める | Analysis の対象（スフィア盤の数値効果）と同じ値・同じ種類の効果 | 含めない（同じ値の一部だけが効き続ける） |
 | P-4 | E2E の観測はメニューの HP・攻撃力 | 本編で見える既存の表示（`refreshMenuStats`）。テスト用の hook を足さない | `window` へテスト用の値を出す（src の変更が増える） |
+| P-5 | パッシブを直接読む 2 か所（`chargeUp`・`ultUp`）も含める | WORK 12.1 の決定（パッシブは本編で数えない）と同じ値。`recomputeStats` は gate 済みだが、この 2 か所は `recomputeStats` を通らずに効いていた | 含めない（同じ決定の一部だけが効き続ける） |
+| P-6 | 「仲間を雇う」（`state.skills.companion`）は対象にしない | 数値の効果ではなく、本編の同行者（支援 AI と別の仲間）が出るかどうかの話。第一章の同行者の構成はゲームデザインの判断が要る | 本編では出さない（同行者の構成を Agent が決めることになる） |
+
+## Implementation Result
+
+### 計画の更新（実装中、Agent 裁量。Goal の範囲内）
+- 効果の参照箇所を確かめ直したところ、パッシブ（WORK 12.1 で本編では数えないと決めた値）を `recomputeStats` を通さず直接読む箇所が 2 つあった: Skill 1 の威力の「技の錬磨」（`13-update-loop.js`、`state.skills.chargeUp`）、必殺技の威力の「必殺の奥義」（`11-combat-actions.js`、`state.skills.ultUp`）。同じ決定・同じ種類の値なので対象に含めた（P-5）
+- 「仲間を雇う」（`state.skills.companion`。旧セーブでは本編でも仲間が同行する）は対象にしない（P-6。Known Limitation として報告）
+
