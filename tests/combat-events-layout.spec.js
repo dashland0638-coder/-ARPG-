@@ -8,6 +8,12 @@
  *   コンボ      画面下中央ではなく Action Zone の近く。処刑・Action ボタン・PC の能力表示と重ならない
  *   ボスバー / 制限時間  互いに、また Character Zone・Mini-map Zone と重ならない
  *   左下ログ    844×390 でスティックの領域に重ならず、最新 3 行だけ見える
+ *
+ * UI-002-D WI-D7(D1〜D6 の統合監査):
+ *   入力領域    処刑・インタラクトはスティックの領域・Action ボタンに重ならない(カメラが回って対象が
+ *               画面の外・左下に来ても)
+ *   押している間 プロンプトを押したままカメラが動いても位置が変わらず、離すと実行される
+ *   階層表示    844×390 で Character パネルが洋館の階層表示で広がっても、ボスバー・制限時間と重ならない
  */
 import { test, expect } from '@playwright/test';
 import { watchErrors, openGame, dismissIntroDialogue, startTestMode, disableCameraAutoFollow } from './helpers.js';
@@ -40,7 +46,7 @@ const visibleRects = (page, sels) => page.evaluate(ss => ss.map(s => {
   return r.width > 0 && r.height > 0 ? { sel: s, left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
 }).filter(Boolean), sels);
 const ZONE_ITEMS = ['.hud-topleft', '#hud-loot', '#minimap-wrap', '#btn-attack', '#btn-jump', '#btn-dodge', '#btn-ult',
-  '#btn-charge', '#btn-skill2', '#btn-skill3', '#loot-potion-btn', '#arena-toggle-btn'];
+  '#btn-charge', '#btn-skill2', '#btn-skill3', '#loot-potion-btn', '#arena-toggle-btn', '#joy-zone'];
 
 /* 処刑の窓が開くまで前進と攻撃を繰り返す(execution-break.spec.js と同じ手順)。
    ダメージ数値(敵の頭上に出る)の水平位置を記録しておく */
@@ -227,6 +233,135 @@ for (const vp of [
           for (const r of [m.panel, m.loot]) expect(overlaps(l, r), `ログ ${l.sel} と Character Zone・所持品`).toBe(false);
         }
       }
+      expect(errors).toEqual([]);
+    });
+  });
+}
+
+/* 酒場の鍛冶士の作業台へ歩く(chapter1-skill2.spec.js と同じ方向)。インタラクトが出たら true */
+async function walkToSmith(page) {
+  for (let i = 0; i < 30; i++) {
+    await page.keyboard.down('KeyW'); await page.keyboard.down('KeyD');
+    await page.waitForTimeout(400);
+    await page.keyboard.up('KeyW'); await page.keyboard.up('KeyD');
+    await page.waitForTimeout(200);
+    if (await page.locator('#interact-btn.show').isVisible().catch(() => false)) return true;
+  }
+  return false;
+}
+async function startTavern(page, inset) {
+  await openGame(page);
+  await setInset(page, inset);
+  await page.click('#cc-start-btn');
+  await expect(page.locator('#hud')).toHaveClass(/active/);
+  await dismissIntroDialogue(page);
+  await disableCameraAutoFollow(page);
+}
+const INPUT_ITEMS = ['#joy-zone', '#btn-attack', '#btn-jump', '#btn-dodge', '#btn-ult', '#btn-charge', '#btn-skill2', '#btn-skill3', '#loot-potion-btn'];
+
+for (const inset of [null, INSET]) {
+  test.describe(`UI-002-D WI-D7: プロンプトと入力領域(844×390・タッチ${inset ? '・safe-area' : ''})`, () => {
+    test.use({ viewport: { width: 844, height: 390 }, hasTouch: true });
+
+    test('カメラを 1 周回す間、インタラクトはスティックの領域・Action ボタンに重ならず、中央の領域の中', async ({ page }) => {
+      test.setTimeout(240_000);
+      const errors = watchErrors(page);
+      await startTavern(page, inset);
+      expect(await walkToSmith(page), 'インタラクトが出る').toBe(true);
+      const zone = zoneOf({ width: 844, height: 390 });
+      // 対象が画面の外(カメラの後ろ)・左下に来る向きを含めて回す。カメラの回転は 1.9 rad/秒(低速描画では
+      // 1 フレームの dt が抑えられて遅くなる)なので、測る回数で 1 周以上を見る
+      let samples = 0;
+      await page.keyboard.down('KeyQ');
+      try {
+        for (let i = 0; i < 70; i++) {
+          await page.waitForTimeout(250);
+          if (!(await page.locator('#interact-btn.show').isVisible().catch(() => false))) continue;
+          const it = await rectOf(page, '#interact-btn');
+          samples++;
+          expect(inZone(it, zone), `インタラクトは中央の領域の中: ${JSON.stringify(it)}`).toBe(true);
+          for (const z of await visibleRects(page, INPUT_ITEMS)) {
+            expect(overlaps(it, z), `インタラクトと ${z.sel}(${i}): ${JSON.stringify(it)}`).toBe(false);
+          }
+        }
+      } finally {
+        await page.keyboard.up('KeyQ');
+      }
+      expect(samples, 'カメラを回している間もインタラクトが出ている').toBeGreaterThan(20);
+      expect(errors).toEqual([]);
+    });
+  });
+}
+
+test.describe('UI-002-D WI-D7: プロンプトを押している間(844×390・タッチ)', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true });
+
+  test('インタラクトを押したままカメラが動いても位置は変わらず、離すと実行される', async ({ page }) => {
+    test.setTimeout(240_000);
+    const errors = watchErrors(page);
+    await startTavern(page, null);
+    expect(await walkToSmith(page), 'インタラクトが出る').toBe(true);
+    await expect(page.locator('#interact-btn')).toContainText(/作業台|鍛冶士/);
+    const before = await rectOf(page, '#interact-btn');
+    await page.mouse.move((before.left + before.right) / 2, (before.top + before.bottom) / 2);
+    await page.mouse.down();
+    // 押している間にカメラを回す(対象の画面上の位置が動く)
+    await page.keyboard.down('KeyQ');
+    await page.waitForTimeout(1500);
+    await page.keyboard.up('KeyQ');
+    await page.waitForTimeout(300);
+    const held = await rectOf(page, '#interact-btn');
+    expect(Math.abs(held.left - before.left) + Math.abs(held.top - before.top), `押している間は動かない: ${JSON.stringify(before)} → ${JSON.stringify(held)}`).toBeLessThan(1);
+    await page.mouse.up();
+    await expect(page.locator('#appraisal-close-btn'), '離すとインタラクト(鍛冶士の作業台)が実行される').toBeVisible({ timeout: 5_000 });
+    // 離した後は対象の上へ追従を再開する(閉じてから測る)
+    await page.click('#appraisal-close-btn');
+    await expect.poll(async () => {
+      const r = await rectOf(page, '#interact-btn');
+      return Math.abs(r.left - held.left) + Math.abs(r.top - held.top);
+    }, { timeout: 10_000 }).toBeGreaterThan(1);
+    expect(errors).toEqual([]);
+  });
+});
+
+for (const inset of [null, INSET]) {
+  test.describe(`UI-002-D WI-D7: 階層表示とボスバー(844×390・タッチ${inset ? '・safe-area' : ''})`, () => {
+    test.use({ viewport: { width: 844, height: 390 }, hasTouch: true });
+
+    test('洋館の階層表示で Character パネルが広がっても、ボスバー・制限時間と重ならない', async ({ page }) => {
+      test.setTimeout(150_000);
+      const errors = watchErrors(page);
+      await openGame(page);
+      await setInset(page, inset);
+      // 洋館の階層表示(4 列目)でパネルが既定の幅より広がる。「5F 主の間」は本編のボス戦(館の主)の部屋。
+      // 名前の長さでは広がらない(バーの列 3 つ分に収まる)。階層表示は洋館の中だけで出るので、
+      // character-zone.spec.js(WI-D4)と同じく表示を強制して文言を入れる
+      await startTestMode(page, { classKey: 'warrior' });
+      await expect(page.locator('#hud')).toHaveClass(/active/);
+      await page.addStyleTag({ content: '.hud-floor{ display:block !important; }' });
+      await page.evaluate(() => { document.getElementById('hud-floor').textContent = '5F 主の間'; });
+      // パネルの右端は ResizeObserver が次の描画の前に CSS 変数へ書く
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const m = await page.evaluate(() => {
+        const bar = document.getElementById('boss-bar-wrap');
+        const timer = document.getElementById('scenario-timer');
+        const name = document.getElementById('boss-bar-name');
+        const prev = { show: bar.classList.contains('show'), disp: timer.style.display, t: timer.textContent, n: name.textContent };
+        bar.classList.add('show'); timer.style.display = 'block'; timer.textContent = '⏱ 12:34'; name.textContent = '帰港を望む船長';
+        const box = el => { const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom }; };
+        const out = { bar: box(bar), timer: box(timer), name: box(name), panel: box(document.querySelector('.hud-topleft')),
+          map: box(document.getElementById('hud-zone-tr')) };
+        bar.classList.toggle('show', prev.show); timer.style.display = prev.disp; timer.textContent = prev.t; name.textContent = prev.n;
+        return out;
+      });
+      const left0 = 16 + 348 + 8 + (inset ? inset.left : 0);
+      expect(m.panel.right + 8, `前提: パネルが既定の名前の幅(右端 ${left0 - 8})より広い`).toBeGreaterThan(left0);
+      for (const [k, r] of [['ボスバー', m.bar], ['制限時間', m.timer]]) {
+        expect(overlaps(r, m.panel), `${k}と Character パネル: ${JSON.stringify(r)} / ${JSON.stringify(m.panel)}`).toBe(false);
+        expect(overlaps(r, m.map), `${k}と Mini-map Zone`).toBe(false);
+      }
+      expect(overlaps(m.bar, m.timer), 'ボスバーと制限時間').toBe(false);
+      expect(m.name.bottom - m.name.top, 'ボス名(最長の 7 文字)は 1 行').toBeLessThan(24);
       expect(errors).toEqual([]);
     });
   });

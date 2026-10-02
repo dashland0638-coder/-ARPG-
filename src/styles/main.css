@@ -932,18 +932,20 @@
 
   /* 844×390 相当(HD-D34)の戦闘中の状態表示(UI-002-D WI-D6)。
      - コンボ: 下の帯の Action ボタン列(Ult の右端)の上
-     - ボスバー・制限時間: 左上 Character Zone(右端 16 + 348px)と右上 Mini-map Zone(80vw〜)の間の
-       上の帯。以前は中央寄せの 520px で Character Zone と重なっていた(WI-D4 の Known Limitation)
+     - ボスバー・制限時間: 左上 Character Zone と右上 Mini-map Zone(80vw〜)の間の上の帯。以前は
+       中央寄せの 520px で Character Zone と重なっていた(WI-D4 の Known Limitation)。左端は
+       Character パネルの実際の右端(--hud-tl-right、14-hud-boot.js)+ 8px。長い名前でパネルが
+       広がっても重ならない(WI-D7。変数が無い間は既定の名前の右端 16 + 348px)
      - 左下ログ: スティックの領域(下 46%)の上に移し、最新 3 行だけ見せる(JS の 6 行・6.5 秒は
        そのまま)。以前はスティックと縦に重なっていた(WI-D5 の Known Limitation、HDR-11) */
   @media (max-height: 500px){
     #combo-indicator{ right:calc(106px + env(safe-area-inset-right)); bottom:calc(64px + env(safe-area-inset-bottom)); }
     #boss-bar-wrap{
-      left:calc(16px + 348px + 8px + env(safe-area-inset-left)); right:calc(20vw + env(safe-area-inset-right));
+      left:calc(var(--hud-tl-right, calc(16px + 348px + env(safe-area-inset-left))) + 8px); right:calc(20vw + env(safe-area-inset-right));
       width:auto; transform:none;
     }
     #scenario-timer{
-      left:calc(16px + 348px + 8px + env(safe-area-inset-left)); right:calc(20vw + env(safe-area-inset-right));
+      left:calc(var(--hud-tl-right, calc(16px + 348px + env(safe-area-inset-left))) + 8px); right:calc(20vw + env(safe-area-inset-right));
       width:max-content; margin:0 auto; transform:none;
     }
     #msg-log{ bottom:calc(46% + 6px); }

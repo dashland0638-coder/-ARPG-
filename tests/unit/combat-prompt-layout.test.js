@@ -94,3 +94,52 @@ test('legacy: 処刑・インタラクトの配置がコンボ(と処刑)を避�
   assert.match(body, /avoid\.push\(placePromptOverWorld\(el/, '処刑の矩形もインタラクトの avoid に入る');
   assert.match(body, /placePromptOverWorld\(it, interactTargetWorldPos\(\) \|\| state\.pos, INTERACT_PROMPT_LIFT, avoid\)/, 'インタラクトはコンボと処刑を避ける');
 });
+
+/* ---- UI-002-D WI-D7(統合監査): 入力領域を避ける・押している間は止める・ボスバーの左端 ---- */
+
+test('844×390: スティック領域(中央の領域の左下に入る)を避ける。対象が映っていない時の下中央も', () => {
+  const vp = { w: 844, h: 390 };
+  const z = gameplayZone(vp.w, vp.h);
+  const size = { w: 222, h: 35 };
+  for (const joy of [{ left: 0, top: 211, right: 405, bottom: 390 }, { left: 47, top: 211, right: 452, bottom: 390 }]) {
+    for (const anchor of [{ x: 0, y: 0, onScreen: false }, { x: 300, y: 300, onScreen: true }, { x: 200, y: 260, onScreen: true }, { x: 420, y: 330, onScreen: true }]) {
+      const p = placeAnchoredPrompt({ anchor, size, viewport: vp, avoid: [joy] });
+      const r = { left: p.left, top: p.top, right: p.left + size.w, bottom: p.top + size.h };
+      assert.equal(overlaps(r, joy), false, `${JSON.stringify(anchor)} / ${JSON.stringify(joy)}`);
+      assert.ok(inside(p, size, z));
+    }
+  }
+});
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const hudBoot = fs.readFileSync(path.join(root, 'src/legacy/parts/14-hud-boot.js'), 'utf8');
+const fnBody = (src, name) => {
+  const start = src.indexOf(`function ${name}(`);
+  assert.ok(start >= 0, name);
+  return src.slice(start, src.indexOf('\n  }\n', start)).replace(/\/\/.*$/gm, '');
+};
+
+test('legacy: 処刑・インタラクトは見えていて押せる入力領域(スティック・Action ボタン)を避ける', () => {
+  const rects = fnBody(hudBoot, 'promptInputAvoidRects');
+  assert.match(rects, /#joy-zone, \.action-btn/);
+  assert.match(rects, /pointerEvents === 'none'/, '押せない表示専用(PC の能力表示)は除く');
+  assert.match(fnBody(hudBoot, 'updateCombatPromptPositions'), /const avoid = promptInputAvoidRects\(\);/);
+});
+
+test('legacy: 押している間はプロンプトの位置を書き換えない(押した指が離れるまで)', () => {
+  assert.match(hudBoot, /\['execute-prompt', 'interact-btn'\]\.forEach[\s\S]*?addEventListener\('pointerdown', e=>\{ heldPrompts\.set\(el, e\.pointerId\); \}\)/);
+  assert.match(hudBoot, /\['pointerup', 'pointercancel'\]\.forEach[\s\S]*?heldPrompts\.delete\(el\)/);
+  const place = fnBody(hudBoot, 'placePromptOverWorld');
+  assert.ok(place.indexOf('heldPrompts.has(el)') >= 0 && place.indexOf('heldPrompts.has(el)') < place.indexOf('el.style.left'), '書く前に押しているかを見る');
+});
+
+test('CSS: 844×390 のボスバー・制限時間の左端は Character パネルの実際の右端(--hud-tl-right)+ 8px', () => {
+  const css = fs.readFileSync(path.join(root, 'src/styles/main.css'), 'utf8');
+  const left = 'left:calc(var(--hud-tl-right, calc(16px + 348px + env(safe-area-inset-left))) + 8px)';
+  for (const sel of ['#boss-bar-wrap{', '#scenario-timer{']) {
+    const blocks = css.split(sel).slice(1).map(b => b.slice(0, b.indexOf('}')));
+    assert.ok(blocks.some(b => b.includes(left)), sel);
+  }
+  assert.match(hudBoot, /new ResizeObserver\(writePanelRight\)\.observe\(panel\)/);
+  assert.match(hudBoot, /setProperty\('--hud-tl-right', r\.right \+ 'px'\)/);
+});

@@ -901,7 +901,39 @@
   const _promptVec = new THREE.Vector3();
   const EXECUTE_PROMPT_LIFT = 2.6;    // 敵の足元から頭上まで(ダメージ数値の 2.1 より上)
   const INTERACT_PROMPT_LIFT = 1.6;
+  /* 押している間は動かさない(UI-002-D WI-D7。統合監査 F-3)。処刑・インタラクトは click で
+     実行され、click は押した要素と離した要素が同じ時だけ出る。押している間にカメラが動いて
+     プロンプトが指の下から外れると押し損ねるため、押した指が離れるまで位置を書き換えない */
+  const heldPrompts = new Map();   // 要素 → 押している pointerId
+  ['execute-prompt', 'interact-btn'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('pointerdown', e=>{ heldPrompts.set(el, e.pointerId); });
+  });
+  ['pointerup', 'pointercancel'].forEach(evt=>{
+    window.addEventListener(evt, e=>{
+      heldPrompts.forEach((id, el)=>{ if(id === e.pointerId) heldPrompts.delete(el); });
+    });
+  });
+  /* プロンプトが避ける入力領域(UI-002-D WI-D7。統合監査 F-1)。844×390 のスティック領域は
+     中央の領域の左下に入っていて、その上に出たプロンプトはスティックを押す指を受け取ってしまう
+     (分岐の階段は確認なしで進む)。見えていて押せるスティック・Action ボタンを避ける */
+  function promptInputAvoidRects(){
+    const out = [];
+    const tc = document.getElementById('touch-controls');
+    if(!tc) return out;
+    tc.querySelectorAll('#joy-zone, .action-btn').forEach(el=>{
+      const cs = getComputedStyle(el);
+      if(cs.visibility === 'hidden' || cs.pointerEvents === 'none') return;
+      const r = el.getBoundingClientRect();   // 祖先が display:none なら大きさ 0
+      if(r.width > 0 && r.height > 0) out.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+    });
+    return out;
+  }
   function placePromptOverWorld(el, worldPos, lift, avoid){
+    if(heldPrompts.has(el)){
+      const r = el.getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    }
     _promptVec.set(worldPos.x, (worldPos.y || 0) + lift, worldPos.z).project(camera);
     const vw = window.innerWidth, vh = window.innerHeight;
     const size = { w: el.offsetWidth, h: el.offsetHeight };
@@ -914,7 +946,10 @@
     // コンボは右下の固定位置で、844×390 では中央の領域の右下に少し入る。出ている間は処刑・
     // インタラクトがコンボを避ける(Review Round 1)
     const combo = document.getElementById('combo-indicator');
-    const avoid = [];
+    const it = document.getElementById('interact-btn');
+    const itShown = !!(it && it.classList.contains('show'));
+    if(!executePromptShown && !itShown) return;
+    const avoid = promptInputAvoidRects();   // 位置を書く前にまとめて読む
     if(combo && combo.classList.contains('show')){
       const r = combo.getBoundingClientRect();
       avoid.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
@@ -924,9 +959,23 @@
       const el = document.getElementById('execute-prompt');
       if(target && target.group && el) avoid.push(placePromptOverWorld(el, target.group.position, EXECUTE_PROMPT_LIFT, avoid.slice()));
     }
-    const it = document.getElementById('interact-btn');
-    if(it && it.classList.contains('show')){
+    if(itShown){
       placePromptOverWorld(it, interactTargetWorldPos() || state.pos, INTERACT_PROMPT_LIFT, avoid);
+    }
+  }
+
+  /* 844×390 のボスバー・制限時間の左端(UI-002-D WI-D7。統合監査 F-2)。Character パネルは
+     長い名前(上位職 ｜ 支援)で横に広がる(WI-D4)ので、固定の幅ではなくパネルの実際の右端を
+     CSS 変数に渡す。書くのはパネルの大きさ・画面の大きさが変わった時だけ */
+  {
+    const panel = document.querySelector('.hud-topleft');
+    const writePanelRight = ()=>{
+      const r = panel.getBoundingClientRect();
+      if(r.width > 0) document.documentElement.style.setProperty('--hud-tl-right', r.right + 'px');
+    };
+    if(panel){
+      if(typeof ResizeObserver === 'function') new ResizeObserver(writePanelRight).observe(panel);
+      window.addEventListener('resize', writePanelRight);
     }
   }
 
