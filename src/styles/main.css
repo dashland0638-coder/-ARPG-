@@ -934,8 +934,8 @@
      - コンボ: 下の帯の Action ボタン列(Ult の右端)の上
      - ボスバー・制限時間: 左上 Character Zone と右上 Mini-map Zone(80vw〜)の間の上の帯。以前は
        中央寄せの 520px で Character Zone と重なっていた(WI-D4 の Known Limitation)。左端は
-       Character パネルの実際の右端(--hud-tl-right、14-hud-boot.js)+ 8px。長い名前でパネルが
-       広がっても重ならない(WI-D7。変数が無い間は既定の名前の右端 16 + 348px)
+       Character パネルの実際の右端(--hud-tl-right、14-hud-boot.js)+ 8px。洋館の階層表示で
+       パネルが広がっても重ならない(WI-D7。変数が無い間は階層表示の無いパネルの右端 16 + 348px)
      - 左下ログ: スティックの領域(下 46%)の上に移し、最新 3 行だけ見せる(JS の 6 行・6.5 秒は
        そのまま)。以前はスティックと縦に重なっていた(WI-D5 の Known Limitation、HDR-11) */
   @media (max-height: 500px){
