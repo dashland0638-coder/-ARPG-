@@ -1032,7 +1032,8 @@
      では一切表示せず、パネルのDOMにも触れない。
 
      ■ なぜ実時間で測るのか
-     メインループの dt は `Math.min(0.05, clock.getDelta())` で50msに
+     メインループの dt は `simDeltaSeconds(clock.getDelta(), SIM_TIME_SCALE)`
+     (通常のプレイは `Math.min(0.05, フレーム間隔)`、core/sim-time.js)で50msに
      頭打ちされている。シミュレーションを安定させるための正しい処理だが、
      そのぶん 2秒のフリーズも dt の上では 50ms にしか見えない ―― つまり
      dt を眺めていても停止は永遠に見つからない。ここでは performance.now()
