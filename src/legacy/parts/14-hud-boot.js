@@ -892,6 +892,37 @@
   }
   let executePromptShown = false;
 
+  /* 処刑・インタラクトの表示位置(UI-002-D WI-D6。HD-D16)。以前は画面下中央の 1 列に
+     コンボと並んでいた。いまは対象(処刑できる敵・インタラクトの対象)を画面へ投影した点の
+     上に出し、置き場所は画面中央 60%×60% の中に限る(core/combat-prompt-layout.js)。
+     投影はダメージ数値(spawnDamagePopup)と同じ Vector3.project(camera)。
+     判定(どれを対象にするか)と .show には触れず、出ている間の left / top だけを書く。
+     処刑が出ている間はインタラクトが処刑を避ける(interact() も処刑を先に見る) */
+  const _promptVec = new THREE.Vector3();
+  const EXECUTE_PROMPT_LIFT = 2.6;    // 敵の足元から頭上まで(ダメージ数値の 2.1 より上)
+  const INTERACT_PROMPT_LIFT = 1.6;
+  function placePromptOverWorld(el, worldPos, lift, avoid){
+    _promptVec.set(worldPos.x, (worldPos.y || 0) + lift, worldPos.z).project(camera);
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const size = { w: el.offsetWidth, h: el.offsetHeight };
+    const p = placeAnchoredPrompt({ anchor: ndcToScreen(_promptVec, vw, vh), size, viewport: { w: vw, h: vh }, avoid });
+    el.style.left = p.left + 'px';
+    el.style.top = p.top + 'px';
+    return { left: p.left, top: p.top, right: p.left + size.w, bottom: p.top + size.h };
+  }
+  function updateCombatPromptPositions(){
+    let execRect = null;
+    if(executePromptShown){
+      const target = currentExecutionTarget();
+      const el = document.getElementById('execute-prompt');
+      if(target && target.group && el) execRect = placePromptOverWorld(el, target.group.position, EXECUTE_PROMPT_LIFT, []);
+    }
+    const it = document.getElementById('interact-btn');
+    if(it && it.classList.contains('show')){
+      placePromptOverWorld(it, interactTargetWorldPos() || state.pos, INTERACT_PROMPT_LIFT, execRect ? [execRect] : []);
+    }
+  }
+
   function updateComboIndicator(){
     const wrap = document.getElementById('combo-indicator');
     if(!wrap) return;
@@ -1285,6 +1316,7 @@
       updateAmbience(dt);   // 場所の環境音(区画ごとに間隔を空けて単発で鳴らす)
       updateWaterwayColdTimer(dt);
       updateScenarioTimer(dt);
+      updateCombatPromptPositions();   // 処刑・インタラクトを対象の上へ(UI-002-D WI-D6)。近接の判定の後
       if(state.debugMode){
         debugRefreshCounter = (debugRefreshCounter+1)%30;
         if(debugRefreshCounter===0) showDebugColliders();

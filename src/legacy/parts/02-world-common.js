@@ -2395,6 +2395,19 @@
     else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)' : '🏕️ 休憩する(回復+装備整理)';
   }
 
+  /* インタラクトの対象のワールド座標(UI-002-D WI-D6: 表示を対象の上に出すため)。
+     対象の選び方は updateInteractPrompt() と同じ順。店主・鍛冶士・影の旅人は距離の判定に
+     使っている位置の定数、それ以外は各オブジェクトの .pos。無ければ null(プレイヤーの上に出す) */
+  function interactTargetWorldPos(){
+    if(nearbyShadowGuide) return SHADOW_GUIDE_POS;
+    const obj = nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger;
+    if(obj && obj.pos) return obj.pos;
+    if(nearbyBartender) return BARTENDER_POS;
+    if(nearbySmith) return SMITH_POS;
+    if(nearbyCheckpoint && nearbyCheckpoint.pos) return nearbyCheckpoint.pos;
+    return null;
+  }
+
   function interact(){
     /* 処刑(Phase 4)を最優先で見る。窓は 1.6 秒しか開かないのに対して
        扉や調べ物は逃げないので、競合したら処刑を優先するのが正しい。

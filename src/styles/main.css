@@ -237,8 +237,10 @@
   /* ---------- SCREEN FX ---------- */
   /* 周回制限時間(初回クリアは表示されない)。ボスバーの真下に置き、
      両方出ている間も重ならないようにしてある */
+  /* ボスバー(top 14px・高さ約 63px: 名前・HP・段階・体幹)の下。以前の top 64px は、
+     体幹の段が足された後のボスバーと重なっていた(UI-002-D WI-D6) */
   #scenario-timer{
-    position:fixed; top:64px; left:50%; transform:translateX(-50%);
+    position:fixed; top:calc(14px + 64px + 6px); left:50%; transform:translateX(-50%);
     z-index:var(--ui-z-timer); pointer-events:none;
     font-family:'JetBrains Mono', ui-monospace, monospace;
     font-size:15px; letter-spacing:1px; color:#ffe9c9;
@@ -258,10 +260,12 @@
      ではなくキャラの近く・視線が集まる位置に置き、段数と「あと何秒繋げられるか」
      を見た瞬間に把握できるようにしてある。タッチの action-zone は右側だけを
      使うので、画面下中央に置いても操作の邪魔にならない */
+  /* コンボは攻撃を出す Action Zone の近く(右下)。以前は画面下中央の 1 列(UI-002-D WI-D6。
+     HD-D16「戦闘を邪魔しない位置」)。1280×800 は PC の能力表示の列(下端 48px)とキー表記の上 */
   #combo-indicator{
-    position:fixed; left:50%; bottom:15%; transform:translate(-50%,0);
+    position:fixed; right:calc(16px + env(safe-area-inset-right)); bottom:calc(124px + env(safe-area-inset-bottom));
     z-index:var(--ui-z-hud); pointer-events:none;
-    display:flex; flex-direction:column; align-items:center; gap:5px;
+    display:flex; flex-direction:column; align-items:flex-end; gap:5px;
     opacity:0; transition:opacity 0.15s ease-out;
   }
   #combo-indicator.show{ opacity:1; }
@@ -507,8 +511,10 @@
     white-space:nowrap;
   }
 
+  /* 位置は JS が対象の上に書く(UI-002-D WI-D6: 14-hud-boot.js updateCombatPromptPositions、
+     core/combat-prompt-layout.js)。以前は画面下中央(bottom 22%)に固定していた */
   #interact-btn{
-    position:fixed; left:50%; bottom:22%; transform:translate(-50%,0);
+    position:fixed; left:0; top:0;
     z-index:var(--ui-z-interact); display:none; opacity:0; pointer-events:none; white-space:nowrap;
     padding:8px 18px; border-radius:16px; cursor:pointer;
     background:rgba(12,10,16,0.7); color:var(--text);
@@ -526,14 +532,14 @@
   #interact-btn.branch-locked::before{ content:'🔒 '; opacity:1; }
 
   /* 処刑(Phase 4)。体幹を崩した敵に開く短い窓の間だけ出る。
-     #interact-btn と同じ位置・同じ形にしてあるのは、押すキー(R)も
+     #interact-btn と同じ形にしてあるのは、押すキー(R)も
      触るボタンも既存の「調べる」と同じものだから ―― 新しい操作体系は
      増やさず、その瞬間だけ意味が入れ替わることを色で示す。
      常時表示はしない(資料22章)。 */
   #execute-prompt{
-    /* #interact-btn(bottom:22%)と同時に出ても重ならない位置。
-       押すキーもタップ先も別なので、並んで見えてよい */
-    position:fixed; left:50%; bottom:28%; transform:translate(-50%,0);
+    /* 位置は JS が処刑の対象の敵の上に書く(UI-002-D WI-D6)。同時に出たインタラクトは
+       処刑を避けて置かれる。押すキーもタップ先も別なので、並んで見えてよい */
+    position:fixed; left:0; top:0;
     z-index:var(--ui-z-execute); display:none; opacity:0; pointer-events:none; white-space:nowrap;
     padding:9px 22px; border-radius:16px; cursor:pointer;
     background:rgba(58,22,10,0.82); color:#ffe6b0;
@@ -787,7 +793,7 @@
   /* メッセージログ: 浮遊トースト(item-pop)は一瞬で消えるので、読み返せるよう
      画面左下に少し長く残る履歴を別途積む。トーストと役割を分けている。 */
   #msg-log{
-    position:fixed; left:12px; bottom:calc(84px + env(safe-area-inset-bottom));
+    position:fixed; left:calc(12px + env(safe-area-inset-left)); bottom:calc(84px + env(safe-area-inset-bottom));
     z-index:var(--ui-z-msg-log); display:flex; flex-direction:column-reverse; gap:4px;
     max-width:64vw; pointer-events:none;
   }
@@ -922,6 +928,26 @@
     content:attr(data-key); position:absolute; top:-15px; left:50%; transform:translateX(-50%);
     font-size:var(--ui-fs-hud-label); font-family:var(--ui-font-latin-display); color:var(--text-dim);
     pointer-events:none;
+  }
+
+  /* 844×390 相当(HD-D34)の戦闘中の状態表示(UI-002-D WI-D6)。
+     - コンボ: 下の帯の Action ボタン列(Ult の右端)の上
+     - ボスバー・制限時間: 左上 Character Zone(右端 16 + 348px)と右上 Mini-map Zone(80vw〜)の間の
+       上の帯。以前は中央寄せの 520px で Character Zone と重なっていた(WI-D4 の Known Limitation)
+     - 左下ログ: スティックの領域(下 46%)の上に移し、最新 3 行だけ見せる(JS の 6 行・6.5 秒は
+       そのまま)。以前はスティックと縦に重なっていた(WI-D5 の Known Limitation、HDR-11) */
+  @media (max-height: 500px){
+    #combo-indicator{ right:calc(106px + env(safe-area-inset-right)); bottom:calc(64px + env(safe-area-inset-bottom)); }
+    #boss-bar-wrap{
+      left:calc(16px + 348px + 8px + env(safe-area-inset-left)); right:calc(20vw + env(safe-area-inset-right));
+      width:auto; transform:none;
+    }
+    #scenario-timer{
+      left:calc(16px + 348px + 8px + env(safe-area-inset-left)); right:calc(20vw + env(safe-area-inset-right));
+      width:max-content; margin:0 auto; transform:none;
+    }
+    #msg-log{ bottom:calc(46% + 6px); }
+    #msg-log .msg-log-line:nth-last-child(n+4){ display:none; }
   }
   /* まだ閃いていないスキル(Chapter 1 の Skill 2)。薄く残さず消す ――
      ボタンが現れることそのものが習得の合図(core/chapter1-skills.js) */

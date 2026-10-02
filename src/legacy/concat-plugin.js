@@ -233,6 +233,7 @@ import {
   legacyHudVisible, skill2ButtonVisible, skill3ButtonVisible, minimapPanelVisible,
   touchControlsMode, actionZoneLayout, staminaVisible, unlockedPcHintOps, stepPcHint,
 } from '../core/combat-hud-visibility.js';
+import { ndcToScreen, placeAnchoredPrompt } from '../core/combat-prompt-layout.js';
 
 `;
 
