@@ -1292,6 +1292,10 @@
     el.textContent = motionDebugLines(snap).join('\n');
   }
 
+  /* 自動テストで操作されているブラウザ(navigator.webdriver)だけ、ゲーム内の時間を実時間の
+     1/4 に固定する(CI-001、core/sim-time.js)。GPU の無い CI では描画の速さが機械ごとに違い、
+     50ms の頭打ちのせいでゲーム内の時間の進み方まで run ごとに変わっていた。通常のプレイは 1 */
+  const SIM_TIME_SCALE = simTimeScale(typeof navigator !== 'undefined' ? navigator : null);
   function animate(){
     onResize();   // cheap: two reads, and only acts when the viewport moved
     requestAnimationFrame(animate);
@@ -1299,7 +1303,7 @@
        されるので、本当の停止時間はここでしか見えない(PERFORMANCE
        DIAGNOSTICのコメント参照) */
     perfTick(performance.now());
-    let dt = Math.min(0.05, clock.getDelta());
+    let dt = simDeltaSeconds(clock.getDelta(), SIM_TIME_SCALE);
     if(hitStopCD > 0) hitStopCD = Math.max(0, hitStopCD - dt);
     // hit stop: real time still advances, the simulation just eases
     if(hitStopT > 0){

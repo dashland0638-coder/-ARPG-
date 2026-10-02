@@ -215,5 +215,35 @@ const noteMark = page => page.evaluate(() => (window.__notes || []).length);
 const notesSince = (page, since = 0, channel = null) => page.evaluate(([s, c]) =>
   (window.__notes || []).slice(s).filter(n => !c || n.channel === c).map(n => n.text), [since, channel]);
 
+/**
+ * Arena の敵情報パネル(#arena-enemy-info、テストモード専用のデバッグ表示)は毎フレーム書き直される
+ * (14-training-ground.js updateArenaEnemyInfo)。予兆(WINDUP)・分離(SPLIT)のような短い相は、テストから
+ * 間隔を空けて 1 回ずつ読むと取りこぼす ―― 読む間隔は実時間で、相の長さはゲーム内時間なので、機械の
+ * 速さしだいで観測できたりできなかったりした(CI-001)。recordArenaInfo() でページの中に書き直しのたびの
+ * 内容を記録し、drainArenaInfo() で前に読んでから今までの内容(と今の内容)をまとめて受け取る。
+ */
+async function recordArenaInfo(page) {
+  await page.evaluate(() => {
+    const el = document.getElementById('arena-enemy-info');
+    window.__arenaInfoLog = [];
+    new MutationObserver(() => { window.__arenaInfoLog.push(el.innerHTML); })
+      .observe(el, { childList: true, characterData: true, subtree: true });
+  });
+}
+async function drainArenaInfo(page) {
+  return page.evaluate(() => {
+    const log = window.__arenaInfoLog || [];
+    window.__arenaInfoLog = [];
+    log.push(document.getElementById('arena-enemy-info').innerHTML);
+    return log;
+  });
+}
+/** 敵情報パネルの HTML から 1 行の値を取る(例: 'AI State', 'Punish', 'Tier', 'Guard') */
+function arenaInfoValue(html, key) {
+  const m = new RegExp(key + ':\\s*([^<]*)').exec(html || '');
+  return m ? m[1].trim() : null;
+}
+
 export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, startTestMode, centralIntrusion,
-  watchNotifications, noteMark, notesSince };
+  watchNotifications, noteMark, notesSince,
+  recordArenaInfo, drainArenaInfo, arenaInfoValue };

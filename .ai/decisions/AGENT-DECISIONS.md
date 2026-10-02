@@ -34,3 +34,9 @@ Human Decision と矛盾した場合は Human Decision が優先する。上書�
 - Decision: Human Decision で指定された実装ブランチ（例: HD-D20 `claude/ui-002-d-impl`）へ実行環境が push できない場合、セッションに割り当てられた作業ブランチ（最新 main を含む）で作業し、Task の Approval / Status History にブランチと理由を書く。`main` への merge は行わず、Final Report で Human に残す
 - Basis: `.ai/AGENTS.md` §6.1（作業ブランチ = Human がセッション設定で指定したブランチ）、AD-002（ブランチ名の HD は拘束するが、push できない環境では E-10 に当たる前に割当ブランチで代替できる）
 - Applies when: 移行前の Task を別セッションで再開するとき
+
+### AD-004: E2E のゲーム内時間は自動テストで実時間の 1/4 に固定する。待ちは決め打ちではなく状態を読み直す
+- Date / Task: 2026-10-02 / CI-001
+- Decision: 自動テストで操作されているブラウザ(`navigator.webdriver === true`)では、ゲーム内の時間を実時間の 1/4 に固定する(`src/core/sim-time.js`)。E2E の描画の解像度は `deviceScaleFactor: 0.5`。新しい E2E は、ゲーム内の出来事を「決め打ちの実時間の待ち → 1 回だけ読む」で確かめず、`expect.poll` 等で状態が満たされるまで読み直す。デバッグ表示(Motion Preview・Arena の情報)はゲーム内 0.5 秒ごとの書き換えであることを前提にする
+- Basis: `.ai/reports/CI-001-analysis.md`、`.ai/tasks/CI-001.md`(実測: 2 CPU で 23 FAIL → 0)。実時間へ追いつかせる案は入力のタイミングの spec が成り立たず不採用
+- Applies when: E2E を書く・直す・CI の失敗を調べるとき。比を変える場合は E2E 全体を 2 CPU で流し直す

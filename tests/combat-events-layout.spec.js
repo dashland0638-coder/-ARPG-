@@ -48,18 +48,8 @@ const visibleRects = (page, sels) => page.evaluate(ss => ss.map(s => {
 const ZONE_ITEMS = ['.hud-topleft', '#hud-loot', '#minimap-wrap', '#btn-attack', '#btn-jump', '#btn-dodge', '#btn-ult',
   '#btn-charge', '#btn-skill2', '#btn-skill3', '#loot-potion-btn', '#arena-toggle-btn', '#joy-zone'];
 
-/* 処刑の窓が開くまで前進と攻撃を繰り返す(execution-break.spec.js と同じ手順)。
-   ダメージ数値(敵の頭上に出る)の水平位置を記録しておく */
+/* 処刑の窓が開くまで前進と攻撃を繰り返す(execution-break.spec.js と同じ手順) */
 async function attackUntilExecute(page) {
-  await page.evaluate(() => {
-    window.__dmgX = [];
-    new MutationObserver(muts => {
-      for (const m of muts) {
-        const t = m.target && m.target.nodeType === 1 ? m.target : null;
-        if (t && t.classList.contains('dmg-pop') && t.style.left) window.__dmgX.push(parseFloat(t.style.left));
-      }
-    }).observe(document.getElementById('hud'), { subtree: true, attributes: true, attributeFilter: ['style'] });
-  });
   for (let i = 0; i < 26; i++) {
     await page.keyboard.down('KeyW'); await page.waitForTimeout(240); await page.keyboard.up('KeyW');
     await page.keyboard.down('KeyJ'); await page.waitForTimeout(700); await page.keyboard.up('KeyJ');
@@ -94,12 +84,19 @@ for (const vp of [
       const exec = await rectOf(page, '#execute-prompt');
       const zone = zoneOf(vp);
       expect(inZone(exec, zone), `処刑は中央 60%×60% の中: ${JSON.stringify(exec)}`).toBe(true);
-      // 対象との関係: 処刑の水平位置は、同じ敵の頭上に出たダメージ数値の水平位置に近い
-      const dmgX = await page.evaluate(() => (window.__dmgX || []).slice(-5));
-      expect(dmgX.length, 'ダメージ数値の位置が記録されている').toBeGreaterThan(0);
-      const lastDmg = dmgX[dmgX.length - 1];
-      const clampedLeft = Math.max(zone.left, Math.min(zone.right, lastDmg));
-      expect(Math.abs((exec.left + exec.right) / 2 - clampedLeft), '処刑は対象の敵の上').toBeLessThan(exec.width / 2 + 40);
+      /* 対象との関係: 処刑の水平位置は、同じフレームで測った HP バー(敵の頭上 2.1、.mob-hp。毎フレーム
+         敵の位置へ書き直される)のどれかの水平位置に近い。剣士の薙ぎ払いは訓練場の藁人形にも当たるので、
+         HP バーが出ている敵は 1 体とは限らない。以前は最後のダメージ数値の位置と比べていたが、それが
+         別の敵の数値だったり、当たった後の前進でカメラが動いていたりすると外れた(CI-001) */
+      const same = await page.evaluate(() => {
+        const e = document.getElementById('execute-prompt').getBoundingClientRect();
+        const bars = [...document.querySelectorAll('.mob-hp')].filter(b => b.style.opacity !== '0')
+          .map(b => { const r = b.getBoundingClientRect(); return (r.left + r.right) / 2; });
+        return { execX: (e.left + e.right) / 2, w: e.width, bars };
+      });
+      expect(same.bars.length, '攻撃した敵の HP バーが出ている').toBeGreaterThan(0);
+      const nearest = Math.min(...same.bars.map(x => Math.abs(same.execX - Math.max(zone.left, Math.min(zone.right, x)))));
+      expect(nearest, `処刑は対象の敵の上: 処刑 x ${same.execX} / HP バー x ${same.bars.join(', ')}`).toBeLessThan(same.w / 2 + 40);
       // タップを受け取れる
       const hit = await page.evaluate(() => {
         const el = document.getElementById('execute-prompt');
@@ -145,20 +142,13 @@ test.describe('UI-002-D WI-D6: インタラクト(844×390・タッチ)', () => 
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);
     await disableCameraAutoFollow(page);
-    // 酒場の鍛冶士の作業台へ歩く(chapter1-skill2.spec.js と同じ方向)
-    let shown = false;
-    for (let i = 0; i < 30 && !shown; i++) {
-      await page.keyboard.down('KeyW'); await page.keyboard.down('KeyD');
-      await page.waitForTimeout(400);
-      await page.keyboard.up('KeyW'); await page.keyboard.up('KeyD');
-      await page.waitForTimeout(200);
-      shown = await page.locator('#interact-btn.show').isVisible().catch(() => false);
-    }
-    expect(shown, 'インタラクトが出る').toBe(true);
+    // 酒場の店主へ歩き、止まった位置でインタラクトが出ている(walkToBartender)
+    expect(await walkToBartender(page), 'インタラクトが出る').toBe(true);
+    await expect(page.locator('#interact-btn')).toContainText('店主');
     const it = await rectOf(page, '#interact-btn');
     const zone = zoneOf({ width: 844, height: 390 });
     expect(inZone(it, zone), `インタラクトは中央 60%×60% の中: ${JSON.stringify(it)}`).toBe(true);
-    // 以前の固定位置(左右中央・下 22%)ではない ―― 対象(作業台)の上へ追従している
+    // 以前の固定位置(左右中央・下 22%)ではない ―― 対象(店主)の上へ追従している
     const oldTop = 390 - 390 * 0.22 - it.height;
     const fixed = Math.abs((it.left + it.right) / 2 - 422) < 1 && Math.abs(it.top - oldTop) < 1;
     expect(fixed, 'インタラクトは下中央の固定位置ではない').toBe(false);
@@ -238,14 +228,21 @@ for (const vp of [
   });
 }
 
-/* 酒場の鍛冶士の作業台へ歩く(chapter1-skill2.spec.js と同じ方向)。インタラクトが出たら true */
-async function walkToSmith(page) {
+/* 酒場の店主へ歩く(mansion-scenario.spec.js と同じ導線)。止まった後もインタラクトが出ていれば true。
+   酒場の固定 spawn(camYaw 135°)では W+A が +Z ―― spawn(0,10) から店主(0,20)へまっすぐ向かい、
+   カウンターに当たって範囲(3m)の中で止まる。以前は鍛冶士の作業台(-6.5,12)へ W+D で歩いていたが、
+   その道は作業台の範囲の縁(中心から約 2m)をかすめるだけで、家具に当たった時の逸れ方しだいで
+   範囲に入らない・入ってすぐ出ることがあった(ゲーム内の時間の進み方で変わる。CI-001) */
+async function walkToBartender(page) {
+  const shown = () => page.locator('#interact-btn.show').isVisible().catch(() => false);
   for (let i = 0; i < 30; i++) {
-    await page.keyboard.down('KeyW'); await page.keyboard.down('KeyD');
-    await page.waitForTimeout(400);
-    await page.keyboard.up('KeyW'); await page.keyboard.up('KeyD');
+    await page.keyboard.down('KeyW'); await page.keyboard.down('KeyA');
+    await page.waitForTimeout(500);
+    await page.keyboard.up('KeyW'); await page.keyboard.up('KeyA');
     await page.waitForTimeout(200);
-    if (await page.locator('#interact-btn.show').isVisible().catch(() => false)) return true;
+    if (!(await shown())) continue;
+    await page.waitForTimeout(1500);   // 止まるまで(ゲーム内 約0.4秒)
+    if (await shown()) return true;
   }
   return false;
 }
@@ -267,7 +264,7 @@ for (const inset of [null, INSET]) {
       test.setTimeout(240_000);
       const errors = watchErrors(page);
       await startTavern(page, inset);
-      expect(await walkToSmith(page), 'インタラクトが出る').toBe(true);
+      expect(await walkToBartender(page), 'インタラクトが出る').toBe(true);
       const zone = zoneOf({ width: 844, height: 390 });
       // 対象が画面の外(カメラの後ろ)・左下に来る向きを含めて回す。カメラの回転は 1.9 rad/秒(低速描画では
       // 1 フレームの dt が抑えられて遅くなる)なので、測る回数で 1 周以上を見る
@@ -300,8 +297,8 @@ test.describe('UI-002-D WI-D7: プロンプトを押している間(844×390・�
     test.setTimeout(240_000);
     const errors = watchErrors(page);
     await startTavern(page, null);
-    expect(await walkToSmith(page), 'インタラクトが出る').toBe(true);
-    await expect(page.locator('#interact-btn')).toContainText(/作業台|鍛冶士/);
+    expect(await walkToBartender(page), 'インタラクトが出る').toBe(true);
+    await expect(page.locator('#interact-btn')).toContainText('店主');
     const before = await rectOf(page, '#interact-btn');
     await page.mouse.move((before.left + before.right) / 2, (before.top + before.bottom) / 2);
     await page.mouse.down();
@@ -313,9 +310,9 @@ test.describe('UI-002-D WI-D7: プロンプトを押している間(844×390・�
     const held = await rectOf(page, '#interact-btn');
     expect(Math.abs(held.left - before.left) + Math.abs(held.top - before.top), `押している間は動かない: ${JSON.stringify(before)} → ${JSON.stringify(held)}`).toBeLessThan(1);
     await page.mouse.up();
-    await expect(page.locator('#appraisal-close-btn'), '離すとインタラクト(鍛冶士の作業台)が実行される').toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('#scenario-overlay'), '離すとインタラクト(店主と話す = 出撃先の選択)が実行される').toHaveClass(/active/, { timeout: 5_000 });
     // 離した後は対象の上へ追従を再開する(閉じてから測る)
-    await page.click('#appraisal-close-btn');
+    await page.click('#scenario-close-btn');
     await expect.poll(async () => {
       const r = await rectOf(page, '#interact-btn');
       return Math.abs(r.left - held.left) + Math.abs(r.top - held.top);

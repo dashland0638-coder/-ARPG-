@@ -18,7 +18,7 @@
  * 最後のテストで実際に出撃して世界が組み上がることを確認する。
  */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, createCharacter, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
+import { openGame, watchErrors, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, recordArenaInfo, drainArenaInfo, arenaInfoValue } from './helpers.js';
 
 const infoPanel = page => page.locator('#arena-enemy-info');
 const panelOpen = page =>
@@ -56,6 +56,7 @@ async function bootArena(page){
   await page.click('#arena-info-toggle-btn');
   await closePanel(page);
   await expect(infoPanel(page)).toBeVisible();
+  await recordArenaInfo(page);   // 短い相(SPLIT / MERGE)を取りこぼさない(helpers.js)
 }
 
 async function arenaSpawn(page, label){
@@ -66,18 +67,18 @@ async function arenaSpawn(page, label){
 }
 
 async function info(page, key){
-  const html = await infoPanel(page).innerHTML();
-  const m = new RegExp(key + ':\\s*([^<]*)').exec(html || '');
-  return m ? m[1].trim() : null;
+  return arenaInfoValue(await infoPanel(page).innerHTML(), key);
 }
 
 const fresh = () => ({ ai: new Set(), tier: new Set(), punish: new Set() });
 const has = (set, needle) => Array.from(set).some(v => (v || '').includes(needle));
 
 async function sample(page, seen){
-  seen.ai.add(await info(page, 'AI State'));
-  seen.tier.add(await info(page, 'Tier'));
-  seen.punish.add(await info(page, 'Punish'));
+  for(const html of await drainArenaInfo(page)){
+    seen.ai.add(arenaInfoValue(html, 'AI State'));
+    seen.tier.add(arenaInfoValue(html, 'Tier'));
+    seen.punish.add(arenaInfoValue(html, 'Punish'));
+  }
 }
 
 /* 観察するだけ。前進は最初の数ラウンドだけ ―― 歩き続けると訓練場を
