@@ -440,7 +440,7 @@
       currentWorldObjects = [];
       currentWorldKey = null;
       if(key !== 'tavern'){
-        spawnToast('⚠️ 読み込みに失敗しました。街へ戻ります', '#c25a6b');
+        spawnLog('⚠️ 読み込みに失敗しました。街へ戻ります', '#c25a6b');
         buildWorld('tavern');
       }
     }
@@ -1191,12 +1191,12 @@
       voidT = 0; lastSolid = state.pos.clone();
       if(state.safePos) state.safePos.copy(state.pos);
       camera.position.copy(state.pos).add(getCamOffset());
-      spawnToast('🌀 異空間に迷い込んだ……');
+      spawnLog('🌀 異空間に迷い込んだ……');
     });
   }
 
   function grantAnomalyReward(){
-    spawnToast('✨ 異空間の宝を手に入れた!');
+    spawnLog('✨ 異空間の宝を手に入れた!');
     addEquipmentItem(rollDropEquipment(0.4));   // レア率40%(通常22%)で確定装備
     const isGem = Math.random() < 0.5;
     addItem({type: isGem?'gem':'shard', name: isGem?'魔宝石':'武具の欠片', icon: isGem?'💎':'🔩',
@@ -1230,7 +1230,7 @@
       voidT = 0; lastSolid = state.pos.clone();
       if(state.safePos) state.safePos.copy(state.pos);
       camera.position.copy(state.pos).add(getCamOffset());
-      spawnToast('🌀 元の場所へ戻った');
+      spawnLog('🌀 元の場所へ戻った');
     });
   }
 
@@ -1737,12 +1737,12 @@
       spawnToast('🔒 固く施錠されている。どこかに鍵があるはずだ……');
       return;
     }
-    if(door.needsKey){ spawnToast('🗝️ 鍵を使って解錠した!'); }
+    if(door.needsKey){ spawnLog('🗝️ 鍵を使って解錠した!'); }
     door.opened = true;
     const idx = walls.indexOf(door.entry);
     if(idx>=0) walls.splice(idx,1); // clear collision immediately
     sfx('door');
-    spawnToast('🚪 扉を開いた……');
+    spawnLog('🚪 扉を開いた……');
   }
 
   function closeDoor(door){
@@ -1843,7 +1843,7 @@
       }
     });
     if(sprung.size){  spawnToast('🚪 石扉が背後で落ちた……!'); sfx('seal'); addShake(0.12); }
-    if(released.size){ spawnToast('🔓 石扉の封が解けた'); sfx('door'); }
+    if(released.size){ spawnLog('🔓 石扉の封が解けた'); sfx('door'); }
   }
 
   let nearbyDoor = null;
@@ -2041,7 +2041,7 @@
     scene.remove(k.group);
     state.hasBossKey = true;
     nearbyKey = null;
-    spawnToast('🗝️ 錆びた鍵を手に入れた!');
+    spawnLog('🗝️ 錆びた鍵を手に入れた!');
   }
 
   /* Readable objects come in three shapes, because a letter, a journal and a
@@ -2297,7 +2297,7 @@
       const mpGain = Math.round((state.maxMp - state.mp) * CHECKPOINT_HEAL_FRAC);
       state.hp = Math.min(state.maxHp, state.hp + hpGain);
       state.mp = Math.min(state.maxMp, state.mp + mpGain);
-      if(hpGain>0 || mpGain>0) spawnToast('🏕️ 一息ついた。HP/MPが少し回復した');
+      if(hpGain>0 || mpGain>0) spawnLog('🏕️ 一息ついた。HP/MPが少し回復した');
       sfx('levelUp');
     }
     setOverlay('appraisal');   // 鑑定所(装備・スキル・ショップ)をその場で開く
@@ -2395,6 +2395,19 @@
     else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)' : '🏕️ 休憩する(回復+装備整理)';
   }
 
+  /* インタラクトの対象のワールド座標(UI-002-D WI-D6: 表示を対象の上に出すため)。
+     対象の選び方は updateInteractPrompt() と同じ順。店主・鍛冶士・影の旅人は距離の判定に
+     使っている位置の定数、それ以外は各オブジェクトの .pos。無ければ null(プレイヤーの上に出す) */
+  function interactTargetWorldPos(){
+    if(nearbyShadowGuide) return SHADOW_GUIDE_POS;
+    const obj = nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger;
+    if(obj && obj.pos) return obj.pos;
+    if(nearbyBartender) return BARTENDER_POS;
+    if(nearbySmith) return SMITH_POS;
+    if(nearbyCheckpoint && nearbyCheckpoint.pos) return nearbyCheckpoint.pos;
+    return null;
+  }
+
   function interact(){
     /* 処刑(Phase 4)を最優先で見る。窓は 1.6 秒しか開かないのに対して
        扉や調べ物は逃げないので、競合したら処刑を優先するのが正しい。
@@ -2440,10 +2453,10 @@
     if(state.safePos) state.safePos.copy(state.pos);
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
-    spawnToast('🪜 ' + s.label);
+    spawnLog('🪜 ' + s.label);
     if(s.routeNode && routeEnter(s.routeNode)){
       const def = routeNodeDef(s.routeNode);
-      if(def && def.commitMsg) spawnToast(def.commitMsg);
+      if(def && def.commitMsg) spawnLog(def.commitMsg);
       if(ROUTE_ONCOMMIT_EFFECTS[s.routeNode]) ROUTE_ONCOMMIT_EFFECTS[s.routeNode]();
     }
   }
@@ -2499,7 +2512,7 @@
     for(const p of townReturnPoints){
       if(state.pos.distanceTo(p.pos) < p.radius){
         townReturnBusy = true;
-        spawnToast('🏠 探索を終えて酒場へ戻った');
+        spawnLog('🏠 探索を終えて酒場へ戻った');
         returnToTown(false);
         return;
       }

@@ -4,12 +4,13 @@
  *   ゾーン        左上 #hud-zone-tl(.hud-topleft と #hud-loot)・下中央 #hud-zone-bc(#hud-hint)は
  *                 #hud の中、右上 #hud-zone-tr(ミニマップ・ラベル・パッド接続表示)は #hud の外
  *   中央 60%×60%  ゾーン自体が入らないことを assert する(HD-D30)。ゾーンの中の子要素が
- *                 中央へはみ出す量は隠さずに数値で記録する(844×390 の左上パネルは WI-D4、
- *                 所持品の行は WI-D3 への引き継ぎ)。子要素を縮めたり隠したりはしない
+ *                 中央へはみ出す量は隠さずに数値で記録する。844×390 の左上パネルは WI-D4 で
+ *                 3 列に並べ替えて中央に入らなくなったため、0 を assert する
  *   safe-area     CDP の Emulation.setSafeAreaInsetsOverride(上 0 / 左 47 / 下 21 / 右 47。
  *                 横向き iPhone を想定した仮の値で、実機の値ではない。HD-D35)で、ゾーンの
  *                 基準点が inset の分だけ内側へ移ること
- *   所持品        ☰ 🧪 🔷 は行ごと移しただけで、☰ と 🧪 はタップを受け取れる(HD-D31 / D32 / D33)
+ *   所持品        ☰ 🔷 は行ごと移しただけで、☰ はタップを受け取れる(HD-D31 / D33)。🧪 は
+ *                 WI-D3 で Action Zone の回復ボタンになった(HD-D12 / D32。tests/action-zone.spec.js)
  *   開発用 UI     テストモード専用の Arena は本編に出ず、テストモードでは所持品の下に並ぶ
  */
 import { test, expect } from '@playwright/test';
@@ -61,9 +62,10 @@ async function checkTopLeftStack(page, label) {
   expect(Math.round(loot.left), `${label}: 所持品の左端はパネルと揃う`).toBe(Math.round(panel.left));
 }
 
-/* ☰ と 🧪 の中心がタップを受け取れる(ほかの要素に覆われていない) */
+/* ☰ の中心がタップを受け取れる(ほかの要素に覆われていない)。🧪 は WI-D3 で Action Zone へ移り、
+   タップの確認は tests/action-zone.spec.js で行う */
 async function checkChipsHittable(page, label) {
-  for (const id of ['loot-menu-btn', 'loot-potion-btn']) {
+  for (const id of ['loot-menu-btn']) {
     const hit = await page.evaluate(i => {
       const el = document.getElementById(i);
       const r = el.getBoundingClientRect();
@@ -91,10 +93,8 @@ for (const vp of [
       for (const id of ['hud-name', 'hud-portrait', 'hp-fill', 'weapon-badge', 'minimap-wrap']) {
         await expect(page.locator(`#${id}`)).toBeVisible();
       }
-      if (vp.touch) {
-        // 844×390 の左上パネルはパネルの大きさのため中央へはみ出す(WI-D4 への引き継ぎ。D2 では縮小しない)
-        expect(children['.hud-topleft'].center, '844×390: 左上パネルのはみ出し(D4 への引き継ぎとして記録)').toBeGreaterThan(0);
-      }
+      // WI-D4 で 844×390 の左上パネルも中央へはみ出さなくなった(D2 の引き継ぎの解消。tests/character-zone.spec.js)
+      expect(children['.hud-topleft'].center, `${vp.name}: 左上パネルは中央 60%×60% に入らない`).toBe(0);
       await checkChipsHittable(page, vp.name);
       expect(errors).toEqual([]);
     });
@@ -128,12 +128,13 @@ for (const vp of [
 }
 
 test.describe('UI-002-D WI-D2: 所持品と開発用 UI', () => {
-  test('本編: ☰ でメニューが開き、🧪 🔷 は行の中に残る。Arena は出ない', async ({ page }) => {
+  test('本編: ☰ でメニューが開き、🔷 は行の中に残る(🧪 は WI-D3 で Action Zone へ)。Arena は出ない', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = watchErrors(page);
     await startMainGame(page);
     await expect(page.locator('#hud-zone-tl #hud-loot')).toBeVisible();
-    await expect(page.locator('#hud-loot #loot-potion-btn')).toBeVisible();
+    await expect(page.locator('#hud-loot #loot-potion-btn')).toHaveCount(0);
+    await expect(page.locator('#touch-controls .action-zone #loot-potion-btn')).toHaveCount(1);
     await expect(page.locator('#hud-loot #loot-mppotion-btn')).toBeVisible();
     await expect(page.locator('#arena-toggle-btn'), '本編では Arena を出さない').toBeHidden();
     await expect(page.locator('#arena-panel')).toBeHidden();
@@ -162,6 +163,57 @@ test.describe('UI-002-D WI-D2: 所持品と開発用 UI', () => {
     expect(arenaPanel.top, 'Arena のパネルはボタンの下').toBeGreaterThanOrEqual(arena.bottom);
     expect(errors).toEqual([]);
   });
+
+  /* Arena のパネルは左上ゾーンの並びの末尾にあり、上端が固定値ではない。どの viewport・
+     safe-area でも下端が画面内(画面下から 12px + inset)に収まり、末尾のボタンまで
+     パネル内のスクロールで押せること(WI-D2 Review の Major: 844×390 で下端が画面外) */
+  for (const vp of [
+    { name: '1280×800・PC', width: 1280, height: 800, touch: false, inset: null },
+    { name: '844×390・タッチ', width: 844, height: 390, touch: true, inset: null },
+    { name: '844×390・タッチ・safe-area', width: 844, height: 390, touch: true, inset: INSET },
+  ]) {
+    test.describe(vp.name, () => {
+      test.use({ viewport: { width: vp.width, height: vp.height }, hasTouch: vp.touch });
+
+      test('テストモード: Arena のパネルは画面内に収まり、末尾のボタンまで押せる', async ({ page }) => {
+        test.setTimeout(90_000);
+        const errors = watchErrors(page);
+        await openGame(page);
+        if (vp.inset) {
+          const cdp = await page.context().newCDPSession(page);
+          await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: vp.inset });
+        }
+        await startTestMode(page, { classKey: 'warrior' });
+        await page.locator('#arena-toggle-btn').click();
+        await expect(page.locator('#arena-panel')).toBeVisible();
+        const bottomLimit = vp.height - 12 - (vp.inset ? vp.inset.bottom : 0);
+        const arenaPanel = await rectOf(page, '#arena-panel');
+        expect(arenaPanel.bottom, `${vp.name}: パネルの下端は画面内`).toBeLessThanOrEqual(bottomLimit + 1);
+        for (const id of ['arena-clear-btn', 'arena-info-toggle-btn', 'arena-loadout-btn']) {
+          const hit = await page.evaluate(i => {
+            const el = document.getElementById(i);
+            el.scrollIntoView({ block: 'nearest' });
+            const r = el.getBoundingClientRect();
+            const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return !!top && (top === el || el.contains(top));
+          }, id);
+          expect(hit, `${vp.name}: #${id} をパネル内のスクロールで押せる`).toBe(true);
+        }
+        // 開いたまま左上パネルの高さが変わっても(階層表示の出入り・職業変更など)、
+        // 下端は画面内に留まる。#hud-floor は毎フレーム書き戻されるため、高さの変化は
+        // スタイルで与える
+        const topBefore = (await rectOf(page, '#arena-panel')).top;
+        const grow = await page.addStyleTag({ content: '.hud-topleft{ padding-top:30px !important; }' });
+        await expect.poll(async () => (await rectOf(page, '#arena-panel')).top, `${vp.name}: 上端が下がる`).toBeGreaterThan(topBefore);
+        await expect.poll(async () => (await rectOf(page, '#arena-panel')).bottom, `${vp.name}: 高さが変わった後も下端は画面内`).toBeLessThanOrEqual(bottomLimit + 1);
+        await grow.evaluate(el => el.remove());
+        // 末尾のボタンが実際に働く(テストモードの鑑定所画面が開く)
+        await page.locator('#arena-loadout-btn').click();
+        await expect(page.locator('#appraisal-overlay')).toHaveClass(/active/);
+        expect(errors).toEqual([]);
+      });
+    });
+  }
 
   test('パッド接続表示は HUD が出ていない間(タイトル画面)は見えない', async ({ page }) => {
     const errors = watchErrors(page);

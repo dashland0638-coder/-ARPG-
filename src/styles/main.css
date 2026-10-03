@@ -237,8 +237,10 @@
   /* ---------- SCREEN FX ---------- */
   /* 周回制限時間(初回クリアは表示されない)。ボスバーの真下に置き、
      両方出ている間も重ならないようにしてある */
+  /* ボスバー(top 14px・高さ約 63px: 名前・HP・段階・体幹)の下。以前の top 64px は、
+     体幹の段が足された後のボスバーと重なっていた(UI-002-D WI-D6) */
   #scenario-timer{
-    position:fixed; top:64px; left:50%; transform:translateX(-50%);
+    position:fixed; top:calc(14px + 64px + 6px); left:50%; transform:translateX(-50%);
     z-index:var(--ui-z-timer); pointer-events:none;
     font-family:'JetBrains Mono', ui-monospace, monospace;
     font-size:15px; letter-spacing:1px; color:#ffe9c9;
@@ -258,10 +260,12 @@
      ではなくキャラの近く・視線が集まる位置に置き、段数と「あと何秒繋げられるか」
      を見た瞬間に把握できるようにしてある。タッチの action-zone は右側だけを
      使うので、画面下中央に置いても操作の邪魔にならない */
+  /* コンボは攻撃を出す Action Zone の近く(右下)。以前は画面下中央の 1 列(UI-002-D WI-D6。
+     HD-D16「戦闘を邪魔しない位置」)。1280×800 は PC の能力表示の列(下端 48px)とキー表記の上 */
   #combo-indicator{
-    position:fixed; left:50%; bottom:15%; transform:translate(-50%,0);
+    position:fixed; right:calc(16px + env(safe-area-inset-right)); bottom:calc(124px + env(safe-area-inset-bottom));
     z-index:var(--ui-z-hud); pointer-events:none;
-    display:flex; flex-direction:column; align-items:center; gap:5px;
+    display:flex; flex-direction:column; align-items:flex-end; gap:5px;
     opacity:0; transition:opacity 0.15s ease-out;
   }
   #combo-indicator.show{ opacity:1; }
@@ -472,8 +476,10 @@
     z-index:31; display:none; padding:12px; border-radius:10px;
     background:rgba(20,12,28,0.88); border:1px solid #8a5ac0; pointer-events:auto;
     /* iPhone横持ち(高さ390px前後)でも画面外へはみ出さないよう、
-       余った分はパネル内でスクロールさせる */
-    max-height:calc(100vh - 190px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+       余った分はパネル内でスクロールさせる。下端は画面下から 12px + safe-area。
+       上端は左上ゾーンの並びで決まるため、開いた時と resize 時に JS が実際の値を
+       --arena-panel-top へ入れる(14-training-ground.js。UI-002-D WI-D2) */
+    max-height:calc(100vh - var(--arena-panel-top, calc(178px + env(safe-area-inset-top))) - 12px - env(safe-area-inset-bottom));
     overflow-y:auto;
   }
   .arena-panel.show{ display:block; }
@@ -505,8 +511,10 @@
     white-space:nowrap;
   }
 
+  /* 位置は JS が対象の上に書く(UI-002-D WI-D6: 14-hud-boot.js updateCombatPromptPositions、
+     core/combat-prompt-layout.js)。以前は画面下中央(bottom 22%)に固定していた */
   #interact-btn{
-    position:fixed; left:50%; bottom:22%; transform:translate(-50%,0);
+    position:fixed; left:0; top:0;
     z-index:var(--ui-z-interact); display:none; opacity:0; pointer-events:none; white-space:nowrap;
     padding:8px 18px; border-radius:16px; cursor:pointer;
     background:rgba(12,10,16,0.7); color:var(--text);
@@ -524,14 +532,14 @@
   #interact-btn.branch-locked::before{ content:'🔒 '; opacity:1; }
 
   /* 処刑(Phase 4)。体幹を崩した敵に開く短い窓の間だけ出る。
-     #interact-btn と同じ位置・同じ形にしてあるのは、押すキー(R)も
+     #interact-btn と同じ形にしてあるのは、押すキー(R)も
      触るボタンも既存の「調べる」と同じものだから ―― 新しい操作体系は
      増やさず、その瞬間だけ意味が入れ替わることを色で示す。
      常時表示はしない(資料22章)。 */
   #execute-prompt{
-    /* #interact-btn(bottom:22%)と同時に出ても重ならない位置。
-       押すキーもタップ先も別なので、並んで見えてよい */
-    position:fixed; left:50%; bottom:28%; transform:translate(-50%,0);
+    /* 位置は JS が処刑の対象の敵の上に書く(UI-002-D WI-D6)。同時に出たインタラクトは
+       処刑を避けて置かれる。押すキーもタップ先も別なので、並んで見えてよい */
+    position:fixed; left:0; top:0;
     z-index:var(--ui-z-execute); display:none; opacity:0; pointer-events:none; white-space:nowrap;
     padding:9px 22px; border-radius:16px; cursor:pointer;
     background:rgba(58,22,10,0.82); color:#ffe6b0;
@@ -711,6 +719,34 @@
   .bar-track.xp{ height:4px; margin-top:2px; opacity:0.85; }
   .bar-fill.xp{ background:linear-gradient(90deg,#5a3d8a,#a05fe0); }
   .bar-label{ font-size:var(--ui-fs-hud-label); color:var(--text-dim); letter-spacing:0.08em; }
+  /* 844×390 相当(HD-D34)の Character Zone(UI-002-D WI-D4)。縦 1 列(高さ約 130px)のままでは
+     中央 60%×60% に入るため(HD-D02 / D30)、バーを HP / MP / スタミナの 3 列に並べ、パネルを
+     画面上の帯(高さ 20vh = 78px)に収める。1 行目は名前(階層表示は同じ行の 3 列目)、
+     各列は見出しの下にバー、テストモードの XP は最下行。左上ゾーンの上端は右上ゾーンと
+     同じ 8px。大きさ・色・文字・余白の値は変えない(位置と並びだけ。見た目は V / C2) */
+  @media (max-height: 500px){
+    .hud-zone-tl{
+      top:calc(8px + env(safe-area-inset-top));
+      height:calc(20vh - 8px - env(safe-area-inset-top));
+    }
+    .hud-bars{
+      /* バー 3 列(80px)+ 階層表示の列(出ていない間は幅 0)。名前は 1 行で 3 列分を使い、
+         それより長い名前(上位職 ｜ 支援: 上位職 など)はバーの列を広げて収める(折り返すと
+         パネルが中央へ伸びるため。Review Round 1) */
+      display:grid; grid-template-columns:repeat(3, minmax(80px, auto)) auto; column-gap:8px; row-gap:1px;
+      min-width:0; align-items:end;
+    }
+    /* 行の間隔は grid が受け持つ(縦 1 列用の margin は外す。テストモードの XP 行を含めて
+       パネルの高さを 68px 以内に収めるため) */
+    .hud-bars .hud-name{ grid-row:1; grid-column:1 / 4; margin-bottom:0; white-space:nowrap; }
+    .hud-bars .hud-floor{ grid-row:1; grid-column:4; white-space:nowrap; margin-bottom:0; }
+    .hud-bars .bar-label{ grid-row:2; }
+    .hud-bars .bar-track{ grid-row:3; }
+    .hud-bars .hud-bar-hp{ grid-column:1; }
+    .hud-bars .hud-bar-mp{ grid-column:2; }
+    .hud-bars .hud-bar-sta{ grid-column:3; }
+    .hud-bars .bar-track.xp{ grid-row:4; grid-column:1 / 4; margin-top:0; }
+  }
 
   .hud-loot{
     /* 位置は左上ゾーンの並び(.hud-topleft の下)で決まる。以前の margin-top:78px の
@@ -728,14 +764,12 @@
   .menu-mat{ display:flex; align-items:center; gap:5px; color:var(--text-dim); }
   .menu-mat b{ color:var(--text); font-weight:var(--ui-fw-bold); }
 
-  #loot-potion-btn{ pointer-events:auto; transition:transform .1s; position:relative; z-index:var(--ui-z-hud-button); }
   #loot-menu-btn{
     pointer-events:auto; transition:transform .1s; position:relative; z-index:var(--ui-z-hud-button);
     color:var(--ember-bright); font-size:15px;
     border-right:1px solid var(--panel-line); padding-right:10px; margin-right:2px;
   }
   #loot-menu-btn:active{ transform:scale(0.9); }
-  #loot-potion-btn:active{ transform:scale(0.9); }
   .loot-chip span.count{ color:var(--text); font-weight:600; }
 
   .item-pop{
@@ -759,7 +793,7 @@
   /* メッセージログ: 浮遊トースト(item-pop)は一瞬で消えるので、読み返せるよう
      画面左下に少し長く残る履歴を別途積む。トーストと役割を分けている。 */
   #msg-log{
-    position:fixed; left:12px; bottom:calc(84px + env(safe-area-inset-bottom));
+    position:fixed; left:calc(12px + env(safe-area-inset-left)); bottom:calc(84px + env(safe-area-inset-bottom));
     z-index:var(--ui-z-msg-log); display:flex; flex-direction:column-reverse; gap:4px;
     max-width:64vw; pointer-events:none;
   }
@@ -802,7 +836,7 @@
   #touch-controls.gamepad-min .cam-btn{ display:none; }
   #touch-controls.gamepad-min .action-btn{ opacity:0.9; pointer-events:none; }
   .joy-zone{
-    position:absolute; left:0; bottom:0; width:48%; height:46%; z-index:var(--ui-z-local-5);
+    position:absolute; left:env(safe-area-inset-left); bottom:0; width:48%; height:46%; z-index:var(--ui-z-local-5);
     pointer-events:auto; touch-action:none;
   }
   .joy-base{
@@ -818,7 +852,8 @@
     background:radial-gradient(circle at 35% 30%, var(--ember-bright), var(--ember));
     box-shadow:0 2px 10px rgba(0,0,0,0.5);
   }
-  .action-zone{ position:absolute; right:0; bottom:0; width:54%; height:68%; pointer-events:none; }
+  /* 右の inset は Action Zone の基準点で扱う(UI-002-D WI-D3。各ボタンの bottom は従来どおり下の inset を含む) */
+  .action-zone{ position:absolute; right:env(safe-area-inset-right); bottom:0; width:54%; height:68%; pointer-events:none; }
   .action-btn{
     position:absolute; pointer-events:auto; touch-action:none;
     border-radius:var(--ui-p-radius-round); display:flex; align-items:center; justify-content:center;
@@ -853,6 +888,69 @@
      以前はultとほぼ隙間0pxで接触していたため、右上へさらに離してある */
   #btn-skill3{ width:46px; height:46px; right:284px; bottom:calc(146px + env(safe-area-inset-bottom)); font-size:16px; z-index:var(--ui-z-local-3); }
   #btn-skill3.unequipped{ opacity:0.4; }
+  /* 回復のクイック使用(UI-002-D WI-D3。HD-D12)。以前の所持品の 🧪 チップを Action Zone へ
+     移したもの。大きさ・文字の大きさは Skill 1(#btn-charge)の既存値、個数の文字は
+     以前のチップ(.loot-chip span.count)の値を使い、新しい見た目は作らない(V / C2)。
+     攻撃ボタンの左隣に置く */
+  #loot-potion-btn{ width:44px; height:44px; right:198px; bottom:calc(26px + env(safe-area-inset-bottom)); font-size:15px; gap:1px; z-index:var(--ui-z-local-3); }
+  #loot-potion-btn span.count{ color:var(--text); font-weight:600; font-size:11px; }
+  #loot-potion-btn:active{ transform:scale(0.9); }   /* 押下の手応え(以前のチップと同じ値) */
+
+  /* 844×390 相当(HD-D34)のタッチ: 常時表示の Action ボタンを中央 60%×60% の外へ出す
+     (HD-D02 / D30)。攻撃・JUMP・回避は右の帯に縦に、Ult・Skill 1・Skill 2・回復・Skill 3 は
+     下の帯に横に並べる。スティック(.joy-zone、左 48%)と画面下中央のカメラ回転には重ねない。
+     大きさは変えない(位置だけ。V / C2)。パッド接続中のタッチ端末(表示専用)も同じ位置 */
+  @media (max-height: 500px){
+    #touch-controls:not(.pc-indicators) #btn-attack{ right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-jump{ right:21px; bottom:calc(104px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-dodge{ right:24px; bottom:calc(172px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-ult{ right:106px; bottom:calc(4px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-charge{ right:168px; bottom:calc(4px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-skill2{ right:222px; bottom:calc(4px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #loot-potion-btn{ right:274px; bottom:calc(4px + env(safe-area-inset-bottom)); }
+    #touch-controls:not(.pc-indicators) #btn-skill3{ right:328px; bottom:calc(4px + env(safe-area-inset-bottom)); }
+  }
+
+  /* PC(非タッチ)の能力表示(UI-002-D WI-D3。HD-D08 / D22、条件は core の actionZoneLayout)。
+     タッチ用の攻撃ボタンは出さず、Ult・Skill 1・Skill 2・回復・Skill 3 を表示専用
+     (.gamepad-min の規則)で画面右下の帯に 1 列に並べ、戦闘態勢中(.in-combat)だけ出す。
+     キーボードではキー表記(data-key)を添える。大きさ・形・色は変えない */
+  #touch-controls.pc-indicators #btn-attack{ display:none; }
+  #touch-controls.pc-indicators:not(.in-combat) .action-zone{ display:none; }
+  /* 列の下端は下中央の PC 操作ヒント(#hud-hint、bottom 14px・高さ約 29px)の上(Review Round 2) */
+  #touch-controls.pc-indicators .action-zone{ --pc-ind-bottom: 48px; }
+  #touch-controls.pc-indicators #btn-ult{ right:16px; bottom:calc(var(--pc-ind-bottom) + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #btn-charge{ right:80px; bottom:calc(var(--pc-ind-bottom) + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #btn-skill2{ right:136px; bottom:calc(var(--pc-ind-bottom) + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #loot-potion-btn{ right:190px; bottom:calc(var(--pc-ind-bottom) + env(safe-area-inset-bottom)); }
+  #touch-controls.pc-indicators #btn-skill3{ right:246px; bottom:calc(var(--pc-ind-bottom) + env(safe-area-inset-bottom)); }
+  #touch-controls.key-labels .action-btn[data-key]::after{
+    content:attr(data-key); position:absolute; top:-15px; left:50%; transform:translateX(-50%);
+    font-size:var(--ui-fs-hud-label); font-family:var(--ui-font-latin-display); color:var(--text-dim);
+    pointer-events:none;
+  }
+
+  /* 844×390 相当(HD-D34)の戦闘中の状態表示(UI-002-D WI-D6)。
+     - コンボ: 下の帯の Action ボタン列(Ult の右端)の上
+     - ボスバー・制限時間: 左上 Character Zone と右上 Mini-map Zone(80vw〜)の間の上の帯。以前は
+       中央寄せの 520px で Character Zone と重なっていた(WI-D4 の Known Limitation)。左端は
+       Character パネルの実際の右端(--hud-tl-right、14-hud-boot.js)+ 8px。洋館の階層表示で
+       パネルが広がっても重ならない(WI-D7。変数が無い間は階層表示の無いパネルの右端 16 + 348px)
+     - 左下ログ: スティックの領域(下 46%)の上に移し、最新 3 行だけ見せる(JS の 6 行・6.5 秒は
+       そのまま)。以前はスティックと縦に重なっていた(WI-D5 の Known Limitation、HDR-11) */
+  @media (max-height: 500px){
+    #combo-indicator{ right:calc(106px + env(safe-area-inset-right)); bottom:calc(64px + env(safe-area-inset-bottom)); }
+    #boss-bar-wrap{
+      left:calc(var(--hud-tl-right, calc(16px + 348px + env(safe-area-inset-left))) + 8px); right:calc(20vw + env(safe-area-inset-right));
+      width:auto; transform:none;
+    }
+    #scenario-timer{
+      left:calc(var(--hud-tl-right, calc(16px + 348px + env(safe-area-inset-left))) + 8px); right:calc(20vw + env(safe-area-inset-right));
+      width:max-content; margin:0 auto; transform:none;
+    }
+    #msg-log{ bottom:calc(46% + 6px); }
+    #msg-log .msg-log-line:nth-last-child(n+4){ display:none; }
+  }
   /* まだ閃いていないスキル(Chapter 1 の Skill 2)。薄く残さず消す ――
      ボタンが現れることそのものが習得の合図(core/chapter1-skills.js) */
   .action-btn.locked{ display:none; }

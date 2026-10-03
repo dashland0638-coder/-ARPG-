@@ -17,7 +17,7 @@
  * 最後のテストで、実際に洋館へ出撃して森の戦闘①を起こして確認する。
  */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, createCharacter, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
+import { openGame, watchErrors, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, recordArenaInfo, drainArenaInfo, arenaInfoValue } from './helpers.js';
 
 const infoPanel = page => page.locator('#arena-enemy-info');
 
@@ -44,6 +44,7 @@ async function bootArena(page){
   await page.click('#arena-info-toggle-btn');
   await page.click('#arena-toggle-btn');
   await expect(infoPanel(page)).toBeVisible();
+  await recordArenaInfo(page);   // 短い相(予兆など)を取りこぼさない(helpers.js、CI-001)
 }
 
 /** Arena のロスターから1体出す(パネルは開閉して視界を空ける) */
@@ -69,6 +70,14 @@ async function info(page, key){
   return m ? m[1].trim() : null;
 }
 
+/* 前に読んでから今までの AI State / Punish をまとめて貯める(helpers.js recordArenaInfo。CI-001) */
+async function sample(page, seen){
+  for(const html of await drainArenaInfo(page)){
+    seen.ai.add(arenaInfoValue(html, 'AI State'));
+    seen.punish.add(arenaInfoValue(html, 'Punish'));
+  }
+}
+
 /* 前進しながら攻撃する1ラウンド。敵の状態を毎ラウンド読んで貯める ――
    予兆や硬直は一瞬なので、固定待ちで「その瞬間」を狙うのは当てにならない。 */
 async function attackRound(page, seen){
@@ -78,13 +87,11 @@ async function attackRound(page, seen){
   await page.keyboard.down('KeyJ');
   for(let i = 0; i < 4; i++){
     await page.waitForTimeout(150);
-    seen.ai.add(await info(page, 'AI State'));
-    seen.punish.add(await info(page, 'Punish'));
+    await sample(page, seen);
   }
   await page.keyboard.up('KeyJ');
   await page.waitForTimeout(120);
-  seen.ai.add(await info(page, 'AI State'));
-  seen.punish.add(await info(page, 'Punish'));
+  await sample(page, seen);
 }
 
 /* 近づいて観察するだけ(攻撃しない)。遠距離敵/突進敵の予兆を見るため。
@@ -100,8 +107,7 @@ async function watchRound(page, seen, forwardMs = 220){
   }
   for(let i = 0; i < 6; i++){
     await page.waitForTimeout(140);
-    seen.ai.add(await info(page, 'AI State'));
-    seen.punish.add(await info(page, 'Punish'));
+    await sample(page, seen);
   }
 }
 
@@ -176,9 +182,14 @@ test.describe('森の洋館の通常敵3種', () => {
        (55 という素の値は tests/unit/mansion-enemies.test.js の担当) */
     expect(await info(page, 'Stagger')).toMatch(/\d+ \/ \d+/);
 
-    // (2) 攻撃しながら観察。予兆(WINDUP)とパニッシュ窓が立ち、
-    //     最終的に体幹を削り切って EXECUTE が出るところまで
+    // (2) 予兆(WINDUP)とパニッシュ窓を、まず殴らずに観察する。殴り続けると大怯みが振りかぶりを
+    //     潰す(通常敵の約束、core/enemy-tier.js)ため、体幹が先に崩れて予兆が一度も出ないまま終わる
+    //     run があった(どちらが先かはゲーム内の時間の進み方で変わる。CI-001)。
+    //     その後、攻撃して体幹を削り切り EXECUTE が出るところまで
     const seen = fresh();
+    for(let i = 0; i < 20 && !(has(seen.ai, 'WINDUP') && (has(seen.punish, 'WINDUP') || has(seen.punish, 'RECOVERY'))); i++){
+      await watchRound(page, seen, i < 3 ? 220 : 0);
+    }
     let broke = false;
     for(let i = 0; i < 40 && !broke; i++){
       await attackRound(page, seen);

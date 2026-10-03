@@ -23,6 +23,11 @@ export default defineConfig({
     baseURL: 'http://localhost:5173/',
     headless: true,
     viewport: { width: 1280, height: 800 },
+    /* 描画の解像度だけを半分にする(CSS の寸法・座標・レイアウトは viewport のまま。CI-001)。
+       GPU の無い CI / コンテナでは WebGL を SwiftShader(CPU)で描くため、1280×800 では 2〜5fps しか
+       出ず、描画が CPU を使い切ってページの応答(クリック・DOM の更新)まで遅れていた。
+       ゲームは renderer.setPixelRatio(devicePixelRatio) で描画解像度だけが下がり、判定・UI は変わらない */
+    deviceScaleFactor: 0.5,
     launchOptions: {
       args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'],
     },

@@ -141,17 +141,31 @@ test.describe('UI-002-E Production Integration: 承認済み Swordsman glyph', (
     await expect(page.locator('#btn-skill2')).not.toHaveClass(/locked/);
     await expectApprovedGlyph(page, '#btn-skill2-icon', 'skill.warrior.crushSlash');
 
-    // Action の glyph は 24px、Weapon Badge は 18px(HDE-EPI-05)
-    for (const sel of ['#btn-attack-glyph svg', '#btn-charge-icon svg', '#btn-skill2-icon svg']) {
-      const b = await page.locator(sel).boundingBox();
-      expect(b && [Math.round(b.width), Math.round(b.height)], sel).toEqual([24, 24]);
-    }
+    // Action の glyph の 24px はタッチの文脈で測る(下の「タッチ: Action の glyph は 24px」)。
+    // PC では UI-002-D WI-D3(HD-D08)によりタッチ用の攻撃ボタンを出さず、能力の表示は
+    // 戦闘態勢中だけになるため。Weapon Badge は 18px(HDE-EPI-05)
     const bb = await page.locator('#weapon-badge svg').boundingBox();
     expect(bb && [Math.round(bb.width), Math.round(bb.height)]).toEqual([18, 18]);
 
     // 8. 必殺技は対象外
     await expectUltUnchanged(page, '💥');
     expect(errors).toEqual([]);
+  });
+
+  test.describe('タッチ', () => {
+    test.use({ hasTouch: true });
+
+    test('剣士(タッチ): Action の glyph は 24px(HDE-EPI-05)', async ({ page }) => {
+      test.setTimeout(120_000);
+      const errors = watchErrors(page);
+      await continueFrom(page, {}, 'warrior');
+      await expect(page.locator('#touch-controls')).toHaveClass(/(^|\s)active(\s|$)/);
+      for (const sel of ['#btn-attack-glyph svg', '#btn-charge-icon svg', '#btn-skill2-icon svg']) {
+        const b = await page.locator(sel).boundingBox();
+        expect(b && [Math.round(b.width), Math.round(b.height)], sel).toEqual([24, 24]);
+      }
+      expect(errors).toEqual([]);
+    });
   });
 
   test('剣士: 技を使っても(クールダウン中も)glyph は同じ形のまま', async ({ page }) => {

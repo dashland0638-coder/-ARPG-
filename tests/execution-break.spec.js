@@ -122,14 +122,20 @@ test.describe('Execution / Break Experience', () => {
     // (3) Execution 入力
     await page.keyboard.press('KeyE');
 
-    // (4) 専用のフィニッシャーが再生されている(通常攻撃の型ではない)
+    // (4) 専用のフィニッシャーが再生されている(通常攻撃の型ではない)。
+    //     崩すまでの通常攻撃の型(basic*)が Motion Preview(0.5 秒ごと)に残っている間に読むと、
+    //     処刑の前の型を拾う(低速描画で起きる。UI-002-D 統合監査 T-4)。通常攻撃の型の後に
+    //     出た最初の型を処刑の型として読む。処刑で通常攻撃の型が出続ける不具合なら、
+    //     通常攻撃以外の型が出ないまま時間切れで FAIL する
+    const seen = [];
     let action = null;
     await expect.poll(async () => {
       const a2 = await pv(page, 'ACTION');
-      if(a2 && a2 !== '-') action = a2;
+      if(a2 && a2 !== '-' && seen[seen.length - 1] !== a2) seen.push(a2);
+      action = seen.find(a => !/^(basic|altBasic)/.test(a)) || null;
       return action;
-    }, { timeout: 20_000 }).not.toBeNull();
-    console.log('フィニッシャーの型:', action, '/ STATE=', await pv(page, 'STATE'));
+    }, { timeout: 20_000, message: 'Execution で通常攻撃の型が再生されている' }).not.toBeNull();
+    console.log('フィニッシャーの型:', action, '/ 見えた型:', seen.join(' → '), '/ STATE=', await pv(page, 'STATE'));
     expect(action, 'Execution で通常攻撃の型が再生されている').not.toMatch(/^(basic|altBasic)/);
 
     // (5) 大ダメージ ―― 崩すまでの通常攻撃より明確に大きい

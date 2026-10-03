@@ -1770,7 +1770,7 @@
     // a held channel buys area and damage, not range
     const chargeArea = 1 + ((ult.aimRadiusMul || 1) - 1) * charge;
     const chargeDmg  = 1 + ((ult.aimDmgMul || 1) - 1) * charge;
-    const ultDmgMul  = rankDmg('ult') * (1 + state.skills.ultUp*0.10) * chargeDmg;
+    const ultDmgMul  = rankDmg('ult') * (1 + (legacyGrowth() ? state.skills.ultUp : 0)*0.10) * chargeDmg;   // パッシブ「必殺の奥義」は第一章(本編)では数えない(WORK 12.1)
     const ultAreaMul = rankArea('ult') * chargeArea;
     state.ultGauge = 0;
     state.ultLockT = 1.5;   // 理論上の即時連続発動を防ぐ保険的な最短ロックアウト
@@ -2212,8 +2212,13 @@
       el.style.top = 'calc(30% - ' + (i*gapPx) + 'px)';
     });
   }
-  // トースト(item-pop)は目立つが1.7秒で消えるので読み逃しやすい。
-  // 画面左下に同じ内容を少し長め(6.5秒)に残す履歴を並行して積む。
+  /* 通知の表示先(UI-002-D WI-D5。HD-D17)。以前は spawnToast() が同じ文言を中央トーストと
+     左下ログの 2 か所へ出していた。いまは種類ごとに 1 か所だけへ出す。種類と表示先の表の正本は
+     .ai/tasks/UI-002-D.md の「WI-D5 計画」:
+       spawnToast … 中央トースト(1.7 秒)。戦闘・危険のフィードバック、入力を受け付けなかった
+                    理由、時間制限の警告、敵の出現、一度きりの大きな出来事、操作の切り替えへの反応
+       spawnLog   … 左下ログ(6.5 秒・最大 6 行)。獲得・売買・鑑定・使用の結果、探索・物語の
+                    描写、システムの記録 ―― 続けて出やすく、文が長く、読み返せる方がよいもの */
   let msgLogEl = null;
   const MSG_LOG_MAX = 6;
   function pushMsgLog(text, color){
@@ -2247,6 +2252,8 @@
       activeToasts = activeToasts.filter(x=>x!==el);
       layoutToasts();
     }, 1700);
+  }
+  function spawnLog(text, color){
     pushMsgLog(text, color);
   }
 

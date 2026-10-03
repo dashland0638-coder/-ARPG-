@@ -51,4 +51,4 @@ FACT のみ（ログ抜粋・path:line）
 
 3サイクルで解決しない場合は、AGENTS.md §9 のエスカレーション項目
 （Failure Summary / Reproduction / Root Cause Hypothesis / Attempted Fixes /
-Remaining Unknowns / Recommended Human Decision）を追記して停止し、Task を `BLOCKED` にする。
+Remaining Unknowns / Recommended Human Decision）を追記して停止し、Task を `BLOCKED` にして AGENTS.md §17.4 の形式で Escalation する。

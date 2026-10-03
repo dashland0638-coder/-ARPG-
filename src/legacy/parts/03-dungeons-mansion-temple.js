@@ -505,7 +505,7 @@
   function buildForestBeats(){
     // 1. 町の門を出てすぐ。ここだけは短い一言で「これから森へ入る」と示す
     registerProximityEvent(new THREE.Vector3(0,0,-6), 3.5, '', ()=>{
-      spawnToast('🌲 森へ入った。洋館は、この道の先だという');
+      spawnLog('🌲 森へ入った。洋館は、この道の先だという');
       return null;   // 会話は出さない(linesがnullなら発火だけして黙る)
     });
 
@@ -513,7 +513,7 @@
     buildAbandonedCart(CART_POS);
     registerProximityEvent(CART_POS, 5.2, '', ()=>{
       sfx('woodCreak');   // 古い木材と、わずかに揺れる荷
-      spawnToast('🛒 荷車が一台、道の真ん中に置き去りにされている');
+      spawnLog('🛒 荷車が一台、道の真ん中に置き去りにされている');
       return null;
     });
 
@@ -536,7 +536,7 @@
 
     // 5. 木々の間から洋館。ここで初めて建物が視界に入る
     registerProximityEvent(MANSION_VIEW_POS, 5.0, '', ()=>{
-      spawnToast('🏚️ 木々の切れ間に、洋館の影が見えた');
+      spawnLog('🏚️ 木々の切れ間に、洋館の影が見えた');
       return null;
     });
 
@@ -2451,7 +2451,7 @@
     // 少し進むと、二階で床が軋む。上を見上げさせるための音だけの合図
     registerProximityEvent(new THREE.Vector3(0,0,-58), 4.2, '', ()=>{
       sfx('footstepsAbove');
-      spawnToast('👣 頭の上――二階の床が、ゆっくりと軋んだ');
+      spawnLog('👣 頭の上――二階の床が、ゆっくりと軋んだ');
       return null;
     });
   }
@@ -2498,7 +2498,7 @@
     registerRoomEvent(mansionRoomById('mDining'), 0, '', ()=>{
       sfx('crockery');
       addShake(0.05);
-      spawnToast('🍽️ 卓の上の皿が、ひとりでに滑り落ちて割れた');
+      spawnLog('🍽️ 卓の上の皿が、ひとりでに滑り落ちて割れた');
       return null;
     });
 
@@ -2559,7 +2559,7 @@
        ここはまだ「普通の洋館」の側で、異変はまだ痕跡ですらない */
     registerRoomEvent(mansionRoomById('mKitchen'), 0, '', ()=>{
       sfx('windGust');
-      spawnToast('🍲 竈の灰が、風も無いのにふわりと舞い上がった');
+      spawnLog('🍲 竈の灰が、風も無いのにふわりと舞い上がった');
       return null;
     });
 
@@ -2669,7 +2669,7 @@
        ―― プレイヤーはまだ何も説明されていないが、行き先は分かる */
     registerProximityEvent(new THREE.Vector3(77,0,-83), 4.0, '', ()=>{
       sfx('distantDoor');
-      spawnToast('🚪 廊下の突き当たり――扉が、音もなく少しだけ開いた');
+      spawnLog('🚪 廊下の突き当たり――扉が、音もなく少しだけ開いた');
       return null;
     });
   }
@@ -2734,7 +2734,7 @@
     /* 書斎に入ると、背後の本棚から本が一冊だけ落ちる。振り返っても誰もいない */
     registerRoomEvent(mansionRoomById('uStudy'), 0, '', ()=>{
       sfx('bookFall');
-      spawnToast('📚 背後で、本が一冊だけ床に落ちた');
+      spawnLog('📚 背後で、本が一冊だけ床に落ちた');
       return null;
     });
 
@@ -2779,7 +2779,7 @@
     /* 出会いは会話より先に音で。金属を打つ音がして、はじめて人の気配になる */
     registerProximityEvent(new THREE.Vector3(77,0,-40), 4.4, '', ()=>{
       sfx('anvil');
-      spawnToast('🔨 奥から――金属を打つ音。この屋敷で、初めて聞く生きた音だ');
+      spawnLog('🔨 奥から――金属を打つ音。この屋敷で、初めて聞く生きた音だ');
       return null;
     });
 
@@ -3008,7 +3008,7 @@
     playCutscene([
       {t:0.30, run:()=>{
         sfx('chime');
-        spawnToast('🌅 影が薄れていく');
+        spawnLog('🌅 影が薄れていく');
       }},
       {t:1.20, run:()=>{
         /* 異常空間を畳む。灯りは mansionLamp が state.mansionNormalized を
@@ -3016,7 +3016,7 @@
            「歪んだ構造が無くなる」ほうで正常化を見せる */
         normalizeMansionStructure();
         sfx('door');
-        spawnToast('🏚️ 館の軋みが、ふつうの家の軋みに戻った');
+        spawnLog('🏚️ 館の軋みが、ふつうの家の軋みに戻った');
       }},
       {t:1.30, run:()=>{
         fadeTransition(()=>{
@@ -3090,7 +3090,7 @@
      報酬・結果画面そのものは既存のまま(仕様 10「可能な限り再利用」)。 */
   function finishMansionFarewell(){
     state.smithToolsRecovered = true;
-    spawnToast('🧰 洋館の工具と鋼を持ち帰った');
+    spawnLog('🧰 洋館の工具と鋼を持ち帰った');
     const done = mansionFarewellDone;
     mansionFarewellDone = null;
     state.dialogueActive = false;
@@ -3291,11 +3291,11 @@
       {t:0.25, run:()=>{
         state.facing = 0;                      // 山のほうを向かせる
         sfx('anvil');
-        spawnToast('🔨 鍛冶屋が、山のいちばん下へ梃子を差し込んだ');
+        spawnLog('🔨 鍛冶屋が、山のいちばん下へ梃子を差し込んだ');
       }},
       {t:1.20, run:()=>{
         sfx('bookFall');
-        spawnToast('🪨 一つだけが、ほとんど音もなく外れた');
+        spawnLog('🪨 一つだけが、ほとんど音もなく外れた');
       }},
       {t:1.00, run:()=>{
         clearManorRubble();
@@ -3322,7 +3322,7 @@
     /* 鍛冶屋はそのまま付いてくる(以前はここで姿を消していたが、
        同行するようになったので消さない) */
     sfx('door');
-    spawnToast('🪨 道が開いた');
+    spawnLog('🪨 道が開いた');
   }
 
   /* 閃き。ここでは戦い方の話を一言も説明しない ―― 崩し方を見た、という
@@ -3517,13 +3517,13 @@
        playMansionSplitScene が終えているので、ここは気づきの一言だけ */
     registerRoomEvent(mansionRoomById('xFoyer'), 0, '', ()=>{
       sfx('windGust');
-      spawnToast('🕯️ ……この部屋は、知っている');
+      spawnLog('🕯️ ……この部屋は、知っている');
       return null;
     });
 
     registerRoomEvent(mansionRoomById('xCor'), 0, '', ()=>{
       sfx('distantDoor');
-      spawnToast('🕯️ こんな廊下は、この館に無かった');
+      spawnLog('🕯️ こんな廊下は、この館に無かった');
       return null;
     });
 
@@ -3615,14 +3615,14 @@
     /* 地下室に降りた瞬間。何か重いものを引きずる音が、奥のほうで一度だけ */
     registerRoomEvent(mansionRoomById('bCellar'), 0, '', ()=>{
       sfx('drag');
-      spawnToast('🔊 ずっと奥のほうで、重い何かを引きずる音がした');
+      spawnLog('🔊 ずっと奥のほうで、重い何かを引きずる音がした');
       return null;
     });
 
     /* 保管庫。棚に並んでいるはずの物がひとつも無く、床に置き直されている
        ―― 誰かが、几帳面に、しかし意味の分からない並べ方をした跡 */
     registerRoomEvent(mansionRoomById('bStore'), 0, '', ()=>{
-      spawnToast('📦 棚の中身がすべて床に降ろされ、几帳面に並べ直されている');
+      spawnLog('📦 棚の中身がすべて床に降ろされ、几帳面に並べ直されている');
       return null;
     });
 
@@ -3709,7 +3709,7 @@
        扉の向こうから、規則正しい足音が近づいて――止まる */
     registerRoomEvent(mansionRoomById('bAnte'), 0, '', ()=>{
       sfx('drag');
-      spawnToast('🔊 扉の向こうで、足音がゆっくり近づき――ちょうど扉の前で止まった');
+      spawnLog('🔊 扉の向こうで、足音がゆっくり近づき――ちょうど扉の前で止まった');
       return null;
     });
 

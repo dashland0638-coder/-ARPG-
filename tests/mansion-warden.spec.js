@@ -18,7 +18,7 @@
  * 実際に出撃して世界が組み上がることを確認する。
  */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, createCharacter, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
+import { openGame, watchErrors, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, recordArenaInfo, drainArenaInfo, arenaInfoValue } from './helpers.js';
 
 const infoPanel = page => page.locator('#arena-enemy-info');
 
@@ -40,6 +40,7 @@ async function bootArena(page){
   await page.click('#arena-info-toggle-btn');
   await closePanel(page);
   await expect(infoPanel(page)).toBeVisible();
+  await recordArenaInfo(page);   // 短い相(予兆など)を取りこぼさない(helpers.js、CI-001)
 }
 
 /* Arena パネルの開閉。トグルは「押すたび反転」なので、状態を見てから
@@ -81,9 +82,11 @@ const fresh = () => ({ ai: new Set(), guard: new Set(), punish: new Set() });
 const has = (set, needle) => Array.from(set).some(v => (v || '').includes(needle));
 
 async function sample(page, seen){
-  seen.ai.add(await info(page, 'AI State'));
-  seen.guard.add(await info(page, 'Guard'));
-  seen.punish.add(await info(page, 'Punish'));
+  for(const html of await drainArenaInfo(page)){
+    seen.ai.add(arenaInfoValue(html, 'AI State'));
+    seen.guard.add(arenaInfoValue(html, 'Guard'));
+    seen.punish.add(arenaInfoValue(html, 'Punish'));
+  }
 }
 
 /* 近づいて観察するだけ(攻撃しない)。前進は最初の数ラウンドだけ ――

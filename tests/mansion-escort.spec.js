@@ -144,14 +144,21 @@ test.describe('森の洋館 D-01〜D-04', () => {
     const panel = page.locator('#motion-panel');
     await expect(panel).toContainText('MOTION PREVIEW', { timeout: 5_000 });
 
-    // 立ち止まったまま、クロスフェード(約0.5秒)が寄り切るのを待つ
-    await page.waitForTimeout(2500);
     const readRelax = async () => {
       const text = await panel.textContent();
       const m = /RELAX\s+([\d.]+)\s+\(stop ([\d.]+) \/ combat ([\d.]+)\)/.exec(text || '');
       return m ? { relax: +m[1], stop: +m[2], combat: +m[3] } : null;
     };
-    const rest = await readRelax();
+    /* 立ち止まったまま、クロスフェード(ゲーム内 約0.5秒、core/relaxed-idle.js)が寄り切るのを待つ。
+       パネルの書き換えはゲーム内 0.5 秒に 1 回で、ヘッドレスではゲーム内の時間が実時間より遅い
+       (自動テストでは 1/4、core/sim-time.js)。決め打ちの待ち時間の後に 1 回だけ読むと、
+       書き換え前の古い値を読むことがある(CI-001)。寄り切るまで読み直す */
+    const SETTLE_MS = 20_000;   // ゲーム内 5 秒ぶん。寄り切りは 1 秒もかからない
+    let rest = null;
+    await expect.poll(async () => {
+      rest = await readRelax();
+      return !!rest && rest.combat < 0.05 && rest.stop > 0.9 && rest.relax > 0.9;
+    }, { timeout: SETTLE_MS }).toBe(true).catch(() => {});
     expect(rest, 'RIG ブロックの RELAX 行が読めること').not.toBeNull();
     // 非戦闘 × 停止中 → 休めの姿勢へ寄り切っている
     expect(rest.combat, '敵が居ないのに戦闘態勢が残っている').toBeLessThan(0.05);
@@ -181,9 +188,13 @@ test.describe('森の洋館 D-01〜D-04', () => {
     expect(walked, '4方向とも1歩も進めず、歩行中の姿勢を確認できなかった').not.toBeNull();
     expect(walked.relax, '歩いている間も休めの姿勢が残っている').toBeLessThan(rest.relax);
 
-    // 立ち止まれば戻る
-    await page.waitForTimeout(2500);
-    const again = await readRelax();
+    // 立ち止まれば戻る(上と同じく、寄り切るまで読み直す)
+    let again = null;
+    await expect.poll(async () => {
+      again = await readRelax();
+      return !!again && again.relax > 0.9;
+    }, { timeout: SETTLE_MS }).toBe(true).catch(() => {});
+    expect(again, 'RIG ブロックの RELAX 行が読めること').not.toBeNull();
     expect(again.relax, '立ち止まっても休めの姿勢へ戻らない').toBeGreaterThan(0.9);
 
     expect(errors).toEqual([]);

@@ -63,14 +63,30 @@ export function touchControlsMode(input){
   return { active, gamepadMin: playing && !active, cameraButtons: active };
 }
 
-/* PC(タッチ以外)でのタッチ用ボタンの表示(HD-D08 / HD-D22)。
-   D1 では現行の表示結果を条件として書き表すだけで、実際の非表示化は
-   D3 で行う(ここを変えても DOM は変わらない。DOM の表示は CSS の
-   .gamepad-min による) */
+/* Action Zone の表示モード(UI-002-D WI-D3。HD-D04 / HD-D08 / HD-D22)。
+   touch      … タッチ端末でパッド未接続: タッチ操作(スティック・全ボタン)
+   pad        … タッチ端末でパッド接続中: 能力ボタンだけを表示専用で(従来の .gamepad-min)
+   indicators … PC(非タッチ): タッチ用ボタンは出さず、PC 用の能力表示(表示専用)を
+                戦闘態勢中(inCombat)だけ出す。キーボードならキー表記を添える。
+                パッド接続中はキー表記を出さない(パッド表記は D では扱わない: HD-D05)
+   none       … 開始前 */
+export function actionZoneLayout(input){
+  const o = input || {};
+  const mode = touchControlsMode(o);
+  if(mode.active) return { layout: 'touch', indicatorsVisible: false, keyLabels: false };
+  if(!mode.gamepadMin) return { layout: 'none', indicatorsVisible: false, keyLabels: false };
+  if(o.isTouchDevice) return { layout: 'pad', indicatorsVisible: false, keyLabels: false };
+  return { layout: 'indicators', indicatorsVisible: !!o.inCombat, keyLabels: !o.gamepadConnected };
+}
+
+/* タッチ用ボタン(攻撃・Skill 1・Ultimate・JUMP・回避)の表示(HD-D08 / HD-D22)。
+   PC(非タッチ)では出さない。Skill 1 / Ultimate の情報は actionZoneLayout の
+   PC 用の能力表示(indicators)が受け持つ(WI-D3) */
 export function touchActionButtonsVisible(input){
-  const mode = touchControlsMode(input);
-  if(!mode.active && !mode.gamepadMin) return { attack: false, skill1: false, ultimate: false, jump: false, dodge: false };
-  return { attack: true, skill1: true, ultimate: true, jump: mode.active, dodge: mode.active };
+  const layout = actionZoneLayout(input).layout;
+  if(layout === 'touch') return { attack: true, skill1: true, ultimate: true, jump: true, dodge: true };
+  if(layout === 'pad') return { attack: true, skill1: true, ultimate: true, jump: false, dodge: false };
+  return { attack: false, skill1: false, ultimate: false, jump: false, dodge: false };
 }
 
 /* スタミナ(HD-D11 / HD-D25): 満タンで直近の消費が無ければ隠す。

@@ -257,7 +257,7 @@
     // ―― 「あるバリアントに投資したら、それを使いたくなる」を成立させる
     const skillDmgBonus = rankKey==='skill' ? sphereValue('skillDmgSphereMul') : 0;
     const variantBonus = sphereVariantBonus(variant.key);
-    const skillBonus = 1 + (state.skills.chargeUp||0)*0.15 + skillDmgBonus + variantBonus;
+    const skillBonus = 1 + (legacyGrowth() ? (state.skills.chargeUp||0) : 0)*0.15 + skillDmgBonus + variantBonus;   // パッシブ「技の錬磨」は第一章(本編)では数えない(WORK 12.1)
     const rankBonus = rankKey ? rankDmg(rankKey) : 1;
     const mult = (variant.baseMult + chargeRatio*(variant.maxMult-variant.baseMult)) * skillBonus * rankBonus;
     const dmg = Math.round(state.classDef.atk * mult) + Math.round(Math.random()*5);

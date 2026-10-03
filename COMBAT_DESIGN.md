@@ -200,6 +200,14 @@ E2E(`npm run test`、Playwright):
 待ちを伸ばしながら試し、Enemy Stepの確認はジャンプ間隔をずらして
 突進周期との位相を掃かせている(固定間隔では位相ロックして落ちた)。
 
+自動テストで操作されているブラウザ(`navigator.webdriver === true`)では、
+ゲーム内時間を実時間の 1/4 に固定している(CI-001、`src/core/sim-time.js`)。
+以前はゲーム内時間の遅れ方が描画の速さ(=機械の速さ)しだいで、同じ E2E が
+CI の run ごとに通ったり落ちたりしていた。描画が 5fps 以上出ていれば比は
+機械に依存しない(`playwright.config.js` の `deviceScaleFactor: 0.5` で
+描画の負荷を下げ、2 vCPU でも 7〜8fps を確保)。通常のプレイの dt は
+これまでどおり `min(0.05, フレーム間隔)`。
+
 既存の`npm run test`(Playwright、`tests/save-load.spec.js`の
 sortieケース)で、上記変更を含めた状態でダンジョンに入り実際に
 攻撃してもconsole error/pageerrorが出ないことを確認済み。

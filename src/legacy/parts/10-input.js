@@ -33,6 +33,25 @@
     tc.classList.toggle('gamepad-min', mode.gamepadMin);
     if(camL) camL.classList.toggle('active', mode.cameraButtons);
     if(camR) camR.classList.toggle('active', mode.cameraButtons);
+    syncActionZoneLayout();
+  }
+
+  /* Action Zone の表示モード(UI-002-D WI-D3。条件は core/combat-hud-visibility.js の
+     actionZoneLayout)。PC(非タッチ)ではタッチ用ボタンの代わりに能力の表示を
+     戦闘態勢中だけ出すため、戦闘態勢の出入りに合わせて毎フレーム(14-hud-boot.js)
+     も呼ばれる。クラスは値が変わった時だけ付け替える */
+  let actionZoneLayoutKey = '';
+  function syncActionZoneLayout(){
+    const tc = document.getElementById('touch-controls');
+    if(!tc) return;
+    const az = actionZoneLayout({ started: state.started, isTouchDevice, gamepadConnected: gpIndex !== null,
+      inCombat: (state.combatStanceT || 0) > 0 });
+    const key = `${az.layout}|${az.indicatorsVisible}|${az.keyLabels}`;
+    if(key === actionZoneLayoutKey) return;
+    actionZoneLayoutKey = key;
+    tc.classList.toggle('pc-indicators', az.layout === 'indicators');
+    tc.classList.toggle('in-combat', az.indicatorsVisible);
+    tc.classList.toggle('key-labels', az.keyLabels);
   }
 
   function checkOrientation(){
@@ -135,7 +154,7 @@
   document.getElementById('menu-resume').addEventListener('click', ()=> setOverlay('none'));
   document.getElementById('menu-save').addEventListener('click', ()=>{
     const ok = saveGame();
-    spawnToast(ok ? '💾 セーブしました' : '⚠️ セーブに失敗しました', ok ? undefined : '#c25a6b');
+    spawnLog(ok ? '💾 セーブしました' : '⚠️ セーブに失敗しました', ok ? undefined : '#c25a6b');
     sfx('ui');
   });
   document.getElementById('menu-town').addEventListener('click', ()=>{

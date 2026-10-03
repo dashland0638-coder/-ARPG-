@@ -1,6 +1,6 @@
 # Reports
 
-Analyzer / Debugger / Reviewer の成果物を保存する。
+Analyzer / Debugger / Reviewer の成果物を保存する（Tester の Test Report は Task file の Implementation Result に書く）。
 書き方のルール（FACT / INFERENCE / DECISION の分離、検索記録）は
 [`../AGENTS.md`](../AGENTS.md) §3 / §8、テンプレートは `../agents/<role>.md`。
 
