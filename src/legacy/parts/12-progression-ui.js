@@ -1785,7 +1785,7 @@
     // 戻す(セーブデータ改変や解放前の選択残りに対する安全策)
     const ultTier = (jobActive && JOB_ULT_BY_JOB[state.job])
       ? JOB_ULT_BY_JOB[state.job]
-      : (state.ultChoice==='alt' && state.unlockedUltAlt && ULT_ALT_BY_CLASS[selectedClass])
+      : (state.ultChoice==='alt' && ultAltAvailable() && ULT_ALT_BY_CLASS[selectedClass])
         ? ULT_ALT_BY_CLASS[selectedClass] : base.ult;
     /* サブ武器を装備している間だけ、その武器専用の型を被せる
        (WEAPON_ULT_BY_KEY の冒頭コメント参照)。メイン武器では従来どおり
@@ -2349,7 +2349,7 @@
     return SKILL2_BY_CLASS[classKey];
   }
   function activeSkill2Def(classKey){
-    if(state.skill2Choice==='alt' && state.unlockedSkill2Alt && SKILL2_ALT_BY_CLASS[classKey]) return SKILL2_ALT_BY_CLASS[classKey];
+    if(state.skill2Choice==='alt' && skill2AltAvailable() && SKILL2_ALT_BY_CLASS[classKey]) return SKILL2_ALT_BY_CLASS[classKey];
     return defaultSkill2Def(classKey);
   }
 
@@ -2479,12 +2479,34 @@
   function updateSkillButtonIcon(){
     const icon = document.getElementById('btn-charge-icon');
     if(!icon || !state.classDef) return;
-    const variant = getChargeVariants()[state.skillChoice] || getChargeVariants().retreat;
+    const variant = activeSkill1Variant();
     setGlyphOrText(icon, currentSwordsmanGlyphIds().skill1, variant.icon);
   }
 
   function getChargeVariants(){
     return CHARGE_VARIANTS_BY_CLASS[state.classDef.key] || CHARGE_VARIANTS_BY_CLASS.warrior;
+  }
+
+  /* 第一章(本編)では、旧セーブに残る「変化系」の技を使わない・見せない(PROGRESSION-003)。
+     スフィア盤で解放した Skill 1 の新技・Skill 2 / 必殺技の alt・上位職専用の技。
+     セーブの値(unlocked*Alt / skillChoice / skill2Choice / ultChoice / job)はそのまま
+     残し、戦闘・HUD・鑑定所はこの判定を通して読む。テストモードは今まで通り */
+  function skill1VariantUsable(v){
+    if(!v) return false;
+    if(!v.unlockKey) return true;
+    if(!legacyGrowth()) return false;
+    return v.unlockKey === 'job' ? !!state.job : !!state.unlockedSkill1Alt;
+  }
+  function skill2AltAvailable(){ return legacyGrowth() && !!state.unlockedSkill2Alt; }
+  function ultAltAvailable(){ return legacyGrowth() && !!state.unlockedUltAlt; }
+
+  /* いま Skill 1 で使う技。選ばれている技が使えなければ、新規開始・交代と
+     同じ既定の技(defaultSkill1For)にする */
+  function activeSkill1Variant(){
+    const variants = getChargeVariants();
+    const chosen = variants[state.skillChoice];
+    if(skill1VariantUsable(chosen)) return chosen;
+    return variants[defaultSkill1For(state.classDef.key)] || variants.retreat;
   }
 
   function toggleAppraisal(){
@@ -3197,9 +3219,8 @@
       ['dash','retreat','phantom','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt' || variants[k].unlockKey==='job')).forEach(key=>{
         const v = variants[key];
         if(!v) return;   // その職に無いもの(幻影歩法は魔法使いだけ)は並べない
-        if(v.unlockKey==='skill1Alt' && !state.unlockedSkill1Alt) return;
-        if(v.unlockKey==='job' && !state.job) return;
-        const active = state.skillChoice===key;
+        if(!skill1VariantUsable(v)) return;
+        const active = activeSkill1Variant() === v;
         html += `<div class="ap-charge-card ${active?'active':''}" data-variant="${key}">
           <div class="ap-charge-icon">${v.icon}</div>
           <div class="ap-charge-name">${v.name}</div>
@@ -3223,14 +3244,15 @@
       /* default は defaultSkill2Def が決める ―― 剣士は Chapter 1 の
          閃きで手に入る崩し斬り(D-04)。ここで SKILL2_BY_CLASS を直接
          引くと、実際に振る技と画面に出る技が食い違う */
-      const skill2Options = state.unlockedSkill2Alt
+      const skill2Alt = skill2AltAvailable();
+      const skill2Options = skill2Alt
         ? [['default', defaultSkill2Def(state.classDef.key)], ['alt', SKILL2_ALT_BY_CLASS[state.classDef.key]]]
         : [['default', defaultSkill2Def(state.classDef.key)]];
-      html += `<div class="ap-charge-title">スキル2(専用ボタン2・${state.unlockedSkill2Alt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
+      html += `<div class="ap-charge-title">スキル2(専用ボタン2・${skill2Alt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
       skill2Options.forEach(([choiceKey, def])=>{
         if(!def) return;
-        const active = (state.skill2Choice||'default')===choiceKey;
-        const clickable = state.unlockedSkill2Alt;
+        const active = (skill2Alt ? (state.skill2Choice||'default') : 'default')===choiceKey;
+        const clickable = skill2Alt;
         html += `<div class="ap-charge-card ${active?'active':''}" ${clickable?`data-skill2-choice="${choiceKey}"`:'style="cursor:default;"'}>
           <div class="ap-charge-icon">${def.icon}</div>
           <div class="ap-charge-name">${def.name}</div>
@@ -3283,17 +3305,18 @@
           </div>
         </div>`;
       } else {
-        const ultOptions = state.unlockedUltAlt
+        const ultAlt = ultAltAvailable();
+        const ultOptions = ultAlt
           ? [['default', CLASSES[clsKey].ult], ['alt', ULT_ALT_BY_CLASS[clsKey]]]
           : [['default', CLASSES[clsKey].ult]];
-        html += `<div class="ap-charge-title">必殺技(専用ゲージ・${state.unlockedUltAlt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
+        html += `<div class="ap-charge-title">必殺技(専用ゲージ・${ultAlt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
         ultOptions.forEach(([choiceKey, def])=>{
           if(!def) return;
-          const active = (state.ultChoice||'default')===choiceKey;
+          const active = (ultAlt ? (state.ultChoice||'default') : 'default')===choiceKey;
           // 表示中の威力倍率は「今選ばれている方」に限りstate.classDef.ult
           // (スフィア等の倍率込み)を使い、選ばれていない方は素の値を出す
           const shownMult = active ? state.classDef.ult.mult : def.mult;
-          const clickable = state.unlockedUltAlt;
+          const clickable = ultAlt;
           html += `<div class="ap-charge-card ${active?'active':''}" ${clickable?`data-ult-choice="${choiceKey}"`:'style="cursor:default;"'}>
             <div class="ap-charge-icon">${def.icon}</div>
             <div class="ap-charge-name">${def.name}</div>

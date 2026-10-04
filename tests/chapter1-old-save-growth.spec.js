@@ -11,7 +11,7 @@
  * テストモードで今までどおり効くことは unit(chapter1-growth-effects)が式を見ている。
  */
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, dismissIntroDialogue } from './helpers.js';
+import { watchErrors, openGame, dismissIntroDialogue, disableCameraAutoFollow, startTestMode } from './helpers.js';
 
 const SAVE_KEY = 'soulforge_save_v1';
 
@@ -118,8 +118,9 @@ function minimapPixels(page) {
   }, [HIRED_RGB, GUEST_RGB]);
 }
 
+/** data が null のときはセーブを置かない(呼び出し側が addInitScript で置く) */
 async function continueWith(page, data) {
-  await page.addInitScript(([key, payload]) => localStorage.setItem(key, payload), [SAVE_KEY, JSON.stringify(data)]);
+  if (data) await page.addInitScript(([key, payload]) => localStorage.setItem(key, payload), [SAVE_KEY, JSON.stringify(data)]);
   await openGame(page);
   await page.click('#cc-continue-btn');
   await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
@@ -171,6 +172,171 @@ test.describe('PROGRESSION-002: 本編では旧セーブの「仲間を雇う」
     await expect.poll(async () => (await minimapPixels(page)).guest, { message: '支援 AI がミニマップに出る', timeout: 20_000 })
       .toBeGreaterThan(0);
     await expectNoHiredCompanion(page);
+    expect(errors).toEqual([]);
+  });
+});
+
+/* PROGRESSION-003: 旧セーブの Skill 2 alt(A-1)・必殺技 alt(A-2)・Skill 1 の新技(A-3)・
+   上位職の Skill 1(A-4)を、本編では表示・付け替え・使用させない。値はセーブに残す。
+   主人公は魔法使い(洋館クリア後 = 魔法使い＋支援の剣士。交代は起きない)。
+   魔法使いは剣士の glyph を使わないので、HUD のボタンには技の絵文字がそのまま出る:
+     Skill 1: 幻影歩法 👣 / 新技 連鎖雷撃 ⚡ / 上位職の技 天の焦土 🌠
+     Skill 2: 観測の灯 🔍 / alt 業火の環 🔥
+     必殺技:  既定 / alt 絶対零度 ❄️ */
+function mageSave(extra) {
+  return save(Object.assign({
+    selectedClass: 'mage', playerName: '魔法使い', guestClassKey: 'warrior',
+    scenarioClears: { mansion: 1 }, learnedSkill2: true, smithJoined: true, smithGreeted: true,
+    skillChoice: 'phantom',
+  }, extra));
+}
+const MAGE_ALTS = {
+  unlockedSkill1Alt: true, unlockedSkill2Alt: true, unlockedUltAlt: true,
+  skillChoice: 'chain', skill2Choice: 'alt', ultChoice: 'alt',
+};
+
+async function hudSkillIcons(page) {
+  // HUD の更新はフレームループの中。続きから入った直後の 1 フレームを待つ
+  await expect(page.locator('#btn-charge-icon')).not.toHaveText('', { timeout: 10_000 });
+  return {
+    skill1: await page.locator('#btn-charge-icon').textContent(),
+    skill2: await page.locator('#btn-skill2-icon').textContent(),
+    ult: await page.locator('#btn-ult-icon').textContent(),
+  };
+}
+
+/** 酒場の鍛冶士まで歩いて鑑定所を開く(chapter1-skill2.spec.js の openAppraisal と同じ道のり)。
+   W+D の道は鍛冶士の範囲(3m)の縁をかすめるだけなので(CI-001 の記録)、短い歩幅で
+   インタラクトの表示(nearbySmith の時だけ「鍛冶士と話す」)を見て、範囲に入った所で開く */
+async function openAppraisal(page) {
+  await disableCameraAutoFollow(page);
+  const isOpen = () => page.evaluate(() => document.getElementById('appraisal-overlay').classList.contains('active'));
+  for (let step = 0; step < 80; step++) {
+    const prompt = await page.evaluate(() => {
+      const el = document.getElementById('interact-btn');
+      return el && el.classList.contains('show') ? el.textContent : '';
+    });
+    if (prompt.includes('鍛冶士')) {
+      await page.keyboard.press('KeyI');
+      await page.waitForTimeout(300);
+      if (await isOpen()) return true;
+    }
+    await page.keyboard.down('KeyW');
+    await page.keyboard.down('KeyD');
+    await page.waitForTimeout(150);
+    await page.keyboard.up('KeyW');
+    await page.keyboard.up('KeyD');
+    await page.waitForTimeout(150);
+  }
+  return isOpen();
+}
+async function openSkillSubtab(page, key) {
+  await page.click('.ap-tab[data-tab="skill"]');
+  await page.click(`.skill-subtab[data-skill-subtab="${key}"]`);
+}
+
+test.describe('PROGRESSION-003: 本編では旧セーブの alt・新技・上位職の技を使わない', () => {
+  test('alt 3 つを解放・選択した旧セーブでも、HUD の技は alt の無いセーブと同じ。鑑定所に alt は出ない。値は残る', async ({ page }) => {
+    test.setTimeout(240_000);
+    const errors = watchErrors(page);
+    await page.addInitScript(([key, saves]) => {
+      const i = Number(sessionStorage.getItem('seedStep') || 0);
+      if (i < saves.length) {
+        localStorage.setItem(key, saves[i]);
+        sessionStorage.setItem('seedStep', String(i + 1));
+      }
+    }, [SAVE_KEY, [JSON.stringify(mageSave()), JSON.stringify(mageSave(MAGE_ALTS))]]);
+
+    await continueWith(page, null);
+    const base = await hudSkillIcons(page);
+    expect(base).toEqual({ skill1: '👣', skill2: '🔍', ult: expect.any(String) });
+    expect(base.ult).not.toBe('❄️');
+
+    await continueWith(page, null);
+    await expect(page.locator('#hud-name')).toHaveText('魔法使い ｜ 支援: 剣士');
+    const grown = await hudSkillIcons(page);
+    expect.soft(grown.skill1, 'A-3: Skill 1 の新技(連鎖雷撃)を使わない').toBe(base.skill1);
+    expect.soft(grown.skill2, 'A-1: Skill 2 の alt(業火の環)を使わない').toBe(base.skill2);
+    expect.soft(grown.ult, 'A-2: 必殺技の alt(絶対零度)を使わない').toBe(base.ult);
+
+    // 鑑定所: alt・新技は出さない(選べない)。表示は新規ゲームと同じ「固定」
+    expect(await openAppraisal(page), '鑑定所が開く').toBe(true);
+    await openSkillSubtab(page, 'skill1');
+    await expect(page.locator('#ap-panel-skill [data-variant="chain"]'), 'A-3: 新技のカードが出ない').toHaveCount(0);
+    await expect(page.locator('#ap-panel-skill .ap-charge-card.active')).toContainText('幻影歩法');
+    await openSkillSubtab(page, 'skill2');
+    await expect(page.locator('#ap-panel-skill [data-skill2-choice]'), 'A-1: 付け替えのカードが出ない').toHaveCount(0);
+    await expect(page.locator('#ap-panel-skill .ap-charge-title')).toContainText('固定');
+    await expect(page.locator('#ap-panel-skill .ap-charge-card.active')).toContainText('観測の灯');
+    await openSkillSubtab(page, 'ult');
+    await expect(page.locator('#ap-panel-skill [data-ult-choice]'), 'A-2: 付け替えのカードが出ない').toHaveCount(0);
+    await expect(page.locator('#ap-panel-skill .ap-charge-title')).toContainText('固定');
+    await expect(page.locator('#ap-panel-skill')).not.toContainText('絶対零度');
+    await page.keyboard.press('KeyI');
+    await page.waitForFunction(() => !document.getElementById('appraisal-overlay').classList.contains('active'));
+
+    // セーブの値はそのまま残る
+    await openMenu(page);
+    await page.click('#menu-save');
+    await closeMenu(page);
+    const saved = await page.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), SAVE_KEY);
+    expect(saved).toMatchObject(MAGE_ALTS);
+    expect(errors).toEqual([]);
+  });
+
+  test('上位職の Skill 1 を選んでいた旧セーブ: 本編では基本職の Skill 1。選択の値は残る(A-4)', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await continueWith(page, mageSave({ job: 'archmage', skillChoice: 'nova' }));
+    const icons = await hudSkillIcons(page);
+    expect(icons.skill1, 'A-4: 上位職の技(天の焦土)を使わない').toBe('👣');
+
+    await openMenu(page);
+    await page.click('#menu-save');
+    await closeMenu(page);
+    const saved = await page.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), SAVE_KEY);
+    expect(saved.skillChoice, '保存されている選択は書き換えない').toBe('nova');
+    expect(errors).toEqual([]);
+  });
+
+  test('主人公の交代(剣士 → 魔法使い): alt を解放した旧セーブでも、第一章の既定どおり', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await continueWith(page, save(Object.assign({
+      scenarioClears: { mansion: 1 }, learnedSkill2: true, smithJoined: true, smithGreeted: true,
+    }, MAGE_ALTS, { skillChoice: 'cleave' })));
+    await expect(page.locator('#hud-name')).toHaveText('魔法使い ｜ 支援: 剣士');
+    const icons = await hudSkillIcons(page);
+    expect(icons.skill1, '交代後の Skill 1 は魔法使いの既定(幻影歩法)').toBe('👣');
+    await expect(page.locator('#btn-skill2'), '交代後の Skill 2 は未習得').toHaveClass(/locked/);
+    expect(icons.ult, '必殺技の alt を使わない').not.toBe('❄️');
+    expect(errors).toEqual([]);
+  });
+
+  test('テストモード: alt・新技は今まで通り選べて、HUD の技も切り替わる', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    await startTestMode(page, { classKey: 'mage' });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await page.waitForTimeout(800);
+
+    // テストモードは鑑定所をどこでも開ける(toggleAppraisal)
+    await page.keyboard.press('KeyI');
+    await page.waitForFunction(() => document.getElementById('appraisal-overlay').classList.contains('active'));
+    await openSkillSubtab(page, 'skill1');
+    await page.click('#ap-panel-skill [data-variant="chain"]');
+    await openSkillSubtab(page, 'skill2');
+    await page.click('#ap-panel-skill [data-skill2-choice="alt"]');
+    await openSkillSubtab(page, 'ult');
+    await page.click('#ap-panel-skill [data-ult-choice="alt"]');
+    await expect(page.locator('#ap-panel-skill .ap-charge-card.active')).toContainText('絶対零度');
+    await page.keyboard.press('KeyI');
+    await page.waitForFunction(() => !document.getElementById('appraisal-overlay').classList.contains('active'));
+
+    await expect(page.locator('#btn-charge-icon')).toHaveText('⚡');
+    await expect(page.locator('#btn-skill2-icon')).toHaveText('🔥');
+    await expect(page.locator('#btn-ult-icon')).toHaveText('❄️');
     expect(errors).toEqual([]);
   });
 });

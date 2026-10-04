@@ -244,7 +244,7 @@
   // 溜め技)もこの選択肢に加わったので、溜め技専用だった
   // releaseChargeAttack() は不要になり削除した
   function releaseSkill(){
-    const variant = getChargeVariants()[state.skillChoice] || getChargeVariants().retreat;
+    const variant = activeSkill1Variant();
     executeVariant(variant, state.skillChargeT, state.skillChargeMax, 'skill');
   }
 
@@ -803,7 +803,7 @@
         // スキルボタン側の溜めリングだけ
         if(state.skillCharging){
           const chargeRatio = Math.min(1, state.skillChargeT/state.skillChargeMax);
-          const variant = getChargeVariants()[state.skillChoice] || getChargeVariants().retreat;
+          const variant = activeSkill1Variant();
           playerMixerParts.ring.material.color.setHex(variant.vfxColor);
           playerMixerParts.ring.material.opacity = 0.4 + chargeRatio*0.5;
           playerMixerParts.ring.scale.setScalar(1 + chargeRatio*0.9);

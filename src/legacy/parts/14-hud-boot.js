@@ -384,7 +384,7 @@
   function currentSwordsmanGlyphIds(){
     const cdef = state.classDef;
     if(!cdef) return resolveSwordsmanGlyphIds(null);
-    const variant = getChargeVariants()[state.skillChoice] || getChargeVariants().retreat;
+    const variant = activeSkill1Variant();
     const skill2 = activeSkill2Def(cdef.key);
     return resolveSwordsmanGlyphIds({
       classKey: cdef.key,

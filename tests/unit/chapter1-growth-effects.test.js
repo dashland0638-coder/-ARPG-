@@ -72,3 +72,50 @@ test('旧セーブの「仲間を雇う」は本編では同行させない。�
   // セーブの値は書き換えない
   assert.doesNotMatch(sync, /state\.skills(\.companion)?\s*=[^=]/);
 });
+
+/* PROGRESSION-003: 旧セーブの Skill 2 alt・必殺技 alt・Skill 1 の新技・上位職の技を本編では使わない・見せない。
+   判定は 3 つの関数にまとめ、戦闘・HUD・鑑定所はそれを通して読む */
+const parts = name => fs.readFileSync(path.join(root, 'src/legacy/parts', name), 'utf8');
+
+test('PROGRESSION-003: 判定の関数(本編では alt・新技・上位職の技を使わない)', () => {
+  assert.match(src, /function skill2AltAvailable\(\)\{ return legacyGrowth\(\) && !!state\.unlockedSkill2Alt; \}/);
+  assert.match(src, /function ultAltAvailable\(\)\{ return legacyGrowth\(\) && !!state\.unlockedUltAlt; \}/);
+  const usable = body('function skill1VariantUsable(v){');
+  assert.match(usable, /if\(!v\.unlockKey\) return true;\n\s+if\(!legacyGrowth\(\)\) return false;\n\s+return v\.unlockKey === 'job' \? !!state\.job : !!state\.unlockedSkill1Alt;/);
+  const active = body('function activeSkill1Variant(){');
+  assert.match(active, /if\(skill1VariantUsable\(chosen\)\) return chosen;\n\s+return variants\[defaultSkill1For\(state\.classDef\.key\)\] \|\| variants\.retreat;/);
+});
+
+test('PROGRESSION-003: 戦闘・HUD は判定を通して読む(A-1 Skill 2 / A-2 必殺技)', () => {
+  assert.match(body('function activeSkill2Def(classKey){'), /state\.skill2Choice==='alt' && skill2AltAvailable\(\) && SKILL2_ALT_BY_CLASS\[classKey\]/);
+  assert.match(src, /: \(state\.ultChoice==='alt' && ultAltAvailable\(\) && ULT_ALT_BY_CLASS\[selectedClass\]\)/);
+});
+
+test('PROGRESSION-003: Skill 1 の技は activeSkill1Variant() だけで解決する(A-3 新技 / A-4 上位職の技)', () => {
+  for (const name of ['10-input.js', '11-combat-actions.js', '12-progression-ui.js', '13-update-loop.js', '14-hud-boot.js']) {
+    assert.doesNotMatch(parts(name), /getChargeVariants\(\)\[state\.skillChoice\]/, name);
+  }
+  assert.equal(parts('13-update-loop.js').split('activeSkill1Variant()').length - 1, 2);
+  assert.equal(parts('14-hud-boot.js').split('activeSkill1Variant()').length - 1, 1);
+});
+
+test('PROGRESSION-003: 鑑定所のスキル画面も同じ判定を使う(使えない alt・技は出さない・選べない)', () => {
+  const a = src.indexOf('function renderSkillPanel(){');
+  const panel = src.slice(a, src.indexOf('\n  function bindSkillPanelHandlers', a));
+  assert.match(panel, /if\(!skill1VariantUsable\(v\)\) return;\n\s+const active = activeSkill1Variant\(\) === v;/);
+  assert.match(panel, /const skill2Alt = skill2AltAvailable\(\);/);
+  assert.match(panel, /const ultAlt = ultAltAvailable\(\);/);
+  // 解放フラグ・選択値を直接見ない(判定の関数だけ)
+  assert.doesNotMatch(panel, /state\.unlocked(Skill1|Skill2|Ult)Alt/);
+  assert.doesNotMatch(panel, /v\.unlockKey===/);
+});
+
+test('PROGRESSION-003: セーブの値は書き換えない(判定の関数・技の解決は読むだけ)', () => {
+  for (const sig of ['function skill1VariantUsable(v){', 'function activeSkill1Variant(){']) {
+    assert.doesNotMatch(body(sig), /state\.\w+\s*=[^=]/, sig);
+  }
+  // ロードの復元(09-save-load.js)は変えていない: 解放済みなら選択を復元する
+  const load = parts('09-save-load.js');
+  assert.match(load, /state\.skill2Choice = \(data\.skill2Choice==='alt' && state\.unlockedSkill2Alt\) \? 'alt' : 'default';/);
+  assert.match(load, /state\.ultChoice = \(data\.ultChoice==='alt' && state\.unlockedUltAlt\) \? 'alt' : 'default';/);
+});
