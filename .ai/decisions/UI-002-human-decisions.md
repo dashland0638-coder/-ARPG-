@@ -269,6 +269,15 @@ WI-D1 の受入条件の整理（Human の指示）: D1 での「常時表示」
 - **HD-D29（MP）**: MP 廃止は D では実装しない。ゲームシステム変更を含む別 Task として扱う。D では MP を単純に非表示にする実装も行わない（HD-D10 の D 内での扱いを置き換える。HD-D10 の「旧セーブの MP 値を無断で削除・変換しない」は別 Task でも維持する前提）
 - 併せて Human が決定: WI-D0 は既存の実測（`.ai/reports/UI-002-D-analysis.md` §15.2）をもって DONE。再測定しない。E で変わった Weapon Badge / Attack glyph の内容は WI-D1 の実装前確認事項
 
+### PROGRESSION-004: 第一章序盤の施設アクセス（2026-10-04）
+
+- 決定者: Human（本セッションの会話「UI-002-F 施設アクセス仕様の確定・実装」）。記録は AI（Orchestrator）
+- 剣士のみが登場している段階では、鍛冶師は酒場に登場していない。鍛冶設備も存在しない。
+- 鑑定・装備変更・スキル変更などの施設機能にはアクセスできない。仮設の作業台などから施設画面へ到達できない。
+- 「施設は存在するがボタンだけ無効」という扱いにはしない。ゲーム世界上、まだ施設が解放・登場していないため利用できない、という進行条件で扱う。
+- 施設の具体的な解放タイミングは、既存仕様から確定できない場合は新しく決めない（Human の指示）。→ 既存の確定仕様（docs/SCENARIOS.md「酒場へ帰還 → 鍛冶屋が加入」= `smithJoined`、洋館クリア）を使う（Agent の記録。新しいタイミングは決めていない）。
+- Test Mode は既存のテスト用途を壊さない。
+
 ## Undecided（未決定事項）
 
 以下は現時点では決定しない。必要になった Task の Analyzer / Planner を通して改めて判断する。
@@ -321,3 +330,4 @@ UI-001 / UI-002 / UI-002-A / UI-002-B / UI-002-C1 / UI-002-D / UI-002-V / UI-002
 | 2026-09-28 | UI-002-D WI-D0（実装前実測・確認ゲート）の Human Approval（履歴のみ。承認内容の正本は `.ai/tasks/UI-002-D.md` の WI-D0 Human Approval）。WI-D1〜D6 の承認・Persistence ではない。既存の Human Decision 本文は変更していない | 本セッションの会話（WI-D0 承認指示）。作業ツリー（未 commit） |
 | 2026-09-28 | UI-002-D の HD-D21〜HD-D27（WI-D1）を追記（WI-D1 の実装承認・Persistence の発効ではない）。既存の Human Decision・Undecided は変更していない | 本セッションの会話（WI-D1 実装計画の再確認後）。作業ツリー（未 commit） |
 | 2026-09-30 | UI-002-D の HD-D28（C2 / V の視覚方針を参照）・HD-D29（MP 廃止は別 Task）と WI-D0 DONE の決定を追記（WI-D1〜D6 の実装承認・Persistence ではない）。既存の Human Decision・Undecided は変更していない | 本セッションの会話（UI-002-D Planner Update） |
+| 2026-10-04 | PROGRESSION-004 の施設アクセスの決定を追記。既存の Human Decision・Undecided は変更していない | 本セッションの会話（施設アクセス仕様の確定・実装の指示） |
