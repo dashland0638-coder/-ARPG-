@@ -1,6 +1,6 @@
 # PROGRESSION-005
 
-Status: IMPLEMENTING
+Status: DONE
 
 Analysis: .ai/reports/PROGRESSION-005-analysis.md（branch `claude/agent-autonomous-execution-ewtk87` @ `a57f7bd5e59755316927c379da9362cfb2f498b0`、blob `9d4268050555f8fbd45d88e584271f155b490061`）
 
@@ -50,3 +50,44 @@ Implementation: ALLOWED
 | S-1 | 固定の判定を `skill1VariantUsable` に入れる | PROGRESSION-003 の「使えない技は既定へ」の仕組みがそのまま使える。戦闘・HUD・鑑定所が同じ判定を通る（条件を散らさない） | ロード時・交代時に `skillChoice` を書き換える（保存値が変わる） |
 | S-2 | 既定の技は `defaultSkill1For` | 既存の既定。HD-1 が決まれば `CHAPTER1_SKILL1` を変えるだけで反映される | 新しい表を作る |
 | S-3 | サブタブは既存の「固定」の見せ方（Skill 2・必殺技と同じ）を使い、情報の表示は残す | UI を再設計しない（Human の指示）。確認の表示を隠す必要は無い | サブタブを出さない（UI-002-F HD-2 の範囲） |
+
+## Implementation Result
+
+### Chapter 1 / Test Mode の挙動
+| | 本編（第一章） | テストモード |
+| --- | --- | --- |
+| Skill 1 の技 | `defaultSkill1For(職)` に固定（魔法使い = 幻影歩法、剣士・盗賊・弓師 = 既存の既定 `retreat` 系。正式な技は HD-1 で未決定） | 選んだ技（基本の技・解放済みの新技・転身済みの上位職の技） |
+| 鑑定所のスキル1 | 既定の技 1 枚、押せない、見出し「固定」 | 従来どおり一覧・付け替え可能 |
+| 保存値 | `skillChoice` 等は書き換えない（本編で書き換わるのは既存の交代処理だけ） | テストモードは保存しない（既存） |
+
+### Changed Files
+- `src/legacy/parts/12-progression-ui.js`（`skill1VariantUsable` の本編の分岐、スキル1 サブタブ）
+- `tests/unit/chapter1-growth-effects.test.js`（1 件追加、PROGRESSION-003 の構造の確認を更新）、`tests/chapter1-old-save-growth.spec.js`（4 件追加）
+
+### Test Report
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| Build | PASS | |
+| Unit | PASS | 1628 件中 1627 PASS / 0 FAIL / 1 SKIP（既存）。変更前の src で 2 件 FAIL |
+| Protocol | PASS | 16 / 16 |
+| 新規 E2E（変更前の src） | 2 FAIL / 2 PASS（期待どおり） | 本編の 2 件が FAIL（HUD に 🌌、剣士の glyph が無い）。交代・テストモードは回帰の確認 |
+| 関連 E2E（変更後） | 26 / 26 PASS | `chapter1-old-save-growth`・`chapter1-facility-access`・`ui-production-glyphs`・`chapter1-skill2` |
+| E2E 全体（2 CPU） | **237 passed** | |
+| GitHub Actions（`9b75206`） | **success** | |
+
+## Status History
+| Date | From → To | By | Note |
+| --- | --- | --- | --- |
+| 2026-10-04 | （新規）→ PLANNED → IMPLEMENTING | Orchestrator / Analyzer / Planner | Analysis `a57f7bd`、Plan `4bee9dd`（Agent Approval。仕様は Human Decision C-1） |
+| 2026-10-04 | IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | Implementation `9b75206` |
+| 2026-10-04 | REVIEWING（Reviewer PASS） | Reviewer | Round 1/3 PASS |
+| 2026-10-04 | REVIEWING → DONE | Orchestrator（Completion commit） | PR #32 の本文を更新。Merge required: Human approval |
+
+### Autonomy Metrics（PROGRESSION-005）
+- Human Escalation Count: 0
+- Human Decision Count: 0（C-1 は既決。新しい決定はなし）
+- Auto Fix Count: 0
+- Reviewer Round Count: 1
+- Test Retry Count: 0
+- PR Created: Yes (#32。同じブランチの既存 PR の本文を更新。AGENTS.md §21)
+
