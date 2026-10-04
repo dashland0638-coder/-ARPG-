@@ -315,3 +315,77 @@ test.describe('PROGRESSION-003: 本編では旧セーブの alt・新技・上�
     expect(errors).toEqual([]);
   });
 });
+
+/* PROGRESSION-005: 第一章の本編では、Skill 1 は職業固有の既定の技(defaultSkill1For)に固定し、
+   付け替えられない(Human Decision C-1)。各職の具体的な技(HD-1)はここでは決めていない ――
+   確かめるのは「既定の技から動かない」ことだけで、既定が何であるかは defaultSkill1For が持つ。
+   魔法使いの既定は幻影歩法 👣、回転の基本の技は魔導旋風 🌌。
+   剣士の既定(切り下がり)は承認済みの glyph(skill.warrior.retreat)で出る(UI-002-E) */
+test.describe('PROGRESSION-005: 本編の Skill 1 は職業固有の既定の技に固定', () => {
+  test('加入後の鑑定所: スキル1 は既定の技 1 枚だけで押せず「固定」。保存された基本の技は使われず、値は残る', async ({ page }) => {
+    test.setTimeout(240_000);
+    const errors = watchErrors(page);
+    await continueWith(page, mageSave({ skillChoice: 'spin' }));
+    await expect(page.locator('#hud-name')).toHaveText('魔法使い ｜ 支援: 剣士');
+    const icons = await hudSkillIcons(page);
+    expect(icons.skill1, '保存された基本の技(魔導旋風)ではなく、既定の技').toBe('👣');
+
+    expect(await openAppraisalAtSmith(page), '鑑定所が開く').toBe(true);
+    await openSkillSubtab(page, 'skill1');
+    await expect(page.locator('#ap-panel-skill .ap-charge-card'), '既定の技だけ').toHaveCount(1);
+    await expect(page.locator('#ap-panel-skill .ap-charge-card.active')).toContainText('幻影歩法');
+    await expect(page.locator('#ap-panel-skill [data-variant]'), '付け替えの操作が無い').toHaveCount(0);
+    await expect(page.locator('#ap-panel-skill .ap-charge-title')).toContainText('固定');
+    await expect(page.locator('#ap-panel-skill .ap-charge-title')).not.toContainText('付け替え可能');
+    await page.keyboard.press('KeyI');
+    await page.waitForFunction(() => !document.getElementById('appraisal-overlay').classList.contains('active'));
+
+    await openMenu(page);
+    await page.click('#menu-save');
+    await closeMenu(page);
+    const saved = await page.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), SAVE_KEY);
+    expect(saved.skillChoice, '保存されている選択は書き換えない').toBe('spin');
+    expect(errors).toEqual([]);
+  });
+
+  test('剣士だけの段階(施設なし)でも、保存された基本の技ではなく既定の技', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await continueWith(page, save({ skillChoice: 'spin' }));
+    await expect(page.locator('#btn-charge-icon')).toHaveAttribute('data-glyph', 'skill.warrior.retreat', { timeout: 10_000 });
+    await openMenu(page);
+    await page.click('#menu-save');
+    await closeMenu(page);
+    const saved = await page.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), SAVE_KEY);
+    expect(saved.skillChoice).toBe('spin');
+    expect(errors).toEqual([]);
+  });
+
+  test('主人公の交代(剣士 → 魔法使い): 交代後も魔法使いの既定の技で固定', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await continueWith(page, save({ scenarioClears: { mansion: 1 }, learnedSkill2: true, smithJoined: true, smithGreeted: true, skillChoice: 'spin' }));
+    await expect(page.locator('#hud-name')).toHaveText('魔法使い ｜ 支援: 剣士');
+    expect((await hudSkillIcons(page)).skill1).toBe('👣');
+    expect(errors).toEqual([]);
+  });
+
+  test('テストモード: スキル1 は従来どおり付け替えられる', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    await startTestMode(page, { classKey: 'mage' });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await page.waitForTimeout(800);
+    await page.keyboard.press('KeyI');
+    await page.waitForFunction(() => document.getElementById('appraisal-overlay').classList.contains('active'));
+    await openSkillSubtab(page, 'skill1');
+    await expect(page.locator('#ap-panel-skill .ap-charge-title').first()).toContainText('付け替え可能');
+    await page.click('#ap-panel-skill [data-variant="spin"]');
+    await expect(page.locator('#ap-panel-skill .ap-charge-card.active')).toContainText('魔導旋風');
+    await page.keyboard.press('KeyI');
+    await page.waitForFunction(() => !document.getElementById('appraisal-overlay').classList.contains('active'));
+    await expect(page.locator('#btn-charge-icon')).toHaveText('🌌');
+    expect(errors).toEqual([]);
+  });
+});

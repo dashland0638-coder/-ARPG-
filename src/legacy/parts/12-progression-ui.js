@@ -2496,8 +2496,11 @@
      残し、戦闘・HUD・鑑定所はこの判定を通して読む。テストモードは今まで通り */
   function skill1VariantUsable(v){
     if(!v) return false;
+    /* 第一章(本編)の Skill 1 は職業固有の既定の技に固定し、付け替えない(PROGRESSION-005、
+       Human Decision C-1)。どの技が既定かは defaultSkill1For / CHAPTER1_SKILL1 が持つ
+       (各職の正式な技は未決定。ここでは決めない) */
+    if(!legacyGrowth()) return v.key === defaultSkill1For(state.classDef.key);
     if(!v.unlockKey) return true;
-    if(!legacyGrowth()) return false;
     return v.unlockKey === 'job' ? !!state.job : !!state.unlockedSkill1Alt;
   }
   function skill2AltAvailable(){ return legacyGrowth() && !!state.unlockedSkill2Alt; }
@@ -3211,7 +3214,9 @@
     }
 
     else if(skillSubTab==='skill1'){
-      html += '<div class="ap-charge-title">スキル(専用ボタン・付け替え可能)</div><div class="ap-charge-variants">';
+      // 第一章(本編)の Skill 1 は固定(PROGRESSION-005)。Skill 2・必殺技の「固定」と同じ見せ方
+      const skill1Locked = !legacyGrowth();
+      html += `<div class="ap-charge-title">スキル(専用ボタン・${skill1Locked?'固定':'付け替え可能'})</div><div class="ap-charge-variants">`;
       /* 'dash' は STEP 3-A.2 で通常攻撃入力(攻撃ボタン長押しの溜め技)から
          切り離し、他のバリアントと並ぶ選択肢にした。以前ここにあった
          「溜め技(攻撃ボタン長押し・固定)」の固定カードは、指す先の入力が
@@ -3225,7 +3230,7 @@
         if(!v) return;   // その職に無いもの(幻影歩法は魔法使いだけ)は並べない
         if(!skill1VariantUsable(v)) return;
         const active = activeSkill1Variant() === v;
-        html += `<div class="ap-charge-card ${active?'active':''}" data-variant="${key}">
+        html += `<div class="ap-charge-card ${active?'active':''}" ${skill1Locked?'style="cursor:default;"':`data-variant="${key}"`}>
           <div class="ap-charge-icon">${v.icon}</div>
           <div class="ap-charge-name">${v.name}</div>
           <div class="ap-charge-desc">${v.desc}</div>

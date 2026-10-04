@@ -81,7 +81,9 @@ test('PROGRESSION-003: 判定の関数(本編では alt・新技・上位職の�
   assert.match(src, /function skill2AltAvailable\(\)\{ return legacyGrowth\(\) && !!state\.unlockedSkill2Alt; \}/);
   assert.match(src, /function ultAltAvailable\(\)\{ return legacyGrowth\(\) && !!state\.unlockedUltAlt; \}/);
   const usable = body('function skill1VariantUsable(v){');
-  assert.match(usable, /if\(!v\.unlockKey\) return true;\n\s+if\(!legacyGrowth\(\)\) return false;\n\s+return v\.unlockKey === 'job' \? !!state\.job : !!state\.unlockedSkill1Alt;/);
+  // 本編は既定の技だけ(PROGRESSION-005 で、新技・上位職の技に加えて基本の技の付け替えも止めた)。
+  // テストモードは、解放条件の無い技は常に可、新技は解放済み・上位職の技は転身済みなら可
+  assert.match(usable, /if\(!legacyGrowth\(\)\) return v\.key === defaultSkill1For\(state\.classDef\.key\);\n\s+if\(!v\.unlockKey\) return true;\n\s+return v\.unlockKey === 'job' \? !!state\.job : !!state\.unlockedSkill1Alt;/);
   const active = body('function activeSkill1Variant(){');
   assert.match(active, /if\(skill1VariantUsable\(chosen\)\) return chosen;\n\s+return variants\[defaultSkill1For\(state\.classDef\.key\)\] \|\| variants\.retreat;/);
 });
@@ -149,3 +151,21 @@ test('PROGRESSION-004: 施設の入口と作業台はすべて smithFacilityAvai
   const plugin = fs.readFileSync(path.join(root, 'src/legacy/concat-plugin.js'), 'utf8');
   assert.match(plugin, /smithFacilityAvailable,\n\} from '\.\.\/core\/chapter1-rules\.js';/);
 });
+
+/* PROGRESSION-005: 第一章の本編では、Skill 1 は職業固有の既定の技(defaultSkill1For)に固定し、付け替えない
+   (Human Decision C-1)。各職の正式な技(HD-1)は決めていないので、既定の表(CHAPTER1_SKILL1)には触れない */
+test('PROGRESSION-005: 本編の Skill 1 は既定の技だけ・鑑定所のスキル1 は押せず「固定」', () => {
+  const usable = body('function skill1VariantUsable(v){');
+  // 本編の分岐はテストモードの分岐より先(解放条件の無い基本の技も、既定でなければ使わない)
+  assert.ok(usable.indexOf('if(!legacyGrowth()) return v.key === defaultSkill1For(state.classDef.key);') < usable.indexOf('if(!v.unlockKey) return true;'));
+  const a = src.indexOf('function renderSkillPanel(){');
+  const panel = src.slice(a, src.indexOf('\n  function bindSkillPanelHandlers', a));
+  assert.match(panel, /const skill1Locked = !legacyGrowth\(\);\n\s+html \+= `<div class="ap-charge-title">スキル\(専用ボタン・\$\{skill1Locked\?'固定':'付け替え可能'\}\)<\/div>/);
+  // 付け替えの書き込み(data-variant のカード)は本編では作らない
+  assert.match(panel, /\$\{skill1Locked\?'style="cursor:default;"':`data-variant="\$\{key\}"`\}/);
+  assert.equal(panel.split('data-variant=').length - 1, 1);
+  // 既定の表は変えていない(HD-1 は未決定)
+  const rules = fs.readFileSync(path.join(root, 'src/core/chapter1-rules.js'), 'utf8');
+  assert.match(rules, /export const CHAPTER1_SKILL1 = \{mage: 'phantom'\};/);
+});
+
