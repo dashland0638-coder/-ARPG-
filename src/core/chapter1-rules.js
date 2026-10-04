@@ -23,6 +23,17 @@ export function legacyGrowthEnabled(testMode){
   return !!testMode;
 }
 
+/* ---- 酒場の施設(鍛冶士の鑑定所: 装備・スキル・商店) ----
+   剣士だけの序盤は、鍛冶士も鍛冶設備も酒場に無い。施設が現れるのは、洋館から
+   戻って鍛冶屋が加入してから(docs/SCENARIOS.md「酒場へ帰還 → 鍛冶屋が加入」、
+   state.smithJoined)。それまでは入口そのものが無い(Human Decision 2026-10-04)。
+   テストモードは開発用なので、従来どおりどこでも開ける。
+   progress は state そのものを渡してよい(読むのは smithJoined / testMode だけ)。 */
+export function smithFacilityAvailable(progress){
+  progress = progress || {};
+  return !!(progress.testMode || progress.smithJoined);
+}
+
 /* ---- 武器の装備制限 ----
    武器種はクラスごとに決まっている(Chapter 1):
      剣士 = 大剣 / 盗賊 = 双剣 / 魔法使い = 杖 / 弓師 = 小弓

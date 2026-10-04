@@ -18,7 +18,7 @@
  * 世界が組み上がること自体は、そちらの往復テストが押さえている。
  */
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
+import { watchErrors, openGame, dismissIntroDialogue, startTestMode } from './helpers.js';
 
 async function seedSave(page, extra) {
   await page.addInitScript(save => {
@@ -35,35 +35,21 @@ async function seedSave(page, extra) {
   }, extra));
 }
 
-// chapter1-skill2.spec.js と同じ手順(そちらの注記を参照)
-async function openAppraisal(page) {
-  let open = false;
-  for (let attempt = 0; attempt < 30 && !open; attempt++) {
-    await page.keyboard.down('KeyW');
-    await page.keyboard.down('KeyD');
-    await page.waitForTimeout(400);
-    await page.keyboard.up('KeyW');
-    await page.keyboard.up('KeyD');
-    await page.keyboard.press('KeyI');
-    await page.waitForTimeout(300);
-    open = await page.evaluate(() =>
-      document.getElementById('appraisal-overlay').classList.contains('active'));
-  }
-  return open;
-}
-
 test.describe('森の洋館 D-01〜D-04', () => {
+  /* 鑑定所(施設)は鍛冶士の加入後だけで(PROGRESSION-004)、剣士が主人公の本編の段階
+     (洋館クリア前)には無い。剣士の Skill 2 の既定(defaultSkill2Def)は本編と同じなので、
+     テストモード(どこでも鑑定所を開ける)で確かめる */
   test('崩し斬りが剣士の Skill 2 として出る(D-04)', async ({ page }) => {
     test.setTimeout(150_000);
     const errors = watchErrors(page);
-    await seedSave(page, { learnedSkill2: true });
     await openGame(page);
-    await page.click('#cc-continue-btn');
+    await startTestMode(page, { classKey: 'warrior' });
     await expect(page.locator('#hud')).toHaveClass(/active/);
-    await dismissIntroDialogue(page);
-    await disableCameraAutoFollow(page);
+    await page.waitForTimeout(800);
 
-    expect(await openAppraisal(page)).toBe(true);
+    await page.keyboard.press('KeyI');
+    await expect.poll(() => page.evaluate(() =>
+      document.getElementById('appraisal-overlay').classList.contains('active')), { timeout: 5_000 }).toBe(true);
     await page.click('.ap-tab[data-tab="skill"]');
     await page.click('.skill-subtab[data-skill-subtab="skill2"]');
     const panel = page.locator('#ap-panel-skill');

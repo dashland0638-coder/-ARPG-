@@ -96,7 +96,7 @@ import {
   offeredScenarios, resolveCast, castAfterMeeting, shouldSwitchCast, isForwardSwitch,
 } from '../core/chapter1-progress.js';
 import {
-  legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, hudLabel, joinSceneReady,
+  legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, hudLabel, joinSceneReady, smithFacilityAvailable,
 } from '../core/chapter1-rules.js';
 import { devUiEnabled, uiProtoEnabled } from '../core/dev-ui.js';
 import { uiProtoIcon, uiProtoWeaponIcon } from '../core/ui-proto-icons.js';

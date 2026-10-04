@@ -15,7 +15,7 @@
  * (tests/mansion-scenario.spec.js の冒頭に同じ判断のメモがある)。
  */
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, createCharacter, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
+import { watchErrors, openGame, createCharacter, dismissIntroDialogue, openAppraisalAtSmith } from './helpers.js';
 
 // mansion-scenario.spec.js と同じ最小セーブ。今回足した永続フラグだけを
 // extra で差し替える
@@ -32,28 +32,6 @@ async function seedSave(page, extra) {
     bossClears: {}, learnedBossAbilities: [], equippedBossAbilities: [], learnedBossSkills: [],
     scenarioClears: {}, clearedScenarios: {}, routeCombosSeen: {},
   }, extra));
-}
-
-/* 酒場の鍛冶士(加入前は仮設の作業台)まで歩いて鑑定所を開く。
-   カメラ追従を切った酒場の固定spawn camYaw(135°)では W+D が -X ――
-   spawn(0,10) から SMITH_POS(-6.5,12) はほぼ真横なので、その一方向で届く。
-   開くのは KeyI(interact の優先順位に割り込まれない直接のトグル)。
-   届くまでの歩き直す回数は、この環境の描画の遅さのぶん多めに取ってある
-   (mansion-scenario.spec.js の店主への導線と同じ判断)。 */
-async function openAppraisal(page) {
-  let open = false;
-  for (let attempt = 0; attempt < 30 && !open; attempt++) {
-    await page.keyboard.down('KeyW');
-    await page.keyboard.down('KeyD');
-    await page.waitForTimeout(400);
-    await page.keyboard.up('KeyW');
-    await page.keyboard.up('KeyD');
-    await page.keyboard.press('KeyI');
-    await page.waitForTimeout(300);
-    open = await page.evaluate(() =>
-      document.getElementById('appraisal-overlay').classList.contains('active'));
-  }
-  return open;
 }
 
 const skill2Btn = page => page.locator('#btn-skill2');
@@ -119,17 +97,19 @@ test.describe('Chapter 1 の Skill 2', () => {
     expect(errors).toEqual([]);
   });
 
+  /* 鑑定所(施設)は鍛冶士の加入後だけ(PROGRESSION-004)。剣士だけの序盤には無いので、
+     洋館から戻った魔法使い(宵待ちの村ではまだ閃いていない)で確かめる */
   test('鑑定所のスキル2タブは、閃く前と後で中身が変わる', async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(150_000);
     const errors = watchErrors(page);
-    await seedSave(page, { learnedSkill2: false });
+    await seedSave(page, { selectedClass: 'mage', playerName: '魔法使い', guestClassKey: 'warrior',
+      scenarioClears: { mansion: 1 }, smithJoined: true, smithGreeted: true, learnedSkill2: false, skillChoice: 'phantom' });
     await openGame(page);
     await page.click('#cc-continue-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await dismissIntroDialogue(page);
-    await disableCameraAutoFollow(page);
 
-    expect(await openAppraisal(page)).toBe(true);
+    expect(await openAppraisalAtSmith(page)).toBe(true);
     await page.click('.ap-tab[data-tab="skill"]');
     await page.click('.skill-subtab[data-skill-subtab="skill2"]');
     await expect(page.locator('#ap-panel-skill')).toContainText('まだ二つめの戦い方を持っていない');

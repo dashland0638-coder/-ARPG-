@@ -238,12 +238,15 @@
        ここで「奥にいるのが鍛冶士」と言ってしまうと、居ない人物を指す
        ことになるので、加入の前後で指す先を変える ―― 加入前は同じ場所に
        置いてある仮設の作業台のほう */
+    /* 本編の加入前は作業台も無い(PROGRESSION-004)ので、作業台を指す行は出さない */
     (state.smithJoined
       ? {name:S, text:'奥にいるのが鍛冶士。装備の鑑定や強化は、そちらで頼めます。'}
-      : {name:S, text:'奥の隅に、間に合わせの作業台があります。鑑定や研ぎは、あそこで自分で。'}),
+      : smithFacilityAvailable(state)
+        ? {name:S, text:'奥の隅に、間に合わせの作業台があります。鑑定や研ぎは、あそこで自分で。'}
+        : null),
     {name:S, text:'依頼を受けて、外の廃墟や遺跡へ向かう……それが、この街での仕事のようです。'},
     {name:S, text:'……私も、詳しいわけではありませんが。見ていれば、分かることもあります。'}
-  ]; };
+  ].filter(Boolean); };
 
   // 二回目以降: インフォグラフィックの「酒場での役割」「他のNPCとの
   // 関係」から、テンポの良い掛け合いを数種類抜粋。会話のたびに
@@ -2522,6 +2525,7 @@
        セーブは saveGame() が state.testMode で必ず弾くため、ここで何を
        いじっても通常プレイの進行/解放状況には一切書き戻らない。 */
     if(!state.testMode){
+      if(!smithFacilityAvailable(state)) return;   // 鍛冶士の加入前は施設が無い(PROGRESSION-004)
       if(currentWorldKey!=='tavern') return;
       if(state.pos.distanceTo(SMITH_POS) >= 3) return; // talk to the blacksmith instead of anywhere in town
     }

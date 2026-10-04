@@ -105,7 +105,7 @@ test.describe('囚われの洋館(最初のメインシナリオ)', () => {
   test('鍛冶士が加入済みの酒場も、加入前の酒場も組み上がる', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = watchErrors(page);
-    // 加入前(仮設の作業台が立つ枝)
+    // 加入前(本編では鍛冶士も作業台も立たない枝。PROGRESSION-004)
     await seedSave(page, { smithJoined: false });
     await openGame(page);
     await page.click('#cc-continue-btn');

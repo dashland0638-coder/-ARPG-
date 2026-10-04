@@ -1975,8 +1975,10 @@
           scene.add(tool);
         }
       }
-    } else {
-      // 仮設の作業台。旅の道具箱と砥石を並べただけの、間に合わせの一角
+    } else if(smithFacilityAvailable(state)){
+      /* 仮設の作業台。旅の道具箱と砥石を並べただけの、間に合わせの一角。
+         本編の剣士だけの序盤は、鍛冶士も設備も酒場に無い(PROGRESSION-004)ので
+         建てない ―― 加入前に立つのはテストモードだけ */
       const benchMat = new THREE.MeshStandardMaterial({color:0x4a3a28, roughness:0.9});
       const bench = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.75,0.9), benchMat);
       bench.position.set(SMITH_POS.x, 0.38, SMITH_POS.z+0.6);

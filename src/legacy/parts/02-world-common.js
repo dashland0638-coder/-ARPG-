@@ -2280,7 +2280,8 @@
   function updateCheckpointProximity(){
     if(!checkpointTriggers.length){ nearbyCheckpoint = null; return; }
     let nearby = null;
-    if(!nearbyDoor && !nearbyStairs){
+    // 施設(鑑定所)が無い間は、休憩を済ませたチェックポイントにすることが無い(PROGRESSION-004)
+    if(!nearbyDoor && !nearbyStairs && !(state.checkpointUsed && !smithFacilityAvailable(state))){
       checkpointTriggers.forEach(c=>{
         if(state.pos.distanceTo(c.pos) < c.radius) nearby = c;
       });
@@ -2300,7 +2301,8 @@
       if(hpGain>0 || mpGain>0) spawnLog('🏕️ 一息ついた。HP/MPが少し回復した');
       sfx('levelUp');
     }
-    setOverlay('appraisal');   // 鑑定所(装備・スキル・ショップ)をその場で開く
+    // 鑑定所(装備・スキル・ショップ)をその場で開く。鍛冶士の加入前は施設が無いので回復だけ
+    if(smithFacilityAvailable(state)) setOverlay('appraisal');
   }
 
   function updateBartenderProximity(){
@@ -2310,7 +2312,8 @@
     const serviceFree = !nearbyDoor && !nearbyStairs && !nearbyStallTrigger;
     const talkFree = !nearbyStairs && !nearbyStallTrigger;
     nearbyBartender = serviceFree && !state.sortied && state.pos.distanceTo(BARTENDER_POS) < 3;
-    nearbySmith = serviceFree && !nearbyBartender && state.pos.distanceTo(SMITH_POS) < 3;
+    // 鍛冶士の加入前(剣士だけの序盤)は、そこに施設が無い(PROGRESSION-004)
+    nearbySmith = serviceFree && !nearbyBartender && smithFacilityAvailable(state) && state.pos.distanceTo(SMITH_POS) < 3;
     // 酒場の片隅は扉の判定と少し重なる。謎のNPCに近づいたのに、扉が
     // 優先されて会話できないままだと「そこに居るのに話せない」感触になる
     // ため、影の旅人だけは扉の近接中でも少し広めに拾う
@@ -2392,7 +2395,8 @@
     else if(nearbyStallTrigger) el.textContent = '個室に入る';
     else if(nearbyBartender) el.textContent = '🗺️ 店主と話す(出撃)';
     else if(nearbySmith) el.textContent = state.smithJoined ? '🔨 鍛冶士と話す(鑑定・強化)' : '🧰 仮設の作業台(鑑定・強化)';
-    else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)' : '🏕️ 休憩する(回復+装備整理)';
+    else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)'
+      : (smithFacilityAvailable(state) ? '🏕️ 休憩する(回復+装備整理)' : '🏕️ 休憩する(回復)');
   }
 
   /* インタラクトの対象のワールド座標(UI-002-D WI-D6: 表示を対象の上に出すため)。
