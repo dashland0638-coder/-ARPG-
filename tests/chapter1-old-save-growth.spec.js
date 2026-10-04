@@ -11,7 +11,7 @@
  * テストモードで今までどおり効くことは unit(chapter1-growth-effects)が式を見ている。
  */
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, dismissIntroDialogue, disableCameraAutoFollow, startTestMode } from './helpers.js';
+import { watchErrors, openGame, dismissIntroDialogue, openAppraisalAtSmith, startTestMode } from './helpers.js';
 
 const SAVE_KEY = 'soulforge_save_v1';
 
@@ -205,31 +205,6 @@ async function hudSkillIcons(page) {
   };
 }
 
-/** 酒場の鍛冶士まで歩いて鑑定所を開く(chapter1-skill2.spec.js の openAppraisal と同じ道のり)。
-   W+D の道は鍛冶士の範囲(3m)の縁をかすめるだけなので(CI-001 の記録)、短い歩幅で
-   インタラクトの表示(nearbySmith の時だけ「鍛冶士と話す」)を見て、範囲に入った所で開く */
-async function openAppraisal(page) {
-  await disableCameraAutoFollow(page);
-  const isOpen = () => page.evaluate(() => document.getElementById('appraisal-overlay').classList.contains('active'));
-  for (let step = 0; step < 80; step++) {
-    const prompt = await page.evaluate(() => {
-      const el = document.getElementById('interact-btn');
-      return el && el.classList.contains('show') ? el.textContent : '';
-    });
-    if (prompt.includes('鍛冶士')) {
-      await page.keyboard.press('KeyI');
-      await page.waitForTimeout(300);
-      if (await isOpen()) return true;
-    }
-    await page.keyboard.down('KeyW');
-    await page.keyboard.down('KeyD');
-    await page.waitForTimeout(150);
-    await page.keyboard.up('KeyW');
-    await page.keyboard.up('KeyD');
-    await page.waitForTimeout(150);
-  }
-  return isOpen();
-}
 async function openSkillSubtab(page, key) {
   await page.click('.ap-tab[data-tab="skill"]');
   await page.click(`.skill-subtab[data-skill-subtab="${key}"]`);
@@ -260,7 +235,7 @@ test.describe('PROGRESSION-003: 本編では旧セーブの alt・新技・上�
     expect.soft(grown.ult, 'A-2: 必殺技の alt(絶対零度)を使わない').toBe(base.ult);
 
     // 鑑定所: alt・新技は出さない(選べない)。表示は新規ゲームと同じ「固定」
-    expect(await openAppraisal(page), '鑑定所が開く').toBe(true);
+    expect(await openAppraisalAtSmith(page), '鑑定所が開く').toBe(true);
     await openSkillSubtab(page, 'skill1');
     await expect(page.locator('#ap-panel-skill [data-variant="chain"]'), 'A-3: 新技のカードが出ない').toHaveCount(0);
     await expect(page.locator('#ap-panel-skill .ap-charge-card.active')).toContainText('幻影歩法');

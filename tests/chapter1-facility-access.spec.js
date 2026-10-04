@@ -6,7 +6,7 @@
  *   施設が現れるのは、洋館から戻って鍛冶屋が加入してから(docs/SCENARIOS.md)。
  *   テストモードは開発用で、今まで通りどこでも開ける。
  *
- * 加入前の確認は、加入後に鍛冶士へ届く道(chapter1-skill2.spec.js と同じ W+D)を
+ * 加入前の確認は、加入後に鍛冶士へ届く道(helpers.js の openAppraisalAtSmith と同じ W+D)を
  * 同じだけ歩き、その間ずっと「インタラクトの表示に鍛冶士・作業台が出ない」
  * 「I キーで鑑定所が開かない」ことを見る。変更前の src では、この道の途中で
  * 「🧰 仮設の作業台(鑑定・強化)」が出て、I キーで鑑定所が開く。
@@ -31,28 +31,26 @@ function save(extra) {
 
 const appraisalOpen = page => page.evaluate(() =>
   document.getElementById('appraisal-overlay').classList.contains('active'));
-const promptText = page => page.evaluate(() => {
-  const el = document.getElementById('interact-btn');
-  return el && el.classList.contains('show') ? (el.textContent || '') : '';
-});
 
-/** 鍛冶士へ届く道を短い歩幅で歩き、歩幅ごとにインタラクトの表示を記録して I キーを押す。
-    鑑定所が開いた時点で止める */
+/** 加入後に鍛冶士へ届く歩き方(helpers.js の openAppraisalAtSmith と同じ: W+D を押したまま
+    I キーを押す)を同じだけ繰り返し、インタラクトの文言(対象が外れても書き換わらないので、
+    一度でも範囲に入れば残る)と鑑定所が開いたかを記録する */
 async function walkTowardSmith(page, steps) {
   await disableCameraAutoFollow(page);
   const prompts = new Set();
   for (let i = 0; i < steps; i++) {
-    const p = await promptText(page);
-    if (p) prompts.add(p);
-    await page.keyboard.press('KeyI');
-    await page.waitForTimeout(250);
-    if (await appraisalOpen(page)) return { prompts: [...prompts], opened: true };
     await page.keyboard.down('KeyW');
     await page.keyboard.down('KeyD');
-    await page.waitForTimeout(150);
+    for (let k = 0; k < 3; k++) {
+      await page.keyboard.press('KeyI');
+      await page.waitForTimeout(60);
+    }
     await page.keyboard.up('KeyW');
     await page.keyboard.up('KeyD');
-    await page.waitForTimeout(150);
+    const p = await page.evaluate(() => document.getElementById('interact-btn').textContent || '');
+    if (p) prompts.add(p);
+    if (await appraisalOpen(page)) return { prompts: [...prompts], opened: true };
+    await page.waitForTimeout(100);
   }
   return { prompts: [...prompts], opened: await appraisalOpen(page) };
 }

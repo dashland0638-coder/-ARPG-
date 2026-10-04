@@ -33,6 +33,14 @@ async function readOutl(page){
   return m ? { wepMissing:+m[1], wepTarget:+m[2], decoMissing:+m[3], decoTarget:+m[4], xray:+m[5] } : null;
 }
 
+/* 特殊効果武器(ちぞめの大剣、大剣 = 剣士の native 武器種)。装備すると
+   武器種が同じでも swapPlayerWeaponVisual() で武器を作り直す(08 equipItem) */
+const CHIZOME = {
+  id:'t7_chizome', slot:'weapon', itemLevel:1, weaponType:'greatsword',
+  name:'ちぞめの大剣', icon:'🗡️', atkBonus:5, hpBonus:0,
+  rarity:'rare', identified:true, specialId:'chizome',
+};
+
 /* 酒場のセーブ。鑑定所(施設)は鍛冶士の加入後だけ(PROGRESSION-004)なので、どちらも
    smithJoined を立てる。影の旅人は Chapter 1 を終えたセーブ(洋館クリアで加入済みの状態)。
    剣士は、主人公の剣士が鍛冶士の前に立つ本編の段階が無い(加入前は施設が無く、加入後は

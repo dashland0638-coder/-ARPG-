@@ -247,29 +247,28 @@ function arenaInfoValue(html, key) {
 /**
  * 本編の酒場で、鍛冶士(加入後)まで歩いて鑑定所を開く。鍛冶士の加入前は施設が無い
  * (PROGRESSION-004)ので、加入済みのセーブで使う。カメラ追従を切った酒場の固定 camYaw では
- * W+D が鍛冶士の方向。その道は鍛冶士の範囲(3m)の縁をかすめるだけなので(CI-001 の記録)、
- * 短い歩幅でインタラクトの表示(鍛冶士の範囲にいる時だけ「鍛冶士と話す」)を見て、範囲に
- * 入った所で I キーを押す。開けたら true。
+ * W+D が鍛冶士の方向。この道は鍛冶士の炉の当たり判定に突き当たり、止まる位置が鍛冶士の
+ * 範囲(3m)のちょうど縁になる(押し続けている間は当たり判定の押し戻しで範囲の内外を
+ * 毎フレーム行き来する。インタラクトの表示もそれに合わせて点滅する。実測)。手を離した
+ * 位置が内か外かは run ごとに違う。そこで、W+D を押し続けたまま短い間隔で I キーを押す
+ * (プレイヤーが鍛冶士へ寄りながら I を押すのと同じ)。範囲に入ったフレームで開く。
+ * 開けたら true。
  */
 async function openAppraisalAtSmith(page, maxSteps = 80) {
   await disableCameraAutoFollow(page);
   const isOpen = () => page.evaluate(() => document.getElementById('appraisal-overlay').classList.contains('active'));
-  for (let step = 0; step < maxSteps; step++) {
-    const prompt = await page.evaluate(() => {
-      const el = document.getElementById('interact-btn');
-      return el && el.classList.contains('show') ? el.textContent : '';
-    });
-    if (prompt.includes('鍛冶士')) {
-      await page.keyboard.press('KeyI');
-      await page.waitForTimeout(300);
-      if (await isOpen()) return true;
-    }
+  for (let i = 0; i < maxSteps; i++) {
     await page.keyboard.down('KeyW');
     await page.keyboard.down('KeyD');
-    await page.waitForTimeout(150);
+    for (let k = 0; k < 3; k++) {
+      await page.keyboard.press('KeyI');
+      await page.waitForTimeout(60);
+      if (await isOpen()) break;
+    }
     await page.keyboard.up('KeyW');
     await page.keyboard.up('KeyD');
-    await page.waitForTimeout(150);
+    if (await isOpen()) return true;
+    await page.waitForTimeout(100);
   }
   return isOpen();
 }
