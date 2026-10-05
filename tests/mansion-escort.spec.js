@@ -18,7 +18,7 @@
  * 世界が組み上がること自体は、そちらの往復テストが押さえている。
  */
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
+import { watchErrors, openGame, dismissIntroDialogue, startTestMode } from './helpers.js';
 
 async function seedSave(page, extra) {
   await page.addInitScript(save => {
@@ -35,35 +35,21 @@ async function seedSave(page, extra) {
   }, extra));
 }
 
-// chapter1-skill2.spec.js と同じ手順(そちらの注記を参照)
-async function openAppraisal(page) {
-  let open = false;
-  for (let attempt = 0; attempt < 30 && !open; attempt++) {
-    await page.keyboard.down('KeyW');
-    await page.keyboard.down('KeyD');
-    await page.waitForTimeout(400);
-    await page.keyboard.up('KeyW');
-    await page.keyboard.up('KeyD');
-    await page.keyboard.press('KeyI');
-    await page.waitForTimeout(300);
-    open = await page.evaluate(() =>
-      document.getElementById('appraisal-overlay').classList.contains('active'));
-  }
-  return open;
-}
-
 test.describe('森の洋館 D-01〜D-04', () => {
+  /* 鑑定所(施設)は鍛冶士の加入後だけで(PROGRESSION-004)、剣士が主人公の本編の段階
+     (洋館クリア前)には無い。剣士の Skill 2 の既定(defaultSkill2Def)は本編と同じなので、
+     テストモード(どこでも鑑定所を開ける)で確かめる */
   test('崩し斬りが剣士の Skill 2 として出る(D-04)', async ({ page }) => {
     test.setTimeout(150_000);
     const errors = watchErrors(page);
-    await seedSave(page, { learnedSkill2: true });
     await openGame(page);
-    await page.click('#cc-continue-btn');
+    await startTestMode(page, { classKey: 'warrior' });
     await expect(page.locator('#hud')).toHaveClass(/active/);
-    await dismissIntroDialogue(page);
-    await disableCameraAutoFollow(page);
+    await page.waitForTimeout(800);
 
-    expect(await openAppraisal(page)).toBe(true);
+    await page.keyboard.press('KeyI');
+    await expect.poll(() => page.evaluate(() =>
+      document.getElementById('appraisal-overlay').classList.contains('active')), { timeout: 5_000 }).toBe(true);
     await page.click('.ap-tab[data-tab="skill"]');
     await page.click('.skill-subtab[data-skill-subtab="skill2"]');
     const panel = page.locator('#ap-panel-skill');
@@ -144,14 +130,21 @@ test.describe('森の洋館 D-01〜D-04', () => {
     const panel = page.locator('#motion-panel');
     await expect(panel).toContainText('MOTION PREVIEW', { timeout: 5_000 });
 
-    // 立ち止まったまま、クロスフェード(約0.5秒)が寄り切るのを待つ
-    await page.waitForTimeout(2500);
     const readRelax = async () => {
       const text = await panel.textContent();
       const m = /RELAX\s+([\d.]+)\s+\(stop ([\d.]+) \/ combat ([\d.]+)\)/.exec(text || '');
       return m ? { relax: +m[1], stop: +m[2], combat: +m[3] } : null;
     };
-    const rest = await readRelax();
+    /* 立ち止まったまま、クロスフェード(ゲーム内 約0.5秒、core/relaxed-idle.js)が寄り切るのを待つ。
+       パネルの書き換えはゲーム内 0.5 秒に 1 回で、ヘッドレスではゲーム内の時間が実時間より遅い
+       (自動テストでは 1/4、core/sim-time.js)。決め打ちの待ち時間の後に 1 回だけ読むと、
+       書き換え前の古い値を読むことがある(CI-001)。寄り切るまで読み直す */
+    const SETTLE_MS = 20_000;   // ゲーム内 5 秒ぶん。寄り切りは 1 秒もかからない
+    let rest = null;
+    await expect.poll(async () => {
+      rest = await readRelax();
+      return !!rest && rest.combat < 0.05 && rest.stop > 0.9 && rest.relax > 0.9;
+    }, { timeout: SETTLE_MS }).toBe(true).catch(() => {});
     expect(rest, 'RIG ブロックの RELAX 行が読めること').not.toBeNull();
     // 非戦闘 × 停止中 → 休めの姿勢へ寄り切っている
     expect(rest.combat, '敵が居ないのに戦闘態勢が残っている').toBeLessThan(0.05);
@@ -181,9 +174,13 @@ test.describe('森の洋館 D-01〜D-04', () => {
     expect(walked, '4方向とも1歩も進めず、歩行中の姿勢を確認できなかった').not.toBeNull();
     expect(walked.relax, '歩いている間も休めの姿勢が残っている').toBeLessThan(rest.relax);
 
-    // 立ち止まれば戻る
-    await page.waitForTimeout(2500);
-    const again = await readRelax();
+    // 立ち止まれば戻る(上と同じく、寄り切るまで読み直す)
+    let again = null;
+    await expect.poll(async () => {
+      again = await readRelax();
+      return !!again && again.relax > 0.9;
+    }, { timeout: SETTLE_MS }).toBe(true).catch(() => {});
+    expect(again, 'RIG ブロックの RELAX 行が読めること').not.toBeNull();
     expect(again.relax, '立ち止まっても休めの姿勢へ戻らない').toBeGreaterThan(0.9);
 
     expect(errors).toEqual([]);

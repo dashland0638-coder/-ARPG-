@@ -238,12 +238,15 @@
        ここで「奥にいるのが鍛冶士」と言ってしまうと、居ない人物を指す
        ことになるので、加入の前後で指す先を変える ―― 加入前は同じ場所に
        置いてある仮設の作業台のほう */
+    /* 本編の加入前は作業台も無い(PROGRESSION-004)ので、作業台を指す行は出さない */
     (state.smithJoined
       ? {name:S, text:'奥にいるのが鍛冶士。装備の鑑定や強化は、そちらで頼めます。'}
-      : {name:S, text:'奥の隅に、間に合わせの作業台があります。鑑定や研ぎは、あそこで自分で。'}),
+      : smithFacilityAvailable(state)
+        ? {name:S, text:'奥の隅に、間に合わせの作業台があります。鑑定や研ぎは、あそこで自分で。'}
+        : null),
     {name:S, text:'依頼を受けて、外の廃墟や遺跡へ向かう……それが、この街での仕事のようです。'},
     {name:S, text:'……私も、詳しいわけではありませんが。見ていれば、分かることもあります。'}
-  ]; };
+  ].filter(Boolean); };
 
   // 二回目以降: インフォグラフィックの「酒場での役割」「他のNPCとの
   // 関係」から、テンポの良い掛け合いを数種類抜粋。会話のたびに
@@ -390,7 +393,7 @@
         state.vel.set(0,0,0);
         repositionAlliesToPlayer();
         camera.position.copy(state.pos).add(getCamOffset());
-        spawnToast('……気づくと、見知らぬ場所にいた');
+        spawnLog('……気づくと、見知らぬ場所にいた');
         });
       } else if(state.dialogueKind==='waterwayFall'){
         state.dialogueKind = null;
@@ -399,7 +402,7 @@
           state.vel.set(0,0,0);
           repositionAlliesToPlayer();
           camera.position.copy(state.pos).add(getCamOffset());
-          spawnToast('🪨 瓦礫の底に落ちた……');
+          spawnLog('🪨 瓦礫の底に落ちた……');
         });
       } else if(state.dialogueKind==='towerCollapse'){
         state.dialogueKind = null;
@@ -490,7 +493,7 @@
           state.dialogueActive = false;
           state.dialogueKind = null;
           clearMovementInput(false);
-          spawnToast('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+          spawnLog('⚠️ 結果画面の表示に失敗した。探索は続けられる');
         }
       });
       return;
@@ -504,7 +507,7 @@
           state.dialogueActive = false;
           state.dialogueKind = null;
           clearMovementInput(false);
-          spawnToast('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+          spawnLog('⚠️ 結果画面の表示に失敗した。探索は続けられる');
         }
       });
       return;
@@ -524,7 +527,7 @@
         state.dialogueActive = false;
         state.dialogueKind = null;
         clearMovementInput(false);
-        spawnToast('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+        spawnLog('⚠️ 結果画面の表示に失敗した。探索は続けられる');
       }
     }, 2000);
   }
@@ -577,6 +580,7 @@
   // 指定したhookに該当する習得済みスキルをすべて実行する(装着枠は無く、
   // 習得していれば常時発動する)
   function triggerBossSkills(hook, ctx){
+    if(!legacyGrowth()) return;   // 第一章(本編)では旧セーブのボススキルを発動しない
     (state.learnedBossSkills||[]).forEach(bossKey=>{
       const def = BOSS_SKILLS[bossKey];
       if(!def || def.hook!==hook) return;
@@ -679,6 +683,7 @@
 
   // 装着中のボス能力から、指定した効果IDの合計値を返す(無ければ0)
   function bossAbilityValue(effect){
+    if(!legacyGrowth()) return 0;   // 第一章(本編)では旧セーブのボス能力を効かせない
     if(!state.equippedBossAbilities) return 0;
     let total = 0;
     state.equippedBossAbilities.forEach(key=>{
@@ -864,7 +869,7 @@
       else if(def.unlock==='ultAlt') state.unlockedUltAlt = true;
       spawnToast(`${def.icon} 新しい技を習得した!`);
     } else {
-      spawnToast(`${def.icon} スフィア「${def.name}」を解放!`);
+      spawnLog(`${def.icon} スフィア「${def.name}」を解放!`);
     }
     recomputeStats();
     return true;
@@ -908,13 +913,14 @@
     if(state.ultChoice === 'alt') state.ultChoice = 'default';
     sphereSelectedNode = 'root';
     recomputeStats();
-    spawnToast(`🌀 スフィア盤をリセットした(${spent}pt還元)`);
+    spawnLog(`🌀 スフィア盤をリセットした(${spent}pt還元)`);
     sfx('levelUp');
     return true;
   }
 
   // 解放済みノードのうち、指定した効果typeの合計値を返す
   function sphereValue(type){
+    if(!legacyGrowth()) return 0;   // 第一章(本編)では旧セーブのスフィア盤を効かせない
     const unlocked = state.unlockedSphereNodes || ['root'];
     let total = 0;
     unlocked.forEach(id=>{
@@ -928,6 +934,7 @@
   // 合計値を返す。「あるスキルを強化すると、その技を使いたくなる」
   // (skill4以降の設計方針)を実現する仕組み
   function sphereVariantBonus(variantKey){
+    if(!legacyGrowth()) return 0;
     const unlocked = state.unlockedSphereNodes || ['root'];
     let total = 0;
     unlocked.forEach(id=>{
@@ -1031,7 +1038,7 @@
     } else {
       const item = rollBossSignatureGear(bossKey, state.level);
       addEquipmentItem(item);
-      spawnToast('⚔️ 固有装備を手に入れた!(鑑定所で確認できます)');
+      spawnLog('⚔️ 固有装備を手に入れた!(鑑定所で確認できます)');
       sfx('levelUp');
     }
   }
@@ -1291,7 +1298,7 @@
       grantXP(bonus.xp);
       const finalGold = grantGold(bonus.gold);
       // WI-A1: Chapter 1 に XP は無い。実際に得たゴールドだけを出す
-      spawnToast(legacyGrowth() ? `🏳️ 撤退ボーナス: XP+${bonus.xp} 🪙+${finalGold}` : `🏳️ 撤退ボーナス: 🪙+${finalGold}`);
+      spawnLog(legacyGrowth() ? `🏳️ 撤退ボーナス: XP+${bonus.xp} 🪙+${finalGold}` : `🏳️ 撤退ボーナス: 🪙+${finalGold}`);
     }
     returnToTown(false);
   }
@@ -1348,7 +1355,7 @@
        酒場の主人のところで出せるのも、そのシナリオひとつだけ */
     else if(isDefeat && !state.testMode && wasScenario && wasScenario === chapter1Next(state.scenarioClears)){
       const def = SCENARIO_DEFS.find(sc=> sc.key === wasScenario);
-      if(def) spawnToast(`${def.name}へ、もう一度。店主に声をかければ出られる`);
+      if(def) spawnLog(`${def.name}へ、もう一度。店主に声をかければ出られる`);
     }
   }
 
@@ -1480,7 +1487,7 @@
     const next = state.pendingAfterDefeat;
     state.pendingAfterDefeat = null;
     if(next === 'towerCollapse') beginTowerCollapse();
-    else spawnToast('🪜 先へ進む道が開いた');
+    else spawnLog('🪜 先へ進む道が開いた');
   });
   document.getElementById('down-return-btn').addEventListener('click', ()=>{
     document.getElementById('down-overlay').classList.remove('active');
@@ -1781,7 +1788,7 @@
     // 戻す(セーブデータ改変や解放前の選択残りに対する安全策)
     const ultTier = (jobActive && JOB_ULT_BY_JOB[state.job])
       ? JOB_ULT_BY_JOB[state.job]
-      : (state.ultChoice==='alt' && state.unlockedUltAlt && ULT_ALT_BY_CLASS[selectedClass])
+      : (state.ultChoice==='alt' && ultAltAvailable() && ULT_ALT_BY_CLASS[selectedClass])
         ? ULT_ALT_BY_CLASS[selectedClass] : base.ult;
     /* サブ武器を装備している間だけ、その武器専用の型を被せる
        (WEAPON_ULT_BY_KEY の冒頭コメント参照)。メイン武器では従来どおり
@@ -2011,9 +2018,11 @@
      note:'威力 +22% / 範囲 +12%'},
   ];
   const rankOf   = k => (state.ranks && state.ranks[k]) || 0;
-  const rankDmg  = k => 1 + rankOf(k) * (k==='ult' ? 0.22 : 0.18);
-  const rankArea = k => 1 + rankOf(k) * (k==='ult' ? 0.12 : 0.10);
-  const rankCD   = k => 1 - rankOf(k) * 0.12;
+  // 効果に使うランク。第一章(本編)では旧セーブのランクを効かせない(画面の表示・購入はrankOf)
+  const rankEffect = k => legacyGrowth() ? rankOf(k) : 0;
+  const rankDmg  = k => 1 + rankEffect(k) * (k==='ult' ? 0.22 : 0.18);
+  const rankArea = k => 1 + rankEffect(k) * (k==='ult' ? 0.12 : 0.10);
+  const rankCD   = k => 1 - rankEffect(k) * 0.12;
 
   function canRankUp(key){
     if(rankOf(key) >= MAX_RANK) return false;
@@ -2031,7 +2040,7 @@
     state.ranks[key]++;
     const def = ABILITY_DEFS.find(a=>a.key===key);
     playRankUpFlourish(def, state.ranks[key]);
-    spawnToast(def.icon + ' ' + def.label + ' が ランク' + state.ranks[key] + ' に!(' + paid + ')');
+    spawnLog(def.icon + ' ' + def.label + ' が ランク' + state.ranks[key] + ' に!(' + paid + ')');
     recomputeStats();
     return true;
   }
@@ -2343,7 +2352,7 @@
     return SKILL2_BY_CLASS[classKey];
   }
   function activeSkill2Def(classKey){
-    if(state.skill2Choice==='alt' && state.unlockedSkill2Alt && SKILL2_ALT_BY_CLASS[classKey]) return SKILL2_ALT_BY_CLASS[classKey];
+    if(state.skill2Choice==='alt' && skill2AltAvailable() && SKILL2_ALT_BY_CLASS[classKey]) return SKILL2_ALT_BY_CLASS[classKey];
     return defaultSkill2Def(classKey);
   }
 
@@ -2473,12 +2482,37 @@
   function updateSkillButtonIcon(){
     const icon = document.getElementById('btn-charge-icon');
     if(!icon || !state.classDef) return;
-    const variant = getChargeVariants()[state.skillChoice] || getChargeVariants().retreat;
+    const variant = activeSkill1Variant();
     setGlyphOrText(icon, currentSwordsmanGlyphIds().skill1, variant.icon);
   }
 
   function getChargeVariants(){
     return CHARGE_VARIANTS_BY_CLASS[state.classDef.key] || CHARGE_VARIANTS_BY_CLASS.warrior;
+  }
+
+  /* 第一章(本編)では、旧セーブに残る「変化系」の技を使わない・見せない(PROGRESSION-003)。
+     スフィア盤で解放した Skill 1 の新技・Skill 2 / 必殺技の alt・上位職専用の技。
+     セーブの値(unlocked*Alt / skillChoice / skill2Choice / ultChoice / job)はそのまま
+     残し、戦闘・HUD・鑑定所はこの判定を通して読む。テストモードは今まで通り */
+  function skill1VariantUsable(v){
+    if(!v) return false;
+    /* 第一章(本編)の Skill 1 は職業固有の既定の技に固定し、付け替えない(PROGRESSION-005、
+       Human Decision C-1)。どの技が既定かは defaultSkill1For / CHAPTER1_SKILL1 が持つ
+       (各職の正式な技は未決定。ここでは決めない) */
+    if(!legacyGrowth()) return v.key === defaultSkill1For(state.classDef.key);
+    if(!v.unlockKey) return true;
+    return v.unlockKey === 'job' ? !!state.job : !!state.unlockedSkill1Alt;
+  }
+  function skill2AltAvailable(){ return legacyGrowth() && !!state.unlockedSkill2Alt; }
+  function ultAltAvailable(){ return legacyGrowth() && !!state.unlockedUltAlt; }
+
+  /* いま Skill 1 で使う技。選ばれている技が使えなければ、新規開始・交代と
+     同じ既定の技(defaultSkill1For)にする */
+  function activeSkill1Variant(){
+    const variants = getChargeVariants();
+    const chosen = variants[state.skillChoice];
+    if(skill1VariantUsable(chosen)) return chosen;
+    return variants[defaultSkill1For(state.classDef.key)] || variants.retreat;
   }
 
   function toggleAppraisal(){
@@ -2494,6 +2528,7 @@
        セーブは saveGame() が state.testMode で必ず弾くため、ここで何を
        いじっても通常プレイの進行/解放状況には一切書き戻らない。 */
     if(!state.testMode){
+      if(!smithFacilityAvailable(state)) return;   // 鍛冶士の加入前は施設が無い(PROGRESSION-004)
       if(currentWorldKey!=='tavern') return;
       if(state.pos.distanceTo(SMITH_POS) >= 3) return; // talk to the blacksmith instead of anywhere in town
     }
@@ -2646,7 +2681,7 @@
       });
       if(best && best !== state.equipped[slot]){ equipItem(best); changed++; }
     });
-    spawnToast(changed ? `⚙️ ${changed}部位を最強装備に更新した` : '⚙️ すでに最適な装備だ');
+    spawnLog(changed ? `⚙️ ${changed}部位を最強装備に更新した` : '⚙️ すでに最適な装備だ');
     refreshAppraisal();
   }
 
@@ -2756,8 +2791,8 @@
       const result = identifyAllEquipment();
       if(result.total===0) spawnToast('🔍 鑑定できる装備がない');
       else if(result.count===0) spawnToast('🪙 資金が足りず鑑定できなかった');
-      else if(result.count<result.total) spawnToast(`✨ ${result.count}個を鑑定した(🪙${result.spent}) ―― 資金不足で${result.total-result.count}個は残った`);
-      else spawnToast(`✨ ${result.count}個をまとめて鑑定した(🪙${result.spent})`);
+      else if(result.count<result.total) spawnLog(`✨ ${result.count}個を鑑定した(🪙${result.spent}) ―― 資金不足で${result.total-result.count}個は残った`);
+      else spawnLog(`✨ ${result.count}個をまとめて鑑定した(🪙${result.spent})`);
       refreshAppraisal();
     });
     panel.querySelectorAll('[data-unequip]').forEach(btn=>{
@@ -3179,7 +3214,9 @@
     }
 
     else if(skillSubTab==='skill1'){
-      html += '<div class="ap-charge-title">スキル(専用ボタン・付け替え可能)</div><div class="ap-charge-variants">';
+      // 第一章(本編)の Skill 1 は固定(PROGRESSION-005)。Skill 2・必殺技の「固定」と同じ見せ方
+      const skill1Locked = !legacyGrowth();
+      html += `<div class="ap-charge-title">スキル(専用ボタン・${skill1Locked?'固定':'付け替え可能'})</div><div class="ap-charge-variants">`;
       /* 'dash' は STEP 3-A.2 で通常攻撃入力(攻撃ボタン長押しの溜め技)から
          切り離し、他のバリアントと並ぶ選択肢にした。以前ここにあった
          「溜め技(攻撃ボタン長押し・固定)」の固定カードは、指す先の入力が
@@ -3191,10 +3228,9 @@
       ['dash','retreat','phantom','spin','barrier'].concat(Object.keys(variants).filter(k=> variants[k].unlockKey==='skill1Alt' || variants[k].unlockKey==='job')).forEach(key=>{
         const v = variants[key];
         if(!v) return;   // その職に無いもの(幻影歩法は魔法使いだけ)は並べない
-        if(v.unlockKey==='skill1Alt' && !state.unlockedSkill1Alt) return;
-        if(v.unlockKey==='job' && !state.job) return;
-        const active = state.skillChoice===key;
-        html += `<div class="ap-charge-card ${active?'active':''}" data-variant="${key}">
+        if(!skill1VariantUsable(v)) return;
+        const active = activeSkill1Variant() === v;
+        html += `<div class="ap-charge-card ${active?'active':''}" ${skill1Locked?'style="cursor:default;"':`data-variant="${key}"`}>
           <div class="ap-charge-icon">${v.icon}</div>
           <div class="ap-charge-name">${v.name}</div>
           <div class="ap-charge-desc">${v.desc}</div>
@@ -3217,14 +3253,15 @@
       /* default は defaultSkill2Def が決める ―― 剣士は Chapter 1 の
          閃きで手に入る崩し斬り(D-04)。ここで SKILL2_BY_CLASS を直接
          引くと、実際に振る技と画面に出る技が食い違う */
-      const skill2Options = state.unlockedSkill2Alt
+      const skill2Alt = skill2AltAvailable();
+      const skill2Options = skill2Alt
         ? [['default', defaultSkill2Def(state.classDef.key)], ['alt', SKILL2_ALT_BY_CLASS[state.classDef.key]]]
         : [['default', defaultSkill2Def(state.classDef.key)]];
-      html += `<div class="ap-charge-title">スキル2(専用ボタン2・${state.unlockedSkill2Alt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
+      html += `<div class="ap-charge-title">スキル2(専用ボタン2・${skill2Alt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
       skill2Options.forEach(([choiceKey, def])=>{
         if(!def) return;
-        const active = (state.skill2Choice||'default')===choiceKey;
-        const clickable = state.unlockedSkill2Alt;
+        const active = (skill2Alt ? (state.skill2Choice||'default') : 'default')===choiceKey;
+        const clickable = skill2Alt;
         html += `<div class="ap-charge-card ${active?'active':''}" ${clickable?`data-skill2-choice="${choiceKey}"`:'style="cursor:default;"'}>
           <div class="ap-charge-icon">${def.icon}</div>
           <div class="ap-charge-name">${def.name}</div>
@@ -3277,17 +3314,18 @@
           </div>
         </div>`;
       } else {
-        const ultOptions = state.unlockedUltAlt
+        const ultAlt = ultAltAvailable();
+        const ultOptions = ultAlt
           ? [['default', CLASSES[clsKey].ult], ['alt', ULT_ALT_BY_CLASS[clsKey]]]
           : [['default', CLASSES[clsKey].ult]];
-        html += `<div class="ap-charge-title">必殺技(専用ゲージ・${state.unlockedUltAlt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
+        html += `<div class="ap-charge-title">必殺技(専用ゲージ・${ultAlt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
         ultOptions.forEach(([choiceKey, def])=>{
           if(!def) return;
-          const active = (state.ultChoice||'default')===choiceKey;
+          const active = (ultAlt ? (state.ultChoice||'default') : 'default')===choiceKey;
           // 表示中の威力倍率は「今選ばれている方」に限りstate.classDef.ult
           // (スフィア等の倍率込み)を使い、選ばれていない方は素の値を出す
           const shownMult = active ? state.classDef.ult.mult : def.mult;
-          const clickable = state.unlockedUltAlt;
+          const clickable = ultAlt;
           html += `<div class="ap-charge-card ${active?'active':''}" ${clickable?`data-ult-choice="${choiceKey}"`:'style="cursor:default;"'}>
             <div class="ap-charge-icon">${def.icon}</div>
             <div class="ap-charge-name">${def.name}</div>
@@ -3436,7 +3474,7 @@
     commitAllocDraft();
     recomputeStats();
     refreshAppraisal();
-    spawnToast('✅ ステータスを反映した');
+    spawnLog('✅ ステータスを反映した');
   });
 
   function closeAppraisal(){

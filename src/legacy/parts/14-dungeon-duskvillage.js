@@ -1233,7 +1233,7 @@
       const idx = walls.indexOf(duskGateWall);
       if(idx >= 0) walls.splice(idx, 1);
       duskGateOpening = false;
-      spawnToast('🌊 水門が開いた');
+      spawnLog('🌊 水門が開いた');
     }
   }
   let duskGateChainCD = 0, duskGateFlowCD = 0;
@@ -1483,7 +1483,7 @@
     spawnApparition(new THREE.Vector3(m.x, 0, m.z + 3), {color:0x4a5a68, fadeIn:0.9,
                      fadeOut:1.2, maxOpacity:0.30, vanishDist:200});
     spawnDuskRipple(m.x, m.z + 3, m.ripple);
-    spawnToast(m.line);
+    spawnLog(m.line);
     sfx('chime');
   }
 

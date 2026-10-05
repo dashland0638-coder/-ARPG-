@@ -97,7 +97,25 @@
     if(!state.testMode) return;
     arenaPanelOpen = !arenaPanelOpen;
     document.getElementById('arena-panel').classList.toggle('show', arenaPanelOpen);
+    syncArenaPanelTop();
   }
+
+  // パネルは左上ゾーンの並び(左上パネル・所持品・Arenaボタンの下)にあり、上端が
+  // 固定値ではない。CSSのmax-heightが画面下に収まるよう、実際の上端を渡す
+  // (UI-002-D WI-D2。844×390 で下端が画面外へ出て下のボタンを押せなかった)
+  // 開いている間は毎フレーム(updateArenaPanel)も呼ぶ。開いたまま左上パネルの高さが
+  // 変わる(階層表示の出入り、鑑定所での職業変更など)と上端が動くため。値が変わった
+  // 時だけ書き込む
+  let arenaPanelTop = '';
+  function syncArenaPanelTop(){
+    if(!arenaPanelOpen) return;
+    const panel = document.getElementById('arena-panel');
+    const top = `${Math.round(panel.getBoundingClientRect().top)}px`;
+    if(top === arenaPanelTop) return;
+    arenaPanelTop = top;
+    panel.style.setProperty('--arena-panel-top', top);
+  }
+  window.addEventListener('resize', syncArenaPanelTop);
 
   function toggleArenaDebugInfo(){
     arenaDebugInfoOn = !arenaDebugInfoOn;
@@ -257,6 +275,7 @@
   function updateArenaPanel(){
     const show = !!state.testMode;
     document.getElementById('arena-toggle-btn').classList.toggle('show', show);
+    if(show) syncArenaPanelTop();
     if(!show){
       document.getElementById('arena-panel').classList.remove('show');
       document.getElementById('arena-enemy-info').style.display = 'none';

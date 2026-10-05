@@ -206,7 +206,7 @@
 
   function addEquipmentItem(item){
     state.equipmentInventory.push(item);
-    spawnToast(item.identified ? `${item.icon} ${item.name} を手に入れた!` : '❓ 未鑑定の装備を手に入れた!');
+    spawnLog(item.identified ? `${item.icon} ${item.name} を手に入れた!` : '❓ 未鑑定の装備を手に入れた!');
   }
 
   // 装備が出る抽選に当たった時、さらに小さな確率で職業固有の特殊武器に差し替える。
@@ -258,9 +258,9 @@
     state.inventory.gold -= cost;
     item.identified = true;
     if(item.specialId){
-      spawnToast(`⭐ ${item.icon} ${item.name} ―― ${item.specialDesc}`);
+      spawnLog(`⭐ ${item.icon} ${item.name} ―― ${item.specialDesc}`);
     } else {
-      spawnToast(`✨ ${item.icon} ${item.name} と判明した!`);
+      spawnLog(`✨ ${item.icon} ${item.name} と判明した!`);
     }
     return true;
   }
@@ -298,7 +298,7 @@
     const price = equipmentSellPrice(item);
     state.equipmentInventory.splice(idx, 1);
     state.inventory.gold += price;
-    spawnToast(`🪙 ${item.icon} ${item.name} を売却した (+${price})`);
+    spawnLog(`🪙 ${item.icon} ${item.name} を売却した (+${price})`);
     return true;
   }
 
@@ -323,7 +323,7 @@
       if(idx>=0) state.equipmentInventory.splice(idx,1);
     });
     state.inventory.gold += total;
-    spawnToast(`🪙 装備${targets.length}個を売却した (+${total})`);
+    spawnLog(`🪙 装備${targets.length}個を売却した (+${total})`);
   }
 
   // 装備した武器の weaponType がそのままモーション・数値を決める
@@ -483,7 +483,7 @@
     if(chip) chip.textContent = state.inventory.potion;
     state.hp = Math.min(state.maxHp, state.hp + state.maxHp*0.2);
     sfx('potion');
-    spawnToast('🧪 薬草を使った!HPが回復した');
+    spawnLog('🧪 薬草を使った!HPが回復した');
   }
 
   function useMpPotion(){
@@ -502,7 +502,7 @@
     if(chip) chip.textContent = state.inventory.mppotion;
     state.mp = Math.min(state.maxMp, state.mp + state.maxMp*0.3);
     sfx('potion');
-    spawnToast('🔷 魔力の雫を使った!MPが回復した');
+    spawnLog('🔷 魔力の雫を使った!MPが回復した');
   }
 
   /* =========================================================
@@ -769,20 +769,20 @@
   function rollCommonChestLoot(){
     const gold = 3 + Math.floor(Math.random()*4);   // 3〜6枚
     grantGold(gold);
-    spawnToast(`🪙 金貨${gold}枚を手に入れた!`);
+    spawnLog(`🪙 金貨${gold}枚を手に入れた!`);
 
     // WI-A5: Chapter 1 では素材を出さない。別の報酬には置き換えない
     if(legacyGrowth() && Math.random() < 0.55){
       const isGem = Math.random() < 0.5;
       const type = isGem ? 'gem' : 'shard';
       grantItem(type, 1 + Math.floor(Math.random()*2));
-      spawnToast(isGem ? '💎 魔宝石を手に入れた!' : '🔩 武具の欠片を手に入れた!');
+      spawnLog(isGem ? '💎 魔宝石を手に入れた!' : '🔩 武具の欠片を手に入れた!');
     }
 
     if(Math.random() < 0.12){
       const useMp = state.maxMp > 0 && Math.random() < 0.5;
       grantItem(useMp ? 'mppotion' : 'potion', 1);
-      spawnToast(useMp ? '🔷 魔力の雫を手に入れた!' : '🧪 薬草を手に入れた!');
+      spawnLog(useMp ? '🔷 魔力の雫を手に入れた!' : '🧪 薬草を手に入れた!');
     }
   }
 
@@ -812,12 +812,12 @@
           // 従来通り変更していない
           if(c.kind === 'supply'){
             grantItem('potion', 2);
-            spawnToast('🧪 薬草を2つ手に入れた!');
-            if(state.maxMp > 0){ grantItem('mppotion', 1); spawnToast('🔷 魔力の雫を手に入れた!'); }
+            spawnLog('🧪 薬草を2つ手に入れた!');
+            if(state.maxMp > 0){ grantItem('mppotion', 1); spawnLog('🔷 魔力の雫を手に入れた!'); }
           } else if(c.kind === 'armoury'){
             maybeGrantEquipmentInstant(1.0);
             grantItem('potion', 1);
-            spawnToast('🧪 薬草を手に入れた!');
+            spawnLog('🧪 薬草を手に入れた!');
           } else {
             rollCommonChestLoot();
             maybeGrantEquipmentInstant(0.2);
@@ -918,7 +918,7 @@
     h.broken = true;
     const healAmt = Math.max(1, Math.round(state.maxHp * 0.25));
     state.hp = Math.min(state.maxHp, state.hp + healAmt);
-    spawnToast(`💚 結晶を砕いて${healAmt}回復した!`);
+    spawnLog(`💚 結晶を砕いて${healAmt}回復した!`);
     spawnHitSpark(new THREE.Vector3(h.pos.x, h.pos.y+0.6, h.pos.z), 0x7fe8b8, 1.6);
     flashScreen();
     /* 見た目だけ消し、シーンからは外さない。結晶は自前のPointLightを
@@ -1164,7 +1164,9 @@
   // セーブされているのに、それを見て再構築する経路が無かったため)
   function syncAlliesToState(){
     if(companion){ scene.remove(companion.group); companion = null; }
-    if(state.skills && state.skills.companion>=1){
+    // 第一章(本編)では、旧セーブに残る「仲間を雇う」で同行させない(PROGRESSION-002)。
+    // 正式な支援AI(guestClassKey)は下でそのまま組み直す
+    if(legacyGrowth() && state.skills && state.skills.companion>=1){
       companion = buildCompanion();
     }
     if(guestCompanion){ scene.remove(guestCompanion.group); guestCompanion = null; }

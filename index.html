@@ -90,18 +90,17 @@
       <div class="hud-bars">
         <div class="hud-name" id="hud-name">-</div>
         <div class="hud-floor" id="hud-floor" style="display:none;"></div>
-        <div class="bar-label">HP</div>
-        <div class="bar-track"><div class="bar-fill hp" id="hp-fill" style="width:100%"></div></div>
-        <div class="bar-label" id="mp-label">MP</div>
-        <div class="bar-track"><div class="bar-fill mp" id="mp-fill" style="width:100%"></div></div>
-        <div class="bar-label">スタミナ</div>
-        <div class="bar-track"><div class="bar-fill sta" id="sta-fill" style="width:100%"></div></div>
+        <div class="bar-label hud-bar-hp">HP</div>
+        <div class="bar-track hud-bar-hp"><div class="bar-fill hp" id="hp-fill" style="width:100%"></div></div>
+        <div class="bar-label hud-bar-mp" id="mp-label">MP</div>
+        <div class="bar-track hud-bar-mp"><div class="bar-fill mp" id="mp-fill" style="width:100%"></div></div>
+        <div class="bar-label hud-bar-sta">スタミナ</div>
+        <div class="bar-track hud-bar-sta"><div class="bar-fill sta" id="sta-fill" style="width:100%"></div></div>
         <div class="bar-track xp"><div class="bar-fill xp" id="xp-fill" style="width:0%"></div></div>
       </div>
     </div>
     <div class="hud-loot" id="hud-loot">
       <div class="loot-chip" id="loot-menu-btn" style="cursor:pointer;">☰</div>
-      <div class="loot-chip" id="loot-potion-btn" style="cursor:pointer;">🧪<span class="count" id="loot-potion">0</span></div>
       <div class="loot-chip" id="loot-mppotion-btn" style="cursor:pointer;">🔷<span class="count" id="loot-mppotion">0</span></div>
     </div>
     <div id="arena-toggle-btn" class="arena-toggle-btn">⚔️ Arena</div>
@@ -182,22 +181,25 @@
     </div>
   </div>
   <div class="action-zone">
-    <div class="action-btn has-cd-ring" id="btn-ult">
+    <div class="action-btn has-cd-ring" id="btn-ult" data-key="K">
       <span id="btn-ult-icon">💥</span>
       <div class="ult-btn-cd" id="ult-btn-cd" style="display:none;"></div>
     </div>
-    <div class="action-btn has-cd-ring" id="btn-charge">
+    <div class="action-btn has-cd-ring" id="btn-charge" data-key="L">
       <span id="btn-charge-icon">💢</span>
     </div>
-    <div class="action-btn has-cd-ring" id="btn-skill2">
+    <div class="action-btn has-cd-ring" id="btn-skill2" data-key="O">
       <span id="btn-skill2-icon">✴️</span>
     </div>
-    <div class="action-btn has-cd-ring" id="btn-skill3">
+    <div class="action-btn has-cd-ring" id="btn-skill3" data-key="U">
       <span id="btn-skill3-icon">👑</span>
     </div>
     <div class="action-btn" id="btn-jump">JUMP</div>
     <div class="action-btn" id="btn-dodge">回避</div>
     <div class="action-btn" id="btn-attack"><span class="action-glyph" id="btn-attack-glyph" aria-hidden="true"></span>攻撃</div>
+    <!-- 回復のクイック使用(UI-002-D WI-D3。HD-D12)。以前は左上の所持品の行にあった
+         🧪 チップを要素ごと移した(id・個数・usePotion() の結び付けは従来どおり) -->
+    <div class="action-btn" id="loot-potion-btn" data-key="V">🧪<span class="count" id="loot-potion">0</span></div>
   </div>
 </div>
 <div id="screen-fade"></div>
@@ -289,7 +291,7 @@
       スキル1: L / Y・△ / スキルボタン<br>
       スキル2: O / L2・LT / スキル2ボタン(閃いた後に使える)<br>
       カメラ回転: Q・E / 右スティック<br>
-      鑑定所(鍛冶士／仮設の作業台の前で): I / 十字キー下 / 画面下のメッセージをタップ<br>
+      鑑定所(鍛冶士の前で): I / 十字キー下 / 画面下のメッセージをタップ<br>
       出撃メニュー(店主の前で): F / 十字キー上 / 画面下のメッセージをタップ<br>
       扉を開ける・階段を使う: R / L1・LB / 画面下のメッセージをタップ<br>
       薬草を使う: V / R1・RB / HUD左上の🧪をタップ<br>

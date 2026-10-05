@@ -441,7 +441,7 @@
     scene.add(roadArcherStay);
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
-    spawnToast(`${state.classDef.icon} ${ROAD_TRAVELER}`);
+    spawnLog(`${state.classDef.icon} ${ROAD_TRAVELER}`);
     [[ROAD_X - 7, 88, PROVISIONAL_ROAD_BEAST],
      [ROAD_X + 7, 90, PROVISIONAL_ROAD_BEAST],
      [ROAD_X + 1, 95, PROVISIONAL_ROAD_SPITTER]].forEach(([x, z, v])=>{
@@ -495,7 +495,7 @@
     }
     if(roadMet && !roadFight2Done && roadFight2.length && roadFight2.every(en=> en.dead)){
       roadFight2Done = true;
-      spawnToast('🌄 道の先が、開けている');
+      spawnLog('🌄 道の先が、開けている');
     }
   }
 

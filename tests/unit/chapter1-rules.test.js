@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, CHAPTER1_SKILL1, hudLabel,
+  legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, CHAPTER1_SKILL1, hudLabel, smithFacilityAvailable,
 } from '../../src/core/chapter1-rules.js';
 
 // 実装と同じ形(11-combat-actions.js の WEAPON_TYPES から武器種キーだけ)
@@ -91,5 +91,21 @@ test('酒場での交代の一幕を開いてよいか(暗転中に始めない)
   });
   await t.test('順番待ちが無ければ何もしない', () => {
     assert.equal(joinSceneReady({...ok, pending:false}), false);
+  });
+});
+
+test('酒場の施設(鑑定所)は鍛冶士の加入後だけ。テストモードはどこでも(PROGRESSION-004)', async (t) => {
+  await t.test('剣士だけの序盤(加入前)は施設が無い', () => {
+    assert.equal(smithFacilityAvailable({ smithJoined: false, testMode: false }), false);
+    assert.equal(smithFacilityAvailable({}), false);
+    assert.equal(smithFacilityAvailable(undefined), false);
+    // 施設に関係する他の値が残っていても出ない(旧セーブ)
+    assert.equal(smithFacilityAvailable({ smithJoined: false, smithToolsRecovered: true, smithGreeted: true }), false);
+  });
+  await t.test('洋館から戻って鍛冶屋が加入したら使える', () => {
+    assert.equal(smithFacilityAvailable({ smithJoined: true }), true);
+  });
+  await t.test('テストモード(開発用)は従来どおり', () => {
+    assert.equal(smithFacilityAvailable({ testMode: true, smithJoined: false }), true);
   });
 });

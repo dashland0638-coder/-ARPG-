@@ -384,7 +384,7 @@
   function currentSwordsmanGlyphIds(){
     const cdef = state.classDef;
     if(!cdef) return resolveSwordsmanGlyphIds(null);
-    const variant = getChargeVariants()[state.skillChoice] || getChargeVariants().retreat;
+    const variant = activeSkill1Variant();
     const skill2 = activeSkill2Def(cdef.key);
     return resolveSwordsmanGlyphIds({
       classKey: cdef.key,
@@ -488,6 +488,7 @@
     document.getElementById('xp-fill').style.width = `${Math.max(0,Math.min(100,state.xp/state.xpToNext*100))}%`;
     updateUltHUD();
     updateCooldownRings();
+    syncActionZoneLayout();   // PC の能力表示は戦闘態勢中だけ(UI-002-D WI-D3)
     updateHudVisibility(true);
     if(state.paused) refreshMenuStats();
   }
@@ -891,6 +892,94 @@
   }
   let executePromptShown = false;
 
+  /* 処刑・インタラクトの表示位置(UI-002-D WI-D6。HD-D16)。以前は画面下中央の 1 列に
+     コンボと並んでいた。いまは対象(処刑できる敵・インタラクトの対象)を画面へ投影した点の
+     上に出し、置き場所は画面中央 60%×60% の中に限る(core/combat-prompt-layout.js)。
+     投影はダメージ数値(spawnDamagePopup)と同じ Vector3.project(camera)。
+     判定(どれを対象にするか)と .show には触れず、出ている間の left / top だけを書く。
+     処刑が出ている間はインタラクトが処刑を避ける(interact() も処刑を先に見る) */
+  const _promptVec = new THREE.Vector3();
+  const EXECUTE_PROMPT_LIFT = 2.6;    // 敵の足元から頭上まで(ダメージ数値の 2.1 より上)
+  const INTERACT_PROMPT_LIFT = 1.6;
+  /* 押している間は動かさない(UI-002-D WI-D7。統合監査 F-3)。処刑・インタラクトは click で
+     実行され、click は押した要素と離した要素が同じ時だけ出る。押している間にカメラが動いて
+     プロンプトが指の下から外れると押し損ねるため、押した指が離れるまで位置を書き換えない */
+  const heldPrompts = new Map();   // 要素 → 押している pointerId
+  ['execute-prompt', 'interact-btn'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('pointerdown', e=>{ heldPrompts.set(el, e.pointerId); });
+  });
+  ['pointerup', 'pointercancel'].forEach(evt=>{
+    window.addEventListener(evt, e=>{
+      heldPrompts.forEach((id, el)=>{ if(id === e.pointerId) heldPrompts.delete(el); });
+    });
+  });
+  /* プロンプトが避ける入力領域(UI-002-D WI-D7。統合監査 F-1)。844×390 のスティック領域は
+     中央の領域の左下に入っていて、その上に出たプロンプトはスティックを押す指を受け取ってしまう
+     (分岐の階段は確認なしで進む)。見えていて押せるスティック・Action ボタンを避ける */
+  function promptInputAvoidRects(){
+    const out = [];
+    const tc = document.getElementById('touch-controls');
+    if(!tc) return out;
+    tc.querySelectorAll('#joy-zone, .action-btn').forEach(el=>{
+      const cs = getComputedStyle(el);
+      if(cs.visibility === 'hidden' || cs.pointerEvents === 'none') return;
+      const r = el.getBoundingClientRect();   // 祖先が display:none なら大きさ 0
+      if(r.width > 0 && r.height > 0) out.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+    });
+    return out;
+  }
+  function placePromptOverWorld(el, worldPos, lift, avoid){
+    if(heldPrompts.has(el)){
+      const r = el.getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    }
+    _promptVec.set(worldPos.x, (worldPos.y || 0) + lift, worldPos.z).project(camera);
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const size = { w: el.offsetWidth, h: el.offsetHeight };
+    const p = placeAnchoredPrompt({ anchor: ndcToScreen(_promptVec, vw, vh), size, viewport: { w: vw, h: vh }, avoid });
+    el.style.left = p.left + 'px';
+    el.style.top = p.top + 'px';
+    return { left: p.left, top: p.top, right: p.left + size.w, bottom: p.top + size.h };
+  }
+  function updateCombatPromptPositions(){
+    // コンボは右下の固定位置で、844×390 では中央の領域の右下に少し入る。出ている間は処刑・
+    // インタラクトがコンボを避ける(Review Round 1)
+    const combo = document.getElementById('combo-indicator');
+    const it = document.getElementById('interact-btn');
+    const itShown = !!(it && it.classList.contains('show'));
+    if(!executePromptShown && !itShown) return;
+    const avoid = promptInputAvoidRects();   // 位置を書く前にまとめて読む
+    if(combo && combo.classList.contains('show')){
+      const r = combo.getBoundingClientRect();
+      avoid.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+    }
+    if(executePromptShown){
+      const target = currentExecutionTarget();
+      const el = document.getElementById('execute-prompt');
+      if(target && target.group && el) avoid.push(placePromptOverWorld(el, target.group.position, EXECUTE_PROMPT_LIFT, avoid.slice()));
+    }
+    if(itShown){
+      placePromptOverWorld(it, interactTargetWorldPos() || state.pos, INTERACT_PROMPT_LIFT, avoid);
+    }
+  }
+
+  /* 844×390 のボスバー・制限時間の左端(UI-002-D WI-D7。統合監査 F-2)。Character パネルは
+     洋館の階層表示(4 列目、WI-D4)で横に広がる(「5F 主の間」で右端 x 364 → 409。名前は最長の
+     組でもバーの列 3 つ分に収まる)ので、固定の幅ではなくパネルの実際の右端を CSS 変数に渡す。
+     書くのはパネルの大きさ・画面の大きさが変わった時だけ */
+  {
+    const panel = document.querySelector('.hud-topleft');
+    const writePanelRight = ()=>{
+      const r = panel.getBoundingClientRect();
+      if(r.width > 0) document.documentElement.style.setProperty('--hud-tl-right', r.right + 'px');
+    };
+    if(panel){
+      if(typeof ResizeObserver === 'function') new ResizeObserver(writePanelRight).observe(panel);
+      window.addEventListener('resize', writePanelRight);
+    }
+  }
+
   function updateComboIndicator(){
     const wrap = document.getElementById('combo-indicator');
     if(!wrap) return;
@@ -943,7 +1032,8 @@
      では一切表示せず、パネルのDOMにも触れない。
 
      ■ なぜ実時間で測るのか
-     メインループの dt は `Math.min(0.05, clock.getDelta())` で50msに
+     メインループの dt は `simDeltaSeconds(clock.getDelta(), SIM_TIME_SCALE)`
+     (通常のプレイは `Math.min(0.05, フレーム間隔)`、core/sim-time.js)で50msに
      頭打ちされている。シミュレーションを安定させるための正しい処理だが、
      そのぶん 2秒のフリーズも dt の上では 50ms にしか見えない ―― つまり
      dt を眺めていても停止は永遠に見つからない。ここでは performance.now()
@@ -1203,6 +1293,10 @@
     el.textContent = motionDebugLines(snap).join('\n');
   }
 
+  /* 自動テストで操作されているブラウザ(navigator.webdriver)だけ、ゲーム内の時間を実時間の
+     1/4 に固定する(CI-001、core/sim-time.js)。GPU の無い CI では描画の速さが機械ごとに違い、
+     50ms の頭打ちのせいでゲーム内の時間の進み方まで run ごとに変わっていた。通常のプレイは 1 */
+  const SIM_TIME_SCALE = simTimeScale(typeof navigator !== 'undefined' ? navigator : null);
   function animate(){
     onResize();   // cheap: two reads, and only acts when the viewport moved
     requestAnimationFrame(animate);
@@ -1210,7 +1304,7 @@
        されるので、本当の停止時間はここでしか見えない(PERFORMANCE
        DIAGNOSTICのコメント参照) */
     perfTick(performance.now());
-    let dt = Math.min(0.05, clock.getDelta());
+    let dt = simDeltaSeconds(clock.getDelta(), SIM_TIME_SCALE);
     if(hitStopCD > 0) hitStopCD = Math.max(0, hitStopCD - dt);
     // hit stop: real time still advances, the simulation just eases
     if(hitStopT > 0){
@@ -1284,6 +1378,7 @@
       updateAmbience(dt);   // 場所の環境音(区画ごとに間隔を空けて単発で鳴らす)
       updateWaterwayColdTimer(dt);
       updateScenarioTimer(dt);
+      updateCombatPromptPositions();   // 処刑・インタラクトを対象の上へ(UI-002-D WI-D6)。近接の判定の後
       if(state.debugMode){
         debugRefreshCounter = (debugRefreshCounter+1)%30;
         if(debugRefreshCounter===0) showDebugColliders();
@@ -1422,7 +1517,7 @@
     try{
       applySaveData(data);
       finishEnteringGame({showIntro:false});
-      spawnToast(`🌙 ${state.name} として再開しました`);
+      spawnLog(`🌙 ${state.name} として再開しました`);
       return true;
     }catch(err){
       // Leaves the title screen exactly as it was - a malformed save
@@ -1776,7 +1871,7 @@
   function playChapter1JoinScene(prevKey, nextKey){
     const prev = CLASSES[prevKey], next = CLASSES[nextKey];
     if(!next) return;
-    spawnToast(`${next.icon} ${next.name}が酒場にいる`);
+    spawnLog(`${next.icon} ${next.name}が酒場にいる`);
     sfx('chime');
     const lines = CHAPTER1_JOIN_LINES[nextKey];
     if(!lines) return;
@@ -1833,7 +1928,7 @@
     if(state.posHistory) state.posHistory.length = 0;
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
-    spawnToast(`🛠 ${wp.name} から開始`);
+    spawnLog(`🛠 ${wp.name} から開始`);
   }
 
   // テストモード(2026-08-31)のスポーン地点。トレーニング空間はタヴァン

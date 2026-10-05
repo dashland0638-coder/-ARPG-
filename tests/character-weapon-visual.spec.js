@@ -11,7 +11,7 @@
  * 同じ方式)。エフェクト(魔法陣・オーラ等)は OUTL の対象に数えない。
  */
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
+import { watchErrors, openGame, dismissIntroDialogue, openAppraisalAtSmith } from './helpers.js';
 
 const JOBS = [
   {key:'warrior', job:false, name:'剣士'},
@@ -33,24 +33,6 @@ async function readOutl(page){
   return m ? { wepMissing:+m[1], wepTarget:+m[2], decoMissing:+m[3], decoTarget:+m[4], xray:+m[5] } : null;
 }
 
-/* 酒場の鍛冶士まで歩いて鑑定所を開く(chapter1-skill2.spec.js と同じ導線。
-   カメラ追従を切ってから呼ぶ ―― 固定の camYaw で W+D が鍛冶士の方向になる) */
-async function openAppraisal(page){
-  let open = false;
-  for (let attempt = 0; attempt < 30 && !open; attempt++) {
-    await page.keyboard.down('KeyW');
-    await page.keyboard.down('KeyD');
-    await page.waitForTimeout(400);
-    await page.keyboard.up('KeyW');
-    await page.keyboard.up('KeyD');
-    await page.keyboard.press('KeyI');
-    await page.waitForTimeout(300);
-    open = await page.evaluate(() =>
-      document.getElementById('appraisal-overlay').classList.contains('active'));
-  }
-  return open;
-}
-
 /* 特殊効果武器(ちぞめの大剣、大剣 = 剣士の native 武器種)。装備すると
    武器種が同じでも swapPlayerWeaponVisual() で武器を作り直す(08 equipItem) */
 const CHIZOME = {
@@ -59,8 +41,11 @@ const CHIZOME = {
   rarity:'rare', identified:true, specialId:'chizome',
 };
 
-/* 酒場のセーブ。剣士は chapter1-skill2.spec.js と同じ最小セーブ(鍛冶士の加入前 =
-   仮設の作業台、spawn から W+D の一方向で届く)。影の旅人は Chapter 1 を終えたセーブ */
+/* 酒場のセーブ。鑑定所(施設)は鍛冶士の加入後だけ(PROGRESSION-004)なので、どちらも
+   smithJoined を立てる。影の旅人は Chapter 1 を終えたセーブ(洋館クリアで加入済みの状態)。
+   剣士は、主人公の剣士が鍛冶士の前に立つ本編の段階が無い(加入前は施設が無く、加入後は
+   主人公が魔法使いへ交代する)ので、武器の持ち替えの見た目を確かめるための合成のセーブ
+   (洋館未クリアのまま smithJoined だけを立てる) */
 function saveWith(selectedClass, scenarioClears, extra){
   return Object.assign({
     v: 2, selectedClass, selectedGender: 'male', selectedPersonality: 'cautious',
@@ -76,8 +61,7 @@ function saveWith(selectedClass, scenarioClears, extra){
 }
 
 async function equipChizome(page){
-  await disableCameraAutoFollow(page);
-  expect(await openAppraisal(page), '鑑定所が開く').toBe(true);
+  expect(await openAppraisalAtSmith(page), '鑑定所が開く').toBe(true);
   await page.locator('.ap-tab[data-tab="gear"]').click();
   await page.locator('[data-equip-idx="0"]').first().click();
   // 武器を作り直したとき(swapPlayerWeaponVisual の直後)だけ、必殺技の名乗りが出る(08 equipItem)
@@ -118,7 +102,7 @@ test.describe('武器・上位職の装飾の輪郭線(CHARACTER-VIS-001 T-7)', 
     test.setTimeout(150_000);
     const errors = watchErrors(page);
     await page.addInitScript(([key, payload]) => { localStorage.setItem(key, payload); },
-      ['soulforge_save_v1', JSON.stringify(saveWith('warrior', {}))]);
+      ['soulforge_save_v1', JSON.stringify(saveWith('warrior', {}, { smithJoined: true, smithGreeted: true }))]);
     await openGame(page);
     await page.click('#cc-continue-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
@@ -139,7 +123,7 @@ test.describe('武器・上位職の装飾の輪郭線(CHARACTER-VIS-001 T-7)', 
     const errors = watchErrors(page);
     await page.addInitScript(([key, payload]) => { localStorage.setItem(key, payload); },
       ['soulforge_save_v1', JSON.stringify(saveWith('rogue',
-        { mansion: 1, duskvillage: 1, ghostship: 1, clocktower: 1, road: 1 }))]);
+        { mansion: 1, duskvillage: 1, ghostship: 1, clocktower: 1, road: 1 }, { smithJoined: true, smithGreeted: true }))]);
     await openGame(page);
     await page.click('#cc-continue-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });

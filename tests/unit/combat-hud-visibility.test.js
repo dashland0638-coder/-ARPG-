@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   PC_HINT_DURATION_SEC, STAMINA_SHOW_AFTER_USE_SEC, PC_HINT_OPS,
   legacyHudVisible, skill2ButtonVisible, skill3ButtonVisible, alwaysOnHudVisible,
-  minimapPanelVisible, touchControlsMode, touchActionButtonsVisible,
+  minimapPanelVisible, touchControlsMode, touchActionButtonsVisible, actionZoneLayout,
   staminaVisible, unlockedPcHintOps, stepPcHint,
 } from '../../src/core/combat-hud-visibility.js';
 
@@ -61,13 +61,31 @@ test('タッチ操作パッド: 現行の refreshTouchControls と同じ結果',
     { active: false, gamepadMin: false, cameraButtons: false });
 });
 
-test('PC のタッチ用ボタン(HD-D08 / D22): D1 では現行の表示結果のまま(実際の非表示化は D3)', () => {
-  assert.deepEqual(touchActionButtonsVisible({ started: true, isTouchDevice: false }),
-    { attack: true, skill1: true, ultimate: true, jump: false, dodge: false });
+test('PC のタッチ用ボタン(HD-D08 / D22): WI-D3 で PC では出さない。タッチ・タッチ端末＋パッドは従来どおり', () => {
+  const none = { attack: false, skill1: false, ultimate: false, jump: false, dodge: false };
+  assert.deepEqual(touchActionButtonsVisible({ started: true, isTouchDevice: false }), none);
+  assert.deepEqual(touchActionButtonsVisible({ started: true, isTouchDevice: false, gamepadConnected: true }), none);
   assert.deepEqual(touchActionButtonsVisible({ started: true, isTouchDevice: true }),
     { attack: true, skill1: true, ultimate: true, jump: true, dodge: true });
-  assert.deepEqual(touchActionButtonsVisible({ started: false }),
-    { attack: false, skill1: false, ultimate: false, jump: false, dodge: false });
+  assert.deepEqual(touchActionButtonsVisible({ started: true, isTouchDevice: true, gamepadConnected: true }),
+    { attack: true, skill1: true, ultimate: true, jump: false, dodge: false });
+  assert.deepEqual(touchActionButtonsVisible({ started: false }), none);
+});
+
+test('Action Zone の表示モード(WI-D3): タッチ / パッド / PC の能力表示は戦闘態勢中だけ・キー表記はキーボードのみ', () => {
+  assert.deepEqual(actionZoneLayout({ started: true, isTouchDevice: true }),
+    { layout: 'touch', indicatorsVisible: false, keyLabels: false });
+  assert.deepEqual(actionZoneLayout({ started: true, isTouchDevice: true, gamepadConnected: true, inCombat: true }),
+    { layout: 'pad', indicatorsVisible: false, keyLabels: false });
+  assert.deepEqual(actionZoneLayout({ started: true, isTouchDevice: false, inCombat: false }),
+    { layout: 'indicators', indicatorsVisible: false, keyLabels: true });
+  assert.deepEqual(actionZoneLayout({ started: true, isTouchDevice: false, inCombat: true }),
+    { layout: 'indicators', indicatorsVisible: true, keyLabels: true });
+  assert.deepEqual(actionZoneLayout({ started: true, isTouchDevice: false, gamepadConnected: true, inCombat: true }),
+    { layout: 'indicators', indicatorsVisible: true, keyLabels: false });
+  assert.deepEqual(actionZoneLayout({ started: false, isTouchDevice: false, inCombat: true }),
+    { layout: 'none', indicatorsVisible: false, keyLabels: false });
+  assert.deepEqual(actionZoneLayout(), { layout: 'none', indicatorsVisible: false, keyLabels: false });
 });
 
 test('スタミナ(HD-D25): 満タンで直近の消費なし → 非表示。消費中・回復中・消費から 3 秒間は表示', () => {

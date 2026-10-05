@@ -190,4 +190,89 @@ async function centralIntrusion(page, selectors) {
   }, selectors);
 }
 
-export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, startTestMode, centralIntrusion };
+/* 通知(UI-002-D WI-D5)を表示された瞬間に記録する。中央トースト(.item-pop、1.7 秒で消える)と
+   左下ログ(.msg-log-line)を channel 'toast' / 'log' として window.__notes に積む。
+   ページを開く前(openGame の前)に呼ぶ。拾得ポップも .item-pop なので 'toast' に入る */
+async function watchNotifications(page) {
+  await page.addInitScript(() => {
+    window.__notes = [];
+    new MutationObserver(muts => {
+      for (const m of muts) {
+        for (const n of m.addedNodes) {
+          if (n.nodeType !== 1) continue;
+          if (n.classList.contains('item-pop')) window.__notes.push({ channel: 'toast', text: n.textContent || '' });
+          else if (n.classList.contains('msg-log-line')) window.__notes.push({ channel: 'log', text: n.textContent || '' });
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });   // documentElement はまだ無いことがある
+  });
+}
+
+/** 記録した通知の数(この時点より後の通知だけを見るための目印) */
+const noteMark = page => page.evaluate(() => (window.__notes || []).length);
+
+/** 目印 since より後の通知の文言。channel を省くと両方 */
+const notesSince = (page, since = 0, channel = null) => page.evaluate(([s, c]) =>
+  (window.__notes || []).slice(s).filter(n => !c || n.channel === c).map(n => n.text), [since, channel]);
+
+/**
+ * Arena の敵情報パネル(#arena-enemy-info、テストモード専用のデバッグ表示)は毎フレーム書き直される
+ * (14-training-ground.js updateArenaEnemyInfo)。予兆(WINDUP)・分離(SPLIT)のような短い相は、テストから
+ * 間隔を空けて 1 回ずつ読むと取りこぼす ―― 読む間隔は実時間で、相の長さはゲーム内時間なので、機械の
+ * 速さしだいで観測できたりできなかったりした(CI-001)。recordArenaInfo() でページの中に書き直しのたびの
+ * 内容を記録し、drainArenaInfo() で前に読んでから今までの内容(と今の内容)をまとめて受け取る。
+ */
+async function recordArenaInfo(page) {
+  await page.evaluate(() => {
+    const el = document.getElementById('arena-enemy-info');
+    window.__arenaInfoLog = [];
+    new MutationObserver(() => { window.__arenaInfoLog.push(el.innerHTML); })
+      .observe(el, { childList: true, characterData: true, subtree: true });
+  });
+}
+async function drainArenaInfo(page) {
+  return page.evaluate(() => {
+    const log = window.__arenaInfoLog || [];
+    window.__arenaInfoLog = [];
+    log.push(document.getElementById('arena-enemy-info').innerHTML);
+    return log;
+  });
+}
+/** 敵情報パネルの HTML から 1 行の値を取る(例: 'AI State', 'Punish', 'Tier', 'Guard') */
+function arenaInfoValue(html, key) {
+  const m = new RegExp(key + ':\\s*([^<]*)').exec(html || '');
+  return m ? m[1].trim() : null;
+}
+
+/**
+ * 本編の酒場で、鍛冶士(加入後)まで歩いて鑑定所を開く。鍛冶士の加入前は施設が無い
+ * (PROGRESSION-004)ので、加入済みのセーブで使う。カメラ追従を切った酒場の固定 camYaw では
+ * W+D が鍛冶士の方向。この道は鍛冶士の炉の当たり判定に突き当たり、止まる位置が鍛冶士の
+ * 範囲(3m)のちょうど縁になる(押し続けている間は当たり判定の押し戻しで範囲の内外を
+ * 毎フレーム行き来する。インタラクトの表示もそれに合わせて点滅する。実測)。手を離した
+ * 位置が内か外かは run ごとに違う。そこで、W+D を押し続けたまま短い間隔で I キーを押す
+ * (プレイヤーが鍛冶士へ寄りながら I を押すのと同じ)。範囲に入ったフレームで開く。
+ * 開けたら true。
+ */
+async function openAppraisalAtSmith(page, maxSteps = 80) {
+  await disableCameraAutoFollow(page);
+  const isOpen = () => page.evaluate(() => document.getElementById('appraisal-overlay').classList.contains('active'));
+  for (let i = 0; i < maxSteps; i++) {
+    await page.keyboard.down('KeyW');
+    await page.keyboard.down('KeyD');
+    for (let k = 0; k < 3; k++) {
+      await page.keyboard.press('KeyI');
+      await page.waitForTimeout(60);
+      if (await isOpen()) break;
+    }
+    await page.keyboard.up('KeyW');
+    await page.keyboard.up('KeyD');
+    if (await isOpen()) return true;
+    await page.waitForTimeout(100);
+  }
+  return isOpen();
+}
+
+export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, startTestMode, centralIntrusion,
+  watchNotifications, noteMark, notesSince,
+  recordArenaInfo, drainArenaInfo, arenaInfoValue, openAppraisalAtSmith };

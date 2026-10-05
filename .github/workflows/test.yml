@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+# 同じ PR(ブランチ)へ続けて push すると、以前は push ごとに 1.5〜3 時間の E2E が並んで走っていた。
+# 結果を見るのは最新の commit だけなので、古い run は取り消す(CI-001)。最新の commit は必ず最後まで
+# 検証される(取り消された commit の変更は最新の commit に含まれている)
+concurrency:
+  group: test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -39,3 +46,14 @@ jobs:
 
       - name: E2E tests
         run: npm test
+
+      # 失敗した時の手がかり(error-context.md・スクリーンショット等)を残す。以前は run の
+      # ログの末尾しか残らず、CI だけで落ちる原因を後から調べられなかった(CI-001)
+      - name: Upload Playwright results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
