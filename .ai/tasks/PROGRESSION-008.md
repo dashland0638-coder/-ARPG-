@@ -1,6 +1,6 @@
 # PROGRESSION-008
 
-Status: IMPLEMENTING
+Status: DONE
 
 Analysis: .ai/reports/PROGRESSION-008-analysis.md（branch `claude/progression-008-chapter1-no-anomaly` @ `795fa97d27b1e62cd25a6efbcebfd1f7796402e2`、blob `0eb8120aadbfda09ea8c58a6b1dc3a859d7e1d57`）
 
@@ -54,3 +54,37 @@ Implementation: ALLOWED
 | N-1 | 第一章の判定は既存の `legacyGrowth()` | `core/chapter1-rules.js` の定義（本編 = 第一章 / 第一章後の仕組みはテストモードだけ）。PROGRESSION-001〜007 と同じ | 章の判定を新設（Human の指示で禁止） |
 | N-2 | 出現（乱数より前）と入口の 2 か所で止める | 異空間の経路はすべて裂け目から始まる。入口にも置くのは処理側の二重の安全策 | 報酬・ログ・帰還の各所に判定を散らす |
 | N-3 | PROGRESSION-006 の報酬ゲートは残す | Human の指示。第二章以降の安全策 | 削除 |
+
+## Implementation Result
+
+### Changed Files
+- `src/legacy/parts/02-world-common.js`（`spawnAnomalyRiftForWorld` / `enterAnomalyRoom` の冒頭に第一章の判定）
+- `src/core/chapter1-rules.js`（冒頭の一覧に「異空間 … なし」）
+- `tests/unit/chapter1-no-anomaly.test.js`（新規 5 件）
+- 記録: `.ai/decisions/UI-002-human-decisions.md`、`docs/PROGRESSION.md`
+
+### Test Report
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| Build | PASS | |
+| Unit | PASS | 1633 件中 1632 PASS / 0 FAIL / 1 SKIP（既存）。新規 5 件は変更前の src で 3 件 FAIL |
+| Protocol | PASS | 16 / 16 |
+| 新規 E2E | なし | 裂け目は 40% の乱数で、食堂は CI 環境で歩いて到達できない（Test Plan） |
+| E2E 全体（2 CPU） | 236 passed / 1 failed | FAIL は `mansion-enemies:220`（テストモードのトレーニング空間。本変更の経路外）。単独で再実行して PASS |
+| GitHub Actions（`a87d0ce`） | **success** | |
+
+## Status History
+| Date | From → To | By | Note |
+| --- | --- | --- | --- |
+| 2026-10-05 | （新規）→ PLANNED → IMPLEMENTING | Orchestrator / Analyzer / Planner | Analysis `795fa97`、Plan + 回帰テスト `fe164df`（Agent Approval） |
+| 2026-10-05 | IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | 実装 `d268059`、記録 `a87d0ce`、PR #35 |
+| 2026-10-05 | REVIEWING（Reviewer PASS） | Reviewer | Round 1/3 PASS |
+| 2026-10-05 | REVIEWING → DONE | Orchestrator（Completion commit） | Merge required: Human approval |
+
+### Autonomy Metrics（PROGRESSION-008）
+- Human Escalation Count: 0
+- Human Decision Count: 1（この Task の起点の Human Decision）
+- Auto Fix Count: 1（新規 unit の stub の調整）
+- Reviewer Round Count: 1
+- Test Retry Count: 1（`mansion-enemies:220` の切り分けの単独再実行）
+- PR Created: Yes (#35)
