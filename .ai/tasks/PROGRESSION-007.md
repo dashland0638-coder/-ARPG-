@@ -1,6 +1,6 @@
 # PROGRESSION-007
 
-Status: IMPLEMENTING
+Status: DONE
 
 Analysis: .ai/reports/PROGRESSION-007-analysis.md（branch `claude/chapter1-smith-shop-hd2-hd3` @ `3595b00d2d8e1bc25738adeabe8d4d369e9a058b`、blob `cc1f3a5a0b35e131c7f90143d18cfab74cfa0434`）
 
@@ -62,3 +62,39 @@ HD-2（第一章の鍛冶屋は装備管理・確認施設）と HD-3（第一�
 | S-2 | 第一章の判定は `legacyGrowth()` | 既存の第一章判定（PROGRESSION-001〜006 と同じ）。Test Mode 判定そのもの（`state.testMode`）を各所で直接見ない | 章の判定を新設 |
 | S-3 | 文言は本編「鍛冶屋」「装備の管理」、テストモードは従来どおり | HD-2「装備を管理する場所」、docs/SCENARIOS.md「鍛冶屋が加入」。テストモードには鑑定・強化が実在する | テストモードも変える（実在する機能を隠す） |
 | S-4 | 装備・売却・スキル画面は変更しない | 調査で HD-2 の許可・禁止を既に満たしている（Analysis §2） | 画面を作り直す（Human の指示で不要） |
+
+## Implementation Result
+
+### Changed Files
+- `src/legacy/parts/12-progression-ui.js`（`LEGACY_AP_TABS` に `shop`、`renderShopPanel` の処理側ゲート、見出し）
+- `src/legacy/parts/02-world-common.js`（加入後のインタラクトの文言）、`index.html`（メニューの操作説明）
+- `src/core/chapter1-rules.js`（コメントのみ: HD-2 / HD-3、Skill 1 固定は第一章だけ）
+- tests: `tests/unit/chapter1-smith-shop.test.js`（新規 6 件）、`tests/chapter1-smith-shop.spec.js`（新規 2 件）
+- 記録: `.ai/decisions/UI-002-human-decisions.md`、`.ai/reports/UI-002-F-re-audit.md`（§12）、`docs/PROGRESSION.md`
+
+### Test Report
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| Build | PASS | |
+| Unit | PASS | 1634 件中 1633 PASS / 0 FAIL / 1 SKIP（既存）。新規 6 件は変更前の src で 3 件 FAIL |
+| Protocol | PASS | 16 / 16 |
+| 新規 E2E | 2 / 2 PASS | 本編の 1 件は変更前の src で FAIL（見出し「鑑定所」・商店タブ）。テストモードの 1 件は回帰の確認 |
+| 関連 E2E | 6 / 6 PASS | `chapter1-facility-access`（PROGRESSION-004）+ 新規 |
+| E2E 全体（2 CPU） | **238 passed / 1 flaky** | flaky は `job-traits:162`（既存の retries、テストモード、本変更の経路外） |
+| GitHub Actions（`ffea540`） | **success** | |
+
+## Status History
+| Date | From → To | By | Note |
+| --- | --- | --- | --- |
+| 2026-10-05 | （新規）→ PLANNED → IMPLEMENTING | Orchestrator / Analyzer / Planner | Analysis `3595b00`、Plan + 回帰テスト `ce313e2`（Agent Approval。仕様は HD-2 / HD-3） |
+| 2026-10-05 | IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | 実装 `bccc6bb`、記録 `ffea540`、PR #34 |
+| 2026-10-05 | REVIEWING（Reviewer PASS） | Reviewer | Round 1/3 PASS |
+| 2026-10-05 | REVIEWING → DONE | Orchestrator（Completion commit） | Merge required: Human approval |
+
+### Autonomy Metrics（PROGRESSION-007）
+- Human Escalation Count: 0
+- Human Decision Count: 1（この Task の起点の HD-2 / HD-3）
+- Auto Fix Count: 1（新規テストのセレクタ: `.appraisal-title` が 2 つあった）
+- Reviewer Round Count: 1
+- Test Retry Count: 0（E2E 全体の flaky 1 件は Playwright の既存の retries。手動の再実行なし）
+- PR Created: Yes (#34)
