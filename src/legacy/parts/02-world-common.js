@@ -1120,6 +1120,7 @@
   }
 
   function spawnAnomalyRiftForWorld(key){
+    if(!legacyGrowth()) return;   // 第一章(本編)に異空間は存在しない(PROGRESSION-008)。本体は第二章以降のために残す
     const spot = ANOMALY_RIFT_SPOTS[key];
     if(!spot) return;
     if(Math.random() < ANOMALY_SPAWN_CHANCE) anomalyRifts.push(buildRift(spot));
@@ -1176,6 +1177,7 @@
   }
 
   function enterAnomalyRoom(){
+    if(!legacyGrowth()) return;   // 同上。裂け目が残っていても第一章では入らない
     if(inAnomalyRoom) return;
     inAnomalyRoom = true;   // 即座にガードを立てる。フェード中(約230ms)は
                             // 毎フレーム裂け目との距離判定が再実行されるため
