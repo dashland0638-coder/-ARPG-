@@ -154,7 +154,7 @@ Test Mode でしか確認していない機能は数えていない。ただし 
 | CB-12 | 道 | 敵・数値 | `PROVISIONAL_ROAD_*` と汎用の獣を確定する（専用の敵にするか、数値だけ決めるか） | 仮 | `14-dungeon-road.js` | HD-C3 | P2 | **Yes**（敵の追加は禁止事項） |
 | CB-13 | 道 | 検証 | 時計塔 → 道 → 影の旅人 → 酒場（Chapter 1 の終わり）の本編通し | 未確認 | WORK11 §15-1 | CB-11 | P1 | No |
 | CB-14 | 植物園 Extra | 仕様 | 第一章での位置（Extra の解放条件、物語、③との関係）。現在は本編から到達できない | 未定義 | `chapter1-progress.js`、WORK11 §16-4 | HD-C4 | P2 | **Yes** |
-| CB-15 | 全体 | ドキュメント | `docs/SCENARIOS.md` の古い記述（自動進行・ゲスト AI・5人目が「未実装」のまま） | 古い | `SCENARIOS.md:55-58` | なし | P2 | No |
+| CB-15 | 全体 | ドキュメント | `docs/SCENARIOS.md` の古い記述（自動進行・ゲスト AI・5人目が「未実装」のまま） | 古い | `SCENARIOS.md:49-52,161` | なし | P2 | No |
 
 ---
 
