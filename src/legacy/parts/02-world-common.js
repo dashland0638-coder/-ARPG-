@@ -1197,7 +1197,10 @@
 
   function grantAnomalyReward(){
     spawnLog('✨ 異空間の宝を手に入れた!');
-    addEquipmentItem(rollDropEquipment(0.4));   // レア率40%(通常22%)で確定装備
+    /* 確定装備(レア率40%、通常22%)。ランダム装備は第一章の本編では出さない
+       (装備は固定・少数。PROGRESSION-006) ―― 宝箱と同じ本編ゲート付きの入口を通す。
+       テストモードでは従来どおり必ず1つ */
+    maybeGrantEquipmentInstant(1.0, 0.4);
     const isGem = Math.random() < 0.5;
     addItem({type: isGem?'gem':'shard', name: isGem?'魔宝石':'武具の欠片', icon: isGem?'💎':'🔩',
       color: isGem?0x6fd1e6:0xb0a08a, amountMin:2, amountMax:4});
