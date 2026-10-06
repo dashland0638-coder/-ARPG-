@@ -63,9 +63,9 @@ export function weaponUsableBy(kitKey, weaponType, weaponTypes, opts){
    主人公は Skill 1 を最初から1つ持っている(全体基本仕様)。交代のたびに
    全職共通の 'retreat' へ戻していたのをやめ、クラスごとの正式な Skill 1 を返す。
 
-   魔法使い = 幻影歩法(MAGE-001 / DEC-001)。
-   剣士・盗賊・弓師の Skill 1 は正式仕様に個別の指定が無いので、
-   これまで本編で使っていた既定('retreat')のまま(HD-1 未決定)。
+   Human Decision(2026-10-06、UI-002-F HD-1。.ai/decisions/UI-002-human-decisions.md):
+     剣士 = 切り下がり / 盗賊 = 影退きの一閃 / 弓師 = 五月雨射ち(各職の 'retreat')
+     魔法使い = 幻影歩法('phantom'。MAGE-001 / DEC-001)
 
    この固定は **第一章だけ** の規則(Human Decision C-1 / HD-2)で、ゲーム全体の
    Skill 仕様ではない。第一章クリア後は、習得済みの技から Skill 1 / Skill 2 を
