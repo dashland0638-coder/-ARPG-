@@ -1,6 +1,6 @@
 # PROGRESSION-010
 
-Status: REVIEWING
+Status: DONE
 
 Report: .ai/reports/PROGRESSION-010-final.md
 
@@ -24,3 +24,17 @@ PROGRESSION-001〜009 を統合し、第一章を完成版として扱える状�
 
 ## Files Not To Change
 ゲームのコード（`src/legacy/parts/*`、`chapter1-rules.js` のロジック）、`basefile.html`、テストモード
+
+## Status History
+| Date | From → To | By | Note |
+| --- | --- | --- | --- |
+| 2026-10-06 | （新規）→ IMPLEMENTING → TESTING → REVIEWING | Orchestrator / Implementer / Tester | 統合 `c30c6c8`、記録 `faa10a7`、PR #36 |
+| 2026-10-06 | REVIEWING → DONE | Reviewer / Orchestrator | Round 1/3 PASS。Merge required: Human approval |
+
+### Autonomy Metrics（PROGRESSION-010）
+- Human Escalation Count: 0
+- Human Decision Count: 1（HD-1。指示の中で確定）
+- Auto Fix Count: 1（Decision Record の競合の解消）
+- Reviewer Round Count: 1
+- Test Retry Count: 1（GitHub Actions の失敗した job の再実行 1 回）
+- PR Created: Yes (#36)

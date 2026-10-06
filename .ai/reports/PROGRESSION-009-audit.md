@@ -183,3 +183,13 @@ E2E（統合状態、2 CPU）: **62 passed / 0 failed**（`chapter1-*` 7 spec・
 
 **Chapter 1 Ready: NO**（現在の `main`）
 **Chapter 1 Ready（PR #33・#34・#35 を merge し、B-2 の競合を解消した後）: YES** — C-1〜C-3 は第一章の完成を妨げない判断事項として残る
+
+## 16. 後記（PROGRESSION-010、2026-10-06）
+
+| 監査の項目 | 対応 |
+| --- | --- |
+| B-1 PR #33〜#35 の統合 | PR #36（`claude/progression-010-chapter1-final`）に #33 → #34 → #35 の順で統合。main への merge は Human |
+| B-2 Decision Record の競合 | 両方を残して解消（PROGRESSION-007 → 008 の順） |
+| B-3 HD-1 の記録 | **確定として記録済み**（Decision Record「PROGRESSION-010」、`chapter1-rules.js` のコメント、`docs/PROGRESSION.md`、UI-002-F 再監査）。技の名前を unit `chapter1-skill1-hd1.test.js` で固定。上の F-3 / B-3 は監査時点の記録 |
+| B-4 育成系の関数の第一章の判定 | 第二章の設計時にまとめて扱う（Human の指示。今回は変更なし） |
+| C-1〜C-3 | Decision Record の Undecided に記録（未決定のまま） |
