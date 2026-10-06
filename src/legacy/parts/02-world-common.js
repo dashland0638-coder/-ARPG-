@@ -2397,7 +2397,11 @@
     else if(nearbyChest) el.textContent = '調べる';
     else if(nearbyStallTrigger) el.textContent = '個室に入る';
     else if(nearbyBartender) el.textContent = '🗺️ 店主と話す(出撃)';
-    else if(nearbySmith) el.textContent = state.smithJoined ? '🔨 鍛冶士と話す(鑑定・強化)' : '🧰 仮設の作業台(鑑定・強化)';
+    /* 第一章の鍛冶屋は装備を管理する場所(HD-2)。鑑定・強化はテストモードにだけある。
+       仮設の作業台はテストモードにしか建たない(PROGRESSION-004) */
+    else if(nearbySmith) el.textContent = state.smithJoined
+      ? (legacyGrowth() ? '🔨 鍛冶士と話す(鑑定・強化)' : '🔨 鍛冶士と話す(装備の管理)')
+      : '🧰 仮設の作業台(鑑定・強化)';
     else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)'
       : (smithFacilityAvailable(state) ? '🏕️ 休憩する(回復+装備整理)' : '🏕️ 休憩する(回復)');
   }
