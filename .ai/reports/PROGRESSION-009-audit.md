@@ -13,7 +13,7 @@
 - **第一章の通常プレイへ、第二章以降の成長・自由化要素が漏れる経路は見つからなかった。** 旧セーブ・直接の関数呼び出し・キー入力・ゲームパッド・NPC・UI・セーブ/ロードの各経路を、処理の入口まで追った。
 - 第一章の判定はすべて `legacyGrowth()`（= `legacyGrowthEnabled(state.testMode)`）一本で、テストモードは `?dev=1` の URL でしか入れず、セーブもされない。境界は単純で一貫している。
 - **ただし 3 件の PR（#33〜#35）が未 merge。** `main` 単体では、第一章でショップ購入・異空間（と、その報酬のランダム装備）が残っている。第一章を完成版として扱えるのは、3 件を merge した後。
-- 統合状態: Build PASS、Unit 1644 PASS / 0 FAIL / 1 SKIP（既存）、第一章の E2E（§15）。
+- 統合状態: Build PASS、Unit 1644 PASS / 0 FAIL / 1 SKIP（既存）、第一章の E2E 62 / 62 PASS。
 - 分類: A（PASS）多数、B（Agent Fix）4 件（すべて記録・merge・堅牢化。ゲームの挙動の漏れではない）、C（Human Decision）3 件、D（Known / Intentional）8 件。
 
 ## 2. First Chapter Rules Audit
@@ -179,7 +179,7 @@
 - **`main` 単体: 未完成。** ショップ購入・異空間（とランダム装備の報酬）が残る。
 - 統合状態の検証: Build PASS、Unit 1644 PASS / 0 FAIL / 1 SKIP、第一章の E2E は下記。
 
-E2E（統合状態、2 CPU）: 結果は §16 に追記する。
+E2E（統合状態、2 CPU）: **62 passed / 0 failed**（`chapter1-*` 7 spec・`mansion-scenario`・`mansion-escort`・`road`・`save-load`・`scenario-test-mode`・`tavern-smith-greeting`。各 PR の E2E 全体と GitHub Actions は PR ごとに PASS 済み）
 
 **Chapter 1 Ready: NO**（現在の `main`）
 **Chapter 1 Ready（PR #33・#34・#35 を merge し、B-2 の競合を解消した後）: YES** — C-1〜C-3 は第一章の完成を妨げない判断事項として残る
