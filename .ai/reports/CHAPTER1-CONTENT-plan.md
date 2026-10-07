@@ -748,3 +748,15 @@ HE-1 と HE-2 は計画の進行を止めない位置に置いた。CS-01 の承
 - Auto Fix Count: 0
 - Reviewer Round Count: 1
 - Test Retry Count: 0
+
+---
+
+## 追記（2026-10-07）: CS-01 の確定
+
+- **CS-01 は DONE。** HE-1 で B 案を承認（`.ai/decisions/DEC-004-chapter1-story.md`）。確定した仕様は `docs/CHAPTER1_STORY.md`。
+- **CR-02 の範囲を広げる**（N-4 の追加条件）:
+  - 加入前は、酒場の隅の NPC を含めて名前を出さない（話者名「？？？」）。
+  - 加入の瞬間に「影の旅人」を開示する。
+  - `tests/shadow-guide.spec.js` と `tests/road.spec.js` の期待値は、新仕様に合わせて更新する。
+- **CT-03 の範囲を明確にする**: 名も無い島から見える人影（加入前のグラフィック、遅れる影）、翌朝の酒場（時計を返す、管理人の生還）を含む。
+- 幽霊船・時計塔・道のコード実装（CG-02 以降、CT-02 以降、CR-02）は、PR #36 の merge 後に着手する。

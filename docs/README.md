@@ -24,6 +24,9 @@ AIエージェント（Analyzer / Planner / Claude Code / Debugger / Reviewer）
 ### [SCENARIOS.md](./SCENARIOS.md)
 Chapter 1、シナリオ、ダンジョン、進行。
 
+### [CHAPTER1_STORY.md](./CHAPTER1_STORY.md)
+Chapter 1 後半（村 → 幽霊船 → 時計塔 → 道）の物語接続。正体不明の人物の扱い。
+
 ### [ARCHITECTURE.md](./ARCHITECTURE.md)
 ゲーム実装上のアーキテクチャ（AIが実装変更時に守るルール）。
 

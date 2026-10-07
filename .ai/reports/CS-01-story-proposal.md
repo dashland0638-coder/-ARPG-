@@ -2,7 +2,8 @@
 
 Date: 2026-10-07
 Work Item: CS-01（`.ai/reports/CHAPTER1-CONTENT-plan.md` P0）
-Status: **案（HE-1 Human 承認待ち）**。この文書は**仕様ではない**。承認されるまで何も確定していない。
+Status: **承認済み（HE-1、2026-10-07）: B 案 / N-1 採用 / N-3 生還 / 盗賊の過去は推奨どおり / N-4 採用（加入前は名前を出さない、という追加条件つき）**。
+確定した仕様は `docs/CHAPTER1_STORY.md`、決定の記録は `.ai/decisions/DEC-004-chapter1-story.md`。この文書は検討の記録として残す（本文は承認前の案のまま）。
 Basis: HD-C1 = b（幽霊船・時計塔に第一章専用の物語と同行者の会話を足す）
 
 この文書では次のことをしていない。
