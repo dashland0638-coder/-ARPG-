@@ -3154,8 +3154,13 @@
   let seaY = -999;
   let finaleStarted = false;
 
-  function setLookout(box, y, seaLevel, jumpFrom, onSea){
-    lookout = Object.assign({}, box, {y, jumpFrom});
+  /* finaleLines(省略可): 終幕の台詞を差し替える関数。呼んだ時点で
+     {opening:[...], atLip:[...]} を返せばその台詞、null なら既存の台詞。
+     各要素は文字列(名前欄は主人公)か {name, text}。仕組み(甲板に乗った
+     瞬間に始まる・縁まで歩く・跳ぶ・着水で終わる)は変えない
+     (第一章④の跳ぶ瞬間、docs/CHAPTER1_STORY.md §4-5、CT-03) */
+  function setLookout(box, y, seaLevel, jumpFrom, onSea, finaleLines){
+    lookout = Object.assign({}, box, {y, jumpFrom, finaleLines: finaleLines || null});
     seaY = seaLevel;
     onSeaEntry = onSea;
     finaleStarted = false;
@@ -3175,11 +3180,18 @@
     const lip = lookout.jumpFrom;
     const from = {x:state.pos.x, z:state.pos.z};
     const walk = 1.8;
+    const custom = lookout.finaleLines ? lookout.finaleLines() : null;
+    const opening = custom ? custom.opening : ['見晴台に出た。眼下には雲が流れ、その裂け目に海が光っている。'];
+    const atLip = custom ? custom.atLip : ['足元で塔が軋む。……降りる道は、無い。'];
+    const say = l => typeof l === 'string' ? cutsceneLine(l) : cutsceneLine(l.text, l.name);
+    // 台詞は1行ずつ送られるまで待つ(cutsceneLine)。2行目以降は直前の行の後に続ける
+    const lines = (arr, gap) => arr.slice(1).map(l=> ({t:gap, run:()=> say(l)}));
     playCutscene([
       {t:0.0, run:()=>{
         state.facing = Math.atan2(lip.x - from.x, lip.z - from.z);
-        cutsceneLine('見晴台に出た。眼下には雲が流れ、その裂け目に海が光っている。');
+        say(opening[0]);
       }},
+      ...lines(opening, 0.4),
       {t:2.6, run:()=>{
         cutsceneHideLine();
         state.walkTo = {vx:(lip.x-from.x)/walk, vz:(lip.z-from.z)/walk};
@@ -3187,8 +3199,9 @@
       {t:walk, run:()=>{
         state.walkTo = null;
         state.pos.x = lip.x; state.pos.z = lip.z;
-        cutsceneLine('足元で塔が軋む。……降りる道は、無い。');
+        say(atLip[0]);
       }},
+      ...lines(atLip, 0.4),
       {t:2.2, run:()=>{
         cutsceneHideLine();
         state.escapeFalling = true;
