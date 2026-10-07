@@ -8,7 +8,8 @@ import { watchErrors, openGame, createCharacter, dismissIntroDialogue, disableCa
    このダンジョンは 森 → 一階 → 二階 → 一階奥 → 地下 → 主の間 の6区画に
    分かれていて、区画同士は階段のテレポートで繋がっている。区画の間取り
    そのもの(部屋の重なり・出入口の噛み合い・階段の着地点が壁に埋まって
-   いないか)は MANSION_ROOMS の表に対する静的な検算で確認できるので、
+   いないか)は MANSION_ROOMS の表に対する静的な検算で確認できる
+   (tests/unit/mansion-scenes.test.js)ので、
    ここでは「実際にワールドが組み上がるか」「森の導線とイベントが生きて
    いるか」「酒場が鍛冶士の加入状態で正しく分岐するか」を見る。
 
