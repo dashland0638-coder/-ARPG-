@@ -16,7 +16,7 @@
 - 新規 8件(本物の buildBoss の設定 + startBossDialogue、setLookout + beginFinale、buildClocktowerChapter1Story、SCENARIO_TAVERN_DIALOGUE.road)
 - 変異確認4件(ボス台詞の本編条件 / 終幕の差し替え / 盗賊の過去の崩壊条件 / 道の導入の本編条件)→ 全て失敗を確認して戻した
 - `npm run test:unit`: 全件 pass
-- E2E: 時計塔・道・影の人物に触れる spec(結果は PR に記載)
+- E2E: 時計塔・道・影の人物に触れる spec 一式: 50 passed
 
 ## Reviewer
 - PASS(Round 1)。ボスの性能、崩壊・見晴台・着水の仕組み、進行の判定、セーブ項目は不変。加入前の人物の名前・職業名を出していない(N-4)。Decision Record 不要(DEC-004 の範囲内)
