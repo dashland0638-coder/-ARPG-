@@ -255,6 +255,71 @@
     buildGhostShipBelowDecks();
 
     buildGhostShipBossHold();
+    buildGhostShipChapter1Story();
+  }
+
+  /* 第一章③ 幽霊船の物語(docs/CHAPTER1_STORY.md §4-2、DEC-004)。
+
+     **本編のときだけ**置く(legacyGrowth() が偽)。テストモードと、将来の周回
+     (Chapter 2 以降)では、既存の周回用の台詞と手記だけの船のまま。
+
+     本筋は 桟橋 → 晩餐の間 → 船長室 → 甲板 → 貨物室 → 船倉の奥 → ボス
+     (.ai/reports/CHAPTER1-GHOSTSHIP-checklist.md)。ここで置くのは前半の3つ:
+       晩餐の間を出たところ … 弓師と魔法使いの「帰る場所」の話
+       船長室                … 止まった船の時計(七時十三分)
+       甲板                  … 海を見ていた影の後の一言
+     敵・扉・階段・ボスの性能には触れない。セーブ項目も増やさない。
+
+     会話の最初の行は文字列(名前欄は speakerName)、2行目からは
+     {name, text}(advanceDialogue → renderDialogueLine)―― 既存の作法 */
+  function ghostShipChapter1(){
+    return !legacyGrowth() && state.scenarioKey === 'ghostship';
+  }
+  function buildGhostShipChapter1Story(){
+    if(!ghostShipChapter1()) return;
+    const A = CLASSES.archer.name, M = CLASSES.mage.name;
+
+    /* 晩餐の間を出たところ(控えの廊下の曲がり角)。晩餐の間は桟橋から入って
+       すぐの部屋で、本筋はここを必ず通る。食器の音(0,66)の後になる */
+    registerProximityEvent(new THREE.Vector3(-5,0,74), 1, M, [
+      '「この船の人たちは、帰る場所があったんですね」',
+      {name:A, text:'「ええ。だから、降りられないんだと思います」'},
+      {name:M, text:'「……あなたは?」'},
+      {name:A, text:'「私は、どこにも。……だから、少しだけ羨ましい」'}
+    ], {area:{x0:-8, x1:-2, z0:72.4, z1:76}, condition:ghostShipChapter1});
+
+    /* 船長室。止まった船の時計(N-5)。七時十三分はボスの台詞でも出るので、
+       ここは気づく場面。船長室は crewDoor(0,80)→cabinDoor(0,95) を通り抜ける
+       本筋の部屋なので、点ではなく部屋の奥半分を範囲にして取りこぼさない */
+    buildLoreNote(new THREE.Vector3(4,0,89), '止まった船の時計', [
+      '壁の振り子時計は、七時十三分を指したまま動かない。',
+      'ねじは巻いてある。止めたのは、時計の側ではないらしい。'
+    ], {kind:'sign'});
+    registerProximityEvent(new THREE.Vector3(0,0,89), 1, A, [
+      '「……あの時計、七時十三分で止まっています」',
+      {name:M, text:'「何か、心当たりが?」'},
+      {name:A, text:'「港で聞いた鐘も、毎晩その時刻に鳴っていました」'}
+    ], {area:{x0:-7.6, x1:7.6, z0:85, z1:94.6}, condition:ghostShipChapter1});
+
+    /* 甲板。海を見つめていた影(既存の近接イベント、(-5,105) 半径7)の後の一言。
+       あの影は甲板の西寄りにいて、cabinDoor から階段(6,108)へまっすぐ
+       歩くと半径の外を通ることがある。そのため2通り:
+         影を見た  → 見た直後(会話が閉じた次のフレーム、まだ半径の中)
+         見ていない → 階段の手前で、手すりのほうを振り返る形
+       どちらか一方だけが出る(影を見た後は「見ていない」形が出ず、
+         「見ていない」形が出た後は、影を後から見ても重ねない) */
+    const seaShadow = proximityEvents.find(ev=> ev.pos.x === -5 && ev.pos.z === 105);
+    const shadowSeen = ()=> !!seaShadow && seaShadow.fired;
+    registerProximityEvent(new THREE.Vector3(-5,0,105), 7, A, [
+      '「……あの人、陸のほうを見ていました」',
+      {name:M, text:'「帰り道を探しているんでしょうか」'}
+    ], {condition:()=> ghostShipChapter1() && shadowSeen() && !deckMissed.fired});
+    registerProximityEvent(new THREE.Vector3(5,0,106), 1, A, [
+      '「……手すりのところに、誰か立っていませんでしたか」',
+      {name:M, text:'「陸のほうを、見ていたような。……帰り道を探しているんでしょうか」'}
+    ], {area:{x0:2, x1:7.6, z0:103, z1:110}, marker:false,
+        condition:()=> ghostShipChapter1() && !shadowSeen()});
+    const deckMissed = proximityEvents[proximityEvents.length-1];
   }
 
   /* =========================================================
