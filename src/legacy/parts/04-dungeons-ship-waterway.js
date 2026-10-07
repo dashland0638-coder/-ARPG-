@@ -320,7 +320,32 @@
     ], {area:{x0:2, x1:7.6, z0:103, z1:110}, marker:false,
         condition:()=> ghostShipChapter1() && !shadowSeen()});
     const deckMissed = proximityEvents[proximityEvents.length-1];
+
+    /* 船倉の奥(CG-03)。貨物室からの階段は扉の手前(-32,108)に着き、既存の
+       「空気が重い」(-32,107 r4)→「船長帽の影」(-30,110 r6)が着いた所で
+       続けて出る。その影が出た後に、警告(-38,104 の彫り込み)と、扉の向こうの
+       顔についての二言を一つの会話で置く(ボスの会話の手前) */
+    const captainShadow = proximityEvents.find(ev=> ev.pos.x === -30 && ev.pos.z === 110);
+    registerProximityEvent(new THREE.Vector3(-30,0,110), 6, M, [
+      '「分かっているつもりで、決めてしまったんですね。……少し、覚えがあります」',
+      {name:A, text:'「……鐘を待っている顔です」'}
+    ], {condition:()=> ghostShipChapter1() && !!captainShadow && captainShadow.fired});
   }
+
+  /* 帰港を望む船長の、第一章の台詞(§4-2、N-1)。性能・扉・撃破後の流れは
+     既存のまま、言うことだけを差し替える(07 の buildBoss が本編のときに使う)。
+     霧の中では鐘だけが帰り道だった/あの塔の鐘が七時十三分で黙った/
+     近道を選ぶべきではなかった ―― 塔へ向かう理由はここで渡す */
+  const GHOST_CAPTAIN_CHAPTER1_LINES = [
+    '……ここまで辿り着いた者は、久しいな。',
+    '霧の中では、何も見えん。帰り道は、あの塔の鐘だけだった。毎晩、同じ時刻に鳴る鐘だ。',
+    'その鐘が、七時十三分で黙った。……儂は待てなかった。"錨"を引き上げ、近道を選んだ。',
+    '近道など、選ぶべきではなかった。……だが、もう遅い。お前たちも、この霧の底で眠るがいい!'
+  ];
+  /* 撃破後、既存の「港が……見える……」の前に置く一行(§4-2)。
+     最初の行は文字列で出す(clear-return-btn が textContent に入れる) */
+  const GHOST_CAPTAIN_CHAPTER1_FAREWELL =
+    '「……鐘を。あの塔の鐘を、鳴らしてくれ。まだ、霧の中に……」――船長が、霧の向こうを指さした。';
 
   /* =========================================================
      GHOST SHIP BOSS HOLD - a proper enclosed chamber deep under the

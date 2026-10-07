@@ -1884,6 +1884,31 @@
       ], {kind:'book'});
     }
 
+    /* 幽霊船の痕跡(CG-03、§4-2)。木彫りの舟と同じく、一度でも船を
+       帰していれば、棚の反対の端に船の小さな角灯が置いてある。
+       セーブ項目は増やさない(既存の scenarioClears を見るだけ) */
+    if(scenarioClears('ghostship') > 0){
+      const lanternFrameMat = new THREE.MeshStandardMaterial({color:0x3a3228, roughness:0.6, metalness:0.4});
+      const lanternGlassMat = new THREE.MeshStandardMaterial({color:0x6fa8d8, roughness:0.3,
+                                emissive:0x6fa8d8, emissiveIntensity:0.25, transparent:true, opacity:0.7});
+      const lantern = new THREE.Group();
+      const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.2, 6), lanternGlassMat);
+      glass.position.y = 0.14;
+      lantern.add(glass);
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.04, 6), lanternFrameMat);
+      base.position.y = 0.02;
+      lantern.add(base);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.1, 6), lanternFrameMat);
+      cap.position.y = 0.29;
+      lantern.add(cap);
+      lantern.position.set(-3.1, 1.775, 22.6);
+      scene.add(lantern);
+      buildLoreNote(new THREE.Vector3(-3.1, 0, 21.9), '棚の端の船の角灯', [
+        '煤けた小さな角灯。硝子だけが、霧の色のまま曇っている。',
+        '火は入っていない。主人は、霧の濃い晩にだけ棚から下ろすという。'
+      ], {kind:'book'});
+    }
+
     const skinMat = new THREE.MeshStandardMaterial({color:0xd8a878, roughness:0.7});
     const clothMat = new THREE.MeshStandardMaterial({color:0x5a2c22, roughness:0.8});
     const bartender = new THREE.Group();
