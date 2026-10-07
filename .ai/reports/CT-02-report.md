@@ -21,7 +21,7 @@
 - 新規 12件: 本物の registerRoomEvent / registerProximityEvent / updateProximityEvents / buildClocktowerChapter1Story を、本物の TOWER_ROOMS / TOWER_SLABS の座標で動かす
 - 変異確認3件(本編条件の削除 / 読んだかどうかの条件の削除 / 通路の排他の削除)→ 全て失敗を確認して戻した
 - `npm run test:unit`: 全件 pass
-- E2E: 時計塔に触れる spec(結果は PR に記載)
+- E2E: 時計塔に触れる spec 一式: 45 passed
 
 ## Reviewer
 - PASS(Round 1)。謎解き・封鎖戦・扉・階段・敵・ボス・セーブ項目は不変。加入前の5人目には触れない。Decision Record 不要(DEC-004 の範囲内)
