@@ -699,8 +699,15 @@
                      目的で、撃破すること自体が目的ではないため)
   ========================================================= */
   const ARENA_ROSTER = {
+    /* Dummy は出した時の向きのまま動かない(HE-TF-01)。以前は徘徊 AI で
+       2〜4.5 秒ごとにランダムな点へ向き直っていたため、背後/正面を狙って
+       近づく間に向きが変わり、Back Attack の確認(E2E)が揺れていた。
+       向きは出した時にランダムに決める(これまでの最初の向き直りと同じ分布) */
     dummy:      {label:'Dummy',        icon:'🎯',
-      spawn:(pos)=> buildEnemy(pos, {dummy:true, hp:50000, atk:0, speed:0, atkType:'passive', xp:0, color:0xd9b968})},
+      spawn:(pos)=>{ const en = buildEnemy(pos, {dummy:true, hp:50000, atk:0, speed:0, atkType:'passive', xp:0, color:0xd9b968});
+                     en.arenaFixedFacing = true;
+                     en.group.rotation.y = Math.random()*Math.PI*2 - Math.PI;
+                     return en; }},
     basicMelee: {label:'Basic Melee',  icon:'🗡️',
       spawn:(pos)=> buildEnemy(pos, {hp:9999, atk:12, speed:3.0, atkType:'charge', xp:0, color:0x8a3a3a, chargeCooldownOverride:1.3})},
     windup:     {label:'Windup Enemy', icon:'🐢',
@@ -1056,6 +1063,7 @@
       else if(en.atkType==='copy')  updateCopyShadeAI(en, dt);
       else if(en.atkType==='fisher') updateFisherAI(en, dt);
       else if(en.atkType==='keeper') updateKeeperAI(en, dt);
+      else if(en.arenaFixedFacing)   { /* Arena の Dummy: 向きを変えない(HE-TF-01) */ }
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
       updateMobAnim(en, dt);

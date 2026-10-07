@@ -337,28 +337,31 @@ async function readEnemyFacing(page) {
   return m ? Number(m[1]) : null;
 }
 
-async function clearArena(page) {
-  await page.click('#arena-toggle-btn');
-  await page.click('#arena-clear-btn');
-  await page.click('#arena-toggle-btn');
-}
-
 // targetFacing: 0(背後にしたい) または Math.PI(正面にしたい)。
 // tolerance: ROGUE_BACK_ATTACK_HALF_ANGLE(45度=0.785rad、core/rogue-
 // back-attack.js)に対して十分な余裕を持たせた0.65rad(約37度) ――
-// 判定境界ぎりぎりを狙わず、明確に内側/外側の状況を作る。向きは出現の
-// たびに一様ランダムなので、この許容幅(全体の約41%)で数回の出し直し
-// 以内に見つかる想定
+// 判定境界ぎりぎりを狙わず、明確に内側/外側の状況を作る。
+//
+// Arena の Dummy は出した時にランダムな向きを取り、その後は向きを変えない
+// (HE-TF-01)。狙いの範囲に入るのは 1 回あたり約21%(2×0.65 / 2π)なので、
+// 入るまで出し直す。Arena パネルはループの間ずっと開いたままにする ――
+// 開閉を出し直しのたびに挟むと 1 回 7 クリック(1 クリック約1.6秒)になり、
+// 180秒の中で試せる回数が足りなくなっていた。パネルは閉じた状態で呼び、
+// 閉じて返す
 async function spawnDummyFacing(page, targetFacing, { tolerance = 0.65, maxAttempts = 40 } = {}) {
   let facing = null;
+  await page.click('#arena-toggle-btn');
+  await expect(page.locator('#arena-panel')).toHaveClass(/show/);
   for (let i = 0; i < maxAttempts; i++) {
-    // 1回の出し直しがまれにUIのタイミングでこける(クリックが一瞬
-    // 間に合わない等)ことがあっても、テスト全体を落とさず次の試行へ
-    // 進める ―― 出現位置・角度は次の試行でまた一様ランダムに決まるので、
-    // 1回の失敗は結果の妥当性に影響しない
+    // 1回の出し直しがまれにUIのタイミングでこけても、次の試行へ進める ――
+    // 向きは次の試行でまた一様ランダムに決まるので、結果の妥当性に影響しない。
+    // パネルの開閉はこの中で行わないので、失敗しても開閉の状態はずれない
     try {
-      if (i > 0) await clearArena(page);
-      await spawnFromArena(page, 'Dummy', 2);
+      if (i > 0) await page.click('#arena-clear-btn');
+      for (let k = 0; k < 2; k++) {
+        await page.click('#arena-roster button:has-text("Dummy")');
+        await expect(page.locator('#msg-log')).toContainText('Dummy spawned', { timeout: 3000 });
+      }
       facing = await readEnemyFacing(page);
     } catch {
       facing = null;
@@ -370,6 +373,8 @@ async function spawnDummyFacing(page, targetFacing, { tolerance = 0.65, maxAttem
       if (diff <= tolerance) break;
     }
   }
+  await page.click('#arena-toggle-btn');
+  await expect(page.locator('#arena-panel')).not.toHaveClass(/show/);
   return facing;
 }
 
