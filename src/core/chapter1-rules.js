@@ -9,6 +9,7 @@
      Passive        … なし
      Crafting       … なし
      ランダム装備   … なし(未鑑定装備・Item Level・特殊武器・固有装備)
+     異空間         … なし(裂け目そのものが出ない。PROGRESSION-008。第二章以降で再設計)
 
    旧システムのコードそのものは消さない ―― Chapter 2 の基盤として残し、
    いまはテストモード(開発用)からだけ触れる。「本編で動くか」を答える
@@ -28,7 +29,14 @@ export function legacyGrowthEnabled(testMode){
    戻って鍛冶屋が加入してから(docs/SCENARIOS.md「酒場へ帰還 → 鍛冶屋が加入」、
    state.smithJoined)。それまでは入口そのものが無い(Human Decision 2026-10-04)。
    テストモードは開発用なので、従来どおりどこでも開ける。
-   progress は state そのものを渡してよい(読むのは smithJoined / testMode だけ)。 */
+   progress は state そのものを渡してよい(読むのは smithJoined / testMode だけ)。
+
+   加入後の第一章の鍛冶屋は「装備を管理・確認する場所」(HD-2、2026-10-05):
+     使える … 装備する・外す・性能を見る・不要な装備を売る・スキルの習得状況と説明を見る
+     無い   … 鑑定・強化・鍛造・クラフト・ステータス配分・スフィア盤・パッシブ・スキル3・
+              Skill 1 / Skill 2 の付け替え・ショップでの購入(HD-3)
+   無いものは第一章後(Chapter 2)の仕組みで、いまはテストモードからだけ動く。
+   画面側の切り分けは 12-progression-ui.js(LEGACY_AP_TABS ほか)が legacyGrowth() で行う。 */
 export function smithFacilityAvailable(progress){
   progress = progress || {};
   return !!(progress.testMode || progress.smithJoined);
@@ -55,9 +63,13 @@ export function weaponUsableBy(kitKey, weaponType, weaponTypes, opts){
    主人公は Skill 1 を最初から1つ持っている(全体基本仕様)。交代のたびに
    全職共通の 'retreat' へ戻していたのをやめ、クラスごとの正式な Skill 1 を返す。
 
-   魔法使い = 幻影歩法(MAGE-001 / DEC-001)。
-   剣士・盗賊・弓師の Skill 1 は正式仕様に個別の指定が無いので、
-   これまで本編で使っていた既定('retreat')のまま。 */
+   Human Decision(2026-10-06、UI-002-F HD-1。.ai/decisions/UI-002-human-decisions.md):
+     剣士 = 切り下がり / 盗賊 = 影退きの一閃 / 弓師 = 五月雨射ち(各職の 'retreat')
+     魔法使い = 幻影歩法('phantom'。MAGE-001 / DEC-001)
+
+   この固定は **第一章だけ** の規則(Human Decision C-1 / HD-2)で、ゲーム全体の
+   Skill 仕様ではない。第一章クリア後は、習得済みの技から Skill 1 / Skill 2 を
+   自由に編成する本来の仕組みに戻る(いまはテストモードで動いている仕組み)。 */
 export const CHAPTER1_SKILL1 = {mage: 'phantom'};
 export function defaultSkill1For(classKey){
   return CHAPTER1_SKILL1[classKey] || 'retreat';

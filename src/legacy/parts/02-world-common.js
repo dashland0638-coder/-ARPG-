@@ -1120,6 +1120,7 @@
   }
 
   function spawnAnomalyRiftForWorld(key){
+    if(!legacyGrowth()) return;   // 第一章(本編)に異空間は存在しない(PROGRESSION-008)。本体は第二章以降のために残す
     const spot = ANOMALY_RIFT_SPOTS[key];
     if(!spot) return;
     if(Math.random() < ANOMALY_SPAWN_CHANCE) anomalyRifts.push(buildRift(spot));
@@ -1176,6 +1177,7 @@
   }
 
   function enterAnomalyRoom(){
+    if(!legacyGrowth()) return;   // 同上。裂け目が残っていても第一章では入らない
     if(inAnomalyRoom) return;
     inAnomalyRoom = true;   // 即座にガードを立てる。フェード中(約230ms)は
                             // 毎フレーム裂け目との距離判定が再実行されるため
@@ -1197,7 +1199,10 @@
 
   function grantAnomalyReward(){
     spawnLog('✨ 異空間の宝を手に入れた!');
-    addEquipmentItem(rollDropEquipment(0.4));   // レア率40%(通常22%)で確定装備
+    /* 確定装備(レア率40%、通常22%)。ランダム装備は第一章の本編では出さない
+       (装備は固定・少数。PROGRESSION-006) ―― 宝箱と同じ本編ゲート付きの入口を通す。
+       テストモードでは従来どおり必ず1つ */
+    maybeGrantEquipmentInstant(1.0, 0.4);
     const isGem = Math.random() < 0.5;
     addItem({type: isGem?'gem':'shard', name: isGem?'魔宝石':'武具の欠片', icon: isGem?'💎':'🔩',
       color: isGem?0x6fd1e6:0xb0a08a, amountMin:2, amountMax:4});
@@ -2394,7 +2399,11 @@
     else if(nearbyChest) el.textContent = '調べる';
     else if(nearbyStallTrigger) el.textContent = '個室に入る';
     else if(nearbyBartender) el.textContent = '🗺️ 店主と話す(出撃)';
-    else if(nearbySmith) el.textContent = state.smithJoined ? '🔨 鍛冶士と話す(鑑定・強化)' : '🧰 仮設の作業台(鑑定・強化)';
+    /* 第一章の鍛冶屋は装備を管理する場所(HD-2)。鑑定・強化はテストモードにだけある。
+       仮設の作業台はテストモードにしか建たない(PROGRESSION-004) */
+    else if(nearbySmith) el.textContent = state.smithJoined
+      ? (legacyGrowth() ? '🔨 鍛冶士と話す(鑑定・強化)' : '🔨 鍛冶士と話す(装備の管理)')
+      : '🧰 仮設の作業台(鑑定・強化)';
     else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)'
       : (smithFacilityAvailable(state) ? '🏕️ 休憩する(回復+装備整理)' : '🏕️ 休憩する(回復)');
   }

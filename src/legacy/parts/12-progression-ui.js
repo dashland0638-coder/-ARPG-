@@ -2567,8 +2567,10 @@
 
   /* 鑑定所のタブのうち、旧ハクスラ系のもの(ステータス配分=レベルアップの
      振り分け、奥義の環=スフィア盤)は Chapter 1 の本編では出さない(WORK 12.1)。
+     商店も第一章では出さない(HD-3、PROGRESSION-007) ―― 第一章の消耗品は宝箱・敵・
+     シナリオで限られた数だけ手に入るもので、「稼いで買い込む」流れを作らない。
      仕組みは Chapter 2 の基盤として残し、テストモードでは今までどおり開ける */
-  const LEGACY_AP_TABS = ['stat', 'sphere'];
+  const LEGACY_AP_TABS = ['stat', 'sphere', 'shop'];
   function apTabAvailable(name){ return legacyGrowth() || LEGACY_AP_TABS.indexOf(name) < 0; }
   function syncApTabsVisibility(){
     document.querySelectorAll('.ap-tab').forEach(t=>{
@@ -2582,6 +2584,9 @@
 
   function refreshAppraisal(){
     syncApTabsVisibility();
+    /* 第一章の鍛冶屋は装備を管理・確認する場所(HD-2)で、鑑定は無い。
+       テストモード(鑑定・強化がある)は従来の名前のまま */
+    document.querySelector('#appraisal-overlay .appraisal-title').textContent = legacyGrowth() ? '鑑定所' : '鍛冶屋';
     document.getElementById('ap-gold').textContent = state.inventory.gold;
     document.getElementById('ap-gem').textContent = state.inventory.gem;
     // WI-A5: 素材の所持数は Chapter 1 では出さない(値は保持)
@@ -3414,6 +3419,7 @@
 
   function renderShopPanel(){
     const panel = document.getElementById('ap-panel-shop');
+    if(!apTabAvailable('shop')){ panel.innerHTML = ''; return; }   // 第一章は購入なし(HD-3)
     let html = '';
     SHOP_ITEMS.forEach(it=>{
       const can = state.inventory.gold>=it.cost;
@@ -3426,6 +3432,7 @@
     panel.innerHTML = html;
     panel.querySelectorAll('[data-shop]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
+        if(!apTabAvailable('shop')) return;   // 押された瞬間にも同じ判定(HD-3)
         const it = SHOP_ITEMS.find(i=>i.key===btn.dataset.shop);
         if(state.inventory.gold<it.cost) return;
         state.inventory.gold -= it.cost;
