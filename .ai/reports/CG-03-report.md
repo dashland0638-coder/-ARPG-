@@ -14,6 +14,10 @@
 - 新規 9件 + CG-02 の 7件: pass。本物の startBossDialogue / clear-return-btn のハンドラ / buildBoss の設定 / 酒場の角灯のブロックを stub 付きで実行
 - 変異確認5件(ボス台詞の条件・周回台詞の条件・撃破後の条件・角灯の条件・船倉の順序)→ 全て失敗を確認して戻した
 - `npm run test:unit`: 全件 pass
+- E2E(酒場・ボス撃破・進行・テストモードに触れる 14 spec): 72 passed
+
+## Reviewer
+- PASS(Round 1)。ボス性能・扉・報酬・セーブ項目は不変。テストモードの台詞は既存のまま。加入前の5人目には触れない。Decision Record 不要(DEC-004 の範囲内)
 
 ## Status
 - IMPLEMENTED / PLAYABLE(本筋上)/ VERIFIED(自動テスト)。実機の通しは CG-05 → Human(HE-2)
