@@ -595,9 +595,9 @@
     /* 道(WORK 11)。道標を過ぎた先に、既存の汎用の獣が3体だけ。
        出会いのあとの戦闘は roadHandOff() がその場で出す(14-dungeon-road.js) */
     if(_spawnWorldKey==='road'){
-      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X - 3, 0, 38), Object.assign({}, PROVISIONAL_ROAD_BEAST)));
-      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 4, 0, 42), Object.assign({}, PROVISIONAL_ROAD_BEAST)));
-      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 0.5, 0, 49), Object.assign({}, PROVISIONAL_ROAD_SPITTER)));
+      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X - 3, 0, 38), Object.assign({}, ROAD_BEAST)));
+      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 4, 0, 42), Object.assign({}, ROAD_BEAST)));
+      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 0.5, 0, 49), Object.assign({}, ROAD_SPITTER)));
     }
     // テストモードのカカシ(訓練用の的)。hp/atk/speedはdifficultyFor()の
     // 補正(_D)がそのままかかるが、'training'は星取りデータが無いキーの

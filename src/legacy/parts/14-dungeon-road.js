@@ -42,11 +42,20 @@
   const ROAD_REST_POS  = new THREE.Vector3(ROAD_X+2.4, 0, 80.5);   // 影の旅人が座っている長椅子
   const ROAD_HILL_POS  = new THREE.Vector3(ROAD_X, 0, 104);
 
-  /* 暫定値(PROVISIONAL)。時計塔(Lv.11〜)と宵待ちの村(Lv.26〜)を抜けてきた
-     二人に、少数で「覚えた戦い方が使える」程度の手応え。★は周回しないので
-     常に ★1 のまま(difficultyFor の補正は1倍) */
-  const PROVISIONAL_ROAD_BEAST = {color:0x6a5a44, hp:190, atk:30, speed:2.6, atkType:'charge', xp:80, goldBonus:[16,24]};
-  const PROVISIONAL_ROAD_SPITTER = {color:0x7a6a4a, hp:150, atk:26, speed:0.9, atkType:'fire', xp:84, goldBonus:[16,24], projColor:0xd8b060};
+  /* 道の敵の数値(CR-01 で確定、HD-C3 = a: 今の敵のまま数値だけ決める。
+     新しい敵・強敵・ボスは置かない)。
+
+     二つの戦闘は、どちらも時計塔 4F 鐘の広間と同じ「突進2 + 射撃1」。
+     第一章の本編は成長しないので、主人公の強さは塔と同じ
+     (戦闘1: 盗賊 HP 102 / ATK 22、戦闘2: 影の旅人 HP 109 / ATK 21)。
+     塔 4F(突進 HP 152 / ATK 32、射撃 HP 138 / ATK 35)と比べて、
+     HP の合計は約2割多く、ATK の合計は約1割少ない ―― 第一章の締めの
+     道として「覚えた戦い方で、少し粘られるが危なくはない」手応え。
+     ★は周回しないので常に ★1。難易度補正は他のシナリオと同じ
+     COMBAT_REBALANCE(HP ×1.20 / ATK ×1.10)だけが掛かる(difficultyFor)。
+     根拠の表は .ai/reports/CR-01-report.md */
+  const ROAD_BEAST = {color:0x6a5a44, hp:190, atk:30, speed:2.6, atkType:'charge', xp:80, goldBonus:[16,24]};
+  const ROAD_SPITTER = {color:0x7a6a4a, hp:150, atk:26, speed:0.9, atkType:'fire', xp:84, goldBonus:[16,24], projColor:0xd8b060};
 
   const ROAD_THIEF = '盗賊', ROAD_ARCHER = '弓師', ROAD_TRAVELER = '影の旅人';
   /* 加入前の話者名(DEC-004 N-4)。「影の旅人」の名前は正式加入(roadHandOff)で
@@ -507,9 +516,9 @@
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
     spawnLog(`${state.classDef.icon} ${ROAD_TRAVELER}`);
-    [[ROAD_X - 7, 88, PROVISIONAL_ROAD_BEAST],
-     [ROAD_X + 7, 90, PROVISIONAL_ROAD_BEAST],
-     [ROAD_X + 1, 95, PROVISIONAL_ROAD_SPITTER]].forEach(([x, z, v])=>{
+    [[ROAD_X - 7, 88, ROAD_BEAST],
+     [ROAD_X + 7, 90, ROAD_BEAST],
+     [ROAD_X + 1, 95, ROAD_SPITTER]].forEach(([x, z, v])=>{
       const en = buildEnemy(new THREE.Vector3(x, 0, z), Object.assign({}, v));
       enemies.push(en);
       roadFight2.push(en);
