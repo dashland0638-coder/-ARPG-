@@ -120,8 +120,16 @@ test.describe('時計塔 → 道 → 第一章の終わり（CR-03）', () => {
     // 交代の一幕の最後の一拍(フェード明け)が終わってからメニューを開く
     await page.waitForTimeout(5000);
     await disableCameraAutoFollow(page);
+    // ログの行は 6.5 秒で消えるので、出た行をすべて控えておく
+    await page.evaluate(() => {
+      /** @type {any} */ (window).__logSeen = [];
+      const log = document.getElementById('msg-log');
+      new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n =>
+        /** @type {any} */ (window).__logSeen.push(n.textContent)))).observe(log, { childList: true });
+    });
+    const logSeen = () => page.evaluate(() => /** @type {any} */ (window).__logSeen.join('\n'));
     for (let i = 0; i < 400; i++) {
-      if ((await page.locator('#msg-log').textContent()).includes('道の先が、開けている')) break;
+      if ((await logSeen()).includes('道の先が、開けている')) break;
       for (let k = 0; k < 4; k++) { await page.keyboard.press('KeyJ'); await page.waitForTimeout(120); }
       if (i % 3 === 0) {
         await page.keyboard.down('KeyW');
@@ -129,7 +137,7 @@ test.describe('時計塔 → 道 → 第一章の終わり（CR-03）', () => {
         await page.keyboard.up('KeyW');
       }
     }
-    await expect(page.locator('#msg-log')).toContainText('道の先が、開けている', { timeout: 10_000 });
+    await expect.poll(logSeen, { timeout: 10_000, message: '最後の戦闘を終えた' }).toContain('道の先が、開けている');
 
     // 丘(道の終わり)へ。ここからの話者名は「影の旅人」
     for (let i = 0; i < 80; i++) {
