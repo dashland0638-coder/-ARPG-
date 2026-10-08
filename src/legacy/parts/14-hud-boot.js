@@ -1423,6 +1423,9 @@
     } else if(state.started && state.dialogueActive){
       hideMobBars();
       clearMovementInput(false); wasPlayable = false;   // never leave the stick held
+      /* 島の遠景の人影(showIslandStranger)は、島の地の文を読んでいる間に
+         歩いていく。加入前の人物を動かすだけで、他のワールドでは何もしない */
+      updatePreJoinFigures(dt);
       // controller support for reading dialogue/lore notes and the clear/down screens
       // (#25: クリア/戦闘不能画面はボス報酬選択・ステータス振り分け・
       // 「探索を続ける」等の選択肢を持つため、単なるA=決定固定ではなく
