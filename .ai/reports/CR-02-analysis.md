@@ -109,6 +109,8 @@ Analyzer。根拠は実コード（`claude/cr-02-road-shadow-intro` = PR #61、#
 
 **回答形式**: `HD-CR02-1: a`（または b / c）
 
+**Human の回答（2026-10-08）: a** → `.ai/decisions/DEC-005-wanderer-attack-color.md`、CR-02-07 で実装。
+
 ### それ以外
 
 - 正体判明のタイミング・話者名・モデル切替・加入処理・save/load は、DEC-004 と既存の仕組みで決まっている → Human Decision なし。

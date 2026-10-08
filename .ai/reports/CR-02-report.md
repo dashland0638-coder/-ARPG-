@@ -21,8 +21,15 @@
 ## Build
 - `vite build` OK
 
+## CR-02-07〜10（HD-CR02-1 = a、DEC-005）
+- `CLASSES.wanderer.atkColorHex = '#8a5ad6'`（斬撃・軌跡・着地の光の色。使う箇所は `11-combat-actions.js` / `13-update-loop.js` の表示だけ）。モーション・判定・ダメージ・Skill・数値は剣士の kit のまま。素手モーション・本格的な影の攻撃は別 Work Item で保留
+- Unit: `wanderer-attack-color.test.js` 3件（本物の CLASSES と recomputeStats の重ね方で、色が影送りと同じ・色以外の戦闘値は剣士の kit・剣士本人の色は不変）。変異確認（色の行を消す）→ 失敗を確認して戻した。全件 1701 pass
+- E2E 回帰: `road` / `shadow-guide` / `chapter1-progression` / `character-clothing` / `character-palette` / `character-weapon-visual` / `ui-production-glyphs` / `save-load` 54 passed
+- docs: CHARACTERS.md（影の旅人の武器）、CHAPTER1_STORY.md §7（CR-02 の実装位置）、DEC-005
+- main（#60）へ追従済み
+
 ## Reviewer
 - PASS(Round 1)。加入前に「影の旅人」の語・職業名が出ない。加入時に初めて出る。戦闘・敵・数値・進行・セーブ項目・Test Mode のゲームプレイは不変。assert は弱めていない(期待値を新仕様へ更新し、加入前に名前が出ないことを追加で確かめる)。Decision Record 不要(DEC-004 の範囲内)
 
 ## Status
-- IMPLEMENTED / PLAYABLE / VERIFIED(自動テスト)。実機確認(Human): 島の人影が見えるか・遠すぎないか、休憩所で影の遅れが分かるか
+- IMPLEMENTED / PLAYABLE / VERIFIED(自動テスト)。CR-02-01〜10 完了。実機確認(Human): 島の人影が見えるか・遠すぎないか、休憩所で影の遅れが分かるか
