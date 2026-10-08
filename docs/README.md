@@ -27,8 +27,31 @@ Chapter 1、シナリオ、ダンジョン、進行。
 ### [CHAPTER1_STORY.md](./CHAPTER1_STORY.md)
 Chapter 1 後半（村 → 幽霊船 → 時計塔 → 道）の物語接続。正体不明の人物の扱い。
 
+### [CHAPTER1_PLAYTEST.md](./CHAPTER1_PLAYTEST.md)
+Chapter 1 の実機通しプレイのチェックリストと Content Ready の判定基準（CQ-01）。
+
 ### [ARCHITECTURE.md](./ARCHITECTURE.md)
 ゲーム実装上のアーキテクチャ（AIが実装変更時に守るルール）。
+
+## Chapter 1 Index
+
+Chapter 1 の仕様を追うときの入口。各項目の正本だけを指す（内容はリンク先）。
+
+| 知りたいこと | 正本 | 補足 |
+| --- | --- | --- |
+| 5段の構成・主人公と支援・一本道 | [SCENARIOS.md](./SCENARIOS.md) Chapter 1 Main Scenarios | 判定の実装は `src/core/chapter1-progress.js` |
+| 物語の接続（村 → 幽霊船 → 時計塔 → 道） | [CHAPTER1_STORY.md](./CHAPTER1_STORY.md) | 決定記録 `.ai/decisions/DEC-004-chapter1-story.md` |
+| 森の洋館 | ルートの `MANSION_SCENARIO.md`（一次資料）、要点は [SCENARIOS.md](./SCENARIOS.md) Chapter 1-① | |
+| 宵待ちの村 | `.ai/decisions/DEC-001-duskvillage-rebuild.md` | 実装の経緯は `.ai/reports/DUSKVILLAGE-WORK*-report.md` |
+| 幽霊船・時計塔・道 | [CHAPTER1_STORY.md](./CHAPTER1_STORY.md) §4 / §7 | 数値と確認項目は `.ai/reports/CHAPTER1-GHOSTSHIP-balance.md` / `CHAPTER1-CLOCKTOWER-balance.md` / `CR-01-report.md` |
+| 5人目（正体不明の人物 → 影の旅人） | [CHARACTERS.md](./CHARACTERS.md) 5人目、[CHAPTER1_STORY.md](./CHAPTER1_STORY.md) §3 | 攻撃の色は `.ai/decisions/DEC-005-wanderer-attack-color.md` |
+| Chapter 1 の基本ルール（レベル無し・旧成長系は止める） | [PROGRESSION.md](./PROGRESSION.md) Level / Stats の「決定（WORK 12.1）」 | 判定は `src/core/chapter1-rules.js` の `legacyGrowthEnabled()` 一か所 |
+| 装備（武器種の制限・鍛冶屋で出来ること・購入なし） | [PROGRESSION.md](./PROGRESSION.md) Equipment | `smithFacilityAvailable()` / `weaponUsableBy()` |
+| スキル（Skill 1 固定・Skill 2 の閃き・付け替え不可） | [PROGRESSION.md](./PROGRESSION.md) Equipment、[COMBAT.md](./COMBAT.md) | `src/core/chapter1-skills.js`、`.ai/decisions/UI-002-human-decisions.md` |
+| 異空間（裂け目）は第一章に無い | [PROGRESSION.md](./PROGRESSION.md) Level / Stats | PROGRESSION-008。洋館の「異常空間」（物語の一部）とは別物 |
+| 進行と保存（scenarioClears から導く・新しいセーブ項目なし） | [SCENARIOS.md](./SCENARIOS.md) Chapter 1 Structure、[PROGRESSION.md](./PROGRESSION.md) Save Data | |
+| 実機の通しと Content Ready 判定 | [CHAPTER1_PLAYTEST.md](./CHAPTER1_PLAYTEST.md) | CQ-01 |
+| Chapter 1 の凍結（変えないもの） | `.ai/reports/CHAPTER1-CONTENT-plan.md` §0-2 | PROGRESSION-010 |
 
 ## Rule
 
@@ -91,7 +114,8 @@ AIエージェントは次の優先順位で情報を扱う。
   `state.spherePoints` が1点増え、鑑定所のタブから常時振れる
   （`src/legacy/parts/12-progression-ui.js` の `SPHERE_NODES` ほか）
 - **Difference**: Chapter 1 の簡略化方針と、現行の常時開放が食い違う
-- **Action Required**: Chapter 1 中のロック（またはクリア後解放）の要否を決定。未実施
+- **Action Required**: Chapter 1 中のロック（またはクリア後解放）の要否を決定。
+- **Status（2026-10-08）**: **解消**。WORK 12.1 で Chapter 1 の本編では奥義の環を動かさないと決定・実装済み（`sphereValue()` は本編で 0、画面も出ない。`core/chapter1-rules.js` の `legacyGrowthEnabled()`）。テストモードだけで動く
 
 ### D-03: 章進行とダンジョンの対応
 
@@ -101,7 +125,8 @@ AIエージェントは次の優先順位で情報を扱う。
   ④rogue＋guest archer → `clocktower`。章とダンジョンは 1:1 の暫定対応で、
   コメントに「章とダンジョンの1:1対応はまだ実装していない」と明記されている
 - **Difference**: ②④の担当ダンジョンが仕様と実装で異なる。温室は章に紐づいていない
-- **Action Required**: 章とダンジョンの正式な対応表を決定してから実装。未実施
+- **Action Required**: 章とダンジョンの正式な対応表を決定してから実装。
+- **Status（2026-10-08）**: **解消**。HD-C1 で ④ = 時計塔、WORK 11 で ⑤ = 道、HD-C4 で温室 = 第一章クリア後の Extra と決まり、`CHAPTER_CAST` / `CHAPTER1_ORDER` が一致している（SCENARIOS.md）。温室への接続だけ未実装（CX-01）
 
 ### D-04: 章の自動進行・サポートAI
 
@@ -110,7 +135,8 @@ AIエージェントは次の優先順位で情報を扱う。
   （`applyChapterCast(1)` の固定呼び出し）。`guestClassKey` は定義のみで未使用。
   同行AI自体は `companion`（`src/legacy/parts/08-loot-equipment.js`）として別途存在する
 - **Difference**: 章の自動進行・ゲストのパーティAI・章連動のシナリオロックが未実装
-- **Action Required**: 実装スコープが大きいため、別タスクとして分析・計画する。未実施
+- **Action Required**: 実装スコープが大きいため、別タスクとして分析・計画する。
+- **Status（2026-10-08）**: **解消**。WORK 10 / WORK 11 で段の自動進行（`scenarioClears` から導く）・支援AIの切り替え・一本道の出撃制限を実装済み（`core/chapter1-progress.js`）
 
 ### D-05: ボス能力の取得者
 
@@ -119,6 +145,7 @@ AIエージェントは次の優先順位で情報を扱う。
   ボス撃破で誰でも獲得できる常時パッシブ（回避無敵+20%、ゴールド+15% など6種）
 - **Difference**: 取得者の限定が実装に無い
 - **Action Required**: 5人目専用の仕組みを別系統で作るのか、既存 `BOSS_ABILITIES` を作り替えるのかを決定。未実施
+- **Status（2026-10-08）**: Chapter 1 の本編ではボス能力は効かない（`bossAbilityValue()` は本編で 0）。差異が残るのはテストモードと Chapter 2 以降。決定は未実施のまま
 
 ### D-06: キャラメイクに関する README の記述
 
