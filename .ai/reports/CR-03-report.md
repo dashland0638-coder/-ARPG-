@@ -29,7 +29,12 @@
 - 交代の一幕の最後の一拍が終わってからメニュー（カメラ設定）を開く
 
 ## テスト結果
-- E2E `chapter1-tower-to-road`: 2 passed（3.6 分）。再実行の結果は下に追記
+- E2E `chapter1-tower-to-road`（修正後）:
+  - 1回目: 2 passed（3.6 分）
+  - `chapter1-tower-to-road` + `road` + `chapter1-progression`: 15 passed（8.8 分）
+  - 続けて単独で回した1回は、外側の `timeout 1000` で打ち切られて結果が出なかった（失敗の記録は無い。直前の 8.8 分の実行に続けたため時間切れ）
+  - 長い方（休憩所 → 第一章の最後の酒場）を `--repeat-each=2`: 2 passed（5.5 分）
+  - 修正前は、最後の戦闘の敵が湧き直して終わらなかった（上のバグ）
 - Unit: 全件 pass
 - Build: OK
 
