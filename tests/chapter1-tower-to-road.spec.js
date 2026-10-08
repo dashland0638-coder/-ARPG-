@@ -37,6 +37,26 @@ const overlayActive = page => page.evaluate(() => document.getElementById('dialo
 const lineNow = page => page.evaluate(() =>
   document.getElementById('dialogue-name').textContent + '|' + document.getElementById('dialogue-text').textContent);
 
+/* ミニマップ上でいちばん近い敵の点(#e0574a)。ミニマップはカメラ基準で回るので
+   (14-hud-boot.js drawMinimap: 上 = W、右 = D)、中心からの向きをそのまま
+   移動キーにできる。単位はワールド距離(半径 108px = 30 ユニット) */
+async function nearestEnemy(page) {
+  return page.evaluate(() => {
+    const cv = /** @type {HTMLCanvasElement} */ (document.getElementById('minimap'));
+    const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+    const c = cv.width / 2, perUnit = (cv.width / 2 - 16) / 30;
+    let best = null;
+    for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+      const i = (y * cv.width + x) * 4;
+      if (Math.abs(d[i] - 0xe0) < 12 && Math.abs(d[i + 1] - 0x57) < 12 && Math.abs(d[i + 2] - 0x4a) < 12) {
+        const r = Math.hypot(x - c, y - c);
+        if (!best || r < best.r) best = { r, x: x - c, y: y - c };
+      }
+    }
+    return best && { dist: best.r / perUnit, right: best.x, up: -best.y };
+  });
+}
+
 /* 店主の前まで歩いて一覧を開く(chapter1-progression.spec.js と同じ手順) */
 async function openScenarioList(page) {
   await disableCameraAutoFollow(page);
@@ -128,14 +148,24 @@ test.describe('時計塔 → 道 → 第一章の終わり（CR-03）', () => {
         /** @type {any} */ (window).__logSeen.push(n.textContent)))).observe(log, { childList: true });
     });
     const logSeen = () => page.evaluate(() => /** @type {any} */ (window).__logSeen.join('\n'));
+    // ミニマップの敵の点へ向かって歩き、近ければ攻撃する
     for (let i = 0; i < 400; i++) {
       if ((await logSeen()).includes('道の先が、開けている')) break;
-      for (let k = 0; k < 4; k++) { await page.keyboard.press('KeyJ'); await page.waitForTimeout(120); }
-      if (i % 3 === 0) {
+      const en = await nearestEnemy(page);
+      if (en && en.dist > 2.2) {
+        const keys = [];
+        if (Math.abs(en.up) > Math.abs(en.right) * 0.4) keys.push(en.up > 0 ? 'KeyW' : 'KeyS');
+        if (Math.abs(en.right) > Math.abs(en.up) * 0.4) keys.push(en.right > 0 ? 'KeyD' : 'KeyA');
+        for (const k of keys) await page.keyboard.down(k);
+        await page.waitForTimeout(250);
+        for (const k of keys) await page.keyboard.up(k);
+      } else if (!en) {
+        // 見えていなければ道の先(北)へ
         await page.keyboard.down('KeyW');
         await page.waitForTimeout(250);
         await page.keyboard.up('KeyW');
       }
+      for (let k = 0; k < 3; k++) { await page.keyboard.press('KeyJ'); await page.waitForTimeout(120); }
     }
     await expect.poll(logSeen, { timeout: 10_000, message: '最後の戦闘を終えた' }).toContain('道の先が、開けている');
 

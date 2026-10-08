@@ -81,3 +81,19 @@ test('根拠: 本編の主人公の強さ(盗賊 102/22、影の旅人 109/21)',
   assert.deepEqual(stats('rogue'), { hp: 102, atk: 22 });
   assert.deepEqual(stats('wanderer'), { hp: 109, atk: 21 });
 });
+
+/* CR-03: 丘へ進む条件は「最後の戦闘の3体がすべて倒れている」。普通の雑魚は
+   20 秒で湧き直すので、印(roomTag)が無いと条件を満たせないことがあった */
+test('最後の戦闘の3体は倒したら復活しない(roomTag)。丘の条件と噛み合う', () => {
+  const h = road.indexOf('function roadHandOff(){');
+  const block2 = road.slice(h, road.indexOf('\n  }\n', h));
+  assert.match(block2, /buildEnemy\([^;]*Object\.assign\(\{roomTag:'roadFight2'\}, v\)\)/);
+  // 07 の復活処理は roomTag の付いた個体を飛ばす
+  assert.match(combat, /if\(en\.dead\)\{[\s\S]{0,200}if\(en\.roomTag\) return;[\s\S]{0,80}en\.respawnT -= dt;/);
+  // 丘の条件は roadFight2Done、それは3体すべての dead から
+  assert.match(road, /condition: \(\)=> roadMet && roadFight2Done/);
+  assert.match(road, /roadFight2\.every\(en=> en\.dead\)/);
+  // 戦闘1は今までどおり(印なし)
+  const a = combat.indexOf("if(_spawnWorldKey==='road'){");
+  assert.doesNotMatch(combat.slice(a, combat.indexOf('\n    }', a)), /roomTag/);
+});

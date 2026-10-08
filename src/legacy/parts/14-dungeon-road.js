@@ -516,10 +516,13 @@
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
     spawnLog(`${state.classDef.icon} ${ROAD_TRAVELER}`);
+    /* roomTag: 倒したらこの出撃中は復活しない(封鎖戦と同じ印)。丘へ進む条件が
+       「3体とも倒れている」なので、印が無いと普通の雑魚と同じく 20 秒で湧き直し、
+       本編の強さ(ATK 21)で3体を 20 秒以内に倒し切れないと道を終えられなかった(CR-03) */
     [[ROAD_X - 7, 88, ROAD_BEAST],
      [ROAD_X + 7, 90, ROAD_BEAST],
      [ROAD_X + 1, 95, ROAD_SPITTER]].forEach(([x, z, v])=>{
-      const en = buildEnemy(new THREE.Vector3(x, 0, z), Object.assign({}, v));
+      const en = buildEnemy(new THREE.Vector3(x, 0, z), Object.assign({roomTag:'roadFight2'}, v));
       enemies.push(en);
       roadFight2.push(en);
     });
