@@ -29,7 +29,7 @@
 | --- | --- |
 | `npm run test:unit` | 1708 件: 1707 pass / 0 fail / 1 skip（既存） |
 | `npm run build` | PASS |
-| E2E（Chapter 1 回帰） | 下に追記 |
+| E2E（Chapter 1 回帰） | `chapter1-progression` / `road` / `shadow-guide` / `save-load` / `chapter1-facility-access` / `chapter1-legacy-ui` / `chapter1-skill2` / `chapter1-dusk-basics`: **35 passed**（18.1 分）。`chapter1-tower-to-road`: 短い方 PASS（一括実行の中）、長い方 PASS（単独 6.8 分。一括実行では時間切れ → TF-04） |
 
 ## 既知の技術課題（判定に混ぜない）
 | ID | 内容 |
