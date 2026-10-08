@@ -204,7 +204,7 @@
 | --- | --- |
 | CG-02 / CG-03 | §4-1（酒場の行）、§4-2 |
 | CT-02 / CT-03 | §4-3（酒場の行）、§4-4、§4-5（島・翌朝の酒場を含む） |
-| CR-02 | §3（加入前は名前を出さない。酒場の隅の NPC を含む）、§4-6 |
+| CR-02 | §3（加入前は名前を出さない。酒場の隅の NPC を含む）、§4-5 の島の人影（遠景）、§4-6。実装位置: 話者名 `ROAD_STRANGER` / `shadowGuideSpeaker()`、加入前の姿と遅れる影 `buildRoadTravelerFigure` / `trackPreJoinShadow`（`14-dungeon-road.js`）、島 `showIslandStranger`（`03`）、開示 `roadHandOff` → `meetChapter1Protagonist`。加入後の斬撃の色は影の紫（HD-CR02-1 = a、表示のみ） |
 | CD-01 | `docs/SCENARIOS.md` / `docs/CHARACTERS.md` をこの文書に合わせる |
 
 実装の着手は、PR #36（第一章システム凍結）の `main` への merge 後。

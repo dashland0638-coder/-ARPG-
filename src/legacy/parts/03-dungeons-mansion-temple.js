@@ -854,10 +854,11 @@
                {x:-232, z:274}, ()=>{
       state.pos.set(-230, 0, 344);          // washed ashore on the island
       state.grounded = true;
+      if(clocktowerChapter1()) showIslandStranger();
       state.dialogueActive = true;
       state.dialogueBoss = null;
       state.dialogueKind = 'towerEscape';
-      state.dialogueLines = [
+      state.dialogueLines = clocktowerChapter1() ? CLOCKTOWER_CHAPTER1_ISLAND() : [
         '海面が壁のように迫り、視界が白く弾けた。',
         '……どれだけ流されたのか。砂を噛みながら、なんとか身を起こす。',
         '振り返ると、時計塔は水平線の向こうで小さく傾いでいた。',
@@ -870,7 +871,7 @@
       document.getElementById('dialogue-text').textContent = state.dialogueLines[0];
       document.getElementById('dialogue-overlay').classList.add('active');
       sfx('chime');
-    });
+    }, ()=> clocktowerChapter1() ? CLOCKTOWER_CHAPTER1_LEAP() : null);
 
 
     // the great clock face, standing over the roof deck
@@ -1024,12 +1025,160 @@
            '「……あの台座に乗れ、ということだな」']
     );
 
+    buildClocktowerChapter1Story(roomById, slabY);
+
     // ---- 行き止まり分岐: 止まった置時計の間の奥(★3で開く) ----
     if(scenarioStars('clocktower') >= TOWER_HOUSE1_DEPTHS_STARS){
       buildStairs(new THREE.Vector3(-356, slabY['f1'], -70),
                   new THREE.Vector3(-346, 9, 120), '止まった時計の裏側へ', 0x6a5a3a, 'down');
       buildClocktowerDepths();
     }
+  }
+
+  /* 第一章④ 時計塔の物語、1F〜5F 前室(CT-02、docs/CHAPTER1_STORY.md §4-4)。
+
+     **本編のときだけ**置く(legacyGrowth() が偽)。テストモードと周回では
+     既存の独白・手記だけの塔のまま。主人公は盗賊、支援は弓師。
+     置き場所は .ai/reports/CHAPTER1-CLOCKTOWER-checklist.md §2。
+       1F 鐘楼の玄関     … 掲示板の「七日前」を受けた盗賊の一言
+       2F 歯車の間       … 管理人の手帳を読んだ後
+       3F 針の回廊       … 娘の書き置きを読んだ後
+       4F 鐘の広間       … 譜面を読んだ後
+       5F 文字盤の前室   … 管理人の外套と懐中時計(新しい手記)、盗賊が預かる
+     2F〜4F は「その階の手記を読んだら、すぐ」。読まずに進んだ場合も、
+     次の通路(扉の先)で一度だけ出す(どちらか一方だけ)。
+     謎解き・封鎖戦・扉・階段・敵には触れない。セーブ項目も増やさない。
+
+     会話の最初の行は文字列(名前欄は speakerName)、2行目からは {name, text} */
+  function clocktowerChapter1(){
+    return !legacyGrowth() && state.scenarioKey === 'clocktower';
+  }
+  function buildClocktowerChapter1Story(roomById, slabY){
+    if(!clocktowerChapter1()) return;
+    const R = CLASSES.rogue.name, A = CLASSES.archer.name;
+    const lore = title => loreObjects.find(l=> l.title === title);
+    const last = ()=> proximityEvents[proximityEvents.length-1];
+
+    // 1F: 掲示板(塔の門)の先、鐘楼の玄関に入ったところ
+    registerRoomEvent(roomById['t1hall'], slabY['f1'], R, [
+      '「七日か。……待つ側にしちゃ、短いな」'
+    ], {condition:clocktowerChapter1});
+
+    /* 2F〜4F: 手記を読んだら、その部屋の中ですぐ。読まずに扉の先の通路へ
+       出たら、そこで一度だけ。どちらか一方 */
+    function afterNote(title, room, fallback, fl, lines){
+      const note = lore(title);
+      registerRoomEvent(roomById[room], slabY[fl], lines.speaker, lines.lines,
+        {condition:()=> clocktowerChapter1() && !!note && note.read && !fb.fired});
+      const onRead = last();
+      registerRoomEvent(roomById[fallback], slabY[fl], lines.speaker, lines.lines,
+        {condition:()=> clocktowerChapter1() && !onRead.fired, marker:false});
+      const fb = last();
+    }
+    afterNote('管理人の手帳', 't2gear', 't2cor2', 'f2', {speaker:A, lines:[
+      '「待っている人がいるんですね」',
+      {name:R, text:'「……出ていった方は、戻りにくいもんだ」'}
+    ]});
+    afterNote('娘の書き置き', 't3hands', 't3cor2', 'f3', {speaker:A, lines:[
+      '「上の階へ向かう側に落ちていました」',
+      {name:R, text:'「下りる気は、なかったんだな」'}
+    ]});
+    afterNote('鐘楼の譜面', 't4bell', 't4cor2', 'f4', {speaker:A, lines:[
+      '「振り返らないで。……今だけは、私が後ろを見ています」'
+    ]});
+
+    /* 5F 文字盤の前室: 管理人の外套と懐中時計(N-2)。前室は 4F からの階段の
+       着地点(-288,186)で、ボスの扉の手前。盗賊が時計を預かる。
+       この時計は島(CT-03)で拾い上げ、翌朝の酒場で返す */
+    buildLoreNote(new THREE.Vector3(-296, slabY['f5'], 192), '管理人の外套', [
+      '床に、くたびれた外套が畳んで置いてある。ポケットから、鎖の付いた懐中時計がのぞいている。',
+      '針は、七時十三分で止まっている。',
+      '外套の主は、ここから先へ一人で進んだらしい。'
+    ], {kind:'letter'});
+    const coat = lore('管理人の外套');
+    registerRoomEvent(roomById['t5ante'], slabY['f5'], R, [
+      '「……預かっとく。返すまでな」',
+      {name:A, text:'「……はい」'}
+    ], {condition:()=> clocktowerChapter1() && !!coat && coat.read && !coatFallback.fired});
+    const coatOnRead = last();
+    registerRoomEvent(roomById['t5cor1'], slabY['f5'], R, [
+      '「……管理人の時計だ。預かっとく。返すまでな」',
+      {name:A, text:'「……はい」'}
+    ], {condition:()=> clocktowerChapter1() && !coatOnRead.fired, marker:false});
+    const coatFallback = last();
+
+    /* 盗賊の過去(§4-4)。仕様は「射出台の前」だが、見晴台は乗った瞬間に
+       終幕が始まる(setLookout)ので、崩壊の後、見晴台へ上がる前の
+       文字盤の裏で出す(CT-01 §3)。何を・誰から盗んだかは語らない */
+    registerRoomEvent(roomById['t5boss'], slabY['f5'], R, [
+      '「……昔、出ていったことがある。持ってっちゃいけない物を持って」',
+      {name:A, text:'「戻らなかったんですか」'},
+      {name:R, text:'「戻れなかった、って言うと格好がつくな。……戻らなかった」'},
+      {name:A, text:'「なら、今度は戻りましょう。跳んだ先から、ちゃんと」'}
+    ], {condition:()=> clocktowerChapter1() && collapsing});
+  }
+
+  /* 跳ぶ瞬間(§4-5)。終幕の台詞を本編でだけ差し替える(仕組みは変えない)。
+     盗賊が抜け道を見つけ、弓師が「今」を読み、正しい時刻の鐘の一打で跳ぶ */
+  const CLOCKTOWER_CHAPTER1_LEAP = ()=>{ const R = CLASSES.rogue.name, A = CLASSES.archer.name; return {
+    opening:[
+      '見晴台に出た。眼下には雲が流れ、その裂け目に海が光っている。',
+      {name:R, text:'「出口は一つだ。……窓はどこにでもある、って言ったろ」'}
+    ],
+    atLip:[
+      '足元で塔が軋む。……降りる道は、無い。',
+      {name:A, text:'「鐘が鳴ります。……鳴ったら、跳びます」'},
+      {name:'', text:'頭上で、鐘が鳴った。ひと月ぶりの、正しい時刻の鐘だった。'}
+    ]
+  }; };
+
+  /* 名も無い島(§4-5)。懐中時計は管理人の時計(N-2)。対岸を一人で歩く
+     人影(N-4)は加入前 ―― 名前・「影の旅人」・職業名を出さない。話者名も
+     付けない(地の文として出す)。最初の行は文字列(名前欄は主人公) */
+  const CLOCKTOWER_CHAPTER1_ISLAND = ()=>{ const A = CLASSES.archer.name; return [
+    '海面が壁のように迫り、視界が白く弾けた。',
+    '……どれだけ流されたのか。砂を噛みながら、なんとか身を起こす。',
+    '振り返ると、時計塔は水平線の向こうで小さく傾いでいた。',
+    '懐から、預かった管理人の懐中時計がこぼれ落ちた。……針は、止まったままだ。',
+    '遠くで、鐘がもう一度鳴った。今度も、正しい時刻に。',
+    '対岸の街道を、誰かが一人で歩いていく。足元の影が、本人より少しだけ遅れてついていく。',
+    {name:A, text:'「……影が、少し遅れていました」'},
+    {name:'', text:'返事は無かった。'}
+  ]; };
+
+  /* 島から見える人影(N-4)。対岸の街道を、加入前の姿(buildRoadTravelerFigure、
+     14-dungeon-road.js)の人物が一人で歩いていく。影だまりは本人より少し
+     遅れてついていく(trackPreJoinShadow)。名前は付けない ―― 近づく手段も
+     無い遠景。島に着いた時だけ建てる(本編の第一章のみ) */
+  /* 島は 2.3 の石垣で囲まれている(北は閉じている)ので、対岸は一段高い
+     崖の上の街道にして、石垣ごしに見えるようにする */
+  const ISLAND_FAR_SHORE_Z = 377, ISLAND_FAR_SHORE_Y = 4.5;
+  function showIslandStranger(){
+    const shore = new THREE.Mesh(new THREE.BoxGeometry(150, ISLAND_FAR_SHORE_Y + 0.6, 14),
+      new THREE.MeshStandardMaterial({color:0x7a8a5a, roughness:0.95}));
+    shore.position.set(-230, (ISLAND_FAR_SHORE_Y - 0.6)/2, ISLAND_FAR_SHORE_Z + 7);
+    scene.add(shore);
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(150, 2.2),
+      new THREE.MeshStandardMaterial({color:0xd8c4a0, roughness:0.9}));
+    road.rotation.x = -Math.PI/2;
+    road.position.set(-230, ISLAND_FAR_SHORE_Y + 0.02, ISLAND_FAR_SHORE_Z + 3);
+    scene.add(road);
+    // 明け方の薄明かり。崖の上の人影が、夜の海の向こうで見分けられる程度
+    const dawn = new THREE.PointLight(0xffd8b0, 3.0, 60);
+    dawn.position.set(-226, ISLAND_FAR_SHORE_Y + 10, ISLAND_FAR_SHORE_Z + 10);
+    scene.add(dawn);
+    const fig = buildRoadTravelerFigure(false);
+    scene.add(fig);
+    trackPreJoinShadow(fig, {
+      from: new THREE.Vector3(-246, ISLAND_FAR_SHORE_Y, ISLAND_FAR_SHORE_Z + 3),
+      to:   new THREE.Vector3(-196, ISLAND_FAR_SHORE_Y, ISLAND_FAR_SHORE_Z + 3),
+      speed: 1.1,
+    });
+    // 建てた後に足したものなので、ワールドの片づけ(currentWorldObjects)へ自分で載せる
+    currentWorldObjects.push(shore, road, dawn, fig);
+    // カメラを島の南側へ回し、主人公ごしに北の対岸が見える向きにする
+    state.camYaw = Math.PI;
+    return fig;
   }
 
   function buildClocktowerDepths(){
@@ -1881,6 +2030,31 @@
         '子供の手には少し大きい。舳先が何度も削り直してある。',
         '誰が持ち帰ったのかは、主人も覚えていないという。',
         'ただ、置き場所だけは決まっているらしい。'
+      ], {kind:'book'});
+    }
+
+    /* 幽霊船の痕跡(CG-03、§4-2)。木彫りの舟と同じく、一度でも船を
+       帰していれば、棚の反対の端に船の小さな角灯が置いてある。
+       セーブ項目は増やさない(既存の scenarioClears を見るだけ) */
+    if(scenarioClears('ghostship') > 0){
+      const lanternFrameMat = new THREE.MeshStandardMaterial({color:0x3a3228, roughness:0.6, metalness:0.4});
+      const lanternGlassMat = new THREE.MeshStandardMaterial({color:0x6fa8d8, roughness:0.3,
+                                emissive:0x6fa8d8, emissiveIntensity:0.25, transparent:true, opacity:0.7});
+      const lantern = new THREE.Group();
+      const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.2, 6), lanternGlassMat);
+      glass.position.y = 0.14;
+      lantern.add(glass);
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.04, 6), lanternFrameMat);
+      base.position.y = 0.02;
+      lantern.add(base);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.1, 6), lanternFrameMat);
+      cap.position.y = 0.29;
+      lantern.add(cap);
+      lantern.position.set(-3.1, 1.775, 22.6);
+      scene.add(lantern);
+      buildLoreNote(new THREE.Vector3(-3.1, 0, 21.9), '棚の端の船の角灯', [
+        '煤けた小さな角灯。硝子だけが、霧の色のまま曇っている。',
+        '火は入っていない。主人は、霧の濃い晩にだけ棚から下ろすという。'
       ], {kind:'book'});
     }
 

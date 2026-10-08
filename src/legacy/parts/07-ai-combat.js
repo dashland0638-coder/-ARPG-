@@ -433,13 +433,15 @@
         '……おのれ、無礼な客人だ!礼儀も知らんのか!',
         'ならば容赦はせん――海の底へ、諸共に沈むがいい!'
       ],
-      dialogueLines:[
+      /* 第一章の本編では §4-2 の台詞(GHOST_CAPTAIN_CHAPTER1_LINES、04)。
+         何度目でも同じ台詞(周回用の短い台詞は使わない) */
+      dialogueLines: !legacyGrowth() ? GHOST_CAPTAIN_CHAPTER1_LINES : [
         '……ここまで辿り着いた者は、久しいな。',
         'あの"錨"を引き上げると決めたのは、この儂だ。早く戻れる――皆を早く家へ帰せると思ったのだ。',
         'その判断が、この船と乗組員もろとも呪いに縛りつけた。儂はもう人ではない。乗員も皆、幽世の住人だ。',
         'ならばお前も――この霧の底で、永久に眠るがいい!'
       ],
-      repeatDialogueLines:[
+      repeatDialogueLines: !legacyGrowth() ? null : [
         '……戻ってきたか。物好きな客人だ。',
         '沈めても沈めても、この船は霧の中へ帰ってくる。儂もまた然り。',
         'ならば何度でも見せてやろう――海の底の景色をな!'
@@ -490,8 +492,11 @@
         '……七時十三分。',
         '幾晩、幾晩とこの時刻を繰り返してきたか、貴様に数えられるか。',
         'ならば貴様も――この止まった刻に、付き合ってもらうぞ!'
-      ],
-      repeatDialogueLines:[
+      /* 第一章の本編では、既存の台詞の後に盗賊の一言(§4-4)。性能は不変 */
+      ].concat(legacyGrowth() ? [] : [
+        {name:CLASSES.rogue.name, text:'「止めてりゃ、出ていかれずに済むってか。……そうはいかねえよ」'}
+      ]),
+      repeatDialogueLines: !legacyGrowth() ? null : [
         '歯車が、聞き覚えのある軋みを立てて回り出す。',
         '……また来たか。何度繰り返しても、七時十三分は変わらない。',
         'ならば今度こそ、その足を止めてやろう。'
@@ -590,9 +595,9 @@
     /* 道(WORK 11)。道標を過ぎた先に、既存の汎用の獣が3体だけ。
        出会いのあとの戦闘は roadHandOff() がその場で出す(14-dungeon-road.js) */
     if(_spawnWorldKey==='road'){
-      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X - 3, 0, 38), Object.assign({}, PROVISIONAL_ROAD_BEAST)));
-      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 4, 0, 42), Object.assign({}, PROVISIONAL_ROAD_BEAST)));
-      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 0.5, 0, 49), Object.assign({}, PROVISIONAL_ROAD_SPITTER)));
+      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X - 3, 0, 38), Object.assign({}, ROAD_BEAST)));
+      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 4, 0, 42), Object.assign({}, ROAD_BEAST)));
+      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 0.5, 0, 49), Object.assign({}, ROAD_SPITTER)));
     }
     // テストモードのカカシ(訓練用の的)。hp/atk/speedはdifficultyFor()の
     // 補正(_D)がそのままかかるが、'training'は星取りデータが無いキーの
@@ -694,8 +699,15 @@
                      目的で、撃破すること自体が目的ではないため)
   ========================================================= */
   const ARENA_ROSTER = {
+    /* Dummy は出した時の向きのまま動かない(HE-TF-01)。以前は徘徊 AI で
+       2〜4.5 秒ごとにランダムな点へ向き直っていたため、背後/正面を狙って
+       近づく間に向きが変わり、Back Attack の確認(E2E)が揺れていた。
+       向きは出した時にランダムに決める(これまでの最初の向き直りと同じ分布) */
     dummy:      {label:'Dummy',        icon:'🎯',
-      spawn:(pos)=> buildEnemy(pos, {dummy:true, hp:50000, atk:0, speed:0, atkType:'passive', xp:0, color:0xd9b968})},
+      spawn:(pos)=>{ const en = buildEnemy(pos, {dummy:true, hp:50000, atk:0, speed:0, atkType:'passive', xp:0, color:0xd9b968});
+                     en.arenaFixedFacing = true;
+                     en.group.rotation.y = Math.random()*Math.PI*2 - Math.PI;
+                     return en; }},
     basicMelee: {label:'Basic Melee',  icon:'🗡️',
       spawn:(pos)=> buildEnemy(pos, {hp:9999, atk:12, speed:3.0, atkType:'charge', xp:0, color:0x8a3a3a, chargeCooldownOverride:1.3})},
     windup:     {label:'Windup Enemy', icon:'🐢',
@@ -1051,6 +1063,7 @@
       else if(en.atkType==='copy')  updateCopyShadeAI(en, dt);
       else if(en.atkType==='fisher') updateFisherAI(en, dt);
       else if(en.atkType==='keeper') updateKeeperAI(en, dt);
+      else if(en.arenaFixedFacing)   { /* Arena の Dummy: 向きを変えない(HE-TF-01) */ }
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
       updateMobAnim(en, dt);

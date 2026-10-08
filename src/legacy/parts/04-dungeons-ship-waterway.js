@@ -255,7 +255,97 @@
     buildGhostShipBelowDecks();
 
     buildGhostShipBossHold();
+    buildGhostShipChapter1Story();
   }
+
+  /* 第一章③ 幽霊船の物語(docs/CHAPTER1_STORY.md §4-2、DEC-004)。
+
+     **本編のときだけ**置く(legacyGrowth() が偽)。テストモードと、将来の周回
+     (Chapter 2 以降)では、既存の周回用の台詞と手記だけの船のまま。
+
+     本筋は 桟橋 → 晩餐の間 → 船長室 → 甲板 → 貨物室 → 船倉の奥 → ボス
+     (.ai/reports/CHAPTER1-GHOSTSHIP-checklist.md)。ここで置くのは前半の3つ:
+       晩餐の間を出たところ … 弓師と魔法使いの「帰る場所」の話
+       船長室                … 止まった船の時計(七時十三分)
+       甲板                  … 海を見ていた影の後の一言
+     敵・扉・階段・ボスの性能には触れない。セーブ項目も増やさない。
+
+     会話の最初の行は文字列(名前欄は speakerName)、2行目からは
+     {name, text}(advanceDialogue → renderDialogueLine)―― 既存の作法 */
+  function ghostShipChapter1(){
+    return !legacyGrowth() && state.scenarioKey === 'ghostship';
+  }
+  function buildGhostShipChapter1Story(){
+    if(!ghostShipChapter1()) return;
+    const A = CLASSES.archer.name, M = CLASSES.mage.name;
+
+    /* 晩餐の間を出たところ(控えの廊下の曲がり角)。晩餐の間は桟橋から入って
+       すぐの部屋で、本筋はここを必ず通る。食器の音(0,66)の後になる */
+    registerProximityEvent(new THREE.Vector3(-5,0,74), 1, M, [
+      '「この船の人たちは、帰る場所があったんですね」',
+      {name:A, text:'「ええ。だから、降りられないんだと思います」'},
+      {name:M, text:'「……あなたは?」'},
+      {name:A, text:'「私は、どこにも。……だから、少しだけ羨ましい」'}
+    ], {area:{x0:-8, x1:-2, z0:72.4, z1:76}, condition:ghostShipChapter1});
+
+    /* 船長室。止まった船の時計(N-5)。七時十三分はボスの台詞でも出るので、
+       ここは気づく場面。船長室は crewDoor(0,80)→cabinDoor(0,95) を通り抜ける
+       本筋の部屋なので、点ではなく部屋の奥半分を範囲にして取りこぼさない */
+    buildLoreNote(new THREE.Vector3(4,0,89), '止まった船の時計', [
+      '壁の振り子時計は、七時十三分を指したまま動かない。',
+      'ねじは巻いてある。止めたのは、時計の側ではないらしい。'
+    ], {kind:'sign'});
+    registerProximityEvent(new THREE.Vector3(0,0,89), 1, A, [
+      '「……あの時計、七時十三分で止まっています」',
+      {name:M, text:'「何か、心当たりが?」'},
+      {name:A, text:'「港で聞いた鐘も、毎晩その時刻に鳴っていました」'}
+    ], {area:{x0:-7.6, x1:7.6, z0:85, z1:94.6}, condition:ghostShipChapter1});
+
+    /* 甲板。海を見つめていた影(既存の近接イベント、(-5,105) 半径7)の後の一言。
+       あの影は甲板の西寄りにいて、cabinDoor から階段(6,108)へまっすぐ
+       歩くと半径の外を通ることがある。そのため2通り:
+         影を見た  → 見た直後(会話が閉じた次のフレーム、まだ半径の中)
+         見ていない → 階段の手前で、手すりのほうを振り返る形
+       どちらか一方だけが出る(影を見た後は「見ていない」形が出ず、
+         「見ていない」形が出た後は、影を後から見ても重ねない) */
+    const seaShadow = proximityEvents.find(ev=> ev.pos.x === -5 && ev.pos.z === 105);
+    const shadowSeen = ()=> !!seaShadow && seaShadow.fired;
+    registerProximityEvent(new THREE.Vector3(-5,0,105), 7, A, [
+      '「……あの人、陸のほうを見ていました」',
+      {name:M, text:'「帰り道を探しているんでしょうか」'}
+    ], {condition:()=> ghostShipChapter1() && shadowSeen() && !deckMissed.fired});
+    registerProximityEvent(new THREE.Vector3(5,0,106), 1, A, [
+      '「……手すりのところに、誰か立っていませんでしたか」',
+      {name:M, text:'「陸のほうを、見ていたような。……帰り道を探しているんでしょうか」'}
+    ], {area:{x0:2, x1:7.6, z0:103, z1:110}, marker:false,
+        condition:()=> ghostShipChapter1() && !shadowSeen()});
+    const deckMissed = proximityEvents[proximityEvents.length-1];
+
+    /* 船倉の奥(CG-03)。貨物室からの階段は扉の手前(-32,108)に着き、既存の
+       「空気が重い」(-32,107 r4)→「船長帽の影」(-30,110 r6)が着いた所で
+       続けて出る。その影が出た後に、警告(-38,104 の彫り込み)と、扉の向こうの
+       顔についての二言を一つの会話で置く(ボスの会話の手前) */
+    const captainShadow = proximityEvents.find(ev=> ev.pos.x === -30 && ev.pos.z === 110);
+    registerProximityEvent(new THREE.Vector3(-30,0,110), 6, M, [
+      '「分かっているつもりで、決めてしまったんですね。……少し、覚えがあります」',
+      {name:A, text:'「……鐘を待っている顔です」'}
+    ], {condition:()=> ghostShipChapter1() && !!captainShadow && captainShadow.fired});
+  }
+
+  /* 帰港を望む船長の、第一章の台詞(§4-2、N-1)。性能・扉・撃破後の流れは
+     既存のまま、言うことだけを差し替える(07 の buildBoss が本編のときに使う)。
+     霧の中では鐘だけが帰り道だった/あの塔の鐘が七時十三分で黙った/
+     近道を選ぶべきではなかった ―― 塔へ向かう理由はここで渡す */
+  const GHOST_CAPTAIN_CHAPTER1_LINES = [
+    '……ここまで辿り着いた者は、久しいな。',
+    '霧の中では、何も見えん。帰り道は、あの塔の鐘だけだった。毎晩、同じ時刻に鳴る鐘だ。',
+    'その鐘が、七時十三分で黙った。……儂は待てなかった。"錨"を引き上げ、近道を選んだ。',
+    '近道など、選ぶべきではなかった。……だが、もう遅い。お前たちも、この霧の底で眠るがいい!'
+  ];
+  /* 撃破後、既存の「港が……見える……」の前に置く一行(§4-2)。
+     最初の行は文字列で出す(clear-return-btn が textContent に入れる) */
+  const GHOST_CAPTAIN_CHAPTER1_FAREWELL =
+    '「……鐘を。あの塔の鐘を、鳴らしてくれ。まだ、霧の中に……」――船長が、霧の向こうを指さした。';
 
   /* =========================================================
      GHOST SHIP BOSS HOLD - a proper enclosed chamber deep under the

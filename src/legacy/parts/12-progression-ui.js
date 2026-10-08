@@ -86,10 +86,17 @@
     ]; },
     /* 道(WORK 11)。酒場の隅にいた「影の旅人」が戻らない ――
        原案の「行方不明者の捜索」を起点にした導入。主人は理由を知らない */
-    road: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+    /* 第一章の本編(§4-5「酒場(翌朝)」): 朝の鐘の一行、盗賊が預かった懐中時計を
+       返す、管理人は生還した(N-3)。隅の席の人物の名前は出さない(N-4) */
+    road: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; const ch1 = !legacyGrowth(); return [
       {name:M, text:'……隅の席のあいつ、朝から戻っとらん。'},
+      ...(ch1 ? [{name:M, text:'朝の鐘で目を覚ましたら、もういなかった。'}] : []),
       {name:Y, text:'いつもあそこに座ってた奴か。'},
       {name:M, text:'ああ。街道のほうへ歩いていくのを見た者がいる。……あいつが外へ出るのは、初めて見た。'},
+      ...(ch1 ? [
+        {name:Y, text:'……それと、これ。塔の管理人に、返しといてくれ。'},
+        {name:M, text:'懐中時計か。……管理人は、朝になったら塔の下に座り込んでたそうだ。娘の名前を呼んでな。'}
+      ] : []),
       {name:Y, text:'探してくる。'},
       {name:M, text:'街道は一本だ。迷いはせん。……明るいうちに戻れよ。'}
     ]; },
@@ -219,13 +226,16 @@
      state.shadowGuideMet: 初回の会話(酒場の案内)を済ませたか
      state.shadowGuideTalks: 以後の会話回数(反応のバリエーション用)
   ========================================================= */
+  /* 話者名。「影の旅人」の名前は道での正式加入まで出さない(DEC-004 N-4)――
+     第一章の本編では「？？？」。テストモードは従来の表示のまま */
   const SHADOW_GUIDE_NAME = '影の旅人';
+  function shadowGuideSpeaker(){ return legacyGrowth() ? SHADOW_GUIDE_NAME : '？？？'; }
 
   // 初対面: インフォグラフィック本文の「最初の会話」をほぼそのまま採用。
   // 後半は完全なチュートリアルNPCとして、酒場の主要施設(店主/鍛冶士)を
   // 一言で案内する ―― プレイヤーが「ああ、この子は案内役か」と自然に
   // 誤解する下地を作るための会話
-  const SHADOW_GUIDE_FIRST_MEET = ()=>{ const S=SHADOW_GUIDE_NAME, Y=state.name||'あなた'; return [
+  const SHADOW_GUIDE_FIRST_MEET = ()=>{ const S=shadowGuideSpeaker(), Y=state.name||'あなた'; return [
     {name:S, text:'……こんにちは。'},
     {name:Y, text:'……こんにちは。'},
     {name:S, text:'ここは、初めてですか?'},
@@ -254,26 +264,26 @@
   // まだ持たせていない ―― 行方不明者の捜索イベントを実装する際に、
   // ここへ「一人が帰ってこない」の分岐を追加する想定)
   const SHADOW_GUIDE_REPEAT = [
-    ()=>{ const S=SHADOW_GUIDE_NAME, Y=state.name||'あなた'; return [
+    ()=>{ const S=shadowGuideSpeaker(), Y=state.name||'あなた'; return [
       {name:S, text:'……近く、新しい人が来ます。'},
       {name:Y, text:'誰だ?'},
       {name:S, text:'分かりません。'},
       {name:Y, text:'分からないのに、よく分かるな。'},
       {name:S, text:'……そうですね。'}
     ]; },
-    ()=>{ const S=SHADOW_GUIDE_NAME, Y=state.name||'あなた'; return [
+    ()=>{ const S=shadowGuideSpeaker(), Y=state.name||'あなた'; return [
       {name:S, text:'マスターが、何か考え込んでいるようです。'},
       {name:Y, text:'よくあることなのか?'},
       {name:S, text:'……分かりません。でも、聞いてあげてください。'}
     ]; },
-    ()=>{ const S=SHADOW_GUIDE_NAME, Y=state.name||'あなた'; return [
+    ()=>{ const S=shadowGuideSpeaker(), Y=state.name||'あなた'; return [
       {name:Y, text:'……お前は、いつからここにいる?'},
       {name:S, text:'……。'},
       {name:S, text:'分かりません。'},
       {name:Y, text:'覚えていないのか?'},
       {name:S, text:'ずっと、ここにいた気がします。それだけです。'}
     ]; },
-    ()=>{ const S=SHADOW_GUIDE_NAME, Y=state.name||'あなた'; return [
+    ()=>{ const S=shadowGuideSpeaker(), Y=state.name||'あなた'; return [
       {name:S, text:'……ここは、落ち着きます。'},
       {name:Y, text:'意外だな。'},
       {name:S, text:'そうですか?'},
@@ -1459,7 +1469,10 @@
   document.getElementById('clear-return-btn').addEventListener('click', ()=>{
     document.getElementById('clear-overlay').classList.remove('active');
     recomputeStats();
-    const endingLines = BOSS_ENDING_LINES[state.lastDefeatedBossKey];
+    let endingLines = BOSS_ENDING_LINES[state.lastDefeatedBossKey];
+    // 第一章の本編: 船長は「港が見える」の前に、塔の鐘を頼む(§4-2)
+    if(endingLines && state.lastDefeatedBossKey === 'ghostCaptain' && !legacyGrowth())
+      endingLines = [GHOST_CAPTAIN_CHAPTER1_FAREWELL].concat(endingLines);
     state.lastDefeatedBossKey = null;
     if(endingLines){
       state.dialogueActive = true;

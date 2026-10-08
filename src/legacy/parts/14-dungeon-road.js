@@ -42,13 +42,25 @@
   const ROAD_REST_POS  = new THREE.Vector3(ROAD_X+2.4, 0, 80.5);   // 影の旅人が座っている長椅子
   const ROAD_HILL_POS  = new THREE.Vector3(ROAD_X, 0, 104);
 
-  /* 暫定値(PROVISIONAL)。時計塔(Lv.11〜)と宵待ちの村(Lv.26〜)を抜けてきた
-     二人に、少数で「覚えた戦い方が使える」程度の手応え。★は周回しないので
-     常に ★1 のまま(difficultyFor の補正は1倍) */
-  const PROVISIONAL_ROAD_BEAST = {color:0x6a5a44, hp:190, atk:30, speed:2.6, atkType:'charge', xp:80, goldBonus:[16,24]};
-  const PROVISIONAL_ROAD_SPITTER = {color:0x7a6a4a, hp:150, atk:26, speed:0.9, atkType:'fire', xp:84, goldBonus:[16,24], projColor:0xd8b060};
+  /* 道の敵の数値(CR-01 で確定、HD-C3 = a: 今の敵のまま数値だけ決める。
+     新しい敵・強敵・ボスは置かない)。
+
+     二つの戦闘は、どちらも時計塔 4F 鐘の広間と同じ「突進2 + 射撃1」。
+     第一章の本編は成長しないので、主人公の強さは塔と同じ
+     (戦闘1: 盗賊 HP 102 / ATK 22、戦闘2: 影の旅人 HP 109 / ATK 21)。
+     塔 4F(突進 HP 152 / ATK 32、射撃 HP 138 / ATK 35)と比べて、
+     HP の合計は約2割多く、ATK の合計は約1割少ない ―― 第一章の締めの
+     道として「覚えた戦い方で、少し粘られるが危なくはない」手応え。
+     ★は周回しないので常に ★1。難易度補正は他のシナリオと同じ
+     COMBAT_REBALANCE(HP ×1.20 / ATK ×1.10)だけが掛かる(difficultyFor)。
+     根拠の表は .ai/reports/CR-01-report.md */
+  const ROAD_BEAST = {color:0x6a5a44, hp:190, atk:30, speed:2.6, atkType:'charge', xp:80, goldBonus:[16,24]};
+  const ROAD_SPITTER = {color:0x7a6a4a, hp:150, atk:26, speed:0.9, atkType:'fire', xp:84, goldBonus:[16,24], projColor:0xd8b060};
 
   const ROAD_THIEF = '盗賊', ROAD_ARCHER = '弓師', ROAD_TRAVELER = '影の旅人';
+  /* 加入前の話者名(DEC-004 N-4)。「影の旅人」の名前は正式加入(roadHandOff)で
+     初めて出す ―― それまでの道の会話はすべてこの表記 */
+  const ROAD_STRANGER = '？？？';
 
   let roadTraveler = null;     // 出会う前の影の旅人(長椅子に座っている)
   let roadArcherStay = null;   // 出会いのあと、休憩所に残る弓師
@@ -179,6 +191,7 @@
     roadTraveler.position.set(ROAD_REST_POS.x, 0, ROAD_REST_POS.z);
     roadTraveler.rotation.y = Math.PI;   // 来た道(南)のほうを向いて座っている
     scene.add(roadTraveler);
+    trackPreJoinShadow(roadTraveler);
 
     // ---- 丘の上の里程石と、その先の景色 ----
     const mile = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.1, 0.35), stoneMat);
@@ -252,6 +265,49 @@
     g.add(pool);
     g.userData.pool = pool;
     return g;
+  }
+
+  /* 加入前の人物の影は、本人よりわずかに遅れて動く(DEC-004 N-4)。
+     影だまり(userData.pool)を人物から外してシーンへ直に置き、本人の
+     PRE_JOIN_SHADOW_LAG 秒前の位置へ付ける。止まっている間は本人の足元に
+     追いつくので、座っている姿では違いが出ない ―― 動いた時だけ「ずれ」る。
+     walk を渡すと、その人物を from → to へ一定の速さで歩かせる(島の遠景)。
+     人物がシーンから外れたら、影も一緒に片づく */
+  const PRE_JOIN_SHADOW_LAG = 0.45;
+  let preJoinFigures = [];
+  function trackPreJoinShadow(fig, walk){
+    const pool = fig.userData.pool;
+    if(!pool) return;
+    fig.remove(pool);
+    pool.userData.offset = pool.position.clone();
+    pool.position.add(fig.position);
+    scene.add(pool);
+    if(walk) fig.position.copy(walk.from);
+    preJoinFigures.push({fig, pool, walk: walk || null, t:0,
+                         trail:[{t:0, x:fig.position.x, y:fig.position.y, z:fig.position.z}]});
+  }
+  function updatePreJoinFigures(dt){
+    for(let i = preJoinFigures.length - 1; i >= 0; i--){
+      const f = preJoinFigures[i];
+      if(!f.fig.parent){ scene.remove(f.pool); preJoinFigures.splice(i, 1); continue; }
+      f.t += dt;
+      if(f.walk){
+        const to = f.walk.to, p = f.fig.position;
+        const dx = to.x - p.x, dz = to.z - p.z, d = Math.hypot(dx, dz);
+        const step = f.walk.speed * dt;
+        if(d <= step){ p.x = to.x; p.z = to.z; }
+        else { p.x += dx/d*step; p.z += dz/d*step; f.fig.rotation.y = Math.atan2(dx, dz); }
+      }
+      const p = f.fig.position;
+      f.trail.push({t:f.t, x:p.x, y:p.y, z:p.z});
+      while(f.trail.length > 1 && f.trail[1].t <= f.t - PRE_JOIN_SHADOW_LAG) f.trail.shift();
+      const at = f.trail[0], off = f.pool.userData.offset;
+      f.pool.position.set(at.x + off.x, at.y + off.y, at.z + off.z);
+    }
+  }
+  function clearPreJoinFigures(){
+    preJoinFigures.forEach(f=> scene.remove(f.pool));
+    preJoinFigures = [];
   }
 
   /* 仲間の立ち姿(休憩所に残る弓師と、最後の酒場の3人)。GUEST COMPANION
@@ -357,13 +413,17 @@
       {t:0.9, run:()=> cutsceneLine('「……橋の先に、誰か」', ROAD_ARCHER)},
       {t:2.0, run:()=> cutsceneLine('「見えた。隅の席の奴だ」', ROAD_THIEF)},
       {t:2.0, run:()=> cutsceneLine('「影だけ、少し遅れて動いていました」', ROAD_ARCHER)},
+      // 本編では島から同じ人影を見ている(CLOCKTOWER_CHAPTER1_ISLAND、§4-6)
+    ].concat(legacyGrowth() ? [] : [
+      {t:2.0, run:()=> cutsceneLine('「……島から見えた人です」', ROAD_ARCHER)},
+    ]).concat([
       {t:2.2, run:()=> cutsceneLine('「……急ぐぞ」', ROAD_THIEF)},
       {t:1.8, run:()=>{
         cutsceneHideLine();
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ]));
   }
 
   /* 休憩所での出会い(イベントC)。長い自己紹介はさせない ――
@@ -383,13 +443,18 @@
         const yaw = Math.atan2(ROAD_REST_POS.x - state.pos.x, ROAD_REST_POS.z - state.pos.z);
         cutsceneTurnTo(yaw, 0.6);
       }},
-      {t:0.6, run:()=> cutsceneLine('「……こんにちは」', ROAD_TRAVELER)},
+      {t:0.6, run:()=> cutsceneLine('「……こんにちは」', ROAD_STRANGER)},
       {t:2.0, run:()=> cutsceneLine('「こんにちは、じゃない。朝から探してたんだぞ」', ROAD_THIEF)},
-      {t:2.2, run:()=> cutsceneLine('「そうですか」', ROAD_TRAVELER)},
+      {t:2.2, run:()=> cutsceneLine('「そうですか」', ROAD_STRANGER)},
+    ].concat(legacyGrowth() ? [] : [
+      // 本編では酒場の主人が「朝の鐘で目を覚ましたら、もういなかった」と言っている(§4-6)
+      {t:1.8, run:()=> cutsceneLine('「朝の鐘で出てったんだろ」', ROAD_THIEF)},
+      {t:1.8, run:()=> cutsceneLine('「……鳴ったので」', ROAD_STRANGER)},
+    ]).concat([
       {t:1.8, run:()=> cutsceneLine('「ここで、何を」', ROAD_ARCHER)},
-      {t:1.8, run:()=> cutsceneLine('「待っていました。……たぶん」', ROAD_TRAVELER)},
+      {t:1.8, run:()=> cutsceneLine('「待っていました。……たぶん」', ROAD_STRANGER)},
       {t:2.2, run:()=> cutsceneLine('「誰を」', ROAD_THIEF)},
-      {t:1.6, run:()=> cutsceneLine('「分かりません。でも、ここで待つ気がしたので」', ROAD_TRAVELER)},
+      {t:1.6, run:()=> cutsceneLine('「分かりません。でも、ここで待つ気がしたので」', ROAD_STRANGER)},
       // 草むらが揺れる。影の旅人が立ち上がる ―― 影のほうが、先に動く
       {t:2.4, run:()=>{
         cutsceneHideLine();
@@ -403,15 +468,21 @@
         if(roadTraveler){
           scene.remove(roadTraveler);
           roadTraveler = buildRoadTravelerFigure(false);
-          // 屋根の下から道へ出てくる(真上からのカメラで屋根に隠れないように)
-          roadTraveler.position.set(ROAD_X + 0.6, 0, ROAD_REST_POS.z - 3.0);
+          // 屋根の下から道へ出てくる(真上からのカメラで屋根に隠れないように)。
+          // 長椅子から歩いて出る ―― 足元の影は、少し遅れてついてくる
           roadTraveler.rotation.y = Math.PI;
           scene.add(roadTraveler);
+          currentWorldObjects.push(roadTraveler);   // 途中で撤退しても片づくように
+          trackPreJoinShadow(roadTraveler, {
+            from: new THREE.Vector3(ROAD_REST_POS.x, 0, ROAD_REST_POS.z - 0.6),
+            to:   new THREE.Vector3(ROAD_X + 0.6, 0, ROAD_REST_POS.z - 3.0),
+            speed: 2.4,
+          });
         }
-        cutsceneLine('「……来ます」', ROAD_TRAVELER);
+        cutsceneLine('「……来ます」', ROAD_STRANGER);
       }},
       {t:1.6, run:()=> cutsceneLine('「おい、下がって――」', ROAD_THIEF)},
-      {t:1.4, run:()=> cutsceneLine('「いいえ。……私が行きます」', ROAD_TRAVELER)},
+      {t:1.4, run:()=> cutsceneLine('「いいえ。……私が行きます」', ROAD_STRANGER)},
       {t:2.0, run:()=> cutsceneLine('「……来た道は、私が見ています。行ってください」', ROAD_ARCHER)},
       {t:2.2, run:()=>{
         cutsceneHideLine();
@@ -421,11 +492,14 @@
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ]));
   }
 
   /* 交代そのもの。影の旅人の立っていた場所へ主人公を置き直し、盗賊を
-     支援AIへ、弓師を休憩所の見張りへ。直後に獣が草むらから出てくる */
+     支援AIへ、弓師を休憩所の見張りへ。直後に獣が草むらから出てくる。
+     正式加入はここ ―― 姿が操作キャラクターのリグ(加入後のグラフィック)へ
+     変わり、「影の旅人」の名前が初めて出る(HUD の名前と、以後の話者名。
+     DEC-004 N-4) */
   function roadHandOff(){
     roadMet = true;
     const at = roadTraveler ? roadTraveler.position.clone() : state.pos.clone();
@@ -442,10 +516,13 @@
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
     spawnLog(`${state.classDef.icon} ${ROAD_TRAVELER}`);
-    [[ROAD_X - 7, 88, PROVISIONAL_ROAD_BEAST],
-     [ROAD_X + 7, 90, PROVISIONAL_ROAD_BEAST],
-     [ROAD_X + 1, 95, PROVISIONAL_ROAD_SPITTER]].forEach(([x, z, v])=>{
-      const en = buildEnemy(new THREE.Vector3(x, 0, z), Object.assign({}, v));
+    /* roomTag: 倒したらこの出撃中は復活しない(封鎖戦と同じ印)。丘へ進む条件が
+       「3体とも倒れている」なので、印が無いと普通の雑魚と同じく 20 秒で湧き直し、
+       本編の強さ(ATK 21)で3体を 20 秒以内に倒し切れないと道を終えられなかった(CR-03) */
+    [[ROAD_X - 7, 88, ROAD_BEAST],
+     [ROAD_X + 7, 90, ROAD_BEAST],
+     [ROAD_X + 1, 95, ROAD_SPITTER]].forEach(([x, z, v])=>{
+      const en = buildEnemy(new THREE.Vector3(x, 0, z), Object.assign({roomTag:'roadFight2'}, v));
       enemies.push(en);
       roadFight2.push(en);
     });
@@ -487,6 +564,7 @@
   }
 
   function updateRoad(dt){
+    updatePreJoinFigures(dt);   // 島の遠景(時計塔)でも動かすので、ワールドの判定より前
     if(currentWorldKey !== 'road') return;
     // 橋の上に残った影は、ゆっくり薄れて消える
     if(roadBridgeShadow){

@@ -1423,6 +1423,9 @@
     } else if(state.started && state.dialogueActive){
       hideMobBars();
       clearMovementInput(false); wasPlayable = false;   // never leave the stick held
+      /* 島の遠景の人影(showIslandStranger)は、島の地の文を読んでいる間に
+         歩いていく。加入前の人物を動かすだけで、他のワールドでは何もしない */
+      updatePreJoinFigures(dt);
       // controller support for reading dialogue/lore notes and the clear/down screens
       // (#25: クリア/戦闘不能画面はボス報酬選択・ステータス振り分け・
       // 「探索を続ける」等の選択肢を持つため、単なるA=決定固定ではなく
@@ -1885,7 +1888,8 @@
     document.getElementById('dialogue-overlay').classList.add('active');
   }
 
-  /* 交代の台詞。どれも3往復まで ―― 説明しない。
+  /* 交代の台詞。どれも3往復まで ―― 説明しない(第一章の物語で足す行は
+     docs/CHAPTER1_STORY.md §4 のとおり。向かう理由を一言ずつ置くだけ)。
      「次はあなたが行く」とも言わせない(行き先は酒場の主人が出す) */
   const CHAPTER1_JOIN_LINES = {
     mage: (prevName)=> [
@@ -1894,14 +1898,23 @@
       {name:prevName, text:'ひとりで行く気か。'},
       {name:'魔法使い', text:'いいえ。ついて来てくださるなら、助かります。'}
     ],
+    /* 幽霊船へ(docs/CHAPTER1_STORY.md §4-1)。噂を持ち込むのは弓師、
+       もう一度確かめたいのは魔法使い。剣士は酒場に残り、村で自分が
+       していたことを返す */
     archer: (prevName)=> [
       {name:'酒場の主人', text:'霧の港で船が見つかったそうだ。乗員は、ひとりも。'},
       {name:'弓師', text:'その話、私が引き受けます。……港は歩き慣れているので。'},
       {name:prevName, text:'ひとりでは行かせません。'},
-      {name:'弓師', text:'そう言うと思っていました。'}
+      {name:'弓師', text:'そう言うと思っていました。'},
+      {name:'弓師', text:'毎晩、同じ時刻に鳴るんです。乗っている人は、いないのに。'},
+      {name:prevName, text:'……確かめに行きます。今度は、最初から見ておきたいので。'},
+      {name:'剣士', text:'見てから決めろ。……あの村で、そうしただろう。'}
     ],
+    /* 時計塔へ(docs/CHAPTER1_STORY.md §4-3)。船の時計と塔の鐘が同じ時刻で
+       止まっていることを、船から戻った弓師が一言だけ足す */
     rogue: (prevName)=> [
       {name:'酒場の主人', text:'塔の鐘が、毎晩同じ時刻で止まるらしい。'},
+      {name:prevName, text:'止まっているのは、鐘だけじゃありません。船も、あの時刻で。'},
       {name:'盗賊', text:'止まってるなら、入るのは簡単だ。開いてる窓はどこにでもある。'},
       {name:prevName, text:'……その言い方、あとで詳しく聞かせて。'},
       {name:'盗賊', text:'着いてからな。'}
