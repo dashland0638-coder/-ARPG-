@@ -857,7 +857,7 @@
       state.dialogueActive = true;
       state.dialogueBoss = null;
       state.dialogueKind = 'towerEscape';
-      state.dialogueLines = [
+      state.dialogueLines = clocktowerChapter1() ? CLOCKTOWER_CHAPTER1_ISLAND() : [
         '海面が壁のように迫り、視界が白く弾けた。',
         '……どれだけ流されたのか。砂を噛みながら、なんとか身を起こす。',
         '振り返ると、時計塔は水平線の向こうで小さく傾いでいた。',
@@ -870,7 +870,7 @@
       document.getElementById('dialogue-text').textContent = state.dialogueLines[0];
       document.getElementById('dialogue-overlay').classList.add('active');
       sfx('chime');
-    });
+    }, ()=> clocktowerChapter1() ? CLOCKTOWER_CHAPTER1_LEAP() : null);
 
 
     // the great clock face, standing over the roof deck
@@ -1105,7 +1105,45 @@
       {name:A, text:'「……はい」'}
     ], {condition:()=> clocktowerChapter1() && !coatOnRead.fired, marker:false});
     const coatFallback = last();
+
+    /* 盗賊の過去(§4-4)。仕様は「射出台の前」だが、見晴台は乗った瞬間に
+       終幕が始まる(setLookout)ので、崩壊の後、見晴台へ上がる前の
+       文字盤の裏で出す(CT-01 §3)。何を・誰から盗んだかは語らない */
+    registerRoomEvent(roomById['t5boss'], slabY['f5'], R, [
+      '「……昔、出ていったことがある。持ってっちゃいけない物を持って」',
+      {name:A, text:'「戻らなかったんですか」'},
+      {name:R, text:'「戻れなかった、って言うと格好がつくな。……戻らなかった」'},
+      {name:A, text:'「なら、今度は戻りましょう。跳んだ先から、ちゃんと」'}
+    ], {condition:()=> clocktowerChapter1() && collapsing});
   }
+
+  /* 跳ぶ瞬間(§4-5)。終幕の台詞を本編でだけ差し替える(仕組みは変えない)。
+     盗賊が抜け道を見つけ、弓師が「今」を読み、正しい時刻の鐘の一打で跳ぶ */
+  const CLOCKTOWER_CHAPTER1_LEAP = ()=>{ const R = CLASSES.rogue.name, A = CLASSES.archer.name; return {
+    opening:[
+      '見晴台に出た。眼下には雲が流れ、その裂け目に海が光っている。',
+      {name:R, text:'「出口は一つだ。……窓はどこにでもある、って言ったろ」'}
+    ],
+    atLip:[
+      '足元で塔が軋む。……降りる道は、無い。',
+      {name:A, text:'「鐘が鳴ります。……鳴ったら、跳びます」'},
+      {name:'', text:'頭上で、鐘が鳴った。ひと月ぶりの、正しい時刻の鐘だった。'}
+    ]
+  }; };
+
+  /* 名も無い島(§4-5)。懐中時計は管理人の時計(N-2)。対岸を一人で歩く
+     人影(N-4)は加入前 ―― 名前・「影の旅人」・職業名を出さない。話者名も
+     付けない(地の文として出す)。最初の行は文字列(名前欄は主人公) */
+  const CLOCKTOWER_CHAPTER1_ISLAND = ()=>{ const A = CLASSES.archer.name; return [
+    '海面が壁のように迫り、視界が白く弾けた。',
+    '……どれだけ流されたのか。砂を噛みながら、なんとか身を起こす。',
+    '振り返ると、時計塔は水平線の向こうで小さく傾いでいた。',
+    '懐から、預かった管理人の懐中時計がこぼれ落ちた。……針は、止まったままだ。',
+    '遠くで、鐘がもう一度鳴った。今度も、正しい時刻に。',
+    '対岸の街道を、誰かが一人で歩いていく。足元の影が、本人より少しだけ遅れてついていく。',
+    {name:A, text:'「……影が、少し遅れていました」'},
+    {name:'', text:'返事は無かった。'}
+  ]; };
 
   function buildClocktowerDepths(){
     const cx = -346, cz = 120, y = 9;
