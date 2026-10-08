@@ -854,6 +854,7 @@
                {x:-232, z:274}, ()=>{
       state.pos.set(-230, 0, 344);          // washed ashore on the island
       state.grounded = true;
+      if(clocktowerChapter1()) showIslandStranger();
       state.dialogueActive = true;
       state.dialogueBoss = null;
       state.dialogueKind = 'towerEscape';
@@ -1144,6 +1145,41 @@
     {name:A, text:'「……影が、少し遅れていました」'},
     {name:'', text:'返事は無かった。'}
   ]; };
+
+  /* 島から見える人影(N-4)。対岸の街道を、加入前の姿(buildRoadTravelerFigure、
+     14-dungeon-road.js)の人物が一人で歩いていく。影だまりは本人より少し
+     遅れてついていく(trackPreJoinShadow)。名前は付けない ―― 近づく手段も
+     無い遠景。島に着いた時だけ建てる(本編の第一章のみ) */
+  /* 島は 2.3 の石垣で囲まれている(北は閉じている)ので、対岸は一段高い
+     崖の上の街道にして、石垣ごしに見えるようにする */
+  const ISLAND_FAR_SHORE_Z = 377, ISLAND_FAR_SHORE_Y = 4.5;
+  function showIslandStranger(){
+    const shore = new THREE.Mesh(new THREE.BoxGeometry(150, ISLAND_FAR_SHORE_Y + 0.6, 14),
+      new THREE.MeshStandardMaterial({color:0x7a8a5a, roughness:0.95}));
+    shore.position.set(-230, (ISLAND_FAR_SHORE_Y - 0.6)/2, ISLAND_FAR_SHORE_Z + 7);
+    scene.add(shore);
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(150, 2.2),
+      new THREE.MeshStandardMaterial({color:0xd8c4a0, roughness:0.9}));
+    road.rotation.x = -Math.PI/2;
+    road.position.set(-230, ISLAND_FAR_SHORE_Y + 0.02, ISLAND_FAR_SHORE_Z + 3);
+    scene.add(road);
+    // 明け方の薄明かり。崖の上の人影が、夜の海の向こうで見分けられる程度
+    const dawn = new THREE.PointLight(0xffd8b0, 3.0, 60);
+    dawn.position.set(-226, ISLAND_FAR_SHORE_Y + 10, ISLAND_FAR_SHORE_Z + 10);
+    scene.add(dawn);
+    const fig = buildRoadTravelerFigure(false);
+    scene.add(fig);
+    trackPreJoinShadow(fig, {
+      from: new THREE.Vector3(-246, ISLAND_FAR_SHORE_Y, ISLAND_FAR_SHORE_Z + 3),
+      to:   new THREE.Vector3(-196, ISLAND_FAR_SHORE_Y, ISLAND_FAR_SHORE_Z + 3),
+      speed: 1.1,
+    });
+    // 建てた後に足したものなので、ワールドの片づけ(currentWorldObjects)へ自分で載せる
+    currentWorldObjects.push(shore, road, dawn, fig);
+    // カメラを島の南側へ回し、主人公ごしに北の対岸が見える向きにする
+    state.camYaw = Math.PI;
+    return fig;
+  }
 
   function buildClocktowerDepths(){
     const cx = -346, cz = 120, y = 9;

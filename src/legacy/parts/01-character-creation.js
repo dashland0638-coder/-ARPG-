@@ -111,6 +111,11 @@
       hairColor:0x0a0810, eyeColor:0x8a5ad6,
       desc:'酒場の片隅にいた旅人。どこから来たのかは、本人にも分からない。',
       vit:13, str:13, mag:9, mnd:10, agi:11, foc:10, spd:5.3,
+      /* 斬撃・軌跡・着地の光の色(表示のみ。HD-CR02-1 = a)。必殺技「影送り」と
+         同じ影の紫に揃える ―― kit(剣士)から借りるのはこの色だけやめる。
+         モーション・判定・ダメージ・Skill は剣士の kit のまま。素手のモーションは
+         影の旅人の戦闘スタイルが決まってから(別 Work Item) */
+      atkColorHex:'#8a5ad6',
       ult:{ name:'影送り', icon:'◐', cd:20, radius:4.2, mult:3.2, vfxColor:0x8a5ad6 }
     }
   };

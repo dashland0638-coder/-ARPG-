@@ -2,7 +2,9 @@
 import { test, expect } from '@playwright/test';
 import { watchErrors, openGame, createCharacter, dismissIntroDialogue, disableCameraAutoFollow } from './helpers.js';
 
-// Regression test for 5人目「影の旅人」's tavern-corner NPC presence
+// Regression test for 5人目「影の旅人」's tavern-corner NPC presence. Before
+// the formal join on the road the name is withheld (DEC-004 N-4, CR-02):
+// the speaker shows as「？？？」in the Chapter 1 main game
 // (see 03-dungeons-mansion-temple.js's SHADOW_GUIDE_POS / shadowGuide group,
 // and talkToShadowGuide() in 12-progression-ui.js). He isn't playable yet -
 // this only exercises the "talk to the mysterious NPC in the corner" loop:
@@ -46,18 +48,25 @@ test.describe('shadow guide NPC (5人目)', () => {
     await page.waitForTimeout(300);
     let active = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
     expect(active).toBe(true);
+    // 加入前は名前を出さない(DEC-004 N-4): 話者名は「？？？」。「影の旅人」は
+    // 道での正式加入まで、話者名にも本文にも出ない
     const firstName = await page.evaluate(() => document.getElementById('dialogue-name').textContent);
-    expect(firstName).toBe('影の旅人');
+    expect(firstName).toBe('？？？');
     const firstLine = await page.evaluate(() => document.getElementById('dialogue-text').textContent);
     expect(firstLine).toBe('……こんにちは。');
 
     // click through the whole first-meeting exchange
+    const shown = [];
     for (let i = 0; i < 15; i++) {
       active = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
       if (!active) break;
+      shown.push(await page.evaluate(() => document.getElementById('dialogue-name').textContent + '|' + document.getElementById('dialogue-text').textContent));
       await page.evaluate(() => document.getElementById('dialogue-overlay').click());
       await page.waitForTimeout(150);
     }
+    expect(shown.length).toBeGreaterThan(5);
+    expect(shown.filter(l => l.startsWith('？？？|')).length).toBeGreaterThan(3);
+    expect(shown.filter(l => l.includes('影の旅人'))).toEqual([]);
     active = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
     expect(active).toBe(false);
 
@@ -68,6 +77,7 @@ test.describe('shadow guide NPC (5人目)', () => {
     expect(active).toBe(true);
     const secondLine = await page.evaluate(() => document.getElementById('dialogue-text').textContent);
     expect(secondLine).not.toBe('……こんにちは。');
+    expect(await page.evaluate(() => document.getElementById('dialogue-name').textContent)).toBe('？？？');
 
     for (let i = 0; i < 10; i++) {
       active = await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
