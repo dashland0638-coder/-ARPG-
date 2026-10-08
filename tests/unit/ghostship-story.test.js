@@ -139,5 +139,5 @@ test('酒場の交代(幽霊船へ): 既存の4行に §4-1 の3行を足す', (
     { name: '剣士', text: '見てから決めろ。……あの村で、そうしただろう。' },
   ]);
   assert.equal(lines.mage('剣士').length, 4, '他の交代は変えない');
-  assert.equal(lines.rogue('弓師').length, 4);
+  assert.equal(lines.rogue('弓師').length, 5, '時計塔へは CT-02 で1行(§4-3)');
 });

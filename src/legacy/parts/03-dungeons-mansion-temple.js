@@ -1024,12 +1024,87 @@
            '「……あの台座に乗れ、ということだな」']
     );
 
+    buildClocktowerChapter1Story(roomById, slabY);
+
     // ---- 行き止まり分岐: 止まった置時計の間の奥(★3で開く) ----
     if(scenarioStars('clocktower') >= TOWER_HOUSE1_DEPTHS_STARS){
       buildStairs(new THREE.Vector3(-356, slabY['f1'], -70),
                   new THREE.Vector3(-346, 9, 120), '止まった時計の裏側へ', 0x6a5a3a, 'down');
       buildClocktowerDepths();
     }
+  }
+
+  /* 第一章④ 時計塔の物語、1F〜5F 前室(CT-02、docs/CHAPTER1_STORY.md §4-4)。
+
+     **本編のときだけ**置く(legacyGrowth() が偽)。テストモードと周回では
+     既存の独白・手記だけの塔のまま。主人公は盗賊、支援は弓師。
+     置き場所は .ai/reports/CHAPTER1-CLOCKTOWER-checklist.md §2。
+       1F 鐘楼の玄関     … 掲示板の「七日前」を受けた盗賊の一言
+       2F 歯車の間       … 管理人の手帳を読んだ後
+       3F 針の回廊       … 娘の書き置きを読んだ後
+       4F 鐘の広間       … 譜面を読んだ後
+       5F 文字盤の前室   … 管理人の外套と懐中時計(新しい手記)、盗賊が預かる
+     2F〜4F は「その階の手記を読んだら、すぐ」。読まずに進んだ場合も、
+     次の通路(扉の先)で一度だけ出す(どちらか一方だけ)。
+     謎解き・封鎖戦・扉・階段・敵には触れない。セーブ項目も増やさない。
+
+     会話の最初の行は文字列(名前欄は speakerName)、2行目からは {name, text} */
+  function clocktowerChapter1(){
+    return !legacyGrowth() && state.scenarioKey === 'clocktower';
+  }
+  function buildClocktowerChapter1Story(roomById, slabY){
+    if(!clocktowerChapter1()) return;
+    const R = CLASSES.rogue.name, A = CLASSES.archer.name;
+    const lore = title => loreObjects.find(l=> l.title === title);
+    const last = ()=> proximityEvents[proximityEvents.length-1];
+
+    // 1F: 掲示板(塔の門)の先、鐘楼の玄関に入ったところ
+    registerRoomEvent(roomById['t1hall'], slabY['f1'], R, [
+      '「七日か。……待つ側にしちゃ、短いな」'
+    ], {condition:clocktowerChapter1});
+
+    /* 2F〜4F: 手記を読んだら、その部屋の中ですぐ。読まずに扉の先の通路へ
+       出たら、そこで一度だけ。どちらか一方 */
+    function afterNote(title, room, fallback, fl, lines){
+      const note = lore(title);
+      registerRoomEvent(roomById[room], slabY[fl], lines.speaker, lines.lines,
+        {condition:()=> clocktowerChapter1() && !!note && note.read && !fb.fired});
+      const onRead = last();
+      registerRoomEvent(roomById[fallback], slabY[fl], lines.speaker, lines.lines,
+        {condition:()=> clocktowerChapter1() && !onRead.fired, marker:false});
+      const fb = last();
+    }
+    afterNote('管理人の手帳', 't2gear', 't2cor2', 'f2', {speaker:A, lines:[
+      '「待っている人がいるんですね」',
+      {name:R, text:'「……出ていった方は、戻りにくいもんだ」'}
+    ]});
+    afterNote('娘の書き置き', 't3hands', 't3cor2', 'f3', {speaker:A, lines:[
+      '「上の階へ向かう側に落ちていました」',
+      {name:R, text:'「下りる気は、なかったんだな」'}
+    ]});
+    afterNote('鐘楼の譜面', 't4bell', 't4cor2', 'f4', {speaker:A, lines:[
+      '「振り返らないで。……今だけは、私が後ろを見ています」'
+    ]});
+
+    /* 5F 文字盤の前室: 管理人の外套と懐中時計(N-2)。前室は 4F からの階段の
+       着地点(-288,186)で、ボスの扉の手前。盗賊が時計を預かる。
+       この時計は島(CT-03)で拾い上げ、翌朝の酒場で返す */
+    buildLoreNote(new THREE.Vector3(-296, slabY['f5'], 192), '管理人の外套', [
+      '床に、くたびれた外套が畳んで置いてある。ポケットから、鎖の付いた懐中時計がのぞいている。',
+      '針は、七時十三分で止まっている。',
+      '外套の主は、ここから先へ一人で進んだらしい。'
+    ], {kind:'letter'});
+    const coat = lore('管理人の外套');
+    registerRoomEvent(roomById['t5ante'], slabY['f5'], R, [
+      '「……預かっとく。返すまでな」',
+      {name:A, text:'「……はい」'}
+    ], {condition:()=> clocktowerChapter1() && !!coat && coat.read && !coatFallback.fired});
+    const coatOnRead = last();
+    registerRoomEvent(roomById['t5cor1'], slabY['f5'], R, [
+      '「……管理人の時計だ。預かっとく。返すまでな」',
+      {name:A, text:'「……はい」'}
+    ], {condition:()=> clocktowerChapter1() && !coatOnRead.fired, marker:false});
+    const coatFallback = last();
   }
 
   function buildClocktowerDepths(){
