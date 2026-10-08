@@ -132,7 +132,7 @@ test('正式加入(roadHandOff): 名前「影の旅人」が初めて出て、�
   const code = [
     roadConsts,
     'const CHAPTER1_ORDER = ["mansion","duskvillage","ghostship","clocktower","road"];',
-    'const PROVISIONAL_ROAD_BEAST = {}, PROVISIONAL_ROAD_SPITTER = {};',
+    'const ROAD_BEAST = {}, ROAD_SPITTER = {};',
     'let roadMet = false, roadArcherStay = null, roadFight2 = [];',
     'const enemies = [];',
     'let roadTraveler = buildRoadTravelerFigure(false); scene.add(roadTraveler); trackPreJoinShadow(roadTraveler);',
