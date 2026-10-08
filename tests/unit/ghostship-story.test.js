@@ -73,7 +73,7 @@ test('甲板の影(既存)は、物語の行より先に同じ座標・半径で
 });
 
 test('本編の幽霊船だけに置く(テストモード・他の行き先には出ない)', () => {
-  assert.equal(setup().events.length, 1 + 4);
+  assert.equal(setup().events.length, 1 + 5);   // 前半4 + 船倉の奥1(CG-03)
   assert.equal(setup().notes.length, 1);
   for (const opt of [{ testMode: true }, { scenarioKey: 'mansion' }]) {
     const s = setup(opt);
@@ -139,5 +139,5 @@ test('酒場の交代(幽霊船へ): 既存の4行に §4-1 の3行を足す', (
     { name: '剣士', text: '見てから決めろ。……あの村で、そうしただろう。' },
   ]);
   assert.equal(lines.mage('剣士').length, 4, '他の交代は変えない');
-  assert.equal(lines.rogue('弓師').length, 4);
+  assert.equal(lines.rogue('弓師').length, 5, '時計塔へは CT-02 で1行(§4-3)');
 });

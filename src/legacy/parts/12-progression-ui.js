@@ -86,10 +86,17 @@
     ]; },
     /* 道(WORK 11)。酒場の隅にいた「影の旅人」が戻らない ――
        原案の「行方不明者の捜索」を起点にした導入。主人は理由を知らない */
-    road: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+    /* 第一章の本編(§4-5「酒場(翌朝)」): 朝の鐘の一行、盗賊が預かった懐中時計を
+       返す、管理人は生還した(N-3)。隅の席の人物の名前は出さない(N-4) */
+    road: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; const ch1 = !legacyGrowth(); return [
       {name:M, text:'……隅の席のあいつ、朝から戻っとらん。'},
+      ...(ch1 ? [{name:M, text:'朝の鐘で目を覚ましたら、もういなかった。'}] : []),
       {name:Y, text:'いつもあそこに座ってた奴か。'},
       {name:M, text:'ああ。街道のほうへ歩いていくのを見た者がいる。……あいつが外へ出るのは、初めて見た。'},
+      ...(ch1 ? [
+        {name:Y, text:'……それと、これ。塔の管理人に、返しといてくれ。'},
+        {name:M, text:'懐中時計か。……管理人は、朝になったら塔の下に座り込んでたそうだ。娘の名前を呼んでな。'}
+      ] : []),
       {name:Y, text:'探してくる。'},
       {name:M, text:'街道は一本だ。迷いはせん。……明るいうちに戻れよ。'}
     ]; },
@@ -1459,7 +1466,10 @@
   document.getElementById('clear-return-btn').addEventListener('click', ()=>{
     document.getElementById('clear-overlay').classList.remove('active');
     recomputeStats();
-    const endingLines = BOSS_ENDING_LINES[state.lastDefeatedBossKey];
+    let endingLines = BOSS_ENDING_LINES[state.lastDefeatedBossKey];
+    // 第一章の本編: 船長は「港が見える」の前に、塔の鐘を頼む(§4-2)
+    if(endingLines && state.lastDefeatedBossKey === 'ghostCaptain' && !legacyGrowth())
+      endingLines = [GHOST_CAPTAIN_CHAPTER1_FAREWELL].concat(endingLines);
     state.lastDefeatedBossKey = null;
     if(endingLines){
       state.dialogueActive = true;
