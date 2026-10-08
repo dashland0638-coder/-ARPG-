@@ -156,8 +156,9 @@ test('結果画面から酒場まで: 洋館のクリアで鍛冶士が加入し
   assert.match(enemy, /key:'mansionBoss'/);
   const endings = ui.slice(ui.indexOf('const BOSS_ENDING_LINES = {'), ui.indexOf('const BOSS_BARK_LINES'));
   assert.match(endings, /mansionBoss: \[/);
-  // 結果画面の「戻る」→ 独白(bossEnding)→ 閉じたら酒場
-  assert.match(ui, /const endingLines = BOSS_ENDING_LINES\[state\.lastDefeatedBossKey\];[\s\S]*?state\.dialogueKind = 'bossEnding';/);
+  // 結果画面の「戻る」→ 独白(bossEnding)→ 閉じたら酒場。endingLines は CG-03 で
+  // let になった(第一章の船長だけ前に一行足す)ので、const / let のどちらでも読む
+  assert.match(ui, /(?:const|let) endingLines = BOSS_ENDING_LINES\[state\.lastDefeatedBossKey\];[\s\S]*?state\.dialogueKind = 'bossEnding';/);
   const ending = ui.slice(ui.indexOf("state.dialogueKind==='bossEnding'"));
   assert.match(ending.slice(0, 200), /returnToTown\(false\);/);
 });
