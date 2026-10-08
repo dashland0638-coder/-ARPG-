@@ -1459,7 +1459,10 @@
   document.getElementById('clear-return-btn').addEventListener('click', ()=>{
     document.getElementById('clear-overlay').classList.remove('active');
     recomputeStats();
-    const endingLines = BOSS_ENDING_LINES[state.lastDefeatedBossKey];
+    let endingLines = BOSS_ENDING_LINES[state.lastDefeatedBossKey];
+    // 第一章の本編: 船長は「港が見える」の前に、塔の鐘を頼む(§4-2)
+    if(endingLines && state.lastDefeatedBossKey === 'ghostCaptain' && !legacyGrowth())
+      endingLines = [GHOST_CAPTAIN_CHAPTER1_FAREWELL].concat(endingLines);
     state.lastDefeatedBossKey = null;
     if(endingLines){
       state.dialogueActive = true;
