@@ -26,7 +26,7 @@ const SAVE = {
   scenarioClears: { mansion: 1 }, clearedScenarios: {}, routeCombosSeen: {},
   guestClassKey: 'warrior', learnedSkill2: true, smithJoined: true, smithGreeted: true, skillChoice: 'phantom',
 };
-const SIZES = [['pc', { width: 1280, height: 800 }, false], ['ip', { width: 844, height: 390 }, true]];
+const SIZES = (process.env.UI_SCREENS_SIZES || "pc,ip").split(",").map(k => ({ pc: ["pc", { width: 1280, height: 800 }, false], ip: ["ip", { width: 844, height: 390 }, true] })[k]);
 
 async function boot(page, url) {
   await page.goto(url);

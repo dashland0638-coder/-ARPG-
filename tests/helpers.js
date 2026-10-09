@@ -105,6 +105,8 @@ async function dismissIntroDialogue(page) {
 async function disableCameraAutoFollow(page) {
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => document.getElementById('menu-overlay').classList.contains('active'));
+  // 設定はメニューの「設定」タブにある(UI-002-F)
+  await page.click('#menu-overlay [data-menu-tab="settings"]');
   const label = await page.$eval('#set-camauto', el => el.textContent.trim());
   if (label !== 'なし') await page.click('#set-camauto');
   await page.keyboard.press('Escape');
