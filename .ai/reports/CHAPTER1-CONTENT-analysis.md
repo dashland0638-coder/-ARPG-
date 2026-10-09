@@ -1,6 +1,8 @@
 # CHAPTER1-CONTENT — 第一章コンテンツ完成度の棚卸し（Analyzer）
 
 Date: 2026-10-06
+> **2026-10-09 注記**: この棚卸しは 2026-10-06 時点の記録で、下の判定・表は当時のまま残している。その後、幽霊船・時計塔・道は実装済み（#50〜#63）。現在の状態は `.ai/reports/CQ-01-analysis.md` と `docs/CHAPTER1_PLAYTEST.md`。**Chapter 1 Content Ready は今も未判定**（Human の実機の通しが未実施）。
+
 Phase: **Analyzer のみ**（コード変更・仕様変更・Human Decision の代行なし）
 Base: `origin/main`（`c6d3259`）。PR #33〜#36 は未 merge だが、どれもシステム（成長・ショップ・異空間）の変更でステージの中身には触らないため、この棚卸しの結論は変わらない。
 

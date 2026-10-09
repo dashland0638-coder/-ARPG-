@@ -512,6 +512,7 @@ P0 は文書だけの作業。P1 の洋館は P0 に依存しないので、**P0
 - **Human Decision Required?**: No（Human の作業が要る）
 - **Priority**: P0（最終ゲート）
 - **Estimated Complexity**: M
+- **Status（2026-10-09）**: 実機の手順・記録の形式・判定基準は `docs/CHAPTER1_PLAYTEST.md`（#64 と追補）。Expected Files の `CHAPTER1-FULL-run.md` は作らず、`.ai/reports/CQ-01-report.md` に置き換えた。Agent の5段を1本につないだ通しは、この環境（3〜7fps）で時計塔を登り切れないため未実施（区間ごとの E2E のみ）。**Human の実機プレイは未実施** → Chapter 1 Content Ready = HUMAN DEVICE CHECK REQUIRED
 
 #### CD-01 — 第一章の仕様文書の更新
 - **Stage**: 全体
@@ -528,6 +529,7 @@ P0 は文書だけの作業。P1 の洋館は P0 に依存しないので、**P0
 - **Test Requirements**: なし
 - **Reviewer Criteria**: 決定済みの事項だけを書き、未決定を決定済みのように書いていない。
 - **Human Decision Required?**: No
+- **Status（2026-10-09）**: 実施済み（#64 の `.ai/reports/CD-01-report.md`、追補は `.ai/reports/CQ-01-CD-01-followup-report.md`）。`MANSION_SCENARIO.md` は未 merge の #38 / #42 と衝突しないよう触っていない
 - **Priority**: P2
 - **Estimated Complexity**: S
 
