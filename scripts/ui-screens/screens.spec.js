@@ -110,8 +110,8 @@ for (const [name, viewport, hasTouch] of SIZES) {
         await page.click(`.ap-tab[data-tab="${tab}"]`);
         await shot(page, m, `${name}-test-${tab}`, '.appraisal-box');
       }
-      await page.click('#ap-panel-skill [data-skill-subtab="passive"]').catch(() => {});
       await page.click('.ap-tab[data-tab="skill"]');
+      await page.click('#ap-panel-skill [data-skill-subtab="passive"]');
       await shot(page, m, `${name}-test-skill-passive`, '.appraisal-box');
       fs.writeFileSync(path.join(OUT, `${name}-test-measure.json`), JSON.stringify(m, null, 1));
     });
