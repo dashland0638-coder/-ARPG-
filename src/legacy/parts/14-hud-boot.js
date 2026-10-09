@@ -960,7 +960,9 @@
       if(target && target.group && el) avoid.push(placePromptOverWorld(el, target.group.position, EXECUTE_PROMPT_LIFT, avoid.slice()));
     }
     if(itShown){
-      placePromptOverWorld(it, interactTargetWorldPos() || state.pos, INTERACT_PROMPT_LIFT, avoid);
+      const pr = placePromptOverWorld(it, interactTargetWorldPos() || state.pos, INTERACT_PROMPT_LIFT, avoid);
+      (window.__tf03 = window.__tf03 || []).push({t: performance.now(), avoidN: avoid.length, avoid: avoid.map(a=>[Math.round(a.left),Math.round(a.top),Math.round(a.right),Math.round(a.bottom)]), placed: [pr.left, pr.top, pr.right, pr.bottom], held: heldPrompts.has(it), ow: it.offsetWidth});
+      if(window.__tf03.length > 30) window.__tf03.shift();
     }
   }
 

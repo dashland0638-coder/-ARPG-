@@ -269,6 +269,16 @@ for (const inset of [null, INSET]) {
       // 対象が画面の外(カメラの後ろ)・左下に来る向きを含めて回す。カメラの回転は 1.9 rad/秒(低速描画では
       // 1 フレームの dt が抑えられて遅くなる)なので、測る回数で 1 周以上を見る
       let samples = 0;
+      // TF-03 diagnostics (temporary branch only): record every write of the prompt's position/class
+      await page.evaluate(() => {
+        const it = document.getElementById('interact-btn'), joy = document.getElementById('joy-zone');
+        window.__dom = [];
+        new MutationObserver(() => {
+          const a = it.getBoundingClientRect(), j = joy.getBoundingClientRect();
+          window.__dom.push({ t: Math.round(performance.now()), show: it.classList.contains('show'), it: [a.left, a.top, a.right, a.bottom], ow: it.offsetWidth, joy: [j.left, j.top, j.right, j.bottom], vw: innerWidth, vh: innerHeight });
+          if (window.__dom.length > 12) window.__dom.shift();
+        }).observe(it, { attributes: true, attributeFilter: ['style', 'class'] });
+      });
       await page.keyboard.down('KeyQ');
       try {
         for (let i = 0; i < 70; i++) {
@@ -278,6 +288,8 @@ for (const inset of [null, INSET]) {
           samples++;
           expect(inZone(it, zone), `インタラクトは中央の領域の中: ${JSON.stringify(it)}`).toBe(true);
           for (const z of await visibleRects(page, INPUT_ITEMS)) {
+            if (overlaps(it, z)) console.log('TF03-DIAG', z.sel, i, JSON.stringify(it), JSON.stringify(z),
+              JSON.stringify(await page.evaluate(() => ({ game: (window.__tf03 || []).slice(-6), dom: (window.__dom || []).slice(-8) }))));
             expect(overlaps(it, z), `インタラクトと ${z.sel}(${i}): ${JSON.stringify(it)}`).toBe(false);
           }
         }

@@ -44,8 +44,8 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: E2E tests
-        run: npm test
+      - name: E2E tests (TF-03 diagnostics, temporary branch)
+        run: npx playwright test tests/combat-events-layout.spec.js -g "WI-D7" --repeat-each=10 --reporter=list
 
       # 失敗した時の手がかり(error-context.md・スクリーンショット等)を残す。以前は run の
       # ログの末尾しか残らず、CI だけで落ちる原因を後から調べられなかった(CI-001)
