@@ -234,8 +234,8 @@ test.describe('UI-002-F パッド(F-D7)', () => {
     await expect(page.locator('#ap-panel-skill [data-skill-subtab="ult"]')).toHaveClass(/active/);
     // フォーカスは発光ではなく輪郭で示す(F-D2)
     const style = await page.evaluate(() => {
-      const el = document.querySelector('#appraisal-overlay .gp-focused') || document.querySelector('.ap-tab');
-      el.classList.add('gp-focused');
+      const el = document.querySelector('#appraisal-overlay .gp-focused');
+      if (!el) return { outline: 'no focused element', shadow: '' };
       const cs = getComputedStyle(el);
       return { outline: cs.outlineStyle, shadow: cs.boxShadow };
     });

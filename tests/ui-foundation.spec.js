@@ -64,9 +64,7 @@ const EXPECTED = {
       "border-top-left-radius": "50%"
     },
     "#menu-overlay": {
-      "z-index": "30"
-    },
-    "#menu-overlay": {
+      "z-index": "30",
       "backdrop-filter": "none"
     },
     ".menu-box": {
