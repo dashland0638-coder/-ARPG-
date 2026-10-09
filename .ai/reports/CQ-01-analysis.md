@@ -79,7 +79,7 @@ YES の条件（全て）: Main route 完走 / Critical FAIL 0 / 主要演出成
 | ID | 内容 |
 | --- | --- |
 | TF-02 | `mansion-enemies.spec.js:220` 猟犬の予兆が出ず `PASSIVE/IDLE` のまま（テストのセットアップ側が濃厚）。CI でまれに落ちる |
-| TF-03 | `combat-events-layout.spec.js:263 / :296` 特定のカメラ角度でインタラクトの表示が `#joy-zone` に重なる。（2026-10-09 更新）CI の失敗時に手がかりを記録する仕組みを merge 済み（#65）。**根本原因は未確定**（実際の UI の不具合かどうかも未確定）。`.ai/reports/TF-03-analysis.md` |
+| TF-03 | `combat-events-layout.spec.js:263 / :296` タッチのインタラクト表示の重なり。（2026-10-09 更新）**修正済み**: #65 の記録で原因を確定（丸める前の位置で重なりを判定）、#67 で修正。`.ai/reports/TF-03-analysis.md` §6 |
 
 ## 9. Human Decision
 

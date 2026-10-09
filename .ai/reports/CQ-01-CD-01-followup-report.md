@@ -16,7 +16,7 @@
 | 操作・期待結果・失敗時の記録項目 | 「確認すること」の1列だけ。操作と失敗時の記録項目が無い | 各区間に **操作** の1行。列名を **期待結果** に。§0 に **FAIL のときに書くこと**（7項目）、記録用紙の FAIL 欄を同じ項目に |
 | 自動テストで確認済みの事実と、実機でしか見られない項目の区別 | §12 の1行と analysis §4 の表だけ（項目ごとには分からない） | 全 118 項目の ID の横に印: 🤖 E2E 47 / 🧪 unit 30 / 👁 実機のみ 41。「🤖 / 🧪 も実機で見るまでは P にしない」と明記 |
 | 道の2戦闘・敵の再出現が進行を妨げない | E-16（戦闘2は復活しない）のみ | E-06 に実装事実を追記: 戦闘1の獣は約20秒で戻るが、先へ進む条件ではない。戻っても休憩所へ進めるか・煩わしすぎないかを見る |
-| TF-03 の状態 | 「既知の不安定」 | 「診断を merge 済み（#65）・根本原因は未確定」。TF-04 も既知の課題として併記 |
+| TF-03 の状態 | 「既知の不安定」 | 「診断を merge 済み（#65）・根本原因は未確定」→ その後 #67 で原因を確定・修正したため「修正済み」に更新。TF-04 も既知の課題として併記 |
 
 印の根拠（どのテストが何を見ているか）: E2E は `chapter1-progression`、`chapter1-tower-to-road`、`road`、`shadow-guide`、`save-load`、`chapter1-skill2`、`chapter1-smith-shop`、`chapter1-legacy-ui`、`chapter1-dusk-basics`、`duskvillage`、`mansion-*`。unit は `ghostship-*`、`clocktower-*`、`road-*`、`chapter1-no-anomaly`。洋館の瓦礫・分離・再会などのテスト（CM-02〜CM-06）は未 merge の PR #39〜#43 にあるので、`main` の時点では 👁 にした。
 
@@ -27,7 +27,7 @@
 | 1 | `CHAPTER1_PLAYTEST.md` 冒頭 | 「§8 の Content Ready 判定」（実際は §10） | §10 に修正 |
 | 2 | `CHAPTER1_PLAYTEST.md` §0 | 「§7 の重さ」（実際は §9） | §9 に修正 |
 | 3 | `CHAPTER1_PLAYTEST.md` §4 の注 | 「V-08 / R-24」（R という区分は無い。道は E） | E-24 に修正 |
-| 4 | `CHAPTER1_PLAYTEST.md` §12、`CQ-01-analysis.md` §8、`CQ-01-report.md` | TF-03 が「既知の不安定」のまま | 診断を merge 済み・根本原因は未確定（解決済みにはしない） |
+| 4 | `CHAPTER1_PLAYTEST.md` §12、`CQ-01-analysis.md` §8、`CQ-01-report.md` | TF-03 が「既知の不安定」のまま | 「診断を merge 済み・根本原因は未確定」→ #67 の merge 後に「修正済み（#67）」へ（原因と修正が `main` に入ってから更新） |
 | 5 | `.ai/tasks/TF-03.md` | merge 後の状態が無い | Status を追記（未解決のまま） |
 | 6 | `CHAPTER1_STORY.md` §7 | CD-01「実施（CQ-01 と同じ PR）」、CQ-01 の行が無い | CD-01 = 実施済み（#64）、CQ-01 = 手順は用意済み・**実機プレイは未実施** |
 | 7 | `CHAPTER1-CONTENT-plan.md` CQ-01 / CD-01 | 状態が無い。Expected Files の `CHAPTER1-FULL-run.md` は作っていない | Status を追記。Agent の5段の一本通しは未実施（この環境では時計塔を登り切れない）と正直に記録 |
