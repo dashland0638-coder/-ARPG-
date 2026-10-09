@@ -8,11 +8,13 @@
 // (読めない環境では OS の代替フォントで撮れている)。
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const OUT = path.join(ROOT, 'test-results/ui-screens', process.env.UI_SCREENS_LABEL || 'current');
+// test-results/ は Playwright が実行のたびに消すので、既定の出力先は OS の一時ディレクトリ
+const OUT = path.join(process.env.UI_SCREENS_OUT || path.join(os.tmpdir(), 'arpg-ui-screens'), process.env.UI_SCREENS_LABEL || 'current');
 const SAVE_KEY = 'soulforge_save_v1';
 const CLOAK = { id: 'eq_test_cloak', slot: 'upper', name: '旅人の外套', icon: '🧥', itemLevel: 1, atkBonus: 0, hpBonus: 6, rarity: 'normal', identified: true };
 const SAVE = {

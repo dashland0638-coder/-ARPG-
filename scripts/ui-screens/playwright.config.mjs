@@ -3,7 +3,8 @@
 //
 //   UI_SCREENS_LABEL=after npx playwright test -c scripts/ui-screens/playwright.config.mjs
 //
-// 出力: test-results/ui-screens/<UI_SCREENS_LABEL>/(.gitignore 済み。画像は commit しない ―― F-D9)
+// 出力: <UI_SCREENS_OUT または OS の一時ディレクトリ/arpg-ui-screens>/<UI_SCREENS_LABEL>/
+// (repo の外。画像は commit しない ―― F-D9。test-results/ は Playwright が実行のたびに消す)
 // Chromium の場所が既定と違う環境では PW_CHROMIUM=/path/to/chromium を付ける。
 import base from '../../playwright.config.js';
 
