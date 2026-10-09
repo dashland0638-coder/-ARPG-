@@ -936,7 +936,9 @@
     }
     _promptVec.set(worldPos.x, (worldPos.y || 0) + lift, worldPos.z).project(camera);
     const vw = window.innerWidth, vh = window.innerHeight;
-    const size = { w: el.offsetWidth, h: el.offsetHeight };
+    // offsetWidth は整数に切り捨てる(実際の幅は 176.297 など)。右側の矩形を避け損ねないよう、実際の幅を切り上げる(TF-03)
+    const br = el.getBoundingClientRect();
+    const size = { w: Math.max(el.offsetWidth, Math.ceil(br.width)), h: Math.max(el.offsetHeight, Math.ceil(br.height)) };
     const p = placeAnchoredPrompt({ anchor: ndcToScreen(_promptVec, vw, vh), size, viewport: { w: vw, h: vh }, avoid });
     el.style.left = p.left + 'px';
     el.style.top = p.top + 'px';

@@ -322,9 +322,12 @@ test.describe('UI-002-D WI-D7: プロンプトを押している間(844×390・�
     expect(await walkToBartender(page), 'インタラクトが出る').toBe(true);
     await expect(page.locator('#interact-btn')).toContainText('店主');
     await recordPromptWrites(page, '#interact-btn');
-    const before = await rectOf(page, '#interact-btn');
-    await page.mouse.move((before.left + before.right) / 2, (before.top + before.bottom) / 2);
+    const target = await rectOf(page, '#interact-btn');
+    await page.mouse.move((target.left + target.right) / 2, (target.top + target.bottom) / 2);
     await page.mouse.down();
+    // 押した瞬間の位置から測る。押すまでは対象に追従していて、押す直前の 1 フレームで丸めが 1px 変わる
+    // ことがある(TF-03: CI で押す前 254 → 押してからはカメラが回ってもずっと 253)
+    const before = await rectOf(page, '#interact-btn');
     // 押している間にカメラを回す(対象の画面上の位置が動く)
     await page.keyboard.down('KeyQ');
     await page.waitForTimeout(1500);

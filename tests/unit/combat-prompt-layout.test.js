@@ -77,6 +77,23 @@ test('コンボ(中央の領域の右下に少し入る固定位置)と、先に
   assert.ok(inside(it, isz, gameplayZone(vp.w, vp.h)));
 });
 
+/* TF-03: CI で記録された重なり(#64 / #66)。スティックの右端は 405.109 / 452.109(%指定の幅で端数が出る)。
+   対象の点が少しずつ動くと、端数のある左端(例 452.3)は重ならないと判定され、返す位置の Math.round で
+   452 になって 0.109px 重なっていた。返す(丸めた)位置で重ならないこと */
+test('TF-03: 丸めた後の位置でもスティック領域(端数のある矩形)に重ならない', () => {
+  const vp = { w: 844, h: 390 };
+  const size = { w: 176, h: 35 };
+  for (const joy of [{ left: 0, top: 210.609, right: 405.109, bottom: 390 }, { left: 47, top: 210.609, right: 452.109, bottom: 390 }]) {
+    for (let x = joy.right + 80; x <= joy.right + 100; x += 0.05) {
+      for (let y = 200; y <= 240; y += 0.5) {
+        const p = placeAnchoredPrompt({ anchor: { x, y, onScreen: true }, size, viewport: vp, avoid: [joy] });
+        const r = { left: p.left, top: p.top, right: p.left + size.w, bottom: p.top + size.h };
+        assert.equal(overlaps(r, joy), false, `anchor ${x.toFixed(2)},${y} → ${JSON.stringify(r)} / ${JSON.stringify(joy)}`);
+      }
+    }
+  }
+});
+
 /* legacy 側(14-hud-boot.js updateCombatPromptPositions)が、出ているコンボの矩形を処刑・インタラクトの
    avoid に渡していること(Review Round 1。位置の計算そのものは上の unit で確かめている) */
 import fs from 'node:fs';
@@ -131,6 +148,12 @@ test('legacy: 押している間はプロンプトの位置を書き換えない
   assert.match(hudBoot, /\['pointerup', 'pointercancel'\]\.forEach[\s\S]*?heldPrompts\.delete\(el\)/);
   const place = fnBody(hudBoot, 'placePromptOverWorld');
   assert.ok(place.indexOf('heldPrompts.has(el)') >= 0 && place.indexOf('heldPrompts.has(el)') < place.indexOf('el.style.left'), '書く前に押しているかを見る');
+});
+
+test('TF-03 legacy: 置く幅は実際の幅を切り上げる(offsetWidth の切り捨てで右側の矩形に食い込まない)', () => {
+  const place = fnBody(hudBoot, 'placePromptOverWorld');
+  assert.match(place, /w: Math\.max\(el\.offsetWidth, Math\.ceil\(br\.width\)\)/);
+  assert.match(place, /h: Math\.max\(el\.offsetHeight, Math\.ceil\(br\.height\)\)/);
 });
 
 test('CSS: 844×390 のボスバー・制限時間の左端は Character パネルの実際の右端(--hud-tl-right)+ 8px', () => {

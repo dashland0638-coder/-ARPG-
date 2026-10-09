@@ -46,7 +46,9 @@ export function placeAnchoredPrompt({ anchor, size, viewport, avoid = [], gap = 
   for (let pass = 0; pass < 4; pass++) {
     let moved = false;
     for (const a of list) {
-      const rect = { left, top, right: left + w, bottom: top + h };
+      // 返すのは丸めた位置なので、重なりも丸めた位置で見る(TF-03: 端数のある矩形の端から 0.5px 未満
+      // 離れた位置が、丸めで矩形の内側へ入っていた)
+      const rect = { left: Math.round(left), top: Math.round(top), right: Math.round(left) + w, bottom: Math.round(top) + h };
       if (!overlaps(rect, a)) continue;
       moved = true;
       const above = a.top - gap - h;
