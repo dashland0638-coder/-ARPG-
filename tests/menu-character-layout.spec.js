@@ -205,6 +205,10 @@ test.describe('UI-002-F パッド(F-D7)', () => {
       // @ts-ignore
       window.__testPad = pad;
       Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] });
+      // ゲームはパッドの接続イベントで読み始める(10-input.js の gamepadconnected)
+      const ev = new Event('gamepadconnected');
+      Object.defineProperty(ev, 'gamepad', { value: pad });
+      window.dispatchEvent(ev);
     });
     // ボタンを押して離す(描画が遅い環境でも 1 フレームは押した状態が読まれるだけ待つ)
     const tap = async (i) => {

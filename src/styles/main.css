@@ -1586,7 +1586,7 @@
 #menu-overlay .menu-setting-row{ font-size:var(--ui-fs-body); color:var(--ui-text); }
 #menu-overlay .menu-controls{ margin-top:0; font-size:var(--ui-fs-body); line-height:1.8; column-width:300px; column-gap:24px; }
 #menu-overlay .menu-controls-note{ margin-top:10px; font-size:var(--ui-fs-small); color:var(--ember-bright); }
-#menu-overlay .menu-version{ flex:none; margin-top:6px; }
+#menu-overlay .menu-version{ flex:none; margin-top:6px; font-size:var(--ui-fs-small); }
 /* 狭い画面(縦長のスマホ等): 1 列に戻す */
 @media (max-width:560px){
   #menu-overlay .menu-adventure{ grid-template-columns:1fr; }
