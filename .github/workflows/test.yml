@@ -44,7 +44,7 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: E2E tests (TF-03 diagnostics, temporary branch: full suite with logging)
+      - name: E2E tests (TF-03 diagnostics, temporary branch, full suite with logging)
         run: npm test
 
       # 失敗した時の手がかり(error-context.md・スクリーンショット等)を残す。以前は run の
