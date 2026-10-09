@@ -190,6 +190,7 @@
     state.activeOverlay = name;
     state.paused = (name !== 'none');
     if(name==='menu'){
+      setMenuTab('adventure');   // UI-002-F: 開いた時は常に「冒険」(キャラクター情報・セーブ等)
       document.getElementById('menu-overlay').classList.add('active');
       try{ refreshMenuStats(); }catch(err){ console.error('refreshMenuStats failed:', err); }
     } else if(name==='appraisal'){
@@ -207,6 +208,22 @@
       document.getElementById('scenario-overlay').classList.add('active');
     }
   }
+
+  /* UI-002-F: メニューの「冒険」「設定」「操作」のしおりタブ。区画を出し分けるだけで、
+     中の項目(id・文言・動き)は以前と同じ */
+  function setMenuTab(name){
+    document.querySelectorAll('#menu-overlay [data-menu-tab]').forEach(t=>{
+      const on = t.dataset.menuTab === name;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('#menu-overlay [data-menu-section]').forEach(sec=>{
+      sec.hidden = sec.dataset.menuSection !== name;
+    });
+  }
+  document.querySelectorAll('#menu-overlay [data-menu-tab]').forEach(t=>{
+    t.addEventListener('click', ()=>{ setMenuTab(t.dataset.menuTab); sfx('ui'); });
+  });
 
   // safety net: clicking the dimmed backdrop (outside the box) also closes the overlay
   ['menu-overlay','appraisal-overlay','scenario-overlay'].forEach(id=>{
@@ -236,7 +253,9 @@
      そもそもこのブロック自体が実行されないので、既存のジャンプ/回避等の
      ゲームパッド操作と衝突しない)。
   ========================================================= */
-  const GP_NAV_SELECTOR = 'button:not([disabled]), .class-card, .gender-card, .personality-card, .ap-tab, .menu-btn';
+  // .skill-subtab: 鍛冶屋のスキルのサブタブ(Skill 1 / Skill 2 / 必殺技)は div なので、以前は
+  // パッドで選べなかった(UI-002-F F-D7。順次ナビゲーションのまま対象に足しただけ)
+  const GP_NAV_SELECTOR = 'button:not([disabled]), .class-card, .gender-card, .personality-card, .ap-tab, .skill-subtab, .menu-btn';
 
   function gpNavContext(){
     if(document.getElementById('confirm-overlay').classList.contains('active')) return document.getElementById('confirm-overlay');

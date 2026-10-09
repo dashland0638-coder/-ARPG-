@@ -220,92 +220,108 @@
 <!-- ============ MENU ============ -->
 <div id="menu-overlay">
   <div class="menu-box">
-    <div class="menu-title display">メニュー</div>
-    <div class="menu-stat-line"><span>名前</span><span id="menu-name">-</span></div>
-    <div class="menu-stat-line"><span>職業</span><span id="menu-class">-</span></div>
-    <div class="menu-stat-line"><span>経験値</span><span id="menu-xp">-</span></div>
-    <div class="menu-stat-line"><span>HP</span><span id="menu-hp">-</span></div>
-    <div class="menu-stat-line"><span>MP</span><span id="menu-mp">-</span></div>
-    <div class="menu-stat-line"><span>攻撃力</span><span id="menu-atk">-</span></div>
-    <div class="menu-stat-line"><span>移動速度</span><span id="menu-spd">-</span></div>
-    <div class="menu-stat-line"><span>必殺技</span><span id="menu-ult">-</span></div>
-    <div class="menu-mats-title">所持素材</div>
-    <div class="menu-mats">
-      <span class="menu-mat">🪙<b id="menu-gold">0</b></span>
-      <span class="menu-mat">💎<b id="menu-gem">0</b></span>
-      <span class="menu-mat">🔩<b id="menu-shard">0</b></span>
-    </div>
-    <div class="menu-mats-title">設定</div>
-    <div class="menu-settings">
-      <div class="menu-setting-row">
-        <span>効果音</span>
-        <button type="button" class="menu-setting-btn" id="set-sfx">中</button>
-      </div>
-      <div class="menu-setting-row">
-        <span>音楽</span>
-        <button type="button" class="menu-setting-btn" id="set-bgm">中</button>
-      </div>
-      <div class="menu-setting-row">
-        <span>画面の揺れ</span>
-        <button type="button" class="menu-setting-btn" id="set-shake">標準</button>
-      </div>
-      <div class="menu-setting-row">
-        <span>影</span>
-        <button type="button" class="menu-setting-btn" id="set-shadow">あり</button>
-      </div>
-      <div class="menu-setting-row">
-        <span>ヒットストップ</span>
-        <button type="button" class="menu-setting-btn" id="set-hitstop">標準</button>
-      </div>
-      <div class="menu-setting-row">
-        <span>明るさ</span>
-        <button type="button" class="menu-setting-btn" id="set-bright">標準</button>
-      </div>
-      <div class="menu-setting-row">
-        <span>画質</span>
-        <button type="button" class="menu-setting-btn" id="set-quality">標準</button>
-      </div>
-      <div class="menu-setting-row">
-        <span>ドット表現</span>
-        <button type="button" class="menu-setting-btn" id="set-dot">なし</button>
-      </div>
-      <div class="menu-setting-row">
-        <span>カメラ自動追従</span>
-        <button type="button" class="menu-setting-btn" id="set-camauto">あり</button>
-      </div>
-      <div class="menu-setting-row">
-        <span>カメラ左右反転</span>
-        <button type="button" class="menu-setting-btn" id="set-caminvert">なし</button>
-      </div>
-      <div class="menu-setting-row">
-        <span>カメラの高さ</span>
-        <button type="button" class="menu-setting-btn" id="set-camheight">標準</button>
+    <!-- UI-002-F: 見出しの行に「冒険」「設定」「操作」のしおりタブ。開いた時は常に「冒険」
+         (10-input.js setMenuTab)。既存の id・文言はそのまま区画へ移しただけ -->
+    <div class="menu-head">
+      <div class="menu-title display">メニュー</div>
+      <div class="menu-tabs" role="tablist">
+        <button type="button" class="menu-tab active" data-menu-tab="adventure" role="tab">冒険</button>
+        <button type="button" class="menu-tab" data-menu-tab="settings" role="tab">設定</button>
+        <button type="button" class="menu-tab" data-menu-tab="controls" role="tab">操作</button>
       </div>
     </div>
-    <div class="menu-controls">
-      移動: WASD / 左スティック / 画面左下スティック<br>
-      ジャンプ: Space / A・× / JUMPボタン<br>
-      攻撃: 左クリック・J / X・□ / 攻撃ボタン<br>
-      回避: Shift / B・○ / 回避ボタン<br>
-      必殺技: K / R2・RT / 必殺ボタン(戦ってゲージを溜めると使える)<br>
-      スキル1: L / Y・△ / スキルボタン<br>
-      スキル2: O / L2・LT / スキル2ボタン(閃いた後に使える)<br>
-      カメラ回転: Q・E / 右スティック<br>
-      鍛冶屋(鍛冶士の前で): I / 十字キー下 / 画面下のメッセージをタップ<br>
-      出撃メニュー(店主の前で): F / 十字キー上 / 画面下のメッセージをタップ<br>
-      扉を開ける・階段を使う: R / L1・LB / 画面下のメッセージをタップ<br>
-      薬草を使う: V / R1・RB / HUD左上の🧪をタップ<br>
-      対話・手記を進める: クリック / A・×<br>
-      メニューを閉じる: Esc / B・○
+    <div class="menu-section menu-adventure" data-menu-section="adventure">
+      <div class="menu-char">
+        <div class="menu-stat-line wide"><span>名前</span><span id="menu-name">-</span></div>
+        <div class="menu-stat-line wide"><span>職業</span><span id="menu-class">-</span></div>
+        <div class="menu-stat-line wide"><span>経験値</span><span id="menu-xp">-</span></div>
+        <div class="menu-stat-line"><span>HP</span><span id="menu-hp">-</span></div>
+        <div class="menu-stat-line"><span>MP</span><span id="menu-mp">-</span></div>
+        <div class="menu-stat-line"><span>攻撃力</span><span id="menu-atk">-</span></div>
+        <div class="menu-stat-line"><span>移動速度</span><span id="menu-spd">-</span></div>
+        <div class="menu-stat-line wide"><span>必殺技</span><span id="menu-ult">-</span></div>
+        <div class="menu-mats-title">所持金</div>
+        <div class="menu-mats">
+          <span class="menu-mat">🪙<b id="menu-gold">0</b></span>
+          <span class="menu-mat">💎<b id="menu-gem">0</b></span>
+          <span class="menu-mat">🔩<b id="menu-shard">0</b></span>
+        </div>
+      </div>
+      <div class="menu-btn-row">
+        <div class="menu-btn primary" id="menu-resume">冒険に戻る</div>
+        <div class="menu-btn" id="menu-save">💾 セーブ</div>
+        <div class="menu-btn" id="menu-town">街に戻る</div>
+        <div class="menu-btn" id="menu-title">タイトルへ</div>
+      </div>
     </div>
-    <div class="menu-controls" style="margin-top:8px; color:var(--ember-bright); font-size:10.5px;">
-      Backbone One等のコントローラーはUSB/Bluetoothで接続すると自動認識されます。接続中は画面のタッチボタンが自動的に隠れます。
+    <div class="menu-section" data-menu-section="settings" hidden>
+      <div class="menu-settings">
+        <div class="menu-setting-row">
+          <span>効果音</span>
+          <button type="button" class="menu-setting-btn" id="set-sfx">中</button>
+        </div>
+        <div class="menu-setting-row">
+          <span>音楽</span>
+          <button type="button" class="menu-setting-btn" id="set-bgm">中</button>
+        </div>
+        <div class="menu-setting-row">
+          <span>画面の揺れ</span>
+          <button type="button" class="menu-setting-btn" id="set-shake">標準</button>
+        </div>
+        <div class="menu-setting-row">
+          <span>影</span>
+          <button type="button" class="menu-setting-btn" id="set-shadow">あり</button>
+        </div>
+        <div class="menu-setting-row">
+          <span>ヒットストップ</span>
+          <button type="button" class="menu-setting-btn" id="set-hitstop">標準</button>
+        </div>
+        <div class="menu-setting-row">
+          <span>明るさ</span>
+          <button type="button" class="menu-setting-btn" id="set-bright">標準</button>
+        </div>
+        <div class="menu-setting-row">
+          <span>画質</span>
+          <button type="button" class="menu-setting-btn" id="set-quality">標準</button>
+        </div>
+        <div class="menu-setting-row">
+          <span>ドット表現</span>
+          <button type="button" class="menu-setting-btn" id="set-dot">なし</button>
+        </div>
+        <div class="menu-setting-row">
+          <span>カメラ自動追従</span>
+          <button type="button" class="menu-setting-btn" id="set-camauto">あり</button>
+        </div>
+        <div class="menu-setting-row">
+          <span>カメラ左右反転</span>
+          <button type="button" class="menu-setting-btn" id="set-caminvert">なし</button>
+        </div>
+        <div class="menu-setting-row">
+          <span>カメラの高さ</span>
+          <button type="button" class="menu-setting-btn" id="set-camheight">標準</button>
+        </div>
+      </div>
     </div>
-    <div class="menu-btn-row">
-      <div class="menu-btn primary" id="menu-resume">冒険に戻る</div>
-      <div class="menu-btn" id="menu-save">💾 セーブ</div>
-      <div class="menu-btn" id="menu-town">街に戻る</div>
-      <div class="menu-btn" id="menu-title">タイトルへ</div>
+    <div class="menu-section" data-menu-section="controls" hidden>
+      <div class="menu-controls">
+        移動: WASD / 左スティック / 画面左下スティック<br>
+        ジャンプ: Space / A・× / JUMPボタン<br>
+        攻撃: 左クリック・J / X・□ / 攻撃ボタン<br>
+        回避: Shift / B・○ / 回避ボタン<br>
+        必殺技: K / R2・RT / 必殺ボタン(戦ってゲージを溜めると使える)<br>
+        スキル1: L / Y・△ / スキルボタン<br>
+        スキル2: O / L2・LT / スキル2ボタン(閃いた後に使える)<br>
+        カメラ回転: Q・E / 右スティック<br>
+        鍛冶屋(鍛冶士の前で): I / 十字キー下 / 画面下のメッセージをタップ<br>
+        出撃メニュー(店主の前で): F / 十字キー上 / 画面下のメッセージをタップ<br>
+        扉を開ける・階段を使う: R / L1・LB / 画面下のメッセージをタップ<br>
+        薬草を使う: V / R1・RB / HUD左上の🧪をタップ<br>
+        対話・手記を進める: クリック / A・×<br>
+        メニューを閉じる: Esc / B・○
+      </div>
+      <div class="menu-controls menu-controls-note">
+        Backbone One等のコントローラーはUSB/Bluetoothで接続すると自動認識されます。接続中は画面のタッチボタンが自動的に隠れます。
+      </div>
     </div>
     <!-- 通常はただのバージョン表記。開発機(iPhone実機テスト)ではここを
          素早く5回叩くとデバッグモードが切り替わる。14-hud-boot.js参照 -->

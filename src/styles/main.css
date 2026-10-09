@@ -1422,9 +1422,10 @@
      実DOM focus(:focus)は使わず専用クラスで管理しているので、
      .selected/.activeなど他の状態クラスと重なっても衝突しない */
   .gp-focused{
-    outline:2px solid var(--ember-bright) !important;
+    /* UI-002-F(F-D2): 発光をやめ、太めの輪郭とすき間だけで示す。box-shadow は
+       各部品の内縁・落ち影を残すため上書きしない */
+    outline:3px solid var(--ui-special) !important;
     outline-offset:2px;
-    box-shadow:0 0 10px var(--ember-bright) !important;
   }
 
 /* メニュー下端のバージョン表記。見た目はただの添え字だが、素早く5回
@@ -1440,3 +1441,216 @@
   -webkit-user-select:none;
   -webkit-tap-highlight-color:transparent;
 }
+
+/* =========================================================
+   UI-002-F: メニュー・鍛冶屋(Human 承認 2026-10-09、F-D1〜F-D10)
+
+   「中世ファンタジー × トゥーン × マット × シンプル」。C2 で承認した HUD の
+   プレート(matte な面・太めの輪郭・控えめな内縁・落ち影 1 種)を、メニューと
+   鍛冶屋のパネル・タブ・ボタンに当てる。革の手帳を「形」で表す: パネル = 表紙
+   (太い輪郭＋内縁)、タブ = しおり、見出し = 碑文。角金具・羊皮紙・グラデーション・
+   ぼかし・発光は使わない(F-D2)。色は既存の token だけ。
+
+   範囲: #menu-overlay と #appraisal-overlay の中だけ(F-D8)。.appraisal-box /
+   .appraisal-header / .ap-close-btn は出撃画面(#scenario-overlay)と、
+   .event-overlay は結果画面と共有しているので、必ず id で絞る。
+   ========================================================= */
+
+/* ---- 背景: ぼかしをやめ、単色の暗幕だけ ---- */
+#menu-overlay,
+#appraisal-overlay{ backdrop-filter:none; -webkit-backdrop-filter:none; }
+
+/* ---- パネル(革の手帳の表紙) ---- */
+#menu-overlay .menu-box,
+#appraisal-overlay .appraisal-box{
+  display:flex; flex-direction:column;
+  width:min(var(--ui-book-max-w), calc(100vw - 24px));
+  max-height:min(88vh, calc(100vh - 24px));
+  overflow:hidden;
+  padding:16px 20px 12px;
+  background:var(--ui-plate-bg);
+  border:var(--ui-plate-outline-w) solid var(--ui-plate-outline);
+  border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim), var(--ui-p-shadow-drop-20-60);
+}
+
+/* ---- 見出し(碑文): 書体は既存のまま。下に細い罫と小さな菱形の留め ---- */
+#menu-overlay .menu-head,
+#appraisal-overlay .appraisal-header{
+  position:relative; display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
+  flex:none; margin-bottom:10px; padding-bottom:8px;
+  border-bottom:var(--ui-plate-rim-w) solid var(--ui-plate-rim);
+}
+#menu-overlay .menu-head::after,
+#appraisal-overlay .appraisal-header::after{
+  content:''; position:absolute; left:50%; bottom:-6px; width:8px; height:8px; margin-left:-4px;
+  background:var(--ui-special); border:2px solid var(--ui-plate-outline); transform:rotate(45deg);
+}
+#menu-overlay .menu-title{ margin:0; color:var(--ui-special); text-align:left; line-height:1.2; }
+#appraisal-overlay .appraisal-title{ color:var(--ui-special); font-size:var(--ui-fs-heading); line-height:1.2; }
+#appraisal-overlay .appraisal-currency{ font-size:var(--ui-fs-body); }
+
+/* ---- しおりタブ(メニューの 3 タブと鍛冶屋のタブ・スキルのサブタブ) ----
+   選択中は面を塗り、文字を太くし、下へ 2px 差し込む(色だけで示さない) */
+#menu-overlay .menu-tabs,
+#appraisal-overlay .ap-tabs,
+#appraisal-overlay .skill-subtabs{ display:flex; gap:6px; flex:none; }
+#appraisal-overlay .ap-tabs{ margin-bottom:10px; }
+#appraisal-overlay .skill-subtabs{ margin-bottom:10px; }
+#menu-overlay .menu-tab,
+#appraisal-overlay .ap-tab,
+#appraisal-overlay .skill-subtab{
+  flex:1; min-height:var(--ui-touch-min); padding:6px 10px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--ui-font-serif); font-size:var(--ui-fs-body); color:var(--ui-text-muted);
+  background:var(--ui-plate-bg-sunken);
+  border:var(--ui-plate-outline-w) solid var(--ui-plate-outline);
+  border-radius:var(--ui-plate-radius) var(--ui-plate-radius) var(--ui-p-radius-4) var(--ui-p-radius-4);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim);
+  cursor:pointer;
+}
+#menu-overlay .menu-tab.active,
+#appraisal-overlay .ap-tab.active,
+#appraisal-overlay .skill-subtab.active{
+  color:var(--ui-plate-outline); background:var(--ui-selected); font-weight:var(--ui-fw-bold);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ember-bright);
+  transform:translateY(2px);
+}
+#menu-overlay .menu-tabs{ flex:0 1 330px; }
+
+/* ---- ボタン(プレート) ---- */
+#menu-overlay .menu-btn,
+#menu-overlay .menu-setting-btn,
+#appraisal-overlay .ap-close-btn,
+#appraisal-overlay .gear-tool-btn,
+#appraisal-overlay .gear-item-btn,
+#appraisal-overlay .ap-equip-btn,
+#appraisal-overlay .ap-skill-btn,
+#appraisal-overlay .ap-apply-btn{
+  min-height:var(--ui-touch-min); padding:6px 12px;
+  display:inline-flex; align-items:center; justify-content:center; gap:4px;
+  font-family:var(--ui-font-body); font-size:var(--ui-fs-body); color:var(--ui-text);
+  background:var(--ui-plate-bg-sunken);
+  border:var(--ui-plate-outline-w) solid var(--ui-plate-outline);
+  border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim), var(--ui-plate-drop);
+  cursor:pointer; white-space:nowrap;
+}
+#menu-overlay .menu-btn:active,
+#menu-overlay .menu-setting-btn:active,
+#appraisal-overlay .ap-close-btn:active,
+#appraisal-overlay .gear-tool-btn:active,
+#appraisal-overlay .gear-item-btn:active{
+  transform:translateY(1px); box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim);
+}
+/* primary(冒険に戻る): 単色の塗り＋太字 */
+#menu-overlay .menu-btn.primary,
+#appraisal-overlay .ap-equip-btn,
+#appraisal-overlay .ap-skill-btn,
+#appraisal-overlay .ap-apply-btn{
+  color:var(--ui-plate-outline); background:var(--ui-selected); font-weight:var(--ui-fw-bold);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ember-bright), var(--ui-plate-drop);
+}
+/* 戻れない操作(タイトルへ): 内縁を危険の色に＋並びの最後 */
+#menu-overlay #menu-title{ box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-danger), var(--ui-plate-drop); }
+/* 設定の値: 押せることが分かるよう ember の文字 */
+#menu-overlay .menu-setting-btn{ min-width:84px; color:var(--ember-bright); }
+/* 無効: 形を保ったままコントラストを下げる */
+#appraisal-overlay .gear-item-btn:disabled,
+#appraisal-overlay .ap-equip-btn:disabled,
+#appraisal-overlay .ap-skill-btn:disabled{
+  opacity:0.5; cursor:default; color:var(--ui-disabled); background:var(--ui-plate-bg-sunken);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim);
+}
+
+/* ---- メニュー: 見出しの行(見出し＋しおり)・区画・2 列 ---- */
+#menu-overlay .menu-section{ flex:1 1 auto; min-height:0; overflow-y:auto; touch-action:pan-y; padding:4px 2px 2px; }
+#menu-overlay .menu-section[hidden]{ display:none; }
+#menu-overlay .menu-adventure{
+  display:grid; grid-template-columns:minmax(0,1fr) minmax(150px,200px); gap:16px; align-items:start;
+}
+#menu-overlay .menu-char{ display:grid; grid-template-columns:1fr 1fr; column-gap:16px; }
+#menu-overlay .menu-char .menu-stat-line.wide{ grid-column:1 / -1; }
+#menu-overlay .menu-stat-line{ font-size:var(--ui-fs-body); padding:6px 0; }
+#menu-overlay .menu-mats-title{ grid-column:1 / -1; font-size:var(--ui-fs-small); margin:8px 0 4px; }
+#menu-overlay .menu-mats{
+  grid-column:1 / -1; font-size:var(--ui-fs-body); padding:6px 10px;
+  background:var(--ui-plate-bg-sunken); border:none; border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim);
+}
+#menu-overlay .menu-btn-row{ flex-direction:column; gap:8px; margin-top:0; }
+#menu-overlay .menu-btn-row .menu-btn{ flex:none; width:100%; }
+#menu-overlay .menu-settings{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px 20px; margin:0;
+}
+#menu-overlay .menu-setting-row{ font-size:var(--ui-fs-body); color:var(--ui-text); }
+#menu-overlay .menu-controls{ margin-top:0; font-size:var(--ui-fs-body); line-height:1.8; column-width:300px; column-gap:24px; }
+#menu-overlay .menu-controls-note{ margin-top:10px; font-size:var(--ui-fs-small); color:var(--ember-bright); }
+#menu-overlay .menu-version{ flex:none; margin-top:6px; }
+/* 狭い画面(縦長のスマホ等): 1 列に戻す */
+@media (max-width:560px){
+  #menu-overlay .menu-adventure{ grid-template-columns:1fr; }
+  #menu-overlay .menu-head{ flex-wrap:wrap; }
+  #menu-overlay .menu-tabs{ flex:1 1 100%; }
+}
+
+/* ---- 鍛冶屋: 中身の並び(スクロールは所持品の一覧だけ) ---- */
+#appraisal-overlay .ap-panel{ flex:1 1 auto; min-height:0; overflow-y:auto; touch-action:pan-y; }
+#appraisal-overlay #ap-panel-gear{ display:flex; flex-direction:column; overflow:hidden; }
+#appraisal-overlay .gear-item-list{ flex:1 1 auto; min-height:0; overflow-y:auto; touch-action:pan-y; padding-right:2px; }
+#appraisal-overlay .ap-close-btn{ flex:none; width:100%; margin-top:10px; }
+
+/* 装備枠: 1 枠を横長の 1 行に(名前と性能を左、外すを右) */
+#appraisal-overlay .gear-slot-row{ flex:none; display:flex; gap:8px; margin-bottom:8px; }
+#appraisal-overlay .gear-slot{
+  flex:1 1 0; min-width:0;
+  display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"label btn" "name btn" "stat btn";
+  align-items:center; column-gap:8px; padding:6px 8px 6px 10px; text-align:left;
+  background:var(--ui-plate-bg-sunken); border:none; border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim);
+}
+#appraisal-overlay .gear-slot-label{ grid-area:label; font-size:var(--ui-fs-small); margin:0; }
+#appraisal-overlay .gear-slot-name{ grid-area:name; font-size:var(--ui-fs-body); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#appraisal-overlay .gear-slot-stat,
+#appraisal-overlay .gear-slot-special,
+#appraisal-overlay .gear-slot-weapontype{ grid-column:1; font-size:var(--ui-fs-small); margin-top:0; justify-self:start; }
+#appraisal-overlay .gear-slot .gear-item-btn{ grid-area:btn; }
+#appraisal-overlay .gear-tools{ flex:none; gap:8px; margin:0 0 8px; }
+#appraisal-overlay .gear-tool-btn{ color:var(--ember-bright); }
+#appraisal-overlay .gear-tool-btn.sell-all{ color:var(--ui-special); }
+
+/* 所持品の一覧 */
+#appraisal-overlay .gear-item-row{
+  gap:10px; padding:6px 8px; margin-bottom:6px;
+  background:var(--ui-plate-bg-sunken); border:none; border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim);
+}
+#appraisal-overlay .gear-item-name{ font-size:var(--ui-fs-body); }
+#appraisal-overlay .gear-item-stat,
+#appraisal-overlay .gear-item-special,
+#appraisal-overlay .gear-item-compare,
+#appraisal-overlay .gear-item-weapontype,
+#appraisal-overlay .gear-legend,
+#appraisal-overlay .gear-empty-note{ font-size:var(--ui-fs-small); }
+#appraisal-overlay .gear-item-actions{ flex-direction:row; align-items:center; gap:6px; }
+#appraisal-overlay .gear-item-btn.sell{ font-size:var(--ui-fs-small); color:var(--ui-special); }
+
+/* 状態: 意味色＋形(色だけにしない)。装備中 = 菱形＋左のしおり、装備可 = 丸、
+   装備できない = 斜線の四角＋薄く */
+#appraisal-overlay .gear-legend i{ width:10px; height:10px; border:2px solid var(--ui-plate-outline); box-sizing:content-box; }
+#appraisal-overlay .lg-ok{ background:var(--ui-recovery); border-radius:var(--ui-p-radius-round); }
+#appraisal-overlay .lg-hi{ background:repeating-linear-gradient(45deg, var(--ui-danger) 0 2px, transparent 2px 4px); border-radius:2px; }
+#appraisal-overlay .lg-eq{ background:var(--ui-special); transform:rotate(45deg) scale(0.85); }
+#appraisal-overlay .gear-item-row.lv-eq{ background:var(--ui-plate-bg-sunken); box-shadow:inset 4px 0 0 var(--ui-special), inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim); }
+#appraisal-overlay .gear-item-row.lv-eq .gear-lv{ color:var(--ui-special); }
+#appraisal-overlay .gear-item-row.lv-ok .gear-lv{ color:var(--ui-recovery); }
+
+/* ---- スキル(固定の技のカード) ---- */
+#appraisal-overlay .ap-charge-title{ font-size:var(--ui-fs-body); }
+#appraisal-overlay .ap-charge-card{
+  background:var(--ui-plate-bg-sunken); border:none; border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim);
+}
+#appraisal-overlay .ap-charge-card.active{ background:var(--ui-plate-bg-sunken); box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-selected); }
+#appraisal-overlay .ap-charge-name{ font-size:var(--ui-fs-body); }
+#appraisal-overlay .ap-charge-desc{ font-size:var(--ui-fs-small); line-height:1.5; }
