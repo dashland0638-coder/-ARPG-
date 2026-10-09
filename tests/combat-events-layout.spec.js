@@ -45,6 +45,25 @@ const visibleRects = (page, sels) => page.evaluate(ss => ss.map(s => {
   const r = el.getBoundingClientRect();
   return r.width > 0 && r.height > 0 ? { sel: s, left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
 }).filter(Boolean), sels);
+/* TF-03: CI でだけまれに起きる重なり(844×390 でインタラクトが #joy-zone に 0.1px 重なる)の手がかり。
+   プロンプトの位置・表示が書き換わるたびに、そのときのページの状態(画面の大きさ・スティックの矩形・
+   プロンプトの幅)を控えておき、失敗したときだけメッセージに添える。判定の条件は変えない */
+async function recordPromptWrites(page, sel) {
+  await page.evaluate(s => {
+    const el = document.querySelector(s), joy = document.getElementById('joy-zone');
+    const log = window.__promptWrites = [];
+    const r4 = r => [r.left, r.top, r.right, r.bottom].map(v => Math.round(v * 1000) / 1000);
+    new MutationObserver(() => {
+      log.push({ t: Math.round(performance.now()), show: el.classList.contains('show'), style: [el.style.left, el.style.top],
+        rect: r4(el.getBoundingClientRect()), ow: el.offsetWidth, vw: innerWidth, vh: innerHeight,
+        vv: window.visualViewport ? [visualViewport.width, visualViewport.height, visualViewport.scale] : null,
+        joy: joy ? r4(joy.getBoundingClientRect()) : null });
+      if (log.length > 10) log.shift();
+    }).observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+  }, sel);
+}
+const promptWrites = page => page.evaluate(() => JSON.stringify(window.__promptWrites || []));
+
 const ZONE_ITEMS = ['.hud-topleft', '#hud-loot', '#minimap-wrap', '#btn-attack', '#btn-jump', '#btn-dodge', '#btn-ult',
   '#btn-charge', '#btn-skill2', '#btn-skill3', '#loot-potion-btn', '#arena-toggle-btn', '#joy-zone'];
 
@@ -269,6 +288,7 @@ for (const inset of [null, INSET]) {
       // 対象が画面の外(カメラの後ろ)・左下に来る向きを含めて回す。カメラの回転は 1.9 rad/秒(低速描画では
       // 1 フレームの dt が抑えられて遅くなる)なので、測る回数で 1 周以上を見る
       let samples = 0;
+      await recordPromptWrites(page, '#interact-btn');
       await page.keyboard.down('KeyQ');
       try {
         for (let i = 0; i < 70; i++) {
@@ -276,9 +296,11 @@ for (const inset of [null, INSET]) {
           if (!(await page.locator('#interact-btn.show').isVisible().catch(() => false))) continue;
           const it = await rectOf(page, '#interact-btn');
           samples++;
-          expect(inZone(it, zone), `インタラクトは中央の領域の中: ${JSON.stringify(it)}`).toBe(true);
-          for (const z of await visibleRects(page, INPUT_ITEMS)) {
-            expect(overlaps(it, z), `インタラクトと ${z.sel}(${i}): ${JSON.stringify(it)}`).toBe(false);
+          const hits = (await visibleRects(page, INPUT_ITEMS)).filter(z => overlaps(it, z));
+          const why = inZone(it, zone) && !hits.length ? '' : ` 位置の書き換え: ${await promptWrites(page)}`;
+          expect(inZone(it, zone), `インタラクトは中央の領域の中: ${JSON.stringify(it)}${why}`).toBe(true);
+          for (const z of hits) {
+            expect(overlaps(it, z), `インタラクトと ${z.sel}(${i}): ${JSON.stringify(it)} / ${JSON.stringify(z)}${why}`).toBe(false);
           }
         }
       } finally {
@@ -299,6 +321,7 @@ test.describe('UI-002-D WI-D7: プロンプトを押している間(844×390・�
     await startTavern(page, null);
     expect(await walkToBartender(page), 'インタラクトが出る').toBe(true);
     await expect(page.locator('#interact-btn')).toContainText('店主');
+    await recordPromptWrites(page, '#interact-btn');
     const before = await rectOf(page, '#interact-btn');
     await page.mouse.move((before.left + before.right) / 2, (before.top + before.bottom) / 2);
     await page.mouse.down();
@@ -308,7 +331,8 @@ test.describe('UI-002-D WI-D7: プロンプトを押している間(844×390・�
     await page.keyboard.up('KeyQ');
     await page.waitForTimeout(300);
     const held = await rectOf(page, '#interact-btn');
-    expect(Math.abs(held.left - before.left) + Math.abs(held.top - before.top), `押している間は動かない: ${JSON.stringify(before)} → ${JSON.stringify(held)}`).toBeLessThan(1);
+    const heldMoved = Math.abs(held.left - before.left) + Math.abs(held.top - before.top);
+    expect(heldMoved, `押している間は動かない: ${JSON.stringify(before)} → ${JSON.stringify(held)}${heldMoved < 1 ? '' : ` 位置の書き換え: ${await promptWrites(page)}`}`).toBeLessThan(1);
     await page.mouse.up();
     await expect(page.locator('#scenario-overlay'), '離すとインタラクト(店主と話す = 出撃先の選択)が実行される').toHaveClass(/active/, { timeout: 5_000 });
     // 離した後は対象の上へ追従を再開する(閉じてから測る)
