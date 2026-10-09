@@ -109,4 +109,22 @@
   --ui-panel-bg: linear-gradient(180deg, var(--ui-surface-panel-top), var(--ui-surface-panel-bottom));
   --ui-panel-border: 1px solid var(--ui-line);
   --ui-panel-radius: var(--ui-p-radius-6);
+
+  /* ---- component: plate / book(UI-002-F。F-D2 / F-D3、Human 承認 2026-10-09) ----
+     C2 Prototype(ui-proto.css の .uip-plate)で Human が確認したプレートの値を、
+     メニュー・鍛冶屋で使えるよう名前を付けたもの。色は既存 token の参照だけで、
+     新しい色は無い。寸法の新規値は F-D3 で承認された 3 つ(本の最大幅・文字の
+     下限・タッチの的)だけ */
+  --ui-plate-bg: var(--ui-surface-panel-top);
+  --ui-plate-bg-sunken: var(--ui-surface-panel-bottom);
+  --ui-plate-outline: var(--ui-outline);
+  --ui-plate-outline-w: 3px;                        /* C2 --uip-outline-w */
+  --ui-plate-rim: var(--ui-line);
+  --ui-plate-rim-w: 2px;                            /* C2 --uip-rim-w */
+  --ui-plate-radius: var(--ui-p-radius-8);
+  --ui-plate-drop: 0 2px 0 rgba(0,0,0,0.55);        /* C2 --uip-drop(落ち影は 1 種) */
+  --ui-book-max-w: 760px;                           /* F-D3: パネルの最大幅 */
+  --ui-fs-body: 12px;                               /* F-D3: 文字の原則の下限 */
+  --ui-fs-small: 11px;                              /* F-D3: 密な補助表示の下限 */
+  --ui-touch-min: 36px;                             /* F-D3: タッチ対象の最小 */
 }
