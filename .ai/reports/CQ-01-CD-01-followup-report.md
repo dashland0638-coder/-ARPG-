@@ -47,6 +47,16 @@
 - `MANSION_SCENARIO.md`（未 merge の #38 / #42 と衝突するため）
 - TF-02 / TF-03 の調査（混ぜていない）
 
+## テスト
+| 確認 | 結果 |
+| --- | --- |
+| unit（`node --test tests/unit/*.test.js`） | 1707 pass / 0 fail / 1 skip（既存） |
+| build（`npx vite build`） | PASS |
+| E2E（チェックリストの 🤖 の根拠になる本編進行・道・？？？） | `chapter1-progression` / `road` / `shadow-guide`: 14 passed（6.7 分） |
+
+## Autonomy Metrics
+- Human Escalation Count: 0 / Human Decision Count: 0 / Auto Fix Count: 1 / Reviewer Rounds: 2 / Test Retries: 0
+
 ## Reviewer
 - Round 1: FAIL（Auto Fix 1）
   - A-15「戦闘1・戦闘2を抜けられる」に 🤖 → E2E は戦闘2だけ。項目に「自動テストは戦闘2だけ」と追記
