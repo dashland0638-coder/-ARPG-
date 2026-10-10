@@ -9,6 +9,11 @@
  * 値を意図して変える Task(UI-002-V / C2 以降)は、Human の Visual
  * Decision に基づいてこの期待値を更新すること。
  *
+ * UI-002-F(Human 承認 2026-10-09、F-D2 / F-D8): メニュー(.menu-box)と鍛冶屋
+ * (#appraisal-overlay .appraisal-box)だけを C2 のプレートへ更新した(単色の面・3px の
+ * 輪郭・2px の内縁・角丸 8px・ぼかしなし)。同じ共通 selector を使う出撃画面
+ * (#scenario-overlay)・結果画面(#clear-overlay)は変えていないことを、ここで固定している。
+ *
  * 要素は非表示でも computed style を持つので、タイトル画面を開いた
  * 状態のまま HUD・メニュー・確認・会話・鑑定所・結果の各パネルを読む
  * (3D 画面の上に重なる要素のピクセル比較は安定しないため、C1 の
@@ -59,14 +64,16 @@ const EXPECTED = {
       "border-top-left-radius": "50%"
     },
     "#menu-overlay": {
-      "z-index": "30"
+      "z-index": "30",
+      "backdrop-filter": "none"
     },
     ".menu-box": {
-      "background-image": "linear-gradient(rgb(21, 17, 28), rgb(16, 13, 22))",
-      "border-top-color": "rgb(58, 47, 74)",
-      "border-top-width": "1px",
-      "border-top-left-radius": "6px",
-      "box-shadow": "rgba(0, 0, 0, 0.6) 0px 20px 60px 0px"
+      "background-image": "none",
+      "background-color": "rgb(21, 17, 28)",
+      "border-top-color": "rgb(12, 10, 16)",
+      "border-top-width": "3px",
+      "border-top-left-radius": "8px",
+      "box-shadow": "rgb(58, 47, 74) 0px 0px 0px 2px inset, rgba(0, 0, 0, 0.6) 0px 20px 60px 0px"
     },
     ".menu-title": {
       "font-family": "Cinzel, \"Noto Serif JP\", serif",
@@ -85,10 +92,29 @@ const EXPECTED = {
       "box-shadow": "rgba(0, 0, 0, 0.6) 0px 16px 50px 0px",
       "border-top-left-radius": "8px"
     },
+    "#appraisal-overlay": {
+      "backdrop-filter": "none"
+    },
     "#appraisal-overlay .appraisal-box": {
+      "background-image": "none",
+      "background-color": "rgb(21, 17, 28)",
+      "border-top-color": "rgb(12, 10, 16)",
+      "border-top-width": "3px",
+      "border-top-left-radius": "8px",
+      "box-shadow": "rgb(58, 47, 74) 0px 0px 0px 2px inset, rgba(0, 0, 0, 0.6) 0px 20px 60px 0px"
+    },
+    "#scenario-overlay": {
+      "backdrop-filter": "blur(3px)"
+    },
+    "#scenario-overlay .appraisal-box": {
       "background-image": "linear-gradient(rgb(21, 17, 28), rgb(16, 13, 22))",
+      "border-top-color": "rgb(58, 47, 74)",
+      "border-top-width": "1px",
       "border-top-left-radius": "6px",
       "box-shadow": "rgba(0, 0, 0, 0.65) 0px 24px 70px 0px"
+    },
+    "#clear-overlay": {
+      "backdrop-filter": "blur(3px)"
     },
     "#clear-overlay .event-box": {
       "background-image": "linear-gradient(rgb(21, 17, 28), rgb(16, 13, 22))",

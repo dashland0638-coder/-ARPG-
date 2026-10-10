@@ -2729,7 +2729,7 @@
         ${weaponTypeTag}
         ${eq ? `<div class="gear-slot-stat">${eq.atkBonus?'攻撃+'+eq.atkBonus+' ':''}${eq.hpBonus?'HP+'+eq.hpBonus:''}</div>
           ${eq.specialId ? `<div class="gear-slot-special">⭐ ${eq.specialDesc}</div>` : ''}
-          <button type="button" class="gear-item-btn" data-unequip="${slot}" style="margin-top:6px;">外す</button>` : ''}
+          <button type="button" class="gear-item-btn" data-unequip="${slot}">外す</button>` : ''}
       </div>`;
     });
     html += '</div>';
@@ -2745,6 +2745,8 @@
         <span class="gear-legend"><i class="lg-ok"></i>装備可 <i class="lg-hi"></i>${legacyGrowth() ? 'Lv不足' : '装備できない'} <i class="lg-eq"></i>装備中</span>
       </div>`;
 
+    // UI-002-F: 所持品の一覧だけをスクロールさせる入れ物(装備枠・道具・閉じるは動かない)
+    html += '<div class="gear-item-list">';
     if(state.equipmentInventory.length===0){
       html += '<div class="gear-empty-note">所持している装備品はありません。宝箱やボスの戦利品、強力な敵から手に入ることがあります。</div>';
     } else {
@@ -2788,6 +2790,7 @@
         </div>`;
       });
     }
+    html += '</div>';
     panel.innerHTML = html;
 
     const bestBtn = panel.querySelector('#gear-best-btn');
@@ -3466,7 +3469,8 @@
       document.querySelectorAll('.ap-tab').forEach(t=>t.classList.remove('active'));
       tab.classList.add('active');
       ['gear','stat','skill','sphere','shop'].forEach(name=>{
-        document.getElementById('ap-panel-'+name).style.display = (name===tab.dataset.tab) ? 'block' : 'none';
+        // '' = CSS の既定の display に戻す(装備品タブは一覧だけをスクロールさせる flex。UI-002-F)
+        document.getElementById('ap-panel-'+name).style.display = (name===tab.dataset.tab) ? '' : 'none';
       });
       if(tab.dataset.tab==='sphere') renderSpherePanel();
     });

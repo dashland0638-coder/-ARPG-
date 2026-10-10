@@ -26,6 +26,8 @@ test.describe('dot-mode setting', () => {
 
     await page.keyboard.press('Escape');
     await expect(page.locator('#menu-overlay')).toHaveClass(/active/);
+    // 設定はメニューの「設定」タブにある(UI-002-F)
+    await page.click('#menu-overlay [data-menu-tab="settings"]');
 
     const expectedLabels = ['弱', '中', '強', 'なし'];
     for (const label of expectedLabels) {
