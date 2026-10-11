@@ -2061,7 +2061,7 @@ function buildTruthScore(t){
     const sustainEnd=Math.max(bs+sec*x.d*.92,nextSt-sec*.04);
     const guitarDur=Math.min(Math.max(sec*.55,sustainEnd-bs),sec*3.2);
     const voicing=tavernGuitarVoicing(t,Math.floor(i/2));
-    const level=.039*Math.max(.9,style.guitar||0);
+    const level=.030*Math.max(.9,style.guitar||0);
     add("Guitar",i,bs,guitarDur,voicing,tavernMixLevel(t,"Guitar",level),"guitar-strum",false);
    }
   }else{
@@ -2531,7 +2531,7 @@ function makeDrumHit(start,level,room,type="kick"){
 const INSTRUMENT_CALIBRATION={
  Viola:.95, Flute:1.12, Cello:1.35, Bass:1.04,
  Harp:1.35, Bell:1.20, Piano:1.35, Keyboard:1.12,
- Guitar:1.02, Drums:1.20
+ Guitar:.78, Drums:1.20
 };
 function calibratedLevel(name,level){
  return Math.max(.0001,(Number(level)||0)*(INSTRUMENT_CALIBRATION[name]??1));

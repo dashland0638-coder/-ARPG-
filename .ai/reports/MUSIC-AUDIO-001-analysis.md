@@ -1,14 +1,14 @@
 # MUSIC-AUDIO-001 Analysis — CC0 サンプル音源エンジン（ピアノ・フルート試作）
 
-Source: Human 提供の `ARPG_Music_AI_Composer_v5_66_0_guitar_drums_soft_mix.html`（sha256 `9c5c0ed8…c48465`、2946 行）を
-`tools/music-composer/ARPG_Music_AI_Composer_v5_66_0.html` として無変更で保存。branch `claude/cc0-sample-audio-engine-76noqo` @ `6ba05c8`。
+Source: Human 提供の `ARPG_Music_AI_Composer_v5_67_0_tavern_bgm_complete.html`（sha256 `696476fc…5700ff`、2946 行）を
+`tools/music-composer/ARPG_Music_AI_Composer_v5_67_0.html` として無変更で保存。解析は先に受け取った v5.66.0 で行い、v5.67.0 との差分（§1）を確認した。branch `claude/cc0-sample-audio-engine-76noqo` @ `6ba05c8`。
 
 ## 1. 対象の特定（Phase 1-1）
 
 | 事項 | 区分 | 内容 |
 | --- | --- | --- |
 | 音楽アプリの所在 | FACT | このセッションでアクセスできるリポジトリは `dashland0638-coder/-ARPG-`（ゲーム本体）だけ。ゲーム側の `src/audio/procedural-bgm.js` はパラメータ表から環境 BGM を作るもので、作曲アプリではない |
-| 受け取った版 | FACT | Human が共有した単一 HTML は **v5.66.0**（末尾コメント `<!-- v5.66.0: … -->` が最新）。**v5.67.0 はどこにも無い** |
+| 受け取った版 | FACT | Human は先に v5.66.0、次に **v5.67.0（酒場 BGM 確定版）** を共有。v5.66.0 との差分は2行だけ: 完成版酒場のギターの level `.039→.030` と `INSTRUMENT_CALIBRATION.Guitar` `1.02→.78`（ギターの音量のみ。末尾の版コメントは v5.66.0 のまま） |
 | 置き場所 | DECISION | ゲーム本体のコード（`src/` `index.html` `basefile.html` など）には触れず、独立したディレクトリ `tools/music-composer/` に置く。Vite の build 入力（`index.html`）からは参照されない |
 
 ## 2. 現行実装（Phase 1-2/1-3）
@@ -43,7 +43,7 @@ sample-engine.js      SampleEngine: load / isReady / play(ctx, 楽器, n, start,
 sample-hooks.js       全域関数 makePiano / makeVoice / playTrack / stopAudio を包む
 ```
 
-- 音源モード「合成音」（初期値）: 包んだ関数は元の関数をそのまま呼ぶ → v5.66.0 と同じ動作
+- 音源モード「合成音」（初期値）: 包んだ関数は元の関数をそのまま呼ぶ → v5.67.0 と同じ動作
 - 「サンプル」: `playTrack` の中では合成フルートを止め、`playTrack` の直後に **`buildTruthScore` のピアノ・フルートのイベントを、同じ開始時刻・出力先（room）で** サンプル再生する。開始時刻は `startScorePlayhead(start)`、出力先は最初の `makeRoom()` から受け取る
 - セル試聴は `makePiano` / `makeVoice('Flute')` を包んだ側で自動的にサンプルになる
 - 鳴らせない音（未読み込み・音域外・例外）は `play()` が `null` → その音だけ元の合成音
@@ -81,6 +81,6 @@ Tone.js（MIT）/ smplr（MIT）/ soundfont-player（MIT）も候補だが、単
 
 ## 6. リスク
 
-- v5.67.0 の差分が不明。フックが包む関数名（`makePiano` `makeVoice` `playTrack` `startScorePlayhead` `makeRoom` `stopAudio` `buildTruthScore` `cellVolume` `calibratedLevel`）が v5.67.0 で変わっていなければ、同じ3行を足すだけで移せる。変わっていればフックは自動で無効（合成音のまま）になり、コンソールに不足関数名を出す
-- サンプルモードではピアノが鳴るようになる（譜面どおり）。酒場の聞こえ方が v5.66.0 の通し再生と変わる。既定値は合成音
+- 今後の版でフックが包む関数名（`makePiano` `makeVoice` `playTrack` `startScorePlayhead` `makeRoom` `stopAudio` `buildTruthScore` `cellVolume` `calibratedLevel`）が変わった場合、フックは自動で無効（合成音のまま）になり、コンソールに不足関数名を出す
+- サンプルモードではピアノが鳴るようになる（譜面どおり）。酒場の聞こえ方が v5.67.0 の通し再生と変わる。既定値は合成音
 - 実機（iPhone Safari）の音質・メモリ・遅延は未確認（§ README の手順）

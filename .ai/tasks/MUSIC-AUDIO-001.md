@@ -7,7 +7,7 @@ Analysis: .ai/reports/MUSIC-AUDIO-001-analysis.md（branch `claude/cc0-sample-au
 ## Approval
 - [x] Approved
 - Approval type: Agent Approval（`../AGENTS.md` §6.1）
-- Escalation Check: 1回目は Escalation（音楽アプリの実体がリポジトリに無い）。Human が v5.66.0 の HTML を共有して解消
+- Escalation Check: 1回目は Escalation（音楽アプリの実体がリポジトリに無い）。Human が v5.66.0、続いて v5.67.0 の HTML を共有して解消
 - Approved by / date / where: Planner (Agent) / 2026-10-11 / branch `claude/cc0-sample-audio-engine-76noqo`
 - Scope of approval: `tools/music-composer/` の新設、テスト2本、`.ai/` の記録、`.gitignore` は変更なし(既存の `dist/` で除外)
 - Persistence: 許可（branch: `claude/cc0-sample-audio-engine-76noqo`、根拠: セッションの割当）
@@ -44,9 +44,8 @@ Analysis §3〜§5 のとおり。
 | iPhone Safari | 手順を README に記載。**実機は未実施** |
 
 ## Risks
-- 基準が v5.67.0 ではなく v5.66.0（受け取れたのが v5.66.0 のみ）
 - iPhone Safari の実機確認が未実施（AudioBuffer を別 AudioContext で使う動作・メモリ約 30MB）
-- サンプルモードではピアノが鳴る（v5.66.0 の通し再生ではピアノが鳴っていない）
+- サンプルモードではピアノが鳴る（v5.67.0 の通し再生ではピアノが鳴っていない）
 
 ## Rollback
 音源を「合成音」に戻す（初期値）。または基準 HTML を使う。ブランチを merge しなければゲームへの影響は無い。
@@ -57,7 +56,7 @@ Analysis §3〜§5 のとおり。
 ## Agent Decisions
 | # | 決定 | 根拠ソース（AGENTS.md §17.2） | 代替案 |
 | --- | --- | --- | --- |
-| 1 | v5.66.0 を基準に試作し、v5.67.0 へはフック3行で移せる形にする | Human が共有したのは v5.66.0 だけ。既存 HTML を変えない制約 | v5.67.0 を待って停止 |
+| 1 | 既存 HTML を変えずフック3行で載せる形にし、基準は v5.67.0（確定版）にする | 既存 HTML を変えない制約。v5.66.0→v5.67.0 の差分はギター音量2行だけでフックに影響なし | v5.66.0 のまま |
 | 2 | `tools/music-composer/` に置く（ゲームのコードに触れない） | 使えるリポジトリが1つだけ。ゲーム本体を編集しない制約 | 新リポジトリ（作成権限・Human 判断が要る） |
 | 3 | ピアノ = VCSL Upright Piano Knight、フルート = VSCO 2 CE | 両方 CC0 をリポジトリの LICENSE で確認。VCSL に横笛が無い | FreePats（CC0 を確認できず不採用） |
 | 4 | MP3 モノラル 112kbps、全音おき / 長3度おき、3.5〜4 秒 | iOS の decode 互換と容量（計 2.1MB） | WAV（約 100MB）、Ogg（古い iOS 不可） |
@@ -70,7 +69,7 @@ Analysis §3〜§5 のとおり。
 
 ## Autonomy Metrics
 - Human Escalation Count: 1
-- Human Decision Count: 1（v5.66.0 の HTML を共有）
+- Human Decision Count: 2（v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有）
 - Auto Fix Count: 1（E2E のバッファ音源の数え方を修正）
 - Reviewer Round Count: 1
 - Test Retry Count: 0
@@ -81,5 +80,6 @@ Analysis §3〜§5 のとおり。
 | --- | --- | --- | --- | --- |
 | 2026-10-11 | Task | DRAFT → BLOCKED | Orchestrator | 音楽アプリがリポジトリに無い。Escalation |
 | 2026-10-11 | Task | BLOCKED → IMPLEMENTING | Orchestrator | Human が v5.66.0 を共有 |
+| 2026-10-11 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human が v5.67.0 を共有。基準を差し替え、unit / E2E 再実行 PASS |
 | 2026-10-11 | Task | IMPLEMENTING → REVIEWING | Tester | build / unit / E2E |
 | 2026-10-11 | Task | REVIEWING → DONE | Reviewer / Orchestrator | PASS、PR 作成 |

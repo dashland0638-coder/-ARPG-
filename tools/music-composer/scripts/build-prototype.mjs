@@ -8,8 +8,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const BASE = 'ARPG_Music_AI_Composer_v5_66_0.html';
-export const PROTO = 'ARPG_Music_AI_Composer_v5_66_0_samples.html';
+export const BASE = 'ARPG_Music_AI_Composer_v5_67_0.html';
+export const PROTO = 'ARPG_Music_AI_Composer_v5_67_0_samples.html';
 export const MARK = '<!-- MUSIC-AUDIO-001: sample engine (appended; everything above is the unmodified base) -->';
 const SCRIPTS = ['samples/manifest.js', 'sample-engine.js', 'sample-hooks.js'];
 

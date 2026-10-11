@@ -1,6 +1,6 @@
 /* MUSIC-AUDIO-001: 作曲アプリの試作(tools/music-composer/)のサンプル音源エンジン。
 
-   ・基準 HTML(v5.66.0)は受け取ったままで、試作 HTML は「基準 + 末尾の読み込み」だけ
+   ・基準 HTML(v5.67.0)は受け取ったままで、試作 HTML は「基準 + 末尾の読み込み」だけ
    ・音源は manifest に載ったものだけ、CC0 の2リポジトリの固定コミットから、容量の上限内
    ・音程(ゾーン選択と playbackRate)、長さ・余韻・強弱の計画、発音の頭の検出 */
 import test from 'node:test';
@@ -26,10 +26,12 @@ function loadManifest(){
 }
 const S = loadEngine();
 
-test('基準 HTML は v5.66.0 を受け取ったまま(sha256 固定)', ()=>{
+test('基準 HTML は v5.67.0 を受け取ったまま(sha256 固定)', ()=>{
   const sha = crypto.createHash('sha256').update(fs.readFileSync(path.join(dir, BASE))).digest('hex');
-  assert.equal(sha, '9c5c0ed897aa7de40c40d392cd355c79f9b236236f186ab64efd3e04ccc48465');
-  assert.match(read(BASE), /<!-- v5\.66\.0:/);
+  assert.equal(sha, '696476fc722a4d3527164fbe87324e3aabe8689edf64ced33cadd864d95700ff');
+  // v5.67.0 は v5.66.0 からギターの音量だけを下げた酒場 BGM の確定版
+  assert.match(read(BASE), /const level=\.030\*Math\.max\(\.9,style\.guitar\|\|0\);/);
+  assert.match(read(BASE), /Guitar:\.78, Drums:1\.20/);
 });
 
 test('試作 HTML は基準の末尾に読み込みを足しただけ(既存部分は1文字も変えない)', ()=>{

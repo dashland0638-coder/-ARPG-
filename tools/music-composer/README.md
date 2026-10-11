@@ -4,8 +4,8 @@
 
 | ファイル | 中身 |
 | --- | --- |
-| `ARPG_Music_AI_Composer_v5_66_0.html` | 基準。Human から受け取った v5.66.0 を**無変更**で保存（sha256 `9c5c0ed8…c48465`。単体テストで固定） |
-| `ARPG_Music_AI_Composer_v5_66_0_samples.html` | 試作。基準の末尾に `<script>` を3行足しただけ（`scripts/build-prototype.mjs` が生成） |
+| `ARPG_Music_AI_Composer_v5_67_0.html` | 基準。酒場 BGM の確定版 v5.67.0 を**無変更**で保存（sha256 `696476fc…5700ff`。単体テストで固定） |
+| `ARPG_Music_AI_Composer_v5_67_0_samples.html` | 試作。基準の末尾に `<script>` を3行足しただけ（`scripts/build-prototype.mjs` が生成） |
 | `sample-engine.js` | サンプル再生エンジン（Web Audio API を直接使う。外部ライブラリなし） |
 | `sample-hooks.js` | アプリの全域関数を包んで、ピアノ・フルートをサンプルで鳴らす |
 | `samples/` | ピアノ 31 音 + フルート 10 音（MP3 モノラル 112kbps、計 約 2.1MB）と `manifest.js` |
@@ -15,20 +15,20 @@
 
 画面の「編集」ページ →「空間」の下の **音源** で切り替える。
 
-- **合成音（従来）**: 初期値。v5.66.0 と同じ音
+- **合成音（従来）**: 初期値。v5.67.0 と同じ音
 - **サンプル（ピアノ・フルート）**: ピアノとフルートだけ収録音。その他の楽器は合成音のまま。読み込めない音は合成音に戻る
 
 サンプルは `fetch` で読むので、HTTP(S) で配信して開く（`file://` では読めず、合成音に戻る）。
 
 ```sh
-npm run dev   # → http://localhost:5173/tools/music-composer/ARPG_Music_AI_Composer_v5_66_0_samples.html
+npm run dev   # → http://localhost:5173/tools/music-composer/ARPG_Music_AI_Composer_v5_67_0_samples.html
 ```
 
 ファイルアプリなど `file://` で開くときは、音源を埋め込んだ1ファイル版（約 2.9MB、既存の `dist/` 除外で git 管理外）を作る。
 
 ```sh
 node tools/music-composer/scripts/build-prototype.mjs --standalone
-# → tools/music-composer/dist/ARPG_Music_AI_Composer_v5_66_0_samples_standalone.html
+# → tools/music-composer/dist/ARPG_Music_AI_Composer_v5_67_0_samples_standalone.html
 ```
 
 ## 譜面と音
@@ -38,13 +38,13 @@ node tools/music-composer/scripts/build-prototype.mjs --standalone
 - 音程: 最も近い収録音を `playbackRate` で移調（ピアノは最大 ±1 半音、フルートは最大 ±2.5 半音）。収録音の実測のずれ（cent）は打ち消す
 - 長さ: `duration` の間は保ち、その後は楽器ごとの余韻で消える（ピアノ: 長さ × 0.5、0.25〜0.9 秒。フルート: 長さ × 0.15、0.1〜0.25 秒）
 - 強弱: 音量に加えて、弱い音ほど lowpass で丸くする
-- 合成音モードの通し再生では、譜面にあるピアノが鳴らない（v5.66.0 の既存の動作。そのまま残している）。サンプルモードでは譜面どおり鳴る
+- 合成音モードの通し再生では、譜面にあるピアノが鳴らない（v5.67.0 の既存の動作。そのまま残している）。サンプルモードでは譜面どおり鳴る
 
 ## iPhone Safari での確認手順（未実施）
 
 自動テストは Chromium（デスクトップ、ヘッドレス）だけで実行した。実機の確認は次の手順で行う。
 
-1. PC で `npm run dev` を起動し、同じ Wi-Fi の iPhone の Safari で `http://<PC の LAN IP>:5173/tools/music-composer/ARPG_Music_AI_Composer_v5_66_0_samples.html` を開く
+1. PC で `npm run dev` を起動し、同じ Wi-Fi の iPhone の Safari で `http://<PC の LAN IP>:5173/tools/music-composer/ARPG_Music_AI_Composer_v5_67_0_samples.html` を開く
    （または 1ファイル版を AirDrop / ファイルアプリで開く）
 2. 消音スイッチを切る（Web Audio はマナーモードで鳴らない）
 3. 酒場 → 加入段階「完成版」→ 生成 → 編集ページの「音源」を「サンプル」にし、表示が「ピアノ: 準備完了 / フルート: 準備完了」になるのを待つ

@@ -2,15 +2,15 @@
 
    ゲーム本体ではなく、Vite の dev サーバーが配る tools/music-composer/ の HTML を開く。
    AudioContext の生成・発音を数えるだけで、実際の音は聴かない(音質は実機で確認する)。
-     ・音源が「合成音」なら、基準の v5.66.0 と同じ曲・同じ譜面・同じ数の発音になる
+     ・音源が「合成音」なら、基準の v5.67.0 と同じ曲・同じ譜面・同じ数の発音になる
      ・「サンプル」なら、ピアノ・フルートは譜面イベントと1対1で鳴り、合成音のフルートは鳴らない
      ・停止 → 再生を繰り返しても前の音は残らない。セル音量・セル試聴が効く
      ・音源が読めないときは合成音に戻り、アプリは止まらない */
 import { test, expect } from '@playwright/test';
 
 const DIR = '/tools/music-composer/';
-const BASE = `${DIR}ARPG_Music_AI_Composer_v5_66_0.html`;
-const PROTO = `${DIR}ARPG_Music_AI_Composer_v5_66_0_samples.html`;
+const BASE = `${DIR}ARPG_Music_AI_Composer_v5_67_0.html`;
+const PROTO = `${DIR}ARPG_Music_AI_Composer_v5_67_0_samples.html`;
 
 /* AudioContext ごとに、作られた発振器・バッファ音源と start() の時刻を記録する */
 async function instrument(page){
@@ -65,7 +65,7 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     await page.addInitScript(()=>{ try{ localStorage.clear(); }catch(e){} });
   });
 
-  test('合成音モードは基準 v5.66.0 と同じ曲・譜面・発音数になる', async ({ page })=>{
+  test('合成音モードは基準 v5.67.0 と同じ曲・譜面・発音数になる', async ({ page })=>{
     const errors = [];
     page.on('pageerror', e=>errors.push(e.message));
     const snap = ()=>page.evaluate(()=>JSON.stringify({ track:state.track, truth:buildTruthScore(state.track).events }));
