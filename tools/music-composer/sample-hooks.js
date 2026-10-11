@@ -1,7 +1,8 @@
 /* MUSIC-AUDIO-001: 作曲アプリ(v5.67.0 基準)にサンプル音源を差し込むフック
 
    既存の HTML は1行も書き換えない。アプリの後ろに読み込み、次の全域関数だけを包む:
-     makePiano / makeVoice … ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベルの1音。サンプルで鳴らせれば鳴らし、だめなら元の合成音
+     makePiano / makeVoice / makeDrumHit … ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベル・ベース・ドラム(キック・スネア)の1音。
+                            サンプルで鳴らせれば鳴らし、だめなら元の合成音
      playTrack            … サンプル音源が有効なとき、これらの楽器を buildTruthScore() の
                             譜面イベントから鳴らす(譜面と実際の音を同じイベントにする)
      startScorePlayhead / makeRoom … playTrack が決めた開始時刻と出力先を受け取るためだけ
@@ -15,7 +16,7 @@
 (function(){
   'use strict';
   const S = window.SampleEngine;
-  const need = ['makePiano','makeVoice','playTrack','startScorePlayhead','makeRoom','stopAudio',
+  const need = ['makePiano','makeVoice','makeDrumHit','playTrack','startScorePlayhead','makeRoom','stopAudio',
                 'buildTruthScore','cellVolume','calibratedLevel','tavernMixLevel','loopSectionAt','scoreTiming'];
   const missing = need.filter(n=>typeof window[n] !== 'function');
   if(!S || missing.length){
@@ -24,10 +25,11 @@
   }
 
   const STORE_KEY = 'arpgMusic.sampleEngine';
-  const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell'];
-  const VOICES = ['Flute', 'Viola', 'Cello', 'Harp', 'Bell'];   // 合成音では makeVoice(name, …) で鳴る楽器
-  const LABEL = { Piano:'ピアノ', Flute:'フルート', Viola:'ヴィオラ', Cello:'チェロ', Harp:'ハープ', Bell:'ベル' };
-  const synth = { makePiano, makeVoice, playTrack, startScorePlayhead, makeRoom, stopAudio };
+  const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums'];
+  const VOICES = ['Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass'];   // 合成音では makeVoice(name, …) で鳴る楽器
+  const DRUM_MIDI = { kick:36, snare:38 };                             // 合成音では makeDrumHit(…, type) で鳴る
+  const LABEL = { Piano:'ピアノ', Flute:'フルート', Viola:'ヴィオラ', Cello:'チェロ', Harp:'ハープ', Bell:'ベル', Bass:'ベース', Drums:'ドラム' };
+  const synth = { makePiano, makeVoice, makeDrumHit, playTrack, startScorePlayhead, makeRoom, stopAudio };
   const mode = { enabled:false };
   let session = null;          // playTrack の実行中だけ {start, room, bySample:{楽器:bool}}
   let lastSession = null;      // 検証用: 最後の通し再生で鳴らした音(notes)
@@ -39,7 +41,7 @@
   function spaceDepth(){ const el = document.getElementById('space'); return el ? (+el.value) / 100 : .55; }
 
   // makeVoice(name) と同じ定位・奥行き(front)・残響への送り
-  const PAN = { Flute:.20, Viola:0, Cello:0, Harp:.10, Bell:-.16 };
+  const PAN = { Flute:.20, Viola:0, Cello:0, Harp:.10, Bell:-.16, Bass:0 };
   function voiceOut(name, room, depth){
     return { destination:room.master, wet:room.wet, pan:(PAN[name] || 0) * depth, send:.06 + depth * .18, front:1 - depth * .48 };
   }
@@ -53,6 +55,10 @@
      ・Harp: 譜面と同じ
      ・Bell: 強さ・長さは譜面と同じ、奥行き +.25。ただし合成音の通し再生は譜面の 12 か所のうち
              3 か所(0・7・12 音目)しか鳴らさない。サンプルではピアノと同じく譜面どおり全部鳴らす
+     ・Bass: 再生は tavernMixLevel を2回掛ける(譜面側は1回)。奥行き ×.45。セル音量は Bass では常に 1。
+             譜面の style-bass(ジャンルの低音)は合成音の通し再生では鳴らない。サンプルでは譜面どおり鳴らす
+     ・Drums: 再生の強さは譜面と別の式(キック .090×drums、スネアはその ×.78)。譜面はキック .072・スネア .05 ×drums
+             なので、譜面の level からその比で戻す。酒場の補正を掛ける
      ・Piano: 合成音の通し再生では鳴らないので、譜面の値そのまま */
   function performance(track, e, d, start){
     const cell = cellVolume(track, e.instrument, e.index, e.kind);
@@ -70,6 +76,12 @@
       }
       case 'Cello': return { dur:e.duration, level:tavernMixLevel(track, 'Cello', lv) * cell, depth:d * .8 };
       case 'Bell':  return { dur:e.duration, level:lv * cell, depth:Math.min(1, d + .25) };
+      case 'Bass':
+        if(e.kind === 'style-bass') return { dur:e.duration, level:lv * cell, depth:d * .45 };
+        return { dur:e.duration, level:tavernMixLevel(track, 'Bass', lv) * cell, depth:d * .45 };
+      case 'Drums':
+        if(e.kind === 'kick')  return { dur:e.duration, level:tavernMixLevel(track, 'Drums', lv / .072 * .090) * cell, depth:0 };
+        return { dur:e.duration, level:tavernMixLevel(track, 'Drums', lv / .05 * .090) * .78 * cell, depth:0 };
       default:      return { dur:e.duration, level:lv * cell, depth:d };
     }
   }
@@ -102,6 +114,16 @@
     return synth.makeVoice.apply(this, arguments);
   };
 
+  makeDrumHit = function(start, level, room, type){
+    const midi = DRUM_MIDI[type || 'kick'];
+    if(midi && mode.enabled && S.isReady('Drums') && room){
+      if(session && session.bySample.Drums) return;   // 譜面イベント側で鳴らす(二重にしない)
+      const v = S.play(ctxNow(), 'Drums', midi, start, type === 'snare' ? .12 : .16, calibratedLevel('Drums', level), { destination:room.master });
+      if(v){ keepPreview(v); return; }
+    }
+    return synth.makeDrumHit.apply(this, arguments);
+  };
+
   makeRoom = function(){
     const room = synth.makeRoom.apply(this, arguments);
     if(session && !session.room) session.room = room;
@@ -117,8 +139,8 @@
   function plannedNotes(track, start){
     const d = spaceDepth();
     return buildTruthScore(track).events
-      .filter(e=>!e.rest && e.n != null && SAMPLED.includes(e.instrument))
-      .map(e=>({ instrument:e.instrument, n:e.n, at:e.start, ...performance(track, e, d, start) }));
+      .filter(e=>!e.rest && SAMPLED.includes(e.instrument) && (e.n != null || (e.instrument === 'Drums' && DRUM_MIDI[e.kind])))
+      .map(e=>({ instrument:e.instrument, kind:e.kind, n:e.instrument === 'Drums' ? DRUM_MIDI[e.kind] : e.n, at:e.start, ...performance(track, e, d, start) }));
   }
 
   function scheduleFromScore(sess){
@@ -133,6 +155,9 @@
       if(p.instrument === 'Piano'){
         v = S.play(ctx, 'Piano', p.n, at, p.dur, calibratedLevel('Piano', p.level), { destination:sess.room.master });
         if(!v) synth.makePiano(p.n, at, p.dur, p.level, sess.room);
+      }else if(p.instrument === 'Drums'){
+        v = S.play(ctx, 'Drums', p.n, at, p.dur, calibratedLevel('Drums', p.level), { destination:sess.room.master });
+        if(!v) synth.makeDrumHit(at, p.level, sess.room, p.kind);
       }else{
         const out = voiceOut(p.instrument, sess.room, p.depth);
         v = S.play(ctx, p.instrument, p.n, at, p.dur, calibratedLevel(p.instrument, p.level) * out.front, out);
@@ -198,9 +223,9 @@
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = '<div class="section-title">音源</div>'
-      + '<div class="mini">ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベルを収録音(CC0)で鳴らす試作です。読み込めない音は合成音に戻ります。</div>'
+      + '<div class="mini">ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベル・ベース・ドラムを収録音(CC0)で鳴らす試作です。読み込めない音は合成音に戻ります。</div>'
       + '<div class="instrument"><b>音源</b><select id="sampleEngineSelect" style="padding:6px;border-radius:8px">'
-      + '<option value="synth">合成音(従来)</option><option value="samples">サンプル(ピアノ・フルート・弦・ハープ・ベル)</option>'
+      + '<option value="synth">合成音(従来)</option><option value="samples">サンプル(ギター・キーボード以外)</option>'
       + '</select><span></span></div>'
       + '<div class="mini" id="sampleEngineStatus"></div>';
     anchor.insertAdjacentElement('afterend', card);

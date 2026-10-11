@@ -3,10 +3,12 @@
 
 入力は固定コミットの2リポジトリ(どちらも LICENSE が CC0 1.0):
   VCSL       https://github.com/sgossner/VCSL        (ピアノ: Upright Piano, Knight / Sustains / vl2、
-                                                       ハープ: Concert Harp / f、ベル: Hand Chimes / sus)
+                                                       ハープ: Concert Harp / f、ベル: Hand Chimes / sus、
+                                                       ドラム: Frame Drum / Hit v3(大=キック、小=スネア、各 rr1・rr2))
   VSCO-2-CE  https://github.com/sgossner/VSCO-2-CE   (フルート: Woodwinds/Flute/susvib / v1、
                                                        ヴィオラ: Strings/Viola Section/susvib / v2、
-                                                       チェロ: Strings/Cello Section/susvib / v3)
+                                                       チェロ: Strings/Cello Section/susvib / v3、
+                                                       ベース: Strings/Solo Contrabass/SusNV / v1)
 
 使い方(git / ffmpeg / numpy が必要。数 GB の全体は取らず、使うファイルだけ取り出す):
   git clone --filter=blob:none --no-checkout https://github.com/sgossner/VCSL vcsl
@@ -82,6 +84,23 @@ BELL = {
     "seconds": 4.5, "fade": 0.8, "bitrate": "112k",
 }
 
+BASS = {
+    "repo": "vsco", "commit": VSCO_COMMIT,
+    "dir": "Strings/Solo Contrabass/SusNV",
+    # v1: 0.4 秒ほどで立ち上がって安定する(v3 は 1 秒以上かけて膨らむ)
+    "file": lambda m: f"BKCtbss_SusNV_{vendor_name(m)}_v1_rr1.wav",
+    "midis": [28, 31, 34, 36, 38, 40, 42, 45, 49, 52, 56, 59],
+    "loop": (1.0, 3.0), "xfade": 0.3, "seconds": 3.0, "fade": 0, "bitrate": "112k",
+}
+# 打楽器: 音程なし。midi は GM のキック 36・スネア 38 を名前代わりに使う。同じ midi の rr は交互に鳴らす
+DRUMS = {
+    "repo": "vcsl", "commit": VCSL_COMMIT,
+    "dir": "Membranophones/Struck Membranophones/Frame Drum",
+    "items": [(36, "HDrumL_Hit_v3_rr1_Sum.wav"), (36, "HDrumL_Hit_v3_rr2_Sum.wav"),
+              (38, "HDrumS_Hit_v3_rr1_Sum.wav"), (38, "HDrumS_Hit_v3_rr2_Sum.wav")],
+    "unpitched": True, "seconds": 1.4, "fade": 0.5, "bitrate": "112k",
+}
+
 def git_blob(repo, commit, path):
     return subprocess.run(["git", "-C", repo, "show", f"{commit}:{path}"], check=True, capture_output=True).stdout
 
@@ -137,13 +156,20 @@ def build(spec, name, args):
     repo = args.vcsl if spec["repo"] == "vcsl" else args.vsco
     os.makedirs(os.path.join(args.out, name), exist_ok=True)
     zones = []
-    for m in spec["midis"]:
-        src = f"{spec['dir']}/{spec['file'](m)}"
+    items = spec.get("items") or [(m, spec["file"](m)) for m in spec["midis"]]
+    seen = {}
+    for m, fname in items:
+        src = f"{spec['dir']}/{fname}"
         x = decode(git_blob(repo, spec["commit"], src))
-        measured = measure_midi(x)
-        cents = round((measured - m) * 100, 1)
-        if abs(cents) > 50:
-            sys.exit(f"pitch mismatch: {src} expected MIDI {m}, measured {measured:.2f}")
+        if spec.get("unpitched"):
+            cents = 0.0
+        else:
+            measured = measure_midi(x)
+            cents = round((measured - m) * 100, 1)
+            if abs(cents) > 50:
+                sys.exit(f"pitch mismatch: {src} expected MIDI {m}, measured {measured:.2f}")
+        seen[m] = seen.get(m, 0) + 1
+        rr = seen[m]
         x = x[onset(x):]
         loop = None
         if spec.get("loop"):
@@ -155,9 +181,11 @@ def build(spec, name, args):
             fade = int(SR * spec["fade"])
             x[-fade:] *= np.linspace(1, 0, fade) ** 2
         x = x / (np.max(np.abs(x)) or 1) * 0.89  # -1 dBFS に揃える。強弱は再生側で付ける
-        rel = f"{name}/{name}_{m:03d}.mp3"
+        rel = f"{name}/{name}_{m:03d}.mp3" if not spec.get("items") else f"{name}/{name}_{m:03d}_rr{rr}.mp3"
         encode(x, os.path.join(args.out, rel), spec["bitrate"])
         zone = {"midi": m, "cents": cents, "file": rel, "source": src}
+        if spec.get("items"):
+            zone["rr"] = rr
         if loop:
             o = runtime_onset(x)
             zone["loopStart"] = round(loop[0] / SR - o, 5)
@@ -176,6 +204,7 @@ def main():
         "Piano": build(PIANO, "piano", args), "Flute": build(FLUTE, "flute", args),
         "Viola": build(VIOLA, "viola", args), "Cello": build(CELLO, "cello", args),
         "Harp": build(HARP, "harp", args), "Bell": build(BELL, "bell", args),
+        "Bass": build(BASS, "bass", args), "Drums": build(DRUMS, "drums", args),
     }
     body = json.dumps(manifest, indent=1, ensure_ascii=False)
     with open(os.path.join(args.out, "manifest.js"), "w") as f:

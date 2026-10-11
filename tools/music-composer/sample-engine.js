@@ -1,4 +1,4 @@
-/* MUSIC-AUDIO-001: CC0 サンプル音源エンジン(ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベルの試作)
+/* MUSIC-AUDIO-001: CC0 サンプル音源エンジン(ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベル・ベース・ドラムの試作)
 
    譜面イベント(音程 n / 開始 start / 長さ dur / 強弱 level)を受け取り、収録音を
    playbackRate で移調して鳴らす。作曲・譜面のデータには触らない。
@@ -8,6 +8,7 @@
      呼び出し側(sample-hooks.js)はそのとき既存の合成音で鳴らす
    - 例外は外へ出さない(読み込み失敗でアプリを止めない)
    - ゾーンに loopStart / loopEnd(発音の頭からの秒)がある楽器(弦)は、収録音より長い音をループで伸ばす
+   - 同じ midi のゾーンが複数ある楽器(ドラムの rr1 / rr2)は、鳴らすたびに交互に使う
 
    純粋関数(pickZone / planNote / findOnset)は Node の単体テストから直接呼ぶ。 */
 (function(root, factory){
@@ -32,7 +33,13 @@
     Harp:  { attack:.003, releaseRatio:.80, releaseMin:.40, releaseMax:1.5,
              gain:2.1, refLevel:.05, cutLo:3000, cutHi:12000, maxShift:12 },
     Bell:  { attack:.003, releaseRatio:.60, releaseMin:.50, releaseMax:1.8,
-             gain:1.7, refLevel:.04, cutLo:4000, cutHi:14000, maxShift:12 }
+             gain:1.7, refLevel:.04, cutLo:4000, cutHi:14000, maxShift:12 },
+    // コントラバス(弓)。合成音のベースは lowpass 300Hz の暗い音なので、明るさを抑える
+    Bass:  { attack:.020, releaseRatio:.12, releaseMin:.10, releaseMax:.25,
+             gain:1.7, refLevel:.10, cutLo:500, cutHi:2200, maxShift:12 },
+    // フレームドラム。音程を変えない(midi 36 = キック、38 = スネア)。譜面の長さの後は皮の響きが消えるまで
+    Drums: { attack:.001, releaseRatio:3.0, releaseMin:.40, releaseMax:.80,
+             gain:1.0, refLevel:.10, cutLo:3000, cutHi:16000, maxShift:0 }
   };
 
   function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
@@ -94,7 +101,8 @@
 
   // ---- ブラウザ側 ----------------------------------------------------------
   const INSTRUMENTS = Object.keys(PROFILES);
-  const loaded = {}, status = {};                        // loaded: midi -> {buffer, offset, zone, loop}
+  const loaded = {}, status = {};                        // loaded: midi -> [{buffer, offset, zone, loop}](rr の数だけ)
+  const turn = {};                                       // 「楽器:midi」ごとの rr の順番
   for(const n of INSTRUMENTS){ loaded[n] = new Map(); status[n] = 'idle'; }   // idle / loading / ready / partial / failed
   let loading = null;
   let decodeCtx = null;
@@ -135,7 +143,10 @@
         if(!ctx) throw new Error('no AudioContext for decoding');
         const buffer = await decodeCompat(ctx, await res.arrayBuffer());
         const offset = findOnset(buffer.getChannelData(0), buffer.sampleRate);
-        loaded[name].set(zone.midi, { buffer, zone, offset, loop:loopRegion(zone, offset, buffer.duration) });
+        const list = loaded[name].get(zone.midi) || [];
+        list.push({ buffer, zone, offset, loop:loopRegion(zone, offset, buffer.duration) });
+        list.sort((a, b)=>(a.zone.rr || 0) - (b.zone.rr || 0));
+        loaded[name].set(zone.midi, list);
         ok++;
       }catch(e){
         console.warn('[SampleEngine]', name, zone.file, e && e.message || e);
@@ -166,10 +177,13 @@
     try{
       if(!ctx || !isReady(name) || !out || !out.destination) return null;
       const profile = PROFILES[name];
-      const zones = [...loaded[name].values()].map(x=>x.zone);
+      const zones = [...loaded[name].values()].map(x=>x[0].zone);
       const pick = pickZone(zones, midi, profile.maxShift);
       if(!pick) return null;
-      const entry = loaded[name].get(pick.zone.midi);
+      const list = loaded[name].get(pick.zone.midi);
+      const key = name + ':' + pick.zone.midi, k = turn[key] || 0;   // 音ごとに rr1 → rr2 → rr1 …
+      turn[key] = k + 1;
+      const entry = list[k % list.length];
       const plan = planNote(profile, pick.rate, { duration:entry.buffer.duration, offset:entry.offset, loop:!!entry.loop }, start, dur, level);
 
       const src = ctx.createBufferSource();
@@ -233,6 +247,6 @@
     PROFILES, INSTRUMENTS, pickZone, planNote, findOnset, loopRegion,
     load, isReady, play,
     status(){ return { ...status }; },
-    _reset(){ for(const n of INSTRUMENTS){ loaded[n].clear(); status[n] = 'idle'; } loading = null; decodeCtx = null; }
+    _reset(){ for(const n of INSTRUMENTS){ loaded[n].clear(); status[n] = 'idle'; } for(const k in turn) delete turn[k]; loading = null; decodeCtx = null; }
   };
 });

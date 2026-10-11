@@ -645,5 +645,141 @@ window.SAMPLE_MANIFEST = {
     "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_C6_r01_main.wav"
    }
   ]
+ },
+ "Bass": {
+  "repo": "vsco",
+  "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+  "zones": [
+   {
+    "midi": 28,
+    "cents": -0.6,
+    "file": "bass/bass_028.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E0_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   },
+   {
+    "midi": 31,
+    "cents": -0.5,
+    "file": "bass/bass_031.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G0_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   },
+   {
+    "midi": 34,
+    "cents": 0.1,
+    "file": "bass/bass_034.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_A#0_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   },
+   {
+    "midi": 36,
+    "cents": 2.6,
+    "file": "bass/bass_036.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C1_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   },
+   {
+    "midi": 38,
+    "cents": 0.2,
+    "file": "bass/bass_038.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_D1_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   },
+   {
+    "midi": 40,
+    "cents": -0.2,
+    "file": "bass/bass_040.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E1_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   },
+   {
+    "midi": 42,
+    "cents": 0.1,
+    "file": "bass/bass_042.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_F#1_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   },
+   {
+    "midi": 45,
+    "cents": 2.1,
+    "file": "bass/bass_045.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_A1_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   },
+   {
+    "midi": 49,
+    "cents": 0.3,
+    "file": "bass/bass_049.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C#2_v1_rr1.wav",
+    "loopStart": 0.99914,
+    "loopEnd": 2.99914
+   },
+   {
+    "midi": 52,
+    "cents": -0.3,
+    "file": "bass/bass_052.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E2_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   },
+   {
+    "midi": 56,
+    "cents": -0.5,
+    "file": "bass/bass_056.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G#2_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   },
+   {
+    "midi": 59,
+    "cents": -0.7,
+    "file": "bass/bass_059.mp3",
+    "source": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_B2_v1_rr1.wav",
+    "loopStart": 1.0,
+    "loopEnd": 3.0
+   }
+  ]
+ },
+ "Drums": {
+  "repo": "vcsl",
+  "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+  "zones": [
+   {
+    "midi": 36,
+    "cents": 0.0,
+    "file": "drums/drums_036_rr1.mp3",
+    "source": "Membranophones/Struck Membranophones/Frame Drum/HDrumL_Hit_v3_rr1_Sum.wav",
+    "rr": 1
+   },
+   {
+    "midi": 36,
+    "cents": 0.0,
+    "file": "drums/drums_036_rr2.mp3",
+    "source": "Membranophones/Struck Membranophones/Frame Drum/HDrumL_Hit_v3_rr2_Sum.wav",
+    "rr": 2
+   },
+   {
+    "midi": 38,
+    "cents": 0.0,
+    "file": "drums/drums_038_rr1.mp3",
+    "source": "Membranophones/Struck Membranophones/Frame Drum/HDrumS_Hit_v3_rr1_Sum.wav",
+    "rr": 1
+   },
+   {
+    "midi": 38,
+    "cents": 0.0,
+    "file": "drums/drums_038_rr2.mp3",
+    "source": "Membranophones/Struck Membranophones/Frame Drum/HDrumS_Hit_v3_rr2_Sum.wav",
+    "rr": 2
+   }
+  ]
  }
 };

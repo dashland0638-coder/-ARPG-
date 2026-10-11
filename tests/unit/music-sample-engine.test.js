@@ -47,14 +47,14 @@ test('試作 HTML は基準の末尾に読み込みを足しただけ(既存部�
 
 test('音源は CC0 の2リポジトリの固定コミットから、必要な分だけ', ()=>{
   const m = loadManifest();
-  assert.deepEqual(Object.keys(m).sort(), ['Bell', 'Cello', 'Flute', 'Harp', 'Piano', 'Viola']);
+  assert.deepEqual(Object.keys(m).sort(), ['Bass', 'Bell', 'Cello', 'Drums', 'Flute', 'Harp', 'Piano', 'Viola']);
   assert.deepEqual([...S.INSTRUMENTS].sort(), Object.keys(m).sort());
-  for(const n of ['Piano', 'Harp', 'Bell']){
+  for(const n of ['Piano', 'Harp', 'Bell', 'Drums']){
     assert.equal(m[n].repo, 'vcsl');
     assert.equal(m[n].commit, 'c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e');
   }
   assert.equal(m.Flute.repo, 'vsco');
-  for(const n of ['Flute', 'Viola', 'Cello']){
+  for(const n of ['Flute', 'Viola', 'Cello', 'Bass']){
     assert.equal(m[n].repo, 'vsco');
     assert.equal(m[n].commit, '440300901dfe9275fd84e0b7763af1f8443ae62e');
   }
@@ -72,18 +72,23 @@ test('音源は CC0 の2リポジトリの固定コミットから、必要な�
         Cello:/^Strings\/Cello Section\/susvib\//,
         Harp:/^Chordophones\/Composite Chordophones\/Concert Harp\/KSHarp_/,
         Bell:/^Idiophones\/Struck Idiophones\/Hand Chimes\/sus_/,
+        Bass:/^Strings\/Solo Contrabass\/SusNV\/BKCtbss_SusNV_.*_v1_rr1\.wav$/,
+        Drums:/^Membranophones\/Struck Membranophones\/Frame Drum\/HDrum[LS]_Hit_v3_rr[12]_Sum\.wav$/,
       }[name]);
-      // 弦だけループ区間を持つ(発音の頭から 1.2〜3.6 秒付近)
+      // 弦だけループ区間を持つ(ヴィオラ・チェロは発音の頭から 1.2〜3.6 秒、ベースは 1.0〜3.0 秒付近)
       if(name === 'Viola' || name === 'Cello'){
         assert.ok(z.loopStart > 1.1 && z.loopStart < 1.3, `${z.file} loopStart`);
         assert.ok(z.loopEnd > 3.5 && z.loopEnd < 3.7, `${z.file} loopEnd`);
+      }else if(name === 'Bass'){
+        assert.ok(z.loopStart > .9 && z.loopStart < 1.1, `${z.file} loopStart`);
+        assert.ok(z.loopEnd > 2.9 && z.loopEnd < 3.1, `${z.file} loopEnd`);
       }else{
         assert.equal(z.loopStart, undefined);
       }
     }
   }
   // samples/ にあるのは manifest に載ったファイルだけ
-  const onDisk = ['piano', 'flute', 'viola', 'cello', 'harp', 'bell'].flatMap(d=>fs.readdirSync(path.join(dir, 'samples', d)).map(f=>`${d}/${f}`)).sort();
+  const onDisk = ['piano', 'flute', 'viola', 'cello', 'harp', 'bell', 'bass', 'drums'].flatMap(d=>fs.readdirSync(path.join(dir, 'samples', d)).map(f=>`${d}/${f}`)).sort();
   assert.deepEqual(onDisk, Object.values(m).flatMap(i=>i.zones.map(z=>z.file)).sort());
   assert.ok(total < 6 * 1024 * 1024, `samples total ${total} bytes`);
 });
@@ -153,6 +158,18 @@ test('manifest のハープ 60〜84・ベル 70〜100 は ±2 半音以内のゾ
   }
 });
 
+test('manifest のベース 28〜61 は ±2 半音以内。ドラムはキック 36・スネア 38 が2つずつ(rr1・rr2)で、音程を変えない', ()=>{
+  const m = loadManifest();
+  for(let n = 28; n <= 61; n++){
+    const p = S.pickZone(m.Bass.zones, n, 12);
+    assert.ok(p && Math.abs(Math.log2(p.rate) * 12) <= 2.1, `Bass ${n}`);
+  }
+  assert.deepEqual(m.Drums.zones.map(z=>[z.midi, z.rr, z.cents]), [[36, 1, 0], [36, 2, 0], [38, 1, 0], [38, 2, 0]]);
+  assert.equal(S.PROFILES.Drums.maxShift, 0);
+  assert.equal(S.pickZone(m.Drums.zones, 36, 0).rate, 1);
+  assert.equal(S.pickZone(m.Drums.zones, 37, 0), null);   // キック・スネア以外は合成音
+});
+
 test('ピアノは試聴の結果で 30% 大きくした(gain 1.3)', ()=>{
   assert.equal(S.PROFILES.Piano.gain, 1.3);
 });
@@ -201,5 +218,5 @@ test('load(): manifest や fetch が無くても reject せず failed を返す'
   S._reset();
   const st = await S.load({ manifest:null });
   assert.deepEqual(st, Object.fromEntries(S.INSTRUMENTS.map(n=>[n, 'failed'])));
-  assert.deepEqual([...S.INSTRUMENTS], ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell']);
+  assert.deepEqual([...S.INSTRUMENTS], ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums']);
 });
