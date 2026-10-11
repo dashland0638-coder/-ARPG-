@@ -1,0 +1,2950 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ARPG Music AI — Composer Studio</title>
+<style>
+:root{
+  --bg:#f5f3f8;--card:#fff;--ink:#272533;--muted:#777487;--line:#e8e4ee;
+  --accent:#8b7bb8;--accent2:#d9cdea;--soft:#f0ecf7;--green:#789f8b;
+  --shadow:0 8px 24px rgba(55,45,75,.08);--r:18px;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}
+button,textarea,input{font:inherit} button{border:0;cursor:pointer}
+.app{max-width:760px;margin:auto;padding-bottom:92px}
+header{padding:22px 18px 12px}
+.brand{font-size:13px;font-weight:800;letter-spacing:.12em;color:var(--muted)}
+h1{font-size:26px;margin:5px 0 2px}.sub{color:var(--muted);font-size:13px}
+.page{display:none;padding:10px 16px}.page.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:17px;box-shadow:var(--shadow);margin-bottom:13px}
+.label{font-size:12px;color:var(--muted);font-weight:800;margin-bottom:8px;letter-spacing:.04em}
+.scene-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.scene{padding:13px;text-align:left;background:var(--soft);border-radius:14px;color:var(--ink)}
+.scene strong{display:block;font-size:14px}.scene small{color:var(--muted);font-size:11px}
+.scene.selected{outline:2px solid var(--accent);background:#e9e3f3}
+textarea{width:100%;min-height:122px;border:1px solid var(--line);border-radius:14px;padding:13px;background:#faf9fc;resize:vertical;outline:none}
+textarea:focus{border-color:var(--accent)}
+.primary{width:100%;padding:14px;border-radius:14px;background:var(--accent);color:white;font-weight:800;margin-top:10px}
+.secondary{padding:10px 13px;border-radius:12px;background:var(--soft);color:var(--ink);font-weight:700}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.chip{display:inline-block;padding:6px 9px;background:var(--soft);border-radius:999px;font-size:11px;color:#655c78;margin:3px}
+.result-title{font-size:19px;font-weight:850}.result-desc{color:var(--muted);font-size:13px;line-height:1.65;margin-top:5px}
+.transport{position:fixed;z-index:20;bottom:0;left:0;right:0;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:9px max(12px,calc((100vw - 760px)/2 + 12px)) calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px}
+.transport button{flex:1;padding:10px 5px;border-radius:12px;background:var(--soft);font-size:12px;font-weight:800}.transport .play{background:var(--accent);color:white}
+.tabs{display:flex;gap:6px;padding:0 16px 5px;overflow:auto}.tab{white-space:nowrap;padding:9px 13px;border-radius:999px;background:#e9e5ef;color:var(--muted);font-weight:800;font-size:12px}.tab.active{background:var(--ink);color:#fff}
+.timeline{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin-top:12px}
+.cell{height:29px;border-radius:5px;background:#eeeaf3;position:relative}.cell.on{background:#cfc1e2}.cell.root{background:#b6a4d0}.cell.rest{background:#f7f5f9}
+.note{font-size:9px;position:absolute;left:3px;top:7px;color:#554b67;white-space:nowrap}
+.instrument{display:grid;grid-template-columns:72px 1fr 45px;gap:8px;align-items:center;margin:9px 0}.meter{height:7px;background:#eeeaf3;border-radius:99px;overflow:hidden}.meter i{display:block;height:100%;background:var(--accent);border-radius:99px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.section-title{font-size:15px;font-weight:850;margin:4px 0 10px}
+.mini{font-size:11px;color:var(--muted);line-height:1.55}
+.empty{padding:22px;text-align:center;color:var(--muted)}
+
+.score-wrap{margin-top:14px;border:1px solid #d9dee8;border-radius:14px;background:#fbfcfe;overflow:hidden}
+.score-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #e1e5ec;gap:8px}
+.score-title{font-weight:700;font-size:13px}
+.score-legend{font-size:11px;color:#697386}
+.score-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.score-grid{min-width:992px}
+.score-row{display:grid;grid-template-columns:92px 1fr;min-height:32px;border-bottom:1px solid #e7eaf0}
+.score-label{position:sticky;left:0;z-index:12;padding:8px 7px;font-size:11px;color:#4f596b;background:#f5f7fa;border-right:1px solid #e1e5ec;white-space:nowrap;box-shadow:2px 0 3px rgba(40,50,70,.06)}
+.score-lane{position:relative;min-width:900px;background-image:linear-gradient(to right,rgba(90,100,120,.08) 1px,transparent 1px);background-size:calc(100% / 16) 100%}
+.score-bar{position:absolute;top:6px;height:20px;border-radius:5px;min-width:3px;opacity:.88;cursor:pointer;border:0}
+.score-bar.melody{background:#4f7fd1}.score-bar.foundation{background:#6a9b72}.score-bar.color{background:#d08a45}.score-bar.rhythm{background:#d05b72}.score-bar.style{background:#8a63c7}.score-bar[data-instrument="Bass"]{background:#4d78a8}.score-bar[data-instrument="Cello"]{background:#4f9a68}.score-bar[data-instrument="Viola"]{background:#5b7ed0}.score-bar[data-instrument="Flute"]{background:#4aa6a0}.score-bar[data-instrument="Harp"]{background:#d08a45}.score-bar[data-instrument="Bell"]{background:#d2a62b}.score-bar[data-instrument="Piano"]{background:#9a6bc0}.score-bar[data-instrument="Keyboard"]{background:#b05b9d}.score-bar[data-instrument="Guitar"]{background:#c56a4b}.score-bar[data-instrument="Drums"]{background:#d05b72}
+.score-bar.active{opacity:1;outline:2px solid rgba(70,90,130,.35)}
+.score-axis{display:grid;grid-template-columns:92px 1fr;min-width:992px;border-top:1px solid #e1e5ec}
+.score-axis-label{position:sticky;left:0;z-index:13;font-size:10px;padding:5px 7px;color:#7a8392;background:#f5f7fa;border-right:1px solid #e1e5ec}
+.score-axis-track{position:relative;height:27px;font-size:9px;color:#8a93a1}
+.score-axis-track span{position:absolute;top:0;height:27px;padding:5px 2px;border-left:1px solid #e1e5ec}
+.score-note{padding:8px 12px;font-size:11px;color:#667085;border-top:1px solid #e1e5ec}
+
+.score-playhead{position:absolute;top:0;bottom:0;width:2px;background:#39465f;z-index:5;pointer-events:none;opacity:.9}
+.score-playhead::before{content:"";position:absolute;top:-1px;left:-4px;width:10px;height:10px;border-radius:50%;background:#39465f}
+.score-editbar{display:flex;flex-wrap:wrap;gap:7px;align-items:center;padding:9px 10px;border-bottom:1px solid #e1e5ec;background:#f7f8fb}
+.score-editbar button,.score-editbar select{min-height:36px;border:1px solid #cfd5df;border-radius:9px;background:white;padding:6px 10px;font-size:12px}
+.score-editbar button.active{background:#e8edf7;border-color:#9ba9c1}
+.score-editbar .hint{font-size:11px;color:#667085;margin-left:auto}
+.score-edit-note{font-size:11px;color:#667085;padding:7px 10px;background:#fff}
+.score-bar.editable{cursor:pointer}
+.score-bar.rest{opacity:.22!important;background:#aeb6c4!important;border:1px dashed #aeb6c4;cursor:pointer}
+.score-bar.rest::after{content:"休";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#7d8796}
+.score-bar.selected{outline:2px solid #39465f;opacity:1}
+.score-editor{display:none;border-top:1px solid #e1e5ec;padding:10px;background:#fff}
+.score-editor.show{display:block}
+.score-editor-grid{display:grid;grid-template-columns:repeat(3,minmax(90px,1fr));gap:8px}
+.score-editor label{font-size:10px;color:#667085;display:flex;flex-direction:column;gap:3px}
+.score-editor input,.score-editor select{min-height:34px;border:1px solid #ccd2dc;border-radius:8px;padding:5px;font-size:13px}
+.score-edit-actions{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}
+.score-edit-actions button{min-height:38px;border:1px solid #ccd2dc;border-radius:9px;background:#fff;padding:7px 11px}
+.score-edit-actions .primary-edit{background:#eef2f8;border-color:#aab5c7}
+</style>
+
+<style id="verified-mixer-ui">
+.score-cell-volume{display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid #e1e5ec;background:#f7f8fb;font-size:11px;color:#667085}
+.score-cell-volume input{flex:1;min-width:120px}
+.score-cell-volume b{color:#344054}
+.score-cell-volume-value{width:42px;text-align:right}
+</style>
+
+<style id="score-color-lock-final">
+.score-bar[data-instrument="Bass"]{background:#4d78a8!important}
+.score-bar[data-instrument="Cello"]{background:#4f9a68!important}
+.score-bar[data-instrument="Viola"]{background:#5b7ed0!important}
+.score-bar[data-instrument="Flute"]{background:#4aa6a0!important}
+.score-bar[data-instrument="Harp"]{background:#d08a45!important}
+.score-bar[data-instrument="Bell"]{background:#d2a62b!important}
+.score-bar[data-instrument="Piano"]{background:#9a6bc0!important}
+.score-bar[data-instrument="Keyboard"]{background:#b05b9d!important}
+.score-bar[data-instrument="Guitar"]{background:#c56a4b!important}.score-bar.guitar-strum{box-shadow:inset 0 -3px 0 rgba(255,255,255,.28)}
+.score-bar[data-instrument="Drums"]{background:#d05b72!important}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="brand">ARPG MUSIC AI</div><h1>Composer Studio</h1><div class="sub">言葉から、ゲームのための曲を作る</div></header>
+
+<div class="tabs">
+ <button class="tab active" data-page="create">① 作る</button>
+ <button class="tab" data-page="edit">② 編曲</button>
+ <button class="tab" data-page="scene">③ 場面</button>
+ <button class="tab" data-page="export">④ 書出し</button>
+</div>
+
+<main>
+<section id="create" class="page active">
+ <div class="card">
+  <div class="label">SCENE</div>
+  <div class="scene-grid" id="sceneGrid"></div>
+ </div>
+ <div class="card">
+  <div class="label">MUSIC DIRECTION</div>
+  
+<div id="tavernProgression" style="margin:12px 0;padding:12px;border:1px solid rgba(120,140,170,.25);border-radius:14px;background:rgba(245,248,252,.72)">
+  <div style="font-weight:700;margin-bottom:8px">酒場BGMの成長</div>
+  <select id="tavernProgressionSelect" style="width:100%;padding:9px;border-radius:10px;border:1px solid rgba(120,140,170,.3);background:white">
+    <option value="swordsman">剣士加入 — 🎹 ピアノ＋🎻 チェロ（主旋律なし）</option>
+    <option value="mage">魔法使い加入（第2段階） — 🎹 ピアノ＋🎻 チェロ＋🪈 フルート</option>
+    <option value="archer">弓師加入（第3段階） — 🎹 ピアノ＋🎻 チェロ＋🪈 フルート＋🪕 ハープ</option>
+    <option value="thief">盗賊加入（第4段階） — 🎹 ピアノ＋🎻 チェロ＋🪈 フルート＋🪕 ハープ＋🎸 ギター＋🥁 リズム</option>
+    <option value="shadow">影の旅人加入（第5段階） — 🎹 ピアノ＋🎻 チェロ＋🪈 フルート＋🪕 ハープ＋🎸 ギター＋🎸 ベース＋🥁 リズム＋🎻 ヴィオラ主旋律</option>
+    <option value="complete">第一章クリア後・完成版（第6段階） — 🎸 ギター強化＋🥁 強いドラム＋🔔 ベル＋🎻 ヴィオラ</option>
+  </select>
+  <div id="tavernProgressionDescription" style="font-size:12px;line-height:1.5;margin-top:7px;opacity:.72">
+    曲の主旋律・和音は変えず、仲間が増えるほど同じテーマの編曲だけが豊かになります。
+  </div>
+<div id="tavernMixHint" style="font-size:11px;line-height:1.45;margin-top:6px;opacity:.62">追加された楽器は、聴き分けやすいように少し前に出したミックスです。</div>
+</div>
+
+<textarea id="prompt" placeholder="例：夕暮れの森の洋館。人の気配がなく静か。少し寂しいけれど怖すぎない。昔のPS2時代のRPGのような温かい曲。"></textarea>
+  <div class="row" style="margin-top:9px"><span class="mini">細かい音楽理論を入力する必要はありません。</span><button class="secondary" id="example">例を入れる</button></div>
+  <button class="primary" id="generate">♪ このイメージから曲を作る</button>
+ </div>
+ <div class="card" id="resultCard">
+  <div class="empty">まだ曲がありません。場面とイメージを入力して「曲を作る」を押してください。</div>
+ </div>
+</section>
+
+<section id="edit" class="page">
+ <div class="card">
+  <div class="row"><div><div class="label">ARRANGEMENT</div><div class="result-title" id="editTitle">未生成</div></div><button class="secondary" id="regenerate">↻ 作り直す</button></div>
+  <div class="mini" id="blueprintSummary" style="margin-top:10px"></div>
+  <div id="loopStructurePanel" style="margin-top:12px;padding:12px;border:1px solid rgba(120,140,170,.25);border-radius:14px;background:rgba(245,248,252,.72)">
+   <div style="font-weight:700;margin-bottom:8px">1 LOOP 構成<div class="loop-dev-note">② 展開：テーマの余韻を受け、主旋律を少し前へ進めるセクション</div></div>
+   <div id="loopStructureView" style="display:grid;gap:7px"></div>
+   <div class="mini" style="margin-top:8px">現在の2フレーズは「テーマ提示」として固定。A → A′ → B → A″は各フレーズ内部のメロディ構造で、その外側に1ループ全体の展開を作ります。</div>
+  </div>
+ </div>
+ <div class="card">
+  <div class="section-title">譜面 / アレンジ・タイムライン <span class="muted" style="font-size:.75em">（酒場コアテーマ対応）</span> <span class="muted" style="font-size:.75em">（酒場：コアテーマ）</span> <span class="muted" style="font-size:.75em">（主旋律の隙間を応答楽器で補完）</span></div>
+  <div class="mini">横軸＝実際の再生時間。縦軸＝楽器。右側だけ横スクロールし、左の楽器名は固定されます。セルをタップすると音を試聴できます。</div>
+  <div class="score-wrap" id="scoreWrap">
+   <div class="score-head"><div class="score-title">Instrument Timeline</div><div class="score-legend">16小節</div></div>
+   <div class="score-editbar">
+    <button type="button" id="scoreEditToggle">手動編集</button>
+    <button type="button" id="scoreEditPlay" class="active">🔊 セル試聴 ON</button>
+    <button type="button" id="scoreEditReset">AI生成に戻す</button>
+    <span class="hint">基本はAI。必要な音だけ選択して修正。</span>
+   </div>
+   <div class="score-scroll"><div class="score-grid" id="scoreGrid"></div></div>
+   <div class="score-editor" id="scoreEditor">
+    <div class="score-editor-grid">
+     <label>音名<select id="editPitch"></select></label>
+     <label>開始<input id="editStep" type="number" min="1" max="32" step="1"></label>
+     <label>長さ<input id="editDuration" type="number" min=".05" max="2.5" step=".05"></label>
+    </div>
+    <div class="score-edit-actions">
+     <button type="button" class="primary-edit" id="scoreApplyEdit">この音を変更</button>
+     <button type="button" id="scoreDeleteNote">この音を休符にする</button>
+    </div>
+   </div>
+   <div id="scoreCellVolume" class="score-cell-volume"><b>セル音量</b><span>セルを選択してください</span></div>
+   <div class="score-note" id="scoreNote">曲を生成すると各楽器の出現位置が表示されます。</div>
+  </div>
+ </div>
+ <div class="card">
+  <div class="section-title">メロディ</div>
+  <div class="mini">16小節のフレーズ。休符と長い音を含め、場面の意図から生成されています。</div>
+  <div class="timeline" id="melodyGrid"></div>
+ </div>
+ <div class="card">
+  <div class="section-title">楽器</div>
+  <div class="mini">音量だけでなく、楽器ごとの発音・音域・前後感を分けて鳴らします。</div>
+  <div id="mixer"></div>
+ </div>
+ <div class="card">
+  <div class="section-title">空間</div>
+  <div class="mini">音を重ねるだけではなく、低音を近く、高音系を奥へ配置します。</div>
+  <div class="instrument"><b>奥行き</b><input id="space" type="range" min="0" max="100" value="55"><span id="spaceVal">55%</span></div>
+  <div class="instrument"><b>残響</b><input id="reverb" type="range" min="0" max="100" value="24"><span id="reverbVal">24%</span></div>
+ </div>
+ <div class="card">
+  <div class="section-title">AIに修正を頼む</div>
+  <textarea id="revision" style="min-height:82px" placeholder="例：メロディは残して、ベースをもっと低く長く。フルートは少なくして。"></textarea>
+  <button class="primary" id="applyRevision">この指示で曲を作り直す</button>
+ </div>
+</section>
+
+<section id="scene" class="page">
+ <div class="card">
+  <div class="label">SCENE MUSIC MAP</div>
+  <div class="result-title">ゲーム内の音楽を場面で管理</div>
+  <div class="mini" style="margin-top:6px">同じ世界観の中で、探索・異変・戦闘・ボスなどを個別に作成できます。</div>
+ </div>
+ <div id="sceneList"></div>
+</section>
+
+<section id="export" class="page">
+ <div class="card">
+  <div class="label">MUSIC PACKAGE</div>
+  <div class="result-title" id="exportTitle">未生成</div>
+  <div class="mini" id="exportInfo" style="margin-top:7px"></div>
+  <button class="primary" id="downloadJson">音楽データを書き出す</button>
+ </div>
+ <div class="card">
+  <div class="section-title">制作方針</div>
+  <div class="mini">自然言語 → 音楽的意図 → 作曲 → 編曲 → 試聴 → 修正、という流れで制作します。AI内部の作曲パラメータは必要に応じて自動化し、画面では結果を中心に扱います。</div>
+ </div>
+</section>
+</main>
+</div>
+
+<div class="transport">
+ <button id="back">‹</button><button class="play" id="play">▶ 再生</button><button id="stop">■ 停止</button><button id="next">›</button>
+</div>
+
+<script>
+const SCENES=[
+ {id:"tavern",name:"酒場",desc:"仲間・温かさ・少しの哀愁"},
+ {id:"mansion",name:"森の洋館",desc:"夕暮れ・記憶・静かな異変"},
+ {id:"twilight",name:"宵待ちの村",desc:"生活・郷愁・夕暮れ"},
+ {id:"ship",name:"幽霊船",desc:"海・孤独・霧・記憶"},
+ {id:"greenhouse",name:"温室",desc:"生命・水・美しさ・違和感"},
+ {id:"custom",name:"自由入力",desc:"場面を自分で指定"}
+];
+const sceneDefaults={tavern:"夕暮れの酒場。主旋律はもう一段明るく、Dメジャーらしい伸びやかな音使いにする。少しだけ哀愁は残すが、寂しさや不安ではなく、仲間と過ごした時間を懐かしく感じる程度にする。ヴィオラを覚えやすく歌心のある主旋律にして、チェロとピアノで綺麗な和音を温かく支える。後半はフルート、ハープ、アコースティックギター、軽いリズムが加わり、冒険へ出発する前の前向きな気持ちが少しずつ高まる。陽気すぎず、暗すぎず、安心して帰ってこられる拠点のBGMにする。",
+ mansion:"夕暮れの森の洋館。人の気配がなく静か。古い記憶を感じる。少し寂しいけれど怖すぎない。昔のPS2時代のRPGのような温かい曲。",
+ twilight:"夕暮れの村。人々の生活の気配が残っている。懐かしく温かいが、どこか不思議。素朴な中世ファンタジーRPGの曲。",
+ ship:"深夜の幽霊船。霧の海をゆっくり進む。孤独と広い海を感じる。怖すぎず、古い記憶が漂う。6/8拍子のような揺れ。",
+ greenhouse:"古い温室。植物と水の音。美しく穏やかだが、生命が少しだけ不思議に感じられる。透明感のあるRPG曲。",
+ custom:"場面は自由。音楽のジャンルも自由に指定する。"
+};
+let state={scene:"mansion",prompt:sceneDefaults.mansion,track:null,audio:null,playing:false,source:null};
+let audioCtx=null;
+
+function $(id){return document.getElementById(id)}
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function rng(seed){let x=seed>>>0;return()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return (x>>>0)/4294967296}}
+function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
+function showPage(id){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.page===id))}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+
+
+/* v5.29 Tavern bright-wistful identity */
+const TAVERN_EXAMPLE_PROMPT =
+  "夕暮れの酒場。主旋律は明るめの音使いで、少しだけ哀愁を含む。"
+  + " 陽気すぎたり暗すぎたりせず、仲間が集まる拠点に帰ってきたような安心感を持たせる。"
+  + " ヴィオラを覚えやすく歌心のある主旋律にして、チェロとピアノで温かく支える。"
+  + " 後半はフルート、ハープ、アコースティックギター、軽いリズムが加わり、自然に温かさと活気が増す。"
+  + " 最後まで不安や緊張を感じさせず、穏やかな余韻の残る酒場のBGMにする。";
+
+function tavernExampleForScene(sceneId){
+  return sceneId==="tavern" ? TAVERN_EXAMPLE_PROMPT : null;
+}
+function isTavernScene(sceneId){
+  return sceneId==="tavern" || sceneId==="酒場";
+}
+
+function renderScenes(){
+ $("sceneGrid").innerHTML=SCENES.map(s=>`<button class="scene ${s.id===state.scene?"selected":""}" data-s="${s.id}"><strong>${s.name}</strong><small>${s.desc}</small></button>`).join("");
+ document.querySelectorAll(".scene").forEach(b=>b.onclick=()=>{state.scene=b.dataset.s;document.querySelectorAll(".scene").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");if(sceneDefaults[state.scene]){$("prompt").value=sceneDefaults[state.scene];state.prompt=sceneDefaults[state.scene]}if(typeof updateTavernProgressionUI==="function"){updateTavernProgressionUI()}})
+}
+function parseRevisionIntent(text){
+ const t=(text||"").toLowerCase();
+ const delta={warmth:0,mystery:0,melancholy:0,tension:0,density:0,sustain:0,
+  flute:0,harp:0,bell:0,bass:0,cello:0,viola:0};
+ if(/もっと明る|明るくして|明るさを増|希望を強く|温かくして|温かさを増/.test(t)){
+  delta.warmth=.18;delta.mystery=-.08;delta.density=.06;
+ }
+ if(/もっと寂し|寂しさを強く|切なくして|哀しさを増|孤独を強く/.test(t)){
+  delta.melancholy=.18;delta.warmth=-.06;delta.density=-.04;
+ }
+ if(/もっと不安|不穏にして|怪異を強く|謎を強く|神秘的にして|神秘性を増/.test(t)){
+  delta.mystery=.20;delta.tension=.14;
+ }
+ if(/落ち着かせ|穏やかにして|静かにして|静けさを増/.test(t)){
+  delta.tension=-.12;delta.density=-.10;delta.sustain=.08;
+ }
+ if(/激しく|躍動感を増|盛り上げ|勢いを増/.test(t)){delta.density=.14;delta.tension=.08;}
+ if(/もっと薄く|音数を減|密度を下|シンプルに/.test(t)) delta.density=-.14;
+ if(/フルート.*(減|弱)|フルートを.*減|フルートを控/.test(t)) delta.flute=-.20;
+ if(/フルート.*(増|強)|フルートを.*増|フルートを前/.test(t)) delta.flute=.20;
+ if(/ハープ.*(減|弱)|ハープを.*減/.test(t)) delta.harp=-.18;
+ if(/ハープ.*(増|強)|ハープを.*増/.test(t)) delta.harp=.18;
+ if(/鐘.*(減|弱)|ベル.*(減|弱)|鐘を.*減/.test(t)) delta.bell=-.20;
+ if(/鐘.*(増|強)|ベル.*(増|強)|鐘を.*増/.test(t)) delta.bell=.20;
+ if(/低音.*(増|強)|ベース.*(増|強)|低弦.*(増|強)/.test(t)) delta.bass=.18;
+ if(/低音.*(減|弱)|ベース.*(減|弱)|低弦.*(減|弱)/.test(t)) delta.bass=-.18;
+ if(/チェロ.*(増|強)/.test(t)) delta.cello=.18;
+ if(/チェロ.*(減|弱)/.test(t)) delta.cello=-.18;
+ if(/ヴィオラ.*(増|強)/.test(t)) delta.viola=.18;
+ if(/ヴィオラ.*(減|弱)/.test(t)) delta.viola=-.18;
+ return {hasChange:Object.values(delta).some(v=>v!==0),delta,text:text||""};
+}
+
+function buildIntentComposer(text,scene){
+ const t=(text||"").toLowerCase();
+ const signals={
+  scene:scene||"custom",
+  atmosphere:{
+   calm:/静か|穏やか|静寂|落ち着/.test(t),
+   fog:/霧|霞|白い闇/.test(t),
+   nature:/森|風|水|雨|植物|生命/.test(t),
+   old:/古い|古び|記憶|昔|郷愁/.test(t)
+  },
+  emotion:{
+   melancholy:/寂し|悲し|切な|孤独|郷愁/.test(t),
+   mystery:/謎|気配|怪異|異変|霧|違和感/.test(t),
+   warmth:/温か|穏やか|希望|安心|安堵|優し/.test(t),
+   fear:/怖|恐|不安|不穏/.test(t)
+  },
+  motion:{
+   still:/静か|ゆっくり|漂う|佇む/.test(t),
+   pulse:/鼓動|脈|ざわめ|揺れる/.test(t),
+   rise:/高ま|迫|近づ|次第に|徐々に/.test(t)
+  },
+  ending:{
+   resolved:/安心|安堵|希望|穏やかになる|光が差/.test(t),
+   open:/謎が残|不安が残|余韻|消えない/.test(t)
+  }
+ };
+
+ const scores={
+  mystery:(signals.emotion.mystery?1:0)+(signals.atmosphere.fog?1:0)+(signals.emotion.fear?1:0),
+  melancholy:(signals.emotion.melancholy?1:0)+(signals.atmosphere.old?1:0),
+  warmth:(signals.emotion.warmth?1:0)+(signals.atmosphere.nature?1:0),
+  motion:(signals.motion.pulse?1:0)+(signals.motion.rise?1:0)
+ };
+
+ const dominant=Object.entries(scores).sort((a,b)=>b[1]-a[1])[0]?.[0]||"neutral";
+
+ return {
+  version:"2.9",
+  scene,
+  signals,
+  scores,
+  dominant,
+  guidance:{
+   melody:dominant==="mystery"?"narrow_then_rise":
+          dominant==="melancholy"?"long_falling":
+          dominant==="warmth"?"gentle_rise":
+          dominant==="motion"?"stepwise_pulse":"balanced",
+   harmony:dominant==="mystery"?"suspended":
+           dominant==="melancholy"?"minor_warm":
+           dominant==="warmth"?"open_warm":
+           dominant==="motion"?"moving":"stable",
+   arrangement:dominant==="mystery"?"distant_colors":
+               dominant==="melancholy"?"low_strings":
+               dominant==="warmth"?"light_woodwind":
+               dominant==="motion"?"active_strings":"balanced"
+  }
+ };
+}
+
+
+function detectMusicStyle(text){
+ const t=(text||"").toLowerCase();
+ const style={
+  id:"fantasy",
+  name:"ファンタジー・アンサンブル",
+  mix:0,
+  tempo:0,
+  swing:0,
+  sync:0,
+  drum:0,
+  synth:0,
+  guitar:0,
+  pluck:0,
+  airy:0
+ };
+ const has = (...xs)=>xs.some(x=>t.includes(x));
+
+ if(has("ポップ","pop","ポップス","j-pop","jpop","歌もの","キャッチー","明るいポップ")){
+  style.id="pop";style.name="ポップ";
+  style.tempo=8;style.sync=.18;style.drum=.42;style.synth=.18;style.pluck=.32;
+ }
+ if(has("ロック","rock","バンド","ギター","エレキ","インディー","indie")){
+  style.id="rock";style.name="ロック";
+  style.tempo=12;style.sync=.24;style.drum=.62;style.guitar=.56;style.synth=.08;
+ }
+ if(has("ピアノ","piano","ピアノ曲","ピアノ主体")){
+  style.id="piano";style.name="ピアノ中心";
+  style.tempo=0;style.piano=.72;style.pluck=.12;
+ }
+ if(has("キーボード","keyboard","オルガン","organ","シンセ")){
+  style.id="keys";style.name="キーボード／シンセ";
+  style.tempo=4;style.keys=.72;style.synth=.42;
+ }
+ if(has("ドラム","drum","ビート","beat")){
+  style.drum=Math.max(style.drum,.64);
+ }
+ if(has("テクノ","techno","電子音","electronic","エレクトロ","クラブ","ダンス","edm","ハウス","house")){
+  style.id="techno";style.name="テクノ／エレクトロ";
+  style.tempo=22;style.sync=.42;style.drum=.82;style.synth=.72;style.pluck=.36;
+ }
+ if(has("シンセウェーブ","synthwave","レトロ電子","80年代")){
+  style.id="synthwave";style.name="シンセウェーブ";
+  style.tempo=14;style.sync=.28;style.drum=.68;style.synth=.82;style.pluck=.24;
+ }
+ if(has("ジャズ","jazz","スウィング","swing","ブルース")){
+  style.id="jazz";style.name="ジャズ";
+  style.tempo=4;style.swing=.38;style.sync=.24;style.pluck=.28;
+ }
+ if(has("フォーク","folk","アコースティック","弾き語り")){
+  style.id="folk";style.name="フォーク";
+  style.tempo=-4;style.sync=.10;style.pluck=.46;style.air=.12;
+ }
+ if(has("映画音楽","cinematic","劇伴","壮大","オーケストラ")){
+  style.id="cinematic";style.name="シネマティック";
+  style.tempo=-2;style.air=.34;style.pluck=.10;
+ }
+ return style;
+}
+
+function buildStyleIntent(text,scene){
+ const style=detectMusicStyle(text);
+ return {
+  ...style,
+  scene,
+  source:"natural_language",
+  hybrid:false
+ };
+}
+
+function analyze(text,scene){
+ const t=text.toLowerCase(), id=scene;
+ const style=detectMusicStyle(text);
+ let tempo=72, mode="D Dorian", density=0.45, rest=.26, leap=.22, tension=.12, long=.42, bass=0.7, pulse=false;
+ let resolution=/(安心|落ち着|穏やか|安堵|希望)/.test(text);
+ let unresolved=/(不安|怪異|異変|不穏|気配|謎|霧|孤独)/.test(text)&&!resolution;
+ // Resolution is the explicit destination when both tension and relief are mentioned.
+ if(resolution) unresolved=false;
+ let gradualTension=/(徐々に|次第に|だんだん|少しずつ|次第と)/.test(text);
+ let gradualWarmth=/(明るくなる|明るく|温かくなる|温かく|希望へ|希望に向か|光が差|穏やかになる)/.test(text);
+ let gradualBuild=/(徐々に盛り上が|次第に盛り上が|だんだん盛り上が|少しずつ盛り上が|盛り上がってい|高まってい)/.test(text);
+ let gradualQuiet=/(徐々に静か|次第に静か|だんだん静か|少しずつ静か|静かになってい|落ち着いてい)/.test(text);
+
+ // Unified emotional arc. Explicit resolution wins over unresolved tension.
+ const arc=resolution && gradualTension ? "tension_to_resolution"
+  : gradualTension && !resolution ? "gradual_tension"
+  : gradualWarmth ? "gradual_warmth"
+  : gradualBuild ? "gradual_build"
+  : gradualQuiet ? "gradual_quiet"
+  : resolution ? "resolution"
+  : unresolved ? "unresolved"
+  : "neutral";
+ if(id==="ship"||/船|海|霧|孤独|不安/.test(text)){tempo=68;mode="A Minor";density=.38;rest=.34;leap=.30;tension=.23;long=.52;bass=.78}
+ if(id==="twilight"||/村|温か|生活|懐か|郷愁/.test(text)){tempo=76;mode="G Dorian";density=.52;rest=.18;leap=.14;tension=.08;long=.32;bass=.66}
+ if(id==="greenhouse"||/温室|植物|水|生命/.test(text)){tempo=70;mode="D Dorian";density=.43;rest=.28;leap=.20;tension=.14;long=.48;bass=.68}
+ // Tavern is a home-base theme: wistful and human, but never ominous.
+ // Keep the melody itself in a major palette; melancholy comes from contour,
+ // phrasing and restraint rather than a minor/modal tonal center.
+ if(id==="tavern"||/酒場/.test(text)){
+  tempo=95;mode="D Major";density=.56;rest=.13;leap=.14;tension=.018;long=.28;bass=.58;
+ }
+
+ if(/明る|元気|楽しい/.test(text)){tempo+=18;density+=.14;rest-=.1;tension-=.04}
+ if(/静か|ゆっくり|寂し|孤独/.test(text)){tempo-=6;density-=.08;rest+=.08;long+=.08}
+ if(/怖|怪異|不安|異変|不穏/.test(text)){tension+=.12;leap+=.12;rest+=.06;pulse=true}
+ if(/躍動|速|激/.test(text)){tempo+=22;density+=.16;rest-=.1;leap+=.12}
+
+ // Musical style is independent from world setting.
+ tempo += style.tempo;
+ if(style.drum>.4) density += .05;
+ if(style.sync>.3) rest -= .03;
+ if(style.id==="folk") long += .03;
+
+ const intent={
+  scene:id,
+  tempo,
+  mode,
+  emotion:{
+    tension:clamp(tension,.02,.42),
+    melancholy:/寂し|悲し|孤独|郷愁/.test(text),
+    mystery:/謎|気配|怪異|異変|霧/.test(text),
+    warmth:resolution||gradualWarmth||/温か|穏やか|希望/.test(text)
+  },
+  arc,
+  energy:{
+    density:clamp(density,.25,.72),
+    rest:clamp(rest,.08,.48)
+  },
+  phrasing:{
+    leap:clamp(leap,.05,.48),
+    sustain:clamp(long,.2,.7)
+  },
+  ending:resolution?"resolved":unresolved?"unresolved":"natural",
+  style:style
+};
+
+return {
+  tempo,mode,
+  style,
+  density:clamp(density,.25,.72),
+  rest:clamp(rest,.08,.48),
+  leap:clamp(leap,.05,.48),
+  tension:clamp(tension,.02,.42),
+  long:clamp(long,.2,.7),
+  bass:clamp(bass,.55,.9),
+  pulse,resolution,unresolved,gradualTension,gradualWarmth,gradualBuild,gradualQuiet,arc,
+  intent
+};
+}
+function scaleFor(mode){return mode==="A Minor"?[0,2,3,5,7,8,10]:mode==="G Minor"?[0,2,3,5,7,8,10]:mode==="D Major"?[0,2,4,5,7,9,11]:[0,2,3,5,7,9,10]}
+function noteName(n){return ["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"][((n%12)+12)%12]+(Math.floor(n/12)-1)}
+function chordPlan(bp){
+ if(String(bp?.scene||bp?.sceneId||'')==='tavern' && bp.mode==='D Major') return [[0,2,4],[4,6,1],[5,0,2],[3,5,0]];
+ const plans={
+  "D Major":[
+   [0,2,4,6], // Imaj7: D-F#-A-C#
+   [5,0,2,4], // vi7: Bm7
+   [3,5,0,2], // IVmaj7: Gmaj7
+   [0,2,4,5]  // I6: D-F#-A-B
+  ],
+  "D Dorian":[
+   [0,2,4,6], // i7: D-F-A-C
+   [3,5,0,2], // IV7: G-B-D-F
+   [4,6,1,3], // v7: A-C-E-G
+   [0,2,4,6]  // i7 return
+  ],
+  "G Dorian":[
+   [0,2,4,6],
+   [3,5,0,2],
+   [4,6,1,3],
+   [0,2,4,6]
+  ],
+  "A Minor":[
+   [0,2,4,6], // i7: Am7
+   [5,0,2,4], // VImaj7: Fmaj7
+   [3,5,0,2], // IVmaj7: Dm7
+   [0,2,4,6]  // i7
+  ],
+  "G Minor":[
+   [0,2,4,6], // i7: Gm7
+   [5,0,2,4], // VImaj7: Ebmaj7
+   [3,5,0,2], // IV7-ish modal color
+   [0,2,4,6]
+  ]
+ };
+ return (plans[bp.mode]||plans["D Dorian"]).map(ch=>ch.slice());
+}
+function chooseWeighted(r,items){
+ let total=items.reduce((a,x)=>a+x.w,0),v=r()*total;
+ for(const x of items){v-=x.w;if(v<=0)return x.v}
+ return items[items.length-1].v;
+}
+function degreeMidi(root,scale,degree,oct=0){
+ const d=((degree%scale.length)+scale.length)%scale.length;
+ return root+scale[d]+12*oct+12*Math.floor(degree/scale.length);
+}
+function nearestScaleNote(target,root,scale){
+ let best=target,bestD=999;
+ for(let k=-2;k<=2;k++)for(const s of scale){
+  const n=root+s+12*k,d=Math.abs(n-target);
+  if(d<bestD){best=n;bestD=d}
+ }
+ return best;
+}
+function melodicCandidateScore(note,prev,prev2,chord,root,scale,position,arc){
+ let score=0;
+ const interval=Math.abs(note-prev);
+ const signed=note-prev;
+ const pc=((note-root)%12+12)%12;
+
+ const chordNotes=chord.map(d=>degreeMidi(root,scale,d,0));
+ const chordPc=chordNotes.map(n=>((n-root)%12+12)%12);
+ const isChordTone=chordPc.includes(pc);
+
+ // Strong consonance hierarchy.
+ if(isChordTone) score+=5.0;
+ else score-=.8;
+
+ // Avoid chromatic/foreign relationships entirely: candidates are scale-only,
+ // but also reject strong dissonant intervals against the active chord.
+ const dissonantToChord=chordNotes.some(n=>{
+  const iv=Math.abs(note-n)%12;
+  return iv===1||iv===6||iv===11;
+ });
+ if(dissonantToChord) score-=5.5;
+
+ // Singable voice-leading.
+ if(interval===0) score+=.4;
+ else if(interval===1||interval===2) score+=3.0;
+ else if(interval===3||interval===4) score+=1.8;
+ else if(interval===5||interval===6) score-=.6;
+ else score-=3.2;
+
+ // Prefer a change of direction after a short run.
+ if(prev2!=null){
+  const d1=prev-prev2, d2=note-prev;
+  if(d1!==0 && d2!==0 && Math.sign(d1)===Math.sign(d2)) score-=2.0;
+  if(d1!==0 && d2!==0 && Math.sign(d1)!==Math.sign(d2)) score+=1.5;
+ }
+
+ // Do not repeat a pitch more than once as a default gesture.
+ if(note===prev && prev2===prev) score-=2.5;
+
+ // Phrase grammar.
+ if(position===0 && isChordTone) score+=2.5;
+ if(position===3){
+  const rootPc=((root-root)%12+12)%12;
+  if(pc===rootPc) score+=4.0;
+  if(interval<=2) score+=1.5;
+ }
+
+ if(arc==="peak" && position===2) score+=signed>0?1.8:-.5;
+ if((arc==="resolve"||arc==="warm_return") && position>=2) score+=signed<=0?1.6:-.6;
+ if(arc==="open_end" && position===3) score+=signed>0?1.8:-.4;
+
+ return score;
+}
+
+function makeMotif(r,bp,root,scale,chord){
+ const candidates=[];
+ const arc=bp.composerPlan?.sections?.[0]?.role||"establish";
+
+ const scaleNotes=[];
+ for(let k=-1;k<=1;k++){
+  for(const s of scale){
+   const n=root+s+12*k;
+   if(n>=58&&n<=80) scaleNotes.push(n);
+  }
+ }
+
+ // Generate many short melodic paths, then keep the best complete paths.
+ for(let trial=0;trial<28;trial++){
+  const notes=[];
+  let prev=degreeMidi(root,scale,chord[0]??0,0);
+  let prev2=null;
+  let total=0;
+
+  for(let i=0;i<4;i++){
+   const scored=scaleNotes.map(n=>({
+    n,
+    score:melodicCandidateScore(n,prev,prev2,chord,root,scale,i,arc)
+   })).sort((a,b)=>b.score-a.score);
+
+   const top=scored.slice(0,Math.min(5,scored.length));
+   const pick=top[Math.floor(r()*top.length)]||top[0];
+   notes.push(pick.n);
+   total+=pick.score;
+   prev2=prev;
+   prev=pick.n;
+  }
+
+  // Whole-phrase constraints.
+  const range=Math.max(...notes)-Math.min(...notes);
+  const intervals=notes.slice(1).map((n,i)=>n-notes[i]);
+  const directions=intervals.map(v=>Math.sign(v)).filter(Boolean);
+
+  if(range>14) total-=4;
+  if(range<2) total-=2;
+  if(Math.abs(intervals[0]||0)>5) total-=3;
+  if(Math.abs(intervals[2]||0)>5) total-=3;
+
+  // Reward a clear rise/fall or arch, penalize mechanical monotony.
+  const shapeUp=intervals[0]>0&&intervals[1]>0&&intervals[2]<0;
+  const shapeDown=intervals[0]<0&&intervals[1]<0&&intervals[2]>0;
+  const arch=intervals[0]>0&&intervals[1]>0&&intervals[2]<=0;
+  if(shapeUp||shapeDown||arch) total+=2.5;
+
+  const unique=new Set(notes).size;
+  if(unique<2) total-=4;
+  if(unique===4) total+=.7;
+
+  candidates.push({notes,total});
+ }
+
+ candidates.sort((a,b)=>b.total-a.total);
+ const chosen=candidates[0]?.notes||[root,root+2,root+4,root];
+
+ return chosen.map((n,i)=>({
+  n,
+  beat:i,
+  role:i===0||i===3?"anchor":"passing"
+ }));
+}
+function makePhrase(r,motif,bp,section,root,scale){
+ const out=[];
+ const original=motif.map(m=>({...m}));
+ let source=original.map(m=>({...m}));
+
+
+
+
+
+ if(section==="A2"){
+  source=original.map(m=>({...m}));
+ }
+
+ const rhythmA=[1.15,0.65,0.75,1.65];
+ const rhythmB=[0.9,0.55,0.85,1.9];
+ const rhythm=section==="B"?rhythmB:rhythmA;
+ const rhythmVariation=section==="B"
+  ? rhythm.map((d,i)=>i===1?d*.78:d)
+  : section==="A2"
+   ? rhythm.map((d,i)=>i===0?d*1.18:d)
+   : rhythm;
+
+ // Gradual build: slightly shorten B durations, creating more forward motion
+ // without changing the playback engine or event structure.
+ const buildRhythm=bp.gradualBuild && section==="B"
+  ? rhythmVariation.map((d,i)=>i===0?d*.92:d)
+  : rhythmVariation;
+
+ const quietRhythm=bp.gradualQuiet && section==="A2"
+  ? buildRhythm.map((d,i)=>i>=2?d*1.16:d)
+  : buildRhythm;
+
+ const progression=chordPlan(bp);
+
+ // Phrase contour: A establishes, B reaches the highest point,
+ // A'' relaxes toward the ending. Keep changes modest so the motif
+ // remains recognizable.
+ const contour={
+  "A":[0,1,2,0],
+  "Aprime":[0,1,2,1],
+  "B":[2,3,4,2],
+  "A2":[1,0,-1,-2]
+ };
+ const c=contour[section]||contour.A;
+
+ source.forEach((m,i)=>{
+  let n=m.n;
+
+    // Tiny B-section variation: one scale-step shift, keeping the existing structure.
+    if(section===2 && i===1){
+      const dir = (motif[0]?.n ?? n) <= n ? 1 : -1;
+      const varied = nearestScaleNote(n + dir, bp.mode);
+      n = varied;
+    }
+
+  // Register contour is strongest in B and the final descent in A''.
+  let octaveBias=0;
+  if(section==="B" && i===2) octaveBias=1;
+  if(section==="A2" && i===3) octaveBias=-1;
+
+  // A-section question -> answer: the first half opens,
+  // the second half settles toward the existing phrase target.
+  if(section==="A"){
+    if(i===1) octaveBias+=1;
+    if(i===2) octaveBias-=1;
+    if(i===3) octaveBias-=1;
+  }
+
+  // A' keeps the same question -> answer idea, but with a gentler opening.
+  if(section==="Aprime"){
+    if(i===1) octaveBias+=1;
+    if(i===2) octaveBias-=1;
+    if(i===3) octaveBias-=1;
+  }
+
+
+  n=nearestScaleNote(n+octaveBias,root,scale);
+
+  // chordPlan contains one harmonic center per 4-note section.
+  // Keep every phrase aligned with its own section chord.
+  const sectionChordIndex=section==="B"?2:(section==="A2"?3:(section==="Aprime"?1:0));
+  const chordDegree=progression[Math.min(
+   progression.length-1,sectionChordIndex
+  )]||0;
+
+  const tones=[
+   degreeMidi(root,scale,chordDegree),
+   degreeMidi(root,scale,chordDegree+2),
+   degreeMidi(root,scale,chordDegree+4)
+  ].map(x=>nearestScaleNote(x,root,scale));
+
+  if(i===0 || i===3){
+   const nearest=tones
+    .slice()
+    .sort((a,b)=>Math.abs(a-n)-Math.abs(b-n))[0];
+   if(Math.abs(nearest-n)<=5)n=nearest;
+  }else{
+   const nearChord=tones
+    .slice()
+    .sort((a,b)=>Math.abs(a-n)-Math.abs(b-n))[0];
+   if(Math.abs(nearChord-n)<=2 && r()<0.65)n=nearChord;
+  }
+
+  let d=quietRhythm[i%quietRhythm.length];
+
+  // Emotional arc rhythm shaping, kept entirely inside phrase generation.
+  if(bp.arc==="tension_to_resolution"){
+    if(section==="B") d*=.92;
+    if(section==="A2" && i>=2) d*=1.10;
+  }else if(bp.arc==="gradual_tension"){
+    if(section==="Aprime" && i>=2) d*=.94;
+    if(section==="B") d*=.90;
+  }else if(bp.arc==="gradual_warmth"){
+    if(section==="B") d*=.94;
+    if(section==="A2" && i<=1) d*=.92;
+  }else if(bp.arc==="gradual_build"){
+    if(section==="Aprime") d*=.96;
+    if(section==="B") d*=.90;
+  }else if(bp.arc==="gradual_quiet"){
+    if(section==="A2" && i>=2) d*=1.16;
+  }
+
+  // Scene-aware sustain: longer values in bp.long create more lingering notes,
+  // while preserving the existing rhythm pattern and event format.
+  const sustain=0.75+bp.long*0.50;
+  d*=sustain;
+
+  // The apex gets a little more space; the final note remains the
+  // longest phrase-ending tone.
+  if(section==="B"&&i===2)d=Math.max(d,1.0);
+  if(m.role==="anchor"&&i===3)d=Math.max(d,1.5);
+
+  out.push({n,d,role:m.role});
+ });
+
+ return out;
+}
+function composeMotifFirstMelody(bp,seed){
+ const r=rng(seed);
+ const scale=scaleFor(bp.mode);
+ const root=bp.mode==="A Minor"?57:bp.mode==="G Minor"?55:62;
+ const chords=chordPlan(bp);
+ if(String(bp?.scene||bp?.sceneId||'')==='tavern' && bp.mode==='D Major'){
+  const root=62, scale=scaleFor('D Major');
+  const triad=(ch)=>ch.map(d=>degreeMidi(root,scale,d,0));
+  const nearestTriad=(target,ch)=>{let best=triad(ch)[0],bd=999; for(const base of triad(ch))for(const o of [-12,0,12]){const q=base+o,d=Math.abs(q-target);if(d<bd){bd=d;best=q;}} return best;};
+  const tpls=[[66,69,71,74,76,74,71,69],[69,74,76,74,71,69,66,69],[66,69,71,74,76,78,76,74],[71,74,76,74,71,69,71,74]];
+  const ds=[[.68,.32,.40,.74,.46,.32,.52,.86],[.60,.32,.40,.70,.46,.32,.52,.82],[.52,.32,.42,.68,.48,.32,.52,.78],[.64,.32,.40,.74,.46,.32,.56,.98]];
+  const phrase=[];
+  tpls.forEach((tpl,si)=>tpl.forEach((raw,j)=>{let n=nearestScaleNote(raw,root,scale); const ch=chords[si]; if(j===0||j===3||j===7)n=nearestTriad(n,ch); else {const c=nearestTriad(n,ch);if(Math.abs(n-c)>2)n=c;} phrase.push({m:si*8+j,n:clamp(n,62,78),d:ds[si][j],section:['A','Aprime','B','A2'][si],role:(j===0||j===7)?'anchor':'passing'});}));
+  const bass=chords.map((ch,i)=>({m:i*8,n:degreeMidi(root,scale,ch[0],-1),d:8}));
+  return {phrase,bass,motif:tpls[0].slice(),chords};
+ }
+
+
+ // ------------------------------------------------------------
+ // 1. Create one 8-note melodic identity.
+ // It is not a scale exercise: it has a beginning, a small peak,
+ // and a recognizable return.
+ // ------------------------------------------------------------
+ const scaleNotes=[];
+ for(let n=57;n<=81;n++){
+  if(nearestScaleNote(n,root,scale)===n)scaleNotes.push(n);
+ }
+
+ const chordTones=(sec)=>{
+  const ch=chords[Math.min(chords.length-1,sec)]||[0];
+  return [
+   degreeMidi(root,scale,ch[0]??0),
+   degreeMidi(root,scale,(ch[0]??0)+2),
+   degreeMidi(root,scale,(ch[0]??0)+4)
+  ].map(n=>nearestScaleNote(n,root,scale));
+ };
+
+ const nearest=(n)=>{
+  let best=scaleNotes[0],bd=999;
+  for(const x of scaleNotes){
+   const d=Math.abs(x-n);
+   if(d<bd){bd=d;best=x}
+  }
+  return best;
+ };
+
+ const candidateMotif=[];
+ for(let trial=0;trial<48;trial++){
+  const notes=[];
+  const firstPool=scaleNotes.filter(n=>n>=64&&n<=72);
+  let prev=firstPool[Math.floor(r()*firstPool.length)];
+  notes.push(prev);
+
+  for(let i=1;i<8;i++){
+   const options=scaleNotes.filter(n=>Math.abs(n-prev)<=7);
+   const scored=options.map(n=>{
+    const d=n-prev;
+    let s=0;
+
+    // Mixture is intentional: steps are common, thirds/fourths
+    // provide personality, larger jumps are rare.
+    const a=Math.abs(d);
+    if(a===0)s+=0.4;
+    else if(a===1||a===2)s+=2.2;
+    else if(a===3||a===4)s+=2.8;
+    else if(a===5)s+=1.6;
+    else if(a===6)s-=0.5;
+    else s-=3.5;
+
+    // A small contour: establish -> rise -> peak -> return.
+    if(i<=2 && n>=prev)s+=0.7;
+    if(i===3 && n>prev)s+=1.0;
+    if(i===4 && n<prev)s+=0.8;
+    if(i>=6 && n<=prev)s+=0.9;
+
+    // Do not make every note a chord tone.
+    const c=chordTones(0);
+    if(c.some(x=>Math.abs(x-n)<=1))s+=i===0||i===7?2.0:0.25;
+
+    // Avoid three identical notes.
+    if(notes.length>=2 && n===notes.at(-1) && n===notes.at(-2))s-=5;
+
+    // Avoid mechanical alternation.
+    if(notes.length>=2){
+     const d1=notes.at(-1)-notes.at(-2);
+     const d2=n-notes.at(-1);
+     if(d1!==0&&d2!==0&&Math.sign(d1)!==Math.sign(d2))s+=0.4;
+    }
+
+    // Keep the motif in a singable center.
+    s-=Math.max(0,Math.abs(n-69)-8)*0.35;
+
+    return {n,s};
+   }).sort((a,b)=>b.s-a.s);
+
+   const top=scored.slice(0,7);
+   const pick=top[Math.floor(r()*Math.min(4,top.length))]||top[0];
+   prev=pick.n;
+   notes.push(prev);
+  }
+
+  const intervals=notes.slice(1).map((n,i)=>n-notes[i]);
+  const range=Math.max(...notes)-Math.min(...notes);
+  let total=0;
+
+  intervals.forEach((d,i)=>{
+   const a=Math.abs(d);
+   if(a>=1&&a<=4)total+=1.1;
+   if(a>=6)total-=1.5;
+   if(i>0&&Math.sign(d)!==Math.sign(intervals[i-1])&&d!==0)total+=0.45;
+  });
+
+  if(range>=5&&range<=12)total+=2.2;
+  if(range<4)total-=2;
+  if(range>14)total-=3;
+
+  // A motif should have a memorable contour, not just good intervals.
+  const contour=intervals.map(d=>Math.sign(d));
+  const turns=contour.slice(1).filter((x,i)=>x!==0&&contour[i]!==0&&x!==contour[i]).length;
+  if(turns>=2&&turns<=4)total+=1.8;
+
+  candidateMotif.push({notes,total});
+ }
+
+ candidateMotif.sort((a,b)=>b.total-a.total);
+ const motif=candidateMotif[0]?.notes||[69,71,72,74,72,71,69,67];
+
+ // ------------------------------------------------------------
+ // 2. Build four sections from the same identity.
+ // A  = original statement
+ // A' = interval-preserving variation
+ // B  = answer / emotional expansion
+ // A2 = recognizable return
+ // ------------------------------------------------------------
+ const sections=[];
+ const makeVariant=(kind)=>{
+  return motif.map((n,i)=>{
+   if(kind==="A")return n;
+
+   if(kind==="Aprime"){
+    // Preserve contour and rhythm, alter only selected degrees.
+    if(i===2||i===5){
+     const direction=i===2?1:-1;
+     return nearest(n+direction*2);
+    }
+    return n;
+   }
+
+   if(kind==="B"){
+    // Expand the middle of the motif without destroying identity.
+    if(i===1)return nearest(n+2);
+    if(i===2)return nearest(n+3);
+    if(i===3)return nearest(n+2);
+    if(i===4)return nearest(n+1);
+    if(i===5)return nearest(n);
+    return n;
+   }
+
+   // A2: return close to original, with a softer ending.
+   if(kind==="A2"){
+    if(i===5)return nearest(n-1);
+    if(i===6)return nearest(n-1);
+    if(i===7)return nearest(n-2);
+    return n;
+   }
+
+   return n;
+  });
+ };
+
+ sections.push(makeVariant("A"));
+ sections.push(makeVariant("Aprime"));
+ sections.push(makeVariant("B"));
+ sections.push(makeVariant("A2"));
+
+ const phrase=[];
+ const durations=[
+  [0.72,0.30,0.34,0.82,0.44,0.28,0.52,0.92],
+  [0.58,0.34,0.48,0.70,0.36,0.30,0.58,0.82],
+  [0.38,0.30,0.42,0.34,0.62,0.28,0.48,0.76],
+  [0.68,0.30,0.42,0.76,0.40,0.28,0.56,1.08]
+ ];
+
+ ["A","Aprime","B","A2"].forEach((sec,si)=>{
+  sections[si].forEach((n,j)=>{
+   let d=durations[si][j];
+   if(si===2 && (j===1||j===2||j===5)) d*=0.90;
+   const isAnchor=j===0||j===7;
+   const role=isAnchor?"anchor":"passing";
+
+   // Small pockets of silence: more game-space, less continuous cathedral sustain.
+   let rest=false;
+   if(!isAnchor){
+    const sceneBreath={
+     mansion:.18,twilight:.24,ship:.30,greenhouse:.20,custom:.22
+    }[bp.scene]??.22;
+    const breathBias=(j===3||j===4)?1.55:(j===6?1.25:.45);
+    if(r()<sceneBreath*breathBias)rest=true;
+   }
+
+   phrase.push({
+    m:si*8+j,
+    n:rest?null:n,
+    d,
+    section:sec,
+    role
+   });
+  });
+ });
+
+ // Final register safety.
+ phrase.forEach(x=>{
+  if(x.n!=null)x.n=clamp(nearest(x.n),57,81);
+ });
+
+ const bass=[];
+ for(let i=0;i<32;i+=8){
+  const chord=chords[Math.floor(i/8)];
+  const deg=chord[0];
+  bass.push({m:i,n:degreeMidi(root,scale,deg,-1),d:8});
+ }
+
+ return {
+  phrase,
+  bass,
+  motif:motif.slice(),
+  chords
+ };
+}
+
+// Keep the old public function name used by the rest of the pipeline.
+function composeMelody(bp,seed){
+ return composeMotifFirstMelody(bp,seed);
+}
+
+function buildArrangement(bp,mix){
+ const intent=bp.intent||{};
+ const emotion=intent.emotion||{};
+ const energy=intent.energy||{};
+ const density=energy.density??.45;
+ const scene=bp.scene||state.scene||"custom";
+
+ const profile={
+  tavern:{strings:1.00,flute:1.00,harp:.24,bell:.05,bass:.34,cello:.44,air:.12},
+  mansion:{strings:1.02,flute:1.00,harp:.14,bell:.10,bass:.58,cello:.68,air:.34},
+  twilight:{strings:.88,flute:1.00,harp:.26,bell:.07,bass:.44,cello:.50,air:.24},
+  ship:{strings:.86,flute:1.00,harp:.12,bell:.16,bass:.66,cello:.78,air:.46},
+  greenhouse:{strings:.80,flute:1.00,harp:.30,bell:.06,bass:.38,cello:.44,air:.28},
+  custom:{strings:.90,flute:1.00,harp:.18,bell:.09,bass:.50,cello:.58,air:.30}
+ }[scene]||{strings:.90,flute:1.00,harp:.18,bell:.09,bass:.50,cello:.58,air:.30};
+
+ const roles={
+  foundation:{
+   Bass:clamp((mix.Bass??.65)*profile.bass,.16,.76),
+   Cello:clamp((mix.Cello??.55)*profile.cello,.20,.80)
+  },
+  melody:{
+   Viola:clamp((mix.Viola??.78)*profile.strings*1.10,.35,1),
+   Flute:clamp((mix.Flute??.78)*profile.flute*(emotion.warmth?1.10:1),.05,1)
+  },
+  color:{
+   Harp:clamp((mix.Harp??.20)*profile.harp,.03,.38),
+   Bell:clamp((mix.Bell??.12)*profile.bell,.02,.26)
+  }
+ };
+
+ const active={
+  foundation:true,
+  melody:density>=.30,
+  color:density>=.42
+ };
+
+ const style=bp.style||intent.style||{id:"fantasy",name:"ファンタジー・アンサンブル",drum:0,synth:0,guitar:0,pluck:0,sync:0};
+ const styleLayers={
+  pop:{drums:.34,bassDrive:.28,synth:.16,pluck:.34,guitar:.06,piano:.34,keys:.22},
+  rock:{drums:.52,bassDrive:.38,synth:.06,pluck:.12,guitar:.68,piano:.16,keys:.10},
+  techno:{drums:.74,bassDrive:.54,synth:.68,pluck:.30,guitar:0,piano:.08,keys:.52},
+  synthwave:{drums:.62,bassDrive:.46,synth:.78,pluck:.20,guitar:.04,piano:.06,keys:.64},
+  jazz:{drums:.28,bassDrive:.20,synth:.04,pluck:.22,guitar:.26,piano:.64,keys:.22},
+  folk:{drums:.12,bassDrive:.12,synth:0,pluck:.42,guitar:.42,piano:.08,keys:.04},
+  cinematic:{drums:.06,bassDrive:.16,synth:.04,pluck:.12,guitar:0,piano:.34,keys:.18},
+  piano:{drums:.04,bassDrive:.14,synth:0,pluck:.10,guitar:0,piano:.72,keys:.10},
+  keys:{drums:.28,bassDrive:.28,synth:.46,pluck:.16,guitar:0,piano:.22,keys:.72},
+  fantasy:{drums:.04,bassDrive:.08,synth:0,pluck:.16,guitar:0,piano:.10,keys:.06}
+ }[style.id]||{drums:0,bassDrive:0,synth:0,pluck:0,guitar:0};
+ applyTavernProgressionToArrangement(scene,roles,styleLayers);
+
+ return {
+  version:"4.7.0",
+  mode:bp.mode,
+  tempo:bp.tempo,
+  arc:bp.arc,
+  ending:intent.ending||"natural",
+  active,
+  roles,
+  density:clamp(density*.80,.16,.60),
+  sustain:clamp((intent.phrasing?.sustain??.42)*.68,.14,.50),
+  accentRate:clamp(.12+density*.08,.08,.22),
+  scene,
+  arpgIdentity:{
+   horizontalBias:1.15,
+   chordDensity:.55,
+   environment:profile.air,
+   cathedralAvoidance:true,
+   continuousPad:false
+  },
+  style:{
+   id:style.id||"fantasy",
+   name:style.name||"ファンタジー・アンサンブル",
+   drums:styleLayers.drums,
+   bassDrive:styleLayers.bassDrive,
+   synth:styleLayers.synth,
+   pluck:styleLayers.pluck,
+   guitar:styleLayers.guitar,
+   piano:styleLayers.piano,
+   keys:styleLayers.keys,
+   sync:style.sync||0
+  }
+ };
+}
+
+function resolveRevisionStack(baseText,revisionText){
+ const current=parseRevisionIntent(revisionText||"");
+ return {
+  baseText:baseText||"",
+  latestText:revisionText||"",
+  history:current.hasChange?[current]:[],
+  delta:{...(current.delta||{})}
+ };
+}
+
+function mergeRevisionStack(previous,nextText){
+ const next=parseRevisionIntent(nextText||"");
+ const prior=previous||{history:[],delta:{}};
+ const merged={};
+ Object.keys(prior.delta||{}).forEach(k=>merged[k]=prior.delta[k]||0);
+ Object.keys(next.delta||{}).forEach(k=>merged[k]=(merged[k]||0)+next.delta[k]);
+ return {
+  baseText:prior.baseText||"",
+  latestText:nextText||"",
+  history:[...(prior.history||[]),next],
+  delta:merged
+ };
+}
+
+function applyRevisionToComposition(composition,bp){
+ const r=bp.revision?.delta||{};
+ const out={
+  ...composition,
+  phrase:composition.phrase.map((x,i)=>({...x})),
+  bass:composition.bass.map(x=>({...x}))
+ };
+
+ const density=r.density||0;
+ const tension=r.tension||0;
+ const melancholy=r.melancholy||0;
+ const warmth=r.warmth||0;
+
+ // Emotional revision changes contour, not random notes.
+ out.phrase.forEach((x,i)=>{
+  const section=Math.floor(i/4);
+  let shift=0;
+
+  if(tension>0){
+   if(section===1 && i%4>=2) shift+=1;
+   if(section===2) shift+=1;
+  }
+  if(tension<0){
+   if(section===2 && i%4>=2) shift-=1;
+   if(section===3) shift-=1;
+  }
+  if(melancholy>0 && i%4===0) shift-=1;
+  if(warmth>0 && section===3 && i%4<=1) shift+=1;
+
+  // Density affects rhythmic space rather than pitch chaos.
+  let d=x.d;
+  if(density>0 && section===2) d*=.92;
+  if(density<0 && section===3) d*=1.08;
+
+  out.phrase[i]={...x,n:x.n+shift,d};
+ });
+
+ // Revision of low-end weight is represented by a controlled bass register shift.
+ const bassDelta=r.bass||0;
+ if(Math.abs(bassDelta)>.01){
+  const shift=bassDelta>0?-12:12;
+  out.bass=out.bass.map((x,i)=>i%2===0?{...x,n:x.n+shift}:x);
+ }
+
+ return out;
+}
+
+function buildComposerPlan(bp){
+ const intent=bp.intent||{};
+ const arc=bp.arc||"neutral";
+ const tension=intent.emotion?.tension??bp.tension??.12;
+ const density=intent.energy?.density??bp.density??.45;
+ const ending=intent.ending||"natural";
+
+ // Four-section macro plan: establish → develop → peak → resolve/leave open.
+ const plans={
+  tension_to_resolution:[
+   {name:"A",role:"establish",energy:.82,tension:.85},
+   {name:"A'",role:"develop",energy:.92,tension:1.00},
+   {name:"B",role:"peak",energy:1.15,tension:1.22},
+   {name:"A''",role:"resolve",energy:.72,tension:.55}
+  ],
+  gradual_tension:[
+   {name:"A",role:"establish",energy:.76,tension:.72},
+   {name:"A'",role:"develop",energy:.92,tension:.96},
+   {name:"B",role:"peak",energy:1.18,tension:1.22},
+   {name:"A''",role:"afterglow",energy:.88,tension:1.05}
+  ],
+  gradual_warmth:[
+   {name:"A",role:"establish",energy:.72,tension:.88},
+   {name:"A'",role:"open",energy:.88,tension:.78},
+   {name:"B",role:"bloom",energy:1.10,tension:.62},
+   {name:"A''",role:"warm_return",energy:.84,tension:.38}
+  ],
+  gradual_build:[
+   {name:"A",role:"establish",energy:.68,tension:.82},
+   {name:"A'",role:"build",energy:.88,tension:.92},
+   {name:"B",role:"peak",energy:1.20,tension:1.08},
+   {name:"A''",role:"release",energy:.82,tension:.68}
+  ],
+  gradual_quiet:[
+   {name:"A",role:"establish",energy:.98,tension:.74},
+   {name:"A'",role:"thin",energy:.86,tension:.66},
+   {name:"B",role:"fade",energy:.70,tension:.52},
+   {name:"A''",role:"quiet",energy:.52,tension:.34}
+  ],
+  resolution:[
+   {name:"A",role:"establish",energy:.80,tension:.82},
+   {name:"A'",role:"develop",energy:.92,tension:.90},
+   {name:"B",role:"turn",energy:1.08,tension:1.02},
+   {name:"A''",role:"resolve",energy:.70,tension:.42}
+  ],
+  unresolved:[
+   {name:"A",role:"establish",energy:.78,tension:.90},
+   {name:"A'",role:"develop",energy:.90,tension:1.00},
+   {name:"B",role:"peak",energy:1.10,tension:1.18},
+   {name:"A''",role:"open_end",energy:.74,tension:1.02}
+  ],
+  neutral:[
+   {name:"A",role:"establish",energy:.82,tension:.82},
+   {name:"A'",role:"develop",energy:.88,tension:.86},
+   {name:"B",role:"contrast",energy:1.06,tension:.96},
+   {name:"A''",role:"return",energy:.76,tension:.68}
+  ]
+ };
+
+ const sections=(plans[arc]||plans.neutral).map((s,i)=>({
+  ...s,
+  energy:s.energy*(.72+density*.55),
+  tension:s.tension*(.65+tension)
+ }));
+
+ return {
+  version:"2.4",
+  arc,
+  mode:bp.mode,
+  tempo:bp.tempo,
+  ending,
+  sections
+ };
+}
+
+function applyComposerPlanToPhrase(composition,plan){
+ if(!plan?.sections) return composition;
+ const phrase=composition.phrase.map(x=>({...x}));
+ const sections=plan.sections;
+
+ phrase.forEach((x,i)=>{
+  const s=Math.min(Math.floor(i/4),sections.length-1);
+  const sec=sections[s];
+  if(!sec) return;
+
+  const energy=sec.energy??1;
+  const role=sec.role||"return";
+
+  let d=x.d;
+  if(energy>1.08) d*=.97;
+  if(energy<.72) d*=1.04;
+
+  // The plan guides emphasis, but never overwrites the chosen melody.
+  let n=x.n;
+  if(role==="peak" && i%4===2) n+=1;
+  if((role==="resolve"||role==="warm_return") && i%4===3) n-=1;
+
+  phrase[i]={...x,n,d};
+ });
+
+ return {...composition,phrase};
+}
+
+function applyMotifGrammar(composition,plan){
+ const phrase=composition.phrase.map(x=>({...x}));
+ const sections=plan?.sections||[];
+ if(!phrase.length) return composition;
+
+ const base=phrase.slice(0,4).map(x=>x.n);
+
+ phrase.forEach((x,i)=>{
+  const sec=Math.min(Math.floor(i/4),sections.length-1);
+  const pos=i%4;
+  const role=sections[sec]?.role||"return";
+  const original=base[pos]??x.n;
+  let n=x.n;
+
+  if(sec===0){
+   // A: preserve the generated gesture rather than forcing exact notes.
+   n=x.n;
+  }else if(sec===1){
+   // A': recognizable contour, but only one controlled alteration.
+   n=x.n;
+   if(pos===1) n+=((i+sec)%2===0?1:-1);
+  }else if(sec===2){
+   // B: contrast the gesture using neighboring material.
+   const source=base[(pos+1)%4]??n;
+   n=Math.round((n+source)/2);
+   if(pos===2) n+=1;
+  }else{
+   // A'': return by contour, not by literal copy.
+   n=Math.round((n+original)/2);
+   if(pos===3) n-=1;
+  }
+
+  if(role==="peak" && pos===2) n+=1;
+  if((role==="resolve"||role==="warm_return") && pos===3) n-=1;
+  if(role==="open_end" && pos===3) n+=1;
+
+  phrase[i]={...x,n};
+ });
+
+ return {...composition,phrase};
+}
+
+function applyHarmonicArc(composition,plan,bp){
+ const base=(composition.chords||[]).map(ch=>Array.isArray(ch)?ch.slice():ch);
+ if(!base.length) return composition;
+
+ const sections=plan?.sections||[];
+ const ending=plan?.ending||"natural";
+ const arc=plan?.arc||"neutral";
+
+ // Rebuild the four harmonic centers from stable modal functions.
+ // We intentionally avoid arbitrary +/-1 degree shifts: those could create
+ // accidental clashes while sounding "complex" on paper.
+ const functional=chordPlan(bp);
+ const chords=base.map((_,i)=>functional[Math.min(i,functional.length-1)].slice());
+
+ // Controlled color is expressed by chord voicing/order, not chromatic notes.
+ chords.forEach((ch,i)=>{
+  const role=sections[i]?.role||"return";
+  if(!Array.isArray(ch)||!ch.length) return;
+
+  // B can feel more suspended by putting the 7th earlier in the voicing.
+  if(i===2 && (role==="peak"||role==="bloom"||role==="turn"||arc==="gradual_tension")){
+   const seventh=ch.pop();
+   ch.splice(1,0,seventh);
+  }
+
+  // The return keeps the tonic/root as the first bass-facing tone.
+  if(i===3){
+   if(ending==="resolved"||role==="resolve"||role==="warm_return"){
+    // Root-position return: the melody/cello can land naturally.
+    const root=ch.findIndex(d=>d===0);
+    if(root>0) ch.unshift(...ch.splice(root,1));
+   }else if(ending==="unresolved"||role==="open_end"){
+    // Open ending: keep the 7th visible without changing pitch material.
+    const seventh=ch.findIndex(d=>d===6);
+    if(seventh>0) ch.push(...ch.splice(seventh,1));
+   }
+  }
+ });
+
+ return {
+  ...composition,
+  chords,
+  harmonicFunction:["home","departure","tension","return"],
+  harmonicArc:{
+   mode:bp.mode,
+   ending,
+   arc,
+   voiceLeading:"diatonic-common-tone"
+  }
+} ;
+}
+
+function applyHumanPerformance(composition,plan,seed){
+ const phrase=composition.phrase.map(x=>({...x}));
+ const sections=plan?.sections||[];
+ let s=seed>>>0;
+
+ // Deterministic micro-variation: musical imperfection without randomness per playback.
+ const rand=()=>{
+  s=(s*1664525+1013904223)>>>0;
+  return s/4294967296;
+ };
+
+ phrase.forEach((x,i)=>{
+  const section=Math.min(Math.floor(i/4),sections.length-1);
+  const role=sections[section]?.role||"return";
+  const pos=i%4;
+
+  // Small timing/length differences. Keep the core rhythm recognizable.
+  let d=x.d;
+  const variation=(rand()-.5)*.08;
+  d*=1+variation;
+
+  // Phrase endings breathe a little more; peaks are slightly more compact.
+  if(pos===3) d*=1.04;
+  if(role==="peak" && pos>=2) d*=.96;
+  if(role==="quiet" && pos>=2) d*=1.06;
+
+  phrase[i]={...x,d};
+ });
+
+ return {...composition,phrase};
+}
+
+
+function sanitizeMelody(composition,bp){
+ const phrase=composition.phrase.map(x=>({...x}));
+ const scale=scaleFor(bp.mode);
+ const root=bp.mode==="A Minor"?57:bp.mode==="G Minor"?55:62;
+
+ const nearest=(n)=>{
+  let best=n,bd=999;
+  for(let k=-2;k<=2;k++)for(const s of scale){
+   const q=root+s+12*k,d=Math.abs(q-n);
+   if(d<bd){bd=d;best=q}
+  }
+  return best;
+ };
+
+ // Only correct scale/register here. Do not reshape the motif.
+ // The motif composer is intentionally the musical authority.
+ phrase.forEach(x=>{
+  if(x.n!=null)x.n=clamp(nearest(x.n),57,81);
+ });
+
+ return {...composition,phrase};
+}
+
+function buildLoopStructure(track){
+ const phraseCount=(track?.phrase||[]).length;
+ return {version:"2.0",phraseCount,loopBars:40,status:"composed-loop",themeLocked:true,blocks:[
+  {id:"theme",label:"① テーマ提示",role:"現在の2フレーズをそのまま提示",energy:.55,bars:"1–16"},
+  {id:"development",label:"② 展開",role:"テーマのモチーフを受けて前へ進む",energy:.68,bars:"17–24"},
+  {id:"celebration",label:"③ 盛り上がり",role:"仲間全員で最も賑やかに演奏",energy:.86,bars:"25–32"},
+  {id:"return",label:"④ 回帰・締め",role:"テーマへ戻ってループへ接続",energy:.62,bars:"33–40"}
+ ]};
+}
+
+function loopSectionAt(index){
+ if(index<32)return 0;
+ if(index<48)return 1;
+ if(index<64)return 2;
+ return 3;
+}
+
+function expandToFullLoop(composition,bp){
+ const base=(composition?.phrase||[]).map(x=>({...x}));
+ if(base.length<32)return composition;
+ const full=base.slice(0,32);
+ const nearestScale=(n)=>{
+  const root=bp.mode==="A Minor"?57:bp.mode==="G Minor"?55:62;
+  const scale=scaleFor(bp.mode); let best=n,bd=999;
+  for(let k=-2;k<=2;k++)for(const st of scale){const q=root+st+12*k,d=Math.abs(q-n);if(d<bd){bd=d;best=q;}}
+  return clamp(best,57,81);
+ };
+ const addBlock=(source,startIndex,sectionName,transpose,stretch)=>{
+  source.forEach((x,j)=>{
+   if(!x)return;
+   let n=x.n;
+   if(n!=null){
+    const shift=(j%4===1?transpose:0)+(j%7===4?transpose:0);
+    n=nearestScale(n+shift);
+   }
+   let d=Math.max(.20,Number(x.d||.4)*stretch);
+   if(sectionName==="Celebration" && j%4===0)d*=.90;
+   if(sectionName==="Return" && j>=12)d*=1.10;
+   full.push({...x,m:full.length,n,d,section:sectionName,role:j%8===0?"anchor":"passing",rest:false});
+  });
+ };
+ // ① Theme: the existing 32 notes are untouched.
+ // ② Development: reuse the central theme material with a gentle lift.
+ addBlock(base.slice(8,24),32,"Development",2,.96);
+ // ③ Celebration: bring the opening motif back with a brighter, more active contour.
+ addBlock(base.slice(0,16),48,"Celebration",2,.88);
+ // ④ Return: quote the theme again, then soften the final cadence.
+ addBlock(base.slice(16,32),64,"Return",0,1.02);
+ if(full.length>0){
+  full[full.length-1].n=nearestScale(full[full.length-1].n??69);
+  full[full.length-1].d=Math.max(full[full.length-1].d,1.0);
+ }
+ const chords=composition.chords||[[0,2,4],[4,6,1],[5,0,2],[3,5,0]];
+ const root=bp.mode==="A Minor"?57:bp.mode==="G Minor"?55:62;
+ const scale=scaleFor(bp.mode);
+ const bass=[];
+ for(let m=0;m<80;m+=8){
+  const chord=chords[(m/8)%chords.length]||chords[0];
+  bass.push({m,n:degreeMidi(root,scale,chord[0]??0,-1),d:8});
+ }
+ return {...composition,phrase:full,bass};
+}
+function renderLoopStructure(track){
+ const el=$("loopStructureView"); if(!el||!track)return;
+ const blocks=(track.loopStructure||buildLoopStructure(track)).blocks;
+ el.innerHTML=blocks.map(b=>`<div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.72)"><div style="font-weight:700;min-width:104px">${b.label}</div><div style="font-size:12px;flex:1"><strong>${b.role}</strong></div><span class="chip">${b.bars}</span></div>`).join("");
+}
+
+function makeTrack(){
+ const text=$("prompt").value.trim()||sceneDefaults[state.scene]||"静かな中世ファンタジーRPG";
+ const intentComposer=buildIntentComposer(text,state.scene);
+ const bp=analyze(text,state.scene);
+ bp.style=bp.style||detectMusicStyle(text);
+ bp.intentComposer=intentComposer;
+ const previousRevision=state.track?.revisionStack;
+ const revisionStack=previousRevision
+  ? mergeRevisionStack(previousRevision,text)
+  : resolveRevisionStack(text,text);
+ const revision={hasChange:Object.values(revisionStack.delta||{}).some(v=>v!==0),
+  delta:revisionStack.delta,text};
+ bp.revision=revision;
+ const seed=hash(state.scene+"|"+revisionStack.baseText+"|"+JSON.stringify(revisionStack.delta));
+ const composerPlan=buildComposerPlan(bp);
+ composerPlan.intentGuidance=intentComposer.guidance;
+ bp.composerPlan=composerPlan;
+ const baseComposition=composeMelody(bp,seed);
+ const plannedComposition=applyComposerPlanToPhrase(baseComposition,composerPlan);
+ const grammaticalComposition=applyMotifGrammar(plannedComposition,composerPlan);
+ const harmonicComposition=applyHarmonicArc(grammaticalComposition,composerPlan,bp);
+ const humanizedComposition=applyHumanPerformance(harmonicComposition,composerPlan,seed);
+ const revisedComposition=applyRevisionToComposition(humanizedComposition,bp);
+ // Final authority: after every expressive transformation, re-run the
+ // melody through the voice-leading constraints against the final harmony.
+ const sanitizedComposition=sanitizeMelody(revisedComposition,bp);
+ // Promote the existing 2-phrase theme into one complete 40-bar loop.
+ // The first 16 bars are copied byte-for-byte in musical content; only the
+ // new sections are generated from that locked material.
+ const composition=expandToFullLoop(sanitizedComposition,bp);
+
+ // Scene-specific orchestration: only instrument balance changes.
+ const sceneMix={
+  mansion:{Viola:.88,Cello:.62,Bass:.78,Flute:.78,Harp:.14,Bell:.16},
+  twilight:{Viola:.72,Cello:.40,Bass:.64,Flute:.78,Harp:.30,Bell:.12},
+  ship:{Viola:.58,Cello:.72,Bass:.86,Flute:.78,Harp:.18,Bell:.20},
+  greenhouse:{Viola:.68,Cello:.38,Bass:.60,Flute:.78,Harp:.34,Bell:.10},
+  custom:{Viola:.82,Cello:.52,Bass:bp.bass,Flute:.78,Harp:.22,Bell:.12}
+ };
+ const mix=sceneMix[state.scene]||sceneMix.custom;
+
+ // Music Intent → orchestration profile.
+ const intent=bp.intent||{};
+ const emotion=intent.emotion||{};
+ const energy=intent.energy||{};
+ const orchestration={
+  strings:emotion.melancholy?1.08:1,
+  mystery:emotion.mystery?1.12:1,
+  warmth:emotion.warmth?1.08:1,
+  density:energy.density??.45,
+  sustain:intent.phrasing?.sustain??.42,
+  ending:intent.ending||"natural"
+ };
+ const arrangement=buildArrangement(bp,mix);
+ arrangement.revision=revision;
+
+ return {
+  title:SCENES.find(s=>s.id===state.scene)?.name||"自由曲",
+  text,bp,seed,
+  phrase:composition.phrase,
+  bass:composition.bass,
+  motif:composition.motif,
+  chords:composition.chords,
+  orchestration,
+  composerPlan,
+  intentComposer,
+  arrangement,
+  loopStructure:buildLoopStructure({phrase:composition.phrase}),
+  revisionStack,
+  arrangementSchedule:buildArrangementSchedule({
+   arrangement,
+   bp,
+   title:SCENES.find(s=>s.id===state.scene)?.name||"自由曲"
+  }),
+  instruments:{...mix,Pulse:bp.pulse?.20:0},
+  audioDesign:{Viola:"擦弦・中域",Cello:"低弦・中距離",Bass:"低弦・長音",Flute:"息のある高域・奥",Harp:"透明な弦アタック・長い余韻",Bell:"金属的倍音・奥",Pulse:"異変時のみ"},
+  harmony:{
+   function:t=>t==="home"?"A・安定":t==="departure"?"A'・展開":t==="tension"?"B・緊張":"A''・帰還",
+   progression:t=>t.harmonicFunction||["home","departure","tension","return"],
+   voiceLeading:t=>t.harmonicArc?.voiceLeading||"diatonic-common-tone"
+  }
+ };
+}
+function renderResult(){
+ const t=state.track;if(!t)return;
+ const revCount=t.revisionStack?.history?.length||0;
+ $("resultCard").innerHTML=`<div class="label">GENERATED TRACK</div><div class="result-title">${t.title}</div><div class="result-desc">${t.text}</div><div style="margin-top:10px">${t.bp.mode} ${t.bp.tempo} BPM <span class="chip">${t.bp.style?.name||"ファンタジー・アンサンブル"}</span> <span class="chip">40小節</span>${revCount?`<span class="chip">修正 ${revCount}回</span>`:""}<span class="chip">${t.bp.rest>.3?"余白多め":"連続性あり"}</span><span class="chip">${t.bp.tension>.2?"異変の気配":"穏やか"}</span><span class="chip">和声 ${t.harmonicArc?.voiceLeading==="diatonic-common-tone"?"自然接続":"基本"}</span></div><button class="primary" id="goEdit">♪ 曲を聴いて編曲する</button>`;
+ $("goEdit").onclick=()=>{renderEdit();showPage("edit")}
+}
+
+
+let scoreEditMode=false;
+let scoreTapPreview=true;
+let playbackToken=0;
+let scoreSelected={row:"Viola",index:0};
+
+function noteNames(){
+ return ["C3","C#3","D3","D#3","E3","F3","F#3","G3","G#3","A3","A#3","B3",
+         "C4","C#4","D4","D#4","E4","F4","F#4","G4","G#4","A4","A#4","B4",
+         "C5","C#5","D5","D#5","E5","F5","F#5","G5","G#5","A5","A#5","B5"];
+}
+function midiFromName(name){
+ const m=name.match(/^([A-G])(#?)(\d)$/);if(!m)return 60;
+ const base={C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1]];
+ return 12*(Number(m[3])+1)+base+(m[2]?1:0);
+}
+function buildPitchOptions(){
+ const sel=$("editPitch");if(!sel)return;
+ sel.innerHTML=noteNames().map(n=>`<option value="${n}">${n}</option>`).join("");
+}
+function selectedPhraseArray(track,row){
+ if(["Cello","Bass"].includes(row))return track.bass;
+ return track.phrase;
+}
+function scoreTiming(track){
+ const sec=60/(track?.bp?.tempo||72);
+ const gapByScene={mansion:.12,twilight:.07,ship:.14,greenhouse:.08,custom:.10};
+ const gap=gapByScene[track?.bp?.scene]??.10;
+ const phrase=track?.phrase||[];
+ const eventStart=i=>(i+Math.floor(i/4)*gap)*sec;
+ const eventDuration=i=>Math.max(.05,(phrase[i]?.d||.4)*sec);
+ const total=(eventStart(Math.max(0,phrase.length-1))+eventDuration(Math.max(0,phrase.length-1))+3*sec);
+ const barCount=Math.max(1,Math.ceil(phrase.length/2));
+ const bars=Array.from({length:barCount},(_,b)=>eventStart(Math.min(phrase.length-1,b*2)));
+ return {sec,gap,eventStart,eventDuration,total,bars,barCount};
+}
+function previewScoreCell(row,index){
+ const track=state.track;if(!track)return;
+ const arr=selectedPhraseArray(track,row),x=arr?.[index];
+ if(!x||x.rest||x.n==null)return;
+ ensureAudio();
+ const room=makeRoom(.06),now=audioCtx.currentTime+.02;
+ const d=row==="Piano"?1.80:row==="Flute"?1.20:.34;
+ const level={Viola:.075,Flute:.075,Cello:.16,Bass:.105,Harp:.055,Bell:.050,Piano:.115,Keyboard:.095,Guitar:.085}[row]??.075;
+ if(row==='Drums'){makeDrumHit(now,.035,room,'snare');return;}
+ const fn={Piano:makePiano,Keyboard:makeKeyboard,Guitar:makeElectricGuitar,Viola:makeVoice,Flute:makeVoice,Cello:makeVoice,Bass:makeVoice,Harp:makeVoice,Bell:makeVoice}[row];
+ if(fn===makeKeyboard)fn(x.n,now,d,level,room,'keys');
+ else if(fn===makePiano)fn(x.n,now,d,level,room);
+ else if(fn===makeElectricGuitar)fn(x.n,now,d,level,room);
+ else if(fn)fn(row,x.n,now,d,level,room,.2);
+}
+
+
+/* v5.18 Melodic Support
+   Fill perceived gaps with visible, editable events.
+   The support voices answer the Viola rather than continuously doubling it.
+*/
+function melodicSupportAt(track,index,role){
+  const phrase=track?.phrase||[];
+  const x=phrase[index];
+  if(!x) return {on:false,weight:0};
+  const pos=index%4;
+  const density=Number(track?.intent?.density ?? track?.density ?? 3);
+
+  if(role==="Flute"){
+    // Answer after the main voice: strong at positions 1 and 3.
+    if(pos===1 || pos===3) return {on:true,weight:density>=3?.76:.58};
+    return {on:false,weight:0};
+  }
+  if(role==="Harp"){
+    // Fill phrase-end gaps and add light harmonic punctuation.
+    if(pos===3) return {on:true,weight:density>=3?.64:.46};
+    if(pos===1 && density>=4) return {on:true,weight:.38};
+    return {on:false,weight:0};
+  }
+  if(role==="Cello"){
+    // Sustain selected structural tones underneath the melody.
+    const bar=index;
+    // Absolute phrase anchors: 1, 5, 9, 13... (0-based: 0,4,8,12...)
+    // These are deliberately sparse so Cello supports the main melody without shadowing it.
+    if(bar%4===0) return {on:true,weight:density>=2?.98:.82};
+    return {on:false,weight:0};
+    return {on:false,weight:0};
+  }
+  return {on:false,weight:0};
+}
+
+
+/* v5.23 Cello Actual Bars:
+   Bass events are m=0,8,16,24. In the 16-bar timeline those are bars 1,5,9,13.
+   Cello uses the same anchor events and sustains until the next anchor.
+*/
+/* v5.21 Cello Anchors:
+   Cello support is placed at absolute bars 1, 5, 9, 13...
+   It is intentionally sparse but sustained, acting as structural support.
+*/
+/* v5.20 Cello Frequency:
+   Cello is deliberately present on bars 1 and 3 of each 4-bar phrase,
+   with only occasional lighter bridging on bar 2 at high density.
+*/
+/* v5.19 Near-Legato Event Policy
+   Visible score events remain authoritative. Adjacent events overlap almost to
+   the next onset, avoiding audible "bar-by-bar" seams without becoming a pad.
+*/
+function nearLegatoDuration(start,nextStart,nominal,voice){
+  const gap=Math.max(0,Number(nextStart)-Number(start));
+  if(!isFinite(gap) || gap<=0) return nominal;
+  const overlap = voice==="Bass" ? .012 : .010;
+  const target=Math.max(0, gap-overlap);
+  return Math.max(Number(nominal)||0, target);
+}
+
+
+/* v5.25 Cello Cell-Bounded Decay:
+   Cello duration is derived only from its own visible score cell.
+   It never extends to the next Cello/Bass event.
+*/
+/* v5.24 Cello Tone Fix:
+   chordPlan contains scale degrees. Convert them to real MIDI notes before playback.
+   Cello uses the chord root one octave below the harmonic root, avoiding sub-audio rumble.
+*/
+function celloFoundationNote(track,chordIndex,fallback){
+  const mode=track?.mode||"D Dorian";
+  const root=mode==="A Minor"?57:mode==="G Minor"?55:62;
+  const scale=scaleFor(mode);
+  const chord=track?.chords?.[chordIndex]||[0];
+  const degree=Number(chord[0]??0);
+  const midi=degreeMidi(root,scale,degree,-1);
+  return isFinite(midi)?clamp(midi,43,60):(Number(fallback)||50);
+}
+
+
+/* v5.26 Tavern Core Theme
+   A complete melodic identity exists even with only a small ensemble.
+   Later chapter progression can reveal additional arrangement layers around this same theme.
+*/
+
+
+function tavernProgressionKey(){
+  const el=document.getElementById("tavernProgressionSelect");
+  return el?.value || "swordsman";
+}
+
+const TAVERN_STAGE_POLICY={
+  swordsman:{
+    instruments:["Piano","Cello"],
+    melody:false,
+    description:"まずは酒場の和音と低い支えだけ。まだ主旋律は姿を見せません。"
+  },
+  mage:{
+    instruments:["Piano","Cello","Flute"],
+    melody:false,
+    description:"魔法使い加入。フルートが加わり、テーマの輪郭が少しずつ見えてきます。"
+  },
+  archer:{
+    instruments:["Piano","Cello","Flute","Harp"],
+    melody:false,
+    description:"弓師加入。ハープが加わり、フルートと合わせて曲の広がりが増します。"
+  },
+  thief:{
+    instruments:["Piano","Cello","Flute","Harp","Guitar","Drums"],
+    melody:false,
+    description:"盗賊加入でギターと軽いリズムが加わり、酒場らしい躍動感が生まれます。"
+  },
+  shadow:{
+    instruments:["Piano","Cello","Flute","Harp","Guitar","Bass","Drums","Viola"],
+    melody:true,
+    description:"影の旅人加入。ヴィオラの主旋律まで現れ、ここが第一章中の完成形です。"
+  },
+  complete:{
+    instruments:["Piano","Cello","Flute","Harp","Guitar","Bass","Drums","Bell","Viola"],
+    melody:true,
+    description:"🎉 第一章クリア後の完成版。ギターが主旋律級に前へ出て、パーカッションとベルも強まり、同じテーマが賑やかな酒場BGMとして完成します。"
+  }
+};
+
+
+function tavernMixLevel(track,instrument,level){
+  const scene=String(track?.scene||track?.bp?.scene||state?.scene||"");
+  if(scene!=="tavern" && scene!=="酒場") return level;
+  const boost={
+    Flute:1.42,
+    Harp:1.58,
+    Guitar:1.12,
+    Drums:1.62,
+    Bass:1.28,
+    Viola:1.10,
+    Cello:1.04,
+    Piano:1.00
+  }[instrument] ?? 1;
+  return level*boost;
+}
+
+function tavernStagePolicy(track){
+  const scene=String(track?.scene||track?.bp?.scene||state?.scene||"");
+  if(scene!=="tavern" && scene!=="酒場") return null;
+  const key=tavernProgressionKey();
+  return TAVERN_STAGE_POLICY[key]||TAVERN_STAGE_POLICY.swordsman;
+}
+function tavernAllows(track,instrument){
+  const p=tavernStagePolicy(track);
+  if(!p) return true;
+  return p.instruments.includes(instrument);
+}
+function tavernMelodyAllowed(track){
+  const p=tavernStagePolicy(track);
+  return !p || !!p.melody;
+}
+function applyTavernProgressionToArrangement(scene,roles,styleLayers){
+  if(scene!=="tavern" && scene!=="酒場") return;
+  const key=tavernProgressionKey();
+  const p=TAVERN_STAGE_POLICY[key]||TAVERN_STAGE_POLICY.swordsman;
+  roles.melody.Viola=p.melody?1:0;
+  roles.melody.Flute=p.instruments.includes("Flute")?.82:0;
+  roles.color.Harp=p.instruments.includes("Harp")?.36:0;
+  roles.color.Bell=p.instruments.includes("Bell")?.18:0;
+  roles.foundation.Bass=p.instruments.includes("Bass")?.34:0;
+  roles.foundation.Cello=p.instruments.includes("Cello")?.64:.34;
+  styleLayers.guitar=p.instruments.includes("Guitar")?(key==="complete"?.92:.42):0;
+  styleLayers.drums=p.instruments.includes("Drums")?(key==="complete"?.76:.20):0;
+  styleLayers.bassDrive=p.instruments.includes("Bass")?(key==="complete"?.26:.18):0;
+  styleLayers.synth=0;
+  styleLayers.pluck=0;
+  styleLayers.keys=0;
+  styleLayers.piano=p.instruments.includes("Piano")?.55:0;
+}
+
+const TAVERN_PROGRESSIVE_ARRANGEMENT = {
+  swordsman:{label:"剣士加入", instruments:["Piano","Cello"], description:"🎹 ピアノ＋🎻 チェロ — 和音と低い支え。主旋律はまだ出さない。"},
+  mage:{label:"魔法使い加入（第2段階）", instruments:["Piano","Cello","Flute"], description:"🎹 ピアノ＋🎻 チェロ＋🪈 フルート — フルートが加わり、テーマの輪郭が見え始める。"},
+  archer:{label:"弓師加入（第3段階）", instruments:["Piano","Cello","Flute","Harp"], description:"🎹 ピアノ＋🎻 チェロ＋🪈 フルート＋🪕 ハープ — ハープが加わり、曲に広がりが出る。"},
+  thief:{label:"盗賊加入（第4段階）", instruments:["Piano","Cello","Flute","Harp","Guitar","Drums"], description:"🎹 ピアノ＋🎻 チェロ＋🪈 フルート＋🪕 ハープ＋🎸 アコースティックギター＋🥁 軽いリズム — 酒場らしい躍動感。"},
+  shadow:{label:"影の旅人加入（第5段階）", instruments:["Piano","Cello","Flute","Harp","Guitar","Bass","Drums","Viola"], description:"🎹 ピアノ＋🎻 チェロ＋🪈 フルート＋🪕 ハープ＋🎸 ギター＋🎸 ベース＋🥁 リズム＋🎻 ヴィオラ主旋律 — 第一章中の完成形。"},
+  complete:{label:"第一章クリア後・完成版（第6段階）", instruments:["Piano","Cello","Flute","Harp","Guitar","Bass","Drums","Bell","Viola"], description:"🎉 第一章クリア後。ギターとドラムを大幅強化し、同じテーマを賑やかな完成版として仕上げる。"}
+};
+
+function tavernProgressionForScene(sceneId){
+  if(sceneId!=="tavern" && sceneId!=="酒場") return null;
+  const el = document.getElementById("tavernProgressionSelect");
+  return TAVERN_PROGRESSIVE_ARRANGEMENT[el?.value || "swordsman"];
+}
+
+function updateTavernProgressionUI(){
+  const sceneId = state?.scene || "";
+  const box = document.getElementById("tavernProgression");
+  if(!box) return;
+  const visible = sceneId==="tavern" || sceneId==="酒場";
+  box.style.display = visible ? "" : "none";
+  if(!visible) return;
+  const key = document.getElementById("tavernProgressionSelect")?.value || "swordsman";
+  const p = TAVERN_PROGRESSIVE_ARRANGEMENT[key] || TAVERN_PROGRESSIVE_ARRANGEMENT.swordsman;
+  const d = document.getElementById("tavernProgressionDescription");
+  if(d && p) d.textContent = p.description;
+  const sel = document.getElementById("tavernProgressionSelect");
+  if(sel && p) sel.setAttribute("aria-label", p.label + " / " + p.instruments.join("・"));
+}
+
+const TAVERN_CORE_PROFILE={
+  tempo:95,
+  mode:"D Major",
+  coreInstruments:["Viola","Cello","Piano"],
+  mood:"bright-wistful-warm-safe",
+  rhythm:"gentle-forward-sway",
+  progression:["I","V","vi","IV"],
+  development:"A-A'-B-A2",
+  identity:"companions-gather"
+};
+
+function tavernCoreIntent(track){
+  const scene=String(track?.sceneId||track?.scene||"");
+  if(scene!=="tavern" && scene!=="酒場") return null;
+  return TAVERN_CORE_PROFILE;
+}
+
+
+function applyTavernSceneIntent(intent, sceneId){
+  if(!isTavernScene(sceneId)) return intent;
+  const base=Object.assign({}, intent||{});
+  base.scene="tavern";
+  base.tavernCore=true;
+  base.coreInstruments=["Viola","Cello","Piano"];
+  base.mood=base.mood||"wistful-warm-safe";
+  base.mode=base.mode||"D Major";
+  base.rhythm=base.rhythm||"gentle-sway";
+  base.progression=base.progression||["i7","IV7","v7","i7"];
+  base.development=base.development||"A-A'-B-A2";
+  return base;
+}
+function isTavernTrack(track){
+  const scene=String(track?.scene||track?.sceneId||track?.bp?.scene||state?.scene||"");
+  return scene==="tavern" || scene==="酒場";
+}
+
+
+function tavernGuitarVoicing(track,bar){
+  const root=62, scale=scaleFor("D Major");
+  const chordList=track?.chords||[[0,2,4],[4,6,1],[5,0,2],[3,5,0]];
+  const chord=chordList[(bar%4)]||[0,2,4];
+  const base=degreeMidi(root,scale,chord[0]??0,0);
+  const third=degreeMidi(root,scale,chord[1]??2,0);
+  const fifth=degreeMidi(root,scale,chord[2]??4,0);
+
+  // Keep the same harmonic material as the tavern Viola/chord plan.
+  // The top note is deliberately kept below the main Viola register.
+  let notes=[base-12,fifth-12,base,third,fifth];
+
+  // Avoid semitone rubs against the actual Viola notes in this bar.
+  const phrase=track?.phrase||[];
+  const start=Math.min(bar*2,Math.max(0,phrase.length-1));
+  const end=Math.min(start+2,phrase.length);
+  const melody=[];
+  for(let i=start;i<end;i++){
+    const n=Number(phrase[i]?.n);
+    if(Number.isFinite(n))melody.push(n);
+  }
+  notes=notes.map(n=>{
+    let x=n;
+    for(const m of melody){
+      if(Math.abs(x-m)===1)x-=12;
+    }
+    return x;
+  });
+  return notes;
+}
+
+
+function tavernFinalFluteHarmonyNote(note,track){
+  const root=62;
+  const scale=scaleFor("D Major");
+  const n=Number(note);
+  if(!Number.isFinite(n)) return n;
+  // Find the melody note's nearest D-major scale degree, then move
+  // two scale degrees upward: a consonant diatonic 3rd.
+  let best=n, bestD=999, bestIdx=0;
+  for(let oct=-2;oct<=2;oct++){
+    for(let i=0;i<scale.length;i++){
+      const q=root+scale[i]+12*oct;
+      const d=Math.abs(q-n);
+      if(d<bestD){best=q;bestD=d;bestIdx=oct*scale.length+i;}
+    }
+  }
+  let targetIdx=bestIdx+2;
+  const octave=Math.floor(targetIdx/scale.length);
+  const degree=((targetIdx%scale.length)+scale.length)%scale.length;
+  let harmony=root+scale[degree]+12*octave;
+  // Keep the completed-version flute comfortably above the viola,
+  // without jumping into an excessively high register.
+  while(harmony<=n) harmony+=12;
+  while(harmony-n>12) harmony-=12;
+  return harmony;
+}
+
+function buildTruthScore(t){
+ const tm=scoreTiming(t),sec=tm.sec,events=[];
+ const add=(instrument,index,start,duration,n,level,kind="note",editable=true)=>{
+  const percussion=instrument==="Drums" && (kind==="kick"||kind==="snare"||kind==="hat");
+  if(n==null && kind!=="rest" && !percussion)return;
+  events.push({instrument,index,start,duration,n,level,kind,editable,rest:kind==="rest"});
+ };
+ const style=t.arrangement?.style||{},phrase=t.phrase||[],bass=t.bass||[];
+ phrase.forEach((x,i)=>{
+  if(!x||x.n==null)return;
+  const st=tm.eventStart(i),section=loopSectionAt(i),density=[.92,1.00,1.16,.78][section]??1;
+  if(x.rest){
+   if(tavernAllows(t,"Viola") && tavernMelodyAllowed(t)) add("Viola",i,st,Math.max(.06,sec*.42),null,.01,"rest",false);
+   if(tavernAllows(t,"Flute")){
+    if(isTavernTrack(t) && tavernProgressionKey()==="complete") add("Flute",i,st,Math.max(.06,sec*.42),null,.01,"rest",false);
+    else if(i%4===1) add("Flute",i,st,Math.max(.06,sec*.28),null,.01,"rest",false);
+   }
+   if(tavernAllows(t,"Harp") && i%4===3) add("Harp",i,st,Math.max(.06,sec*.28),null,.01,"rest",false);
+   return;
+  }
+  if(tavernAllows(t,"Viola") && tavernMelodyAllowed(t) && i%2===0&&density>.55 && !x.rest){
+   const next=phrase[i+1]||phrase[i+2];
+   const nextSt=next?tm.eventStart(Math.min(i+2,phrase.length-1)):st+sec*x.d;
+   const sustainEnd=Math.max(st+sec*x.d*.92,nextSt-sec*.04);
+   const melodyDur=Math.min(Math.max(sec*.55,sustainEnd-st),sec*3.2);
+   add("Viola",i,st,melodyDur,x.n,.075*density*arrangementWeight(t,"Viola",section),"melody");
+  }
+  if(tavernAllows(t,"Flute") && !x.rest && density>.65){
+   if(isTavernTrack(t) && tavernProgressionKey()==="complete"){
+    const fluteNote=tavernFinalFluteHarmonyNote(x.n,t);
+    const fluteDur=Math.min(sec*3.2,Math.max(sec*.55,sec*x.d*.92));
+    add("Flute",i,st,fluteDur,fluteNote,tavernMixLevel(t,"Flute",.050*density*arrangementWeight(t,"Flute",section)),"harmony");
+   }else if(i%4===1){
+    const a=phrase[Math.max(0,i-1)];
+    const fluteDur=Math.min(sec*1.20,Math.max(sec*.95,sec*x.d*1.65));
+    add("Flute",i,st+.015,fluteDur,(a?.n??x.n)+12,tavernMixLevel(t,"Flute",.055*density*(section===2?1.10:section===3?.92:1)*arrangementWeight(t,"Flute",section)),"response");
+   }
+  }
+  if(tavernAllows(t,"Harp") && i%4===3&&density>.65 && !x.rest){const chordIndex=Math.min((t.chords?.length||1)-1,Math.floor(i/8));const chord=t.chords?.[chordIndex]||[0];const degree=Number(chord[(Math.floor(i/4)%2)?1:0]??chord[0]??0);const root=String(t.mode||"")==="A Minor"?57:String(t.mode||"")==="G Minor"?55:String(t.mode||"")==="D Major"?62:62;const scale=scaleFor(t.mode||"D Major");const harpNote=clamp(degreeMidi(root,scale,degree,1),60,84);add("Harp",i,st,Math.min(sec*x.d*.92,sec*1.8),harpNote,tavernMixLevel(t,"Harp",.032*density*(section===2?1.22:section===3?.72:1)*arrangementWeight(t,"Harp",section)),"ornament");}
+  if(tavernAllows(t,"Bell") && [0,7,12,32,39,44,48,55,60,64,71,76].includes(i)&&density>.75 && !x.rest)add("Bell",i,st,Math.min(2,sec*2.2),x.n+12,.028*density*arrangementWeight(t,"Bell",section),"accent");
+ });
+ bass.forEach((x,i)=>{
+  if(!x||x.n==null)return;
+  const st=tm.eventStart(Math.min(x.m,phrase.length-1));
+  // Keep playback and score one-to-one.
+  if(tavernAllows(t,"Bass")) add("Bass",i,st,Math.min(sec*x.d*.94,sec*1.6),x.n,tavernMixLevel(t,"Bass",.078*arrangementWeight(t,"Bass",i)),"bass");
+  if(tavernAllows(t,"Cello") && (Number(x.m)||0)%8===0){const chordIndex=Math.floor((Number(x.m)||0)/8),tone=celloFoundationNote(t,chordIndex,x.n);const nextBass=bass[i+1];
+   const nextBassSt=nextBass?tm.eventStart(Math.min(nextBass.m,phrase.length-1)):st+sec*x.d;
+   const celloDur=Math.max(.12,sec*x.d*.90);
+   add("Cello",Number(x.m)||i,st,celloDur,tone,tavernMixLevel(t,"Cello",.085*arrangementWeight(t,"Cello",i)),"foundation");}
+ });
+ // Genre/style layers — every audible layer is represented in the score.
+ const styleId=style.id||t.bp.style?.id||"fantasy";
+ if(tavernAllows(t,"Keyboard") && style.pluck>.05) for(let i=0;i<16;i+=2){const x=phrase[i%phrase.length];if(x?.n!=null)add("Keyboard",i,i*1.03*sec,Math.min(sec*.28,sec*x.d*.45),x.n+12,.020*style.pluck,"pluck",false);}
+ if(tavernAllows(t,"Keyboard") && style.synth>.05) for(let i=0;i<8;i++){const x=phrase[(i*4+1)%phrase.length];if(x?.n!=null)add("Keyboard",i,tm.eventStart(i*4),sec*.72,x.n+12,.018*style.synth,"synth",false);}
+ if(tavernAllows(t,"Bass") && style.bassDrive>.05) for(let i=0;i<8;i++){const x=bass[i%Math.max(1,bass.length)];if(x)add("Bass",i,tm.eventStart(i*4),sec*.62,x.n,.022*style.bassDrive,"style-bass",false);}
+ if(tavernAllows(t,"Piano") && style.piano>.05) for(let i=0;i<Math.ceil(tm.barCount/2);i++){const idx=i*4;const x=phrase[idx%phrase.length];if(x?.n!=null){const st=tm.eventStart(idx);const pianoDur=Math.min(sec*1.80,Math.max(sec*1.45,sec*x.d*2.20));add("Piano",i,st,pianoDur,x.n,.060*style.piano,"piano",false);if(i%2===1)add("Piano",i,st,Math.min(sec*1.45,Math.max(sec*1.15,sec*x.d*1.80)),x.n-12,.034*style.piano,"piano-low",false);}}
+ if(tavernAllows(t,"Keyboard") && style.keys>.05) for(let i=0;i<8;i++){const x=phrase[(i*4+1)%phrase.length];if(x?.n!=null)add("Keyboard",i,tm.eventStart(i*4),sec*.78,x.n+12,.042*style.keys,"keys",false);}
+ if(tavernAllows(t,"Guitar") && (style.guitar>.05 || (isTavernTrack(t) && tavernProgressionKey()==="complete"))){
+  const guitarLead=tavernProgressionKey()==="complete" && isTavernTrack(t);
+  if(guitarLead){
+   // FINAL TAVERN: one slow, full acoustic-guitar strum per bar.
+   // The chord follows the same four-bar harmonic phrase as the main theme.
+   const root=62, scale=scaleFor("D Major");
+   const chordList=t.chords||[[0,2,4],[4,6,1],[5,0,2],[3,5,0]];
+   for(let i=0;i<phrase.length;i+=2){
+    const x=phrase[i];
+    if(!x || x.rest || x.n==null) continue;
+    const bs=tm.eventStart(i);
+    const next=phrase[i+1]||phrase[i+2];
+    const nextSt=next?tm.eventStart(Math.min(i+2,phrase.length-1)):bs+sec*x.d;
+    const sustainEnd=Math.max(bs+sec*x.d*.92,nextSt-sec*.04);
+    const guitarDur=Math.min(Math.max(sec*.55,sustainEnd-bs),sec*3.2);
+    const voicing=tavernGuitarVoicing(t,Math.floor(i/2));
+    const level=.039*Math.max(.9,style.guitar||0);
+    add("Guitar",i,bs,guitarDur,voicing,tavernMixLevel(t,"Guitar",level),"guitar-strum",false);
+   }
+  }else{
+   // Chapter 1: keep the guitar as a lighter accompaniment.
+   for(let bar=0;bar<tm.barCount;bar+=2){const idx=bar*2;const x=phrase[idx%phrase.length];if(x?.n!=null){const actual=tm.eventStart(idx);add("Guitar",bar,actual,sec*.34,x.n,.030*style.guitar,"guitar",false);}}
+  }
+ }
+ // FINAL TAVERN: strong drum kit, with a clearly visible kick/snare/hat pattern.
+ if(tavernAllows(t,"Drums") && tavernProgressionKey()==="complete" && isTavernTrack(t)){
+  for(let bar=0;bar<tm.barCount;bar++){
+   const bs=tm.eventStart(Math.min(bar*2,phrase.length-1));
+   const be=bar<15?tm.eventStart(Math.min((bar+1)*2,phrase.length-1)):bs+2*sec;
+   const barDur=Math.max(.28,be-bs);
+   add("Drums",bar*2,bs,.16,null,.072*style.drums,"kick",false);
+   add("Drums",bar*2+1,bs+barDur*.50,.12,null,.050*style.drums,"snare",false);
+  }
+ }
+ return {events,timing:tm};
+}
+function phraseGap(t){return scoreTiming(t).gap||0}
+
+
+function renderCellVolumeControl(track,event){
+ const box=$("scoreCellVolume");
+ if(!box)return;
+ if(!event){box.innerHTML="<b>セル音量</b><span>セルを選択してください</span>";return;}
+ const fixed=event.instrument==="Bass";
+ const value=cellVolume(track,event.instrument,event.index,event.kind);
+ box.innerHTML=`<b>${event.instrument}</b><input id="cellVolumeSlider" type="range" min="35" max="200" value="${Math.round(value*100)}" ${fixed?"disabled":""}><span class="score-cell-volume-value">${fixed?"100":Math.round(value*100)}%</span>`;
+ const slider=$("cellVolumeSlider");
+ if(slider&&!fixed){
+  slider.oninput=()=>{
+   const v=slider.value/100;
+   setCellVolume(track,event.instrument,event.index,event.kind,v);
+   box.querySelector(".score-cell-volume-value").textContent=slider.value+"%";
+  };
+ }
+}
+
+function buildScoreTimeline(track){
+ const grid=$("scoreGrid");if(!grid||!track)return;
+ const truth=buildTruthScore(track);
+ const rows=["Viola","Flute","Cello","Bass","Harp","Bell","Piano","Keyboard","Guitar","Drums"];
+ const by={};rows.forEach(r=>by[r]=[]);
+ truth.events.forEach(e=>{if(by[e.instrument])by[e.instrument].push(e)});
+ const total=Math.max(.01,truth.timing.total);
+ let html='<div class="score-axis"><div class="score-axis-label">小節</div><div class="score-axis-track">';
+ truth.timing.bars.forEach((t,b)=>{
+   const left=t/total*100;
+   html+=`<span style="left:${left}%">${b+1}</span>`;
+ });
+ html+='</div></div>';
+
+ rows.forEach(name=>{
+   let bars="";
+   by[name].forEach((e,k)=>{
+     const left=e.start/total*100;
+     const width=Math.max(.55,e.duration/total*100);
+     bars+=`<button type="button" class="score-bar editable ${e.rest?"rest":""} ${e.kind==="guitar-strum"?"guitar-strum":""}" data-instrument="${name}" style="left:${left}%;width:${Math.min(10,width)}%" data-row="${name}" data-event="${k}" data-index="${e.index}" aria-label="${name} 音符"></button>`;
+   });
+   html+=`<div class="score-row"><div class="score-label">${name}</div><div class="score-lane">${bars}</div></div>`;
+ });
+ grid.innerHTML=html;
+
+ grid.querySelectorAll("[data-row]").forEach(b=>b.onclick=()=>{
+   const row=b.dataset.row;
+   const event=by[row][Number(b.dataset.event)];
+   if(!event)return;
+   if(event.rest){
+    scoreSelected={row,index:event.index};
+    grid.querySelectorAll(".score-bar.selected").forEach(x=>x.classList.remove("selected"));
+    b.classList.add("selected");
+    $("scoreNote").textContent=`${row} / 休符 / ${event.index+1}音目`;
+    return;
+   }
+   scoreSelected={row,index:event.index};
+   grid.querySelectorAll(".score-bar.selected").forEach(x=>x.classList.remove("selected"));
+   b.classList.add("selected");
+   updateScoreEditor(track);
+   renderCellVolumeControl(track,event);
+   $("scoreNote").textContent=`${row} / ${event.kind} / ${event.index+1}音目`+(scoreTapPreview?" / 試聴":"");
+   if(scoreTapPreview)previewScoreEvent(event);
+ });
+}
+
+function previewScoreEvent(e){
+ ensureAudio();
+ const room=makeRoom(.06);
+ const now=audioCtx.currentTime+.025;
+ const dur=Math.min(.36,Math.max(.12,e.duration));
+ const previewBase=e.instrument==="Cello"?.105:(e.level||.07); const level=Math.max(.055,Math.min(.14,previewBase*cellVolume(state.track,e.instrument,e.index,e.kind)));
+ if(e.instrument==="Drums"){
+   makeDrumHit(now,Math.min(.035,level),room,e.kind==="kick"?"kick":"snare");
+   return;
+ }
+ if(e.instrument==="Piano"){makePiano(e.n,now,dur,Math.max(.10,level),room);return}
+ if(e.instrument==="Keyboard"){makeKeyboard(e.n,now,dur,Math.max(.075,level),room,"keys");return}
+ if(e.instrument==="Guitar"){
+   if(e.kind==="guitar-strum"){
+    const voicing=tavernGuitarVoicing(state.track,e.index||0);
+    makeAcousticGuitarStrum(voicing,now,dur,Math.max(.075,level),room,"down");
+   }else makeAcousticGuitar(e.n,now,dur,Math.max(.065,level),room);
+   return;
+ }
+ makeVoice(e.instrument,e.n,now,dur,level,room,.2);
+}
+
+function updateScoreEditor(track){
+ const ed=$("scoreEditor");if(!ed)return;
+ const arr=selectedPhraseArray(track,scoreSelected.row);
+ const x=arr?.[scoreSelected.index];
+ if(!x)return;
+ ed.classList.toggle("show",scoreEditMode);
+ $("editStep").value=scoreSelected.index+1;
+ $("editDuration").value=Number(x.d||.4).toFixed(2);
+ const names=noteNames();
+ let closest=names[0],best=999;
+ names.forEach(name=>{const d=Math.abs(midiFromName(name)-x.n);if(d<best){best=d;closest=name}});
+ $("editPitch").value=closest;
+}
+function initScoreEditing(){
+ $("scoreEditToggle").onclick=()=>{
+  scoreEditMode=!scoreEditMode;
+  $("scoreEditToggle").classList.toggle("active",scoreEditMode);
+  if(state.track)updateScoreEditor(state.track);
+ };
+ $("scoreEditPlay").onclick=()=>{
+  scoreTapPreview=!scoreTapPreview;
+  $("scoreEditPlay").classList.toggle("active",scoreTapPreview);
+  $("scoreEditPlay").textContent=scoreTapPreview?"🔊 セル試聴 ON":"🔊 セル試聴 ON";
+ }; $("scoreApplyEdit").onclick=()=>{
+  const t=state.track;if(!t)return;
+  const arr=selectedPhraseArray(t,scoreSelected.row),idx=Math.max(0,Math.min(79,Number($("editStep").value)-1));
+  const x=arr?.[idx];if(!x)return;
+  x.n=midiFromName($("editPitch").value);
+  x.d=Math.max(.05,Math.min(2.5,Number($("editDuration").value)||.4));
+  x.rest=false;
+  scoreSelected.index=idx;
+  buildScoreTimeline(t);updateScoreEditor(t);
+  renderResult();renderEdit();
+ };
+ $("scoreDeleteNote").onclick=()=>{
+  const t=state.track;if(!t)return;
+  const arr=selectedPhraseArray(t,scoreSelected.row),x=arr?.[scoreSelected.index];
+  if(!x)return;
+  x.rest=true;
+  buildScoreTimeline(t);updateScoreEditor(t);
+ };
+ $("scoreEditReset").onclick=()=>{
+  if(!state.track)return;
+  const fresh=makeTrack();
+  state.track=fresh;
+  renderResult();renderEdit();
+ };
+}
+
+function renderEdit(){
+ const t=state.track;if(!t)return;
+ $("editTitle").textContent=t.title;$("blueprintSummary").textContent=`${t.bp.mode} / ${t.bp.tempo} BPM / ${t.bp.style?.name||"ファンタジー・アンサンブル"} / 1 LOOP: テーマ → 展開 → 盛り上がり → 回帰 / A → A′ → B → A″ / モチーフ再利用 / コードトーン中心 / ベース ${Math.round(t.bp.bass*100)}%`;
+ buildScoreTimeline(t);
+ renderLoopStructure(t);
+ $("melodyGrid").innerHTML=t.phrase.map(x=>`<div class="cell ${x.n==null?"rest":"on"}">${x.n==null?"":`<span class="note">${noteName(x.n)}${x.d>1?" —":""}</span>`}</div>`).join("");
+ $("mixer").innerHTML=Object.entries(t.instruments).map(([k,v])=>`<div class="instrument"><b>${k}</b><div class="meter"><i style="width:${Math.round(v*100)}%"></i></div><span>${Math.round(v*100)}%</span></div>`).join("");
+ $("exportTitle").textContent=t.title;$("exportInfo").textContent=`${t.bp.mode} / ${t.bp.tempo} BPM / 1 LOOP 40小節 / テーマ→展開→盛り上がり→回帰 / A→A′→B→A″ / モチーフ再利用 / 4コード / スタイル適応`;
+}
+function generate(){state.prompt=$("prompt").value;state.track=makeTrack();renderResult();renderEdit();renderSceneList();showPage("create")}
+function applyRevision(){
+ const rev=$("revision").value.trim();if(!rev)return;
+ $("prompt").value=(state.track?.text||$("prompt").value)+"\n修正指示："+rev;
+ generate();showPage("edit");$("revision").value="";
+}
+function renderSceneList(){
+ $("sceneList").innerHTML=SCENES.filter(s=>s.id!=="custom").map(s=>`<div class="card"><div class="row"><div><div class="result-title">${s.name}</div><div class="mini">${s.desc}</div></div><button class="secondary" data-load="${s.id}">この場面を作る</button></div></div>`).join("");
+ document.querySelectorAll("[data-load]").forEach(b=>b.onclick=()=>{state.scene=b.dataset.load;$("prompt").value=sceneDefaults[state.scene];generate()})
+}
+$("example").onclick=()=>{
+  const sceneId=state.scene||"mansion";
+  const exampleText=sceneDefaults[sceneId]||sceneDefaults.mansion;
+  $("prompt").value=exampleText;
+  $("prompt").dispatchEvent(new Event("input",{bubbles:true}));
+  $("prompt").focus();
+}
+$("generate").onclick=generate;$("regenerate").onclick=generate;$("applyRevision").onclick=applyRevision;
+$("next").onclick=()=>showPage("edit");$("back").onclick=()=>showPage("create");$("stop").onclick=stopAudio;$("play").onclick=()=>state.playing?stopAudio():playTrack();
+
+function ensureAudio(){
+ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+ if(audioCtx.state==="suspended") audioCtx.resume();
+}
+function makeRoom(reverb){
+ const master=audioCtx.createGain();
+ master.gain.value=.88;
+ master.connect(audioCtx.destination);
+ const wet=audioCtx.createGain();
+ wet.gain.value=reverb;
+ const con=audioCtx.createConvolver();
+ const len=Math.floor(audioCtx.sampleRate*.65);
+ const b=audioCtx.createBuffer(2,len,audioCtx.sampleRate);
+ for(let ch=0;ch<2;ch++){
+  const d=b.getChannelData(ch);
+  for(let i=0;i<len;i++){
+   const x=i/len;
+   d[i]=(Math.random()*2-1)*Math.pow(1-x,3.2)*.12;
+  }
+ }
+ con.buffer=b;wet.connect(con).connect(master);
+ return {master,wet};
+}
+
+function makeStylePulse(start,dur,level,room,kind="kick"){
+ const osc=audioCtx.createOscillator(), gain=audioCtx.createGain(), filter=audioCtx.createBiquadFilter();
+ const now=start;
+ osc.type=kind==="hat"?"square":"sine";
+ if(kind==="kick"){
+  osc.frequency.setValueAtTime(110,now);
+  osc.frequency.exponentialRampToValueAtTime(48,now+Math.min(.12,dur*.65));
+  filter.frequency.value=180;
+ }else if(kind==="snare"){
+  osc.type="triangle"; osc.frequency.setValueAtTime(180,now); filter.frequency.value=1500;
+ }else{
+  osc.frequency.setValueAtTime(5200,now); filter.type="highpass"; filter.frequency.value=3000;
+ }
+ osc.connect(filter).connect(gain).connect(room.master);
+ gain.gain.setValueAtTime(.0001,now);
+ gain.gain.linearRampToValueAtTime(level,now+.004);
+ gain.gain.exponentialRampToValueAtTime(.0001,now+Math.max(.025,dur));
+ osc.start(now);osc.stop(now+Math.max(.04,dur)+.02);
+ return osc;
+}
+function makeStyleBass(n,start,dur,level,room){
+ return makeVoice("Bass",n,start,dur,level,room,.15);
+}
+function makeStylePluck(n,start,dur,level,room,depth){
+ const f=440*Math.pow(2,(n-69)/12);
+ const osc=audioCtx.createOscillator(), osc2=audioCtx.createOscillator();
+ const gain=audioCtx.createGain(), filter=audioCtx.createBiquadFilter(), pan=audioCtx.createStereoPanner();
+ osc.type="square"; osc2.type="triangle";
+ osc.frequency.setValueAtTime(f,start); osc2.frequency.setValueAtTime(f*2,start);
+ filter.type="lowpass"; filter.frequency.setValueAtTime(2200,start);
+ pan.pan.value=.08*depth;
+ osc.connect(filter);osc2.connect(filter);filter.connect(gain).connect(pan).connect(room.master);
+ gain.gain.setValueAtTime(.0001,start);
+ gain.gain.linearRampToValueAtTime(level,start+.006);
+ gain.gain.exponentialRampToValueAtTime(.0001,start+Math.max(.06,dur));
+ osc.start(start);osc2.start(start);
+ osc.stop(start+Math.max(.08,dur)+.02);osc2.stop(start+Math.max(.08,dur)+.02);
+ return [osc,osc2];
+}
+
+
+
+
+function envGain(start,dur,peak,attack=.005,release=.12){
+ const g=audioCtx.createGain();
+ g.gain.setValueAtTime(.0001,start);
+ g.gain.linearRampToValueAtTime(peak,start+attack);
+ g.gain.exponentialRampToValueAtTime(Math.max(.0001,peak*.55),start+attack+Math.max(.025,dur*.12));
+ g.gain.exponentialRampToValueAtTime(.0001,start+Math.max(attack+.04,dur+release));
+ return g;
+}
+
+/* v5.17 Ensemble Decay:
+   Every audible note still has a visible score event.
+   Long bodies come from instrument-specific release tails, not hidden background layers.
+   Viola/Cello carry the sustained bed; Flute responds; Harp punctuates.
+*/
+function makePiano(n,start,dur,level,room){
+ level=calibratedLevel("Piano",level);
+ const f=440*Math.pow(2,(n-69)/12);
+ const out=audioCtx.createGain();
+ const body=audioCtx.createBiquadFilter();
+ body.type="lowpass";
+ body.frequency.value=Math.max(1800,Math.min(6200,1800+f*7));
+ body.Q.value=.45;
+ body.connect(out).connect(room.master);
+
+ // Hammer / felt transient.
+ const click=audioCtx.createBufferSource();
+ const cb=audioCtx.createBuffer(1,Math.ceil(audioCtx.sampleRate*.035),audioCtx.sampleRate);
+ const cd=cb.getChannelData(0);
+ for(let i=0;i<cd.length;i++) cd[i]=(Math.random()*2-1)*Math.exp(-i/(cd.length*.10));
+ click.buffer=cb;
+ const cf=audioCtx.createBiquadFilter();cf.type="bandpass";cf.frequency.value=Math.min(4800,1200+f*4);cf.Q.value=.8;
+ const cg=envGain(start,.025,level*.045,.001,.025);
+ click.connect(cf).connect(cg).connect(room.master);click.start(start);click.stop(start+.04);
+
+ // Inharmonic piano partials.
+ const partials=[
+  [1.000,.82,"triangle",1.00],
+  [2.003,.29,"sine",.82],
+  [3.009,.13,"sine",.64],
+  [4.020,.065,"sine",.48],
+  [5.040,.030,"sine",.35],
+  [6.070,.015,"sine",.24]
+ ];
+ partials.forEach(([mul,g,type,decay],i)=>{
+  const o=audioCtx.createOscillator();
+  const eg=envGain(start,dur,level*g,.004,Math.max(.16,dur*.68*decay));
+  o.type=type;
+  o.frequency.value=f*mul*(1+(f>1200?i*.0008:0));
+  o.connect(eg).connect(body);
+  o.start(start);o.stop(start+Math.max(.35,dur+.8)+.08);
+ });
+}
+
+function makeKeyboard(n,start,dur,level,room,kind="keys"){
+ level=calibratedLevel("Keyboard",level);
+ const f=440*Math.pow(2,(n-69)/12);
+ const out=audioCtx.createGain();
+ const filter=audioCtx.createBiquadFilter();
+ filter.type="lowpass";
+ filter.frequency.value=kind==="organ"?2400:kind==="synth"?4200:3000;
+ filter.Q.value=kind==="synth"?1.25:.55;
+ filter.connect(out).connect(room.master);
+
+ const specs=kind==="organ"
+  ? [[1,.64],[2,.28],[3,.17],[4,.10],[6,.055],[8,.025]]
+  : kind==="synth"
+  ? [[1,.52],[.997,.18],[2,.18],[3,.08],[4,.035]]
+  : [[1,.68],[2,.22],[3,.09],[4,.035]];
+
+ specs.forEach(([mul,g],i)=>{
+  const o=audioCtx.createOscillator();
+  const eg=envGain(start,dur,level*g,.012,kind==="organ"?Math.max(.42,dur*.72):Math.max(.26,dur*.34));
+  o.type=kind==="organ"?"sine":(i===0?"sawtooth":"triangle");
+  o.frequency.value=f*mul;
+  o.connect(eg).connect(filter);
+  o.start(start);o.stop(start+Math.max(.40,dur+.45)+.08);
+ });
+}
+
+function guitarStringModel(n,start,dur,level,room,electric=false){
+ level=calibratedLevel("Guitar",level);
+ const f=440*Math.pow(2,(n-69)/12);
+ const out=audioCtx.createGain();
+ const body=audioCtx.createBiquadFilter();
+ body.type=electric?"bandpass":"peaking";
+ body.frequency.value=electric?1500:1850;
+ body.Q.value=electric?.8:.72;
+ if(!electric) body.gain.value=5.5;
+ body.connect(out).connect(room.master);
+ if(!electric){
+   const sr=audioCtx.sampleRate;
+   const seconds=Math.min(1.55,Math.max(.78,dur+.62));
+   const len=Math.floor(sr*seconds);
+   const period=Math.max(2,Math.round(sr/f));
+   const data=new Float32Array(len);
+   const ring=new Float32Array(period+2);
+   for(let i=0;i<ring.length;i++) ring[i]=(Math.random()*2-1)*Math.exp(-i/(sr*.0018));
+   let idx=0;
+   for(let i=0;i<len;i++){
+     if(i<Math.floor(sr*.010)) data[i]+=(Math.random()*2-1)*Math.exp(-i/(sr*.0028))*.24;
+     const a=ring[idx],b=ring[(idx+1)%ring.length];
+     ring[idx]=(a+b)*.5*.996;
+     idx=(idx+1)%ring.length;
+     data[i]+=a*Math.exp(-i/(sr*.72));
+   }
+   const src=audioCtx.createBufferSource();
+   const buf=audioCtx.createBuffer(1,len,sr);
+   buf.getChannelData(0).set(data); src.buffer=buf;
+   const eg=envGain(start,seconds,level,.0015,Math.max(.48,dur*.38));
+   src.connect(eg).connect(body); src.start(start); src.stop(start+seconds+.02);
+ }else{
+   const partials=[[1,"sawtooth",.58],[2.01,"triangle",.16],[3.01,"triangle",.07],[4.02,"sine",.025]];
+   partials.forEach(([mul,type,g])=>{const o=audioCtx.createOscillator();const eg=envGain(start,dur,level*g,.002,.22);o.type=type;o.frequency.value=f*mul;o.connect(eg).connect(body);o.start(start);o.stop(start+Math.max(.22,dur+.35)+.08);});
+ }
+ const click=audioCtx.createBufferSource();
+ const clen=Math.ceil(audioCtx.sampleRate*.018);
+ const cb=audioCtx.createBuffer(1,clen,audioCtx.sampleRate),cd=cb.getChannelData(0);
+ for(let i=0;i<clen;i++) cd[i]=(Math.random()*2-1)*Math.exp(-i/(clen*.13));
+ click.buffer=cb;
+ const cf=audioCtx.createBiquadFilter();cf.type="bandpass";cf.frequency.value=electric?1750:3000;cf.Q.value=.7;
+ const cg=envGain(start,.020,level*(electric?.055:.075),.0008,.020);
+ click.connect(cf).connect(cg).connect(room.master); click.start(start); click.stop(start+clen/audioCtx.sampleRate+.004);
+}
+function makeElectricGuitar(n,start,dur,level,room){
+ const drive=audioCtx.createWaveShaper();
+ const curve=new Float32Array(512);
+ for(let i=0;i<curve.length;i++){
+  const x=i*2/curve.length-1;
+  curve[i]=Math.tanh(2.7*x);
+ }
+ drive.curve=curve;drive.oversample="4x";
+ const f=440*Math.pow(2,(n-69)/12);
+ guitarStringModel(n,start,dur,level,room,true);
+}
+
+function makeAcousticGuitar(n,start,dur,level,room){
+ // Acoustic guitar is intentionally string-only here. The old triangle body oscillator
+ // made the chord sound like a piano/synth. The plucked-string model already contains
+ // the pick transient, harmonic decay, and wooden body resonance.
+ guitarStringModel(n,start,dur,level,room,false);
+}
+
+// Tavern full-strum: one visible score event represents a real multi-string chord stroke.
+function makeAcousticGuitarStrum(notes,start,dur,level,room,direction="down"){
+ const list=(notes||[]).filter(Number.isFinite);
+ if(!list.length)return;
+ const order=direction==="up"?list.slice().reverse():list.slice();
+ const spread=Math.min(.085,Math.max(.040,dur*.22));
+ order.forEach((n,i)=>{
+   const offset=(i/(Math.max(1,order.length-1)))*spread;
+   const accent=(i===0||i===order.length-1)?1.05:.82;
+   makeAcousticGuitar(n,start+offset,Math.max(.42,dur*.96),level*accent,room);
+ });
+}
+function makeDrumHit(start,level,room,type="kick"){
+ level=calibratedLevel("Drums",level);
+ const out=audioCtx.createGain();out.connect(room.master);
+
+ if(type==="kick"){
+  const body=audioCtx.createOscillator(),eg=audioCtx.createGain();
+  body.type="sine";
+  body.frequency.setValueAtTime(150,start);
+  body.frequency.exponentialRampToValueAtTime(48,start+.12);
+  eg.gain.setValueAtTime(.0001,start);
+  eg.gain.linearRampToValueAtTime(level,start+.002);
+  eg.gain.exponentialRampToValueAtTime(.0001,start+.32);
+  body.connect(eg).connect(out);body.start(start);body.stop(start+.35);
+
+  // Low click gives a more physical kick attack.
+  const click=audioCtx.createBufferSource();
+  const b=audioCtx.createBuffer(1,Math.ceil(audioCtx.sampleRate*.012),audioCtx.sampleRate);
+  const d=b.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(d.length*.08));
+  click.buffer=b;
+  const cg=envGain(start,.012,level*.16,.001,.015);
+  click.connect(cg).connect(out);click.start(start);
+  return;
+ }
+
+ if(type==="tom"){
+  const o=audioCtx.createOscillator(),eg=audioCtx.createGain();
+  o.type="sine";o.frequency.setValueAtTime(210,start);
+  o.frequency.exponentialRampToValueAtTime(90,start+.17);
+  eg.gain.setValueAtTime(.0001,start);
+  eg.gain.linearRampToValueAtTime(level,start+.004);
+  eg.gain.exponentialRampToValueAtTime(.0001,start+.28);
+  o.connect(eg).connect(out);o.start(start);o.stop(start+.30);
+  return;
+ }
+
+ const snare=type==="snare";
+ const dur=snare?.20:.10;
+ const buffer=audioCtx.createBuffer(1,Math.ceil(audioCtx.sampleRate*dur),audioCtx.sampleRate);
+ const data=buffer.getChannelData(0);
+ for(let i=0;i<data.length;i++){
+  const e=Math.exp(-i/(audioCtx.sampleRate*(snare?.055:.020)));
+  data[i]=(Math.random()*2-1)*e;
+ }
+ const noise=audioCtx.createBufferSource();noise.buffer=buffer;
+ const filter=audioCtx.createBiquadFilter();
+ filter.type=snare?"bandpass":"highpass";
+ filter.frequency.value=snare?1850:5600;
+ filter.Q.value=snare?1.15:.45;
+ const ng=envGain(start,dur,level*(snare?1:.62),.001,snare?.10:.035);
+ noise.connect(filter).connect(ng).connect(out);noise.start(start);
+
+ if(snare){
+  const body=audioCtx.createOscillator(),bg=envGain(start,.09,level*.32,.002,.10);
+  body.type="triangle";body.frequency.value=185;
+  body.connect(bg).connect(out);body.start(start);body.stop(start+.12);
+ }
+}
+
+
+const INSTRUMENT_CALIBRATION={
+ Viola:.95, Flute:1.12, Cello:1.35, Bass:1.04,
+ Harp:1.35, Bell:1.20, Piano:1.35, Keyboard:1.12,
+ Guitar:1.02, Drums:1.20
+};
+function calibratedLevel(name,level){
+ return Math.max(.0001,(Number(level)||0)*(INSTRUMENT_CALIBRATION[name]??1));
+}
+function cellVolume(track,instrument,index,kind){
+ if(instrument==="Bass") return 1; // Bass is intentionally uniform.
+ const map=track?.cellVolumes;
+ if(!map)return 1;
+ return Math.max(.35,Math.min(2.0,Number(map[`${instrument}:${index}:${kind}`]??1)));
+}
+function setCellVolume(track,instrument,index,kind,value){
+ if(!track || instrument==="Bass")return;
+ track.cellVolumes=track.cellVolumes||{};
+ track.cellVolumes[`${instrument}:${index}:${kind}`]=Math.max(.35,Math.min(2.0,Number(value)||1));
+}
+
+function makeVoice(name,n,start,dur,level,room,depth){
+ level=calibratedLevel(name,level);
+ const f=440*Math.pow(2,(n-69)/12);
+ const osc=audioCtx.createOscillator();
+ const osc2=audioCtx.createOscillator();
+ const gain=audioCtx.createGain();
+ const filter=audioCtx.createBiquadFilter();
+ const pan=audioCtx.createStereoPanner();
+ const send=audioCtx.createGain();
+
+ const cfg={
+  Viola:{a:"sawtooth",b:"triangle",r:2,cut:1350,attack:.10,decay:.30,sustain:.72},
+  Cello:{a:"sawtooth",b:"triangle",r:1.003,cut:1450,attack:.12,decay:.52,sustain:.78},
+  Bass:{a:"triangle",b:"sine",r:.5,cut:300,attack:.20,decay:.60,sustain:.86},
+  Flute:{a:"sine",b:"triangle",r:2,cut:4800,attack:.13,decay:.22,sustain:.58},
+  Harp:{a:"triangle",b:"sine",r:2,cut:4200,attack:.004,decay:.95,sustain:.18},
+  Bell:{a:"sine",b:"sine",r:2.71,cut:4800,attack:.003,decay:1.25,sustain:.08}
+ }[name];
+
+ osc.type=cfg.a;osc2.type=cfg.b;
+ osc.frequency.setValueAtTime(f,start);
+ osc2.frequency.setValueAtTime(f*cfg.r,start);
+ if(name==="Viola") osc.detune.setValueAtTime(-2,start);
+ if(name==="Flute") osc2.detune.setValueAtTime(4,start);
+
+ filter.type="lowpass";
+ filter.frequency.setValueAtTime(cfg.cut,start);
+ filter.Q.value=name==="Bell"?.7:.45;
+
+ const front=1-depth*.48;
+ pan.pan.value=(name==="Flute"?.20:name==="Bell"?-.16:name==="Harp"?.10:0)*depth;
+ send.gain.value=.06+depth*.18;
+
+ osc.connect(filter);
+ osc2.connect(filter);
+ filter.connect(gain);
+ gain.connect(pan);
+ pan.connect(room.master);
+ pan.connect(send);
+ send.connect(room.wet);
+
+ const peak=Math.max(.0001,level*front);
+ const sustain=Math.max(.0001,peak*cfg.sustain);
+ const attack=Math.max(.003,Math.min(cfg.attack,dur*.25));
+ const decay=Math.min(cfg.decay,Math.max(.01,dur-attack-.05));
+ const end=start+dur;
+ const releaseEnd=end+(name==="Cello"?.12:.06);
+ const decayShape={
+  Viola:{start:.70,tail:.56},
+  Cello:{start:.32,tail:.58},
+  Bass:{start:.72,tail:.60},
+  Flute:{start:.40,tail:.30},
+  Harp:{start:.18,tail:.34},
+  Bell:{start:.12,tail:.08}
+ }[name]||{start:.60,tail:.50};
+ const naturalDecay=true;
+ const bodyEnd=Math.max(start+attack+decay,end-dur*decayShape.start);
+
+ gain.gain.setValueAtTime(.0001,start);
+ gain.gain.linearRampToValueAtTime(peak,start+attack);
+ if(start+attack+decay<end){
+   gain.gain.exponentialRampToValueAtTime(sustain,start+attack+decay);
+   const tailLevel=Math.max(.0001,sustain*decayShape.tail);
+   gain.gain.setValueAtTime(sustain,bodyEnd);
+   gain.gain.exponentialRampToValueAtTime(tailLevel,end-.09);
+ }
+ gain.gain.exponentialRampToValueAtTime(.0001,releaseEnd);
+
+ osc.start(start);osc2.start(start);
+ osc.stop(releaseEnd+.04);osc2.stop(releaseEnd+.04);
+ return [osc,osc2];
+}
+function makePulse(start,dur,level,room){
+ const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
+ const filter=audioCtx.createBiquadFilter();
+ osc.type="sine";osc.frequency.setValueAtTime(58,start);
+ filter.type="lowpass";filter.frequency.value=180;
+ osc.connect(filter).connect(gain).connect(room.master);
+ gain.gain.setValueAtTime(.0001,start);
+ gain.gain.linearRampToValueAtTime(level,start+.045);
+ gain.gain.exponentialRampToValueAtTime(.0001,start+dur);
+ osc.start(start);osc.stop(start+dur+.04);
+ return osc;
+}
+
+function buildArrangementSchedule(track){
+ const a=track.arrangement||{};
+ const roles=a.roles||{};
+ const active=a.active||{};
+ const events=[];
+ const arc=a.arc||"neutral";
+ const mystery=!!track.bp?.intent?.emotion?.mystery;
+ const warmth=!!track.bp?.intent?.emotion?.warmth;
+ const rev=track.bp?.revision?.delta||{};
+
+ const addRole=(group,name,weight,sections)=>{
+  if(active[group]===false || weight<=.04) return;
+  events.push({
+   group,instrument:name,
+   weight:clamp(weight+(rev[name.toLowerCase()]||0),.04,1),
+   role:group,arc,
+   ending:a.ending||"natural",
+   sections
+  });
+ };
+
+ const foundation=roles.foundation||{};
+ const melody=roles.melody||{};
+ const color=roles.color||{};
+
+ // A / A' / B / A'' — AI chooses when each role comes forward or recedes.
+ addRole("foundation","Bass",foundation.Bass??0,[1.00,.96,1.06,.92]);
+ addRole("foundation","Cello",foundation.Cello??0,[1.00,.88,1.08,.80]);
+ addRole("melody","Viola",melody.Viola??0,[1.00,.86,1.10,.84]);
+ addRole("melody","Flute",melody.Flute??0,[
+  warmth?1.00:.80,.90,
+  (arc==="gradual_tension"||arc==="tension_to_resolution")?1.20:1.08,
+  a.ending==="resolved"?.70:.86
+ ]);
+ addRole("color","Harp",color.Harp??0,[
+  warmth?.92:.62,.72,1.12,
+  a.ending==="resolved"?.84:.56
+ ]);
+ addRole("color","Bell",color.Bell??0,[
+  mystery?.86:.46,.54,mystery?1.18:.74,
+  a.ending==="unresolved"?1.08:.56
+ ]);
+
+ return {
+  version:"2.0",
+  mode:a.mode||track.bp?.mode||"D Dorian",
+  tempo:a.tempo||track.bp?.tempo||72,
+  density:a.density??.45,
+  sustain:a.sustain??.42,
+  accentRate:a.accentRate??.5,
+  events
+ };
+}
+
+
+function arrangementWeight(track,instrument,section=0){
+ const list=track?.arrangementSchedule?.events||[];
+ const hit=list.find(e=>e.instrument===instrument);
+ if(!hit) return 1;
+ const sectionWeight=hit.sections?.[section]??1;
+ return clamp((hit.weight??1)*sectionWeight,.02,1.25);
+}
+
+
+function buildPhraseArrangement(track){
+ const phrase=track?.phrase||[];
+ const result=[];
+ let time=0;
+ phrase.forEach((p,i)=>{
+  const dur=Math.max(.08,Number(p?.d||p?.duration||.5));
+  const rest=!!p?.rest;
+  result.push({
+   index:i,start:time,dur,rest,
+   section:Math.floor(i/8),phrasePos:i%8,
+   accent:(i%8===0||i%8===7)
+  });
+  time+=dur;
+ });
+ return result;
+}
+function accompanimentWeightAt(arr,index,role){
+ const p=arr[index];
+ if(!p)return 1;
+ if(p.rest)return role==="Bass"?.72:.52;
+ if(p.accent)return role==="Bass"?1.06:1;
+ if(p.phrasePos===3||p.phrasePos===4)return role==="Harp"?.74:.86;
+ return role==="Bass"?.94:.80;
+}
+
+
+
+
+
+function playTrack(){
+ if(!state.track){generate();return}
+ if(state.playing)return;
+ ensureAudio();
+ const myToken=++playbackToken;
+ const t=state.track;
+ const phraseArrangement=buildPhraseArrangement(t);
+ const tm=scoreTiming(t);
+ const sec=tm.sec;
+ const start=audioCtx.currentTime+.12;
+ const depth=(+$("space").value)/100;
+ const reverb=(+$("reverb").value)/100;
+ const room=makeRoom(.02+reverb*.20);
+// Give each 4-note phrase a very small breathing space.
+ // Note events themselves remain unchanged; only playback timing is separated.
+ const phraseGap=tm.gap;
+
+ t.phrase.forEach((x,i)=>{
+  if(x.n==null || x.rest) return;
+  const sectionGap=Math.floor(i/4)*phraseGap;
+  const st=start+tm.eventStart(i);
+  const section=loopSectionAt(i);
+  const density=[.92,1.00,1.16,.78][section]??1.00;
+
+  if(tavernMelodyAllowed(t) && tavernAllows(t,"Viola") && i%2===0 && density>.55){
+   const isFinalSection=section===3;
+   const finalSustain=isFinalSection?1.16:1;
+   const next=t.phrase[i+1]||t.phrase[i+2];
+   const nextSt=next?tm.eventStart(Math.min(i+2,t.phrase.length-1)):tm.eventStart(i)+sec*x.d;
+   const sustainEnd=Math.max(st+sec*x.d*.92,nextSt-sec*.04);
+   const melodyDur=Math.min(Math.max(sec*.55,sustainEnd-st),sec*3.2)*finalSustain;
+   makeVoice("Viola",x.n,st,melodyDur,tavernMixLevel(t,"Viola",.075*density*arrangementWeight(t,"Viola",section)*(tavernMelodyAllowed(t)?1.18:1)*cellVolume(t,"Viola",i,"melody")),room,depth);
+  }
+
+  if(tavernAllows(t,"Flute") && density>.65){
+   if(isTavernTrack(t) && tavernProgressionKey()==="complete"){
+    const fluteNote=tavernFinalFluteHarmonyNote(x.n,t);
+    const fluteDur=Math.min(sec*3.2,Math.max(sec*.55,sec*x.d*.92));
+    makeVoice("Flute",fluteNote,st,fluteDur,tavernMixLevel(t,"Flute",.050*density*arrangementWeight(t,"Flute",section))*cellVolume(t,"Flute",i,"harmony"),room,Math.min(1,depth+.1));
+   }else if(i%4===1){
+    const answerIndex=Math.max(0,i-1);
+    const answer=t.phrase[answerIndex];
+    const answerNote=answer?.n??x.n;
+    const fluteBoost=section===2?1.10:section===3?.92:1;
+    const fluteDur=Math.min(sec*1.20,Math.max(sec*.95,sec*x.d*1.65));
+    makeVoice("Flute",answerNote+12,st+.015,fluteDur,tavernMixLevel(t,"Flute",.055*density*fluteBoost*arrangementWeight(t,"Flute",section))*cellVolume(t,"Flute",i,"response"),room,Math.min(1,depth+.1));
+   }
+  }
+
+  if(tavernAllows(t,"Harp") && i%4===3 && density>.65){
+   const chordIndex=Math.min((t.chords?.length||1)-1,Math.floor(i/8));
+   const chord=t.chords?.[chordIndex]||[0];
+   const degree=Number(chord[(Math.floor(i/4)%2)?1:0]??chord[0]??0);
+   const root=String(t.mode||"")==="A Minor"?57:String(t.mode||"")==="G Minor"?55:String(t.mode||"")==="D Major"?62:62;
+   const scale=scaleFor(t.mode||"D Major");
+   const harpNote=clamp(degreeMidi(root,scale,degree,1),60,84);
+   const harpBoost=section===2?1.22:section===3?.72:1;
+   makeVoice("Harp",harpNote,st,Math.min(sec*x.d*.92,sec*1.8),tavernMixLevel(t,"Harp",.032*density*harpBoost*arrangementWeight(t,"Harp",section))*cellVolume(t,"Harp",i,"ornament"),room,depth);
+  }
+
+  if(tavernAllows(t,"Bell") && (i===0||i===7||i===12) && density>.75){
+   makeVoice("Bell",x.n+12,st,Math.min(2.0,sec*2.2),.028*density*arrangementWeight(t,"Bell",section)*cellVolume(t,"Bell",i,"accent"),room,Math.min(1,depth+.25));
+  }
+ });
+ t.bass.forEach((x,i)=>{
+  const st=start+tm.eventStart(Math.min(x.m,t.phrase.length-1));
+  // One audible Bass event per visible score event.
+  if(tavernAllows(t,"Bass")) makeVoice("Bass",x.n,st,Math.min(sec*x.d*.94,sec*1.6),tavernMixLevel(t,"Bass",tavernMixLevel(t,"Bass",.078*arrangementWeight(t,"Bass",i))),room,depth*.45);
+  if(tavernAllows(t,"Cello") && (Number(x.m)||0)%8===0){
+   const chordIndex=Math.floor((Number(x.m)||0)/8);
+   const celloNote=celloFoundationNote(t,chordIndex,x.n);
+   const celloDur=Math.max(.12,sec*x.d*.90);
+   makeVoice("Cello",celloNote,st,celloDur,tavernMixLevel(t,"Cello",tavernMixLevel(t,"Cello",.085*arrangementWeight(t,"Cello",i)))*cellVolume(t,"Cello",Number(x.m)||i,"foundation"),room,depth*.8);
+  }
+ });
+ // Style layer: genre changes the rhythmic/sonic grammar, not the world setting.
+ const st=t.arrangement?.style||{};
+ const styleId=st.id||t.bp.style?.id||"fantasy";
+ const beatsPerBar=4;
+ if(tavernAllows(t,"Keyboard") && st.pluck>.05){
+  for(let i=0;i<16;i+=2){
+   const x=t.phrase[i%t.phrase.length];
+   if(x?.n!=null){
+    const stt=start+(i+i*.03)*sec;
+    makeStylePluck(x.n+12,stt,Math.min(sec*.28,sec*x.d*.45),.020*st.pluck*cellVolume(t,"Keyboard",i,"pluck"),room,depth);
+   }
+  }
+ }
+ if(tavernAllows(t,"Guitar") && (st.guitar>.05 || (isTavernTrack(t) && tavernProgressionKey()==="complete"))){
+  const guitarLead=tavernProgressionKey()==="complete" && isTavernTrack(t);
+  if(guitarLead){
+   const root=62, scale=scaleFor("D Major");
+   const chordList=t.chords||[[0,2,4],[4,6,1],[5,0,2],[3,5,0]];
+   for(let i=0;i<t.phrase.length;i+=2){
+    const x=t.phrase[i];
+    if(!x || x.rest || x.n==null) continue;
+    const bs=start+tm.eventStart(i);
+    const next=t.phrase[i+1]||t.phrase[i+2];
+    const nextSt=next?start+tm.eventStart(Math.min(i+2,t.phrase.length-1)):bs+sec*x.d;
+    const sustainEnd=Math.max(bs+sec*x.d*.92,nextSt-sec*.04);
+    const dur=Math.min(Math.max(sec*.55,sustainEnd-bs),sec*3.2);
+    const voicing=tavernGuitarVoicing(t,Math.floor(i/2));
+    const lev=tavernMixLevel(t,"Guitar",.045*Math.max(.9,st.guitar||0)*cellVolume(t,"Guitar",i,"guitar-strum"));
+    makeAcousticGuitarStrum(voicing,bs,dur,lev,room,"down");
+   }
+  }else{
+   for(let bar=0;bar<tm.barCount;bar+=2){const idx=bar*2;const x=t.phrase[idx%t.phrase.length];if(x?.n!=null){const stt=start+tm.eventStart(idx);const lev=.024*st.guitar;makeAcousticGuitar(x.n,stt,sec*.30,tavernMixLevel(t,"Guitar",lev*cellVolume(t,"Guitar",idx,"guitar")),room);}}
+  }
+ }
+ if(tavernAllows(t,"Drums") && ((st.drums||0)>.05 || (isTavernTrack(t) && tavernProgressionKey()==="complete")) && tavernProgressionKey()==="complete" && isTavernTrack(t)){
+  for(let bar=0;bar<tm.barCount;bar++){
+   const bs=start+tm.eventStart(Math.min(bar*2,t.phrase.length-1));
+   const be=bar<15?start+tm.eventStart(Math.min((bar+1)*2,t.phrase.length-1)):bs+2*sec;
+   const barDur=Math.max(.28,be-bs);
+   const lev=tavernMixLevel(t,"Drums",.090*st.drums);
+   makeDrumHit(bs,lev,room,"kick");
+   makeDrumHit(bs+barDur*.50,lev*.78,room,"snare");
+  }
+ }
+ if(t.bp.pulse && String(t.scene||t.bp?.scene||'')!=='tavern'){
+  for(let i=0;i<4;i++) makePulse(start+(i*4+3+i*phraseGap)*sec,sec*.72,.018,room);
+ }
+ const total=tm.total*1000;
+ state.playing=true;
+ $("play").textContent="Ⅱ 再生中";
+ startScorePlayhead(start,total/1000);
+ state.endTimer=setTimeout(()=>{if(state.playing && myToken===playbackToken) stopAudio()},total);
+}
+
+let scorePlayheadRAF=0;
+function stopScorePlayhead(){
+ if(scorePlayheadRAF)cancelAnimationFrame(scorePlayheadRAF);
+ scorePlayheadRAF=0;
+ document.querySelectorAll(".score-playhead").forEach(x=>x.remove());
+}
+function startScorePlayhead(startTime,seconds){
+ stopScorePlayhead();
+ const lanes=[...document.querySelectorAll(".score-lane")];
+ lanes.forEach(l=>{
+  const p=document.createElement("div");p.className="score-playhead";l.appendChild(p);
+ });
+ const tick=()=>{
+  if(!state.playing){stopScorePlayhead();return;}
+  const elapsed=Math.max(0,audioCtx.currentTime-startTime);
+  const ratio=Math.min(1,elapsed/Math.max(.01,seconds));
+  document.querySelectorAll(".score-playhead").forEach(p=>p.style.left=(ratio*100)+"%");
+  if(ratio<1)scorePlayheadRAF=requestAnimationFrame(tick);
+  else stopScorePlayhead();
+ };
+ scorePlayheadRAF=requestAnimationFrame(tick);
+}
+
+function stopAudio(){
+ playbackToken++;
+ state.playing=false;
+ $("play").textContent="▶ 再生";
+ if(state.endTimer){clearTimeout(state.endTimer);state.endTimer=null}
+ stopScorePlayhead?.();
+ if(audioCtx){
+   const old=audioCtx;
+   audioCtx=null;
+   try{old.close()}catch(e){}
+ }
+}
+initScoreEditing();
+$("downloadJson").onclick=()=>{
+ if(!state.track)return;const blob=new Blob([JSON.stringify(state.track,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="arpg_music_track.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+};
+$("space").oninput=()=>{$("spaceVal").textContent=$("space").value+"%"};
+$("reverb").oninput=()=>{$("reverbVal").textContent=$("reverb").value+"%"};
+renderScenes();renderSceneList();$("prompt").value=sceneDefaults.mansion;
+
+function applyTavernExampleToUI(){
+  const sceneText=[...document.querySelectorAll('[data-scene-id], .scene-card, .scene-option, select, button')]
+    .map(el=>String(el.dataset?.sceneId||el.value||el.textContent||"")).join(" ");
+  const tavernSelected = /tavern|酒場/.test(sceneText) && /tavern|酒場/.test(document.body.innerText);
+  if(!tavernSelected) return;
+  const target=document.querySelector('textarea[name*="prompt" i], textarea[id*="prompt" i], textarea');
+  if(target && !target.value.trim()){
+    target.value=TAVERN_EXAMPLE_PROMPT;
+    target.dispatchEvent(new Event("input",{bubbles:true}));
+  }
+}
+
+</script>
+</body>
+</html>
+<script>
+(function(){
+  const sel=document.getElementById("tavernProgressionSelect");
+  if(!sel) return;
+  sel.addEventListener("change", function(){
+    if(typeof updateTavernProgressionUI==="function") updateTavernProgressionUI();
+    if(typeof state!=="undefined" && state.scene==="tavern" && state.track && typeof generate==="function"){
+      generate();
+    }
+  });
+  if(typeof updateTavernProgressionUI==="function") updateTavernProgressionUI();
+})();
+</script>
+
+<script>
+window.LOOP_DEVELOPMENT_V54 = {
+  section: "development",
+  preserveTheme: true,
+  purpose: "現在の2フレーズを固定し、その後に自然な発展を作るための上位構造",
+  melodyPolicy: "theme-variation",
+  arrangementPolicy: "gradual-lift"
+};
+</script>
+
+<!-- v5.63.0: flute softened/shorter natural decay; piano calibration raised. v5.62 timing/arrangement preserved. -->
+
+<!-- v5.64.0: final tavern flute mirrors Viola timing/duration and plays diatonic harmony. -->
+
+<!-- v5.65.0: final tavern flute presence increased; pitch/timing/duration/timbre unchanged. -->
+
+<!-- v5.66.0: final tavern guitar/drums slightly softened; rhythm and timing unchanged. -->
+<!-- MUSIC-AUDIO-001: sample engine (appended; everything above is the unmodified base) -->
+<script src="samples/manifest.js"></script>
+<script src="sample-engine.js"></script>
+<script src="sample-hooks.js"></script>
