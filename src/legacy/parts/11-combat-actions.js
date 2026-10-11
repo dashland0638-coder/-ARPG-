@@ -2204,9 +2204,14 @@
 
   // 同時に複数出ても重ならないよう、アクティブなトーストを縦に積む。
   // 新しいものを基準位置(30%)に、古いものほど上へずらす。
+  /* UI-002-H H-D2: 見えている時間と DOM の寿命を同じ 1.7 秒にする(以前は CSS の itemfloat が
+     1.1 秒で消え、DOM だけが 1.7 秒残っていた)。同時に出すのは 3 件まで。4 件目が来たら
+     いちばん古いものを外す(種類・文言・発火条件は変えない) */
+  const TOAST_LIFE_MS = 1700;
+  const TOAST_MAX = 3;
   let activeToasts = [];
   function layoutToasts(){
-    const gapPx = 25;
+    const gapPx = 34;   // プレートの高さ(約 31px)＋すき間
     // activeToasts[0] が最新。古いものほど上(小さいtop)に配置する
     activeToasts.forEach((el, i)=>{
       el.style.top = 'calc(30% - ' + (i*gapPx) + 'px)';
@@ -2215,7 +2220,7 @@
   /* 通知の表示先(UI-002-D WI-D5。HD-D17)。以前は spawnToast() が同じ文言を中央トーストと
      左下ログの 2 か所へ出していた。いまは種類ごとに 1 か所だけへ出す。種類と表示先の表の正本は
      .ai/tasks/UI-002-D.md の「WI-D5 計画」:
-       spawnToast … 中央トースト(1.7 秒)。戦闘・危険のフィードバック、入力を受け付けなかった
+       spawnToast … 中央トースト(1.7 秒・同時に 3 件まで。UI-002-H H-D2)。戦闘・危険のフィードバック、入力を受け付けなかった
                     理由、時間制限の警告、敵の出現、一度きりの大きな出来事、操作の切り替えへの反応
        spawnLog   … 左下ログ(6.5 秒・最大 6 行)。獲得・売買・鑑定・使用の結果、探索・物語の
                     描写、システムの記録 ―― 続けて出やすく、文が長く、読み返せる方がよいもの */
@@ -2239,19 +2244,22 @@
   }
   function spawnToast(text, color){
     const el = document.createElement('div');
-    el.className = 'item-pop';
+    // is-toast: 拾った物の表示(spawnPickupPopup)と同じ .item-pop のまま、見た目と寿命を分ける
+    el.className = 'item-pop is-toast';
     el.style.left = '50%';
     el.style.fontSize = '15px';
     el.style.color = color || '#e9e1d6';
+    el.style.animationDuration = TOAST_LIFE_MS + 'ms';
     el.textContent = text;
     document.getElementById('hud').appendChild(el);
     activeToasts.unshift(el);
+    while(activeToasts.length > TOAST_MAX) activeToasts.pop().remove();
     layoutToasts();
     setTimeout(()=>{
       el.remove();
       activeToasts = activeToasts.filter(x=>x!==el);
       layoutToasts();
-    }, 1700);
+    }, TOAST_LIFE_MS);
   }
   function spawnLog(text, color){
     pushMsgLog(text, color);

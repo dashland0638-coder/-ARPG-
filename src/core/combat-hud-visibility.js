@@ -63,6 +63,21 @@ export function touchControlsMode(input){
   return { active, gamepadMin: playing && !active, cameraButtons: active };
 }
 
+/* 会話の「続ける」の操作ヒント(UI-002-H H-D5)。入力仕様は変えず、いま実際に使える操作だけを示す。
+   会話を進められるのは画面のクリック / タップと、パッドの A(×)だけ(キーボードでは進まない:
+   09-save-load.js の keydown は会話中に何もしない)。
+   pad … パッドが接続されている / touch … タッチ端末 / pointer … それ以外(マウス) */
+export const DIALOGUE_ADVANCE_HINTS = Object.freeze({
+  pad: 'A・× で続ける',
+  touch: 'タップして続ける',
+  pointer: 'クリックして続ける',
+});
+export function dialogueAdvanceHint(input){
+  const o = input || {};
+  const device = o.gamepadConnected ? 'pad' : (o.isTouchDevice ? 'touch' : 'pointer');
+  return { device, text: DIALOGUE_ADVANCE_HINTS[device] };
+}
+
 /* Action Zone の表示モード(UI-002-D WI-D3。HD-D04 / HD-D08 / HD-D22)。
    touch      … タッチ端末でパッド未接続: タッチ操作(スティック・全ボタン)
    pad        … タッチ端末でパッド接続中: 能力ボタンだけを表示専用で(従来の .gamepad-min)

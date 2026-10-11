@@ -5,7 +5,7 @@ import {
   PC_HINT_DURATION_SEC, STAMINA_SHOW_AFTER_USE_SEC, PC_HINT_OPS,
   legacyHudVisible, skill2ButtonVisible, skill3ButtonVisible, alwaysOnHudVisible,
   minimapPanelVisible, touchControlsMode, touchActionButtonsVisible, actionZoneLayout,
-  staminaVisible, unlockedPcHintOps, stepPcHint,
+  staminaVisible, unlockedPcHintOps, stepPcHint, dialogueAdvanceHint, DIALOGUE_ADVANCE_HINTS,
 } from '../../src/core/combat-hud-visibility.js';
 
 test('決定値: PC 操作ヒントは 5 秒(HD-D24)、スタミナは最後の消費から 3 秒(HD-D25)', () => {
@@ -134,4 +134,14 @@ test('PC 操作ヒントの「表示済み」は呼び出し側が持つ値だ�
   const r = stepPcHint({ isTouchDevice: false, unlocked: ['basic', 'skill3'], seen, shownAtSec: null, nowSec: 3 });
   assert.deepEqual(seen, ['basic']);
   assert.deepEqual(r.seen, ['basic', 'skill3']);
+});
+
+test('会話の「続ける」のヒント(UI-002-H H-D5): パッド接続中 → A・×、タッチ → タップ、それ以外 → クリック', () => {
+  assert.deepEqual(dialogueAdvanceHint({ isTouchDevice: false, gamepadConnected: false }), { device: 'pointer', text: 'クリックして続ける' });
+  assert.deepEqual(dialogueAdvanceHint({ isTouchDevice: true, gamepadConnected: false }), { device: 'touch', text: 'タップして続ける' });
+  assert.deepEqual(dialogueAdvanceHint({ isTouchDevice: true, gamepadConnected: true }), { device: 'pad', text: 'A・× で続ける' });
+  assert.deepEqual(dialogueAdvanceHint({ isTouchDevice: false, gamepadConnected: true }), { device: 'pad', text: 'A・× で続ける' });
+  assert.equal(dialogueAdvanceHint().device, 'pointer');
+  // キーボードでは会話を進められないので、キーの表記は出さない
+  for (const t of Object.values(DIALOGUE_ADVANCE_HINTS)) assert.doesNotMatch(t, /Space|Enter|スペース|キー/);
 });
