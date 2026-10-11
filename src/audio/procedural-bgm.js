@@ -39,6 +39,13 @@ const MOODS = {
   waterway:     { root:65,  scale:[0,2,3,7,8],  tempo:0.4, density:0.10, wave:'sine',     cutoff:350,  padGain:0.060, eventGain:0.030, drift:1.6, drip:true,               reverbTime:2.6, reverbMix:0.38 },
   // 硝子の温室: 明るく開けたガラス張り。長7度を含む浮遊感のある音階
   conservatory: { root:147, scale:[0,2,5,7,11], tempo:0.9, density:0.28, wave:'sine',     cutoff:2200, padGain:0.045, eventGain:0.045, drift:0.5, chime:true,              reverbTime:2.0, reverbMix:0.30 },
+  /* 宵待ちの村(第一章 ②、HD-C2): 夕暮れの湖畔。人のいない村なので不穏にはせず、
+     短調の5音でゆっくり、薄く。環境音(水音・家鳴り・風。AMBIENCE_ZONES の dusk*)を
+     消さないよう、洋館より小さく、高域を落とし、湖の開けた残響にしてある */
+  duskvillage:  { root:110, scale:[0,3,5,7,10], tempo:0.6, density:0.14, wave:'sine',     cutoff:700,  padGain:0.040, eventGain:0.032, drift:0.8, pluck:true,               reverbTime:2.4, reverbMix:0.34 },
+  /* 道(第一章 ⑤、HD-C2): 第一章で一番明るい朝の街道。長調の5音を、酒場より少し
+     高く柔らかく。屋外なので残響は短い。森の環境音(道は 'forest' を流用)の下に敷く */
+  road:         { root:131, scale:[0,2,4,7,9],  tempo:0.9, density:0.20, wave:'triangle', cutoff:1800, padGain:0.038, eventGain:0.038, drift:0.4,                          reverbTime:1.4, reverbMix:0.20 },
 };
 
 // A synthetic room impulse response: exponentially-decaying white noise.
