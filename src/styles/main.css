@@ -1672,3 +1672,168 @@
   #appraisal-overlay .gear-slot{ padding:4px 6px 4px 10px; }
   #appraisal-overlay .ap-close-btn{ margin-top:6px; }
 }
+
+/* =========================================================
+   UI-002-H: 会話・確認・通知・結果・戦闘不能(Human 承認 2026-10-10、H-D1〜H-D7)
+
+   UI-002-F と同じプレート(matte な面・3px の輪郭・2px の内縁・落ち影 1 種)。
+   ぼかし・グラデーション・ガラス・発光は使わない。色は既存の token と、
+   index.html の inline style にあった既存の値だけ。
+
+   範囲: #dialogue-overlay / #confirm-overlay / #clear-overlay / #down-overlay と
+   中央トースト(.item-pop.is-toast)・左下ログ(#msg-log)だけ。.event-overlay /
+   .event-box / .event-btn は出撃画面(#scenario-overlay、UI-002-G)と共有しているので、
+   必ず id で絞る。拾った物の表示(.item-pop、位置と寿命)は変えない。
+   ========================================================= */
+
+/* ---- H-D3: ボス撃破の直後の背景。ぼかしをやめ、暗転と彩度を落とすだけ ---- */
+#canvas-wrap.victory-blur{ filter:brightness(0.55) saturate(0.4); }
+
+/* ---- 背景: ぼかしをやめ、単色の暗幕だけ ---- */
+#confirm-overlay,
+#clear-overlay,
+#down-overlay{ backdrop-filter:none; -webkit-backdrop-filter:none; }
+
+/* ---- パネル(結果・戦闘不能・確認) ---- */
+#clear-overlay .event-box,
+#down-overlay .event-box,
+#confirm-overlay #confirm-box{
+  max-height:min(88vh, calc(100vh - 24px));
+  background:var(--ui-plate-bg);
+  border:var(--ui-plate-outline-w) solid var(--ui-plate-outline);
+  border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim), var(--ui-p-shadow-drop-20-60);
+}
+#clear-overlay .event-box,
+#down-overlay .event-box{ width:min(440px, calc(100vw - 24px)); padding:20px 22px 16px; }
+#confirm-overlay #confirm-box{ width:min(380px, calc(100vw - 24px)); padding:18px 20px 16px; overflow-y:auto; }
+
+/* ---- 見出し(碑文): 下に罫と小さな菱形(メニューの .menu-head と同じ) ---- */
+#clear-overlay .event-title,
+#down-overlay .event-title,
+#confirm-overlay #confirm-title{
+  position:relative; margin:0 0 14px; padding-bottom:8px;
+  border-bottom:var(--ui-plate-rim-w) solid var(--ui-plate-rim);
+  line-height:1.25;
+}
+#clear-overlay .event-title::after,
+#down-overlay .event-title::after,
+#confirm-overlay #confirm-title::after{
+  content:''; position:absolute; left:50%; bottom:-6px; width:8px; height:8px; margin-left:-4px;
+  background:var(--ui-special); border:2px solid var(--ui-plate-outline); transform:rotate(45deg);
+}
+#clear-overlay .event-title{ color:var(--ui-special); }
+/* index.html の inline style だった色(値は同じ) */
+#down-overlay .down-title{ color:#c9576a; }
+#down-overlay .down-penalty{ color:#e0a04a; }
+#clear-overlay .event-desc,
+#down-overlay .event-desc{ font-size:13px; line-height:1.8; margin-bottom:14px; }
+
+/* ---- 結果の表(一段沈んだ面) ---- */
+#clear-overlay .result-loot{
+  margin-bottom:14px; padding:4px 12px;
+  background:var(--ui-plate-bg-sunken);
+  border:var(--ui-plate-rim-w) solid var(--ui-plate-rim);
+  border-radius:var(--ui-plate-radius);
+}
+#clear-overlay .result-loot:empty{ display:none; }
+#clear-overlay .result-loot-row{ font-size:var(--ui-fs-body); padding:7px 0; }
+#clear-overlay .result-loot-row:last-child{ border-bottom:none; }
+/* テストモードだけの部品(3 択報酬・振り分け): 文字の下限 11px、面はプレート */
+#clear-overlay .boss-choice-panel,
+#clear-overlay .result-stat-panel{
+  background:var(--ui-plate-bg-sunken);
+  border:var(--ui-plate-rim-w) solid var(--ui-plate-rim);
+  border-radius:var(--ui-plate-radius);
+}
+#clear-overlay .boss-choice-title,
+#clear-overlay .boss-choice-name,
+#clear-overlay .boss-choice-desc{ font-size:var(--ui-fs-small); }
+#clear-overlay .boss-choice-card{
+  background:var(--ui-plate-bg);
+  border:var(--ui-plate-rim-w) solid var(--ui-plate-rim);
+  border-radius:var(--ui-plate-radius);
+}
+
+/* ---- ボタン(プレート)。主ボタン = 単色の塗り＋太字、確認の「やめる」= 沈んだ面 ---- */
+#clear-overlay .event-btn,
+#down-overlay .event-btn,
+#confirm-overlay .confirm-btn{
+  min-height:var(--ui-touch-min); padding:8px 26px;
+  font-family:var(--ui-font-serif); font-size:14px; font-weight:var(--ui-fw-bold);
+  color:var(--ui-plate-outline); background:var(--ui-selected);
+  border:var(--ui-plate-outline-w) solid var(--ui-plate-outline);
+  border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ember-bright), var(--ui-plate-drop);
+}
+#confirm-overlay .confirm-btn{ padding:8px 0; font-size:13px; }
+#confirm-overlay .confirm-btn.ghost{
+  color:var(--ui-text); background:var(--ui-plate-bg-sunken); font-weight:normal;
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim), var(--ui-plate-drop);
+}
+#clear-overlay .event-btn:active,
+#down-overlay .event-btn:active,
+#confirm-overlay .confirm-btn:active{ transform:translateY(1px); }
+#confirm-overlay #confirm-text{ font-size:13px; color:var(--ui-text); }
+
+/* ---- 会話: 本のページ。話者名は上の札、本文 15px、▼ は静止(H-D4) ---- */
+#dialogue-overlay .dialogue-box{
+  background:var(--ui-plate-bg);
+  border:var(--ui-plate-outline-w) solid var(--ui-plate-outline);
+  border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim), var(--ui-plate-drop);
+  padding:14px 22px 12px;
+}
+#dialogue-overlay .dialogue-name{
+  display:inline-block; margin-bottom:8px; padding:3px 12px;
+  font-size:13px; color:var(--ui-special);
+  background:var(--ui-plate-bg-sunken);
+  border:2px solid var(--ui-plate-outline);
+  border-radius:var(--ui-p-radius-4);
+  box-shadow:inset 0 0 0 1px var(--ui-plate-rim);
+}
+#dialogue-overlay .dialogue-name:empty{ display:none; }
+#dialogue-overlay .dialogue-text{ font-size:15px; line-height:1.8; min-height:3.6em; }
+#dialogue-overlay .dialogue-next{ font-size:var(--ui-fs-small); color:var(--ui-text-muted); margin-top:6px; }
+#dialogue-overlay .dialogue-next::after{ animation:none; color:var(--ui-special); }
+
+/* ---- H-D1 / H-D2: 中央トースト(文字の下に小さなプレート、発光なし)。
+   寿命はアニメーションと DOM で同じ(11-combat-actions.js TOAST_LIFE_MS)。0.1 秒で出て、
+   1.53 秒まで不透明のまま、最後の 0.17 秒で消える ---- */
+#hud .item-pop.is-toast{
+  padding:3px 12px; line-height:1.4;
+  text-shadow:none;
+  background:var(--ui-plate-bg);
+  border:2px solid var(--ui-plate-outline);
+  border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 1px var(--ui-plate-rim), var(--ui-plate-drop);
+  animation-name:toastLife; animation-timing-function:linear;
+}
+@keyframes toastLife{
+  0%{ opacity:0; transform:translate(-50%,-50%) translateY(4px); }
+  6%{ opacity:1; transform:translate(-50%,-50%); }
+  90%{ opacity:1; transform:translate(-50%,-50%); }
+  100%{ opacity:0; transform:translate(-50%,-50%) translateY(-6px); }
+}
+/* 左下ログ: 同じプレートの言葉で(寿命・行数・位置は UI-002-D のまま) */
+#msg-log .msg-log-line{
+  font-size:var(--ui-fs-body);
+  background:var(--ui-plate-bg);
+  border:2px solid var(--ui-plate-outline);
+  border-radius:var(--ui-plate-radius);
+  box-shadow:inset 0 0 0 1px var(--ui-plate-rim);
+}
+
+/* 背の低い画面(844×390 等): 会話はおよそ画面の 4 割まで。中央トーストは 3 件積んでも
+   左上のパネル(Character Zone)に重ならない高さから積む */
+@media (max-height:480px){
+  #hud{ --ui-toast-base:42%; }
+  #dialogue-overlay{ padding-bottom:3vh; }
+  #dialogue-overlay .dialogue-box{ max-height:44vh; padding:10px 18px 8px; }
+  #dialogue-overlay .dialogue-name{ margin-bottom:4px; }
+  #dialogue-overlay .dialogue-text{ line-height:1.7; min-height:0; }
+  #clear-overlay .event-box,
+  #down-overlay .event-box{ padding:14px 18px 12px; }
+  #clear-overlay .event-title,
+  #down-overlay .event-title{ font-size:20px; margin-bottom:10px; }
+}

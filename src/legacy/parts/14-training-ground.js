@@ -90,6 +90,108 @@
     // スキル入れ替え/スフィア盤(Phase K)。中身は既存の鑑定所画面
     // そのままで、テストモードでは場所の制限だけが外れている
     document.getElementById('arena-loadout-btn').addEventListener('click', ()=> toggleAppraisal());
+    document.getElementById('arena-preview-result-ch1-btn').addEventListener('click', ()=> previewResultScreen(false));
+    document.getElementById('arena-preview-result-test-btn').addEventListener('click', ()=> previewResultScreen(true));
+    document.getElementById('arena-preview-down-btn').addEventListener('click', previewDownScreen);
+    // 振り分けの ＋ / − は pointerdown で動く(bindRepeatButton)ので、click と両方を受け止める
+    ['clear-overlay','down-overlay'].forEach(id=>['pointerdown','click'].forEach(evt=>
+      document.getElementById(id).addEventListener(evt, interceptPreviewClick, true)));
+  }
+
+  /* UI-002-H H-D6: 結果画面・戦闘不能画面の表示確認(E2E・撮影用)。
+     ?dev=1 のテストモードの Arena パネルからだけ開ける。本番の判定・進行には触れない。
+
+     - 結果画面: 本番と同じ showBossResultScreen() で描く。それが書き換える state
+       (討伐数・クリア数・所持品・装備・初制覇など)は描いた直後に元へ戻す。
+       「本編」は Chapter 1 の行の出し分け(legacyGrowth())を見るため、描く間だけ
+       state.testMode を外し、同じく直後に戻す
+     - 戦闘不能画面: triggerPlayerDown() は所持金・ボスを書き換えるので呼ばない。
+       既存の画面を開き、失う額の行だけ同じ計算で埋める(差し引きはしない)
+     - 開いている間のボタンは捕捉段階(pointerdown / click)で受け止め、画面を閉じるだけにする
+       (街へ戻る・報酬の選択・振り分けは実行しない)。振り分けの値(allocPoints)も閉じる時に戻す
+     - ボスの文言は洋館の主(06-player-enemy.js buildBoss の既定値)と同じ */
+  const UI_PREVIEW_BOSS = {
+    key:'mansionBoss', clearName:'屋敷の主',
+    clearFlavor:'上着だけが椅子に残された。中身がどこへ行ったのかは、誰にも分からない。',
+    rewardLoot:{type:'gem', name:'主の袖飾り', icon:'💎', color:0xb08aff}
+  };
+  const UI_PREVIEW_STATE_KEYS = ['lastDefeatedBossKey','bossClears','scenarioClears','clearedScenarios',
+    'freeRanks','smithJoined','inventory','equipmentInventory','routeCombosSeen','pendingAfterDefeat',
+    'scenarioKey','testMode','dialogueActive'];
+  let uiPreview = null;   // { overlayId, dialogueActive, allocPoints }
+
+  function uiPreviewAllowed(){ return DEV_UI && !!state.testMode && !uiPreview && !state.dialogueActive; }
+
+  function snapshotPreviewState(){
+    const snap = {};
+    // 配列(所持品・装備)は要素の参照ごと残す(装備中の品と同じ物を指したまま戻すため)。それ以外は値の写し
+    UI_PREVIEW_STATE_KEYS.forEach(k=>{
+      snap['has:'+k] = (k in state);
+      snap[k] = Array.isArray(state[k]) ? { items: state[k].slice() } : { json: JSON.stringify(state[k] === undefined ? null : state[k]) };
+    });
+    return snap;
+  }
+  function restorePreviewState(snap){
+    UI_PREVIEW_STATE_KEYS.forEach(k=>{
+      if(!snap['has:'+k]){ delete state[k]; return; }
+      const v = snap[k].items ? snap[k].items : JSON.parse(snap[k].json);
+      const cur = state[k];
+      // 同じ入れ物を参照しているコードがあっても壊れないよう、配列・オブジェクトは中身を戻す
+      if(Array.isArray(cur) && Array.isArray(v)){ cur.length = 0; v.forEach(x=>cur.push(x)); }
+      else if(cur && v && typeof cur === 'object' && typeof v === 'object' && !Array.isArray(cur) && !Array.isArray(v)){
+        Object.keys(cur).forEach(x=>{ delete cur[x]; });
+        Object.assign(cur, v);
+      } else state[k] = v;
+    });
+  }
+
+  function previewResultScreen(legacyRows){
+    if(!uiPreviewAllowed()) return false;
+    const snap = snapshotPreviewState();
+    try{
+      state.scenarioKey = 'mansion';
+      state.testMode = !!legacyRows;
+      showBossResultScreen(UI_PREVIEW_BOSS, state.level);
+    } finally {
+      restorePreviewState(snap);
+    }
+    const goldChip = document.getElementById('loot-gold');
+    if(goldChip) goldChip.textContent = state.inventory.gold;
+    openPreview('clear-overlay');
+    return true;
+  }
+
+  function previewDownScreen(){
+    if(!uiPreviewAllowed()) return false;
+    const goldLost = Math.round((state.inventory.gold||0) * DEFEAT_GOLD_LOSS_MUL);
+    const penaltyLine = document.getElementById('down-penalty-line');
+    if(penaltyLine) penaltyLine.textContent = goldLost > 0 ? `所持金を🪙${goldLost}失った……` : '';
+    document.getElementById('down-overlay').classList.add('active');
+    openPreview('down-overlay');
+    return true;
+  }
+
+  // 本番と同じく開いている間は入力を止める(パッドは結果画面のナビゲーションに回る)
+  function openPreview(overlayId){
+    uiPreview = { overlayId, dialogueActive: state.dialogueActive, allocPoints: Object.assign({}, allocPoints) };
+    state.dialogueActive = true;
+  }
+  function closePreview(){
+    if(!uiPreview) return;
+    document.getElementById(uiPreview.overlayId).classList.remove('active');
+    state.dialogueActive = uiPreview.dialogueActive;
+    Object.assign(allocPoints, uiPreview.allocPoints);
+    uiPreview = null;
+  }
+  function interceptPreviewClick(e){
+    if(!uiPreview || e.currentTarget.id !== uiPreview.overlayId) return;
+    const btn = e.target.closest('button, .boss-choice-card');
+    if(!btn) return;
+    const isClose = btn.matches('#clear-return-btn, #clear-continue-btn, #down-return-btn');
+    if(e.type === 'pointerdown' && isClose) return;   // 閉じるボタンは click で受ける
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    if(e.type === 'click' && isClose) closePreview();
   }
   buildArenaUiOnce();   // 静的なDOM要素なので起動時に一度だけ配線する
 
@@ -280,6 +382,8 @@
       document.getElementById('arena-panel').classList.remove('show');
       document.getElementById('arena-enemy-info').style.display = 'none';
       arenaPanelOpen = false;
+      // テストモードを出た(タイトルへ戻った)時は、確認用の画面の記録も捨てる
+      if(uiPreview){ document.getElementById(uiPreview.overlayId).classList.remove('active'); uiPreview = null; }
       // フラグも一緒に畳む。ここでdisplayだけ落としてarenaDebugInfoOnを
       // trueのまま残すと、次にテストモードへ入った時にボタンの表示が
       // 「ON」なのにパネルが出ない状態になる

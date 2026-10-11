@@ -232,6 +232,7 @@ import { UI_GLYPH_VIEWBOX, uiGlyph, resolveSwordsmanGlyphIds } from '../core/ui-
 import {
   legacyHudVisible, skill2ButtonVisible, skill3ButtonVisible, minimapPanelVisible,
   touchControlsMode, actionZoneLayout, staminaVisible, unlockedPcHintOps, stepPcHint,
+  dialogueAdvanceHint,
 } from '../core/combat-hud-visibility.js';
 import { ndcToScreen, placeAnchoredPrompt } from '../core/combat-prompt-layout.js';
 import { simDeltaSeconds, simTimeScale } from '../core/sim-time.js';

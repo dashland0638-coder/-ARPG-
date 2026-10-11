@@ -34,6 +34,15 @@
     if(camL) camL.classList.toggle('active', mode.cameraButtons);
     if(camR) camR.classList.toggle('active', mode.cameraButtons);
     syncActionZoneLayout();
+    syncDialogueHint();
+  }
+  // 会話の「続ける」の表記を入力デバイスに合わせる(UI-002-H H-D5。表記だけで、操作は変えない)
+  function syncDialogueHint(){
+    const el = document.querySelector('#dialogue-overlay .dialogue-next');
+    if(!el) return;
+    const hint = dialogueAdvanceHint({ isTouchDevice, gamepadConnected: gpIndex !== null });
+    el.textContent = hint.text;
+    el.dataset.input = hint.device;
   }
 
   /* Action Zone の表示モード(UI-002-D WI-D3。条件は core/combat-hud-visibility.js の
