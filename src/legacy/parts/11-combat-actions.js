@@ -2214,7 +2214,8 @@
     const gapPx = 34;   // プレートの高さ(約 31px)＋すき間
     // activeToasts[0] が最新。古いものほど上(小さいtop)に配置する
     activeToasts.forEach((el, i)=>{
-      el.style.top = 'calc(30% - ' + (i*gapPx) + 'px)';
+      // 基準の高さは CSS(--ui-toast-base。既定 30%、背の低い画面では左上のパネルに重ならないよう下げる)
+      el.style.top = 'calc(var(--ui-toast-base, 30%) - ' + (i*gapPx) + 'px)';
     });
   }
   /* 通知の表示先(UI-002-D WI-D5。HD-D17)。以前は spawnToast() が同じ文言を中央トーストと

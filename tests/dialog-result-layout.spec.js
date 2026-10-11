@@ -79,10 +79,10 @@ async function observableState(page) {
 }
 
 test.describe('UI-002-H 通知(H-D1 / H-D2)', () => {
-  test.use({ viewport: { width: 1280, height: 800 } });
-
-  test('中央トーストは実効 1.7 秒見え、3 件までで重ならず、ログと二重に出ない', async ({ page }) => {
+  for (const sz of SIZES) test(`${sz.name}: 中央トーストは実効 1.7 秒見え、3 件までで重ならず、ログと二重に出ない`, async ({ browser }) => {
     test.setTimeout(240_000);
+    const context = await browser.newContext({ viewport: sz.viewport, hasTouch: sz.hasTouch });
+    const page = await context.newPage();
     const errors = watchErrors(page);
     await watchNotifications(page);
     await openGame(page, { dev: false });
@@ -143,9 +143,21 @@ test.describe('UI-002-H 通知(H-D1 / H-D2)', () => {
     for (const r of stack) {
       expect(r.top).toBeGreaterThanOrEqual(0);
       expect(r.left).toBeGreaterThanOrEqual(0);
-      expect(r.right).toBeLessThanOrEqual(1280);
+      expect(r.right).toBeLessThanOrEqual(sz.viewport.width);
+    }
+    // 左上のパネル・ミニマップに重ならない
+    const zones = await page.evaluate(() => ['.hud-topleft', '#hud-loot', '#minimap-wrap'].map(q => {
+      const el = document.querySelector(q);
+      if (!el || el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return null;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 ? { q, top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null;
+    }).filter(Boolean));
+    for (const r of stack) for (const z of zones) {
+      const hit = r.left < z.right && z.left < r.right && r.top < z.bottom && z.top < r.bottom;
+      expect(hit, `トースト ${JSON.stringify(r)} と ${z.q} ${JSON.stringify(z)}`).toBe(false);
     }
     expect(errors).toEqual([]);
+    await context.close();
   });
 });
 
