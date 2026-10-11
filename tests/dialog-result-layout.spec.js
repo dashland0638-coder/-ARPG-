@@ -285,14 +285,15 @@ test.describe('UI-002-H 結果・戦闘不能(H-D6: テストモードの入口)
         await expect(page.locator('#result-loot')).toContainText('初制覇');
         // 3 択・振り分けを押しても何も起きない(報酬・成長を付けない)
         const card = page.locator('#boss-choice-panel .boss-choice-card').first();
-        if (await card.isVisible()) await card.click();
+        await expect(card, 'テストモードの結果には 3 択が出る').toBeVisible();
+        await expect(page.locator('#boss-choice-panel .boss-choice-card.picked')).toHaveCount(0);
+        await card.click();
         await expect(page.locator('#boss-choice-panel .boss-choice-card.picked')).toHaveCount(0);
         const plus = page.locator('#result-stat-panel .stat-btn.plus').first();
-        if (await plus.isVisible()) {
-          const v0 = await page.locator('#ralloc-vit').textContent();
-          await plus.click();
-          await expect(page.locator('#ralloc-vit')).toHaveText(v0 || '');
-        }
+        await expect(plus, 'テストモードの結果には振り分けが出る').toBeVisible();
+        const v0 = await page.locator('#ralloc-vit').textContent();
+        await plus.click();
+        await expect(page.locator('#ralloc-vit')).toHaveText(v0 || '');
       }
       // 「街に戻る」は画面を閉じるだけ(街へ戻らない・帰還の台詞を出さない)
       await page.click('#clear-return-btn');

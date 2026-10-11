@@ -124,13 +124,17 @@
 
   function snapshotPreviewState(){
     const snap = {};
-    UI_PREVIEW_STATE_KEYS.forEach(k=>{ snap[k] = JSON.stringify(state[k] === undefined ? null : state[k]); snap['has:'+k] = (k in state); });
+    // 配列(所持品・装備)は要素の参照ごと残す(装備中の品と同じ物を指したまま戻すため)。それ以外は値の写し
+    UI_PREVIEW_STATE_KEYS.forEach(k=>{
+      snap['has:'+k] = (k in state);
+      snap[k] = Array.isArray(state[k]) ? { items: state[k].slice() } : { json: JSON.stringify(state[k] === undefined ? null : state[k]) };
+    });
     return snap;
   }
   function restorePreviewState(snap){
     UI_PREVIEW_STATE_KEYS.forEach(k=>{
       if(!snap['has:'+k]){ delete state[k]; return; }
-      const v = JSON.parse(snap[k]);
+      const v = snap[k].items ? snap[k].items : JSON.parse(snap[k].json);
       const cur = state[k];
       // 同じ入れ物を参照しているコードがあっても壊れないよう、配列・オブジェクトは中身を戻す
       if(Array.isArray(cur) && Array.isArray(v)){ cur.length = 0; v.forEach(x=>cur.push(x)); }
