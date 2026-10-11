@@ -74,7 +74,7 @@ Analysis §3〜§5 のとおり。
 - Auto Fix Count: 1（E2E のバッファ音源の数え方を修正）
 - Reviewer Round Count: 1
 - Test Retry Count: 0
-- PR Created: Yes（PR 本文参照）
+- PR Created: Yes（#70）
 
 ## Status History
 | Date | Target | From → To | By | Note |
