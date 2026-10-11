@@ -12,7 +12,12 @@
  * UI-002-F(Human 承認 2026-10-09、F-D2 / F-D8): メニュー(.menu-box)と鍛冶屋
  * (#appraisal-overlay .appraisal-box)だけを C2 のプレートへ更新した(単色の面・3px の
  * 輪郭・2px の内縁・角丸 8px・ぼかしなし)。同じ共通 selector を使う出撃画面
- * (#scenario-overlay)・結果画面(#clear-overlay)は変えていないことを、ここで固定している。
+ * (#scenario-overlay)は変えていないことを、ここで固定している。
+ *
+ * UI-002-H(Human 承認 2026-10-10、H-D1〜H-D7): 会話(.dialogue-box)・確認(#confirm-box)・
+ * 結果(#clear-overlay)・戦闘不能(#down-overlay)を同じプレートへ更新し、背景のぼかしを外した。
+ * 戦闘不能の見出し・失った額の色は index.html の inline style から class へ移しただけで値は同じ。
+ * 出撃画面(#scenario-overlay、UI-002-G)は共有 class だが変わらないことを引き続き固定する。
  *
  * 要素は非表示でも computed style を持つので、タイトル画面を開いた
  * 状態のまま HUD・メニュー・確認・会話・鑑定所・結果の各パネルを読む
@@ -80,17 +85,30 @@ const EXPECTED = {
       "font-size": "20px"
     },
     "#confirm-overlay": {
-      "z-index": "120"
+      "z-index": "120",
+      "backdrop-filter": "none"
     },
     "#confirm-box": {
-      "box-shadow": "rgba(0, 0, 0, 0.6) 0px 18px 50px 0px"
+      "background-image": "none",
+      "background-color": "rgb(21, 17, 28)",
+      "border-top-color": "rgb(12, 10, 16)",
+      "border-top-width": "3px",
+      "border-top-left-radius": "8px",
+      "box-shadow": "rgb(58, 47, 74) 0px 0px 0px 2px inset, rgba(0, 0, 0, 0.6) 0px 20px 60px 0px"
     },
     "#dialogue-overlay": {
       "z-index": "35"
     },
     ".dialogue-box": {
-      "box-shadow": "rgba(0, 0, 0, 0.6) 0px 16px 50px 0px",
-      "border-top-left-radius": "8px"
+      "background-image": "none",
+      "background-color": "rgb(21, 17, 28)",
+      "border-top-color": "rgb(12, 10, 16)",
+      "border-top-width": "3px",
+      "border-top-left-radius": "8px",
+      "box-shadow": "rgb(58, 47, 74) 0px 0px 0px 2px inset, rgba(0, 0, 0, 0.55) 0px 2px 0px 0px"
+    },
+    ".dialogue-next": {
+      "font-size": "11px"
     },
     "#appraisal-overlay": {
       "backdrop-filter": "none"
@@ -114,12 +132,34 @@ const EXPECTED = {
       "box-shadow": "rgba(0, 0, 0, 0.65) 0px 24px 70px 0px"
     },
     "#clear-overlay": {
-      "backdrop-filter": "blur(3px)"
+      "z-index": "35",
+      "backdrop-filter": "none"
     },
     "#clear-overlay .event-box": {
-      "background-image": "linear-gradient(rgb(21, 17, 28), rgb(16, 13, 22))",
-      "border-top-left-radius": "6px",
-      "box-shadow": "rgba(0, 0, 0, 0.65) 0px 24px 70px 0px"
+      "background-image": "none",
+      "background-color": "rgb(21, 17, 28)",
+      "border-top-color": "rgb(12, 10, 16)",
+      "border-top-width": "3px",
+      "border-top-left-radius": "8px",
+      "box-shadow": "rgb(58, 47, 74) 0px 0px 0px 2px inset, rgba(0, 0, 0, 0.6) 0px 20px 60px 0px"
+    },
+    "#down-overlay": {
+      "z-index": "35",
+      "backdrop-filter": "none"
+    },
+    "#down-overlay .event-box": {
+      "background-image": "none",
+      "background-color": "rgb(21, 17, 28)",
+      "border-top-color": "rgb(12, 10, 16)",
+      "border-top-width": "3px",
+      "border-top-left-radius": "8px",
+      "box-shadow": "rgb(58, 47, 74) 0px 0px 0px 2px inset, rgba(0, 0, 0, 0.6) 0px 20px 60px 0px"
+    },
+    "#down-overlay .down-title": {
+      "color": "rgb(201, 87, 106)"
+    },
+    "#down-overlay .down-penalty": {
+      "color": "rgb(224, 160, 74)"
     },
     "body": {
       "font-family": "\"Noto Sans JP\", sans-serif"
