@@ -1,4 +1,4 @@
-/* MUSIC-AUDIO-001: CC0 サンプル音源エンジン(ピアノ・フルートの試作)
+/* MUSIC-AUDIO-001: CC0 サンプル音源エンジン(ピアノ・フルート・ヴィオラ・チェロの試作)
 
    譜面イベント(音程 n / 開始 start / 長さ dur / 強弱 level)を受け取り、収録音を
    playbackRate で移調して鳴らす。作曲・譜面のデータには触らない。
@@ -7,6 +7,7 @@
    - ゾーンから maxShift 半音より遠い音・未読み込みの楽器は play() が null を返す。
      呼び出し側(sample-hooks.js)はそのとき既存の合成音で鳴らす
    - 例外は外へ出さない(読み込み失敗でアプリを止めない)
+   - ゾーンに loopStart / loopEnd(発音の頭からの秒)がある楽器(弦)は、収録音より長い音をループで伸ばす
 
    純粋関数(pickZone / planNote / findOnset)は Node の単体テストから直接呼ぶ。 */
 (function(root, factory){
@@ -20,7 +21,12 @@
     Piano: { attack:.004, releaseRatio:.50, releaseMin:.25, releaseMax:.90,
              gain:1.0, refLevel:.12, cutLo:1800, cutHi:10000, maxShift:12 },
     Flute: { attack:.030, releaseRatio:.15, releaseMin:.10, releaseMax:.25,
-             gain:1.6, refLevel:.08, cutLo:5200, cutHi:12000, maxShift:12 }
+             gain:1.6, refLevel:.08, cutLo:5200, cutHi:12000, maxShift:12 },
+    // 弦: 弓の立ち上がりは収録音のまま。合成音(makeVoice)の余韻 .06〜.12 秒より少し長く、自然に切る
+    Viola: { attack:.020, releaseRatio:.12, releaseMin:.12, releaseMax:.30,
+             gain:1.6, refLevel:.09, cutLo:2400, cutHi:9000, maxShift:12 },
+    Cello: { attack:.020, releaseRatio:.12, releaseMin:.15, releaseMax:.35,
+             gain:1.6, refLevel:.11, cutLo:1600, cutHi:7000, maxShift:12 }
   };
 
   function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
@@ -40,11 +46,11 @@
     return { zone:best.zone, rate:Math.pow(2, semis / 12) };
   }
 
-  /* 1音の時間と音量の計画。buffer は {duration, offset}(offset は発音の頭) */
+  /* 1音の時間と音量の計画。buffer は {duration, offset, loop}(offset は発音の頭。loop なら長さの上限なし) */
   function planNote(profile, rate, buffer, start, dur, level){
     const hold = Math.max(.03, Number(dur) || 0);
     const release = clamp(hold * profile.releaseRatio, profile.releaseMin, profile.releaseMax);
-    const avail = Math.max(.05, (buffer.duration - (buffer.offset || 0)) / rate);
+    const avail = buffer.loop ? Infinity : Math.max(.05, (buffer.duration - (buffer.offset || 0)) / rate);
     const end = Math.min(start + hold + release, start + avail);
     const holdEnd = Math.max(start + profile.attack, Math.min(start + hold, end - .02));
     const lv = Math.max(0, Number(level) || 0);
@@ -55,6 +61,16 @@
       peak: Math.max(.0001, lv * profile.gain),
       cutoff: profile.cutLo + (profile.cutHi - profile.cutLo) * Math.sqrt(v)
     };
+  }
+
+  /* ループ区間(バッファ上の秒)。発音の頭 offset から数えた zone の値を、実際に decode された位置へずらす。
+     区間が壊れている・バッファに収まらないときは null(ループしない) */
+  function loopRegion(zone, offset, duration){
+    const a = Number(zone && zone.loopStart), b = Number(zone && zone.loopEnd);
+    if(!Number.isFinite(a) || !Number.isFinite(b) || b - a < .1) return null;
+    const ls = (offset || 0) + a, le = (offset || 0) + b;
+    if(ls <= 0 || le > duration + .01) return null;           // decode の誤差(数 ms)までは許す
+    return { start:ls, end:Math.min(le, duration) };
   }
 
   /* 発音の頭。MP3 の先頭の無音(エンコーダ遅延)はブラウザによって残るので、読み込み後に測る */
@@ -71,8 +87,9 @@
   }
 
   // ---- ブラウザ側 ----------------------------------------------------------
-  const loaded = { Piano:new Map(), Flute:new Map() };   // midi -> {buffer, offset, zone}
-  const status = { Piano:'idle', Flute:'idle' };          // idle / loading / ready / partial / failed
+  const INSTRUMENTS = Object.keys(PROFILES);
+  const loaded = {}, status = {};                        // loaded: midi -> {buffer, offset, zone, loop}
+  for(const n of INSTRUMENTS){ loaded[n] = new Map(); status[n] = 'idle'; }   // idle / loading / ready / partial / failed
   let loading = null;
   let decodeCtx = null;
 
@@ -111,7 +128,8 @@
         const ctx = decoder(fallbackCtx);
         if(!ctx) throw new Error('no AudioContext for decoding');
         const buffer = await decodeCompat(ctx, await res.arrayBuffer());
-        loaded[name].set(zone.midi, { buffer, zone, offset:findOnset(buffer.getChannelData(0), buffer.sampleRate) });
+        const offset = findOnset(buffer.getChannelData(0), buffer.sampleRate);
+        loaded[name].set(zone.midi, { buffer, zone, offset, loop:loopRegion(zone, offset, buffer.duration) });
         ok++;
       }catch(e){
         console.warn('[SampleEngine]', name, zone.file, e && e.message || e);
@@ -127,10 +145,10 @@
     const o = opts || {};
     const manifest = o.manifest || root.SAMPLE_MANIFEST;
     if(!manifest || typeof root.fetch !== 'function'){
-      status.Piano = status.Flute = 'failed';
+      for(const n of INSTRUMENTS) status[n] = 'failed';
       return (loading = Promise.resolve({ ...status }));
     }
-    loading = Promise.all(Object.keys(loaded).map(n=>loadInstrument(n, manifest[n], o.baseUrl, o.fallbackCtx)))
+    loading = Promise.all(INSTRUMENTS.map(n=>manifest[n] ? loadInstrument(n, manifest[n], o.baseUrl, o.fallbackCtx) : (status[n] = 'failed')))
       .then(()=>({ ...status }), ()=>({ ...status }));
     return loading;
   }
@@ -146,10 +164,15 @@
       const pick = pickZone(zones, midi, profile.maxShift);
       if(!pick) return null;
       const entry = loaded[name].get(pick.zone.midi);
-      const plan = planNote(profile, pick.rate, { duration:entry.buffer.duration, offset:entry.offset }, start, dur, level);
+      const plan = planNote(profile, pick.rate, { duration:entry.buffer.duration, offset:entry.offset, loop:!!entry.loop }, start, dur, level);
 
       const src = ctx.createBufferSource();
       src.buffer = entry.buffer;
+      if(entry.loop){
+        src.loop = true;
+        src.loopStart = entry.loop.start;
+        src.loopEnd = entry.loop.end;
+      }
       src.playbackRate.setValueAtTime(pick.rate, plan.start);
       const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
@@ -201,9 +224,9 @@
   }
 
   return {
-    PROFILES, pickZone, planNote, findOnset,
+    PROFILES, INSTRUMENTS, pickZone, planNote, findOnset, loopRegion,
     load, isReady, play,
     status(){ return { ...status }; },
-    _reset(){ loaded.Piano.clear(); loaded.Flute.clear(); status.Piano = status.Flute = 'idle'; loading = null; decodeCtx = null; }
+    _reset(){ for(const n of INSTRUMENTS){ loaded[n].clear(); status[n] = 'idle'; } loading = null; decodeCtx = null; }
   };
 });

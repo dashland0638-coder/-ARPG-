@@ -3,7 +3,8 @@
    ゲーム本体ではなく、Vite の dev サーバーが配る tools/music-composer/ の HTML を開く。
    AudioContext の生成・発音を数えるだけで、実際の音は聴かない(音質は実機で確認する)。
      ・音源が「合成音」なら、基準の v5.67.0 と同じ曲・同じ譜面・同じ数の発音になる
-     ・「サンプル」なら、ピアノ・フルートは譜面イベントと1対1で鳴り、合成音のフルートは鳴らない
+     ・「サンプル」なら、ピアノ・フルート・ヴィオラ・チェロは譜面イベントと1対1で鳴り、合成音では鳴らない。
+       フルート・ヴィオラ・チェロの強さ・長さ・奥行きは v5.67.0 の合成音の再生と同じ値
      ・停止 → 再生を繰り返しても前の音は残らない。セル音量・セル試聴が効く
      ・音源が読めないときは合成音に戻り、アプリは止まらない */
 import { test, expect } from '@playwright/test';
@@ -51,7 +52,7 @@ async function playAndCount(page){
 function truthCounts(page){
   return page.evaluate(()=>{
     const ev = buildTruthScore(state.track).events.filter(e=>!e.rest && e.n != null);
-    return { Piano:ev.filter(e=>e.instrument === 'Piano').length, Flute:ev.filter(e=>e.instrument === 'Flute').length };
+    return Object.fromEntries(['Piano', 'Flute', 'Viola', 'Cello'].map(n=>[n, ev.filter(e=>e.instrument === n).length]));
   });
 }
 
@@ -82,7 +83,7 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     expect(errors).toEqual([]);
   });
 
-  test('サンプルモード: ピアノ・フルートは譜面イベントと1対1、合成音のフルートは鳴らない', async ({ page })=>{
+  test('サンプルモード: ピアノ・フルート・ヴィオラ・チェロは譜面イベントと1対1、合成音は鳴らない', async ({ page })=>{
     const errors = [];
     page.on('pageerror', e=>errors.push(e.message));
     await setupTavern(page, PROTO);
@@ -90,19 +91,18 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     await page.evaluate(()=>stopAudio());
 
     const st = await enableSamples(page);
-    expect(st).toEqual({ Piano:'ready', Flute:'ready' });
+    expect(st).toEqual({ Piano:'ready', Flute:'ready', Viola:'ready', Cello:'ready' });
     const truth = await truthCounts(page);
-    expect(truth.Piano).toBeGreaterThan(0);
-    expect(truth.Flute).toBeGreaterThan(0);
+    for(const n of ['Piano', 'Flute', 'Viola', 'Cello']) expect(truth[n]).toBeGreaterThan(0);
 
     const sample = await playAndCount(page);
     const stats = await page.evaluate(()=>SampleHooks.stats());
     expect(stats.scheduled).toEqual(truth);
-    expect(stats.fallback).toEqual({ Piano:0, Flute:0 });
-    // 合成フルートは1音につき発振器2つ。それがちょうど無くなっている
-    expect(synthCount.osc - sample.osc).toBe(truth.Flute * 2);
-    // 増えたバッファ音源はピアノ・フルートの譜面イベントの数だけ
-    expect(sample.bufStarts.length - synthCount.bufStarts.length).toBe(truth.Piano + truth.Flute);
+    expect(stats.fallback).toEqual({ Piano:0, Flute:0, Viola:0, Cello:0 });
+    // makeVoice の合成音は1音につき発振器2つ。フルート・ヴィオラ・チェロの分がちょうど無くなっている
+    expect(synthCount.osc - sample.osc).toBe((truth.Flute + truth.Viola + truth.Cello) * 2);
+    // 増えたバッファ音源は4楽器の譜面イベントの数だけ
+    expect(sample.bufStarts.length - synthCount.bufStarts.length).toBe(truth.Piano + truth.Flute + truth.Viola + truth.Cello);
 
     // 開始時刻は「再生開始 + 譜面イベントの start」と一致する
     const timing = await page.evaluate(()=>{
@@ -114,7 +114,7 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
       window.startScorePlayhead = function(st){ t0 = st; return origHead.apply(this, arguments); };
       playTrack();
       SampleEngine.play = origPlay; window.startScorePlayhead = origHead;
-      const ev = buildTruthScore(state.track).events.filter(e=>!e.rest && e.n != null && (e.instrument === 'Piano' || e.instrument === 'Flute'));
+      const ev = buildTruthScore(state.track).events.filter(e=>!e.rest && e.n != null && ['Piano', 'Flute', 'Viola', 'Cello'].includes(e.instrument));
       const key = x=>`${x.name}:${x.midi}:${x.start.toFixed(4)}`;
       return {
         actual: calls.map(key).sort(),
@@ -123,6 +123,56 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     });
     expect(timing.actual).toEqual(timing.expected);
     expect(errors).toEqual([]);
+  });
+
+  test('サンプルモードのフルート・ヴィオラ・チェロは、合成音の再生と同じ強さ・長さ・奥行きで鳴る', async ({ page })=>{
+    await setupTavern(page, PROTO);
+    await enableSamples(page);
+    const r = await page.evaluate(()=>{
+      const key = (name, n, at, dur, level, depth)=>[name, n, at.toFixed(4), dur.toFixed(4), level.toExponential(6), depth.toFixed(4)].join('|');
+      // 合成音: playTrack が makeVoice に渡す値
+      SampleHooks.setEnabled(false);
+      const calls = [];
+      let t0 = null;
+      const ov = window.makeVoice, oh = window.startScorePlayhead;
+      window.makeVoice = function(name, n, st, dur, lv, room, dep){ if(['Flute', 'Viola', 'Cello'].includes(name)) calls.push([name, n, st, dur, lv, dep]); return ov.apply(this, arguments); };
+      window.startScorePlayhead = function(st){ t0 = st; return oh.apply(this, arguments); };
+      playTrack(); stopAudio();
+      window.makeVoice = ov;
+      const synth = calls.map(([name, n, st, dur, lv, dep])=>key(name, n, st - t0, dur, lv, dep)).sort();
+      const synthStart = t0;
+      // サンプル: 譜面イベントから決めた値
+      SampleHooks.setEnabled(true);
+      playTrack(); stopAudio();
+      window.startScorePlayhead = oh;
+      const sample = SampleHooks.lastNotes().filter(p=>p.instrument !== 'Piano').map(p=>key(p.instrument, p.n, p.at, p.dur, p.level, p.depth)).sort();
+      return { synth, sample, starts:[synthStart, t0], viola:sample.filter(k=>k.startsWith('Viola')).length };
+    });
+    expect(r.starts[1]).toBe(r.starts[0]);
+    expect(r.viola).toBeGreaterThan(0);
+    expect(r.sample).toEqual(r.synth);
+  });
+
+  test('ヴィオラ・チェロの長い音はループで最後まで鳴る', async ({ page })=>{
+    await page.goto(PROTO);
+    await enableSamples(page);
+    const r = await page.evaluate(async ()=>{
+      const off = new OfflineAudioContext(1, 44100 * 9, 44100);
+      audioCtx = off;
+      const master = off.createGain(); master.connect(off.destination);
+      makeVoice('Viola', 69, 0, 8, .09, { master, wet:off.createGain() }, .55);
+      makeVoice('Cello', 43, 0, 8, .10, { master, wet:off.createGain() }, .44);
+      const d = (await off.startRendering()).getChannelData(0);
+      audioCtx = null;
+      const rms = (a, b)=>{ let s = 0; for(let i = a * 44100; i < b * 44100; i++) s += d[i] * d[i]; return 20 * Math.log10(Math.sqrt(s / ((b - a) * 44100)) + 1e-12); };
+      let jump = 0, typical = [];
+      for(let i = 44100; i < 44100 * 7.5; i++){ const x = Math.abs(d[i] - d[i - 1]); typical.push(x); if(x > jump) jump = x; }
+      typical.sort((a, b)=>a - b);
+      return { head:rms(1, 2), late:rms(6.5, 7.5), after:rms(8.6, 9), jump, p99:typical[Math.floor(typical.length * .99)] };
+    });
+    expect(r.late).toBeGreaterThan(r.head - 6);      // 収録音(3.6 秒)を過ぎても弱まらない
+    expect(r.after).toBeLessThan(r.late - 30);       // 長さ + 余韻の後は消える
+    expect(r.jump).toBeLessThan(r.p99 * 4);          // ループのつなぎ目に段差(クリック)が無い
   });
 
   test('停止 → 再生を繰り返しても音は重複しない', async ({ page })=>{
@@ -185,7 +235,7 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     const synthCount = await playAndCount(page);
     await page.evaluate(()=>stopAudio());
 
-    expect(await enableSamples(page)).toEqual({ Piano:'failed', Flute:'failed' });
+    expect(await enableSamples(page)).toEqual({ Piano:'failed', Flute:'failed', Viola:'failed', Cello:'failed' });
     await expect(page.locator('#sampleEngineStatus')).toContainText('読み込み失敗');
     const c = await playAndCount(page);
     expect(c.playing).toBe(true);

@@ -3,7 +3,9 @@
 
 入力は固定コミットの2リポジトリ(どちらも LICENSE が CC0 1.0):
   VCSL       https://github.com/sgossner/VCSL        (ピアノ: Upright Piano, Knight / Sustains / vl2)
-  VSCO-2-CE  https://github.com/sgossner/VSCO-2-CE   (フルート: Woodwinds/Flute/susvib / v1)
+  VSCO-2-CE  https://github.com/sgossner/VSCO-2-CE   (フルート: Woodwinds/Flute/susvib / v1、
+                                                       ヴィオラ: Strings/Viola Section/susvib / v2、
+                                                       チェロ: Strings/Cello Section/susvib / v3)
 
 使い方(git / ffmpeg / numpy が必要。数 GB の全体は取らず、使うファイルだけ取り出す):
   git clone --filter=blob:none --no-checkout https://github.com/sgossner/VCSL vcsl
@@ -11,6 +13,8 @@
   python3 -I build_samples.py --vcsl vcsl --vsco vsco --out ../samples
 
 処理: 先頭の無音を削る → モノラル化 → 長さを切り詰めて末尾をフェード → 44.1kHz MP3。
+弦(loop あり)は末尾をフェードせず、ループ区間の終わりを始まりの手前と等パワーでクロスフェードして
+つなぎ目を消し、ループ位置(発音の頭からの秒)を manifest.js に書く。長い音は再生側でループする。
 自己相関で実測した音高のずれ(cent)を manifest.js に書き、再生側で補正する。
 """
 import argparse, json, math, os, subprocess, sys
@@ -41,6 +45,23 @@ FLUTE = {
     "seconds": 4.0, "fade": 0.4, "bitrate": "112k",
 }
 
+# 弦: 1.2〜3.6 秒をループ(弓の立ち上がりの後の、ビブラートが安定した区間)
+STRING_LOOP = {"loop": (1.2, 3.6), "xfade": 0.3, "seconds": 3.6, "fade": 0, "bitrate": "112k"}
+VIOLA = {
+    "repo": "vsco", "commit": VSCO_COMMIT,
+    "dir": "Strings/Viola Section/susvib",
+    "file": lambda m: f"ViolaEns_susvib_{vendor_name(m)}_v2_1.wav",
+    "midis": [48, 50, 52, 55, 59, 62, 65, 69, 72, 76, 79, 83, 86],
+    **STRING_LOOP,
+}
+CELLO = {
+    "repo": "vsco", "commit": VSCO_COMMIT,
+    "dir": "Strings/Cello Section/susvib",
+    "file": lambda m: f"susvib_{vendor_name(m)}_v3_1.wav",
+    "midis": [36, 40, 43, 47, 50, 53, 57, 60, 64, 67, 71, 74, 77],
+    **STRING_LOOP,
+}
+
 def git_blob(repo, commit, path):
     return subprocess.run(["git", "-C", repo, "show", f"{commit}:{path}"], check=True, capture_output=True).stdout
 
@@ -53,6 +74,20 @@ def onset(x):
     peak = np.max(np.abs(x[: SR * 2])) or 1.0
     idx = int(np.argmax(np.abs(x) > peak * 0.02))
     return max(0, idx - int(SR * 0.004))
+
+# sample-engine.js の findOnset と同じ。ループ位置をこの頭からの秒で書く
+def runtime_onset(x):
+    head = x[:SR]
+    peak = np.max(np.abs(head)) or 1.0
+    idx = int(np.argmax(np.abs(head) > peak * 0.02))
+    return max(0, idx - int(SR * 0.002)) / SR
+
+# ループ終端の後ろには、ループ始端からの続きを 0.1 秒足す(decode の誤差で終端がはみ出してもループが効く)
+def crossfade_loop(x, ls, le, c):
+    y = np.concatenate([x[:le], x[ls:ls + int(SR * 0.1)]])
+    k = np.arange(c) / c
+    y[le - c:le] = x[le - c:le] * np.cos(k * np.pi / 2) + x[ls - c:ls] * np.sin(k * np.pi / 2)
+    return y
 
 def measure_midi(x):
     seg = x[int(SR * 0.3): int(SR * 1.3)]
@@ -89,13 +124,25 @@ def build(spec, name, args):
         cents = round((measured - m) * 100, 1)
         if abs(cents) > 50:
             sys.exit(f"pitch mismatch: {src} expected MIDI {m}, measured {measured:.2f}")
-        x = x[onset(x):][: int(SR * spec["seconds"])]
-        fade = int(SR * spec["fade"])
-        x[-fade:] *= np.linspace(1, 0, fade) ** 2
+        x = x[onset(x):]
+        loop = None
+        if spec.get("loop"):
+            ls, le = (int(SR * t) for t in spec["loop"])
+            x = crossfade_loop(x, ls, le, int(SR * spec["xfade"]))
+            loop = (ls, le)
+        else:
+            x = x[: int(SR * spec["seconds"])]
+            fade = int(SR * spec["fade"])
+            x[-fade:] *= np.linspace(1, 0, fade) ** 2
         x = x / (np.max(np.abs(x)) or 1) * 0.89  # -1 dBFS に揃える。強弱は再生側で付ける
         rel = f"{name}/{name}_{m:03d}.mp3"
         encode(x, os.path.join(args.out, rel), spec["bitrate"])
-        zones.append({"midi": m, "cents": cents, "file": rel, "source": src})
+        zone = {"midi": m, "cents": cents, "file": rel, "source": src}
+        if loop:
+            o = runtime_onset(x)
+            zone["loopStart"] = round(loop[0] / SR - o, 5)
+            zone["loopEnd"] = round(loop[1] / SR - o, 5)
+        zones.append(zone)
         print(f"{rel}  <- {src}  ({cents:+.1f} cent)")
     return {"repo": spec["repo"], "commit": spec["commit"], "zones": zones}
 
@@ -105,7 +152,10 @@ def main():
     ap.add_argument("--vsco", required=True)
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
-    manifest = {"Piano": build(PIANO, "piano", args), "Flute": build(FLUTE, "flute", args)}
+    manifest = {
+        "Piano": build(PIANO, "piano", args), "Flute": build(FLUTE, "flute", args),
+        "Viola": build(VIOLA, "viola", args), "Cello": build(CELLO, "cello", args),
+    }
     body = json.dumps(manifest, indent=1, ensure_ascii=False)
     with open(os.path.join(args.out, "manifest.js"), "w") as f:
         f.write("/* build_samples.py が生成。手で編集しない */\n")

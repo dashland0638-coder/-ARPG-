@@ -14,6 +14,7 @@ Analysis: .ai/reports/MUSIC-AUDIO-001-analysis.md（branch `claude/cc0-sample-au
 
 ## Goal
 音楽アプリの音源を、JavaScript の簡易合成音から実際の楽器を収録したサンプル音源へ段階的に置き換える。今回はピアノとフルートの試作に限定する。
+追加（Human 指示）: ヴィオラとチェロもサンプル音源にする。
 
 ## Constraints
 - 酒場 BGM の確定版を基準として保護する。作曲エンジン・自然言語の作曲指示・40小節1ループ・楽器の加入段階・譜面編集を壊さない
@@ -36,15 +37,17 @@ Analysis §3〜§5 のとおり。
 | 条件 | 結果 |
 | --- | --- |
 | 既存の作曲・譜面・編集を維持 | 合成音モードで基準と同じ track・譜面イベント・発振器数（E2E） |
-| 譜面と音が同じイベント | サンプルモードのピアノ・フルートは `buildTruthScore` のイベントと音程・開始時刻が1対1（E2E） |
+| 譜面と音が同じイベント | サンプルモードの4楽器は `buildTruthScore` のイベントと音程・開始時刻が1対1（E2E） |
+| 確定版の聞こえ方 | フルート・ヴィオラ・チェロの強さ・長さ・奥行きが v5.67.0 の合成音の再生と完全一致（E2E、酒場完成版 130 音） |
+| 弦の長い音 | 8 秒の音がループで減衰せず、つなぎ目に段差なし（E2E。全 26 ゾーンを手動確認） |
 | 再生・停止・連続再生・セル試聴 | E2E（重複なし、古い AudioContext は closed、試聴は常に1つ） |
 | セル音量が再生に反映 | 200% で level がちょうど2倍（E2E） |
 | 読み込み失敗でも止まらない | 404 で「読み込み失敗 → 合成音」、合成音と同じ発振器数で再生（E2E） |
 | 出典・バージョン・ライセンス | `tools/music-composer/README.md` |
-| iPhone Safari | 手順を README に記載。**実機は未実施** |
+| iPhone Safari | 手順を README に記載。Human がピアノ・フルート版を試聴して問題なし。**弦は実機未確認** |
 
 ## Risks
-- iPhone Safari の実機確認が未実施（AudioBuffer を別 AudioContext で使う動作・メモリ約 30MB）
+- iPhone Safari での弦の実機確認が未実施（デコード後のメモリ約 50MB の見込み）
 - サンプルモードではピアノが鳴る（v5.67.0 の通し再生ではピアノが鳴っていない）
 
 ## Rollback
@@ -62,16 +65,24 @@ Analysis §3〜§5 のとおり。
 | 4 | MP3 モノラル 112kbps、全音おき / 長3度おき、3.5〜4 秒 | iOS の decode 互換と容量（計 2.1MB） | WAV（約 100MB）、Ogg（古い iOS 不可） |
 | 5 | 外部の再生ライブラリを使わない | 単一 HTML・バンドラ無し。必要機能が小さい | Tone.js / smplr（MIT） |
 | 6 | 既定は合成音。サンプルは利用者が選ぶ | 確定版の保護 | 既定をサンプル |
-| 7 | サンプルモードではピアノも譜面どおり鳴らす | DoD「譜面表示と実際の音が同じイベント」 | ピアノは試聴だけ |
+| 7 | サンプルモードではピアノも譜面どおり鳴らす（Human が「そのまま残す」と決定） | DoD「譜面表示と実際の音が同じイベント」 | ピアノは試聴だけ |
+| 8 | ヴィオラ・チェロは VSCO 2 CE の Viola / Cello Section susvib（強い方の velocity） | CC0。ソロのヴィオラは無い。弱い velocity は -20〜-28 dB で正規化するとノイズが上がる | VCSL（弦の持続音が無い） |
+| 9 | 弦はループ（1.2〜3.6 秒、0.3 秒の等パワー・クロスフェード）で伸ばす | 譜面の長い音（最大 3.2 拍 ×1.16）に収録音の長さで切れない。容量 3.6 秒/音 | 長いサンプル（容量が数倍） |
+| 10 | どの音を鳴らすか（音程・開始）は譜面イベント、強さ・長さ・奥行きは v5.67.0 の playTrack と同じ計算（`performance()`） | 確定版の保護が最重要。譜面の level / 長さと再生の値はヴィオラ・チェロで違う（下記） | 譜面の値で鳴らす（確定版の聞こえ方が変わる） |
+
+### 見つけた既存の不整合（v5.67.0、変更していない）
+- ヴィオラ: 再生は level に ×1.18 と `tavernMixLevel` を掛け、最後の区間は長さ ×1.16。譜面には無い
+- ヴィオラの長さ: 再生側は「次の音まで伸ばす」計算で絶対時刻と譜面の時刻を比べている（`st=start+…` と `nextSt=tm.eventStart(…)`）。譜面のバーより短く鳴る
+- チェロ: 再生は `tavernMixLevel` を2回掛ける（譜面は1回）
 
 ## Escalation
 解消済み（音楽アプリの所在 → Human が HTML を共有）。
 
 ## Autonomy Metrics
 - Human Escalation Count: 1
-- Human Decision Count: 2（v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有）
-- Auto Fix Count: 1（E2E のバッファ音源の数え方を修正）
-- Reviewer Round Count: 1
+- Human Decision Count: 4（v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ）
+- Auto Fix Count: 3（E2E のバッファ音源の数え方 / ヴィオラの長さを再生と同じ計算に / ループ終端のはみ出し）
+- Reviewer Round Count: 2
 - Test Retry Count: 0
 - PR Created: Yes（#70）
 
@@ -80,6 +91,8 @@ Analysis §3〜§5 のとおり。
 | --- | --- | --- | --- | --- |
 | 2026-10-11 | Task | DRAFT → BLOCKED | Orchestrator | 音楽アプリがリポジトリに無い。Escalation |
 | 2026-10-11 | Task | BLOCKED → IMPLEMENTING | Orchestrator | Human が v5.66.0 を共有 |
-| 2026-10-11 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human が v5.67.0 を共有。基準を差し替え、unit / E2E 再実行 PASS |
 | 2026-10-11 | Task | IMPLEMENTING → REVIEWING | Tester | build / unit / E2E |
 | 2026-10-11 | Task | REVIEWING → DONE | Reviewer / Orchestrator | PASS、PR 作成 |
+| 2026-10-11 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human が v5.67.0 を共有。基準を差し替え、unit / E2E 再実行 PASS |
+| 2026-10-12 | Task | DONE → IMPLEMENTING | Orchestrator | Human: ピアノはそのまま、次はヴィオラとチェロ |
+| 2026-10-12 | Task | IMPLEMENTING → DONE | Tester / Reviewer / Orchestrator | ヴィオラ・チェロ追加。unit / E2E PASS、PR #70 を更新 |

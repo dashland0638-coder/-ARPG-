@@ -84,3 +84,14 @@ Tone.js（MIT）/ smplr（MIT）/ soundfont-player（MIT）も候補だが、単
 - 今後の版でフックが包む関数名（`makePiano` `makeVoice` `playTrack` `startScorePlayhead` `makeRoom` `stopAudio` `buildTruthScore` `cellVolume` `calibratedLevel`）が変わった場合、フックは自動で無効（合成音のまま）になり、コンソールに不足関数名を出す
 - サンプルモードではピアノが鳴るようになる（譜面どおり）。酒場の聞こえ方が v5.67.0 の通し再生と変わる。既定値は合成音
 - 実機（iPhone Safari）の音質・メモリ・遅延は未確認（§ README の手順）
+
+## 7. 追加: ヴィオラ・チェロ（Human 指示「ピアノはそのまま残して、次はヴィオラとチェロ」）
+
+| 項目 | 内容 |
+| --- | --- |
+| 音源 | VSCO 2 CE `Strings/Viola Section/susvib`（v2）13 音、`Strings/Cello Section/susvib`（v3）13 音。CC0（§4 と同じリポジトリ・コミット）。VCSL には弦の持続音が無い |
+| 音名 | 他と同じく「科学的表記 − 1 オクターブ」（実測で確認。ヴィオラ C2 = MIDI 48、チェロ C1 = MIDI 36） |
+| 長さ | 収録音を 3.6 秒で切り、1.2〜3.6 秒をループ（0.3 秒の等パワー・クロスフェード）。再生は `AudioBufferSourceNode.loop` |
+| 再生側の値（FACT） | v5.67.0 の `playTrack` は、ヴィオラに level ×1.18 と `tavernMixLevel`、最後の区間の長さ ×1.16 を掛ける。チェロには `tavernMixLevel` を2回掛ける。ヴィオラの長さの計算は絶対時刻と譜面の時刻を混ぜている。いずれも `buildTruthScore` の level / duration と違う |
+| 決定 | 鳴らす音（音程・開始時刻）は譜面イベント、強さ・長さ・奥行きは `playTrack` と同じ計算（`sample-hooks.js` の `performance()`）。酒場完成版で、合成音の `makeVoice` に渡る値と 130 音すべて一致 |
+| 音量 | 合成音と同じ level で RMS が ±1 dB に収まるよう gain 1.6 |

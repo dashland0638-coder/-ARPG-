@@ -257,5 +257,225 @@ window.SAMPLE_MANIFEST = {
     "source": "Woodwinds/Flute/susvib/LDFlute_susvib_C6_v1_1.wav"
    }
   ]
+ },
+ "Viola": {
+  "repo": "vsco",
+  "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+  "zones": [
+   {
+    "midi": 48,
+    "cents": 0.5,
+    "file": "viola/viola_048.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_C2_v2_1.wav",
+    "loopStart": 1.198,
+    "loopEnd": 3.598
+   },
+   {
+    "midi": 50,
+    "cents": -0.3,
+    "file": "viola/viola_050.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_D2_v2_1.wav",
+    "loopStart": 1.1983,
+    "loopEnd": 3.5983
+   },
+   {
+    "midi": 52,
+    "cents": 0.9,
+    "file": "viola/viola_052.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_E2_v2_1.wav",
+    "loopStart": 1.19803,
+    "loopEnd": 3.59803
+   },
+   {
+    "midi": 55,
+    "cents": -1.4,
+    "file": "viola/viola_055.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_G2_v2_1.wav",
+    "loopStart": 1.198,
+    "loopEnd": 3.598
+   },
+   {
+    "midi": 59,
+    "cents": -0.7,
+    "file": "viola/viola_059.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_B2_v2_1.wav",
+    "loopStart": 1.19844,
+    "loopEnd": 3.59844
+   },
+   {
+    "midi": 62,
+    "cents": -1.4,
+    "file": "viola/viola_062.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_D3_v2_1.wav",
+    "loopStart": 1.198,
+    "loopEnd": 3.598
+   },
+   {
+    "midi": 65,
+    "cents": 2.8,
+    "file": "viola/viola_065.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_F3_v2_1.wav",
+    "loopStart": 1.198,
+    "loopEnd": 3.598
+   },
+   {
+    "midi": 69,
+    "cents": 0.9,
+    "file": "viola/viola_069.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_A3_v2_1.wav",
+    "loopStart": 1.19819,
+    "loopEnd": 3.59819
+   },
+   {
+    "midi": 72,
+    "cents": -0.8,
+    "file": "viola/viola_072.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_C4_v2_1.wav",
+    "loopStart": 1.198,
+    "loopEnd": 3.598
+   },
+   {
+    "midi": 76,
+    "cents": 1.5,
+    "file": "viola/viola_076.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_E4_v2_1.wav",
+    "loopStart": 1.19866,
+    "loopEnd": 3.59866
+   },
+   {
+    "midi": 79,
+    "cents": 0.4,
+    "file": "viola/viola_079.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_G4_v2_1.wav",
+    "loopStart": 1.198,
+    "loopEnd": 3.598
+   },
+   {
+    "midi": 83,
+    "cents": -0.2,
+    "file": "viola/viola_083.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_B4_v2_1.wav",
+    "loopStart": 1.198,
+    "loopEnd": 3.598
+   },
+   {
+    "midi": 86,
+    "cents": -0.1,
+    "file": "viola/viola_086.mp3",
+    "source": "Strings/Viola Section/susvib/ViolaEns_susvib_D5_v2_1.wav",
+    "loopStart": 1.198,
+    "loopEnd": 3.598
+   }
+  ]
+ },
+ "Cello": {
+  "repo": "vsco",
+  "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+  "zones": [
+   {
+    "midi": 36,
+    "cents": -0.8,
+    "file": "cello/cello_036.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_C1_v3_1.wav",
+    "loopStart": 1.2,
+    "loopEnd": 3.6
+   },
+   {
+    "midi": 40,
+    "cents": -3.6,
+    "file": "cello/cello_040.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_E1_v3_1.wav",
+    "loopStart": 1.2,
+    "loopEnd": 3.6
+   },
+   {
+    "midi": 43,
+    "cents": -0.7,
+    "file": "cello/cello_043.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_G1_v3_1.wav",
+    "loopStart": 1.19957,
+    "loopEnd": 3.59957
+   },
+   {
+    "midi": 47,
+    "cents": -0.3,
+    "file": "cello/cello_047.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_B1_v3_1.wav",
+    "loopStart": 1.19995,
+    "loopEnd": 3.59995
+   },
+   {
+    "midi": 50,
+    "cents": 0.1,
+    "file": "cello/cello_050.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_D2_v3_1.wav",
+    "loopStart": 1.2,
+    "loopEnd": 3.6
+   },
+   {
+    "midi": 53,
+    "cents": 1.3,
+    "file": "cello/cello_053.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_F2_v3_1.wav",
+    "loopStart": 1.2,
+    "loopEnd": 3.6
+   },
+   {
+    "midi": 57,
+    "cents": -0.7,
+    "file": "cello/cello_057.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_A2_v3_1.wav",
+    "loopStart": 1.2,
+    "loopEnd": 3.6
+   },
+   {
+    "midi": 60,
+    "cents": -1.0,
+    "file": "cello/cello_060.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_C3_v3_1.wav",
+    "loopStart": 1.19893,
+    "loopEnd": 3.59893
+   },
+   {
+    "midi": 64,
+    "cents": -0.6,
+    "file": "cello/cello_064.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_E3_v3_1.wav",
+    "loopStart": 1.2,
+    "loopEnd": 3.6
+   },
+   {
+    "midi": 67,
+    "cents": -0.5,
+    "file": "cello/cello_067.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_G3_v3_1.wav",
+    "loopStart": 1.2,
+    "loopEnd": 3.6
+   },
+   {
+    "midi": 71,
+    "cents": 1.5,
+    "file": "cello/cello_071.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_B3_v3_1.wav",
+    "loopStart": 1.2,
+    "loopEnd": 3.6
+   },
+   {
+    "midi": 74,
+    "cents": 2.4,
+    "file": "cello/cello_074.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_D4_v3_1.wav",
+    "loopStart": 1.2,
+    "loopEnd": 3.6
+   },
+   {
+    "midi": 77,
+    "cents": -0.2,
+    "file": "cello/cello_077.mp3",
+    "source": "Strings/Cello Section/susvib/susvib_F4_v3_1.wav",
+    "loopStart": 1.2,
+    "loopEnd": 3.6
+   }
+  ]
  }
 };
