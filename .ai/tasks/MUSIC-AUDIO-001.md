@@ -14,7 +14,7 @@ Analysis: .ai/reports/MUSIC-AUDIO-001-analysis.md（branch `claude/cc0-sample-au
 
 ## Goal
 音楽アプリの音源を、JavaScript の簡易合成音から実際の楽器を収録したサンプル音源へ段階的に置き換える。今回はピアノとフルートの試作に限定する。
-追加（Human 指示）: ヴィオラとチェロもサンプル音源にする。
+追加（Human 指示）: ヴィオラとチェロもサンプル音源にする。続いてハープとベル。ピアノの音量を 30% 上げる。
 
 ## Constraints
 - 酒場 BGM の確定版を基準として保護する。作曲エンジン・自然言語の作曲指示・40小節1ループ・楽器の加入段階・譜面編集を壊さない
@@ -38,7 +38,7 @@ Analysis §3〜§5 のとおり。
 | --- | --- |
 | 既存の作曲・譜面・編集を維持 | 合成音モードで基準と同じ track・譜面イベント・発振器数（E2E） |
 | 譜面と音が同じイベント | サンプルモードの4楽器は `buildTruthScore` のイベントと音程・開始時刻が1対1（E2E） |
-| 確定版の聞こえ方 | フルート・ヴィオラ・チェロの強さ・長さ・奥行きが v5.67.0 の合成音の再生と完全一致（E2E、酒場完成版 130 音） |
+| 確定版の聞こえ方 | フルート・ヴィオラ・チェロ・ハープの強さ・長さ・奥行きが v5.67.0 の合成音の再生と完全一致。ベルは合成音が鳴らす 3 音が一致し、譜面の残り 9 音を追加（E2E） |
 | 弦の長い音 | 8 秒の音がループで減衰せず、つなぎ目に段差なし（E2E。全 26 ゾーンを手動確認） |
 | 再生・停止・連続再生・セル試聴 | E2E（重複なし、古い AudioContext は closed、試聴は常に1つ） |
 | セル音量が再生に反映 | 200% で level がちょうど2倍（E2E） |
@@ -68,21 +68,25 @@ Analysis §3〜§5 のとおり。
 | 7 | サンプルモードではピアノも譜面どおり鳴らす（Human が「そのまま残す」と決定） | DoD「譜面表示と実際の音が同じイベント」 | ピアノは試聴だけ |
 | 8 | ヴィオラ・チェロは VSCO 2 CE の Viola / Cello Section susvib（強い方の velocity） | CC0。ソロのヴィオラは無い。弱い velocity は -20〜-28 dB で正規化するとノイズが上がる | VCSL（弦の持続音が無い） |
 | 9 | 弦はループ（1.2〜3.6 秒、0.3 秒の等パワー・クロスフェード）で伸ばす | 譜面の長い音（最大 3.2 拍 ×1.16）に収録音の長さで切れない。容量 3.6 秒/音 | 長いサンプル（容量が数倍） |
+| 11 | ハープ = VCSL Concert Harp（f 層）、ベル = VCSL Hand Chimes | CC0。ベルはアプリの音域と柔らかい音色に合う | Tubular Bells（音域が低い）、Glockenspiel（硬い） |
+| 12 | ベルは譜面の 12 か所すべて鳴らす（合成音は 3 か所） | DoD「譜面と音が同じ」。ピアノと同じ扱い | 合成音と同じ 3 か所 |
+| 13 | ピアノの gain 1.0 → 1.3 | Human の試聴「小さめなので 30% 大きく」 | － |
 | 10 | どの音を鳴らすか（音程・開始）は譜面イベント、強さ・長さ・奥行きは v5.67.0 の playTrack と同じ計算（`performance()`） | 確定版の保護が最重要。譜面の level / 長さと再生の値はヴィオラ・チェロで違う（下記） | 譜面の値で鳴らす（確定版の聞こえ方が変わる） |
 
 ### 見つけた既存の不整合（v5.67.0、変更していない）
 - ヴィオラ: 再生は level に ×1.18 と `tavernMixLevel` を掛け、最後の区間は長さ ×1.16。譜面には無い
 - ヴィオラの長さ: 再生側は「次の音まで伸ばす」計算で絶対時刻と譜面の時刻を比べている（`st=start+…` と `nextSt=tm.eventStart(…)`）。譜面のバーより短く鳴る
 - チェロ: 再生は `tavernMixLevel` を2回掛ける（譜面は1回）
+- ベル: 譜面は 12 か所、再生は 3 か所（0・7・12 音目）だけ
 
 ## Escalation
 解消済み（音楽アプリの所在 → Human が HTML を共有）。
 
 ## Autonomy Metrics
 - Human Escalation Count: 1
-- Human Decision Count: 4（v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ）
+- Human Decision Count: 6（v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ / 次はハープとベル / ピアノ +30%）
 - Auto Fix Count: 3（E2E のバッファ音源の数え方 / ヴィオラの長さを再生と同じ計算に / ループ終端のはみ出し）
-- Reviewer Round Count: 2
+- Reviewer Round Count: 3
 - Test Retry Count: 0
 - PR Created: Yes（#70）
 
@@ -96,3 +100,4 @@ Analysis §3〜§5 のとおり。
 | 2026-10-11 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human が v5.67.0 を共有。基準を差し替え、unit / E2E 再実行 PASS |
 | 2026-10-12 | Task | DONE → IMPLEMENTING | Orchestrator | Human: ピアノはそのまま、次はヴィオラとチェロ |
 | 2026-10-12 | Task | IMPLEMENTING → DONE | Tester / Reviewer / Orchestrator | ヴィオラ・チェロ追加。unit / E2E PASS、PR #70 を更新 |
+| 2026-10-12 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human: 次はハープとベル、ピアノ +30%。unit / E2E PASS、PR #70 を更新 |

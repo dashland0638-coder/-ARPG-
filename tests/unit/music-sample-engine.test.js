@@ -47,10 +47,12 @@ test('試作 HTML は基準の末尾に読み込みを足しただけ(既存部�
 
 test('音源は CC0 の2リポジトリの固定コミットから、必要な分だけ', ()=>{
   const m = loadManifest();
-  assert.deepEqual(Object.keys(m).sort(), ['Cello', 'Flute', 'Piano', 'Viola']);
+  assert.deepEqual(Object.keys(m).sort(), ['Bell', 'Cello', 'Flute', 'Harp', 'Piano', 'Viola']);
   assert.deepEqual([...S.INSTRUMENTS].sort(), Object.keys(m).sort());
-  assert.equal(m.Piano.repo, 'vcsl');
-  assert.equal(m.Piano.commit, 'c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e');
+  for(const n of ['Piano', 'Harp', 'Bell']){
+    assert.equal(m[n].repo, 'vcsl');
+    assert.equal(m[n].commit, 'c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e');
+  }
   assert.equal(m.Flute.repo, 'vsco');
   for(const n of ['Flute', 'Viola', 'Cello']){
     assert.equal(m[n].repo, 'vsco');
@@ -68,6 +70,8 @@ test('音源は CC0 の2リポジトリの固定コミットから、必要な�
         Flute:/^Woodwinds\/Flute\/susvib\//,
         Viola:/^Strings\/Viola Section\/susvib\//,
         Cello:/^Strings\/Cello Section\/susvib\//,
+        Harp:/^Chordophones\/Composite Chordophones\/Concert Harp\/KSHarp_/,
+        Bell:/^Idiophones\/Struck Idiophones\/Hand Chimes\/sus_/,
       }[name]);
       // 弦だけループ区間を持つ(発音の頭から 1.2〜3.6 秒付近)
       if(name === 'Viola' || name === 'Cello'){
@@ -79,9 +83,9 @@ test('音源は CC0 の2リポジトリの固定コミットから、必要な�
     }
   }
   // samples/ にあるのは manifest に載ったファイルだけ
-  const onDisk = ['piano', 'flute', 'viola', 'cello'].flatMap(d=>fs.readdirSync(path.join(dir, 'samples', d)).map(f=>`${d}/${f}`)).sort();
+  const onDisk = ['piano', 'flute', 'viola', 'cello', 'harp', 'bell'].flatMap(d=>fs.readdirSync(path.join(dir, 'samples', d)).map(f=>`${d}/${f}`)).sort();
   assert.deepEqual(onDisk, Object.values(m).flatMap(i=>i.zones.map(z=>z.file)).sort());
-  assert.ok(total < 5 * 1024 * 1024, `samples total ${total} bytes`);
+  assert.ok(total < 6 * 1024 * 1024, `samples total ${total} bytes`);
 });
 
 test('ゾーンは最も近い収録音(等距離なら低い方)。cent のずれを打ち消す', ()=>{
@@ -137,6 +141,22 @@ test('ループ区間: 発音の頭からの秒を decode 後の位置へずら�
   assert.ok(Math.abs(v.end - (8 + S.PROFILES.Viola.releaseMax)) < 1e-9);
 });
 
+test('manifest のハープ 60〜84・ベル 70〜100 は ±2 半音以内のゾーンで鳴る(アプリが使う音域)', ()=>{
+  const m = loadManifest();
+  for(let n = 60; n <= 84; n++){
+    const p = S.pickZone(m.Harp.zones, n, 12);
+    assert.ok(p && Math.abs(Math.log2(p.rate) * 12) <= 2.2, `Harp ${n}`);
+  }
+  for(let n = 70; n <= 100; n++){
+    const p = S.pickZone(m.Bell.zones, n, 12);
+    assert.ok(p && Math.abs(Math.log2(p.rate) * 12) <= 4.1, `Bell ${n}`);
+  }
+});
+
+test('ピアノは試聴の結果で 30% 大きくした(gain 1.3)', ()=>{
+  assert.equal(S.PROFILES.Piano.gain, 1.3);
+});
+
 test('長さ・余韻・強弱: 譜面の dur だけ保ち、楽器ごとの余韻で消える', ()=>{
   const piano = S.PROFILES.Piano, flute = S.PROFILES.Flute;
   const buf = { duration:3.5, offset:.01 };
@@ -180,5 +200,6 @@ test('play(): 未読み込み・AudioContext なしでは null(合成音へ戻�
 test('load(): manifest や fetch が無くても reject せず failed を返す', async ()=>{
   S._reset();
   const st = await S.load({ manifest:null });
-  assert.deepEqual(st, { Piano:'failed', Flute:'failed', Viola:'failed', Cello:'failed' });
+  assert.deepEqual(st, Object.fromEntries(S.INSTRUMENTS.map(n=>[n, 'failed'])));
+  assert.deepEqual([...S.INSTRUMENTS], ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell']);
 });

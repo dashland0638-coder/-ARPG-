@@ -1,4 +1,4 @@
-/* MUSIC-AUDIO-001: CC0 サンプル音源エンジン(ピアノ・フルート・ヴィオラ・チェロの試作)
+/* MUSIC-AUDIO-001: CC0 サンプル音源エンジン(ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベルの試作)
 
    譜面イベント(音程 n / 開始 start / 長さ dur / 強弱 level)を受け取り、収録音を
    playbackRate で移調して鳴らす。作曲・譜面のデータには触らない。
@@ -18,15 +18,21 @@
   // gain: サンプル(-1dBFS に正規化済み)を既存の合成音と同じくらいの音量に合わせる係数
   // refLevel: これ以上の level で最も明るい音色になる(弱い音ほど lowpass で丸くする)
   const PROFILES = {
+    // Piano の gain 1.3: Human の試聴で「小さめ」→ 30% 上げた
     Piano: { attack:.004, releaseRatio:.50, releaseMin:.25, releaseMax:.90,
-             gain:1.0, refLevel:.12, cutLo:1800, cutHi:10000, maxShift:12 },
+             gain:1.3, refLevel:.12, cutLo:1800, cutHi:10000, maxShift:12 },
     Flute: { attack:.030, releaseRatio:.15, releaseMin:.10, releaseMax:.25,
              gain:1.6, refLevel:.08, cutLo:5200, cutHi:12000, maxShift:12 },
     // 弦: 弓の立ち上がりは収録音のまま。合成音(makeVoice)の余韻 .06〜.12 秒より少し長く、自然に切る
     Viola: { attack:.020, releaseRatio:.12, releaseMin:.12, releaseMax:.30,
              gain:1.6, refLevel:.09, cutLo:2400, cutHi:9000, maxShift:12 },
     Cello: { attack:.020, releaseRatio:.12, releaseMin:.15, releaseMax:.35,
-             gain:1.6, refLevel:.11, cutLo:1600, cutHi:7000, maxShift:12 }
+             gain:1.6, refLevel:.11, cutLo:1600, cutHi:7000, maxShift:12 },
+    // 撥弦・打鍵: 収録音の減衰をそのまま使い、譜面の長さの後は弦/金属が鳴り残る程度の余韻
+    Harp:  { attack:.003, releaseRatio:.80, releaseMin:.40, releaseMax:1.5,
+             gain:2.1, refLevel:.05, cutLo:3000, cutHi:12000, maxShift:12 },
+    Bell:  { attack:.003, releaseRatio:.60, releaseMin:.50, releaseMax:1.8,
+             gain:1.7, refLevel:.04, cutLo:4000, cutHi:14000, maxShift:12 }
   };
 
   function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }

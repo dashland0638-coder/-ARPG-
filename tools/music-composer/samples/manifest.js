@@ -477,5 +477,173 @@ window.SAMPLE_MANIFEST = {
     "loopEnd": 3.6
    }
   ]
+ },
+ "Harp": {
+  "repo": "vcsl",
+  "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+  "zones": [
+   {
+    "midi": 45,
+    "cents": -0.6,
+    "file": "harp/harp_045.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_A2_f1.wav"
+   },
+   {
+    "midi": 48,
+    "cents": -1.7,
+    "file": "harp/harp_048.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_C3_f2.wav"
+   },
+   {
+    "midi": 52,
+    "cents": -1.3,
+    "file": "harp/harp_052.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_E3_f1.wav"
+   },
+   {
+    "midi": 55,
+    "cents": -5.7,
+    "file": "harp/harp_055.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_G3_f1.wav"
+   },
+   {
+    "midi": 59,
+    "cents": -10.6,
+    "file": "harp/harp_059.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_B3_f1.wav"
+   },
+   {
+    "midi": 62,
+    "cents": -13.9,
+    "file": "harp/harp_062.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_D4_f1.wav"
+   },
+   {
+    "midi": 65,
+    "cents": -1.2,
+    "file": "harp/harp_065.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_F4_f1.wav"
+   },
+   {
+    "midi": 69,
+    "cents": -10.0,
+    "file": "harp/harp_069.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_A4_f1.wav"
+   },
+   {
+    "midi": 72,
+    "cents": -10.1,
+    "file": "harp/harp_072.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_C5_f1.wav"
+   },
+   {
+    "midi": 76,
+    "cents": -11.6,
+    "file": "harp/harp_076.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_E5_f1.wav"
+   },
+   {
+    "midi": 79,
+    "cents": -7.9,
+    "file": "harp/harp_079.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_G5_f1.wav"
+   },
+   {
+    "midi": 83,
+    "cents": -14.5,
+    "file": "harp/harp_083.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_B5_f1.wav"
+   },
+   {
+    "midi": 86,
+    "cents": -12.5,
+    "file": "harp/harp_086.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_D6_f1.wav"
+   },
+   {
+    "midi": 89,
+    "cents": -13.0,
+    "file": "harp/harp_089.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_F6_f1.wav"
+   },
+   {
+    "midi": 93,
+    "cents": -18.6,
+    "file": "harp/harp_093.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_A6_f1.wav"
+   },
+   {
+    "midi": 98,
+    "cents": -7.8,
+    "file": "harp/harp_098.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_D7_f1.wav"
+   }
+  ]
+ },
+ "Bell": {
+  "repo": "vcsl",
+  "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+  "zones": [
+   {
+    "midi": 60,
+    "cents": 13.4,
+    "file": "bell/bell_060.mp3",
+    "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_C3_r01_main.wav"
+   },
+   {
+    "midi": 64,
+    "cents": 6.3,
+    "file": "bell/bell_064.mp3",
+    "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_E3_r01_main.wav"
+   },
+   {
+    "midi": 68,
+    "cents": 2.2,
+    "file": "bell/bell_068.mp3",
+    "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_G#3_r01_main.wav"
+   },
+   {
+    "midi": 72,
+    "cents": 0.9,
+    "file": "bell/bell_072.mp3",
+    "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_C4_r01_main.wav"
+   },
+   {
+    "midi": 76,
+    "cents": 2.8,
+    "file": "bell/bell_076.mp3",
+    "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_E4_r01_main.wav"
+   },
+   {
+    "midi": 80,
+    "cents": 2.5,
+    "file": "bell/bell_080.mp3",
+    "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_G#4_r01_main.wav"
+   },
+   {
+    "midi": 84,
+    "cents": 1.1,
+    "file": "bell/bell_084.mp3",
+    "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_C5_r01_main.wav"
+   },
+   {
+    "midi": 88,
+    "cents": 3.8,
+    "file": "bell/bell_088.mp3",
+    "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_E5_r01_main.wav"
+   },
+   {
+    "midi": 92,
+    "cents": 4.6,
+    "file": "bell/bell_092.mp3",
+    "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_G#5_r01_main.wav"
+   },
+   {
+    "midi": 96,
+    "cents": -1.6,
+    "file": "bell/bell_096.mp3",
+    "source": "Idiophones/Struck Idiophones/Hand Chimes/sus_C6_r01_main.wav"
+   }
+  ]
  }
 };

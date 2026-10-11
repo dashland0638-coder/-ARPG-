@@ -1,7 +1,7 @@
 /* MUSIC-AUDIO-001: 作曲アプリ(v5.67.0 基準)にサンプル音源を差し込むフック
 
    既存の HTML は1行も書き換えない。アプリの後ろに読み込み、次の全域関数だけを包む:
-     makePiano / makeVoice … ピアノ・フルート・ヴィオラ・チェロの1音。サンプルで鳴らせれば鳴らし、だめなら元の合成音
+     makePiano / makeVoice … ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベルの1音。サンプルで鳴らせれば鳴らし、だめなら元の合成音
      playTrack            … サンプル音源が有効なとき、これらの楽器を buildTruthScore() の
                             譜面イベントから鳴らす(譜面と実際の音を同じイベントにする)
      startScorePlayhead / makeRoom … playTrack が決めた開始時刻と出力先を受け取るためだけ
@@ -24,9 +24,9 @@
   }
 
   const STORE_KEY = 'arpgMusic.sampleEngine';
-  const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello'];
-  const VOICES = ['Flute', 'Viola', 'Cello'];   // 合成音では makeVoice(name, …) で鳴る楽器
-  const LABEL = { Piano:'ピアノ', Flute:'フルート', Viola:'ヴィオラ', Cello:'チェロ' };
+  const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell'];
+  const VOICES = ['Flute', 'Viola', 'Cello', 'Harp', 'Bell'];   // 合成音では makeVoice(name, …) で鳴る楽器
+  const LABEL = { Piano:'ピアノ', Flute:'フルート', Viola:'ヴィオラ', Cello:'チェロ', Harp:'ハープ', Bell:'ベル' };
   const synth = { makePiano, makeVoice, playTrack, startScorePlayhead, makeRoom, stopAudio };
   const mode = { enabled:false };
   let session = null;          // playTrack の実行中だけ {start, room, bySample:{楽器:bool}}
@@ -39,7 +39,7 @@
   function spaceDepth(){ const el = document.getElementById('space'); return el ? (+el.value) / 100 : .55; }
 
   // makeVoice(name) と同じ定位・奥行き(front)・残響への送り
-  const PAN = { Flute:.20, Viola:0, Cello:0 };
+  const PAN = { Flute:.20, Viola:0, Cello:0, Harp:.10, Bell:-.16 };
   function voiceOut(name, room, depth){
     return { destination:room.master, wet:room.wet, pan:(PAN[name] || 0) * depth, send:.06 + depth * .18, front:1 - depth * .48 };
   }
@@ -50,6 +50,9 @@
               長さの「次の音まで伸ばす」計算で、再生側は絶対時刻(start + 譜面の時刻)と譜面の時刻を
               比べている。結果が再生開始の時刻 start に左右されるので、同じ式に同じ start を入れて再現する
      ・Cello: 再生は tavernMixLevel を2回掛ける(譜面側は1回)
+     ・Harp: 譜面と同じ
+     ・Bell: 強さ・長さは譜面と同じ、奥行き +.25。ただし合成音の通し再生は譜面の 12 か所のうち
+             3 か所(0・7・12 音目)しか鳴らさない。サンプルではピアノと同じく譜面どおり全部鳴らす
      ・Piano: 合成音の通し再生では鳴らないので、譜面の値そのまま */
   function performance(track, e, d, start){
     const cell = cellVolume(track, e.instrument, e.index, e.kind);
@@ -66,6 +69,7 @@
         return { dur, level:tavernMixLevel(track, 'Viola', lv * 1.18 * cell), depth:d };
       }
       case 'Cello': return { dur:e.duration, level:tavernMixLevel(track, 'Cello', lv) * cell, depth:d * .8 };
+      case 'Bell':  return { dur:e.duration, level:lv * cell, depth:Math.min(1, d + .25) };
       default:      return { dur:e.duration, level:lv * cell, depth:d };
     }
   }
@@ -194,9 +198,9 @@
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = '<div class="section-title">音源</div>'
-      + '<div class="mini">ピアノ・フルート・ヴィオラ・チェロを収録音(CC0)で鳴らす試作です。読み込めない音は合成音に戻ります。</div>'
+      + '<div class="mini">ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベルを収録音(CC0)で鳴らす試作です。読み込めない音は合成音に戻ります。</div>'
       + '<div class="instrument"><b>音源</b><select id="sampleEngineSelect" style="padding:6px;border-radius:8px">'
-      + '<option value="synth">合成音(従来)</option><option value="samples">サンプル(ピアノ・フルート・弦)</option>'
+      + '<option value="synth">合成音(従来)</option><option value="samples">サンプル(ピアノ・フルート・弦・ハープ・ベル)</option>'
       + '</select><span></span></div>'
       + '<div class="mini" id="sampleEngineStatus"></div>';
     anchor.insertAdjacentElement('afterend', card);

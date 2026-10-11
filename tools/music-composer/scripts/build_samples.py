@@ -2,7 +2,8 @@
 """MUSIC-AUDIO-001: CC0 サンプルから、試作に必要な分だけの MP3 を作る。
 
 入力は固定コミットの2リポジトリ(どちらも LICENSE が CC0 1.0):
-  VCSL       https://github.com/sgossner/VCSL        (ピアノ: Upright Piano, Knight / Sustains / vl2)
+  VCSL       https://github.com/sgossner/VCSL        (ピアノ: Upright Piano, Knight / Sustains / vl2、
+                                                       ハープ: Concert Harp / f、ベル: Hand Chimes / sus)
   VSCO-2-CE  https://github.com/sgossner/VSCO-2-CE   (フルート: Woodwinds/Flute/susvib / v1、
                                                        ヴィオラ: Strings/Viola Section/susvib / v2、
                                                        チェロ: Strings/Cello Section/susvib / v3)
@@ -25,10 +26,13 @@ VSCO_COMMIT = "440300901dfe9275fd84e0b7763af1f8443ae62e"
 SR = 44100
 NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
-# 両ライブラリともファイル名の音名は「科学的表記 - 1 オクターブ」(A3 = MIDI 69)。
-# build 時に実測して確かめる(--check で 50 cent 以上ずれたら止まる)。
+# ファイル名の音名はほとんど「科学的表記 - 1 オクターブ」(A3 = MIDI 69)。ハープだけ科学的表記(A4 = MIDI 69)。
+# build 時に実測して確かめる(50 cent 以上ずれたら止まる)。
 def vendor_name(midi):
     return f"{NAMES[midi % 12]}{midi // 12 - 2}"
+
+def sci_name(midi):
+    return f"{NAMES[midi % 12]}{midi // 12 - 1}"
 
 PIANO = {
     "repo": "vcsl", "commit": VCSL_COMMIT,
@@ -60,6 +64,22 @@ CELLO = {
     "file": lambda m: f"susvib_{vendor_name(m)}_v3_1.wav",
     "midis": [36, 40, 43, 47, 50, 53, 57, 60, 64, 67, 71, 74, 77],
     **STRING_LOOP,
+}
+
+HARP = {
+    "repo": "vcsl", "commit": VCSL_COMMIT,
+    "dir": "Chordophones/Composite Chordophones/Concert Harp",
+    # f 層(C3 だけ f2 しか無い)。mf 層は C3 が -34 dB と小さく、揃わない
+    "file": lambda m: f"KSHarp_{sci_name(m)}_{'f2' if m == 48 else 'f1'}.wav",
+    "midis": [45, 48, 52, 55, 59, 62, 65, 69, 72, 76, 79, 83, 86, 89, 93, 98],  # 収録は3度おき
+    "seconds": 4.0, "fade": 0.6, "bitrate": "112k",
+}
+BELL = {
+    "repo": "vcsl", "commit": VCSL_COMMIT,
+    "dir": "Idiophones/Struck Idiophones/Hand Chimes",
+    "file": lambda m: f"sus_{vendor_name(m)}_r01_main.wav",
+    "midis": [60, 64, 68, 72, 76, 80, 84, 88, 92, 96],  # 収録は全音おき。長3度おきに間引く
+    "seconds": 4.5, "fade": 0.8, "bitrate": "112k",
 }
 
 def git_blob(repo, commit, path):
@@ -155,6 +175,7 @@ def main():
     manifest = {
         "Piano": build(PIANO, "piano", args), "Flute": build(FLUTE, "flute", args),
         "Viola": build(VIOLA, "viola", args), "Cello": build(CELLO, "cello", args),
+        "Harp": build(HARP, "harp", args), "Bell": build(BELL, "bell", args),
     }
     body = json.dumps(manifest, indent=1, ensure_ascii=False)
     with open(os.path.join(args.out, "manifest.js"), "w") as f:
