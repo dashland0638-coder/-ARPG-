@@ -127,3 +127,4 @@ Analysis §3〜§5 のとおり。
 | 2026-10-12 | Task | DONE → IMPLEMENTING → REVIEWING | Orchestrator | Human: ギター（FreePats）と iPhone 実機検証。ギター・v5.69.0・計測の表示を追加。unit / E2E PASS。iPhone 実機は未実施（合格としない） |
 | 2026-10-12 | Task | REVIEWING → IMPLEMENTING → REVIEWING | Orchestrator | Human: ギターの不協和音。原因2つを特定、v5.70.0 と サンプルの弦止めで修正。unit / E2E PASS。iPhone 実機は未実施 |
 | 2026-10-12 | Task | REVIEWING | Orchestrator | Human: 聞き比べの結果、v5.70.0 のギターの和音を採用（「57にしてよい」を 5.70 と解釈）。iPhone 実機は未実施 |
+| 2026-10-12 | Task | REVIEWING | Orchestrator | iPhone 実機確認の準備: 確認手順・URL・チェックリスト（確認済み・問題なし / 問題あり / 未確認）を README に整理。全項目 未確認。エンジン・楽曲データは変更なし |
