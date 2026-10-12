@@ -88,4 +88,63 @@ test.describe('shadow guide NPC (5人目)', () => {
 
     expect(errors).toEqual([]);
   });
+
+  /* CH1-T1(監査 P1-2): 鍛冶士の加入後に初めて話しかけると、初回の会話が鍛冶士を案内する
+     (12-progression-ui.js SHADOW_GUIDE_FIRST_MEET の state.smithJoined の分岐)。第一章の
+     鍛冶屋は装備の管理だけ(HD-2)なので、本編では「鑑定」「強化」を案内しない。
+     洋館をクリアして魔法使い＋剣士になったセーブで、まだ隅の人物と話していない状態 */
+  test('鍛冶士の加入後に初めて話しかけても、本編では鑑定・強化を案内しない', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    const save = {
+      v: 2, selectedClass: 'mage', selectedGender: 'female', selectedPersonality: 'cheerful', playerName: '魔法使い',
+      allocPoints: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 }, level: 1, xp: 0, xpToNext: 100,
+      levelGrowth: { vit: 0, str: 0, mag: 0, mnd: 0, agi: 0, foc: 0 }, equipLevel: 0,
+      inventory: { gold: 100, gem: 0, potion: 1, shard: 0, mppotion: 0 },
+      equipmentInventory: [], equipped: { weapon: null, upper: null, lower: null },
+      skills: {}, ranks: {}, freeRanks: 0, unlockedSphereNodes: ['root'], spherePoints: 0,
+      bossClears: {}, learnedBossAbilities: [], equippedBossAbilities: [], learnedBossSkills: [],
+      scenarioClears: { mansion: 1 }, clearedScenarios: {}, routeCombosSeen: {},
+      guestClassKey: 'warrior', learnedSkill2: false, smithJoined: true, smithGreeted: true,
+      smithToolsRecovered: true, shadowGuideMet: false, skillChoice: 'phantom',
+    };
+    await page.addInitScript(([k, v]) => { if (!sessionStorage.getItem('__seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('__seeded', '1'); } },
+      ['soulforge_save_v1', JSON.stringify(save)]);
+    await openGame(page, { dev: false });
+    await page.click('#cc-continue-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 30_000 });
+    await expect(page.locator('#hud-name')).toContainText('魔法使い');
+    await dismissIntroDialogue(page);
+    await disableCameraAutoFollow(page);
+
+    // 1 つ目のテストと同じ道(酒場の固定 camYaw で S+A が隅の人物の方向)
+    let prompt = '';
+    for (let i = 0; i < 20; i++) {
+      prompt = await page.evaluate(() => document.getElementById('interact-btn').textContent || '');
+      if (prompt.includes('話しかける')) break;
+      await page.keyboard.down('KeyS');
+      await page.keyboard.down('KeyA');
+      await page.waitForTimeout(i === 0 ? 2500 : 300);
+      await page.keyboard.up('KeyS');
+      await page.keyboard.up('KeyA');
+    }
+    expect(prompt).toContain('話しかける');
+    await page.keyboard.press('KeyR');
+    await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/);
+    await expect(page.locator('#dialogue-text')).toHaveText('……こんにちは。');
+
+    const shown = [];
+    for (let i = 0; i < 20; i++) {
+      if (!(await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active')))) break;
+      shown.push(await page.evaluate(() => document.getElementById('dialogue-name').textContent + '|' + document.getElementById('dialogue-text').textContent));
+      await page.evaluate(() => document.getElementById('dialogue-overlay').click());
+      await page.waitForTimeout(150);
+    }
+    // 加入後の分岐を通っている(鍛冶士を指す行が出る)
+    expect(shown).toContain('？？？|奥にいるのが鍛冶士。装備のことは、そちらで。');
+    // 第一章に無い機能を案内しない
+    expect(shown.filter(l => /鑑定|強化/.test(l)), shown.join('\n')).toEqual([]);
+    expect(shown.filter(l => l.includes('影の旅人'))).toEqual([]);
+    expect(errors).toEqual([]);
+  });
 });
