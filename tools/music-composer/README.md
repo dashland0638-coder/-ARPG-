@@ -7,7 +7,8 @@
 | `ARPG_Music_AI_Composer_v5_67_0.html` | 酒場 BGM の確定版 v5.67.0。**無変更**で保存（sha256 `696476fc…5700ff`。単体テストで固定） |
 | `ARPG_Music_AI_Composer_v5_68_0.html` | 合成音モードの修正版 v5.68.0。v5.67.0 から `scripts/make_v568.py` で作る（下の「v5.68.0 の修正」） |
 | `ARPG_Music_AI_Composer_v5_69_0.html` | v5.69.0。v5.68.0 から `scripts/make_v569.py` で作る。ギターの譜面イベントの編集・譜面エディタの音名の欄の修正（下の「v5.69.0」） |
-| `ARPG_Music_AI_Composer_v5_69_0_samples.html` | 試作。v5.69.0 の末尾に `<script>` を3行足しただけ（`scripts/build-prototype.mjs` が生成） |
+| `ARPG_Music_AI_Composer_v5_70_0.html` | v5.70.0。v5.69.0 から `scripts/make_v570.py` で作る。酒場完成版のギターの和音を、同時に鳴る音に合わせる（下の「v5.70.0」） |
+| `ARPG_Music_AI_Composer_v5_70_0_samples.html` | 試作。v5.70.0 の末尾に `<script>` を3行足しただけ（`scripts/build-prototype.mjs` が生成） |
 | `sample-engine.js` | サンプル再生エンジン（Web Audio API を直接使う。外部ライブラリなし） |
 | `sample-hooks.js` | アプリの全域関数を包んで、10楽器をサンプルで鳴らす。楽器ごとの切り替え・計測の表示 |
 | `samples/` | ピアノ 31 + フルート 10 + ヴィオラ 13 + チェロ 13 + ハープ 16 + ベル 10 + ベース 12 + ドラム 4 + キーボード 10 + ギター 43 音、弱い層 ピアノ 23 + ハープ 15 + キーボード 10 音（計 210 ファイル、MP3 モノラル 112kbps、約 10MB）と `manifest.js` |
@@ -17,7 +18,7 @@
 
 画面の「編集」ページ →「空間」の下の **音源** で切り替える。
 
-- **合成音（従来）**: 初期値。v5.69.0 と同じ音
+- **合成音（従来）**: 初期値。v5.70.0 と同じ音
 - **サンプル**: 10楽器（ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベル・ベース・ドラム〔キック・スネア〕・キーボード・ギター）が収録音。
   楽器ごとのチェックを外すと、その楽器だけ合成音で鳴る（聞き比べ用。選択はブラウザに保存）。読み込めない音は合成音に戻る
 - カードの下に計測を出す: 最初の読み込み・直近の読み込みの時間と音数、再生の準備にかかった時間、出力の遅れ（`baseLatency + outputLatency`）、
@@ -31,14 +32,16 @@
 読み込みが間に合わなかった音は、その音だけ合成音で鳴る。
 
 ```sh
-npm run dev   # → http://localhost:5173/tools/music-composer/ARPG_Music_AI_Composer_v5_69_0_samples.html
+npm run dev   # → http://localhost:5173/tools/music-composer/ARPG_Music_AI_Composer_v5_70_0_samples.html
 ```
 
 ファイルアプリなど `file://` で開くときは、音源を埋め込んだ1ファイル版（約 11MB、既存の `dist/` 除外で git 管理外）を作る。
 
 ```sh
 node tools/music-composer/scripts/build-prototype.mjs --standalone
-# → tools/music-composer/dist/ARPG_Music_AI_Composer_v5_69_0_samples_standalone.html
+# → tools/music-composer/dist/ARPG_Music_AI_Composer_v5_70_0_samples_standalone.html
+# 別の版の1ファイル版(聞き比べ用):
+node tools/music-composer/scripts/build-prototype.mjs --standalone --base ARPG_Music_AI_Composer_v5_69_0.html
 ```
 
 ## v5.68.0 の修正（合成音モード）
@@ -66,6 +69,22 @@ v5.67.0 で鳴っていた音は、ヴィオラの長さ以外すべて同じ値
 - ギターの「この音を休符にする」は効かない（ギターのセルからは主旋律を消してしまうため）
 - 既存の不具合の修正: 音名の欄に選択肢が無かった（`buildPitchOptions()` が呼ばれていない）。v5.68.0 までは「この音を変更」でどの音も C4 になっていた
 
+## v5.70.0（酒場のギターの和音）
+
+v5.69.0 までの酒場完成版のギターは、同時に鳴る音と 26% が半音・増4度・長7度でぶつかっていた（Human の指摘「不協和音」）。
+
+| 原因 | v5.69.0 | v5.70.0 |
+| --- | --- | --- |
+| 和音の選び方 | `t.chords` の4つを1小節ごとに回す（チェロ・ハープ・旋律の和音と合わない） | ストロークの間に鳴っている低音（ベース・チェロ）と旋律から、D メジャーの三和音（I ii iii IV V vi）を選ぶ。低音が根音なら強く加点、ぶつかれば減点 |
+| 和音の音 | 4音の和音の先頭3音を「根音・3度・5度」に使う（例: G・F#・B で G と F# が半音） | 根音・3度・5度で組む。声部の形と音域は同じ |
+| 旋律とぶつかる音 | 1オクターブ下げる（音名はぶつかったまま） | 省く（根音は残す） |
+| ギターのセル試聴 | 音の番号を小節として渡し、別の小節の和音を鳴らす | 譜面のストロークと同じ和音 |
+
+- 結果（酒場完成版）: ぶつかり 26.1% → 7.4%（残りは主にフルート。主旋律の3度上をなぞる設計のため）。和音の中のぶつかり 20 → 0
+- リズム・長さ・強さ・ギターの編集・他の楽器は v5.69.0 と同じ（E2E）
+- サンプルのギター: 和音が変わるとき（次のストローク）に前の和音の弦を止める（約 0.05 秒で消す）。余韻は合成音に近い 0.2〜0.5 秒。
+  v5.69.0 の試作ではサンプルの余韻（最大 1.5 秒）が次の和音に重なり、合成音の約3倍の時間ぶつかっていた
+
 ## 譜面と音（サンプル）
 
 サンプルモードでは、v5.68.0 の通し再生が合成音の関数に渡す値（= 譜面イベントの値）を、そのままサンプルで鳴らす。
@@ -84,7 +103,7 @@ v5.67.0 で鳴っていた音は、ヴィオラの長さ以外すべて同じ値
 
 自動テストは Chromium（デスクトップ、ヘッドレス）だけで実行した。実機の確認は次の手順で行い、結果の欄を埋める。
 
-1. PC で `npm run dev` を起動し、同じ Wi-Fi の iPhone の Safari で `http://<PC の LAN IP>:5173/tools/music-composer/ARPG_Music_AI_Composer_v5_69_0_samples.html` を開く
+1. PC で `npm run dev` を起動し、同じ Wi-Fi の iPhone の Safari で `http://<PC の LAN IP>:5173/tools/music-composer/ARPG_Music_AI_Composer_v5_70_0_samples.html` を開く
    （または 1ファイル版を AirDrop / ファイルアプリで開く。1ファイル版は「初回 / 2回目」の差がほぼ出ない）
 2. 消音スイッチを切る（Web Audio はマナーモードで鳴らない）。Safari の「ページを読み込み直す」で毎回同じ状態から始める
 3. 酒場 → 加入段階「完成版」→ 生成 → 編集ページの「音源」を「サンプル」にする。数字は「音源」カードの「計測」から読む

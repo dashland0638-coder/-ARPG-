@@ -83,6 +83,8 @@ Analysis §3〜§5 のとおり。
 | 23 | ギターは FLAC を MP3 に変換して既存のエンジンで鳴らす（SFZ プレイヤーを使わない） | 追加の依存なし。既存の遅延読み込み・譜面との対応をそのまま使える | sfizz / js-synthesizer（WASM）、smplr |
 | 24 | ギターの編集は v5.69.0 で `track.guitarEdits`（移調・ずれ・長さ）。譜面と再生の両方に当てる | 要件 4。既存のエディタはギターを編集できない | ギターを主旋律から作り直す |
 | 25 | 音名の欄が空の不具合も v5.69.0 で直す | ギターの音程の編集に必要。既存の音の編集も C4 に化けていた | 直さない |
+| 26 | ギターの和音は、同時に鳴る低音・旋律に合う D メジャーの三和音を選ぶ（v5.70.0） | 計画の和音（t.chords）自体が楽器ごとに食い違っている（チェロ・ハープ）ので、計画に合わせても解消しない | t.chords の4小節単位に合わせる |
+| 27 | サンプルのギターは次のストロークで前の和音を止め、余韻を短くする | 収録音の余韻で前の和音が次の和音に重なる | 余韻を残す |
 | 10 | どの音を鳴らすか（音程・開始）は譜面イベント、強さ・長さ・奥行きは v5.67.0 の playTrack と同じ計算（`performance()`） | 確定版の保護が最重要。譜面の level / 長さと再生の値はヴィオラ・チェロで違う（下記） | 譜面の値で鳴らす（確定版の聞こえ方が変わる） |
 
 ### 見つけた既存の不整合（v5.67.0、変更していない）
@@ -99,9 +101,9 @@ Analysis §3〜§5 のとおり。
 
 ## Autonomy Metrics
 - Human Escalation Count: 2（音楽アプリの所在 / 書き込み権限）
-- Human Decision Count: 15（ギター音源の指定と iPhone 検証の指示 / v5.68.0 の聞こえ方を承認 / 続けて〔メモリ削減〕 / 合成音モードの修正を指示 / tools/music-composer/ への書き込みを許可 / 続けて〔ベロシティ〕 / 続けて〔ギターは推奨 A〕 / ベル 12 回を承認 / 続けて / v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ / 次はハープとベル / ピアノ +30%）
+- Human Decision Count: 17（ギターの不協和音の調査を依頼 / 両方直す / ギター音源の指定と iPhone 検証の指示 / v5.68.0 の聞こえ方を承認 / 続けて〔メモリ削減〕 / 合成音モードの修正を指示 / tools/music-composer/ への書き込みを許可 / 続けて〔ベロシティ〕 / 続けて〔ギターは推奨 A〕 / ベル 12 回を承認 / 続けて / v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ / 次はハープとベル / ピアノ +30%）
 - Auto Fix Count: 4（ギター編集のテストで音名の欄が空の不具合を発見・修正 / E2E のバッファ音源の数え方 / ヴィオラの長さを再生と同じ計算に / ループ終端のはみ出し）
-- Reviewer Round Count: 9
+- Reviewer Round Count: 10
 - Test Retry Count: 1（E2E「楽器ごとに合成音へ戻して聞き比べられる」: 全件実行の 1 回目に失敗、その後 単体 3 回・全件 7 回はすべて PASS。FLAKY として扱い PASS に数えない。失敗時の内容は残っておらず原因は未特定。失敗したときに状態を出すようにした。対象の変更（楽器ごとの切り替え）と関係する可能性がある: INFERENCE）
 - PR Created: Yes（#70）
 
@@ -123,3 +125,4 @@ Analysis §3〜§5 のとおり。
 | 2026-10-12 | Task | BLOCKED → IMPLEMENTING → DONE | Orchestrator | Human が書き込みを許可。v5.68.0 作成、unit / E2E PASS、PR #70 を更新 |
 | 2026-10-12 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human: v5.68.0 OK、続けて。メモリ削減（曲ごとに 7〜23MB）。unit / E2E PASS、PR #70 を更新 |
 | 2026-10-12 | Task | DONE → IMPLEMENTING → REVIEWING | Orchestrator | Human: ギター（FreePats）と iPhone 実機検証。ギター・v5.69.0・計測の表示を追加。unit / E2E PASS。iPhone 実機は未実施（合格としない） |
+| 2026-10-12 | Task | REVIEWING → IMPLEMENTING → REVIEWING | Orchestrator | Human: ギターの不協和音。原因2つを特定、v5.70.0 と サンプルの弦止めで修正。unit / E2E PASS。iPhone 実機は未実施 |

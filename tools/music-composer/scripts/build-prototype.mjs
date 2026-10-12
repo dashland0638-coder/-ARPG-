@@ -8,8 +8,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const BASE = 'ARPG_Music_AI_Composer_v5_69_0.html';
-export const PROTO = 'ARPG_Music_AI_Composer_v5_69_0_samples.html';
+export const BASE = 'ARPG_Music_AI_Composer_v5_70_0.html';
+export const PROTO = 'ARPG_Music_AI_Composer_v5_70_0_samples.html';
 export const MARK = '<!-- MUSIC-AUDIO-001: sample engine (appended; everything above is the unmodified base) -->';
 const SCRIPTS = ['samples/manifest.js', 'sample-engine.js', 'sample-hooks.js'];
 
@@ -17,8 +17,9 @@ export function appendBlock(baseHtml, tags){
   return `${baseHtml}${baseHtml.endsWith('\n') ? '' : '\n'}${MARK}\n${tags.join('\n')}\n`;
 }
 
-function build(standalone){
-  const base = fs.readFileSync(path.join(dir, BASE), 'utf8');
+// --base <ファイル> で別の版の1ファイル版も作れる(聞き比べ用。例: --standalone --base ARPG_Music_AI_Composer_v5_69_0.html)
+function build(standalone, baseFile = BASE){
+  const base = fs.readFileSync(path.join(dir, baseFile), 'utf8');
   if(!standalone){
     const html = appendBlock(base, SCRIPTS.map(s=>`<script src="${s}"></script>`));
     fs.writeFileSync(path.join(dir, PROTO), html);
@@ -39,12 +40,13 @@ function build(standalone){
     inline(read('sample-hooks.js')),
   ]);
   fs.mkdirSync(path.join(dir, 'dist'), { recursive:true });
-  const out = path.join(dir, 'dist', PROTO.replace('.html', '_standalone.html'));
+  const out = path.join(dir, 'dist', baseFile.replace('.html', '_samples_standalone.html'));
   fs.writeFileSync(out, html);
   return out;
 }
 
 if(process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)){
-  const out = build(process.argv.includes('--standalone'));
+  const i = process.argv.indexOf('--base');
+  const out = build(process.argv.includes('--standalone'), i > 0 ? process.argv[i + 1] : BASE);
   console.log(`${path.relative(process.cwd(), out)} (${(fs.statSync(out).size / 1024).toFixed(0)} KB)`);
 }

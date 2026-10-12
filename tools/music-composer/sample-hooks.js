@@ -70,12 +70,25 @@
     }
     return !!v;
   }
+  /* ギター: 次のストローク(前より 0.1 秒以上あと)が始まったら、前のストロークの弦を止める。
+     ストロークは弦ごとに最大 0.085 秒ずれて呼ばれるので、0.1 秒以内は同じストローク */
+  function dampGuitar(v, start){
+    const g = session.guitar || (session.guitar = { start:-Infinity, ring:[] });
+    if(start > g.start + .1){
+      g.ring.forEach(h=>h.damp(start));
+      g.start = start;
+      g.ring = [];
+    }
+    g.ring.push(v);
+  }
+
   /* サンプルで鳴らせたら true(呼び出し側は合成音を鳴らさない)。dry run なら要る音を積むだけ */
   function route(name, midi, start, dur, engineLevel, out, note){
     if(!use[name]) return false;
     if(dry){ dry.push({ name, midi, level:engineLevel }); return true; }
     if(!S.isReady(name)) return false;
     const v = S.play(ctxNow(), name, midi, start, dur, engineLevel, out);
+    if(v && name === 'Guitar' && session) dampGuitar(v, start);
     // セル試聴で未読み込みの音に当たったら、次のために読んでおく(今回は合成音)
     if(!v && !session) S.ensure([{ name, midi, level:engineLevel }], { keep:true });
     return played(v, name, note);

@@ -7,7 +7,8 @@
      ・v5.67.0(確定版)で鳴っていた音は、ヴィオラの長さ(計算の誤りを直した分)以外すべて同じ値で鳴る。
        増えるのは譜面にあるのに鳴っていなかった音(ピアノ・ベル・ベースの style-bass・キーボードの keys / synth)だけ
      ・v5.69.0 はギターの譜面イベントを編集できる。編集しなければ v5.68.0 と同じ。編集は譜面と音の両方に入る
-     ・試作 HTML の「合成音」は v5.69.0 と同じ。「サンプル」は10楽器を、譜面と同じ値でサンプルにする。楽器ごとに合成音へ戻せる
+     ・v5.70.0 は酒場完成版のギターの和音を、同時に鳴る音に合わせる(他の音・リズム・長さ・強さは v5.69.0 と同じ)
+     ・試作 HTML の「合成音」は v5.70.0 と同じ。サンプルのギターは次のストロークで前の和音を止める。「サンプル」は10楽器を、譜面と同じ値でサンプルにする。楽器ごとに合成音へ戻せる
      ・停止 → 再生を繰り返しても前の音は残らない。セル音量・セル試聴が効く
      ・音源が読めないときは合成音に戻り、アプリは止まらない */
 import { test, expect } from '@playwright/test';
@@ -17,8 +18,9 @@ const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Dr
 const TAVERN = SAMPLED.filter(n=>n !== 'Keyboard');   // 酒場にキーボードは無い(TAVERN_STAGE_POLICY)
 const V567 = `${DIR}ARPG_Music_AI_Composer_v5_67_0.html`;
 const V568 = `${DIR}ARPG_Music_AI_Composer_v5_68_0.html`;
-const BASE = `${DIR}ARPG_Music_AI_Composer_v5_69_0.html`;
-const PROTO = `${DIR}ARPG_Music_AI_Composer_v5_69_0_samples.html`;
+const V569 = `${DIR}ARPG_Music_AI_Composer_v5_69_0.html`;
+const BASE = `${DIR}ARPG_Music_AI_Composer_v5_70_0.html`;
+const PROTO = `${DIR}ARPG_Music_AI_Composer_v5_70_0_samples.html`;
 const SCENES = [
   ...['swordsman', 'shadow', 'complete'].map(stage=>({ scene:'tavern', stage })),
   { scene:'mansion' }, { scene:'ship' },
@@ -154,7 +156,7 @@ async function playAndCount(page){
 test.describe('MUSIC-AUDIO-001 合成音モードの修正(v5.68.0)', ()=>{
   test.beforeEach(async ({ page })=>{ await instrument(page); });
 
-  test('v5.68.0 の通し再生は、譜面イベントと1対1・同じ値で鳴る(全楽器・7つの曲)', async ({ page })=>{
+  test('通し再生は、譜面イベントと1対1・同じ値で鳴る(v5.68.0 以降。最新版で全楽器・7つの曲)', async ({ page })=>{
     const errors = [];
     page.on('pageerror', e=>errors.push(e.message));
     for(const sc of SCENES){
@@ -167,11 +169,11 @@ test.describe('MUSIC-AUDIO-001 合成音モードの修正(v5.68.0)', ()=>{
     expect(errors).toEqual([]);
   });
 
-  test('v5.67.0 で鳴っていた音は、ヴィオラの長さ以外すべて同じ値で鳴る。増えるのは譜面にあった音だけ', async ({ page })=>{
+  test('v5.68.0: v5.67.0 で鳴っていた音は、ヴィオラの長さ以外すべて同じ値で鳴る。増えるのは譜面にあった音だけ', async ({ page })=>{
     for(const sc of SCENES){
       await setup(page, V567, sc);
       const old = await probePlay(page);
-      await setup(page, BASE, sc);
+      await setup(page, V568, sc);
       const now = await probePlay(page);
       const a = tally(old.keys), b = tally(now.keys);
       const missing = [], extra = [];
@@ -209,7 +211,7 @@ test.describe('MUSIC-AUDIO-001 合成音モードの修正(v5.68.0)', ()=>{
     for(const sc of SCENES){
       await setup(page, V568, sc);
       const a = { play:await probePlay(page), score:await page.evaluate(()=>JSON.stringify(buildTruthScore(state.track))) };
-      await setup(page, BASE, sc);
+      await setup(page, V569, sc);
       const b = { play:await probePlay(page), score:await page.evaluate(()=>JSON.stringify(buildTruthScore(state.track))) };
       const label = JSON.stringify(sc);
       expect(b.play.keys, label).toEqual(a.play.keys);
@@ -237,6 +239,58 @@ test.describe('MUSIC-AUDIO-001 合成音モードの修正(v5.68.0)', ()=>{
     };
     expect(await edit(V568)).toEqual({ options:0, n:60 });   // 不具合の再現
     expect(await edit(BASE)).toEqual({ options:36, n:69 });
+  });
+
+  test('v5.70.0: 酒場完成版のギターの和音だけが変わり、同時に鳴る音とのぶつかりが減る(リズム・長さ・強さ・他の音は v5.69.0 と同じ)', async ({ page })=>{
+    const measure = ()=>page.evaluate(()=>{
+      const ev = buildTruthScore(state.track).events.filter(e=>!e.rest);
+      const pc = n=>((n % 12) + 12) % 12, bad = d=>d === 1 || d === 6 || d === 11;
+      let clash = 0, total = 0, internal = 0;
+      const guitar = ev.filter(e=>e.instrument === 'Guitar');
+      for(const g of guitar){
+        const gn = [].concat(g.n);   // ストロークは和音、それ以外のギターは単音
+        for(const o of ev.filter(e=>e.instrument !== 'Guitar' && e.n != null && !Array.isArray(e.n) && e.start < g.start + g.duration && e.start + e.duration > g.start)){
+          total++; if(gn.some(n=>bad(pc(o.n - n)))) clash++;
+        }
+        for(let a = 0; a < gn.length; a++) for(let b = a + 1; b < gn.length; b++) if(bad(pc(gn[a] - gn[b]))) internal++;
+      }
+      return {
+        rate:total ? clash / total : 0, internal,
+        guitar:guitar.map(g=>[g.index, g.start.toFixed(6), g.duration.toFixed(6), g.level].join('|')),
+        others:ev.filter(e=>e.instrument !== 'Guitar').map(e=>JSON.stringify(e)).join('\n'),
+      };
+    });
+    for(const sc of [{ scene:'tavern', stage:'complete' }, { scene:'tavern', stage:'shadow' }, { scene:'mansion' }]){
+      await setup(page, V569, sc);
+      const a = await measure();
+      await setup(page, BASE, sc);
+      const b = await measure();
+      const label = JSON.stringify(sc);
+      expect(b.others, label).toBe(a.others);                    // ギター以外は同じ
+      expect(b.guitar, label).toEqual(a.guitar);                  // ギターの時刻・長さ・強さも同じ(和音だけ変わる)
+      if(sc.stage === 'complete'){
+        expect(a.rate, label).toBeGreaterThan(.2);                // v5.69.0: 26%
+        expect(b.rate, label).toBeLessThan(.1);                   // v5.70.0: 7〜8%
+        expect(a.internal, label).toBeGreaterThan(0);
+        expect(b.internal, label).toBe(0);                        // 和音の中で半音・増4度・長7度が無い
+      }
+    }
+  });
+
+  test('v5.70.0: ギターのセル試聴は、譜面のストロークと同じ和音を鳴らす(v5.69.0 は別の小節の和音だった)', async ({ page })=>{
+    const preview = async url=>{
+      await setup(page, url, { scene:'tavern', stage:'complete' });
+      return page.evaluate(()=>{
+        const g = buildTruthScore(state.track).events.filter(e=>e.kind === 'guitar-strum')[5];
+        const p = window.__probe();
+        previewScoreEvent(g);
+        p.undo();
+        return { score:g.n, played:JSON.parse(p.calls.find(c=>c.key[0] === 'Strum').key[1]) };
+      });
+    };
+    const old = await preview(V569), now = await preview(BASE);
+    expect(old.played).not.toEqual(old.score);
+    expect(now.played).toEqual(now.score);
   });
 
   test('ギターのストロークを編集すると(移調・開始のずれ・長さ)、譜面と通し再生の両方が同じ値で変わる', async ({ page })=>{
@@ -377,6 +431,38 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     expect(r.mansion.info.files).toBeLessThan(r.total / 3);
     expect(r.off.files).toBe(0);
     expect(errors).toEqual([]);
+  });
+
+  test('サンプルのギターは、次のストロークが始まると前の和音の弦を止める', async ({ page })=>{
+    await setupTavern(page, PROTO);
+    await enableSamples(page);
+    const r = await page.evaluate(async ()=>{
+      await SampleHooks.ready();
+      const notes = [];
+      const op = SampleEngine.play;
+      SampleEngine.play = function(ctx, name, midi, start){
+        const h = op.apply(this, arguments);
+        if(h && name === 'Guitar'){ const rec = { start, damped:null }; notes.push(rec); const d = h.damp; h.damp = at=>{ rec.damped = at; return d(at); }; }
+        return h;
+      };
+      playTrack(); stopAudio();
+      SampleEngine.play = op;
+      // ストローク = 0.1 秒以内に始まる弦のまとまり
+      const strums = [];
+      for(const n of notes){ const s = strums.find(x=>Math.abs(x.start - n.start) < .1 || (n.start > x.start && n.start - x.start < .1)); if(s) s.notes.push(n); else strums.push({ start:n.start, notes:[n] }); }
+      strums.sort((a, b)=>a.start - b.start);
+      let ok = 0, ng = 0;
+      strums.forEach((s, k)=>{
+        const next = strums[k + 1];
+        for(const n of s.notes){
+          if(!next){ if(n.damped == null) ok++; else ng++; continue; }
+          if(n.damped != null && Math.abs(n.damped - next.start) < 1e-9) ok++; else ng++;
+        }
+      });
+      return { strums:strums.length, ok, ng };
+    });
+    expect(r.strums).toBeGreaterThan(10);
+    expect(r.ng).toBe(0);
   });
 
   test('楽器ごとに合成音へ戻して聞き比べられる(ギターだけ合成音)。計測の表示が出る', async ({ page })=>{

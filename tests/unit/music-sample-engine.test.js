@@ -48,13 +48,22 @@ test('v5.68.0(通し再生が譜面イベントをそのまま鳴らす版)', ()
   assert.doesNotMatch(html, /\(i===0\|\|i===7\|\|i===12\)/);
 });
 
-test('試作の基準は v5.69.0(ギターの編集・音名の欄の修正)', ()=>{
-  assert.equal(BASE, 'ARPG_Music_AI_Composer_v5_69_0.html');
-  assert.equal(sha(BASE), 'cbd3caecc370265907678c4a9df5a13985eb6ab8ddbbb5d079b0efd607026ee2');
-  const html = read(BASE);
+test('v5.69.0(ギターの編集・音名の欄の修正)', ()=>{
+  const v569 = 'ARPG_Music_AI_Composer_v5_69_0.html';
+  assert.equal(sha(v569), 'cbd3caecc370265907678c4a9df5a13985eb6ab8ddbbb5d079b0efd607026ee2');
+  const html = read(v569);
   assert.match(html, /<!-- v5\.69\.0: /);
   assert.match(html, /t\.guitarEdits\?\.\[i\]/);
   assert.match(html, /function initScoreEditing\(\)\{\n buildPitchOptions\(\);/);
+});
+
+test('試作の基準は v5.70.0(酒場のギターの和音を同時に鳴る音に合わせる)', ()=>{
+  assert.equal(BASE, 'ARPG_Music_AI_Composer_v5_70_0.html');
+  assert.equal(sha(BASE), 'aa8e01d77c6f1f642f39f55e4ae8cc43832bfe785221e20f6d2ef5f0ef5952de');
+  const html = read(BASE);
+  assert.match(html, /<!-- v5\.70\.0: /);
+  assert.match(html, /const voicing=tavernGuitarChordVoicing\(t,i,events,bs,/);
+  assert.match(html, /const voicing=Array\.isArray\(e\.n\)\?e\.n:/);   // セル試聴は譜面の和音
 });
 
 test('試作 HTML は基準の末尾に読み込みを足しただけ(既存部分は1文字も変えない)', ()=>{
@@ -236,6 +245,11 @@ test('manifest のギター 36〜86 は ±2 半音以内(ストロークの和�
     const p = S.pickZone(m.Guitar.zones, n, 12);
     assert.ok(p && Math.abs(Math.log2(p.rate) * 12) <= 2.1, `Guitar ${n}`);
   }
+});
+
+test('ギターの余韻は合成音に近く短い(0.2〜0.5 秒)。和音が変わるときは hooks が止める', ()=>{
+  assert.equal(S.PROFILES.Guitar.releaseMin, .2);
+  assert.equal(S.PROFILES.Guitar.releaseMax, .5);
 });
 
 test('ピアノは試聴の結果で 30% 大きくした(gain 1.3)', ()=>{

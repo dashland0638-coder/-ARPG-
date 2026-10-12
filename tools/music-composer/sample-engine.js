@@ -46,8 +46,8 @@
     // FM エレピ(TX81Z)。pluck(短い粒)と keys / synth(和音の白玉)の両方に使う
     Keyboard: { attack:.003, releaseRatio:.30, releaseMin:.12, releaseMax:.50,
              gain:1.0, refLevel:.06, cutLo:2500, cutHi:9000, maxShift:12, split:.5, softMaxShift:2 },
-    // ナイロン弦ギター(FreePats)。SFZ の ampeg_release=1.5 にならい、譜面の長さの後も弦が鳴り残る
-    Guitar: { attack:.002, releaseRatio:.60, releaseMin:.30, releaseMax:1.5,
+    // ナイロン弦ギター(FreePats)。余韻は合成音(.22 秒)に近く短め。和音が変わるときは hooks が damp() で止める
+    Guitar: { attack:.002, releaseRatio:.30, releaseMin:.20, releaseMax:.50,
              gain:1.0, refLevel:.05, cutLo:2500, cutHi:10000, maxShift:12 }
   };
 
@@ -299,12 +299,14 @@
       g.setValueAtTime(plan.peak, plan.holdEnd);
       g.exponentialRampToValueAtTime(.0001, plan.end);
 
-      src.connect(filter).connect(gain);
-      let tail = gain;
+      // damp(): 弦を手で押さえて止める(次の和音で前の和音を消す)。エンベロープとは別の段で絞る
+      const mute = ctx.createGain();
+      src.connect(filter).connect(gain).connect(mute);
+      let tail = mute;
       if(out.pan && typeof ctx.createStereoPanner === 'function'){
         const p = ctx.createStereoPanner();
         p.pan.value = clamp(out.pan, -1, 1);
-        gain.connect(p);
+        mute.connect(p);
         tail = p;
       }
       tail.connect(out.destination);
@@ -319,6 +321,15 @@
       let stopped = false;
       return {
         end: plan.end,
+        start: plan.start,
+        damp(at){
+          try{
+            const t = Math.max(at, plan.start);
+            if(t >= plan.end) return;
+            mute.gain.setValueAtTime(1, t);
+            mute.gain.setTargetAtTime(0, t, .015);   // 約 0.05 秒で消える
+          }catch(e){}
+        },
         stop(at){
           if(stopped) return;
           stopped = true;

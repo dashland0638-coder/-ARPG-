@@ -1930,6 +1930,30 @@ function isTavernTrack(track){
 }
 
 
+/* v5.70: 同時に鳴っている音に合う三和音でストロークの和音を組む */
+function tavernGuitarChordVoicing(track,step,events,from,to){
+  const root=62, scale=scaleFor("D Major");
+  const pc=n=>((n%12)+12)%12, rub=d=>d===1||d===6||d===11;
+  const sounding=(events||[]).filter(e=>!e.rest&&e.n!=null&&!Array.isArray(e.n)&&e.instrument!=="Guitar"&&e.start<to&&e.start+e.duration>from);
+  const isLow=e=>e.instrument==="Bass"||e.instrument==="Cello";
+  const low=sounding.filter(isLow).map(e=>pc(e.n)), high=sounding.filter(e=>!isLow(e)).map(e=>pc(e.n));
+  const chords=track?.chords||[[0,2,4]];
+  const plan=((Number((chords[Math.min(chords.length-1,Math.floor(step/8))]||[0])[0])||0)%7+7)%7;
+  let best=null;
+  for(const deg of [0,1,2,3,4,5]){            // vii°(減三和音)は使わない
+    const tones=[0,2,4].map(k=>pc(degreeMidi(root,scale,deg+k,0)));
+    const clash=n=>tones.some(c=>rub(pc(n-c)));
+    let score=deg===plan?1:0;
+    for(const b of low){ score+=b===tones[0]?3:tones.includes(b)?1.5:-1; if(clash(b)) score-=4; }
+    for(const m of high){ if(tones.includes(m)) score+=1; if(clash(m)) score-=2; }
+    if(!best||score>best.score) best={deg,score};
+  }
+  const base=degreeMidi(root,scale,best.deg,0);
+  const third=degreeMidi(root,scale,best.deg+2,0), fifth=degreeMidi(root,scale,best.deg+4,0);
+  const all=[...low,...high];
+  // 声部は v5.69 と同じ形(低い根音・低い5度・根音・3度・5度)。ぶつかる音は省く(根音は残す)
+  return [base-12,fifth-12,base,third,fifth].filter((n,k)=>k===0||k===2||!all.some(x=>rub(pc(x-n))));
+}
 function tavernGuitarVoicing(track,bar){
   const root=62, scale=scaleFor("D Major");
   const chordList=track?.chords||[[0,2,4],[4,6,1],[5,0,2],[3,5,0]];
@@ -2065,7 +2089,7 @@ function buildTruthScore(t){
     const nextSt=next?tm.eventStart(Math.min(i+2,phrase.length-1)):bs+sec*x.d;
     const sustainEnd=Math.max(bs+sec*x.d*.92,nextSt-sec*.04);
     const guitarDur=Math.min(Math.max(sec*.55,sustainEnd-bs),sec*3.2);
-    const voicing=tavernGuitarVoicing(t,Math.floor(i/2));
+    const voicing=tavernGuitarChordVoicing(t,i,events,bs,bs+Math.min(guitarDur,sec*2));   // v5.70
     // v5.68: 譜面の .030 は再生に使われていなかった。確定版の音(再生の .045)に合わせる
     const level=.045*Math.max(.9,style.guitar||0);
     // v5.69: ギターの調整(移調・開始のずれ・長さ)。無ければ v5.68 と同じ
@@ -2176,7 +2200,8 @@ function previewScoreEvent(e){
  if(e.instrument==="Keyboard"){makeKeyboard(e.n,now,dur,Math.max(.075,level),room,"keys");return}
  if(e.instrument==="Guitar"){
    if(e.kind==="guitar-strum"){
-    const voicing=tavernGuitarVoicing(state.track,e.index||0);
+    // v5.70: 譜面のストロークと同じ和音(v5.69 までは音の番号を小節として渡し、別の和音を鳴らしていた)
+    const voicing=Array.isArray(e.n)?e.n:tavernGuitarVoicing(state.track,Math.floor((e.index||0)/2));
     makeAcousticGuitarStrum(voicing,now,dur,Math.max(.075,level),room,"down");
    }else makeAcousticGuitar(e.n,now,dur,Math.max(.065,level),room);
    return;
@@ -2934,7 +2959,5 @@ window.LOOP_DEVELOPMENT_V54 = {
 <!-- v5.68.0: playback plays buildTruthScore events (score = sound). Missing piano/bell/style-bass/keys/synth now sound; score levels match the v5.67 playback; viola sustain uses score-relative time. -->
 
 <!-- v5.69.0: guitar score events are editable (transpose / start offset / length via track.guitarEdits); score and playback share the edit. Pitch select now has options (was empty: edits turned every note into C4). No edits = v5.68.0. -->
-<!-- MUSIC-AUDIO-001: sample engine (appended; everything above is the unmodified base) -->
-<script src="samples/manifest.js"></script>
-<script src="sample-engine.js"></script>
-<script src="sample-hooks.js"></script>
+
+<!-- v5.70.0: tavern guitar strums pick a D-major triad that fits the notes sounding with them (bass/cello root, melody); clashing chord tones are omitted. Guitar cell preview plays the strum in the score. Rhythm, length, level and guitar edits unchanged from v5.69.0. -->
