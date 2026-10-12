@@ -101,7 +101,7 @@ Analysis §3〜§5 のとおり。
 
 ## Autonomy Metrics
 - Human Escalation Count: 2（音楽アプリの所在 / 書き込み権限）
-- Human Decision Count: 17（ギターの不協和音の調査を依頼 / 両方直す / ギター音源の指定と iPhone 検証の指示 / v5.68.0 の聞こえ方を承認 / 続けて〔メモリ削減〕 / 合成音モードの修正を指示 / tools/music-composer/ への書き込みを許可 / 続けて〔ベロシティ〕 / 続けて〔ギターは推奨 A〕 / ベル 12 回を承認 / 続けて / v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ / 次はハープとベル / ピアノ +30%）
+- Human Decision Count: 18（v5.70.0 のギターの和音を採用 / ギターの不協和音の調査を依頼 / 両方直す / ギター音源の指定と iPhone 検証の指示 / v5.68.0 の聞こえ方を承認 / 続けて〔メモリ削減〕 / 合成音モードの修正を指示 / tools/music-composer/ への書き込みを許可 / 続けて〔ベロシティ〕 / 続けて〔ギターは推奨 A〕 / ベル 12 回を承認 / 続けて / v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ / 次はハープとベル / ピアノ +30%）
 - Auto Fix Count: 4（ギター編集のテストで音名の欄が空の不具合を発見・修正 / E2E のバッファ音源の数え方 / ヴィオラの長さを再生と同じ計算に / ループ終端のはみ出し）
 - Reviewer Round Count: 10
 - Test Retry Count: 1（E2E「楽器ごとに合成音へ戻して聞き比べられる」: 全件実行の 1 回目に失敗、その後 単体 3 回・全件 7 回はすべて PASS。FLAKY として扱い PASS に数えない。失敗時の内容は残っておらず原因は未特定。失敗したときに状態を出すようにした。対象の変更（楽器ごとの切り替え）と関係する可能性がある: INFERENCE）
@@ -126,3 +126,4 @@ Analysis §3〜§5 のとおり。
 | 2026-10-12 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human: v5.68.0 OK、続けて。メモリ削減（曲ごとに 7〜23MB）。unit / E2E PASS、PR #70 を更新 |
 | 2026-10-12 | Task | DONE → IMPLEMENTING → REVIEWING | Orchestrator | Human: ギター（FreePats）と iPhone 実機検証。ギター・v5.69.0・計測の表示を追加。unit / E2E PASS。iPhone 実機は未実施（合格としない） |
 | 2026-10-12 | Task | REVIEWING → IMPLEMENTING → REVIEWING | Orchestrator | Human: ギターの不協和音。原因2つを特定、v5.70.0 と サンプルの弦止めで修正。unit / E2E PASS。iPhone 実機は未実施 |
+| 2026-10-12 | Task | REVIEWING | Orchestrator | Human: 聞き比べの結果、v5.70.0 のギターの和音を採用（「57にしてよい」を 5.70 と解釈）。iPhone 実機は未実施 |
