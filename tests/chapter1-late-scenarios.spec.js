@@ -178,7 +178,7 @@ async function stepToward(page, dot) {
 }
 
 test.describe('第一章（本編）: 本物の戦闘不能', () => {
-  test('道で倒されると、戦闘不能 → 所持金 30% 減 → 酒場 → 主人公・進行は変わらず同じ道だけ', async ({ page }) => {
+  test('道で倒されると、戦闘不能 → 所持金の 30% を失う → 酒場 → 主人公・進行は変わらず同じ道だけ', async ({ page }) => {
     test.setTimeout(900_000);
     const errors = watchErrors(page);
     const clears = { mansion: 1, duskvillage: 1, ghostship: 1, clocktower: 1 };
@@ -200,15 +200,22 @@ test.describe('第一章（本編）: 本物の戦闘不能', () => {
     }
     await expect(page.locator('#down-overlay'), '倒されると戦闘不能の画面が出る').toHaveClass(/active/);
     await expect(page.locator('#down-overlay .down-title')).toHaveText('力尽きた……');
-    // 所持金 100 の 30% = 30(12-progression-ui.js DEFEAT_GOLD_LOSS_MUL)
-    await expect(page.locator('#down-penalty-line')).toHaveText('所持金を🪙30失った……');
+    /* 所持金の 30% を失う(12-progression-ui.js DEFEAT_GOLD_LOSS_MUL)。倒されるまでに支援の弓師が獣を
+       倒すとゴールドが入るので(07-ai-combat.js finishEnemyDeath)、倒れた瞬間の所持金は 100 以上のどれか。
+       失った額 n と保存された所持金 s から、倒れた瞬間の所持金 G = s + n を出し、n = round(G × 0.3) を確かめる */
+    const penalty = await page.locator('#down-penalty-line').textContent();
+    const m = /^所持金を🪙(\d+)失った……$/.exec(penalty || '');
+    expect(m, `失った額の行: ${penalty}`).not.toBeNull();
+    const lost = Number(m[1]);
 
     await page.click('#down-return-btn');
     await expect(page.locator('#down-overlay')).not.toHaveClass(/active/);
     await expect(page.locator('#minimap-area')).toHaveText('港町の酒場', { timeout: 120_000 });
     await expect(page.locator('#hud-name'), '主人公・支援は変わらない').toHaveText('盗賊 ｜ 支援: 弓師');
     const saved = await page.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), SAVE_KEY);
-    expect(saved.inventory.gold, '所持金が 30% 減って保存される').toBe(70);
+    const goldAtDown = saved.inventory.gold + lost;
+    expect(goldAtDown, '倒れた瞬間の所持金は、持って出た 100 以上').toBeGreaterThanOrEqual(100);
+    expect(lost, `所持金 ${goldAtDown} の 30% を失う`).toBe(Math.round(goldAtDown * 0.3));
     expect(saved.scenarioClears, '進行は戻らない・進まない').toEqual(clears);
     expect(saved.selectedClass).toBe('rogue');
 
