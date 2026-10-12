@@ -1,6 +1,6 @@
 # CH1-T1 — 本編の会話から、第一章に無い機能の案内を除く
 
-Status: REVIEWING
+Status: REVIEWED（Reviewer PASS・PR 作成。main への merge は Human）
 
 - 監査: `.ai/reports/CHAPTER-1-completion-audit.md` P1-2
 - 計画: `.ai/reports/CHAPTER-1-completion-plan.md` CH1-T1
@@ -59,10 +59,19 @@ Status: REVIEWING
 
 固定の待ち時間について: 追加した E2E の待ちは、既存の 1 件目と同じ短い間隔（会話送りの 150ms、歩きの 300ms）だけ。判定は表示（`toHaveClass` / `toHaveText`）を待つ形にした。
 
-## Reviewer
-（Reviewer の結果で更新）
+## Reviewer（独立。Agent Protocol 2.0）
+- Round 1: **PASS**（指摘なし）
+  - 範囲が 3 ファイルだけであること、承認された文言、テストモードの文言の維持を確認。
+  - 本編の他の文に、第一章に無い機能の案内が無いこと（grep の抜き取り）を確認。
+  - 追加した E2E が加入後の分岐を通ること、弱められたテストが無いことを確認。
+  - unit 1782 PASS を再実行。
+- 非 blocking の注記と対応:
+  - ① セーブの `skillChoice:'phantom'` は無効なキーかもしれない → **対応不要**。`phantom` は魔法使いの第一章の Skill 1（幻影歩法、`core/chapter1-rules.js` `CHAPTER1_SKILL1`）の正しいキー
+  - ② 定数名の訂正（`SHADOW_GUIDE_FIRST_MEET`）→ Analyzer に記載済み
+  - ③ テストモードの分岐は実際には出ない → Analyzer に記載済み（指示どおり残した）
 
 ## Status History
 | Date | From → To | By | Note |
 | --- | --- | --- | --- |
 | 2026-10-12 | （新規）→ REVIEWING | Orchestrator / Analyzer / Planner / Implementer | Human 承認の文言で実装 |
+| 2026-10-12 | REVIEWING → REVIEWED | Tester / Reviewer | Reviewer Round 1 PASS。PR 作成 |
