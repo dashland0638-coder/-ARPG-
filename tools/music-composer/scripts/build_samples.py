@@ -110,6 +110,14 @@ KEYBOARD = {
     "seconds": 3.0, "fade": 0.6, "bitrate": "112k",
 }
 
+# 弱い層(layer "soft")。ピアノ・ハープ・キーボードの譜面の音は弱い(強さの基準の 0.5 未満)ことが多いので、
+# 強い層を lowpass で暗くする代わりに、弱く弾いた収録音を使う。音量は強い層と最初の 1 秒の RMS でそろえ
+# (ゾーンの gain)、強弱は再生側の level だけで決まる。ピアノの弱い層はアプリの通し再生で使う音域だけ
+PIANO_SOFT = {**PIANO, "file": lambda m: f"Player_vl1_rr1_{vendor_name(m)}.wav", "midis": list(range(43, 89, 2)), "layer": "soft"}
+HARP_SOFT = {**HARP, "file": lambda m: f"KSHarp_{sci_name(m)}_{'mf3' if m == 48 else 'mf1'}.wav", "midis": HARP["midis"][:-1], "layer": "soft"}  # D7 は mf 層が無い
+
+KEYBOARD_SOFT = {**KEYBOARD, "file": lambda m: f"FMPiano_{sci_name(m)}_vl1.wav", "layer": "soft"}
+
 def git_blob(repo, commit, path):
     return subprocess.run(["git", "-C", repo, "show", f"{commit}:{path}"], check=True, capture_output=True).stdout
 
@@ -161,7 +169,13 @@ def encode(x, path, bitrate):
                     "-c:a", "libmp3lame", "-b:a", bitrate, "-map_metadata", "-1", path],
                    input=pcm, check=True)
 
-def build(spec, name, args):
+def rms_head(x):
+    return float(np.sqrt(np.mean(x[:SR] ** 2))) or 1e-9
+
+def build(spec, name, args, match=None):
+    """match: 強い層の {midi: RMS}。渡すと弱い層として作り、ゾーンに layer と gain を書く"""
+    layer = spec.get("layer")
+    rms = {}
     repo = args.vcsl if spec["repo"] == "vcsl" else args.vsco
     os.makedirs(os.path.join(args.out, name), exist_ok=True)
     zones = []
@@ -191,17 +205,29 @@ def build(spec, name, args):
             x[-fade:] *= np.linspace(1, 0, fade) ** 2
         x = x / (np.max(np.abs(x)) or 1) * 0.89  # -1 dBFS に揃える。強弱は再生側で付ける
         rel = f"{name}/{name}_{m:03d}.mp3" if not spec.get("items") else f"{name}/{name}_{m:03d}_rr{rr}.mp3"
+        if layer:
+            rel = f"{name}/{name}_{layer}_{m:03d}.mp3"
+        rms[m] = rms_head(x)
         encode(x, os.path.join(args.out, rel), spec["bitrate"])
         zone = {"midi": m, "cents": cents, "file": rel, "source": src}
         if spec.get("items"):
             zone["rr"] = rr
+        if layer:
+            zone["layer"] = layer
+            zone["gain"] = round(match[m] / rms[m], 4)
         if loop:
             o = runtime_onset(x)
             zone["loopStart"] = round(loop[0] / SR - o, 5)
             zone["loopEnd"] = round(loop[1] / SR - o, 5)
         zones.append(zone)
         print(f"{rel}  <- {src}  ({cents:+.1f} cent)")
-    return {"repo": spec["repo"], "commit": spec["commit"], "zones": zones}
+    return {"repo": spec["repo"], "commit": spec["commit"], "zones": zones}, rms
+
+def with_soft(loud_spec, soft_spec, name, args):
+    out, rms = build(loud_spec, name, args)
+    soft, _ = build(soft_spec, name, args, match=rms)
+    out["zones"] += soft["zones"]
+    return out
 
 def main():
     ap = argparse.ArgumentParser()
@@ -209,12 +235,13 @@ def main():
     ap.add_argument("--vsco", required=True)
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
+    one = lambda spec, name: build(spec, name, args)[0]
     manifest = {
-        "Piano": build(PIANO, "piano", args), "Flute": build(FLUTE, "flute", args),
-        "Viola": build(VIOLA, "viola", args), "Cello": build(CELLO, "cello", args),
-        "Harp": build(HARP, "harp", args), "Bell": build(BELL, "bell", args),
-        "Bass": build(BASS, "bass", args), "Drums": build(DRUMS, "drums", args),
-        "Keyboard": build(KEYBOARD, "keyboard", args),
+        "Piano": with_soft(PIANO, PIANO_SOFT, "piano", args), "Flute": one(FLUTE, "flute"),
+        "Viola": one(VIOLA, "viola"), "Cello": one(CELLO, "cello"),
+        "Harp": with_soft(HARP, HARP_SOFT, "harp", args), "Bell": one(BELL, "bell"),
+        "Bass": one(BASS, "bass"), "Drums": one(DRUMS, "drums"),
+        "Keyboard": with_soft(KEYBOARD, KEYBOARD_SOFT, "keyboard", args),
     }
     body = json.dumps(manifest, indent=1, ensure_ascii=False)
     with open(os.path.join(args.out, "manifest.js"), "w") as f:

@@ -9,6 +9,8 @@
    - 例外は外へ出さない(読み込み失敗でアプリを止めない)
    - ゾーンに loopStart / loopEnd(発音の頭からの秒)がある楽器(弦)は、収録音より長い音をループで伸ばす
    - 同じ midi のゾーンが複数ある楽器(ドラムの rr1 / rr2)は、鳴らすたびに交互に使う
+   - layer "soft" のゾーン(弱く弾いた収録)がある楽器は、強さが profile.split 未満なら弱い層を使う。
+     音量は zone.gain で強い層にそろえてあり、強弱は level だけで決まる。音色の明るさは層の中で付け直す
 
    純粋関数(pickZone / planNote / findOnset)は Node の単体テストから直接呼ぶ。 */
 (function(root, factory){
@@ -20,8 +22,9 @@
   // refLevel: これ以上の level で最も明るい音色になる(弱い音ほど lowpass で丸くする)
   const PROFILES = {
     // Piano の gain 1.3: Human の試聴で「小さめ」→ 30% 上げた
+    // split: 強さ(level / refLevel)がこれ未満なら弱い層。softMaxShift を超えて遠いときは強い層
     Piano: { attack:.004, releaseRatio:.50, releaseMin:.25, releaseMax:.90,
-             gain:1.3, refLevel:.12, cutLo:1800, cutHi:10000, maxShift:12 },
+             gain:1.3, refLevel:.12, cutLo:1800, cutHi:10000, maxShift:12, split:.5, softMaxShift:2 },
     Flute: { attack:.030, releaseRatio:.15, releaseMin:.10, releaseMax:.25,
              gain:1.6, refLevel:.08, cutLo:5200, cutHi:12000, maxShift:12 },
     // 弦: 弓の立ち上がりは収録音のまま。合成音(makeVoice)の余韻 .06〜.12 秒より少し長く、自然に切る
@@ -31,7 +34,7 @@
              gain:1.6, refLevel:.11, cutLo:1600, cutHi:7000, maxShift:12 },
     // 撥弦・打鍵: 収録音の減衰をそのまま使い、譜面の長さの後は弦/金属が鳴り残る程度の余韻
     Harp:  { attack:.003, releaseRatio:.80, releaseMin:.40, releaseMax:1.5,
-             gain:2.1, refLevel:.05, cutLo:3000, cutHi:12000, maxShift:12 },
+             gain:2.1, refLevel:.05, cutLo:3000, cutHi:12000, maxShift:12, split:.5, softMaxShift:2 },
     Bell:  { attack:.003, releaseRatio:.60, releaseMin:.50, releaseMax:1.8,
              gain:1.7, refLevel:.04, cutLo:4000, cutHi:14000, maxShift:12 },
     // コントラバス(弓)。合成音のベースは lowpass 300Hz の暗い音なので、明るさを抑える
@@ -42,7 +45,7 @@
              gain:1.0, refLevel:.10, cutLo:3000, cutHi:16000, maxShift:0 },
     // FM エレピ(TX81Z)。pluck(短い粒)と keys / synth(和音の白玉)の両方に使う
     Keyboard: { attack:.003, releaseRatio:.30, releaseMin:.12, releaseMax:.50,
-             gain:1.0, refLevel:.06, cutLo:2500, cutHi:9000, maxShift:12 }
+             gain:1.0, refLevel:.06, cutLo:2500, cutHi:9000, maxShift:12, split:.5, softMaxShift:2 }
   };
 
   function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
@@ -60,6 +63,18 @@
     if(!best || best.d > (maxShift ?? 12)) return null;
     const semis = midi - best.zone.midi - (Number(best.zone.cents) || 0) / 100;
     return { zone:best.zone, rate:Math.pow(2, semis / 12) };
+  }
+
+  /* 強さで層を選ぶ。返す v は選んだ層の中での明るさ(0〜1)。弱い層は 0〜split を 0〜1 に広げる */
+  function chooseZone(zones, midi, level, profile){
+    const v = Math.max(0, Number(level) || 0) / profile.refLevel;
+    if(profile.split && v < profile.split){
+      const p = pickZone((zones || []).filter(z=>z && z.layer === 'soft'), midi, profile.softMaxShift ?? 2);
+      if(p) return { ...p, soft:true, v:clamp(v / profile.split, 0, 1) };
+    }
+    const loud = (zones || []).filter(z=>z && !z.layer);
+    const p = pickZone(loud, midi, profile.maxShift);
+    return p ? { ...p, soft:false, v:clamp(v, 0, 1) } : null;
   }
 
   /* 1音の時間と音量の計画。buffer は {duration, offset, loop}(offset は発音の頭。loop なら長さの上限なし) */
@@ -104,7 +119,8 @@
 
   // ---- ブラウザ側 ----------------------------------------------------------
   const INSTRUMENTS = Object.keys(PROFILES);
-  const loaded = {}, status = {};                        // loaded: midi -> [{buffer, offset, zone, loop}](rr の数だけ)
+  const loaded = {}, status = {};                        // loaded: "層:midi" -> [{buffer, offset, zone, loop}](rr の数だけ)
+  const zoneKey = z=>(z.layer || 'loud') + ':' + z.midi;
   const turn = {};                                       // 「楽器:midi」ごとの rr の順番
   for(const n of INSTRUMENTS){ loaded[n] = new Map(); status[n] = 'idle'; }   // idle / loading / ready / partial / failed
   let loading = null;
@@ -146,10 +162,10 @@
         if(!ctx) throw new Error('no AudioContext for decoding');
         const buffer = await decodeCompat(ctx, await res.arrayBuffer());
         const offset = findOnset(buffer.getChannelData(0), buffer.sampleRate);
-        const list = loaded[name].get(zone.midi) || [];
+        const list = loaded[name].get(zoneKey(zone)) || [];
         list.push({ buffer, zone, offset, loop:loopRegion(zone, offset, buffer.duration) });
         list.sort((a, b)=>(a.zone.rr || 0) - (b.zone.rr || 0));
-        loaded[name].set(zone.midi, list);
+        loaded[name].set(zoneKey(zone), list);
         ok++;
       }catch(e){
         console.warn('[SampleEngine]', name, zone.file, e && e.message || e);
@@ -181,13 +197,15 @@
       if(!ctx || !isReady(name) || !out || !out.destination) return null;
       const profile = PROFILES[name];
       const zones = [...loaded[name].values()].map(x=>x[0].zone);
-      const pick = pickZone(zones, midi, profile.maxShift);
+      const pick = chooseZone(zones, midi, level, profile);
       if(!pick) return null;
-      const list = loaded[name].get(pick.zone.midi);
-      const key = name + ':' + pick.zone.midi, k = turn[key] || 0;   // 音ごとに rr1 → rr2 → rr1 …
+      const list = loaded[name].get(zoneKey(pick.zone));
+      const key = name + ':' + zoneKey(pick.zone), k = turn[key] || 0;   // 音ごとに rr1 → rr2 → rr1 …
       turn[key] = k + 1;
       const entry = list[k % list.length];
       const plan = planNote(profile, pick.rate, { duration:entry.buffer.duration, offset:entry.offset, loop:!!entry.loop }, start, dur, level);
+      plan.peak *= Number(pick.zone.gain) || 1;
+      plan.cutoff = profile.cutLo + (profile.cutHi - profile.cutLo) * Math.sqrt(pick.v);
 
       const src = ctx.createBufferSource();
       src.buffer = entry.buffer;
@@ -247,7 +265,7 @@
   }
 
   return {
-    PROFILES, INSTRUMENTS, pickZone, planNote, findOnset, loopRegion,
+    PROFILES, INSTRUMENTS, pickZone, chooseZone, planNote, findOnset, loopRegion,
     load, isReady, play,
     status(){ return { ...status }; },
     _reset(){ for(const n of INSTRUMENTS){ loaded[n].clear(); status[n] = 'idle'; } for(const k in turn) delete turn[k]; loading = null; decodeCtx = null; }

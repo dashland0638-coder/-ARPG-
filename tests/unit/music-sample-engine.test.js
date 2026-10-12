@@ -73,7 +73,7 @@ test('音源は CC0 の2リポジトリの固定コミットから、必要な�
         Harp:/^Chordophones\/Composite Chordophones\/Concert Harp\/KSHarp_/,
         Bell:/^Idiophones\/Struck Idiophones\/Hand Chimes\/sus_/,
         Bass:/^Strings\/Solo Contrabass\/SusNV\/BKCtbss_SusNV_.*_v1_rr1\.wav$/,
-        Keyboard:/^Electrophones\/TX81Z\/FM Piano\/FMPiano_[A-G]#?\d_vl2\.wav$/,
+        Keyboard:/^Electrophones\/TX81Z\/FM Piano\/FMPiano_[A-G]#?\d_vl[12]\.wav$/,
         Drums:/^Membranophones\/Struck Membranophones\/Frame Drum\/HDrum[LS]_Hit_v3_rr[12]_Sum\.wav$/,
       }[name]);
       // 弦だけループ区間を持つ(ヴィオラ・チェロは発音の頭から 1.2〜3.6 秒、ベースは 1.0〜3.0 秒付近)
@@ -86,12 +86,19 @@ test('音源は CC0 の2リポジトリの固定コミットから、必要な�
       }else{
         assert.equal(z.loopStart, undefined);
       }
+      // 弱い層はピアノ・ハープ・キーボードだけ。音量をそろえる gain を持つ
+      if(z.layer){
+        assert.equal(z.layer, 'soft');
+        assert.ok(['Piano', 'Harp', 'Keyboard'].includes(name), `${name} layer`);
+        assert.ok(z.gain > .3 && z.gain < 3, `${z.file} gain`);
+        assert.match(z.source, { Piano:/_vl1_/, Harp:/_mf[13]\.wav$/, Keyboard:/_vl1\.wav$/ }[name]);
+      }
     }
   }
   // samples/ にあるのは manifest に載ったファイルだけ
   const onDisk = ['piano', 'flute', 'viola', 'cello', 'harp', 'bell', 'bass', 'drums', 'keyboard'].flatMap(d=>fs.readdirSync(path.join(dir, 'samples', d)).map(f=>`${d}/${f}`)).sort();
   assert.deepEqual(onDisk, Object.values(m).flatMap(i=>i.zones.map(z=>z.file)).sort());
-  assert.ok(total < 6.5 * 1024 * 1024, `samples total ${total} bytes`);
+  assert.ok(total < 9 * 1024 * 1024, `samples total ${total} bytes`);
 });
 
 test('ゾーンは最も近い収録音(等距離なら低い方)。cent のずれを打ち消す', ()=>{
@@ -177,6 +184,24 @@ test('manifest のキーボード 58〜98 は ±2 半音以内(アプリのキ�
     const p = S.pickZone(m.Keyboard.zones, n, 12);
     assert.ok(p && Math.abs(Math.log2(p.rate) * 12) <= 2.1, `Keyboard ${n}`);
   }
+});
+
+test('層の選び方: 強さが split 未満なら弱い層(近くに無ければ強い層)、明るさは層の中で 0〜1 に広げる', ()=>{
+  const P = { refLevel:.1, split:.5, softMaxShift:2, maxShift:12 };
+  const zones = [{ midi:60 }, { midi:64 }, { midi:60, layer:'soft', gain:1.2 }];
+  const soft = S.chooseZone(zones, 61, .02, P);
+  assert.equal(soft.soft, true);
+  assert.equal(soft.zone.layer, 'soft');
+  assert.ok(Math.abs(soft.v - .4) < 1e-9);             // .2 / .5
+  const loud = S.chooseZone(zones, 61, .08, P);
+  assert.equal(loud.soft, false);
+  assert.equal(loud.zone.layer, undefined);
+  assert.ok(Math.abs(loud.v - .8) < 1e-9);
+  const far = S.chooseZone(zones, 64, .02, P);         // 弱い層は 60 しかなく 4 半音遠い → 強い層の 64
+  assert.equal(far.soft, false);
+  assert.equal(far.zone.midi, 64);
+  assert.equal(S.chooseZone(zones, 61, .02, { ...P, split:0 }).soft, false);   // split なしは常に強い層
+  assert.equal(S.chooseZone(zones, 90, .08, P), null);
 });
 
 test('ピアノは試聴の結果で 30% 大きくした(gain 1.3)', ()=>{

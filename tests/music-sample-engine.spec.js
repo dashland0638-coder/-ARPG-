@@ -228,6 +228,36 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     expect(errors).toEqual([]);
   });
 
+  test('ピアノ・ハープ・キーボードは、弱い音で弱く弾いた収録音(弱い層)、強い音で強い層を使う。音量は層の境目でそろう', async ({ page })=>{
+    await page.goto(PROTO);
+    await enableSamples(page);
+    const r = await page.evaluate(async ()=>{
+      const out = {};
+      for(const [name, n] of [['Piano', 67], ['Harp', 72], ['Keyboard', 80]]){
+        const ref = SampleEngine.PROFILES[name].refLevel;
+        const off = new OfflineAudioContext(1, 44100 * 2, 44100);
+        const seen = [];
+        const orig = off.createBufferSource.bind(off);
+        off.createBufferSource = ()=>{ const node = orig(); const st = node.start.bind(node); node.start = (w, o)=>{ seen.push(node.buffer); return st(w, o); }; return node; };
+        for(const v of [.2, .9, .3]) SampleEngine.play(off, name, n, 0, 1, ref * v, { destination:off.destination });
+        // 境目のすぐ下と上の音量
+        const rms = async v=>{
+          const c = new OfflineAudioContext(1, 44100, 44100);
+          SampleEngine.play(c, name, n, 0, 1, ref * v, { destination:c.destination });
+          const d = (await c.startRendering()).getChannelData(0);
+          let s = 0; for(let i = 0; i < d.length; i++) s += d[i] * d[i];
+          return 20 * Math.log10(Math.sqrt(s / d.length));
+        };
+        out[name] = { ids:seen.map(b=>seen.indexOf(b)), jump:Math.abs(await rms(.51) - await rms(.49)) };
+      }
+      return out;
+    });
+    for(const n of ['Piano', 'Harp', 'Keyboard']){
+      expect(r[n].ids, n).toEqual([0, 1, 0]);   // 弱 → 強 → 弱 で、弱い2回は同じ収録音
+      expect(r[n].jump, n).toBeLessThan(1);      // dB
+    }
+  });
+
   test('ドラムはキック・スネアごとに2つの収録音を交互に鳴らす', async ({ page })=>{
     await page.goto(PROTO);
     await enableSamples(page);

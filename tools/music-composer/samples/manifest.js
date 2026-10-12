@@ -189,6 +189,190 @@ window.SAMPLE_MANIFEST = {
     "cents": 13.1,
     "file": "piano/piano_095.mp3",
     "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl2_rr1_B5.wav"
+   },
+   {
+    "midi": 43,
+    "cents": 0.3,
+    "file": "piano/piano_soft_043.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_G1.wav",
+    "layer": "soft",
+    "gain": 0.962
+   },
+   {
+    "midi": 45,
+    "cents": -6.0,
+    "file": "piano/piano_soft_045.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_A1.wav",
+    "layer": "soft",
+    "gain": 1.0261
+   },
+   {
+    "midi": 47,
+    "cents": -1.1,
+    "file": "piano/piano_soft_047.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_B1.wav",
+    "layer": "soft",
+    "gain": 0.8137
+   },
+   {
+    "midi": 49,
+    "cents": -0.4,
+    "file": "piano/piano_soft_049.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_C#2.wav",
+    "layer": "soft",
+    "gain": 1.032
+   },
+   {
+    "midi": 51,
+    "cents": 4.1,
+    "file": "piano/piano_soft_051.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_D#2.wav",
+    "layer": "soft",
+    "gain": 1.0599
+   },
+   {
+    "midi": 53,
+    "cents": 0.1,
+    "file": "piano/piano_soft_053.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_F2.wav",
+    "layer": "soft",
+    "gain": 0.8726
+   },
+   {
+    "midi": 55,
+    "cents": -0.1,
+    "file": "piano/piano_soft_055.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_G2.wav",
+    "layer": "soft",
+    "gain": 1.1199
+   },
+   {
+    "midi": 57,
+    "cents": 1.7,
+    "file": "piano/piano_soft_057.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_A2.wav",
+    "layer": "soft",
+    "gain": 0.8682
+   },
+   {
+    "midi": 59,
+    "cents": 0.9,
+    "file": "piano/piano_soft_059.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_B2.wav",
+    "layer": "soft",
+    "gain": 0.9831
+   },
+   {
+    "midi": 61,
+    "cents": 1.8,
+    "file": "piano/piano_soft_061.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_C#3.wav",
+    "layer": "soft",
+    "gain": 0.9283
+   },
+   {
+    "midi": 63,
+    "cents": 4.6,
+    "file": "piano/piano_soft_063.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_D#3.wav",
+    "layer": "soft",
+    "gain": 0.7375
+   },
+   {
+    "midi": 65,
+    "cents": 1.1,
+    "file": "piano/piano_soft_065.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_F3.wav",
+    "layer": "soft",
+    "gain": 0.8637
+   },
+   {
+    "midi": 67,
+    "cents": 1.5,
+    "file": "piano/piano_soft_067.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_G3.wav",
+    "layer": "soft",
+    "gain": 0.7095
+   },
+   {
+    "midi": 69,
+    "cents": 2.1,
+    "file": "piano/piano_soft_069.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_A3.wav",
+    "layer": "soft",
+    "gain": 0.6471
+   },
+   {
+    "midi": 71,
+    "cents": 7.0,
+    "file": "piano/piano_soft_071.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_B3.wav",
+    "layer": "soft",
+    "gain": 0.7426
+   },
+   {
+    "midi": 73,
+    "cents": 4.4,
+    "file": "piano/piano_soft_073.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_C#4.wav",
+    "layer": "soft",
+    "gain": 0.8209
+   },
+   {
+    "midi": 75,
+    "cents": 1.7,
+    "file": "piano/piano_soft_075.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_D#4.wav",
+    "layer": "soft",
+    "gain": 0.9755
+   },
+   {
+    "midi": 77,
+    "cents": 3.8,
+    "file": "piano/piano_soft_077.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_F4.wav",
+    "layer": "soft",
+    "gain": 1.0531
+   },
+   {
+    "midi": 79,
+    "cents": 4.4,
+    "file": "piano/piano_soft_079.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_G4.wav",
+    "layer": "soft",
+    "gain": 1.2899
+   },
+   {
+    "midi": 81,
+    "cents": 5.6,
+    "file": "piano/piano_soft_081.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_A4.wav",
+    "layer": "soft",
+    "gain": 0.8845
+   },
+   {
+    "midi": 83,
+    "cents": 9.1,
+    "file": "piano/piano_soft_083.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_B4.wav",
+    "layer": "soft",
+    "gain": 1.2756
+   },
+   {
+    "midi": 85,
+    "cents": 12.1,
+    "file": "piano/piano_soft_085.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_C#5.wav",
+    "layer": "soft",
+    "gain": 1.1415
+   },
+   {
+    "midi": 87,
+    "cents": 5.5,
+    "file": "piano/piano_soft_087.mp3",
+    "source": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_D#5.wav",
+    "layer": "soft",
+    "gain": 1.212
    }
   ]
  },
@@ -577,6 +761,126 @@ window.SAMPLE_MANIFEST = {
     "cents": -7.8,
     "file": "harp/harp_098.mp3",
     "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_D7_f1.wav"
+   },
+   {
+    "midi": 45,
+    "cents": -4.1,
+    "file": "harp/harp_soft_045.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_A2_mf1.wav",
+    "layer": "soft",
+    "gain": 1.1277
+   },
+   {
+    "midi": 48,
+    "cents": -3.2,
+    "file": "harp/harp_soft_048.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_C3_mf3.wav",
+    "layer": "soft",
+    "gain": 1.1552
+   },
+   {
+    "midi": 52,
+    "cents": -4.2,
+    "file": "harp/harp_soft_052.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_E3_mf1.wav",
+    "layer": "soft",
+    "gain": 0.8826
+   },
+   {
+    "midi": 55,
+    "cents": -8.1,
+    "file": "harp/harp_soft_055.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_G3_mf1.wav",
+    "layer": "soft",
+    "gain": 0.6827
+   },
+   {
+    "midi": 59,
+    "cents": -13.3,
+    "file": "harp/harp_soft_059.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_B3_mf1.wav",
+    "layer": "soft",
+    "gain": 0.7998
+   },
+   {
+    "midi": 62,
+    "cents": -12.6,
+    "file": "harp/harp_soft_062.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_D4_mf1.wav",
+    "layer": "soft",
+    "gain": 0.6618
+   },
+   {
+    "midi": 65,
+    "cents": -0.7,
+    "file": "harp/harp_soft_065.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_F4_mf1.wav",
+    "layer": "soft",
+    "gain": 0.7617
+   },
+   {
+    "midi": 69,
+    "cents": -9.8,
+    "file": "harp/harp_soft_069.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_A4_mf1.wav",
+    "layer": "soft",
+    "gain": 0.8914
+   },
+   {
+    "midi": 72,
+    "cents": -10.9,
+    "file": "harp/harp_soft_072.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_C5_mf1.wav",
+    "layer": "soft",
+    "gain": 0.7143
+   },
+   {
+    "midi": 76,
+    "cents": -10.9,
+    "file": "harp/harp_soft_076.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_E5_mf1.wav",
+    "layer": "soft",
+    "gain": 0.6829
+   },
+   {
+    "midi": 79,
+    "cents": -6.3,
+    "file": "harp/harp_soft_079.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_G5_mf1.wav",
+    "layer": "soft",
+    "gain": 0.6104
+   },
+   {
+    "midi": 83,
+    "cents": -8.4,
+    "file": "harp/harp_soft_083.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_B5_mf1.wav",
+    "layer": "soft",
+    "gain": 0.47
+   },
+   {
+    "midi": 86,
+    "cents": -7.4,
+    "file": "harp/harp_soft_086.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_D6_mf1.wav",
+    "layer": "soft",
+    "gain": 0.967
+   },
+   {
+    "midi": 89,
+    "cents": -5.8,
+    "file": "harp/harp_soft_089.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_F6_mf1.wav",
+    "layer": "soft",
+    "gain": 0.88
+   },
+   {
+    "midi": 93,
+    "cents": -17.8,
+    "file": "harp/harp_soft_093.mp3",
+    "source": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_A6_mf1.wav",
+    "layer": "soft",
+    "gain": 1.139
    }
   ]
  },
@@ -845,6 +1149,86 @@ window.SAMPLE_MANIFEST = {
     "cents": -0.1,
     "file": "keyboard/keyboard_096.mp3",
     "source": "Electrophones/TX81Z/FM Piano/FMPiano_C7_vl2.wav"
+   },
+   {
+    "midi": 60,
+    "cents": 0.2,
+    "file": "keyboard/keyboard_soft_060.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_C4_vl1.wav",
+    "layer": "soft",
+    "gain": 0.9426
+   },
+   {
+    "midi": 64,
+    "cents": 0.4,
+    "file": "keyboard/keyboard_soft_064.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_E4_vl1.wav",
+    "layer": "soft",
+    "gain": 0.9446
+   },
+   {
+    "midi": 68,
+    "cents": -0.2,
+    "file": "keyboard/keyboard_soft_068.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_G#4_vl1.wav",
+    "layer": "soft",
+    "gain": 0.9494
+   },
+   {
+    "midi": 72,
+    "cents": -0.1,
+    "file": "keyboard/keyboard_soft_072.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_C5_vl1.wav",
+    "layer": "soft",
+    "gain": 0.9358
+   },
+   {
+    "midi": 76,
+    "cents": 0.0,
+    "file": "keyboard/keyboard_soft_076.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_E5_vl1.wav",
+    "layer": "soft",
+    "gain": 0.9314
+   },
+   {
+    "midi": 80,
+    "cents": -0.4,
+    "file": "keyboard/keyboard_soft_080.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_G#5_vl1.wav",
+    "layer": "soft",
+    "gain": 0.9208
+   },
+   {
+    "midi": 84,
+    "cents": -0.4,
+    "file": "keyboard/keyboard_soft_084.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_C6_vl1.wav",
+    "layer": "soft",
+    "gain": 0.9254
+   },
+   {
+    "midi": 88,
+    "cents": -0.0,
+    "file": "keyboard/keyboard_soft_088.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_E6_vl1.wav",
+    "layer": "soft",
+    "gain": 0.9184
+   },
+   {
+    "midi": 92,
+    "cents": -0.8,
+    "file": "keyboard/keyboard_soft_092.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_G#6_vl1.wav",
+    "layer": "soft",
+    "gain": 0.9333
+   },
+   {
+    "midi": 96,
+    "cents": -0.5,
+    "file": "keyboard/keyboard_soft_096.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_C7_vl1.wav",
+    "layer": "soft",
+    "gain": 0.952
    }
   ]
  }
