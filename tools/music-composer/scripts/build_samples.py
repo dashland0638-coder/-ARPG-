@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MUSIC-AUDIO-001: CC0 サンプルから、試作に必要な分だけの MP3 を作る。
 
-入力は固定コミットの2リポジトリ(どちらも LICENSE が CC0 1.0):
+入力は固定コミットの3リポジトリ(どれも LICENSE が CC0 1.0):
   VCSL       https://github.com/sgossner/VCSL        (ピアノ: Upright Piano, Knight / Sustains / vl2、
                                                        ハープ: Concert Harp / f、ベル: Hand Chimes / sus、
                                                        ドラム: Frame Drum / Hit v3(大=キック、小=スネア、各 rr1・rr2)、
@@ -10,11 +10,16 @@
                                                        ヴィオラ: Strings/Viola Section/susvib / v2、
                                                        チェロ: Strings/Cello Section/susvib / v3、
                                                        ベース: Strings/Solo Contrabass/SusNV / v1)
+  FreePats   https://github.com/freepats/spanish-classical-guitar
+                                                      (ギター: Spanish classical guitar 2019-06-18、タグ v1.0.0。
+                                                       SFZ + FLAC。SFZ はブラウザで鳴らせないので、FLAC を他と同じ
+                                                       MP3 に変換し、音域の割り当ては manifest に書く)
 
 使い方(git / ffmpeg / numpy が必要。数 GB の全体は取らず、使うファイルだけ取り出す):
   git clone --filter=blob:none --no-checkout https://github.com/sgossner/VCSL vcsl
   git clone --filter=blob:none --no-checkout https://github.com/sgossner/VSCO-2-CE vsco
-  python3 -I build_samples.py --vcsl vcsl --vsco vsco --out ../samples
+  git clone --filter=blob:none --no-checkout https://github.com/freepats/spanish-classical-guitar fpg
+  python3 -I build_samples.py --vcsl vcsl --vsco vsco --fpg fpg --out ../samples
 
 処理: 先頭の無音を削る → モノラル化 → 長さを切り詰めて末尾をフェード → 44.1kHz MP3。
 弦(loop あり)は末尾をフェードせず、ループ区間の終わりを始まりの手前と等パワーでクロスフェードして
@@ -26,6 +31,7 @@ import numpy as np
 
 VCSL_COMMIT = "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
 VSCO_COMMIT = "440300901dfe9275fd84e0b7763af1f8443ae62e"
+FPG_COMMIT = "6f4eb1b092acc88f5448cea1a0001bd07b971af8"   # freepats/spanish-classical-guitar v1.0.0
 SR = 44100
 NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -118,6 +124,16 @@ HARP_SOFT = {**HARP, "file": lambda m: f"KSHarp_{sci_name(m)}_{'mf3' if m == 48 
 
 KEYBOARD_SOFT = {**KEYBOARD, "file": lambda m: f"FMPiano_{sci_name(m)}_vl1.wav", "layer": "soft"}
 
+# SFZ(SpanishClassicalGuitar-20190618.sfz)にある収録音のうち、アプリが使う C2〜C6。ファイル名は科学的表記
+GUITAR_KEYS = [36, 37, 38, 39, 40, 41, 43, 45, 47, 48, 50, 52] + [m for m in range(53, 85) if m != 68]   # G#4 は収録が無い(SFZ も A4 で代用)
+GUITAR = {
+    "repo": "fpg", "commit": FPG_COMMIT,
+    "dir": "samples",
+    "file": lambda m: f"{sci_name(m)}.flac",
+    "midis": GUITAR_KEYS,
+    "seconds": 3.5, "fade": 0.6, "bitrate": "112k",
+}
+
 def git_blob(repo, commit, path):
     return subprocess.run(["git", "-C", repo, "show", f"{commit}:{path}"], check=True, capture_output=True).stdout
 
@@ -176,7 +192,7 @@ def build(spec, name, args, match=None):
     """match: 強い層の {midi: RMS}。渡すと弱い層として作り、ゾーンに layer と gain を書く"""
     layer = spec.get("layer")
     rms = {}
-    repo = args.vcsl if spec["repo"] == "vcsl" else args.vsco
+    repo = {"vcsl": args.vcsl, "vsco": args.vsco, "fpg": args.fpg}[spec["repo"]]
     os.makedirs(os.path.join(args.out, name), exist_ok=True)
     zones = []
     items = spec.get("items") or [(m, spec["file"](m)) for m in spec["midis"]]
@@ -233,6 +249,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vcsl", required=True)
     ap.add_argument("--vsco", required=True)
+    ap.add_argument("--fpg", required=True)
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     one = lambda spec, name: build(spec, name, args)[0]
@@ -242,6 +259,7 @@ def main():
         "Harp": with_soft(HARP, HARP_SOFT, "harp", args), "Bell": one(BELL, "bell"),
         "Bass": one(BASS, "bass"), "Drums": one(DRUMS, "drums"),
         "Keyboard": with_soft(KEYBOARD, KEYBOARD_SOFT, "keyboard", args),
+        "Guitar": one(GUITAR, "guitar"),
     }
     body = json.dumps(manifest, indent=1, ensure_ascii=False)
     with open(os.path.join(args.out, "manifest.js"), "w") as f:

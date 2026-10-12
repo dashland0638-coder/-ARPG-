@@ -153,3 +153,18 @@ Tone.js（MIT）/ smplr（MIT）/ soundfont-player（MIT）も候補だが、単
 | 読み直す時 | 「サンプル」にした時、`renderEdit`（生成・編集・加入段階）、通し再生の前（セル音量で層が変わった音）。セル試聴で未読み込みの音に当たったら合成音で鳴らし、その音を読んでおく。「合成音」に戻すと全部手放す |
 | 結果（Chromium、デコード後 44.1 kHz） | 酒場 swordsman 10 音 6.3 MB / 酒場 完成版 33 音 20.2 MB / 洋館 28 音 18.3 MB / 幽霊船 30 音 19.3 MB / テクノ 32 音 21.0 MB。全部読むと 167 音 104 MB。どの曲も合成音に戻った音は 0 |
 | 1ファイル版 | 同じ動作（33 音・20 MB、戻った音 0）。ただし埋め込んだ音源の文字列（約 11 MB）はページに残る |
+
+## 14. ギター（Human 決定: FreePats Nylon-String Acoustic Guitar）と v5.69.0
+
+| 項目 | 内容 |
+| --- | --- |
+| 出典（FACT） | `github.com/freepats/spanish-classical-guitar` タグ v1.0.0（commit `6f4eb1b`、2022-07-22）。音源の版は 2019-06-18（README・SFZ の Date）。LICENSE は CC0 1.0、README に「Published under the terms of Creative Commons CC0」。公式ページ freepats.zenvoid.org はこの環境のプロキシで 403（開けない）。CC0 の確認は公式の GitHub リポジトリで行った |
+| 形式（FACT） | SFZ 1 個 + FLAC 52 個（G1〜C6、ほぼ半音ごと。G#4 などは無い）、各 34〜330 KB。SFZ は `ampeg_release=1.5`、`loop_mode=no_loop`、鍵盤の割り当て（lokey/hikey/pitch_keycenter） |
+| ブラウザでの再生（調査） | ブラウザは SFZ / SF2 を直接鳴らせない。① sfizz（SFZ、C++→WASM、BSD-2）や js-synthesizer（FluidSynth→WASM、SF2、Apache-2.0）: 数百 KB〜MB の WASM と AudioWorklet が要り、既存のエンジンと二重になる。② smplr（MIT）などの JS ライブラリ: 依存が増え、今の遅延読み込み・譜面との対応を作り直す。③ FLAC を MP3 に変換して既存のエンジンで鳴らす: 追加の依存なし。FLAC のデコードは iPhone Safari（iOS 11 以降）でもできるが、他の楽器と同じ MP3 にそろえる |
+| 決定 | ③。MIDI 36〜84 の 43 音（SFZ にある収録音）を 3.5 秒・モノラル・MP3 112 kbps に。音高は実測で確認（ファイル名は科学的表記、ずれ -2.5〜+17.5 cent を補正）。余韻は SFZ の 1.5 秒を上限に。1.7 MB |
+| 鳴らし方 | 合成音のストローク（`makeAcousticGuitarStrum`）は弦ごとに `makeAcousticGuitar` を呼ぶ（開始を最大 0.085 秒ずらし、端の弦を少し強く）。この関数を包むので、ストロークの形（リズム・ずらし・強さ）は合成音と同じ。音量は合成音と ±2.2 dB（gain 1.0） |
+| 編集（v5.69.0） | 要件「音程・タイミング・長さを編集可能」。v5.68.0 のエディタはギターのセルを選んでも主旋律の音を書き換える作り。`track.guitarEdits` に移調・開始のずれ（拍）・長さ（拍）を持ち、`buildTruthScore` が当てる → 譜面の表示と再生（合成音・サンプル）が同じ値。編集なしでは v5.68.0 と同じ（E2E、7 曲） |
+| 既存の不具合（FACT） | 音名の欄に選択肢が無い（`buildPitchOptions()` がどこからも呼ばれていない）。「この音を変更」で `midiFromName("")` = 60 になり、どの音も C4 に変わる（v5.67.0 から）。v5.69.0 で直した |
+| 比較 | 「音源」カードで楽器ごとに合成音 / サンプルを選べる（チェックボックス） |
+| 容量 | 210 ファイル・10.0 MB。酒場完成版は 43 音・25.3 MB を読む |
+| 実機計測の準備 | 「音源」カードに計測（最初 / 直近の読み込み時間、再生の準備時間、出力の遅れ、サンプルのメモリ、サンプリング周波数）。iPhone の確認は未実施 |

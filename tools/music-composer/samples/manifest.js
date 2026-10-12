@@ -1231,5 +1231,269 @@ window.SAMPLE_MANIFEST = {
     "gain": 0.952
    }
   ]
+ },
+ "Guitar": {
+  "repo": "fpg",
+  "commit": "6f4eb1b092acc88f5448cea1a0001bd07b971af8",
+  "zones": [
+   {
+    "midi": 36,
+    "cents": 3.0,
+    "file": "guitar/guitar_036.mp3",
+    "source": "samples/C2.flac"
+   },
+   {
+    "midi": 37,
+    "cents": -2.1,
+    "file": "guitar/guitar_037.mp3",
+    "source": "samples/C#2.flac"
+   },
+   {
+    "midi": 38,
+    "cents": -2.2,
+    "file": "guitar/guitar_038.mp3",
+    "source": "samples/D2.flac"
+   },
+   {
+    "midi": 39,
+    "cents": 1.2,
+    "file": "guitar/guitar_039.mp3",
+    "source": "samples/D#2.flac"
+   },
+   {
+    "midi": 40,
+    "cents": 0.6,
+    "file": "guitar/guitar_040.mp3",
+    "source": "samples/E2.flac"
+   },
+   {
+    "midi": 41,
+    "cents": 8.4,
+    "file": "guitar/guitar_041.mp3",
+    "source": "samples/F2.flac"
+   },
+   {
+    "midi": 43,
+    "cents": 9.2,
+    "file": "guitar/guitar_043.mp3",
+    "source": "samples/G2.flac"
+   },
+   {
+    "midi": 45,
+    "cents": 1.5,
+    "file": "guitar/guitar_045.mp3",
+    "source": "samples/A2.flac"
+   },
+   {
+    "midi": 47,
+    "cents": 7.0,
+    "file": "guitar/guitar_047.mp3",
+    "source": "samples/B2.flac"
+   },
+   {
+    "midi": 48,
+    "cents": 1.0,
+    "file": "guitar/guitar_048.mp3",
+    "source": "samples/C3.flac"
+   },
+   {
+    "midi": 50,
+    "cents": 4.3,
+    "file": "guitar/guitar_050.mp3",
+    "source": "samples/D3.flac"
+   },
+   {
+    "midi": 52,
+    "cents": 3.9,
+    "file": "guitar/guitar_052.mp3",
+    "source": "samples/E3.flac"
+   },
+   {
+    "midi": 53,
+    "cents": 3.9,
+    "file": "guitar/guitar_053.mp3",
+    "source": "samples/F3.flac"
+   },
+   {
+    "midi": 54,
+    "cents": 2.8,
+    "file": "guitar/guitar_054.mp3",
+    "source": "samples/F#3.flac"
+   },
+   {
+    "midi": 55,
+    "cents": 2.3,
+    "file": "guitar/guitar_055.mp3",
+    "source": "samples/G3.flac"
+   },
+   {
+    "midi": 56,
+    "cents": 8.3,
+    "file": "guitar/guitar_056.mp3",
+    "source": "samples/G#3.flac"
+   },
+   {
+    "midi": 57,
+    "cents": 9.3,
+    "file": "guitar/guitar_057.mp3",
+    "source": "samples/A3.flac"
+   },
+   {
+    "midi": 58,
+    "cents": 12.3,
+    "file": "guitar/guitar_058.mp3",
+    "source": "samples/A#3.flac"
+   },
+   {
+    "midi": 59,
+    "cents": 13.1,
+    "file": "guitar/guitar_059.mp3",
+    "source": "samples/B3.flac"
+   },
+   {
+    "midi": 60,
+    "cents": 8.7,
+    "file": "guitar/guitar_060.mp3",
+    "source": "samples/C4.flac"
+   },
+   {
+    "midi": 61,
+    "cents": 17.5,
+    "file": "guitar/guitar_061.mp3",
+    "source": "samples/C#4.flac"
+   },
+   {
+    "midi": 62,
+    "cents": 7.5,
+    "file": "guitar/guitar_062.mp3",
+    "source": "samples/D4.flac"
+   },
+   {
+    "midi": 63,
+    "cents": 8.8,
+    "file": "guitar/guitar_063.mp3",
+    "source": "samples/D#4.flac"
+   },
+   {
+    "midi": 64,
+    "cents": 0.5,
+    "file": "guitar/guitar_064.mp3",
+    "source": "samples/E4.flac"
+   },
+   {
+    "midi": 65,
+    "cents": 2.8,
+    "file": "guitar/guitar_065.mp3",
+    "source": "samples/F4.flac"
+   },
+   {
+    "midi": 66,
+    "cents": 3.0,
+    "file": "guitar/guitar_066.mp3",
+    "source": "samples/F#4.flac"
+   },
+   {
+    "midi": 67,
+    "cents": 3.1,
+    "file": "guitar/guitar_067.mp3",
+    "source": "samples/G4.flac"
+   },
+   {
+    "midi": 69,
+    "cents": 3.4,
+    "file": "guitar/guitar_069.mp3",
+    "source": "samples/A4.flac"
+   },
+   {
+    "midi": 70,
+    "cents": 0.0,
+    "file": "guitar/guitar_070.mp3",
+    "source": "samples/A#4.flac"
+   },
+   {
+    "midi": 71,
+    "cents": 14.2,
+    "file": "guitar/guitar_071.mp3",
+    "source": "samples/B4.flac"
+   },
+   {
+    "midi": 72,
+    "cents": 10.1,
+    "file": "guitar/guitar_072.mp3",
+    "source": "samples/C5.flac"
+   },
+   {
+    "midi": 73,
+    "cents": 9.4,
+    "file": "guitar/guitar_073.mp3",
+    "source": "samples/C#5.flac"
+   },
+   {
+    "midi": 74,
+    "cents": 10.4,
+    "file": "guitar/guitar_074.mp3",
+    "source": "samples/D5.flac"
+   },
+   {
+    "midi": 75,
+    "cents": 3.8,
+    "file": "guitar/guitar_075.mp3",
+    "source": "samples/D#5.flac"
+   },
+   {
+    "midi": 76,
+    "cents": 5.2,
+    "file": "guitar/guitar_076.mp3",
+    "source": "samples/E5.flac"
+   },
+   {
+    "midi": 77,
+    "cents": -1.7,
+    "file": "guitar/guitar_077.mp3",
+    "source": "samples/F5.flac"
+   },
+   {
+    "midi": 78,
+    "cents": 0.9,
+    "file": "guitar/guitar_078.mp3",
+    "source": "samples/F#5.flac"
+   },
+   {
+    "midi": 79,
+    "cents": -0.9,
+    "file": "guitar/guitar_079.mp3",
+    "source": "samples/G5.flac"
+   },
+   {
+    "midi": 80,
+    "cents": -2.5,
+    "file": "guitar/guitar_080.mp3",
+    "source": "samples/G#5.flac"
+   },
+   {
+    "midi": 81,
+    "cents": 8.4,
+    "file": "guitar/guitar_081.mp3",
+    "source": "samples/A5.flac"
+   },
+   {
+    "midi": 82,
+    "cents": 4.7,
+    "file": "guitar/guitar_082.mp3",
+    "source": "samples/A#5.flac"
+   },
+   {
+    "midi": 83,
+    "cents": 3.2,
+    "file": "guitar/guitar_083.mp3",
+    "source": "samples/B5.flac"
+   },
+   {
+    "midi": 84,
+    "cents": 6.3,
+    "file": "guitar/guitar_084.mp3",
+    "source": "samples/C6.flac"
+   }
+  ]
  }
 };

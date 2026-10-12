@@ -37,15 +37,24 @@ test('確定版 v5.67.0 は受け取ったまま(sha256 固定)', ()=>{
   assert.match(read(v567), /Guitar:\.78, Drums:1\.20/);
 });
 
-test('試作の基準は v5.68.0(通し再生が譜面イベントをそのまま鳴らす版)', ()=>{
-  assert.equal(BASE, 'ARPG_Music_AI_Composer_v5_68_0.html');
-  assert.equal(sha(BASE), '82eb403dc5a9af859a05ebdb862db6b3bc309554993792ed6542c0d46680888c');
-  const html = read(BASE);
+test('v5.68.0(通し再生が譜面イベントをそのまま鳴らす版)', ()=>{
+  const v568 = 'ARPG_Music_AI_Composer_v5_68_0.html';
+  assert.equal(sha(v568), '82eb403dc5a9af859a05ebdb862db6b3bc309554993792ed6542c0d46680888c');
+  const html = read(v568);
   assert.match(html, /buildTruthScore\(t\)\.events\.forEach\(e=>playScoreEvent\(t,e,start,room,depth\)\);/);
   assert.match(html, /<!-- v5\.68\.0: /);
   // v5.67 の playTrack が持っていた楽器ごとの計算(譜面とずれる元)は無い
   assert.doesNotMatch(html, /const finalSustain=isFinalSection\?1\.16:1;/);
   assert.doesNotMatch(html, /\(i===0\|\|i===7\|\|i===12\)/);
+});
+
+test('試作の基準は v5.69.0(ギターの編集・音名の欄の修正)', ()=>{
+  assert.equal(BASE, 'ARPG_Music_AI_Composer_v5_69_0.html');
+  assert.equal(sha(BASE), 'cbd3caecc370265907678c4a9df5a13985eb6ab8ddbbb5d079b0efd607026ee2');
+  const html = read(BASE);
+  assert.match(html, /<!-- v5\.69\.0: /);
+  assert.match(html, /t\.guitarEdits\?\.\[i\]/);
+  assert.match(html, /function initScoreEditing\(\)\{\n buildPitchOptions\(\);/);
 });
 
 test('試作 HTML は基準の末尾に読み込みを足しただけ(既存部分は1文字も変えない)', ()=>{
@@ -61,13 +70,15 @@ test('試作 HTML は基準の末尾に読み込みを足しただけ(既存部�
 
 test('音源は CC0 の2リポジトリの固定コミットから、必要な分だけ', ()=>{
   const m = loadManifest();
-  assert.deepEqual(Object.keys(m).sort(), ['Bass', 'Bell', 'Cello', 'Drums', 'Flute', 'Harp', 'Keyboard', 'Piano', 'Viola']);
+  assert.deepEqual(Object.keys(m).sort(), ['Bass', 'Bell', 'Cello', 'Drums', 'Flute', 'Guitar', 'Harp', 'Keyboard', 'Piano', 'Viola']);
   assert.deepEqual([...S.INSTRUMENTS].sort(), Object.keys(m).sort());
   for(const n of ['Piano', 'Harp', 'Bell', 'Drums', 'Keyboard']){
     assert.equal(m[n].repo, 'vcsl');
     assert.equal(m[n].commit, 'c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e');
   }
   assert.equal(m.Flute.repo, 'vsco');
+  assert.equal(m.Guitar.repo, 'fpg');
+  assert.equal(m.Guitar.commit, '6f4eb1b092acc88f5448cea1a0001bd07b971af8');   // freepats/spanish-classical-guitar v1.0.0
   for(const n of ['Flute', 'Viola', 'Cello', 'Bass']){
     assert.equal(m[n].repo, 'vsco');
     assert.equal(m[n].commit, '440300901dfe9275fd84e0b7763af1f8443ae62e');
@@ -88,6 +99,7 @@ test('音源は CC0 の2リポジトリの固定コミットから、必要な�
         Bell:/^Idiophones\/Struck Idiophones\/Hand Chimes\/sus_/,
         Bass:/^Strings\/Solo Contrabass\/SusNV\/BKCtbss_SusNV_.*_v1_rr1\.wav$/,
         Keyboard:/^Electrophones\/TX81Z\/FM Piano\/FMPiano_[A-G]#?\d_vl[12]\.wav$/,
+        Guitar:/^samples\/[A-G]#?\d\.flac$/,
         Drums:/^Membranophones\/Struck Membranophones\/Frame Drum\/HDrum[LS]_Hit_v3_rr[12]_Sum\.wav$/,
       }[name]);
       // 弦だけループ区間を持つ(ヴィオラ・チェロは発音の頭から 1.2〜3.6 秒、ベースは 1.0〜3.0 秒付近)
@@ -110,9 +122,9 @@ test('音源は CC0 の2リポジトリの固定コミットから、必要な�
     }
   }
   // samples/ にあるのは manifest に載ったファイルだけ
-  const onDisk = ['piano', 'flute', 'viola', 'cello', 'harp', 'bell', 'bass', 'drums', 'keyboard'].flatMap(d=>fs.readdirSync(path.join(dir, 'samples', d)).map(f=>`${d}/${f}`)).sort();
+  const onDisk = ['piano', 'flute', 'viola', 'cello', 'harp', 'bell', 'bass', 'drums', 'keyboard', 'guitar'].flatMap(d=>fs.readdirSync(path.join(dir, 'samples', d)).map(f=>`${d}/${f}`)).sort();
   assert.deepEqual(onDisk, Object.values(m).flatMap(i=>i.zones.map(z=>z.file)).sort());
-  assert.ok(total < 9 * 1024 * 1024, `samples total ${total} bytes`);
+  assert.ok(total < 10.5 * 1024 * 1024, `samples total ${total} bytes`);
 });
 
 test('ゾーンは最も近い収録音(等距離なら低い方)。cent のずれを打ち消す', ()=>{
@@ -218,6 +230,14 @@ test('層の選び方: 強さが split 未満なら弱い層(近くに無けれ�
   assert.equal(S.chooseZone(zones, 90, .08, P), null);
 });
 
+test('manifest のギター 36〜86 は ±2 半音以内(ストロークの和音・単音・移調の範囲)', ()=>{
+  const m = loadManifest();
+  for(let n = 36; n <= 86; n++){
+    const p = S.pickZone(m.Guitar.zones, n, 12);
+    assert.ok(p && Math.abs(Math.log2(p.rate) * 12) <= 2.1, `Guitar ${n}`);
+  }
+});
+
 test('ピアノは試聴の結果で 30% 大きくした(gain 1.3)', ()=>{
   assert.equal(S.PROFILES.Piano.gain, 1.3);
 });
@@ -270,7 +290,8 @@ test('filesFor(): play() と同じ選び方で、その音に要るファイル(
   assert.deepEqual(S.filesFor('Piano', 67, ref * .2).map(z=>z.file), ['piano/piano_soft_067.mp3']);
   assert.deepEqual(S.filesFor('Piano', 67, ref * .9).map(z=>z.file), ['piano/piano_067.mp3']);
   assert.deepEqual(S.filesFor('Piano', 20, ref), []);          // どのゾーンからも遠い
-  assert.deepEqual(S.filesFor('Guitar', 60, .1), []);          // 収録の無い楽器
+  assert.deepEqual(S.filesFor('Organ', 60, .1), []);           // 収録の無い楽器
+  assert.deepEqual(S.filesFor('Guitar', 60, .05).map(z=>z.file), ['guitar/guitar_060.mp3']);
 });
 
 test('ensure(): fetch が無くても reject せず、頼まれた楽器は failed、他は idle', async ()=>{
@@ -286,5 +307,5 @@ test('load(): manifest や fetch が無くても reject せず failed を返す'
   S._reset();
   const st = await S.load({ manifest:null });
   assert.deepEqual(st, Object.fromEntries(S.INSTRUMENTS.map(n=>[n, 'failed'])));
-  assert.deepEqual([...S.INSTRUMENTS], ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums', 'Keyboard']);
+  assert.deepEqual([...S.INSTRUMENTS], ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums', 'Keyboard', 'Guitar']);
 });

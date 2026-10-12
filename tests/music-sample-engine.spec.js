@@ -1,21 +1,24 @@
-/* MUSIC-AUDIO-001: 作曲アプリ(tools/music-composer/)の合成音モードの修正(v5.68.0)と、サンプル音源の検証。
+/* MUSIC-AUDIO-001: 作曲アプリ(tools/music-composer/)の合成音モードの修正(v5.68.0)、ギターの編集(v5.69.0)と、
+   サンプル音源の検証。
 
    ゲーム本体ではなく、Vite の dev サーバーが配る tools/music-composer/ の HTML を開く。
    AudioContext の生成・発音を数えるだけで、実際の音は聴かない(音質は実機で確認する)。
      ・v5.68.0 の通し再生は、譜面(buildTruthScore)のイベントと1対1・同じ値で鳴る
      ・v5.67.0(確定版)で鳴っていた音は、ヴィオラの長さ(計算の誤りを直した分)以外すべて同じ値で鳴る。
        増えるのは譜面にあるのに鳴っていなかった音(ピアノ・ベル・ベースの style-bass・キーボードの keys / synth)だけ
-     ・試作 HTML の「合成音」は v5.68.0 と同じ。「サンプル」はギター以外の9楽器を、譜面と同じ値でサンプルにする
+     ・v5.69.0 はギターの譜面イベントを編集できる。編集しなければ v5.68.0 と同じ。編集は譜面と音の両方に入る
+     ・試作 HTML の「合成音」は v5.69.0 と同じ。「サンプル」は10楽器を、譜面と同じ値でサンプルにする。楽器ごとに合成音へ戻せる
      ・停止 → 再生を繰り返しても前の音は残らない。セル音量・セル試聴が効く
      ・音源が読めないときは合成音に戻り、アプリは止まらない */
 import { test, expect } from '@playwright/test';
 
 const DIR = '/tools/music-composer/';
-const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums', 'Keyboard'];
+const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums', 'Keyboard', 'Guitar'];
 const TAVERN = SAMPLED.filter(n=>n !== 'Keyboard');   // 酒場にキーボードは無い(TAVERN_STAGE_POLICY)
 const V567 = `${DIR}ARPG_Music_AI_Composer_v5_67_0.html`;
-const BASE = `${DIR}ARPG_Music_AI_Composer_v5_68_0.html`;
-const PROTO = `${DIR}ARPG_Music_AI_Composer_v5_68_0_samples.html`;
+const V568 = `${DIR}ARPG_Music_AI_Composer_v5_68_0.html`;
+const BASE = `${DIR}ARPG_Music_AI_Composer_v5_69_0.html`;
+const PROTO = `${DIR}ARPG_Music_AI_Composer_v5_69_0_samples.html`;
 const SCENES = [
   ...['swordsman', 'shadow', 'complete'].map(stage=>({ scene:'tavern', stage })),
   { scene:'mansion' }, { scene:'ship' },
@@ -39,9 +42,10 @@ async function instrument(page){
     };
     window.__probe = function(){
       const VOICES = ['Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass'];
-      const out = { calls:[], replacedOsc:0, t0:null };
+      const out = { calls:[], replacedOsc:0, replacedBuf:0, t0:null };
       let depth = 0;
       const osc = ()=>{ const e = rec.contexts.find(x=>x.ctx === audioCtx); return e ? e.osc : 0; };
+      const bufs = ()=>{ const e = rec.contexts.find(x=>x.ctx === audioCtx); return e ? e.bufStarts.length : 0; };
       // [楽器, 開始の引数位置, キー, サンプルに置き換わるか]
       const defs = {
         makeVoice:(nm, n, st, d, lv, room, dep)=>[nm, st, [nm, n, d, lv, dep], VOICES.includes(nm)],
@@ -51,13 +55,13 @@ async function instrument(page){
         makeStylePluck:(n, st, d, lv, room, dep)=>['Keyboard', st, ['Pluck', n, d, lv, dep], true],
         makeKeyboard:(n, st, d, lv, room, k)=>['Keyboard', st, ['Keys', k, n, d, lv], true],
         makeStyleBass:(n, st, d, lv)=>['Bass', st, ['StyleBass', n, d, lv], true],
-        makeAcousticGuitarStrum:(ns, st, d, lv)=>['Guitar', st, ['Strum', JSON.stringify(ns), d, lv], false],
-        makeAcousticGuitar:(n, st, d, lv)=>['Guitar', st, ['Guitar', n, d, lv], false],
+        makeAcousticGuitarStrum:(ns, st, d, lv)=>['Guitar', st, ['Strum', JSON.stringify(ns), d, lv], true],
+        makeAcousticGuitar:(n, st, d, lv)=>['Guitar', st, ['Guitar', n, d, lv], true],
       };
       const undo = Object.keys(defs).map(name=>{
         const orig = window[name];
         window[name] = function(){
-          const top = depth === 0, before = osc();
+          const top = depth === 0, before = osc(), beforeBuf = bufs();
           depth++;
           try{ return orig.apply(this, arguments); }
           finally{
@@ -65,7 +69,7 @@ async function instrument(page){
             if(top){
               const [inst, st, key, sampled] = defs[name](...arguments);
               out.calls.push({ inst, st, key });
-              if(sampled) out.replacedOsc += osc() - before;
+              if(sampled){ out.replacedOsc += osc() - before; out.replacedBuf += bufs() - beforeBuf; }
             }
           }
         };
@@ -100,7 +104,7 @@ function probePlay(page){
     const e = window.__audio.contexts.find(x=>x.ctx === audioCtx);
     stopAudio();
     p.undo();
-    return { keys:p.keys(), calls:p.calls.map(c=>({ inst:c.inst, key:c.key })), replacedOsc:p.replacedOsc, osc:e.osc, bufStarts:e.bufStarts.length };
+    return { keys:p.keys(), calls:p.calls.map(c=>({ inst:c.inst, key:c.key })), replacedOsc:p.replacedOsc, replacedBuf:p.replacedBuf, osc:e.osc, bufStarts:e.bufStarts.length };
   });
 }
 
@@ -126,7 +130,9 @@ function expectedFromScore(page){
 function truthCounts(page){
   return page.evaluate(names=>{
     const ev = buildTruthScore(state.track).events.filter(e=>!e.rest && (e.n != null || (e.instrument === 'Drums' && e.kind !== 'pulse')));
-    return Object.fromEntries(names.map(n=>[n, ev.filter(e=>e.instrument === n).length]));
+    // ギターのストロークは弦の数だけ鳴る(makeAcousticGuitar を1弦ずつ呼ぶ)
+    const count = e=>Array.isArray(e.n) ? e.n.filter(Number.isFinite).length : 1;
+    return Object.fromEntries(names.map(n=>[n, ev.filter(e=>e.instrument === n).reduce((a, e)=>a + count(e), 0)]));
   }, SAMPLED);
 }
 const all = v=>Object.fromEntries(SAMPLED.map(n=>[n, v]));
@@ -199,6 +205,84 @@ test.describe('MUSIC-AUDIO-001 合成音モードの修正(v5.68.0)', ()=>{
     expect(r.has).toBe(true);
     expect(r.calls).toEqual(['Pulse']);
   });
+  test('v5.69.0 はギターを編集しなければ v5.68.0 と同じ譜面・同じ音(酒場のリズム・ギターの音量・40小節を保つ)', async ({ page })=>{
+    for(const sc of SCENES){
+      await setup(page, V568, sc);
+      const a = { play:await probePlay(page), score:await page.evaluate(()=>JSON.stringify(buildTruthScore(state.track))) };
+      await setup(page, BASE, sc);
+      const b = { play:await probePlay(page), score:await page.evaluate(()=>JSON.stringify(buildTruthScore(state.track))) };
+      const label = JSON.stringify(sc);
+      expect(b.play.keys, label).toEqual(a.play.keys);
+      // 譜面は editable(ギターを編集できる印)だけが違う
+      expect(b.score.replace(/"editable":(true|false)/g, ''), label).toBe(a.score.replace(/"editable":(true|false)/g, ''));
+    }
+    await setup(page, BASE, { scene:'tavern', stage:'complete' });
+    const bars = await page.evaluate(()=>({ bars:scoreTiming(state.track).barCount, strums:buildTruthScore(state.track).events.filter(e=>e.kind === 'guitar-strum').length }));
+    expect(bars.bars).toBe(40);
+    expect(bars.strums).toBeGreaterThan(0);
+  });
+
+  test('譜面エディタの音名の欄に選択肢がある(v5.68.0 までは空で、変更するとどの音も C4 になっていた)', async ({ page })=>{
+    const edit = async url=>{
+      await setup(page, url, { scene:'tavern', stage:'complete' });
+      return page.evaluate(()=>{
+        document.getElementById('scoreEditToggle').click();
+        const cell = [...document.querySelectorAll('[data-row="Viola"]')].find(b=>!b.classList.contains('rest'));
+        cell.click();
+        const i = Number(cell.dataset.index);
+        document.getElementById('editPitch').value = 'A4';
+        document.getElementById('scoreApplyEdit').click();
+        return { options:document.getElementById('editPitch').options.length, n:state.track.phrase[i].n };
+      });
+    };
+    expect(await edit(V568)).toEqual({ options:0, n:60 });   // 不具合の再現
+    expect(await edit(BASE)).toEqual({ options:36, n:69 });
+  });
+
+  test('ギターのストロークを編集すると(移調・開始のずれ・長さ)、譜面と通し再生の両方が同じ値で変わる', async ({ page })=>{
+    const errors = [];
+    page.on('pageerror', e=>errors.push(e.message));
+    await setup(page, BASE, { scene:'tavern', stage:'complete' });
+    const r = await page.evaluate(()=>{
+      const t = state.track, sec = scoreTiming(t).sec;
+      const before = buildTruthScore(t).events.filter(e=>e.instrument === 'Guitar');
+      const target = before[3];
+      // 譜面のギターのセルを選び、エディタで変更する(画面と同じ操作)
+      document.getElementById('scoreEditToggle').click();
+      const cell = [...document.querySelectorAll('[data-row="Guitar"]')].find(b=>Number(b.dataset.index) === target.index);
+      cell.click();
+      const shown = { pitch:document.getElementById('editPitch').value, dur:document.getElementById('editDuration').value, offsetShown:document.getElementById('editOffsetWrap').style.display };
+      const low = Math.min(...target.n);
+      document.getElementById('editPitch').value = ['C3','C#3','D3','D#3','E3','F3','F#3','G3','G#3','A3','A#3','B3','C4','C#4','D4','D#4','E4','F4','F#4','G4','G#4','A4','A#4','B4','C5'][low - 48 + 2];   // 全音上
+      document.getElementById('editOffset').value = '0.25';
+      document.getElementById('editDuration').value = '1.50';
+      document.getElementById('scoreApplyEdit').click();
+      const after = buildTruthScore(state.track).events.filter(e=>e.instrument === 'Guitar');
+      const edited = after.find(e=>e.index === target.index);
+      // 通し再生で、このストロークに渡る値
+      const p = window.__probe();
+      playTrack();
+      const strums = p.calls.filter(c=>c.key[0] === 'Strum').map(c=>({ ns:JSON.parse(c.key[1]), d:c.key[2], at:c.st - p.t0 }));
+      stopAudio(); p.undo();
+      const played = strums.find(x=>Math.abs(x.at - edited.start) < 1e-9);
+      return {
+        shown, sec, target:{ n:target.n, start:target.start, d:target.duration },
+        edited:{ n:edited.n, start:edited.start, d:edited.duration },
+        played, others:after.filter(e=>e.index !== target.index).map(e=>JSON.stringify(e)).join() === before.filter(e=>e.index !== target.index).map(e=>JSON.stringify({ ...e, editable:true })).join(),
+        count:[before.length, after.length], edits:state.track.guitarEdits
+      };
+    });
+    expect(r.shown.offsetShown).toBe('');                       // ギターのときだけ「ずれ(拍)」が出る
+    expect(r.edited.n).toEqual(r.target.n.map(n=>n + 2));        // 和音ごと全音上
+    expect(r.edited.start - r.target.start).toBeCloseTo(.25 * r.sec, 9);
+    expect(r.edited.d).toBeCloseTo(1.5 * r.sec, 9);
+    expect(r.played.ns).toEqual(r.edited.n);                     // 再生も同じ値
+    expect(Number(r.played.d)).toBeCloseTo(r.edited.d, 4);
+    expect(r.others).toBe(true);                                 // 他のギターの音は変わらない
+    expect(r.count[1]).toBe(r.count[0]);
+    expect(errors).toEqual([]);
+  });
+
 });
 
 test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
@@ -246,15 +330,20 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
       expect(sample.stats.fallback).toEqual(all(0));
       // 置き換えた合成音の発振器がちょうど無くなり、バッファ音源が譜面のイベント数だけ増える
       expect(synth.osc - sample.osc).toBe(synth.replacedOsc);
-      expect(sample.bufStarts - synth.bufStarts).toBe(sum(truth));
+      expect(sample.bufStarts - (synth.bufStarts - synth.replacedBuf)).toBe(sum(truth));
       // サンプルに渡した値 = 譜面の値(開始・音程・長さ・強さ×セル音量)
       const fromScore = await page.evaluate(()=>{
         const t = state.track, drum = { kick:36, snare:38 };
         return buildTruthScore(t).events.filter(e=>!e.rest && e.instrument !== 'Guitar' && e.kind !== 'pulse')
           .map(e=>[e.instrument, e.instrument === 'Drums' ? drum[e.kind] : e.n, e.start.toFixed(4), e.level * cellVolume(t, e.instrument, e.index, e.kind)].join('|'));
       });
-      const got = sample.notes.map(x=>[x.instrument, x.n, x.at.toFixed(4), x.level].join('|'));
+      const got = sample.notes.filter(x=>x.instrument !== 'Guitar').map(x=>[x.instrument, x.n, x.at.toFixed(4), x.level].join('|'));
       expect(got.sort()).toEqual(fromScore.sort());
+      // ギター: ストロークの各弦は、譜面の和音の音で、譜面の開始から 0.085 秒以内に鳴る
+      const guitar = await page.evaluate(()=>buildTruthScore(state.track).events.filter(e=>e.instrument === 'Guitar' && !e.rest).map(e=>({ ns:[].concat(e.n), at:e.start })));
+      const gNotes = sample.notes.filter(x=>x.instrument === 'Guitar');
+      expect(gNotes.length).toBe(guitar.reduce((a, g)=>a + g.ns.length, 0));
+      for(const x of gNotes) expect(guitar.some(g=>g.ns.includes(x.n) && x.at >= g.at - 1e-6 && x.at <= g.at + .0851), JSON.stringify(x)).toBe(true);
       expect(errors).toEqual([]);
     });
   }
@@ -288,6 +377,38 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     expect(r.mansion.info.files).toBeLessThan(r.total / 3);
     expect(r.off.files).toBe(0);
     expect(errors).toEqual([]);
+  });
+
+  test('楽器ごとに合成音へ戻して聞き比べられる(ギターだけ合成音)。計測の表示が出る', async ({ page })=>{
+    await setupTavern(page, PROTO);
+    await enableSamples(page);
+    const r = await page.evaluate(async ()=>{
+      SampleHooks.setUse('Guitar', false);
+      await SampleHooks.ready();
+      let synthGuitar = 0;
+      const og = window.makeAcousticGuitar;
+      playTrack();
+      const st = SampleHooks.stats();
+      stopAudio();
+      // 合成音のギターは、元の関数(guitarStringModel)で鳴る
+      const p = window.__probe(); playTrack(); stopAudio(); p.undo();
+      synthGuitar = p.calls.filter(c=>c.key[0] === 'Strum').length;
+      const checkbox = document.querySelector('[data-use="Guitar"]').checked;
+      const diag = SampleHooks.diag(), text = document.getElementById('sampleEngineDiag').textContent;
+      SampleHooks.setUse('Guitar', true);
+      await SampleHooks.ready();
+      playTrack(); const st2 = SampleHooks.stats(); stopAudio();
+      return { st, st2, synthGuitar, checkbox, diag, text };
+    });
+    expect(r.checkbox).toBe(false);
+    expect(r.st.scheduled.Guitar).toBe(0);
+    expect(r.st.scheduled.Viola).toBeGreaterThan(0);             // 他はサンプルのまま
+    expect(r.synthGuitar).toBeGreaterThan(0);
+    expect(r.st2.scheduled.Guitar).toBeGreaterThan(0);
+    expect(r.st2.fallback.Guitar).toBe(0);
+    expect(r.diag.prepMs).not.toBeNull();
+    expect(r.diag.last).not.toBeNull();
+    expect(r.text).toContain('再生の準備');
   });
 
   test('ピアノ・ハープ・キーボードは、弱い音で弱く弾いた収録音(弱い層)、強い音で強い層を使う。音量は層の境目でそろう', async ({ page })=>{

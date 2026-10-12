@@ -1,6 +1,6 @@
 # MUSIC-AUDIO-001
 
-Status: DONE（PR 作成まで。main への merge は Human）
+Status: REVIEWING（自動テストは PASS。iPhone 実機の確認が未実施のため合格としない。main への merge は Human）
 
 Analysis: .ai/reports/MUSIC-AUDIO-001-analysis.md（branch `claude/cc0-sample-audio-engine-76noqo` @ `6ba05c8`）
 
@@ -14,7 +14,7 @@ Analysis: .ai/reports/MUSIC-AUDIO-001-analysis.md（branch `claude/cc0-sample-au
 
 ## Goal
 音楽アプリの音源を、JavaScript の簡易合成音から実際の楽器を収録したサンプル音源へ段階的に置き換える。今回はピアノとフルートの試作に限定する。
-追加（Human 指示）: ヴィオラとチェロもサンプル音源にする。続いてハープとベル。ピアノの音量を 30% 上げる。続けてベース・ドラム（ギターは CC0 の収録が無く見送り）。続けてキーボード（ギターは合成音のまま）。続けてベロシティの2層目。続けて合成音モードの不具合修正（v5.68.0）。続けてメモリ削減。
+追加（Human 指示）: ヴィオラとチェロもサンプル音源にする。続いてハープとベル。ピアノの音量を 30% 上げる。続けてベース・ドラム（ギターは CC0 の収録が無く見送り）。続けてキーボード（ギターは合成音のまま）。続けてベロシティの2層目。続けて合成音モードの不具合修正（v5.68.0）。続けてメモリ削減。Human 決定でギター（FreePats Nylon-String Acoustic Guitar）と iPhone 実機検証。
 
 ## Constraints
 - 酒場 BGM の確定版を基準として保護する。作曲エンジン・自然言語の作曲指示・40小節1ループ・楽器の加入段階・譜面編集を壊さない
@@ -44,7 +44,7 @@ Analysis §3〜§5 のとおり。
 | セル音量が再生に反映 | 200% で level がちょうど2倍（E2E） |
 | 読み込み失敗でも止まらない | 404 で「読み込み失敗 → 合成音」、合成音と同じ発振器数で再生（E2E） |
 | 出典・バージョン・ライセンス | `tools/music-composer/README.md` |
-| iPhone Safari | 手順を README に記載。Human がピアノ・フルート版を試聴して問題なし。**弦は実機未確認** |
+| iPhone Safari | 確認表（9 項目）を README に記載。**未実施のため合格としていない** |
 
 ## Risks
 - iPhone Safari での実機確認が一部未実施。デコード後のメモリは曲ごとに約 7〜23MB（全部なら約 104MB）
@@ -80,6 +80,9 @@ Analysis §3〜§5 のとおり。
 | 20 | 合成音モードの修正は v5.68.0 として別ファイルで作る（v5.67.0 は残す） | 既存 HTML を上書きしない制約。確定版の保護 | v5.67.0 を直接修正 |
 | 21 | 再生は譜面イベントをそのまま鳴らす。譜面の値は確定版の音に合わせる。鳴っていなかった譜面の音は鳴らす。ヴィオラの長さの誤りは直す | 「譜面と音が同じイベント」と確定版の保護の両立。鳴らす扱いはサンプルモードで Human 承認済み | 譜面を音に合わせて鳴らない音を譜面から消す |
 | 22 | 曲に要る収録音だけを読む（dry run で選ぶ）。未読み込みの音はその音だけ合成音 | 本番と同じ経路で選ぶので層・音域がずれない。遠いゾーンでの代用は音程の変形が大きい | 楽器単位で読む（ピアノは 54 音を全部持つ） |
+| 23 | ギターは FLAC を MP3 に変換して既存のエンジンで鳴らす（SFZ プレイヤーを使わない） | 追加の依存なし。既存の遅延読み込み・譜面との対応をそのまま使える | sfizz / js-synthesizer（WASM）、smplr |
+| 24 | ギターの編集は v5.69.0 で `track.guitarEdits`（移調・ずれ・長さ）。譜面と再生の両方に当てる | 要件 4。既存のエディタはギターを編集できない | ギターを主旋律から作り直す |
+| 25 | 音名の欄が空の不具合も v5.69.0 で直す | ギターの音程の編集に必要。既存の音の編集も C4 に化けていた | 直さない |
 | 10 | どの音を鳴らすか（音程・開始）は譜面イベント、強さ・長さ・奥行きは v5.67.0 の playTrack と同じ計算（`performance()`） | 確定版の保護が最重要。譜面の level / 長さと再生の値はヴィオラ・チェロで違う（下記） | 譜面の値で鳴らす（確定版の聞こえ方が変わる） |
 
 ### 見つけた既存の不整合（v5.67.0、変更していない）
@@ -96,9 +99,9 @@ Analysis §3〜§5 のとおり。
 
 ## Autonomy Metrics
 - Human Escalation Count: 2（音楽アプリの所在 / 書き込み権限）
-- Human Decision Count: 14（v5.68.0 の聞こえ方を承認 / 続けて〔メモリ削減〕 / 合成音モードの修正を指示 / tools/music-composer/ への書き込みを許可 / 続けて〔ベロシティ〕 / 続けて〔ギターは推奨 A〕 / ベル 12 回を承認 / 続けて / v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ / 次はハープとベル / ピアノ +30%）
-- Auto Fix Count: 3（E2E のバッファ音源の数え方 / ヴィオラの長さを再生と同じ計算に / ループ終端のはみ出し）
-- Reviewer Round Count: 8
+- Human Decision Count: 15（ギター音源の指定と iPhone 検証の指示 / v5.68.0 の聞こえ方を承認 / 続けて〔メモリ削減〕 / 合成音モードの修正を指示 / tools/music-composer/ への書き込みを許可 / 続けて〔ベロシティ〕 / 続けて〔ギターは推奨 A〕 / ベル 12 回を承認 / 続けて / v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ / 次はハープとベル / ピアノ +30%）
+- Auto Fix Count: 4（ギター編集のテストで音名の欄が空の不具合を発見・修正 / E2E のバッファ音源の数え方 / ヴィオラの長さを再生と同じ計算に / ループ終端のはみ出し）
+- Reviewer Round Count: 9
 - Test Retry Count: 0
 - PR Created: Yes（#70）
 
@@ -119,3 +122,4 @@ Analysis §3〜§5 のとおり。
 | 2026-10-12 | Task | DONE → IMPLEMENTING → BLOCKED | Orchestrator | 合成音モードの修正。v5.68.0 の作成が実行環境の自動判定で拒否。Escalation |
 | 2026-10-12 | Task | BLOCKED → IMPLEMENTING → DONE | Orchestrator | Human が書き込みを許可。v5.68.0 作成、unit / E2E PASS、PR #70 を更新 |
 | 2026-10-12 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human: v5.68.0 OK、続けて。メモリ削減（曲ごとに 7〜23MB）。unit / E2E PASS、PR #70 を更新 |
+| 2026-10-12 | Task | DONE → IMPLEMENTING → REVIEWING | Orchestrator | Human: ギター（FreePats）と iPhone 実機検証。ギター・v5.69.0・計測の表示を追加。unit / E2E PASS。iPhone 実機は未実施（合格としない） |

@@ -1,8 +1,9 @@
 /* MUSIC-AUDIO-001: 作曲アプリ(v5.68.0 基準)にサンプル音源を差し込むフック
 
    既存の HTML は1行も書き換えない。アプリの後ろに読み込み、次の全域関数だけを包む:
-     makePiano / makeVoice / makeDrumHit / makeKeyboard / makeStylePluck
-                  … ギター以外の9楽器(ドラムはキック・スネア)の1音。サンプルで鳴らせれば鳴らし、だめなら元の合成音
+     makePiano / makeVoice / makeDrumHit / makeKeyboard / makeStylePluck / makeAcousticGuitar
+                  … 10楽器(ドラムはキック・スネア、ギターはストロークの1弦ずつ)の1音。
+                    サンプルで鳴らせれば鳴らし、だめなら元の合成音
      playTrack / startScorePlayhead
                   … 通し再生の間だけ印を付ける(セル試聴と区別する・検証用に鳴らした音を記録する)
      stopAudio    … セル試聴の残りを止める
@@ -29,13 +30,15 @@
   }
 
   const STORE_KEY = 'arpgMusic.sampleEngine';
-  const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums', 'Keyboard'];
+  const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums', 'Keyboard', 'Guitar'];
   const VOICES = ['Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass'];   // 合成音では makeVoice(name, …) で鳴る楽器
   const DRUM_MIDI = { kick:36, snare:38 };                             // 合成音では makeDrumHit(…, type) で鳴る
   // Keyboard の keys / synth(makeKeyboard)は同じ level でサンプルが約 6.7dB 大きい。pluck(makeStylePluck)とそろえる
   const KEYS_TRIM = .47;
-  const LABEL = { Piano:'ピアノ', Flute:'フルート', Viola:'ヴィオラ', Cello:'チェロ', Harp:'ハープ', Bell:'ベル', Bass:'ベース', Drums:'ドラム', Keyboard:'キーボード' };
-  const synth = { makePiano, makeVoice, makeDrumHit, makeKeyboard, makeStylePluck, playTrack, startScorePlayhead, stopAudio, renderEdit };
+  const LABEL = { Piano:'ピアノ', Flute:'フルート', Viola:'ヴィオラ', Cello:'チェロ', Harp:'ハープ', Bell:'ベル', Bass:'ベース', Drums:'ドラム', Keyboard:'キーボード', Guitar:'ギター' };
+  const synth = { makePiano, makeVoice, makeDrumHit, makeKeyboard, makeStylePluck, makeAcousticGuitar, playTrack, startScorePlayhead, stopAudio, renderEdit };
+  // 楽器ごとにサンプル / 合成音を選べる(聞き比べ用)。初期値は全部サンプル
+  const use = Object.fromEntries(SAMPLED.map(n=>[n, true]));
   const mode = { enabled:false };
   let session = null;          // playTrack の実行中だけ {notes:[], start}
   let lastNotes = [];          // 検証用: 最後の通し再生で鳴らした音(at は再生開始からの秒)
@@ -69,6 +72,7 @@
   }
   /* サンプルで鳴らせたら true(呼び出し側は合成音を鳴らさない)。dry run なら要る音を積むだけ */
   function route(name, midi, start, dur, engineLevel, out, note){
+    if(!use[name]) return false;
     if(dry){ dry.push({ name, midi, level:engineLevel }); return true; }
     if(!S.isReady(name)) return false;
     const v = S.play(ctxNow(), name, midi, start, dur, engineLevel, out);
@@ -112,34 +116,65 @@
     return synth.makeStylePluck.apply(this, arguments);
   };
 
-  /* この曲の通し再生に要る音。playScoreEvent を鳴らさずに通す(ギター・脈動は合成音なので止めておく) */
+  // ギター: ストローク(makeAcousticGuitarStrum)は1弦ずつここを呼ぶ。合成音(guitarStringModel)と同じく room.master へ
+  makeAcousticGuitar = function(n, start, dur, level, room){
+    if(mode.enabled && room &&
+       route('Guitar', n, start, dur, calibratedLevel('Guitar', level), { destination:room.master }, { kind:'guitar', n, at:start, dur, level, depth:0 })) return;
+    return synth.makeAcousticGuitar.apply(this, arguments);
+  };
+
+  /* この曲の通し再生に要る音。playScoreEvent を鳴らさずに通す(サンプルにしない楽器・脈動は合成音を止めておく) */
   function needsFor(track){
     const out = [];
     if(!track) return out;
-    const keep = { makeAcousticGuitar, makeAcousticGuitarStrum, makePulse };
+    const keep = { makePulse };
     const el = document.getElementById('space'), depth = el ? (+el.value) / 100 : .55;
     const room = { master:{}, wet:{} };
     dry = out;
-    makeAcousticGuitar = makeAcousticGuitarStrum = makePulse = function(){};
+    makePulse = function(){};
+    const off = Object.fromEntries(Object.keys(synth).map(k=>[k, synth[k]]));
+    // 合成音を選んだ楽器は dry run で鳴らないように、元の関数も一時的に止める
+    for(const k of ['makePiano', 'makeVoice', 'makeDrumHit', 'makeKeyboard', 'makeStylePluck', 'makeAcousticGuitar']) synth[k] = function(){};
     try{
       for(const e of buildTruthScore(track).events) playScoreEvent(track, e, 0, room, depth);
     }catch(e){
       console.warn('[sample-hooks] 要る音の計算に失敗', e);
     }finally{
       dry = null;
-      makeAcousticGuitar = keep.makeAcousticGuitar; makeAcousticGuitarStrum = keep.makeAcousticGuitarStrum; makePulse = keep.makePulse;
+      makePulse = keep.makePulse;
+      Object.assign(synth, off);
     }
     return out;
   }
 
   /* 今の曲に要る収録音だけを持つ(サンプルが無効なら全部手放す) */
   let refreshing = null;
+  // 実機の確認用の計測(画面の「音源」カードに出す)
+  const diag = { first:null, last:null, prepMs:null, latencyMs:null, rate:null };
+  const now = ()=>(typeof performance !== 'undefined' ? performance.now() : Date.now());
   function refresh(){
     const notes = mode.enabled ? needsFor(state.track) : [];
-    refreshing = S.ensure(notes, { baseUrl:'samples/', fallbackCtx:ctxNow() });
-    refreshing.then(render, render);
+    const t0 = now(), before = S.loadedInfo().files;
+    const job = S.ensure(notes, { baseUrl:'samples/', fallbackCtx:ctxNow() });
+    refreshing = job;
+    job.then(()=>{
+      if(!mode.enabled || !notes.length) return;
+      const info = S.loadedInfo(), rec = { ms:Math.round(now() - t0), files:info.files, added:Math.max(0, info.files - before) };
+      if(rec.added > 0 && !diag.first) diag.first = rec;
+      diag.last = rec;
+    }).then(render, render);
     render();
-    return refreshing;
+    return job;
+  }
+  function diagText(){
+    const f = r=>r ? `${r.ms}ms(${r.files}音、うち新規 ${r.added})` : '—';
+    const info = S.loadedInfo();
+    const heap = typeof performance !== 'undefined' && performance.memory ? ` ・ JS ヒープ ${Math.round(performance.memory.usedJSHeapSize / 1e6)}MB` : '';
+    return `計測: 最初の読み込み ${f(diag.first)} ・ 直近の読み込み ${f(diag.last)}`
+      + ` ・ 再生の準備 ${diag.prepMs == null ? '—' : diag.prepMs + 'ms'}`
+      + ` ・ 出力の遅れ ${diag.latencyMs == null ? '—' : diag.latencyMs + 'ms'}(再生開始は押してから +120ms に予約)`
+      + ` ・ サンプルのメモリ 約${Math.round(info.bytes / 1e6)}MB${heap}`
+      + (diag.rate ? ` ・ ${diag.rate}Hz` : '');
   }
 
   renderEdit = function(){
@@ -162,10 +197,18 @@
     stopPreviews();
     const sess = { notes:[], start:null };
     session = sess;
+    const t0 = now();
     try{
       synth.playTrack.apply(this, arguments);
     }finally{
       session = null;
+      diag.prepMs = Math.round(now() - t0);
+      const ctx = ctxNow();
+      if(ctx){
+        diag.latencyMs = Math.round(((ctx.baseLatency || 0) + (ctx.outputLatency || 0)) * 1000);
+        diag.rate = ctx.sampleRate;
+      }
+      render();
     }
     if(sess.start != null) lastNotes = sess.notes.map(x=>({ ...x, at:x.at - sess.start }));
   };
@@ -187,6 +230,23 @@
   function render(){
     const el = document.getElementById('sampleEngineStatus');
     if(el) el.textContent = statusText();
+    const box = document.getElementById('sampleEngineUse');
+    if(box) box.style.display = mode.enabled ? 'flex' : 'none';
+    const dg = document.getElementById('sampleEngineDiag');
+    if(dg) dg.textContent = mode.enabled ? diagText() : '';
+  }
+  function setUseQuiet(name, on){
+    use[name] = !!on;
+    const cb = document.querySelector(`[data-use="${name}"]`);
+    if(cb) cb.checked = use[name];
+  }
+  function setUse(name, on){
+    if(!(name in use)) return;
+    use[name] = !!on;
+    try{ localStorage.setItem(STORE_KEY + '.use', JSON.stringify(use)); }catch(e){}
+    const cb = document.querySelector(`[data-use="${name}"]`);
+    if(cb) cb.checked = use[name];
+    refresh();
   }
   function setEnabled(on){
     mode.enabled = !!on;
@@ -202,18 +262,27 @@
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = '<div class="section-title">音源</div>'
-      + '<div class="mini">ギター以外の9楽器(ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベル・ベース・ドラム・キーボード)を収録音(CC0)で鳴らす試作です。読み込めない音は合成音に戻ります。</div>'
+      + '<div class="mini">10楽器を収録音(CC0)で鳴らす試作です。チェックを外した楽器は合成音で鳴ります(聞き比べ用)。読み込めない音は合成音に戻ります。</div>'
       + '<div class="instrument"><b>音源</b><select id="sampleEngineSelect" style="padding:6px;border-radius:8px">'
-      + '<option value="synth">合成音(従来)</option><option value="samples">サンプル(ギター以外)</option>'
+      + '<option value="synth">合成音(従来)</option><option value="samples">サンプル</option>'
       + '</select><span></span></div>'
-      + '<div class="mini" id="sampleEngineStatus"></div>';
+      + '<div class="mini" id="sampleEngineUse" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0">'
+      + SAMPLED.map(n=>`<label><input type="checkbox" data-use="${n}" checked> ${LABEL[n]}</label>`).join('')
+      + '</div>'
+      + '<div class="mini" id="sampleEngineStatus"></div>'
+      + '<div class="mini" id="sampleEngineDiag" style="margin-top:4px"></div>';
     anchor.insertAdjacentElement('afterend', card);
     document.getElementById('sampleEngineSelect').onchange = e=>setEnabled(e.target.value === 'samples');
+    card.querySelectorAll('[data-use]').forEach(cb=>cb.onchange=()=>setUse(cb.dataset.use, cb.checked));
   }
 
   mountUI();
   let saved = null;
-  try{ saved = localStorage.getItem(STORE_KEY); }catch(e){}
+  try{
+    saved = localStorage.getItem(STORE_KEY);
+    const u = JSON.parse(localStorage.getItem(STORE_KEY + '.use') || 'null');
+    if(u) for(const n of SAMPLED) if(typeof u[n] === 'boolean') setUseQuiet(n, u[n]);
+  }catch(e){}
   setEnabled(saved === 'samples');
 
   // テスト・検証用(再生には使わない)
@@ -221,6 +290,7 @@
     setEnabled, stats:()=>JSON.parse(JSON.stringify(stats)),
     previewCount:()=>previews.length, enabled:()=>mode.enabled,
     lastNotes:()=>JSON.parse(JSON.stringify(lastNotes)),
-    needs:()=>needsFor(state.track), ready:()=>refreshing || Promise.resolve()
+    needs:()=>needsFor(state.track), ready:()=>refreshing || Promise.resolve(),
+    setUse, diag:()=>JSON.parse(JSON.stringify(diag))
   };
 })();

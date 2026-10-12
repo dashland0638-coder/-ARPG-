@@ -1,4 +1,4 @@
-/* MUSIC-AUDIO-001: CC0 サンプル音源エンジン(ギター以外の9楽器の試作)
+/* MUSIC-AUDIO-001: CC0 サンプル音源エンジン(全10楽器の試作)
 
    譜面イベント(音程 n / 開始 start / 長さ dur / 強弱 level)を受け取り、収録音を
    playbackRate で移調して鳴らす。作曲・譜面のデータには触らない。
@@ -45,7 +45,10 @@
              gain:1.0, refLevel:.10, cutLo:3000, cutHi:16000, maxShift:0 },
     // FM エレピ(TX81Z)。pluck(短い粒)と keys / synth(和音の白玉)の両方に使う
     Keyboard: { attack:.003, releaseRatio:.30, releaseMin:.12, releaseMax:.50,
-             gain:1.0, refLevel:.06, cutLo:2500, cutHi:9000, maxShift:12, split:.5, softMaxShift:2 }
+             gain:1.0, refLevel:.06, cutLo:2500, cutHi:9000, maxShift:12, split:.5, softMaxShift:2 },
+    // ナイロン弦ギター(FreePats)。SFZ の ampeg_release=1.5 にならい、譜面の長さの後も弦が鳴り残る
+    Guitar: { attack:.002, releaseRatio:.60, releaseMin:.30, releaseMax:1.5,
+             gain:1.0, refLevel:.05, cutLo:2500, cutHi:10000, maxShift:12 }
   };
 
   function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
