@@ -1,6 +1,6 @@
 # MUSIC-AUDIO-004
 
-Status: REVIEWING（Reviewer PASS。PR 作成後に DONE。main への merge は Human）
+Status: DONE（PR #72。main への merge は Human）
 
 Analysis: 本ファイルの「## Analysis」（branch `claude/cc0-sample-audio-engine-76noqo` @ `2089a88`）
 
@@ -92,7 +92,7 @@ Verdict: **PASS**（同一セッションで兼務。人間による差分確認
 - Auto Fix Count: 2（新規 E2E の前提の誤り: 全部読んだ状態では待ちが起きない → 曲に要る音だけ読む / ピアノの試聴は別の層 → フルートで試聴）
 - Reviewer Round Count: 1
 - Test Retry Count: 1（music E2E の1回で1件失敗。テスト名不明・未再現。その後 432 件連続 PASS。既知の FLAKY〔MUSIC-AUDIO-001〕と同じかは不明: INFERENCE は記録しない）
-- PR Created: Yes（本文に URL）
+- PR Created: Yes（https://github.com/dashland0638-coder/-ARPG-/pull/72）
 
 ## Status History
 | Date | Target | From → To | By | Note |
@@ -100,3 +100,4 @@ Verdict: **PASS**（同一セッションで兼務。人間による差分確認
 | 2026-10-12 | Task | DRAFT → ANALYZING → APPROVED | Analyzer / Planner | A-1〜A-8。方式 A を採用。Agent Approval |
 | 2026-10-12 | Task | IMPLEMENTING → TESTING → REVIEWING | Implementer / Tester | 新規 E2E 6 件、music E2E 81/81、unit PASS |
 | 2026-10-12 | Task | REVIEWING（Reviewer PASS） | Reviewer | 指摘なし。music E2E の1回の失敗（テスト名不明・未再現）を FLAKY として記録 |
+| 2026-10-12 | Task | REVIEWING → DONE | Orchestrator | PR #72 を作成 |
