@@ -400,15 +400,16 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
       playTrack(); const st2 = SampleHooks.stats(); stopAudio();
       return { st, st2, synthGuitar, checkbox, diag, text };
     });
-    expect(r.checkbox).toBe(false);
-    expect(r.st.scheduled.Guitar).toBe(0);
-    expect(r.st.scheduled.Viola).toBeGreaterThan(0);             // 他はサンプルのまま
-    expect(r.synthGuitar).toBeGreaterThan(0);
-    expect(r.st2.scheduled.Guitar).toBeGreaterThan(0);
-    expect(r.st2.fallback.Guitar).toBe(0);
-    expect(r.diag.prepMs).not.toBeNull();
-    expect(r.diag.last).not.toBeNull();
-    expect(r.text).toContain('再生の準備');
+    const info = JSON.stringify(r);   // 失敗したときに状態を残す(一度だけ FLAKY。原因は未特定)
+    expect(r.checkbox, info).toBe(false);
+    expect(r.st.scheduled.Guitar, info).toBe(0);
+    expect(r.st.scheduled.Viola, info).toBeGreaterThan(0);       // 他はサンプルのまま
+    expect(r.synthGuitar, info).toBeGreaterThan(0);
+    expect(r.st2.scheduled.Guitar, info).toBeGreaterThan(0);
+    expect(r.st2.fallback.Guitar, info).toBe(0);
+    expect(r.diag.prepMs, info).not.toBeNull();
+    expect(r.diag.last, info).not.toBeNull();
+    expect(r.text, info).toContain('再生の準備');
   });
 
   test('ピアノ・ハープ・キーボードは、弱い音で弱く弾いた収録音(弱い層)、強い音で強い層を使う。音量は層の境目でそろう', async ({ page })=>{
