@@ -102,7 +102,7 @@ v5.69.0 までの酒場完成版のギターは、同時に鳴る音と 26% が�
 
 ## iPhone Safari での確認（**実機で確認していない項目は合格にしない**）
 
-自動テストは Chromium（デスクトップ、ヘッドレス）だけで実行した。iPhone 実機の確認はまだ 1 項目もしていない。
+自動テストは Chromium（デスクトップ、ヘッドレス）だけで実行した。iPhone 実機では、方法 3 でページが開き再生できることだけを Human が確認した（2026-10-12）。チェックリストの各項目は未確認。
 
 ### 確認用ページを開く
 
@@ -129,6 +129,15 @@ iPhone の Safari で `http://<PC の LAN の IP アドレス>:5173/tools/music-
 `node tools/music-composer/scripts/build-prototype.mjs --standalone` で作る `dist/ARPG_Music_AI_Composer_v5_70_0_samples_standalone.html`（約 13MB、音源を埋め込み）。
 iPhone でこのファイルを Safari のページとして開く方法（ファイルアプリのプレビューでスクリプトが動くかどうか）は確かめていない。
 方法 1 が使えないときの候補とし、開けなかった場合は「問題あり」ではなく「未確認」とする。
+
+**方法 3（iPhone だけで開ける）: claude.ai の非公開アーティファクト**
+
+確認用ページ・`sample-engine.js`・`sample-hooks.js`・`samples/`（manifest と MP3 210 個）を、手を加えずにそのまま公開したもの。
+URL: https://claude.ai/artifact/Aa2jjaA2Hu3e6Yrs2WVaXp （非公開。オーナーのアカウントで開く）。
+アプリの「保存」系のボタン（ファイルのダウンロード）はアーティファクトの中では動かない（チェックリストの対象外）。
+
+- 2026-10-12 Human 報告: iPhone の Safari で開き「問題なく動く」（ページが開き、サンプル音源で再生できた）。
+  下のチェックリストの各項目（数字・個別の観点）の結果はまだ受け取っていないため、各項目は未確認のまま。
 
 ### 共通の準備
 
