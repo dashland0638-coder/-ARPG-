@@ -1,6 +1,7 @@
 /* MUSIC-AUDIO-001: 作曲アプリの試作(tools/music-composer/)のサンプル音源エンジン。
 
-   ・基準 HTML(v5.67.0)は受け取ったままで、試作 HTML は「基準 + 末尾の読み込み」だけ
+   ・確定版 v5.67.0 は受け取ったまま(sha256 固定)。v5.68.0 は scripts/make_v568.py で v5.67.0 から作った
+     合成音モードの修正版で、試作 HTML は「v5.68.0 + 末尾の読み込み」だけ
    ・音源は manifest に載ったものだけ、CC0 の2リポジトリの固定コミットから、容量の上限内
    ・音程(ゾーン選択と playbackRate)、長さ・余韻・強弱の計画、発音の頭の検出 */
 import test from 'node:test';
@@ -26,12 +27,25 @@ function loadManifest(){
 }
 const S = loadEngine();
 
-test('基準 HTML は v5.67.0 を受け取ったまま(sha256 固定)', ()=>{
-  const sha = crypto.createHash('sha256').update(fs.readFileSync(path.join(dir, BASE))).digest('hex');
-  assert.equal(sha, '696476fc722a4d3527164fbe87324e3aabe8689edf64ced33cadd864d95700ff');
+const sha = f=>crypto.createHash('sha256').update(fs.readFileSync(path.join(dir, f))).digest('hex');
+
+test('確定版 v5.67.0 は受け取ったまま(sha256 固定)', ()=>{
+  const v567 = 'ARPG_Music_AI_Composer_v5_67_0.html';
+  assert.equal(sha(v567), '696476fc722a4d3527164fbe87324e3aabe8689edf64ced33cadd864d95700ff');
   // v5.67.0 は v5.66.0 からギターの音量だけを下げた酒場 BGM の確定版
-  assert.match(read(BASE), /const level=\.030\*Math\.max\(\.9,style\.guitar\|\|0\);/);
-  assert.match(read(BASE), /Guitar:\.78, Drums:1\.20/);
+  assert.match(read(v567), /const level=\.030\*Math\.max\(\.9,style\.guitar\|\|0\);/);
+  assert.match(read(v567), /Guitar:\.78, Drums:1\.20/);
+});
+
+test('試作の基準は v5.68.0(通し再生が譜面イベントをそのまま鳴らす版)', ()=>{
+  assert.equal(BASE, 'ARPG_Music_AI_Composer_v5_68_0.html');
+  assert.equal(sha(BASE), '82eb403dc5a9af859a05ebdb862db6b3bc309554993792ed6542c0d46680888c');
+  const html = read(BASE);
+  assert.match(html, /buildTruthScore\(t\)\.events\.forEach\(e=>playScoreEvent\(t,e,start,room,depth\)\);/);
+  assert.match(html, /<!-- v5\.68\.0: /);
+  // v5.67 の playTrack が持っていた楽器ごとの計算(譜面とずれる元)は無い
+  assert.doesNotMatch(html, /const finalSustain=isFinalSection\?1\.16:1;/);
+  assert.doesNotMatch(html, /\(i===0\|\|i===7\|\|i===12\)/);
 });
 
 test('試作 HTML は基準の末尾に読み込みを足しただけ(既存部分は1文字も変えない)', ()=>{

@@ -14,7 +14,7 @@ Analysis: .ai/reports/MUSIC-AUDIO-001-analysis.md（branch `claude/cc0-sample-au
 
 ## Goal
 音楽アプリの音源を、JavaScript の簡易合成音から実際の楽器を収録したサンプル音源へ段階的に置き換える。今回はピアノとフルートの試作に限定する。
-追加（Human 指示）: ヴィオラとチェロもサンプル音源にする。続いてハープとベル。ピアノの音量を 30% 上げる。続けてベース・ドラム（ギターは CC0 の収録が無く見送り）。続けてキーボード（ギターは合成音のまま）。続けてベロシティの2層目。
+追加（Human 指示）: ヴィオラとチェロもサンプル音源にする。続いてハープとベル。ピアノの音量を 30% 上げる。続けてベース・ドラム（ギターは CC0 の収録が無く見送り）。続けてキーボード（ギターは合成音のまま）。続けてベロシティの2層目。続けて合成音モードの不具合修正（v5.68.0）。
 
 ## Constraints
 - 酒場 BGM の確定版を基準として保護する。作曲エンジン・自然言語の作曲指示・40小節1ループ・楽器の加入段階・譜面編集を壊さない
@@ -77,6 +77,8 @@ Analysis §3〜§5 のとおり。
 | 17 | キーボード = VCSL TX81Z FM Piano（pluck・keys・synth 共通） | CC0。酒場に影響しない。エレピは keys の合成音（saw + triangle）に近い | ハープシコード（pluck だけに合う） |
 | 18 | 弱い層はピアノ・ハープ・キーボードだけ（強さの実測で選ぶ） | 通し再生の強さの分布。ピアノ・キーボードはほぼ全部が弱い | 全楽器（容量 2 倍、効果の無い楽器が多い） |
 | 19 | 弱い層の音量は RMS で強い層にそろえる（zone.gain） | 強弱は level だけで決め、これまでの音量調整（ピアノ +30% など）を崩さない | 収録の音量差を残す（全体が小さくなる） |
+| 20 | 合成音モードの修正は v5.68.0 として別ファイルで作る（v5.67.0 は残す） | 既存 HTML を上書きしない制約。確定版の保護 | v5.67.0 を直接修正 |
+| 21 | 再生は譜面イベントをそのまま鳴らす。譜面の値は確定版の音に合わせる。鳴っていなかった譜面の音は鳴らす。ヴィオラの長さの誤りは直す | 「譜面と音が同じイベント」と確定版の保護の両立。鳴らす扱いはサンプルモードで Human 承認済み | 譜面を音に合わせて鳴らない音を譜面から消す |
 | 10 | どの音を鳴らすか（音程・開始）は譜面イベント、強さ・長さ・奥行きは v5.67.0 の playTrack と同じ計算（`performance()`） | 確定版の保護が最重要。譜面の level / 長さと再生の値はヴィオラ・チェロで違う（下記） | 譜面の値で鳴らす（確定版の聞こえ方が変わる） |
 
 ### 見つけた既存の不整合（v5.67.0、変更していない）
@@ -92,10 +94,10 @@ Analysis §3〜§5 のとおり。
 解消済み（音楽アプリの所在 → Human が HTML を共有）。
 
 ## Autonomy Metrics
-- Human Escalation Count: 1
-- Human Decision Count: 10（続けて〔ベロシティ〕 / 続けて〔ギターは推奨 A〕 / ベル 12 回を承認 / 続けて / v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ / 次はハープとベル / ピアノ +30%）
+- Human Escalation Count: 2（音楽アプリの所在 / 書き込み権限）
+- Human Decision Count: 12（合成音モードの修正を指示 / tools/music-composer/ への書き込みを許可 / 続けて〔ベロシティ〕 / 続けて〔ギターは推奨 A〕 / ベル 12 回を承認 / 続けて / v5.66.0 の HTML を共有 / v5.67.0 の HTML を共有 / ピアノはそのまま / 次はヴィオラとチェロ / 次はハープとベル / ピアノ +30%）
 - Auto Fix Count: 3（E2E のバッファ音源の数え方 / ヴィオラの長さを再生と同じ計算に / ループ終端のはみ出し）
-- Reviewer Round Count: 6
+- Reviewer Round Count: 7
 - Test Retry Count: 0
 - PR Created: Yes（#70）
 
@@ -113,3 +115,5 @@ Analysis §3〜§5 のとおり。
 | 2026-10-12 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human: 問題なし、続けて。ベース・ドラム追加、ギター見送り。unit / E2E PASS、PR #70 を更新 |
 | 2026-10-12 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human: 続けて。キーボード追加（ギターは合成音のまま）。unit / E2E PASS、PR #70 を更新 |
 | 2026-10-12 | Task | DONE → IMPLEMENTING → DONE | Orchestrator | Human: 続けて。弱い層（ピアノ・ハープ・キーボード）追加。unit / E2E PASS、PR #70 を更新 |
+| 2026-10-12 | Task | DONE → IMPLEMENTING → BLOCKED | Orchestrator | 合成音モードの修正。v5.68.0 の作成が実行環境の自動判定で拒否。Escalation |
+| 2026-10-12 | Task | BLOCKED → IMPLEMENTING → DONE | Orchestrator | Human が書き込みを許可。v5.68.0 作成、unit / E2E PASS、PR #70 を更新 |

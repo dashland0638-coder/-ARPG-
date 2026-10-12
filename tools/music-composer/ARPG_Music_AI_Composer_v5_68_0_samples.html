@@ -1989,10 +1989,12 @@ function tavernFinalFluteHarmonyNote(note,track){
 
 function buildTruthScore(t){
  const tm=scoreTiming(t),sec=tm.sec,events=[];
- const add=(instrument,index,start,duration,n,level,kind="note",editable=true)=>{
-  const percussion=instrument==="Drums" && (kind==="kick"||kind==="snare"||kind==="hat");
+ // v5.68: level / duration は playTrack が実際に鳴らす値(セル音量を掛ける前)。
+ // space は奥行き: min(1, 奥行き × mul + add)。省略は {mul:1, add:0}
+ const add=(instrument,index,start,duration,n,level,kind="note",editable=true,space=null)=>{
+  const percussion=instrument==="Drums" && (kind==="kick"||kind==="snare"||kind==="hat"||kind==="pulse");
   if(n==null && kind!=="rest" && !percussion)return;
-  events.push({instrument,index,start,duration,n,level,kind,editable,rest:kind==="rest"});
+  events.push({instrument,index,start,duration,n,level,kind,editable,rest:kind==="rest",space});
  };
  const style=t.arrangement?.style||{},phrase=t.phrase||[],bass=t.bass||[];
  phrase.forEach((x,i)=>{
@@ -2012,31 +2014,33 @@ function buildTruthScore(t){
    const nextSt=next?tm.eventStart(Math.min(i+2,phrase.length-1)):st+sec*x.d;
    const sustainEnd=Math.max(st+sec*x.d*.92,nextSt-sec*.04);
    const melodyDur=Math.min(Math.max(sec*.55,sustainEnd-st),sec*3.2);
-   add("Viola",i,st,melodyDur,x.n,.075*density*arrangementWeight(t,"Viola",section),"melody");
+   // v5.68: 再生で掛けていた ×1.18・酒場の補正・最後の区間の長さ ×1.16 を譜面にも入れる
+   add("Viola",i,st,melodyDur*(section===3?1.16:1),x.n,tavernMixLevel(t,"Viola",.075*density*arrangementWeight(t,"Viola",section)*1.18),"melody");
   }
   if(tavernAllows(t,"Flute") && !x.rest && density>.65){
    if(isTavernTrack(t) && tavernProgressionKey()==="complete"){
     const fluteNote=tavernFinalFluteHarmonyNote(x.n,t);
     const fluteDur=Math.min(sec*3.2,Math.max(sec*.55,sec*x.d*.92));
-    add("Flute",i,st,fluteDur,fluteNote,tavernMixLevel(t,"Flute",.050*density*arrangementWeight(t,"Flute",section)),"harmony");
+    add("Flute",i,st,fluteDur,fluteNote,tavernMixLevel(t,"Flute",.050*density*arrangementWeight(t,"Flute",section)),"harmony",true,{mul:1,add:.1});
    }else if(i%4===1){
     const a=phrase[Math.max(0,i-1)];
     const fluteDur=Math.min(sec*1.20,Math.max(sec*.95,sec*x.d*1.65));
-    add("Flute",i,st+.015,fluteDur,(a?.n??x.n)+12,tavernMixLevel(t,"Flute",.055*density*(section===2?1.10:section===3?.92:1)*arrangementWeight(t,"Flute",section)),"response");
+    add("Flute",i,st+.015,fluteDur,(a?.n??x.n)+12,tavernMixLevel(t,"Flute",.055*density*(section===2?1.10:section===3?.92:1)*arrangementWeight(t,"Flute",section)),"response",true,{mul:1,add:.1});
    }
   }
   if(tavernAllows(t,"Harp") && i%4===3&&density>.65 && !x.rest){const chordIndex=Math.min((t.chords?.length||1)-1,Math.floor(i/8));const chord=t.chords?.[chordIndex]||[0];const degree=Number(chord[(Math.floor(i/4)%2)?1:0]??chord[0]??0);const root=String(t.mode||"")==="A Minor"?57:String(t.mode||"")==="G Minor"?55:String(t.mode||"")==="D Major"?62:62;const scale=scaleFor(t.mode||"D Major");const harpNote=clamp(degreeMidi(root,scale,degree,1),60,84);add("Harp",i,st,Math.min(sec*x.d*.92,sec*1.8),harpNote,tavernMixLevel(t,"Harp",.032*density*(section===2?1.22:section===3?.72:1)*arrangementWeight(t,"Harp",section)),"ornament");}
-  if(tavernAllows(t,"Bell") && [0,7,12,32,39,44,48,55,60,64,71,76].includes(i)&&density>.75 && !x.rest)add("Bell",i,st,Math.min(2,sec*2.2),x.n+12,.028*density*arrangementWeight(t,"Bell",section),"accent");
+  if(tavernAllows(t,"Bell") && [0,7,12,32,39,44,48,55,60,64,71,76].includes(i)&&density>.75 && !x.rest)add("Bell",i,st,Math.min(2,sec*2.2),x.n+12,.028*density*arrangementWeight(t,"Bell",section),"accent",true,{mul:1,add:.25});
  });
  bass.forEach((x,i)=>{
   if(!x||x.n==null)return;
   const st=tm.eventStart(Math.min(x.m,phrase.length-1));
   // Keep playback and score one-to-one.
-  if(tavernAllows(t,"Bass")) add("Bass",i,st,Math.min(sec*x.d*.94,sec*1.6),x.n,tavernMixLevel(t,"Bass",.078*arrangementWeight(t,"Bass",i)),"bass");
+  // v5.68: 酒場の補正は確定版の再生と同じく2回(音量を変えない)
+  if(tavernAllows(t,"Bass")) add("Bass",i,st,Math.min(sec*x.d*.94,sec*1.6),x.n,tavernMixLevel(t,"Bass",tavernMixLevel(t,"Bass",.078*arrangementWeight(t,"Bass",i))),"bass",true,{mul:.45,add:0});
   if(tavernAllows(t,"Cello") && (Number(x.m)||0)%8===0){const chordIndex=Math.floor((Number(x.m)||0)/8),tone=celloFoundationNote(t,chordIndex,x.n);const nextBass=bass[i+1];
    const nextBassSt=nextBass?tm.eventStart(Math.min(nextBass.m,phrase.length-1)):st+sec*x.d;
    const celloDur=Math.max(.12,sec*x.d*.90);
-   add("Cello",Number(x.m)||i,st,celloDur,tone,tavernMixLevel(t,"Cello",.085*arrangementWeight(t,"Cello",i)),"foundation");}
+   add("Cello",Number(x.m)||i,st,celloDur,tone,tavernMixLevel(t,"Cello",tavernMixLevel(t,"Cello",.085*arrangementWeight(t,"Cello",i))),"foundation",true,{mul:.8,add:0});}
  });
  // Genre/style layers — every audible layer is represented in the score.
  const styleId=style.id||t.bp.style?.id||"fantasy";
@@ -2061,12 +2065,14 @@ function buildTruthScore(t){
     const sustainEnd=Math.max(bs+sec*x.d*.92,nextSt-sec*.04);
     const guitarDur=Math.min(Math.max(sec*.55,sustainEnd-bs),sec*3.2);
     const voicing=tavernGuitarVoicing(t,Math.floor(i/2));
-    const level=.030*Math.max(.9,style.guitar||0);
+    // v5.68: 譜面の .030 は再生に使われていなかった。確定版の音(再生の .045)に合わせる
+    const level=.045*Math.max(.9,style.guitar||0);
     add("Guitar",i,bs,guitarDur,voicing,tavernMixLevel(t,"Guitar",level),"guitar-strum",false);
    }
   }else{
    // Chapter 1: keep the guitar as a lighter accompaniment.
-   for(let bar=0;bar<tm.barCount;bar+=2){const idx=bar*2;const x=phrase[idx%phrase.length];if(x?.n!=null){const actual=tm.eventStart(idx);add("Guitar",bar,actual,sec*.34,x.n,.030*style.guitar,"guitar",false);}}
+   // v5.68: 再生と同じ長さ(.30拍)・強さ。セル音量の番号も再生と同じ idx
+   for(let bar=0;bar<tm.barCount;bar+=2){const idx=bar*2;const x=phrase[idx%phrase.length];if(x?.n!=null){const actual=tm.eventStart(idx);add("Guitar",idx,actual,sec*.30,x.n,tavernMixLevel(t,"Guitar",.024*style.guitar),"guitar",false);}}
   }
  }
  // FINAL TAVERN: strong drum kit, with a clearly visible kick/snare/hat pattern.
@@ -2075,9 +2081,14 @@ function buildTruthScore(t){
    const bs=tm.eventStart(Math.min(bar*2,phrase.length-1));
    const be=bar<15?tm.eventStart(Math.min((bar+1)*2,phrase.length-1)):bs+2*sec;
    const barDur=Math.max(.28,be-bs);
-   add("Drums",bar*2,bs,.16,null,.072*style.drums,"kick",false);
-   add("Drums",bar*2+1,bs+barDur*.50,.12,null,.050*style.drums,"snare",false);
+   // v5.68: 再生と同じ強さ(キック .090、スネアはその ×.78、酒場の補正)
+   add("Drums",bar*2,bs,.16,null,tavernMixLevel(t,"Drums",.090*style.drums),"kick",false);
+   add("Drums",bar*2+1,bs+barDur*.50,.12,null,tavernMixLevel(t,"Drums",.090*style.drums)*.78,"snare",false);
   }
+ }
+ // v5.68: 酒場以外の低い脈動(makePulse)。再生では鳴っていたが譜面に無かった
+ if(t.bp?.pulse && String(t.scene||t.bp?.scene||'')!=='tavern'){
+  for(let i=0;i<4;i++) add("Drums",i*4+3,tm.eventStart(i*4+3),sec*.72,null,.018,"pulse",false);
  }
  return {events,timing:tm};
 }
@@ -2154,6 +2165,7 @@ function previewScoreEvent(e){
  const dur=Math.min(.36,Math.max(.12,e.duration));
  const previewBase=e.instrument==="Cello"?.105:(e.level||.07); const level=Math.max(.055,Math.min(.14,previewBase*cellVolume(state.track,e.instrument,e.index,e.kind)));
  if(e.instrument==="Drums"){
+   if(e.kind==="pulse"){makePulse(now,Math.max(.3,e.duration),Math.min(.035,level),room);return;}   // v5.68
    makeDrumHit(now,Math.min(.035,level),room,e.kind==="kick"?"kick":"snare");
    return;
  }
@@ -2726,128 +2738,52 @@ function accompanimentWeightAt(arr,index,role){
 
 
 
+/* v5.68: 通し再生は buildTruthScore() の譜面イベントをそのまま鳴らす。
+   v5.67 までは playTrack が譜面と同じ計算を別に持っていて、ピアノ・ベル(12 か所中 9 か所)・
+   ベースの style-bass・キーボードの keys / synth が譜面にあるのに鳴らず、ヴィオラの長さの計算で
+   絶対時刻と譜面の時刻が混ざっていた。強さ・奥行きは確定版(v5.67)の再生の値のまま */
+function eventDepth(e,depth){
+ const sp=e.space||{mul:1,add:0};
+ return Math.min(1,depth*sp.mul+sp.add);
+}
+function playScoreEvent(t,e,start,room,depth){
+ if(e.rest) return;
+ const st=start+e.start;
+ const lv=e.level*cellVolume(t,e.instrument,e.index,e.kind);
+ const d=eventDepth(e,depth);
+ switch(e.instrument){
+  case "Piano": makePiano(e.n,st,e.duration,lv,room); return;
+  case "Keyboard":
+   if(e.kind==="pluck") makeStylePluck(e.n,st,e.duration,lv,room,d);
+   else makeKeyboard(e.n,st,e.duration,lv,room,e.kind);
+   return;
+  case "Guitar":
+   if(e.kind==="guitar-strum") makeAcousticGuitarStrum(e.n,st,e.duration,lv,room,"down");
+   else makeAcousticGuitar(e.n,st,e.duration,lv,room);
+   return;
+  case "Drums":
+   if(e.kind==="pulse") makePulse(st,e.duration,lv,room);
+   else makeDrumHit(st,lv,room,e.kind);
+   return;
+  case "Bass":
+   if(e.kind==="style-bass") makeStyleBass(e.n,st,e.duration,lv,room);
+   else makeVoice("Bass",e.n,st,e.duration,lv,room,d);
+   return;
+  default: makeVoice(e.instrument,e.n,st,e.duration,lv,room,d);
+ }
+}
 function playTrack(){
  if(!state.track){generate();return}
  if(state.playing)return;
  ensureAudio();
  const myToken=++playbackToken;
  const t=state.track;
- const phraseArrangement=buildPhraseArrangement(t);
  const tm=scoreTiming(t);
- const sec=tm.sec;
  const start=audioCtx.currentTime+.12;
  const depth=(+$("space").value)/100;
  const reverb=(+$("reverb").value)/100;
  const room=makeRoom(.02+reverb*.20);
-// Give each 4-note phrase a very small breathing space.
- // Note events themselves remain unchanged; only playback timing is separated.
- const phraseGap=tm.gap;
-
- t.phrase.forEach((x,i)=>{
-  if(x.n==null || x.rest) return;
-  const sectionGap=Math.floor(i/4)*phraseGap;
-  const st=start+tm.eventStart(i);
-  const section=loopSectionAt(i);
-  const density=[.92,1.00,1.16,.78][section]??1.00;
-
-  if(tavernMelodyAllowed(t) && tavernAllows(t,"Viola") && i%2===0 && density>.55){
-   const isFinalSection=section===3;
-   const finalSustain=isFinalSection?1.16:1;
-   const next=t.phrase[i+1]||t.phrase[i+2];
-   const nextSt=next?tm.eventStart(Math.min(i+2,t.phrase.length-1)):tm.eventStart(i)+sec*x.d;
-   const sustainEnd=Math.max(st+sec*x.d*.92,nextSt-sec*.04);
-   const melodyDur=Math.min(Math.max(sec*.55,sustainEnd-st),sec*3.2)*finalSustain;
-   makeVoice("Viola",x.n,st,melodyDur,tavernMixLevel(t,"Viola",.075*density*arrangementWeight(t,"Viola",section)*(tavernMelodyAllowed(t)?1.18:1)*cellVolume(t,"Viola",i,"melody")),room,depth);
-  }
-
-  if(tavernAllows(t,"Flute") && density>.65){
-   if(isTavernTrack(t) && tavernProgressionKey()==="complete"){
-    const fluteNote=tavernFinalFluteHarmonyNote(x.n,t);
-    const fluteDur=Math.min(sec*3.2,Math.max(sec*.55,sec*x.d*.92));
-    makeVoice("Flute",fluteNote,st,fluteDur,tavernMixLevel(t,"Flute",.050*density*arrangementWeight(t,"Flute",section))*cellVolume(t,"Flute",i,"harmony"),room,Math.min(1,depth+.1));
-   }else if(i%4===1){
-    const answerIndex=Math.max(0,i-1);
-    const answer=t.phrase[answerIndex];
-    const answerNote=answer?.n??x.n;
-    const fluteBoost=section===2?1.10:section===3?.92:1;
-    const fluteDur=Math.min(sec*1.20,Math.max(sec*.95,sec*x.d*1.65));
-    makeVoice("Flute",answerNote+12,st+.015,fluteDur,tavernMixLevel(t,"Flute",.055*density*fluteBoost*arrangementWeight(t,"Flute",section))*cellVolume(t,"Flute",i,"response"),room,Math.min(1,depth+.1));
-   }
-  }
-
-  if(tavernAllows(t,"Harp") && i%4===3 && density>.65){
-   const chordIndex=Math.min((t.chords?.length||1)-1,Math.floor(i/8));
-   const chord=t.chords?.[chordIndex]||[0];
-   const degree=Number(chord[(Math.floor(i/4)%2)?1:0]??chord[0]??0);
-   const root=String(t.mode||"")==="A Minor"?57:String(t.mode||"")==="G Minor"?55:String(t.mode||"")==="D Major"?62:62;
-   const scale=scaleFor(t.mode||"D Major");
-   const harpNote=clamp(degreeMidi(root,scale,degree,1),60,84);
-   const harpBoost=section===2?1.22:section===3?.72:1;
-   makeVoice("Harp",harpNote,st,Math.min(sec*x.d*.92,sec*1.8),tavernMixLevel(t,"Harp",.032*density*harpBoost*arrangementWeight(t,"Harp",section))*cellVolume(t,"Harp",i,"ornament"),room,depth);
-  }
-
-  if(tavernAllows(t,"Bell") && (i===0||i===7||i===12) && density>.75){
-   makeVoice("Bell",x.n+12,st,Math.min(2.0,sec*2.2),.028*density*arrangementWeight(t,"Bell",section)*cellVolume(t,"Bell",i,"accent"),room,Math.min(1,depth+.25));
-  }
- });
- t.bass.forEach((x,i)=>{
-  const st=start+tm.eventStart(Math.min(x.m,t.phrase.length-1));
-  // One audible Bass event per visible score event.
-  if(tavernAllows(t,"Bass")) makeVoice("Bass",x.n,st,Math.min(sec*x.d*.94,sec*1.6),tavernMixLevel(t,"Bass",tavernMixLevel(t,"Bass",.078*arrangementWeight(t,"Bass",i))),room,depth*.45);
-  if(tavernAllows(t,"Cello") && (Number(x.m)||0)%8===0){
-   const chordIndex=Math.floor((Number(x.m)||0)/8);
-   const celloNote=celloFoundationNote(t,chordIndex,x.n);
-   const celloDur=Math.max(.12,sec*x.d*.90);
-   makeVoice("Cello",celloNote,st,celloDur,tavernMixLevel(t,"Cello",tavernMixLevel(t,"Cello",.085*arrangementWeight(t,"Cello",i)))*cellVolume(t,"Cello",Number(x.m)||i,"foundation"),room,depth*.8);
-  }
- });
- // Style layer: genre changes the rhythmic/sonic grammar, not the world setting.
- const st=t.arrangement?.style||{};
- const styleId=st.id||t.bp.style?.id||"fantasy";
- const beatsPerBar=4;
- if(tavernAllows(t,"Keyboard") && st.pluck>.05){
-  for(let i=0;i<16;i+=2){
-   const x=t.phrase[i%t.phrase.length];
-   if(x?.n!=null){
-    const stt=start+(i+i*.03)*sec;
-    makeStylePluck(x.n+12,stt,Math.min(sec*.28,sec*x.d*.45),.020*st.pluck*cellVolume(t,"Keyboard",i,"pluck"),room,depth);
-   }
-  }
- }
- if(tavernAllows(t,"Guitar") && (st.guitar>.05 || (isTavernTrack(t) && tavernProgressionKey()==="complete"))){
-  const guitarLead=tavernProgressionKey()==="complete" && isTavernTrack(t);
-  if(guitarLead){
-   const root=62, scale=scaleFor("D Major");
-   const chordList=t.chords||[[0,2,4],[4,6,1],[5,0,2],[3,5,0]];
-   for(let i=0;i<t.phrase.length;i+=2){
-    const x=t.phrase[i];
-    if(!x || x.rest || x.n==null) continue;
-    const bs=start+tm.eventStart(i);
-    const next=t.phrase[i+1]||t.phrase[i+2];
-    const nextSt=next?start+tm.eventStart(Math.min(i+2,t.phrase.length-1)):bs+sec*x.d;
-    const sustainEnd=Math.max(bs+sec*x.d*.92,nextSt-sec*.04);
-    const dur=Math.min(Math.max(sec*.55,sustainEnd-bs),sec*3.2);
-    const voicing=tavernGuitarVoicing(t,Math.floor(i/2));
-    const lev=tavernMixLevel(t,"Guitar",.045*Math.max(.9,st.guitar||0)*cellVolume(t,"Guitar",i,"guitar-strum"));
-    makeAcousticGuitarStrum(voicing,bs,dur,lev,room,"down");
-   }
-  }else{
-   for(let bar=0;bar<tm.barCount;bar+=2){const idx=bar*2;const x=t.phrase[idx%t.phrase.length];if(x?.n!=null){const stt=start+tm.eventStart(idx);const lev=.024*st.guitar;makeAcousticGuitar(x.n,stt,sec*.30,tavernMixLevel(t,"Guitar",lev*cellVolume(t,"Guitar",idx,"guitar")),room);}}
-  }
- }
- if(tavernAllows(t,"Drums") && ((st.drums||0)>.05 || (isTavernTrack(t) && tavernProgressionKey()==="complete")) && tavernProgressionKey()==="complete" && isTavernTrack(t)){
-  for(let bar=0;bar<tm.barCount;bar++){
-   const bs=start+tm.eventStart(Math.min(bar*2,t.phrase.length-1));
-   const be=bar<15?start+tm.eventStart(Math.min((bar+1)*2,t.phrase.length-1)):bs+2*sec;
-   const barDur=Math.max(.28,be-bs);
-   const lev=tavernMixLevel(t,"Drums",.090*st.drums);
-   makeDrumHit(bs,lev,room,"kick");
-   makeDrumHit(bs+barDur*.50,lev*.78,room,"snare");
-  }
- }
- if(t.bp.pulse && String(t.scene||t.bp?.scene||'')!=='tavern'){
-  for(let i=0;i<4;i++) makePulse(start+(i*4+3+i*phraseGap)*sec,sec*.72,.018,room);
- }
+ buildTruthScore(t).events.forEach(e=>playScoreEvent(t,e,start,room,depth));
  const total=tm.total*1000;
  state.playing=true;
  $("play").textContent="Ⅱ 再生中";
@@ -2944,6 +2880,8 @@ window.LOOP_DEVELOPMENT_V54 = {
 <!-- v5.65.0: final tavern flute presence increased; pitch/timing/duration/timbre unchanged. -->
 
 <!-- v5.66.0: final tavern guitar/drums slightly softened; rhythm and timing unchanged. -->
+
+<!-- v5.68.0: playback plays buildTruthScore events (score = sound). Missing piano/bell/style-bass/keys/synth now sound; score levels match the v5.67 playback; viola sustain uses score-relative time. -->
 <!-- MUSIC-AUDIO-001: sample engine (appended; everything above is the unmodified base) -->
 <script src="samples/manifest.js"></script>
 <script src="sample-engine.js"></script>
