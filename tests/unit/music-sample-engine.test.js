@@ -262,6 +262,26 @@ test('play(): 未読み込み・AudioContext なしでは null(合成音へ戻�
   assert.equal(S.play({}, 'Flute', 72, 0, 1, .1, { destination:{} }), null);
 });
 
+test('filesFor(): play() と同じ選び方で、その音に要るファイル(rr は全部)を返す', ()=>{
+  S._reset();
+  S.configure({ manifest:loadManifest() });
+  assert.deepEqual(S.filesFor('Drums', 36, .1).map(z=>z.file), ['drums/drums_036_rr1.mp3', 'drums/drums_036_rr2.mp3']);
+  const ref = S.PROFILES.Piano.refLevel;
+  assert.deepEqual(S.filesFor('Piano', 67, ref * .2).map(z=>z.file), ['piano/piano_soft_067.mp3']);
+  assert.deepEqual(S.filesFor('Piano', 67, ref * .9).map(z=>z.file), ['piano/piano_067.mp3']);
+  assert.deepEqual(S.filesFor('Piano', 20, ref), []);          // どのゾーンからも遠い
+  assert.deepEqual(S.filesFor('Guitar', 60, .1), []);          // 収録の無い楽器
+});
+
+test('ensure(): fetch が無くても reject せず、頼まれた楽器は failed、他は idle', async ()=>{
+  S._reset();
+  const st = await S.ensure([{ name:'Bass', midi:40, level:.1 }], { manifest:loadManifest() });
+  assert.equal(st.Bass, 'failed');
+  assert.equal(st.Piano, 'idle');
+  assert.equal(S.loadedInfo().files, 0);
+  S._reset();
+});
+
 test('load(): manifest や fetch が無くても reject せず failed を返す', async ()=>{
   S._reset();
   const st = await S.load({ manifest:null });

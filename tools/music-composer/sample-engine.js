@@ -3,8 +3,8 @@
    譜面イベント(音程 n / 開始 start / 長さ dur / 強弱 level)を受け取り、収録音を
    playbackRate で移調して鳴らす。作曲・譜面のデータには触らない。
 
-   - 読み込みは楽器単位。1ファイルでも読めれば、その楽器は「読めたゾーンの中で最も近い音」から鳴らす
-   - ゾーンから maxShift 半音より遠い音・未読み込みの楽器は play() が null を返す。
+   - 読み込みはファイル単位。ensure() で曲に要るファイルだけを読み、要らなくなったものは手放す
+   - ゾーンから maxShift 半音より遠い音・選んだファイルが未読み込みの音は play() が null を返す。
      呼び出し側(sample-hooks.js)はそのとき既存の合成音で鳴らす
    - 例外は外へ出さない(読み込み失敗でアプリを止めない)
    - ゾーンに loopStart / loopEnd(発音の頭からの秒)がある楽器(弦)は、収録音より長い音をループで伸ばす
@@ -118,21 +118,38 @@
   }
 
   // ---- ブラウザ側 ----------------------------------------------------------
+  // 収録音はファイル単位で読み、使わなくなったら手放す(メモリを曲で使う分だけにする)。
+  // どのファイルを使うかは play() と同じ chooseZone で manifest 全体から決める。
+  // 選んだファイルが未読み込みなら play() は null(その音だけ合成音)で、遠いゾーンで代用しない
   const INSTRUMENTS = Object.keys(PROFILES);
-  const loaded = {}, status = {};                        // loaded: "層:midi" -> [{buffer, offset, zone, loop}](rr の数だけ)
   const zoneKey = z=>(z.layer || 'loud') + ':' + z.midi;
-  const turn = {};                                       // 「楽器:midi」ごとの rr の順番
-  for(const n of INSTRUMENTS){ loaded[n] = new Map(); status[n] = 'idle'; }   // idle / loading / ready / partial / failed
-  let loading = null;
+  const buffers = new Map();     // file -> {name, buffer, offset, zone, loop}
+  const pending = new Map();     // file -> Promise
+  const failed = new Set();      // 読めなかった file
+  const wanted = new Map();      // file -> name(最後に ensure で頼まれた分)
+  const turn = {};               // 「楽器:層:midi」ごとの rr の順番
+  const cfg = { manifest:null, baseUrl:'', fallbackCtx:null };
   let decodeCtx = null;
 
-  function decoder(fallbackCtx){
+  function configure(opts){
+    const o = opts || {};
+    cfg.manifest = o.manifest || cfg.manifest || root.SAMPLE_MANIFEST || null;
+    if(o.baseUrl != null) cfg.baseUrl = o.baseUrl;
+    if(o.fallbackCtx) cfg.fallbackCtx = o.fallbackCtx;
+    return !!cfg.manifest;
+  }
+  function zonesOf(name){
+    configure();
+    return (cfg.manifest && cfg.manifest[name] && cfg.manifest[name].zones) || [];
+  }
+
+  function decoder(){
     if(decodeCtx) return decodeCtx;
     try{
       const Off = root.OfflineAudioContext || root.webkitOfflineAudioContext;
       if(Off) decodeCtx = new Off(1, 1, 44100);
     }catch(e){ decodeCtx = null; }
-    return decodeCtx || fallbackCtx || null;
+    return decodeCtx || cfg.fallbackCtx || null;
   }
 
   // Safari の古い実装はコールバック形式だけ。両方を受ける
@@ -145,61 +162,114 @@
     });
   }
 
-  function urlFor(file, baseUrl){
+  function urlFor(file){
     const inline = root.SAMPLE_DATA && root.SAMPLE_DATA[file];
-    return inline || (baseUrl || '') + file;
+    return inline || (cfg.baseUrl || '') + file;
   }
 
-  async function loadInstrument(name, spec, baseUrl, fallbackCtx){
-    status[name] = 'loading';
-    const zones = (spec && spec.zones) || [];
-    let ok = 0;
-    await Promise.all(zones.map(async zone=>{
+  function loadFile(name, zone){
+    if(buffers.has(zone.file)) return Promise.resolve(true);
+    if(pending.has(zone.file)) return pending.get(zone.file);
+    const job = (async ()=>{
       try{
-        const res = await root.fetch(urlFor(zone.file, baseUrl));
+        if(typeof root.fetch !== 'function') throw new Error('no fetch');
+        const res = await root.fetch(urlFor(zone.file));
         if(!res.ok) throw new Error(`${res.status} ${zone.file}`);
-        const ctx = decoder(fallbackCtx);
+        const ctx = decoder();
         if(!ctx) throw new Error('no AudioContext for decoding');
         const buffer = await decodeCompat(ctx, await res.arrayBuffer());
         const offset = findOnset(buffer.getChannelData(0), buffer.sampleRate);
-        const list = loaded[name].get(zoneKey(zone)) || [];
-        list.push({ buffer, zone, offset, loop:loopRegion(zone, offset, buffer.duration) });
-        list.sort((a, b)=>(a.zone.rr || 0) - (b.zone.rr || 0));
-        loaded[name].set(zoneKey(zone), list);
-        ok++;
+        // 待っている間に要らなくなった(別の曲に変わった)なら持たない
+        if(wanted.has(zone.file)) buffers.set(zone.file, { name, buffer, zone, offset, loop:loopRegion(zone, offset, buffer.duration) });
+        failed.delete(zone.file);
+        return true;
       }catch(e){
+        failed.add(zone.file);
         console.warn('[SampleEngine]', name, zone.file, e && e.message || e);
+        return false;
+      }finally{
+        pending.delete(zone.file);
       }
-    }));
-    status[name] = ok === 0 ? 'failed' : ok < zones.length ? 'partial' : 'ready';
-    return status[name];
+    })();
+    pending.set(zone.file, job);
+    return job;
   }
 
-  /* 一度だけ読み込む(2回目以降は同じ Promise)。失敗しても reject しない */
-  function load(opts){
-    if(loading) return loading;
-    const o = opts || {};
-    const manifest = o.manifest || root.SAMPLE_MANIFEST;
-    if(!manifest || typeof root.fetch !== 'function'){
-      for(const n of INSTRUMENTS) status[n] = 'failed';
-      return (loading = Promise.resolve({ ...status }));
+  /* この音を鳴らすのに使うファイル(rr があれば全部)。play() と同じ選び方 */
+  function filesFor(name, midi, level){
+    const zones = zonesOf(name), profile = PROFILES[name];
+    if(!profile) return [];
+    const pick = chooseZone(zones, midi, level, profile);
+    if(!pick) return [];
+    const key = zoneKey(pick.zone);
+    return zones.filter(z=>zoneKey(z) === key);
+  }
+
+  function status(){
+    const out = {};
+    for(const n of INSTRUMENTS){
+      const files = [...wanted].filter(([, name])=>name === n).map(([f])=>f);
+      if(!files.length){ out[n] = 'idle'; continue; }
+      const ok = files.filter(f=>buffers.has(f)).length, bad = files.filter(f=>failed.has(f)).length;
+      out[n] = ok === files.length ? 'ready' : ok + bad < files.length ? 'loading' : ok === 0 ? 'failed' : 'partial';
     }
-    loading = Promise.all(INSTRUMENTS.map(n=>manifest[n] ? loadInstrument(n, manifest[n], o.baseUrl, o.fallbackCtx) : (status[n] = 'failed')))
-      .then(()=>({ ...status }), ()=>({ ...status }));
-    return loading;
+    return out;
   }
 
-  function isReady(name){ return !!loaded[name] && loaded[name].size > 0; }
+  /* notes: [{name, midi, level}] の音に要るファイルを読む。keep が false なら、それ以外は手放す。
+     失敗しても reject しない。戻り値は status() */
+  function ensure(notes, opts){
+    const o = opts || {};
+    if(!configure(o)){
+      for(const n of (notes || [])) for(const z of filesFor(n.name, n.midi, n.level)) failed.add(z.file);
+      return Promise.resolve(status());
+    }
+    const need = new Map();
+    for(const n of (notes || [])) for(const z of filesFor(n.name, n.midi, n.level)) need.set(z.file, { name:n.name, zone:z });
+    if(!o.keep){
+      wanted.clear();
+      for(const f of [...buffers.keys()]) if(!need.has(f)) buffers.delete(f);
+    }
+    for(const [f, x] of need) wanted.set(f, x.name);
+    return Promise.all([...need.values()].map(x=>loadFile(x.name, x.zone))).then(()=>status(), ()=>status());
+  }
+
+  /* 全部読む(1ファイル版の確認・テスト用) */
+  function load(opts){
+    configure(opts || {});
+    const all = [];
+    for(const n of INSTRUMENTS) for(const z of zonesOf(n)) all.push({ name:n, zone:z });
+    if(!all.length){
+      const out = {};
+      for(const n of INSTRUMENTS) out[n] = 'failed';
+      return Promise.resolve(out);
+    }
+    for(const x of all) wanted.set(x.zone.file, x.name);
+    return Promise.all(all.map(x=>loadFile(x.name, x.zone))).then(()=>status(), ()=>status());
+  }
+
+  function isReady(name){
+    for(const b of buffers.values()) if(b.name === name) return true;
+    return false;
+  }
+
+  /* 読み込み済みの量(検証・表示用) */
+  function loadedInfo(){
+    let seconds = 0, samples = 0;
+    for(const b of buffers.values()){ seconds += b.buffer.duration; samples += b.buffer.length; }
+    return { files:buffers.size, seconds, bytes:samples * 4 };
+  }
 
   /* 鳴らせたら {stop(at), end} を、鳴らせなければ null を返す(呼び出し側が合成音へ戻す) */
   function play(ctx, name, midi, start, dur, level, out){
     try{
-      if(!ctx || !isReady(name) || !out || !out.destination) return null;
+      if(!ctx || !PROFILES[name] || !out || !out.destination) return null;
       const profile = PROFILES[name];
-      const zones = [...loaded[name].values()].map(x=>x[0].zone);
-      const pick = chooseZone(zones, midi, level, profile);
+      const pick = chooseZone(zonesOf(name), midi, level, profile);
       if(!pick) return null;
-      const list = loaded[name].get(zoneKey(pick.zone));
+      const list = zonesOf(name).filter(z=>zoneKey(z) === zoneKey(pick.zone))
+        .sort((a, b)=>(a.rr || 0) - (b.rr || 0)).map(z=>buffers.get(z.file)).filter(Boolean);
+      if(!list.length) return null;                                     // 未読み込み → 合成音
       const key = name + ':' + zoneKey(pick.zone), k = turn[key] || 0;   // 音ごとに rr1 → rr2 → rr1 …
       turn[key] = k + 1;
       const entry = list[k % list.length];
@@ -266,8 +336,11 @@
 
   return {
     PROFILES, INSTRUMENTS, pickZone, chooseZone, planNote, findOnset, loopRegion,
-    load, isReady, play,
-    status(){ return { ...status }; },
-    _reset(){ for(const n of INSTRUMENTS){ loaded[n].clear(); status[n] = 'idle'; } for(const k in turn) delete turn[k]; loading = null; decodeCtx = null; }
+    configure, load, ensure, filesFor, isReady, play, status, loadedInfo,
+    _reset(){
+      buffers.clear(); pending.clear(); failed.clear(); wanted.clear();
+      for(const k in turn) delete turn[k];
+      cfg.manifest = null; cfg.baseUrl = ''; cfg.fallbackCtx = null; decodeCtx = null;
+    }
   };
 });

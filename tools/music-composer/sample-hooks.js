@@ -6,6 +6,10 @@
      playTrack / startScorePlayhead
                   … 通し再生の間だけ印を付ける(セル試聴と区別する・検証用に鳴らした音を記録する)
      stopAudio    … セル試聴の残りを止める
+     renderEdit   … 曲が変わったら(生成・編集・加入段階)、その曲に要る収録音だけを読み、他は手放す
+
+   どの収録音が要るかは、playScoreEvent を「鳴らさずに」通して決める(dry run)。本番と同じ経路なので、
+   層・音域の選び方がずれない。読み込みが間に合わなかった音は、その音だけ合成音で鳴らす。
 
    v5.68.0 の playTrack は buildTruthScore() の譜面イベントを、そのままの値でこれらの関数に渡す
    (playScoreEvent)。だから包むだけで、譜面と同じイベント・同じ強さ・長さ・奥行きでサンプルが鳴る。
@@ -16,7 +20,8 @@
   'use strict';
   const S = window.SampleEngine;
   const need = ['makePiano','makeVoice','makeDrumHit','makeKeyboard','makeStylePluck','playTrack','startScorePlayhead',
-                'stopAudio','playScoreEvent','buildTruthScore','calibratedLevel'];
+                'stopAudio','playScoreEvent','buildTruthScore','calibratedLevel','renderEdit',
+                'makeAcousticGuitar','makeAcousticGuitarStrum','makePulse'];
   const missing = need.filter(n=>typeof window[n] !== 'function');
   if(!S || missing.length){
     console.warn('[sample-hooks] 未接続(合成音のまま):', missing.join(', ') || 'SampleEngine');
@@ -30,11 +35,12 @@
   // Keyboard の keys / synth(makeKeyboard)は同じ level でサンプルが約 6.7dB 大きい。pluck(makeStylePluck)とそろえる
   const KEYS_TRIM = .47;
   const LABEL = { Piano:'ピアノ', Flute:'フルート', Viola:'ヴィオラ', Cello:'チェロ', Harp:'ハープ', Bell:'ベル', Bass:'ベース', Drums:'ドラム', Keyboard:'キーボード' };
-  const synth = { makePiano, makeVoice, makeDrumHit, makeKeyboard, makeStylePluck, playTrack, startScorePlayhead, stopAudio };
+  const synth = { makePiano, makeVoice, makeDrumHit, makeKeyboard, makeStylePluck, playTrack, startScorePlayhead, stopAudio, renderEdit };
   const mode = { enabled:false };
   let session = null;          // playTrack の実行中だけ {notes:[], start}
   let lastNotes = [];          // 検証用: 最後の通し再生で鳴らした音(at は再生開始からの秒)
   let previews = [];           // セル試聴で鳴らしたサンプル。次の試聴・停止で止める
+  let dry = null;              // dry run 中だけ配列。各関数は鳴らさずに {name, midi, level} を積む
   const zero = ()=>Object.fromEntries(SAMPLED.map(n=>[n, 0]));
   const stats = { scheduled:zero(), fallback:zero() };
 
@@ -61,51 +67,85 @@
     }
     return !!v;
   }
-  const ready = name=>mode.enabled && S.isReady(name);
+  /* サンプルで鳴らせたら true(呼び出し側は合成音を鳴らさない)。dry run なら要る音を積むだけ */
+  function route(name, midi, start, dur, engineLevel, out, note){
+    if(dry){ dry.push({ name, midi, level:engineLevel }); return true; }
+    if(!S.isReady(name)) return false;
+    const v = S.play(ctxNow(), name, midi, start, dur, engineLevel, out);
+    // セル試聴で未読み込みの音に当たったら、次のために読んでおく(今回は合成音)
+    if(!v && !session) S.ensure([{ name, midi, level:engineLevel }], { keep:true });
+    return played(v, name, note);
+  }
 
   makePiano = function(n, start, dur, level, room){
-    if(ready('Piano') && room){
-      const v = S.play(ctxNow(), 'Piano', n, start, dur, calibratedLevel('Piano', level), { destination:room.master });
-      if(played(v, 'Piano', { kind:'piano', n, at:start, dur, level, depth:0 })) return;
-    }
+    if(mode.enabled && room &&
+       route('Piano', n, start, dur, calibratedLevel('Piano', level), { destination:room.master }, { kind:'piano', n, at:start, dur, level, depth:0 })) return;
     return synth.makePiano.apply(this, arguments);
   };
 
   makeVoice = function(name, n, start, dur, level, room, depth){
-    if(VOICES.includes(name) && ready(name) && room){
+    if(mode.enabled && VOICES.includes(name) && room){
       const out = voiceOut(name, room, Number(depth) || 0);
-      const v = S.play(ctxNow(), name, n, start, dur, calibratedLevel(name, level) * out.front, out);
-      if(played(v, name, { kind:'voice', n, at:start, dur, level, depth })) return [];
+      if(route(name, n, start, dur, calibratedLevel(name, level) * out.front, out, { kind:'voice', n, at:start, dur, level, depth })) return [];
     }
     return synth.makeVoice.apply(this, arguments);
   };
 
   makeDrumHit = function(start, level, room, type){
-    const midi = DRUM_MIDI[type || 'kick'];
-    if(midi && ready('Drums') && room){
-      const dur = type === 'snare' ? .12 : .16;
-      const v = S.play(ctxNow(), 'Drums', midi, start, dur, calibratedLevel('Drums', level), { destination:room.master });
-      if(played(v, 'Drums', { kind:type || 'kick', n:midi, at:start, dur, level, depth:0 })) return;
-    }
+    const midi = DRUM_MIDI[type || 'kick'], dur = type === 'snare' ? .12 : .16;
+    if(mode.enabled && midi && room &&
+       route('Drums', midi, start, dur, calibratedLevel('Drums', level), { destination:room.master }, { kind:type || 'kick', n:midi, at:start, dur, level, depth:0 })) return;
     return synth.makeDrumHit.apply(this, arguments);
   };
 
   // keys / synth(通し再生とセル試聴)
   makeKeyboard = function(n, start, dur, level, room, kind){
-    if(ready('Keyboard') && room){
-      const v = S.play(ctxNow(), 'Keyboard', n, start, dur, calibratedLevel('Keyboard', level) * KEYS_TRIM, { destination:room.master });
-      if(played(v, 'Keyboard', { kind:kind || 'keys', n, at:start, dur, level, depth:0 })) return;
-    }
+    if(mode.enabled && room &&
+       route('Keyboard', n, start, dur, calibratedLevel('Keyboard', level) * KEYS_TRIM, { destination:room.master }, { kind:kind || 'keys', n, at:start, dur, level, depth:0 })) return;
     return synth.makeKeyboard.apply(this, arguments);
   };
 
   // pluck。level は calibratedLevel を通さない(合成音と同じ)
   makeStylePluck = function(n, start, dur, level, room, depth){
-    if(ready('Keyboard') && room){
-      const v = S.play(ctxNow(), 'Keyboard', n, start, dur, level, { destination:room.master, pan:.08 * (Number(depth) || 0) });
-      if(played(v, 'Keyboard', { kind:'pluck', n, at:start, dur, level, depth })) return [];
-    }
+    if(mode.enabled && room &&
+       route('Keyboard', n, start, dur, level, { destination:room.master, pan:.08 * (Number(depth) || 0) }, { kind:'pluck', n, at:start, dur, level, depth })) return [];
     return synth.makeStylePluck.apply(this, arguments);
+  };
+
+  /* この曲の通し再生に要る音。playScoreEvent を鳴らさずに通す(ギター・脈動は合成音なので止めておく) */
+  function needsFor(track){
+    const out = [];
+    if(!track) return out;
+    const keep = { makeAcousticGuitar, makeAcousticGuitarStrum, makePulse };
+    const el = document.getElementById('space'), depth = el ? (+el.value) / 100 : .55;
+    const room = { master:{}, wet:{} };
+    dry = out;
+    makeAcousticGuitar = makeAcousticGuitarStrum = makePulse = function(){};
+    try{
+      for(const e of buildTruthScore(track).events) playScoreEvent(track, e, 0, room, depth);
+    }catch(e){
+      console.warn('[sample-hooks] 要る音の計算に失敗', e);
+    }finally{
+      dry = null;
+      makeAcousticGuitar = keep.makeAcousticGuitar; makeAcousticGuitarStrum = keep.makeAcousticGuitarStrum; makePulse = keep.makePulse;
+    }
+    return out;
+  }
+
+  /* 今の曲に要る収録音だけを持つ(サンプルが無効なら全部手放す) */
+  let refreshing = null;
+  function refresh(){
+    const notes = mode.enabled ? needsFor(state.track) : [];
+    refreshing = S.ensure(notes, { baseUrl:'samples/', fallbackCtx:ctxNow() });
+    refreshing.then(render, render);
+    render();
+    return refreshing;
+  }
+
+  renderEdit = function(){
+    const r = synth.renderEdit.apply(this, arguments);
+    if(mode.enabled) refresh();
+    return r;
   };
 
   // playTrack は音を予約した後で、開始時刻を付けて呼ぶ
@@ -116,6 +156,7 @@
 
   playTrack = function(){
     if(!mode.enabled) return synth.playTrack.apply(this, arguments);
+    refresh();                   // セル音量で層が変わった音など。間に合わない音はこの回だけ合成音
     Object.assign(stats.scheduled, zero());
     Object.assign(stats.fallback, zero());
     stopPreviews();
@@ -138,8 +179,10 @@
   function statusText(){
     if(!mode.enabled) return '合成音で再生します。';
     const st = S.status();
-    const label = s => ({ idle:'待機', loading:'読み込み中…', ready:'準備完了', partial:'一部のみ', failed:'読み込み失敗 → 合成音' })[s] || s;
-    return SAMPLED.map(n=>`${LABEL[n]}: ${label(st[n])}`).join(' / ') + '。その他の楽器は合成音です。';
+    const label = s => ({ idle:'この曲では不使用', loading:'読み込み中…', ready:'準備完了', partial:'一部のみ', failed:'読み込み失敗 → 合成音' })[s] || s;
+    const info = S.loadedInfo();
+    return SAMPLED.map(n=>`${LABEL[n]}: ${label(st[n])}`).join(' / ')
+      + `。その他の楽器は合成音です。読み込み済み ${info.files} 音(約 ${Math.round(info.bytes / 1e6)}MB)`;
   }
   function render(){
     const el = document.getElementById('sampleEngineStatus');
@@ -150,11 +193,7 @@
     try{ localStorage.setItem(STORE_KEY, mode.enabled ? 'samples' : 'synth'); }catch(e){}
     const sel = document.getElementById('sampleEngineSelect');
     if(sel) sel.value = mode.enabled ? 'samples' : 'synth';
-    render();
-    if(mode.enabled){
-      S.load({ baseUrl:'samples/', fallbackCtx:ctxNow() }).then(render, render);
-      render();
-    }
+    refresh();
   }
   function mountUI(){
     const space = document.getElementById('space');
@@ -181,6 +220,7 @@
   window.SampleHooks = {
     setEnabled, stats:()=>JSON.parse(JSON.stringify(stats)),
     previewCount:()=>previews.length, enabled:()=>mode.enabled,
-    lastNotes:()=>JSON.parse(JSON.stringify(lastNotes))
+    lastNotes:()=>JSON.parse(JSON.stringify(lastNotes)),
+    needs:()=>needsFor(state.track), ready:()=>refreshing || Promise.resolve()
   };
 })();

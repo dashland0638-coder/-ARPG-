@@ -259,6 +259,37 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     });
   }
 
+  test('曲に要る収録音だけを読み、曲が変わると入れ替え、合成音に戻すと全部手放す', async ({ page })=>{
+    const errors = [];
+    page.on('pageerror', e=>errors.push(e.message));
+    await setupTavern(page, PROTO);
+    const r = await page.evaluate(async ()=>{
+      const total = Object.values(SAMPLE_MANIFEST).reduce((n, x)=>n + x.zones.length, 0);
+      const playStats = ()=>{ playTrack(); const st = SampleHooks.stats(); stopAudio(); return st; };
+      SampleHooks.setEnabled(true);
+      await SampleHooks.ready();
+      const tavern = { info:SampleEngine.loadedInfo(), status:SampleEngine.status(), stats:playStats() };
+      // 曲を変える(生成 → renderEdit で読み直し)
+      state.scene = 'mansion'; document.getElementById('prompt').value = sceneDefaults.mansion; generate();
+      await SampleHooks.ready();
+      const mansion = { info:SampleEngine.loadedInfo(), status:SampleEngine.status(), stats:playStats() };
+      SampleHooks.setEnabled(false);
+      await SampleHooks.ready();
+      return { total, tavern, mansion, off:SampleEngine.loadedInfo() };
+    });
+    const sum = o=>Object.values(o).reduce((a, b)=>a + b, 0);
+    expect(r.tavern.info.files).toBeGreaterThan(0);
+    expect(r.tavern.info.files).toBeLessThan(r.total / 3);          // 167 音のうち曲に要る分だけ
+    expect(sum(r.tavern.stats.fallback)).toBe(0);                     // 要る音は全部読めている
+    expect(sum(r.tavern.stats.scheduled)).toBeGreaterThan(0);
+    expect(r.tavern.status.Keyboard).toBe('idle');                    // 酒場ではキーボードを使わない
+    expect(r.mansion.status.Keyboard).toBe('ready');
+    expect(sum(r.mansion.stats.fallback)).toBe(0);
+    expect(r.mansion.info.files).toBeLessThan(r.total / 3);
+    expect(r.off.files).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
   test('ピアノ・ハープ・キーボードは、弱い音で弱く弾いた収録音(弱い層)、強い音で強い層を使う。音量は層の境目でそろう', async ({ page })=>{
     await page.goto(PROTO);
     await enableSamples(page);
