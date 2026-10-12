@@ -1,6 +1,6 @@
 # MUSIC-AUDIO-001
 
-Status: REVIEWING（自動テストは PASS。iPhone 実機の確認が未実施のため合格としない。main への merge は Human）
+Status: REVIEWING（自動テスト PASS。iPhone 実機確認 全項目 問題なし〔Human 報告、2026-10-12〕。main への merge は Human）
 
 Analysis: .ai/reports/MUSIC-AUDIO-001-analysis.md（branch `claude/cc0-sample-audio-engine-76noqo` @ `6ba05c8`）
 
@@ -44,10 +44,10 @@ Analysis §3〜§5 のとおり。
 | セル音量が再生に反映 | 200% で level がちょうど2倍（E2E） |
 | 読み込み失敗でも止まらない | 404 で「読み込み失敗 → 合成音」、合成音と同じ発振器数で再生（E2E） |
 | 出典・バージョン・ライセンス | `tools/music-composer/README.md` |
-| iPhone Safari | 確認表（9 項目）を README に記載。**未実施のため合格としていない** |
+| iPhone Safari | README の確認表。Human が iPhone Safari（claude.ai アーティファクト経由）で全項目 確認済み・問題なし（数値は未記録） |
 
 ## Risks
-- iPhone Safari での実機確認が一部未実施。デコード後のメモリは曲ごとに約 7〜23MB（全部なら約 104MB）
+- iPhone Safari の読み込み時間・遅延の数値は未記録（全項目は問題なしと Human 報告）。デコード後のメモリは曲ごとに約 7〜23MB（全部なら約 104MB）
 - サンプルモードではピアノが鳴る（v5.67.0 の通し再生ではピアノが鳴っていない）
 
 ## Rollback
@@ -128,3 +128,4 @@ Analysis §3〜§5 のとおり。
 | 2026-10-12 | Task | REVIEWING → IMPLEMENTING → REVIEWING | Orchestrator | Human: ギターの不協和音。原因2つを特定、v5.70.0 と サンプルの弦止めで修正。unit / E2E PASS。iPhone 実機は未実施 |
 | 2026-10-12 | Task | REVIEWING | Orchestrator | Human: 聞き比べの結果、v5.70.0 のギターの和音を採用（「57にしてよい」を 5.70 と解釈）。iPhone 実機は未実施 |
 | 2026-10-12 | Task | REVIEWING | Orchestrator | iPhone 実機確認の準備: 確認手順・URL・チェックリスト（確認済み・問題なし / 問題あり / 未確認）を README に整理。全項目 未確認。エンジン・楽曲データは変更なし |
+| 2026-10-12 | Task | REVIEWING | Orchestrator | iPhone だけで開ける確認用ページ（claude.ai 非公開アーティファクト）を用意。Human: 「問題なく動く」→「全部問題なし」。全項目 確認済み・問題なし（数値は未記録）。merge は Human |
