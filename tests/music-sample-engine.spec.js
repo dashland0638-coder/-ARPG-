@@ -3,15 +3,16 @@
    ゲーム本体ではなく、Vite の dev サーバーが配る tools/music-composer/ の HTML を開く。
    AudioContext の生成・発音を数えるだけで、実際の音は聴かない(音質は実機で確認する)。
      ・音源が「合成音」なら、基準の v5.67.0 と同じ曲・同じ譜面・同じ数の発音になる
-     ・「サンプル」なら、ギター・キーボード以外の8楽器は譜面イベントと1対1で鳴り、合成音では鳴らない。
+     ・「サンプル」なら、ギター以外の9楽器は譜面イベントと1対1で鳴り、合成音では鳴らない。
        合成音でも鳴る音の強さ・長さ・奥行きは v5.67.0 の合成音の再生と同じ値
-       (ピアノ・ベル・ベースの style-bass は合成音が鳴らさない譜面の音。サンプルは譜面どおり全部鳴らす)
+       (ピアノ・ベル・ベースの style-bass・キーボードの keys / synth は合成音が鳴らさない譜面の音。サンプルは譜面どおり全部鳴らす)
      ・停止 → 再生を繰り返しても前の音は残らない。セル音量・セル試聴が効く
      ・音源が読めないときは合成音に戻り、アプリは止まらない */
 import { test, expect } from '@playwright/test';
 
 const DIR = '/tools/music-composer/';
-const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums'];
+const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums', 'Keyboard'];
+const TAVERN = SAMPLED.filter(n=>n !== 'Keyboard');   // 酒場にキーボードは無い(TAVERN_STAGE_POLICY)
 const VOICES = ['Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass'];
 const BASE = `${DIR}ARPG_Music_AI_Composer_v5_67_0.html`;
 const PROTO = `${DIR}ARPG_Music_AI_Composer_v5_67_0_samples.html`;
@@ -88,7 +89,7 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     expect(errors).toEqual([]);
   });
 
-  test('サンプルモード: 8楽器は譜面イベントと1対1、合成音は鳴らない', async ({ page })=>{
+  test('サンプルモード(酒場): 8楽器は譜面イベントと1対1、合成音は鳴らない', async ({ page })=>{
     const errors = [];
     page.on('pageerror', e=>errors.push(e.message));
     await setupTavern(page, PROTO);
@@ -108,7 +109,8 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     const st = await enableSamples(page);
     expect(st).toEqual(all('ready'));
     const truth = await truthCounts(page);
-    for(const n of SAMPLED) expect(truth[n]).toBeGreaterThan(0);
+    for(const n of TAVERN) expect(truth[n]).toBeGreaterThan(0);
+    expect(truth.Keyboard).toBe(0);
 
     const sample = await playAndCount(page);
     const stats = await page.evaluate(()=>SampleHooks.stats());
@@ -181,6 +183,49 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
       for(const k of r.by[n].synth) expect(r.by[n].sample, n).toContain(k);
       expect(r.by[n].sample.length, n).toBeGreaterThan(r.by[n].synth.length);
     }
+  });
+
+  test('キーボード(洋館): pluck は合成音と同じ値で鳴り、keys は譜面どおり加わる。合成音は鳴らない', async ({ page })=>{
+    const errors = [];
+    page.on('pageerror', e=>errors.push(e.message));
+    await page.goto(PROTO);
+    await page.evaluate(()=>{ state.scene = 'mansion'; document.getElementById('prompt').value = sceneDefaults.mansion; generate(); });
+    await enableSamples(page);
+    const r = await page.evaluate(names=>{
+      const key = (n, at, dur, level, depth)=>[n, at.toFixed(4), dur.toFixed(4), level.toExponential(6), depth.toFixed(4)].join('|');
+      SampleHooks.setEnabled(false);
+      const calls = [];
+      let t0 = null, voices = 0;
+      const op = window.makeStylePluck, oh = window.startScorePlayhead, ov = window.makeVoice;
+      window.makeVoice = function(name){ if(names.includes(name)) voices++; return ov.apply(this, arguments); };
+      window.makeStylePluck = function(n, st, dur, lv, room, dep){ calls.push(()=>key(n, st - t0, dur, lv, dep)); return op.apply(this, arguments); };
+      window.startScorePlayhead = function(st){ t0 = st; return oh.apply(this, arguments); };
+      playTrack();
+      const synthOsc = window.__audio.contexts.find(x=>x.ctx === audioCtx).osc;
+      stopAudio();
+      window.makeStylePluck = op; window.makeVoice = ov;
+      const synth = calls.map(f=>f()).sort();
+      SampleHooks.setEnabled(true);
+      playTrack();
+      const sampleOsc = window.__audio.contexts.find(x=>x.ctx === audioCtx).osc;
+      stopAudio();
+      window.startScorePlayhead = oh;
+      const notes = SampleHooks.lastNotes().filter(p=>p.instrument === 'Keyboard');
+      const truth = buildTruthScore(state.track).events.filter(e=>e.instrument === 'Keyboard' && !e.rest && e.n != null);
+      return {
+        synth, pluck:notes.filter(p=>p.kind === 'pluck').map(p=>key(p.n, p.at, p.dur, p.level, p.depth)).sort(),
+        keys:notes.filter(p=>p.kind !== 'pluck').length, truth:truth.length,
+        stats:SampleHooks.stats(), synthOsc, sampleOsc, voices
+      };
+    }, VOICES);
+    expect(r.synth.length).toBeGreaterThan(0);
+    expect(r.pluck).toEqual(r.synth);
+    expect(r.keys).toBeGreaterThan(0);
+    expect(r.stats.scheduled.Keyboard).toBe(r.truth);
+    expect(r.stats.fallback.Keyboard).toBe(0);
+    // 合成音の makeVoice と pluck(どちらも1音 2 発振器)の分がちょうど無くなっている
+    expect(r.synthOsc - r.sampleOsc).toBe((r.voices + r.synth.length) * 2);
+    expect(errors).toEqual([]);
   });
 
   test('ドラムはキック・スネアごとに2つの収録音を交互に鳴らす', async ({ page })=>{

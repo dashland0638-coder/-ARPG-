@@ -781,5 +781,71 @@ window.SAMPLE_MANIFEST = {
     "rr": 2
    }
   ]
+ },
+ "Keyboard": {
+  "repo": "vcsl",
+  "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+  "zones": [
+   {
+    "midi": 60,
+    "cents": 0.5,
+    "file": "keyboard/keyboard_060.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_C4_vl2.wav"
+   },
+   {
+    "midi": 64,
+    "cents": 0.8,
+    "file": "keyboard/keyboard_064.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_E4_vl2.wav"
+   },
+   {
+    "midi": 68,
+    "cents": 0.3,
+    "file": "keyboard/keyboard_068.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_G#4_vl2.wav"
+   },
+   {
+    "midi": 72,
+    "cents": 0.2,
+    "file": "keyboard/keyboard_072.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_C5_vl2.wav"
+   },
+   {
+    "midi": 76,
+    "cents": 0.3,
+    "file": "keyboard/keyboard_076.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_E5_vl2.wav"
+   },
+   {
+    "midi": 80,
+    "cents": -0.0,
+    "file": "keyboard/keyboard_080.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_G#5_vl2.wav"
+   },
+   {
+    "midi": 84,
+    "cents": 0.1,
+    "file": "keyboard/keyboard_084.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_C6_vl2.wav"
+   },
+   {
+    "midi": 88,
+    "cents": 0.3,
+    "file": "keyboard/keyboard_088.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_E6_vl2.wav"
+   },
+   {
+    "midi": 92,
+    "cents": -0.9,
+    "file": "keyboard/keyboard_092.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_G#6_vl2.wav"
+   },
+   {
+    "midi": 96,
+    "cents": -0.1,
+    "file": "keyboard/keyboard_096.mp3",
+    "source": "Electrophones/TX81Z/FM Piano/FMPiano_C7_vl2.wav"
+   }
+  ]
  }
 };

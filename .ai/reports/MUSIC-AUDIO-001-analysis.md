@@ -116,3 +116,12 @@ Tone.js（MIT）/ smplr（MIT）/ soundfont-player（MIT）も候補だが、単
 | 再生側の値（FACT） | ベース: 再生は `tavernMixLevel` を2回（譜面は1回）、奥行き ×.45、セル音量は常に 1。譜面の `style-bass`（8 音）は合成音の通し再生で鳴らない。ドラム: 再生の強さは キック `tavernMixLevel(.090×drums)`、スネア その ×.78。譜面は キック .072・スネア .05 ×drums（`tavernMixLevel` なし）。時刻・種類は同じ |
 | 決定 | 合成音でも鳴る音（ベース 18、ドラム 80）は値まで一致。`style-bass` はピアノ・ベルと同じく譜面どおり鳴らす |
 | 音量 | ベース gain 1.7（±2.5 dB）、ドラム gain 1.0（キック RMS ±0.3 dB、スネア +3.8 dB / ピーク +2.2 dB） |
+
+## 10. 追加: キーボード（Human 指示「続けて」。ギターは推奨 A のとおり合成音のまま）
+
+| 項目 | 内容 |
+| --- | --- |
+| 音源 | VCSL `Electrophones/TX81Z/FM Piano` vl2、10 音（MIDI 60〜96、長3度おき）。ファイル名は科学的表記（C4 = 60、実測で確認）。パッチは作者が作成し実機から収録（`Origin.txt`）。CC0（VCSL の LICENSE） |
+| 使われ方（FACT） | 酒場には無い（`TAVERN_STAGE_POLICY`）。他のシーンでは譜面に pluck（`makeStylePluck`、通し再生で鳴る）と keys / synth（`makeKeyboard`、通し再生では鳴らずセル試聴だけ）がある。洋館: pluck 8・keys 8 |
+| 決定 | pluck は合成音と同じ値（洋館 8 音一致）。keys / synth はピアノ・ベルと同じく譜面どおり鳴らす。1 つの音源（FM エレピ）を3種類に使う |
+| 音量 | pluck は gain 1.0 で ±1.5 dB。keys は同じ level で +6.7 dB だったため、keys / synth の経路だけ ×0.47 |

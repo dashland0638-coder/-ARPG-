@@ -1,7 +1,8 @@
 /* MUSIC-AUDIO-001: 作曲アプリ(v5.67.0 基準)にサンプル音源を差し込むフック
 
    既存の HTML は1行も書き換えない。アプリの後ろに読み込み、次の全域関数だけを包む:
-     makePiano / makeVoice / makeDrumHit … ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベル・ベース・ドラム(キック・スネア)の1音。
+     makePiano / makeVoice / makeDrumHit / makeKeyboard / makeStylePluck
+                          … ギター以外の9楽器(ドラムはキック・スネア)の1音。
                             サンプルで鳴らせれば鳴らし、だめなら元の合成音
      playTrack            … サンプル音源が有効なとき、これらの楽器を buildTruthScore() の
                             譜面イベントから鳴らす(譜面と実際の音を同じイベントにする)
@@ -16,7 +17,7 @@
 (function(){
   'use strict';
   const S = window.SampleEngine;
-  const need = ['makePiano','makeVoice','makeDrumHit','playTrack','startScorePlayhead','makeRoom','stopAudio',
+  const need = ['makePiano','makeVoice','makeDrumHit','makeKeyboard','makeStylePluck','playTrack','startScorePlayhead','makeRoom','stopAudio',
                 'buildTruthScore','cellVolume','calibratedLevel','tavernMixLevel','loopSectionAt','scoreTiming'];
   const missing = need.filter(n=>typeof window[n] !== 'function');
   if(!S || missing.length){
@@ -25,11 +26,13 @@
   }
 
   const STORE_KEY = 'arpgMusic.sampleEngine';
-  const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums'];
+  const SAMPLED = ['Piano', 'Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass', 'Drums', 'Keyboard'];
   const VOICES = ['Flute', 'Viola', 'Cello', 'Harp', 'Bell', 'Bass'];   // 合成音では makeVoice(name, …) で鳴る楽器
-  const DRUM_MIDI = { kick:36, snare:38 };                             // 合成音では makeDrumHit(…, type) で鳴る
-  const LABEL = { Piano:'ピアノ', Flute:'フルート', Viola:'ヴィオラ', Cello:'チェロ', Harp:'ハープ', Bell:'ベル', Bass:'ベース', Drums:'ドラム' };
-  const synth = { makePiano, makeVoice, makeDrumHit, playTrack, startScorePlayhead, makeRoom, stopAudio };
+  const DRUM_MIDI = { kick:36, snare:38 };
+  // Keyboard の keys / synth(makeKeyboard)は同じ level でサンプルが約 6.7dB 大きい。pluck(makeStylePluck)とそろえる
+  const KEYS_TRIM = .47;                             // 合成音では makeDrumHit(…, type) で鳴る
+  const LABEL = { Piano:'ピアノ', Flute:'フルート', Viola:'ヴィオラ', Cello:'チェロ', Harp:'ハープ', Bell:'ベル', Bass:'ベース', Drums:'ドラム', Keyboard:'キーボード' };
+  const synth = { makePiano, makeVoice, makeDrumHit, makeKeyboard, makeStylePluck, playTrack, startScorePlayhead, makeRoom, stopAudio };
   const mode = { enabled:false };
   let session = null;          // playTrack の実行中だけ {start, room, bySample:{楽器:bool}}
   let lastSession = null;      // 検証用: 最後の通し再生で鳴らした音(notes)
@@ -59,6 +62,8 @@
              譜面の style-bass(ジャンルの低音)は合成音の通し再生では鳴らない。サンプルでは譜面どおり鳴らす
      ・Drums: 再生の強さは譜面と別の式(キック .090×drums、スネアはその ×.78)。譜面はキック .072・スネア .05 ×drums
              なので、譜面の level からその比で戻す。酒場の補正を掛ける
+     ・Keyboard: pluck は makeStylePluck(calibratedLevel を通さない、定位 .08×奥行き)で、値は譜面と同じ。
+             keys / synth は合成音の通し再生では鳴らない(セル試聴だけ makeKeyboard)。サンプルでは譜面どおり鳴らす
      ・Piano: 合成音の通し再生では鳴らないので、譜面の値そのまま */
   function performance(track, e, d, start){
     const cell = cellVolume(track, e.instrument, e.index, e.kind);
@@ -124,6 +129,25 @@
     return synth.makeDrumHit.apply(this, arguments);
   };
 
+  // セル試聴(keys)。合成音の通し再生では呼ばれない
+  makeKeyboard = function(n, start, dur, level, room){
+    if(mode.enabled && S.isReady('Keyboard') && room){
+      const v = S.play(ctxNow(), 'Keyboard', n, start, dur, calibratedLevel('Keyboard', level) * KEYS_TRIM, { destination:room.master });
+      if(v){ keepPreview(v); return; }
+    }
+    return synth.makeKeyboard.apply(this, arguments);
+  };
+
+  // 通し再生の Keyboard pluck。level は calibratedLevel を通さない(合成音と同じ)
+  makeStylePluck = function(n, start, dur, level, room, depth){
+    if(mode.enabled && S.isReady('Keyboard') && room){
+      if(session && session.bySample.Keyboard) return [];   // 譜面イベント側で鳴らす(二重にしない)
+      const v = S.play(ctxNow(), 'Keyboard', n, start, dur, level, { destination:room.master, pan:.08 * (Number(depth) || 0) });
+      if(v){ keepPreview(v); return []; }
+    }
+    return synth.makeStylePluck.apply(this, arguments);
+  };
+
   makeRoom = function(){
     const room = synth.makeRoom.apply(this, arguments);
     if(session && !session.room) session.room = room;
@@ -155,6 +179,14 @@
       if(p.instrument === 'Piano'){
         v = S.play(ctx, 'Piano', p.n, at, p.dur, calibratedLevel('Piano', p.level), { destination:sess.room.master });
         if(!v) synth.makePiano(p.n, at, p.dur, p.level, sess.room);
+      }else if(p.instrument === 'Keyboard'){
+        if(p.kind === 'pluck'){
+          v = S.play(ctx, 'Keyboard', p.n, at, p.dur, p.level, { destination:sess.room.master, pan:.08 * p.depth });
+          if(!v) synth.makeStylePluck(p.n, at, p.dur, p.level, sess.room, p.depth);
+        }else{
+          v = S.play(ctx, 'Keyboard', p.n, at, p.dur, calibratedLevel('Keyboard', p.level) * KEYS_TRIM, { destination:sess.room.master });
+          if(!v) synth.makeKeyboard(p.n, at, p.dur, p.level, sess.room, p.kind);
+        }
       }else if(p.instrument === 'Drums'){
         v = S.play(ctx, 'Drums', p.n, at, p.dur, calibratedLevel('Drums', p.level), { destination:sess.room.master });
         if(!v) synth.makeDrumHit(at, p.level, sess.room, p.kind);
@@ -223,9 +255,9 @@
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = '<div class="section-title">音源</div>'
-      + '<div class="mini">ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベル・ベース・ドラムを収録音(CC0)で鳴らす試作です。読み込めない音は合成音に戻ります。</div>'
+      + '<div class="mini">ギター以外の9楽器(ピアノ・フルート・ヴィオラ・チェロ・ハープ・ベル・ベース・ドラム・キーボード)を収録音(CC0)で鳴らす試作です。読み込めない音は合成音に戻ります。</div>'
       + '<div class="instrument"><b>音源</b><select id="sampleEngineSelect" style="padding:6px;border-radius:8px">'
-      + '<option value="synth">合成音(従来)</option><option value="samples">サンプル(ギター・キーボード以外)</option>'
+      + '<option value="synth">合成音(従来)</option><option value="samples">サンプル(ギター以外)</option>'
       + '</select><span></span></div>'
       + '<div class="mini" id="sampleEngineStatus"></div>';
     anchor.insertAdjacentElement('afterend', card);

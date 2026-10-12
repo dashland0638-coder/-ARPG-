@@ -4,7 +4,8 @@
 入力は固定コミットの2リポジトリ(どちらも LICENSE が CC0 1.0):
   VCSL       https://github.com/sgossner/VCSL        (ピアノ: Upright Piano, Knight / Sustains / vl2、
                                                        ハープ: Concert Harp / f、ベル: Hand Chimes / sus、
-                                                       ドラム: Frame Drum / Hit v3(大=キック、小=スネア、各 rr1・rr2))
+                                                       ドラム: Frame Drum / Hit v3(大=キック、小=スネア、各 rr1・rr2)、
+                                                       キーボード: Electrophones/TX81Z/FM Piano / vl2)
   VSCO-2-CE  https://github.com/sgossner/VSCO-2-CE   (フルート: Woodwinds/Flute/susvib / v1、
                                                        ヴィオラ: Strings/Viola Section/susvib / v2、
                                                        チェロ: Strings/Cello Section/susvib / v3、
@@ -28,7 +29,7 @@ VSCO_COMMIT = "440300901dfe9275fd84e0b7763af1f8443ae62e"
 SR = 44100
 NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
-# ファイル名の音名はほとんど「科学的表記 - 1 オクターブ」(A3 = MIDI 69)。ハープだけ科学的表記(A4 = MIDI 69)。
+# ファイル名の音名はほとんど「科学的表記 - 1 オクターブ」(A3 = MIDI 69)。ハープと TX81Z は科学的表記(A4 = MIDI 69)。
 # build 時に実測して確かめる(50 cent 以上ずれたら止まる)。
 def vendor_name(midi):
     return f"{NAMES[midi % 12]}{midi // 12 - 2}"
@@ -99,6 +100,14 @@ DRUMS = {
     "items": [(36, "HDrumL_Hit_v3_rr1_Sum.wav"), (36, "HDrumL_Hit_v3_rr2_Sum.wav"),
               (38, "HDrumS_Hit_v3_rr1_Sum.wav"), (38, "HDrumS_Hit_v3_rr2_Sum.wav")],
     "unpitched": True, "seconds": 1.4, "fade": 0.5, "bitrate": "112k",
+}
+
+KEYBOARD = {
+    "repo": "vcsl", "commit": VCSL_COMMIT,
+    "dir": "Electrophones/TX81Z/FM Piano",
+    "file": lambda m: f"FMPiano_{sci_name(m)}_vl2.wav",
+    "midis": [60, 64, 68, 72, 76, 80, 84, 88, 92, 96],  # 収録は長3度おき(C・E・G#)
+    "seconds": 3.0, "fade": 0.6, "bitrate": "112k",
 }
 
 def git_blob(repo, commit, path):
@@ -205,6 +214,7 @@ def main():
         "Viola": build(VIOLA, "viola", args), "Cello": build(CELLO, "cello", args),
         "Harp": build(HARP, "harp", args), "Bell": build(BELL, "bell", args),
         "Bass": build(BASS, "bass", args), "Drums": build(DRUMS, "drums", args),
+        "Keyboard": build(KEYBOARD, "keyboard", args),
     }
     body = json.dumps(manifest, indent=1, ensure_ascii=False)
     with open(os.path.join(args.out, "manifest.js"), "w") as f:
