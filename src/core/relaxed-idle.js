@@ -200,14 +200,21 @@ export const RELAXED_WALK_ARM_SWING = {
 export const RELAXED_WALK_ARM_BASE = Object.freeze({ sh: -0.03, el: -0.16 });
 
 /* 休め姿勢から「歩くときの休め」を作る。腕の4チャンネルだけを返す
-   (locomotionArmBase に渡す形)。stance が足りないときは触らずに返す */
-export function relaxedWalkStance(relaxed){
+   (locomotionArmBase に渡す形)。stance が足りないときは触らずに返す。
+
+   stopW は「止まっている度合い」(05-rendering-rig.js の relaxStopBlend。歩いて
+   いる間 0、止まると 0.5 秒ほどで 1 へ)。0 で歩くときの形、1 で休め姿勢
+   そのもの。歩き出し・止まりのどちらでも、この補間で基準が連続に変わる
+   (止まった瞬間に肩・肘が跳ばない) */
+export function relaxedWalkStance(relaxed, stopW = 0){
   if(!relaxed || !Array.isArray(relaxed.shL) || !Array.isArray(relaxed.shR)) return relaxed;
+  const w = Number.isFinite(stopW) ? Math.max(0, Math.min(1, stopW)) : 0;
+  const mix = (walk, rest)=> walk + (rest - walk) * w;
   return {
-    shL: [RELAXED_WALK_ARM_BASE.sh, relaxed.shL[1], relaxed.shL[2]],
-    shR: [RELAXED_WALK_ARM_BASE.sh, relaxed.shR[1], relaxed.shR[2]],
-    elL: RELAXED_WALK_ARM_BASE.el,
-    elR: RELAXED_WALK_ARM_BASE.el,
+    shL: [mix(RELAXED_WALK_ARM_BASE.sh, relaxed.shL[0]), relaxed.shL[1], relaxed.shL[2]],
+    shR: [mix(RELAXED_WALK_ARM_BASE.sh, relaxed.shR[0]), relaxed.shR[1], relaxed.shR[2]],
+    elL: mix(RELAXED_WALK_ARM_BASE.el, relaxed.elL),
+    elR: mix(RELAXED_WALK_ARM_BASE.el, relaxed.elR),
   };
 }
 

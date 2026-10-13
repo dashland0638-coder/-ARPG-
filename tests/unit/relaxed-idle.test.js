@@ -260,6 +260,17 @@ test('非戦闘の移動の係数(locomotionMix / RELAXED_WALK_*)', async t=>{
     // 立ち止まった休め姿勢より、肘の曲げは浅く、肩は前へ出ていない
     assert.ok(Math.abs(RELAXED_WALK_ARM_BASE.el) < Math.abs(RELAXED.elL));
     assert.ok(RELAXED_WALK_ARM_BASE.sh > RELAXED.shL[0]);
+    // 止まっている度合い 1 で休め姿勢そのもの、0.5 で中間(止まりの瞬間に跳ばない)
+    const rest = relaxedWalkStance(RELAXED, 1);
+    assert.deepEqual([rest.shL, rest.shR, rest.elL, rest.elR], [RELAXED.shL, RELAXED.shR, RELAXED.elL, RELAXED.elR]);
+    const half = relaxedWalkStance(RELAXED, 0.5);
+    assert.ok(Math.abs(half.elL - (RELAXED_WALK_ARM_BASE.el + RELAXED.elL) / 2) < 1e-12);
+    let prev = relaxedWalkStance(RELAXED, 0);
+    for (let k = 0.05; k <= 1.0001; k += 0.05) {
+      const cur = relaxedWalkStance(RELAXED, k);
+      assert.ok(Math.abs(cur.elL - prev.elL) < 0.02 && Math.abs(cur.shL[0] - prev.shL[0]) < 0.02, `stopW ${k.toFixed(2)}`);
+      prev = cur;
+    }
     // 構え(combatW = 1)では、従来どおり構えの腕
     const near = (a, b) => [a.shL, a.shR].flat().concat([a.elL, a.elR])
       .every((v, i) => Math.abs(v - [b.shL, b.shR].flat().concat([b.elL, b.elR])[i]) < 1e-12);
