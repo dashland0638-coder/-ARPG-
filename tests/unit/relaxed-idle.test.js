@@ -4,7 +4,11 @@ import {
   CLASS_RELAXED_IDLE, JOB_RELAXED_MUL, relaxedIdleProfile,
   buildRelaxedIdleTarget, stepRestBlend, REST_BLEND_RATE, REST_STOP_RATE,
   locomotionArmBase, locomotionMix, RELAXED_WALK_ARM_SWING, RELAXED_WALK_UPPER,
+  RELAXED_WALK_ARM_BASE, relaxedWalkStance, relaxedWalkArmAmplitude, locomotionElbowBend,
 } from '../../src/core/relaxed-idle.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { idleProfile, blendPose } from '../../src/core/combat-stance.js';
 
 /* 非戦闘時(酒場・探索)の待機。ここが守っているのは主に2つで、
@@ -222,7 +226,59 @@ test('非戦闘の移動の係数(locomotionMix / RELAXED_WALK_*)', async t=>{
   await t.test('4職すべてに非戦闘の腕振り係数がある', ()=>{
     for(const cls of ['warrior','rogue','mage','archer']){
       const v = RELAXED_WALK_ARM_SWING[cls];
-      assert.ok(Number.isFinite(v) && v > 0 && v < 1, `${cls}: ${v}`);
+      assert.ok(Number.isFinite(v) && v > 0, `${cls}: ${v}`);
+    }
+  });
+
+  /* CH1-EXP X-3: 以前は歩く速さで肩の振れが前後 ±7° ほどしかなく、腕が体の前に
+     張り付いて見えた。各職の素の速さ(CLASSES.spd)と体格(BUILD)で、
+     非戦闘の振れが ±18°〜±28° に入ることを、本番の表から読んで確かめる */
+  await t.test('非戦闘の腕の振れ幅は、各職の速さと体格で ±18°〜±28°(CH1-EXP X-3)', ()=>{
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const classes = fs.readFileSync(path.join(root, 'src/legacy/parts/01-character-creation.js'), 'utf8');
+    const rig = fs.readFileSync(path.join(root, 'src/legacy/parts/05-rendering-rig.js'), 'utf8');
+    const deg = r => r * 180 / Math.PI;
+    for(const cls of ['warrior','rogue','mage','archer']){
+      const spd = Number(new RegExp(`key:'${cls}'[\\s\\S]*?spd:([\\d.]+)`).exec(classes)[1]);
+      const b = new RegExp(`\\n    ${cls}: \\{[\\s\\S]*?strideAmp:([\\d.]+), armSwing:([\\d.]+)`).exec(rig);
+      assert.ok(spd > 0 && b, cls);
+      const amp = deg(relaxedWalkArmAmplitude(cls, spd, { strideAmp: Number(b[1]), armSwing: Number(b[2]) }));
+      assert.ok(amp >= 18 && amp <= 28, `${cls}: spd ${spd} → ±${amp.toFixed(1)}°`);
+    }
+  });
+
+  await t.test('歩くときの休め: 肩の前後と肘だけを、腕を体の横へ下ろした形にする(横方向は休め姿勢のまま)', ()=>{
+    // 剣士の休め姿勢(05-rendering-rig.js STANCE_RELAXED.warrior)と同じ形
+    const RELAXED = Object.assign({}, STANCE, {
+      shL:[-0.14, 0.06, 0.20], elL:-0.34, shR:[-0.12,-0.05,-0.18], elR:-0.30,
+    });
+    const w = relaxedWalkStance(RELAXED);
+    assert.deepEqual(w.shL, [RELAXED_WALK_ARM_BASE.sh, RELAXED.shL[1], RELAXED.shL[2]]);
+    assert.deepEqual(w.shR, [RELAXED_WALK_ARM_BASE.sh, RELAXED.shR[1], RELAXED.shR[2]]);
+    assert.equal(w.elL, RELAXED_WALK_ARM_BASE.el);
+    assert.equal(w.elR, RELAXED_WALK_ARM_BASE.el);
+    // 立ち止まった休め姿勢より、肘の曲げは浅く、肩は前へ出ていない
+    assert.ok(Math.abs(RELAXED_WALK_ARM_BASE.el) < Math.abs(RELAXED.elL));
+    assert.ok(RELAXED_WALK_ARM_BASE.sh > RELAXED.shL[0]);
+    // 構え(combatW = 1)では、従来どおり構えの腕
+    const near = (a, b) => [a.shL, a.shR].flat().concat([a.elL, a.elR])
+      .every((v, i) => Math.abs(v - [b.shL, b.shR].flat().concat([b.elL, b.elR])[i]) < 1e-12);
+    assert.ok(near(locomotionArmBase(STANCE, w, 1), locomotionArmBase(STANCE, RELAXED, 1)));
+  });
+
+  await t.test('肘: 非戦闘は前へ振った腕が曲がり、構え(combatW = 1)は従来の式のまま', ()=>{
+    const swing = 0.5;
+    // 左腕が前(s > 0)
+    let b = locomotionElbowBend(1, swing, 0);
+    assert.ok(b.l > 0 && b.r === 0);
+    // 右腕が前(s < 0)
+    b = locomotionElbowBend(-1, swing, 0);
+    assert.ok(b.r > 0 && b.l === 0);
+    // 構えは従来: elbowL = base − max(0,−s)·swing·0.5、elbowR = base − max(0,s)·swing·0.5
+    for(const s of [-1, -0.4, 0, 0.3, 1]){
+      const c = locomotionElbowBend(s, swing, 1);
+      assert.ok(Math.abs(c.l - Math.max(0, -s) * swing * 0.5) < 1e-12);
+      assert.ok(Math.abs(c.r - Math.max(0,  s) * swing * 0.5) < 1e-12);
     }
   });
 

@@ -1216,7 +1216,11 @@
           { shL:[P.armLBase.x, P.armLBase.y, P.armLBase.z],
             shR:[P.armRBase.x, P.armRBase.y, P.armRBase.z],
             elL:P.elbowLBase.x, elR:P.elbowRBase.x },
-          activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job),
+          /* 歩いている間の休め側は、腕を体の横へ下ろした形(CH1-EXP X-3)。
+             止まると休め姿勢そのものへ戻る ―― その遷移は applyRelaxedIdlePose
+             (relaxStopBlend)が補間するので、ここで切り替えても跳ばない */
+          moving ? relaxedWalkStance(activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job))
+                 : activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job),
           walkW)
       : null;
     const runUpper = run * locomotionMix(RELAXED_WALK_UPPER.run, 1, walkW);
@@ -1229,8 +1233,11 @@
       P.armL.rotation.set(armBase.shL[0] - s * swing * asw, armBase.shL[1], armBase.shL[2]);
       P.armR.rotation.set(armBase.shR[0] + s * swing * asw, armBase.shR[1], armBase.shR[2]);
       if(P.elbowL && P.elbowR){
-        P.elbowL.rotation.x = armBase.elL - Math.max(0, -s) * swing * 0.5;
-        P.elbowR.rotation.x = armBase.elR - Math.max(0,  s) * swing * 0.5;
+        /* 非戦闘は前へ振った腕の肘が曲がり、構え(walkW = 1)は従来どおり
+           (core/relaxed-idle.js locomotionElbowBend、CH1-EXP X-3) */
+        const bend = locomotionElbowBend(s, swing, walkW);
+        P.elbowL.rotation.x = armBase.elL - bend.l;
+        P.elbowR.rotation.x = armBase.elR - bend.r;
       }
     }
     // waist: the shoulders lead the hips through the stride and the chest
