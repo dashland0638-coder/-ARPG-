@@ -1149,6 +1149,10 @@
     if(!player || !playerMixerParts || !playerMixerParts.waist || !state.classDef) return;
     player.position.copy(state.pos);
     player.rotation.y = state.facing;
+    /* 見た目の向き(操作中に少しずつ回すもの)も合わせておく。合わせないと、
+       会話が向きを変えている途中で開いたとき、操作に戻った瞬間に古い向きへ
+       戻ってから回り直す */
+    visualFacing = state.facing;
     const w = state.walkTo;
     updateLocomotion(dt, w ? Math.hypot(w.vx || 0, w.vz || 0) : 0);
   }
@@ -1232,10 +1236,9 @@
             shR:[P.armRBase.x, P.armRBase.y, P.armRBase.z],
             elL:P.elbowLBase.x, elR:P.elbowRBase.x },
           /* 歩いている間の休め側は、腕を体の横へ下ろした形(CH1-EXP X-3)。
-             止まると休め姿勢そのものへ戻る ―― その遷移は applyRelaxedIdlePose
-             (relaxStopBlend)が補間するので、ここで切り替えても跳ばない */
-          moving ? relaxedWalkStance(activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job))
-                 : activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job),
+             止まっている度合い(relaxStopBlend、1 フレーム前の値)で休め姿勢と
+             混ぜるので、歩き出しでも止まりでも基準が連続に変わる */
+          relaxedWalkStance(activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job), relaxStopBlend),
           walkW)
       : null;
     const runUpper = run * locomotionMix(RELAXED_WALK_UPPER.run, 1, walkW);
