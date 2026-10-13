@@ -242,9 +242,15 @@ test.describe('森の洋館の通常敵3種', () => {
     await arenaSpawn(page, 'Manor Hound');
     expect(await info(page, 'HP')).not.toBeNull();
     const hound = fresh();
-    for(let i = 0; i < 26; i++){
+    /* 観察の回数は実時間で数えるが、溜め(0.85 秒)→ 突進はゲーム内の時間で進む。猟犬は 6m 以内に
+       入るまで歩き回るので、溜めの始まりは run によって遅い。遅い CI では 26 回目にやっと TELEGRAPH
+       が出て、DASH を見る前に打ち切られた run があった(PR #76)。溜めを見てから突進までを
+       見届けられるよう、溜めを見た後は最大 10 回まで延ばす(要求は変えない) */
+    let houndRounds = 26;
+    for(let i = 0; i < houndRounds; i++){
       await watchRound(page, hound, i < 3 ? 220 : 0);
       if(has(hound.ai, 'TELEGRAPH') && has(hound.ai, 'DASH')) break;
+      if(has(hound.ai, 'TELEGRAPH') && houndRounds === 26) houndRounds = Math.max(26, i + 11);
     }
     console.log('猟犬 AI State:', Array.from(hound.ai).join(' / '));
     console.log('猟犬 Punish  :', Array.from(hound.punish).join(' / '));
