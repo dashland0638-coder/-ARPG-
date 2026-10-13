@@ -29,96 +29,96 @@ Plan: .ai/reports/CHAPTER-1-experience-plan.md（Work Item ごとの Goal / Scop
 
 | ID | Summary | 要件 | 優先度 | Status | Approval | 依存 |
 | --- | --- | --- | --- | --- | --- | --- |
-| X-1 | 分離の台詞を「消えた……？」に | A | P1 | PLANNED | [ ] | ― |
-| X-2 | 宵待ちの村の演出テンポ（無言の間を詰め、見せ場は残す） | C | P1 | PLANNED | [ ] | X-4（推奨） |
-| X-3 | 非戦闘の歩行の腕振り・胴の動き | E | P1 | PLANNED | [ ] | ― |
-| X-4 | 演出中も主人公の待機・歩行のアニメーションを止めない | C・E | P1 | PLANNED | [ ] | X-3 |
-| X-5 | 帰還 → 帰還の会話 → 次の主人公の登場 → 交代の会話 → 切り替え | B | P2 | WAITING_APPROVAL | [ ] | EX-1、E2E は古い監査の E-8 |
-| X-6a | 村の光の色の段差をなくす（補間） | D | P2 | PLANNED | [ ] | ― |
-| X-6b | 村の時間帯を何で決めるか（行き来で巻き戻らない） | D | P2〜P3 | WAITING_APPROVAL | [ ] | EX-2、X-6a |
-| X-7 | 最初のマップ改修の詳細計画 | F | P3 | WAITING_APPROVAL | [ ] | EX-3、CH1-T0、X-2、X-6 |
+| X-1 | 分離の台詞を「消えた……？」に | A | P1 | APPROVED | [x] | ― |
+| X-2 | 宵待ちの村の演出テンポ（無言の間を詰め、見せ場は残す） | C | P1 | APPROVED | [x] | X-4（推奨） |
+| X-3 | 非戦闘の歩行の腕振り・胴の動き | E | P1 | APPROVED | [x] | ― |
+| X-4 | 演出中も主人公の待機・歩行のアニメーションを止めない | C・E | P1 | APPROVED | [x] | X-3 |
+| X-5 | 帰還 → 帰還の会話 → 次の主人公の登場 → 交代の会話 → 切り替え | B | P2 | APPROVED | [x] | EX-1、E2E は古い監査の E-8 |
+| X-6a | 村の光の色の段差をなくす（補間） | D | P2 | APPROVED | [x] | ― |
+| X-6b | 村の時間帯を何で決めるか（行き来で巻き戻らない） | D | P2〜P3 | APPROVED | [x] | EX-2、X-6a |
+| X-7 | 最初のマップ改修の詳細計画 | F | P3 | APPROVED | [x] | EX-3、CH1-T0、X-2、X-6 |
 
 各 Work Item の計画は `CHAPTER-1-experience-plan.md` §2。Status と Approval の正本はこの表。
 
 ### X-1 Approval
-- [ ] Approved
+- [x] Approved
 - Approval type: Agent Approval（文言は Human が依頼で指定）
 - Escalation Check: None
-- Approved by / date / where:
+- Approved by / date / where: Planner (Agent) / 2026-10-13 / Human の実装指示（DEC-006）を受けて
 - Scope of approval: 計画 §2 X-1 の Files（`03-dungeons-mansion-temple.js` の台詞 1 行とコメント、`MANSION_SCENARIO.md`、`docs/CHAPTER1_PLAYTEST.md` B-12、unit 1 件）
-- Persistence:
+- Persistence: 許可（branch: `claude/ch1-exp-x1-*`、根拠: Human の指示「Work Item ごとに小さな PR に分割する」DEC-006）
 
-Implementation (X-1): BLOCKED until approval（初期フェーズは実装しない）
+Implementation (X-1): ALLOWED
 
 ### X-2 Approval
-- [ ] Approved
+- [x] Approved
 - Approval type: Agent Approval
 - Escalation Check: None（イベントの数・場所・台詞・条件・順序は変えない。記憶のイベントを止めない形に変える案は Out of Scope）
-- Approved by / date / where:
+- Approved by / date / where: Planner (Agent) / 2026-10-13 / Human の実装指示（DEC-006）を受けて
 - Scope of approval: 計画 §2 X-2
-- Persistence:
+- Persistence: 許可（branch: `claude/ch1-exp-x2-*`、根拠: Human の指示「Work Item ごとに小さな PR に分割する」DEC-006）
 
-Implementation (X-2): BLOCKED until approval
+Implementation (X-2): ALLOWED
 
 ### X-3 Approval
-- [ ] Approved
+- [x] Approved
 - Approval type: Agent Approval（CHARACTER-VIS-001 D-3「非戦闘は歩き寄りの姿勢・腕振り」の範囲。脚・歩調・速度は据え置き）
 - Escalation Check: None
-- Approved by / date / where:
+- Approved by / date / where: Planner (Agent) / 2026-10-13 / Human の実装指示（DEC-006）を受けて
 - Scope of approval: 計画 §2 X-3
-- Persistence:
+- Persistence: 許可（branch: `claude/ch1-exp-x3-*`、根拠: Human の指示「Work Item ごとに小さな PR に分割する」DEC-006）
 
-Implementation (X-3): BLOCKED until approval
+Implementation (X-3): ALLOWED
 
 ### X-4 Approval
-- [ ] Approved
+- [x] Approved
 - Approval type: Agent Approval
 - Escalation Check: None
-- Approved by / date / where:
+- Approved by / date / where: Planner (Agent) / 2026-10-13 / Human の実装指示（DEC-006）を受けて
 - Scope of approval: 計画 §2 X-4
-- Persistence:
+- Persistence: 許可（branch: `claude/ch1-exp-x4-*`、根拠: Human の指示「Work Item ごとに小さな PR に分割する」DEC-006）
 
-Implementation (X-4): BLOCKED until approval
+Implementation (X-4): ALLOWED
 
 ### X-5 Approval
-- [ ] Approved
+- [x] Approved
 - Approval type: Human Approval（EX-1）
 - Escalation Check: EX-1（## Escalation 参照）
-- Approved by / date / where:
+- Approved by / date / where: Human / 2026-10-13 / 本セッションの会話（DEC-006）
 - Scope of approval:
-- Persistence:
+- Persistence: 許可（branch: `claude/ch1-exp-x5-*`、根拠: Human の指示「Work Item ごとに小さな PR に分割する」DEC-006）
 
-Implementation (X-5): BLOCKED until approval
+Implementation (X-5): ALLOWED
 
 ### X-6a Approval
-- [ ] Approved
+- [x] Approved
 - Approval type: Agent Approval
 - Escalation Check: None（帯の端点の色は変えない。演出の意図は変えない）
-- Approved by / date / where:
+- Approved by / date / where: Planner (Agent) / 2026-10-13 / Human の実装指示（DEC-006）を受けて
 - Scope of approval: 計画 §2 X-6a
-- Persistence:
+- Persistence: 許可（branch: `claude/ch1-exp-x6a-*`、根拠: Human の指示「Work Item ごとに小さな PR に分割する」DEC-006）
 
-Implementation (X-6a): BLOCKED until approval
+Implementation (X-6a): ALLOWED
 
 ### X-6b Approval
-- [ ] Approved
+- [x] Approved
 - Approval type: Human Approval（EX-2）
 - Escalation Check: EX-2
-- Approved by / date / where:
+- Approved by / date / where: Human / 2026-10-13 / 本セッションの会話（DEC-006）
 - Scope of approval:
-- Persistence:
+- Persistence: 許可（branch: `claude/ch1-exp-x6b-*`、根拠: Human の指示「Work Item ごとに小さな PR に分割する」DEC-006）
 
-Implementation (X-6b): BLOCKED until approval
+Implementation (X-6b): ALLOWED
 
 ### X-7 Approval
-- [ ] Approved
+- [x] Approved
 - Approval type: Human Approval（EX-3）
 - Escalation Check: EX-3
-- Approved by / date / where:
+- Approved by / date / where: Human / 2026-10-13 / 本セッションの会話（DEC-006）
 - Scope of approval:
-- Persistence:
+- Persistence: 許可（branch: `claude/ch1-exp-x7-*`、根拠: Human の指示「Work Item ごとに小さな PR に分割する」DEC-006）
 
-Implementation (X-7): BLOCKED until approval
+Implementation (X-7): ALLOWED
 
 ## Current Implementation
 
@@ -148,9 +148,12 @@ Implementation (X-7): BLOCKED until approval
 | 3 | 演出中に主人公が固まる問題を、C・E の共通の原因として別の Work Item（X-4）に分ける | 監査 §3.1。全シナリオの演出に効くので、村だけの X-2 に混ぜない | X-2 に含める（範囲が村の外へ広がる） |
 | 4 | D は「光の色の段差」（意図を変えない）と「時間帯の決め方」（意図が変わる）に分ける | 依頼「物語の演出意図を変える判断が必要なら Human」 | 1 つの Work Item で Human 判断を待つ（段差の修正まで止まる） |
 | 5 | Escalation の番号は EX- とする | 未 merge の古い監査（`claude/chapter1-completion-audit`）が E-1〜E-8 を使っている | E-9 以降に続ける（ブランチをまたいで番号が衝突しうる） |
+| 7 | 実装の記録は Work Item ごとの `.ai/tasks/CH1-EXP-<ITEM>.md`（§7.2）に置き、各実装 PR はこの親 Task を変更しない。親の表の Status は PR #75 のブランチで更新する | PR #75 が未 merge で、実装 PR が親 Task を同時に編集すると衝突する | 各 PR で親 Task を更新（衝突） |
 | 6 | 古い監査の判断待ち（E-3 / E-5 / E-8）は、依存として書くだけで再び質問しない | §17.3「1 回の Escalation にまとめる」・§18 | 再質問 |
 
 ## Escalation
+
+**回答済み**（Human 2026-10-13、`.ai/decisions/DEC-006-chapter1-experience.md`）: EX-1 = A・(2)、EX-2 = A、EX-3 = A。以下は提示したときの全文。
 
 `../AGENTS.md` §17.4 の形式。計画 `CHAPTER-1-experience-plan.md` §3 と同じ内容。
 
@@ -233,3 +236,4 @@ Implementation (X-7): BLOCKED until approval
 | 2026-10-13 | Task | （新規）→ PLANNED | Orchestrator / Analyzer / Planner | 監査と計画を作成。X-1〜X-4・X-6a は PLANNED（Agent Approval で着手できる）、X-5・X-6b・X-7 は EX-1〜EX-3 の回答待ち |
 | 2026-10-13 | Task | PLANNED（変更なし） | Reviewer | Round 1 CHANGES_REQUIRED（blocking 1: 時計塔 → 道の懐中時計の行の移動が `CHAPTER1_STORY.md` §4-5 の「翌朝」と食い違う。non-blocking 5: 演出の秒数・行番号・肩の範囲の誤り、Escalation の全文、§4-1「酒場に残る」の事実）。全件を反映（Round 1/3）。EX-1 の推奨を (2) へ |
 | 2026-10-13 | Task | PLANNED（変更なし） | Reviewer | Round 2 PASS。non-blocking 1 件（(2) の姿は道を終える前だけ。道の後の既存の 3 人と二重にしない）を X-5 の Scope と Acceptance に反映 |
+| 2026-10-13 | X-1〜X-7 | PLANNED / WAITING_APPROVAL → APPROVED | Human / Planner (Agent Approval) | EX-1 = A・(2)、EX-2 = A、EX-3 = A（DEC-006）。Human が実装方針と順序を指示 |
