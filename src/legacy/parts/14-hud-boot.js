@@ -1341,6 +1341,7 @@
       updateCollapse(dt);
       updateAltitude(dt);
       updateDuskVillage(dt);   // Phase D(#37): 昼夜進行+ランタン近接+ボスの光ギミック
+      updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)。他では即 return
       updateRoad(dt);          // 道(WORK 11)。他のワールドでは即return
       updateCutscene(dt);
       updateSwingVFX(dt);
@@ -1409,6 +1410,7 @@
          スクリプト(stepDuskGuestWalk)もここから進む。
          他のワールドでは即returnするので、コストも副作用も無い */
       updateDuskVillage(dt);
+      updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)
       updateRoad(dt);
       updateShake(dt);
       updateSparks(dt);
@@ -1697,16 +1699,22 @@
     }
     const prevClass = selectedClass;
     const forward = isForwardSwitch(prevClass, cast.classKey, CHAPTER_CAST);
+    /* 帰還と交代の一幕(CH1-EXP X-5、DEC-006 EX-1 = A・(2))。シナリオをクリアして
+       前へ進む交代は、暗転の最中に操作キャラクターを入れ替えない ―― 帰ってきた
+       主人公のまま酒場に立たせ、帰還の会話 → 次の主人公の登場 → 交代の会話の
+       あとで入れ替える(finishChapter1Switch)。ここでは予約するだけ。
+       顔ぶれ(支援)もそのまま。進行は scenarioClears から導くので、この間に
+       セーブされても、次に入れば交代は済む(一幕だけが出ない。今までと同じ) */
+    if(opts.rebuild && forward && opts.announce !== false && CHAPTER_CAST[castIndexFor(cast.classKey)]){
+      queueChapter1JoinScene(prevClass, cast.classKey, cast);
+      return true;
+    }
     if(!switchProtagonist(cast, opts.rebuild)) return false;
     state.guestClassKey = chapter1GuestKey();
     if(opts.rebuild){
       syncAlliesToState();
       refreshTouchControls();
-      /* 加入の一幕は「酒場が画面に出てから」(WORK 12.1)。ここは
-         returnToTownNow の中 ―― fadeTransition の暗転の最中なので、
-         ここで会話を開くと、暗い画面に会話だけが出ていた。
-         酒場が描かれてから updatePendingJoinScene が開く */
-      if(forward && opts.announce !== false) queueChapter1JoinScene(prevClass, selectedClass);
+      refreshRetiredCastFigures();   // 全滅で道から戻ったとき等。支援から外れた人の姿(X-5)
     }
     refreshHudName();
     return true;
@@ -1757,8 +1765,8 @@
      暗転(screen-fade)が外れ、酒場が数フレーム描かれてから始める。
      時間では待たない ―― 低FPSでも、画面に酒場が出た次の瞬間に会話が出る */
   let pendingJoinScene = null;
-  function queueChapter1JoinScene(prevKey, nextKey){
-    pendingJoinScene = {prevKey, nextKey, frames: 0};
+  function queueChapter1JoinScene(prevKey, nextKey, cast){
+    pendingJoinScene = {prevKey, nextKey, cast: cast || null, frames: 0};
   }
   function updatePendingJoinScene(){
     if(!pendingJoinScene) return;
@@ -1767,14 +1775,17 @@
       pending: true, started: state.started, paused: state.paused,
       dialogueActive: state.dialogueActive, world: currentWorldKey,
       fading: (typeof fadeBusy !== 'undefined' && fadeBusy) || !!(fade && fade.classList.contains('on')),
+      /* 洋館の後は、帰ってきた剣士が鍛冶士の前まで歩いて話す(既存の再会)のが先。
+         再会は酒場の近接イベントが起こすので、済むまで交代の一幕を待たせる(X-5) */
+      blocked: pendingJoinScene.nextKey === 'mage' && !!state.smithJoined && !state.smithGreeted,
     };
     // 酒場が見えている間だけ数える(暗転中・会話中のフレームは数えない)
-    if(ctx.started && !ctx.paused && !ctx.dialogueActive && ctx.world === 'tavern' && !ctx.fading) pendingJoinScene.frames++;
+    if(ctx.started && !ctx.paused && !ctx.dialogueActive && ctx.world === 'tavern' && !ctx.fading && !ctx.blocked) pendingJoinScene.frames++;
     ctx.framesShown = pendingJoinScene.frames;
     if(!joinSceneReady(ctx)) return;
     const j = pendingJoinScene;
     pendingJoinScene = null;
-    playChapter1JoinScene(j.prevKey, j.nextKey);
+    playChapter1ReturnScene(j);
   }
 
   /* 主人公を cast の顔ぶれへ持ち替える(酒場の交代と、道の出会いで共用)。
@@ -1871,15 +1882,100 @@
     return true;
   }
 
-  /* 交代の一幕。長いイベントにはしない(仕様 §11)――
-     前の主人公が席を外し、次の主人公が名乗らずに座る、程度。 */
-  function playChapter1JoinScene(prevKey, nextKey){
-    const prev = CLASSES[prevKey], next = CLASSES[nextKey];
-    if(!next) return;
+  /* 帰還と交代の一幕(CH1-EXP X-5、DEC-006 EX-1 = A・(2))。長いイベントにはしない
+     (仕様 §11)。順番:
+
+       (洋館の後) 鍛冶士との再会 … 酒場の近接イベントが先に済ませている
+       帰還の会話        … CHAPTER1_RETURN_LINES(行がある遷移だけ)
+       次の主人公の登場   … 姿(buildCastFigure)が帰ってきた主人公の前まで歩み寄る
+       交代の会話        … CHAPTER1_JOIN_LINES
+       切り替え          … 会話を閉じてから(finishChapter1Switch)
+
+     会話の送りは今までの会話と同じ(タップ/クリック/ゲームパッド)。 */
+  let chapter1Switch = null;   // 進行中の一幕 {prevKey, nextKey, cast, figure}
+  function playChapter1ReturnScene(j){
+    const prev = CLASSES[j.prevKey], next = CLASSES[j.nextKey];
+    if(!next || !j.cast){
+      // 表に無い交代は一幕を出さず、今までどおりその場で入れ替える
+      if(j.cast) switchNow(j.cast);
+      return;
+    }
+    chapter1Switch = {prevKey: j.prevKey, nextKey: j.nextKey, cast: j.cast, figure: null};
+    const ret = CHAPTER1_RETURN_LINES[j.nextKey];
+    if(!ret){ playChapter1Arrival(); return; }
+    state.dialogueActive = true;
+    state.dialogueBoss = null;
+    state.dialogueKind = 'chapter1Return';
+    state.dialogueLines = ret(prev ? prev.name : '');
+    state.dialogueIndex = 0;
+    renderDialogueLine(state.dialogueLines[0]);
+    document.getElementById('dialogue-overlay').classList.add('active');
+  }
+  // 帰還の会話を閉じたら(12-progression-ui.js advanceDialogue)
+  function onChapter1ReturnTalkClosed(){ playChapter1Arrival(); }
+
+  /* 次の主人公の登場。カウンターの脇から、帰ってきた主人公の前まで歩いてくる。
+     歩く間も操作は返さない(演出)。姿は酒場のワールドの物として登録するので、
+     出撃で酒場を畳めば一緒に消える */
+  const JOIN_FIGURE_FROM = {x: 2.2, z: 17.2};
+  const JOIN_FIGURE_SPEED = 2.4;   // m/s
+  let joinFigureWalk = null;       // {fig, from, to, t, dur}
+  function playChapter1Arrival(){
+    const sw = chapter1Switch;
+    if(!sw) return;
+    const next = CLASSES[sw.nextKey];
     spawnLog(`${next.icon} ${next.name}が酒場にいる`);
     sfx('chime');
-    const lines = CHAPTER1_JOIN_LINES[nextKey];
-    if(!lines) return;
+    const fig = buildCastFigure(sw.nextKey);
+    fig.position.set(JOIN_FIGURE_FROM.x, 0, JOIN_FIGURE_FROM.z);
+    scene.add(fig);
+    if(Array.isArray(currentWorldObjects)) currentWorldObjects.push(fig);
+    sw.figure = fig;
+    // 帰ってきた主人公の 1.5m 手前(歩いてくる側)で止まる
+    const dx = JOIN_FIGURE_FROM.x - state.pos.x, dz = JOIN_FIGURE_FROM.z - state.pos.z;
+    const d = Math.max(0.001, Math.hypot(dx, dz));
+    const stop = Math.min(1.5, d);
+    const to = {x: state.pos.x + dx / d * stop, z: state.pos.z + dz / d * stop};
+    const dist = Math.hypot(to.x - JOIN_FIGURE_FROM.x, to.z - JOIN_FIGURE_FROM.z);
+    const dur = dist / JOIN_FIGURE_SPEED;
+    joinFigureWalk = {fig, from: {...JOIN_FIGURE_FROM}, to, t: 0, dur};
+    fig.rotation.y = Math.atan2(to.x - JOIN_FIGURE_FROM.x, to.z - JOIN_FIGURE_FROM.z);
+    const faceFig = Math.atan2(to.x - state.pos.x, to.z - state.pos.z);
+    playCutscene([
+      // 帰ってきた主人公が、歩いてくる人のほうへ顔を向ける
+      {t:0.2, run:()=> cutsceneTurnTo(faceFig, 0.5)},
+      // 歩み寄るのを待ってから、交代の会話
+      {t:Math.max(0.3, dur), run:()=>{
+        if(joinFigureWalk){ finishJoinFigureWalk(); }
+        if(sw.figure) sw.figure.rotation.y = Math.atan2(state.pos.x - to.x, state.pos.z - to.z);
+        openChapter1JoinTalk();
+      }},
+    ]);
+  }
+  function finishJoinFigureWalk(){
+    const w = joinFigureWalk;
+    if(!w) return;
+    w.fig.position.set(w.to.x, 0, w.to.z);
+    joinFigureWalk = null;
+  }
+  // 毎フレーム(14-hud-boot.js の操作中・演出中の両方から)。他の場面では即 return
+  function updateChapter1JoinFigure(dt){
+    const w = joinFigureWalk;
+    if(!w) return;
+    w.t = Math.min(w.dur, w.t + dt);
+    const k = w.dur > 0 ? w.t / w.dur : 1;
+    w.fig.position.set(w.from.x + (w.to.x - w.from.x) * k,
+                       Math.abs(Math.sin(w.t * 8)) * 0.04,   // 歩く上下動(支援 AI と同じ程度)
+                       w.from.z + (w.to.z - w.from.z) * k);
+    if(k >= 1) finishJoinFigureWalk();
+  }
+
+  function openChapter1JoinTalk(){
+    const sw = chapter1Switch;
+    if(!sw) return;
+    const prev = CLASSES[sw.prevKey];
+    const lines = CHAPTER1_JOIN_LINES[sw.nextKey];
+    if(!lines){ finishChapter1Switch(); return; }
     state.dialogueActive = true;
     state.dialogueBoss = null;
     // 'town' だと会話の終わりに出撃(pendingScenario)を拾いに行くので、専用の種類にする
@@ -1889,6 +1985,94 @@
     renderDialogueLine(state.dialogueLines[0]);
     document.getElementById('dialogue-overlay').classList.add('active');
   }
+  // 交代の会話を閉じたら(12-progression-ui.js advanceDialogue)
+  function onChapter1JoinTalkClosed(){ finishChapter1Switch(); }
+
+  /* 会話の後で操作キャラクターを切り替える。短い暗転の間に:
+       次の主人公 … 歩み寄った姿の位置に、操作キャラクターとして立つ(姿は消す)
+       前の主人公 … 支援 AI として、今まで立っていた位置に残る
+       支援から外れた人 … 別の卓のそばへ(refreshRetiredCastFigures)
+     進行・装備・Skill の持ち替えは今までどおり switchProtagonist が行う */
+  function finishChapter1Switch(){
+    const sw = chapter1Switch;
+    if(!sw) return;
+    fadeTransition(()=>{
+      // 暗転の間にタイトルへ戻った(または酒場を離れた)ら何もしない。進行は scenarioClears
+      // から導くので、次に入れば交代は済んでいる
+      if(!state.started || currentWorldKey !== 'tavern'){ chapter1Switch = null; joinFigureWalk = null; return; }
+      const prevPos = {x: state.pos.x, z: state.pos.z, facing: state.facing};
+      const fig = sw.figure;
+      const at = fig ? {x: fig.position.x, z: fig.position.z, ry: fig.rotation.y} : null;
+      chapter1Switch = null;
+      if(fig){ scene.remove(fig); }
+      joinFigureWalk = null;
+      if(!switchNow(sw.cast)) return;
+      if(at){
+        state.pos.set(at.x, 0, at.z);
+        state.facing = at.ry;
+        if(player){ player.position.copy(state.pos); player.rotation.y = state.facing; }
+      }
+      // 前の主人公(いまの支援)は、さっきまで立っていた位置に
+      if(guestCompanion && guestCompanion.pos){
+        guestCompanion.pos.set(prevPos.x, 0, prevPos.z);
+        guestCompanion.group.position.set(prevPos.x, 0, prevPos.z);
+        guestCompanion.group.rotation.y = prevPos.facing;
+      }
+      camera.position.copy(state.pos).add(getCamOffset());
+      saveGame();
+    });
+  }
+  // その場で入れ替える(顔ぶれ・HUD・支援・元主人公の姿まで)
+  function switchNow(cast){
+    if(!switchProtagonist(cast, true)) return false;
+    state.guestClassKey = chapter1GuestKey();
+    syncAlliesToState();
+    refreshTouchControls();
+    refreshRetiredCastFigures();
+    refreshHudName();
+    return true;
+  }
+
+  /* 支援から外れた元主人公(DEC-006 EX-1 の (2))。酒場の卓B のそばに立たせる。
+     会話は無い。道を終えた後は、既存の buildChapter1TavernTrace が隅の卓に3人を
+     立たせるので出さない(core/chapter1-rules.js retiredCastKeys)。
+     テストモードの酒場には出さない */
+  const RETIRED_CAST_SPOTS = [
+    {x: 6.6, z: 16.4}, {x: 3.5, z: 16.6}, {x: 5.0, z: 13.2},   // 卓B の椅子(半径 1.45)を避ける
+  ];
+  let retiredCastFigures = [];
+  // building: buildTavern の中から呼ぶとき(currentWorldKey はまだ 'tavern' になっていない。disposeWorld が null にしている)
+  function refreshRetiredCastFigures(building){
+    retiredCastFigures.forEach(f=> scene.remove(f));
+    retiredCastFigures = [];
+    if(!(building || currentWorldKey === 'tavern') || state.testMode) return;
+    const keys = retiredCastKeys(selectedClass, state.guestClassKey, CHAPTER_CAST, scenarioClears('road') > 0);
+    keys.forEach((key, i)=>{
+      const spot = RETIRED_CAST_SPOTS[i % RETIRED_CAST_SPOTS.length];
+      const f = buildCastFigure(key);
+      f.position.set(spot.x, 0, spot.z);
+      f.rotation.y = Math.atan2(5 - spot.x, 15 - spot.z);   // 卓B(5, 15)のほうを向く
+      scene.add(f);
+      // 酒場を建てている最中なら、ワールドの差分として自動で登録される
+      if(!building && Array.isArray(currentWorldObjects)) currentWorldObjects.push(f);
+      retiredCastFigures.push(f);
+    });
+  }
+
+  /* 帰還の会話(CH1-EXP X-5、DEC-006 で採用した4行)。帰ってきた主人公と酒場の主人。
+     洋館の後は、鍛冶士との再会がこの役をする(行は持たない) */
+  const CHAPTER1_RETURN_LINES = {
+    // 宵待ちの村から帰る(魔法使い)。次は弓師
+    archer: (prevName)=> [
+      {name:'酒場の主人', text:'戻ったか。湖の村は、どうだった。'},
+      {name:prevName, text:'誰もいませんでした。……でも、消えたわけでは、ありませんでした。'}
+    ],
+    // 幽霊船から帰る(弓師)。次は盗賊
+    rogue: (prevName)=> [
+      {name:'酒場の主人', text:'霧の港から、よく戻ったな。'},
+      {name:prevName, text:'船長に、頼まれごとをしました。……塔の鐘を、と。'}
+    ],
+  };
 
   /* 交代の台詞。どれも3往復まで ―― 説明しない(第一章の物語で足す行は
      docs/CHAPTER1_STORY.md §4 のとおり。向かう理由を一言ずつ置くだけ)。
@@ -1915,7 +2099,8 @@
     /* 時計塔へ(docs/CHAPTER1_STORY.md §4-3)。船の時計と塔の鐘が同じ時刻で
        止まっていることを、船から戻った弓師が一言だけ足す */
     rogue: (prevName)=> [
-      {name:'酒場の主人', text:'塔の鐘が、毎晩同じ時刻で止まるらしい。'},
+      // 帰還の会話で弓師が「塔の鐘」と言った後なので、受ける形にする(CH1-EXP X-5)
+      {name:'酒場の主人', text:'その塔なら、鐘が毎晩同じ時刻で止まるらしい。'},
       {name:prevName, text:'止まっているのは、鐘だけじゃありません。船も、あの時刻で。'},
       {name:'盗賊', text:'止まってるなら、入るのは簡単だ。開いてる窓はどこにでもある。'},
       {name:prevName, text:'……その言い方、あとで詳しく聞かせて。'},
@@ -1964,6 +2149,7 @@
     opts = opts || {};
     const world = opts.world || 'tavern';
     pendingJoinScene = null;   // タイトルへ戻る前の順番待ちを持ち越さない
+    chapter1Switch = null; joinFigureWalk = null; retiredCastFigures = [];   // 帰還と交代の一幕(X-5)
     // state.testModeの唯一の書き換え場所。beginGame()/continueGame()
     // (world==='tavern')経由なら必ずfalseに戻るので、テストモードを
     // 経由した後で本当のセーブへ戻ってもsaveGame()が黙って止まったまま

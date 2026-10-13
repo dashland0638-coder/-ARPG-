@@ -435,9 +435,15 @@
         applyPendingJobPromotion();
       } else if(state.dialogueKind==='shadowGuide'){
         state.dialogueKind = null;
-      } else if(state.dialogueKind==='chapter1Join'){
-        // 酒場での主人公交代(WORK 10/12.1)。閉じたら操作を返すだけ
+      } else if(state.dialogueKind==='chapter1Return'){
+        // 帰還の会話(CH1-EXP X-5)。閉じたら次の主人公が歩み寄る(14-hud-boot.js)
         state.dialogueKind = null;
+        onChapter1ReturnTalkClosed();
+      } else if(state.dialogueKind==='chapter1Join'){
+        /* 酒場での主人公交代(WORK 10/12.1)。閉じたら、ここで操作キャラクターを
+           切り替える(CH1-EXP X-5)。出撃の一覧へは勝手に進まない */
+        state.dialogueKind = null;
+        onChapter1JoinTalkClosed();
       } else if(state.dialogueKind==='chapter1Finale'){
         // Chapter 1 の最後の酒場(14-dungeon-road.js)。閉じるだけ ――
         // この先の入口は、酒場の主人の「出撃」に出る(renderScenarioList)

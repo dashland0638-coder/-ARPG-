@@ -99,6 +99,8 @@ import {
 import {
   legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, hudLabel, joinSceneReady, smithFacilityAvailable,
 } from '../core/chapter1-rules.js';
+// 帰還と交代の一幕(CH1-EXP X-5)
+import { retiredCastKeys } from '../core/chapter1-rules.js';
 import { devUiEnabled, uiProtoEnabled } from '../core/dev-ui.js';
 import { uiProtoIcon, uiProtoWeaponIcon } from '../core/ui-proto-icons.js';
 import {

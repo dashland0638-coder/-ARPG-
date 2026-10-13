@@ -96,5 +96,43 @@ export function joinSceneReady(ctx){
   if(!ctx.started || ctx.paused || ctx.dialogueActive) return false;
   if(ctx.world !== 'tavern') return false;
   if(ctx.fading) return false;
+  // 先に済ませる場面がある(洋館の後の鍛冶士との再会。CH1-EXP X-5)
+  if(ctx.blocked) return false;
   return (ctx.framesShown || 0) >= JOIN_SCENE_MIN_FRAMES;
+}
+
+/* ---- 帰還と交代の一幕(CH1-EXP X-5、DEC-006 EX-1 = A・(2)) ----
+
+   シナリオをクリアして酒場へ戻ったとき、操作キャラクターを暗転の最中に
+   入れ替えず、次の順で物語としてつなぐ:
+
+     1. 洋館の後だけ、帰ってきた剣士が鍛冶士の前まで歩いて話す
+        (既存の playSmithGreeting が帰還の会話の役。joinSceneReady の blocked で待つ)
+     2. 帰ってきた主人公と酒場の主人の短い会話(行があるときだけ)
+     3. 次の主人公の姿が歩み寄る
+     4. 交代の会話(既存の CHAPTER1_JOIN_LINES)
+     5. 会話が終わってから操作キャラクターを切り替える
+   流れそのものは 14-hud-boot.js(playChapter1ReturnScene 〜 finishChapter1Switch)
+
+   進行は今までどおり scenarioClears から導く。セーブの項目は増やさない ――
+   途中でアプリが閉じられても、次に入れば交代は済んでいて一幕だけが出ない
+   (今までと同じ)。 */
+/* 支援から外れた元主人公(EX-1 の (2))。
+
+   いま操作している主人公より前の段で主人公だった人のうち、主人公でも
+   支援でもない人。酒場の別の卓のそばに立たせる。
+     魔法使い＋剣士 → なし / 弓師＋魔法使い → 剣士 / 盗賊＋弓師 → 剣士・魔法使い
+   道を終えたあとの酒場は、既存の buildChapter1TavernTrace が隅の卓に3人を
+   立たせるので、ここでは出さない(roadCleared で空)。 */
+export function retiredCastKeys(protagonistKey, guestKey, cast, roadCleared){
+  if(roadCleared || !cast || !protagonistKey) return [];
+  let idx = 0;
+  for(let i = 1; i < cast.length; i++) if(cast[i] && cast[i].classKey === protagonistKey){ idx = i; break; }
+  const out = [];
+  for(let i = 1; i < idx; i++){
+    const k = cast[i] && cast[i].classKey;
+    if(!k || k === protagonistKey || k === guestKey || out.indexOf(k) >= 0) continue;
+    out.push(k);
+  }
+  return out;
 }
