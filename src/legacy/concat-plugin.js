@@ -134,6 +134,7 @@ import { motionDebugLines, motionStateLabel } from '../core/motion-preview.js';
 import {
   buildRelaxedIdleTarget, relaxedIdleProfile, stepRestBlend, REST_STOP_RATE,
   locomotionArmBase, locomotionMix, RELAXED_WALK_ARM_SWING, RELAXED_WALK_UPPER,
+  relaxedWalkStance, locomotionElbowBend,
 } from '../core/relaxed-idle.js';
 /* 武器の収納・抜刀・納刀。combatStanceT(= 戦闘状態)はそのままで、
    「武器がどこにあるか」だけを別の軸として持つ。キャラクター単位の

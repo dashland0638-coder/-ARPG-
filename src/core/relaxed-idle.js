@@ -174,13 +174,79 @@ export function locomotionArmBase(combatStance, relaxedStance, combatW){
    構え側の値は武器の握り方で決まっていて(剣士 0.22 = 両手で大剣、
    魔法使い 0.85 = 片手の杖)、空手で歩くときの振りとしては両極端 ――
    武器は収納済みなので、非戦闘側は職ごとの差を小さくした「普通に
-   歩く腕」の値にする。上位職は基礎職の値を使う。 */
+   歩く腕」の値にする。上位職は基礎職の値を使う。
+
+   CH1-EXP X-3(DEC-006): 以前の値(0.40〜0.50)では、歩く速さでの肩の
+   振れが前後 ±7° ほどしかなく、腕が体の前に張り付いて見えていた
+   (.ai/reports/CHAPTER-1-experience-audit.md §4)。各職の素の速さ
+   (CLASSES.spd)と体格(BUILD の strideAmp / armSwing)で、肩の振れが
+   前後 ±20° 前後になるように決め直した。値の検算は relaxedWalkArmAmplitude
+   と tests/unit/relaxed-idle.test.js */
 export const RELAXED_WALK_ARM_SWING = {
-  warrior: 0.45,
-  rogue:   0.50,
-  mage:    0.40,
-  archer:  0.45,
+  warrior: 1.20,
+  rogue:   0.95,
+  mage:    1.25,
+  archer:  1.00,
 };
+
+/* 非戦闘で歩くときの腕の基準(CH1-EXP X-3)。
+   休め姿勢(STANCE_RELAXED)は「立ち止まっているとき」の形で、肩が少し前・
+   肘を前へ 14〜24° 曲げている。歩くときもその形を基準に振ると、手がベルトの
+   前に残ったまま前後するので、腕が体の前に張り付いて見える。
+   歩くときは肩の前後と肘の曲げだけを、腕を体の横へ下ろした形に置き換える。
+   肩の横方向(y / z。腕を開く量・捻り)は休め姿勢のまま ―― 体格や上位職の
+   癖(JOB_RELAXED_STANCE)で決まっていて、ここを変えると腕が胴へめり込む。
+   止まったときに休め姿勢へ戻る遷移は、既存の relaxStopBlend がそのまま担う */
+export const RELAXED_WALK_ARM_BASE = Object.freeze({ sh: -0.03, el: -0.16 });
+
+/* 休め姿勢から「歩くときの休め」を作る。腕の4チャンネルだけを返す
+   (locomotionArmBase に渡す形)。stance が足りないときは触らずに返す。
+
+   stopW は「止まっている度合い」(05-rendering-rig.js の relaxStopBlend。歩いて
+   いる間 0、止まると 0.5 秒ほどで 1 へ)。0 で歩くときの形、1 で休め姿勢
+   そのもの。歩き出し・止まりのどちらでも、この補間で基準が連続に変わる
+   (止まった瞬間に肩・肘が跳ばない) */
+export function relaxedWalkStance(relaxed, stopW = 0){
+  if(!relaxed || !Array.isArray(relaxed.shL) || !Array.isArray(relaxed.shR)) return relaxed;
+  const w = Number.isFinite(stopW) ? Math.max(0, Math.min(1, stopW)) : 0;
+  const mix = (walk, rest)=> walk + (rest - walk) * w;
+  return {
+    shL: [mix(RELAXED_WALK_ARM_BASE.sh, relaxed.shL[0]), relaxed.shL[1], relaxed.shL[2]],
+    shR: [mix(RELAXED_WALK_ARM_BASE.sh, relaxed.shR[0]), relaxed.shR[1], relaxed.shR[2]],
+    elL: mix(RELAXED_WALK_ARM_BASE.el, relaxed.elL),
+    elR: mix(RELAXED_WALK_ARM_BASE.el, relaxed.elR),
+  };
+}
+
+/* 肩の前後の振れ幅(rad、片側)。updateLocomotion の式と同じ:
+     swing = min(0.62, 0.045 + 0.085·速さ)·strideAmp
+     振れ  = swing · 腕振り係数 · 0.62 · BUILD.armSwing
+   ここでは非戦闘(walkW = 0)の振れを返す。値の検算と、Motion Panel を
+   読まずに振れを確かめるためのもの */
+export const LOCOMOTION_ARM_SWING_SCALE = 0.62;
+export function locomotionStrideSwing(moveSpeed, strideAmp = 1){
+  return Math.min(0.62, 0.045 + 0.085 * Math.max(0, moveSpeed)) * strideAmp;
+}
+export function relaxedWalkArmAmplitude(classKey, moveSpeed, build){
+  const b = build || {};
+  const c = RELAXED_WALK_ARM_SWING[classKey];
+  if(!Number.isFinite(c)) return 0;
+  return locomotionStrideSwing(moveSpeed, b.strideAmp ?? 1) * c * LOCOMOTION_ARM_SWING_SCALE * (b.armSwing ?? 1);
+}
+
+/* 腕を振るときの肘(CH1-EXP X-3)。人の歩きでは、前へ振った腕の肘が曲がり、
+   後ろへ振った腕は伸びる。構え(戦闘態勢)の歩行は、従来どおり後ろへ振った
+   側の肘を曲げる式のまま ―― combatW = 1 で従来の値に一致する。
+   phase = sin(strideT)。返すのは「基準から引く量」(左・右) */
+export function locomotionElbowBend(phase, swing, combatW){
+  const s = Number.isFinite(phase) ? phase : 0;
+  const w = Number.isFinite(combatW) ? Math.max(0, Math.min(1, combatW)) : 1;
+  const k = 0.5 * (Number.isFinite(swing) ? swing : 0);
+  // 左腕は s > 0 で前へ出る(armL = 基準 − s·…)。右はその逆
+  const relaxedL = Math.max(0,  s) * k, relaxedR = Math.max(0, -s) * k;
+  const combatL  = Math.max(0, -s) * k, combatR  = Math.max(0,  s) * k;
+  return { l: relaxedL + (combatL - relaxedL) * w, r: relaxedR + (combatR - relaxedR) * w };
+}
 
 /* 非戦闘の移動で、上半身の run 由来項に掛ける倍率。
      run  : 腰の前傾(0.02 + run*0.11)と上下動(0.05 + run*0.035)の run
