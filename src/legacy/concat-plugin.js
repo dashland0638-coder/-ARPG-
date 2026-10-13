@@ -58,6 +58,7 @@ import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/
 import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
 import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor } from '../core/dusk-village-map.js';
+import { planCutsceneTiming, cutsceneStepDelta } from '../core/cutscene-timing.js';
 import {
   shouldSplit as mirrorShouldSplit, tellContrast as mirrorTellContrast,
   rippleInterval as mirrorRippleInterval, turnRate as mirrorTurnRate,
