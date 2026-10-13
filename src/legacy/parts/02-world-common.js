@@ -1284,7 +1284,8 @@
        ・最初の台詞までの前置きは合計 opts.firstLineSec(既定 0.8 秒)まで
        ・opts.gapSec を渡すと、台詞を送った後、次の台詞までの間もそこまで詰める
        ・keep:true の手順(見せ場)は詰めない(1 区間 3.5 秒まで)。ゲーム内の時間で数える
-       ・それ以外の待ちは実時間で数える(低 fps で延びない) */
+       ・opts.realtime を渡した演出だけ、それ以外の待ちを実時間で数える(低 fps で延びない)。
+         演出で体を動かしている間はゲーム内の時間のまま */
   function stepShowsLine(step){ return /cutsceneLine\(/.test(String(step && step.run)); }
   let cutsceneRealDt = 0;   // 実時間のフレーム間隔(14-hud-boot.js の animate が毎フレーム書く)
   function playCutscene(steps, opts){
@@ -1316,7 +1317,10 @@
     if(!cutscene) return;
     if(cutscene.waiting) return;      // 送られるまで進まない
     const cur = cutscene.steps[cutscene.i];
-    cutscene.t += cutsceneStepDelta(dt, cutsceneRealDt, !!(cur && cur.realtime));
+    // 演出で体を動かしている間はゲーム内の時間(動きと時計をそろえる。CH1-EXP X-2)
+    const scriptedMotion = !!(state.walkTo || state.cutsceneTurn
+      || (typeof duskGuestWalk !== 'undefined' && duskGuestWalk));
+    cutscene.t += cutsceneStepDelta(dt, cutsceneRealDt, !!(cur && cur.realtime), scriptedMotion);
     while(cutscene && cutscene.i < cutscene.steps.length &&
           cutscene.t >= cutscene.steps[cutscene.i].t){
       const step = cutscene.steps[cutscene.i];

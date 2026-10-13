@@ -840,9 +840,10 @@
   /* 村の演出の待ち時間(CH1-EXP X-2、core/cutscene-timing.js)。
      イベント地点に入ったら、すぐ会話が始まるように前置きは 0.5 秒まで。台詞を送った
      後、次の台詞までの無言の間は 0.3 秒まで(以前は記憶の声の後に 0.8〜1.2 秒、
-     台詞も操作も無い間があった)。どちらも実時間で数えるので、低 fps でも延びない。
+     台詞も操作も無い間があった)。どちらも実時間で数えるので、低 fps でも延びない
+     (演出で歩かせている・振り向かせている間だけは、動きに合わせてゲーム内の時間)。
      ボスの手前・撃破後・水門守の登場・撃破など、見せるための間は keep:true で残す */
-  const DUSK_TEMPO = {firstLineSec: 0.5, gapSec: 0.3};
+  const DUSK_TEMPO = {firstLineSec: 0.5, gapSec: 0.3, realtime: true};
 
   const DUSK_MAGE = '魔法使い';
   const DUSK_KNIGHT = '剣士';

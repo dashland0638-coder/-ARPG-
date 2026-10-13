@@ -31,7 +31,8 @@ test('計画: 前置きは上限まで詰め、台詞の間は gapSec を渡し�
   const base = planCutsceneTiming(steps, isLine);
   assert.ok(near(sum(base.slice(0, 3).map(s => s.t)), CUTSCENE_FIRST_LINE_SEC));
   assert.deepEqual(base.slice(3).map(s => s.t), [2, 1, 1], '台詞の間は既定では詰めない(他のシナリオは今までどおり)');
-  const tight = planCutsceneTiming(steps, isLine, {firstLineSec: 0.5, gapSec: 0.3});
+  assert.ok(base.every(s => !s.realtime), 'realtime を渡さない演出(村以外)はゲーム内の時間のまま');
+  const tight = planCutsceneTiming(steps, isLine, {firstLineSec: 0.5, gapSec: 0.3, realtime: true});
   assert.ok(near(sum(tight.slice(0, 3).map(s => s.t)), 0.5));
   assert.equal(tight[3].t, 2, '送った直後の手順はもともと待たずに走るので、計算に入れない');
   assert.ok(near(tight[4].t + tight[5].t, 0.3));
@@ -41,7 +42,7 @@ test('計画: 前置きは上限まで詰め、台詞の間は gapSec を渡し�
 test('計画: keep の手順は詰めない(1 区間 3.5 秒まで)。ゲーム内の時間で数える', () => {
   const steps = [{t: 0.2}, {t: 1.0, keep: true}, {t: 1.0, keep: true}, {t: 0.5}];
   const isLine = [false, false, false, true];
-  const p = planCutsceneTiming(steps, isLine, {firstLineSec: 0.5});
+  const p = planCutsceneTiming(steps, isLine, {firstLineSec: 0.5, realtime: true});
   assert.equal(p[1].t, 1.0);
   assert.equal(p[2].t, 1.0);
   assert.equal(p[1].realtime, false);
@@ -58,11 +59,18 @@ test('時計の進め方: 実時間の手順は dt と実時間の大きい方�
   assert.equal(cutsceneStepDelta(0.016, 0.016, true), 0.016);
   assert.equal(cutsceneStepDelta(0.05, 0.2, false), 0.05, '見せ場は画面の動きとそろえる');
   assert.equal(cutsceneStepDelta(NaN, 0.1, true), 0.1);
+  // 演出で体を動かしている間(徒歩・振り向き・同行者の歩み)はゲーム内の時間(歩く距離が縮まない)
+  assert.equal(cutsceneStepDelta(0.05, 0.2, true, true), 0.05);
 });
 
 test('legacy: playCutscene は計画を使い、updateCutscene は手順ごとの時計で進む', () => {
   assert.match(world, /const plan = planCutsceneTiming\(steps, steps\.map\(stepShowsLine\), opts\);/);
-  assert.match(world, /cutscene\.t \+= cutsceneStepDelta\(dt, cutsceneRealDt, !!\(cur && cur\.realtime\)\);/);
+  assert.match(world, /const scriptedMotion = !!\(state\.walkTo \|\| state\.cutsceneTurn\s*\|\| \(typeof duskGuestWalk !== 'undefined' && duskGuestWalk\)\);/);
+  assert.match(world, /cutscene\.t \+= cutsceneStepDelta\(dt, cutsceneRealDt, !!\(cur && cur\.realtime\), scriptedMotion\);/);
+  // realtime を渡すのは村の演出だけ(他のシナリオの演出はゲーム内の時間のまま)
+  for (const f of ['03-dungeons-mansion-temple.js', '04-dungeons-ship-waterway.js', '14-dungeon-road.js', '06-player-enemy.js', '12-progression-ui.js', '14-hud-boot.js']) {
+    assert.doesNotMatch(read(f), /realtime\s*:\s*true/, f);
+  }
   assert.match(hud, /cutsceneRealDt = cutsceneLastFrameMs \? Math\.min\(0\.25,/);
 });
 
@@ -94,7 +102,7 @@ const showsLine = s => /cutsceneLine\(/.test(String(s.run));
 
 test('村の演出 11 本: すべて村の待ち時間(DUSK_TEMPO)で走る', () => {
   for (const c of villageCutscenes()) {
-    assert.deepEqual(c.opts, {firstLineSec: 0.5, gapSec: 0.3}, c.name);
+    assert.deepEqual(c.opts, {firstLineSec: 0.5, gapSec: 0.3, realtime: true}, c.name);
   }
 });
 
@@ -104,12 +112,12 @@ test('村の演出: 台詞を送った後、次の台詞までの無言の間は
     const p = planCutsceneTiming(c.steps, isLine, c.opts);
     const lines = isLine.map((v, i) => v ? i : -1).filter(i => i >= 0);
     for (let k = 0; k + 1 < lines.length; k++) {
-      const free = p.slice(lines[k] + 2, lines[k + 1] + 1).filter(s => s.realtime).map(s => s.t);
+      const free = p.slice(lines[k] + 2, lines[k + 1] + 1).filter(s => !s.keep).map(s => s.t);
       assert.ok(sum(free) <= 0.3 + 1e-9, `${c.name}: 台詞 ${k} → ${k + 1} の間 ${sum(free).toFixed(2)} 秒`);
     }
     // 最初の台詞までの、見せ場ではない前置きは 0.5 秒以下
     if (lines.length) {
-      const free = p.slice(0, lines[0] + 1).filter(s => s.realtime).map(s => s.t);
+      const free = p.slice(0, lines[0] + 1).filter(s => !s.keep).map(s => s.t);
       assert.ok(sum(free) <= 0.5 + 1e-9, `${c.name}: 前置き ${sum(free).toFixed(2)} 秒`);
     }
   }
@@ -120,7 +128,7 @@ test('村の演出: 見せ場は残す(ボスの手前・撃破後・水門守�
   const keptSec = name => {
     const c = byName[name];
     const p = planCutsceneTiming(c.steps, c.steps.map(showsLine), c.opts);
-    return sum(p.filter(s => !s.realtime).map(s => s.t));
+    return sum(p.filter(s => s.keep).map(s => s.t));
   };
   for (const name of ['playDuskBossPrelude', 'playDuskEpilogue', 'playDuskWardenArrival', 'onDuskWardenDefeated']) {
     assert.ok(keptSec(name) >= 2.0, `${name}: 見せ場 ${keptSec(name).toFixed(2)} 秒`);

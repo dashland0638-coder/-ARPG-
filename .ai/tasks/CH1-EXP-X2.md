@@ -20,7 +20,10 @@ Status: REVIEWING
     - 最初の台詞までの前置き: `firstLineSec` まで詰める。
     - 台詞を送った後、次の台詞まで: `gapSec` を渡したときだけ、そこまで詰める。
     - `keep:true` の手順（見せ場）: 詰めない（1 区間 3.5 秒まで）。
-  - `cutsceneStepDelta(dt, realDt, realtime)`: 見せ場以外の待ちは実時間で数える（dt と実時間の大きい方）。見せ場はゲーム内の時間で数え、画面の動きとそろえる。
+  - `cutsceneStepDelta(dt, realDt, realtime, scriptedMotion)`: 実時間で数える（dt と実時間の大きい方）のは、次の条件がすべてそろうときだけ。
+    - `opts.realtime` を渡した演出（宵待ちの村）である。
+    - 見せ場以外の手順である。
+    - 演出で体を動かしていない（徒歩・振り向き・同行者の歩みの間はゲーム内の時間。動きと時計をそろえ、歩く距離を縮めない）。
 - `src/legacy/parts/02-world-common.js`
   - `playCutscene(steps, opts)` は計画を使う。
   - `updateCutscene` は手順ごとの時計で進む。
@@ -28,7 +31,7 @@ Status: REVIEWING
 - `src/legacy/parts/14-hud-boot.js`: `animate` が `performance.now()` からフレームの実時間を測る（0.25 秒で頭打ち）。
   - dt の作り方（`simDeltaSeconds(clock.getDelta(), …)`）は変えていない。
 - `src/legacy/parts/14-dungeon-duskvillage.js`
-  - 村の演出 11 本すべてに `DUSK_TEMPO = {firstLineSec: 0.5, gapSec: 0.3}` を渡す。
+  - 村の演出 11 本すべてに `DUSK_TEMPO = {firstLineSec: 0.5, gapSec: 0.3, realtime: true}` を渡す。
   - 見せ場に `keep:true` を付けた。
     - 入口: 人影が見えてから声をかけるまで。
     - 水門守の登場: レバー・鎖・門・人影。
@@ -42,7 +45,7 @@ Status: REVIEWING
 - イベントの数・場所・台詞・発生の条件・回数・順序。
 - 台詞は送るまで進まない（WORK 12.1）。
 - 村以外の演出: 前置き 0.8 秒、台詞の間は詰めない。
-  - ただし見せ場以外の待ちが実時間になるのは全演出に共通。速い端末では今までと同じ。
+  - 実時間で数えるのも村の演出だけ。他の演出はゲーム内の時間のまま。
 - 記憶のイベントを「止めない演出」へ変えること（Out of Scope）。
 
 ## Test
@@ -70,3 +73,18 @@ Status: REVIEWING
 - ボスの手前・撃破後・水門守の登場・撃破では、見せるための間が残っていること。
 - 低性能の端末でも、待ちが延びないこと。
 - 演出の後、操作に自然に戻ること。
+
+## Review
+- Round 1: CHANGES_REQUIRED。
+  - blocking 1: 実時間で数える処理が全演出に効いていた。
+    - 演出で歩かせる距離（`walkTo` の速さ × ゲーム内の時間）が縮み、洋館の再会などで立ち位置がずれた。
+    - CI（`SIM_TIME_SCALE` 0.25）では常に起きる。
+  - → 直した内容:
+    - 実時間は `opts.realtime` を渡した村の演出だけにした。
+    - 演出で体を動かしている間（`walkTo`・`cutsceneTurn`・`duskGuestWalk`）は、ゲーム内の時間にした。
+  - unit に、次の確認を足した。
+    - 村以外は `realtime` を渡していない。
+    - 体を動かしている間はゲーム内の時間。
+- 注記（non-blocking、記録だけ）:
+  - 見せ場の上限 3.5 秒で、撃破後の記憶が戻る場面は 8.3 秒が 3.5 秒になる（以前の詰めでは 0.8 秒）。
+  - 入口の一幕の歩く部分は、前置きの詰めで今までどおり短い。
