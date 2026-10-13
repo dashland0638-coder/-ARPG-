@@ -4,7 +4,7 @@
 計画: `.ai/reports/CHAPTER-1-experience-plan.md` §2 X-6b（PR #75）。Human Decision: DEC-006 の EX-2 = A（PR #75）。
 依存: X-6a（`claude/ch1-exp-x6a-dusk-light-lerp`）の上に積んである。X-6a を先に merge する。
 
-Status: REVIEWING
+Status: PR_OPEN（Reviewer PASS）
 
 ## Implementation
 - `src/core/dusk-light.js`（X-6a で作ったもの）に次を追加した。
@@ -44,7 +44,7 @@ Status: REVIEWING
 | 　 | legacy の 4 か所の呼び出し・出撃ごとの初期化・z を使うのはテストモードだけ |
 | `npm run test:unit` | 1792 PASS / 0 FAIL / 1 SKIP |
 | `npm run build` | PASS |
-| E2E `chapter1-dusk-basics`・`scenario-test-mode`（ローカル） | 下記 |
+| E2E `chapter1-dusk-basics`・`duskvillage`・`scenario-test-mode`（ローカル） | 12 passed |
 
 置き換えたテスト（弱めていない）: X-6a の「legacy が `duskLight(duskBandPosAtZ(state.pos.z), …)` を使う」は、z で決めないという新しい仕様と矛盾するので、「`duskLight(duskBandPos, …)` を使い、z を使うのはテストモードだけ」に置き換えた。
 
