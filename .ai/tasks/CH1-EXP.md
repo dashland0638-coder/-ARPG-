@@ -1,6 +1,6 @@
 # CH1-EXP — Chapter 1 Experience Redesign（第一章の体験品質）
 
-Status: PLANNED
+Status: PR_OPEN（全 Work Item の実装 PR を作成済み。main へは未 merge。実機確認は HUMAN DEVICE CHECK REQUIRED）
 
 Analysis: .ai/reports/CHAPTER-1-experience-audit.md（branch `claude/chapter1-experience-audit`、base `origin/main` `7020e4d`）
 Plan: .ai/reports/CHAPTER-1-experience-plan.md（Work Item ごとの Goal / Scope / Out of Scope / Acceptance / Test Plan / Dependencies）
@@ -29,14 +29,14 @@ Plan: .ai/reports/CHAPTER-1-experience-plan.md（Work Item ごとの Goal / Scop
 
 | ID | Summary | 要件 | 優先度 | Status | Approval | 依存 |
 | --- | --- | --- | --- | --- | --- | --- |
-| X-1 | 分離の台詞を「消えた……？」に | A | P1 | APPROVED | [x] | ― |
-| X-2 | 宵待ちの村の演出テンポ（無言の間を詰め、見せ場は残す） | C | P1 | APPROVED | [x] | X-4（推奨） |
-| X-3 | 非戦闘の歩行の腕振り・胴の動き | E | P1 | APPROVED | [x] | ― |
-| X-4 | 演出中も主人公の待機・歩行のアニメーションを止めない | C・E | P1 | APPROVED | [x] | X-3 |
-| X-5 | 帰還 → 帰還の会話 → 次の主人公の登場 → 交代の会話 → 切り替え | B | P2 | APPROVED | [x] | EX-1、E2E は古い監査の E-8 |
-| X-6a | 村の光の色の段差をなくす（補間） | D | P2 | APPROVED | [x] | ― |
-| X-6b | 村の時間帯を何で決めるか（行き来で巻き戻らない） | D | P2〜P3 | APPROVED | [x] | EX-2、X-6a |
-| X-7 | 最初のマップ改修の詳細計画 | F | P3 | APPROVED | [x] | EX-3、CH1-T0、X-2、X-6 |
+| X-1 | 分離の台詞を「消えた……？」に | A | P1 | PR_OPEN #76 | [x] | ― |
+| X-2 | 宵待ちの村の演出テンポ（無言の間を詰め、見せ場は残す） | C | P1 | PR_OPEN #83（#82 の上） | [x] | X-4（推奨） |
+| X-3 | 非戦闘の歩行の腕振り・胴の動き | E | P1 | PR_OPEN #80 | [x] | ― |
+| X-4 | 演出中も主人公の待機・歩行のアニメーションを止めない | C・E | P1 | PR_OPEN #82（#80 の上） | [x] | X-3 |
+| X-5 | 帰還 → 帰還の会話 → 次の主人公の登場 → 交代の会話 → 切り替え | B | P2 | PR_OPEN #78 | [x] | EX-1、E2E は古い監査の E-8 |
+| X-6a | 村の光の色の段差をなくす（補間） | D | P2 | PR_OPEN #77 | [x] | ― |
+| X-6b | 村の時間帯を何で決めるか（行き来で巻き戻らない） | D | P2〜P3 | PR_OPEN #81（#77 の上） | [x] | EX-2、X-6a |
+| X-7 | 最初のマップ改修の詳細計画 | F | P3 | PR_OPEN #79 | [x] | EX-3、CH1-T0、X-2、X-6 |
 
 各 Work Item の計画は `CHAPTER-1-experience-plan.md` §2。Status と Approval の正本はこの表。
 
@@ -230,6 +230,14 @@ Implementation (X-7): ALLOWED
 - Test Retry Count: 0
 - PR Created: Yes（#75）
 
+実装フェーズ（X-1〜X-7）の実測:
+- Human Escalation Count: 0（E-3・E-5・E-8 は作業に影響しなかった）
+- Human Decision Count: 1（EX-1〜EX-3 の回答。DEC-006）
+- Auto Fix Count: 7（Reviewer の差し戻し: X-1・X-2・X-3・X-4・X-6b・X-7 と X-5 の non-blocking）
+- Reviewer Round Count: 各 Work Item 1〜2（全件 PASS）
+- Test Retry Count: 1（PR #77 の CI。この PR と無関係な `mansion-enemies` の失敗を 1 回だけ再実行。PR にコメント済み）
+- PR Created: Yes（#76〜#83）
+
 ## Status History
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |
@@ -237,3 +245,4 @@ Implementation (X-7): ALLOWED
 | 2026-10-13 | Task | PLANNED（変更なし） | Reviewer | Round 1 CHANGES_REQUIRED（blocking 1: 時計塔 → 道の懐中時計の行の移動が `CHAPTER1_STORY.md` §4-5 の「翌朝」と食い違う。non-blocking 5: 演出の秒数・行番号・肩の範囲の誤り、Escalation の全文、§4-1「酒場に残る」の事実）。全件を反映（Round 1/3）。EX-1 の推奨を (2) へ |
 | 2026-10-13 | Task | PLANNED（変更なし） | Reviewer | Round 2 PASS。non-blocking 1 件（(2) の姿は道を終える前だけ。道の後の既存の 3 人と二重にしない）を X-5 の Scope と Acceptance に反映 |
 | 2026-10-13 | X-1〜X-7 | PLANNED / WAITING_APPROVAL → APPROVED | Human / Planner (Agent Approval) | EX-1 = A・(2)、EX-2 = A、EX-3 = A（DEC-006）。Human が実装方針と順序を指示 |
+| 2026-10-13 | X-1〜X-7 | APPROVED → PR_OPEN | Orchestrator / Implementer / Tester / Reviewer | 各 Work Item を別ブランチで実装し、独立 Reviewer の PASS 後に PR（#76〜#83）。X-3 → X-4 → X-2、X-6a → X-6b は積み重ねの PR。Merge は Human が判断する |
