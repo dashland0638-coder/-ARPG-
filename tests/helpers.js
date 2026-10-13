@@ -255,20 +255,23 @@ function arenaInfoValue(html, key) {
  * 位置が内か外かは run ごとに違う。そこで、W+D を押し続けたまま短い間隔で I キーを押す
  * (プレイヤーが鍛冶士へ寄りながら I を押すのと同じ)。範囲に入ったフレームで開く。
  * 開けたら true。
+ *
+ * W+D だけで歩くと、鍛冶屋の手前の障害物(x ≈ -3.9)に正面から当たり、沿ってほとんど進まない
+ * まま歩数を使い切る run があった(遅い CI。歩く距離はゲーム内の時間、歩数は実時間で数える)。
+ * 一歩おきに W だけで歩き、障害物に沿って鍛冶屋の側(+z)へ滑らせる。
  */
 async function openAppraisalAtSmith(page, maxSteps = 80) {
   await disableCameraAutoFollow(page);
   const isOpen = () => page.evaluate(() => document.getElementById('appraisal-overlay').classList.contains('active'));
   for (let i = 0; i < maxSteps; i++) {
-    await page.keyboard.down('KeyW');
-    await page.keyboard.down('KeyD');
+    const keys = i % 2 ? ['KeyW'] : ['KeyW', 'KeyD'];
+    for (const key of keys) await page.keyboard.down(key);
     for (let k = 0; k < 3; k++) {
       await page.keyboard.press('KeyI');
       await page.waitForTimeout(60);
       if (await isOpen()) break;
     }
-    await page.keyboard.up('KeyW');
-    await page.keyboard.up('KeyD');
+    for (const key of keys) await page.keyboard.up(key);
     if (await isOpen()) return true;
     await page.waitForTimeout(100);
   }
