@@ -95,13 +95,24 @@ test.describe('UI-002-D WI-D1: HUD の表示条件(1280×800・PC)', () => {
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     /* 表示・非表示が切り替わった時刻をページ内で記録する(この環境では
-       page.evaluate の往復が遅く、外から時間を測ると誤差が大きい) */
+       page.evaluate の往復が遅く、外から時間を測ると誤差が大きい)。
+       ゲームが style.display を書いた瞬間に記録する。MutationObserver の通知は
+       そのフレームの処理が終わってから届くので、重いフレームで出た時刻だけ遅れ、
+       5 秒を数ミリ下回って見える run があった(CI) */
     await page.evaluate(() => {
       const el = document.getElementById('hud-hint');
       window.__hintLog = [];
-      new MutationObserver(() => {
-        window.__hintLog.push({ shown: el.style.display !== 'none', t: performance.now() / 1000 });
-      }).observe(el, { attributes: true, attributeFilter: ['style'] });
+      Object.defineProperty(el.style, 'display', {
+        configurable: true,
+        get() { return this.getPropertyValue('display'); },
+        set(v) {
+          const before = this.getPropertyValue('display');
+          this.setProperty('display', v);
+          if (this.getPropertyValue('display') !== before) {
+            window.__hintLog.push({ shown: v !== 'none', t: performance.now() / 1000 });
+          }
+        },
+      });
     });
     await dismissIntroDialogue(page);
     await expect(page.locator('#hud-hint')).toBeVisible({ timeout: 10_000 });
