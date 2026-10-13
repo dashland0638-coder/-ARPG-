@@ -4,7 +4,7 @@
 計画: `.ai/reports/CHAPTER-1-experience-plan.md` §2 X-4（PR #75）。Human Decision: DEC-006（PR #75）。
 依存: X-3（`claude/ch1-exp-x3-walk-arms`）の上に積んである。X-3 → X-4 の順に merge する。
 
-Status: REVIEWING
+Status: PR_OPEN（Reviewer PASS）
 
 ## 原因（監査 §3.1）
 - 演出中・会話中は `updatePlayer` が回らない。
@@ -30,8 +30,9 @@ Status: REVIEWING
 | 確認 | 結果 |
 | --- | --- |
 | 新規 `tests/unit/scripted-body.test.js`（3 件。配線・位置の置き直し・禁止の処理・同行者の揺れ） | 修正前のソースで 3 件 FAIL、修正後 3 件 PASS |
-| 新規 E2E `tests/chapter1-scripted-body.spec.js` | 下記（X-2 のブランチでまとめて実行） |
+| 新規 E2E `tests/chapter1-scripted-body.spec.js` | PASS。`updateBodyWhileScripted` の呼び出しを外すと FAIL |
 | 　 | 村の住宅の記憶の演出で台詞を待つ間、モーションパネルの腰・肩の値が変わり続ける |
+| 　 | 会話中はキー入力を受け付けないので、デバッグモードはバージョン表記の5連打で出す |
 | `npm run test:unit` | 1788 PASS / 0 FAIL / 1 SKIP |
 | `npm run build` | PASS |
 
