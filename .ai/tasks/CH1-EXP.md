@@ -219,13 +219,13 @@ Implementation (X-7): BLOCKED until approval
 - Minimal answer: 「A」/「B」/「C」。
 
 ## Autonomy Metrics
-（完了処理で記入。推測で埋めない）
-- Human Escalation Count:
-- Human Decision Count:
-- Auto Fix Count:
-- Reviewer Round Count:
-- Test Retry Count:
-- PR Created:
+初期フェーズ（調査・計画）の実測:
+- Human Escalation Count: 1（EX-1〜EX-3 を1回にまとめて提示）
+- Human Decision Count: 0
+- Auto Fix Count: 2（Review Fix Loop）
+- Reviewer Round Count: 2
+- Test Retry Count: 0
+- PR Created: Yes（#75）
 
 ## Status History
 | Date | Target | From → To | By | Note |
