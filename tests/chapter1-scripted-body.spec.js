@@ -4,7 +4,8 @@
    以前は演出が始まると updatePlayer が回らず、主人公が最後の姿勢のまま固まっていた。
    宵待ちの村の記憶の演出(住宅。テストモードの開始地点から入る)で、台詞を出して
    送りを待っている間に、モーションパネル(デバッグモード)の腰・肩の値が変わり
-   続けることを確かめる。値を読むだけで、ゲームの状態には触らない。 */
+   続けることを確かめる。値を読むだけで、ゲームの状態には触らない。
+   (デバッグモードはバージョン表記の5連打で出す。会話中はキー入力が効かない) */
 import { test, expect } from '@playwright/test';
 import { openGame, watchErrors } from './helpers.js';
 
@@ -25,7 +26,12 @@ test('演出で台詞を待っている間も、主人公の腰・肩が動き�
   await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 30_000 });
   await expect(page.locator('#dialogue-text')).toHaveText('「明日、船に乗せて!」', { timeout: 120_000 });
 
-  await page.keyboard.press('Backquote');
+  // 会話中はキー入力(` キー)を受け付けないので、もう一つの入口である
+  // バージョン表記の5連打(14-hud-boot.js bindVersionTap)でデバッグモードにする
+  await page.evaluate(() => {
+    const el = document.getElementById('menu-version');
+    for (let i = 0; i < 5; i++) el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  });
   await expect(page.locator('#motion-panel')).toContainText('MOTION PREVIEW', { timeout: 10_000 });
   const first = await rigValues(page);
   expect(first, 'パネルに腰・肩の値が出ている').toMatch(/\d/);
