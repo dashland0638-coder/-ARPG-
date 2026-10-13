@@ -1149,7 +1149,7 @@
     if(!player || !playerMixerParts || !playerMixerParts.waist || !state.classDef) return;
     player.position.copy(state.pos);
     player.rotation.y = state.facing;
-    /* 見た目の向き(updatePlayer が少しずつ回すもの)も合わせておく。合わせないと、
+    /* 見た目の向き(操作中に少しずつ回すもの)も合わせておく。合わせないと、
        会話が向きを変えている途中で開いたとき、操作に戻った瞬間に古い向きへ
        戻ってから回り直す */
     visualFacing = state.facing;
