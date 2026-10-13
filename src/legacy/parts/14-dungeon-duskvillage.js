@@ -766,7 +766,6 @@
        (商店街の複合戦闘と同じ registerRoomEvent) */
     registerRoomEvent(duskRoomById('yard'), 0, '', ()=>{
       // 商店街で閃かずに抜けてきた場合は、ここで閃いてから水門を見る(WORK 12.1)
-      advanceDuskTime('insight');   // 閃き(既に閃いていても、水門前に来た時点で同じ段へ)
       playDuskInsight(()=> playDuskGateTalk());
       return null;
     }, {inset: 1.2});
@@ -1112,6 +1111,10 @@
      閃いた瞬間に自動で装備される */
   let duskInsightDone = false;
   function playDuskInsight(onDone){
+    /* 閃き。ここで一段暮れる(CH1-EXP X-6b)。商店街の戦闘の後でも、水門前で
+       閃いても同じ段へ。既に閃いていて演出を飛ばす場合も、ここを通れば上がる
+       (目標は上がるだけなので、二度呼ばれても変わらない) */
+    advanceDuskTime('insight');
     if(duskInsightDone || state.learnedSkill2){
       if(onDone) onDone();
       return;

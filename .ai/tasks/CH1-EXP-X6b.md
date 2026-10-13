@@ -19,7 +19,7 @@ Status: REVIEWING
   - `duskBandPos` / `duskBandTarget` を持ち、`buildDuskVillage()` で出撃ごとに 0 へ戻す。
   - 4 つの出来事で `advanceDuskTime(beat)` を呼ぶ。
     - `playDuskEntranceScene` の先頭
-    - 水門前の部屋のイベント（閃きの前）
+    - `playDuskInsight` の先頭（商店街の戦闘の後・水門前のどちらで閃いても。Review Round 1 の指摘で、水門前のイベントから移した）
     - `onDuskWardenDefeated` の先頭
     - `playDuskBossPrelude`（一度だけの判定の後）
   - `updateDuskVillage()` は `duskLight(duskBandPos, duskDawnT)` を使う。**プレイヤーの z では決めない**。
@@ -59,3 +59,8 @@ E2E で往復を確かめていない理由:
 - 広場 ⇔ 船小屋を往復しても戻らない。
 - 色の変化が数秒かけて滑らか。
 - ボス撃破後の夜明けが今までどおり。
+
+## Review
+- Round 1: CHANGES_REQUIRED。
+  - blocking 1: 閃きの段が、閃きの演出ではなく水門前のイベントに付いていた。普段の流れ（商店街の戦闘の後に閃く）では、閃いても暮れなかった。
+  - → `playDuskInsight` の先頭（早期 return の前）へ移した。unit の確認も「閃きの演出の先頭に 1 か所だけ」に直した。

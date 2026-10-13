@@ -129,7 +129,9 @@ test('legacy: 4 つの出来事で目標を上げ、出撃ごとに 0 へ戻し�
     return village.slice(i, village.indexOf('\n  }\n', i));
   };
   assert.match(fnBody('playDuskEntranceScene'), /advanceDuskTime\('entrance'\)/);
-  assert.match(village, /advanceDuskTime\('insight'\);[^\n]*\n\s*playDuskInsight\(\(\)=> playDuskGateTalk\(\)\)/);
+  // 閃きは閃きの演出の先頭(商店街の戦闘の後・水門前のどちらから入っても、早期 return の前)
+  assert.match(fnBody('playDuskInsight'), /advanceDuskTime\('insight'\);\s*if\(duskInsightDone \|\| state\.learnedSkill2\)\{/);
+  assert.equal((village.match(/advanceDuskTime\('insight'\)/g) || []).length, 1);
   assert.match(fnBody('onDuskWardenDefeated'), /advanceDuskTime\('warden'\)/);
   // ボスの手前は、一度だけの判定の後(起き直さない)
   assert.match(fnBody('playDuskBossPrelude'), /if\(duskBossPreludeDone\) return;\s*duskBossPreludeDone = true;[\s\S]*?advanceDuskTime\('prelude'\)|if\(duskBossPreludeDone\) return;\s*advanceDuskTime\('prelude'\)/);

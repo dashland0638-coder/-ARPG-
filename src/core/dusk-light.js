@@ -97,7 +97,7 @@ export function duskLight(bandPos, dawnT = 0, bands = DUSK_BANDS, dawn = DUSK_DA
 
    時間帯の帯の位置を、プレイヤーの z ではなく **村で起きた出来事** で決める。
    出来事は 4 つ。どれも出撃 1 回につき 1 回だけ起きる:
-     入口の一幕(村に入る)/ 閃き(水門前)/ 水門守の撃破 / ボスの手前
+     入口の一幕(村に入る)/ 閃き(商店街の戦闘の後、または水門前)/ 水門守の撃破 / ボスの手前
    出来事が起きると「目標の帯の位置」が上がり、実際の帯の位置はそこへ
    数秒かけて近づく(色は duskLight が帯の間を連続に補間する)。
 
@@ -113,7 +113,7 @@ export function duskLight(bandPos, dawnT = 0, bands = DUSK_BANDS, dawn = DUSK_DA
    → 2.1、村の奥の終点 z≈496 → 2.6)。ボスの手前で夜(3)まで暮れる。 */
 export const DUSK_BEAT_TARGET = Object.freeze({
   entrance: 0.5,   // 村に入る。夕暮れから薄暮へ向かい始める
-  insight:  1.5,   // 水門前の閃き。薄暮の終わり
+  insight:  1.5,   // 閃き。薄暮の終わり
   warden:   2.2,   // 水門守の撃破。夜に近づく
   prelude:  3,     // ボスの手前。夜
 });
