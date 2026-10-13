@@ -54,6 +54,10 @@
   let duskRipples = [];      // 波紋。プレイヤー/小舟の近くに出る
   let duskBossRef = null;    // WORK 7 でボスを入れるための受け皿(今は常に null)
   let duskSkyColor = null;
+  /* 時間帯(CH1-EXP X-6b)。村で起きた出来事で目標が上がり、実際の値は数秒かけて
+     そこへ寄る。上がるだけで戻らない(core/dusk-light.js)。出撃ごとに 0 から */
+  let duskBandPos = 0, duskBandTarget = 0;
+  function advanceDuskTime(beat){ duskBandTarget = advanceDuskTarget(duskBandTarget, beat); }
   let duskDawnT = 0;         // 0=夜のまま 1=夜明け。WORK 7 の撃破演出が動かす
   let duskCreakCD = 0;       // 木橋の軋み(鳴らしすぎないための間引き)
   let duskRippleCD = 0;
@@ -104,6 +108,7 @@
     duskWater = null; duskWaterBase = null;
     duskBossRef = null;
     duskDawnT = 0; duskCreakCD = 0; duskRippleCD = 0;
+    duskBandPos = 0; duskBandTarget = 0;   // 出撃のたびに夕暮れから(CH1-EXP X-6b)
     duskGuestWalk = null;
     duskFishMemoryDone = false;   // 出撃のたびに、記憶はまた一度だけ起きる
     duskChildMemoryDone = false; duskBoatMemoryDone = false;
@@ -761,6 +766,7 @@
        (商店街の複合戦闘と同じ registerRoomEvent) */
     registerRoomEvent(duskRoomById('yard'), 0, '', ()=>{
       // 商店街で閃かずに抜けてきた場合は、ここで閃いてから水門を見る(WORK 12.1)
+      advanceDuskTime('insight');   // 閃き(既に閃いていても、水門前に来た時点で同じ段へ)
       playDuskInsight(()=> playDuskGateTalk());
       return null;
     }, {inset: 1.2});
@@ -829,6 +835,7 @@
   const DUSK_KNIGHT = '剣士';
 
   function playDuskEntranceScene(){
+    advanceDuskTime('entrance');   // 村に入った。ここから暮れ始める(CH1-EXP X-6b)
     // 水面の人影。村の西側、岸のすぐ外 ―― 歩いていける場所ではない
     const shadePos = new THREE.Vector3(-13, 0, 326);
     let shade = null;
@@ -1379,6 +1386,7 @@
   /* 撃破。残響が消え、鎖が止まり、門が上がる。
      リザルトも黒画面も挟まない ―― 歩けるまま、世界の側が変わる */
   function onDuskWardenDefeated(){
+    advanceDuskTime('warden');   // 水門守の撃破。夜に近づく(CH1-EXP X-6b)
     clearKeeperEchoes();
     if(duskGateLever) duskGateLever.rotation.z = 0.5;
     openDuskWaterGate();
@@ -1483,6 +1491,7 @@
   let duskBossPreludeDone = false;
   function playDuskBossPrelude(){
     if(duskBossPreludeDone) return;
+    advanceDuskTime('prelude');   // ボスの手前。夜(CH1-EXP X-6b)
     duskBossPreludeDone = true;
     playCutscene([
       {t:0.2, run:()=> ambienceHold(8)},
@@ -1623,7 +1632,13 @@
     // ---- 時間帯(zの進み具合で補間。撃破後は dawn へ寄せる) ----
     /* 色も強さも、帯の間を連続に補間する(core/dusk-light.js)。以前は光の色だけ
        帯の中間点で選び替えていて、広場と船小屋の往復で景色が跳んでいた */
-    const L = duskLight(duskBandPosAtZ(state.pos.z), duskDawnT);
+    /* 何で暮れるか(CH1-EXP X-6b、DEC-006 EX-2 = A): 村で起きた出来事。
+       プレイヤーの位置では決めないので、引き返しても巻き戻らない。
+       テストモードの開始地点(出来事を飛ばして途中から入る)だけは、その場所の
+       帯まで目標を上げる ―― 上げるだけなので、戻っても巻き戻らないのは同じ */
+    if(state.testMode) duskBandTarget = Math.max(duskBandTarget, duskBandPosAtZ(state.pos.z));
+    duskBandPos = stepDuskBandPos(duskBandPos, duskBandTarget, dt);
+    const L = duskLight(duskBandPos, duskDawnT);
     if(!duskSkyColor) duskSkyColor = new THREE.Color();
     duskSkyColor.setHex(L.sky);
     if(scene.fog){

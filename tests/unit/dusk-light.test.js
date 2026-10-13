@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import {
   DUSK_BANDS, DUSK_DAWN, DUSK_COLOR_KEYS, DUSK_NUMBER_KEYS,
   duskBandPosAtZ, duskLight, lerpHex,
+  DUSK_BEAT_TARGET, DUSK_BAND_SEC, advanceDuskTarget, stepDuskBandPos,
 } from '../../src/core/dusk-light.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -80,8 +81,61 @@ test('色の補間は three.js の Color.lerp(線形光の空間)と同じ結果
 });
 
 test('legacy 側は core を使い、帯の中間点での選び替え(k<0.5?a:b / d>0.5)が残っていない', () => {
-  assert.match(village, /duskLight\(duskBandPosAtZ\(state\.pos\.z\), duskDawnT\)/);
+  // X-6b 以降、帯の位置は出来事で決まる(z では決めない)
+  assert.match(village, /duskLight\(duskBandPos, duskDawnT\)/);
   assert.doesNotMatch(village, /k<0\.5\?a\.\w+:b\.\w+/);
   assert.doesNotMatch(village, /d>0\.5 \? DUSK_DAWN/);
   assert.doesNotMatch(village, /const DUSK_BANDS = \[/);
+});
+
+/* ---- CH1-EXP X-6b: 物語の進行で暮れる(DEC-006 EX-2 = A) ---- */
+
+test('出来事で目標が上がる: 入口 → 閃き → 水門守 → ボスの手前の順に、夜(3)まで', () => {
+  const order = ['entrance', 'insight', 'warden', 'prelude'];
+  let t = 0;
+  const seen = [];
+  for (const beat of order) { t = advanceDuskTarget(t, beat); seen.push(t); }
+  for (let i = 1; i < seen.length; i++) assert.ok(seen[i] > seen[i - 1], seen.join(','));
+  assert.equal(seen[0], DUSK_BEAT_TARGET.entrance);
+  assert.equal(seen.at(-1), 3, 'ボスの手前で夜');
+});
+
+test('目標は下がらない: 出来事が起き直しても、順番が前後しても巻き戻らない', () => {
+  let t = advanceDuskTarget(0, 'warden');
+  assert.equal(advanceDuskTarget(t, 'entrance'), t);
+  assert.equal(advanceDuskTarget(t, 'warden'), t);
+  assert.equal(advanceDuskTarget(t, 'unknown'), t);
+  assert.equal(advanceDuskTarget(NaN, 'entrance'), DUSK_BEAT_TARGET.entrance);
+});
+
+test('実際の帯の位置は数秒かけて目標へ寄り、行き過ぎず、戻らない', () => {
+  // 帯 1 つぶんは DUSK_BAND_SEC 秒。数秒の範囲であること
+  assert.ok(DUSK_BAND_SEC >= 2 && DUSK_BAND_SEC <= 6, `${DUSK_BAND_SEC}`);
+  let p = 0, secs = 0;
+  while (p < 1.5 && secs < 60) { p = stepDuskBandPos(p, 1.5, 1 / 30); secs += 1 / 30; }
+  assert.equal(p, 1.5);
+  assert.ok(Math.abs(secs - 1.5 * DUSK_BAND_SEC) < 0.1, `${secs}`);
+  // 目標より手前に下げられても戻らない
+  assert.equal(stepDuskBandPos(2, 1, 1), 2);
+  // 1 フレームの変化は小さい(光の色が跳ばない)
+  const a = duskLight(1.0, 0), b = duskLight(stepDuskBandPos(1.0, 3, 1 / 30), 0);
+  for (const k of DUSK_COLOR_KEYS) assert.ok(maxChannelStep(a[k], b[k]) <= 2, k);
+});
+
+test('legacy: 4 つの出来事で目標を上げ、出撃ごとに 0 へ戻し、位置で決めるのはテストモードだけ', () => {
+  const fnBody = name => {
+    const i = village.indexOf(`function ${name}(`);
+    assert.ok(i >= 0, name);
+    return village.slice(i, village.indexOf('\n  }\n', i));
+  };
+  assert.match(fnBody('playDuskEntranceScene'), /advanceDuskTime\('entrance'\)/);
+  assert.match(village, /advanceDuskTime\('insight'\);[^\n]*\n\s*playDuskInsight\(\(\)=> playDuskGateTalk\(\)\)/);
+  assert.match(fnBody('onDuskWardenDefeated'), /advanceDuskTime\('warden'\)/);
+  // ボスの手前は、一度だけの判定の後(起き直さない)
+  assert.match(fnBody('playDuskBossPrelude'), /if\(duskBossPreludeDone\) return;\s*duskBossPreludeDone = true;[\s\S]*?advanceDuskTime\('prelude'\)|if\(duskBossPreludeDone\) return;\s*advanceDuskTime\('prelude'\)/);
+  assert.match(fnBody('buildDuskVillage'), /duskBandPos = 0; duskBandTarget = 0;/);
+  // z で目標を上げるのはテストモードの中だけ
+  const zUses = village.match(/duskBandPosAtZ\(state\.pos\.z\)/g) || [];
+  assert.equal(zUses.length, 1);
+  assert.match(village, /if\(state\.testMode\) duskBandTarget = Math\.max\(duskBandTarget, duskBandPosAtZ\(state\.pos\.z\)\);/);
 });
