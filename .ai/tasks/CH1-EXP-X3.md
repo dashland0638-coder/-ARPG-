@@ -3,7 +3,7 @@
 親 Task: `.ai/tasks/CH1-EXP.md` の Work Item X-3（正本は親の Work Items 表。親は PR #75）。
 計画: `.ai/reports/CHAPTER-1-experience-plan.md` §2 X-3（PR #75）。Human Decision: DEC-006（PR #75）。
 
-Status: REVIEWING
+Status: PR_OPEN（Reviewer PASS）
 
 ## 原因（監査 §4）
 - 非戦闘の腕振りの係数（0.40〜0.50）では、歩く速さでの肩の振れが前後 ±7° ほどしかなかった。
