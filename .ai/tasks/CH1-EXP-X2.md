@@ -4,7 +4,7 @@
 計画: `.ai/reports/CHAPTER-1-experience-plan.md` §2 X-2（PR #75）。Human Decision: DEC-006（PR #75）。
 依存: X-4（`claude/ch1-exp-x4-cutscene-body`）の上に積んである。その下に X-3。X-3 → X-4 → X-2 の順に merge する。
 
-Status: REVIEWING
+Status: PR_OPEN（Reviewer PASS）
 
 ## 原因（監査 §3）
 1. 記憶の演出（魚屋・住宅・船小屋・商店街）は、声の後で会話欄を消し、0.8〜1.2 秒置いてから二人が話す。この間、台詞も操作も無い。
@@ -54,7 +54,9 @@ Status: REVIEWING
 | 新規 `tests/unit/cutscene-timing.test.js`（7 件。下記） | PASS |
 | `npm run test:unit` | 1795 PASS / 0 FAIL / 1 SKIP |
 | `npm run build` | PASS |
-| E2E `chapter1-dusk-basics`・`chapter1-skill2`・`chapter1-scripted-body`・`scenario-test-mode`（ローカル） | 下記 |
+| E2E `chapter1-dusk-basics`・`duskvillage`・`chapter1-scripted-body`（ローカル） | 9 passed |
+| E2E `chapter1-skill2`・`scenario-test-mode`（ローカル） | 8 passed |
+| E2E `mansion-escort`・`mansion-scenario`・`mansion-lord`（演出で歩かせる場面。ローカル） | 13 passed |
 
 `cutscene-timing.test.js` で確かめていること:
 
