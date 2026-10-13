@@ -1138,6 +1138,21 @@
     return true;
   }
 
+  /* 演出中・会話中の身体(CH1-EXP X-4)。プレイヤーの入力を取り上げている間は
+     updatePlayer が回らないので、以前は主人公が最後の姿勢のまま固まり、演出で
+     歩かせる(state.walkTo)と足を動かさずに滑っていた。ここでは見た目の歩行・
+     待機だけを進める ―― 入力・移動・攻撃・カメラの処理は呼ばない。
+     速さは演出の徒歩(walkTo)だけ。位置は呼び出しの時点の state.pos に置き直す
+     (updateLocomotion は上下動を player.position.y へ足すので、置き直さないと
+     フレームごとに積み上がる) */
+  function updateBodyWhileScripted(dt){
+    if(!player || !playerMixerParts || !playerMixerParts.waist || !state.classDef) return;
+    player.position.copy(state.pos);
+    player.rotation.y = state.facing;
+    const w = state.walkTo;
+    updateLocomotion(dt, w ? Math.hypot(w.vx || 0, w.vz || 0) : 0);
+  }
+
   function updateLocomotion(dt, moveSpeed){
     const P = playerMixerParts;
     const moving = state.grounded && moveSpeed > 0.35;   // m/s

@@ -830,7 +830,10 @@
     const step = Math.min(d, (duskGuestWalk.speed || 3.0) * dt);
     g.pos.x += dx/d * step;
     g.pos.z += dz/d * step;
-    g.group.position.set(g.pos.x, g.group.position.y, g.pos.z);
+    /* 歩いている間は、支援 AI が普段歩くときと同じ上下の揺れを付ける(CH1-EXP X-4。
+       08-loot-equipment.js updateGuestCompanion と同じ式)。滑って見えないように */
+    g.bobT = (g.bobT || 0) + dt;
+    g.group.position.set(g.pos.x, Math.sin(g.bobT*8)*0.015, g.pos.z);
     g.group.rotation.y = Math.atan2(dx, dz);
   }
 

@@ -1393,6 +1393,7 @@
       clearMovementInput(false); wasPlayable = false;
       updateCutscene(dt);
       updateCutscenePhysics(dt);
+      updateBodyWhileScripted(dt);   // 演出中も呼吸・歩きを止めない(CH1-EXP X-4)
       updateCollapse(dt);
       updateAltitude(dt);
       /* 屋根の出し入れは演出中も要る。ここを止めていると、カットシーンで
@@ -1425,6 +1426,7 @@
     } else if(state.started && state.dialogueActive){
       hideMobBars();
       clearMovementInput(false); wasPlayable = false;   // never leave the stick held
+      updateBodyWhileScripted(dt);   // 会話中も呼吸を止めない(CH1-EXP X-4)
       /* 島の遠景の人影(showIslandStranger)は、島の地の文を読んでいる間に
          歩いていく。加入前の人物を動かすだけで、他のワールドでは何もしない */
       updatePreJoinFigures(dt);
