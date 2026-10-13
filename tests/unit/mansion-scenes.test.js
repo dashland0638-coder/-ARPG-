@@ -255,8 +255,8 @@ test('分離の場面: 扉 → 暗転 → 振り返る(カメラも回る) → �
   // 振り返るときはカメラも反対側へ、向き直るときは元へ(片方だけだと何が無いのかが映らない)
   assert.ok(r.log.includes(`turn:${Math.PI.toFixed(2)}:0.00`));
   assert.ok(r.log.includes(`turn:0.00:${Math.PI.toFixed(2)}`));
-  // 台詞は一言だけ。状況を説明しない
-  assert.equal(r.log.filter(e => e.startsWith('line:')).length, 1);
+  // 台詞は一言だけ。状況を説明しない(CH1-EXP X-1: 「いない」ことへの短い反応)
+  assert.deepEqual(r.log.filter(e => e.startsWith('line:')), ['line:「消えた……？」']);
   // 最後に操作が戻る
   assert.equal(r.state.dialogueActive, false);
   // 演出は短い(合計 6 秒未満)
