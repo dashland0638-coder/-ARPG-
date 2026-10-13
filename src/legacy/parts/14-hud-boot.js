@@ -1997,6 +1997,9 @@
     const sw = chapter1Switch;
     if(!sw) return;
     fadeTransition(()=>{
+      // 暗転の間にタイトルへ戻った(または酒場を離れた)ら何もしない。進行は scenarioClears
+      // から導くので、次に入れば交代は済んでいる
+      if(!state.started || currentWorldKey !== 'tavern'){ chapter1Switch = null; joinFigureWalk = null; return; }
       const prevPos = {x: state.pos.x, z: state.pos.z, facing: state.facing};
       const fig = sw.figure;
       const at = fig ? {x: fig.position.x, z: fig.position.z, ry: fig.rotation.y} : null;
@@ -2038,7 +2041,7 @@
     {x: 6.6, z: 16.4}, {x: 3.5, z: 16.6}, {x: 5.0, z: 13.2},   // 卓B の椅子(半径 1.45)を避ける
   ];
   let retiredCastFigures = [];
-  // building: buildTavern の中から呼ぶとき(currentWorldKey はまだ前のワールド)
+  // building: buildTavern の中から呼ぶとき(currentWorldKey はまだ 'tavern' になっていない。disposeWorld が null にしている)
   function refreshRetiredCastFigures(building){
     retiredCastFigures.forEach(f=> scene.remove(f));
     retiredCastFigures = [];

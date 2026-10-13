@@ -100,3 +100,17 @@ Status: REVIEWING
   - 会話の後で切り替わる。
 - 卓B のそばの元主人公の位置・向きが不自然でないこと。歩み寄る人と重ならないこと。
 - 一幕の途中でアプリを閉じて「つづきから」入ると、次の主人公で始まること。
+
+## Review
+- Round 1: PASS（独立 Reviewer）。non-blocking のうち 2 件を反映した。
+  - コメントの誤り。
+  - 切り替えの暗転の間にタイトルへ戻った場合の保護（`state.started` と酒場を確かめる）。
+- 反映しなかった non-blocking の注記:
+  - 元主人公の姿に当たり判定が無い（酒場の他の立ち姿と同じ扱い）。
+  - unit の一部の確認が自明。
+  - 鍛冶士の待ちの条件を core へ移す案。
+
+## E2E（ローカル、2 CPU）
+| 確認 | 結果 |
+| --- | --- |
+| `chapter1-progression`・`tavern-smith-greeting`・`chapter1-late-scenarios`・`shadow-guide`・`chapter1-tower-to-road`・`save-load`・`chapter1-facility-access` | **30 passed**（17.0 分） |
