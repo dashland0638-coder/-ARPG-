@@ -232,3 +232,4 @@ Implementation (X-7): BLOCKED until approval
 | --- | --- | --- | --- | --- |
 | 2026-10-13 | Task | （新規）→ PLANNED | Orchestrator / Analyzer / Planner | 監査と計画を作成。X-1〜X-4・X-6a は PLANNED（Agent Approval で着手できる）、X-5・X-6b・X-7 は EX-1〜EX-3 の回答待ち |
 | 2026-10-13 | Task | PLANNED（変更なし） | Reviewer | Round 1 CHANGES_REQUIRED（blocking 1: 時計塔 → 道の懐中時計の行の移動が `CHAPTER1_STORY.md` §4-5 の「翌朝」と食い違う。non-blocking 5: 演出の秒数・行番号・肩の範囲の誤り、Escalation の全文、§4-1「酒場に残る」の事実）。全件を反映（Round 1/3）。EX-1 の推奨を (2) へ |
+| 2026-10-13 | Task | PLANNED（変更なし） | Reviewer | Round 2 PASS。non-blocking 1 件（(2) の姿は道を終える前だけ。道の後の既存の 3 人と二重にしない）を X-5 の Scope と Acceptance に反映 |
