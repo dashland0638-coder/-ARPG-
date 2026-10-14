@@ -181,23 +181,33 @@ export function locomotionArmBase(combatStance, relaxedStance, combatW){
    (.ai/reports/CHAPTER-1-experience-audit.md §4)。各職の素の速さ
    (CLASSES.spd)と体格(BUILD の strideAmp / armSwing)で、肩の振れが
    前後 ±20° 前後になるように決め直した。値の検算は relaxedWalkArmAmplitude
-   と tests/unit/relaxed-idle.test.js */
+   と tests/unit/relaxed-idle.test.js
+
+   CH1 follow-up A(iPhone 実機で「肘から先だけで振っている」): 肩の振れを
+   ±22〜28° へ上げ、肘はその 35% だけ追従させる(locomotionElbowBend)。
+   腕全体が肩から振れ、前腕だけがはためく形にならない */
 export const RELAXED_WALK_ARM_SWING = {
-  warrior: 1.20,
-  rogue:   0.95,
-  mage:    1.25,
-  archer:  1.00,
+  warrior: 1.45,
+  rogue:   1.15,
+  mage:    1.45,
+  archer:  1.20,
 };
 
 /* 非戦闘で歩くときの腕の基準(CH1-EXP X-3)。
    休め姿勢(STANCE_RELAXED)は「立ち止まっているとき」の形で、肩が少し前・
    肘を前へ 14〜24° 曲げている。歩くときもその形を基準に振ると、手がベルトの
    前に残ったまま前後するので、腕が体の前に張り付いて見える。
-   歩くときは肩の前後と肘の曲げだけを、腕を体の横へ下ろした形に置き換える。
-   肩の横方向(y / z。腕を開く量・捻り)は休め姿勢のまま ―― 体格や上位職の
-   癖(JOB_RELAXED_STANCE)で決まっていて、ここを変えると腕が胴へめり込む。
+   歩くときは肩の前後と肘の曲げを、腕を体の横へ下ろした形に置き換える。
+
+   CH1 follow-up A: 肩の横方向(y = 捻り、z = 開き)も歩くときの値にする。
+   休め姿勢の z(左 +0.20〜+0.30 / 右 −0.18〜−0.26)は、リグの Euler 順(XYZ、
+   z が先)では**手を体の中心へ寄せる**向きで、歩くとき手が骨盤の前(ベルトの前)
+   を通っていた(剣士の左手 x = −0.13、骨盤の半幅 0.20 の内側)。歩くときは
+   捻りを 0(肘が前へ真っ直ぐ曲がる)、開きを外へ 0.08 rad(約 4.6°)にして、
+   手と肘を腰・胴の外に出す(4 職とも手 |x| ≥ 0.28、肘も胴の外。値の検算は
+   tests/unit/relaxed-idle.test.js)。左右で z の符号が逆(左は − が外、右は + が外)。
    止まったときに休め姿勢へ戻る遷移は、既存の relaxStopBlend がそのまま担う */
-export const RELAXED_WALK_ARM_BASE = Object.freeze({ sh: -0.03, el: -0.16 });
+export const RELAXED_WALK_ARM_BASE = Object.freeze({ sh: -0.03, el: -0.17, twist: 0, out: 0.08 });
 
 /* 休め姿勢から「歩くときの休め」を作る。腕の4チャンネルだけを返す
    (locomotionArmBase に渡す形)。stance が足りないときは触らずに返す。
@@ -210,11 +220,12 @@ export function relaxedWalkStance(relaxed, stopW = 0){
   if(!relaxed || !Array.isArray(relaxed.shL) || !Array.isArray(relaxed.shR)) return relaxed;
   const w = Number.isFinite(stopW) ? Math.max(0, Math.min(1, stopW)) : 0;
   const mix = (walk, rest)=> walk + (rest - walk) * w;
+  const W = RELAXED_WALK_ARM_BASE;
   return {
-    shL: [mix(RELAXED_WALK_ARM_BASE.sh, relaxed.shL[0]), relaxed.shL[1], relaxed.shL[2]],
-    shR: [mix(RELAXED_WALK_ARM_BASE.sh, relaxed.shR[0]), relaxed.shR[1], relaxed.shR[2]],
-    elL: mix(RELAXED_WALK_ARM_BASE.el, relaxed.elL),
-    elR: mix(RELAXED_WALK_ARM_BASE.el, relaxed.elR),
+    shL: [mix(W.sh, relaxed.shL[0]), mix(W.twist, relaxed.shL[1]), mix(-W.out, relaxed.shL[2])],
+    shR: [mix(W.sh, relaxed.shR[0]), mix(-W.twist, relaxed.shR[1]), mix(W.out, relaxed.shR[2])],
+    elL: mix(W.el, relaxed.elL),
+    elR: mix(W.el, relaxed.elR),
   };
 }
 
@@ -238,14 +249,38 @@ export function relaxedWalkArmAmplitude(classKey, moveSpeed, build){
    後ろへ振った腕は伸びる。構え(戦闘態勢)の歩行は、従来どおり後ろへ振った
    側の肘を曲げる式のまま ―― combatW = 1 で従来の値に一致する。
    phase = sin(strideT)。返すのは「基準から引く量」(左・右) */
-export function locomotionElbowBend(phase, swing, combatW){
+/* CH1 follow-up A: 非戦闘の肘は肩の振れ(shoulderAmp、rad)に**追従**させる。
+   以前の非戦闘は 0.5·swing を max(0, s) で足していた ―― 肩の振れ(約 0.74·swing)の
+   7 割近くを肘だけで動かし、s = 0 で折れ曲がる(前へ出るときに急に曲がり始める)
+   ため、実機で「肘から先だけで振っている」ように見えた。
+   今は肩の振れの ELBOW_FOLLOW 倍を、前へ出た量に比例してなめらかに((1 + s)/2)
+   足す。肘は振りの頂点で一番曲がり、後ろへ振ったときは基準の軽い曲げまで伸びる。
+   shoulderAmp を渡さない呼び出しは従来の非戦闘の式のまま(互換)。
+   構え(combatW = 1)の式は変えていない */
+export const ELBOW_FOLLOW = 0.35;
+export function locomotionElbowBend(phase, swing, combatW, shoulderAmp){
   const s = Number.isFinite(phase) ? phase : 0;
   const w = Number.isFinite(combatW) ? Math.max(0, Math.min(1, combatW)) : 1;
   const k = 0.5 * (Number.isFinite(swing) ? swing : 0);
   // 左腕は s > 0 で前へ出る(armL = 基準 − s·…)。右はその逆
-  const relaxedL = Math.max(0,  s) * k, relaxedR = Math.max(0, -s) * k;
+  let relaxedL, relaxedR;
+  if(Number.isFinite(shoulderAmp)){
+    const f = ELBOW_FOLLOW * Math.max(0, shoulderAmp);
+    relaxedL = f * (1 + s) / 2; relaxedR = f * (1 - s) / 2;
+  } else {
+    relaxedL = Math.max(0,  s) * k; relaxedR = Math.max(0, -s) * k;
+  }
   const combatL  = Math.max(0, -s) * k, combatR  = Math.max(0,  s) * k;
   return { l: relaxedL + (combatL - relaxedL) * w, r: relaxedR + (combatR - relaxedR) * w };
+}
+
+/* CH1 follow-up A: 腕の振れの大きさ(swing)は、歩き出し・止まりで一気に変えず、
+   この速さで追わせる(stepRestBlend と同じ 1 − exp(−k·dt)、fps に依存しない)。
+   以前は止まった瞬間に swing = 0 になり、振り途中の腕が 1 フレームで基準へ跳んでいた。
+   k = 7 で約 0.43 秒で 95%。腕だけに使い、脚(接地)には使わない */
+export const ARM_SWING_SETTLE_RATE = 7.0;
+export function stepArmSwingAmp(current, target, dt){
+  return stepRestBlend(Number.isFinite(current) ? current : 0, Math.max(0, target || 0), dt, ARM_SWING_SETTLE_RATE);
 }
 
 /* 非戦闘の移動で、上半身の run 由来項に掛ける倍率。

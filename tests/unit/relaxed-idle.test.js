@@ -5,7 +5,9 @@ import {
   buildRelaxedIdleTarget, stepRestBlend, REST_BLEND_RATE, REST_STOP_RATE,
   locomotionArmBase, locomotionMix, RELAXED_WALK_ARM_SWING, RELAXED_WALK_UPPER,
   RELAXED_WALK_ARM_BASE, relaxedWalkStance, relaxedWalkArmAmplitude, locomotionElbowBend,
+  ELBOW_FOLLOW, ARM_SWING_SETTLE_RATE, stepArmSwingAmp,
 } from '../../src/core/relaxed-idle.js';
+import * as THREE from 'three';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -230,10 +232,10 @@ test('非戦闘の移動の係数(locomotionMix / RELAXED_WALK_*)', async t=>{
     }
   });
 
-  /* CH1-EXP X-3: 以前は歩く速さで肩の振れが前後 ±7° ほどしかなく、腕が体の前に
-     張り付いて見えた。各職の素の速さ(CLASSES.spd)と体格(BUILD)で、
-     非戦闘の振れが ±18°〜±28° に入ることを、本番の表から読んで確かめる */
-  await t.test('非戦闘の腕の振れ幅は、各職の速さと体格で ±18°〜±28°(CH1-EXP X-3)', ()=>{
+  /* CH1-EXP X-3 で ±7° → ±20° 前後にしたが、iPhone 実機で「肘から先だけで振って
+     いる」と指摘された(CH1 follow-up A)。肩から腕全体を振るよう、各職の素の速さ
+     (CLASSES.spd)と体格(BUILD)で ±22°〜±28° に入ることを、本番の表から読んで確かめる */
+  await t.test('非戦闘の腕の振れ幅は、各職の速さと体格で ±22°〜±28°(CH1 follow-up A)', ()=>{
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     const classes = fs.readFileSync(path.join(root, 'src/legacy/parts/01-character-creation.js'), 'utf8');
     const rig = fs.readFileSync(path.join(root, 'src/legacy/parts/05-rendering-rig.js'), 'utf8');
@@ -243,18 +245,26 @@ test('非戦闘の移動の係数(locomotionMix / RELAXED_WALK_*)', async t=>{
       const b = new RegExp(`\\n    ${cls}: \\{[\\s\\S]*?strideAmp:([\\d.]+), armSwing:([\\d.]+)`).exec(rig);
       assert.ok(spd > 0 && b, cls);
       const amp = deg(relaxedWalkArmAmplitude(cls, spd, { strideAmp: Number(b[1]), armSwing: Number(b[2]) }));
-      assert.ok(amp >= 18 && amp <= 28, `${cls}: spd ${spd} → ±${amp.toFixed(1)}°`);
+      assert.ok(amp >= 22 && amp <= 28, `${cls}: spd ${spd} → ±${amp.toFixed(1)}°`);
     }
   });
 
-  await t.test('歩くときの休め: 肩の前後と肘だけを、腕を体の横へ下ろした形にする(横方向は休め姿勢のまま)', ()=>{
+  /* CH1 follow-up A: 横方向(捻り y・開き z)も歩くときの値にする。休め姿勢の z は
+     手を体の中心へ寄せる向きで、歩くと手がベルトの前を通っていた。
+     左は z が − で外、右は + で外(リグの Euler 順 XYZ。下の「手と肘が腰・胴の外」で確かめる) */
+  await t.test('歩くときの休め: 腕を体の横へ下ろし、捻りを解いて少しだけ外へ開く(CH1 follow-up A)', ()=>{
     // 剣士の休め姿勢(05-rendering-rig.js STANCE_RELAXED.warrior)と同じ形
     const RELAXED = Object.assign({}, STANCE, {
       shL:[-0.14, 0.06, 0.20], elL:-0.34, shR:[-0.12,-0.05,-0.18], elR:-0.30,
     });
     const w = relaxedWalkStance(RELAXED);
-    assert.deepEqual(w.shL, [RELAXED_WALK_ARM_BASE.sh, RELAXED.shL[1], RELAXED.shL[2]]);
-    assert.deepEqual(w.shR, [RELAXED_WALK_ARM_BASE.sh, RELAXED.shR[1], RELAXED.shR[2]]);
+    const W = RELAXED_WALK_ARM_BASE;
+    assert.deepEqual(w.shL, [W.sh, W.twist, -W.out]);
+    assert.deepEqual(w.shR, [W.sh, -W.twist, W.out]);
+    // 外へ開くのは少しだけ(腕を不自然に広げない): 0 より大きく 6° 以下
+    assert.ok(W.out > 0 && W.out <= 6 * Math.PI / 180, `out ${W.out}`);
+    // 休め姿勢の z は手を内へ寄せる向き(左 +、右 −)。歩くときはその逆側
+    assert.ok(RELAXED.shL[2] > 0 && w.shL[2] < 0 && RELAXED.shR[2] < 0 && w.shR[2] > 0);
     assert.equal(w.elL, RELAXED_WALK_ARM_BASE.el);
     assert.equal(w.elR, RELAXED_WALK_ARM_BASE.el);
     // 立ち止まった休め姿勢より、肘の曲げは浅く、肩は前へ出ていない
@@ -268,7 +278,8 @@ test('非戦闘の移動の係数(locomotionMix / RELAXED_WALK_*)', async t=>{
     let prev = relaxedWalkStance(RELAXED, 0);
     for (let k = 0.05; k <= 1.0001; k += 0.05) {
       const cur = relaxedWalkStance(RELAXED, k);
-      assert.ok(Math.abs(cur.elL - prev.elL) < 0.02 && Math.abs(cur.shL[0] - prev.shL[0]) < 0.02, `stopW ${k.toFixed(2)}`);
+      assert.ok([0, 1, 2].every(i => Math.abs(cur.shL[i] - prev.shL[i]) < 0.03 && Math.abs(cur.shR[i] - prev.shR[i]) < 0.03)
+        && Math.abs(cur.elL - prev.elL) < 0.02, `stopW ${k.toFixed(2)}`);
       prev = cur;
     }
     // 構え(combatW = 1)では、従来どおり構えの腕
@@ -277,7 +288,26 @@ test('非戦闘の移動の係数(locomotionMix / RELAXED_WALK_*)', async t=>{
     assert.ok(near(locomotionArmBase(STANCE, w, 1), locomotionArmBase(STANCE, RELAXED, 1)));
   });
 
-  await t.test('肘: 非戦闘は前へ振った腕が曲がり、構え(combatW = 1)は従来の式のまま', ()=>{
+  /* CH1 follow-up A: 肘は肩の振れに追従する。曲げの増分は肩の振れの ELBOW_FOLLOW 倍
+     (肩より十分小さい)で、位相に対してなめらか(s = 0 で折れない) */
+  await t.test('肘: 非戦闘は肩の振れに追従してなめらかに曲がる(肘だけで振らない)', ()=>{
+    const amp = 0.42;   // 肩の振れ(rad、片側。約 24°)
+    assert.ok(ELBOW_FOLLOW > 0 && ELBOW_FOLLOW <= 0.4);
+    const L = s => locomotionElbowBend(s, 0.47, 0, amp).l, R = s => locomotionElbowBend(s, 0.47, 0, amp).r;
+    // 前へ振り切った腕が一番曲がり、後ろへ振り切った腕は基準のまま
+    assert.ok(Math.abs(L(1) - ELBOW_FOLLOW * amp) < 1e-12 && Math.abs(L(-1)) < 1e-12);
+    assert.ok(Math.abs(R(-1) - ELBOW_FOLLOW * amp) < 1e-12 && Math.abs(R(1)) < 1e-12);
+    // 肘の動きの幅は肩の振れの幅(2·amp)の ELBOW_FOLLOW/2 倍以下
+    assert.ok(L(1) - L(-1) <= 2 * amp * ELBOW_FOLLOW / 2 + 1e-12);
+    // なめらか: 位相を細かく動かしても、肘は一定の傾きでしか変わらない(折れ目が無い)
+    let prev = L(-1);
+    for(let s = -0.99; s <= 1.0001; s += 0.01){
+      assert.ok(Math.abs(L(s) - prev) <= ELBOW_FOLLOW * amp * 0.01 / 2 + 1e-9, `s ${s.toFixed(2)}`);
+      prev = L(s);
+    }
+  });
+
+  await t.test('肘: shoulderAmp を渡さない呼び出しと構え(combatW = 1)は従来の式のまま', ()=>{
     const swing = 0.5;
     // 左腕が前(s > 0)
     let b = locomotionElbowBend(1, swing, 0);
@@ -297,4 +327,84 @@ test('非戦闘の移動の係数(locomotionMix / RELAXED_WALK_*)', async t=>{
     assert.ok(RELAXED_WALK_UPPER.run > 0 && RELAXED_WALK_UPPER.run < 1);
     assert.ok(RELAXED_WALK_UPPER.lean > 0 && RELAXED_WALK_UPPER.lean < 1);
   });
+});
+
+/* =========================================================
+   CH1 follow-up A: 歩くときの腕の位置(本番の体格の表と同じリグの形で、three.js で計算)
+
+   iPhone 実機で「腕が体の内側へ寄りすぎ」「手がベルトの前に張り付く」と指摘された。
+   06-player-enemy.js のリグ(腰 → 肩 → 肘 → 手)を同じ寸法で組み、非戦闘で歩く
+   ときの手と肘の位置を、振りの前・中・後で確かめる:
+     - 手は骨盤(半幅 hipR·1.10。05-rendering-rig.js の骨盤の幅の倍率)+ 手の太さより外
+     - 肘も胴(肘の高さの胴の半幅 ≈ chest·1.08)+ 上腕の太さより外
+     - 外へ開きすぎない(手は肩の真下から 0.08 m 以内)
+   ========================================================= */
+test('非戦闘で歩くとき、手と肘は腰・胴の外を通り、外へ開きすぎない(4職、CH1 follow-up A)', ()=>{
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const classes = fs.readFileSync(path.join(root, 'src/legacy/parts/01-character-creation.js'), 'utf8');
+  const rig = fs.readFileSync(path.join(root, 'src/legacy/parts/05-rendering-rig.js'), 'utf8');
+  const relaxedSrc = rig.slice(rig.indexOf('const STANCE_RELAXED = {'), rig.indexOf('const JOB_RELAXED_STANCE'));
+  const num = k => b => Number(new RegExp(`\\b${k}:([\\d.]+)`).exec(b)[1]);
+  for(const cls of ['warrior','rogue','mage','archer']){
+    const b = new RegExp(`\\n    ${cls}: \\{([\\s\\S]*?)\\n    \\}`).exec(rig)[1];
+    const B = Object.fromEntries(['hipY','height','chest','shoulderOut','upperLen','foreLen','hipR','upper','forearm','strideAmp','armSwing']
+      .map(k => [k, num(k)(b)]));
+    const spd = Number(new RegExp(`key:'${cls}'[\\s\\S]*?spd:([\\d.]+)`).exec(classes)[1]);
+    const rel = new RegExp(`\\n    ${cls}: \\{[^\\n]*\\n[^\\n]*\\n\\s*shL:\\[([-\\d.]+),\\s*([-\\d.]+),\\s*([-\\d.]+)\\], elL:([-\\d.]+)`).exec(relaxedSrc);
+    assert.ok(rel, `${cls} STANCE_RELAXED`);
+    const relaxed = { shL:[+rel[1], +rel[2], +rel[3]], shR:[+rel[1], -rel[2], -rel[3]], elL:+rel[4], elR:+rel[4] };
+    const walk = relaxedWalkStance(relaxed, 0);
+    const amp = relaxedWalkArmAmplitude(cls, spd, B);
+    const swing = Math.min(0.62, 0.045 + 0.085 * spd) * B.strideAmp;
+    const run = Math.min(1, swing / 0.55);
+    const pitch = 0.02 + run * RELAXED_WALK_UPPER.run * 0.11;
+    const lean = Math.min(0.13, spd * 0.019) * RELAXED_WALK_UPPER.lean;
+    for(const s of [-1, -0.5, 0, 0.5, 1]){
+      const bend = locomotionElbowBend(s, swing, 0, amp);
+      const rootG = new THREE.Group(); rootG.rotation.x = lean;
+      const waist = new THREE.Group(); waist.position.y = B.hipY; waist.rotation.x = pitch; rootG.add(waist);
+      const arm = new THREE.Group(); arm.position.set(-(B.chest + B.shoulderOut), B.height * 0.9, 0);
+      arm.rotation.set(walk.shL[0] - s * amp, walk.shL[1], walk.shL[2]); waist.add(arm);
+      const elbow = new THREE.Group(); elbow.position.y = -B.upperLen; elbow.rotation.x = walk.elL - bend.l; arm.add(elbow);
+      const hand = new THREE.Object3D(); hand.position.y = -(B.foreLen + 0.02); elbow.add(hand);
+      rootG.updateMatrixWorld(true);
+      const h = new THREE.Vector3(), e = new THREE.Vector3(), sh = new THREE.Vector3();
+      hand.getWorldPosition(h); elbow.getWorldPosition(e); arm.getWorldPosition(sh);
+      const tag = `${cls} s=${s}: hand x ${h.x.toFixed(3)} elbow x ${e.x.toFixed(3)}`;
+      assert.ok(-h.x >= B.hipR * 1.10 + B.forearm * 1.12, `手が骨盤の外 ${tag}`);
+      assert.ok(-e.x >= B.chest * 1.08 + B.upper - 0.005, `肘が胴の外 ${tag}`);
+      assert.ok(-h.x - -sh.x <= 0.08, `外へ開きすぎない ${tag}`);
+    }
+    // 肩の振れが肘の追加の曲げより十分大きい(肩から振っている)
+    assert.ok(ELBOW_FOLLOW * amp < amp * 0.5, cls);
+  }
+});
+
+/* 歩き出し・止まりで、腕の振れの大きさが 1 フレームで跳ばない(CH1 follow-up A)。
+   以前は止まった瞬間に swing = 0 になり、振り途中の腕が基準へ跳んでいた */
+test('腕の振れの大きさは、止まり・歩き出しで fps に依存せずなめらかに追う', ()=>{
+  const swing = 0.47;
+  // 止まり: 60fps でも 20fps でも、1 フレームの変化は小さく、0.5 秒でほぼ 0
+  for(const fps of [20, 60, 144]){
+    const dt = 1 / fps;
+    let a = swing, maxStep = 0;
+    for(let t = 0; t < 0.5; t += dt){
+      const n = stepArmSwingAmp(a, 0, dt); maxStep = Math.max(maxStep, Math.abs(n - a)); a = n;
+    }
+    assert.ok(maxStep <= swing * (1 - Math.exp(-ARM_SWING_SETTLE_RATE * dt)) + 1e-12, `fps ${fps}`);
+    assert.ok(a < swing * 0.05, `fps ${fps}: 0.5 秒後 ${a}`);
+  }
+  // 歩き出しも同じ速さで寄る。負や NaN は 0 扱い
+  assert.ok(stepArmSwingAmp(0, swing, 1/60) > 0 && stepArmSwingAmp(0, swing, 1/60) < swing * 0.2);
+  assert.equal(stepArmSwingAmp(NaN, -1, 1/60), 0);
+});
+
+/* legacy の配線: 腕は armSwingAmp(なめらかに追う振れ)で振り、肘は肩の振れを渡す */
+test('updateLocomotion の腕は armSwingAmp で振り、肘に肩の振れを渡す(CH1 follow-up A)', ()=>{
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const loop = fs.readFileSync(path.join(root, 'src/legacy/parts/13-update-loop.js'), 'utf8');
+  assert.match(loop, /armSwingAmp = stepArmSwingAmp\(armSwingAmp, swing, dt\);/);
+  assert.match(loop, /P\.armL\.rotation\.set\(armBase\.shL\[0\] - s \* armSwingAmp \* asw,/);
+  assert.match(loop, /P\.armR\.rotation\.set\(armBase\.shR\[0\] \+ s \* armSwingAmp \* asw,/);
+  assert.match(loop, /locomotionElbowBend\(s, armSwingAmp, walkW, armSwingAmp \* asw\)/);
 });
