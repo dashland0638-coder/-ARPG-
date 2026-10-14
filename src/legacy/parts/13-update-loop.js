@@ -828,6 +828,7 @@
   ========================================================= */
   let strideT = 0, leanX = 0, leanZ = 0, landSquash = 0, wasGrounded = true;
   let lastStrideHalf = -999, stepDustCD = 0;
+  let armSwingAmp = 0;   // 腕の振れの大きさ。swing を ARM_SWING_SETTLE_RATE で追う(CH1 follow-up A)
   const _stepAt = new THREE.Vector3();
   let visualFacing = 0;
 
@@ -1244,16 +1245,19 @@
     const runUpper = run * locomotionMix(RELAXED_WALK_UPPER.run, 1, walkW);
     P.walkArmW = moving ? walkW : null;   // Motion Panel の読み取り用(motionRigSnapshot)
     // arms counter-swing from the shoulder, elbows keeping a live bend
+    /* 腕の振れは swing をそのまま使わず、なめらかに追わせる(CH1 follow-up A)。
+       止まった瞬間に振り途中の腕が基準へ跳ばず、歩き出しも一気に振り出さない */
+    armSwingAmp = stepArmSwingAmp(armSwingAmp, swing, dt);
     if(!busy && P.armL && P.armR && armBase){
       const stanceSwing = P.armSwing !== undefined ? P.armSwing : 1;
       const relaxedSwing = RELAXED_WALK_ARM_SWING[state.classDef.key] ?? stanceSwing;
       const asw = locomotionMix(relaxedSwing, stanceSwing, walkW) * 0.62 * B.armSwing;
-      P.armL.rotation.set(armBase.shL[0] - s * swing * asw, armBase.shL[1], armBase.shL[2]);
-      P.armR.rotation.set(armBase.shR[0] + s * swing * asw, armBase.shR[1], armBase.shR[2]);
+      P.armL.rotation.set(armBase.shL[0] - s * armSwingAmp * asw, armBase.shL[1], armBase.shL[2]);
+      P.armR.rotation.set(armBase.shR[0] + s * armSwingAmp * asw, armBase.shR[1], armBase.shR[2]);
       if(P.elbowL && P.elbowR){
-        /* 非戦闘は前へ振った腕の肘が曲がり、構え(walkW = 1)は従来どおり
-           (core/relaxed-idle.js locomotionElbowBend、CH1-EXP X-3) */
-        const bend = locomotionElbowBend(s, swing, walkW);
+        /* 非戦闘は肘が肩の振れに追従して曲がり、構え(walkW = 1)は従来どおり
+           (core/relaxed-idle.js locomotionElbowBend、CH1-EXP X-3 / follow-up A) */
+        const bend = locomotionElbowBend(s, armSwingAmp, walkW, armSwingAmp * asw);
         P.elbowL.rotation.x = armBase.elL - bend.l;
         P.elbowR.rotation.x = armBase.elR - bend.r;
       }
