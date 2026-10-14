@@ -1,6 +1,6 @@
 # CH1-EXP — Chapter 1 Experience Redesign（第一章の体験品質）
 
-Status: PR_OPEN（全 Work Item の実装 PR を作成済み。main へは未 merge。実機確認は HUMAN DEVICE CHECK REQUIRED）
+Status: MERGED（全 Work Item を main へ merge 済み。実機確認は HUMAN DEVICE CHECK REQUIRED）
 
 Analysis: .ai/reports/CHAPTER-1-experience-audit.md（branch `claude/chapter1-experience-audit`、base `origin/main` `7020e4d`）
 Plan: .ai/reports/CHAPTER-1-experience-plan.md（Work Item ごとの Goal / Scope / Out of Scope / Acceptance / Test Plan / Dependencies）
@@ -29,14 +29,14 @@ Plan: .ai/reports/CHAPTER-1-experience-plan.md（Work Item ごとの Goal / Scop
 
 | ID | Summary | 要件 | 優先度 | Status | Approval | 依存 |
 | --- | --- | --- | --- | --- | --- | --- |
-| X-1 | 分離の台詞を「消えた……？」に | A | P1 | PR_OPEN #76 | [x] | ― |
-| X-2 | 宵待ちの村の演出テンポ（無言の間を詰め、見せ場は残す） | C | P1 | PR_OPEN #83（#82 の上） | [x] | X-4（推奨） |
-| X-3 | 非戦闘の歩行の腕振り・胴の動き | E | P1 | PR_OPEN #80 | [x] | ― |
-| X-4 | 演出中も主人公の待機・歩行のアニメーションを止めない | C・E | P1 | PR_OPEN #82（#80 の上） | [x] | X-3 |
-| X-5 | 帰還 → 帰還の会話 → 次の主人公の登場 → 交代の会話 → 切り替え | B | P2 | PR_OPEN #78 | [x] | EX-1、E2E は古い監査の E-8 |
-| X-6a | 村の光の色の段差をなくす（補間） | D | P2 | PR_OPEN #77 | [x] | ― |
-| X-6b | 村の時間帯を何で決めるか（行き来で巻き戻らない） | D | P2〜P3 | PR_OPEN #81（#77 の上） | [x] | EX-2、X-6a |
-| X-7 | 最初のマップ改修の詳細計画 | F | P3 | PR_OPEN #79 | [x] | EX-3、CH1-T0、X-2、X-6 |
+| X-1 | 分離の台詞を「消えた……？」に | A | P1 | MERGED #76（c5fdbb6） | [x] | ― |
+| X-2 | 宵待ちの村の演出テンポ（無言の間を詰め、見せ場は残す） | C | P1 | MERGED #83（7e71bf9） | [x] | X-4（推奨） |
+| X-3 | 非戦闘の歩行の腕振り・胴の動き | E | P1 | MERGED #80（4e603b0） | [x] | ― |
+| X-4 | 演出中も主人公の待機・歩行のアニメーションを止めない | C・E | P1 | MERGED #82（cb823dc） | [x] | X-3 |
+| X-5 | 帰還 → 帰還の会話 → 次の主人公の登場 → 交代の会話 → 切り替え | B | P2 | MERGED #78（877d55e） | [x] | EX-1、E2E は古い監査の E-8 |
+| X-6a | 村の光の色の段差をなくす（補間） | D | P2 | MERGED #77（475b8de） | [x] | ― |
+| X-6b | 村の時間帯を何で決めるか（行き来で巻き戻らない） | D | P2〜P3 | MERGED #81（d975fde） | [x] | EX-2、X-6a |
+| X-7 | 最初のマップ改修の詳細計画 | F | P3 | MERGED #79（dfc62ed） | [x] | EX-3、CH1-T0、X-2、X-6 |
 
 各 Work Item の計画は `CHAPTER-1-experience-plan.md` §2。Status と Approval の正本はこの表。
 
@@ -246,3 +246,4 @@ Implementation (X-7): ALLOWED
 | 2026-10-13 | Task | PLANNED（変更なし） | Reviewer | Round 2 PASS。non-blocking 1 件（(2) の姿は道を終える前だけ。道の後の既存の 3 人と二重にしない）を X-5 の Scope と Acceptance に反映 |
 | 2026-10-13 | X-1〜X-7 | PLANNED / WAITING_APPROVAL → APPROVED | Human / Planner (Agent Approval) | EX-1 = A・(2)、EX-2 = A、EX-3 = A（DEC-006）。Human が実装方針と順序を指示 |
 | 2026-10-13 | X-1〜X-7 | APPROVED → PR_OPEN | Orchestrator / Implementer / Tester / Reviewer | 各 Work Item を別ブランチで実装し、独立 Reviewer の PASS 後に PR（#76〜#83）。X-3 → X-4 → X-2、X-6a → X-6b は積み重ねの PR。Merge は Human が判断する |
+| 2026-10-14 | X-1〜X-7 | PR_OPEN → MERGED | Human / Orchestrator | Human の指示で #84（CI の安定化）から順に merge。積み重ねの #80・#82 は merge commit、他は squash。#81・#83 は main を取り込み、import 行の衝突を両方残して解消（unit・build・E2E で確認） |
