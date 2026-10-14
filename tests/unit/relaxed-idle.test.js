@@ -335,7 +335,7 @@ test('非戦闘の移動の係数(locomotionMix / RELAXED_WALK_*)', async t=>{
    iPhone 実機で「腕が体の内側へ寄りすぎ」「手がベルトの前に張り付く」と指摘された。
    06-player-enemy.js のリグ(腰 → 肩 → 肘 → 手)を同じ寸法で組み、非戦闘で歩く
    ときの手と肘の位置を、振りの前・中・後で確かめる:
-     - 手は骨盤(hipR)+ 手の太さより外
+     - 手は骨盤(半幅 hipR·1.10。05-rendering-rig.js の骨盤の幅の倍率)+ 手の太さより外
      - 肘も胴(肘の高さの胴の半幅 ≈ chest·1.08)+ 上腕の太さより外
      - 外へ開きすぎない(手は肩の真下から 0.08 m 以内)
    ========================================================= */
@@ -371,7 +371,7 @@ test('非戦闘で歩くとき、手と肘は腰・胴の外を通り、外へ�
       const h = new THREE.Vector3(), e = new THREE.Vector3(), sh = new THREE.Vector3();
       hand.getWorldPosition(h); elbow.getWorldPosition(e); arm.getWorldPosition(sh);
       const tag = `${cls} s=${s}: hand x ${h.x.toFixed(3)} elbow x ${e.x.toFixed(3)}`;
-      assert.ok(-h.x >= B.hipR + B.forearm * 1.12, `手が骨盤の外 ${tag}`);
+      assert.ok(-h.x >= B.hipR * 1.10 + B.forearm * 1.12, `手が骨盤の外 ${tag}`);
       assert.ok(-e.x >= B.chest * 1.08 + B.upper - 0.005, `肘が胴の外 ${tag}`);
       assert.ok(-h.x - -sh.x <= 0.08, `外へ開きすぎない ${tag}`);
     }
