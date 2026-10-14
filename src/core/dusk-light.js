@@ -91,3 +91,46 @@ export function duskLight(bandPos, dawnT = 0, bands = DUSK_BANDS, dawn = DUSK_DA
   }
   return out;
 }
+
+/* =========================================================
+   物語の進行で暮れる(CH1-EXP X-6b、DEC-006 EX-2 = A)
+
+   時間帯の帯の位置を、プレイヤーの z ではなく **村で起きた出来事** で決める。
+   出来事は 4 つ。どれも出撃 1 回につき 1 回だけ起きる:
+     入口の一幕(村に入る)/ 閃き(商店街の戦闘の後、または水門前)/ 水門守の撃破 / ボスの手前
+   出来事が起きると「目標の帯の位置」が上がり、実際の帯の位置はそこへ
+   数秒かけて近づく(色は duskLight が帯の間を連続に補間する)。
+
+   - 目標は上がるだけで、下がらない。引き返しても、出来事が起き直しても
+     時間帯は巻き戻らない(advanceDuskTarget は max を取る)
+   - 実際の帯の位置も、目標の手前から戻らない(stepDuskBandPos)
+   - 値はセーブに入れない。出撃のたびに夕暮れ(0)から始まる ―― 出来事も
+     出撃のたびに起き直すので、時間帯と出来事が食い違わない
+   - 夜明け(duskDawnT)はこれまでどおり別に重ねる
+
+   目標の値は、旧実装の z による帯の位置で、それぞれの出来事が起きる場所に
+   おおむね合わせてある(入口 z≈312 → 0.4、水門前 z≈402 → 1.6、水門 z≈446
+   → 2.1、村の奥の終点 z≈496 → 2.6)。ボスの手前で夜(3)まで暮れる。 */
+export const DUSK_BEAT_TARGET = Object.freeze({
+  entrance: 0.5,   // 村に入る。夕暮れから薄暮へ向かい始める
+  insight:  1.5,   // 閃き。薄暮の終わり
+  warden:   2.2,   // 水門守の撃破。夜に近づく
+  prelude:  3,     // ボスの手前。夜
+});
+// 帯 1 つぶんを何秒で進むか。3.5 秒で 1 帯(色の変化が数秒で見える速さ)
+export const DUSK_BAND_SEC = 3.5;
+
+/* 出来事が起きたあとの目標。知らない出来事・数値でない値は無視する */
+export function advanceDuskTarget(currentTarget, beat){
+  const cur = Number.isFinite(currentTarget) ? currentTarget : 0;
+  const t = DUSK_BEAT_TARGET[beat];
+  return Number.isFinite(t) ? Math.max(cur, t) : cur;
+}
+
+/* 実際の帯の位置を目標へ近づける。後ろへは戻さない。dt は秒 */
+export function stepDuskBandPos(pos, target, dt, bandSec = DUSK_BAND_SEC){
+  const p = Number.isFinite(pos) ? pos : 0;
+  const t = Number.isFinite(target) ? target : p;
+  if(!(t > p) || !(dt > 0)) return p;
+  return Math.min(t, p + dt / Math.max(0.001, bandSec));
+}
