@@ -588,8 +588,8 @@
          時間差で出てくる(14-dungeon-duskvillage.js の stepDuskMarketFight) */
       enemies.push(buildDuskFisher(0, 424));
       /* WORK 7: 村の残響。ボスエリアの奥、水面の真ん中に。
-         村の奥 → ボスエリアの扉(duskBossDoor)が開くまでは眠ったまま
-         ―― 既存のボスの扉判定(bossDoorKey)をそのまま使っている */
+         近づくまで眠ったまま。扉(duskBossDoor)は目覚めの条件にしていない
+         (bossDoorKey 無し。理由は 14-dungeon-duskvillage.js buildDuskVillageEcho) */
       enemies.push(buildDuskVillageEcho());
     }
     /* 道(WORK 11)。道標を過ぎた先に、既存の汎用の獣が3体だけ。
