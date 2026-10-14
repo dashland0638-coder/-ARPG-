@@ -1280,16 +1280,17 @@
        数秒止まってから会話が出る」ように見えていたのを直す。演出の順番は
        変えず、間だけを詰める。台詞の無い演出(階段の自動移動など)は対象外
      送りの入力は既存の会話と同じ(dialogue-overlay のクリック/決定) */
-  const CUTSCENE_FIRST_LINE_SEC = 0.8;
+  /* 待ち時間の決め方は core/cutscene-timing.js(CH1-EXP X-2):
+       ・最初の台詞までの前置きは合計 opts.firstLineSec(既定 0.8 秒)まで
+       ・opts.gapSec を渡すと、台詞を送った後、次の台詞までの間もそこまで詰める
+       ・keep:true の手順(見せ場)は詰めない(1 区間 3.5 秒まで)。ゲーム内の時間で数える
+       ・opts.realtime を渡した演出だけ、それ以外の待ちを実時間で数える(低 fps で延びない)。
+         演出で体を動かしている間はゲーム内の時間のまま */
   function stepShowsLine(step){ return /cutsceneLine\(/.test(String(step && step.run)); }
-  function playCutscene(steps){
-    let lead = 0, firstLine = -1;
-    for(let i=0;i<steps.length;i++){
-      lead += steps[i].t || 0;
-      if(stepShowsLine(steps[i])){ firstLine = i; break; }
-    }
-    const leadSpeed = (firstLine >= 0 && lead > CUTSCENE_FIRST_LINE_SEC) ? lead / CUTSCENE_FIRST_LINE_SEC : 1;
-    cutscene = {steps:steps.slice(), i:0, t:0, firstLine, leadSpeed, waiting:false};
+  let cutsceneRealDt = 0;   // 実時間のフレーム間隔(14-hud-boot.js の animate が毎フレーム書く)
+  function playCutscene(steps, opts){
+    const plan = planCutsceneTiming(steps, steps.map(stepShowsLine), opts);
+    cutscene = {steps:steps.map((s, i)=> Object.assign({}, s, plan[i])), i:0, t:0, waiting:false};
     state.dialogueActive = true;      // no input while it runs
     state.cutsceneTurn = null;        // 前の演出の振り返りを持ち越さない
     clearMovementInput(false);
@@ -1315,7 +1316,11 @@
   function updateCutscene(dt){
     if(!cutscene) return;
     if(cutscene.waiting) return;      // 送られるまで進まない
-    cutscene.t += dt * (cutscene.i <= cutscene.firstLine ? cutscene.leadSpeed : 1);
+    const cur = cutscene.steps[cutscene.i];
+    // 演出で体を動かしている間はゲーム内の時間(動きと時計をそろえる。CH1-EXP X-2)
+    const scriptedMotion = !!(state.walkTo || state.cutsceneTurn
+      || (typeof duskGuestWalk !== 'undefined' && duskGuestWalk));
+    cutscene.t += cutsceneStepDelta(dt, cutsceneRealDt, !!(cur && cur.realtime), scriptedMotion);
     while(cutscene && cutscene.i < cutscene.steps.length &&
           cutscene.t >= cutscene.steps[cutscene.i].t){
       const step = cutscene.steps[cutscene.i];

@@ -1138,6 +1138,25 @@
     return true;
   }
 
+  /* 演出中・会話中の身体(CH1-EXP X-4)。プレイヤーの入力を取り上げている間は
+     updatePlayer が回らないので、以前は主人公が最後の姿勢のまま固まり、演出で
+     歩かせる(state.walkTo)と足を動かさずに滑っていた。ここでは見た目の歩行・
+     待機だけを進める ―― 入力・移動・攻撃・カメラの処理は呼ばない。
+     速さは演出の徒歩(walkTo)だけ。位置は呼び出しの時点の state.pos に置き直す
+     (updateLocomotion は上下動を player.position.y へ足すので、置き直さないと
+     フレームごとに積み上がる) */
+  function updateBodyWhileScripted(dt){
+    if(!player || !playerMixerParts || !playerMixerParts.waist || !state.classDef) return;
+    player.position.copy(state.pos);
+    player.rotation.y = state.facing;
+    /* 見た目の向き(操作中に少しずつ回すもの)も合わせておく。合わせないと、
+       会話が向きを変えている途中で開いたとき、操作に戻った瞬間に古い向きへ
+       戻ってから回り直す */
+    visualFacing = state.facing;
+    const w = state.walkTo;
+    updateLocomotion(dt, w ? Math.hypot(w.vx || 0, w.vz || 0) : 0);
+  }
+
   function updateLocomotion(dt, moveSpeed){
     const P = playerMixerParts;
     const moving = state.grounded && moveSpeed > 0.35;   // m/s
@@ -1216,7 +1235,10 @@
           { shL:[P.armLBase.x, P.armLBase.y, P.armLBase.z],
             shR:[P.armRBase.x, P.armRBase.y, P.armRBase.z],
             elL:P.elbowLBase.x, elR:P.elbowRBase.x },
-          activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job),
+          /* 歩いている間の休め側は、腕を体の横へ下ろした形(CH1-EXP X-3)。
+             止まっている度合い(relaxStopBlend、1 フレーム前の値)で休め姿勢と
+             混ぜるので、歩き出しでも止まりでも基準が連続に変わる */
+          relaxedWalkStance(activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job), relaxStopBlend),
           walkW)
       : null;
     const runUpper = run * locomotionMix(RELAXED_WALK_UPPER.run, 1, walkW);
@@ -1229,8 +1251,11 @@
       P.armL.rotation.set(armBase.shL[0] - s * swing * asw, armBase.shL[1], armBase.shL[2]);
       P.armR.rotation.set(armBase.shR[0] + s * swing * asw, armBase.shR[1], armBase.shR[2]);
       if(P.elbowL && P.elbowR){
-        P.elbowL.rotation.x = armBase.elL - Math.max(0, -s) * swing * 0.5;
-        P.elbowR.rotation.x = armBase.elR - Math.max(0,  s) * swing * 0.5;
+        /* 非戦闘は前へ振った腕の肘が曲がり、構え(walkW = 1)は従来どおり
+           (core/relaxed-idle.js locomotionElbowBend、CH1-EXP X-3) */
+        const bend = locomotionElbowBend(s, swing, walkW);
+        P.elbowL.rotation.x = armBase.elL - bend.l;
+        P.elbowR.rotation.x = armBase.elR - bend.r;
       }
     }
     // waist: the shoulders lead the hips through the stride and the chest

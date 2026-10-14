@@ -58,7 +58,8 @@ import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/
 import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
 import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor } from '../core/dusk-village-map.js';
-import { duskBandPosAtZ, duskLight } from '../core/dusk-light.js';
+import { planCutsceneTiming, cutsceneStepDelta } from '../core/cutscene-timing.js';
+import { duskBandPosAtZ, duskLight, advanceDuskTarget, stepDuskBandPos } from '../core/dusk-light.js';
 import {
   shouldSplit as mirrorShouldSplit, tellContrast as mirrorTellContrast,
   rippleInterval as mirrorRippleInterval, turnRate as mirrorTurnRate,
@@ -99,6 +100,8 @@ import {
 import {
   legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, hudLabel, joinSceneReady, smithFacilityAvailable,
 } from '../core/chapter1-rules.js';
+// 帰還と交代の一幕(CH1-EXP X-5)
+import { retiredCastKeys } from '../core/chapter1-rules.js';
 import { devUiEnabled, uiProtoEnabled } from '../core/dev-ui.js';
 import { uiProtoIcon, uiProtoWeaponIcon } from '../core/ui-proto-icons.js';
 import {
@@ -132,6 +135,7 @@ import { motionDebugLines, motionStateLabel } from '../core/motion-preview.js';
 import {
   buildRelaxedIdleTarget, relaxedIdleProfile, stepRestBlend, REST_STOP_RATE,
   locomotionArmBase, locomotionMix, RELAXED_WALK_ARM_SWING, RELAXED_WALK_UPPER,
+  relaxedWalkStance, locomotionElbowBend,
 } from '../core/relaxed-idle.js';
 /* 武器の収納・抜刀・納刀。combatStanceT(= 戦闘状態)はそのままで、
    「武器がどこにあるか」だけを別の軸として持つ。キャラクター単位の

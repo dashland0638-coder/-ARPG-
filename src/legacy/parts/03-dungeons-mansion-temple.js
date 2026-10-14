@@ -2214,6 +2214,8 @@
        出ていて、道の途中で見つかる。道を終えたあとは、本人が主人公として
        酒場に立っているので、ここにはもう座っていない。
        進行は scenarioClears から導くだけで、新しい状態は持たない */
+    // 支援から外れた元主人公(卓B のそば。道の前だけ。CH1-EXP X-5、14-hud-boot.js)
+    refreshRetiredCastFigures(true);
     if(!shadowGuideSeated()){
       buildChapter1TavernTrace(sgTableX, sgTableZ);
       return;
