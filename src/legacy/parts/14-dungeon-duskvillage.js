@@ -44,18 +44,9 @@
   // その表を読んで、実際の床・壁・建物・小物・環境アニメーションを建てる側
   const DUSKVILLAGE_ENTRY = new THREE.Vector3(DUSK_ENTRY.x, 0, DUSK_ENTRY.z);
 
-  // 時間帯。ALTITUDE_BANDS と同じ「進行度で色を補間する」手法を、高さではなく
-  // z の進み具合へ置き換えて使っている。夕暮れ(入口)→薄暮(広場/商店街)→
-  // 夜に近づく(水門)→夜(奥/ボス)。撃破後の夜明けは下の DUSK_DAWN が担当する
-  const DUSK_BANDS = [
-    {z:284, sky:0x3a2038, fog:0.013, sun:0xff9a5a, sunI:0.58, hemi:0.34, hemiSky:0x9a6a6a, hemiGnd:0x1e1420, rim:0xff8a4a, rimI:0.24, exp:0.84},  // 夕暮れ
-    {z:352, sky:0x2a1d3c, fog:0.018, sun:0xd08aa8, sunI:0.44, hemi:0.28, hemiSky:0x76629a, hemiGnd:0x18122a, rim:0xa06ac8, rimI:0.22, exp:0.78},  // 薄暮
-    {z:438, sky:0x141428, fog:0.026, sun:0x6a7ac0, sunI:0.26, hemi:0.19, hemiSky:0x3a4a7a, hemiGnd:0x0a0a16, rim:0x5a7ad0, rimI:0.20, exp:0.70},  // 夜に近づく
-    {z:534, sky:0x080814, fog:0.034, sun:0x3a4a90, sunI:0.15, hemi:0.13, hemiSky:0x22305a, hemiGnd:0x06060c, rim:0x3a5ac0, rimI:0.18, exp:0.64},  // 夜
-  ];
-  // 撃破後の夜明け。ボスは WORK 7 で作るので、ここでは「duskDawnT が 0→1 に
-  // なれば空が明けていく」という受け皿だけ用意してある(誰もまだ動かさない)
-  const DUSK_DAWN = {sky:0x5a6a8a, fog:0.016, sun:0xffd2a0, sunI:0.62, hemi:0.42, hemiSky:0xbcc8e0, hemiGnd:0x2a2a30, rim:0xffb070, rimI:0.22, exp:0.88};
+  // 時間帯。帯の表(DUSK_BANDS / DUSK_DAWN)と、帯の位置 → 光の値の補間は
+  // core/dusk-light.js にある(CH1-EXP X-6a。光の色も空と同じく連続に補間する)。
+  // ここは「今どの帯の位置にいるか」を決めて、その値を three.js へ書くだけ
 
   let duskProps = [];        // 環境アニメーションの対象。{obj, kind, phase, freq, amp, ...}
   let duskWater = null;      // 水面(頂点を毎フレーム揺らす一枚板)
@@ -63,6 +54,10 @@
   let duskRipples = [];      // 波紋。プレイヤー/小舟の近くに出る
   let duskBossRef = null;    // WORK 7 でボスを入れるための受け皿(今は常に null)
   let duskSkyColor = null;
+  /* 時間帯(CH1-EXP X-6b)。村で起きた出来事で目標が上がり、実際の値は数秒かけて
+     そこへ寄る。上がるだけで戻らない(core/dusk-light.js)。出撃ごとに 0 から */
+  let duskBandPos = 0, duskBandTarget = 0;
+  function advanceDuskTime(beat){ duskBandTarget = advanceDuskTarget(duskBandTarget, beat); }
   let duskDawnT = 0;         // 0=夜のまま 1=夜明け。WORK 7 の撃破演出が動かす
   let duskCreakCD = 0;       // 木橋の軋み(鳴らしすぎないための間引き)
   let duskRippleCD = 0;
@@ -113,6 +108,7 @@
     duskWater = null; duskWaterBase = null;
     duskBossRef = null;
     duskDawnT = 0; duskCreakCD = 0; duskRippleCD = 0;
+    duskBandPos = 0; duskBandTarget = 0;   // 出撃のたびに夕暮れから(CH1-EXP X-6b)
     duskGuestWalk = null;
     duskFishMemoryDone = false;   // 出撃のたびに、記憶はまた一度だけ起きる
     duskChildMemoryDone = false; duskBoatMemoryDone = false;
@@ -849,6 +845,7 @@
   const DUSK_KNIGHT = '剣士';
 
   function playDuskEntranceScene(){
+    advanceDuskTime('entrance');   // 村に入った。ここから暮れ始める(CH1-EXP X-6b)
     // 水面の人影。村の西側、岸のすぐ外 ―― 歩いていける場所ではない
     const shadePos = new THREE.Vector3(-13, 0, 326);
     let shade = null;
@@ -1126,6 +1123,10 @@
      閃いた瞬間に自動で装備される */
   let duskInsightDone = false;
   function playDuskInsight(onDone){
+    /* 閃き。ここで一段暮れる(CH1-EXP X-6b)。商店街の戦闘の後でも、水門前で
+       閃いても同じ段へ。既に閃いていて演出を飛ばす場合も、ここを通れば上がる
+       (目標は上がるだけなので、二度呼ばれても変わらない) */
+    advanceDuskTime('insight');
     if(duskInsightDone || state.learnedSkill2){
       if(onDone) onDone();
       return;
@@ -1400,6 +1401,7 @@
   /* 撃破。残響が消え、鎖が止まり、門が上がる。
      リザルトも黒画面も挟まない ―― 歩けるまま、世界の側が変わる */
   function onDuskWardenDefeated(){
+    advanceDuskTime('warden');   // 水門守の撃破。夜に近づく(CH1-EXP X-6b)
     clearKeeperEchoes();
     if(duskGateLever) duskGateLever.rotation.z = 0.5;
     openDuskWaterGate();
@@ -1505,6 +1507,7 @@
   let duskBossPreludeDone = false;
   function playDuskBossPrelude(){
     if(duskBossPreludeDone) return;
+    advanceDuskTime('prelude');   // ボスの手前。夜(CH1-EXP X-6b)
     duskBossPreludeDone = true;
     playCutscene([
       {t:0.2, run:()=> ambienceHold(8)},
@@ -1643,32 +1646,30 @@
     }
 
     // ---- 時間帯(zの進み具合で補間。撃破後は dawn へ寄せる) ----
-    const z = state.pos.z;
-    let a = DUSK_BANDS[0], b = DUSK_BANDS[DUSK_BANDS.length-1];
-    for(let i=0;i<DUSK_BANDS.length-1;i++){
-      if(z >= DUSK_BANDS[i].z && z <= DUSK_BANDS[i+1].z){ a = DUSK_BANDS[i]; b = DUSK_BANDS[i+1]; break; }
-    }
-    if(z < DUSK_BANDS[0].z){ a = b = DUSK_BANDS[0]; }
-    if(z > DUSK_BANDS[DUSK_BANDS.length-1].z){ a = b = DUSK_BANDS[DUSK_BANDS.length-1]; }
-    const k = (b.z===a.z) ? 0 : Math.max(0, Math.min(1, (z-a.z)/(b.z-a.z)));
-    const d = Math.max(0, Math.min(1, duskDawnT));
-    const mix = (p)=> (a[p] + (b[p]-a[p])*k) * (1-d) + DUSK_DAWN[p]*d;
+    /* 色も強さも、帯の間を連続に補間する(core/dusk-light.js)。以前は光の色だけ
+       帯の中間点で選び替えていて、広場と船小屋の往復で景色が跳んでいた */
+    /* 何で暮れるか(CH1-EXP X-6b、DEC-006 EX-2 = A): 村で起きた出来事。
+       プレイヤーの位置では決めないので、引き返しても巻き戻らない。
+       テストモードの開始地点(出来事を飛ばして途中から入る)だけは、その場所の
+       帯まで目標を上げる ―― 上げるだけなので、戻っても巻き戻らないのは同じ */
+    if(state.testMode) duskBandTarget = Math.max(duskBandTarget, duskBandPosAtZ(state.pos.z));
+    duskBandPos = stepDuskBandPos(duskBandPos, duskBandTarget, dt);
+    const L = duskLight(duskBandPos, duskDawnT);
     if(!duskSkyColor) duskSkyColor = new THREE.Color();
-    duskSkyColor.setHex(a.sky).lerp(new THREE.Color(b.sky), k);
-    if(d > 0) duskSkyColor.lerp(new THREE.Color(DUSK_DAWN.sky), d);
+    duskSkyColor.setHex(L.sky);
     if(scene.fog){
       scene.background = duskSkyColor;
       scene.fog.color.copy(duskSkyColor);
-      scene.fog.density = mix('fog');
+      scene.fog.density = L.fog;
     }
-    if(sunLight){ sunLight.intensity = mix('sunI'); sunLight.color.setHex(d>0.5 ? DUSK_DAWN.sun : (k<0.5?a.sun:b.sun)); }
+    if(sunLight){ sunLight.intensity = L.sunI; sunLight.color.setHex(L.sun); }
     if(hemiLight){
-      hemiLight.intensity = mix('hemi');
-      hemiLight.color.setHex(d>0.5 ? DUSK_DAWN.hemiSky : (k<0.5?a.hemiSky:b.hemiSky));
-      hemiLight.groundColor.setHex(d>0.5 ? DUSK_DAWN.hemiGnd : (k<0.5?a.hemiGnd:b.hemiGnd));
+      hemiLight.intensity = L.hemi;
+      hemiLight.color.setHex(L.hemiSky);
+      hemiLight.groundColor.setHex(L.hemiGnd);
     }
-    if(rimLight){ rimLight.intensity = mix('rimI'); rimLight.color.setHex(d>0.5 ? DUSK_DAWN.rim : (k<0.5?a.rim:b.rim)); }
-    if(renderer) renderer.toneMappingExposure = mix('exp') * (state.brightness || 1);
+    if(rimLight){ rimLight.intensity = L.rimI; rimLight.color.setHex(L.rim); }
+    if(renderer) renderer.toneMappingExposure = L.exp * (state.brightness || 1);
 
     // ---- 水面 ----
     // 直交する2つの波を足して、割り切れない周期でうねらせる。

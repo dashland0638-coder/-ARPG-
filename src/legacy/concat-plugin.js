@@ -59,6 +59,7 @@ import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
 import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor } from '../core/dusk-village-map.js';
 import { planCutsceneTiming, cutsceneStepDelta } from '../core/cutscene-timing.js';
+import { duskBandPosAtZ, duskLight, advanceDuskTarget, stepDuskBandPos } from '../core/dusk-light.js';
 import {
   shouldSplit as mirrorShouldSplit, tellContrast as mirrorTellContrast,
   rippleInterval as mirrorRippleInterval, turnRate as mirrorTurnRate,
@@ -99,6 +100,8 @@ import {
 import {
   legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, hudLabel, joinSceneReady, smithFacilityAvailable,
 } from '../core/chapter1-rules.js';
+// 帰還と交代の一幕(CH1-EXP X-5)
+import { retiredCastKeys } from '../core/chapter1-rules.js';
 import { devUiEnabled, uiProtoEnabled } from '../core/dev-ui.js';
 import { uiProtoIcon, uiProtoWeaponIcon } from '../core/ui-proto-icons.js';
 import {
