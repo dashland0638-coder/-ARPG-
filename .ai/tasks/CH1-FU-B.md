@@ -3,7 +3,7 @@
 依頼: Human「CH1-EXP Follow-up」Work Item B（P1、2026-10-14。iPhone 実機で発見）。
 Approval: Human の依頼そのもの（実装の範囲は下記）。
 
-Status: REVIEWING
+Status: PR_OPEN（Reviewer PASS）
 
 ## 原因
 - 門は `14-dungeon-duskvillage.js` の `buildDoor('duskBossDoor', 0, 500, 6, …, 'NS')`。
@@ -55,3 +55,8 @@ Status: REVIEWING
 - 村の奥から北を見て、門が通路を横切る向き（壁と同じ面）で立っていること。
 - 門の左右に隙間が無く、R で開き、開くと通れること。
 - ボスの手前の演出 → 門を開ける → ボス、の順で破綻が無いこと。
+
+## Review
+- 独立 Reviewer Round 1: PASS（blocking なし）。
+  - 確かめた内容: `buildDoor` の EW/NS の意味、z = 500 の壁との突き合わせ（扉の当たり判定が柵の端とちょうど接する）、ボスの手前の演出・目覚め・テストモードの地点・リセットへの影響。
+- non-blocking 1: `07-ai-combat.js` の古いコメント（ボスが扉の判定で目覚めると書いていた）を実装に合わせて直した。
