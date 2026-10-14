@@ -833,6 +833,14 @@
     g.group.rotation.y = Math.atan2(dx, dz);
   }
 
+  /* 村の演出の待ち時間(CH1-EXP X-2、core/cutscene-timing.js)。
+     イベント地点に入ったら、すぐ会話が始まるように前置きは 0.5 秒まで。台詞を送った
+     後、次の台詞までの無言の間は 0.3 秒まで(以前は記憶の声の後に 0.8〜1.2 秒、
+     台詞も操作も無い間があった)。どちらも実時間で数えるので、低 fps でも延びない
+     (演出で歩かせている・振り向かせている間だけは、動きに合わせてゲーム内の時間)。
+     ボスの手前・撃破後・水門守の登場・撃破など、見せるための間は keep:true で残す */
+  const DUSK_TEMPO = {firstLineSec: 0.5, gapSec: 0.3, realtime: true};
+
   const DUSK_MAGE = '魔法使い';
   const DUSK_KNIGHT = '剣士';
 
@@ -862,7 +870,8 @@
         if(shade) shade.rotation.y = Math.PI;
         spawnDuskRipple(shadePos.x, shadePos.z, 1.2);
       }},
-      {t:1.2, run:()=> cutsceneLine('「……止まってください」', DUSK_MAGE)},
+      // 人影が見えてから声をかけるまでの一拍は残す(人影のフェードとそろえる)
+      {t:1.2, keep:true, run:()=> cutsceneLine('「……止まってください」', DUSK_MAGE)},
       {t:1.7, run:()=>{
         cutsceneLine('「どうした」', DUSK_KNIGHT);
         // 剣士が振り返る
@@ -892,7 +901,7 @@
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   /* 魚屋の記憶(WORK 3)
@@ -930,7 +939,7 @@
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   /* 住宅の記憶 ―― 子供の約束(WORK 4)
@@ -964,7 +973,7 @@
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   /* 船小屋の記憶 ―― 水の上から、さっきの声(WORK 4)
@@ -996,7 +1005,7 @@
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   /* 商店街の記憶 ―― 「もう、その話は」(WORK 5)
@@ -1037,7 +1046,7 @@
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   /* =========================================================
@@ -1142,7 +1151,7 @@
         clearMovementInput(false);
         if(onDone) onDone();
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   /* 波を1つ出す。出現位置は商店街の端 ―― プレイヤーの真上に湧かせない。
@@ -1186,7 +1195,7 @@
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   /* =========================================================
@@ -1321,25 +1330,25 @@
     playCutscene([
       {t:0.3, run:()=>{ ambienceHold(9); addShake(0.08); }},
       // 散らばっていたものが、ひとつずつ水面へ戻る
-      {t:0.9, run:releaseOne},
-      {t:0.8, run:releaseOne},
-      {t:0.8, run:releaseOne},
-      {t:0.9, run:releaseOne},
-      {t:0.8, run:releaseOne},
-      {t:0.9, run:releaseOne},
+      {t:0.9, keep:true, run:releaseOne},
+      {t:0.8, keep:true, run:releaseOne},
+      {t:0.8, keep:true, run:releaseOne},
+      {t:0.9, keep:true, run:releaseOne},
+      {t:0.8, keep:true, run:releaseOne},
+      {t:0.9, keep:true, run:releaseOne},
       // それが真ん中へ集まって、ひとつになる
-      {t:1.2, run:()=>{
+      {t:1.2, keep:true, run:()=>{
         spawnDuskRipple(0, 520, 2.6);
         spawnApparition(new THREE.Vector3(0, 0, 520), {color:0x7f98a8, fadeIn:1.6,
                          fadeOut:2.0, maxOpacity:0.34, vanishDist:200});
         ambienceHold(7);
       }},
       // 最後の記憶。これ以上は足さない
-      {t:2.0, run:()=> cutsceneLine('「……ありがとう。」', '')},
+      {t:2.0, keep:true, run:()=> cutsceneLine('「……ありがとう。」', '')},
       {t:2.6, run:()=>{ cutsceneHideLine(); duskDawnStart(); }},
       // 夜が明けていく(既存の時間帯システムをそのまま進めるだけ)
-      {t:3.0, run:()=> sfx('chime')},
-      {t:2.4, run:()=> cutsceneLine('「……残ったんですね」', DUSK_MAGE)},
+      {t:3.0, keep:true, run:()=> sfx('chime')},
+      {t:2.4, keep:true, run:()=> cutsceneLine('「……残ったんですね」', DUSK_MAGE)},
       {t:2.2, run:()=> cutsceneLine('「何が」', DUSK_KNIGHT)},
       {t:2.0, run:()=> cutsceneLine('「……消えたわけじゃない、ということです」', DUSK_MAGE)},
       {t:2.4, run:()=> cutsceneLine('「……残るなら、それでいい」', DUSK_KNIGHT)},
@@ -1349,7 +1358,7 @@
         clearMovementInput(false);
         if(onDone) onDone();
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   // 夜明けを始める。進行そのものは stepDuskDawn が毎フレーム進める
@@ -1397,7 +1406,8 @@
     if(duskGateLever) duskGateLever.rotation.z = 0.5;
     openDuskWaterGate();
     playCutscene([
-      {t:2.0, run:()=> cutsceneLine('「……閉めようと、していましたね」', DUSK_MAGE)},
+      // 撃破の直後、門が動き出すのを見せる間(撃破の演出として残す)
+      {t:2.0, keep:true, run:()=> cutsceneLine('「……閉めようと、していましたね」', DUSK_MAGE)},
       {t:2.4, run:()=> cutsceneLine('「ずっとか」', DUSK_KNIGHT)},
       {t:2.0, run:()=> cutsceneLine('「ずっとです。何度も、同じところで」', DUSK_MAGE)},
       {t:2.4, run:()=>{
@@ -1405,7 +1415,7 @@
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   /* 水門守の残響の登場(WORK 6)
@@ -1420,17 +1430,17 @@
     playCutscene([
       {t:0.2, run:()=> ambienceHold(7)},
       // 誰もいないのにレバーが動く
-      {t:0.6, run:()=>{ pullDuskGateLever(0.5); sfx('woodCreak'); }},
-      {t:0.7, run:()=>{ pullDuskGateLever(1.0); spawnDuskRipple(2.6, 445.6, 0.8); }},
-      {t:0.6, run:()=>{ pullDuskGateLever(0); sfx('woodCreak'); }},
+      {t:0.6, keep:true, run:()=>{ pullDuskGateLever(0.5); sfx('woodCreak'); }},
+      {t:0.7, keep:true, run:()=>{ pullDuskGateLever(1.0); spawnDuskRipple(2.6, 445.6, 0.8); }},
+      {t:0.6, keep:true, run:()=>{ pullDuskGateLever(0); sfx('woodCreak'); }},
       // 門がわずかに軋んで、また止まる
-      {t:0.7, run:()=>{
+      {t:0.7, keep:true, run:()=>{
         if(duskGateSlab) duskGateSlab.position.y = 1.62;
         addShake(0.06);
       }},
-      {t:0.5, run:()=>{ if(duskGateSlab) duskGateSlab.position.y = 1.7; }},
+      {t:0.5, keep:true, run:()=>{ if(duskGateSlab) duskGateSlab.position.y = 1.7; }},
       // 水面に、引いていた人の形
-      {t:0.7, run:()=>{
+      {t:0.7, keep:true, run:()=>{
         spawnDuskRipple(2.6, 445.6, 1.5);
         spawnApparition(new THREE.Vector3(2.6, 0, 445.4), {color:0x7fb0c4, fadeIn:1.2,
                          fadeOut:1.0, maxOpacity:0.36, vanishDist:200});
@@ -1449,7 +1459,7 @@
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   /* =========================================================
@@ -1502,15 +1512,15 @@
     playCutscene([
       {t:0.2, run:()=> ambienceHold(8)},
       // 離れた水面から、ひとつずつ
-      {t:0.9, run:()=>{ spawnDuskRipple(-12, 494, 1.2); spawnApparition(
+      {t:0.9, keep:true, run:()=>{ spawnDuskRipple(-12, 494, 1.2); spawnApparition(
         new THREE.Vector3(-12, 0, 494), {color:0x4a5a68, fadeIn:1.0, fadeOut:1.4,
                                          maxOpacity:0.28, vanishDist:200}); }},
-      {t:1.4, run:()=>{ spawnDuskRipple(11, 496, 1.0); spawnApparition(
+      {t:1.4, keep:true, run:()=>{ spawnDuskRipple(11, 496, 1.0); spawnApparition(
         new THREE.Vector3(11, 0, 496), {color:0x46505c, fadeIn:1.0, fadeOut:1.4,
                                         maxOpacity:0.26, vanishDist:200}); }},
-      {t:1.4, run:()=>{ spawnDuskRipple(-6, 498, 0.9); spawnDuskRipple(7, 497, 0.8); }},
+      {t:1.4, keep:true, run:()=>{ spawnDuskRipple(-6, 498, 0.9); spawnDuskRipple(7, 497, 0.8); }},
       // それが真ん中へ寄っていく
-      {t:1.6, run:()=>{
+      {t:1.6, keep:true, run:()=>{
         spawnDuskRipple(0, 498, 1.6);
         spawnApparition(new THREE.Vector3(0, 0, 498.5), {color:0x3f4a58, fadeIn:1.4,
                          fadeOut:1.8, maxOpacity:0.34, vanishDist:200});
@@ -1528,7 +1538,7 @@
         state.dialogueActive = false;
         clearMovementInput(false);
       }},
-    ]);
+    ], DUSK_TEMPO);
   }
 
   /* 記憶漁師(WORK 5)。AIは updateFisherAI(07-ai-combat.js)、

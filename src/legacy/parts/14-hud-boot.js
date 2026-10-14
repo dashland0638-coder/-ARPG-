@@ -1299,6 +1299,7 @@
      1/4 に固定する(CI-001、core/sim-time.js)。GPU の無い CI では描画の速さが機械ごとに違い、
      50ms の頭打ちのせいでゲーム内の時間の進み方まで run ごとに変わっていた。通常のプレイは 1 */
   const SIM_TIME_SCALE = simTimeScale(typeof navigator !== 'undefined' ? navigator : null);
+  let cutsceneLastFrameMs = 0;   // 演出の実時間(CH1-EXP X-2)
   function animate(){
     onResize();   // cheap: two reads, and only acts when the viewport moved
     requestAnimationFrame(animate);
@@ -1306,6 +1307,11 @@
        されるので、本当の停止時間はここでしか見えない(PERFORMANCE
        DIAGNOSTICのコメント参照) */
     perfTick(performance.now());
+    /* 演出の「待たせるための間ではない待ち」は実時間で数える(CH1-EXP X-2)。
+       タブを離れていた後の 1 フレームで手順を飛ばさないよう 0.25 秒で頭打ち */
+    const frameNowMs = performance.now();
+    cutsceneRealDt = cutsceneLastFrameMs ? Math.min(0.25, Math.max(0, (frameNowMs - cutsceneLastFrameMs) / 1000)) : 0;
+    cutsceneLastFrameMs = frameNowMs;
     let dt = simDeltaSeconds(clock.getDelta(), SIM_TIME_SCALE);
     if(hitStopCD > 0) hitStopCD = Math.max(0, hitStopCD - dt);
     // hit stop: real time still advances, the simulation just eases
