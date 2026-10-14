@@ -730,13 +730,15 @@ updateGuestCompanion(dt)
 | --- | --- | --- | --- |
 | build | `npm run build` | `afe234e` | **PASS**（built in 4.02s。chunk size の警告のみ） |
 | unit | `npm run test:unit` | `afe234e` | **PASS**: pass 1816 / fail 0 / skipped 1 |
-| E2E | `npx playwright test`（Playwright 1.62.1、Chromium 1194 を `executablePath` で指定する一時設定を scratchpad に置いて実行。リポジトリの設定は変えていない） | `afe234e` | §10.1.1 |
+| E2E | `npx playwright test`（Playwright 1.62.1、Chromium 1194 を `executablePath` で指定する一時設定を scratchpad に置いて実行。リポジトリの設定は変えていない） | `afe234e` | **PASS**: 281 / 281（§10.1.1） |
 
 E2E の環境メモ: この環境の Playwright 1.62.1 は同梱版の Chromium を要求し、既定の起動ではブラウザが見つからず全件失敗した（環境の問題）。`/opt/pw-browsers/chromium-1194` を指定して再実行した。CI はブラウザを `npx playwright install` で入れるので、この問題は CI には無い。
 
 #### 10.1.1 E2E の結果
 
-__E2E_RESULT__
+**PASS**: 281 passed / 0 failed / 0 skipped（1.4h、対象 `afe234e`）。
+
+E2E の PASS は「既存の自動テストが現状の挙動を壊していない」ことの確認にとどまる。本監査の指摘（C-01〜C-04 の逃げ切り、M-01 の視線、D-01 のトースト、D-04 の一覧の行数）は、**既存の E2E が測っていない**（§10.2・T-01）。
 
 ### 10.2 確認済み（自動テスト）と未確認（プレイ体験）の分離
 
