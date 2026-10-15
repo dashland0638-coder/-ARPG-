@@ -7,6 +7,8 @@ import {
   normalizeAngle, clampAbs, waistLookYaw, waistLookPitch, distributeLook,
   followAngle, followValue, stepLookLinger, lingerWeight, scanYaw,
   waistCoefFor, waistPitchCoefFor, headMulFor,
+  lookTargetKind, stepLookRig, initialLookState, stepLookOutputs, zeroLookOutputs,
+  LOOK_OUTPUT_FOLLOW, EYE_FOLLOW_SPEED,
 } from '../../src/core/look-rig.js';
 
 const DEG = Math.PI/180;
@@ -304,4 +306,129 @@ test('Eye Rig regression: 可動域', async t=>{
     assert.ok(waistCoefFor('archer') > waistCoefFor('warrior'));
     assert.ok(waistCoefFor('archer') < waistCoefFor('mage'));
   });
+});
+
+/* =========================================================
+   CH1-COMP W1-1: 見る相手の種類と、切り替わりで頭が跳ばないこと
+   ========================================================= */
+
+test('lookTargetKind ―― 会話・戦闘・移動・仲間の距離の 16 通り（×敵の有無）', async t=>{
+  const B = [false, true];
+  for(const dialogue of B) for(const combat of B) for(const moving of B) for(const companionNear of B){
+    for(const enemyVisible of B){
+      // 敵は戦闘態勢中にしか探さない(legacy の findLookTarget)ので、その組み合わせだけ
+      if(enemyVisible && !combat) continue;
+      let expected;
+      if(combat && enemyVisible) expected = 'enemy';                 // 1. 戦闘中は見えている敵
+      else if(dialogue) expected = companionNear ? 'ally' : null;    // 2. 会話・演出中は従来どおり
+      else if(combat) expected = null;                               // 3. 戦闘中は仲間を見ない
+      else if(moving) expected = null;                               // 4. 移動中は仲間を見ない
+      else expected = companionNear ? 'ally' : null;                 // 5. 止まっている探索中は従来どおり
+      const name = `dialogue=${dialogue} combat=${combat} moving=${moving} near=${companionNear} enemy=${enemyVisible}`;
+      await t.test(name, ()=>{
+        assert.equal(lookTargetKind({dialogue, combat, moving, companionNear, enemyVisible}), expected);
+      });
+    }
+  }
+});
+
+test('lookTargetKind ―― 依頼の状態ごとの規則', async t=>{
+  await t.test('移動中は仲間を見ない', ()=>{
+    assert.equal(lookTargetKind({moving:true, companionNear:true}), null);
+  });
+  await t.test('戦闘態勢中で敵が見えなければ、止まっていても仲間を見ない', ()=>{
+    assert.equal(lookTargetKind({combat:true, enemyVisible:false, companionNear:true}), null);
+  });
+  await t.test('戦闘態勢中で敵が見えれば敵', ()=>{
+    assert.equal(lookTargetKind({combat:true, enemyVisible:true, companionNear:true, moving:true}), 'enemy');
+  });
+  await t.test('会話・演出中は歩いていても従来どおり仲間を見る（演出の歩きを含む）', ()=>{
+    assert.equal(lookTargetKind({dialogue:true, moving:true, companionNear:true}), 'ally');
+  });
+  await t.test('止まっている探索中は従来どおり仲間を見る', ()=>{
+    assert.equal(lookTargetKind({companionNear:true}), 'ally');
+  });
+  await t.test('引数なしは誰も見ない', ()=>{
+    assert.equal(lookTargetKind(), null);
+  });
+});
+
+/* 支援 AI の位置(主人公の向きの反対から 0.55 rad、2.4m。08 guestFollowPoint)と、
+   その足元を見たときの仰角 */
+const ALLY = {yaw: Math.PI - 0.55, pitch: Math.atan2(-0.6, 2.4)};
+const FRONT_ENEMY = {yaw: 0.3, pitch: 0};
+
+function runSeq(fps, seq, classKey = 'archer'){
+  const dt = 1/fps;
+  let st = initialLookState();
+  let prev = zeroLookOutputs();
+  let maxStep = 0;
+  const ends = [];
+  for(const [target, secs] of seq){
+    const n = Math.round(secs * fps);
+    for(let i=0;i<n;i++){
+      st = stepLookRig(st, {target, bodyYaw:0, classKey}, dt);
+      for(const k of ['headYaw','headPitch','waistYaw','waistPitch','eyeYaw','eyePitch']){
+        maxStep = Math.max(maxStep, Math.abs(st.out[k] - prev[k]));
+      }
+      prev = st.out;
+    }
+    ends.push({mode: st.mode, out: st.out});
+  }
+  return {maxStep, ends};
+}
+
+test('stepLookRig ―― 仲間・見回し・敵の切り替わりで頭が 1 フレームで跳ばない', async t=>{
+  // 止まって仲間 → 歩き出す(相手なし) → 止まる → すぐ歩く → 戦闘で正面の敵 → 戦闘中に見失う
+  const seq = [[ALLY,2],[null,2],[ALLY,2],[null,0.3],[ALLY,1],[FRONT_ENEMY,1],[null,2]];
+  for(const fps of [60, 30, 20]){
+    await t.test(`${fps}fps`, ()=>{
+      const {maxStep} = runSeq(fps, seq);
+      const k = 1 - Math.exp(-LOOK_OUTPUT_FOLLOW / fps);
+      // 1 フレームの変化は、最終角度の追従(LOOK_OUTPUT_FOLLOW)で詰められる量まで
+      const bound = k * HEAD_YAW_LIMIT * 1.01 + 0.1*DEG;
+      assert.ok(maxStep <= bound, `max ${deg(maxStep).toFixed(2)}° > ${deg(bound).toFixed(2)}°`);
+      // 60fps では 1 フレームあたり 8° 未満(以前は linger 切れで 38° 跳んでいた)
+      if(fps === 60) assert.ok(deg(maxStep) < 8, `max ${deg(maxStep).toFixed(2)}°`);
+    });
+  }
+});
+
+test('stepLookRig ―― 歩いている間(相手なし)は頭がほぼ正面に戻る', ()=>{
+  const {ends} = runSeq(60, [[ALLY,2],[null,2]]);
+  assert.ok(Math.abs(deg(ends[0].out.headYaw)) > 37, '止まって仲間を見ている間は頭が振り向く(従来どおり)');
+  assert.equal(ends[1].mode, 'scan');
+  // 見回しの振幅(9°)は目の可動域(±10°)の内側なので、頭はほぼ動かない
+  assert.ok(Math.abs(deg(ends[1].out.headYaw)) < 1, `head ${deg(ends[1].out.headYaw).toFixed(2)}°`);
+  assert.ok(Math.abs(ends[1].out.eyeYaw) <= EYE_YAW_LIMIT + 1e-9);
+});
+
+test('stepLookRig ―― 相手がいる間の到達値は distributeLook と同じ(配分の式は変えていない)', ()=>{
+  const {ends} = runSeq(60, [[ALLY,3]]);
+  const ref = distributeLook({targetYaw:ALLY.yaw, bodyYaw:0, targetPitch:ALLY.pitch, classKey:'archer', weight:1});
+  for(const k of ['waistYaw','waistPitch','headYaw','headPitch','eyeYaw','eyePitch']){
+    assert.ok(Math.abs(ends[0].out[k] - ref[k]) < 0.2*DEG, `${k}: ${deg(ends[0].out[k])} vs ${deg(ref[k])}`);
+  }
+});
+
+test('stepLookRig ―― linger の間は直前の向きを保ち、切れたら見回しへ', ()=>{
+  const fps = 60, dt = 1/fps;
+  let st = initialLookState();
+  for(let i=0;i<120;i++) st = stepLookRig(st, {target:ALLY, bodyYaw:0, classKey:'warrior'}, dt);
+  const held = st.lookYaw;
+  st = stepLookRig(st, {target:null, bodyYaw:0, classKey:'warrior'}, dt);
+  assert.equal(st.mode, 'linger');
+  assert.ok(Math.abs(st.lookYaw - held) < 1e-9, 'linger 中は見ている向きを保つ');
+  for(let i=0;i<Math.ceil(EYE_LINGER_SEC*fps)+1;i++) st = stepLookRig(st, {target:null, bodyYaw:0, classKey:'warrior'}, dt);
+  assert.equal(st.mode, 'scan');
+  assert.ok(Math.abs(normalizeAngle(st.lookYaw)) < 10*DEG, '見回しは体の向き基準(後ろの仲間の向きを引きずらない)');
+});
+
+test('stepLookOutputs ―― 指数追従で、dt に依存しない収束', ()=>{
+  const a = stepLookOutputs(zeroLookOutputs(), {headYaw:1}, 0.1);
+  let b = zeroLookOutputs();
+  for(let i=0;i<10;i++) b = stepLookOutputs(b, {headYaw:1}, 0.01);
+  assert.ok(Math.abs(a.headYaw - b.headYaw) < 1e-9);
+  assert.ok(Math.abs(a.headYaw - (1 - Math.exp(-LOOK_OUTPUT_FOLLOW*0.1))) < 1e-9);
+  assert.equal(EYE_FOLLOW_SPEED > 0, true);
 });

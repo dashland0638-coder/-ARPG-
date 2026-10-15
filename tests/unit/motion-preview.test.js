@@ -61,7 +61,7 @@ test('motionDebugLines', async t=>{
   const base = {
     classKey:'mage', jobKey:'archmage', altKey:'magicSword', usingAlt:false,
     combatStanceT:COMBAT_STANCE_HOLD, postSwingT:SETTLED,
-    lookTarget:'enemy/ally', lookYaw:0.5,
+    lookTarget:'enemy', lookYaw:0.5,
     waistYaw:0.1, headYaw:0.2, headPitch:-0.05, eyeYaw:0.03, eyePitch:0.01,
     idleProfile: idleProfile('mage','archmage'), dedicatedIdle:true, stanceWeight:1,
   };

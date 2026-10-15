@@ -197,3 +197,105 @@ export function scanYaw(t, period = SCAN_PERIOD, amplitude = SCAN_AMPLITUDE){
   const b = Math.sin(t * (Math.PI*2/(period*0.37)) + 1.1);
   return (a*0.78 + b*0.22) * amplitude;
 }
+
+/* =========================================================
+   見る相手の種類（CH1-COMP W1-1）
+
+   以前は「戦闘態勢中なら見えている敵、見つからなければ 7m 以内の仲間」を
+   状態に関係なく返していた。支援 AI は主人公の斜め後ろ約 2.4m を歩くので、
+   歩いている間も戦闘中も、首が上限まで後ろへ振り向いたままになっていた。
+
+   状態ごとの規則（上から順に判定する）:
+     1. 戦闘態勢中・振り中で、見えている敵がいる → 敵
+     2. 会話・演出中                         → 7m 以内の仲間（従来どおり）
+     3. 戦闘態勢中・振り中                     → 仲間を見ない（見回し）
+     4. 移動中                                → 仲間を見ない（見回し）
+     5. 止まっている探索中                     → 7m 以内の仲間（従来どおり）
+
+   enemyVisible は「戦闘態勢中に、見えている敵を探して見つかったか」。
+   戦闘態勢でないときは敵を探さないので false を渡す（従来どおり）。
+   戻り値は 'enemy' / 'ally' / null。 */
+export function lookTargetKind(opts){
+  const o = opts || {};
+  if(o.combat && o.enemyVisible) return 'enemy';
+  if(o.dialogue) return o.companionNear ? 'ally' : null;
+  if(o.combat) return null;
+  if(o.moving) return null;
+  return o.companionNear ? 'ally' : null;
+}
+
+/* =========================================================
+   1 フレームの視線の更新（CH1-COMP W1-1）
+
+   見る相手の切り替わり（仲間 → 見回し、敵 → 仲間 など）で、頭が 1 フレームで
+   跳ばないようにする。以前は linger（見失った直後の保持）が切れた瞬間に、
+   配分の強さが 0 から 1 へ戻る一方で「見ている向き」はまだ直前の相手
+   （例: 真後ろの仲間）を向いていたため、頭が上限の 38° へ 1 フレームで振れた。
+
+     1. linger が切れたフレームで「見ている向き」を見回しの向きへ置き直す
+        （このフレームの配分の強さは 0 に近いので見えない）
+     2. 配分した最終の角度（体幹・頭・目）を LOOK_OUTPUT_FOLLOW で追わせる
+
+   可動域と配分の式（distributeLook）・目の追従（EYE_FOLLOW_SPEED）・
+   linger（EYE_LINGER_SEC）・見回し（scanYaw）は変えていない。
+   state・three.js に依存しないので tests/unit/ から 1 フレームずつ回せる。
+
+   st : { lookYaw, lookPitch, lingerT, scanT, out }   … 前のフレームの値
+   inp: { target: null | {yaw, pitch}, bodyYaw, classKey, jobKey }
+   戻り値: 次のフレームの st（out が実際に書く角度）と mode（'target' /
+           'linger' / 'scan'） */
+export const LOOK_OUTPUT_FOLLOW = 12;   // 1/s。時定数 約 0.08 秒
+const LOOK_OUT_KEYS = ['waistYaw', 'waistPitch', 'headYaw', 'headPitch', 'eyeYaw', 'eyePitch'];
+
+export function zeroLookOutputs(){
+  return { waistYaw:0, waistPitch:0, headYaw:0, headPitch:0, eyeYaw:0, eyePitch:0 };
+}
+
+export function stepLookOutputs(prev, next, dt, speed = LOOK_OUTPUT_FOLLOW){
+  const p = prev || zeroLookOutputs();
+  const out = {};
+  for(const k of LOOK_OUT_KEYS) out[k] = followValue(p[k] || 0, next[k] || 0, speed, dt);
+  return out;
+}
+
+export function initialLookState(){
+  return { lookYaw:0, lookPitch:0, lingerT:0, scanT:0, out: zeroLookOutputs() };
+}
+
+export function stepLookRig(st, inp, dt){
+  const s = st || initialLookState();
+  const i = inp || {};
+  const hasTarget = !!i.target;
+  const bodyYaw = i.bodyYaw || 0;
+  const lingerT = stepLookLinger(s.lingerT, dt, hasTarget, EYE_LINGER_SEC);
+  const scanT = (s.scanT || 0) + (dt || 0);
+
+  let mode, desiredYaw, desiredPitch = 0;
+  let lookYaw = s.lookYaw || 0;
+  if(hasTarget){
+    mode = 'target';
+    desiredYaw = i.target.yaw;
+    desiredPitch = i.target.pitch || 0;
+  } else if(lingerT > 0){
+    mode = 'linger';
+    desiredYaw = lookYaw;
+    desiredPitch = s.lookPitch || 0;
+  } else {
+    mode = 'scan';
+    desiredYaw = bodyYaw + scanYaw(scanT);
+    // linger が切れたフレーム: 直前の相手の向きを捨て、見回しの向きから始める
+    if((s.lingerT || 0) > 0) lookYaw = desiredYaw;
+  }
+
+  lookYaw = followAngle(lookYaw, desiredYaw, EYE_FOLLOW_SPEED, dt);
+  const prevPitch = s.lookPitch || 0;
+  const lookPitch = prevPitch + (desiredPitch - prevPitch) * Math.min(1, (dt || 0) * EYE_FOLLOW_SPEED);
+
+  const weight = hasTarget ? 1 : (lingerT > 0 ? lingerWeight(lingerT, EYE_LINGER_SEC) : 1);
+  const raw = distributeLook({
+    targetYaw: lookYaw, bodyYaw, targetPitch: lookPitch,
+    classKey: i.classKey, jobKey: i.jobKey, weight,
+  });
+  const out = stepLookOutputs(s.out, raw, dt);
+  return { lookYaw, lookPitch, lingerT, scanT, out, mode };
+}
