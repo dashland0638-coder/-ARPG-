@@ -40,10 +40,12 @@ import { openGame, watchErrors, watchNotifications, disableCameraAutoFollow } fr
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT_DIR = path.join(ROOT, 'test-results/baseline/ch1-combat-baseline');
 
-const SIM_LIMIT_SEC = 120;          // 1 試行の上限(推定ゲーム内時間)
+const SIM_LIMIT_SEC = 90;           // 1 試行の上限(推定ゲーム内時間)。試走で村の残響は支援だけで約 50 秒
 const SAMPLE_EVERY_SIM_SEC = 5;     // ボスの HP を記録する間隔
 const MAGE_SPEED = 4.4;             // 魔法使いの移動速度(01-character-creation.js CLASSES.mage.spd)
 const ALLY_COLOR = 'rgb(159, 232, 255)';   // #9fe8ff
+/** 戦闘中に出た会話の記録(試行ごとに空にする。workers は 1) */
+let midDialogues = [];
 
 /* ページを開く前に仕込む計測(読み取りだけ) */
 async function installProbes(page) {
@@ -119,22 +121,38 @@ async function holdForSim(page, key, simSec, deadline) {
   await page.keyboard.down(key);
   while ((await sim(page)) - s0 < simSec && (await sim(page)) < deadline) {
     if (await bossDefeated(page)) break;
+    await handleMidFightDialogue(page, midDialogues);
     await page.waitForTimeout(250);
   }
   await page.keyboard.up(key);
 }
 
-/* 撃破: ボスが死ぬと HP バーは消え(updateBossBar は生きているボスだけを出す)、撃破後の演出の
-   会話が始まる。戦闘中に会話は出ないので、「バーが消えて会話が出ている」か結果画面を撃破とみなす */
+/* 撃破: ボスが死ぬと HP バーは消える(updateBossBar は生きているボスだけを出す)。バーは会話・
+   メニューの間も消えるので、「最後に出ていた HP が 10% 未満でバーが消えた」か結果画面を撃破とみなす。
+   1 撃の大きさはボスの最大 HP の数 % なので、死ぬ直前の表示は 10% を下回る */
+const DEFEAT_LAST_PCT = 10;
 async function bossDefeated(page) {
-  return page.evaluate(() => {
+  return page.evaluate((th) => {
     const wrap = document.getElementById('boss-bar-wrap');
     const fill = document.getElementById('boss-bar-fill');
     const shown = !!(wrap && wrap.classList.contains('show'));
-    const dlg = document.getElementById('dialogue-overlay').classList.contains('active');
     const clear = document.getElementById('clear-overlay').classList.contains('active');
-    return clear || (!shown && dlg) || (fill && parseFloat(fill.style.width) <= 0);
-  });
+    const last = fill ? parseFloat(fill.style.width) : NaN;
+    return clear || (!shown && last < th) || last <= 0;
+  }, DEFEAT_LAST_PCT);
+}
+
+/* 戦闘中に会話が出たら送る(数えて記録する)。テストモードの地点ジャンプは「ボスの手前」の演出
+   (14-dungeon-duskvillage.js playDuskBossPrelude、中心 (0,496) 半径 6m)を飛ばしているので、
+   ボスに押されて入口(z 500)の近くへ下がると戦闘の途中でその演出が始まる。通常プレイでは
+   ボスの前に必ず通る場所なので起きない ―― テストモードの測定上の制約として記録する */
+async function handleMidFightDialogue(page, log) {
+  if (!(await dialogueActive(page))) return;
+  if (await bossDefeated(page)) return;
+  const text = await page.locator('#dialogue-text').textContent();
+  log.push({ simSec: +(await sim(page)).toFixed(1), text: (text || '').trim() });
+  await page.click('#dialogue-overlay');
+  await page.waitForTimeout(300);
 }
 
 /* ===== 戦い方 =====
@@ -159,13 +177,13 @@ const STRATEGIES = {
   // S2 立ち止まり: 何もしない(支援だけが戦う)。ボスが間合いへ寄ってくる
   S2: { name: '間合いの中で立ち止まる', policy: '入力なし。開始地点(ボスの 5m 手前)に立ったまま。支援だけが戦う',
     async run(page, deadline) {
-      while ((await sim(page)) < deadline && !(await bossDefeated(page))) await page.waitForTimeout(500);
+      while ((await sim(page)) < deadline && !(await bossDefeated(page))) { await handleMidFightDialogue(page, midDialogues); await page.waitForTimeout(500); }
     } },
   // S3 殴り続ける: 動かずに通常攻撃を押し続ける
   S3: { name: '攻撃を続ける', policy: '移動しない。通常攻撃(J)を押し続ける',
     async run(page, deadline) {
       await page.keyboard.down('KeyJ');
-      while ((await sim(page)) < deadline && !(await bossDefeated(page))) await page.waitForTimeout(500);
+      while ((await sim(page)) < deadline && !(await bossDefeated(page))) { await handleMidFightDialogue(page, midDialogues); await page.waitForTimeout(500); }
       await page.keyboard.up('KeyJ');
     } },
   // S4 回避を混ぜる(参考): 攻撃を押し続け、推定ゲーム内 2 秒ごとに後ろ(S)へ回避する。
@@ -182,6 +200,7 @@ const STRATEGIES = {
           await page.keyboard.up('KeyS');
           next = (await sim(page)) + 2;
         }
+        await handleMidFightDialogue(page, midDialogues);
         await page.waitForTimeout(250);
       }
       await page.keyboard.up('KeyJ');
@@ -220,6 +239,8 @@ for (const sKey of ['S1', 'S2', 'S3', 'S4']) {
       await expect.poll(async () => (await bossPct(page)).shown, { timeout: 60_000 }).toBe(true);
 
       const notes0 = await page.evaluate(() => (window.__notes || []).length);
+      // 戦闘中に出た会話(テストモードの制約。handleMidFightDialogue)
+      midDialogues = [];
       const real0 = Date.now();
       await page.evaluate(() => { window.__bl.counting = true; });
       const deadline = SIM_LIMIT_SEC;
@@ -268,6 +289,8 @@ for (const sKey of ['S1', 'S2', 'S3', 'S4']) {
             '被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない',
             'ボス本体の攻撃回数は画面に出ないため取得していない',
             'ゲーム内時間は rAF 間隔から sim-time の式で推定した値',
+            '地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)',
+            '撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面',
           ],
         },
         estimatedSimSec: +end.sim.toFixed(1),
@@ -289,6 +312,7 @@ for (const sKey of ['S1', 'S2', 'S3', 'S4']) {
           timesSimSec: end.incomingTimes.map(t => +t.toFixed(1)),
         },
         notices: notes,
+        midFightDialogues: midDialogues,
         bossAttackCount: '取得不能(画面に出ない)',
         errors,
       };

@@ -23,8 +23,9 @@ export default defineConfig({
   ...base,
   testDir: here,
   testIgnore: [],
-  // 1 試行はゲーム内 120 秒(実時間で約 8 分)＋準備。余裕を見て 15 分
-  timeout: 15 * 60_000,
+  /* 1 試行はゲーム内 90 秒＋準備。ソフトウェア描画で 2〜3fps しか出ないとゲーム内時間は実時間の
+     約 1/8 で進む(1 歩 50ms の頭打ち。core/sim-time.js)ので、90 秒に実時間で約 13 分かかる */
+  timeout: 25 * 60_000,
   retries: 0,
   outputDir: path.join(root, 'test-results/baseline/artifacts'),
   reporter: [['list']],
