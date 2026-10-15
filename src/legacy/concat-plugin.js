@@ -180,7 +180,7 @@ import {
    (連結後は1つのスコープなので二重宣言になる)。look-rig 側の
    normalizeAngle は distributeLook が内部で使うだけなので import しない */
 import {
-  lookTargetKind, stepLookRig, initialLookState, zeroLookOutputs,
+  lookTargetKind, stepLookRig, initialLookState,
 } from '../core/look-rig.js';
 import {
   buildUltClips, ultImpactDelay, ultImpactFrac, ultClipWarp, JOB_ULT_CLIP, ULT_DURATION,

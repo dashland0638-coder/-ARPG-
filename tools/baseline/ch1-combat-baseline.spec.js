@@ -128,30 +128,58 @@ async function holdForSim(page, key, simSec, deadline) {
   await page.keyboard.up(key);
 }
 
-/* 撃破: ボスが死ぬと HP バーは消える(updateBossBar は生きているボスだけを出す)。バーは会話・
-   メニューの間も消えるので、「最後に出ていた HP が 10% 未満でバーが消えた」か結果画面を撃破とみなす。
-   1 撃の大きさはボスの最大 HP の数 % なので、死ぬ直前の表示は 10% を下回る */
+/* 撃破の判定(CH1-COMP W2-T1 レビュー Round 1 で見直し)。
+   ボスが死ぬと HP バーは消える(updateBossBar は生きているボスだけを出す)。ただしバーは、
+   ボスが生きていても会話・メニュー・一時停止の間も消える。そこで:
+     - 結果画面(#clear-overlay)が出たら撃破
+     - 会話もメニューも出ていないのに、最後の HP 表示が 10% 未満でバーが消えている状態が
+       2 回続けて読めたら撃破
+   宵待ちの村は撃破の直後に後日談の会話が始まり、その後に結果画面へ進む
+   (12-progression-ui.js onBossDefeated → playDuskEpilogue → showBossResultScreen)。
+   会話の間は handleMidFightDialogue が送るので、結果画面で撃破と判定される。
+   撃破の時刻は「HP 10% 未満でバーが消えた最初の時刻」(会話で戻ったら取り消す)。 */
 const DEFEAT_LAST_PCT = 10;
-async function bossDefeated(page) {
+const defeatState = { candidateSim: null, streak: 0 };
+function resetDefeatState() { defeatState.candidateSim = null; defeatState.streak = 0; }
+
+async function readBossState(page) {
   return page.evaluate((th) => {
     const wrap = document.getElementById('boss-bar-wrap');
     const fill = document.getElementById('boss-bar-fill');
     const shown = !!(wrap && wrap.classList.contains('show'));
-    const clear = document.getElementById('clear-overlay').classList.contains('active');
     const last = fill ? parseFloat(fill.style.width) : NaN;
-    return clear || (!shown && last < th) || last <= 0;
+    return {
+      shown, last,
+      lowHidden: !shown && last < th,
+      overlay: document.getElementById('dialogue-overlay').classList.contains('active') ||
+               document.getElementById('menu-overlay').classList.contains('active'),
+      clear: document.getElementById('clear-overlay').classList.contains('active'),
+      sim: window.__bl.sim,
+    };
   }, DEFEAT_LAST_PCT);
 }
 
-/* 戦闘中に会話が出たら送る(数えて記録する)。テストモードの地点ジャンプは「ボスの手前」の演出
-   (14-dungeon-duskvillage.js playDuskBossPrelude、中心 (0,496) 半径 6m)を飛ばしているので、
-   ボスに押されて入口(z 500)の近くへ下がると戦闘の途中でその演出が始まる。通常プレイでは
-   ボスの前に必ず通る場所なので起きない ―― テストモードの測定上の制約として記録する */
+async function bossDefeated(page) {
+  const b = await readBossState(page);
+  if (b.shown) { defeatState.candidateSim = null; defeatState.streak = 0; }
+  else if (b.lowHidden && defeatState.candidateSim == null) defeatState.candidateSim = b.sim;
+  if (b.clear) return true;
+  if (b.lowHidden && !b.overlay) defeatState.streak++;
+  else defeatState.streak = 0;
+  return defeatState.streak >= 2;
+}
+
+/* 会話が出たら送る(数えて記録する)。
+   - 戦闘の途中の会話: テストモードの地点ジャンプは「ボスの手前」の演出
+     (14-dungeon-duskvillage.js playDuskBossPrelude、中心 (0,496) 半径 6m)を飛ばしているので、
+     ボスに押されて入口(z 500)の近くへ下がると戦闘の途中でその演出が始まる。通常プレイでは
+     ボスの前に必ず通る場所なので起きない ―― テストモードの測定上の制約として記録する
+   - 撃破の後の会話(後日談): HP 10% 未満でバーが消えた後に出た会話。afterDefeat: true で区別する */
 async function handleMidFightDialogue(page, log) {
   if (!(await dialogueActive(page))) return;
-  if (await bossDefeated(page)) return;
+  const b = await readBossState(page);
   const text = await page.locator('#dialogue-text').textContent();
-  log.push({ simSec: +(await sim(page)).toFixed(1), text: (text || '').trim() });
+  log.push({ simSec: +b.sim.toFixed(1), text: (text || '').trim(), afterDefeat: b.lowHidden });
   await page.click('#dialogue-overlay');
   await page.waitForTimeout(300);
 }
@@ -240,8 +268,9 @@ for (const sKey of ['S1', 'S2', 'S3', 'S4']) {
       await expect.poll(async () => (await bossPct(page)).shown, { timeout: 60_000 }).toBe(true);
 
       const notes0 = await page.evaluate(() => (window.__notes || []).length);
-      // 戦闘中に出た会話(テストモードの制約。handleMidFightDialogue)
+      // 戦闘中・撃破後に出た会話(handleMidFightDialogue)と、撃破の判定の状態
       midDialogues = [];
+      resetDefeatState();
       const real0 = Date.now();
       await page.evaluate(() => { window.__bl.counting = true; });
       const deadline = SIM_LIMIT_SEC;
@@ -289,17 +318,19 @@ for (const sKey of ['S1', 'S2', 'S3', 'S4']) {
             '数字の表示はカメラの後ろでは出ない(数え漏れがありうる)',
             '被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない',
             'ボス本体の攻撃回数は画面に出ないため取得していない',
-            'ゲーム内時間は rAF 間隔から sim-time の式で推定した値',
+            'ゲーム内時間は rAF 間隔から sim-time の式で推定した値。会話でゲームが止まっている間の rAF も含む',
             '地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)',
-            '撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面',
+            '撃破の判定は、結果画面、または会話・メニューが無いまま最後の HP 表示が 10% 未満でバーが消えた状態が 2 回続いたとき。撃破の時刻はバーが消えた最初の時刻',
           ],
         },
         estimatedSimSec: +end.sim.toFixed(1),
         realSec: +realSec.toFixed(1),
         avgFps: +(end.frames / Math.max(1, realSec)).toFixed(1),
         bossDefeated: defeated,
-        // 撃破は戦い方の実行が止まった時点(推定ゲーム内時間)。撃破しなければ null
-        bossDefeatSimSec: defeated ? +end.sim.toFixed(1) : null,
+        // 撃破: HP 10% 未満でバーが消えた最初の時刻(推定ゲーム内時間)。撃破しなければ null
+        bossDefeatSimSec: defeated && defeatState.candidateSim != null ? +defeatState.candidateSim.toFixed(1) : null,
+        // 撃破を確定した時刻(結果画面、またはバーが消えた状態が 2 回続いた時)
+        defeatConfirmedSimSec: defeated ? +end.sim.toFixed(1) : null,
         // 最後に表示されていたボスの HP(撃破時はバーが消える直前の値)
         bossPctEnd: finalBoss.pct,
         bossHp: hp,
@@ -313,7 +344,8 @@ for (const sKey of ['S1', 'S2', 'S3', 'S4']) {
           timesSimSec: end.incomingTimes.map(t => +t.toFixed(1)),
         },
         notices: notes,
-        midFightDialogues: midDialogues,
+        midFightDialogues: midDialogues.filter(d => !d.afterDefeat),
+        afterDefeatDialogues: midDialogues.filter(d => d.afterDefeat),
         bossAttackCount: '取得不能(画面に出ない)',
         errors,
       };

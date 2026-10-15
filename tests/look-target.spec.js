@@ -95,6 +95,8 @@ test.describe('Look Rig の見る相手(CH1-COMP W1-1)', () => {
     const attack = await sampleTargetsWhile(page, 'KeyJ', 9000, 3000);
     expect(attack.seen.length).toBeGreaterThan(2);
     for (const v of attack.seen) expect(v, `攻撃中の TARGET: ${attack.seen.join(',')}`).not.toBe('ally');
+    // 訓練場のカカシは見えているので、攻撃中は少なくとも 1 回は敵を見る(敵を見る処理が生きている)
+    expect(attack.seen, `攻撃中の TARGET: ${attack.seen.join(',')}`).toContain('enemy');
 
     expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
   });

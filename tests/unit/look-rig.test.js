@@ -7,8 +7,8 @@ import {
   normalizeAngle, clampAbs, waistLookYaw, waistLookPitch, distributeLook,
   followAngle, followValue, stepLookLinger, lingerWeight, scanYaw,
   waistCoefFor, waistPitchCoefFor, headMulFor,
-  lookTargetKind, stepLookRig, initialLookState, stepLookOutputs, zeroLookOutputs,
-  LOOK_OUTPUT_FOLLOW, EYE_FOLLOW_SPEED,
+  lookTargetKind, stepLookRig, initialLookState, zeroLookOutputs,
+  LOOK_MAX_TURN_RATE, EYE_FOLLOW_SPEED,
 } from '../../src/core/look-rig.js';
 
 const DEG = Math.PI/180;
@@ -357,25 +357,45 @@ test('lookTargetKind ―― 依頼の状態ごとの規則', async t=>{
    その足元を見たときの仰角 */
 const ALLY = {yaw: Math.PI - 0.55, pitch: Math.atan2(-0.6, 2.4)};
 const FRONT_ENEMY = {yaw: 0.3, pitch: 0};
+const KEYS = ['headYaw','headPitch','waistYaw','waistPitch','eyeYaw','eyePitch'];
+
+/* 修正前(afe234e)の updateLookRig の 1 フレームを、そのまま純粋関数で再現したもの。
+   後退が無いことを比べるための基準 */
+function oldStep(o, target, bodyYaw, dt, classKey){
+  o.lingerT = stepLookLinger(o.lingerT, dt, !!target, EYE_LINGER_SEC);
+  o.scanT += dt;
+  let dy, dp = 0;
+  if(target){ dy = target.yaw; dp = target.pitch; }
+  else if(o.lingerT > 0){ dy = o.lookYaw; dp = o.lookPitch; }
+  else dy = bodyYaw + scanYaw(o.scanT);
+  o.lookYaw = followAngle(o.lookYaw, dy, EYE_FOLLOW_SPEED, dt);
+  o.lookPitch += (dp - o.lookPitch) * Math.min(1, dt*EYE_FOLLOW_SPEED);
+  const w = target ? 1 : (o.lingerT > 0 ? lingerWeight(o.lingerT, EYE_LINGER_SEC) : 1);
+  return distributeLook({targetYaw:o.lookYaw, bodyYaw, targetPitch:o.lookPitch, classKey, weight:w});
+}
+const gaze = (bodyYaw, out) => bodyYaw + out.waistYaw + out.headYaw + out.eyeYaw;
 
 function runSeq(fps, seq, classKey = 'archer'){
   const dt = 1/fps;
   let st = initialLookState();
-  let prev = zeroLookOutputs();
-  let maxStep = 0;
+  const o = {lookYaw:0, lookPitch:0, lingerT:0, scanT:0};
+  let prev = zeroLookOutputs(), prevOld = zeroLookOutputs();
+  let maxStep = 0, maxStepOld = 0;
   const ends = [];
   for(const [target, secs] of seq){
     const n = Math.round(secs * fps);
     for(let i=0;i<n;i++){
       st = stepLookRig(st, {target, bodyYaw:0, classKey}, dt);
-      for(const k of ['headYaw','headPitch','waistYaw','waistPitch','eyeYaw','eyePitch']){
+      const old = oldStep(o, target, 0, dt, classKey);
+      for(const k of KEYS){
         maxStep = Math.max(maxStep, Math.abs(st.out[k] - prev[k]));
+        maxStepOld = Math.max(maxStepOld, Math.abs(old[k] - prevOld[k]));
       }
-      prev = st.out;
+      prev = st.out; prevOld = old;
     }
     ends.push({mode: st.mode, out: st.out});
   }
-  return {maxStep, ends};
+  return {maxStep, maxStepOld, ends};
 }
 
 test('stepLookRig ―― 仲間・見回し・敵の切り替わりで頭が 1 フレームで跳ばない', async t=>{
@@ -383,15 +403,54 @@ test('stepLookRig ―― 仲間・見回し・敵の切り替わりで頭が 1 �
   const seq = [[ALLY,2],[null,2],[ALLY,2],[null,0.3],[ALLY,1],[FRONT_ENEMY,1],[null,2]];
   for(const fps of [60, 30, 20]){
     await t.test(`${fps}fps`, ()=>{
-      const {maxStep} = runSeq(fps, seq);
-      const k = 1 - Math.exp(-LOOK_OUTPUT_FOLLOW / fps);
-      // 1 フレームの変化は、最終角度の追従(LOOK_OUTPUT_FOLLOW)で詰められる量まで
-      const bound = k * HEAD_YAW_LIMIT * 1.01 + 0.1*DEG;
+      const {maxStep, maxStepOld} = runSeq(fps, seq);
+      // 修正前は linger が切れた瞬間に頭が上限(38°)まで 1 フレームで振れていた
+      assert.ok(deg(maxStepOld) > 37, `修正前の跳び ${deg(maxStepOld).toFixed(2)}°`);
+      /* 1 フレームの変化は、見ている向きの回る速さの上限(LOOK_MAX_TURN_RATE)で
+         決まる量まで(配分の強さの追従 LOOK_WEIGHT_FOLLOW の分の余裕 1° を含む)。
+         上限の 38° を 1 フレームで埋めない */
+      const bound = LOOK_MAX_TURN_RATE / fps + 1*DEG;
       assert.ok(maxStep <= bound, `max ${deg(maxStep).toFixed(2)}° > ${deg(bound).toFixed(2)}°`);
-      // 60fps では 1 フレームあたり 8° 未満(以前は linger 切れで 38° 跳んでいた)
-      if(fps === 60) assert.ok(deg(maxStep) < 8, `max ${deg(maxStep).toFixed(2)}°`);
+      assert.ok(maxStep < 0.5 * HEAD_YAW_LIMIT, `max ${deg(maxStep).toFixed(2)}°`);
     });
   }
+});
+
+test('stepLookRig ―― 体の向きが変わっても、見ている相手を通り過ぎない(修正前より悪くならない)', async t=>{
+  const fps = 60, dt = 1/fps;
+  await t.test('振り始めに体の向きが 1 フレームで敵へ揃う(swingLockFacing)', ()=>{
+    const enemy = {yaw: 0.9, pitch: 0};
+    let st = initialLookState();
+    const o = {lookYaw:0, lookPitch:0, lingerT:0, scanT:0};
+    let body = 0;
+    for(let i=0;i<120;i++){ st = stepLookRig(st, {target:enemy, bodyYaw:body, classKey:'warrior'}, dt); oldStep(o, enemy, body, dt, 'warrior'); }
+    body = 0.9;   // 体が敵へ一気に向く
+    let worst = 0, worstOld = 0;
+    for(let i=0;i<60;i++){
+      st = stepLookRig(st, {target:enemy, bodyYaw:body, classKey:'warrior'}, dt);
+      const old = oldStep(o, enemy, body, dt, 'warrior');
+      worst = Math.max(worst, Math.abs(normalizeAngle(gaze(body, st.out) - enemy.yaw)));
+      worstOld = Math.max(worstOld, Math.abs(normalizeAngle(gaze(body, old) - enemy.yaw)));
+    }
+    assert.ok(worst <= worstOld + 1e-6, `新 ${deg(worst).toFixed(2)}° / 旧 ${deg(worstOld).toFixed(2)}°`);
+    assert.ok(deg(worst) < 1, `視線が敵からずれない: ${deg(worst).toFixed(2)}°`);
+  });
+  await t.test('体が 13 rad/s で 90° 回る間', ()=>{
+    const enemy = {yaw: 0.5, pitch: 0};
+    let st = initialLookState();
+    const o = {lookYaw:0, lookPitch:0, lingerT:0, scanT:0};
+    let body = -Math.PI/4;
+    for(let i=0;i<120;i++){ st = stepLookRig(st, {target:enemy, bodyYaw:body, classKey:'archer'}, dt); oldStep(o, enemy, body, dt, 'archer'); }
+    let worst = 0, worstOld = 0;
+    for(let i=0;i<60;i++){
+      body = Math.min(Math.PI/4, body + 13*dt);
+      st = stepLookRig(st, {target:enemy, bodyYaw:body, classKey:'archer'}, dt);
+      const old = oldStep(o, enemy, body, dt, 'archer');
+      worst = Math.max(worst, Math.abs(normalizeAngle(gaze(body, st.out) - enemy.yaw)));
+      worstOld = Math.max(worstOld, Math.abs(normalizeAngle(gaze(body, old) - enemy.yaw)));
+    }
+    assert.ok(worst <= worstOld + 1e-6, `新 ${deg(worst).toFixed(2)}° / 旧 ${deg(worstOld).toFixed(2)}°`);
+  });
 });
 
 test('stepLookRig ―― 歩いている間(相手なし)は頭がほぼ正面に戻る', ()=>{
@@ -406,12 +465,12 @@ test('stepLookRig ―― 歩いている間(相手なし)は頭がほぼ正面�
 test('stepLookRig ―― 相手がいる間の到達値は distributeLook と同じ(配分の式は変えていない)', ()=>{
   const {ends} = runSeq(60, [[ALLY,3]]);
   const ref = distributeLook({targetYaw:ALLY.yaw, bodyYaw:0, targetPitch:ALLY.pitch, classKey:'archer', weight:1});
-  for(const k of ['waistYaw','waistPitch','headYaw','headPitch','eyeYaw','eyePitch']){
+  for(const k of KEYS){
     assert.ok(Math.abs(ends[0].out[k] - ref[k]) < 0.2*DEG, `${k}: ${deg(ends[0].out[k])} vs ${deg(ref[k])}`);
   }
 });
 
-test('stepLookRig ―― linger の間は直前の向きを保ち、切れたら見回しへ', ()=>{
+test('stepLookRig ―― linger の間は直前の向きを保ち、強さが下がりきってから見回しへ', ()=>{
   const fps = 60, dt = 1/fps;
   let st = initialLookState();
   for(let i=0;i<120;i++) st = stepLookRig(st, {target:ALLY, bodyYaw:0, classKey:'warrior'}, dt);
@@ -419,16 +478,7 @@ test('stepLookRig ―― linger の間は直前の向きを保ち、切れたら
   st = stepLookRig(st, {target:null, bodyYaw:0, classKey:'warrior'}, dt);
   assert.equal(st.mode, 'linger');
   assert.ok(Math.abs(st.lookYaw - held) < 1e-9, 'linger 中は見ている向きを保つ');
-  for(let i=0;i<Math.ceil(EYE_LINGER_SEC*fps)+1;i++) st = stepLookRig(st, {target:null, bodyYaw:0, classKey:'warrior'}, dt);
+  for(let i=0;i<Math.ceil(EYE_LINGER_SEC*fps)+60;i++) st = stepLookRig(st, {target:null, bodyYaw:0, classKey:'warrior'}, dt);
   assert.equal(st.mode, 'scan');
   assert.ok(Math.abs(normalizeAngle(st.lookYaw)) < 10*DEG, '見回しは体の向き基準(後ろの仲間の向きを引きずらない)');
-});
-
-test('stepLookOutputs ―― 指数追従で、dt に依存しない収束', ()=>{
-  const a = stepLookOutputs(zeroLookOutputs(), {headYaw:1}, 0.1);
-  let b = zeroLookOutputs();
-  for(let i=0;i<10;i++) b = stepLookOutputs(b, {headYaw:1}, 0.01);
-  assert.ok(Math.abs(a.headYaw - b.headYaw) < 1e-9);
-  assert.ok(Math.abs(a.headYaw - (1 - Math.exp(-LOOK_OUTPUT_FOLLOW*0.1))) < 1e-9);
-  assert.equal(EYE_FOLLOW_SPEED > 0, true);
 });

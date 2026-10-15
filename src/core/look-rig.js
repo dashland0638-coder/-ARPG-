@@ -232,34 +232,36 @@ export function lookTargetKind(opts){
    配分の強さが 0 から 1 へ戻る一方で「見ている向き」はまだ直前の相手
    （例: 真後ろの仲間）を向いていたため、頭が上限の 38° へ 1 フレームで振れた。
 
-     1. linger が切れたフレームで「見ている向き」を見回しの向きへ置き直す
-        （このフレームの配分の強さは 0 に近いので見えない）
-     2. 配分した最終の角度（体幹・頭・目）を LOOK_OUTPUT_FOLLOW で追わせる
+     1. 配分の強さ（weight）を LOOK_WEIGHT_FOLLOW で追わせる。
+        linger の間は従来どおり lingerWeight へ、相手がいる間と見回しの間は 1 へ。
+     2. linger が切れたら、強さがほぼ 0 まで下がるのを待ってから、
+        「見ている向き」を見回しの向きへ置き直す。置き直した後に強さを 1 へ戻す。
+     3. 「見ている向き」の回る速さに上限（LOOK_MAX_TURN_RATE）を付ける。止まった瞬間に
+        真後ろの仲間を見始めると、追従（16/s）だけでは 1 フレームで 60° 近く回り、
+        頭が上限まで一気に振れていた（修正前からの挙動）。
+
+   最終の角度（体幹・頭・目）そのものは追わせない。体の向きは振り始めに 1 フレームで
+   変わることがあり（swingLockFacing）、体に対する角度を遅らせると、視線が体と一緒に
+   回って相手を通り過ぎてしまうため。見ている向き（ワールド）は従来どおり
+   EYE_FOLLOW_SPEED で追い、体の向きが変わっても相手を見たまま配分し直す。
 
    可動域と配分の式（distributeLook）・目の追従（EYE_FOLLOW_SPEED）・
    linger（EYE_LINGER_SEC）・見回し（scanYaw）は変えていない。
    state・three.js に依存しないので tests/unit/ から 1 フレームずつ回せる。
 
-   st : { lookYaw, lookPitch, lingerT, scanT, out }   … 前のフレームの値
+   st : { lookYaw, lookPitch, lingerT, scanT, weight, pendingScan }  … 前のフレームの値
    inp: { target: null | {yaw, pitch}, bodyYaw, classKey, jobKey }
-   戻り値: 次のフレームの st（out が実際に書く角度）と mode（'target' /
-           'linger' / 'scan'） */
-export const LOOK_OUTPUT_FOLLOW = 12;   // 1/s。時定数 約 0.08 秒
-const LOOK_OUT_KEYS = ['waistYaw', 'waistPitch', 'headYaw', 'headPitch', 'eyeYaw', 'eyePitch'];
+   戻り値: 次のフレームの st と、out（実際に書く角度）・mode（'target' / 'linger' / 'scan'） */
+export const LOOK_WEIGHT_FOLLOW = 12;      // 1/s。時定数 約 0.08 秒
+export const LOOK_RESCAN_WEIGHT = 0.02;    // 見ている向きを置き直してよい強さ
+export const LOOK_MAX_TURN_RATE = 6;       // rad/s(約 344°/s)。見ている向きの回る速さの上限
 
 export function zeroLookOutputs(){
   return { waistYaw:0, waistPitch:0, headYaw:0, headPitch:0, eyeYaw:0, eyePitch:0 };
 }
 
-export function stepLookOutputs(prev, next, dt, speed = LOOK_OUTPUT_FOLLOW){
-  const p = prev || zeroLookOutputs();
-  const out = {};
-  for(const k of LOOK_OUT_KEYS) out[k] = followValue(p[k] || 0, next[k] || 0, speed, dt);
-  return out;
-}
-
 export function initialLookState(){
-  return { lookYaw:0, lookPitch:0, lingerT:0, scanT:0, out: zeroLookOutputs() };
+  return { lookYaw:0, lookPitch:0, lingerT:0, scanT:0, weight:0, pendingScan:false };
 }
 
 export function stepLookRig(st, inp, dt){
@@ -269,33 +271,49 @@ export function stepLookRig(st, inp, dt){
   const bodyYaw = i.bodyYaw || 0;
   const lingerT = stepLookLinger(s.lingerT, dt, hasTarget, EYE_LINGER_SEC);
   const scanT = (s.scanT || 0) + (dt || 0);
+  const prevW = s.weight != null ? s.weight : 1;
 
-  let mode, desiredYaw, desiredPitch = 0;
+  let mode, desiredYaw, desiredPitch = 0, desiredW = 1;
   let lookYaw = s.lookYaw || 0;
+  let pendingScan = !!s.pendingScan;
   if(hasTarget){
     mode = 'target';
+    pendingScan = false;
     desiredYaw = i.target.yaw;
     desiredPitch = i.target.pitch || 0;
   } else if(lingerT > 0){
     mode = 'linger';
     desiredYaw = lookYaw;
     desiredPitch = s.lookPitch || 0;
+    desiredW = lingerWeight(lingerT, EYE_LINGER_SEC);
   } else {
-    mode = 'scan';
-    desiredYaw = bodyYaw + scanYaw(scanT);
-    // linger が切れたフレーム: 直前の相手の向きを捨て、見回しの向きから始める
-    if((s.lingerT || 0) > 0) lookYaw = desiredYaw;
+    // linger が切れたフレームから、強さが下がりきるまでは直前の向きを保つ
+    if((s.lingerT || 0) > 0) pendingScan = true;
+    if(pendingScan && prevW > LOOK_RESCAN_WEIGHT){
+      mode = 'linger';
+      desiredYaw = lookYaw;
+      desiredPitch = s.lookPitch || 0;
+      desiredW = 0;
+    } else {
+      mode = 'scan';
+      desiredYaw = bodyYaw + scanYaw(scanT);
+      // 強さがほぼ 0 のうちに、見回しの向きから始め直す(見た目には出ない)
+      if(pendingScan){ lookYaw = desiredYaw; pendingScan = false; }
+    }
   }
 
-  lookYaw = followAngle(lookYaw, desiredYaw, EYE_FOLLOW_SPEED, dt);
+  {
+    const followed = followAngle(lookYaw, desiredYaw, EYE_FOLLOW_SPEED, dt);
+    const maxTurn = LOOK_MAX_TURN_RATE * (dt || 0);
+    lookYaw = lookYaw + clampAbs(normalizeAngle(followed - lookYaw), maxTurn);
+  }
   const prevPitch = s.lookPitch || 0;
   const lookPitch = prevPitch + (desiredPitch - prevPitch) * Math.min(1, (dt || 0) * EYE_FOLLOW_SPEED);
+  const weight = followValue(prevW, desiredW, LOOK_WEIGHT_FOLLOW, dt);
 
-  const weight = hasTarget ? 1 : (lingerT > 0 ? lingerWeight(lingerT, EYE_LINGER_SEC) : 1);
-  const raw = distributeLook({
+  const out = distributeLook({
     targetYaw: lookYaw, bodyYaw, targetPitch: lookPitch,
     classKey: i.classKey, jobKey: i.jobKey, weight,
   });
-  const out = stepLookOutputs(s.out, raw, dt);
-  return { lookYaw, lookPitch, lingerT, scanT, out, mode };
+  return { lookYaw, lookPitch, lingerT, scanT, weight, pendingScan, out, mode };
 }

@@ -1476,11 +1476,11 @@
        visualFacing は入力時のまま固定される。その差を「見ている向きとの
        ずれ」として食わせると、首と腰が毎フレーム可動域いっぱいまで
        振り切れてしまう ―― 回っている間は正面を向いたままにする。
-       控えの最終角度も 0 にしておく(回り終えた後、正面から追い始める) */
+       配分の強さも 0 にしておく(回り終えた後、正面から追い始める) */
     if(state.skillAnim && state.skillAnim.type === 'spin'){
       P.headLookPivot.rotation.set(0,0,0);
       P.eyePivot.rotation.set(0,0,0);
-      lookRigState.out = zeroLookOutputs();
+      lookRigState.weight = 0;
       return;
     }
 
@@ -1495,10 +1495,10 @@
         pitch: flat > 0.2 ? Math.atan2((_lookAt.y + 0.9) - 1.5, flat) : 0,
       };
     }
-    /* 追従・linger・見回し・配分・最終角度の追従(core/look-rig.js)。
+    /* 追従・linger・見回し・配分(core/look-rig.js)。
        相手が居なくなると linger(0.45秒)が直前の向きを保ったまま薄れ、
        その後は進行方向を基準にゆっくり見回す。切り替わりで頭が
-       1 フレームで跳ばないよう、最終の角度も追わせてある */
+       1 フレームで跳ばないよう、配分の強さを追わせてある */
     lookRigState = stepLookRig(lookRigState, {
       target: targetAngles, bodyYaw: visualFacing,
       classKey: state.classDef && state.classDef.key, jobKey: state.job,
