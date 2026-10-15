@@ -54,7 +54,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 - 2026-10-14: 監査・計画（PLANNED）。独立 Reviewer の判定は Round 1 が CHANGES_REQUIRED、Round 2 が PASS。
 - 2026-10-15: HD-1〜HD-7 が確定した（DEC-007）。W1-1・W1-3・W2-T1 の詳細計画と受け入れ条件を計画書に記録した。実装は未着手。
 - 2026-10-15: Human の指示（「CH1-COMP W1-1・W1-3・W2-T1 の実装開始」）で 3 項目を実装した（branch `claude/chapter-1-comprehensive-audit-6cul2d`）。IMPLEMENTING → TESTING → REVIEWING。
-- 2026-10-15: 独立 Reviewer の Round 1 は CHANGES_REQUIRED、Round 2 は PASS（`.ai/reports/CH1-COMP-W1-W2T1-review.md`）。REVIEWING → PR_OPEN。
+- 2026-10-15: 独立 Reviewer の Round 1 は CHANGES_REQUIRED、Round 2 は PASS（`.ai/reports/CH1-COMP-W1-W2T1-review.md`）。REVIEWING → PR_OPEN（PR #87）。
 
 ## Approval（W1-1・W1-3・W2-T1）
 
