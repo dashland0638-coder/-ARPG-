@@ -46,3 +46,28 @@ test('spawnLog の呼び出しは同じ文で spawnToast と組になってい�
     }
   }
 });
+
+/* CH1-COMP W1-3: 通常コンボのフィニッシュ段で、中央トーストを出さない。
+   フィニッシュ段の効果(ダメージ倍率・体幹・Ult ゲージ・onFinishHit・処刑の条件)は残す */
+test('swingOnce はフィニッシュのトーストを出さず、フィニッシュ段の効果は残す', () => {
+  const body = stripComments(fnBody(combat, 'swingOnce'));
+  // フィニッシュ段(isFinish)を条件にしたトーストが無い。かげぬいの小刀の技名(🌑 影踏み突き!)は
+  // 装備固有の技の名前で、通常コンボの締めの表示ではないので対象外
+  assert.doesNotMatch(body, /isFinish\)\s*spawnToast\s*\(/, 'フィニッシュ段でトーストを出さない');
+  assert.doesNotMatch(body, /フィニッシュ/);
+  assert.match(body, /const isFinish = stage === comboLen;/);
+  assert.match(body, /comboDmgMul\(stage, isFinish\)/);
+  assert.match(body, /comboStaggerMul\(stage, isFinish\)/);
+  assert.match(body, /ultGauge: isFinish \? 6 : 3/);
+  assert.match(body, /triggerBossSkills\('onFinishHit'\)/);
+  assert.match(body, /styleKey = isFinish \? 'finish' : stage/);
+  // 文言そのものが legacy のどこにも残っていない(別経路で出していない)
+  const all = parts.map(p => stripComments(p.src)).join('\n');
+  assert.doesNotMatch(all, /✨ フィニッシュ!/);
+});
+
+test('処刑の条件は、近接・遠隔ともフィニッシュ段を渡し続ける', () => {
+  const ai = stripComments(parts.find(p => p.f === '07-ai-combat.js').src);
+  assert.match(ai, /canExecute\(en, \{isFinish: !!opts\.isFinish\}\)/);
+  assert.match(stripComments(combat), /isFinish: !!opts\.isFinish/);   // 弾が isFinish を運ぶ
+});

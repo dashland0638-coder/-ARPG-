@@ -785,7 +785,11 @@
       // 遠隔は着弾が非同期のため、発射の瞬間にフィニッシュフックを発火する(近似)
       if(isFinish) triggerBossSkills('onFinishHit');
     }
-    if(isFinish) spawnToast('✨ フィニッシュ!');
+    /* 以前はここで中央トースト「✨ フィニッシュ!」を出していた(CH1-COMP W1-3)。
+       通常コンボを締めるたびに出て、戦闘中の画面中央をふさぎ、同時 3 件の枠から
+       ボスの段階変化などの重要な通知を押し出しうるため出さない。フィニッシュ段は
+       専用の振りと弾の見た目(styleKey 'finish')と、上のダメージ・体幹・Ult ゲージ・
+       onFinishHit のとおり。処刑・Break・段階変化・撃破の通知は別の経路で残っている */
   }
 
   /* Projectile shapes are the same three every time, so they are built once
