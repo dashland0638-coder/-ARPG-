@@ -12,6 +12,10 @@
    どの収録音が要るかは、playScoreEvent を「鳴らさずに」通して決める(dry run)。本番と同じ経路なので、
    層・音域の選び方がずれない。読み込みが間に合わなかった音は、その音だけ合成音で鳴らす。
 
+   MUSIC-AUDIO-004: 通し再生は、曲に要る収録音の読み込みが終わるまで待ってから始める(再生ボタンは「読み込み中」)。
+   待っている間に停止・曲の変更・合成音への切り替えがあれば始めない。読み込みに失敗した音は合成音(fallback)。
+   待ち時間の上限(WAIT_LIMIT_MS)を超えたら始め、間に合わなかった音は合成音で鳴らして stats.unloaded に数える。
+
    v5.68.0 の playTrack は buildTruthScore() の譜面イベントを、そのままの値でこれらの関数に渡す
    (playScoreEvent)。だから包むだけで、譜面と同じイベント・同じ強さ・長さ・奥行きでサンプルが鳴る。
    v5.67.0 以前(playScoreEvent が無い)では譜面と再生がずれるので、フックを付けない。
@@ -45,7 +49,10 @@
   let previews = [];           // セル試聴で鳴らしたサンプル。次の試聴・停止で止める
   let dry = null;              // dry run 中だけ配列。各関数は鳴らさずに {name, midi, level} を積む
   const zero = ()=>Object.fromEntries(SAMPLED.map(n=>[n, 0]));
-  const stats = { scheduled:zero(), fallback:zero() };
+  // scheduled: サンプルで鳴った / fallback: 読み込み失敗・音が無いので合成音 / unloaded: 読み込み前だったので合成音
+  const stats = { scheduled:zero(), fallback:zero(), unloaded:zero() };
+  let waitLimitMs = 15000;     // 読み込みを待つ上限(WAIT_LIMIT_MS)
+  let waiting = null;          // 読み込み待ちの通し再生 {token, track}
 
   function ctxNow(){ return typeof audioCtx !== 'undefined' ? audioCtx : null; }
 
@@ -63,7 +70,7 @@
   function played(v, instrument, note){
     if(session){
       session.notes.push({ instrument, ...note, sample:!!v });
-      stats[v ? 'scheduled' : 'fallback'][instrument]++;
+      stats[v ? 'scheduled' : session.status[instrument] === 'loading' ? 'unloaded' : 'fallback'][instrument]++;
     }else if(v){
       stopPreviews();
       previews.push(v);
@@ -86,7 +93,10 @@
   function route(name, midi, start, dur, engineLevel, out, note){
     if(!use[name]) return false;
     if(dry){ dry.push({ name, midi, level:engineLevel }); return true; }
-    if(!S.isReady(name)) return false;
+    if(!S.isReady(name)){
+      if(session) played(null, name, note);
+      return false;
+    }
     const v = S.play(ctxNow(), name, midi, start, dur, engineLevel, out);
     if(v && name === 'Guitar' && session) dampGuitar(v, start);
     // セル試聴で未読み込みの音に当たったら、次のために読んでおく(今回は合成音)
@@ -179,6 +189,7 @@
     render();
     return job;
   }
+  const unloadedCount = ()=>Object.values(stats.unloaded).reduce((a, b)=>a + b, 0);
   function diagText(){
     const f = r=>r ? `${r.ms}ms(${r.files}音、うち新規 ${r.added})` : '—';
     const info = S.loadedInfo();
@@ -187,7 +198,8 @@
       + ` ・ 再生の準備 ${diag.prepMs == null ? '—' : diag.prepMs + 'ms'}`
       + ` ・ 出力の遅れ ${diag.latencyMs == null ? '—' : diag.latencyMs + 'ms'}(再生開始は押してから +120ms に予約)`
       + ` ・ サンプルのメモリ 約${Math.round(info.bytes / 1e6)}MB${heap}`
-      + (diag.rate ? ` ・ ${diag.rate}Hz` : '');
+      + (diag.rate ? ` ・ ${diag.rate}Hz` : '')
+      + (unloadedCount() ? ` ・ 読み込み前で合成音 ${unloadedCount()}音` : '');
   }
 
   renderEdit = function(){
@@ -202,13 +214,54 @@
     return synth.startScorePlayhead.apply(this, arguments);
   };
 
+  const tokenNow = ()=>(typeof playbackToken !== 'undefined' ? playbackToken : 0);
+  const loading = ()=>Object.values(S.status()).includes('loading');
+  function setPlayLabel(text){
+    const b = document.getElementById('play');
+    if(b) b.textContent = text;
+  }
+  /* 読み込みが終わるまで待つ。待っている間に別の読み込み(曲の変更など)が始まったら、それも待つ */
+  async function settle(limitAt){
+    for(;;){
+      const job = refreshing;
+      const left = limitAt - now();
+      if(left <= 0) return;
+      await Promise.race([job, new Promise(r=>setTimeout(r, left))]);
+      if(job === refreshing || !loading()) return;
+    }
+  }
+
   playTrack = function(){
-    if(!mode.enabled) return synth.playTrack.apply(this, arguments);
-    refresh();                   // セル音量で層が変わった音など。間に合わない音はこの回だけ合成音
+    if(!mode.enabled || !state.track || state.playing) return synth.playTrack.apply(this, arguments);
+    if(waiting && waiting.token === tokenNow()) return;   // 読み込み待ちの間の再押下は無視(二重に始めない)
+    waiting = null;
+    refresh();                   // セル音量で層が変わった音なども、ここで読み始める
+    if(!loading()) return startPlay.apply(this, arguments);
+    // iPhone Safari は AudioContext をボタン操作の中で作る・再開する必要があるので、待つ前に用意する
+    if(typeof ensureAudio === 'function') ensureAudio();
+    const w = waiting = { token:tokenNow(), track:state.track };
+    setPlayLabel('… 読み込み中');
+    render();
+    const self = this, args = arguments;
+    settle(now() + waitLimitMs).then(()=>{
+      if(waiting !== w) return;
+      waiting = null;
+      // 待っている間に停止(token が進む)・曲の変更・合成音への切り替えがあれば始めない
+      if(w.token !== tokenNow() || w.track !== state.track || !mode.enabled || state.playing){
+        if(!state.playing) setPlayLabel('▶ 再生');
+        render();
+        return;
+      }
+      startPlay.apply(self, args);
+    });
+  };
+
+  function startPlay(){
     Object.assign(stats.scheduled, zero());
     Object.assign(stats.fallback, zero());
+    Object.assign(stats.unloaded, zero());
     stopPreviews();
-    const sess = { notes:[], start:null };
+    const sess = { notes:[], start:null, status:S.status() };
     session = sess;
     const t0 = now();
     try{
@@ -224,7 +277,7 @@
       render();
     }
     if(sess.start != null) lastNotes = sess.notes.map(x=>({ ...x, at:x.at - sess.start }));
-  };
+  }
 
   stopAudio = function(){
     previews = [];               // AudioContext ごと閉じるので個別に止めなくてよい
@@ -234,10 +287,11 @@
   // ---- 画面: 「空間」カードの下に「音源」カードを足す --------------------------
   function statusText(){
     if(!mode.enabled) return '合成音で再生します。';
+    const wait = waiting && waiting.token === tokenNow() ? '読み込みが終わったら再生します。' : '';
     const st = S.status();
     const label = s => ({ idle:'この曲では不使用', loading:'読み込み中…', ready:'準備完了', partial:'一部のみ', failed:'読み込み失敗 → 合成音' })[s] || s;
     const info = S.loadedInfo();
-    return SAMPLED.map(n=>`${LABEL[n]}: ${label(st[n])}`).join(' / ')
+    return wait + SAMPLED.map(n=>`${LABEL[n]}: ${label(st[n])}`).join(' / ')
       + `。その他の楽器は合成音です。読み込み済み ${info.files} 音(約 ${Math.round(info.bytes / 1e6)}MB)`;
   }
   function render(){
@@ -304,6 +358,8 @@
     previewCount:()=>previews.length, enabled:()=>mode.enabled,
     lastNotes:()=>JSON.parse(JSON.stringify(lastNotes)),
     needs:()=>needsFor(state.track), ready:()=>refreshing || Promise.resolve(),
-    setUse, diag:()=>JSON.parse(JSON.stringify(diag))
+    setUse, diag:()=>JSON.parse(JSON.stringify(diag)),
+    waiting:()=>!!(waiting && waiting.token === tokenNow()),
+    setWaitLimit(ms){ waitLimitMs = ms; }
   };
 })();
