@@ -69,13 +69,13 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 
 | ファイル | Work Item | 変更 |
 | --- | --- | --- |
-| `src/core/look-rig.js` | W1-1 | 2 つを追加した。<br>・`lookTargetKind`（状態ごとに誰を見るか）<br>・`stepLookRig` / `stepLookOutputs` / `initialLookState` / `zeroLookOutputs` / `LOOK_OUTPUT_FOLLOW = 12`（1 フレームの視線の更新）<br>既存の関数・可動域・配分の式は変えていない |
+| `src/core/look-rig.js` | W1-1 | 2 つを追加した。<br>・`lookTargetKind`（状態ごとに誰を見るか）<br>・`stepLookRig` / `initialLookState` / `zeroLookOutputs`（1 フレームの視線の更新）<br>`stepLookRig` は次の 2 つで、切り替わりの跳びを防ぐ（Round 1 で見直し）。<br>・配分の強さの追従 `LOOK_WEIGHT_FOLLOW = 12`、置き直しの閾値 `LOOK_RESCAN_WEIGHT`<br>・見ている向きの回る速さの上限 `LOOK_MAX_TURN_RATE = 6 rad/s`<br>既存の関数・可動域・配分の式は変えていない |
 | `src/legacy/parts/13-update-loop.js` | W1-1 | `findLookTarget(moving)` は `lookTargetKind` を使う。<br>`updateLookRig(dt, moving)` は `stepLookRig` を呼んで書き込むだけにした。<br>Motion Panel の TARGET を `'enemy'` / `'ally'` に分けた（デバッグモードだけ） |
 | `src/legacy/concat-plugin.js` | W1-1 | look-rig の import を差し替えた |
 | `src/legacy/parts/11-combat-actions.js` | W1-3 | `swingOnce` の `if(isFinish) spawnToast('✨ フィニッシュ!')` を削除した（理由はコメント） |
-| `tests/unit/look-rig.test.js` | W1-1 | `lookTargetKind` の 16 通り（＋敵の有無）と依頼の規則。<br>`stepLookRig` の切り替わり（60 / 30 / 20fps）、歩行中の頭、到達値、linger、`stepLookOutputs` |
+| `tests/unit/look-rig.test.js` | W1-1 | `lookTargetKind` の 16 通り（＋敵の有無）と依頼の規則。<br>`stepLookRig` の切り替わり（60 / 30 / 20fps）。修正前の処理（`oldStep`）と比べる。<br>体の向きが 1 フレームで変わる場合と 13 rad/s で回る場合に、視線が相手からずれないこと。<br>歩行中の頭、到達値、linger |
 | `tests/unit/motion-preview.test.js` | W1-1 | テストデータの `'enemy/ally'` を `'enemy'` に変えた |
-| `tests/look-target.spec.js`（新規） | W1-1 | Motion Panel の TARGET と HEAD を、止まる・歩く・止まる・攻撃の順に読む |
+| `tests/look-target.spec.js`（新規） | W1-1 | Motion Panel の TARGET と HEAD を、止まる・歩く・止まる・攻撃の順に読む（攻撃中は `ally` にならず、少なくとも 1 回 `enemy`） |
 | `tests/unit/notification-channels.test.js` | W1-3 | `swingOnce` にフィニッシュのトーストが無いこと。<br>フィニッシュ段の効果（倍率・ゲージ・onFinishHit・styleKey・処刑の条件）が残っていること |
 | `tests/combo-finish-toast.spec.js`（新規） | W1-3 | 剣士・魔法使いでカカシに通常コンボを 3 周振る。<br>「フィニッシュ」の通知が 0 件で、Ult ゲージが増えること |
 | `tools/baseline/playwright.config.js`（新規） | W2-T1 | ベースライン専用の設定。既存の設定を読み込んで testDir・timeout・出力先・webServer の cwd だけ差し替える |
@@ -115,7 +115,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 | 移動中に視線の対象が仲間にならない | unit（`lookTargetKind` の moving）＋ E2E（歩行中の TARGET が scan / linger のみ） | VERIFIED |
 | 戦闘態勢中・攻撃中は見えている敵が対象。敵がいなければ仲間を見ない | unit（combat × enemyVisible の組み合わせ）。E2E は攻撃中に `ally` にならないことを確認（訓練場のカカシが見えるので `enemy`） | VERIFIED（「敵がいない戦闘態勢」は unit だけ） |
 | 会話・演出中と止まっている探索中の挙動を維持 | unit（dialogue と停止の行は旧規則と同じ答え）。E2E（止まると `ally`） | VERIFIED（会話中は unit だけ。E2E で会話は起こしていない） |
-| 状態の切り替えで頭が 1 フレームで跳ばない | unit（stepLookRig の切り替えの列。旧処理は linger 切れで頭の yaw が 1 フレームに 38° 跳ぶ。新処理は 60fps で最大 6.3°、追従の上限式の内側） | VERIFIED（実機の見た目は未確認） |
+| 状態の切り替えで頭が 1 フレームで跳ばない | unit（stepLookRig の切り替えの列）。修正前の処理は、linger 切れと、止まった瞬間に後ろの仲間を見始めるときに、頭の yaw が 1 フレームで 38° 跳ぶ。新しい処理は 1 フレームの変化が `6 rad/s × dt + 1°` 以下（20fps でも上限 38° の半分未満）。体の向きの急変でも、視線のずれは修正前を超えない | VERIFIED（実機の見た目は未確認） |
 | デバッグ表示は通常プレイの UI に影響しない | `motionDebugLook` はデバッグモードでだけ書く（既存の分岐）。既存の `character-motion.spec.js`「通常プレイでは出ず」が PASS | VERIFIED |
 | 既存の移動・攻撃・回避のモーションを壊さない | E2E 全件 PASS（`character-motion` / `weapon-stow` / `air-actions` ほか） | VERIFIED（自動テストの範囲） |
 
@@ -140,6 +140,27 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 | 画面に出ないデータは取得不能と記録 | VERIFIED（ボス本体の攻撃回数、通常プレイの生死など。レポート §3） |
 | 専用 spec が通常の `npm test` に入らない | VERIFIED（`--list` 284 件） |
 | ゲームのコード・戦闘の数値・通常の CI の設定を変えない | VERIFIED（W2-T1 の差分は `tools/baseline/`・`.gitignore`・`.ai/` だけ） |
+
+### Round 1 Fix（独立 Reviewer の CHANGES_REQUIRED への対応）
+
+1. **W1-1**
+   - 指摘: 最終の角度を追従させていたため、体の向きの急な変化（`swingLockFacing`）で視線が相手を通り過ぎた。再現は最大 44.7°（修正前は 16.0°）。
+   - 修正: 追従させるのを最終の角度から配分の強さに変えた。linger が切れたら、強さがほぼ 0 まで下がってから見回しへ置き直す。見ている向きの回る速さに上限（6 rad/s）を付けた。
+   - 確認: unit で、体を 1 フレームで敵へ向ける場合と、13 rad/s で 90° 回す場合を回す。どちらも視線のずれが修正前の処理を超えない。1 フレームで敵へ向ける場合は 1° 未満。
+2. **W2-T1**
+   - 指摘: HP 10% 未満のときに会話やメニューが開くと、撃破と誤判定しうる。
+   - 修正: 撃破は「結果画面」か「会話・メニューが無いまま、HP 10% 未満でバーが消えた状態が 2 回続けて読めた」ときとした。撃破の時刻は、バーが消えた最初の時刻。撃破後の会話は `afterDefeatDialogues` に分けて記録する。
+   - 再測定: 8 試行すべて、この判定で撃破を確定した。
+3. **推奨への対応**
+   - E2E: 攻撃中に少なくとも 1 回は `enemy` を見ることを確かめる。
+   - 推定ゲーム内時間には会話中の時間も含むことを、報告書と JSON に明記した。
+
+| テスト（Round 1 の後） | 対象コミット | 結果 |
+| --- | --- | --- |
+| `npm run build` | `f5e189c` | PASS |
+| `npm run test:unit` | `f5e189c` | pass 1860 / fail 0 / skipped 1 |
+| E2E 全件 | `94ae28f`（`f5e189c` からの差分は `.ai/` だけ） | 284 passed（1.5h） |
+| ベースライン 8 試行 | `f5e189c` | 8 passed（1.2h）。報告書の表を、この実行の値に差し替えた |
 
 ### Out of Scope Found
 
