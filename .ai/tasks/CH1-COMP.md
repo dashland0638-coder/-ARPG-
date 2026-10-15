@@ -1,6 +1,6 @@
 # CH1-COMP — Chapter 1 Comprehensive Improvement（第一章 総合改善）
 
-Status: REVIEWING（W1-1・W1-3・W2-T1 を実装。他の Work Item は PLANNED）
+Status: PR_OPEN（W1-1・W1-3・W2-T1。Reviewer PASS。実機確認は HUMAN DEVICE CHECK REQUIRED。他の Work Item は PLANNED）
 
 Analysis: .ai/reports/CHAPTER-1-comprehensive-improvement-audit.md（branch `claude/chapter-1-comprehensive-audit-6cul2d`、base `origin/main` `afe234e`）
 Plan: .ai/reports/CHAPTER-1-comprehensive-improvement-plan.md（Work Item ごとの目的・範囲・非対象・受け入れ条件・テスト・リスク）
@@ -33,9 +33,9 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 
 | 順 | ID | Summary | 優先度 | Status | Approval | 依存 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | W1-1 | 移動中・戦闘中にサポートを見続ける首の追従を直す（会話中は維持） | P1 | REVIEWING | [x] Human 2026-10-15 | ― |
-| 2 | W1-3 | 通常コンボの「✨ フィニッシュ!」を出さない（重要な通知は残す） | P1 | REVIEWING | [x] Human 2026-10-15 | ― |
-| 3 | W2-T1 | 戦闘改修前のベースライン測定（宵待ちの村のボス戦） | P1 | REVIEWING | [x] Human 2026-10-15 | ― |
+| 1 | W1-1 | 移動中・戦闘中にサポートを見続ける首の追従を直す（会話中は維持） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
+| 2 | W1-3 | 通常コンボの「✨ フィニッシュ!」を出さない（重要な通知は残す） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
+| 3 | W2-T1 | 戦闘改修前のベースライン測定（宵待ちの村のボス戦） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
 | 4 | W2-D | 村のボス戦の試作の設計（数値・仕組みの提案） | P1 | PLANNED | [ ] Human の承認が必要 | W2-T1 |
 | 5 | W0-5 | アートの完成見本の提示（見本の制作は村のボス戦に限り HD-4 の範囲。実装の開始は指示待ち。画像と全マップ展開は Human の承認が必要） | P2 | PLANNED | [ ] Human の承認が必要 | W0-3, W3-0（制作: W2-2・W3-1・W3-2 の村の範囲） |
 | 5 | W0-6 | 出撃会話の台詞の候補の提示 | P1 | PLANNED | [ ] Human の承認が必要 | ― |
@@ -54,6 +54,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 - 2026-10-14: 監査・計画（PLANNED）。独立 Reviewer の判定は Round 1 が CHANGES_REQUIRED、Round 2 が PASS。
 - 2026-10-15: HD-1〜HD-7 が確定した（DEC-007）。W1-1・W1-3・W2-T1 の詳細計画と受け入れ条件を計画書に記録した。実装は未着手。
 - 2026-10-15: Human の指示（「CH1-COMP W1-1・W1-3・W2-T1 の実装開始」）で 3 項目を実装した（branch `claude/chapter-1-comprehensive-audit-6cul2d`）。IMPLEMENTING → TESTING → REVIEWING。
+- 2026-10-15: 独立 Reviewer の Round 1 は CHANGES_REQUIRED、Round 2 は PASS（`.ai/reports/CH1-COMP-W1-W2T1-review.md`）。REVIEWING → PR_OPEN。
 
 ## Approval（W1-1・W1-3・W2-T1）
 
