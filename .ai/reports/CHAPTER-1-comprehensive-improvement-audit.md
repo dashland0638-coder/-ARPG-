@@ -179,6 +179,8 @@ updateGuestCompanion(dt)
 
 （式: `01-character-creation.js:141,146-155,234`（攻撃力は `Math.round` で丸めた値。`12-progression-ui.js:1829-1830` も同じ）、`08-loot-equipment.js:1083,1113`。実際の値は装備で上がる。再現テストで実測する必要がある。）
 
+> **2026-10-15 追記（W2-T1 の実測）**: 上の表のボスの HP は設定値のまま。実際は `difficultyFor` の `COMBAT_REBALANCE.hp = 1.20` が掛かる（`06-player-enemy.js:2823-2826`）。村の残響は 912 になり、目安は約 49 秒。テストモードの実測は、支援だけで撃破まで 46〜55 秒だった（`.ai/reports/CH1-COMBAT-BASELINE.md`）。
+
 ---
 
 ## 5. 指摘一覧

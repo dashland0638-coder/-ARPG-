@@ -1,0 +1,1464 @@
+[
+ {
+  "trial": "S1-1",
+  "strategy": "S1",
+  "strategyName": "逃げ回り",
+  "policy": "攻撃しない。ボスの周りを x ±12・z 506〜530 の長方形で回り続ける(移動は推定ゲーム内時間で区切る)",
+  "conditions": {
+   "mode": "テストモード(?dev=1)。通常プレイの値ではない",
+   "protagonist": "mage",
+   "guest": "warrior",
+   "level": 1,
+   "scenario": "duskvillage",
+   "waypoint": "boss(水鏡の跡 0,515)",
+   "debugMode": false,
+   "cameraAutoFollow": false,
+   "simLimitSec": 90,
+   "constraints": [
+    "テストモードでは HP が 1 で止まり戦闘不能にならない",
+    "legacyGrowth() が true。レベル 1 で測定(通常の第一章の装備と同じとは限らない)",
+    "地点ジャンプでボスの前から開始(道中の消耗を含まない)",
+    "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
+    "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
+    "ボス本体の攻撃回数は画面に出ないため取得していない",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
+    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+   ]
+  },
+  "estimatedSimSec": 46.2,
+  "realSec": 423.3,
+  "avgFps": 2.2,
+  "bossDefeated": true,
+  "bossDefeatSimSec": 46.2,
+  "bossPctEnd": 4.05702,
+  "bossHp": [
+   {
+    "simSec": 0.2,
+    "realSec": 2.9,
+    "bossPct": 96.2719
+   },
+   {
+    "simSec": 5.1,
+    "realSec": 37.4,
+    "bossPct": 85.5263
+   },
+   {
+    "simSec": 10,
+    "realSec": 74.7,
+    "bossPct": 75
+   },
+   {
+    "simSec": 15.1,
+    "realSec": 118,
+    "bossPct": 64.364
+   },
+   {
+    "simSec": 20.2,
+    "realSec": 161,
+    "bossPct": 53.3991
+   },
+   {
+    "simSec": 25.2,
+    "realSec": 200.2,
+    "bossPct": 44.2982
+   },
+   {
+    "simSec": 30,
+    "realSec": 243.7,
+    "bossPct": 33.9912
+   },
+   {
+    "simSec": 35.2,
+    "realSec": 299,
+    "bossPct": 23.4649
+   },
+   {
+    "simSec": 40.2,
+    "realSec": 352.7,
+    "bossPct": 12.8289
+   },
+   {
+    "simSec": 45.2,
+    "realSec": 410.4,
+    "bossPct": 4.05702
+   }
+  ],
+  "damage": {
+   "ally": {
+    "n": 52,
+    "sum": 841
+   },
+   "player": {
+    "n": 0,
+    "sum": 0
+   },
+   "allyShare": 1
+  },
+  "incoming": {
+   "n": 36,
+   "sum": 794,
+   "perMinSim": 46.75,
+   "timesSimSec": [
+    7.2,
+    9.4,
+    9.4,
+    11.4,
+    11.6,
+    11.7,
+    15.1,
+    28.8,
+    29,
+    29,
+    30,
+    30.4,
+    31.2,
+    31.2,
+    31.5,
+    31.6,
+    32,
+    32.2,
+    33.2,
+    33.3,
+    33.3,
+    33.3,
+    33.6,
+    34.7,
+    34.8,
+    35.2,
+    35.5,
+    35.5,
+    36.2,
+    36.4,
+    36.8,
+    37.4,
+    40,
+    42.7,
+    42.7,
+    42.7
+   ]
+  },
+  "notices": [
+   {
+    "channel": "log",
+    "text": "「明日、船に乗せて!」"
+   },
+   {
+    "channel": "log",
+    "text": "「……ねえ、まだ?」"
+   },
+   {
+    "channel": "log",
+    "text": "「忘れた方がいい」"
+   },
+   {
+    "channel": "log",
+    "text": "「水門の件について――」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が闘気を纏った!"
+   },
+   {
+    "channel": "toast",
+    "text": "重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が最後の力を振り絞った!"
+   },
+   {
+    "channel": "toast",
+    "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
+   }
+  ],
+  "midFightDialogues": [],
+  "bossAttackCount": "取得不能(画面に出ない)",
+  "errors": []
+ },
+ {
+  "trial": "S1-2",
+  "strategy": "S1",
+  "strategyName": "逃げ回り",
+  "policy": "攻撃しない。ボスの周りを x ±12・z 506〜530 の長方形で回り続ける(移動は推定ゲーム内時間で区切る)",
+  "conditions": {
+   "mode": "テストモード(?dev=1)。通常プレイの値ではない",
+   "protagonist": "mage",
+   "guest": "warrior",
+   "level": 1,
+   "scenario": "duskvillage",
+   "waypoint": "boss(水鏡の跡 0,515)",
+   "debugMode": false,
+   "cameraAutoFollow": false,
+   "simLimitSec": 90,
+   "constraints": [
+    "テストモードでは HP が 1 で止まり戦闘不能にならない",
+    "legacyGrowth() が true。レベル 1 で測定(通常の第一章の装備と同じとは限らない)",
+    "地点ジャンプでボスの前から開始(道中の消耗を含まない)",
+    "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
+    "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
+    "ボス本体の攻撃回数は画面に出ないため取得していない",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
+    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+   ]
+  },
+  "estimatedSimSec": 47.1,
+  "realSec": 490.7,
+  "avgFps": 1.9,
+  "bossDefeated": true,
+  "bossDefeatSimSec": 47.1,
+  "bossPctEnd": 0.986842,
+  "bossHp": [
+   {
+    "simSec": 0.2,
+    "realSec": 4.1,
+    "bossPct": 96.0526
+   },
+   {
+    "simSec": 5,
+    "realSec": 46.4,
+    "bossPct": 85.1974
+   },
+   {
+    "simSec": 10.2,
+    "realSec": 97.2,
+    "bossPct": 74.0132
+   },
+   {
+    "simSec": 15.1,
+    "realSec": 149.9,
+    "bossPct": 64.4737
+   },
+   {
+    "simSec": 20.2,
+    "realSec": 200.9,
+    "bossPct": 53.8377
+   },
+   {
+    "simSec": 25.2,
+    "realSec": 247.5,
+    "bossPct": 42.7632
+   },
+   {
+    "simSec": 30,
+    "realSec": 294.7,
+    "bossPct": 31.9079
+   },
+   {
+    "simSec": 35,
+    "realSec": 354.8,
+    "bossPct": 22.4781
+   },
+   {
+    "simSec": 40.2,
+    "realSec": 413,
+    "bossPct": 9.64912
+   },
+   {
+    "simSec": 45.1,
+    "realSec": 465.4,
+    "bossPct": 0.986842
+   }
+  ],
+  "damage": {
+   "ally": {
+    "n": 53,
+    "sum": 882
+   },
+   "player": {
+    "n": 0,
+    "sum": 0
+   },
+   "allyShare": 1
+  },
+  "incoming": {
+   "n": 37,
+   "sum": 828,
+   "perMinSim": 47.13,
+   "timesSimSec": [
+    7.2,
+    7.4,
+    9.3,
+    9.6,
+    11.5,
+    11.8,
+    13.4,
+    14.7,
+    30.2,
+    30.5,
+    30.6,
+    30.6,
+    30.9,
+    31.8,
+    31.9,
+    32.2,
+    32.7,
+    32.7,
+    32.8,
+    33.4,
+    33.8,
+    34.1,
+    34.9,
+    35,
+    35,
+    35.4,
+    35.6,
+    36.6,
+    37,
+    37,
+    37,
+    37.1,
+    37.1,
+    39.7,
+    42.4,
+    42.4,
+    42.4
+   ]
+  },
+  "notices": [
+   {
+    "channel": "log",
+    "text": "「明日、船に乗せて!」"
+   },
+   {
+    "channel": "log",
+    "text": "「……ねえ、まだ?」"
+   },
+   {
+    "channel": "log",
+    "text": "「忘れた方がいい」"
+   },
+   {
+    "channel": "log",
+    "text": "「水門の件について――」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が闘気を纏った!"
+   },
+   {
+    "channel": "toast",
+    "text": "重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が最後の力を振り絞った!"
+   },
+   {
+    "channel": "toast",
+    "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
+   },
+   {
+    "channel": "toast",
+    "text": "⭐ Lv.4 に上がった!"
+   }
+  ],
+  "midFightDialogues": [],
+  "bossAttackCount": "取得不能(画面に出ない)",
+  "errors": []
+ },
+ {
+  "trial": "S2-1",
+  "strategy": "S2",
+  "strategyName": "間合いの中で立ち止まる",
+  "policy": "入力なし。開始地点(ボスの 5m 手前)に立ったまま。支援だけが戦う",
+  "conditions": {
+   "mode": "テストモード(?dev=1)。通常プレイの値ではない",
+   "protagonist": "mage",
+   "guest": "warrior",
+   "level": 1,
+   "scenario": "duskvillage",
+   "waypoint": "boss(水鏡の跡 0,515)",
+   "debugMode": false,
+   "cameraAutoFollow": false,
+   "simLimitSec": 90,
+   "constraints": [
+    "テストモードでは HP が 1 で止まり戦闘不能にならない",
+    "legacyGrowth() が true。レベル 1 で測定(通常の第一章の装備と同じとは限らない)",
+    "地点ジャンプでボスの前から開始(道中の消耗を含まない)",
+    "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
+    "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
+    "ボス本体の攻撃回数は画面に出ないため取得していない",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
+    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+   ]
+  },
+  "estimatedSimSec": 54.9,
+  "realSec": 679.4,
+  "avgFps": 1.6,
+  "bossDefeated": true,
+  "bossDefeatSimSec": 54.9,
+  "bossPctEnd": 1.20614,
+  "bossHp": [
+   {
+    "simSec": 0.2,
+    "realSec": 3.6,
+    "bossPct": 96.1623
+   },
+   {
+    "simSec": 5.3,
+    "realSec": 51.5,
+    "bossPct": 84.8684
+   },
+   {
+    "simSec": 10,
+    "realSec": 97.7,
+    "bossPct": 75.4386
+   },
+   {
+    "simSec": 15.1,
+    "realSec": 154.9,
+    "bossPct": 64.8026
+   },
+   {
+    "simSec": 20.2,
+    "realSec": 212.5,
+    "bossPct": 54.386
+   },
+   {
+    "simSec": 25,
+    "realSec": 264.6,
+    "bossPct": 43.5307
+   },
+   {
+    "simSec": 30.2,
+    "realSec": 323.9,
+    "bossPct": 33.114
+   },
+   {
+    "simSec": 35,
+    "realSec": 394.2,
+    "bossPct": 26.2061
+   },
+   {
+    "simSec": 40.2,
+    "realSec": 496,
+    "bossPct": 26.2061
+   },
+   {
+    "simSec": 45.1,
+    "realSec": 567.4,
+    "bossPct": 19.1886
+   },
+   {
+    "simSec": 50.2,
+    "realSec": 624.8,
+    "bossPct": 8.55263
+   }
+  ],
+  "damage": {
+   "ally": {
+    "n": 55,
+    "sum": 899
+   },
+   "player": {
+    "n": 0,
+    "sum": 0
+   },
+   "allyShare": 1
+  },
+  "incoming": {
+   "n": 70,
+   "sum": 1687,
+   "perMinSim": 76.5,
+   "timesSimSec": [
+    1,
+    3.1,
+    5.3,
+    6.9,
+    7.5,
+    9,
+    9.8,
+    11.2,
+    12,
+    12.3,
+    13.4,
+    14.2,
+    14.4,
+    14.6,
+    15.5,
+    16.4,
+    16.6,
+    17.7,
+    18.3,
+    18.7,
+    19.8,
+    20.2,
+    21,
+    21.4,
+    22,
+    22.1,
+    23,
+    23.1,
+    24,
+    24.1,
+    24.6,
+    25.3,
+    25.9,
+    26.2,
+    26.9,
+    27.4,
+    27.8,
+    27.8,
+    28.5,
+    28.7,
+    29.4,
+    29.6,
+    29.7,
+    30.1,
+    30.9,
+    31,
+    31.6,
+    31.6,
+    31.7,
+    31.7,
+    32.6,
+    33,
+    33.3,
+    33.3,
+    42.5,
+    43.1,
+    43.3,
+    44.1,
+    44.4,
+    44.6,
+    44.9,
+    46,
+    46.4,
+    47.5,
+    48.9,
+    50.4,
+    50.5,
+    51.8,
+    53.1,
+    53.3
+   ]
+  },
+  "notices": [
+   {
+    "channel": "log",
+    "text": "「明日、船に乗せて!」"
+   },
+   {
+    "channel": "log",
+    "text": "「……ねえ、まだ?」"
+   },
+   {
+    "channel": "log",
+    "text": "「忘れた方がいい」"
+   },
+   {
+    "channel": "log",
+    "text": "「水門の件について――」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が闘気を纏った!"
+   },
+   {
+    "channel": "toast",
+    "text": "重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が最後の力を振り絞った!"
+   },
+   {
+    "channel": "toast",
+    "text": "💥 必殺技が使用可能に!"
+   },
+   {
+    "channel": "toast",
+    "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
+   },
+   {
+    "channel": "toast",
+    "text": "⭐ Lv.4 に上がった!"
+   }
+  ],
+  "midFightDialogues": [
+   {
+    "simSec": 37.7,
+    "text": "「……最初より、広く感じます」"
+   },
+   {
+    "simSec": 39.5,
+    "text": "「村は変わってない」"
+   },
+   {
+    "simSec": 41.3,
+    "text": "「知っている場所が増えたからでしょう」"
+   }
+  ],
+  "bossAttackCount": "取得不能(画面に出ない)",
+  "errors": []
+ },
+ {
+  "trial": "S2-2",
+  "strategy": "S2",
+  "strategyName": "間合いの中で立ち止まる",
+  "policy": "入力なし。開始地点(ボスの 5m 手前)に立ったまま。支援だけが戦う",
+  "conditions": {
+   "mode": "テストモード(?dev=1)。通常プレイの値ではない",
+   "protagonist": "mage",
+   "guest": "warrior",
+   "level": 1,
+   "scenario": "duskvillage",
+   "waypoint": "boss(水鏡の跡 0,515)",
+   "debugMode": false,
+   "cameraAutoFollow": false,
+   "simLimitSec": 90,
+   "constraints": [
+    "テストモードでは HP が 1 で止まり戦闘不能にならない",
+    "legacyGrowth() が true。レベル 1 で測定(通常の第一章の装備と同じとは限らない)",
+    "地点ジャンプでボスの前から開始(道中の消耗を含まない)",
+    "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
+    "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
+    "ボス本体の攻撃回数は画面に出ないため取得していない",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
+    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+   ]
+  },
+  "estimatedSimSec": 55,
+  "realSec": 692.5,
+  "avgFps": 1.6,
+  "bossDefeated": true,
+  "bossDefeatSimSec": 55,
+  "bossPctEnd": 0.438596,
+  "bossHp": [
+   {
+    "simSec": 0.1,
+    "realSec": 3.3,
+    "bossPct": 96.2719
+   },
+   {
+    "simSec": 5.2,
+    "realSec": 49.4,
+    "bossPct": 85.1974
+   },
+   {
+    "simSec": 10,
+    "realSec": 97.4,
+    "bossPct": 74.4518
+   },
+   {
+    "simSec": 15.2,
+    "realSec": 155,
+    "bossPct": 63.7061
+   },
+   {
+    "simSec": 20.1,
+    "realSec": 207.1,
+    "bossPct": 54.8246
+   },
+   {
+    "simSec": 25.2,
+    "realSec": 263.8,
+    "bossPct": 43.5307
+   },
+   {
+    "simSec": 30.2,
+    "realSec": 321.2,
+    "bossPct": 32.3465
+   },
+   {
+    "simSec": 35.2,
+    "realSec": 400,
+    "bossPct": 25.4386
+   },
+   {
+    "simSec": 40.1,
+    "realSec": 502.9,
+    "bossPct": 25.4386
+   },
+   {
+    "simSec": 45,
+    "realSec": 575.9,
+    "bossPct": 18.2018
+   },
+   {
+    "simSec": 50.1,
+    "realSec": 634.6,
+    "bossPct": 7.67544
+   }
+  ],
+  "damage": {
+   "ally": {
+    "n": 54,
+    "sum": 891
+   },
+   "player": {
+    "n": 0,
+    "sum": 0
+   },
+   "allyShare": 1
+  },
+  "incoming": {
+   "n": 70,
+   "sum": 1688,
+   "perMinSim": 76.36,
+   "timesSimSec": [
+    0.8,
+    3,
+    5.2,
+    6.3,
+    7.4,
+    8.4,
+    9.6,
+    10.6,
+    11.8,
+    12.8,
+    12.9,
+    14,
+    15,
+    15,
+    15.3,
+    16.2,
+    17.2,
+    17.2,
+    18.1,
+    19.3,
+    19.4,
+    20,
+    21.4,
+    21.5,
+    21.5,
+    21.9,
+    23,
+    23.6,
+    23.7,
+    23.8,
+    24.6,
+    25.7,
+    25.8,
+    25.8,
+    26.2,
+    27.6,
+    27.8,
+    27.9,
+    28,
+    28.2,
+    29.4,
+    29.5,
+    29.8,
+    30.2,
+    30.2,
+    31,
+    31.4,
+    31.4,
+    31.5,
+    32.3,
+    32.4,
+    32.6,
+    33,
+    33.2,
+    42.5,
+    42.8,
+    42.9,
+    42.9,
+    43,
+    44.1,
+    44.4,
+    44.5,
+    45.9,
+    47.3,
+    48.8,
+    50.2,
+    50.3,
+    51.7,
+    53,
+    53.1
+   ]
+  },
+  "notices": [
+   {
+    "channel": "log",
+    "text": "「明日、船に乗せて!」"
+   },
+   {
+    "channel": "log",
+    "text": "「……ねえ、まだ?」"
+   },
+   {
+    "channel": "log",
+    "text": "「忘れた方がいい」"
+   },
+   {
+    "channel": "log",
+    "text": "「水門の件について――」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が闘気を纏った!"
+   },
+   {
+    "channel": "toast",
+    "text": "重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が最後の力を振り絞った!"
+   },
+   {
+    "channel": "toast",
+    "text": "💥 必殺技が使用可能に!"
+   },
+   {
+    "channel": "toast",
+    "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
+   },
+   {
+    "channel": "toast",
+    "text": "⭐ Lv.4 に上がった!"
+   }
+  ],
+  "midFightDialogues": [
+   {
+    "simSec": 37.6,
+    "text": "「……最初より、広く感じます」"
+   },
+   {
+    "simSec": 39.4,
+    "text": "「村は変わってない」"
+   },
+   {
+    "simSec": 41.1,
+    "text": "「知っている場所が増えたからでしょう」"
+   }
+  ],
+  "bossAttackCount": "取得不能(画面に出ない)",
+  "errors": []
+ },
+ {
+  "trial": "S3-1",
+  "strategy": "S3",
+  "strategyName": "攻撃を続ける",
+  "policy": "移動しない。通常攻撃(J)を押し続ける",
+  "conditions": {
+   "mode": "テストモード(?dev=1)。通常プレイの値ではない",
+   "protagonist": "mage",
+   "guest": "warrior",
+   "level": 1,
+   "scenario": "duskvillage",
+   "waypoint": "boss(水鏡の跡 0,515)",
+   "debugMode": false,
+   "cameraAutoFollow": false,
+   "simLimitSec": 90,
+   "constraints": [
+    "テストモードでは HP が 1 で止まり戦闘不能にならない",
+    "legacyGrowth() が true。レベル 1 で測定(通常の第一章の装備と同じとは限らない)",
+    "地点ジャンプでボスの前から開始(道中の消耗を含まない)",
+    "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
+    "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
+    "ボス本体の攻撃回数は画面に出ないため取得していない",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
+    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+   ]
+  },
+  "estimatedSimSec": 10.6,
+  "realSec": 102.1,
+  "avgFps": 2.1,
+  "bossDefeated": true,
+  "bossDefeatSimSec": 10.6,
+  "bossPctEnd": 2.74123,
+  "bossHp": [
+   {
+    "simSec": 0.1,
+    "realSec": 2.7,
+    "bossPct": 96.6009
+   },
+   {
+    "simSec": 5.2,
+    "realSec": 51.1,
+    "bossPct": 51.864
+   },
+   {
+    "simSec": 10.1,
+    "realSec": 97.2,
+    "bossPct": 2.74123
+   }
+  ],
+  "damage": {
+   "ally": {
+    "n": 12,
+    "sum": 205
+   },
+   "player": {
+    "n": 17,
+    "sum": 705
+   },
+   "allyShare": 0.225
+  },
+  "incoming": {
+   "n": 7,
+   "sum": 225,
+   "perMinSim": 39.45,
+   "timesSimSec": [
+    0.9,
+    3.1,
+    3.7,
+    5.4,
+    7.3,
+    7.4,
+    9.2
+   ]
+  },
+  "notices": [
+   {
+    "channel": "log",
+    "text": "「明日、船に乗せて!」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が闘気を纏った!"
+   },
+   {
+    "channel": "log",
+    "text": "「……ねえ、まだ?」"
+   },
+   {
+    "channel": "toast",
+    "text": "重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」"
+   },
+   {
+    "channel": "log",
+    "text": "「忘れた方がいい」"
+   },
+   {
+    "channel": "toast",
+    "text": "💫 体勢を崩した!"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が最後の力を振り絞った!"
+   },
+   {
+    "channel": "toast",
+    "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
+   },
+   {
+    "channel": "log",
+    "text": "「水門の件について――」"
+   },
+   {
+    "channel": "toast",
+    "text": "💥 体勢を崩した!畳み掛けろ!"
+   },
+   {
+    "channel": "toast",
+    "text": "💥 必殺技が使用可能に!"
+   },
+   {
+    "channel": "toast",
+    "text": "⭐ Lv.4 に上がった!"
+   }
+  ],
+  "midFightDialogues": [],
+  "bossAttackCount": "取得不能(画面に出ない)",
+  "errors": []
+ },
+ {
+  "trial": "S3-2",
+  "strategy": "S3",
+  "strategyName": "攻撃を続ける",
+  "policy": "移動しない。通常攻撃(J)を押し続ける",
+  "conditions": {
+   "mode": "テストモード(?dev=1)。通常プレイの値ではない",
+   "protagonist": "mage",
+   "guest": "warrior",
+   "level": 1,
+   "scenario": "duskvillage",
+   "waypoint": "boss(水鏡の跡 0,515)",
+   "debugMode": false,
+   "cameraAutoFollow": false,
+   "simLimitSec": 90,
+   "constraints": [
+    "テストモードでは HP が 1 で止まり戦闘不能にならない",
+    "legacyGrowth() が true。レベル 1 で測定(通常の第一章の装備と同じとは限らない)",
+    "地点ジャンプでボスの前から開始(道中の消耗を含まない)",
+    "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
+    "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
+    "ボス本体の攻撃回数は画面に出ないため取得していない",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
+    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+   ]
+  },
+  "estimatedSimSec": 10.9,
+  "realSec": 106.5,
+  "avgFps": 2,
+  "bossDefeated": true,
+  "bossDefeatSimSec": 10.9,
+  "bossPctEnd": 1.86404,
+  "bossHp": [
+   {
+    "simSec": 0.1,
+    "realSec": 1.9,
+    "bossPct": 96.3816
+   },
+   {
+    "simSec": 5.3,
+    "realSec": 52.3,
+    "bossPct": 44.8465
+   },
+   {
+    "simSec": 10,
+    "realSec": 97.4,
+    "bossPct": 1.86404
+   }
+  ],
+  "damage": {
+   "ally": {
+    "n": 12,
+    "sum": 207
+   },
+   "player": {
+    "n": 17,
+    "sum": 709
+   },
+   "allyShare": 0.226
+  },
+  "incoming": {
+   "n": 7,
+   "sum": 225,
+   "perMinSim": 38.71,
+   "timesSimSec": [
+    0.9,
+    3.1,
+    3.4,
+    5.4,
+    7.3,
+    7.4,
+    9.2
+   ]
+  },
+  "notices": [
+   {
+    "channel": "log",
+    "text": "「明日、船に乗せて!」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が闘気を纏った!"
+   },
+   {
+    "channel": "log",
+    "text": "「……ねえ、まだ?」"
+   },
+   {
+    "channel": "toast",
+    "text": "重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」"
+   },
+   {
+    "channel": "log",
+    "text": "「忘れた方がいい」"
+   },
+   {
+    "channel": "toast",
+    "text": "💫 体勢を崩した!"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が最後の力を振り絞った!"
+   },
+   {
+    "channel": "toast",
+    "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
+   },
+   {
+    "channel": "log",
+    "text": "「水門の件について――」"
+   },
+   {
+    "channel": "toast",
+    "text": "💥 体勢を崩した!畳み掛けろ!"
+   },
+   {
+    "channel": "toast",
+    "text": "💥 必殺技が使用可能に!"
+   },
+   {
+    "channel": "toast",
+    "text": "⭐ Lv.4 に上がった!"
+   }
+  ],
+  "midFightDialogues": [],
+  "bossAttackCount": "取得不能(画面に出ない)",
+  "errors": []
+ },
+ {
+  "trial": "S4-1",
+  "strategy": "S4",
+  "strategyName": "回避を混ぜる(比較用)",
+  "policy": "通常攻撃(J)を押し続け、推定ゲーム内 2 秒ごとに S を押しながら回避(Shift)。予兆は見ていない(一定間隔)",
+  "conditions": {
+   "mode": "テストモード(?dev=1)。通常プレイの値ではない",
+   "protagonist": "mage",
+   "guest": "warrior",
+   "level": 1,
+   "scenario": "duskvillage",
+   "waypoint": "boss(水鏡の跡 0,515)",
+   "debugMode": false,
+   "cameraAutoFollow": false,
+   "simLimitSec": 90,
+   "constraints": [
+    "テストモードでは HP が 1 で止まり戦闘不能にならない",
+    "legacyGrowth() が true。レベル 1 で測定(通常の第一章の装備と同じとは限らない)",
+    "地点ジャンプでボスの前から開始(道中の消耗を含まない)",
+    "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
+    "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
+    "ボス本体の攻撃回数は画面に出ないため取得していない",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
+    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+   ]
+  },
+  "estimatedSimSec": 47.4,
+  "realSec": 553.3,
+  "avgFps": 1.7,
+  "bossDefeated": true,
+  "bossDefeatSimSec": 47.4,
+  "bossPctEnd": 1.31579,
+  "bossHp": [
+   {
+    "simSec": 0.2,
+    "realSec": 4.4,
+    "bossPct": 92.3246
+   },
+   {
+    "simSec": 5.2,
+    "realSec": 53.3,
+    "bossPct": 64.2544
+   },
+   {
+    "simSec": 10,
+    "realSec": 107.3,
+    "bossPct": 56.9079
+   },
+   {
+    "simSec": 15.2,
+    "realSec": 198.5,
+    "bossPct": 56.9079
+   },
+   {
+    "simSec": 20.1,
+    "realSec": 268.7,
+    "bossPct": 53.3991
+   },
+   {
+    "simSec": 25,
+    "realSec": 326.3,
+    "bossPct": 42.7632
+   },
+   {
+    "simSec": 30.1,
+    "realSec": 376.2,
+    "bossPct": 31.6886
+   },
+   {
+    "simSec": 35,
+    "realSec": 421.3,
+    "bossPct": 22.5877
+   },
+   {
+    "simSec": 40.3,
+    "realSec": 472.1,
+    "bossPct": 11.7325
+   },
+   {
+    "simSec": 45.1,
+    "realSec": 520.1,
+    "bossPct": 1.31579
+   }
+  ],
+  "damage": {
+   "ally": {
+    "n": 42,
+    "sum": 692
+   },
+   "player": {
+    "n": 5,
+    "sum": 192
+   },
+   "allyShare": 0.783
+  },
+  "incoming": {
+   "n": 29,
+   "sum": 695,
+   "perMinSim": 36.67,
+   "timesSimSec": [
+    0.7,
+    2.9,
+    5.1,
+    8.7,
+    21.3,
+    23.1,
+    23.2,
+    24.7,
+    26.9,
+    29.1,
+    32,
+    33.3,
+    34.7,
+    35.6,
+    36.3,
+    38.1,
+    38.3,
+    39.4,
+    39.7,
+    39.9,
+    41.4,
+    41.5,
+    42,
+    44.1,
+    44.1,
+    44.5,
+    44.7,
+    45.7,
+    45.7
+   ]
+  },
+  "notices": [
+   {
+    "channel": "log",
+    "text": "「明日、船に乗せて!」"
+   },
+   {
+    "channel": "log",
+    "text": "「……ねえ、まだ?」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が闘気を纏った!"
+   },
+   {
+    "channel": "log",
+    "text": "「忘れた方がいい」"
+   },
+   {
+    "channel": "toast",
+    "text": "重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」"
+   },
+   {
+    "channel": "log",
+    "text": "「水門の件について――」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が最後の力を振り絞った!"
+   },
+   {
+    "channel": "toast",
+    "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
+   },
+   {
+    "channel": "toast",
+    "text": "⭐ Lv.4 に上がった!"
+   }
+  ],
+  "midFightDialogues": [
+   {
+    "simSec": 13.3,
+    "text": "「……最初より、広く感じます」"
+   },
+   {
+    "simSec": 15.9,
+    "text": "「村は変わってない」"
+   },
+   {
+    "simSec": 17.8,
+    "text": "「知っている場所が増えたからでしょう」"
+   }
+  ],
+  "bossAttackCount": "取得不能(画面に出ない)",
+  "errors": []
+ },
+ {
+  "trial": "S4-2",
+  "strategy": "S4",
+  "strategyName": "回避を混ぜる(比較用)",
+  "policy": "通常攻撃(J)を押し続け、推定ゲーム内 2 秒ごとに S を押しながら回避(Shift)。予兆は見ていない(一定間隔)",
+  "conditions": {
+   "mode": "テストモード(?dev=1)。通常プレイの値ではない",
+   "protagonist": "mage",
+   "guest": "warrior",
+   "level": 1,
+   "scenario": "duskvillage",
+   "waypoint": "boss(水鏡の跡 0,515)",
+   "debugMode": false,
+   "cameraAutoFollow": false,
+   "simLimitSec": 90,
+   "constraints": [
+    "テストモードでは HP が 1 で止まり戦闘不能にならない",
+    "legacyGrowth() が true。レベル 1 で測定(通常の第一章の装備と同じとは限らない)",
+    "地点ジャンプでボスの前から開始(道中の消耗を含まない)",
+    "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
+    "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
+    "ボス本体の攻撃回数は画面に出ないため取得していない",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
+    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+   ]
+  },
+  "estimatedSimSec": 47.2,
+  "realSec": 551.2,
+  "avgFps": 1.7,
+  "bossDefeated": true,
+  "bossDefeatSimSec": 47.2,
+  "bossPctEnd": 0.657895,
+  "bossHp": [
+   {
+    "simSec": 0.2,
+    "realSec": 4.6,
+    "bossPct": 92.8728
+   },
+   {
+    "simSec": 5.2,
+    "realSec": 52.8,
+    "bossPct": 65.1316
+   },
+   {
+    "simSec": 10.2,
+    "realSec": 110,
+    "bossPct": 58.0044
+   },
+   {
+    "simSec": 15.1,
+    "realSec": 197.5,
+    "bossPct": 58.0044
+   },
+   {
+    "simSec": 20.3,
+    "realSec": 275.5,
+    "bossPct": 54.386
+   },
+   {
+    "simSec": 25,
+    "realSec": 331.8,
+    "bossPct": 43.75
+   },
+   {
+    "simSec": 30.1,
+    "realSec": 382.3,
+    "bossPct": 34.7588
+   },
+   {
+    "simSec": 35,
+    "realSec": 428.3,
+    "bossPct": 23.6842
+   },
+   {
+    "simSec": 40.3,
+    "realSec": 479.1,
+    "bossPct": 13.0482
+   },
+   {
+    "simSec": 45.4,
+    "realSec": 528.5,
+    "bossPct": 2.41228
+   }
+  ],
+  "damage": {
+   "ally": {
+    "n": 43,
+    "sum": 703
+   },
+   "player": {
+    "n": 5,
+    "sum": 188
+   },
+   "allyShare": 0.789
+  },
+  "incoming": {
+   "n": 26,
+   "sum": 612,
+   "perMinSim": 33.02,
+   "timesSimSec": [
+    0.9,
+    5.1,
+    6.2,
+    6.3,
+    8.1,
+    21.4,
+    21.6,
+    23.5,
+    23.6,
+    30.3,
+    32.2,
+    35.1,
+    36.1,
+    37.8,
+    38.5,
+    39.2,
+    39.4,
+    41.3,
+    41.4,
+    42.4,
+    43.9,
+    43.9,
+    44.7,
+    46.6,
+    46.7,
+    46.7
+   ]
+  },
+  "notices": [
+   {
+    "channel": "log",
+    "text": "「明日、船に乗せて!」"
+   },
+   {
+    "channel": "log",
+    "text": "「……ねえ、まだ?」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が闘気を纏った!"
+   },
+   {
+    "channel": "log",
+    "text": "「忘れた方がいい」"
+   },
+   {
+    "channel": "toast",
+    "text": "重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」"
+   },
+   {
+    "channel": "log",
+    "text": "「水門の件について――」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が最後の力を振り絞った!"
+   },
+   {
+    "channel": "toast",
+    "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
+   },
+   {
+    "channel": "toast",
+    "text": "⭐ Lv.4 に上がった!"
+   }
+  ],
+  "midFightDialogues": [
+   {
+    "simSec": 13.7,
+    "text": "「……最初より、広く感じます」"
+   },
+   {
+    "simSec": 16.3,
+    "text": "「村は変わってない」"
+   },
+   {
+    "simSec": 18.2,
+    "text": "「知っている場所が増えたからでしょう」"
+   }
+  ],
+  "bossAttackCount": "取得不能(画面に出ない)",
+  "errors": []
+ }
+]
