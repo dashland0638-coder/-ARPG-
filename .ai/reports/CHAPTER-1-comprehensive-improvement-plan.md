@@ -396,6 +396,9 @@ Work Item の ID は `W<フェーズ>-<番号>`（例: W1-3）。優先度 P0〜
     - 通常の `npm test` の skipped が 1 件増えてしまう。
     - AGENTS.md の「skip で通す」との紛れが生じる。
   - 実行コマンド: `npx playwright test -c tools/baseline/playwright.config.js`。
+  - 専用の設定で決めておくこと:
+    - `timeout` を延ばす（既存は `45_000`。1 つの戦い方に実時間で約 6 分かかるので、15 分程度にする）。
+    - 既存の `webServer` を使う場合は、`cwd` をリポジトリの直下にする（Playwright は設定ファイルのある場所を作業ディレクトリにするため）。
   - 揺れを見るため、各戦い方を 2 回測る。
 - 受け入れ条件:
   1. `npx playwright test -c tools/baseline/playwright.config.js` で S1〜S4 が最後まで走り、指標 1〜6 が JSON（`test-results/`）と `.ai/reports/CH1-COMBAT-BASELINE.md` の表に残る。
