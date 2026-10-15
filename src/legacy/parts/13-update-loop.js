@@ -1390,7 +1390,7 @@
     // dt と moving は非戦闘Idle(Exploration/Social)のクロスフェードが使う。
     // 攻撃・スキル・必殺技の分岐は従来どおりで、引数は見ていない
     applyCombatPose(dt, moving);   // an attack or a charge overrides the walk cycle
-    updateLookRig(dt);   // 視線 → 頭 → 体幹 の配分(core/look-rig.js)。
+    updateLookRig(dt, moving);   // 視線 → 頭 → 体幹 の配分(core/look-rig.js)。
                          // applyCombatPose の後、updateGrip の前 ―― 体幹の
                          // 角度が決まってからでないと手の位置が確定しない
     applyPoseShift();    // the lunge and the sink that give a blow its weight
@@ -1432,77 +1432,78 @@
   ========================================================= */
   const LOOK_TARGET_RANGE = 22;       // これより遠い相手は見ない
   const LOOK_COMPANION_RANGE = 7;     // 探索中に仲間へ視線を向ける距離
-  let lookYaw = 0, lookPitch = 0;     // 追従後の「見ている向き」(ワールド)
-  let lookLingerT = 0, lookScanT = 0;
+  /* 見ている向き・linger・見回し・最終の角度の控え。1 フレームの更新は
+     core/look-rig.js の stepLookRig(純粋関数。CH1-COMP W1-1) */
+  let lookRigState = initialLookState();
+  let lookTargetKindNow = null;       // 'enemy' / 'ally' / null(Motion Panel 用)
   const _lookAt = new THREE.Vector3();
 
-  function findLookTarget(){
+  /* 今フレームの「見る相手」の位置。どの状態で誰を見るかは
+     core/look-rig.js の lookTargetKind にまとめてある(CH1-COMP W1-1):
+     戦闘態勢中・振り中は見えている敵だけ、移動中は仲間を見ない、
+     会話・演出中と止まっている探索中は従来どおり 7m 以内の仲間 */
+  function findLookTarget(moving){
+    const combat = (state.combatStanceT||0) > 0 || !!state.swinging;
     // 戦闘態勢中は敵。見えている個体だけが対象(上のコメント参照)
-    if((state.combatStanceT||0) > 0 || state.swinging){
-      let best = null, bestD = LOOK_TARGET_RANGE;
+    let enemyPos = null;
+    if(combat){
+      let bestD = LOOK_TARGET_RANGE;
       for(let i=0;i<enemies.length;i++){
         const en = enemies[i];
         if(!en || en.dead || en.dormant || !en.group) continue;
         if(en.visLevel === 'hidden') continue;
         const d = state.pos.distanceTo(en.group.position);
-        if(d < bestD){ best = en; bestD = d; }
+        if(d < bestD){ enemyPos = en.group.position; bestD = d; }
       }
-      if(best) return best.group.position;
     }
-    // 探索中は近くの仲間へ。ゲスト(2部制)も同じ扱い
+    // 近くの仲間。ゲスト(2部制)も同じ扱い
     const mate = companion || guestCompanion;
-    if(mate && mate.pos && state.pos.distanceTo(mate.pos) < LOOK_COMPANION_RANGE) return mate.pos;
+    const mateNear = !!(mate && mate.pos && state.pos.distanceTo(mate.pos) < LOOK_COMPANION_RANGE);
+    lookTargetKindNow = lookTargetKind({
+      dialogue: !!state.dialogueActive, combat, moving: !!moving,
+      enemyVisible: !!enemyPos, companionNear: mateNear,
+    });
+    if(lookTargetKindNow === 'enemy') return enemyPos;
+    if(lookTargetKindNow === 'ally') return mate.pos;
     return null;
   }
 
-  function updateLookRig(dt){
+  function updateLookRig(dt, moving){
     const P = playerMixerParts;
     if(!P.eyePivot || !P.headLookPivot || !P.waist) return;
     /* 旋回する必殺技(八方の矢・阿修羅・天翔ける鏃)の最中は手を出さない。
        あの間 player.rotation.y は swingLockFacing + 回転量 で直接回され、
        visualFacing は入力時のまま固定される。その差を「見ている向きとの
        ずれ」として食わせると、首と腰が毎フレーム可動域いっぱいまで
-       振り切れてしまう ―― 回っている間は正面を向いたままにする。 */
+       振り切れてしまう ―― 回っている間は正面を向いたままにする。
+       配分の強さも 0 にしておく(回り終えた後、正面から追い始める) */
     if(state.skillAnim && state.skillAnim.type === 'spin'){
       P.headLookPivot.rotation.set(0,0,0);
       P.eyePivot.rotation.set(0,0,0);
+      lookRigState.weight = 0;
       return;
     }
 
-    const target = findLookTarget();
-    lookLingerT = stepLookLinger(lookLingerT, dt, !!target, EYE_LINGER_SEC);
-    lookScanT += dt;
-
-    let desiredYaw, desiredPitch = 0;
+    const target = findLookTarget(moving);
+    let targetAngles = null;
     if(target){
       _lookAt.subVectors(target, state.pos);
-      desiredYaw = Math.atan2(_lookAt.x, _lookAt.z);
       // 見上げ/見下ろし。目の高さ(約1.5m)を基準にした仰角
       const flat = Math.hypot(_lookAt.x, _lookAt.z);
-      desiredPitch = flat > 0.2 ? Math.atan2((_lookAt.y + 0.9) - 1.5, flat) : 0;
-    } else if(lookLingerT > 0){
-      // 見失った直後。直前の向きをそのまま保持する(資料の sheathing 相当)
-      desiredYaw = lookYaw;
-      desiredPitch = lookPitch;
-    } else {
-      // 誰もいない探索中。進行方向を基準にゆっくり見回す
-      desiredYaw = visualFacing + scanYaw(lookScanT);
-      desiredPitch = 0;
+      targetAngles = {
+        yaw: Math.atan2(_lookAt.x, _lookAt.z),
+        pitch: flat > 0.2 ? Math.atan2((_lookAt.y + 0.9) - 1.5, flat) : 0,
+      };
     }
-
-    lookYaw = followAngle(lookYaw, desiredYaw, EYE_FOLLOW_SPEED, dt);
-    lookPitch = lookPitch + (desiredPitch - lookPitch) * Math.min(1, dt*EYE_FOLLOW_SPEED);
-
-    /* 配分の強さ。相手を見ている間は 1、見失うと linger が 0 まで落ちる
-       ので、視線・頭・体幹が一緒に静かに正面へ戻る。見回し(scan)の時も
-       1 のまま ―― scan の振幅自体が目の可動域の内側なので、体幹と頭は
-       そもそもほとんど動かない。 */
-    const weight = target ? 1 : (lookLingerT > 0 ? lingerWeight(lookLingerT, EYE_LINGER_SEC) : 1);
-
-    const look = distributeLook({
-      targetYaw: lookYaw, bodyYaw: visualFacing, targetPitch: lookPitch,
-      classKey: state.classDef && state.classDef.key, jobKey: state.job, weight,
-    });
+    /* 追従・linger・見回し・配分(core/look-rig.js)。
+       相手が居なくなると linger(0.45秒)が直前の向きを保ったまま薄れ、
+       その後は進行方向を基準にゆっくり見回す。切り替わりで頭が
+       1 フレームで跳ばないよう、配分の強さを追わせてある */
+    lookRigState = stepLookRig(lookRigState, {
+      target: targetAngles, bodyYaw: visualFacing,
+      classKey: state.classDef && state.classDef.key, jobKey: state.job,
+    }, dt);
+    const look = lookRigState.out;
 
     /* 書き込み。waist は歩行・構え・被弾の仰け反りが既に書いた値へ
        「加算」する ―― 上書きするとそれらが消える。頭と目は Look Rig
@@ -1521,10 +1522,11 @@
     /* Debug Motion Preview 用の控え。デバッグモードでなければ一切
        触らない ―― 通常プレイでは毎フレームの if が1本増えるだけ。
        ここで取るのは「今フレーム実際に書いた値そのもの」で、パネルの
-       ために計算をやり直さない(やり直すと表示と実物がずれる)。 */
+       ために計算をやり直さない(やり直すと表示と実物がずれる)。
+       見る相手は 'enemy' / 'ally' を分けて出す(CH1-COMP W1-1) */
     if(state.debugMode){
-      motionDebugLook.target = target ? 'enemy/ally' : (lookLingerT > 0 ? 'linger' : 'scan');
-      motionDebugLook.lookYaw = lookYaw;
+      motionDebugLook.target = target ? lookTargetKindNow : lookRigState.mode;
+      motionDebugLook.lookYaw = lookRigState.lookYaw;
       motionDebugLook.waistYaw = look.waistYaw;
       motionDebugLook.headYaw = look.headYaw;
       motionDebugLook.headPitch = look.headPitch;
