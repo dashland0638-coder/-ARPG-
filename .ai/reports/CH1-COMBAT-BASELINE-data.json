@@ -21,73 +21,74 @@
     "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
     "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
     "ボス本体の攻撃回数は画面に出ないため取得していない",
-    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値。会話でゲームが止まっている間の rAF も含む",
     "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
-    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+    "撃破の判定は、結果画面、または会話・メニューが無いまま最後の HP 表示が 10% 未満でバーが消えた状態が 2 回続いたとき。撃破の時刻はバーが消えた最初の時刻"
    ]
   },
-  "estimatedSimSec": 46.2,
-  "realSec": 423.3,
-  "avgFps": 2.2,
+  "estimatedSimSec": 48.4,
+  "realSec": 451.9,
+  "avgFps": 2.1,
   "bossDefeated": true,
-  "bossDefeatSimSec": 46.2,
-  "bossPctEnd": 4.05702,
+  "bossDefeatSimSec": 46.1,
+  "defeatConfirmedSimSec": 48.4,
+  "bossPctEnd": 0.219298,
   "bossHp": [
    {
     "simSec": 0.2,
-    "realSec": 2.9,
-    "bossPct": 96.2719
+    "realSec": 2.8,
+    "bossPct": 96.3816
    },
    {
     "simSec": 5.1,
-    "realSec": 37.4,
-    "bossPct": 85.5263
+    "realSec": 37.5,
+    "bossPct": 85.1974
    },
    {
-    "simSec": 10,
-    "realSec": 74.7,
-    "bossPct": 75
+    "simSec": 10.1,
+    "realSec": 78.8,
+    "bossPct": 74.1228
    },
    {
     "simSec": 15.1,
-    "realSec": 118,
-    "bossPct": 64.364
+    "realSec": 122.8,
+    "bossPct": 63.1579
    },
    {
     "simSec": 20.2,
-    "realSec": 161,
-    "bossPct": 53.3991
+    "realSec": 165.6,
+    "bossPct": 51.9737
    },
    {
-    "simSec": 25.2,
-    "realSec": 200.2,
-    "bossPct": 44.2982
+    "simSec": 25.1,
+    "realSec": 204.5,
+    "bossPct": 43.2018
    },
    {
-    "simSec": 30,
-    "realSec": 243.7,
-    "bossPct": 33.9912
+    "simSec": 30.2,
+    "realSec": 249,
+    "bossPct": 32.6754
    },
    {
-    "simSec": 35.2,
-    "realSec": 299,
-    "bossPct": 23.4649
+    "simSec": 35.1,
+    "realSec": 302.2,
+    "bossPct": 21.9298
    },
    {
-    "simSec": 40.2,
-    "realSec": 352.7,
-    "bossPct": 12.8289
+    "simSec": 40.1,
+    "realSec": 357.4,
+    "bossPct": 10.8553
    },
    {
-    "simSec": 45.2,
-    "realSec": 410.4,
-    "bossPct": 4.05702
+    "simSec": 45.1,
+    "realSec": 411,
+    "bossPct": 0.219298
    }
   ],
   "damage": {
    "ally": {
-    "n": 52,
-    "sum": 841
+    "n": 54,
+    "sum": 895
    },
    "player": {
     "n": 0,
@@ -96,46 +97,45 @@
    "allyShare": 1
   },
   "incoming": {
-   "n": 36,
-   "sum": 794,
-   "perMinSim": 46.75,
+   "n": 35,
+   "sum": 774,
+   "perMinSim": 43.34,
    "timesSimSec": [
-    7.2,
-    9.4,
-    9.4,
-    11.4,
-    11.6,
-    11.7,
+    7.5,
+    9.6,
+    9.8,
+    11.8,
+    12,
+    12.3,
     15.1,
-    28.8,
-    29,
-    29,
-    30,
-    30.4,
-    31.2,
-    31.2,
-    31.5,
+    30.9,
+    31,
     31.6,
-    32,
-    32.2,
-    33.2,
-    33.3,
-    33.3,
-    33.3,
-    33.6,
+    32.4,
+    32.5,
+    32.5,
+    32.5,
+    32.6,
+    33.9,
+    34.1,
+    34.2,
     34.7,
     34.8,
-    35.2,
-    35.5,
-    35.5,
-    36.2,
-    36.4,
+    35.4,
+    35.7,
+    35.8,
     36.8,
+    36.8,
+    36.8,
+    37,
+    37.3,
     37.4,
-    40,
-    42.7,
-    42.7,
-    42.7
+    39.4,
+    42,
+    42.8,
+    42.8,
+    44.4,
+    44.4
    ]
   },
   "notices": [
@@ -170,9 +170,14 @@
    {
     "channel": "toast",
     "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
+   },
+   {
+    "channel": "toast",
+    "text": "⭐ Lv.4 に上がった!"
    }
   ],
   "midFightDialogues": [],
+  "afterDefeatDialogues": [],
   "bossAttackCount": "取得不能(画面に出ない)",
   "errors": []
  },
@@ -198,73 +203,74 @@
     "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
     "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
     "ボス本体の攻撃回数は画面に出ないため取得していない",
-    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値。会話でゲームが止まっている間の rAF も含む",
     "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
-    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+    "撃破の判定は、結果画面、または会話・メニューが無いまま最後の HP 表示が 10% 未満でバーが消えた状態が 2 回続いたとき。撃破の時刻はバーが消えた最初の時刻"
    ]
   },
-  "estimatedSimSec": 47.1,
-  "realSec": 490.7,
+  "estimatedSimSec": 48.7,
+  "realSec": 520.8,
   "avgFps": 1.9,
   "bossDefeated": true,
-  "bossDefeatSimSec": 47.1,
-  "bossPctEnd": 0.986842,
+  "bossDefeatSimSec": 46.4,
+  "defeatConfirmedSimSec": 48.7,
+  "bossPctEnd": 1.09649,
   "bossHp": [
    {
     "simSec": 0.2,
-    "realSec": 4.1,
-    "bossPct": 96.0526
+    "realSec": 4.2,
+    "bossPct": 96.1623
    },
    {
-    "simSec": 5,
-    "realSec": 46.4,
-    "bossPct": 85.1974
+    "simSec": 5.2,
+    "realSec": 49.6,
+    "bossPct": 85.8553
    },
    {
-    "simSec": 10.2,
-    "realSec": 97.2,
-    "bossPct": 74.0132
+    "simSec": 10,
+    "realSec": 96.1,
+    "bossPct": 76.864
    },
    {
     "simSec": 15.1,
-    "realSec": 149.9,
-    "bossPct": 64.4737
+    "realSec": 150,
+    "bossPct": 65.7895
    },
    {
-    "simSec": 20.2,
-    "realSec": 200.9,
-    "bossPct": 53.8377
+    "simSec": 20.1,
+    "realSec": 202.4,
+    "bossPct": 55.0439
    },
    {
-    "simSec": 25.2,
-    "realSec": 247.5,
-    "bossPct": 42.7632
+    "simSec": 25.3,
+    "realSec": 253.2,
+    "bossPct": 44.2982
    },
    {
-    "simSec": 30,
-    "realSec": 294.7,
-    "bossPct": 31.9079
+    "simSec": 30.1,
+    "realSec": 302.4,
+    "bossPct": 33.443
    },
    {
     "simSec": 35,
-    "realSec": 354.8,
-    "bossPct": 22.4781
+    "realSec": 363,
+    "bossPct": 22.9167
    },
    {
     "simSec": 40.2,
-    "realSec": 413,
-    "bossPct": 9.64912
+    "realSec": 421.8,
+    "bossPct": 12.0614
    },
    {
     "simSec": 45.1,
-    "realSec": 465.4,
-    "bossPct": 0.986842
+    "realSec": 476.3,
+    "bossPct": 2.74123
    }
   ],
   "damage": {
    "ally": {
-    "n": 53,
-    "sum": 882
+    "n": 54,
+    "sum": 884
    },
    "player": {
     "n": 0,
@@ -273,47 +279,45 @@
    "allyShare": 1
   },
   "incoming": {
-   "n": 37,
-   "sum": 828,
-   "perMinSim": 47.13,
+   "n": 35,
+   "sum": 777,
+   "perMinSim": 43.12,
    "timesSimSec": [
-    7.2,
-    7.4,
-    9.3,
-    9.6,
-    11.5,
-    11.8,
-    13.4,
+    6.6,
+    7.5,
+    8.7,
+    9.8,
+    10.9,
+    12,
     14.7,
-    30.2,
-    30.5,
-    30.6,
-    30.6,
-    30.9,
-    31.8,
-    31.9,
-    32.2,
-    32.7,
-    32.7,
-    32.8,
-    33.4,
-    33.8,
-    34.1,
-    34.9,
+    15.5,
+    30.7,
+    30.8,
+    30.8,
+    31.1,
+    32.4,
+    32.4,
+    32.6,
+    32.9,
+    32.9,
+    33,
+    34,
+    34,
+    34.7,
     35,
-    35,
-    35.4,
+    35.1,
     35.6,
-    36.6,
-    37,
-    37,
-    37,
-    37.1,
-    37.1,
-    39.7,
-    42.4,
-    42.4,
-    42.4
+    35.6,
+    36.2,
+    37.2,
+    37.2,
+    37.2,
+    37.2,
+    37.8,
+    40.4,
+    43.1,
+    43.2,
+    43.2
    ]
   },
   "notices": [
@@ -355,6 +359,7 @@
    }
   ],
   "midFightDialogues": [],
+  "afterDefeatDialogues": [],
   "bossAttackCount": "取得不能(画面に出ない)",
   "errors": []
  },
@@ -380,315 +385,79 @@
     "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
     "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
     "ボス本体の攻撃回数は画面に出ないため取得していない",
-    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値。会話でゲームが止まっている間の rAF も含む",
     "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
-    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+    "撃破の判定は、結果画面、または会話・メニューが無いまま最後の HP 表示が 10% 未満でバーが消えた状態が 2 回続いたとき。撃破の時刻はバーが消えた最初の時刻"
    ]
   },
   "estimatedSimSec": 54.9,
-  "realSec": 679.4,
+  "realSec": 686.4,
   "avgFps": 1.6,
   "bossDefeated": true,
-  "bossDefeatSimSec": 54.9,
-  "bossPctEnd": 1.20614,
+  "bossDefeatSimSec": 54.1,
+  "defeatConfirmedSimSec": 54.9,
+  "bossPctEnd": 1.42544,
   "bossHp": [
    {
     "simSec": 0.2,
     "realSec": 3.6,
-    "bossPct": 96.1623
+    "bossPct": 96.3816
    },
    {
-    "simSec": 5.3,
-    "realSec": 51.5,
-    "bossPct": 84.8684
+    "simSec": 5,
+    "realSec": 47.7,
+    "bossPct": 85.4167
    },
    {
-    "simSec": 10,
-    "realSec": 97.7,
-    "bossPct": 75.4386
+    "simSec": 10.1,
+    "realSec": 97.3,
+    "bossPct": 74.8904
    },
    {
     "simSec": 15.1,
-    "realSec": 154.9,
-    "bossPct": 64.8026
-   },
-   {
-    "simSec": 20.2,
-    "realSec": 212.5,
-    "bossPct": 54.386
-   },
-   {
-    "simSec": 25,
-    "realSec": 264.6,
-    "bossPct": 43.5307
-   },
-   {
-    "simSec": 30.2,
-    "realSec": 323.9,
-    "bossPct": 33.114
-   },
-   {
-    "simSec": 35,
-    "realSec": 394.2,
-    "bossPct": 26.2061
-   },
-   {
-    "simSec": 40.2,
-    "realSec": 496,
-    "bossPct": 26.2061
-   },
-   {
-    "simSec": 45.1,
-    "realSec": 567.4,
-    "bossPct": 19.1886
-   },
-   {
-    "simSec": 50.2,
-    "realSec": 624.8,
-    "bossPct": 8.55263
-   }
-  ],
-  "damage": {
-   "ally": {
-    "n": 55,
-    "sum": 899
-   },
-   "player": {
-    "n": 0,
-    "sum": 0
-   },
-   "allyShare": 1
-  },
-  "incoming": {
-   "n": 70,
-   "sum": 1687,
-   "perMinSim": 76.5,
-   "timesSimSec": [
-    1,
-    3.1,
-    5.3,
-    6.9,
-    7.5,
-    9,
-    9.8,
-    11.2,
-    12,
-    12.3,
-    13.4,
-    14.2,
-    14.4,
-    14.6,
-    15.5,
-    16.4,
-    16.6,
-    17.7,
-    18.3,
-    18.7,
-    19.8,
-    20.2,
-    21,
-    21.4,
-    22,
-    22.1,
-    23,
-    23.1,
-    24,
-    24.1,
-    24.6,
-    25.3,
-    25.9,
-    26.2,
-    26.9,
-    27.4,
-    27.8,
-    27.8,
-    28.5,
-    28.7,
-    29.4,
-    29.6,
-    29.7,
-    30.1,
-    30.9,
-    31,
-    31.6,
-    31.6,
-    31.7,
-    31.7,
-    32.6,
-    33,
-    33.3,
-    33.3,
-    42.5,
-    43.1,
-    43.3,
-    44.1,
-    44.4,
-    44.6,
-    44.9,
-    46,
-    46.4,
-    47.5,
-    48.9,
-    50.4,
-    50.5,
-    51.8,
-    53.1,
-    53.3
-   ]
-  },
-  "notices": [
-   {
-    "channel": "log",
-    "text": "「明日、船に乗せて!」"
-   },
-   {
-    "channel": "log",
-    "text": "「……ねえ、まだ?」"
-   },
-   {
-    "channel": "log",
-    "text": "「忘れた方がいい」"
-   },
-   {
-    "channel": "log",
-    "text": "「水門の件について――」"
-   },
-   {
-    "channel": "toast",
-    "text": "⚡ 村の残響が闘気を纏った!"
-   },
-   {
-    "channel": "toast",
-    "text": "重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」"
-   },
-   {
-    "channel": "toast",
-    "text": "⚡ 村の残響が最後の力を振り絞った!"
-   },
-   {
-    "channel": "toast",
-    "text": "💥 必殺技が使用可能に!"
-   },
-   {
-    "channel": "toast",
-    "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
-   },
-   {
-    "channel": "toast",
-    "text": "⭐ Lv.4 に上がった!"
-   }
-  ],
-  "midFightDialogues": [
-   {
-    "simSec": 37.7,
-    "text": "「……最初より、広く感じます」"
-   },
-   {
-    "simSec": 39.5,
-    "text": "「村は変わってない」"
-   },
-   {
-    "simSec": 41.3,
-    "text": "「知っている場所が増えたからでしょう」"
-   }
-  ],
-  "bossAttackCount": "取得不能(画面に出ない)",
-  "errors": []
- },
- {
-  "trial": "S2-2",
-  "strategy": "S2",
-  "strategyName": "間合いの中で立ち止まる",
-  "policy": "入力なし。開始地点(ボスの 5m 手前)に立ったまま。支援だけが戦う",
-  "conditions": {
-   "mode": "テストモード(?dev=1)。通常プレイの値ではない",
-   "protagonist": "mage",
-   "guest": "warrior",
-   "level": 1,
-   "scenario": "duskvillage",
-   "waypoint": "boss(水鏡の跡 0,515)",
-   "debugMode": false,
-   "cameraAutoFollow": false,
-   "simLimitSec": 90,
-   "constraints": [
-    "テストモードでは HP が 1 で止まり戦闘不能にならない",
-    "legacyGrowth() が true。レベル 1 で測定(通常の第一章の装備と同じとは限らない)",
-    "地点ジャンプでボスの前から開始(道中の消耗を含まない)",
-    "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
-    "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
-    "ボス本体の攻撃回数は画面に出ないため取得していない",
-    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
-    "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
-    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
-   ]
-  },
-  "estimatedSimSec": 55,
-  "realSec": 692.5,
-  "avgFps": 1.6,
-  "bossDefeated": true,
-  "bossDefeatSimSec": 55,
-  "bossPctEnd": 0.438596,
-  "bossHp": [
-   {
-    "simSec": 0.1,
-    "realSec": 3.3,
-    "bossPct": 96.2719
-   },
-   {
-    "simSec": 5.2,
-    "realSec": 49.4,
-    "bossPct": 85.1974
-   },
-   {
-    "simSec": 10,
-    "realSec": 97.4,
-    "bossPct": 74.4518
-   },
-   {
-    "simSec": 15.2,
-    "realSec": 155,
-    "bossPct": 63.7061
+    "realSec": 152.4,
+    "bossPct": 65.7895
    },
    {
     "simSec": 20.1,
-    "realSec": 207.1,
-    "bossPct": 54.8246
+    "realSec": 207.4,
+    "bossPct": 55.1535
    },
    {
     "simSec": 25.2,
-    "realSec": 263.8,
-    "bossPct": 43.5307
+    "realSec": 263.3,
+    "bossPct": 44.5175
    },
    {
-    "simSec": 30.2,
-    "realSec": 321.2,
-    "bossPct": 32.3465
+    "simSec": 30.1,
+    "realSec": 319.6,
+    "bossPct": 34.1009
    },
    {
-    "simSec": 35.2,
-    "realSec": 400,
-    "bossPct": 25.4386
+    "simSec": 35.1,
+    "realSec": 396.3,
+    "bossPct": 26.9737
    },
    {
     "simSec": 40.1,
-    "realSec": 502.9,
-    "bossPct": 25.4386
+    "realSec": 497.7,
+    "bossPct": 26.9737
    },
    {
-    "simSec": 45,
-    "realSec": 575.9,
-    "bossPct": 18.2018
+    "simSec": 45.2,
+    "realSec": 569.3,
+    "bossPct": 19.5175
    },
    {
-    "simSec": 50.1,
-    "realSec": 634.6,
-    "bossPct": 7.67544
+    "simSec": 50,
+    "realSec": 625.4,
+    "bossPct": 8.66228
    }
   ],
   "damage": {
    "ally": {
     "n": 54,
-    "sum": 891
+    "sum": 884
    },
    "player": {
     "n": 0,
@@ -697,80 +466,81 @@
    "allyShare": 1
   },
   "incoming": {
-   "n": 70,
-   "sum": 1688,
-   "perMinSim": 76.36,
+   "n": 71,
+   "sum": 1708,
+   "perMinSim": 77.53,
    "timesSimSec": [
-    0.8,
+    0.9,
     3,
     5.2,
-    6.3,
     7.4,
-    8.4,
-    9.6,
-    10.6,
-    11.8,
-    12.8,
-    12.9,
-    14,
-    15,
-    15,
-    15.3,
-    16.2,
-    17.2,
-    17.2,
-    18.1,
-    19.3,
-    19.4,
-    20,
+    7.8,
+    9.7,
+    10,
+    11.9,
+    12.1,
+    12.2,
+    14.1,
+    14.3,
+    14.3,
+    15.4,
+    16.3,
+    16.4,
+    16.5,
+    18.2,
+    18.6,
+    20.1,
+    20.9,
+    20.9,
     21.4,
-    21.5,
-    21.5,
-    21.9,
+    22,
     23,
-    23.6,
-    23.7,
-    23.8,
+    23.1,
+    23.1,
+    23.9,
     24.6,
-    25.7,
-    25.8,
+    25.2,
+    25.2,
     25.8,
     26.2,
-    27.6,
+    27.4,
+    27.4,
+    27.5,
+    27.7,
     27.8,
-    27.9,
-    28,
-    28.2,
+    29.1,
     29.4,
     29.5,
-    29.8,
-    30.2,
-    30.2,
+    29.5,
+    29.6,
+    30.7,
     31,
-    31.4,
-    31.4,
     31.5,
+    31.7,
+    31.7,
     32.3,
     32.4,
     32.6,
-    33,
     33.2,
-    42.5,
+    42,
+    42,
+    42.3,
     42.8,
-    42.9,
-    42.9,
-    43,
+    43.6,
+    43.9,
     44.1,
-    44.4,
-    44.5,
-    45.9,
-    47.3,
-    48.8,
-    50.2,
-    50.3,
-    51.7,
-    53,
-    53.1
+    44.2,
+    44.2,
+    45.7,
+    46.3,
+    47.1,
+    48.3,
+    48.6,
+    50,
+    51,
+    51.5,
+    52.9,
+    53.6
    ]
   },
   "notices": [
@@ -818,17 +588,261 @@
   "midFightDialogues": [
    {
     "simSec": 37.6,
-    "text": "「……最初より、広く感じます」"
+    "text": "「……最初より、広く感じます」",
+    "afterDefeat": false
    },
    {
-    "simSec": 39.4,
-    "text": "「村は変わってない」"
+    "simSec": 39.2,
+    "text": "「村は変わってない」",
+    "afterDefeat": false
    },
    {
-    "simSec": 41.1,
-    "text": "「知っている場所が増えたからでしょう」"
+    "simSec": 40.8,
+    "text": "「知っている場所が増えたからでしょう」",
+    "afterDefeat": false
    }
   ],
+  "afterDefeatDialogues": [],
+  "bossAttackCount": "取得不能(画面に出ない)",
+  "errors": []
+ },
+ {
+  "trial": "S2-2",
+  "strategy": "S2",
+  "strategyName": "間合いの中で立ち止まる",
+  "policy": "入力なし。開始地点(ボスの 5m 手前)に立ったまま。支援だけが戦う",
+  "conditions": {
+   "mode": "テストモード(?dev=1)。通常プレイの値ではない",
+   "protagonist": "mage",
+   "guest": "warrior",
+   "level": 1,
+   "scenario": "duskvillage",
+   "waypoint": "boss(水鏡の跡 0,515)",
+   "debugMode": false,
+   "cameraAutoFollow": false,
+   "simLimitSec": 90,
+   "constraints": [
+    "テストモードでは HP が 1 で止まり戦闘不能にならない",
+    "legacyGrowth() が true。レベル 1 で測定(通常の第一章の装備と同じとは限らない)",
+    "地点ジャンプでボスの前から開始(道中の消耗を含まない)",
+    "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
+    "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
+    "ボス本体の攻撃回数は画面に出ないため取得していない",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値。会話でゲームが止まっている間の rAF も含む",
+    "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
+    "撃破の判定は、結果画面、または会話・メニューが無いまま最後の HP 表示が 10% 未満でバーが消えた状態が 2 回続いたとき。撃破の時刻はバーが消えた最初の時刻"
+   ]
+  },
+  "estimatedSimSec": 54.1,
+  "realSec": 686.1,
+  "avgFps": 1.6,
+  "bossDefeated": true,
+  "bossDefeatSimSec": 53.3,
+  "defeatConfirmedSimSec": 54.1,
+  "bossPctEnd": 1.86404,
+  "bossHp": [
+   {
+    "simSec": 0.2,
+    "realSec": 4.2,
+    "bossPct": 96.0526
+   },
+   {
+    "simSec": 5.3,
+    "realSec": 51.7,
+    "bossPct": 85.4167
+   },
+   {
+    "simSec": 10,
+    "realSec": 98.2,
+    "bossPct": 76.0965
+   },
+   {
+    "simSec": 15.2,
+    "realSec": 157.3,
+    "bossPct": 63.9254
+   },
+   {
+    "simSec": 20.1,
+    "realSec": 210.2,
+    "bossPct": 54.9342
+   },
+   {
+    "simSec": 25.1,
+    "realSec": 266.1,
+    "bossPct": 44.4079
+   },
+   {
+    "simSec": 30.2,
+    "realSec": 323,
+    "bossPct": 33.0044
+   },
+   {
+    "simSec": 35.2,
+    "realSec": 398.5,
+    "bossPct": 25.4386
+   },
+   {
+    "simSec": 40.1,
+    "realSec": 502.4,
+    "bossPct": 25.4386
+   },
+   {
+    "simSec": 45.2,
+    "realSec": 576.2,
+    "bossPct": 18.3114
+   },
+   {
+    "simSec": 50.1,
+    "realSec": 636.3,
+    "bossPct": 7.34649
+   }
+  ],
+  "damage": {
+   "ally": {
+    "n": 54,
+    "sum": 895
+   },
+   "player": {
+    "n": 0,
+    "sum": 0
+   },
+   "allyShare": 1
+  },
+  "incoming": {
+   "n": 68,
+   "sum": 1652,
+   "perMinSim": 75.42,
+   "timesSimSec": [
+    0.9,
+    3.1,
+    5.3,
+    7.5,
+    7.8,
+    9.7,
+    10,
+    11.9,
+    12,
+    12.1,
+    14.1,
+    14.2,
+    14.3,
+    15.4,
+    16.3,
+    16.3,
+    16.4,
+    18.2,
+    18.5,
+    18.6,
+    20.1,
+    20.9,
+    22,
+    22.8,
+    23,
+    23,
+    23.9,
+    24.4,
+    25.1,
+    25.2,
+    25.8,
+    26,
+    27.3,
+    27.3,
+    27.6,
+    27.7,
+    28.9,
+    29.2,
+    29.4,
+    29.5,
+    29.6,
+    30.5,
+    30.8,
+    31.5,
+    31.6,
+    31.6,
+    31.6,
+    32.1,
+    32.4,
+    33.3,
+    41.6,
+    42,
+    42.7,
+    43.2,
+    43.6,
+    43.8,
+    43.9,
+    44.1,
+    45.6,
+    46,
+    46,
+    47,
+    48.5,
+    49.9,
+    50,
+    51.4,
+    52.7,
+    52.8
+   ]
+  },
+  "notices": [
+   {
+    "channel": "log",
+    "text": "「明日、船に乗せて!」"
+   },
+   {
+    "channel": "log",
+    "text": "「……ねえ、まだ?」"
+   },
+   {
+    "channel": "log",
+    "text": "「忘れた方がいい」"
+   },
+   {
+    "channel": "log",
+    "text": "「水門の件について――」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が闘気を纏った!"
+   },
+   {
+    "channel": "toast",
+    "text": "重なった声が、いくつも途中で切れる。「網は」「舟は」「棚が」「水門は」"
+   },
+   {
+    "channel": "toast",
+    "text": "⚡ 村の残響が最後の力を振り絞った!"
+   },
+   {
+    "channel": "toast",
+    "text": "💥 必殺技が使用可能に!"
+   },
+   {
+    "channel": "toast",
+    "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
+   },
+   {
+    "channel": "toast",
+    "text": "⭐ Lv.4 に上がった!"
+   }
+  ],
+  "midFightDialogues": [
+   {
+    "simSec": 37.5,
+    "text": "「……最初より、広く感じます」",
+    "afterDefeat": false
+   },
+   {
+    "simSec": 39.1,
+    "text": "「村は変わってない」",
+    "afterDefeat": false
+   },
+   {
+    "simSec": 40.7,
+    "text": "「知っている場所が増えたからでしょう」",
+    "afterDefeat": false
+   }
+  ],
+  "afterDefeatDialogues": [],
   "bossAttackCount": "取得不能(画面に出ない)",
   "errors": []
  },
@@ -854,57 +868,58 @@
     "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
     "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
     "ボス本体の攻撃回数は画面に出ないため取得していない",
-    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値。会話でゲームが止まっている間の rAF も含む",
     "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
-    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+    "撃破の判定は、結果画面、または会話・メニューが無いまま最後の HP 表示が 10% 未満でバーが消えた状態が 2 回続いたとき。撃破の時刻はバーが消えた最初の時刻"
    ]
   },
-  "estimatedSimSec": 10.6,
-  "realSec": 102.1,
-  "avgFps": 2.1,
+  "estimatedSimSec": 11.6,
+  "realSec": 114.4,
+  "avgFps": 2,
   "bossDefeated": true,
-  "bossDefeatSimSec": 10.6,
-  "bossPctEnd": 2.74123,
+  "bossDefeatSimSec": 10.7,
+  "defeatConfirmedSimSec": 11.6,
+  "bossPctEnd": 1.86404,
   "bossHp": [
    {
-    "simSec": 0.1,
-    "realSec": 2.7,
-    "bossPct": 96.6009
+    "simSec": 0.2,
+    "realSec": 4.7,
+    "bossPct": 92.1053
    },
    {
     "simSec": 5.2,
-    "realSec": 51.1,
-    "bossPct": 51.864
+    "realSec": 52.1,
+    "bossPct": 50.8772
    },
    {
-    "simSec": 10.1,
-    "realSec": 97.2,
-    "bossPct": 2.74123
+    "simSec": 10,
+    "realSec": 96.7,
+    "bossPct": 1.86404
    }
   ],
   "damage": {
    "ally": {
     "n": 12,
-    "sum": 205
+    "sum": 202
    },
    "player": {
     "n": 17,
-    "sum": 705
+    "sum": 711
    },
-   "allyShare": 0.225
+   "allyShare": 0.221
   },
   "incoming": {
    "n": 7,
    "sum": 225,
-   "perMinSim": 39.45,
+   "perMinSim": 36.36,
    "timesSimSec": [
     0.9,
-    3.1,
-    3.7,
-    5.4,
-    7.3,
+    3.2,
+    3.5,
+    5.5,
     7.4,
-    9.2
+    7.5,
+    9.3
    ]
   },
   "notices": [
@@ -958,6 +973,7 @@
    }
   ],
   "midFightDialogues": [],
+  "afterDefeatDialogues": [],
   "bossAttackCount": "取得不能(画面に出ない)",
   "errors": []
  },
@@ -983,57 +999,58 @@
     "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
     "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
     "ボス本体の攻撃回数は画面に出ないため取得していない",
-    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値。会話でゲームが止まっている間の rAF も含む",
     "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
-    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+    "撃破の判定は、結果画面、または会話・メニューが無いまま最後の HP 表示が 10% 未満でバーが消えた状態が 2 回続いたとき。撃破の時刻はバーが消えた最初の時刻"
    ]
   },
-  "estimatedSimSec": 10.9,
-  "realSec": 106.5,
+  "estimatedSimSec": 11.5,
+  "realSec": 115.5,
   "avgFps": 2,
   "bossDefeated": true,
-  "bossDefeatSimSec": 10.9,
-  "bossPctEnd": 1.86404,
+  "bossDefeatSimSec": 10.6,
+  "defeatConfirmedSimSec": 11.5,
+  "bossPctEnd": 2.52193,
   "bossHp": [
    {
-    "simSec": 0.1,
-    "realSec": 1.9,
-    "bossPct": 96.3816
+    "simSec": 0.2,
+    "realSec": 3.4,
+    "bossPct": 92.5439
    },
    {
-    "simSec": 5.3,
-    "realSec": 52.3,
-    "bossPct": 44.8465
+    "simSec": 5.2,
+    "realSec": 50.5,
+    "bossPct": 49.8904
    },
    {
-    "simSec": 10,
-    "realSec": 97.4,
-    "bossPct": 1.86404
+    "simSec": 10.1,
+    "realSec": 97.3,
+    "bossPct": 2.52193
    }
   ],
   "damage": {
    "ally": {
-    "n": 12,
-    "sum": 207
+    "n": 11,
+    "sum": 188
    },
    "player": {
     "n": 17,
-    "sum": 709
+    "sum": 704
    },
-   "allyShare": 0.226
+   "allyShare": 0.211
   },
   "incoming": {
    "n": 7,
    "sum": 225,
-   "perMinSim": 38.71,
+   "perMinSim": 36.52,
    "timesSimSec": [
-    0.9,
+    0.8,
     3.1,
-    3.4,
-    5.4,
+    3.6,
+    5.3,
     7.3,
-    7.4,
-    9.2
+    7.3,
+    9.1
    ]
   },
   "notices": [
@@ -1087,6 +1104,7 @@
    }
   ],
   "midFightDialogues": [],
+  "afterDefeatDialogues": [],
   "bossAttackCount": "取得不能(画面に出ない)",
   "errors": []
  },
@@ -1112,114 +1130,110 @@
     "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
     "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
     "ボス本体の攻撃回数は画面に出ないため取得していない",
-    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値。会話でゲームが止まっている間の rAF も含む",
     "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
-    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+    "撃破の判定は、結果画面、または会話・メニューが無いまま最後の HP 表示が 10% 未満でバーが消えた状態が 2 回続いたとき。撃破の時刻はバーが消えた最初の時刻"
    ]
   },
-  "estimatedSimSec": 47.4,
-  "realSec": 553.3,
+  "estimatedSimSec": 46.7,
+  "realSec": 558,
   "avgFps": 1.7,
   "bossDefeated": true,
-  "bossDefeatSimSec": 47.4,
-  "bossPctEnd": 1.31579,
+  "bossDefeatSimSec": 45.5,
+  "defeatConfirmedSimSec": 46.7,
+  "bossPctEnd": 2.63158,
   "bossHp": [
    {
     "simSec": 0.2,
-    "realSec": 4.4,
-    "bossPct": 92.3246
+    "realSec": 4.7,
+    "bossPct": 92.2149
    },
    {
     "simSec": 5.2,
-    "realSec": 53.3,
-    "bossPct": 64.2544
+    "realSec": 56.3,
+    "bossPct": 64.4737
    },
    {
-    "simSec": 10,
-    "realSec": 107.3,
+    "simSec": 10.1,
+    "realSec": 112.6,
     "bossPct": 56.9079
    },
    {
-    "simSec": 15.2,
-    "realSec": 198.5,
+    "simSec": 15,
+    "realSec": 201.6,
     "bossPct": 56.9079
    },
    {
-    "simSec": 20.1,
-    "realSec": 268.7,
-    "bossPct": 53.3991
+    "simSec": 20.2,
+    "realSec": 278.5,
+    "bossPct": 51.4254
    },
    {
-    "simSec": 25,
-    "realSec": 326.3,
+    "simSec": 25.2,
+    "realSec": 337.3,
     "bossPct": 42.7632
    },
    {
     "simSec": 30.1,
-    "realSec": 376.2,
-    "bossPct": 31.6886
+    "realSec": 386.4,
+    "bossPct": 31.4693
    },
    {
-    "simSec": 35,
-    "realSec": 421.3,
-    "bossPct": 22.5877
+    "simSec": 35.1,
+    "realSec": 433.2,
+    "bossPct": 20.5044
    },
    {
-    "simSec": 40.3,
-    "realSec": 472.1,
-    "bossPct": 11.7325
+    "simSec": 40,
+    "realSec": 480,
+    "bossPct": 11.8421
    },
    {
-    "simSec": 45.1,
-    "realSec": 520.1,
-    "bossPct": 1.31579
+    "simSec": 45,
+    "realSec": 532.2,
+    "bossPct": 2.63158
    }
   ],
   "damage": {
    "ally": {
-    "n": 42,
-    "sum": 692
+    "n": 40,
+    "sum": 659
    },
    "player": {
     "n": 5,
-    "sum": 192
+    "sum": 194
    },
-   "allyShare": 0.783
+   "allyShare": 0.773
   },
   "incoming": {
-   "n": 29,
-   "sum": 695,
-   "perMinSim": 36.67,
+   "n": 24,
+   "sum": 612,
+   "perMinSim": 30.84,
    "timesSimSec": [
     0.7,
-    2.9,
-    5.1,
-    8.7,
-    21.3,
-    23.1,
-    23.2,
-    24.7,
-    26.9,
-    29.1,
-    32,
-    33.3,
-    34.7,
-    35.6,
-    36.3,
-    38.1,
-    38.3,
-    39.4,
-    39.7,
-    39.9,
-    41.4,
-    41.5,
-    42,
-    44.1,
-    44.1,
-    44.5,
-    44.7,
-    45.7,
-    45.7
+    3,
+    5.2,
+    8.9,
+    21,
+    22.8,
+    22.9,
+    24.4,
+    24.8,
+    24.9,
+    26.4,
+    28.9,
+    31.9,
+    32.9,
+    34.6,
+    35.3,
+    37.6,
+    38.2,
+    40.5,
+    40.7,
+    41.1,
+    43.2,
+    43.2,
+    43.8
    ]
   },
   "notices": [
@@ -1249,31 +1263,35 @@
    },
    {
     "channel": "toast",
+    "text": "⚡ ジャストドッジ!"
+   },
+   {
+    "channel": "toast",
     "text": "⚡ 村の残響が最後の力を振り絞った!"
    },
    {
     "channel": "toast",
     "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
-   },
-   {
-    "channel": "toast",
-    "text": "⭐ Lv.4 に上がった!"
    }
   ],
   "midFightDialogues": [
    {
-    "simSec": 13.3,
-    "text": "「……最初より、広く感じます」"
+    "simSec": 13.2,
+    "text": "「……最初より、広く感じます」",
+    "afterDefeat": false
    },
    {
-    "simSec": 15.9,
-    "text": "「村は変わってない」"
+    "simSec": 15.7,
+    "text": "「村は変わってない」",
+    "afterDefeat": false
    },
    {
-    "simSec": 17.8,
-    "text": "「知っている場所が増えたからでしょう」"
+    "simSec": 17.5,
+    "text": "「知っている場所が増えたからでしょう」",
+    "afterDefeat": false
    }
   ],
+  "afterDefeatDialogues": [],
   "bossAttackCount": "取得不能(画面に出ない)",
   "errors": []
  },
@@ -1299,111 +1317,112 @@
     "数字の表示はカメラの後ろでは出ない(数え漏れがありうる)",
     "被弾はボス本体・分身・泡・写し影・段階移行の爆発を区別しない(攻撃の圧力の目安)。オーブシールドで防いだ一撃は数えない",
     "ボス本体の攻撃回数は画面に出ないため取得していない",
-    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値",
+    "ゲーム内時間は rAF 間隔から sim-time の式で推定した値。会話でゲームが止まっている間の rAF も含む",
     "地点ジャンプで「ボスの手前」の演出を飛ばしているため、入口(z 500)付近へ下がると戦闘中にその会話が始まる(送って続行し midFightDialogues に記録)",
-    "撃破の判定は「最後の HP 表示が 10% 未満でバーが消えた」または結果画面"
+    "撃破の判定は、結果画面、または会話・メニューが無いまま最後の HP 表示が 10% 未満でバーが消えた状態が 2 回続いたとき。撃破の時刻はバーが消えた最初の時刻"
    ]
   },
-  "estimatedSimSec": 47.2,
-  "realSec": 551.2,
-  "avgFps": 1.7,
+  "estimatedSimSec": 47.3,
+  "realSec": 578.1,
+  "avgFps": 1.6,
   "bossDefeated": true,
-  "bossDefeatSimSec": 47.2,
-  "bossPctEnd": 0.657895,
+  "bossDefeatSimSec": 46.2,
+  "defeatConfirmedSimSec": 47.3,
+  "bossPctEnd": 0.109649,
   "bossHp": [
    {
     "simSec": 0.2,
-    "realSec": 4.6,
-    "bossPct": 92.8728
+    "realSec": 4.5,
+    "bossPct": 92.4342
    },
    {
-    "simSec": 5.2,
-    "realSec": 52.8,
-    "bossPct": 65.1316
+    "simSec": 5.1,
+    "realSec": 52,
+    "bossPct": 66.4474
    },
    {
-    "simSec": 10.2,
-    "realSec": 110,
-    "bossPct": 58.0044
+    "simSec": 10,
+    "realSec": 108.5,
+    "bossPct": 57.3465
    },
    {
-    "simSec": 15.1,
-    "realSec": 197.5,
-    "bossPct": 58.0044
+    "simSec": 15.2,
+    "realSec": 201.2,
+    "bossPct": 57.3465
    },
    {
-    "simSec": 20.3,
-    "realSec": 275.5,
-    "bossPct": 54.386
+    "simSec": 20.1,
+    "realSec": 270,
+    "bossPct": 53.6184
    },
    {
     "simSec": 25,
-    "realSec": 331.8,
-    "bossPct": 43.75
+    "realSec": 331,
+    "bossPct": 43.2018
    },
    {
     "simSec": 30.1,
-    "realSec": 382.3,
-    "bossPct": 34.7588
+    "realSec": 384.6,
+    "bossPct": 32.0175
    },
    {
-    "simSec": 35,
-    "realSec": 428.3,
-    "bossPct": 23.6842
+    "simSec": 35.2,
+    "realSec": 432.5,
+    "bossPct": 20.7237
    },
    {
-    "simSec": 40.3,
-    "realSec": 479.1,
-    "bossPct": 13.0482
+    "simSec": 40,
+    "realSec": 485,
+    "bossPct": 11.4035
    },
    {
     "simSec": 45.4,
-    "realSec": 528.5,
-    "bossPct": 2.41228
+    "realSec": 544,
+    "bossPct": 0.109649
    }
   ],
   "damage": {
    "ally": {
-    "n": 43,
+    "n": 42,
     "sum": 703
    },
    "player": {
     "n": 5,
-    "sum": 188
+    "sum": 190
    },
-   "allyShare": 0.789
+   "allyShare": 0.787
   },
   "incoming": {
    "n": 26,
-   "sum": 612,
-   "perMinSim": 33.02,
+   "sum": 617,
+   "perMinSim": 32.95,
    "timesSimSec": [
     0.9,
-    5.1,
-    6.2,
-    6.3,
-    8.1,
-    21.4,
-    21.6,
-    23.5,
-    23.6,
-    30.3,
-    32.2,
-    35.1,
-    36.1,
-    37.8,
-    38.5,
-    39.2,
-    39.4,
-    41.3,
-    41.4,
-    42.4,
-    43.9,
-    43.9,
-    44.7,
-    46.6,
-    46.7,
-    46.7
+    5.4,
+    8.7,
+    21.1,
+    21.2,
+    22.4,
+    23,
+    24.6,
+    26.8,
+    29.4,
+    31.7,
+    31.7,
+    32.6,
+    34.6,
+    35.2,
+    36.2,
+    37.7,
+    38.9,
+    39.1,
+    39.3,
+    40.9,
+    41,
+    41.6,
+    43.8,
+    43.8,
+    44.5
    ]
   },
   "notices": [
@@ -1438,26 +1457,26 @@
    {
     "channel": "toast",
     "text": "「……まだ、誰も来ない」――同じ一言だけが、何度も返ってくる。"
-   },
-   {
-    "channel": "toast",
-    "text": "⭐ Lv.4 に上がった!"
    }
   ],
   "midFightDialogues": [
    {
-    "simSec": 13.7,
-    "text": "「……最初より、広く感じます」"
+    "simSec": 13,
+    "text": "「……最初より、広く感じます」",
+    "afterDefeat": false
    },
    {
-    "simSec": 16.3,
-    "text": "「村は変わってない」"
+    "simSec": 15.5,
+    "text": "「村は変わってない」",
+    "afterDefeat": false
    },
    {
-    "simSec": 18.2,
-    "text": "「知っている場所が増えたからでしょう」"
+    "simSec": 17.3,
+    "text": "「知っている場所が増えたからでしょう」",
+    "afterDefeat": false
    }
   ],
+  "afterDefeatDialogues": [],
   "bossAttackCount": "取得不能(画面に出ない)",
   "errors": []
  }
