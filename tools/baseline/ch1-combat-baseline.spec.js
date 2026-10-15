@@ -4,7 +4,7 @@
  * ■ これは何か
  *   戦闘の改修(W2-1a 以降)の前に、戦い方ごとの結果を記録する。値の大小で合否を決めない
  *   (測定だけ)。落ちるのは、ページのエラー・ボスバーが読めない・戦闘が始まらないときだけ。
- *   結果は試行ごとに test-results/baseline/ch1-combat-baseline/<試行>.json に書く。
+ *   結果は試行ごとに test-results-baseline/ch1-combat-baseline/<試行>.json に書く。
  *
  * ■ ゲームの状態を書き換えない
  *   読むのは画面の表示だけ:
@@ -38,7 +38,8 @@ import { fileURLToPath } from 'node:url';
 import { openGame, watchErrors, watchNotifications, disableCameraAutoFollow } from '../../tests/helpers.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const OUT_DIR = path.join(ROOT, 'test-results/baseline/ch1-combat-baseline');
+/* 通常の Playwright の実行は開始時に test-results/ を空にするので、測定の結果はその外に置く */
+const OUT_DIR = path.join(ROOT, 'test-results-baseline/ch1-combat-baseline');
 
 const SIM_LIMIT_SEC = 90;           // 1 試行の上限(推定ゲーム内時間)。試走で村の残響は支援だけで約 50 秒
 const SAMPLE_EVERY_SIM_SEC = 5;     // ボスの HP を記録する間隔

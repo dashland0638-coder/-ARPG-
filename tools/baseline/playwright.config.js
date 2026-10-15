@@ -8,7 +8,7 @@
  *
  *   実行:   npx playwright test -c tools/baseline/playwright.config.js
  *   1 件:   npx playwright test -c tools/baseline/playwright.config.js -g "S1 逃げ回り #1"
- *   結果:   test-results/baseline/ch1-combat-baseline/*.json(試行ごと)
+ *   結果:   test-results-baseline/ch1-combat-baseline/*.json(試行ごと)
  *   失敗時: 同じ outputDir にスクリーンショットとトレースが残る
  */
 import { defineConfig } from '@playwright/test';
@@ -27,7 +27,8 @@ export default defineConfig({
      約 1/8 で進む(1 歩 50ms の頭打ち。core/sim-time.js)ので、90 秒に実時間で約 13 分かかる */
   timeout: 25 * 60_000,
   retries: 0,
-  outputDir: path.join(root, 'test-results/baseline/artifacts'),
+  // 通常の実行は開始時に test-results/ を空にするので、その外に置く
+  outputDir: path.join(root, 'test-results-baseline/artifacts'),
   reporter: [['list']],
   webServer: { ...base.webServer, cwd: root },
   use: {
