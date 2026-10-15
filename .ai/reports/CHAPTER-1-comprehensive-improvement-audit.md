@@ -710,6 +710,8 @@ updateGuestCompanion(dt)
 
 ## 9. 人間の判断が必要な事項
 
+> **2026-10-15 確定**: HD-1〜HD-7 は Human が回答した（`.ai/decisions/DEC-007-chapter1-comprehensive.md`）。HD-1・HD-2・HD-3・HD-5 は推奨案 A を採用（HD-1・HD-2 は「ストレス・理不尽な調整を避ける」条件つき）。HD-4 は A を条件付きで採用（画像の承認まで全マップへ展開しない）。HD-6 は方向性を採用（候補の文言を承認してから実装）。HD-7 は後回し。下の表は提示時の記録として残す。
+
 | ID | 判断事項 | 推奨案 | 回答の形 | 関係する指摘 |
 | --- | --- | --- | --- | --- |
 | HD-1 | サポートの扱い | **A**: 被弾し、HP が尽きると行動不能（数秒〜プレイヤーが近づくまで）。死亡なし。敵はプレイヤー優先だが、サポートが近く・プレイヤーが遠いときはサポートを狙う。/ B: 被弾しない。プレイヤーがボスから遠い間はサポートの攻撃が止まる。/ C: 現状維持 | A / B / C | C-01, C-03, C-05 |
@@ -773,5 +775,7 @@ E2E の PASS は「既存の自動テストが現状の挙動を壊していな�
 | --- | --- |
 | `.ai/reports/CHAPTER-1-comprehensive-improvement-audit.md` | 新規（本書） |
 | `.ai/reports/CHAPTER-1-comprehensive-improvement-plan.md` | 新規（実行計画） |
+| `.ai/decisions/DEC-007-chapter1-comprehensive.md` | 新規（2026-10-15。HD-1〜HD-7 の Human の回答） |
+| `.ai/tasks/CH1-COMP.md` | 新規（2026-10-15。Work Item の一覧と着手順） |
 
 ゲームのコード・テスト・設定・アセット・台詞・数値・UI・`docs/`・`basefile.html`・`src/legacy/parts/` は変更していない。E2E 実行用の一時設定は scratchpad（リポジトリの外）に置いた。
