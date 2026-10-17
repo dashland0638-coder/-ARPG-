@@ -1600,23 +1600,54 @@
 #appraisal-overlay .gear-item-list{ flex:1 1 auto; min-height:0; overflow-y:auto; touch-action:pan-y; padding-right:2px; }
 #appraisal-overlay .ap-close-btn{ flex:none; width:100%; margin-top:10px; }
 
-/* 装備枠: 1 枠を横長の 1 行に(名前と性能を左、外すを右) */
-#appraisal-overlay .gear-slot-row{ flex:none; display:flex; gap:8px; margin-bottom:8px; }
+/* ---- 装備品タブ: 左右 2 カラム(UI-002-J) ----
+   左(約 32%)= 装備中の 3 部位。部位を選ぶボタン＋「外す」。
+   右(約 68%)= 道具の行と、選んだ部位の候補の一覧。スクロールするのは一覧だけ。
+   以前は装備枠・道具・一覧を縦に積んでいたため、844×390 では一覧に 93px(1 行)しか
+   残らなかった(.ai/reports/UI-002-J-analysis.md)。 */
+#appraisal-overlay .gear-layout{
+  flex:1 1 auto; min-height:0;
+  display:grid; grid-template-columns:minmax(0,32fr) minmax(0,68fr); gap:10px;
+}
+#appraisal-overlay .gear-side{ min-height:0; overflow-y:auto; touch-action:pan-y; padding:2px; }
+#appraisal-overlay .gear-main{ min-height:0; display:flex; flex-direction:column; }
+
+/* 装備中の部位: 縦に 3 つ。選択中は塗り・左の太い線・太字(色だけで示さない) */
+#appraisal-overlay .gear-slot-row{ flex:none; display:flex; flex-direction:column; gap:6px; margin:0; }
 #appraisal-overlay .gear-slot{
-  flex:1 1 0; min-width:0;
-  /* 武器種のタグと性能は同じ行に(縦を詰める) */
-  display:grid; grid-template-columns:auto minmax(0,1fr) auto;
-  grid-template-areas:"label label btn" "name name btn" "tag stat btn";
-  align-items:center; column-gap:0; padding:6px 8px 6px 10px; text-align:left;
+  display:flex; align-items:stretch; gap:6px; padding:0;
+  background:none; border:none; border-radius:var(--ui-plate-radius); text-align:left;
+}
+#appraisal-overlay .gear-slot-select{
+  flex:1 1 auto; min-width:0; min-height:var(--ui-touch-target);
+  display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:2px;
+  padding:6px 8px 6px 12px; text-align:left; cursor:pointer;
+  font-family:var(--ui-font-body); color:var(--ui-text);
   background:var(--ui-plate-bg-sunken); border:none; border-radius:var(--ui-plate-radius);
   box-shadow:inset 0 0 0 var(--ui-plate-rim-w) var(--ui-plate-rim);
 }
-#appraisal-overlay .gear-slot-label{ grid-area:label; font-size:var(--ui-fs-small); margin:0; }
-#appraisal-overlay .gear-slot-name{ grid-area:name; font-size:var(--ui-fs-body); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-#appraisal-overlay .gear-slot-stat{ grid-area:stat; font-size:var(--ui-fs-small); margin-top:0; }
-#appraisal-overlay .gear-slot-weapontype{ grid-area:tag; font-size:var(--ui-fs-small); margin:0 6px 0 0; justify-self:start; }
-#appraisal-overlay .gear-slot-special{ grid-column:1 / 3; font-size:var(--ui-fs-small); margin-top:0; }
-#appraisal-overlay .gear-slot .gear-item-btn{ grid-area:btn; margin-left:8px; }
+#appraisal-overlay .gear-slot.selected .gear-slot-select{
+  background:var(--ui-plate-bg);
+  box-shadow:inset 5px 0 0 var(--ui-special), inset 0 0 0 var(--ui-plate-rim-w) var(--ember-bright);
+}
+#appraisal-overlay .gear-slot-label{
+  display:flex; align-items:baseline; justify-content:space-between; gap:6px; width:100%;
+  font-size:var(--ui-fs-body); color:var(--ui-text-muted); margin:0;
+}
+#appraisal-overlay .gear-slot.selected .gear-slot-label{ color:var(--ui-special); font-weight:var(--ui-fw-bold); }
+#appraisal-overlay .gear-slot-count{ font-size:var(--ui-fs-small); font-weight:var(--ui-fw-regular); color:var(--ui-text-muted); }
+/* 装備名は欠けないよう折り返す(省略記号で切らない) */
+#appraisal-overlay .gear-slot-name{
+  font-size:var(--ui-fs-item); font-weight:var(--ui-fw-bold); color:var(--ui-text);
+  line-height:1.3; overflow-wrap:anywhere; white-space:normal;
+}
+#appraisal-overlay .gear-slot-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
+#appraisal-overlay .gear-slot-stat{ font-size:var(--ui-fs-body); color:var(--ember-bright); margin:0; }
+#appraisal-overlay .gear-slot-weapontype{ font-size:var(--ui-fs-body); margin:0; padding:1px 8px; }
+#appraisal-overlay .gear-slot-special{ font-size:var(--ui-fs-small); margin:0; }
+#appraisal-overlay .gear-slot .gear-unequip-btn{ flex:none; align-self:center; margin:0; padding:6px 10px; }
+
+/* 右: 道具の行と一覧 */
 #appraisal-overlay .gear-tools{ flex:none; gap:8px; margin:0 0 8px; }
 #appraisal-overlay .gear-tool-btn{ color:var(--ember-bright); }
 #appraisal-overlay .gear-tool-btn.sell-all{ color:var(--ui-special); }
@@ -1647,6 +1678,23 @@
 #appraisal-overlay .gear-item-row.lv-eq .gear-lv{ color:var(--ui-special); }
 #appraisal-overlay .gear-item-row.lv-ok .gear-lv{ color:var(--ui-recovery); }
 
+/* 一覧の行(UI-002-J): 品名は 14px で折り返す。武器種・能力値・比較は 1 行にまとめ、
+   ボタンは行の右へ横に並べる(品名の上に重ねない) */
+#appraisal-overlay .gear-item-row{ align-items:center; gap:10px; padding:8px 10px; }
+#appraisal-overlay .gear-item-icon{ flex:none; font-size:18px; width:24px; }
+#appraisal-overlay .gear-item-info{ flex:1 1 auto; min-width:0; }
+#appraisal-overlay .gear-item-name{
+  font-size:var(--ui-fs-item); line-height:1.3; overflow-wrap:anywhere;
+}
+#appraisal-overlay .gear-item-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; margin-top:2px; }
+#appraisal-overlay .gear-item-meta .gear-item-stat,
+#appraisal-overlay .gear-item-meta .gear-item-compare{ font-size:var(--ui-fs-body); margin:0; }
+#appraisal-overlay .gear-item-weapontype{ font-size:var(--ui-fs-body); margin:0; padding:1px 8px; }
+#appraisal-overlay .gear-item-actions{ flex:none; flex-direction:row; align-items:center; gap:6px; }
+#appraisal-overlay .gear-item-actions .gear-item-btn{ min-height:40px; padding:6px 12px; }
+#appraisal-overlay .gear-item-btn.sell{ font-size:var(--ui-fs-body); }
+#appraisal-overlay .gear-tool-btn{ min-height:40px; }
+
 /* ---- スキル(固定の技のカード) ---- */
 #appraisal-overlay .ap-charge-title{ font-size:var(--ui-fs-body); }
 #appraisal-overlay .ap-charge-card{
@@ -1659,6 +1707,20 @@
 
 /* 背の低い画面(844×390 等の横持ち): 余白と見出しを詰め、所持品の一覧に高さを回す。
    文字の下限(11px)とタッチの的(36px)は変えない */
+/* 背の低い画面(844×390 等の横持ち)の鍛冶屋(UI-002-J): 見出しとタブを 1 行にまとめ、
+   装備品の 2 カラムに高さを回す。見出し・タブ・中身・閉じるの 4 つを格子に置く */
+@media (max-height:480px){
+  #appraisal-overlay .appraisal-box{
+    display:grid; grid-template-columns:auto minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr) auto; column-gap:16px;
+  }
+  #appraisal-overlay .appraisal-header{ grid-column:1; grid-row:1; align-items:center; margin:0 0 6px; }
+  #appraisal-overlay .appraisal-header::after{ display:none; }
+  #appraisal-overlay .ap-tabs{ grid-column:2; grid-row:1; margin:0 0 6px; }
+  #appraisal-overlay .ap-panel{ grid-column:1 / -1; grid-row:2; }
+  #appraisal-overlay .ap-close-btn{ grid-column:1 / -1; grid-row:3; }
+  #appraisal-overlay .gear-tools{ margin-bottom:6px; }
+}
 @media (max-height:480px){
   #menu-overlay .menu-box,
   #appraisal-overlay .appraisal-box{ padding:10px 16px 8px; }
@@ -1669,7 +1731,7 @@
   #appraisal-overlay .skill-subtabs{ margin-bottom:6px; }
   #appraisal-overlay .gear-slot-row,
   #appraisal-overlay .gear-tools{ margin-bottom:6px; }
-  #appraisal-overlay .gear-slot{ padding:4px 6px 4px 10px; }
+  #appraisal-overlay .gear-slot-select{ padding:4px 6px 4px 12px; }
   #appraisal-overlay .ap-close-btn{ margin-top:6px; }
 }
 

@@ -2722,33 +2722,47 @@
     return wt.native.icon + ' ' + wt.native.name;
   }
 
+  /* 装備品タブで選んでいる部位(UI-002-J)。左の部位を選ぶと、右の一覧にはその部位の
+     候補だけが並ぶ。画面を閉じても保持する(ページを読み込み直すと武器に戻る)。
+     セーブには入れない ―― 見せ方の状態で、ゲームの進行とは関係がない */
+  const GEAR_SLOTS = [['weapon','⚔️ 武器'], ['upper','🎽 上半身'], ['lower','👖 下半身']];
+  let gearSlotView = 'weapon';
+
   function renderGearPanel(){
     const panel = document.getElementById('ap-panel-gear');
-    let html = '<div class="gear-slot-row">';
-    [['weapon','⚔️ 武器'], ['upper','🎽 上半身'], ['lower','👖 下半身']].forEach(([slot,label])=>{
+    const isEquipped = item => ['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===item.id);
+
+    /* ---- 左: 装備中の部位(UI-002-J)。部位を選ぶボタンと「外す」を並べる(ボタンは入れ子にしない) ---- */
+    let html = '<div class="gear-layout"><div class="gear-side"><div class="gear-slot-row">';
+    GEAR_SLOTS.forEach(([slot,label])=>{
       const eq = state.equipped[slot];
+      const owned = state.equipmentInventory.filter(it=> it.slot===slot).length;
+      const selected = slot === gearSlotView;
       // 武器スロットは、装備中のアイテムが刻んでいる weaponType をそのまま
       // タグとして見せる。2武器切り替えはここが唯一の入り口 ―― 別の
       // weaponType を持つ武器を装備し直すだけで、モーション・数値・見た目が
       // まるごと切り替わる(equipItem/unequipSlotを参照)
       const weaponTypeTag = (slot==='weapon' && eq && eq.weaponType && state.classDef)
-        ? `<div class="gear-slot-weapontype">${weaponTypeLabel(state.classDef.key, eq.weaponType)}</div>` : '';
-      html += `<div class="gear-slot">
-        <div class="gear-slot-label">${label}</div>
-        <div class="gear-slot-name">${eq ? eq.name : '(未装備)'}</div>
-        ${weaponTypeTag}
-        ${eq ? `<div class="gear-slot-stat">${eq.atkBonus?'攻撃+'+eq.atkBonus+' ':''}${eq.hpBonus?'HP+'+eq.hpBonus:''}</div>
-          ${eq.specialId ? `<div class="gear-slot-special">⭐ ${eq.specialDesc}</div>` : ''}
-          <button type="button" class="gear-item-btn" data-unequip="${slot}">外す</button>` : ''}
+        ? `<span class="gear-slot-weapontype">${weaponTypeLabel(state.classDef.key, eq.weaponType)}</span>` : '';
+      const stat = eq ? `${eq.atkBonus?'攻撃+'+eq.atkBonus+' ':''}${eq.hpBonus?'HP+'+eq.hpBonus:''}` : '';
+      html += `<div class="gear-slot${selected ? ' selected' : ''}">
+        <button type="button" class="gear-slot-select" data-gear-slot="${slot}" aria-pressed="${selected ? 'true' : 'false'}">
+          <span class="gear-slot-label">${label}<span class="gear-slot-count">所持 ${owned}</span></span>
+          <span class="gear-slot-name">${eq ? eq.name : '(未装備)'}</span>
+          ${eq ? `<span class="gear-slot-meta">${weaponTypeTag}<span class="gear-slot-stat">${stat}</span></span>` : ''}
+          ${eq && eq.specialId ? `<span class="gear-slot-special">⭐ ${eq.specialDesc}</span>` : ''}
+        </button>
+        ${eq ? `<button type="button" class="gear-item-btn gear-unequip-btn" data-unequip="${slot}">外す</button>` : ''}
       </div>`;
     });
-    html += '</div>';
+    html += '</div></div>';
 
     // ボス由来の能力(ボス能力/スキル3/常時パッシブ)は「スキル」タブに
     // まとめた(装備品タブは装備品だけにする、というUI整理のため)。
     // renderSkillPanel()を参照
 
-    html += `<div class="gear-tools">
+    /* ---- 右: 道具と、選んだ部位の候補の一覧(UI-002-J) ---- */
+    html += `<div class="gear-main"><div class="gear-tools">
         <button type="button" class="gear-tool-btn" id="gear-best-btn">⚙️ 最強装備</button>
         ${legacyGrowth() ? '<button type="button" class="gear-tool-btn" id="gear-identify-all-btn">🔍 一括鑑定</button>' : ''}
         <button type="button" class="gear-tool-btn sell-all" id="gear-sell-all-btn">🪙 まとめて売却</button>
@@ -2756,26 +2770,26 @@
       </div>`;
 
     // UI-002-F: 所持品の一覧だけをスクロールさせる入れ物(装備枠・道具・閉じるは動かない)
-    html += '<div class="gear-item-list">';
+    const slotLabel = (GEAR_SLOTS.find(([sl])=> sl===gearSlotView) || GEAR_SLOTS[0])[1];
+    html += `<div class="gear-item-list" data-gear-slot="${gearSlotView}" aria-label="${slotLabel}の候補">`;
+    const candidates = state.equipmentInventory
+      .map((item,idx)=>({item, idx}))
+      .filter(({item})=> item.slot === gearSlotView);
     if(state.equipmentInventory.length===0){
       html += '<div class="gear-empty-note">所持している装備品はありません。宝箱やボスの戦利品、強力な敵から手に入ることがあります。</div>';
+    } else if(candidates.length===0){
+      html += `<div class="gear-empty-note">${slotLabel}の装備品は持っていません。</div>`;
     } else {
-      // auto-sorted: equipped first, then by slot, then strongest first.
+      // auto-sorted: equipped first, then strongest first.
       // Unidentified pieces sink to the bottom.
-      const SLOT_ORDER = {weapon:0, upper:1, lower:2};
-      const sorted = state.equipmentInventory
-        .map((item,idx)=>({item, idx}))
-        .sort((a,b)=>{
-          const ae = ['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===a.item.id);
-          const be = ['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===b.item.id);
+      const sorted = candidates.sort((a,b)=>{
+          const ae = isEquipped(a.item), be = isEquipped(b.item);
           if(ae!==be) return ae ? -1 : 1;
           if(a.item.identified!==b.item.identified) return a.item.identified ? -1 : 1;
-          const s = SLOT_ORDER[a.item.slot]-SLOT_ORDER[b.item.slot];
-          if(s!==0) return s;
           return gearScore(b.item)-gearScore(a.item);
         });
       sorted.forEach(({item,idx})=>{
-        const equipped = ['weapon','upper','lower'].some(sl=> state.equipped[sl] && state.equipped[sl].id===item.id);
+        const equipped = isEquipped(item);
         const canEquip = canEquipItem(item);
         const lvClass = equipped ? 'lv-eq' : (canEquip ? 'lv-ok' : 'lv-high');
         const weaponTypeChip = (item.identified && item.slot==='weapon' && item.weaponType && state.classDef)
@@ -2783,10 +2797,9 @@
         html += `<div class="gear-item-row ${item.rarity==='rare'?'rare':''} ${item.specialId?'special':''} ${lvClass}">
           <div class="gear-item-icon">${item.identified ? item.icon : '❓'}</div>
           <div class="gear-item-info">
-            <div class="gear-item-name ${item.identified?'':'unidentified'}">${item.identified ? item.name : '未鑑定の装備'} ${legacyGrowth() ? `<span class="gear-lv">Lv.${item.itemLevel}</span>` : ''} ${weaponTypeChip}</div>
-            <div class="gear-item-stat">${item.identified ? `${item.atkBonus?'攻撃+'+item.atkBonus+' ':''}${item.hpBonus?'HP+'+item.hpBonus:''}` : '鑑定するまで効果は分からない'}</div>
+            <div class="gear-item-name ${item.identified?'':'unidentified'}">${item.identified ? item.name : '未鑑定の装備'} ${legacyGrowth() ? `<span class="gear-lv">Lv.${item.itemLevel}</span>` : ''}</div>
+            <div class="gear-item-meta">${weaponTypeChip}<span class="gear-item-stat">${item.identified ? `${item.atkBonus?'攻撃+'+item.atkBonus+' ':''}${item.hpBonus?'HP+'+item.hpBonus:''}` : '鑑定するまで効果は分からない'}</span>${item.identified && !equipped ? gearCompareChip(item) : ''}</div>
             ${item.identified && item.specialId ? `<div class="gear-item-special">⭐ ${item.specialDesc}</div>` : ''}
-            ${item.identified && !equipped ? gearCompareChip(item) : ''}
           </div>
           <div class="gear-item-actions">
             ${item.identified
@@ -2800,8 +2813,17 @@
         </div>`;
       });
     }
-    html += '</div>';
+    html += '</div></div></div>';
     panel.innerHTML = html;
+
+    panel.querySelectorAll('[data-gear-slot]').forEach(btn=>{
+      if(btn.tagName !== 'BUTTON') return;
+      btn.addEventListener('click', ()=>{
+        if(gearSlotView === btn.dataset.gearSlot) return;
+        gearSlotView = btn.dataset.gearSlot;
+        renderGearPanel();
+      });
+    });
 
     const bestBtn = panel.querySelector('#gear-best-btn');
     if(bestBtn) bestBtn.addEventListener('click', equipBestGear);

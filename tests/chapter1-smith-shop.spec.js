@@ -72,7 +72,8 @@ test.describe('PROGRESSION-007: 第一章の鍛冶屋は装備の管理・確認
     await expect(weaponSlot).toContainText('(未装備)');
     await page.locator('.gear-item-row', { hasText: '古びた杖' }).locator('[data-equip-idx]').click();
     await expect(weaponSlot).toContainText('古びた杖');
-    // 性能が見え、鑑定のボタンは無い
+    // 性能が見え、鑑定のボタンは無い。一覧は選んだ部位の候補だけ(UI-002-J)なので、外套は上半身を選んでから
+    await page.click('.gear-slot-select[data-gear-slot="upper"]');
     await expect(page.locator('.gear-item-row', { hasText: '旅人の外套' })).toContainText('HP+6');
     await expect(page.locator('#gear-identify-all-btn')).toHaveCount(0);
 
