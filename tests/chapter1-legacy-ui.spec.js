@@ -126,6 +126,8 @@ test.describe('UI-002-A: Chapter 1 本編に旧成長系の UI が出ない', ()
     // WI-A3: 一括鑑定・個別の鑑定ボタンは無いが、未鑑定品の行は残る
     await expect(page.locator('#gear-identify-all-btn')).toHaveCount(0);
     await expect(page.locator('#ap-panel-gear [data-identify-idx]')).toHaveCount(0);
+    // 一覧は選んだ部位の候補だけ(UI-002-J)。未鑑定の品は上半身
+    await page.click('.gear-slot-select[data-gear-slot="upper"]');
     await expect(page.locator('#ap-panel-gear .gear-item-name.unidentified')).toHaveCount(1);
     // WI-A1: 凡例に Lv が無い
     const legend = await page.locator('#ap-panel-gear .gear-legend').textContent();

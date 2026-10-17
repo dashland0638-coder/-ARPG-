@@ -126,5 +126,7 @@
   --ui-book-max-w: 760px;                           /* F-D3: パネルの最大幅 */
   --ui-fs-body: 12px;                               /* F-D3: 文字の原則の下限 */
   --ui-fs-small: 11px;                              /* F-D3: 密な補助表示の下限 */
+  --ui-fs-item: 14px;                               /* UI-002-J: 鍛冶屋の品名・装備名(844×390 で読める大きさ) */
+  --ui-touch-target: 44px;                          /* UI-002-J: 主な選択(部位)の的の目標 */
   --ui-touch-min: 36px;                             /* F-D3: タッチ対象の最小 */
 }

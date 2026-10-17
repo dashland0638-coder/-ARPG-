@@ -143,7 +143,7 @@ for (const [label, viewport, hasTouch] of [['1280×800', { width: 1280, height: 
   test.describe(`UI-002-F 鍛冶屋(${label})`, () => {
     test.use({ viewport, hasTouch });
 
-    test('装備枠は横長の行で、スクロールするのは所持品の一覧だけ。本編のタブは装備品・スキルのまま', async ({ page }) => {
+    test('装備中(左)と候補の一覧(右)の 2 カラムで、スクロールするのは一覧だけ。本編のタブは装備品・スキルのまま', async ({ page }) => {
       test.setTimeout(150_000);
       const errors = watchErrors(page);
       // 一覧があふれるだけの装備(外套 10 着)
@@ -155,13 +155,19 @@ for (const [label, viewport, hasTouch] of [['1280×800', { width: 1280, height: 
       expect(await page.evaluate(() =>
         Array.from(document.querySelectorAll('.ap-tab')).filter(t => t.style.display !== 'none').map(t => t.dataset.tab))).toEqual(['gear', 'skill']);
 
-      // 見出し・タブ・装備枠・道具・閉じるは画面内
-      for (const sel of ['#appraisal-overlay .appraisal-header', '#appraisal-overlay .ap-tabs', '#appraisal-overlay .gear-slot-row', '#appraisal-overlay .gear-tools', '#appraisal-close-btn']) {
+      // 見出し・タブ・装備中の部位・道具・閉じるは画面内(UI-002-J)
+      for (const sel of ['#appraisal-overlay .appraisal-header', '#appraisal-overlay .ap-tabs', '#appraisal-overlay .gear-side', '#appraisal-overlay .gear-tools', '#appraisal-close-btn']) {
         expect(await inViewport(page, sel), `${sel} が画面内`).toBe(true);
       }
-      // 装備枠は横長の行(縦長のカードではない)
-      const slotH = await page.evaluate(() => Math.max(...Array.from(document.querySelectorAll('#appraisal-overlay .gear-slot')).map(e => e.getBoundingClientRect().height)));
-      expect(slotH, '装備枠の高さ').toBeLessThanOrEqual(80);
+      // 装備中(左)と一覧(右)は左右に並ぶ
+      const cols = await page.evaluate(() => {
+        const r = s => document.querySelector(s).getBoundingClientRect();
+        return { side: r('#appraisal-overlay .gear-side'), main: r('#appraisal-overlay .gear-main') };
+      });
+      expect(cols.side.right, '左が右より左にある').toBeLessThanOrEqual(cols.main.left + 0.5);
+      // 外套は上半身。上半身を選ぶと一覧があふれる
+      await page.click('.gear-slot-select[data-gear-slot="upper"]');
+      await expect(page.locator('.gear-slot-select[data-gear-slot="upper"]')).toHaveAttribute('aria-pressed', 'true');
       // スクロールは一覧だけ
       const list = await scrolls(page, '#appraisal-overlay .gear-item-list');
       expect(list.overflowY).toBe('auto');
@@ -177,6 +183,7 @@ for (const [label, viewport, hasTouch] of [['1280×800', { width: 1280, height: 
 
       expect((await minFontSize(page, '#appraisal-overlay .appraisal-box')).px).toBeGreaterThanOrEqual(11);
       expect(await minHeight(page, '#appraisal-overlay .ap-tab, #appraisal-overlay .gear-tool-btn, #appraisal-overlay .gear-item-btn, #appraisal-close-btn')).toBeGreaterThanOrEqual(36);
+      expect(await minHeight(page, '#appraisal-overlay .gear-slot-select'), '部位を選ぶボタン(UI-002-J)').toBeGreaterThanOrEqual(44);
 
       // スキル: サブタブはスキル1 / スキル2 / 必殺技のまま、文字・的の大きさ
       await page.click('.ap-tab[data-tab="skill"]');
