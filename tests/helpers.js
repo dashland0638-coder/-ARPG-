@@ -193,7 +193,8 @@ async function centralIntrusion(page, selectors) {
 }
 
 /* 通知(UI-002-D WI-D5)を表示された瞬間に記録する。中央トースト(.item-pop、1.7 秒で消える)と
-   左下ログ(.msg-log-line)を channel 'toast' / 'log' として window.__notes に積む。
+   左下ログ(.msg-log-line)を channel 'toast' / 'log'、テストモードの Arena の記録(.arena-feedback-line)を
+   'arena' として window.__notes に積む。
    ページを開く前(openGame の前)に呼ぶ。拾得ポップも .item-pop なので 'toast' に入る */
 async function watchNotifications(page) {
   await page.addInitScript(() => {
@@ -204,6 +205,8 @@ async function watchNotifications(page) {
           if (n.nodeType !== 1) continue;
           if (n.classList.contains('item-pop')) window.__notes.push({ channel: 'toast', text: n.textContent || '' });
           else if (n.classList.contains('msg-log-line')) window.__notes.push({ channel: 'log', text: n.textContent || '' });
+          // テストモードの Arena の記録(#arena-feedback-log、通常プレイには出ない)。技名の確認に使う
+          else if (n.classList.contains('arena-feedback-line')) window.__notes.push({ channel: 'arena', text: n.textContent || '' });
         }
       }
     }).observe(document, { childList: true, subtree: true });   // documentElement はまだ無いことがある

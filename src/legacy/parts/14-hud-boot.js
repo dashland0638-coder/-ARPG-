@@ -888,9 +888,21 @@
     if(show !== executePromptShown){
       el.classList.toggle('show', show);
       executePromptShown = show;
+      setAttackButtonExecute(show);
     }
   }
   let executePromptShown = false;
+
+  /* 処刑できる間は、攻撃ボタンを「処刑」に切り替える(CH1 中央メッセージ削減)。
+     ダウンや処刑可能の中央トーストを出さない代わりに、押すボタンそのもので伝える。
+     押した時の処理は attackInputDown() が tryExecution() を先に見る */
+  function setAttackButtonExecute(on){
+    const btn = document.getElementById('btn-attack');
+    if(!btn) return;
+    btn.classList.toggle('is-execute', on);
+    const label = Array.from(btn.childNodes).find(n=> n.nodeType === 3 && n.textContent.trim());
+    if(label) label.textContent = on ? '処刑' : '攻撃';
+  }
 
   /* 処刑・インタラクトの表示位置(UI-002-D WI-D6。HD-D16)。以前は画面下中央の 1 列に
      コンボと並んでいた。いまは対象(処刑できる敵・インタラクトの対象)を画面へ投影した点の

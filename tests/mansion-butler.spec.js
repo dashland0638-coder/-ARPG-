@@ -98,6 +98,9 @@ async function attackRound(page, seen){
   await page.keyboard.down('KeyW');
   await page.waitForTimeout(200);
   await page.keyboard.up('KeyW');
+  /* 処刑の窓が開いている間は、攻撃の入力が処刑になる(CH1 中央メッセージ削減)。
+     窓を確かめる前に攻撃キーで処刑してしまわないよう、開いていたら押さない */
+  if(await page.locator('#execute-prompt.show').isVisible().catch(() => false)) return;
   await page.keyboard.down('KeyJ');
   for(let i = 0; i < 4; i++){
     await page.waitForTimeout(150);

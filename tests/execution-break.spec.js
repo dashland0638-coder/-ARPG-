@@ -60,6 +60,8 @@ async function attackUntilBreak(page, rounds = 26){
     await page.keyboard.down('KeyW');
     await page.waitForTimeout(240);
     await page.keyboard.up('KeyW');
+    // 窓が開いている間は攻撃の入力が処刑になる(CH1 中央メッセージ削減)。押す前に確かめる
+    if(await promptVisible(page)) return true;
     await page.keyboard.down('KeyJ');
     await page.waitForTimeout(700);
     await page.keyboard.up('KeyJ');

@@ -550,7 +550,6 @@
         const blinkDir = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
         state.pos.addScaledVector(blinkDir, 3.5);
         resolveWallCollisions(state.pos);
-        spawnToast('🩸 瞬閃!');
       }
       const base = state.classDef.atk + Math.round(Math.random()*4);
       const dmg = Math.round(base * 1.5);
@@ -567,10 +566,8 @@
       // はやての弓(武器固有アクション): 回避攻撃が3方向へ分裂する
       const hayate = equippedSpecialId()==='hayate';
       spawnProjectile(false, {dmgMul:1.5, staggerMul:2.5, hitRMul:1.2, volley:hayate, styleKey:'dodge', ultGauge:6});
-      if(hayate) spawnToast('💨 疾風・三ノ矢!');
     }
-    spawnToast('⚔️ 回避攻撃!');
-    flashScreen();
+    flashScreen();   // 技名の中央トーストは出さない(CH1 中央メッセージ削減)
   }
 
   /* 空中攻撃の振り分け(Combat Feel Phase 5)
@@ -645,7 +642,7 @@
     });
     checkMimicRevealInRange(range, angle, dmg);
 
-    spawnToast('🗡️ 切り上げ!');
+    // 技名の中央トーストは出さない(CH1 中央メッセージ削減)。結果はテストモードの記録だけ
     if(landed) addShake(0.10);
     emitArenaFeedback('UPPERCUT',
       landed ? `HIT ${landed} / 浮かせ ${lifted} / 落下させた ${grounded}` : 'MISS');
@@ -658,14 +655,13 @@
     en.flying = false;
     en.flyDropT = FLYER_DROP_TIME;
     en.flyDropFrom = en.basePos ? en.basePos.y : 0;
-    spawnToast('🪶 撃ち落とした!');
   }
 
   /* ジャンプ攻撃: 空中で攻撃を入力すると急降下する。着地時の演出はクラスで
      分けてある ―― 剣士・盗賊は物理的な踏み込み(斬撃/急所突き)、
      魔法使いは落下しながらの魔弾(呪撃)、弓師は落下しながらの矢の雨。
      いずれも着地点中心の全方位判定(findMeleeTargetsInArc + 全周角)を
-     共有しつつ、SE・トースト文言・VFX色をクラスごとに変えて説得力を持たせた。
+     共有しつつ、SE・VFX色をクラスごとに変えて説得力を持たせた(技名の中央トーストは出さない)。
      着地直後は jumpAttackCD の間だけ再ジャンプを禁じ、「ジャンプ攻撃→
      即ジャンプ→ジャンプ攻撃」の連発を防ぐ(攻撃や回避は制限しない)。 */
   function tryJumpAttack(){
@@ -674,7 +670,7 @@
     state.comboWindowT = 0; state.comboStage = 0; // ジャンプ攻撃はコンボの外
     state.yVel = Math.min(state.yVel, -16);  // 急降下: 落下を一気に加速する
     sfx('dodge');
-    spawnToast('⤵️ 急降下!');
+    emitArenaFeedback('DIVE', state.classDef && state.classDef.key);   // 技名の中央トーストは出さない(CH1 中央メッセージ削減)
   }
 
   // 着地の瞬間に呼ばれる(重力更新側のフック)
@@ -693,7 +689,6 @@
       checkMimicRevealInRange(range, Math.PI*2, dmg);
       spawnUltimateVFX(state.pos.clone(), {radius:range, vfxColor});
       addShake(0.24); flashScreen(); sfx('bigHit');
-      spawnToast(cdef.key==='warrior' ? '💥 急降下斬り!' : '🗡️ 急所突き!');
     } else if(cdef.key==='mage'){
       // 魔法使い: 素手で叩きつけるのではなく、落下しながら魔弾を撃ち込む「落下呪撃」
       const radius = 3.4;
@@ -701,7 +696,6 @@
       checkMimicRevealInRange(radius, Math.PI*2, dmg);
       spawnUltimateVFX(state.pos.clone(), {radius, vfxColor});
       addShake(0.14); flashScreen(); sfx('castBig');
-      spawnToast('🔮 落下呪撃!');
     } else if(cdef.key==='archer'){
       // 弓師: 着地の衝撃ではなく、落下しながら矢の雨を放つ
       const radius = 3.8;
@@ -709,7 +703,6 @@
       checkMimicRevealInRange(radius, Math.PI*2, dmg);
       spawnUltimateVFX(state.pos.clone(), {radius, vfxColor});
       addShake(0.14); flashScreen(); sfx('bowVolley');
-      spawnToast('🏹 矢の雨!');
     }
   }
 
@@ -729,7 +722,6 @@
         const lungeDir = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
         state.pos.addScaledVector(lungeDir, 2.4);
         resolveWallCollisions(state.pos);
-        spawnToast('🌑 影踏み突き!');
       }
       const base = state.classDef.atk + Math.round(Math.random()*4);
       const dmg = Math.round(base * comboMul);

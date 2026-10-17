@@ -145,6 +145,10 @@
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
     if(attackHeldStart!=null) return; // already held (e.g. key auto-repeat)
     if(state.skillCharging || skillHeldStart!=null) return; // can't attack while a skill is in progress
+    /* 処刑できる間は、攻撃の入力が処刑になる(CH1 中央メッセージ削減)。ボタンの表示は
+       updateExecutePrompt() が「処刑」に切り替える。成立の条件は tryExecution() のまま。
+       押しっぱなしのオートコンボは始めない(処刑の後に通常攻撃が勝手に出ないように) */
+    if(tryExecution()) return;
     attackHeldStart = performance.now();
     // 押した瞬間に1発目。2発目以降は updateHoldInputs() が attackCD を
     // 見ながら繰り返す(以前は「離した時に1発」だったので、タップの

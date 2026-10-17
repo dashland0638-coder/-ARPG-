@@ -11,9 +11,13 @@
 import { test, expect } from '@playwright/test';
 import { openGame, watchErrors, watchNotifications, noteMark, notesSince, recordArenaInfo, drainArenaInfo } from './helpers.js';
 
-/* 戦闘のフィードバック(技名・空中のスキル拒否・エネミーステップ)は中央トーストだけに出る
-   (UI-002-D WI-D5 / HD-D17)。1.7 秒で消えるため、表示された瞬間の記録(watchNotifications)を見る */
+/* 空中のスキル拒否は中央トーストに出る(UI-002-D WI-D5 / HD-D17)。技名(切り上げ・急降下・エネミーステップ)は
+   中央トーストに出さない(CH1 中央メッセージ削減)ので、テストモードの Arena の記録で確かめる。
+   どちらも表示された瞬間の記録(watchNotifications)を見る */
 const toastSince = async (page, mark) => (await notesSince(page, mark, 'toast')).join(' / ');
+const arenaSince = async (page, mark) => (await notesSince(page, mark, 'arena')).join(' / ');
+/** 技名の中央トーストが出ていないこと(CH1 中央メッセージ削減) */
+const AIR_TECH_TOASTS = /切り上げ|急降下|急所突き|落下呪撃|矢の雨|撃ち落とした|エネミーステップ/;
 
 async function enterTestMode(page) {
   await page.click('#open-testmode-btn');
@@ -62,7 +66,7 @@ test('空中アクション: 上昇中は切り上げ、落下中は落下攻撃
   await page.waitForTimeout(RISING_MS);
   let mark = await noteMark(page);
   await page.keyboard.press('KeyJ');
-  await expect.poll(() => toastSince(page, mark), { timeout: 3000 }).toContain('切り上げ');
+  await expect.poll(() => arenaSince(page, mark), { timeout: 3000 }).toContain('UPPERCUT');
 
   /* --- 滞空の後半 + 攻撃 → 既存の落下攻撃(急降下) ---
      同じボタンなのに、垂直速度だけで行動が変わることを確認する。
@@ -87,12 +91,13 @@ test('空中アクション: 上昇中は切り上げ、落下中は落下攻撃
       await page.waitForTimeout(wait);
       await page.keyboard.press('KeyJ');
       await page.waitForTimeout(400);
-      dived = (await toastSince(page, 0)).includes('急降下');
+      dived = (await arenaSince(page, 0)).includes('DIVE');
       if (dived) break;
     }
   }
   expect(dived, '滞空の後半で攻撃すると落下攻撃になること').toBe(true);
   await page.waitForTimeout(900);         // 着地して落下攻撃が解決する
+  expect(await toastSince(page, 0), '切り上げ・落下攻撃の技名は中央に出ない').not.toMatch(AIR_TECH_TOASTS);
 
   expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
 });
@@ -113,8 +118,8 @@ test('空中アクション: 空中では回避もスキルもできない', asy
   await page.keyboard.press('Shift');      // 空中での回避入力(無視されるはず)
   await page.waitForTimeout(40);
   await page.keyboard.press('KeyJ');
-  await expect.poll(() => toastSince(page, mark), { message: '空中回避が無視され、切り上げが出ること', timeout: 3000 })
-    .toContain('切り上げ');
+  await expect.poll(() => arenaSince(page, mark), { message: '空中回避が無視され、切り上げが出ること', timeout: 3000 })
+    .toContain('UPPERCUT');
   await page.waitForTimeout(SETTLE_MS);
 
   /* 空中スキルの禁止(Phase 4)。スキル・スキル2・必殺技のいずれも
@@ -155,7 +160,7 @@ test('空中アクション: Enemy Stepが維持されている', async ({ page 
   await recordArenaInfo(page);
 
   /* 敵はプレイヤーの位置へ突進してくるので、突進の最中に空中にいれば真下を通って踏める。
-     踏めれば「エネミーステップ!」が中央トーストに出る ―― 切り上げの追加でこの経路が壊れていない
+     踏めれば Arena の記録に ENEMY STEP が出る(中央トーストには出さない) ―― 切り上げの追加でこの経路が壊れていない
      ことの回帰。
 
      以前は決め打ちの実時間(1.16〜1.92 秒)ごとに跳び続け、突進の周期と位相が噛み合うのを待って
@@ -175,9 +180,10 @@ test('空中アクション: Enemy Stepが維持されている', async ({ page 
     await page.waitForTimeout((i % 6) * 250);
     await page.keyboard.press('Space');
     await page.waitForTimeout(4000);   // 滞空・突進・着地(ゲーム内 約1 秒)
-    stepped = (await toastSince(page, 0)).includes('エネミーステップ');
+    stepped = (await arenaSince(page, 0)).includes('ENEMY STEP');
   }
   expect(stepped, '突進中の敵を空中から踏めること(Enemy Stepの回帰)').toBe(true);
+  expect(await toastSince(page, 0), 'エネミーステップ・ダウンの通知は中央に出ない').not.toMatch(/エネミーステップ|体勢を崩した|ダウン!/);
 
   expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
 });
