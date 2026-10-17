@@ -146,7 +146,7 @@ for (const [label, viewport, hasTouch] of [['1280×800', { width: 1280, height: 
       expect(nameBox.right, '品名がボタンに重ならない').toBeLessThanOrEqual(actions + 0.5);
 
       // スクロールするのは一覧だけ。最後まで送っても閉じると重ならない
-      for (const sel of ['#appraisal-overlay .appraisal-box', '#ap-panel-gear']) {
+      for (const sel of ['#appraisal-overlay .appraisal-box', '#ap-panel-gear', '#appraisal-overlay .gear-side']) {
         const s = await page.$eval(sel, e => ({ h: e.scrollHeight, c: e.clientHeight }));
         expect(s.h, `${sel} はスクロールしない`).toBeLessThanOrEqual(s.c + 1);
       }
@@ -212,9 +212,58 @@ test.describe('UI-002-J 鍛冶屋の操作(844×390・タッチ)', () => {
     await page.click('.ap-tab[data-tab="gear"]');
     await expect(page.locator('.gear-slot-select[data-gear-slot="weapon"]')).toHaveAttribute('aria-pressed', 'true');
 
+    // 幅の狭い画面(縦長。通常は回転を促す画面が出る)の保険: 1 カラムに戻り、部位が上・一覧が下
+    await page.setViewportSize({ width: 520, height: 800 });
+    await page.waitForTimeout(300);
+    const nSide = await rect(page, '#appraisal-overlay .gear-side');
+    const nMain = await rect(page, '#appraisal-overlay .gear-main');
+    expect(nSide.bottom, '狭い画面では部位が一覧の上').toBeLessThanOrEqual(nMain.top + 0.5);
+    expect(nMain.width, '一覧は全幅').toBeGreaterThan(nSide.width * 0.9);
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.waitForTimeout(300);
+
     // 閉じる
     await page.click('#appraisal-close-btn');
     await expect(page.locator('#appraisal-overlay')).not.toHaveClass(/active/);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('UI-002-J 背の低い画面の見出し＋タブの 1 行(テストモード、タブ 5 つ)', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true });
+
+  test('テストモードの 5 つのタブでも、見出しとタブが 1 行に収まり、中身はその下', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    await page.click('#open-testmode-btn');
+    await page.click('#testmode-class-grid .class-card[data-key="mage"]');
+    await page.click('#testmode-start-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await page.waitForTimeout(800);
+    // テストモードでは鍛冶士の前でなくても開ける(toggleAppraisal)
+    await page.keyboard.press('KeyI');
+    await expect(page.locator('#appraisal-overlay')).toHaveClass(/active/);
+    const tabs = await page.$$eval('.ap-tab', els => els.filter(e => e.style.display !== 'none').map(e => e.dataset.tab));
+    expect(tabs).toEqual(['gear', 'stat', 'skill', 'sphere', 'shop']);
+
+    const box = await rect(page, '#appraisal-overlay .appraisal-box');
+    const head = await rect(page, '#appraisal-overlay .appraisal-header');
+    const tabRow = await rect(page, '#appraisal-overlay .ap-tabs');
+    expect(head.right, '見出しはタブの左').toBeLessThanOrEqual(tabRow.left + 0.5);
+    expect(Math.abs(head.top - tabRow.top), '同じ行').toBeLessThanOrEqual(8);
+    expect(tabRow.right, 'タブはパネルの中').toBeLessThanOrEqual(box.right + 0.5);
+    expect(await minHeight(page, '.ap-tab'), 'タブの的').toBeGreaterThanOrEqual(36);
+    for (const t of tabs) {
+      await page.click(`.ap-tab[data-tab="${t}"]`);
+      const panel = await rect(page, `#ap-panel-${t}`);
+      const close = await rect(page, '#appraisal-close-btn');
+      const row = await rect(page, '#appraisal-overlay .ap-tabs');
+      await page.screenshot({ path: `test-results/ui-002-j-testmode-${t}.png` });
+      expect(panel.top, `${t}: 中身はタブの下 ${JSON.stringify({ panel, row })}`).toBeGreaterThanOrEqual(row.bottom - 0.5);
+      expect(panel.bottom, `${t}: 中身は閉じるの上`).toBeLessThanOrEqual(close.top + 0.5);
+      expect(close.bottom, `${t}: 閉じるは画面内`).toBeLessThanOrEqual(390 + 0.5);
+    }
     expect(errors).toEqual([]);
   });
 });

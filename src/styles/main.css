@@ -1707,20 +1707,6 @@
 
 /* 背の低い画面(844×390 等の横持ち): 余白と見出しを詰め、所持品の一覧に高さを回す。
    文字の下限(11px)とタッチの的(36px)は変えない */
-/* 背の低い画面(844×390 等の横持ち)の鍛冶屋(UI-002-J): 見出しとタブを 1 行にまとめ、
-   装備品の 2 カラムに高さを回す。見出し・タブ・中身・閉じるの 4 つを格子に置く */
-@media (max-height:480px){
-  #appraisal-overlay .appraisal-box{
-    display:grid; grid-template-columns:auto minmax(0,1fr);
-    grid-template-rows:auto minmax(0,1fr) auto; column-gap:16px;
-  }
-  #appraisal-overlay .appraisal-header{ grid-column:1; grid-row:1; align-items:center; margin:0 0 6px; }
-  #appraisal-overlay .appraisal-header::after{ display:none; }
-  #appraisal-overlay .ap-tabs{ grid-column:2; grid-row:1; margin:0 0 6px; }
-  #appraisal-overlay .ap-panel{ grid-column:1 / -1; grid-row:2; }
-  #appraisal-overlay .ap-close-btn{ grid-column:1 / -1; grid-row:3; }
-  #appraisal-overlay .gear-tools{ margin-bottom:6px; }
-}
 @media (max-height:480px){
   #menu-overlay .menu-box,
   #appraisal-overlay .appraisal-box{ padding:10px 16px 8px; }
@@ -1729,10 +1715,28 @@
   #appraisal-overlay .appraisal-title{ font-size:18px; }
   #appraisal-overlay .ap-tabs,
   #appraisal-overlay .skill-subtabs{ margin-bottom:6px; }
-  #appraisal-overlay .gear-slot-row,
   #appraisal-overlay .gear-tools{ margin-bottom:6px; }
   #appraisal-overlay .gear-slot-select{ padding:4px 6px 4px 12px; }
   #appraisal-overlay .ap-close-btn{ margin-top:6px; }
+}
+/* 背の低い画面(844×390 等の横持ち)の鍛冶屋(UI-002-J): 見出しとタブを 1 行にまとめ、
+   装備品の 2 カラムに高さを回す。見出し・タブ・中身・閉じるの 4 つを格子に置く */
+@media (max-height:480px){
+  #appraisal-overlay .appraisal-box{
+    display:grid; grid-template-columns:auto minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr) auto; column-gap:16px;
+  }
+  #appraisal-overlay .appraisal-header{ grid-column:1; grid-row:1; align-items:center; margin:0 0 6px; padding-bottom:0; border-bottom:none; }
+  #appraisal-overlay .appraisal-header::after{ display:none; }
+  #appraisal-overlay .ap-tabs{ grid-column:2; grid-row:1; margin:0 0 6px; }
+  #appraisal-overlay .ap-panel{ grid-column:1 / -1; grid-row:2; }
+  #appraisal-overlay .ap-close-btn{ grid-column:1 / -1; grid-row:3; }
+}
+/* 幅の狭い画面(縦長のスマホ等。通常は回転を促す画面が出る)の保険: 1 カラムに戻す。
+   左の部位を上、候補の一覧を下にして、スクロールは一覧だけのまま */
+@media (max-width:560px){
+  #appraisal-overlay .gear-layout{ grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); }
+  #appraisal-overlay .gear-side{ overflow:visible; }
 }
 
 /* =========================================================
