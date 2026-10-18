@@ -127,7 +127,12 @@ Branch: `claude/chapter-1-comprehensive-audit-6cul2d`（PR #88 の merge 後に 
 
 ### 5.1 E2E 全件
 
-（実行後に記入）
+- 1 回目（head `7d7b77f`、291 件、1.5 時間）: **289 passed / 1 failed / 1 skipped**（skipped は既存）。
+  - 失敗: `execution-break.spec.js` の「通常敵: 体幹を削る → Break → EXECUTE …」。
+  - 原因: 体幹を削る途中、窓の確認から J の押下までの間にゲームのフレームが進んだ。その結果、J で一度処刑していた（崩すまでの最大の一撃がすでに処刑の 25200 だった）。テストの手順の競合で、ゲームの不具合ではない。攻撃ボタンで処刑するのは今回の仕様どおり。
+  - 修正: `2a9f44d`。確認と押下を同じ `page.evaluate` の中で行う helper に置き換えた。
+- 2 回目（head `2a9f44d`、Break の手順を使う spec の全件）: `execution-break`・`combat-center-messages`・`combat-events-layout`・`mansion-{warden,enemies,butler,lord}` で **40 / 40 passed**（22.6 分）。
+- その後の `bfb17f9` の変更は CSS の 1 行（押下中の色）と記録だけ。E2E 全件は再実行していない。
 
 ## 6. iPhone 実機の確認（HUMAN DEVICE CHECK REQUIRED）
 
