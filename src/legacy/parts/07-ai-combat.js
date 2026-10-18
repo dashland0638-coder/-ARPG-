@@ -662,8 +662,8 @@
     state.yVel = ENEMY_STEP_BOUNCE_VY;   // 踏みつけて跳ね返る(再ジャンプ)
     state.grounded = false;
 
-    // 大怯びは扱うが、通常攻撃と違いトーストは出さない(既存の体感どおり)
-    const staggerResult = applyStaggerResult(en, ENEMY_STEP_STAGGER, {bigFlinchToast:false});
+    // 大怯びは扱う(大怯み・ダウンの中央トーストは出さない。CH1 中央メッセージ削減)
+    const staggerResult = applyStaggerResult(en, ENEMY_STEP_STAGGER);
     const staggered = !!staggerResult;
     // 踏まれた側は突進を中断する(踏み台にされたのに走り続けるのは不自然)
     if(en.chargeState === 'dash'){ en.chargeState = 'cooldown'; en.chargeT = en.chargeCooldownOverride || 1.5; }
@@ -673,7 +673,6 @@
     spawnHitSpark(contact, 0xfff0b0, 1.8, null);
     hitStop(0.05); addShake(0.14);
     sfx('bigHit');
-    spawnToast('🦶 エネミーステップ!', '#ffe6a0');
     addUltGauge(6);
     emitArenaFeedback('ENEMY STEP', staggered ? `STAGGER +${ENEMY_STEP_STAGGER}` : 'STAGGER -');
   }
@@ -4763,10 +4762,10 @@
 
      ただし3箇所には元々こういう挙動差があり、これは既存プレイフィールなので
      消さない:
-       ・dealDamageToEnemy    : 大怯びでトーストを出す
-       ・triggerEnemyStep     : 大怯びは扱うが、トーストは出さない
+       ・dealDamageToEnemy / triggerEnemyStep: 大怯びを扱う
        ・applyBattleKnightBrace: 大怯び自体を一切扱わない(ノックダウンのみ)
-     この差はopts({applyBigFlinch, bigFlinchToast})で呼び出し側が指定する。
+     この差はopts({applyBigFlinch})で呼び出し側が指定する。大怯びの中央トーストは
+     どの経路でも出さない(CH1 中央メッセージ削減)。
 
      ダメージ・ノックバック・ヒットスパーク等の「見た目」寄りの反応は
      各アクション側に残したまま ―― 過剰な抽象化はしない(指示4-2/4-6)。
@@ -4795,7 +4794,7 @@
       // 強モブ・ネームド・ボスはここを素通りする ―― 殴っているだけでは
       // 攻撃を止められない、という階層差はこの1行だけで生まれる
       applyBigFlinchInterrupt(en);
-      if(opts.bigFlinchToast !== false) spawnToast('💫 体勢を崩した!');
+      // 「体勢を崩した」の中央トーストは出さない(CH1 中央メッセージ削減)。怯みの姿で伝える
     }
     return { knockdown, bigFlinch };
   }
@@ -5257,7 +5256,7 @@
     if(executing){
       /* フィニッシュの演出。世界観に合わせて「怪異を断つ/祓う/封じる」所作
          として扱う(吸血の所作は導入しない)。新しい演出システムは足さず、
-         既存の火花・カメラ・閃光・SE・トーストを一段強く鳴らすだけにしてある */
+         既存の火花・カメラ・閃光・SE を一段強く鳴らすだけにしてある */
       const style = executionStyle(state.classDef && state.classDef.key, state.job);
       spawnHitSpark(contact, style.color, 2.2, away);
       /* 戦闘を締める一撃なので、演出は必殺技より一段強い(core/execution.js)。
@@ -5266,8 +5265,7 @@
       addShake(style.shake);
       hitStop(style.hitStop, {force:true, max:EXECUTION_HITSTOP_MAX});
       flashScreen();
-      sfx(style.sfx);
-      spawnToast(`✦ ${style.label}`);
+      sfx(style.sfx);   // 処刑の技名の中央トーストは出さない(CH1 中央メッセージ削減)
       addUltGauge(EXECUTION_ULT_BONUS);   // 締めた分だけ次の戦闘へ繋がる
     }
     if(en.hp<=0){
@@ -5328,7 +5326,7 @@
        満たされても openExecutionWindow() が2回目以降を弾く ―― マルチヒット/
        オートコンボ/AoE/弾が同じフレームに重なっても窓は1つしか開かない */
     const broke = openExecutionWindow(en);
-    spawnToast(en.isBoss ? '💥 体勢を崩した!畳み掛けろ!' : '💥 ダウン!');
+    // ダウンの中央トーストは出さない(CH1 中央メッセージ削減)。処刑できる間は攻撃ボタンが「処刑」に変わる
     addShake(en.isBoss ? 0.18 : 0.10);
     sfx('bigHit');
     /* 崩した手応え。崩した一撃そのものが直前に不応期を使っているので、

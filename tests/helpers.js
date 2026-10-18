@@ -193,7 +193,8 @@ async function centralIntrusion(page, selectors) {
 }
 
 /* 通知(UI-002-D WI-D5)を表示された瞬間に記録する。中央トースト(.item-pop、1.7 秒で消える)と
-   左下ログ(.msg-log-line)を channel 'toast' / 'log' として window.__notes に積む。
+   左下ログ(.msg-log-line)を channel 'toast' / 'log'、テストモードの Arena の記録(.arena-feedback-line)を
+   'arena' として window.__notes に積む。
    ページを開く前(openGame の前)に呼ぶ。拾得ポップも .item-pop なので 'toast' に入る */
 async function watchNotifications(page) {
   await page.addInitScript(() => {
@@ -204,11 +205,27 @@ async function watchNotifications(page) {
           if (n.nodeType !== 1) continue;
           if (n.classList.contains('item-pop')) window.__notes.push({ channel: 'toast', text: n.textContent || '' });
           else if (n.classList.contains('msg-log-line')) window.__notes.push({ channel: 'log', text: n.textContent || '' });
+          // テストモードの Arena の記録(#arena-feedback-log、通常プレイには出ない)。技名の確認に使う
+          else if (n.classList.contains('arena-feedback-line')) window.__notes.push({ channel: 'arena', text: n.textContent || '' });
         }
       }
     }).observe(document, { childList: true, subtree: true });   // documentElement はまだ無いことがある
   });
 }
+
+/* 処刑の窓が開いている間は、攻撃の入力が処刑になる(CH1 中央メッセージ削減)。体幹を削るために攻撃キーを
+   押し続けるテストが、窓に気付く前に攻撃キーで処刑してしまわないよう、窓を確かめるのと押すのを同じ JS の
+   実行の中で行う(page.keyboard では確かめてから押すまでの間にゲームのフレームが進むことがある) */
+/** 処刑の窓が開いていなければ攻撃キー(J)を押し下げて true。開いていれば押さずに false */
+const attackDownUnlessExecutable = page => page.evaluate(() => {
+  if (document.querySelector('#execute-prompt.show')) return false;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ', key: 'j' }));
+  return true;
+});
+/** 攻撃キー(J)を離す(attackDownUnlessExecutable と組で使う) */
+const attackUp = page => page.evaluate(() => {
+  window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyJ', key: 'j' }));
+});
 
 /** 記録した通知の数(この時点より後の通知だけを見るための目印) */
 const noteMark = page => page.evaluate(() => (window.__notes || []).length);
@@ -279,5 +296,5 @@ async function openAppraisalAtSmith(page, maxSteps = 80) {
 }
 
 export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, startTestMode, centralIntrusion,
-  watchNotifications, noteMark, notesSince,
+  watchNotifications, noteMark, notesSince, attackDownUnlessExecutable, attackUp,
   recordArenaInfo, drainArenaInfo, arenaInfoValue, openAppraisalAtSmith };

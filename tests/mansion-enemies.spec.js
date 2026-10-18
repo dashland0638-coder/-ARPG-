@@ -17,7 +17,7 @@
  * 最後のテストで、実際に洋館へ出撃して森の戦闘①を起こして確認する。
  */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, recordArenaInfo, drainArenaInfo, arenaInfoValue } from './helpers.js';
+import { openGame, watchErrors, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, recordArenaInfo, drainArenaInfo, arenaInfoValue, attackDownUnlessExecutable, attackUp } from './helpers.js';
 
 const infoPanel = page => page.locator('#arena-enemy-info');
 
@@ -84,12 +84,13 @@ async function attackRound(page, seen){
   await page.keyboard.down('KeyW');
   await page.waitForTimeout(200);
   await page.keyboard.up('KeyW');
-  await page.keyboard.down('KeyJ');
+  // 処刑の窓が開いていたら押さない(攻撃の入力が処刑になるため。helpers.js)
+  if(!(await attackDownUnlessExecutable(page))) return;
   for(let i = 0; i < 4; i++){
     await page.waitForTimeout(150);
     await sample(page, seen);
   }
-  await page.keyboard.up('KeyJ');
+  await attackUp(page);
   await page.waitForTimeout(120);
   await sample(page, seen);
 }

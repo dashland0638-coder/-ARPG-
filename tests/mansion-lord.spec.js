@@ -18,7 +18,7 @@
  * 最後のテストで実際に出撃して世界が組み上がることを確認する。
  */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, recordArenaInfo, drainArenaInfo, arenaInfoValue } from './helpers.js';
+import { openGame, watchErrors, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, recordArenaInfo, drainArenaInfo, arenaInfoValue, attackDownUnlessExecutable, attackUp } from './helpers.js';
 
 const infoPanel = page => page.locator('#arena-enemy-info');
 const panelOpen = page =>
@@ -99,12 +99,13 @@ async function attackRound(page, seen){
   await page.keyboard.down('KeyW');
   await page.waitForTimeout(190);
   await page.keyboard.up('KeyW');
-  await page.keyboard.down('KeyJ');
+  // 処刑の窓が開いていたら押さない(攻撃の入力が処刑になるため。helpers.js)
+  if(!(await attackDownUnlessExecutable(page))) return;
   for(let i = 0; i < 4; i++){
     await page.waitForTimeout(150);
     await sample(page, seen);
   }
-  await page.keyboard.up('KeyJ');
+  await attackUp(page);
   await page.waitForTimeout(110);
   await sample(page, seen);
 }

@@ -51,8 +51,8 @@ test('spawnLog の呼び出しは同じ文で spawnToast と組になってい�
    フィニッシュ段の効果(ダメージ倍率・体幹・Ult ゲージ・onFinishHit・処刑の条件)は残す */
 test('swingOnce はフィニッシュのトーストを出さず、フィニッシュ段の効果は残す', () => {
   const body = stripComments(fnBody(combat, 'swingOnce'));
-  // フィニッシュ段(isFinish)を条件にしたトーストが無い。かげぬいの小刀の技名(🌑 影踏み突き!)は
-  // 装備固有の技の名前で、通常コンボの締めの表示ではないので対象外
+  // フィニッシュ段(isFinish)を条件にしたトーストが無い。技名のトーストが無いことは
+  // tests/unit/combat-center-messages.test.js が見ている
   assert.doesNotMatch(body, /isFinish\)\s*spawnToast\s*\(/, 'フィニッシュ段でトーストを出さない');
   assert.doesNotMatch(body, /フィニッシュ/);
   assert.match(body, /const isFinish = stage === comboLen;/);
