@@ -11,7 +11,7 @@
  * 固定待ちは当てにならないので、状態が出るまで待つ形にしてある。
  */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, disableCameraAutoFollow } from './helpers.js';
+import { openGame, watchErrors, disableCameraAutoFollow, attackDownUnlessExecutable, attackUp } from './helpers.js';
 
 const panel = page => page.locator('#motion-panel');
 
@@ -60,11 +60,10 @@ async function attackUntilBreak(page, rounds = 26){
     await page.keyboard.down('KeyW');
     await page.waitForTimeout(240);
     await page.keyboard.up('KeyW');
-    // 窓が開いている間は攻撃の入力が処刑になる(CH1 中央メッセージ削減)。押す前に確かめる
-    if(await promptVisible(page)) return true;
-    await page.keyboard.down('KeyJ');
+    // 窓が開いている間は攻撃の入力が処刑になる(CH1 中央メッセージ削減)。開いていたら押さない(helpers.js)
+    if(!(await attackDownUnlessExecutable(page))) return true;
     await page.waitForTimeout(700);
-    await page.keyboard.up('KeyJ');
+    await attackUp(page);
     await page.waitForTimeout(160);
     if(await promptVisible(page)) return true;
   }

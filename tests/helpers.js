@@ -213,6 +213,20 @@ async function watchNotifications(page) {
   });
 }
 
+/* 処刑の窓が開いている間は、攻撃の入力が処刑になる(CH1 中央メッセージ削減)。体幹を削るために攻撃キーを
+   押し続けるテストが、窓に気付く前に攻撃キーで処刑してしまわないよう、窓を確かめるのと押すのを同じ JS の
+   実行の中で行う(page.keyboard では確かめてから押すまでの間にゲームのフレームが進むことがある) */
+/** 処刑の窓が開いていなければ攻撃キー(J)を押し下げて true。開いていれば押さずに false */
+const attackDownUnlessExecutable = page => page.evaluate(() => {
+  if (document.querySelector('#execute-prompt.show')) return false;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ', key: 'j' }));
+  return true;
+});
+/** 攻撃キー(J)を離す(attackDownUnlessExecutable と組で使う) */
+const attackUp = page => page.evaluate(() => {
+  window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyJ', key: 'j' }));
+});
+
 /** 記録した通知の数(この時点より後の通知だけを見るための目印) */
 const noteMark = page => page.evaluate(() => (window.__notes || []).length);
 
@@ -282,5 +296,5 @@ async function openAppraisalAtSmith(page, maxSteps = 80) {
 }
 
 export { watchErrors, openGame, exposeAudioContext, createCharacter, dismissIntroDialogue, disableCameraAutoFollow, startTestMode, centralIntrusion,
-  watchNotifications, noteMark, notesSince,
+  watchNotifications, noteMark, notesSince, attackDownUnlessExecutable, attackUp,
   recordArenaInfo, drainArenaInfo, arenaInfoValue, openAppraisalAtSmith };

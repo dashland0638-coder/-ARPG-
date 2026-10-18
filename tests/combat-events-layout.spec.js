@@ -16,7 +16,7 @@
  *   階層表示    844×390 で Character パネルが洋館の階層表示で広がっても、ボスバー・制限時間と重ならない
  */
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame, dismissIntroDialogue, startTestMode, disableCameraAutoFollow } from './helpers.js';
+import { watchErrors, openGame, dismissIntroDialogue, startTestMode, disableCameraAutoFollow, attackDownUnlessExecutable, attackUp } from './helpers.js';
 
 const INSET = { top: 0, left: 47, bottom: 21, right: 47 };
 const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
@@ -71,9 +71,9 @@ const ZONE_ITEMS = ['.hud-topleft', '#hud-loot', '#minimap-wrap', '#btn-attack',
 async function attackUntilExecute(page) {
   for (let i = 0; i < 26; i++) {
     await page.keyboard.down('KeyW'); await page.waitForTimeout(240); await page.keyboard.up('KeyW');
-    // 窓が開いている間は攻撃の入力が処刑になる(CH1 中央メッセージ削減)。押す前に確かめる
-    if (await page.locator('#execute-prompt.show').isVisible().catch(() => false)) return true;
-    await page.keyboard.down('KeyJ'); await page.waitForTimeout(700); await page.keyboard.up('KeyJ');
+    // 窓が開いている間は攻撃の入力が処刑になる(CH1 中央メッセージ削減)。開いていたら押さない(helpers.js)
+    if (!(await attackDownUnlessExecutable(page))) return true;
+    await page.waitForTimeout(700); await attackUp(page);
     await page.waitForTimeout(160);
     if (await page.locator('#execute-prompt.show').isVisible().catch(() => false)) return true;
   }

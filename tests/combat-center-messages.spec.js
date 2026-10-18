@@ -11,7 +11,7 @@
  * tests/unit/combat-center-messages.test.js が見ている。
  */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, watchNotifications, notesSince, disableCameraAutoFollow } from './helpers.js';
+import { openGame, watchErrors, watchNotifications, notesSince, disableCameraAutoFollow, attackDownUnlessExecutable, attackUp } from './helpers.js';
 
 const DOWN_TOASTS = /ダウン!|体勢を崩した|畳み掛けろ|断ち斬り|影断ち|祓い|射抜き/;
 const promptVisible = page => page.locator('#execute-prompt.show').isVisible().catch(() => false);
@@ -39,16 +39,15 @@ async function bootArena(page) {
 }
 
 /* 前進しながら攻撃して体幹を削り切る(execution-break.spec.js と同じ手順)。窓が開いたら true。
-   窓が開いている間は攻撃の入力が処刑になるので、押す前にも確かめる */
+   窓が開いている間は攻撃の入力が処刑になるので、開いていたら押さない(helpers.js) */
 async function attackUntilBreak(page, rounds = 26) {
   for (let i = 0; i < rounds; i++) {
     await page.keyboard.down('KeyW');
     await page.waitForTimeout(240);
     await page.keyboard.up('KeyW');
-    if (await promptVisible(page)) return true;
-    await page.keyboard.down('KeyJ');
+    if (!(await attackDownUnlessExecutable(page))) return true;
     await page.waitForTimeout(700);
-    await page.keyboard.up('KeyJ');
+    await attackUp(page);
     await page.waitForTimeout(160);
     if (await promptVisible(page)) return true;
   }
