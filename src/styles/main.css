@@ -887,6 +887,7 @@
   #btn-attack.is-execute{ background:rgba(58,22,10,0.88); color:#ffe6b0; border-color:rgba(255,190,110,0.95);
     animation:execPulse 0.62s ease-in-out infinite alternate; }
   #btn-attack.is-execute #btn-attack-glyph{ display:none; }
+  #btn-attack.is-execute.pressed{ background:rgba(255,170,80,0.32); }   /* 押下の手応え(#execute-prompt:active と同じ) */
   /* スキル3(ボスから習得した能動技)。skill1->skill2->ultと同じ右上への
      並びをそのまま続け、何も装着していない間は薄く表示するだけにしてある。
      以前はultとほぼ隙間0pxで接触していたため、右上へさらに離してある */

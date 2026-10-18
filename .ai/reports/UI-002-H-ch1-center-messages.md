@@ -84,7 +84,7 @@ Branch: `claude/chapter-1-comprehensive-audit-6cul2d`（PR #88 の merge 後に 
   - 中央トーストではなく、敵の位置に出るタップできる表示（UI-002-D HD-D16）。
   - PC にはタッチの攻撃ボタンが出ないので、PC で処刑できることを伝える表示はこれだけになる。
   - 消すかどうかは Human の判断事項として報告する（§7）。
-- E2E の既存の Break の手順（体幹を削るまで J を押し続ける）は、窓が開いたまま次の J を押すと処刑になる。そのため、押す前に窓を確かめる 1 行を足した。対象は `execution-break`・`combat-events-layout`・`mansion-{warden,enemies,butler,lord}`。テストの判定は変えていない。
+- E2E の既存の Break の手順（体幹を削るまで J を押し続ける）は、窓が開いたまま次の J を押すと処刑になる。そのため `tests/helpers.js` に `attackDownUnlessExecutable` / `attackUp` を足した。窓の確認と J の押下を同じ `page.evaluate` の中で行う（間にゲームのフレームが進まない）。対象は `execution-break`・`combat-events-layout`・`combat-center-messages`・`mansion-{warden,enemies,butler,lord}`。テストの判定は変えていない。
 
 ## 4. Implementation Result
 
@@ -94,13 +94,13 @@ Branch: `claude/chapter-1-comprehensive-audit-6cul2d`（PR #88 の merge 後に 
 | `src/legacy/parts/07-ai-combat.js` | エネミーステップ・大怯み・ダウン（通常 / ボス）・処刑の技名のトーストを削除。`bigFlinchToast` の指定と説明を整理 |
 | `src/legacy/parts/13-update-loop.js` | `attackInputDown` で `tryExecution()` を先に見る |
 | `src/legacy/parts/14-hud-boot.js` | `setAttackButtonExecute(on)` を追加。`updateExecutePrompt` の切り替え時に呼ぶ |
-| `src/styles/main.css` | `#btn-attack.is-execute`（暗い赤茶の地・金の縁・`execPulse`。glyph を隠す） |
+| `src/styles/main.css` | `#btn-attack.is-execute`（暗い赤茶の地・金の縁・`execPulse`。glyph を隠す）。押下中の色（Review R1 注記 3） |
 | `tests/unit/combat-center-messages.test.js` | 新規（6 件） |
 | `tests/combat-center-messages.spec.js` | 新規（3 件） |
-| `tests/helpers.js` | `watchNotifications` が Arena の記録を channel `'arena'` として記録する |
+| `tests/helpers.js` | `watchNotifications` が Arena の記録を channel `'arena'` として記録する。`attackDownUnlessExecutable` / `attackUp` を追加 |
 | `tests/air-actions.spec.js` | 技名の確認を Arena の記録（`UPPERCUT`・`DIVE`・`ENEMY STEP`）へ移す。技名・ダウンの中央トーストが出ないことを確かめる |
 | `tests/unit/notification-channels.test.js` | コメントだけ（影踏み突きの記述） |
-| `tests/execution-break.spec.js` ほか 5 件 | J を押す前に処刑の窓を確かめる |
+| `tests/execution-break.spec.js` ほか 5 件 | 処刑の窓が開いていれば J を押さない（上記の helper） |
 
 変えていないもの:
 
