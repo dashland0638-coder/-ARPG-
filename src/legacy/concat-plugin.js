@@ -50,6 +50,7 @@ import { enemyTier, shouldInterruptOnBigFlinch, bigFlinchInterrupt, TIER } from 
 import { isGuardianType, shouldUseGuardianBreak, stepGuardHold, guardBreakPlan, guardBreakCancel, chargeHitRadius, chargeDamage, isFrontAttack, guardianAbsorbs, guardianDamage, GUARD_BREAK_TELEGRAPH_SEC, GUARD_BREAK_COOLDOWN_SEC, GUARD_FRONT_DAMAGE_MUL, GUARD_HOLD_SEC } from '../core/guardian-break.js';
 import { isPartyHostile, aggroOnDetect, aggroOnDamage, stepLeash } from '../core/enemy-aggro.js';
 import { resolveStaggerReaction } from '../core/combat-result.js';
+import { buildCheckAction, versionLabel } from '../core/build-check.js';
 import { telegraphLead, isTelegraphing, predictLeadPosition, canTurnAssist, assistedAimYaw, TURN_ASSIST_DODGE_WINDOW } from '../core/predictive-aim.js';
 import { meleeHitTest, surfaceDistance } from '../core/melee-hit.js';
 import { canEnemyStep, isStompableState, ENEMY_STEP_STAGGER, ENEMY_STEP_BOUNCE_VY } from '../core/enemy-step.js';

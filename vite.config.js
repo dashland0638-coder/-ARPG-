@@ -1,6 +1,29 @@
 import { defineConfig } from 'vite';
 import legacyConcat from './src/legacy/concat-plugin.js';
 import pkg from './package.json' with { type: 'json' };
+import { execSync } from 'node:child_process';
+
+/* 公開時の commit(短い SHA)。メニューのバージョン表記と dist/version.json に入れ、
+   実機で動いているビルドを見分ける(UI-002-H 追補 2)。GitHub Actions では GITHUB_SHA */
+function buildId() {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7);
+  try { return execSync('git rev-parse --short=7 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); }
+  catch { return 'unknown'; }
+}
+
+/* build のときだけ dist/version.json を出す。起動時に読み、古いビルドが動いていれば読み直す */
+function versionFile(id) {
+  return {
+    name: 'soulforge-version-file',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ build: id }) + '\n' });
+    },
+  };
+}
+
+const IS_BUILD = process.argv.includes('build');
+const BUILD_ID = IS_BUILD ? buildId() : 'dev';
 
 // GitHub Pages serves a project site (not a user/org site or custom domain)
 // from a /<repo-name>/ subpath, so every asset URL needs that prefix baked
@@ -9,11 +32,12 @@ import pkg from './package.json' with { type: 'json' };
 const REPO_NAME = '-ARPG-';
 
 export default defineConfig({
-  plugins: [legacyConcat()],
+  plugins: [legacyConcat(), versionFile(BUILD_ID)],
   // メニュー下端のバージョン表記に使う。package.json を唯一の出所にして
   // 手書きの版番号が二重管理にならないようにしている
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_BUILD__: JSON.stringify(BUILD_ID),
   },
   base: process.env.NODE_ENV === 'production' ? `/${REPO_NAME}/` : '/',
   server: {

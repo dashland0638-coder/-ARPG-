@@ -30,7 +30,8 @@ export default defineConfig({
   // 通常の実行は開始時に test-results/ を空にするので、その外に置く
   outputDir: path.join(root, 'test-results-baseline/artifacts'),
   reporter: [['list']],
-  webServer: { ...base.webServer, cwd: root },
+  // 計測は開発サーバーだけを使う(公開用のビルドの配信は要らない)
+  webServer: { ...[].concat(base.webServer)[0], cwd: root },
   use: {
     ...base.use,
     screenshot: 'only-on-failure',

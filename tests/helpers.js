@@ -35,11 +35,13 @@ function watchErrors(page) {
  * 有効(UI-002-B)。既存の spec はすべて開発用 URL で開く前提なので、既定は
  * /?dev=1。通常 URL(本番扱い)を確かめる時だけ { dev: false } を渡す。
  */
-async function openGame(page, { dev = true } = {}) {
+/* base: 開く URL の土台。既定は開発サーバー(baseURL)。公開用のビルド(vite preview)を開く時は
+   PROD_BASE を渡す(tests/production-build.spec.js) */
+async function openGame(page, { dev = true, base = '/' } = {}) {
   await page.route('**://fonts.googleapis.com/**', route =>
     route.fulfill({ status: 200, contentType: 'text/css', body: '' })
   );
-  await page.goto(dev ? '/?dev=1' : '/');
+  await page.goto(base + (dev ? '?dev=1' : ''));
   await page.waitForFunction(
     () => document.getElementById('title-screen').style.display === 'flex',
     { timeout: 15_000 }

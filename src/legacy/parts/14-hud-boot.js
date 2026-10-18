@@ -293,6 +293,7 @@
       sfx('ui');
     });
     bindVersionTap();
+    checkForNewerBuild();
     refreshSettingLabels();
   }
 
@@ -311,10 +312,33 @@
   const VERSION_TAP_GAP_MS = 1500;   // これ以上間が空いたら数え直し
   let versionTaps = 0;
   let versionTapLast = 0;
+  function appBuildId(){ return typeof __APP_BUILD__ === 'string' ? __APP_BUILD__ : 'dev'; }
+
+  /* 公開中のビルドが新しければ、タイトル画面のうちに 1 回だけ読み直す(core/build-check.js)。
+     開発サーバー(build 'dev')と、version.json が読めない時は何もしない */
+  const BUILD_RELOAD_KEY = 'soulforge_build_reload';   // sessionStorage。セーブには入らない
+  function checkForNewerBuild(){
+    const local = appBuildId();
+    if(local === 'dev' || typeof fetch !== 'function') return;
+    fetch('version.json?t=' + Date.now(), {cache:'no-store'})
+      .then(r=> r.ok ? r.json() : null)
+      .then(data=>{
+        const remote = data && data.build;
+        let reloadedFor = null;
+        try{ reloadedFor = sessionStorage.getItem(BUILD_RELOAD_KEY); }catch(e){}
+        const action = buildCheckAction({localBuild: local, remoteBuild: remote, reloadedFor, started: !!state.started});
+        if(action !== 'reload') return;
+        try{ sessionStorage.setItem(BUILD_RELOAD_KEY, remote); }catch(e){}
+        location.reload();
+      })
+      .catch(()=>{});
+  }
+
   function bindVersionTap(){
     const el = document.getElementById('menu-version');
     if(!el) return;
-    el.textContent = 'ver ' + (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0');
+    // build(公開時の commit)を添える。実機で動いているビルドを見分けるため(UI-002-H 追補 2)
+    el.textContent = versionLabel(typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0', appBuildId());
     el.addEventListener('pointerup', ()=>{
       const now = performance.now();
       versionTaps = (now - versionTapLast > VERSION_TAP_GAP_MS) ? 1 : versionTaps + 1;
