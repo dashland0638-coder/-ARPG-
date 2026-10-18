@@ -7,7 +7,7 @@ import { execSync } from 'node:child_process';
    実機で動いているビルドを見分ける(UI-002-H 追補 2)。GitHub Actions では GITHUB_SHA */
 function buildId() {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7);
-  try { return execSync('git rev-parse --short=7 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); }
+  try { return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim().slice(0, 7); }
   catch { return 'unknown'; }
 }
 

@@ -18,7 +18,7 @@ Branch: `claude/chapter-1-comprehensive-audit-6cul2d`（PR #89 の merge 後に 
 | 確認 | 結果 |
 | --- | --- |
 | リポジトリ全体の「急降下斬り」（`node_modules`・`.git` を除く） | 次の 4 ファイルだけ。どれも build に入らない<br>・`basefile.html`（凍結した移行前の単一ファイル版。build に入らない。§2.3）<br>・`.ai/` の記録 2 件<br>・unit テスト |
-| 中央トーストの DOM（`.item-pop`）を作る関数 | 次の 2 つだけ。ほかに中央へ出す経路は無い<br>・`spawnToast`（`11-combat-actions.js`）<br>・拾得表示 `spawnPickupPopup`（`11` / `12`） |
+| 中央トーストの DOM（`.item-pop`）を作る関数 | 次の 3 つだけ。ほかに中央へ出す経路は無い<br>・`spawnToast`（`11-combat-actions.js`）<br>・拾得表示 `spawnPickupPopup`（`11`）<br>・レベルアップ表示 `spawnLevelUpPopup`（`12`）<br>どれも技名・ダウンの文言を受け取らない |
 | 連結の対象 | `concat-plugin.js` は `src/legacy/parts/*.js` だけを連結する。生成済みのファイルや別のコピーを読む経路は無い |
 | 起動 | `index.html` → `src/main.js` → `virtual:legacy-core`（連結した parts） |
 | 廃止した 16 件の呼び出し元 | PR #89 の差分で、呼び出しの行ごと消えている<br>・`tryUppercut` / `tryJumpAttack` / `landJumpAttack` / `groundFlyingEnemy` / 回避攻撃 / `swingOnce` / `triggerEnemyStep` / `applyStaggerResult` / `triggerKnockdown` / 処刑<br>・文言を ID やキーで引く通知キューは無い（`spawnToast(text)` へ文字列を直接渡す） |
@@ -67,6 +67,9 @@ Branch: `claude/chapter-1-comprehensive-audit-6cul2d`（PR #89 の merge 後に 
   - iOS のホーム画面アプリ（standalone）は、アプリを完全に終了しない限り、前に読み込んだページ（`index.html` と、その中で指定された JS）を使い続ける。
   - `index.html` を読み直しても、HTTP キャッシュ（GitHub Pages は `Cache-Control: max-age=600`）の内側なら古いものが返る。
 - Service Worker は無い（`serviceWorker` / `workbox` の登録は 0 件）。
+- ほかの INFERENCE:
+  - deploy run 184 が終わる前（15:13 UTC より前）に開いた
+  - Pages のキャッシュ（10 分）の内側で開いた
 - 「キャッシュだけが原因」とは断定しない。
   - 実機で動いているビルドを、§3 の build 表示で確かめるまでは未確認とする。
 
@@ -76,8 +79,8 @@ Branch: `claude/chapter-1-comprehensive-audit-6cul2d`（PR #89 の merge 後に 
 | --- | --- | --- |
 | F1 | 公開用のビルドを検証する E2E を追加する<br>・Playwright の webServer に `npm run build && vite preview --base /-ARPG-/`（ポート 4173）を足す<br>・`tests/production-build.spec.js` は `dist` を開き、次を確かめる<br>　- 実際の技（切り上げ・落下攻撃）と Break から、中央トーストまでの経路<br>　- 処刑ボタンの切り替え<br>　- 残す通知 | `playwright.config.js`、`tests/production-build.spec.js`、`tests/helpers.js`（`openGame` に `base`） |
 | F2 | 成果物に廃止した文言が無く、残す文言があることを unit で見る<br>・CI は unit の前に build するので、必ず `dist` を見る<br>・手元で `dist` が無い時だけ skip する | `tests/unit/production-bundle.test.js` |
-| F3 | 動いているビルドを見分けられるようにする<br>・build 時の commit（`GITHUB_SHA` の先頭 7 文字。手元では `git rev-parse`）を JS に埋め込む<br>・メニューの表記を `ver 0.1.0 (3d3f83e)` にする<br>・`dist/version.json` に同じ値を出す | `vite.config.js`、`src/core/build-check.js`、`14-hud-boot.js`、`concat-plugin.js`（import 1 行） |
-| F4 | 古いビルドを検知したら読み直す<br>・起動時に `version.json` をキャッシュを使わずに読む<br>・JS の build と違えば、タイトル画面のうちに 1 回だけ `location.reload()` する<br>・同じ build への読み直しは 1 セッションに 1 回（`sessionStorage`。セーブには入らない）<br>・プレイ中・開発サーバー・読めない時は何もしない | 同上 |
+| F3 | 動いているビルドを見分けられるようにする<br>・build 時の commit（`GITHUB_SHA` の先頭 7 文字。手元では `git rev-parse`）を JS に埋め込む<br>・メニューの表記を `ver 0.1.0 (3d3f83e)` にする<br>・`dist/version.json` に同じ値を出す | `vite.config.js`、`src/core/build-check.js`、`14-hud-boot.js`、`concat-plugin.js`（import 1 行）、`scripts/ui-screens/playwright.config.mjs`・`tools/baseline/playwright.config.js`（webServer が配列になったので、開発サーバーだけを使う） |
+| F4 | 古いビルドを検知したら読み直す<br>・起動時と、タイトル画面でアプリに戻ってきた時（`visibilitychange`。30 秒に 1 回まで）に、`version.json` をキャッシュを使わずに読む<br>・JS の build と違えば、`?build=<新しい build>` を付けた URL へ 1 回だけ読み直す（`location.replace`）<br>・読み直した後もまだ古いビルドなら、URL の印を見て繰り返さない<br>　- storage を使わないので、Cookie・storage を禁止した端末でも止まる（Review R1 指摘 1）<br>　- 印の付いた URL は HTTP キャッシュとも別になる<br>・プレイ中・開発サーバー・読めない時は何もしない | 同上 |
 
 - 変えていないもの:
   - 戦闘・通知の処理（PR #89 のまま）
@@ -98,6 +101,16 @@ Branch: `claude/chapter-1-comprehensive-audit-6cul2d`（PR #89 の merge 後に 
 | 同じ E2E を修正前のビルド（`412ba03`）に向けた | **FAIL**（中央に「🗡️ 切り上げ!」）。テストが修正前の表示を検出できることの確認 |
 | E2E 全件 | §4.1 |
 
+### 4.0 Review Round 1 の後の修正
+
+- 指摘 1（blocking）: storage が使えないと読み直しが止まらない。読み直しの印を URL に移した。unit と E2E（sessionStorage を投げる状態）で、1 回だけで止まることを確かめる。
+- 指摘 2（blocking）: `scripts/ui-screens/playwright.config.mjs` が webServer の配列を広げていた。開発サーバーだけを使う形に直した。
+- 指摘 3: タイトル画面で復帰した時も見る。§5 の手順を「完全に終了して開き直す」にした。
+- 指摘 4: `.item-pop` の生成元に `spawnLevelUpPopup` を足した。deploy の前・キャッシュの内側で開いた可能性を INFERENCE として足した。
+- 指摘 5: build の id は常に 7 文字（`git rev-parse HEAD` の先頭 7 文字）。
+  - 手元で古い `vite preview` が 4173 に残っていると再利用される（`reuseExistingServer`）。CI では毎回 build する。手元では E2E の前に 4173 を止める。
+  - PR の CI では `GITHUB_SHA` が merge commit になる。公開（main への push）では main の commit になるので、実機の確認には影響しない。
+
 ### 4.1 E2E 全件
 
 （実行後に記入）
@@ -111,7 +124,9 @@ Branch: `claude/chapter-1-comprehensive-audit-6cul2d`（PR #89 の merge 後に 
 3. 戦闘で、落下攻撃・切り上げ・回避攻撃・敵を踏む・敵を崩す・処刑をする。中央に技名・ダウン・処刑の技名が出ないことを確かめる。
 4. 敵を崩すと攻撃ボタンが「処刑」に変わり、窓が閉じると「攻撃」に戻ることを確かめる。
 5. ボスの段階変化・大技の予兆・状態異常・パリィ・ジャストドッジの通知は、今までどおり中央に出ることを確かめる。
-6. 次の更新の後は、アプリを開き直すだけで（タイトル画面で 1 回読み直されて）新しいビルドになることを確かめる。
+6. 次の更新の後は、アプリを完全に終了して開き直すか、タイトル画面でアプリに戻るだけで、1 回読み直されて新しいビルドになることを確かめる。
+   - メニューの括弧の commit で確かめる。
+   - ホーム画面アプリで読み直しが新しい `index.html` を取りに行くかは、実機でしか確かめられない（未確認）。
 
 ## 6. 廃止・維持の一覧
 

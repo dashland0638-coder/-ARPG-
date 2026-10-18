@@ -129,20 +129,21 @@ test.describe('公開用のビルド(dist)', () => {
     });
   });
 
-  test('公開中の version.json が新しければ、タイトル画面で 1 回だけ読み直す(繰り返さない)', async ({ page }) => {
-    let served = 0;
-    await page.route('**/-ARPG-/version.json*', route => {
-      served++;
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ build: 'fffffff' }) });
+  test('公開中の version.json が新しければ、タイトル画面で 1 回だけ読み直す(storage が使えなくても繰り返さない)', async ({ page }) => {
+    // sessionStorage が使えない端末(Safari の「すべての Cookie をブロック」等)を真似る
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'sessionStorage', { get() { throw new Error('blocked'); } });
     });
-    let loads = 0;
-    page.on('load', () => { loads++; });
+    await page.route('**/-ARPG-/version.json*', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ build: 'fffffff' }) }));
+    const navs = [];
+    page.on('framenavigated', f => { if (f === page.mainFrame()) navs.push(f.url()); });
     await openGame(page, { base: PROD_BASE, dev: false });
-    // 1 回目の起動で新しい build を見て読み直す → 2 回目の起動では読み直さない
-    await expect.poll(() => loads, { timeout: 15_000 }).toBe(2);
-    await expect.poll(() => served, { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
-    await page.waitForTimeout(3000);
-    expect(loads, '同じ build への読み直しは 1 回だけ').toBe(2);
+    // 1 回目の起動で新しい build を見て ?build=fffffff へ読み直す → そこでは読み直さない
+    await expect.poll(() => navs.length, { timeout: 15_000 }).toBe(2);
+    expect(navs[1]).toBe(PROD_BASE + '?build=fffffff');
+    await page.waitForTimeout(4000);
+    expect(navs.length, '同じ build への読み直しは 1 回だけ').toBe(2);
     await page.waitForFunction(() => document.getElementById('title-screen').style.display === 'flex');
   });
 });

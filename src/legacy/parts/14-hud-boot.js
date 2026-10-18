@@ -315,24 +315,29 @@
   function appBuildId(){ return typeof __APP_BUILD__ === 'string' ? __APP_BUILD__ : 'dev'; }
 
   /* 公開中のビルドが新しければ、タイトル画面のうちに 1 回だけ読み直す(core/build-check.js)。
-     開発サーバー(build 'dev')と、version.json が読めない時は何もしない */
-  const BUILD_RELOAD_KEY = 'soulforge_build_reload';   // sessionStorage。セーブには入らない
+     開発サーバー(build 'dev')・プレイ中・version.json が読めない時は何もしない。
+     読み直した印は URL(?build=)に持つ ―― sessionStorage が使えない端末でも繰り返さない */
+  let buildCheckLastMs = -Infinity;
   function checkForNewerBuild(){
     const local = appBuildId();
     if(local === 'dev' || typeof fetch !== 'function') return;
+    const now = performance.now();
+    if(now - buildCheckLastMs < 30000) return;   // 復帰のたびに読みに行かない
+    buildCheckLastMs = now;
     fetch('version.json?t=' + Date.now(), {cache:'no-store'})
       .then(r=> r.ok ? r.json() : null)
       .then(data=>{
         const remote = data && data.build;
-        let reloadedFor = null;
-        try{ reloadedFor = sessionStorage.getItem(BUILD_RELOAD_KEY); }catch(e){}
-        const action = buildCheckAction({localBuild: local, remoteBuild: remote, reloadedFor, started: !!state.started});
-        if(action !== 'reload') return;
-        try{ sessionStorage.setItem(BUILD_RELOAD_KEY, remote); }catch(e){}
-        location.reload();
+        const action = buildCheckAction({localBuild: local, remoteBuild: remote,
+          reloadedFor: reloadMarker(location.search), started: !!state.started});
+        if(action === 'reload') location.replace(reloadUrl(location.href, remote));
       })
       .catch(()=>{});
   }
+  /* ホーム画面アプリは閉じずにバックグラウンドから戻ることが多い。タイトル画面に戻ってきた時も見る */
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible' && !state.started) checkForNewerBuild();
+  });
 
   function bindVersionTap(){
     const el = document.getElementById('menu-version');

@@ -17,7 +17,7 @@ export default {
   testIgnore: [],
   timeout: 300_000,
   outputDir: '../../test-results/ui-screens/.pw',
-  webServer: { ...base.webServer, cwd: '../..' },
+  webServer: { ...[].concat(base.webServer)[0], cwd: '../..' },   // 開発サーバーだけを使う
   // 画像は CSS の寸法そのままで残す(本体の設定は描画負荷のため 0.5)
   use: { ...base.use, deviceScaleFactor: 1, launchOptions },
 };
