@@ -83,3 +83,39 @@ blocking 2 件（#1 読み直しの無限ループ、#2 `scripts/ui-screens` の
 - [ ] #2: `scripts/ui-screens/playwright.config.mjs` の webServer を 1 つ目の要素にする
 - [ ] #3・#4: レポート §2.1・§4.1・§5 手順 6 の修正（visibilitychange の追加は任意）
 - [ ] #5: 任意
+
+---
+
+# Round 2
+
+Head（検証済み・`git rev-parse HEAD`）: `a47ac5b175337fa1ad62b8fc8ae39f53440cf49b`
+対象: `git diff fd1b59b..a47ac5b`（9 ファイル）
+
+## 判定: **PASS WITH NOTES**
+
+Round 1 の blocking 2 件は解消した。新しい blocking は無い。
+
+## Reviewer が自分で確かめたこと
+
+| 確認 | 結果 |
+| --- | --- |
+| `npm run test:unit` | pass 1874 / fail 0 / skipped 1（既存） |
+| `npm run build` | 成功。`dist/version.json` = `{"build":"a47ac5b"}`（7 文字） |
+| Playwright | 実行していない（全件の実行中のため。指示どおり） |
+
+## Round 1 の指摘の確認
+
+| # | 判定 | 確認した内容 |
+| --- | --- | --- |
+| 1 | 解消 | 読み直しの印を URL の `?build=<remote>` に移した（`build-check.js` の `reloadMarker` / `reloadUrl`、`14-hud-boot.js` の `location.replace`）。storage を使わないので、sessionStorage が例外を投げても 2 回目の起動で `reloadedFor === remote` になって止まる。<br>・unit で固定した: 印の往復、`?dev=1` と `#` を残す、古い印の上書き<br>・E2E: sessionStorage の getter が例外を投げる状態で、遷移はちょうど 2 回、2 回目が `?build=fffffff`。Implementer の報告では pass。私は実行していない<br>・印付きの URL は HTTP キャッシュのキーも別になるので、古い `index.html` が返る心配も減る<br>・ほかの検索条件の読み手（`dev-ui.js` の `dev` / `uiproto`）は `build` を見ないので影響しない |
+| 2 | 解消 | `scripts/ui-screens/playwright.config.mjs:20` が `[].concat(base.webServer)[0]` になった |
+| 3 | 解消 | タイトル画面（`!state.started`）で `visibilitychange` → visible の時も確かめる。30 秒に 1 回まで。開発サーバー（`'dev'`）では先頭で戻る。§5 手順 6 を書き直し、standalone で新しい `index.html` を取りに行くかは未確認と明記した |
+| 4 | 解消（§4.1 は全件の実行後に記入予定） | §2.1 に `spawnLevelUpPopup` を足した。INFERENCE 2 件（deploy の前、キャッシュの内側）を足した。§4.0 を足した |
+| 5 | 解消 | `git rev-parse HEAD` の先頭 7 文字（`.slice(0,7)`）にした。4173 の再利用と `GITHUB_SHA` の注記は §4.0 にある |
+
+## 注記（non-blocking）
+
+- N1: `returnToTitle`（`10-input.js:421`）は `state.started = false` にする。なので、プレイ後にタイトルへ戻り、アプリを切り替えて戻ると、新しい build があれば読み直す。タイトルではプレイ中の状態は残っておらず、セーブ（localStorage）は消えないので、害は無い。変化があるのは、タイトルのサブ画面（設定・テストモードの職業選択など）の開閉状態が戻ることだけ。
+- N2: Safari のタブで印付きの URL（`?build=X`）をブックマークした場合、`X` と同じ build が公開されている間は読み直さない。動いている build も `X` のはずなので実害は無い。違う build が出れば印と一致しないので、また 1 回読み直す。
+- N3: §4.1（E2E 全件）は、PR 作成までに記入すること。記入した件数と、ほかの run の結果に矛盾が無いかは Orchestrator が確かめる。
+- N4: 実機確認（§5）は未実施のまま。記録の書き方（HUMAN DEVICE CHECK REQUIRED・未確認）は正確。
