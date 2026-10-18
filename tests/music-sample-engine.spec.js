@@ -636,3 +636,160 @@ test.describe('MUSIC-AUDIO-001 サンプル音源の試作', ()=>{
     expect(errors).toEqual([]);
   });
 });
+
+/* MUSIC-AUDIO-004: 読み込みが終わる前に再生ボタンを押したとき。
+   収録音の取得を止めておき(hold)、release() で流す。読み込みが終わるまで再生を始めず、ボタンは「読み込み中」 */
+test.describe('MUSIC-AUDIO-004 読み込み中の再生', ()=>{
+  test.beforeEach(async ({ page })=>{
+    await instrument(page);
+    await page.addInitScript(()=>{ try{ localStorage.clear(); }catch(e){} });
+  });
+
+  async function holdSamples(page, status){
+    const held = [];
+    let open = false;
+    await page.route('**/samples/**/*.mp3', route=>{
+      const go = ()=>status ? route.fulfill({ status, body:'' }) : route.continue();
+      if(open) go(); else held.push(go);
+    });
+    return { release:async ()=>{ open = true; await Promise.all(held.splice(0).map(go=>go())); } };
+  }
+  const clickPlay = page=>page.evaluate(()=>document.getElementById('play').click());
+  const clickStop = page=>page.evaluate(()=>document.getElementById('stop').click());
+  // どの AudioContext で始まったかを問わず、バッファ音源の start() の合計
+  const started = page=>page.evaluate(()=>window.__audio.contexts.reduce((n, x)=>n + x.bufStarts.length, 0));
+
+  test('読み込み前に押すと、読み込みが終わるまで待ってから全部サンプルで1回だけ始まる(連打しても1回)', async ({ page })=>{
+    const errors = [];
+    page.on('pageerror', e=>errors.push(e.message));
+    await setupTavern(page, PROTO);
+    const gate = await holdSamples(page);
+    await page.evaluate(()=>SampleHooks.setEnabled(true));
+    await clickPlay(page);
+    await clickPlay(page);
+    await clickPlay(page);
+    const before = await page.evaluate(()=>({ waiting:SampleHooks.waiting(), playing:state.playing, label:document.getElementById('play').textContent,
+      status:document.getElementById('sampleEngineStatus').textContent }));
+    expect(before).toMatchObject({ waiting:true, playing:false, label:'… 読み込み中' });
+    expect(before.status).toContain('読み込みが終わったら再生します');
+    expect(await started(page)).toBe(0);
+
+    await gate.release();
+    await page.waitForFunction(()=>state.playing === true);
+    const truth = await truthCounts(page);
+    const r = await page.evaluate(()=>({ stats:SampleHooks.stats(), label:document.getElementById('play').textContent, waiting:SampleHooks.waiting(),
+      open:window.__audio.contexts.filter(x=>x.ctx.state !== 'closed').length }));
+    expect(r.stats.scheduled).toEqual(truth);
+    expect(r.stats.fallback).toEqual(all(0));
+    expect(r.stats.unloaded).toEqual(all(0));
+    expect(r).toMatchObject({ label:'Ⅱ 再生中', waiting:false, open:1 });
+    expect(await started(page)).toBe(sum(truth));            // 連打しても2回目は始まらない
+    await page.evaluate(()=>stopAudio());
+    expect(errors).toEqual([]);
+  });
+
+  test('読み込み中に停止すると、読み込みが終わっても再生は始まらない。その後の再生は1回分だけ鳴る', async ({ page })=>{
+    await setupTavern(page, PROTO);
+    const gate = await holdSamples(page);
+    await page.evaluate(()=>SampleHooks.setEnabled(true));
+    await clickPlay(page);
+    await clickStop(page);
+    expect(await page.evaluate(()=>({ waiting:SampleHooks.waiting(), label:document.getElementById('play').textContent }))).toEqual({ waiting:false, label:'▶ 再生' });
+    await gate.release();
+    await page.evaluate(()=>SampleHooks.ready());
+    await page.waitForTimeout(200);
+    expect(await page.evaluate(()=>state.playing)).toBe(false);
+    expect(await started(page)).toBe(0);
+
+    await clickPlay(page);                                    // 読み込み済みなので、すぐ始まる
+    const truth = await truthCounts(page);
+    expect(await page.evaluate(()=>state.playing)).toBe(true);
+    expect(await started(page)).toBe(sum(truth));
+    await clickStop(page);
+    await clickPlay(page);                                    // 停止 → 再生でも前の音は残らない
+    expect(await started(page)).toBe(sum(truth) * 2);
+    expect(await page.evaluate(()=>window.__audio.contexts.filter(x=>x.ctx.state !== 'closed').length)).toBe(1);
+    await clickStop(page);
+  });
+
+  test('読み込み中に曲を変えたら、前の曲の再生は始まらない', async ({ page })=>{
+    await setupTavern(page, PROTO);
+    const gate = await holdSamples(page);
+    await page.evaluate(()=>SampleHooks.setEnabled(true));
+    await clickPlay(page);
+    await page.evaluate(()=>{ state.scene = 'mansion'; document.getElementById('prompt').value = sceneDefaults.mansion; generate(); });
+    await gate.release();
+    await page.evaluate(()=>SampleHooks.ready());
+    await page.waitForTimeout(200);
+    expect(await page.evaluate(()=>({ playing:state.playing, label:document.getElementById('play').textContent }))).toEqual({ playing:false, label:'▶ 再生' });
+    expect(await started(page)).toBe(0);
+  });
+
+  test('読み込みに失敗したら、待った後に合成音で再生し、失敗として数える(読み込み前とは区別)', async ({ page })=>{
+    const errors = [];
+    page.on('pageerror', e=>errors.push(e.message));
+    await setupTavern(page, PROTO);
+    const synthCount = await playAndCount(page);
+    await page.evaluate(()=>stopAudio());
+    const gate = await holdSamples(page, 404);
+    await page.evaluate(()=>SampleHooks.setEnabled(true));
+    await clickPlay(page);
+    expect(await page.evaluate(()=>SampleHooks.waiting())).toBe(true);
+    await gate.release();
+    await page.waitForFunction(()=>state.playing === true);
+    const truth = await truthCounts(page);
+    const r = await page.evaluate(()=>{
+      const e = window.__audio.contexts.find(x=>x.ctx === audioCtx);
+      return { osc:e.osc, stats:SampleHooks.stats() };
+    });
+    expect(r.osc).toBe(synthCount.osc);                      // 全部合成音
+    expect(r.stats.scheduled).toEqual(all(0));
+    expect(r.stats.fallback).toEqual(truth);
+    expect(r.stats.unloaded).toEqual(all(0));
+    await page.evaluate(()=>stopAudio());
+    expect(errors).toEqual([]);
+  });
+
+  test('待ち時間の上限を超えたら再生を始め、間に合わなかった音は「読み込み前で合成音」として数えて表示する', async ({ page })=>{
+    await setupTavern(page, PROTO);
+    await holdSamples(page);                                  // 最後まで流さない
+    await page.evaluate(()=>{ SampleHooks.setWaitLimit(300); SampleHooks.setEnabled(true); });
+    await clickPlay(page);
+    await page.waitForFunction(()=>state.playing === true);
+    const truth = await truthCounts(page);
+    const r = await page.evaluate(()=>({ stats:SampleHooks.stats(), diag:document.getElementById('sampleEngineDiag').textContent }));
+    expect(r.stats.unloaded).toEqual(truth);
+    expect(r.stats.scheduled).toEqual(all(0));
+    expect(r.stats.fallback).toEqual(all(0));
+    expect(r.diag).toContain(`読み込み前で合成音 ${sum(truth)}音`);
+    await page.evaluate(()=>stopAudio());
+  });
+
+  test('読み込み中のセル試聴は鳴り、通し再生が始まると止まる', async ({ page })=>{
+    await setupTavern(page, PROTO);
+    await page.evaluate(async ()=>{ SampleHooks.setEnabled(true); await SampleHooks.ready(); });   // 曲に要る音だけ
+    // 読み込み済みの状態から、セル音量で別の層の収録音が要るようにする(弱い層 → 強い層)
+    const gate = await holdSamples(page);
+    const r = await page.evaluate(async ()=>{
+      await SampleHooks.ready();
+      const flute = buildTruthScore(state.track).events.find(e=>e.instrument === 'Flute' && !e.rest && e.n != null);
+      previewScoreEvent(flute);
+      return { live:SampleHooks.previewCount() };
+    });
+    expect(r.live).toBe(1);
+    await page.evaluate(()=>{
+      const ev = buildTruthScore(state.track).events.filter(e=>e.instrument === 'Piano' && !e.rest && e.n != null);
+      ev.forEach(e=>setCellVolume(state.track, 'Piano', e.index, e.kind, 3.0));
+    });
+    await clickPlay(page);
+    const waiting = await page.evaluate(()=>({ waiting:SampleHooks.waiting(), live:SampleHooks.previewCount() }));
+    await gate.release();
+    await page.waitForFunction(()=>state.playing === true);
+    const after = await page.evaluate(()=>({ live:SampleHooks.previewCount(), stats:SampleHooks.stats() }));
+    expect(after.live).toBe(0);
+    expect(sum(after.stats.unloaded)).toBe(0);
+    expect(sum(after.stats.fallback)).toBe(0);
+    expect(waiting).toEqual({ waiting:true, live:1 });       // 待っている間は試聴が続く
+    await page.evaluate(()=>stopAudio());
+  });
+});
