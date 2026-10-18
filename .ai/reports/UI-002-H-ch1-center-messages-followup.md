@@ -96,7 +96,7 @@ Branch: `claude/chapter-1-comprehensive-audit-6cul2d`（PR #89 の merge 後に 
 | 種類 | 結果 |
 | --- | --- |
 | build | 成功。`dist/version.json` = `{"build":"<commit>"}` |
-| unit（`npm run test:unit`） | 1873 件: pass 1872 / fail 0 / skipped 1（既存） |
+| unit（`npm run test:unit`） | 1875 件: pass 1874 / fail 0 / skipped 1（既存） |
 | 新規 E2E `production-build.spec.js`（公開用のビルド） | 4 / 4 passed（1.2 分） |
 | 同じ E2E を修正前のビルド（`412ba03`）に向けた | **FAIL**（中央に「🗡️ 切り上げ!」）。テストが修正前の表示を検出できることの確認 |
 | E2E 全件 | §4.1 |
@@ -113,7 +113,8 @@ Branch: `claude/chapter-1-comprehensive-audit-6cul2d`（PR #89 の merge 後に 
 
 ### 4.1 E2E 全件
 
-（実行後に記入）
+- head `a47ac5b`（Review R1 の修正後）。開発サーバー＋公開用のビルド（4173）の両方。
+- 結果: **295 / 295 passed**（1.5 時間）。
 
 ## 5. Human に実機で確かめてほしいこと（HUMAN DEVICE CHECK REQUIRED・未確認）
 
