@@ -36,7 +36,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 | 1 | W1-1 | 移動中・戦闘中にサポートを見続ける首の追従を直す（会話中は維持） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
 | 2 | W1-3 | 通常コンボの「✨ フィニッシュ!」を出さない（重要な通知は残す） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
 | 3 | W2-T1 | 戦闘改修前のベースライン測定（宵待ちの村のボス戦） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
-| 4 | W2-D | 村のボス戦の試作の設計（数値・仕組みの提案） | P1 | PLANNED | [ ] Human の承認が必要 | W2-T1 |
+| 4 | W2-D | 村のボス戦の試作の設計（数値・仕組みの提案） | P1 | DESIGN（`.ai/reports/CH1-COMBAT-PROTO-design.md`。Human の判断待ち） | [ ] Human の承認が必要 | W2-T1 |
 | 4a | W2-T2 | 現行コード（`1205665`）でのベースライン再測定と、通常プレイの生存可能性の評価（測定だけ。ゲームは変えない） | P1 | REVIEWING | [x] Human 2026-10-19（依頼文） | W2-T1 |
 | 5 | W0-5 | アートの完成見本の提示（見本の制作は村のボス戦に限り HD-4 の範囲。実装の開始は指示待ち。画像と全マップ展開は Human の承認が必要） | P2 | PLANNED | [ ] Human の承認が必要 | W0-3, W3-0（制作: W2-2・W3-1・W3-2 の村の範囲） |
 | 5 | W0-6 | 出撃会話の台詞の候補の提示 | P1 | PLANNED | [ ] Human の承認が必要 | ― |
@@ -57,6 +57,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 - 2026-10-15: Human の指示（「CH1-COMP W1-1・W1-3・W2-T1 の実装開始」）で 3 項目を実装した（branch `claude/chapter-1-comprehensive-audit-6cul2d`）。IMPLEMENTING → TESTING → REVIEWING。
 - 2026-10-15: 独立 Reviewer の Round 1 は CHANGES_REQUIRED、Round 2 は PASS（`.ai/reports/CH1-COMP-W1-W2T1-review.md`）。REVIEWING → PR_OPEN（PR #87）。
 
+- 2026-10-19: W2-D の設計書を作成した（`.ai/reports/CH1-COMBAT-PROTO-design.md`、base `1205665`）。設計のみで、コード・テスト・数値は変えていない。推奨は案 B（読める攻撃表＋支援との連携）。HD-D1〜D6 は Human の判断待ち。
 - 2026-10-19: Human の依頼（「CH1-COMP / W2-D 次工程：現行版ベースライン再測定」）で W2-T2 に着手した（branch `claude/ch1-comp-w2t2-baseline-remeasure`、base `1205665`）。ANALYZING → IMPLEMENTING（測定の spec の追加だけ）→ TESTING（測定 13 件）→ REVIEWING。PR #91（W2-D の設計書）は触っていない。
 
 ## Approval（W1-1・W1-3・W2-T1）
