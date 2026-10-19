@@ -293,6 +293,7 @@
       sfx('ui');
     });
     bindVersionTap();
+    checkForNewerBuild();
     refreshSettingLabels();
   }
 
@@ -311,10 +312,53 @@
   const VERSION_TAP_GAP_MS = 1500;   // これ以上間が空いたら数え直し
   let versionTaps = 0;
   let versionTapLast = 0;
+  function appBuildId(){ return typeof __APP_BUILD__ === 'string' ? __APP_BUILD__ : 'dev'; }
+
+  /* 公開中のビルドが新しければ、タイトル画面のうちに 1 回だけ読み直す(core/build-check.js)。
+     開発サーバー(build 'dev')・プレイ中・version.json が読めない時は何もしない。
+     読み直した印は URL(?build=)に持つ ―― sessionStorage が使えない端末でも繰り返さない。
+     印のあるページでは読み直さない(読み直しは最大 1 回) */
+  /* タイトル画面だけが出ているか。テストモードの職業選択(#testmode-screen。出ている間は
+     #title-screen が消える)・確認・メニュー等の画面が開いていれば false */
+  function titleScreenIdle(){
+    const title = document.getElementById('title-screen');
+    const testScreen = document.getElementById('testmode-screen');
+    const confirmEl = document.getElementById('confirm-overlay');
+    const otherScreenOpen = !!(testScreen && testScreen.style.display && testScreen.style.display !== 'none')
+      || !!(confirmEl && confirmEl.classList.contains('active'))
+      || !!(state.activeOverlay && state.activeOverlay !== 'none')
+      || !!state.dialogueActive;
+    return titleIsIdle({started: !!state.started, titleDisplay: title ? title.style.display : '', otherScreenOpen});
+  }
+  let buildCheckLastMs = -Infinity;
+  function checkForNewerBuild(){
+    const local = appBuildId();
+    if(local === 'dev' || typeof fetch !== 'function') return;
+    if(reloadMarker(location.search)) return;   // 1 回読み直したページでは見ない
+    const now = performance.now();
+    if(now - buildCheckLastMs < 30000) return;   // 復帰のたびに読みに行かない
+    buildCheckLastMs = now;
+    fetch('version.json?t=' + Date.now(), {cache:'no-store'})
+      .then(r=> r.ok ? r.json() : null)
+      .then(data=>{
+        const remote = data && data.build;
+        // 返ってきた時点の画面で判定する(読みに行った後にゲームを始めた・別の画面を開いた時は読み直さない)
+        const action = buildCheckAction({localBuild: local, remoteBuild: remote,
+          reloadedFor: reloadMarker(location.search), started: !!state.started, onTitle: titleScreenIdle()});
+        if(action === 'reload') location.replace(reloadUrl(location.href, remote));
+      })
+      .catch(()=>{});
+  }
+  /* ホーム画面アプリは閉じずにバックグラウンドから戻ることが多い。タイトル画面に戻ってきた時も見る */
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible' && titleScreenIdle()) checkForNewerBuild();
+  });
+
   function bindVersionTap(){
     const el = document.getElementById('menu-version');
     if(!el) return;
-    el.textContent = 'ver ' + (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0');
+    // build(公開時の commit)を添える。実機で動いているビルドを見分けるため(UI-002-H 追補 2)
+    el.textContent = versionLabel(typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0', appBuildId());
     el.addEventListener('pointerup', ()=>{
       const now = performance.now();
       versionTaps = (now - versionTapLast > VERSION_TAP_GAP_MS) ? 1 : versionTaps + 1;

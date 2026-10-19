@@ -13,12 +13,24 @@ export default defineConfig({
   reporter: [['list']],
   // Boots the real Vite dev server for the test run and reuses one that's
   // already running locally (e.g. `npm run dev` in another terminal).
-  webServer: {
-    command: 'npm run dev -- --port=5173 --strictPort',
-    url: 'http://localhost:5173/',
-    reuseExistingServer: !process.env.CI,
-    timeout: 30_000,
-  },
+  //
+  // 2 つ目は公開用のビルド(GitHub Pages と同じ dist と /-ARPG-/ の土台)。開発サーバーとは別の
+  // 経路(連結・minify)を通るので、公開物で通知が出ないことは tests/production-build.spec.js が
+  // ここで確かめる(UI-002-H 追補 2)。build してから配信する
+  webServer: [
+    {
+      command: 'npm run dev -- --port=5173 --strictPort',
+      url: 'http://localhost:5173/',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      command: 'npm run build && npx vite preview --port 4173 --strictPort --base /-ARPG-/',
+      url: 'http://localhost:4173/-ARPG-/',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
   use: {
     baseURL: 'http://localhost:5173/',
     headless: true,
