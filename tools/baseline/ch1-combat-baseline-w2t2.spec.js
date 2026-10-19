@@ -159,9 +159,12 @@ async function installProbes(page) {
             if (s.step === 0 && B.sim >= s.at) { s.keys.forEach(k => key('keydown', k)); s.step = 1; }
             else if (s.step === 1) { key('keydown', 'ShiftLeft'); key('keyup', 'ShiftLeft'); B.ctlLog.dodges++; s.shiftAt = B.sim; s.step = 2; }
             else if (s.step === 2) { s.keys.forEach(k => key('keyup', k)); s.step = 3; }
-            // 回避のロール(0.2 秒)の間は攻撃を受け付けない(13-update-loop.js attackInputDown)。
-            // ロールが終わってから回避攻撃の受付(回避から 0.55 秒)の間に J
-            else if (s.step === 3 && B.sim >= s.shiftAt + 0.22) { key('keydown', 'KeyJ'); c.jDown = true; B.ctlLog.counters++; c.seq = null; }
+            /* 向き直り: 魔法使いの通常攻撃は体の向きへ撃つ(11-combat-actions.js spawnProjectile)。
+               後ろへ回避すると体がボスと逆を向くので、ロール(0.2 秒)が終わったら W(ロックオン中は
+               ボスの方向)を 0.2 秒押して向き直る(旋回は 13/秒。13-update-loop.js:598-603) */
+            else if (s.step === 3 && B.sim >= s.shiftAt + 0.22) { key('keydown', 'KeyW'); s.turnAt = B.sim; s.step = 4; }
+            // 向き直ったら J(回避攻撃の受付は回避から 0.55 秒。間に合わなければ通常攻撃)
+            else if (s.step === 4 && B.sim >= s.turnAt + 0.2) { key('keyup', 'KeyW'); key('keydown', 'KeyJ'); c.jDown = true; B.ctlLog.counters++; c.seq = null; }
           } else if (c.tap) { key('keydown', 'KeyJ'); c.jDown = true; B.ctlLog.taps++; }
         }
       }
@@ -324,7 +327,7 @@ const STRATEGIES = {
       }
       await page.keyboard.up('KeyJ');
     } },
-  S5: { name: '予兆を見て回避 → 反撃', policy: `J を連打(S3T と同じ)。ボスが最も近い敵で、振りかぶり(Arena の AI State が WINDUP)に変わったら、推定ゲーム内 ${REACT_SIM_SEC} 秒後に、S(カメラ相対。ボス戦はカメラがボスにロックオンするので、ボスから離れる向き)＋回避し、ロールの後に J(回避攻撃)。ボスが最も近くないときの振りかぶりは見えない`,
+  S5: { name: '予兆を見て回避 → 反撃', policy: `J を連打(S3T と同じ)。ボスが最も近い敵で、振りかぶり(Arena の AI State が WINDUP)に変わったら、推定ゲーム内 ${REACT_SIM_SEC} 秒後に、S(カメラ相対。ボス戦はカメラがボスにロックオンするので、ボスから離れる向き)＋回避し、ロールの後に W を 0.2 秒押してボスへ向き直り、J(回避攻撃)。ボスが最も近くないときの振りかぶりは見えない`,
     async run(page, deadline) {
       await setCtl(page, { on: true, tap: true, dodge: true, jDown: false, seq: null });
       await waitUntilDone(page, deadline);
