@@ -37,6 +37,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 | 2 | W1-3 | 通常コンボの「✨ フィニッシュ!」を出さない（重要な通知は残す） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
 | 3 | W2-T1 | 戦闘改修前のベースライン測定（宵待ちの村のボス戦） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
 | 4 | W2-D | 村のボス戦の試作の設計（数値・仕組みの提案） | P1 | PLANNED | [ ] Human の承認が必要 | W2-T1 |
+| 4a | W2-T2 | 現行コード（`1205665`）でのベースライン再測定と、通常プレイの生存可能性の評価（測定だけ。ゲームは変えない） | P1 | REVIEWING | [x] Human 2026-10-19（依頼文） | W2-T1 |
 | 5 | W0-5 | アートの完成見本の提示（見本の制作は村のボス戦に限り HD-4 の範囲。実装の開始は指示待ち。画像と全マップ展開は Human の承認が必要） | P2 | PLANNED | [ ] Human の承認が必要 | W0-3, W3-0（制作: W2-2・W3-1・W3-2 の村の範囲） |
 | 5 | W0-6 | 出撃会話の台詞の候補の提示 | P1 | PLANNED | [ ] Human の承認が必要 | ― |
 | 6 | W1-2, W1-4, W1-5, W2-1a〜W2-6, W3, W4, W5 | 計画のとおり | ― | PLANNED | 承認後に個別の Task にする | 計画を参照 |
@@ -55,6 +56,8 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 - 2026-10-15: HD-1〜HD-7 が確定した（DEC-007）。W1-1・W1-3・W2-T1 の詳細計画と受け入れ条件を計画書に記録した。実装は未着手。
 - 2026-10-15: Human の指示（「CH1-COMP W1-1・W1-3・W2-T1 の実装開始」）で 3 項目を実装した（branch `claude/chapter-1-comprehensive-audit-6cul2d`）。IMPLEMENTING → TESTING → REVIEWING。
 - 2026-10-15: 独立 Reviewer の Round 1 は CHANGES_REQUIRED、Round 2 は PASS（`.ai/reports/CH1-COMP-W1-W2T1-review.md`）。REVIEWING → PR_OPEN（PR #87）。
+
+- 2026-10-19: Human の依頼（「CH1-COMP / W2-D 次工程：現行版ベースライン再測定」）で W2-T2 に着手した（branch `claude/ch1-comp-w2t2-baseline-remeasure`、base `1205665`）。ANALYZING → IMPLEMENTING（測定の spec の追加だけ）→ TESTING（測定 13 件）→ REVIEWING。PR #91（W2-D の設計書）は触っていない。
 
 ## Approval（W1-1・W1-3・W2-T1）
 
@@ -169,3 +172,36 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
   - 前回監査の「戦闘中は判定しない」は不正確だった。
   - 今回は、テストモードで「ボスの手前」の演出が戦闘中に始まる形で現れた。通常プレイではボスの前に必ず通るので起きない。対処は不要と判断し、記録だけにした。
 - テストモードは `legacyGrowth()` が true で、ボスを倒すとレベルが上がる（測定の通知に出た）。テストモードの仕様どおりで、通常の第一章には影響しない。
+
+## W2-T2 — 現行版のベースライン再測定（2026-10-19）
+
+- Analysis: `.ai/reports/CH1-COMP-W2T2-analysis.md`
+- Report: `.ai/reports/CH1-COMBAT-BASELINE-W2T2.md`、データ `.ai/reports/CH1-COMBAT-BASELINE-W2T2-data.json`
+- Review: `.ai/reports/CH1-COMP-W2T2-review.md`
+
+### Approval
+
+- [x] Approved
+- 種類: Human Approval（依頼文が範囲を明示: 調査・測定・記録・独立レビュー。ゲームのコード・数値は変えない）
+- Approved by / date / where: Human / 2026-10-19 / 会話
+- Persistence: 許可（branch: `claude/ch1-comp-w2t2-baseline-remeasure`）
+
+### Plan（Agent Decision）
+
+- 既存の W2-T1 の spec と報告書は残し、同じ条件の新しい spec を `tools/baseline/` に足す（旧い測定を再現できるように。依頼 §7「履歴を失わせない」）。
+- 通常プレイでボスの前まで歩く自動化はしない（この環境では 1 区画に 40 秒前後。`tests/duskvillage.spec.js` の冒頭）。代わりに、
+  1. テストモードの「HP1 で生存」の最初の記録を「通常プレイなら倒れていた時刻」とする（最初のレベルアップより前なら同じ条件。Analysis §F）。
+  2. 通常プレイの HP・攻撃力は、洋館クリア後のセーブを仕込んで通常 URL で入り、メニューから読む。
+- 戦い方を 2 つ足す: S3T（攻撃の連打。PR #89 の処刑の影響を見る）、S5（ボスの振りかぶりを見て回避 → 向き直って反撃）。
+- 被弾の出どころは、ゲームのコードを変えずには取れない。1 撃の値が出どころごとに違うことを使って推定する（INFERENCE と明記）。
+
+### Files
+
+| ファイル | 変更 |
+| --- | --- |
+| `tools/baseline/ch1-combat-baseline-w2t2.spec.js`（新規） | 6 戦い方 × 2 回。読み取りと入力だけ |
+| `tools/baseline/ch1-normal-play-stats.spec.js`（新規） | 通常プレイの HP・攻撃力をメニューから読む |
+| `.ai/reports/CH1-COMP-W2T2-analysis.md`、`CH1-COMBAT-BASELINE-W2T2.md`、`-data.json`、`CH1-COMP-W2T2-review.md`（新規） | 調査・結果・レビュー |
+| `.ai/tasks/CH1-COMP.md` | W2-T2 の行・Status History・この節 |
+
+変えていないもの: `src/`、`tests/`、`playwright.config.js`、`tools/baseline/` の既存 2 ファイル、`basefile.html`、`.github/`、W2-T1 の報告書とデータ。
