@@ -12,6 +12,8 @@
  *   - メニューのバージョンに build(commit)が出る。公開中の version.json が新しければ 1 回だけ読み直す
  */
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 import { openGame, watchErrors, watchNotifications, notesSince, noteMark, disableCameraAutoFollow,
   attackDownUnlessExecutable, attackUp } from './helpers.js';
 
@@ -134,16 +136,59 @@ test.describe('公開用のビルド(dist)', () => {
     await page.addInitScript(() => {
       Object.defineProperty(window, 'sessionStorage', { get() { throw new Error('blocked'); } });
     });
-    await page.route('**/-ARPG-/version.json*', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ build: 'fffffff' }) }));
+    // 公開の直後に配信が揃わず、version.json が新旧を交互に返す状況も真似る(PR #90 Review Minor 1)
+    const builds = ['fffffff', 'eeeeeee'];
+    let served = 0;
+    await page.route('**/-ARPG-/version.json*', route => {
+      const build = builds[served++ % builds.length];
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ build }) });
+    });
     const navs = [];
     page.on('framenavigated', f => { if (f === page.mainFrame()) navs.push(f.url()); });
     await openGame(page, { base: PROD_BASE, dev: false });
     // 1 回目の起動で新しい build を見て ?build=fffffff へ読み直す → そこでは読み直さない
     await expect.poll(() => navs.length, { timeout: 15_000 }).toBe(2);
     expect(navs[1]).toBe(PROD_BASE + '?build=fffffff');
-    await page.waitForTimeout(4000);
-    expect(navs.length, '同じ build への読み直しは 1 回だけ').toBe(2);
     await page.waitForFunction(() => document.getElementById('title-screen').style.display === 'flex');
+    const servedAfterReload = served;
+    // 印の付いたページでは、アプリへ戻っても version.json を読みに行かず、読み直さない
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForTimeout(4000);
+    expect(navs.length, '読み直しは最大 1 回').toBe(2);
+    expect(served, '印の付いたページでは確かめない').toBe(servedAfterReload);
+  });
+
+  /* PR #90 Review Minor 2: テストモードの職業選択など、タイトル以外の開始前の画面では読み直さない。
+     選びかけの内容が残り、タイトル画面に戻ってからアプリへ戻った時に初めて読み直す */
+  test('タイトル以外の開始前の画面(テストモードの職業選択)では、アプリへ戻っても読み直さない', async ({ page }) => {
+    test.setTimeout(120_000);
+    const real = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'dist/version.json'), 'utf8')).build;
+    let published = real;   // 起動時は同じ build(読み直さない)
+    await page.route('**/-ARPG-/version.json*', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ build: published }) }));
+    const navs = [];
+    page.on('framenavigated', f => { if (f === page.mainFrame()) navs.push(f.url()); });
+    const bootAt = Date.now();
+    await openGame(page, { base: PROD_BASE });   // ?dev=1(テストモードの入口)
+
+    await page.click('#open-testmode-btn');
+    await page.waitForSelector('.class-card[data-key="mage"]');
+    await page.click('.class-card[data-key="mage"]');
+    await expect(page.locator('#testmode-class-grid .class-card[data-key="mage"]')).toHaveClass(/selected/);
+
+    // 新しいビルドが公開された。復帰の確認の間隔(30 秒)を空けてから、アプリへ戻る
+    published = 'fffffff';
+    await page.waitForTimeout(Math.max(0, 36_000 - (Date.now() - bootAt)));
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForTimeout(4000);
+    expect(navs.length, '職業選択の画面では読み直さない').toBe(1);
+    await expect(page.locator('#testmode-screen')).toBeVisible();
+    await expect(page.locator('#testmode-class-grid .class-card[data-key="mage"]'), '選んだ職業が残る').toHaveClass(/selected/);
+
+    // タイトル画面に戻ってからアプリへ戻ると、1 回だけ読み直す
+    await page.click('#testmode-back-btn');
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect.poll(() => navs.length, { timeout: 15_000 }).toBe(2);
+    expect(navs[1]).toBe(PROD_BASE + '?dev=1&build=fffffff');
   });
 });
