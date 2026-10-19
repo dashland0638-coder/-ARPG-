@@ -12,8 +12,8 @@ test('同じ build・開発サーバー・読めない・読み直し済み・�
   assert.equal(buildCheckAction({ localBuild: 'dev', remoteBuild: 'bbbbbbb' }), 'none');
   assert.equal(buildCheckAction({ localBuild: 'aaaaaaa', remoteBuild: null }), 'none');
   assert.equal(buildCheckAction({ localBuild: 'aaaaaaa', remoteBuild: 42 }), 'none');
-  assert.equal(buildCheckAction({ localBuild: 'aaaaaaa', remoteBuild: 'bbbbbbb', reloadedFor: 'bbbbbbb' }), 'none');
-  assert.equal(buildCheckAction({ localBuild: 'aaaaaaa', remoteBuild: 'bbbbbbb', started: true }), 'none');
+  assert.equal(buildCheckAction({ localBuild: 'aaaaaaa', remoteBuild: 'bbbbbbb', reloadedFor: 'bbbbbbb', onTitle: true }), 'none');
+  assert.equal(buildCheckAction({ localBuild: 'aaaaaaa', remoteBuild: 'bbbbbbb', started: true, onTitle: true }), 'none');
   assert.equal(buildCheckAction(), 'none');
 });
 
@@ -28,14 +28,14 @@ test('読み直しの印は URL に持つ。他の検索条件と # は残す', 
   assert.equal(url, 'https://example.test/-ARPG-/?dev=1&build=bbbbbbb#x');
   assert.equal(reloadMarker(new URL(url).search), 'bbbbbbb');
   assert.equal(reloadMarker(''), null);
-  // 上書きする(古い印が残っていても新しい build へ 1 回だけ)
+  // 既に印があっても、新しい印で置き換える(URL の組み立てだけの確認。印のあるページは読み直さない)
   assert.equal(reloadUrl('https://example.test/-ARPG-/?build=aaaaaaa', 'bbbbbbb'), 'https://example.test/-ARPG-/?build=bbbbbbb');
 });
 
 test('読み直しても古いビルドのままなら、印を見て繰り返さない(storage が使えなくても)', () => {
   const remote = 'bbbbbbb';
   const after = reloadMarker(new URL(reloadUrl('https://example.test/-ARPG-/', remote)).search);
-  assert.equal(buildCheckAction({ localBuild: 'aaaaaaa', remoteBuild: remote, reloadedFor: after, started: false }), 'none');
+  assert.equal(buildCheckAction({ localBuild: 'aaaaaaa', remoteBuild: remote, reloadedFor: after, started: false, onTitle: true }), 'none');
 });
 
 /* PR #90 Review Minor 1: 公開の直後に配信が新旧で揃わず、index.html(= 動いている build)と
