@@ -59,6 +59,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 
 - 2026-10-19: W2-D の設計書を作成した（`.ai/reports/CH1-COMBAT-PROTO-design.md`、base `1205665`）。設計のみで、コード・テスト・数値は変えていない。推奨は案 B（読める攻撃表＋支援との連携）。HD-D1〜D6 は Human の判断待ち。
 - 2026-10-19: Human の依頼（「CH1-COMP / W2-D 次工程：現行版ベースライン再測定」）で W2-T2 に着手した（branch `claude/ch1-comp-w2t2-baseline-remeasure`、base `1205665`）。ANALYZING → IMPLEMENTING（測定の spec の追加だけ）→ TESTING（測定 13 件）→ REVIEWING。PR #91（W2-D の設計書）は触っていない。
+- 2026-10-19: W2-T2 独立 Reviewer Round 1・2 は CHANGES_REQUIRED、Round 3 は PASS（.ai/reports/CH1-COMP-W2T2-review.md）。REVIEWING（Reviewer PASS）。
 
 ## Approval（W1-1・W1-3・W2-T1）
 
