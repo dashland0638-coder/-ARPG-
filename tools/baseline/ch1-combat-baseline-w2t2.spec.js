@@ -58,7 +58,9 @@ async function installProbes(page) {
       hits: [],            // [t, 'i'|'a'|'p', 値]  被弾 / 支援 / プレイヤー
       notes: [],           // {t, ch, text}  toast / log / arena
       execWindows: [],     // 攻撃ボタンが「処刑」になった時刻
-      boss: { lastState: null, windup: 0, recovery: 0, chase: 0, transitions: [], seenFrames: 0, frames: 0 },
+      boss: { lastState: null, windup: 0, recovery: 0, chase: 0, transitions: [], seenFrames: 0, frames: 0,
+              staggerMax: 0, staggerFull: [], lastStagger: null },
+      bossHpMax: null,
       hpTrace: [],
       sim: 0, frames: 0, counting: false,
       ctl: null,           // 戦い方の制御(S3T / S5)
@@ -102,13 +104,16 @@ async function installProbes(page) {
       const h = el.innerHTML || '';
       const hp = /HP:\s*(\d+)\s*\/\s*(\d+)/.exec(h);
       const ai = /AI State:\s*([^<]*)/.exec(h);
-      return hp ? { hp: +hp[1], hpMax: +hp[2], ai: ai ? ai[1].trim() : '' } : null;
+      const st = /Stagger:\s*(\d+)\s*\/\s*(\d+)/.exec(h);
+      return hp ? { hp: +hp[1], hpMax: +hp[2], ai: ai ? ai[1].trim() : '', stagger: st ? +st[1] : null, staggerMax: st ? +st[2] : null } : null;
     }
     /* 回避の向き: ボス戦の間はカメラがボスにロックオンし、毎フレーム「ボスの反対側」へ camYaw を
        寄せる(13-update-loop.js updateCamera の findLockOnBoss)。移動はカメラ相対(10-input.js
        inputToWorldDir)なので、S = ボスから離れる向き */
     let last = 0;
     const tick = (now) => {
+      // ボスの最大 HP: 戦闘の前(ボスが最も近い敵)の敵情報から取る
+      if (!B.counting && !B.bossHpMax) { const i0 = readInfo(); if (i0 && i0.hpMax >= 500) B.bossHpMax = i0.hpMax; }
       if (last && B.counting) {
         B.sim += Math.min(0.05, (now - last) / 1000 * 0.25);
         B.frames++;
@@ -124,6 +129,13 @@ async function installProbes(page) {
             else if (st === 'RECOVERY') B.boss.recovery++;
             B.boss.transitions.push([+B.sim.toFixed(2), st]);
             B.boss.lastState = st;
+          }
+          // 体幹(Stagger: 今 / 上限)。上限に届いた = Break(ボスは AI State に出ないので体幹で見る)
+          if (info.stagger != null) {
+            B.boss.staggerMax = Math.max(B.boss.staggerMax, info.stagger);
+            const full = info.stagger >= info.staggerMax;
+            if (full && !(B.boss.lastStagger >= info.staggerMax)) B.boss.staggerFull.push(+B.sim.toFixed(2));
+            B.boss.lastStagger = info.stagger;
           }
         } else if (B.boss.lastState !== null) {
           B.boss.transitions.push([+B.sim.toFixed(2), '(not nearest)']);
@@ -186,7 +198,7 @@ async function clearDialogues(page, quietMs = 4000, maxMs = 120_000) {
 }
 
 /* メニューを開いて HP・攻撃力・クラス(テストモードは Lv つき)を読み、閉じる */
-async function readMenuStats(page) {
+async function readMenuStats(page, startCounting = false) {
   await page.keyboard.press('Escape');
   await expect(page.locator('#menu-overlay')).toHaveClass(/active/, { timeout: 30_000 });
   const s = await page.evaluate(() => ({
@@ -196,7 +208,16 @@ async function readMenuStats(page) {
     cls: document.getElementById('menu-class').textContent,
     potion: (document.getElementById('loot-potion') || {}).textContent || null,
   }));
-  await page.keyboard.press('Escape');
+  if (startCounting) {
+    // 閉じるのと計測の開始を同じ JS の実行の中で行う(間にゲームのフレームを挟まない)
+    await page.evaluate(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape' }));
+      window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Escape', key: 'Escape' }));
+      window.__bl.counting = true;
+    });
+  } else {
+    await page.keyboard.press('Escape');
+  }
   await expect(page.locator('#menu-overlay')).not.toHaveClass(/active/, { timeout: 30_000 });
   return s;
 }
@@ -337,30 +358,25 @@ for (const sKey of ORDER) {
       await expect(page.locator('#hud')).toHaveClass(/active/);
       await expect(page.locator('#minimap-room')).toHaveText('水鏡の跡', { timeout: 60_000 });
 
-      await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
-      expect(await clearDialogues(page), '会話を送り切れること').toBe(true);
-      await disableCameraAutoFollow(page);
-      await expect.poll(async () => (await bossPct(page)).shown, { timeout: 60_000 }).toBe(true);
-
-      // 戦闘の前のプレイヤー(メニューの HP は「今 / 最大」)
-      const statsBefore = await readMenuStats(page);
-      // Arena のパネルと Debug Info を開く(テストモードの表示だけの切り替え。合成クリックでゲームの入力に触れない)
+      // Arena のパネルと Debug Info を先に開く(テストモードの表示だけの切り替え。合成クリックでゲームの入力に触れない)
       await page.evaluate(() => {
         document.getElementById('arena-toggle-btn').click();
         document.getElementById('arena-info-toggle-btn').click();
       });
-      await expect(page.locator('#arena-enemy-info')).toBeVisible();
-      // ボスの最大 HP(ボスに最も近い今、敵情報が出しているのはボス)
-      await expect.poll(() => page.evaluate(() =>
-        /HP:\s*\d+\s*\/\s*(\d+)/.exec(document.getElementById('arena-enemy-info').innerHTML || '')?.[1] || null),
-        { timeout: 30_000 }).not.toBeNull();
-      const bossHpMax = await page.evaluate(() =>
-        +(/HP:\s*\d+\s*\/\s*(\d+)/.exec(document.getElementById('arena-enemy-info').innerHTML)[1]));
+      await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
+      expect(await clearDialogues(page), '会話を送り切れること').toBe(true);
+      await disableCameraAutoFollow(page);
+      await expect.poll(async () => (await bossPct(page)).shown, { timeout: 60_000 }).toBe(true);
+      // ボスの最大 HP(戦闘の前に敵情報から取った値)
+      await expect.poll(() => page.evaluate(() => window.__bl.bossHpMax), { timeout: 60_000 }).not.toBeNull();
+      const bossHpMax = await page.evaluate(() => window.__bl.bossHpMax);
 
+      // 戦闘の前のプレイヤー(メニューの HP は「今 / 最大」)。メニューの間はゲームが止まる。
+      // 閉じた直後に計測を始める(W2-T2 の試走で、閉じてから計測を始めるまでの間に被弾した)
+      const statsBefore = await readMenuStats(page, true);
       midDialogues = [];
       resetDefeatState();
       const real0 = Date.now();
-      await page.evaluate((m) => { window.__bl.bossHpMax = m; window.__bl.counting = true; }, bossHpMax);
 
       const hp = [];
       let sampling = true;
@@ -437,7 +453,8 @@ for (const sKey of ORDER) {
         hits: end.hits,
         executions: end.notes.filter(n => n.ch === 'arena' && n.text.startsWith('EXECUTION')).map(n => n.t),
         executeWindows: end.execWindows,
-        bossAi: { windup: end.boss.windup, recovery: end.boss.recovery, seenFrames: end.boss.seenFrames, frames: end.boss.frames, transitions: end.boss.transitions },
+        bossAi: { windup: end.boss.windup, recovery: end.boss.recovery, seenFrames: end.boss.seenFrames, frames: end.boss.frames,
+          staggerMax: end.boss.staggerMax, staggerFullAt: end.boss.staggerFull, transitions: end.boss.transitions },
         control: end.ctlLog,
         hpTrace: end.hpTrace,
         notes: end.notes,
