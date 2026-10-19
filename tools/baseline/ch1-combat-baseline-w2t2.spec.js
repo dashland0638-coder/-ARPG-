@@ -284,7 +284,7 @@ async function waitUntilDone(page, deadline) {
 const setCtl = (page, ctl) => page.evaluate((c) => { window.__bl.ctl = c; }, ctl);
 
 const STRATEGIES = {
-  S1: { name: '逃げ回り', policy: '攻撃しない。ボスの周りを x ±12・z 506〜530 の長方形で回り続ける(W2-T1 と同じ)',
+  S1: { name: '逃げ回り', policy: '攻撃しない。S 9m → D 12m → (W 24m → A 24m → S 24m → D 24m)の繰り返し(W2-T1 と同じ入力)。ボス戦はカメラがボスにロックオンするので、実際の動きはボス基準(S = 離れる、W = 近づく、A / D = 横)で、W2-T1 の想定した長方形ではない',
     async run(page, deadline) {
       await holdForSim(page, 'KeyS', legSim(9), deadline);
       await holdForSim(page, 'KeyD', legSim(12), deadline);

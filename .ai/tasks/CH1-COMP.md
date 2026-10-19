@@ -205,3 +205,24 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 | `.ai/tasks/CH1-COMP.md` | W2-T2 の行・Status History・この節 |
 
 変えていないもの: `src/`、`tests/`、`playwright.config.js`、`tools/baseline/` の既存 2 ファイル、`basefile.html`、`.github/`、W2-T1 の報告書とデータ。
+
+### Test Report（W2-T2）
+
+- Scope: Targeted。ゲームのコードを変えていないので、測定と、変えていないことの確認だけ。
+- Environment: この環境の Playwright 1.62.1 は同梱の Chromium を起動できないため、`executablePath`（`/opt/pw-browsers/chromium-1194`）と workers だけを scratchpad の設定で指定した（リポジトリの設定は変えていない）。
+
+| テスト | 対象 | 結果 | メモ |
+| --- | --- | --- | --- |
+| 測定 `tools/baseline/ch1-combat-baseline-w2t2.spec.js`（S1〜S5 × 2）＋ `ch1-normal-play-stats.spec.js` | `1205665` ＋ spec | 13 passed（1.9h、workers 2） | 結果は `.ai/reports/CH1-COMBAT-BASELINE-W2T2.md` |
+| 同上の S5 × 2（回避の後に向き直る手順を足した版） | 同上 | 2 passed（12 分） | 初版の S5 は報告書 §4.4 の S5x として残した |
+| `npm run build` | 作業ブランチ | PASS | chunk size の警告のみ（従来どおり） |
+| `npm run test:unit` | 作業ブランチ | pass 1877 / fail 0 / skipped 1 | skip は従来からの 1 件 |
+| `npx playwright test --list` | 作業ブランチ | 296 件。`tools/baseline/` の spec は 0 件 | 通常の E2E・CI に測定が入らない |
+| `git diff origin/main -- src tests playwright.config.js basefile.html .github` | 作業ブランチ | 差分なし | ゲームのコード・テスト・設定を変えていない |
+| E2E 全件 | ― | NOT_RUN | ゲームのコードを変えていないため（依頼「測定に必要なテスト以外のフル E2E は無理に実行しない」） |
+
+試走で見つけて直したもの（本測定の前。Auto Fix には数えない）:
+1. メニューを閉じてから計測を始めるまでの間に被弾し、累計がずれた → 閉じるのと計測の開始を同じ JS の実行にした。
+2. Break を数える手段が無かった（#89 でトーストが無くなった）→ ボスの体幹（Debug Info）と攻撃ボタンの「処刑」で数える。
+3. S5 の回避の向き → ボス戦のカメラのロックオンに合わせて S（ボスから離れる）にした。
+4. S5 で回避の後に体がボスと逆を向き、反撃が当たらなかった → 向き直る手順を足して測り直した（初版の値は補足として残した）。
