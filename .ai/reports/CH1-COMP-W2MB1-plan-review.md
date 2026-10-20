@@ -173,3 +173,76 @@ Round 1 の R1〜R3 は解消されている（中断の表 §1b、優先順 §1
 - O3: 浮きでの取り消しは P07`:1031-1039` の分岐で行う（P11-combat-actions は変えない）と行番号を書くと、変更ファイルの表と一致することがはっきりする。大怯みは一時停止なのに浮きは取り消す、という差の理由（浮き = 体ごと持ち上がるので輪を残さない、など）も一言あるとよい。
 - O4: E2E 2 は、回避ではなく歩いて 2.3 の外へ出る、または `MISS` の記録に理由（`out of range` / `invulnerable`）を付けて区別すると、「範囲の外なら当たらない」を E2E でも示せる。
 - O5: 足元の輪と内側の円を 2 つのメッシュにするなら、`en.meleeTelegraphMesh` を `THREE.Group` にして両方を子にする、と書くと既存の 3 か所の後片付けがそのまま効く。
+
+## Round 3/3
+
+### Review Target
+
+| 項目 | 値 |
+| --- | --- |
+| Task ID | CH1-COMP W2-MB1（`.ai/tasks/CH1-COMP-W2MB1.md`） |
+| Branch | `claude/ch1-comp-w2-mb1-plan` |
+| Reviewed SHA | `f943203` |
+| Diff range | `origin/main...HEAD`（`8fd69cb...f943203`） |
+| Handoff Verification | `git diff --stat origin/main...HEAD` は 5 ファイル（`.ai/reports/CH1-COMP-W2MB1-plan-review.md`・`.ai/tasks/CH1-COMP-W2MB1.md`・`CH1-COMP.md`・`CH1-COMP-W24a.md`・`CH1-COMP-W2MB.md`）。`git diff origin/main HEAD -- src` は空（`tests/` の変更も無し）。基準 `8fd69cb` の P07 を直接読んで確認した |
+| Plan Source | `.ai/tasks/CH1-COMP-W2MB1.md` @ `f943203`（§1b に毎フレームの置き直し・Group、受け入れ基準 3、Round 2 Fix を追加） |
+
+### Result
+
+**PASS**
+
+Round 2 の R1（足元の輪の中心と判定の中心）は解消されている: 中心は毎フレーム `en.group.position` に置き直し、判定は溜めの終わりの漁師の位置から測る、と 1 通りに決まり（§1b）、受け入れ基準 3 に中心の一致と確かめ方がある。Round 2 の任意の指摘 O1〜O5 もすべて反映されている。新しく足された FACT・行番号はコードと一致し、置き直しは実装として成り立つ（下の F5）。各節の間に矛盾は無い。
+
+### Independence
+
+別 Agent・同一セッションの Orchestrator が起動。Round 2 の指摘の確認だけでなく、計画の全節を `8fd69cb` のコードに当てて読み直した（計画作成者の判断過程は入力にしていない。Human による差分の確認を推奨）。
+
+### Checklist
+
+| # | 項目 | 結果 | 根拠 |
+| --- | --- | --- | --- |
+| 1 | Specification compliance | OK | 近接の予備動作（溜め 0.5 秒・体の沈み込み）、足元の予兆（半径 2.3 の輪＋満ちる円、中心は毎フレーム追従）、網の輪の外周を 2.7 に固定、iPhone は実機確認、数値の不変を unit・E2E で確かめる ―― Human の指示をすべて網羅 |
+| 2 | Scope compliance | OK | 変更は `.ai/` の 5 ファイルのみ。計画上の変更ファイルも漁師（`updateFisherAI`・網）に限られ、水門守・他の敵・`basefile.html`・連結構成・セーブ・進行・成長は「変えない」と明記 |
+| 3 | Regression | N/A | コード変更なし。回帰の一覧（unit 全件、`punish-window`・`enemy-tier`、E2E 11 本、CI）は妥当 |
+| 4 | Build | N/A | 同上 |
+| 5 | Unit tests（計画） | OK | 1〜7 で時間・範囲・倍率・1 回だけの判定・溜めの終わりの距離・網の輪の半径・優先順・中断を固定できる |
+| 6 | E2E tests（計画） | OK | §1c の記録（`WINDUP`/`HIT`/`MISS (out of range)`/`MISS (dodged)`/`CANCEL`、網の `THROW`/`ARM`/`BURST`）と `.dmg-pop.incoming` で、W2-4a の spec と同じ方法で観測できる。E2E 2 は歩いて範囲の外へ出る形になり、回避との区別も付いた |
+| 7 | Save/Load integrity | OK | 追加は敵の一時状態と表示だけ。`09-save-load.js` は変えない |
+| 8 | Existing behavior（開示） | OK | 当たる時刻の +0.5 秒の遅れ（§1c 直下・リスク・iPhone 確認 4）、近接の後の 0.45 秒の停止（網の後は変えない）を意図した変更として記載 |
+| 9 | Rule 0 | OK | 表示の持ち主は既存の `en.meleeTelegraphMesh`（撃破 P07`:5461`・Clear P07`:815`・世界の破棄 P02`:348` の後片付けに乗る）。Group にしても `scene.remove` / `visible=false` はそのまま効く |
+| 10 | Unnecessary architecture changes | OK | 純粋関数は `core/memory-fisher.js`、表示と副作用は P07、`concat-plugin.js` は import の追加だけ |
+| 11 | 内部の整合 | OK | 実装方針の表・§1a〜§1c・変更ファイル・unit 1〜7・E2E 1〜4・受け入れ基準 1〜10・リスク・HD-MB1-1〜3・Rollback・Round 1/2 Fix が一致（例: 停止は「近接の後だけ」が方針・基準 6・リスクで共通、ダウン・再出現で停止を 0 に戻すのが §1b の表と Round 2 Fix で共通、浮きの取り消し位置 P07`:1031-1039` が §1b と変更ファイルの表で共通） |
+| 12 | 計画のみ・誠実さ | OK | Status PLANNED、Approval 未チェック、iPhone は「Human の実機確認（自動テストでは確かめない）」、受け入れ基準 3 の E2E が難しい場合の扱いも開示、実装は未着手（`src`・`tests` の差分なし） |
+
+### FACT verification（`8fd69cb`、Round 2 で足された記述）
+
+| # | 計画の記述 | コード | 判定 |
+| --- | --- | --- | --- |
+| F1 | ノックバックの設定 P07`:5279-5289` | `:5280` `if(!en.isBoss && !en.knockedDown && !isAlly && !en.turret)` 〜 `:5289`（`knockbackVel = min(9, 3+kbWeight*2.4)`、`knockbackDur = 0.18`）。`:5279` は直前のコメント行 | OK |
+| F2 | ノックバックは P07`:1008-1017` で AI・大怯みより前に動く | `:1008` `if(en.knockbackT > 0 && !en.knockedDown)` で `en.group.position` を直接ずらす。浮き `:1031`、大怯み `:1046`、AI の呼び出し `:1052-` より前 | OK |
+| F3 | 浮き P07`:1031-1039` で AI が止まる | `:1031` `if((en.liftPeak||0) > 0 && !en.knockedDown)`、`:1038` `return; // 浮いている間は通常AIを止める` | OK |
+| F4 | 大怯み: `stunT` を立てるのは P07`:4974`、止めるのは P07`:1046-1050` | `:4974` `en.stunT = Math.max(en.stunT || 0, stunSec)`、`:1046-1050` で減算して `return` | OK |
+| F5 | AI が止まっている間も毎フレーム置き直せる（表示の更新は AI とは別） | 実現できる。浮き（`:1036`）・大怯み（`:1048`）の分岐はどちらも `return` の前に `updateMobAnim(en, dt)` を呼び、通常の経路も最後に `updateMobAnim`（`:1068`）を呼ぶ。また置き直しをノックバックの後・浮きの分岐の前（`:1018-1030` の間）に置くこともできる。どちらでも、`updateFisherAI`（`:1063`）の判定より後にずれる要素は無い（溜めの間 AI は動かさない）。ダウンの分岐（`:937-969`）はこれより前で return するが、§1b でダウンは表示を消すので問題ない。撃破後は `:848` の分岐で本体に来ないが、撃破で `visible=false`（`:5461`） | OK |
+| F6 | 表示を Group にする | `updateMansionMeleeTelegraph` の前例は `scene.add(m)` で scene 直下（`:1332`）、毎フレーム `m.position.set(x, gy+0.14, z)` で置き直す（`:1342-1345`）。同じ作法で Group の位置を置き直せる | OK |
+| F7 | `MISS (dodged)` = 回避の無敵で素通り | 今の近接（`:3049-3058`）は `state.invulnerable \|\| paralyzeInvulnT > 0` で `tryPerfectDodge` へ、それ以外で `tryConsumeOrbShield` → ダメージ。範囲外は `distToPlayer < 2.3` の条件で判定自体が起きない。記録の分け方はこの分岐と対応する | OK |
+| F8 | 網の輪を縮める行 `:2963`、近接 `:3048-3060`、網の後の `postAtkRecoveryT` `:3029` | 一致（`n.ring.scale.setScalar(1 - step.progress*0.28)`、`meleeCD = 2.2`、`round(en.atk*0.7)`） | OK |
+
+Round 1・2 で確認した F1〜F16（網・近接・ダウン・浮き・大怯み・再出現・後片付け・`emitArenaFeedback`）は `8fd69cb` から変わっていないことを確認した（`src` の差分なし）。
+
+### Risks（Reviewer の観点。計画を止めるものではない）
+
+| リスク | 内容 |
+| --- | --- |
+| 受け入れ基準 3 の E2E | 溜めの 0.5 秒の間に漁師を殴って滑らせ、判定と輪の内外を比べる E2E は時刻の揺れで不安定になりうる。計画どおり、難しければコードの確認とし Review の Risks に残すこと |
+| 浮きの間の位置 | 浮きの分岐は `en.group.position.y` を持ち上げる（`:1037`）。浮きでは表示を消すので影響は無いが、実装で置き直しを `updateMobAnim` に置く場合は、取り消しより前に高さを拾わないこと |
+| 体感の難しさ | 当たる時刻が 0.5 秒遅れ、近接の後に 0.45 秒止まる。開示済み。iPhone 実機で「易しすぎないか」を見る |
+
+### Required Changes
+
+None
+
+### Optional
+
+- O1: §1c の判定の記録に、オーブシールドで防いだ場合（今の `tryConsumeOrbShield`）の名前が無い。`HIT (shield)` などを足すか、`HIT` に含めると書くと E2E の解釈が揺れない（E2E は ★1 の Arena でシールドを持たない前提なので、実害は小さい）。
+- O2: 置き直しの場所を「`updateMobAnim` の経路」または「ノックバックの後・浮きの分岐の前」と 1 つ書いておくと、実装者が迷わない（どちらでも成り立つ。F5）。
+- O3: 受け入れ基準 3 の E2E を見送った場合に代わりとなる unit（例: 中心を引数で受け取る純粋関数で、溜めの終わりの位置と表示の中心が同じ値になること）があると、コードの確認だけに頼らずに済む。
