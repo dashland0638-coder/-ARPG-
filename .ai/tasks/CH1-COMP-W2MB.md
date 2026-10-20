@@ -2,7 +2,7 @@
 
 親 Task: [`CH1-COMP.md`](CH1-COMP.md)（Work Item W2-MB。Status と Approval の正本は親の Work Items 表）
 
-Status: PR_OPEN（PR #93）
+Status: DONE（PR #93 merged `8fd69cb`）
 
 Analysis: `.ai/reports/CH1-COMP-W2MB-analysis.md`（branch `claude/ch1-comp-dusk-midboss-investigation`）
 

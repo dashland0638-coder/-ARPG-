@@ -2,7 +2,7 @@
 
 親 Task: [`CH1-COMP.md`](CH1-COMP.md)（Work Item W2-4a。Status と Approval の正本は親の Work Items 表）
 
-Status: PR_OPEN（PR #94。Escalation E-1: Review Fix Loop の上限）
+Status: DONE（PR #94 merged `1801f05`。Human の受け入れ確認で ACCEPT。iPhone 実機確認は HUMAN DEVICE CHECK REQUIRED）
 
 Analysis: `.ai/reports/CH1-COMP-W24a-analysis.md`（branch `claude/ch1-comp-w2-4a-phase-burst-telegraph`）
 
