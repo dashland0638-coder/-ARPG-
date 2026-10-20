@@ -37,7 +37,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 | 2 | W1-3 | 通常コンボの「✨ フィニッシュ!」を出さない（重要な通知は残す） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
 | 3 | W2-T1 | 戦闘改修前のベースライン測定（宵待ちの村のボス戦） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
 | 4 | W2-D | 村のボス戦の試作の設計（数値・仕組みの提案） | P1 | DESIGN（`.ai/reports/CH1-COMBAT-PROTO-design.md`。Human の判断待ち） | [ ] Human の承認が必要 | W2-T1 |
-| 4c | W2-MB | 宵待ちの村のボス直前の中ボス（記憶漁師・水門守の残響）の攻撃の分かりにくさの調査（調査のみ。`CH1-COMP-W2MB.md`） | P1 | REVIEWING | [x] Human 2026-10-20（依頼文） | ― |
+| 4c | W2-MB | 宵待ちの村のボス直前の中ボス（記憶漁師・水門守の残響）の攻撃の分かりにくさの調査（調査のみ。`CH1-COMP-W2MB.md`） | P1 | PR_OPEN（Reviewer PASS。PR #93。実装は Human の承認待ち） | [x] Human 2026-10-20（依頼文） | ― |
 | 5 | W0-5 | アートの完成見本の提示（見本の制作は村のボス戦に限り HD-4 の範囲。実装の開始は指示待ち。画像と全マップ展開は Human の承認が必要） | P2 | PLANNED | [ ] Human の承認が必要 | W0-3, W3-0（制作: W2-2・W3-1・W3-2 の村の範囲） |
 | 5 | W0-6 | 出撃会話の台詞の候補の提示 | P1 | PLANNED | [ ] Human の承認が必要 | ― |
 | 6 | W1-2, W1-4, W1-5, W2-1a〜W2-6, W3, W4, W5 | 計画のとおり | ― | PLANNED | 承認後に個別の Task にする | 計画を参照 |
@@ -61,6 +61,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 - 2026-10-20: Human の依頼（「ボス爆発予兆の実装＋宵待ちの村の中ボス調査」の Work B）で W2-MB の調査を行った（branch `claude/ch1-comp-dusk-midboss-investigation`、base `29c94da`）。調査のみ。ANALYZING → REVIEWING。
 - 2026-10-20: W2-MB 独立 Reviewer Round 1: CHANGES_REQUIRED（.ai/reports/CH1-COMP-W2MB-review.md。FACT の誤り 4 件。結論は不変）。
 - 2026-10-20: W2-MB 独立 Reviewer Round 1・2 は CHANGES_REQUIRED、Round 3 は PASS（.ai/reports/CH1-COMP-W2MB-review.md）。REVIEWING（Reviewer PASS）。
+- 2026-10-20: W2-MB の PR #93 を作成した。REVIEWING → PR_OPEN。
 
 ## Approval（W1-1・W1-3・W2-T1）
 

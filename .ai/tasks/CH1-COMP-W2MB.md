@@ -2,7 +2,7 @@
 
 親 Task: [`CH1-COMP.md`](CH1-COMP.md)（Work Item W2-MB。Status と Approval の正本は親の Work Items 表）
 
-Status: REVIEWING
+Status: PR_OPEN（PR #93）
 
 Analysis: `.ai/reports/CH1-COMP-W2MB-analysis.md`（branch `claude/ch1-comp-dusk-midboss-investigation`）
 
@@ -50,3 +50,14 @@ Analysis: `.ai/reports/CH1-COMP-W2MB-analysis.md`（branch `claude/ch1-comp-dusk
 
 1. 水門守の残響の「最大 4 つが重なる（12.6%）」を直した。上限には当たらない歩いた跡も数え、同時に当たりうる残響は 1 つまで（約 3%）（報告書 §4.2・§6 #6）。
 2. 任意の指摘: `warden-echo.js` の行番号を `:39-49` に直した。
+
+## Autonomy Metrics
+
+| 項目 | 値 |
+| --- | --- |
+| Human Escalation Count | 0 |
+| Human Decision Count | 0 |
+| Auto Fix Count | 2（Review Fix Loop の Round 1・2） |
+| Reviewer Round Count | 3 |
+| Test Retry Count | 0 |
+| PR Created | Yes（#93） |
