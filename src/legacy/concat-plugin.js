@@ -103,6 +103,10 @@ import {
 } from '../core/chapter1-rules.js';
 // 帰還と交代の一幕(CH1-EXP X-5)
 import { retiredCastKeys } from '../core/chapter1-rules.js';
+import {
+  PHASE_BURST_TELEGRAPH_SEC, phaseBurstTelegraphed,
+  createPhaseBurstQueue, enqueuePhaseBurst, advancePhaseBurst, cancelPhaseBurst,
+} from '../core/phase-burst.js';
 import { devUiEnabled, uiProtoEnabled } from '../core/dev-ui.js';
 import { uiProtoIcon, uiProtoWeaponIcon } from '../core/ui-proto-icons.js';
 import {

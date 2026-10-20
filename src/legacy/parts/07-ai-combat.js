@@ -1075,6 +1075,9 @@
        過去はそのまま終わりまでなぞる ―― 撃破の瞬間に消えると、
        「過去がそこに残っている」という読みのほうが崩れる */
     if(keeperEchoes.length) updateKeeperEchoes(dt);
+    /* 段階移行の爆発の予兆も敵とは別に進む(CH1-COMP W2-4a)。ボスがダウンしている間も
+       円は満ちていき、満ちた瞬間に爆発する(表示と爆発の時刻をずらさない) */
+    if(bossPhaseBursts.length) updateBossPhaseBursts(dt);
   }
 
 
@@ -4657,7 +4660,17 @@
     en.body.material.emissiveIntensity = Math.min(1, (en.body.material.emissiveIntensity||0.2) + 0.25);
     applyBossPhaseVisual(en, phase);   // Phase C(#36): ボスごとの変質演出(06-player-enemy.js)
 
-    const burstRadius = 4.5;
+    /* 宵待ちの村のボスだけ、爆発の前に予兆を出す(CH1-COMP W2-4a、core/phase-burst.js)。
+       爆発そのもの(半径・ダメージ・判定)は detonateBossPhaseBurst のまま。
+       ほかのボスは今までどおり、段階が変わった瞬間に爆発する */
+    if(phaseBurstTelegraphed(en.key)){ queueBossPhaseBurst(en); return; }
+    detonateBossPhaseBurst(en);
+  }
+
+  /* 段階移行の爆発。半径 4.5、攻撃力 ×0.9、ボスとの距離で当たる(以前の
+     triggerBossPhaseSkill の後半をそのまま移した。数値・判定は変えていない) */
+  function detonateBossPhaseBurst(en){
+    const burstRadius = PHASE_BURST_RADIUS;
     const d = state.pos.distanceTo(en.group.position);
     if(d < burstRadius && !state.invulnerable && state.paralyzeInvulnT<=0){
       if(!tryConsumeOrbShield()){
@@ -4675,6 +4688,95 @@
     }
     sfx('ultimate'); addShake(0.22);
     spawnUltimateVFX(en.group.position.clone(), {radius:burstRadius, vfxColor: en.baseColor});
+    return d < burstRadius;
+  }
+  const PHASE_BURST_RADIUS = 4.5;
+
+  /* ---- 段階移行の爆発の予兆(CH1-COMP W2-4a) ----
+     足元に爆発と同じ半径の円を出し、内側の円が 0.8 秒かけて満ちる。満ちきった瞬間に
+     爆発する(core/phase-burst.js)。その間ボスは光を脈打たせる。
+     円はボスの足元に付いていき、爆発もその時のボスの位置で起きる(見えている円の中が当たる)。
+     網・残響と同じく、敵の更新とは別に進める(updateEnemies の最後)。ボスが崩れて
+     ダウンしている間も予兆は進み、表示と爆発の時刻がずれない。
+     ボスの撃破・戦闘の仕切り直し(戦闘不能)・場所の移動では、爆発させずに捨てる。 */
+  const PHASE_BURST_COLOR = 0xff7a4a;   // 夜の村の青い床の上で目立つ暖色(危険の色)
+  let bossPhaseBursts = [];   // {en, queue, fill, ring, fillMat, ringMat, baseEmissive}
+
+  function queueBossPhaseBurst(en){
+    let b = bossPhaseBursts.find(x=> x.en === en);
+    if(!b){ b = {en, queue:createPhaseBurstQueue()}; bossPhaseBursts.push(b); }
+    if(enqueuePhaseBurst(b.queue) === 'start') beginPhaseBurstTelegraph(b);
+  }
+
+  function beginPhaseBurstTelegraph(b){
+    const en = b.en;
+    removePhaseBurstMeshes(b);
+    // 外周の輪: 爆発の半径そのもの。最初からはっきり見せる(どこまで離れれば安全か)
+    b.ringMat = new THREE.MeshBasicMaterial({color:PHASE_BURST_COLOR, transparent:true, opacity:0.85,
+                  side:THREE.DoubleSide, depthWrite:false});
+    b.ring = new THREE.Mesh(new THREE.RingGeometry(PHASE_BURST_RADIUS - 0.22, PHASE_BURST_RADIUS, 48), b.ringMat);
+    b.ring.rotation.x = -Math.PI/2;
+    // 内側の円: 0 から爆発の半径まで満ちる(いつ爆発するか)
+    b.fillMat = new THREE.MeshBasicMaterial({color:PHASE_BURST_COLOR, transparent:true, opacity:0.22,
+                  side:THREE.DoubleSide, depthWrite:false});
+    b.fill = new THREE.Mesh(new THREE.CircleGeometry(PHASE_BURST_RADIUS, 40), b.fillMat);
+    b.fill.rotation.x = -Math.PI/2;
+    b.fill.scale.setScalar(0.001);
+    scene.add(b.ring); scene.add(b.fill);
+    b.baseEmissive = en.body && en.body.material ? en.body.material.emissiveIntensity : null;
+    placePhaseBurstMeshes(b, 0);
+    sfx('castAim');
+    emitArenaFeedback('PHASE BURST', `TELEGRAPH ${PHASE_BURST_TELEGRAPH_SEC.toFixed(1)}s r${PHASE_BURST_RADIUS}`);
+  }
+
+  function placePhaseBurstMeshes(b, k){
+    const p = b.en.group.position;
+    const gy = groundSlabs.length ? (groundYAt(p.x, p.z, p.y) || 0) : 0;
+    b.ring.position.set(p.x, gy + 0.16, p.z);
+    b.fill.position.set(p.x, gy + 0.15, p.z);
+    b.fill.scale.setScalar(Math.max(0.001, k));
+    b.fillMat.opacity = 0.22 + k*0.33;
+    // 満ちる直前ほど輪が速く明滅する
+    b.ringMat.opacity = 0.6 + 0.35*Math.abs(Math.sin(k*k*Math.PI*6));
+    const mat = b.en.body && b.en.body.material;
+    if(mat && b.baseEmissive != null) mat.emissiveIntensity = Math.min(1.4, b.baseEmissive + 0.5*k + 0.25*Math.abs(Math.sin(k*Math.PI*5)));
+  }
+
+  function removePhaseBurstMeshes(b){
+    if(b.ring){ scene.remove(b.ring); b.ring.geometry.dispose(); b.ringMat.dispose(); b.ring = null; }
+    if(b.fill){ scene.remove(b.fill); b.fill.geometry.dispose(); b.fillMat.dispose(); b.fill = null; }
+    const mat = b.en.body && b.en.body.material;
+    if(mat && b.baseEmissive != null) mat.emissiveIntensity = b.baseEmissive;
+    b.baseEmissive = null;
+  }
+
+  function updateBossPhaseBursts(dt){
+    for(let i=bossPhaseBursts.length-1;i>=0;i--){
+      const b = bossPhaseBursts[i];
+      const en = b.en;
+      // 倒した・戦闘が仕切り直された(戦闘不能でボスが元へ戻る)なら爆発させずに捨てる
+      if(en.dead || !en.triggered){
+        cancelPhaseBurst(b.queue);
+        removePhaseBurstMeshes(b);
+        bossPhaseBursts.splice(i, 1);
+        continue;
+      }
+      const r = advancePhaseBurst(b.queue, dt);
+      if(r.fired){
+        removePhaseBurstMeshes(b);
+        const hit = detonateBossPhaseBurst(en);
+        emitArenaFeedback('PHASE BURST', hit ? 'DETONATE (in range)' : 'DETONATE (out of range)');
+        if(r.started) beginPhaseBurstTelegraph(b);
+      } else if(r.progress != null && b.ring){
+        placePhaseBurstMeshes(b, r.progress);
+      }
+      if(!b.queue.active){ removePhaseBurstMeshes(b); bossPhaseBursts.splice(i, 1); }
+    }
+  }
+
+  function clearBossPhaseBursts(){
+    bossPhaseBursts.forEach(b=>{ cancelPhaseBurst(b.queue); removePhaseBurstMeshes(b); });
+    bossPhaseBursts = [];
   }
 
   // a boss enemy can't be hit at all while its room door is still closed -
