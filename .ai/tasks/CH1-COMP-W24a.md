@@ -112,3 +112,14 @@ Analysis: `.ai/reports/CH1-COMP-W24a-analysis.md`（branch `claude/ch1-comp-w2-4
 | `npm run build` | PASS |
 | `npm run test:unit` | pass 1892 / fail 0 / skipped 1 |
 | E2E（`dusk-boss-phase-burst`、`duskvillage`、`execution-break`、`chapter1-progression`） | 19 passed（8.0 分） |
+
+## Round 2 の後の修正（Round 2 は PASS。任意の指摘のうち、自分が持ち込んだ不具合 2 件を直した）
+
+1. 発光の扱い: 予兆の脈動を、開始時の値を覚えて戻す方式から、「そのフレームに足すだけ」に変えた。交戦中の敵の発光は視界の処理（`updateEnemyVisibility` の戦闘時ハイライト、P07`:4249-4259`）が毎フレーム書き直しているため、戻す処理は要らない。ハイライトが書き直していないフレーム（`en.hlOn` でない）は足さない（溜まらない）。段階移行の発光の上乗せ（+0.25）を消していた件は、もともとハイライトが毎フレーム上書きしており、この変更の前からの挙動（変えていない）。
+2. 予兆の爆発でプレイヤーが戦闘不能になったとき、`triggerPlayerDown` が予兆を捨てた後に、待っていた次の予兆を作り直して音が鳴っていた → 爆発の後に予兆が捨てられていれば次を始めない。
+
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit` | pass 1892 / fail 0 / skipped 1 |
+| E2E（`dusk-boss-phase-burst`、`execution-break`、`duskvillage`） | 8 passed（4.3 分） |
