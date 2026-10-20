@@ -2,7 +2,7 @@
 
 親 Task: [`CH1-COMP.md`](CH1-COMP.md)（Work Item W2-4a。Status と Approval の正本は親の Work Items 表）
 
-Status: REVIEWING
+Status: PR_OPEN（PR #94。Escalation E-1: Review Fix Loop の上限）
 
 Analysis: `.ai/reports/CH1-COMP-W24a-analysis.md`（branch `claude/ch1-comp-w2-4a-phase-burst-telegraph`）
 
@@ -137,3 +137,14 @@ Analysis: `.ai/reports/CH1-COMP-W24a-analysis.md`（branch `claude/ch1-comp-w2-4
 | `npm run build` | PASS |
 | `npm run test:unit` | pass 1892 / fail 0 / skipped 1 |
 | E2E（`dusk-boss-phase-burst`、`execution-break`） | 4 passed（3.1 分） |
+
+## Autonomy Metrics
+
+| 項目 | 値 |
+| --- | --- |
+| Human Escalation Count | 1（E-1: Review Fix Loop の上限。PR #94 と最終報告で報告） |
+| Human Decision Count | 0 |
+| Auto Fix Count | 3（Round 1 Fix、Round 2 PASS の後の修正、Round 3 Fix） |
+| Reviewer Round Count | 3 |
+| Test Retry Count | 0 |
+| PR Created | Yes（#94） |

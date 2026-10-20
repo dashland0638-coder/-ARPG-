@@ -37,7 +37,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 | 2 | W1-3 | 通常コンボの「✨ フィニッシュ!」を出さない（重要な通知は残す） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
 | 3 | W2-T1 | 戦闘改修前のベースライン測定（宵待ちの村のボス戦） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
 | 4 | W2-D | 村のボス戦の試作の設計（数値・仕組みの提案） | P1 | DESIGN（`.ai/reports/CH1-COMBAT-PROTO-design.md`。Human の判断待ち） | [ ] Human の承認が必要 | W2-T1 |
-| 4b | W2-4a | 村のボスの段階移行の爆発に予兆（0.8 秒・足元の円）を付ける（`CH1-COMP-W24a.md`。残響の円は含めない） | P1 | PR_OPEN（Review Fix Loop の上限に到達。Round 3 の指摘は Round 2 PASS のコードへ戻して解消。Human 確認待ち。実機確認は HUMAN DEVICE CHECK REQUIRED） | [x] Human 2026-10-20（依頼文） | W2-D |
+| 4b | W2-4a | 村のボスの段階移行の爆発に予兆（0.8 秒・足元の円）を付ける（`CH1-COMP-W24a.md`。残響の円は含めない） | P1 | PR_OPEN（PR #94。Review Fix Loop の上限に到達。Round 3 の指摘は Round 2 PASS のコードへ戻して解消。Human 確認待ち。実機確認は HUMAN DEVICE CHECK REQUIRED） | [x] Human 2026-10-20（依頼文） | W2-D |
 | 5 | W0-5 | アートの完成見本の提示（見本の制作は村のボス戦に限り HD-4 の範囲。実装の開始は指示待ち。画像と全マップ展開は Human の承認が必要） | P2 | PLANNED | [ ] Human の承認が必要 | W0-3, W3-0（制作: W2-2・W3-1・W3-2 の村の範囲） |
 | 5 | W0-6 | 出撃会話の台詞の候補の提示 | P1 | PLANNED | [ ] Human の承認が必要 | ― |
 | 6 | W1-2, W1-4, W1-5, W2-1a〜W2-6, W3, W4, W5 | 計画のとおり | ― | PLANNED | 承認後に個別の Task にする | 計画を参照 |
