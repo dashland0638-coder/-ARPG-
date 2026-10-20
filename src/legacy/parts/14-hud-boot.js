@@ -2188,6 +2188,7 @@
     clearPhantomDecoys();
     clearMemoryNets();
     clearKeeperEchoes();
+    clearBossPhaseBursts();
     state.attackSnapshot = null;
     if(state.posHistory) state.posHistory.length = 0;
     repositionAlliesToPlayer();
