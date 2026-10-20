@@ -115,7 +115,7 @@ Analysis: `.ai/reports/CH1-COMP-W24a-analysis.md`（branch `claude/ch1-comp-w2-4
 
 ## Round 2 の後の修正（Round 2 は PASS。任意の指摘のうち、自分が持ち込んだ不具合 2 件を直した）
 
-1. 発光の扱い: 予兆の脈動を、開始時の値を覚えて戻す方式から、「そのフレームに足すだけ」に変えた。交戦中の敵の発光は視界の処理（`updateEnemyVisibility` の戦闘時ハイライト、P07`:4249-4259`）が毎フレーム書き直しているため、戻す処理は要らない。ハイライトが書き直していないフレーム（`en.hlOn` でない）は足さない（溜まらない）。段階移行の発光の上乗せ（+0.25）を消していた件は、もともとハイライトが毎フレーム上書きしており、この変更の前からの挙動（変えていない）。
+1. ~~発光の扱いの変更~~（**誤りだった。Round 3 で指摘され、元に戻した**）。予兆の脈動を「そのフレームに足すだけ」に変えたが、ボスは `updateEnemyVisibility` の先頭で抜けるので戦闘時ハイライトが走らず（`en.hlOn` は常に未設定）、脈動が一度も出なくなっていた。「段階移行の +0.25 はハイライトが毎フレーム上書きしていた」という記述も誤りだった（ボスの発光を毎フレーム書く処理は無い）。
 2. 予兆の爆発でプレイヤーが戦闘不能になったとき、`triggerPlayerDown` が予兆を捨てた後に、待っていた次の予兆を作り直して音が鳴っていた → 爆発の後に予兆が捨てられていれば次を始めない。
 
 | テスト | 結果 |
@@ -123,3 +123,17 @@ Analysis: `.ai/reports/CH1-COMP-W24a-analysis.md`（branch `claude/ch1-comp-w2-4
 | `npm run build` | PASS |
 | `npm run test:unit` | pass 1892 / fail 0 / skipped 1 |
 | E2E（`dusk-boss-phase-burst`、`execution-break`、`duskvillage`） | 8 passed（4.3 分） |
+
+## Round 3 Fix（Review Fix Loop の上限に達した後の対応）
+
+- Round 3（`d0b101e`）は CHANGES_REQUIRED（R1: 予兆中のボスの発光の脈動が出ない。R2: 記録の誤り）。原因は Round 2 PASS の後に入れた発光の変更（上の 1）。
+- 対応: 発光の処理を **Round 2 で PASS したコード（`669fe35`）にそのまま戻した**。爆発の後に予兆が捨てられていれば次を始めないガード（上の 2）は、Round 3 の Reviewer が「正しい」と確認したので残した。
+  - `git diff 669fe35 -- src/` は、このガードの 2 行だけ。
+- 既知の点（Round 3 の O2）: 段階 2 の予兆の途中に段階 3 が来た場合、段階 3 の発光の上乗せ（+0.25）は段階 2 の予兆の書き戻しで消える（見た目だけ。判定・ダメージには関係しない）。
+- **Review Fix Loop の上限（3 Round）に達した。** 新しいコードは足さず、レビュー済みのコードへ戻す形で解消したが、AGENTS.md §9.1 の上限を超える扱いになるので、Human に報告する（Escalation E-1。PR 本文と最終報告に記載）。
+
+| テスト（Round 3 Fix の後） | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit` | pass 1892 / fail 0 / skipped 1 |
+| E2E（`dusk-boss-phase-burst`、`execution-break`） | 4 passed（3.1 分） |
