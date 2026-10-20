@@ -189,3 +189,52 @@ Implementer の説明（タスクファイルの「Round 2 の後の修正」）
 ### 備考
 
 Round 3/3（最終 Round）で CHANGES_REQUIRED。§9.1 の上限に達したため、続きの扱いは Orchestrator の判断（修正後の再レビューか Escalation）とする。
+
+## Acceptance Review（Human の受け入れ確認。HEAD 3cd9d62）
+
+### Review Target
+| 項目 | 値 |
+| --- | --- |
+| Task ID | CH1-COMP / W2-4a（`.ai/tasks/CH1-COMP-W24a.md`） |
+| Branch | `claude/ch1-comp-w2-4a-phase-burst-telegraph`（remote 先端 = `3cd9d622bf4f156ca5ab77f72898b08ba512c521` を確認） |
+| Reviewed SHA | `3cd9d622bf4f156ca5ab77f72898b08ba512c521`（origin/main `e5d3464` = PR #92 を merge 済み） |
+| Diff range | `origin/main...HEAD`（機能差分全体）と `669fe35..HEAD -- src tests`（Round 2 PASS からの差分） |
+| 位置づけ | Review Fix Loop は上限（3 Round）に到達済み。本節は Round ではなく、Human 依頼による受け入れ確認。Round 数ではなく HEAD の内容を独立に検証した |
+
+### Result
+**ACCEPT**
+
+### Independence
+別 Agent・別セッション（前 Round の判定は前提にせず、コード・差分・テストを自分で確認した）
+
+### Checklist
+| # | 項目 | 結果 | 根拠 |
+| --- | --- | --- | --- |
+| 1 | `669fe35..HEAD` の src/tests 差分 | OK | `git diff 669fe35 HEAD -- src tests` は `07-ai-combat.js` の 2 行だけ（`updateBossPhaseBursts` の爆発直後 `if(bossPhaseBursts[i] !== b) continue;` とコメント 1 行）。tests の差分なし。その他の差分は `.ai/` の記録と、main から merge された W2-T2 の成果物（`tools/baseline/*`・`.ai/reports/*W2T2*`）だけ |
+| 1b | `origin/main...HEAD` の範囲 | OK | 12 ファイル: `.ai/` 4（analysis / review / task / 親 Task）、`src/core/phase-burst.js`（新規）、`concat-plugin.js`（import 4 行）、`02-world-common.js`（disposeWorld に 1 行）、`07-ai-combat.js`（+119/-1）、`12-progression-ui.js`（2 行）、`14-hud-boot.js`（1 行）、tests 2（新規 E2E・unit）。`basefile.html` の差分 0 行。concat の構造（parts の並び・`concat-plugin.js` の結合）は import の追加以外変わっていない |
+| 2 | 発光の脈動（Round 3 R1 の解消） | OK | `beginPhaseBurstTelegraph` が予兆開始時に `b.baseEmissive = en.body.material.emissiveIntensity` を取得し、`placePhaseBurstMeshes` が毎フレーム `baseEmissive + 0.5*k + 0.25*|sin(5πk)|`（上限 1.4）を**絶対値で**書く。`removePhaseBurstMeshes` が `baseEmissive` へ戻して null にする。`en.hlOn` への依存は無い。ボスは `updateEnemyVisibility` の先頭（4199 行）で return するので戦闘時ハイライト（4239〜4258 行）はボスの発光を書かない。grep `emissiveIntensity` で他にボス本体の発光を毎フレーム書くのは `charge` の wind（3602。`special='charge'` を代入する箇所はコード上に無い）と `rewind`（3704。towerWarden 専用）だけで、duskEcho は通らない。`stepDuskEchoLayer`・`applyBossPhaseVisual`（duskEcho 分岐は別マテリアルの球を足すだけ）も本体の発光を書かない → 脈動は表示され、終了時に戻る |
+| 3 | 爆発の処理が以前と同一 | OK | `git show 29c94da:src/legacy/parts/07-ai-combat.js` の `triggerBossPhaseSkill` 後半（`const burstRadius = 4.5;` 〜 `spawnUltimateVFX`）と `detonateBossPhaseBurst` を突き合わせた。違いは `burstRadius = PHASE_BURST_RADIUS`（=4.5）と末尾の `return d < burstRadius;` だけ。距離計算・`state.invulnerable`／`paralyzeInvulnT`・`tryConsumeOrbShield`・`applyIncomingDamageMul(debugMode ? 0 : Math.round(en.atk*0.9))`（式は不変。E2E では範囲内の爆発で 30 を観測）・`isElectric` の麻痺・`triggerPlayerDown`・`tryPerfectDodge`・`sfx('ultimate')`・`addShake(0.22)`・VFX は一字一句同じ。`PHASE_BURST_TELEGRAPH_BOSSES = ['duskEcho']` のみ。他のボスは `triggerBossPhaseSkill` 内で `detonateBossPhaseBurst(en)` を即時に呼ぶ |
+| 4a | 予兆中はダメージなし・順序 | OK | ダメージは `advancePhaseBurst` が `fired` を返したフレームの `detonateBossPhaseBurst` だけ。順序はトースト／flash／+0.25／`applyBossPhaseVisual` → `queueBossPhaseBurst` → 予兆開始 → 0.8 秒 → 爆発。E2E が `TDTD` の順、予兆→爆発 0.75〜1.3 秒、予兆の間に 30 が出ないことを確認 |
+| 4b | 段階が重なった場合 | OK | `enqueuePhaseBurst` は進行中なら `pending++`。満ちた瞬間に 1 回だけ爆発し、`pending` があれば `started` で次の予兆を 0 から開始（1 フレームで 2 回は爆発しない）。円は二重にならない |
+| 4c | 取り消し経路 | OK | 撃破: `onBossDefeated` → `cancelBossPhaseBurstFor(boss)`。戦闘不能: `triggerPlayerDown`（boss のリセット・`emissiveIntensity = 0.22` の**前**に `cancelBossPhaseBurstFor`）。テストモードは HP1 で return し取り消さない（戦闘継続なので正しい）。場所の移動: `disposeWorld` → `clearBossPhaseBursts`。テレポート: `teleportTestModeTo` → `clearBossPhaseBursts`。保険として毎フレーム `en.dead || !en.triggered` で破棄 |
+| 4d | 2 行ガードの正しさ | OK | 爆発で HP 0 → `triggerPlayerDown` → `cancelBossPhaseBurstFor` が index i を splice（または `clearBossPhaseBursts` が配列を差し替え）。ガードは `bossPhaseBursts[i] !== b` で検出して `continue` し、捨てられた予兆の再開始と二重 splice を防ぐ。後ろから回しているので、i の splice は未処理の要素（i 未満）の添字を動かさない。取り消されなかった場合は `bossPhaseBursts[i] === b` のままで従来どおり進む |
+| 5 | Build / Unit / E2E | OK | 下記 |
+| 6 | 記録 | OK | `CH1-COMP-W24a.md`: Status `PR_OPEN（PR #94。Escalation E-1: Review Fix Loop の上限）`、Round 1 Fix／Round 2 後の修正（誤りだったと明記）／Round 3 Fix（669fe35 へ戻しガードのみ残す、上限到達）を記録。iPhone は「実機で確かめること」の未確認リスト、通常プレイのボス戦は NOT_RUN で、実機確認済みという主張は無い。`CH1-COMP.md`: origin/main との差分は追加だけ（W2-T2 の 4a 行と W2-T2 の履歴 3 行を保持し、W2-4a を 4b 行・履歴 3 行として追加） |
+| 7 | Save/Load | OK | 予兆の状態はセーブに入らない（モジュール内の配列のみ）。セーブ形式の差分なし |
+| 8 | 数値の変更なし | OK | 半径 4.5・ダメージ式・段階の閾値（0.65 等）・ボスの数値に差分なし |
+
+### テスト結果（HEAD 3cd9d62 で本 Reviewer が実行）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS（chunk size の警告のみ。従来どおり） |
+| `npm run test:unit` | tests 1893 / pass 1892 / fail 0 / skipped 1 |
+| E2E `dusk-boss-phase-burst` + `execution-break` + `duskvillage`（pw.local.mjs、事前に :5173 の LISTEN 無しを確認） | 8 passed（4.6 分） |
+
+### Risks
+- 段階 2 の予兆中に段階 3 が来ると、段階 3 の発光の上乗せ（+0.25）は書き戻しで失われる（見た目のみ。判定・ダメージ・回数は不変）。Task file に既知の点として記録済み。
+- 通常プレイ（テストモード以外）のボス戦と iPhone 上の見え方（輪の視認性・0.8 秒で抜けられるか・カメラ手前の切れ）は未確認。HUMAN DEVICE CHECK REQUIRED。
+- 撃破中・戦闘不能時の取り消しは E2E 無し（コードで確認）。
+- Review Fix Loop は上限に到達済み。本受け入れは Round 2 PASS のコード + Round 3 で妥当とされた 2 行ガードであることを差分で確認したうえでの判断。
+
+### Required Changes
+None
