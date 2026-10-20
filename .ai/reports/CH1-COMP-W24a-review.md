@@ -121,3 +121,71 @@ None
 
 - O1: `updateBossPhaseBursts` で爆発の後に `if(bossPhaseBursts[i] !== b) continue;`（爆発の中で取り消された場合）を入れると、上の Risks の再入（戦闘不能の瞬間の `castAim` 1 回、別エントリを `splice` しうる形）が無くなる。現状の対象は 1 体なので見た目・判定への影響はない。
 - O2: 段階 3 の発光 +0.25 が段階 2 の爆発の書き戻しで失われる点（Round 1 Risks）は見た目だけで、そのまま。
+
+## Round 3/3
+
+### Review Target
+
+- Branch: `claude/ch1-comp-w2-4a-phase-burst-telegraph`
+- Reviewed SHA: `d0b101e`（base `origin/main` `29c94da`）
+- 重点: `git diff 669fe35..d0b101e`（Round 2 PASS の後の 2 件の修正）。`git diff origin/main...HEAD` 全体も見直した。
+
+### Result
+
+**CHANGES_REQUIRED**
+
+### Independence
+
+Implementer の説明（タスクファイルの「Round 2 の後の修正」）を前提にせず、呼び出し順・早期 return・`hlOn` の書き込み元をコードから自分で追った。ソースは変更していない。
+
+### Checklist
+
+| # | 項目 | 結果 |
+| --- | --- | --- |
+| 1 | 爆発の処理（半径 4.5・ダメージ `atk*0.9`・判定・VFX）が旧コードと同じ | OK（`detonateBossPhaseBurst`、`burstRadius = 4.5` を定数へ移しただけ） |
+| 2 | 予兆は `duskEcho` だけ。他のボス・雑魚・支援 AI・保存・進行に触れていない | OK |
+| 3 | 撃破・戦闘不能・場所の移動・地点ジャンプ・離脱で予兆を捨てる | OK（Round 2 と同じ。`d0b101e` で変わっていない） |
+| 4 | 爆発の後の `if(bossPhaseBursts[i] !== b) continue;` | OK（下記 V2） |
+| 5 | 予兆中のボスの発光の脈動が実際に出る | **NG**（下記 V1。`d0b101e` で脈動が一切出なくなった） |
+| 6 | 発光が溜まらない・取り消し/爆発の後に光ったまま残らない | 結果として OK（足す処理が一度も走らないため） |
+| 7 | 「段階移行の +0.25 はもともとハイライトが毎フレーム上書きしていた」という記録 | **NG**（ボスにはハイライトが走らない。下記 V1） |
+| 8 | build / unit | OK |
+| 9 | 新しい E2E | OK（PASS。ただし発光は検証していない） |
+| 10 | タスクファイルの記録が正確・実機の主張に誤りが無い | **NG**（7 と同じ誤記。実機の新しい主張は無い） |
+
+### 検証
+
+**V1 発光（`placePhaseBurstMeshes`、P07:4740-4745）** — `updateEnemyVisibility`（P07:4198）の先頭は
+`if(en.isBoss){ en.visLevel = 'visible'; en.visAlpha = 1; return; }` で、ボスは戦闘時ハイライト（P07:4234-4261）まで到達しない。村の残響は `buildBoss`（14-dungeon-duskvillage:1267 → 06-player-enemy:4886 `isBoss:true`）で作られる。`en.hlOn` を書くのはこのハイライトだけ（`grep hlOn src` で 4254/4259 のみ）なので、ボスの `hlOn` は常に `undefined`。
+したがって `if(mat && b.en.hlOn) mat.emissiveIntensity += …` は村の残響では一度も実行されず、**予兆中の発光の脈動が消えている**（`669fe35` では基準値を覚えて絶対値で書き、外す時に戻す方式で出ていた）。タスクファイル（§3 の作業 3、上部コメント「その間ボスは光を脈打たせる」）が予兆の要素として挙げている脈動が失われた回帰。
+呼び出し順そのもの（敵ループ内 P07:887 の `updateEnemyVisibility` → 最後 P07:1080 の `updateBossPhaseBursts`）は主張どおりだが、ボスでは前段が何もしないので前提が成り立たない。
+同じ理由で「段階移行の +0.25（P07:4660）はもともとハイライトが毎フレーム上書きしていた」も誤り。ボスの発光を毎フレーム書き直す処理は無く、+0.25 は残る（戦闘不能で 0.22 に戻すまで）。
+溜まり・光り残りについては、足す処理が走らないので結果的に起きない（安全側の不具合）。
+
+**V2 `bossPhaseBursts[i] !== b` ガード** — 爆発の中の `triggerPlayerDown` → `cancelBossPhaseBurstFor(boss)` は同じ `en` のエントリだけを `splice` する。`i` のエントリが外れると `bossPhaseBursts[i]` は元の `i+1`（逆順ループで処理済み）か `undefined` になり、`!== b` で `continue`。添字 `< i` のエントリは位置が変わらないので、他のボスのエントリを飛ばすことも二重に処理することも無い。`r.started` での作り直しと `castAim` の再生（Round 2 O1）は無くなった。`clearBossPhaseBursts`（配列の差し替え）は爆発から呼ばれる経路が無い（`disposeWorld` / `teleportTestModeTo` のみ）。OK。
+
+**V3 その他** — `d0b101e` で変わったのは発光の 2 箇所とガードのみ。`removePhaseBurstMeshes` から発光の戻しを外したことも V1 の前提に依存しているが、足していないので戻す必要も実際には無い。爆発・取り消しの経路は Round 2 の確認のまま。
+
+**V4 実行**
+- `npm run build`: PASS（chunk size の警告のみ）
+- `npm run test:unit`: tests 1893 / pass 1892 / fail 0 / skipped 1
+- E2E `tests/dusk-boss-phase-burst.spec.js`（scratchpad の設定、5173 は空き。`ss` が無いので `/proc/net/tcp` で確認）: 1 passed（45.3s）。段階 2 TELEGRAPH 6.825 → DETONATE (in range) 7.625 → 30 が 7.675 / 段階 3 TELEGRAPH 7.825 → DETONATE 8.625 → 30 が 8.675。E2E は発光を見ていないので V1 は検出されない。
+
+### Risks
+
+- 予兆の見た目は足元の輪・満ちる円・音で成立しており、判定・ダメージ・時刻は正しい。失われたのは「ボスが脈打つ」という補助の合図だけ（見た目のみ）。
+- 発光について E2E・unit のどちらも見ておらず、今回のような回帰が自動では検出されない。
+
+### Required Changes
+
+- R1: 村の残響（`isBoss`）で予兆中の発光の脈動が出るように戻す。ボスの発光は毎フレーム書き直されないので、「足すだけ」の方式は使えない。`669fe35` の方式（開始時の値を覚えて絶対値で書き、`removePhaseBurstMeshes` で戻す）へ戻すのが最小（`d0b101e` のガードは残す）。
+- R2: `.ai/tasks/CH1-COMP-W24a.md`「Round 2 の後の修正」1 の記述（ハイライトが毎フレーム書き直す／+0.25 はもともと上書きされていた）を、ボスはハイライトの対象外（P07:4199 の早期 return）という事実に合わせて直す。P07:4740-4743 のコメントも同様。
+
+### Optional
+
+- O1: 予兆中にボスの `body.material.emissiveIntensity` が上がり、爆発・取り消しの後に元へ戻ることを E2E で 1 点だけ確かめると、この種の回帰を拾える。
+- O2: R1 で `669fe35` 方式に戻す場合、予兆中に次の段階の +0.25 が来ると書き戻しで失われる（Round 1 Risks / Round 2 O2）。気になるなら `triggerBossPhaseSkill` で予兆中のエントリの基準値にも +0.25 を反映する。
+
+### 備考
+
+Round 3/3（最終 Round）で CHANGES_REQUIRED。§9.1 の上限に達したため、続きの扱いは Orchestrator の判断（修正後の再レビューか Escalation）とする。
