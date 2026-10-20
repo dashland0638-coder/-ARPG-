@@ -74,3 +74,26 @@ Analysis: `.ai/reports/CH1-COMP-W24a-analysis.md`（branch `claude/ch1-comp-w2-4
 ## Agent Decisions
 
 `.ai/reports/CH1-COMP-W24a-analysis.md` §判断 の 1〜7。
+
+## Test Report
+
+- Scope: Targeted（変更はボスの段階移行の 1 経路に閉じる）
+- Environment: この環境の Playwright 1.62.1 は同梱の Chromium を起動できないため、`executablePath`（`/opt/pw-browsers/chromium-1194`）と webServer の cwd だけを scratchpad の設定で指定した（リポジトリの設定は変えていない）。
+
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| `npm run build` | PASS | chunk size の警告のみ（従来どおり） |
+| `npm run test:unit` | pass 1892 / fail 0 / skipped 1 | 新規 `phase-burst.test.js` 15 件を含む。skip は従来からの 1 件 |
+| `tests/dusk-boss-phase-burst.spec.js`（新規） | PASS（単独 1 回、回帰の組の中で 1 回） | 段階 2: トースト 6.99 → 予兆 6.99 → 爆発 7.79 → 30 が 7.84。段階 3: 7.99 → 7.99 → 8.79 → 8.84（推定ゲーム内秒） |
+| 関連 E2E 11 本（`duskvillage`、`execution-break`、`combat-events-layout`、`combat-test-arena`、`scenario-test-mode`、`notifications`、`combat-center-messages`、`save-load`、`chapter1-progression`、`production-build`、`chapter1-dusk-basics`） | 56 passed（19.7 分、新規を含む） | ― |
+| E2E 全件 | NOT_RUN | 約 1.5 時間。変更が 1 経路に閉じ、関連する spec を選んで実行した |
+| 通常プレイのボス戦 | NOT_RUN（自動化できない） | ボスまで歩く自動化はこの環境では現実的でない。予兆の処理に `testMode` の分岐が無いことはコードで確認（FACT (code)）。iPhone 実機で確かめる |
+
+予兆の画面: `test-results/dusk-phase-burst-telegraph-1.png`（E2E が撮る。リポジトリには入れない）で、ボスの足元に半径 4.5 の輪が出ていることを目で確かめた。
+
+## iPhone 実機で確かめること（自動テストでは分からない）
+
+1. 段階が変わった時（「⚡ 村の残響が闘気を纏った!」「…最後の力を振り絞った!」）、ボスの足元に橙色の輪が出て、内側の円が満ちるのが見えるか。夜の村の床で見分けられるか。
+2. 0.8 秒の間に輪の外へ出られるか（輪の外にいれば当たらない）。回避で抜けられるか。
+3. 輪の一部が画面の外（カメラの手前）に切れて、範囲が読みにくくならないか。
+4. 段階 2 と段階 3 が続けて来た時に、輪が 2 回、順に出るか（重ならない）。
