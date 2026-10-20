@@ -59,6 +59,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 
 - 2026-10-19: W2-D の設計書を作成した（`.ai/reports/CH1-COMBAT-PROTO-design.md`、base `1205665`）。設計のみで、コード・テスト・数値は変えていない。推奨は案 B（読める攻撃表＋支援との連携）。HD-D1〜D6 は Human の判断待ち。
 - 2026-10-20: Human の依頼（「ボス爆発予兆の実装＋宵待ちの村の中ボス調査」の Work A）で W2-4a を実装した（branch `claude/ch1-comp-w2-4a-phase-burst-telegraph`、base `29c94da`）。ANALYZING → IMPLEMENTING → TESTING → REVIEWING。
+- 2026-10-20: W2-4a 独立 Reviewer Round 1 は CHANGES_REQUIRED、Round 2 は PASS（.ai/reports/CH1-COMP-W24a-review.md）。REVIEWING（Reviewer PASS）。
 
 ## Approval（W1-1・W1-3・W2-T1）
 
