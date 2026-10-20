@@ -97,3 +97,18 @@ Analysis: `.ai/reports/CH1-COMP-W24a-analysis.md`（branch `claude/ch1-comp-w2-4
 2. 0.8 秒の間に輪の外へ出られるか（輪の外にいれば当たらない）。回避で抜けられるか。
 3. 輪の一部が画面の外（カメラの手前）に切れて、範囲が読みにくくならないか。
 4. 段階 2 と段階 3 が続けて来た時に、輪が 2 回、順に出るか（重ならない）。
+
+## Round 1 Fix（独立 Reviewer の CHANGES_REQUIRED への対応）
+
+1. R1: 予兆の途中でボスを倒すと、撃破の会話（`onBossDefeated` でゲームが止まる）の間、輪が残った → 1 体のボスの予兆を爆発させずに捨てる `cancelBossPhaseBurstFor(en)` を足し、`onBossDefeated`（`shockRing` / `chargeLane` の片付けの隣）から呼ぶ。
+2. O1: 予兆の途中に戦闘不能になった場合も同じ → `triggerPlayerDown` のボスを戻す処理の最初で呼ぶ（予兆を捨ててから発光を 0.22 に戻すので、上書きされない）。
+3. O3: `PHASE_BURST_RADIUS` を `PHASE_BURST_COLOR` の隣へ移した（値は同じ 4.5）。
+4. 予兆を捨てたことを、テストモードの Arena の記録に「PHASE BURST — CANCEL」として出す（通常プレイの画面には出ない）。
+5. O2: 「段階 2 の予兆の途中に段階 3 が来る」流れは、E2E（Lv30）では起きなかった（段階 2 の爆発の後に段階 3 が来た）。この流れは unit（`phase-burst.test.js`「段階 2 と段階 3 が続けて来た場合」）だけで確かめている。
+6. 撃破の途中で予兆を捨てる経路の E2E は足していない（予兆の 0.8 秒の間に撃破を確実に起こす手段が無い）。呼ばれることはコードで確認（FACT (code)）。
+
+| テスト（Round 1 の後） | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit` | pass 1892 / fail 0 / skipped 1 |
+| E2E（`dusk-boss-phase-burst`、`duskvillage`、`execution-break`、`chapter1-progression`） | 19 passed（8.0 分） |

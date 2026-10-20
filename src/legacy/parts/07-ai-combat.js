@@ -4690,7 +4690,6 @@
     spawnUltimateVFX(en.group.position.clone(), {radius:burstRadius, vfxColor: en.baseColor});
     return d < burstRadius;
   }
-  const PHASE_BURST_RADIUS = 4.5;
 
   /* ---- 段階移行の爆発の予兆(CH1-COMP W2-4a) ----
      足元に爆発と同じ半径の円を出し、内側の円が 0.8 秒かけて満ちる。満ちきった瞬間に
@@ -4699,6 +4698,7 @@
      網・残響と同じく、敵の更新とは別に進める(updateEnemies の最後)。ボスが崩れて
      ダウンしている間も予兆は進み、表示と爆発の時刻がずれない。
      ボスの撃破・戦闘の仕切り直し(戦闘不能)・場所の移動では、爆発させずに捨てる。 */
+  const PHASE_BURST_RADIUS = 4.5;     // 爆発の半径(以前の triggerBossPhaseSkill の burstRadius と同じ値)
   const PHASE_BURST_COLOR = 0xff7a4a;   // 夜の村の青い床の上で目立つ暖色(危険の色)
   let bossPhaseBursts = [];   // {en, queue, fill, ring, fillMat, ringMat, baseEmissive}
 
@@ -4771,6 +4771,19 @@
         placePhaseBurstMeshes(b, r.progress);
       }
       if(!b.queue.active){ removePhaseBurstMeshes(b); bossPhaseBursts.splice(i, 1); }
+    }
+  }
+
+  /* 1 体のボスの予兆と待ちを、爆発させずに捨てる。撃破(onBossDefeated)と戦闘不能
+     (triggerPlayerDown)から呼ぶ ―― どちらも直後に会話・画面でゲームが止まり、
+     updateBossPhaseBursts の取り消しが回らないまま輪が残るため */
+  function cancelBossPhaseBurstFor(en){
+    for(let i=bossPhaseBursts.length-1;i>=0;i--){
+      const b = bossPhaseBursts[i];
+      if(b.en !== en) continue;
+      if(cancelPhaseBurst(b.queue) > 0) emitArenaFeedback('PHASE BURST', 'CANCEL');
+      removePhaseBurstMeshes(b);
+      bossPhaseBursts.splice(i, 1);
     }
   }
 
