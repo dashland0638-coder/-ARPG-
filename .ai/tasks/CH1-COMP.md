@@ -39,6 +39,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 | 4 | W2-D | 村のボス戦の試作の設計（数値・仕組みの提案） | P1 | DESIGN（`.ai/reports/CH1-COMBAT-PROTO-design.md`。Human の判断待ち） | [ ] Human の承認が必要 | W2-T1 |
 | 4a | W2-T2 | 現行コード（`1205665`）でのベースライン再測定と、通常プレイの生存可能性の評価（測定だけ。ゲームは変えない） | P1 | PR_OPEN（Reviewer PASS。PR #92。実機確認は HUMAN DEVICE CHECK REQUIRED） | [x] Human 2026-10-19（依頼文） | W2-T1 |
 | 4b | W2-4a | 村のボスの段階移行の爆発に予兆（0.8 秒・足元の円）を付ける（`CH1-COMP-W24a.md`。残響の円は含めない） | P1 | PR_OPEN（PR #94。Review Fix Loop の上限に到達。Round 3 の指摘は Round 2 PASS のコードへ戻して解消。Human 確認待ち。実機確認は HUMAN DEVICE CHECK REQUIRED） | [x] Human 2026-10-20（依頼文） | W2-D |
+| 4c | W2-MB | 宵待ちの村のボス直前の中ボス（記憶漁師・水門守の残響）の攻撃の分かりにくさの調査（調査のみ。`CH1-COMP-W2MB.md`） | P1 | PR_OPEN（Reviewer PASS。PR #93。実装は Human の承認待ち） | [x] Human 2026-10-20（依頼文） | ― |
 | 5 | W0-5 | アートの完成見本の提示（見本の制作は村のボス戦に限り HD-4 の範囲。実装の開始は指示待ち。画像と全マップ展開は Human の承認が必要） | P2 | PLANNED | [ ] Human の承認が必要 | W0-3, W3-0（制作: W2-2・W3-1・W3-2 の村の範囲） |
 | 5 | W0-6 | 出撃会話の台詞の候補の提示 | P1 | PLANNED | [ ] Human の承認が必要 | ― |
 | 6 | W1-2, W1-4, W1-5, W2-1a〜W2-6, W3, W4, W5 | 計画のとおり | ― | PLANNED | 承認後に個別の Task にする | 計画を参照 |
@@ -65,6 +66,10 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 - 2026-10-20: Human の依頼（「ボス爆発予兆の実装＋宵待ちの村の中ボス調査」の Work A）で W2-4a を実装した（branch `claude/ch1-comp-w2-4a-phase-burst-telegraph`、base `29c94da`）。ANALYZING → IMPLEMENTING → TESTING → REVIEWING。
 - 2026-10-20: W2-4a 独立 Reviewer Round 1 は CHANGES_REQUIRED、Round 2 は PASS（.ai/reports/CH1-COMP-W24a-review.md）。REVIEWING（Reviewer PASS）。
 - 2026-10-20: W2-4a Round 2 PASS の後の修正に、独立 Reviewer Round 3 が CHANGES_REQUIRED（発光の脈動が出ない）。発光の処理を Round 2 PASS のコードへ戻し、Round 3 で正しいと確認されたガードだけを残した。Review Fix Loop の上限に達したので Human に報告する（Escalation E-1）。
+- 2026-10-20: Human の依頼（「ボス爆発予兆の実装＋宵待ちの村の中ボス調査」の Work B）で W2-MB の調査を行った（branch `claude/ch1-comp-dusk-midboss-investigation`、base `29c94da`）。調査のみ。ANALYZING → REVIEWING。
+- 2026-10-20: W2-MB 独立 Reviewer Round 1: CHANGES_REQUIRED（.ai/reports/CH1-COMP-W2MB-review.md。FACT の誤り 4 件。結論は不変）。
+- 2026-10-20: W2-MB 独立 Reviewer Round 1・2 は CHANGES_REQUIRED、Round 3 は PASS（.ai/reports/CH1-COMP-W2MB-review.md）。REVIEWING（Reviewer PASS）。
+- 2026-10-20: W2-MB の PR #93 を作成した。REVIEWING → PR_OPEN。
 
 ## Approval（W1-1・W1-3・W2-T1）
 
