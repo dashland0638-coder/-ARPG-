@@ -486,6 +486,7 @@
     // the summoner is gone - its crew goes with it
     if(boss.shockRing){ scene.remove(boss.shockRing); boss.shockRing = null; }
     if(boss.chargeLane){ scene.remove(boss.chargeLane); boss.chargeLane = null; }
+    cancelBossPhaseBurstFor(boss);   // 段階移行の爆発の予兆も、撃破の会話の後ろに残さない(CH1-COMP W2-4a)
     boss.special = null;
     enemies.filter(e=>e.summonedBy===boss).forEach(e=>scene.remove(e.group));
     enemies = enemies.filter(e=>e.summonedBy!==boss);
@@ -1210,6 +1211,7 @@
     if(penaltyLine) penaltyLine.textContent = goldLost > 0 ? `所持金を🪙${goldLost}失った……` : '';
     const boss = enemies.find(e=>e.isBoss && e.triggered && !e.dead);
     if(boss){
+      cancelBossPhaseBurstFor(boss);   // 予兆を捨ててから発光を戻す(CH1-COMP W2-4a)
       boss.triggered = false;
       boss.hp = boss.hpMax;
       boss.dead = false;
