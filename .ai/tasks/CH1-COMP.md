@@ -59,6 +59,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 
 - 2026-10-19: W2-D の設計書を作成した（`.ai/reports/CH1-COMBAT-PROTO-design.md`、base `1205665`）。設計のみで、コード・テスト・数値は変えていない。推奨は案 B（読める攻撃表＋支援との連携）。HD-D1〜D6 は Human の判断待ち。
 - 2026-10-20: Human の依頼（「ボス爆発予兆の実装＋宵待ちの村の中ボス調査」の Work B）で W2-MB の調査を行った（branch `claude/ch1-comp-dusk-midboss-investigation`、base `29c94da`）。調査のみ。ANALYZING → REVIEWING。
+- 2026-10-20: W2-MB 独立 Reviewer Round 1: CHANGES_REQUIRED（.ai/reports/CH1-COMP-W2MB-review.md。FACT の誤り 4 件。結論は不変）。
 
 ## Approval（W1-1・W1-3・W2-T1）
 
