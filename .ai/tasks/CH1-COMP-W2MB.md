@@ -1,0 +1,39 @@
+# CH1-COMP-W2MB — 宵待ちの村のボス直前の中ボスの攻撃の調査（調査のみ）
+
+親 Task: [`CH1-COMP.md`](CH1-COMP.md)（Work Item W2-MB。Status と Approval の正本は親の Work Items 表）
+
+Status: REVIEWING
+
+Analysis: `.ai/reports/CH1-COMP-W2MB-analysis.md`（branch `claude/ch1-comp-dusk-midboss-investigation`）
+
+## Approval
+
+- [x] Approved
+- 種類: Human Approval（依頼文「Work B：ボス直前の中ボスの攻撃問題を調査する。これは調査・報告のみです」）
+- 承認の範囲: 調査と改善案の提示。**ゲームのコード・数値・判定・アニメーションは変えない**
+- Approved by / date / where: Human / 2026-10-20 / 会話
+- Persistence: 許可（branch: `claude/ch1-comp-dusk-midboss-investigation`）
+
+## Goal
+
+宵待ちの村のボス直前の中ボスについて、ユーザーの報告（爆破物を投げる・近接の判定が見えない・タイミングが分からない・ボスより強い）を、現行コードを根拠に説明し、改善案を比べる。
+
+## Result
+
+- 報告書: `.ai/reports/CH1-COMP-W2MB-analysis.md`
+- 次の Work Item 案（W2-MB1〜MB3）は報告書 §9。**Human の承認なしに実装しない。**
+
+## Files
+
+| ファイル | 変更 |
+| --- | --- |
+| `.ai/reports/CH1-COMP-W2MB-analysis.md`（新規） | 調査の報告 |
+| `.ai/tasks/CH1-COMP-W2MB.md`（新規）、`.ai/tasks/CH1-COMP.md` | 記録 |
+| `.ai/reports/CH1-COMP-W2MB-review.md`（新規） | 独立 Reviewer |
+
+ゲームのコード・テスト・設定は変えていない。
+
+## Test Report
+
+- ゲームのコードを変えていないので、テストは実行していない（NOT_RUN。理由: 調査のみ）。
+- 報告書の FACT は、`origin/main` `29c94da` のコードの行で確かめた。
