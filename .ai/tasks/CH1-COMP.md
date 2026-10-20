@@ -74,6 +74,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 - 2026-10-20: Human の指示（「PR #92・#94・#93 の受け入れとマージ、その後 W2-MB1 準備」）で、受け入れ確認の後に順に squash merge した: #92 → `e5d3464`、#94 → `1801f05`（Review Fix Loop の上限に達していたので、HEAD `3cd9d62` の独立した受け入れレビューで ACCEPT を確認してから）、#93 → `8fd69cb`。各 PR は最新 HEAD で CI 成功。GitHub Pages の Deploy は #92・#94 の merge で成功。
 - 2026-10-20: W2-MB1 の計画を作成した（`.ai/tasks/CH1-COMP-W2MB1.md`、branch `claude/ch1-comp-w2-mb1-plan`）。計画のみ。PLANNED。
 - 2026-10-20: W2-MB1 の計画の独立 Reviewer Round 1・2 は CHANGES_REQUIRED、Round 3 は PASS（.ai/reports/CH1-COMP-W2MB1-plan-review.md）。実装は Human の承認待ち。
+- 2026-10-20: Human の指示（「PR #95の受け入れとW2-MB1実装」）で PR #95（W2-MB1 の計画）を受け入れ確認（HEAD `872bf54`・CI 成功・未解決コメントなし・Reviewer R3 PASS・計画が承認の内容と一致）の後に squash merge した → `c2e0894`。
 - 2026-10-20: Human の承認（溜め 0.5 秒・パニッシュ窓なし・観測の灯で伸ばさない）で W2-MB1 を実装した（branch `claude/ch1-comp-w2-mb1-fisher-telegraph`）。IMPLEMENTING → TESTING → REVIEWING。独立 Reviewer Round 1 PASS（`.ai/reports/CH1-COMP-W2MB1-review.md`）。iPhone 確認は未。
 
 ## Approval（W1-1・W1-3・W2-T1）
