@@ -865,6 +865,7 @@
           en.guardHoldT = 0; en.guardBreakCD = 0; en.guardBreak = false;   // 守護型のガードブレイクも仕切り直す
           if(en.servantState) servantEnterIdle(en);   // 使用人の攻撃相も持ち越さない
           en.shotRootT = 0;                            // 侍女の撃ち終わりの足止めも
+          if(en.fisherMelee) en.fisherMelee = createFisherMelee();   // 記憶漁師の近接の溜め・待ち時間・停止も(W2-MB1)
           // 執事のフェーズと影移動も仕切り直す(HPが満タンに戻るので Phase 1 から)
           if(en.butlerPhase) en.butlerPhase = 1;
           en.butlerStepCD = 0; en.butlerStepTo = null;
@@ -1029,6 +1030,8 @@
          約0.5秒だけAIを止め、体を上下させる。無敵にはしない ――
          この間も通常どおり攻撃を当てられる(=浮かせた側の得になる) */
       if((en.liftPeak||0) > 0 && !en.knockedDown){
+        // 浮いている間は記憶漁師の近接の溜めを取り消す(W2-MB1。着地まで溜めを残すと読めない)
+        if(en.fisherMelee && fisherMeleeWindingUp(en.fisherMelee)) cancelFisherMeleeWindup(en);
         en.liftT = (en.liftT||0) + dt;
         if(en.liftT >= (en.liftDur||UPLIFT_DURATION)){
           en.liftPeak = 0; en.liftT = 0;
@@ -1071,6 +1074,9 @@
        飛んでいる網はそのまま落ちて発動する ―― 投げた瞬間に落ち先が
        決まっている、という約束をここでも守る */
     if(memoryNets.length) updateMemoryNets(dt);
+    /* 記憶漁師の近接の足元の予兆(CH1-COMP W2-MB1)。AI とは別にここで置き直すので、
+       大怯み・浮きで AI が止まっていても、ノックバックの後でも中心は漁師の今の位置 */
+    updateFisherMeleeTelegraphs();
     /* 残響も敵とは別に進む(WORK 6)。本体を倒しても、いま再生されている
        過去はそのまま終わりまでなぞる ―― 撃破の瞬間に消えると、
        「過去がそこに残っている」という読みのほうが崩れる */
@@ -2931,11 +2937,20 @@
     ring.rotation.x = -Math.PI/2;
     ring.position.set(plan.x, 0.06, plan.z);
     scene.add(ring);
+    /* 残り時間は内側の円が満ちて見せる(CH1-COMP W2-MB1)。外周の輪は
+       判定の半径(plan.radius)のまま縮めない ―― 輪の外にいれば当たらない */
+    const fillMat = new THREE.MeshBasicMaterial({color: past ? 0x9fd8ff : 0xc8b8a0,
+      transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false});
+    const fill = new THREE.Mesh(new THREE.CircleGeometry(plan.radius, 32), fillMat);
+    fill.position.z = 0.002;   // 輪の面より少しだけ手前(輪の rotation で床の上側)
+    fill.scale.setScalar(0.001);
+    ring.add(fill);
+    emitArenaFeedback('MEMORY NET', 'THROW');
     memoryNets.push({
       x: plan.x, z: plan.z, radius: plan.radius,
       flight: plan.flight, arm: plan.arm, burst: plan.burst,
       phase: 'fly', t: plan.flight, from: plan.from,
-      dmg: en.atk, mesh, ring, ringMat, mat, startX: from.x, startY: from.y, startZ: from.z,
+      dmg: en.atk, mesh, ring, ringMat, fill, fillMat, mat, startX: from.x, startY: from.y, startZ: from.z,
       hit: false,
     });
     sfx('dodge');
@@ -2956,13 +2971,22 @@
         n.mesh.rotation.y += dt*4;
         n.ringMat.opacity = 0.12 + k*0.18;
       } else if(n.phase === 'arm'){
-        // 落ちて据わる。輪が縮んでいくので、残り時間が読める
+        /* 落ちて据わる。外周の輪は判定の半径のまま、内側の円が満ちていくので
+           残り時間が読める(CH1-COMP W2-MB1。前は輪が縮んで判定とずれていた) */
+        if(!n.armed){ n.armed = true; emitArenaFeedback('MEMORY NET', 'ARM'); }
+        const tg = netTelegraph('arm', step.progress);
         n.mesh.position.set(n.x, 0.3, n.z);
         n.mesh.scale.setScalar(1 + step.progress*0.9);
         n.ringMat.opacity = 0.34 + step.progress*0.34;
-        n.ring.scale.setScalar(1 - step.progress*0.28);
+        n.ring.scale.setScalar(tg.ringScale);
+        n.fill.scale.setScalar(Math.max(0.001, tg.fill));
+        n.fillMat.opacity = 0.14 + tg.fill*0.2;
       } else if(n.phase === 'burst'){
         if(!n.hit){
+          // 長いフレームで据わる相を飛ばしても、記録の順(THROW → ARM → BURST)は崩さない
+          if(!n.armed){ n.armed = true; emitArenaFeedback('MEMORY NET', 'ARM'); }
+          emitArenaFeedback('MEMORY NET', 'BURST');
+          n.fill.visible = false;
           n.hit = true;
           if(netHits(n, state.pos.x, state.pos.z)){
             if(state.invulnerable || state.paralyzeInvulnT > 0){
@@ -3003,6 +3027,17 @@
 
     if(en.netCD == null) en.netCD = 1.2;
     en.netCD -= dt;
+    if(!en.fisherMelee) en.fisherMelee = createFisherMelee();
+    const m = en.fisherMelee;
+    const recovering = tickFisherMeleeRecovery(m, dt);
+
+    /* 近接の溜めの最中(CH1-COMP W2-MB1)。動かず、向きも変えない。
+       網の待ち時間が明けても割り込まない(網の待ち時間は上で減り続ける) */
+    if(fisherMeleeWindingUp(m)){
+      const ev = stepFisherMelee(m, dt, distToPlayer);
+      if(ev && ev.event === 'strike') strikeFisherMelee(en, ev);
+      return;
+    }
 
     // 向き直りはゆっくり。網を投げる方向が先に見える
     if(dist > 0.001){
@@ -3039,24 +3074,114 @@
     }
 
     /* 網だけの敵にしない。網の合間は近づいて殴ってくるので、
-       予兆を見て動き続けるだけでは終わらない */
-    if(dist > 2.0){
+       予兆を見て動き続けるだけでは終わらない。
+       近接の判定の後だけ少し止まる(CH1-COMP W2-MB1。網の後は今のまま) */
+    if(dist > 2.0 && !recovering){
       const dir = to.clone().normalize();
       en.group.position.addScaledVector(dir, en.speed * dt);
       resolveWallCollisions(en.group.position);
     }
-    if(en.meleeCD > 0) en.meleeCD -= dt;
-    if(distToPlayer < 2.3 && (en.meleeCD || 0) <= 0){
-      en.meleeCD = 2.2;
-      if(state.invulnerable || state.paralyzeInvulnT > 0){
-        if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
-      } else if(!tryConsumeOrbShield()){
-        const dmg = applyIncomingDamageMul(state.debugMode ? 0 : Math.round(en.atk*0.7));
-        state.hp = Math.max(0, state.hp - dmg);
-        spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
-        if(state.hp <= 0) triggerPlayerDown();
-      }
-      en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+    const ev = stepFisherMelee(m, dt, distToPlayer);
+    if(ev && ev.event === 'windup') beginFisherMeleeWindup(en, aim);
+    else if(ev && ev.event === 'strike') strikeFisherMelee(en, ev);
+  }
+
+  /* ---------------------------------------------------------
+     記憶漁師の近接の予兆(CH1-COMP W2-MB1)
+     時間と判定の値は core/memory-fisher.js。ここは見た目と、当たった時の処理。
+     足元の表示は既存の en.meleeTelegraphMesh(撃破・Arena の Clear・世界の破棄で
+     既に片付けられている)に、外周の輪と内側の円を 1 つの Group で持たせる
+     --------------------------------------------------------- */
+  const FISHER_MELEE_TELEGRAPH_COLOR = 0xff8a3a;   // 夜の村の青い床で目立つ暖色(網の水色・砂色と分ける)
+  const FISHER_MELEE_RING_WIDTH = 0.2;             // 輪の太さ(見た目だけ)
+
+  function beginFisherMeleeWindup(en, aim){
+    // 向きは溜めを始めた時の相手の方向に固定する(判定は全周なので見た目だけ)
+    const dx = aim.x - en.group.position.x, dz = aim.z - en.group.position.z;
+    if(dx*dx + dz*dz > 1e-6) en.group.rotation.y = Math.atan2(dx, dz);
+    sfx('dodge');
+    emitArenaFeedback('FISHER MELEE', 'WINDUP');
+    placeFisherMeleeTelegraph(en);
+  }
+
+  function strikeFisherMelee(en, ev){
+    if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+    hideFisherMeleeTelegraph(en);
+    // 判定の式は前と同じ(距離 < 2.3・全周・回避の無敵は素通り・オーブシールド・攻撃力 × 0.7)
+    if(!ev.inRange){
+      emitArenaFeedback('FISHER MELEE', 'MISS (out of range)');
+    } else if(state.invulnerable || state.paralyzeInvulnT > 0){
+      if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
+      emitArenaFeedback('FISHER MELEE', 'MISS (dodged)');
+    } else if(tryConsumeOrbShield()){
+      emitArenaFeedback('FISHER MELEE', 'BLOCKED (orb shield)');
+    } else {
+      const dmg = applyIncomingDamageMul(state.debugMode ? 0 : fisherMeleeDamage(en.atk));
+      emitArenaFeedback('FISHER MELEE', 'HIT');
+      state.hp = Math.max(0, state.hp - dmg);
+      spawnDamagePopup(state.pos.clone(), dmg, false, false, true);
+      if(state.hp <= 0) triggerPlayerDown();
+    }
+    en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
+  }
+
+  /* 溜めを取り消す(ダウン・浮き・撃破)。判定しない。待ち時間は使わない */
+  function cancelFisherMeleeWindup(en){
+    if(!en.fisherMelee) return;
+    if(cancelFisherMelee(en.fisherMelee)){
+      if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
+      emitArenaFeedback('FISHER MELEE', 'CANCEL');
+    }
+    hideFisherMeleeTelegraph(en);
+  }
+
+  function hideFisherMeleeTelegraph(en){
+    if(en.meleeTelegraphMesh) en.meleeTelegraphMesh.visible = false;
+  }
+
+  /* 足元の表示を置く。中心は毎フレーム漁師の今の位置(判定もその位置から測る)。
+     大怯み・浮きで AI が止まっている間も、updateFisherMeleeTelegraphs から
+     ここを通るので、ノックバックで滑っても輪と判定の中心はずれない */
+  function placeFisherMeleeTelegraph(en){
+    let g = en.meleeTelegraphMesh;
+    if(!g){
+      g = new THREE.Group();
+      const ringMat = new THREE.MeshBasicMaterial({color:FISHER_MELEE_TELEGRAPH_COLOR, transparent:true,
+        opacity:0.85, side:THREE.DoubleSide, depthWrite:false});
+      const ring = new THREE.Mesh(new THREE.RingGeometry(FISHER_MELEE_RANGE - FISHER_MELEE_RING_WIDTH,
+        FISHER_MELEE_RANGE, 48), ringMat);
+      ring.rotation.x = -Math.PI/2;
+      const fillMat = new THREE.MeshBasicMaterial({color:FISHER_MELEE_TELEGRAPH_COLOR, transparent:true,
+        opacity:0.3, side:THREE.DoubleSide, depthWrite:false});
+      const fill = new THREE.Mesh(new THREE.CircleGeometry(FISHER_MELEE_RANGE, 40), fillMat);
+      fill.rotation.x = -Math.PI/2;
+      fill.position.y = 0.005;
+      g.add(ring); g.add(fill);
+      g.userData.fisherFill = fill;
+      g.userData.reach = FISHER_MELEE_RANGE;
+      scene.add(g);
+      en.meleeTelegraphMesh = g;
+    }
+    const k = fisherMeleeProgress(en.fisherMelee);
+    const x = en.group.position.x, z = en.group.position.z;
+    const gy = groundSlabs.length ? (groundYAt(x, z, en.group.position.y) || 0) : 0;
+    g.position.set(x, gy + 0.06, z);
+    g.userData.fisherFill.scale.setScalar(Math.max(0.001, k));
+    g.visible = true;
+    // 体を沈める(網の溜めと同じ変形)
+    if(en.body && en.bodyScale){
+      const B = en.bodyScale;
+      en.body.scale.set(B.x*(1 + k*0.2), B.y*(1 - k*0.12), B.z*(1 + k*0.2));
+    }
+  }
+
+  /* 敵の更新の最後に 1 回、溜めている漁師の足元の表示を置き直す。
+     溜めていない・倒れた漁師の表示は消す(表示が残らない) */
+  function updateFisherMeleeTelegraphs(){
+    for(const en of enemies){
+      if(!en.fisherMelee) continue;
+      if(!en.dead && fisherMeleeWindingUp(en.fisherMelee)) placeFisherMeleeTelegraph(en);
+      else hideFisherMeleeTelegraph(en);
     }
   }
 
@@ -5407,6 +5532,7 @@
       en.chargeState = 'idle';
       en.fireCharging = false;
       en.postAtkRecoveryT = 0;   // 崩された時点でパニッシュ窓も閉じる(ボス側と同じ扱い)
+      if(en.fisherMelee) cancelFisherMeleeWindup(en);   // 記憶漁師の近接の溜めも取り消す(W2-MB1)
       /* 守護型のガードブレイクを崩した場合だけ、その攻撃を完全に潰す
          (core/guardian-break.js)。「体幹を削り切った=攻撃を潰した」
          という因果をはっきりさせるため、溜めの残り時間を破棄し、
@@ -5459,6 +5585,7 @@
       en.hp = 0; en.dead = true;
       // 死亡後は updateMobAnim が呼ばれないので、床の予兆の弧をここで畳む
       if(en.meleeTelegraphMesh) en.meleeTelegraphMesh.visible = false;
+      if(en.fisherMelee) cancelFisherMeleeWindup(en);   // 記憶漁師の近接の溜めは判定しない(W2-MB1)
       // 本体が消えれば、水面に映っていたものも残らない(WORK 3)
       if(en.mirrorClones && en.mirrorClones.length) clearMirrorClones(en);
       /* 撃破したときだけ動く、その個体ごとの後始末(WORK 6)。

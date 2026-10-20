@@ -2,13 +2,14 @@
 
 親 Task: [`CH1-COMP.md`](CH1-COMP.md)（Work Item W2-MB1。Status と Approval の正本は親の Work Items 表）
 
-Status: PLANNED（**計画のみ。実装は Human の承認待ち**）
+Status: IMPLEMENTING（Human 承認 2026-10-20。計画は PR #95）
 
 根拠の調査: `.ai/reports/CH1-COMP-W2MB-analysis.md`（PR #93。§3・§5・§6・§7 案 A・§9）
 
 ## Approval
 
-- [ ] Approved（**実装の開始には Human の承認が要る**）
+- [x] Approved（Human 2026-10-20「CH1-COMP：PR #95の受け入れとW2-MB1実装」）
+- 決定: HD-MB1-1 = **0.5 秒**、HD-MB1-2 = **パニッシュ窓に入れない**、HD-MB1-3 = **観測の灯で近接の溜めを伸ばさない**。水門守・他の敵は変えない
 - 今回の Human の指示（2026-10-20）: 「W2-MB1 の設計と作業計画を作成するところまで。中ボスの実装コードはまだ変更しない」
 - 承認してほしい範囲: 下の「実装方針」の 1〜4 と、判断事項 HD-MB1-1〜3
 

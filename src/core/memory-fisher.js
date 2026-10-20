@@ -98,3 +98,120 @@ export function netHits(net, x, z){
   const dx = net.x - x, dz = net.z - z;
   return dx*dx + dz*dz <= net.radius * net.radius;
 }
+
+/* =========================================================
+   近接の予兆(CH1-COMP W2-MB1)
+
+   今までの近接は、2.3 以内で待ち時間が明けたフレームにいきなり当たっていた
+   (見てから避けられない)。ここでは「溜め → 溜めの終わりに 1 回だけ判定」に
+   分ける。範囲・ダメージの倍率・待ち時間は今の値のまま定数へ移しただけ。
+
+   ・溜めは 0.5 秒(Human 承認 2026-10-20)。観測の灯では伸ばさない
+   ・パニッシュ窓には入れない(Human 承認 2026-10-20)
+   ・判定は溜めの終わりの距離で行う。溜めの間に範囲の外へ出れば当たらない
+   ・待ち時間 2.2 秒は溜めの終わりから数える(当たっても外れても同じ)
+   ・近接の判定の後だけ 0.45 秒動かない(網の後は今のまま)
+   ========================================================= */
+export const FISHER_MELEE_RANGE = 2.3;          // 今の値のまま(判定の半径、全周)
+export const FISHER_MELEE_DMG_MUL = 0.7;        // 今の値のまま(攻撃力 × 0.7)
+export const FISHER_MELEE_CD = 2.2;             // 今の値のまま(秒)
+export const FISHER_MELEE_WINDUP_SEC = 0.5;     // 0 にすると前と同じ「その場で判定」(Rollback 1)
+export const FISHER_MELEE_RECOVERY_SEC = 0.45;  // 0 にすると前と同じく止まらない(Rollback 2)
+// true にすると網の輪を前と同じく縮める(Rollback 3。判定の半径とずれるので通常は false)
+export const NET_RING_SHRINK_LEGACY = false;
+
+const FISHER_MELEE_EPS = 1e-9;
+
+export function fisherMeleeDamage(atk){
+  return Math.round((atk || 0) * FISHER_MELEE_DMG_MUL);
+}
+
+export function fisherMeleeInRange(dist){
+  return dist < FISHER_MELEE_RANGE;
+}
+
+export function createFisherMelee(){
+  return {windupT: 0, windupDur: 0, cd: 0, recoverT: 0};
+}
+
+export function fisherMeleeWindingUp(m){
+  return !!m && m.windupT > FISHER_MELEE_EPS;
+}
+
+/* 溜めの進み具合(0 → 1)。足元の内側の円と体の沈み込みに使う */
+export function fisherMeleeProgress(m){
+  if(!fisherMeleeWindingUp(m)) return 0;
+  return Math.min(1, Math.max(0, 1 - m.windupT / Math.max(1e-6, m.windupDur)));
+}
+
+/* 近接を 1 フレーム進める。AI が動いているフレームだけ呼ぶ
+   (大怯み・浮き・ダウンの間は呼ばれないので、溜めの残り時間は減らない)。
+
+   dist: このフレームのプレイヤーとの距離。
+   opts.netBusy: 網の溜めの最中(この間は近接を始めない)。
+   opts.windupSec: 溜めの長さ(既定 FISHER_MELEE_WINDUP_SEC)。
+
+   戻り値:
+     null                       何も起きない
+     {event:'windup'}           溜めを始めた
+     {event:'charging'}         溜めの途中(判定しない)
+     {event:'strike', inRange}  溜めの終わり。ここで 1 回だけ判定する */
+export function stepFisherMelee(m, dt, dist, opts){
+  opts = opts || {};
+  const windupSec = opts.windupSec != null ? opts.windupSec : FISHER_MELEE_WINDUP_SEC;
+  if(m.windupT > 0){
+    m.windupT -= dt;
+    // 刻みの足し引きの誤差(0.5 - 0.05×10 がわずかに正になる等)で 1 フレーム遅れないように
+    if(m.windupT > FISHER_MELEE_EPS) return {event: 'charging'};
+    return finishFisherMelee(m, dist);
+  }
+  if(opts.netBusy) return null;
+  if(m.cd > 0) m.cd -= dt;
+  if(fisherMeleeInRange(dist) && m.cd <= 0){
+    if(windupSec <= 0) return finishFisherMelee(m, dist);
+    m.windupT = windupSec;
+    m.windupDur = windupSec;
+    return {event: 'windup'};
+  }
+  return null;
+}
+
+/* 近接の後の停止を進める。AI が動いているフレームは毎回呼ぶ(網の溜めの間も)。
+   まだ止まっているなら true */
+export function tickFisherMeleeRecovery(m, dt){
+  if(m.recoverT > 0){
+    m.recoverT -= dt;
+    if(m.recoverT <= FISHER_MELEE_EPS) m.recoverT = 0;
+  }
+  return m.recoverT > 0;
+}
+
+function finishFisherMelee(m, dist){
+  m.windupT = 0;
+  m.cd = FISHER_MELEE_CD;
+  m.recoverT = FISHER_MELEE_RECOVERY_SEC;
+  return {event: 'strike', inRange: fisherMeleeInRange(dist)};
+}
+
+/* ダウン・浮き・撃破で溜めを取り消す。判定しない。待ち時間は使わない
+   (明けたままなので、起き上がって条件を満たせば新しく溜めを始める)。
+   近接の後の停止も 0 に戻す。溜めていたなら true */
+export function cancelFisherMelee(m){
+  if(!m) return false;
+  const was = m.windupT > 0;
+  m.windupT = 0;
+  m.windupDur = 0;
+  m.recoverT = 0;
+  return was;
+}
+
+/* 網の落ち先の輪の表示。外周の倍率(1 = 判定の半径)と、内側の円の満ち具合。
+   据わっている間(arm)、外周はずっと判定の半径のまま。残り時間は内側の円で見せる */
+export function netTelegraph(phase, progress){
+  const p = Math.min(1, Math.max(0, progress || 0));
+  if(phase === 'arm'){
+    return {ringScale: NET_RING_SHRINK_LEGACY ? 1 - p * 0.28 : 1, fill: p};
+  }
+  if(phase === 'fly') return {ringScale: 1, fill: 0};
+  return {ringScale: 1, fill: 1};
+}

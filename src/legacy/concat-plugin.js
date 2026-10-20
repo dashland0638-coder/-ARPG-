@@ -89,6 +89,8 @@ import {
 import {
   planNet, stepNet, netHits, canThrow as canThrowNet, netLookback, netArmSec,
   PROVISIONAL_NET_CD, PROVISIONAL_NET_RANGE, PROVISIONAL_NET_RADIUS,
+  FISHER_MELEE_RANGE, fisherMeleeDamage, fisherMeleeInRange, createFisherMelee,
+  fisherMeleeWindingUp, fisherMeleeProgress, stepFisherMelee, tickFisherMeleeRecovery, cancelFisherMelee, netTelegraph,
 } from '../core/memory-fisher.js';
 import {
   PROVISIONAL_MARKET_WAVES, dueWaves, allWavesFired,

@@ -251,6 +251,25 @@
     setTimeout(()=>{ line.classList.add('fade'); setTimeout(()=> line.remove(), 500); }, 2200);
   }
 
+  /* 記憶漁師の床の予兆(CH1-COMP W2-MB1)。表示中のメッシュの半径・中心を読み、判定の値と並べる ――
+     E2E が「見えている輪 = 判定の範囲」を確かめる口。判定や表示には何も書かない */
+  function fisherTelegraphInfo(en){
+    const g = en.meleeTelegraphMesh;
+    let melee = 'OFF';
+    if(g && g.visible){
+      const off = Math.hypot(g.position.x - en.group.position.x, g.position.z - en.group.position.z);
+      melee = `ON shown ${(g.userData.reach * g.scale.x).toFixed(2)} / hit ${FISHER_MELEE_RANGE.toFixed(2)}` +
+        ` center ${off.toFixed(2)}`;
+    }
+    let net = 'NONE';
+    const armed = memoryNets.filter(n => n.phase === 'arm');
+    if(armed.length){
+      const n = armed[armed.length - 1];
+      net = `ARM shown ${(n.radius * n.ring.scale.x).toFixed(2)} / hit ${n.radius.toFixed(2)}`;
+    }
+    return `Melee Ring: ${melee}<br>Net Ring: ${net}<br>`;
+  }
+
   // 敵情報パネル(#11): 最も近い敵のHP/体幹/AI状態/旋回速度/向き/
   // パニッシュ状態。ON/OFFできる(常時表示ではない)
   function updateArenaEnemyInfo(){
@@ -297,6 +316,7 @@
     else if(en.atkType==='copy') aiState = (en.copyState||'watch').toUpperCase();
     else if(en.atkType==='foam') aiState = 'FOAM' + (en.triggered ? ' (growing)' : '');
     else if(en.atkType==='fisher') aiState = (en.netWindupT||0) > 0 ? 'NET_WINDUP'
+      : fisherMeleeWindingUp(en.fisherMelee) ? `MELEE_WINDUP(${(en.fisherMelee.windupT).toFixed(2)}s)`
       : ((en.netCD||0) > 0 ? `RELOAD(${(en.netCD||0).toFixed(1)}s)` : 'READY');
     else if(en.atkType==='keeper') aiState = (en.keeperState||'idle').toUpperCase() +
       ` P${wardenPhaseFor(en.hp / Math.max(1, en.hpMax))}`;
@@ -360,6 +380,7 @@
       `${en.atkType==='servant' ? `Floor Arc: ${en.meleeTelegraphMesh && en.meleeTelegraphMesh.visible
         ? `ON reach ${en.meleeTelegraphMesh.userData.reach.toFixed(2)} half ${en.meleeTelegraphMesh.userData.halfAngle.toFixed(2)}`
         : 'OFF'}<br>` : ''}` +
+      `${en.atkType==='fisher' ? fisherTelegraphInfo(en) : ''}` +
       `Turn Rate: ${resolveTurnRate(en).toFixed(2)} rad/s<br>` +
       `Facing: ${en.group.rotation.y.toFixed(2)} rad<br>` +
       `Hit Radius: ${(en.hitRadius||0).toFixed(2)}<br>` +
