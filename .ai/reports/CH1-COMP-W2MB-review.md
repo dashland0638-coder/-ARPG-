@@ -199,3 +199,96 @@ CALC の再計算: 1.90（0.50＋0.55＋0.85）、1.225（0.55＋0.675）、1.94
 1. §4.2 表の残響の根拠 `C warden-echo.js:42-47` は `:39-49`（`phaseFor` と `echoCountFor`）が正確（Round 1 Optional 5 の後半が残っている）。
 2. §7 案 A の「水門守の残響 | 出た瞬間に足元に半径 2.4 の円」は、`operate` の残響だけに出す旨を添えるとよい（`walk` の残響は当たらないので、円を出すと「当たらない円」になる）。
 3. 漁師の近接・水門守本体の距離は `state.pos.distanceTo(en.group.position)`（3 次元）、網・残響は x/z の 2 次元。平地では差は無いので記述はこのままでよい。
+
+## Round 3/3
+
+### Review Target
+
+| 項目 | 値 |
+| --- | --- |
+| Task ID | CH1-COMP W2-MB（`.ai/tasks/CH1-COMP-W2MB.md`） |
+| Branch | `claude/ch1-comp-dusk-midboss-investigation` |
+| Reviewed SHA | `ea7d3f2` |
+| Diff range | `origin/main...HEAD`（`29c94da...ea7d3f2`） |
+| Handoff Verification | `git diff --stat origin/main...HEAD` は `.ai/reports/CH1-COMP-W2MB-analysis.md`・`.ai/reports/CH1-COMP-W2MB-review.md`・`.ai/tasks/CH1-COMP-W2MB.md`・`.ai/tasks/CH1-COMP.md` の 4 ファイルだけ。`git diff 29c94da -- src tests` は空（0 行）。worktree は clean |
+| Analysis Source | `.ai/reports/CH1-COMP-W2MB-analysis.md`（branch @ `ea7d3f2`） |
+| Plan Source | なし（調査のみの Work Item） |
+
+### Result
+
+**PASS**
+
+Round 2 の Required #1（水門守の残響の同時に当たる数）は、コードの挙動どおりに直っている。報告書の file:line・数値・CALC を `29c94da` から引き直し、§1〜§9 の内部の一貫性も確かめた。ブロッキングな誤りは無い。推奨（案 A）と次の Work Item（起票のみ）の扱いも依頼の要件どおり。
+
+### Independence
+
+別 Agent・同一セッションの Orchestrator が起動。Implementer の判断過程は入力にしていない。Round 2 の指摘の確認に留めず、`git show 29c94da:<path>` で対象ファイルを取り出し、報告書の引用箇所を読み直した。Human による差分の確認を推奨。
+
+### Checklist
+
+| # | 項目 | 結果 | 根拠 |
+| --- | --- | --- | --- |
+| 1 | Specification compliance | OK | FACT / CALC / INFERENCE / 未確認の区別（冒頭の表記と各節のラベル）、8 分類（§6、#2 該当なし・#7 判断不能・#8 未確定を明示）、2 案の比較（§7 案 A / 案 B、メリット・デメリット・影響・変更範囲・検証）と推奨 1 つ（案 A）、未確認事項と iPhone の確認（§8）、次の Work Item は起票のみ（§9） |
+| 2 | Scope compliance | OK | 変更は `.ai/` の 4 ファイルだけ。`src`・`tests` の差分なし |
+| 3 | Regression | N/A | ゲームのコード・テスト・設定の変更なし |
+| 4 | Build | N/A | 同上 |
+| 5 | Unit tests | N/A | 同上（Task の Test Report は NOT_RUN と理由を明記） |
+| 6 | E2E tests | N/A | 同上 |
+| 7 | Save/Load integrity | N/A | 同上 |
+| 8 | Existing behavior | OK | コード変更なし。報告書冒頭・Task に明記 |
+| 9 | Code duplication | N/A | コード変更なし |
+| 10 | Unnecessary architecture changes | OK | なし。改善案は既存部品（洋館の床の弧、`postAtkRecoveryT`、W2-4a の予兆）の流用が前提 |
+
+### FACT verification（基準 `29c94da`）
+
+Round 2 の修正箇所（§4.2 の 3 つめの箇条・§6 #6）:
+
+| 主張 | 結果 | 確認した箇所 |
+| --- | --- | --- |
+| 当たるのは「引く」（`operate`）の残響だけ | OK | P07`:3120`（`harmAt: rec.kind === 'operate' ? LIFE*0.45 : null`）、C`warden-echo.js:101-102`（`harmAt == null` なら `echoStrikes` は false） |
+| 上限は歩いた跡（`walk`）の残響も数える | OK | P07`:3179-3182`（`keeperEchoes.length < cap`、`keeperEchoes` は種類を問わない配列 `:3094`, `:3116`）、`walk` の記録 `:3204-3210`（0.9 秒ごと） |
+| 上限を超えた記録は出さずに捨てる | OK | P07`:3181`（先に `keeperPlayed` へ入れる）→ `:3182`（上限なら spawn しない）。`dueEchoes` は played を二度出さない（C`warden-echo.js:68-77`） |
+| 1 周 ≈ 3.9〜4.45 秒、`operate` の記録は 1 周に 1 回 | OK（再計算） | 持ち場（P07`:3082-3087`、出現 (2.6, 446) からの相対）の間隔 7.02 / 11.0 / 8.54 / 4.72。移動は `d ≤ 0.6` か 2.4 秒で終わる（`:3199`）ので、速度 2.2（P14-dv`:1390`）で 2.4 / 2.4 / 2.4 / 1.87 秒。＋溜め 0.55＋引く 1.5 → 3.92〜4.45 秒。`operate` の記録は溜めの終わりの 1 回（`:3235-3237`） |
+| 同時に当たりうる残響は 1 つまで | OK（再計算） | `operate` の記録の間隔 ≥ 3.92 秒。観測の灯で遅れが 2.4 → 1.6 に切り替わっても間隔の縮みは最大 0.8 秒で ≥ 3.12 秒 ＞ 寿命 2.2 秒（C`warden-echo.js:24-25`, `:32`）。よって `operate` の残響は同時に 1 つまで |
+| 段階 1 では当たる残響が出ないことがある | OK（INFERENCE のラベルどおり） | 移動中（最大 2.4 秒）に `walk` の記録が最大 3 つでき、寿命 2.2 秒の `walk` の残響が 2 つ残っていれば上限 2 で `operate` が捨てられる。起こりうることはコードから言え、頻度は推定 |
+| 約 18（π×2.4²=18.1）、部屋 576 の約 3%（3.1%） | OK | 部屋 24×24（C`dusk-village-map.js:36`） |
+
+報告書全体の再検証（すべて一致）:
+
+| 主張 | 確認した箇所 |
+| --- | --- |
+| 漁師 (0, 424)、ボス `buildDuskVillageEcho` | P07`:589`, `:593` |
+| 部屋の範囲（yard / sluice）、商店街は入室で波、水門は入室で登場演出 → (2.6, 446) に出現・`triggered=true` | C`dusk-village-map.js:35-36`、P14-dv`:758-761`, `:779-782`, `:1455-1456` |
+| 撃破で水門が開く | P14-dv`:1405-1409` |
+| 漁師 520/34/2.3、水門守 900/36/2.2・×1.18・`midbossName`、ボス 760/30。★1 の補正 HP ×1.2・攻撃 ×1.1 → 624/37、1080/40、912/33 | P14-dv`:1550-1560`, `:1390`, `:1395`, `:1397`, `:1280`、P06`:2823-2826`, `:4233-4234` |
+| 階層: 漁師は通常、水門守はネームド。大怯みは通常敵だけ止め（`stunT` 0.4）、AI を止めるだけ | C`enemy-tier.js:39-45`, `:49-53`、P07`:4857`, `:1046-1050` |
+| 網の溜めはパニッシュ窓に入らない（`netWindupT` を見ない） | C`punish-window.js:46-55` |
+| `POST_ATTACK_RECOVERY_SEC = 0.45`、×1.3 = `PUNISH_RECOVERY_MUL` | C`punish-window.js:29`、C`stagger-math.js:21` |
+| 追跡の解除（24 / 30 / 4 秒）、14 以内・見通しで再検知 | C`enemy-aggro.js:69`, `:98-102`、P07`:2997-2998` |
+| 網: 溜め 0.5 / 0.72・変形・鈴、落ち先 0.8 秒前 / 今、飛行 0.55、据わり 0.85（×1.45）、半径 2.7、CD 4.6、輪 `RingGeometry(2.7×0.82, 2.7)`・`1−p×0.28`、判定は burst の最初の 1 回・閃光、ダメージ = `en.atk` | P07`:3010-3035`, `:2927`, `:2935`, `:2955-2982`、C`memory-fisher.js:26-31`, `:36`, `:58-70`, `:96-100` |
+| 近接: < 2.3、CD 2.2・初回なし、26 = round(37×0.7)、閃光・効果音なし、2.0 まで接近、`postAtkRecoveryT` を立てるが AI は読まない | P07`:3040-3057` |
+| 水門守: 溜め 0.55（×1.18 / ×0.86・波紋）、引く 1.5・45% で 1 回、本体から 2.4、40、閃光、すぐ歩き出す | P07`:3213-3272`、C`warden-echo.js:26-29` |
+| 残響: 遅れ 1.6（×1.5）、寿命 2.2、0.99 秒で 1 回、2.4、24 = round(40×0.6)、上限 2/3/4、ボス戦と共有（scale 1.5） | C`warden-echo.js:24-32`, `:39-49`, `:101-109`、P07`:3103-3128`, `:3399` |
+| 中ボスの通知 12、ミニマップのネームド反応、カメラのロックオンはボスだけ | P07`:843-846`、P14-hud-boot`:670-690`、P13`:2333` |
+| 洋館の床の弧、ボスの攻撃後の硬直 | P07`:1311-1313`, `:4618-4621` |
+
+CALC の再計算: 1.90（0.50＋0.55＋0.85）、1.225（0.55＋1.5×0.45）、1.944 / 1.594（2.7×0.72 / 2.214×0.72）、104（40＋40＋24）、3.92〜4.45、18.1 / 3.1% はすべて一致。
+
+内部の一貫性: §1（結論）・§3・§4・§5（比較表）・§6（分類）・§7（案）・§9（Work Item）で、漁師の近接（予備動作なし・猶予 0 秒・手がかりは数字だけ）、網（1.90 秒・1.94〜2.7 の不一致）、水門守（1.225 秒・範囲表示なし・当たる残響は同時に 1 つ）の記述が揃っている。旧記述（「最大 4 つ」「12.6%」）は報告書に残っていない。
+
+Task の Fix の記載: Round 1 Fix（行番号・閃光・溜め・追跡・任意 5 件）と Round 2 Fix（残響の同時数、`warden-echo.js:39-49`）は、報告書の実際の差分と一致する。
+
+### Risks
+
+- 「中ボス」が記憶漁師か水門守の残響かは未確定（§8 で明示）。W2-MB1 / MB2 の優先順位は Human の回答で変わりうる。
+- 報告書は実機・映像を見ていない。iPhone での見え方（§5 末尾・§6 #7）は未確認のまま。
+
+### Required Changes
+
+None
+
+### Optional（非ブロッキング）
+
+1. §7 案 A の「水門守の残響 | 出た瞬間に足元に半径 2.4 の円」は、当たる `operate` の残響だけに出す旨を添えるとよい（Round 2 Optional 2 が未反映。`walk` の残響に円を出すと「当たらない円」になる）。W2-MB2 の設計時に拾えば足りる。
+2. 親 Task `CH1-COMP.md` の Status History に Round 2 の CHANGES_REQUIRED の行が無い。今回の PASS の行で Round 1・2 をまとめて記録する。
+3. §4.2 の INFERENCE の根拠に「Reviewer Round 2 の簡易計算」を挙げているが、報告書の根拠は本来コードの行（P07`:3179-3182`, `:3204-3210`）で足りる。表記の好みの範囲。
