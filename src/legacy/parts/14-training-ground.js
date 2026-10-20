@@ -258,7 +258,8 @@
     let melee = 'OFF';
     if(g && g.visible){
       const off = Math.hypot(g.position.x - en.group.position.x, g.position.z - en.group.position.z);
-      melee = `ON shown ${(g.userData.reach * g.scale.x).toFixed(2)} / hit ${FISHER_MELEE_RANGE.toFixed(2)}` +
+      const ring = g.userData.fisherRing;
+      melee = `ON shown ${(ring.geometry.parameters.outerRadius * ring.scale.x * g.scale.x).toFixed(2)} / hit ${FISHER_MELEE_RANGE.toFixed(2)}` +
         ` center ${off.toFixed(2)}`;
     }
     let net = 'NONE';

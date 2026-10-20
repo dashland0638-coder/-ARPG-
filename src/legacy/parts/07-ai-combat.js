@@ -3023,7 +3023,11 @@
 
     const sees = distToPlayer < 14 && hasLineOfSight(en.group.position, state.pos);
     if(aggroOnDetect(en, sees)) en.triggered = true;
-    if(!en.triggered){ updateWanderAI(en, dt); return; }
+    if(!en.triggered){
+      // 敵対が解けたら近接の溜めは残さない(W2-MB1。輪だけが歩き回らないように)
+      if(en.fisherMelee && fisherMeleeWindingUp(en.fisherMelee)) cancelFisherMeleeWindup(en);
+      updateWanderAI(en, dt); return;
+    }
 
     if(en.netCD == null) en.netCD = 1.2;
     en.netCD -= dt;
@@ -3158,6 +3162,7 @@
       fill.position.y = 0.005;
       g.add(ring); g.add(fill);
       g.userData.fisherFill = fill;
+      g.userData.fisherRing = ring;
       g.userData.reach = FISHER_MELEE_RANGE;
       scene.add(g);
       en.meleeTelegraphMesh = g;

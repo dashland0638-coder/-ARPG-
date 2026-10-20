@@ -219,6 +219,7 @@ test('W2-MB1 近接の予兆', async (t) => {
     assert.ok(Math.abs(time + 0.05 - 0.45) < 1e-9);
   });
 
+  // P07 は網の溜めの最中は早期 return で近接を呼ばない(結合は E2E とコードで確かめる)。ここは core の約束だけ
   await t.test('網の溜め中は近接を始めない', () => {
     const m = createFisherMelee();
     assert.equal(stepFisherMelee(m, 0.05, 1, {netBusy: true}), null);
