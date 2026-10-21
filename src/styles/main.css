@@ -637,7 +637,7 @@
     display:inline-block; margin-left:6px; padding:0 6px; border:1px solid var(--panel-line);
     border-radius:3px; font-size:11px; color:var(--text-dim);
   }
-  .testmode-job-card.tm-boss-pre .tm-kind{ border-color:var(--ember-bright); color:var(--ember-bright); }
+  .testmode-job-card.tm-boss .tm-kind{ border-color:var(--ember-bright); color:var(--ember-bright); }
   @media (max-height:500px){
     .testmode-actions{ bottom:-28px; padding:6px 40px 6px; }
     .testmode-summary{ margin-bottom:4px; }

@@ -588,7 +588,7 @@
     /* 開始地点(WORK 4)。ヘッドレス/実機のどちらでも、村の奥のほうを
        確かめるのに入口から歩き直すのは現実的でないため、選んだシナリオに
        登録があれば途中から始められるようにしてある(core/scenario-waypoints.js)。
-       登録の無いシナリオでは、この欄そのものが空になる */
+       登録の無いシナリオでも、入口(シナリオ開始)の 1 枚だけは出る(TEST-CHAPTER-SELECT-001) */
     function renderWaypointGrid(){
       if(!testWaypointGrid) return;
       testWaypointGrid.innerHTML = '';
@@ -600,7 +600,7 @@
       startOptionsFor(tmScenario, waypointsFor).forEach(opt=>{
         const card = document.createElement('div');
         card.className = 'testmode-job-card' + (opt.id ? '' : ' selected') +
-          (opt.kind === START_KIND.BOSS_PRE || opt.kind === START_KIND.BOSS_START ? ' tm-boss-pre' : '');
+          (opt.kind === START_KIND.BOSS_PRE || opt.kind === START_KIND.BOSS_START ? ' tm-boss' : '');
         card.dataset.waypointId = opt.id || '';
         card.dataset.startKind = opt.kind;
         card.textContent = opt.name;
@@ -701,7 +701,7 @@
       if(testStartBtn.disabled || !tmClass) return;
       // 画面に出ていない組み合わせは始めない(core の表で同じ判定をもう一度通す)
       const check = resolveTestStart({scenarioKey: tmScenario, waypointId: tmWaypoint}, SCENARIO_DEFS, waypointsFor);
-      if(!check.ok) return;
+      if(!check.ok){ console.error(`testmode: cannot start (${check.reason})`); return; }
       testScreen.style.display = 'none';
       beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1, tmGuest, tmScenario, tmWaypoint);
     });

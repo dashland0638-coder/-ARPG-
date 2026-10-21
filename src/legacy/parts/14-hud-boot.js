@@ -2221,7 +2221,8 @@
     const world = opts.world || 'tavern';
     pendingJoinScene = null;   // タイトルへ戻る前の順番待ちを持ち越さない
     chapter1Switch = null; joinFigureWalk = null; retiredCastFigures = [];   // 帰還と交代の一幕(X-5)
-    // state.testModeの唯一の書き換え場所。beginGame()/continueGame()
+    // state.testModeを立てる唯一の場所(下ろすのはここと returnToTitle()〔10-input.js、
+    // TEST-CHAPTER-SELECT-001〕。14-training-ground.js の結果画面のプレビューは描く間だけ外して戻す)。beginGame()/continueGame()
     // (world==='tavern')経由なら必ずfalseに戻るので、テストモードを
     // 経由した後で本当のセーブへ戻ってもsaveGame()が黙って止まったまま
     // にはならない(09-save-load.js参照)

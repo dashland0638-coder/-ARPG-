@@ -330,6 +330,12 @@ test.describe('iPhone の横画面(844×390・タッチ)', () => {
       expect(box.y + box.height, id).toBeLessThanOrEqual(390);
       expect(box.y, id).toBeGreaterThanOrEqual(0);
       expect(box.height, `${id} は指で押せる高さ`).toBeGreaterThanOrEqual(24);
+      // 枠のスクロールで隠れていない(ボタンの中心で一番上にあるのがそのボタン)
+      const onTop = await page.evaluate(([sel, x, y]) => {
+        const el = document.elementFromPoint(x, y);
+        return !!el && (el === document.querySelector(sel) || document.querySelector(sel).contains(el));
+      }, [id, box.x + box.width / 2, box.y + box.height / 2]);
+      expect(onTop, `${id} が見えていて押せる`).toBe(true);
     }
     await page.tap('#testmode-start-btn');
 
