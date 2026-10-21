@@ -2,13 +2,14 @@
 
 親 Task: [`CH1-COMP.md`](CH1-COMP.md)（Work Item W2-MB1。Status と Approval の正本は親の Work Items 表）
 
-Status: PLANNED（**計画のみ。実装は Human の承認待ち**）
+Status: REVIEWING（実装・テスト済み。独立レビュー Round 1 PASS。Human 承認 2026-10-20。計画は PR #95）
 
 根拠の調査: `.ai/reports/CH1-COMP-W2MB-analysis.md`（PR #93。§3・§5・§6・§7 案 A・§9）
 
 ## Approval
 
-- [ ] Approved（**実装の開始には Human の承認が要る**）
+- [x] Approved（Human 2026-10-20「CH1-COMP：PR #95の受け入れとW2-MB1実装」）
+- 決定: HD-MB1-1 = **0.5 秒**、HD-MB1-2 = **パニッシュ窓に入れない**、HD-MB1-3 = **観測の灯で近接の溜めを伸ばさない**。水門守・他の敵は変えない
 - 今回の Human の指示（2026-10-20）: 「W2-MB1 の設計と作業計画を作成するところまで。中ボスの実装コードはまだ変更しない」
 - 承認してほしい範囲: 下の「実装方針」の 1〜4 と、判断事項 HD-MB1-1〜3
 
@@ -208,3 +209,46 @@ E2E は W2-4a の `tests/dusk-boss-phase-burst.spec.js` と同じく、`.arena-f
 
 1. R1: 足元の表示の中心を毎フレーム漁師の今の位置に置き直す（ノックバックで滑っても判定の中心と一致）と §1b に決め、受け入れ基準 3 に「中心 = 判定の中心」と確かめ方を足した。
 2. 任意の指摘 O1〜O5: 受け入れ基準 6 を「近接の後」に、ダウン・再出現で近接の後の停止も 0 に、浮きの取り消しの場所（P07`:1031-1039`）と大怯みとの違いの理由、E2E 2 を「歩いて範囲の外」にして `MISS` の記録に理由を付ける、輪と内側の円を 1 つの Group に。
+
+## Implementation Result（2026-10-20）
+
+branch `claude/ch1-comp-w2-mb1-fisher-telegraph`。記憶漁師（`atkType:'fisher'`）だけを変更した。
+
+| ファイル | 変更 |
+| --- | --- |
+| `src/core/memory-fisher.js` | 近接の定数（範囲 2.3・倍率 0.7・待ち時間 2.2 は今の値を移しただけ。溜め 0.5・停止 0.45）、`createFisherMelee` / `stepFisherMelee`（溜め → 溜めの終わりに 1 回だけ `strike`）/ `tickFisherMeleeRecovery` / `cancelFisherMelee` / `fisherMeleeProgress`、網の輪の表示 `netTelegraph`（据わっている間の外周 = 判定の半径、内側の円 0 → 1）。Rollback の切り替え 3 つ（溜め 0、停止 0、`NET_RING_SHRINK_LEGACY`） |
+| `src/legacy/parts/07-ai-combat.js` | `updateFisherAI` の近接を溜め → 判定に（判定の式は前と同じ）、溜めの間は動かず向き固定、網は割り込まない、近接の後だけ 0.45 秒動かない。足元の輪（外周 2.3 の輪＋満ちる円、1 つの Group を `en.meleeTelegraphMesh` に）を敵の更新の最後に毎フレーム漁師の位置へ置き直す。網の輪は縮めず内側の円を足す。ダウン・浮き・撃破・敵対の解除で取り消し、再出現で初期化。テストモードの記録 `FISHER MELEE — WINDUP/HIT/MISS (out of range)/MISS (dodged)/BLOCKED (orb shield)/CANCEL`、`MEMORY NET — THROW/ARM/BURST` |
+| `src/legacy/parts/14-training-ground.js` | Debug Info（テストモードだけ）: `MELEE_WINDUP`、`Melee Ring`（見えている半径 / 判定の半径 / 中心のずれ）、`Net Ring`（据わっている網の見えている半径 / 判定の半径） |
+| `src/legacy/concat-plugin.js` | import の追加だけ |
+| `tests/unit/memory-fisher.test.js` | 近接 14 件・網の輪 2 件を追加（既存の assert は変更なし） |
+| `tests/dusk-fisher-telegraph.spec.js` | 新規 E2E 2 本 |
+
+変えていない: 水門守、他の敵、ボスの数値と爆発の予兆、`buildDuskFisher` の数値、セーブ、進行のフラグ、交代の条件、`basefile.html`、legacy の連結構成、第一章の成長。
+
+## Test Report（2026-10-20）
+
+| 項目 | 結果 |
+| --- | --- |
+| `npm run build` | 成功 |
+| `npm run test:unit` | 1910 pass / 0 fail（1 skip は既存） |
+| E2E `dusk-fisher-telegraph`（新規 2 本） | 2 passed。実測（推定ゲーム内時間）: WINDUP → HIT 0.52 秒・0.525 秒、26 は HIT の 0.03 秒後のみ。網 THROW → ARM 0.55 秒、ARM → BURST 0.84 秒、37 は BURST の 0.025 秒後のみ。溜めの間の Debug Info は毎フレーム `ON shown 2.30 / hit 2.30 center 0.00`、据わっている網は `ARM shown 2.70 / hit 2.70`。溜めの間に後ろへ歩くと `MISS (out of range)`、26 は出ない |
+| E2E 回帰（`chapter1-dusk-basics`・`chapter1-progression`・`combat-center-messages`・`combat-test-arena`・`dusk-boss-phase-burst`・`duskvillage`・`execution-break`・`notifications`・`production-build`・`save-load`・`scenario-test-mode`） | 44 件中 43 passed。`chapter1-progression` の 1 件は実行中に私がソースを編集して開発サーバーが再読み込みしたため（`Execution context was destroyed`）。編集を止めて `chapter1-progression`・`dusk-fisher-telegraph`・`combat-test-arena` を再実行し 14 passed |
+| PR の CI | PR 作成後に記録する |
+
+画面（合否には使わない）: `test-results/dusk-fisher-melee-telegraph.png`、`dusk-fisher-net-telegraph.png`（トレーニング空間。夜の村の床での見え方は iPhone で確かめる）。
+
+## Remaining Risks
+
+- 近接は条件を満たしてから 0.5 秒遅れて当たり、判定の後 0.45 秒止まる。体感は易しくなる（意図した変更。iPhone で確かめる）。
+- 範囲の外で外れた時も `postAtkRecoveryT`（パニッシュ表示 0.45 秒）が立つ（前は範囲内でしか発動しなかった）。
+- 判定は 3D 距離、輪は 2D（前からの式のまま）。
+- 溜めの音（`dodge`）は網を投げる音と同じ。
+- 足元の Group のジオメトリは世界の破棄で dispose しない（洋館の床の弧と同じ作法）。
+
+## HUMAN DEVICE CHECK REQUIRED（未確認）
+
+1. 殴られる前に、体の沈み込みと足元の輪が見えるか
+2. 見てから輪の外へ出る時間があるか（0.5 秒）
+3. 網の輪の縁と、実際に当たる範囲が合っているか
+4. 戦闘が易しすぎないか
+5. 夜の村の床で予兆が見やすいか（近接の輪と網の輪を見分けられるか）

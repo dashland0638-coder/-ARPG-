@@ -40,7 +40,7 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 | 4a | W2-T2 | 現行コード（`1205665`）でのベースライン再測定と、通常プレイの生存可能性の評価（測定だけ。ゲームは変えない） | P1 | DONE（PR #92 merged `e5d3464`、2026-10-20。iPhone 実機確認は HUMAN DEVICE CHECK REQUIRED） | [x] Human 2026-10-19（依頼文） | W2-T1 |
 | 4b | W2-4a | 村のボスの段階移行の爆発に予兆（0.8 秒・足元の円）を付ける（`CH1-COMP-W24a.md`。残響の円は含めない） | P1 | DONE（PR #94 merged `1801f05`、2026-10-20。Human の受け入れ確認で ACCEPT。iPhone 実機確認は HUMAN DEVICE CHECK REQUIRED） | [x] Human 2026-10-20（依頼文） | W2-D |
 | 4c | W2-MB | 宵待ちの村のボス直前の中ボス（記憶漁師・水門守の残響）の攻撃の分かりにくさの調査（調査のみ。`CH1-COMP-W2MB.md`） | P1 | DONE（PR #93 merged `8fd69cb`、2026-10-20。調査のみ） | [x] Human 2026-10-20（依頼文） | ― |
-| 4d | W2-MB1 | 記憶漁師の近接に予兆（溜め＋足元の円）、網の輪を判定の範囲に合わせる（`CH1-COMP-W2MB1.md`。水門守は W2-MB2） | P1 | PLANNED（計画のみ。実装は Human の承認待ち） | [ ] Human の承認が必要 | W2-MB |
+| 4d | W2-MB1 | 記憶漁師の近接に予兆（溜め＋足元の円）、網の輪を判定の範囲に合わせる（`CH1-COMP-W2MB1.md`。水門守は W2-MB2） | P1 | REVIEWING（実装・テスト済み、独立レビュー PASS。branch `claude/ch1-comp-w2-mb1-fisher-telegraph`。iPhone 確認は未）  | [x] Human 承認 2026-10-20（溜め 0.5 秒・パニッシュ窓なし・観測の灯で伸ばさない） | W2-MB |
 | 5 | W0-5 | アートの完成見本の提示（見本の制作は村のボス戦に限り HD-4 の範囲。実装の開始は指示待ち。画像と全マップ展開は Human の承認が必要） | P2 | PLANNED | [ ] Human の承認が必要 | W0-3, W3-0（制作: W2-2・W3-1・W3-2 の村の範囲） |
 | 5 | W0-6 | 出撃会話の台詞の候補の提示 | P1 | PLANNED | [ ] Human の承認が必要 | ― |
 | 6 | W1-2, W1-4, W1-5, W2-1a〜W2-6, W3, W4, W5 | 計画のとおり | ― | PLANNED | 承認後に個別の Task にする | 計画を参照 |
@@ -74,6 +74,8 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 - 2026-10-20: Human の指示（「PR #92・#94・#93 の受け入れとマージ、その後 W2-MB1 準備」）で、受け入れ確認の後に順に squash merge した: #92 → `e5d3464`、#94 → `1801f05`（Review Fix Loop の上限に達していたので、HEAD `3cd9d62` の独立した受け入れレビューで ACCEPT を確認してから）、#93 → `8fd69cb`。各 PR は最新 HEAD で CI 成功。GitHub Pages の Deploy は #92・#94 の merge で成功。
 - 2026-10-20: W2-MB1 の計画を作成した（`.ai/tasks/CH1-COMP-W2MB1.md`、branch `claude/ch1-comp-w2-mb1-plan`）。計画のみ。PLANNED。
 - 2026-10-20: W2-MB1 の計画の独立 Reviewer Round 1・2 は CHANGES_REQUIRED、Round 3 は PASS（.ai/reports/CH1-COMP-W2MB1-plan-review.md）。実装は Human の承認待ち。
+- 2026-10-20: Human の指示（「PR #95の受け入れとW2-MB1実装」）で PR #95（W2-MB1 の計画）を受け入れ確認（HEAD `872bf54`・CI 成功・未解決コメントなし・Reviewer R3 PASS・計画が承認の内容と一致）の後に squash merge した → `c2e0894`。
+- 2026-10-20: Human の承認（溜め 0.5 秒・パニッシュ窓なし・観測の灯で伸ばさない）で W2-MB1 を実装した（branch `claude/ch1-comp-w2-mb1-fisher-telegraph`）。IMPLEMENTING → TESTING → REVIEWING。独立 Reviewer Round 1 PASS（`.ai/reports/CH1-COMP-W2MB1-review.md`）。iPhone 確認は未。
 
 ## Approval（W1-1・W1-3・W2-T1）
 
