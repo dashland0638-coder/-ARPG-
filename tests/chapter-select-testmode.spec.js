@@ -60,24 +60,28 @@ async function openTestScreen(page) {
   await page.waitForSelector('.class-card[data-key="warrior"]');
 }
 
+/* 会話を送る・メニューを開く操作は、ページの中から DOM のイベントで行う。
+   ヘッドレス(SwiftShader)では幽霊船の船倉のような重い場所で 1 フレームが数秒かかり、
+   Playwright の実入力(page.click)が描画待ちで打ち切られるため(実測)。押しているのは
+   実際のボタンと同じ要素・同じイベント(会話は click、メニューは pointerdown)。
+   タッチでの操作そのものは iPhone の横画面のテストで page.tap を使って確かめる */
+const dialogueOpen = page => page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
+const advanceDialogue = page => page.evaluate(() => document.getElementById('dialogue-overlay').click());
+
 /* メニューから「タイトルへ戻る」(テストモードの終わり) */
 async function backToTitleFromMenu(page) {
-  /* 出ている会話(到着の一幕など)を送ってからメニューを開く。会話の間はメニューが開かないので、
-     開くまで「会話を送る → メニュー」を繰り返す */
-  for (let i = 0; i < 30; i++) {
-    if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) {
-      await page.click('#dialogue-overlay');
-      await page.waitForTimeout(300);
-      continue;
-    }
+  // 出ている会話(到着の一幕など)を送ってからメニューを開く。会話の間はメニューが開かない
+  for (let i = 0; i < 40; i++) {
+    if (await dialogueOpen(page)) { await advanceDialogue(page); await page.waitForTimeout(400); continue; }
     if (await page.evaluate(() => document.getElementById('menu-overlay').classList.contains('active'))) break;
-    await page.click('#loot-menu-btn');
+    await page.evaluate(() => document.getElementById('loot-menu-btn')
+      .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true })));
     await page.waitForTimeout(500);
   }
   await expect(page.locator('#menu-overlay')).toHaveClass(/active/);
-  await page.click('#menu-title');
+  await page.evaluate(() => document.getElementById('menu-title').click());
   await expect(page.locator('#confirm-overlay')).toHaveClass(/active/);
-  await page.click('#confirm-ok');
+  await page.evaluate(() => document.getElementById('confirm-ok').click());
   await expect(page.locator('#title-screen')).toBeVisible({ timeout: 30_000 });
 }
 
@@ -201,9 +205,7 @@ test.describe('テスト用チャプター／シナリオ選択', () => {
       if (sc.room) await expect(page.locator('#minimap-room')).toHaveText(sc.room, { timeout: 30_000 });
       // しばらく居ても、ボス戦は始まらない(到着の会話は送る)。落ちて入口へ戻されない
       for (let i = 0; i < 6; i++) {
-        if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) {
-          await page.click('#dialogue-overlay');
-        }
+        if (await dialogueOpen(page)) await advanceDialogue(page);
         await page.waitForTimeout(1000);
       }
       await expect(page.locator('#boss-bar-wrap'), `${sc.key}: ボス戦はまだ`).not.toHaveClass(/show/);
