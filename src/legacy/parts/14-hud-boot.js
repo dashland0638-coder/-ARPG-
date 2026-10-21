@@ -1706,17 +1706,20 @@
        startScenarioTavernDialogue の担当)ため、ここから直接呼べる。
        finishEnteringGame 側にシナリオ固有の分岐は一切足していない。 */
     if(scenarioKey){
-      const def = SCENARIO_DEFS.find(s=>s.key===scenarioKey);
-      if(def && def.unlocked){
+      /* 始められるかは core/test-scenario-select.js の表で確かめる
+         (TEST-CHAPTER-SELECT-001)。未実装・どのチャプターにも無いシナリオ、
+         そのシナリオに無い開始地点は始めない(トレーニング空間に留まる) */
+      const start = resolveTestStart({scenarioKey, waypointId}, SCENARIO_DEFS, waypointsFor);
+      if(start.ok){
         launchScenario(scenarioKey);
         /* 開始地点(WORK 4)。launchScenario は fadeTransition を挟むので、
            入場処理が済んでから運ぶ ―― ワールド構築と入場座標の設定を
            上書きしないよう、同じ暗転の後ろに置いている。
            運ぶのは座標だけで、進行状態(フラグ・敵・イベント)には触らない */
-        const wp = findWaypoint(scenarioKey, waypointId);
+        const wp = start.waypointId ? findWaypoint(scenarioKey, start.waypointId) : null;
         if(wp) setTimeout(()=> teleportTestModeTo(wp), 400);
       }
-      else console.error(`beginTestMode: unknown or locked scenario "${scenarioKey}"`);
+      else console.error(`beginTestMode: cannot start "${scenarioKey}" / "${waypointId}" (${start.reason})`);
     }
   }
 
@@ -2177,9 +2180,12 @@
      座標だけを動かし、味方の再配置とカメラの置き直しは既存の関数に任せる */
   function teleportTestModeTo(wp){
     if(!state.testMode || !state.started) return;
-    state.pos.set(wp.x, 0, wp.z);
+    // 上の階の地点は y(床の高さ)を持つ(時計塔の最上階など。TEST-CHAPTER-SELECT-001)
+    state.pos.set(wp.x, wp.y || 0, wp.z);
     state.vel.set(0,0,0);
     state.yVel = 0; state.grounded = true;
+    // 階段の移動(stairMoveTo)と同じく、落下の時計と「最後に立っていた所」を着いた場所に置き直す
+    voidT = 0; lastSolid = state.pos.clone();
     if(state.safePos) state.safePos.copy(state.pos);
     /* 運ぶ前に持っていた戦闘の残りを落とす(WORK 5)。前の場所に置いた
        幻影・飛んでいる網・直前の一撃の記録・足取りが残っていると、

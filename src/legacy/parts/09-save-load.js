@@ -91,8 +91,9 @@
   // 「セーブする」等)は複数あるが、全て最終的にこの関数を経由するため、
   // 個別に呼び出し側をガードして回るより確実
   function saveGame(){
-    if(state.testMode) return false;
-    if(!state.started || !state.classDef) return false;
+    /* テストモードの間は通常のセーブへ決して書かない(TEST-CHAPTER-SELECT-001。
+       判定は core/test-scenario-select.js canWriteNormalSave) */
+    if(!canWriteNormalSave(state)) return false;
     try{
       localStorage.setItem(SAVE_KEY, JSON.stringify(buildSaveData()));
       return true;
@@ -125,6 +126,8 @@
   function hasSaveGame(){ return !!loadSaveData(); }
 
   function deleteSaveGame(){
+    // テストモードの間は通常のセーブを消さない(TEST-CHAPTER-SELECT-001)
+    if(!canDeleteNormalSave(state)) return false;
     try{ localStorage.removeItem(SAVE_KEY); }catch(err){ console.error('deleteSaveGame failed:', err); }
   }
 

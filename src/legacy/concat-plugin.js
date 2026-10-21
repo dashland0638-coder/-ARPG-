@@ -83,6 +83,10 @@ import {
 } from '../core/foam-swarm.js';
 import { waypointsFor, findWaypoint } from '../core/scenario-waypoints.js';
 import {
+  TEST_CHAPTERS, DEFAULT_TEST_CHAPTER, START_KIND, chapterOfScenario, testScenariosFor,
+  startOptionsFor, resolveTestStart, canWriteNormalSave, canDeleteNormalSave,
+} from '../core/test-scenario-select.js';
+import {
   recordPosition, positionAt, pruneHistory, historySpan,
   PROVISIONAL_HISTORY_SEC, PROVISIONAL_HISTORY_STEP,
 } from '../core/position-history.js';
