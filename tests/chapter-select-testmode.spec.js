@@ -62,7 +62,18 @@ async function openTestScreen(page) {
 
 /* メニューから「タイトルへ戻る」(テストモードの終わり) */
 async function backToTitleFromMenu(page) {
-  await page.click('#loot-menu-btn');
+  /* 出ている会話(到着の一幕など)を送ってからメニューを開く。会話の間はメニューが開かないので、
+     開くまで「会話を送る → メニュー」を繰り返す */
+  for (let i = 0; i < 30; i++) {
+    if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) {
+      await page.click('#dialogue-overlay');
+      await page.waitForTimeout(300);
+      continue;
+    }
+    if (await page.evaluate(() => document.getElementById('menu-overlay').classList.contains('active'))) break;
+    await page.click('#loot-menu-btn');
+    await page.waitForTimeout(500);
+  }
   await expect(page.locator('#menu-overlay')).toHaveClass(/active/);
   await page.click('#menu-title');
   await expect(page.locator('#confirm-overlay')).toHaveClass(/active/);
@@ -101,22 +112,33 @@ test.describe('テスト用チャプター／シナリオ選択', () => {
     await expect(page.locator('#testmode-summary')).toHaveText('トレーニング空間');
     await expect(cards(page, 'testmode-waypoint-grid')).toHaveCount(0);
 
-    // 宵待ちの村: 入口 → ボス戦直前(水鏡の跡) → 途中の地点
+    // 宵待ちの村: 入口 → ボス戦直前(扉の手前) → ボス戦開始(水鏡の跡) → 途中の地点
     await page.click('#testmode-scenario-grid [data-scenario-key="duskvillage"]');
     const wps = cards(page, 'testmode-waypoint-grid');
     const kinds = await wps.evaluateAll(els => els.map(e => [e.dataset.waypointId, e.dataset.startKind]));
     expect(kinds[0]).toEqual(['', 'start']);
-    expect(kinds[1]).toEqual(['boss', 'boss-pre']);
-    expect(kinds.slice(2).every(([, k]) => k === 'waypoint')).toBe(true);
+    expect(kinds[1]).toEqual(['bossgate', 'boss-pre']);
+    expect(kinds[2]).toEqual(['boss', 'boss-start']);
+    expect(kinds.slice(3).every(([, k]) => k === 'waypoint')).toBe(true);
+    await expect(page.locator('#testmode-waypoint-grid [data-waypoint-id="bossgate"] .tm-kind')).toHaveText('ボス戦直前');
+    await expect(page.locator('#testmode-waypoint-grid [data-waypoint-id="boss"] .tm-kind')).toHaveText('ボス戦開始');
     await expect(wps.first()).toHaveClass(/selected/);
     await expect(page.locator('#testmode-summary')).toHaveText('第一章 ／ 🏮 宵待ちの村 ／ シナリオ開始');
     await page.click('#testmode-waypoint-grid [data-waypoint-id="boss"]');
     await expect(page.locator('#testmode-summary')).toHaveText('第一章 ／ 🏮 宵待ちの村 ／ 水鏡の跡');
     await expect(page.locator('#testmode-start-btn')).toHaveText('🛠 🏮 宵待ちの村 へ出撃');
 
-    // 道にはボスがいない: ボス戦直前は出ない(選べない)
+    // 扉のあるボス(幽霊船・時計塔): ボス戦直前はあり、ボス戦開始は出ない
+    for (const key of ['ghostship', 'clocktower']) {
+      await page.click(`#testmode-scenario-grid [data-scenario-key="${key}"]`);
+      await expect(page.locator('#testmode-waypoint-grid [data-start-kind="boss-pre"]')).toHaveCount(1);
+      await expect(page.locator('#testmode-waypoint-grid [data-start-kind="boss-start"]')).toHaveCount(0);
+    }
+
+    // 道にはボスがいない: ボス戦直前・開始は出ない(選べない)
     await page.click('#testmode-scenario-grid [data-scenario-key="road"]');
     await expect(page.locator('#testmode-waypoint-grid [data-start-kind="boss-pre"]')).toHaveCount(0);
+    await expect(page.locator('#testmode-waypoint-grid [data-start-kind="boss-start"]')).toHaveCount(0);
     await expect(page.locator('#testmode-waypoint-grid [data-waypoint-id="boss"]')).toHaveCount(0);
 
     // チャプターを替えると、第一章のシナリオの選択は外れる(別のチャプターのまま出撃しない)
@@ -152,7 +174,67 @@ test.describe('テスト用チャプター／シナリオ選択', () => {
       await dismissIntroDialogue(page);
       // テストモードの印(Arena ボタン)と、操作できる HUD
       await expect(page.locator('#arena-toggle-btn')).toHaveClass(/show/);
-      await expect(page.locator('#btn-attack')).toBeVisible();
+      await expect(page.locator('#hud-name')).toBeVisible();
+      await expect(page.locator('#hud-name')).not.toHaveText('');
+      await backToTitleFromMenu(page);
+    }
+    expect(errors).toEqual([]);
+  });
+
+  /* ボス戦直前: そのシナリオのボスの手前に入り、ボス戦はまだ始まっていない(ボスの HP バーが出ない)。
+     時計塔は最上階(床 y:36)で、落ちて入口へ戻されない(部屋の名前がしばらく変わらない)。
+     ボス戦開始(洋館): 着くと本編と同じ経路でボスが名乗り、ボス戦になる */
+  test('第一章: ボス戦直前・ボス戦開始の地点から始められる', async ({ page }) => {
+    test.setTimeout(900_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    const PRE = [
+      { key: 'mansion', wp: 'bossante', area: '囚われの洋館' },
+      { key: 'duskvillage', wp: 'bossgate', area: '宵待ちの村', room: '村の奥' },
+      { key: 'ghostship', wp: 'bosshold', area: '幽霊船' },
+      { key: 'clocktower', wp: 'bossante', area: '狂いの時計塔', room: '5階 文字盤の前室' },
+    ];
+    for (const sc of PRE) {
+      await startTestMode(page, { classKey: 'warrior', scenario: sc.key, waypoint: sc.wp, level: 30 });
+      await waitArea(page, sc.area);
+      await page.waitForTimeout(1500);   // 開始地点への移動(暗転の後)を待つ
+      if (sc.room) await expect(page.locator('#minimap-room')).toHaveText(sc.room, { timeout: 30_000 });
+      // しばらく居ても、ボス戦は始まらない(到着の会話は送る)。落ちて入口へ戻されない
+      for (let i = 0; i < 6; i++) {
+        if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) {
+          await page.click('#dialogue-overlay');
+        }
+        await page.waitForTimeout(1000);
+      }
+      await expect(page.locator('#boss-bar-wrap'), `${sc.key}: ボス戦はまだ`).not.toHaveClass(/show/);
+      if (sc.room) await expect(page.locator('#minimap-room')).toHaveText(sc.room);
+      await backToTitleFromMenu(page);
+    }
+
+    // ボス戦開始(洋館): 名乗り → ボスの HP バー
+    await startTestMode(page, { classKey: 'warrior', scenario: 'mansion', waypoint: 'bosshall', level: 30 });
+    await waitArea(page, '囚われの洋館');
+    await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
+    for (let quiet = 0; quiet < 6;) {
+      if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) {
+        await page.click('#dialogue-overlay'); quiet = 0;
+      } else quiet++;
+      await page.waitForTimeout(400);
+    }
+    await expect(page.locator('#boss-bar-wrap')).toHaveClass(/show/, { timeout: 60_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('主の間');
+    await backToTitleFromMenu(page);
+    expect(errors).toEqual([]);
+  });
+
+  test('章外のシナリオもチャプターを選んで始められる', async ({ page }) => {
+    test.setTimeout(600_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    for (const sc of [{ key: 'temple', area: '古代神殿' }, { key: 'waterway', area: '埠頭の地下水路' },
+                      { key: 'conservatory', area: '硝子の温室' }]) {
+      await startTestMode(page, { classKey: 'warrior', scenario: sc.key, level: 30 });
+      await waitArea(page, sc.area);
       await backToTitleFromMenu(page);
     }
     expect(errors).toEqual([]);
@@ -227,7 +309,7 @@ test.describe('テスト用チャプター／シナリオ選択', () => {
 test.describe('iPhone の横画面(844×390・タッチ)', () => {
   test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
 
-  test('選ぶ → ボス戦直前から開始 → タイトルへ戻る', async ({ page }) => {
+  test('選ぶ → ボス戦開始の地点から始める → ボス戦 → タイトルへ戻る', async ({ page }) => {
     test.setTimeout(600_000);
     const errors = watchErrors(page);
     await openGame(page);
@@ -249,7 +331,7 @@ test.describe('iPhone の横画面(844×390・タッチ)', () => {
     }
     await page.tap('#testmode-start-btn');
 
-    // ボス戦直前: 水鏡の跡に入り、ボスが名乗って戦いが始まる
+    // ボス戦開始: 水鏡の跡に入り、本編と同じ「近づくと名乗る」経路でボス戦が始まる
     await waitArea(page, '宵待ちの村');
     await expect(page.locator('#minimap-room')).toHaveText('水鏡の跡', { timeout: 60_000 });
     await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
