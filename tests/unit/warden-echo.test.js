@@ -167,6 +167,7 @@ import {
   echoHasTelegraph as wHasTg, echoTelegraphProgress as wEchoProg, echoStrikes as wStrikes, stepEcho as wStep,
   PROVISIONAL_ECHO_RADIUS as W_R, PROVISIONAL_ECHO_LIFE_SEC as W_LIFE,
   PROVISIONAL_ECHO_WINDUP_SEC as W_WINDUP, PROVISIONAL_OPERATE_SEC as W_OP,
+  keeperTelegraphFor as wKeeperFor,
 } from '../../src/core/warden-echo.js';
 
 test('W2-MB2 水門守の予兆', async (t) => {
@@ -251,6 +252,16 @@ test('W2-MB2 水門守の予兆', async (t) => {
     const prev = e.life; e.life -= 0.02;
     assert.equal(wStrikes(e, prev, e.radius, W_R - 0.01, 0), true);
     assert.equal(wStrikes(e, prev, e.radius, W_R + 0.01, 0), false);
+  });
+
+  await t.test('本体: 倒れている・ダウン中・敵対していない(再出現の直後・追うのをやめた後)は出さない', () => {
+    const en = {triggered: true, keeperState: 'windup', keeperT: 0.3, keeperHit: false};
+    assert.ok(wKeeperFor(en) > 0);
+    assert.equal(wKeeperFor({...en, dead: true}), null);
+    assert.equal(wKeeperFor({...en, knockedDown: true}), null);
+    assert.equal(wKeeperFor({...en, triggered: false}), null);   // Review R1: 途中の相のまま止まっていても出さない
+    assert.equal(wKeeperFor({...en, keeperState: 'operate', keeperT: 1.0, triggered: false}), null);
+    assert.equal(wKeeperFor(null), null);
   });
 
   await t.test('壊れた値・寿命切れでも破綻しない', () => {

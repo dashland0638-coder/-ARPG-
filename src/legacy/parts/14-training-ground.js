@@ -409,7 +409,7 @@
       `${en.atkType==='fisher' ? fisherTelegraphInfo(en) : ''}` +
       `${en.atkType==='keeper' ? keeperTelegraphInfo(en) : ''}` +
       /* 床に出ている円の予兆(漁師・水門守・残響の共通の部品)の数。Clear・撃破の後に残っていないかを見る口 */
-      `Ground Rings: ${scene.children.filter(c => c.userData && c.userData.ring && c.visible).length}<br>` +
+      `Ground Rings: ${scene.children.filter(c => c.userData && c.userData.groundTelegraph && c.visible).length}<br>` +
       `Turn Rate: ${resolveTurnRate(en).toFixed(2)} rad/s<br>` +
       `Facing: ${en.group.rotation.y.toFixed(2)} rad<br>` +
       `Hit Radius: ${(en.hitRadius||0).toFixed(2)}<br>` +

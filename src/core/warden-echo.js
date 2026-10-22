@@ -174,3 +174,10 @@ export function echoTelegraphProgress(echo){
   if(elapsed >= echo.harmAt) return null;
   return clamp01(elapsed / echo.harmAt);
 }
+
+/* 本体の予兆を出すか(出すなら進み具合、出さないなら null)。倒れている・ダウン中・
+   敵対していない(再出現の直後・追うのをやめた後。AI が止まり、相の残りが途中のまま残る)間は出さない */
+export function keeperTelegraphFor(en){
+  if(!en || en.dead || en.knockedDown || !en.triggered) return null;
+  return keeperTelegraphProgress(en.keeperState, en.keeperT, !!en.keeperHit);
+}

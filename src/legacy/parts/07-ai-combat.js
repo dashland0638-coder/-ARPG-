@@ -3191,6 +3191,7 @@
     g.userData.ring = ring;
     g.userData.fill = fill;
     g.userData.reach = radius;
+    g.userData.groundTelegraph = true;   // Debug Info が床の円の予兆だけを数える印
     g.visible = false;
     scene.add(g);
     return g;
@@ -3235,11 +3236,11 @@
   /* 水門守の本体の足元の予兆(W2-MB2)。予備動作の始めから当たる瞬間まで満ちる
      (core/warden-echo.js keeperTelegraphProgress)。中心は毎フレーム本体の今の位置
      (当たる判定もその位置から測る)。倒れている・ダウン中(AI が止まっている)・当たった後・
-     歩いている間は出さない。表示の持ち主は既存の en.meleeTelegraphMesh(撃破・Arena の Clear・
+     歩いている間・敵対していない間(再出現の直後・追うのをやめた後は AI が止まり、相の残りが
+     途中のまま残るため。Review R1)は出さない。表示の持ち主は既存の en.meleeTelegraphMesh(撃破・Arena の Clear・
      世界の破棄で片付く) */
   function updateKeeperTelegraph(en){
-    const k = (!en.dead && !en.knockedDown)
-      ? keeperTelegraphProgress(en.keeperState, en.keeperT, !!en.keeperHit) : null;
+    const k = keeperTelegraphFor(en);
     if(k == null){ if(en.meleeTelegraphMesh) en.meleeTelegraphMesh.visible = false; return; }
     if(!en.meleeTelegraphMesh){
       en.meleeTelegraphMesh = makeGroundTelegraph(PROVISIONAL_ECHO_RADIUS, KEEPER_TELEGRAPH_COLOR,
@@ -3424,7 +3425,7 @@
         en.keeperState = 'windup';
         en.keeperT = PROVISIONAL_ECHO_WINDUP_SEC;
         en.keeperDur = en.keeperT;
-        emitArenaFeedback('KEEPER', 'TELEGRAPH');   // 足元の輪が出る(W2-MB2。updateGroundTelegraphs)
+        emitArenaFeedback('KEEPER', 'TELEGRAPH');   // 足元の輪が出る(W2-MB2。updateKeeperTelegraph)
       }
       // 歩いた跡も残響になる。ただし当たり判定は持たない
       if((en.keeperTrailCD = (en.keeperTrailCD || 0) - dt) <= 0){
