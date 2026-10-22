@@ -38,6 +38,10 @@ test('入口ページからゲームの URL', async (t) => {
     assert.equal(testAppGameUrl(PAGES + 'test/'), PAGES + '?dev=1&app=test');
     assert.equal(testAppGameUrl(PAGES + 'test/index.html'), PAGES + '?dev=1&app=test');
   });
+  await t.test('末尾の / が無い …/test でも同じ所(1 つ上の階層)', () => {
+    assert.equal(testAppGameUrl(PAGES + 'test'), PAGES + '?dev=1&app=test');
+    assert.equal(testAppGameUrl('http://localhost:5173/test?x=1'), 'http://localhost:5173/?x=1&dev=1&app=test');
+  });
   await t.test('開発サーバー: /test/ → /?dev=1&app=test', () => {
     assert.equal(testAppGameUrl('http://localhost:5173/test/'), 'http://localhost:5173/?dev=1&app=test');
   });

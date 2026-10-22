@@ -163,6 +163,7 @@ test.describe('テスト専用のホーム画面アプリ(公開用のビルド 
     await waitTitle(page);
     await expect(page.locator('#open-testmode-btn')).toBeHidden();
     await expect(page.locator('#cc-start-btn')).toBeVisible();
+    await expect(page.locator('#testapp-note')).toBeHidden();
     // ?dev=1 だけ(Safari での開発の流れ): テストモードの入口と「はじめる」の両方
     await openGame(page, { base: PROD_BASE });
     await expect(page.locator('#open-testmode-btn')).toBeVisible();

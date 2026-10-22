@@ -31,7 +31,11 @@ export function isTestApp(search){
    読み直しの印(build)と # は落とす */
 export function testAppGameUrl(entryHref){
   const entry = new URL(entryHref);
-  const u = new URL('../', entry);
+  /* 末尾の / が無い …/test でも、入口のフォルダ(…/test/)として扱う(GitHub Pages は / を足して
+     転送するが、開発サーバー・preview はそのまま返すため)。index.html などのファイル名はそのまま */
+  const dir = new URL(entry);
+  if(!dir.pathname.endsWith('/') && !/\.[a-z0-9]+$/i.test(dir.pathname)) dir.pathname += '/';
+  const u = new URL('../', dir);
   entry.searchParams.forEach((v, k)=>{ if(k !== BUILD_MARK) u.searchParams.append(k, v); });
   u.searchParams.set('dev', '1');
   u.searchParams.set(TEST_APP_PARAM, TEST_APP_VALUE);

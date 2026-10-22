@@ -1,6 +1,6 @@
 # TEST-PWA-ENTRY-001 — iPhone ホーム画面のテスト専用アイコン
 
-Status: REVIEWING
+Status: DONE（PR 作成済み。main への merge は Human の判断）
 
 Analysis: `.ai/reports/TEST-PWA-ENTRY-001-analysis.md`
 
@@ -31,3 +31,27 @@ Analysis: `.ai/reports/TEST-PWA-ENTRY-001-analysis.md`
 | `tests/unit/pwa-entry.test.js`（新規）・`tests/pwa-test-entry.spec.js`（新規） | unit・E2E |
 
 変えていない: `public/manifest.webmanifest`、通常版のアイコン、`basefile.html`、legacy の連結構成、セーブの形式、テストモードのセーブ保護（PR #97）。
+
+## Test Report（2026-10-22）
+
+| 項目 | 結果 |
+| --- | --- |
+| `npm run build` | 成功。dist に `index.html`・`test/index.html`・`manifest.webmanifest`（変更なし）・`manifest-test.webmanifest`・`icons/test-icon-180/192/512.png`。参照は `/-ARPG-/…` |
+| `npm run test:unit` | 1952 pass / 0 fail（1 skip は既存）。`pwa-entry.test.js` は通常版のマニフェストが今の内容と完全に同じことも固定する |
+| E2E `pwa-test-entry`（新規 5 本、公開用のビルド `http://localhost:4173/-ARPG-/`） | 5 passed |
+| E2E 回帰（`pwa-test-entry`・`chapter-select-testmode`・`scenario-test-mode`・`dev-ui-gate`・`production-build`・`save-load`・`chapter1-progression`・`combat-test-arena`・`notifications`） | 45 passed |
+| PR の CI（E2E 全件） | PR 作成後 |
+
+## Reviewer
+
+Round 1 **PASS**（Required なし）。任意の指摘のうち、末尾の `/` が無い入口の URL と、`?app=test` だけの時の注記の非表示の assert を反映。残りは analysis §6 に記録。
+
+## 自動テストで確かめたこと / 実機で確かめること
+
+自動テスト（Playwright の Chromium、iOS ではない）: dist のマニフェスト・アイコン・入口ページがサブパスで取得でき、参照が `/-ARPG-/` に解決する。入口の「テストモードを開く」と、`navigator.standalone` を真にした起動で `?dev=1&app=test` へ移る。テスト版のタイトルでテストモードの入口が出て「はじめる」「つづきから」が出ない。通常 URL では入口が出ない。`?dev=1` だけは今までどおり。テスト版でシナリオを選んで始め、戻り、読み直しても通常のセーブは 1 文字も変わらず、通常 URL で「つづきから」再開できる。
+
+HUMAN DEVICE CHECK REQUIRED（iPhone）: 「ホーム画面に追加」でテスト版の名前・アイコンになるか / テスト版のアイコンからテストモードで開くか（ブラウザの枠が出ないか）/ 通常版のアイコンは今までどおりか / 2 つのアイコンが並んで別々に開くか / テストの後に通常版で「つづきから」が続くか（ストレージが共有か別かも）。
+
+### Autonomy Metrics
+
+Human Escalation: 0 / Human Decision: 0 / Auto Fix: 1（unit の glob に合うファイル名の修正）/ Reviewer Rounds: 1 / Test Retry: 0
