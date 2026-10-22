@@ -144,7 +144,19 @@ async function startTestMode(page, opts) {
   await page.click(`.class-card[data-key="${classKey}"]`);
   await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);
   if (guestKey) await page.click(`#testmode-guest-grid .testmode-job-card[data-guest-key="${guestKey}"]`);
-  if (scenario) await page.click(`#testmode-scenario-grid .testmode-job-card[data-scenario-key="${scenario}"]`);
+  if (scenario) {
+    /* シナリオはチャプターごとに出る(TEST-CHAPTER-SELECT-001)。既定のチャプター(第一章)に
+       無ければ、そのシナリオが出るチャプターを順に選ぶ */
+    const card = `#testmode-scenario-grid .testmode-job-card[data-scenario-key="${scenario}"]`;
+    if (!(await page.locator(card).count())) {
+      const chapters = await page.$$eval('#testmode-chapter-grid .testmode-job-card', els => els.map(e => e.dataset.chapterId));
+      for (const id of chapters) {
+        await page.click(`#testmode-chapter-grid .testmode-job-card[data-chapter-id="${id}"]`);
+        if (await page.locator(card).count()) break;
+      }
+    }
+    await page.click(card);
+  }
   // 開始地点は選択中シナリオに依存して描き直されるので、シナリオの後で押す
   if (waypoint) {
     await page.waitForSelector(`#testmode-waypoint-grid .testmode-job-card[data-waypoint-id="${waypoint}"]`);

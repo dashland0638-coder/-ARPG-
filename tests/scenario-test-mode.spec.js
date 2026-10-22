@@ -105,9 +105,18 @@ test.describe('Scenario Test Mode', () => {
       expect(labels.some(l => l.includes(name)), `${name} が並ぶこと`).toBe(true);
     });
 
-    // 別のシナリオへ切り替えると、地点は登録の無いぶん消える
+    /* 別のシナリオへ切り替えると、地点はそのシナリオに登録されたものだけになる。
+       TEST-CHAPTER-SELECT-001 から、先頭に必ず入口(シナリオ開始)が出て、洋館にはボス戦直前・
+       ボス戦開始の地点がある(core/test-scenario-select.js / core/scenario-waypoints.js)。
+       宵待ちの村の地点は残らない */
     await page.click('#testmode-scenario-grid .testmode-job-card[data-scenario-key="mansion"]');
-    await expect(page.locator('#testmode-waypoint-grid .testmode-job-card')).toHaveCount(0);
+    const mansionIds = await page.locator('#testmode-waypoint-grid .testmode-job-card')
+      .evaluateAll(els => els.map(e => e.dataset.waypointId));
+    expect(mansionIds).toEqual(['', 'bossante', 'bosshall']);
+    const mansionLabels = await page.locator('#testmode-waypoint-grid .testmode-job-card').allTextContents();
+    ['商店街', '水門前', '住宅', '船小屋'].forEach(name=>{
+      expect(mansionLabels.some(l => l.includes(name)), `${name} は洋館には出ない`).toBe(false);
+    });
 
     expect(errors).toEqual([]);
   });

@@ -435,7 +435,9 @@
     const testClassGrid = document.getElementById('testmode-class-grid');
     const testJobGrid = document.getElementById('testmode-job-grid');
     const testGuestGrid = document.getElementById('testmode-guest-grid');
+    const testChapterGrid = document.getElementById('testmode-chapter-grid');
     const testScenarioGrid = document.getElementById('testmode-scenario-grid');
+    const testSummary = document.getElementById('testmode-summary');
     const testWaypointGrid = document.getElementById('testmode-waypoint-grid');
     const testLevelInput = document.getElementById('testmode-level');
     const testLevelVal = document.getElementById('testmode-level-val');
@@ -450,6 +452,7 @@
                            // 章の自動進行を待たずに直接検証できるようにするためのテストモード専用オプション
     let tmScenario = null;  // null=トレーニング空間。キーを選べばそのシナリオへ直接出撃する
     let tmWaypoint = null;  // null=そのシナリオの入口。指定すると途中から始める(WORK 4)
+    let tmChapter = DEFAULT_TEST_CHAPTER;   // チャプターの内部 ID(TEST-CHAPTER-SELECT-001)
 
     if(testGuestGrid){
       const noneCard = document.createElement('div');
@@ -489,24 +492,67 @@
     function buildScenarioGrid(){
       if(scenarioGridBuilt || !testScenarioGrid) return;
       scenarioGridBuilt = true;
+      buildChapterGrid();
+      renderScenarioCards();
+    }
+
+    /* チャプター(TEST-CHAPTER-SELECT-001)。並びと中身は core/test-scenario-select.js の
+       TEST_CHAPTERS だけが決める ―― チャプターを足すときはそこに 1 行足す。
+       始められるシナリオが 1 つも無いチャプターは出さない */
+    function buildChapterGrid(){
+      if(!testChapterGrid) return;
+      testChapterGrid.innerHTML = '';
+      TEST_CHAPTERS.forEach(ch=>{
+        if(!testScenariosFor(ch.id, SCENARIO_DEFS).length) return;
+        const card = document.createElement('div');
+        card.className = 'testmode-job-card' + (ch.id === tmChapter ? ' selected' : '');
+        card.dataset.chapterId = ch.id;
+        card.textContent = ch.label;
+        card.addEventListener('click', ()=>{
+          if(tmChapter === ch.id) return;
+          testChapterGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
+          card.classList.add('selected');
+          tmChapter = ch.id;
+          renderScenarioCards();
+        });
+        testChapterGrid.appendChild(card);
+      });
+    }
+
+    /* 選んだチャプターのシナリオ。表示名は SCENARIO_DEFS の name、選択の印は key
+       (data-scenario-key)。チャプターを替えたら、選んでいたシナリオは外す
+       (別のチャプターのシナリオを選んだまま出撃しないように) */
+    function renderScenarioCards(){
+      testScenarioGrid.innerHTML = '';
+      const inChapter = testScenariosFor(tmChapter, SCENARIO_DEFS);
+      if(tmScenario && !inChapter.some(sc=> sc.key === tmScenario)){
+        tmScenario = null;
+        renderWaypointGrid();
+      }
       const noneCard = document.createElement('div');
-      noneCard.className = 'testmode-job-card selected';
+      noneCard.className = 'testmode-job-card' + (tmScenario ? '' : ' selected');
       noneCard.dataset.scenarioKey = '';
       noneCard.textContent = '🛠 トレーニング空間';
       noneCard.addEventListener('click', ()=>{
         testScenarioGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
         noneCard.classList.add('selected');
         tmScenario = null;
+        renderWaypointGrid();
         refreshStartLabel();
       });
-      noneCard.addEventListener('click', ()=> renderWaypointGrid());
       testScenarioGrid.appendChild(noneCard);
-      SCENARIO_DEFS.forEach(sc=>{
-        if(!sc.unlocked) return;   // ワールド構築関数が無いものは起動できない
+      inChapter.forEach(sc=>{
         const card = document.createElement('div');
-        card.className = 'testmode-job-card';
+        card.className = 'testmode-job-card' + (tmScenario === sc.key ? ' selected' : '');
         card.dataset.scenarioKey = sc.key;
         card.textContent = sc.name;
+        // ボス戦直前から始められるシナリオには印を付ける(選ぶ前に分かるように)
+        if(startOptionsFor(sc.key, waypointsFor).some(o=> o.kind === START_KIND.BOSS_PRE)){
+          const tag = document.createElement('span');
+          tag.className = 'tm-kind';
+          tag.textContent = 'ボス直前可';
+          card.appendChild(tag);
+        }
         card.addEventListener('click', ()=>{
           testScenarioGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
           card.classList.add('selected');
@@ -517,6 +563,7 @@
         });
         testScenarioGrid.appendChild(card);
       });
+      refreshStartLabel();
     }
 
     /* Chapter 1 のシナリオを選んだら、そのシナリオの顔ぶれを選び直す
@@ -541,35 +588,37 @@
     /* 開始地点(WORK 4)。ヘッドレス/実機のどちらでも、村の奥のほうを
        確かめるのに入口から歩き直すのは現実的でないため、選んだシナリオに
        登録があれば途中から始められるようにしてある(core/scenario-waypoints.js)。
-       登録の無いシナリオでは、この欄そのものが空になる */
+       登録の無いシナリオでも、入口(シナリオ開始)の 1 枚だけは出る(TEST-CHAPTER-SELECT-001) */
     function renderWaypointGrid(){
       if(!testWaypointGrid) return;
       testWaypointGrid.innerHTML = '';
       tmWaypoint = null;
-      const list = tmScenario ? waypointsFor(tmScenario) : [];
-      if(!list.length) return;
-      const headCard = document.createElement('div');
-      headCard.className = 'testmode-job-card selected';
-      headCard.dataset.waypointId = '';
-      headCard.textContent = '最初から';
-      headCard.addEventListener('click', ()=>{
-        testWaypointGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
-        headCard.classList.add('selected');
-        tmWaypoint = null;
-      });
-      testWaypointGrid.appendChild(headCard);
-      list.forEach(wp=>{
+      if(!tmScenario){ refreshStartLabel(); return; }
+      /* 開始地点は core/test-scenario-select.js startOptionsFor が地点表
+         (core/scenario-waypoints.js)から作る。先頭はシナリオの入口、次にボス戦直前。
+         地点の登録が無いシナリオは入口だけ(ここに出ない地点からは始められない) */
+      startOptionsFor(tmScenario, waypointsFor).forEach(opt=>{
         const card = document.createElement('div');
-        card.className = 'testmode-job-card';
-        card.dataset.waypointId = wp.id;
-        card.textContent = wp.name;
+        card.className = 'testmode-job-card' + (opt.id ? '' : ' selected') +
+          (opt.kind === START_KIND.BOSS_PRE || opt.kind === START_KIND.BOSS_START ? ' tm-boss' : '');
+        card.dataset.waypointId = opt.id || '';
+        card.dataset.startKind = opt.kind;
+        card.textContent = opt.name;
+        if(opt.kind === START_KIND.BOSS_PRE || opt.kind === START_KIND.BOSS_START){
+          const tag = document.createElement('span');
+          tag.className = 'tm-kind';
+          tag.textContent = opt.kind === START_KIND.BOSS_PRE ? 'ボス戦直前' : 'ボス戦開始';
+          card.appendChild(tag);
+        }
         card.addEventListener('click', ()=>{
           testWaypointGrid.querySelectorAll('.testmode-job-card').forEach(el=>el.classList.remove('selected'));
           card.classList.add('selected');
-          tmWaypoint = wp.id;
+          tmWaypoint = opt.id;
+          refreshStartLabel();
         });
         testWaypointGrid.appendChild(card);
       });
+      refreshStartLabel();
     }
 
     // 行き先が変わるボタンなので、押す前にどちらへ入るのかが分かるようにする
@@ -577,6 +626,13 @@
       if(!testStartBtn) return;
       const sc = tmScenario ? SCENARIO_DEFS.find(s=>s.key===tmScenario) : null;
       testStartBtn.textContent = sc ? `🛠 ${sc.name} へ出撃` : '🛠 トレーニング開始';
+      if(testSummary){
+        const ch = sc ? TEST_CHAPTERS.find(c=> c.id === chapterOfScenario(sc.key)) : null;
+        const opt = sc ? startOptionsFor(sc.key, waypointsFor).find(o=> o.id === tmWaypoint) : null;
+        testSummary.textContent = sc
+          ? `${ch ? ch.label : ''} ／ ${sc.name} ／ ${opt ? opt.name : 'シナリオ開始'}`
+          : 'トレーニング空間';
+      }
     }
 
     openBtn.addEventListener('click', ()=>{
@@ -643,6 +699,9 @@
 
     testStartBtn.addEventListener('click', ()=>{
       if(testStartBtn.disabled || !tmClass) return;
+      // 画面に出ていない組み合わせは始めない(core の表で同じ判定をもう一度通す)
+      const check = resolveTestStart({scenarioKey: tmScenario, waypointId: tmWaypoint}, SCENARIO_DEFS, waypointsFor);
+      if(!check.ok){ console.error(`testmode: cannot start (${check.reason})`); return; }
       testScreen.style.display = 'none';
       beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1, tmGuest, tmScenario, tmWaypoint);
     });

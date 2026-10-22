@@ -63,10 +63,13 @@
     <div class="cc-section-label">同行ゲスト(2部制#41のパーティメンバーAI検証用)</div>
     <div class="testmode-job-grid" id="testmode-guest-grid"></div>
 
+    <div class="cc-section-label">チャプター</div>
+    <div class="testmode-job-grid" id="testmode-chapter-grid"></div>
+
     <div class="cc-section-label">シナリオ(未選択ならトレーニング空間)</div>
     <div class="testmode-job-grid" id="testmode-scenario-grid"></div>
 
-    <div class="cc-section-label">開始地点(シナリオを選ぶと出ます)</div>
+    <div class="cc-section-label">開始地点(シナリオを選ぶと出ます。出ていない地点からは始められません)</div>
     <div class="testmode-job-grid" id="testmode-waypoint-grid"></div>
 
     <div class="cc-section-label">デバッグ用レベル(本編の Chapter 1 にはレベルは無い)</div>
@@ -75,8 +78,12 @@
       <span id="testmode-level-val">50</span>
     </div>
 
-    <button id="testmode-start-btn" disabled>🛠 トレーニング開始</button>
-    <button type="button" id="testmode-back-btn" class="testmode-back-btn">← タイトルへ戻る</button>
+    <!-- 開始・戻るは画面の下に留める(iPhone の横画面でも、選んだ後にスクロールし直さずに押せる) -->
+    <div class="testmode-actions">
+      <div class="testmode-summary" id="testmode-summary" aria-live="polite"></div>
+      <button id="testmode-start-btn" disabled>🛠 トレーニング開始</button>
+      <button type="button" id="testmode-back-btn" class="testmode-back-btn">← タイトルへ戻る</button>
+    </div>
   </div>
 </div>
 

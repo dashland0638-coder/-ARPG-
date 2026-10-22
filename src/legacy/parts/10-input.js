@@ -162,6 +162,8 @@
 
   document.getElementById('menu-resume').addEventListener('click', ()=> setOverlay('none'));
   document.getElementById('menu-save').addEventListener('click', ()=>{
+    // テストモードでは通常のセーブに書かない(失敗ではないので、そう伝える。TEST-CHAPTER-SELECT-001)
+    if(state.testMode){ spawnLog('🛠 テストモード中は通常のセーブに書き込みません'); sfx('ui'); return; }
     const ok = saveGame();
     spawnLog(ok ? '💾 セーブしました' : '⚠️ セーブに失敗しました', ok ? undefined : '#c25a6b');
     sfx('ui');
@@ -182,7 +184,9 @@
   });
   document.getElementById('menu-title').addEventListener('click', ()=>{
     askConfirm('タイトルへ戻る',
-      'タイトル画面に戻ります。<br>進行状況は自動的にセーブされます。',
+      state.testMode
+        ? 'タイトル画面に戻ります。<br>テストモードを終了します。通常のセーブは変更されません。'
+        : 'タイトル画面に戻ります。<br>進行状況は自動的にセーブされます。',
       ()=>{ saveGame(); returnToTitle(); refreshContinueBanner(); },
       {okLabel:'戻る', cancelLabel:'やめる'});
   });
@@ -419,6 +423,13 @@
   function returnToTitle(){
     state.paused = false;
     state.started = false;
+    /* テストモードはタイトルへ戻ったところで終わる(TEST-CHAPTER-SELECT-001)。
+       テストの間の職業・所持品・進行は state に残るが、通常のセーブには一度も
+       書かれていない(saveGame が弾く)。「つづきから」は applySaveData がそれを
+       セーブの値で全部置き直し、「はじめる」は beginGame が初期化する。
+       ここで印を下ろしておくのは、タイトルに戻った後もテストの印が残ったまま
+       別の経路へ進まないようにするため(入場時は finishEnteringGame が立て直す) */
+    state.testMode = false;
     state.dialogueActive = false;
     state.activeOverlay = 'none';
     // バグ報告対応: フォーカス喪失でkeyup漏れが起きたキー入力が残ったまま
