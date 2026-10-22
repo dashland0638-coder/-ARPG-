@@ -817,6 +817,8 @@
       }
     }
     arenaSpawnSeq = 0;
+    // 水門守の残響(と足元の予兆)も一緒に消す(W2-MB2。Clear の後に輪が残らない)
+    clearKeeperEchoes();
     // updateMobBars()はenemies配列を走査してバーを更新するので、配列から
     // 抜いただけだと消した敵のHP/体幹バーがDOMに凍りついたまま残る。
     // 既存のclearMobBars()で一旦全部畳む(生きている敵のバーは次の
@@ -3143,36 +3145,75 @@
     if(en.meleeTelegraphMesh) en.meleeTelegraphMesh.visible = false;
   }
 
+  /* ---------------------------------------------------------
+     足元の円の予兆(共通。CH1-COMP W2-MB1 の漁師の近接から、W2-MB2 で水門守と共用にした)。
+     外周の輪(外周 = 当たる半径)と、進み具合で満ちる内側の円を 1 つの Group にする。
+     ジオメトリとマテリアルは半径・色ごとに 1 つだけ作って使い回す ―― 予兆を出し入れしても
+     Three.js の資源は増えない(Group を scene から外すだけで片付く)。
+     敵の group の子にしない(水門守のように身体を大きくした敵でも、輪の半径がずれない)
+     --------------------------------------------------------- */
+  const groundTelegraphGeoCache = new Map();
+  const groundTelegraphMatCache = new Map();
+  function groundTelegraphGeos(radius, width){
+    const key = radius + '/' + width;
+    let g = groundTelegraphGeoCache.get(key);
+    if(!g){
+      g = {ring: new THREE.RingGeometry(Math.max(0, radius - width), radius, 48),
+           fill: new THREE.CircleGeometry(radius, 40)};
+      groundTelegraphGeoCache.set(key, g);
+    }
+    return g;
+  }
+  function groundTelegraphMats(color, ringOpacity, fillOpacity){
+    const key = color + '/' + ringOpacity + '/' + fillOpacity;
+    let m = groundTelegraphMatCache.get(key);
+    if(!m){
+      m = {ring: new THREE.MeshBasicMaterial({color, transparent:true, opacity:ringOpacity,
+                                              side:THREE.DoubleSide, depthWrite:false}),
+           fill: new THREE.MeshBasicMaterial({color, transparent:true, opacity:fillOpacity,
+                                              side:THREE.DoubleSide, depthWrite:false})};
+      groundTelegraphMatCache.set(key, m);
+    }
+    return m;
+  }
+  function makeGroundTelegraph(radius, color, opts){
+    opts = opts || {};
+    const geo = groundTelegraphGeos(radius, opts.width || 0.2);
+    const mat = groundTelegraphMats(color, opts.ringOpacity != null ? opts.ringOpacity : 0.85,
+                                    opts.fillOpacity != null ? opts.fillOpacity : 0.3);
+    const g = new THREE.Group();
+    const ring = new THREE.Mesh(geo.ring, mat.ring);
+    ring.rotation.x = -Math.PI/2;
+    const fill = new THREE.Mesh(geo.fill, mat.fill);
+    fill.rotation.x = -Math.PI/2;
+    fill.position.y = 0.005;
+    g.add(ring); g.add(fill);
+    g.userData.ring = ring;
+    g.userData.fill = fill;
+    g.userData.reach = radius;
+    g.visible = false;
+    scene.add(g);
+    return g;
+  }
+  /* 置き直す。中心 (x, z) は呼ぶ側が毎フレーム渡す(判定の中心と同じ所)。床の高さに沿わせる */
+  function placeGroundTelegraph(g, x, z, yRef, progress){
+    const gy = groundSlabs.length ? (groundYAt(x, z, yRef) || 0) : 0;
+    g.position.set(x, gy + 0.06, z);
+    g.userData.fill.scale.setScalar(Math.max(0.001, Math.min(1, progress)));
+    g.visible = true;
+  }
+
   /* 足元の表示を置く。中心は毎フレーム漁師の今の位置(判定もその位置から測る)。
      大怯み・浮きで AI が止まっている間も、updateFisherMeleeTelegraphs から
      ここを通るので、ノックバックで滑っても輪と判定の中心はずれない */
   function placeFisherMeleeTelegraph(en){
     let g = en.meleeTelegraphMesh;
     if(!g){
-      g = new THREE.Group();
-      const ringMat = new THREE.MeshBasicMaterial({color:FISHER_MELEE_TELEGRAPH_COLOR, transparent:true,
-        opacity:0.85, side:THREE.DoubleSide, depthWrite:false});
-      const ring = new THREE.Mesh(new THREE.RingGeometry(FISHER_MELEE_RANGE - FISHER_MELEE_RING_WIDTH,
-        FISHER_MELEE_RANGE, 48), ringMat);
-      ring.rotation.x = -Math.PI/2;
-      const fillMat = new THREE.MeshBasicMaterial({color:FISHER_MELEE_TELEGRAPH_COLOR, transparent:true,
-        opacity:0.3, side:THREE.DoubleSide, depthWrite:false});
-      const fill = new THREE.Mesh(new THREE.CircleGeometry(FISHER_MELEE_RANGE, 40), fillMat);
-      fill.rotation.x = -Math.PI/2;
-      fill.position.y = 0.005;
-      g.add(ring); g.add(fill);
-      g.userData.fisherFill = fill;
-      g.userData.fisherRing = ring;
-      g.userData.reach = FISHER_MELEE_RANGE;
-      scene.add(g);
+      g = makeGroundTelegraph(FISHER_MELEE_RANGE, FISHER_MELEE_TELEGRAPH_COLOR, {width: FISHER_MELEE_RING_WIDTH});
       en.meleeTelegraphMesh = g;
     }
     const k = fisherMeleeProgress(en.fisherMelee);
-    const x = en.group.position.x, z = en.group.position.z;
-    const gy = groundSlabs.length ? (groundYAt(x, z, en.group.position.y) || 0) : 0;
-    g.position.set(x, gy + 0.06, z);
-    g.userData.fisherFill.scale.setScalar(Math.max(0.001, k));
-    g.visible = true;
+    placeGroundTelegraph(g, en.group.position.x, en.group.position.z, en.group.position.y, k);
     // 体を沈める(網の溜めと同じ変形)
     if(en.body && en.bodyScale){
       const B = en.bodyScale;
@@ -3184,10 +3225,27 @@
      溜めていない・倒れた漁師の表示は消す(表示が残らない) */
   function updateFisherMeleeTelegraphs(){
     for(const en of enemies){
+      if(en.atkType === 'keeper'){ updateKeeperTelegraph(en); continue; }
       if(!en.fisherMelee) continue;
       if(!en.dead && fisherMeleeWindingUp(en.fisherMelee)) placeFisherMeleeTelegraph(en);
       else hideFisherMeleeTelegraph(en);
     }
+  }
+
+  /* 水門守の本体の足元の予兆(W2-MB2)。予備動作の始めから当たる瞬間まで満ちる
+     (core/warden-echo.js keeperTelegraphProgress)。中心は毎フレーム本体の今の位置
+     (当たる判定もその位置から測る)。倒れている・ダウン中(AI が止まっている)・当たった後・
+     歩いている間は出さない。表示の持ち主は既存の en.meleeTelegraphMesh(撃破・Arena の Clear・
+     世界の破棄で片付く) */
+  function updateKeeperTelegraph(en){
+    const k = (!en.dead && !en.knockedDown)
+      ? keeperTelegraphProgress(en.keeperState, en.keeperT, !!en.keeperHit) : null;
+    if(k == null){ if(en.meleeTelegraphMesh) en.meleeTelegraphMesh.visible = false; return; }
+    if(!en.meleeTelegraphMesh){
+      en.meleeTelegraphMesh = makeGroundTelegraph(PROVISIONAL_ECHO_RADIUS, KEEPER_TELEGRAPH_COLOR,
+        {width: 0.24, ringOpacity: 0.9, fillOpacity: 0.3});
+    }
+    placeGroundTelegraph(en.meleeTelegraphMesh, en.group.position.x, en.group.position.z, en.group.position.y, k);
   }
 
   /* =========================================================
@@ -3226,8 +3284,16 @@
 
   let keeperEchoes = [];   // いま見えている残響(本体とは別に進む)
 
+  /* 残響の足元の予兆(W2-MB2)。本体の暖色と分け、黄色で細めにする(どちらも危険だが、
+     どれが本体でどれが残響かは輪の色で分かる) */
+  const KEEPER_TELEGRAPH_COLOR = 0xff5a36;        // 本体: 赤みの強い橙(漁師の橙とも分ける)
+  const KEEPER_ECHO_TELEGRAPH_COLOR = 0xffd04a;   // 残響: 黄
+  function removeEchoTelegraph(e){
+    if(e && e.telegraph){ scene.remove(e.telegraph); e.telegraph = null; }
+  }
+
   function clearKeeperEchoes(){
-    keeperEchoes.forEach(e=>{ if(e.group) scene.remove(e.group); });
+    keeperEchoes.forEach(e=>{ if(e.group) scene.remove(e.group); removeEchoTelegraph(e); });
     keeperEchoes = [];
   }
 
@@ -3246,15 +3312,26 @@
     g.position.set(rec.x, 0, rec.z);
     g.rotation.y = rec.facing;
     scene.add(g);
-    keeperEchoes.push({
+    const echo = {
       x: rec.x, z: rec.z, kind: rec.kind, group: g, mat,
       life: PROVISIONAL_ECHO_LIFE_SEC, maxLife: PROVISIONAL_ECHO_LIFE_SEC,
-      // 「引いた」動作だけが痛い。歩いただけの残響は当たらない
-      harmAt: rec.kind === 'operate' ? PROVISIONAL_ECHO_LIFE_SEC * 0.45 : null,
+      // 「引いた」動作だけが痛い。歩いただけの残響は当たらない(当たる時刻は今の値のまま。core/warden-echo.js)
+      harmAt: echoHarmAt(rec.kind),
       dmg: Math.round(en.atk * 0.6),
       // 見た目を大きくしたぶんは、当たる範囲も合わせる(見えている通りに当たる)
       radius: PROVISIONAL_ECHO_RADIUS * (opts.scale || 1),
-    });
+      // 誰が出したか(W2-MB2)。予兆は水門守が出した残響だけ。村の残響のボスは印を付けない
+      source: opts.source || null,
+      telegraph: null,
+    };
+    // 当たる残響だけに、当たる半径と同じ外周の輪を出す(出た瞬間から当たる瞬間まで満ちていく)
+    if(echoHasTelegraph(echo)){
+      echo.telegraph = makeGroundTelegraph(echo.radius, KEEPER_ECHO_TELEGRAPH_COLOR,
+        {width: 0.16, ringOpacity: 0.8, fillOpacity: 0.22});
+      placeGroundTelegraph(echo.telegraph, echo.x, echo.z, 0, 0);
+    }
+    keeperEchoes.push(echo);
+    if(echo.source === KEEPER_ECHO_SOURCE) emitArenaFeedback('KEEPER ECHO', `SPAWN ${rec.kind}${echo.telegraph ? ' (telegraph)' : ''}`);
     /* 音は少し遅れて届く。鎖の音が本体より後から鳴るので、
        耳でも「後ろで同じことが起きている」と分かる */
     if(rec.kind === 'operate') sfx('woodCreak');
@@ -3272,6 +3349,20 @@
         // 引く動作をなぞる。腕は無いので、身体の傾きで見せる
         e.group.rotation.z = Math.sin(step.progress * Math.PI) * 0.34;
       }
+      // 予兆: 当たる瞬間まで満ち、当たった後・寿命切れでは外す
+      if(e.telegraph){
+        const k = echoTelegraphProgress(e);
+        if(k == null) removeEchoTelegraph(e);
+        else placeGroundTelegraph(e.telegraph, e.x, e.z, 0, k);
+      }
+      if(e.source === KEEPER_ECHO_SOURCE && e.harmAt != null){
+        const max = e.maxLife || PROVISIONAL_ECHO_LIFE_SEC;
+        if(max - prevLife < e.harmAt && max - e.life >= e.harmAt){
+          const dx = e.x - state.pos.x, dz = e.z - state.pos.z;
+          const r = e.radius || PROVISIONAL_ECHO_RADIUS;
+          emitArenaFeedback('KEEPER ECHO', dx*dx + dz*dz <= r*r ? 'STRIKE (in range)' : 'STRIKE (out of range)');
+        }
+      }
       if(echoStrikes(e, prevLife, e.radius || PROVISIONAL_ECHO_RADIUS, state.pos.x, state.pos.z)){
         if(state.invulnerable || state.paralyzeInvulnT > 0){
           if(state.paralyzeInvulnT <= 0) tryPerfectDodge(null);
@@ -3287,7 +3378,7 @@
         // 残響の足元の水面は弱くしか応えない(本体との差、その2)
         if(currentWorldKey === 'duskvillage') spawnDuskRipple(e.x, e.z, 0.5);
       }
-      if(step.expired){ scene.remove(e.group); keeperEchoes.splice(i, 1); }
+      if(step.expired){ scene.remove(e.group); removeEchoTelegraph(e); keeperEchoes.splice(i, 1); }
     }
   }
 
@@ -3312,7 +3403,7 @@
     const cap = echoCountFor(wardenPhaseFor(en.hp / Math.max(1, en.hpMax)));
     due.forEach(rec=>{
       en.keeperPlayed.push(rec);
-      if(keeperEchoes.length < cap) spawnKeeperEcho(en, rec);
+      if(keeperEchoes.length < cap) spawnKeeperEcho(en, rec, {source: KEEPER_ECHO_SOURCE});
     });
     pruneRecords(en.keeperRecords, mechTime);
 
@@ -3333,6 +3424,7 @@
         en.keeperState = 'windup';
         en.keeperT = PROVISIONAL_ECHO_WINDUP_SEC;
         en.keeperDur = en.keeperT;
+        emitArenaFeedback('KEEPER', 'TELEGRAPH');   // 足元の輪が出る(W2-MB2。updateGroundTelegraphs)
       }
       // 歩いた跡も残響になる。ただし当たり判定は持たない
       if((en.keeperTrailCD = (en.keeperTrailCD || 0) - dt) <= 0){
@@ -3380,9 +3472,11 @@
       en.group.rotation.z = Math.sin(prog * Math.PI) * 0.34;
       if(spot.lever && currentWorldKey === 'duskvillage') pullDuskGateLever(prog);
       // 引いた瞬間だけ、まわりを巻き込む
-      if(!en.keeperHit && prog >= 0.45){
+      if(!en.keeperHit && prog >= KEEPER_STRIKE_FRAC){
         en.keeperHit = true;
-        if(state.pos.distanceTo(en.group.position) < PROVISIONAL_ECHO_RADIUS){
+        const inRange = state.pos.distanceTo(en.group.position) < PROVISIONAL_ECHO_RADIUS;
+        emitArenaFeedback('KEEPER', inRange ? 'STRIKE (in range)' : 'STRIKE (out of range)');
+        if(inRange){
           if(state.invulnerable || state.paralyzeInvulnT > 0){
             if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
           } else if(!tryConsumeOrbShield()){

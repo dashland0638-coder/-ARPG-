@@ -127,6 +127,8 @@ import {
   dueEchoes, pruneRecords, stepEcho, echoStrikes, actorTell,
   PROVISIONAL_ECHO_LIFE_SEC, PROVISIONAL_ECHO_RADIUS, PROVISIONAL_ECHO_WINDUP_SEC,
   PROVISIONAL_OPERATE_SEC, PROVISIONAL_MOVE_SEC,
+  KEEPER_STRIKE_FRAC, KEEPER_ECHO_SOURCE, echoHarmAt, keeperTelegraphProgress,
+  echoHasTelegraph, echoTelegraphProgress,
 } from '../core/warden-echo.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';

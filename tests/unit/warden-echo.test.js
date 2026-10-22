@@ -159,3 +159,108 @@ test('フェーズ', async (t) => {
     assert.ok(echoCountFor(3) <= 5);
   });
 });
+
+/* CH1-COMP W2-MB2: 攻撃範囲の予兆(本体と、水門守が出した「引いた」残響) */
+import {
+  KEEPER_STRIKE_FRAC as W_STRIKE, ECHO_HARM_FRAC as W_HARM, KEEPER_ECHO_SOURCE as W_SRC,
+  KEEPER_TELEGRAPH_LEAD_SEC as W_LEAD, echoHarmAt as wHarmAt, keeperTelegraphProgress as wKeeperProg,
+  echoHasTelegraph as wHasTg, echoTelegraphProgress as wEchoProg, echoStrikes as wStrikes, stepEcho as wStep,
+  PROVISIONAL_ECHO_RADIUS as W_R, PROVISIONAL_ECHO_LIFE_SEC as W_LIFE,
+  PROVISIONAL_ECHO_WINDUP_SEC as W_WINDUP, PROVISIONAL_OPERATE_SEC as W_OP,
+} from '../../src/core/warden-echo.js';
+
+test('W2-MB2 水門守の予兆', async (t) => {
+  await t.test('値は今のまま: 半径 2.4・予備動作 0.55・引く 1.5・当たる割合 0.45・寿命 2.2', () => {
+    assert.equal(W_R, 2.4);
+    assert.equal(W_WINDUP, 0.55);
+    assert.equal(W_OP, 1.5);
+    assert.equal(W_STRIKE, 0.45);
+    assert.equal(W_HARM, 0.45);
+    assert.equal(W_LIFE, 2.2);
+    assert.ok(Math.abs(W_LEAD - 1.225) < 1e-9);
+    assert.ok(Math.abs(wHarmAt('operate') - 0.99) < 1e-9);   // 出てから 0.99 秒
+    assert.equal(wHarmAt('walk'), null);
+  });
+
+  await t.test('本体: 予備動作の始めに 0、当たる瞬間(引く 45%)に 1。その後・歩く間は出さない', () => {
+    assert.equal(wKeeperProg('windup', W_WINDUP, false), 0);
+    assert.ok(Math.abs(wKeeperProg('windup', 0, false) - W_WINDUP / W_LEAD) < 1e-9);
+    // 引いている間: 当たる瞬間(keeperT = 1.5 × 0.55)で 1
+    assert.ok(Math.abs(wKeeperProg('operate', W_OP * (1 - W_STRIKE), false) - 1) < 1e-9);
+    assert.ok(wKeeperProg('operate', W_OP, false) < 1);
+    assert.equal(wKeeperProg('operate', 0.3, true), null);   // 当たった後
+    assert.equal(wKeeperProg('move', 1, false), null);
+    assert.equal(wKeeperProg(undefined, 1, false), null);
+  });
+
+  await t.test('本体: 進み具合は単調に増え、当たる判定(prog >= 0.45)と同じ時刻に満ちる(20fps / 60fps)', () => {
+    for(const dt of [1/20, 1/60]){
+      // AI と同じ進め方: 予備動作 → 引く。当たる判定が出たフレームで進み具合を見る
+      let st = 'windup', T = W_WINDUP, dur = W_WINDUP, hit = false, last = -1, atHit = null;
+      for(let i = 0; i < 200 && !hit; i++){
+        T -= dt;
+        if(st === 'windup' && T <= 0){ st = 'operate'; T = W_OP; dur = W_OP; }
+        else if(st === 'operate'){
+          const prog = 1 - Math.max(0, T) / dur;
+          if(prog >= W_STRIKE){ hit = true; atHit = wKeeperProg(st, T, false); break; }
+        }
+        const k = wKeeperProg(st, T, false);
+        assert.ok(k >= last - 1e-9, `単調 ${k} < ${last}`);
+        last = k;
+      }
+      assert.ok(hit);
+      assert.ok(atHit >= 1 - dt / W_LEAD - 1e-9 && atHit <= 1, `判定の時に満ちている ${atHit}`);
+    }
+  });
+
+  await t.test('残響: 水門守の「引いた」残響だけに出る。歩いた跡・他のボスの残響には出ない', () => {
+    const op = {source: W_SRC, kind: 'operate', harmAt: wHarmAt('operate'), life: W_LIFE, maxLife: W_LIFE};
+    assert.equal(wHasTg(op), true);
+    assert.equal(wHasTg({...op, kind: 'walk', harmAt: null}), false);   // 歩いた跡
+    assert.equal(wHasTg({...op, source: null}), false);                 // 村の残響のボス(印なし)
+    assert.equal(wHasTg({...op, source: 'duskEcho'}), false);
+    assert.equal(wHasTg(null), false);
+    assert.equal(wEchoProg({...op, source: null}), null);
+  });
+
+  await t.test('残響: 出た瞬間 0 → 当たる瞬間(0.99 秒)に満ち、当たったフレームで外れる。判定の時刻は変わらない', () => {
+    for(const dt of [1/20, 1/60]){
+      const e = {source: W_SRC, kind: 'operate', harmAt: wHarmAt('operate'), life: W_LIFE, maxLife: W_LIFE,
+                 x: 0, z: 0};
+      assert.equal(wEchoProg(e), 0);
+      let last = 0, strikeT = null, time = 0, lastBefore = null;
+      while(e.life > 0){
+        const prev = e.life;
+        e.life = wStep(e, dt).life;
+        time += dt;
+        if(wStrikes(e, prev, W_R, 0, 0)){ strikeT = time; break; }
+        const k = wEchoProg(e);
+        assert.ok(k != null && k >= last - 1e-9);
+        last = k; lastBefore = k;
+      }
+      assert.ok(Math.abs(strikeT - 0.99) <= dt + 1e-9, `strike ${strikeT}`);
+      assert.equal(wEchoProg(e), null);                       // 当たった後は出さない
+      assert.ok(lastBefore >= 1 - (dt + 1e-9) / 0.99);        // 直前まで満ちている
+    }
+  });
+
+  await t.test('残響: 外周は当たる半径と同じ(2.4。大きくした残響は判定も大きい)', () => {
+    // 表示側は echo.radius をそのまま外周に使う。判定 echoStrikes も同じ radius を受ける
+    const e = {source: W_SRC, kind: 'operate', harmAt: 0.99, life: W_LIFE - 0.98, maxLife: W_LIFE, x: 0, z: 0, radius: W_R};
+    assert.equal(wStrikes(e, W_LIFE - 0.98, e.radius, W_R - 0.01, 0), false);   // まだ当たる時刻でない
+    const prev = e.life; e.life -= 0.02;
+    assert.equal(wStrikes(e, prev, e.radius, W_R - 0.01, 0), true);
+    assert.equal(wStrikes(e, prev, e.radius, W_R + 0.01, 0), false);
+  });
+
+  await t.test('壊れた値・寿命切れでも破綻しない', () => {
+    assert.equal(wKeeperProg('windup', NaN, false), null);
+    assert.equal(wKeeperProg('windup', -5, false), W_WINDUP / W_LEAD);
+    assert.equal(wKeeperProg('operate', -5, false), 1);
+    const e = {source: W_SRC, kind: 'operate', harmAt: 0.99, life: 0, maxLife: W_LIFE};
+    assert.equal(wEchoProg(e), null);
+    assert.equal(wEchoProg({...e, life: NaN}), null);
+    assert.equal(wEchoProg({...e, harmAt: NaN, life: 1}), null);
+    assert.equal(wEchoProg({...e, harmAt: 0, life: 1}), null);
+  });
+});
