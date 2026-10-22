@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import legacyConcat from './src/legacy/concat-plugin.js';
 import pkg from './package.json' with { type: 'json' };
 import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 /* 公開時の commit(短い SHA)。メニューのバージョン表記と dist/version.json に入れ、
    実機で動いているビルドを見分ける(UI-002-H 追補 2)。GitHub Actions では GITHUB_SHA */
@@ -47,6 +48,14 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    /* ページは 2 つ: ゲーム(index.html)と、テスト専用のホーム画面アプリの入口(test/index.html、
+       TEST-PWA-ENTRY-001)。入口も Vite を通すので、参照は公開のサブパス(/-ARPG-/)へ書き換わる */
+    rollupOptions: {
+      input: {
+        index: fileURLToPath(new URL('./index.html', import.meta.url)),
+        testapp: fileURLToPath(new URL('./test/index.html', import.meta.url)),
+      },
+    },
   },
   optimizeDeps: {
     // esbuild's dev-time dependency scanner resolves imports itself rather

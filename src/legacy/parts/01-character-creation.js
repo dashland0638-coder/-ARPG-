@@ -133,6 +133,10 @@
      URL に ?dev=1 がある時だけ true ―― 判定は core/dev-ui.js。起動時に
      1回だけ読み、どこにも保存しない(通常 URL で開き直せば本番扱い) */
   const DEV_UI = devUiEnabled(location.search);
+  /* テスト専用のホーム画面アプリから開いたか(?dev=1&app=test、TEST-PWA-ENTRY-001。判定は
+     core/pwa-entry.js)。この時はタイトルに通常のプレイの開始(「はじめる」= 通常のセーブを消して
+     始める、「つづきから」)を出さない ―― テスト用のアイコンから通常のセーブを触らないため */
+  const TEST_APP = isTestApp(location.search);
 
   // 基礎ステータス→実数値の変換係数と、武器種ごとの補正配分(#29)。
   // 魔法使いの杖はユーザー指示によりINT70%+MND30%(他クラスは主軸1本 or 2軸60/40)
@@ -367,6 +371,7 @@
   // (剣士)の固定キャストで新規開始する
   const startBtn = document.getElementById('cc-start-btn');
   startBtn.addEventListener('click', ()=>{
+    if(TEST_APP) return;   // テスト専用アプリでは通常のプレイを始めない(ボタンも隠してある)
     if(!applyChapterCast(1)) return; // 安全側: 万一キャストが壊れていたら何もしない
     if(hasSaveGame()){
       askConfirm('新しく始める',
@@ -390,6 +395,7 @@
   function refreshContinueBanner(){
     const banner = document.getElementById('continue-banner');
     if(!banner) return;
+    if(TEST_APP){ banner.style.display = 'none'; return; }   // テスト専用アプリでは出さない
     banner.classList.remove('continue-error');
     const data = loadSaveData();
     if(data){
@@ -410,7 +416,13 @@
     summary.textContent = message;
     banner.style.display = 'flex';
   }
-  document.getElementById('cc-continue-btn').addEventListener('click', ()=>{ continueGame(); });
+  document.getElementById('cc-continue-btn').addEventListener('click', ()=>{ if(!TEST_APP) continueGame(); });
+  /* テスト専用アプリのタイトル: 「はじめる」を隠し、テスト版であることと通常版の開き方を書く */
+  if(TEST_APP){
+    startBtn.hidden = true;
+    const note = document.getElementById('testapp-note');
+    if(note) note.hidden = false;
+  }
 
   /* =========================================================
      TEST MODE(上位職デバッグ用、2026-08-31)
