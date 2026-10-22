@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- テスト専用のホーム画面アプリの入口(TEST-PWA-ENTRY-001)。
+     ここから「ホーム画面に追加」すると、テスト用のマニフェスト(start_url はゲームの ?dev=1&app=test)と
+     テスト用のアイコンで登録される。通常版(../ の manifest.webmanifest)とは名前・アイコン・起動 URL が別。
+     参照は Vite がビルド時に公開のサブパス(/-ARPG-/)へ書き換える(index.html と同じ) -->
+<meta name="theme-color" content="#0c0a10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SFテスト">
+<meta name="robots" content="noindex">
+<title>ソウルフォージ テスト版</title>
+<link rel="manifest" href="/manifest-test.webmanifest">
+<link rel="apple-touch-icon" href="/icons/test-icon-180.png">
+<link rel="icon" href="/icons/test-icon-192.png">
+<style>
+  :root{ --bg:#0c0a10; --panel:#100d16; --line:#3a2f4a; --text:#e8e0d0; --dim:#a89c8c; --gold:#c8a24e; --mp:#2d6f8e; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--bg); color:var(--text);
+    font-family:'Noto Serif JP','Hiragino Mincho ProN',serif; -webkit-text-size-adjust:100%; }
+  main{ max-width:640px; margin:0 auto; padding:max(20px, env(safe-area-inset-top)) 16px 32px; }
+  .head{ display:flex; align-items:center; gap:14px; }
+  .head img{ width:64px; height:64px; border-radius:14px; border:1px solid var(--line); }
+  h1{ font-size:20px; margin:0; letter-spacing:0.05em; }
+  .tag{ display:inline-block; margin-top:4px; padding:1px 8px; border:1px solid var(--gold); color:var(--gold);
+    border-radius:3px; font-size:12px; }
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px 16px; margin-top:16px; }
+  .panel h2{ font-size:15px; margin:0 0 8px; color:var(--gold); }
+  ol{ margin:0; padding-left:1.3em; line-height:1.8; font-size:14px; }
+  p{ font-size:14px; line-height:1.7; margin:0; }
+  .note{ color:var(--dim); font-size:12.5px; margin-top:8px; }
+  .open{ display:block; margin-top:16px; padding:14px; text-align:center; text-decoration:none;
+    background:var(--mp); border:1px solid #3f8fae; color:#e9f4f8; border-radius:4px; font-size:16px; font-weight:700; }
+  .normal{ display:block; margin-top:10px; text-align:center; color:var(--dim); font-size:13px; }
+  #launching{ display:none; text-align:center; margin-top:40vh; color:var(--dim); }
+  body.launching main{ display:none; }
+  body.launching #launching{ display:block; }
+</style>
+</head>
+<body>
+<div id="launching">テストモードを開いています…</div>
+<main>
+  <div class="head">
+    <img src="/icons/test-icon-180.png" alt="">
+    <div>
+      <h1>ソウルフォージ テスト版</h1>
+      <span class="tag">開発・検証用</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>これはテスト専用の入口です</h2>
+    <p>ここから追加したアイコンは、ゲームを<strong>テストモード</strong>(チャプター・シナリオ・開始地点を選んで直接始める)で開きます。テストモードでは通常のセーブに書き込みません。</p>
+  </div>
+
+  <div class="panel">
+    <h2>iPhone のホーム画面に追加する</h2>
+    <ol>
+      <li><strong>Safari</strong> でこのページを開く(ほかのブラウザでは追加できないことがあります)</li>
+      <li>画面下の<strong>共有ボタン</strong>(□に↑)を押す</li>
+      <li><strong>「ホーム画面に追加」</strong>を選ぶ</li>
+      <li>名前が「SFテスト」、アイコンが「TEST」の帯のものになっていることを確かめて<strong>「追加」</strong></li>
+      <li>ホーム画面の「SFテスト」から開くと、タイトル画面にテストモードの入口が出ます</li>
+    </ol>
+    <p class="note">通常版のアイコン(橙の円)はそのまま残ります。通常のプレイは通常版のアイコンから開いてください。テスト版では「はじめる」「つづきから」は出ません。</p>
+  </div>
+
+  <a class="open" id="open-test" href="../?dev=1&amp;app=test">🛠 テストモードを開く(Safari のまま)</a>
+  <a class="normal" href="../">通常版を開く</a>
+</main>
+<script type="module" src="/src/pwa-test-entry.js"></script>
+</body>
+</html>

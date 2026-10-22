@@ -114,6 +114,7 @@ import {
   createPhaseBurstQueue, enqueuePhaseBurst, advancePhaseBurst, cancelPhaseBurst,
 } from '../core/phase-burst.js';
 import { devUiEnabled, uiProtoEnabled } from '../core/dev-ui.js';
+import { isTestApp } from '../core/pwa-entry.js';
 import { uiProtoIcon, uiProtoWeaponIcon } from '../core/ui-proto-icons.js';
 import {
   phaseFor as villageEchoPhase, planFor as villageEchoPlan,
