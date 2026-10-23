@@ -9,7 +9,7 @@
    村全体の到達(宝箱・開始地点・漏れ)は tests/unit/dusk-village-walk.test.js で当たり判定から確かめている。
    時間: ヘッドレスはゲーム内の時間が実時間の 1/4 程度なので、歩く時間は長めにとる。 */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, startTestMode, disableCameraAutoFollow } from './helpers.js';
+import { openGame, watchErrors, startTestMode } from './helpers.js';
 
 const dialogueOpen = page => page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
 
@@ -31,8 +31,27 @@ async function enterAt(page, waypoint) {
   await expect(page.locator('#minimap-area')).toHaveText('宵待ちの村', { timeout: 120_000 });
   await page.waitForTimeout(1500);   // 開始地点への移動(暗転の後)
   await clearDialogues(page);
-  await disableCameraAutoFollow(page);
+  await cameraFollowOff(page);
   await clearDialogues(page);
+}
+
+/* カメラの自動追従を切る(helpers の disableCameraAutoFollow と同じ操作)。一幕(水門守の登場など)の
+   間はメニューが開かないので、開くまで「会話を送る → Esc」を繰り返す */
+async function cameraFollowOff(page) {
+  for (let i = 0; i < 40; i++) {
+    await clearDialogues(page, 5);
+    await page.keyboard.press('Escape');
+    const open = await page.waitForFunction(() => document.getElementById('menu-overlay').classList.contains('active'),
+      null, { timeout: 3000 }).then(() => true).catch(() => false);
+    if (!open) continue;
+    await page.click('#menu-overlay [data-menu-tab="settings"]');
+    const label = await page.$eval('#set-camauto', el => el.textContent.trim());
+    if (label !== 'なし') await page.click('#set-camauto');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('menu-overlay').classList.contains('active'));
+    return;
+  }
+  throw new Error('メニューを開けなかった');
 }
 
 /* key を押したまま歩く。途中の会話は送る。until が真になったら止める */
