@@ -296,6 +296,38 @@
       ` / walk rings ${walkRings}${shown.length ? ' shown/hit ' + shown.join(' ') : ''}<br>`;
   }
 
+  /* 村の敵の足元の輪(CH1-COMP W3-E)。水鏡の影・分身・ボスの分身 / 泡沫 / 村の残響(ボス)の近接の、
+     見えている輪の半径と判定の半径・中心のずれを並べる。ボスは段階 3 の残響の輪(印 duskEcho)も。
+     E2E が「見えている輪 = 当たる範囲」を確かめる口(テストモードの Debug Info だけ)。判定や表示には何も書かない */
+  function villageTelegraphInfo(en){
+    let label, hit;
+    if(en.atkType === 'mirror'){ label = 'Mirror Ring'; hit = MIRROR_STRIKE_RADIUS; }
+    else if(en.atkType === 'foam'){ label = 'Foam Ring'; hit = FOAM_CONTACT_RADIUS; }
+    else if(en.isBoss && en.key === 'duskEcho'){ label = 'Boss Ring'; hit = bossMeleeHitRadius(en.atkReach); }
+    else return '';
+    const ringRadius = g => {
+      const ring = g.userData.ring;
+      return ring.geometry.parameters.outerRadius * ring.scale.x * g.scale.x;
+    };
+    const g = en.meleeTelegraphMesh;
+    let v = 'OFF';
+    if(g && g.visible){
+      const off = Math.hypot(g.position.x - en.group.position.x, g.position.z - en.group.position.z);
+      v = `ON shown ${ringRadius(g).toFixed(2)} / hit ${hit.toFixed(2)} center ${off.toFixed(2)}` +
+          (g.userData.fill.visible ? ` fill ${g.userData.fill.scale.x.toFixed(2)}` : ' nofill');
+    }
+    const dist = Math.hypot(state.pos.x - en.group.position.x, state.pos.z - en.group.position.z);
+    let echo = '';
+    if(label === 'Boss Ring'){
+      const mine = keeperEchoes.filter(e => e.source === BOSS_ECHO_SOURCE);
+      const rings = mine.filter(e => e.telegraph && e.telegraph.visible);
+      echo = `Boss Echo Rings: ${rings.length} on / ${mine.length}` +
+        `${rings.length ? ' shown/hit ' + rings.map(e => `${ringRadius(e.telegraph).toFixed(2)}/${e.radius.toFixed(2)}`).join(' ') : ''}<br>`;
+    }
+    return `${label}: ${v}<br>` + `Village Kind: ${en.mob && en.mob.villageKind ? en.mob.villageKind : (en.mirrorCloneOf ? 'clone' : (en.parts ? en.parts.kind : '-'))}<br>` +
+      `Player Dist: ${dist.toFixed(2)}<br>` + echo;
+  }
+
   // 敵情報パネル(#11): 最も近い敵のHP/体幹/AI状態/旋回速度/向き/
   // パニッシュ状態。ON/OFFできる(常時表示ではない)
   function updateArenaEnemyInfo(){
@@ -408,6 +440,7 @@
         : 'OFF'}<br>` : ''}` +
       `${en.atkType==='fisher' ? fisherTelegraphInfo(en) : ''}` +
       `${en.atkType==='keeper' ? keeperTelegraphInfo(en) : ''}` +
+      villageTelegraphInfo(en) +
       /* 床に出ている円の予兆(漁師・水門守・残響の共通の部品)の数。Clear・撃破の後に残っていないかを見る口 */
       `Ground Rings: ${scene.children.filter(c => c.userData && c.userData.groundTelegraph && c.visible).length}<br>` +
       `Turn Rate: ${resolveTurnRate(en).toFixed(2)} rad/s<br>` +

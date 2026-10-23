@@ -1079,6 +1079,8 @@
     /* 記憶漁師の近接の足元の予兆(CH1-COMP W2-MB1)。AI とは別にここで置き直すので、
        大怯み・浮きで AI が止まっていても、ノックバックの後でも中心は漁師の今の位置 */
     updateFisherMeleeTelegraphs();
+    // 村の敵(水鏡の影・泡沫・ボスの近接)の足元の輪(CH1-COMP W3)。同じく AI とは別にここで置き直す
+    updateVillageTelegraphs();
     /* 残響も敵とは別に進む(WORK 6)。本体を倒しても、いま再生されている
        過去はそのまま終わりまでなぞる ―― 撃破の瞬間に消えると、
        「過去がそこに残っている」という読みのほうが崩れる */
@@ -1151,6 +1153,8 @@
 
   function updateMobAnim(en, dt){
     const M = en.mob;
+    // 村の残響(ボス)の分身: 雑魚の歩行は持たないが、本体と同じ動きを付ける(CH1-COMP W3)
+    if(!M && en.echoParts && dt > 0){ poseDuskEchoClone(en, dt); return; }
     if(!M || dt <= 0) return;
 
     // speed measured from the group, not from the AI's intent, so knockback
@@ -1243,6 +1247,10 @@
     // まとめて updateMansionMobExtras が持つ ―― ここに敵ごとの分岐を
     // 積み上げないため(他のテーマは M.mansionKind を持たず素通りする)
     if(M.mansionKind) updateMansionMobExtras(en, M, t, sw, moving, dt);
+    /* 宵待ちの村の敵(CH1-COMP W3)。手足と攻撃の姿勢は updateVillageMobExtras
+       (14-dungeon-duskvillage.js)が AI の状態を読んで置く。洋館の M.mansionKind とは別の印
+       (updateMansionMeleeTelegraph の床の弧を通さないため) */
+    if(M.villageKind) updateVillageMobExtras(en, M, t, sw, moving, dt);
 
     // the flinch is layered on last, over whatever the mob was doing
     applyMobFlinch(en, dt, M);
@@ -2491,12 +2499,16 @@
     pos.x += Math.sin(angle) * PROVISIONAL_SPLIT_RADIUS;
     pos.z += Math.cos(angle) * PROVISIONAL_SPLIT_RADIUS;
     resolveWallCollisions(pos);
-    const clone = buildEnemy(pos, {
-      color: real.baseColor != null ? real.baseColor : 0x2a3b4a,
+    /* 見た目は本体と同じ作り(duskEnemyVariant、14-dungeon-duskvillage.js)。本体と分身は
+       姿で見分けられてはいけない ―― 差は時刻(溜めの長さ)・向き直り・波紋に残す */
+    const clone = buildEnemy(pos, duskEnemyVariant('mirror', {
+      color: real.baseColor != null ? real.baseColor : VILLAGE_PALETTE.mirror.main,
       hp: 1, atk: Math.round(real.atk * 0.55), speed: real.speed,
       atkType: 'mirror', xp: 0, goldBonus: [0, 0],
-    });
+    }));
     clone.mirrorCloneOf = real;
+    // Arena で出した本体の分身は、Arena の Clear で一緒に消す(足元の輪も残さない)
+    if(real.arenaSpawned) clone.arenaSpawned = true;
     clone.triggered = real.triggered;
     clone.mirrorRippleT = Math.random() * 0.8;   // 位相はばらす(同時に波立たない)
     clone.mirrorState = 'chase';
@@ -2516,6 +2528,7 @@
     }
     sfx('dodge');
     scene.remove(clone.group);
+    if(clone.meleeTelegraphMesh) scene.remove(clone.meleeTelegraphMesh);   // 足元の輪(CH1-COMP W3)
     const idx = enemies.indexOf(clone);
     if(idx >= 0) enemies.splice(idx, 1);
     if(real && !real.dead){
@@ -2530,6 +2543,7 @@
     (real.mirrorClones || []).forEach(c=>{
       if(!c) return;
       scene.remove(c.group);
+      if(c.meleeTelegraphMesh) scene.remove(c.meleeTelegraphMesh);   // 足元の輪(CH1-COMP W3)
       const idx = enemies.indexOf(c);
       if(idx >= 0) enemies.splice(idx, 1);
     });
@@ -2646,7 +2660,7 @@
       if(en.mirrorT <= 0){
         if(en.body && en.bodyScale) en.body.scale.copy(en.bodyScale);
         en.mirrorState = 'strike';
-        en.mirrorT = 0.22;
+        en.mirrorT = MIRROR_STRIKE_SEC;   // 一撃の窓(0.22 秒、今の値。core/dusk-enemies.js)
         en.mirrorHit = false;
       }
       return;
@@ -2655,7 +2669,8 @@
     if(en.mirrorState === 'strike'){
       en.mirrorT -= dt;
       // 当たるかどうかは本物との距離で決める(幻影に振っていれば空振り)
-      if(!en.mirrorHit && distToPlayer < 2.4){
+      // 半径は今の値(2.4)のまま定数へ移した ―― 足元の輪(updateVillageTelegraphs)と同じ値を読む
+      if(!en.mirrorHit && distToPlayer < MIRROR_STRIKE_RADIUS){
         en.mirrorHit = true;
         if(state.invulnerable || state.paralyzeInvulnT > 0){
           if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
@@ -2690,12 +2705,11 @@
     const pos = origin.clone();
     pos.x += off.dx; pos.z += off.dz;
     resolveWallCollisions(pos);
-    const mote = buildEnemy(pos, {
-      color:0x7fb8c8, hp:56, atk:16, speed:2.9, atkType:'foam',
-      xp:22, goldBonus:[3, 7],
-    });
-    mote.group.scale.multiplyScalar(0.62);
+    // 本編の泡沫と同じ作り(buildDuskFoam。数値は今のまま、見た目だけ村の泡沫)
+    const mote = buildDuskFoam(pos.x, pos.z);
     mote.foamLeader = leader || null;
+    // Arena で出した群れが増やした分も、Arena の Clear で一緒に消す(足元の輪も残さない)
+    if(leader && leader.arenaSpawned) mote.arenaSpawned = true;
     mote.foamGrowT = Math.random() * 2.0;   // 位相をばらす(同時に増えない)
     mote.decoyKind = 'foam';
     enemies.push(mote);
@@ -2760,7 +2774,8 @@
       resolveWallCollisions(en.group.position);
     }
     if(en.foamAtkCD > 0) en.foamAtkCD -= dt;
-    if(distToPlayer < 1.5 && (en.foamAtkCD || 0) <= 0){
+    // 触れる距離は今の値(1.5)のまま定数へ移した ―― 足元の薄い輪と同じ値を読む(CH1-COMP W3)
+    if(distToPlayer < FOAM_CONTACT_RADIUS && (en.foamAtkCD || 0) <= 0){
       en.foamAtkCD = 1.6;
       if(state.invulnerable || state.paralyzeInvulnT > 0){
         if(state.paralyzeInvulnT <= 0) tryPerfectDodge(en);
@@ -2920,13 +2935,30 @@
     memoryNets = [];
   }
 
+  /* 網のジオメトリは半径ごとに 1 つだけ作って使い回す(CH1-COMP W3)。以前は網ごとに
+     new していて、投げるたびに GPU のバッファが増えていた(外すだけで dispose していない)。
+     材質は網ごとのまま(不透明度を網ごとに変えるため)。外周の輪・内側の円・拡大の意味は今のまま。
+     世界の破棄で捨てられないよう sharedGeometries()(02)に登録してある */
+  const memoryNetGeoCache = new Map();
+  function memoryNetGeos(radius){
+    let g = memoryNetGeoCache.get(radius);
+    if(!g){
+      g = {net: new THREE.SphereGeometry(0.55, 7, 5),
+           ring: new THREE.RingGeometry(radius*0.82, radius, 24),
+           fill: new THREE.CircleGeometry(radius, 32)};
+      memoryNetGeoCache.set(radius, g);
+    }
+    return g;
+  }
+
   /* 網を1つ投げる。plan(core/memory-fisher.js)が落ち先と時間を持っている。
      ここでやるのは見た目と、当たったときの処理だけ。 */
   function throwMemoryNet(en, plan){
+    const geos = memoryNetGeos(plan.radius);
     // 飛んでいる間の網。水の色をした網目ひとつ
     const mat = new THREE.MeshBasicMaterial({color:0x8fc8d8, transparent:true,
                                              opacity:0.55, wireframe:true});
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.55, 7, 5), mat);
+    const mesh = new THREE.Mesh(geos.net, mat);
     const from = en.group.position.clone(); from.y += 1.1;
     mesh.position.copy(from);
     scene.add(mesh);
@@ -2935,7 +2967,7 @@
     const past = plan.from === 'past';
     const ringMat = new THREE.MeshBasicMaterial({color: past ? 0x9fd8ff : 0xc8b8a0,
       transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false});
-    const ring = new THREE.Mesh(new THREE.RingGeometry(plan.radius*0.82, plan.radius, 24), ringMat);
+    const ring = new THREE.Mesh(geos.ring, ringMat);
     ring.rotation.x = -Math.PI/2;
     ring.position.set(plan.x, 0.06, plan.z);
     scene.add(ring);
@@ -2943,7 +2975,7 @@
        判定の半径(plan.radius)のまま縮めない ―― 輪の外にいれば当たらない */
     const fillMat = new THREE.MeshBasicMaterial({color: past ? 0x9fd8ff : 0xc8b8a0,
       transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false});
-    const fill = new THREE.Mesh(new THREE.CircleGeometry(plan.radius, 32), fillMat);
+    const fill = new THREE.Mesh(geos.fill, fillMat);
     fill.position.z = 0.002;   // 輪の面より少しだけ手前(輪の rotation で床の上側)
     fill.scale.setScalar(0.001);
     ring.add(fill);
@@ -3249,6 +3281,40 @@
     placeGroundTelegraph(en.meleeTelegraphMesh, en.group.position.x, en.group.position.z, en.group.position.y, k);
   }
 
+  /* ---------------------------------------------------------
+     宵待ちの村の敵の足元の輪(CH1-COMP W3-E / DEC-008)
+     漁師・水門守(W2-MB1/MB2)と同じ部品(makeGroundTelegraph)で、判定と同じ半径・同じ時刻の輪を出す。
+     AI の状態を読むだけで、判定・AI・state には何も書かない(進み具合は core/dusk-enemies.js)。
+       水鏡の影・分身・ボスの分身 : 溜め(本体 0.72 / 分身 0.34 秒)で満ち、一撃で消える。半径 2.4、全周
+       泡沫                       : 敵対している間、触れると弾ける距離 1.5 を薄く(満ちない ―― 溜めが無いので時刻は示さない)
+       村の残響(ボス)の近接     : 振りかぶり(0.55 / 段階 3 で 0.4 秒)で満ち、当たる瞬間に消える。半径 atkReach + 0.4
+     表示の持ち主は既存の en.meleeTelegraphMesh(撃破・Arena の Clear・世界の破棄・分身の消滅で片付く)。
+     敵の group の子にしない(泡沫・水門守のように拡大した敵でも半径がずれない)
+     --------------------------------------------------------- */
+  function placeVillageRing(en, k, radius, color, style){
+    if(k == null){ if(en.meleeTelegraphMesh) en.meleeTelegraphMesh.visible = false; return; }
+    let g = en.meleeTelegraphMesh;
+    if(!g){
+      g = makeGroundTelegraph(radius, color, style);
+      if(style && style.noFill) g.userData.fill.visible = false;   // 満ちない輪(泡沫)
+      en.meleeTelegraphMesh = g;
+    }
+    placeGroundTelegraph(g, en.group.position.x, en.group.position.z, en.group.position.y, k);
+    g.position.y += 0.08;   // 床の飾り・映り込み・水の裾より上(洋館の床の弧と同じ +0.14)
+  }
+  function updateVillageTelegraphs(){
+    for(const en of enemies){
+      if(en.atkType === 'mirror'){
+        placeVillageRing(en, mirrorRingProgress(en), MIRROR_STRIKE_RADIUS, RING_COLORS.mirror, RING_STYLE.mirror);
+      } else if(en.atkType === 'foam'){
+        placeVillageRing(en, foamRingVisible(en) ? 1 : null, FOAM_CONTACT_RADIUS, RING_COLORS.foam, RING_STYLE.foam);
+      } else if(en.isBoss && en.key === 'duskEcho'){
+        placeVillageRing(en, bossMeleeRingProgress(en), bossMeleeHitRadius(en.atkReach),
+                         RING_COLORS.bossMelee, RING_STYLE.bossMelee);
+      }
+    }
+  }
+
   /* =========================================================
      水門守の残響(keeper) ―― 過去の行動が残っている中ボス(WORK 6)
 
@@ -3298,23 +3364,29 @@
     keeperEchoes = [];
   }
 
-  /* 残響を1つ出す。本体と同じ形の、薄い写し。
-     buildEnemy は使わない ―― 敵ではないので、enemies には入れない */
+  /* 残響を1つ出す。本体(水門守)と同じ形の、薄い写し(CH1-COMP W3)。
+     buildEnemy は使わない ―― 敵ではないので、enemies には入れない。
+     形は共有の低ポリの写し(buildEchoFigure、14-dungeon-duskvillage.js。ジオメトリは共有で、
+     残響ごとに作るのは濃さを変えるための材質 1 つだけ)。色は演出の幽霊(spawnApparition の青灰)と
+     取り違えない琥珀(ECHO_FIGURE_COLOR)。
+       ・当たる「引いた」残響: 両腕を上げたまま現れ(予備動作が無い = 本体との差)、当たる瞬間に引ききる。濃い
+       ・当たらない「歩いた跡」: 腕が無く、低く沈んで、薄い */
   function spawnKeeperEcho(en, rec, opts){
     opts = opts || {};
-    const mat = new THREE.MeshBasicMaterial({color:0x7fb0c4, transparent:true,
+    const harmful = echoHarmAt(rec.kind) != null;
+    const mat = new THREE.MeshBasicMaterial({color:ECHO_FIGURE_COLOR, transparent:true,
                                              opacity:0, depthWrite:false});
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.7, 10), mat);
-    body.position.y = 0.85; g.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), mat);
-    head.position.y = 1.85; g.add(head);
+    const fig = buildEchoFigure(mat, harmful);
+    const g = fig.group;
     if(opts.scale) g.scale.setScalar(opts.scale);
-    g.position.set(rec.x, 0, rec.z);
+    if(!harmful) g.scale.y *= 0.82;   // 歩いた跡は低い(当たる残響と背丈で分ける)
+    g.position.set(rec.x, harmful ? 0 : -0.12, rec.z);
     g.rotation.y = rec.facing;
     scene.add(g);
     const echo = {
       x: rec.x, z: rec.z, kind: rec.kind, group: g, mat,
+      armL: fig.armL, armR: fig.armR,
+      maxOpacity: harmful ? ECHO_OPACITY.operate : ECHO_OPACITY.walk,
       life: PROVISIONAL_ECHO_LIFE_SEC, maxLife: PROVISIONAL_ECHO_LIFE_SEC,
       // 「引いた」動作だけが痛い。歩いただけの残響は当たらない(当たる時刻は今の値のまま。core/warden-echo.js)
       harmAt: echoHarmAt(rec.kind),
@@ -3344,11 +3416,13 @@
       const prevLife = e.life;
       const step = stepEcho(e, dt);
       e.life = step.life;
-      // 出てすぐ濃く、消える間際に薄い。予備動作は無い(いきなり始まる)
-      e.mat.opacity = 0.42 * Math.sin(Math.min(1, step.progress) * Math.PI);
+      // 出てすぐ濃く、消える間際に薄い。予備動作は無い(いきなり始まる)。歩いた跡は薄い
+      e.mat.opacity = (e.maxOpacity || 0.42) * Math.sin(Math.min(1, step.progress) * Math.PI);
       if(e.kind === 'operate'){
-        // 引く動作をなぞる。腕は無いので、身体の傾きで見せる
+        /* 引く動作をなぞる(CH1-COMP W3)。腕は上げたまま現れ、当たる瞬間(寿命の 45%)に
+           引ききる(core/dusk-enemies.js echoPose)。身体の傾きは以前のまま */
         e.group.rotation.z = Math.sin(step.progress * Math.PI) * 0.34;
+        poseEchoArms(e, echoPose(step.progress));
       }
       // 予兆: 当たる瞬間まで満ち、当たった後・寿命切れでは外す
       if(e.telegraph){
@@ -3532,6 +3606,11 @@
        いけないので、色を変えないことがそのまま正しい */
     scene.remove(clone.group);
     const visual = boss.group.clone(true);
+    /* 複製にはボスのオーラ(PointLight)も付いてくる ―― 分身のぶん光源が増えないよう外す
+       (CH1-COMP W3。村の光源の数は増やさない)。本体のオーラは本体にだけ残る */
+    const lights = [];
+    visual.traverse(o=>{ if(o.isLight) lights.push(o); });
+    lights.forEach(l=> l.parent && l.parent.remove(l));
     visual.position.copy(pos);
     scene.add(visual);
     clone.group = visual;
@@ -3539,6 +3618,11 @@
     clone.bodyScale = visual.scale.clone();
     clone.mob = null;      // 雑魚の歩行アニメは回さない(複製した実体には無い)
     clone.parts = null;
+    /* 村の残響の姿(parts.kind 'echo')は、分身にも同じ動きを付ける ―― 本体だけが動いていると
+       姿で本体が分かってしまう。名前で複製の中の部品を拾い直す(updateMobAnim が回す) */
+    clone.echoParts = boss.parts && boss.parts.kind === 'echo' ? duskEchoPartsOf(visual) : null;
+    // 近接の当たりの半径は見た目(ボスの体)に合わせる。雑魚の既定(0.4 前後)のままだと届かない
+    clone.hitRadius = boss.hitRadius || clone.hitRadius;
     clone.mirrorCloneOf = boss;
     clone.triggered = true;
     clone.mirrorRippleT = Math.random() * 0.8;
@@ -3624,7 +3708,9 @@
       const cap = villageEchoPlan(phase).echoes;
       due.forEach(rec=>{
         boss.duskEchoPlayed.push(rec);
-        if(keeperEchoes.length < cap) spawnKeeperEcho(boss, rec, {scale: 1.5});
+        /* 印を付けて、判定と同じ半径(2.4 × 1.5 = 3.6)の輪を出す(CH1-COMP W3 / DEC-008 §3。
+           W2-MB2 では水門守だけだった)。大きさ・時刻・ダメージは今のまま */
+        if(keeperEchoes.length < cap) spawnKeeperEcho(boss, rec, {scale: DUSK_BOSS_ECHO_SCALE, source: BOSS_ECHO_SOURCE});
       });
       pruneRecords(boss.duskEchoRecords, mechTime);
     }
@@ -4192,6 +4278,9 @@
     const t = en.animT;
     const phase = en.phase || 1;
     const rage = phase === 3 ? 1.8 : phase === 2 ? 1.35 : 1;
+
+    // 村の残響(宵待ちの村のボス、CH1-COMP W3)。姿勢は 14-dungeon-duskvillage.js(分身と共用)
+    if(P.kind === 'echo'){ poseDuskEchoBoss(en, P, t, dt, bossMeleeRingProgress(en)); return; }
 
     if(P.kind === 'colossus'){
       // ponderous: the whole mass shifts, the arms swing out of time with
@@ -4826,7 +4915,8 @@
       if(en.atkWindupT<=0){
         en.atkWindup = false;
         if(en.bodyScale) en.body.scale.copy(en.bodyScale);
-        const stillClose = state.pos.distanceTo(en.group.position) <= (en.atkReach || 2.2) + 0.4;
+        // 当たる距離は今の値((atkReach || 2.2) + 0.4)のまま。村のボスの足元の輪も同じ関数を読む(CH1-COMP W3)
+        const stillClose = state.pos.distanceTo(en.group.position) <= bossMeleeHitRadius(en.atkReach);
         if(stillClose && !state.invulnerable && state.paralyzeInvulnT<=0){
           if(!tryConsumeOrbShield()){
             const dmg = applyIncomingDamageMul(state.debugMode ? 0 : en.atk);

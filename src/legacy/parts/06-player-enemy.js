@@ -3318,6 +3318,9 @@
      adds silhouette. */
   function dressEnemy(g, body, theme, variant, atkType, M){
     M = M || {segs:[], leaves:[], fins:[], trail:[]};
+    /* 宵待ちの村の敵(CH1-COMP W3-E)。作りは 14-dungeon-duskvillage.js の dressVillageEnemy
+       (村の 5 種で共有する部品のキャッシュもそちら)。ここでは下の汎用の材質を作らずに渡すだけ */
+    if(theme === 'village'){ dressVillageEnemy(g, body, variant, M); return; }
     const col = variant.color;
     const soft = new THREE.MeshStandardMaterial({color:col, roughness:0.85});
     const hard = new THREE.MeshStandardMaterial({color:col, roughness:0.45, metalness:0.55});
@@ -4163,11 +4166,13 @@
 
     // Contour only, and only the big forms: outlining every rag, fin and
     // gear on twenty enemies at once costs far more than it reads.
-    addOutline(g, {rim:false, filter:n=> n === body || n === head || n === snout ||
+    // 村の敵(CH1-COMP W3)は、輪郭を決める大きな部品(外套・帽子のつば・網の束など)にだけ
+    // userData.villageOutline を立てる ―― 印の無い部品は今までどおり線を付けない
+    addOutline(g, {rim:false, filter:n=> n === body || n === head || n === snout || n.userData.villageOutline ||
                                           M.legs.some(l=> l.children.indexOf(n) >= 0)});
     // same "big forms only" filter as the outline above - a full silhouette
     // per rag/fin on a screen full of enemies isn't worth the draw calls
-    addXrayShell(g, {filter:n=> n === body || n === head || n === snout ||
+    addXrayShell(g, {filter:n=> n === body || n === head || n === snout || n.userData.villageOutline ||
                                  M.legs.some(l=> l.children.indexOf(n) >= 0)});
 
     // Phase C(#36): 名前付き中ボス級の個体は、既存のstrongMob(1.5倍)より
@@ -4228,7 +4233,9 @@
       // stamp over that with hard-coded numbers - everything scales relative
       // to this now, so a stone mob stays blocky after it gets hit
       bodyScale:body.scale.clone(), strideT:Math.random()*6.28,
-      hitRadius:measureHitRadius(body),   // 近接判定を「敵の表面」基準にするため(Phase C)
+      // 近接判定を「敵の表面」基準にするため(Phase C)。村の敵(CH1-COMP W3)は胴の外接球では
+      // 背丈に引っ張られるので、見た目の足元の広がり(M.hitRadius)をテーマ側が渡す
+      hitRadius:M.hitRadius != null ? M.hitRadius : measureHitRadius(body),
       baseColor:variant.color,
       hpMax:Math.max(1, Math.round(variant.hp*_D.hp)), hp:Math.max(1, Math.round(variant.hp*_D.hp)),
       atk:Math.round(variant.atk*_D.atk), speed:variant.speed*_D.speed,
@@ -4810,6 +4817,14 @@
                shArmL:shArms.armL, shArmR:shArms.armR,
                shTorso, shHead,
                lordHome:{x:0, y:0, z:0}, shadeHome:{x:0, y:0, z:-0.30}};
+
+    } else if(cfg.key==='duskEcho'){
+      /* --- 村の残響(宵待ちの村 / CH1-COMP W3): 水の裾から起き上がる、村の記憶が重なった人の形 ---
+         作りは 14-dungeon-duskvillage.js の buildDuskEchoBody(分身と共有する部品の名前もそちら)。
+         汎用の人型(角・鎧・革)は使わない。マットで、光源は足さない(オーラは下の 1 つのまま) */
+      const echo = buildDuskEchoBody(g, cfg, eyeMat, eyeGeo);
+      body = echo.body;
+      parts = echo.parts;
 
     } else {
       // --- HUMANOID: shoulders, arms and legs, a clear person silhouette ---

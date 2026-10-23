@@ -127,11 +127,17 @@ export function actorTell(isEcho){
    ・本体: 予備動作(0.55 秒)の始めから、引いている間の 45% の所(当たる瞬間)まで。
      合わせて 0.55 + 1.5 × 0.45 = 1.225 秒で満ちる
    ・残響: 出た瞬間から harmAt(寿命 2.2 × 0.45 = 0.99 秒)まで
-   ・歩いた跡の残響(当たらない)と、水門守以外が出した残響(村の残響のボス)には出さない
+   ・歩いた跡の残響(当たらない)には出さない。印の無い残響(出した者が分からないもの)にも出さない
+   ・村の残響のボスの段階 3 の残響(印 BOSS_ECHO_SOURCE、半径 3.6)にも出す(CH1-COMP W3 / DEC-008 で範囲を広げた)
    ========================================================= */
 export const KEEPER_STRIKE_FRAC = 0.45;  // 引いている間の、この割合の所で 1 回だけ当たる(今の値)
 export const ECHO_HARM_FRAC = 0.45;      // 残響の寿命の、この割合の所で 1 回だけ当たる(今の値)
 export const KEEPER_ECHO_SOURCE = 'keeper';   // 水門守が出した残響の印
+/* 村の残響(ボス)の段階 3 の残響の印(CH1-COMP W3 / DEC-008 §3)。W2-MB2 では「今回は水門守だけ」と
+   していた輪を、「予兆の見え方をそろえる」依頼でボスの残響にも広げた。半径は判定の 3.6(2.4 × 1.5)、
+   時刻は水門守の残響と同じ(出てから harmAt で満ちる) */
+export const BOSS_ECHO_SOURCE = 'duskEcho';
+export const TELEGRAPHED_ECHO_SOURCES = [KEEPER_ECHO_SOURCE, BOSS_ECHO_SOURCE];
 // 予備動作の始めから当たる瞬間まで
 export const KEEPER_TELEGRAPH_LEAD_SEC = PROVISIONAL_ECHO_WINDUP_SEC + PROVISIONAL_OPERATE_SEC * KEEPER_STRIKE_FRAC;
 
@@ -159,9 +165,10 @@ export function keeperTelegraphProgress(keeperState, keeperT, hitDone){
   return clamp01(elapsed / KEEPER_TELEGRAPH_LEAD_SEC);
 }
 
-/* 残響に予兆を出すか。水門守が出した、当たる(harmAt のある)残響だけ */
+/* 残響に予兆を出すか。水門守またはボス(村の残響)が出した、当たる(harmAt のある)残響だけ */
 export function echoHasTelegraph(echo){
-  return !!echo && echo.source === KEEPER_ECHO_SOURCE && echo.harmAt != null && isFinite(echo.harmAt) && echo.harmAt > 0;
+  return !!echo && TELEGRAPHED_ECHO_SOURCES.indexOf(echo.source) >= 0 &&
+         echo.harmAt != null && isFinite(echo.harmAt) && echo.harmAt > 0;
 }
 
 /* 残響の予兆の進み具合(0 → 1)。出さない時(対象外・当たった後・寿命切れ・壊れた値)は null */
