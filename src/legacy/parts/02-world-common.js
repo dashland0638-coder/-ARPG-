@@ -283,6 +283,12 @@
       magicCircleGeo.outer, magicCircleGeo.inner, magicCircleGeo.rune]);
     swingGeoCache.forEach(g=> keep.add(g));
     for(const k in projGeoCache) keep.add(projGeoCache[k]);
+    /* 宵待ちの村の敵の共有部品(CH1-COMP W3)。敵の group は世界の破棄で dispose の候補に
+       入るので、全個体で共有している頭巾・帽子・鎖・泡・残響の写しなどのジオメトリをここで守る。
+       足元の輪(07 groundTelegraphGeoCache)と網(07 memoryNetGeoCache)も同じく共有 */
+    villageGeoCache.forEach(g=> keep.add(g));
+    groundTelegraphGeoCache.forEach(g=>{ keep.add(g.ring); keep.add(g.fill); });
+    memoryNetGeoCache.forEach(g=>{ keep.add(g.net); keep.add(g.ring); keep.add(g.fill); });
     collectGeometries(sparkPool, keep);
     collectGeometries(dustPool, keep);
     collectGeometries(swingPool, keep);

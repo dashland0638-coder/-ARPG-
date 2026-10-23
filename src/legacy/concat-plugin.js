@@ -128,8 +128,16 @@ import {
   PROVISIONAL_ECHO_LIFE_SEC, PROVISIONAL_ECHO_RADIUS, PROVISIONAL_ECHO_WINDUP_SEC,
   PROVISIONAL_OPERATE_SEC, PROVISIONAL_MOVE_SEC,
   KEEPER_STRIKE_FRAC, KEEPER_ECHO_SOURCE, echoHarmAt, keeperTelegraphProgress, keeperTelegraphFor,
-  echoHasTelegraph, echoTelegraphProgress,
+  echoHasTelegraph, echoTelegraphProgress, BOSS_ECHO_SOURCE,
 } from '../core/warden-echo.js';
+/* 宵待ちの村の敵の見た目(CH1-COMP W3-E)。配色・体つき・足元の輪の半径(= 判定の半径)・姿勢 */
+import {
+  VILLAGE_PALETTE, VILLAGE_FINISH, VILLAGE_PROPORTIONS, FOAM_CLUSTER, FOAM_SCALE, WARDEN_SCALE,
+  foamHitRadius, villageHitRadius, MIRROR_STRIKE_RADIUS, MIRROR_STRIKE_SEC, FOAM_CONTACT_RADIUS, bossMeleeHitRadius,
+  DUSK_BOSS_ECHO_SCALE, RING_COLORS, RING_STYLE, ECHO_FIGURE_COLOR, ECHO_OPACITY,
+  mirrorRingProgress, foamRingVisible, bossMeleeRingProgress,
+  mirrorPose, keeperPose, echoPose, copyMimicProgress,
+} from '../core/dusk-enemies.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {
