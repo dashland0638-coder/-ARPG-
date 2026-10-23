@@ -3621,8 +3621,8 @@
     /* 村の残響の姿(parts.kind 'echo')は、分身にも同じ動きを付ける ―― 本体だけが動いていると
        姿で本体が分かってしまう。名前で複製の中の部品を拾い直す(updateMobAnim が回す) */
     clone.echoParts = boss.parts && boss.parts.kind === 'echo' ? duskEchoPartsOf(visual) : null;
-    // 近接の当たりの半径は見た目(ボスの体)に合わせる。雑魚の既定(0.4 前後)のままだと届かない
-    clone.hitRadius = boss.hitRadius || clone.hitRadius;
+    /* 当たりの半径(hitRadius)は今のまま(雑魚の既定)。ボスの体(2.0)に合わせると段階 3 の釣り合いと
+       ソフトロックが変わるので、Human の判断に残す(DEC-008 §3、CH1-COMP-W3 AD-2) */
     clone.mirrorCloneOf = boss;
     clone.triggered = true;
     clone.mirrorRippleT = Math.random() * 0.8;

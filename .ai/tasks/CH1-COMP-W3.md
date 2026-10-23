@@ -38,3 +38,7 @@ Status: IMPLEMENTING（CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
 - **AD-3 既知の例外: 剣士の「ちぞめ」の回避攻撃（3.5 の瞬間移動）は、閂の門・水門の壁を抜けられる**（独立レビュー m1）。
   同じ抜け方は既存の水門の門扉・ボスの扉にもあった（W3 以前から）。第一章の村の編成は魔法使い＋AI の剣士で、ちぞめは剣士（プレイヤー）専用のため本編の村では起きない。
   直すには全シナリオ共通の回避攻撃の移動を細かく刻む必要があり、範囲外の変更なので別作業の候補とする
+
+## Result
+
+- Reviewer PASS（Round 2）。CONTENT READY = HUMAN DEVICE CHECK REQUIRED。報告: `.ai/reports/CH1-COMP-W3-report.md`
