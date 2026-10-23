@@ -22,8 +22,10 @@ export const SCENARIO_WAYPOINTS = {
     {id:'fish',     name:'魚屋',       x:-45,  z:348},
     {id:'homes',    name:'住宅',       x:45,   z:348},
     {id:'boat',     name:'船小屋',     x:-40,  z:311},
+    {id:'alley',    name:'裏通り',     x:45,   z:384},   // CH1-COMP W3: 住宅の北から商店街の東へ回る本筋
     {id:'market',   name:'商店街',     x:0,    z:386},
     {id:'yard',     name:'水門前',     x:0,    z:416},
+    {id:'lookout',  name:'見張り小屋', x:-36,  z:420},   // CH1-COMP W3: 水門前の西の行き止まり
     {id:'sluice',   name:'水門',       x:0,    z:446},
     {id:'deep',     name:'村の奥',     x:0,    z:466},
     /* ボス(村の残響、z:520)は 6 以内に近づくと名乗って戦いが始まる(07 updateBossAI)。

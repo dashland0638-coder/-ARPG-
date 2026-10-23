@@ -579,6 +579,13 @@
         ? [[new THREE.Vector3(134,0,140), 'armoury']] : []), // 地下のさらに奥(周回★3+)
       ...(scenarioStars('mansion') >= MANSION_ATTIC_STARS
         ? [[new THREE.Vector3(155,0,-47), 'armoury']] : []), // 屋根裏(周回★4+)
+      /* ---- 宵待ちの村(CH1-COMP W3)。今までは 1 つも無かった。寄り道の先に置き、
+         本筋から外れる意味を作る。ボスの前に supply ---- */
+      [new THREE.Vector3(-53,0,357)],                     // 村: 魚屋の裏(寄り道)
+      [new THREE.Vector3(-38.5,0,307),'armoury'],         // 村: 船小屋の中(寄り道の行き止まり)
+      [new THREE.Vector3(46,0,396.5)],                    // 村: 裏通りの物置場(本筋の脇の行き止まり)
+      [new THREE.Vector3(-43,0,416),  'armoury'],         // 村: 見張り小屋(水門前の西の行き止まり)
+      [new THREE.Vector3(18,0,492),   'supply'],          // 村: 村の奥、ボスの前
       [new THREE.Vector3(-5,0,113)],                      // ghost ship deck
       [new THREE.Vector3(5,0,90)],                        // ghost ship cabin
       [new THREE.Vector3(33,0,106),   'armoury'],         // cargo hold dead end

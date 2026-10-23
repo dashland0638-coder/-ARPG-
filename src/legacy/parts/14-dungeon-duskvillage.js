@@ -68,6 +68,7 @@
   /* 水門(WORK 6)。門扉は閉じた状態で建て、水門守の残響を倒すと上がる。
      歯車・鎖・レバーは演出で動かすので参照を持っておく */
   let duskGateSlab = null, duskGateWall = null, duskGateLever = null;
+  let duskBarDoor = null, duskBarBeam = null;   // 閂の門(CH1-COMP W3)
   let duskGateGears = [], duskGateChains = [];
   let duskGateOpenT = 0;        // 0=閉 1=全開。撃破後にゆっくり上がる
   let duskGateOpening = false;
@@ -121,6 +122,7 @@
     duskGateCreakCD = 0; duskGateChainCD = 0; duskGateFlowCD = 0;
     duskInteriors = [];
     duskGateSlab = null; duskGateWall = null; duskGateLever = null;
+    duskBarDoor = null; duskBarBeam = null;
     duskGateGears = []; duskGateChains = [];
     duskGateOpenT = 0; duskGateOpening = false;
     duskLagProp = null; duskLagT = 0; duskLagCD = 12;
@@ -496,6 +498,30 @@
     lamp(44.0, 346.6);
 
     // =====================================================================
+    // ⑥' 裏通り(CH1-COMP W3) ―― 住宅の北から裏へ回り、商店街の東の口へ抜ける細い道。
+    //     表通り(広場 → 商店街)は閂の門で閉ざされているので、ここが本筋になる。
+    //     広場の掲示板の「見回り当番 ―― 今月は東の組」が、東へ回る手がかり。
+    //     北の端は物置場の行き止まり(宝箱)。目印は赤い布(光源は増やさない)
+    // =====================================================================
+    hut(50.2, 372, 3.4, 9, 3.4);     // 東側の家並み(裏手)
+    hut(39.8, 368, 3.2, 7, 3.2);     // 西側の物置
+    hut(39.8, 395, 3.2, 5.5, 3.0);   // 物置場の小屋
+    ropeLine(42, 380, 48, 380, 2.6, 0.2);
+    [43.2, 44.8, 46.4].forEach((lx,i)=>
+      hanging(lx, 2.1, 380, 0.8, 0.95, clothMat, 'cloth', {amp:0.12, freq:0.46 + i*0.07}));
+    /* 目印: 物置場の赤い布。夕暮れの青い村の中でここだけ赤い ―― 広場の東から
+       裏通りへ入った時に、奥の行き先として見える(発光の材質だけ。灯りは足さない) */
+    const duskMarkerCloth = new THREE.MeshStandardMaterial({color:0x8a2a22, roughness:0.95,
+      emissive:0x5a1410, emissiveIntensity:0.55, side:THREE.DoubleSide});
+    post(43.5, 393.5, 3.0, 0.1); post(48.5, 393.5, 3.0, 0.1);
+    ropeLine(43.5, 393.5, 48.5, 393.5, 2.9, 0.15);
+    hanging(46, 2.2, 393.5, 2.4, 1.3, duskMarkerCloth, 'cloth', {amp:0.10, freq:0.4});
+    crate(49.6, 396.4, 0.9); crate(50.4, 395.2, 0.7, 0.5); barrel(42.4, 396.5, 0.42, 0.9);
+    lamp(45.5, 382);   // 商店街の南西の角から移した(灯りの数は 19 のまま)
+    // 裏通りの小道(商店街へ)。水の上の板張りに、杭を数本
+    [24, 30, 36].forEach(px=> post(px, 384.4, 1.0, 0.09));
+
+    // =====================================================================
     // ⑦ 船小屋 ―― 船・網・浮き・ロープ・滑車・修理道具。水面がいちばん近い
     // =====================================================================
     house(-42, 310, 11, 10, 4.2, 'N');
@@ -540,7 +566,7 @@
     pot(-15.8, 378.4, 0.3);
     crate(6, 386, 0.95); crate(7.1, 386.8, 0.75, 0.5); crate(4.8, 387, 0.6, -0.3);
     barrel(4, 384, 0.44, 0.92); barrel(4.9, 383.2, 0.4, 0.8);
-    lamp(-8, 374); lamp(-6, 396); lamp(6, 396);
+    lamp(-6, 396); lamp(6, 396);   // 南西の角の灯りは裏通りへ移した(CH1-COMP W3)
     ropeLine(-6, 390, 6, 390, 3.0, 0.4);
     [-3.5, 0, 3.5].forEach((lx,i)=>
       hanging(lx, 2.45, 390, 0.7, 0.8, clothMat, 'cloth', {amp:0.10, freq:0.49 + i*0.05}));
@@ -597,6 +623,14 @@
     // 舫い杭が並ぶだけの岸。ここは「何も無いこと」を見せる場所
     [-16, -8, 8, 16].forEach(px=> post(px, 436.5, 1.1, 0.11));
 
+    // ⑨' 見張り小屋(CH1-COMP W3) ―― 水門前の西の行き止まり。見回りの当番が
+    //     水門を見張っていた小屋。寄り道の宝箱と手記
+    house(-39, 420, 7, 6, 3.2, 'E');
+    board(-40.5, 0.9, 421.8, 1.4, 0.08, 0.6, woodMat);   // 机
+    post(-44.2, 414.2, 3.4, 0.12);                       // 見張りの柱(水門の方を向いた古い竿)
+    board(-44.2, 3.3, 414.2, 1.2, 0.08, 0.08, darkWood);
+    reeds(-44, 426, 4);
+
     // =====================================================================
     // ⑩ 水門 ―― 巨大な門・歯車・鎖・操作機構・管理小屋
     // =====================================================================
@@ -611,8 +645,15 @@
        ので、閉じている方が正しい ―― 水門守の残響を倒すと上がる */
     duskGateSlab = new THREE.Mesh(new THREE.BoxGeometry(11, 3.4, 0.6), darkWood);
     duskGateSlab.position.set(0, 1.7, 450); duskGateSlab.castShadow = true; scene.add(duskGateSlab);
-    duskGateWall = {minX:-5.5, maxX:5.5, minZ:449.6, maxZ:450.4};
+    duskGateWall = {minX:-5.5, maxX:5.5, minZ:DUSK_SLUICE_Z.gateZ0, maxZ:DUSK_SLUICE_Z.gateZ1};
     walls.push(duskGateWall);
+    /* 門柱から柵までの石垣(CH1-COMP W3)。以前は門扉と柱の外側に幅 4 ほどの隙間があり、
+       水門守と戦わずに奥へ抜けられた(DEC-001 の「水門が関門」に反する)。両脇を塞いで、
+       水門が上がるまで先へ進めないようにする。範囲は core/dusk-village-map.js の表 */
+    DUSK_SLUICE_BLOCKS.filter(b=> b.id === 'wallW' || b.id === 'wallE').forEach(b=>{
+      addStaticBox((b.x0 + b.x1)/2, 0.9, (DUSK_SLUICE_Z.z0 + DUSK_SLUICE_Z.z1)/2,
+                   b.x1 - b.x0, 1.8, DUSK_SLUICE_Z.z1 - DUSK_SLUICE_Z.z0, stoneMat, true);
+    });
     // 歯車と鎖。止まっているが、錆びついてはいない ―― まだ動く
     duskGateGears = []; duskGateChains = [];
     [[-6.5, 5.6], [6.5, 5.6]].forEach(([gx, gy])=>{
@@ -666,7 +707,18 @@
     // 横道の扉の向き)で、門が通路に沿って 90° 回って立ち、当たり判定も
     // 開口の真ん中の細い板(x ±0.4)だけだった(CH1 follow-up B)
     buildDoor('duskBossDoor', 0, 500, 6, 0x2a2438, 'EW');
-
+    /* 閂の門(CH1-COMP W3)。広場 → 商店街の表通り(広場の北の口 x -5〜5、z 370)。
+       閂は商店街の側から掛けられていて、広場からは開かない(調べる表示も出さない)。
+       裏通りから商店街へ回り込み、門の北側に寄ると閂を外す ―― 以後は広場への近道。
+       村人が「水のほうへの道」を自分たちの側から閉ざした跡(手記の「――閉めた」と同じ) */
+    duskBarDoor = buildDoor('duskBarDoor', 0, 370, 10, 0x3a2a1c, 'EW');
+    duskBarDoor.locked = true;
+    duskBarBeam = board(0, 1.25, 370.35, 10.4, 0.26, 0.26, darkWood);   // 閂(北側に渡した太い横木)
+    registerProximityEvent(new THREE.Vector3(0, 0, 372), 1, '', [], {
+      marker: false,
+      area: {x0: -5, x1: 5, z0: 370.5, z1: 374},
+      onEnter: ()=> openDuskBarDoor(),
+    });
     // ---- ロア ----
     // 読まなくても本筋が分かる補助。後のシナリオイベントで意味を持つ程度に留める
     buildLoreNote(new THREE.Vector3(0, 0, 309), '朽ちた道標', [
@@ -677,6 +729,14 @@
       '「水門の見回り当番 ―― 今月は東の組」',
       '当番表の名前は、どれも途中から書かれなくなっている。'
     ], {kind:'sign', wall:false});
+    buildLoreNote(new THREE.Vector3(3.6, 0, 368.6), '閂の掛かった門', [
+      '門の向こう側から、太い閂が掛けられている。こちらからは外せない。',
+      '水のほうへの道を、村の誰かが内側から閉ざしたらしい。'
+    ], {kind:'sign', wall:false});
+    buildLoreNote(new THREE.Vector3(-41.2, 0, 421.6), '見張りの交代表', [
+      '「東の組 ―― 裏から回って水門へ」',
+      '表の通りを使わない理由は、どこにも書かれていない。'
+    ], {kind:'book'});
     buildLoreNote(new THREE.Vector3(-46.5, 0, 344.2), '魚屋の古い帳簿', [
       '売り上げの列が、ある日を境にぱたりと止まっている。',
       '最後の行にだけ、商いとは関係のない書き付けがあった。「水門の件について――」',
@@ -1208,6 +1268,16 @@
      出さず、鎖が止まる → 歯車が回る → 門が上がる → 水音が変わる、を
      そのままゲーム内の時間で見せる。 ========================================================= */
   // 水門守がレバーを引いている間だけ、レバーと鎖が動く(0..1)
+  /* 閂を外す(CH1-COMP W3)。門の北側(商店街)に寄った時だけ ―― 広場の側からは届かない */
+  function openDuskBarDoor(){
+    if(!duskBarDoor || duskBarDoor.opened) return;
+    duskBarDoor.locked = false;
+    swingOpen(duskBarDoor, true);
+    if(duskBarBeam){ duskBarBeam.rotation.z = 1.2; duskBarBeam.position.set(5.6, 0.5, 370.9); }
+    sfx('woodCreak');
+    spawnLog('🚪 閂を外した。広場への近道が開いた');
+  }
+
   function pullDuskGateLever(prog){
     if(!duskGateLever) return;
     const k = Math.sin(Math.max(0, Math.min(1, prog)) * Math.PI);
