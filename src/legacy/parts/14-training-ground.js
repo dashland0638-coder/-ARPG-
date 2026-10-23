@@ -258,7 +258,7 @@
     let melee = 'OFF';
     if(g && g.visible){
       const off = Math.hypot(g.position.x - en.group.position.x, g.position.z - en.group.position.z);
-      const ring = g.userData.fisherRing;
+      const ring = g.userData.ring;
       melee = `ON shown ${(ring.geometry.parameters.outerRadius * ring.scale.x * g.scale.x).toFixed(2)} / hit ${FISHER_MELEE_RANGE.toFixed(2)}` +
         ` center ${off.toFixed(2)}`;
     }
@@ -269,6 +269,31 @@
       net = `ARM shown ${(n.radius * n.ring.scale.x).toFixed(2)} / hit ${n.radius.toFixed(2)}`;
     }
     return `Melee Ring: ${melee}<br>Net Ring: ${net}<br>`;
+  }
+
+  /* 水門守の足元の予兆(CH1-COMP W2-MB2)。本体の輪と、残響の輪(水門守が出したものだけ)の
+     見えている半径と判定の半径を並べる。E2E が「見えている輪 = 当たる範囲」「当たらない残響に輪は無い」
+     を確かめる口。判定や表示には何も書かない */
+  function keeperTelegraphInfo(en){
+    const ringRadius = g => {
+      const ring = g.userData.ring;
+      return ring.geometry.parameters.outerRadius * ring.scale.x * g.scale.x;
+    };
+    const g = en.meleeTelegraphMesh;
+    let body = 'OFF';
+    if(g && g.visible){
+      const off = Math.hypot(g.position.x - en.group.position.x, g.position.z - en.group.position.z);
+      body = `ON shown ${ringRadius(g).toFixed(2)} / hit ${PROVISIONAL_ECHO_RADIUS.toFixed(2)} center ${off.toFixed(2)}`;
+    }
+    const mine = keeperEchoes.filter(e => e.source === KEEPER_ECHO_SOURCE);
+    const harmful = mine.filter(e => e.harmAt != null);
+    const rings = mine.filter(e => e.telegraph && e.telegraph.visible);
+    const walkRings = mine.filter(e => e.harmAt == null && e.telegraph).length;
+    const shown = rings.map(e => `${ringRadius(e.telegraph).toFixed(2)}/${(e.radius || PROVISIONAL_ECHO_RADIUS).toFixed(2)}`);
+    const dist = Math.hypot(state.pos.x - en.group.position.x, state.pos.z - en.group.position.z);
+    return `Keeper Ring: ${body}<br>` + `Player Dist: ${dist.toFixed(2)}<br>` +
+      `Echo Rings: ${rings.length} on / ${harmful.length} harmful / ${mine.length - harmful.length} walk` +
+      ` / walk rings ${walkRings}${shown.length ? ' shown/hit ' + shown.join(' ') : ''}<br>`;
   }
 
   // 敵情報パネル(#11): 最も近い敵のHP/体幹/AI状態/旋回速度/向き/
@@ -382,6 +407,9 @@
         ? `ON reach ${en.meleeTelegraphMesh.userData.reach.toFixed(2)} half ${en.meleeTelegraphMesh.userData.halfAngle.toFixed(2)}`
         : 'OFF'}<br>` : ''}` +
       `${en.atkType==='fisher' ? fisherTelegraphInfo(en) : ''}` +
+      `${en.atkType==='keeper' ? keeperTelegraphInfo(en) : ''}` +
+      /* 床に出ている円の予兆(漁師・水門守・残響の共通の部品)の数。Clear・撃破の後に残っていないかを見る口 */
+      `Ground Rings: ${scene.children.filter(c => c.userData && c.userData.groundTelegraph && c.visible).length}<br>` +
       `Turn Rate: ${resolveTurnRate(en).toFixed(2)} rad/s<br>` +
       `Facing: ${en.group.rotation.y.toFixed(2)} rad<br>` +
       `Hit Radius: ${(en.hitRadius||0).toFixed(2)}<br>` +

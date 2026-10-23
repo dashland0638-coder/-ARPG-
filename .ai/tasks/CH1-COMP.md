@@ -40,7 +40,8 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 | 4a | W2-T2 | 現行コード（`1205665`）でのベースライン再測定と、通常プレイの生存可能性の評価（測定だけ。ゲームは変えない） | P1 | DONE（PR #92 merged `e5d3464`、2026-10-20。iPhone 実機確認は HUMAN DEVICE CHECK REQUIRED） | [x] Human 2026-10-19（依頼文） | W2-T1 |
 | 4b | W2-4a | 村のボスの段階移行の爆発に予兆（0.8 秒・足元の円）を付ける（`CH1-COMP-W24a.md`。残響の円は含めない） | P1 | DONE（PR #94 merged `1801f05`、2026-10-20。Human の受け入れ確認で ACCEPT。iPhone 実機確認は HUMAN DEVICE CHECK REQUIRED） | [x] Human 2026-10-20（依頼文） | W2-D |
 | 4c | W2-MB | 宵待ちの村のボス直前の中ボス（記憶漁師・水門守の残響）の攻撃の分かりにくさの調査（調査のみ。`CH1-COMP-W2MB.md`） | P1 | DONE（PR #93 merged `8fd69cb`、2026-10-20。調査のみ） | [x] Human 2026-10-20（依頼文） | ― |
-| 4d | W2-MB1 | 記憶漁師の近接に予兆（溜め＋足元の円）、網の輪を判定の範囲に合わせる（`CH1-COMP-W2MB1.md`。水門守は W2-MB2） | P1 | REVIEWING（実装・テスト済み、独立レビュー PASS。branch `claude/ch1-comp-w2-mb1-fisher-telegraph`。iPhone 確認は未）  | [x] Human 承認 2026-10-20（溜め 0.5 秒・パニッシュ窓なし・観測の灯で伸ばさない） | W2-MB |
+| 4d | W2-MB1 | 記憶漁師の近接に予兆（溜め＋足元の円）、網の輪を判定の範囲に合わせる（`CH1-COMP-W2MB1.md`。水門守は W2-MB2） | P1 | DONE（PR #96 merge `15fe597`。iPhone 確認は未） | [x] Human 承認 2026-10-20（溜め 0.5 秒・パニッシュ窓なし・観測の灯で伸ばさない） | W2-MB |
+| 4e | W2-MB2 | 水門守の残響の本体と「引いた」残響に攻撃範囲の予兆（足元の円）（`CH1-COMP-W2MB2.md`） | P1 | DONE（PR 作成。branch `claude/ch1-comp-w2-mb2-keeper-telegraph`。iPhone 確認は未） | [x] Human 指示 2026-10-22（数値は変えない） | W2-MB |
 | 5 | W0-5 | アートの完成見本の提示（見本の制作は村のボス戦に限り HD-4 の範囲。実装の開始は指示待ち。画像と全マップ展開は Human の承認が必要） | P2 | PLANNED | [ ] Human の承認が必要 | W0-3, W3-0（制作: W2-2・W3-1・W3-2 の村の範囲） |
 | 5 | W0-6 | 出撃会話の台詞の候補の提示 | P1 | PLANNED | [ ] Human の承認が必要 | ― |
 | 6 | W1-2, W1-4, W1-5, W2-1a〜W2-6, W3, W4, W5 | 計画のとおり | ― | PLANNED | 承認後に個別の Task にする | 計画を参照 |

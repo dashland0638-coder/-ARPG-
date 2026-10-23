@@ -117,3 +117,67 @@ export function actorTell(isEcho){
     ripple: isEcho ? 0.45 : 1.0,   // 本体の足元だけ水面が強く応える
   };
 }
+
+/* =========================================================
+   攻撃範囲の予兆(CH1-COMP W2-MB2)
+
+   本体と、本体が出した「引いた」残響の足元に、当たる範囲(半径 2.4)の輪を出し、
+   内側の円を当たる瞬間に満ちるように進める。数値は今のまま定数へ移しただけ。
+
+   ・本体: 予備動作(0.55 秒)の始めから、引いている間の 45% の所(当たる瞬間)まで。
+     合わせて 0.55 + 1.5 × 0.45 = 1.225 秒で満ちる
+   ・残響: 出た瞬間から harmAt(寿命 2.2 × 0.45 = 0.99 秒)まで
+   ・歩いた跡の残響(当たらない)と、水門守以外が出した残響(村の残響のボス)には出さない
+   ========================================================= */
+export const KEEPER_STRIKE_FRAC = 0.45;  // 引いている間の、この割合の所で 1 回だけ当たる(今の値)
+export const ECHO_HARM_FRAC = 0.45;      // 残響の寿命の、この割合の所で 1 回だけ当たる(今の値)
+export const KEEPER_ECHO_SOURCE = 'keeper';   // 水門守が出した残響の印
+// 予備動作の始めから当たる瞬間まで
+export const KEEPER_TELEGRAPH_LEAD_SEC = PROVISIONAL_ECHO_WINDUP_SEC + PROVISIONAL_OPERATE_SEC * KEEPER_STRIKE_FRAC;
+
+/* 「引いた」残響が当たる時刻(出てからの秒)。歩いた跡は null(当たらない) */
+export function echoHarmAt(kind){
+  return kind === 'operate' ? PROVISIONAL_ECHO_LIFE_SEC * ECHO_HARM_FRAC : null;
+}
+
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+
+/* 本体の予兆の進み具合(0 → 1)。出さない時は null。
+   keeperState: 'move' | 'windup' | 'operate'、keeperT: その相の残り秒、hitDone: もう当たったか */
+export function keeperTelegraphProgress(keeperState, keeperT, hitDone){
+  const t = Number(keeperT);
+  if(!isFinite(t)) return null;
+  let elapsed;
+  if(keeperState === 'windup'){
+    elapsed = PROVISIONAL_ECHO_WINDUP_SEC - Math.max(0, t);
+  } else if(keeperState === 'operate'){
+    if(hitDone) return null;
+    elapsed = PROVISIONAL_ECHO_WINDUP_SEC + PROVISIONAL_OPERATE_SEC - Math.max(0, t);
+  } else {
+    return null;
+  }
+  return clamp01(elapsed / KEEPER_TELEGRAPH_LEAD_SEC);
+}
+
+/* 残響に予兆を出すか。水門守が出した、当たる(harmAt のある)残響だけ */
+export function echoHasTelegraph(echo){
+  return !!echo && echo.source === KEEPER_ECHO_SOURCE && echo.harmAt != null && isFinite(echo.harmAt) && echo.harmAt > 0;
+}
+
+/* 残響の予兆の進み具合(0 → 1)。出さない時(対象外・当たった後・寿命切れ・壊れた値)は null */
+export function echoTelegraphProgress(echo){
+  if(!echoHasTelegraph(echo)) return null;
+  const max = echo.maxLife || PROVISIONAL_ECHO_LIFE_SEC;
+  const life = Number(echo.life);
+  if(!isFinite(life) || life <= 0) return null;
+  const elapsed = max - life;
+  if(elapsed >= echo.harmAt) return null;
+  return clamp01(elapsed / echo.harmAt);
+}
+
+/* 本体の予兆を出すか(出すなら進み具合、出さないなら null)。倒れている・ダウン中・
+   敵対していない(再出現の直後・追うのをやめた後。AI が止まり、相の残りが途中のまま残る)間は出さない */
+export function keeperTelegraphFor(en){
+  if(!en || en.dead || en.knockedDown || !en.triggered) return null;
+  return keeperTelegraphProgress(en.keeperState, en.keeperT, !!en.keeperHit);
+}
