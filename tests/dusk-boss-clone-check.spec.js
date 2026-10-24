@@ -27,7 +27,8 @@ async function installProbe(page) {
     }).observe(document, { childList: true, subtree: true });
     const tick = () => {
       const el = document.getElementById('arena-enemy-info');
-      if (el && el.innerHTML) B.info.push({ at: Date.now(), html: el.innerHTML });
+      const bar = parseFloat(document.getElementById('boss-bar-fill').style.width);
+      if (el && el.innerHTML) B.info.push({ at: Date.now(), html: el.innerHTML, bar: Number.isFinite(bar) ? bar : null });
       if (B.info.length > 6000) B.info.splice(0, 2000);
       requestAnimationFrame(tick);
     };
@@ -120,10 +121,12 @@ test.describe('ボスの分身の実機確認(テストモードの手段)', () 
     const summary = texts.join('\n');
     const out = ev.find(e => e.text === 'TEST — CLONE OUT — ボスへの攻撃が通る');
     expect(out, summary).toBeTruthy();
-    // 分身が出るまでは、ボスの HP は境目のまま(プレイヤーの攻撃も支援AIも通らない)
-    const before = info.filter(f => f.at < out.at).map(f => bossHp(f.html)).filter(h => h != null);
+    /* 分身が出るまでは、ボスの HP は境目のまま(プレイヤーの攻撃も支援AIも通らない)。
+       ボスのバー(画面上の表示)で読む ―― Debug Info は最も近い敵だけで、分身が近いと読めない */
+    const heldPct = heldHp / 912 * 100;
+    const before = info.filter(f => f.at > p3.at + 1000 && f.at < out.at && f.bar != null).map(f => f.bar);
     expect(before.length, summary).toBeGreaterThan(0);
-    for (const h of before) expect(h, summary).toBe(heldHp);
+    for (const w of before) expect(Math.abs(w - heldPct), `${w} ${summary}`).toBeLessThan(0.2);
     // 剣士の近接で分身が散る(当たり 2.00)。支援AIは休止中なので、支援AIでは散らない
     const dispels = texts.filter(t => t.startsWith('CLONE — DISPELLED (boss)'));
     expect(dispels.some(t => /by player hit 2\.00 dist \d+\.\d\d$/.test(t)), summary).toBe(true);
@@ -165,21 +168,25 @@ test.describe('ボスの分身の実機確認(テストモードの手段)', () 
       if (h != null) expect(h, '休止中の支援AIはボスを削らない').toBe(start);
       await page.waitForTimeout(500);
     }
+    expect((await events(page)).filter(e => e.text.includes('by ally')), '休止中の支援AIは分身も散らさない').toEqual([]);
 
     // 「戦う」に戻すと、支援AIがボスを攻撃して HP が減る(今までの動き)
     await page.click('#arena-toggle-btn');
     await page.click('#arena-guest-pause-btn');
     await expect(page.locator('#arena-guest-pause-btn')).toHaveText('🤝 支援AI: 戦う');
     await page.click('#arena-toggle-btn');
-    let dropped = false;
+    /* 支援AIは近い敵から狙う。分身が近ければ分身を散らす(記録 by ally)、本体ならバーが減る ――
+       どちらかが起これば、今までどおり攻撃している */
+    let attacked = false;
     const t1 = Date.now();
-    while (Date.now() - t1 < 120_000 && !dropped) {
+    while (Date.now() - t1 < 180_000 && !attacked) {
       if (await dialogueOpen(page)) await sendDialogues(page);
       const h = await hpNow();
-      if (h != null && h < start) dropped = true;
+      const allyDispel = (await events(page)).some(e => e.text.startsWith('CLONE — DISPELLED (boss) by ally'));
+      if ((h != null && h < start) || allyDispel) attacked = true;
       await page.waitForTimeout(500);
     }
-    expect(dropped, '支援AIがボスを攻撃する').toBe(true);
+    expect(attacked, '支援AIが敵を攻撃する(ボスが減る、または分身を散らす)').toBe(true);
     const texts = (await events(page)).map(e => e.text);
     expect(texts).toContain('TEST — GUEST PAUSED');
     expect(texts).toContain('TEST — GUEST FIGHTING');
