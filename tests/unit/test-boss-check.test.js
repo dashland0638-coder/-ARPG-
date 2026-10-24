@@ -58,7 +58,12 @@ test('組み込み: テストモードだけ・数値を変えない・セーブ
 
   await t.test('支援AIは state.testMode と休止の両方で決める(通常プレイは従来どおり敵を探す)', () => {
     assert.match(guest, /guestMayFight\(\{testMode: state\.testMode, guestPaused: testGuestPaused\}\)/);
-    assert.match(guest, /if\(!guestCompanion\.target && mayFight\)\{/);
+    // 休止中は狙いを探さず、狙いの距離の確かめ(target.group を読む)にも進まない
+    assert.match(guest, /if\(!mayFight\)\{[^}]*\} else if\(!guestCompanion\.target\)\{/);
+  });
+  await t.test('散った分身は倒れた扱い(支援AI・ソフトロックが消えた場所を狙い続けない)', () => {
+    assert.match(fnBody(ai, 'dispelMirrorClone'), /clone\.dead = true;/);
+    assert.match(fnBody(ai, 'clearMirrorClones'), /c\.dead = true;/);
   });
   await t.test('ダメージを止めるのはテストモードの間だけ', () => {
     assert.match(fnBody(ai, 'dealDamageToEnemy'), /if\(state\.testMode && testBossHoldsDamage\(en\)\) return;/);

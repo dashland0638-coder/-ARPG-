@@ -2527,6 +2527,9 @@
       spawnDuskRipple(clone.group.position.x, clone.group.position.z, 1.0);
     }
     sfx('dodge');
+    /* 散った分身は「倒れた」ことにする。敵の一覧からは外れるが、支援AIの狙い・ソフトロックが
+       この分身を持ち続けると、消えた場所を叩き続けて散る演出が繰り返された(CH1-COMP W3 で発見) */
+    clone.dead = true;
     scene.remove(clone.group);
     if(clone.meleeTelegraphMesh) scene.remove(clone.meleeTelegraphMesh);   // 足元の輪(CH1-COMP W3)
     // 散った分身をソフトロックが掴んだままにしない(消えた場所へ向き続けないように)
@@ -2544,6 +2547,7 @@
   function clearMirrorClones(real){
     (real.mirrorClones || []).forEach(c=>{
       if(!c) return;
+      c.dead = true;
       scene.remove(c.group);
       if(c.meleeTelegraphMesh) scene.remove(c.meleeTelegraphMesh);   // 足元の輪(CH1-COMP W3)
       if(state.berserkerLock && state.berserkerLock.en === c) state.berserkerLock = null;

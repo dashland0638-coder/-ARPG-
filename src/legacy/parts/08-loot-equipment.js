@@ -1095,7 +1095,9 @@
        通常プレイでは guestMayFight は常に true(state.testMode が false) */
     const mayFight = guestMayFight({testMode: state.testMode, guestPaused: testGuestPaused});
     if(!mayFight) guestCompanion.target = null;
-    if(!guestCompanion.target && mayFight){
+    if(!mayFight){
+      // 休止中は狙わない(下の「付いて歩く」へ)
+    } else if(!guestCompanion.target){
       let best=null, bestDist=AGGRO;
       enemies.forEach(en=>{
         if(en.dead || en.dormant) return;

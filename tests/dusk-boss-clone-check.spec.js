@@ -124,9 +124,12 @@ test.describe('ボスの分身の実機確認(テストモードの手段)', () 
     /* 分身が出るまでは、ボスの HP は境目のまま(プレイヤーの攻撃も支援AIも通らない)。
        ボスのバー(画面上の表示)で読む ―― Debug Info は最も近い敵だけで、分身が近いと読めない */
     const heldPct = heldHp / 912 * 100;
-    const before = info.filter(f => f.at > p3.at + 1000 && f.at < out.at && f.bar != null).map(f => f.bar);
-    expect(before.length, summary).toBeGreaterThan(0);
-    for (const w of before) expect(Math.abs(w - heldPct), `${w} ${summary}`).toBeLessThan(0.2);
+    const afterP3 = info.filter(f => f.at > p3.at + 300 && f.bar != null);
+    expect(afterP3.length, summary).toBeGreaterThan(0);
+    expect(Math.abs(afterP3[0].bar - heldPct), `押した直後のバー ${afterP3[0].bar}`).toBeLessThan(0.2);
+    /* 押した時にすでに分身がいれば、最初の一撃で止めが外れる(CLONE OUT がすぐ出る)。
+       止めている間(CLONE OUT の前)は、どのフレームでも境目のまま */
+    for (const f of afterP3.filter(f => f.at < out.at)) expect(Math.abs(f.bar - heldPct), `${f.bar} ${summary}`).toBeLessThan(0.2);
     // 剣士の近接で分身が散る(当たり 2.00)。支援AIは休止中なので、支援AIでは散らない
     const dispels = texts.filter(t => t.startsWith('CLONE — DISPELLED (boss)'));
     expect(dispels.some(t => /by player hit 2\.00 dist \d+\.\d\d$/.test(t)), summary).toBe(true);
