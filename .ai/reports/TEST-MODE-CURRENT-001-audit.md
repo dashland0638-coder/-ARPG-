@@ -98,7 +98,7 @@ UI の更新はテストモードと本編で共有している（HUD・鍛冶�
 ### テスト
 - `npm run build` 成功
 - `npm run test:unit`: 2038 件（pass 2037 / fail 0 / skip 1 は既存）
-- E2E 全体（67 本、2 並列、retry なし）: 1 回目に 18 本 54 件が失敗（すべて上の「旧成長ルールの明示」で直る種類）。直した後に失敗した 18 本を再実行して 122 件すべて pass。レビュー修正の後に `testmode-current`・`chapter-select-testmode`・`dialog-result-layout` 22 件 pass、回帰の抜き取りは §7
+- E2E 全体（67 本、2 並列、retry なし）: 1 回目に 18 本 54 件が失敗（すべて上の「旧成長ルールの明示」で直る種類）。直した後に失敗した 18 本を再実行して 122 件すべて pass。レビュー修正の後に `testmode-current`・`chapter-select-testmode`・`dialog-result-layout` 22 件 pass、最後の回帰の抜き取り（testmode-current・production-build・save-load・chapter1-progression・pwa-test-entry・scenario-test-mode・dusk-boss-clone-check・guest-companion・notifications・chapter1-legacy-ui・combat-test-arena・mansion-lord・execution-break・chapter1-dusk-basics）58 件すべて pass
 - 新しい E2E `tests/testmode-current.spec.js`: 通常 URL で入口・Arena が出ない／既定ルール（HUD に Lv・XP・Skill 3 が無い、Debug Info の見出し、強さ ×0.5 / ×2 / ×1、結果画面の確認）／旧成長ルール（転身・レベルの欄、HUD の Lv）／ボスを次の段階へ（段階 2 → 3 → 最後、Debug Info の P3）／844×390・1280×800 で開始画面と Arena の先頭の操作が画面に収まる
 
 ### 独立レビュー
