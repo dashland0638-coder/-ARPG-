@@ -71,3 +71,51 @@ UI の更新はテストモードと本編で共有している（HUD・鍛冶�
 ### 変えないもの
 
 `?dev=1` の門番、セーブの形式（`testRules`・強さはセーブに書かない）、本編の挙動、DOM の既存 ID（足すだけ。`arena-dusk-phase3-btn` は `arena-boss-phase-btn` に置き換え、旧 ID を参照するテストを更新）、basefile.html、legacy の連結構成、旧成長系のコード。
+
+---
+
+## 6. 実装の結果（Implementer / Tester / Reviewer）
+
+### 変えたもの
+| 場所 | 内容 |
+| --- | --- |
+| `core/chapter1-rules.js` | `TEST_RULES`、`normalizeTestRules`、`legacyGrowthEnabled(testMode, testRules)`（テストモードかつ旧成長ルールの時だけ真） |
+| `core/combat-hud-visibility.js` | `testRules` を渡す |
+| `core/test-debug.js`（新規） | デバッグ用の強さ（×1 / ×0.5 / ×2。最大 HP と攻撃力だけ、テストモードの間だけ） |
+| `core/test-boss-check.js` | `nextBossPhaseTarget`（次の段階の境目 65% / 30%） |
+| `01-character-creation.js` | `legacyGrowth()` がルールを見る。開始画面のルールの選択（既定 第一章）。転身・レベルは旧成長だけ。開始の要約にルールを出す |
+| `14-hud-boot.js` / `10-input.js` | 入る時にルールと強さを決め、タイトルへ戻る時に戻す |
+| `12-progression-ui.js` | `recomputeStats` の最後に強さを掛ける（テストモードの間だけ） |
+| `14-training-ground.js` | `⏭ ボスを次の段階へ`（どのボスでも。村の残響の段階 3 の分身の扱いは今のまま）、`💪 強さ`、Debug Info の見出し（ルール・強さ・場所・ボスの段階・支援AI）、鍛冶屋の入口の表記、結果画面の確認（「本編」「旧成長」をそれぞれのルールで描く） |
+| `index.html` | 開始画面（ルール・説明・見出し）、Arena の先頭の 1 行（支援AI・次の段階・強さ） |
+
+### 既存のテストへの変更（弱めていない）
+- `tests/helpers.js startTestMode` に `rules`。`level` を渡すテストは旧成長ルール（レベルは旧成長にしか無いため。従来と同じ挙動）
+- 転身・レベル・旧既定の Lv 50 の強さ・旧成長系の画面を確かめる 19 本の spec は、旧成長ルールを明示して選ぶ（確かめる対象のルールを指定する変更）
+- `chapter-select-testmode` の開始の要約にルールが付く（仕様の変更）
+- unit: `legacyGrowthEnabled(true)` が真 → 旧成長ルールの時だけ真（仕様の変更）、HUD の表示条件も同じ
+
+### テスト
+- `npm run build` 成功
+- `npm run test:unit`: 2038 件（pass 2037 / fail 0 / skip 1 は既存）
+- E2E 全体（67 本、2 並列、retry なし）: 1 回目に 18 本 54 件が失敗（すべて上の「旧成長ルールの明示」で直る種類）。直した後に失敗した 18 本を再実行して 122 件すべて pass。レビュー修正の後に `testmode-current`・`chapter-select-testmode`・`dialog-result-layout` 22 件 pass、回帰の抜き取りは §7
+- 新しい E2E `tests/testmode-current.spec.js`: 通常 URL で入口・Arena が出ない／既定ルール（HUD に Lv・XP・Skill 3 が無い、Debug Info の見出し、強さ ×0.5 / ×2 / ×1、結果画面の確認）／旧成長ルール（転身・レベルの欄、HUD の Lv）／ボスを次の段階へ（段階 2 → 3 → 最後、Debug Info の P3）／844×390・1280×800 で開始画面と Arena の先頭の操作が画面に収まる
+
+### 独立レビュー
+- Round 1: **PASS**（BLOCKER / MAJOR 0）
+  - MINOR-1 結果画面の確認「テスト」が既定ルールで本編と同じになる → 描く間だけ旧成長ルールにし、ボタンを「結果(旧成長)」に。E2E を追加
+  - MINOR-2 古い説明（docs・コメント） → 直した
+  - MINOR-3 テストの不足 → ボスの段階を Debug Info で確かめる・結果画面の確認を追加。既定ルールでの経験値・ドロップ無しは、`legacyGrowth()` が偽の時の既存の unit（`chapter1-growth-effects` ほか）が確かめている分岐と同じ
+  - NIT-2 開始画面でルールが見えなくなる → 要約にルールを出す。NIT-1 文言 → 直した。NIT-3 使っていない import は以前からのもの（触らない）
+
+### 既知の未確認事項
+- テストモードの既定ルールで、経験値・ドロップ・異空間が出ないことは E2E では直接確かめていない（本編と同じ分岐を通る）
+- 物語の差し替え（幽霊船・時計塔・道の台詞）をテストモードの既定ルールで歩いて確かめてはいない（道の spec はレベルを渡すので旧成長ルール）
+- 旧既定の Lv 50 に頼っていたが `level` を渡していなかった spec は、既定ルール（基礎値）で通ることを確かめた
+
+### iPhone 実機で確認すること（HUMAN DEVICE CHECK REQUIRED）
+1. `?dev=1` で開き「🛠 テストモード」。ルールの既定が「📖 第一章(本編と同じ)」で、転身・レベルの欄が出ていない。要約に「📖 第一章ルール」
+2. 宵待ちの村 → 水鏡の跡で入り、HUD にレベルが出ない。手応えが本編の第一章と同じ
+3. Arena の先頭の 1 行（🤝 / ⏭ / 💪）が横画面で押せる。💪 で強さが変わり、⏭ を 2 回で村の残響が段階 3（分身が出るまで攻撃が通らない）
+4. 「🧪 旧成長システム」を選ぶと転身・レベルが出て、HUD に Lv が付く
+5. 通常の URL（`?dev=1` なし）でテストモード・Arena が出ない
