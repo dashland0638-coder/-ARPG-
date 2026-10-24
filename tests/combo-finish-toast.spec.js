@@ -43,6 +43,8 @@ const ultPct = async (page) => {
 
 async function enterTraining(page, classKey) {
   await page.click('#open-testmode-btn');
+  // 転身・レベル・旧既定の Lv 50 を使うテスト: 旧成長システムのルールを選ぶ(TEST-MODE-CURRENT-001)
+  await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
   await expect(page.locator('#testmode-screen')).toBeVisible();
   await page.click(`#testmode-class-grid .class-card[data-key="${classKey}"]`);
   await page.locator('#testmode-level').fill('1');

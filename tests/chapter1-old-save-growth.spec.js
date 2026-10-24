@@ -292,7 +292,7 @@ test.describe('PROGRESSION-003: 本編では旧セーブの alt・新技・上�
     test.setTimeout(120_000);
     const errors = watchErrors(page);
     await openGame(page);
-    await startTestMode(page, { classKey: 'mage' });
+    await startTestMode(page, { classKey: 'mage', rules: 'legacy' });
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await page.waitForTimeout(800);
 
@@ -374,7 +374,7 @@ test.describe('PROGRESSION-005: 本編の Skill 1 は職業固有の既定の技
     test.setTimeout(120_000);
     const errors = watchErrors(page);
     await openGame(page);
-    await startTestMode(page, { classKey: 'mage' });
+    await startTestMode(page, { classKey: 'mage', rules: 'legacy' });
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await page.waitForTimeout(800);
     await page.keyboard.press('KeyI');

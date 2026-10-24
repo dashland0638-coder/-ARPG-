@@ -111,7 +111,7 @@ test.describe('PROGRESSION-007: 第一章の鍛冶屋は装備の管理・確認
     test.setTimeout(90_000);
     const errors = watchErrors(page);
     await openGame(page);
-    await startTestMode(page, { classKey: 'warrior' });
+    await startTestMode(page, { classKey: 'warrior', rules: 'legacy' });
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await page.waitForTimeout(800);
     await page.keyboard.press('KeyI');

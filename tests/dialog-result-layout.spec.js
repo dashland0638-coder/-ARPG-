@@ -216,7 +216,7 @@ test.describe('UI-002-H 結果・戦闘不能(H-D6: テストモードの入口)
       const page = await context.newPage();
       const errors = watchErrors(page);
       await openGame(page);
-      await startTestMode(page, { classKey: 'warrior' });
+      await startTestMode(page, { classKey: 'warrior', rules: 'legacy' });
       await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 30_000 });
       await page.waitForTimeout(600);
 
@@ -284,7 +284,7 @@ test.describe('UI-002-H 結果・戦闘不能(H-D6: テストモードの入口)
     await page.setViewportSize({ width: 1280, height: 800 });
     const errors = watchErrors(page);
     await openGame(page);
-    await startTestMode(page, { classKey: 'warrior' });
+    await startTestMode(page, { classKey: 'warrior', rules: 'legacy' });
     await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 30_000 });
     await page.waitForTimeout(600);
     const before = await observableState(page);
