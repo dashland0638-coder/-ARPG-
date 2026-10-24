@@ -257,9 +257,18 @@ test.describe('宵待ちの村の敵(W3-E): 姿・足元の輪', () => {
     await page.click('#arena-toggle-btn');
     await clearInfo(page);
 
+    /* まず攻撃せずに、分身が出るのを待つ(段階が変わると呼び出しの溜めが 0 に戻るので、
+       先に削ると分身が出ない)。ボスの行に並ぶ分身の様子も記録される */
+    const deadline = Date.now() + 720_000;
+    while (Date.now() < deadline) {
+      if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) await sendDialogues();
+      const html = await infoNow(page);
+      if (/Echo Clones: [1-9]/.test(html) || /Echo Tell: clone/.test(html)) break;
+      await page.waitForTimeout(400);
+    }
+    await page.screenshot({ path: 'test-results/dusk-enemy-boss-clone.png' });
     // 立ち止まって攻撃し続ける(狙いの補助で近い方へ向く)。分身が散るまで、散った後は本体に当たるまで
-    const deadline = Date.now() + 600_000;
-    let shotClone = false, dispelAt = null;
+    let dispelAt = null;
     const bossHp = html => { const m = /HP:\s*([0-9]+)/.exec(html || ''); return m ? +m[1] : null; };
     let hpAtDispel = null, hpAfter = null;
     while (Date.now() < deadline) {
@@ -271,7 +280,6 @@ test.describe('宵待ちの村の敵(W3-E): 姿・足元の輪', () => {
       await page.waitForTimeout(250);
       await attackUp(page);
       const html = await infoNow(page);
-      if (!shotClone && /Echo Tell: clone/.test(html)) { shotClone = true; await page.screenshot({ path: 'test-results/dusk-enemy-boss-clone.png' }); }
       const ev = await page.evaluate(() => window.__pb.events);
       const d = ev.find(e => e.text.startsWith('CLONE — DISPELLED (boss)'));
       if (d && dispelAt == null) dispelAt = d.t;
@@ -285,7 +293,8 @@ test.describe('宵待ちの村の敵(W3-E): 姿・足元の輪', () => {
 
     const fr = await frames(page);
     const ev = await page.evaluate(() => window.__pb.events);
-    const tells = fr.map(f => infoValue(f.html, 'Echo Tell')).filter(Boolean);
+    const tells = fr.flatMap(f => [infoValue(f.html, 'Echo Tell'),
+      ...((infoValue(f.html, 'Echo Clones') || '').split(' | ').slice(1))]).filter(Boolean);
     const summary = [...new Set(tells)].slice(0, 12).join('\n') + '\n' + ev.map(e => `${e.t} ${e.text}`).join('\n');
     // 分身: 当たり 2.00、影・足元の水の輪・灯りが無い。本体: 当たり 2.00、3 つとも有る
     const clones = tells.filter(s => s.startsWith('clone'));

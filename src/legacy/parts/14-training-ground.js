@@ -327,12 +327,20 @@
     /* ボスと分身の見分けの手がかり(CH1-COMP W3 AD-2)。当たりの半径・影・足元の水の輪・灯り */
     let tell = '';
     const bossOf = en.isBoss && en.key === 'duskEcho' ? en : (en.mirrorCloneOf && en.mirrorCloneOf.isBoss ? en.mirrorCloneOf : null);
-    if(bossOf){
+    const tellOf = e => {
       let shadow = false, light = false;
-      en.group.traverse(o=>{ if(o.isMesh && o.castShadow) shadow = true; if(o.isLight) light = true; });
-      const ring = en.group.getObjectByName('echoRipple');
-      tell = `Echo Tell: ${en === bossOf ? 'real' : 'clone'} hit ${(en.hitRadius || 0).toFixed(2)}` +
-        ` shadow ${shadow ? 'on' : 'off'} ring ${ring && ring.visible ? 'on' : 'off'} light ${light ? 'on' : 'off'}<br>`;
+      e.group.traverse(o=>{ if(o.isMesh && o.castShadow) shadow = true; if(o.isLight) light = true; });
+      const ring = e.group.getObjectByName('echoRipple');
+      return `${e === bossOf ? 'real' : 'clone'} hit ${(e.hitRadius || 0).toFixed(2)}` +
+        ` shadow ${shadow ? 'on' : 'off'} ring ${ring && ring.visible ? 'on' : 'off'} light ${light ? 'on' : 'off'}`;
+    };
+    if(bossOf){
+      tell = `Echo Tell: ${tellOf(en)}<br>`;
+      // ボスの行には、場にいる分身もすべて並べる(いちばん近いのがボスでも分身の様子が読めるように)
+      if(en === bossOf){
+        const cl = enemies.filter(e => e && !e.dead && e.mirrorCloneOf === bossOf);
+        tell += `Echo Clones: ${cl.length}${cl.length ? ' | ' + cl.map(tellOf).join(' | ') : ''}<br>`;
+      }
     }
     return `${label}: ${v}<br>` + tell + `Village Kind: ${en.mob && en.mob.villageKind ? en.mob.villageKind : (en.mirrorCloneOf ? 'clone' : (en.parts ? en.parts.kind : '-'))}<br>` +
       `Player Dist: ${dist.toFixed(2)}<br>` + echo;
