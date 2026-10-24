@@ -140,6 +140,9 @@ test.describe('ボスの分身の実機確認(テストモードの手段)', () 
     const cloneTells = info.flatMap(f => (infoValue(f.html, 'Echo Clones') || '').split(' | ').slice(1));
     expect(cloneTells.length, summary).toBeGreaterThan(0);
     for (const s of cloneTells) expect(s).toBe('clone hit 2.00 shadow off ring off light off');
+    // 止めは分身が出た時点で外れる(散らす前)。分身を先に散らしても、そのあとボスへの攻撃が通る
+    const firstPlayerDispel = ev.find(e => e.text.startsWith('CLONE — DISPELLED (boss) by player'));
+    expect(out.at, summary).toBeLessThanOrEqual(firstPlayerDispel.at);
     // 散らした後も、本体の HP が減る(本体と戦える)
     expect(hpAfter, summary).not.toBeNull();
     expect(hpAfter).toBeLessThan(heldHp);

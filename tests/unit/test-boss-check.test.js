@@ -69,6 +69,13 @@ test('組み込み: テストモードだけ・数値を変えない・セーブ
     assert.match(fnBody(ai, 'dealDamageToEnemy'), /if\(state\.testMode && testBossHoldsDamage\(en\)\) return;/);
     assert.match(fnBody(tg, 'testBossHoldsDamage'), /if\(!state\.testMode \|\| !testHoldBoss\) return false;/);
   });
+  await t.test('止めは分身が出た時点で外す(分身を先に散らしても、ボスへの攻撃は通る)', () => {
+    const rel = fnBody(tg, 'updateTestBossHold');
+    assert.match(rel, /if\(testBossClonesAlive\(testHoldBoss\) > 0\)\{\s*testHoldBoss = null;/);
+    // 毎フレーム(テストモードの Arena の更新)で確かめる。ボスへ当たった時だけではない
+    assert.match(fnBody(tg, 'updateArenaPanel'), /updateTestBossHold\(\);/);
+    assert.doesNotMatch(fnBody(tg, 'testBossHoldsDamage'), /en === testHoldBoss/);
+  });
   await t.test('「段階 3 へ」は HP だけを下げる(攻撃力・速さ・段階の処理には触れない)・セーブしない', () => {
     const fn = fnBody(tg, 'testDuskPhase3');
     assert.match(fn, /boss\.hp = phase3TestHp\(boss\.hp, boss\.hpMax, VILLAGE_PHASE_3_HP\)/);

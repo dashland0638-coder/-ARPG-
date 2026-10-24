@@ -95,15 +95,28 @@
     enemies.forEach(e=>{ if(e && !e.dead && e.mirrorCloneOf === boss) n++; });
     return n;
   }
-  /* dealDamageToEnemy から: いまこの敵へのダメージを止めるか */
-  function testBossHoldsDamage(en){
-    if(!state.testMode || !testHoldBoss) return false;
-    if(testHoldBoss.dead || enemies.indexOf(testHoldBoss) < 0){ testHoldBoss = null; return false; }
-    const held = bossDamageHeld({testMode: state.testMode, holdBoss: testHoldBoss, target: en,
-                                 clonesAlive: testBossClonesAlive(testHoldBoss)});
-    if(!held && en === testHoldBoss){
+  /* 止めを外す。分身が 1 体でも出た時点で外す(毎フレーム updateTestBossHold から)。ボスが倒れた・
+     いなくなった時も外す。「分身を先に散らすと、次の分身まで止めが戻る」ことが無いように、
+     ボスへ当たった時ではなく分身が出た時点で外す */
+  function updateTestBossHold(){
+    if(!testHoldBoss) return;
+    if(!state.testMode || testHoldBoss.dead || enemies.indexOf(testHoldBoss) < 0){ testHoldBoss = null; return; }
+    if(testBossClonesAlive(testHoldBoss) > 0){
       testHoldBoss = null;
       emitArenaFeedback('TEST', 'CLONE OUT — ボスへの攻撃が通る');
+    }
+  }
+  /* dealDamageToEnemy から: いまこの敵へのダメージを止めるか */
+  let testHeldNoteT = 0;
+  function testBossHoldsDamage(en){
+    if(!state.testMode || !testHoldBoss) return false;
+    updateTestBossHold();
+    const held = bossDamageHeld({testMode: state.testMode, holdBoss: testHoldBoss, target: en,
+                                 clonesAlive: testHoldBoss ? testBossClonesAlive(testHoldBoss) : 0});
+    // 止めている間の一撃には記録を出す(何も起きないと壊れたように見えるため。2 秒に 1 回まで)
+    if(held && performance.now() - testHeldNoteT > 2000){
+      testHeldNoteT = performance.now();
+      emitArenaFeedback('TEST', 'HELD — 分身が出るまでボスへの攻撃は通らない');
     }
     return held;
   }
@@ -550,5 +563,6 @@
       }
       return;
     }
+    updateTestBossHold();
     if(arenaDebugInfoOn) updateArenaEnemyInfo();
   }
