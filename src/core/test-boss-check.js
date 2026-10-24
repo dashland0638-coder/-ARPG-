@@ -41,3 +41,19 @@ export function bossDamageHeld({testMode, holdBoss, target, clonesAlive}){
   if(!testMode || !holdBoss || target !== holdBoss) return false;
   return !(clonesAlive > 0);
 }
+
+/* 「ボスを次の段階へ」(TEST-MODE-CURRENT-001。村の残響だけだった「段階 3 へ」を広げた)。
+   段階の境目は既存のボスと同じ HP 比 0.65 / 0.30(07-ai-combat.js updateBossAI、core/village-echo.js)。
+   今の HP 比から見た次の段階と、そこへ下げる HP を返す。最後の段階なら null(何もしない)。
+   段階の移り変わりそのもの(爆発の予兆・ボスのバー・呼び出し)は本編の処理が HP 比を見て行う */
+export const BOSS_PHASE_THRESHOLDS = Object.freeze([0.65, 0.30]);
+export function nextBossPhaseTarget(hp, hpMax, thresholds){
+  const th = thresholds || BOSS_PHASE_THRESHOLDS;
+  const max = Number(hpMax), now = Number(hp);
+  if(!(max > 0) || !(now > 0)) return null;
+  const frac = now / max;
+  for(let i = 0; i < th.length; i++){
+    if(frac > th[i]) return {phase: i + 2, hp: phase3TestHp(now, max, th[i])};
+  }
+  return null;
+}

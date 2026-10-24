@@ -430,6 +430,8 @@
        ここで印を下ろしておくのは、タイトルに戻った後もテストの印が残ったまま
        別の経路へ進まないようにするため(入場時は finishEnteringGame が立て直す) */
     state.testMode = false;
+    state.testRules = TEST_RULES.CURRENT;   // テストのルール・強さも下ろす(TEST-MODE-CURRENT-001)
+    state.testStatScale = 1;
     state.dialogueActive = false;
     state.activeOverlay = 'none';
     // バグ報告対応: フォーカス喪失でkeyup漏れが起きたキー入力が残ったまま

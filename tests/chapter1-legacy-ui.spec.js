@@ -151,12 +151,14 @@ test.describe('UI-002-A: Chapter 1 本編に旧成長系の UI が出ない', ()
     expect(errors).toEqual([]);
   });
 
-  test('テストモード: 旧成長系の UI は従来どおり出る', async ({ page }) => {
+  /* TEST-MODE-CURRENT-001: テストモードの既定は本編と同じルールになった。旧成長系の UI は、開始画面で
+     「旧成長システム」を選んだ時だけ出る(既定のルールで出ないことは tests/test-mode-current.spec.js) */
+  test('テストモード(旧成長システム): 旧成長系の UI は従来どおり出る', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = watchErrors(page);
     await watchNotifications(page);
     await openGame(page);
-    await startTestMode(page, { classKey: 'warrior' });
+    await startTestMode(page, { classKey: 'warrior', rules: 'legacy' });
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await page.waitForTimeout(800);
 

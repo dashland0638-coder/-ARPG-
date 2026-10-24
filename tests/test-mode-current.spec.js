@@ -1,0 +1,188 @@
+// @ts-check
+/* テストモードの現行仕様への追従(TEST-MODE-CURRENT-001)。
+
+   確かめること:
+     1. 通常 URL ではテストモード・Arena の入口が出ない(開発用の門番は今のまま)
+     2. ?dev=1 のテストモードの既定は本編の第一章と同じルール:
+        HUD にレベル・XP バー・Skill 3 が出ず、Debug Info の見出しが「第一章(本編と同じ)」。
+        開始画面の転身・レベルは隠れている
+     3. 「旧成長システム」を選ぶと、転身・レベルの欄が出て、HUD にレベルが付く(第二章以降の基盤の検証)
+     4. デバッグ用の強さ(Arena の 💪)は ×1 → ×0.5 → ×2 と最大 HP・攻撃力だけを変え、×1 で本編の値に戻る
+     5. ⏭ ボスを次の段階へ: Arena のボスで段階 2 → 段階 3 → 最後
+     6. iPhone 横画面(844×390)と 1280×800 で、開始画面の主な操作と Arena の先頭の操作が画面に収まる
+   ゲームの状態は書き換えない(ボタン・キー操作と、画面・Debug Info・テストモードの記録を読むだけ)。 */
+import { test, expect } from '@playwright/test';
+import { openGame, watchErrors, startTestMode } from './helpers.js';
+
+async function installFeedbackProbe(page) {
+  await page.addInitScript(() => {
+    const B = window.__fb = [];
+    new MutationObserver(recs => {
+      for (const r of recs) for (const n of r.addedNodes) {
+        if (n.nodeType === 1 && n.classList.contains('arena-feedback-line')) B.push(n.textContent || '');
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
+}
+const feedback = page => page.evaluate(() => window.__fb);
+const shown = (page, id) => page.evaluate(i => {
+  let n = document.getElementById(i);
+  if (!n) return false;
+  while (n && n !== document.body) {
+    const cs = getComputedStyle(n);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || n.hidden) return false;
+    n = n.parentElement;
+  }
+  return true;
+}, id);
+const info = page => page.evaluate(() => document.getElementById('arena-enemy-info').innerHTML);
+const infoValue = (html, key) => { const m = new RegExp(key + ':\\s*([^<]*)').exec(html || ''); return m ? m[1].trim() : null; };
+
+async function openArena(page) {
+  await page.click('#arena-toggle-btn');
+  await expect(page.locator('#arena-panel')).toHaveClass(/show/);
+}
+async function strengthFeedback(page, label) {
+  await page.click('#arena-strength-btn');
+  let line = null;
+  await expect.poll(async () => {
+    line = (await feedback(page)).filter(t => t.startsWith(`TEST — STRENGTH ${label}`)).pop() || null;
+    return !!line;
+  }).toBe(true);
+  const m = /HP (\d+) ATK (\d+)/.exec(line);
+  return { hp: +m[1], atk: +m[2] };
+}
+
+test.describe('テストモード: 現行仕様への追従', () => {
+  test('通常 URL では、テストモード・Arena の入口が出ない', async ({ page }) => {
+    const errors = watchErrors(page);
+    await openGame(page, { dev: false });
+    await expect(page.locator('#open-testmode-btn')).toBeHidden();
+    await expect(page.locator('#arena-toggle-btn')).toBeHidden();
+    expect(errors).toEqual([]);
+  });
+
+  test('既定は本編の第一章と同じルール。強さは ×1 → ×0.5 → ×2 と HP・攻撃力だけを変える', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = watchErrors(page);
+    await installFeedbackProbe(page);
+    await openGame(page);
+
+    // 開始画面: 既定のルールは第一章。転身・レベルの欄は出ていない
+    await page.click('#open-testmode-btn');
+    await expect(page.locator('#testmode-rules-grid [data-test-rules="current"]')).toHaveClass(/selected/);
+    expect(await shown(page, 'testmode-job-section'), '転身').toBe(false);
+    expect(await shown(page, 'testmode-level-section'), 'レベル').toBe(false);
+    await page.click('#testmode-back-btn');
+
+    await startTestMode(page, { classKey: 'warrior' });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await page.waitForTimeout(800);
+    await expect(page.locator('#hud-name')).not.toContainText('Lv');
+    expect(await shown(page, 'xp-fill'), 'XP バー').toBe(false);
+    expect(await shown(page, 'hud-hint-skill3'), '操作ヒントの Skill 3').toBe(false);
+
+    await openArena(page);
+    await expect(page.locator('#arena-loadout-btn')).toHaveText('🎛 装備・スキル');
+    await expect(page.locator('#arena-strength-btn')).toHaveText('💪 強さ ×1(本編)');
+    await page.click('#arena-info-toggle-btn');
+    const head = await info(page);
+    expect(infoValue(head, 'Debug Rules')).toBe('第一章(本編と同じ) / 強さ ×1(本編)');
+    expect(infoValue(head, 'Map')).toMatch(/^training \//);
+
+    // 強さ: ×0.5 → ×2 → ×1。最大 HP と攻撃力だけが倍率どおりに変わり、×1 で元に戻る
+    const half = await strengthFeedback(page, '×0.5');
+    const dbl = await strengthFeedback(page, '×2');
+    const one = await strengthFeedback(page, '×1(本編)');
+    expect(Math.abs(half.hp - one.hp * 0.5)).toBeLessThanOrEqual(1);
+    expect(Math.abs(half.atk - one.atk * 0.5)).toBeLessThanOrEqual(1);
+    expect(Math.abs(dbl.hp - one.hp * 2)).toBeLessThanOrEqual(1);
+    expect(Math.abs(dbl.atk - one.atk * 2)).toBeLessThanOrEqual(1);
+    await expect(page.locator('#arena-strength-btn')).toHaveText('💪 強さ ×1(本編)');
+    expect(errors).toEqual([]);
+  });
+
+  test('旧成長システムを選ぶと、転身・レベルの欄が出て、HUD にレベルが付く', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    await page.click('#open-testmode-btn');
+    await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
+    expect(await shown(page, 'testmode-job-section'), '転身').toBe(true);
+    expect(await shown(page, 'testmode-level-section'), 'レベル').toBe(true);
+    // 第一章に戻すと、また隠れる
+    await page.click('#testmode-rules-grid [data-test-rules="current"]');
+    expect(await shown(page, 'testmode-level-section')).toBe(false);
+    await page.click('#testmode-back-btn');
+
+    await startTestMode(page, { classKey: 'warrior', rules: 'legacy', level: 20 });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await expect(page.locator('#hud-name')).toContainText('Lv.20');
+    await openArena(page);
+    await expect(page.locator('#arena-loadout-btn')).toHaveText('🎛 スキル / スフィア盤');
+    await page.click('#arena-info-toggle-btn');
+    expect(infoValue(await info(page), 'Debug Rules')).toBe('旧成長システム / 強さ ×1(本編)');
+    expect(errors).toEqual([]);
+  });
+
+  test('ボスを次の段階へ: Arena のボスで段階 2 → 段階 3 → 最後', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = watchErrors(page);
+    await installFeedbackProbe(page);
+    await openGame(page);
+    await startTestMode(page, { classKey: 'warrior' });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await openArena(page);
+    await page.locator('#arena-roster button', { hasText: 'Boss Test' }).click();
+    await expect(page.locator('#msg-log')).toContainText('Boss Test spawned', { timeout: 5000 });
+    for (const want of [/^TEST — PHASE 2 — HP \d+ \/ \d+$/, /^TEST — PHASE 3 — HP \d+ \/ \d+$/, /^TEST — PHASE — 最後の段階/]) {
+      await page.click('#arena-boss-phase-btn');
+      await expect.poll(async () => (await feedback(page)).some(t => want.test(t)), { message: String(want) }).toBe(true);
+    }
+    // HP は 65% / 30% の境目へ(段階の移り変わりは本編の処理が HP 比で行う)
+    const fb = await feedback(page);
+    const hpOf = re => { const m = /HP (\d+) \/ (\d+)/.exec(fb.find(t => re.test(t)) || ''); return m ? +m[1] / +m[2] : null; };
+    expect(hpOf(/PHASE 2/)).toBeLessThanOrEqual(0.65);
+    expect(hpOf(/PHASE 2/)).toBeGreaterThan(0.64);
+    expect(hpOf(/PHASE 3/)).toBeLessThanOrEqual(0.30);
+    expect(hpOf(/PHASE 3/)).toBeGreaterThan(0.29);
+    expect(errors).toEqual([]);
+  });
+
+  for (const vp of [{ width: 844, height: 390 }, { width: 1280, height: 800 }]) {
+    test(`${vp.width}×${vp.height}: 開始画面の主な操作と Arena の先頭の操作が画面に収まる`, async ({ page }) => {
+      test.setTimeout(120_000);
+      await page.setViewportSize(vp);
+      const errors = watchErrors(page);
+      await openGame(page);
+      await page.click('#open-testmode-btn');
+      // 開始・戻るは画面の下に留まる。ルールのカードは横にはみ出さない
+      for (const sel of ['#testmode-start-btn', '#testmode-back-btn']) {
+        const b = await page.locator(sel).boundingBox();
+        expect(b, sel).not.toBeNull();
+        expect(b.y + b.height, sel).toBeLessThanOrEqual(vp.height);
+        expect(b.x + b.width, sel).toBeLessThanOrEqual(vp.width);
+      }
+      for (const card of await page.locator('#testmode-rules-grid [data-test-rules]').all()) {
+        await card.scrollIntoViewIfNeeded();
+        const b = await card.boundingBox();
+        expect(b.x).toBeGreaterThanOrEqual(0);
+        expect(b.x + b.width).toBeLessThanOrEqual(vp.width);
+      }
+      await page.click('#testmode-back-btn');
+
+      await startTestMode(page, { classKey: 'warrior' });
+      await expect(page.locator('#hud')).toHaveClass(/active/);
+      await openArena(page);
+      for (const id of ['#arena-guest-pause-btn', '#arena-boss-phase-btn', '#arena-strength-btn']) {
+        const b = await page.locator(id).boundingBox();
+        expect(b, id).not.toBeNull();
+        expect(b.x, id).toBeGreaterThanOrEqual(0);
+        expect(b.x + b.width, id).toBeLessThanOrEqual(vp.width);
+        expect(b.y + b.height, id).toBeLessThanOrEqual(vp.height);
+      }
+      await page.screenshot({ path: `test-results/test-mode-current-${vp.width}x${vp.height}.png` });
+      expect(errors).toEqual([]);
+    });
+  }
+});

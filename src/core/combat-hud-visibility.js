@@ -23,7 +23,7 @@ export const PC_HINT_OPS = Object.freeze(['basic', 'skill2', 'skill3']);
 
 /** 旧成長系(XP バー・Skill 3・操作ヒントの Skill 3 表記)を出すか。本編 Chapter 1 は出さない(UI-002-A) */
 export function legacyHudVisible(input){
-  return legacyGrowthEnabled(!!(input && input.testMode));
+  return legacyGrowthEnabled(!!(input && input.testMode), input && input.testRules);
 }
 
 /** Skill 2 ボタン: 閃くまで出さない(テストモードは常に持つ) */

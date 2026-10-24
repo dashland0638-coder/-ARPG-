@@ -3,7 +3,7 @@
 
    iPhone の横画面と同じ大きさで、Human が実機で行う手順をそのままなぞる:
      テストモード → 第一章 → 宵待ちの村 → ボス戦の開始地点 → 職業を剣士に替える(近接で確かめる)
-     → ボス戦が始まったら ⚔️ Arena → 「🌊 村の残響を段階3へ」
+     → ボス戦が始まったら ⚔️ Arena → 「⏭ ボスを次の段階へ」を 2 回(段階 2 → 段階 3。TEST-MODE-CURRENT-001 で広げた)
    確かめること:
      1. ボタンは Arena パネルの中の 1 行で、横画面の中に収まる
      2. 押すと支援AIが休止し、ボスは段階 3 の境目(HP 273 / 912)になり、ボスのバーが第3形態になる
@@ -73,7 +73,7 @@ test.describe('ボスの分身の実機確認(テストモードの手段)', () 
     // ---- 1. ボタンは Arena パネルの 1 行。横画面に収まる ----
     await page.click('#arena-toggle-btn');
     await expect(page.locator('#arena-panel')).toHaveClass(/show/);
-    for (const id of ['#arena-guest-pause-btn', '#arena-dusk-phase3-btn']) {
+    for (const id of ['#arena-guest-pause-btn', '#arena-boss-phase-btn', '#arena-strength-btn']) {
       const box = await page.locator(id).boundingBox();
       expect(box, id).not.toBeNull();
       expect(box.x, id).toBeGreaterThanOrEqual(0);
@@ -84,8 +84,11 @@ test.describe('ボスの分身の実機確認(テストモードの手段)', () 
     await expect(page.locator('#arena-guest-pause-btn')).toHaveText('🤝 支援AI: 戦う');
     await page.click('#arena-info-toggle-btn');
 
-    // ---- 2. 段階 3 へ。支援AIは休止、HP は境目、ボスのバーは第3形態 ----
-    await page.click('#arena-dusk-phase3-btn');
+    // ---- 2. 段階 2 → 段階 3 へ。段階 3 で支援AIは休止、HP は境目、ボスのバーは第3形態 ----
+    await page.click('#arena-boss-phase-btn');
+    await expect.poll(async () => (await events(page)).some(e => e.text === 'TEST — PHASE 2 — HP 592 / 912')).toBe(true);
+    await expect(page.locator('#arena-guest-pause-btn'), '段階 2 では支援AIはそのまま').toHaveText('🤝 支援AI: 戦う');
+    await page.click('#arena-boss-phase-btn');
     await expect(page.locator('#arena-guest-pause-btn')).toHaveText('🤝 支援AI: 休止');
     await page.click('#arena-toggle-btn');
     await page.screenshot({ path: 'test-results/dusk-boss-clone-check-phase3.png' });

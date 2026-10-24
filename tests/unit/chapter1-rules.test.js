@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, CHAPTER1_SKILL1, hudLabel, smithFacilityAvailable,
+  legacyGrowthEnabled, TEST_RULES, normalizeTestRules, weaponUsableBy, defaultSkill1For, CHAPTER1_SKILL1, hudLabel, smithFacilityAvailable,
 } from '../../src/core/chapter1-rules.js';
 
 // 実装と同じ形(11-combat-actions.js の WEAPON_TYPES から武器種キーだけ)
@@ -18,8 +18,23 @@ test('本編ではレベル・ドロップなど旧ハクスラ系が動かな�
     assert.equal(legacyGrowthEnabled(false), false);
     assert.equal(legacyGrowthEnabled(undefined), false);
   });
-  await t.test('テストモード(開発用)だけ有効', () => {
-    assert.equal(legacyGrowthEnabled(true), true);
+  /* TEST-MODE-CURRENT-001: テストモードの既定は本編と同じ現行ルール。旧成長系は「旧成長システム」を
+     選んだ時だけ(以前は testMode だけで有効だった) */
+  await t.test('テストモードでも、既定(現行ルール)では無効', () => {
+    assert.equal(legacyGrowthEnabled(true), false);
+    assert.equal(legacyGrowthEnabled(true, TEST_RULES.CURRENT), false);
+    assert.equal(legacyGrowthEnabled(true, 'unknown'), false);
+  });
+  await t.test('テストモードで「旧成長システム」を選んだ時だけ有効', () => {
+    assert.equal(legacyGrowthEnabled(true, TEST_RULES.LEGACY), true);
+  });
+  await t.test('本編では旧成長ルールの値が残っていても無効', () => {
+    assert.equal(legacyGrowthEnabled(false, TEST_RULES.LEGACY), false);
+  });
+  await t.test('ルールの値は current / legacy のどちらかに揃える', () => {
+    assert.equal(normalizeTestRules('legacy'), 'legacy');
+    assert.equal(normalizeTestRules(undefined), 'current');
+    assert.equal(normalizeTestRules('LEGACY'), 'current');
   });
 });
 
