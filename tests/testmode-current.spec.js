@@ -99,6 +99,22 @@ test.describe('テストモード: 現行仕様への追従', () => {
     expect(Math.abs(dbl.hp - one.hp * 2)).toBeLessThanOrEqual(1);
     expect(Math.abs(dbl.atk - one.atk * 2)).toBeLessThanOrEqual(1);
     await expect(page.locator('#arena-strength-btn')).toHaveText('💪 強さ ×1(本編)');
+
+    // 結果画面の確認: 「本編」は第一章の行(経験値なし)、「旧成長」は旧成長システムの行(経験値あり)。
+    // 既定ルールのテストモードでも、それぞれの見せ方になる(描く間だけルールを切り替える)
+    await page.click('#arena-preview-result-ch1-btn');
+    await expect(page.locator('#clear-overlay')).toHaveClass(/active/);
+    expect(await page.locator('#result-loot').textContent()).not.toContain('経験値');
+    await page.click('#clear-return-btn');
+    await expect(page.locator('#clear-overlay')).not.toHaveClass(/active/);
+    await page.click('#arena-preview-result-test-btn');
+    await expect(page.locator('#clear-overlay')).toHaveClass(/active/);
+    expect(await page.locator('#result-loot').textContent()).toContain('経験値');
+    await page.click('#clear-return-btn');
+    await expect(page.locator('#clear-overlay')).not.toHaveClass(/active/);
+    // 描いた後もルールは第一章のまま
+    await expect(page.locator('#hud-name')).not.toContainText('Lv');
+    expect(infoValue(await info(page), 'Debug Rules')).toBe('第一章(本編と同じ) / 強さ ×1(本編)');
     expect(errors).toEqual([]);
   });
 
@@ -139,6 +155,9 @@ test.describe('テストモード: 現行仕様への追従', () => {
       await page.click('#arena-boss-phase-btn');
       await expect.poll(async () => (await feedback(page)).some(t => want.test(t)), { message: String(want) }).toBe(true);
     }
+    // ボスの段階は本編の AI の処理で進む(Debug Info の見出し。最も近い敵に関わらず出る)
+    await page.click('#arena-info-toggle-btn');
+    await expect.poll(async () => infoValue(await info(page), 'Boss Phase') || '', { timeout: 30_000 }).toMatch(/ P3 /);
     // HP は 65% / 30% の境目へ(段階の移り変わりは本編の処理が HP 比で行う)
     const fb = await feedback(page);
     const hpOf = re => { const m = /HP (\d+) \/ (\d+)/.exec(fb.find(t => re.test(t)) || ''); return m ? +m[1] / +m[2] : null; };

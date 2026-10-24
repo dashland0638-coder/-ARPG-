@@ -113,7 +113,7 @@ test.describe('テスト用チャプター／シナリオ選択', () => {
     expect(await scen.evaluateAll(els => els.map(e => e.dataset.scenarioKey)))
       .toEqual(['', ...CH1.map(s => s.key)]);
     await expect(page.locator('[data-scenario-key="pyramid"], [data-scenario-key="volcano"]')).toHaveCount(0);
-    await expect(page.locator('#testmode-summary')).toHaveText('トレーニング空間');
+    await expect(page.locator('#testmode-summary')).toHaveText('📖 第一章ルール ／ トレーニング空間');
     await expect(cards(page, 'testmode-waypoint-grid')).toHaveCount(0);
 
     // 宵待ちの村: 入口 → ボス戦直前(扉の手前) → ボス戦開始(水鏡の跡) → 途中の地点
@@ -127,9 +127,9 @@ test.describe('テスト用チャプター／シナリオ選択', () => {
     await expect(page.locator('#testmode-waypoint-grid [data-waypoint-id="bossgate"] .tm-kind')).toHaveText('ボス戦直前');
     await expect(page.locator('#testmode-waypoint-grid [data-waypoint-id="boss"] .tm-kind')).toHaveText('ボス戦開始');
     await expect(wps.first()).toHaveClass(/selected/);
-    await expect(page.locator('#testmode-summary')).toHaveText('第一章 ／ 🏮 宵待ちの村 ／ シナリオ開始');
+    await expect(page.locator('#testmode-summary')).toHaveText('📖 第一章ルール ／ 第一章 ／ 🏮 宵待ちの村 ／ シナリオ開始');
     await page.click('#testmode-waypoint-grid [data-waypoint-id="boss"]');
-    await expect(page.locator('#testmode-summary')).toHaveText('第一章 ／ 🏮 宵待ちの村 ／ 水鏡の跡');
+    await expect(page.locator('#testmode-summary')).toHaveText('📖 第一章ルール ／ 第一章 ／ 🏮 宵待ちの村 ／ 水鏡の跡');
     await expect(page.locator('#testmode-start-btn')).toHaveText('🛠 🏮 宵待ちの村 へ出撃');
 
     // 扉のあるボス(幽霊船・時計塔): ボス戦直前はあり、ボス戦開始は出ない
@@ -321,7 +321,7 @@ test.describe('iPhone の横画面(844×390・タッチ)', () => {
     await page.tap('#testmode-chapter-grid [data-chapter-id="ch1"]');
     await page.tap('#testmode-scenario-grid [data-scenario-key="duskvillage"]');
     await page.tap('#testmode-waypoint-grid [data-waypoint-id="boss"]');
-    await expect(page.locator('#testmode-summary')).toHaveText('第一章 ／ 🏮 宵待ちの村 ／ 水鏡の跡');
+    await expect(page.locator('#testmode-summary')).toHaveText('📖 第一章ルール ／ 第一章 ／ 🏮 宵待ちの村 ／ 水鏡の跡');
 
     // 開始・戻るのボタンは、選んだ場所からスクロールし直さなくても画面の中にある
     for (const id of ['#testmode-start-btn', '#testmode-back-btn']) {

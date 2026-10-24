@@ -480,6 +480,7 @@
       if(!legacy){ tmJob = null; renderJobGrid(); }
       if(testRulesGrid) testRulesGrid.querySelectorAll('[data-test-rules]').forEach(el=>
         el.classList.toggle('selected', el.dataset.testRules === tmRules));
+      refreshStartLabel();
     }
     if(testRulesGrid){
       testRulesGrid.querySelectorAll('[data-test-rules]').forEach(card=>{
@@ -665,9 +666,11 @@
       if(testSummary){
         const ch = sc ? TEST_CHAPTERS.find(c=> c.id === chapterOfScenario(sc.key)) : null;
         const opt = sc ? startOptionsFor(sc.key, waypointsFor).find(o=> o.id === tmWaypoint) : null;
-        testSummary.textContent = sc
+        // 選んだルールも添える(横画面でルールの欄がスクロールで隠れても分かるように。TEST-MODE-CURRENT-001)
+        const rules = tmRules === TEST_RULES.LEGACY ? '🧪 旧成長' : '📖 第一章ルール';
+        testSummary.textContent = `${rules} ／ ` + (sc
           ? `${ch ? ch.label : ''} ／ ${sc.name} ／ ${opt ? opt.name : 'シナリオ開始'}`
-          : 'トレーニング空間';
+          : 'トレーニング空間');
       }
     }
 

@@ -77,7 +77,7 @@
   /* ボスの分身の確認(PR #100、core/test-boss-check.js)。テストモードの間だけ効く。
      セーブには書かない(テストモードはセーブしない)。テストモードへ入るたびに戻す */
   let testGuestPaused = false;
-  let testHoldBoss = null;   // 「段階 3 へ」を押したボス。押した後に分身が 1 体出るまでダメージを止める
+  let testHoldBoss = null;   // 「⏭ ボスを次の段階へ」で村の残響を段階 3 にした時のボス。分身が 1 体出るまでダメージを止める
   /* テストモードのデバッグ操作の状態を戻す(入るたび・出る時)。ルール・強さそのものは beginTestMode が決める */
   function resetTestDebugState(){
     testGuestPaused = false;
@@ -219,7 +219,7 @@
   };
   const UI_PREVIEW_STATE_KEYS = ['lastDefeatedBossKey','bossClears','scenarioClears','clearedScenarios',
     'freeRanks','smithJoined','inventory','equipmentInventory','routeCombosSeen','pendingAfterDefeat',
-    'scenarioKey','testMode','dialogueActive'];
+    'scenarioKey','testMode','testRules','dialogueActive'];
   let uiPreview = null;   // { overlayId, dialogueActive, allocPoints }
 
   function uiPreviewAllowed(){ return DEV_UI && !!state.testMode && !uiPreview && !state.dialogueActive; }
@@ -253,6 +253,9 @@
     try{
       state.scenarioKey = 'mansion';
       state.testMode = !!legacyRows;
+      /* 「旧成長」の結果は旧成長システムの行(経験値・3 択)。テストモードの既定ルールは本編と同じなので、
+         描く間だけルールも旧成長にする(TEST-MODE-CURRENT-001。直後に戻す) */
+      state.testRules = legacyRows ? TEST_RULES.LEGACY : TEST_RULES.CURRENT;
       showBossResultScreen(UI_PREVIEW_BOSS, state.level);
     } finally {
       restorePreviewState(snap);

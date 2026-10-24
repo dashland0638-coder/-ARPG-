@@ -21,7 +21,7 @@ export const STAMINA_SHOW_AFTER_USE_SEC = 3;
    Skill 2 / Skill 3。ヒントの文言そのものは index.html のまま変えない */
 export const PC_HINT_OPS = Object.freeze(['basic', 'skill2', 'skill3']);
 
-/** 旧成長系(XP バー・Skill 3・操作ヒントの Skill 3 表記)を出すか。本編 Chapter 1 は出さない(UI-002-A) */
+/** 旧成長系(XP バー・Skill 3・操作ヒントの Skill 3 表記)を出すか。本編 Chapter 1 は出さない(UI-002-A)。テストモードも旧成長システムを選んだ時だけ */
 export function legacyHudVisible(input){
   return legacyGrowthEnabled(!!(input && input.testMode), input && input.testRules);
 }
@@ -32,7 +32,7 @@ export function skill2ButtonVisible(input){
   return hasSkill2({ learnedSkill2: o.learnedSkill2, testMode: o.testMode });
 }
 
-/** Skill 3 ボタン: テストモードだけ(UI-002-A WI-A2) */
+/** Skill 3 ボタン: テストモードの旧成長システムだけ(UI-002-A WI-A2 / TEST-MODE-CURRENT-001) */
 export function skill3ButtonVisible(input){
   return legacyHudVisible(input);
 }
