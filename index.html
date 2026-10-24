@@ -115,15 +115,16 @@
     <div id="arena-toggle-btn" class="arena-toggle-btn">⚔️ Arena</div>
     <div id="arena-panel" class="arena-panel">
       <div class="arena-panel-title">Combat Test Arena</div>
+      <!-- ボスの分身の確認(PR #100。テストモードだけ。支援AIの休止・村の残響を段階 3 へ)。
+           iPhone 横画面(高さ 390)でもスクロールせずに押せるよう、パネルの先頭に置く -->
+      <div class="arena-panel-row">
+        <button type="button" id="arena-guest-pause-btn">🤝 支援AI: 戦う</button>
+        <button type="button" id="arena-dusk-phase3-btn">🌊 村の残響を段階3へ</button>
+      </div>
       <div class="arena-roster" id="arena-roster"></div>
       <div class="arena-panel-row">
         <button type="button" id="arena-clear-btn">🧹 Clear All</button>
         <button type="button" id="arena-info-toggle-btn">🔍 Debug Info: OFF</button>
-      </div>
-      <!-- ボスの分身の確認(PR #100。テストモードだけ。支援AIの休止・村の残響を段階 3 へ) -->
-      <div class="arena-panel-row">
-        <button type="button" id="arena-guest-pause-btn">🤝 支援AI: 戦う</button>
-        <button type="button" id="arena-dusk-phase3-btn">🌊 村の残響を段階3へ</button>
       </div>
       <div class="arena-panel-row">
         <button type="button" id="arena-loadout-btn">🎛 スキル / スフィア盤</button>

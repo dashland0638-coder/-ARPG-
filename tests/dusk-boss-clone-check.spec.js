@@ -149,8 +149,12 @@ test.describe('ボスの分身の実機確認(テストモードの手段)', () 
     await expect(page.locator('#arena-guest-pause-btn')).toHaveText('🤝 支援AI: 休止');
     await page.click('#arena-toggle-btn');
 
-    // プレイヤーは攻撃しない。休止中はボスの HP が減らない(支援AIは付いて歩くだけ)
-    const hpNow = async () => bossHp(await page.evaluate(() => document.getElementById('arena-enemy-info').innerHTML));
+    /* プレイヤーは攻撃しない。休止中はボスの HP が減らない(支援AIは付いて歩くだけ)。
+       HP はボスのバー(画面上の表示)で読む ―― Debug Info は最も近い敵だけで、分身が近いと読めない */
+    const hpNow = () => page.evaluate(() => {
+      const w = parseFloat(document.getElementById('boss-bar-fill').style.width);
+      return Number.isFinite(w) ? w : null;
+    });
     let start = null;
     for (let i = 0; i < 40 && start == null; i++) { start = await hpNow(); await page.waitForTimeout(250); }
     expect(start).not.toBeNull();
