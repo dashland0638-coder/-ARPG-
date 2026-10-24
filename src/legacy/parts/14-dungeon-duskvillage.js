@@ -68,6 +68,7 @@
   /* 水門(WORK 6)。門扉は閉じた状態で建て、水門守の残響を倒すと上がる。
      歯車・鎖・レバーは演出で動かすので参照を持っておく */
   let duskGateSlab = null, duskGateWall = null, duskGateLever = null;
+  let duskBarDoor = null, duskBarBeam = null;   // 閂の門(CH1-COMP W3)
   let duskGateGears = [], duskGateChains = [];
   let duskGateOpenT = 0;        // 0=閉 1=全開。撃破後にゆっくり上がる
   let duskGateOpening = false;
@@ -121,6 +122,7 @@
     duskGateCreakCD = 0; duskGateChainCD = 0; duskGateFlowCD = 0;
     duskInteriors = [];
     duskGateSlab = null; duskGateWall = null; duskGateLever = null;
+    duskBarDoor = null; duskBarBeam = null;
     duskGateGears = []; duskGateChains = [];
     duskGateOpenT = 0; duskGateOpening = false;
     duskLagProp = null; duskLagT = 0; duskLagCD = 12;
@@ -496,6 +498,30 @@
     lamp(44.0, 346.6);
 
     // =====================================================================
+    // ⑥' 裏通り(CH1-COMP W3) ―― 住宅の北から裏へ回り、商店街の東の口へ抜ける細い道。
+    //     表通り(広場 → 商店街)は閂の門で閉ざされているので、ここが本筋になる。
+    //     広場の掲示板の「見回り当番 ―― 今月は東の組」が、東へ回る手がかり。
+    //     北の端は物置場の行き止まり(宝箱)。目印は赤い布(光源は増やさない)
+    // =====================================================================
+    hut(50.2, 372, 3.4, 9, 3.4);     // 東側の家並み(裏手)
+    hut(39.8, 368, 3.2, 7, 3.2);     // 西側の物置
+    hut(39.8, 395, 3.2, 5.5, 3.0);   // 物置場の小屋
+    ropeLine(42, 380, 48, 380, 2.6, 0.2);
+    [43.2, 44.8, 46.4].forEach((lx,i)=>
+      hanging(lx, 2.1, 380, 0.8, 0.95, clothMat, 'cloth', {amp:0.12, freq:0.46 + i*0.07}));
+    /* 目印: 物置場の赤い布。夕暮れの青い村の中でここだけ赤い ―― 広場の東から
+       裏通りへ入った時に、奥の行き先として見える(発光の材質だけ。灯りは足さない) */
+    const duskMarkerCloth = new THREE.MeshStandardMaterial({color:0x8a2a22, roughness:0.95,
+      emissive:0x5a1410, emissiveIntensity:0.55, side:THREE.DoubleSide});
+    post(43.5, 393.5, 3.0, 0.1); post(48.5, 393.5, 3.0, 0.1);
+    ropeLine(43.5, 393.5, 48.5, 393.5, 2.9, 0.15);
+    hanging(46, 2.2, 393.5, 2.4, 1.3, duskMarkerCloth, 'cloth', {amp:0.10, freq:0.4});
+    crate(49.6, 396.4, 0.9); crate(50.4, 395.2, 0.7, 0.5); barrel(42.4, 396.5, 0.42, 0.9);
+    lamp(45.5, 382);   // 商店街の南西の角から移した(灯りの数は 19 のまま)
+    // 裏通りの小道(商店街へ)。水の上の板張りに、杭を数本
+    [24, 30, 36].forEach(px=> post(px, 384.4, 1.0, 0.09));
+
+    // =====================================================================
     // ⑦ 船小屋 ―― 船・網・浮き・ロープ・滑車・修理道具。水面がいちばん近い
     // =====================================================================
     house(-42, 310, 11, 10, 4.2, 'N');
@@ -540,7 +566,7 @@
     pot(-15.8, 378.4, 0.3);
     crate(6, 386, 0.95); crate(7.1, 386.8, 0.75, 0.5); crate(4.8, 387, 0.6, -0.3);
     barrel(4, 384, 0.44, 0.92); barrel(4.9, 383.2, 0.4, 0.8);
-    lamp(-8, 374); lamp(-6, 396); lamp(6, 396);
+    lamp(-6, 396); lamp(6, 396);   // 南西の角の灯りは裏通りへ移した(CH1-COMP W3)
     ropeLine(-6, 390, 6, 390, 3.0, 0.4);
     [-3.5, 0, 3.5].forEach((lx,i)=>
       hanging(lx, 2.45, 390, 0.7, 0.8, clothMat, 'cloth', {amp:0.10, freq:0.49 + i*0.05}));
@@ -597,6 +623,14 @@
     // 舫い杭が並ぶだけの岸。ここは「何も無いこと」を見せる場所
     [-16, -8, 8, 16].forEach(px=> post(px, 436.5, 1.1, 0.11));
 
+    // ⑨' 見張り小屋(CH1-COMP W3) ―― 水門前の西の行き止まり。見回りの当番が
+    //     水門を見張っていた小屋。寄り道の宝箱と手記
+    house(-39, 420, 7, 6, 3.2, 'E');
+    board(-40.5, 0.9, 421.8, 1.4, 0.08, 0.6, woodMat);   // 机
+    post(-44.2, 414.2, 3.4, 0.12);                       // 見張りの柱(水門の方を向いた古い竿)
+    board(-44.2, 3.3, 414.2, 1.2, 0.08, 0.08, darkWood);
+    reeds(-44, 426, 4);
+
     // =====================================================================
     // ⑩ 水門 ―― 巨大な門・歯車・鎖・操作機構・管理小屋
     // =====================================================================
@@ -611,8 +645,15 @@
        ので、閉じている方が正しい ―― 水門守の残響を倒すと上がる */
     duskGateSlab = new THREE.Mesh(new THREE.BoxGeometry(11, 3.4, 0.6), darkWood);
     duskGateSlab.position.set(0, 1.7, 450); duskGateSlab.castShadow = true; scene.add(duskGateSlab);
-    duskGateWall = {minX:-5.5, maxX:5.5, minZ:449.6, maxZ:450.4};
+    duskGateWall = {minX:-5.5, maxX:5.5, minZ:DUSK_SLUICE_Z.gateZ0, maxZ:DUSK_SLUICE_Z.gateZ1};
     walls.push(duskGateWall);
+    /* 門柱から柵までの石垣(CH1-COMP W3)。以前は門扉と柱の外側に幅 4 ほどの隙間があり、
+       水門守と戦わずに奥へ抜けられた(DEC-001 の「水門が関門」に反する)。両脇を塞いで、
+       水門が上がるまで先へ進めないようにする。範囲は core/dusk-village-map.js の表 */
+    DUSK_SLUICE_BLOCKS.filter(b=> b.id === 'wallW' || b.id === 'wallE').forEach(b=>{
+      addStaticBox((b.x0 + b.x1)/2, 0.9, (DUSK_SLUICE_Z.z0 + DUSK_SLUICE_Z.z1)/2,
+                   b.x1 - b.x0, 1.8, DUSK_SLUICE_Z.z1 - DUSK_SLUICE_Z.z0, stoneMat, true);
+    });
     // 歯車と鎖。止まっているが、錆びついてはいない ―― まだ動く
     duskGateGears = []; duskGateChains = [];
     [[-6.5, 5.6], [6.5, 5.6]].forEach(([gx, gy])=>{
@@ -666,7 +707,18 @@
     // 横道の扉の向き)で、門が通路に沿って 90° 回って立ち、当たり判定も
     // 開口の真ん中の細い板(x ±0.4)だけだった(CH1 follow-up B)
     buildDoor('duskBossDoor', 0, 500, 6, 0x2a2438, 'EW');
-
+    /* 閂の門(CH1-COMP W3)。広場 → 商店街の表通り(広場の北の口 x -5〜5、z 370)。
+       閂は商店街の側から掛けられていて、広場からは開かない(調べる表示も出さない)。
+       裏通りから商店街へ回り込み、門の北側に寄ると閂を外す ―― 以後は広場への近道。
+       村人が「水のほうへの道」を自分たちの側から閉ざした跡(手記の「――閉めた」と同じ) */
+    duskBarDoor = buildDoor('duskBarDoor', 0, 370, 10, 0x3a2a1c, 'EW');
+    duskBarDoor.locked = true;
+    duskBarBeam = board(0, 1.25, 370.35, 10.4, 0.26, 0.26, darkWood);   // 閂(北側に渡した太い横木)
+    registerProximityEvent(new THREE.Vector3(0, 0, 372), 1, '', [], {
+      marker: false,
+      area: {x0: -5, x1: 5, z0: 370.5, z1: 374},
+      onEnter: ()=> openDuskBarDoor(),
+    });
     // ---- ロア ----
     // 読まなくても本筋が分かる補助。後のシナリオイベントで意味を持つ程度に留める
     buildLoreNote(new THREE.Vector3(0, 0, 309), '朽ちた道標', [
@@ -677,6 +729,14 @@
       '「水門の見回り当番 ―― 今月は東の組」',
       '当番表の名前は、どれも途中から書かれなくなっている。'
     ], {kind:'sign', wall:false});
+    buildLoreNote(new THREE.Vector3(3.6, 0, 368.6), '閂の掛かった門', [
+      '門の向こう側から、太い閂が掛けられている。こちらからは外せない。',
+      '水のほうへの道を、村の誰かが内側から閉ざしたらしい。'
+    ], {kind:'sign', wall:false});
+    buildLoreNote(new THREE.Vector3(-41.2, 0, 421.6), '見張りの交代表', [
+      '「東の組 ―― 裏から回って水門へ」',
+      '表の通りを使わない理由は、どこにも書かれていない。'
+    ], {kind:'book'});
     buildLoreNote(new THREE.Vector3(-46.5, 0, 344.2), '魚屋の古い帳簿', [
       '売り上げの列が、ある日を境にぱたりと止まっている。',
       '最後の行にだけ、商いとは関係のない書き付けがあった。「水門の件について――」',
@@ -1208,6 +1268,16 @@
      出さず、鎖が止まる → 歯車が回る → 門が上がる → 水音が変わる、を
      そのままゲーム内の時間で見せる。 ========================================================= */
   // 水門守がレバーを引いている間だけ、レバーと鎖が動く(0..1)
+  /* 閂を外す(CH1-COMP W3)。門の北側(商店街)に寄った時だけ ―― 広場の側からは届かない */
+  function openDuskBarDoor(){
+    if(!duskBarDoor || duskBarDoor.opened) return;
+    duskBarDoor.locked = false;
+    swingOpen(duskBarDoor, true);
+    if(duskBarBeam){ duskBarBeam.rotation.z = 1.2; duskBarBeam.position.set(5.6, 0.5, 370.9); }
+    sfx('woodCreak');
+    spawnLog('🚪 閂を外した。広場への近道が開いた');
+  }
+
   function pullDuskGateLever(prog){
     if(!duskGateLever) return;
     const k = Math.sin(Math.max(0, Math.min(1, prog)) * Math.PI);
@@ -1273,7 +1343,10 @@
          Scenario Test Mode の地点ジャンプで扉を跨いで入った時にも
          ボスが眠ったままにならないようにするため */
       key:'duskEcho',
-      bodyColor:0x46566a, emissive:0x22303c, eyeColor:0xbfe0ec, auraColor:0x8fc8d8,
+      /* 体の色は褪せたセピア(CH1-COMP W3、core/dusk-enemies.js)。被弾の白から戻す色(en.baseColor)と
+         同じ値にする。目・オーラ・弾の色は今のまま */
+      bodyColor:VILLAGE_PALETTE.echoBoss.main, emissive:VILLAGE_PALETTE.echoBoss.shade,
+      eyeColor:0xbfe0ec, auraColor:0x8fc8d8,
       projColor:0x8fc8d8,
       /* HPで長引かせない(§9)。覚えたことを組み合わせて戦う場なので、
          殴る回数ではなく判断の回数で決まるようにしてある */
@@ -1299,7 +1372,7 @@
       clearFlavor:'重なっていた輪郭がほどけ、ひとつずつ水面へ戻っていった。',
       rewardLoot:{type:'gem', name:'水底に沈んだ木札', icon:'💎', color:0x8fc8d8}
     });
-    en.baseColor = 0x46566a;
+    en.baseColor = VILLAGE_PALETTE.echoBoss.main;
     en.decoyKind = 'mirror';   // 水面に映るものを追う ―― 幻影歩法も通常どおり効く
     duskBossRef = en;
     return en;
@@ -1386,13 +1459,15 @@
      中ボス扱いだが、硬さで強くしていない ―― 強さは「過去の行動が
      残っている」という性質そのもの。 */
   function buildDuskWardenEcho(x, z){
-    const en = buildEnemy(new THREE.Vector3(x, 0, z), {
-      color:0x46606f, hp:900, atk:36, speed:2.2, atkType:'keeper',
+    // 見た目は重い門番(CH1-COMP W3、dressVillageEnemy)。数値は今のまま
+    const en = buildEnemy(new THREE.Vector3(x, 0, z), duskEnemyVariant('warden', {
+      hp:900, atk:36, speed:2.2, atkType:'keeper',
       xp:320, goldBonus:[70, 95],
-    });
-    en.baseColor = 0x46606f;
+    }));
+    en.baseColor = VILLAGE_PALETTE.warden.main;
     en.decoyKind = 'keeper';
-    en.group.scale.multiplyScalar(1.18);   // 一回り大きい。見失わないように
+    en.group.scale.multiplyScalar(WARDEN_SCALE);   // 一回り大きい(1.18)。見失わないように
+    en.hitRadius = villageHitRadius('warden', WARDEN_SCALE);   // 当たりも見た目の広がりに合わせる
     en.onDefeat = ()=> onDuskWardenDefeated();
     en.midbossName = '水門守の残響';
     en.midbossFlavor = '引く手が止まり、鎖の音だけが少し遅れて消えていった。';
@@ -1548,11 +1623,12 @@
      強モブ扱いだが、硬さで強くしていない ―― 「過去を狙う」という
      性質そのものが強さになる。 */
   function buildDuskFisher(x, z){
-    const en = buildEnemy(new THREE.Vector3(x, 0, z), {
-      color:0x3d5260, hp:520, atk:34, speed:2.3, atkType:'fisher',
+    // 見た目は背を丸めた漁師(CH1-COMP W3、dressVillageEnemy)。数値は今のまま
+    const en = buildEnemy(new THREE.Vector3(x, 0, z), duskEnemyVariant('fisher', {
+      hp:520, atk:34, speed:2.3, atkType:'fisher',
       xp:180, goldBonus:[38, 54],
-    });
-    en.baseColor = 0x3d5260;
+    }));
+    en.baseColor = VILLAGE_PALETTE.fisher.main;
     en.decoyKind = 'fisher';
     en.netCD = 1.2;
     en.netWindupT = 0;
@@ -1563,11 +1639,12 @@
      観察できる差の数値は core/mirror-shade.js。ここは「どんな個体か」だけ。
      spawnEnemies() から呼ばれる(生成と enemies への登録は向こうの担当) */
   function buildDuskMirrorShade(x, z){
-    const en = buildEnemy(new THREE.Vector3(x, 0, z), {
-      color:0x2a3b4a, hp:260, atk:30, speed:2.2, atkType:'mirror',
+    // 見た目は水面に映った村人(CH1-COMP W3、dressVillageEnemy。分身も同じ作り)。数値は今のまま
+    const en = buildEnemy(new THREE.Vector3(x, 0, z), duskEnemyVariant('mirror', {
+      hp:260, atk:30, speed:2.2, atkType:'mirror',
       xp:104, goldBonus:[22, 34],
-    });
-    en.baseColor = 0x2a3b4a;
+    }));
+    en.baseColor = VILLAGE_PALETTE.mirror.main;
     en.mirrorSplit = false;
     en.mirrorClones = [];
     en.mirrorReformT = 0;
@@ -1578,11 +1655,14 @@
   /* 泡沫の群れ(WORK 4)。1体は弱く、放っておくと増える。
      増殖の上限と間隔は core/foam-swarm.js、AIは updateFoamAI。 */
   function buildDuskFoam(x, z){
-    const en = buildEnemy(new THREE.Vector3(x, 0, z), {
-      color:0x7fb8c8, hp:56, atk:16, speed:2.9, atkType:'foam',
+    // 見た目は泡の塊(CH1-COMP W3、dressVillageEnemy)。数値は今のまま
+    const en = buildEnemy(new THREE.Vector3(x, 0, z), duskEnemyVariant('foam', {
+      hp:56, atk:16, speed:2.9, atkType:'foam',
       xp:22, goldBonus:[3, 7],
-    });
-    en.group.scale.multiplyScalar(0.62);
+    }));
+    en.group.scale.multiplyScalar(FOAM_SCALE);   // 0.62(今の値)
+    // 当たりの半径は見た目の塊の広がり × 0.62(以前は拡大前の胴の球のままで、見た目より広かった)
+    en.hitRadius = foamHitRadius(FOAM_SCALE);
     en.foamGrowT = Math.random() * 2.0;
     en.decoyKind = 'foam';
     return en;
@@ -1591,14 +1671,674 @@
   /* 写し身(WORK 4)。プレイヤーの直前の一撃を1回だけ返す。
      Attack Snapshot は core/attack-snapshot.js、AIは updateCopyShadeAI。 */
   function buildDuskCopyShade(x, z){
-    const en = buildEnemy(new THREE.Vector3(x, 0, z), {
-      color:0x4a6478, hp:230, atk:26, speed:2.4, atkType:'copy',
+    // 見た目は色を抜かれた長い外套の写し(CH1-COMP W3、dressVillageEnemy)。数値・弾の色は今のまま
+    const en = buildEnemy(new THREE.Vector3(x, 0, z), duskEnemyVariant('copy', {
+      hp:230, atk:26, speed:2.4, atkType:'copy',
       xp:112, goldBonus:[24, 36],
-    });
-    en.baseColor = 0x4a6478;
+    }));
+    en.baseColor = VILLAGE_PALETTE.copy.main;
     en.decoyKind = 'copy';
     en.copyState = 'watch';
     return en;
+  }
+
+  /* =========================================================
+     宵待ちの村の敵の姿(CH1-COMP W3-E / DEC-008)
+
+     村の 5 種は以前、全部が同じ「頭巾をかぶった浮く毛玉」(汎用の 'wraith')で、
+     色と大きさだけが違った。洋館の敵と同じ作り方(buildEnemy の独自の胴の約束)で、
+     種類ごとに「何をする敵か」が形・姿勢・持ち物で読めるように作り直す:
+
+       水鏡の影   … 水面に映った村人。肩掛けと頭巾、裾が足元の映り込みへ溶ける。浮く。
+                    溜めで両腕を後ろへ引き(本体ほど深い)、全周を薙ぐ。本体と分身は同じ姿
+       泡沫       … 3〜4 個の泡の塊。低く漂い、増える前に泡が膨らむ。触れると弾ける
+       写し身     … 色を抜かれた長い外套と帽子、顔は暗い水。写す時は片腕を上げ、手元に光が集まる
+       記憶漁師   … 背を丸めた漁師。つばの広い帽子、油引きの外套、背中に網の束、長い腕。
+                    網を投げる前に腕を後ろへ振りかぶり、近接は両腕を広げてから一回転
+       水門守     … 肩幅の広い門番。肩から鎖、巻き上げの把手と鉤。両腕を上げて鎖を掴み、引き下ろす
+
+     ・数値(HP・攻撃力・判定・時刻・速さ)は変えない。姿勢は AI の状態を読むだけ
+       (updateVillageMobExtras。AI は姿勢の存在を知らない)
+     ・材質はマット(core/dusk-enemies.js VILLAGE_FINISH)。光源は足さない
+     ・胴(body)の材質だけは個体ごと(被弾の白・強調が書き換える)。ほかの部品のジオメトリと
+       材質は種類ごとに 1 つを全個体で共有する(書き換えないものだけ)。ジオメトリは
+       sharedGeometries()(02)に登録してあり、世界の破棄で捨てられない
+     ・洋館の M.mansionKind は使わない(updateMansionMeleeTelegraph が床の弧を隠しにくる)。
+       印は M.villageKind
+  ========================================================= */
+  const villageGeoCache = new Map();
+  const villageMatCache = new Map();
+  function vGeo(key, make){
+    let g = villageGeoCache.get(key);
+    if(!g){ g = make(); villageGeoCache.set(key, g); }
+    return g;
+  }
+  function vMat(key, make){
+    let m = villageMatCache.get(key);
+    if(!m){ m = make(); villageMatCache.set(key, m); }
+    return m;
+  }
+  // マットな共有の材質(書き換えない部品だけに使う)
+  function vMatte(key, color, finish, extra){
+    const f = finish || VILLAGE_FINISH.cloth;
+    return vMat(key, ()=> new THREE.MeshStandardMaterial(Object.assign(
+      {color, roughness:f.roughness, metalness:f.metalness}, extra || {})));
+  }
+  function vMesh(parent, geo, mat, x, y, z, opts){
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = !(opts && opts.noShadow);
+    if(opts && opts.outline) m.userData.villageOutline = true;   // buildEnemy の輪郭線の対象
+    if(opts && opts.noOutline) m.userData.noOutline = true;
+    parent.add(m);
+    return m;
+  }
+  // 楕円の断面(makeLoft 用)
+  function vEllipse(rx, rz, n, offZ){
+    const pts = [];
+    for(let i=0;i<n;i++){
+      const a = (i / n) * Math.PI * 2;
+      pts.push([Math.cos(a) * rx, Math.sin(a) * rz + (offZ || 0)]);
+    }
+    return pts;
+  }
+  // 手足 1 本(肩・股の pivot から下へ)。ジオメトリは寸法ごとに共有
+  function villageLimb(parent, x, y, z, len, thick, mat, opts){
+    opts = opts || {};
+    const pivot = new THREE.Group();
+    pivot.position.set(x, y, z);
+    const taper = opts.taper || 0.85;
+    const geo = vGeo(`limb:${len}:${thick}:${taper}`, ()=>{
+      const c = new THREE.CylinderGeometry(thick, thick * taper, len, 6);
+      c.translate(0, -len / 2, 0);
+      return c;
+    });
+    vMesh(pivot, geo, mat, 0, 0, 0);
+    if(opts.foot){
+      const fgeo = vGeo(`foot:${thick}:${opts.foot}`, ()=> new THREE.BoxGeometry(thick * 2.4, thick * 1.5, opts.foot));
+      vMesh(pivot, fgeo, opts.footMat || mat, 0, -len - thick * 0.6, opts.foot * 0.22);
+    }
+    if(opts.hand){
+      const hgeo = vGeo(`hand:${opts.hand}`, ()=> new THREE.BoxGeometry(opts.hand, opts.hand * 1.2, opts.hand * 0.6));
+      vMesh(pivot, hgeo, opts.handMat || mat, 0, -len - opts.hand * 0.5, 0);
+    }
+    parent.add(pivot);
+    return pivot;
+  }
+  // 胴の上半身を 1 つの Group にまとめる(ひねり・反りを肩ごと付けるため)
+  function villageUpper(g, waistY){
+    const up = new THREE.Group();
+    up.position.y = waistY;
+    g.add(up);
+    return up;
+  }
+
+  /* 村の敵の variant(buildEnemy に渡す)。数値は呼ぶ側が渡す。色は表の主な色 */
+  function duskEnemyVariant(kind, v){
+    return Object.assign({theme:'village', villageKind:kind, color:VILLAGE_PALETTE[kind].main}, v || {});
+  }
+
+  /* buildEnemy → dressEnemy から呼ばれる。body(胴)と head(頭)は buildEnemy が作った物を
+     作り替えて使う(材質は個体ごとのまま。被弾の白は胴と頭に乗る) */
+  function dressVillageEnemy(g, body, variant, M){
+    const kind = variant.villageKind || 'mirror';
+    const pal = VILLAGE_PALETTE[kind] || VILLAGE_PALETTE.mirror;
+    M.villageKind = kind;
+    M.limbs = [];
+    M.legs.forEach(l=>{ l.visible = false; });   // 四つ足の脚は使わない
+    if(M.snout) M.snout.visible = false;         // 獣の鼻先も
+    M.eyes.forEach(e=>{ e.visible = false; });   // 目の代わりに顔の面で前を見せる
+    // 胴の材質(個体ごと)をマットに。色は buildEnemy が variant.color(= 表の主な色)で作ってある
+    const bm = body.material;
+    bm.roughness = VILLAGE_FINISH.cloth.roughness;
+    bm.metalness = 0;
+    bm.emissiveIntensity = VILLAGE_FINISH.emissiveIntensity;
+    body.scale.set(1, 1, 1);
+    body.rotation.set(0, 0, 0);
+    M.hitRadius = villageHitRadius(kind, 1);
+
+    if(kind === 'mirror') dressVillageMirror(g, body, pal, M);
+    else if(kind === 'foam') dressVillageFoam(g, body, pal, M);
+    else if(kind === 'copy') dressVillageCopy(g, body, pal, M);
+    else if(kind === 'fisher') dressVillageFisher(g, body, pal, M);
+    else if(kind === 'warden') dressVillageWarden(g, body, pal, M);
+  }
+
+  /* ---- 水鏡の影: 水面に映った村人 ----
+     浮く(足は無い)。濡れた灰紫の衣、褪せた薔薇色の肩掛けと頭巾。顔は暗い水面。
+     裾は滴になって、足元の映り込み(暗い円)へ溶けていく */
+  function dressVillageMirror(g, body, pal, M){
+    const P = VILLAGE_PROPORTIONS.mirror;
+    const cloth = vMatte('mirror.cloth', pal.main);
+    const accent = vMatte('mirror.accent', pal.accent);
+    const shade = vMatte('mirror.shade', pal.shade);
+    const face = vMatte('mirror.face', pal.face, VILLAGE_FINISH.water);
+    const water = vMatte('mirror.water', pal.water, VILLAGE_FINISH.water,
+                         {transparent:true, opacity:0.62, depthWrite:false});
+    M.hover = true;
+    const W = 0.92;   // 腰の高さ
+    // 裾(腰から下へ広がる)。最後の段が細く絞られて滴へつながる
+    const skirt = vMesh(g, vGeo('mirror.skirt', ()=> makeLoft({sections:[
+      {y:W,    points:vEllipse(0.19, 0.14, 8)},
+      {y:0.62, points:vEllipse(0.29, 0.23, 8)},
+      {y:0.3,  points:vEllipse(0.38, 0.31, 8)},
+      {y:0.14, points:vEllipse(0.33, 0.27, 8)},
+    ]})), cloth, 0, 0, 0, {outline:true});
+    skirt.userData.villageOutline = true;
+    // 滴: 裾の端から映り込みへ垂れる
+    const dripGeo = vGeo('mirror.drip', ()=>{ const c = new THREE.ConeGeometry(0.06, 0.3, 5); c.rotateX(Math.PI); return c; });
+    [[0.22, 0.08], [-0.2, 0.12], [0.02, -0.26]].forEach(([x, z])=> vMesh(g, dripGeo, water, x, 0.02, z, {noShadow:true, noOutline:true}));
+    // 足元の映り込み(浮いている高さぶん下に置く)
+    const disc = vMesh(g, vGeo('mirror.disc', ()=>{ const c = new THREE.CircleGeometry(0.62, 16); c.rotateX(-Math.PI/2); return c; }),
+                       water, 0, -0.12, 0, {noShadow:true, noOutline:true});
+    disc.scale.z = 1.15;
+    M.reflection = disc;
+
+    const up = villageUpper(g, W);
+    M.upper = up;
+    // 胴(個体ごとの材質)
+    body.geometry = vGeo('mirror.torso', ()=> makeTrapezoidBox({topW:P.shoulderW, topD:0.26, botW:0.34, botD:0.22, height:0.56}));
+    body.position.set(0, P.torsoY - W, 0);
+    up.add(body);
+    // 肩掛け
+    vMesh(up, vGeo('mirror.shawl', ()=> new THREE.CylinderGeometry(0.25, 0.33, 0.14, 8)), accent, 0, 1.43 - W, 0, {outline:true});
+    // 頭(首ごと上半身へ)
+    up.add(M.neck);
+    M.neck.position.set(0, 1.62 - W, 0.0);
+    M.head.scale.setScalar(1.02);
+    vMesh(M.neck, vGeo('mirror.face', ()=> new THREE.BoxGeometry(0.19, 0.22, 0.05)), face, 0, -0.01, 0.19, {noShadow:true});
+    const hood = vMesh(M.neck, vGeo('mirror.hood', ()=> new THREE.SphereGeometry(0.235, 8, 6, 0, Math.PI*2, 0, Math.PI*0.56)),
+                       accent, 0, 0.02, -0.02, {outline:true});
+    hood.rotation.x = -0.32;
+    const tail = vMesh(M.neck, vGeo('mirror.hoodTail', ()=> new THREE.ConeGeometry(0.1, 0.32, 5)), accent, 0, -0.18, -0.17);
+    tail.rotation.x = Math.PI + 0.35;
+    // 腕(垂れた細い腕。引く・薙ぐのはこの腕)
+    const armL = villageLimb(up, -0.27, 1.40 - W, 0, 0.32, 0.062, cloth);
+    const armR = villageLimb(up,  0.27, 1.40 - W, 0, 0.32, 0.062, cloth);
+    const foreL = villageLimb(armL, 0, -0.32, 0, 0.3, 0.052, shade, {hand:0.08, handMat:shade});
+    const foreR = villageLimb(armR, 0, -0.32, 0, 0.3, 0.052, shade, {hand:0.08, handMat:shade});
+    Object.assign(M, {armL, armR, foreL, foreR});
+  }
+
+  /* ---- 泡沫: 泡の塊 ----
+     頭も手足も無い。低く漂う白緑の泡が 3〜4 個。1 つ目が胴(被弾の白が乗る) */
+  function dressVillageFoam(g, body, pal, M){
+    M.hover = true;
+    M.neck.visible = false;    // 頭は使わない(輪郭線も頭ごと消える)
+    const bubbleMat = vMatte('foam.bubble', pal.main, VILLAGE_FINISH.foam);
+    const beadMat = vMatte('foam.bead', pal.accent, VILLAGE_FINISH.foam);
+    const sphere = vGeo('foam.sphere', ()=> new THREE.SphereGeometry(1, 7, 5));
+    const c0 = FOAM_CLUSTER[0];
+    body.geometry = sphere;
+    body.scale.setScalar(c0.r);
+    body.position.set(c0.x, c0.y, c0.z);
+    M.foamBubbles = [];
+    FOAM_CLUSTER.slice(1).forEach((b, i)=>{
+      const m = vMesh(g, sphere, bubbleMat, b.x, b.y, b.z, {outline: i === 0});
+      m.scale.setScalar(b.r);
+      M.foamBubbles.push({m, r:b.r, phase:i * 2.1, grows: i === FOAM_CLUSTER.length - 2});
+    });
+    // 泡の芯(少し濃い緑の粒)。塊に向きを持たせないので、前後どちらから見ても同じ
+    [[0.18, 0.5, 0.22], [-0.12, 0.36, 0.26]].forEach(([x, y, z])=>{
+      const b = vMesh(g, sphere, beadMat, x, y, z, {noShadow:true});
+      b.scale.setScalar(0.07);
+    });
+  }
+
+  /* ---- 写し身: 色を抜かれた長い外套 ----
+     魔法使いの青は使わない。外套の裾は地面すれすれで、浮いている。顔は暗い水。
+     写す時だけ右腕を上げ、手元に光(弾と同じ色。光源は使わない)が集まる */
+  function dressVillageCopy(g, body, pal, M){
+    const P = VILLAGE_PROPORTIONS.copy;
+    const accent = vMatte('copy.accent', pal.accent);
+    const shade = vMatte('copy.shade', pal.shade);
+    const face = vMatte('copy.face', pal.face, VILLAGE_FINISH.water);
+    M.hover = true;
+    const W = 0.95;
+    /* 長い外套(足元から肩まで)は共有の材質。胴(被弾の白・交戦中の赤い強調が乗る、個体ごとの材質)は
+       肩に掛けた短い肩掛け ―― 外套全体を胴にすると、交戦中の強調(threatHighlight)で
+       全身が赤く染まり、灰色の写しに見えなくなる(洋館の敵の胴と同じくらいの面積にとどめる) */
+    vMesh(g, vGeo('copy.coat', ()=> makeLoft({sections:[
+      {y:1.5,  points:vEllipse(0.2, 0.14, 8)},
+      {y:0.98, points:vEllipse(0.22, 0.16, 8)},
+      {y:0.52, points:vEllipse(0.31, 0.24, 8)},
+      {y:0.06, points:vEllipse(0.4, 0.31, 8, -0.03)},
+    ]})), vMatte('copy.sleeve', pal.main), 0, 0, 0, {outline:true});
+    body.geometry = vGeo('copy.cape', ()=> makeLoft({sections:[
+      {y:1.64, points:vEllipse(0.16, 0.12, 8)},
+      {y:1.46, points:vEllipse(0.3, 0.2, 8)},
+      {y:1.12, points:vEllipse(0.34, 0.24, 8)},
+    ], closedTop:true}));
+    body.position.set(0, 0, 0);
+    // 上半身(腕と頭)の pivot。肩掛け(胴)は写しの溜めで伸びすぎないよう、姿勢側で幅だけにとどめる
+    const up = villageUpper(g, W);
+    M.upper = up;
+    vMesh(up, vGeo('copy.collar', ()=> new THREE.CylinderGeometry(0.15, 0.2, 0.14, 8)), accent, 0, 1.6 - W, 0, {outline:true});
+    up.add(M.neck);
+    M.neck.position.set(0, 1.78 - W, 0.02);
+    M.head.scale.setScalar(0.92);
+    vMesh(M.neck, vGeo('copy.face', ()=> new THREE.BoxGeometry(0.18, 0.21, 0.05)), face, 0, -0.01, 0.17, {noShadow:true});
+    // 帽子(つばの広い丸帽 + 帯)
+    vMesh(M.neck, vGeo('copy.brim', ()=> new THREE.CylinderGeometry(0.36, 0.36, 0.03, 12)), shade, 0, 0.13, 0, {outline:true});
+    vMesh(M.neck, vGeo('copy.crown', ()=> new THREE.CylinderGeometry(0.14, 0.18, 0.3, 8)), shade, 0, 0.29, -0.01, {outline:true});
+    vMesh(M.neck, vGeo('copy.band', ()=> new THREE.CylinderGeometry(0.185, 0.185, 0.05, 8)), accent, 0, 0.18, -0.01, {noShadow:true});
+    // 長い袖の腕
+    const sleeve = vMatte('copy.sleeve', pal.main);
+    const armL = villageLimb(up, -0.24, 1.52 - W, 0, 0.34, 0.07, sleeve);
+    const armR = villageLimb(up,  0.24, 1.52 - W, 0, 0.34, 0.07, sleeve);
+    const foreL = villageLimb(armL, 0, -0.34, 0, 0.32, 0.06, sleeve, {hand:0.08, handMat:shade});
+    const foreR = villageLimb(armR, 0, -0.34, 0, 0.32, 0.06, sleeve, {hand:0.08, handMat:shade});
+    Object.assign(M, {armL, armR, foreL, foreR});
+    // 手元に集まる光(写しの溜めの間だけ見える。発光の材質だけで、光源は持たない)
+    const orb = vMesh(foreR, vGeo('copy.orb', ()=> new THREE.SphereGeometry(0.16, 8, 6)),
+                      vMat('copy.orb', ()=> new THREE.MeshBasicMaterial({color:pal.orb, transparent:true, opacity:0.85, depthWrite:false})),
+                      0, -0.44, 0.04, {noShadow:true, noOutline:true});
+    orb.visible = false;
+    M.copyOrb = orb;
+  }
+
+  /* ---- 記憶漁師: 背を丸めた漁師 ----
+     つばの広い帽子、油引きの外套(オリーブ)、背中に網の束、地面へ届きそうな長い腕。歩く */
+  function dressVillageFisher(g, body, pal, M){
+    const P = VILLAGE_PROPORTIONS.fisher;
+    const coat = vMatte('fisher.coat', pal.main);
+    const rope = vMatte('fisher.rope', pal.accent, VILLAGE_FINISH.rope);
+    const shade = vMatte('fisher.shade', pal.shade);
+    const face = vMatte('fisher.face', pal.face, VILLAGE_FINISH.skin);
+    const hat = vMatte('fisher.hat', pal.hat);
+    const W = 0.92;
+    // 外套の裾(腰から膝)
+    vMesh(g, vGeo('fisher.skirt', ()=> makeLoft({sections:[
+      {y:W + 0.04, points:vEllipse(0.25, 0.19, 8)},
+      {y:0.66,     points:vEllipse(0.31, 0.25, 8)},
+      {y:0.46,     points:vEllipse(0.34, 0.28, 8)},
+    ]})), coat, 0, 0, 0, {outline:true});
+    // 脚(長靴)
+    [-0.13, 0.13].forEach((x, i)=>{
+      const leg = villageLimb(g, x, 0.9, 0, 0.8, 0.08, shade, {foot:0.26});
+      M.limbs.push({m:leg, axis:'x', base:0, amp:0.55, phase:i * Math.PI, walk:true, idle:0.03});
+    });
+    // 上半身(前へ丸めた背)
+    const up = villageUpper(g, W);
+    up.rotation.x = P.hunch;
+    M.upper = up; M.upperBaseX = P.hunch;
+    body.geometry = vGeo('fisher.torso', ()=> makeTrapezoidBox({topW:P.shoulderW, topD:0.36, botW:0.46, botD:0.3, height:0.6, topOffsetZ:0.06}));
+    body.position.set(0, P.torsoY - W + 0.08, 0);
+    up.add(body);
+    // 背中の網の束と、胸を斜めに渡る負い紐
+    const net = vMesh(up, vGeo('fisher.net', ()=> new THREE.IcosahedronGeometry(0.3, 0)), rope, 0, 1.34 - W, -0.34, {outline:true});
+    net.scale.set(1.15, 0.85, 0.7);
+    const strap = vMesh(up, vGeo('fisher.strap', ()=> new THREE.BoxGeometry(0.06, 0.78, 0.04)), rope, 0, 1.3 - W, 0.2, {noShadow:true});
+    strap.rotation.z = 0.72;
+    // 頭(低く前へ出る)
+    up.add(M.neck);
+    M.neck.position.set(0, 1.62 - W, 0.16);
+    vMesh(M.neck, vGeo('fisher.face', ()=> new THREE.BoxGeometry(0.2, 0.2, 0.05)), face, 0, -0.03, 0.18, {noShadow:true});
+    // つばの広い帽子(後ろのつばが垂れる)
+    const brim = vMesh(M.neck, vGeo('fisher.brim', ()=> new THREE.CylinderGeometry(0.42, 0.46, 0.04, 12)), hat, 0, 0.13, -0.03, {outline:true});
+    brim.rotation.x = -0.16;
+    vMesh(M.neck, vGeo('fisher.crown', ()=> new THREE.CylinderGeometry(0.17, 0.21, 0.2, 8)), hat, 0, 0.23, -0.01, {outline:true});
+    // 長い腕(網を投げ、近接で一回転して薙ぐ)
+    const armL = villageLimb(up, -0.34, 1.44 - W, 0.08, 0.44, 0.075, coat);
+    const armR = villageLimb(up,  0.34, 1.44 - W, 0.08, 0.44, 0.075, coat);
+    const foreL = villageLimb(armL, 0, -0.44, 0, 0.42, 0.065, coat, {hand:0.12, handMat:face});
+    const foreR = villageLimb(armR, 0, -0.44, 0, 0.42, 0.065, coat, {hand:0.12, handMat:face});
+    Object.assign(M, {armL, armR, foreL, foreR});
+    M.armHome = {L:{x:-0.34, y:1.44 - W, z:0.08}, R:{x:0.34, y:1.44 - W, z:0.08}};
+  }
+
+  /* ---- 水門守の残響: 重い門番 ----
+     肩幅の広い胴、革の前掛け、肩から斜めに鎖。右手に巻き上げの把手、左手に鉤。
+     両腕を上げて鎖を掴み、引き下ろす(当たる瞬間に引ききる)。重く歩く */
+  function dressVillageWarden(g, body, pal, M){
+    const P = VILLAGE_PROPORTIONS.warden;
+    const coat = vMatte('warden.coat', pal.main);
+    const apron = vMatte('warden.apron', pal.shade);
+    const iron = vMatte('warden.iron', pal.accent, VILLAGE_FINISH.iron);
+    const ironDark = vMatte('warden.ironDark', pal.iron, VILLAGE_FINISH.iron);
+    const face = vMatte('warden.face', pal.face, VILLAGE_FINISH.skin);
+    M.heavy = true;
+    const W = 1.0;
+    // 太い脚
+    [-0.2, 0.2].forEach((x, i)=>{
+      const leg = villageLimb(g, x, 0.94, 0, 0.84, 0.12, apron, {foot:0.32});
+      M.limbs.push({m:leg, axis:'x', base:0, amp:0.42, phase:i * Math.PI, walk:true, idle:0.025});
+    });
+    const up = villageUpper(g, W);
+    M.upper = up; M.upperBaseX = 0.04;
+    body.geometry = vGeo('warden.torso', ()=> makeTrapezoidBox({topW:P.shoulderW, topD:0.46, botW:0.58, botD:0.36, height:0.74}));
+    body.position.set(0, P.torsoY - W, 0);
+    up.add(body);
+    // 前掛けと腰の帯
+    vMesh(up, vGeo('warden.apron', ()=> new THREE.BoxGeometry(0.58, 0.86, 0.05)), apron, 0, 1.06 - W, 0.22, {outline:true});
+    vMesh(up, vGeo('warden.belt', ()=> new THREE.CylinderGeometry(0.33, 0.36, 0.13, 8)), ironDark, 0, 1.02 - W, 0);
+    // 肩から腰へ斜めに掛けた鎖(輪 5 つ)
+    const link = vGeo('warden.link', ()=> new THREE.TorusGeometry(0.075, 0.024, 4, 8));
+    for(let i=0;i<5;i++){
+      const k = i / 4;
+      const m = vMesh(up, link, iron, -0.3 + 0.6 * k, 1.74 - 0.66 * k - W, 0.25, {noShadow:true});
+      m.rotation.set(0, i % 2 ? Math.PI / 2 : 0, -0.85);
+    }
+    // 頭(平たい帽子、顔は帽子の陰)
+    up.add(M.neck);
+    M.neck.position.set(0, 1.84 - W, 0.03);
+    M.head.scale.setScalar(1.18);
+    vMesh(M.neck, vGeo('warden.face', ()=> new THREE.BoxGeometry(0.23, 0.2, 0.05)), face, 0, -0.03, 0.22, {noShadow:true});
+    vMesh(M.neck, vGeo('warden.cap', ()=> new THREE.CylinderGeometry(0.24, 0.27, 0.12, 9)), apron, 0, 0.17, -0.01, {outline:true});
+    vMesh(M.neck, vGeo('warden.capBrim', ()=> new THREE.BoxGeometry(0.3, 0.03, 0.16)), apron, 0, 0.12, 0.2, {noShadow:true});
+    // 太い腕。右手に巻き上げの把手、左手に鉤
+    const armL = villageLimb(up, -0.47, 1.62 - W, 0, 0.4, 0.1, coat);
+    const armR = villageLimb(up,  0.47, 1.62 - W, 0, 0.4, 0.1, coat);
+    const foreL = villageLimb(armL, 0, -0.4, 0, 0.4, 0.088, coat, {hand:0.14, handMat:apron});
+    const foreR = villageLimb(armR, 0, -0.4, 0, 0.4, 0.088, coat, {hand:0.14, handMat:apron});
+    Object.assign(M, {armL, armR, foreL, foreR});
+    const crank = vMesh(foreR, vGeo('warden.crankRod', ()=> new THREE.CylinderGeometry(0.026, 0.026, 0.46, 5)), ironDark, 0.0, -0.5, 0.1, {noShadow:true});
+    crank.rotation.x = Math.PI / 2;
+    vMesh(foreR, vGeo('warden.crankKnob', ()=> new THREE.CylinderGeometry(0.05, 0.05, 0.14, 6)), iron, 0.0, -0.5, 0.34, {noShadow:true});
+    const hook = vMesh(foreL, vGeo('warden.hook', ()=> new THREE.TorusGeometry(0.13, 0.03, 5, 10, Math.PI * 1.3)), iron, 0, -0.56, 0.06, {outline:true});
+    hook.rotation.set(0, Math.PI / 2, Math.PI * 0.35);
+  }
+
+  /* ---------------------------------------------------------
+     残響の姿(水門守・ボスの段階 3。spawnKeeperEcho が使う)
+     水門守と同じ骨格の、低ポリの写し。ジオメトリは全残響で共有し、残響ごとに持つのは
+     濃さを変えるための材質 1 つ(07 が渡す)。当たる「引いた」残響だけが腕を持つ
+     --------------------------------------------------------- */
+  function buildEchoFigure(mat, harmful){
+    const g = new THREE.Group();
+    const fig = new THREE.Group();
+    fig.scale.setScalar(WARDEN_SCALE);   // 水門守の背丈に合わせる(判定の半径は 07 が別に持つ)
+    g.add(fig);
+    const add = (geo, x, y, z)=>{ const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.userData.noOutline = true; fig.add(m); return m; };
+    add(vGeo('echo.torso', ()=> makeTrapezoidBox({topW:0.8, topD:0.46, botW:0.58, botD:0.36, height:0.74})), 0, 1.38, 0);
+    add(vGeo('echo.head', ()=> new THREE.IcosahedronGeometry(0.24, 0)), 0, 1.88, 0.03);
+    add(vGeo('echo.cap', ()=> new THREE.CylinderGeometry(0.24, 0.27, 0.12, 7)), 0, 2.06, 0.02);
+    const legGeo = vGeo('echo.leg', ()=>{ const c = new THREE.CylinderGeometry(0.12, 0.1, 0.94, 5); c.translate(0, -0.47, 0); return c; });
+    add(legGeo, -0.2, 0.96, 0);
+    add(legGeo, 0.2, 0.96, 0);
+    let armL = null, armR = null;
+    if(harmful){
+      const armGeo = vGeo('echo.arm', ()=>{ const c = new THREE.CylinderGeometry(0.1, 0.08, 0.84, 5); c.translate(0, -0.42, 0); return c; });
+      armL = new THREE.Group(); armL.position.set(-0.47, 1.62, 0); fig.add(armL);
+      armR = new THREE.Group(); armR.position.set(0.47, 1.62, 0); fig.add(armR);
+      [armL, armR].forEach(a=>{ const m = new THREE.Mesh(armGeo, mat); m.userData.noOutline = true; a.add(m); });
+    }
+    return {group:g, armL, armR};
+  }
+  // 引いた残響の腕(core/dusk-enemies.js echoPose: 出た瞬間から上がっていて、当たる瞬間に引ききる)
+  function poseEchoArms(e, p){
+    if(!e.armL) return;
+    const a = p.reach * (-2.6 + 1.9 * p.pull);
+    e.armL.rotation.set(a, 0, -0.18 * p.reach);
+    e.armR.rotation.set(a, 0, 0.18 * p.reach);
+  }
+
+  /* ---------------------------------------------------------
+     姿勢(updateMobAnim から毎フレーム。AI の状態を読むだけ)
+     --------------------------------------------------------- */
+  const _vEase = k => 1 - (1 - k) * (1 - k);
+  function vLerp(M, key, target, rate, dt){
+    const cur = M[key] != null ? M[key] : target;
+    const v = cur + (target - cur) * Math.min(1, dt * rate);
+    M[key] = v;
+    return v;
+  }
+  function updateVillageMobExtras(en, M, t, sw, moving, dt){
+    // 脚(歩く種類だけ)。洋館と同じ振り子
+    if(M.limbs){
+      for(let i=0;i<M.limbs.length;i++){
+        const L = M.limbs[i];
+        const amp = L.walk ? Math.min(L.amp, 0.16 + sw * L.amp * 1.4) : L.amp;
+        const w = moving ? amp : (L.idle || 0.03);
+        L.m.rotation[L.axis] = L.base + Math.sin(t + (L.phase || 0)) * w;
+      }
+    }
+    const kind = M.villageKind;
+    if(kind === 'mirror') poseVillageMirror(en, M, t, dt);
+    else if(kind === 'foam') poseVillageFoam(en, M, t, dt);
+    else if(kind === 'copy') poseVillageCopy(en, M, t, dt);
+    else if(kind === 'fisher') poseVillageFisher(en, M, t, dt, moving);
+    else if(kind === 'warden') poseVillageWarden(en, M, t, dt, moving);
+  }
+
+  /* 水鏡の影: 溜めで両腕を後ろへ引き(深さ = 本体 1 / 分身 0.45)、上体を反らす → 一撃で前へ振り抜く */
+  function poseVillageMirror(en, M, t, dt){
+    const st = en.mirrorState;
+    let k = 0;
+    if(st === 'windup') k = 1 - Math.max(0, en.mirrorT) / Math.max(0.01, en.mirrorWindupDur || 0.01);
+    else if(st === 'strike') k = 1 - Math.max(0, en.mirrorT) / MIRROR_STRIKE_SEC;
+    const p = mirrorPose(st, k, en.mirrorDepth != null ? en.mirrorDepth : 1);
+    const active = st === 'windup' || st === 'strike';
+    const rate = active ? 18 : 5;
+    const idle = active ? 0 : Math.sin(t * 0.8) * 0.06;
+    const arm = vLerp(M, 'vArm', p.arm + idle, rate, dt);
+    const spread = vLerp(M, 'vSpread', p.spread, rate, dt);
+    const lean = vLerp(M, 'vLean', p.lean, rate, dt);
+    M.armL.rotation.set(arm, 0, -0.1 - spread);
+    M.armR.rotation.set(arm + idle * 0.5, 0, 0.1 + spread);
+    M.foreL.rotation.x = M.foreR.rotation.x = -0.22 - 0.35 * spread;
+    M.upper.rotation.x = lean;
+    // 映り込みは浮き沈みに関わらず床の近くに留める(group の高さを打ち消す)
+    if(M.reflection) M.reflection.position.y = -0.04 - Math.max(0, en.group.position.y - baseYOf(en));
+  }
+
+  /* 泡沫: 泡が呼吸する。増える直前に 1 つが膨らみ、弾けた直後(次に当たれるまで)は縮む */
+  function poseVillageFoam(en, M, t, dt){
+    const grow = en.triggered ? Math.min(1, (en.foamGrowT || 0) / 6.5) : 0;
+    const spent = (en.foamAtkCD || 0) > 0 ? Math.min(1, en.foamAtkCD / 1.6) : 0;
+    M.foamBubbles.forEach(b=>{
+      const swell = b.grows ? 1 + 0.35 * grow * grow : 1;
+      b.m.scale.setScalar(b.r * swell * (1 + Math.sin(t * 3 + b.phase) * 0.07) * (1 - 0.18 * spent));
+    });
+    if(en.body && en.bodyScale){
+      const B = en.bodyScale, s = 1 - 0.22 * spent, w = Math.sin(t * 2.2) * 0.05;
+      en.body.scale.set(B.x * s * (1 + w), B.y * s * (1 - w), B.z * s * (1 + w));
+    }
+  }
+
+  /* 写し身: 写す間だけ右腕を上げ、手元に光が集まる(1.25 秒、灯りで伸びる長さのまま)。
+     肩掛け(胴)を縦に伸ばしていた溜めの変形は、帽子と頭を突き抜けるので幅だけにとどめる */
+  function poseVillageCopy(en, M, t, dt){
+    const k = copyMimicProgress(en.copyState, en.copyT, en.copyDur);
+    const kk = k == null ? 0 : k;
+    const rate = k == null ? 4 : 16;
+    const raise = vLerp(M, 'vRaise', -2.25 * _vEase(kk), rate, dt);
+    M.armR.rotation.set(raise + Math.sin(t * 0.7) * 0.03, 0, 0.08 + 0.2 * kk);
+    M.foreR.rotation.x = -0.45 * kk;
+    M.armL.rotation.set(Math.sin(t * 0.7 + 1.3) * 0.04 + 0.12 * kk, 0, -0.08);
+    M.foreL.rotation.x = -0.15;
+    M.upper.rotation.x = -0.08 * kk;
+    if(M.copyOrb){
+      M.copyOrb.visible = k != null && !en.dead;
+      if(M.copyOrb.visible) M.copyOrb.scale.setScalar(0.25 + 0.95 * kk + Math.sin(t * 9) * 0.05 * kk);
+    }
+    if(k != null && en.body && en.bodyScale){
+      const B = en.bodyScale;
+      en.body.scale.set(B.x * (1 + 0.05 * kk), B.y, B.z * (1 + 0.05 * kk));
+    }
+  }
+
+  /* 記憶漁師: 網の溜めで右腕を後ろへ振りかぶる → 投げた直後に前へ振り抜く。
+     近接の溜めで両腕を広げて上体をひねり戻し → 当たった直後に一回転して薙ぐ(全周 2.3 の輪と同じ形) */
+  function poseVillageFisher(en, M, t, dt, moving){
+    const netK = (en.netWindupT || 0) > 0 ? 1 - en.netWindupT / Math.max(0.01, en.netWindupDur || 0.5) : null;
+    if(M.netPrev != null && M.netPrev > 0 && !(en.netWindupT > 0)) M.throwT = 0.4;   // 投げた瞬間
+    M.netPrev = en.netWindupT || 0;
+    if(M.throwT > 0) M.throwT = Math.max(0, M.throwT - dt);
+    const m = en.fisherMelee;
+    const meleeK = m && fisherMeleeWindingUp(m) ? fisherMeleeProgress(m) : null;
+    const sweep = m && m.recoverT > 0 ? 1 - m.recoverT / 0.45 : null;   // 当たった直後の振り抜き(硬直 0.45 秒)
+
+    let armLX = -0.18 + Math.sin(t * 0.9) * 0.05, armRX = -0.18 + Math.sin(t * 0.9 + 1.4) * 0.05;
+    let rollL = -0.08, rollR = 0.08, twist = 0, fore = -0.25, rate = 6;
+    if(meleeK != null){
+      rollL = -0.08 - 1.25 * meleeK; rollR = 0.08 + 1.25 * meleeK;
+      armLX = armRX = -0.3 * meleeK; twist = -0.85 * meleeK; fore = -0.1; rate = 20;
+    } else if(sweep != null){
+      const e = _vEase(Math.min(1, sweep * 1.6));
+      rollL = -1.33 + 0.9 * sweep; rollR = 1.33 - 0.9 * sweep;
+      armLX = armRX = -0.3; twist = -0.85 + 3.2 * e; fore = -0.1; rate = 26;
+    } else if(netK != null){
+      armRX = 1.9 * _vEase(netK); rollR = 0.08 + 0.35 * netK;
+      armLX = -0.7 * netK; twist = 0.32 * netK; rate = 18;
+    } else if(M.throwT > 0){
+      const e = M.throwT / 0.4;
+      armRX = -1.7 * e; armLX = -0.2; twist = -0.25 * e; rate = 22;
+    }
+    if(moving && meleeK == null && sweep == null && netK == null && !(M.throwT > 0)){
+      // 歩く間は長い腕が脚と逆に揺れる
+      armLX += Math.sin(t + Math.PI) * 0.3; armRX += Math.sin(t) * 0.3;
+    }
+    M.armL.rotation.set(vLerp(M, 'vAL', armLX, rate, dt), 0, vLerp(M, 'vRL', rollL, rate, dt));
+    M.armR.rotation.set(vLerp(M, 'vAR', armRX, rate, dt), 0, vLerp(M, 'vRR', rollR, rate, dt));
+    M.foreL.rotation.x = M.foreR.rotation.x = fore;
+    // 一回転の振り抜き(1 周を越えたら戻す)は速く、待機への戻りはゆっくり
+    const tw = vLerp(M, 'vTwist', twist, sweep != null ? 30 : rate * 0.6, dt);
+    M.upper.rotation.y = tw;
+    M.upper.rotation.x = (M.upperBaseX || 0) + (meleeK != null ? -0.12 * meleeK : 0) + (netK != null ? -0.1 * netK : 0);
+  }
+
+  /* 水門守: 予備動作で両腕を上げて鎖を掴み、引く間の 45%(当たる瞬間)で引き下ろしきる(core keeperPose) */
+  function poseVillageWarden(en, M, t, dt, moving){
+    const p = keeperPose(en.keeperState, en.keeperT, en.keeperDur);
+    const active = en.keeperState === 'windup' || en.keeperState === 'operate';
+    const swing = moving && !active ? 0.26 : 0.04;
+    const a = p.reach * (-2.6 + 1.9 * p.pull);
+    const armLX = a + Math.sin(t + Math.PI) * swing * (1 - p.reach);
+    const armRX = a + Math.sin(t) * swing * (1 - p.reach);
+    const rate = active ? 20 : 6;
+    M.armL.rotation.set(vLerp(M, 'vAL', armLX, rate, dt), 0, -0.12 - 0.1 * p.reach);
+    M.armR.rotation.set(vLerp(M, 'vAR', armRX, rate, dt), 0, 0.12 + 0.1 * p.reach);
+    M.foreL.rotation.x = M.foreR.rotation.x = -0.2 - 0.25 * p.reach * (1 - p.pull);
+    M.upper.rotation.x = (M.upperBaseX || 0) + 0.12 * p.reach * (1 - p.pull) - 0.32 * p.pull * p.reach;
+  }
+
+  /* ---------------------------------------------------------
+     村の残響(ボス)の姿(buildBoss の cfg.key==='duskEcho' から)
+     水の裾から起き上がる、村の記憶が重なった人の形: 漁師のつばの広い帽子、前掛け、
+     肩から門番の鎖、半歩ずれて重なるもう一つの胴(別の時間の誰か)。誰か一人の顔にはしない。
+     部品には名前を付ける ―― ボスの分身(boss.group.clone)の中から同じ部品を拾い直して、
+     分身にも同じ動きを付けるため(duskEchoPartsOf)
+     --------------------------------------------------------- */
+  function buildDuskEchoBody(g, cfg, eyeMat, eyeGeo){
+    const pal = VILLAGE_PALETTE.echoBoss;
+    const P = VILLAGE_PROPORTIONS.echoBoss;
+    const F = VILLAGE_FINISH;
+    const mat = (color, f, extra)=> new THREE.MeshStandardMaterial(Object.assign({color, roughness:f.roughness, metalness:f.metalness}, extra || {}));
+    // 胴の材質(被弾の白・段階移行の発光が書き換える。色 = en.baseColor)
+    const bodyMat = mat(pal.main, F.cloth, {emissive:pal.shade, emissiveIntensity:0.12});
+    const accent = mat(pal.accent, F.cloth);
+    const shade = mat(pal.shade, F.cloth);
+    const hatMat = mat(pal.hat, F.cloth);
+    const chainMat = mat(pal.chain, F.iron);
+    const faceMat = mat(pal.face, F.water);
+    const waterMat = mat(pal.water, F.water, {transparent:true, opacity:0.86});
+    const rippleMat = new THREE.MeshBasicMaterial({color:VILLAGE_PALETTE.mirror.accent, transparent:true, opacity:0.22,
+                                                  side:THREE.DoubleSide, depthWrite:false});
+    const ghostMat = mat(pal.accent, F.cloth, {transparent:true, opacity:0.3, depthWrite:false});
+    const named = (m, name)=>{ m.name = name; return m; };
+    const add = (parent, geo, material, x, y, z, name)=>{
+      const m = new THREE.Mesh(geo, material);
+      m.position.set(x, y, z); m.castShadow = true;
+      if(name) m.name = name;
+      parent.add(m);
+      return m;
+    };
+    const W = 1.6;   // 水の裾が胴へつながる高さ
+    // 水の裾(足元から腰へ細くなる)と、足元の水の輪
+    add(g, makeLoft({sections:[
+      {y:W + 0.1, points:vEllipse(0.62, 0.5, 10)},
+      {y:1.0,     points:vEllipse(0.95, 0.8, 10)},
+      {y:0.45,    points:vEllipse(1.35, 1.15, 10)},
+      {y:0.04,    points:vEllipse(1.7, 1.5, 10)},
+    ]}), waterMat, 0, 0, 0, 'echoSkirt');
+    const ripple = add(g, new THREE.RingGeometry(1.75, 2.15, 24), rippleMat, 0, 0.05, 0, 'echoRipple');
+    ripple.rotation.x = -Math.PI / 2;
+    ripple.castShadow = false;
+    ripple.userData.noOutline = true;
+    // 上半身
+    const up = named(new THREE.Group(), 'echoUpper');
+    up.position.y = W;
+    g.add(up);
+    const torsoGeo = makeTrapezoidBox({topW:P.shoulderW, topD:0.85, botW:1.0, botD:0.7, height:1.35});
+    const body = add(up, torsoGeo, bodyMat, 0, P.torsoY - W, 0, 'echoTorso');
+    // 半歩ずれて重なる、もう一つの胴(別の時間の誰か)
+    const ghost = add(up, torsoGeo, ghostMat, 0.24, P.torsoY - W + 0.1, -0.2, 'echoGhost');
+    ghost.rotation.y = 0.22; ghost.scale.setScalar(1.04); ghost.castShadow = false;
+    ghost.userData.noOutline = true;
+    // 前掛け
+    add(up, new THREE.BoxGeometry(0.95, 1.1, 0.08), accent, 0, 2.0 - W, 0.42);
+    // 肩から腰へ斜めの鎖(門番の記憶)
+    const link = new THREE.TorusGeometry(0.16, 0.05, 4, 8);
+    for(let i=0;i<5;i++){
+      const k = i / 4;
+      const m = add(up, link, chainMat, -0.62 + 1.24 * k, 2.95 - 1.2 * k - W, 0.46);
+      m.rotation.set(0, i % 2 ? Math.PI / 2 : 0, -0.8);
+    }
+    // 頭: 顔は暗い水。目の光だけは今のまま(どこを向いているかの手がかり)
+    const head = add(up, new THREE.IcosahedronGeometry(0.5, 1), bodyMat, 0, 3.4 - W, 0.05, 'echoHead');
+    add(up, new THREE.BoxGeometry(0.56, 0.48, 0.08), faceMat, 0, 3.36 - W, 0.47);
+    [-0.17, 0.17].forEach(x=> add(up, eyeGeo, eyeMat, x, 3.42 - W, 0.53));
+    // 漁師のつばの広い帽子(漁師の記憶)
+    const brim = add(up, new THREE.CylinderGeometry(0.98, 1.04, 0.07, 14), hatMat, 0, 3.78 - W, -0.04);
+    brim.rotation.x = -0.12;
+    add(up, new THREE.CylinderGeometry(0.42, 0.52, 0.46, 9), hatMat, 0, 4.02 - W, -0.02);
+    // 長い腕(振りかぶり → 叩き下ろす)。右手に鉤、左手に網の束
+    const limb = (parent, x, y, len, thick, material, name)=>{
+      const pivot = named(new THREE.Group(), name);
+      pivot.position.set(x, y, 0);
+      const c = new THREE.CylinderGeometry(thick, thick * 0.85, len, 7);
+      c.translate(0, -len / 2, 0);
+      add(pivot, c, material, 0, 0, 0);
+      parent.add(pivot);
+      return pivot;
+    };
+    const armL = limb(up, -0.92, 2.9 - W, 1.0, 0.2, bodyMat, 'echoArmL');
+    const armR = limb(up,  0.92, 2.9 - W, 1.0, 0.2, bodyMat, 'echoArmR');
+    const foreL = limb(armL, 0, -1.0, 1.0, 0.17, shade, 'echoForeL');
+    const foreR = limb(armR, 0, -1.0, 1.0, 0.17, shade, 'echoForeR');
+    const hook = add(foreR, new THREE.TorusGeometry(0.3, 0.06, 5, 10, Math.PI * 1.3), chainMat, 0, -1.25, 0.1);
+    hook.rotation.set(0, Math.PI / 2, Math.PI * 0.35);
+    const net = add(foreL, new THREE.IcosahedronGeometry(0.36, 0), accent, 0, -1.25, 0);
+    net.scale.set(1, 0.8, 0.7);
+    armL.rotation.z = -0.12; armR.rotation.z = 0.12;
+    return {body, parts:Object.assign({kind:'echo'}, duskEchoPartsOf(g))};
+  }
+  function duskEchoPartsOf(root){
+    const f = n => root.getObjectByName(n) || null;
+    return {upper:f('echoUpper'), armL:f('echoArmL'), armR:f('echoArmR'), foreL:f('echoForeL'), foreR:f('echoForeR'),
+            ghost:f('echoGhost'), skirt:f('echoSkirt'), ripple:f('echoRipple'), head:f('echoHead')};
+  }
+  /* 本体と分身で共有する姿勢。k = 振りかぶりの進み具合(null = 振りかぶっていない)、
+     slam = 叩き下ろした直後の残り(1 → 0) */
+  function poseDuskEchoBody(P, t, dt, k, slam, store){
+    const kk = k == null ? 0 : k;
+    const s = Math.max(0, Math.min(1, slam || 0));
+    const rate = k != null || s > 0 ? 18 : 4;
+    const idleL = Math.sin(t * 0.9) * 0.08, idleR = Math.sin(t * 0.9 + 1.4) * 0.08;
+    const target = k != null ? -2.5 * _vEase(kk) : (s > 0 ? -0.55 * s : 0);
+    const a = vLerp(store, 'eArm', target, rate, dt);
+    if(P.armL) P.armL.rotation.set(a + (k == null && s <= 0 ? idleL : 0), 0, -0.12 - 0.3 * kk);
+    if(P.armR) P.armR.rotation.set(a + (k == null && s <= 0 ? idleR : 0), 0, 0.12 + 0.3 * kk);
+    if(P.foreL) P.foreL.rotation.x = -0.3 - 0.4 * kk;
+    if(P.foreR) P.foreR.rotation.x = -0.3 - 0.4 * kk;
+    if(P.upper) P.upper.rotation.x = vLerp(store, 'eLean', -0.22 * kk + 0.26 * s + Math.sin(t * 0.8) * 0.03, rate, dt);
+    if(P.skirt){ const w = 1 + Math.sin(t * 1.3) * 0.035; P.skirt.scale.set(w, 1, 2 - w); }
+    if(P.ripple){ P.ripple.rotation.z = t * 0.2; P.ripple.scale.setScalar(1 + ((t * 0.35) % 1) * 0.25); }
+    if(P.ghost){ P.ghost.position.x = 0.24 + Math.sin(t * 0.7) * 0.1; P.ghost.rotation.y = 0.22 + Math.sin(t * 0.5) * 0.12; }
+  }
+  // ボス本体(updateBossAnim から)。振りかぶり = 近接の輪と同じ進み具合
+  function poseDuskEchoBoss(en, P, t, dt, k){
+    const slam = (en.postAtkRecoveryT || 0) > 0 && k == null ? en.postAtkRecoveryT / POST_ATTACK_RECOVERY_SEC : 0;
+    poseDuskEchoBody(P, t, dt, en.knockedDown ? null : k, en.knockedDown ? 0 : slam, en);
+  }
+  // ボスの分身(updateMobAnim から)。分身は水鏡の影と同じ AI なので、その溜めと一撃を読む
+  function poseDuskEchoClone(en, dt){
+    en.animT = (en.animT || 0) + dt;
+    let k = null, slam = 0;
+    if(en.mirrorState === 'windup') k = 1 - Math.max(0, en.mirrorT) / Math.max(0.01, en.mirrorWindupDur || 0.01);
+    else if(en.mirrorState === 'strike') slam = Math.max(0, en.mirrorT) / MIRROR_STRIKE_SEC;
+    poseDuskEchoBody(en.echoParts, en.animT, dt, k, slam, en);
   }
 
   /* 波紋。プレイヤーが水際を歩いた時と、小舟に近づいた時に出る。

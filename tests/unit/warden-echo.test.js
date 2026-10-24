@@ -167,8 +167,9 @@ import {
   echoHasTelegraph as wHasTg, echoTelegraphProgress as wEchoProg, echoStrikes as wStrikes, stepEcho as wStep,
   PROVISIONAL_ECHO_RADIUS as W_R, PROVISIONAL_ECHO_LIFE_SEC as W_LIFE,
   PROVISIONAL_ECHO_WINDUP_SEC as W_WINDUP, PROVISIONAL_OPERATE_SEC as W_OP,
-  keeperTelegraphFor as wKeeperFor,
+  keeperTelegraphFor as wKeeperFor, BOSS_ECHO_SOURCE as W_BOSS_SRC,
 } from '../../src/core/warden-echo.js';
+import { DUSK_BOSS_ECHO_SCALE as DUSK_ECHO_SCALE, DUSK_BOSS_ECHO_RADIUS as DUSK_ECHO_RADIUS } from '../../src/core/dusk-enemies.js';
 
 test('W2-MB2 水門守の予兆', async (t) => {
   await t.test('値は今のまま: 半径 2.4・予備動作 0.55・引く 1.5・当たる割合 0.45・寿命 2.2', () => {
@@ -214,12 +215,23 @@ test('W2-MB2 水門守の予兆', async (t) => {
     }
   });
 
-  await t.test('残響: 水門守の「引いた」残響だけに出る。歩いた跡・他のボスの残響には出ない', () => {
+  /* 仕様の変更(CH1-COMP W3 / DEC-008 §3): W2-MB2 では「ボス(村の残響)の残響には出さない」を
+     固定していたが、DEC-008 で「予兆の見え方をそろえる」ためにボスの段階 3 の残響にも輪を出すことに
+     なった。ボスの残響は印 'duskEcho'(BOSS_ECHO_SOURCE)を持ち、輪の外周 = 判定の 3.6(2.4 × 1.5)。
+     印の無い残響(出した者が分からないもの)と歩いた跡には、今までどおり出さない */
+  await t.test('残響: 水門守とボスの「引いた」残響に出る。歩いた跡・印の無い残響には出ない', () => {
     const op = {source: W_SRC, kind: 'operate', harmAt: wHarmAt('operate'), life: W_LIFE, maxLife: W_LIFE};
     assert.equal(wHasTg(op), true);
     assert.equal(wHasTg({...op, kind: 'walk', harmAt: null}), false);   // 歩いた跡
-    assert.equal(wHasTg({...op, source: null}), false);                 // 村の残響のボス(印なし)
-    assert.equal(wHasTg({...op, source: 'duskEcho'}), false);
+    assert.equal(wHasTg({...op, source: null}), false);                 // 印なし
+    assert.equal(wHasTg({...op, source: 'someoneElse'}), false);        // 知らない印
+    assert.equal(W_BOSS_SRC, 'duskEcho');
+    const boss = {...op, source: W_BOSS_SRC, radius: W_R * DUSK_ECHO_SCALE};
+    assert.equal(wHasTg(boss), true);                                   // ボスの段階 3 の残響(DEC-008)
+    assert.equal(wHasTg({...boss, kind: 'walk', harmAt: null}), false);
+    assert.ok(Math.abs(boss.radius - 3.6) < 1e-9);                      // 輪の外周 = 判定の半径 3.6
+    assert.ok(Math.abs(DUSK_ECHO_RADIUS - 3.6) < 1e-9);
+    assert.equal(wEchoProg(boss), 0);                                   // 時刻は水門守の残響と同じ
     assert.equal(wHasTg(null), false);
     assert.equal(wEchoProg({...op, source: null}), null);
   });

@@ -137,3 +137,72 @@ test('部屋の問い合わせ', async (t) => {
     assert.ok(b.x1 < 400 && b.x0 > -400);
   });
 });
+
+/* CH1-COMP W3: 探索の道筋。閂の門(広場 → 商店街の表通り)と水門で、
+   直進ではボスへ届かない。回り道(住宅 → 裏通り → 商店街の東)と、水門守の撃破が要る */
+import {
+  DUSK_BARRIERS, duskCanPass, duskReachableWith, duskRoute, DUSK_SLUICE_BLOCKS, DUSK_SLUICE_Z,
+} from '../../src/core/dusk-village-map.js';
+
+test('W3 探索の道筋', async (t) => {
+  await t.test('何も開いていない時: ボスの部屋・村の奥へは届かない。水門(水門守のいる所)までは届く', () => {
+    const seen = duskReachableWith('forest', {});
+    assert.ok(!seen.has('deep'));
+    assert.ok(!seen.has('bossArea'));
+    assert.ok(seen.has('sluice'), '水門守と戦う場所へは、条件なしで行ける(閉じ込めが無い)');
+    assert.ok(seen.has('market') && seen.has('yard'));
+  });
+
+  await t.test('表通り(広場 → 商店街)は閂で通れない。商店街の側からは外して通れる', () => {
+    assert.equal(duskCanPass('plaza', 'market', {}), false);
+    assert.equal(duskCanPass('market', 'plaza', {}), true);
+    assert.equal(duskCanPass('plaza', 'market', {barGateOpen: true}), true);
+    assert.equal(duskCanPass('sluice', 'deep', {}), false);
+    assert.equal(duskCanPass('deep', 'sluice', {}), false);
+    assert.equal(duskCanPass('sluice', 'deep', {sluiceOpen: true}), true);
+  });
+
+  await t.test('最短の道は裏通りを通り、水門を経てボスへ', () => {
+    const route = duskRoute('forest', 'bossArea', {sluiceOpen: true});
+    assert.deepEqual(route, ['forest', 'bridge', 'gate', 'plaza', 'homeCor', 'homes', 'alley', 'alleyCor',
+      'market', 'yard', 'sluice', 'deep', 'bossArea']);
+    assert.equal(duskRoute('forest', 'bossArea', {}), null);
+    // 閂を外した後(近道)は表通りが最短になる
+    const back = duskRoute('forest', 'bossArea', {sluiceOpen: true, barGateOpen: true});
+    assert.ok(back.includes('market') && !back.includes('alley'));
+  });
+
+  await t.test('行き止まりの部屋: 寄り道の魚屋・船小屋・見張り小屋(水門前の西)と、森(出撃地点)・水鏡の跡(ボス)', () => {
+    const deadEnds = DUSK_ROOMS.filter(r => !r.cor && duskNeighbors(r).length === 1).map(r => r.id).sort();
+    assert.deepEqual(deadEnds, ['boat', 'bossArea', 'fish', 'forest', 'lookout']);
+    assert.ok(duskNeighbors(duskRoomById('yard')).includes('lookout'));
+  });
+
+  await t.test('門は表の開口の上にある(閂 = 広場の北、水門 = 水門の部屋の中)', () => {
+    const plaza = duskRoomById('plaza');
+    assert.ok(plaza.gaps.N, '広場の北の口は表に残っている(閂の門で塞ぐだけ)');
+    DUSK_BARRIERS.forEach(b => {
+      assert.ok(duskRoomById(b.a) && duskRoomById(b.b), b.id);
+      assert.ok(duskNeighbors(duskRoomById(b.a)).includes(b.b), `${b.id} は隣り合う部屋の間`);
+    });
+  });
+
+  await t.test('水門の門・柱・石垣が水門の部屋の幅を隙間なく塞ぐ', () => {
+    const sluice = duskRoomById('sluice');
+    const spans = DUSK_SLUICE_BLOCKS.map(b => [b.x0, b.x1]).sort((a, b) => a[0] - b[0]);
+    assert.equal(spans[0][0], sluice.x0);
+    assert.equal(spans[spans.length - 1][1], sluice.x1);
+    for (let i = 1; i < spans.length; i++) {
+      assert.ok(spans[i][0] <= spans[i - 1][1] + 1e-9, `隙間: ${spans[i - 1][1]} 〜 ${spans[i][0]}`);
+    }
+    // プレイヤーの半径(0.4)より厚い
+    assert.ok(DUSK_SLUICE_Z.gateZ1 - DUSK_SLUICE_Z.gateZ0 > 0.4 * 2 - 1e-9);
+    assert.ok(DUSK_SLUICE_Z.z0 < 450 && DUSK_SLUICE_Z.z1 > 450);
+  });
+
+  await t.test('新しい区画の位置', () => {
+    assert.equal(duskRoomAt(45, 380).id, 'alley');
+    assert.equal(duskRoomAt(30, 387).id, 'alleyCor');
+    assert.equal(duskRoomAt(-40, 420).id, 'lookout');
+  });
+});

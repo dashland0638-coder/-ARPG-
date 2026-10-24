@@ -30,9 +30,16 @@ export const DUSK_ROOMS = [
   {id:'boatCor', x0:-32, x1:-28, z0:322, z1:344, cor:true,  gaps:{N:'full', S:'full'},                           name:'船着き場への小道'},
   {id:'boat',    x0:-52, x1:-28, z0:300, z1:322, cor:false, gaps:{N:[-32,-28]},                                  name:'船小屋'},
   {id:'homeCor', x0:26,  x1:34,  z0:344, z1:352, cor:true,  gaps:{E:'full', W:'full'},                           name:'住宅への小道'},
-  {id:'homes',   x0:34,  x1:56,  z0:336, z1:360, cor:false, gaps:{W:[344,352]},                                  name:'住宅'},
-  {id:'market',  x0:-20, x1:20,  z0:370, z1:402, cor:false, gaps:{S:[-5,5], N:[-4,4]},                           name:'商店街'},
-  {id:'yard',    x0:-30, x1:30,  z0:402, z1:438, cor:false, gaps:{S:[-4,4], N:[-6,6]},                           name:'水門前'},
+  {id:'homes',   x0:34,  x1:56,  z0:336, z1:360, cor:false, gaps:{W:[344,352], N:[42,48]},                       name:'住宅'},
+  /* 東の裏通り(CH1-COMP W3)。広場から商店街への表通りは閂の門で閉ざされている
+     (DUSK_BARRIERS)ので、住宅の北から裏へ回り、商店街の東の口へ入る。北の端は
+     行き止まりの小さな物置場(宝箱と目印) */
+  {id:'alley',   x0:38,  x1:52,  z0:360, z1:398, cor:false, gaps:{S:[42,48], W:[384,390]},                      name:'裏通り'},
+  {id:'alleyCor',x0:20,  x1:38,  z0:384, z1:390, cor:true,  gaps:{E:'full', W:'full'},                           name:'裏通りの小道'},
+  {id:'market',  x0:-20, x1:20,  z0:370, z1:402, cor:false, gaps:{S:[-5,5], N:[-4,4], E:[384,390]},              name:'商店街'},
+  {id:'yard',    x0:-30, x1:30,  z0:402, z1:438, cor:false, gaps:{S:[-4,4], N:[-6,6], W:[416,424]},              name:'水門前'},
+  // 水門前の西の行き止まり(CH1-COMP W3)。見回りの見張り小屋。寄り道の宝箱と手記
+  {id:'lookout', x0:-46, x1:-30, z0:412, z1:428, cor:false, gaps:{E:[416,424]},                                  name:'見張り小屋'},
   {id:'sluice',  x0:-12, x1:12,  z0:438, z1:462, cor:false, gaps:{S:[-6,6], N:[-5,5]},                           name:'水門'},
   {id:'deep',    x0:-26, x1:26,  z0:462, z1:500, cor:false, gaps:{S:[-5,5], N:[-3,3]},                           name:'村の奥'},
   {id:'bossArea',x0:-18, x1:18,  z0:500, z1:534, cor:false, gaps:{S:[-3,3]},                                     name:'水鏡の跡'},
@@ -111,3 +118,84 @@ export function duskBounds(pad){
   });
   return {x0:x0-p, x1:x1+p, z0:z0-p, z1:z1+p};
 }
+
+/* =========================================================
+   通行の条件(CH1-COMP W3)
+
+   部屋の表は「床と開口」だけを持つ。開口の上に置いた門で通れない所を、ここに並べる。
+   ・閂の門: 広場 → 商店街の表通り(広場の北の口)。閂は商店街の側から掛けられていて、
+     南(広場)からは開かない。北(商店街)側に回り込めば外せ、以後は近道になる
+   ・水門: 水門の門扉は部屋の中ほど(z 450)にあり、門と柱と両脇の石垣で部屋の幅を
+     塞ぐ(DUSK_SLUICE_BLOCKS)。水門守の残響を倒すと上がる(DEC-001)。表の上では
+     「水門 → 村の奥」の行き来として扱う
+   flags: {barGateOpen, sluiceOpen} */
+export const DUSK_BARRIERS = [
+  {id:'barGate',    a:'plaza',  b:'market', flag:'barGateOpen', opensFrom:'market', name:'閂の門'},
+  {id:'sluiceGate', a:'sluice', b:'deep',   flag:'sluiceOpen',  opensFrom:null,     name:'水門'},
+];
+
+function barrierBetween(a, b){
+  for(const br of DUSK_BARRIERS){
+    if((br.a === a && br.b === b) || (br.a === b && br.b === a)) return br;
+  }
+  return null;
+}
+
+/* a → b へ進めるか。閂のように片側から外せる門は、外せる側からは常に通れる
+   (外して通る)。それ以外は flag が立っている時だけ */
+export function duskCanPass(a, b, flags){
+  const br = barrierBetween(a, b);
+  if(!br) return true;
+  if(flags && flags[br.flag]) return true;
+  return br.opensFrom === a;
+}
+
+/* 条件つきで辿り着ける部屋id */
+export function duskReachableWith(startId, flags){
+  const seen = new Set([startId]);
+  const queue = [startId];
+  while(queue.length){
+    const id = queue.shift();
+    const r = duskRoomById(id);
+    if(!r) continue;
+    for(const n of duskNeighbors(r)){
+      if(seen.has(n) || !duskCanPass(id, n, flags)) continue;
+      seen.add(n);
+      queue.push(n);
+    }
+  }
+  return seen;
+}
+
+/* 部屋の数でいちばん短い道(部屋idの列)。届かなければ null */
+export function duskRoute(startId, goalId, flags){
+  const prev = new Map([[startId, null]]);
+  const queue = [startId];
+  while(queue.length){
+    const id = queue.shift();
+    if(id === goalId) break;
+    const r = duskRoomById(id);
+    if(!r) continue;
+    for(const n of duskNeighbors(r)){
+      if(prev.has(n) || !duskCanPass(id, n, flags)) continue;
+      prev.set(n, id);
+      queue.push(n);
+    }
+  }
+  if(!prev.has(goalId)) return null;
+  const path = [];
+  for(let id = goalId; id != null; id = prev.get(id)) path.unshift(id);
+  return path;
+}
+
+/* 水門の部屋を横切って塞ぐもの(z 448.9〜451.1)。門扉(水門守を倒すと上がる)・
+   門柱・両脇の石垣。x の範囲をつなげると水門の部屋の幅(柵の内側)を隙間なく覆う。
+   14-dungeon-duskvillage.js の水門がこの値で建てる */
+export const DUSK_SLUICE_Z = {z0: 448.9, z1: 451.1, gateZ0: 449.6, gateZ1: 450.4};
+export const DUSK_SLUICE_BLOCKS = [
+  {id:'wallW',   x0:-12,  x1:-7.6},
+  {id:'pillarW', x0:-7.6, x1:-5.4},
+  {id:'gate',    x0:-5.5, x1:5.5},
+  {id:'pillarE', x0:5.4,  x1:7.6},
+  {id:'wallE',   x0:7.6,  x1:12},
+];

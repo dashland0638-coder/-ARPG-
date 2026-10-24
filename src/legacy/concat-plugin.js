@@ -58,7 +58,7 @@ import { clipFracAt, impactFrac, swingSfxDelay } from '../core/swing-timing.js';
 import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/soft-lock.js';
 import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
-import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor } from '../core/dusk-village-map.js';
+import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor, DUSK_SLUICE_Z, DUSK_SLUICE_BLOCKS } from '../core/dusk-village-map.js';
 import { planCutsceneTiming, cutsceneStepDelta } from '../core/cutscene-timing.js';
 import { duskBandPosAtZ, duskLight, advanceDuskTarget, stepDuskBandPos } from '../core/dusk-light.js';
 import {
@@ -122,14 +122,25 @@ import {
   defersResultScreen,
   PHASE_2_HP as VILLAGE_PHASE_2_HP, PHASE_3_HP as VILLAGE_PHASE_3_HP,
 } from '../core/village-echo.js';
+/* テストモードのボスの分身の確認(PR #100 の実機確認用。テストモードの間だけ効く) */
+import { guestMayFight, phase3TestHp, bossDamageHeld } from '../core/test-boss-check.js';
 import {
   phaseFor as wardenPhaseFor, echoCountFor, echoDelay, recordAction,
   dueEchoes, pruneRecords, stepEcho, echoStrikes, actorTell,
   PROVISIONAL_ECHO_LIFE_SEC, PROVISIONAL_ECHO_RADIUS, PROVISIONAL_ECHO_WINDUP_SEC,
   PROVISIONAL_OPERATE_SEC, PROVISIONAL_MOVE_SEC,
   KEEPER_STRIKE_FRAC, KEEPER_ECHO_SOURCE, echoHarmAt, keeperTelegraphProgress, keeperTelegraphFor,
-  echoHasTelegraph, echoTelegraphProgress,
+  echoHasTelegraph, echoTelegraphProgress, BOSS_ECHO_SOURCE,
 } from '../core/warden-echo.js';
+/* 宵待ちの村の敵の見た目(CH1-COMP W3-E)。配色・体つき・足元の輪の半径(= 判定の半径)・姿勢 */
+import {
+  VILLAGE_PALETTE, VILLAGE_FINISH, VILLAGE_PROPORTIONS, FOAM_CLUSTER, FOAM_SCALE, WARDEN_SCALE,
+  foamHitRadius, villageHitRadius, MIRROR_STRIKE_RADIUS, MIRROR_STRIKE_SEC, FOAM_CONTACT_RADIUS, bossMeleeHitRadius,
+  DUSK_BOSS_ECHO_SCALE, RING_COLORS, RING_STYLE, ECHO_FIGURE_COLOR, ECHO_OPACITY,
+  mirrorRingProgress, foamRingVisible, bossMeleeRingProgress,
+  mirrorPose, keeperPose, echoPose, copyMimicProgress,
+  BOSS_CLONE_TELL, bossCloneHitRadius,
+} from '../core/dusk-enemies.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

@@ -1660,6 +1660,7 @@
     // 本編の支援AIは chapter1GuestKey() が決めるが(WORK 10)、
     // テストモードは進行から独立した構成なので、ここでは選択を優先する
     state.guestClassKey = (guestKey && CLASSES[guestKey]) ? guestKey : null;
+    resetTestBossCheck();   // ボスの分身の確認(支援AIの休止・段階 3)は入るたびに戻す(14-training-ground.js)
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;

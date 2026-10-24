@@ -74,6 +74,72 @@
   let arenaPanelOpen = false;
   let arenaDebugInfoOn = false;
 
+  /* ボスの分身の確認(PR #100、core/test-boss-check.js)。テストモードの間だけ効く。
+     セーブには書かない(テストモードはセーブしない)。テストモードへ入るたびに戻す */
+  let testGuestPaused = false;
+  let testHoldBoss = null;   // 「段階 3 へ」を押したボス。押した後に分身が 1 体出るまでダメージを止める
+  function resetTestBossCheck(){
+    testGuestPaused = false;
+    testHoldBoss = null;
+    const b = document.getElementById('arena-guest-pause-btn');
+    if(b) b.textContent = '🤝 支援AI: 戦う';
+  }
+  function toggleTestGuestPause(){
+    testGuestPaused = !testGuestPaused;
+    document.getElementById('arena-guest-pause-btn').textContent = `🤝 支援AI: ${testGuestPaused ? '休止' : '戦う'}`;
+    if(testGuestPaused && guestCompanion) guestCompanion.target = null;
+    emitArenaFeedback('TEST', `GUEST ${testGuestPaused ? 'PAUSED' : 'FIGHTING'}`);
+  }
+  function testBossClonesAlive(boss){
+    let n = 0;
+    enemies.forEach(e=>{ if(e && !e.dead && e.mirrorCloneOf === boss) n++; });
+    return n;
+  }
+  /* 止めを外す。分身が 1 体でも出た時点で外す(毎フレーム updateTestBossHold から)。ボスが倒れた・
+     いなくなった時も外す。「分身を先に散らすと、次の分身まで止めが戻る」ことが無いように、
+     ボスへ当たった時ではなく分身が出た時点で外す */
+  function updateTestBossHold(){
+    if(!testHoldBoss) return;
+    if(!state.testMode || testHoldBoss.dead || enemies.indexOf(testHoldBoss) < 0){ testHoldBoss = null; return; }
+    if(testBossClonesAlive(testHoldBoss) > 0){
+      testHoldBoss = null;
+      emitArenaFeedback('TEST', 'CLONE OUT — ボスへの攻撃が通る');
+    }
+  }
+  /* dealDamageToEnemy から: いまこの敵へのダメージを止めるか */
+  let testHeldNoteT = 0;
+  function testBossHoldsDamage(en){
+    if(!state.testMode || !testHoldBoss) return false;
+    updateTestBossHold();
+    const held = bossDamageHeld({testMode: state.testMode, holdBoss: testHoldBoss, target: en,
+                                 clonesAlive: testHoldBoss ? testBossClonesAlive(testHoldBoss) : 0});
+    // 止めている間の一撃には記録を出す(何も起きないと壊れたように見えるため。2 秒に 1 回まで)
+    if(held && performance.now() - testHeldNoteT > 2000){
+      testHeldNoteT = performance.now();
+      emitArenaFeedback('TEST', 'HELD — 分身が出るまでボスへの攻撃は通らない');
+    }
+    return held;
+  }
+  /* 「段階 3 へ」。村の残響のボス戦が始まっている時だけ。HP を境目まで下げるだけで、
+     段階の移り変わりは本編と同じ処理(updateBossAI の HP の比・stepDuskEchoLayer)が行う */
+  function testDuskPhase3(){
+    const boss = enemies.find(e=> e && !e.dead && e.isBoss && e.key === 'duskEcho');
+    if(!boss || !boss.triggered){
+      spawnLog('🛠 村の残響のボス戦が始まってから押してください');
+      return;
+    }
+    boss.hp = phase3TestHp(boss.hp, boss.hpMax, VILLAGE_PHASE_3_HP);
+    /* 段階 1・2 の分身が残っていると、段階 3 の分身(上限 1)が出ず、止めもすぐ外れてしまう。
+       押した時にいた分身は散らしておく(散る演出は通常と同じ)。段階 3 の分身は本編と同じ呼び出しで出る */
+    const oldClones = enemies.filter(e=> e && !e.dead && e.mirrorCloneOf === boss);
+    oldClones.forEach(c=> dispelMirrorClone(c));
+    testHoldBoss = boss;
+    if(!testGuestPaused) toggleTestGuestPause();
+    emitArenaFeedback('TEST', `PHASE 3 — HP ${Math.round(boss.hp)} / ${boss.hpMax}。分身が出るまでボスへの攻撃は通らない` +
+      (oldClones.length ? `(段階 1・2 の分身 ${oldClones.length} 体を散らした)` : ''));
+    spawnLog('🛠 段階3へ。分身が出るまでボスへの攻撃は通りません(支援AIは休止)');
+  }
+
   function buildArenaUiOnce(){
     const wrap = document.getElementById('arena-roster');
     Object.keys(ARENA_ROSTER).forEach(kind=>{
@@ -90,6 +156,8 @@
     // スキル入れ替え/スフィア盤(Phase K)。中身は既存の鑑定所画面
     // そのままで、テストモードでは場所の制限だけが外れている
     document.getElementById('arena-loadout-btn').addEventListener('click', ()=> toggleAppraisal());
+    document.getElementById('arena-guest-pause-btn').addEventListener('click', toggleTestGuestPause);
+    document.getElementById('arena-dusk-phase3-btn').addEventListener('click', testDuskPhase3);
     document.getElementById('arena-preview-result-ch1-btn').addEventListener('click', ()=> previewResultScreen(false));
     document.getElementById('arena-preview-result-test-btn').addEventListener('click', ()=> previewResultScreen(true));
     document.getElementById('arena-preview-down-btn').addEventListener('click', previewDownScreen);
@@ -296,6 +364,56 @@
       ` / walk rings ${walkRings}${shown.length ? ' shown/hit ' + shown.join(' ') : ''}<br>`;
   }
 
+  /* 村の敵の足元の輪(CH1-COMP W3-E)。水鏡の影・分身・ボスの分身 / 泡沫 / 村の残響(ボス)の近接の、
+     見えている輪の半径と判定の半径・中心のずれを並べる。ボスは段階 3 の残響の輪(印 duskEcho)も。
+     E2E が「見えている輪 = 当たる範囲」を確かめる口(テストモードの Debug Info だけ)。判定や表示には何も書かない */
+  function villageTelegraphInfo(en){
+    let label, hit;
+    if(en.atkType === 'mirror'){ label = 'Mirror Ring'; hit = MIRROR_STRIKE_RADIUS; }
+    else if(en.atkType === 'foam'){ label = 'Foam Ring'; hit = FOAM_CONTACT_RADIUS; }
+    else if(en.isBoss && en.key === 'duskEcho'){ label = 'Boss Ring'; hit = bossMeleeHitRadius(en.atkReach); }
+    else return '';
+    const ringRadius = g => {
+      const ring = g.userData.ring;
+      return ring.geometry.parameters.outerRadius * ring.scale.x * g.scale.x;
+    };
+    const g = en.meleeTelegraphMesh;
+    let v = 'OFF';
+    if(g && g.visible){
+      const off = Math.hypot(g.position.x - en.group.position.x, g.position.z - en.group.position.z);
+      v = `ON shown ${ringRadius(g).toFixed(2)} / hit ${hit.toFixed(2)} center ${off.toFixed(2)}` +
+          (g.userData.fill.visible ? ` fill ${g.userData.fill.scale.x.toFixed(2)}` : ' nofill');
+    }
+    const dist = Math.hypot(state.pos.x - en.group.position.x, state.pos.z - en.group.position.z);
+    let echo = '';
+    if(label === 'Boss Ring'){
+      const mine = keeperEchoes.filter(e => e.source === BOSS_ECHO_SOURCE);
+      const rings = mine.filter(e => e.telegraph && e.telegraph.visible);
+      echo = `Boss Echo Rings: ${rings.length} on / ${mine.length}` +
+        `${rings.length ? ' shown/hit ' + rings.map(e => `${ringRadius(e.telegraph).toFixed(2)}/${e.radius.toFixed(2)}`).join(' ') : ''}<br>`;
+    }
+    /* ボスと分身の見分けの手がかり(CH1-COMP W3 AD-2)。当たりの半径・影・足元の水の輪・灯り */
+    let tell = '';
+    const bossOf = en.isBoss && en.key === 'duskEcho' ? en : (en.mirrorCloneOf && en.mirrorCloneOf.isBoss ? en.mirrorCloneOf : null);
+    const tellOf = e => {
+      let shadow = false, light = false;
+      e.group.traverse(o=>{ if(o.isMesh && o.castShadow) shadow = true; if(o.isLight) light = true; });
+      const ring = e.group.getObjectByName('echoRipple');
+      return `${e === bossOf ? 'real' : 'clone'} hit ${(e.hitRadius || 0).toFixed(2)}` +
+        ` shadow ${shadow ? 'on' : 'off'} ring ${ring && ring.visible ? 'on' : 'off'} light ${light ? 'on' : 'off'}`;
+    };
+    if(bossOf){
+      tell = `Echo Tell: ${tellOf(en)}<br>`;
+      // ボスの行には、場にいる分身もすべて並べる(いちばん近いのがボスでも分身の様子が読めるように)
+      if(en === bossOf){
+        const cl = enemies.filter(e => e && !e.dead && e.mirrorCloneOf === bossOf);
+        tell += `Echo Clones: ${cl.length}${cl.length ? ' | ' + cl.map(tellOf).join(' | ') : ''}<br>`;
+      }
+    }
+    return `${label}: ${v}<br>` + tell + `Village Kind: ${en.mob && en.mob.villageKind ? en.mob.villageKind : (en.mirrorCloneOf ? 'clone' : (en.parts ? en.parts.kind : '-'))}<br>` +
+      `Player Dist: ${dist.toFixed(2)}<br>` + echo;
+  }
+
   // 敵情報パネル(#11): 最も近い敵のHP/体幹/AI状態/旋回速度/向き/
   // パニッシュ状態。ON/OFFできる(常時表示ではない)
   function updateArenaEnemyInfo(){
@@ -408,6 +526,7 @@
         : 'OFF'}<br>` : ''}` +
       `${en.atkType==='fisher' ? fisherTelegraphInfo(en) : ''}` +
       `${en.atkType==='keeper' ? keeperTelegraphInfo(en) : ''}` +
+      villageTelegraphInfo(en) +
       /* 床に出ている円の予兆(漁師・水門守・残響の共通の部品)の数。Clear・撃破の後に残っていないかを見る口 */
       `Ground Rings: ${scene.children.filter(c => c.userData && c.userData.groundTelegraph && c.visible).length}<br>` +
       `Turn Rate: ${resolveTurnRate(en).toFixed(2)} rad/s<br>` +
@@ -434,6 +553,7 @@
       arenaPanelOpen = false;
       // テストモードを出た(タイトルへ戻った)時は、確認用の画面の記録も捨てる
       if(uiPreview){ document.getElementById(uiPreview.overlayId).classList.remove('active'); uiPreview = null; }
+      if(testGuestPaused || testHoldBoss) resetTestBossCheck();   // ボスの分身の確認の設定も戻す
       // フラグも一緒に畳む。ここでdisplayだけ落としてarenaDebugInfoOnを
       // trueのまま残すと、次にテストモードへ入った時にボタンの表示が
       // 「ON」なのにパネルが出ない状態になる
@@ -443,5 +563,6 @@
       }
       return;
     }
+    updateTestBossHold();
     if(arenaDebugInfoOn) updateArenaEnemyInfo();
   }
