@@ -17,11 +17,22 @@
 
    state・THREE・scene に依存しない(ARCHITECTURE.md の core/ の作法)。 */
 
+/* テストモードのルール(TEST-MODE-CURRENT-001)。
+     current … 現行の第一章の本編と同じ(既定)。強さはクラスの基礎値＋装備、経験値・ドロップ・
+               転身・スフィア盤は無い。物語の差し替えも本編どおり
+     legacy  … 旧ハクスラ系(第二章以降の基盤)を動かす。レベル指定・転身・スフィア盤・装備の試用など
+   テストモードの開始画面で選ぶ。セーブには書かない(テストモードはセーブしない)。 */
+export const TEST_RULES = Object.freeze({CURRENT: 'current', LEGACY: 'legacy'});
+
+export function normalizeTestRules(v){
+  return v === TEST_RULES.LEGACY ? TEST_RULES.LEGACY : TEST_RULES.CURRENT;
+}
+
 /* 旧ハクスラ系(レベル・経験値・装備ドロップ・転身・パッシブ・スフィア・強化)が
-   動いてよいか。本編(Chapter 1)では動かさない。テストモードは開発用なので
-   従来どおり(レベル指定・装備の試用などのデバッグに使う)。 */
-export function legacyGrowthEnabled(testMode){
-  return !!testMode;
+   動いてよいか。本編(Chapter 1)では動かさない。テストモードでも、開始画面で
+   「旧成長システム」を選んだ時だけ動かす(既定は本編と同じ。TEST-MODE-CURRENT-001)。 */
+export function legacyGrowthEnabled(testMode, testRules){
+  return !!testMode && normalizeTestRules(testRules) === TEST_RULES.LEGACY;
 }
 
 /* ---- 酒場の施設(鍛冶士の鑑定所: 装備・スキル・商店) ----
@@ -35,7 +46,7 @@ export function legacyGrowthEnabled(testMode){
      使える … 装備する・外す・性能を見る・不要な装備を売る・スキルの習得状況と説明を見る
      無い   … 鑑定・強化・鍛造・クラフト・ステータス配分・スフィア盤・パッシブ・スキル3・
               Skill 1 / Skill 2 の付け替え・ショップでの購入(HD-3)
-   無いものは第一章後(Chapter 2)の仕組みで、いまはテストモードからだけ動く。
+   無いものは第一章後(Chapter 2)の仕組みで、いまはテストモードの「旧成長システム」からだけ動く。
    画面側の切り分けは 12-progression-ui.js(LEGACY_AP_TABS ほか)が legacyGrowth() で行う。 */
 export function smithFacilityAvailable(progress){
   progress = progress || {};
@@ -46,7 +57,7 @@ export function smithFacilityAvailable(progress){
    武器種はクラスごとに決まっている(Chapter 1):
      剣士 = 大剣 / 盗賊 = 双剣 / 魔法使い = 杖 / 弓師 = 小弓
    サブ武器(槍・刀・魔法の剣・ボウガン)と上位職の武器は Chapter 1 では
-   使わない ―― allowAlt はテストモード用。
+   使わない ―― allowAlt はテストモードの旧成長システム用。
 
    kitKey は戦闘の骨格のクラス(影の旅人なら借りている warrior)。
    weaponTypes は WEAPON_TYPES({cls: {native:{key}, alt:{key}}})。

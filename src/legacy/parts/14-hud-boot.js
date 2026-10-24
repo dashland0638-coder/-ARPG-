@@ -1613,7 +1613,12 @@
   //
   // scenarioKey(Scenario Test Mode / WORK 1): 指定するとトレーニング空間へ
   // 入った直後にそのシナリオへ出撃する。本編のChapter進行は再現しない
-  function beginTestMode(classKey, jobKey, level, guestKey, scenarioKey, waypointId){
+  function beginTestMode(classKey, jobKey, level, guestKey, scenarioKey, waypointId, testRules){
+    /* ルール(TEST-MODE-CURRENT-001): 既定は本編の第一章と同じ。旧成長系(レベル・転身・スフィア盤・
+       ドロップ)は 'legacy' を選んだ時だけ動く(legacyGrowth())。セーブには書かない。
+       recomputeStats より前に決める(ステータスの計算がこれを見る) */
+    state.testRules = normalizeTestRules(testRules);
+    state.testStatScale = 1;   // テスト用の強さ(Arena の 💪)。入るたびに本編どおり ×1 へ戻す
     selectedClass = classKey;
     selectedGender = 'male';
     selectedPersonality = 'brave';
@@ -1660,7 +1665,7 @@
     // 本編の支援AIは chapter1GuestKey() が決めるが(WORK 10)、
     // テストモードは進行から独立した構成なので、ここでは選択を優先する
     state.guestClassKey = (guestKey && CLASSES[guestKey]) ? guestKey : null;
-    resetTestBossCheck();   // ボスの分身の確認(支援AIの休止・段階 3)は入るたびに戻す(14-training-ground.js)
+    resetTestDebugState();   // デバッグ操作(支援AIの休止・ボスの段階・ボタンの表記)は入るたびに戻す(14-training-ground.js)
     state.skillAnim = null; state.attackLunge = null; state.moveClip = null; state.pendingSwing = null; state.pendingMoveSfx = null; state.berserkerLock = null;
     state.executeT = 0; state.executeTarget = null; state.pendingExecution = null;   // 処刑の保留(Phase 4)
     state.skillChoice = 'retreat'; state.skillCharging = false; state.skillChargeT = 0;

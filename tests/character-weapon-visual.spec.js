@@ -79,6 +79,8 @@ test.describe('武器・上位職の装飾の輪郭線(CHARACTER-VIS-001 T-7)', 
       const errors = watchErrors(page);
       await openGame(page);
       await page.click('#open-testmode-btn');
+      // 転身・レベル・旧既定の Lv 50 を使うテスト: 旧成長システムのルールを選ぶ(TEST-MODE-CURRENT-001)
+      await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
       await page.click(`.class-card[data-key="${j.key}"]`);
       await page.waitForFunction(() =>
         document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);

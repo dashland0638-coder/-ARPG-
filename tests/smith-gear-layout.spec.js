@@ -237,6 +237,8 @@ test.describe('UI-002-J 背の低い画面の見出し＋タブの 1 行(テス�
     const errors = watchErrors(page);
     await openGame(page);
     await page.click('#open-testmode-btn');
+    // 旧既定(旧成長システム・Lv 50)の強さ・画面を使うテスト(TEST-MODE-CURRENT-001)
+    await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
     await page.click('#testmode-class-grid .class-card[data-key="mage"]');
     await page.click('#testmode-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);

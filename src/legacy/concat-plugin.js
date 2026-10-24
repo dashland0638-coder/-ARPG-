@@ -105,7 +105,7 @@ import {
   offeredScenarios, resolveCast, castAfterMeeting, shouldSwitchCast, isForwardSwitch,
 } from '../core/chapter1-progress.js';
 import {
-  legacyGrowthEnabled, weaponUsableBy, defaultSkill1For, hudLabel, joinSceneReady, smithFacilityAvailable,
+  legacyGrowthEnabled, TEST_RULES, normalizeTestRules, weaponUsableBy, defaultSkill1For, hudLabel, joinSceneReady, smithFacilityAvailable,
 } from '../core/chapter1-rules.js';
 // 帰還と交代の一幕(CH1-EXP X-5)
 import { retiredCastKeys } from '../core/chapter1-rules.js';
@@ -123,7 +123,9 @@ import {
   PHASE_2_HP as VILLAGE_PHASE_2_HP, PHASE_3_HP as VILLAGE_PHASE_3_HP,
 } from '../core/village-echo.js';
 /* テストモードのボスの分身の確認(PR #100 の実機確認用。テストモードの間だけ効く) */
-import { guestMayFight, phase3TestHp, bossDamageHeld } from '../core/test-boss-check.js';
+import { guestMayFight, phase3TestHp, bossDamageHeld, nextBossPhaseTarget } from '../core/test-boss-check.js';
+/* テストモードのデバッグ用の強さ(TEST-MODE-CURRENT-001。テストモードの間だけ効く) */
+import { applyTestStatScale, nextTestStatScale, normalizeTestStatScale, testStatScaleLabel } from '../core/test-debug.js';
 import {
   phaseFor as wardenPhaseFor, echoCountFor, echoDelay, recordAction,
   dueEchoes, pruneRecords, stepEcho, echoStrikes, actorTell,

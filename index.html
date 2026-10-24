@@ -54,15 +54,24 @@
   <div class="cc-frame">
     <div class="cc-eyebrow">Test Mode</div>
     <h1 class="cc-title display">テストモード</h1>
-    <p class="cc-sub">職業・転身・レベルを直接指定して、カカシのあるトレーニング空間へ入ります。シナリオを選ぶと、そのダンジョンへ直接出撃します。既存のセーブは一切変更されません。</p>
+    <p class="cc-sub">開発用の検証環境です。既定は本編の第一章と同じルールで、カカシのあるトレーニング空間か、選んだシナリオへ直接入ります。既存のセーブは一切変更されません。デバッグの操作は入った後の「⚔️ Arena」にまとめてあります。</p>
+
+    <!-- ルール(TEST-MODE-CURRENT-001)。既定は本編の第一章と同じ。旧成長システムは第二章以降の基盤の検証用 -->
+    <div class="cc-section-label">ルール</div>
+    <div class="testmode-job-grid" id="testmode-rules-grid">
+      <div class="testmode-job-card selected" data-test-rules="current">📖 第一章(本編と同じ)</div>
+      <div class="testmode-job-card" data-test-rules="legacy">🧪 旧成長システム(レベル・転身・スフィア盤。本編の第一章には無い)</div>
+    </div>
 
     <div class="cc-section-label">職業</div>
     <div class="class-grid" id="testmode-class-grid"></div>
 
-    <div class="cc-section-label">転身</div>
-    <div class="testmode-job-grid" id="testmode-job-grid"></div>
+    <div class="testmode-legacy-only" id="testmode-job-section" hidden>
+      <div class="cc-section-label">転身(旧成長システムだけ)</div>
+      <div class="testmode-job-grid" id="testmode-job-grid"></div>
+    </div>
 
-    <div class="cc-section-label">同行ゲスト(2部制#41のパーティメンバーAI検証用)</div>
+    <div class="cc-section-label">支援AI(同行する仲間)</div>
     <div class="testmode-job-grid" id="testmode-guest-grid"></div>
 
     <div class="cc-section-label">チャプター</div>
@@ -74,10 +83,12 @@
     <div class="cc-section-label">開始地点(シナリオを選ぶと出ます。出ていない地点からは始められません)</div>
     <div class="testmode-job-grid" id="testmode-waypoint-grid"></div>
 
-    <div class="cc-section-label">デバッグ用レベル(本編の Chapter 1 にはレベルは無い)</div>
-    <div class="testmode-level-row">
-      <input type="range" id="testmode-level" min="1" max="99" value="50" />
-      <span id="testmode-level-val">50</span>
+    <div class="testmode-legacy-only" id="testmode-level-section" hidden>
+      <div class="cc-section-label">レベル(旧成長システムだけ。本編の第一章にはレベルは無い)</div>
+      <div class="testmode-level-row">
+        <input type="range" id="testmode-level" min="1" max="99" value="50" />
+        <span id="testmode-level-val">50</span>
+      </div>
     </div>
 
     <!-- 開始・戻るは画面の下に留める(iPhone の横画面でも、選んだ後にスクロールし直さずに押せる) -->
@@ -115,11 +126,12 @@
     <div id="arena-toggle-btn" class="arena-toggle-btn">⚔️ Arena</div>
     <div id="arena-panel" class="arena-panel">
       <div class="arena-panel-title">Combat Test Arena</div>
-      <!-- ボスの分身の確認(PR #100。テストモードだけ。支援AIの休止・村の残響を段階 3 へ)。
+      <!-- 戦闘のデバッグ操作(テストモードだけ。TEST-MODE-CURRENT-001 / PR #100)。
            iPhone 横画面(高さ 390)でもスクロールせずに押せるよう、パネルの先頭に置く -->
       <div class="arena-panel-row">
         <button type="button" id="arena-guest-pause-btn">🤝 支援AI: 戦う</button>
-        <button type="button" id="arena-dusk-phase3-btn">🌊 村の残響を段階3へ</button>
+        <button type="button" id="arena-boss-phase-btn">⏭ ボスを次の段階へ</button>
+        <button type="button" id="arena-strength-btn">💪 強さ ×1(本編)</button>
       </div>
       <div class="arena-roster" id="arena-roster"></div>
       <div class="arena-panel-row">
@@ -127,12 +139,12 @@
         <button type="button" id="arena-info-toggle-btn">🔍 Debug Info: OFF</button>
       </div>
       <div class="arena-panel-row">
-        <button type="button" id="arena-loadout-btn">🎛 スキル / スフィア盤</button>
+        <button type="button" id="arena-loadout-btn">🎛 装備・スキル</button>
       </div>
       <!-- UI-002-H H-D6: 結果画面・戦闘不能画面の表示確認(テストモードだけ。状態は変えない) -->
       <div class="arena-panel-row" id="arena-ui-preview-row">
         <button type="button" id="arena-preview-result-ch1-btn">🖼 結果(本編)</button>
-        <button type="button" id="arena-preview-result-test-btn">🖼 結果(テスト)</button>
+        <button type="button" id="arena-preview-result-test-btn">🖼 結果(旧成長)</button>
         <button type="button" id="arena-preview-down-btn">🖼 戦闘不能</button>
       </div>
       <div class="arena-panel-hint">タップで出現 / コントローラー: D-pad右で巡回スポーン</div>

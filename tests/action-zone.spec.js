@@ -167,7 +167,7 @@ test.describe('UI-002-D WI-D3: Action Zone(844×390・タッチ)', () => {
     test.setTimeout(120_000);
     const errors = watchErrors(page);
     await openGame(page);
-    await startTestMode(page, { classKey: 'warrior' });
+    await startTestMode(page, { classKey: 'warrior', rules: 'legacy' });
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await page.waitForTimeout(800);
     await checkTouchLayout(page, '844×390・テストモード', null, [...TOUCH_BUTTONS, '#btn-skill3']);
@@ -214,7 +214,7 @@ test.describe('UI-002-D WI-D3: PC の能力表示(1280×800)', () => {
     test.setTimeout(120_000);
     const errors = watchErrors(page);
     await openGame(page);
-    await startTestMode(page, { classKey: 'warrior' });
+    await startTestMode(page, { classKey: 'warrior', rules: 'legacy' });
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await page.keyboard.press('KeyJ');
     await expect(page.locator('#touch-controls')).toHaveClass(/in-combat/);
