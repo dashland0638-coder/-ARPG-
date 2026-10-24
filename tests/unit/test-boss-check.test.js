@@ -76,6 +76,9 @@ test('組み込み: テストモードだけ・数値を変えない・セーブ
     assert.doesNotMatch(fn, /saveGame|scenarioClears|clearedScenarios/);
     assert.match(fn, /e\.key === 'duskEcho'/);
     assert.match(fn, /boss\.triggered/);
+    // 押した時にいた分身(段階 1・2 の分身)は散らす(段階 3 の分身が本編の呼び出しで出るように)
+    assert.match(fn, /oldClones\.forEach\(c=> dispelMirrorClone\(c\)\)/);
+    assert.ok(fn.indexOf('dispelMirrorClone') < fn.indexOf('testHoldBoss = boss'));
   });
   await t.test('テストモードへ入るたび・出た時に戻す。セーブの中身には無い', () => {
     assert.match(fnBody(boot, 'beginTestMode'), /resetTestBossCheck\(\);/);

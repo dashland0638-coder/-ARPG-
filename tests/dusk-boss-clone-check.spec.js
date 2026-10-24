@@ -126,9 +126,11 @@ test.describe('ボスの分身の実機確認(テストモードの手段)', () 
     const heldPct = heldHp / 912 * 100;
     const afterP3 = info.filter(f => f.at > p3.at + 300 && f.bar != null);
     expect(afterP3.length, summary).toBeGreaterThan(0);
-    expect(Math.abs(afterP3[0].bar - heldPct), `押した直後のバー ${afterP3[0].bar}`).toBeLessThan(0.2);
-    /* 押した時にすでに分身がいれば、最初の一撃で止めが外れる(CLONE OUT がすぐ出る)。
-       止めている間(CLONE OUT の前)は、どのフレームでも境目のまま */
+    const timeline = info.filter(f => f.at > p3.at - 2000 && f.at < p3.at + 3000 && f.bar != null)
+      .filter((f, i, a) => i === 0 || a[i - 1].bar !== f.bar).map(f => `${f.at - p3.at}ms ${f.bar.toFixed(2)}%`).join(' / ');
+    const evAround = ev.map(e => `${e.at - p3.at}ms ${e.text}`).join('\n');
+    expect(Math.abs(afterP3[0].bar - heldPct), `押した直後のバー ${afterP3[0].bar}\n${timeline}\n${evAround}`).toBeLessThan(0.2);
+    // 止めている間(押した後の分身が出る前)は、どのフレームでも境目のまま(押した時にいた分身は散らしてある)
     for (const f of afterP3.filter(f => f.at < out.at)) expect(Math.abs(f.bar - heldPct), `${f.bar} ${summary}`).toBeLessThan(0.2);
     // 剣士の近接で分身が散る(当たり 2.00)。支援AIは休止中なので、支援AIでは散らない
     const dispels = texts.filter(t => t.startsWith('CLONE — DISPELLED (boss)'));

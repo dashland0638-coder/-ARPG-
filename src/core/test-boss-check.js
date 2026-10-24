@@ -35,7 +35,8 @@ export function phase3TestHp(hp, hpMax, phase3Frac){
 }
 
 /* ボスへのダメージを止めておくか。「段階 3 へ」を押してから、そのボスの分身が
-   1 体出るまでだけ。テストモードの外では決して止めない */
+   1 体出るまでだけ(押した時にいた分身は、呼び出し側が押した時に散らしておく)。
+   テストモードの外では決して止めない */
 export function bossDamageHeld({testMode, holdBoss, target, clonesAlive}){
   if(!testMode || !holdBoss || target !== holdBoss) return false;
   return !(clonesAlive > 0);

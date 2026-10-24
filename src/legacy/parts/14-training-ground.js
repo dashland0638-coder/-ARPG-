@@ -77,7 +77,7 @@
   /* ボスの分身の確認(PR #100、core/test-boss-check.js)。テストモードの間だけ効く。
      セーブには書かない(テストモードはセーブしない)。テストモードへ入るたびに戻す */
   let testGuestPaused = false;
-  let testHoldBoss = null;   // 「段階 3 へ」を押したボス。分身が 1 体出るまでダメージを止める
+  let testHoldBoss = null;   // 「段階 3 へ」を押したボス。押した後に分身が 1 体出るまでダメージを止める
   function resetTestBossCheck(){
     testGuestPaused = false;
     testHoldBoss = null;
@@ -116,9 +116,14 @@
       return;
     }
     boss.hp = phase3TestHp(boss.hp, boss.hpMax, VILLAGE_PHASE_3_HP);
+    /* 段階 1・2 の分身が残っていると、段階 3 の分身(上限 1)が出ず、止めもすぐ外れてしまう。
+       押した時にいた分身は散らしておく(散る演出は通常と同じ)。段階 3 の分身は本編と同じ呼び出しで出る */
+    const oldClones = enemies.filter(e=> e && !e.dead && e.mirrorCloneOf === boss);
+    oldClones.forEach(c=> dispelMirrorClone(c));
     testHoldBoss = boss;
     if(!testGuestPaused) toggleTestGuestPause();
-    emitArenaFeedback('TEST', `PHASE 3 — HP ${Math.round(boss.hp)} / ${boss.hpMax}。分身が出るまでボスへの攻撃は通らない`);
+    emitArenaFeedback('TEST', `PHASE 3 — HP ${Math.round(boss.hp)} / ${boss.hpMax}。分身が出るまでボスへの攻撃は通らない` +
+      (oldClones.length ? `(段階 1・2 の分身 ${oldClones.length} 体を散らした)` : ''));
     spawnLog('🛠 段階3へ。分身が出るまでボスへの攻撃は通りません(支援AIは休止)');
   }
 
