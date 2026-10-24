@@ -238,7 +238,9 @@ test.describe('宵待ちの村の敵(W3-E): 姿・足元の輪', () => {
     const errors = watchErrors(page);
     await installProbe(page);
     await openGame(page);
-    await startTestMode(page, { classKey: 'warrior', scenario: 'duskvillage', waypoint: 'boss', level: 30 });
+    /* レベル 1: レベル 30 では同行の剣士とプレイヤーがボスを数十秒で削り切り、段階が変わるたびに
+       呼び出しの溜めが 0 に戻るので、分身が出る前に終わってしまう */
+    await startTestMode(page, { classKey: 'warrior', scenario: 'duskvillage', waypoint: 'boss', level: 1 });
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await expect(page.locator('#minimap-room')).toHaveText('水鏡の跡', { timeout: 60_000 });
     await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
@@ -260,17 +262,18 @@ test.describe('宵待ちの村の敵(W3-E): 姿・足元の輪', () => {
     /* まず攻撃せずに、分身が出るのを待つ(段階が変わると呼び出しの溜めが 0 に戻るので、
        先に削ると分身が出ない)。ボスの行に並ぶ分身の様子も記録される */
     const deadline = Date.now() + 720_000;
+    const bossHp = html => { const m = /HP:\s*([0-9]+)/.exec(html || ''); return m ? +m[1] : null; };
+    let hpBefore = null;
     while (Date.now() < deadline) {
       if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) await sendDialogues();
       const html = await infoNow(page);
+      if (/Echo Tell: real/.test(html)) hpBefore = bossHp(html);
       if (/Echo Clones: [1-9]/.test(html) || /Echo Tell: clone/.test(html)) break;
       await page.waitForTimeout(400);
     }
     await page.screenshot({ path: 'test-results/dusk-enemy-boss-clone.png' });
     // 立ち止まって攻撃し続ける(狙いの補助で近い方へ向く)。分身が散るまで、散った後は本体に当たるまで
-    let dispelAt = null;
-    const bossHp = html => { const m = /HP:\s*([0-9]+)/.exec(html || ''); return m ? +m[1] : null; };
-    let hpAtDispel = null, hpAfter = null;
+    let dispelAt = null, hpAfter = null;
     while (Date.now() < deadline) {
       if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) {
         await attackUp(page);
@@ -281,13 +284,12 @@ test.describe('宵待ちの村の敵(W3-E): 姿・足元の輪', () => {
       await attackUp(page);
       const html = await infoNow(page);
       const ev = await page.evaluate(() => window.__pb.events);
-      const d = ev.find(e => e.text.startsWith('CLONE — DISPELLED (boss)'));
-      if (d && dispelAt == null) dispelAt = d.t;
-      if (dispelAt != null && /Echo Tell: real/.test(html)) {
-        const hp = bossHp(html);
-        if (hpAtDispel == null) hpAtDispel = hp;
-        else if (hp != null && hp < hpAtDispel) { hpAfter = hp; break; }
-      }
+      if (dispelAt == null && ev.some(e => e.text.startsWith('CLONE — DISPELLED (boss)'))) dispelAt = Date.now();
+      if (!/Echo Tell: real/.test(html)) continue;
+      const hp = bossHp(html);
+      // 散らす前に見えた本体の HP より、散らした後に減っていれば、本体との戦闘が続いている
+      if (dispelAt == null) hpBefore = hp;
+      else if (hpBefore != null && hp != null && hp < hpBefore) { hpAfter = hp; break; }
     }
     await attackUp(page);
 
@@ -308,9 +310,9 @@ test.describe('宵待ちの村の敵(W3-E): 姿・足元の輪', () => {
     expect(dispels.length, summary).toBeGreaterThan(0);
     for (const e of dispels) expect(e.text, summary).toMatch(/hit 2\.00 dist \d+\.\d\d$/);
     // 散らした後も本体との戦闘が続き、本体の HP が減る
-    expect(hpAtDispel, summary).not.toBeNull();
+    expect(hpBefore, summary).not.toBeNull();
     expect(hpAfter, summary).not.toBeNull();
-    expect(hpAfter, summary).toBeLessThan(hpAtDispel);
+    expect(hpAfter, summary).toBeLessThan(hpBefore);
     expect(errors).toEqual([]);
   });
 
