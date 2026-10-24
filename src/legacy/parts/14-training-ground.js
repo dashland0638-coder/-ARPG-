@@ -324,7 +324,17 @@
       echo = `Boss Echo Rings: ${rings.length} on / ${mine.length}` +
         `${rings.length ? ' shown/hit ' + rings.map(e => `${ringRadius(e.telegraph).toFixed(2)}/${e.radius.toFixed(2)}`).join(' ') : ''}<br>`;
     }
-    return `${label}: ${v}<br>` + `Village Kind: ${en.mob && en.mob.villageKind ? en.mob.villageKind : (en.mirrorCloneOf ? 'clone' : (en.parts ? en.parts.kind : '-'))}<br>` +
+    /* ボスと分身の見分けの手がかり(CH1-COMP W3 AD-2)。当たりの半径・影・足元の水の輪・灯り */
+    let tell = '';
+    const bossOf = en.isBoss && en.key === 'duskEcho' ? en : (en.mirrorCloneOf && en.mirrorCloneOf.isBoss ? en.mirrorCloneOf : null);
+    if(bossOf){
+      let shadow = false, light = false;
+      en.group.traverse(o=>{ if(o.isMesh && o.castShadow) shadow = true; if(o.isLight) light = true; });
+      const ring = en.group.getObjectByName('echoRipple');
+      tell = `Echo Tell: ${en === bossOf ? 'real' : 'clone'} hit ${(en.hitRadius || 0).toFixed(2)}` +
+        ` shadow ${shadow ? 'on' : 'off'} ring ${ring && ring.visible ? 'on' : 'off'} light ${light ? 'on' : 'off'}<br>`;
+    }
+    return `${label}: ${v}<br>` + tell + `Village Kind: ${en.mob && en.mob.villageKind ? en.mob.villageKind : (en.mirrorCloneOf ? 'clone' : (en.parts ? en.parts.kind : '-'))}<br>` +
       `Player Dist: ${dist.toFixed(2)}<br>` + echo;
   }
 

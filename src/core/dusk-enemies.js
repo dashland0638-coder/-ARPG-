@@ -36,6 +36,20 @@ export const DUSK_BOSS_ECHO_RADIUS = PROVISIONAL_ECHO_RADIUS * DUSK_BOSS_ECHO_SC
 export const FOAM_SCALE = 0.62;            // 泡沫の大きさ(今の値)
 export const WARDEN_SCALE = 1.18;          // 水門守の残響の大きさ(今の値)
 
+/* ボスの分身(CH1-COMP W3 AD-2。Human の決定 2026-10-23)。
+   当たりの半径(プレイヤーの攻撃が届く敵の表面)は、見た目どおりボスの体と同じ。
+   姿は本体の複製のまま(色・輪郭・振りかぶりは同じ)で、見分けは「水に映った写し」の性質に置く:
+     ・影を落とさない(写しには実体が無い)
+     ・足元の水の輪(ゆっくり広がる大きな輪)が無い ―― 水を押しているのは本体だけ
+   既存の差(本体だけオーラの灯り、分身は細かい波紋・速い向き直り・短い溜め・小さい輪)はそのまま。
+   光源・材質・geometry は増やさない(複製のメッシュの影と、輪の表示を切るだけ) */
+export const BOSS_DEFAULT_HIT_RADIUS = 2.0;   // buildBoss の cfg.solidR || 2.0 と同じ
+export const BOSS_CLONE_TELL = Object.freeze({castShadow: false, waterRing: false});
+export function bossCloneHitRadius(bossHitRadius){
+  const r = Number(bossHitRadius);
+  return isFinite(r) && r > 0 ? r : BOSS_DEFAULT_HIT_RADIUS;
+}
+
 /* ボスの近接の当たる距離。updateBossAI と足元の輪の両方が使う */
 export function bossMeleeHitRadius(atkReach){
   const r = Number(atkReach);

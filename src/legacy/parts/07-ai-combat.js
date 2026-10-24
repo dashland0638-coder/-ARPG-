@@ -3621,8 +3621,13 @@
     /* 村の残響の姿(parts.kind 'echo')は、分身にも同じ動きを付ける ―― 本体だけが動いていると
        姿で本体が分かってしまう。名前で複製の中の部品を拾い直す(updateMobAnim が回す) */
     clone.echoParts = boss.parts && boss.parts.kind === 'echo' ? duskEchoPartsOf(visual) : null;
-    /* 当たりの半径(hitRadius)は今のまま(雑魚の既定)。ボスの体(2.0)に合わせると段階 3 の釣り合いと
-       ソフトロックが変わるので、Human の判断に残す(DEC-008 §3、CH1-COMP-W3 AD-2) */
+    /* 当たりの半径は見た目どおりボスの体と同じ(DEC-008 §3、CH1-COMP-W3 AD-2。Human の決定)。
+       遠くからでも分身を斬れるようになるので、見分けの手がかりを姿の外に足す:
+       写しは影を落とさず、足元の水の輪(本体が水を押してできる輪)も無い。材質は共有のまま書き換えない */
+    clone.hitRadius = bossCloneHitRadius(boss.hitRadius);
+    visual.traverse(o=>{ if(o.isMesh) o.castShadow = BOSS_CLONE_TELL.castShadow; });
+    const cloneRing = visual.getObjectByName('echoRipple');
+    if(cloneRing) cloneRing.visible = BOSS_CLONE_TELL.waterRing;
     clone.mirrorCloneOf = boss;
     clone.triggered = true;
     clone.mirrorRippleT = Math.random() * 0.8;
@@ -5476,7 +5481,12 @@
        散らした事実そのものがプレイヤーの得た情報なので、当たり前に消す
        だけで、どれが本体かはここでも一切示さない */
     if(isMirrorClone(en)){
-      if(!opts.isDot) dispelMirrorClone(en);
+      if(!opts.isDot){
+        // テストモードの記録だけ(当たりの半径と、斬った時の中心までの距離。CH1-COMP W3 AD-2)
+        emitArenaFeedback('CLONE', `DISPELLED${en.mirrorCloneOf && en.mirrorCloneOf.isBoss ? ' (boss)' : ''}` +
+          ` hit ${(en.hitRadius || 0).toFixed(2)} dist ${Math.hypot(en.group.position.x - state.pos.x, en.group.position.z - state.pos.z).toFixed(2)}`);
+        dispelMirrorClone(en);
+      }
       return;
     }
     let isCrit = false;

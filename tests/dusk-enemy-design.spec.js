@@ -13,14 +13,21 @@
      4. Arena の Clear の後、床の円は 1 つも残らない(泡沫が増やした分・分身も一緒に消える)
      5. 写し身: 魔法使いの弾を写す間(MIMIC)に手元の光が出て、エラーが無い
      6. ボス(村の残響): 近接の振りかぶりの間だけ足元の輪。見えている半径 2.60 = 判定 2.60、中心 = ボス
+     7. ボスの分身(AD-2): 当たりの半径はボスの体と同じ 2.00。分身は影を落とさず、足元の水の輪も灯りも無い
+        (本体は 3 つとも有る)。攻撃すると分身が散り(体の外側から届く)、そのあと本体との戦闘が続く
    時間: 推定ゲーム内時間(tests/dusk-keeper-telegraph.spec.js と同じプローブ)。 */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, startTestMode, disableCameraAutoFollow } from './helpers.js';
+import { openGame, watchErrors, startTestMode, disableCameraAutoFollow, attackDownUnlessExecutable, attackUp } from './helpers.js';
 
 async function installProbe(page) {
   await page.addInitScript(() => {
     const W = window;
-    const B = W.__pb = { sim: 0, info: [] };
+    const B = W.__pb = { sim: 0, info: [], events: [] };
+    new MutationObserver(recs => {
+      for (const r of recs) for (const n of r.addedNodes) {
+        if (n.nodeType === 1 && n.classList.contains('arena-feedback-line')) B.events.push({ t: +B.sim.toFixed(3), text: n.textContent || '' });
+      }
+    }).observe(document, { childList: true, subtree: true });
     let last = 0;
     const tick = now => {
       if (last) B.sim += Math.min(0.05, (now - last) / 1000 * 0.25);
@@ -223,6 +230,78 @@ test.describe('宵待ちの村の敵(W3-E): 姿・足元の輪', () => {
         expect(pair, '残響の輪の外周 = 判定').toBe('3.60/3.60');
       }
     }
+    expect(errors).toEqual([]);
+  });
+
+  test('ボスの分身: 当たり 2.00・影と足元の水の輪が無い・散らした後も本体と戦える', async ({ page }) => {
+    test.setTimeout(900_000);
+    const errors = watchErrors(page);
+    await installProbe(page);
+    await openGame(page);
+    await startTestMode(page, { classKey: 'warrior', scenario: 'duskvillage', waypoint: 'boss', level: 30 });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await expect(page.locator('#minimap-room')).toHaveText('水鏡の跡', { timeout: 60_000 });
+    await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
+    const sendDialogues = async () => {
+      for (let quiet = 0; quiet < 6;) {
+        if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) {
+          await page.click('#dialogue-overlay'); quiet = 0;
+        } else quiet++;
+        await page.waitForTimeout(300);
+      }
+    };
+    await sendDialogues();
+    await disableCameraAutoFollow(page);
+    await page.click('#arena-toggle-btn');
+    await page.click('#arena-info-toggle-btn');
+    await page.click('#arena-toggle-btn');
+    await clearInfo(page);
+
+    // 立ち止まって攻撃し続ける(狙いの補助で近い方へ向く)。分身が散るまで、散った後は本体に当たるまで
+    const deadline = Date.now() + 600_000;
+    let shotClone = false, dispelAt = null;
+    const bossHp = html => { const m = /HP:\s*([0-9]+)/.exec(html || ''); return m ? +m[1] : null; };
+    let hpAtDispel = null, hpAfter = null;
+    while (Date.now() < deadline) {
+      if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) {
+        await attackUp(page);
+        await sendDialogues();
+      }
+      await attackDownUnlessExecutable(page);
+      await page.waitForTimeout(250);
+      await attackUp(page);
+      const html = await infoNow(page);
+      if (!shotClone && /Echo Tell: clone/.test(html)) { shotClone = true; await page.screenshot({ path: 'test-results/dusk-enemy-boss-clone.png' }); }
+      const ev = await page.evaluate(() => window.__pb.events);
+      const d = ev.find(e => e.text.startsWith('CLONE — DISPELLED (boss)'));
+      if (d && dispelAt == null) dispelAt = d.t;
+      if (dispelAt != null && /Echo Tell: real/.test(html)) {
+        const hp = bossHp(html);
+        if (hpAtDispel == null) hpAtDispel = hp;
+        else if (hp != null && hp < hpAtDispel) { hpAfter = hp; break; }
+      }
+    }
+    await attackUp(page);
+
+    const fr = await frames(page);
+    const ev = await page.evaluate(() => window.__pb.events);
+    const tells = fr.map(f => infoValue(f.html, 'Echo Tell')).filter(Boolean);
+    const summary = [...new Set(tells)].slice(0, 12).join('\n') + '\n' + ev.map(e => `${e.t} ${e.text}`).join('\n');
+    // 分身: 当たり 2.00、影・足元の水の輪・灯りが無い。本体: 当たり 2.00、3 つとも有る
+    const clones = tells.filter(s => s.startsWith('clone'));
+    const reals = tells.filter(s => s.startsWith('real'));
+    expect(clones.length, summary).toBeGreaterThan(0);
+    expect(reals.length, summary).toBeGreaterThan(0);
+    for (const s of clones) expect(s, summary).toBe('clone hit 2.00 shadow off ring off light off');
+    for (const s of reals) expect(s, summary).toBe('real hit 2.00 shadow on ring on light on');
+    // 攻撃で分身が散る。当たりは 2.00 で、斬った時の中心までの距離は以前の当たり(0.34)では届かない所を含んでよい
+    const dispels = ev.filter(e => e.text.startsWith('CLONE — DISPELLED (boss)'));
+    expect(dispels.length, summary).toBeGreaterThan(0);
+    for (const e of dispels) expect(e.text, summary).toMatch(/hit 2\.00 dist \d+\.\d\d$/);
+    // 散らした後も本体との戦闘が続き、本体の HP が減る
+    expect(hpAtDispel, summary).not.toBeNull();
+    expect(hpAfter, summary).not.toBeNull();
+    expect(hpAfter, summary).toBeLessThan(hpAtDispel);
     expect(errors).toEqual([]);
   });
 

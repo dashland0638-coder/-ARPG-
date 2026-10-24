@@ -19,7 +19,10 @@ import {
   ECHO_OPACITY, VILLAGE_FINISH, VILLAGE_PROPORTIONS, FOAM_CLUSTER, foamVisualRadius, foamHitRadius,
   mirrorRingProgress, foamRingVisible, bossMeleeRingProgress, mirrorPose, keeperPose, echoPose,
   copyMimicProgress, hexToLab, deltaE, ALLY_MIN_DELTA_E, KIND_MIN_DELTA_E, DARK_L_MAX, echoRadiusFor,
+  BOSS_DEFAULT_HIT_RADIUS, BOSS_CLONE_TELL, bossCloneHitRadius,
 } from '../../src/core/dusk-enemies.js';
+import { pickSoftLockTarget } from '../../src/core/soft-lock.js';
+import { meleeHitTest, surfaceDistance } from '../../src/core/melee-hit.js';
 import {
   PROVISIONAL_WINDUP_REAL_SEC, PROVISIONAL_WINDUP_CLONE_SEC, windupPlan,
 } from '../../src/core/mirror-shade.js';
@@ -283,5 +286,51 @@ test('作り: 光源を足さない・共有の部品は捨てられない', asy
     const common = read('src/legacy/parts/02-world-common.js');
     assert.match(fnBody(common, 'sharedGeometries'), /villageGeoCache/);
     assert.match(fnBody(common, 'sharedGeometries'), /groundTelegraphGeoCache/);
+  });
+});
+
+/* ボスの分身の当たり(CH1-COMP W3 AD-2。Human の決定 2026-10-23: 0.34 → ボスの体 2.0) */
+test('ボスの分身: 当たりはボスの体と同じ・見分けは影と足元の水の輪', async (t) => {
+  const clone = fnBody(ai, 'spawnBossMirrorClone');
+  const enemy = read('src/legacy/parts/06-player-enemy.js');
+
+  await t.test('当たりの半径 = ボスの体(buildBoss の既定 2.0 と同じ)。無効な値でも 2.0', () => {
+    assert.equal(bossCloneHitRadius(2.0), 2.0);
+    assert.equal(bossCloneHitRadius(2.6), 2.6);
+    assert.equal(bossCloneHitRadius(undefined), BOSS_DEFAULT_HIT_RADIUS);
+    assert.equal(bossCloneHitRadius(0), BOSS_DEFAULT_HIT_RADIUS);
+    assert.match(enemy, /hitRadius: cfg\.solidR \|\| 2\.0,/);
+    assert.equal(BOSS_DEFAULT_HIT_RADIUS, 2.0);
+    assert.match(clone, /clone\.hitRadius = bossCloneHitRadius\(boss\.hitRadius\)/);
+  });
+
+  await t.test('見分け: 分身は影を落とさず、足元の水の輪が無い。光源・材質・geometry を増やさない', () => {
+    assert.equal(BOSS_CLONE_TELL.castShadow, false);
+    assert.equal(BOSS_CLONE_TELL.waterRing, false);
+    assert.ok(Object.isFrozen(BOSS_CLONE_TELL));
+    assert.match(clone, /castShadow = BOSS_CLONE_TELL\.castShadow/);
+    assert.match(clone, /getObjectByName\('echoRipple'\)/);
+    assert.doesNotMatch(clone, /new THREE\.\w*(Light|Material|Geometry)\(/);
+    // 本体の足元の水の輪は、その名前で作られている(分身の側で拾い直せる)
+    assert.match(fnBody(village, 'buildDuskEchoBody'), /'echoRipple'/);
+  });
+
+  await t.test('分身の戦闘の数値は今のまま(HP 1・攻撃 ×0.5・速さ ×1.15)', () => {
+    assert.match(clone, /hp: 1, atk: Math\.round\(boss\.atk \* 0\.5\), speed: boss\.speed \* 1\.15,/);
+  });
+
+  await t.test('近接: 体の外側から振っても分身に届く(以前の 0.34 では届かなかった距離)', () => {
+    const range = 2.6, d = 4.2;   // 剣士の間合い前後。分身の中心まで 4.2
+    assert.ok(meleeHitTest({distance: d, radius: bossCloneHitRadius(2.0), range, angleToTarget: 0, angleMax: 1}));
+    assert.ok(!meleeHitTest({distance: d, radius: 0.34, range, angleToTarget: 0, angleMax: 1}));
+  });
+
+  await t.test('ソフトロック: 本体と分身は同じ半径なので、近い方(正面寄り)が選ばれる。本体の優先は無くなる', () => {
+    const cand = (ref, dist, ang) => ({ref, yaw: 0, distance: surfaceDistance(dist, 2.0), angleToTarget: ang});
+    assert.equal(pickSoftLockTarget([cand('real', 5, 0), cand('clone', 4, 0)]).ref, 'clone');
+    assert.equal(pickSoftLockTarget([cand('real', 4, 0), cand('clone', 5, 0)]).ref, 'real');
+    // 以前(分身 0.34)は、分身の方が 1 近くても本体が選ばれていた
+    const old = [cand('real', 5, 0), {ref: 'clone', yaw: 0, distance: surfaceDistance(4, 0.34), angleToTarget: 0}];
+    assert.equal(pickSoftLockTarget(old).ref, 'real');
   });
 });
