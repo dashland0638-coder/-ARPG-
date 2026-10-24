@@ -2529,6 +2529,8 @@
     sfx('dodge');
     scene.remove(clone.group);
     if(clone.meleeTelegraphMesh) scene.remove(clone.meleeTelegraphMesh);   // 足元の輪(CH1-COMP W3)
+    // 散った分身をソフトロックが掴んだままにしない(消えた場所へ向き続けないように)
+    if(state.berserkerLock && state.berserkerLock.en === clone) state.berserkerLock = null;
     const idx = enemies.indexOf(clone);
     if(idx >= 0) enemies.splice(idx, 1);
     if(real && !real.dead){
@@ -2544,6 +2546,7 @@
       if(!c) return;
       scene.remove(c.group);
       if(c.meleeTelegraphMesh) scene.remove(c.meleeTelegraphMesh);   // 足元の輪(CH1-COMP W3)
+      if(state.berserkerLock && state.berserkerLock.en === c) state.berserkerLock = null;
       const idx = enemies.indexOf(c);
       if(idx >= 0) enemies.splice(idx, 1);
     });
@@ -3625,7 +3628,13 @@
        遠くからでも分身を斬れるようになるので、見分けの手がかりを姿の外に足す:
        写しは影を落とさず、足元の水の輪(本体が水を押してできる輪)も無い。材質は共有のまま書き換えない */
     clone.hitRadius = bossCloneHitRadius(boss.hitRadius);
-    visual.traverse(o=>{ if(o.isMesh) o.castShadow = BOSS_CLONE_TELL.castShadow; });
+    /* 影の設定(applyShadowSetting)は各メッシュの userData.castShadowDefault を覚えて戻す。複製は本体の値(true)を
+       写してくるので、それも分身の値にそろえる(影を切って戻すと分身に影が付くのを防ぐ) */
+    visual.traverse(o=>{
+      if(!o.isMesh) return;
+      o.castShadow = BOSS_CLONE_TELL.castShadow && shadowOn;
+      o.userData.castShadowDefault = BOSS_CLONE_TELL.castShadow;
+    });
     const cloneRing = visual.getObjectByName('echoRipple');
     if(cloneRing) cloneRing.visible = BOSS_CLONE_TELL.waterRing;
     clone.mirrorCloneOf = boss;
@@ -5482,9 +5491,12 @@
        だけで、どれが本体かはここでも一切示さない */
     if(isMirrorClone(en)){
       if(!opts.isDot){
-        // テストモードの記録だけ(当たりの半径と、斬った時の中心までの距離。CH1-COMP W3 AD-2)
-        emitArenaFeedback('CLONE', `DISPELLED${en.mirrorCloneOf && en.mirrorCloneOf.isBoss ? ' (boss)' : ''}` +
-          ` hit ${(en.hitRadius || 0).toFixed(2)} dist ${Math.hypot(en.group.position.x - state.pos.x, en.group.position.z - state.pos.z).toFixed(2)}`);
+        // テストモードの記録だけ(当たりの半径・誰が当てたか・プレイヤーから中心までの距離。CH1-COMP W3 AD-2)
+        if(state.testMode){
+          emitArenaFeedback('CLONE', `DISPELLED${en.mirrorCloneOf && en.mirrorCloneOf.isBoss ? ' (boss)' : ''}` +
+            ` by ${isAlly ? 'ally' : 'player'} hit ${(en.hitRadius || 0).toFixed(2)}` +
+            ` dist ${Math.hypot(en.group.position.x - state.pos.x, en.group.position.z - state.pos.z).toFixed(2)}`);
+        }
         dispelMirrorClone(en);
       }
       return;

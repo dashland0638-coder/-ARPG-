@@ -75,13 +75,14 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED(実機での見え方・色�
 - `src/legacy/parts/06-player-enemy.js`: `dressEnemy` に 'village' の入口、輪郭線の対象に `userData.villageOutline`、`M.hitRadius` の受け口、`buildBoss` に `duskEcho` の分岐
 - `src/legacy/parts/07-ai-combat.js`: 判定の数字を定数へ移した。`updateVillageTelegraphs` を追加。分身・泡沫の作りを村の作りに変更し、分身の後始末に輪を含めた。ボスの分身(光源を外す・当たり 2.0・影と足元の水の輪を切る・動き)、残響の姿、網の geometry の共有、`updateMobAnim` / `updateBossAnim` の入口、ボスの残響の印
 - `src/legacy/parts/14-dungeon-duskvillage.js`: 敵の builder 5 つとボスの色、`dressVillageEnemy` と 5 種の作り、`updateVillageMobExtras` と姿勢、残響の姿 `buildEchoFigure`、ボスの姿 `buildDuskEchoBody` と姿勢。地図と建物の部分には触れていない
-- `src/legacy/parts/14-training-ground.js`: Debug Info に `Mirror Ring` / `Foam Ring` / `Boss Ring` / `Boss Echo Rings` / `Village Kind` / `Player Dist` を追加(テストモードだけ)
+- `src/legacy/parts/14-training-ground.js`: Debug Info に `Mirror Ring` / `Foam Ring` / `Boss Ring` / `Boss Echo Rings` / `Echo Tell` / `Echo Clones` / `Village Kind` / `Player Dist` を追加(テストモードだけ)。分身が散った時のテストモードの記録 `CLONE — DISPELLED`(07)
 - `tests/unit/dusk-enemies.test.js`(新規)、`tests/unit/warden-echo.test.js`(仕様の変更)、`tests/dusk-enemy-design.spec.js`(新規)
 
 ## 6. 試験
 
 - `npm run build`: 成功
 - `npm run test:unit`: tests 1988 / pass 1987 / fail 0 / skipped 1(skip は既存のもの: SVG catalog がこの checkout に無い)
+- (W3-E 実装時点の記録。ボスの分身の追加修正の後の結果は `CH1-COMP-W3-report.md` §10。dusk-enemy-design は 5 件になった)
 - Playwright(作業ツリー用のローカル設定。dev サーバーは 5291 番): **17 passed / 0 failed**(11.4 分)
   - `dusk-enemy-design.spec.js` 4/4: Arena での 5 種、水鏡の輪(2.40 = 2.40、中心 0、溜め・一撃の間だけ、満ちていく)、泡沫の輪(1.50 = 1.50、満ちない)、泡沫の当たり 0.34、Clear の後の Ground Rings 0、写し身の写し(魔法使い)、ボスの輪(2.60 = 2.60、中心 0、WINDUP の間だけ)、目視用の画面。コンソールエラーなし
   - `dusk-keeper-telegraph` 1/1、`dusk-fisher-telegraph` 2/2、`dusk-boss-phase-burst` 1/1、`combat-test-arena` 1/1、`duskvillage` 4/4、`chapter1-dusk-basics` 4/4

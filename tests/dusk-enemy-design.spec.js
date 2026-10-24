@@ -308,7 +308,7 @@ test.describe('宵待ちの村の敵(W3-E): 姿・足元の輪', () => {
     // 攻撃で分身が散る。当たりは 2.00 で、斬った時の中心までの距離は以前の当たり(0.34)では届かない所を含んでよい
     const dispels = ev.filter(e => e.text.startsWith('CLONE — DISPELLED (boss)'));
     expect(dispels.length, summary).toBeGreaterThan(0);
-    for (const e of dispels) expect(e.text, summary).toMatch(/hit 2\.00 dist \d+\.\d\d$/);
+    for (const e of dispels) expect(e.text, summary).toMatch(/by (player|ally) hit 2\.00 dist \d+\.\d\d$/);
     // 散らした後も本体との戦闘が続き、本体の HP が減る
     expect(hpBefore, summary).not.toBeNull();
     expect(hpAfter, summary).not.toBeNull();

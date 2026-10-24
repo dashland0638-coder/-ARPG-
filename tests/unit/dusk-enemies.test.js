@@ -310,6 +310,11 @@ test('ボスの分身: 当たりはボスの体と同じ・見分けは影と足
     assert.ok(Object.isFrozen(BOSS_CLONE_TELL));
     assert.match(clone, /castShadow = BOSS_CLONE_TELL\.castShadow/);
     assert.match(clone, /getObjectByName\('echoRipple'\)/);
+    // 影の設定を切って戻しても分身に影が付かない(applyShadowSetting が戻す値もそろえる)
+    assert.match(clone, /userData\.castShadowDefault = BOSS_CLONE_TELL\.castShadow/);
+    // 散った分身をソフトロックが掴んだままにしない
+    assert.match(fnBody(ai, 'dispelMirrorClone'), /state\.berserkerLock\.en === clone\) state\.berserkerLock = null/);
+    assert.match(fnBody(ai, 'clearMirrorClones'), /state\.berserkerLock\.en === c\) state\.berserkerLock = null/);
     assert.doesNotMatch(clone, /new THREE\.\w*(Light|Material|Geometry)\(/);
     // 本体の足元の水の輪は、その名前で作られている(分身の側で拾い直せる)
     assert.match(fnBody(village, 'buildDuskEchoBody'), /'echoRipple'/);
