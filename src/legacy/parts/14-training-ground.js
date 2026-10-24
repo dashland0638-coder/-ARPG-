@@ -74,6 +74,54 @@
   let arenaPanelOpen = false;
   let arenaDebugInfoOn = false;
 
+  /* ボスの分身の確認(PR #100、core/test-boss-check.js)。テストモードの間だけ効く。
+     セーブには書かない(テストモードはセーブしない)。テストモードへ入るたびに戻す */
+  let testGuestPaused = false;
+  let testHoldBoss = null;   // 「段階 3 へ」を押したボス。分身が 1 体出るまでダメージを止める
+  function resetTestBossCheck(){
+    testGuestPaused = false;
+    testHoldBoss = null;
+    const b = document.getElementById('arena-guest-pause-btn');
+    if(b) b.textContent = '🤝 支援AI: 戦う';
+  }
+  function toggleTestGuestPause(){
+    testGuestPaused = !testGuestPaused;
+    document.getElementById('arena-guest-pause-btn').textContent = `🤝 支援AI: ${testGuestPaused ? '休止' : '戦う'}`;
+    if(testGuestPaused && guestCompanion) guestCompanion.target = null;
+    emitArenaFeedback('TEST', `GUEST ${testGuestPaused ? 'PAUSED' : 'FIGHTING'}`);
+  }
+  function testBossClonesAlive(boss){
+    let n = 0;
+    enemies.forEach(e=>{ if(e && !e.dead && e.mirrorCloneOf === boss) n++; });
+    return n;
+  }
+  /* dealDamageToEnemy から: いまこの敵へのダメージを止めるか */
+  function testBossHoldsDamage(en){
+    if(!state.testMode || !testHoldBoss) return false;
+    if(testHoldBoss.dead || enemies.indexOf(testHoldBoss) < 0){ testHoldBoss = null; return false; }
+    const held = bossDamageHeld({testMode: state.testMode, holdBoss: testHoldBoss, target: en,
+                                 clonesAlive: testBossClonesAlive(testHoldBoss)});
+    if(!held && en === testHoldBoss){
+      testHoldBoss = null;
+      emitArenaFeedback('TEST', 'CLONE OUT — ボスへの攻撃が通る');
+    }
+    return held;
+  }
+  /* 「段階 3 へ」。村の残響のボス戦が始まっている時だけ。HP を境目まで下げるだけで、
+     段階の移り変わりは本編と同じ処理(updateBossAI の HP の比・stepDuskEchoLayer)が行う */
+  function testDuskPhase3(){
+    const boss = enemies.find(e=> e && !e.dead && e.isBoss && e.key === 'duskEcho');
+    if(!boss || !boss.triggered){
+      spawnLog('🛠 村の残響のボス戦が始まってから押してください');
+      return;
+    }
+    boss.hp = phase3TestHp(boss.hp, boss.hpMax, VILLAGE_PHASE_3_HP);
+    testHoldBoss = boss;
+    if(!testGuestPaused) toggleTestGuestPause();
+    emitArenaFeedback('TEST', `PHASE 3 — HP ${Math.round(boss.hp)} / ${boss.hpMax}。分身が出るまでボスへの攻撃は通らない`);
+    spawnLog('🛠 段階3へ。分身が出るまでボスへの攻撃は通りません(支援AIは休止)');
+  }
+
   function buildArenaUiOnce(){
     const wrap = document.getElementById('arena-roster');
     Object.keys(ARENA_ROSTER).forEach(kind=>{
@@ -90,6 +138,8 @@
     // スキル入れ替え/スフィア盤(Phase K)。中身は既存の鑑定所画面
     // そのままで、テストモードでは場所の制限だけが外れている
     document.getElementById('arena-loadout-btn').addEventListener('click', ()=> toggleAppraisal());
+    document.getElementById('arena-guest-pause-btn').addEventListener('click', toggleTestGuestPause);
+    document.getElementById('arena-dusk-phase3-btn').addEventListener('click', testDuskPhase3);
     document.getElementById('arena-preview-result-ch1-btn').addEventListener('click', ()=> previewResultScreen(false));
     document.getElementById('arena-preview-result-test-btn').addEventListener('click', ()=> previewResultScreen(true));
     document.getElementById('arena-preview-down-btn').addEventListener('click', previewDownScreen);
@@ -485,6 +535,7 @@
       arenaPanelOpen = false;
       // テストモードを出た(タイトルへ戻った)時は、確認用の画面の記録も捨てる
       if(uiPreview){ document.getElementById(uiPreview.overlayId).classList.remove('active'); uiPreview = null; }
+      if(testGuestPaused || testHoldBoss) resetTestBossCheck();   // ボスの分身の確認の設定も戻す
       // フラグも一緒に畳む。ここでdisplayだけ落としてarenaDebugInfoOnを
       // trueのまま残すと、次にテストモードへ入った時にボタンの表示が
       // 「ON」なのにパネルが出ない状態になる

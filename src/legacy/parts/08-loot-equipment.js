@@ -1091,7 +1091,11 @@
     if(guestCompanion.attackCD>0) guestCompanion.attackCD -= dt;
 
     if(guestCompanion.target && guestCompanion.target.dead) guestCompanion.target = null;
-    if(!guestCompanion.target){
+    /* テストモードの「支援AI: 休止」(PR #100 の実機確認用、14-training-ground.js)。付いて歩くだけにする。
+       通常プレイでは guestMayFight は常に true(state.testMode が false) */
+    const mayFight = guestMayFight({testMode: state.testMode, guestPaused: testGuestPaused});
+    if(!mayFight) guestCompanion.target = null;
+    if(!guestCompanion.target && mayFight){
       let best=null, bestDist=AGGRO;
       enemies.forEach(en=>{
         if(en.dead || en.dormant) return;

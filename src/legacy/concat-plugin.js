@@ -122,6 +122,8 @@ import {
   defersResultScreen,
   PHASE_2_HP as VILLAGE_PHASE_2_HP, PHASE_3_HP as VILLAGE_PHASE_3_HP,
 } from '../core/village-echo.js';
+/* テストモードのボスの分身の確認(PR #100 の実機確認用。テストモードの間だけ効く) */
+import { guestMayFight, phase3TestHp, bossDamageHeld } from '../core/test-boss-check.js';
 import {
   phaseFor as wardenPhaseFor, echoCountFor, echoDelay, recordAction,
   dueEchoes, pruneRecords, stepEcho, echoStrikes, actorTell,

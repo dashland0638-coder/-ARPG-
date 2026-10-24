@@ -5501,6 +5501,9 @@
       }
       return;
     }
+    /* テストモードの「段階 3 へ」の後、分身が出るまではボスへのダメージを止める(PR #100 の実機確認用。
+       14-training-ground.js testBossHoldsDamage。テストモードの外では何もしない) */
+    if(state.testMode && testBossHoldsDamage(en)) return;
     let isCrit = false;
     if(!opts.isDot && !isAlly){
       const mods = applyOutgoingDamageMods(amount, en);
