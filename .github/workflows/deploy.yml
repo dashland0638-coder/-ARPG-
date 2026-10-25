@@ -58,6 +58,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+    # PR の一覧は、PR のコードを動かす前の手順(github-script)の結果をそのまま次のジョブへ渡す
+    # (PR のコードが書いた list.json は信用しない)
+    outputs:
+      prs: ${{ steps.prs.outputs.result }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -117,20 +121,16 @@ jobs:
         with:
           name: previews
           path: previews
+      # PR の一覧(番号・commit・題名)は preview-build の github-script の結果(PR のコードを動かす前)を使う。
+      # 置き場所は番号から決める(previews/pr-<N>)。PR のコードが書いたファイルの中の値は使わない
       - name: Assemble site
         id: site
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           OWNER: ${{ github.repository_owner }}
+          PRS: ${{ needs.preview-build.outputs.prs }}
         run: |
-          node -e '
-            const fs = require("fs"), path = require("path");
-            const list = JSON.parse(fs.readFileSync("previews/list.json", "utf8"));
-            const m = { owner: process.env.OWNER, mainDist: "main-dist", out: "site", runUrl: process.env.RUN_URL,
-                        builtAt: new Date().toISOString(),
-                        previews: list.map(p => ({ ...p, dist: p.dist ? path.join("previews", p.dist) : null })) };
-            fs.writeFileSync("manifest.json", JSON.stringify(m));'
-          node scripts/pages-site.mjs manifest.json
+          node scripts/assemble-pages.mjs main-dist previews site
           echo "summary=$(node -e 'process.stdout.write(JSON.stringify(require("./site/pr/previews.json")))')" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-pages-artifact@v3
         with:

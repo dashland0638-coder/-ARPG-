@@ -164,3 +164,24 @@ test('アプリ側: プレビューの base・commit・セーブのキー', () =
   assert.deepEqual([...new Set(uses)].sort(), ['SAVE_KEY', 'SETTINGS_KEY']);
   assert.match(read('src/main.js'), /import '\.\/preview-banner\.js';\nimport 'virtual:legacy-core';/);
 });
+
+import { manifestFromPrs } from '../../scripts/assemble-pages.mjs';
+
+test('assemble: PR の一覧は API の値だけを使い、置き場所は番号から決める(PR のコードが書いた値を信用しない)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'asm-'));
+  fakeDist(path.join(tmp, 'previews', 'pr-3'), '/-ARPG-/pr/3/', 'x');
+  // PR のコードが list.json に「../../etc」などを書いても使われない(list.json は読まない)
+  fs.writeFileSync(path.join(tmp, 'previews', 'list.json'), JSON.stringify([{number: 3, dist: '../../etc', status: 'ok'}]));
+  const m = manifestFromPrs([
+    {number: 3, sha: SHA, title: 'ok'},
+    {number: 4, sha: 'c'.repeat(40), title: 'no build'},
+    {number: '5/../../x', sha: SHA, title: 'bad'},
+  ], {mainDist: 'm', previewsDir: path.join(tmp, 'previews'), out: 'o', owner: 'o', runUrl: 'r', builtAt: 't'});
+  assert.deepEqual(m.previews.map(p => [p.number, p.status, p.dist && path.relative(tmp, p.dist)]),
+    [[4, 'failed', null], [3, 'ok', path.join('previews', 'pr-3')]]);
+  const deploy = read('.github/workflows/deploy.yml');
+  assert.match(deploy, /PRS: \$\{\{ needs\.preview-build\.outputs\.prs \}\}/);
+  assert.match(deploy, /prs: \$\{\{ steps\.prs\.outputs\.result \}\}/);
+  assert.match(deploy, /node scripts\/assemble-pages\.mjs main-dist previews site/);
+  assert.doesNotMatch(deploy.slice(deploy.indexOf('\n  assemble:')), /list\.json/);
+});
