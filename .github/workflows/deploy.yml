@@ -1,40 +1,194 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages (main + PR previews)
+
+# GitHub Pages(Actions から公開)は公開のたびにサイト全体を置き換える。main の公開版(/-ARPG-/)と、
+# 開いている PR のプレビュー(/-ARPG-/pr/<N>/)を毎回まとめて組んで公開する(DEV-PREVIEW-001)。
+#   - main へ push … main の公開版を更新(プレビューも組み直す)
+#   - PR を開く・更新する・閉じる … そのとき開いている PR のプレビューを組み直す(閉じた PR のプレビューは消える)
+#
+# 安全のための約束(.ai/reports/DEV-PREVIEW-001-report.md):
+#   - pull_request_target は main 側のこのファイルで動く。PR がこのファイルを書き換えても効かない
+#   - fork の PR は組まない(同じリポジトリの PR だけ。書き込める人の PR だけ)
+#   - PR のコードを動かすのは preview-build ジョブだけ。そのジョブの権限は読むだけで、トークンを PR のコードへ渡さない。
+#     キャッシュも使わない(main 側のキャッシュを汚さない)
+#   - 公開(pages / id-token の書き込み)は deploy ジョブだけで、PR のコードを動かさない
+#   - main の公開版は main の commit からだけ組む(PR のコードは /pr/<N>/ の下にしか置かない)
+#   - プレビューのセーブ・設定は main の公開版と別のキー(src/core/dev-preview.js)
 
 on:
   push:
     branches: [main]
+  pull_request_target:
+    types: [opened, reopened, synchronize, closed]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# 公開は 1 本ずつ。新しい実行が来たら古い実行は取り消す(毎回すべての PR の最新 commit を組み直すので、
+# 新しい実行の結果が古い実行に上書きされることはない)
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  main-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
       - run: npm ci
-      - run: npm run build
+      # build の id は GITHUB_SHA(push では main の commit、pull_request_target では main の最新 commit)
+      - name: Build main
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: main-dist
+          path: dist
+          retention-days: 1
+
+  preview-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: List open PRs from this repository (forks are skipped)
+        id: prs
+        uses: actions/github-script@v7
+        with:
+          result-encoding: json
+          script: |
+            const full = `${context.repo.owner}/${context.repo.repo}`;
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 });
+            const same = prs.filter(p => p.head && p.head.repo && p.head.repo.full_name === full);
+            const forks = prs.filter(p => !same.includes(p)).map(p => `#${p.number}`);
+            core.info(`fork PRs skipped (no preview): ${forks.join(', ') || 'none'}`);
+            return same.map(p => ({ number: p.number, sha: p.head.sha, title: p.title }));
+      - name: Build previews
+        env:
+          PRS: ${{ steps.prs.outputs.result }}
+        run: |
+          mkdir -p .previews
+          printf '%s' "$PRS" > .previews/prs.json
+          node scripts/build-previews.mjs .previews/prs.json .previews
+          rm -rf .previews/src-*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: previews
+          path: .previews
+          include-hidden-files: true
+          retention-days: 1
+
+  assemble:
+    needs: [main-build, preview-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      summary: ${{ steps.site.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/download-artifact@v4
+        with:
+          name: main-dist
+          path: main-dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: previews
+          path: previews
+      - name: Assemble site
+        id: site
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          node -e '
+            const fs = require("fs"), path = require("path");
+            const list = JSON.parse(fs.readFileSync("previews/list.json", "utf8"));
+            const m = { owner: process.env.OWNER, mainDist: "main-dist", out: "site", runUrl: process.env.RUN_URL,
+                        builtAt: new Date().toISOString(),
+                        previews: list.map(p => ({ ...p, dist: p.dist ? path.join("previews", p.dist) : null })) };
+            fs.writeFileSync("manifest.json", JSON.stringify(m));'
+          node scripts/pages-site.mjs manifest.json
+          echo "summary=$(node -e 'process.stdout.write(JSON.stringify(require("./site/pr/previews.json")))')" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: site
 
   deploy:
-    needs: build
+    needs: assemble
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # PR に「テスト版を開く」のコメントを 1 つだけ置き、公開のたびに書き換える(どの commit のプレビューかを必ず添える)
+  comment:
+    needs: [assemble, deploy]
+    # 取り消された実行(新しい実行に置き換わった時)はコメントしない。新しい実行が書く
+    if: ${{ !cancelled() && github.event_name == 'pull_request_target' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          SUMMARY: ${{ needs.assemble.outputs.summary }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const marker = '<!-- dev-preview -->';
+            const pr = context.payload.pull_request.number;
+            const headSha = context.payload.pull_request.head.sha;
+            let summary = [];
+            try { summary = JSON.parse(process.env.SUMMARY || '[]'); } catch (e) {}
+            const mine = summary.find(p => p.pr === pr);
+            const deployed = process.env.DEPLOY_RESULT === 'success';
+            let body;
+            if (deployed && mine && mine.status === 'ok') {
+              body = [marker, '### 🔍 テスト版を開く(この PR のプレビュー)',
+                `- 通常プレイ: ${mine.url}`,
+                `- テストモード: ${mine.url}?dev=1`,
+                `- 対象コミット: \`${mine.sha}\`(画面の上端の帯にも 7 桁で出ます)`,
+                `- 実行結果: ${process.env.RUN_URL}`,
+                '', 'main の公開版とは別物です。プレビューのセーブ・設定は公開版と分けてあります。',
+                mine.sha !== headSha ? `\n⚠️ この PR の最新の commit は \`${headSha}\` です。プレビューは次の公開で更新されます。` : ''].join('\n');
+            } else {
+              body = [marker, '### ⚠️ この PR のプレビューはまだ使えません',
+                `- 対象コミット: \`${headSha}\``,
+                `- 状態: ${!deployed ? '公開に失敗(または取り消し)' : (mine ? 'ビルドに失敗' : 'このリポジトリの PR ではないため組んでいません')}`,
+                `- 実行結果: ${process.env.RUN_URL}`].join('\n');
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, per_page: 100 });
+            const old = comments.find(c => c.body && c.body.startsWith(marker));
+            if (old) await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: old.id, body });
+            else await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr, body });

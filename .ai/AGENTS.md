@@ -824,8 +824,35 @@ PR は、Reviewer PASS と必要なテストの完了後に Orchestrator が作�
   - Auto-fix count / Human Escalation count（§22）
   - Related Work Item / Known limitations / Human review points
   - `Merge required: Human approval`
+  - 実機確認の入口の 7 項目（§21.1）
 - リポジトリに PR テンプレートがあれば、その見出しに上の項目を当てはめる
 - PR を作成した後も、CI の失敗・review の指摘は §9 / §9.1 と同じ規則で扱う（Agent は merge しない）
+
+### 21.1 実機確認の入口（PR 本文の必須項目、DEV-PREVIEW-001）
+
+Human は iPhone だけで作業していることがある。PR 本文を開けば、**そこから 1 タップでその PR の最新コードを実機で開ける**ようにする（「どこから開けばよいか」を毎回探させない）。PR 本文の先頭近くに、次の 7 項目を必ず書く（テンプレート: `.github/pull_request_template.md`）:
+
+1. **テスト版を開く**: その PR のプレビューの URL（`https://<owner>.github.io/-ARPG-/pr/<PR 番号>/`）と、テストモードの URL（同じ URL に `?dev=1`）。タップで開ける普通のリンクにする
+   - プレビューは `.github/workflows/deploy.yml` が PR の open / 更新 / reopen のたびに組み直して公開し、PR に「🔍 テスト版を開く」のコメント（どの commit か付き）を 1 つだけ置いて書き換える
+   - **URL は実際に公開されたものだけを書く**（プレビューのコメントが出た後に、そのコメントの URL を写す。推測で書かない）。公開がまだ・失敗した時は、その事実と代わりの手順（下記）を書く
+2. **対象コミット**: プレビューが組まれた commit（完全な SHA か 7 桁）。プレビューの画面の上端の帯とメニューの版表記にも同じ 7 桁が出る
+3. **CI 結果**: ビルド・unit・E2E の実行結果へのリンク（Test ワークフローの run）と、その結論
+4. **iPhone 実機確認項目**: 具体的な操作手順と期待結果。844×390 の横画面を基本に、必要なら 1280×800
+5. **確認状況**: 未確認 / 確認中 / 問題あり / 確認済み（Human が確かめるまでは「未確認」）
+6. **main との差分**: main の公開版（`https://<owner>.github.io/-ARPG-/`）と何が違うか
+7. **マージ前の注意事項**: 既知の問題・未確認の項目・Human が決めること
+
+プレビューが使えない時（公開の失敗・fork の PR・この仕組みが main に入る前の PR）の代わりの手順:
+- Test ワークフローの `preview-site` ジョブの成果物 `pages-site-pr-<N>`（組んだサイト一式、3 日保存）。iPhone では開きにくいので、手元の PC で `npx vite preview --outDir <展開した場所> --base /-ARPG-/` などで開く
+- 表示されない・古いままに見える時: 画面の上端の帯の 7 桁と PR の最新 commit を比べる／`/-ARPG-/pr/<N>/preview.json` の `sha` を見る／Safari の再読み込み（古いビルドは起動時に 1 回だけ自動で読み直す）／アセットの 404 は Actions の `Deploy to GitHub Pages` の実行結果を見る
+
+### 21.2 マージ判定（DEV-PREVIEW-001）
+
+- **CI の成功と iPhone 実機確認は別の項目**として扱う。CI が緑でも、実機確認が要る PR は「確認状況: 未確認」のまま
+- 実機確認が要る PR は、Human が確かめるまで `CONTENT READY = HUMAN DEVICE CHECK REQUIRED` を外さない（Agent が「確認済み」にしない）
+- PR を作る Agent は、実機確認の URL と手順を必ず示す（§21.1）。URL が使えない時は、その事実と代わりの手順を書く
+- Agent は Human の明示の許可なく `main` へ merge しない（§20）
+- main の公開版と PR のプレビューを取り違えない: プレビューには画面の上端に「PR #N プレビュー・commit」の帯が出て、題名に `[PR #N]` が付く。main の公開版には出ない。プレビューのセーブ・設定は公開版と別（`preview-prN:` のキー）
 
 ## 22. Autonomy Metrics
 

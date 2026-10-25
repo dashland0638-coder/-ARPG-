@@ -124,6 +124,8 @@ import {
 } from '../core/village-echo.js';
 /* テストモードのボスの分身の確認(PR #100 の実機確認用。テストモードの間だけ効く) */
 import { guestMayFight, phase3TestHp, bossDamageHeld, nextBossPhaseTarget } from '../core/test-boss-check.js';
+/* PR ごとの実機確認プレビュー(DEV-PREVIEW-001)。プレビューのセーブ・設定のキーを分ける */
+import { previewInfo, previewStorageKey } from '../core/dev-preview.js';
 /* テストモードのデバッグ用の強さ(TEST-MODE-CURRENT-001。テストモードの間だけ効く) */
 import { applyTestStatScale, nextTestStatScale, normalizeTestStatScale, testStatScaleLabel,
   testModeGrowthState, applyXpGain, xpToNextForLevel } from '../core/test-debug.js';
