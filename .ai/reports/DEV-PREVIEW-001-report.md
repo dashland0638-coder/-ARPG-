@@ -91,4 +91,17 @@
 
 ## 7. 回帰・独立レビュー
 
-（下に記録）
+### 独立レビュー（Reviewer、3 Round）
+| Round | 対象 | 判定 | 指摘と対応 |
+| --- | --- | --- | --- |
+| 1 | `d598533` | CHANGES REQUESTED（MAJOR 3） | M1 古いブランチのプレビューが公開版のセーブを使い main の commit を出す／M2 main の公開がすべての PR のビルドに依存し、PR の更新が続くと取り消され続ける／M3 同じ実行の中で PR のコードが成果物を差し替え・キャッシュを汚せる → **組む所（`preview.yml`）と公開する所（`deploy.yml`）を分けた**（`cf4dc16`）。ほか MINOR（fork の実行の順番待ち・上限・page_url・版表記・Bot のコメント・Summary・検査の範囲）も対応 |
+| 2 | `cf4dc16` | CHANGES REQUESTED（MAJOR 1） | R2-M1 コメントがきっかけの PR にしか付かない（待っている実行が置き換わると届かない）→ 公開したすべての PR に付ける・状態が同じなら書かない（`preview-comments.cjs`）／m1 古いブランチでも `preview.yml` が動き「失敗」と出る → 「Requires main」の手順で止めて「main を取り込んでください」／m2 成果物を集める手順の失敗でコメントが消える → きっかけの PR はイベントから／m3 zip 爆弾・合計の大きさ → 上限（`ce3965c`） |
+| 3 | `ce3965c` | **PASS** | NIT のみ（公開に失敗した時は、前に動いていたプレビューの PR も「公開に失敗」と出る。保守的なので許容） |
+
+### 回帰
+- `npm run test:unit`: 2062 件中 2061 件 pass・fail 0（skip 1 は既存）
+- E2E（手元、Chromium）: `dev-preview`・`production-build`・`pwa-test-entry`・`save-load`・`settings`・`chapter-select-testmode`・`ui-proto-gate`・`perf-diagnostic`・`testmode-current` の 46 件 pass。最終の commit で `dev-preview`・`production-build` の 9 件 pass
+- CI（PR #102）: Test・PR Preview の結果は PR 本文に記録
+
+### merge 前に確かめられないこと
+- `workflow_run` で `deploy.yml` が動くこと・`github-pages` 環境の保護を通ること・実際の `page_url`・コメントが付くこと（main にあるファイルで動くため）。merge 後の最初の PR で確かめる
