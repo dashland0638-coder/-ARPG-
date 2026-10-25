@@ -464,7 +464,9 @@
       `Map: ${currentWorldKey || '-'} / ${room}<br>` +
       (boss ? `Boss Phase: ${boss.dialogueName || boss.key} P${boss.phase || 1} ${Math.max(0, Math.round(boss.hp))}/${boss.hpMax}` +
               `${testHoldBoss === boss ? ' (HELD)' : ''}<br>` : '') +
-      `Guest: ${guestCompanion ? (testGuestPaused ? 'PAUSED' : 'FIGHTING') : 'NONE'}<br>`;
+      `Guest: ${guestCompanion ? (testGuestPaused ? 'PAUSED' : 'FIGHTING') : 'NONE'}<br>` +
+      /* 内部の成長の状態(TEST-MODE-CURRENT-002)。第一章ルールでは増えないことを、HUD ではなく値で確かめる */
+      `Growth: Lv ${state.level} XP ${state.xp} SP ${state.spherePoints || 0} Ranks ${state.freeRanks || 0}<br>`;
   }
 
   function updateArenaEnemyInfo(){

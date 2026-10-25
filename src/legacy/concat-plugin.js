@@ -125,7 +125,8 @@ import {
 /* テストモードのボスの分身の確認(PR #100 の実機確認用。テストモードの間だけ効く) */
 import { guestMayFight, phase3TestHp, bossDamageHeld, nextBossPhaseTarget } from '../core/test-boss-check.js';
 /* テストモードのデバッグ用の強さ(TEST-MODE-CURRENT-001。テストモードの間だけ効く) */
-import { applyTestStatScale, nextTestStatScale, normalizeTestStatScale, testStatScaleLabel } from '../core/test-debug.js';
+import { applyTestStatScale, nextTestStatScale, normalizeTestStatScale, testStatScaleLabel,
+  testModeGrowthState, applyXpGain, xpToNextForLevel } from '../core/test-debug.js';
 import {
   phaseFor as wardenPhaseFor, echoCountFor, echoDelay, recordAction,
   dueEchoes, pruneRecords, stepEcho, echoStrikes, actorTell,

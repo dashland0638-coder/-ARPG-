@@ -12,7 +12,7 @@
      6. iPhone 横画面(844×390)と 1280×800 で、開始画面の主な操作と Arena の先頭の操作が画面に収まる
    ゲームの状態は書き換えない(ボタン・キー操作と、画面・Debug Info・テストモードの記録を読むだけ)。 */
 import { test, expect } from '@playwright/test';
-import { openGame, watchErrors, startTestMode } from './helpers.js';
+import { openGame, watchErrors, startTestMode, disableCameraAutoFollow } from './helpers.js';
 
 async function installFeedbackProbe(page) {
   await page.addInitScript(() => {
@@ -204,4 +204,101 @@ test.describe('テストモード: 現行仕様への追従', () => {
       expect(errors).toEqual([]);
     });
   }
+});
+
+/* TEST-MODE-CURRENT-002: 第一章ルールで経験値・レベルアップ・成長ポイントが混ざらない。
+   HUD ではなく、Debug Info の内部の値(Growth: Lv / XP / スフィアのポイント / 習得の証)で確かめる */
+const growthOf = async page => {
+  const html = await page.evaluate(() => document.getElementById('arena-enemy-info').innerHTML);
+  const m = /Growth:\s*Lv (\d+) XP (\d+) SP (\d+) Ranks (\d+)/.exec(html || '');
+  return m ? { lv: +m[1], xp: +m[2], sp: +m[3], ranks: +m[4] } : null;
+};
+
+/* 宵待ちの村のボス戦を始めから終わりまで(支援AIは休止、強さ ×2 で早く倒す)。結果画面が出たら返す */
+async function defeatVillageBoss(page, opts) {
+  await startTestMode(page, { classKey: 'warrior', scenario: 'duskvillage', waypoint: 'boss', ...opts });
+  await expect(page.locator('#minimap-room')).toHaveText('水鏡の跡', { timeout: 60_000 });
+  const dlg = () => page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
+  const send = async () => { for (let q = 0; q < 6;) { if (await dlg()) { await page.click('#dialogue-overlay'); q = 0; } else q++; await page.waitForTimeout(300); } };
+  await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
+  await send();
+  await disableCameraAutoFollow(page);
+  await openArena(page);
+  await page.click('#arena-info-toggle-btn');
+  await page.click('#arena-guest-pause-btn');
+  await page.click('#arena-strength-btn');
+  await page.click('#arena-strength-btn');   // ×0.5 → ×2
+  await expect(page.locator('#arena-strength-btn')).toHaveText('💪 強さ ×2');
+  await page.click('#arena-toggle-btn');
+  const before = await growthOf(page);
+  const deadline = Date.now() + 600_000;
+  while (Date.now() < deadline) {
+    if (await dlg()) await send();
+    await page.keyboard.down('KeyJ'); await page.waitForTimeout(150); await page.keyboard.up('KeyJ');
+    if (await page.evaluate(() => document.getElementById('clear-overlay').classList.contains('active'))) break;
+  }
+  await expect(page.locator('#clear-overlay'), 'ボスを倒して結果画面が出る').toHaveClass(/active/);
+  return { before, after: await growthOf(page), loot: await page.locator('#result-loot').textContent() };
+}
+
+test.describe('テストモード: 第一章ルールでは旧成長の報酬が混ざらない(TEST-MODE-CURRENT-002)', () => {
+  test('第一章ルール: ボスを倒しても、内部のレベル・経験値・スフィアのポイント・習得の証は増えない', async ({ page }) => {
+    test.setTimeout(900_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    const r = await defeatVillageBoss(page, {});
+    expect(r.before).toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0 });
+    expect(r.after, '撃破後も同じ').toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0 });
+    expect(r.loot).not.toContain('経験値');
+    await expect(page.locator('#hud-name')).not.toContainText('Lv');
+    expect(errors).toEqual([]);
+  });
+
+  test('旧成長ルール: 同じボスを倒すと、従来どおり経験値が入りレベルが上がる', async ({ page }) => {
+    test.setTimeout(900_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    const r = await defeatVillageBoss(page, { rules: 'legacy', level: 1 });
+    expect(r.before.lv).toBe(1);
+    expect(r.before.sp).toBe(999);
+    expect(r.after.lv, `撃破後 ${JSON.stringify(r.after)}`).toBeGreaterThan(1);
+    expect(r.after.sp, 'レベルアップごとにスフィアのポイント +1').toBe(999 + (r.after.lv - 1));
+    expect(r.loot).toContain('経験値');
+    expect(errors).toEqual([]);
+  });
+
+  test('ルールを切り替えても、前のルールの成長の状態が残らない(旧成長 → 第一章 → 旧成長)', async ({ page }) => {
+    test.setTimeout(240_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    const enterAndRead = async opts => {
+      await startTestMode(page, { classKey: 'warrior', ...opts });
+      await expect(page.locator('#hud')).toHaveClass(/active/);
+      await openArena(page);
+      await page.click('#arena-info-toggle-btn');
+      const g = await growthOf(page);
+      await page.click('#arena-info-toggle-btn');
+      await page.click('#arena-toggle-btn');
+      return g;
+    };
+    const backToTitle = async () => {
+      for (let i = 0; i < 20; i++) {
+        if (await page.evaluate(() => document.getElementById('menu-overlay').classList.contains('active'))) break;
+        await page.evaluate(() => document.getElementById('loot-menu-btn')
+          .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true })));
+        await page.waitForTimeout(400);
+      }
+      await page.evaluate(() => document.getElementById('menu-title').click());
+      await page.evaluate(() => document.getElementById('confirm-ok').click());
+      await expect(page.locator('#title-screen')).toBeVisible({ timeout: 30_000 });
+    };
+    expect(await enterAndRead({ rules: 'legacy', level: 20 })).toEqual({ lv: 20, xp: 0, sp: 999, ranks: 0 });
+    await expect(page.locator('#hud-name')).toContainText('Lv.20');
+    await backToTitle();
+    expect(await enterAndRead({}), '第一章ルールは本編と同じ値で入る').toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0 });
+    await expect(page.locator('#hud-name')).not.toContainText('Lv');
+    await backToTitle();
+    expect(await enterAndRead({ rules: 'legacy', level: 5 })).toEqual({ lv: 5, xp: 0, sp: 999, ranks: 0 });
+    expect(errors).toEqual([]);
+  });
 });

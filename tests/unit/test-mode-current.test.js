@@ -110,3 +110,73 @@ test('組み込み: テストモードの間だけ・セーブに書かない・
     assert.match(fnBody(tg, 'toggleTestStatScale'), /if\(!state\.testMode\) return;/);
   });
 });
+
+/* ---- TEST-MODE-CURRENT-002: 第一章ルールで旧成長の報酬・状態が混ざらない ---- */
+import {
+  testModeGrowthState, applyXpGain, xpToNextForLevel, TEST_LEGACY_SPHERE_POINTS, STARTING_DICE_TOTAL,
+} from '../../src/core/test-debug.js';
+
+test('002: 経験値の付与は第一章ルール(旧成長でない)では何も変えない', () => {
+  const s = {xp: 0, level: 1, xpToNext: xpToNextForLevel(1)};
+  assert.deepEqual(applyXpGain(s, 150, false), {...s, levelsGained: 0}, 'ボス 1 体分');
+  assert.deepEqual(applyXpGain(s, 10, false), {...s, levelsGained: 0}, '通常敵 1 体分');
+  assert.deepEqual(applyXpGain({xp: 39, level: 1, xpToNext: 40}, 999999, false), {xp: 39, level: 1, xpToNext: 40, levelsGained: 0});
+});
+
+test('002: 旧成長ルールでは従来どおり経験値が溜まり、レベルが上がる', () => {
+  // 以前の grantXP の式と同じ(必要量 40 + (Lv-1)×30、余りは持ち越し)
+  assert.equal(xpToNextForLevel(1), 40);
+  assert.equal(xpToNextForLevel(4), 130);
+  assert.deepEqual(applyXpGain({xp: 0, level: 1, xpToNext: 40}, 10, true), {xp: 10, level: 1, xpToNext: 40, levelsGained: 0});
+  assert.deepEqual(applyXpGain({xp: 0, level: 1, xpToNext: 40}, 150, true), {xp: 40, level: 3, xpToNext: 100, levelsGained: 2});
+  assert.deepEqual(applyXpGain({xp: 0, level: 1, xpToNext: 40}, 210, true), {xp: 0, level: 4, xpToNext: 130, levelsGained: 3});
+});
+
+test('002: テストモードで入る時の成長の状態はルールで決まり、前の値を持ち越さない', () => {
+  const cur = testModeGrowthState('current', 50);
+  assert.deepEqual(cur, {legacy: false, level: 1, xp: 0, spherePoints: 0, unlockedSkill1Alt: false,
+    unlockedSkill2Alt: false, unlockedUltAlt: false, freeRanks: 0, diceTotal: STARTING_DICE_TOTAL});
+  assert.equal(testModeGrowthState(undefined, 50).level, 1, '既定は第一章ルール');
+  const leg = testModeGrowthState('legacy', 50);
+  assert.equal(leg.level, 50);
+  assert.equal(leg.spherePoints, TEST_LEGACY_SPHERE_POINTS);
+  assert.equal(leg.unlockedSkill1Alt && leg.unlockedSkill2Alt && leg.unlockedUltAlt, true);
+  assert.equal(leg.freeRanks, 0);
+  assert.equal(testModeGrowthState('legacy', 0).level, 1);
+  assert.equal(testModeGrowthState('legacy', 200).level, 99);
+});
+
+test('002 組み込み: 報酬の経路はすべて legacyGrowth() を通り、テストモードの入場はルールで状態を決める', async (t) => {
+  const prog = read('src/legacy/parts/12-progression-ui.js');
+  const ai = read('src/legacy/parts/07-ai-combat.js');
+  const boot = read('src/legacy/parts/14-hud-boot.js');
+  await t.test('grantXP: 旧成長でなければ何もしない。計算は core の applyXpGain', () => {
+    const fn = fnBody(prog, 'grantXP');
+    assert.match(fn, /const legacy = legacyGrowth\(\);\s*if\(!legacy\) return;/);
+    assert.match(fn, /applyXpGain\(\{xp: state\.xp, level: state\.level, xpToNext: state\.xpToNext\}, amount, legacy\)/);
+    assert.ok(fn.indexOf('if(!legacy) return;') < fn.indexOf('state.level++'));
+    assert.ok(fn.indexOf('if(!legacy) return;') < fn.indexOf('state.spherePoints'));
+  });
+  await t.test('経験値・レベル・成長ポイントを増やす所は grantXP / grantFirstClearRank だけで、どちらも legacyGrowth() の後', () => {
+    const all = ['01-character-creation','02-world-common','07-ai-combat','08-loot-equipment','10-input','11-combat-actions',
+      '12-progression-ui','13-update-loop','14-dungeon-duskvillage','14-dungeon-road','14-hud-boot','14-training-ground']
+      .map(f => read(`src/legacy/parts/${f}.js`)).join('\n');
+    assert.equal((all.match(/state\.level\+\+/g) || []).length, 1, 'レベルを上げるのは grantXP だけ');
+    assert.equal((all.match(/state\.xp \+=/g) || []).length, 0, '経験値を直接足す所が無い');
+    assert.equal((all.match(/state\.freeRanks\+\+/g) || []).length, 1, '習得の証は grantFirstClearRank だけ');
+    assert.match(fnBody(prog, 'grantFirstClearRank'), /if\(!legacyGrowth\(\)\) return false;/);
+    // 撃破(ボス・通常敵)・撤退ボーナスはすべて grantXP を通る
+    assert.match(ai, /grantXP\(en\.xp\|\|150\);/);
+    assert.match(ai, /grantXP\(en\.xp\|\|10\);/);
+    assert.match(prog, /grantXP\(bonus\.xp\);/);
+  });
+  await t.test('beginTestMode: 旧成長の値(999・派生の全解放)はルールで決め、振り分けも初期値へ戻す', () => {
+    const fn = fnBody(boot, 'beginTestMode');
+    assert.match(fn, /const seed = testModeGrowthState\(state\.testRules, level\);/);
+    assert.ok(fn.indexOf('state.testRules = normalizeTestRules') < fn.indexOf('testModeGrowthState'));
+    assert.doesNotMatch(fn, /spherePoints = 999/);
+    assert.doesNotMatch(fn, /unlockedSkill1Alt = true/);
+    assert.match(fn, /diceTotal = seed\.diceTotal; allocPoints = zeroAlloc\(\); allocDraft = zeroAlloc\(\);/);
+    assert.match(fn, /level = seed\.level;/);
+  });
+});

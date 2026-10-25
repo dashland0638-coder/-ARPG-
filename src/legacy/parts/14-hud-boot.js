@@ -1646,14 +1646,19 @@
        sphereCanUnlock/unlockSphereNode 側で免除される)。
        この状態は saveGame() が state.testMode で必ず弾くので、通常プレイの
        セーブ・成長・解放状況には一切書き戻らない。 */
-    state.unlockedSphereNodes = ['root']; state.spherePoints = 999;
+    /* ルールで分ける(TEST-MODE-CURRENT-002、core/test-debug.js testModeGrowthState)。旧成長の値
+       (スフィアのポイント 999・派生の全解放)は旧成長ルールの時だけ。第一章ルールは本編の第一章と同じ値で入る。
+       振り分け(ダイスの合計・配分)も、前のセーブ・前のテストの値を持ち越さないよう初期値へ戻す */
+    const seed = testModeGrowthState(state.testRules, level);
+    state.unlockedSphereNodes = ['root']; state.spherePoints = seed.spherePoints;
     state.skill2Choice = 'default'; state.ultChoice = 'default';
-    state.unlockedSkill1Alt = true; state.unlockedSkill2Alt = true; state.unlockedUltAlt = true;
+    state.unlockedSkill1Alt = seed.unlockedSkill1Alt; state.unlockedSkill2Alt = seed.unlockedSkill2Alt; state.unlockedUltAlt = seed.unlockedUltAlt;
+    diceTotal = seed.diceTotal; allocPoints = zeroAlloc(); allocDraft = zeroAlloc();
     state.scenarioClears = {};
     state.routeCombosSeen = {};
     state.skills = {atkUp:0, hpUp:0, ultUp:0, companion:0, chargeUp:0};
     state.ranks = {skill:0, skill2:0, ult:0};
-    state.freeRanks = 0;
+    state.freeRanks = seed.freeRanks;
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;
     state.smithJoined = false; state.smithGreeted = false;
@@ -1673,7 +1678,8 @@
     // レベル: grantXP()の成長式(12-progression-ui.js)と同じ計算を、
     // XP/レベルアップ演出/ダイス追加ポイントといった副作用抜きに、
     // 指定レベル分だけまとめて適用する
-    state.level = level; state.xp = 0; state.xpToNext = xpToNextForLevel(level);
+    level = seed.level;   // 第一章ルールでは 1(レベルはステータスに乗らない)
+    state.level = level; state.xp = seed.xp; state.xpToNext = xpToNextForLevel(level);
     state.levelGrowth = zeroAlloc();
     const base = CLASSES[classKey];
     for(let lv=1; lv<level; lv++){

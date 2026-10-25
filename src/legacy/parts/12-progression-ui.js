@@ -1888,18 +1888,20 @@
     el.textContent = legacyGrowth() ? `${label} Lv.${state.level}` : label;
   }
 
-  function xpToNextForLevel(lv){ return 40 + (lv-1)*30; }
+  // xpToNextForLevel は core/test-debug.js(経験値の計算と同じ場所。TEST-MODE-CURRENT-002)
 
   function grantXP(amount){
-    // Chapter 1 の本編には経験値もレベルアップも無い(WORK 12.1)
-    if(!legacyGrowth()) return;
-    state.xp += amount;
+    /* Chapter 1 の本編には経験値もレベルアップも無い(WORK 12.1)。テストモードの第一章ルールも同じ
+       (TEST-MODE-CURRENT-002)。計算は core/test-debug.js applyXpGain が持ち、旧成長でない時は何も変えない */
+    const legacy = legacyGrowth();
+    if(!legacy) return;
+    const gain = applyXpGain({xp: state.xp, level: state.level, xpToNext: state.xpToNext}, amount, legacy);
+    state.xp = gain.xp;
+    state.xpToNext = gain.xpToNext;
     let leveled = false;
-    while(state.xp >= state.xpToNext){
-      state.xp -= state.xpToNext;
+    for(let i = 0; i < gain.levelsGained; i++){
       state.level++;
       sfx('levelUp');
-      state.xpToNext = xpToNextForLevel(state.level);
       diceTotal += 1; // free stat points banked, spend them at the appraisal - less than before, since auto-growth now covers more
       state.spherePoints = (state.spherePoints||0) + 1;   // 奥義の環: レベルアップごとに1点
       // 基礎ステータス制(#28): 職業ごとの基礎配分に「比例」した分だけ
