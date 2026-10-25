@@ -223,7 +223,13 @@ async function defeatVillageBoss(page, opts) {
   await expect(page.locator('#dialogue-overlay')).toHaveClass(/active/, { timeout: 120_000 });
   await send();
   await disableCameraAutoFollow(page);
-  await openArena(page);
+  /* ボスの戦いの最中の台詞が、Arena を開く瞬間に出ることがある(会話の幕がボタンを覆う)。送ってから開き直す */
+  for (let i = 0; i < 20; i++) {
+    if (await dlg()) await send();
+    await page.click('#arena-toggle-btn', { timeout: 3000 }).catch(() => {});
+    if (await page.locator('#arena-panel').evaluate(el => el.classList.contains('show'))) break;
+  }
+  await expect(page.locator('#arena-panel')).toHaveClass(/show/);
   await page.click('#arena-info-toggle-btn');
   await page.click('#arena-guest-pause-btn');
   await page.click('#arena-strength-btn');
