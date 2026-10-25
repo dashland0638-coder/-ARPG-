@@ -158,12 +158,17 @@ test('002 組み込み: 報酬の経路はすべて legacyGrowth() を通り、�
     assert.ok(fn.indexOf('if(!legacy) return;') < fn.indexOf('state.spherePoints'));
   });
   await t.test('経験値・レベル・成長ポイントを増やす所は grantXP / grantFirstClearRank だけで、どちらも legacyGrowth() の後', () => {
-    const all = ['01-character-creation','02-world-common','07-ai-combat','08-loot-equipment','10-input','11-combat-actions',
-      '12-progression-ui','13-update-loop','14-dungeon-duskvillage','14-dungeon-road','14-hud-boot','14-training-ground']
-      .map(f => read(`src/legacy/parts/${f}.js`)).join('\n');
-    assert.equal((all.match(/state\.level\+\+/g) || []).length, 1, 'レベルを上げるのは grantXP だけ');
-    assert.equal((all.match(/state\.xp \+=/g) || []).length, 0, '経験値を直接足す所が無い');
-    assert.equal((all.match(/state\.freeRanks\+\+/g) || []).length, 1, '習得の証は grantFirstClearRank だけ');
+    // legacy の部品をすべて読む(新しい部品が増えても漏れないよう、ディレクトリから)
+    const dir = path.join(root, 'src/legacy/parts');
+    const all = fs.readdirSync(dir).filter(f => f.endsWith('.js')).map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
+    const count = re => (all.match(re) || []).length;
+    assert.equal(count(/state\.level\s*(\+\+|\+=)/g), 1, 'レベルを上げるのは grantXP だけ');
+    assert.equal(count(/state\.xp\s*\+=/g), 0, '経験値を直接足す所が無い');
+    assert.equal(count(/state\.freeRanks\s*(\+\+|\+=)/g), 1, '習得の証は grantFirstClearRank だけ');
+    assert.equal(count(/diceTotal\s*\+=/g), 1, 'ダイスを足すのは grantXP のレベルアップだけ');
+    assert.equal(count(/state\.spherePoints\s*=\s*\(state\.spherePoints\|\|0\)\s*\+\s*1/g), 1, 'スフィアのポイント +1 は grantXP のレベルアップだけ');
+    const xpFn = fnBody(prog, 'grantXP');
+    assert.ok(/diceTotal\s*\+=/.test(xpFn) && /spherePoints\|\|0\)\s*\+\s*1/.test(xpFn), 'その 1 か所は grantXP の中');
     assert.match(fnBody(prog, 'grantFirstClearRank'), /if\(!legacyGrowth\(\)\) return false;/);
     // 撃破(ボス・通常敵)・撤退ボーナスはすべて grantXP を通る
     assert.match(ai, /grantXP\(en\.xp\|\|150\);/);
