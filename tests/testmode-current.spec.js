@@ -285,8 +285,13 @@ test.describe('テストモード: 第一章ルールでは旧成長の報酬が
     await page.evaluate(() => document.getElementById('menu-title').click());
     await page.evaluate(() => document.getElementById('confirm-ok').click());
     await expect(page.locator('#title-screen')).toBeVisible({ timeout: 30_000 });
+    /* 開始画面は前に選んだシナリオ・開始地点を覚えているので、トレーニング空間を選び直してから入る */
+    await page.click('#open-testmode-btn');
+    await page.click('#testmode-scenario-grid .testmode-job-card[data-scenario-key=""]');
+    await page.click('#testmode-back-btn');
     await startTestMode(page, { classKey: 'warrior' });
     await expect(page.locator('#hud')).toHaveClass(/active/);
+    await expect(page.locator('#minimap-area')).not.toHaveText('宵待ちの村');
     await openArena(page);
     await page.click('#arena-info-toggle-btn');
     expect(await growthOf(page), '第一章ルールは本編と同じ値で入る').toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0, dice: 12, alloc: 0 });
