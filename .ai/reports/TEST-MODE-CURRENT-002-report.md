@@ -56,7 +56,7 @@ PR #101 の確認中、テストモードの開始時に「📖 第一章（本�
 | `core/test-debug.js` | `testModeGrowthState(testRules, level)`: 入る時の成長の状態をルールで決める（第一章: Lv 1・経験値 0・スフィア 0・派生は未解放・習得の証 0、旧成長: 指定のレベル・スフィア 999・派生は全解放。どちらもダイスの合計 12）。`applyXpGain(state, amount, legacy)`: 経験値の計算（旧成長でなければ何も変えない）。`xpToNextForLevel` を同じ場所へ |
 | `14-hud-boot.js beginTestMode` | 上の状態で入る。振り分け（`diceTotal` / `allocPoints` / `allocDraft`）を初期値へ戻す |
 | `12-progression-ui.js grantXP` | `legacyGrowth()` が偽なら何もしない（今まで通り）。計算は `applyXpGain`。レベルアップの副作用（音・ダイス・スフィア +1・レベル成長・転身の確認）は今まで通り |
-| `14-training-ground.js` Debug Info | 見出しに `Growth: Lv / XP / SP（スフィアのポイント）/ Ranks（習得の証）` を出す（HUD ではなく内部の値を確かめるため。テストモードだけ） |
+| `14-training-ground.js` Debug Info | 見出しに `Growth: Lv / XP / SP（スフィアのポイント）/ Ranks（習得の証）/ Dice（ダイスの合計）/ Alloc（配分の合計）` を出す（HUD ではなく内部の値を確かめるため。テストモードだけ） |
 
 HUD の表示は変えていない（隠すだけの修正はしていない）。通常プレイ・セーブの形式は変わらない。旧成長ルールで変わったのは 1 点だけ: 通常のセーブを読んだ後にテストモードへ入っても、振り分け（ダイスの合計・配分）を持ち越さず、未使用 12 から始まる（以前はセーブの値が残り、ステータスに乗っていた）。それ以外の旧成長ルールの挙動（レベル指定・スフィア 999・派生の全解放・経験値とレベルアップ）は変わらない
 
@@ -67,13 +67,15 @@ HUD の表示は変えていない（隠すだけの修正はしていない）�
   - 新規（`tests/unit/test-mode-current.test.js`）: 第一章ルールで経験値の付与が何も変えない（ボス・通常敵の量）／旧成長ルールで従来の式どおりにレベルが上がる（Lv 1 に 210 で Lv 4）／入る時の状態がルールで決まる（第一章: Lv 1・スフィア 0・派生なし）／レベル・経験値・習得の証を増やす所はコード全体で `grantXP` / `grantFirstClearRank` だけで、どちらも `legacyGrowth()` の後／`beginTestMode` が 999・全解放を直接入れず、振り分けを戻す
 - E2E（`tests/testmode-current.spec.js`、9 件 pass）
   - **第一章ルール: 村の残響を倒しても、内部の Lv 1・XP 0・SP 0・Ranks 0 のまま**。結果画面に経験値の行なし、HUD に Lv なし
-  - **旧成長ルール（Lv 1）: 同じボスを倒すと Lv が上がり、スフィアのポイントが Lv の上がった分だけ増える**。結果画面に経験値の行
+  - **旧成長ルール（Lv 1）: 同じボスを倒すと Lv が上がり、スフィアのポイントとダイスが上がった分だけ増え、初制覇で習得の証 +1**。結果画面に経験値の行。**そのあとタイトルへ戻って第一章ルールで入り直すと Lv 1・XP 0・SP 0・Ranks 0・Dice 12・Alloc 0**（実際に育った値が残らない）
   - **ルールの切り替え: 旧成長 Lv 20 → タイトル → 第一章（Lv 1・SP 0）→ タイトル → 旧成長 Lv 5（SP 999）**。前のルールの値が残らない
-- 回帰の抜き取り: §7
+- 回帰の抜き取り（road・job-traits・chapter1-old-save-growth・chapter1-legacy-ui・chapter1-smith-shop・smith-gear-layout・dialog-result-layout・save-load・chapter1-progression・chapter1-tower-to-road・combat-test-arena・execution-break・production-build・pwa-test-entry・scenario-test-mode・chapter-select-testmode・action-zone・battle-knight-visual・dusk-boss-clone-check・mansion-butler、2 並列）: 96 件 pass。`job-traits` のタイミング依存の 1 件が 2 並列の負荷で落ち（このテストは以前から自前の retry を持つ）、単独（1 並列）で再実行して 1 回目で pass
+- E2E の手順の修正（テストの側）: ボス戦の台詞が Arena のボタンを覆う時は送ってから開く／開始画面は前のシナリオを覚えているので、入り直す時にトレーニング空間を選び直す
 
 ## 5. 独立レビュー（Reviewer）
 
-§7 に記録する。
+- Round 1: **PASS**（BLOCKER / MAJOR 0）。MINOR-1 原因の断定を避ける（Lv 1 + 260 = Lv 4 の一致、PR では「🧪」が選ばれたままの可能性も）→ 直した／MINOR-2 ユニットの守りを全部品・ダイス・スフィアへ広げる → 直した／MINOR-3 振り分けの持ち越しと実際に育った後の残留を E2E で確かめる → Debug Info に Dice・Alloc、E2E を追加／MINOR-4 旧成長ルールで変わった 1 点を書く → 直した／NIT コメント → 直した。NIT-3（経験値の計算が test-debug.js にある）・NIT-4（12 の重複）は範囲外として残す
+- Round 2: 下記
 
 ## 6. iPhone 実機で再確認すること
 
