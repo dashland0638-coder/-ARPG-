@@ -1,6 +1,6 @@
 # TEST-MODE-CURRENT-002 — 第一章ルールでの経験値・レベルアップ混入の調査と修正
 
-**状態: CONTENT READY = HUMAN DEVICE CHECK REQUIRED**（PR #101 に追加。main への merge は Human の判断）
+**状態: Reviewer PASS ／ CONTENT READY = HUMAN DEVICE CHECK REQUIRED**（PR #101 に追加。main への merge は Human の判断）
 
 ## 1. 報告された事象
 
@@ -75,7 +75,7 @@ HUD の表示は変えていない（隠すだけの修正はしていない）�
 ## 5. 独立レビュー（Reviewer）
 
 - Round 1: **PASS**（BLOCKER / MAJOR 0）。MINOR-1 原因の断定を避ける（Lv 1 + 260 = Lv 4 の一致、PR では「🧪」が選ばれたままの可能性も）→ 直した／MINOR-2 ユニットの守りを全部品・ダイス・スフィアへ広げる → 直した／MINOR-3 振り分けの持ち越しと実際に育った後の残留を E2E で確かめる → Debug Info に Dice・Alloc、E2E を追加／MINOR-4 旧成長ルールで変わった 1 点を書く → 直した／NIT コメント → 直した。NIT-3（経験値の計算が test-debug.js にある）・NIT-4（12 の重複）は範囲外として残す
-- Round 2: 下記
+- Round 2: **PASS**（指摘はすべて直っている。新しい指摘なし。NIT-3・NIT-4 は範囲外のまま）
 
 ## 6. iPhone 実機で再確認すること
 
