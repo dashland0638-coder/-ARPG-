@@ -833,7 +833,7 @@ PR は、Reviewer PASS と必要なテストの完了後に Orchestrator が作�
 Human は iPhone だけで作業していることがある。PR 本文を開けば、**そこから 1 タップでその PR の最新コードを実機で開ける**ようにする（「どこから開けばよいか」を毎回探させない）。PR 本文の先頭近くに、次の 7 項目を必ず書く（テンプレート: `.github/pull_request_template.md`）:
 
 1. **テスト版を開く**: その PR のプレビューの URL（`https://<owner>.github.io/-ARPG-/pr/<PR 番号>/`）と、テストモードの URL（同じ URL に `?dev=1`）。タップで開ける普通のリンクにする
-   - プレビューは `.github/workflows/deploy.yml` が PR の open / 更新 / reopen のたびに組み直して公開し、PR に「🔍 テスト版を開く」のコメント（どの commit か付き）を 1 つだけ置いて書き換える
+   - プレビューは PR の open / 更新 / reopen のたびに `.github/workflows/preview.yml`（PR Preview、読むだけの権限）が組み、終わると `.github/workflows/deploy.yml` が公開して、PR に「🔍 テスト版を開く」のコメント（どの commit か・公開された commit が一致したか付き）を 1 つだけ置いて書き換える。載るのは PR の最新 commit のプレビューだけ（組んでいる最中・失敗・main を取り込んでいないブランチは、その旨のページになる）
    - **URL は実際に公開されたものだけを書く**（プレビューのコメントが出た後に、そのコメントの URL を写す。推測で書かない）。公開がまだ・失敗した時は、その事実と代わりの手順（下記）を書く
 2. **対象コミット**: プレビューが組まれた commit（完全な SHA か 7 桁）。プレビューの画面の上端の帯とメニューの版表記にも同じ 7 桁が出る
 3. **CI 結果**: ビルド・unit・E2E の実行結果へのリンク（Test ワークフローの run）と、その結論
@@ -842,8 +842,10 @@ Human は iPhone だけで作業していることがある。PR 本文を開け
 6. **main との差分**: main の公開版（`https://<owner>.github.io/-ARPG-/`）と何が違うか
 7. **マージ前の注意事項**: 既知の問題・未確認の項目・Human が決めること
 
-プレビューが使えない時（公開の失敗・fork の PR・この仕組みが main に入る前の PR）の代わりの手順:
-- Test ワークフローの `preview-site` ジョブの成果物 `pages-site-pr-<N>`（組んだサイト一式、3 日保存）。iPhone では開きにくいので、手元の PC で `npx vite preview --outDir <展開した場所> --base /-ARPG-/` などで開く
+プレビューが使えない時（公開の失敗・fork の PR・この仕組みが main に入る前の PR・main を取り込んでいないブランチ）の代わりの手順:
+- main を取り込んでいないブランチは、PR のブランチへ main を merge すればプレビューが作られる
+- PR Preview の実行の成果物 `preview-pr-<N>`（プレビューの中身、30 日保存）。iPhone では開きにくいので、手元の PC で `/-ARPG-/pr/<N>/` に置いて配って開く
+- この仕組み自体を入れる PR（DEV-PREVIEW-001）は、main へ merge するまで公開側が動かないので、プレビューの URL は無い
 - 表示されない・古いままに見える時: 画面の上端の帯の 7 桁と PR の最新 commit を比べる／`/-ARPG-/pr/<N>/preview.json` の `sha` を見る／Safari の再読み込み（古いビルドは起動時に 1 回だけ自動で読み直す）／アセットの 404 は Actions の `Deploy to GitHub Pages` の実行結果を見る
 
 ### 21.2 マージ判定（DEV-PREVIEW-001）

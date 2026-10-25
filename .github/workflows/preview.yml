@@ -1,0 +1,70 @@
+name: PR Preview
+
+# PR ごとの実機確認プレビューを組む(DEV-PREVIEW-001)。公開はしない。
+# 組んだプレビューは成果物 preview-pr-<N> として残し、main 側の deploy.yml(workflow_run)がそれを「データとして」
+# 取ってきて https://<owner>.github.io/-ARPG-/pr/<N>/ に置く。
+#
+# 安全のための約束(.ai/reports/DEV-PREVIEW-001-report.md §4):
+#   - pull_request で動く(PR のコードを、読むだけの権限・secrets 無しで動かす。test.yml と同じ扱い)
+#   - fork の PR は組まない(公開側も fork の成果物を使わない)
+#   - 公開の権限(pages / id-token)はこのワークフローに無い。PR のコードを公開の権限と同じ実行で動かさない
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+# 同じ PR へ続けて push したら古い実行は取り消す(最新の commit だけを組む)
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout (PR head)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # プレビュー: base は /-ARPG-/pr/<N>/、版表記・帯は PR の最新 commit。セーブのキーは preview-pr<N>:
+      # 確認: 同じコードで main 相当の公開版も組み、Pages と同じ形のサイトにして、アセットの base・commit を確かめる
+      - name: Build the preview and verify it as a Pages site
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          PREVIEW_PR="$PR" PREVIEW_SHA="$HEAD_SHA" npx vite build --base "/-ARPG-/pr/$PR/" --outDir preview --emptyOutDir
+          node scripts/verify-preview-site.mjs --preview preview "$PR" "$HEAD_SHA"
+          npm run build
+          node -e '
+            const fs = require("fs");
+            fs.writeFileSync("manifest.json", JSON.stringify({ owner: process.env.OWNER, mainDist: "dist", out: "site",
+              runUrl: process.env.RUN_URL, builtAt: new Date().toISOString(),
+              previews: [{ number: Number(process.env.PR), sha: process.env.HEAD_SHA, title: "this PR", dist: "preview", status: "ok" }] }));'
+          node scripts/pages-site.mjs manifest.json
+          node scripts/verify-preview-site.mjs site "$PR" "$HEAD_SHA"
+
+      - name: Upload the preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-pr-${{ github.event.pull_request.number }}
+          path: preview
+          retention-days: 30
+          if-no-files-found: error
