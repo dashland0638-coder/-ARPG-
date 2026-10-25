@@ -63,8 +63,9 @@ export function testModeGrowthState(testRules, level){
   };
 }
 
-/* 経験値を足した結果(grantXP の計算部分)。legacy が偽(本編・第一章ルールのテストモード)なら何も変えない。
-   xpToNextFor は次のレベルまでの必要量の式(12-progression-ui.js xpToNextForLevel と同じ) */
+/* 経験値を足した結果(grantXP の計算部分)。legacy が偽(本編・第一章ルールのテストモード)なら何も変えない
+   (grantXP は legacyGrowth() が偽なら先に戻るので、ここは二重の守り)。
+   xpToNextForLevel は次のレベルまでの必要量の式(grantXP・セーブの読み込み・入場が使う) */
 export function xpToNextForLevel(lv){ return 40 + (lv - 1) * 30; }
 export function applyXpGain({xp, level, xpToNext}, amount, legacy){
   if(!legacy) return {xp, level, xpToNext, levelsGained: 0};

@@ -210,8 +210,8 @@ test.describe('テストモード: 現行仕様への追従', () => {
    HUD ではなく、Debug Info の内部の値(Growth: Lv / XP / スフィアのポイント / 習得の証)で確かめる */
 const growthOf = async page => {
   const html = await page.evaluate(() => document.getElementById('arena-enemy-info').innerHTML);
-  const m = /Growth:\s*Lv (\d+) XP (\d+) SP (\d+) Ranks (\d+)/.exec(html || '');
-  return m ? { lv: +m[1], xp: +m[2], sp: +m[3], ranks: +m[4] } : null;
+  const m = /Growth:\s*Lv (\d+) XP (\d+) SP (\d+) Ranks (\d+) Dice (\d+) Alloc (\d+)/.exec(html || '');
+  return m ? { lv: +m[1], xp: +m[2], sp: +m[3], ranks: +m[4], dice: +m[5], alloc: +m[6] } : null;
 };
 
 /* 宵待ちの村のボス戦を始めから終わりまで(支援AIは休止、強さ ×2 で早く倒す)。結果画面が出たら返す */
@@ -247,8 +247,8 @@ test.describe('テストモード: 第一章ルールでは旧成長の報酬が
     const errors = watchErrors(page);
     await openGame(page);
     const r = await defeatVillageBoss(page, {});
-    expect(r.before).toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0 });
-    expect(r.after, '撃破後も同じ').toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0 });
+    expect(r.before).toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0, dice: 12, alloc: 0 });
+    expect(r.after, '撃破後も同じ').toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0, dice: 12, alloc: 0 });
     expect(r.loot).not.toContain('経験値');
     await expect(page.locator('#hud-name')).not.toContainText('Lv');
     expect(errors).toEqual([]);
@@ -263,7 +263,27 @@ test.describe('テストモード: 第一章ルールでは旧成長の報酬が
     expect(r.before.sp).toBe(999);
     expect(r.after.lv, `撃破後 ${JSON.stringify(r.after)}`).toBeGreaterThan(1);
     expect(r.after.sp, 'レベルアップごとにスフィアのポイント +1').toBe(999 + (r.after.lv - 1));
+    expect(r.after.dice, 'レベルアップごとにダイス +1').toBe(12 + (r.after.lv - 1));
+    expect(r.after.ranks, '初制覇で習得の証 +1').toBe(1);
     expect(r.loot).toContain('経験値');
+
+    // 実際に育った後でタイトルへ戻り、第一章ルールで入り直す: 旧成長の値(レベル・経験値・スフィア・習得の証・ダイス)が残らない
+    await page.click('#clear-return-btn');
+    for (let i = 0; i < 40; i++) {
+      if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) await page.click('#dialogue-overlay');
+      if (await page.evaluate(() => document.getElementById('menu-overlay').classList.contains('active'))) break;
+      await page.evaluate(() => document.getElementById('loot-menu-btn')
+        .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true })));
+      await page.waitForTimeout(500);
+    }
+    await page.evaluate(() => document.getElementById('menu-title').click());
+    await page.evaluate(() => document.getElementById('confirm-ok').click());
+    await expect(page.locator('#title-screen')).toBeVisible({ timeout: 30_000 });
+    await startTestMode(page, { classKey: 'warrior' });
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await openArena(page);
+    await page.click('#arena-info-toggle-btn');
+    expect(await growthOf(page), '第一章ルールは本編と同じ値で入る').toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0, dice: 12, alloc: 0 });
     expect(errors).toEqual([]);
   });
 
@@ -292,13 +312,13 @@ test.describe('テストモード: 第一章ルールでは旧成長の報酬が
       await page.evaluate(() => document.getElementById('confirm-ok').click());
       await expect(page.locator('#title-screen')).toBeVisible({ timeout: 30_000 });
     };
-    expect(await enterAndRead({ rules: 'legacy', level: 20 })).toEqual({ lv: 20, xp: 0, sp: 999, ranks: 0 });
+    expect(await enterAndRead({ rules: 'legacy', level: 20 })).toEqual({ lv: 20, xp: 0, sp: 999, ranks: 0, dice: 12, alloc: 0 });
     await expect(page.locator('#hud-name')).toContainText('Lv.20');
     await backToTitle();
-    expect(await enterAndRead({}), '第一章ルールは本編と同じ値で入る').toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0 });
+    expect(await enterAndRead({}), '第一章ルールは本編と同じ値で入る').toEqual({ lv: 1, xp: 0, sp: 0, ranks: 0, dice: 12, alloc: 0 });
     await expect(page.locator('#hud-name')).not.toContainText('Lv');
     await backToTitle();
-    expect(await enterAndRead({ rules: 'legacy', level: 5 })).toEqual({ lv: 5, xp: 0, sp: 999, ranks: 0 });
+    expect(await enterAndRead({ rules: 'legacy', level: 5 })).toEqual({ lv: 5, xp: 0, sp: 999, ranks: 0, dice: 12, alloc: 0 });
     expect(errors).toEqual([]);
   });
 });

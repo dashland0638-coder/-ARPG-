@@ -466,7 +466,8 @@
               `${testHoldBoss === boss ? ' (HELD)' : ''}<br>` : '') +
       `Guest: ${guestCompanion ? (testGuestPaused ? 'PAUSED' : 'FIGHTING') : 'NONE'}<br>` +
       /* 内部の成長の状態(TEST-MODE-CURRENT-002)。第一章ルールでは増えないことを、HUD ではなく値で確かめる */
-      `Growth: Lv ${state.level} XP ${state.xp} SP ${state.spherePoints || 0} Ranks ${state.freeRanks || 0}<br>`;
+      `Growth: Lv ${state.level} XP ${state.xp} SP ${state.spherePoints || 0} Ranks ${state.freeRanks || 0}` +
+      ` Dice ${diceTotal} Alloc ${STAT_KEYS.reduce((a, k)=> a + (allocPoints[k] || 0), 0)}<br>`;
   }
 
   function updateArenaEnemyInfo(){

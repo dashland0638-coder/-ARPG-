@@ -1641,8 +1641,8 @@
     state.learnedBossAbilities = []; state.equippedBossAbilities = []; state.learnedBossSkills = [];
     state.learnedBossActiveSkills = []; state.equippedBossActiveSkill = null; state.bossSkill3CD = 0;
     /* テストモード(Combat Design Audit 2 / Phase K): スキル入れ替えと
-       スフィア盤をすぐ検証できるよう、派生スキルは最初から全解放し、
-       スフィアのポイントも潤沢に持たせる(消費自体も
+       スフィア盤をすぐ検証できるよう、旧成長ルールの時だけ派生スキルは最初から全解放し、
+       スフィアのポイントも潤沢に持たせる(第一章ルールでは本編と同じ値。TEST-MODE-CURRENT-002)(消費自体も
        sphereCanUnlock/unlockSphereNode 側で免除される)。
        この状態は saveGame() が state.testMode で必ず弾くので、通常プレイの
        セーブ・成長・解放状況には一切書き戻らない。 */
