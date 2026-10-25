@@ -12,7 +12,8 @@
      ok        成果物がある(この時点ではまだ検査前)
      building  最新 commit のプレビューを組んでいる最中(終わると deploy.yml がもう一度動く)
      failed    組むのに失敗した・成果物が無い・期限切れ・おかしい(reason に理由)
-     none      最新 commit で preview.yml が走っていない(この仕組みより前に作ったブランチ。main を取り込むと作られる) */
+     none      プレビューの仕組みが無い: 最新 commit で preview.yml が走っていない、または preview.yml の
+               「Requires main」の手順で止まった(この仕組みより前に作ったブランチ。main を取り込むと作られる) */
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
@@ -21,6 +22,8 @@ const MAX_PREVIEWS = 20;                       // 1 回の公開で載せる PR 
 const MAX_ARTIFACT_BYTES = 200 * 1024 * 1024;  // 成果物の大きさの上限
 const WORKFLOW = 'preview.yml';
 const SHA40 = /^[0-9a-f]{40}$/;
+const NEEDS_MAIN_STEP = 'Requires main (preview support in this branch)';
+const NEEDS_MAIN = 'このブランチにはプレビューの仕組みがありません。PR のブランチへ main を取り込む(merge する)と作られます';
 
 function selectPrs(prs, triggerPr, max = MAX_PREVIEWS){
   const ok = (prs || []).filter(p => Number.isInteger(p.number) && p.number > 0 && SHA40.test(String(p.sha)));
@@ -38,12 +41,19 @@ async function previewFor({github, owner, repo, pr, outDir}){
   const runs = (data.workflow_runs || []).filter(r =>
     r.head_sha === pr.sha && r.event === 'pull_request' && r.head_repository && r.head_repository.full_name === full &&
     (!r.pull_requests || r.pull_requests.length === 0 || r.pull_requests.some(q => q.number === pr.number)));
-  if(runs.length === 0) return {...base, status: 'none', reason: 'この commit ではプレビューのワークフローが走っていません(main を取り込むと作られます)'};
+  if(runs.length === 0) return {...base, status: 'none', reason: NEEDS_MAIN};
   runs.sort((a, b) => b.run_number - a.run_number || b.run_attempt - a.run_attempt);
   const run = runs[0];
   const at = {...base, runId: run.id, runUrl: run.html_url};
   if(run.status !== 'completed') return {...at, status: 'building', reason: 'プレビューを組んでいる最中です'};
-  if(run.conclusion !== 'success') return {...at, status: 'failed', reason: `プレビューのビルドが ${run.conclusion} で終わりました`};
+  if(run.conclusion !== 'success'){
+    if(run.conclusion === 'failure'){
+      const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {owner, repo, run_id: run.id, per_page: 100});
+      const stopped = jobs.some(j => (j.steps || []).some(st => st.name === NEEDS_MAIN_STEP && st.conclusion === 'failure'));
+      if(stopped) return {...at, status: 'none', reason: NEEDS_MAIN};
+    }
+    return {...at, status: 'failed', reason: `プレビューのビルドが ${run.conclusion} で終わりました`};
+  }
   const arts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {owner, repo, run_id: run.id, per_page: 100});
   const art = arts.find(a => a.name === `preview-pr-${pr.number}`);
   if(!art) return {...at, status: 'failed', reason: '成果物がありません'};
@@ -83,4 +93,4 @@ async function collectPreviews({github, owner, repo, outDir, triggerPr = null, t
   return {triggerPr: trig, previews};
 }
 
-module.exports = {collectPreviews, selectPrs, MAX_PREVIEWS, MAX_ARTIFACT_BYTES, WORKFLOW};
+module.exports = {collectPreviews, selectPrs, MAX_PREVIEWS, MAX_ARTIFACT_BYTES, WORKFLOW, NEEDS_MAIN_STEP};

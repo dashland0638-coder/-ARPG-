@@ -17,16 +17,30 @@ import { fileURLToPath } from 'node:url';
 import { assembleSite, STATUSES } from './pages-site.mjs';
 import { verifyPreviewDir } from './verify-preview-site.mjs';
 
-/* zip を dir に展開する。Python の zipfile は .. と絶対パスを取り除き、リンクを作らない */
-export function extractZip(zip, dir){
+export const MAX_PREVIEW_BYTES = 100 * 1024 * 1024;   // 展開後のプレビュー 1 つの上限
+export const MAX_TOTAL_PREVIEW_BYTES = 500 * 1024 * 1024; // 展開後のプレビューの合計の上限(Pages のサイトは 1GB まで)
+
+/* zip を dir に展開する。Python の zipfile は .. と絶対パスを取り除き、リンクを作らない。
+   展開する前に、展開後の大きさの合計を見て上限を超えるものは展開しない(zip 爆弾)。返り値は展開後の大きさ */
+const PY_EXTRACT = [
+  'import sys, zipfile',
+  'z = zipfile.ZipFile(sys.argv[1])',
+  'total = sum(i.file_size for i in z.infolist())',
+  'if total > int(sys.argv[3]): sys.exit("too large: %d" % total)',
+  'z.extractall(sys.argv[2])',
+  'print(total)',
+].join('\n');
+export function extractZip(zip, dir, maxBytes = MAX_PREVIEW_BYTES){
   fs.rmSync(dir, {recursive: true, force: true});
   fs.mkdirSync(dir, {recursive: true});
-  execFileSync('python3', ['-I', '-c', 'import sys, zipfile\nzipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])', zip, dir],
-    {stdio: 'inherit', timeout: 5 * 60 * 1000});
+  const out = execFileSync('python3', ['-I', '-c', PY_EXTRACT, zip, dir, String(maxBytes)],
+    {stdio: ['ignore', 'pipe', 'pipe'], timeout: 5 * 60 * 1000}).toString().trim();
+  return Number(out) || 0;
 }
 
 export function manifestFromCollected(collected, {mainDist, incomingDir, out, owner, runUrl, builtAt, extract = extractZip, log = console}){
   const previews = [];
+  let total = 0;
   for(const p of (collected && collected.previews) || []){
     const n = Number(p.number), sha = String(p.sha || '').toLowerCase();
     if(!Number.isInteger(n) || n <= 0 || !/^[0-9a-f]{40}$/.test(sha)){ log.warn(`skip bad entry: ${JSON.stringify(p)}`); continue; }
@@ -37,10 +51,15 @@ export function manifestFromCollected(collected, {mainDist, incomingDir, out, ow
       const zip = path.join(incomingDir, `pr-${n}.zip`), dir = path.join(incomingDir, `pr-${n}`);
       try{
         if(!fs.existsSync(zip)) throw new Error('成果物の zip がありません');
-        extract(zip, dir);
+        const size = extract(zip, dir) || 0;
+        if(total + size > MAX_TOTAL_PREVIEW_BYTES){
+          fs.rmSync(dir, {recursive: true, force: true});
+          throw new Error('プレビューの合計の大きさが上限を超えます');
+        }
         const errors = verifyPreviewDir(dir, n, sha);
         if(errors.length) throw new Error(`検査に通りません: ${errors.join(' / ')}`);
         entry.dist = dir;
+        total += size;
       } catch(e){
         log.warn(`PR #${n}: ${e.message}`);
         entry.status = 'failed';

@@ -105,66 +105,39 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v4
 
-  # PR に「テスト版を開く」のコメントを 1 つだけ置き、公開のたびに書き換える。URL は公開した page_url から作り、
-  # 公開されたプレビューの preview.json の commit が合うことを確かめてから「開けます」と書く
+  # PR に「テスト版を開く」のコメントを 1 つだけ置き、公開のたびに書き換える(scripts/preview-comments.cjs)。
+  # 待っている間に置き換わった実行のきっかけの PR にも届くように、公開したすべての PR のコメントを今の状態に合わせる
+  # (状態が同じなら書き換えない)。URL は公開した page_url から作り、公開された preview.json の commit を確かめて書く。
+  # 取り出すのは main(既定のブランチ)の scripts だけで、PR のコードは動かさない
   comment:
     needs: [assemble, deploy]
-    if: ${{ !cancelled() && needs.assemble.result == 'success' && needs.assemble.outputs.trigger_pr != '' }}
+    if: ${{ !cancelled() && needs.assemble.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      contents: read
       pull-requests: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: scripts
       - uses: actions/github-script@v7
         env:
           SUMMARY: ${{ needs.assemble.outputs.summary }}
-          TRIGGER_PR: ${{ needs.assemble.outputs.trigger_pr }}
+          # 成果物を集める手順が失敗しても、きっかけの PR には知らせる(イベントから直接取る)
+          TRIGGER_PR: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number || needs.assemble.outputs.trigger_pr || '' }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           PAGE_URL: ${{ needs.deploy.outputs.page_url }}
           CLOSED: ${{ github.event_name == 'pull_request_target' && github.event.action == 'closed' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
-            const marker = '<!-- dev-preview -->';
-            const pr = Number(process.env.TRIGGER_PR);
-            const { owner, repo } = context.repo;
+            const { updatePreviewComments } = require('./scripts/preview-comments.cjs');
             let summary = [];
             try { summary = JSON.parse(process.env.SUMMARY || '[]'); } catch (e) {}
-            const mine = summary.find(p => p.pr === pr);
-            const deployed = process.env.DEPLOY_RESULT === 'success';
-            const pageUrl = String(process.env.PAGE_URL || '').replace(/\/?$/, '/');
-            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr, per_page: 100 });
-            const old = comments.find(c => c.user && c.user.type === 'Bot' && c.body && c.body.startsWith(marker));
-            let body;
-            if (process.env.CLOSED === 'true') {
-              if (!old) return;
-              body = [marker, '### 🔍 テスト版(この PR のプレビュー)', '', 'PR を閉じたので、プレビューは公開サイトから外しました。', `- 実行結果: ${process.env.RUN_URL}`].join('\n');
-            } else if (deployed && mine && mine.status === 'ok') {
-              const url = `${pageUrl}pr/${pr}/`;
-              // 公開された preview.json の commit を確かめる(Pages の反映を少し待つ)
-              let live = null;
-              for (let i = 0; i < 12 && !live; i++) {
-                try {
-                  const r = await fetch(`${url}preview.json?t=${Date.now()}`, { cache: 'no-store' });
-                  if (r.ok) { const j = await r.json(); if (j.sha === mine.sha) live = j; }
-                } catch (e) {}
-                if (!live) await new Promise(r => setTimeout(r, 10000));
-              }
-              body = [marker, '### 🔍 テスト版を開く(この PR のプレビュー)',
-                `- 通常プレイ: ${url}`,
-                `- テストモード: ${url}?dev=1`,
-                `- 対象コミット: \`${mine.sha}\`(画面の上端の帯にも 7 桁で出ます)`,
-                `- 公開の確認: ${live ? '✅ 公開されたプレビューの commit が一致しました' : '⚠️ まだ反映を確かめられていません。数分後に開き、上端の帯の 7 桁を確かめてください'}`,
-                `- 実行結果: ${process.env.RUN_URL}`,
-                '', 'main の公開版とは別物です。プレビューのセーブ・設定は公開版と分けてあります。'].join('\n');
-            } else {
-              const why = !deployed ? '公開に失敗しました(実行結果を見てください)'
-                : !mine ? 'この PR のプレビューは載っていません(上限を超えたか、PR の一覧を取れませんでした)'
-                : mine.reason || mine.status;
-              body = [marker, '### ⚠️ この PR のプレビューはまだ使えません',
-                `- 対象コミット: \`${mine ? mine.sha : '(不明)'}\``,
-                `- 状態: ${why}`,
-                `- 実行結果: ${process.env.RUN_URL}`].join('\n');
-            }
-            if (old) await github.rest.issues.updateComment({ owner, repo, comment_id: old.id, body });
-            else await github.rest.issues.createComment({ owner, repo, issue_number: pr, body });
+            const written = await updatePreviewComments({ github, owner: context.repo.owner, repo: context.repo.repo, summary,
+              triggerPr: process.env.TRIGGER_PR, closed: process.env.CLOSED === 'true', deployed: process.env.DEPLOY_RESULT === 'success',
+              pageUrl: process.env.PAGE_URL, runUrl: process.env.RUN_URL, log: core });
+            core.info(`comments updated: ${written.map(n => '#' + n).join(', ') || 'none'}`);

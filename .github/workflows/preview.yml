@@ -32,6 +32,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
+      # pull_request は main と合わせたワークフローで動くので、この仕組みより前に作ったブランチでも動く。
+      # そのブランチのコードにはプレビューの仕組みが無いので、ここで止める(公開側は「main を取り込んでください」と出す)
+      - name: Requires main (preview support in this branch)
+        run: |
+          if [ ! -f src/core/dev-preview.js ] || [ ! -f scripts/verify-preview-site.mjs ] || ! grep -q previewStorageKey src/legacy/parts/09-save-load.js; then
+            echo "::error::このブランチにはプレビューの仕組みがありません。PR のブランチへ main を取り込んでください"
+            exit 1
+          fi
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
