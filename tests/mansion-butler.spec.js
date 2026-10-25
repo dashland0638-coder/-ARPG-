@@ -36,6 +36,8 @@ async function closePanel(page){
 async function bootArena(page){
   await openGame(page);
   await page.click('#open-testmode-btn');
+  // 旧既定(旧成長システム・Lv 50)の強さ・画面を使うテスト(TEST-MODE-CURRENT-001)
+  await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
   await page.waitForSelector('.class-card[data-key="warrior"]');
   await page.click('.class-card[data-key="warrior"]');
   await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);

@@ -14,12 +14,16 @@ test('決定値: PC 操作ヒントは 5 秒(HD-D24)、スタミナは最後の�
   assert.deepEqual([...PC_HINT_OPS], ['basic', 'skill2', 'skill3']);
 });
 
-test('旧成長系(XP / Skill 3): 本編は出さず、テストモードだけ出す(UI-002-A)', () => {
+test('旧成長系(XP / Skill 3): 本編は出さず、テストモードの旧成長ルールだけ出す(UI-002-A / TEST-MODE-CURRENT-001)', () => {
   assert.equal(legacyHudVisible({ testMode: false }), false);
-  assert.equal(legacyHudVisible({ testMode: true }), true);
+  assert.equal(legacyHudVisible({ testMode: false, testRules: 'legacy' }), false);
+  assert.equal(legacyHudVisible({ testMode: true }), false, 'テストモードの既定は本編と同じ');
+  assert.equal(legacyHudVisible({ testMode: true, testRules: 'current' }), false);
+  assert.equal(legacyHudVisible({ testMode: true, testRules: 'legacy' }), true);
   assert.equal(legacyHudVisible(), false);
   assert.equal(skill3ButtonVisible({ testMode: false }), false);
-  assert.equal(skill3ButtonVisible({ testMode: true }), true);
+  assert.equal(skill3ButtonVisible({ testMode: true }), false);
+  assert.equal(skill3ButtonVisible({ testMode: true, testRules: 'legacy' }), true);
 });
 
 test('Skill 2: 閃くまで出さない。テストモードは常に出す。本編とテストモードを混同しない', () => {
@@ -101,7 +105,8 @@ test('スタミナ(HD-D25): 満タンで直近の消費なし → 非表示。�
 test('PC 操作ヒントの単位: 基本操作 + 解禁済みの Skill 2 / Skill 3', () => {
   assert.deepEqual(unlockedPcHintOps({ testMode: false, learnedSkill2: false }), ['basic']);
   assert.deepEqual(unlockedPcHintOps({ testMode: false, learnedSkill2: true }), ['basic', 'skill2']);
-  assert.deepEqual(unlockedPcHintOps({ testMode: true }), ['basic', 'skill2', 'skill3']);
+  assert.deepEqual(unlockedPcHintOps({ testMode: true }), ['basic', 'skill2']);
+  assert.deepEqual(unlockedPcHintOps({ testMode: true, testRules: 'legacy' }), ['basic', 'skill2', 'skill3']);
 });
 
 test('PC 操作ヒント(HD-D07 / D23 / D24): 初回に 5 秒だけ出し、新しい操作の解禁時にもう一度 5 秒', () => {

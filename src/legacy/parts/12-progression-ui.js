@@ -1839,6 +1839,9 @@
         if(jp.atkMul) atk = Math.round(atk * (1+jp.atkMul));
       }
     }
+    /* テスト用の強さ(TEST-MODE-CURRENT-001、Arena の 💪)。テストモードの間だけ、最大 HP と攻撃力に
+       倍率を掛ける。成長の仕組み(レベル・振り分け)とは別物で、本編では state.testMode が偽なので何もしない */
+    ({hp, atk} = applyTestStatScale({hp, atk}, state.testStatScale, state.testMode));
     // 移動速度: 職業固定値(base.spd)を基準に、レベルに応じてごく緩やかに
     // 収束しながら上昇し(Lv25で約+6%、上限+10%)、装備補正を加えても
     // 合計で+25%までしか上がらない(修正案2: 「移動速度は上げ過ぎると
@@ -1885,18 +1888,20 @@
     el.textContent = legacyGrowth() ? `${label} Lv.${state.level}` : label;
   }
 
-  function xpToNextForLevel(lv){ return 40 + (lv-1)*30; }
+  // xpToNextForLevel は core/test-debug.js(経験値の計算と同じ場所。TEST-MODE-CURRENT-002)
 
   function grantXP(amount){
-    // Chapter 1 の本編には経験値もレベルアップも無い(WORK 12.1)
-    if(!legacyGrowth()) return;
-    state.xp += amount;
+    /* Chapter 1 の本編には経験値もレベルアップも無い(WORK 12.1)。テストモードの第一章ルールも同じ
+       (TEST-MODE-CURRENT-002)。計算は core/test-debug.js applyXpGain が持ち、旧成長でない時は何も変えない */
+    const legacy = legacyGrowth();
+    if(!legacy) return;
+    const gain = applyXpGain({xp: state.xp, level: state.level, xpToNext: state.xpToNext}, amount, legacy);
+    state.xp = gain.xp;
+    state.xpToNext = gain.xpToNext;
     let leveled = false;
-    while(state.xp >= state.xpToNext){
-      state.xp -= state.xpToNext;
+    for(let i = 0; i < gain.levelsGained; i++){
       state.level++;
       sfx('levelUp');
-      state.xpToNext = xpToNextForLevel(state.level);
       diceTotal += 1; // free stat points banked, spend them at the appraisal - less than before, since auto-growth now covers more
       state.spherePoints = (state.spherePoints||0) + 1;   // 奥義の環: レベルアップごとに1点
       // 基礎ステータス制(#28): 職業ごとの基礎配分に「比例」した分だけ

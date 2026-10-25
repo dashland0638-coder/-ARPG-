@@ -42,6 +42,8 @@ test.describe('衣服の構築(4基礎職・上位4職・影の旅人)', () => {
       const errors = watchErrors(page);
       await openGame(page);
       await page.click('#open-testmode-btn');
+      // 転身・レベル・旧既定の Lv 50 を使うテスト: 旧成長システムのルールを選ぶ(TEST-MODE-CURRENT-001)
+      await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
       await page.click(`.class-card[data-key="${j.key}"]`);
       await page.waitForFunction(() =>
         document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);

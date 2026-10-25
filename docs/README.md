@@ -115,7 +115,7 @@ AIエージェントは次の優先順位で情報を扱う。
   （`src/legacy/parts/12-progression-ui.js` の `SPHERE_NODES` ほか）
 - **Difference**: Chapter 1 の簡略化方針と、現行の常時開放が食い違う
 - **Action Required**: Chapter 1 中のロック（またはクリア後解放）の要否を決定。
-- **Status（2026-10-08）**: **解消**。WORK 12.1 で Chapter 1 の本編では奥義の環を動かさないと決定・実装済み（`sphereValue()` は本編で 0、画面も出ない。`core/chapter1-rules.js` の `legacyGrowthEnabled()`）。テストモードだけで動く
+- **Status（2026-10-08）**: **解消**。WORK 12.1 で Chapter 1 の本編では奥義の環を動かさないと決定・実装済み（`sphereValue()` は本編で 0、画面も出ない。`core/chapter1-rules.js` の `legacyGrowthEnabled()`）。テストモードで「旧成長システム」を選んだ時だけ動く（TEST-MODE-CURRENT-001。テストモードの既定は本編と同じ）
 
 ### D-03: 章進行とダンジョンの対応
 

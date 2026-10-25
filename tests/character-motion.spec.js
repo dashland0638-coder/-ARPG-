@@ -25,6 +25,8 @@ import { openGame, watchErrors, disableCameraAutoFollow } from './helpers.js';
 // classKey: 'warrior'|'rogue'|'mage'|'archer'。promote:true で転身(上位職)
 async function enterTestMode(page, classKey, promote) {
   await page.click('#open-testmode-btn');
+  // 転身・レベル・旧既定の Lv 50 を使うテスト: 旧成長システムのルールを選ぶ(TEST-MODE-CURRENT-001)
+  await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
   await page.waitForSelector(`.class-card[data-key="${classKey}"]`);
   await page.click(`.class-card[data-key="${classKey}"]`);
   await page.waitForFunction(() =>

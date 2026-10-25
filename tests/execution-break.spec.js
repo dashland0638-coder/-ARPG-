@@ -25,6 +25,9 @@ async function pv(page, key){
 async function bootArena(page, classKey = 'warrior'){
   await openGame(page);
   await page.click('#open-testmode-btn');
+  /* 旧既定(旧成長システム・Lv 50)の強さで体幹を削り切る前提のテスト。本編ルール(基礎値)では CI の遅い
+     環境で時間内に削り切れなかった(TEST-MODE-CURRENT-001)。条件を元に戻す */
+  await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
   await page.waitForSelector(`.class-card[data-key="${classKey}"]`);
   await page.click(`.class-card[data-key="${classKey}"]`);
   await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);

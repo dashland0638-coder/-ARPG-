@@ -195,6 +195,8 @@ test.describe('UI-002-E Production Integration: 承認済み Swordsman glyph', (
     await openGame(page);
     // auto-combo.spec.js の enterTraining と同じ
     await page.click('#open-testmode-btn');
+    // 転身・レベル・旧既定の Lv 50 を使うテスト: 旧成長システムのルールを選ぶ(TEST-MODE-CURRENT-001)
+    await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
     await expect(page.locator('#testmode-screen')).toBeVisible();
     await page.click('#testmode-class-grid .class-card[data-key="warrior"]');
     await page.locator('#testmode-level').fill('1');
@@ -243,6 +245,8 @@ test.describe('UI-002-E Production Integration: 承認済み Swordsman glyph', (
     await openGame(page);
     // battle-knight-visual.spec.js と同じ手順
     await page.click('#open-testmode-btn');
+    // 転身・レベル・旧既定の Lv 50 を使うテスト: 旧成長システムのルールを選ぶ(TEST-MODE-CURRENT-001)
+    await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
     await page.waitForSelector('.class-card[data-key="warrior"]');
     await page.click('.class-card[data-key="warrior"]');
     await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);

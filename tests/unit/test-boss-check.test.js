@@ -76,25 +76,31 @@ test('組み込み: テストモードだけ・数値を変えない・セーブ
     assert.match(fnBody(tg, 'updateArenaPanel'), /updateTestBossHold\(\);/);
     assert.doesNotMatch(fnBody(tg, 'testBossHoldsDamage'), /en === testHoldBoss/);
   });
-  await t.test('「段階 3 へ」は HP だけを下げる(攻撃力・速さ・段階の処理には触れない)・セーブしない', () => {
-    const fn = fnBody(tg, 'testDuskPhase3');
-    assert.match(fn, /boss\.hp = phase3TestHp\(boss\.hp, boss\.hpMax, VILLAGE_PHASE_3_HP\)/);
-    assert.doesNotMatch(fn, /\.(atk|speed|phase|hpMax|atkReach|hitRadius)\s*=/);
+  /* TEST-MODE-CURRENT-001: 「村の残響を段階3へ」を「ボスを次の段階へ」に広げた。村の残響の段階 3 の
+     分身の扱い(段階 1・2 の分身を散らす・分身が出るまで止める)は今のまま */
+  await t.test('「ボスを次の段階へ」は HP だけを下げる(攻撃力・速さ・段階の処理には触れない)・セーブしない', () => {
+    const fn = fnBody(tg, 'testBossNextPhase');
+    assert.match(fn, /const target = nextBossPhaseTarget\(boss\.hp, boss\.hpMax\)/);
+    assert.match(fn, /boss\.hp = target\.hp;/);
+    assert.doesNotMatch(fn, /\.(atk|speed|phase|hpMax|atkReach|hitRadius)\s*=(?!=)/);
     assert.doesNotMatch(fn, /saveGame|scenarioClears|clearedScenarios/);
-    assert.match(fn, /e\.key === 'duskEcho'/);
-    assert.match(fn, /boss\.triggered/);
+    assert.match(fn, /e\.isBoss && \(e\.triggered \|\| e\.arenaSpawned\)/);
+    assert.match(fn, /boss\.key === 'duskEcho' && target\.phase === 3/);
     // 押した時にいた分身(段階 1・2 の分身)は散らす(段階 3 の分身が本編の呼び出しで出るように)
     assert.match(fn, /oldClones\.forEach\(c=> dispelMirrorClone\(c\)\)/);
     assert.ok(fn.indexOf('dispelMirrorClone') < fn.indexOf('testHoldBoss = boss'));
   });
   await t.test('テストモードへ入るたび・出た時に戻す。セーブの中身には無い', () => {
-    assert.match(fnBody(boot, 'beginTestMode'), /resetTestBossCheck\(\);/);
-    assert.match(fnBody(tg, 'updateArenaPanel'), /resetTestBossCheck\(\)/);
-    assert.doesNotMatch(save, /testGuestPaused|testHoldBoss/);
+    assert.match(fnBody(boot, 'beginTestMode'), /resetTestDebugState\(\);/);
+    assert.match(fnBody(tg, 'updateArenaPanel'), /resetTestDebugState\(\)/);
+    assert.doesNotMatch(save, /testGuestPaused|testHoldBoss|testRules|testStatScale/);
   });
-  await t.test('ボタンは Arena パネル(テストモードだけ表示)の中の 1 行・2 つ', () => {
+  await t.test('ボタンは Arena パネル(テストモードだけ表示)の先頭の 1 行', () => {
     const panel = html.slice(html.indexOf('id="arena-panel"'), html.indexOf('arena-panel-hint'));
-    assert.match(panel, /id="arena-guest-pause-btn"/);
-    assert.match(panel, /id="arena-dusk-phase3-btn"/);
+    const row = panel.slice(panel.indexOf('arena-guest-pause-btn') - 200, panel.indexOf('arena-strength-btn') + 60);
+    assert.match(row, /id="arena-guest-pause-btn"/);
+    assert.match(row, /id="arena-boss-phase-btn"/);
+    assert.match(row, /id="arena-strength-btn"/);
+    assert.ok(panel.indexOf('arena-guest-pause-btn') < panel.indexOf('arena-roster'), 'ロスターより上');
   });
 });

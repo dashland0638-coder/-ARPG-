@@ -128,7 +128,9 @@
   /* 旧ハクスラ系(レベル・経験値・装備ドロップ・転身・パッシブ・スフィア・
      強化)が動いてよいか(WORK 12.1)。Chapter 1 の本編では動かさず、
      テストモード(開発用)だけで動く ―― 判定は core/chapter1-rules.js */
-  function legacyGrowth(){ return legacyGrowthEnabled(state.testMode); }
+  /* 旧成長系が動くか。本編は常に偽。テストモードは開始画面で「旧成長システム」を選んだ時だけ
+     (state.testRules。TEST-MODE-CURRENT-001。既定は本編と同じ現行ルール) */
+  function legacyGrowth(){ return legacyGrowthEnabled(state.testMode, state.testRules); }
   /* 開発用 UI(テストモード入口・デバッグモード)を使ってよいか(UI-002-B)。
      URL に ?dev=1 がある時だけ true ―― 判定は core/dev-ui.js。起動時に
      1回だけ読み、どこにも保存しない(通常 URL で開き直せば本番扱い) */
@@ -465,6 +467,29 @@
     let tmScenario = null;  // null=トレーニング空間。キーを選べばそのシナリオへ直接出撃する
     let tmWaypoint = null;  // null=そのシナリオの入口。指定すると途中から始める(WORK 4)
     let tmChapter = DEFAULT_TEST_CHAPTER;   // チャプターの内部 ID(TEST-CHAPTER-SELECT-001)
+    /* ルール(TEST-MODE-CURRENT-001)。既定は本編の第一章と同じ。旧成長システムを選んだ時だけ、
+       転身とレベルの欄を出す(本編に無いものを、本編の育成の画面のように見せない) */
+    let tmRules = TEST_RULES.CURRENT;
+    const testRulesGrid = document.getElementById('testmode-rules-grid');
+    function applyRulesView(){
+      const legacy = tmRules === TEST_RULES.LEGACY;
+      ['testmode-job-section', 'testmode-level-section'].forEach(id=>{
+        const el = document.getElementById(id);
+        if(el) el.hidden = !legacy;
+      });
+      if(!legacy){ tmJob = null; renderJobGrid(); }
+      if(testRulesGrid) testRulesGrid.querySelectorAll('[data-test-rules]').forEach(el=>
+        el.classList.toggle('selected', el.dataset.testRules === tmRules));
+      refreshStartLabel();
+    }
+    if(testRulesGrid){
+      testRulesGrid.querySelectorAll('[data-test-rules]').forEach(card=>{
+        card.addEventListener('click', ()=>{
+          tmRules = normalizeTestRules(card.dataset.testRules);
+          applyRulesView();
+        });
+      });
+    }
 
     if(testGuestGrid){
       const noneCard = document.createElement('div');
@@ -641,9 +666,11 @@
       if(testSummary){
         const ch = sc ? TEST_CHAPTERS.find(c=> c.id === chapterOfScenario(sc.key)) : null;
         const opt = sc ? startOptionsFor(sc.key, waypointsFor).find(o=> o.id === tmWaypoint) : null;
-        testSummary.textContent = sc
+        // 選んだルールも添える(横画面でルールの欄がスクロールで隠れても分かるように。TEST-MODE-CURRENT-001)
+        const rules = tmRules === TEST_RULES.LEGACY ? '🧪 旧成長' : '📖 第一章ルール';
+        testSummary.textContent = `${rules} ／ ` + (sc
           ? `${ch ? ch.label : ''} ／ ${sc.name} ／ ${opt ? opt.name : 'シナリオ開始'}`
-          : 'トレーニング空間';
+          : 'トレーニング空間');
       }
     }
 
@@ -715,7 +742,10 @@
       const check = resolveTestStart({scenarioKey: tmScenario, waypointId: tmWaypoint}, SCENARIO_DEFS, waypointsFor);
       if(!check.ok){ console.error(`testmode: cannot start (${check.reason})`); return; }
       testScreen.style.display = 'none';
-      beginTestMode(tmClass, tmJob, Number(testLevelInput.value) || 1, tmGuest, tmScenario, tmWaypoint);
+      // レベル・転身は旧成長システムの時だけ(現行ルールではステータスに乗らないので 1・基礎職で入る)
+      const legacy = tmRules === TEST_RULES.LEGACY;
+      beginTestMode(tmClass, legacy ? tmJob : null, legacy ? (Number(testLevelInput.value) || 1) : 1,
+                    tmGuest, tmScenario, tmWaypoint, tmRules);
     });
   })();
 

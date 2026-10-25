@@ -132,14 +132,21 @@ async function disableCameraAutoFollow(page) {
  *   guestKey  - CLASSES key for the guest companion, or null/undefined for solo.
  *   scenario  - SCENARIO_DEFS key to sortie into, or null/undefined for the
  *               training ground.
- *   level     - level slider value (default: left as-is).
+ *   level     - level slider value. Levels only exist under the old-growth
+ *               rules, so passing a level also selects rules:'legacy'
+ *               (what these tests got before TEST-MODE-CURRENT-001).
+ *   rules     - 'current' (default: same rules as Chapter 1 in normal play) or
+ *               'legacy' (old growth systems: level, job change, sphere board,
+ *               drops). TEST-MODE-CURRENT-001.
  *   waypoint  - scenario-waypoints.js id to start from instead of the
  *               scenario's entrance (WORK 4), or null/undefined for the
  *               entrance. Only offered for scenarios that register any.
  */
 async function startTestMode(page, opts) {
   const { classKey, guestKey, scenario, level, waypoint } = opts;
+  const rules = opts.rules || (level != null ? 'legacy' : 'current');
   await page.click('#open-testmode-btn');
+  await page.click(`#testmode-rules-grid [data-test-rules="${rules}"]`);
   await page.waitForSelector(`.class-card[data-key="${classKey}"]`);
   await page.click(`.class-card[data-key="${classKey}"]`);
   await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);

@@ -41,6 +41,8 @@ const JOBS = [
 async function sortie(page, classKey, jobKey){
   await openGame(page);
   await page.click('#open-testmode-btn');
+  // 転身・レベル・旧既定の Lv 50 を使うテスト: 旧成長システムのルールを選ぶ(TEST-MODE-CURRENT-001)
+  await page.click('#testmode-rules-grid [data-test-rules="legacy"]');
   await page.waitForSelector(`.class-card[data-key="${classKey}"]`);
   await page.click(`.class-card[data-key="${classKey}"]`);
   await page.waitForFunction(() =>

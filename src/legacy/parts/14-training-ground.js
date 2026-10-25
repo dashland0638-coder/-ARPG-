@@ -77,12 +77,14 @@
   /* ボスの分身の確認(PR #100、core/test-boss-check.js)。テストモードの間だけ効く。
      セーブには書かない(テストモードはセーブしない)。テストモードへ入るたびに戻す */
   let testGuestPaused = false;
-  let testHoldBoss = null;   // 「段階 3 へ」を押したボス。押した後に分身が 1 体出るまでダメージを止める
-  function resetTestBossCheck(){
+  let testHoldBoss = null;   // 「⏭ ボスを次の段階へ」で村の残響を段階 3 にした時のボス。分身が 1 体出るまでダメージを止める
+  /* テストモードのデバッグ操作の状態を戻す(入るたび・出る時)。ルール・強さそのものは beginTestMode が決める */
+  function resetTestDebugState(){
     testGuestPaused = false;
     testHoldBoss = null;
     const b = document.getElementById('arena-guest-pause-btn');
     if(b) b.textContent = '🤝 支援AI: 戦う';
+    refreshTestDebugLabels();
   }
   function toggleTestGuestPause(){
     testGuestPaused = !testGuestPaused;
@@ -120,24 +122,55 @@
     }
     return held;
   }
-  /* 「段階 3 へ」。村の残響のボス戦が始まっている時だけ。HP を境目まで下げるだけで、
-     段階の移り変わりは本編と同じ処理(updateBossAI の HP の比・stepDuskEchoLayer)が行う */
-  function testDuskPhase3(){
-    const boss = enemies.find(e=> e && !e.dead && e.isBoss && e.key === 'duskEcho');
-    if(!boss || !boss.triggered){
-      spawnLog('🛠 村の残響のボス戦が始まってから押してください');
+  /* 「⏭ ボスを次の段階へ」(TEST-MODE-CURRENT-001。PR #100 の「村の残響を段階3へ」を、どのボスにも広げた)。
+     戦いの始まっているボス(または Arena で出したボス)の HP を、次の段階の境目(65% / 30%)まで下げるだけ。
+     段階の移り変わり(爆発の予兆・ボスのバー・呼び出し)は本編と同じ処理(updateBossAI の HP の比)が行う。
+     村の残響の段階 3 だけは、分身の確認のために今までどおり:
+       段階 1・2 の分身を散らす → 段階 3 の分身が出るまでボスへのダメージを止める → 支援AIを休止 */
+  function testBossNextPhase(){
+    const boss = enemies.find(e=> e && !e.dead && e.isBoss && (e.triggered || e.arenaSpawned));
+    if(!boss){
+      spawnLog('🛠 ボス戦が始まってから押してください');
       return;
     }
-    boss.hp = phase3TestHp(boss.hp, boss.hpMax, VILLAGE_PHASE_3_HP);
-    /* 段階 1・2 の分身が残っていると、段階 3 の分身(上限 1)が出ず、止めもすぐ外れてしまう。
-       押した時にいた分身は散らしておく(散る演出は通常と同じ)。段階 3 の分身は本編と同じ呼び出しで出る */
-    const oldClones = enemies.filter(e=> e && !e.dead && e.mirrorCloneOf === boss);
-    oldClones.forEach(c=> dispelMirrorClone(c));
-    testHoldBoss = boss;
-    if(!testGuestPaused) toggleTestGuestPause();
-    emitArenaFeedback('TEST', `PHASE 3 — HP ${Math.round(boss.hp)} / ${boss.hpMax}。分身が出るまでボスへの攻撃は通らない` +
-      (oldClones.length ? `(段階 1・2 の分身 ${oldClones.length} 体を散らした)` : ''));
-    spawnLog('🛠 段階3へ。分身が出るまでボスへの攻撃は通りません(支援AIは休止)');
+    const target = nextBossPhaseTarget(boss.hp, boss.hpMax);
+    if(!target){
+      spawnLog('🛠 もう最後の段階です');
+      emitArenaFeedback('TEST', `PHASE — 最後の段階(HP ${Math.round(boss.hp)} / ${boss.hpMax})`);
+      return;
+    }
+    boss.hp = target.hp;
+    let note = '';
+    if(boss.key === 'duskEcho' && target.phase === 3){
+      /* 段階 1・2 の分身が残っていると、段階 3 の分身(上限 1)が出ず、止めもすぐ外れてしまう。
+         押した時にいた分身は散らしておく(散る演出は通常と同じ)。段階 3 の分身は本編と同じ呼び出しで出る */
+      const oldClones = enemies.filter(e=> e && !e.dead && e.mirrorCloneOf === boss);
+      oldClones.forEach(c=> dispelMirrorClone(c));
+      testHoldBoss = boss;
+      if(!testGuestPaused) toggleTestGuestPause();
+      note = '。分身が出るまでボスへの攻撃は通らない' + (oldClones.length ? `(段階 1・2 の分身 ${oldClones.length} 体を散らした)` : '');
+      spawnLog('🛠 段階3へ。分身が出るまでボスへの攻撃は通りません(支援AIは休止)');
+    } else {
+      spawnLog(`🛠 ボスを段階${target.phase}へ`);
+    }
+    emitArenaFeedback('TEST', `PHASE ${target.phase} — HP ${Math.round(boss.hp)} / ${boss.hpMax}${note}`);
+  }
+
+  /* 「💪 強さ」(TEST-MODE-CURRENT-001、core/test-debug.js)。テスト用の倍率を ×1 → ×0.5 → ×2 と切り替え、
+     その場でステータスを計算し直す(最大 HP と攻撃力だけ)。本編の成長とは別物。テストモードの間だけ */
+  function toggleTestStatScale(){
+    if(!state.testMode) return;
+    state.testStatScale = nextTestStatScale(state.testStatScale);
+    recomputeStats();
+    refreshTestDebugLabels();
+    emitArenaFeedback('TEST', `STRENGTH ${testStatScaleLabel(state.testStatScale)} — HP ${state.maxHp} ATK ${state.classDef.atk}`);
+  }
+  /* Arena のボタンの表記を、いまのルール・強さに合わせる */
+  function refreshTestDebugLabels(){
+    const s = document.getElementById('arena-strength-btn');
+    if(s) s.textContent = `💪 強さ ${testStatScaleLabel(state.testStatScale)}`;
+    const l = document.getElementById('arena-loadout-btn');
+    if(l) l.textContent = legacyGrowth() ? '🎛 スキル / スフィア盤' : '🎛 装備・スキル';
   }
 
   function buildArenaUiOnce(){
@@ -157,7 +190,8 @@
     // そのままで、テストモードでは場所の制限だけが外れている
     document.getElementById('arena-loadout-btn').addEventListener('click', ()=> toggleAppraisal());
     document.getElementById('arena-guest-pause-btn').addEventListener('click', toggleTestGuestPause);
-    document.getElementById('arena-dusk-phase3-btn').addEventListener('click', testDuskPhase3);
+    document.getElementById('arena-boss-phase-btn').addEventListener('click', testBossNextPhase);
+    document.getElementById('arena-strength-btn').addEventListener('click', toggleTestStatScale);
     document.getElementById('arena-preview-result-ch1-btn').addEventListener('click', ()=> previewResultScreen(false));
     document.getElementById('arena-preview-result-test-btn').addEventListener('click', ()=> previewResultScreen(true));
     document.getElementById('arena-preview-down-btn').addEventListener('click', previewDownScreen);
@@ -185,7 +219,7 @@
   };
   const UI_PREVIEW_STATE_KEYS = ['lastDefeatedBossKey','bossClears','scenarioClears','clearedScenarios',
     'freeRanks','smithJoined','inventory','equipmentInventory','routeCombosSeen','pendingAfterDefeat',
-    'scenarioKey','testMode','dialogueActive'];
+    'scenarioKey','testMode','testRules','dialogueActive'];
   let uiPreview = null;   // { overlayId, dialogueActive, allocPoints }
 
   function uiPreviewAllowed(){ return DEV_UI && !!state.testMode && !uiPreview && !state.dialogueActive; }
@@ -219,6 +253,9 @@
     try{
       state.scenarioKey = 'mansion';
       state.testMode = !!legacyRows;
+      /* 「旧成長」の結果は旧成長システムの行(経験値・3 択)。テストモードの既定ルールは本編と同じなので、
+         描く間だけルールも旧成長にする(TEST-MODE-CURRENT-001。直後に戻す) */
+      state.testRules = legacyRows ? TEST_RULES.LEGACY : TEST_RULES.CURRENT;
       showBossResultScreen(UI_PREVIEW_BOSS, state.level);
     } finally {
       restorePreviewState(snap);
@@ -266,6 +303,8 @@
   function toggleArenaPanel(){
     if(!state.testMode) return;
     arenaPanelOpen = !arenaPanelOpen;
+    // ボタンの表記はルール(state.testRules)で決まる。testMode が立つのは入場の後なので、開く時に合わせる
+    if(arenaPanelOpen) refreshTestDebugLabels();
     document.getElementById('arena-panel').classList.toggle('show', arenaPanelOpen);
     syncArenaPanelTop();
   }
@@ -416,16 +455,32 @@
 
   // 敵情報パネル(#11): 最も近い敵のHP/体幹/AI状態/旋回速度/向き/
   // パニッシュ状態。ON/OFFできる(常時表示ではない)
+  /* 見出しの 1 行(TEST-MODE-CURRENT-001): どのルール・強さ・場所で、ボスがどの段階かを先に出す。
+     "HP:" の字は使わない(下の敵の行の "HP:" を読む既存のテストと混ざらないように) */
+  function testContextLines(){
+    const room = (document.getElementById('minimap-room') || {}).textContent || '-';
+    const boss = enemies.find(e=> e && !e.dead && e.isBoss && (e.triggered || e.arenaSpawned));
+    return `Debug Rules: ${legacyGrowth() ? '旧成長システム' : '第一章(本編と同じ)'} / 強さ ${testStatScaleLabel(state.testStatScale)}<br>` +
+      `Map: ${currentWorldKey || '-'} / ${room}<br>` +
+      (boss ? `Boss Phase: ${boss.dialogueName || boss.key} P${boss.phase || 1} ${Math.max(0, Math.round(boss.hp))}/${boss.hpMax}` +
+              `${testHoldBoss === boss ? ' (HELD)' : ''}<br>` : '') +
+      `Guest: ${guestCompanion ? (testGuestPaused ? 'PAUSED' : 'FIGHTING') : 'NONE'}<br>` +
+      /* 内部の成長の状態(TEST-MODE-CURRENT-002)。第一章ルールでは増えないことを、HUD ではなく値で確かめる */
+      `Growth: Lv ${state.level} XP ${state.xp} SP ${state.spherePoints || 0} Ranks ${state.freeRanks || 0}` +
+      ` Dice ${diceTotal} Alloc ${STAT_KEYS.reduce((a, k)=> a + (allocPoints[k] || 0), 0)}<br>`;
+  }
+
   function updateArenaEnemyInfo(){
     const panel = document.getElementById('arena-enemy-info');
     if(!panel) return;
+    const context = testContextLines();
     let nearest = null, nearestD = Infinity;
     enemies.forEach(en=>{
       if(en.dead || en.dormant) return;
       const d = state.pos.distanceTo(en.group.position);
       if(d < nearestD){ nearestD = d; nearest = en; }
     });
-    if(!nearest){ panel.textContent = '(no enemy nearby)'; return; }
+    if(!nearest){ panel.innerHTML = context + '(no enemy nearby)'; return; }
     const en = nearest;
     let aiState;
     /* 館の主(Phase 5-D)は専用の相を持つ。既存の 'WINDUP / RECOVERY /
@@ -507,7 +562,7 @@
         `${en.guardBreak ? '  GUARD BREAK' : ''}` +
         `${(en.guardBreakCD || 0) > 0 ? `  cd ${en.guardBreakCD.toFixed(1)}s` : ''}<br>`;
     }
-    panel.innerHTML =
+    panel.innerHTML = context +
       `HP: ${Math.max(0,Math.round(en.hp))} / ${en.hpMax}<br>` +
       `Tier: ${enemyTier(en).toUpperCase()}` +
       `${shouldInterruptOnBigFlinch(en) ? '' : '  (SUPER ARMOR)'}` +
@@ -553,7 +608,7 @@
       arenaPanelOpen = false;
       // テストモードを出た(タイトルへ戻った)時は、確認用の画面の記録も捨てる
       if(uiPreview){ document.getElementById(uiPreview.overlayId).classList.remove('active'); uiPreview = null; }
-      if(testGuestPaused || testHoldBoss) resetTestBossCheck();   // ボスの分身の確認の設定も戻す
+      if(testGuestPaused || testHoldBoss) resetTestDebugState();   // デバッグ操作の設定も戻す
       // フラグも一緒に畳む。ここでdisplayだけ落としてarenaDebugInfoOnを
       // trueのまま残すと、次にテストモードへ入った時にボタンの表示が
       // 「ON」なのにパネルが出ない状態になる
