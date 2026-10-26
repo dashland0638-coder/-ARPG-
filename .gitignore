@@ -4,3 +4,10 @@ playwright-report/
 dist/
 qa-shoot.mjs
 test-results-baseline/
+
+# PR プレビュー(DEV-PREVIEW-001)の作業用
+.previews/
+.previews-*/
+.preview-e2e/
+site/
+manifest.json

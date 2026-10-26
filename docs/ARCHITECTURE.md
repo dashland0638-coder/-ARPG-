@@ -17,7 +17,7 @@ AIがゲーム実装を変更するときに参照する、実装上の重要事
 
 - **Vite** — 開発サーバ／ビルド。`npm run dev` / `npm run build`（出力は `dist/`）
 - **Three.js** — 描画。CDNではなく npm 経由でバンドルし、バージョンは `package.json` に固定
-- **GitHub Pages** — `main` への push で `.github/workflows/deploy.yml` が公開。
+- **GitHub Pages** — `main` への push で `.github/workflows/deploy.yml` が公開。PR のプレビューは `.github/workflows/preview.yml` が組み、`deploy.yml` が `/-ARPG-/pr/<N>/` に載せる（DEV-PREVIEW-001）。
   `vite.config.js` の `base` は `/-ARPG-/`
 
 ## Frozen File

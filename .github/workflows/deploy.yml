@@ -1,40 +1,143 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages (main + PR previews)
 
+# GitHub Pages(Actions から公開)は公開のたびにサイト全体を置き換える。main の公開版(/-ARPG-/)と、
+# 開いている PR のプレビュー(/-ARPG-/pr/<N>/)を毎回まとめて組んで公開する(DEV-PREVIEW-001)。
+#   - main へ push                       … main の公開版を更新(プレビューも載せ直す)
+#   - PR Preview(preview.yml)が終わった … その PR のプレビューを載せる(失敗も「失敗しました」として載せる)
+#   - PR を閉じた                         … 載せ直す(閉じた PR のプレビューは消える)
+#
+# 安全のための約束(.ai/reports/DEV-PREVIEW-001-report.md §4):
+#   - このワークフローは PR のコードを一切動かさない。checkout は main(既定のブランチ)だけ、資格情報は残さない
+#   - PR のプレビューは preview.yml(pull_request・読むだけ)が組んだ成果物を「データとして」取ってくる
+#     (scripts/collect-previews.cjs)。PR の番号・最新 commit は API の値、成果物は PR の最新 commit の実行のものだけ。
+#     展開して検査(scripts/verify-preview-site.mjs)に通ったものだけを pr/<N>/ に置く
+#   - fork の PR は載せない。fork の PR がきっかけの実行は何もせず、公開の順番待ちにも入らない
+#   - 公開(pages / id-token の書き込み)は deploy ジョブだけ。PR へのコメントは comment ジョブだけ
+#   - main の公開版は main のコードからだけ組む。PR のプレビューが取れなくても main の公開は止めない
+#   - プレビューのセーブ・設定は main の公開版と別のキー(src/core/dev-preview.js)
 on:
   push:
     branches: [main]
+  workflow_run:
+    workflows: [PR Preview]
+    types: [completed]
+  pull_request_target:
+    types: [closed]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# 公開は 1 本ずつ。走っている公開は取り消さない(PR の更新が続いても main の公開が止まらない)。待っている実行は
+# GitHub が最新の 1 つだけ残す。どの実行もその時点のすべての PR の最新の状態を組むので、古い状態で上書きしない。
+# fork の PR がきっかけの実行は別の group にして、待っている公開を押し出さない
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: ${{ ((github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name != github.repository) || (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)) && format('pages-skip-{0}', github.run_id) || 'pages' }}
+  cancel-in-progress: false
 
 jobs:
-  build:
+  assemble:
+    if: ${{ !((github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name != github.repository) || (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)) }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      summary: ${{ steps.site.outputs.summary }}
+      trigger_pr: ${{ steps.collect.outputs.trigger_pr }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
       - run: npm ci
-      - run: npm run build
+      # 版表記は取り出した main の commit(workflow_run・pull_request_target の GITHUB_SHA とずれないように)
+      - name: Build main
+        run: GITHUB_SHA="$(git rev-parse HEAD)" npm run build
+      # 失敗しても main の公開は続ける(プレビューは載らない)
+      - name: Collect PR previews (artifacts of preview.yml, as data)
+        id: collect
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          TRIGGER_PR: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number || '' }}
+          TRIGGER_SHA: ${{ github.event.workflow_run.head_sha || '' }}
+        with:
+          result-encoding: json
+          script: |
+            const { collectPreviews } = require('./scripts/collect-previews.cjs');
+            const r = await collectPreviews({ github, owner: context.repo.owner, repo: context.repo.repo, outDir: 'incoming',
+              triggerPr: process.env.TRIGGER_PR, triggerSha: process.env.TRIGGER_SHA, log: core });
+            core.setOutput('trigger_pr', r.triggerPr || '');
+            return r;
+      - name: Assemble site
+        id: site
+        env:
+          PREVIEWS: ${{ steps.collect.outputs.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          mkdir -p incoming
+          node scripts/assemble-pages.mjs dist incoming site
+          echo "summary=$(node -e 'process.stdout.write(JSON.stringify(require("./site/pr/previews.json")))')" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: site
 
   deploy:
-    needs: build
+    needs: assemble
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # PR に「テスト版を開く」のコメントを 1 つだけ置き、公開のたびに書き換える(scripts/preview-comments.cjs)。
+  # 待っている間に置き換わった実行のきっかけの PR にも届くように、公開したすべての PR のコメントを今の状態に合わせる
+  # (状態が同じなら書き換えない)。URL は公開した page_url から作り、公開された preview.json の commit を確かめて書く。
+  # 取り出すのは main(既定のブランチ)の scripts だけで、PR のコードは動かさない
+  comment:
+    needs: [assemble, deploy]
+    if: ${{ !cancelled() && needs.assemble.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: scripts
+      - uses: actions/github-script@v7
+        env:
+          SUMMARY: ${{ needs.assemble.outputs.summary }}
+          # 成果物を集める手順が失敗しても、きっかけの PR には知らせる(イベントから直接取る)
+          TRIGGER_PR: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number || needs.assemble.outputs.trigger_pr || '' }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+          CLOSED: ${{ github.event_name == 'pull_request_target' && github.event.action == 'closed' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const { updatePreviewComments } = require('./scripts/preview-comments.cjs');
+            let summary = [];
+            try { summary = JSON.parse(process.env.SUMMARY || '[]'); } catch (e) {}
+            const written = await updatePreviewComments({ github, owner: context.repo.owner, repo: context.repo.repo, summary,
+              triggerPr: process.env.TRIGGER_PR, closed: process.env.CLOSED === 'true', deployed: process.env.DEPLOY_RESULT === 'success',
+              pageUrl: process.env.PAGE_URL, runUrl: process.env.RUN_URL, log: core });
+            core.info(`comments updated: ${written.map(n => '#' + n).join(', ') || 'none'}`);

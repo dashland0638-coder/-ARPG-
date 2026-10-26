@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 /* 公開時の commit(短い SHA)。メニューのバージョン表記と dist/version.json に入れ、
    実機で動いているビルドを見分ける(UI-002-H 追補 2)。GitHub Actions では GITHUB_SHA */
 function buildId() {
+  // PR のプレビュー(DEV-PREVIEW-001)は、PR の commit。pull_request_target の GITHUB_SHA は main の commit なので先に見る
+  if (process.env.PREVIEW_SHA) return process.env.PREVIEW_SHA.slice(0, 7);
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7);
   try { return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim().slice(0, 7); }
   catch { return 'unknown'; }
@@ -24,6 +26,13 @@ function versionFile(id) {
 }
 
 const IS_BUILD = process.argv.includes('build');
+
+/* PR ごとの実機確認プレビュー(DEV-PREVIEW-001、src/core/dev-preview.js)。.github/workflows/deploy.yml が
+   PREVIEW_PR・PREVIEW_SHA・PAGES_BASE を渡した時だけ、PR 番号と commit を埋め込み、base を /-ARPG-/pr/<N>/ にする。
+   渡されなければ今まで通り(main の公開版・手元の開発) */
+const PREVIEW = process.env.PREVIEW_PR
+  ? { pr: Number(process.env.PREVIEW_PR), sha: String(process.env.PREVIEW_SHA || '') }
+  : null;
 const BUILD_ID = IS_BUILD ? buildId() : 'dev';
 
 // GitHub Pages serves a project site (not a user/org site or custom domain)
@@ -39,8 +48,9 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_BUILD__: JSON.stringify(BUILD_ID),
+    __PREVIEW__: JSON.stringify(PREVIEW),
   },
-  base: process.env.NODE_ENV === 'production' ? `/${REPO_NAME}/` : '/',
+  base: process.env.PAGES_BASE || (process.env.NODE_ENV === 'production' ? `/${REPO_NAME}/` : '/'),
   server: {
     // host:true binds 0.0.0.0 instead of localhost, so an iPhone on the same
     // Wi-Fi can open http://<this-machine's-LAN-IP>:5173 during development

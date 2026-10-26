@@ -9,8 +9,11 @@
        - SETTINGS_KEY : display/audio prefs, tied to the device
                         rather than the character, loaded once at boot.
   ========================================================= */
-  const SAVE_KEY = 'soulforge_save_v1';
-  const SETTINGS_KEY = 'soulforge_settings_v1';
+  /* PR のプレビュー(DEV-PREVIEW-001)は、main の公開版と同じ origin(<owner>.github.io)で動くので、
+     キーに「preview-prN:」を付けて公開版のセーブ・設定に触れない。main の公開版・手元の開発はキーそのまま */
+  const PREVIEW_INFO = previewInfo(typeof __PREVIEW__ === 'object' ? __PREVIEW__ : null);
+  const SAVE_KEY = previewStorageKey('soulforge_save_v1', PREVIEW_INFO);
+  const SETTINGS_KEY = previewStorageKey('soulforge_settings_v1', PREVIEW_INFO);
 
   // v2: 基礎ステータス制(#28)でallocPoints/levelGrowthの形が
   // {atk,spd,hp,mp} から {vit,str,mag,mnd,agi,foc} へ根本的に変わったため、
