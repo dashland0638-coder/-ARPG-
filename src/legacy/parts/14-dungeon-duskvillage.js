@@ -2245,11 +2245,35 @@
       }
     }
     const kind = M.villageKind;
+    updateObserveMote(en, M, kind, t);
     if(kind === 'mirror') poseVillageMirror(en, M, t, dt);
     else if(kind === 'foam') poseVillageFoam(en, M, t, dt);
     else if(kind === 'copy') poseVillageCopy(en, M, t, dt);
     else if(kind === 'fisher') poseVillageFisher(en, M, t, dt, moving);
     else if(kind === 'warden') poseVillageWarden(en, M, t, dt, moving);
+  }
+
+  /* 観測の灯が効いている怪異の頭上の粒(CH1-DUSK-IMMERSION C、core/observe-light-cues.js)。
+     灯りが届いていて、灯りで挙動が変わる種類だけ。本体と分身は同じ粒(どれが本物かは出さない)。
+     粒の材質は全個体で 1 つ(濃さは灯りの残り時間で決まり、全員同じ)。光源は持たない */
+  let observeMoteMat = null;
+  function updateObserveMote(en, M, kind, t){
+    const observing = state.observeLightT > 0 && observeReaches(en.group.position.distanceTo(state.pos));
+    const show = showObserveMote(kind, {observing, dead: en.dead});
+    if(!show){ if(M.observeMote) M.observeMote.visible = false; return; }
+    if(!observeMoteMat) observeMoteMat = new THREE.MeshBasicMaterial({color:OBSERVE_CUE.color, transparent:true,
+      opacity:OBSERVE_CUE.moteOpacity, depthWrite:false});
+    if(!M.observeMote){
+      const m = new THREE.Mesh(vGeo('observe.mote', ()=> new THREE.OctahedronGeometry(0.13, 0)), observeMoteMat);
+      m.castShadow = false; m.userData.noOutline = true;
+      m.position.set(0, OBSERVE_MOTE_Y[kind] || 2.1, 0);
+      en.group.add(m);
+      M.observeMote = m;
+    }
+    observeMoteMat.opacity = OBSERVE_CUE.moteOpacity * observeFade(state.observeLightT);
+    M.observeMote.visible = true;
+    M.observeMote.position.y = (OBSERVE_MOTE_Y[kind] || 2.1) + Math.sin(t * 2.4) * 0.05;
+    M.observeMote.rotation.y = t * 1.6;
   }
 
   /* 水鏡の影: 溜めで両腕を後ろへ引き(深さ = 本体 1 / 分身 0.45)、上体を反らす → 一撃で前へ振り抜く */
@@ -2501,16 +2525,18 @@
   /* 波紋。プレイヤーが水際を歩いた時と、小舟に近づいた時に出る。
      数を絞って使い捨てにしてあるので、専用のプールは作っていない ――
      同時に出るのはせいぜい数枚で、寿命も1秒前後。 */
-  function spawnDuskRipple(x, z, r0){
+  function spawnDuskRipple(x, z, r0, observed){
     if(duskRipples.length >= 10) return;
-    const mat = new THREE.MeshBasicMaterial({color:0x8fc8d8, transparent:true, opacity:0.32,
+    // observed: 観測の灯の下で怪異が立てた波紋(灯りの色で少し濃く。CH1-DUSK-IMMERSION C)
+    const mat = new THREE.MeshBasicMaterial({color:observed ? OBSERVE_CUE.color : 0x8fc8d8, transparent:true,
+      opacity:observed ? OBSERVE_CUE.rippleOpacity : 0.32,
       side:THREE.DoubleSide, depthWrite:false});
     const mesh = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.5, 16), mat);
     mesh.rotation.x = -Math.PI/2;
     mesh.position.set(x, -0.28, z);
     mesh.scale.setScalar(r0 || 1);
     scene.add(mesh);
-    duskRipples.push({mesh, mat, t:0, life:1.3 + Math.random()*0.5});
+    duskRipples.push({mesh, mat, t:0, life:1.3 + Math.random()*0.5, base:mat.opacity});
   }
 
   function updateDuskVillage(dt){
@@ -2652,7 +2678,7 @@
       r.t += dt;
       const kk = r.t / r.life;
       r.mesh.scale.setScalar(1 + kk*3.2);
-      r.mat.opacity = 0.32 * (1 - kk);
+      r.mat.opacity = (r.base || 0.32) * (1 - kk);
       if(kk >= 1){ scene.remove(r.mesh); duskRipples.splice(i,1); }
     }
 

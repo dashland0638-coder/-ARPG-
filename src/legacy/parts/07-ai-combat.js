@@ -2592,7 +2592,8 @@
     const rip = mirrorStepRipple(en.mirrorRippleT, dt, !isClone, observing);
     en.mirrorRippleT = rip.timer;
     if(rip.fire && currentWorldKey === 'duskvillage' && en.triggered){
-      spawnDuskRipple(en.group.position.x, en.group.position.z, isClone ? 0.7 : 1.1);
+      // 灯りの下の波紋は、灯りの色で少し濃く(差そのものを見せる。CH1-DUSK-IMMERSION C)
+      spawnDuskRipple(en.group.position.x, en.group.position.z, isClone ? 0.7 : 1.1, observing);
     }
 
     /* 観察できる差 その2: 向き直り。本体だけ一拍遅れる。
