@@ -19,7 +19,7 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED(実機での見え方は Hum
 ## 2. 試験
 
 - `npm run build` 成功。`npm run test:unit` 2066 pass / fail 0(skip 1 は既存)。新規 `tests/unit/dusk-ghost-design.test.js`(透ける脚・薄布・映り込み・人影が塊の内側・発光と光源なし・既存の色だけ・数値と当たりが今のまま・ゾンビ／骨の造形が無い)
-- E2E(手元): §5 に記録
+- E2E(手元): 35 件 pass(§5)
 
 ## 3. 独立レビュー
 
@@ -35,4 +35,10 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED(実機での見え方は Hum
 
 ## 5. 回帰(E2E)
 
-(下に記録)
+手元(Chromium)、commit `2d72a3c`: **35 passed / 0 failed**(17.5 分)。
+`dusk-enemy-design`(5 種の作り・水鏡と泡沫の輪 = 判定・写し身・ボスの輪・ボスの分身・目視用の画面)、`dusk-keeper-telegraph`、`dusk-fisher-telegraph`、`dusk-boss-phase-burst`、`dusk-boss-clone-check`、`duskvillage`、`chapter1-dusk-basics`、`dusk-village-route`、`save-load`、`combat-test-arena`、`production-build`。
+目視用の画面: `test-results/dusk-enemy-closeup-*.png`・`dusk-enemy-lineup.png`(Arena の明るい床。夜の村での見え方は実機で確認)
+
+## 6. Autonomy Metrics
+
+Human Escalation: 0 / Human Decision: 0 / Auto Fix: 0 / Reviewer Rounds: 1 / PR: (PR 本文に記載)
