@@ -18,6 +18,8 @@ export const OBSERVE_CUE = Object.freeze({
   pulseOpacity: 0.45,
   moteOpacity: 0.8,
   rippleOpacity: 0.46,      // 灯りの下の波紋(ふだんは 0.32)
+  pulseLift: 0.05,          // 届く範囲の輪の床からの高さ(予兆の輪の床 + 0.06 より下)
+  rippleLift: 0.04,         // 床の上に立つ怪異の波紋の床からの高さ(同上)
 });
 
 /* 灯りで挙動が変わる怪異(村の印 villageKind)。それぞれの AI が observeReaches を読む:

@@ -1533,7 +1533,12 @@
       depthWrite:false, side:THREE.DoubleSide});
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.94, 1, 48), mat);
     ring.rotation.x = -Math.PI/2;
-    ring.position.set(state.pos.x, (state.pos.y || 0) + 0.07, state.pos.z);
+    /* 床の高さ + 0.05(村の部屋の床は 0.08 で不透明。床より下だと見えない。floorYForMarks)。
+       村の予兆の輪(床 + 0.06 = 0.14)より下に置き、
+       先に描く ―― 敵の予兆を隠さない */
+    const gy = floorYForMarks(state.pos.x, state.pos.z, state.pos.y || 0);
+    ring.position.set(state.pos.x, gy + OBSERVE_CUE.pulseLift, state.pos.z);
+    ring.renderOrder = -1;
     ring.userData.noOutline = true;
     scene.add(ring);
     const cx = state.pos.x, cz = state.pos.z;

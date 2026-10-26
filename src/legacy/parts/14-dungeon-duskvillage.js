@@ -68,8 +68,34 @@
   /* 灯りの光の面(CH1-DUSK-IMMERSION B)の柔らかい円。中心が明るく縁へ消える。
      村を作り直すたびに作らず 1 枚を使い回す(テクスチャは世界の破棄で捨てられない) */
   let duskPoolTex = null;
-  // 置いた灯り・電線の記録(テストモードの Debug Info と unit 用。buildDuskVillage のたびに作り直す)
-  let duskNightLights = {pools:[], wallLamps:[], streetLamps:[], wires:[]};
+  /* 床に置く目印(光の面・観測の灯の輪・怪異の波紋)の基準の高さ。村は groundSlabs を使わず、
+     部屋の床は DUSK_FLOOR_Y(0.08)の不透明な面なので、その上に置く(部屋の外 = 水の上は fallback)。
+     村の外は従来どおり groundSlabs(時計塔など)か fallback */
+  function floorYForMarks(x, z, fallback){
+    if(currentWorldKey === 'duskvillage'){
+      const f = duskFloorYAt(x, z);
+      return f != null ? f : fallback;
+    }
+    if(groundSlabs.length){ const g = groundYAt(x, z, fallback); if(g != null) return g; }
+    return fallback;
+  }
+  /* 灯具・光の面・電線の材質。村を作り直すたびに作らず使い回す(材質は世界の破棄で捨てられない) */
+  let duskNightMats = null;
+  let duskNightInstanced = [];   // 前回の村の InstancedMesh(作り直す時に instanceMatrix を捨てる)
+  function duskNightLightMaterials(){
+    if(duskNightMats) return duskNightMats;
+    const tex = duskLightPoolTexture();
+    duskNightMats = {
+      frame: new THREE.MeshStandardMaterial({color:0x2a2420, roughness:0.88, metalness:0}),
+      glass: new THREE.MeshStandardMaterial({color:0x4a3a28, emissive:0xffb060, emissiveIntensity:0.42, roughness:0.8}),
+      pool: new THREE.MeshBasicMaterial({map:tex, color:DUSK_NIGHT_LIGHTS.poolColor, transparent:true,
+        opacity:DUSK_NIGHT_LIGHTS.groundPoolOpacity, depthWrite:false}),
+      wallPool: new THREE.MeshBasicMaterial({map:tex, color:DUSK_NIGHT_LIGHTS.poolColor, transparent:true,
+        opacity:DUSK_NIGHT_LIGHTS.wallPoolOpacity, depthWrite:false, side:THREE.DoubleSide}),
+      wire: new THREE.MeshStandardMaterial({color:0x15120f, roughness:1, metalness:0}),
+    };
+    return duskNightMats;
+  }
   function duskLightPoolTexture(){
     if(duskPoolTex) return duskPoolTex;
     const c = document.createElement('canvas');
@@ -123,7 +149,6 @@
   }
 
   function buildDuskVillage(){
-    duskNightLights = {pools:[], wallLamps:[], streetLamps:[], wires:[]};
     duskProps = [];
     duskRipples = [];
     duskWater = null; duskWaterBase = null;
@@ -201,7 +226,7 @@
                 : (r.id === 'plaza' || r.id === 'gate') ? stoneMat : plankMat;
       const surf = r.id === 'forest' ? 'dirt'
                 : (r.id === 'plaza' || r.id === 'gate') ? 'stone' : 'wood';
-      addFloorWithHoles(r.x0, r.x1, r.z0, r.z1, [], mat, 0.08);
+      addFloorWithHoles(r.x0, r.x1, r.z0, r.z1, [], mat, DUSK_FLOOR_Y);
       addRoomSurface(r, surf);
       buildWalls(r);
     });
@@ -337,59 +362,55 @@
     /* ---- 光源を持たない灯り・電線(CH1-DUSK-IMMERSION B、DEC-010) ----
        村の PointLight は lamp() の 19 個のまま(CV-01 の計測の前提、village-load.test.js)。
        外壁のランプと街灯は、マットな灯具 + 弱い自発光のガラス + 壁・地面に置く柔らかい
-       光の面(光源ではない)で表す。光の面は縁の無い円で、予兆の輪より先に描く(輪を隠さない)。
+       光の面(光源ではない)で表す。地面の光の面は床の少し上・予兆の輪(床 + 0.06)より下に置き、
+       先に描く(輪を隠さない)。縁の無い円なので、縁のある予兆の輪と形で分かれる。
        電線は建物の軒と街灯の柱のあいだに張る暗い細い線で、電柱は立てない。
-       どれも当たり判定・影を持たない。部品の geometry・material は共有 */
-    const nlFrameMat = new THREE.MeshStandardMaterial({color:0x2a2420, roughness:0.88, metalness:0});
-    const nlGlassMat = new THREE.MeshStandardMaterial({color:0x4a3a28, emissive:0xffb060, emissiveIntensity:0.42, roughness:0.8});
-    const nlPoolMat = new THREE.MeshBasicMaterial({map:duskLightPoolTexture(), color:DUSK_NIGHT_LIGHTS.poolColor, transparent:true,
-      opacity:DUSK_NIGHT_LIGHTS.groundPoolOpacity, depthWrite:false});
-    const nlWallPoolMat = new THREE.MeshBasicMaterial({map:duskLightPoolTexture(), color:DUSK_NIGHT_LIGHTS.poolColor, transparent:true,
-      opacity:DUSK_NIGHT_LIGHTS.wallPoolOpacity, depthWrite:false, side:THREE.DoubleSide});
-    const nlWireMat = new THREE.MeshStandardMaterial({color:0x15120f, roughness:1, metalness:0});
-    const nlHouseGeo = new THREE.BoxGeometry(0.24, 0.3, 0.24);
-    const nlGlassGeo = new THREE.BoxGeometry(0.17, 0.2, 0.17);
-    const nlCapGeo = new THREE.ConeGeometry(0.2, 0.14, 4);
-    const nlArmGeo = new THREE.BoxGeometry(0.06, 0.06, 1);
-    const nlKnobGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-    const nlPoolGeo = new THREE.CircleGeometry(1, 20);
-    const nlWallPoolGeo = new THREE.PlaneGeometry(1, 1);
-    const nlNoShadow = m=>{ m.castShadow = false; m.receiveShadow = false; m.userData.noOutline = true; return m; };
-    function nlMesh(geo, mat, x, y, z){
-      const m = nlNoShadow(new THREE.Mesh(geo, mat));
-      m.position.set(x, y, z); scene.add(m); return m;
+       どれも当たり判定・影を持たない。描く回数を増やさないよう、同じ部品は 1 つの
+       InstancedMesh にまとめ(nlFlush)、電線は 1 つの geometry に結合する */
+    const NLM = duskNightLightMaterials();
+    const nlGeo = {
+      house: new THREE.BoxGeometry(0.24, 0.3, 0.24),
+      glass: new THREE.BoxGeometry(0.175, 0.2, 0.175),
+      cap: new THREE.ConeGeometry(0.2, 0.14, 4),
+      arm: new THREE.BoxGeometry(0.06, 0.06, 1),
+      knob: new THREE.BoxGeometry(0.1, 0.1, 0.1),
+      pool: new THREE.CircleGeometry(1, 20).rotateX(-Math.PI/2),
+      wallPool: new THREE.PlaneGeometry(1, 1),
+    };
+    const nlBatch = new Map();   // 'geo|mat' → {geo, mat, order, list:[Matrix4]}
+    const _nlQ = new THREE.Quaternion(), _nlE = new THREE.Euler(), _nlS = new THREE.Vector3(), _nlP = new THREE.Vector3();
+    function nlPut(geoKey, matKey, x, y, z, ry, sx, sy, sz, order){
+      const key = `${geoKey}|${matKey}`;
+      let b = nlBatch.get(key);
+      if(!b){ b = {geo:nlGeo[geoKey], mat:NLM[matKey], order:order || 0, list:[]}; nlBatch.set(key, b); }
+      _nlQ.setFromEuler(_nlE.set(0, ry || 0, 0));
+      b.list.push(new THREE.Matrix4().compose(_nlP.set(x, y, z), _nlQ, _nlS.set(sx || 1, sy || 1, sz || 1)));
     }
+    const nlWireGeos = [];
     function nlLantern(x, y, z){   // 灯具(枠・ガラス・笠)
-      nlMesh(nlHouseGeo, nlFrameMat, x, y, z);
-      nlMesh(nlGlassGeo, nlGlassMat, x, y, z).scale.set(1.02, 1, 1.02);
-      const cap = nlMesh(nlCapGeo, nlFrameMat, x, y + 0.21, z); cap.rotation.y = Math.PI/4;
+      nlPut('house', 'frame', x, y, z);
+      nlPut('glass', 'glass', x, y, z);
+      nlPut('cap', 'frame', x, y + 0.21, z, Math.PI/4);
     }
-    function lightPool(x, z, r){   // 地面の光の面。予兆の輪(+0.06 以上)より下・先に描く
-      const m = nlMesh(nlPoolGeo, nlPoolMat, x, DUSK_NIGHT_LIGHTS.poolY, z);
-      m.rotation.x = -Math.PI/2; m.scale.setScalar(r); m.renderOrder = -1;
-      duskNightLights.pools.push({x, z, r});
-      return m;
+    function lightPool(x, z, r){   // 地面の光の面。村の床 + poolLift(村の予兆の輪 = 床 + 0.06 より下)
+      nlPut('pool', 'pool', x, floorYForMarks(x, z, 0) + DUSK_NIGHT_LIGHTS.poolLift, z, 0, r, 1, r, -1);
     }
     // 外壁のランプ。(x, y, z) は壁の外側の面、(nx, nz) は外向き
     function wallLamp(x, y, z, nx, nz){
-      const out = WALL_LAMP_OUT;
-      const arm = nlMesh(nlArmGeo, nlFrameMat, x + nx*out/2, y + 0.18, z + nz*out/2);
-      arm.scale.z = out; arm.rotation.y = Math.atan2(nx, nz);
+      const out = WALL_LAMP_OUT, ry = Math.atan2(nx, nz);
+      nlPut('arm', 'frame', x + nx*out/2, y + 0.18, z + nz*out/2, ry, 1, 1, out);
       nlLantern(x + nx*out, y, z + nz*out);
       // 壁に落ちる光(灯具の下へ縦長に)と、壁の足元の地面の光
-      const wp = nlMesh(nlWallPoolGeo, nlWallPoolMat, x + nx*0.03, y - 0.55, z + nz*0.03);
-      wp.rotation.y = Math.atan2(nx, nz); wp.scale.set(1.7, 2.2, 1); wp.renderOrder = -1;
+      nlPut('wallPool', 'wallPool', x + nx*0.03, y - 0.55, z + nz*0.03, ry, 1.7, 2.2, 1, -1);
       lightPool(x + nx*1.1, z + nz*1.1, DUSK_NIGHT_LIGHTS.wallPoolR);
-      duskNightLights.wallLamps.push({x, y, z});
     }
     // 街灯(柱・腕・吊った灯具)。(dx, dz) は腕の向き(道の側)
     function streetLamp(x, z, dx, dz){
-      post(x, z, 3.0, 0.08);
-      const arm = nlMesh(nlArmGeo, nlFrameMat, x + dx*0.4, 3.0, z + dz*0.4);
-      arm.scale.z = 0.8; arm.rotation.y = Math.atan2(dx, dz);
+      const p = post(x, z, 3.0, 0.08);
+      p.castShadow = false;   // 新しい部品は影を落とさない(影の描く量を増やさない)
+      nlPut('arm', 'frame', x + dx*0.4, 3.0, z + dz*0.4, Math.atan2(dx, dz), 1, 1, 0.8);
       nlLantern(x + dx*0.8, 2.72, z + dz*0.8);
       lightPool(x + dx*0.8, z + dz*0.8, DUSK_NIGHT_LIGHTS.streetPoolR);
-      duskNightLights.streetLamps.push({x, z});
     }
     // 電線。a → b を、真ん中が sag だけ下がる線で結ぶ(両端に小さな碍子)
     function wireLine(a, b, sag){
@@ -398,11 +419,40 @@
         const k = i/8;
         pts.push(new THREE.Vector3(a.x + (b.x-a.x)*k, a.y + (b.y-a.y)*k - (sag||0)*4*k*(1-k), a.z + (b.z-a.z)*k));
       }
-      const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, DUSK_NIGHT_LIGHTS.wireR, 4, false);
-      nlMesh(geo, nlWireMat, 0, 0, 0);
-      nlMesh(nlKnobGeo, nlFrameMat, a.x, a.y, a.z);
-      nlMesh(nlKnobGeo, nlFrameMat, b.x, b.y, b.z);
-      duskNightLights.wires.push({a, b, sag});
+      nlWireGeos.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, DUSK_NIGHT_LIGHTS.wireR, 4, false));
+      nlPut('knob', 'frame', a.x, a.y, a.z);
+      nlPut('knob', 'frame', b.x, b.y, b.z);
+    }
+    // 置いた部品をまとめて描く。電線は 1 つの geometry に結合する
+    function nlFlush(){
+      duskNightInstanced.forEach(m=> m.dispose());   // 前回の村の分(世界の破棄は geometry しか捨てない)
+      duskNightInstanced = [];
+      nlBatch.forEach(b=>{
+        const m = new THREE.InstancedMesh(b.geo, b.mat, b.list.length);
+        duskNightInstanced.push(m);
+        b.list.forEach((mx, i)=> m.setMatrixAt(i, mx));
+        m.instanceMatrix.needsUpdate = true;
+        m.castShadow = false; m.receiveShadow = false; m.userData.noOutline = true;
+        m.renderOrder = b.order;
+        m.frustumCulled = false;   // インスタンスが村じゅうに散らばるので、1 つの境界球で切らない
+        scene.add(m);
+      });
+      if(nlWireGeos.length){
+        const pos = [], nor = [];
+        nlWireGeos.forEach(g=>{
+          const ng = g.index ? g.toNonIndexed() : g;
+          pos.push(...ng.attributes.position.array); nor.push(...ng.attributes.normal.array);
+          if(ng !== g) ng.dispose();
+          g.dispose();
+        });
+        const wg = new THREE.BufferGeometry();
+        wg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        wg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+        const wm = new THREE.Mesh(wg, NLM.wire);
+        wm.castShadow = false; wm.receiveShadow = false; wm.userData.noOutline = true;
+        scene.add(wm);
+      }
+      nlBatch.clear(); nlWireGeos.length = 0;
     }
 
     function boat(x, z, ry, len){
@@ -554,7 +604,7 @@
     });
     /* 食卓(WORK 4)。椅子は3つなのに、食器は4人分ある。
        怖がらせるための仕掛けではなく、「ここには誰かがいた」と思える
-       ずれを1つだけ置いてある ―― 説明はしないし、イベントにもしない */
+       ずれを1つだけ置いてある。住宅の記憶の会話で、魔法使いがこのずれを読む(DEC-010) */
     [[46.0,348.7],[46.6,349.3],[47.2,348.8],[46.3,350.0]].forEach(([dx,dz])=>{
       const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.13, 0.05, 10), potMat);
       dish.position.set(dx, 0.85, dz); scene.add(dish);
@@ -797,6 +847,7 @@
     DUSK_NIGHT_LAMP_PLAN.wall.forEach(l=> wallLamp(l.x, l.y, l.z, l.nx, l.nz));
     DUSK_NIGHT_LAMP_PLAN.street.forEach(l=> streetLamp(l.x, l.z, l.dx, l.dz));
     DUSK_NIGHT_LAMP_PLAN.wires.forEach(w=> wireLine(lampAnchor(w.a), lampAnchor(w.b), w.sag));
+    nlFlush();
 
     // ⑫ ボスエリア ―― WORK 7 で「村の残響」を置く。今は何もいない静かな水面
     reeds(-16, 508, 6); reeds(16, 510, 6);
@@ -896,15 +947,15 @@
 
     /* ---- 住宅:子供の記憶(WORK 4) ----
        食卓のそば。玩具の舟と同じ部屋で、「明日、船に乗せて」という
-       約束だけが残っている。船小屋を見たときに、プレイヤーが自分で
-       結びつけられる余地を残すのが目的なので、ここでは説明しない */
+       約束だけが残っている。DEC-010 で、数のずれ(一人分だけ先に片付けられた)の読みと、
+       次に行く場所(船小屋)を魔法使いが言う */
     registerProximityEvent(new THREE.Vector3(45.5, 0, 350), 4.0, '', null, {
       onEnter: ()=> playDuskChildMemory(),
     });
 
     /* ---- 船小屋:船の記憶(WORK 4) ----
-       舟の並ぶ水際。子供の声が一瞬だけ水の上から聞こえる。
-       「この舟があの子の舟だった」とは言わない */
+       舟の並ぶ水際。子供の声が一瞬だけ水の上から聞こえる。住宅より先に来ても
+       通じるように、約束には触れず「舟を出すのをやめた → 水に何かあった → 水門」を言う(DEC-010) */
     registerProximityEvent(new THREE.Vector3(-42, 0, 307), 5.0, '', null, {
       onEnter: ()=> playDuskBoatMemory(),
     });
@@ -925,8 +976,8 @@
     }, {inset: 1.2});
 
     /* ---- 水門前:水門を見る(WORK 5) ----
-       建物が減り、水面が広がった所へ入った時点で一度だけ。倒した報酬では
-       なく、場所の説明でもない ―― 門が見えたことへの、二人の短い相槌。
+       建物が減り、水面が広がった所へ入った時点で一度だけ。門が閉じている理由
+       (村の側から閉ざした)と、次に行く場所(水門の前のレバーと管理小屋)を言う(DEC-010)。
        部屋そのものを判定域にしてあるのは、端を回り込んでも必ず通るため
        (商店街の複合戦闘と同じ registerRoomEvent) */
     registerRoomEvent(duskRoomById('yard'), 0, '', ()=>{
@@ -1075,8 +1126,9 @@
 
   /* 魚屋の記憶(WORK 3)
 
-     ここで暮らしていた人の、なんでもない一日の切れ端。説明はしない ――
-     誰がいつ言ったのかも、なぜ聞こえるのかも明かさない。
+     ここで暮らしていた人の、なんでもない一日の切れ端。誰がいつ言ったのか、なぜ聞こえるのか
+     (怪異の正体)は明かさない。会話の後半で「声だけが同じ場所で繰り返している」「入口の人影と
+     同じもの」「帳簿を見る」を言う(DEC-010)。
      姿は輪郭だけを一瞬見せて、すぐ消える。 */
   let duskFishMemoryDone = false;
   function playDuskFishMemory(){
@@ -1115,9 +1167,9 @@
 
   /* 住宅の記憶 ―― 子供の約束(WORK 4)
 
-     食卓のそば、玩具の舟が転がっている部屋で一度だけ。
-     誰の声かも、いつのことかも言わない。船小屋で舟を見たときに、
-     プレイヤーが自分で「さっきの約束」と結びつけられる余地を残す。 */
+     食卓のそば、玩具の舟が転がっている部屋で一度だけ。声の主は名乗らない。
+     DEC-010 で、会話の後半は「一人分だけ先に片付けられた → 少しずつ消えた」の読みと、
+     次に行く場所(船小屋)を魔法使いが言う(推測として)。 */
   let duskChildMemoryDone = false;
   function playDuskChildMemory(){
     if(duskChildMemoryDone) return;
@@ -1149,8 +1201,8 @@
 
   /* 船小屋の記憶 ―― 水の上から、さっきの声(WORK 4)
 
-     住宅の約束と、目の前の舟を結びつけるのはプレイヤー。
-     「この舟があの子の舟だった」とは言わない。 */
+     「この舟があの子の舟だった」とは言わない(住宅より先に来ることもある)。
+     DEC-010 で、「舟を出すのをやめた → 水に何かあった → 水門を調べる」を言う。 */
   let duskBoatMemoryDone = false;
   function playDuskBoatMemory(){
     if(duskBoatMemoryDone) return;
@@ -1168,8 +1220,8 @@
         spawnDuskRipple(-41.0, 305.0, 0.9);
       }},
       {t:1.2, run:()=> cutsceneLine('「……舟だ。直しかけのまま置いてある」', DUSK_KNIGHT)},
-      {t:2.0, run:()=> cutsceneLine('「乗せてやるつもりだったんだろうな」', DUSK_KNIGHT)},
-      {t:2.2, run:()=> cutsceneLine('「ええ。……でも、釘も箱に戻されていません。ある日を境に、舟を出すのをやめています」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「誰かを乗せるつもりで、直していたんでしょう」', DUSK_MAGE)},
+      {t:2.2, run:()=> cutsceneLine('「でも、釘も箱に戻されていません。ある日を境に、舟を出すのをやめています」', DUSK_MAGE)},
       {t:2.4, run:()=> cutsceneLine('「水に、何かあったのか」', DUSK_KNIGHT)},
       {t:2.2, run:()=> cutsceneLine('「たぶん。水のことなら、北の水門を調べれば分かると思います」', DUSK_MAGE)},
       {t:2.4, run:()=>{
@@ -1185,9 +1237,9 @@
      これまでの記憶(魚屋・住宅・船小屋)は、失われたものを見せるものだった。
      ここだけは少し違う ―― 村人が何かを話したがらなかったことが残っている。
 
-     何を恐れていたのかは言わない。魚屋の帳簿の「水門の件について――」と、
-     ここの「もう、その話は――」が別の場所に置いてあるのは、プレイヤーが
-     自分で並べられるようにするため。答えはこちらからは出さない。 */
+     魚屋の帳簿の「水門の件について――」と、ここの「もう、その話は――」は別の場所に
+     置いてある。DEC-010 で、魔法使いが二つを並べて「水のことを、子どもには話さず忘れようと
+     した」と読む(推測として言う。怪異の正体は断定しない)。 */
   let duskMarketMemoryDone = false;
   function playDuskMarketMemory(){
     if(duskMarketMemoryDone) return;
@@ -1360,9 +1412,9 @@
       {t:0.2, run:()=> ambienceHold(5)},
       {t:1.0, run:()=> cutsceneLine('「この水門、閉じたままですね。広場の閂の門と同じです」', DUSK_MAGE)},
       {t:2.2, run:()=> cutsceneLine('「村の連中が、自分で閉めたのか」', DUSK_KNIGHT)},
-      {t:2.0, run:()=> cutsceneLine('「はい。水のほうへの道を、内側から閉ざしています。村の奥へは、ここを抜けるしかありません」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「はい。水のほうへの道を、村の側から閉ざしています。村の奥へは、ここを抜けるしかありません」', DUSK_MAGE)},
       {t:1.9, run:()=> cutsceneLine('「開け方は」', DUSK_KNIGHT)},
-      {t:1.8, run:()=> cutsceneLine('「門の手前にレバーと管理小屋があります。開け方も、閉めた理由も、そこで分かるはずです」', DUSK_MAGE)},
+      {t:1.8, run:()=> cutsceneLine('「水門の前に、操作のレバーと管理小屋があるはずです。開け方も、閉めた理由も、そこで分かると思います」', DUSK_MAGE)},
       {t:2.0, run:()=>{
         cutsceneHideLine();
         state.dialogueActive = false;
@@ -1597,7 +1649,8 @@
       // 撃破の直後、門が動き出すのを見せる間(撃破の演出として残す)
       {t:2.0, keep:true, run:()=> cutsceneLine('「……閉めようと、していましたね」', DUSK_MAGE)},
       {t:2.4, run:()=> cutsceneLine('「最後まで、か」', DUSK_KNIGHT)},
-      {t:2.0, run:()=> cutsceneLine('「ええ。水に映るものから村を遠ざけるために、何度も、同じところで。……もう閉める人はいません。奥へ行けます」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「ええ。水に映るものから村を遠ざけるために、何度も、同じところで」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「……もう閉める人はいません。奥へ行けます」', DUSK_MAGE)},
       {t:2.4, run:()=> cutsceneLine('「奥に何がある」', DUSK_KNIGHT)},
       {t:2.0, run:()=> cutsceneLine('「この村の記憶が、たぶん全部」', DUSK_MAGE)},
       {t:2.4, run:()=>{
@@ -1660,9 +1713,8 @@
      敵を出さない。ここでやるのは「歩いてきた場所を、水面の側から
      もう一度見せる」ことだけ。
 
-     台詞で village の過去を説明しない(§17)。水面に一瞬だけ人影や舟が
-     重なるだけで、それが何だったかはプレイヤーが決める ―― 魚屋も
-     住宅も船小屋も商店街も、もう歩いてきた場所なので、説明は要らない。
+     ここは会話にしない(歩いている足を止めない)。村の過去は、それまでの会話と手記で
+     具体的に伝えてある(DEC-010)ので、水面に一瞬だけ人影が重なり、聞いた声が一行流れるだけ。
   ========================================================= */
   /* 奥へ進むにつれて、順に1つずつ。z が進んだ距離で出す ――
      時間で出すと、立ち止まっている人には全部出て、急ぐ人には何も
@@ -1719,12 +1771,13 @@
         sfx('bossWake');
       }},
       {t:2.2, run:()=> ambienceHold(6)},
-      /* §17 の通り、ここで村の過去を説明させない。
-         魔法使いは「広く感じます」としか言わない ―― 村が広がったのでは
-         なく、知っている場所が増えただけ */
+      /* DEC-010: ここで何が起きているか(水面の人影が集まる = 村の記憶)を言わせる。
+         ただし推測として(「たぶん」「〜と思います」)。寄り道の記憶(魚屋・住宅)は
+         見ていないこともあるので、必ず見ている入口の人影と水門守だけを挙げる */
       {t:1.0, run:()=> cutsceneLine('「……水面の人影が、ひとつに集まっていきます」', DUSK_MAGE)},
       {t:2.4, run:()=> cutsceneLine('「あれも、村の連中か」', DUSK_KNIGHT)},
-      {t:2.2, run:()=> cutsceneLine('「はい。魚屋も、あの家の子も、見張りの人も。忘れられた村の記憶が、まとめてここに溜まっています」', DUSK_MAGE)},
+      {t:2.2, run:()=> cutsceneLine('「たぶん。入口の水面の人影も、門を閉め続けていた見張りの人も」', DUSK_MAGE)},
+      {t:2.2, run:()=> cutsceneLine('「忘れられた村の記憶が、ここにまとまって溜まっているんだと思います」', DUSK_MAGE)},
       {t:2.4, run:()=> cutsceneLine('「なら、ここで終わらせる」', DUSK_KNIGHT)},
       {t:2.2, run:()=> cutsceneLine('「ええ。……放してあげましょう」', DUSK_MAGE)},
       {t:2.4, run:()=>{
@@ -2525,7 +2578,7 @@
   /* 波紋。プレイヤーが水際を歩いた時と、小舟に近づいた時に出る。
      数を絞って使い捨てにしてあるので、専用のプールは作っていない ――
      同時に出るのはせいぜい数枚で、寿命も1秒前後。 */
-  function spawnDuskRipple(x, z, r0, observed){
+  function spawnDuskRipple(x, z, r0, observed, y){
     if(duskRipples.length >= 10) return;
     // observed: 観測の灯の下で怪異が立てた波紋(灯りの色で少し濃く。CH1-DUSK-IMMERSION C)
     const mat = new THREE.MeshBasicMaterial({color:observed ? OBSERVE_CUE.color : 0x8fc8d8, transparent:true,
@@ -2533,7 +2586,7 @@
       side:THREE.DoubleSide, depthWrite:false});
     const mesh = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.5, 16), mat);
     mesh.rotation.x = -Math.PI/2;
-    mesh.position.set(x, -0.28, z);
+    mesh.position.set(x, y != null ? y : -0.28, z);   // y: 床の上の怪異の波紋(既定は水面)
     mesh.scale.setScalar(r0 || 1);
     scene.add(mesh);
     duskRipples.push({mesh, mat, t:0, life:1.3 + Math.random()*0.5, base:mat.opacity});

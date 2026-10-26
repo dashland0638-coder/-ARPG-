@@ -2592,8 +2592,13 @@
     const rip = mirrorStepRipple(en.mirrorRippleT, dt, !isClone, observing);
     en.mirrorRippleT = rip.timer;
     if(rip.fire && currentWorldKey === 'duskvillage' && en.triggered){
-      // 灯りの下の波紋は、灯りの色で少し濃く(差そのものを見せる。CH1-DUSK-IMMERSION C)
-      spawnDuskRipple(en.group.position.x, en.group.position.z, isClone ? 0.7 : 1.1, observing);
+      /* 灯りの下の波紋は、灯りの色で少し濃く(差そのものを見せる。CH1-DUSK-IMMERSION C)。
+         村の部屋の床(0.08、floorYForMarks)の上に立っている時は、波紋を床の少し上に出す ―― 水面の高さ
+         (-0.28)のままだと床に隠れて見えなかった(波紋の間隔 = 効果は変えない) */
+      const rx = en.group.position.x, rz = en.group.position.z;
+      const floorY = floorYForMarks(rx, rz, null);
+      spawnDuskRipple(rx, rz, isClone ? 0.7 : 1.1, observing,
+                      floorY != null ? floorY + OBSERVE_CUE.rippleLift : undefined);
     }
 
     /* 観察できる差 その2: 向き直り。本体だけ一拍遅れる。

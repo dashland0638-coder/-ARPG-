@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { OBSERVE_CUE, OBSERVE_AFFECTED_KINDS, OBSERVE_MOTE_Y, observeFade, showObserveMote, observePulse } from '../../src/core/observe-light-cues.js';
 import { OBSERVE_LIGHT_SEC, OBSERVE_RADIUS, OBSERVE_CONTRAST } from '../../src/core/mirror-shade.js';
 import { RING_COLORS, EXISTING_RING_COLORS, deltaE, VILLAGE_KINDS } from '../../src/core/dusk-enemies.js';
+import { DUSK_FLOOR_Y } from '../../src/core/dusk-village-map.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = f => fs.readFileSync(path.join(root, f), 'utf8');
@@ -75,6 +76,10 @@ test('届く範囲の輪: 半径 14 まで広がって消える。寒色で、�
   }
   assert.match(body(actions, 'spawnObserveLightVFX'), /spawnObservePulse\(\)/);
   assert.match(body(actions, 'spawnObservePulse'), /observePulse\(elapsed, OBSERVE_RADIUS\)/);
+  // 村の床(0.08)+ pulseLift。床より上、村の怪異の輪(0.14)より下
+  assert.match(body(actions, 'spawnObservePulse'), /const gy = floorYForMarks\(state\.pos\.x, state\.pos\.z, state\.pos\.y \|\| 0\);\s*ring\.position\.set\(state\.pos\.x, gy \+ OBSERVE_CUE\.pulseLift, state\.pos\.z\);/);
+  const pulseY = DUSK_FLOOR_Y + OBSERVE_CUE.pulseLift;
+  assert.ok(pulseY > DUSK_FLOOR_Y && pulseY < DUSK_FLOOR_Y + 0.06, `${pulseY}`);
 });
 
 test('効果中の濃さ: 最後の 1/4 で薄れて消える(頭上の球と同じ)', () => {
@@ -86,7 +91,13 @@ test('効果中の濃さ: 最後の 1/4 で薄れて消える(頭上の球と同
 
 test('灯りの下の波紋は濃くなるだけで、波紋の間隔(効果)の計算はそのまま', () => {
   assert.match(body(ai, 'updateMirrorShadeAI'), /const rip = mirrorStepRipple\(en\.mirrorRippleT, dt, !isClone, observing\);/);
-  assert.match(body(ai, 'updateMirrorShadeAI'), /spawnDuskRipple\(en\.group\.position\.x, en\.group\.position\.z, isClone \? 0\.7 : 1\.1, observing\)/);
+  // 床の上に立っている時は、波紋を床の少し上に出す(水面の高さ -0.28 のままだと床に隠れる)
+  assert.match(body(ai, 'updateMirrorShadeAI'), /const floorY = floorYForMarks\(rx, rz, null\);/);
+  assert.match(body(ai, 'updateMirrorShadeAI'), /spawnDuskRipple\(rx, rz, isClone \? 0\.7 : 1\.1, observing,\s*floorY != null \? floorY \+ OBSERVE_CUE\.rippleLift : undefined\);/);
+  const rippleY = DUSK_FLOOR_Y + OBSERVE_CUE.rippleLift;
+  assert.ok(rippleY > DUSK_FLOOR_Y && rippleY < DUSK_FLOOR_Y + 0.06);
+  assert.match(body(village, 'spawnDuskRipple'), /mesh\.position\.set\(x, y != null \? y : -0\.28, z\);/);
+  assert.ok(OBSERVE_CUE.rippleLift > 0 && OBSERVE_CUE.rippleLift < 0.06);
   assert.match(body(village, 'spawnDuskRipple'), /observed \? OBSERVE_CUE\.color : 0x8fc8d8/);
   assert.ok(OBSERVE_CUE.rippleOpacity > 0.32 && OBSERVE_CUE.rippleOpacity < 0.6);
 });

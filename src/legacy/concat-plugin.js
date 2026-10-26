@@ -58,7 +58,7 @@ import { clipFracAt, impactFrac, swingSfxDelay } from '../core/swing-timing.js';
 import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/soft-lock.js';
 import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
-import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor, DUSK_SLUICE_Z, DUSK_SLUICE_BLOCKS } from '../core/dusk-village-map.js';
+import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor, DUSK_SLUICE_Z, DUSK_SLUICE_BLOCKS, DUSK_FLOOR_Y, duskFloorYAt } from '../core/dusk-village-map.js';
 import { planCutsceneTiming, cutsceneStepDelta } from '../core/cutscene-timing.js';
 import { duskBandPosAtZ, duskLight, advanceDuskTarget, stepDuskBandPos } from '../core/dusk-light.js';
 import {
