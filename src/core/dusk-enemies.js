@@ -124,6 +124,28 @@ export const VILLAGE_PROPORTIONS = {
   warden: {height: 1.95, shoulderW: 0.8,  torsoY: 1.38, armLen: 0.8,  footprint: 0.46},
   echoBoss: {height: 4.3, shoulderW: 1.55, torsoY: 2.35, armLen: 2.0},
 };
+/* 幽霊の手がかり(CH1-COMP-W3-GHOST)。歩く怪異(記憶漁師・水門守の残響)は、脚を透ける影にし、
+   裾から薄布を垂らし、足元に霧の映り込み(水鏡の影と同じ素材)を置く ―― 生身の人間や屍鬼に
+   見えないように。発光ではなく「透け・薄布・映り込み」で表す。色は既存の配色(shade・水鏡の water)
+   だけを使い、新しい色は足さない。透ける部品はマットで自発光なし、光源も持たない */
+export const VILLAGE_GHOST = {
+  legOpacity: 0.42,    // 透ける脚(影)
+  hemOpacity: 0.36,    // 裾から垂れる薄布
+  poolOpacity: 0.42,   // 足元の霧の映り込み(水鏡の影の映り込みと同じ素材の色)
+  ghostKinds: ['fisher', 'warden'],
+};
+/* 泡沫の人影: 泡から半身を起こす頭と肩(ローカル座標、拡大前)。塊の上に透けて見える。
+   水平の広がりは塊の内側に収める(当たりの半径 = 塊の広がり × FOAM_SCALE は変えない) */
+export const FOAM_FIGURE = {
+  head: {y: 0.9, r: 0.12, z: -0.02},
+  shoulder: {y: 0.68, w: 0.34, d: 0.2, h: 0.2},
+  opacity: 0.5,
+};
+export function foamFigureExtent(fig){
+  const f = fig || FOAM_FIGURE;
+  return Math.max(f.shoulder.w / 2, Math.hypot(0, f.head.z) + f.head.r);
+}
+
 /* 人型の当たりの半径(ワールド)。拡大(水門守 1.18)を掛ける */
 export function villageHitRadius(kind, scale){
   const p = VILLAGE_PROPORTIONS[kind];

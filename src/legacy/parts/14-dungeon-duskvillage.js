@@ -1773,6 +1773,27 @@
     return up;
   }
 
+  /* 幽霊の手がかり(歩く怪異。core/dusk-enemies.js VILLAGE_GHOST):
+     透ける脚の材質・裾から垂れる薄布・足元の霧の映り込み。どれも種類ごとに共有し、自発光も光源も無い */
+  function vGhostMat(key, color, opacity, finish){
+    return vMatte(key, color, finish || VILLAGE_FINISH.cloth, {transparent:true, opacity, depthWrite:false});
+  }
+  function villageGhostHem(g, key, color, topY, topR, botR){
+    // 裾から地面近くへ垂れる、透ける薄布(下ほど広がる)
+    return vMesh(g, vGeo(`${key}.ghostHem`, ()=> makeLoft({sections:[
+      {y:topY,        points:vEllipse(topR, topR * 0.8, 8)},
+      {y:topY * 0.45, points:vEllipse(botR * 0.92, botR * 0.76, 8)},
+      {y:0.08,        points:vEllipse(botR, botR * 0.82, 8)},
+    ]})), vGhostMat(`${key}.ghostHem`, color, VILLAGE_GHOST.hemOpacity), 0, 0, 0, {noShadow:true, noOutline:true});
+  }
+  function villageGhostPool(g, radius){
+    // 足元の霧の映り込み(水鏡の影の映り込みと同じ素材の色。浮かない種類なので床の少し上)
+    const pool = vMesh(g, vGeo(`ghost.pool:${radius}`, ()=>{ const c = new THREE.CircleGeometry(radius, 16); c.rotateX(-Math.PI/2); return c; }),
+      vGhostMat('ghost.pool', VILLAGE_PALETTE.mirror.water, VILLAGE_GHOST.poolOpacity, VILLAGE_FINISH.water), 0, 0.03, 0, {noShadow:true, noOutline:true});
+    pool.scale.z = 1.12;
+    return pool;
+  }
+
   /* 村の敵の variant(buildEnemy に渡す)。数値は呼ぶ側が渡す。色は表の主な色 */
   function duskEnemyVariant(kind, v){
     return Object.assign({theme:'village', villageKind:kind, color:VILLAGE_PALETTE[kind].main}, v || {});
@@ -1883,6 +1904,13 @@
       const b = vMesh(g, sphere, beadMat, x, y, z, {noShadow:true});
       b.scale.setScalar(0.07);
     });
+    // 泡から半身を起こす人影(頭と肩、透ける。core FOAM_FIGURE)。塊の広がりの内側に収め、当たりは変えない
+    const F = FOAM_FIGURE;
+    const figMat = vMatte('foam.figure', pal.shade, VILLAGE_FINISH.foam, {transparent:true, opacity:F.opacity, depthWrite:false});
+    const shoulders = vMesh(g, vGeo('foam.figShoulder', ()=> makeTrapezoidBox({topW:F.shoulder.w, topD:F.shoulder.d,
+      botW:F.shoulder.w * 0.7, botD:F.shoulder.d * 0.8, height:F.shoulder.h})), figMat, 0, F.shoulder.y, 0, {noShadow:true, noOutline:true});
+    const head = vMesh(g, vGeo('foam.figHead', ()=> new THREE.SphereGeometry(F.head.r, 8, 6)), figMat, 0, F.head.y, F.head.z, {noShadow:true, noOutline:true});
+    M.foamFigure = {shoulders, head};
   }
 
   /* ---- 写し身: 色を抜かれた長い外套 ----
@@ -1953,11 +1981,14 @@
       {y:0.66,     points:vEllipse(0.31, 0.25, 8)},
       {y:0.46,     points:vEllipse(0.34, 0.28, 8)},
     ]})), coat, 0, 0, 0, {outline:true});
-    // 脚(長靴)
+    // 脚(長靴)は透ける影。外套の裾から薄布が垂れ、足元に霧の映り込み(幽霊の手がかり。歩き方は今のまま)
+    const ghostLeg = vGhostMat('fisher.ghostLeg', pal.shade, VILLAGE_GHOST.legOpacity);
     [-0.13, 0.13].forEach((x, i)=>{
-      const leg = villageLimb(g, x, 0.9, 0, 0.8, 0.08, shade, {foot:0.26});
+      const leg = villageLimb(g, x, 0.9, 0, 0.8, 0.08, ghostLeg, {foot:0.26});
       M.limbs.push({m:leg, axis:'x', base:0, amp:0.55, phase:i * Math.PI, walk:true, idle:0.03});
     });
+    villageGhostHem(g, 'fisher', pal.main, 0.5, 0.33, 0.38);
+    villageGhostPool(g, 0.5);
     // 上半身(前へ丸めた背)
     const up = villageUpper(g, W);
     up.rotation.x = P.hunch;
@@ -1999,11 +2030,14 @@
     const face = vMatte('warden.face', pal.face, VILLAGE_FINISH.skin);
     M.heavy = true;
     const W = 1.0;
-    // 太い脚
+    // 太い脚は透ける影(重さは肩幅・腕・鎖・重い歩きで残す)。前掛けの下から薄布、足元に霧の映り込み
+    const ghostLeg = vGhostMat('warden.ghostLeg', pal.shade, VILLAGE_GHOST.legOpacity);
     [-0.2, 0.2].forEach((x, i)=>{
-      const leg = villageLimb(g, x, 0.94, 0, 0.84, 0.12, apron, {foot:0.32});
+      const leg = villageLimb(g, x, 0.94, 0, 0.84, 0.12, ghostLeg, {foot:0.32});
       M.limbs.push({m:leg, axis:'x', base:0, amp:0.42, phase:i * Math.PI, walk:true, idle:0.025});
     });
+    villageGhostHem(g, 'warden', pal.shade, 0.72, 0.34, 0.46);
+    villageGhostPool(g, 0.62);
     const up = villageUpper(g, W);
     M.upper = up; M.upperBaseX = 0.04;
     body.geometry = vGeo('warden.torso', ()=> makeTrapezoidBox({topW:P.shoulderW, topD:0.46, botW:0.58, botD:0.36, height:0.74}));
@@ -2130,6 +2164,12 @@
       const swell = b.grows ? 1 + 0.35 * grow * grow : 1;
       b.m.scale.setScalar(b.r * swell * (1 + Math.sin(t * 3 + b.phase) * 0.07) * (1 - 0.18 * spent));
     });
+    if(M.foamFigure){
+      // 人影は泡の呼吸より少し遅れて揺れる(動作のズレ)。弾けた直後は泡へ沈む
+      const F = FOAM_FIGURE, sink = 0.14 * spent, sway = Math.sin(t * 1.6 - 0.9) * 0.04;
+      M.foamFigure.head.position.set(sway, F.head.y - sink + Math.sin(t * 2.2 - 0.6) * 0.02, F.head.z);
+      M.foamFigure.shoulders.position.set(sway * 0.6, F.shoulder.y - sink, 0);
+    }
     if(en.body && en.bodyScale){
       const B = en.bodyScale, s = 1 - 0.22 * spent, w = Math.sin(t * 2.2) * 0.05;
       en.body.scale.set(B.x * s * (1 + w), B.y * s * (1 - w), B.z * s * (1 + w));
