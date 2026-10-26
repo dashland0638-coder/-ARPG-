@@ -392,8 +392,12 @@
       nlPut('glass', 'glass', x, y, z);
       nlPut('cap', 'frame', x, y + 0.21, z, Math.PI/4);
     }
-    function lightPool(x, z, r){   // 地面の光の面。村の床 + poolLift(村の予兆の輪 = 床 + 0.06 より下)
-      nlPut('pool', 'pool', x, floorYForMarks(x, z, 0) + DUSK_NIGHT_LIGHTS.poolLift, z, 0, r, 1, r, -1);
+    /* 地面の光の面。村の床 + poolLift(村の予兆の輪 = 床 + 0.06 より下)。
+       村を作っている最中は currentWorldKey がまだ null(buildWorld が作り終えてから入れる)なので、
+       floorYForMarks ではなく村の床の表(duskFloorYAt)を直接読む */
+    function lightPool(x, z, r){
+      const fy = duskFloorYAt(x, z);
+      nlPut('pool', 'pool', x, (fy != null ? fy : 0) + DUSK_NIGHT_LIGHTS.poolLift, z, 0, r, 1, r, -1);
     }
     // 外壁のランプ。(x, y, z) は壁の外側の面、(nx, nz) は外向き
     function wallLamp(x, y, z, nx, nz){

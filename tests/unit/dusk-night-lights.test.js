@@ -56,7 +56,16 @@ test('光の面: 床の上・予兆の輪より下で先に描き、輪の色と
   assert.equal(TELEGRAPH_LIFT, 0.06);
   assert.ok(poolBelowTelegraphs());
   assert.equal(duskFloorYAt(0, 1000), null, '部屋の外(水の上)');
-  assert.match(fn('lightPool'), /nlPut\('pool', 'pool', x, floorYForMarks\(x, z, 0\) \+ DUSK_NIGHT_LIGHTS\.poolLift, z, 0, r, 1, r, -1\);/);
+  // 村を作っている最中は currentWorldKey が null(02 buildWorld が作り終えてから入れる)。
+  // lightPool はその最中に呼ばれるので、currentWorldKey に頼らず村の床の表を直接読む
+  const world = fs.readFileSync(path.join(root, 'src/legacy/parts/02-world-common.js'), 'utf8');
+  const bw = world.slice(world.indexOf('function buildWorld('));
+  assert.ok(bw.indexOf('def.build(') < bw.indexOf('currentWorldKey = key'), '前提: 作り終えてから currentWorldKey が入る');
+  assert.doesNotMatch(fn('lightPool'), /floorYForMarks|currentWorldKey/);
+  assert.match(fn('lightPool'), /const fy = duskFloorYAt\(x, z\);\s*nlPut\('pool', 'pool', x, \(fy != null \? fy : 0\) \+ DUSK_NIGHT_LIGHTS\.poolLift, z, 0, r, 1, r, -1\);/);
+  // 置き場所の表の光の面は、どれも村の部屋の床の上(水の上ではない)
+  for(const l of DUSK_NIGHT_LAMP_PLAN.wall) assert.notEqual(duskFloorYAt(l.x + l.nx*1.1, l.z + l.nz*1.1), null, `${l.id}: 光の面が床の上`);
+  for(const l of DUSK_NIGHT_LAMP_PLAN.street) assert.notEqual(duskFloorYAt(l.x + l.dx*0.8, l.z + l.dz*0.8), null, `${l.id}: 光の面が床の上`);
   assert.match(fn('floorYForMarks'), /if\(currentWorldKey === 'duskvillage'\)\{\s*const f = duskFloorYAt\(x, z\);/);
   assert.match(fn('nlFlush'), /m\.renderOrder = b\.order;/);
   assert.ok(DUSK_NIGHT_LIGHTS.groundPoolOpacity <= 0.3 && DUSK_NIGHT_LIGHTS.wallPoolOpacity <= 0.3, '控えめ');
