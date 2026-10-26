@@ -65,6 +65,25 @@
      見えない ―― 中にいる間だけその棟の屋根を透かす。建物ごとに持つのは
      位置と大きさと屋根の材質だけで、判定は updateDuskVillage で毎フレーム */
   let duskInteriors = [];
+  /* 灯りの光の面(CH1-DUSK-IMMERSION B)の柔らかい円。中心が明るく縁へ消える。
+     村を作り直すたびに作らず 1 枚を使い回す(テクスチャは世界の破棄で捨てられない) */
+  let duskPoolTex = null;
+  // 置いた灯り・電線の記録(テストモードの Debug Info と unit 用。buildDuskVillage のたびに作り直す)
+  let duskNightLights = {pools:[], wallLamps:[], streetLamps:[], wires:[]};
+  function duskLightPoolTexture(){
+    if(duskPoolTex) return duskPoolTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.45, 'rgba(255,255,255,0.45)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 64, 64);
+    duskPoolTex = new THREE.CanvasTexture(c);
+    return duskPoolTex;
+  }
   /* 水門(WORK 6)。門扉は閉じた状態で建て、水門守の残響を倒すと上がる。
      歯車・鎖・レバーは演出で動かすので参照を持っておく */
   let duskGateSlab = null, duskGateWall = null, duskGateLever = null;
@@ -104,6 +123,7 @@
   }
 
   function buildDuskVillage(){
+    duskNightLights = {pools:[], wallLamps:[], streetLamps:[], wires:[]};
     duskProps = [];
     duskRipples = [];
     duskWater = null; duskWaterBase = null;
@@ -314,6 +334,77 @@
       // 灯り本体はごく小さく揺れる。炎の揺らぎは強度の方で見せる
       return duskProp(glass, 'lamp', {amp:0.05, freq:1.5 + Math.random()*0.8, light});
     }
+    /* ---- 光源を持たない灯り・電線(CH1-DUSK-IMMERSION B、DEC-010) ----
+       村の PointLight は lamp() の 19 個のまま(CV-01 の計測の前提、village-load.test.js)。
+       外壁のランプと街灯は、マットな灯具 + 弱い自発光のガラス + 壁・地面に置く柔らかい
+       光の面(光源ではない)で表す。光の面は縁の無い円で、予兆の輪より先に描く(輪を隠さない)。
+       電線は建物の軒と街灯の柱のあいだに張る暗い細い線で、電柱は立てない。
+       どれも当たり判定・影を持たない。部品の geometry・material は共有 */
+    const nlFrameMat = new THREE.MeshStandardMaterial({color:0x2a2420, roughness:0.88, metalness:0});
+    const nlGlassMat = new THREE.MeshStandardMaterial({color:0x4a3a28, emissive:0xffb060, emissiveIntensity:0.42, roughness:0.8});
+    const nlPoolMat = new THREE.MeshBasicMaterial({map:duskLightPoolTexture(), color:DUSK_NIGHT_LIGHTS.poolColor, transparent:true,
+      opacity:DUSK_NIGHT_LIGHTS.groundPoolOpacity, depthWrite:false});
+    const nlWallPoolMat = new THREE.MeshBasicMaterial({map:duskLightPoolTexture(), color:DUSK_NIGHT_LIGHTS.poolColor, transparent:true,
+      opacity:DUSK_NIGHT_LIGHTS.wallPoolOpacity, depthWrite:false, side:THREE.DoubleSide});
+    const nlWireMat = new THREE.MeshStandardMaterial({color:0x15120f, roughness:1, metalness:0});
+    const nlHouseGeo = new THREE.BoxGeometry(0.24, 0.3, 0.24);
+    const nlGlassGeo = new THREE.BoxGeometry(0.17, 0.2, 0.17);
+    const nlCapGeo = new THREE.ConeGeometry(0.2, 0.14, 4);
+    const nlArmGeo = new THREE.BoxGeometry(0.06, 0.06, 1);
+    const nlKnobGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+    const nlPoolGeo = new THREE.CircleGeometry(1, 20);
+    const nlWallPoolGeo = new THREE.PlaneGeometry(1, 1);
+    const nlNoShadow = m=>{ m.castShadow = false; m.receiveShadow = false; m.userData.noOutline = true; return m; };
+    function nlMesh(geo, mat, x, y, z){
+      const m = nlNoShadow(new THREE.Mesh(geo, mat));
+      m.position.set(x, y, z); scene.add(m); return m;
+    }
+    function nlLantern(x, y, z){   // 灯具(枠・ガラス・笠)
+      nlMesh(nlHouseGeo, nlFrameMat, x, y, z);
+      nlMesh(nlGlassGeo, nlGlassMat, x, y, z).scale.set(1.02, 1, 1.02);
+      const cap = nlMesh(nlCapGeo, nlFrameMat, x, y + 0.21, z); cap.rotation.y = Math.PI/4;
+    }
+    function lightPool(x, z, r){   // 地面の光の面。予兆の輪(+0.06 以上)より下・先に描く
+      const m = nlMesh(nlPoolGeo, nlPoolMat, x, DUSK_NIGHT_LIGHTS.poolY, z);
+      m.rotation.x = -Math.PI/2; m.scale.setScalar(r); m.renderOrder = -1;
+      duskNightLights.pools.push({x, z, r});
+      return m;
+    }
+    // 外壁のランプ。(x, y, z) は壁の外側の面、(nx, nz) は外向き
+    function wallLamp(x, y, z, nx, nz){
+      const out = WALL_LAMP_OUT;
+      const arm = nlMesh(nlArmGeo, nlFrameMat, x + nx*out/2, y + 0.18, z + nz*out/2);
+      arm.scale.z = out; arm.rotation.y = Math.atan2(nx, nz);
+      nlLantern(x + nx*out, y, z + nz*out);
+      // 壁に落ちる光(灯具の下へ縦長に)と、壁の足元の地面の光
+      const wp = nlMesh(nlWallPoolGeo, nlWallPoolMat, x + nx*0.03, y - 0.55, z + nz*0.03);
+      wp.rotation.y = Math.atan2(nx, nz); wp.scale.set(1.7, 2.2, 1); wp.renderOrder = -1;
+      lightPool(x + nx*1.1, z + nz*1.1, DUSK_NIGHT_LIGHTS.wallPoolR);
+      duskNightLights.wallLamps.push({x, y, z});
+    }
+    // 街灯(柱・腕・吊った灯具)。(dx, dz) は腕の向き(道の側)
+    function streetLamp(x, z, dx, dz){
+      post(x, z, 3.0, 0.08);
+      const arm = nlMesh(nlArmGeo, nlFrameMat, x + dx*0.4, 3.0, z + dz*0.4);
+      arm.scale.z = 0.8; arm.rotation.y = Math.atan2(dx, dz);
+      nlLantern(x + dx*0.8, 2.72, z + dz*0.8);
+      lightPool(x + dx*0.8, z + dz*0.8, DUSK_NIGHT_LIGHTS.streetPoolR);
+      duskNightLights.streetLamps.push({x, z});
+    }
+    // 電線。a → b を、真ん中が sag だけ下がる線で結ぶ(両端に小さな碍子)
+    function wireLine(a, b, sag){
+      const pts = [];
+      for(let i=0;i<=8;i++){
+        const k = i/8;
+        pts.push(new THREE.Vector3(a.x + (b.x-a.x)*k, a.y + (b.y-a.y)*k - (sag||0)*4*k*(1-k), a.z + (b.z-a.z)*k));
+      }
+      const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, DUSK_NIGHT_LIGHTS.wireR, 4, false);
+      nlMesh(geo, nlWireMat, 0, 0, 0);
+      nlMesh(nlKnobGeo, nlFrameMat, a.x, a.y, a.z);
+      nlMesh(nlKnobGeo, nlFrameMat, b.x, b.y, b.z);
+      duskNightLights.wires.push({a, b, sag});
+    }
+
     function boat(x, z, ry, len){
       const g = new THREE.Group();
       const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.42, len||3.4, 7, 1, false, 0, Math.PI), darkWood);
@@ -696,6 +787,16 @@
     boat(-18, 466, 2.4, 2.8);    // 流れ着いたまま誰も戻さなかった舟
     lamp(-9, 466, 0xc8b8ff);     // 奥だけ灯りの色が違う ―― もう村のものではない
     post(-9, 496, 1.2, 0.1); post(9, 496, 1.2, 0.1);
+
+    // =====================================================================
+    // ⑬ 夜の灯りと電線(CH1-DUSK-IMMERSION B)。光源は増やさない(上の wallLamp / streetLamp)
+    //    村の奥・ボスの区画には置かない(「もう村のものではない」暗さを残す)。
+    //    水門の前の戦う足場にも置かない(水門守の予兆の輪と重ねない)
+    // =====================================================================
+    // 置き場所は core/dusk-night-lights.js の表(DUSK_NIGHT_LAMP_PLAN)
+    DUSK_NIGHT_LAMP_PLAN.wall.forEach(l=> wallLamp(l.x, l.y, l.z, l.nx, l.nz));
+    DUSK_NIGHT_LAMP_PLAN.street.forEach(l=> streetLamp(l.x, l.z, l.dx, l.dz));
+    DUSK_NIGHT_LAMP_PLAN.wires.forEach(w=> wireLine(lampAnchor(w.a), lampAnchor(w.b), w.sag));
 
     // ⑫ ボスエリア ―― WORK 7 で「村の残響」を置く。今は何もいない静かな水面
     reeds(-16, 508, 6); reeds(16, 510, 6);
