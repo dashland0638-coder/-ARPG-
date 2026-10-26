@@ -727,11 +727,13 @@
     ], {kind:'sign', wall:false});
     buildLoreNote(new THREE.Vector3(-6.5, 0, 340.8), '広場の掲示板', [
       '「水門の見回り当番 ―― 今月は東の組」',
-      '当番表の名前は、どれも途中から書かれなくなっている。'
+      '当番表の名前は、どれも途中から書かれなくなっている。',
+      '隅に小さな貼り紙。「夜は水辺に近づかないこと。子どもは特に」'
     ], {kind:'sign', wall:false});
     buildLoreNote(new THREE.Vector3(3.6, 0, 368.6), '閂の掛かった門', [
       '門の向こう側から、太い閂が掛けられている。こちらからは外せない。',
-      '水のほうへの道を、村の誰かが内側から閉ざしたらしい。'
+      '水のほうへの道を、村の誰かが内側から閉ざしたらしい。',
+      '向こう側へ回り込むなら、住宅の北から続く東の裏通りだ。'
     ], {kind:'sign', wall:false});
     buildLoreNote(new THREE.Vector3(-41.2, 0, 421.6), '見張りの交代表', [
       '「東の組 ―― 裏から回って水門へ」',
@@ -941,19 +943,23 @@
           duskGuestWalk = {x: state.pos.x - 0.8, z: state.pos.z + 2.0, speed: 3.4};
         }
       }},
-      {t:1.8, run:()=> cutsceneLine('「水面に、人が映っていました。上には誰もいないのに」', DUSK_MAGE)},
+      /* 台詞は状況・目的・次の行動を具体的に(CH1-DUSK-IMMERSION、DEC-010)。
+         何が映ったのか(怪異の正体)は断定しない */
+      {t:1.8, run:()=> cutsceneLine('「水面に、人が映っていました。岸の上には誰もいないのに」', DUSK_MAGE)},
       {t:2.0, run:()=> cutsceneLine('「……今は」', DUSK_KNIGHT)},
-      {t:1.8, run:()=> cutsceneLine('「消えました。急いで帰ったのかもしれません」', DUSK_MAGE)},
-      {t:2.0, run:()=> cutsceneLine('「水の中へか」', DUSK_KNIGHT)},
-      {t:1.8, run:()=> cutsceneLine('「ええ。……すみません、今のは冗談です」', DUSK_MAGE)},
+      {t:1.8, run:()=> cutsceneLine('「消えました。映っていた人だけが」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「村の者か」', DUSK_KNIGHT)},
+      {t:1.8, run:()=> cutsceneLine('「たぶん。でも、この村にはもう誰も住んでいないはずです」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「なら、何が映った」', DUSK_KNIGHT)},
+      {t:1.8, run:()=> cutsceneLine('「それを確かめに来ました。人がいなくなった理由も、きっと同じところにあります」', DUSK_MAGE)},
       // 剣士も観察して、自分で決める ―― 説明を待つ側にしない
       {t:2.0, run:()=>{
-        cutsceneLine('「笑うところが分からん。……足元を見ておけ、濡れてる」', DUSK_KNIGHT);
+        cutsceneLine('「……足元を見ておけ、濡れてる。家を一軒ずつ当たるぞ」', DUSK_KNIGHT);
         if(typeof guestCompanion !== 'undefined' && guestCompanion){
           duskGuestWalk = {x: state.pos.x + 1.0, z: state.pos.z + 4.0, speed: 2.6};
         }
       }},
-      {t:2.0, run:()=> cutsceneLine('「はい。見ています」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「はい。残っている物から順に見ていきます」', DUSK_MAGE)},
       // 向き直って操作を返す
       {t:1.6, run:()=>{
         cutsceneHideLine();
@@ -995,7 +1001,9 @@
         spawnDuskRipple(-46.0, 346.0, 0.9);
       }},
       {t:1.0, run:()=> cutsceneLine('「……聞こえたか」', DUSK_KNIGHT)},
-      {t:2.2, run:()=> cutsceneLine('「はい。まだ残っているんだと思います、ここに」', DUSK_MAGE)},
+      {t:2.2, run:()=> cutsceneLine('「はい。ここで交わされた会話です。人はいないのに、声だけが同じ場所で繰り返しています」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「入口の水面の人影も、それか」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「同じものだと思います。……帳場に帳簿があります。いつ止まったのか、見ておきます」', DUSK_MAGE)},
       {t:2.4, run:()=>{
         cutsceneHideLine();
         state.dialogueActive = false;
@@ -1025,11 +1033,11 @@
       {t:2.2, run:()=> cutsceneLine('「……約束だよ」', '')},
       {t:2.4, run:()=> cutsceneHideLine()},
       /* 魔法使いは怪異の説明をしない。目に入ったものから推測するだけ */
-      {t:0.8, run:()=> cutsceneLine('「……子どもの部屋ですね」', DUSK_MAGE)},
-      {t:2.0, run:()=> cutsceneLine('「分かるのか」', DUSK_KNIGHT)},
-      {t:1.9, run:()=> cutsceneLine('「玩具が小さいので。それと、椅子が三つで食器が四つあります」', DUSK_MAGE)},
-      {t:2.4, run:()=> cutsceneLine('「……数が合わんな」', DUSK_KNIGHT)},
-      {t:2.0, run:()=> cutsceneLine('「合いません。理由はまだ思いつきません」', DUSK_MAGE)},
+      {t:0.8, run:()=> cutsceneLine('「……子どもの部屋ですね。玩具の舟が転がっています」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「舟に乗せる約束か。……約束した側は、どこへ行った」', DUSK_KNIGHT)},
+      {t:1.9, run:()=> cutsceneLine('「分かりません。ただ、食器は四人分あるのに、椅子は三つです。一人分だけ、先に片付けられています」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「……一度に消えたわけじゃない、ということか」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「はい。少しずつ、いなくなったんだと思います。約束の舟なら、西の水際の船小屋にあるはずです」', DUSK_MAGE)},
       {t:2.2, run:()=>{
         cutsceneHideLine();
         state.dialogueActive = false;
@@ -1058,10 +1066,11 @@
         cutsceneHideLine();
         spawnDuskRipple(-41.0, 305.0, 0.9);
       }},
-      {t:1.2, run:()=> cutsceneLine('「……舟だ」', DUSK_KNIGHT)},
-      {t:2.0, run:()=> cutsceneLine('「ええ。直しかけのまま置いてあります」', DUSK_MAGE)},
-      {t:2.2, run:()=> cutsceneLine('「乗せてやるつもりだったんだろうな」', DUSK_KNIGHT)},
-      {t:2.4, run:()=> cutsceneLine('「……そう思います。確かめようがありませんが」', DUSK_MAGE)},
+      {t:1.2, run:()=> cutsceneLine('「……舟だ。直しかけのまま置いてある」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「乗せてやるつもりだったんだろうな」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「ええ。……でも、釘も箱に戻されていません。ある日を境に、舟を出すのをやめています」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「水に、何かあったのか」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「たぶん。水のことなら、北の水門を調べれば分かると思います」', DUSK_MAGE)},
       {t:2.4, run:()=>{
         cutsceneHideLine();
         state.dialogueActive = false;
@@ -1099,10 +1108,11 @@
          側だったが、ここでは剣士のほうが「何の話だ」と拾いにいく ――
          観察する役が入れ替わる、それだけの変化にとどめる */
       {t:0.9, run:()=> cutsceneLine('「……何の話を、やめたんだ」', DUSK_KNIGHT)},
-      {t:2.2, run:()=> cutsceneLine('「分かりません。ただ、魚屋の帳簿にも途中で切れた一行がありました」', DUSK_MAGE)},
-      {t:2.6, run:()=> cutsceneLine('「水門の、と書いてあったやつか」', DUSK_KNIGHT)},
-      {t:2.2, run:()=> cutsceneLine('「覚えていたんですね」', DUSK_MAGE)},
-      {t:2.0, run:()=> cutsceneLine('「お前が読み上げたからな」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「水のことだと思います。魚屋の帳簿の最後の行も『水門の件について』で切れていました」', DUSK_MAGE)},
+      {t:2.6, run:()=> cutsceneLine('「子どもには言うな、と」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「ええ。水に映るものを見た人たちが、話さないことにして、忘れようとした。……そう読めます」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「忘れたら、どうなる」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「……誰も覚えていない村になります。今の、この村のように」', DUSK_MAGE)},
       {t:2.2, run:()=>{
         cutsceneHideLine();
         state.dialogueActive = false;
@@ -1206,7 +1216,7 @@
       }},
       {t:0.6, run:()=> cutsceneLine('「……なら、見えるようにすればいいんですね」', DUSK_MAGE)},
       {t:0.1, run:()=> cutsceneLine('「何をする気だ」', DUSK_KNIGHT)},
-      {t:0.1, run:()=> cutsceneLine('「灯りを。答えは出ません。でも、違いは見えます」', DUSK_MAGE)},
+      {t:0.1, run:()=> cutsceneLine('「灯りを。どれが本物かは教えてくれません。でも、波紋や振り向き方の違いは、大きく見えます」', DUSK_MAGE)},
       {t:0.1, run:()=>{
         cutsceneHideLine();
         state.dialogueActive = false;
@@ -1247,11 +1257,11 @@
     duskGateTalkDone = true;
     playCutscene([
       {t:0.2, run:()=> ambienceHold(5)},
-      {t:1.0, run:()=> cutsceneLine('「この水門、閉じたままですね」', DUSK_MAGE)},
-      {t:2.2, run:()=> cutsceneLine('「閉じた理由があるのか」', DUSK_KNIGHT)},
-      {t:2.0, run:()=> cutsceneLine('「あると思います」', DUSK_MAGE)},
-      {t:1.9, run:()=> cutsceneLine('「調べるか」', DUSK_KNIGHT)},
-      {t:1.8, run:()=> cutsceneLine('「ええ」', DUSK_MAGE)},
+      {t:1.0, run:()=> cutsceneLine('「この水門、閉じたままですね。広場の閂の門と同じです」', DUSK_MAGE)},
+      {t:2.2, run:()=> cutsceneLine('「村の連中が、自分で閉めたのか」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「はい。水のほうへの道を、内側から閉ざしています。村の奥へは、ここを抜けるしかありません」', DUSK_MAGE)},
+      {t:1.9, run:()=> cutsceneLine('「開け方は」', DUSK_KNIGHT)},
+      {t:1.8, run:()=> cutsceneLine('「門の手前にレバーと管理小屋があります。開け方も、閉めた理由も、そこで分かるはずです」', DUSK_MAGE)},
       {t:2.0, run:()=>{
         cutsceneHideLine();
         state.dialogueActive = false;
@@ -1425,7 +1435,7 @@
       {t:3.0, keep:true, run:()=> sfx('chime')},
       {t:2.4, keep:true, run:()=> cutsceneLine('「……残ったんですね」', DUSK_MAGE)},
       {t:2.2, run:()=> cutsceneLine('「何が」', DUSK_KNIGHT)},
-      {t:2.0, run:()=> cutsceneLine('「……消えたわけじゃない、ということです」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「この村が、ここにあったことです。誰も覚えていなくても、消えたわけじゃありませんでした」', DUSK_MAGE)},
       {t:2.4, run:()=> cutsceneLine('「……残るなら、それでいい」', DUSK_KNIGHT)},
       {t:2.6, run:()=>{
         cutsceneHideLine();
@@ -1485,8 +1495,10 @@
     playCutscene([
       // 撃破の直後、門が動き出すのを見せる間(撃破の演出として残す)
       {t:2.0, keep:true, run:()=> cutsceneLine('「……閉めようと、していましたね」', DUSK_MAGE)},
-      {t:2.4, run:()=> cutsceneLine('「ずっとか」', DUSK_KNIGHT)},
-      {t:2.0, run:()=> cutsceneLine('「ずっとです。何度も、同じところで」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「最後まで、か」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「ええ。水に映るものから村を遠ざけるために、何度も、同じところで。……もう閉める人はいません。奥へ行けます」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「奥に何がある」', DUSK_KNIGHT)},
+      {t:2.0, run:()=> cutsceneLine('「この村の記憶が、たぶん全部」', DUSK_MAGE)},
       {t:2.4, run:()=>{
         cutsceneHideLine();
         state.dialogueActive = false;
@@ -1522,8 +1534,10 @@
         spawnApparition(new THREE.Vector3(2.6, 0, 445.4), {color:0x7fb0c4, fadeIn:1.2,
                          fadeOut:1.0, maxOpacity:0.36, vanishDist:200});
       }},
-      {t:0.9, run:()=> cutsceneLine('「……誰も、いませんね」', DUSK_MAGE)},
-      {t:2.0, run:()=> cutsceneLine('「いるさ。さっきまで動いてた」', DUSK_KNIGHT)},
+      {t:0.9, run:()=> cutsceneLine('「……誰も、いませんね。レバーだけが動いています」', DUSK_MAGE)},
+      {t:2.0, run:()=> cutsceneLine('「いるさ。水の上に、門番の形がある」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「見張りの人が、門を閉めたときの動きです。それだけが、ここに残って繰り返しています」', DUSK_MAGE)},
+      {t:2.2, run:()=> cutsceneLine('「止めなきゃ、門は開かんな」', DUSK_KNIGHT)},
       {t:2.2, run:()=>{
         cutsceneHideLine();
         // ここで初めて本体が起き上がる
@@ -1607,9 +1621,11 @@
       /* §17 の通り、ここで村の過去を説明させない。
          魔法使いは「広く感じます」としか言わない ―― 村が広がったのでは
          なく、知っている場所が増えただけ */
-      {t:1.0, run:()=> cutsceneLine('「……最初より、広く感じます」', DUSK_MAGE)},
-      {t:2.4, run:()=> cutsceneLine('「村は変わってない」', DUSK_KNIGHT)},
-      {t:2.2, run:()=> cutsceneLine('「知っている場所が増えたからでしょう」', DUSK_MAGE)},
+      {t:1.0, run:()=> cutsceneLine('「……水面の人影が、ひとつに集まっていきます」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「あれも、村の連中か」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「はい。魚屋も、あの家の子も、見張りの人も。忘れられた村の記憶が、まとめてここに溜まっています」', DUSK_MAGE)},
+      {t:2.4, run:()=> cutsceneLine('「なら、ここで終わらせる」', DUSK_KNIGHT)},
+      {t:2.2, run:()=> cutsceneLine('「ええ。……放してあげましょう」', DUSK_MAGE)},
       {t:2.4, run:()=>{
         cutsceneHideLine();
         state.dialogueActive = false;
