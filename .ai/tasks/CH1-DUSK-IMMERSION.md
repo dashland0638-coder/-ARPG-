@@ -33,6 +33,7 @@ Status: IMPLEMENTING(CONTENT READY = HUMAN DEVICE CHECK REQUIRED)
 
 ## Escalation
 - E-1: 観測の灯は村の怪異以外には何も起きない(このままでよいか)。詳細と選択肢は `.ai/reports/CH1-DUSK-IMMERSION-analysis.md` の末尾。推奨 A(このまま)。**作業は止めない**
+  - **Human Decision(2026-10-27): A**。観測の灯は村の怪異専用のまま。攻撃予告の輪が村の床に隠れる不具合は別 PR で直す。PR #104 は iPhone 実機確認が終わるまで merge しない
 
 ## Result
 
