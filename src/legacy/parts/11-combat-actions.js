@@ -1497,7 +1497,8 @@
 
   // 掲げた灯りそのもの。プレイヤーの頭上に短く留まる静かな光
   function spawnObserveLightVFX(){
-    const mat = new THREE.MeshBasicMaterial({color:0xbfe6ff, transparent:true, opacity:0.5, depthWrite:false});
+    spawnObservePulse();
+    const mat = new THREE.MeshBasicMaterial({color:OBSERVE_CUE.color, transparent:true, opacity:0.5, depthWrite:false});
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 10), mat);
     mesh.position.copy(state.pos); mesh.position.y += 2.0;
     scene.add(mesh);
@@ -1514,12 +1515,44 @@
         mesh.position.copy(state.pos); mesh.position.y += 2.0 + Math.sin(elapsed*0.004)*0.08;
         glow.position.copy(mesh.position);
       }
-      // 最後の1/4で静かに落ちる ―― 切れる瞬間が分かるように
+      // 最後の1/4で静かに落ちる ―― 切れる瞬間が分かるように(怪異の頭上の粒も同じ式。core/observe-light-cues.js)
       const fade = t < 0.75 ? 1 : (1 - (t-0.75)/0.25);
       mat.opacity = 0.5 * fade;
       glow.intensity = 1.1 * fade;
       if(t < 1 && state.started){ requestAnimationFrame(tick); }
       else { scene.remove(mesh); giveLight(glow); }
+    }
+    tick();
+  }
+
+  /* 届く範囲の輪(CH1-DUSK-IMMERSION C)。掲げた瞬間、足元から半径 OBSERVE_RADIUS まで
+     淡い寒色の輪が一度だけ広がって消える ―― どこまで灯りが届いたかを見せる。
+     敵の予兆の輪(暖色・その場で満ちる)とは、色と動き(広がって消える)で分ける */
+  function spawnObservePulse(){
+    const mat = new THREE.MeshBasicMaterial({color:OBSERVE_CUE.color, transparent:true, opacity:OBSERVE_CUE.pulseOpacity,
+      depthWrite:false, side:THREE.DoubleSide});
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.94, 1, 48), mat);
+    ring.rotation.x = -Math.PI/2;
+    /* 床の高さ + 0.05(村の部屋の床は 0.08 で不透明。床より下だと見えない。floorYForMarks)。
+       村の予兆の輪(床 + 0.06 = 0.14)より下に置き、
+       先に描く ―― 敵の予兆を隠さない */
+    const gy = floorYForMarks(state.pos.x, state.pos.z, state.pos.y || 0);
+    ring.position.set(state.pos.x, gy + OBSERVE_CUE.pulseLift, state.pos.z);
+    ring.renderOrder = -1;
+    ring.userData.noOutline = true;
+    scene.add(ring);
+    const cx = state.pos.x, cz = state.pos.z;
+    let elapsed = 0, last = performance.now();
+    function tick(){
+      const now = performance.now();
+      if(!state.paused) elapsed += (now - last) / 1000;
+      last = now;
+      const p = observePulse(elapsed, OBSERVE_RADIUS);
+      ring.scale.setScalar(p.radius);
+      ring.position.x = cx; ring.position.z = cz;
+      mat.opacity = p.opacity;
+      if(!p.done && state.started) requestAnimationFrame(tick);
+      else { scene.remove(ring); ring.geometry.dispose(); mat.dispose(); }
     }
     tick();
   }

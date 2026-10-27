@@ -137,6 +137,10 @@ import {
   KEEPER_STRIKE_FRAC, KEEPER_ECHO_SOURCE, echoHarmAt, keeperTelegraphProgress, keeperTelegraphFor,
   echoHasTelegraph, echoTelegraphProgress, BOSS_ECHO_SOURCE,
 } from '../core/warden-echo.js';
+/* 観測の灯の見え方(CH1-DUSK-IMMERSION C) */
+import { OBSERVE_CUE, OBSERVE_MOTE_Y, observeFade, showObserveMote, observePulse } from '../core/observe-light-cues.js';
+/* 宵待ちの村の夜の灯り(CH1-DUSK-IMMERSION B) */
+import { DUSK_NIGHT_LIGHTS, DUSK_NIGHT_LAMP_PLAN, WALL_LAMP_OUT, lampAnchor } from '../core/dusk-night-lights.js';
 /* 宵待ちの村の敵の見た目(CH1-COMP W3-E)。配色・体つき・足元の輪の半径(= 判定の半径)・姿勢 */
 import {
   VILLAGE_PALETTE, VILLAGE_FINISH, VILLAGE_PROPORTIONS, VILLAGE_GHOST, FOAM_FIGURE, FOAM_CLUSTER, FOAM_SCALE, WARDEN_SCALE, VILLAGE_RING_MIN_Y,
