@@ -2976,7 +2976,7 @@
       transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false});
     const ring = new THREE.Mesh(geos.ring, ringMat);
     ring.rotation.x = -Math.PI/2;
-    ring.position.set(plan.x, 0.06, plan.z);
+    ring.position.set(plan.x, telegraphFloorY(plan.x, plan.z, 0) + 0.06, plan.z);   // 村の床の上(DUSK-RING-FLOOR-001)
     scene.add(ring);
     /* 残り時間は内側の円が満ちて見せる(CH1-COMP W2-MB1)。外周の輪は
        判定の半径(plan.radius)のまま縮めない ―― 輪の外にいれば当たらない */
@@ -3235,9 +3235,19 @@
     scene.add(g);
     return g;
   }
+  /* 床に置く予兆の輪の、床の高さ(DUSK-RING-FLOOR-001)。宵待ちの村は groundSlabs を使わず、部屋の床は
+     DUSK_FLOOR_Y(0.08)の不透明な面 ―― 以前は村でも 0 を基準にしていたので、記憶漁師の近接・網の落ち先、
+     水門守と残響の輪が床の下(0.06)に隠れて見えなかった。部屋の外(水の上)と村の外は今まで通り */
+  function telegraphFloorY(x, z, yRef){
+    if(currentWorldKey === 'duskvillage'){
+      const f = duskFloorYAt(x, z);
+      if(f != null) return f;
+    }
+    return groundSlabs.length ? (groundYAt(x, z, yRef) || 0) : 0;
+  }
   /* 置き直す。中心 (x, z) は呼ぶ側が毎フレーム渡す(判定の中心と同じ所)。床の高さに沿わせる */
   function placeGroundTelegraph(g, x, z, yRef, progress){
-    const gy = groundSlabs.length ? (groundYAt(x, z, yRef) || 0) : 0;
+    const gy = telegraphFloorY(x, z, yRef);
     g.position.set(x, gy + 0.06, z);
     g.userData.fill.scale.setScalar(Math.max(0.001, Math.min(1, progress)));
     g.visible = true;
@@ -3307,7 +3317,8 @@
       en.meleeTelegraphMesh = g;
     }
     placeGroundTelegraph(g, en.group.position.x, en.group.position.z, en.group.position.y, k);
-    g.position.y += 0.08;   // 床の飾り・映り込み・水の裾より上(洋館の床の弧と同じ +0.14)
+    // 床の飾り・映り込み・水の裾より上(洋館の床の弧と同じ 0.14)。村は床 0.08 + 0.06 = 0.14、Arena も 0.14
+    g.position.y = Math.max(g.position.y, VILLAGE_RING_MIN_Y);
   }
   function updateVillageTelegraphs(){
     for(const en of enemies){

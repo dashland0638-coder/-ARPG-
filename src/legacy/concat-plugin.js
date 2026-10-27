@@ -58,7 +58,7 @@ import { clipFracAt, impactFrac, swingSfxDelay } from '../core/swing-timing.js';
 import { pickSoftLockTarget, holdsSoftLock, SOFT_LOCK_TURN_RATE } from '../core/soft-lock.js';
 import { archerDistanceBonusMul } from '../core/archer-distance.js';
 import { MAGE_IMPACT_AOE_RADIUS, mageImpactAoeDamage } from '../core/mage-impact-aoe.js';
-import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor, DUSK_SLUICE_Z, DUSK_SLUICE_BLOCKS } from '../core/dusk-village-map.js';
+import { DUSK_ENTRY, DUSK_ROOMS, duskRoomById, duskRoomAt, duskAmbienceZoneFor, DUSK_SLUICE_Z, DUSK_SLUICE_BLOCKS, DUSK_FLOOR_Y, duskFloorYAt } from '../core/dusk-village-map.js';
 import { planCutsceneTiming, cutsceneStepDelta } from '../core/cutscene-timing.js';
 import { duskBandPosAtZ, duskLight, advanceDuskTarget, stepDuskBandPos } from '../core/dusk-light.js';
 import {
@@ -139,7 +139,7 @@ import {
 } from '../core/warden-echo.js';
 /* 宵待ちの村の敵の見た目(CH1-COMP W3-E)。配色・体つき・足元の輪の半径(= 判定の半径)・姿勢 */
 import {
-  VILLAGE_PALETTE, VILLAGE_FINISH, VILLAGE_PROPORTIONS, VILLAGE_GHOST, FOAM_FIGURE, FOAM_CLUSTER, FOAM_SCALE, WARDEN_SCALE,
+  VILLAGE_PALETTE, VILLAGE_FINISH, VILLAGE_PROPORTIONS, VILLAGE_GHOST, FOAM_FIGURE, FOAM_CLUSTER, FOAM_SCALE, WARDEN_SCALE, VILLAGE_RING_MIN_Y,
   foamHitRadius, villageHitRadius, MIRROR_STRIKE_RADIUS, MIRROR_STRIKE_SEC, FOAM_CONTACT_RADIUS, bossMeleeHitRadius,
   DUSK_BOSS_ECHO_SCALE, RING_COLORS, RING_STYLE, ECHO_FIGURE_COLOR, ECHO_OPACITY,
   mirrorRingProgress, foamRingVisible, bossMeleeRingProgress,
