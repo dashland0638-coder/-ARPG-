@@ -128,8 +128,10 @@ const furniture = (fnName) => {
   const events = [];
   const code = [constSrc('MANOR_STORE_BARRELS'), fn(src, `function ${fnName}(`), `${fnName}({});`].join('\n');
   new Function('THREE', 'scene', 'walls', 'mansionRoomById', 'mansionLamp', 'registerRoomEvent', 'registerProximityEvent',
-    'buildLoreNote', 'sfx', 'spawnLog', code)(
-    THREE, { add(){} }, walls, id => byId[id], () => {}, (r) => events.push(r.id), () => {}, () => {}, () => {}, () => {});
+    'buildLoreNote', 'sfx', 'spawnLog', 'spawnToast', 'buildStairs', 'buildManorSmithNpc', 'state', 'ESCORT',
+    `let manorSmith = null;\n${code}`)(
+    THREE, { add(){} }, walls, id => byId[id], () => {}, (r) => events.push(r.id), () => {}, () => {}, () => {}, () => {},
+    () => {}, () => ({}), () => ({}), {}, {});
   return { walls, events };
 };
 /* 保管庫は buildMansionBasement の中で樽を置く。樽だけをここで組み直す(半径 0.6、同じ式) */
@@ -185,7 +187,7 @@ test('二階: 廊下の突き当たりから作業室へは入れない。書斎
   assert.ok(!/buildDoor\(/.test(barricade));
   // 廊下の突き当たりで「開かない」と、書斎の奥で「この先から音」と知らせる。どちらも部屋の中の範囲でだけ出る
   const upper = fn(src, 'function buildManorWorkshop(');
-  assert.match(upper, /spawnToast\('🚪 扉は向こう側から塞がれていて、開かない'\);[\s\S]*?\{area:\{x0:cor\.x0, x1:cor\.x1, z0:cor\.z1-5, z1:cor\.z1\}\}/);
+  assert.match(upper, /spawnToast\('🚪 扉は向こう側から塞がれていて、開かない'\);[\s\S]*?\{area:\{x0:cor\.x0, x1:cor\.x1, z0:cor\.z1-5, z1:cor\.z1\},[\s\S]*?condition:\(\)=> state\.smithEscort === ESCORT\.NONE\}\);/);
   const study = fn(src, 'function buildManorStudy(');
   assert.match(study, /sfx\('anvil'\);[\s\S]*?\{area:\{x0:study\.gaps\.N\[0\]-3, x1:study\.gaps\.N\[1\]\+3, z0:study\.z1-6, z1:study\.z1\}\}/);
 });
@@ -224,6 +226,21 @@ test('寄り道: 本筋から外れた行き止まりで、宝箱か手記があ
   assert.match(archive, /地下の酒蔵と礼拝室/);
 });
 
+test('ミニマップ: 洋館のどの部屋も、ミニマップの区画(MINIMAP_SUBZONES)にすっぽり入る', () => {
+  const hud = fs.readFileSync(path.join(root, 'src/legacy/parts/14-hud-boot.js'), 'utf8');
+  const a = hud.indexOf('const MINIMAP_SUBZONES = [');
+  const zones = [...hud.slice(a, hud.indexOf('...TEMPLE_ROOMS', a)).matchAll(/\{minX:(-?[\d.]+), *maxX:(-?[\d.]+), *minZ:(-?[\d.]+), *maxZ:(-?[\d.]+) *\}/g)]
+    .map(m => ({ minX: +m[1], maxX: +m[2], minZ: +m[3], maxZ: +m[4] }));
+  assert.ok(zones.length >= 10);
+  // minimapSubZone は最初に当たった区画を返す。部屋の四隅が同じ区画に入れば、部屋の中で区画が切り替わらない
+  const first = (x, z) => zones.findIndex(b => x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ);
+  for (const r of ROOMS) {
+    const k = first(r.x0, r.z0);
+    assert.ok(k >= 0, `${r.id} が区画の外`);
+    for (const [x, z] of [[r.x1, r.z0], [r.x0, r.z1], [r.x1, r.z1]]) assert.equal(first(x, z), k, `${r.id} が区画をまたぐ`);
+  }
+});
+
 test('宝箱と手記: どれも館の部屋の中(森の 2 つを除く)、壁から 1 以上内側で、館の入口からたどり着ける', () => {
   const reach = reachableFromEntry();
   const outsideRooms = MANSION_CHESTS.filter(c => !roomAt(c.x, c.z));
@@ -237,12 +254,23 @@ test('宝箱と手記: どれも館の部屋の中(森の 2 つを除く)、壁�
   }
 });
 
-test('歩ける: 書斎 → 書庫 → 作業室。書庫の書棚は道を塞がず、手記にも届く', () => {
+test('歩ける: 廊下 → 書斎 → 書庫 → 作業室(合流の範囲まで)。書斎・書庫・作業室の家具は道を塞がず、手記にも届く', () => {
   const f = furniture('buildManorArchive');
   assert.deepEqual(f.events, ['uArch']);
-  const s = byId.uStudy, a = byId.uArch, w = byId.uWork;
-  const g = walkable(['uStudy', 'uArch', 'uWork'], [...roomWalls(), ...f.walls], { x: gapMid(s, 'N'), z: s.z1 - 3 });
-  assert.ok(g.reach(gapMid(a, 'N'), a.z1 + 2, 0.5), '書庫を抜けて作業室へ');
+  const study = furniture('buildManorStudy'), work = furniture('buildManorWorkshop');
+  assert.ok(study.walls.length >= 5 && work.walls.length >= 5, '書斎・作業室の家具を集めた');
+  const a = byId.uArch, w = byId.uWork, c = byId.uCor;
+  // 書斎の東の出入口(廊下の側)から歩き出す
+  const g = walkable(['uCor', 'uStudy', 'uArch', 'uWork'], [...roomWalls(), ...f.walls, ...study.walls, ...work.walls],
+    { x: c.x0 + 3, z: (c.gaps.W[0] + c.gaps.W[1]) / 2 });
+  // 合流の会話は作業室の内側 1.2(registerRoomEvent の inset)に入ると出る
+  assert.match(src, /registerRoomEvent\(mansionRoomById\('uWork'\), 0, '鍛冶士', \[[\s\S]*?\], \{inset:1\.2, kind:'mansionEscortJoin'\}\);/);
+  assert.ok(g.reach(gapMid(a, 'N'), w.z0 + 2, 0.5), '書庫を抜けて作業室の合流の範囲へ');
+  // 作業室の中で、使用人用階段(77,-28)の判定圏(2.8)に届く
+  assert.ok(g.reach(77, -28, 2.8), '使用人用階段へ');
+  // 廊下の突き当たり(作業室の扉)からは入れない: 廊下だけで歩ける範囲は作業室に届かない
+  const corOnly = walkable(['uCor', 'uWork'], [...roomWalls(), ...work.walls], { x: (c.x0 + c.x1) / 2, z: c.z1 - 2 });
+  assert.ok(!corOnly.reach(77, -33, 3), '廊下から作業室へ抜けられない');
   const note = NOTES.find(n => n.title === '修繕の覚え書き');
   assert.equal(roomAt(note.x, note.z).id, 'uArch');
   assert.ok(g.reach(note.x, note.z, 2.2), '手記に届く(読む半径 2.2)');
