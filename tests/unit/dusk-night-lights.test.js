@@ -48,8 +48,10 @@ test('光の面: 床の上・予兆の輪より下で先に描き、輪の色と
   // 光の面はその間(床より下だと見えず、輪より上だと輪を隠す)。村は groundSlabs を使わない
   assert.equal(DUSK_FLOOR_Y, 0.08);
   assert.match(village, /addFloorWithHoles\(r\.x0, r\.x1, r\.z0, r\.z1, \[\], mat, DUSK_FLOOR_Y\);/);
-  assert.match(ai, /function placeGroundTelegraph\(g, x, z, yRef, progress\)\{\s*const gy = groundSlabs\.length \? \(groundYAt\(x, z, yRef\) \|\| 0\) : 0;\s*g\.position\.set\(x, gy \+ 0\.06, z\);/);
-  assert.match(ai.slice(ai.indexOf('function placeVillageRing(')), /g\.position\.y \+= 0\.08/);
+  // 予兆の輪は「床 + 0.06」(placeGroundTelegraph)。村の怪異の輪は 0.14(placeVillageRing。
+  // 以前の「+0.08」でも、DUSK-RING-FLOOR-001 の「最低 0.14」でも同じ高さ)
+  assert.match(ai, /function placeGroundTelegraph\(g, x, z, yRef, progress\)\{[\s\S]*?g\.position\.set\(x, gy \+ 0\.06, z\);/);
+  assert.match(ai.slice(ai.indexOf('function placeVillageRing(')), /g\.position\.y \+= 0\.08|g\.position\.y = Math\.max\(g\.position\.y, VILLAGE_RING_MIN_Y\)/);
   const villageRingY = 0.06 + DUSK_FLOOR_Y;
   const poolY = duskFloorYAt(0, 350) + DUSK_NIGHT_LIGHTS.poolLift;
   assert.ok(poolY > DUSK_FLOOR_Y && poolY < villageRingY, `光の面 ${poolY}`);
