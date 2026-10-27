@@ -53,7 +53,9 @@ test('telegraphFloorY: 村の部屋の中は村の床、水の上・村の外は
 test('どの輪も村の部屋の中では床より上。村の怪異の輪は今まで通り 0.14', () => {
   // placeGroundTelegraph = 床 + 0.06(記憶漁師の近接・水門守・残響)
   assert.match(body('placeGroundTelegraph'), /const gy = telegraphFloorY\(x, z, yRef\);\s*g\.position\.set\(x, gy \+ 0\.06, z\);/);
-  assert.ok(DUSK_FLOOR_Y + 0.06 > DUSK_FLOOR_Y);
+  assert.ok(makeFloorY('duskvillage')(0, 424, 0) + 0.06 > DUSK_FLOOR_Y, '水門前の輪は床より上');
+  assert.match(ai, /placeGroundTelegraph\(en\.meleeTelegraphMesh, en\.group\.position\.x, en\.group\.position\.z, en\.group\.position\.y, k\);/, '水門守');
+  assert.match(ai, /placeGroundTelegraph\(e\.telegraph, e\.x, e\.z, 0, k\);/, '残響の更新');
   // 網の落ち先 = 床 + 0.06
   assert.match(ai, /ring\.position\.set\(plan\.x, telegraphFloorY\(plan\.x, plan\.z, 0\) \+ 0\.06, plan\.z\);/);
   assert.doesNotMatch(ai, /ring\.position\.set\(plan\.x, 0\.06, plan\.z\)/);
