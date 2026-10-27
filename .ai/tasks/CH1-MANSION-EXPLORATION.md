@@ -1,6 +1,6 @@
 # CH1-MANSION-EXPLORATION — 森の洋館の一本道解消
 
-Status: REVIEW（CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
+Status: PR（Reviewer PASS Round 2。CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
 
 ## Approval
 - [x] Approved（Human 2026-10-27「洋館の一本道解消を進めて」。森の洋館のマップ構造・探索導線に限った仕様変更の承認として扱う）
@@ -47,4 +47,5 @@ Status: REVIEW（CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
 - build・unit・関連 E2E・CI・独立 Reviewer PASS。
 
 ## Result
+- Reviewer: Round 1 FAIL（ミニマップの地下の区画）→ 修正 → Round 2 PASS
 （報告: [`../reports/CH1-MANSION-EXPLORATION-report.md`](../reports/CH1-MANSION-EXPLORATION-report.md)）

@@ -57,12 +57,12 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
   - 塞がれた扉の「!」（ミニマップ）は、合流した後は出さない（`condition: state.smithEscort === ESCORT.NONE`）。
   - 森の木を置かない範囲のコメントと判定を、地下の下地（104..170）に合わせた。
   - 書斎のミミック (65,-58) が、本筋（書斎の東口 → 北口）の脇 約 2 になった。調べるか攻撃しない限り戦闘にならない（戦闘の数は変わらない）。実機確認の項目に入れた。
-- **Round 2**: （下に記録）
+- **Round 2: PASS**（`3328faa`）。新しい指摘なし
 
 ## テスト
 
 - **build**: OK。
-- **unit**: 2088 pass(Round 1 時点) / 0 fail / 1 skip。skip は変更前から（変更前の main では 2080 pass / 1 skip）。
+- **unit**（`3328faa`）: `npm run test:unit` で 2089 pass / 0 fail / 1 skip。`node --test tests/unit/*.test.js` では 2086 pass / 0 fail / 1 skip（探索の範囲の違い）。skip は変更前から（変更前の main では `npm run test:unit` で 2080 pass / 1 skip）
 - **新規 `tests/unit/mansion-exploration.test.js`**（8 件）: 03 の建て方の関数を実物のまま stub の上で動かし、家具・樽の当たり判定を集める。プレイヤーの半径 0.4、0.25 刻みの格子で歩いて確かめる。
   - 二階: 廊下から作業室へ直接は入れない。最短路は 踊り場 → 廊下 → 書斎 → 書庫 → 作業室。
   - 大広間・保管庫・書庫は、入口と出口が重ならない。
@@ -78,9 +78,15 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
   - `mansion-chain`（本編の順・飛ばせない条件・分離後に戻れない）は変更なしで通る。
 - **E2E**: 下の「E2E の結果」に記録。
 
-## E2E の結果
+## E2E の結果（ローカル。Chromium のバージョンが合わないため、AD-001 の設定で実行）
 
-（実行後に追記）
+- mansion-scenario / mansion-escort / scenario-test-mode のうち、洋館・酒場の世界を組み上げる 9 件: 8 pass / 1 fail。
+  - fail は「酒場と洋館を往復しても…」の 1 件。洋館へ出撃する前に、酒場で店主まで歩く手順で失敗した（`scenarioOpen` が false）。spec 自身が「描画の遅さで揺れる」と書いている手順で、地図の変更とは関係しない。
+  - 単独で 1 回だけ再実行して pass。
+- 新しい部屋の目視（一時的にテストモードの開始地点を足して撮影。コミットしていない）
+  - 撮影した場所: 大広間・廊下の突き当たり・書斎・書庫・保管庫・酒蔵・小礼拝室の 7 か所。
+  - どこでも、出撃時のエラーは 0。床・壁・家具・宝箱・手記が表示され、ミニマップに部屋名が出る。
+- 敵の動きを見る spec（mansion-enemies / warden / butler / lord）は、2 並列で走らせると Arena の操作で 300 秒のタイムアウトになった。この環境の描画の遅さによるもので、Arena は地図と関係しない。CI の結果で確かめる。
 
 ## iPhone 実機で見てほしいこと
 
