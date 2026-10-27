@@ -24,7 +24,9 @@
        踏破組み合わせ(core/route-combos.js)は自動的に無効化される
        ―― グラフの仕組み自体は他ダンジョンのために残してある。
        ここに並ぶのは「階段で階層をまたいだ」区切りだけ。同じ階の中の
-       部屋移動は MANSION_ROOMS の部屋名(ミニマップ)が案内する。 */
+       部屋移動は MANSION_ROOMS の部屋名(ミニマップ)が案内する。
+       階の順は一本のままだが、階の中には横の部屋と一度だけの回り道がある
+       (CH1-MANSION-EXPLORATION: 二階は書斎 → 書庫を抜けて作業室へ、地下に酒蔵と小礼拝室)。 */
     mansion: {
       start: 'forest',
       nodes: {
@@ -2389,9 +2391,13 @@
   /* =========================================================
      THE MANOR (囚われの洋館)
 
-     最初のメインシナリオなので一本道。ただし「行って戻る」の往復ではなく、
-     一階 → 大階段 → 二階 → 使用人用階段 → 一階奥 → 地下 → 主の間 と、
+     最初のメインシナリオなので、階の順は一本(迷わせない)。ただし「行って戻る」の
+     往復ではなく、一階 → 大階段 → 二階 → 使用人用階段 → 一階奥 → 地下 → 主の間 と、
      屋敷をぐるりと巡って降りていく形にしてある。
+
+     階の中は一直線にしない(CH1-MANSION-EXPLORATION / DEC-011)。各階の入口から
+     出口が見通せないように出入口をずらし、本筋で一度だけ回り道(二階の書庫)、
+     寄り道の先には宝箱か手記を置く。回り道も寄り道も、鍵や新しい仕掛けを使わない。
 
      間取りは MANSION_ROOMS の1枚の表から、床・壁・ミニマップの区画・
      部屋名まで全部を生成する(神殿の TEMPLE_ROOMS と同じ作法)。
@@ -2410,23 +2416,34 @@
     // する ―― 後半の異常空間との対比がこの部屋の唯一の役目で、ギミックは無い
     {id:'mKitchen',x0: 17, x1: 30, z0:-66, z1:-48, cor:false, gaps:{W:[-60,-54]},                       name:'厨房'},
     {id:'mCor1',   x0: -3, x1:  3, z0:-74, z1:-66, cor:true , gaps:{N:'full', S:'full'},                name:'一階廊下'},
-    {id:'mHall',   x0:-20, x1: 20, z0:-92, z1:-74, cor:false, gaps:{N:[-3,3], S:[-4,4]},                name:'大広間'},
-    {id:'mStair',  x0: -9, x1:  9, z0:-98, z1:-92, cor:false, gaps:{N:[-4,4]},                          name:'大階段'},
+    /* 大広間の出口(大階段)は東へずらしてある(CH1-MANSION-EXPLORATION)。玄関から
+       大階段までが一直線に見通せないように ―― 入ると、出口は部屋の中で探す */
+    {id:'mHall',   x0:-20, x1: 20, z0:-92, z1:-74, cor:false, gaps:{N:[-3,3], S:[9,15]},                name:'大広間'},
+    {id:'mStair',  x0:  6, x1: 20, z0:-98, z1:-92, cor:false, gaps:{N:[9,15]},                          name:'大階段'},
     // ---- 二階 (Z3: x 50..104, z -96..-24) ----
     {id:'uLand',   x0: 68, x1: 86, z0:-96, z1:-86, cor:false, gaps:{N:[74,80]},                         name:'二階の踊り場'},
-    {id:'uCor',    x0: 74, x1: 80, z0:-86, z1:-40, cor:true , gaps:{S:'full', N:'full', E:[-80,-74], W:[-64,-58]}, name:'二階廊下'},
+    /* 廊下の突き当たり(作業室の扉)は鍛冶屋が内側から塞いでいる。作業室へは
+       書斎の奥の書庫から回り込む ―― 二階で一度だけの回り道(CH1-MANSION-EXPLORATION)。
+       鍵も仕掛けも無く、音(金属を打つ音)と書庫の手記が道を教える */
+    {id:'uCor',    x0: 74, x1: 80, z0:-86, z1:-40, cor:true , gaps:{S:'full', E:[-80,-74], W:[-64,-58]}, name:'二階廊下'},
     {id:'uGuest',  x0: 80, x1:104, z0:-84, z1:-66, cor:false, gaps:{W:[-80,-74]},                       name:'客室'},
-    {id:'uStudy',  x0: 50, x1: 74, z0:-72, z1:-52, cor:false, gaps:{E:[-64,-58]},                       name:'書斎'},
-    {id:'uWork',   x0: 62, x1: 92, z0:-40, z1:-24, cor:false, gaps:{S:[74,80]},                         name:'作業室'},
+    {id:'uStudy',  x0: 50, x1: 74, z0:-72, z1:-52, cor:false, gaps:{E:[-64,-58], N:[56,62]},            name:'書斎'},
+    {id:'uArch',   x0: 50, x1: 74, z0:-52, z1:-40, cor:false, gaps:{S:[56,62], N:[64,70]},              name:'書庫'},
+    {id:'uWork',   x0: 62, x1: 92, z0:-40, z1:-24, cor:false, gaps:{S:[64,70]},                         name:'作業室'},
     // ---- 一階奥 (Z4: x 54..98, z 40..98) ----
     {id:'sLand',   x0: 66, x1: 82, z0: 40, z1: 52, cor:false, gaps:{N:[70,78]},                         name:'使用人用階段の下'},
     {id:'sCor',    x0: 70, x1: 78, z0: 52, z1: 64, cor:true , gaps:{S:'full', N:'full'},                name:'使用人通路'},
     {id:'sQuart',  x0: 54, x1: 98, z0: 64, z1: 88, cor:false, gaps:{S:[70,78], N:[72,80]},              name:'使用人区画'},
     {id:'sDown',   x0: 66, x1: 86, z0: 88, z1: 98, cor:false, gaps:{S:[72,80]},                         name:'地下入口'},
-    // ---- 地下 (Z5: x 120..158, z 40..116) ----
-    {id:'bCellar', x0:124, x1:152, z0: 40, z1: 62, cor:false, gaps:{N:[134,142]},                       name:'地下室'},
-    {id:'bCor',    x0:134, x1:142, z0: 62, z1: 72, cor:true , gaps:{S:'full', N:'full'},                name:'通路'},
-    {id:'bStore',  x0:120, x1:156, z0: 72, z1: 92, cor:false, gaps:{S:[134,142], N:[136,144]},          name:'保管庫'},
+    // ---- 地下 (Z5: x 108..168, z 40..116) ----
+    /* 地下の通路は東へずらし、保管庫の入口と出口が一直線に並ばないようにしてある。
+       地下室の西に酒蔵、保管庫の東に小礼拝室 ―― どちらも本筋から外れた行き止まりで、
+       宝箱と手記がある(CH1-MANSION-EXPLORATION) */
+    {id:'bCellar', x0:124, x1:152, z0: 40, z1: 62, cor:false, gaps:{N:[144,150], W:[54,60]},            name:'地下室'},
+    {id:'bWine',   x0:108, x1:124, z0: 44, z1: 62, cor:false, gaps:{E:[54,60]},                         name:'酒蔵'},
+    {id:'bCor',    x0:144, x1:150, z0: 62, z1: 72, cor:true , gaps:{S:'full', N:'full'},                name:'通路'},
+    {id:'bStore',  x0:120, x1:156, z0: 72, z1: 92, cor:false, gaps:{S:[144,150], N:[136,144], E:[80,86]}, name:'保管庫'},
+    {id:'bChapel', x0:156, x1:168, z0: 76, z1: 90, cor:false, gaps:{W:[80,86]},                         name:'小礼拝室'},
     {id:'bDeep',   x0:122, x1:158, z0: 92, z1:116, cor:false, gaps:{S:[136,144]},                       name:'地下奥'},
     /* ---- 異常空間 (Z7: x 114..160, z -14..34) ----
        鍛冶屋と分かれた扉の向こう。**見覚えのある部屋に、違う繋がり方で
@@ -2583,7 +2600,7 @@
     mansionLamp(0,  -57, 0xffb066, 0.60, 20);
     mansionLamp(-24,-57, 0xffb066, 0.50, 16);
     mansionLamp(0,  -83, 0xd8c8ff, 0.65, 26);
-    mansionLamp(0,  -95, 0xffcf8a, 0.55, 14);
+    mansionLamp(12, -95, 0xffcf8a, 0.55, 14);   // 大階段(大広間の東寄りの出口の奥)
 
     buildManorFoyerDressing(woodMat);
     buildManorDiningDressing(woodMat);
@@ -2776,7 +2793,8 @@
     /* 封鎖扉。部屋のどの出入口にも同じタグの扉を置き、踏み込んだ瞬間に
        一斉に落ちて、部屋の敵を全て倒すと開く(updateSealedRooms) */
     const seal = {tag:'manorHall', x0:hall.x0+2.5, x1:hall.x1-2.5, z0:hall.z0+2.5, z1:hall.z1-2.5};
-    [['N', 0, hall.z1, 6, 'EW'], ['S', 0, hall.z0, 8, 'EW']].forEach(([side, cx, cz, w, ori])=>{
+    const stairGap = hall.gaps.S;   // 大階段への出口(東寄り)。表から引くので扉が取り残されない
+    [['N', 0, hall.z1, 6, 'EW'], ['S', (stairGap[0]+stairGap[1])/2, hall.z0, stairGap[1]-stairGap[0], 'EW']].forEach(([side, cx, cz, w, ori])=>{
       const d = buildDoor('manorHall-'+side, cx, cz, w, 0x2a2438, ori);
       d.seal = seal;
       d.clearTag = 'manorHall';
@@ -2798,13 +2816,14 @@
     registerCheckpoint(new THREE.Vector3(-15, 0, -89.5));
 
     /* 大階段。上りきった先が二階の踊り場。auto なので、近づけば
-       勝手に数歩あるいて上ってくれる(選択UIは出さない) */
-    const up = buildStairs(new THREE.Vector3(0,0,-95), new THREE.Vector3(77,0,-91),
+       勝手に数歩あるいて上ってくれる(選択UIは出さない)。
+       大広間の東寄りの出口の奥 ―― 玄関からは見通せない */
+    const up = buildStairs(new THREE.Vector3(12,0,-95), new THREE.Vector3(77,0,-91),
                            '二階へ上がった……', 0x3a3448, 'up');
     up.routeNode = 'manor2f';
     up.auto = true;
     // 手すり。階段が「そこにある」ことを遠目にも分からせる
-    [-2.6, 2.6].forEach(x=>{
+    [9.4, 14.6].forEach(x=>{
       const rail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.9, 4.4), woodMat);
       rail.position.set(x, 1.2, -95.4);
       rail.castShadow = true;
@@ -2813,7 +2832,8 @@
   }
 
   /* ---------------------------------------------------------
-     二階: 踊り場 → 廊下 →(客室 / 書斎)→ 作業室【鍛冶屋と出会う】→ 使用人用階段
+     二階: 踊り場 → 廊下 →(客室)→ 書斎 → 書庫 → 作業室【鍛冶屋と出会う】→ 使用人用階段
+     (廊下の突き当たりの扉は塞がれている。CH1-MANSION-EXPLORATION)
   --------------------------------------------------------- */
   function buildMansionUpper(){
     const paperTex = makeWallpaperTexture('#453552', '#281f33', 5, 4, 2);
@@ -2823,7 +2843,7 @@
     const woodMat  = new THREE.MeshStandardMaterial({color:0x33241a, roughness:0.8});
 
     mansionUnderlay(42, 114, -104, -16);
-    ['uLand','uCor','uGuest','uStudy','uWork'].forEach(id=>{
+    ['uLand','uCor','uGuest','uStudy','uArch','uWork'].forEach(id=>{
       const r = mansionRoomById(id);
       mansionFloor(r, floorMat, undefined, 'wood');
       buildMansionWalls(r, wallMat);
@@ -2841,14 +2861,36 @@
 
     buildManorGuestRoom(woodMat);
     buildManorStudy(woodMat);
+    buildManorArchive(woodMat);
     buildManorWorkshop(woodMat);
+    buildManorBarricadedDoor(woodMat);
 
-    /* 廊下に出た瞬間。突き当たりの扉が、ひとりでに少しだけ開く。
-       ―― プレイヤーはまだ何も説明されていないが、行き先は分かる */
+    /* 廊下に出た瞬間。突き当たりの扉の向こうで、何かを打ちつける音。
+       ―― 行き先(人の気配)は分かる。ただし、その扉は開かない */
     registerProximityEvent(new THREE.Vector3(77,0,-83), 4.0, '', ()=>{
       sfx('distantDoor');
-      spawnLog('🚪 廊下の突き当たり――扉が、音もなく少しだけ開いた');
+      spawnLog('🚪 廊下の突き当たり――扉の向こうで、何かを打ちつける音がした');
       return null;
+    });
+  }
+
+  /* 廊下の突き当たり(作業室の南の扉)。鍛冶屋が板を打ちつけ、作業室の側にも木箱を積んで塞いでいる
+     (CH1-MANSION-EXPLORATION)。壁そのものは表(uCor に北の出入口が無い)が作るので、
+     ここは「扉だった」と分かる見た目だけ ―― 扉の仕組み(buildDoor)は使わない。
+     開かない扉に「調べる」を出すと、開く手段を探させてしまうため */
+  function buildManorBarricadedDoor(woodMat){
+    const cor = mansionRoomById('uCor');
+    const cx = (cor.x0 + cor.x1)/2, z = cor.z1 - 0.4;
+    const doorMat = new THREE.MeshStandardMaterial({color:0x2a1830, roughness:0.7, metalness:0.15});
+    const door = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.3, 0.12), doorMat);
+    door.position.set(cx, 1.15, z);
+    scene.add(door);
+    // 打ちつけた板。遠目にも「ここは通れない」と分かるように斜めに渡す
+    [[-0.5, 0.9, 0.35], [0.4, 1.6, -0.3]].forEach(([dx, y, rz])=>{
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.22, 0.08), woodMat);
+      plank.position.set(cx + dx*0.2, y, z - 0.1);
+      plank.rotation.z = rz;
+      scene.add(plank);
     });
   }
 
@@ -2916,12 +2958,61 @@
       return null;
     });
 
+    /* 書斎の奥の出入口(書庫へ)に近づくと、その先から金属の音。廊下で聞いた音と
+       同じ方角で、「ここから回れる」を言葉にせず伝える(CH1-MANSION-EXPLORATION) */
+    const study = mansionRoomById('uStudy');
+    // 判定は書斎の中の、北の出入口の手前だけ(書庫の側で鳴らない)
+    registerProximityEvent(new THREE.Vector3((study.gaps.N[0]+study.gaps.N[1])/2, 0, study.z1 - 2), 1, '', ()=>{
+      sfx('anvil');
+      spawnLog('🔨 書棚の向こう――奥のほうで、金属を打つ音がする');
+      return null;
+    }, {area:{x0:study.gaps.N[0]-3, x1:study.gaps.N[1]+3, z0:study.z1-6, z1:study.z1}});
+
     buildLoreNote(new THREE.Vector3(60.5, 0, -62), '書きかけの手紙', [
       '「……あれが何なのかは、まだ書けない。書こうとすると、言葉のほうが逃げていく」',
       '「見た者はそれぞれ違うことを言う。病だと言う者、死んだ者の還りだと言う者、',
       '　ただの見間違いだと笑う者。全員が同じくらい本気だ」',
       '「私も、まだどれとも決められずにいる」――そこで筆は止まっている。'
     ], {kind:'letter'});
+  }
+
+  /* 書庫(CH1-MANSION-EXPLORATION)。書斎の奥から作業室へ抜ける、使用人と職人の通り道。
+     廊下の扉が塞がれている今、作業室へはここからしか入れない。書棚の列は道を
+     塞がない(南の入口から北の出口まで、まっすぐではないが開けてある)。
+     手記は館の修繕の覚え書きで、地下の酒蔵と礼拝室があることをここで知らせる
+     ―― 後半の寄り道への手がかり。読まなくても進める */
+  function buildManorArchive(woodMat){
+    const r = mansionRoomById('uArch');
+    const shelfMat = new THREE.MeshStandardMaterial({color:0x2a1c10, roughness:0.75});
+    // 壁ぎわの書棚(西)と、部屋の東寄りに立つ書棚の列
+    [[51.5,-48,0.5,6],[66,-46,6,0.5],[71,-46,4,0.5]].forEach(([x,z,sx,sz])=>{
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(sx, 2.6, sz), shelfMat);
+      shelf.position.set(x, 1.3, z);
+      scene.add(shelf);
+      walls.push({minX:x-sx/2, maxX:x+sx/2, minZ:z-sz/2, maxZ:z+sz/2});
+    });
+    // 床に積まれた帳面の束
+    const paperMat = new THREE.MeshStandardMaterial({color:0xbfae86, roughness:0.9});
+    [[54,-43],[55.2,-43.6],[69,-50.5]].forEach(([x,z],i)=>{
+      const stack = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.25 + i*0.1, 0.45), paperMat);
+      stack.position.set(x, 0.2, z);
+      stack.rotation.y = i*0.6;
+      scene.add(stack);
+    });
+    mansionLamp((r.x0+r.x1)/2, (r.z0+r.z1)/2, 0xffcf8a, 0.45, 16);
+
+    registerRoomEvent(r, 0, '', ()=>{
+      sfx('distantDoor');
+      spawnLog('📜 帳面の山。奥の扉の向こうから、槌の音が近い');
+      return null;
+    });
+
+    buildLoreNote(new THREE.Vector3(57, 0, -42), '修繕の覚え書き', [
+      '館の修繕を任されていた者の帳面。几帳面な字で、直した箇所と日付が並ぶ。',
+      '「作業室は書庫の奥。廊下側の扉は蝶番が駄目で、職人は皆こちらから出入りする」',
+      '「旦那様の言いつけにより、地下の酒蔵と礼拝室の鍵はここに掛ける」',
+      '鍵掛けの釘は二本とも、空いていた。'
+    ], {kind:'book'});
   }
 
   /* 作業室【鍛冶屋と出会う】。屋敷の中で唯一、生きている人間がいる部屋。 */
@@ -2942,8 +3033,8 @@
     const ember = new THREE.PointLight(0xff7a30, 0.5, 8);
     ember.position.set(88, 1.1, -30);
     scene.add(ember);
-    // 家具でバリケードされた扉(=鍛冶屋が塞いだ跡)
-    [[80,-26.5],[82.5,-27.5],[81,-28.8]].forEach(([x,z])=>{
+    // 家具でバリケードされた扉(=鍛冶屋が塞いだ跡)。廊下の突き当たりの扉の内側
+    [[75.2,-38.7],[77.8,-38.9],[76.6,-37.3]].forEach(([x,z])=>{
       const crate = new THREE.Mesh(new THREE.BoxGeometry(1.3,1.1,1.3), woodMat);
       crate.position.set(x, 0.55, z);
       crate.rotation.y = Math.random();
@@ -2954,12 +3045,17 @@
 
     manorSmith = buildManorSmithNpc(new THREE.Vector3(77, 0, -33));
 
-    /* 出会いは会話より先に音で。金属を打つ音がして、はじめて人の気配になる */
-    registerProximityEvent(new THREE.Vector3(77,0,-40), 4.4, '', ()=>{
+    /* 出会いは会話より先に音で。金属を打つ音がして、はじめて人の気配になる。
+       廊下の突き当たりの扉は塞がれていて、ここからは入れない ―― 音のする方へ
+       回り込む道(書斎 → 書庫)を探させる(CH1-MANSION-EXPLORATION) */
+    // 判定は廊下の突き当たりだけ(書庫や作業室の中で「開かない」と出さない)
+    const cor = mansionRoomById('uCor');
+    registerProximityEvent(new THREE.Vector3(77,0,-42), 1, '', ()=>{
       sfx('anvil');
-      spawnLog('🔨 奥から――金属を打つ音。この屋敷で、初めて聞く生きた音だ');
+      spawnLog('🔨 扉の向こうから――金属を打つ音。この屋敷で、初めて聞く生きた音だ');
+      spawnToast('🚪 扉は向こう側から塞がれていて、開かない');
       return null;
-    });
+    }, {area:{x0:cor.x0, x1:cor.x1, z0:cor.z1-5, z1:cor.z1}});
 
     /* 部屋に入ったところで本人と短く話し、そこから同行が始まる(仕様 8)。
        洋館に来た理由(工具と素材の回収)をここで明示する ―― 「AI仲間が
@@ -2969,6 +3065,7 @@
       '「……人か。生きてるやつは久しぶりだ」',
       '「鍛冶場を構えるのに要る工具と鋼を取りに来た。館主はもう居ないと聞いてな」',
       '「で、降りられなくなった。何度やっても階段の先が違う。……理屈は知らん」',
+      '「廊下の扉は塞いだ。妙なのに入られたくないんでな。……書庫から回ってきたか」',
       '「付いてっていいか。荷は俺が持つ」',
       '「言っとくが戦うのは無しだ。手が塞がってるんでな」'
     ], {inset:1.2, kind:'mansionEscortJoin'});
@@ -3747,19 +3844,19 @@
   }
 
   /* ---------------------------------------------------------
-     地下: 地下室 → 保管庫 → 地下奥【戦闘④】→(ボス前 → 主の間)
+     地下: 地下室(→ 酒蔵)→ 保管庫(→ 小礼拝室)→ 地下奥【戦闘④】→(ボス前 → 主の間)
   --------------------------------------------------------- */
   function buildMansionBasement(){
     const wallMat  = new THREE.MeshStandardMaterial({color:0x241820, roughness:0.9});
     const floorTex = makeCobbleTexture('#3a2f28', '#171210', 4, 5, 5);
     const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.95});
 
-    mansionUnderlay(112, 168, 32, 126);
+    mansionUnderlay(104, 170, 32, 126);   // 西の酒蔵(x 108〜)・東の小礼拝室(〜x 168)まで
     /* 地下は玉石敷き。奥へ行くほど湿るので、保管庫から先だけ材質を変える
        ―― 同じ石でも硬さと余韻が変わり、降りてきたことが足元で分かる */
-    ['bCellar','bCor','bStore','bDeep'].forEach(id=>{
+    ['bCellar','bWine','bCor','bStore','bChapel','bDeep'].forEach(id=>{
       const r = mansionRoomById(id);
-      mansionFloor(r, floorMat, undefined, (id==='bStore'||id==='bDeep') ? 'wetStone' : 'stone');
+      mansionFloor(r, floorMat, undefined, (id==='bStore'||id==='bChapel'||id==='bDeep') ? 'wetStone' : 'stone');
       buildMansionWalls(r, wallMat);
     });
     mansionLamp(138, 50, 0x5fcf7a, 0.55, 20);
@@ -3780,11 +3877,12 @@
       scene.add(p);
       walls.push({minX:x-0.65, maxX:x+0.65, minZ:z-0.65, maxZ:z+0.65});
     });
+    /* 樽の位置は固定(MANOR_STORE_BARRELS)。以前は乱数で置いていたが、保管庫に
+       横の出入口(小礼拝室)ができたので、通り道を塞がないことをテストで確かめられる
+       ように決め打ちにした(tests/unit/mansion-exploration.test.js) */
     const barrelMat = new THREE.MeshStandardMaterial({color:0x43301f, roughness:0.9});
-    for(let i=0;i<9;i++){
+    for(const [x, z] of MANOR_STORE_BARRELS){
       const b = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.6,1.1,10), barrelMat);
-      const x = 123 + Math.random()*31, z = 74 + Math.random()*16;
-      if(Math.abs(x-138) < 5 && z < 78) continue;   // 通り道は空けておく
       b.position.set(x, 0.55, z);
       b.castShadow = true;
       scene.add(b);
@@ -3819,8 +3917,104 @@
     fwd.routeNode = 'boss';
     fwd.auto = true;
 
+    buildManorWineCellar();
+    buildManorChapel();
+
     // 周回★3以上でだけ、保管庫の奥にもう一部屋開く(「山を登る」拡張)
     if(scenarioStars('mansion') >= MANSION_CRYPT_DEPTHS_STARS) buildMansionCryptDepths();
+  }
+
+  /* 保管庫の樽(x, z)。入口(南・東寄り)・出口(北)・小礼拝室への出入口(東)の前は空けてある */
+  const MANOR_STORE_BARRELS = [
+    [123,75],[124.4,76.6],[123,78.2],[126.2,74.4],
+    [123,84.5],[124.4,86.2],[127.6,90.4],[129.2,90.6],
+    [131.5,80],[153.6,74.2],[154.6,90.4],[152.8,89.6],
+  ];
+
+  /* 酒蔵(CH1-MANSION-EXPLORATION)。地下室の西の行き止まり。酒棚と樽の列の奥に
+     宝箱がひとつ。書庫の覚え書きが「鍵は空いていた」と書いた部屋の片方 */
+  function buildManorWineCellar(){
+    const r = mansionRoomById('bWine');
+    const rackMat = new THREE.MeshStandardMaterial({color:0x2e2018, roughness:0.85});
+    const bottleMat = new THREE.MeshStandardMaterial({color:0x1e3a2a, roughness:0.3, metalness:0.2});
+    // 北と南の壁ぎわの酒棚。中央は通れる
+    [[r.z0+0.6],[r.z1-0.6]].forEach(([z])=>{
+      const rack = new THREE.Mesh(new THREE.BoxGeometry(10, 2.2, 0.6), rackMat);
+      rack.position.set(114, 1.1, z);
+      scene.add(rack);
+      walls.push({minX:109, maxX:119, minZ:z-0.3, maxZ:z+0.3});
+      for(let i=0;i<8;i++){
+        const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.08,0.34,6), bottleMat);
+        bottle.rotation.z = Math.PI/2;
+        bottle.position.set(110 + i*1.2, 0.6 + (i%3)*0.55, z);
+        scene.add(bottle);
+      }
+    });
+    // 寝かせた大樽が二つ。手前に一つだけ、栓の抜けたものがある
+    const caskMat = new THREE.MeshStandardMaterial({color:0x4a3220, roughness:0.9});
+    [[113,52.5],[113,56.5]].forEach(([x,z])=>{
+      const cask = new THREE.Mesh(new THREE.CylinderGeometry(0.9,0.9,2.2,12), caskMat);
+      cask.rotation.z = Math.PI/2;
+      cask.position.set(x, 0.9, z);
+      cask.castShadow = true;
+      scene.add(cask);
+      walls.push({minX:x-1.1, maxX:x+1.1, minZ:z-0.9, maxZ:z+0.9});
+    });
+    mansionLamp(116, 53, 0x7a9a6a, 0.40, 14);
+
+    registerRoomEvent(r, 0, '', ()=>{
+      sfx('drag');
+      spawnLog('🍷 酒の匂い。……棚の瓶は、どれも封が切られていない');
+      return null;
+    });
+
+    buildLoreNote(new THREE.Vector3(121, 0, 47), '酒蔵の帳面', [
+      '出し入れの記録。最後の頁まで、同じ銘柄が一本ずつ「旦那様へ」と書かれている。',
+      '「今夜もお召し上がりにならなかった。栓を戻し、棚へ返す」',
+      '同じ瓶が、何十日ぶん、返された日付だけを増やしていた。'
+    ], {kind:'book'});
+  }
+
+  /* 小礼拝室(CH1-MANSION-EXPLORATION)。保管庫の東の行き止まり。保管庫にあった
+     armoury の宝箱はここへ移した ―― 寄り道した先に、それに見合う物がある。
+     主の間の手前で、館の主が何を祈っていたかを一つだけ置く(断定はしない) */
+  function buildManorChapel(){
+    const r = mansionRoomById('bChapel');
+    const stoneMat = new THREE.MeshStandardMaterial({color:0x3a3036, roughness:0.9});
+    const altar = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 3.0), stoneMat);
+    altar.position.set(r.x1 - 1.6, 0.5, 83);
+    altar.castShadow = true; altar.receiveShadow = true;
+    scene.add(altar);
+    walls.push({minX:r.x1-2.2, maxX:r.x1-1.0, minZ:81.5, maxZ:84.5});
+    // 祭壇の燭台。蝋燭は根元まで燃え尽きている
+    const candleMat = new THREE.MeshStandardMaterial({color:0xd8cba8, roughness:0.6,
+                        emissive:0x553311, emissiveIntensity:0.4});
+    [81.9, 84.1].forEach(z=>{
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,0.18,8), candleMat);
+      c.position.set(r.x1 - 1.6, 1.09, z);
+      scene.add(c);
+    });
+    // 長椅子が二列
+    const benchMat = new THREE.MeshStandardMaterial({color:0x33241a, roughness:0.85});
+    [[160,79.5],[160,86.5]].forEach(([x,z])=>{
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.5, 3.4), benchMat);
+      bench.position.set(x, 0.25, z);
+      scene.add(bench);
+      walls.push({minX:x-0.5, maxX:x+0.5, minZ:z-1.7, maxZ:z+1.7});
+    });
+    mansionLamp(162, 83, 0x8a7ad0, 0.45, 12);
+
+    registerRoomEvent(r, 0, '', ()=>{
+      sfx('windGust');
+      spawnLog('🕯️ 燃え尽きた蝋燭。……誰かが、ここで長く祈っていた');
+      return null;
+    });
+
+    buildLoreNote(new THREE.Vector3(163, 0, 77.5), '祈祷書の書き込み', [
+      '祭壇に開かれたままの祈祷書。余白に、細い字で同じ願いが何度も書かれている。',
+      '「どうか、誰もこの館を出て行きませんように」',
+      '最後の一行だけ、筆圧が違う。「どうか、誰も来ませんように」'
+    ], {kind:'book'});
   }
 
   /* 周回★3で開く行き止まりの拡張。行き止まりという構造は変えず、地下奥の
