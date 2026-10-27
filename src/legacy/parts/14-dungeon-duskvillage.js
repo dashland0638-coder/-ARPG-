@@ -181,7 +181,7 @@
                 : (r.id === 'plaza' || r.id === 'gate') ? stoneMat : plankMat;
       const surf = r.id === 'forest' ? 'dirt'
                 : (r.id === 'plaza' || r.id === 'gate') ? 'stone' : 'wood';
-      addFloorWithHoles(r.x0, r.x1, r.z0, r.z1, [], mat, 0.08);
+      addFloorWithHoles(r.x0, r.x1, r.z0, r.z1, [], mat, DUSK_FLOOR_Y);
       addRoomSurface(r, surf);
       buildWalls(r);
     });

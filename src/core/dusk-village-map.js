@@ -50,6 +50,14 @@ export function duskRoomById(id){
   return null;
 }
 
+/* 村の部屋の床の高さ(14-dungeon-duskvillage.js の addFloorWithHoles)。床は不透明で、これより
+   下に置いた物は見えない。村は groundSlabs を使わない(groundYAt は村の床を知らない)ので、
+   床に置く目印はこれを基準にする(CH1-DUSK-IMMERSION) */
+export const DUSK_FLOOR_Y = 0.08;
+export function duskFloorYAt(x, z){
+  return duskRoomAt(x, z) ? DUSK_FLOOR_Y : null;   // 部屋の外 = 床の無い水の上
+}
+
 export function duskRoomAt(x, z){
   for(let i=0;i<DUSK_ROOMS.length;i++){
     const r = DUSK_ROOMS[i];

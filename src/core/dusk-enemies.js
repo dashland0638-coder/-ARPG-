@@ -72,6 +72,9 @@ export const RING_COLORS = {
 export const EXISTING_RING_COLORS = {
   fisher: 0xff8a3a, keeper: 0xff5a36, keeperEcho: 0xffd04a, phaseBurst: 0xff7a4a,
 };
+/* 村の怪異の輪(placeVillageRing)の高さ。床の飾り・映り込み・水の裾より上。村では床 0.08 + 0.06、
+   Arena(床 0.01)でも同じ高さに置く(以前の「placeGroundTelegraph の 0.06 + 0.08」と同じ値) */
+export const VILLAGE_RING_MIN_Y = 0.14;
 export const RING_STYLE = {
   mirror:    {width: 0.2,  ringOpacity: 0.85, fillOpacity: 0.28},
   foam:      {width: 0.08, ringOpacity: 0.34, fillOpacity: 0.0, noFill: true},
