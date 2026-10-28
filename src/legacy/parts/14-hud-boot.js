@@ -557,7 +557,7 @@
     {minX:46,   maxX:110,  minZ:-100, maxZ:-20 },  // 洋館 二階
     {minX:52,   maxX:102,  minZ:36,   maxZ:102 },  // 洋館 一階奥(使用人区画)
     {minX:112,  maxX:161,  minZ:-18,  maxZ:35  },  // 洋館 異常空間(D-01)
-    {minX:116,  maxX:162,  minZ:36,   maxZ:122 },  // 洋館 地下
+    {minX:104,  maxX:169,  minZ:36,   maxZ:122 },  // 洋館 地下(西の酒蔵 x108〜・東の小礼拝室 〜x168 を含む)
     {minX:128,  maxX:152,  minZ:122,  maxZ:146 },  // 洋館 地下のさらに奥(周回★3+)
     {minX:54,   maxX:106,  minZ:128,  maxZ:184 },  // 洋館 主の間
     {minX:146,  maxX:174,  minZ:-56,  maxZ:-24 },  // 洋館 屋根裏(周回★4+)

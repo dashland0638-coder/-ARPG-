@@ -4,7 +4,7 @@
    tests/unit/mansion-anomaly.test.js が見ている。ここで固定するのは、その判定が
    **実際の間取りと場面に正しく繋がっているか**:
 
-     1. MANSION_ROOMS の表の静的な検算(25部屋、重なり、出入口の噛み合い、
+     1. MANSION_ROOMS の表の静的な検算(28部屋、重なり、出入口の噛み合い、
         階段の出発点・到着点)。tests/mansion-scenario.spec.js が「静的な検算で
         確認できる」と書いていた検算の実体
      2. 作業室での合流(イベントの置き場所と、合流前は鍛冶屋が動かないこと)
@@ -79,9 +79,10 @@ function fn(text, signature){
   return text.slice(a, text.indexOf('\n  }\n', a) + 4);
 }
 
-test('間取り: 25部屋(通常22 + 異常空間3)。id は重複せず、寸法は正', () => {
-  assert.equal(ROOMS.length, 25);
-  assert.equal(new Set(ROOMS.map(r => r.id)).size, 25);
+/* CH1-MANSION-EXPLORATION で 3 部屋(書庫・酒蔵・小礼拝室)を足した */
+test('間取り: 28部屋(通常25 + 異常空間3)。id は重複せず、寸法は正', () => {
+  assert.equal(ROOMS.length, 28);
+  assert.equal(new Set(ROOMS.map(r => r.id)).size, 28);
   assert.equal(ROOMS.filter(r => r.id.startsWith('x')).length, 3);
   for (const r of ROOMS) {
     assert.ok(r.x0 < r.x1 && r.z0 < r.z1, r.id);

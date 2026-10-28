@@ -573,7 +573,8 @@
       [new THREE.Vector3(99,0,-80)],                      // 洋館: 客室
       [new THREE.Vector3(53,0,-56),   'supply'],          // 洋館: 書斎の奥
       [new THREE.Vector3(57,0,86)],                       // 洋館: 使用人区画
-      [new THREE.Vector3(124,0,89),   'armoury'],         // 洋館: 保管庫
+      [new THREE.Vector3(110.5,0,49.5)],                  // 洋館: 酒蔵(地下室の西の寄り道。CH1-MANSION-EXPLORATION)
+      [new THREE.Vector3(166,0,88),   'armoury'],         // 洋館: 小礼拝室(保管庫の東の寄り道。保管庫から移した)
       [new THREE.Vector3(71,0,136),   'supply'],          // 洋館: ボス前
       ...(scenarioStars('mansion') >= MANSION_CRYPT_DEPTHS_STARS
         ? [[new THREE.Vector3(134,0,140), 'armoury']] : []), // 地下のさらに奥(周回★3+)

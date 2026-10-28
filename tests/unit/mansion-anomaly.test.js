@@ -35,7 +35,7 @@ test('異変は段階的に強くなる(仕様 5)', async t=>{
 
   await t.test('プレイヤーが通る順に段階が下がらない', ()=>{
     const route = ['mEntry','mFoyer','mCor1','mHall','mStair',
-                   'uLand','uCor','uWork',
+                   'uLand','uCor','uStudy','uArch','uWork',   // 二階は書斎 → 書庫を抜けて作業室へ
                    'sLand','sCor','sQuart','sDown',
                    'xFoyer','xCor','xHall'];
     let prev = -1;

@@ -85,8 +85,8 @@ test('環境音: 森 → 前庭 → 館 → 地下 → 主の間 と切り替わ
   const center = id => { const r = ROOMS.find(o => o.id === id); return [(r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2]; };
   assert.equal(at(0, 0), 'forest');                 // 森の道(部屋の外)
   assert.equal(at(0, -36), 'yard');                 // 前庭(正面玄関の手前)
-  for (const id of ['mFoyer', 'mHall', 'uWork', 'sQuart']) assert.equal(at(...center(id)), 'manor', id);
-  for (const id of ['bCellar', 'bDeep']) assert.equal(at(...center(id)), 'basement', id);
+  for (const id of ['mFoyer', 'mHall', 'uArch', 'uWork', 'sQuart']) assert.equal(at(...center(id)), 'manor', id);
+  for (const id of ['bCellar', 'bWine', 'bChapel', 'bDeep']) assert.equal(at(...center(id)), 'basement', id);
   for (const id of ['bAnte', 'bLord', 'xFoyer', 'xCor', 'xHall']) assert.equal(at(...center(id)), 'lord', id);
   assert.equal(roomAt(0, -36), undefined);
 });
@@ -111,9 +111,10 @@ test('館の主: 登場・不意打ち・戦闘中の一言・撃破後の独白
   assert.match(endings, /mansionBoss: \[\s*'/);
 });
 
-test('手記: 洋館には5点。どれも館の部屋の中にあり、読まなくても進める(進行の条件にしない)', () => {
+/* CH1-MANSION-EXPLORATION で 3 点(修繕の覚え書き・酒蔵の帳面・祈祷書の書き込み)を足した */
+test('手記: 洋館には8点。どれも館の部屋の中にあり、読まなくても進める(進行の条件にしない)', () => {
   const notes = [...MANSION_SRC.matchAll(/buildLoreNote\(new THREE\.Vector3\((-?[\d.]+), *0, *(-?[\d.]+)\), '([^']+)', \[[\s\S]*?\], \{([^}]*)\}\)/g)];
-  assert.equal(notes.length, 5, notes.map(m => m[3]).join(','));
+  assert.equal(notes.length, 8, notes.map(m => m[3]).join(','));
   for (const m of notes) {
     assert.ok(roomAt(+m[1], +m[2]), `${m[3]} は館の部屋の中`);
     // 付けてよいのは見た目の種類(kind)と置き方(wall)だけ。条件や進行のフラグは持たない
