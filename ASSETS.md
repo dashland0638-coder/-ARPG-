@@ -22,10 +22,21 @@
 
 **ファイル仕様**
 - 形式: **mp3**推奨(対応ブラウザが最も広い。オフラインで曲を持たない`ogg`でも動くがiOS Safari対応が不安なので避ける)
-- 尺: 制限なし。ワールド滞在中ずっとループ再生されるので1〜3分程度あれば十分
-- ループ: `<audio loop>`でそのまま繋げて再生するだけ(クロスフェード処理は無い)。**曲の頭と末尾が違和感なく繋がるように書き出す**こと(無音の余白を残さない、フェードアウトで終わらせない等)
-- 音量: 全曲共通の音量スライダー1本(合成SEとは独立)なので、曲間で極端にラウドネスが違わないよう正規化しておく
-- 容量目安: 1曲あたり2〜4MB程度(128〜192kbps)。ストリーミング再生なので全体を先読みはしないが、iPhone回線での初回読み込みを考えて絞り気味に
+- 尺: 制限なし。ワールド滞在中ずっとループ再生される。**読み込み時に全体をデコードしてメモリに持つ**(ステレオ 1 分で約 21MB)ので、1 ループ 1 分前後が目安
+- ループ: WebAudio(`AudioBufferSourceNode`)で繰り返す。`BGM_TRACK_OPTIONS` に `loopStart` / `loopEnd`(ファイル内の秒)を書けば、その区間だけを継ぎ目なしで繰り返す。書かなければファイル全体を繰り返す
+  - MP3 は先頭にエンコーダの詰め物(数十ミリ秒)が入り、デコーダによって残ることがある。ファイルの頭・末尾でぴったり繋ぐと、そこが無音の隙間になる。
+    1 周の前後に同じ音の続き(1 秒ずつ)を付けて書き出し、ループ点をその内側に置くと、詰め物が残っても継ぎ目は変わらない(`tools/music-composer/scripts/render-bgm.mjs` がこの形で書き出す)
+  - フェードアウトで終わらせない。最後の音の余韻は 1 周の頭に重ねておく(同上)
+- 音量: 全曲共通の BGM 音量(設定のオフ / 小 / 中 / 大)に、曲ごとの `gain`(`BGM_TRACK_OPTIONS`)を掛ける。ファイルはピークをそろえて書き出し(MP3 の精度のため)、ゲーム内の大きさは `gain` で決める。iPhone の Safari は `<audio>` の音量を変えられないので、音量は GainNode で掛けている
+- 読み込みに失敗したら(404・デコード不可)、そのワールドは手続き生成の BGM に切り替わる
+- 容量目安: 1曲あたり 1〜2MB 程度(128kbps)。iPhone回線での初回読み込みを考えて絞り気味に
+
+**作曲アプリの曲を書き出す**(酒場 BGM はこの方法。MUSIC-BGM-TAVERN-001)
+```
+node tools/music-composer/scripts/render-bgm.mjs --scene tavern --stage complete --prompt default --out <dir> --name tavern
+# → <dir>/tavern.mp3 と tavern.json(元データの sha256・曲の文・ループ点・検算の結果)
+#   mp3 を public/audio/bgm/ へ、json を tools/music-composer/exports/ へ置き、json の loop を BGM_TRACK_OPTIONS に写す
+```
 
 **登録**
 ```
@@ -33,9 +44,13 @@ public/audio/bgm/mansion.mp3 を置いて…
 
 // src/audio/asset-manifest.js
 export const BGM_TRACKS = {
-  tavern: null,
-  mansion: '/audio/bgm/mansion.mp3',   // ← これだけ
+  tavern: '/audio/bgm/tavern.mp3',
+  mansion: '/audio/bgm/mansion.mp3',   // ← これだけ(ファイル全体をループ)
   ...
+};
+// 任意: ループ点と曲ごとの音量
+export const BGM_TRACK_OPTIONS = {
+  tavern: { loopStart: 1, loopEnd: 48.766984, gain: 0.5 },
 };
 ```
 

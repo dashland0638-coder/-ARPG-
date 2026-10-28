@@ -166,6 +166,25 @@ URL: https://claude.ai/artifact/Aa2jjaA2Hu3e6Yrs2WVaXp （非公開。オーナ�
 
 結果は PR #70 か `.ai/tasks/MUSIC-AUDIO-001.md` に記録する。すべて「確認済み・問題なし」になるまで、実機確認は合格としない。
 
+## ゲームへの書き出し（MUSIC-BGM-TAVERN-001）
+
+アプリ・譜面・音源エンジン・収録音は変えずに、ヘッドレスの Chromium でアプリを開き、画面と同じ手順（場面 → 加入段階 → 生成 → 音源「サンプル」）で曲を作る。
+その通し再生（`playTrack`）を `OfflineAudioContext` で録り、ゲーム用のループ音源（MP3）にする。
+
+```sh
+node tools/music-composer/scripts/render-bgm.mjs --scene tavern --stage complete --prompt default --out <dir> --name tavern
+# → <dir>/tavern.mp3(ステレオ 44.1kHz 128kbps)と tavern.json(元の HTML の sha256・曲の文・ループ点・検算)
+```
+
+- `--prompt default` は画面で「酒場」を選んだときに入る文（`sceneDefaults.tavern`）。`example` は `TAVERN_EXAMPLE_PROMPT`（自動テストが使う古い例文）。
+  2 つは旋律もテンポも違う曲になる（103 BPM / 109 BPM）。ゲームの酒場 BGM は Human が聞き比べて `default`（候補 A）を選んだ（DEC-012）
+- アプリは同じページで続けて生成すると、前の曲の文を引き継ぐ（`mergeRevisionStack`）。書き出しは毎回まっさらなページで 1 回だけ生成する
+- 1 周 = 80 音目の枠（`scoreTiming(t).eventStart(80)`、40 小節）。最後の音の余韻・残響は 1 周の頭に重ねる（2 回続けて鳴らしたときの 2 回目と同じ音）。
+  前後に 1 秒ずつ同じ音の続きを付け、ゲームは `loopStart = 1`・`loopEnd = 1 + 1周` で繰り返す（MP3 の先頭の遅れが残っても継ぎ目が変わらない）
+- 音量はピーク -1 dBFS にそろえるだけ（曲は変えない）。ゲーム内の大きさは `src/audio/asset-manifest.js` の `BGM_TRACK_OPTIONS.tavern.gain`
+- 録音は浮動小数の誤差の範囲で毎回同じ。MP3 はその誤差で毎回ビット単位では一致しないので、採用したファイルは `exports/tavern.json` の sha256 で固定する（`tests/unit/tavern-bgm.test.js`）
+- 書き出したもの: `public/audio/bgm/tavern.mp3`、記録 `exports/tavern.json`
+
 ## 音源の出典とライセンス
 
 | 楽器 | 出典 | バージョン | ライセンス | 使用ファイル |

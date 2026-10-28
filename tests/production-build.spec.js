@@ -50,6 +50,23 @@ test.describe('公開用のビルド(dist)', () => {
     expect(errors).toEqual([]);
   });
 
+  /* 酒場 BGM(MUSIC-BGM-TAVERN-001)。manifest には '/audio/bgm/tavern.mp3' と書き、resolveAssetUrl() が
+     公開の土台 /-ARPG-/ を前に付ける。付け忘れると本番だけ 404 になる(開発サーバーは '/' なので気づけない) */
+  test('酒場 BGM: 公開物では /-ARPG-/audio/bgm/tavern.mp3 を読み(200・audio/mpeg)、dist に入っている', async ({ page }) => {
+    const errors = watchErrors(page);
+    const hits = [];
+    page.on('response', r => { if (/\/audio\/bgm\/tavern\.mp3$/.test(r.url())) hits.push({ url: r.url(), status: r.status(), type: r.headers()['content-type'] }); });
+    await openGame(page, { base: PROD_BASE, dev: false });
+    await expect.poll(() => hits.length, { timeout: 20_000 }).toBeGreaterThan(0);
+    expect(hits[0].url).toBe(`${PROD_BASE}audio/bgm/tavern.mp3`);
+    expect(hits[0].status).toBe(200);
+    expect(hits[0].type).toMatch(/audio\/mpeg/);
+    const dist = path.resolve('dist/audio/bgm/tavern.mp3');
+    expect(fs.existsSync(dist), dist).toBe(true);
+    expect(fs.statSync(dist).size).toBe(fs.statSync(path.resolve('public/audio/bgm/tavern.mp3')).size);
+    expect(errors).toEqual([]);
+  });
+
   test('切り上げ・落下攻撃: 技名の中央トーストが出ない。空中スキルの警告は中央に出る', async ({ page }) => {
     test.setTimeout(180_000);
     const errors = watchErrors(page);
