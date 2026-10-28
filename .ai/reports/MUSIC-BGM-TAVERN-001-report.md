@@ -124,4 +124,25 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
 - Human Escalation Count: 1（承認済みの曲の特定）
 - Human Decision Count: 1（候補 A）
 - Auto Fix Count: 1（3 回録りで音が揃わない → 1 回録り + 余韻の足し戻し）
-- Reviewer Round Count: 下記の Review に記録
+- Reviewer Round Count: 1
+
+## 10. Review
+
+**Round 1: PASS**（独立 Reviewer、`fb98892`）。ブロッキングな指摘は無かった。
+
+**Reviewer が自分で確かめたこと**
+- 作曲アプリが変わっていないこと。
+- 書き出しの手順が画面の操作と同じであること。
+- 曲の構成が線形で、余韻を頭へ足し戻す方法が正しいこと。
+- 1 周 P の値。
+- 音量（-14.0 LUFS）。
+- sha256。
+- デコードしたつなぎ目（0.044）。
+- `/-ARPG-/` の URL と dist。
+- テストが実ファイルを見ていること、テストを弱めていないこと。
+- ライセンス。
+- ロードマップの記載が merge の記録と合うこと。
+
+**非ブロッキングの指摘 2 件（どちらも直した）**
+1. `audio.js` の冒頭と「3つのレイヤー」のコメントが、`<audio>` の方式のままだった。
+2. ASSETS.md のメモリの目安が 44.1kHz 前提だった。

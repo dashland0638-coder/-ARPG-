@@ -1,7 +1,7 @@
 // SFX synthesis (oscillators + a shared noise buffer) plus BGM playback.
 // Real audio files are optional everywhere here: register one in
 // asset-manifest.js and it's used automatically; leave it unregistered (or
-// let the fetch fail) and the existing synthesis / silence takes over with
+// let the fetch fail) and the existing synthesis (SFX) / procedural BGM takes over with
 // no code changes elsewhere. Touches game state through state.sfxVolume
 // and state.bgmVolume only.
 import { state } from '../core/state.js';
@@ -35,8 +35,9 @@ import { startProceduralBgm } from './procedural-bgm.js';
   let audioCtx = null, masterGain = null, noiseBuffer = null;
 
   /* ---- 3つのレイヤー -------------------------------------------------
-       BGM     感情とエリアの雰囲気。<audio>要素、または procedural-bgm.js が
-               ctx.destination へ直接繋ぐ(ここの masterGain は通らない)
+       BGM     感情とエリアの雰囲気。登録曲は AudioBufferSource → 曲ごとの GainNode、
+               未登録(または読めない)なら procedural-bgm.js。どちらも ctx.destination へ
+               直接繋ぐ(ここの masterGain は通らない)。WebAudio が無いときだけ <audio>
        環境音   場所の存在感。ambientGain を通す。SFXより一段低い
        SFX     プレイヤーの操作と戦闘。masterGain をそのまま通る
      環境音を masterGain の子にしてあるので、SFX音量の設定・セーブ構造は

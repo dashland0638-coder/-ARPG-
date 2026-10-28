@@ -1,6 +1,6 @@
 # MUSIC-BGM-TAVERN-001 — 完成済み酒場 BGM の実機反映
 
-Status: PR（Reviewer 判定は下。CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
+Status: PR（Reviewer PASS Round 1。CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
 
 ## Approval
 
