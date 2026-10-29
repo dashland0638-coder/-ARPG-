@@ -90,7 +90,7 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
 | 独立 Reviewer | PASS（Round 1、ブロッキング 0）。非ブロッキング 6 件（テストモードの段・クロスフェード中の音量・切り戻し・失敗した読み込みの後始末・コメントの位置・DEC-012 の参照）をすべて直した |
 | E2E `tavern-bgm.spec.js`（9） | 起動（剣士・1 周のバッファ・ループ点なし・継ぎ目の段差）・つづきから 3 種（魔法使い・盗賊・完成版）・切り替え（実物の WebAudio で同じ位置・2 秒・BGM オフ）・6 ファイルのつなぎ目・音量・404・次の段だけ 404 |
 | E2E 関連（9 ファイル） | 67 pass / 0 fail（`audio`・`chapter1-progression`・`mansion-scenario`・`music-sample-engine`・`production-build`（公開ビルドで 6 段階の URL と dist）・`save-load`・`tavern-bgm`・`tavern-smith-greeting`・`chapter-select-testmode`。1 worker・20.5 分） |
-| CI（PR #107） | build・test とも成功（`9f00567`） |
+| CI（PR #107、`93d9afa`） | build 成功。test は 1 回目 345 pass / 1 fail（`mansion-enemies.spec.js` の猟犬の突進の溜め。この PR は洋館の敵に触れず、手元では 15/15 pass）→ 1 回だけ再実行して成功 |
 
 ## 6. 実機で確かめること（iPhone）
 
