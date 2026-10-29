@@ -50,20 +50,28 @@ test.describe('公開用のビルド(dist)', () => {
     expect(errors).toEqual([]);
   });
 
-  /* 酒場 BGM(MUSIC-BGM-TAVERN-001)。manifest には '/audio/bgm/tavern.mp3' と書き、resolveAssetUrl() が
-     公開の土台 /-ARPG-/ を前に付ける。付け忘れると本番だけ 404 になる(開発サーバーは '/' なので気づけない) */
-  test('酒場 BGM: 公開物では /-ARPG-/audio/bgm/tavern.mp3 を読み(200・audio/mpeg)、dist に入っている', async ({ page }) => {
+  /* 酒場 BGM(MUSIC-BGM-TAVERN-001 / 002)。manifest には '/audio/bgm/tavern-<n>-<stage>.mp3' と書き、
+     resolveAssetUrl() が公開の土台 /-ARPG-/ を前に付ける。付け忘れると本番だけ 404 になる(開発サーバーは '/' なので気づけない)。
+     起動時の酒場は剣士の段を読む。6 段階すべてが dist に入っていること */
+  test('酒場 BGM: 公開物では /-ARPG-/audio/bgm/tavern-1-swordsman.mp3 を読み(200・audio/mpeg)、6 段階が dist に入っている', async ({ page }) => {
     const errors = watchErrors(page);
     const hits = [];
-    page.on('response', r => { if (/\/audio\/bgm\/tavern\.mp3$/.test(r.url())) hits.push({ url: r.url(), status: r.status(), type: r.headers()['content-type'] }); });
+    page.on('response', r => { if (/\/audio\/bgm\/tavern-[^/]+\.mp3$/.test(r.url())) hits.push({ url: r.url(), status: r.status(), type: r.headers()['content-type'] }); });
     await openGame(page, { base: PROD_BASE, dev: false });
     await expect.poll(() => hits.length, { timeout: 20_000 }).toBeGreaterThan(0);
-    expect(hits[0].url).toBe(`${PROD_BASE}audio/bgm/tavern.mp3`);
+    expect(hits[0].url).toBe(`${PROD_BASE}audio/bgm/tavern-1-swordsman.mp3`);
     expect(hits[0].status).toBe(200);
     expect(hits[0].type).toMatch(/audio\/mpeg/);
-    const dist = path.resolve('dist/audio/bgm/tavern.mp3');
-    expect(fs.existsSync(dist), dist).toBe(true);
-    expect(fs.statSync(dist).size).toBe(fs.statSync(path.resolve('public/audio/bgm/tavern.mp3')).size);
+    const stages = ['1-swordsman', '2-mage', '3-archer', '4-thief', '5-shadow', '6-complete'];
+    for (const st of stages) {
+      const dist = path.resolve(`dist/audio/bgm/tavern-${st}.mp3`);
+      expect(fs.existsSync(dist), dist).toBe(true);
+      expect(fs.statSync(dist).size).toBe(fs.statSync(path.resolve(`public/audio/bgm/tavern-${st}.mp3`)).size);
+    }
+    expect(fs.existsSync(path.resolve('dist/audio/bgm/tavern.mp3')), '古い 1 曲版は置かない').toBe(false);
+    // 他の段も公開の土台の下から読める
+    const status = await page.evaluate(async list => Promise.all(list.map(st => fetch(`audio/bgm/tavern-${st}.mp3`, { method: 'HEAD' }).then(r => r.status))), stages);
+    expect(status).toEqual(stages.map(() => 200));
     expect(errors).toEqual([]);
   });
 

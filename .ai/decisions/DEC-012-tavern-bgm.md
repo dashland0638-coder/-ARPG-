@@ -1,6 +1,7 @@
 # DEC-012 — 酒場 BGM: 承認済みの曲の特定と、ゲームでの鳴らし方
 
-Status: Accepted（Human の依頼 2026-10-28「次期開発計画の更新 ＋ 完成済み酒場BGMの実機反映」、Human Decision 2026-10-28）
+Status: Accepted（Human の依頼 2026-10-28「次期開発計画の更新 ＋ 完成済み酒場BGMの実機反映」、Human Decision 2026-10-28）。
+決定 4（ループ点で繰り返す）・5（完成版の 1 曲だけ）は [DEC-013](DEC-013-tavern-bgm-stages.md) で置き換えた。曲（決定 1〜3）は変えていない
 
 ## 決定
 

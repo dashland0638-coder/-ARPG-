@@ -44,7 +44,8 @@
 | W0-5 / W3-0〜W3-3 | アートの完成見本 | ― | 未着手（HD-4: 見本の承認が必要） |
 | W2-1a〜W2-6 | サポートの被弾・行動相・見た目、汎用ボスの攻撃表、予兆の統一、評価 | ― | **W2-D の承認待ちでブロック** |
 | W4-1〜W4-6、W4-8、W5 | 第一章への段階展開・回帰・実機の通し | ― | 未着手（フェーズ2 の後） |
-| MUSIC-BGM-TAVERN-001 | 完成済みの酒場 BGM をゲームで鳴らす | 本 PR | 実装・テスト済み。**実機未確認** |
+| MUSIC-BGM-TAVERN-001 | 完成済みの酒場 BGM をゲームで鳴らす | 本 PR | 実装・テスト済み。iPhone でループの継ぎ目が途切れた（Human 2026-10-29）→ 002 で対処 |
+| MUSIC-BGM-TAVERN-002 | 酒場 BGM の継ぎ目の修正と、加入段階の 6 段階の組み込み | 本 PR | 実装・テスト済み。**実機未確認** |
 
 - 開いている PR: **#72**（MUSIC-AUDIO-004、作曲アプリのサンプル読み込み中の再生）。2026-10-12 から開いたまま。
 - Human の指示で今回は触らない。ゲーム本体にも酒場 BGM の書き出しにも影響しない。
@@ -71,7 +72,7 @@
 | # | 判断事項 | 何が止まっているか | 推奨 |
 | --- | --- | --- | --- |
 | HD-A | W2-D の設計（ボスの行動表・支援の HP 120・復帰のルール）を承認するか | W2-1a〜W2-6（戦闘のプロトタイプ）、W4-1〜W4-5 | 設計書 §5〜§7 の推奨値で承認し、W2-1a から 1 つずつ |
-| HD-B | 酒場 BGM を仲間の加入に合わせて段階で切り替えるか | 酒場 BGM の段階版（作曲アプリの 6 段階を書き出す） | 第一章の途中は「加入済みの段階」、クリア後は完成版。書き出しは今回の方法で同じ曲の 6 段階を作れる |
+| HD-B | ~~酒場 BGM を仲間の加入に合わせて段階で切り替えるか~~ | ― | **解決**（Human 2026-10-29 の依頼で組み込み。MUSIC-BGM-TAVERN-002、[DEC-013](../decisions/DEC-013-tavern-bgm-stages.md)） |
 | HD-C | 他の場面の BGM（洋館・村・幽霊船・温室）を作曲アプリの曲にするか | 実音源の BGM（今は手続き生成） | 作曲アプリで Human が曲を承認してから、同じ方法で書き出す |
 | HD-D | PR #72 をどうするか（merge / close） | 作曲アプリのサンプル読み込み中の再生の修正 | Human の判断 |
 | HD-E | 第一章の iPhone の通し（CQ-01）をいつ行うか | Content Ready の判定 | 洋館（#106）と酒場 BGM（本 PR）の確認の後に、通しで行う |
@@ -86,9 +87,9 @@
 ## 5. 酒場 BGM（今回の実装）
 
 - 現状・書き出し方法・組み込み・テスト: [`MUSIC-BGM-TAVERN-001-report.md`](MUSIC-BGM-TAVERN-001-report.md)
-- 決定: [DEC-012](../decisions/DEC-012-tavern-bgm.md)
+- 決定: [DEC-012](../decisions/DEC-012-tavern-bgm.md)、[DEC-013](../decisions/DEC-013-tavern-bgm-stages.md)（継ぎ目・加入段階。[`MUSIC-BGM-TAVERN-002-report.md`](MUSIC-BGM-TAVERN-002-report.md)）
 - 変更したファイル
-  - 音源と記録: `public/audio/bgm/tavern.mp3`、`tools/music-composer/scripts/render-bgm.mjs`、`tools/music-composer/exports/tavern.json`
+  - 音源と記録: `public/audio/bgm/tavern-1-swordsman.mp3` 〜 `tavern-6-complete.mp3`、`tools/music-composer/scripts/render-bgm.mjs`、`tools/music-composer/exports/tavern-stages.json`（002 で 1 曲版から置き換え）
   - ゲーム本体: `src/audio/asset-manifest.js`、`src/audio/audio.js`
   - テスト: `tests/unit/tavern-bgm.test.js`、`tests/tavern-bgm.spec.js`、`tests/production-build.spec.js`
   - 文書: `ASSETS.md`、`tools/music-composer/README.md`、`docs/CHAPTER1_PLAYTEST.md`

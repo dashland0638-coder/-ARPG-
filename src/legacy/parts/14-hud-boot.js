@@ -1404,6 +1404,7 @@
       updateAltitude(dt);
       updateDuskVillage(dt);   // Phase D(#37): 昼夜進行+ランタン近接+ボスの光ギミック
       updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)。他では即 return
+      updateTavernBgmStage();   // 酒場 BGM の加入段階(交代の会話・第一章の最後の会話の後で次の段へ)。他では即 return
       updateRoad(dt);          // 道(WORK 11)。他のワールドでは即return
       updateCutscene(dt);
       updateSwingVFX(dt);
@@ -1474,6 +1475,7 @@
          他のワールドでは即returnするので、コストも副作用も無い */
       updateDuskVillage(dt);
       updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)
+      updateTavernBgmStage();
       updateRoad(dt);
       updateShake(dt);
       updateSparks(dt);
@@ -2038,6 +2040,23 @@
     joinFigureWalk = null;
   }
   // 毎フレーム(14-hud-boot.js の操作中・演出中の両方から)。他の場面では即 return
+  /* 酒場 BGM の加入段階(MUSIC-BGM-TAVERN-002、core/tavern-bgm.js)。
+     buildWorld('tavern') がこの段階で鳴らし始め、酒場にいる間は毎フレーム見直す ――
+     交代の会話を閉じて主人公が替わった瞬間・第一章の最後の会話を閉じた瞬間に、次の段へ
+     同じ位置からクロスフェードする(audio.js setBgmVariant。同じ段なら何もしない)。
+     セーブ・ロードでは、ロードした進行と主人公から同じ式で決まる */
+  function bgmVariantForWorld(key){
+    if(key !== 'tavern') return undefined;
+    return tavernBgmStage({
+      clears: state.scenarioClears, classKey: selectedClass, cast: CHAPTER_CAST,
+      finaleActive: roadPendingFinale || state.dialogueKind === 'chapter1Finale',
+    });
+  }
+  function updateTavernBgmStage(){
+    if(currentWorldKey !== 'tavern') return;
+    setBgmVariant('tavern', bgmVariantForWorld('tavern'));
+  }
+
   function updateChapter1JoinFigure(dt){
     const w = joinFigureWalk;
     if(!w) return;

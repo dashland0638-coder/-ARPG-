@@ -172,18 +172,23 @@ URL: https://claude.ai/artifact/Aa2jjaA2Hu3e6Yrs2WVaXp （非公開。オーナ�
 その通し再生（`playTrack`）を `OfflineAudioContext` で録り、ゲーム用のループ音源（MP3）にする。
 
 ```sh
-node tools/music-composer/scripts/render-bgm.mjs --scene tavern --stage complete --prompt default --out <dir> --name tavern
-# → <dir>/tavern.mp3(ステレオ 44.1kHz 128kbps)と tavern.json(元の HTML の sha256・曲の文・ループ点・検算)
+node tools/music-composer/scripts/render-bgm.mjs --scene tavern --stages swordsman,mage,archer,thief,shadow,complete --prompt default --out <dir> --name tavern
+# → <dir>/tavern-<n>-<stage>.mp3(ステレオ 44.1kHz 128kbps)と tavern-stages.json(元の HTML の sha256・曲の文・段階ごとの楽器・ループ点・検算)
 ```
+
+- 加入段階(MUSIC-BGM-TAVERN-002): アプリの「酒場BGMの成長」(`TAVERN_STAGE_POLICY`)の 6 段階を、段階ごとに新しいページで同じ曲の文から作る。
+  段階で変わるのは鳴らす楽器だけ(主旋律・和音・テンポ・長さは同じ。書き出しが段階ごとに確かめる)。段階は剣士加入 → 魔法使い加入 → 弓師加入 → 盗賊加入 → 影の旅人加入 → 第一章クリア後・完成版
+- 音量は 6 段階に同じ倍率を掛ける(一番大きい完成版のピークが -1 dBFS)。段階が進むほど大きくなるのは、楽器が増えるため
+- 1 周の長さは 1/300 秒単位に丸める(44.1kHz でも 48kHz でもサンプル数が整数になる。47.766667 秒)
 
 - `--prompt default` は画面で「酒場」を選んだときに入る文（`sceneDefaults.tavern`）。`example` は `TAVERN_EXAMPLE_PROMPT`（自動テストが使う古い例文）。
   2 つは旋律もテンポも違う曲になる（103 BPM / 109 BPM）。ゲームの酒場 BGM は Human が聞き比べて `default`（候補 A）を選んだ（DEC-012）
 - アプリは同じページで続けて生成すると、前の曲の文を引き継ぐ（`mergeRevisionStack`）。書き出しは毎回まっさらなページで 1 回だけ生成する
 - 1 周 = 80 音目の枠（`scoreTiming(t).eventStart(80)`、40 小節）。最後の音の余韻・残響は 1 周の頭に重ねる（2 回続けて鳴らしたときの 2 回目と同じ音）。
-  前後に 1 秒ずつ同じ音の続きを付け、ゲームは `loopStart = 1`・`loopEnd = 1 + 1周` で繰り返す（MP3 の先頭の遅れが残っても継ぎ目が変わらない）
-- 音量はピーク -1 dBFS にそろえるだけ（曲は変えない）。ゲーム内の大きさは `src/audio/asset-manifest.js` の `BGM_TRACK_OPTIONS.tavern.gain`
-- 録音は浮動小数の誤差の範囲で毎回同じ。MP3 はその誤差で毎回ビット単位では一致しないので、採用したファイルは `exports/tavern.json` の sha256 で固定する（`tests/unit/tavern-bgm.test.js`）
-- 書き出したもの: `public/audio/bgm/tavern.mp3`、記録 `exports/tavern.json`
+  前後に 1 秒ずつ同じ音の続きを付ける。ゲームはデコード後に `loopStart = 1` から 1 周分を別のバッファへ写して丸ごと繰り返す（MP3 の先頭の遅れが残っても継ぎ目が変わらない。`src/audio/audio.js`）
+- 音量は倍率を掛けるだけ（曲は変えない）。ゲーム内の大きさは `src/audio/asset-manifest.js` の `BGM_TRACK_OPTIONS.tavern.gain`
+- 録音は浮動小数の誤差の範囲で毎回同じ。MP3 はその誤差で毎回ビット単位では一致しないので、採用したファイルは `exports/tavern-stages.json` の sha256 で固定する（`tests/unit/tavern-bgm.test.js`）
+- 書き出したもの: `public/audio/bgm/tavern-1-swordsman.mp3` 〜 `tavern-6-complete.mp3`、記録 `exports/tavern-stages.json`（MUSIC-BGM-TAVERN-001 の 1 曲版 `tavern.mp3` は 6 段階に置き換えた）
 
 ## 音源の出典とライセンス
 

@@ -1,6 +1,7 @@
 # MUSIC-BGM-TAVERN-001 — 完成済み酒場 BGM の実機反映
 
-Status: PR（Reviewer PASS Round 1。CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
+Status: PR（Reviewer PASS Round 1。CONTENT READY = HUMAN DEVICE CHECK REQUIRED）。
+iPhone でループの継ぎ目が途切れた（Human 2026-10-29）。続きは [MUSIC-BGM-TAVERN-002](MUSIC-BGM-TAVERN-002.md)（`tavern.mp3` は 6 段階のファイルに置き換えた）
 
 ## Approval
 

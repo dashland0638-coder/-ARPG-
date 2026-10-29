@@ -15,13 +15,20 @@
      MP3 の先頭の遅れ(エンコーダの詰め物)がデコーダによって残っても、ループの両端が同じだけずれるだけなので、
      つなぎ目は変わらない(pre / post はその遅れより十分長い)。
      雑音(残響・ドラムの合成音)の Math.random は決まった種にするので、書き出しは毎回同じになる。
-     P はサンプル数で整数に丸める(1/44100 秒未満)。
+     P は 1/300 秒単位に丸める(1.7 ミリ秒未満)。44.1kHz でも 48kHz(iPhone の AudioContext)でも 1 周がサンプル数で
+     整数になり、ゲームが 1 周ちょうどのバッファを作って繰り返せる(MUSIC-BGM-TAVERN-002)。
+
+   加入段階(酒場 BGM の成長。アプリの TAVERN_STAGE_POLICY): --stages で複数を書き出す。段階ごとに新しいページで、
+   画面と同じく「加入段階を選ぶ → 生成」を 1 回だけ行う。曲(種・テンポ・80 音)は段階によらず同じであることを確かめる。
+   音量は全段階に同じ倍率を掛ける(いちばん大きい段階のピークを -1 dBFS に)。段階ごとに正規化すると、
+   楽器が増えるほど大きくなるアプリの聞こえ方が崩れるため。
 
    使い方:
-     node tools/music-composer/scripts/render-bgm.mjs --scene tavern --stage complete --prompt default \
-          --out <dir> [--name tavern] [--html ARPG_Music_AI_Composer_v5_70_0_samples.html]
+     node tools/music-composer/scripts/render-bgm.mjs --scene tavern --stages swordsman,mage,archer,thief,shadow,complete \
+          --prompt default --out <dir> [--name tavern] [--html ARPG_Music_AI_Composer_v5_70_0_samples.html]
      --prompt: default = 画面で「酒場」を選んだときに入る文(sceneDefaults.tavern) / example = TAVERN_EXAMPLE_PROMPT
-   出力: <dir>/<name>.mp3・<name>.json(元データ・ループ点・検算の結果)。途中の WAV は一時ファイル(残さない)
+   出力: <dir>/<name>-<n>-<stage>.mp3(n は 1 から)と <dir>/<name>-stages.json(元データ・段階ごとの楽器・ループ点・検算)。
+   途中の WAV は一時ファイル(残さない)
    必要: Playwright の Chromium、ffmpeg(libmp3lame) */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -44,7 +51,7 @@ function args(){
   const a = process.argv.slice(2), o = {};
   for(let i = 0; i < a.length; i += 2) o[a[i].replace(/^--/, '')] = a[i + 1];
   if(!o.out) throw new Error('--out <dir> が要る');
-  return { scene:o.scene || 'tavern', stage:o.stage || 'complete', prompt:o.prompt || 'default',
+  return { scene:o.scene || 'tavern', stages:String(o.stages || o.stage || 'complete').split(',').filter(Boolean), prompt:o.prompt || 'default',
            html:o.html || 'ARPG_Music_AI_Composer_v5_70_0_samples.html', name:o.name || 'tavern', out:path.resolve(o.out),
            executablePath:o.chromium || process.env.CHROMIUM_PATH || undefined };
 }
@@ -64,7 +71,7 @@ function writeWavFloat(file, chans, rate){
   fs.writeFileSync(file, buf);
 }
 
-async function render(opt){
+async function render(opt, stage){
   const browser = await chromium.launch(opt.executablePath ? { executablePath:opt.executablePath } : {});
   try{
     const page = await browser.newPage();
@@ -90,7 +97,8 @@ async function render(opt){
       SampleHooks.setEnabled(true);
       await SampleHooks.ready();
       const t = state.track, tm = scoreTiming(t);
-      const P = Math.round(tm.eventStart(t.phrase.length) * RATE) / RATE;   // 1 周(80 音目の枠)
+      const Pexact = tm.eventStart(t.phrase.length);                   // 1 周(80 音目の枠)
+      const P = Math.round(Pexact * 300) / 300;                        // 44.1kHz・48kHz の両方で整数のサンプル数
       // 2. 1 回の通し再生を OfflineAudioContext へ(playTrack は currentTime + 0.12 から始めるので、開始が 0 になるようずらす)
       const N = Math.round(P * RATE), T = Math.round(TAIL * RATE);
       const off = new OfflineAudioContext(2, N + T, RATE);
@@ -127,12 +135,13 @@ async function render(opt){
       });
       const enc = f=>{ const u = new Uint8Array(f.buffer); let s = ''; for(let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
       return {
-        text, P, periodSamples:Math.round(P * RATE), tempo:t.bp.tempo, phraseLen:t.phrase.length, seed:t.seed,
+        text, P, Pexact, periodSamples:Math.round(P * RATE), tempo:t.bp.tempo, phraseLen:t.phrase.length, seed:t.seed,
+        stage:tavernProgressionKey(), policy:(typeof TAVERN_STAGE_POLICY !== 'undefined' && TAVERN_STAGE_POLICY[stage]) || null,
         events:buildTruthScore(t).events.filter(e=>!e.rest).length,
         instruments:[...new Set(buildTruthScore(t).events.map(e=>e.instrument))],
         stats, tailEnd, ch:ch.map(enc),
       };
-    }, { scene:opt.scene, stage:opt.stage, prompt:opt.prompt, RATE, PRE, POST, TAIL });
+    }, { scene:opt.scene, stage, prompt:opt.prompt, RATE, PRE, POST, TAIL });
     if(errors.length) throw new Error('アプリでエラー: ' + errors.join(' / '));
     return r;
   }finally{
@@ -160,39 +169,61 @@ function analyse(chans, periodSamples, preSamples){
 async function main(){
   const opt = args();
   fs.mkdirSync(opt.out, { recursive:true });
-  const r = await render(opt);
-  const chans = r.ch.map(s=>{ const b = Buffer.from(s, 'base64'); return new Float32Array(b.buffer, b.byteOffset, b.length / 4); });
   const pre = Math.round(PRE * RATE);
-  const before = analyse(chans, r.periodSamples, pre);
-  if(before.periodicityMaxDiff > 1e-6) throw new Error(`前後の続きが 1 周あとと一致しない(差 ${before.periodicityMaxDiff})`);
-  if(r.tailEnd > 1e-4) throw new Error(`TAIL ${TAIL} 秒の終わりで余韻が消えていない(${r.tailEnd})`);
-  const fallback = Object.values(r.stats.fallback).reduce((a, b)=>a + b, 0);
-  if(fallback) throw new Error(`サンプルが間に合わず合成音で鳴った音がある(${fallback})`);
-  // ピークを PEAK_DBFS にそろえる(音量だけ。曲は変えない)
-  const gain = Math.pow(10, PEAK_DBFS / 20) / before.peak;
-  for(const c of chans) for(let i = 0; i < c.length; i++) c[i] *= gain;
+  // 1. 段階ごとに録る(新しいページ)
+  const takes = [];
+  for(const stage of opt.stages){
+    const r = await render(opt, stage);
+    if(r.stage !== stage) throw new Error(`加入段階 ${stage} を選べなかった(${r.stage})`);
+    const chans = r.ch.map(s=>{ const b = Buffer.from(s, 'base64'); return new Float32Array(b.buffer, b.byteOffset, b.length / 4); });
+    const before = analyse(chans, r.periodSamples, pre);
+    if(before.periodicityMaxDiff > 1e-6) throw new Error(`${stage}: 前後の続きが 1 周あとと一致しない(差 ${before.periodicityMaxDiff})`);
+    if(r.tailEnd > 1e-4) throw new Error(`${stage}: TAIL ${TAIL} 秒の終わりで余韻が消えていない(${r.tailEnd})`);
+    const fallback = Object.values(r.stats.fallback).reduce((a, b)=>a + b, 0);
+    if(fallback) throw new Error(`${stage}: サンプルが間に合わず合成音で鳴った音がある(${fallback})`);
+    takes.push({ stage, r, chans, before, fallback });
+  }
+  // 2. 曲が段階によらず同じか(種・テンポ・80 音・1 周)
+  const head = takes[0].r;
+  for(const { stage, r } of takes){
+    for(const k of ['seed', 'tempo', 'phraseLen', 'periodSamples', 'text']) if(r[k] !== head[k]) throw new Error(`${stage}: ${k} が他の段階と違う(${r[k]} / ${head[k]})`);
+  }
+  // 3. 全段階に同じ倍率(いちばん大きい段階のピークを PEAK_DBFS に)
+  const peak = Math.max(...takes.map(t=>t.before.peak));
+  const gain = Math.pow(10, PEAK_DBFS / 20) / peak;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'render-bgm-'));
-  const wav = path.join(tmp, `${opt.name}.wav`), mp3 = path.join(opt.out, `${opt.name}.mp3`);
+  const stages = [];
   try{
-    writeWavFloat(wav, chans, RATE);
-    // -write_xing 1: LAME の情報タグ(先頭の遅れ・末尾の詰め物)を書く。デコーダが読めば頭の詰め物を取る
-    execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', wav, '-codec:a', 'libmp3lame', '-b:a', BITRATE,
-                            '-ar', String(RATE), '-write_xing', '1', '-map_metadata', '-1', '-fflags', '+bitexact', mp3]);
+    takes.forEach((t, i)=>{
+      for(const c of t.chans) for(let j = 0; j < c.length; j++) c[j] *= gain;
+      const name = opt.stages.length > 1 || opt.stages[0] !== 'complete' ? `${opt.name}-${i + 1}-${t.stage}` : opt.name;
+      const wav = path.join(tmp, `${name}.wav`), mp3 = path.join(opt.out, `${name}.mp3`);
+      writeWavFloat(wav, t.chans, RATE);
+      // -write_xing 1: LAME の情報タグ(先頭の遅れ・末尾の詰め物)を書く。デコーダが読めば頭の詰め物を取る
+      execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', wav, '-codec:a', 'libmp3lame', '-b:a', BITRATE,
+                              '-ar', String(RATE), '-write_xing', '1', '-map_metadata', '-1', '-fflags', '+bitexact', mp3]);
+      stages.push({
+        stage:t.stage, file:`${name}.mp3`, instruments:t.r.instruments, policy:t.r.policy, events:t.r.events,
+        bytes:fs.statSync(mp3).size, sha256:sha256(mp3), duration:+(t.chans[0].length / RATE).toFixed(6),
+        check:{ ...analyse(t.chans, t.r.periodSamples, pre), periodicityBeforeGain:t.before.periodicityMaxDiff, tailEnd:t.r.tailEnd,
+                sampleFallback:t.fallback, sampleScheduled:t.r.stats.scheduled },
+      });
+    });
   }finally{
     fs.rmSync(tmp, { recursive:true, force:true });
   }
   const meta = {
-    source:{ html:opt.html, htmlSha256:sha256(path.join(APP_DIR, opt.html)), scene:opt.scene, stage:opt.stage, prompt:opt.prompt, text:r.text,
-             tempo:r.tempo, phraseLen:r.phraseLen, seed:r.seed, events:r.events, instruments:r.instruments, sampleMode:true,
+    source:{ html:opt.html, htmlSha256:sha256(path.join(APP_DIR, opt.html)), scene:opt.scene, prompt:opt.prompt, text:head.text,
+             tempo:head.tempo, phraseLen:head.phraseLen, seed:head.seed, sampleMode:true,
              renderer:`Chromium ${opt.browserVersion} OfflineAudioContext`, encoder:`ffmpeg libmp3lame ${BITRATE} CBR` },
-    loop:{ start:PRE, end:+(PRE + r.periodSamples / RATE).toFixed(6), period:+(r.periodSamples / RATE).toFixed(6), periodSamples:r.periodSamples, rate:RATE },
-    file:{ duration:+(chans[0].length / RATE).toFixed(6), channels:2, bitrate:BITRATE, bytes:fs.statSync(mp3).size, sha256:sha256(mp3) },
+    loop:{ start:PRE, end:+(PRE + head.periodSamples / RATE).toFixed(6), period:+(head.periodSamples / RATE).toFixed(6),
+           periodExact:+head.Pexact.toFixed(6), periodSamples:head.periodSamples, rate:RATE },
     gainDb:+(20 * Math.log10(gain)).toFixed(2),
-    check:{ ...analyse(chans, r.periodSamples, pre), periodicityBeforeGain:before.periodicityMaxDiff, tailEnd:r.tailEnd, sampleFallback:fallback,
-            sampleScheduled:r.stats.scheduled },
+    stages,
   };
-  fs.writeFileSync(path.join(opt.out, `${opt.name}.json`), JSON.stringify(meta, null, 2) + '\n');
-  console.log(JSON.stringify(meta, null, 2));
+  const out = path.join(opt.out, `${opt.name}-stages.json`);
+  fs.writeFileSync(out, JSON.stringify(meta, null, 2) + '\n');
+  console.log(JSON.stringify({ ...meta, stages:stages.map(s=>({ stage:s.stage, file:s.file, instruments:s.instruments, bytes:s.bytes, peak:+s.check.peak.toFixed(4), rms:+s.check.rms.toFixed(4) })) }, null, 2));
 }
 
 main().catch(e=>{ console.error(e && e.stack || e); process.exit(1); });
