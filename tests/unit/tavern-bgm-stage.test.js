@@ -70,7 +70,7 @@ test('組み込み: 酒場を組むときにこの段階で鳴らし、酒場に
   assert.match(world, /playBgm\(key, bgmVariantForWorld\(key\)\);/);
   const hud = parts('14-hud-boot.js');
   const fn = hud.slice(hud.indexOf('function bgmVariantForWorld(key){'), hud.indexOf('function updateChapter1JoinFigure(dt){'));
-  assert.match(fn, /if\(key !== 'tavern'\) return undefined;/);
+  assert.match(fn, /if\(key !== 'tavern'\) return undefined;\s*if\(state\.testMode\) return 'complete';/);   // テストモードは進行を持たない
   assert.match(fn, /clears: state\.scenarioClears, classKey: selectedClass, cast: CHAPTER_CAST,/);
   assert.match(fn, /finaleActive: roadPendingFinale \|\| state\.dialogueKind === 'chapter1Finale',/);
   assert.match(fn, /function updateTavernBgmStage\(\)\{\s*if\(currentWorldKey !== 'tavern'\) return;\s*setBgmVariant\('tavern', bgmVariantForWorld\('tavern'\)\);/);

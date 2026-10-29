@@ -630,6 +630,13 @@ import { startProceduralBgm } from './procedural-bgm.js';
       g.setValueAtTime(g.value, t);
       g.linearRampToValueAtTime(v * bufferBgm.trim, t + 0.05);   // short ramp: no zipper click
     }
+    // mid-crossfade: the outgoing variant is on its way out anyway - drop it now
+    if(audioCtx) fadingBgms.forEach(f=>{
+      const g = f.gain.gain, t = audioCtx.currentTime;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(0, t + 0.05);
+    });
   }
 
   // 0 (calm) .. 1 (thick of a fight) - see COMBAT MUSIC in 13-update-loop.js.
@@ -679,7 +686,8 @@ import { startProceduralBgm } from './procedural-bgm.js';
         .then(res=>{ if(!res.ok) throw new Error(`${res.status} ${url}`); return res.arrayBuffer(); })
         .then(data=>decodeAudio(ctx, data))
         .then(decoded=>makeLoopBuffer(ctx, decoded, opts));
-      job.catch(()=>bgmBufferCache.delete(url));   // a failed load may be retried on the next visit
+      // a failed load may be retried on the next visit (don't drop a newer job for the same url)
+      job.catch(()=>{ if(bgmBufferCache.get(url) === job) bgmBufferCache.delete(url); });
       bgmBufferCache.set(url, job);
     }
     return bgmBufferCache.get(url);
@@ -820,6 +828,7 @@ import { startProceduralBgm } from './procedural-bgm.js';
     const resolved = resolveAssetUrl(toUrl);
     loadBgmBuffer(ctx, resolved, opts).then(loop=>{
       if(token !== bgmToken) return;
+      if(bufferBgm && bufferBgm.url === resolved) return;   // switched away and back before the load finished
       /* Crossfade only when the old variant has really been heard. Right after
          the world started - or while the context is still suspended before the
          first tap (a save is applied after the tavern was built at boot) -

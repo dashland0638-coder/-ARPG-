@@ -38,5 +38,5 @@ Status: Accepted（Human の依頼 2026-10-28「次期開発計画の更新 ＋ 
 ## Related
 
 - `.ai/tasks/MUSIC-BGM-TAVERN-001.md`、`.ai/reports/MUSIC-BGM-TAVERN-001-report.md`
-- `tools/music-composer/exports/tavern.json`
+- `tools/music-composer/exports/tavern.json`（MUSIC-BGM-TAVERN-002 で `exports/tavern-stages.json` に置き換え・削除）
 - `tests/unit/tavern-bgm.test.js`、`tests/tavern-bgm.spec.js`

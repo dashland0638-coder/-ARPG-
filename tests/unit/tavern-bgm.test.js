@@ -295,6 +295,36 @@ test('再生: 段階を替えると、同じ位置から 2 秒でクロスフェ
   assert.equal(live(log).length, 0, 'stopBgm でフェード中の音も止まる');
 });
 
+test('再生: クロスフェード中に BGM をオフにすると、前後どちらの段も 0 へ。切り替えて読み込み中にすぐ戻すと、鳴っている段のまま', async () => {
+  const log = harness();
+  const { state } = await import('../../src/core/state.js');
+  const audio = await import(`../../src/audio/audio.js?case=xfade-volume`);
+  state.bgmVolume = 0.4;
+  audio.playBgm('tavern', 'swordsman');
+  await flush();
+  setCtxTime(10);
+  audio.setBgmVariant('tavern', 'mage');
+  await flush();
+  const [a, b] = songs(log);
+  setCtxTime(11);                           // 2 秒のクロスフェードの途中
+  state.bgmVolume = 0;
+  audio.setBgmVolume(0);
+  const last = g=>g.events[g.events.length - 1];
+  assert.deepEqual(last(b.to.gain).slice(0, 2), ['ramp', 0], '新しい段は 0 へ');
+  assert.deepEqual(last(a.to.gain).slice(0, 2), ['ramp', 0], '消えていく前の段も 0 へ');
+  assert.ok(last(a.to.gain)[2] <= 11.05 + 1e-9, '前の段はすぐ(残り 1 秒のフェードを待たない)');
+  // 魔法使いを鳴らしている → 弓師へ(読み込み中)→ すぐ魔法使いへ戻す: 魔法使い → 魔法使いのクロスフェードをしない
+  state.bgmVolume = 0.4;
+  audio.setBgmVolume(0.4);
+  setCtxTime(20);
+  audio.setBgmVariant('tavern', 'archer');
+  audio.setBgmVariant('tavern', 'mage');
+  await flush();
+  assert.equal(songs(log).length, 2, '新しい音源を作らない');
+  assert.deepEqual(live(log), [b]);
+  audio.stopBgm();
+});
+
 test('再生: 鳴り始めの直後(ロード直後)の段階の修正はクロスフェードせず、正しい段階を頭から鳴らす', async () => {
   const log = harness();
   const audio = await import(`../../src/audio/audio.js?case=load`);
