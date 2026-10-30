@@ -72,6 +72,12 @@ test.describe('公開用のビルド(dist)', () => {
     // 他の段も公開の土台の下から読める
     const status = await page.evaluate(async list => Promise.all(list.map(st => fetch(`audio/bgm/tavern-${st}.mp3`, { method: 'HEAD' }).then(r => r.status))), stages);
     expect(status).toEqual(stages.map(() => 200));
+    // 修正前(v5.70.0)との聞き比べのページと音源(MUSIC-BGM-TAVERN-003。実機確認用)も公開の土台の下から読める
+    const compare = await page.evaluate(async list => Promise.all(list.map(st => fetch(`audio/bgm/compare/v5_70/tavern-${st}.mp3`, { method: 'HEAD' }).then(r => r.status))), stages);
+    expect(compare).toEqual(stages.map(() => 200));
+    const comparePage = await page.evaluate(() => fetch('audio/bgm/compare/index.html').then(r => r.text()));
+    expect(comparePage).toContain('<title>酒場 BGM 聞き比べ</title>');
+    expect(fs.existsSync(path.resolve('dist/audio/bgm/compare/index.html'))).toBe(true);
     expect(errors).toEqual([]);
   });
 

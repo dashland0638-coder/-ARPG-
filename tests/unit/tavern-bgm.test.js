@@ -1,12 +1,12 @@
-/* 酒場 BGM の実音源(MUSIC-BGM-TAVERN-001 / 002)。
+/* 酒場 BGM の実音源(MUSIC-BGM-TAVERN-001 / 002 / 003)。
 
-   作曲アプリ v5.70.0(サンプル版)の「酒場BGMの成長」6 段階を tools/music-composer/scripts/render-bgm.mjs で書き出した
+   作曲アプリ v5.71.0(サンプル版。v5.70.0 から酒場のチェロの長さだけを直した版。MUSIC-BGM-TAVERN-003)の「酒場BGMの成長」6 段階を tools/music-composer/scripts/render-bgm.mjs で書き出した
    public/audio/bgm/tavern-<n>-<stage>.mp3 を、ゲームが実際に鳴らす。ここで固定するのは:
      1. 登録: BGM_VARIANTS.tavern がアプリの 6 段階(TAVERN_STAGE_POLICY の名前と順)を、public/ の実在するファイルで持つ。
         既定(BGM_TRACKS.tavern)は完成版。ループ点・音量は書き出しの記録と一致し、6 段階で共通
      2. ファイル: MP3(MPEG-1 Layer III・44.1kHz・ステレオ・128kbps CBR)。フレームを数えた長さが記録と一致し、
         ループ点の前後に十分な余白がある。1 周は 44.1kHz でも 48kHz でもサンプル数で整数
-     3. 元データ: 記録(exports/tavern-stages.json)の sha256 が今の mp3 と、元の HTML が今の v5.70.0 サンプル版と一致。
+     3. 元データ: 記録(exports/tavern-stages.json)の sha256 が今の mp3 と、元の HTML が今の v5.71.0 サンプル版と一致。
         曲の文は sceneDefaults.tavern(Human Decision 2026-10-28 候補 A)。段階ごとの楽器はアプリの TAVERN_STAGE_POLICY と同じ。
         楽器が増えるほど大きくなる(全段階に同じ倍率)。書き出し時の検算が 0
      4. 再生(audio.js を偽の AudioContext と fetch で動かす):
@@ -124,8 +124,8 @@ test('ファイル: 6 段階とも MPEG-1 Layer III・44.1kHz・ステレオ・1
   assert.ok(total < 6e6, `6 段階の合計 ${total} bytes`);
 });
 
-test('元データ: 承認済みの v5.70.0(サンプル版)の酒場 6 段階。楽器はアプリの段階どおり、増えるほど大きい', () => {
-  assert.equal(META.source.html, 'ARPG_Music_AI_Composer_v5_70_0_samples.html');
+test('元データ: v5.71.0(サンプル版)の酒場 6 段階。楽器はアプリの段階どおり、増えるほど大きい', () => {
+  assert.equal(META.source.html, 'ARPG_Music_AI_Composer_v5_71_0_samples.html');
   assert.equal(sha256(fs.readFileSync(APP)), META.source.htmlSha256, '書き出した後に作曲アプリが変わっていない');
   assert.equal(META.source.scene, 'tavern');
   assert.equal(META.source.prompt, 'default');
@@ -154,6 +154,39 @@ test('元データ: 承認済みの v5.70.0(サンプル版)の酒場 6 段階�
     const a = POLICY[TAVERN_BGM_STAGES[i - 1]].instruments, b = POLICY[TAVERN_BGM_STAGES[i]].instruments;
     assert.ok(a.every(x=>b.includes(x)) && b.length > a.length, TAVERN_BGM_STAGES[i]);
   }
+});
+
+test('v5.71.0(MUSIC-BGM-TAVERN-003): v5.70.0 から酒場のチェロの長さだけを変えた版。v5.70.0 は変えていない。修正前の音源を聞き比べ用に残す', () => {
+  const dir = path.join(root, 'tools/music-composer');
+  const v570 = fs.readFileSync(path.join(dir, 'ARPG_Music_AI_Composer_v5_70_0.html'), 'utf8');
+  const v571 = fs.readFileSync(path.join(dir, 'ARPG_Music_AI_Composer_v5_71_0.html'), 'utf8');
+  assert.equal(sha256(Buffer.from(v570)), 'aa8e01d77c6f1f642f39f55e4ae8cc43832bfe785221e20f6d2ef5f0ef5952de', '承認済みの v5.70.0 はそのまま');
+  // scripts/make_v571.py の置き換え 2 つ(チェロの長さ・版の注記)だけ
+  const OLD = '   const celloDur=Math.max(.12,sec*x.d*.90);';
+  assert.equal(v570.split(OLD).length, 2);
+  const expected = v570.replace(OLD, [
+    '   // v5.71: 酒場は次のチェロ(8 音後)の始まりまで鳴らす。v5.70 までは 0.9 倍で、8 拍のうち最後の 1 拍が切れていた',
+    '   const nextCelloSt=tm.eventStart(Math.min((Number(x.m)||0)+8,phrase.length));',
+    '   const celloDur=isTavernTrack(t)?Math.max(.12,sec*x.d*.90,nextCelloSt-st):Math.max(.12,sec*x.d*.90);',
+  ].join('\n')).replace('<!-- v5.70.0: tavern guitar strums', `${v571.match(/<!-- v5\.71\.0: [^\n]*-->/)[0]}\n<!-- v5.70.0: tavern guitar strums`);
+  assert.equal(v571, expected, 'v5.70.0 との差はチェロの長さと注記だけ');
+  // 書き出しに使ったサンプル版 = v5.71.0 の末尾に音源の読み込みを足しただけ(v5.70.0 の試作と同じ足し方)
+  const proto = fs.readFileSync(APP, 'utf8');
+  assert.ok(proto.startsWith(v571));
+  assert.equal(proto.slice(v571.length), fs.readFileSync(path.join(dir, 'ARPG_Music_AI_Composer_v5_70_0_samples.html'), 'utf8').slice(v570.length));
+  // 修正前(v5.70.0)の 6 段階は public/audio/bgm/compare/v5_70/ に、書き出しの記録どおりのまま残す(聞き比べのページから読む)
+  const before = JSON.parse(fs.readFileSync(path.join(dir, 'exports/tavern-stages-v5_70.json'), 'utf8'));
+  assert.equal(before.source.html, 'ARPG_Music_AI_Composer_v5_70_0_samples.html');
+  const page = fs.readFileSync(path.join(root, 'public/audio/bgm/compare/index.html'), 'utf8');
+  for (const s of before.stages) {
+    assert.equal(sha256(fs.readFileSync(path.join(root, 'public/audio/bgm/compare/v5_70', s.file))), s.sha256, `修正前 ${s.stage}`);
+    assert.ok(page.includes(`'${s.stage}'`), `聞き比べのページに ${s.stage}`);
+  }
+  // 曲の形は同じ(種・テンポ・音数・1 周)。音量の倍率も同じ(音量で隠していない)
+  for (const k of ['seed', 'tempo', 'phraseLen', 'text']) assert.equal(META.source[k], before.source[k], k);
+  assert.deepEqual(META.loop, before.loop);
+  assert.equal(META.gainDb, before.gainDb);
+  assert.deepEqual(META.stages.map(s=>s.events), before.stages.map(s=>s.events), '段階ごとの音の数は同じ');
 });
 
 /* ---- 再生: audio.js を偽の AudioContext / fetch で動かす ----

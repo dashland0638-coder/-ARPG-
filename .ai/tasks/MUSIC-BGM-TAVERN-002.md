@@ -1,6 +1,6 @@
 # MUSIC-BGM-TAVERN-002 — 酒場 BGM の継ぎ目と、加入段階の組み込み
 
-Status: PR #107（CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
+Status: PR #107（CONTENT READY = HUMAN DEVICE CHECK REQUIRED）。iPhone で正常に再生（Human 2026-10-30）。曲の途中の途切れは [MUSIC-BGM-TAVERN-003](MUSIC-BGM-TAVERN-003.md) で対処（音源は v5.71.0 から書き出し直した）
 
 ## Approval
 

@@ -25,7 +25,7 @@
 
    使い方:
      node tools/music-composer/scripts/render-bgm.mjs --scene tavern --stages swordsman,mage,archer,thief,shadow,complete \
-          --prompt default --out <dir> [--name tavern] [--html ARPG_Music_AI_Composer_v5_70_0_samples.html]
+          --prompt default --out <dir> [--name tavern] [--html ARPG_Music_AI_Composer_v5_71_0_samples.html]
      --prompt: default = 画面で「酒場」を選んだときに入る文(sceneDefaults.tavern) / example = TAVERN_EXAMPLE_PROMPT
    出力: <dir>/<name>-<n>-<stage>.mp3(n は 1 から)と <dir>/<name>-stages.json(元データ・段階ごとの楽器・ループ点・検算)。
    途中の WAV は一時ファイル(残さない)
@@ -52,7 +52,7 @@ function args(){
   for(let i = 0; i < a.length; i += 2) o[a[i].replace(/^--/, '')] = a[i + 1];
   if(!o.out) throw new Error('--out <dir> が要る');
   return { scene:o.scene || 'tavern', stages:String(o.stages || o.stage || 'complete').split(',').filter(Boolean), prompt:o.prompt || 'default',
-           html:o.html || 'ARPG_Music_AI_Composer_v5_70_0_samples.html', name:o.name || 'tavern', out:path.resolve(o.out),
+           html:o.html || 'ARPG_Music_AI_Composer_v5_71_0_samples.html', name:o.name || 'tavern', out:path.resolve(o.out),
            executablePath:o.chromium || process.env.CHROMIUM_PATH || undefined };
 }
 
