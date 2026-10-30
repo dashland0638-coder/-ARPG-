@@ -83,6 +83,7 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
 | E2E `music-sample-engine.spec.js`（v5.71.0） | 6 段階で、チェロの長さ以外の全イベントが v5.70.0 と同じ（ギターの和音も）。チェロは次のチェロの始まりで止まる。伸びている音が切れる時間が無い（v5.70.0 は剣士・魔法使いで 0.58 秒）。通し再生は譜面と 1 対 1。洋館・船の曲は v5.70.0 と同じ |
 | E2E `tavern-bgm.spec.js` | 6 段階とも半小節ごとの大きさが中央値より 8dB 以上下がらない（対照: 修正前の剣士は 10 か所・-13 dB 台）。聞き比べのページで修正前・後を 1 周のループで鳴らせる。既存の 9 件（ループ・段階・切り替え・音量・404） |
 | E2E `production-build.spec.js` | 公開ビルドで聞き比べのページと修正前の音源が `/-ARPG-/` の下から読める |
+| E2E 関連 7 ファイル | 61 pass / 0 fail（`audio`・`music-sample-engine`・`production-build`・`tavern-bgm`・`chapter1-progression`・`save-load`・`mansion-scenario`。ループ・音量・段階・出撃と帰還・セーブとロードを含む。1 worker・11 分） |
 | 独立 Reviewer | PASS（Round 1、ブロッキング 0）。新旧の MP3 を独自にデコードして診断を確認（1/4 小節・250ms の窓でも途切れが無い。つなぎ目に盛り上がり無し）。非ブロッキング 3 件（聞き比べのページで読み込み中に続けて押すと二重に鳴る・README の数値・DEC-014 の書き方）をすべて直した |
 
 ## 5. 実機で確かめること（iPhone）
