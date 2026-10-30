@@ -36,11 +36,13 @@ async function instrument(page) {
       return origAb.call(this).then(ab => { tag.set(ab, url); return ab; });
     };
     const C = window.AudioContext;
-    const fp = (x, i) => Array.from(x.subarray(i, i + 8));
+    /* 指紋: 1 周の 1 秒目と 4.4 秒目(修正前の v5.70.0 で音が途切れていた所。修正後はチェロが鳴る)の 8 サンプルずつ。
+       1 秒目だけだと、剣士の段の修正前・修正後は同じ音になることがあり、聞き比べのページで取り違える */
+    const fp = (x, i, r) => { const j = i + Math.round(3.4 * r); return [...x.subarray(i, i + 8), ...x.subarray(j, j + 8)]; };
     const note = (buf, url) => {
       if (!url || !/\/audio\/bgm\//.test(url) || rec.decoded.some(d => d.buf === buf)) return;
       const r = buf.sampleRate;
-      rec.decoded.push({ buf, url: new URL(url).pathname, fp: fp(buf.getChannelData(0), Math.round(LOOP_START * r) + r) });
+      rec.decoded.push({ buf, url: new URL(url).pathname, fp: fp(buf.getChannelData(0), Math.round(LOOP_START * r) + r, r) });
     };
     const LOOP_START = 1;
     const origDecode = C.prototype.decodeAudioData;
@@ -58,7 +60,7 @@ async function instrument(page) {
       node.start = (when, offset, dur) => {
         const b = node.buffer;
         if (b && b.duration > 10) {
-          const r = b.sampleRate, n = b.length, mine = fp(b.getChannelData(0), r);
+          const r = b.sampleRate, n = b.length, mine = fp(b.getChannelData(0), r, r);
           const src = rec.decoded.find(d => d.fp.every((v, i) => v === mine[i]));
           // つなぎ目(最後のサンプル → 最初のサンプル)の段差と、曲の中の普段の隣り合う音の差
           let seam = 0, typical = 0;
