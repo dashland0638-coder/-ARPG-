@@ -32,7 +32,7 @@
                   ['thief', '4 盗賊加入'], ['shadow', '5 影の旅人加入'], ['complete', '6 完成版']];
   const FILE = (ver, i, s) => (ver === 'before' ? 'v5_70/' : '../') + `tavern-${i + 1}-${s}.mp3`;
   const LOOP_START = 1, LOOP_END = 48.766667, BLEND = 0.03, GAIN = 0.35, FROM = 2.2;
-  let ctx = null, cur = null;
+  let ctx = null, cur = null, gen = 0;   // gen: 読み込み中に別のボタン(同じボタン)を押したら、前の読み込みは鳴らさない
   const cache = new Map();
   const status = t => { document.getElementById('status').textContent = t; };
   function loop(decoded){   // src/audio/audio.js の makeLoopBuffer と同じ
@@ -52,6 +52,7 @@
     return cache.get(url);
   }
   function stop(){
+    gen++;
     if (cur) { try { cur.src.stop(); } catch (e) {} cur = null; }
     document.querySelectorAll('button.on').forEach(b => b.classList.remove('on'));
   }
@@ -59,11 +60,12 @@
     ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
     if (ctx.state === 'suspended') ctx.resume();
     stop();
+    const my = gen;
     btn.classList.add('on');
     status(`読み込み中: ${label}`);
     try {
       const buf = await load(url);
-      if (!btn.classList.contains('on')) return;
+      if (my !== gen) return;
       const g = ctx.createGain(); g.gain.value = GAIN; g.connect(ctx.destination);
       const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(g);
       src.start(ctx.currentTime + 0.05, FROM);
