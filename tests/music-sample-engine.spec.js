@@ -8,6 +8,7 @@
        増えるのは譜面にあるのに鳴っていなかった音(ピアノ・ベル・ベースの style-bass・キーボードの keys / synth)だけ
      ・v5.69.0 はギターの譜面イベントを編集できる。編集しなければ v5.68.0 と同じ。編集は譜面と音の両方に入る
      ・v5.70.0 は酒場完成版のギターの和音を、同時に鳴る音に合わせる(他の音・リズム・長さ・強さは v5.69.0 と同じ)
+     ・v5.71.0 は酒場のチェロを次のチェロの始まりまで伸ばす(8 拍ごとに全部の音が切れる 1 拍を無くす。他は v5.70.0 と同じ)
      ・試作 HTML の「合成音」は v5.70.0 と同じ。サンプルのギターは次のストロークで前の和音を止める。「サンプル」は10楽器を、譜面と同じ値でサンプルにする。楽器ごとに合成音へ戻せる
      ・停止 → 再生を繰り返しても前の音は残らない。セル音量・セル試聴が効く
      ・音源が読めないときは合成音に戻り、アプリは止まらない */
@@ -21,6 +22,7 @@ const V568 = `${DIR}ARPG_Music_AI_Composer_v5_68_0.html`;
 const V569 = `${DIR}ARPG_Music_AI_Composer_v5_69_0.html`;
 const BASE = `${DIR}ARPG_Music_AI_Composer_v5_70_0.html`;
 const PROTO = `${DIR}ARPG_Music_AI_Composer_v5_70_0_samples.html`;
+const V571 = `${DIR}ARPG_Music_AI_Composer_v5_71_0.html`;   // 酒場のチェロの長さだけを直した版(MUSIC-BGM-TAVERN-003。ゲームの酒場 BGM の書き出し元)
 const SCENES = [
   ...['swordsman', 'shadow', 'complete'].map(stage=>({ scene:'tavern', stage })),
   { scene:'mansion' }, { scene:'ship' },
@@ -274,6 +276,55 @@ test.describe('MUSIC-AUDIO-001 合成音モードの修正(v5.68.0)', ()=>{
         expect(a.internal, label).toBeGreaterThan(0);
         expect(b.internal, label).toBe(0);                        // 和音の中で半音・増4度・長7度が無い
       }
+    }
+  });
+
+  test('v5.71.0: 酒場のチェロだけが次のチェロまで伸び、どの段階でも全部の音が切れる時間が無くなる(他の音・ギターの和音・酒場以外の曲は v5.70.0 と同じ)', async ({ page })=>{
+    const measure = ()=>page.evaluate(()=>{
+      const t = state.track, tm = scoreTiming(t), P = tm.eventStart(t.phrase.length);
+      const ev = buildTruthScore(t).events;
+      // 鳴っている音(休符・合成の短い拍を除く)がどれも無い時間
+      const iv = ev.filter(e=>!e.rest && e.kind !== 'pulse').map(e=>[e.start, e.start + e.duration]).sort((a, b)=>a[0] - b[0]);
+      let end = 0, gap = 0;
+      for(const [a, b] of iv){ gap = Math.max(gap, a - end); end = Math.max(end, b); }
+      gap = Math.max(gap, P - end);
+      const cello = ev.filter(e=>e.instrument === 'Cello' && e.kind === 'foundation').map(e=>[e.start, e.duration]);
+      const key = e=>JSON.stringify({ ...e, duration:e.instrument === 'Cello' && e.kind === 'foundation' ? 0 : e.duration });
+      return { gap, P, cello, others:ev.map(key).join('\n'), all:ev.map(e=>JSON.stringify(e)).join('\n') };
+    });
+    const open = async (url, sc)=>{
+      await page.goto(url);
+      await page.evaluate(sc=>{
+        state.track = null; state.scene = sc.scene;
+        if(sc.stage) document.getElementById('tavernProgressionSelect').value = sc.stage;
+        document.getElementById('prompt').value = sceneDefaults[sc.scene];   // ゲームの酒場 BGM と同じ文(候補 A)
+        generate();
+      }, sc);
+    };
+    for(const stage of ['swordsman', 'mage', 'archer', 'thief', 'shadow', 'complete']){
+      await open(BASE, { scene:'tavern', stage });
+      const a = await measure();
+      await open(V571, { scene:'tavern', stage });
+      const b = await measure();
+      expect(b.others, stage).toBe(a.others);                       // チェロの長さ以外は同じ(ギターの和音も)
+      expect(b.cello.map(c=>c[0]), stage).toEqual(a.cello.map(c=>c[0]));
+      b.cello.forEach(([st, d], k)=>{
+        const next = k + 1 < b.cello.length ? b.cello[k + 1][0] : b.P;
+        expect(st + d, `${stage} チェロ ${k}: 次のチェロの始まりまで(重ねない)`).toBeCloseTo(next, 9);
+      });
+      if(stage === 'swordsman' || stage === 'mage') expect(a.gap, `${stage}: v5.70.0 は 1 拍(約 0.58 秒)切れる`).toBeGreaterThan(.5);
+      expect(b.gap, `${stage}: v5.71.0 は切れない`).toBeLessThan(.001);
+      if(stage === 'swordsman' || stage === 'complete'){
+        // 通し再生は v5.71.0 でも譜面と 1 対 1
+        const p = await probePlay(page);
+        expect(p.keys).toEqual(await expectedFromScore(page));
+      }
+    }
+    for(const scene of ['mansion', 'ship']){
+      await open(BASE, { scene });
+      const a = await measure();
+      await open(V571, { scene });
+      expect((await measure()).all, `${scene} は v5.70.0 と同じ`).toBe(a.all);
     }
   });
 

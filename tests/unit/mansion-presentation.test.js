@@ -96,7 +96,7 @@ test('BGM: 洋館と酒場に手続き生成の項目がある(実音源は未�
   assert.match(moods, /\n\s+mansion:\s*\{/);
   assert.match(moods, /\n\s+tavern:\s*\{/);
   // ワールドに入るたびに、そのワールドの鍵で BGM を切り替える
-  assert.match(world, /playBgm\(key\);/);
+  assert.match(world, /playBgm\(key, bgmVariantForWorld\(key\)\);/);
 });
 
 test('館の主: 登場・不意打ち・戦闘中の一言・撃破後の独白が揃い、名前が一致する', () => {

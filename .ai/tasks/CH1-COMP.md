@@ -33,18 +33,21 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 
 | 順 | ID | Summary | 優先度 | Status | Approval | 依存 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | W1-1 | 移動中・戦闘中にサポートを見続ける首の追従を直す（会話中は維持） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
-| 2 | W1-3 | 通常コンボの「✨ フィニッシュ!」を出さない（重要な通知は残す） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
-| 3 | W2-T1 | 戦闘改修前のベースライン測定（宵待ちの村のボス戦） | P1 | PR_OPEN（Reviewer PASS） | [x] Human 2026-10-15 | ― |
-| 4 | W2-D | 村のボス戦の試作の設計（数値・仕組みの提案） | P1 | DESIGN（`.ai/reports/CH1-COMBAT-PROTO-design.md`。Human の判断待ち） | [ ] Human の承認が必要 | W2-T1 |
+| 1 | W1-1 | 移動中・戦闘中にサポートを見続ける首の追従を直す（会話中は維持） | P1 | DONE（PR #87 merged） | [x] Human 2026-10-15 | ― |
+| 2 | W1-3 | 通常コンボの「✨ フィニッシュ!」を出さない（重要な通知は残す） | P1 | DONE（PR #87 merged） | [x] Human 2026-10-15 | ― |
+| 3 | W2-T1 | 戦闘改修前のベースライン測定（宵待ちの村のボス戦） | P1 | DONE（PR #87 merged） | [x] Human 2026-10-15 | ― |
+| 4 | W2-D | 村のボス戦の試作の設計（数値・仕組みの提案） | P1 | DESIGN（設計書は PR #91 で main。`.ai/reports/CH1-COMBAT-PROTO-design.md`。**Human の承認待ち**。W2-1a〜W2-6 はこれでブロック） | [ ] Human の承認が必要 | W2-T1 |
 | 4a | W2-T2 | 現行コード（`1205665`）でのベースライン再測定と、通常プレイの生存可能性の評価（測定だけ。ゲームは変えない） | P1 | DONE（PR #92 merged `e5d3464`、2026-10-20。iPhone 実機確認は HUMAN DEVICE CHECK REQUIRED） | [x] Human 2026-10-19（依頼文） | W2-T1 |
 | 4b | W2-4a | 村のボスの段階移行の爆発に予兆（0.8 秒・足元の円）を付ける（`CH1-COMP-W24a.md`。残響の円は含めない） | P1 | DONE（PR #94 merged `1801f05`、2026-10-20。Human の受け入れ確認で ACCEPT。iPhone 実機確認は HUMAN DEVICE CHECK REQUIRED） | [x] Human 2026-10-20（依頼文） | W2-D |
 | 4c | W2-MB | 宵待ちの村のボス直前の中ボス（記憶漁師・水門守の残響）の攻撃の分かりにくさの調査（調査のみ。`CH1-COMP-W2MB.md`） | P1 | DONE（PR #93 merged `8fd69cb`、2026-10-20。調査のみ） | [x] Human 2026-10-20（依頼文） | ― |
 | 4d | W2-MB1 | 記憶漁師の近接に予兆（溜め＋足元の円）、網の輪を判定の範囲に合わせる（`CH1-COMP-W2MB1.md`。水門守は W2-MB2） | P1 | DONE（PR #96 merge `15fe597`。iPhone 確認は未） | [x] Human 承認 2026-10-20（溜め 0.5 秒・パニッシュ窓なし・観測の灯で伸ばさない） | W2-MB |
-| 4e | W2-MB2 | 水門守の残響の本体と「引いた」残響に攻撃範囲の予兆（足元の円）（`CH1-COMP-W2MB2.md`） | P1 | DONE（PR 作成。branch `claude/ch1-comp-w2-mb2-keeper-telegraph`。iPhone 確認は未） | [x] Human 指示 2026-10-22（数値は変えない） | W2-MB |
+| 4e | W2-MB2 | 水門守の残響の本体と「引いた」残響に攻撃範囲の予兆（足元の円）（`CH1-COMP-W2MB2.md`） | P1 | DONE（PR #99 merged `5887772`。iPhone 確認は未記録） | [x] Human 指示 2026-10-22（数値は変えない） | W2-MB |
+| 4f | W3（村） | 宵待ちの村の敵デザインと探索マップ（W3・W3-GHOST・DUSK-IMMERSION・DUSK-RING-FLOOR-001） | P1 | DONE（#100・#103・#104・#105 merged。#104・#105 は iPhone 確認済み 2026-10-27） | [x] Human | ― |
+| 4g | W4-7（洋館） | 森の洋館の一本道の解消（`CH1-MANSION-EXPLORATION.md`、DEC-011） | P2 | DONE（#106 merged `1cad92d`、2026-10-28。iPhone 確認は未記録） | [x] Human 2026-10-27 | W4-7（村） |
+| 4h | W1-4 | 鍛冶屋の装備一覧（横持ち） | P2 | DONE（UI-002-J として PR #88 merged） | [x] Human | ― |
 | 5 | W0-5 | アートの完成見本の提示（見本の制作は村のボス戦に限り HD-4 の範囲。実装の開始は指示待ち。画像と全マップ展開は Human の承認が必要） | P2 | PLANNED | [ ] Human の承認が必要 | W0-3, W3-0（制作: W2-2・W3-1・W3-2 の村の範囲） |
-| 5 | W0-6 | 出撃会話の台詞の候補の提示 | P1 | PLANNED | [ ] Human の承認が必要 | ― |
-| 6 | W1-2, W1-4, W1-5, W2-1a〜W2-6, W3, W4, W5 | 計画のとおり | ― | PLANNED | 承認後に個別の Task にする | 計画を参照 |
+| 5 | W0-6 | 出撃会話の台詞の候補の提示 | P1 | PLANNED（**次に着手する推奨**。`.ai/reports/NEXT-DEV-PLAN-2026-10-28.md` §3） | [ ] Human の承認が必要 | ― |
+| 6 | W1-2, W1-5, W2-1a〜W2-6（W2-D の承認待ち）, W3-0〜W3-3（見本）, W4（W4-7 の残り: 幽霊船・時計塔・道）, W5 | 計画のとおり | ― | PLANNED | 承認後に個別の Task にする | 計画を参照 |
 
 各 Work Item は着手のときに個別の Task として起こし、次の順で進めて小さな PR に分ける。`main` へは merge しない。
 
@@ -55,6 +58,8 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 5. 独立 Reviewer
 
 ## Status History
+
+- 2026-10-28: main `1cad92d` で進捗を照合した（`.ai/reports/NEXT-DEV-PLAN-2026-10-28.md`）。W1-1・W1-3・W2-T1・W2-MB2 の状態を merge 済みに直し、W3（村）・W4-7（洋館）・W1-4 の行を足した。次の推奨は W0-6。戦闘（W2-1a〜）は W2-D の承認待ち。
 
 - 2026-10-14: 監査・計画（PLANNED）。独立 Reviewer の判定は Round 1 が CHANGES_REQUIRED、Round 2 が PASS。
 - 2026-10-15: HD-1〜HD-7 が確定した（DEC-007）。W1-1・W1-3・W2-T1 の詳細計画と受け入れ条件を計画書に記録した。実装は未着手。
