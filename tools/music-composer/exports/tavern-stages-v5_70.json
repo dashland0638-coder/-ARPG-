@@ -1,0 +1,333 @@
+{
+  "source": {
+    "html": "ARPG_Music_AI_Composer_v5_70_0_samples.html",
+    "htmlSha256": "37d7616861713ab25ea25487962e2b1180acc4150815f45fa14483cdcf969d42",
+    "scene": "tavern",
+    "prompt": "default",
+    "text": "夕暮れの酒場。主旋律はもう一段明るく、Dメジャーらしい伸びやかな音使いにする。少しだけ哀愁は残すが、寂しさや不安ではなく、仲間と過ごした時間を懐かしく感じる程度にする。ヴィオラを覚えやすく歌心のある主旋律にして、チェロとピアノで綺麗な和音を温かく支える。後半はフルート、ハープ、アコースティックギター、軽いリズムが加わり、冒険へ出発する前の前向きな気持ちが少しずつ高まる。陽気すぎず、暗すぎず、安心して帰ってこられる拠点のBGMにする。",
+    "tempo": 103,
+    "phraseLen": 80,
+    "seed": 126107828,
+    "sampleMode": true,
+    "renderer": "Chromium 141.0.7390.37 OfflineAudioContext",
+    "encoder": "ffmpeg libmp3lame 128k CBR"
+  },
+  "loop": {
+    "start": 1,
+    "end": 48.766667,
+    "period": 47.766667,
+    "periodExact": 47.76699,
+    "periodSamples": 2106510,
+    "rate": 44100
+  },
+  "gainDb": 12.95,
+  "stages": [
+    {
+      "stage": "swordsman",
+      "file": "tavern-1-swordsman.mp3",
+      "instruments": [
+        "Cello",
+        "Piano",
+        "Drums"
+      ],
+      "policy": {
+        "instruments": [
+          "Piano",
+          "Cello"
+        ],
+        "melody": false,
+        "description": "まずは酒場の和音と低い支えだけ。まだ主旋律は姿を見せません。"
+      },
+      "events": 44,
+      "bytes": 797485,
+      "sha256": "22f8c0a28bff643b237c51aa8219e545a24d66634865b79be104683376e3de87",
+      "duration": 49.766667,
+      "check": {
+        "peak": 0.41607680916786194,
+        "rms": 0.08835372746335977,
+        "periodicityMaxDiff": 0,
+        "periodicityRef": 0.4145536720752716,
+        "seamStep": 0,
+        "leadingSilence": 0.001927437641723356,
+        "trailingSilence": 0.314875283446712,
+        "periodicityBeforeGain": 0,
+        "tailEnd": 0,
+        "sampleFallback": 0,
+        "sampleScheduled": {
+          "Piano": 30,
+          "Flute": 0,
+          "Viola": 0,
+          "Cello": 10,
+          "Harp": 0,
+          "Bell": 0,
+          "Bass": 0,
+          "Drums": 0,
+          "Keyboard": 0,
+          "Guitar": 0
+        }
+      }
+    },
+    {
+      "stage": "mage",
+      "file": "tavern-2-mage.mp3",
+      "instruments": [
+        "Flute",
+        "Cello",
+        "Piano",
+        "Drums"
+      ],
+      "policy": {
+        "instruments": [
+          "Piano",
+          "Cello",
+          "Flute"
+        ],
+        "melody": false,
+        "description": "魔法使い加入。フルートが加わり、テーマの輪郭が少しずつ見えてきます。"
+      },
+      "events": 64,
+      "bytes": 797485,
+      "sha256": "3c74242bc15b0fefb6ffe7eb32a2760313a1248267ac4e24b9a5c013c05c3492",
+      "duration": 49.766667,
+      "check": {
+        "peak": 0.501369833946228,
+        "rms": 0.0943737836347855,
+        "periodicityMaxDiff": 0,
+        "periodicityRef": 0.41455361247062683,
+        "seamStep": 0,
+        "leadingSilence": 0.001927437641723356,
+        "trailingSilence": 0.314875283446712,
+        "periodicityBeforeGain": 0,
+        "tailEnd": 0,
+        "sampleFallback": 0,
+        "sampleScheduled": {
+          "Piano": 30,
+          "Flute": 20,
+          "Viola": 0,
+          "Cello": 10,
+          "Harp": 0,
+          "Bell": 0,
+          "Bass": 0,
+          "Drums": 0,
+          "Keyboard": 0,
+          "Guitar": 0
+        }
+      }
+    },
+    {
+      "stage": "archer",
+      "file": "tavern-3-archer.mp3",
+      "instruments": [
+        "Flute",
+        "Harp",
+        "Cello",
+        "Piano",
+        "Drums"
+      ],
+      "policy": {
+        "instruments": [
+          "Piano",
+          "Cello",
+          "Flute",
+          "Harp"
+        ],
+        "melody": false,
+        "description": "弓師加入。ハープが加わり、フルートと合わせて曲の広がりが増します。"
+      },
+      "events": 84,
+      "bytes": 797485,
+      "sha256": "3c74430e5ff962f302549bc81446fe0491954be5e9d222e91ea83ac94b100240",
+      "duration": 49.766667,
+      "check": {
+        "peak": 0.501369833946228,
+        "rms": 0.09453412367520583,
+        "periodicityMaxDiff": 0,
+        "periodicityRef": 0.4146537482738495,
+        "seamStep": 0,
+        "leadingSilence": 0,
+        "trailingSilence": 0,
+        "periodicityBeforeGain": 0,
+        "tailEnd": 0,
+        "sampleFallback": 0,
+        "sampleScheduled": {
+          "Piano": 30,
+          "Flute": 20,
+          "Viola": 0,
+          "Cello": 10,
+          "Harp": 20,
+          "Bell": 0,
+          "Bass": 0,
+          "Drums": 0,
+          "Keyboard": 0,
+          "Guitar": 0
+        }
+      }
+    },
+    {
+      "stage": "thief",
+      "file": "tavern-4-thief.mp3",
+      "instruments": [
+        "Flute",
+        "Harp",
+        "Cello",
+        "Piano",
+        "Guitar",
+        "Drums"
+      ],
+      "policy": {
+        "instruments": [
+          "Piano",
+          "Cello",
+          "Flute",
+          "Harp",
+          "Guitar",
+          "Drums"
+        ],
+        "melody": false,
+        "description": "盗賊加入でギターと軽いリズムが加わり、酒場らしい躍動感が生まれます。"
+      },
+      "events": 104,
+      "bytes": 797485,
+      "sha256": "aef58a0f0fe9bad3ed5d77846a462ae16fce79c7057d4ed996fa146212bb0999",
+      "duration": 49.766667,
+      "check": {
+        "peak": 0.501369833946228,
+        "rms": 0.09475473902415352,
+        "periodicityMaxDiff": 0,
+        "periodicityRef": 0.4163573086261749,
+        "seamStep": 0,
+        "leadingSilence": 0,
+        "trailingSilence": 0,
+        "periodicityBeforeGain": 0,
+        "tailEnd": 0,
+        "sampleFallback": 0,
+        "sampleScheduled": {
+          "Piano": 30,
+          "Flute": 20,
+          "Viola": 0,
+          "Cello": 10,
+          "Harp": 20,
+          "Bell": 0,
+          "Bass": 0,
+          "Drums": 0,
+          "Keyboard": 0,
+          "Guitar": 20
+        }
+      }
+    },
+    {
+      "stage": "shadow",
+      "file": "tavern-5-shadow.mp3",
+      "instruments": [
+        "Viola",
+        "Flute",
+        "Harp",
+        "Bass",
+        "Cello",
+        "Piano",
+        "Guitar",
+        "Drums"
+      ],
+      "policy": {
+        "instruments": [
+          "Piano",
+          "Cello",
+          "Flute",
+          "Harp",
+          "Guitar",
+          "Bass",
+          "Drums",
+          "Viola"
+        ],
+        "melody": true,
+        "description": "影の旅人加入。ヴィオラの主旋律まで現れ、ここが第一章中の完成形です。"
+      },
+      "events": 162,
+      "bytes": 797485,
+      "sha256": "01b7f2057a635336ff9db942c3c868a8766c69061ba1046c3361402d2c6fc1a5",
+      "duration": 49.766667,
+      "check": {
+        "peak": 0.7672671675682068,
+        "rms": 0.13968142275676215,
+        "periodicityMaxDiff": 0,
+        "periodicityRef": 0.607824981212616,
+        "seamStep": 0,
+        "leadingSilence": 0,
+        "trailingSilence": 0,
+        "periodicityBeforeGain": 0,
+        "tailEnd": 0,
+        "sampleFallback": 0,
+        "sampleScheduled": {
+          "Piano": 30,
+          "Flute": 20,
+          "Viola": 40,
+          "Cello": 10,
+          "Harp": 20,
+          "Bell": 0,
+          "Bass": 18,
+          "Drums": 0,
+          "Keyboard": 0,
+          "Guitar": 20
+        }
+      }
+    },
+    {
+      "stage": "complete",
+      "file": "tavern-6-complete.mp3",
+      "instruments": [
+        "Viola",
+        "Flute",
+        "Bell",
+        "Harp",
+        "Bass",
+        "Cello",
+        "Piano",
+        "Guitar",
+        "Drums"
+      ],
+      "policy": {
+        "instruments": [
+          "Piano",
+          "Cello",
+          "Flute",
+          "Harp",
+          "Guitar",
+          "Bass",
+          "Drums",
+          "Bell",
+          "Viola"
+        ],
+        "melody": true,
+        "description": "🎉 第一章クリア後の完成版。ギターが主旋律級に前へ出て、パーカッションとベルも強まり、同じテーマが賑やかな酒場BGMとして完成します。"
+      },
+      "events": 334,
+      "bytes": 797485,
+      "sha256": "f6f9880ae3d18ddc6fc62e4d91b3f4496fd3c75e5beb175bfe7aa846af32424c",
+      "duration": 49.766667,
+      "check": {
+        "peak": 0.8912509083747864,
+        "rms": 0.15529267162432367,
+        "periodicityMaxDiff": 0,
+        "periodicityRef": 0.6541593074798584,
+        "seamStep": 0,
+        "leadingSilence": 0,
+        "trailingSilence": 0,
+        "periodicityBeforeGain": 0,
+        "tailEnd": 0,
+        "sampleFallback": 0,
+        "sampleScheduled": {
+          "Piano": 30,
+          "Flute": 80,
+          "Viola": 40,
+          "Cello": 10,
+          "Harp": 20,
+          "Bell": 12,
+          "Bass": 18,
+          "Drums": 80,
+          "Keyboard": 0,
+          "Guitar": 186
+        }
+      }
+    }
+  ]
+}

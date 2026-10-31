@@ -1,15 +1,15 @@
 // SFX synthesis (oscillators + a shared noise buffer) plus BGM playback.
 // Real audio files are optional everywhere here: register one in
 // asset-manifest.js and it's used automatically; leave it unregistered (or
-// let the fetch fail) and the existing synthesis / silence takes over with
+// let the fetch fail) and the existing synthesis (SFX) / procedural BGM takes over with
 // no code changes elsewhere. Touches game state through state.sfxVolume
 // and state.bgmVolume only.
 import { state } from '../core/state.js';
-import { BGM_TRACKS, SFX_FILES } from './asset-manifest.js';
+import { BGM_TRACKS, BGM_TRACK_OPTIONS, BGM_VARIANTS, SFX_FILES } from './asset-manifest.js';
 import { startProceduralBgm } from './procedural-bgm.js';
 
   // asset-manifest.js entries are written as site-root-relative paths
-  // ('/audio/bgm/tavern.mp3'), but GitHub Pages serves this app from a
+  // ('/audio/bgm/tavern-6-complete.mp3'), but GitHub Pages serves this app from a
   // /<repo>/ subpath in production - plain strings never go through Vite's
   // HTML asset rewriting the way <link>/<script> tags do, so without this
   // they'd 404 under that base exactly like the manifest.webmanifest
@@ -18,7 +18,8 @@ import { startProceduralBgm } from './procedural-bgm.js';
   // this before it's fetched or handed to an <audio> element.
   function resolveAssetUrl(assetPath){
     if(!assetPath) return assetPath;
-    const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+    // (import.meta.env is Vite's; plain Node - the unit tests - has none and gets '/')
+    const base = ((import.meta.env && import.meta.env.BASE_URL) || '/').replace(/\/$/, '');
     return base + assetPath;
   }
 
@@ -34,8 +35,9 @@ import { startProceduralBgm } from './procedural-bgm.js';
   let audioCtx = null, masterGain = null, noiseBuffer = null;
 
   /* ---- 3つのレイヤー -------------------------------------------------
-       BGM     感情とエリアの雰囲気。<audio>要素、または procedural-bgm.js が
-               ctx.destination へ直接繋ぐ(ここの masterGain は通らない)
+       BGM     感情とエリアの雰囲気。登録曲は AudioBufferSource → 曲ごとの GainNode、
+               未登録(または読めない)なら procedural-bgm.js。どちらも ctx.destination へ
+               直接繋ぐ(ここの masterGain は通らない)。WebAudio が無いときだけ <audio>
        環境音   場所の存在感。ambientGain を通す。SFXより一段低い
        SFX     プレイヤーの操作と戦闘。masterGain をそのまま通る
      環境音を masterGain の子にしてあるので、SFX音量の設定・セーブ構造は
@@ -82,7 +84,9 @@ import { startProceduralBgm } from './procedural-bgm.js';
     const ctx = initAudio();
     if(ctx && ctx.state === 'suspended') ctx.resume();
     // autoplay is blocked until a real user gesture - this is the first
-    // one, so retry any BGM that was asked for before it was allowed
+    // one, so retry any BGM that was asked for before it was allowed.
+    // (Only the <audio> fallback needs this: a WebAudio track scheduled on
+    // the suspended context simply starts when the context resumes above.)
     if(pendingBgmEl) pendingBgmEl.play().catch(()=>{});
   }
   function setSfxVolume(v){
@@ -569,21 +573,70 @@ import { startProceduralBgm } from './procedural-bgm.js';
   }
 
   /* ---- background music (optional per-world file, generative otherwise) ---
-     A registered BGM_TRACKS file streams through a plain <audio> element
-     rather than WebAudio buffers - tracks are long, so decoding the whole
-     file up front (like the SFX buffers above) would be wasteful. With no
-     file registered (every world, today), procedural-bgm.js generates an
-     ambient loop for that world on the WebAudio graph instead of leaving
-     it silent - see ASSETS.md for how to add a real track later. */
+     A registered BGM_TRACKS file is fetched and decoded, then exactly one
+     period of its loop is copied into its own AudioBuffer, and that whole
+     buffer loops on an AudioBufferSourceNode through its own gain node
+     (MUSIC-BGM-TAVERN-001/002). Why not <audio loop>, and why not
+     loopStart/loopEnd on the node:
+       - a seamless loop. The export carries 1 s of the same music before and
+         after one period (render-bgm.mjs). The copy starts at loopStart and
+         its first 30 ms are blended with the music that follows loopEnd, so
+         the wrap from the last sample back to the first is the music's own
+         continuation - including the MP3's coding noise. Looping a whole
+         buffer is the plainest path through every implementation (no
+         loop-region handling, no start offset into a padded file, no
+         dependence on whether the decoder strips the MP3 encoder delay:
+         that only shifts which period gets copied);
+       - volume on iPhone: iOS Safari ignores HTMLMediaElement.volume, so the
+         BGM setting would do nothing there. A GainNode works everywhere.
+     A track may have variants (BGM_VARIANTS - the tavern's party stages):
+     the same piece with more instruments, same tempo and loop points.
+     Switching variants in the same world crossfades at the same position in
+     the loop, so the music neither cuts nor jumps back to the top.
+     Only the variant that is playing is kept decoded (~18 MB for 48 s of
+     stereo); going back to the same world/variant doesn't re-download it.
+     If a file can't be fetched or decoded, the world falls back to the
+     procedural music below - the same as having no file registered (a failed
+     variant switch keeps what is already playing).
+     With no file registered, procedural-bgm.js generates an ambient loop for
+     that world on the WebAudio graph instead of leaving it silent. Without
+     WebAudio at all (very old browsers) a registered file still plays
+     through <audio loop> as before. See ASSETS.md for adding a track. */
   let bgmEl = null;
   let bgmKey = null;
+  let bgmVariant = null;
   let pendingBgmEl = null;      // set when play() was blocked by autoplay policy
   let proceduralBgm = null;     // the generative engine's handle, when active
+  let bufferBgm = null;         // {src, gain, trim, url, t0, period} while a decoded track is looping
+  let fadingBgms = [];          // sources fading out after a variant crossfade
+  let bgmToken = 0;             // bumped on every playBgm/variant/stopBgm; a late decode for an old request is dropped
+  const bgmBufferCache = new Map();   // resolved URL -> Promise<{buffer, period}>
+  const BGM_SEAM_BLEND = 0.03;  // s blended at the wrap-around
+  const BGM_CROSSFADE = 2.0;    // s, variant switch
+
+  function bgmVolume(){ return state.bgmVolume != null ? state.bgmVolume : 0.4; }
+  function bgmUrl(key, variant){
+    const v = BGM_VARIANTS[key];
+    return (variant && v && v[variant]) || BGM_TRACKS[key] || null;
+  }
 
   function setBgmVolume(v){
     state.bgmVolume = v;
     if(bgmEl) bgmEl.volume = v;
     if(proceduralBgm) proceduralBgm.setVolume(v);
+    if(bufferBgm && audioCtx){
+      const g = bufferBgm.gain.gain, t = audioCtx.currentTime;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(v * bufferBgm.trim, t + 0.05);   // short ramp: no zipper click
+    }
+    // mid-crossfade: the outgoing variant is on its way out anyway - drop it now
+    if(audioCtx) fadingBgms.forEach(f=>{
+      const g = f.gain.gain, t = audioCtx.currentTime;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(0, t + 0.05);
+    });
   }
 
   // 0 (calm) .. 1 (thick of a fight) - see COMBAT MUSIC in 13-update-loop.js.
@@ -594,15 +647,154 @@ import { startProceduralBgm } from './procedural-bgm.js';
     if(proceduralBgm) proceduralBgm.setIntensity(v);
   }
 
-  function playBgm(key){
-    if(key === bgmKey) return;
+  // Safari's older decodeAudioData only takes callbacks; accept both forms
+  function decodeAudio(ctx, data){
+    return new Promise((resolve, reject)=>{
+      try{
+        const p = ctx.decodeAudioData(data, resolve, reject);
+        if(p && typeof p.then === 'function') p.then(resolve, reject);
+      }catch(e){ reject(e); }
+    });
+  }
+
+  /* One period of the loop as its own buffer (see the block comment above).
+     Without loop points the whole file is the period. */
+  function makeLoopBuffer(ctx, decoded, opts){
+    const rate = decoded.sampleRate, len = decoded.length;
+    const ls = Number(opts && opts.loopStart), le = Number(opts && opts.loopEnd);
+    if(!(le > ls && ls >= 0)) return { buffer: decoded, period: decoded.duration };
+    const s = Math.round(ls * rate);
+    const n = Math.min(Math.round((le - ls) * rate), len - s);
+    if(!(n > 0)) return { buffer: decoded, period: decoded.duration };
+    const blend = Math.max(0, Math.min(Math.round(BGM_SEAM_BLEND * rate), len - (s + n)));
+    const out = ctx.createBuffer(decoded.numberOfChannels, n, rate);
+    for(let c = 0; c < decoded.numberOfChannels; c++){
+      const x = decoded.getChannelData(c), y = out.getChannelData(c);
+      y.set(x.subarray(s, s + n));
+      // wrap-around: sample n-1 is followed by x[s+n], so start from there and fade into x[s]
+      for(let i = 0; i < blend; i++){
+        const w = i / blend;
+        y[i] = x[s + n + i] * (1 - w) + x[s + i] * w;
+      }
+    }
+    return { buffer: out, period: n / rate };
+  }
+
+  function loadBgmBuffer(ctx, url, opts){
+    if(!bgmBufferCache.has(url)){
+      const job = fetch(url)
+        .then(res=>{ if(!res.ok) throw new Error(`${res.status} ${url}`); return res.arrayBuffer(); })
+        .then(data=>decodeAudio(ctx, data))
+        .then(decoded=>makeLoopBuffer(ctx, decoded, opts));
+      // a failed load may be retried on the next visit (don't drop a newer job for the same url)
+      job.catch(()=>{ if(bgmBufferCache.get(url) === job) bgmBufferCache.delete(url); });
+      bgmBufferCache.set(url, job);
+    }
+    return bgmBufferCache.get(url);
+  }
+  // keep only the buffer that is playing (each stage is ~18 MB decoded)
+  function keepOnlyBgmBuffer(url){
+    for(const k of [...bgmBufferCache.keys()]) if(k !== url) bgmBufferCache.delete(k);
+  }
+
+  function newBgmVoice(ctx, loop, opts, url, when, offset, startGain){
+    const trim = opts && opts.gain != null ? Number(opts.gain) : 1;
+    const gain = ctx.createGain();
+    gain.gain.value = startGain == null ? bgmVolume() * trim : startGain;
+    gain.connect(ctx.destination);
+    const src = ctx.createBufferSource();
+    src.buffer = loop.buffer;
+    src.loop = true;            // the whole buffer is one period
+    src.connect(gain);
+    src.start(when, offset);
+    return { src, gain, trim, url, t0: when - offset, period: loop.period };
+  }
+
+  function startBufferBgm(ctx, loop, opts, url){
+    bufferBgm = newBgmVoice(ctx, loop, opts, url, ctx.currentTime, 0);   // the copy begins at the top of the song
+    keepOnlyBgmBuffer(url);
+  }
+
+  /* Same piece, other instruments: start the new variant at the same position
+     in the loop and crossfade, so nothing cuts and nothing restarts. */
+  function crossfadeBufferBgm(ctx, loop, opts, url){
+    const old = bufferBgm;
+    const t = ctx.currentTime + 0.05;
+    const period = loop.period;
+    const pos = old ? (((t - old.t0) % old.period) + old.period) % old.period : 0;
+    const voice = newBgmVoice(ctx, loop, opts, url, t, Math.min(pos, period - 1e-6), 0);
+    voice.gain.gain.setValueAtTime(0, t);
+    voice.gain.gain.linearRampToValueAtTime(bgmVolume() * voice.trim, t + BGM_CROSSFADE);
+    if(old){
+      const g = old.gain.gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(0, t + BGM_CROSSFADE);
+      try{ old.src.stop(t + BGM_CROSSFADE + 0.05); }catch(e){}
+      old.src.onended = ()=>{
+        try{ old.src.disconnect(); old.gain.disconnect(); }catch(e){}
+        fadingBgms = fadingBgms.filter(v=>v !== old);
+      };
+      fadingBgms.push(old);
+    }
+    bufferBgm = voice;
+    keepOnlyBgmBuffer(url);
+  }
+
+  function stopVoice(v){
+    try{
+      const t = audioCtx ? audioCtx.currentTime : 0;
+      v.gain.gain.cancelScheduledValues(t);
+      v.gain.gain.setValueAtTime(v.gain.gain.value, t);
+      v.gain.gain.linearRampToValueAtTime(0, t + 0.08);   // fade instead of cutting mid-waveform
+      v.src.stop(t + 0.1);
+    }catch(e){
+      try{ v.src.stop(); }catch(e2){}
+    }
+    v.src.onended = ()=>{ try{ v.src.disconnect(); v.gain.disconnect(); }catch(e){} };
+  }
+  function stopBufferBgm(){
+    if(bufferBgm){ stopVoice(bufferBgm); bufferBgm = null; }
+    fadingBgms.forEach(stopVoice);
+    fadingBgms = [];
+  }
+
+  /* playBgm(key[, variant]). The same key again only changes the variant
+     (crossfade); a different key stops this world's music and starts the
+     next one from the top. */
+  function playBgm(key, variant){
+    if(key === bgmKey){
+      if(variant !== undefined) setBgmVariant(key, variant);
+      return;
+    }
     bgmKey = key;
+    bgmVariant = variant == null ? null : variant;
+    const token = ++bgmToken;
     if(bgmEl){ bgmEl.pause(); bgmEl = null; }
     pendingBgmEl = null;
     if(proceduralBgm){ proceduralBgm.stop(); proceduralBgm = null; }
-    const vol = state.bgmVolume != null ? state.bgmVolume : 0.4;
-    const url = BGM_TRACKS[key];
+    stopBufferBgm();
+    const vol = bgmVolume();
+    const url = bgmUrl(key, bgmVariant);
+    // initAudio() is safe to call before any user gesture: it just creates a
+    // suspended context, which resumeAudio() later wakes up (buildWorld('tavern')
+    // runs at boot, behind character creation).
+    const ctx = initAudio();
+    if(url && ctx){
+      const opts = BGM_TRACK_OPTIONS[key];
+      const resolved = resolveAssetUrl(url);
+      loadBgmBuffer(ctx, resolved, opts).then(loop=>{
+        if(token !== bgmToken) return;          // the world/variant changed while this was loading
+        startBufferBgm(ctx, loop, opts, resolved);
+      }, err=>{
+        if(token !== bgmToken) return;
+        console.warn(`BGM ${key}: ${url} を読めないため手続き生成の BGM に切り替えます`, err && err.message || err);
+        proceduralBgm = startProceduralBgm(ctx, ctx.destination, key, bgmVolume());
+      });
+      return;
+    }
     if(url){
+      // no WebAudio: stream through <audio loop> (no loop points, no iOS volume, no variants crossfade)
       const el = new Audio(resolveAssetUrl(url));
       el.loop = true;
       el.volume = vol;
@@ -610,18 +802,56 @@ import { startProceduralBgm } from './procedural-bgm.js';
       bgmEl = el;
       return;
     }
-    // no track registered - generate one instead of leaving the world
-    // silent. initAudio() is safe to call before any user gesture: it just
-    // creates a suspended context, which resumeAudio() later wakes up.
-    const ctx = initAudio();
+    // no track registered - generate one instead of leaving the world silent
     if(ctx) proceduralBgm = startProceduralBgm(ctx, ctx.destination, key, vol);
   }
 
+  /* Change the variant of the world that is playing (no-op for another world
+     or the same variant). A decoded track crossfades at the same position;
+     a track still loading just loads the new variant instead. */
+  function setBgmVariant(key, variant){
+    if(key !== bgmKey) return;
+    const next = variant == null ? null : variant;
+    if(next === bgmVariant) return;
+    const fromUrl = bgmUrl(key, bgmVariant), toUrl = bgmUrl(key, next);
+    bgmVariant = next;
+    if(!toUrl || fromUrl === toUrl) return;
+    const ctx = audioCtx;
+    if(!ctx || bgmEl){
+      // <audio> fallback: restart the world with the new file
+      const k = bgmKey; bgmKey = null; playBgm(k, next);
+      return;
+    }
+    if(proceduralBgm && !bufferBgm) return;   // this world's file failed to load: keep the procedural music
+    const token = ++bgmToken;
+    const opts = BGM_TRACK_OPTIONS[key];
+    const resolved = resolveAssetUrl(toUrl);
+    loadBgmBuffer(ctx, resolved, opts).then(loop=>{
+      if(token !== bgmToken) return;
+      if(bufferBgm && bufferBgm.url === resolved) return;   // switched away and back before the load finished
+      /* Crossfade only when the old variant has really been heard. Right after
+         the world started - or while the context is still suspended before the
+         first tap (a save is applied after the tavern was built at boot) -
+         replace it and start the right variant from the top instead. */
+      const heard = bufferBgm && ctx.state === 'running' && ctx.currentTime - bufferBgm.t0 >= 0.5;
+      if(heard) crossfadeBufferBgm(ctx, loop, opts, resolved);
+      else { stopBufferBgm(); startBufferBgm(ctx, loop, opts, resolved); }
+    }, err=>{
+      if(token !== bgmToken) return;
+      // keep whatever is playing; the next visit retries
+      console.warn(`BGM ${key}: ${toUrl} を読めないため今の曲のままにします`, err && err.message || err);
+      if(!bufferBgm) proceduralBgm = startProceduralBgm(ctx, ctx.destination, key, bgmVolume());
+    });
+  }
+
   function stopBgm(){
+    bgmToken++;
     if(bgmEl){ bgmEl.pause(); bgmEl = null; }
     if(proceduralBgm){ proceduralBgm.stop(); proceduralBgm = null; }
+    stopBufferBgm();
     bgmKey = null;
+    bgmVariant = null;
     pendingBgmEl = null;
   }
 
-export { initAudio, resumeAudio, setSfxVolume, sfx, ambient, setBgmVolume, setBgmIntensity, playBgm, stopBgm };
+export { initAudio, resumeAudio, setSfxVolume, sfx, ambient, setBgmVolume, setBgmIntensity, playBgm, setBgmVariant, stopBgm };

@@ -17,13 +17,15 @@ export function appendBlock(baseHtml, tags){
   return `${baseHtml}${baseHtml.endsWith('\n') ? '' : '\n'}${MARK}\n${tags.join('\n')}\n`;
 }
 
-// --base <ファイル> で別の版の1ファイル版も作れる(聞き比べ用。例: --standalone --base ARPG_Music_AI_Composer_v5_69_0.html)
+// --base <ファイル> で別の版の試作・1ファイル版も作れる(聞き比べ用。例: --standalone --base ARPG_Music_AI_Composer_v5_69_0.html)
 function build(standalone, baseFile = BASE){
   const base = fs.readFileSync(path.join(dir, baseFile), 'utf8');
   if(!standalone){
     const html = appendBlock(base, SCRIPTS.map(s=>`<script src="${s}"></script>`));
-    fs.writeFileSync(path.join(dir, PROTO), html);
-    return path.join(dir, PROTO);
+    // 既定は PROTO(v5.70.0 の試作)。--base で別の版を渡すと <版>_samples.html を作る(酒場 BGM の書き出し用。v5.71.0)
+    const out = path.join(dir, baseFile === BASE ? PROTO : baseFile.replace('.html', '_samples.html'));
+    fs.writeFileSync(out, html);
+    return out;
   }
   const read = f=>fs.readFileSync(path.join(dir, f), 'utf8');
   const manifestSrc = read('samples/manifest.js');
