@@ -1,6 +1,6 @@
 # MUSIC-BGM-TAVERN-003 — 酒場 BGM の途中の途切れ（編曲の最小修正）
 
-Status: PR #107（CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
+Status: PR #107。DEVICE CHECKED（Human 2026-10-31: iPhone で修正後の酒場 BGM・ループ再生・ゲーム内再生とも問題なし。聞き比べで修正後を採用）。merge 待ち
 
 ## Approval
 
@@ -18,7 +18,7 @@ Status: PR #107（CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
 
 - 作曲アプリ v5.71.0（`make_v571.py`）: 酒場のチェロを次のチェロの始まりまで伸ばす。他は v5.70.0 のまま。v5.70.0 は変えない。
 - 6 段階を v5.71.0 から書き出し直す（`render-bgm.mjs` の既定の元を v5.71.0 に）。
-- 修正前の 6 段階と聞き比べのページを `public/audio/bgm/compare/` に置く。
+- 修正前の 6 段階と聞き比べのページを `public/audio/bgm/compare/` に置く（実機確認の後に消した）。
 - テスト: unit（v5.71.0 の差・修正前の音源）、E2E（譜面の途切れ・書き出した音の大きさ・聞き比べのページ・公開ビルド）。
 
 ## Files To Change
@@ -26,7 +26,7 @@ Status: PR #107（CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
 - **新規**
   - `tools/music-composer/ARPG_Music_AI_Composer_v5_71_0.html`、`ARPG_Music_AI_Composer_v5_71_0_samples.html`、`scripts/make_v571.py`
   - `tools/music-composer/exports/tavern-stages-v5_70.json`
-  - `public/audio/bgm/compare/index.html`、`public/audio/bgm/compare/v5_70/*.mp3`（修正前。git mv）
+  - ~~`public/audio/bgm/compare/index.html`、`public/audio/bgm/compare/v5_70/*.mp3`（修正前。git mv）~~ 実機確認の後に削除（Human 2026-10-31）
   - DEC-014、本ファイル、報告
 - **変更**
   - `public/audio/bgm/tavern-*.mp3`、`tools/music-composer/exports/tavern-stages.json`
@@ -46,7 +46,7 @@ Status: PR #107（CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
 3. 旋律・和音・他の楽器・段階ごとの楽器は変わらない。音量の倍率も同じ。
 4. 6 段階すべてで直っている。
 5. ループ・音量・出撃と帰還は壊れていない（既存の E2E）。
-6. 修正前と聞き比べられる。
+6. 修正前と聞き比べられる（確認済み。聞き比べの物は確認の後に削除）。
 7. build・unit・関連 E2E・CI・独立 Reviewer PASS。iPhone の確認が終わるまで CONTENT READY = HUMAN DEVICE CHECK REQUIRED。
 
 ## Result

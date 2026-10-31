@@ -36,8 +36,7 @@ async function instrument(page) {
       return origAb.call(this).then(ab => { tag.set(ab, url); return ab; });
     };
     const C = window.AudioContext;
-    /* 指紋: 1 周の 1 秒目と 4.4 秒目(修正前の v5.70.0 で音が途切れていた所。修正後はチェロが鳴る)の 8 サンプルずつ。
-       1 秒目だけだと、剣士の段の修正前・修正後は同じ音になることがあり、聞き比べのページで取り違える */
+    /* 指紋: 1 周の 1 秒目と 4.4 秒目の 8 サンプルずつ(1 か所だけだと、よく似た音源どうしで取り違えることがあった) */
     const fp = (x, i, r) => { const j = i + Math.round(3.4 * r); return [...x.subarray(i, i + 8), ...x.subarray(j, j + 8)]; };
     const note = (buf, url) => {
       if (!url || !/\/audio\/bgm\//.test(url) || rec.decoded.some(d => d.buf === buf)) return;
@@ -241,9 +240,8 @@ test.describe('酒場 BGM(実音源・加入段階)', () => {
     expect(new Set(rows.map(r => r.duration.toFixed(4))).size).toBe(1);
   });
 
-  test('曲の途中で音が途切れない: どの段も、半小節ごとの大きさが曲の中央値より 8dB 以上下がらない(修正前の v5.70.0 は下がる)', async ({ page }) => {
+  test('曲の途中で音が途切れない: どの段も、半小節ごとの大きさが曲の中央値より 8dB 以上下がらない', async ({ page }) => {
     await openGame(page);
-    const BEFORE = Object.fromEntries(Object.entries(FILE).map(([k, u]) => [k, u.replace('/audio/bgm/', '/audio/bgm/compare/v5_70/')]));
     const dips = await page.evaluate(async ({ files, LOOP }) => {
       const out = {};
       for (const [stage, url] of Object.entries(files)) {
@@ -260,36 +258,12 @@ test.describe('酒場 BGM(実音源・加入段階)', () => {
         out[stage] = { worst: Math.min(...db) - med, count: db.filter(v => v - med < -8).length };
       }
       return out;
-    }, { files: { ...FILE, ...Object.fromEntries(Object.entries(BEFORE).map(([k, u]) => [`before-${k}`, u])) }, LOOP });
+    }, { files: FILE, LOOP });
     for (const stage of Object.keys(FILE)) {
       expect(dips[stage].count, `${stage}: ${dips[stage].worst.toFixed(1)} dB`).toBe(0);
       expect(dips[stage].worst, stage).toBeGreaterThan(-8);
     }
-    // 対照: 修正前は剣士の段で 8 拍ごと(10 か所)に途切れていた
-    expect(dips['before-swordsman'].count).toBeGreaterThanOrEqual(10);
-    expect(dips['before-swordsman'].worst).toBeLessThan(-10);
-  });
-
-  test('聞き比べのページ(/audio/bgm/compare/index.html): 6 段階の修正前・修正後を、ゲームと同じ 1 周のループで鳴らせる', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-    await instrument(page);
-    await page.goto('/audio/bgm/compare/index.html');
-    await expect(page.locator('.row')).toHaveCount(6);
-    for (const [k, label, url] of [[0, '修正前 v5.70', '/audio/bgm/compare/v5_70/tavern-1-swordsman.mp3'], [1, '修正後 v5.71', FILE.swordsman], [11, '修正後 v5.71', FILE.complete]]) {
-      await page.locator('.btns button').nth(k).click();
-      await expect(page.locator('#status')).toContainText('再生中', { timeout: 20_000 });
-      await expect(page.locator('#status')).toContainText(label);
-      const now = (await playing(page)).pop();
-      expect(now.url).toBe(url);
-      expect(now.loop).toBe(true);
-      expect(now.loopEnd).toBe(0);
-      expect(Math.abs(now.length - PERIOD * now.rate)).toBeLessThanOrEqual(1);
-      expect(await playing(page)).toHaveLength(1);   // 前の音は止める
-    }
-    await page.click('#stop');
-    expect(await playing(page)).toHaveLength(0);
-    expect(errors).toEqual([]);
+    // 修正前(v5.70.0)は剣士〜盗賊の段で 10 か所、-13 dB 台まで下がっていた(MUSIC-BGM-TAVERN-003 の報告。聞き比べの音源は実機確認の後に消した)
   });
 
   test('設定の BGM 音量(中 → 大 → オフ → 小)が曲の音量に効く', async ({ page }) => {

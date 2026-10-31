@@ -156,7 +156,7 @@ test('元データ: v5.71.0(サンプル版)の酒場 6 段階。楽器はアプ
   }
 });
 
-test('v5.71.0(MUSIC-BGM-TAVERN-003): v5.70.0 から酒場のチェロの長さだけを変えた版。v5.70.0 は変えていない。修正前の音源を聞き比べ用に残す', () => {
+test('v5.71.0(MUSIC-BGM-TAVERN-003): v5.70.0 から酒場のチェロの長さだけを変えた版。v5.70.0 は変えていない', () => {
   const dir = path.join(root, 'tools/music-composer');
   const v570 = fs.readFileSync(path.join(dir, 'ARPG_Music_AI_Composer_v5_70_0.html'), 'utf8');
   const v571 = fs.readFileSync(path.join(dir, 'ARPG_Music_AI_Composer_v5_71_0.html'), 'utf8');
@@ -174,14 +174,12 @@ test('v5.71.0(MUSIC-BGM-TAVERN-003): v5.70.0 から酒場のチェロの長さ�
   const proto = fs.readFileSync(APP, 'utf8');
   assert.ok(proto.startsWith(v571));
   assert.equal(proto.slice(v571.length), fs.readFileSync(path.join(dir, 'ARPG_Music_AI_Composer_v5_70_0_samples.html'), 'utf8').slice(v570.length));
-  // 修正前(v5.70.0)の 6 段階は public/audio/bgm/compare/v5_70/ に、書き出しの記録どおりのまま残す(聞き比べのページから読む)
+  // 修正前(v5.70.0)の書き出しの記録は残す。聞き比べのページと修正前の音源は、iPhone の確認(修正後を採用)の後に消した
   const before = JSON.parse(fs.readFileSync(path.join(dir, 'exports/tavern-stages-v5_70.json'), 'utf8'));
   assert.equal(before.source.html, 'ARPG_Music_AI_Composer_v5_70_0_samples.html');
-  const page = fs.readFileSync(path.join(root, 'public/audio/bgm/compare/index.html'), 'utf8');
-  for (const s of before.stages) {
-    assert.equal(sha256(fs.readFileSync(path.join(root, 'public/audio/bgm/compare/v5_70', s.file))), s.sha256, `修正前 ${s.stage}`);
-    assert.ok(page.includes(`'${s.stage}'`), `聞き比べのページに ${s.stage}`);
-  }
+  assert.ok(!fs.existsSync(path.join(root, 'public/audio/bgm/compare')), '聞き比べの音源は public/ に置かない');
+  assert.deepEqual(fs.readdirSync(path.join(root, 'public/audio/bgm')).sort(), Object.values(BGM_VARIANTS.tavern).map(u=>path.basename(u)).sort(),
+    'public/audio/bgm/ は 6 段階の音源だけ');
   // 曲の形は同じ(種・テンポ・音数・1 周)。音量の倍率も同じ(音量で隠していない)
   for (const k of ['seed', 'tempo', 'phraseLen', 'text']) assert.equal(META.source[k], before.source[k], k);
   assert.deepEqual(META.loop, before.loop);

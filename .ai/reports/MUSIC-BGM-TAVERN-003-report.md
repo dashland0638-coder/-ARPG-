@@ -2,7 +2,7 @@
 
 branch `claude/tavern-bgm-roadmap`（PR #107）。Work Item: [`../tasks/MUSIC-BGM-TAVERN-003.md`](../tasks/MUSIC-BGM-TAVERN-003.md)、決定: [DEC-014](../decisions/DEC-014-tavern-bgm-cello-sustain.md)。
 
-Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
+Status: DEVICE CHECKED（Human 2026-10-31: iPhone で修正後の酒場 BGM・ループ再生・ゲーム内再生とも問題なし。聞き比べで修正後を採用）。merge 待ち
 
 ## 1. 問題の箇所（Analyzer）
 
@@ -69,20 +69,20 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
 - 曲の文・種・テンポ・80 音・1 周の長さ・ループ点・段階ごとの音の数は修正前と同じ。
 - 音量の倍率も同じ（+12.95 dB）。RMS が少し上がったのは、チェロが鳴っている時間が増えた分（音量で隠してはいない）。
 
-**聞き比べ**: `/audio/bgm/compare/index.html`。
-- PR のテスト版: https://dashland0638-coder.github.io/-ARPG-/pr/107/audio/bgm/compare/index.html
+**聞き比べ**（実機確認用。確認の後に削除）: `/audio/bgm/compare/index.html` で修正前・後を聞き比べ、Human が修正後を採用した（2026-10-31）。
+- 削除したもの: `public/audio/bgm/compare/index.html` と修正前の 6 音源（計約 4.6MB）。修正前の書き出しの記録 `exports/tavern-stages-v5_70.json` は残す。
 - 修正前（v5.70.0）と修正後（v5.71.0）を段階ごとに、ゲームと同じ 1 周のループで鳴らす。途切れていた所の約 2 秒前（2.2 秒）から始まる。
 
 ## 4. テスト
 
 | 種類 | 結果 |
 | --- | --- |
-| build | OK（`dist/audio/bgm/compare/` に聞き比べのページと修正前の 6 ファイル） |
+| build | OK（`dist/audio/bgm/` は 6 段階の音源だけ。聞き比べの物は削除後に入らないことを確かめる） |
 | unit 全体 | 2102 pass / 0 fail / 1 skip（既存の skip） |
 | unit `tavern-bgm.test.js` | 書き出し元が v5.71.0 サンプル版。v5.71.0 は v5.70.0 からチェロの長さと注記だけが違う。v5.70.0 は sha256 のまま。修正前の 6 ファイルが記録どおり残り、聞き比べのページにある。種・テンポ・ループ・倍率・音の数は修正前と同じ |
 | E2E `music-sample-engine.spec.js`（v5.71.0） | 6 段階で、チェロの長さ以外の全イベントが v5.70.0 と同じ（ギターの和音も）。チェロは次のチェロの始まりで止まる。伸びている音が切れる時間が無い（v5.70.0 は剣士・魔法使いで 0.58 秒）。通し再生は譜面と 1 対 1。洋館・船の曲は v5.70.0 と同じ |
 | E2E `tavern-bgm.spec.js` | 6 段階とも半小節ごとの大きさが中央値より 8dB 以上下がらない（対照: 修正前の剣士は 10 か所・-13 dB 台）。聞き比べのページで修正前・後を 1 周のループで鳴らせる。既存の 9 件（ループ・段階・切り替え・音量・404） |
-| E2E `production-build.spec.js` | 公開ビルドで聞き比べのページと修正前の音源が `/-ARPG-/` の下から読める |
+| E2E `production-build.spec.js` | 公開ビルドの `dist/audio/bgm/` が 6 段階の音源だけ（聞き比べの物が入らない） |
 | E2E 関連 7 ファイル | 61 pass / 0 fail（`audio`・`music-sample-engine`・`production-build`・`tavern-bgm`・`chapter1-progression`・`save-load`・`mansion-scenario`。ループ・音量・段階・出撃と帰還・セーブとロードを含む。1 worker・11 分） |
 | 独立 Reviewer | PASS（Round 1、ブロッキング 0）。新旧の MP3 を独自にデコードして診断を確認（1/4 小節・250ms の窓でも途切れが無い。つなぎ目に盛り上がり無し）。非ブロッキング 3 件（聞き比べのページで読み込み中に続けて押すと二重に鳴る・README の数値・DEC-014 の書き方）をすべて直した |
 
@@ -95,5 +95,16 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
 
 ## 6. 未解決・Human の判断
 
-- 聞き比べのページと修正前の音源（4.6MB）を、実機確認の後も残すか。残さないなら merge の前に消す（Agent が行う）。
+- ~~聞き比べのページと修正前の音源を残すか~~ → 削除（Human 2026-10-31）。
 - 実機で「まだ薄い」場合は候補 B（ピアノの余韻）を提示する。
+
+## 7. 実機確認（Human 2026-10-31）
+
+| 項目 | 結果 |
+| --- | --- |
+| 修正後の酒場 BGM | 問題なし |
+| ループ再生 | 問題なし |
+| 修正前・修正後の比較 | 修正後を採用 |
+| ゲーム内再生 | 問題なし |
+
+最終整理: 聞き比べのページと修正前の音源を削除した。最終版の 6 段階の音源・作曲アプリ（v5.67.0〜v5.71.0）・段階の仕様は変えていない。

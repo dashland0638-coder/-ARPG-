@@ -46,7 +46,7 @@
 | W4-1〜W4-6、W4-8、W5 | 第一章への段階展開・回帰・実機の通し | ― | 未着手（フェーズ2 の後） |
 | MUSIC-BGM-TAVERN-001 | 完成済みの酒場 BGM をゲームで鳴らす | 本 PR | 実装・テスト済み。iPhone でループの継ぎ目が途切れた（Human 2026-10-29）→ 002 で対処 |
 | MUSIC-BGM-TAVERN-002 | 酒場 BGM の継ぎ目の修正と、加入段階の 6 段階の組み込み | 本 PR | 実装・テスト済み。iPhone で正常に再生（Human 2026-10-30）。曲の途中の途切れ → 003 |
-| MUSIC-BGM-TAVERN-003 | 酒場 BGM の途中の途切れ（チェロの持続。作曲アプリ v5.71.0） | 本 PR | 実装・テスト済み。**実機未確認**（[DEC-014](../decisions/DEC-014-tavern-bgm-cello-sustain.md)） |
+| MUSIC-BGM-TAVERN-003 | 酒場 BGM の途中の途切れ（チェロの持続。作曲アプリ v5.71.0） | 本 PR | 実装・テスト済み。**iPhone 確認済み**（Human 2026-10-31）（[DEC-014](../decisions/DEC-014-tavern-bgm-cello-sustain.md)） |
 
 - 開いている PR: **#72**（MUSIC-AUDIO-004、作曲アプリのサンプル読み込み中の再生）。2026-10-12 から開いたまま。
 - Human の指示で今回は触らない。ゲーム本体にも酒場 BGM の書き出しにも影響しない。

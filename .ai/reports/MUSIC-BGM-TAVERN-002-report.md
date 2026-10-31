@@ -2,7 +2,7 @@
 
 branch `claude/tavern-bgm-roadmap`（PR #107）。Work Item: [`../tasks/MUSIC-BGM-TAVERN-002.md`](../tasks/MUSIC-BGM-TAVERN-002.md)、決定: [DEC-013](../decisions/DEC-013-tavern-bgm-stages.md)。
 
-Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
+Status: DEVICE CHECKED（Human 2026-10-31: iPhone で修正後の酒場 BGM・ループ再生・ゲーム内再生とも問題なし。聞き比べで修正後を採用）。merge 待ち
 
 ## 1. 既存の段階版の特定（Analyzer）
 
