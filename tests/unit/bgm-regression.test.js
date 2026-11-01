@@ -142,13 +142,22 @@ test('切り替えが続いても音源は増えない: 消している最中で
   await settle();
   let max = 0, maxAll = 0, time = 5;
   const order = ['mage', 'swordsman', 'mage', 'archer', 'thief', 'mage', 'complete', 'shadow', 'archer', 'complete'];
+  const origin = songs(log)[0].started.when;
   for (const v of order) {
     time += 0.3;                             // 0.3 秒ごとに切り替え(前のクロスフェードが終わる前)
     log.at(time);
     t.mock.timers.tick(300);
+    const before = songs(log).length;
     audio.setBgmVariant('tavern', v);
     audio.setBgmVariant('tavern', v);       // 同じ段を毎フレーム頼んでも 1 回だけ
     await settle();
+    const made = songs(log).slice(before);
+    if (made.length) {
+      assert.equal(made.length, 1);
+      // 毎回クロスフェード(頭に戻らない): 共通の時計の位置から始まる
+      const s = made[0], p = ((s.started.when - origin) % LOOP_PERIOD + LOOP_PERIOD) % LOOP_PERIOD;
+      assert.ok(Math.abs(s.started.offset - p) < 1e-6 && s.started.offset > 1, `${v}: 位置 ${s.started.offset}`);
+    }
     max = Math.max(max, connected(log).filter(x=>!beingCut(x, time)).length);
     maxAll = Math.max(maxAll, connected(log).length);
   }

@@ -860,7 +860,8 @@ import { startProceduralBgm } from './procedural-bgm.js';
          the world started - or while the context is still suspended before the
          first tap (a save is applied after the tavern was built at boot) -
          replace it and start the right variant from the top instead. */
-      const heard = bgmCurrent && ctx.state === 'running' && ctx.currentTime - bgmCurrent.startedAt >= 0.5;
+      // heard: the song has been playing for 0.5 s (from the shared clock - a crossfade does not restart it)
+      const heard = bgmCurrent && bgmClock && ctx.state === 'running' && ctx.currentTime - bgmClock.origin >= 0.5;
       if(heard) crossfadeBufferBgm(ctx, loop, opts, resolved);
       else { stopBufferBgm(); startBufferBgm(ctx, loop, opts, resolved); }
     }, err=>{

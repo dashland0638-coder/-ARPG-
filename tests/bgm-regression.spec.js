@@ -132,9 +132,10 @@ test.describe('酒場 BGM の再生インスタンス(MUSIC-BGM-REGRESSION-001)'
     expect(mg.offset).toBeGreaterThan(0.5);
 
     // クロスフェードの途中(2 秒以内)でタイトルへ戻る。戻る直前は 2 つ(上がる魔法使い・下がる剣士)が鳴っている
+    const t0 = Date.now();
     await page.keyboard.press('Escape');
     await page.evaluate(() => document.getElementById('menu-title').click());
-    expect((await live(page)).map(v => v.url).sort(), 'クロスフェードの途中').toEqual([FILE.swordsman, FILE.mage].sort());
+    expect((await live(page)).map(v => v.url).sort(), `クロスフェードの途中(魔法使いの段が見つかってから約 ${Date.now() - t0} ms)`).toEqual([FILE.swordsman, FILE.mage].sort());
     await page.evaluate(() => document.getElementById('confirm-ok').click());
     await expect(page.locator('#title-screen')).toBeVisible();
     await expect.poll(async () => (await live(page)).length, { message: 'タイトルへ戻ると全部止まり、出力から外れる', timeout: 2_000 }).toBe(0);
