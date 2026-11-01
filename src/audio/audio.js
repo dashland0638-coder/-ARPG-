@@ -607,12 +607,26 @@ import { startProceduralBgm } from './procedural-bgm.js';
   let bgmVariant = null;
   let pendingBgmEl = null;      // set when play() was blocked by autoplay policy
   let proceduralBgm = null;     // the generative engine's handle, when active
-  let bufferBgm = null;         // {src, gain, trim, url, t0, period} while a decoded track is looping
-  let fadingBgms = [];          // sources fading out after a variant crossfade
+  /* Decoded-track voices (MUSIC-BGM-REGRESSION-001). Every voice that may
+     still make a sound is in bgmVoices until it is cut for good (killVoice):
+     its gain is zeroed and disconnected from the output, so it is silent even
+     if a scheduled stop() never happens (a suspended/interrupted context, an
+     implementation that ignores or rejects it). bgmCurrent plays the current
+     variant; any other voice in the set is fading out, and a timer cuts it
+     when the fade is over. A new switch first cuts every fading voice, so at
+     most two voices exist at any time and repeated switches can't pile up.
+     bgmClock is the song's timeline on the context clock - position =
+     (t - origin) mod period - shared by all variants, so a switch starts the
+     next variant at the very position the song is at. */
+  const bgmVoices = new Set();  // {src, gain, trim, url, startedAt, fadeEnd, timer, dead}
+  let bgmCurrent = null;
+  let bgmClock = null;          // {origin, period} while a decoded track is looping
   let bgmToken = 0;             // bumped on every playBgm/variant/stopBgm; a late decode for an old request is dropped
   const bgmBufferCache = new Map();   // resolved URL -> Promise<{buffer, period}>
   const BGM_SEAM_BLEND = 0.03;  // s blended at the wrap-around
   const BGM_CROSSFADE = 2.0;    // s, variant switch
+  const BGM_STOP_FADE = 0.08;   // s, a stop fades instead of cutting mid-waveform
+  const BGM_KILL_MARGIN = 0.15; // s after a fade's end, the timer cuts the voice whatever the audio clock did
 
   function bgmVolume(){ return state.bgmVolume != null ? state.bgmVolume : 0.4; }
   function bgmUrl(key, variant){
@@ -624,19 +638,14 @@ import { startProceduralBgm } from './procedural-bgm.js';
     state.bgmVolume = v;
     if(bgmEl) bgmEl.volume = v;
     if(proceduralBgm) proceduralBgm.setVolume(v);
-    if(bufferBgm && audioCtx){
-      const g = bufferBgm.gain.gain, t = audioCtx.currentTime;
+    if(bgmCurrent && audioCtx){
+      const g = bgmCurrent.gain.gain, t = audioCtx.currentTime;
       g.cancelScheduledValues(t);
       g.setValueAtTime(g.value, t);
-      g.linearRampToValueAtTime(v * bufferBgm.trim, t + 0.05);   // short ramp: no zipper click
+      g.linearRampToValueAtTime(v * bgmCurrent.trim, t + 0.05);   // short ramp: no zipper click
     }
     // mid-crossfade: the outgoing variant is on its way out anyway - drop it now
-    if(audioCtx) fadingBgms.forEach(f=>{
-      const g = f.gain.gain, t = audioCtx.currentTime;
-      g.cancelScheduledValues(t);
-      g.setValueAtTime(g.value, t);
-      g.linearRampToValueAtTime(0, t + 0.05);
-    });
+    for(const f of [...bgmVoices]) if(f !== bgmCurrent) killVoice(f, 0.05);
   }
 
   // 0 (calm) .. 1 (thick of a fight) - see COMBAT MUSIC in 13-update-loop.js.
@@ -706,58 +715,76 @@ import { startProceduralBgm } from './procedural-bgm.js';
     src.buffer = loop.buffer;
     src.loop = true;            // the whole buffer is one period
     src.connect(gain);
+    const v = { src, gain, trim, url, startedAt:when, fadeEnd:null, timer:null, dead:false };
+    src.onended = ()=>killVoice(v, 0);   // tidy up after a stop that did happen
+    bgmVoices.add(v);
     src.start(when, offset);
-    return { src, gain, trim, url, t0: when - offset, period: loop.period };
+    return v;
+  }
+
+  /* Silence a voice for good (idempotent).
+     fade > 0: ramp to 0 from `at` over `fade` s and schedule the stop there;
+     a timer then cuts it (below) in case the scheduled stop never happens.
+     fade 0: cut now - gain 0, disconnected from the output, stopped. */
+  function killVoice(v, fade, at){
+    if(!v || v.dead) return;
+    if(v === bgmCurrent) bgmCurrent = null;
+    const ctx = audioCtx;
+    if(fade > 0 && ctx){
+      const t = at != null ? at : ctx.currentTime;
+      if(v.fadeEnd != null && v.fadeEnd <= t + fade) return;   // already going sooner
+      const g = v.gain.gain;
+      try{ g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0, t + fade); }catch(e){}
+      try{ v.src.stop(t + fade + 0.05); }catch(e){}
+      v.fadeEnd = t + fade;
+      clearTimeout(v.timer);
+      v.timer = setTimeout(()=>killVoice(v, 0), (t - ctx.currentTime + fade + BGM_KILL_MARGIN) * 1000);
+      return;
+    }
+    v.dead = true;
+    clearTimeout(v.timer);
+    bgmVoices.delete(v);
+    try{ v.gain.gain.cancelScheduledValues(0); v.gain.gain.value = 0; }catch(e){}
+    try{ v.gain.disconnect(); }catch(e){}
+    try{ v.src.stop(); }catch(e){}       // may already be stopped (older WebKit throws on a second stop)
+    try{ v.src.disconnect(); }catch(e){}
+  }
+  function killAllVoices(fade){
+    for(const v of [...bgmVoices]) killVoice(v, fade);
+    bgmCurrent = null;
+    bgmClock = null;
+  }
+  // where the song is at time t (seconds into one period), from the shared clock
+  function bgmPosition(t, period){
+    if(!bgmClock) return 0;
+    const p = period || bgmClock.period;
+    return Math.min((((t - bgmClock.origin) % p) + p) % p, p - 1e-6);
   }
 
   function startBufferBgm(ctx, loop, opts, url){
-    bufferBgm = newBgmVoice(ctx, loop, opts, url, ctx.currentTime, 0);   // the copy begins at the top of the song
+    killAllVoices(BGM_STOP_FADE);
+    const when = ctx.currentTime;
+    bgmCurrent = newBgmVoice(ctx, loop, opts, url, when, 0);   // the copy begins at the top of the song
+    bgmClock = { origin:when, period:loop.period };
     keepOnlyBgmBuffer(url);
   }
 
-  /* Same piece, other instruments: start the new variant at the same position
-     in the loop and crossfade, so nothing cuts and nothing restarts. */
+  /* Same piece, other instruments: start the new variant at the position
+     the song is at (shared clock) and crossfade, so nothing cuts and nothing
+     restarts. The outgoing variant is the only other voice left. */
   function crossfadeBufferBgm(ctx, loop, opts, url){
-    const old = bufferBgm;
+    const old = bgmCurrent;
+    for(const v of [...bgmVoices]) if(v !== old) killVoice(v, BGM_STOP_FADE);   // an earlier switch still fading
     const t = ctx.currentTime + 0.05;
-    const period = loop.period;
-    const pos = old ? (((t - old.t0) % old.period) + old.period) % old.period : 0;
-    const voice = newBgmVoice(ctx, loop, opts, url, t, Math.min(pos, period - 1e-6), 0);
+    const voice = newBgmVoice(ctx, loop, opts, url, t, bgmPosition(t, loop.period), 0);
     voice.gain.gain.setValueAtTime(0, t);
     voice.gain.gain.linearRampToValueAtTime(bgmVolume() * voice.trim, t + BGM_CROSSFADE);
-    if(old){
-      const g = old.gain.gain;
-      g.cancelScheduledValues(t);
-      g.setValueAtTime(g.value, t);
-      g.linearRampToValueAtTime(0, t + BGM_CROSSFADE);
-      try{ old.src.stop(t + BGM_CROSSFADE + 0.05); }catch(e){}
-      old.src.onended = ()=>{
-        try{ old.src.disconnect(); old.gain.disconnect(); }catch(e){}
-        fadingBgms = fadingBgms.filter(v=>v !== old);
-      };
-      fadingBgms.push(old);
-    }
-    bufferBgm = voice;
+    killVoice(old, BGM_CROSSFADE, t);
+    bgmCurrent = voice;
     keepOnlyBgmBuffer(url);
   }
 
-  function stopVoice(v){
-    try{
-      const t = audioCtx ? audioCtx.currentTime : 0;
-      v.gain.gain.cancelScheduledValues(t);
-      v.gain.gain.setValueAtTime(v.gain.gain.value, t);
-      v.gain.gain.linearRampToValueAtTime(0, t + 0.08);   // fade instead of cutting mid-waveform
-      v.src.stop(t + 0.1);
-    }catch(e){
-      try{ v.src.stop(); }catch(e2){}
-    }
-    v.src.onended = ()=>{ try{ v.src.disconnect(); v.gain.disconnect(); }catch(e){} };
-  }
-  function stopBufferBgm(){
-    if(bufferBgm){ stopVoice(bufferBgm); bufferBgm = null; }
-    fadingBgms.forEach(stopVoice);
-    fadingBgms = [];
-  }
+  function stopBufferBgm(){ killAllVoices(BGM_STOP_FADE); }
 
   /* playBgm(key[, variant]). The same key again only changes the variant
      (crossfade); a different key stops this world's music and starts the
@@ -822,28 +849,34 @@ import { startProceduralBgm } from './procedural-bgm.js';
       const k = bgmKey; bgmKey = null; playBgm(k, next);
       return;
     }
-    if(proceduralBgm && !bufferBgm) return;   // this world's file failed to load: keep the procedural music
+    if(proceduralBgm && !bgmCurrent) return;   // this world's file failed to load: keep the procedural music
     const token = ++bgmToken;
     const opts = BGM_TRACK_OPTIONS[key];
     const resolved = resolveAssetUrl(toUrl);
     loadBgmBuffer(ctx, resolved, opts).then(loop=>{
       if(token !== bgmToken) return;
-      if(bufferBgm && bufferBgm.url === resolved) return;   // switched away and back before the load finished
+      if(bgmCurrent && bgmCurrent.url === resolved) return;   // switched away and back before the load finished
       /* Crossfade only when the old variant has really been heard. Right after
          the world started - or while the context is still suspended before the
          first tap (a save is applied after the tavern was built at boot) -
          replace it and start the right variant from the top instead. */
-      const heard = bufferBgm && ctx.state === 'running' && ctx.currentTime - bufferBgm.t0 >= 0.5;
+      const heard = bgmCurrent && ctx.state === 'running' && ctx.currentTime - bgmCurrent.startedAt >= 0.5;
       if(heard) crossfadeBufferBgm(ctx, loop, opts, resolved);
       else { stopBufferBgm(); startBufferBgm(ctx, loop, opts, resolved); }
     }, err=>{
       if(token !== bgmToken) return;
       // keep whatever is playing; the next visit retries
       console.warn(`BGM ${key}: ${toUrl} を読めないため今の曲のままにします`, err && err.message || err);
-      if(!bufferBgm) proceduralBgm = startProceduralBgm(ctx, ctx.destination, key, bgmVolume());
+      if(!bgmCurrent) proceduralBgm = startProceduralBgm(ctx, ctx.destination, key, bgmVolume());
     });
   }
 
+  /* Stop all game music (title screen: MUSIC-BGM-REGRESSION-001). Every
+     decoded-track voice - playing, crossfading or scheduled - fades out in
+     0.08 s and is then cut from the output; a load still in flight is
+     dropped; the procedural engine and <audio> fallback stop too. Leaves the
+     AudioContext, sound effects and the volume settings alone, and is safe to
+     call any number of times. The next playBgm() starts from a clean state. */
   function stopBgm(){
     bgmToken++;
     if(bgmEl){ bgmEl.pause(); bgmEl = null; }

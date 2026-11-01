@@ -2378,6 +2378,9 @@
   ========================================================= */
   try{
     initThree(); // builds the tavern world, which spawns its own enemies/chests
+    // 起動時のタイトルでもゲームの BGM は鳴らさない(MUSIC-BGM-REGRESSION-001)。酒場を組んだ buildWorld が
+    // 頼んだ BGM を止める(読み込んだ音はキャッシュに残るので、入場したときすぐ鳴る)
+    stopBgm();
     loadAndApplySettings();
     bindSettings();
     refreshContinueBanner();
