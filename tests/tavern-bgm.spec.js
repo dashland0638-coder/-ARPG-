@@ -107,7 +107,8 @@ async function continueFrom(page, clears, selectedClass) {
   await page.addInitScript(([key, payload]) => localStorage.setItem(key, payload),
     [SAVE_KEY, JSON.stringify(saveWith(clears, selectedClass))]);
   await openGame(page);
-  await expect.poll(() => playingUrl(page), { timeout: 20_000 }).toBe(FILE.swordsman);   // 起動時の酒場はまだセーブを読んでいない
+  await page.waitForTimeout(1_000);
+  expect(await started(page), 'タイトルではゲームの BGM を鳴らさない(MUSIC-BGM-REGRESSION-001)').toHaveLength(0);
   await page.click('#cc-continue-btn');
   await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
   await dismissIntroDialogue(page);
@@ -115,14 +116,21 @@ async function continueFrom(page, clears, selectedClass) {
 const ALL = { mansion: 1, duskvillage: 1, ghostship: 1, clocktower: 1, road: 1 };
 
 test.describe('酒場 BGM(実音源・加入段階)', () => {
-  test('起動: 剣士の段を読み、1 周ちょうどのバッファをループ点なしで丸ごと繰り返す', async ({ page }) => {
+  test('起動: タイトルでは鳴らさない(剣士の段は先に読んでおく)。はじめると、1 周ちょうどのバッファをループ点なしで丸ごと繰り返す', async ({ page }) => {
     const errors = watchErrors(page);
     await instrument(page);
     const responses = [];
     page.on('response', r => { if (/\/audio\/bgm\//.test(r.url())) responses.push({ path: new URL(r.url()).pathname, status: r.status(), type: r.headers()['content-type'] }); });
     await openGame(page);
-    await expect.poll(async () => (await started(page)).length, { timeout: 20_000 }).toBe(1);
+    await expect.poll(() => responses.length, { timeout: 20_000 }).toBe(1);
     expect(responses).toEqual([{ path: FILE.swordsman, status: 200, type: expect.stringMatching(/audio\/mpeg/) }]);
+    await page.waitForTimeout(1_500);
+    expect(await started(page), 'タイトルでは鳴らさない(MUSIC-BGM-REGRESSION-001)').toHaveLength(0);
+    await createCharacter(page);
+    await page.click('#cc-start-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/);
+    await expect.poll(async () => (await started(page)).length, { timeout: 20_000 }).toBe(1);
+    expect(responses).toHaveLength(1);                             // 読み直さない(キャッシュ)
     const [s] = await started(page);
     expect(s.url).toBe(FILE.swordsman);
     expect(s.loop).toBe(true);
@@ -133,10 +141,7 @@ test.describe('酒場 BGM(実音源・加入段階)', () => {
     expect(s.channels).toBe(2);
     expect(s.seam).toBeLessThan(s.typical);                        // 最後 → 最初の段差は、普段の隣り合う音の差より小さい
     expect(await bgmGain(page)).toBeCloseTo(0.4 * LOOP.gain, 6);   // 音量「中」(0.4) × 曲の gain
-    // 新しく始めても(酒場のまま・剣士)二重に鳴らず、段階も変わらない
-    await createCharacter(page);
-    await page.click('#cc-start-btn');
-    await expect(page.locator('#hud')).toHaveClass(/active/);
+    // 導入の会話の後も(酒場のまま・剣士)二重に鳴らず、段階も変わらない
     await dismissIntroDialogue(page);
     expect(await playingUrl(page)).toBe(FILE.swordsman);
     expect(await started(page)).toHaveLength(1);
@@ -295,26 +300,38 @@ test.describe('酒場 BGM(実音源・加入段階)', () => {
     await instrument(page);
     await page.route('**/audio/bgm/tavern-*.mp3', route => route.fulfill({ status: 404, body: '' }));
     await openGame(page);
-    await expect.poll(() => warnings.some(w => w.includes('tavern-1-swordsman.mp3')), { timeout: 20_000 }).toBe(true);
-    expect(await started(page)).toHaveLength(0);
-    expect(await page.evaluate(() => window.__bgm.oscillators)).toBeGreaterThan(0);   // 手続き生成の BGM
     await createCharacter(page);
     await page.click('#cc-start-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
+    await expect.poll(() => warnings.some(w => w.includes('tavern-1-swordsman.mp3')), { timeout: 20_000 }).toBe(true);
+    expect(await started(page)).toHaveLength(0);
+    expect(await page.evaluate(() => window.__bgm.oscillators)).toBeGreaterThan(0);   // 手続き生成の BGM
     expect(pageErrors).toEqual([]);
   });
 
   test('次の段のファイルだけ読めないときは、今の段(剣士)を鳴らし続ける', async ({ page }) => {
-    test.setTimeout(120_000);
+    /* 段の切り替えは酒場にいる間に起きる(加入の会話の後)。「つづきから」はその時点の段から鳴らすので、
+       切り替えの失敗は audio.js を空のページに読んで確かめる(段階の切り替えのテストと同じ) */
     const pageErrors = [];
     page.on('pageerror', e => pageErrors.push(e.message));
     const warnings = [];
     page.on('console', m => { if (m.type() === 'warning') warnings.push(m.text()); });
     await instrument(page);
     await page.route(`**${FILE.mage}`, route => route.fulfill({ status: 404, body: '' }));
-    await continueFrom(page, { mansion: 1 }, 'mage');
+    await page.route('**/__bgm_blank', r => r.fulfill({ contentType: 'text/html', body: '<!doctype html><meta charset="utf-8"><title>bgm</title><button id="b">tap</button>' }));
+    await page.goto('/__bgm_blank');
+    await page.evaluate(async () => {
+      const m = await import('/src/audio/audio.js');
+      window.__audio = m;
+      document.getElementById('b').addEventListener('click', () => m.resumeAudio());
+      m.playBgm('tavern', 'swordsman');
+    });
+    await page.click('#b');
+    await expect.poll(() => playingUrl(page), { timeout: 20_000 }).toBe(FILE.swordsman);
+    await page.evaluate(() => window.__audio.setBgmVariant('tavern', 'mage'));
     await expect.poll(() => warnings.some(w => w.includes('tavern-2-mage.mp3')), { timeout: 20_000 }).toBe(true);
     expect(await playingUrl(page)).toBe(FILE.swordsman);
+    expect(await page.evaluate(() => window.__bgm.oscillators)).toBe(0);   // 手続き生成へは移らない
     expect(pageErrors).toEqual([]);
   });
 });
