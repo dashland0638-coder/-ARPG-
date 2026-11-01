@@ -58,8 +58,9 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
 | unit `bgm-regression.test.js`（7、新規） | 下の表 |
 | E2E `bgm-regression.spec.js`（2、新規。実物のゲーム） | 下の表 |
 | E2E `tavern-bgm.spec.js`（10） | 「タイトルでは鳴らさない」に合わせた（起動・つづきから・404）。次の段だけ読めないときの確認は、空のページで audio.js を動かす形にした |
-| 変異の確認 | 修正前の `audio.js` に戻すと、unit の新規 7 件のうち 5 件が落ちる。`returnToTitle` の `stopBgm()` を外すと、E2E が落ちる |
-| E2E 関連 | E2E_RESULT |
+| 変異の確認 | 修正前の `audio.js` に戻すと、unit の新規 7 件のうち 5 件が落ちる。「聞こえているか」の判定を元に戻すと、連続切り替えの unit が落ちる。`returnToTitle` の `stopBgm()` を外すと、E2E が落ちる |
+| E2E 関連（10 ファイル） | 51 pass / 0 fail（`bgm-regression`・`tavern-bgm`・`audio`・`production-build`・`save-load`・`chapter1-progression`・`mansion-scenario`・`tavern-smith-greeting`・`scenario-test-mode`・`pwa-test-entry`。1 worker・14.6 分） |
+| 独立 Reviewer | PASS（Round 1、ブロッキング 0）。非ブロッキング 5 件をすべて直した。主なもの: 「聞こえているか」の判定を共通の時計から見る（クロスフェード直後の切り替えで曲が頭に戻っていた）。連続切り替えの unit で、毎回同じ位置から始まることを確かめる |
 
 **unit `bgm-regression.test.js`**（偽の AudioContext・タイマー。「関数が呼ばれた」ではなく、古い音源が音量 0・出力から外れた・停止したかを見る）
 
