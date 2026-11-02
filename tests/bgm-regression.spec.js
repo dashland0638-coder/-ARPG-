@@ -197,4 +197,46 @@ test.describe('酒場 BGM の再生インスタンス(MUSIC-BGM-REGRESSION-001)'
     expect((await live(page))[0].gain).toBeCloseTo(0.7 * GAIN, 3);
     expect(errors).toEqual([]);
   });
+  test('確認用: ?dev=1 の設定タブの「BGM 段階(確認用)」で、クリアせずに段階を替えられる(同じ位置から・前の段は外れる)。通常の URL では出ない', async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = watchErrors(page);
+    await instrument(page);
+    await page.addInitScript(([k, v]) => localStorage.setItem(k, v), [SAVE_KEY, JSON.stringify(save({}, 'warrior'))]);
+    await openGame(page);                                          // ?dev=1
+    await page.click('#cc-continue-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
+    await dismissIntroDialogue(page);
+    await expect.poll(async () => (await live(page)).map(v => v.url).join(), { timeout: 20_000 }).toBe(FILE.swordsman);
+    await page.waitForTimeout(1_500);
+    await page.keyboard.press('Escape');
+    await page.click('#menu-overlay [data-menu-tab="settings"]');
+    await expect(page.locator('#set-bgm-stage')).toBeVisible();
+    await expect(page.locator('#set-bgm-stage')).toHaveText('自動');
+    await page.click('#set-bgm-stage');
+    await expect(page.locator('#set-bgm-stage')).toHaveText('剣士');
+    await page.click('#set-bgm-stage');
+    await expect(page.locator('#set-bgm-stage')).toHaveText('魔法使い');
+    await expect.poll(async () => (await voices(page)).filter(v => v.url === FILE.mage).length, { timeout: 20_000 }).toBe(1);
+    const all = await voices(page);
+    const sw = all.find(v => v.url === FILE.swordsman), mg = all.find(v => v.url === FILE.mage);
+    const period = PERIOD_TO - PERIOD_FROM;
+    expect(Math.abs(mg.offset - ((mg.when - (sw.when - sw.offset)) % period + period) % period)).toBeLessThan(0.01);
+    await page.waitForTimeout(2_600);
+    expect((await live(page)).map(v => v.url), '前の段は外れ、魔法使いの段だけ').toEqual([FILE.mage]);
+    // 自動に戻すと、進行(剣士)の段へ
+    for (let i = 0; i < 5; i++) await page.click('#set-bgm-stage');
+    await expect(page.locator('#set-bgm-stage')).toHaveText('自動');
+    await expect.poll(async () => (await live(page)).map(v => v.url).join(), { timeout: 20_000 }).toBe(FILE.swordsman);
+    expect(errors).toEqual([]);
+    // 通常の URL では出ない
+    await openGame(page, { dev: false });
+    await page.click('#cc-continue-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
+    await dismissIntroDialogue(page);
+    await page.keyboard.press('Escape');
+    await page.click('#menu-overlay [data-menu-tab="settings"]');
+    await expect(page.locator('#set-bgm')).toBeVisible();
+    await expect(page.locator('#set-bgm-stage-row')).toBeHidden();
+  });
+
 });

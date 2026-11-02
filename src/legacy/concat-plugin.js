@@ -36,7 +36,7 @@ import {
 } from '../textures/textures.js';
 import { initAudio, resumeAudio, setSfxVolume, sfx, ambient, setBgmVolume, setBgmIntensity, playBgm, setBgmVariant, stopBgm } from '../audio/audio.js';
 // 酒場 BGM の加入段階(MUSIC-BGM-TAVERN-002)
-import { tavernBgmStage } from '../core/tavern-bgm.js';
+import { tavernBgmStage, TAVERN_BGM_STAGES } from '../core/tavern-bgm.js';
 import { groupsFromGraph, allCombos, comboKey, comboKeyFromPath, comboProgress, suggestUnseenCombo } from '../core/route-combos.js';
 import { applyIncomingDamage, applyOutgoingDamage } from '../core/damage-math.js';
 import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../core/loot-math.js';
