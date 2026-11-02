@@ -58,6 +58,7 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
 | unit `bgm-regression.test.js`（7、新規） | 下の表 |
 | E2E `bgm-regression.spec.js`（2、新規。実物のゲーム） | 下の表 |
 | E2E `tavern-bgm.spec.js`（10） | 「タイトルでは鳴らさない」に合わせた（起動・つづきから・404）。次の段だけ読めないときの確認は、空のページで audio.js を動かす形にした |
+| E2E 確認用の切り替え（`bgm-regression.spec.js`） | ?dev=1 の設定タブで剣士 → 魔法使いに替えると、同じ位置から始まり、2.6 秒後は魔法使いの段だけ。自動に戻すと剣士の段へ。通常の URL では出ない。設定の画面の配置（`menu-character-layout.spec.js`）も pass |
 | 変異の確認 | 修正前の `audio.js` に戻すと、unit の新規 7 件のうち 5 件が落ちる。「聞こえているか」の判定を元に戻すと、連続切り替えの unit が落ちる。`returnToTitle` の `stopBgm()` を外すと、E2E が落ちる |
 | E2E 関連（10 ファイル） | 51 pass / 0 fail（`bgm-regression`・`tavern-bgm`・`audio`・`production-build`・`save-load`・`chapter1-progression`・`mansion-scenario`・`tavern-smith-greeting`・`scenario-test-mode`・`pwa-test-entry`。1 worker・14.6 分） |
 | 独立 Reviewer | PASS（Round 1、ブロッキング 0）。非ブロッキング 5 件をすべて直した。主なもの: 「聞こえているか」の判定を共通の時計から見る（クロスフェード直後の切り替えで曲が頭に戻っていた）。連続切り替えの unit で、毎回同じ位置から始まることを確かめる |
@@ -83,6 +84,12 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
 2. 酒場で鳴っている間に、BGM 音量を「大」にしてタイトルへ戻る → 止まる。タイトルの間は鳴らない。はじめると剣士の段を「大」の音量で 1 つ。
 
 ## 4. 実機で確かめること（iPhone）
+
+**シナリオをクリアせずに確かめる方法**（Human 2026-11-02 の要望で追加）: テスト版を `?dev=1` 付きで開き、「はじめる」か「つづきから」で酒場に入る → メニュー → 設定 →「BGM 段階(確認用)」。
+- 押すたびに 自動 → 剣士 → 魔法使い → 弓師 → 盗賊 → 影の旅人 → 完成版 → 自動 と替わる。
+- 選んだ段へ、本物の切り替え（同じ位置から 2 秒のクロスフェード）で移る。メニューを開いたままでも鳴り替わる。
+- 選んだまま「タイトルへ戻る」で、切り替えの途中の停止も確かめられる。
+- セーブしない。通常の URL では出ない。
 
 `docs/CHAPTER1_PLAYTEST.md` の A-01c。
 

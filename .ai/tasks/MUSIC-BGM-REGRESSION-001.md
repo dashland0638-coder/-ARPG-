@@ -30,7 +30,8 @@ Status: PR（CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
 
 - `src/audio/audio.js`、`src/legacy/parts/10-input.js`、`src/legacy/parts/14-hud-boot.js`
 - `tests/unit/bgm-regression.test.js`（新規）、`tests/bgm-regression.spec.js`（新規）、`tests/tavern-bgm.spec.js`
-- 文書: 本ファイル、報告、DEC-015、`docs/CHAPTER1_PLAYTEST.md`（A-01a）
+- 確認用（Human 2026-11-02 追加）: `index.html`（設定タブの「BGM 段階(確認用)」、?dev=1 の時だけ）、`src/legacy/concat-plugin.js`（`TAVERN_BGM_STAGES` を読む）、`tests/unit/tavern-bgm-stage.test.js`、`tests/menu-character-layout.spec.js`（設定の数え方）
+- 文書: 本ファイル、報告、DEC-015、`docs/CHAPTER1_PLAYTEST.md`（A-01c）
 
 ## Files Not To Change
 
