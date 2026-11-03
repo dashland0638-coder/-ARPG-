@@ -450,6 +450,10 @@
     document.getElementById('hud').classList.remove('active');
     refreshTouchControls();   // state.started is already false, so this clears it out
     document.getElementById('title-screen').style.display = 'flex';
+    /* タイトルではゲームの BGM を鳴らさない(MUSIC-BGM-REGRESSION-001)。クロスフェード中の音も含めて
+       全部止め、BGM の状態を空にする(効果音・音量設定・AudioContext はそのまま)。
+       次に「はじめる」「つづきから」で入ると、finishEnteringGame の buildWorld がその時点の BGM を鳴らす */
+    stopBgm();
     if(player){ scene.remove(player); player=null; }
     if(companion){ scene.remove(companion.group); companion=null; }
   }

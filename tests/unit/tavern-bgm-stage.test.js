@@ -70,12 +70,17 @@ test('組み込み: 酒場を組むときにこの段階で鳴らし、酒場に
   assert.match(world, /playBgm\(key, bgmVariantForWorld\(key\)\);/);
   const hud = parts('14-hud-boot.js');
   const fn = hud.slice(hud.indexOf('function bgmVariantForWorld(key){'), hud.indexOf('function updateChapter1JoinFigure(dt){'));
-  assert.match(fn, /if\(key !== 'tavern'\) return undefined;\s*if\(state\.testMode\) return 'complete';/);   // テストモードは進行を持たない
+  // 確認用の手動の段階(?dev=1 の設定タブ)は DEV_UI の時だけ。テストモードは進行を持たないので完成版
+  assert.match(fn, /if\(key !== 'tavern'\) return undefined;\s*if\(DEV_UI && bgmStageOverride\) return bgmStageOverride;\s*if\(state\.testMode\) return 'complete';/);
+  assert.match(hud, /let bgmStageOverride = null;/, '既定は自動(進行から決める)');
+  const bind = hud.slice(hud.indexOf('function bindSettings(){'));
+  assert.match(bind.slice(0, bind.indexOf('\n  }\n')), /if\(DEV_UI\)\{[\s\S]*set-bgm-stage-row[\s\S]*row\.style\.display = '';[\s\S]*updateTavernBgmStage\(\);/, '?dev=1 の時だけ出して、すぐ切り替える');
+  assert.doesNotMatch(hud, /bgmStageOverride[^\n]*(saveGame|localStorage)/, 'セーブしない');
   assert.match(fn, /clears: state\.scenarioClears, classKey: selectedClass, cast: CHAPTER_CAST,/);
   assert.match(fn, /finaleActive: roadPendingFinale \|\| state\.dialogueKind === 'chapter1Finale',/);
   assert.match(fn, /function updateTavernBgmStage\(\)\{\s*if\(currentWorldKey !== 'tavern'\) return;\s*setBgmVariant\('tavern', bgmVariantForWorld\('tavern'\)\);/);
-  // 操作中と演出・会話中の両方のループから呼ぶ
-  assert.equal((hud.match(/updateTavernBgmStage\(\);/g) || []).length, 2);
+  // 操作中と演出・会話中の両方のループから呼ぶ(もう 1 か所は確認用の段階の切り替えボタン)
+  assert.equal((hud.match(/updateTavernBgmStage\(\);/g) || []).length, 3);
   // 最後の会話: 戻った酒場を組む(buildWorld)ときはまだ roadPendingFinale、その後すぐ chapter1Finale の会話になる
   const ui = parts('12-progression-ui.js');
   const ret = ui.slice(ui.indexOf('function returnToTownNow(isDefeat){'));

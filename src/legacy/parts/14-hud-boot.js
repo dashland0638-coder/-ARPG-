@@ -236,6 +236,19 @@
       refreshSettingLabels();
       sfx('ui');
     });
+    // 確認用の段階の切り替え(?dev=1 の時だけ出す)。押すたびに 自動 → 剣士 → … → 完成版 → 自動
+    if(DEV_UI){
+      const row = document.getElementById('set-bgm-stage-row'), btn = document.getElementById('set-bgm-stage');
+      row.style.display = '';
+      btn.addEventListener('click', ()=>{
+        const order = [null, ...TAVERN_BGM_STAGES];
+        bgmStageOverride = order[(order.indexOf(bgmStageOverride) + 1) % order.length];
+        btn.textContent = bgmStageOverride ? BGM_STAGE_LABELS[bgmStageOverride] : '自動';
+        resumeAudio();
+        updateTavernBgmStage();   // メニューを開いたままでもすぐ切り替わる(酒場にいる時だけ)
+        sfx('ui');
+      });
+    }
     document.getElementById('set-shake').addEventListener('click', ()=>{
       shakeIdx = (shakeIdx+1) % SHAKE_STEPS.length;
       state.shakeScale = SHAKE_STEPS[shakeIdx].v;
@@ -2045,8 +2058,14 @@
      同じ位置からクロスフェードする(audio.js setBgmVariant。同じ段なら何もしない)。
      セーブ・ロードでは、ロードした進行と主人公から同じ式で決まる。
      テストモードは進行を持たない(scenarioClears が空)ので、今までどおり完成版 */
+  /* 確認用: 酒場 BGM の段階を手で替える(?dev=1 の設定タブの「BGM 段階(確認用)」。MUSIC-BGM-REGRESSION-001)。
+     null = 自動(進行から決める)。セーブしない。シナリオをクリアせずに段階の切り替え(同じ位置からの
+     2 秒のクロスフェード)とタイトルでの停止を実機で確かめるため。本番の判定には触れない */
+  let bgmStageOverride = null;
+  const BGM_STAGE_LABELS = { swordsman:'剣士', mage:'魔法使い', archer:'弓師', thief:'盗賊', shadow:'影の旅人', complete:'完成版' };
   function bgmVariantForWorld(key){
     if(key !== 'tavern') return undefined;
+    if(DEV_UI && bgmStageOverride) return bgmStageOverride;
     if(state.testMode) return 'complete';
     return tavernBgmStage({
       clears: state.scenarioClears, classKey: selectedClass, cast: CHAPTER_CAST,
@@ -2378,6 +2397,9 @@
   ========================================================= */
   try{
     initThree(); // builds the tavern world, which spawns its own enemies/chests
+    // 起動時のタイトルでもゲームの BGM は鳴らさない(MUSIC-BGM-REGRESSION-001)。酒場を組んだ buildWorld が
+    // 頼んだ BGM を止める(読み込んだ音はキャッシュに残るので、入場したときすぐ鳴る)
+    stopBgm();
     loadAndApplySettings();
     bindSettings();
     refreshContinueBanner();
