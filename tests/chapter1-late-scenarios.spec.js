@@ -108,18 +108,60 @@ test.describe('第一章の後半（本編）: 幽霊船・時計塔への接続
     const talk = await sortie(page, 'ghostship', '幽霊船');
     expect(talk).toEqual([
       '酒場の主人|幽霊船か。正気の沙汰とも思えんが……',
-      '弓師|眉唾だとは思うが、話だけでも聞かせてくれ。',
+      '弓師|……詳しく、聞かせてください。',
       '酒場の主人|霧の港に、朽ちた帆船が打ち上げられたそうだ。沈没船から引き上げた"錨"を積んでいたらしくてな。',
-      '弓師|ただの錨ひとつで、あそこまで朽ちるものか?',
+      '弓師|錨ひとつで、そこまで朽ちるものでしょうか。',
       '酒場の主人|ただの錨じゃない、という話でな。死者をこの世に縛りつける錨だとか。今も甲板を彷徨う亡霊がいるとか。',
-      '弓師|亡霊は、まだ船を降りていない……ということか。',
+      '弓師|……まだ、船に乗っているんでしょうか。',
       '酒場の主人|……さあな。海の男でさえ近寄らん場所さ。よほどの事情がなきゃ勧めんが……それでも行くかい?',
-      // 締めの一言は主人公の性格の決まり文句(弓師 = calm。12-progression-ui.js PERSONALITY_LINES)
-      '弓師|「……まずは見極めよう。急いては事を仕損じる」',
+      // 受け答えと締めの一言は弓師の口調(丁寧で落ち着いている)。第一章の本編はシナリオごとの一言(DEC-016)
+      '弓師|では、行ってきます。',
     ]);
     await expect(page.locator('#hud-name')).toHaveText('弓師 ｜ 支援: 魔法使い');
     // 第一章では周回の制限時間が出ない
     await expect(page.locator('#scenario-timer')).toBeHidden();
+    expect(errors).toEqual([]);
+  });
+
+  /* 出撃の会話の台詞(W0-6 の承認 → W1-5、DEC-016)。前半の 2 つ(洋館・宵待ちの村)も全行と順番を見る */
+  test('はじめる: 剣士で、洋館への出撃の会話が順番どおりに出る(締めは剣士の一言)', async ({ page }) => {
+    test.setTimeout(420_000);
+    const errors = watchErrors(page);
+    await continueFrom(page, saveWith({ clears: {}, selectedClass: 'warrior', playerName: '剣士' }));
+    const talk = await sortie(page, 'mansion', '囚われの洋館');
+    expect(talk).toEqual([
+      '酒場の主人|……見慣れぬ顔だな。旅の冒険者かい。',
+      '剣士|この辺りで、何か腕試しになりそうな話はないか?',
+      '酒場の主人|あるにはある。森の奥に古い洋館があってな。半月ほど前から、あそこへ行った者が戻ってこん。',
+      '剣士|戻ってこない?',
+      '酒場の主人|ああ。荷を運んだ男も、工具を取りに行った鍛冶屋も。……鍛冶屋のほうは、まだ二日だがね。',
+      '剣士|何がいるんだ。',
+      '酒場の主人|知らんよ。誰も見たと言い切らん。人影を見たと言う者、声を聞いたと言う者、気のせいだと笑う者。全員が本気で言うんだ。',
+      '剣士|……なるほど。',
+      '酒場の主人|道は一本だ。迷いはせん。……帰ってこられるなら、その話をぜひ聞かせてくれ。',
+      '剣士|……行ってくる。',
+    ]);
+    expect(errors).toEqual([]);
+  });
+
+  test('洋館クリア後: 魔法使い＋剣士で、宵待ちの村への出撃の会話が順番どおりに出る(魔法使いは丁寧語)', async ({ page }) => {
+    test.setTimeout(420_000);
+    const errors = watchErrors(page);
+    await continueFrom(page, saveWith({ clears: { mansion: 1 }, selectedClass: 'mage', guestClassKey: 'warrior', playerName: '魔法使い' }));
+    await expect(page.locator('#hud-name')).toHaveText('魔法使い ｜ 支援: 剣士');
+    const talk = await sortie(page, 'duskvillage', '宵待ちの村');
+    expect(talk).toEqual([
+      '酒場の主人|……宵待ちの村、か。よくその名前が出てきたな。',
+      '魔法使い|何か、ご存じなんですか?',
+      '酒場の主人|湖のほとりの村でな。魚を獲って、舟を出して、それで暮らしていた。',
+      '魔法使い|いまは?',
+      '酒場の主人|誰もいない。いつからいないのかも、誰が住んでいたのかも、もう誰も言えん。',
+      '魔法使い|……忘れられた、ということですか。',
+      '酒場の主人|ああ。ただな、物は残っているらしい。網も、舟も、干したままだと。',
+      '魔法使い|人だけが、いないんですね。',
+      '酒場の主人|そういうことだ。……忘れられたままそこに居るものがいる、という話もある。それでも行くかい?',
+      '魔法使い|……確かめてきます。',
+    ]);
     expect(errors).toEqual([]);
   });
 
@@ -136,9 +178,9 @@ test.describe('第一章の後半（本編）: 幽霊船・時計塔への接続
       '酒場の主人|それが先月から、毎晩七時十三分きっかりに止まるようになってな。様子を見に入った管理人が、まだ降りてこん。',
       '盗賊|管理人が、一人で?',
       '酒場の主人|ああ。何年か前に、娘さんが家を出たきり戻らんのだと。塔にこもりきりで、様子がおかしいという者もいる。',
-      '盗賊|娘の行方と、鐘に何か関係が?',
+      '盗賊|娘と鐘が、関係あるのか?',
       '酒場の主人|……さあな。ただ、七時十三分は――娘さんが家を出た時刻だ、という話でな。登るなら覚悟しな。降りる階段は、無いって話もある。',
-      '盗賊|「面白い……行くしかないな」',   // 盗賊 = brave
+      '盗賊|登るさ。降りるのは、そのとき考える。',   // 第一章の本編はシナリオごとの一言(DEC-016)
     ]);
     await expect(page.locator('#hud-name')).toHaveText('盗賊 ｜ 支援: 弓師');
     await expect(page.locator('#scenario-timer')).toBeHidden();
@@ -184,7 +226,9 @@ test.describe('第一章（本編）: 本物の戦闘不能', () => {
     const clears = { mansion: 1, duskvillage: 1, ghostship: 1, clocktower: 1 };
     await continueFrom(page, saveWith({ clears, selectedClass: 'rogue', guestClassKey: 'archer', playerName: '盗賊', gold: 100 }));
     await expect(page.locator('#hud-name')).toHaveText('盗賊 ｜ 支援: 弓師');
-    await sortie(page, 'road', '名もなき街道');
+    const talk = await sortie(page, 'road', '名もなき街道');
+    // 出撃の会話の終わり: 「探してくる。」→ 主人 → 盗賊の締め(行方不明の人を探す場面の一言。DEC-016)
+    expect(talk.slice(-3)).toEqual(['盗賊|探してくる。', '酒場の主人|街道は一本だ。迷いはせん。……明るいうちに戻れよ。', '盗賊|ああ。日が落ちる前にな。']);
     await disableCameraAutoFollow(page);
 
     /* 道を北へ進み(まだ起きていないイベントの「!」= 道標の方へ)、戦闘1の獣の近くで立ち止まる
