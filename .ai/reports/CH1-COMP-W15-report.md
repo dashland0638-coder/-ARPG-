@@ -29,7 +29,7 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED
 | unit `sortie-lines.test.js`（2、新規） | `SCENARIO_TAVERN_DIALOGUE` を本編と旧成長の両方で評価し、5 つの出撃の全行を突き合わせる。変わったのは承認した 7 行だけ（同じ位置）、主人の台詞・行数・話者の順は同じ、旧成長は旧い文言。締めは承認した 5 つで、旧成長は性格の決まり文句 |
 | 変異の確認 | 時計塔の 1 行を旧い文言に戻すと unit が落ちる |
 | E2E `chapter1-late-scenarios.spec.js` | 洋館・宵待ちの村（新規）・幽霊船・時計塔の出撃会話の全行と順番、道の最後の 3 行（締め）。出撃会話の 4 件は pass |
-| E2E 関連 | E2E_RESULT |
+| E2E 関連（5 ファイル） | 28 pass / 0 fail（`chapter1-late-scenarios`（道の締めを含む）・`chapter1-progression`・`chapter1-tower-to-road`・`mansion-butler`・`duskvillage`。1 worker・16.4 分） |
 | 独立 Reviewer | PASS（ブロッキング 0）。12 行を 3 ファイルで文字単位に照合。非ブロッキング: 報告の作成、第二章の本編を作るときの分岐の注意（DEC-016 決定 5 に記載） |
 
 ## 4. 実機で確かめること（iPhone）
