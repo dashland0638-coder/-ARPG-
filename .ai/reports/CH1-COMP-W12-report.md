@@ -84,7 +84,7 @@ Status: CONTENT READY = HUMAN DEVICE CHECK REQUIRED（調整なし。実機で�
 | unit 全体 | 2111 pass / 0 fail / 1 skip（既存の skip） |
 | E2E `look-target`・`character-motion` | 15 pass / 0 fail（歩行中は仲間を見ない・止まれば見る、モーションのパネル・既存のモーション） |
 | 計測 | 上の表。計測用のスクリプトは一時的なもので、コミットしない（同じ手順で再現できる） |
-| 独立 Reviewer | Round 1: CHANGES_REQUIRED（文書のみ。体格の `strideAmp` の内訳・0.15° の表記・解消の範囲・W1-1 前の仕組み・列名・細かい記述）→ すべて反映。Round 2: REVIEW_R2 |
+| 独立 Reviewer | Round 1: CHANGES_REQUIRED（文書のみ。体格の `strideAmp` の内訳・0.15° の表記・解消の範囲・W1-1 前の仕組み・列名・細かい記述）→ すべて反映。Round 2: PASS（指摘なし。生データと表・差の値の一致を確認） |
 
 ## 6. 実機で確かめること（iPhone）
 
