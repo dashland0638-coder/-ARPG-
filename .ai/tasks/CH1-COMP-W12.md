@@ -15,7 +15,10 @@ Status: PR（計測の結果、調整は不要。CONTENT READY = HUMAN DEVICE CH
 - W1-1 は main に入っている（`0079dc2`）。歩いている間は仲間を見ない（`core/look-rig.js` の `lookTargetKind`: `moving` なら `null`）。止まっているときと会話中は従来どおり仲間を見る。
 - 歩行中の体幹の前傾は職業によらず同じ式: `0.02 + runUpper×0.11` rad（`13-update-loop.js` `updateLocomotion`。`runUpper = run × locomotionMix(RELAXED_WALK_UPPER.run, 1, walkW)`）。
 - 全身の傾きも同じ式: `player.rotation.x = -leanZ×0.55`、`targetLean = min(0.13, 速さ×0.019) × locomotionMix(RELAXED_WALK_UPPER.lean, 1, walkW)`。
-- 職業で変わるのは、視線が体幹に足す pitch（`CLASS_WAIST_PITCH_COEF`: 弓師 0.80・剣士 0.70。上限 5°）と、歩く速さ（剣士 5.0・弓師 5.6 m/s）だけ。
+- 職業で変わるのは次の 3 つ。
+  - 視線が体幹に足す pitch（`CLASS_WAIST_PITCH_COEF`: 弓師 0.80・剣士 0.70。上限 5°×職業係数 = 弓師 4.0°・剣士 3.5°）
+  - 歩く速さ（剣士 5.0・弓師 5.6 m/s）
+  - 体格の歩幅の係数 `strideAmp`（剣士 1.00・弓師 0.93、`05-rendering-rig.js` の `BUILD`）。歩幅の振れ → `run` → 体幹の前傾に入る
 - Motion Panel（デバッグモード）には体幹の pitch・全身の傾きの行が無い。今回はゲームのコードを変えずに計測した（下の方法）。
 
 ## 計測（Tester）
@@ -24,7 +27,9 @@ Status: PR（計測の結果、調整は不要。CONTENT READY = HUMAN DEVICE CH
 
 ## 判断
 
-**A（解消している）**。同じ速さでは弓師と剣士の歩行姿勢の差は 0.1° 以下で、視線の寄与は 0°。残る差（0.1〜0.2°）は歩く速さの違いだけによる。係数は変えない。
+**A（操作中の歩行では解消している）**。同じ速さでは弓師と剣士の歩行姿勢の差は 0.15° 以下（弓師の方が 0.14° 小さい。`strideAmp` による）で、視線の寄与は 0°。職業の速さのままの差は、速さ（+）と `strideAmp`（−）の合計。係数は変えない。
+
+演出中の徒歩と戦闘態勢の移動では、Look Rig の積み上がりが今も残る（報告 §4）。原因は歩行の係数ではないので W1-2 では変えず、別の Work Item を提案する。
 
 ## Files To Change
 
