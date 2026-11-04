@@ -25,6 +25,17 @@
     cheerful:  '「これは胸が躍る!さあ、行こう!」',
     cautious:  '「油断は禁物だ。備えを整えてから向かおう」'
   };
+  /* 第一章の本編(!legacyGrowth())の出撃会話の締めの一言(W0-6 / W1-5、DEC-016)。
+     第一章では出撃ごとに主人公が決まっているので、性格の決まり文句ではなく、その出撃の
+     主人公と場面に合う一言をシナリオごとに置く(時計塔と道はどちらも盗賊・同じ性格なので、
+     性格では引けない)。テストモードの旧成長・第二章以降は PERSONALITY_LINES のまま */
+  const CHAPTER1_SORTIE_CLOSING = {
+    mansion:     '……行ってくる。',
+    duskvillage: '……確かめてきます。',
+    ghostship:   'では、行ってきます。',
+    clocktower:  '登るさ。降りるのは、そのとき考える。',
+    road:        'ああ。日が落ちる前にな。',
+  };
 
   // scenario-specific tavern gossip, shown once a scenario is picked, before the sortie begins
   // マスターと主人公が交互に話す「掛け合い」形式。renderDialogueLine()は
@@ -48,13 +59,15 @@
       {name:Y, text:'……なるほど。'},
       {name:M, text:'道は一本だ。迷いはせん。……帰ってこられるなら、その話をぜひ聞かせてくれ。'}
     ]; },
-    ghostship: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+    /* 第一章の本編では、弓師の口調(丁寧で落ち着いている)に合わせる(W0-6 / DEC-016)。
+       噂を持ち込んだのは弓師自身(交代の会話)。旧成長・第二章以降は旧い文言のまま */
+    ghostship: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; const ch1 = !legacyGrowth(); return [
       {name:M, text:'幽霊船か。正気の沙汰とも思えんが……'},
-      {name:Y, text:'眉唾だとは思うが、話だけでも聞かせてくれ。'},
+      {name:Y, text: ch1 ? '……詳しく、聞かせてください。' : '眉唾だとは思うが、話だけでも聞かせてくれ。'},
       {name:M, text:'霧の港に、朽ちた帆船が打ち上げられたそうだ。沈没船から引き上げた"錨"を積んでいたらしくてな。'},
-      {name:Y, text:'ただの錨ひとつで、あそこまで朽ちるものか?'},
+      {name:Y, text: ch1 ? '錨ひとつで、そこまで朽ちるものでしょうか。' : 'ただの錨ひとつで、あそこまで朽ちるものか?'},
       {name:M, text:'ただの錨じゃない、という話でな。死者をこの世に縛りつける錨だとか。今も甲板を彷徨う亡霊がいるとか。'},
-      {name:Y, text:'亡霊は、まだ船を降りていない……ということか。'},
+      {name:Y, text: ch1 ? '……まだ、船に乗っているんでしょうか。' : '亡霊は、まだ船を降りていない……ということか。'},
       {name:M, text:'……さあな。海の男でさえ近寄らん場所さ。よほどの事情がなきゃ勧めんが……それでも行くかい?'}
     ]; },
     temple: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
@@ -66,13 +79,14 @@
       {name:Y, text:'神になれなかった、ということか。'},
       {name:M, text:'さあな。ただ、神殿を守るという役目だけは律儀に続けているらしい。……それでも行くかい?'}
     ]; },
-    clocktower: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+    // 第一章の本編では、盗賊のくだけた口調に合わせる(W0-6 / DEC-016)
+    clocktower: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; const ch1 = !legacyGrowth(); return [
       {name:M, text:'時計塔か。……街の連中は、あの塔の鐘で起きて、あの鐘で眠る。'},
       {name:Y, text:'その鐘に、何かあったのか?'},
       {name:M, text:'それが先月から、毎晩七時十三分きっかりに止まるようになってな。様子を見に入った管理人が、まだ降りてこん。'},
       {name:Y, text:'管理人が、一人で?'},
       {name:M, text:'ああ。何年か前に、娘さんが家を出たきり戻らんのだと。塔にこもりきりで、様子がおかしいという者もいる。'},
-      {name:Y, text:'娘の行方と、鐘に何か関係が?'},
+      {name:Y, text: ch1 ? '娘と鐘が、関係あるのか?' : '娘の行方と、鐘に何か関係が?'},
       {name:M, text:'……さあな。ただ、七時十三分は――娘さんが家を出た時刻だ、という話でな。登るなら覚悟しな。降りる階段は、無いって話もある。'}
     ]; },
     conservatory: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
@@ -103,15 +117,16 @@
     /* 宵待ちの村(DEC-001 の正式仕様「忘れられること」)。旧実装の
        「灯りを消して暮らす村」「桟橋伝いにしか進めない」は仕様ごと
        差し替わったので、主人の話す内容もそれに合わせてある */
-    duskvillage: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
+    // 第一章の本編では、魔法使いの丁寧語に合わせる。問いの形で断定しない(W0-6 / DEC-016)
+    duskvillage: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; const ch1 = !legacyGrowth(); return [
       {name:M, text:'……宵待ちの村、か。よくその名前が出てきたな。'},
-      {name:Y, text:'何か知っているのか?'},
+      {name:Y, text: ch1 ? '何か、ご存じなんですか?' : '何か知っているのか?'},
       {name:M, text:'湖のほとりの村でな。魚を獲って、舟を出して、それで暮らしていた。'},
       {name:Y, text:'いまは?'},
       {name:M, text:'誰もいない。いつからいないのかも、誰が住んでいたのかも、もう誰も言えん。'},
-      {name:Y, text:'……忘れられた、ということか。'},
+      {name:Y, text: ch1 ? '……忘れられた、ということですか。' : '……忘れられた、ということか。'},
       {name:M, text:'ああ。ただな、物は残っているらしい。網も、舟も、干したままだと。'},
-      {name:Y, text:'人だけがいない、と。'},
+      {name:Y, text: ch1 ? '人だけが、いないんですね。' : '人だけがいない、と。'},
       {name:M, text:'そういうことだ。……忘れられたままそこに居るものがいる、という話もある。それでも行くかい?'}
     ]; },
     waterway: [] // unused placeholder - waterway builds its own lines per personality/gender, see WATERWAY_VACATION_LINES below
@@ -340,7 +355,8 @@
       const baseRaw = (repeat && repeat.length) ? repeat
                     : (SCENARIO_TAVERN_DIALOGUE[scenarioKey] || SCENARIO_TAVERN_DIALOGUE.mansion);
       const base = typeof baseRaw === 'function' ? baseRaw() : baseRaw;
-      const closing = PERSONALITY_LINES[selectedPersonality] || '';
+      // 第一章の本編はシナリオごとの一言(DEC-016)。旧成長・第二章以降は性格の決まり文句
+      const closing = (!legacyGrowth() && CHAPTER1_SORTIE_CLOSING[scenarioKey]) || PERSONALITY_LINES[selectedPersonality] || '';
       // 締めの一言は主人公自身の呟きなので、話者名も主人公に切り替える
       // (以前は最後まで「酒場の主人」名義のまま表示されていた)
       state.dialogueLines = closing ? base.concat([{name: state.name || 'あなた', text: closing}]) : base.slice();
