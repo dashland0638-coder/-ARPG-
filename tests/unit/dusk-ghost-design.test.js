@@ -3,7 +3,7 @@
    2. 泡沫は、泡から半身を起こす透ける人影(頭と肩)。塊の広がりの内側で、当たりの半径は変えない
    3. 透ける部品はマットで自発光なし、光源なし、新しい色を足さない(既存の配色だけ)
    4. ゾンビ・腐敗・骨の造形を持ち込まない。数値・判定・予兆の定数は変えない
-   5. 変えない種類(水鏡の影・写し身・ボス)の作りは今のまま */
+   5. 変えない種類(水鏡の影・写し身)の作りは今のまま(ボスはこの後 BOSS-DUSK-VISUAL-001 で作り直した。tests/unit/dusk-boss-visual.test.js) */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
