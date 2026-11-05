@@ -1,7 +1,9 @@
 /* BOSS-DUSK-VISUAL-001: 宵待ちの村のボス「村の残響」の見た目を、村の怪異の方針(幽霊・人型の影)にそろえる。
    1. 胴は箱ではなく、肩から水の裾へ溶ける一続きの形。顔は帽子のつばの下の影で、目の光は小さく
    2. 口上の「いくつもの輪郭が重なって、人のかたちになる」を、ずれて重なる淡い人影 2 枚で見せる。
-      袖・帽子の後ろ・足元の霧も同じ淡い薄布。どれも配色の差し色(新しい色なし)、低い不透明度、光源なし
+      袖・帽子の後ろ・足元の霧も同じ淡い薄布。どれも村の薄布と同じ照らされるマットな布で、配色の差し色(新しい色なし)、
+      低い不透明度、弱い自発光(本体の胴以下)、光源なし
+   6. 網の束は外向きの面(裏返った形は輪郭線の殻に塗りつぶされる)
    3. 重なりは振りかぶりで本体へ集まり(予告)、叩き下ろした直後に散る(隙)。首は傾いだまま時々跳ねる
    4. 姿勢は部品の位置・回転だけを書き換える(分身と材質を共有しているので、材質は書き換えない)
    5. 戦闘の数値(HP・攻撃力・速さ)と分身の見分け(足元の水の輪の名前)は今のまま */
@@ -10,8 +12,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as THREE from 'three';
 import {
-  ECHO_BOSS_LOOK, echoBossLayerSpread, echoBossHeadTwitch, VILLAGE_PALETTE, VILLAGE_GHOST,
+  ECHO_BOSS_LOOK, ECHO_BOSS_NET_PROFILE, echoBossLayerSpread, echoBossHeadTwitch, VILLAGE_PALETTE, VILLAGE_GHOST,
 } from '../../src/core/dusk-enemies.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -38,12 +41,17 @@ test('薄布: 重なる輪郭 2 枚・袖・垂れ布・足元の霧。差し色
   const L = ECHO_BOSS_LOOK;
   assert.ok(Object.isFrozen(L));
   for (const k of ['veilOpacity', 'sleeveOpacity', 'shawlOpacity', 'mistOpacity']) {
-    assert.ok(L[k] > 0.05 && L[k] <= 0.3, `${k} は淡い (${L[k]})`);
+    assert.ok(L[k] > 0.05 && L[k] < 0.5, `${k} は淡い (${L[k]})`);
     assert.ok(L[k] <= VILLAGE_GHOST.hemOpacity, `${k} は村の薄布(${VILLAGE_GHOST.hemOpacity})より濃くしない`);
   }
   assert.equal(L.layers.length, 2);
   const build = code(fn('buildDuskEchoBody'));
-  assert.match(build, /new THREE\.MeshBasicMaterial\(\{color:pal\.accent, transparent:true, opacity, vertexColors:true,/, '配色の差し色だけを使う');
+  const veil = build.slice(build.indexOf('const veil = '), build.indexOf('const veilMat'));
+  assert.match(veil, /new THREE\.MeshStandardMaterial\(\{color:pal\.accent, roughness:F\.cloth\.roughness, metalness:F\.cloth\.metalness,/, '照らされるマットな布・差し色');
+  assert.doesNotMatch(veil, /MeshBasicMaterial/, '照明を受けない(光って見える)材質にしない');
+  assert.match(veil, /emissiveIntensity:L\.veilEmissive/);
+  assert.ok(L.veilEmissive > 0 && L.veilEmissive <= 0.12, '自発光は本体の胴(0.12)以下');
+  assert.match(build, /const veilMat = veil\(L\.veilOpacity, THREE\.FrontSide\)/, '閉じた形は表だけを描く');
   assert.doesNotMatch(build, /0x[0-9a-f]{3,6}/i, '新しい色を直書きしない');
   assert.doesNotMatch(build, /PointLight|SpotLight|new THREE\.\w*Light|emissiveIntensity:\s*(0\.[2-9]|1)/, '光源も強い自発光も足さない');
   for (const name of ['echoGhost', 'echoGhost2', 'echoShawl', 'echoMist', 'echoHead', 'echoRipple', 'echoSkirt', 'echoUpper']) {
@@ -98,4 +106,30 @@ test('戦闘の数値と分身の見分けは今のまま', () => {
   assert.match(boss, /bodyColor:VILLAGE_PALETTE\.echoBoss\.main, emissive:VILLAGE_PALETTE\.echoBoss\.shade,/);
   // 分身が拾い直す足元の水の輪の名前
   assert.match(code(fn('buildDuskEchoBody')), /'echoRipple'/);
+});
+
+test('網の束: 面と法線が外を向く(輪郭線の殻に塗りつぶされない)', () => {
+  const geo = new THREE.LatheGeometry(ECHO_BOSS_NET_PROFILE.map(([r, y]) => new THREE.Vector2(r, y)), 9);
+  const pos = geo.attributes.position, nor = geo.attributes.normal;
+  let outward = 0, counted = 0;
+  for (let i = 0; i < pos.count; i++) {
+    const rx = pos.getX(i), rz = pos.getZ(i);
+    if (Math.hypot(rx, rz) < 0.05) continue;   // 軸の上の点は向きが決まらない
+    counted++;
+    if (rx * nor.getX(i) + rz * nor.getZ(i) > 0) outward++;
+  }
+  assert.ok(counted > 20);
+  assert.equal(outward, counted, '頂点の法線がすべて外向き');
+  // 三角形の巻き(表)も外向き
+  const idx = geo.index, a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  let bad = 0;
+  for (let t = 0; t < idx.count; t += 3) {
+    a.fromBufferAttribute(pos, idx.getX(t)); b.fromBufferAttribute(pos, idx.getX(t + 1)); c.fromBufferAttribute(pos, idx.getX(t + 2));
+    const n = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a));
+    const m = new THREE.Vector3().addVectors(a, b).add(c).divideScalar(3);
+    if (n.lengthSq() < 1e-12 || Math.hypot(m.x, m.z) < 0.05) continue;
+    if (n.x * m.x + n.z * m.z < 0) bad++;
+  }
+  assert.equal(bad, 0, '三角形の表が外向き');
+  assert.match(code(fn('buildDuskEchoBody')), /new THREE\.LatheGeometry\(ECHO_BOSS_NET_PROFILE\.map/);
 });

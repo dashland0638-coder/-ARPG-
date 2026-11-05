@@ -108,16 +108,16 @@ export const ECHO_OPACITY = {operate: 0.46, walk: 0.2};   // 引いた残響は�
 /* 村の残響(ボス)の姿(宵待ちの村のボスのビジュアル整合、BOSS-DUSK-VISUAL-001)。
    方針: 幽霊・人型の影。腐肉・骨・傷は使わず、霧・薄布・水面・影と、姿勢・輪郭・動きの不自然さで怪異を表す。
    ・重なる輪郭(veil): 口上の「いくつもの輪郭が重なって、人のかたちになる」をそのまま形にする、本体からずれて
-     重なる淡い人影 2 枚。夜の村では照らされる材質が闇に沈むので、照明の影響を受けない淡い薄布にする
-     (光源は足さない。色は配色の echoBoss.accent をそのまま使い、新しい色を足さない)
+     重なる淡い人影 2 枚。村の敵の薄布と同じ照らされるマットな布で、不透明度は村の薄布(0.36)以下。
+     夜に沈みきらないよう、本体の胴以下の弱い自発光だけを足す(光源は足さない。色は配色の echoBoss.accent のまま)
    ・袖の薄布(sleeve)・帽子の後ろの垂れ布(shawl)・足元の霧(mist)も同じ淡い薄布
    ・顔は帽子のつばの下の影。目の光は今の色のまま小さくする(どこを向いているかの手がかりは残す)
    ・動き: 重なりは振りかぶりで本体へ集まり(= 一撃の予告)、叩き下ろした後の隙に散る。旋回では遅れてついてくる */
 export const ECHO_BOSS_LOOK = Object.freeze({
-  veilOpacity: 0.2,     // 重なる輪郭
-  sleeveOpacity: 0.24,  // 袖の薄布
-  shawlOpacity: 0.26,   // 帽子の後ろの垂れ布
-  mistOpacity: 0.12,    // 足元の霧
+  veilOpacity: 0.34,    // 重なる輪郭(村の薄布 0.36 以下)
+  sleeveOpacity: 0.3,   // 袖の薄布
+  shawlOpacity: 0.32,   // 帽子の後ろの垂れ布
+  mistOpacity: 0.26,    // 足元の霧
   // 重なる輪郭 2 枚のずれ(上半身のローカル座標)と、揺れの位相
   layers: Object.freeze([
     Object.freeze({x: -0.36, z: -0.16, yaw: -0.2, phase: 0}),
@@ -130,7 +130,13 @@ export const ECHO_BOSS_LOOK = Object.freeze({
   floatAmp: 0.06,       // 上半身の浮き沈み
   twitchEvery: 4.3,     // 首がわずかに跳ねる間隔(秒)
   twitchAmp: 0.12,
+  veilEmissive: 0.1,    // 薄布の自発光(本体の胴 0.12 以下。夜に沈みきらない最小限。光源は足さない)
 });
+/* 網の束の断面(LatheGeometry の [半径, 高さ])。手から垂れ下がり、下ほど膨らむ袋の形。
+   点は下から上へ並べる ―― 上から下へ並べると面と法線が内向きになり、輪郭線の殻が網の手前を塗りつぶす */
+export const ECHO_BOSS_NET_PROFILE = Object.freeze([
+  [0.001, -0.98], [0.26, -0.88], [0.32, -0.62], [0.24, -0.3], [0.1, 0], [0.001, 0.05],
+].map(p => Object.freeze(p)));
 /* 重なる輪郭のずれの倍率。k = 振りかぶりの進み具合(null = 振りかぶっていない)、slam = 叩き下ろした直後の残り(1 → 0)。
    振りかぶりで 1 → 1 - converge(集まる)、叩き下ろした直後は 1 + scatter(散る)から 1 へ戻る */
 export function echoBossLayerSpread(k, slam){

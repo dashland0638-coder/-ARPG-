@@ -150,7 +150,7 @@ import {
   DUSK_BOSS_ECHO_SCALE, RING_COLORS, RING_STYLE, ECHO_FIGURE_COLOR, ECHO_OPACITY,
   mirrorRingProgress, foamRingVisible, bossMeleeRingProgress,
   mirrorPose, keeperPose, echoPose, copyMimicProgress,
-  BOSS_CLONE_TELL, bossCloneHitRadius, ECHO_BOSS_LOOK, echoBossLayerSpread, echoBossHeadTwitch,
+  BOSS_CLONE_TELL, bossCloneHitRadius, ECHO_BOSS_LOOK, ECHO_BOSS_NET_PROFILE, echoBossLayerSpread, echoBossHeadTwitch,
 } from '../core/dusk-enemies.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';

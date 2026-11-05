@@ -2478,10 +2478,13 @@
     const waterMat = mat(pal.water, F.water, {transparent:true, opacity:0.86});
     const rippleMat = new THREE.MeshBasicMaterial({color:VILLAGE_PALETTE.mirror.accent, transparent:true, opacity:0.22,
                                                   side:THREE.DoubleSide, depthWrite:false});
-    /* 淡い薄布(重なる輪郭・袖・垂れ布・足元の霧)。夜の村で闇に沈まないよう照明の影響を受けない材質にするが、
-       不透明度は低く、色は配色の差し色のまま(光らせて目立たせるのではなく、霧が薄く浮いて見える程度) */
-    const veil = (opacity)=> new THREE.MeshBasicMaterial({color:pal.accent, transparent:true, opacity, vertexColors:true,
-                                                          side:THREE.DoubleSide, depthWrite:false});
+    /* 淡い薄布(重なる輪郭・袖・垂れ布・足元の霧)。村の敵の薄布と同じく照らされるマットな布で、光らせない。
+       夜の村で黒に沈みきらないよう、本体の胴(0.12)以下の弱い自発光だけを足す。色は配色の差し色のまま。
+       閉じた形(重なる輪郭の胴と頭)は表だけを描く(塗る量を増やさない)。開いた布(袖・垂れ布・霧)は両面 */
+    const veil = (opacity, side)=> new THREE.MeshStandardMaterial({color:pal.accent, roughness:F.cloth.roughness, metalness:F.cloth.metalness,
+                                                          emissive:pal.accent, emissiveIntensity:L.veilEmissive,
+                                                          transparent:true, opacity, vertexColors:true,
+                                                          side:side || THREE.DoubleSide, depthWrite:false});
     /* 薄布の濃さを高さで変える(頂点の不透明度)。上 aTop → 下 aBot。縁が硬い筒や板に見えないよう、
        霧は上へ、袖と垂れ布は下へ、重なる輪郭は水の裾へ向かって消えていく */
     const fadeY = (geo, yBot, yTop, aBot, aTop)=>{
@@ -2494,7 +2497,7 @@
       geo.setAttribute('color', new THREE.BufferAttribute(c, 4));
       return geo;
     };
-    const veilMat = veil(L.veilOpacity), sleeveMat = veil(L.sleeveOpacity), shawlMat = veil(L.shawlOpacity), mistMat = veil(L.mistOpacity);
+    const veilMat = veil(L.veilOpacity, THREE.FrontSide), sleeveMat = veil(L.sleeveOpacity), shawlMat = veil(L.shawlOpacity), mistMat = veil(L.mistOpacity);
     const named = (m, name)=>{ m.name = name; return m; };
     const add = (parent, geo, material, x, y, z, name)=>{
       const m = new THREE.Mesh(geo, material);
@@ -2522,7 +2525,8 @@
     ripple.castShadow = false;
     ripple.userData.noOutline = true;
     // 足元の霧: 水の裾のまわりに薄く立ちのぼる
-    addVeil(g, fadeY(new THREE.CylinderGeometry(1.75, 2.1, 1.1, 18, 3, true), -0.55, 0.55, 1, 0), mistMat, 0, 0.5, 0, 'echoMist');
+    // (水の裾の縁 1.7 にほぼ沿わせ、低く。広く高い筒は、縁の硬い笠に見えた)
+    addVeil(g, fadeY(new THREE.CylinderGeometry(1.6, 1.85, 0.7, 18, 3, true), -0.35, 0.35, 1, 0), mistMat, 0, 0.32, 0, 'echoMist');
     // 上半身
     const up = named(new THREE.Group(), 'echoUpper');
     up.position.y = W;
@@ -2547,7 +2551,7 @@
       const k = i / 6;
       const m = add(up, link, chainMat, -0.6 + 1.2 * k, 1.32 - 1.16 * k, 0.44 + 0.04 * Math.sin(k * Math.PI));
       m.scale.set(1, 1.5, 1);
-      m.rotation.set(i % 2 ? 0 : 0, i % 2 ? Math.PI / 2 : 0, 0.8);
+      m.rotation.set(0, i % 2 ? Math.PI / 2 : 0, 0.8);
     }
     /* 頭: 首の付け根の pivot ごと傾ける(傾いだ首)。顔は帽子のつばの下の暗い影で、目の光は小さく奥に */
     const head = named(new THREE.Group(), 'echoHead');
@@ -2597,19 +2601,16 @@
     const armR = limb(up,  sw + 0.1, 1.26, 1.0, 0.19, bodyMat, 'echoArmR');
     const foreL = limb(armL, 0, -1.0, 1.0, 0.14, shade, 'echoForeL');
     const foreR = limb(armR, 0, -1.0, 1.0, 0.14, shade, 'echoForeR');
-    const sleeveGeo = new THREE.CylinderGeometry(0.26, 0.52, 1.7, 10, 3, true);
-    sleeveGeo.translate(0, -0.9, 0);
-    fadeY(sleeveGeo, -1.75, -0.05, 0.1, 1);
+    // 袖は細く短く(太い円錐は、肩から伸びる光の筋に見えた)
+    const sleeveGeo = new THREE.CylinderGeometry(0.24, 0.38, 1.3, 10, 3, true);
+    sleeveGeo.translate(0, -0.7, 0);
+    fadeY(sleeveGeo, -1.35, -0.05, 0, 1);
     [armL, armR].forEach(a=> addVeil(a, sleeveGeo, sleeveMat, 0, 0, 0));
     const hook = add(foreR, new THREE.TorusGeometry(0.3, 0.06, 6, 12, Math.PI * 1.3), chainMat, 0, -1.25, 0.1);
     hook.rotation.set(0, Math.PI / 2, Math.PI * 0.35);
     // 網の束: 手から垂れ下がる、下ほど膨らんだ袋の形(以前の多面体の塊は鈍器に見えた)
-    const netGeo = new THREE.LatheGeometry([
-      new THREE.Vector2(0.001, 0.05), new THREE.Vector2(0.1, 0), new THREE.Vector2(0.24, -0.3),
-      new THREE.Vector2(0.32, -0.62), new THREE.Vector2(0.26, -0.88), new THREE.Vector2(0.001, -0.98),
-    ], 9);
-    // 色は影の色(明るい色は、すぐ近くのオーラの灯りを受けて手元だけが白く浮いた)
-    const net = add(foreL, netGeo, shade, 0, -1.0, 0);
+    const netGeo = new THREE.LatheGeometry(ECHO_BOSS_NET_PROFILE.map(([r, y])=> new THREE.Vector2(r, y)), 9);
+    const net = add(foreL, netGeo, hatMat, 0, -1.0, 0);
     net.rotation.z = 0.1; net.scale.setScalar(0.85);
     armL.rotation.z = -0.12; armR.rotation.z = 0.12;
     return {body, parts:Object.assign({kind:'echo'}, duskEchoPartsOf(g))};
