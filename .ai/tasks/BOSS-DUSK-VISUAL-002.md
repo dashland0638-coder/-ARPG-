@@ -73,15 +73,17 @@ PR #111（BOSS-DUSK-VISUAL-001、`917510a`）。iPhone の確認結果:
 ### 予兆の流れ
 
 1. 振りかぶりの前半: 人影の腕は本体の腕より 0.14 秒（待つ人）・0.26 秒（仕事の人）遅れてついてくる。三つの腕がばらばらの高さに見える。
-2. 振りかぶりの進み具合 0.5〜0.88: 遅れが滑らかに 0 になり、位置のずれも縮む。三つの姿勢が一つに重なる。当たる瞬間より前に重なりきる（ボス 0.55 / 段階 3 0.4 / 分身 0.34 秒のどれでも、最後の 12% は重なったまま）。
+2. 振りかぶりの進み具合 0.4〜0.75: 遅れが滑らかに 0 になり、位置のずれと向きのずれも縮む。三つの姿勢が一つに重なる。当たる瞬間より前に重なりきる（ボス 0.55 / 段階 3 0.4 / 分身 0.34 秒のどれでも、最後の 25% は重なったまま。分身でも 0.085 秒）。
 3. 叩き下ろした後: 本体の腕は速く下りるが、人影の腕は遅れて下りる。輪郭がほどけて、別々の姿勢に戻る。
 
 足元の薔薇色の輪（半径・色・時刻）、攻撃の時刻・判定・ダメージ・頻度は変えない。
 
 ### 夜の見え方
 
-- 胴の自発光の色を、配色の影の色から**配色の暗い水の色**（`echoBoss.water`、新しい色は足さない）に変えた。強さは 0.22（汎用のボスの既定、撤退時の戻り値と同じ）。
-- 段階移行で自発光が強まる既存の処理（段階ごとに +0.25）でも、冷たく暗い色のままで白く光らない。
+- 胴の自発光の色を、配色の影の色から**配色の暗い水の色**（`echoBoss.water`、新しい色は足さない）に変えた。強さは 0.12 → 0.5。
+- 段階移行で自発光が強まる既存の処理（段階ごとに +0.25、1 で頭打ち）でも、冷たく暗い色のままで白く光らない。
+- 汎用の処理は自発光を 0.22〜0.25 に戻す（突進の後・撤退・やり直し）。特殊行動の外では、この体の既定（0.5）を下回らないように戻す。
+- 透ける面（水の裾、段階 3 の胴・頭・上腕・前掛け）には輪郭線の殻を付けない。不透明のクリーム色の殻が、透けた面の奥で笠や柱に見えたため（独立レビュー Round 1 M1）。
 - 人影の腕と姿勢の違う頭が加わり、輪郭が読みやすくなった。
 - 足元の霧の筒をやめ、水の裾を下ほど薄くした。水面との境は裾の薄れで作る。
 - 薄布の自発光は 0.14（胴以下）。
@@ -90,8 +92,9 @@ PR #111（BOSS-DUSK-VISUAL-001、`917510a`）。iPhone の確認結果:
 
 既存の演出（記憶の灯り・中心の輪郭。`06-player-enemy.js`）の位置・形・色は変えない。段階 3 になった時に一度だけ次を行う:
 
-- 胴と前掛けを透かす（不透明度 0.3）
-- 胴と前掛けの輪郭線の殻を外す
+- 胴の材質（頭・上腕も共有）と前掛けを透かす（不透明度 0.3）
+- それらの輪郭線の殻を外す。いま出ている分身の殻も外す
+- 撤退などで段階 1 に戻ったら、材質と殻を元に戻す
 - 水の裾を薄くし（0.86 → 0.5）、奥行きを書かない
 - 重なる人影を 1.25 倍に広げ、中心を隠さない
 
@@ -100,9 +103,10 @@ PR #111（BOSS-DUSK-VISUAL-001、`917510a`）。iPhone の確認結果:
 - 鎖の輪 7 つを 1 つのメッシュに溶接した（`weldGeometries`、02 の既存の関数）。
 - 小さな部品（前掛け・鎖・顔・鉤・網）は影を落とさず、X 線の殻も付けない。輪郭線は残す。殻は `trimDuskEchoShells` が `buildBoss` の後、分身を作る前に外すので、分身にも効く。
 - 目には輪郭線の殻を付けない。
-- 足元の霧の筒をなくした。
+- 足元の霧の筒をなくし、水の裾に殻を付けない。
 - 人影は 1 枚あたり 2 メッシュ（胴+頭、両腕）。腕を足しても、霧の筒を減らしたので透明の面は 10 → 9。
-- 姿勢の処理は毎フレーム何も作らない。腕の履歴は個体ごとの固定長の配列（48）。
+- 姿勢の処理は毎フレーム何も作らない。腕の履歴は個体ごとの固定長の配列（48。`core/dusk-enemies.js` の `echoHistPush` / `echoHistAt`）。
+- 待機・移動の間、人影の姿勢と腕はとびとびに更新する（0.16 / 0.23 秒ごと）。向きだけは毎フレーム世界に対して固定する。
 
 ### 変えないもの
 
@@ -111,9 +115,9 @@ PR #111（BOSS-DUSK-VISUAL-001、`917510a`）。iPhone の確認結果:
 
 ## 実装（Implementer）
 
-- `src/core/dusk-enemies.js`: `ECHO_BOSS_TIME`・`echoBossDelayScale`・`echoBossSink`・`echoBossStepDue`。`ECHO_BOSS_LOOK` に `bodyEmissive`、`veilEmissive` を 0.14 に、`mistOpacity` を削除
+- `src/core/dusk-enemies.js`: `ECHO_BOSS_TIME`・`echoBossDelayScale`・`echoBossSink`・`echoBossStepDue`・`echoHistPush`・`echoHistAt`・`echoDropShells`。`ECHO_BOSS_LOOK` に `bodyEmissive`（0.5）、`veilEmissive` を 0.14 に、`mistOpacity` を削除
 - `src/legacy/concat-plugin.js`: import
-- `src/legacy/parts/14-dungeon-duskvillage.js`: `buildDuskEchoBody`・`trimDuskEchoShells`・`duskEchoPartsOf`・腕の履歴・`poseDuskEchoBody`・`duskEchoOpenCore`・`poseDuskEchoBoss`・`poseDuskEchoClone`、`buildDuskVillageEcho` で殻を外す 1 行
+- `src/legacy/parts/14-dungeon-duskvillage.js`: `buildDuskEchoBody`・`trimDuskEchoShells`・`duskEchoPartsOf`・`poseDuskEchoBody`・`duskEchoCoreMeshes`・`duskEchoOpenCore`・`duskEchoCloseCore`・`poseDuskEchoBoss`・`poseDuskEchoClone`、`buildDuskVillageEcho` で殻を外す 1 行
 - `tests/unit/dusk-boss-visual.test.js`
 
 ## 試験・レビュー
