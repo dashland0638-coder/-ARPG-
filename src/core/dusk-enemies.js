@@ -130,7 +130,8 @@ export const ECHO_BOSS_LOOK = Object.freeze({
   twitchEvery: 4.3,     // 首がわずかに跳ねる間隔(秒)
   twitchAmp: 0.12,
   veilEmissive: 0.14,   // 薄布の自発光(胴の bodyEmissive 以下。夜に沈みきらない最小限。光源は足さない)
-  bodyEmissive: 0.22,   // 胴の自発光(色は配色の暗い水の色 = echoBoss.water。汎用のボスの既定・撤退時の戻り値と同じ強さ)
+  bodyEmissive: 0.5,    // 胴の自発光(色は配色の暗い水の色 = echoBoss.water。夜の光で胴が黒い塊に沈まない強さ。
+                        // 段階移行の +0.25 は既存の処理のまま 1 で頭打ち。汎用の処理が下げても、特殊行動の外ではこの値へ戻す)
 });
 /* 時間のずれ(BOSS-DUSK-VISUAL-002)。iPhone の確認で「ただの幽霊に見える」とされたので、
    「複数の人の記憶が、別々の時間のまま一つの体に重なっている」を動きで見せる:
@@ -147,8 +148,8 @@ export const ECHO_BOSS_TIME = Object.freeze({
     Object.freeze({motif: 'wait', headYaw: 0.7,  headPitch: 0.05, armBase: -0.1, delay: 0.14, step: 0.16, chase: 3.0}),
     Object.freeze({motif: 'work', headYaw: -0.1, headPitch: 0.55, armBase: -0.75, delay: 0.26, step: 0.23, chase: 1.8}),
   ]),
-  convergeStart: 0.5,   // 振りかぶりの進み具合がここから遅れを縮め始め、
-  convergeEnd: 0.88,    // ここで遅れが 0 になる(当たる瞬間より前に三つが一つに重なる)
+  convergeStart: 0.4,   // 振りかぶりの進み具合がここから遅れを縮め始め、
+  convergeEnd: 0.75,    // ここで遅れが 0 になる(当たる瞬間より前に三つが一つに重なり、最後の 25% は重なったまま見える)
   turnHold: 0.7,        // 元の向きに残る最大の角度(rad)。これ以上は残らない(向きが分からなくならない)
   sinkEvery: 7.1,       // 水面へ沈みかける間隔(秒)
   sinkDur: 1.3,
@@ -174,6 +175,38 @@ export function echoBossSink(t){
 // とびとびの更新の時刻が来たか(last = 前に更新した時刻。時間が巻き戻ったら更新する)
 export function echoBossStepDue(t, last, step){
   return last == null || t < last || t - last >= step;
+}
+
+/* 本体の腕の角度の履歴(人影の腕が遅れてなぞるため)。個体ごと(本体・分身)の store に固定長の配列で持ち、
+   毎フレーム何も作らない */
+export const ECHO_HIST_LEN = 48;
+export function echoHistPush(store, t, a){
+  if(!store.eHistT){ store.eHistT = new Float32Array(ECHO_HIST_LEN); store.eHistA = new Float32Array(ECHO_HIST_LEN); store.eHistI = 0; store.eHistN = 0; }
+  store.eHistT[store.eHistI] = t; store.eHistA[store.eHistI] = a;
+  store.eHistI = (store.eHistI + 1) % ECHO_HIST_LEN;
+  if(store.eHistN < ECHO_HIST_LEN) store.eHistN++;
+}
+// 時刻 t の時点の腕の角度(t 以前で最も新しい記録。足りなければいちばん古い記録。記録が無ければ 0)
+export function echoHistAt(store, t){
+  let i = store.eHistI || 0, v = 0;
+  for(let n=0;n<(store.eHistN || 0);n++){
+    i = (i - 1 + ECHO_HIST_LEN) % ECHO_HIST_LEN;
+    v = store.eHistA[i];
+    if(store.eHistT[i] <= t) return v;
+  }
+  return v;
+}
+/* 輪郭線・X 線の殻を外す(殻は元のメッシュの子。userData.isOutline / isXray)。
+   pick(mesh) が真のメッシュから、kinds('outline' / 'xray')の殻を外し、外した [親, 殻] の組を返す(戻すため) */
+export function echoDropShells(root, pick, kinds){
+  const want = kinds || ['outline', 'xray'];
+  const drop = [];
+  root.traverse(n=>{
+    if(!n.parent || !pick(n.parent)) return;
+    if((n.userData.isOutline && want.includes('outline')) || (n.userData.isXray && want.includes('xray'))) drop.push([n.parent, n]);
+  });
+  drop.forEach(([p, n])=> p.remove(n));
+  return drop;
 }
 
 /* 網の束の断面(LatheGeometry の [半径, 高さ])。手から垂れ下がり、下ほど膨らむ袋の形。

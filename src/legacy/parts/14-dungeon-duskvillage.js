@@ -2476,8 +2476,7 @@
     const mat = (color, f, extra)=> new THREE.MeshStandardMaterial(Object.assign({color, roughness:f.roughness, metalness:f.metalness}, extra || {}));
     /* 胴の材質(被弾の白・段階移行の発光が書き換える。色 = en.baseColor)。自発光の色は配色の暗い水の色で、
        夜の青い光の下でも胴が真っ黒な塊に沈まず、濡れた影のように見える。段階移行で自発光が強まっても
-       (既存の処理。段階ごとに +0.25)冷たく暗い色のままで、段階 3 の中心の灯りを白く塗りつぶさない
-       (強さは汎用のボスの既定・撤退時の戻り値と同じ 0.22) */
+       (既存の処理。段階ごとに +0.25、1 で頭打ち)冷たく暗い色のままで、段階 3 の中心の灯りを白く塗りつぶさない */
     const bodyMat = mat(pal.main, F.cloth, {emissive:pal.water, emissiveIntensity:L.bodyEmissive});
     const accent = mat(pal.accent, F.cloth);
     const shade = mat(pal.shade, F.cloth);
@@ -2539,7 +2538,7 @@
       {y:1.0,     points:vEllipse(0.95, 0.8, 10)},
       {y:0.45,    points:vEllipse(1.35, 1.15, 10)},
       {y:0.04,    points:vEllipse(1.7, 1.5, 10)},
-    ]}), 0.04, 1.0, 0.35, 1), waterMat, 0, 0, 0, 'echoSkirt');
+    ]}), 0.04, 1.0, 0.35, 1), waterMat, 0, 0, 0, 'echoSkirt').userData.noOutline = true;   // 透ける裾に殻を付けると、奥の殻がクリーム色に透けた
     const ripple = add(g, new THREE.RingGeometry(1.75, 2.15, 24), rippleMat, 0, 0.05, 0, 'echoRipple');
     ripple.rotation.x = -Math.PI / 2;
     ripple.castShadow = false;
@@ -2652,12 +2651,9 @@
     return {body, parts:Object.assign({kind:'echo'}, duskEchoPartsOf(g))};
   }
   /* 小さな部品の X 線の殻を外す(buildBoss が addXrayShell を全部品に付けた後に呼ぶ)。X 線の殻は壁の向こうの
-     輪郭を描くためのもので、胴・頭・帽子・腕・裾の輪郭で足りる。分身はこの後に複製するので、分身にも効く */
+     輪郭を描くためのもので、胴・頭・帽子・腕の輪郭で足りる。分身はこの後に複製するので、分身にも効く */
   function trimDuskEchoShells(root){
-    const drop = [];
-    root.traverse(n=>{ if(n.userData.isXray && n.parent && n.parent.userData.echoNoXray) drop.push(n); });
-    drop.forEach(n=> n.parent.remove(n));
-    return drop.length;
+    return echoDropShells(root, m=> !!m.userData.echoNoXray, ['xray']).length;
   }
   function duskEchoPartsOf(root){
     const f = n => root.getObjectByName(n) || null;
@@ -2665,24 +2661,6 @@
             ghost:f('echoGhost'), ghost2:f('echoGhost2'), ghostArms:f('echoGhostArms'), ghostArms2:f('echoGhostArms2'),
             skirt:f('echoSkirt'), ripple:f('echoRipple'), head:f('echoHead'), shawl:f('echoShawl'),
             torso:f('echoTorso'), apron:f('echoApron')};
-  }
-  /* 本体の腕の角度の履歴(人影の腕が遅れてなぞるため)。個体ごと(本体・分身)に持つ。毎フレームの生成はしない */
-  const ECHO_ARM_HIST = 48;
-  function echoArmHistPush(store, t, a){
-    if(!store.eHistT){ store.eHistT = new Float32Array(ECHO_ARM_HIST); store.eHistA = new Float32Array(ECHO_ARM_HIST); store.eHistI = 0; store.eHistN = 0; }
-    store.eHistT[store.eHistI] = t; store.eHistA[store.eHistI] = a;
-    store.eHistI = (store.eHistI + 1) % ECHO_ARM_HIST;
-    if(store.eHistN < ECHO_ARM_HIST) store.eHistN++;
-  }
-  // 時刻 t の時点の腕の角度(t より前で最も新しい記録。足りなければいちばん古い記録)
-  function echoArmHistAt(store, t){
-    let i = store.eHistI, v = 0;
-    for(let n=0;n<store.eHistN;n++){
-      i = (i - 1 + ECHO_ARM_HIST) % ECHO_ARM_HIST;
-      v = store.eHistA[i];
-      if(store.eHistT[i] <= t) return v;
-    }
-    return v;
   }
   const _wrapAngle = a=> Math.atan2(Math.sin(a), Math.cos(a));
   /* 本体と分身で共有する姿勢。k = 振りかぶりの進み具合(null = 振りかぶっていない)、
@@ -2697,7 +2675,7 @@
     const idleL = Math.sin(t * 0.9) * 0.08, idleR = Math.sin(t * 0.9 + 1.4) * 0.08;
     const target = k != null ? -2.5 * _vEase(kk) : (s > 0 ? -0.55 * s : 0);
     const a = vLerp(store, 'eArm', target, rate, dt);
-    if(dt > 0) echoArmHistPush(store, t, a);
+    if(dt > 0) echoHistPush(store, t, a);
     if(P.armL) P.armL.rotation.set(a + (active ? 0 : idleL), 0, -0.12 - 0.3 * kk);
     if(P.armR) P.armR.rotation.set(a + (active ? 0 : idleR), 0, 0.12 + 0.3 * kk);
     // 待機中、肘が時々人の関節では曲がらない向きへ反る
@@ -2731,22 +2709,25 @@
       const layer = i ? P.ghost2 : P.ghost;
       if(!layer) continue;
       const o = L.layers[i], tm = T.layers[i];
-      const stepKey = i ? 'eStep2' : 'eStep1', yawKey = i ? 'eHeld2' : 'eHeld1';
+      const stepKey = i ? 'eStep2' : 'eStep1', yawKey = i ? 'eHeld2' : 'eHeld1', baseKey = i ? 'eBase2' : 'eBase1';
       const last = store[stepKey];
-      if(!active && !echoBossStepDue(t, last, tm.step)) continue;   // まだ前の姿勢のまま止まっている
-      const span = active || last == null ? dt : Math.min(0.5, t - last);
-      store[stepKey] = t;
-      // 元の向きに残り、人影ごとの速さで向き直る(残るのは turnHold まで)
-      const held = store[yawKey] != null ? store[yawKey] : yaw;
-      const nh = held + _wrapAngle(yaw - held) * Math.min(1, tm.chase * span);
-      store[yawKey] = nh;
-      const off = Math.max(-T.turnHold, Math.min(T.turnHold, _wrapAngle(nh - yaw)));
-      layer.position.x = (o.x + Math.sin(t * 0.7 + o.phase) * 0.1) * spread;
-      layer.position.z = o.z * spread;
-      layer.position.y = Math.sin(t * 0.9 + o.phase + 1.2) * L.floatAmp - sink * T.sinkDepth * (i ? 0.7 : 0);
-      layer.rotation.y = (o.yaw + Math.sin(t * 0.5 + o.phase) * 0.12) * spread + off;
-      const arms = i ? P.ghostArms2 : P.ghostArms;
-      if(arms && store.eHistN) arms.rotation.x = tm.armBase * (1 - kk) + echoArmHistAt(store, t - tm.delay * delayK);
+      if(active || echoBossStepDue(t, last, tm.step)){
+        // とびとびの更新(振りかぶり・叩き下ろしの間は毎フレーム)。止まっている間は前の姿勢のまま
+        const span = active || last == null ? dt : Math.min(0.5, t - last);
+        store[stepKey] = t;
+        const held = store[yawKey] != null ? store[yawKey] : yaw;
+        store[yawKey] = held + _wrapAngle(yaw - held) * Math.min(1, tm.chase * span);   // 人影ごとの速さで向き直る
+        store[baseKey] = (o.yaw + Math.sin(t * 0.5 + o.phase) * 0.12) * spread;
+        layer.position.x = (o.x + Math.sin(t * 0.7 + o.phase) * 0.1) * spread;
+        layer.position.z = o.z * spread;
+        layer.position.y = Math.sin(t * 0.9 + o.phase + 1.2) * L.floatAmp - sink * T.sinkDepth * (i ? 0.7 : 0);
+        const arms = i ? P.ghostArms2 : P.ghostArms;
+        if(arms && store.eHistN) arms.rotation.x = tm.armBase * (1 - kk) + echoHistAt(store, t - tm.delay * delayK);
+      }
+      /* 向きは毎フレーム、世界に対して固定する: 本体が回っても人影は元の向きに残り(turnHold まで)、
+         更新のたびに少しずつ向き直る。振りかぶりが満ちる前に向きのずれも 0 になる */
+      if(store[yawKey] != null) layer.rotation.y = (store[baseKey] || 0)
+        + Math.max(-T.turnHold, Math.min(T.turnHold, _wrapAngle(store[yawKey] - yaw))) * delayK;
     }
     // 傾いだ首: 片側へ傾いだまま、時々わずかに跳ねる。振りかぶりでは顔を上げ、叩き下ろした後はうなだれる
     if(P.head){
@@ -2763,30 +2744,47 @@
   }
   /* 段階 3: 胴が透けて、既存の段階移行の演出(06-player-enemy.js の記憶の灯りと中心の輪郭)が胴に埋もれずに見える。
      演出そのもの(位置・形・色)は作り直さない。中心の輪郭は腰の高さ(水の裾の上端と胴の下側)にあるので:
-       ・胴と前掛けを透かし、その輪郭線の殻(不透明のクリーム色)を外す ―― 殻の内側が透けた胴の奥で壁になっていた
+       ・胴の材質(頭と上腕も共有)と前掛けを透かし、それらの輪郭線の殻(不透明のクリーム色)を外す
+         ―― 殻を残すと、透けた面の奥で殻がクリーム色の壁・柱に見えた
        ・水の裾を薄くし、奥行きを書かない(裾の上端が中心の輪郭の下半分を覆っていた)
-     体の外形は、腕・頭・帽子・裾の輪郭線と重なる人影で読める。材質は分身と共有なので、段階 3 の分身も同じく透ける
-     (本体と見分けられないまま)。一度だけ書き換える */
+     体の外形は、帽子・顔・前腕・鎖の輪郭線と重なる人影で読める。材質は分身と共有なので、分身も同じく透ける。
+     いま出ている分身の殻も同じく外す(段階 3 の後に作る分身は、殻を外した本体の複製になる)。
+     撤退などで段階 1 に戻ったら元に戻す(duskEchoCloseCore) */
+  function duskEchoCoreMeshes(en){
+    const P = en.parts || {}, mats = [P.torso, P.apron].filter(Boolean).map(m=> m.material);
+    return {P, mats, pick: m=> m.isMesh && !m.userData.isOutline && !m.userData.isXray && mats.includes(m.material)};
+  }
   function duskEchoOpenCore(en){
     en.echoCoreOpen = true;
-    const P = en.parts || {}, T = ECHO_BOSS_TIME;
+    const {P, mats, pick} = duskEchoCoreMeshes(en), T = ECHO_BOSS_TIME;
+    const roots = [en.group].concat(enemies.filter(e=> e.mirrorCloneOf === en && e.group).map(e=> e.group));
+    en.echoCoreShells = [];
+    roots.forEach(r=>{ en.echoCoreShells.push(...echoDropShells(r, pick, ['outline'])); });
+    en.echoCoreSaved = mats.concat(P.skirt ? [P.skirt.material] : []).map(m=> [m, m.opacity, m.transparent, m.depthWrite]);
     const thin = (m, opacity)=>{
-      if(!m || !m.material) return;
-      m.material.transparent = true;
-      m.material.opacity = opacity;
-      m.material.depthWrite = false;
-      m.material.needsUpdate = true;
+      m.transparent = true; m.opacity = opacity; m.depthWrite = false; m.needsUpdate = true;
     };
-    [P.torso, P.apron].forEach(m=>{
-      if(!m) return;
-      thin(m, T.coreOpacity);
-      m.children.filter(c=> c.userData.isOutline).forEach(c=> m.remove(c));
-    });
-    thin(P.skirt, T.coreSkirtOpacity);
+    mats.forEach(m=> thin(m, T.coreOpacity));
+    if(P.skirt) thin(P.skirt.material, T.coreSkirtOpacity);
+  }
+  function duskEchoCloseCore(en){
+    en.echoCoreOpen = false;
+    (en.echoCoreSaved || []).forEach(([m, op, tr, dw])=>{ m.opacity = op; m.transparent = tr; m.depthWrite = dw; m.needsUpdate = true; });
+    (en.echoCoreShells || []).forEach(([p, n])=>{ if(p.parent || p === en.group) p.add(n); });
+    en.echoCoreSaved = null; en.echoCoreShells = null;
   }
   // ボス本体(updateBossAnim から)。振りかぶり = 近接の輪と同じ進み具合
   function poseDuskEchoBoss(en, P, t, dt, k){
-    if((en.phase || 1) >= 3 && !en.echoCoreOpen) duskEchoOpenCore(en);
+    const phase = en.phase || 1;
+    if(phase >= 3 && !en.echoCoreOpen) duskEchoOpenCore(en);
+    // 撤退・やり直しで段階が戻った(12-progression-ui.js が phase = 1 に戻す): 透けた胴を戻す
+    if(en.echoLastPhase != null && phase < en.echoLastPhase && en.echoCoreOpen && phase < 3) duskEchoCloseCore(en);
+    en.echoLastPhase = phase;
+    /* 胴の自発光はこの体の既定(bodyEmissive)を下回らないようにする。汎用の処理が 0.22〜0.25 へ戻す所
+       (突進の後・撤退・やり直し)があり、そのままだと夜の胴が黒い塊に戻るため。特殊行動の間は触らない
+       (突進の溜めの発光はその処理のまま)。段階移行の強まり(+0.25)はこの上に積まれる */
+    const bm = en.body && en.body.material;
+    if(bm && !en.special && bm.emissiveIntensity < ECHO_BOSS_LOOK.bodyEmissive) bm.emissiveIntensity = ECHO_BOSS_LOOK.bodyEmissive;
     const slam = (en.postAtkRecoveryT || 0) > 0 && k == null ? en.postAtkRecoveryT / POST_ATTACK_RECOVERY_SEC : 0;
     poseDuskEchoBody(P, t, dt, en.knockedDown ? null : k, en.knockedDown ? 0 : slam, en, en.phase);
   }

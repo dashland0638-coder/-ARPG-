@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
 import {
   ECHO_BOSS_LOOK, ECHO_BOSS_NET_PROFILE, echoBossLayerSpread, echoBossHeadTwitch, VILLAGE_PALETTE, VILLAGE_GHOST,
-  ECHO_BOSS_TIME, echoBossDelayScale, echoBossSink, echoBossStepDue,
+  ECHO_BOSS_TIME, echoBossDelayScale, echoBossSink, echoBossStepDue, echoHistPush, echoHistAt, echoDropShells, ECHO_HIST_LEN,
 } from '../../src/core/dusk-enemies.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -57,11 +57,12 @@ test('薄布: 重なる輪郭 2 枚・袖・垂れ布。差し色のまま、薄
   assert.doesNotMatch(veil, /MeshBasicMaterial/, '照明を受けない(光って見える)材質にしない');
   assert.match(veil, /emissiveIntensity:L\.veilEmissive/);
   assert.ok(L.veilEmissive > 0 && L.veilEmissive <= L.bodyEmissive, '薄布の自発光は胴以下');
-  assert.equal(L.bodyEmissive, 0.22, '胴の自発光は汎用のボスの既定・撤退時の戻り値と同じ');
+  assert.ok(L.bodyEmissive >= 0.4 && L.bodyEmissive <= 0.6, '胴の自発光: 夜に黒い塊に沈まず、段階移行の +0.25×2 でも 1 を大きく超えない');
   assert.match(build, /emissive:pal\.water, emissiveIntensity:L\.bodyEmissive/, '胴の自発光は配色の暗い水の色');
   assert.match(build, /const veilMat = veil\(L\.veilOpacity, THREE\.FrontSide\)/, '閉じた形は表だけを描く');
   assert.doesNotMatch(build, /0x[0-9a-f]{3,6}/i, '新しい色を直書きしない');
-  assert.doesNotMatch(build, /PointLight|SpotLight|new THREE\.\w*Light|emissiveIntensity:\s*(0\.[2-9]|1)/, '光源も強い自発光も足さない');
+  assert.doesNotMatch(build, /PointLight|SpotLight|new THREE\.\w*Light|emissiveIntensity:\s*[0-9]/, '光源を足さない。自発光の強さは定数(上で数値を検査)から');
+  assert.equal((build.match(/emissiveIntensity:/g) || []).length, 2, '自発光は胴と薄布の 2 つだけ');
   for (const name of ['echoGhost', 'echoGhost2', 'echoGhostArms', 'echoGhostArms2', 'echoShawl', 'echoHead', 'echoRipple', 'echoSkirt', 'echoUpper', 'echoTorso', 'echoApron', 'echoChain']) {
     assert.match(build + fn('duskEchoPartsOf'), new RegExp(`'${name}'`), name);
   }
@@ -158,9 +159,13 @@ test('時間のずれ: 人影の腕は本体を遅れてなぞり、振りかぶ
   // 遅れは振りかぶり(0.55 秒・段階 3 は 0.4 秒)より短い ―― 振りかぶりの間に追いつける
   for (const l of T.layers) assert.ok(l.delay < 0.4, `${l.motif} の遅れ ${l.delay}`);
   const pose = code(fn('poseDuskEchoBody'));
-  assert.match(pose, /arms\.rotation\.x = tm\.armBase \* \(1 - kk\) \+ echoArmHistAt\(store, t - tm\.delay \* delayK\)/);
+  assert.match(pose, /arms\.rotation\.x = tm\.armBase \* \(1 - kk\) \+ echoHistAt\(store, t - tm\.delay \* delayK\)/);
   // 振りかぶり・叩き下ろしの間はとびとびにしない(予告を読みやすく)
-  assert.match(pose, /if\(!active && !echoBossStepDue\(t, last, tm\.step\)\) continue;/);
+  assert.match(pose, /if\(active \|\| echoBossStepDue\(t, last, tm\.step\)\)\{/);
+  // 向きのずれも振りかぶりで 0 になる(当たる瞬間は一つの向き)
+  assert.match(pose, /_wrapAngle\(store\[yawKey\] - yaw\)\)\) \* delayK;/);
+  // 重なったまま見える時間: 最後の 25% 以上(分身の 0.34 秒でも 0.085 秒 = 30fps で 2〜3 フレーム)
+  assert.ok(1 - T.convergeEnd >= 0.25);
 });
 
 test('とびとびの更新・元の向きに残る角度・水へ沈みかける', () => {
@@ -171,6 +176,9 @@ test('とびとびの更新・元の向きに残る角度・水へ沈みかけ�
   assert.equal(echoBossStepDue(0.5, 1, 0.2), true, '時間が巻き戻ったら更新');
   assert.ok(T.turnHold > 0 && T.turnHold <= 0.8, '向きが分からなくなるほどは残らない');
   assert.match(code(fn('poseDuskEchoBody')), /Math\.max\(-T\.turnHold, Math\.min\(T\.turnHold, /);
+  // 向きは更新を飛ばしている間も毎フレーム世界に対して固定する(鋸の歯状に跳ねない)
+  const pose = code(fn('poseDuskEchoBody'));
+  assert.ok(pose.indexOf('layer.rotation.y = (store[baseKey]') > pose.indexOf('if(active || echoBossStepDue'), '向きの式は更新の枠の外');
   assert.equal(echoBossSink(T.sinkEvery * 2 + T.sinkDur + 0.1), 0);
   assert.ok(Math.abs(echoBossSink(T.sinkDur / 2) - 1) < 1e-9);
   for (let t = -20; t < 40; t += 0.13) { const v = echoBossSink(t); assert.ok(v >= 0 && v <= 1, `${t}`); }
@@ -185,8 +193,8 @@ test('描画: 鎖は 1 つ、小さな部品は影と X 線の殻なし、目は
   assert.equal((build.match(/minor\(add\(/g) || []).length, 5, '前掛け・鎖・顔・鉤・網');
   assert.match(build, /e\.userData\.noOutline = true;/, '目に輪郭線の殻を付けない');
   assert.doesNotMatch(build, /echoMist|CylinderGeometry\(1\.6, 1\.85/, '足元の霧の筒は無い');
-  const trim = code(fn('trimDuskEchoShells'));
-  assert.match(trim, /n\.userData\.isXray && n\.parent && n\.parent\.userData\.echoNoXray/);
+  assert.match(build, /'echoSkirt'\)\.userData\.noOutline = true;/, '透ける水の裾に殻を付けない(奥の殻がクリーム色に透けた)');
+  assert.match(code(fn('trimDuskEchoShells')), /echoDropShells\(root, m=> !!m\.userData\.echoNoXray, \['xray'\]\)/);
   // 重なる人影は胴+頭で 1 つ、両腕で 1 つ(1 枚あたり 2 メッシュ)
   assert.equal((build.match(/addVeil\(layer, /g) || []).length, 1);
   assert.equal((build.match(/addVeil\(arms, /g) || []).length, 1);
@@ -197,12 +205,54 @@ test('段階 3: 胴・前掛け・水の裾を薄くして中心を見せる。�
   assert.ok(T.coreOpacity > 0.15 && T.coreOpacity < 0.6);
   assert.ok(T.coreSkirtOpacity > 0.2 && T.coreSkirtOpacity < 0.86);
   const boss = code(fn('poseDuskEchoBoss'));
-  assert.match(boss, /if\(\(en\.phase \|\| 1\) >= 3 && !en\.echoCoreOpen\) duskEchoOpenCore\(en\);/);
-  const open = code(fn('duskEchoOpenCore'));
-  assert.match(open, /\[P\.torso, P\.apron\]/);
-  assert.match(open, /thin\(P\.skirt, T\.coreSkirtOpacity\)/);
-  assert.match(open, /c\.userData\.isOutline/, '透けた胴の奥で壁になる輪郭線の殻を外す');
+  assert.match(boss, /const phase = en\.phase \|\| 1;\s*if\(phase >= 3 && !en\.echoCoreOpen\) duskEchoOpenCore\(en\);/);
+  const open = code(fn('duskEchoOpenCore')), pick = code(fn('duskEchoCoreMeshes'));
+  assert.match(pick, /\[P\.torso, P\.apron\]/);
+  assert.match(pick, /mats\.includes\(m\.material\)/, '胴の材質を共有する頭・上腕の殻も外す');
+  assert.match(open, /echoDropShells\(r, pick, \['outline'\]\)/);
+  assert.match(open, /e\.mirrorCloneOf === en/, 'いま出ている分身の殻も外す');
+  assert.match(open, /thin\(P\.skirt\.material, T\.coreSkirtOpacity\)/);
+  // 撤退などで段階が戻ったら元に戻す
+  assert.match(code(fn('poseDuskEchoBoss')), /phase < en\.echoLastPhase && en\.echoCoreOpen && phase < 3\) duskEchoCloseCore\(en\);/);
+  assert.match(code(fn('poseDuskEchoBoss')), /if\(bm && !en\.special && bm\.emissiveIntensity < ECHO_BOSS_LOOK\.bodyEmissive\) bm\.emissiveIntensity = ECHO_BOSS_LOOK\.bodyEmissive;/, '汎用の処理が下げても既定へ戻す(特殊行動の間は触らない)');
+  const close = code(fn('duskEchoCloseCore'));
+  assert.match(close, /m\.opacity = op; m\.transparent = tr; m\.depthWrite = dw;/);
+  assert.match(close, /p\.add\(n\)/);
   // 既存の段階移行の演出(06-player-enemy.js)は書き換えない
   const enemy = fs.readFileSync(path.join(root, 'src/legacy/parts/06-player-enemy.js'), 'utf8');
   assert.match(enemy, /const child = new THREE\.Mesh\(new THREE\.CapsuleGeometry\(0\.22,0\.55,4,8\), childMat\);\s*child\.position\.set\(0, 2\.0, 0\);/);
+});
+
+test('腕の履歴: 遅れた時刻の角度を返す。48 件で折り返し、足りなければいちばん古い記録', () => {
+  const st = {};
+  assert.equal(echoHistAt(st, 1), 0, '記録が無ければ 0');
+  for (let i = 0; i < 10; i++) echoHistPush(st, i * 0.1, -i);
+  assert.equal(echoHistAt(st, 0.9), -9);
+  assert.equal(echoHistAt(st, 0.55), -5, 't 以前で最も新しい記録');
+  assert.ok(echoHistAt(st, -5) === 0, '足りなければいちばん古い記録');
+  for (let i = 10; i < 130; i++) echoHistPush(st, i * 0.1, -i);
+  assert.equal(st.eHistN, ECHO_HIST_LEN);
+  assert.equal(echoHistAt(st, 12.9), -129);
+  assert.equal(echoHistAt(st, 12.0), -120);
+  assert.equal(echoHistAt(st, 0), -(130 - ECHO_HIST_LEN), '折り返した後は残っている最も古い記録');
+  // 本体と分身の記録は混ざらない(個体ごとの store)
+  const other = {}; echoHistPush(other, 1, 5);
+  assert.equal(echoHistAt(other, 1), 5); assert.equal(echoHistAt(st, 12.9), -129);
+});
+
+test('殻を外す: 選んだメッシュの殻だけ、選んだ種類だけ外し、戻せる組を返す', () => {
+  const root = new THREE.Group();
+  const mk = (ud) => { const m = new THREE.Mesh(new THREE.BufferGeometry()); Object.assign(m.userData, ud || {}); return m; };
+  const minor = mk({ echoNoXray: true }), major = mk();
+  root.add(minor, major);
+  for (const m of [minor, major]) { m.add(mk({ isOutline: true })); m.add(mk({ isXray: true })); }
+  const xr = echoDropShells(root, m => !!m.userData.echoNoXray, ['xray']);
+  assert.equal(xr.length, 1);
+  assert.equal(minor.children.filter(c => c.userData.isXray).length, 0, '小さな部品の X 線の殻は外れる');
+  assert.equal(minor.children.filter(c => c.userData.isOutline).length, 1, '輪郭線は残る');
+  assert.equal(major.children.length, 2, '他の部品はそのまま');
+  const ol = echoDropShells(root, m => m === major, ['outline']);
+  assert.equal(ol.length, 1); assert.equal(major.children.filter(c => c.userData.isOutline).length, 0);
+  ol.forEach(([p, n]) => p.add(n));
+  assert.equal(major.children.filter(c => c.userData.isOutline).length, 1, '外した殻は戻せる');
 });
