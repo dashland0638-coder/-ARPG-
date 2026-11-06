@@ -104,7 +104,7 @@ Work Item: [`../tasks/BOSS-DUSK-VISUAL-002.md`](../tasks/BOSS-DUSK-VISUAL-002.md
 
 - `npm run build`: 成功
 - `npm run test:unit`: 2125 件 / pass 2124 / fail 0 / skip 1（既存）
-- E2E（手元・Chromium）: PR に記載
+- E2E（手元・Chromium、最終コード）: **20 passed / 0 failed**（14.2 分）。`dusk-enemy-design`（ボスの輪 2.60 = 判定・振りかぶりの間だけ、分身の当たり 2.00・影と足元の水の輪なし）、`dusk-boss-clone-check`、`dusk-boss-phase-burst`、`duskvillage`、`chapter1-dusk-basics`、`dusk-fisher-telegraph`、`dusk-keeper-telegraph`、`combat-test-arena`
 - 撮影: 一時的な撮影用の spec（コミットしない）。夜の時間帯にそろえ、同じカメラで撮った。予兆は判定と描画を同じフレームで行い、被弾の白い点滅は描画の時だけ元の色に戻した。
 
 ## 9. 独立 Reviewer
@@ -119,7 +119,11 @@ Work Item: [`../tasks/BOSS-DUSK-VISUAL-002.md`](../tasks/BOSS-DUSK-VISUAL-002.md
   - m5: テストが文字列照合ばかり
   - NIT 3 件
   - すべて対応した。突進の後に自発光が戻される問題も、あわせて直した。
-- Round 2: PR に記載
+- Round 2: **PASS**
+  - 残る NIT（任意。記録のみ）:
+    - N1: 殻を外している間にドット表示を切り替えると、戻した殻の表示状態が古い
+    - N2: 段階 3 の間に出た分身は撤退後も殻が無い
+    - N3: 特殊行動の後、段階移行の上積みは戻らない（既存の扱い）
 
 ## 10. iPhone で確認すること
 
