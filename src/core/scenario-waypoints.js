@@ -45,8 +45,18 @@ export const SCENARIO_WAYPOINTS = {
     // ボス(80,166)から 5。着いた瞬間に名乗りが始まる
     {id:'bosshall', name:'当主の間',       x:80, z:161, kind:'boss-start'},
   ],
+  /* 第一章の本編の幽霊船(GHOSTSHIP-REBUILD-002)は部屋の構造が違うので、座標は
+     14-dungeon-ghostship.js の gsTestWaypoint が引き直す(ch1 の地点はそちらだけで使う)。
+     ここの x, z は旧い船(テストモードの旧成長)の座標 */
   ghostship: [
+    // 第一章: 船長室(帰還を決める前)。旧い船では使わない
+    {id:'cabin',    name:'船長室(帰還を決める前)', x:14.2, z:80, ch1:true},
+    // 第一章: 帰還不能の後の、食堂……?(皿が十七人分)。旧い船では使わない
+    {id:'wrongmess', name:'食堂……?(帰還不能の後)', x:8, z:105, ch1:true},
+    // 第一章: 船長が鎖を手放した後の船長室(昇降口が開いている)。甲板と脱出の確認用。旧い船では使わない
+    {id:'released', name:'撃破後の船長室(昇降口が開いている)', x:16, z:85, ch1:true},
     // 船倉の階段の着地点。目の前の扉(調べると開く)の奥がボス。扉を開けるまでボスは動かない
+    // 第一章: 錨鎖庫の前室(扉の奥が錨の間)
     {id:'bosshold', name:'船倉の扉の前', x:-32, z:108, kind:'boss-pre'},
   ],
   clocktower: [

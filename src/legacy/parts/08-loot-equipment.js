@@ -623,7 +623,10 @@
       [new THREE.Vector3(236,0,70),   'supply'],          // conservatory: before the bloom
       ...(scenarioStars('conservatory') >= CONSERVATORY_DEPTHS_STARS
         ? [[new THREE.Vector3(198,0,100), 'armoury']] : []), // conservatory: 最深部(周回★4+)
-    ].filter(e=> worldKeyForPos(e[0])===_spawnWorldKey).map(e=> buildChest(e[0], false, e[1]));
+    ].filter(e=> worldKeyForPos(e[0])===_spawnWorldKey && !gsChapter1World())
+     // 第一章の幽霊船は部屋の構造が違うので、配置は core/ghostship-map.js の GS_CHESTS(GHOSTSHIP-REBUILD-002)
+     .concat(gsChapter1World() ? GS_CHESTS.map(c=> [new THREE.Vector3(c.x, 0, c.z), c.kind]) : [])
+     .map(e=> buildChest(e[0], false, e[1]));
     // hp/atkは「他のモブとは一線を画す強さに」の要望を受け、同じダンジョンの
     // strongMob付き雑魚より明確に上回る水準まで底上げしてある(旧値からhp×1.6・
     // atk×1.35)。加えて突進の攻撃頻度を2倍にしてある(buildMimicChest参照)ので、
@@ -638,7 +641,11 @@
       [new THREE.Vector3(146,0,-142), {color:0xc9a44a, hp:240, atk:38, speed:2.7, xp:48, goldBonus:[18,26]}],  // temple treasure vault - the shiniest pile is never real
       [new THREE.Vector3(314,0,24), {color:0x7a2f4a, hp:480, atk:70, speed:2.7, xp:150, goldBonus:[34,50]}],  // seed vault - the same trick, one tier up
     ];
-    mimics.filter(m=> worldKeyForPos(m[0])===_spawnWorldKey).forEach(m=> buildMimicChest(m[0], m[1]));
+    // 第一章の幽霊船は GS_MIMICS。数値は旧い船の船倉のミミックと同じ(GHOSTSHIP-REBUILD-002)
+    mimics.filter(m=> worldKeyForPos(m[0])===_spawnWorldKey && !gsChapter1World())
+          .concat(gsChapter1World() ? GS_MIMICS.map(m=> [new THREE.Vector3(m.x, 0, m.z),
+                    {color:0x2c4a5a, hp:192, atk:30, speed:2.7, xp:35, goldBonus:[12,18]}]) : [])
+          .forEach(m=> buildMimicChest(m[0], m[1]));
   }
 
   // a mimic chest is paired with a dormant "monster form" enemy, pre-built at
@@ -896,7 +903,9 @@
       new THREE.Vector3(-243.2,9,-11.3),  // clocktower 2F
       new THREE.Vector3(184.8,0,-53.3),   // conservatory 枯れた前庭
     ];
-    spots.filter(p=> worldKeyForPos(p)===_spawnWorldKey).forEach(p=> healingCrystals.push(buildHealingCrystal(p)));
+    spots.filter(p=> worldKeyForPos(p)===_spawnWorldKey && !gsChapter1World())
+         .concat(gsChapter1World() ? GS_HEALING.map(h=> new THREE.Vector3(h.x, 0, h.z)) : [])
+         .forEach(p=> healingCrystals.push(buildHealingCrystal(p)));
   }
 
   function updateHealingCrystals(dt){

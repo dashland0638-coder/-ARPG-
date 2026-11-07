@@ -629,6 +629,8 @@
     {x0:-361, x1:-331, z0:107, z1:133, name:'隠し歯車庫'},        // 時計塔 (周回★3+)
   ];
   function roomNameAt(x, z){
+    // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。「……?」の部屋の名前で、別の部屋だと分かる
+    if(currentWorldKey === 'ghostship' && gsActive){ const r = gsRoomAt(x, z); return r ? r.name : null; }
     const tables = [
       {rooms: typeof MANSION_ROOMS !== 'undefined' ? MANSION_ROOMS : null},
       {rooms: typeof TOWER_ROOMS !== 'undefined' ? TOWER_ROOMS : null, floors:true},
@@ -1419,6 +1421,7 @@
       updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)。他では即 return
       updateTavernBgmStage();   // 酒場 BGM の加入段階(交代の会話・第一章の最後の会話の後で次の段へ)。他では即 return
       updateRoad(dt);          // 道(WORK 11)。他のワールドでは即return
+      updateGhostShip(dt);     // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。他のワールドでは即return
       updateCutscene(dt);
       updateSwingVFX(dt);
       updateMagicCircleVFX(dt);
@@ -1490,6 +1493,7 @@
       updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)
       updateTavernBgmStage();
       updateRoad(dt);
+      updateGhostShip(dt);
       updateShake(dt);
       updateSparks(dt);
       /* 斬撃の弧と魔法陣のフェードも進める。どちらも opacity を下げて
@@ -2186,10 +2190,12 @@
       {name:'酒場の主人', text:'戻ったか。湖の村は、どうだった。'},
       {name:prevName, text:'誰もいませんでした。……でも、消えたわけでは、ありませんでした。'}
     ],
-    // 幽霊船から帰る(弓師)。次は盗賊
+    /* 幽霊船から帰る(弓師)。次は盗賊。帰る場所が無いと言っていた弓師が、
+       酒場へ「ただいま」と戻る(GHOSTSHIP-REBUILD-002、E-1 = 案 A)。
+       船と時計塔は結ばない ―― 船長からの頼みごとは無い */
     rogue: (prevName)=> [
       {name:'酒場の主人', text:'霧の港から、よく戻ったな。'},
-      {name:prevName, text:'船長に、頼まれごとをしました。……塔の鐘を、と。'}
+      {name:prevName, text:'……ただいま、戻りました。'}
     ],
   };
 
@@ -2211,16 +2217,16 @@
       {name:'弓師', text:'その話、私が引き受けます。……港は歩き慣れているので。'},
       {name:prevName, text:'ひとりでは行かせません。'},
       {name:'弓師', text:'そう言うと思っていました。'},
-      {name:'弓師', text:'毎晩、同じ時刻に鳴るんです。乗っている人は、いないのに。'},
+      {name:'弓師', text:'沖の霧の中に、毎晩、灯が点るんです。乗っている人は、いないのに。'},
       {name:prevName, text:'……確かめに行きます。今度は、最初から見ておきたいので。'},
       {name:'剣士', text:'見てから決めろ。……あの村で、そうしただろう。'}
     ],
-    /* 時計塔へ(docs/CHAPTER1_STORY.md §4-3)。船の時計と塔の鐘が同じ時刻で
-       止まっていることを、船から戻った弓師が一言だけ足す */
+    /* 時計塔へ(docs/CHAPTER1_STORY.md §4-3)。向かう理由は、塔の管理人が七日戻らない
+       という噂だけ(GHOSTSHIP-REBUILD-002、E-1 = 案 A)。船で「待つ人・帰れない人」を
+       見てきた弓師が、待っている人のいる塔へ向かう。幽霊船と塔は結ばない */
     rogue: (prevName)=> [
-      // 帰還の会話で弓師が「塔の鐘」と言った後なので、受ける形にする(CH1-EXP X-5)
-      {name:'酒場の主人', text:'その塔なら、鐘が毎晩同じ時刻で止まるらしい。'},
-      {name:prevName, text:'止まっているのは、鐘だけじゃありません。船も、あの時刻で。'},
+      {name:'酒場の主人', text:'塔の管理人が、七日戻らないそうだ。鐘も、止まったままでな。'},
+      {name:prevName, text:'……待っている人が、いるんですね。'},
       {name:'盗賊', text:'止まってるなら、入るのは簡単だ。開いてる窓はどこにでもある。'},
       {name:prevName, text:'……その言い方、あとで詳しく聞かせて。'},
       {name:'盗賊', text:'着いてからな。'}
@@ -2232,6 +2238,10 @@
      座標だけを動かし、味方の再配置とカメラの置き直しは既存の関数に任せる */
   function teleportTestModeTo(wp){
     if(!state.testMode || !state.started) return;
+    /* 第一章の幽霊船(GHOSTSHIP-REBUILD-002)は部屋の構造が違う。地点を引き直し、
+       帰還不能の後の地点なら、その段階へ進めてから運ぶ(テストモードだけ) */
+    if(currentWorldKey === 'ghostship') wp = gsTestWaypoint(wp);
+    if(!wp) return;
     // 上の階の地点は y(床の高さ)を持つ(時計塔の最上階など。TEST-CHAPTER-SELECT-001)
     state.pos.set(wp.x, wp.y || 0, wp.z);
     state.vel.set(0,0,0);

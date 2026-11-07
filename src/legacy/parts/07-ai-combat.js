@@ -341,7 +341,12 @@
       {pos:new THREE.Vector3(240,0,66), variant:{color:0x4f7a3a, hp:290, atk:50, speed:2.7, atkType:'charge', xp:134, goldBonus:[30,46], roomTag:'consTrial'}},
       {pos:new THREE.Vector3(182,0,48), variant:{color:0x4f7a3a, hp:290, atk:50, speed:2.7, atkType:'charge', xp:134, goldBonus:[30,46]}},
     ];
-    spots.filter(s=>worldKeyForPos(s.pos)===_spawnWorldKey)
+    /* 第一章の幽霊船(GHOSTSHIP-REBUILD-002)は、旧い船の配置を使わない ―― 乗組員の残影は
+       部屋へ入ったときに持ち場から起き上がる(14-dungeon-ghostship.js の gsSpawnRoom)。
+       ここで置くのはボスだけ */
+    const gsCh1 = _spawnWorldKey === 'ghostship' && gsActive;
+    if(gsCh1) gsSpawnCaptain();
+    spots.filter(s=>worldKeyForPos(s.pos)===_spawnWorldKey && !gsCh1)
          .forEach(s=> enemies.push(buildEnemy(s.pos, s.variant)));
     /* 「山を登る」拡張(★3/★4): 保管庫の奥・屋根裏。どちらも建物側の
        buildMansionCryptDepths()/buildMansionAttic()が同じ★条件でしか部屋
@@ -423,7 +428,7 @@
         : {}));
     // 幽霊船も洋館と同じ「山を登る」拡張(★4以上): 撃破後に船倉の最深部への
     // 階段が現れる(gateTag、buildGhostShipBossHold側で階段自体を建てる)
-    if(_spawnWorldKey==='ghostship') enemies.push(buildBoss(new THREE.Vector3(-32,0,120), {
+    if(_spawnWorldKey==='ghostship' && !gsCh1) enemies.push(buildBoss(new THREE.Vector3(-32,0,120), {
       key:'ghostCaptain', bossDoorKey:'bossHoldDoor', bodyColor:0x3a5568, emissive:0x1a3a4a, eyeColor:0x7ecbe8, auraColor:0x4a8ab0,
       hpMax:820, atk:40, speed:1.95, xp:340,
       gateTag: scenarioStars('ghostship') >= GHOSTSHIP_DEPTHS_STARS ? 'ghostCaptain' : null,
@@ -433,9 +438,9 @@
         '……おのれ、無礼な客人だ!礼儀も知らんのか!',
         'ならば容赦はせん――海の底へ、諸共に沈むがいい!'
       ],
-      /* 第一章の本編では §4-2 の台詞(GHOST_CAPTAIN_CHAPTER1_LINES、04)。
-         何度目でも同じ台詞(周回用の短い台詞は使わない) */
-      dialogueLines: !legacyGrowth() ? GHOST_CAPTAIN_CHAPTER1_LINES : [
+      /* 旧い船(テストモードの旧成長・周回)の台詞。第一章の本編の船長は
+         14-dungeon-ghostship.js の gsCaptainBossConfig(時計塔とは結ばない) */
+      dialogueLines: [
         '……ここまで辿り着いた者は、久しいな。',
         'あの"錨"を引き上げると決めたのは、この儂だ。早く戻れる――皆を早く家へ帰せると思ったのだ。',
         'その判断が、この船と乗組員もろとも呪いに縛りつけた。儂はもう人ではない。乗員も皆、幽世の住人だ。',
@@ -961,6 +966,7 @@
                「読んで避ける」約束を裏切るため(森の洋館の使用人) */
             if(en.servantState) servantEnterIdle(en);
             if(en.lordState){ lordEnterIdle(en); en.lordEchoT = 0; }
+            if(en.capState) shipCaptainEnterIdle(en);   // 幽霊船の船長(GHOSTSHIP-REBUILD-002)も同じ
             en.postureGraceT = 1.5;  // 復帰直後は少しの間だけ体幹が削れない(Recovery Delayとは別用途)
             en.postureRecoveryDelayT = 0;
             en.bigFlinched = false;
@@ -1251,6 +1257,8 @@
        (14-dungeon-duskvillage.js)が AI の状態を読んで置く。洋館の M.mansionKind とは別の印
        (updateMansionMeleeTelegraph の床の弧を通さないため) */
     if(M.villageKind) updateVillageMobExtras(en, M, t, sw, moving, dt);
+    // 第一章の幽霊船の乗組員の残影(GHOSTSHIP-REBUILD-002)。腕の姿勢だけ
+    if(M.shipRole) updateShipCrewExtras(en, M, t, sw, moving, dt);
 
     // the flinch is layered on last, over whatever the mob was doing
     applyMobFlinch(en, dt, M);
@@ -4854,10 +4862,11 @@
 
   /* 館の主の一撃をプレイヤーへ通す。判定や無敵の扱いは他の敵と完全に同じ
      経路(オーブシールド → 被ダメージ倍率 → ジャストドッジ)。 */
+  // 戻り値: 体に当たったか(盾・無敵・ジャストドッジで止めたら false)。幽霊船の船長の引き寄せが読む
   function lordHitPlayer(en, dmg, shake){
-    if(state.paralyzeInvulnT > 0) return;
-    if(state.invulnerable){ tryPerfectDodge(en); return; }
-    if(tryConsumeOrbShield()) return;
+    if(state.paralyzeInvulnT > 0) return false;
+    if(state.invulnerable){ tryPerfectDodge(en); return false; }
+    if(tryConsumeOrbShield()) return false;
     const out = applyIncomingDamageMul(state.debugMode ? 0 : dmg);
     state.hp = Math.max(0, state.hp - out);
     spawnDamagePopup(state.pos.clone(), out, false, false, true);
@@ -4865,6 +4874,7 @@
     sfx('hurt');
     addShake(shake || 0.14);
     if(state.hp <= 0) triggerPlayerDown();
+    return true;
   }
 
   function updateBossAI(en, dt){
@@ -4886,6 +4896,9 @@
        「影が人から離れていく」を表現できないため。フェーズ管理・体幹・
        Break・Execution・報酬・撃破フローは既存のまま使う */
     if(en.key === 'mansionBoss'){ updateMansionLordAI(en, dt); return; }
+    /* 第一章の幽霊船の船長(GHOSTSHIP-REBUILD-002)。舶刀の薙ぎ・鎖の引き寄せ・点呼・鎖の薙ぎ払いの
+       3段を専用の相で持つ(攻撃表は core/ghostship-captain.js)。体幹・Break・撃破の流れは既存のまま */
+    if(en.key === 'ghostCaptain' && en.shipCh1){ updateShipCaptainAI(en, dt); return; }
 
     /* 村の残響(宵待ちの村 / WORK 7)。**専用のボスAIは作っていない** ――
        追尾・振りかぶり・薙ぎ・特殊行動・体幹・Break・Execution・報酬は
@@ -5763,6 +5776,7 @@
       if(en.bodyScale && en.body) en.body.scale.copy(en.bodyScale);
       // 館の主(Phase 5-D)も、崩された時点で攻撃相と影の追撃予約を畳む
       if(en.lordState){ lordEnterIdle(en); en.lordEchoT = 0; }
+      if(en.capState) shipCaptainEnterIdle(en);   // 幽霊船の船長: 予兆・引き寄せ・鎖の見た目を畳む
       clearBossVfx(en);
     } else {
       en.chargeState = 'idle';

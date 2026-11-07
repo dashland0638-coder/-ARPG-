@@ -156,12 +156,15 @@ test('物語の部屋は本筋にある(階段の着地点 → 部屋 → 通路
   assert.equal(stairs.find(s => s.key === 't4up').to, 't5ante', '4F からの階段は前室に着く');
 });
 
-test('酒場の交代(時計塔へ): 主人の次に、弓師(前の主人公)が船と同じ時刻だと一言', () => {
+/* GHOSTSHIP-REBUILD-002(E-1 = 案 A): 船と塔は結ばない。弓師は「待っている人がいる」ことに一言だけ触れる */
+test('酒場の交代(時計塔へ): 主人が管理人の噂を伝え、弓師(前の主人公)は待っている人に一言。船の話はしない', () => {
   const a = hud.indexOf('const CHAPTER1_JOIN_LINES = {');
   const lines = new Function(hud.slice(a, hud.indexOf('\n  };\n', a) + 5) + '\nreturn CHAPTER1_JOIN_LINES;')();
   const rogue = lines.rogue('弓師');
   assert.equal(rogue.length, 5);
-  assert.deepEqual(rogue[1], { name: '弓師', text: '止まっているのは、鐘だけじゃありません。船も、あの時刻で。' });
+  assert.deepEqual(rogue[0], { name: '酒場の主人', text: '塔の管理人が、七日戻らないそうだ。鐘も、止まったままでな。' });
+  assert.deepEqual(rogue[1], { name: '弓師', text: '……待っている人が、いるんですね。' });
+  assert.ok(!rogue.some(l => /船/.test(l.text)), '幽霊船と時計塔を結ぶ行は無い');
   assert.equal(rogue[2].name, '盗賊');
   assert.equal(lines.mage('剣士').length, 4, '他の交代は変えない');
 });

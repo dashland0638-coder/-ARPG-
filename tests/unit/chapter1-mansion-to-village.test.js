@@ -222,17 +222,19 @@ test('村の後: 帰還の会話(主人と魔法使い)→ 弓師が歩み寄る
   assert.equal(h.api.retired, 1, '支援から外れた剣士の姿');
 });
 
-test('幽霊船の後: 帰還の会話は主人と弓師の2行。交代の会話の主人の1行は「その塔なら」で受ける', () => {
+/* 幽霊船と時計塔は結ばない(GHOSTSHIP-REBUILD-002、E-1 = 案 A)。帰る場所が無いと言っていた弓師が
+   「ただいま」と戻り、塔へ向かう理由は「管理人が七日戻らない」という噂だけ */
+test('幽霊船の後: 帰還の会話は主人と弓師の2行(弓師「……ただいま、戻りました。」)。交代の会話は管理人の噂で受ける', () => {
   const h = harness({ clears: { mansion: 1, duskvillage: 1, ghostship: 1 }, from: 'archer' });
   h.state.guestClassKey = 'mage';
   h.api.advanceChapter1Cast({ rebuild: true, announce: true });
   openScene(h);
   assert.deepEqual(h.state.dialogueLines.map(l => `${l.name}|${l.text}`), [
     '酒場の主人|霧の港から、よく戻ったな。',
-    '弓師|船長に、頼まれごとをしました。……塔の鐘を、と。',
+    '弓師|……ただいま、戻りました。',
   ]);
   h.api.onChapter1ReturnTalkClosed();
-  assert.equal(h.state.dialogueLines[0].text, 'その塔なら、鐘が毎晩同じ時刻で止まるらしい。');
+  assert.equal(h.state.dialogueLines[0].text, '塔の管理人が、七日戻らないそうだ。鐘も、止まったままでな。');
   h.api.onChapter1JoinTalkClosed();
   assert.equal(h.api.selected, 'rogue');
   assert.equal(h.state.guestClassKey, 'archer');

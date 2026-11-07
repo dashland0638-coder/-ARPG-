@@ -36,6 +36,13 @@ const CHANGED = [
   ['ghostship', '亡霊は、まだ船を降りていない……ということか。', '……まだ、船に乗っているんでしょうか。'],
   ['clocktower', '娘の行方と、鐘に何か関係が?', '娘と鐘が、関係あるのか?'],
 ];
+// 主人の台詞で承認された変更(GHOSTSHIP-REBUILD-002: 船は沖に浮かび、小舟で近づく)。本編だけ
+const MASTER_CHANGED = [
+  ['ghostship', '霧の港に、朽ちた帆船が打ち上げられたそうだ。沈没船から引き上げた"錨"を積んでいたらしくてな。',
+                '霧の港の沖に、朽ちた帆船が流れ着いたそうだ。沈没船から引き上げた"錨"を積んでいたらしくてな。'],
+  ['ghostship', '……さあな。海の男でさえ近寄らん場所さ。よほどの事情がなきゃ勧めんが……それでも行くかい?',
+                '……さあな。海の男でさえ近寄らん場所さ。それでも行くなら、小舟を貸してやる。帰りに沈めるなよ。'],
+];
 const SCENARIOS = ['mansion', 'duskvillage', 'ghostship', 'clocktower', 'road'];
 
 test('本編: 主人公の受け答え 7 行だけが承認済みの文言になる。順序・行数・主人の台詞・他の行は旧成長と同じ', () => {
@@ -55,11 +62,17 @@ test('本編: 主人公の受け答え 7 行だけが承認済みの文言にな
       assert.equal(a.indexOf(`Y|${after}`), b.indexOf(`Y|${before}`), `${k}: 同じ位置`);
       changed++;
     }
-    // 変更した行以外は、本編と旧成長で同じ(主人の台詞を含む)
+    // 変更した行以外は、本編と旧成長で同じ(主人の台詞を含む)。
+    // 例外は幽霊船の主人の 2 行(GHOSTSHIP-REBUILD-002 で承認: 船は沖に浮かび、小舟で近づく)
     if (key !== 'road') {
+      const masterChanged = MASTER_CHANGED.filter(c=>c[0] === key);
       const diff = a.filter((l, i)=>l !== b[i]);
-      assert.equal(diff.length, CHANGED.filter(c=>c[0] === key).length, `${key}: 変わったのは承認した行だけ`);
-      assert.ok(diff.every(l=>l.startsWith('Y|')), `${key}: 主人の台詞は変わらない`);
+      assert.equal(diff.length, CHANGED.filter(c=>c[0] === key).length + masterChanged.length, `${key}: 変わったのは承認した行だけ`);
+      assert.ok(diff.every(l=>l.startsWith('Y|') || masterChanged.some(c=> l === `M|${c[2]}`)), `${key}: 主人の台詞は承認した行の他は変わらない`);
+      for (const [, before, after] of masterChanged){
+        assert.ok(a.includes(`M|${after}`), `本編の主人: ${after}`);
+        assert.ok(b.includes(`M|${before}`), `旧成長の主人は旧い文言のまま: ${before}`);
+      }
     }
   }
   assert.equal(changed, 7, '受け答えは 7 行');

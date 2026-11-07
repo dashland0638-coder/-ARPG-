@@ -2487,6 +2487,8 @@
     // 宵待ちの村は区画の決め方が違う(部屋idで分ける)ので、向こうに任せる
     if(currentWorldKey === 'duskvillage') return duskAmbienceZone();
     if(currentWorldKey === 'road') return 'forest';   // 道(WORK 11): 屋外の街道。森の音をそのまま
+    // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。部屋の区画で分ける
+    if(currentWorldKey === 'ghostship' && gsActive) return gsAmbienceZone();
     if(currentWorldKey !== 'mansion') return null;
     const r = mansionRoomAt(state.pos.x, state.pos.z);
     if(!r){

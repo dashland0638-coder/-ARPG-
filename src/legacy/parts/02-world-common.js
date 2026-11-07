@@ -151,7 +151,9 @@
       mansionZone('lord',     ()=>batchStatic(buildMansionLordsRoom));
       initMansionLamps();
     } },
-    ghostship:{ build: ()=>{ buildGhostShip(); } },
+    /* 第一章の本編は「帰れない」船(GHOSTSHIP-REBUILD-002、14-dungeon-ghostship.js)。
+       テストモードの旧成長・周回は既存の船のまま */
+    ghostship:{ build: ()=>{ if(ghostShipChapter1()) buildGhostShipCh1(); else { gsActive = false; buildGhostShip(); } } },
     waterway: { build: ()=>{ buildWaterwayPier(); buildWaterwayUnderground(); } },
     temple:   { build: ()=>{ buildTemple(); } },
     conservatory: { build: ()=>{ buildConservatory(); } },
@@ -287,6 +289,8 @@
        入るので、全個体で共有している頭巾・帽子・鎖・泡・残響の写しなどのジオメトリをここで守る。
        足元の輪(07 groundTelegraphGeoCache)と網(07 memoryNetGeoCache)も同じく共有 */
     villageGeoCache.forEach(g=> keep.add(g));
+    // 幽霊船の乗組員の残影の共有部品(GHOSTSHIP-REBUILD-002)。材質も同じ表にあるので、ジオメトリだけ守る
+    gsCrewCache.forEach(g=>{ if(g && g.isBufferGeometry) keep.add(g); });
     groundTelegraphGeoCache.forEach(g=>{ keep.add(g.ring); keep.add(g.fill); });
     memoryNetGeoCache.forEach(g=>{ keep.add(g.net); keep.add(g.ring); keep.add(g.fill); });
     collectGeometries(sparkPool, keep);
@@ -328,6 +332,7 @@
        currentWorldObjects 側の remove で外れるので、ここでは参照と
        出撃中だけの進行状態を落とす ―― 次の出撃へ持ち越さないため */
     resetMansionSortieState();
+    resetGhostShipSortieState();   // 幽霊船の出撃中の参照を手放す(GHOSTSHIP-REBUILD-002)
     /* この世界のためだけに建てたものを控えておく。どれもこの関数の中で
        シーンから外れるので、最後にまとめてGPUバッファを返しにいく
        (敵・宝箱・回復結晶・足場・鍵も、世界ごとに作り直される) */
@@ -867,6 +872,26 @@
     duskDeep:   [ {cue:'waterDrip',   min:10, max:26},
                   {cue:'distantStir', min:24, max:52},
                   {cue:'forestWind',  min:22, max:46} ],
+    /* 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。区画は core/ghostship-map.js の zone。
+       往路は軋み・水滴・床板。帰還不能の後は間隔が詰まり、遠い物音が混じる。
+       錨の間は無音。鎖を手放した後は、軋みが波の音に変わる */
+    shipSea:    [ {cue:'seaSwell',    min:6,  max:12},
+                  {cue:'hullGroan',   min:14, max:30} ],
+    shipHull:   [ {cue:'houseCreak',  min:10, max:24},
+                  {cue:'waterDrip',   min:8,  max:18},
+                  {cue:'floorTick',   min:16, max:36},
+                  {cue:'hullGroan',   min:20, max:40} ],
+    shipWrong:  [ {cue:'houseCreak',  min:7,  max:15},
+                  {cue:'waterDrip',   min:6,  max:14},
+                  {cue:'distantStir', min:14, max:30} ],
+    shipDeep:   [ {cue:'waterDrip',   min:5,  max:12},
+                  {cue:'caveBreath',  min:14, max:30},
+                  {cue:'hullGroan',   min:12, max:26} ],
+    shipCalm:   [ {cue:'seaSwell',    min:6,  max:12},
+                  {cue:'waterDrip',   min:14, max:28} ],
+    shipDeck:   [ {cue:'seaSwell',    min:5,  max:10},
+                  {cue:'forestWind',  min:10, max:20},
+                  {cue:'distantBird', min:18, max:40} ],
   };
 
   let ambienceZone = null;
@@ -1958,9 +1983,11 @@
     let nearby = null, standingOnGated = false;
     if(!nearbyDoor){
       stairs.forEach(s=>{
+        if(s.hidden) return;   // まだ現れていない通路(幽霊船のループの後の扉など)
         const inRange = state.pos.distanceTo(s.pos) < s.radius;
         // e.g. the floor only gives way once the mid-boss falls
-        if(s.gateKey && !isGateEnemyDead(s.gateKey)){ if(inRange) standingOnGated = true; return; }
+        // gateMsg を持つ通路は、塞がっている間も調べられる(理由の一文を出す。幽霊船)
+        if(s.gateKey && !isGateEnemyDead(s.gateKey) && !s.gateMsg){ if(inRange) standingOnGated = true; return; }
         if(inRange) nearby = s;
       });
     }
@@ -2392,6 +2419,10 @@
     el.classList.remove('branch-warn','branch-locked'); // 毎フレーム見直すので、まず消してから必要なら付け直す
     if(nearbyShadowGuide) el.textContent = '💬 話しかける';
     else if(nearbyDoor) el.textContent = '扉を開ける';
+    else if(nearbyStairs && nearbyStairs.promptText){
+      // 扉・梯子・昇降口として見せる通路(幽霊船)。文言は通路の側が決める
+      el.textContent = typeof nearbyStairs.promptText === 'function' ? nearbyStairs.promptText() : nearbyStairs.promptText;
+    }
     else if(nearbyStairs){
       const s = nearbyStairs;
       const def = s.routeNode ? routeNodeDef(s.routeNode) : null;
@@ -2485,6 +2516,9 @@
       if(def && def.commitMsg) spawnLog(def.commitMsg);
       if(ROUTE_ONCOMMIT_EFFECTS[s.routeNode]) ROUTE_ONCOMMIT_EFFECTS[s.routeNode]();
     }
+    // 着いた向き(幽霊船の通路)と、着いた後の処理
+    if(s.arriveFace != null){ state.facing = s.arriveFace; if(player) player.rotation.y = s.arriveFace; }
+    if(s.onArrive) s.onArrive(s);
   }
 
   function useStairs(){
@@ -2497,6 +2531,20 @@
       return;
     }
     stairAutoArmed = false;   // 手動で移動した先で、いきなりautoが噛まないように
+    /* 塞がっている通路(gateMsg)。調べると理由の一文だけを出す */
+    if(s.gateKey && s.gateMsg && !isGateEnemyDead(s.gateKey)){ sfx('deny'); spawnToast(s.gateMsg); return; }
+    /* 行き先がその時々で変わる通路(幽霊船: 帰還不能の後は船の奥へ繋がる)。
+       resolve() は {blocked:'一文'} か {targetPos, label, arriveFace, onArrive} か {run:fn} を返す */
+    if(s.resolve){
+      const r = s.resolve(s);
+      if(!r) return;
+      if(r.blocked){ sfx('deny'); spawnToast(r.blocked); return; }
+      if(r.run){ r.run(); return; }
+      s.targetPos.copy(r.targetPos);
+      s.label = r.label || s.label;
+      s.arriveFace = r.arriveFace != null ? r.arriveFace : null;
+      s.onArrive = r.onArrive || null;
+    }
     fadeTransition(()=> stairMoveTo(s));
   }
 
