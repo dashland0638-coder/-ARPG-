@@ -289,6 +289,8 @@
        入るので、全個体で共有している頭巾・帽子・鎖・泡・残響の写しなどのジオメトリをここで守る。
        足元の輪(07 groundTelegraphGeoCache)と網(07 memoryNetGeoCache)も同じく共有 */
     villageGeoCache.forEach(g=> keep.add(g));
+    // 幽霊船の乗組員の残影の共有部品(GHOSTSHIP-REBUILD-002)。材質も同じ表にあるので、ジオメトリだけ守る
+    gsCrewCache.forEach(g=>{ if(g && g.isBufferGeometry) keep.add(g); });
     groundTelegraphGeoCache.forEach(g=>{ keep.add(g.ring); keep.add(g.fill); });
     memoryNetGeoCache.forEach(g=>{ keep.add(g.net); keep.add(g.ring); keep.add(g.fill); });
     collectGeometries(sparkPool, keep);
@@ -330,6 +332,7 @@
        currentWorldObjects 側の remove で外れるので、ここでは参照と
        出撃中だけの進行状態を落とす ―― 次の出撃へ持ち越さないため */
     resetMansionSortieState();
+    resetGhostShipSortieState();   // 幽霊船の出撃中の参照を手放す(GHOSTSHIP-REBUILD-002)
     /* この世界のためだけに建てたものを控えておく。どれもこの関数の中で
        シーンから外れるので、最後にまとめてGPUバッファを返しにいく
        (敵・宝箱・回復結晶・足場・鍵も、世界ごとに作り直される) */

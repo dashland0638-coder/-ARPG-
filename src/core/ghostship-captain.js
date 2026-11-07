@@ -57,7 +57,8 @@ export function captainAttackChoice(o){
   const ready = k=> !(cds[k] > 0) && CAPTAIN_ATTACKS[k].phases.indexOf(phase) >= 0;
   if(ready('rollcall') && (o.summonsAlive || 0) <= CAPTAIN_ATTACKS.rollcall.maxAlive - CAPTAIN_ATTACKS.rollcall.summon) return 'rollcall';
   if(ready('chainSweep') && dist <= CAPTAIN_ATTACKS.chainSweep.maxDist) return 'chainSweep';
-  if(ready('chainPull') && dist >= CAPTAIN_ATTACKS.chainPull.minDist) return 'chainPull';
+  // 鎖が届かない遠さでは投げない(長さの内側だけ)
+  if(ready('chainPull') && dist >= CAPTAIN_ATTACKS.chainPull.minDist && dist <= CAPTAIN_ATTACKS.chainPull.length) return 'chainPull';
   if(ready('cutlass') && dist <= CAPTAIN_ATTACKS.cutlass.maxDist) return 'cutlass';
   return null;
 }

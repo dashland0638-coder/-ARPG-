@@ -966,6 +966,7 @@
                「読んで避ける」約束を裏切るため(森の洋館の使用人) */
             if(en.servantState) servantEnterIdle(en);
             if(en.lordState){ lordEnterIdle(en); en.lordEchoT = 0; }
+            if(en.capState) shipCaptainEnterIdle(en);   // 幽霊船の船長(GHOSTSHIP-REBUILD-002)も同じ
             en.postureGraceT = 1.5;  // 復帰直後は少しの間だけ体幹が削れない(Recovery Delayとは別用途)
             en.postureRecoveryDelayT = 0;
             en.bigFlinched = false;
@@ -4861,10 +4862,11 @@
 
   /* 館の主の一撃をプレイヤーへ通す。判定や無敵の扱いは他の敵と完全に同じ
      経路(オーブシールド → 被ダメージ倍率 → ジャストドッジ)。 */
+  // 戻り値: 体に当たったか(盾・無敵・ジャストドッジで止めたら false)。幽霊船の船長の引き寄せが読む
   function lordHitPlayer(en, dmg, shake){
-    if(state.paralyzeInvulnT > 0) return;
-    if(state.invulnerable){ tryPerfectDodge(en); return; }
-    if(tryConsumeOrbShield()) return;
+    if(state.paralyzeInvulnT > 0) return false;
+    if(state.invulnerable){ tryPerfectDodge(en); return false; }
+    if(tryConsumeOrbShield()) return false;
     const out = applyIncomingDamageMul(state.debugMode ? 0 : dmg);
     state.hp = Math.max(0, state.hp - out);
     spawnDamagePopup(state.pos.clone(), out, false, false, true);
@@ -4872,6 +4874,7 @@
     sfx('hurt');
     addShake(shake || 0.14);
     if(state.hp <= 0) triggerPlayerDown();
+    return true;
   }
 
   function updateBossAI(en, dt){
@@ -5773,6 +5776,7 @@
       if(en.bodyScale && en.body) en.body.scale.copy(en.bodyScale);
       // 館の主(Phase 5-D)も、崩された時点で攻撃相と影の追撃予約を畳む
       if(en.lordState){ lordEnterIdle(en); en.lordEchoT = 0; }
+      if(en.capState) shipCaptainEnterIdle(en);   // 幽霊船の船長: 予兆・引き寄せ・鎖の見た目を畳む
       clearBossVfx(en);
     } else {
       en.chargeState = 'idle';

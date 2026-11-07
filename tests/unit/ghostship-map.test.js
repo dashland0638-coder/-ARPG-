@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import {
   GS_ENTRY, GS_ROOMS, gsRoomById, gsRoomAt, GS_ARRIVALS, GS_PASSAGES, gsPassageById, gsPassageState,
   gsReachableRooms, GS_PLATES_BEFORE, GS_PLATES_AFTER, GS_CREW, GS_CREW_LOST, gsRollcallTags, gsPlateSeat,
-  GS_MARKS, GS_CHAIN, gsLightFor, gsAmbienceZoneFor, GS_ANCHOR_DOOR,
+  GS_MARKS, GS_CHAIN, gsLightFor, gsAmbienceZoneFor, GS_ANCHOR_DOOR, GS_CHESTS, GS_MIMICS, GS_HEALING,
 } from '../../src/core/ghostship-map.js';
 
 const inside = (r, x, z, m = 0) => x >= r.x0 + m && x <= r.x1 - m && z >= r.z0 + m && z <= r.z1 - m;
@@ -194,5 +194,19 @@ test('どの段階でも、辿り着ける部屋には出口がある(閉じ込�
       const viaDoor = phase === 'post' && (room === 'xAnte' || room === 'xAnchor');
       assert.ok(out || viaDoor, `${phase}: ${room} から出られる`);
     }
+  }
+});
+
+test('宝箱・ミミック・回復結晶は第一章の船の部屋の中。通路と着いた所に重ならない(壁越しに開かない)', () => {
+  const all = GS_CHESTS.map(c => ['chest', c]).concat(GS_MIMICS.map(m => ['mimic', m]), GS_HEALING.map(h => ['heal', h]));
+  assert.ok(GS_CHESTS.some(c => c.room === 'gsStore' && c.kind === 'supply'), '物資庫に supply');
+  assert.ok(GS_CHESTS.some(c => c.room === 'xAnte' && c.kind === 'supply'), 'ボスの前に supply');
+  for (const [kind, o] of all) {
+    const r = gsRoomById(o.room);
+    assert.ok(inside(r, o.x, o.z, 0.8), `${kind} ${o.room}`);
+    assert.equal(gsRoomAt(o.x, o.z).id, o.room);
+    for (const p of GS_PASSAGES.filter(p => p.room === o.room)) assert.ok(Math.hypot(p.x - o.x, p.z - o.z) > 2.5, `${kind} と ${p.id}`);
+    for (const [id, a] of Object.entries(GS_ARRIVALS).filter(([, a]) => a.room === o.room))
+      assert.ok(Math.hypot(a.x - o.x, a.z - o.z) > 2.0, `${kind} と ${id}`);
   }
 });

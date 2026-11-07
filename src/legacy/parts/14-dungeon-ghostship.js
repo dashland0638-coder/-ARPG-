@@ -30,6 +30,8 @@
   function ghostShipChapter1(){
     return !legacyGrowth() && state.scenarioKey === 'ghostship';
   }
+  // 今建てている/建っている世界が第一章の船か(08 の宝箱の配置・07 の敵の配置が見る)
+  function gsChapter1World(){ return _spawnWorldKey === 'ghostship' && gsActive; }
 
   const GS_TEMPO = {firstLineSec: 0.5, gapSec: 0.3, realtime: true};
   function gsA(){ return CLASSES.archer.name; }
@@ -50,6 +52,16 @@
   let gsAmbienceSilentT = 0;
   let gsKnockT = 0;
   let gsSinceBuild = 0;
+
+  /* 世界を畳むとき(02 disposeWorld)に、前の船のシーンの木への参照を手放す。
+     GPU 側の解放は disposeWorld が行う。次に船を建てるときは buildGhostShipCh1 が作り直す */
+  function resetGhostShipSortieState(){
+    gsActive = false;
+    gsZones = {pre:null, post:null, end:null};
+    gsPassageEntries = []; gsMarkMeshes = []; gsLights = []; gsAnchorShadows = [];
+    gsBossRef = null; gsEvents = {}; gsSpawned = {}; gsRoomEntered = {};
+    gsLightRoomId = null; gsChainDoorShown = false; gsAmbienceSilentT = 0;
+  }
 
   function gsV(x, z, y){ return new THREE.Vector3(x, y || 0, z); }
   function gsAddLate(obj){
@@ -377,6 +389,9 @@
     gsBox(14, 0.4, 88, 2.4, 0.8, 1.2, M.woodDark, true);       // 机
     gsBox(22.2, 0.35, 81, 1.4, 0.7, 2.4, M.woodDark, true);     // 寝台
     gsBox(17.8, 2.0, 91.6, 0.12, 0.2, 0.12, M.iron, false);     // 角灯を掛ける鉤(空)
+
+    // 錨の鎖。往路は船底と船倉を東寄りに縦に貫く(帰還不能の後は反対の壁際を通る)
+    GS_CHAIN.pre.forEach(c=> gsChainColumn(c.x, c.z));
   }
 
   /* ---- 帰還不能の後の船 ---- */
@@ -529,9 +544,9 @@
   }
 
   function gsPromptFor(p){
-    if(p.prompt) return p.prompt;
     const st = gsPassageState(p, gsFlags);
-    if(st.blocked) return p.kind === 'door' ? '扉を調べる' : '調べる';
+    if(st.blocked) return p.kind === 'door' ? '扉を調べる' : p.kind === 'hatch' ? '昇降口を調べる' : '調べる';
+    if(p.prompt) return p.prompt;
     if(p.kind === 'door') return p.label ? `${p.label}への扉を開ける` : '扉を開ける';
     if(p.kind === 'ladderUp') return p.label ? `梯子を上る(${p.label})` : '梯子を上る';
     if(p.kind === 'ladderDown') return p.label ? `梯子を下りる(${p.label})` : '梯子を下りる';
@@ -761,9 +776,10 @@
         gsNarr('机の上に、航海日誌が開いたまま置かれている。'),
         gsLine('「霧で港を見失った。流されぬよう、沈んだ船の錨を繋いだ。霧が晴れるまで、ここで待つ」', '航海日誌'),
         gsLine('「毎晩、灯を点け、点呼をとる」', '航海日誌'),
-        {t:0.4, run:()=>{ cutsceneHideLine(); sfx('floorTick'); }},
-        {t:0.5, keep:true, run:()=> sfx('floorTick')},
-        {t:0.5, keep:true, run:()=> sfx('floorTick')},
+        // 頭上の足音(床板の音は環境音の表にある。ambient で鳴らす)
+        {t:0.4, run:()=>{ cutsceneHideLine(); ambient('floorTick'); }},
+        {t:0.5, keep:true, run:()=> ambient('floorTick')},
+        {t:0.5, keep:true, run:()=> ambient('floorTick')},
         gsLine('「……今、上で」', Mg),
         gsLine('「今日は、ここまでにしましょう。見るだけ、の約束でした」', Mg),
         gsLine('「ええ。舟に戻りましょう。印は、付けてあります」', A),
@@ -800,7 +816,8 @@
       ], GS_TEMPO);
     }, ()=> ev.wrongA.fired);
     // 7-c 船倉で刻んだ矢印が、食堂の柱で船の奥を指している
-    ev.wrongC = gsEvent({x0:11.6, x1:15.6, z0:106.8, z1:113.4}, ()=>{
+    // 範囲は、外壁側の扉(xmToBilge、判定の半径 1.8)へ近づくどの向きも含む ―― この場面を飛ばして船底へ行けない
+    ev.wrongC = gsEvent({x0:11.6, x1:16.0, z0:106.8, z1:114.2}, ()=>{
       playCutscene([
         gsLine('「この印……船倉の柱に、私が付けたものです」', A),
         gsLine('「私たちが迷ったんじゃない。……船のほうが、動いたんです」', Mg),
@@ -819,7 +836,7 @@
         gsLine('「……でも、塞いだのは、中からです」', Mg),
         gsEnd(()=> gsSpawnRoom('xBilge')),
       ], GS_TEMPO);
-    }, ()=> ev.wrongC.fired || ev.wrongB.fired);
+    }, ()=> ev.wrongC.fired);
     // 船大工を退けた後。板はもう船の一部だった
     ev.afterCarpenter = gsEvent(gsRoomArea('xBilge', 0.4), ()=>{
       spawnLog('🏹 弓師が板を射た。矢は刺さるだけで、板はもう船の一部になっていた');
@@ -1040,8 +1057,8 @@
     if(!defs) return;
     gsSpawned[tag] = true;
     // 持ち場から起き上がる: 一瞬、床の霧が人の形に立つ
+    // (近づくと消える距離を広く取ってあるので、満ちた直後にそのまま消える)
     defs.forEach(d=> spawnApparition(gsV(d.x, d.z), {color:0x9ab0c0, vanishDist:200, maxOpacity:0.3, fadeIn:2.5, fadeOut:1.2}));
-    setTimeout(()=> apparitions.forEach(a=>{ if(a.maxOpacity === 0.3 && a.vanishDist === 200) a.state = 'out'; }), 700);
     spawnTaggedGroup(tag, defs.map(d=> ({pos:gsV(d.x, d.z), variant:d.v()})));
     if(tag === 'xRollcall'){
       const bos = enemies.find(e=> e.gateTag === 'gsBoatswain');
@@ -1309,6 +1326,23 @@
     en.capTele = null;
   }
 
+  /* 崩された(ダウン)時と起き上がった時に、持っていた攻撃相を捨てる(07 の triggerKnockdown・復帰)。
+     予兆の床の表示は clearBossVfx が外すので、相だけが残ると起き上がった瞬間に予兆なしで
+     振り抜いてしまう ―― 館の主の lordEnterIdle と同じ扱い。起き上がった後は呼吸の間を置く */
+  function shipCaptainEnterIdle(en){
+    const P = en.parts || {};
+    en.capState = 'idle';
+    en.capT = 0;
+    en.capAttack = null;
+    en.capPull = null;
+    en.capTele = null;
+    en.atkWindup = false;
+    en.capAtkCD = Math.max(en.capAtkCD || 0, CAPTAIN_BREATH_SEC + 0.3);
+    if(P.sweep) P.sweep.visible = false;
+    if(P.chainArm) P.chainArm.rotation.x = 0;
+    if(P.lantern && P.lanternY != null) P.lantern.position.y = P.lanternY;
+  }
+
   function updateShipCaptainAI(en, dt){
     const P = en.parts || {};
     if(en.capState === undefined){
@@ -1457,7 +1491,8 @@
         // 回避中・無敵中は外れる(ジャストドッジの判定は既存のまま)。当たった時だけ引き寄せる
         if(state.paralyzeInvulnT > 0) return;
         if(state.invulnerable){ tryPerfectDodge(en); return; }
-        lordHitPlayer(en, Math.round(en.atk * plan.damageMul), plan.shake);
+        // 盾で止めた時も引き寄せない(体に当たった時だけ)
+        if(!lordHitPlayer(en, Math.round(en.atk * plan.damageMul), plan.shake)) return;
         const d = chainPullDest(ox, oz, state.pos.x, state.pos.z, plan.pull, plan.keepDist);
         if(d.moved > 0.05) en.capPull = {sx:state.pos.x, sz:state.pos.z, tx:d.x, tz:d.z, t:0, dur:plan.pullSec};
       }

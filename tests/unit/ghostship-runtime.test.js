@@ -54,9 +54,10 @@ function harness(){
     sfx:(n)=> log.sfx.push(n), ambient:(n)=> log.sfx.push('amb:' + n), ambienceHold(){}, addShake(){},
     spawnLog:(t)=> log.logs.push(t), spawnToast:(t)=> log.toasts.push(t),
     fadeTransition:(fn)=>{ log.fades++; fn(); }, repositionAlliesToPlayer(){},
-    spawnApparition:()=> obj(), registerProximityEvent(){}, legacyGrowth:()=> false,
+    spawnApparition:()=> obj(), legacyGrowth:()=> false,
     CLASSES:{ archer:{ name:'弓師' }, mage:{ name:'魔法使い' } },
-    lordHitPlayer:(en, dmg)=> log.hits.push(dmg), tryPerfectDodge:()=> log.hits.push('dodge'),
+    lordHitPlayer:(en, dmg)=>{ if(state.orbShield){ log.hits.push('orb'); return false; } log.hits.push(dmg); return true; },
+    tryPerfectDodge:()=> log.hits.push('dodge'),
     updateBossBark(){}, resolveWallCollisions(){}, turnBudget:(r, dt)=> r*dt, resolveTurnRate:()=> 3,
     turnTowardAngle:(a, b)=> b, bossVfx:(en, m)=>{ (en.vfx = en.vfx || []).push(m); return m; },
     buildEnemy:(p, v)=> ({ group:{ position:p }, variant:v, dead:false }), POST_ATTACK_RECOVERY_SEC:0.5,
@@ -65,6 +66,7 @@ function harness(){
     makePlankTexture(){}, makeNoiseTexture(){}, returnToTown:()=> log.lines.push(['', '(酒場へ)']),
     setTimeout:(fn)=> fn(), ...MAP, ...CAP,
   };
+  stubs.registerProximityEvent = (pos, r, name, lines, opts)=> stubs.proximityEvents.push(Object.assign({fired:false}, opts));
   const names = Object.keys(stubs);
   const api = new Function(...names, shipSrc + `
     return {
@@ -74,6 +76,8 @@ function harness(){
       captainAI: (en, dt)=> updateShipCaptainAI(en, dt),
       release: (boss, done)=> gsPlayRelease(boss, done),
       setActive: ()=>{ gsActive = true; },
+      registerEvents: ()=>{ gsRegisterEvents(); return gsEvents; },
+      knockdown: en=> shipCaptainEnterIdle(en),
     };`)(...names.map(k => stubs[k]));
   const runCutscene = ()=>{ const steps = cutscene; cutscene = null; (steps || []).forEach(s => s.run()); };
   return { api, state, log, enemies, runCutscene };
@@ -216,4 +220,67 @@ test('撃破後の解放: 鎖を手放す → 錨が海の底へ → 構造が�
   assert.ok(done, '結果画面へ渡す');
   const hatch = h.api.resolve(MAP.gsPassageById('cabinHatch'));
   assert.equal(MAP.gsRoomAt(hatch.targetPos.x, hatch.targetPos.z).id, 'gsDeck');
+});
+
+test('ダウン: 予兆の途中で崩されると攻撃相は捨てられ、起き上がっても予兆なしで振り抜かない', () => {
+  const h = harness();
+  const en = captain(h);
+  h.state.pos.set(28, 0, 163);
+  for(let t = 0; t < 4 && en.capState !== 'windup'; t += 0.05) h.api.captainAI(en, 0.05);
+  assert.equal(en.capState, 'windup');
+  h.api.captainAI(en, 0.3);                 // 予兆の途中
+  h.api.knockdown(en);                      // 07 triggerKnockdown と同じ呼び出し
+  assert.equal(en.capState, 'idle');
+  assert.equal(en.capTele, null);
+  // 起き上がり直後: 次の攻撃は新しい予兆(windup)から始まり、予兆の時間ぶんは当たらない
+  let sawWindup = false;
+  for(let t = 0; t < 0.9; t += 0.05){
+    h.api.captainAI(en, 0.05);
+    if(en.capState === 'windup') sawWindup = true;
+    assert.notEqual(en.capState, 'strike', '予兆なしで振り抜かない');
+  }
+  assert.equal(h.log.hits.length, 0);
+  for(let t = 0; t < 3 && !sawWindup; t += 0.05){ h.api.captainAI(en, 0.05); if(en.capState === 'windup') sawWindup = true; }
+  assert.ok(sawWindup);
+});
+
+test('鎖の引き寄せ: 盾(オーブ)で止めた時は引き寄せない', () => {
+  const h = harness();
+  const en = captain(h);
+  h.state.pos.set(28, 0, 163);
+  h.state.orbShield = true;
+  runAI(h, en, 4.5);
+  assert.deepEqual(h.log.hits, ['orb']);
+  assert.ok(Math.abs(h.state.pos.z - 163) < 1e-9);
+});
+
+test('帰還不能の異常は (1) → (2) → (3) → (4) の順でしか起きない(前の場面が済むまで次の条件は満たされない)', () => {
+  const h = harness();
+  h.api.setActive();
+  const ev = h.api.registerEvents();
+  const order = ['wrongA', 'wrongB', 'wrongC', 'wrongD'];
+  for(let i = 1; i < order.length; i++){
+    for(const k of order) ev[k].fired = false;
+    for(let j = 0; j < i - 1; j++) ev[order[j]].fired = true;
+    assert.equal(ev[order[i]].condition(), false, `${order[i]} は ${order[i-1]} の前には起きない`);
+    ev[order[i-1]].fired = true;
+    assert.equal(ev[order[i]].condition(), true, `${order[i]} は ${order[i-1]} の後に起きる`);
+  }
+  // (3) を飛ばして (2) の後だけでは (4) は起きない
+  for(const k of order) ev[k].fired = false;
+  ev.wrongA.fired = ev.wrongB.fired = true;
+  assert.equal(ev.wrongD.condition(), false);
+  // (3) の範囲は外壁側の扉の判定円をすべて含む(扉へ向かうと必ず (3) を通る)
+  const door = MAP.gsPassageById('xmToBilge');
+  const a = ev.wrongC.area;
+  for(let k = 0; k < 32; k++){
+    const ang = k / 32 * Math.PI * 2;
+    const x = Math.min(15.6, door.x + Math.cos(ang) * 1.8), z = door.z + Math.sin(ang) * 1.8;
+    const room = MAP.gsRoomById('xMess');
+    if(x < room.x0 || x > room.x1 || z < room.z0 || z > room.z1) continue;
+    assert.ok(x >= a.x0 && x <= a.x1 && z >= a.z0 && z <= a.z1, `扉の判定の (${x.toFixed(2)}, ${z.toFixed(2)})`);
+  }
+  // 船長室の決断は往路だけ(撃破後に入り直しても段階を戻さない)
+  h.api.setFlags({ phase:'released', loopDone:true });
+  assert.equal(ev.cabin.condition(), false);
 });

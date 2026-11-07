@@ -176,6 +176,17 @@ test('甲板長: 「誰も降ろすな」。号笛で一度だけ仲間を呼ぶ
   assert.match(ship, /船長の、ご命令だ。……誰も、降ろすな/);
 });
 
+test('往路の錨の鎖を建てる。ダウンで船長の攻撃相を捨てる(07 の崩し・復帰の両方)', () => {
+  assert.match(fnBody(ship, 'function gsBuildPreShip(){'), /GS_CHAIN\.pre\.forEach\(c=> gsChainColumn\(c\.x, c\.z\)\)/);
+  assert.equal((combat.match(/if\(en\.capState\) shipCaptainEnterIdle\(en\);/g) || []).length, 2);
+  // 宝箱類は第一章の船では旧い配置を使わない
+  const loot = read('08-loot-equipment.js');
+  assert.equal((loot.match(/!gsChapter1World\(\)/g) || []).length, 3);
+  // 頭上の足音は環境音の表の音(sfx では鳴らない)
+  assert.match(ship, /ambient\('floorTick'\)/);
+  assert.doesNotMatch(ship, /sfx\('floorTick'\)/);
+});
+
 test('光源は少数を使い回す(部屋ごとに置かない)。iPhone での描画の負荷', () => {
   const build = fnBody(ship, 'function buildGhostShipCh1(){');
   assert.equal((build.match(/new THREE\.PointLight/g) || []).length, 1, '使い回しの灯りを作る1か所だけ');

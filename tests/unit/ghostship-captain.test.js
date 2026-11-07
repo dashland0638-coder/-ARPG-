@@ -32,6 +32,7 @@ test('段ごとの行動: 点呼は段2だけ、鎖の薙ぎ払いは段3だけ�
   assert.equal(pick(3, 9), 'chainPull');
   assert.equal(pick(1, 2, {atkCD:0.2}), null, '呼吸の間は出さない');
   assert.equal(pick(1, 3.9, {cds:{chainPull:3}}), null, '中途半端な距離では詰める');
+  assert.equal(pick(1, CAPTAIN_ATTACKS.chainPull.length + 1), null, '鎖が届かない遠さでは投げない');
 });
 
 test('予兆の長さ(避ける時間)。どの攻撃も 0.75 秒以上', () => {
