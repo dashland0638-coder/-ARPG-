@@ -106,6 +106,7 @@ function harness({ clears, smithJoined = false, smithGreeted = true, from = 'war
     constBlock(hud, 'const RETIRED_CAST_SPOTS = [', '];'),
     'let retiredCastFigures = [];',
     fn(hud, 'function refreshRetiredCastFigures(building){'),
+    constBlock(hud, 'const GHOSTSHIP_HOMECOMING_LINES =', '\n  ];'),
     constBlock(hud, 'const CHAPTER1_RETURN_LINES = {', '\n  };'),
     constBlock(hud, 'const CHAPTER1_JOIN_LINES = {', '\n  };'),
     'return { advanceChapter1Cast, updatePendingJoinScene, onChapter1ReturnTalkClosed, onChapter1JoinTalkClosed,',
@@ -224,7 +225,7 @@ test('村の後: 帰還の会話(主人と魔法使い)→ 弓師が歩み寄る
 
 /* 幽霊船と時計塔は結ばない(GHOSTSHIP-REBUILD-002、E-1 = 案 A)。帰る場所が無いと言っていた弓師が
    「ただいま」と戻り、塔へ向かう理由は「管理人が七日戻らない」という噂だけ */
-test('幽霊船の後: 帰還の会話は主人と弓師の2行(弓師「……ただいま、戻りました。」)。交代の会話は管理人の噂で受ける', () => {
+test('幽霊船の後: 帰還の会話(弓師「……ただいま、戻りました。」を真ん中に、魔法使いと主人)。交代の会話は管理人の噂で受ける', () => {
   const h = harness({ clears: { mansion: 1, duskvillage: 1, ghostship: 1 }, from: 'archer' });
   h.state.guestClassKey = 'mage';
   h.api.advanceChapter1Cast({ rebuild: true, announce: true });
@@ -232,6 +233,10 @@ test('幽霊船の後: 帰還の会話は主人と弓師の2行(弓師「……�
   assert.deepEqual(h.state.dialogueLines.map(l => `${l.name}|${l.text}`), [
     '酒場の主人|霧の港から、よく戻ったな。',
     '弓師|……ただいま、戻りました。',
+    '酒場の主人|……おう。おかえり。',
+    '魔法使い|帰れない船でした。……私たちも、乗員に数えられていました。',
+    '弓師|帰る場所は、無いと思っていました。……帰ってくる場所は、あったみたいです。',
+    '酒場の主人|なら、その角灯は棚に置いていけ。もう、点けて待たなくていい灯だ。',
   ]);
   h.api.onChapter1ReturnTalkClosed();
   assert.equal(h.state.dialogueLines[0].text, '塔の管理人が、七日戻らないそうだ。鐘も、止まったままでな。');

@@ -139,7 +139,9 @@
          通り積むので、ゲーム側は何も変わらない)。世界全体を1メッシュに
          せず区画単位で切っているのは、視錐台カリングを効かせたままに
          するため。森は屋外で壁がほとんど無いので素のまま。 */
+      const beforeForest = new Set(scene.children);
       buildForest();
+      mansionOutdoor = scene.children.filter(o=> !beforeForest.has(o));   // 離れ島の中では描かない(03 updateMansionRoof)
       mansionZone('hall',     ()=>batchStatic(buildMansion));
       mansionZone('upper',    ()=>batchStatic(buildMansionUpper));
       mansionZone('servant',  ()=>batchStatic(buildMansionServantWing));
@@ -414,6 +416,7 @@
     document.getElementById('boss-bar-wrap').classList.remove('show');
     nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false;
     mansionRoof = null; restroomRoof = null; platform = null;
+    mansionOutdoor = null; mansionOutdoorHidden = false; mansionIslands = [];
     currentWorldKey = null;
     /* ここまでで、この世界のものはすべてシーンから外れている。
        外れたものだけを対象に、共有物を避けてGPUバッファを返す */

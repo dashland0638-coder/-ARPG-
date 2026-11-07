@@ -90,19 +90,22 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     await openGame(page);
     await startTestMode(page, { classKey: 'archer', guestKey: 'mage', scenario: 'ghostship', waypoint: 'cabin' });
     await waitArea(page, '幽霊船');
-    await expect(page.locator('#minimap-room')).toHaveText('船長室', { timeout: 60_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('居住区・船長室', { timeout: 60_000 });
     const lines = await readDialogue(page);
     const all = lines.join('\n');
     expect(all).toContain('今日は、ここまでにしましょう');
     expect(all).toContain('舟に戻りましょう');
     expect(all).not.toMatch(/鐘|七時十三分|塔/);
-    // 歩いて帰ろうとする: 船長室の扉 → 通路 → 「食堂」の扉 → 船員室……?(カメラは北向き。西 = 画面の右 = d)
-    expect(await walkUntil(page, ['d'], async () => (await prompt(page)).includes('扉を開ける'))).toBe(true);
+    // 歩いて帰ろうとする: 船長室の扉 → 通路 → 「食堂」の扉 → 同じ場所が船員室……?
+    // (カメラは船首を画面の下に据える。船首 = -z = s、左舷 = -x = d)
+    expect(await walkUntil(page, ['s', 'd'], async () => (await prompt(page)).includes('扉を開ける'))).toBe(true);
     await useInteract(page);
-    await expect(page.locator('#minimap-room')).toHaveText('通路', { timeout: 60_000 });
-    expect(await walkUntil(page, ['w'], async () => (await prompt(page)).includes('食堂への扉'))).toBe(true);
+    expect(await walkUntil(page, ['s'], async () => (await page.locator('#minimap-room').textContent()) === '居住区・通路')).toBe(true);
+    expect(await walkUntil(page, ['s'], async () => (await prompt(page)).includes('扉を開ける'))).toBe(true);
     await useInteract(page);
-    await expect(page.locator('#minimap-room')).toHaveText('船員室……?', { timeout: 60_000 });
+    expect(await walkUntil(page, ['s'], async () => (await page.locator('#minimap-room').textContent()) === '居住区・船員室……?')).toBe(true);
+    // 境を越えた所で止まらず、部屋へ一歩入る(場面は部屋の少し内側で始まる)
+    expect(await walkUntil(page, ['s'], () => dialogueOpen(page), 150_000)).toBe(true);
     const wrong = (await readDialogue(page)).join('\n');
     expect(wrong).toContain('ここ、船員室でしたか');
     expect(wrong).toContain('来た道を、間違えたのかもしれません');
@@ -116,7 +119,7 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     await openGame(page);
     await startTestMode(page, { classKey: 'archer', guestKey: 'mage', scenario: 'ghostship', waypoint: 'wrongmess' });
     await waitArea(page, '幽霊船');
-    await expect(page.locator('#minimap-room')).toHaveText('食堂……?', { timeout: 60_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('居住区・食堂……?', { timeout: 60_000 });
     const lines = await readDialogue(page);
     const all = lines.join('\n');
     expect(all).toContain('十七人分');
@@ -125,7 +128,7 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
 
     await startTestMode(page, { classKey: 'archer', guestKey: 'mage', scenario: 'ghostship', waypoint: 'bosshold' });
     await waitArea(page, '幽霊船');
-    await expect(page.locator('#minimap-room')).toHaveText('錨鎖庫の前室', { timeout: 60_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('最深部・錨鎖庫の前室', { timeout: 60_000 });
     const pre = (await readDialogue(page)).join('\n');
     expect(pre).toContain('帰るために');
     // 扉を開けるまで、ボス戦は始まらない
@@ -140,7 +143,7 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     await openGame(page);
     await startTestMode(page, { classKey: 'archer', guestKey: 'mage', scenario: 'ghostship', waypoint: 'released' });
     await waitArea(page, '幽霊船');
-    await expect(page.locator('#minimap-room')).toHaveText('船長室', { timeout: 60_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('居住区・船長室', { timeout: 60_000 });
     expect(await walkUntil(page, ['a', 'w'], async () => (await prompt(page)).includes('昇降口から甲板へ'))).toBe(true);
     await useInteract(page);
     await expect(page.locator('#minimap-room')).toHaveText('甲板', { timeout: 60_000 });
@@ -149,8 +152,70 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     expect(deck).toContain('陸が、見えます');
     expect(await walkUntil(page, ['w', 'd'], async () => (await prompt(page)).includes('縄梯子'), 420_000)).toBe(true);
     await useInteract(page);
-    expect((await readDialogue(page)).join('\n')).toContain('縄梯子を降りる');
+    const down = (await readDialogue(page)).join('\n');
+    expect(down).toContain('縄梯子を降りる');
     await expect(page.locator('#minimap-area')).toHaveText('港町の酒場', { timeout: 90_000 });
+    // 酒場に着いたら、帰りの会話が一度だけ(「……ただいま、戻りました。」)。閉じると通常の操作
+    const home = [down];
+    if (!down.includes('ただいま')) home.push(...await readDialogue(page));
+    expect(home.join('\n')).toContain('ただいま、戻りました');
+    expect(home.join('\n')).toContain('おかえり');
+    await page.waitForTimeout(2_000);
+    expect(await dialogueOpen(page)).toBe(false);
+    expect(errors).toEqual([]);
+  });
+});
+
+/* DEV-TEST-MOBILE-001: iPhone の横画面(タッチだけ)で、テストモードから幽霊船の途中の検証地点へ出る。
+   通常のセーブは触らない(テストモードは saveGame が何もしない) */
+test.describe('iPhone の横画面(844×390・タッチ): 幽霊船の検証地点', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+
+  async function tapStart(page, waypoint) {
+    await page.tap('#open-testmode-btn');
+    await expect(page.locator('#testmode-screen')).toBeVisible();
+    await page.tap('#testmode-rules-grid [data-test-rules="current"]');
+    await page.tap('.class-card[data-key="archer"]');
+    await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);
+    await page.tap('#testmode-guest-grid .testmode-job-card[data-guest-key="mage"]');
+    await page.tap('#testmode-chapter-grid [data-chapter-id="ch1"]');
+    await page.tap('#testmode-scenario-grid [data-scenario-key="ghostship"]');
+    for (const id of ['mess', 'cabin', 'wrongmess', 'chain', 'rollcall', 'bosshold', 'released']) {
+      await expect(page.locator(`#testmode-waypoint-grid [data-waypoint-id="${id}"]`), id).toHaveCount(1);
+    }
+    await page.tap(`#testmode-waypoint-grid [data-waypoint-id="${waypoint}"]`);
+    await page.tap('#testmode-start-btn');
+    await waitArea(page, '幽霊船');
+  }
+  async function tapToTitle(page) {
+    for (let i = 0; i < 40 && await dialogueOpen(page); i++) { await page.tap('#dialogue-overlay'); await page.waitForTimeout(400); }
+    await page.tap('#loot-menu-btn');
+    await expect(page.locator('#menu-overlay')).toHaveClass(/active/);
+    await page.tap('#menu-title');
+    await page.tap('#confirm-ok');
+    await expect(page.locator('#title-screen')).toBeVisible({ timeout: 30_000 });
+  }
+
+  test('鎖を辿る道の始まり・点呼の廊下の手前・食堂の手前へ出て、タイトルへ戻れる。通常のセーブは作られない', async ({ page }) => {
+    test.setTimeout(600_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    const saveKeys = () => page.evaluate(() => Object.keys(localStorage).filter(k => /save/i.test(k) && localStorage.getItem(k)));
+    const before = await saveKeys();
+
+    await tapStart(page, 'chain');
+    await expect(page.locator('#minimap-room')).toHaveText('下層・船底……?', { timeout: 60_000 });
+    await tapToTitle(page);
+
+    await tapStart(page, 'rollcall');
+    await expect(page.locator('#minimap-room')).toHaveText('深部・船員室……?', { timeout: 60_000 });
+    await tapToTitle(page);
+
+    await tapStart(page, 'mess');
+    await expect(page.locator('#minimap-room')).toHaveText('居住区・船員室', { timeout: 60_000 });
+    await tapToTitle(page);
+
+    expect(await saveKeys()).toEqual(before);
     expect(errors).toEqual([]);
   });
 });
