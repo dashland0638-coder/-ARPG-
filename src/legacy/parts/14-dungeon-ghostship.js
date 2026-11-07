@@ -2356,7 +2356,8 @@
         gsShowChainDoor();          // 右舷の板が外れて鎖の口が開く(カメラが見せる)
         return at('xBilgeFar', wp.name);
       }
-      gsChainDoorShown = true;
+      gsShowChainDoor();            // 鎖の口と鎖(引き返して見た時に、通常プレイと同じ見た目)
+      gsShot = null;                // ここでは鎖の口を映さない
       return {id:wp.id, name:wp.name, x:-7, z:146.6};   // 目の前(z 150)が点呼の廊下への扉
     }
     if(wp.id === 'wrongmess'){
