@@ -105,7 +105,10 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     await useInteract(page);
     expect(await walkUntil(page, ['s'], async () => (await page.locator('#minimap-room').textContent()) === '居住区・船員室……?')).toBe(true);
     // 境を越えた所で止まらず、部屋へ一歩入る(場面は部屋の少し内側で始まる)
-    expect(await walkUntil(page, ['s'], () => dialogueOpen(page), 150_000)).toBe(true);
+    // (walkUntil は途中で出た会話を送ってしまうので、ここでは送らずに会話が出るまで歩く)
+    await page.keyboard.down('s');
+    await expect.poll(() => dialogueOpen(page), { timeout: 150_000, intervals: [100] }).toBe(true);
+    await page.keyboard.up('s');
     const wrong = (await readDialogue(page)).join('\n');
     expect(wrong).toContain('ここ、船員室でしたか');
     expect(wrong).toContain('来た道を、間違えたのかもしれません');
