@@ -1,6 +1,6 @@
 # GHOSTSHIP-REBUILD-002 — 幽霊船全面再設計・実装フェーズ
 
-Status: REVIEWING → （Reviewer の判定と PR 作成後に DONE。CONTENT READY = HUMAN DEVICE CHECK REQUIRED）
+Status: DONE（Agent 側。PR 作成済み）／ CONTENT READY = HUMAN DEVICE CHECK REQUIRED（iPhone 実機は未確認）
 
 設計（承認済み）: PR #113（`claude/dazzling-maxwell-y3msf3`、未マージ）の `.ai/reports/GHOSTSHIP-REBUILD-001-*.md` / `.ai/tasks/GHOSTSHIP-REBUILD-001.md`
 決定記録: `.ai/decisions/DEC-017-ghostship-cannot-return.md`
@@ -51,7 +51,8 @@ Status: REVIEWING → （Reviewer の判定と PR 作成後に DONE。CONTENT RE
 - 2026-11-07 ANALYZING（PR #113 未マージを確認。関連コードの調査）
 - 2026-11-07 IMPLEMENTING（W0 → W1〜W4 → W5〜W7 → W8〜W9。Work Item ごとに build・unit）
 - 2026-11-07 TESTING（unit・E2E。模擬試験で引き寄せ後の硬直の不具合を発見・修正。歩く E2E で撃破後の閉じ込めの危険を発見・修正）
-- 2026-11-07 REVIEWING（独立 Reviewer: 別エージェント）
+- 2026-11-07 REVIEWING（独立 Reviewer: 別エージェント）Round 1 CHANGES_REQUIRED（MAJOR 2・MINOR 5）→ 修正 → Round 2 PASS
+- 2026-11-07 DONE（最終 E2E 16 passed、unit 2151 pass / 0 fail。PR 作成）
 
 ### Autonomy Metrics
-（PR 作成後に確定。`-review.md` 参照）
+Human Escalation: 0 / Human Decision: 0 / Auto Fix: 3（自分の試験で見つけた2件: 引き寄せ後の硬直・撃破後の閉じ込め／Review Fix Loop 1 Round）/ Reviewer Rounds: 2 / Test Retry: 1（chapter1-tower-to-road。原因は実行中の編集による再読み込み）/ PR: 作成（番号は最終報告）
