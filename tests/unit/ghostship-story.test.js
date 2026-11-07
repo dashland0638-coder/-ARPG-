@@ -41,10 +41,15 @@ test('酒場: 出発は「沖の霧に灯が点る」。帰還は弓師「……
   assert.deepEqual(archer[4], { name: '弓師', text: '沖の霧の中に、毎晩、灯が点るんです。乗っている人は、いないのに。' });
   assert.equal(archer[5].text, '……確かめに行きます。今度は、最初から見ておきたいので。');
   const r = hud.indexOf('const CHAPTER1_RETURN_LINES = {');
-  const ret = new Function(hud.slice(r, hud.indexOf('\n  };\n', r) + 5) + '\nreturn CHAPTER1_RETURN_LINES;')();
-  const back = ret.rogue('弓師');
-  assert.equal(back.length, 2);
-  assert.deepEqual(back[1], { name: '弓師', text: '……ただいま、戻りました。' }, '弓師の最後の台詞');
+  const h = hud.indexOf('const GHOSTSHIP_HOMECOMING_LINES =');
+  const home = new Function(hud.slice(h, hud.indexOf('\n  ];\n', h) + 5) + '\nreturn GHOSTSHIP_HOMECOMING_LINES;')();
+  const back = new Function('GHOSTSHIP_HOMECOMING_LINES', hud.slice(r, hud.indexOf('\n  };\n', r) + 5) + '\nreturn CHAPTER1_RETURN_LINES;')(home).rogue('弓師');
+  // 酒場に帰った会話(003): 弓師の「……ただいま、戻りました。」を真ん中に、魔法使いが振り返り、主人が迎える
+  assert.ok(back.length >= 4 && back.length <= 7, '短い');
+  assert.deepEqual(back[1], { name: '弓師', text: '……ただいま、戻りました。' });
+  assert.ok(back.some(l => l.name === '魔法使い'), '魔法使いも振り返る');
+  assert.ok(back.some(l => l.name === '酒場の主人' && /おかえり/.test(l.text)), '主人が迎える');
+  assert.ok(back.some(l => l.name === '弓師' && /帰ってくる場所/.test(l.text)), '帰る場所について少しだけ');
   const rogue = join.rogue('弓師');
   assert.match(rogue[0].text, /管理人が、七日戻らない/);
   assert.ok(!rogue.concat(back).some(l => /船長|頼まれ|船も/.test(l.text)));
@@ -85,9 +90,11 @@ test('帰還不能の異常は、違和感 → 確信 → 恐怖 → 理解の�
   assert.match(A, /gsRoomArea\('xQuarters'/); assert.match(A, /ここ、船員室でしたか/);
   assert.match(B, /gsRoomArea\('xMess'/); assert.match(B, /十七人分/); assert.match(B, /席が、増えています/);
   assert.match(B, /ambienceHold/, '確信の場面で環境音が止まる');
-  assert.match(B, /\(\)=> ev\.wrongA\.fired\)/);
-  assert.match(C, /船倉の柱に、私が付けたもの/); assert.match(C, /\(\)=> ev\.wrongB\.fired\)/);
-  assert.match(D, /gsRoomArea\('xBilge'/); assert.match(D, /新しい板が打ち付けてある/); assert.match(D, /塞いだのは、中から/);
+  assert.match(B, /\(\)=> post\(\) && ev\.wrongA\.fired\)/);
+  assert.match(C, /船倉の柱に、私が付けたもの/); assert.match(C, /\(\)=> post\(\) && ev\.wrongB\.fired\)/);
+  assert.match(D, /gsRoomArea\('xBilge'/); assert.match(D, /新しい板が、内側から打ち付けてある/); assert.match(D, /塞いだのは、中から/);
+  assert.match(D, /入ってきた穴を指している。……そこに、穴が無い/, '印が、穴のあった所を思い出させる');
+  assert.match(D, /\(\)=> post\(\) && ev\.wrongC\.fired\)/);
   // 往路の食堂は十五人分
   assert.match(body, /十五人分の皿/);
   // ループと規則(魔法使いが言葉にし、鎖を目印に渡す)

@@ -630,7 +630,7 @@
   ];
   function roomNameAt(x, z){
     // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。「……?」の部屋の名前で、別の部屋だと分かる
-    if(currentWorldKey === 'ghostship' && gsActive){ const r = gsRoomAt(x, z); return r ? r.name : null; }
+    if(currentWorldKey === 'ghostship' && gsActive){ return gsRoomLabel(gsRoomAt(x, z, gsFlags.phase)); }
     const tables = [
       {rooms: typeof MANSION_ROOMS !== 'undefined' ? MANSION_ROOMS : null},
       {rooms: typeof TOWER_ROOMS !== 'undefined' ? TOWER_ROOMS : null, floors:true},
@@ -2182,6 +2182,19 @@
     });
   }
 
+  /* 幽霊船から酒場へ帰った時の会話(GHOSTSHIP-REBUILD-003)。「帰れない」船から、帰ってこられた。
+     弓師の「……ただいま、戻りました。」を真ん中に、魔法使いが振り返り、主人が迎える。短く、余韻だけ。
+     本編では帰還の会話(下の CHAPTER1_RETURN_LINES)として、テストモード(交代の一幕が無い)では
+     脱出の直後に同じ行を出す(14-dungeon-ghostship.js gsPlayHomecoming) */
+  const GHOSTSHIP_HOMECOMING_LINES = (archerName)=> [
+    {name:'酒場の主人', text:'霧の港から、よく戻ったな。'},
+    {name:archerName || '弓師', text:'……ただいま、戻りました。'},
+    {name:'酒場の主人', text:'……おう。おかえり。'},
+    {name:'魔法使い', text:'帰れない船でした。……私たちも、乗員に数えられていました。'},
+    {name:archerName || '弓師', text:'帰る場所は、無いと思っていました。……帰ってくる場所は、あったみたいです。'},
+    {name:'酒場の主人', text:'なら、その角灯は棚に置いていけ。もう、点けて待たなくていい灯だ。'},
+  ];
+
   /* 帰還の会話(CH1-EXP X-5、DEC-006 で採用した4行)。帰ってきた主人公と酒場の主人。
      洋館の後は、鍛冶士との再会がこの役をする(行は持たない) */
   const CHAPTER1_RETURN_LINES = {
@@ -2193,10 +2206,7 @@
     /* 幽霊船から帰る(弓師)。次は盗賊。帰る場所が無いと言っていた弓師が、
        酒場へ「ただいま」と戻る(GHOSTSHIP-REBUILD-002、E-1 = 案 A)。
        船と時計塔は結ばない ―― 船長からの頼みごとは無い */
-    rogue: (prevName)=> [
-      {name:'酒場の主人', text:'霧の港から、よく戻ったな。'},
-      {name:prevName, text:'……ただいま、戻りました。'}
-    ],
+    rogue: (prevName)=> GHOSTSHIP_HOMECOMING_LINES(prevName),
   };
 
   /* 交代の台詞。どれも3往復まで ―― 説明しない(第一章の物語で足す行は

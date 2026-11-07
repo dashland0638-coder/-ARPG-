@@ -81,7 +81,11 @@
     if(manualCamInput) camAutoResumeT = 1.4;
     else if(camAutoResumeT > 0) camAutoResumeT -= dt;
     const moveMag = Math.sqrt(ix*ix + iy*iy);
-    if(camAutoOn && !manualCamInput && camAutoResumeT<=0 && moveMag>0.35 && !findLockOnBoss()){
+    /* 幽霊船(GHOSTSHIP-REBUILD-003)は進行方向への自動の回り込みをしない。カメラは船首 → 船尾の向きに
+       据え、船の形と「どこにいるか」を読ませる(手で回した後は 14-dungeon-ghostship.js が元の向きへ戻す)。
+       他のダンジョンは今のまま */
+    const shipAnchored = currentWorldKey === 'ghostship' && gsActive;
+    if(camAutoOn && !manualCamInput && camAutoResumeT<=0 && moveMag>0.35 && !findLockOnBoss() && !shipAnchored){
       const combatAutoRotateFactor = shouldDampenAutoCameraRotationInCombat() ? COMBAT_AUTO_CAMERA_ROTATION_FACTOR : 1;
       const desiredYaw = state.facing + Math.PI;
       // 修正案3: 進む/下がる方向への小さな向き直しは違和感が出やすいので
@@ -2330,6 +2334,8 @@
       camera.lookAt(lookAtB);
       return;
     }
+    // 幽霊船(GHOSTSHIP-REBUILD-003): 空間を見せたい場面だけ、短く見せる。他のダンジョンは通らない
+    if(currentWorldKey === 'ghostship' && ghostShipCameraShot(dt)){ camera.position.add(shakeOffset); return; }
     const lockBoss = findLockOnBoss();
     if(lockBoss){
       const bp = lockBoss.group.position;

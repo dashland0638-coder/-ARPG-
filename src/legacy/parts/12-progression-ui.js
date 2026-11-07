@@ -454,6 +454,8 @@
         applyPendingJobPromotion();
       } else if(state.dialogueKind==='shadowGuide'){
         state.dialogueKind = null;
+      } else if(state.dialogueKind==='ghostHomecoming'){
+        state.dialogueKind = null;   // 閉じたら通常の酒場の操作へ
       } else if(state.dialogueKind==='chapter1Return'){
         // 帰還の会話(CH1-EXP X-5)。閉じたら次の主人公が歩み寄る(14-hud-boot.js)
         state.dialogueKind = null;
@@ -1413,6 +1415,8 @@
     saveGame();   // town is always a safe checkpoint - retreat, clear, or defeat alike
     /* Chapter 1 の終わり(WORK 11)。道を終えて戻った、その一度だけ */
     if(!isDefeat && consumeChapter1Finale()) playChapter1Finale();
+    /* 幽霊船から帰った時の会話(テストモードだけ。本編は帰還の会話が同じ行を出す。GHOSTSHIP-REBUILD-003) */
+    else if(!isDefeat && gsPlayHomecoming()){}
     /* 死亡(WORK 11 §5)。進行は巻き戻さず、同じシナリオをもう一度 ――
        酒場の主人のところで出せるのも、そのシナリオひとつだけ */
     else if(isDefeat && !state.testMode && wasScenario && wasScenario === chapter1Next(state.scenarioClears)){
