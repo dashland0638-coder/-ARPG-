@@ -342,7 +342,7 @@
        並ぶのを防ぐ)。数値を動かすときは対になる mansionUnderlay() の
        引数と一緒に見ること。 */
     function isBlockedZone(x,z){
-      if(x>-42 && x<32 && z<-38 && z>-110) return true;          // 洋館1階(下地 -40..30 / -108..-40)
+      if(x>-42 && x<40 && z<-38 && z>-110) return true;          // 洋館1階(下地 -32..32 / -101..-40、東の木立 x 35/38)
       if(x>-10 && x<10 && z>-40 && z<-32) return true;           // 前庭 ―― 玄関の正面は開けておく
       if(x>-10 && x<10 && z>4 && z<26) return true;              // 酒場の建物
       if(x>44 && x<70 && z>2 && z<28) return true;               // 酒場2階(テレポート先)
@@ -2554,7 +2554,11 @@
 
   // その区画の外側を埋める暗い下地。テレポートで飛ぶ離れ島なので、床の
   // 外に草地(森の地面)が広がって見えると屋内らしさが崩れる
-  function mansionUnderlay(x0, x1, z0, z1){
+  function mansionUnderlay(x0, x1, z0, z1, opts){
+    /* 離れ島(二階・一階奥・地下・主の間・屋根裏など、階段のテレポートで来る区画)。中にいる間は
+       森(草地・木・岩)を描かない(GHOSTSHIP-REBUILD-004)。下地の縁から先に森の草地が見え、
+       屋内の床が途切れて外に出たように見えていた。一階は外殻と玄関で前庭に繋がるので島にしない */
+    if(!(opts && opts.connected)) mansionIslands.push({x0, x1, z0, z1});
     const mat = new THREE.MeshStandardMaterial({color:0x050506, roughness:1});
     const fill = new THREE.Mesh(new THREE.PlaneGeometry(x1-x0, z1-z0), mat);
     fill.rotation.x = -Math.PI/2;
@@ -2573,9 +2577,11 @@
     const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
     const woodMat  = new THREE.MeshStandardMaterial({color:0x3a2818, roughness:0.8});
 
-    // 下地は外殻(x -31..21 / z -99..-40)のすぐ外まで。ここを広く取ると、
-    // 建物を囲う木立がこの暗い床の上に立ってしまう(=屋敷の中に木が生えて見える)
-    mansionUnderlay(-32, 22, -101, -40);   // 前庭(z>-40)は森の草地のままにする
+    // 下地は外殻(x -31..31 / z -99..-40)のすぐ外まで。ここを広く取ると、
+    // 建物を囲う木立がこの暗い床の上に立ってしまう(=屋敷の中に木が生えて見える)。
+    // 東端は厨房(x 17..30)を含める(GHOSTSHIP-REBUILD-004: 厨房を足した時に外殻・下地・
+    // 木立が x 21 のまま残り、厨房の中に外壁と木が立ち、外の草地が見えていた)
+    mansionUnderlay(-32, 32, -101, -40, {connected:true});   // 前庭(z>-40)は森の草地のままにする
     // 一階は板張り(makePlankTexture)なので木の足音
     ['mEntry','mFoyer','mDining','mKitchen','mCor1','mHall','mStair'].forEach(id=>{
       const r = mansionRoomById(id);
@@ -3684,6 +3690,7 @@
     fill.rotation.x = -Math.PI/2;
     fill.position.set(135, 0.01, 10);
     manorAnomalyGroup.add(fill);
+    mansionIslands.push({x0:110, x1:160, z0:-17, z1:37});   // 離れ島(中では森を描かない。GHOSTSHIP-REBUILD-004)
 
     ['xFoyer','xCor','xHall'].forEach(id=>{
       const r = mansionRoomById(id);
@@ -4224,18 +4231,23 @@
   /* 建物の外殻。前庭から見上げたときに「一軒の洋館」に見えればよい。
      内部の間取り(MANSION_ROOMS の一階前半)を囲う形にしてある。 */
   let mansionRoof = null;
+  let mansionOutdoor = null;        // 森のもの(離れ島の中では描かない)
+  let mansionOutdoorHidden = false;
+  let mansionIslands = [];          // 離れ島の下地の範囲
   let restroomRoof = null;
 
   function buildMansionExterior(){
     const shellMat = new THREE.MeshStandardMaterial({color:0x2a2430, roughness:0.85});
     const roofMat  = new THREE.MeshStandardMaterial({color:0x1c1620, roughness:0.7});
     const h = 7;
-    const X0 = -31, X1 = 21, Z0 = -99, Z1 = -40;   // 一階前半の外周 + 余白
+    const X0 = -31, X1 = 31, Z0 = -99, Z1 = -40;   // 一階前半の外周 + 余白(東は厨房 x 30 まで)
 
     function panel(cx,cz,sx,sz){
       const m = new THREE.Mesh(new THREE.BoxGeometry(sx,h,sz), shellMat);
       m.position.set(cx, h/2, cz);
-      m.castShadow = true; m.receiveShadow = true;
+      /* 外殻は前庭から見た建物の輪郭。影は落とさない(GHOSTSHIP-REBUILD-004)。高さ 7 の外壁が
+         太陽の影を屋内の床へ 5 ほど落とし、大広間・厨房の床の端が「描けていない」黒に見えていた */
+      m.castShadow = false; m.receiveShadow = true;
       scene.add(m);
     }
     // 南面(正面)。玄関の開口(x -3..3)だけ空けて左右に立てる
@@ -4243,7 +4255,7 @@
     panel((3+X1)/2, Z1-0.4, (X1-3),  0.5);
     const header = new THREE.Mesh(new THREE.BoxGeometry(6.6, h-3.5, 0.5), shellMat);
     header.position.set(0, 3.5+(h-3.5)/2, Z1-0.4);
-    header.castShadow = true; header.receiveShadow = true;
+    header.castShadow = false; header.receiveShadow = true;
     scene.add(header);
     panel((X0+X1)/2, Z0+0.4, (X1-X0), 0.5);      // 北面
     panel(X0+0.4, (Z0+Z1)/2, 0.5, (Z1-Z0));      // 西面
@@ -4288,19 +4300,27 @@
       scene.add(tree);
       if(solid) walls.push({minX:x-0.6, maxX:x+0.6, minZ:z-0.6, maxZ:z+0.6});
     }
-    /* 建物の西・東・北を囲う二重の木立。どれも上の下地(x -32..22 /
+    /* 建物の西・東・北を囲う二重の木立。どれも上の下地(x -32..32 /
        z -101..-40)の外側に立てること ―― 下地の上に乗せると、屋敷の床に
-       木が生えているようにしか見えない */
-    for(let z=-38; z>=-103; z-=3.0){ ringTree(-35, z, true); ringTree(25, z, true); }
-    for(let z=-38; z>=-103; z-=4.5){ ringTree(-38, z, false); ringTree(28, z, false); }
-    for(let x=-35; x<=25; x+=3.0){ ringTree(x, -103, true); }
+       木が生えているようにしか見えない(東は厨房の外: x 35 / 38) */
+    for(let z=-38; z>=-103; z-=3.0){ ringTree(-35, z, true); ringTree(35, z, true); }
+    for(let z=-38; z>=-103; z-=4.5){ ringTree(-38, z, false); ringTree(38, z, false); }
+    for(let x=-35; x<=35; x+=3.0){ ringTree(x, -103, true); }
     // 前庭の左右。玄関へ向かう通路(x -10..10)は開けておく
     for(let x=-35; x<=-11; x+=3.0){ ringTree(x, -37, true); }
-    for(let x= 11; x<= 25; x+=3.0){ ringTree(x, -37, true); }
+    for(let x= 11; x<= 35; x+=3.0){ ringTree(x, -37, true); }
   }
 
   function updateMansionRoof(){
     if(mansionRoof) mansionRoof.visible = state.pos.z > -39.5;
+    if(mansionOutdoor){
+      const x = state.pos.x, z = state.pos.z;
+      const inIsland = mansionIslands.some(r=> x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1);
+      if(inIsland !== mansionOutdoorHidden){
+        mansionOutdoorHidden = inIsland;
+        mansionOutdoor.forEach(o=>{ o.visible = !inIsland; });
+      }
+    }
   }
 
   function updateRestroomRoof(){
