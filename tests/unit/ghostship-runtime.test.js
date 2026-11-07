@@ -43,14 +43,17 @@ const THREE = new Proxy({}, { get: (_, k) => k === 'Vector3' ? V3 : function(){ 
 
 function harness(){
   const state = { pos:new V3(), vel:new V3(), facing:0, dialogueActive:false, invulnerable:false, paralyzeInvulnT:0, scenarioKey:'ghostship' };
-  const log = { lines:[], sfx:[], hits:[], toasts:[], logs:[], fades:0 };
+  const log = { lines:[], sfx:[], hits:[], toasts:[], logs:[], fades:0, seq:[], doors:{} };
   let cutscene = null;
   const enemies = [];
   const stubs = {
-    THREE, state, enemies, scene:{ children:[], add(){}, remove(){} }, camera:{ position:new V3() }, getCamOffset:()=> new V3(),
+    THREE, state, enemies, scene:{ children:[], add(){}, remove(){} }, getCamOffset:()=> new V3(),
     currentWorldObjects:[], walls:[], stairs:[], apparitions:[], proximityEvents:[],
     playCutscene:(steps)=>{ cutscene = steps; },
-    cutsceneLine:(text, name)=> log.lines.push([name, text]), cutsceneHideLine(){}, clearMovementInput(){},
+    cutsceneLine:(text, name)=>{ log.lines.push([name, text]); log.seq.push('line'); }, cutsceneHideLine(){}, clearMovementInput(){},
+    getDoor:(k)=> (log.doors[k] = log.doors[k] || {key:k, opened:true}), closeDoor:(d)=>{ d.opened = false; log.seq.push('close:' + d.key); },
+    findLockOnBoss:()=> null, lerpAngle:(a, b, t)=> a + (b - a) * t, cutsceneRunning:()=> false, camAutoOn:true, camAutoResumeT:0,
+    camera:{ position:new V3(), lookAt(){} }, cutsceneRealDt:0.016,
     sfx:(n)=> log.sfx.push(n), ambient:(n)=> log.sfx.push('amb:' + n), ambienceHold(){}, addShake(){},
     spawnLog:(t)=> log.logs.push(t), spawnToast:(t)=> log.toasts.push(t),
     fadeTransition:(fn)=>{ log.fades++; fn(); }, repositionAlliesToPlayer(){},
@@ -78,27 +81,42 @@ function harness(){
       setActive: ()=>{ gsActive = true; },
       registerEvents: ()=>{ gsRegisterEvents(); return gsEvents; },
       knockdown: en=> shipCaptainEnterIdle(en),
+      shot: ()=> gsShot,
+      buildCells: ()=> gsBuildCells(),
+      visibleAt: (x, z)=>{ state.pos.set(x, 0, z); return [...gsVisibleRooms().vis].sort(); },
+      cellRect: (x0, x1, z0, z1)=> gsCellKeyRect(x0, x1, z0, z1),
+      cellPoint: (x, z)=> gsCellKeyPoint(x, z),
+      setGates: (list)=>{ gsGateEntries = list; },
+      showChainDoor: ()=> gsShowChainDoor(),
+      waypoint: (wp)=> gsTestWaypoint(wp),
+      stepChain: (dt)=> gsStepChain(dt),
+      chainState: ()=> ({ lit: gsChainLit.map(m => m.material === gsMaterials().chainLit), leads: gsChainLeads.map(l => l.group.visible) }),
     };`)(...names.map(k => stubs[k]));
-  const runCutscene = ()=>{ const steps = cutscene; cutscene = null; (steps || []).forEach(s => s.run()); };
+  const runCutscene = ()=>{
+    const steps = cutscene; cutscene = null;
+    let last = api.shot();
+    (steps || []).forEach(s => { s.run(); const now = api.shot(); if(now && now !== last) log.seq.push('shot'); last = now; });
+  };
   return { api, state, log, enemies, runCutscene };
 }
 
-test('通路: 段階で行き先が変わる。食堂の扉は帰還不能の後に船員室……? へ。昇降口は撃破後だけ甲板へ', () => {
+test('階層を移る通路: 段階で行き先が変わる。船倉へ下りる梯子は帰還不能の後に食堂……? へ。昇降口は撃破後だけ甲板へ', () => {
   const h = harness();
   const P = id => MAP.gsPassageById(id);
   h.api.setFlags({ phase:'pre', loopDone:false });
-  const pre = h.api.resolve(P('corridorToMess'));
-  assert.deepEqual([pre.targetPos.x, pre.targetPos.z], [MAP.GS_ARRIVALS.messFromCorridor.x, MAP.GS_ARRIVALS.messFromCorridor.z]);
+  const pre = h.api.resolve(P('quartersDown'));
+  assert.equal(MAP.gsRoomAt(pre.targetPos.x, pre.targetPos.z, 'pre').id, 'gsHold');
+  assert.equal(pre.label, '船倉へ下りた……');
   assert.ok(h.api.resolve(P('cabinHatch')).blocked);
   h.api.setFlags({ phase:'post', loopDone:false });
-  const post = h.api.resolve(P('corridorToMess'));
-  assert.equal(MAP.gsRoomAt(post.targetPos.x, post.targetPos.z).id, 'xQuarters');
-  assert.equal(post.label, '食堂へ……', '「食堂へ」と思って開けた扉');
+  const post = h.api.resolve(P('xqDown'));
+  assert.equal(MAP.gsRoomAt(post.targetPos.x, post.targetPos.z, 'post').id, 'xMess');
+  assert.equal(post.label, '船倉へ下りた……', '「船倉へ」と思って下りた梯子');
   assert.ok(h.api.resolve(P('cabinHatch')).blocked);
-  assert.equal(h.api.resolve(P('xbChainDoor')), null, 'ループの前は鎖の扉が無い');
+  assert.equal(h.api.resolve(P('xbChain')), null, 'ループの前は鎖の口が無い');
   h.api.setFlags({ phase:'released', loopDone:true });
   const hatch = h.api.resolve(P('cabinHatch'));
-  assert.equal(MAP.gsRoomAt(hatch.targetPos.x, hatch.targetPos.z).id, 'gsDeck');
+  assert.equal(MAP.gsRoomAt(hatch.targetPos.x, hatch.targetPos.z, 'released').id, 'gsDeck');
   assert.ok(typeof h.api.resolve(P('deckRope')).run === 'function', '縄梯子は脱出');
 });
 
@@ -114,10 +132,10 @@ test('ループ: 船底……? の梯子で同じ船底へ。着くと一度だ�
   assert.match(text, /戻ってきました。同じ場所に/);
   assert.match(text, /外に向かうと、内側へ戻されます/);
   assert.match(text, /鎖を辿りましょう/);
-  assert.ok(h.log.logs.some(l => /さっきまで無かった扉/.test(l)));
+  assert.ok(h.log.logs.some(l => /さっきまで、そこは壁だった/.test(l)));
   assert.ok(h.api.resolve(MAP.gsPassageById('xbUp')).blocked, '二度目は開かない');
-  const door = h.api.resolve(MAP.gsPassageById('xbChainDoor'));
-  assert.equal(MAP.gsRoomAt(door.targetPos.x, door.targetPos.z).id, 'xHold');
+  const door = h.api.resolve(MAP.gsPassageById('xbChain'));
+  assert.equal(MAP.gsRoomAt(door.targetPos.x, door.targetPos.z, 'post').id, 'xHold');
   const before = h.log.lines.length;
   h.api.onLoop();
   h.runCutscene();
@@ -258,6 +276,7 @@ test('帰還不能の異常は (1) → (2) → (3) → (4) の順でしか起き
   const h = harness();
   h.api.setActive();
   const ev = h.api.registerEvents();
+  h.api.setFlags({ phase:'post', loopDone:false });
   const order = ['wrongA', 'wrongB', 'wrongC', 'wrongD'];
   for(let i = 1; i < order.length; i++){
     for(const k of order) ev[k].fired = false;
@@ -270,17 +289,111 @@ test('帰還不能の異常は (1) → (2) → (3) → (4) の順でしか起き
   for(const k of order) ev[k].fired = false;
   ev.wrongA.fired = ev.wrongB.fired = true;
   assert.equal(ev.wrongD.condition(), false);
-  // (3) の範囲は外壁側の扉の判定円をすべて含む(扉へ向かうと必ず (3) を通る)
-  const door = MAP.gsPassageById('xmToBilge');
+  // (3) の範囲は、食堂……? から先へ出る開口(通路……?へ)の手前を横切って全部覆う(先へ進むと必ず (3) を通る)
+  const op = MAP.gsOpening('xMess', 'xCorridor');
   const a = ev.wrongC.area;
-  for(let k = 0; k < 32; k++){
-    const ang = k / 32 * Math.PI * 2;
-    const x = Math.min(15.6, door.x + Math.cos(ang) * 1.8), z = door.z + Math.sin(ang) * 1.8;
-    const room = MAP.gsRoomById('xMess');
-    if(x < room.x0 || x > room.x1 || z < room.z0 || z > room.z1) continue;
-    assert.ok(x >= a.x0 && x <= a.x1 && z >= a.z0 && z <= a.z1, `扉の判定の (${x.toFixed(2)}, ${z.toFixed(2)})`);
-  }
+  assert.ok(a.x0 <= op.seg[0] && a.x1 >= op.seg[1] && a.z1 >= op.z - 0.01, '開口の幅をすべて覆う');
   // 船長室の決断は往路だけ(撃破後に入り直しても段階を戻さない)
   h.api.setFlags({ phase:'released', loopDone:true });
   assert.equal(ev.cabin.condition(), false);
+});
+
+test('見せてから話す: 食堂(十五人分)・食堂……?(十七人分)・柱の印・穴の消えた船底は、カメラが見せてから一文目が出る', () => {
+  const h = harness();
+  h.api.setActive();
+  const ev = h.api.registerEvents();
+  const check = (key, phase, extra)=>{
+    h.api.setFlags({ phase, loopDone:false });
+    h.log.seq.length = 0;
+    ev[key].onEnter();
+    h.runCutscene();
+    const iShot = h.log.seq.indexOf('shot'), iLine = h.log.seq.indexOf('line');
+    assert.ok(iShot >= 0 && iShot < iLine, `${key}: カメラが先(${h.log.seq.join(',')})`);
+  };
+  check('mess', 'pre');
+  check('wrongA', 'post');
+  check('wrongB', 'post');
+  check('wrongC', 'post');
+  check('wrongD', 'post');
+  check('roll', 'post');
+});
+
+test('帰還の決断: 船長室で「今日はここまで」と決めると帰還不能の段階へ。通ってきた食堂の扉が背後で閉まる', () => {
+  const h = harness();
+  h.api.setActive();
+  const ev = h.api.registerEvents();
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  ev.cabin.onEnter();
+  h.runCutscene();
+  assert.equal(h.api.flags().phase, 'post');
+  assert.ok(h.log.seq.includes('close:gsMessDoor'), '食堂の扉が閉まる(開けた先は、もう食堂ではない)');
+  assert.ok(h.log.logs.some(l => /扉の閉まる音/.test(l)));
+});
+
+test('GHOSTSHIP-REBUILD-004 今いる空間だけを描く: 今いる部屋と、開口のそばの隣の部屋だけ。閉じた扉・板の先と、別の階層は見せない', () => {
+  const h = harness();
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  h.api.buildCells();
+  // 船底の真ん中: 船底だけ(船倉は別の階層。壁の向こうの小舟も見せない)
+  assert.deepEqual(h.api.visibleAt(-29, 162), ['gsBilge']);
+  // 船員室の、食堂への開口のそば: 食堂(同じ場所の船員室……? も同じ区画)が見えはじめる
+  assert.deepEqual(h.api.visibleAt(-29, 55), ['gsMess', 'gsQuarters', 'xQuarters']);
+  // 船員室の奥(開口から遠い): 船員室だけ
+  assert.deepEqual(h.api.visibleAt(-29, 46), ['gsQuarters']);
+  // 通路から食堂の扉のそば: 扉が閉じていれば食堂は見えない(getDoor の既定は開いている)
+  assert.ok(h.api.visibleAt(-29, 76).includes('gsMess'));
+  h.log.doors.gsMessDoor.opened = false;
+  assert.ok(!h.api.visibleAt(-29, 76).includes('gsMess'), '閉じた扉の先は見せない');
+  // 帰還不能の後: 船員室……? と本物の船員室の開口は板で塞がれる → 見せない
+  h.api.setFlags({ phase:'post', loopDone:false });
+  h.api.setGates([{ closed:true, g:MAP.GS_GATES.find(g => g.id === 'messArch') }]);
+  assert.ok(!h.api.visibleAt(-29, 59).includes('gsQuarters'), '板で塞がった開口の先は見せない');
+});
+
+test('GHOSTSHIP-REBUILD-004 区画の鍵: 境の壁は両側の部屋、部屋の中の物はその部屋、小舟と船底の外壁は小舟からも見える', () => {
+  const h = harness();
+  { const k = h.api.cellRect(-31, -27, 73.75, 74.25).split('|'); assert.ok(k.includes('gsCorridor') && k.includes('gsMess'), '食堂と通路の境の壁'); assert.ok(!k.includes('gsHold')); }
+  assert.equal(h.api.cellPoint(-29, 66), 'gsMess|xQuarters', '食堂の卓(同じ場所の入れ替わる部屋も)');
+  assert.equal(h.api.cellPoint(-24, 120), 'gsHold');
+  assert.ok(h.api.cellRect(-38.25, -37.75, 148, 176).split('|').includes('gsMoor'), '船底の左舷の外壁は小舟から見える');
+});
+
+test('GHOSTSHIP-REBUILD-004 鎖: ループの直後に鎖の口へ現れる鎖も、すぐ光り、床を這う鎖が見える(演出の途中で段階が変わっても)', () => {
+  const h = harness();
+  h.api.setFlags({ phase:'post', loopDone:true });
+  h.api.stepChain(0.016);            // 先に「鎖を辿る段階」へ切り替わる
+  h.api.showChainDoor();             // その後で鎖の口の鎖が足される
+  h.api.stepChain(0.016);
+  const st = h.api.chainState();
+  assert.ok(st.lit.length > 0 && st.lit.every(Boolean), '足された鎖も光る材質');
+  assert.ok(st.leads.length > 0 && st.leads.every(Boolean), '床を這う鎖が見える');
+  h.api.setFlags({ phase:'released', loopDone:true });
+  h.api.stepChain(0.016);
+  assert.ok(h.api.chainState().lit.every(v => !v), '撃破後は元の鎖');
+});
+
+test('DEV-TEST-MOBILE-001 テストモードの検証地点: 食堂の手前(往路)・鎖を辿る道の始まり・点呼の廊下の手前に、段階を揃えて出る', async () => {
+  const { findWaypoint } = await import('../../src/core/scenario-waypoints.js');
+  const h = harness();
+  h.api.setActive();
+  const ev = h.api.registerEvents();
+  const wp = id => { const w = findWaypoint('ghostship', id); assert.ok(w && w.ch1, id); return h.api.waypoint(w); };
+
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  const mess = wp('mess');
+  assert.equal(MAP.gsRoomAt(mess.x, mess.z, 'pre').id, 'gsQuarters');
+  assert.equal(h.api.flags().phase, 'pre');
+  assert.equal(ev.mess.fired, false, '食堂の場面(卓を見せてから一文)はこれから');
+
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  const chain = wp('chain');
+  assert.equal(MAP.gsRoomAt(chain.x, chain.z, 'post').id, 'xBilge');
+  assert.deepEqual(h.api.flags(), { phase:'post', loopDone:true });
+  assert.ok(h.api.resolve(MAP.gsPassageById('xbChain')).targetPos, '鎖の口が開いている');
+
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  const roll = wp('rollcall');
+  assert.equal(MAP.gsRoomAt(roll.x, roll.z, 'post').id, 'xQuartersDeep');
+  assert.ok(Math.abs(roll.z - 150) < 4, '点呼の廊下への扉の前');
+  assert.equal(ev.roll.fired, false, '点呼と甲板長はこれから');
 });

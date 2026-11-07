@@ -91,6 +91,8 @@ Chapter 1 は開始時から自由な3人パーティではない。
 
 推奨Lv・minLevel は Chapter 2 以降（とテストモード）のための値。Chapter 1 の本編はレベルで出撃を止めない（レベルが無い。PROGRESSION.md）。
 
+描画・カメラの共通方針（全ダンジョン）は [DUNGEON_RENDERING.md](./DUNGEON_RENDERING.md)。
+
 ### 追加コンテンツ
 
 **確定** — 次の2つは Chapter 1 本編とは別の追加コンテンツとして扱う。
