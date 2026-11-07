@@ -82,6 +82,14 @@ function harness(){
       registerEvents: ()=>{ gsRegisterEvents(); return gsEvents; },
       knockdown: en=> shipCaptainEnterIdle(en),
       shot: ()=> gsShot,
+      buildCells: ()=> gsBuildCells(),
+      visibleAt: (x, z)=>{ state.pos.set(x, 0, z); return [...gsVisibleRooms().vis].sort(); },
+      cellRect: (x0, x1, z0, z1)=> gsCellKeyRect(x0, x1, z0, z1),
+      cellPoint: (x, z)=> gsCellKeyPoint(x, z),
+      setGates: (list)=>{ gsGateEntries = list; },
+      showChainDoor: ()=> gsShowChainDoor(),
+      stepChain: (dt)=> gsStepChain(dt),
+      chainState: ()=> ({ lit: gsChainLit.map(m => m.material === gsMaterials().chainLit), leads: gsChainLeads.map(l => l.group.visible) }),
     };`)(...names.map(k => stubs[k]));
   const runCutscene = ()=>{
     const steps = cutscene; cutscene = null;
@@ -319,4 +327,46 @@ test('帰還の決断: 船長室で「今日はここまで」と決めると帰
   assert.equal(h.api.flags().phase, 'post');
   assert.ok(h.log.seq.includes('close:gsMessDoor'), '食堂の扉が閉まる(開けた先は、もう食堂ではない)');
   assert.ok(h.log.logs.some(l => /扉の閉まる音/.test(l)));
+});
+
+test('GHOSTSHIP-REBUILD-004 今いる空間だけを描く: 今いる部屋と、開口のそばの隣の部屋だけ。閉じた扉・板の先と、別の階層は見せない', () => {
+  const h = harness();
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  h.api.buildCells();
+  // 船底の真ん中: 船底だけ(船倉は別の階層。壁の向こうの小舟も見せない)
+  assert.deepEqual(h.api.visibleAt(-29, 162), ['gsBilge']);
+  // 船員室の、食堂への開口のそば: 食堂(同じ場所の船員室……? も同じ区画)が見えはじめる
+  assert.deepEqual(h.api.visibleAt(-29, 55), ['gsMess', 'gsQuarters', 'xQuarters']);
+  // 船員室の奥(開口から遠い): 船員室だけ
+  assert.deepEqual(h.api.visibleAt(-29, 46), ['gsQuarters']);
+  // 通路から食堂の扉のそば: 扉が閉じていれば食堂は見えない(getDoor の既定は開いている)
+  assert.ok(h.api.visibleAt(-29, 76).includes('gsMess'));
+  h.log.doors.gsMessDoor.opened = false;
+  assert.ok(!h.api.visibleAt(-29, 76).includes('gsMess'), '閉じた扉の先は見せない');
+  // 帰還不能の後: 船員室……? と本物の船員室の開口は板で塞がれる → 見せない
+  h.api.setFlags({ phase:'post', loopDone:false });
+  h.api.setGates([{ closed:true, g:MAP.GS_GATES.find(g => g.id === 'messArch') }]);
+  assert.ok(!h.api.visibleAt(-29, 59).includes('gsQuarters'), '板で塞がった開口の先は見せない');
+});
+
+test('GHOSTSHIP-REBUILD-004 区画の鍵: 境の壁は両側の部屋、部屋の中の物はその部屋、小舟と船底の外壁は小舟からも見える', () => {
+  const h = harness();
+  { const k = h.api.cellRect(-31, -27, 73.75, 74.25).split('|'); assert.ok(k.includes('gsCorridor') && k.includes('gsMess'), '食堂と通路の境の壁'); assert.ok(!k.includes('gsHold')); }
+  assert.equal(h.api.cellPoint(-29, 66), 'gsMess|xQuarters', '食堂の卓(同じ場所の入れ替わる部屋も)');
+  assert.equal(h.api.cellPoint(-24, 120), 'gsHold');
+  assert.ok(h.api.cellRect(-38.25, -37.75, 148, 176).split('|').includes('gsMoor'), '船底の左舷の外壁は小舟から見える');
+});
+
+test('GHOSTSHIP-REBUILD-004 鎖: ループの直後に鎖の口へ現れる鎖も、すぐ光り、床を這う鎖が見える(演出の途中で段階が変わっても)', () => {
+  const h = harness();
+  h.api.setFlags({ phase:'post', loopDone:true });
+  h.api.stepChain(0.016);            // 先に「鎖を辿る段階」へ切り替わる
+  h.api.showChainDoor();             // その後で鎖の口の鎖が足される
+  h.api.stepChain(0.016);
+  const st = h.api.chainState();
+  assert.ok(st.lit.length > 0 && st.lit.every(Boolean), '足された鎖も光る材質');
+  assert.ok(st.leads.length > 0 && st.leads.every(Boolean), '床を這う鎖が見える');
+  h.api.setFlags({ phase:'released', loopDone:true });
+  h.api.stepChain(0.016);
+  assert.ok(h.api.chainState().lit.every(v => !v), '撃破後は元の鎖');
 });

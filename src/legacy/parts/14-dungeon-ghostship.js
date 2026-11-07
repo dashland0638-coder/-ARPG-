@@ -53,6 +53,19 @@
   let gsKnockT = 0;
   let gsSinceBuild = 0;
   let gsHammocks = [];            // 揺れるハンモック(往路の船員室)
+  let gsSea = null;               // 海(外にいる時だけ見せる)
+  let gsCells = [];               // {group, ids} 今いる空間だけを描くための区画(GHOSTSHIP-REBUILD-004)
+  let gsCellByKey = {};           // key → {group, ids}
+  let gsNeighbors = {};           // roomId → [{id, x, z, door}] 開口で繋がる隣の部屋
+  let gsCellRoomId = null;
+  let gsOutsideShown = null;
+  let gsChainLit = [];            // 帰還不能の後の鎖のメッシュ(鎖を辿る段階で光らせる)
+  let gsChainLeads = [];          // {group, flows:[{mesh, ax, az, bx, bz}]} 鎖の先(床を這う鎖と光の流れ)
+  let gsChainOn = false;
+  let gsRollFigs = [];            // 点呼の廊下の影
+  let gsBgColor = null;           // 船が塗った背景の色(明るさの設定などで作り直されたら塗り直す)
+  let gsShotRoomId = null, gsShotLinger = 0;   // 見せる場面の部屋(カメラが戻る間も少し残す)
+  const gsVisSet = new Set();
 
   /* 世界を畳むとき(02 disposeWorld)に、前の船のシーンの木への参照を手放す。
      GPU 側の解放は disposeWorld が行う。次に船を建てるときは buildGhostShipCh1 が作り直す */
@@ -62,6 +75,8 @@
     gsPassageEntries = []; gsMarkMeshes = []; gsLights = []; gsAnchorShadows = [];
     gsBossRef = null; gsEvents = {}; gsSpawned = {}; gsRoomEntered = {};
     gsLightRoomId = null; gsChainDoorShown = false; gsAmbienceSilentT = 0;
+    gsCells = []; gsCellByKey = {}; gsSea = null; gsChainLit = []; gsChainLeads = []; gsRollFigs = []; gsBgColor = null;
+    gsShotRoomId = null; gsShotLinger = 0;
   }
 
   function gsV(x, z, y){ return new THREE.Vector3(x, y || 0, z); }
@@ -90,7 +105,17 @@
       rope: new THREE.MeshStandardMaterial({color:0x8a7a5a, roughness:0.95}),
       scratch: new THREE.MeshBasicMaterial({color:0xc8b898, transparent:true, opacity:0.75}),
       plateNew: new THREE.MeshStandardMaterial({color:0xe8e4da, roughness:0.4, emissive:0x40484c, emissiveIntensity:0.6}),
-      patchGlow: new THREE.MeshStandardMaterial({color:0x9a7a54, roughness:0.7, emissive:0x2a5070, emissiveIntensity:0.55}),
+      /* 船底の穴を塞いだ板(GHOSTSHIP-REBUILD-004): 周りの船体の木に近い色。光らせない。
+         手がかりは 1 つ目の印・穴の光の輪郭・カメラ(板そのものを目立たせない) */
+      patchSoft: new THREE.MeshStandardMaterial({color:0x44362a, roughness:0.85}),
+      nailDull: new THREE.MeshStandardMaterial({color:0x5a5c5e, roughness:0.5, metalness:0.6}),
+      // 鎖を辿る段階の鎖(GHOSTSHIP-REBUILD-004): 壁・床と違う冷たい鋼の色と、控えめな青白い光
+      chainLit: new THREE.MeshStandardMaterial({color:0x9aa8b4, roughness:0.28, metalness:0.85, emissive:0x3a6e8e, emissiveIntensity:0.55}),
+      chainFlow: new THREE.MeshBasicMaterial({color:0xbfeaff, transparent:true, opacity:0.7, depthWrite:false,
+                                              blending:THREE.AdditiveBlending}),
+      // 点呼の廊下の影(GHOSTSHIP-REBUILD-004): 光らない、壁より明るい灰青の人の形と、淡い輪郭
+      rollFig: new THREE.MeshBasicMaterial({color:0x56687a, transparent:true, opacity:0, depthWrite:false}),
+      rollRim: new THREE.MeshBasicMaterial({color:0x9ab2c6, transparent:true, opacity:0, depthWrite:false, side:THREE.BackSide}),
       // 魔法の目印(光源は使わず、加算の材質で暗がりから浮かせる)
       markGlow: new THREE.MeshBasicMaterial({color:0xa8ecff, transparent:true, opacity:0.85, depthWrite:false,
                                              blending:THREE.AdditiveBlending, side:THREE.DoubleSide}),
@@ -137,13 +162,17 @@
     gsAnchorShadows = []; gsBossRef = null; gsChainDoorShown = false; gsRoomEntered = {};
     gsAmbienceSilentT = 0; gsKnockT = 6; gsSinceBuild = 0; gsSpawned = {};
     gsGateEntries = []; gsSwap = null; gsHammocks = []; gsShot = null; gsMarkCool = {}; gsHomecomingPending = false;
+    gsCells = []; gsCellByKey = {}; gsNeighbors = {}; gsCellRoomId = null; gsOutsideShown = null;
+    gsChainLit = []; gsChainLeads = []; gsChainOn = false; gsRollFigs = []; gsShotRoomId = null; gsShotLinger = 0;
     const M = gsMaterials();
+    M.rollFig.opacity = 0; M.rollRim.opacity = 0;   // 材質は船を建て直しても使い回すので、影の濃さを戻す
 
     // 海(帯の全体)。床は上に重ねる
     const sea = new THREE.Mesh(new THREE.PlaneGeometry(120, 240), M.sea);
     sea.rotation.x = -Math.PI/2; sea.position.set(-2, 0.006, 140);
     sea.receiveShadow = true;
     scene.add(sea);
+    gsSea = sea;
 
     // 灯りは少数を使い回す(core gsLightFor)。部屋が変わったら置き直す
     for(let i=0;i<2;i++){
@@ -166,14 +195,17 @@
     gsBuildMarks();
     gsBuildLore();
     gsRegisterEvents();
+    gsBuildCells();
     gsSyncPassages();
+    gsUpdateCells();
   }
 
   /* 区画ひとつぶんを静的バッチで建て、出来たものを1つのグループへ入れる
      (段階ごとに見せる/隠すため。隠した区画は描画されない) */
   function gsZone(fn){
     const before = new Set(scene.children);
-    batchStatic(fn);
+    beginStaticBatch();
+    try{ fn(); } finally { gsEndCellBatch(); }
     const g = new THREE.Group();
     scene.children.filter(o=> !before.has(o)).forEach(o=>{ scene.remove(o); g.add(o); });
     scene.add(g);
@@ -187,6 +219,212 @@
     const before = new Set(scene.children);
     fn();
     scene.children.filter(o=> !before.has(o)).forEach(o=>{ scene.remove(o); group.add(o); });
+  }
+
+  /* =========================================================
+     今いる空間だけを描く(GHOSTSHIP-REBUILD-004。docs/DUNGEON_RENDERING.md)
+
+     船の中のものを「区画(cell)」に分ける。区画の鍵は、その物が属する部屋の id の並び:
+       壁(静的バッチの箱) … 箱が触れる部屋すべて(境の壁は両側の部屋から見える)
+       それ以外の物       … 中心がある部屋(境の上の扉は両側)。部屋の外なら一番近い部屋
+     毎フレーム、今いる部屋と「開口のそばにいる時の、その先の部屋」(扉は開いている時だけ。
+     板で塞がった開口は見せない)、見せる場面のカメラが映す部屋だけを描く。
+     船の外(小舟・甲板)にいる時だけ海を描き、中では背景と霧を黒にする。
+     区画は表示だけを切り替える(当たり・敵・イベントには触れない)
+  ========================================================= */
+  const GS_CELL_TOUCH = 0.7;     // 壁の箱が部屋に「触れている」とみなす距離(小舟と船底の外壁も含む)
+  const GS_CELL_NEAR = 6;        // 部屋の外の物を、一番近い部屋へ寄せる距離
+  const GS_REVEAL_DIST = 7;      // 開口のそばにいると、その先の部屋が見えはじめる距離
+  function gsCellIds(ids){ return ids.length ? ids.sort().join('|') : '*'; }
+  function gsNearestRoom(x, z){
+    let best = null, bd = GS_CELL_NEAR;
+    GS_ROOMS.forEach(r=>{
+      const dx = Math.max(r.x0 - x, 0, x - r.x1), dz = Math.max(r.z0 - z, 0, z - r.z1);
+      const d = Math.hypot(dx, dz);
+      if(d < bd){ bd = d; best = r; }
+    });
+    return best;
+  }
+  function gsCellKeyRect(x0, x1, z0, z1){
+    const T = GS_CELL_TOUCH;
+    const ids = GS_ROOMS.filter(r=> x1 > r.x0 - T && x0 < r.x1 + T && z1 > r.z0 - T && z0 < r.z1 + T).map(r=> r.id);
+    if(!ids.length){ const n = gsNearestRoom((x0 + x1)/2, (z0 + z1)/2); if(n) ids.push(n.id); }
+    return gsCellIds(ids);
+  }
+  function gsCellKeyPoint(x, z){
+    const T = 0.3;
+    const ids = GS_ROOMS.filter(r=> x >= r.x0 - T && x <= r.x1 + T && z >= r.z0 - T && z <= r.z1 + T).map(r=> r.id);
+    if(!ids.length){ const n = gsNearestRoom(x, z); if(n) ids.push(n.id); }
+    return gsCellIds(ids);
+  }
+  const _gsBox = new THREE.Box3(), _gsV = new THREE.Vector3(), _gsM = new THREE.Matrix4();
+  function gsCellKeyObj(o){
+    if(o.isInstancedMesh){
+      let sx = 0, sz = 0;
+      for(let i=0;i<o.count;i++){ o.getMatrixAt(i, _gsM); _gsV.setFromMatrixPosition(_gsM); sx += _gsV.x; sz += _gsV.z; }
+      return o.count ? gsCellKeyPoint(sx/o.count, sz/o.count) : '*';
+    }
+    o.updateMatrixWorld(true);
+    _gsBox.setFromObject(o);
+    if(_gsBox.isEmpty()) return gsCellKeyPoint(o.position.x, o.position.z);
+    _gsBox.getCenter(_gsV);
+    return gsCellKeyPoint(_gsV.x, _gsV.z);
+  }
+  // 静的バッチを区画ごとに分けてまとめる(区画ごとに見せる/隠すため)
+  function gsEndCellBatch(){
+    const buckets = batchBuckets;
+    batching = false; batchBuckets = null;
+    if(!buckets) return;
+    const byCell = new Map();
+    buckets.forEach((boxes, mat)=> boxes.forEach(b=>{
+      const k = gsCellKeyRect(b.cx - b.sizeX/2, b.cx + b.sizeX/2, b.cz - b.sizeZ/2, b.cz + b.sizeZ/2);
+      let m = byCell.get(k); if(!m){ m = new Map(); byCell.set(k, m); }
+      let a = m.get(mat); if(!a){ a = []; m.set(mat, a); }
+      a.push(b);
+    }));
+    byCell.forEach((m, k)=>{
+      const before = new Set(scene.children);
+      batching = true; batchBuckets = m;
+      endStaticBatch();
+      scene.children.forEach(o=>{ if(!before.has(o)) o.userData.gsCell = k; });
+    });
+  }
+  function gsCellGroup(zone, key){
+    const k = zone.uuid + '#' + key;
+    let c = gsCellByKey[k];
+    if(!c){
+      const group = new THREE.Group();
+      zone.add(group);
+      c = {group, ids: key === '*' ? null : key.split('|')};
+      gsCellByKey[k] = c;
+      gsCells.push(c);
+    }
+    return c.group;
+  }
+  // 部屋に後から物を足す(区画の中へ)
+  function gsAddToRoom(roomId, obj){
+    const zone = gsZoneFor(roomId);
+    if(!zone){ scene.add(obj); return; }   // 区画がまだ無い(建てる前)
+    gsCellGroup(zone, gsCellIds([roomId])).add(obj);
+  }
+  function gsBuildCells(){
+    ['pre', 'post', 'end'].forEach(name=>{
+      const zone = gsZones[name];
+      if(!zone) return;
+      zone.children.slice().forEach(o=>{
+        let k = o.userData.gsCell;
+        if(gsSwap && (o === gsSwap.pre || o === gsSwap.post)) k = 'gsMess|xQuarters';
+        if(k === undefined) k = gsCellKeyObj(o);
+        zone.remove(o);
+        gsCellGroup(zone, k).add(o);
+      });
+    });
+    // 開口で繋がる隣の部屋(扉の開口は扉の鍵を持つ)
+    GS_ROOMS.forEach(a=>{
+      const list = [];
+      GS_ROOMS.forEach(b=>{
+        if(a === b) return;
+        const op = gsOpening(a, b);
+        if(!op) return;
+        const mid = (op.seg[0] + op.seg[1]) / 2;
+        const x = op.side === 'N' || op.side === 'S' ? mid : op.x;
+        const z = op.side === 'N' || op.side === 'S' ? op.z : mid;
+        const d = GS_DOORS.find(dd=> Math.hypot(dd.x - x, dd.z - z) < 1.5);
+        list.push({id:b.id, x, z, door: d ? d.key : null});
+      });
+      gsNeighbors[a.id] = list;
+    });
+  }
+  const GS_SAME_PLACE = {gsMess:['xQuarters'], xQuarters:['gsMess']};   // 中身だけが入れ替わる同じ場所
+  function gsRevealRoom(vis, id){
+    vis.add(id);
+    (GS_SAME_PLACE[id] || []).forEach(o=> vis.add(o));
+  }
+  // 板・船体の板で塞がった開口(見通せない)。鉄格子は向こうが透けて見えるので塞がない
+  function gsOpeningPlanked(x, z){
+    return gsGateEntries.some(e=> e.closed && e.g.kind !== 'grate' && x >= e.g.x0 - 0.6 && x <= e.g.x1 + 0.6 && z >= e.g.z0 - 0.6 && z <= e.g.z1 + 0.6);
+  }
+  function gsVisibleRooms(){
+    const phase = gsFlags.phase;
+    const r = gsRoomAt(state.pos.x, state.pos.z, phase) || gsRoomById(gsCellRoomId);
+    const vis = gsVisSet;
+    vis.clear();
+    if(!r) return {vis, room:null};
+    gsCellRoomId = r.id;
+    gsRevealRoom(vis, r.id);
+    (gsNeighbors[r.id] || []).forEach(n=>{
+      const b = gsRoomById(n.id);
+      if(!b || !gsRoomPresent(b, phase)) return;
+      if(Math.hypot(state.pos.x - n.x, state.pos.z - n.z) > GS_REVEAL_DIST) return;
+      if(gsOpeningPlanked(n.x, n.z)) return;
+      if(n.door){ const d = getDoor(n.door); if(d && !d.opened) return; }
+      gsRevealRoom(vis, b.id);
+    });
+    if(gsShot){
+      const t = gsRoomAt(gsShot.x, gsShot.z, phase) || gsRoomAt(gsShot.x, gsShot.z);
+      if(t){ gsShotRoomId = t.id; gsShotLinger = 1.2; }
+    }
+    if(gsShotRoomId && gsShotLinger > 0) gsRevealRoom(vis, gsShotRoomId);   // カメラが戻る間は消さない
+    return {vis, room:r};
+  }
+  function gsUpdateCells(){
+    if(!gsCells.length) return;
+    const {vis, room} = gsVisibleRooms();
+    if(!room) return;
+    for(let i=0;i<gsCells.length;i++){
+      const c = gsCells[i];
+      let on = !c.ids;
+      if(!on) for(let j=0;j<c.ids.length;j++) if(vis.has(c.ids[j])){ on = true; break; }
+      c.group.visible = on;
+    }
+    // 宝箱・回復結晶・敵も、見えていない部屋にあるものは描かない(visible は各仕組みが使うので触らず、
+    // 描画の層だけを外す)。部屋の外(境の上など)にあるものは描く
+    gsHideUnseen(chests, vis); gsHideUnseen(healingCrystals, vis); gsHideUnseen(enemies, vis);
+    // 船の外(小舟・甲板)にいる時だけ海と夜空。中では外側を黒に
+    const outside = !!room.outside;
+    if(scene.background !== gsBgColor) gsOutsideShown = null;   // 明るさの設定などで背景が作り直された
+    if(outside !== gsOutsideShown){
+      gsOutsideShown = outside;
+      if(gsSea) gsSea.visible = outside;
+      const sky = outside ? (WORLD_MOOD.ghostship ? WORLD_MOOD.ghostship.sky : 0x0e1620) : 0x000000;
+      gsBgColor = new THREE.Color(sky);
+      scene.background = gsBgColor;
+      if(scene.fog) scene.fog.color.setHex(sky);
+    }
+  }
+
+  function gsHideUnseen(list, vis){
+    for(let i=0;i<list.length;i++){
+      const it = list[i];
+      if(!it || !it.group) continue;
+      const p = it.group.position;
+      const r = gsRoomAt(p.x, p.z, gsFlags.phase) || gsRoomAt(p.x, p.z);
+      // 気づいて向かってくる敵・近い敵は、隣の部屋でも描く(見えない敵に撃たれないように)
+      const engaged = it.triggered || Math.hypot(p.x - state.pos.x, p.z - state.pos.z) < 12;
+      const hide = !!r && !vis.has(r.id) && !(list === enemies && engaged);
+      if(it.gsUnseen === hide) continue;
+      it.gsUnseen = hide;
+      it.group.traverse(n=>{ if(hide) n.layers.disable(0); else n.layers.enable(0); });
+    }
+  }
+
+  /* 鎖を辿る段階(ループの後)になったら、鎖を冷たい鋼の色にして光らせ、床を這う鎖の先に光を流す */
+  function gsStepChain(dt){
+    if(gsShotLinger > 0) gsShotLinger -= dt;
+    const on = gsFlags.phase === 'post' && gsFlags.loopDone;
+    const M = gsMaterials();
+    // 毎フレーム揃える(後から足した鎖 = ループの直後に鎖の口へ現れる鎖も、すぐ光る)
+    for(let i=0;i<gsChainLit.length;i++){ const m = gsChainLit[i]; const want = on ? M.chainLit : M.chain; if(m.material !== want) m.material = want; }
+    for(let i=0;i<gsChainLeads.length;i++) gsChainLeads[i].group.visible = on;
+    gsChainOn = on;
+    if(!on) return;
+    const t = gsSinceBuild;
+    M.chainLit.emissiveIntensity = 0.45 + 0.2 * Math.sin(t * 2.2);
+    gsChainLeads.forEach(l=> l.flows.forEach(f=>{
+      const u = (t * 0.45 + f.phase) % 1;
+      f.mesh.position.set(f.ax + (f.bx - f.ax) * u, 0.2, f.az + (f.bz - f.az) * u);
+      f.mesh.scale.setScalar(0.6 + 0.6 * Math.sin(u * Math.PI));
+    }));
   }
 
   /* ---- 床と壁 ----
@@ -287,15 +525,52 @@
   function gsChainColumn(x, z, h){
     const M = gsMaterials();
     h = h || 2.6;
-    gsCyl(x, h/2, z, 0.05, 0.05, h, M.chain, 5);
+    const out = [gsCyl(x, h/2, z, 0.05, 0.05, h, M.chain, 5)];
     const geo = new THREE.TorusGeometry(0.16, 0.05, 5, 10);
     for(let y = 0.3, i = 0; y < h; y += 0.32, i++){
       const link = new THREE.Mesh(geo, M.chain);
       link.position.set(x, y, z);
       link.rotation.y = i % 2 ? Math.PI/2 : 0;
       scene.add(link);
+      out.push(link);
     }
     walls.push({minX:x-0.25, maxX:x+0.25, minZ:z-0.25, maxZ:z+0.25});
+    return out;
+  }
+
+  /* 鎖の先(GHOSTSHIP-REBUILD-004)。柱から床を這って、その部屋の「次へ繋がる所」へ向かう鎖と、
+     鎖に沿って先へ流れる光。鎖を辿る段階(ループの後)になるまで見せない */
+  const GS_CHAIN_LEAD = {
+    xBilge:{x:24.6, z:48}, xHold:{x:-6.5, z:135.6}, xQuartersDeep:{x:-7, z:149.6},
+    xRollcall:{x:-7, z:183.6}, xCabin:{x:-1, z:196.2}, xAnte:{x:28, z:157.6},
+  };
+  function gsChainLead(room, x, z){
+    const to = GS_CHAIN_LEAD[room];
+    if(!to) return null;
+    const M = gsMaterials();
+    const dx = to.x - x, dz = to.z - z, d = Math.hypot(dx, dz);
+    if(d < 0.6) return null;
+    const len = Math.min(d - 0.3, 5), ux = dx/d, uz = dz/d;
+    const g = new THREE.Group();
+    const geo = new THREE.TorusGeometry(0.14, 0.045, 5, 10);
+    const yaw = Math.atan2(ux, uz);
+    for(let t = 0.35, i = 0; t < len; t += 0.26, i++){
+      const link = new THREE.Mesh(geo, M.chainLit);
+      link.position.set(x + ux*t, 0.13, z + uz*t);
+      link.rotation.set(i % 2 ? 0 : Math.PI/2, yaw, 0, 'YXZ');
+      g.add(link);
+    }
+    const flows = [];
+    const fgeo = new THREE.SphereGeometry(0.09, 8, 6);
+    for(let i=0;i<3;i++){
+      const m = new THREE.Mesh(fgeo, M.chainFlow);
+      g.add(m);
+      flows.push({mesh:m, ax:x, az:z, bx:x + ux*len, bz:z + uz*len, phase:i/3});
+    }
+    g.visible = false;
+    const lead = {group:g, flows};
+    gsChainLeads.push(lead);
+    return g;
   }
 
   /* 食卓と皿。count 人分。新しい二つの杯(fullCups)は満ちて光る */
@@ -538,8 +813,8 @@
     gsHullFrame(8, 26, 40, 68, {prowDepth:7});
     gsWater(xb, 0.18);
     for(let i=0;i<3;i++){
-      gsBox(8.32, 0.45 + i*0.4, 53.5, 0.12, 0.34, 2.0, M.patchGlow, false);   // 新しい板(印の光を受けて青白い)
-      [-0.8, 0.8].forEach(d=> gsBox(8.4, 0.45 + i*0.4, 53.5 + d, 0.05, 0.06, 0.06, M.nail, false));
+      gsBox(8.32, 0.45 + i*0.4, 53.5, 0.12, 0.34, 2.0, M.patchSoft, false);   // 新しい板(周りの木に近い色)
+      [-0.8, 0.8].forEach(d=> gsBox(8.4, 0.45 + i*0.4, 53.5 + d, 0.05, 0.06, 0.06, M.nailDull, false));
     }
     gsCrates([[19.5, 60, 1.4], [21, 60], [12.5, 64.6]]);
     gsBarrels([[16, 43], [23, 50.2 - 5]]);
@@ -578,7 +853,12 @@
     const well = new THREE.Mesh(new THREE.CircleGeometry(1.4, 18), M.well);
     well.rotation.x = -Math.PI/2; well.position.set(28, 0.18, 170); scene.add(well);
     // 鎖(帰還不能の後は「次へ繋がる所」のそばを通る)
-    GS_CHAIN.post.forEach(c=>{ if(!c.afterLoop && !c.well) gsChainColumn(c.x, c.z); });
+    GS_CHAIN.post.forEach(c=>{
+      if(c.afterLoop || c.well) return;
+      gsChainLit.push(...gsChainColumn(c.x, c.z));
+      const lead = gsChainLead(c.room, c.x, c.z);
+      if(lead) scene.add(lead);
+    });
   }
 
   /* ---- 甲板(撃破後にだけ立つ) ---- */
@@ -1324,7 +1604,15 @@
     gsChainDoorShown = true;
     gsSyncPassages();        // 右舷の板(chainBreach)が外れ、鎖の口が開く
     const c = GS_CHAIN.post.find(x=> x.afterLoop);
-    if(c) gsCapture(gsZones.post, ()=> gsChainColumn(c.x, c.z));
+    if(c){
+      const g = new THREE.Group();
+      gsCapture(g, ()=>{
+        gsChainLit.push(...gsChainColumn(c.x, c.z));
+        const lead = gsChainLead(c.room, c.x, c.z);
+        if(lead) scene.add(lead);
+      });
+      gsAddToRoom(c.room, g);
+    }
     gsCamShot(24.6, 48, 1.6, {height:9, dist:4.6});
     sfx('chainRattle');
     spawnLog('⛓️ 右舷の板が外れ、鎖の通る口が開いた。さっきまで、そこは壁だった');
@@ -1332,11 +1620,52 @@
 
 
   /* 点呼の廊下の影の列(害は無い。近づいても消えない) */
+  /* GHOSTSHIP-REBUILD-004: 壁や床より明るい灰青の人の形(肩・頭・帽子・腕)に、淡い輪郭。
+     光源にも加算にもしないので、敵やプレイヤーより目立たない。近づくと、ゆっくりこちらへ向く */
   function gsSpawnRollcallRows(){
+    if(gsRollFigs.length) return;
+    const g = new THREE.Group();
     for(let z = 154; z <= 174; z += 4){
-      spawnApparition(gsV(-9.2, z), {color:0x2a3640, facing:Math.PI/2, vanishDist:0, maxOpacity:0.32, fadeIn:0.5});
-      spawnApparition(gsV(-4.8, z + 2), {color:0x2a3640, facing:-Math.PI/2, vanishDist:0, maxOpacity:0.32, fadeIn:0.5});
+      g.add(gsRollFigure(-9.2, z, Math.PI/2));
+      g.add(gsRollFigure(-4.8, z + 2, -Math.PI/2));
     }
+    gsAddToRoom('xRollcall', g);
+  }
+  function gsRollFigure(x, z, facing){
+    const M = gsMaterials();
+    const fig = new THREE.Group();
+    const parts = [
+      [new THREE.CylinderGeometry(0.2, 0.32, 1.05, 10), 0, 0.72, 0],      // 胴
+      [new THREE.BoxGeometry(0.72, 0.16, 0.28), 0, 1.3, 0],               // 肩
+      [new THREE.SphereGeometry(0.19, 10, 8), 0, 1.6, 0],                 // 頭
+      [new THREE.CylinderGeometry(0.2, 0.22, 0.1, 10), 0, 1.78, 0],       // 帽子
+      [new THREE.CylinderGeometry(0.06, 0.05, 0.8, 6), 0.34, 0.92, 0],    // 腕
+      [new THREE.CylinderGeometry(0.06, 0.05, 0.8, 6), -0.34, 0.92, 0],
+    ];
+    parts.forEach(([geo, px, py, pz])=>{
+      const body = new THREE.Mesh(geo, M.rollFig); body.position.set(px, py, pz); fig.add(body);
+      const rim = new THREE.Mesh(geo, M.rollRim); rim.position.set(px, py, pz); rim.scale.setScalar(1.12); fig.add(rim);
+    });
+    const foot = new THREE.Mesh(new THREE.CircleGeometry(0.42, 14), M.markEdge);
+    foot.rotation.x = -Math.PI/2; foot.position.y = 0.1; fig.add(foot);
+    fig.position.set(x, 0, z);
+    fig.rotation.y = facing;
+    gsRollFigs.push({fig, facing, t:0});
+    return fig;
+  }
+  function gsStepRollFigs(dt){
+    if(!gsRollFigs.length) return;
+    const M = gsMaterials();
+    if(M.rollFig.opacity < 0.82){
+      M.rollFig.opacity = Math.min(0.82, M.rollFig.opacity + dt * 0.6);
+      M.rollRim.opacity = M.rollFig.opacity * 0.4;
+    }
+    gsRollFigs.forEach(r=>{
+      const dx = state.pos.x - r.fig.position.x, dz = state.pos.z - r.fig.position.z;
+      const near = Math.hypot(dx, dz) < 3.2;
+      const want = near ? Math.atan2(dx, dz) : r.facing;
+      r.fig.rotation.y = lerpAngle(r.fig.rotation.y, want, 1 - Math.pow(0.4, dt));
+    });
   }
 
 
@@ -1577,6 +1906,9 @@
     for(let i=0;i<gsHammocks.length;i++) gsHammocks[i].rotation.z = Math.sin(t * 1.1 + i) * 0.12;
     gsStepMarks(dt);
     gsSyncGates();           // 甲板長を退けたら鉄格子が開く
+    gsUpdateCells();
+    gsStepChain(dt);
+    gsStepRollFigs(dt);
     gsStepCameraYaw(dt);
     gsStepBoatswain();
   }
