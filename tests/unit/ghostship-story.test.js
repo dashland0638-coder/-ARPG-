@@ -202,3 +202,26 @@ test('光源は少数を使い回す(部屋ごとに置かない)。iPhone で�
     assert.doesNotMatch(fnBody(ship, f), /PointLight/, f);
   }
 });
+
+test('GHOSTSHIP-REBUILD-003: 帰還不能へ移る時、食堂に残った乗員は霧に戻る(船員室……? に映り込まない)', () => {
+  const end = ship.slice(ship.indexOf("gsFlags.phase = 'post';"), ship.indexOf("gsGoal('船底の穴から、小舟へ戻る')"));
+  assert.match(end, /gsDismissRoomCrew\('gsMess'\)/);
+  const fn = ship.slice(ship.indexOf('function gsDismissRoomCrew'), ship.indexOf('function gsRoomCleared'));
+  assert.match(fn, /e\.roomTag === tag && !e\.dead/);
+  assert.match(fn, /enemies\.splice/);
+});
+
+test('GHOSTSHIP-REBUILD-003: テストモードの帰りの会話は弓師＋魔法使いの時だけ・一度だけ。船の建て直しで消える', () => {
+  const fn = ship.slice(ship.indexOf('function gsPlayHomecoming'), ship.indexOf('function gsOnArriveRoom'));
+  assert.ok(fn.indexOf('gsHomecomingPending = false') < fn.indexOf("selectedClass !== 'archer'"));
+  assert.match(fn, /state\.guestClassKey !== 'mage'/);
+  assert.match(ship, /gsShot = null; gsMarkCool = \{\}; gsHomecomingPending = false;/);
+});
+
+test('GHOSTSHIP-REBUILD-003: 船の向きを保つカメラは幽霊船の中だけ。自動カメラが OFF の人のカメラは戻さない', () => {
+  const loop = read('13-update-loop.js');
+  assert.match(loop, /const shipAnchored = currentWorldKey === 'ghostship' && gsActive;/);
+  assert.match(loop, /!findLockOnBoss\(\) && !shipAnchored\)/);
+  const fn = ship.slice(ship.indexOf('function gsStepCameraYaw'), ship.indexOf('function gsStepCameraYaw') + 400);
+  assert.match(fn, /if\(!camAutoOn \|\|/);
+});

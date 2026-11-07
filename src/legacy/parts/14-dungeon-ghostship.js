@@ -136,7 +136,7 @@
     gsPassageEntries = []; gsMarkMeshes = []; gsLights = []; gsLightRoomId = null;
     gsAnchorShadows = []; gsBossRef = null; gsChainDoorShown = false; gsRoomEntered = {};
     gsAmbienceSilentT = 0; gsKnockT = 6; gsSinceBuild = 0; gsSpawned = {};
-    gsGateEntries = []; gsSwap = null; gsHammocks = []; gsShot = null; gsMarkCool = {};
+    gsGateEntries = []; gsSwap = null; gsHammocks = []; gsShot = null; gsMarkCool = {}; gsHomecomingPending = false;
     const M = gsMaterials();
 
     // 海(帯の全体)。床は上に重ねる
@@ -755,7 +755,7 @@
       on.forEach(c=>{ if(walls.indexOf(c) < 0) walls.push(c); });
     }
     gsMarkMeshes.forEach(m=>{
-      if(m.set === 'post') m.mesh.visible = gsFlags.phase === 'post' && (m.id !== 'mark1' || true);
+      if(m.set === 'post') m.mesh.visible = gsFlags.phase === 'post';
     });
     gsSyncGates();
     if(gsZones.post) gsZones.post.visible = gsFlags.phase === 'post';
@@ -906,8 +906,9 @@
     return true;
   }
   function gsStepCameraYaw(dt){
-    // 自動カメラの設定に関わらず、手で回していない時は船尾を見る向きへ戻す(船の向きを保つ)
-    if(camAutoResumeT > 0 || cutsceneRunning() || state.dialogueActive) return;
+    // 自動カメラが ON の時だけ、手で回していない間は船尾を見る向きへ戻す(船の向きを保つ)。
+    // OFF の人のカメラは触らない
+    if(!camAutoOn || camAutoResumeT > 0 || cutsceneRunning() || state.dialogueActive) return;
     if(findLockOnBoss()) return;
     state.camYaw = lerpAngle(state.camYaw, Math.PI, 1 - Math.pow(0.35, dt));
   }
@@ -1074,6 +1075,8 @@
           // 帰還不能: ここから、外へ向かう道は船の奥へ繋がる(本人たちはまだ知らない)
           if(gsFlags.phase !== 'pre') return;
           gsFlags.phase = 'post';
+          // 食堂に残った乗員は、霧に戻る(同じ場所が船員室……? になるので、演出に映り込ませない)
+          gsDismissRoomCrew('gsMess');
           // 通ってきた食堂の扉が、背後のどこかで閉まる。開けた先は、もう食堂ではない
           const door = getDoor('gsMessDoor');
           if(door){ closeDoor(door); door.locked = false; }
@@ -1280,6 +1283,8 @@
   function gsPlayHomecoming(){
     if(!gsHomecomingPending) return false;
     gsHomecomingPending = false;
+    // 弓師と魔法使いの会話。テストモードで別の組み合わせの時は出さない
+    if(selectedClass !== 'archer' || state.guestClassKey !== 'mage') return false;
     if(state.dialogueActive) return false;
     state.dialogueActive = true;
     state.dialogueBoss = null;
@@ -1398,6 +1403,18 @@
       const bos = enemies.find(e=> e.gateTag === 'gsBoatswain');
       if(bos){ bos.gsBoatswain = true; bos.gsWhistled = false; }
     }
+  }
+  /* その部屋の、まだ倒れていない乗員を霧に戻す(倒した扱い。報酬は出さない) */
+  function gsDismissRoomCrew(tag){
+    enemies.filter(e=> e.roomTag === tag && !e.dead).forEach(e=>{
+      spawnApparition(e.group.position.clone(), {color:0x9ab0c0, vanishDist:200, maxOpacity:0.3, fadeIn:0.2, fadeOut:1.2});
+      e.dead = true;
+      scene.remove(e.group);
+      if(e.meleeTelegraphMesh) scene.remove(e.meleeTelegraphMesh);
+      if(state.berserkerLock && state.berserkerLock.en === e) state.berserkerLock = null;
+      const i = enemies.indexOf(e);
+      if(i >= 0) enemies.splice(i, 1);
+    });
   }
   function gsRoomCleared(tag){ return !!gsSpawned[tag] && isRoomCleared(tag); }
 
