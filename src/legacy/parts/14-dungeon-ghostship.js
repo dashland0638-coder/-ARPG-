@@ -74,7 +74,8 @@
       wall: new THREE.MeshStandardMaterial({color:0x2a2228, roughness:0.9}),
       wallWrong: new THREE.MeshStandardMaterial({color:0x201c2a, roughness:0.9}),
       wallDeep: new THREE.MeshStandardMaterial({color:0x141820, roughness:0.9}),
-      hull: new THREE.MeshStandardMaterial({map:makePlankTexture('#2e2620', 8, 6, 10, {vertical:true}), roughness:0.85}),
+      hull: new THREE.MeshStandardMaterial({map:makePlankTexture('#4a3e32', 8, 6, 10, {vertical:true}), roughness:0.85,
+                                            emissive:0x1a2430, emissiveIntensity:0.35}),   // 霧の中で輪郭が読める程度に
       wood: new THREE.MeshStandardMaterial({color:0x3a2c1c, roughness:0.85}),
       woodDark: new THREE.MeshStandardMaterial({color:0x2a2018, roughness:0.8}),
       rail: new THREE.MeshStandardMaterial({color:0x2c2620, roughness:0.9}),
@@ -768,12 +769,13 @@
         gsLine('「ええ。舟に戻りましょう。印は、付けてあります」', A),
         gsEnd(()=>{
           // 帰還不能: ここから、外へ向かう道は船の奥へ繋がる(本人たちはまだ知らない)
+          if(gsFlags.phase !== 'pre') return;
           gsFlags.phase = 'post';
           gsSyncPassages();
           gsGoal('船底の穴から、小舟へ戻る');
         }),
       ], GS_TEMPO);
-    });
+    }, ()=> gsFlags.phase === 'pre');
 
     /* ---- 帰還不能: 違和感 → 確信 → 恐怖 → 理解 ---- */
     // 7-a 通路の「食堂」の扉が、船員室に開く
@@ -1029,7 +1031,7 @@
     xHold:      [{x:-14, z:130, v:()=> gsCrew('deckhand', 'deckhandB')}, {x:-11, z:137, v:()=> gsCrew('deckhand', 'deckhandB')},
                  {x:-16, z:138.4, v:()=> gsCrew('lookout', 'lookoutB')}],
     xRollcall:  [{x:-15, z:172, v:()=> gsCrew('boatswain', 'boatswain', {gateTag:'gsBoatswain'})}],
-    xAnte:      [{x:32, z:155.6, v:()=> gsCrew('lookout', 'lookoutB', {hp:80, atk:18})}, {x:24, z:155.6, v:()=> gsCrew('deckhand', 'deckhandB', {atk:20})}],
+    xAnte:      [{x:32.6, z:156.6, v:()=> gsCrew('lookout', 'lookoutB', {hp:80, atk:18})}, {x:30.4, z:156.8, v:()=> gsCrew('deckhand', 'deckhandB', {atk:20})}],
   };
   let gsSpawned = {};
   function gsSpawnRoom(tag){
@@ -1401,13 +1403,13 @@
         en.capT = plan.recovery;
         en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
         en.capCds[plan.key] = captainAttackCooldown(plan.key, en.phase);
-        en.capAtkCD = CAPTAIN_BREATH_SEC;
       }
       return;
     }
     if(en.capState === 'recover'){
       en.capT -= dt;
-      if(en.capT <= 0) en.capState = 'idle';
+      // 呼吸は硬直が明けてから数える(硬直と重ねない。core captainReactionWindow)
+      if(en.capT <= 0){ en.capState = 'idle'; en.capAtkCD = CAPTAIN_BREATH_SEC; }
       return;
     }
 
@@ -1625,6 +1627,14 @@
       gsFlags.phase = 'post'; gsEvents.wrongA.fired = true;
       gsSyncPassages();
       return at('xMessFromLadder', wp.name);
+    }
+    if(wp.id === 'released'){
+      // 撃破後の確認用。ボスは倒していない(クリアは記録されない)
+      gsFlags.phase = 'released'; gsFlags.loopDone = true;
+      if(gsEvents.cabin) gsEvents.cabin.fired = true;
+      gsSyncPassages();
+      gsBeginEscape();
+      return at('cabinAfterRelease', wp.name);
     }
     if(wp.id === 'bosshold'){
       gsFlags.phase = 'post'; gsFlags.loopDone = true;

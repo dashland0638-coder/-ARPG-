@@ -76,16 +76,16 @@ export const GS_ARRIVALS = {
   quartersFromNav:   {room:'gsQuarters', x:-17.8, z:62,    face:Math.PI/2},
   messFromQuarters:  {room:'gsMess',     x:-14,   z:80,    face:0},
   quartersFromMess:  {room:'gsQuarters', x:-14,   z:64.6,  face:Math.PI},
-  corridorFromMess:  {room:'gsCorridor', x:2.5,   z:85.8,  face:0},
+  corridorFromMess:  {room:'gsCorridor', x:2.5,   z:87.2,  face:0},
   messFromCorridor:  {room:'gsMess',     x:-10.4, z:90,    face:-Math.PI/2},
-  cabinFromCorridor: {room:'gsCabin',    x:14.2,  z:80,    face:Math.PI/2},
-  corridorFromCabin: {room:'gsCorridor', x:2.5,   z:83.6,  face:Math.PI},
+  cabinFromCorridor: {room:'gsCabin',    x:14.2,  z:84,    face:Math.PI/2},
+  corridorFromCabin: {room:'gsCorridor', x:2.5,   z:80.2,  face:Math.PI},
   cabinAfterRelease: {room:'gsCabin',    x:16,    z:85,    face:0},
   // 帰還不能の後
   xQuartersFromCorridor: {room:'xQuarters', x:-14,  z:109.6, face:Math.PI},
   xMessFromLadder:       {room:'xMess',     x:8,    z:105,   face:0},
   xQuartersFromMess:     {room:'xQuarters', x:-10.5,z:104.6, face:0},
-  xBilgeFromMess:        {room:'xBilge',    x:26,   z:104.4, face:Math.PI/2},
+  xBilgeFromMess:        {room:'xBilge',    x:26,   z:106,   face:Math.PI/2},
   xBilgeFar:             {room:'xBilge',    x:25.6, z:111.4, face:Math.PI/2},
   xHoldFromBilge:        {room:'xHold',     x:-17.6,z:127.2, face:0},
   xQDeepFromHold:        {room:'xQuartersDeep', x:4.4, z:127.4, face:0},
@@ -96,7 +96,7 @@ export const GS_ARRIVALS = {
   xQDeepFromRoll:        {room:'xQuartersDeep', x:8, z:133.6, face:Math.PI},
   xCabinFromRoll:        {room:'xCabin',    x:4.6,  z:153.4, face:0},
   xRollFromCabin:        {room:'xRollcall', x:-15,  z:177.6, face:Math.PI},
-  xAnteFromCabin:        {room:'xAnte',     x:25.4, z:152.4, face:0},
+  xAnteFromCabin:        {room:'xAnte',     x:25.4, z:153.2, face:0},
   xCabinFromAnte:        {room:'xCabin',    x:7.6,  z:160.2, face:Math.PI},
   deckFromHatch:         {room:'gsDeck',    x:-30,  z:200.6, face:0},
 };
@@ -124,11 +124,13 @@ export const GS_PASSAGES = [
   {id:'messToQuarters',room:'gsMess',     x:-14,   z:76.8,  kind:'door',      wall:'S', pre:{to:'quartersFromMess'}},
   {id:'messToCorridor',room:'gsMess',     x:-6.8,  z:90,    kind:'door',      wall:'E', pre:{to:'corridorFromMess'}},
   /* 帰還不能の 1 つ目: 通路の「食堂」の扉が、船員室……? へ開く */
-  {id:'corridorToMess',room:'gsCorridor', x:0.8,   z:90,    kind:'door',      wall:'W', label:'食堂',
-     pre:{to:'messFromCorridor'}, post:{to:'xQuartersFromCorridor'}, released:{to:'messFromCorridor'}},
-  {id:'corridorToCabin',room:'gsCorridor',x:4.2,   z:80,    kind:'door',      wall:'E',
+  {id:'corridorToMess',room:'gsCorridor', x:0.8,   z:91.5,  kind:'door',      wall:'W', label:'食堂',
+     pre:{to:'messFromCorridor'}, post:{to:'xQuartersFromCorridor'},
+     // 錨が落ちた後、船の下の方から水が上がってくる。帰り道は甲板だけ
+     released:{blocked:'扉の向こうから、水の音が上がってくる。……上へ行くしかない。'}},
+  {id:'corridorToCabin',room:'gsCorridor',x:4.2,   z:84,    kind:'door',      wall:'E',
      pre:{to:'cabinFromCorridor'}, post:{to:'cabinFromCorridor'}, released:{to:'cabinFromCorridor'}},
-  {id:'cabinToCorridor',room:'gsCabin',   x:10.8,  z:80,    kind:'door',      wall:'W',
+  {id:'cabinToCorridor',room:'gsCabin',   x:10.8,  z:84,    kind:'door',      wall:'W',
      pre:{to:'corridorFromCabin'}, post:{to:'corridorFromCabin'}, released:{to:'corridorFromCabin'}},
   /* 甲板への昇降口。往路は上から押さえられて開かない。船長が鎖を手放した後だけ開く */
   {id:'cabinHatch',    room:'gsCabin',    x:21.2,  z:89.6,  kind:'hatch',     wall:'N', prompt:'昇降口から甲板へ',
@@ -145,7 +147,7 @@ export const GS_PASSAGES = [
   {id:'xmToQuarters',  room:'xMess',      x:8,     z:117.2, kind:'door',      wall:'N', post:{blocked:BLOCKED_OUT}},
   /* 以前は無かった扉(外壁側)。船底……? へ */
   {id:'xmToBilge',     room:'xMess',      x:15.2,  z:112,   kind:'door',      wall:'E', post:{to:'xBilgeFromMess'}},
-  {id:'xbBack',        room:'xBilge',     x:22.8,  z:104.4, kind:'door',      wall:'W', post:{blocked:'入ってきた扉が、もう開かない。'}},
+  {id:'xbBack',        room:'xBilge',     x:22.8,  z:106,   kind:'door',      wall:'W', post:{blocked:'入ってきた扉が、もう開かない。'}},
   /* ループは一度だけ。上へ戻る梯子は、同じ船底の反対側へ出る。二度目は開かない */
   {id:'xbUp',          room:'xBilge',     x:32.6,  z:112.6, kind:'ladderUp',  wall:'N', prompt:'梯子を上って戻る', loop:true,
      gate:'gsCarpenter', gateMsg:'背中に、まだ槌の気配がある。'},

@@ -33,6 +33,25 @@ async function readDialogue(page, maxQuiet = 20) {
   }
   return seen;
 }
+const prompt = page => page.evaluate(() => { const e = document.getElementById('interact-btn'); return e.classList.contains('show') ? e.textContent : ''; });
+// キーを押したまま、条件が揃うまで歩く。演出が入ると入力が消されるので、会話を送ってから押し直す
+async function walkUntil(page, keys, pred, ms = 240_000) {
+  const t0 = Date.now(); let ok = false;
+  for (const k of keys) await page.keyboard.down(k);
+  while (Date.now() - t0 < ms) {
+    if (await pred()) { ok = true; break; }
+    if (await dialogueOpen(page)) {
+      for (const k of keys) await page.keyboard.up(k);
+      await readDialogue(page);
+      for (const k of keys) await page.keyboard.down(k);
+    }
+    await page.waitForTimeout(100);
+  }
+  for (const k of keys) await page.keyboard.up(k);
+  return ok;
+}
+const useInteract = page => page.evaluate(() => document.getElementById('interact-btn').click());
+
 async function backToTitle(page) {
   for (let i = 0; i < 40; i++) {
     if (await dialogueOpen(page)) { await advanceDialogue(page); await page.waitForTimeout(400); continue; }
@@ -77,6 +96,16 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     expect(all).toContain('今日は、ここまでにしましょう');
     expect(all).toContain('舟に戻りましょう');
     expect(all).not.toMatch(/鐘|七時十三分|塔/);
+    // 歩いて帰ろうとする: 船長室の扉 → 通路 → 「食堂」の扉 → 船員室……?(カメラは北向き。西 = 画面の右 = d)
+    expect(await walkUntil(page, ['d'], async () => (await prompt(page)).includes('扉を開ける'))).toBe(true);
+    await useInteract(page);
+    await expect(page.locator('#minimap-room')).toHaveText('通路', { timeout: 60_000 });
+    expect(await walkUntil(page, ['w'], async () => (await prompt(page)).includes('食堂への扉'))).toBe(true);
+    await useInteract(page);
+    await expect(page.locator('#minimap-room')).toHaveText('船員室……?', { timeout: 60_000 });
+    const wrong = (await readDialogue(page)).join('\n');
+    expect(wrong).toContain('ここ、船員室でしたか');
+    expect(wrong).toContain('来た道を、間違えたのかもしれません');
     await backToTitle(page);
     expect(errors).toEqual([]);
   });
@@ -102,6 +131,26 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     // 扉を開けるまで、ボス戦は始まらない
     await expect(page.locator('#boss-bar-wrap')).not.toHaveClass(/show/);
     await backToTitle(page);
+    expect(errors).toEqual([]);
+  });
+
+  test('撃破後: 昇降口から初めて甲板に立ち、影が陸を向いて消える。縄梯子で小舟へ降りて酒場へ', async ({ page }) => {
+    test.setTimeout(900_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    await startTestMode(page, { classKey: 'archer', guestKey: 'mage', scenario: 'ghostship', waypoint: 'released' });
+    await waitArea(page, '幽霊船');
+    await expect(page.locator('#minimap-room')).toHaveText('船長室', { timeout: 60_000 });
+    expect(await walkUntil(page, ['a', 'w'], async () => (await prompt(page)).includes('昇降口から甲板へ'))).toBe(true);
+    await useInteract(page);
+    await expect(page.locator('#minimap-room')).toHaveText('甲板', { timeout: 60_000 });
+    const deck = (await readDialogue(page, 200)).join('\n');
+    expect(deck).toContain('陸のほうを向いた');
+    expect(deck).toContain('陸が、見えます');
+    expect(await walkUntil(page, ['w', 'd'], async () => (await prompt(page)).includes('縄梯子'), 420_000)).toBe(true);
+    await useInteract(page);
+    expect((await readDialogue(page)).join('\n')).toContain('縄梯子を降りる');
+    await expect(page.locator('#minimap-area')).toHaveText('港町の酒場', { timeout: 90_000 });
     expect(errors).toEqual([]);
   });
 });

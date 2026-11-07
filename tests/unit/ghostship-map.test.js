@@ -45,6 +45,10 @@ test('通路は自分の部屋の中。着いた所は着いた部屋の中で�
       assert.ok(Math.hypot(p.x - a.x, p.z - a.z) >= 3.0, `${id} は ${p.id} から離れている`);
     }
   }
+  // カメラは南(船の手前)から見る。着いた所が南の壁に近いと、壁で画面の下半分が隠れる
+  for (const [id, a] of Object.entries(GS_ARRIVALS)) {
+    assert.ok(a.z - gsRoomById(a.room).z0 >= 3.0, `${id} は南の壁から離れている`);
+  }
   // 行き先の名前はすべて実在する
   for (const p of GS_PASSAGES) for (const ph of ['pre', 'post', 'released']) {
     if (p[ph] && p[ph].to) assert.ok(GS_ARRIVALS[p[ph].to], `${p.id}.${ph}`);
@@ -117,11 +121,12 @@ test('帰還不能の後は、外へ向かう道がすべて船の奥へ繋が�
   assert.equal(GS_ANCHOR_DOOR.z, gsRoomById('xAnchor').z0);
 });
 
-test('撃破後: 船の構造は元に戻り、昇降口が開く。甲板の縄梯子で脱出。食堂の扉も元どおり', () => {
+test('撃破後: 船の構造は元に戻り、昇降口が開く。甲板の縄梯子で脱出。下へは水が上がってきて戻れない', () => {
   assert.equal(arriveRoom(st('cabinHatch', REL)), 'gsDeck');
   assert.ok(st('deckRope', REL).escape);
   assert.equal(st('deckRope', PRE).present, false);
-  assert.equal(arriveRoom(st('corridorToMess', REL)), 'gsMess', '扉は本来の食堂へ');
+  assert.ok(st('corridorToMess', REL).blocked, '下の部屋へは行けない(行った先で閉じ込められない)');
+  assert.deepEqual([...gsReachableRooms('gsCabin', 'released')].sort(), ['gsCabin', 'gsCorridor', 'gsDeck']);
   assert.equal(GS_ARRIVALS.cabinAfterRelease.room, 'gsCabin');
   assert.ok(gsReachableRooms('gsCabin', 'released').has('gsDeck'));
   assert.equal(gsRoomById('gsDeck').set, 'end');
@@ -177,4 +182,17 @@ test('照明と環境音: 段階が上がるほど暗く冷たく。錨の間は
   assert.equal(gsAmbienceZoneFor(8, 109, {silent:true}), null, '確信の場面は環境音が止まる');
   // 「……?」の部屋は名前で別の部屋だと分かる
   for (const r of GS_ROOMS.filter(r => r.copyOf)) assert.match(r.name, /……\?$/);
+});
+
+test('どの段階でも、辿り着ける部屋には出口がある(閉じ込められる部屋が無い)', () => {
+  for (const [phase, start] of [['pre', 'gsMoor'], ['post', 'gsCabin'], ['released', 'gsCabin']]) {
+    for (const room of gsReachableRooms(start, phase)) {
+      const out = GS_PASSAGES.filter(p => p.room === room).some(p => {
+        const s1 = gsPassageState(p, {phase, loopDone:true}), s0 = gsPassageState(p, {phase, loopDone:false});
+        return [s0, s1].some(s => s.present && (s.to || s.escape || s.loop));
+      });
+      const viaDoor = phase === 'post' && (room === 'xAnte' || room === 'xAnchor');
+      assert.ok(out || viaDoor, `${phase}: ${room} から出られる`);
+    }
+  }
 });
