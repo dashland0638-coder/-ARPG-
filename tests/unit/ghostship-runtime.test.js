@@ -88,6 +88,7 @@ function harness(){
       cellPoint: (x, z)=> gsCellKeyPoint(x, z),
       setGates: (list)=>{ gsGateEntries = list; },
       showChainDoor: ()=> gsShowChainDoor(),
+      waypoint: (wp)=> gsTestWaypoint(wp),
       stepChain: (dt)=> gsStepChain(dt),
       chainState: ()=> ({ lit: gsChainLit.map(m => m.material === gsMaterials().chainLit), leads: gsChainLeads.map(l => l.group.visible) }),
     };`)(...names.map(k => stubs[k]));
@@ -369,4 +370,30 @@ test('GHOSTSHIP-REBUILD-004 鎖: ループの直後に鎖の口へ現れる鎖�
   h.api.setFlags({ phase:'released', loopDone:true });
   h.api.stepChain(0.016);
   assert.ok(h.api.chainState().lit.every(v => !v), '撃破後は元の鎖');
+});
+
+test('DEV-TEST-MOBILE-001 テストモードの検証地点: 食堂の手前(往路)・鎖を辿る道の始まり・点呼の廊下の手前に、段階を揃えて出る', async () => {
+  const { findWaypoint } = await import('../../src/core/scenario-waypoints.js');
+  const h = harness();
+  h.api.setActive();
+  const ev = h.api.registerEvents();
+  const wp = id => { const w = findWaypoint('ghostship', id); assert.ok(w && w.ch1, id); return h.api.waypoint(w); };
+
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  const mess = wp('mess');
+  assert.equal(MAP.gsRoomAt(mess.x, mess.z, 'pre').id, 'gsQuarters');
+  assert.equal(h.api.flags().phase, 'pre');
+  assert.equal(ev.mess.fired, false, '食堂の場面(卓を見せてから一文)はこれから');
+
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  const chain = wp('chain');
+  assert.equal(MAP.gsRoomAt(chain.x, chain.z, 'post').id, 'xBilge');
+  assert.deepEqual(h.api.flags(), { phase:'post', loopDone:true });
+  assert.ok(h.api.resolve(MAP.gsPassageById('xbChain')).targetPos, '鎖の口が開いている');
+
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  const roll = wp('rollcall');
+  assert.equal(MAP.gsRoomAt(roll.x, roll.z, 'post').id, 'xQuartersDeep');
+  assert.ok(Math.abs(roll.z - 150) < 4, '点呼の廊下への扉の前');
+  assert.equal(ev.roll.fired, false, '点呼と甲板長はこれから');
 });

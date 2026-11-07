@@ -2341,6 +2341,24 @@
     ['intro', 'hole', 'bilge'].forEach(k=>{ if(gsEvents[k]) gsEvents[k].fired = true; });
     const at = (arrive, name)=>{ const a = GS_ARRIVALS[arrive]; return {id:wp.id, name, x:a.x, z:a.z}; };
     if(wp.id === 'cabin') return at('cabinAfterRelease', wp.name);
+    /* DEV-TEST-MOBILE-001: 途中の検証地点。その地点までの場面は済んだ扱いにする(進行の規則は変えない) */
+    const done = keys=> keys.forEach(k=>{ if(gsEvents[k]) gsEvents[k].fired = true; });
+    if(wp.id === 'mess'){
+      done(['hold', 'quarters']);
+      return {id:wp.id, name:wp.name, x:-29, z:54};
+    }
+    if(wp.id === 'chain' || wp.id === 'rollcall'){
+      gsFlags.phase = 'post'; gsFlags.loopDone = true;
+      done(['hold', 'quarters', 'mess', 'cabin', 'wrongA', 'wrongB', 'wrongC', 'wrongD', 'afterCarpenter']);
+      gsSpawned.xBilge = true;
+      gsSyncPassages();
+      if(wp.id === 'chain'){
+        gsShowChainDoor();          // 右舷の板が外れて鎖の口が開く(カメラが見せる)
+        return at('xBilgeFar', wp.name);
+      }
+      gsChainDoorShown = true;
+      return {id:wp.id, name:wp.name, x:-7, z:146.6};   // 目の前(z 150)が点呼の廊下への扉
+    }
     if(wp.id === 'wrongmess'){
       gsFlags.phase = 'post'; gsEvents.wrongA.fired = true;
       gsSyncPassages();

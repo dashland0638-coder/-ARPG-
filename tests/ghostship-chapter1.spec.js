@@ -165,3 +165,57 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     expect(errors).toEqual([]);
   });
 });
+
+/* DEV-TEST-MOBILE-001: iPhone の横画面(タッチだけ)で、テストモードから幽霊船の途中の検証地点へ出る。
+   通常のセーブは触らない(テストモードは saveGame が何もしない) */
+test.describe('iPhone の横画面(844×390・タッチ): 幽霊船の検証地点', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+
+  async function tapStart(page, waypoint) {
+    await page.tap('#open-testmode-btn');
+    await expect(page.locator('#testmode-screen')).toBeVisible();
+    await page.tap('#testmode-rules-grid [data-test-rules="current"]');
+    await page.tap('.class-card[data-key="archer"]');
+    await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);
+    await page.tap('#testmode-guest-grid .testmode-job-card[data-guest-key="mage"]');
+    await page.tap('#testmode-chapter-grid [data-chapter-id="ch1"]');
+    await page.tap('#testmode-scenario-grid [data-scenario-key="ghostship"]');
+    for (const id of ['mess', 'cabin', 'wrongmess', 'chain', 'rollcall', 'bosshold', 'released']) {
+      await expect(page.locator(`#testmode-waypoint-grid [data-waypoint-id="${id}"]`), id).toHaveCount(1);
+    }
+    await page.tap(`#testmode-waypoint-grid [data-waypoint-id="${waypoint}"]`);
+    await page.tap('#testmode-start-btn');
+    await waitArea(page, '幽霊船');
+  }
+  async function tapToTitle(page) {
+    for (let i = 0; i < 40 && await dialogueOpen(page); i++) { await page.tap('#dialogue-overlay'); await page.waitForTimeout(400); }
+    await page.tap('#loot-menu-btn');
+    await expect(page.locator('#menu-overlay')).toHaveClass(/active/);
+    await page.tap('#menu-title');
+    await page.tap('#confirm-ok');
+    await expect(page.locator('#title-screen')).toBeVisible({ timeout: 30_000 });
+  }
+
+  test('鎖を辿る道の始まり・点呼の廊下の手前・食堂の手前へ出て、タイトルへ戻れる。通常のセーブは作られない', async ({ page }) => {
+    test.setTimeout(600_000);
+    const errors = watchErrors(page);
+    await openGame(page);
+    const saveKeys = () => page.evaluate(() => Object.keys(localStorage).filter(k => /save/i.test(k) && localStorage.getItem(k)));
+    const before = await saveKeys();
+
+    await tapStart(page, 'chain');
+    await expect(page.locator('#minimap-room')).toHaveText('下層・船底……?', { timeout: 60_000 });
+    await tapToTitle(page);
+
+    await tapStart(page, 'rollcall');
+    await expect(page.locator('#minimap-room')).toHaveText('深部・船員室……?', { timeout: 60_000 });
+    await tapToTitle(page);
+
+    await tapStart(page, 'mess');
+    await expect(page.locator('#minimap-room')).toHaveText('居住区・船員室', { timeout: 60_000 });
+    await tapToTitle(page);
+
+    expect(await saveKeys()).toEqual(before);
+    expect(errors).toEqual([]);
+  });
+});
