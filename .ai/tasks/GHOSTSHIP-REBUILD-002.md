@@ -55,4 +55,4 @@ Status: DONE（Agent 側。PR 作成済み）／ CONTENT READY = HUMAN DEVICE CH
 - 2026-11-07 DONE（最終 E2E 16 passed、unit 2151 pass / 0 fail。PR 作成）
 
 ### Autonomy Metrics
-Human Escalation: 0 / Human Decision: 0 / Auto Fix: 3（自分の試験で見つけた2件: 引き寄せ後の硬直・撃破後の閉じ込め／Review Fix Loop 1 Round）/ Reviewer Rounds: 2 / Test Retry: 1（chapter1-tower-to-road。原因は実行中の編集による再読み込み）/ PR: 作成（番号は最終報告）
+Human Escalation: 0 / Human Decision: 0 / Auto Fix: 3（自分の試験で見つけた2件: 引き寄せ後の硬直・撃破後の閉じ込め／Review Fix Loop 1 Round）/ Reviewer Rounds: 2 / Test Retry: 1（chapter1-tower-to-road。原因は実行中の編集による再読み込み）/ PR: #114
