@@ -156,6 +156,7 @@ import {
 /* 第一章③ 幽霊船(GHOSTSHIP-REBUILD-002)。部屋・通路・帰還不能の規則と、船長の攻撃表 */
 import {
   GS_ENTRY, GS_ROOMS, gsRoomById, gsRoomAt, GS_ARRIVALS, GS_PASSAGES, GS_ANCHOR_DOOR, gsPassageById, gsPassageState,
+  GS_DECKS, gsCopyOffset, GS_DOORS, GS_GATES, gsRoomLabel, GS_MESS_TABLE,
   GS_PLATES_BEFORE, GS_PLATES_AFTER, gsRollcallTags, gsPlateSeat, GS_MARKS, GS_CHAIN, gsLightFor, gsAmbienceZoneFor, GS_CHESTS, GS_MIMICS, GS_HEALING,
 } from '../core/ghostship-map.js';
 import {

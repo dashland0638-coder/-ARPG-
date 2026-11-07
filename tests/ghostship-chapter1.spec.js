@@ -90,19 +90,20 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     await openGame(page);
     await startTestMode(page, { classKey: 'archer', guestKey: 'mage', scenario: 'ghostship', waypoint: 'cabin' });
     await waitArea(page, '幽霊船');
-    await expect(page.locator('#minimap-room')).toHaveText('船長室', { timeout: 60_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('居住区・船長室', { timeout: 60_000 });
     const lines = await readDialogue(page);
     const all = lines.join('\n');
     expect(all).toContain('今日は、ここまでにしましょう');
     expect(all).toContain('舟に戻りましょう');
     expect(all).not.toMatch(/鐘|七時十三分|塔/);
-    // 歩いて帰ろうとする: 船長室の扉 → 通路 → 「食堂」の扉 → 船員室……?(カメラは北向き。西 = 画面の右 = d)
-    expect(await walkUntil(page, ['d'], async () => (await prompt(page)).includes('扉を開ける'))).toBe(true);
+    // 歩いて帰ろうとする: 船長室の扉 → 通路 → 「食堂」の扉 → 同じ場所が船員室……?
+    // (カメラは船首を画面の下に据える。船首 = -z = s、左舷 = -x = d)
+    expect(await walkUntil(page, ['s', 'd'], async () => (await prompt(page)).includes('扉を開ける'))).toBe(true);
     await useInteract(page);
-    await expect(page.locator('#minimap-room')).toHaveText('通路', { timeout: 60_000 });
-    expect(await walkUntil(page, ['w'], async () => (await prompt(page)).includes('食堂への扉'))).toBe(true);
+    expect(await walkUntil(page, ['s'], async () => (await page.locator('#minimap-room').textContent()) === '居住区・通路')).toBe(true);
+    expect(await walkUntil(page, ['s'], async () => (await prompt(page)).includes('扉を開ける'))).toBe(true);
     await useInteract(page);
-    await expect(page.locator('#minimap-room')).toHaveText('船員室……?', { timeout: 60_000 });
+    expect(await walkUntil(page, ['s'], async () => (await page.locator('#minimap-room').textContent()) === '居住区・船員室……?')).toBe(true);
     const wrong = (await readDialogue(page)).join('\n');
     expect(wrong).toContain('ここ、船員室でしたか');
     expect(wrong).toContain('来た道を、間違えたのかもしれません');
@@ -116,7 +117,7 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     await openGame(page);
     await startTestMode(page, { classKey: 'archer', guestKey: 'mage', scenario: 'ghostship', waypoint: 'wrongmess' });
     await waitArea(page, '幽霊船');
-    await expect(page.locator('#minimap-room')).toHaveText('食堂……?', { timeout: 60_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('居住区・食堂……?', { timeout: 60_000 });
     const lines = await readDialogue(page);
     const all = lines.join('\n');
     expect(all).toContain('十七人分');
@@ -125,7 +126,7 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
 
     await startTestMode(page, { classKey: 'archer', guestKey: 'mage', scenario: 'ghostship', waypoint: 'bosshold' });
     await waitArea(page, '幽霊船');
-    await expect(page.locator('#minimap-room')).toHaveText('錨鎖庫の前室', { timeout: 60_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('最深部・錨鎖庫の前室', { timeout: 60_000 });
     const pre = (await readDialogue(page)).join('\n');
     expect(pre).toContain('帰るために');
     // 扉を開けるまで、ボス戦は始まらない
@@ -140,7 +141,7 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     await openGame(page);
     await startTestMode(page, { classKey: 'archer', guestKey: 'mage', scenario: 'ghostship', waypoint: 'released' });
     await waitArea(page, '幽霊船');
-    await expect(page.locator('#minimap-room')).toHaveText('船長室', { timeout: 60_000 });
+    await expect(page.locator('#minimap-room')).toHaveText('居住区・船長室', { timeout: 60_000 });
     expect(await walkUntil(page, ['a', 'w'], async () => (await prompt(page)).includes('昇降口から甲板へ'))).toBe(true);
     await useInteract(page);
     await expect(page.locator('#minimap-room')).toHaveText('甲板', { timeout: 60_000 });
@@ -149,8 +150,16 @@ test.describe('第一章③ 幽霊船「帰れない」', () => {
     expect(deck).toContain('陸が、見えます');
     expect(await walkUntil(page, ['w', 'd'], async () => (await prompt(page)).includes('縄梯子'), 420_000)).toBe(true);
     await useInteract(page);
-    expect((await readDialogue(page)).join('\n')).toContain('縄梯子を降りる');
+    const down = (await readDialogue(page)).join('\n');
+    expect(down).toContain('縄梯子を降りる');
     await expect(page.locator('#minimap-area')).toHaveText('港町の酒場', { timeout: 90_000 });
+    // 酒場に着いたら、帰りの会話が一度だけ(「……ただいま、戻りました。」)。閉じると通常の操作
+    const home = [down];
+    if (!down.includes('ただいま')) home.push(...await readDialogue(page));
+    expect(home.join('\n')).toContain('ただいま、戻りました');
+    expect(home.join('\n')).toContain('おかえり');
+    await page.waitForTimeout(2_000);
+    expect(await dialogueOpen(page)).toBe(false);
     expect(errors).toEqual([]);
   });
 });
