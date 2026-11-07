@@ -153,6 +153,15 @@ import {
   BOSS_CLONE_TELL, bossCloneHitRadius, ECHO_BOSS_LOOK, ECHO_BOSS_NET_PROFILE, echoBossLayerSpread, echoBossHeadTwitch,
   ECHO_BOSS_TIME, echoBossDelayScale, echoBossSink, echoBossStepDue, echoHistPush, echoHistAt, echoDropShells,
 } from '../core/dusk-enemies.js';
+/* 第一章③ 幽霊船(GHOSTSHIP-REBUILD-002)。部屋・通路・帰還不能の規則と、船長の攻撃表 */
+import {
+  GS_ENTRY, GS_ROOMS, gsRoomById, gsRoomAt, GS_ARRIVALS, GS_PASSAGES, GS_ANCHOR_DOOR, gsPassageById, gsPassageState,
+  GS_PLATES_BEFORE, GS_PLATES_AFTER, gsRollcallTags, gsPlateSeat, GS_MARKS, GS_CHAIN, gsLightFor, gsAmbienceZoneFor,
+} from '../core/ghostship-map.js';
+import {
+  captainPhaseFor, CAPTAIN_SHIFT_SEC, CAPTAIN_BREATH_SEC, CAPTAIN_ATTACKS, captainAttackPlan, captainAttackCooldown,
+  captainAttackChoice, captainFanHit, chainLineHit, chainPullDest,
+} from '../core/ghostship-captain.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

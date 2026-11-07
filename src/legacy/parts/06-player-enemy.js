@@ -3321,6 +3321,8 @@
     /* 宵待ちの村の敵(CH1-COMP W3-E)。作りは 14-dungeon-duskvillage.js の dressVillageEnemy
        (村の 5 種で共有する部品のキャッシュもそちら)。ここでは下の汎用の材質を作らずに渡すだけ */
     if(theme === 'village'){ dressVillageEnemy(g, body, variant, M); return; }
+    // 第一章の幽霊船の乗組員の残影(GHOSTSHIP-REBUILD-002、14-dungeon-ghostship.js)
+    if(theme === 'shipCrew'){ dressShipCrew(g, body, variant, M); return; }
     const col = variant.color;
     const soft = new THREE.MeshStandardMaterial({color:col, roughness:0.85});
     const hard = new THREE.MeshStandardMaterial({color:col, roughness:0.45, metalness:0.55});
@@ -4103,7 +4105,8 @@
         g.add(spike);
       });
     }
-    if(atkType==='fire'){
+    // M.noFireTail: 射撃でも尾と光源を付けないテーマ(幽霊船の見張り。角灯から撃つ)
+    if(atkType==='fire' && !M.noFireTail){
       const glow = new THREE.PointLight(variant.projColor||0xff6a2a, 0.7, 4);
       glow.position.y = 0.5;
       g.add(glow);
@@ -4375,7 +4378,11 @@
     let body;
     let parts = null;   // named limbs, so each boss can have its own idle
 
-    if(cfg.key==='ghostCaptain'){
+    if(cfg.key==='ghostCaptain' && cfg.shipCh1){
+      // 第一章の幽霊船の船長(GHOSTSHIP-REBUILD-002)。外套の人影・角灯・錨の鎖
+      const fig = buildShipCaptainFigure(g, cfg, trimMat, eyeMat, eyeGeo);
+      body = fig.body; parts = fig.parts;
+    } else if(cfg.key==='ghostCaptain'){
       // --- GHOST: no legs, a torn trailing shroud, translucent ---
       const ghostMat = new THREE.MeshStandardMaterial({color:cfg.bodyColor, roughness:0.4,
         emissive:cfg.emissive, emissiveIntensity:0.5, transparent:true, opacity:0.72});
@@ -5106,6 +5113,8 @@
     else if(key==='temple')   worldBounds = boundsFromRooms(TEMPLE_ROOMS, 6);
     else if(key==='clocktower') worldBounds = boundsFromRooms(TOWER_ROOMS, 10);
     else if(key==='duskvillage') worldBounds = boundsFromRooms(DUSK_ROOMS, 6);
+    // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。部屋の表から
+    else if(key==='ghostship' && gsActive) worldBounds = boundsFromRooms(GS_ROOMS, 4);
     // 道(WORK 11)。部屋の表を持たない屋外の一本道なので、直接座標で
     else if(key==='road') worldBounds = Object.assign({}, ROAD_BOUNDS);
     // テストモード(上位職デバッグ用)のトレーニング空間。他のどのダンジョン

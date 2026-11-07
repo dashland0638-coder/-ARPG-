@@ -64,11 +64,14 @@
     ghostship: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; const ch1 = !legacyGrowth(); return [
       {name:M, text:'幽霊船か。正気の沙汰とも思えんが……'},
       {name:Y, text: ch1 ? '……詳しく、聞かせてください。' : '眉唾だとは思うが、話だけでも聞かせてくれ。'},
-      {name:M, text:'霧の港に、朽ちた帆船が打ち上げられたそうだ。沈没船から引き上げた"錨"を積んでいたらしくてな。'},
+      /* 第一章の船は沖に浮かんでいて、小舟で近づく(GHOSTSHIP-REBUILD-002)。旧成長・周回は旧い文言のまま */
+      {name:M, text: ch1 ? '霧の港の沖に、朽ちた帆船が流れ着いたそうだ。沈没船から引き上げた"錨"を積んでいたらしくてな。'
+                         : '霧の港に、朽ちた帆船が打ち上げられたそうだ。沈没船から引き上げた"錨"を積んでいたらしくてな。'},
       {name:Y, text: ch1 ? '錨ひとつで、そこまで朽ちるものでしょうか。' : 'ただの錨ひとつで、あそこまで朽ちるものか?'},
       {name:M, text:'ただの錨じゃない、という話でな。死者をこの世に縛りつける錨だとか。今も甲板を彷徨う亡霊がいるとか。'},
       {name:Y, text: ch1 ? '……まだ、船に乗っているんでしょうか。' : '亡霊は、まだ船を降りていない……ということか。'},
-      {name:M, text:'……さあな。海の男でさえ近寄らん場所さ。よほどの事情がなきゃ勧めんが……それでも行くかい?'}
+      {name:M, text: ch1 ? '……さあな。海の男でさえ近寄らん場所さ。それでも行くなら、小舟を貸してやる。帰りに沈めるなよ。'
+                         : '……さあな。海の男でさえ近寄らん場所さ。よほどの事情がなきゃ勧めんが……それでも行くかい?'}
     ]; },
     temple: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; return [
       {name:M, text:'古代神殿か。あそこは魔物より、造りそのものが厄介でな。'},
@@ -522,6 +525,26 @@
        が終わってから、いつもの結果画面へ渡す。結果画面・報酬・
        BOSS_ENDING_LINES はそのまま再利用していて、増えたのは洋館と同じく
        「その前に一拍置く」ことだけ。 */
+    /* 第一章の幽霊船(GHOSTSHIP-REBUILD-002)も、撃破した瞬間に結果画面へ飛ばさない。
+
+         撃破 → 船長が「数が合わない」と認め、鎖を手放す → 錨が海の底へ落ちる
+              → 船の構造が元に戻る(本物の船長室へ)→ 昇降口が開いている
+
+       が終わってから結果画面へ渡す。結果画面の「上へ」の後、甲板へ上がって
+       縄梯子で小舟へ降りる(gsBeginEscape → gsEscapeDown → returnToTown) */
+    if(state.scenarioKey === 'ghostship' && boss.shipCh1){
+      gsPlayRelease(boss, ()=>{
+        try{ showBossResultScreen(boss, levelBefore); }
+        catch(err){
+          console.error('showBossResultScreen failed:', err);
+          state.dialogueActive = false;
+          state.dialogueKind = null;
+          clearMovementInput(false);
+          spawnLog('⚠️ 結果画面の表示に失敗した。探索は続けられる');
+        }
+      });
+      return;
+    }
     if(defersResultScreen(state.scenarioKey)){
       playDuskEpilogue(()=>{
         try{ showBossResultScreen(boss, levelBefore); }
@@ -1183,7 +1206,8 @@
     state.pendingAfterDefeat = boss.afterDefeat || null;
     if(contBtn){
       contBtn.style.display = carryOn ? '' : 'none';
-      contBtn.textContent = boss.afterDefeat ? '……!?' : '探索を続ける';
+      contBtn.textContent = boss.afterDefeat === 'ghostshipEscape' ? '上へ'
+                          : boss.afterDefeat ? '……!?' : '探索を続ける';
     }
     if(backBtn) backBtn.style.display = carryOn ? 'none' : '';
     document.getElementById('clear-overlay').classList.add('active');
@@ -1497,10 +1521,8 @@
   document.getElementById('clear-return-btn').addEventListener('click', ()=>{
     document.getElementById('clear-overlay').classList.remove('active');
     recomputeStats();
+    // 第一章の幽霊船の船長は endsRun:false(ここを通らない)。旧い船(旧成長・周回)だけが「港が……見える……」
     let endingLines = BOSS_ENDING_LINES[state.lastDefeatedBossKey];
-    // 第一章の本編: 船長は「港が見える」の前に、塔の鐘を頼む(§4-2)
-    if(endingLines && state.lastDefeatedBossKey === 'ghostCaptain' && !legacyGrowth())
-      endingLines = [GHOST_CAPTAIN_CHAPTER1_FAREWELL].concat(endingLines);
     state.lastDefeatedBossKey = null;
     if(endingLines){
       state.dialogueActive = true;
@@ -1528,6 +1550,7 @@
     const next = state.pendingAfterDefeat;
     state.pendingAfterDefeat = null;
     if(next === 'towerCollapse') beginTowerCollapse();
+    else if(next === 'ghostshipEscape') gsBeginEscape();   // 幽霊船: 昇降口から甲板へ(GHOSTSHIP-REBUILD-002)
     else spawnLog('🪜 先へ進む道が開いた');
   });
   document.getElementById('down-return-btn').addEventListener('click', ()=>{
@@ -1714,6 +1737,14 @@
     if(key==='mansion'){
       state.pos.copy(MANSION_ENTRY);
       state.camYaw = Math.PI*0.25; // northeast
+      state.vel.set(0,0,0);
+      repositionAlliesToPlayer();
+      camera.position.copy(state.pos).add(getCamOffset());
+    } else if(key==='ghostship' && gsActive){
+      /* 第一章の本編(GHOSTSHIP-REBUILD-002)。係留した小舟の脇から。カメラは船の奥(北)を見る */
+      state.pos.set(GS_ENTRY.x, 0, GS_ENTRY.z);
+      state.facing = GS_ENTRY.face;
+      state.camYaw = Math.PI;
       state.vel.set(0,0,0);
       repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
