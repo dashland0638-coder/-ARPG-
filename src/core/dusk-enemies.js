@@ -110,14 +110,13 @@ export const ECHO_OPACITY = {operate: 0.46, walk: 0.2};   // 引いた残響は�
    ・重なる輪郭(veil): 口上の「いくつもの輪郭が重なって、人のかたちになる」をそのまま形にする、本体からずれて
      重なる淡い人影 2 枚。村の敵の薄布と同じ照らされるマットな布で、不透明度は村の薄布(0.36)以下。
      夜に沈みきらないよう、本体の胴以下の弱い自発光だけを足す(光源は足さない。色は配色の echoBoss.accent のまま)
-   ・袖の薄布(sleeve)・帽子の後ろの垂れ布(shawl)・足元の霧(mist)も同じ淡い薄布
+   ・袖の薄布(sleeve)・帽子の後ろの垂れ布(shawl)も同じ淡い薄布(足元の霧の筒は 002 で水の裾の薄れに置き換えた)
    ・顔は帽子のつばの下の影。目の光は今の色のまま小さくする(どこを向いているかの手がかりは残す)
    ・動き: 重なりは振りかぶりで本体へ集まり(= 一撃の予告)、叩き下ろした後の隙に散る。旋回では遅れてついてくる */
 export const ECHO_BOSS_LOOK = Object.freeze({
   veilOpacity: 0.34,    // 重なる輪郭(村の薄布 0.36 以下)
   sleeveOpacity: 0.3,   // 袖の薄布
   shawlOpacity: 0.32,   // 帽子の後ろの垂れ布
-  mistOpacity: 0.26,    // 足元の霧
   // 重なる輪郭 2 枚のずれ(上半身のローカル座標)と、揺れの位相
   layers: Object.freeze([
     Object.freeze({x: -0.36, z: -0.16, yaw: -0.2, phase: 0}),
@@ -130,8 +129,86 @@ export const ECHO_BOSS_LOOK = Object.freeze({
   floatAmp: 0.06,       // 上半身の浮き沈み
   twitchEvery: 4.3,     // 首がわずかに跳ねる間隔(秒)
   twitchAmp: 0.12,
-  veilEmissive: 0.1,    // 薄布の自発光(本体の胴 0.12 以下。夜に沈みきらない最小限。光源は足さない)
+  veilEmissive: 0.14,   // 薄布の自発光(胴の bodyEmissive 以下。夜に沈みきらない最小限。光源は足さない)
+  bodyEmissive: 0.5,    // 胴の自発光(色は配色の暗い水の色 = echoBoss.water。夜の光で胴が黒い塊に沈まない強さ。
+                        // 段階移行の +0.25 は既存の処理のまま 1 で頭打ち。汎用の処理が下げても、特殊行動の外ではこの値へ戻す)
 });
+/* 時間のずれ(BOSS-DUSK-VISUAL-002)。iPhone の確認で「ただの幽霊に見える」とされたので、
+   「複数の人の記憶が、別々の時間のまま一つの体に重なっている」を動きで見せる:
+   ・重なる人影はそれぞれ別の暮らしの姿勢(振り返って誰かを待つ / うつむいて手元の仕事)で、腕を持つ
+   ・人影の腕は本体の腕を遅れてなぞる(別の時間)。振りかぶりが満ちる直前に遅れが 0 になり、三つが一つに重なる
+     (= 一撃の予告)。叩き下ろした後はまた遅れて、残像のようにほどける
+   ・待機と移動の間、人影は滑らかに動かず、それぞれの間隔でとびとびに追いつく(止まった記憶が遅れて進む)
+   ・向きを変えると、人影はしばらく元の向きに残り、遅れて向き直る(本体・帽子・目は正しい向きのまま)
+   ・時々、体が水面へ沈みかけて戻る */
+export const ECHO_BOSS_TIME = Object.freeze({
+  // 人影ごとの暮らしの姿勢と時間のずれ。headYaw/headPitch = 頭の向き(rad)、armBase = 腕の構え(rad、- = 前)、
+  // delay = 本体の腕から遅れる秒数、step = とびとびに追いつく間隔(秒)、chase = 向き直る速さ(1/秒)
+  layers: Object.freeze([
+    Object.freeze({motif: 'wait', headYaw: 0.7,  headPitch: 0.05, armBase: -0.1, delay: 0.14, step: 0.16, chase: 3.0}),
+    Object.freeze({motif: 'work', headYaw: -0.1, headPitch: 0.55, armBase: -0.75, delay: 0.26, step: 0.23, chase: 1.8}),
+  ]),
+  convergeStart: 0.4,   // 振りかぶりの進み具合がここから遅れを縮め始め、
+  convergeEnd: 0.75,    // ここで遅れが 0 になる(当たる瞬間より前に三つが一つに重なり、最後の 25% は重なったまま見える)
+  turnHold: 0.7,        // 元の向きに残る最大の角度(rad)。これ以上は残らない(向きが分からなくならない)
+  sinkEvery: 7.1,       // 水面へ沈みかける間隔(秒)
+  sinkDur: 1.3,
+  sinkDepth: 0.3,
+  elbowBack: 0.55,      // 待機中、肘が人の関節では曲がらない向きへ少し反る
+  phase3Spread: 1.25,   // 段階 3 では重なりを広げ、中心の灯りを人影で隠さない
+  coreOpacity: 0.3,     // 段階 3 で胴が透け、中心の輪郭が見える
+  coreSkirtOpacity: 0.5, // 段階 3 の水の裾の濃さ(以前 0.86。裾の上端が中心の輪郭を覆わない)
+});
+// 人影の腕の遅れの倍率。振りかぶりの間に 1 → 0(三つが一つに重なる)。振りかぶっていない時は 1
+export function echoBossDelayScale(k){
+  if(k == null) return 1;
+  const T = ECHO_BOSS_TIME;
+  const u = clamp01((clamp01(k) - T.convergeStart) / (T.convergeEnd - T.convergeStart));
+  return 1 - u * u * (3 - 2 * u);
+}
+// 水面へ沈みかける深さ(0〜1)。sinkEvery ごとに sinkDur の間だけ
+export function echoBossSink(t){
+  const T = ECHO_BOSS_TIME;
+  const u = ((Number(t) || 0) % T.sinkEvery + T.sinkEvery) % T.sinkEvery;
+  return u < T.sinkDur ? Math.sin(Math.PI * u / T.sinkDur) : 0;
+}
+// とびとびの更新の時刻が来たか(last = 前に更新した時刻。時間が巻き戻ったら更新する)
+export function echoBossStepDue(t, last, step){
+  return last == null || t < last || t - last >= step;
+}
+
+/* 本体の腕の角度の履歴(人影の腕が遅れてなぞるため)。個体ごと(本体・分身)の store に固定長の配列で持ち、
+   毎フレーム何も作らない */
+export const ECHO_HIST_LEN = 48;
+export function echoHistPush(store, t, a){
+  if(!store.eHistT){ store.eHistT = new Float32Array(ECHO_HIST_LEN); store.eHistA = new Float32Array(ECHO_HIST_LEN); store.eHistI = 0; store.eHistN = 0; }
+  store.eHistT[store.eHistI] = t; store.eHistA[store.eHistI] = a;
+  store.eHistI = (store.eHistI + 1) % ECHO_HIST_LEN;
+  if(store.eHistN < ECHO_HIST_LEN) store.eHistN++;
+}
+// 時刻 t の時点の腕の角度(t 以前で最も新しい記録。足りなければいちばん古い記録。記録が無ければ 0)
+export function echoHistAt(store, t){
+  let i = store.eHistI || 0, v = 0;
+  for(let n=0;n<(store.eHistN || 0);n++){
+    i = (i - 1 + ECHO_HIST_LEN) % ECHO_HIST_LEN;
+    v = store.eHistA[i];
+    if(store.eHistT[i] <= t) return v;
+  }
+  return v;
+}
+/* 輪郭線・X 線の殻を外す(殻は元のメッシュの子。userData.isOutline / isXray)。
+   pick(mesh) が真のメッシュから、kinds('outline' / 'xray')の殻を外し、外した [親, 殻] の組を返す(戻すため) */
+export function echoDropShells(root, pick, kinds){
+  const want = kinds || ['outline', 'xray'];
+  const drop = [];
+  root.traverse(n=>{
+    if(!n.parent || !pick(n.parent)) return;
+    if((n.userData.isOutline && want.includes('outline')) || (n.userData.isXray && want.includes('xray'))) drop.push([n.parent, n]);
+  });
+  drop.forEach(([p, n])=> p.remove(n));
+  return drop;
+}
+
 /* 網の束の断面(LatheGeometry の [半径, 高さ])。手から垂れ下がり、下ほど膨らむ袋の形。
    点は下から上へ並べる ―― 上から下へ並べると面と法線が内向きになり、輪郭線の殻が網の手前を塗りつぶす */
 export const ECHO_BOSS_NET_PROFILE = Object.freeze([

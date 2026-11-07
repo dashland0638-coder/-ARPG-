@@ -1540,6 +1540,7 @@
       rewardLoot:{type:'gem', name:'水底に沈んだ木札', icon:'💎', color:0x8fc8d8}
     });
     en.baseColor = VILLAGE_PALETTE.echoBoss.main;
+    trimDuskEchoShells(en.group);   // 小さな部品の X 線の殻を外す(描画の負荷。分身はこの後に複製する)
     en.decoyKind = 'mirror';   // 水面に映るものを追う ―― 幻影歩法も通常どおり効く
     duskBossRef = en;
     return en;
@@ -2457,8 +2458,12 @@
      肩から門番の鎖、右手に鉤・左手に網の束。誰か一人の顔にはしない(顔は帽子のつばの下の影)。
      口上の「いくつもの輪郭が重なって、人のかたちになる」を、本体からずれて重なる淡い人影 2 枚で見せる
      (BOSS-DUSK-VISUAL-001。core/dusk-enemies.js ECHO_BOSS_LOOK)。
-     怪異は幽霊・人型の影として表す ―― 腐った体・骨・傷は使わず、薄布・霧・水面・影と、
-     傾いだ首・浮き沈み・重なりのずれ(姿勢と動きの不自然さ)で見せる。光源は足さない。
+     人影は別々の暮らしの姿勢(振り返って誰かを待つ / うつむいて手元の仕事)で腕を持ち、本体と別の時間で動く
+     (BOSS-DUSK-VISUAL-002。ECHO_BOSS_TIME)。
+     怪異は幽霊・人型の影として表す ―― 腐った体・骨・傷は使わず、薄布・水面・影と、
+     傾いだ首・時間のずれ・水へ戻りかける体(姿勢と動きの不自然さ)で見せる。光源は足さない。
+     描画の負荷(BOSS-DUSK-VISUAL-002): 鎖は 1 つのメッシュに溶接し、小さな部品(前掛け・鎖・顔・鉤・網)は
+     影を落とさず X 線の殻も付けない(trimDuskEchoShells)。目は輪郭線も付けない。分身はこの作りを複製する。
      部品には名前を付ける ―― ボスの分身(boss.group.clone)の中から同じ部品を拾い直して、
      分身にも同じ動きを付けるため(duskEchoPartsOf)
      --------------------------------------------------------- */
@@ -2467,26 +2472,30 @@
     const P = VILLAGE_PROPORTIONS.echoBoss;
     const F = VILLAGE_FINISH;
     const L = ECHO_BOSS_LOOK;
+    const T = ECHO_BOSS_TIME;
     const mat = (color, f, extra)=> new THREE.MeshStandardMaterial(Object.assign({color, roughness:f.roughness, metalness:f.metalness}, extra || {}));
-    // 胴の材質(被弾の白・段階移行の発光が書き換える。色 = en.baseColor)
-    const bodyMat = mat(pal.main, F.cloth, {emissive:pal.shade, emissiveIntensity:0.12});
+    /* 胴の材質(被弾の白・段階移行の発光が書き換える。色 = en.baseColor)。自発光の色は配色の暗い水の色で、
+       夜の青い光の下でも胴が真っ黒な塊に沈まず、濡れた影のように見える。段階移行で自発光が強まっても
+       (既存の処理。段階ごとに +0.25、1 で頭打ち)冷たく暗い色のままで、段階 3 の中心の灯りを白く塗りつぶさない */
+    const bodyMat = mat(pal.main, F.cloth, {emissive:pal.water, emissiveIntensity:L.bodyEmissive});
     const accent = mat(pal.accent, F.cloth);
     const shade = mat(pal.shade, F.cloth);
     const hatMat = mat(pal.hat, F.cloth);
     const chainMat = mat(pal.chain, F.iron);
     const faceMat = mat(pal.face, F.water);
-    const waterMat = mat(pal.water, F.water, {transparent:true, opacity:0.86});
+    // 水の裾は下ほど薄くなり、水面へ溶ける(以前の足元の霧の筒は、この裾の薄れで置き換えた)
+    const waterMat = mat(pal.water, F.water, {transparent:true, opacity:0.86, vertexColors:true});
     const rippleMat = new THREE.MeshBasicMaterial({color:VILLAGE_PALETTE.mirror.accent, transparent:true, opacity:0.22,
                                                   side:THREE.DoubleSide, depthWrite:false});
-    /* 淡い薄布(重なる輪郭・袖・垂れ布・足元の霧)。村の敵の薄布と同じく照らされるマットな布で、光らせない。
-       夜の村で黒に沈みきらないよう、本体の胴(0.12)以下の弱い自発光だけを足す。色は配色の差し色のまま。
-       閉じた形(重なる輪郭の胴と頭)は表だけを描く(塗る量を増やさない)。開いた布(袖・垂れ布・霧)は両面 */
+    /* 淡い薄布(重なる輪郭・袖・垂れ布)。村の敵の薄布と同じく照らされるマットな布で、光らせない。
+       夜の村で黒に沈みきらないよう、胴以下の弱い自発光だけを足す。色は配色の差し色のまま。
+       閉じた形(重なる輪郭)は表だけを描く(塗る量を増やさない)。開いた布(袖・垂れ布)は両面 */
     const veil = (opacity, side)=> new THREE.MeshStandardMaterial({color:pal.accent, roughness:F.cloth.roughness, metalness:F.cloth.metalness,
                                                           emissive:pal.accent, emissiveIntensity:L.veilEmissive,
                                                           transparent:true, opacity, vertexColors:true,
                                                           side:side || THREE.DoubleSide, depthWrite:false});
-    /* 薄布の濃さを高さで変える(頂点の不透明度)。上 aTop → 下 aBot。縁が硬い筒や板に見えないよう、
-       霧は上へ、袖と垂れ布は下へ、重なる輪郭は水の裾へ向かって消えていく */
+    /* 濃さを高さで変える(頂点の不透明度)。上 aTop → 下 aBot。縁が硬い筒や板に見えないよう、
+       袖と垂れ布は下へ、重なる輪郭と水の裾は水面へ向かって消えていく */
     const fadeY = (geo, yBot, yTop, aBot, aTop)=>{
       const pos = geo.attributes.position, n = pos.count, c = new Float32Array(n * 4);
       for(let i=0;i<n;i++){
@@ -2497,7 +2506,15 @@
       geo.setAttribute('color', new THREE.BufferAttribute(c, 4));
       return geo;
     };
-    const veilMat = veil(L.veilOpacity, THREE.FrontSide), sleeveMat = veil(L.sleeveOpacity), shawlMat = veil(L.shawlOpacity), mistMat = veil(L.mistOpacity);
+    // 部品の形を姿勢ごと焼き込んで 1 つに溶接する(描画の回数を減らす。02-world-common.js の weldGeometries)
+    const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
+    const baked = (geo, x, y, z, rx, ry, rz, sx, sy, sz)=>{
+      _e.set(rx || 0, ry || 0, rz || 0); _q.setFromEuler(_e);
+      _m.compose(_p.set(x || 0, y || 0, z || 0), _q, _s.set(sx || 1, sy || 1, sz || 1));
+      return geo.clone().applyMatrix4(_m);
+    };
+    const weld = parts=>{ const out = weldGeometries(parts); parts.forEach(p=> p.dispose()); return out; };
+    const veilMat = veil(L.veilOpacity, THREE.FrontSide), sleeveMat = veil(L.sleeveOpacity), shawlMat = veil(L.shawlOpacity);
     const named = (m, name)=>{ m.name = name; return m; };
     const add = (parent, geo, material, x, y, z, name)=>{
       const m = new THREE.Mesh(geo, material);
@@ -2506,6 +2523,8 @@
       parent.add(m);
       return m;
     };
+    // 小さな部品: 影を落とさず、X 線の殻も付けない(輪郭線は残す)。trimDuskEchoShells が殻を外す
+    const minor = m=>{ m.castShadow = false; m.userData.echoNoXray = true; return m; };
     // 薄布は影を落とさず、輪郭線も付けない
     const addVeil = (parent, geo, material, x, y, z, name)=>{
       const m = add(parent, geo, material, x, y, z, name);
@@ -2513,20 +2532,17 @@
       return m;
     };
     const W = 1.6;   // 水の裾が胴へつながる高さ
-    // 水の裾(足元から腰へ細くなる)と、足元の水の輪
-    add(g, makeLoft({sections:[
+    // 水の裾(足元から腰へ細くなる。下ほど薄れて水面へ溶ける)と、足元の水の輪
+    add(g, fadeY(makeLoft({sections:[
       {y:W + 0.1, points:vEllipse(0.62, 0.5, 10)},
       {y:1.0,     points:vEllipse(0.95, 0.8, 10)},
       {y:0.45,    points:vEllipse(1.35, 1.15, 10)},
       {y:0.04,    points:vEllipse(1.7, 1.5, 10)},
-    ]}), waterMat, 0, 0, 0, 'echoSkirt');
+    ]}), 0.04, 1.0, 0.35, 1), waterMat, 0, 0, 0, 'echoSkirt').userData.noOutline = true;   // 透ける裾に殻を付けると、奥の殻がクリーム色に透けた
     const ripple = add(g, new THREE.RingGeometry(1.75, 2.15, 24), rippleMat, 0, 0.05, 0, 'echoRipple');
     ripple.rotation.x = -Math.PI / 2;
     ripple.castShadow = false;
     ripple.userData.noOutline = true;
-    // 足元の霧: 水の裾のまわりに薄く立ちのぼる
-    // (水の裾の縁 1.7 にほぼ沿わせ、低く。広く高い筒は、縁の硬い笠に見えた)
-    addVeil(g, fadeY(new THREE.CylinderGeometry(1.6, 1.85, 0.7, 18, 3, true), -0.35, 0.35, 1, 0), mistMat, 0, 0.32, 0, 'echoMist');
     // 上半身
     const up = named(new THREE.Group(), 'echoUpper');
     up.position.y = W;
@@ -2544,26 +2560,29 @@
     ]});
     const body = add(up, torsoGeo, bodyMat, 0, 0, 0, 'echoTorso');
     // 前掛け(家と商いの記憶)
-    add(up, new THREE.BoxGeometry(0.82, 1.0, 0.05), accent, 0, 0.42, 0.4);
-    // 肩から腰へ斜めの鎖(門番の記憶)。輪を縦長にして、鎖の輪に見えるようにする
+    minor(add(up, new THREE.BoxGeometry(0.82, 1.0, 0.05), accent, 0, 0.42, 0.4, 'echoApron'));
+    // 肩から腰へ斜めの鎖(門番の記憶)。縦長の輪 7 つを 1 つのメッシュに溶接する
     const link = new THREE.TorusGeometry(0.12, 0.035, 6, 12);
+    const links = [];
     for(let i=0;i<7;i++){
       const k = i / 6;
-      const m = add(up, link, chainMat, -0.6 + 1.2 * k, 1.32 - 1.16 * k, 0.44 + 0.04 * Math.sin(k * Math.PI));
-      m.scale.set(1, 1.5, 1);
-      m.rotation.set(0, i % 2 ? Math.PI / 2 : 0, 0.8);
+      links.push(baked(link, -0.6 + 1.2 * k, 1.32 - 1.16 * k, 0.44 + 0.04 * Math.sin(k * Math.PI), 0, i % 2 ? Math.PI / 2 : 0, 0.8, 1, 1.5, 1));
     }
+    link.dispose();
+    minor(add(up, weld(links), chainMat, 0, 0, 0, 'echoChain'));
     /* 頭: 首の付け根の pivot ごと傾ける(傾いだ首)。顔は帽子のつばの下の暗い影で、目の光は小さく奥に */
     const head = named(new THREE.Group(), 'echoHead');
     head.position.set(0, 1.4, 0.05);
     head.rotation.set(0.12, 0, L.headTilt);
     up.add(head);
-    add(head, new THREE.IcosahedronGeometry(0.46, 1), bodyMat, 0, 0.4, 0);
-    const face = add(head, new THREE.SphereGeometry(0.36, 12, 8), faceMat, 0, 0.34, 0.3);
+    const headGeo = new THREE.IcosahedronGeometry(0.46, 1);
+    add(head, headGeo, bodyMat, 0, 0.4, 0);
+    const face = minor(add(head, new THREE.SphereGeometry(0.36, 12, 8), faceMat, 0, 0.34, 0.3));
     face.scale.set(1, 1.05, 0.55);
     [-0.14, 0.14].forEach(x=>{
       const e = add(head, eyeGeo, eyeMat, x, 0.4, 0.5);
       e.scale.setScalar(L.eyeScale); e.castShadow = false;
+      e.userData.noOutline = true;   // 小さな光の点に輪郭線の殻は要らない
     });
     // 漁師のつばの広い帽子(漁師の記憶)。つばは深く、顔を影に沈める
     // つばは影の色(帽子の色のつばは、夜の青い光の下で裏が緑に浮いた)
@@ -2574,17 +2593,33 @@
     const shawl = addVeil(head, (()=>{ const p = new THREE.PlaneGeometry(1.3, 1.9, 1, 4); p.translate(0, -0.95, 0); return fadeY(p, -1.9, 0, 0, 1); })(),
                           shawlMat, 0, 0.7, -0.6, 'echoShawl');
     shawl.rotation.x = 0.12;
-    /* 重なる輪郭(別の時間の誰か): 胴と頭だけの淡い人影 2 枚。下は水の裾へ消える。ずれと揺れは姿勢が付ける
-       (帽子のつばは重ねない ―― 淡い円盤が皿や光の輪に見えた) */
-    const layerTorsoGeo = fadeY(torsoGeo.clone(), -0.1, 0.95, 0, 1);
-    const headGeo = fadeY(new THREE.IcosahedronGeometry(0.46, 1), -1, 1, 1, 1);
+    /* 重なる輪郭(別の時間の誰か): 胴と頭を 1 つに溶接した淡い人影と、両腕を 1 つに溶接した腕(肩の高さで回る)。
+       頭の向きは人影ごとの暮らしの姿勢を焼き込む(振り返って誰かを待つ / うつむいて手元の仕事)。
+       下は水の裾へ、手先は薄れて消える。帽子のつばは重ねない(淡い円盤が皿や光の輪に見えた) */
+    const upperGeo = new THREE.CylinderGeometry(0.19, 0.133, 1.0, 8); upperGeo.translate(0, -0.5, 0);
+    const foreGeo = new THREE.CylinderGeometry(0.14, 0.098, 1.0, 8); foreGeo.translate(0, -0.5, 0);
+    const armsParts = [];
+    [-1, 1].forEach(sg=>{
+      armsParts.push(baked(upperGeo, sg * (sw + 0.1), 0, 0));
+      const f = foreGeo.clone(); f.rotateX(-0.3); f.translate(sg * (sw + 0.1), -1.0, 0); armsParts.push(f);
+    });
+    const layerArmsGeo = fadeY(weld(armsParts), -2.0, -0.2, 0.15, 1);
+    upperGeo.dispose(); foreGeo.dispose();
     L.layers.forEach((o, i)=>{
+      const tm = T.layers[i];
       const layer = named(new THREE.Group(), i === 0 ? 'echoGhost' : 'echoGhost2');
       layer.position.set(o.x, 0, o.z);
       layer.rotation.y = o.yaw;
       layer.scale.setScalar(1.03);
-      addVeil(layer, layerTorsoGeo, veilMat, 0, 0, 0);
-      addVeil(layer, headGeo, veilMat, 0, 1.8, 0.05);
+      // 頭は首の付け根(0, 1.4, 0.05)を中心に、その人影の向きへ
+      const h = headGeo.clone(); h.translate(0, 0.4, 0);
+      _e.set(tm.headPitch, tm.headYaw, 0); h.applyMatrix4(_m.makeRotationFromEuler(_e)); h.translate(0, 1.4, 0.05);
+      addVeil(layer, fadeY(weld([torsoGeo.clone(), h]), -0.1, 0.95, 0, 1), veilMat, 0, 0, 0);
+      const arms = named(new THREE.Group(), i === 0 ? 'echoGhostArms' : 'echoGhostArms2');
+      arms.position.y = 1.26;
+      arms.rotation.x = tm.armBase;
+      addVeil(arms, layerArmsGeo, veilMat, 0, 0, 0);
+      layer.add(arms);
       up.add(layer);
     });
     // 長い腕(振りかぶり → 叩き下ろす)。右手に鉤、左手に網の束。腕から袖の薄布が垂れる
@@ -2606,76 +2641,152 @@
     sleeveGeo.translate(0, -0.7, 0);
     fadeY(sleeveGeo, -1.35, -0.05, 0, 1);
     [armL, armR].forEach(a=> addVeil(a, sleeveGeo, sleeveMat, 0, 0, 0));
-    const hook = add(foreR, new THREE.TorusGeometry(0.3, 0.06, 6, 12, Math.PI * 1.3), chainMat, 0, -1.25, 0.1);
+    const hook = minor(add(foreR, new THREE.TorusGeometry(0.3, 0.06, 6, 12, Math.PI * 1.3), chainMat, 0, -1.25, 0.1));
     hook.rotation.set(0, Math.PI / 2, Math.PI * 0.35);
     // 網の束: 手から垂れ下がる、下ほど膨らんだ袋の形(以前の多面体の塊は鈍器に見えた)
     const netGeo = new THREE.LatheGeometry(ECHO_BOSS_NET_PROFILE.map(([r, y])=> new THREE.Vector2(r, y)), 9);
-    const net = add(foreL, netGeo, hatMat, 0, -1.0, 0);
+    const net = minor(add(foreL, netGeo, hatMat, 0, -1.0, 0));
     net.rotation.z = 0.1; net.scale.setScalar(0.85);
     armL.rotation.z = -0.12; armR.rotation.z = 0.12;
     return {body, parts:Object.assign({kind:'echo'}, duskEchoPartsOf(g))};
   }
+  /* 小さな部品の X 線の殻を外す(buildBoss が addXrayShell を全部品に付けた後に呼ぶ)。X 線の殻は壁の向こうの
+     輪郭を描くためのもので、胴・頭・帽子・腕の輪郭で足りる。分身はこの後に複製するので、分身にも効く */
+  function trimDuskEchoShells(root){
+    return echoDropShells(root, m=> !!m.userData.echoNoXray, ['xray']).length;
+  }
   function duskEchoPartsOf(root){
     const f = n => root.getObjectByName(n) || null;
     return {upper:f('echoUpper'), armL:f('echoArmL'), armR:f('echoArmR'), foreL:f('echoForeL'), foreR:f('echoForeR'),
-            ghost:f('echoGhost'), ghost2:f('echoGhost2'), skirt:f('echoSkirt'), ripple:f('echoRipple'), head:f('echoHead'),
-            shawl:f('echoShawl'), mist:f('echoMist')};
+            ghost:f('echoGhost'), ghost2:f('echoGhost2'), ghostArms:f('echoGhostArms'), ghostArms2:f('echoGhostArms2'),
+            skirt:f('echoSkirt'), ripple:f('echoRipple'), head:f('echoHead'), shawl:f('echoShawl'),
+            torso:f('echoTorso'), apron:f('echoApron')};
   }
+  const _wrapAngle = a=> Math.atan2(Math.sin(a), Math.cos(a));
   /* 本体と分身で共有する姿勢。k = 振りかぶりの進み具合(null = 振りかぶっていない)、
-     slam = 叩き下ろした直後の残り(1 → 0)。腕の振りかぶり・叩き下ろし・上体の反りは以前のまま。
-     足したのは、重なりのずれ(振りかぶりで集まり、叩き下ろした後に散る)・旋回の遅れ・傾いだ首・浮き沈み */
-  function poseDuskEchoBody(P, t, dt, k, slam, store){
-    const L = ECHO_BOSS_LOOK;
+     slam = 叩き下ろした直後の残り(1 → 0)、phase = ボスの段階(分身は複製元の段階)。
+     腕の振りかぶり・叩き下ろし・上体の反りは以前のまま。重なる人影は別の時間で動く(ECHO_BOSS_TIME) */
+  function poseDuskEchoBody(P, t, dt, k, slam, store, phase){
+    const L = ECHO_BOSS_LOOK, T = ECHO_BOSS_TIME;
     const kk = k == null ? 0 : k;
     const s = Math.max(0, Math.min(1, slam || 0));
-    const rate = k != null || s > 0 ? 18 : 4;
+    const active = k != null || s > 0;   // 振りかぶり・叩き下ろしの間は、とびとびにせず毎フレーム動かす(予告を読みやすく)
+    const rate = active ? 18 : 4;
     const idleL = Math.sin(t * 0.9) * 0.08, idleR = Math.sin(t * 0.9 + 1.4) * 0.08;
     const target = k != null ? -2.5 * _vEase(kk) : (s > 0 ? -0.55 * s : 0);
     const a = vLerp(store, 'eArm', target, rate, dt);
-    if(P.armL) P.armL.rotation.set(a + (k == null && s <= 0 ? idleL : 0), 0, -0.12 - 0.3 * kk);
-    if(P.armR) P.armR.rotation.set(a + (k == null && s <= 0 ? idleR : 0), 0, 0.12 + 0.3 * kk);
-    if(P.foreL) P.foreL.rotation.x = -0.3 - 0.4 * kk;
-    if(P.foreR) P.foreR.rotation.x = -0.3 - 0.4 * kk;
+    if(dt > 0) echoHistPush(store, t, a);
+    if(P.armL) P.armL.rotation.set(a + (active ? 0 : idleL), 0, -0.12 - 0.3 * kk);
+    if(P.armR) P.armR.rotation.set(a + (active ? 0 : idleR), 0, 0.12 + 0.3 * kk);
+    // 待機中、肘が時々人の関節では曲がらない向きへ反る
+    const elbow = vLerp(store, 'eElbow', active ? 0 : T.elbowBack * Math.max(0, Math.sin(t * 0.47)), 6, dt);
+    if(P.foreL) P.foreL.rotation.x = -0.3 - 0.4 * kk + elbow;
+    if(P.foreR) P.foreR.rotation.x = -0.3 - 0.4 * kk + elbow * 0.6;
+    // 水面へ沈みかけて戻る(振りかぶり・叩き下ろしの間はしない)
+    const sink = vLerp(store, 'eSink', active ? 0 : echoBossSink(t), 6, dt);
     if(P.upper){
       P.upper.rotation.x = vLerp(store, 'eLean', -0.22 * kk + 0.26 * s + Math.sin(t * 0.8) * 0.03, rate, dt);
-      // 足の無い体の浮き沈み(人の歩みではない)
-      P.upper.position.y = (P.upper.userData.baseY || 0) + Math.sin(t * 0.9) * L.floatAmp;
+      // 足の無い体の浮き沈み。周期の違う 2 つの揺れを重ねて、単調にしない
+      P.upper.position.y = (P.upper.userData.baseY || 0) + Math.sin(t * 0.9) * L.floatAmp
+                         + Math.sin(t * 2.3 + 1.1) * L.floatAmp * 0.55 - sink * T.sinkDepth;
     }
-    // 旋回の遅れ: 体が向きを変えると、重なりと垂れ布が少し遅れてついてくる
-    let lag = 0;
+    // 旋回: 本体の向きの変わり方。垂れ布と水の裾(体の下側)は遅れてついてくる
+    let lag = 0, yaw = 0;
     const root = P.upper && P.upper.parent;
-    if(root && dt > 0){
-      const yaw = root.rotation.y;
-      const prev = store.eYaw != null ? store.eYaw : yaw;
-      let dy = yaw - prev;
-      dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-      store.eYaw = yaw;
-      lag = vLerp(store, 'eLag', Math.max(-0.5, Math.min(0.5, -dy / dt * 0.12)), 5, dt);
+    if(root){
+      yaw = root.rotation.y;
+      if(dt > 0){
+        const prev = store.eYaw != null ? store.eYaw : yaw;
+        store.eYaw = yaw;
+        lag = vLerp(store, 'eLag', Math.max(-0.5, Math.min(0.5, -_wrapAngle(yaw - prev) / dt * 0.12)), 5, dt);
+      } else lag = store.eLag || 0;
     }
-    // 重なる輪郭: 振りかぶりで本体へ集まり(一撃の予告)、叩き下ろした直後に散る
-    const spread = vLerp(store, 'eSpread', echoBossLayerSpread(k, s), rate, dt);
-    [P.ghost, P.ghost2].forEach((layer, i)=>{
-      if(!layer) return;
-      const o = L.layers[i];
-      layer.position.x = (o.x + Math.sin(t * 0.7 + o.phase) * 0.1) * spread;
-      layer.position.z = o.z * spread;
-      layer.position.y = Math.sin(t * 0.9 + o.phase + 1.2) * L.floatAmp;
-      layer.rotation.y = (o.yaw + Math.sin(t * 0.5 + o.phase) * 0.12) * spread + lag * (i ? 1.3 : 0.8);
-    });
+    /* 重なる人影: 位置のずれは振りかぶりで集まり、叩き下ろした直後に散る。腕は本体の腕を遅れてなぞり、
+       振りかぶりが満ちる直前に遅れが 0 になる。待機・移動の間はとびとびに追いつき、向きを変えると元の向きに残る */
+    const spread = vLerp(store, 'eSpread', echoBossLayerSpread(k, s), rate, dt) * ((phase || 1) >= 3 ? T.phase3Spread : 1);
+    const delayK = echoBossDelayScale(k);
+    for(let i=0;i<2;i++){
+      const layer = i ? P.ghost2 : P.ghost;
+      if(!layer) continue;
+      const o = L.layers[i], tm = T.layers[i];
+      const stepKey = i ? 'eStep2' : 'eStep1', yawKey = i ? 'eHeld2' : 'eHeld1', baseKey = i ? 'eBase2' : 'eBase1';
+      const last = store[stepKey];
+      if(active || echoBossStepDue(t, last, tm.step)){
+        // とびとびの更新(振りかぶり・叩き下ろしの間は毎フレーム)。止まっている間は前の姿勢のまま
+        const span = active || last == null ? dt : Math.min(0.5, t - last);
+        store[stepKey] = t;
+        const held = store[yawKey] != null ? store[yawKey] : yaw;
+        store[yawKey] = held + _wrapAngle(yaw - held) * Math.min(1, tm.chase * span);   // 人影ごとの速さで向き直る
+        store[baseKey] = (o.yaw + Math.sin(t * 0.5 + o.phase) * 0.12) * spread;
+        layer.position.x = (o.x + Math.sin(t * 0.7 + o.phase) * 0.1) * spread;
+        layer.position.z = o.z * spread;
+        layer.position.y = Math.sin(t * 0.9 + o.phase + 1.2) * L.floatAmp - sink * T.sinkDepth * (i ? 0.7 : 0);
+        const arms = i ? P.ghostArms2 : P.ghostArms;
+        if(arms && store.eHistN) arms.rotation.x = tm.armBase * (1 - kk) + echoHistAt(store, t - tm.delay * delayK);
+      }
+      /* 向きは毎フレーム、世界に対して固定する: 本体が回っても人影は元の向きに残り(turnHold まで)、
+         更新のたびに少しずつ向き直る。振りかぶりが満ちる前に向きのずれも 0 になる */
+      if(store[yawKey] != null) layer.rotation.y = (store[baseKey] || 0)
+        + Math.max(-T.turnHold, Math.min(T.turnHold, _wrapAngle(store[yawKey] - yaw))) * delayK;
+    }
     // 傾いだ首: 片側へ傾いだまま、時々わずかに跳ねる。振りかぶりでは顔を上げ、叩き下ろした後はうなだれる
     if(P.head){
       P.head.rotation.z = L.headTilt + Math.sin(t * 0.37) * 0.04 + echoBossHeadTwitch(t);
       P.head.rotation.x = vLerp(store, 'eHead', 0.12 - 0.25 * kk + 0.3 * s, rate, dt);
     }
     if(P.shawl) P.shawl.rotation.set(0.12 + 0.5 * kk + Math.sin(t * 1.1) * 0.06, lag * 0.6, Math.sin(t * 0.8) * 0.05);
-    if(P.mist){ P.mist.rotation.y = t * 0.15; const m = 1 + Math.sin(t * 0.6) * 0.04 + 0.08 * s; P.mist.scale.set(m, 1 + 0.15 * kk, m); }
-    if(P.skirt){ const w = 1 + Math.sin(t * 1.3) * 0.035; P.skirt.scale.set(w, 1, 2 - w); }
+    if(P.skirt){
+      const w = 1 + Math.sin(t * 1.3) * 0.035;
+      P.skirt.scale.set(w, 1 - sink * 0.12, 2 - w);
+      P.skirt.rotation.y = lag * 0.35;   // 体の下側は上側より遅れて向きを変える
+    }
     if(P.ripple){ P.ripple.rotation.z = t * 0.2; P.ripple.scale.setScalar(1 + ((t * 0.35) % 1) * 0.25); }
+  }
+  /* 段階 3: 胴が透けて、既存の段階移行の演出(06-player-enemy.js の記憶の灯りと中心の輪郭)が胴に埋もれずに見える。
+     演出そのもの(位置・形・色)は作り直さない。中心の輪郭は腰の高さ(水の裾の上端と胴の下側)にあるので:
+       ・胴の材質(頭と上腕も共有)と前掛けを透かし、それらの輪郭線の殻(不透明のクリーム色)を外す
+         ―― 殻を残すと、透けた面の奥で殻がクリーム色の壁・柱に見えた
+       ・水の裾を薄くし、奥行きを書かない(裾の上端が中心の輪郭の下半分を覆っていた)
+     体の外形は、帽子・顔・前腕・鎖の輪郭線と重なる人影で読める。材質は分身と共有なので、分身も同じく透ける。
+     いま出ている分身の殻も同じく外す(段階 3 の後に作る分身は、殻を外した本体の複製になる)。
+     撤退などで段階 1 に戻ったら元に戻す(duskEchoCloseCore) */
+  function duskEchoCoreMeshes(en){
+    const P = en.parts || {}, mats = [P.torso, P.apron].filter(Boolean).map(m=> m.material);
+    return {P, mats, pick: m=> m.isMesh && !m.userData.isOutline && !m.userData.isXray && mats.includes(m.material)};
+  }
+  function duskEchoOpenCore(en){
+    en.echoCoreOpen = true;
+    const {P, mats, pick} = duskEchoCoreMeshes(en), T = ECHO_BOSS_TIME;
+    const roots = [en.group].concat(enemies.filter(e=> e.mirrorCloneOf === en && e.group).map(e=> e.group));
+    en.echoCoreShells = [];
+    roots.forEach(r=>{ en.echoCoreShells.push(...echoDropShells(r, pick, ['outline'])); });
+    en.echoCoreSaved = mats.concat(P.skirt ? [P.skirt.material] : []).map(m=> [m, m.opacity, m.transparent, m.depthWrite]);
+    const thin = (m, opacity)=>{
+      m.transparent = true; m.opacity = opacity; m.depthWrite = false; m.needsUpdate = true;
+    };
+    mats.forEach(m=> thin(m, T.coreOpacity));
+    if(P.skirt) thin(P.skirt.material, T.coreSkirtOpacity);
+  }
+  function duskEchoCloseCore(en){
+    en.echoCoreOpen = false;
+    (en.echoCoreSaved || []).forEach(([m, op, tr, dw])=>{ m.opacity = op; m.transparent = tr; m.depthWrite = dw; m.needsUpdate = true; });
+    (en.echoCoreShells || []).forEach(([p, n])=>{ if(p.parent || p === en.group) p.add(n); });
+    en.echoCoreSaved = null; en.echoCoreShells = null;
   }
   // ボス本体(updateBossAnim から)。振りかぶり = 近接の輪と同じ進み具合
   function poseDuskEchoBoss(en, P, t, dt, k){
+    const phase = en.phase || 1;
+    if(phase >= 3 && !en.echoCoreOpen) duskEchoOpenCore(en);
+    // 撤退・やり直しで段階が戻った(12-progression-ui.js が phase = 1 に戻す): 透けた胴を戻す
+    if(en.echoLastPhase != null && phase < en.echoLastPhase && en.echoCoreOpen && phase < 3) duskEchoCloseCore(en);
+    en.echoLastPhase = phase;
+    /* 胴の自発光はこの体の既定(bodyEmissive)を下回らないようにする。汎用の処理が 0.22〜0.25 へ戻す所
+       (突進の後・撤退・やり直し)があり、そのままだと夜の胴が黒い塊に戻るため。特殊行動の間は触らない
+       (突進の溜めの発光はその処理のまま)。段階移行の強まり(+0.25)はこの上に積まれる */
+    const bm = en.body && en.body.material;
+    if(bm && !en.special && bm.emissiveIntensity < ECHO_BOSS_LOOK.bodyEmissive) bm.emissiveIntensity = ECHO_BOSS_LOOK.bodyEmissive;
     const slam = (en.postAtkRecoveryT || 0) > 0 && k == null ? en.postAtkRecoveryT / POST_ATTACK_RECOVERY_SEC : 0;
-    poseDuskEchoBody(P, t, dt, en.knockedDown ? null : k, en.knockedDown ? 0 : slam, en);
+    poseDuskEchoBody(P, t, dt, en.knockedDown ? null : k, en.knockedDown ? 0 : slam, en, en.phase);
   }
   // ボスの分身(updateMobAnim から)。分身は水鏡の影と同じ AI なので、その溜めと一撃を読む
   function poseDuskEchoClone(en, dt){
@@ -2683,7 +2794,7 @@
     let k = null, slam = 0;
     if(en.mirrorState === 'windup') k = 1 - Math.max(0, en.mirrorT) / Math.max(0.01, en.mirrorWindupDur || 0.01);
     else if(en.mirrorState === 'strike') slam = Math.max(0, en.mirrorT) / MIRROR_STRIKE_SEC;
-    poseDuskEchoBody(en.echoParts, en.animT, dt, k, slam, en);
+    poseDuskEchoBody(en.echoParts, en.animT, dt, k, slam, en, en.mirrorCloneOf ? en.mirrorCloneOf.phase : 1);
   }
 
   /* 波紋。プレイヤーが水際を歩いた時と、小舟に近づいた時に出る。

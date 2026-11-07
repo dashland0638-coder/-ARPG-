@@ -151,6 +151,7 @@ import {
   mirrorRingProgress, foamRingVisible, bossMeleeRingProgress,
   mirrorPose, keeperPose, echoPose, copyMimicProgress,
   BOSS_CLONE_TELL, bossCloneHitRadius, ECHO_BOSS_LOOK, ECHO_BOSS_NET_PROFILE, echoBossLayerSpread, echoBossHeadTwitch,
+  ECHO_BOSS_TIME, echoBossDelayScale, echoBossSink, echoBossStepDue, echoHistPush, echoHistAt, echoDropShells,
 } from '../core/dusk-enemies.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
