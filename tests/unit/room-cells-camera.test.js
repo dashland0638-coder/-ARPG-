@@ -97,6 +97,8 @@ test('部屋の境の上(どの部屋にも入っていない一瞬)は、直前
   h.state.pos = { x:3.2, z:-68 }; h.api.update();   // 廊下の壁の上(どの部屋の外)
   assert.notEqual(h.layers.get('foyer'), false);
   assert.notEqual(h.layers.get('cor'), false);
+  h.state.pos = { x:0, z:-20 }; h.api.update();      // 前庭へ離れた
+  assert.equal(h.layers.get('foyer'), false, '部屋から離れたら、前の部屋は描かない');
 });
 
 test('洋館: 境の壁は両側の部屋の区画。外観・下地・異常空間は常に描く(区画にしない)', () => {
@@ -183,7 +185,12 @@ test('洋館: 室内の扉は 8 枚(部屋と部屋の繋がり)。近づくと�
   doors.forEach(([a, b]) => assert.ok(api.opening(R(a), R(b)), `${a}-${b} に開口がある`));
   assert.match(fn(manor, 'function mansionInnerDoor(key, a, b){'), /d\.autoOpen = true;/);
   const upd = fn(world, 'function updateDoors(dt){');
-  assert.match(upd, /if\(d\.autoOpen && dist < 1\.7\)\{ swingOpen\(d, true\); sfx\('door'\); return; \}/);
+  assert.match(upd, /if\(d\.autoOpen && doorBoxDist\(d\) < 0\.9\)\{ swingOpen\(d, true\); sfx\('door'\); return; \}/);
+  // 扉の端(中心から横へ 2.5)に体を当てても開く: 当たりの箱(幅 6・厚み ±0.4)まで 0.4(体の半径)
+  const boxDist = new Function('state', fn(world, 'function doorBoxDist(d){') + '\nreturn doorBoxDist;');
+  const door = { entry:{ minX:-17.4, maxX:-16.6, minZ:-60, maxZ:-54 } };
+  assert.ok(boxDist({ pos:{ x:-16.6 + 0.4, z:-57 + 2.5 } })(door) < 0.9, '扉の端で開く');
+  assert.ok(boxDist({ pos:{ x:-14, z:-57 } })(door) > 0.9, '離れていれば開かない');
   assert.doesNotMatch(fn(world, 'function swingOpen(door, animate){'), /closeDoor/);
   assert.doesNotMatch(manor.slice(manor.indexOf("buildDoor('manorFront'"), manor.indexOf("buildDoor('manorFront'") + 80), /autoOpen/);
 });

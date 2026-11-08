@@ -1854,6 +1854,11 @@
 
   function closeAllDoors(){ doors.forEach(resetDoorState); }
 
+  // 扉の当たりの箱までの距離(扉の端に体を当てても開くように。中心からの距離では幅 6 の扉の端が開かなかった)
+  function doorBoxDist(d){
+    const e = d.entry, x = state.pos.x, z = state.pos.z;
+    return Math.hypot(Math.max(e.minX - x, 0, x - e.maxX), Math.max(e.minZ - z, 0, z - e.maxZ));
+  }
   function updateDoors(dt){
     updateSealedRooms();
     doors.forEach(d=>{
@@ -1870,7 +1875,7 @@
         const dist = state.pos.distanceTo(d.pos);
         /* 室内の扉(autoOpen)は、近づくと体で押して開ける。一度開けたら閉じない(CAMERA-001)。
            調べる操作に頼らないので、同行する人物・支援・敵の通り道も塞がない */
-        if(d.autoOpen && dist < 1.7){ swingOpen(d, true); sfx('door'); return; }
+        if(d.autoOpen && doorBoxDist(d) < 0.9){ swingOpen(d, true); sfx('door'); return; }
         if(!d.autoOpen && dist < d.triggerRadius) nearby = d;
       }
     });
@@ -2420,7 +2425,8 @@
         if(op) neighbors[a.id].push({id:b.id, x:op.x, z:op.z});
       });
     });
-    roomCells = {worldKey, rooms, cells:[...byKey.values()], neighbors, vis:new Set(), shotRoom:null, shotLinger:0, lastId:null};
+    const byId = {}; rooms.forEach(q=>{ byId[q.id] = q; });
+    roomCells = {worldKey, rooms, byId, cells:[...byKey.values()], neighbors, vis:new Set(), shotRoom:null, shotLinger:0, lastId:null};
   }
   function rcRoomAt(rooms, x, z){
     for(let i=0;i<rooms.length;i++){ const r = rooms[i]; if(x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return r; }
@@ -2443,7 +2449,12 @@
        プレイヤーがどの部屋にいるかだけで決める(カメラの位置は使わない)。境の上は直前の部屋 */
     const here = rcRoomAt(rc.rooms, x, z);
     if(here) rc.lastId = here.id;
-    const r = here || (rc.lastId ? rc.rooms.find(q=> q.id === rc.lastId) : null);
+    let r = here || (rc.lastId ? rc.byId[rc.lastId] : null);
+    if(!here && r){
+      // 部屋の外(前庭・ワープ先など)へ離れたら、前の部屋は描かない(境の上の一瞬だけ保つ)
+      const d = Math.hypot(Math.max(r.x0 - x, 0, x - r.x1), Math.max(r.z0 - z, 0, z - r.z1));
+      if(d > RC_THRESH){ rc.lastId = null; r = null; }
+    }
     if(r){
       vis.add(r.id);
       const ns = rc.neighbors[r.id];
