@@ -148,6 +148,112 @@
     return obj;
   }
 
+  /* =========================================================
+     入れる建物の中と外(CAMERA-001、docs/DUNGEON_RENDERING.md §2)
+
+     村は屋外の舞台なので、屋外の区画どうしは隠さない。分けるのは「入れる建物の中」と「屋外」だけ:
+       ・建物の中(戸口から 3.2 より奥)にいる時は、その建物の中身と外形(壁・屋根)だけを描き、
+         建物の外は描かない(床の上に黒い覆いをかけ、屋外の物・他の建物は描画の層から外す)。
+         壁越しに屋外や別の建物が見えない
+       ・戸口のそばでは屋外も描く(開口から外が自然に見える)
+       ・屋外では、建物の中身は描かない(屋根が隠しているが、描画の負荷も減らす)。戸口のそばでは描く
+       ・見せる場面のカメラが映す側は描く
+     床(区画の床)は建物の床でもあるので常に描く。切り替えは描画の層(02 の rcSetLayer)
+  ========================================================= */
+  let duskCells = null;   // {cells:[{key, objs, on}], mask:[...], maskFor:-1}
+  const DUSK_DOOR_NEAR = 3.2;
+  function duskHouseAt(x, z, pad){
+    for(let i=0;i<duskInteriors.length;i++){
+      const h = duskInteriors[i];
+      if(Math.abs(x - h.x) < h.w/2 + (pad || 0) && Math.abs(z - h.z) < h.d/2 + (pad || 0)) return i;
+    }
+    return -1;
+  }
+  const _dcBox = new THREE.Box3(), _dcV = new THREE.Vector3();
+  function initDuskCells(objs){
+    const byKey = new Map();
+    const put = (k, o)=>{ let c = byKey.get(k); if(!c){ c = {ids:k.split('|'), objs:[], on:true}; byKey.set(k, c); } c.objs.push(o); };
+    objs.forEach(o=>{
+      if(!o || o.isLight || o.userData.rcAlways) return;
+      if(o.userData.duskShell !== undefined){ put('h' + o.userData.duskShell + '|out', o); return; }
+      o.updateMatrixWorld(true);
+      _dcBox.setFromObject(o);
+      if(_dcBox.isEmpty()) _dcV.copy(o.position); else _dcBox.getCenter(_dcV);
+      const i = duskHouseAt(_dcV.x, _dcV.z, 0.2);
+      put(i >= 0 ? 'h' + i : 'out', o);
+    });
+    duskCells = {cells:[...byKey.values()], mask:null, maskFor:-1, vis:new Set()};
+  }
+  // 建物の外を覆う黒い板(建物の床の範囲だけ空ける)。必要になった棟のぶんだけ作る
+  function duskHouseMask(i){
+    const h = duskInteriors[i], R = 90, t = 0.15;
+    const mat = new THREE.MeshBasicMaterial({color:0x000000});
+    const g = new THREE.Group();
+    const hw = h.w/2 + t, hd = h.d/2 + t;
+    [[0, -(hd + R)/2 - hd/2, 2*(hw + R), R], [0, (hd + R)/2 + hd/2, 2*(hw + R), R],
+     [-(hw + R)/2 - hw/2, 0, R, 2*hd], [(hw + R)/2 + hw/2, 0, R, 2*hd]].forEach(([dx, dz, sx, sz])=>{
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz), mat);
+      m.rotation.x = -Math.PI/2; m.position.set(h.x + dx, DUSK_FLOOR_Y + 0.02, h.z + dz);
+      g.add(m);
+    });
+    g.visible = false;
+    scene.add(g);
+    if(Array.isArray(currentWorldObjects)) currentWorldObjects.push(g);   // 世界を出る時に一緒に片付ける
+    return g;
+  }
+  function updateDuskCells(){
+    const dc = duskCells;
+    if(!dc || currentWorldKey !== 'duskvillage') return;
+    const x = state.pos.x, z = state.pos.z, vis = dc.vis;
+    vis.clear();
+    const inH = duskHouseAt(x, z, 0);
+    let masked = -1;
+    if(inH >= 0){
+      vis.add('h' + inH);
+      const d = duskInteriors[inH].door;
+      if(Math.hypot(x - d.x, z - d.z) < DUSK_DOOR_NEAR) vis.add('out'); else masked = inH;
+    } else {
+      vis.add('out');
+      duskInteriors.forEach((h, i)=>{ if(Math.hypot(x - h.door.x, z - h.door.z) < DUSK_DOOR_NEAR) vis.add('h' + i); });
+    }
+    if(sceneShot){
+      const j = duskHouseAt(sceneShot.x, sceneShot.z, 0);
+      if(j >= 0) vis.add('h' + j); else { vis.add('out'); masked = -1; }
+    }
+    for(let i=0;i<dc.cells.length;i++){
+      const c = dc.cells[i];
+      let on = false;
+      for(let k=0;k<c.ids.length;k++) if(vis.has(c.ids[k])){ on = true; break; }
+      if(on !== c.on){ c.on = on; c.objs.forEach(o=> rcSetLayer(o, on)); }
+    }
+    if(masked !== dc.maskFor){
+      if(dc.mask) dc.mask.visible = false;
+      dc.mask = null;
+      if(masked >= 0){
+        dc.masks = dc.masks || {};
+        dc.mask = dc.masks[masked] || (dc.masks[masked] = duskHouseMask(masked));
+        dc.mask.visible = true;
+      }
+      dc.maskFor = masked;
+    }
+    // 敵・宝箱・回復結晶: 見えていない側のものは描かない(気づいている敵・近い敵は描く)
+    const hideList = (list, isEnemy)=>{
+      for(let i=0;i<list.length;i++){
+        const it = list[i];
+        if(!it || !it.group) continue;
+        const p = it.group.position;
+        const j = duskHouseAt(p.x, p.z, 0);
+        const key = j >= 0 ? 'h' + j : 'out';
+        const engaged = isEnemy && (it.triggered || Math.hypot(p.x - x, p.z - z) < 12);
+        const hide = !vis.has(key) && !engaged;
+        if(it.rcUnseen === hide) continue;
+        it.rcUnseen = hide;
+        rcSetLayer(it.group, !hide);
+      }
+    };
+    hideList(chests, false); hideList(healingCrystals, false); hideList(enemies, true);
+  }
+
   function buildDuskVillage(){
     duskProps = [];
     duskRipples = [];
@@ -166,6 +272,7 @@
     duskDeepSeen = 0; duskDeepCD = 0;
     duskGateCreakCD = 0; duskGateChainCD = 0; duskGateFlowCD = 0;
     duskInteriors = [];
+    duskCells = null;
     duskGateSlab = null; duskGateWall = null; duskGateLever = null;
     duskBarDoor = null; duskBarBeam = null;
     duskGateGears = []; duskGateChains = [];
@@ -226,7 +333,10 @@
                 : (r.id === 'plaza' || r.id === 'gate') ? stoneMat : plankMat;
       const surf = r.id === 'forest' ? 'dirt'
                 : (r.id === 'plaza' || r.id === 'gate') ? 'stone' : 'wood';
+      const beforeFloor = new Set(scene.children);
       addFloorWithHoles(r.x0, r.x1, r.z0, r.z1, [], mat, DUSK_FLOOR_Y);
+      // 床は建物の中からも外からも描く(建物の床でもある。CAMERA-001 の区画の外)
+      scene.children.forEach(o=>{ if(!beforeFloor.has(o)) o.userData.rcAlways = true; });
       addRoomSurface(r, surf);
       buildWalls(r);
     });
@@ -266,6 +376,7 @@
     // 入れる建物。door は出入口の向き('S'|'N'|'E'|'W')
     function house(x, z, w, d, h, door){
       const t = 0.3;
+      const beforeHouse = new Set(scene.children);
       wallRun(x, z - d/2, w, t, h, door === 'S' ? 2.2 : 0);
       wallRun(x, z + d/2, w, t, h, door === 'N' ? 2.2 : 0);
       wallRun(x - w/2, z, t, d, h, door === 'W' ? 2.2 : 0);
@@ -275,7 +386,12 @@
       const rmat = new THREE.MeshStandardMaterial({color:0x1d1712, roughness:0.85,
                                                    transparent:true, opacity:1});
       const rmesh = roof(x, z, w, d, h, 0, rmat);
-      duskInteriors.push({x, z, w, d, mesh:rmesh, mat:rmat, k:0});
+      // 壁と屋根(建物の外形)は、その建物の中か屋外にいる時に描く(CAMERA-001)
+      const idx = duskInteriors.length;
+      scene.children.forEach(o=>{ if(!beforeHouse.has(o)) o.userData.duskShell = idx; });
+      const doorPt = door === 'E' ? {x:x + w/2, z} : door === 'W' ? {x:x - w/2, z}
+                   : door === 'N' ? {x, z:z + d/2} : {x, z:z - d/2};
+      duskInteriors.push({x, z, w, d, mesh:rmesh, mat:rmat, k:0, door:doorPt});
     }
 
     // ---- 小物 ----
@@ -2858,6 +2974,7 @@
       h.mat.opacity = 1 - h.k * 0.92;
       h.mesh.visible = h.mat.opacity > 0.03;
     }
+    updateDuskCells();
 
     // ---- 時間帯(zの進み具合で補間。撃破後は dawn へ寄せる) ----
     /* 色も強さも、帯の間を連続に補間する(core/dusk-light.js)。以前は光の色だけ

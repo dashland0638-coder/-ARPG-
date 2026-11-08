@@ -164,7 +164,11 @@
     temple:   { build: ()=>{ buildTemple(); } },
     conservatory: { build: ()=>{ buildConservatory(); } },
     clocktower:   { build: ()=>{ buildClocktower(); } },
-    duskvillage:  { build: ()=>{ buildDuskVillage(); } },
+    duskvillage:  { build: ()=>{
+      const beforeDusk = new Set(scene.children);
+      buildDuskVillage();
+      initDuskCells(scene.children.filter(o=> !beforeDusk.has(o)));   // 入れる建物の中と外(CAMERA-001)
+    } },
     road:         { build: ()=>{ buildRoad(); } },   // 道(Chapter 1 の最後、WORK 11)
     // テストモード(タイトル画面 → 🛠テストモード)専用。上位職のデバッグ
     // 用に、職業/転身/レベルを直接指定してここへ入る(14-training-ground.js
@@ -421,6 +425,7 @@
     nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false;
     mansionRoof = null; restroomRoof = null; platform = null;
     mansionOutdoor = null; mansionOutdoorHidden = false; mansionIslands = [];
+    mansionShell = null; mansionShellHidden = false;
     roomCells = null; clearSceneShot();
     currentWorldKey = null;
     /* ここまでで、この世界のものはすべてシーンから外れている。
@@ -2276,7 +2281,8 @@
         : (state.pos.distanceTo(ev.pos) < ev.radius);
       if(inside){
         // 見せてから話す: 先にカメラで対象を見せ、短い間の後でいつもの会話・一文を出す
-        if(ev.show){ ev.fired = true; playShowThenEvent(ev); break; }
+        // (自動カメラ OFF の人には見せる演出をせず、すぐ出来事を起こす。操作を止めない)
+        if(ev.show && camAutoOn){ ev.fired = true; playShowThenEvent(ev); break; }
         if(fireProximityEvent(ev)) break; // only one at a time
       }
     }

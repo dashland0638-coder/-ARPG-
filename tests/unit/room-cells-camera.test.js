@@ -97,7 +97,9 @@ test('洋館: 境の壁は両側の部屋の区画。外観・下地・異常空
 test('見せてから話す: show のある出来事は、カメラで見せてから会話・一文を出す(順序)', () => {
   const show = fn(world, 'function playShowThenEvent(ev){');
   assert.ok(show.indexOf('sceneCamShot(') < show.indexOf('fireProximityEvent(ev)'));
-  assert.match(fn(world, 'function updateProximityEvents(){'), /if\(ev\.show\)\{ ev\.fired = true; playShowThenEvent\(ev\); break; \}/);
+  assert.match(fn(world, 'function updateProximityEvents(){'), /if\(ev\.show && camAutoOn\)\{ ev\.fired = true; playShowThenEvent\(ev\); break; \}/);
+  // 自動カメラ OFF: 見せる演出をしない(出来事はすぐ起きる)
+  assert.match(fn(loop, 'function sceneCamShot(x, z, dur, opts){'), /if\(!camAutoOn\) return;/);
   // カメラは向き(camYaw)を変えない = 自動カメラ OFF の人の向きもそのまま
   const cam = fn(loop, 'function sceneCameraShot(dt){');
   assert.doesNotMatch(cam, /state\.camYaw\s*=/);
@@ -117,4 +119,50 @@ test('洋館・村: 対象を見せる出来事', () => {
     assert.ok(shot > 0, f);
     assert.ok(line < 0 || shot < line, `${f}: 台詞より先に見せる`);
   }
+});
+
+test('村: 入れる建物の中では、その建物の中身と外形だけ。戸口のそばでは屋外も。屋外では建物の中身を描かない', () => {
+  const layers = new Map();
+  const mk = (id, x, z, ud = {})=>({ id, isLight:false, userData:ud, position:{ x, z }, traverse(f){ f(this); },
+    updateMatrixWorld(){}, layers:{ enable(){ layers.set(id, true); }, disable(){ layers.set(id, false); } } });
+  const state = { pos:{ x:0, z:0 } };
+  const duskInteriors = [{ x:-45, z:348, w:9, d:10, door:{ x:-40.5, z:348 } }];
+  class Box3 { setFromObject(o){ this.o = o; return this; } isEmpty(){ return false; } getCenter(v){ v.x = this.o.position.x; v.z = this.o.position.z; return v; } }
+  class V3 { copy(p){ this.x = p.x; this.z = p.z; return this; } }
+  const code = [
+    'let duskCells = null; const DUSK_DOOR_NEAR = 3.2; const DUSK_FLOOR_Y = 0.08;',
+    fn(dusk, 'function duskHouseAt(x, z, pad){'),
+    'const _dcBox = new THREE.Box3(), _dcV = new THREE.Vector3();',
+    fn(dusk, 'function initDuskCells(objs){'),
+    'function duskHouseMask(i){ return { visible:false, i }; }',
+    fn(dusk, 'function updateDuskCells(){'),
+    fn(world, 'function rcSetLayer(o, on){'),
+    'return { init: initDuskCells, update: updateDuskCells, get dc(){ return duskCells; } };',
+  ].join('\n');
+  const api = new Function('state', 'duskInteriors', 'THREE', 'currentWorldKey', 'sceneShot', 'chests', 'healingCrystals', 'enemies', code)
+    (state, duskInteriors, { Box3, Vector3: V3 }, 'duskvillage', null, [], [], []);
+  const counter = mk('counter', -46, 347), wall = mk('wall', -49.5, 348, { duskShell:0 }), stall = mk('stall', -2.7, 384.5),
+        floor = mk('floor', -45, 348, { rcAlways:true });
+  api.init([counter, wall, stall, floor]);
+  state.pos = { x:-46.5, z:348 }; api.update();
+  assert.equal(layers.get('stall'), false, '建物の奥からは屋外を描かない');
+  assert.notEqual(layers.get('counter'), false);
+  assert.notEqual(layers.get('wall'), false, '自分の建物の壁は描く');
+  assert.equal(api.dc.maskFor, 0, '建物の外に黒い覆い');
+  assert.equal(layers.has('floor'), false, '床は区画の外(常に描く)');
+  state.pos = { x:-41.5, z:348 }; api.update();
+  assert.equal(layers.get('stall'), true, '戸口のそばでは屋外も描く');
+  assert.equal(api.dc.maskFor, -1);
+  state.pos = { x:0, z:384 }; api.update();
+  assert.equal(layers.get('counter'), false, '屋外からは建物の中身を描かない');
+  assert.notEqual(layers.get('wall'), false, '建物の外形は屋外から描く');
+  assert.match(world, /initDuskCells\(scene\.children\.filter\(o=> !beforeDusk\.has\(o\)\)\);/);
+});
+
+test('洋館の一階: 屋内では外殻・外周の木立・前庭(森)を描かない(カメラの後ろの黒い幕と、その向こうの前庭)', () => {
+  const upd = fn(manor, 'function updateMansionRoof(){');
+  assert.match(upd, /mansionShell\.forEach\(o=>\{ o\.visible = !in1F; \}\);/);
+  assert.match(upd, /const inIsland = in1F \|\|/);
+  assert.match(manor, /const MANSION_1F_INNER = \{x0:-31, x1:31, z0:-99, z1:-44\};/);
+  assert.match(manor, /mansionShell = scene\.children\.filter\(o=> !beforeShell\.has\(o\) && o !== mansionRoof\);/);
 });

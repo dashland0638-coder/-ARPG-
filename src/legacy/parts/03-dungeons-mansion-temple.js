@@ -2621,6 +2621,8 @@
     const beforeShell = new Set(scene.children);
     buildMansionExterior();
     buildMansionForestWall();
+    // 外殻(外壁・窓・玄関の上の壁)と外周の木立。屋内では描かない(屋根と同じ。updateMansionRoof)
+    mansionShell = scene.children.filter(o=> !beforeShell.has(o) && o !== mansionRoof);
     scene.children.forEach(o=>{ if(!beforeShell.has(o)) o.userData.rcAlways = true; });
   }
 
@@ -4242,6 +4244,8 @@
      内部の間取り(MANSION_ROOMS の一階前半)を囲う形にしてある。 */
   let mansionRoof = null;
   let mansionOutdoor = null;        // 森のもの(離れ島の中では描かない)
+  let mansionShell = null;          // 一階の外殻(屋内では描かない)
+  let mansionShellHidden = false;
   let mansionOutdoorHidden = false;
   let mansionIslands = [];          // 離れ島の下地の範囲
   let restroomRoof = null;
@@ -4321,11 +4325,22 @@
     for(let x= 11; x<= 35; x+=3.0){ ringTree(x, -37, true); }
   }
 
+  /* 一階の屋内(玄関の戸口のそばを除く)。ここでは外殻と森(前庭)を描かない(CAMERA-001)。
+     カメラはプレイヤーの後ろ(玄関の側)に付くので、玄関に近い部屋(玄関・玄関ホール・食堂・厨房)では
+     カメラが高さ 7 の外殻の外に出て、外殻が画面を覆う黒い幕になり、その向こうに前庭が見えていた。
+     外殻は前庭から見た建物の輪郭なので、屋内では要らない(部屋は部屋の壁が囲む) */
+  const MANSION_1F_INNER = {x0:-31, x1:31, z0:-99, z1:-44};
   function updateMansionRoof(){
     if(mansionRoof) mansionRoof.visible = state.pos.z > -39.5;
     if(mansionOutdoor){
       const x = state.pos.x, z = state.pos.z;
-      const inIsland = mansionIslands.some(r=> x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1);
+      const I = MANSION_1F_INNER;
+      const in1F = x >= I.x0 && x <= I.x1 && z >= I.z0 && z <= I.z1;
+      if(mansionShell && in1F !== mansionShellHidden){
+        mansionShellHidden = in1F;
+        mansionShell.forEach(o=>{ o.visible = !in1F; });
+      }
+      const inIsland = in1F || mansionIslands.some(r=> x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1);
       if(inIsland !== mansionOutdoorHidden){
         mansionOutdoorHidden = inIsland;
         mansionOutdoor.forEach(o=>{ o.visible = !inIsland; });
