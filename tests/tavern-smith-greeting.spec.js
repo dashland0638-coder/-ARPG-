@@ -50,6 +50,20 @@ const dialogueName = page => page.locator('#dialogue-name');
 const overlay = page => page.locator('#dialogue-overlay');
 const prompt = page => page.locator('#interact-btn');
 
+/* 帰還地点から鍛冶屋の前へ歩く(自動カメラ OFF、camYaw ≈ 2.36: 前 = 北西、前＋右 = 西)。北西へ少し出てから西へ。
+   W+D だけで歩き続けると、鍛冶屋の手前の障害物(x ≈ -3.9)に正面から当たって止まる run がある(遅い環境では
+   最初の一歩の距離がぶれる)。openAppraisalAtSmith と同じく、一歩おきに W だけで歩いて障害物に沿って滑らせる */
+async function walkToSmith(page, arrived) {
+  await page.keyboard.down('w'); await page.waitForTimeout(2200); await page.keyboard.up('w');
+  const deadline = Date.now() + GREETING_WAIT_MS;
+  for (let i = 0; Date.now() < deadline && !(await arrived()); i++) {
+    const keys = i % 2 ? ['w'] : ['w', 'd'];
+    for (const k of keys) await page.keyboard.down(k);
+    await page.waitForTimeout(400);
+    for (const k of keys) await page.keyboard.up(k);
+  }
+}
+
 // 最初に開く会話(導入など)を閉じる。再会イベントは会話中には始まらない
 async function clearOpenDialogue(page) {
   for (let i = 0; i < 6; i++) {
@@ -61,6 +75,20 @@ async function clearOpenDialogue(page) {
     await page.click('#dialogue-overlay');
     await page.waitForTimeout(300);
   }
+}
+
+/* 帰還の演出(鍛冶士を見せるカメラ → 一文)が終わってから自動カメラを切る。遅い環境では演出が長引き、
+   その間はメニューが開かない(Escape が効かない)ので、開くまで会話を閉じて押し直す */
+async function camAutoOffWhenIdle(page) {
+  const menuOpen = () => page.evaluate(() => document.getElementById('menu-overlay').classList.contains('active'));
+  for (let i = 0; i < 40 && !(await menuOpen()); i++) {
+    await clearOpenDialogue(page);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1500);
+  }
+  await page.keyboard.press('Escape');   // 開いていたら一度閉じ、いつもの手順で切る
+  await page.waitForFunction(() => !document.getElementById('menu-overlay').classList.contains('active'));
+  await disableCameraAutoFollow(page);
 }
 
 test.describe('洋館から帰った夜、鍛冶士との再会', () => {
@@ -79,11 +107,9 @@ test.describe('洋館から帰った夜、鍛冶士との再会', () => {
 
     /* 自動カメラ OFF で、カメラの向きを固定して歩く(帰還地点 (0,10) のカメラは camYaw ≈ 2.36 ―― 前 = 北西、
        前＋右 = 西)。北西へ少し出て丸卓A(-5,10)の北側に入り、西へ鍛冶士(-6.5,12)へ向かう */
-    await disableCameraAutoFollow(page);
-    await page.keyboard.down('w'); await page.waitForTimeout(2200); await page.keyboard.up('w');
-    await page.keyboard.down('w'); await page.keyboard.down('d');
-    await expect(dialogueName(page)).toHaveText(/鍛冶/, { timeout: GREETING_WAIT_MS });
-    await page.keyboard.up('w'); await page.keyboard.up('d');
+    await camAutoOffWhenIdle(page);
+    await walkToSmith(page, async () => /鍛冶/.test((await dialogueName(page).textContent()) || ''));
+    await expect(dialogueName(page)).toHaveText(/鍛冶/);
     await expect(overlay(page)).toHaveClass(/active/);
     await expect(page.locator('#dialogue-text')).toContainText('戻ってきたな');
 
@@ -119,11 +145,9 @@ test.describe('洋館から帰った夜、鍛冶士との再会', () => {
     await clearOpenDialogue(page);
 
     // 鍛冶屋の前まで自分で歩く(1 つ目の試験と同じ道)。鑑定・強化の表示が出る所まで行っても、再会の会話は出ない
-    await disableCameraAutoFollow(page);
-    await page.keyboard.down('w'); await page.waitForTimeout(2200); await page.keyboard.up('w');
-    await page.keyboard.down('w'); await page.keyboard.down('d');
-    await expect(prompt(page)).toHaveText(/鍛冶士と話す/, { timeout: GREETING_WAIT_MS });
-    await page.keyboard.up('w'); await page.keyboard.up('d');
+    await camAutoOffWhenIdle(page);
+    await walkToSmith(page, async () => /鍛冶士と話す/.test((await prompt(page).textContent()) || ''));
+    await expect(prompt(page)).toHaveText(/鍛冶士と話す/);
     await page.waitForTimeout(3000);
     const name = await dialogueName(page).textContent();
     const active = await page.evaluate(() =>
