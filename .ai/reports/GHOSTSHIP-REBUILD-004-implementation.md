@@ -53,3 +53,12 @@ Status: DONE（Agent 側）／ CONTENT READY = HUMAN DEVICE CHECK REQUIRED（iPh
 ## 5. 変更ファイル
 
 `14-dungeon-ghostship.js`、`03-dungeons-mansion-temple.js`、`02-world-common.js`、`concat-plugin.js`（`gsRoomPresent` / `gsOpening` の取り込み）、`docs/DUNGEON_RENDERING.md`・`docs/README.md`・`docs/SCENARIOS.md`、`.ai/tasks/CAMERA-*.md`、テスト（`tests/unit/dungeon-rendering.test.js` 新規、`ghostship-runtime.test.js` に 2 件）。
+
+## 6. 追補（実機の感想: 2026-11-07、PR #117 のプレビュー）
+
+| 感想 | 原因 | 修正 |
+| --- | --- | --- |
+| 小舟で横付けした時、幽霊船側の床が海 | 船の中は「今いる部屋だけ」を描くので、小舟（外）からは船の範囲に何も描かれず、下の海が見えていた。外観は船腹の板 1 枚とマストだけだった | 船の外観（左舷の船腹・穴・右舷・船尾・尖った船首・甲板・舷縁・喫水線の帯・マスト・帆・角灯）を、小舟の足場にいる時だけ描く（`gsBuildShipExterior`、区画 `gsMoor`）。船の中では隠す |
+| 船底の穴から入った時点で、穴が塞がっている（穴自体が無い） | 下層の左舷の壁が穴の所も含めて全長に立っていた（コメントでは開けるとしていたが、壁の長さが穴を覆っていた）。さらに外側の船腹（高さ 7、穴の無い 1 枚）が中から見えていた | 左舷の壁に穴（z 160.3〜162.7）を開け、外へ折れた板の端・穴の向こうの夜の海の淡い光・床の水に落ちる光を置く（区画は船底）。外側の船腹は外観へ移し、中では描かない |
+
+E2E の船長室からの歩行が並列で時々落ちていた原因も分かった: `walkUntil` が、歩いている途中に出た会話を自分で送ってしまう（場面の一文目がカメラの演出の後に出るため、確かめる間に出ると読み飛ばす）。その一歩だけ、会話を送らずに出るまで歩くように直した。

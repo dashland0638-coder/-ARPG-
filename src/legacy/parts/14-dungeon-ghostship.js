@@ -109,6 +109,10 @@
          手がかりは 1 つ目の印・穴の光の輪郭・カメラ(板そのものを目立たせない) */
       patchSoft: new THREE.MeshStandardMaterial({color:0x44362a, roughness:0.85}),
       nailDull: new THREE.MeshStandardMaterial({color:0x5a5c5e, roughness:0.5, metalness:0.6}),
+      // 船底の穴の向こうの、夜の海の淡い光(船の中から外の海は描かない)
+      holeLight: new THREE.MeshBasicMaterial({color:0x4a7a9a, transparent:true, opacity:0.9, side:THREE.DoubleSide}),
+      holeSpill: new THREE.MeshBasicMaterial({color:0x5a8aaa, transparent:true, opacity:0.22, depthWrite:false,
+                                              blending:THREE.AdditiveBlending}),
       // 鎖を辿る段階の鎖(GHOSTSHIP-REBUILD-004): 壁・床と違う冷たい鋼の色と、控えめな青白い光
       chainLit: new THREE.MeshStandardMaterial({color:0x9aa8b4, roughness:0.28, metalness:0.85, emissive:0x3a6e8e, emissiveIntensity:0.55}),
       chainFlow: new THREE.MeshBasicMaterial({color:0xbfeaff, transparent:true, opacity:0.7, depthWrite:false,
@@ -687,23 +691,14 @@
     addLowRailBox((moor.x0 + moor.x1)/2, moor.z0, moor.x1 - moor.x0, 0.4, M.rail);
     addLowRailBox((moor.x0 + moor.x1)/2, moor.z1, moor.x1 - moor.x0, 0.4, M.rail);
     addLowRailBox(moor.x0, (moor.z0 + moor.z1)/2, 0.4, moor.z1 - moor.z0, M.rail);
-    // 船腹。見上げる黒い壁(当たりは足場の東の辺)
-    const hullFace = new THREE.Mesh(new THREE.BoxGeometry(1.0, 7, 32), M.hull);
-    hullFace.position.set(-38.3, 2.5, 162);
-    scene.add(hullFace);
-    walls.push({minX:-38.8, maxX:-37.8, minZ:150, maxZ:174});
-    // 喫水線の上の穴。板が外へ折れている(中から破られた)。中の暗がりに、船内の灯りが見える
-    const dark = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.6, 2.0), M.well);
-    dark.position.set(-38.75, 0.9, 161.5); scene.add(dark);
-    [[-0.6, 1.5, 0.6], [0.6, 1.4, -0.7], [-0.1, 0.3, 0.75]].forEach(([dz, y, rz])=>{
-      const s = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.24), M.hull);
-      s.position.set(-39.3, y, 161.5 + dz); s.rotation.set(0, 0, -0.7 + rz * 0.2); scene.add(s);
-    });
-    // マスト・帆・船尾の角灯(見上げるだけ)
-    gsCyl(-29, 7, 162, 0.35, 0.45, 14, M.rail, 8);
-    const sail = new THREE.Mesh(new THREE.PlaneGeometry(5, 4), M.sail);
-    sail.position.set(-29, 10, 162); sail.rotation.y = Math.PI/2 + 0.15; scene.add(sail);
-    gsLanternProp(-38.6, 5.6, 172.4);
+    walls.push({minX:-38.8, maxX:-37.8, minZ:150, maxZ:174});   // 船腹(当たりは足場の東の辺)
+    /* 船の外観(GHOSTSHIP-REBUILD-004 の追補)。小舟の足場(船の外)にいる時だけ描く。船の中では隠す
+       (中は今いる部屋だけを描くので、外から見ると船の範囲が海に見えていた)。
+       船腹・穴・甲板・舷縁・船首と船尾・マスト・帆・船尾の角灯 */
+    const ext = new THREE.Group();
+    gsCapture(ext, ()=> gsBuildShipExterior());
+    ext.userData.gsCell = 'gsMoor';
+    scene.add(ext);
     // 小舟と綱
     const boat = new THREE.Group();
     const bhull = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.5, 3.6, 8), M.woodDark);
@@ -716,8 +711,9 @@
     // ---- 下層(船底): 足首の水、肋材、左舷の穴、船尾寄りの階段、錨の鎖 ----
     const bilge = R('gsBilge');
     gsFloor(bilge, M.floorWorn);
-    // 左舷の壁は穴のところだけ開ける(穴の外は小舟の足場)
-    gsWallBox(-38, 155, 0.5, 14, M.hullWall); gsWallBox(-38, 169, 0.5, 14, M.hullWall);
+    // 左舷の壁は穴のところだけ開ける(穴の外は小舟の足場)。z 160.3〜162.7 が穴
+    gsWallBox(-38, 154.15, 0.5, 12.3, M.hullWall); gsWallBox(-38, 169.35, 0.5, 13.3, M.hullWall);
+    gsBilgeHoleInside();
     gsWallBox(-20, 162, 0.5, 28, M.hullWall);
     gsWallBox(-29, 148, 18.5, 0.5, M.hullWall); gsWallBox(-29, 176, 18.5, 0.5, M.hullWall);
     gsHullFrame(-38, -20, 148, 176, {prowDepth:7});
@@ -786,6 +782,64 @@
     gsZones.pre.add(pre); gsZones.pre.add(post);
     post.visible = false;
     gsSwap = {pre, post, preCols, postCols, phase:null};
+  }
+
+  /* 船の外観(小舟の足場から見上げる船)。座標は往路の船(列 A)の下層のまわり */
+  const GS_EXT = {x0:-38.8, x1:-19.2, z0:136, z1:188, top:3.6};
+  function gsBuildShipExterior(){
+    const M = gsMaterials();
+    const E = GS_EXT, h = E.top + 1, yc = E.top/2 - 0.5;   // 喫水線の少し下から甲板まで
+    const box = (x, y, z, sx, sy, sz, mat)=>{ const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat); m.position.set(x, y, z); scene.add(m); return m; };
+    // 左舷の船腹。穴(z 160.3〜162.7、高さ 0〜1.7)のところだけ開ける
+    box(-38.3, yc, (E.z0 + 160.3)/2, 1.0, h, 160.3 - E.z0, M.hull);
+    box(-38.3, yc, (162.7 + E.z1)/2, 1.0, h, E.z1 - 162.7, M.hull);
+    box(-38.3, (1.7 + E.top)/2, 161.5, 1.0, E.top - 1.7, 2.4, M.hull);
+    box(-38.3, -0.25, 161.5, 1.0, 0.5, 2.4, M.hull);
+    // 穴の奥の暗がりと、外へ折れた板(中から破られた)
+    box(-37.9, 0.85, 161.5, 0.1, 1.7, 2.4, M.well);
+    [[-0.9, 1.3, 0.6], [0.9, 1.2, -0.7], [-0.2, 0.15, 0.75], [0.5, 1.6, 0.2]].forEach(([dz, y, rz])=>{
+      const s = box(-39.0, y, 161.5 + dz, 0.08, 0.9, 0.24, M.hull);
+      s.rotation.set(0, 0, -0.7 + rz * 0.2);
+    });
+    // 右舷・船尾・船首(船首は細く尖らせる)
+    box(-19.7, yc, (E.z0 + E.z1)/2, 1.0, h, E.z1 - E.z0, M.hull);
+    box((E.x0 + E.x1)/2, yc, E.z1 - 0.5, E.x1 - E.x0, h, 1.0, M.hull);
+    const bow = box((E.x0 + E.x1)/2, yc, E.z0 - 2.6, (E.x1 - E.x0) * 0.72, h, (E.x1 - E.x0) * 0.72, M.hull);
+    bow.rotation.y = Math.PI/4; bow.scale.set(1, 1, 0.55);
+    // 甲板と舷縁
+    const deck = box((E.x0 + E.x1)/2, E.top, (E.z0 + E.z1)/2, E.x1 - E.x0, 0.25, E.z1 - E.z0, M.deck);
+    deck.receiveShadow = true;
+    box(E.x0 + 0.1, E.top + 0.45, (E.z0 + E.z1)/2, 0.25, 0.7, E.z1 - E.z0, M.rail);
+    box(E.x1 - 0.1, E.top + 0.45, (E.z0 + E.z1)/2, 0.25, 0.7, E.z1 - E.z0, M.rail);
+    // 船腹の帯(喫水線と舷側の板の継ぎ目。外から船の形が読める)
+    [0.15, 2.2].forEach(y=> box(-38.85, y, (E.z0 + E.z1)/2, 0.08, 0.14, E.z1 - E.z0, M.rim));
+    // マスト・帆・船尾の角灯(見上げるだけ)
+    gsCyl(-29, E.top + 6, 162, 0.35, 0.45, 12, M.rail, 8);
+    const sail = new THREE.Mesh(new THREE.PlaneGeometry(5, 4), M.sail);
+    sail.position.set(-29, E.top + 7.5, 162); sail.rotation.y = Math.PI/2 + 0.15; scene.add(sail);
+    gsLanternProp(-38.9, E.top + 1.8, 172.4);
+  }
+  /* 船底の中から見た穴。板の端が外へ折れていて、穴の向こうに夜の海の淡い光(外の海そのものは描かない) */
+  function gsBilgeHoleInside(){
+    const M = gsMaterials();
+    const g = new THREE.Group();
+    g.userData.gsCell = 'gsBilge';   // 壁の外側に寄っていても、船底の区画(小舟の区画にしない)
+    gsCapture(g, ()=> gsBilgeHoleParts());
+    scene.add(g);
+  }
+  function gsBilgeHoleParts(){
+    const M = gsMaterials();
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.7), M.holeLight);
+    glow.position.set(-38.55, 0.85, 161.5); glow.rotation.y = Math.PI/2; scene.add(glow);
+    // 穴から差し込む淡い光が、床の水に落ちる
+    const spill = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.2), M.holeSpill);
+    spill.rotation.x = -Math.PI/2; spill.position.set(-36.8, 0.19, 161.5); scene.add(spill);
+    [[160.3, 1], [162.7, -1]].forEach(([z, s])=>{
+      [0.35, 0.8, 1.25].forEach((y, i)=>{
+        const p = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.32, 0.5 + i * 0.12), M.hullWall);
+        p.position.set(-38.4, y, z + s * 0.1); p.rotation.set(0, s * 0.55, 0); scene.add(p);   // 外へ向かって折れた板
+      });
+    });
   }
 
   /* ---- 帰還不能の後の船(列 B・C) ---- */
