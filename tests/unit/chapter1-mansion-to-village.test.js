@@ -91,6 +91,8 @@ function harness({ clears, smithJoined = false, smithGreeted = true, from = 'war
     fn(hud, 'function advanceChapter1Cast(opts){'),
     'let pendingJoinScene = null;',
     fn(hud, 'function queueChapter1JoinScene(prevKey, nextKey, cast){'),
+    fn(hud, 'function smithGreetingPending(){'),
+    fn(hud, 'function chapter1SortieHeld(){'),
     fn(hud, 'function updatePendingJoinScene(){'),
     'let chapter1Switch = null;',
     fn(hud, 'function playChapter1ReturnScene(j){'),

@@ -117,8 +117,8 @@ export function joinSceneReady(ctx){
    シナリオをクリアして酒場へ戻ったとき、操作キャラクターを暗転の最中に
    入れ替えず、次の順で物語としてつなぐ:
 
-     1. 洋館の後だけ、帰ってきた剣士が鍛冶士の前まで歩いて話す
-        (既存の playSmithGreeting が帰還の会話の役。joinSceneReady の blocked で待つ)
+     1. 洋館の後だけ、帰ってきた剣士が鍛冶士の前まで行って話す(本人が近づくと始まる。CAMERA-001。
+        帰還の会話の役。joinSceneReady の blocked で待ち、その間は出撃させない)
      2. 帰ってきた主人公と酒場の主人の短い会話(行があるときだけ)
      3. 次の主人公の姿が歩み寄る
      4. 交代の会話(既存の CHAPTER1_JOIN_LINES)

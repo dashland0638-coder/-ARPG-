@@ -2574,7 +2574,9 @@
     const talkFree = !nearbyStairs && !nearbyStallTrigger;
     nearbyBartender = serviceFree && !state.sortied && state.pos.distanceTo(BARTENDER_POS) < 3;
     // 鍛冶士の加入前(剣士だけの序盤)は、そこに施設が無い(PROGRESSION-004)
-    nearbySmith = serviceFree && !nearbyBartender && smithFacilityAvailable(state) && state.pos.distanceTo(SMITH_POS) < 3;
+    // 再会の会話が済むまでは、鑑定・強化を出さない(近づくと先に再会の会話が始まる。CAMERA-001)
+    nearbySmith = serviceFree && !nearbyBartender && smithFacilityAvailable(state) && !smithGreetingPending()
+               && state.pos.distanceTo(SMITH_POS) < 3;
     // 酒場の片隅は扉の判定と少し重なる。謎のNPCに近づいたのに、扉が
     // 優先されて会話できないままだと「そこに居るのに話せない」感触になる
     // ため、影の旅人だけは扉の近接中でも少し広めに拾う
@@ -2693,7 +2695,12 @@
     else if(nearbyLore){ readLore(nearbyLore); }
     else if(nearbyChest){ revealMimic(nearbyChest); }
     else if(nearbyStallTrigger){ triggerStallSleep(); }
-    else if(nearbyBartender){ toggleScenarioSelect(); }
+    else if(nearbyBartender){
+      /* 洋館の後の交代(剣士 → 魔法使い)は、鍛冶士との再会が済むまで待つ。その間は出撃させない
+         (再会はプレイヤーが鍛冶士に近づいて始めるので、寄らずに剣士のまま村へ出られないように。CAMERA-001) */
+      if(chapter1SortieHeld()){ sfx('ui'); spawnToast('🍺 店主「鍛冶士が奥で待ってる。先に顔を見せてやれ」'); }
+      else toggleScenarioSelect();
+    }
     else if(nearbySmith){ toggleAppraisal(); }
     else if(nearbyCheckpoint){ useCheckpoint(); }
   }

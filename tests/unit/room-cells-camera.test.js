@@ -236,3 +236,25 @@ test('イベント演出: 主人公の交代は、歩いてくる人(物語の�
   assert.doesNotMatch(body, /state\.walkTo/);
   assert.match(body, /joinFigureWalk = \{fig/);
 });
+
+test('イベント演出: 洋館の後の交代が鍛冶士の再会を待つ間は出撃させない(寄らずに剣士のまま村へ出られない)。再会の前は鑑定・強化も出さない', () => {
+  const hud = read('14-hud-boot.js');
+  const code = [
+    fn(hud, 'function smithGreetingPending(){'),
+    fn(hud, 'function chapter1SortieHeld(){'),
+    'return { held: chapter1SortieHeld, pending: smithGreetingPending };',
+  ].join('\n');
+  const mk = (state, pendingJoinScene)=> new Function('state', 'pendingJoinScene', code)(state, pendingJoinScene);
+  assert.equal(mk({ smithJoined:true, smithGreeted:false }, { nextKey:'mage' }).held(), true, '再会の前: 出撃しない');
+  assert.equal(mk({ smithJoined:true, smithGreeted:true }, { nextKey:'mage' }).held(), false, '再会の後: 出撃できる');
+  assert.equal(mk({ smithJoined:true, smithGreeted:false }, null).held(), false, '交代の予約が無い時は止めない');
+  assert.equal(mk({ smithJoined:true, smithGreeted:false }, { nextKey:'archer' }).held(), false, '洋館の後の交代だけ');
+  // 店主に話しかけた時に出撃の一覧を出さず、鍛冶士へ促す
+  const interact = world.slice(world.indexOf('else if(nearbyBartender){'), world.indexOf('else if(nearbySmith){ toggleAppraisal(); }'));
+  assert.match(interact, /if\(chapter1SortieHeld\(\)\)\{[^}]*spawnToast\('🍺 店主「鍛冶士が奥で待ってる/);
+  assert.match(interact, /else toggleScenarioSelect\(\);/);
+  // 交代の一幕の待ちも同じ条件
+  assert.match(fn(hud, 'function updatePendingJoinScene(){'), /blocked: chapter1SortieHeld\(\),/);
+  // 再会の前は鑑定・強化を出さない(近づくと先に再会の会話)
+  assert.match(world, /smithFacilityAvailable\(state\) && !smithGreetingPending\(\)/);
+});

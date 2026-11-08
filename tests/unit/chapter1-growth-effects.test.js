@@ -127,7 +127,7 @@ test('PROGRESSION-003: セーブの値は書き換えない(判定の関数・�
    それを指す文言が、すべて smithFacilityAvailable(core/chapter1-rules.js)を通る */
 test('PROGRESSION-004: 施設の入口と作業台はすべて smithFacilityAvailable を通る', () => {
   const world = parts('02-world-common.js');
-  assert.match(world, /nearbySmith = serviceFree && !nearbyBartender && smithFacilityAvailable\(state\) && state\.pos\.distanceTo\(SMITH_POS\) < 3;/);
+  assert.match(world, /nearbySmith = serviceFree && !nearbyBartender && smithFacilityAvailable\(state\) && !smithGreetingPending\(\)\s*&& state\.pos\.distanceTo\(SMITH_POS\) < 3;/);
   const cp = world.slice(world.indexOf('function useCheckpoint(){'), world.indexOf('function updateBartenderProximity'));
   assert.match(cp, /if\(smithFacilityAvailable\(state\)\) setOverlay\('appraisal'\);/);
   assert.equal(cp.split("setOverlay('appraisal')").length - 1, 1);
