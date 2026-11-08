@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as MAP from '../../src/core/ghostship-map.js';
 import * as CAP from '../../src/core/ghostship-captain.js';
+import { hasSkill2, learnSkill2 } from '../../src/core/chapter1-skills.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 // parts は連結前提で、このファイルは前のファイルが開いた見出しのコメントの続きから始まり、
@@ -64,10 +65,11 @@ function harness(){
     updateBossBark(){}, resolveWallCollisions(){}, turnBudget:(r, dt)=> r*dt, resolveTurnRate:()=> 3,
     turnTowardAngle:(a, b)=> b, bossVfx:(en, m)=>{ (en.vfx = en.vfx || []).push(m); return m; },
     buildEnemy:(p, v)=> ({ group:{ position:p }, variant:v, dead:false }), POST_ATTACK_RECOVERY_SEC:0.5,
-    isGateEnemyDead:()=> true, isRoomCleared:()=> true, spawnTaggedGroup(){}, batchStatic:(fn)=> fn(),
+    isGateEnemyDead:()=> true, isRoomCleared:(tag)=> !(log.alive || []).includes(tag), spawnTaggedGroup(){}, batchStatic:(fn)=> fn(),
     addWallBox(){}, addStaticBox(){}, addLowRailBox(){}, buildDoor(){}, buildLoreNote(){},
     makePlankTexture(){}, makeNoiseTexture(){}, returnToTown:()=> log.lines.push(['', '(酒場へ)']),
     setTimeout:(fn)=> fn(), ...MAP, ...CAP,
+    hasSkill2, grantChapter1Skill2:()=>{ log.seq.push('grant'); const r = learnSkill2(state); if(r.changed) log.grants = (log.grants || 0) + 1; return r.changed; },
   };
   stubs.registerProximityEvent = (pos, r, name, lines, opts)=> stubs.proximityEvents.push(Object.assign({fired:false}, opts));
   const names = Object.keys(stubs);
@@ -399,4 +401,100 @@ test('DEV-TEST-MOBILE-001 テストモードの検証地点: 食堂の手前(往
   assert.equal(MAP.gsRoomAt(roll.x, roll.z, 'post').id, 'xQuartersDeep');
   assert.ok(Math.abs(roll.z - 150) < 4, '点呼の廊下への扉の前');
   assert.equal(ev.roll.fired, false, '点呼と甲板長はこれから');
+});
+
+/* ---- STORY-001: 弓師の閃き(Skill 2「爆弾投げ」) ---- */
+test('STORY-001: 弓師の閃きは往路の食堂の戦いの後。済むまで「帰る場所」の会話は出ない。帰還不能の後には起きない', () => {
+  const h = harness();
+  h.api.setActive();
+  const ev = h.api.registerEvents();
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  assert.equal(ev.insight.condition(), false, '食堂の場面(十五人分の皿)の前には起きない');
+  ev.mess.fired = true; ev.mess.onEnter(); h.runCutscene();   // 食堂の残影が起き上がる(この試験では倒した扱い)
+  h.log.alive = ['gsMess'];
+  assert.equal(ev.insight.condition(), false, '食堂の残影が残っている間は起きない(戦いの最中に話し出さない)');
+  h.log.alive = [];
+  assert.equal(ev.insight.condition(), true, '食堂の残影を倒した後');
+  assert.equal(ev.home.condition(), false, '閃きの前に「帰る場所」の会話は出ない');
+  ev.insight.onEnter();
+  h.runCutscene();
+  assert.equal(ev.insight.condition(), false, '一度だけ');
+  assert.equal(ev.insightFallback.condition(), false, '通路の代わりの場面も起きない');
+  assert.equal(ev.home.condition(), true, '閃きの後に「帰る場所」の会話');
+  // 帰還不能の後(往路の食堂はもう無い)には起きない
+  const h2 = harness(); h2.api.setActive();
+  const ev2 = h2.api.registerEvents();
+  h2.api.setFlags({ phase:'post', loopDone:false });
+  ev2.mess.fired = true;
+  assert.equal(ev2.insight.condition(), false);
+  assert.equal(ev2.insightFallback.condition(), false);
+});
+
+test('STORY-001: 見せてから話す → 魔法使いの見方を聞く → 閃く(自動で装備)→ 弓師の一言。習得は一度だけ', () => {
+  const h = harness();
+  h.api.setActive();
+  const ev = h.api.registerEvents();
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  h.log.seq.length = 0;
+  ev.insight.onEnter();
+  h.runCutscene();
+  const seq = h.log.seq;
+  const iShot = seq.indexOf('shot'), iLine = seq.indexOf('line'), iGrant = seq.indexOf('grant');
+  assert.ok(iShot >= 0 && iShot < iLine, `カメラが先(${seq.join(',')})`);
+  assert.ok(iLine < iGrant, '話を聞いてから閃く');
+  assert.ok(seq.lastIndexOf('line') > iGrant, '閃いた後に弓師の一言');
+  assert.equal(h.log.grants, 1);
+  assert.equal(h.state.learnedSkill2, true);
+  const before = h.log.lines.slice(0, h.log.lines.length);
+  const spoken = before.map(([n]) => n);
+  assert.ok(spoken.includes('魔法使い') && spoken.includes('弓師'), '同行者の見方を聞く(教わるのではない)');
+  // 二度目(同じ出撃で別の口から入っても)は何もしない
+  h.log.seq.length = 0;
+  ev.insightFallback.onEnter();
+  h.runCutscene();
+  assert.deepEqual(h.log.seq, []);
+  assert.equal(h.log.grants, 1);
+});
+
+test('STORY-001: 既に Skill 2 を持っている出撃(周回・テストモード)では閃きの場面を出さず、先の会話は進む', () => {
+  for (const extra of [{ learnedSkill2:true }, { testMode:true }]){
+    const h = harness();
+    Object.assign(h.state, extra);
+    h.api.setActive();
+    const ev = h.api.registerEvents();
+    h.api.setFlags({ phase:'pre', loopDone:false });
+    ev.mess.fired = true; ev.mess.onEnter(); h.runCutscene();
+    h.log.seq.length = 0;
+    ev.insight.onEnter();
+    h.runCutscene();
+    assert.deepEqual(h.log.seq, [], JSON.stringify(extra));
+    assert.equal(h.log.grants, undefined);
+    assert.equal(ev.home.condition(), true, '「帰る場所」の会話は止まらない');
+  }
+});
+
+test('STORY-001: 食堂を戦わずに抜けても、船長室(帰還不能の決断)の前の通路で同じ場面が起きる', () => {
+  const h = harness();
+  h.api.setActive();
+  const ev = h.api.registerEvents();
+  h.api.setFlags({ phase:'pre', loopDone:false });
+  // 船長室へは 食堂 → 通路 → 船長室 の一本道(通路を通らずに船長室へ行けない)
+  const cor = MAP.gsRoomById('gsCorridor');
+  const a = ev.insightFallback.area;
+  const toCabin = MAP.gsOpening('gsCorridor', 'gsCabin'), fromMess = MAP.gsOpening('gsMess', 'gsCorridor');
+  assert.ok(toCabin && fromMess, '食堂 → 通路 → 船長室');
+  assert.ok(a.x0 <= Math.min(toCabin.seg[0], fromMess.seg[0]) && a.x1 >= Math.max(toCabin.seg[1], fromMess.seg[1]), '通路の幅を覆う');
+  assert.ok(a.z0 > cor.z0 && a.z1 < cor.z1);
+  const cabin = MAP.gsRoomById('gsCabin');
+  for (const r of MAP.GS_ROOMS.filter(r => r.set === 'pre' && r.id !== 'gsCorridor')){
+    assert.equal(MAP.gsOpening(r.id, 'gsCabin'), null, `${r.id} から船長室へ直接は入れない`);
+  }
+  assert.ok(cabin);
+  assert.equal(ev.insightFallback.condition(), true);
+  h.log.seq.length = 0;
+  ev.insightFallback.onEnter();
+  h.runCutscene();
+  assert.equal(h.state.learnedSkill2, true);
+  assert.ok(!h.log.seq.includes('shot'), '通路ではカメラを食堂へ飛ばさない');
+  assert.equal(ev.insight.condition(), false);
 });
