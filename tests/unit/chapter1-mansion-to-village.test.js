@@ -76,6 +76,7 @@ function harness({ clears, smithJoined = false, smithGreeted = true, from = 'war
     scene: { add(){}, remove(){} },
     playCutscene: steps => { for (const st of steps) st.run(); },
     cutsceneTurnTo: () => {},
+    sceneCamShot: () => log.push('camShot'),   // CAMERA-001: 歩いてくる人をカメラで見せる
     fadeTransition: f => { log.push('fade'); f(); },
     guestCompanion: null, player: null, camera: { position: { copy(){ return { add(){} }; } } }, getCamOffset: () => ({}),
     saveGame: () => log.push('save'),
@@ -90,6 +91,8 @@ function harness({ clears, smithJoined = false, smithGreeted = true, from = 'war
     fn(hud, 'function advanceChapter1Cast(opts){'),
     'let pendingJoinScene = null;',
     fn(hud, 'function queueChapter1JoinScene(prevKey, nextKey, cast){'),
+    fn(hud, 'function smithGreetingPending(){'),
+    fn(hud, 'function chapter1SortieHeld(){'),
     fn(hud, 'function updatePendingJoinScene(){'),
     'let chapter1Switch = null;',
     fn(hud, 'function playChapter1ReturnScene(j){'),

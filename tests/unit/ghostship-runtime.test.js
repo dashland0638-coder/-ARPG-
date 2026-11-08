@@ -330,7 +330,7 @@ test('帰還の決断: 船長室で「今日はここまで」と決めると帰
   assert.ok(h.log.logs.some(l => /扉の閉まる音/.test(l)));
 });
 
-test('GHOSTSHIP-REBUILD-004 今いる空間だけを描く: 今いる部屋と、開口のそばの隣の部屋だけ。閉じた扉・板の先と、別の階層は見せない', () => {
+test('GHOSTSHIP-REBUILD-004 / CAMERA-001 今いる空間だけを描く: 今いる部屋と、開口・開いた扉の先(距離を問わない)。閉じた扉・板の先と、別の階層は見せない', () => {
   const h = harness();
   h.api.setFlags({ phase:'pre', loopDone:false });
   h.api.buildCells();
@@ -338,10 +338,13 @@ test('GHOSTSHIP-REBUILD-004 今いる空間だけを描く: 今いる部屋と�
   assert.deepEqual(h.api.visibleAt(-29, 162), ['gsBilge']);
   // 船員室の、食堂への開口のそば: 食堂(同じ場所の船員室……? も同じ区画)が見えはじめる
   assert.deepEqual(h.api.visibleAt(-29, 55), ['gsMess', 'gsQuarters', 'xQuarters']);
-  // 船員室の奥(開口から遠い): 船員室だけ
-  assert.deepEqual(h.api.visibleAt(-29, 46), ['gsQuarters']);
+  // 船員室の奥(開口から遠い)でも、開口の先の食堂は描く(離れても消えない。CAMERA-001)
+  assert.deepEqual(h.api.visibleAt(-29, 46), ['gsMess', 'gsQuarters', 'xQuarters']);
+  // 別の階層(船倉)は、船員室のどこからも描かない
+  assert.ok(!h.api.visibleAt(-29, 46).includes('gsHold'));
   // 通路から食堂の扉のそば: 扉が閉じていれば食堂は見えない(getDoor の既定は開いている)
   assert.ok(h.api.visibleAt(-29, 76).includes('gsMess'));
+  assert.ok(h.api.visibleAt(-29, 83).includes('gsMess'), '開いた扉の先は、通路の奥(扉から遠い所)からも描く');
   h.log.doors.gsMessDoor.opened = false;
   assert.ok(!h.api.visibleAt(-29, 76).includes('gsMess'), '閉じた扉の先は見せない');
   // 帰還不能の後: 船員室……? と本物の船員室の開口は板で塞がれる → 見せない

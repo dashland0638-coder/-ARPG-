@@ -1448,6 +1448,7 @@
       updateArenaPanel(dt);   // Combat Test Arena専用。state.testMode以外では即return
       updateDoors(dt);
       updateMansionRoof();
+      updateRoomCells(dt);
       updateRestroomRoof();
       updateStairs();
       updateLore();
@@ -1483,6 +1484,7 @@
          のがこれ。判定は state.pos を見るだけなので、演出中に呼んでも
          副作用は無い */
       updateMansionRoof();
+      updateRoomCells(dt);
       updateRestroomRoof();
       updateManorSmith(dt);   // 再会演出で鍛冶屋が歩み寄る(仕様 7)
       /* 宵待ちの村(WORK 3): 演出中も村は動かす ―― 水面・小舟・洗濯物が
@@ -1863,6 +1865,12 @@
      暗転(screen-fade)が外れ、酒場が数フレーム描かれてから始める。
      時間では待たない ―― 低FPSでも、画面に酒場が出た次の瞬間に会話が出る */
   let pendingJoinScene = null;
+  /* 鍛冶士との再会が、まだ済んでいない(洋館から帰った夜。剣士の場面) */
+  function smithGreetingPending(){ return !!state.smithJoined && !state.smithGreeted; }
+  /* 洋館の後の交代の一幕が、鍛冶士との再会を待っている間。出撃(店主)を止める */
+  function chapter1SortieHeld(){
+    return !!pendingJoinScene && pendingJoinScene.nextKey === 'mage' && smithGreetingPending();
+  }
   function queueChapter1JoinScene(prevKey, nextKey, cast){
     pendingJoinScene = {prevKey, nextKey, cast: cast || null, frames: 0};
   }
@@ -1873,9 +1881,10 @@
       pending: true, started: state.started, paused: state.paused,
       dialogueActive: state.dialogueActive, world: currentWorldKey,
       fading: (typeof fadeBusy !== 'undefined' && fadeBusy) || !!(fade && fade.classList.contains('on')),
-      /* 洋館の後は、帰ってきた剣士が鍛冶士の前まで歩いて話す(既存の再会)のが先。
-         再会は酒場の近接イベントが起こすので、済むまで交代の一幕を待たせる(X-5) */
-      blocked: pendingJoinScene.nextKey === 'mage' && !!state.smithJoined && !state.smithGreeted,
+      /* 洋館の後は、帰ってきた剣士が鍛冶士の前まで行って話す(既存の再会)のが先。
+         再会は本人が鍛冶士に近づくと始まる(CAMERA-001)ので、済むまで交代の一幕を待たせる(X-5)。
+         待っている間は出撃させない(chapter1SortieHeld) */
+      blocked: chapter1SortieHeld(),
     };
     // 酒場が見えている間だけ数える(暗転中・会話中のフレームは数えない)
     if(ctx.started && !ctx.paused && !ctx.dialogueActive && ctx.world === 'tavern' && !ctx.fading && !ctx.blocked) pendingJoinScene.frames++;
@@ -1953,7 +1962,7 @@
     /* 上位職は Chapter 1 では使わない(WORK 12.1)。転身の状態も持ち越さない */
     if(!legacyGrowth()) state.job = null;
     /* 鍛冶士との再会(洋館から帰った夜)は剣士の場面。交代したあとの主人公に
-       「鍛冶屋の前まで歩いて話す」をさせない(WORK 12.1)。鍛冶士は酒場に残る */
+       再会の会話をさせない(WORK 12.1)。鍛冶士は酒場に残る */
     if(state.smithJoined) state.smithGreeted = true;
     resetWeaponState(state.weapon);
     // 交代の一幕(会話)の間も、HUD が前の主人公のままにならないように(UI-002-D WI-D1)
@@ -2040,8 +2049,12 @@
     fig.rotation.y = Math.atan2(to.x - JOIN_FIGURE_FROM.x, to.z - JOIN_FIGURE_FROM.z);
     const faceFig = Math.atan2(to.x - state.pos.x, to.z - state.pos.z);
     playCutscene([
-      // 帰ってきた主人公が、歩いてくる人のほうへ顔を向ける
-      {t:0.2, run:()=> cutsceneTurnTo(faceFig, 0.5)},
+      /* 帰ってきた主人公が、歩いてくる人のほうへ顔を向ける。歩いてくる人(物語の演出なので維持)は
+         カメラの視線誘導で見せる(CAMERA-001。交代の会話の間も見せたまま。自動カメラ OFF では動かない) */
+      {t:0.2, run:()=>{
+        cutsceneTurnTo(faceFig, 0.5);
+        sceneCamShot((to.x + state.pos.x)/2, (to.z + state.pos.z)/2, Math.max(1.2, dur) + 0.4, {height:7, dist:7, holdDialogue:true});
+      }},
       // 歩み寄るのを待ってから、交代の会話
       {t:Math.max(0.3, dur), run:()=>{
         if(joinFigureWalk){ finishJoinFigureWalk(); }

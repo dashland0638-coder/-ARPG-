@@ -148,6 +148,81 @@
     return obj;
   }
 
+  /* =========================================================
+     入れる建物の中身(CAMERA-001、docs/DUNGEON_RENDERING.md §2)
+
+     村は屋外の舞台なので、屋外(通り・建物の外形・景観)は常に描く。建物の中にいる時も屋外を描く
+     (戸口の外が、戸口に近づく前から見える)。分けるのは「入れる建物の中身」だけ:
+       ・屋外にいて戸口から 3.2 より遠い時は、建物の中身を描かない(屋根が隠している。描く物も減る)
+       ・建物の中・戸口のそばでは描く
+       ・見せる場面のカメラが映す建物の中身は描く
+     切り替えは描画の層(02 の rcSetLayer)
+  ========================================================= */
+  let duskCells = null;   // {cells:[{ids, objs, on}], vis}
+  const DUSK_DOOR_NEAR = 3.2;
+  function duskHouseAt(x, z, pad){
+    for(let i=0;i<duskInteriors.length;i++){
+      const h = duskInteriors[i];
+      if(Math.abs(x - h.x) < h.w/2 + (pad || 0) && Math.abs(z - h.z) < h.d/2 + (pad || 0)) return i;
+    }
+    return -1;
+  }
+  const _dcBox = new THREE.Box3(), _dcV = new THREE.Vector3();
+  function initDuskCells(objs){
+    const byKey = new Map();
+    const put = (k, o)=>{ let c = byKey.get(k); if(!c){ c = {ids:k.split('|'), objs:[], on:true}; byKey.set(k, c); } c.objs.push(o); };
+    objs.forEach(o=>{
+      // 屋外の物・建物の外形(壁・屋根)・床は区画にしない(常に描く)
+      if(!o || o.isLight || o.userData.rcAlways || o.userData.duskShell !== undefined) return;
+      o.updateMatrixWorld(true);
+      _dcBox.setFromObject(o);
+      if(_dcBox.isEmpty()) _dcV.copy(o.position); else _dcBox.getCenter(_dcV);
+      const i = duskHouseAt(_dcV.x, _dcV.z, 0.2);
+      if(i >= 0) put('h' + i, o);
+    });
+    duskCells = {cells:[...byKey.values()], vis:new Set()};
+  }
+  function updateDuskCells(){
+    const dc = duskCells;
+    if(!dc || currentWorldKey !== 'duskvillage') return;
+    const x = state.pos.x, z = state.pos.z, vis = dc.vis;
+    vis.clear();
+    vis.add('out');   // 屋外は常に描く
+    const inH = duskHouseAt(x, z, 0);
+    if(inH >= 0) vis.add('h' + inH);
+    for(let i=0;i<duskInteriors.length;i++){
+      const d = duskInteriors[i].door;
+      if(Math.hypot(x - d.x, z - d.z) < DUSK_DOOR_NEAR) vis.add('h' + i);
+    }
+    if(sceneShot){
+      const j = duskHouseAt(sceneShot.x, sceneShot.z, 0);
+      if(j >= 0) vis.add('h' + j);
+    }
+    for(let i=0;i<dc.cells.length;i++){
+      const c = dc.cells[i];
+      let on = false;
+      for(let k=0;k<c.ids.length;k++) if(vis.has(c.ids[k])){ on = true; break; }
+      if(on !== c.on){ c.on = on; c.objs.forEach(o=> rcSetLayer(o, on)); }
+    }
+    // 敵・宝箱・回復結晶: 中身を描かない建物の中にあるものは描かない(気づいている敵・近い敵は描く)
+    duskHideUnseen(chests, vis, false); duskHideUnseen(healingCrystals, vis, false); duskHideUnseen(enemies, vis, true);
+  }
+  function duskHideUnseen(list, vis, isEnemy){
+    const x = state.pos.x, z = state.pos.z;
+    for(let i=0;i<list.length;i++){
+      const it = list[i];
+      if(!it || !it.group) continue;
+      const p = it.group.position;
+      const j = duskHouseAt(p.x, p.z, 0);
+      const key = j >= 0 ? 'h' + j : 'out';
+      const engaged = isEnemy && (it.triggered || Math.hypot(p.x - x, p.z - z) < 12);
+      const hide = !vis.has(key) && !engaged;
+      if(it.rcUnseen === hide) continue;
+      it.rcUnseen = hide;
+      rcSetLayer(it.group, !hide);
+    }
+  }
+
   function buildDuskVillage(){
     duskProps = [];
     duskRipples = [];
@@ -166,6 +241,7 @@
     duskDeepSeen = 0; duskDeepCD = 0;
     duskGateCreakCD = 0; duskGateChainCD = 0; duskGateFlowCD = 0;
     duskInteriors = [];
+    duskCells = null;
     duskGateSlab = null; duskGateWall = null; duskGateLever = null;
     duskBarDoor = null; duskBarBeam = null;
     duskGateGears = []; duskGateChains = [];
@@ -226,7 +302,10 @@
                 : (r.id === 'plaza' || r.id === 'gate') ? stoneMat : plankMat;
       const surf = r.id === 'forest' ? 'dirt'
                 : (r.id === 'plaza' || r.id === 'gate') ? 'stone' : 'wood';
+      const beforeFloor = new Set(scene.children);
       addFloorWithHoles(r.x0, r.x1, r.z0, r.z1, [], mat, DUSK_FLOOR_Y);
+      // 床は建物の中からも外からも描く(建物の床でもある。CAMERA-001 の区画の外)
+      scene.children.forEach(o=>{ if(!beforeFloor.has(o)) o.userData.rcAlways = true; });
       addRoomSurface(r, surf);
       buildWalls(r);
     });
@@ -266,6 +345,7 @@
     // 入れる建物。door は出入口の向き('S'|'N'|'E'|'W')
     function house(x, z, w, d, h, door){
       const t = 0.3;
+      const beforeHouse = new Set(scene.children);
       wallRun(x, z - d/2, w, t, h, door === 'S' ? 2.2 : 0);
       wallRun(x, z + d/2, w, t, h, door === 'N' ? 2.2 : 0);
       wallRun(x - w/2, z, t, d, h, door === 'W' ? 2.2 : 0);
@@ -275,7 +355,12 @@
       const rmat = new THREE.MeshStandardMaterial({color:0x1d1712, roughness:0.85,
                                                    transparent:true, opacity:1});
       const rmesh = roof(x, z, w, d, h, 0, rmat);
-      duskInteriors.push({x, z, w, d, mesh:rmesh, mat:rmat, k:0});
+      // 壁と屋根(建物の外形)は、その建物の中か屋外にいる時に描く(CAMERA-001)
+      const idx = duskInteriors.length;
+      scene.children.forEach(o=>{ if(!beforeHouse.has(o)) o.userData.duskShell = idx; });
+      const doorPt = door === 'E' ? {x:x + w/2, z} : door === 'W' ? {x:x - w/2, z}
+                   : door === 'N' ? {x, z:z + d/2} : {x, z:z - d/2};
+      duskInteriors.push({x, z, w, d, mesh:rmesh, mat:rmat, k:0, door:doorPt});
     }
 
     // ---- 小物 ----
@@ -1070,18 +1155,20 @@
     const shadePos = new THREE.Vector3(-13, 0, 326);
     let shade = null;
     playCutscene([
-      // 剣士が数歩先へ出る。魔法使い(プレイヤー)は歩度を落として止まる
+      /* 剣士が数歩先へ出る。魔法使い(プレイヤー)は止まる ―― プレイヤーは歩かせない
+         (CAMERA-001: 移動はプレイヤーに委ねる。剣士が先へ出れば「止まった」は伝わる) */
       {t:0.05, run:()=>{
         if(typeof guestCompanion !== 'undefined' && guestCompanion){
           duskGuestWalk = {x: state.pos.x + 1.2, z: state.pos.z + 5.5, speed: 3.2};
         }
-        state.walkTo = {vx: 0, vz: 1.1};
       }},
-      {t:0.9, run:()=>{ state.walkTo = null; }},
-      // 水面へ目をやる。カメラも一緒に回して、本人が見ているものを画面へ入れる
+      {t:0.9, run:()=>{}},
+      /* 水面へ目をやる。本人の顔は水面へ向け、カメラは向きを強制で回さずに、水面の人影を
+         短く映す(sceneCamShot。演出の間は見せたまま、終われば追従へ戻る。自動カメラ OFF では動かない) */
       {t:0.35, run:()=>{
         const yaw = Math.atan2(shadePos.x - state.pos.x, shadePos.z - state.pos.z);
-        cutsceneTurnTo(yaw, 0.7, yaw + Math.PI);
+        cutsceneTurnTo(yaw, 0.7);
+        sceneCamShot(shadePos.x, shadePos.z, 1.6, {height:8, dist:8});
         ambienceHold(4);        // 風がふっと止む。音を足さずに、鳴っていたものを止める
       }},
       {t:0.8, run:()=>{
@@ -1116,10 +1203,10 @@
         }
       }},
       {t:2.0, run:()=> cutsceneLine('「はい。残っている物から順に見ていきます」', DUSK_MAGE)},
-      // 向き直って操作を返す
+      // 向き直って操作を返す(カメラは強制で戻さない。向きを変えていないので、追従へ戻るだけ)
       {t:1.6, run:()=>{
         cutsceneHideLine();
-        cutsceneTurnTo(0, 0.6, Math.PI);
+        cutsceneTurnTo(0, 0.6);
       }},
       {t:0.7, run:()=>{
         state.dialogueActive = false;
@@ -1139,6 +1226,8 @@
     if(duskFishMemoryDone) return;
     duskFishMemoryDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): 帳場を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(-46.2, 345.6, 1.6, {height:8, dist:6})},
       {t:0.1, run:()=>{
         ambienceHold(6);
         sfx('woodCreak');
@@ -1179,6 +1268,8 @@
     if(duskChildMemoryDone) return;
     duskChildMemoryDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): 食卓と玩具の舟を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(45.8, 350.4, 1.6, {height:8, dist:6})},
       {t:0.1, run:()=>{ ambienceHold(6); sfx('crockery'); }},
       // 食卓の椅子のあたりに、小さい輪郭がひとつ
       {t:0.8, run:()=>{
@@ -1212,6 +1303,8 @@
     if(duskBoatMemoryDone) return;
     duskBoatMemoryDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): 舟の並ぶ水際を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(-39, 304, 1.6, {height:9, dist:7})},
       {t:0.1, run:()=>{ ambienceHold(7); sfx('woodCreak'); }},
       // 水の上をひとつ、波紋が走る
       {t:0.7, run:()=>{
@@ -1249,6 +1342,8 @@
     if(duskMarketMemoryDone) return;
     duskMarketMemoryDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): 屋台を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(-2.7, 384.6, 1.6, {height:8, dist:6})},
       {t:0.1, run:()=>{ ambienceHold(6); sfx('crockery'); }},
       // 屋台をはさんで、輪郭がふたつ。向かい合ったまま動かない
       {t:0.7, run:()=>{
@@ -1413,6 +1508,8 @@
     if(duskGateTalkDone) return;
     duskGateTalkDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): 閉じた水門を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(0, 437, 1.6, {height:11, dist:9})},
       {t:0.2, run:()=> ambienceHold(5)},
       {t:1.0, run:()=> cutsceneLine('「この水門、閉じたままですね。広場の閂の門と同じです」', DUSK_MAGE)},
       {t:2.2, run:()=> cutsceneLine('「村の連中が、自分で閉めたのか」', DUSK_KNIGHT)},
@@ -1676,6 +1773,8 @@
     if(duskWardenSpawned) return;
     duskWardenSpawned = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): レバーと水門を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(1.5, 446, 1.6, {height:9, dist:7})},
       {t:0.2, run:()=> ambienceHold(7)},
       // 誰もいないのにレバーが動く
       {t:0.6, keep:true, run:()=>{ pullDuskGateLever(0.5); sfx('woodCreak'); }},
@@ -1759,6 +1858,8 @@
     advanceDuskTime('prelude');   // ボスの手前。夜(CH1-EXP X-6b)
     duskBossPreludeDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): ひとつに集まる水面を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(0, 500, 1.6, {height:13, dist:10})},
       {t:0.2, run:()=> ambienceHold(8)},
       // 離れた水面から、ひとつずつ
       {t:0.9, keep:true, run:()=>{ spawnDuskRipple(-12, 494, 1.2); spawnApparition(
@@ -2844,6 +2945,7 @@
       h.mat.opacity = 1 - h.k * 0.92;
       h.mesh.visible = h.mat.opacity > 0.03;
     }
+    updateDuskCells();
 
     // ---- 時間帯(zの進み具合で補間。撃破後は dawn へ寄せる) ----
     /* 色も強さも、帯の間を連続に補間する(core/dusk-light.js)。以前は光の色だけ

@@ -2623,6 +2623,9 @@
     if(!state.started) return;
     if(state.sortied) return; // already sortied, nothing to pick
     if(state.pos.distanceTo(BARTENDER_POS) >= 3) return; // now talk to the bartender instead of anywhere in town
+    /* 洋館の後の交代(剣士 → 魔法使い)が鍛冶士との再会を待つ間は、出撃の一覧を開かない。
+       開く入口(店主を調べる・F キー・パッドの十字キー上)はすべてここを通る(CAMERA-001) */
+    if(chapter1SortieHeld()){ sfx('ui'); spawnToast('🍺 店主「鍛冶士が奥で待ってる。先に顔を見せてやれ」'); return; }
     setOverlay('scenario');
   }
 

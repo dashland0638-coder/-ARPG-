@@ -2336,6 +2336,7 @@
     }
     // 幽霊船(GHOSTSHIP-REBUILD-003): 空間を見せたい場面だけ、短く見せる。他のダンジョンは通らない
     if(currentWorldKey === 'ghostship' && ghostShipCameraShot(dt)){ camera.position.add(shakeOffset); return; }
+    if(currentWorldKey !== 'ghostship' && sceneCameraShot(dt)){ camera.position.add(shakeOffset); return; }
     const lockBoss = findLockOnBoss();
     if(lockBoss){
       const bp = lockBoss.group.position;
@@ -2380,5 +2381,38 @@
     sunLight.target.position.copy(state.pos);
     sunLight.target.updateMatrixWorld();
   }
+
+  /* =========================================================
+     見せてから話す(CAMERA-001、docs/DUNGEON_RENDERING.md §3)
+
+     重要な物を、会話や一文より先にカメラで見せる。幽霊船(gsCamShot)と同じ考え方の、
+     幽霊船以外で使う共通の短い場面カメラ。
+       ・見せたい物の少し上・手前(今のカメラの向きの側)から見る。向き(camYaw)は変えない
+       ・自動カメラ OFF の人には使わない(進行に要らない自動の演出なので。出来事はそのまま起きる)
+       ・hold(既定): 演出(playCutscene)が続く間は見せたまま。終われば滑らかに追従へ戻る
+       ・ボスの寄り・ボス戦の追尾より先には割り込まない(ボス戦中は使わない)
+  ========================================================= */
+  let sceneShot = null;   // {x, z, t, dur, height, dist, hold}
+  function sceneCamShot(x, z, dur, opts){
+    // 自動カメラ OFF の人には、進行に要らない自動のカメラ演出をしない(カメラは本人の操作のまま)
+    if(!camAutoOn) return;
+    opts = opts || {};
+    sceneShot = {x, z, t:0, dur:dur || 1.4, height:opts.height || 9.5, dist:opts.dist || 6.5, hold:opts.hold !== false, holdDialogue:!!opts.holdDialogue};
+  }
+  function clearSceneShot(){ sceneShot = null; }
+  const _scTarget = new THREE.Vector3(), _scLook = new THREE.Vector3();
+  function sceneCameraShot(dt){
+    if(!sceneShot) return false;
+    if(state.dialogueBoss || (typeof findLockOnBoss === 'function' && findLockOnBoss())){ sceneShot = null; return false; }
+    const s = sceneShot;
+    s.t += cutsceneRealDt > 0 ? Math.min(cutsceneRealDt, 0.1) : dt;
+    if(s.t >= s.dur && !(s.hold && cutsceneRunning()) && !(s.holdDialogue && state.dialogueActive)){ sceneShot = null; return false; }
+    _scLook.set(s.x, 0.8, s.z);
+    _scTarget.set(s.x + Math.sin(state.camYaw) * s.dist, s.height, s.z + Math.cos(state.camYaw) * s.dist);
+    camera.position.lerp(_scTarget, 1 - Math.pow(0.004, Math.min(dt, 0.1)));
+    camera.lookAt(_scLook);
+    return true;
+  }
+
 
   /* =========================================================

@@ -2185,16 +2185,23 @@
     /* 洋館から戻った最初の一度だけ、鍛冶士が自分から声をかけてくる。
        「この冒険で世界が少し変わった」ことを、酒場に入った瞬間に見せる */
     if(state.smithJoined && !state.smithGreeted){
-      /* 帰還した瞬間に入口で話しかけられるのではなく、鍛冶士が落ち着いた
-         一角まで歩いてから話す。トリガー自体は帰還地点(0,0,10 付近)の
-         ままで、そこから先は playSmithGreeting() が歩く演出を持つ ――
-         「会話だけを別の場所へ移す」のではなく、本人が鍛冶屋の前まで
-         行ってから始める、という形にしてある */
-      registerProximityEvent(new THREE.Vector3(0,0,13), 6.5, '鍛冶士', null,
-        {onEnter: playSmithGreeting,
-         // 主人公交代(剣士 → 魔法使い)でこの再会は不要になる(WORK 12.1)。
-         // 酒場を建てた直後に交代が起きるので、発火の時点で見直す
-         condition: ()=> !state.smithGreeted});
+      /* 帰還した瞬間に入口で話しかけられるのではなく、本人が鍛冶屋の前まで
+         行ってから始める(「会話だけを別の場所へ移す」のではない) */
+      /* CAMERA-001: プレイヤーを歩かせない。帰ってきたら、カメラで鍛冶士の一角を見せて気づかせ、
+         本人が鍛冶屋に近づいたら(鑑定・強化の範囲の内側)会話が始まる。会話が終わった位置から
+         そのまま鑑定・強化に入れる(前の形と同じ)。自動カメラ OFF の人には一文だけ */
+      registerProximityEvent(new THREE.Vector3(0,0,13), 6.5, '', ()=>{
+        spawnLog('🔨 店の奥の隅で、鍛冶士が手を止めてこちらを見ている');
+        return null;
+      }, {show:{x:SMITH_POS.x, z:SMITH_POS.z, wait:1.1, height:7, dist:6}, marker:false,
+          // 主人公交代(剣士 → 魔法使い)でこの再会は不要になる(WORK 12.1)。
+          // 酒場を建てた直後に交代が起きるので、発火の時点で見直す
+          condition: ()=> !state.smithGreeted});
+      registerProximityEvent(SMITH_POS, SMITH_GREET_RADIUS, '鍛冶士', ()=>{
+        state.smithGreeted = true;
+        sfx('anvil');   // 金床を叩く手を止めて、顔を上げる
+        return SMITH_GREET_LINES;
+      }, {condition: ()=> !state.smithGreeted});
     }
 
     buildLoreNote(new THREE.Vector3(-7,0,21), '酒場の壁に貼られた紙', [
@@ -2264,60 +2271,19 @@
      部屋の反対側から喋っている絵になる。
 
      直し方は「会話を鍛冶屋の側へ動かす」ではなく「本人が鍛冶屋の前まで
-     行ってから話す」。既にある演出の仕組み(playCutscene + state.walkTo +
-     cutsceneTurnTo)をそのまま使う。
+     行ってから話す」。以前は演出でプレイヤーを鍛冶屋の前まで歩かせていたが、
+     CAMERA-001 で、カメラで鍛冶士を見せて気づかせ、本人が近づいた時に会話を
+     始める形にした(プレイヤーの移動はプレイヤーに委ねる)。 */
+  /* 会話が始まる距離。鑑定・強化の判定(nearbySmith、3m)の内側なので、会話が終わった位置から
+     そのまま鑑定・強化に入れる(CAMERA-001 で歩かせる演出をやめ、本人が近づいた時に始める形にした) */
+  const SMITH_GREET_RADIUS = 2.9;
+  const SMITH_GREET_LINES = [
+    '「よう。……ちゃんと戻ってきたな」',
+    '「店主に頼んで、この隅を貸してもらった。しばらくここに置いてもらう」',
+    '「担いで帰った鋼で炉の口金を打ち直した。あんたの得物も、これからは俺が見る」',
+    '「……あそこで何があったのかは、俺にも分からん。分からんままでいい気もする」'
+  ];
 
-     経路は卓を避けて2辺で取る ―― 帰還地点(0,10)から北へ、それから西へ。
-     酒場の丸卓A は (-5,10) に当たり判定 x[-5.68..-4.33] / z[9.33..10.68] を
-     持っているので、まっすぐ斜めに歩くと卓を突き抜ける。z=12.3 まで
-     上がってから西へ進めば、卓の北側を通れる。
-
-     立ち止まる先 (-4.2, 12.3) は鍛冶士から 2.3m ―― nearbySmith の
-     判定(3m、02-world-common.js)の内側なので、会話が終わった位置から
-     そのまま鑑定・強化に入れる。会話後にプレイヤーを動かさないので、
-     不自然なワープも起きない。 */
-  const SMITH_GREET_STAND = {x:-4.2, z:12.3};
-
-  function playSmithGreeting(){
-    playCutscene([
-      // 降り立った直後に歩き出さない。一拍置いて、店の中を見回す間を取る
-      {t:0.45, run:()=>{}},
-      // 北へ。丸卓Aの北側へ回り込む
-      {t:0.05, run:()=>{ state.walkTo = {vx:0, vz:2.2}; }},
-      {t:1.05, run:()=>{
-        state.walkTo = null;
-        /* 西を向く。カメラも東側(camYaw = π/2)へ回して、剣士ごしに
-           鍛冶士の一角が正面に入るようにする ―― camYaw はカメラが
-           居る方向(getCamOffset)なので、西を見るには東へ回す */
-        cutsceneTurnTo(-Math.PI/2, 0.5, Math.PI/2);
-      }},
-      // 鍛冶士の一角へ歩み寄る
-      {t:0.55, run:()=>{ state.walkTo = {vx:-2.2, vz:0}; }},
-      {t:1.91, run:()=>{
-        state.walkTo = null;
-        // 歩幅の誤差を残さない。ここが会話中の立ち位置になる
-        state.pos.x = SMITH_GREET_STAND.x;
-        state.pos.z = SMITH_GREET_STAND.z;
-        state.facing = -Math.PI/2;
-        sfx('anvil');   // 金床を叩く手を止めて、顔を上げる
-      }},
-      {t:0.40, run:()=>{
-        state.smithGreeted = true;
-        state.dialogueKind = null;
-        state.dialogueBoss = null;
-        state.dialogueLines = [
-          '「よう。……ちゃんと戻ってきたな」',
-          '「店主に頼んで、この隅を貸してもらった。しばらくここに置いてもらう」',
-          '「担いで帰った鋼で炉の口金を打ち直した。あんたの得物も、これからは俺が見る」',
-          '「……あそこで何があったのかは、俺にも分からん。分からんままでいい気もする」'
-        ];
-        state.dialogueIndex = 0;
-        document.getElementById('dialogue-name').textContent = '鍛冶士';
-        document.getElementById('dialogue-text').textContent = state.dialogueLines[0];
-        document.getElementById('dialogue-overlay').classList.add('active');
-      }}
-    ]);
-  }
 
   /* 酒場の二階 ―― 宿場を兼ねた居住スペース。当たり判定が二次元なので、
      一階の真上ではなく東の未使用帯(x 48..64, z 6..24)に置き、階段の
@@ -2564,7 +2530,25 @@
     fill.rotation.x = -Math.PI/2;
     fill.position.set((x0+x1)/2, 0.01, (z0+z1)/2);
     fill.receiveShadow = true;
+    fill.userData.rcAlways = true;   // 下地は区画の外も覆う(どの部屋にいても描く。CAMERA-001)
     scene.add(fill);
+  }
+
+  /* 部屋と部屋を繋ぐ室内の扉(CAMERA-001)。開口(表の gaps)の中心に置く。近づくと体で押して開き、
+     一度開けたら閉じない(02 updateDoors の autoOpen)。開くまでは扉の先の部屋を描かない(区画)。
+     廊下・ホール・踊り場・階段の下は開いたアーチのまま(洋館の通り道)。玄関だけは手で開ける */
+  function mansionInnerDoor(key, a, b){
+    const ra = mansionRoomById(a), rb = mansionRoomById(b);
+    const op = rcOpening(ra, rb);
+    if(!op) return null;
+    const alongX = Math.abs(op.z - ra.z1) < 0.01 || Math.abs(op.z - ra.z0) < 0.01;   // 南北の辺(壁が東西に走る)
+    const seg = alongX
+      ? (Math.abs(op.z - ra.z1) < 0.01 ? ra.gaps.N : ra.gaps.S)
+      : (Math.abs(op.x - ra.x1) < 0.01 ? ra.gaps.E : ra.gaps.W);
+    const w = Array.isArray(seg) ? seg[1] - seg[0] : 4;
+    const d = buildDoor(key, op.x, op.z, w, 0x2e2230, alongX ? 'EW' : 'NS');
+    d.autoOpen = true;
+    return d;
   }
 
   /* ---------------------------------------------------------
@@ -2589,6 +2573,8 @@
       buildMansionWalls(r, wallMat);
     });
 
+    // 玄関の扉・柱・外殻・外周の木立は建物の外観。今いる部屋に関わらず常に描く(CAMERA-001)
+    const beforeExterior = new Set(scene.children);
     // 玄関の扉。ここだけは自分の手で開ける ―― 中へ入る決断を一度させる
     buildDoor('manorFront', 0, -40, 6, 0x2a1830);
     // 玄関アーチの柱(森→洋館の切り替わりを外からも分かるように)
@@ -2603,6 +2589,7 @@
     lintel.position.set(0, 3.0, -40);
     lintel.castShadow = true;
     scene.add(lintel);
+    scene.children.forEach(o=>{ if(!beforeExterior.has(o)) o.userData.rcAlways = true; });
 
     mansionLamp(0,  -44, 0xffb066, 0.45, 12);
     mansionLamp(0,  -57, 0xffb066, 0.60, 20);
@@ -2610,12 +2597,19 @@
     mansionLamp(0,  -83, 0xd8c8ff, 0.65, 26);
     mansionLamp(12, -95, 0xffcf8a, 0.55, 14);   // 大階段(大広間の東寄りの出口の奥)
 
+    // 室内の扉: 玄関ホール ⇄ 食堂・厨房
+    mansionInnerDoor('manorDining', 'mFoyer', 'mDining');
+    mansionInnerDoor('manorKitchen', 'mFoyer', 'mKitchen');
     buildManorFoyerDressing(woodMat);
     buildManorDiningDressing(woodMat);
     buildManorKitchen(woodMat);
     buildManorGreatHall(woodMat);
+    const beforeShell = new Set(scene.children);
     buildMansionExterior();
     buildMansionForestWall();
+    // 外殻(外壁・窓・玄関の上の壁)と外周の木立。屋内では描かない(屋根と同じ。updateMansionRoof)
+    mansionShell = scene.children.filter(o=> !beforeShell.has(o) && o !== mansionRoof);
+    scene.children.forEach(o=>{ if(!beforeShell.has(o)) o.userData.rcAlways = true; });
   }
 
   /* 玄関ホール。傘立て・帽子掛け・止まった振り子時計 ―― 「昨日まで人が
@@ -2703,7 +2697,7 @@
       addShake(0.05);
       spawnLog('🍽️ 卓の上の皿が、ひとりでに滑り落ちて割れた');
       return null;
-    });
+    }, {show:{x:-23.5, z:-57, wait:1.2}});   // 卓を見せてから(CAMERA-001)
 
     buildLoreNote(new THREE.Vector3(-28.5, 0, -50.5), 'ボロボロの来客名簿', [
       '玄関脇に置き去りにされた記帳簿。インクは滲み、最後の記帳から何十年も経っている。',
@@ -2764,7 +2758,7 @@
       sfx('windGust');
       spawnLog('🍲 竈の灰が、風も無いのにふわりと舞い上がった');
       return null;
-    });
+    }, {show:{x:28.2, z:-63, wait:1.1}});   // 竈を見せてから(CAMERA-001)
 
     buildLoreNote(new THREE.Vector3(22.4, 0, -62.5), '走り書きの献立', [
       '調理台の端に留められた紙片。几帳面な字で、その日の献立が並んでいる。',
@@ -2856,6 +2850,11 @@
       mansionFloor(r, floorMat, undefined, 'wood');
       buildMansionWalls(r, wallMat);
     });
+    // 室内の扉: 廊下 ⇄ 客室・書斎、書斎 ⇄ 書庫、書庫 ⇄ 作業室
+    mansionInnerDoor('manorGuest', 'uCor', 'uGuest');
+    mansionInnerDoor('manorStudy', 'uCor', 'uStudy');
+    mansionInnerDoor('manorArchive', 'uStudy', 'uArch');
+    mansionInnerDoor('manorWorkshop', 'uArch', 'uWork');
     mansionLamp(77, -91, 0xffcf8a, 0.55, 14);
     mansionLamp(77, -60, 0xffb066, 0.40, 26);
     mansionLamp(92, -75, 0xffcf8a, 0.50, 18);
@@ -3064,6 +3063,7 @@
       spawnToast('🚪 扉は向こう側から塞がれていて、開かない');
       return null;
     }, {area:{x0:cor.x0, x1:cor.x1, z0:cor.z1-5, z1:cor.z1},
+        show:{x:77, z:-40.6, wait:1.0, height:7, dist:5},   // 塞がれた扉を見せてから(CAMERA-001)
         // 先に書庫から回って合流したら、ここへ誘う「!」はもう出さない
         condition:()=> state.smithEscort === ESCORT.NONE});
 
@@ -3078,7 +3078,8 @@
       '「廊下の扉は塞いだ。妙なのに入られたくないんでな。……書庫から回ってきたか」',
       '「付いてっていいか。荷は俺が持つ」',
       '「言っとくが戦うのは無しだ。手が塞がってるんでな」'
-    ], {inset:1.2, kind:'mansionEscortJoin'});
+    ], {inset:1.2, kind:'mansionEscortJoin',
+        show:{x:77, z:-33, wait:1.2, height:8, dist:6}});   // 鍛冶屋を見せてから話す(CAMERA-001)
 
     /* 使用人用階段。作業室の奥から一階の裏手へ降りる(auto) */
     const down = buildStairs(new THREE.Vector3(77,0,-28), new THREE.Vector3(74,0,44),
@@ -3398,6 +3399,8 @@
     apron.position.set(0, 0.85, 0.46); g.add(apron);
     g.position.copy(pos);
     g.rotation.y = Math.PI;
+    // 同行して部屋を移る人物。建てた部屋の区画に入れない(区画に入ると、作業室を出た途端に消える。CAMERA-001)
+    g.userData.rcAlways = true;
     scene.add(g);
     return g;
   }
@@ -3566,6 +3569,7 @@
          なって二度と出なくなる(既存の作法。sDown の分離イベント参照)。
          同行しているときだけ成立する場面なので、判定はこちら側に置く */
       {kind:'mansionRubble', area:MANOR_RUBBLE_AREA,
+       show:{x:74, z:MANOR_RUBBLE_Z, wait:1.2, height:7, dist:5},   // 瓦礫の山を見せてから話す(CAMERA-001)
        condition:()=> escortFollows(state.smithEscort)});
   }
 
@@ -3675,6 +3679,7 @@
   function buildMansionAnomaly(){
     manorAnomalyGroup = new THREE.Group();
     manorAnomalyWalls = [];
+    manorAnomalyGroup.userData.rcAlways = true;   // 異常空間はそれだけで一つの離れ島(区画で分けない。CAMERA-001)
     scene.add(manorAnomalyGroup);
 
     // 前半の玄関ホール・大広間と**同じ**材質を使う。ここが肝で、
@@ -3806,7 +3811,7 @@
       sfx('windGust');
       spawnLog('🕯️ ……この部屋は、知っている');
       return null;
-    });
+    }, {show:{x:135, z:-5, wait:1.4, height:14, dist:9}});   // 玄関ホールと同じ部屋だと見せてから(CAMERA-001)
 
     registerRoomEvent(mansionRoomById('xCor'), 0, '', ()=>{
       sfx('distantDoor');
@@ -3870,6 +3875,9 @@
       mansionFloor(r, floorMat, undefined, (id==='bStore'||id==='bChapel'||id==='bDeep') ? 'wetStone' : 'stone');
       buildMansionWalls(r, wallMat);
     });
+    // 室内の扉: 地下室 ⇄ 酒蔵、保管庫 ⇄ 小礼拝室
+    mansionInnerDoor('manorWine', 'bCellar', 'bWine');
+    mansionInnerDoor('manorChapel', 'bStore', 'bChapel');
     mansionLamp(138, 50, 0x5fcf7a, 0.55, 20);
     mansionLamp(138, 82, 0x7a9a6a, 0.45, 24);
     mansionLamp(140, 104, 0x8a4fd8, 0.55, 26);
@@ -4232,6 +4240,8 @@
      内部の間取り(MANSION_ROOMS の一階前半)を囲う形にしてある。 */
   let mansionRoof = null;
   let mansionOutdoor = null;        // 森のもの(離れ島の中では描かない)
+  let mansionShell = null;          // 一階の外殻(屋内では描かない)
+  let mansionShellHidden = false;
   let mansionOutdoorHidden = false;
   let mansionIslands = [];          // 離れ島の下地の範囲
   let restroomRoof = null;
@@ -4311,11 +4321,22 @@
     for(let x= 11; x<= 35; x+=3.0){ ringTree(x, -37, true); }
   }
 
+  /* 一階の屋内(玄関の戸口のそばを除く)。ここでは外殻と森(前庭)を描かない(CAMERA-001)。
+     カメラはプレイヤーの後ろ(玄関の側)に付くので、玄関に近い部屋(玄関・玄関ホール・食堂・厨房)では
+     カメラが高さ 7 の外殻の外に出て、外殻が画面を覆う黒い幕になり、その向こうに前庭が見えていた。
+     外殻は前庭から見た建物の輪郭なので、屋内では要らない(部屋は部屋の壁が囲む) */
+  const MANSION_1F_INNER = {x0:-31, x1:31, z0:-99, z1:-44};
   function updateMansionRoof(){
     if(mansionRoof) mansionRoof.visible = state.pos.z > -39.5;
     if(mansionOutdoor){
       const x = state.pos.x, z = state.pos.z;
-      const inIsland = mansionIslands.some(r=> x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1);
+      const I = MANSION_1F_INNER;
+      const in1F = x >= I.x0 && x <= I.x1 && z >= I.z0 && z <= I.z1;
+      if(mansionShell && in1F !== mansionShellHidden){
+        mansionShellHidden = in1F;
+        mansionShell.forEach(o=>{ o.visible = !in1F; });
+      }
+      const inIsland = in1F || mansionIslands.some(r=> x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1);
       if(inIsland !== mansionOutdoorHidden){
         mansionOutdoorHidden = inIsland;
         mansionOutdoor.forEach(o=>{ o.visible = !inIsland; });

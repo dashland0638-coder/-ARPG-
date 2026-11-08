@@ -231,14 +231,13 @@
      船の中のものを「区画(cell)」に分ける。区画の鍵は、その物が属する部屋の id の並び:
        壁(静的バッチの箱) … 箱が触れる部屋すべて(境の壁は両側の部屋から見える)
        それ以外の物       … 中心がある部屋(境の上の扉は両側)。部屋の外なら一番近い部屋
-     毎フレーム、今いる部屋と「開口のそばにいる時の、その先の部屋」(扉は開いている時だけ。
-     板で塞がった開口は見せない)、見せる場面のカメラが映す部屋だけを描く。
+     毎フレーム、今いる部屋と、開口の先・開いている扉の先の部屋(距離は問わない。閉じた扉・
+     板で塞がった開口の先は見せない)、見せる場面のカメラが映す部屋だけを描く(CAMERA-001 で距離の条件をやめた)。
      船の外(小舟・甲板)にいる時だけ海を描き、中では背景と霧を黒にする。
      区画は表示だけを切り替える(当たり・敵・イベントには触れない)
   ========================================================= */
   const GS_CELL_TOUCH = 0.7;     // 壁の箱が部屋に「触れている」とみなす距離(小舟と船底の外壁も含む)
   const GS_CELL_NEAR = 6;        // 部屋の外の物を、一番近い部屋へ寄せる距離
-  const GS_REVEAL_DIST = 7;      // 開口のそばにいると、その先の部屋が見えはじめる距離
   function gsCellIds(ids){ return ids.length ? ids.sort().join('|') : '*'; }
   function gsNearestRoom(x, z){
     let best = null, bd = GS_CELL_NEAR;
@@ -359,7 +358,7 @@
     (gsNeighbors[r.id] || []).forEach(n=>{
       const b = gsRoomById(n.id);
       if(!b || !gsRoomPresent(b, phase)) return;
-      if(Math.hypot(state.pos.x - n.x, state.pos.z - n.z) > GS_REVEAL_DIST) return;
+      // 開口の先・開いている扉の先は、距離に関係なく描く(CAMERA-001。開けた扉の先が離れると消えないように)
       if(gsOpeningPlanked(n.x, n.z)) return;
       if(n.door){ const d = getDoor(n.door); if(d && !d.opened) return; }
       gsRevealRoom(vis, b.id);

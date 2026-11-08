@@ -77,9 +77,9 @@ test('幽霊船: 穴を塞いだ板は周りの木に近い色で光らない', 
   assert.doesNotMatch(m, /emissive/);
 });
 
-test('共通方針の文書: 三つの領域・今いる空間・見せてから話す・欠落の確認項目、洋館と村のカメラは TODO', () => {
+test('共通方針の文書: 三つの領域・今いる空間・見せてから話す・欠落の確認項目、洋館と村のカメラは CAMERA-001 で DONE', () => {
   ['内部として存在する領域', '外側・存在しない領域', '壁の向こう・未到達の部屋', '見せてから話す'].forEach(k => assert.ok(doc.includes(k), k));
-  assert.match(doc, /CAMERA-MANSION-001.*TODO/);
-  assert.match(doc, /CAMERA-DUSKVILLAGE-001.*TODO/);
-  ['CAMERA-MANSION-001', 'CAMERA-DUSKVILLAGE-001'].forEach(k => assert.match(read(`.ai/tasks/${k}.md`), /Status: \*\*TODO/));
+  assert.match(doc, /CAMERA-MANSION-001.*DONE/);
+  assert.match(doc, /CAMERA-DUSKVILLAGE-001.*DONE/);
+  ['CAMERA-MANSION-001', 'CAMERA-DUSKVILLAGE-001'].forEach(k => assert.match(read(`.ai/tasks/${k}.md`), /Status: \*\*DONE/));
 });

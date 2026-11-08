@@ -142,15 +142,19 @@
       const beforeForest = new Set(scene.children);
       buildForest();
       mansionOutdoor = scene.children.filter(o=> !beforeForest.has(o));   // 離れ島の中では描かない(03 updateMansionRoof)
-      mansionZone('hall',     ()=>batchStatic(buildMansion));
-      mansionZone('upper',    ()=>batchStatic(buildMansionUpper));
-      mansionZone('servant',  ()=>batchStatic(buildMansionServantWing));
+      /* 今いる部屋を中心に描く(CAMERA-001)。壁のバッチは部屋ごとに分ける(roomCellBatch) */
+      const beforeManor = new Set(scene.children);
+      const cellBatch = fn=> ()=> roomCellBatch(MANSION_ROOMS, fn);
+      mansionZone('hall',     cellBatch(buildMansion));
+      mansionZone('upper',    cellBatch(buildMansionUpper));
+      mansionZone('servant',  cellBatch(buildMansionServantWing));
       /* 異常空間(D-01)。鍛冶屋と分かれた扉の向こう ―― 見覚えのある部屋に
          違う繋がり方で出る一本道。バッチしないのは、ボス撃破後の正常化で
          この区画だけを丸ごと消すため(normalizeMansionStructure) */
       mansionZone('anomaly',  buildMansionAnomaly);
-      mansionZone('basement', ()=>batchStatic(buildMansionBasement));
-      mansionZone('lord',     ()=>batchStatic(buildMansionLordsRoom));
+      mansionZone('basement', cellBatch(buildMansionBasement));
+      mansionZone('lord',     cellBatch(buildMansionLordsRoom));
+      initRoomCells('mansion', MANSION_ROOMS, scene.children.filter(o=> !beforeManor.has(o)));
       initMansionLamps();
     } },
     /* 第一章の本編は「帰れない」船(GHOSTSHIP-REBUILD-002、14-dungeon-ghostship.js)。
@@ -160,7 +164,11 @@
     temple:   { build: ()=>{ buildTemple(); } },
     conservatory: { build: ()=>{ buildConservatory(); } },
     clocktower:   { build: ()=>{ buildClocktower(); } },
-    duskvillage:  { build: ()=>{ buildDuskVillage(); } },
+    duskvillage:  { build: ()=>{
+      const beforeDusk = new Set(scene.children);
+      buildDuskVillage();
+      initDuskCells(scene.children.filter(o=> !beforeDusk.has(o)));   // 入れる建物の中と外(CAMERA-001)
+    } },
     road:         { build: ()=>{ buildRoad(); } },   // 道(Chapter 1 の最後、WORK 11)
     // テストモード(タイトル画面 → 🛠テストモード)専用。上位職のデバッグ
     // 用に、職業/転身/レベルを直接指定してここへ入る(14-training-ground.js
@@ -417,6 +425,8 @@
     nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false;
     mansionRoof = null; restroomRoof = null; platform = null;
     mansionOutdoor = null; mansionOutdoorHidden = false; mansionIslands = [];
+    mansionShell = null; mansionShellHidden = false;
+    roomCells = null; clearSceneShot();
     currentWorldKey = null;
     /* ここまでで、この世界のものはすべてシーンから外れている。
        外れたものだけを対象に、共有物を避けてGPUバッファを返す */
@@ -1844,6 +1854,11 @@
 
   function closeAllDoors(){ doors.forEach(resetDoorState); }
 
+  // 扉の当たりの箱までの距離(扉の端に体を当てても開くように。中心からの距離では幅 6 の扉の端が開かなかった)
+  function doorBoxDist(d){
+    const e = d.entry, x = state.pos.x, z = state.pos.z;
+    return Math.hypot(Math.max(e.minX - x, 0, x - e.maxX), Math.max(e.minZ - z, 0, z - e.maxZ));
+  }
   function updateDoors(dt){
     updateSealedRooms();
     doors.forEach(d=>{
@@ -1858,7 +1873,10 @@
     doors.forEach(d=>{
       if(!d.opened && !d.locked){
         const dist = state.pos.distanceTo(d.pos);
-        if(dist < d.triggerRadius) nearby = d;
+        /* 室内の扉(autoOpen)は、近づくと体で押して開ける。一度開けたら閉じない(CAMERA-001)。
+           調べる操作に頼らないので、同行する人物・支援・敵の通り道も塞がない */
+        if(d.autoOpen && doorBoxDist(d) < 0.9){ swingOpen(d, true); sfx('door'); return; }
+        if(!d.autoOpen && dist < d.triggerRadius) nearby = d;
       }
     });
     nearbyDoor = nearby;
@@ -2240,6 +2258,8 @@
     proximityEvents.push({pos:pos.clone(), radius, speakerName, lines, fired:false,
                           condition:opts.condition||null, kind:opts.kind||null,
                           area:opts.area||null, onEnter:opts.onEnter||null,
+                          // 見せてから話す(CAMERA-001): {x, z, wait?, height?, dist?}。先にカメラで見せる
+                          show:opts.show||null,
                           // ミニマップに「!」を出すか(WORK 12.1)。既定で出す
                           marker: opts.marker !== false});
   }
@@ -2268,20 +2288,213 @@
            state.pos.z > ev.area.z0 && state.pos.z < ev.area.z1)
         : (state.pos.distanceTo(ev.pos) < ev.radius);
       if(inside){
-        // 演出を起動するだけのイベント(会話は演出の側が開く)
-        if(ev.onEnter){ ev.fired = true; ev.onEnter(); break; }
-        const lines = (typeof ev.lines === 'function') ? ev.lines() : ev.lines;
-        if(!lines || !lines.length){ ev.fired = true; continue; }
-        ev.fired = true;
-        state.dialogueActive = true;
-        state.dialogueKind = ev.kind || null;
-        state.dialogueLines = lines;
-        state.dialogueIndex = 0;
-        document.getElementById('dialogue-name').textContent = ev.speakerName;
-        document.getElementById('dialogue-text').textContent = lines[0];
-        document.getElementById('dialogue-overlay').classList.add('active');
-        break; // only one at a time
+        // 見せてから話す: 先にカメラで対象を見せ、短い間の後でいつもの会話・一文を出す
+        // (自動カメラ OFF の人には見せる演出をせず、すぐ出来事を起こす。操作を止めない)
+        if(ev.show && camAutoOn){ ev.fired = true; playShowThenEvent(ev); break; }
+        if(fireProximityEvent(ev)) break; // only one at a time
       }
+    }
+  }
+  // 出来事の中身(演出の起動・会話・一文)。会話を開いたら true
+  function fireProximityEvent(ev){
+    // 演出を起動するだけのイベント(会話は演出の側が開く)
+    if(ev.onEnter){ ev.fired = true; ev.onEnter(); return true; }
+    const lines = (typeof ev.lines === 'function') ? ev.lines() : ev.lines;
+    ev.fired = true;
+    if(!lines || !lines.length) return false;
+    state.dialogueActive = true;
+    state.dialogueKind = ev.kind || null;
+    state.dialogueLines = lines;
+    state.dialogueIndex = 0;
+    document.getElementById('dialogue-name').textContent = ev.speakerName;
+    document.getElementById('dialogue-text').textContent = lines[0];
+    document.getElementById('dialogue-overlay').classList.add('active');
+    return true;
+  }
+  /* 見せてから話す(CAMERA-001、docs/DUNGEON_RENDERING.md §3)。
+     1. 対象が画面に入る(sceneCamShot) 2. 特徴が分かる位置へ 3. 短い間 4. 会話・一文。
+     会話が開いている間も見せたまま(holdDialogue)。閉じたら追従へ戻り、操作が戻る */
+  function playShowThenEvent(ev){
+    const sh = ev.show, wait = sh.wait || 1.3;
+    playCutscene([
+      // 見せたままにするのは、この出来事の会話の間だけ(後に続く別の演出までは引っ張らない)
+      {t:0.05, run:()=> sceneCamShot(sh.x, sh.z, wait + 0.4, {height:sh.height, dist:sh.dist, hold:false, holdDialogue:true})},
+      {t:wait, keep:true, run:()=>{
+        state.dialogueActive = false;
+        clearMovementInput(false);
+        fireProximityEvent(ev);
+      }},
+    ]);
+  }
+
+  /* =========================================================
+     今いる空間を中心に描く(CAMERA-001、docs/DUNGEON_RENDERING.md §2)
+
+     幽霊船(14-dungeon-ghostship.js の区画)と同じ考え方を、部屋の表を持つ他のダンジョンで
+     使えるようにしたもの。今は森の洋館が使う。
+       ・壁(静的バッチの箱)は触れる部屋すべて(境の壁は両側から見える)、それ以外の物は
+         中心のある部屋の区画に入る。部屋の外の物は近い部屋へ(遠ければ常に描く)
+       ・描くのは、今いる部屋 ＋ 扉の無い開口の先 ＋ 開いている扉の先(距離は問わない。一度開けた扉は
+         閉じないので、開けた先は扉の両側から見え続ける) ＋ 見せる場面のカメラが映す部屋。
+         閉じている扉の先は描かない。部屋の外(境の上)では直前の部屋と、境から 2.5 以内の部屋
+       ・表示の切り替えは描画の層(layers)で行う。visible・親子関係・当たり・敵の行動には触れない
+         (既存の仕組みが visible を使い、scene.remove で物を外すため)
+       ・光源は対象にしない(層を外すと光らなくなる)。rcAlways を付けた物(外観など)は常に描く
+  ========================================================= */
+  let roomCells = null;   // {worldKey, rooms, cells:[{ids, objs, on}], neighbors}
+  const RC_TOUCH = 0.7, RC_NEAR = 6, RC_THRESH = 2.5;
+  function rcIds(ids){ return ids.length ? ids.slice().sort().join('|') : '*'; }
+  function rcNearest(rooms, x, z){
+    let best = null, bd = RC_NEAR;
+    rooms.forEach(r=>{
+      const d = Math.hypot(Math.max(r.x0 - x, 0, x - r.x1), Math.max(r.z0 - z, 0, z - r.z1));
+      if(d < bd){ bd = d; best = r; }
+    });
+    return best;
+  }
+  function rcKeyRect(rooms, x0, x1, z0, z1){
+    const T = RC_TOUCH;
+    const ids = rooms.filter(r=> x1 > r.x0 - T && x0 < r.x1 + T && z1 > r.z0 - T && z0 < r.z1 + T).map(r=> r.id);
+    if(!ids.length){ const n = rcNearest(rooms, (x0 + x1)/2, (z0 + z1)/2); if(n) ids.push(n.id); }
+    return rcIds(ids);
+  }
+  function rcKeyPoint(rooms, x, z){
+    const T = 0.3;
+    const ids = rooms.filter(r=> x >= r.x0 - T && x <= r.x1 + T && z >= r.z0 - T && z <= r.z1 + T).map(r=> r.id);
+    if(!ids.length){ const n = rcNearest(rooms, x, z); if(n) ids.push(n.id); }
+    return rcIds(ids);
+  }
+  const _rcBox = new THREE.Box3(), _rcV = new THREE.Vector3();
+  function rcKeyObject(rooms, o){
+    o.updateMatrixWorld(true);
+    _rcBox.setFromObject(o);
+    if(_rcBox.isEmpty()) return rcKeyPoint(rooms, o.position.x, o.position.z);
+    _rcBox.getCenter(_rcV);
+    return rcKeyPoint(rooms, _rcV.x, _rcV.z);
+  }
+  // 静的バッチを部屋ごとに分けてまとめる(batchStatic の代わりに使う)
+  function roomCellBatch(rooms, fn){
+    beginStaticBatch();
+    try{ fn(); }
+    finally{
+      const buckets = batchBuckets;
+      batching = false; batchBuckets = null;
+      const byCell = new Map();
+      if(buckets) buckets.forEach((boxes, mat)=> boxes.forEach(b=>{
+        const k = rcKeyRect(rooms, b.cx - b.sizeX/2, b.cx + b.sizeX/2, b.cz - b.sizeZ/2, b.cz + b.sizeZ/2);
+        let m = byCell.get(k); if(!m){ m = new Map(); byCell.set(k, m); }
+        let a = m.get(mat); if(!a){ a = []; m.set(mat, a); }
+        a.push(b);
+      }));
+      byCell.forEach((m, k)=>{
+        const before = new Set(scene.children);
+        batching = true; batchBuckets = m;
+        endStaticBatch();
+        scene.children.forEach(o=>{ if(!before.has(o)) o.userData.rcCell = k; });
+      });
+    }
+  }
+  // 開口(gaps)で繋がる二つの部屋の、開口の中心(無ければ null)。'full' はその辺の全部
+  function rcOpening(a, b){
+    const E = 0.01, ga = a.gaps || {}, gb = b.gaps || {};
+    const seg = (g, lo, hi)=> g === 'full' ? [lo, hi] : (Array.isArray(g) ? g : null);
+    const ov = (p, q)=> p && q && Math.min(p[1], q[1]) - Math.max(p[0], q[0]) > 0.5 ? [Math.max(p[0], q[0]), Math.min(p[1], q[1])] : null;
+    let o;
+    if(Math.abs(a.z1 - b.z0) < E && (o = ov(seg(ga.N, a.x0, a.x1), seg(gb.S, b.x0, b.x1)))) return {x:(o[0] + o[1])/2, z:a.z1};
+    if(Math.abs(a.z0 - b.z1) < E && (o = ov(seg(ga.S, a.x0, a.x1), seg(gb.N, b.x0, b.x1)))) return {x:(o[0] + o[1])/2, z:a.z0};
+    if(Math.abs(a.x1 - b.x0) < E && (o = ov(seg(ga.E, a.z0, a.z1), seg(gb.W, b.z0, b.z1)))) return {x:a.x1, z:(o[0] + o[1])/2};
+    if(Math.abs(a.x0 - b.x1) < E && (o = ov(seg(ga.W, a.z0, a.z1), seg(gb.E, b.z0, b.z1)))) return {x:a.x0, z:(o[0] + o[1])/2};
+    return null;
+  }
+  /* 区画を作る。objs はその世界の物(scene の子)。光源・rcAlways の物・森など外の物は渡さないか除く */
+  function initRoomCells(worldKey, rooms, objs){
+    const byKey = new Map();
+    objs.forEach(o=>{
+      if(!o || o.isLight || o.userData.rcAlways) return;
+      const k = o.userData.rcCell || rcKeyObject(rooms, o);
+      if(k === '*') return;
+      let c = byKey.get(k); if(!c){ c = {ids:k.split('|'), objs:[], on:true}; byKey.set(k, c); }
+      c.objs.push(o);
+    });
+    const neighbors = {};
+    rooms.forEach(a=>{
+      neighbors[a.id] = [];
+      rooms.forEach(b=>{
+        if(a === b) return;
+        const op = rcOpening(a, b);
+        if(op) neighbors[a.id].push({id:b.id, x:op.x, z:op.z});
+      });
+    });
+    const byId = {}; rooms.forEach(q=>{ byId[q.id] = q; });
+    roomCells = {worldKey, rooms, byId, cells:[...byKey.values()], neighbors, vis:new Set(), shotRoom:null, shotLinger:0, lastId:null};
+  }
+  function rcRoomAt(rooms, x, z){
+    for(let i=0;i<rooms.length;i++){ const r = rooms[i]; if(x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return r; }
+    return null;
+  }
+  function rcDoorClosedAt(x, z){
+    for(let i=0;i<doors.length;i++){
+      const d = doors[i];
+      if(!d.opened && Math.hypot(d.pos.x - x, d.pos.z - z) < 1.6) return true;
+    }
+    return false;
+  }
+  function rcSetLayer(o, on){ o.traverse(n=>{ if(n.isLight) return; if(on) n.layers.enable(0); else n.layers.disable(0); }); }
+  function updateRoomCells(dt){
+    const rc = roomCells;
+    if(!rc || rc.worldKey !== currentWorldKey) return;
+    const x = state.pos.x, z = state.pos.z;
+    const vis = rc.vis; vis.clear();
+    /* 今いる部屋 ＋ 扉の無い開口の先 ＋ 開いている扉の先(距離は問わない)。閉じている扉の先は描かない。
+       プレイヤーがどの部屋にいるかだけで決める(カメラの位置は使わない)。境の上は直前の部屋 */
+    const here = rcRoomAt(rc.rooms, x, z);
+    if(here) rc.lastId = here.id;
+    let r = here || (rc.lastId ? rc.byId[rc.lastId] : null);
+    if(!here && r){
+      // 部屋の外(前庭・ワープ先など)へ離れたら、前の部屋は描かない(境の上の一瞬だけ保つ)
+      const d = Math.hypot(Math.max(r.x0 - x, 0, x - r.x1), Math.max(r.z0 - z, 0, z - r.z1));
+      if(d > RC_THRESH){ rc.lastId = null; r = null; }
+    }
+    if(r){
+      vis.add(r.id);
+      const ns = rc.neighbors[r.id];
+      for(let i=0;i<ns.length;i++){
+        const n = ns[i];
+        if(rcDoorClosedAt(n.x, n.z)) continue;
+        vis.add(n.id);
+      }
+    }
+    if(!here){
+      // 部屋の外(戸口・前庭など): 境のすぐそばの部屋だけ
+      for(let i=0;i<rc.rooms.length;i++){
+        const q = rc.rooms[i];
+        const d = Math.hypot(Math.max(q.x0 - x, 0, x - q.x1), Math.max(q.z0 - z, 0, z - q.z1));
+        if(d < RC_THRESH && !rcDoorClosedAt(Math.max(q.x0, Math.min(q.x1, x)), Math.max(q.z0, Math.min(q.z1, z)))) vis.add(q.id);
+      }
+    }
+    // 見せる場面のカメラが映す部屋(カメラが戻る間も少しだけ残す)
+    if(sceneShot){ const t = rcRoomAt(rc.rooms, sceneShot.x, sceneShot.z); if(t){ rc.shotRoom = t.id; rc.shotLinger = 1.2; } }
+    if(rc.shotLinger > 0){ rc.shotLinger -= dt || 0; if(rc.shotRoom) vis.add(rc.shotRoom); }
+    for(let i=0;i<rc.cells.length;i++){
+      const c = rc.cells[i];
+      let on = false;
+      for(let j=0;j<c.ids.length;j++) if(vis.has(c.ids[j])){ on = true; break; }
+      if(on !== c.on){ c.on = on; c.objs.forEach(o=> rcSetLayer(o, on)); }
+    }
+    // 宝箱・回復結晶・敵も、見えていない部屋のものは描かない(気づいている敵・近い敵は描く)
+    rcHideUnseen(rc, chests, vis, false); rcHideUnseen(rc, healingCrystals, vis, false); rcHideUnseen(rc, enemies, vis, true);
+  }
+  function rcHideUnseen(rc, list, vis, isEnemy){
+    for(let i=0;i<list.length;i++){
+      const it = list[i];
+      if(!it || !it.group) continue;
+      const p = it.group.position;
+      const r = rcRoomAt(rc.rooms, p.x, p.z);
+      const engaged = isEnemy && (it.triggered || Math.hypot(p.x - state.pos.x, p.z - state.pos.z) < 12);
+      const hide = !!r && !vis.has(r.id) && !engaged;
+      if(it.rcUnseen === hide) continue;
+      it.rcUnseen = hide;
+      rcSetLayer(it.group, !hide);
     }
   }
 
@@ -2361,7 +2574,9 @@
     const talkFree = !nearbyStairs && !nearbyStallTrigger;
     nearbyBartender = serviceFree && !state.sortied && state.pos.distanceTo(BARTENDER_POS) < 3;
     // 鍛冶士の加入前(剣士だけの序盤)は、そこに施設が無い(PROGRESSION-004)
-    nearbySmith = serviceFree && !nearbyBartender && smithFacilityAvailable(state) && state.pos.distanceTo(SMITH_POS) < 3;
+    // 再会の会話が済むまでは、鑑定・強化を出さない(近づくと先に再会の会話が始まる。CAMERA-001)
+    nearbySmith = serviceFree && !nearbyBartender && smithFacilityAvailable(state) && !smithGreetingPending()
+               && state.pos.distanceTo(SMITH_POS) < 3;
     // 酒場の片隅は扉の判定と少し重なる。謎のNPCに近づいたのに、扉が
     // 優先されて会話できないままだと「そこに居るのに話せない」感触になる
     // ため、影の旅人だけは扉の近接中でも少し広めに拾う
@@ -2480,7 +2695,7 @@
     else if(nearbyLore){ readLore(nearbyLore); }
     else if(nearbyChest){ revealMimic(nearbyChest); }
     else if(nearbyStallTrigger){ triggerStallSleep(); }
-    else if(nearbyBartender){ toggleScenarioSelect(); }
+    else if(nearbyBartender){ toggleScenarioSelect(); }   // 鍛冶士の再会を待つ間の止め方は toggleScenarioSelect の中(CAMERA-001)
     else if(nearbySmith){ toggleAppraisal(); }
     else if(nearbyCheckpoint){ useCheckpoint(); }
   }
