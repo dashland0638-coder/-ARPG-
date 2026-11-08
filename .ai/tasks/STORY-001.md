@@ -42,4 +42,4 @@ Status: DONE（Agent 側。PR 作成済み）／ HUMAN DEVICE CHECK REQUIRED（i
 | Auto Fix Count | 5（unit の準備の誤り 1・unit の数え方 1・E2E のセーブの作り 2・レビュー指摘の修正 1） |
 | Reviewer Round Count | 1（PASS） |
 | Test Retry Count | 0 |
-| PR Created | Yes（PR 番号は PR 本文を参照） |
+| PR Created | Yes（#120） |
