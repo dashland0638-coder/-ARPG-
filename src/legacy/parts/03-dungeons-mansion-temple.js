@@ -2568,6 +2568,23 @@
     scene.add(fill);
   }
 
+  /* 部屋と部屋を繋ぐ室内の扉(CAMERA-001)。開口(表の gaps)の中心に置く。近づくと体で押して開き、
+     一度開けたら閉じない(02 updateDoors の autoOpen)。開くまでは扉の先の部屋を描かない(区画)。
+     廊下・ホール・踊り場・階段の下は開いたアーチのまま(洋館の通り道)。玄関だけは手で開ける */
+  function mansionInnerDoor(key, a, b){
+    const ra = mansionRoomById(a), rb = mansionRoomById(b);
+    const op = rcOpening(ra, rb);
+    if(!op) return null;
+    const alongX = Math.abs(op.z - ra.z1) < 0.01 || Math.abs(op.z - ra.z0) < 0.01;   // 南北の辺(壁が東西に走る)
+    const seg = alongX
+      ? (Math.abs(op.z - ra.z1) < 0.01 ? ra.gaps.N : ra.gaps.S)
+      : (Math.abs(op.x - ra.x1) < 0.01 ? ra.gaps.E : ra.gaps.W);
+    const w = Array.isArray(seg) ? seg[1] - seg[0] : 4;
+    const d = buildDoor(key, op.x, op.z, w, 0x2e2230, alongX ? 'EW' : 'NS');
+    d.autoOpen = true;
+    return d;
+  }
+
   /* ---------------------------------------------------------
      一階前半: 正面玄関 → 玄関ホール →(食堂)→ 一階廊下 → 大広間【戦闘②】→ 大階段
   --------------------------------------------------------- */
@@ -2614,6 +2631,9 @@
     mansionLamp(0,  -83, 0xd8c8ff, 0.65, 26);
     mansionLamp(12, -95, 0xffcf8a, 0.55, 14);   // 大階段(大広間の東寄りの出口の奥)
 
+    // 室内の扉: 玄関ホール ⇄ 食堂・厨房
+    mansionInnerDoor('manorDining', 'mFoyer', 'mDining');
+    mansionInnerDoor('manorKitchen', 'mFoyer', 'mKitchen');
     buildManorFoyerDressing(woodMat);
     buildManorDiningDressing(woodMat);
     buildManorKitchen(woodMat);
@@ -2864,6 +2884,11 @@
       mansionFloor(r, floorMat, undefined, 'wood');
       buildMansionWalls(r, wallMat);
     });
+    // 室内の扉: 廊下 ⇄ 客室・書斎、書斎 ⇄ 書庫、書庫 ⇄ 作業室
+    mansionInnerDoor('manorGuest', 'uCor', 'uGuest');
+    mansionInnerDoor('manorStudy', 'uCor', 'uStudy');
+    mansionInnerDoor('manorArchive', 'uStudy', 'uArch');
+    mansionInnerDoor('manorWorkshop', 'uArch', 'uWork');
     mansionLamp(77, -91, 0xffcf8a, 0.55, 14);
     mansionLamp(77, -60, 0xffb066, 0.40, 26);
     mansionLamp(92, -75, 0xffcf8a, 0.50, 18);
@@ -3884,6 +3909,9 @@
       mansionFloor(r, floorMat, undefined, (id==='bStore'||id==='bChapel'||id==='bDeep') ? 'wetStone' : 'stone');
       buildMansionWalls(r, wallMat);
     });
+    // 室内の扉: 地下室 ⇄ 酒蔵、保管庫 ⇄ 小礼拝室
+    mansionInnerDoor('manorWine', 'bCellar', 'bWine');
+    mansionInnerDoor('manorChapel', 'bStore', 'bChapel');
     mansionLamp(138, 50, 0x5fcf7a, 0.55, 20);
     mansionLamp(138, 82, 0x7a9a6a, 0.45, 24);
     mansionLamp(140, 104, 0x8a4fd8, 0.55, 26);

@@ -33,7 +33,7 @@ function harness(){
   const doors = [];
   const code = [
     'let roomCells = null; let sceneShot = null;',
-    "const RC_TOUCH = 0.7, RC_NEAR = 6, RC_REVEAL = 7, RC_THRESH = 2.5;",
+    "const RC_TOUCH = 0.7, RC_NEAR = 6, RC_THRESH = 2.5;",
     fn(world, 'function rcIds(ids){'), fn(world, 'function rcNearest(rooms, x, z){'),
     fn(world, 'function rcKeyRect(rooms, x0, x1, z0, z1){'), fn(world, 'function rcKeyPoint(rooms, x, z){'),
     fn(world, 'function rcOpening(a, b){'), fn(world, 'function initRoomCells(worldKey, rooms, objs){'),
@@ -57,30 +57,46 @@ test('洋館: 開口の中心。玄関ホール ⇄ 食堂(西)・一階廊下�
   assert.equal(api.opening(R('mDining'), R('mKitchen')), null, '離れた部屋は繋がらない');
 });
 
-test('洋館: 今いる部屋と、開口のそばの隣だけを描く。離れると隣は消える', () => {
+test('洋館: 今いる部屋 ＋ 扉の無い開口の先(距離を問わない)だけを描く。繋がっていない部屋は描かない', () => {
   const h = harness();
-  const foyerTable = h.obj('foyer', 0, -60), diningTable = h.obj('dining', -23.5, -57), hallPillar = h.obj('hall', 0, -83);
-  h.api.init([foyerTable, diningTable, hallPillar]);
-  h.state.pos = { x:0, z:-60 }; h.api.update();
-  assert.equal(h.layers.get('dining'), false, '玄関ホールの真ん中からは食堂を描かない');
-  assert.equal(h.layers.get('hall'), false);
+  const foyer = h.obj('foyer', 0, -60), cor = h.obj('cor', 0, -70), hall = h.obj('hall', 0, -83), stair = h.obj('stair', 13, -95);
+  h.api.init([foyer, cor, hall, stair]);
+  h.state.pos = { x:12, z:-62 }; h.api.update();   // 玄関ホールの隅(廊下への開口から遠い)
   assert.notEqual(h.layers.get('foyer'), false);
-  h.state.pos = { x:-13, z:-57 }; h.api.update();
-  assert.equal(h.layers.get('dining'), true, '食堂への開口のそばでは描く');
-  h.state.pos = { x:0, z:-71 }; h.api.update();
-  assert.equal(h.layers.get('hall'), true, '廊下からは、繋がる大広間を描く');
-  assert.equal(h.layers.get('dining'), false);
+  assert.notEqual(h.layers.get('cor'), false, '扉の無い開口の先(廊下)は、開口から遠くても描く');
+  assert.equal(h.layers.get('hall'), false, '繋がっていない大広間は描かない');
+  h.state.pos = { x:0, z:-70 }; h.api.update();
+  assert.equal(h.layers.get('hall'), true);
+  assert.equal(h.layers.get('stair'), false, '大広間の先(大階段)は、大広間に入るまで描かない');
 });
 
-test('洋館: 閉じた扉の先は描かない', () => {
+test('扉: 初めは閉じていて先を描かない。一度開けたら、離れても・反対側からも・部屋を移っても描き続ける', () => {
   const h = harness();
-  const dining = h.obj('dining', -23.5, -57);
-  h.api.init([h.obj('foyer', 0, -60), dining]);
+  const dining = h.obj('dining', -23.5, -57), foyer = h.obj('foyer', 0, -60), cor = h.obj('cor', 0, -70);
+  h.api.init([foyer, dining, cor]);
   h.doors.push({ pos:{ x:-17, z:-57 }, opened:false });
   h.state.pos = { x:-14, z:-57 }; h.api.update();
-  assert.equal(h.layers.get('dining'), false);
-  h.doors[0].opened = true; h.api.update();
+  assert.equal(h.layers.get('dining'), false, '閉じた扉の先は描かない');
+  h.doors[0].opened = true;                     // 開けた(開いた扉は閉じない)
+  h.state.pos = { x:12, z:-63 }; h.api.update();
+  assert.notEqual(h.layers.get('dining'), false, '開けた扉の先は、玄関ホールの反対の隅からも描く');
   assert.equal(h.layers.get('dining'), true);
+  h.state.pos = { x:-25, z:-60 }; h.api.update();
+  assert.notEqual(h.layers.get('foyer'), false, '扉の反対側(食堂)から、玄関ホールを描く');
+  h.state.pos = { x:0, z:-70 }; h.api.update();  // 廊下へ移る
+  assert.equal(h.layers.get('dining'), false, '食堂と繋がっていない部屋からは描かない');
+  h.state.pos = { x:5, z:-60 }; h.api.update();  // 玄関ホールへ戻る
+  assert.equal(h.layers.get('dining'), true, '戻っても開いたまま');
+});
+
+test('部屋の境の上(どの部屋にも入っていない一瞬)は、直前の部屋の見え方を保つ(ちらつかない)', () => {
+  const h = harness();
+  const foyer = h.obj('foyer', 0, -60), cor = h.obj('cor', 0, -70);
+  h.api.init([foyer, cor]);
+  h.state.pos = { x:0, z:-60 }; h.api.update();
+  h.state.pos = { x:3.2, z:-68 }; h.api.update();   // 廊下の壁の上(どの部屋の外)
+  assert.notEqual(h.layers.get('foyer'), false);
+  assert.notEqual(h.layers.get('cor'), false);
 });
 
 test('洋館: 境の壁は両側の部屋の区画。外観・下地・異常空間は常に描く(区画にしない)', () => {
@@ -121,7 +137,7 @@ test('洋館・村: 対象を見せる出来事', () => {
   }
 });
 
-test('村: 入れる建物の中では、その建物の中身と外形だけ。戸口のそばでは屋外も。屋外では建物の中身を描かない', () => {
+test('村: 屋外は常に描く(建物の中からも、戸口に近づく前から)。分けるのは建物の中身だけ', () => {
   const layers = new Map();
   const mk = (id, x, z, ud = {})=>({ id, isLight:false, userData:ud, position:{ x, z }, traverse(f){ f(this); },
     updateMatrixWorld(){}, layers:{ enable(){ layers.set(id, true); }, disable(){ layers.set(id, false); } } });
@@ -130,11 +146,10 @@ test('村: 入れる建物の中では、その建物の中身と外形だけ。
   class Box3 { setFromObject(o){ this.o = o; return this; } isEmpty(){ return false; } getCenter(v){ v.x = this.o.position.x; v.z = this.o.position.z; return v; } }
   class V3 { copy(p){ this.x = p.x; this.z = p.z; return this; } }
   const code = [
-    'let duskCells = null; const DUSK_DOOR_NEAR = 3.2; const DUSK_FLOOR_Y = 0.08;',
+    'let duskCells = null; const DUSK_DOOR_NEAR = 3.2;',
     fn(dusk, 'function duskHouseAt(x, z, pad){'),
     'const _dcBox = new THREE.Box3(), _dcV = new THREE.Vector3();',
     fn(dusk, 'function initDuskCells(objs){'),
-    'function duskHouseMask(i){ return { visible:false, i }; }',
     fn(dusk, 'function updateDuskCells(){'),
     fn(dusk, 'function duskHideUnseen(list, vis, isEnemy){'),
     fn(world, 'function rcSetLayer(o, on){'),
@@ -145,19 +160,32 @@ test('村: 入れる建物の中では、その建物の中身と外形だけ。
   const counter = mk('counter', -46, 347), wall = mk('wall', -49.5, 348, { duskShell:0 }), stall = mk('stall', -2.7, 384.5),
         floor = mk('floor', -45, 348, { rcAlways:true });
   api.init([counter, wall, stall, floor]);
-  state.pos = { x:-46.5, z:348 }; api.update();
-  assert.equal(layers.get('stall'), false, '建物の奥からは屋外を描かない');
+  state.pos = { x:-47.5, z:348 }; api.update();      // 建物の奥
+  assert.equal(layers.has('stall'), false, '屋外の物は区画にしない(常に描く)');
   assert.notEqual(layers.get('counter'), false);
-  assert.notEqual(layers.get('wall'), false, '自分の建物の壁は描く');
-  assert.equal(api.dc.maskFor, 0, '建物の外に黒い覆い');
-  assert.equal(layers.has('floor'), false, '床は区画の外(常に描く)');
-  state.pos = { x:-41.5, z:348 }; api.update();
-  assert.equal(layers.get('stall'), true, '戸口のそばでは屋外も描く');
-  assert.equal(api.dc.maskFor, -1);
-  state.pos = { x:0, z:384 }; api.update();
-  assert.equal(layers.get('counter'), false, '屋外からは建物の中身を描かない');
-  assert.notEqual(layers.get('wall'), false, '建物の外形は屋外から描く');
+  assert.equal(layers.has('wall'), false, '建物の外形は常に描く');
+  assert.equal(layers.has('floor'), false);
+  assert.match(dusk, /vis\.add\('out'\);   \/\/ 屋外は常に描く/);
+  assert.doesNotMatch(dusk, /duskHouseMask/, '黒い覆いはやめた(屋外を隠さない)');
+  state.pos = { x:0, z:384 }; api.update();           // 屋外の、戸口から遠い所
+  assert.equal(layers.get('counter'), false, '屋外からは建物の中身を描かない(屋根が隠す)');
+  state.pos = { x:-38.5, z:348 }; api.update();       // 戸口のそば(外)
+  assert.equal(layers.get('counter'), true, '戸口のそばでは中身を描く');
   assert.match(world, /initDuskCells\(scene\.children\.filter\(o=> !beforeDusk\.has\(o\)\)\);/);
+});
+
+test('洋館: 室内の扉は 8 枚(部屋と部屋の繋がり)。近づくと開き、一度開けたら閉じない。玄関は手で開ける', () => {
+  const doors = [...manor.matchAll(/mansionInnerDoor\('(\w+)', '(\w+)', '(\w+)'\)/g)].map(m => [m[2], m[3]]);
+  assert.deepEqual(doors.map(d => d.join('-')).sort(), ['bCellar-bWine', 'bStore-bChapel', 'mFoyer-mDining', 'mFoyer-mKitchen',
+    'uArch-uWork', 'uCor-uGuest', 'uCor-uStudy', 'uStudy-uArch'].sort());
+  // どの扉も、表の開口が実在する繋がりに置く(扉の位置が壁に重ならない)
+  const { api } = harness();
+  doors.forEach(([a, b]) => assert.ok(api.opening(R(a), R(b)), `${a}-${b} に開口がある`));
+  assert.match(fn(manor, 'function mansionInnerDoor(key, a, b){'), /d\.autoOpen = true;/);
+  const upd = fn(world, 'function updateDoors(dt){');
+  assert.match(upd, /if\(d\.autoOpen && dist < 1\.7\)\{ swingOpen\(d, true\); sfx\('door'\); return; \}/);
+  assert.doesNotMatch(fn(world, 'function swingOpen(door, animate){'), /closeDoor/);
+  assert.doesNotMatch(manor.slice(manor.indexOf("buildDoor('manorFront'"), manor.indexOf("buildDoor('manorFront'") + 80), /autoOpen/);
 });
 
 test('洋館の一階: 屋内では外殻・外周の木立・前庭(森)を描かない(カメラの後ろの黒い幕と、その向こうの前庭)', () => {

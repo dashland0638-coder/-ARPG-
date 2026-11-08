@@ -1868,7 +1868,10 @@
     doors.forEach(d=>{
       if(!d.opened && !d.locked){
         const dist = state.pos.distanceTo(d.pos);
-        if(dist < d.triggerRadius) nearby = d;
+        /* 室内の扉(autoOpen)は、近づくと体で押して開ける。一度開けたら閉じない(CAMERA-001)。
+           調べる操作に頼らないので、同行する人物・支援・敵の通り道も塞がない */
+        if(d.autoOpen && dist < 1.7){ swingOpen(d, true); sfx('door'); return; }
+        if(!d.autoOpen && dist < d.triggerRadius) nearby = d;
       }
     });
     nearbyDoor = nearby;
@@ -2326,14 +2329,15 @@
      使えるようにしたもの。今は森の洋館が使う。
        ・壁(静的バッチの箱)は触れる部屋すべて(境の壁は両側から見える)、それ以外の物は
          中心のある部屋の区画に入る。部屋の外の物は近い部屋へ(遠ければ常に描く)
-       ・描くのは、今いる部屋 ＋ 開口(gaps)から 7 以内にいる時の隣の部屋(扉は開いている時だけ)
-         ＋ 見せる場面のカメラが映す部屋。部屋の外にいる時は、境から 2.5 以内の部屋だけ
+       ・描くのは、今いる部屋 ＋ 扉の無い開口の先 ＋ 開いている扉の先(距離は問わない。一度開けた扉は
+         閉じないので、開けた先は扉の両側から見え続ける) ＋ 見せる場面のカメラが映す部屋。
+         閉じている扉の先は描かない。部屋の外(境の上)では直前の部屋と、境から 2.5 以内の部屋
        ・表示の切り替えは描画の層(layers)で行う。visible・親子関係・当たり・敵の行動には触れない
          (既存の仕組みが visible を使い、scene.remove で物を外すため)
        ・光源は対象にしない(層を外すと光らなくなる)。rcAlways を付けた物(外観など)は常に描く
   ========================================================= */
   let roomCells = null;   // {worldKey, rooms, cells:[{ids, objs, on}], neighbors}
-  const RC_TOUCH = 0.7, RC_NEAR = 6, RC_REVEAL = 7, RC_THRESH = 2.5;
+  const RC_TOUCH = 0.7, RC_NEAR = 6, RC_THRESH = 2.5;
   function rcIds(ids){ return ids.length ? ids.slice().sort().join('|') : '*'; }
   function rcNearest(rooms, x, z){
     let best = null, bd = RC_NEAR;
@@ -2416,7 +2420,7 @@
         if(op) neighbors[a.id].push({id:b.id, x:op.x, z:op.z});
       });
     });
-    roomCells = {worldKey, rooms, cells:[...byKey.values()], neighbors, vis:new Set(), shotRoom:null, shotLinger:0};
+    roomCells = {worldKey, rooms, cells:[...byKey.values()], neighbors, vis:new Set(), shotRoom:null, shotLinger:0, lastId:null};
   }
   function rcRoomAt(rooms, x, z){
     for(let i=0;i<rooms.length;i++){ const r = rooms[i]; if(x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return r; }
@@ -2435,17 +2439,21 @@
     if(!rc || rc.worldKey !== currentWorldKey) return;
     const x = state.pos.x, z = state.pos.z;
     const vis = rc.vis; vis.clear();
-    const r = rcRoomAt(rc.rooms, x, z);
+    /* 今いる部屋 ＋ 扉の無い開口の先 ＋ 開いている扉の先(距離は問わない)。閉じている扉の先は描かない。
+       プレイヤーがどの部屋にいるかだけで決める(カメラの位置は使わない)。境の上は直前の部屋 */
+    const here = rcRoomAt(rc.rooms, x, z);
+    if(here) rc.lastId = here.id;
+    const r = here || (rc.lastId ? rc.rooms.find(q=> q.id === rc.lastId) : null);
     if(r){
       vis.add(r.id);
       const ns = rc.neighbors[r.id];
       for(let i=0;i<ns.length;i++){
         const n = ns[i];
-        if(Math.hypot(x - n.x, z - n.z) > RC_REVEAL) continue;
         if(rcDoorClosedAt(n.x, n.z)) continue;
         vis.add(n.id);
       }
-    } else {
+    }
+    if(!here){
       // 部屋の外(戸口・前庭など): 境のすぐそばの部屋だけ
       for(let i=0;i<rc.rooms.length;i++){
         const q = rc.rooms[i];
