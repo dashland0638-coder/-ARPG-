@@ -2695,12 +2695,7 @@
     else if(nearbyLore){ readLore(nearbyLore); }
     else if(nearbyChest){ revealMimic(nearbyChest); }
     else if(nearbyStallTrigger){ triggerStallSleep(); }
-    else if(nearbyBartender){
-      /* 洋館の後の交代(剣士 → 魔法使い)は、鍛冶士との再会が済むまで待つ。その間は出撃させない
-         (再会はプレイヤーが鍛冶士に近づいて始めるので、寄らずに剣士のまま村へ出られないように。CAMERA-001) */
-      if(chapter1SortieHeld()){ sfx('ui'); spawnToast('🍺 店主「鍛冶士が奥で待ってる。先に顔を見せてやれ」'); }
-      else toggleScenarioSelect();
-    }
+    else if(nearbyBartender){ toggleScenarioSelect(); }   // 鍛冶士の再会を待つ間の止め方は toggleScenarioSelect の中(CAMERA-001)
     else if(nearbySmith){ toggleAppraisal(); }
     else if(nearbyCheckpoint){ useCheckpoint(); }
   }

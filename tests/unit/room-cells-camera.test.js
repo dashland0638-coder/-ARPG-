@@ -249,10 +249,24 @@ test('イベント演出: 洋館の後の交代が鍛冶士の再会を待つ間
   assert.equal(mk({ smithJoined:true, smithGreeted:true }, { nextKey:'mage' }).held(), false, '再会の後: 出撃できる');
   assert.equal(mk({ smithJoined:true, smithGreeted:false }, null).held(), false, '交代の予約が無い時は止めない');
   assert.equal(mk({ smithJoined:true, smithGreeted:false }, { nextKey:'archer' }).held(), false, '洋館の後の交代だけ');
-  // 店主に話しかけた時に出撃の一覧を出さず、鍛冶士へ促す
-  const interact = world.slice(world.indexOf('else if(nearbyBartender){'), world.indexOf('else if(nearbySmith){ toggleAppraisal(); }'));
-  assert.match(interact, /if\(chapter1SortieHeld\(\)\)\{[^}]*spawnToast\('🍺 店主「鍛冶士が奥で待ってる/);
-  assert.match(interact, /else toggleScenarioSelect\(\);/);
+  // 出撃の一覧を開く関数そのものが止める(店主を調べる・F キー・パッドの十字キー上のどれから来ても)
+  const ui = read('12-progression-ui.js');
+  const toggle = new Function('state', 'BARTENDER_POS', 'chapter1SortieHeld', 'setOverlay', 'sfx', 'spawnToast', 'log',
+    fn(ui, 'function toggleScenarioSelect(){') + '\nreturn toggleScenarioSelect;');
+  const run = (held)=>{
+    const log = [];
+    const st = { dialogueActive:false, activeOverlay:'none', started:true, sortied:false, pos:{ distanceTo:()=> 1 } };
+    toggle(st, {}, ()=> held, o=> log.push('overlay:' + o), ()=>{}, t=> log.push('toast:' + t), log)();
+    return log;
+  };
+  assert.deepEqual(run(false), ['overlay:scenario'], '再会の後(待ちが無い): 一覧を開く');
+  const heldLog = run(true);
+  assert.ok(!heldLog.includes('overlay:scenario'), '再会を待つ間: 一覧を開かない');
+  assert.match(heldLog.join(), /店主「鍛冶士が奥で待ってる/);
+  // 入口はすべて toggleScenarioSelect を通る
+  assert.match(read('09-save-load.js'), /if\(e\.code==='KeyF'\)\{ toggleScenarioSelect\(\); \}/);
+  assert.match(loop, /if\(btnPressed\(gp,12\)\) toggleScenarioSelect\(\);/);
+  assert.match(world, /else if\(nearbyBartender\)\{ toggleScenarioSelect\(\); \}/);
   // 交代の一幕の待ちも同じ条件
   assert.match(fn(hud, 'function updatePendingJoinScene(){'), /blocked: chapter1SortieHeld\(\),/);
   // 再会の前は鑑定・強化を出さない(近づくと先に再会の会話)
