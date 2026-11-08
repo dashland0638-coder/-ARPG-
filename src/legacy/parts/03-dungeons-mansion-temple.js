@@ -3408,6 +3408,8 @@
     apron.position.set(0, 0.85, 0.46); g.add(apron);
     g.position.copy(pos);
     g.rotation.y = Math.PI;
+    // 同行して部屋を移る人物。建てた部屋の区画に入れない(区画に入ると、作業室を出た途端に消える。CAMERA-001)
+    g.userData.rcAlways = true;
     scene.add(g);
     return g;
   }

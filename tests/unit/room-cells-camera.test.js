@@ -136,6 +136,7 @@ test('村: 入れる建物の中では、その建物の中身と外形だけ。
     fn(dusk, 'function initDuskCells(objs){'),
     'function duskHouseMask(i){ return { visible:false, i }; }',
     fn(dusk, 'function updateDuskCells(){'),
+    fn(dusk, 'function duskHideUnseen(list, vis, isEnemy){'),
     fn(world, 'function rcSetLayer(o, on){'),
     'return { init: initDuskCells, update: updateDuskCells, get dc(){ return duskCells; } };',
   ].join('\n');
@@ -165,4 +166,11 @@ test('洋館の一階: 屋内では外殻・外周の木立・前庭(森)を描�
   assert.match(upd, /const inIsland = in1F \|\|/);
   assert.match(manor, /const MANSION_1F_INNER = \{x0:-31, x1:31, z0:-99, z1:-44\};/);
   assert.match(manor, /mansionShell = scene\.children\.filter\(o=> !beforeShell\.has\(o\) && o !== mansionRoof\);/);
+});
+
+test('洋館: 同行する鍛冶屋は区画に入れない(作業室を出ても消えない)', () => {
+  const smith = fn(manor, 'function buildManorSmithNpc(pos){');
+  assert.match(smith, /g\.userData\.rcAlways = true;/);
+  // 見せる場面のカメラは、この出来事の会話の間だけ見せたまま(後の演出までは引っ張らない)
+  assert.match(fn(world, 'function playShowThenEvent(ev){'), /hold:false, holdDialogue:true/);
 });

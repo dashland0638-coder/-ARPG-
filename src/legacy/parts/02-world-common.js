@@ -2309,7 +2309,8 @@
   function playShowThenEvent(ev){
     const sh = ev.show, wait = sh.wait || 1.3;
     playCutscene([
-      {t:0.05, run:()=> sceneCamShot(sh.x, sh.z, wait + 0.4, {height:sh.height, dist:sh.dist, holdDialogue:true})},
+      // 見せたままにするのは、この出来事の会話の間だけ(後に続く別の演出までは引っ張らない)
+      {t:0.05, run:()=> sceneCamShot(sh.x, sh.z, wait + 0.4, {height:sh.height, dist:sh.dist, hold:false, holdDialogue:true})},
       {t:wait, keep:true, run:()=>{
         state.dialogueActive = false;
         clearMovementInput(false);
@@ -2437,17 +2438,20 @@
     const r = rcRoomAt(rc.rooms, x, z);
     if(r){
       vis.add(r.id);
-      rc.neighbors[r.id].forEach(n=>{
-        if(Math.hypot(x - n.x, z - n.z) > RC_REVEAL) return;
-        if(rcDoorClosedAt(n.x, n.z)) return;
+      const ns = rc.neighbors[r.id];
+      for(let i=0;i<ns.length;i++){
+        const n = ns[i];
+        if(Math.hypot(x - n.x, z - n.z) > RC_REVEAL) continue;
+        if(rcDoorClosedAt(n.x, n.z)) continue;
         vis.add(n.id);
-      });
+      }
     } else {
       // 部屋の外(戸口・前庭など): 境のすぐそばの部屋だけ
-      rc.rooms.forEach(q=>{
+      for(let i=0;i<rc.rooms.length;i++){
+        const q = rc.rooms[i];
         const d = Math.hypot(Math.max(q.x0 - x, 0, x - q.x1), Math.max(q.z0 - z, 0, z - q.z1));
         if(d < RC_THRESH && !rcDoorClosedAt(Math.max(q.x0, Math.min(q.x1, x)), Math.max(q.z0, Math.min(q.z1, z)))) vis.add(q.id);
-      });
+      }
     }
     // 見せる場面のカメラが映す部屋(カメラが戻る間も少しだけ残す)
     if(sceneShot){ const t = rcRoomAt(rc.rooms, sceneShot.x, sceneShot.z); if(t){ rc.shotRoom = t.id; rc.shotLinger = 1.2; } }

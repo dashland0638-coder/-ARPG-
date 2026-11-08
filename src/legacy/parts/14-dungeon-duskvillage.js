@@ -214,7 +214,10 @@
       if(Math.hypot(x - d.x, z - d.z) < DUSK_DOOR_NEAR) vis.add('out'); else masked = inH;
     } else {
       vis.add('out');
-      duskInteriors.forEach((h, i)=>{ if(Math.hypot(x - h.door.x, z - h.door.z) < DUSK_DOOR_NEAR) vis.add('h' + i); });
+      for(let i=0;i<duskInteriors.length;i++){
+        const d = duskInteriors[i].door;
+        if(Math.hypot(x - d.x, z - d.z) < DUSK_DOOR_NEAR) vis.add('h' + i);
+      }
     }
     if(sceneShot){
       const j = duskHouseAt(sceneShot.x, sceneShot.z, 0);
@@ -237,21 +240,22 @@
       dc.maskFor = masked;
     }
     // 敵・宝箱・回復結晶: 見えていない側のものは描かない(気づいている敵・近い敵は描く)
-    const hideList = (list, isEnemy)=>{
-      for(let i=0;i<list.length;i++){
-        const it = list[i];
-        if(!it || !it.group) continue;
-        const p = it.group.position;
-        const j = duskHouseAt(p.x, p.z, 0);
-        const key = j >= 0 ? 'h' + j : 'out';
-        const engaged = isEnemy && (it.triggered || Math.hypot(p.x - x, p.z - z) < 12);
-        const hide = !vis.has(key) && !engaged;
-        if(it.rcUnseen === hide) continue;
-        it.rcUnseen = hide;
-        rcSetLayer(it.group, !hide);
-      }
-    };
-    hideList(chests, false); hideList(healingCrystals, false); hideList(enemies, true);
+    duskHideUnseen(chests, vis, false); duskHideUnseen(healingCrystals, vis, false); duskHideUnseen(enemies, vis, true);
+  }
+  function duskHideUnseen(list, vis, isEnemy){
+    const x = state.pos.x, z = state.pos.z;
+    for(let i=0;i<list.length;i++){
+      const it = list[i];
+      if(!it || !it.group) continue;
+      const p = it.group.position;
+      const j = duskHouseAt(p.x, p.z, 0);
+      const key = j >= 0 ? 'h' + j : 'out';
+      const engaged = isEnemy && (it.triggered || Math.hypot(p.x - x, p.z - z) < 12);
+      const hide = !vis.has(key) && !engaged;
+      if(it.rcUnseen === hide) continue;
+      it.rcUnseen = hide;
+      rcSetLayer(it.group, !hide);
+    }
   }
 
   function buildDuskVillage(){
