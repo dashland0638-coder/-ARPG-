@@ -1139,6 +1139,8 @@
     if(duskFishMemoryDone) return;
     duskFishMemoryDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): 帳場を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(-46.2, 345.6, 1.6, {height:8, dist:6})},
       {t:0.1, run:()=>{
         ambienceHold(6);
         sfx('woodCreak');
@@ -1179,6 +1181,8 @@
     if(duskChildMemoryDone) return;
     duskChildMemoryDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): 食卓と玩具の舟を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(45.8, 350.4, 1.6, {height:8, dist:6})},
       {t:0.1, run:()=>{ ambienceHold(6); sfx('crockery'); }},
       // 食卓の椅子のあたりに、小さい輪郭がひとつ
       {t:0.8, run:()=>{
@@ -1212,6 +1216,8 @@
     if(duskBoatMemoryDone) return;
     duskBoatMemoryDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): 舟の並ぶ水際を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(-39, 304, 1.6, {height:9, dist:7})},
       {t:0.1, run:()=>{ ambienceHold(7); sfx('woodCreak'); }},
       // 水の上をひとつ、波紋が走る
       {t:0.7, run:()=>{
@@ -1249,6 +1255,8 @@
     if(duskMarketMemoryDone) return;
     duskMarketMemoryDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): 屋台を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(-2.7, 384.6, 1.6, {height:8, dist:6})},
       {t:0.1, run:()=>{ ambienceHold(6); sfx('crockery'); }},
       // 屋台をはさんで、輪郭がふたつ。向かい合ったまま動かない
       {t:0.7, run:()=>{
@@ -1413,6 +1421,8 @@
     if(duskGateTalkDone) return;
     duskGateTalkDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): 閉じた水門を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(0, 437, 1.6, {height:11, dist:9})},
       {t:0.2, run:()=> ambienceHold(5)},
       {t:1.0, run:()=> cutsceneLine('「この水門、閉じたままですね。広場の閂の門と同じです」', DUSK_MAGE)},
       {t:2.2, run:()=> cutsceneLine('「村の連中が、自分で閉めたのか」', DUSK_KNIGHT)},
@@ -1676,6 +1686,8 @@
     if(duskWardenSpawned) return;
     duskWardenSpawned = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): レバーと水門を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(1.5, 446, 1.6, {height:9, dist:7})},
       {t:0.2, run:()=> ambienceHold(7)},
       // 誰もいないのにレバーが動く
       {t:0.6, keep:true, run:()=>{ pullDuskGateLever(0.5); sfx('woodCreak'); }},
@@ -1759,6 +1771,8 @@
     advanceDuskTime('prelude');   // ボスの手前。夜(CH1-EXP X-6b)
     duskBossPreludeDone = true;
     playCutscene([
+      // 見せてから話す(CAMERA-001): ひとつに集まる水面を先に画面に入れる。演出の間は見せたまま
+      {t:0.05, run:()=> sceneCamShot(0, 500, 1.6, {height:13, dist:10})},
       {t:0.2, run:()=> ambienceHold(8)},
       // 離れた水面から、ひとつずつ
       {t:0.9, keep:true, run:()=>{ spawnDuskRipple(-12, 494, 1.2); spawnApparition(

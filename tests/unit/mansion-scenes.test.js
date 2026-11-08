@@ -155,7 +155,7 @@ test('階段: 本筋の順に部屋が繋がっている(一階 → 二階 → �
 
 test('合流: 作業室で出会い、そのときから同行が始まる', () => {
   // 作業室のイベントが合流の会話になっている
-  assert.match(src, /registerRoomEvent\(mansionRoomById\('uWork'\), 0, '鍛冶士', \[[\s\S]*?\], \{inset:1\.2, kind:'mansionEscortJoin'\}\);/);
+  assert.match(src, /registerRoomEvent\(mansionRoomById\('uWork'\), 0, '鍛冶士', \[[\s\S]*?\], \{inset:1\.2, kind:'mansionEscortJoin',\s*show:\{x:77, z:-33, wait:1\.2[^}]*\}\}\);/);
   // 会話を閉じたら JOINED になり、プレイヤーの後ろへ置き直す
   const branch = ui.slice(ui.indexOf("state.dialogueKind==='mansionEscortJoin'"), ui.indexOf("state.dialogueKind==='mansionFarewell'"));
   assert.match(branch, /state\.smithEscort = ESCORT\.JOINED;/);

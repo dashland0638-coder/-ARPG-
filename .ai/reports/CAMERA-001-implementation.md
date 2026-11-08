@@ -1,0 +1,52 @@
+# CAMERA-001 — 実装報告
+
+Status: DONE（Agent 側）／ HUMAN DEVICE CHECK REQUIRED（iPhone 実機は未確認）
+調査: `CAMERA-001-analysis.md`。共通方針: `docs/DUNGEON_RENDERING.md`（§2・§3 を更新）
+
+通常プレイの操作・セーブ・進行・敵・ボスは変えていない。幽霊船の区画とカメラ（`gsCamShot`）はそのまま。
+
+## 1. 共通の部品
+
+### 1-1. 見せてから話すカメラ（`13-update-loop.js`）
+
+- `sceneCamShot(x, z, dur, opts)` / `sceneCameraShot(dt)`: 見せたい物の少し上・今のカメラの側（camYaw の側）から見て、滑らかに寄る。**向き（camYaw）は変えない** → 自動カメラ OFF の人の向きもそのまま。演出の間（`hold`）・会話の間（`holdDialogue`）は見せたまま、終わると元の追従へ滑らかに戻る
+- `updateCamera` に 1 行: 幽霊船以外のワールドで、場面のカメラがある時だけ通る。ボスの寄り（`dialogueBoss`）・ボス戦の追尾の間は割り込まない
+
+### 1-2. 出来事の `show`（`02-world-common.js`）
+
+- `registerProximityEvent` / `registerRoomEvent` に `show:{x, z, wait?, height?, dist?}`
+- 入ると: 演出（`playCutscene`、入力は止まる）で 1. 対象を見せる → 2. `wait` 秒（既定 1.3）の間 → 3. いつもの会話・一文（`fireProximityEvent`。既存の処理を関数に出しただけ）。会話の間も見せたまま、閉じたら操作が戻る
+- `show` の無い出来事は今までどおり
+
+### 1-3. 今いる空間を中心に描く（`02-world-common.js`）
+
+- `roomCellBatch(rooms, fn)`: 静的バッチを部屋ごとに分けて合成（壁は触れる部屋すべての区画）
+- `initRoomCells(worldKey, rooms, objs)`: 物を区画に分ける（中心のある部屋。部屋の外は近い部屋、遠ければ常に描く）。光源と `rcAlways` の物は除く。開口（`gaps`、'full' を含む）で繋がる隣を求める
+- `updateRoomCells(dt)`（毎フレーム、演出中も）: 今いる部屋＋開口から 7 以内の隣（閉じた扉の先は除く）＋見せる場面の部屋（戻る間 1.2 秒残す）。部屋の外では境から 2.5 以内の部屋。宝箱・回復結晶・敵も同じ条件（気づいている敵・12 以内の敵は描く）
+- 切り替えは描画の層（`layers`）。`visible`・親子関係・当たり・敵の行動に触れない（洋館の宝箱・ミミック・瓦礫は `visible` を使い、異常空間の正常化・瓦礫は `scene.remove` で外すため）
+- `disposeWorld` で区画と場面のカメラを片付ける
+
+## 2. 森の洋館
+
+| 項目 | 内容 |
+| --- | --- |
+| 区画 | 一階・二階・一階奥・地下・主の間を `roomCellBatch(MANSION_ROOMS, …)` で建て、`initRoomCells('mansion', …)`。外観（外殻・屋根・窓・玄関の扉と柱・外周の木立）・下地（暗い床）・異常空間（正常化で丸ごと外す 1 つのグループ）は `rcAlways`（常に描く） |
+| 見せてから話す | 食堂（卓 → 皿が落ちる一文）、厨房（竈 → 灰の一文）、二階の廊下の突き当たり（塞がれた扉 → 金属の音・開かない）、作業室（鍛冶屋 → 会話）、瓦礫（山 → 会話）、異常空間の玄関ホール（部屋全体 → 「この部屋は、知っている」） |
+| 描画欠落の再確認 | 厨房・大広間・地下・二階・異常空間（`b-m-*` → `a-m-*`）。途中で見つけた区画の不具合 2 件を直した: 下地が 1 つの部屋の区画に入り他の部屋で草地が見えた → 下地は常に描く／異常空間のグループが通路の区画に入り玄関ホールで真っ黒 → 常に描く |
+
+## 3. 宵待ちの村
+
+| 項目 | 内容 |
+| --- | --- |
+| 見せてから話す | 魚屋の帳場・住宅の食卓・船小屋の水際・商店街の屋台（記憶の場面）、水門前の閉じた水門、水門守の到来（レバーと水門）、ボスの手前（集まる水面）。各演出の最初の手順で対象を見せ、演出の間は見せたまま |
+| 描画 | 変えない（屋外の舞台。入れる建物は既存の屋根の透かしで中を隠す）。調査 §2 |
+
+## 4. 変更ファイル
+
+`src/legacy/parts/02-world-common.js`（show・区画の部品・洋館の建て方・片付け）、`13-update-loop.js`（場面のカメラ）、`03-dungeons-mansion-temple.js`（外観・下地・異常空間の常時描画、出来事の show）、`14-dungeon-duskvillage.js`（演出の最初に見せる）、`14-hud-boot.js`（毎フレームの区画の更新）、`docs/DUNGEON_RENDERING.md`、`.ai/tasks/CAMERA-*.md`、テスト（`tests/unit/room-cells-camera.test.js` 新規、`dungeon-rendering` の状態、`clocktower-*` の関数の取り出しに `fireProximityEvent` を追加、`mansion-exploration` / `mansion-scenes` / `mansion-insight` の固定する文字列に `show` を追加）。
+
+## 5. 性能
+
+- 区画の切り替えは状態が変わった時だけ（層の付け替え）。毎フレームの計算は部屋（約 30）と隣の数の比較だけ
+- 描く物は減る（見えない部屋は描画・影の対象から外れる）。静的バッチは部屋ごとに分かれるので描画の呼び出し回数は増えるが、見えている部屋の分だけが描かれる
+- iPhone 実機の FPS は未計測（ヘッドレスは GPU なし）
