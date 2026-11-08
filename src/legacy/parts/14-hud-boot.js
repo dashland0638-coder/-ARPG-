@@ -2042,8 +2042,12 @@
     fig.rotation.y = Math.atan2(to.x - JOIN_FIGURE_FROM.x, to.z - JOIN_FIGURE_FROM.z);
     const faceFig = Math.atan2(to.x - state.pos.x, to.z - state.pos.z);
     playCutscene([
-      // 帰ってきた主人公が、歩いてくる人のほうへ顔を向ける
-      {t:0.2, run:()=> cutsceneTurnTo(faceFig, 0.5)},
+      /* 帰ってきた主人公が、歩いてくる人のほうへ顔を向ける。歩いてくる人(物語の演出なので維持)は
+         カメラの視線誘導で見せる(CAMERA-001。交代の会話の間も見せたまま。自動カメラ OFF では動かない) */
+      {t:0.2, run:()=>{
+        cutsceneTurnTo(faceFig, 0.5);
+        sceneCamShot((to.x + state.pos.x)/2, (to.z + state.pos.z)/2, Math.max(1.2, dur) + 0.4, {height:7, dist:7, holdDialogue:true});
+      }},
       // 歩み寄るのを待ってから、交代の会話
       {t:Math.max(0.3, dur), run:()=>{
         if(joinFigureWalk){ finishJoinFigureWalk(); }

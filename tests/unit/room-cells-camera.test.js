@@ -209,3 +209,30 @@ test('洋館: 同行する鍛冶屋は区画に入れない(作業室を出て�
   // 見せる場面のカメラは、この出来事の会話の間だけ見せたまま(後の演出までは引っ張らない)
   assert.match(fn(world, 'function playShowThenEvent(ev){'), /hold:false, holdDialogue:true/);
 });
+
+test('イベント演出: 酒場の鍛冶士の再会はプレイヤーを歩かせない。カメラで見せ、本人が近づくと会話(鑑定・強化の範囲の内側)', () => {
+  assert.doesNotMatch(manor, /function playSmithGreeting\(/);
+  assert.doesNotMatch(manor, /SMITH_GREET_STAND/);
+  const r = Number(manor.match(/const SMITH_GREET_RADIUS = ([\d.]+);/)[1]);
+  assert.ok(r < 3, '会話が終わった位置からそのまま鑑定・強化に入れる(nearbySmith は 3)');
+  assert.match(manor, /registerProximityEvent\(SMITH_POS, SMITH_GREET_RADIUS, '鍛冶士', \(\)=>\{\s*state\.smithGreeted = true;/);
+  assert.match(manor, /show:\{x:SMITH_POS\.x, z:SMITH_POS\.z/);
+  // 一度だけ・主人公の交代で不要になる条件は維持
+  assert.equal((manor.match(/condition: \(\)=> !state\.smithGreeted/g) || []).length, 2);
+});
+
+test('イベント演出: 村の入口はプレイヤーを歩かせず、カメラを強制で回さない(水面の人影は視線誘導で見せる)。剣士の歩みは維持', () => {
+  const body = fn(dusk, 'function playDuskEntranceScene(){');
+  assert.doesNotMatch(body, /state\.walkTo\s*=\s*\{/);
+  assert.doesNotMatch(body, /cutsceneTurnTo\([^)]*,[^)]*,[^)]*\)/, 'cutsceneTurnTo にカメラの向き(3つ目)を渡さない');
+  assert.match(body, /sceneCamShot\(shadePos\.x, shadePos\.z/);
+  assert.match(body, /duskGuestWalk = \{x: state\.pos\.x \+ 1\.2/);
+});
+
+test('イベント演出: 主人公の交代は、歩いてくる人(物語の演出・維持)をカメラで見せる。プレイヤーは歩かせない', () => {
+  const hud = read('14-hud-boot.js');
+  const body = fn(hud, 'function playChapter1Arrival(){');
+  assert.match(body, /sceneCamShot\(/);
+  assert.doesNotMatch(body, /state\.walkTo/);
+  assert.match(body, /joinFigureWalk = \{fig/);
+});

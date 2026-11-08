@@ -7,10 +7,12 @@
  * ―― 鍛冶士は SMITH_POS(-6.5, 0, 12)にいるので、部屋の反対側から
  * 喋っている絵になる。
  *
- * ここで見るのは3つ:
- *   会話が始まる前に、本人が鍛冶屋の前まで歩くこと
- *   会話が「鍛冶士」として開くこと
+ * ここで見るのは4つ(CAMERA-001 で、演出でプレイヤーを歩かせる形から、本人が近づくと会話が
+ * 始まる形にした。移動はプレイヤーに委ねる):
+ *   帰ってきただけでは会話が始まらない(入口から喋らない・歩かされない)
+ *   本人が鍛冶屋に近づくと、会話が「鍛冶士」として開くこと
  *   会話が終わった位置が鍛冶屋の前のままで、どこかへ飛ばされないこと
+ *   自動カメラ OFF でも進むこと(この試験は OFF で歩く)
  *
  * 立ち位置は #interact-btn の文言で見る。この文言が「🔨 鍛冶士と話す」に
  * なるのは nearbySmith(SMITH_POS から3m以内、02-world-common.js)が
@@ -18,7 +20,7 @@
  * 判定できる ―― state はバンドルの中で、ページからは見えない。
  */
 import { test, expect } from '@playwright/test';
-import { watchErrors, openGame } from './helpers.js';
+import { watchErrors, openGame, disableCameraAutoFollow } from './helpers.js';
 
 /* 歩く演出は約4.4秒(sim)。ところがこの環境のソフトウェア描画では
    実測で 2〜3fps しか出ず、animate() の dt は 0.05 で頭打ちなので、
@@ -62,7 +64,7 @@ async function clearOpenDialogue(page) {
 }
 
 test.describe('洋館から帰った夜、鍛冶士との再会', () => {
-  test('鍛冶屋の前まで歩いてから会話が始まり、終わってもその場に残る', async ({ page }) => {
+  test('自分で鍛冶屋に近づくと会話が始まり、終わってもその場に残る(自動カメラ OFF でも)', async ({ page }) => {
     test.setTimeout(240_000);
     const errors = watchErrors(page);
     await seedJoinedSave(page);
@@ -70,10 +72,18 @@ test.describe('洋館から帰った夜、鍛冶士との再会', () => {
     await page.click('#cc-continue-btn');
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await clearOpenDialogue(page);
+    // 帰ってきただけでは会話は始まらない(入口から喋らない・演出で歩かされない)
+    await page.waitForTimeout(6000);
+    await clearOpenDialogue(page);
+    expect(await dialogueName(page).textContent()).not.toMatch(/鍛冶/);
 
-    /* 歩く演出(約4.4秒 sim)を跨いで、鍛冶士の会話が開くのを待つ。
-       実時間の予算は GREETING_WAIT_MS(冒頭の注記を参照) */
+    /* 自動カメラ OFF で、カメラの向きを固定して歩く(帰還地点 (0,10) のカメラは camYaw ≈ 2.36 ―― 前 = 北西、
+       前＋右 = 西)。北西へ少し出て丸卓A(-5,10)の北側に入り、西へ鍛冶士(-6.5,12)へ向かう */
+    await disableCameraAutoFollow(page);
+    await page.keyboard.down('w'); await page.waitForTimeout(2200); await page.keyboard.up('w');
+    await page.keyboard.down('w'); await page.keyboard.down('d');
     await expect(dialogueName(page)).toHaveText(/鍛冶/, { timeout: GREETING_WAIT_MS });
+    await page.keyboard.up('w'); await page.keyboard.up('d');
     await expect(overlay(page)).toHaveClass(/active/);
     await expect(page.locator('#dialogue-text')).toContainText('戻ってきたな');
 
@@ -99,7 +109,7 @@ test.describe('洋館から帰った夜、鍛冶士との再会', () => {
 
   /* 一度きりのイベントであること。二周目の帰還で毎回歩き出したら、
      プレイヤーは酒場へ戻るたびに操作を奪われる。 */
-  test('挨拶を済ませたセーブでは、歩く演出は起きない', async ({ page }) => {
+  test('挨拶を済ませたセーブでは、鍛冶屋に近づいても再会の会話は起きない(そのまま鑑定・強化)', async ({ page }) => {
     test.setTimeout(240_000);
     const errors = watchErrors(page);
     await seedJoinedSave(page, { smithGreeted: true });
@@ -108,10 +118,13 @@ test.describe('洋館から帰った夜、鍛冶士との再会', () => {
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await clearOpenDialogue(page);
 
-    /* 演出が走るなら実測43秒前後で会話に到達する。その倍の余裕を取って
-       「到達しない」ことを見る ―― 短く待って通しても、単に間に合って
-       いないだけかもしれず、根拠にならない */
-    await page.waitForTimeout(100_000);
+    // 鍛冶屋の前まで自分で歩く(1 つ目の試験と同じ道)。鑑定・強化の表示が出る所まで行っても、再会の会話は出ない
+    await disableCameraAutoFollow(page);
+    await page.keyboard.down('w'); await page.waitForTimeout(2200); await page.keyboard.up('w');
+    await page.keyboard.down('w'); await page.keyboard.down('d');
+    await expect(prompt(page)).toHaveText(/鍛冶士と話す/, { timeout: GREETING_WAIT_MS });
+    await page.keyboard.up('w'); await page.keyboard.up('d');
+    await page.waitForTimeout(3000);
     const name = await dialogueName(page).textContent();
     const active = await page.evaluate(() =>
       document.getElementById('dialogue-overlay').classList.contains('active'));

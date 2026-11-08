@@ -76,6 +76,7 @@ function harness({ clears, smithJoined = false, smithGreeted = true, from = 'war
     scene: { add(){}, remove(){} },
     playCutscene: steps => { for (const st of steps) st.run(); },
     cutsceneTurnTo: () => {},
+    sceneCamShot: () => log.push('camShot'),   // CAMERA-001: 歩いてくる人をカメラで見せる
     fadeTransition: f => { log.push('fade'); f(); },
     guestCompanion: null, player: null, camera: { position: { copy(){ return { add(){} }; } } }, getCamOffset: () => ({}),
     saveGame: () => log.push('save'),

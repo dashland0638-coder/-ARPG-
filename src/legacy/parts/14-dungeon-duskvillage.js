@@ -1155,18 +1155,20 @@
     const shadePos = new THREE.Vector3(-13, 0, 326);
     let shade = null;
     playCutscene([
-      // 剣士が数歩先へ出る。魔法使い(プレイヤー)は歩度を落として止まる
+      /* 剣士が数歩先へ出る。魔法使い(プレイヤー)は止まる ―― プレイヤーは歩かせない
+         (CAMERA-001: 移動はプレイヤーに委ねる。剣士が先へ出れば「止まった」は伝わる) */
       {t:0.05, run:()=>{
         if(typeof guestCompanion !== 'undefined' && guestCompanion){
           duskGuestWalk = {x: state.pos.x + 1.2, z: state.pos.z + 5.5, speed: 3.2};
         }
-        state.walkTo = {vx: 0, vz: 1.1};
       }},
-      {t:0.9, run:()=>{ state.walkTo = null; }},
-      // 水面へ目をやる。カメラも一緒に回して、本人が見ているものを画面へ入れる
+      {t:0.9, run:()=>{}},
+      /* 水面へ目をやる。本人の顔は水面へ向け、カメラは向きを強制で回さずに、水面の人影を
+         短く映す(sceneCamShot。演出の間は見せたまま、終われば追従へ戻る。自動カメラ OFF では動かない) */
       {t:0.35, run:()=>{
         const yaw = Math.atan2(shadePos.x - state.pos.x, shadePos.z - state.pos.z);
-        cutsceneTurnTo(yaw, 0.7, yaw + Math.PI);
+        cutsceneTurnTo(yaw, 0.7);
+        sceneCamShot(shadePos.x, shadePos.z, 1.6, {height:8, dist:8});
         ambienceHold(4);        // 風がふっと止む。音を足さずに、鳴っていたものを止める
       }},
       {t:0.8, run:()=>{
@@ -1201,10 +1203,10 @@
         }
       }},
       {t:2.0, run:()=> cutsceneLine('「はい。残っている物から順に見ていきます」', DUSK_MAGE)},
-      // 向き直って操作を返す
+      // 向き直って操作を返す(カメラは強制で戻さない。向きを変えていないので、追従へ戻るだけ)
       {t:1.6, run:()=>{
         cutsceneHideLine();
-        cutsceneTurnTo(0, 0.6, Math.PI);
+        cutsceneTurnTo(0, 0.6);
       }},
       {t:0.7, run:()=>{
         state.dialogueActive = false;
