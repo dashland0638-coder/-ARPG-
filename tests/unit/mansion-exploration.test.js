@@ -264,7 +264,7 @@ test('歩ける: 廊下 → 書斎 → 書庫 → 作業室(合流の範囲ま�
   const g = walkable(['uCor', 'uStudy', 'uArch', 'uWork'], [...roomWalls(), ...f.walls, ...study.walls, ...work.walls],
     { x: c.x0 + 3, z: (c.gaps.W[0] + c.gaps.W[1]) / 2 });
   // 合流の会話は作業室の内側 1.2(registerRoomEvent の inset)に入ると出る
-  assert.match(src, /registerRoomEvent\(mansionRoomById\('uWork'\), 0, '鍛冶士', \[[\s\S]*?\], \{inset:1\.2, kind:'mansionEscortJoin'\}\);/);
+  assert.match(src, /registerRoomEvent\(mansionRoomById\('uWork'\), 0, '鍛冶士', \[[\s\S]*?\], \{inset:1\.2, kind:'mansionEscortJoin',\s*show:\{x:77, z:-33, wait:1\.2[^}]*\}\}\);/);
   assert.ok(g.reach(gapMid(a, 'N'), w.z0 + 2, 0.5), '書庫を抜けて作業室の合流の範囲へ');
   // 作業室の中で、使用人用階段(77,-28)の判定圏(2.8)に届く
   assert.ok(g.reach(77, -28, 2.8), '使用人用階段へ');

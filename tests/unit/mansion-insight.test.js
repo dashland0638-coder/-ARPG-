@@ -68,7 +68,7 @@ test('置き場所: 瓦礫は使用人通路にあり、鍛冶屋と出会った
 });
 
 test('配線: 瓦礫の会話は同行中だけ。会話を閉じると退ける場面、主人公の一言を閉じると習得', () => {
-  assert.match(src, /\{kind:'mansionRubble', area:MANOR_RUBBLE_AREA,\s*condition:\(\)=> escortFollows\(state\.smithEscort\)\}\);/);
+  assert.match(src, /\{kind:'mansionRubble', area:MANOR_RUBBLE_AREA,\s*show:\{x:74, z:MANOR_RUBBLE_Z[^}]*\},[^\n]*\n\s*condition:\(\)=> escortFollows\(state\.smithEscort\)\}\);/);
   const rubble = ui.slice(ui.indexOf("state.dialogueKind==='mansionRubble'"), ui.indexOf("state.dialogueKind==='mansionInsight'"));
   assert.match(rubble, /playMansionRubbleScene\(\);/);
   const insight = ui.slice(ui.indexOf("state.dialogueKind==='mansionInsight'"), ui.indexOf("state.dialogueKind==='mansionEscortJoin'"));

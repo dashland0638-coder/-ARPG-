@@ -1,6 +1,6 @@
 # CAMERA-DUSKVILLAGE-001 — 宵待ちの村に「見せてから話す」カメラを入れる
 
-Status: **TODO（未着手）**。GHOSTSHIP-REBUILD-004 で残件として登録した。完了扱いにしない。
+Status: **DONE**（CAMERA-001 で実装。`.ai/tasks/CAMERA-001.md`、`.ai/reports/CAMERA-001-*.md`）。iPhone 実機は未確認
 方針の正本: `docs/DUNGEON_RENDERING.md` §3
 
 ## Goal

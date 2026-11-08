@@ -2564,6 +2564,7 @@
     fill.rotation.x = -Math.PI/2;
     fill.position.set((x0+x1)/2, 0.01, (z0+z1)/2);
     fill.receiveShadow = true;
+    fill.userData.rcAlways = true;   // 下地は区画の外も覆う(どの部屋にいても描く。CAMERA-001)
     scene.add(fill);
   }
 
@@ -2589,6 +2590,8 @@
       buildMansionWalls(r, wallMat);
     });
 
+    // 玄関の扉・柱・外殻・外周の木立は建物の外観。今いる部屋に関わらず常に描く(CAMERA-001)
+    const beforeExterior = new Set(scene.children);
     // 玄関の扉。ここだけは自分の手で開ける ―― 中へ入る決断を一度させる
     buildDoor('manorFront', 0, -40, 6, 0x2a1830);
     // 玄関アーチの柱(森→洋館の切り替わりを外からも分かるように)
@@ -2603,6 +2606,7 @@
     lintel.position.set(0, 3.0, -40);
     lintel.castShadow = true;
     scene.add(lintel);
+    scene.children.forEach(o=>{ if(!beforeExterior.has(o)) o.userData.rcAlways = true; });
 
     mansionLamp(0,  -44, 0xffb066, 0.45, 12);
     mansionLamp(0,  -57, 0xffb066, 0.60, 20);
@@ -2614,8 +2618,10 @@
     buildManorDiningDressing(woodMat);
     buildManorKitchen(woodMat);
     buildManorGreatHall(woodMat);
+    const beforeShell = new Set(scene.children);
     buildMansionExterior();
     buildMansionForestWall();
+    scene.children.forEach(o=>{ if(!beforeShell.has(o)) o.userData.rcAlways = true; });
   }
 
   /* 玄関ホール。傘立て・帽子掛け・止まった振り子時計 ―― 「昨日まで人が
@@ -2703,7 +2709,7 @@
       addShake(0.05);
       spawnLog('🍽️ 卓の上の皿が、ひとりでに滑り落ちて割れた');
       return null;
-    });
+    }, {show:{x:-23.5, z:-57, wait:1.2}});   // 卓を見せてから(CAMERA-001)
 
     buildLoreNote(new THREE.Vector3(-28.5, 0, -50.5), 'ボロボロの来客名簿', [
       '玄関脇に置き去りにされた記帳簿。インクは滲み、最後の記帳から何十年も経っている。',
@@ -2764,7 +2770,7 @@
       sfx('windGust');
       spawnLog('🍲 竈の灰が、風も無いのにふわりと舞い上がった');
       return null;
-    });
+    }, {show:{x:28.2, z:-63, wait:1.1}});   // 竈を見せてから(CAMERA-001)
 
     buildLoreNote(new THREE.Vector3(22.4, 0, -62.5), '走り書きの献立', [
       '調理台の端に留められた紙片。几帳面な字で、その日の献立が並んでいる。',
@@ -3064,6 +3070,7 @@
       spawnToast('🚪 扉は向こう側から塞がれていて、開かない');
       return null;
     }, {area:{x0:cor.x0, x1:cor.x1, z0:cor.z1-5, z1:cor.z1},
+        show:{x:77, z:-40.6, wait:1.0, height:7, dist:5},   // 塞がれた扉を見せてから(CAMERA-001)
         // 先に書庫から回って合流したら、ここへ誘う「!」はもう出さない
         condition:()=> state.smithEscort === ESCORT.NONE});
 
@@ -3078,7 +3085,8 @@
       '「廊下の扉は塞いだ。妙なのに入られたくないんでな。……書庫から回ってきたか」',
       '「付いてっていいか。荷は俺が持つ」',
       '「言っとくが戦うのは無しだ。手が塞がってるんでな」'
-    ], {inset:1.2, kind:'mansionEscortJoin'});
+    ], {inset:1.2, kind:'mansionEscortJoin',
+        show:{x:77, z:-33, wait:1.2, height:8, dist:6}});   // 鍛冶屋を見せてから話す(CAMERA-001)
 
     /* 使用人用階段。作業室の奥から一階の裏手へ降りる(auto) */
     const down = buildStairs(new THREE.Vector3(77,0,-28), new THREE.Vector3(74,0,44),
@@ -3566,6 +3574,7 @@
          なって二度と出なくなる(既存の作法。sDown の分離イベント参照)。
          同行しているときだけ成立する場面なので、判定はこちら側に置く */
       {kind:'mansionRubble', area:MANOR_RUBBLE_AREA,
+       show:{x:74, z:MANOR_RUBBLE_Z, wait:1.2, height:7, dist:5},   // 瓦礫の山を見せてから話す(CAMERA-001)
        condition:()=> escortFollows(state.smithEscort)});
   }
 
@@ -3675,6 +3684,7 @@
   function buildMansionAnomaly(){
     manorAnomalyGroup = new THREE.Group();
     manorAnomalyWalls = [];
+    manorAnomalyGroup.userData.rcAlways = true;   // 異常空間はそれだけで一つの離れ島(区画で分けない。CAMERA-001)
     scene.add(manorAnomalyGroup);
 
     // 前半の玄関ホール・大広間と**同じ**材質を使う。ここが肝で、
@@ -3806,7 +3816,7 @@
       sfx('windGust');
       spawnLog('🕯️ ……この部屋は、知っている');
       return null;
-    });
+    }, {show:{x:135, z:-5, wait:1.4, height:14, dist:9}});   // 玄関ホールと同じ部屋だと見せてから(CAMERA-001)
 
     registerRoomEvent(mansionRoomById('xCor'), 0, '', ()=>{
       sfx('distantDoor');

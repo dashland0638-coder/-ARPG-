@@ -153,6 +153,7 @@ test('盗賊の過去: 時喰らいを倒して塔が崩れ始めた後、文字
     fn(world, 'function registerProximityEvent(pos, radius, speakerName, lines, opts){'),
     fn(world, 'function registerRoomEvent(room, y, speakerName, lines, opts){'),
     fn(world, 'function updateProximityEvents(){'),
+    fn(world, 'function fireProximityEvent(ev){'),
     fn(tower, 'function clocktowerChapter1(){'),
     fn(tower, 'function buildClocktowerChapter1Story(roomById, slabY){'),
     'buildClocktowerChapter1Story(roomById, slabY);',

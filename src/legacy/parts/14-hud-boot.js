@@ -1448,6 +1448,7 @@
       updateArenaPanel(dt);   // Combat Test Arena専用。state.testMode以外では即return
       updateDoors(dt);
       updateMansionRoof();
+      updateRoomCells(dt);
       updateRestroomRoof();
       updateStairs();
       updateLore();
@@ -1483,6 +1484,7 @@
          のがこれ。判定は state.pos を見るだけなので、演出中に呼んでも
          副作用は無い */
       updateMansionRoof();
+      updateRoomCells(dt);
       updateRestroomRoof();
       updateManorSmith(dt);   // 再会演出で鍛冶屋が歩み寄る(仕様 7)
       /* 宵待ちの村(WORK 3): 演出中も村は動かす ―― 水面・小舟・洗濯物が
