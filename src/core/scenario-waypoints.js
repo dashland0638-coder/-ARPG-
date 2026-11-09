@@ -66,6 +66,11 @@ export const SCENARIO_WAYPOINTS = {
     {id:'bosshold', name:'船倉の扉の前', x:-32, z:108, kind:'boss-pre'},
   ],
   clocktower: [
+    /* 途中の検証地点(CLOCKTOWER-001、iPhone の実機確認用)。どれも階段の着地点(その階の踊り場)。
+       テストモードは Skill 2 を最初から持つので、盗賊の閃き(3F の先の通路)は起きない */
+    {id:'f2gear',  name:'2階 歯車の間の手前',   x:-287, y:9,  z:-50},
+    {id:'f3hands', name:'3階 針の回廊の手前',   x:-282, y:18, z:50},
+    {id:'f4bell',  name:'4階 鐘の広間の手前',   x:-286, y:27, z:102},
     // 5 階の控えの間(床 y:36)。4 階からの階段の着地点と同じ。西の扉の奥がボス
     {id:'bossante', name:'最上階の控えの間', x:-288, y:36, z:186, kind:'boss-pre'},
   ],

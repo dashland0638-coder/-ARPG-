@@ -168,7 +168,7 @@ Chapter 1 は開始時から自由な3人パーティではない。
 
 ## Chapter 1 ②〜⑤
 
-**Skill 2 の閃き**（同行者の行動を見て主人公自身が閃く。閃いた時点で自動装備）: ① 洋館 = 剣士「崩し斬り」（瓦礫の通路）/ ② 宵待ちの村 = 魔法使い「観測の灯」（商店街の戦いの後）/ ③ 幽霊船 = 弓師「爆弾投げ」（往路の食堂の戦いの後。STORY-001）/ ④ 時計塔（盗賊）・⑤ 道（影の旅人）は **未実装**（STORY-001 の調査で確認。次の Work Item）
+**Skill 2 の閃き**（同行者の行動を見て主人公自身が閃く。閃いた時点で自動装備）: ① 洋館 = 剣士「崩し斬り」（瓦礫の通路）/ ② 宵待ちの村 = 魔法使い「観測の灯」（商店街の戦いの後）/ ③ 幽霊船 = 弓師「爆弾投げ」（往路の食堂の戦いの後。STORY-001）/ ④ 時計塔 = 盗賊「三連投げナイフ」（3F 針の回廊を抜けた先の通路。CLOCKTOWER-001）/ ⑤ 道（影の旅人）は **未実装**（影の旅人の Skill 1 / Skill 2 の中身自体が暫定。docs/CHARACTERS.md）
 
 各段の物語・会話は [CHAPTER1_STORY.md](./CHAPTER1_STORY.md) §4 が正本。実装の位置は同 §7。
 数値と実機での確認項目は `.ai/reports/` の各ステージの資料（CHAPTER1-GHOSTSHIP-balance / CHAPTER1-CLOCKTOWER-balance / CR-01-report）と [CHAPTER1_PLAYTEST.md](./CHAPTER1_PLAYTEST.md)。

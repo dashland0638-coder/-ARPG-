@@ -674,6 +674,11 @@
     {id:'island', fl:'is', x0:-254, x1:-204, z0:318, z1:372, cor:false, gaps:{S:'full'}, name:'名も無い島'},
   ];
 
+  /* 今いる空間を中心に描く(CLOCKTOWER-001、docs/DUNGEON_RENDERING.md §2)。塔の中の部屋だけ。
+     屋上の見晴台と名も無い島は屋外(見晴台から島が見える)なので区画にしない。
+     階は平面でもずれて並んでいるので、部屋の矩形は階をまたいで重ならない */
+  const TOWER_CELL_ROOMS = TOWER_ROOMS.filter(r=> r.fl !== 'rf' && r.fl !== 'is');
+
   const TOWER_STAIRS = [
     {key:'t1up', from:'t1stair', fx:-245, fz:-83, to:'t2land', tx:-287, tz:-50, label:'2階へ上る'},
     {key:'t2up', from:'t2stair', fx:-294, fz:6, to:'t3land', tx:-282, tz:50, label:'3階へ上る'},
@@ -880,6 +885,7 @@
     const face = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 0.8, 28), glassMat);
     face.position.set(-232, slabY['rf'] + 12, 232);
     face.rotation.x = Math.PI/2;
+    face.userData.rcAlways = true;   // 屋外(屋上の上)。部屋の区画に入れない(CLOCKTOWER-001)
     scene.add(face);
     const faceLight = new THREE.PointLight(0xffd27a, 1.2, 42);
     faceLight.position.set(-232, slabY['rf'] + 12, 236);
@@ -901,6 +907,7 @@
       puff.scale.y = 0.16 + Math.random()*0.10;   // flattened: a deck, not balls
       cloudDeck.add(puff);
     }
+    cloudDeck.userData.rcAlways = true;   // 塔の外の雲。どの部屋の区画にも入れない
     scene.add(cloudDeck);
 
     // a thinner, higher veil so the lookout still has something above it
@@ -911,6 +918,7 @@
       puff.position.set(-380 + Math.random()*300, 62 + Math.random()*14,
                         -100 + Math.random()*520);
       puff.scale.y = 0.10;
+      puff.userData.rcAlways = true;
       scene.add(puff);
     }
 
@@ -920,12 +928,14 @@
     const sea = new THREE.Mesh(new THREE.PlaneGeometry(720, 720), seaMat);
     sea.rotation.x = -Math.PI/2;
     sea.position.set(-230, -0.6, 300);
+    sea.userData.rcAlways = true;
     scene.add(sea);
     const foamMat = new THREE.MeshBasicMaterial({color:0x9fd4e0, transparent:true, opacity:0.30});
     for(let i=0;i<26;i++){
       const ring = new THREE.Mesh(new THREE.RingGeometry(2 + Math.random()*5, 3 + Math.random()*7, 16), foamMat);
       ring.rotation.x = -Math.PI/2;
       ring.position.set(-380 + Math.random()*300, -0.5, 260 + Math.random()*180);
+      ring.userData.rcAlways = true;
       scene.add(ring);
     }
 
@@ -1001,23 +1011,27 @@
     ], {kind:'sign', wall:true, facing:Math.PI});
 
     // ---- events ----
+    /* 見せてから話す(CLOCKTOWER-001、docs/DUNGEON_RENDERING.md §3): 金属板・回る針・三つの鐘を
+       カメラで見せてから一文(床の高さ y を渡す。自動カメラ OFF の人には見せない) */
     registerRoomEvent(roomById['t2gear'], slabY['f2'], '???', ()=>
       isRepeatRun('clocktower')
         ? ['……正午から、時計回りだったな。']
         : ['床に、四つの金属板が埋め込まれている。',
            '踏むと、塔の奥で重い歯車が噛み合う音がした。',
-           '「順序があるな。……どこかに手がかりがあるはずだ」']
+           '「順序があるな。……どこかに手がかりがあるはずだ」'],
+      {show:{x:-228, z:-49, y:slabY['f2'], wait:1.1, height:12, dist:8}}
     );
     registerRoomEvent(roomById['t3hands'], slabY['f3'], '???', ()=>
       isRepeatRun('clocktower')
         ? ['……針の逃げ場は、交互だ。']
         : ['回廊の奥で、巨大な時計の針が三本、ゆっくりと回っている。',
-           '床には、掃かれたような傷跡が幾筋も残っていた。']
+           '床には、掃かれたような傷跡が幾筋も残っていた。'],
+      {show:{x:-224, z:50, y:slabY['f3'], wait:1.3, height:8, dist:10}}   // 3F はふだんの追従と同じ高さ(+8)。高く上げると雲の層(高さ 24 前後)越しに見下ろして白く霞む
     );
     registerRoomEvent(roomById['t4bell'], slabY['f4'], '???', [
       '三つの鐘が、それぞれ違う高さで揺れている。',
       '「……叩く順があるのか。譜面を探すか」'
-    ]);
+    ], {show:{x:-230, z:100, y:slabY['f4'], wait:1.1, height:12, dist:9}});
     registerRoomEvent(roomById['rfdeck'], slabY['rf'], '???', ()=>
       isRepeatRun('clocktower')
         ? ['……また飛ぶか。何度やっても、肝が冷える。']
@@ -1085,6 +1099,12 @@
       '「上の階へ向かう側に落ちていました」',
       {name:R, text:'「下りる気は、なかったんだな」'}
     ]});
+    /* 3F → 盗賊の閃き(CLOCKTOWER-001)。針の回廊を抜けた先の通路(t3cor2)。回廊の先へは
+       この通路しか無い(螺旋階段の上 → 4F)ので、閃かないまま上の階へは進まない。
+       書き置きの会話(読まずに来た時はここで出る)が先に済んでから、次のフレームで起きる */
+    towerInsightDone = false;
+    registerRoomEvent(roomById['t3cor2'], slabY['f3'], R, null, {onEnter:playTowerInsight, marker:false,
+      condition:()=> clocktowerChapter1() && !towerInsightDone});
     afterNote('鐘楼の譜面', 't4bell', 't4cor2', 'f4', {speaker:A, lines:[
       '「振り返らないで。……今だけは、私が後ろを見ています」'
     ]});
@@ -1118,6 +1138,44 @@
       {name:R, text:'「戻れなかった、って言うと格好がつくな。……戻らなかった」'},
       {name:A, text:'「なら、今度は戻りましょう。跳んだ先から、ちゃんと」'}
     ], {condition:()=> clocktowerChapter1() && collapsing});
+  }
+
+  /* 盗賊の閃き(CLOCKTOWER-001、Chapter 1 の Skill 2「三連投げナイフ」)。
+
+     洋館の瓦礫・村の観測の灯・船の爆弾投げと同じ型 ―― 同行者(弓師)のやり方を見た主人公が、
+     自分の戦い方へ翻訳する。教わるのではない。
+       盗賊 = 隙間を見る(docs/CHARACTERS.md)。隙間を見つけたら、自分が飛び込む(近接・影退きの一閃)
+       弓師 = 今を見る。針の回廊で、針が過ぎた一瞬に、針の向こうの撃ち手をこちら側から射抜いた
+     → 飛び込まなくても、隙間に刃だけを通せばいい。一本で足りなければ三本 ―― 既存の
+       SKILL2_BY_CLASS.rogue「三連投げナイフ」(前へ扇に三本)。
+     置き場所は塔の中ほど(3F の針の回廊を抜けた先)。すぐ先の螺旋階段の上に強モブ(閃いた技を
+     すぐ試せる)、4F の鐘の広間・無音の鐘室へ続く。出撃ごとに一度。既に持っている出撃
+     (閃いてから撤退して出直した・テストモード)では場面を出さない。
+     習得と自動装備は grantChapter1Skill2()(core/chapter1-skills.js の learnSkill2) */
+  let towerInsightDone = false;
+  function playTowerInsight(){
+    if(towerInsightDone) return;
+    towerInsightDone = true;
+    if(hasSkill2(state)) return;
+    const R = CLASSES.rogue.name, A = CLASSES.archer.name;
+    const hall = TOWER_ROOMS.find(r=> r.id === 't3hands');
+    const fy = TOWER_SLABS.find(s=> s.fl === hall.fl).y;
+    playCutscene([
+      // 抜けてきた針の回廊を見せてから話す(自動カメラ OFF の人には見せない。sceneCamShot)
+      {t:0.1, run:()=> sceneCamShot((hall.x0 + hall.x1)/2, (hall.z0 + hall.z1)/2, 1.8, {y:fy, height:8, dist:10})},   // ふだんの追従と同じ高さ。高く上げると雲の層越しに白く霞む
+      {t:1.2, keep:true, run:()=>{}},
+      {t:0.1, run:()=> cutsceneLine('「……さっきの撃ち手。針の向こうにいたのに、こっちから射抜いてたな」', R)},
+      {t:0.1, run:()=> cutsceneLine('「針が過ぎた、その一瞬だけ、まっすぐ通っていましたから」', A)},
+      {t:0.1, run:()=> cutsceneLine('「俺は、隙間を見つけたら飛び込む。……そういうやり方しか、知らなかった」', R)},
+      {t:0.1, run:()=>{ cutsceneHideLine(); grantChapter1Skill2(); }},
+      {t:0.6, run:()=> cutsceneLine('「飛び込まなくても、通せばいい。……隙間に、刃だけ」', R)},
+      {t:0.1, run:()=> cutsceneLine('「一本で足りなきゃ、三本だ」', R)},
+      {t:0.1, run:()=>{
+        cutsceneHideLine();
+        state.dialogueActive = false;
+        clearMovementInput(false);
+      }},
+    ]);
   }
 
   /* 跳ぶ瞬間(§4-5)。終幕の台詞を本編でだけ差し替える(仕組みは変えない)。

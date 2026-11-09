@@ -163,7 +163,13 @@
     waterway: { build: ()=>{ buildWaterwayPier(); buildWaterwayUnderground(); } },
     temple:   { build: ()=>{ buildTemple(); } },
     conservatory: { build: ()=>{ buildConservatory(); } },
-    clocktower:   { build: ()=>{ buildClocktower(); } },
+    /* 部屋ごとの区画(CLOCKTOWER-001): 今いる部屋 ＋ 開口・開いている扉の先だけを描く(洋館と同じ部品)。
+       静的バッチを部屋ごとに分けるので、描画の呼び出しもまとまる(以前は壁・床が一枚ずつ別のメッシュ) */
+    clocktower:   { build: ()=>{
+      const beforeTower = new Set(scene.children);
+      roomCellBatch(TOWER_CELL_ROOMS, buildClocktower);
+      initRoomCells('clocktower', TOWER_CELL_ROOMS, scene.children.filter(o=> !beforeTower.has(o)));
+    } },
     duskvillage:  { build: ()=>{
       const beforeDusk = new Set(scene.children);
       buildDuskVillage();
@@ -2258,7 +2264,7 @@
     proximityEvents.push({pos:pos.clone(), radius, speakerName, lines, fired:false,
                           condition:opts.condition||null, kind:opts.kind||null,
                           area:opts.area||null, onEnter:opts.onEnter||null,
-                          // 見せてから話す(CAMERA-001): {x, z, wait?, height?, dist?}。先にカメラで見せる
+                          // 見せてから話す(CAMERA-001): {x, z, y?, wait?, height?, dist?}。先にカメラで見せる(y は床の高さ)
                           show:opts.show||null,
                           // ミニマップに「!」を出すか(WORK 12.1)。既定で出す
                           marker: opts.marker !== false});
@@ -2318,7 +2324,7 @@
     const sh = ev.show, wait = sh.wait || 1.3;
     playCutscene([
       // 見せたままにするのは、この出来事の会話の間だけ(後に続く別の演出までは引っ張らない)
-      {t:0.05, run:()=> sceneCamShot(sh.x, sh.z, wait + 0.4, {height:sh.height, dist:sh.dist, hold:false, holdDialogue:true})},
+      {t:0.05, run:()=> sceneCamShot(sh.x, sh.z, wait + 0.4, {y:sh.y, height:sh.height, dist:sh.dist, hold:false, holdDialogue:true})},
       {t:wait, keep:true, run:()=>{
         state.dialogueActive = false;
         clearMovementInput(false);

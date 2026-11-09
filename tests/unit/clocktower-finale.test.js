@@ -150,6 +150,7 @@ test('盗賊の過去: 時喰らいを倒して塔が崩れ始めた後、文字
   const shown = [];
   const code = [
     'let proximityEvents = []; let collapsing = false;',
+    'let towerInsightDone = false; function playTowerInsight(){}',   // 盗賊の閃き(CLOCKTOWER-001)は clocktower-insight.test.js
     fn(world, 'function registerProximityEvent(pos, radius, speakerName, lines, opts){'),
     fn(world, 'function registerRoomEvent(room, y, speakerName, lines, opts){'),
     fn(world, 'function updateProximityEvents(){'),

@@ -305,7 +305,10 @@
       {pos:new THREE.Vector3(-246,27,146), variant:{color:0x8a7a4a, hp:158, atk:33, speed:2.7, atkType:'charge', xp:72, goldBonus:[21,32], roomTag:'towerHouse3'}},
       {pos:new THREE.Vector3(-220,27,146), variant:{color:0x8a7a4a, hp:158, atk:33, speed:2.7, atkType:'charge', xp:72, goldBonus:[21,32], roomTag:'towerHouse3'}},
       {pos:new THREE.Vector3(-233,27,140), variant:{color:0xc9a44a, hp:300, atk:40, speed:2.3, atkType:'charge', xp:150, goldBonus:[38,54], strongMob:true, roomTag:'towerHouse3'}},
-      {pos:new THREE.Vector3(-288,36,180), variant:{color:0x9a5a3a, hp:250, atk:37, speed:2.5, atkType:'charge', xp:115, goldBonus:[32,46], strongMob:true}},
+      /* 5F 文字盤の前室の強モブ。4F からの階段の着地点 (-288,186) の 6 歩先にいて、着いた瞬間に
+         ぶつかっていた(CT-05 H-5)。前室の東、ボスの扉へ続く通路の口の手前へ(着地点から約 10.6)。
+         数値は変えていない(CLOCKTOWER-001) */
+      {pos:new THREE.Vector3(-280,36,179), variant:{color:0x9a5a3a, hp:250, atk:37, speed:2.5, atkType:'charge', xp:115, goldBonus:[32,46], strongMob:true}},
       // --- the glass conservatory (Lv.22-28) ---
       {pos:new THREE.Vector3(196,0,-46), variant:{color:0x4f7a3a, hp:270, atk:46, speed:2.6, atkType:'charge', xp:118, goldBonus:[26,40]}},
       {pos:new THREE.Vector3(212,0,-40), variant:{color:0x6f9c4a, hp:240, atk:48, speed:0.9, atkType:'fire', xp:118, goldBonus:[26,40], projColor:11075418}},

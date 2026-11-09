@@ -2397,7 +2397,8 @@
     // 自動カメラ OFF の人には、進行に要らない自動のカメラ演出をしない(カメラは本人の操作のまま)
     if(!camAutoOn) return;
     opts = opts || {};
-    sceneShot = {x, z, t:0, dur:dur || 1.4, height:opts.height || 9.5, dist:opts.dist || 6.5, hold:opts.hold !== false, holdDialogue:!!opts.holdDialogue};
+    // y: 見せる物の床の高さ(時計塔のように床が地面より高い所。既定 0)
+    sceneShot = {x, z, y:opts.y || 0, t:0, dur:dur || 1.4, height:opts.height || 9.5, dist:opts.dist || 6.5, hold:opts.hold !== false, holdDialogue:!!opts.holdDialogue};
   }
   function clearSceneShot(){ sceneShot = null; }
   const _scTarget = new THREE.Vector3(), _scLook = new THREE.Vector3();
@@ -2407,8 +2408,8 @@
     const s = sceneShot;
     s.t += cutsceneRealDt > 0 ? Math.min(cutsceneRealDt, 0.1) : dt;
     if(s.t >= s.dur && !(s.hold && cutsceneRunning()) && !(s.holdDialogue && state.dialogueActive)){ sceneShot = null; return false; }
-    _scLook.set(s.x, 0.8, s.z);
-    _scTarget.set(s.x + Math.sin(state.camYaw) * s.dist, s.height, s.z + Math.cos(state.camYaw) * s.dist);
+    _scLook.set(s.x, s.y + 0.8, s.z);
+    _scTarget.set(s.x + Math.sin(state.camYaw) * s.dist, s.y + s.height, s.z + Math.cos(state.camYaw) * s.dist);
     camera.position.lerp(_scTarget, 1 - Math.pow(0.004, Math.min(dt, 0.1)));
     camera.lookAt(_scLook);
     return true;

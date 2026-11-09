@@ -48,6 +48,7 @@ function setup({ testMode = false, scenarioKey = 'clocktower' } = {}){
   const code = [
     'let proximityEvents = [];',
     'let collapsing = false;',   // 02 の崩壊の状態(CT-03 の盗賊の過去が見る)
+    'let towerInsightDone = false; function playTowerInsight(){ towerInsightDone = true; }',   // 盗賊の閃きは clocktower-insight.test.js
     fn(world, 'function registerProximityEvent(pos, radius, speakerName, lines, opts){'),
     fn(world, 'function registerRoomEvent(room, y, speakerName, lines, opts){'),
     fn(world, 'function updateProximityEvents(){'),
