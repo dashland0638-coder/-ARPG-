@@ -225,3 +225,24 @@ test('GHOSTSHIP-REBUILD-003: 船の向きを保つカメラは幽霊船の中だ
   const fn = ship.slice(ship.indexOf('function gsStepCameraYaw'), ship.indexOf('function gsStepCameraYaw') + 400);
   assert.match(fn, /if\(!camAutoOn \|\|/);
 });
+
+test('STORY-001: 弓師が閃くのは既存の Skill 2「爆弾投げ」。閃くまで撃てない・交代で持ち越さない・セーブに残る', () => {
+  // 既存の定義をそのまま開ける(新しい技・新しい仕組みは足さない)
+  const a = ui.indexOf('const SKILL2_BY_CLASS = {');
+  const defs = new Function(ui.slice(a, ui.indexOf('\n  };\n', a) + 5) + '\nreturn SKILL2_BY_CLASS;')();
+  assert.equal(defs.archer.name, '爆弾投げ');
+  const combatActions = read('11-combat-actions.js');
+  const cast = fnBody(combatActions, 'function castSkill2(){');
+  assert.match(cast, /if\(!hasSkill2\(state\)\) return;/, '閃くまでは撃てない(ボタンも出ない)');
+  assert.match(cast, /cdef\.key==='archer'\) castBombThrow/);
+  // 閃きは船の中の一か所(食堂の後・通路の代わり)からだけ。習得は共通の grantChapter1Skill2
+  const code = ship.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.equal((code.match(/grantChapter1Skill2\(\)/g) || []).length, 1);
+  assert.match(ship, /const playArcherInsight = \(showTable\)=>\{\s*if\(gsFlags\.insightDone\) return;\s*gsFlags\.insightDone = true;\s*if\(hasSkill2\(state\)\) return;/);
+  // 主人公の交代(魔法使い → 弓師)で前の主人公の閃きを持ち越さない ―― 弓師は船の中で閃く
+  assert.match(hud, /state\.learnedSkill2 = false;\s*state\.skillCD = 0; state\.skill2CD = 0;/);
+  // セーブ・ロード(旧セーブはキー無し = 習得済み扱い)
+  const save = read('09-save-load.js');
+  assert.match(save, /learnedSkill2:!!state\.learnedSkill2/);
+  assert.match(save, /state\.learnedSkill2 = loadedSkill2Flag\(data\)/);
+});

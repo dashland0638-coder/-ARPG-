@@ -1379,7 +1379,38 @@
         gsEnd(),
       ], GS_TEMPO);
     }, pre);
-    gsEvent(gsRoomArea('gsMess', 0.6), ()=>{
+    /* ⑤' 弓師の閃き(STORY-001、Chapter 1 の Skill 2)。洋館の瓦礫・村の観測の灯と同じ型 ――
+       同行者(魔法使い)の「見方」を聞いた主人公が、自分の戦い方へ翻訳する。教わるのではない。
+       弓師は「今いる人」を一人ずつ射る(docs/CHARACTERS.md: 弓師 = 現在を見る)。魔法使いは
+       部屋を見て、人影が通る所を見ていた(戦場を見る)。それを聞いて、人ではなく集まる所へ
+       まとめて投げ込む ―― 既存の弓師の Skill 2「爆弾投げ」(SKILL2_BY_CLASS.archer)を閃く。
+       置き場所は往路の食堂の戦いの後(船の中盤。この先は帰還不能 → 食堂……? の三体で、
+       閃いた技をすぐ試せる)。食堂を戦わずに抜けた時は、船長室への通路で同じ場面が起きる
+       (閃かないまま帰還不能へ進まない)。既に持っている出撃(周回・テストモード)では起こさない。
+       習得と自動装備は grantChapter1Skill2()(core/chapter1-skills.js の learnSkill2) */
+    /* showTable: 食堂の中では卓を見せてから話す。通路で起きる時(食堂を戦わずに抜けた・残影が付いてくる
+       こともある)はカメラを食堂へ飛ばさず、その場で話す(演出の間はゲームが止まるので、不利にはならない) */
+    const playArcherInsight = (showTable)=>{
+      if(gsFlags.insightDone) return;
+      gsFlags.insightDone = true;
+      if(hasSkill2(state)) return;
+      playCutscene([
+        ...(showTable ? [gsShow(GS_MESS_TABLE.x, GS_MESS_TABLE.z, 1.4), gsWait(0.8)] : [gsWait(0.3)]),
+        gsLine('「……さっき、どこを見ていたんですか」', A),
+        gsLine('「卓の間を。狭いので、みんな同じ所を通ります」', Mg),
+        gsLine('「同じ所を」', A),
+        {t:0.3, run:()=>{ cutsceneHideLine(); grantChapter1Skill2(); }},
+        gsLine('「私は、今いる人を、一人ずつ射ていました」', A),
+        gsNarr('腰の袋の、火薬玉に指が触れた。'),
+        gsLine('「……なら、集まる所へ。まとめて」', A),
+        gsEnd(),
+      ], GS_TEMPO);
+    };
+    ev.insight = gsEvent(gsRoomArea('gsMess', 0.6), ()=> playArcherInsight(true),
+      ()=> pre() && !gsFlags.insightDone && ev.mess.fired && gsRoomCleared('gsMess'));
+    ev.insightFallback = gsEvent(gsRoomArea('gsCorridor', 0.2), ()=> playArcherInsight(false),
+      ()=> pre() && !gsFlags.insightDone);
+    ev.home = gsEvent(gsRoomArea('gsMess', 0.6), ()=>{
       playCutscene([
         gsLine('「この船の人たちは、帰る場所があったんですね」', Mg),
         gsLine('「ええ。だから、降りられないんだと思います」', A),
@@ -1387,7 +1418,7 @@
         gsLine('「私は、どこにも。……だから、少しだけ羨ましい」', A),
         gsEnd(),
       ], GS_TEMPO);
-    }, ()=> pre() && ev.mess.fired && gsRoomCleared('gsMess'));
+    }, ()=> pre() && ev.mess.fired && gsRoomCleared('gsMess') && !!gsFlags.insightDone);   // 閃きの後に「帰る場所」の会話
     /* ⑥ 船長室。航海日誌、頭上の足音。「今日はここまで」―― プレイヤー自身が帰ろうとする */
     ev.cabin = gsEvent({x0:-37, x1:-21, z0:85.2, z1:95}, ()=>{
       playCutscene([
