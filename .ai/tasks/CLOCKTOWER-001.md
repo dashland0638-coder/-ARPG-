@@ -44,4 +44,4 @@ Status: DONE（Agent 側。PR 作成済み）／ HUMAN DEVICE CHECK REQUIRED（i
 | Auto Fix Count | 3（既存の unit の仕組みに閃きの変数を足す 1・3F のカメラの高さ（雲越し）1・レビュー指摘の文言 1） |
 | Reviewer Round Count | 1（PASS） |
 | Test Retry Count | 1（`chapter1-late-scenarios` 道の戦闘不能、FLAKY） |
-| PR Created | Yes（PR 番号は PR 本文を参照） |
+| PR Created | Yes（#121） |
