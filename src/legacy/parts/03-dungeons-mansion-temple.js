@@ -81,7 +81,7 @@
   const MANSION_ATTIC_STARS = 4;         // 主を倒した先、屋根裏が開く周回★
   const TEMPLE_DEPTHS_STARS = 4;         // 守り手の間の奥、神殿の最深部が開く周回★(第3弾)
   const CONSERVATORY_DEPTHS_STARS = 4;   // 主の温室の奥、最深部が開く周回★(第5弾)
-  const TOWER_HOUSE1_DEPTHS_STARS = 3;   // 止まった置時計の間の奥、隠し歯車庫が開く周回★(第6弾)
+  const TOWER_HOUSE1_DEPTHS_STARS = 3;   // 守衛の小部屋の奥、隠し歯車庫が開く周回★(第6弾。テストモードの旧成長だけ)
                                           // 時計塔はボス撃破後の枠(見晴台からの脱出)を既存演出が
                                           // 占有しているため、洋館と同じ「行き止まり分岐」型のみ採用
 
@@ -606,145 +606,220 @@
   }
 
   /* =========================================================
-     THE DERANGED CLOCKTOWER (狂いの時計塔)
-     Six storeys and a floating island, climbed by stairs. Collision is 2D,
-     so the storeys sit side by side in plan as well as stacked in height -
-     which means each one is only reachable through its stairwell, and the
-     air between them is genuinely empty. That emptiness is the point of the
-     finale: a launch pad on the roof throws the player across open sky.
+     THE CLOCKTOWER (狂いの時計塔) ―― 第一章④「止まった時刻 ― 過去に縛られた後悔 ―」
 
-     Puzzles: a sequence lock of floor plates on 2F, a corridor swept by
-     rotating clock hands on 3F, and a lock of bells struck in the order a
-     score gives you on 4F. Three rooms seal behind you on the way up.
+     CLOCKTOWER-001 で全面的に作り直した(docs/CHAPTER1_STORY.md §4-4、
+     .ai/reports/CLOCKTOWER-001-design.md)。残したのは「塔を一階ずつ登り、最上階を目指す」だけ。
+
+     ■ 形
+     六つの小さな階と屋上・名も無い島。一階は 2〜5 部屋で、1〜3 分で抜けられる広さ。
+     当たり判定は平面なので、階は高さ 9 ずつ積むのと同時に平面でもずらして並べ、
+     階段(ワープ)だけで繋ぐ。階と階の間の空は本当に何も無い ―― 屋上から跳ぶ終幕のため。
+       1F 塔の門           … 導入。七時十三分に時が止まる
+       2F 歯車機構         … 止まった巨大歯車。金属板の順で機構を動かす。中ボス「止まった番人」
+       3F 時計工房         … 管理人の仕事の痕跡。灯りの下に娘の残像。回る針の通路 → 盗賊の閃き
+       4F 管理人の住まい   … 父と娘の暮らし。七時十三分が繰り返す(鍵の在りか)
+       5F 鐘楼             … 娘の譜面で鐘を鳴らす。倉庫の封鎖戦。娘の書き置き
+       6F 文字盤の間       … 七時十三分で止まった巨大時計。管理人と、止刻の残響
+       屋上 見晴台 → 名も無い島 → 酒場(翌朝)→ 道
+     上の階ほど、壁の色が冷え、残像が増える(時間の歪みが強くなる)。
+
+     ■ 物語(本編だけ。buildClocktowerChapter1Story)
+     管理人は娘が家を出た時刻(七時十三分)へ戻ろうとして塔の時間を止めた。娘の生死・
+     行方は語らない(「出ていって、まだ戻らない」まで)。管理人は悪人にしない。
+     最上階で止刻の残響を退けたあと、管理人は自分の手で針を進め、時間が動き出す。
   ========================================================= */
   const TOWER_ENTRY = new THREE.Vector3(-288, 0.0, -104);
 
   const TOWER_FLOORS = [
-    {fl:'f1', y:0, name:'1階 鐘楼の玄関'},
-    {fl:'f2', y:9, name:'2階 歯車の間'},
-    {fl:'f3', y:18, name:'3階 針の回廊'},
-    {fl:'f4', y:27, name:'4階 鐘の広間'},
-    {fl:'f5', y:36, name:'5階 文字盤の裏'},
-    {fl:'rf', y:45, name:'屋上 見晴台'},
-    {fl:'is', y:0, name:'無人島'},
+    {fl:'f1', y:0,  name:'1階 塔の門'},
+    {fl:'f2', y:9,  name:'2階 歯車機構'},
+    {fl:'f3', y:18, name:'3階 時計工房'},
+    {fl:'f4', y:27, name:'4階 管理人の住まい'},
+    {fl:'f5', y:36, name:'5階 鐘楼'},
+    {fl:'f6', y:45, name:'6階 文字盤の間'},
+    {fl:'rf', y:54, name:'屋上 見晴台'},
+    {fl:'is', y:0,  name:'無人島'},
   ];
 
   const TOWER_SLABS = [
-    {fl:'f1', x0:-362, x1:-230, z0:-112, z1:-66.5, y:0},
-    {fl:'f2', x0:-314, x1:-202, z0:-65.5, z1:16, y:9},
-    {fl:'f3', x0:-298, x1:-154, z0:34, z1:66, y:18},
-    {fl:'f4', x0:-302, x1:-202, z0:84, z1:154, y:27},
-    {fl:'f5', x0:-302, x1:-194, z0:162, z1:210, y:36},
-    {fl:'rf', x0:-260, x1:-204, z0:234, z1:278, y:45},
-    {fl:'is', x0:-256, x1:-202, z0:316, z1:374, y:0},
-    // 隠し歯車庫(★3で開く行き止まり分岐)。どの既存フロアとも重ならない
-    // 独立した空間なので、階段(ワープ)で繋いでも周囲の物理には影響しない
+    {fl:'f1', x0:-320, x1:-258, z0:-110, z1:-80,  y:0},
+    {fl:'f2', x0:-300, x1:-256, z0:-72,  z1:-24,  y:9},
+    {fl:'f3', x0:-300, x1:-206, z0:-16,  z1:14,   y:18},
+    {fl:'f4', x0:-300, x1:-240, z0:22,   z1:52,   y:27},
+    {fl:'f5', x0:-300, x1:-240, z0:60,   z1:108,  y:36},
+    {fl:'f6', x0:-300, x1:-228, z0:112,  z1:148,  y:45},
+    {fl:'rf', x0:-272, x1:-228, z0:156,  z1:190,  y:54},
+    {fl:'is', x0:-276, x1:-224, z0:236,  z1:290,  y:0},
+    // 隠し歯車庫(テストモードの旧成長の周回★3 で開く行き止まり)。どの階とも重ならない独立した床
     {fl:'t1depths', x0:-365, x1:-327, z0:103, z1:137, y:9},
   ];
 
+  /* 部屋。gaps は開口(扉の無い所 or 扉の付く所)。通路(cor)は幅 6 以上(iPhone のタッチ操作で通りやすく) */
   const TOWER_ROOMS = [
-    {id:'t1entry', fl:'f1', x0:-302, x1:-274, z0:-110, z1:-96, cor:false, gaps:{N:[-294,-282]}, name:'塔の門'},
-    {id:'t1hall', fl:'f1', x0:-322, x1:-258, z0:-96, z1:-72, cor:false, gaps:{S:[-294,-282], W:[-90,-80], E:[-90,-80]}, name:'鐘楼の玄関'},
-    {id:'t1house', fl:'f1', x0:-360, x1:-322, z0:-94, z1:-68, cor:false, gaps:{E:[-90,-80]}, name:'止まった置時計の間'},
-    {id:'t1stair', fl:'f1', x0:-258, x1:-232, z0:-92, z1:-74, cor:false, gaps:{W:[-90,-80]}, name:'螺旋階段の下'},
-    {id:'t2land', fl:'f2', x0:-302, x1:-272, z0:-60, z1:-40, cor:false, gaps:{E:[-54,-46]}, name:'二階の踊り場'},
-    {id:'t2cor1', fl:'f2', x0:-272, x1:-256, z0:-54, z1:-46, cor:true , gaps:{E:'full', W:'full'}, name:'通路'},
-    {id:'t2gear', fl:'f2', x0:-256, x1:-204, z0:-64, z1:-34, cor:false, gaps:{W:[-54,-46], N:[-238,-226]}, name:'歯車の間'},
-    {id:'t2cor2', fl:'f2', x0:-238, x1:-226, z0:-34, z1:-24, cor:true , gaps:{N:'full', S:'full'}, name:'通路'},
-    {id:'t2vault', fl:'f2', x0:-252, x1:-212, z0:-24, z1:-6, cor:false, gaps:{S:[-238,-226], W:[-20,-12]}, name:'錘の保管室'},
-    {id:'t2cor3', fl:'f2', x0:-272, x1:-252, z0:-20, z1:-12, cor:true , gaps:{E:'full', W:'full'}, name:'通路'},
-    {id:'t2house', fl:'f2', x0:-312, x1:-272, z0:-26, z1:-2, cor:false, gaps:{E:[-20,-12], N:[-300,-288]}, name:'巻き上げ機の間'},
-    {id:'t2stair', fl:'f2', x0:-304, x1:-284, z0:-2, z1:14, cor:false, gaps:{S:[-300,-288]}, name:'螺旋階段の中ほど'},
-    {id:'t3land', fl:'f3', x0:-296, x1:-268, z0:40, z1:60, cor:false, gaps:{E:[46,54]}, name:'三階の踊り場'},
-    {id:'t3cor1', fl:'f3', x0:-268, x1:-252, z0:46, z1:54, cor:true , gaps:{E:'full', W:'full'}, name:'通路'},
-    {id:'t3hands', fl:'f3', x0:-252, x1:-196, z0:36, z1:64, cor:false, gaps:{W:[46,54], E:[46,54]}, name:'針の回廊'},
-    {id:'t3cor2', fl:'f3', x0:-196, x1:-180, z0:46, z1:54, cor:true , gaps:{E:'full', W:'full'}, name:'通路'},
-    {id:'t3stair', fl:'f3', x0:-180, x1:-156, z0:38, z1:62, cor:false, gaps:{W:[46,54]}, name:'螺旋階段の上'},
-    {id:'t4land', fl:'f4', x0:-300, x1:-272, z0:92, z1:112, cor:false, gaps:{E:[98,106]}, name:'四階の踊り場'},
-    {id:'t4cor1', fl:'f4', x0:-272, x1:-256, z0:98, z1:106, cor:true , gaps:{E:'full', W:'full'}, name:'通路'},
-    {id:'t4bell', fl:'f4', x0:-256, x1:-204, z0:86, z1:118, cor:false, gaps:{W:[98,106], N:[-236,-224]}, name:'鐘の広間'},
-    {id:'t4cor2', fl:'f4', x0:-236, x1:-224, z0:118, z1:128, cor:true , gaps:{N:'full', S:'full'}, name:'通路'},
-    {id:'t4house', fl:'f4', x0:-252, x1:-212, z0:128, z1:152, cor:false, gaps:{S:[-236,-224], W:[134,142]}, name:'無音の鐘室'},
-    {id:'t4cor3', fl:'f4', x0:-272, x1:-252, z0:134, z1:142, cor:true , gaps:{E:'full', W:'full'}, name:'通路'},
-    {id:'t4stair', fl:'f4', x0:-296, x1:-272, z0:126, z1:150, cor:false, gaps:{E:[134,142]}, name:'最上階への階段'},
-    {id:'t5ante', fl:'f5', x0:-300, x1:-276, z0:176, z1:196, cor:false, gaps:{E:[182,190]}, name:'文字盤の前室'},
-    {id:'t5cor1', fl:'f5', x0:-276, x1:-260, z0:182, z1:190, cor:true , gaps:{E:'full', W:'full'}, name:'通路'},
-    {id:'t5boss', fl:'f5', x0:-260, x1:-196, z0:164, z1:208, cor:false, gaps:{W:[182,190]}, name:'文字盤の裏'},
-    {id:'rfdeck', fl:'rf', x0:-258, x1:-206, z0:236, z1:276, cor:false, gaps:{N:'full'}, name:'見晴台'},
-    {id:'island', fl:'is', x0:-254, x1:-204, z0:318, z1:372, cor:false, gaps:{S:'full'}, name:'名も無い島'},
+    // 1F 塔の門
+    {id:'t1gate',   fl:'f1', x0:-300, x1:-276, z0:-110, z1:-98, cor:false, gaps:{N:[-292,-284]}, name:'塔の門'},
+    {id:'t1hall',   fl:'f1', x0:-306, x1:-270, z0:-98,  z1:-80, cor:false, gaps:{S:[-292,-284], W:[-92,-86], E:[-92,-86]}, name:'鐘楼の玄関'},
+    {id:'t1side',   fl:'f1', x0:-320, x1:-306, z0:-94,  z1:-84, cor:false, gaps:{E:[-92,-86]}, name:'守衛の小部屋'},
+    {id:'t1stair',  fl:'f1', x0:-270, x1:-258, z0:-94,  z1:-84, cor:false, gaps:{W:[-92,-86]}, name:'螺旋階段の下'},
+    // 2F 歯車機構
+    {id:'t2land',   fl:'f2', x0:-300, x1:-288, z0:-64,  z1:-54, cor:false, gaps:{E:[-62,-56]}, name:'二階の踊り場'},
+    {id:'t2gear',   fl:'f2', x0:-288, x1:-256, z0:-72,  z1:-46, cor:false, gaps:{W:[-62,-56], N:[-276,-268]}, name:'歯車の間'},
+    {id:'t2cor',    fl:'f2', x0:-276, x1:-268, z0:-46,  z1:-38, cor:true,  gaps:{N:'full', S:'full'}, name:'通路'},
+    {id:'t2weight', fl:'f2', x0:-284, x1:-260, z0:-38,  z1:-24, cor:false, gaps:{S:[-276,-268]}, name:'錘の間'},
+    // 3F 時計工房
+    {id:'t3land',   fl:'f3', x0:-300, x1:-288, z0:-10,  z1:0,   cor:false, gaps:{E:[-8,-2]}, name:'三階の踊り場'},
+    {id:'t3shop',   fl:'f3', x0:-288, x1:-258, z0:-16,  z1:6,   cor:false, gaps:{W:[-8,-2], E:[-4,2], N:[-282,-276]}, name:'時計工房'},
+    {id:'t3parts',  fl:'f3', x0:-284, x1:-268, z0:6,    z1:14,  cor:false, gaps:{S:[-282,-276]}, name:'部品庫'},
+    {id:'t3hands',  fl:'f3', x0:-258, x1:-226, z0:-8,   z1:4,   cor:false, gaps:{W:[-4,2], E:[-4,2]}, name:'針の通路'},
+    {id:'t3cor',    fl:'f3', x0:-226, x1:-218, z0:-4,   z1:2,   cor:true,  gaps:{W:'full', E:'full'}, name:'通路'},
+    {id:'t3stair',  fl:'f3', x0:-218, x1:-206, z0:-8,   z1:6,   cor:false, gaps:{W:[-4,2]}, name:'螺旋階段の中ほど'},
+    // 4F 管理人の住まい
+    {id:'t4land',   fl:'f4', x0:-300, x1:-288, z0:28,   z1:38,  cor:false, gaps:{E:[30,36]}, name:'四階の踊り場'},
+    {id:'t4living', fl:'f4', x0:-288, x1:-260, z0:22,   z1:44,  cor:false, gaps:{W:[30,36], N:[-284,-276], E:[26,32]}, name:'居間'},
+    {id:'t4room',   fl:'f4', x0:-284, x1:-270, z0:44,   z1:52,  cor:false, gaps:{S:[-284,-276]}, name:'娘の部屋'},
+    {id:'t4cor',    fl:'f4', x0:-260, x1:-252, z0:26,   z1:32,  cor:true,  gaps:{W:'full', E:'full'}, name:'通路'},
+    {id:'t4stair',  fl:'f4', x0:-252, x1:-240, z0:22,   z1:36,  cor:false, gaps:{W:[26,32]}, name:'螺旋階段の上'},
+    // 5F 鐘楼
+    {id:'t5land',   fl:'f5', x0:-300, x1:-288, z0:66,   z1:76,  cor:false, gaps:{E:[68,74]}, name:'五階の踊り場'},
+    {id:'t5bell',   fl:'f5', x0:-288, x1:-256, z0:60,   z1:86,  cor:false, gaps:{W:[68,74], N:[-276,-268]}, name:'鐘楼'},
+    {id:'t5cor1',   fl:'f5', x0:-276, x1:-268, z0:86,   z1:92,  cor:true,  gaps:{N:'full', S:'full'}, name:'通路'},
+    {id:'t5store',  fl:'f5', x0:-284, x1:-260, z0:92,   z1:106, cor:false, gaps:{S:[-276,-268], E:[98,104]}, name:'鐘楼の倉庫'},
+    {id:'t5cor2',   fl:'f5', x0:-260, x1:-252, z0:98,   z1:104, cor:true,  gaps:{W:'full', E:'full'}, name:'通路'},
+    {id:'t5stair',  fl:'f5', x0:-252, x1:-240, z0:94,   z1:108, cor:false, gaps:{W:[98,104]}, name:'最上階への階段'},
+    // 6F 文字盤の間
+    {id:'t6ante',   fl:'f6', x0:-300, x1:-280, z0:118,  z1:132, cor:false, gaps:{E:[122,128]}, name:'文字盤の前室'},
+    {id:'t6cor',    fl:'f6', x0:-280, x1:-272, z0:122,  z1:128, cor:true,  gaps:{W:'full', E:'full'}, name:'通路'},
+    {id:'t6boss',   fl:'f6', x0:-272, x1:-228, z0:112,  z1:148, cor:false, gaps:{W:[122,128]}, name:'文字盤の間'},
+    // 屋外
+    {id:'rfdeck',   fl:'rf', x0:-272, x1:-228, z0:156,  z1:190, cor:false, gaps:{N:'full'}, name:'見晴台'},
+    {id:'island',   fl:'is', x0:-276, x1:-224, z0:236,  z1:290, cor:false, gaps:{S:'full'}, name:'名も無い島'},
   ];
-
-  /* 今いる空間を中心に描く(CLOCKTOWER-001、docs/DUNGEON_RENDERING.md §2)。塔の中の部屋だけ。
-     屋上の見晴台と名も無い島は屋外(見晴台から島が見える)なので区画にしない。
-     階は平面でもずれて並んでいるので、部屋の矩形は階をまたいで重ならない */
+  /* 今いる空間を中心に描く(docs/DUNGEON_RENDERING.md §2)。塔の中の部屋だけ。見晴台と島は屋外
+     (見晴台から島が見える)なので区画にしない。階は平面でもずれて並ぶので、部屋は階をまたいで重ならない */
   const TOWER_CELL_ROOMS = TOWER_ROOMS.filter(r=> r.fl !== 'rf' && r.fl !== 'is');
 
+  // 階段。着地点は次の階の踊り場の真ん中(その階で最初に見える部屋)。屋上への階段は止刻の残響を倒すまで閉じている
   const TOWER_STAIRS = [
-    {key:'t1up', from:'t1stair', fx:-245, fz:-83, to:'t2land', tx:-287, tz:-50, label:'2階へ上る'},
-    {key:'t2up', from:'t2stair', fx:-294, fz:6, to:'t3land', tx:-282, tz:50, label:'3階へ上る'},
-    {key:'t3up', from:'t3stair', fx:-168, fz:50, to:'t4land', tx:-286, tz:102, label:'4階へ上る'},
-    {key:'t4up', from:'t4stair', fx:-284, fz:138, to:'t5ante', tx:-288, tz:186, label:'最上階へ上る'},
-    {key:'t5up', from:'t5boss', fx:-206, fz:202, to:'rfdeck', tx:-232, tz:244, label:'天蓋へ出る'},
+    {key:'t1up', from:'t1stair',  fx:-262, fz:-89,  to:'t2land', tx:-295, tz:-59,  label:'2階へ上る'},
+    {key:'t2up', from:'t2weight', fx:-264, fz:-29,  to:'t3land', tx:-295, tz:-5,   label:'3階へ上る'},
+    {key:'t3up', from:'t3stair',  fx:-210, fz:-1,   to:'t4land', tx:-295, tz:33,   label:'4階へ上る'},
+    {key:'t4up', from:'t4stair',  fx:-246, fz:25,   to:'t5land', tx:-295, tz:71,   label:'5階へ上る'},
+    {key:'t5up', from:'t5stair',  fx:-246, fz:105,  to:'t6ante', tx:-296, tz:125,  label:'最上階へ上る'},
+    {key:'t6up', from:'t6boss',   fx:-232, fz:144,  to:'rfdeck', tx:-250, tz:160,  label:'見晴台へ出る'},
   ];
 
+  // 3F 針の通路。二本の針が通路の幅いっぱいを掃く(中心の軸は固い)。通路の東の端の撃ち手は針の届かない所
   const TOWER_HANDS = [
-    {x:-238, z:44, length:9.5, period:6, phase:0},
-    {x:-224, z:56, length:9.5, period:5.4, phase:0.35},
-    {x:-210, z:44, length:9.5, period:6.6, phase:0.7},
+    {x:-248, z:-2, length:5.5, period:4.2, phase:0},
+    {x:-236, z:-2, length:5.5, period:3.6, phase:0.45},
   ];
 
+  /* 2F 止まった巨大歯車の周りの金属板。正しい順(XII → III → VI → IX)で踏むと機構が動き、北の扉が開く。
+     盤面と同じ向き: 十二時は -z(画面の上)、三時は +x(画面の右)―― 上から見て時計回り(6F の文字盤と同じ)。
+     止まった歯車の指針が十二時の板を指し、十二時の板には真鍮の冠が付いている(どれが正午か分かる) */
+  const TOWER_GEAR = {x:-272, z:-59, r:4};
   const TOWER_PLATES = [
-    {x:-244, z:-56, label:'III'},
-    {x:-228, z:-44, label:'VI'},
-    {x:-244, z:-40, label:'IX'},
-    {x:-212, z:-52, label:'XII'},
+    {x:-264, z:-59, label:'III'},
+    {x:-272, z:-51, label:'VI'},
+    {x:-280, z:-59, label:'IX'},
+    {x:-272, z:-67, label:'XII'},
   ];
   const TOWER_PLATE_SOLUTION = [3, 0, 1, 2];
 
+  // 5F 三つの鐘。娘の譜面「高、低、中」で北の扉(倉庫へ)が開く
   const TOWER_BELLS = [
-    {x:-244, z:94, label:'低い鐘'},
-    {x:-230, z:108, label:'中の鐘'},
-    {x:-216, z:94, label:'高い鐘'},
+    {x:-280, z:66, label:'低い鐘'},
+    {x:-272, z:78, label:'中の鐘'},
+    {x:-264, z:66, label:'高い鐘'},
   ];
   const TOWER_BELL_SOLUTION = [2, 0, 1];
 
+  /* 6F 文字盤の間。巨大な文字盤は床に嵌め込まれている(上から見るカメラに全体が入る。壁に掛けると
+     カメラより上へはみ出す)。止刻の残響はその真ん中、管理人は十二時の縁に座り込んでいる */
+  const TOWER_FACE = {x:-250, z:130, r:13};
+  const TOWER_BOSS_POS = {x:-250, z:130};
+  const TOWER_KEEPER_POS = {x:-250, z:116.5};
+
+  // 4F 居間の東の扉(鍵が掛かっている)と、扉の横の鉤(娘が鍵を掛けていった)
+  const TOWER_HOME_DOOR = {x:-260, z:29, w:6};
+  const TOWER_KEY_HOOK = {x:-262.2, z:35};
+
+  let towerFace = null;          // {minute, hour} 文字盤の針(止刻の残響の段で七時十三分へ近づく)
+  let towerGearMesh = null, towerGearLock = null;   // 2F の巨大歯車(機構を動かすと回り出す)
+  let towerKeeper = null;        // 6F の管理人(本編だけ)
+
+  // 床の文字盤の針を h 時 m 分へ。十二時は -z(画面の上)。上から見て時計回り(y 軸の回転は負の向き)
+  function setTowerClock(h, m){
+    if(!towerFace) return;
+    towerFace.minute.rotation.y = -(m / 60) * Math.PI * 2;
+    towerFace.hour.rotation.y = -(((h % 12) + m / 60) / 12) * Math.PI * 2;
+  }
+  // 毎フレーム(14-hud-boot の updateClockHands の隣)。2F の歯車は機構が動き出したら回る
+  function updateTowerDecor(dt){
+    if(towerGearMesh && towerGearLock && towerGearLock.solved) towerGearMesh.rotation.y += dt * 0.35;
+  }
+
   function buildClocktower(){
+    towerFace = null; towerGearMesh = null; towerGearLock = null; towerKeeper = null;
+    const roomById = {};
+    TOWER_ROOMS.forEach(r=> roomById[r.id] = r);
+    const slabY = {};
+    TOWER_SLABS.forEach(s=> slabY[s.fl] = s.y);
+
+    /* 階ごとの見た目。下の階は石と真鍮の、ふつうの時計塔。上へ行くほど壁が冷えた色になり、
+       縁に薄紫の光(時間の歪み)が差す。床は階の役割で変える(工房と住まいは板張り) */
     const stoneTex = makeStoneTileTexture('#3a3630', '#232019', '#4e4636', 3, 10, 10, {bump:0.06});
-    const floorMat = new THREE.MeshStandardMaterial({map:stoneTex, roughness:0.9});
-    const wallStoneTex = makeMasonryTexture('#4a4238', '#2c2820', 4, 6, 3, 2, {crack:true, moss:'#3c5228'});
-    const wallMat  = new THREE.MeshStandardMaterial({map:wallStoneTex, roughness:0.8, metalness:0.15});
+    const ironTex  = makeStoneTileTexture('#36342e', '#1c1b18', '#5a4a2a', 3, 8, 8, {bump:0.05});
+    const plankTex = makePlankTexture('#4a3626', 5, 6, 6);
+    const homeTex  = makePlankTexture('#5a4030', 5, 6, 6);
+    const coldTex  = makeStoneTileTexture('#2e2c34', '#18171c', '#4a4258', 3, 10, 10, {bump:0.05});
+    const wallTex  = makeMasonryTexture('#4a4238', '#2c2820', 4, 6, 3, 2, {crack:true, moss:'#3c5228'});
+    const FLOOR = {
+      f1: new THREE.MeshStandardMaterial({map:stoneTex, roughness:0.9}),
+      f2: new THREE.MeshStandardMaterial({map:ironTex, roughness:0.8, metalness:0.2}),
+      f3: new THREE.MeshStandardMaterial({map:plankTex, roughness:0.88}),
+      f4: new THREE.MeshStandardMaterial({map:homeTex, roughness:0.86}),
+      f5: new THREE.MeshStandardMaterial({map:coldTex, roughness:0.9}),
+      f6: new THREE.MeshStandardMaterial({map:coldTex, roughness:0.85, color:0xb8b0d0}),
+    };
+    const WALL = {
+      f1: new THREE.MeshStandardMaterial({map:wallTex, roughness:0.8, metalness:0.15}),
+      f2: new THREE.MeshStandardMaterial({map:wallTex, roughness:0.75, metalness:0.25, color:0xc8b890}),
+      f3: new THREE.MeshStandardMaterial({map:wallTex, roughness:0.85, color:0xd8c0a0}),
+      f4: new THREE.MeshStandardMaterial({map:wallTex, roughness:0.85, color:0xe0c8a8}),
+      f5: new THREE.MeshStandardMaterial({map:wallTex, roughness:0.8, color:0xa0a0b8, emissive:0x2a1a40, emissiveIntensity:0.25}),
+      f6: new THREE.MeshStandardMaterial({map:wallTex, roughness:0.8, color:0x9088b0, emissive:0x3a2060, emissiveIntensity:0.45}),
+    };
     const brassMat = new THREE.MeshStandardMaterial({color:0xb08a3a, roughness:0.35, metalness:0.75,
                         emissive:0x3a2a08, emissiveIntensity:0.25});
     const darkMat  = new THREE.MeshStandardMaterial({color:0x2a2620, roughness:0.85});
-    const glassMat = new THREE.MeshStandardMaterial({color:0xd8c98a, roughness:0.2, metalness:0.1,
-                        transparent:true, opacity:0.5, emissive:0xd8c98a, emissiveIntensity:0.4});
+    const woodMat  = new THREE.MeshStandardMaterial({color:0x5a3e28, roughness:0.85});
+    const clothMat = new THREE.MeshStandardMaterial({color:0x7a4a4a, roughness:0.95});
     const plateDim = new THREE.MeshStandardMaterial({color:0x5a5248, roughness:0.7, metalness:0.4});
     const plateLit = new THREE.MeshStandardMaterial({color:0xffd27a, roughness:0.3, metalness:0.6,
                         emissive:0xffb347, emissiveIntensity:0.9});
     const bellDim  = new THREE.MeshStandardMaterial({color:0x9a7c3a, roughness:0.4, metalness:0.7});
     const bellLit  = new THREE.MeshStandardMaterial({color:0xffe0a0, roughness:0.25, metalness:0.8,
                         emissive:0xffc95a, emissiveIntensity:0.9});
-    const padMat   = new THREE.MeshStandardMaterial({color:0x2a4a5a, roughness:0.3, metalness:0.6,
-                        emissive:0x3aa8d8, emissiveIntensity:0.7});
-
-    const roomById = {};
-    TOWER_ROOMS.forEach(r=> roomById[r.id] = r);
-    const slabY = {};
-    TOWER_SLABS.forEach(s=> slabY[s.fl] = s.y);
 
     // the engine reads its ground height from here
     groundSlabs = TOWER_SLABS.map(s=>({x0:s.x0, x1:s.x1, z0:s.z0, z1:s.z1, y:s.y}));
     voidDropLimit = 12;          // a storey and a bit: unmistakably a fall
     voidRespawn = TOWER_ENTRY.clone();
 
-    function buildWalls(r, y){
+    function addTowerWall(cx, cz, sizeX, sizeZ, y, mat){
+      addStaticBox(cx, y + 1.15, cz, sizeX, 2.3, sizeZ, mat, false);
+      walls.push({minX:cx-sizeX/2, maxX:cx+sizeX/2, minZ:cz-sizeZ/2, maxZ:cz+sizeZ/2});
+    }
+    function buildWalls(r, y, mat){
       function run(fixed, lo, hi, gap, vertical){
         if(gap === 'full') return;
         const parts = gap ? [[lo,gap[0]],[gap[1],hi]] : [[lo,hi]];
         parts.forEach(([a,b])=>{
           if(b-a <= 0.01) return;
-          if(vertical) addTowerWall(fixed, (a+b)/2, 0.6, b-a, y);
-          else         addTowerWall((a+b)/2, fixed, b-a, 0.6, y);
+          if(vertical) addTowerWall(fixed, (a+b)/2, 0.6, b-a, y, mat);
+          else         addTowerWall((a+b)/2, fixed, b-a, 0.6, y, mat);
         });
       }
       run(r.z1, r.x0, r.x1, r.gaps.N, false);
@@ -752,78 +827,154 @@
       run(r.x0, r.z0, r.z1, r.gaps.W, true);
       run(r.x1, r.z0, r.z1, r.gaps.E, true);
     }
-    // a wall that stands on its storey's slab rather than on y=0
-    function addTowerWall(cx, cz, sizeX, sizeZ, y){
-      addStaticBox(cx, y + 1.15, cz, sizeX, 2.3, sizeZ, wallMat, false);
-      walls.push({minX:cx-sizeX/2, maxX:cx+sizeX/2, minZ:cz-sizeZ/2, maxZ:cz+sizeZ/2});
+    // 小物(当たりあり/なし)。どれも部屋の床の高さに置く
+    function prop(x, y, z, sx, sy, sz, mat, collide){
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+      m.position.set(x, y + sy/2, z);
+      m.castShadow = true; m.receiveShadow = true;
+      scene.add(m);
+      if(collide) walls.push({minX:x-sx/2, maxX:x+sx/2, minZ:z-sz/2, maxZ:z+sz/2});
+      return m;
     }
 
     TOWER_ROOMS.forEach(r=>{
       const y = slabY[r.fl];
-      addFloorWithHoles(r.x0, r.x1, r.z0, r.z1, [], floorMat, y + 0.08);
+      const fmat = FLOOR[r.fl] || FLOOR.f1;
+      addFloorWithHoles(r.x0, r.x1, r.z0, r.z1, [], fmat, y + 0.08);
       // an underside, so a storey reads as a slab hanging in the air
-      addStaticBox((r.x0+r.x1)/2, y - 0.45, (r.z0+r.z1)/2,
-                   r.x1-r.x0, 0.9, r.z1-r.z0, darkMat, false);
-      buildWalls(r, y);
+      addStaticBox((r.x0+r.x1)/2, y - 0.45, (r.z0+r.z1)/2, r.x1-r.x0, 0.9, r.z1-r.z0, darkMat, false);
+      if(r.fl === 'rf' || r.fl === 'is') buildWalls(r, y, WALL.f1);
+      else buildWalls(r, y, WALL[r.fl] || WALL.f1);
     });
 
     // ---- stairs between storeys ----
     TOWER_STAIRS.forEach(s=>{
       const fy = slabY[roomById[s.from].fl], ty = slabY[roomById[s.to].fl];
-      // the way onto the roof stays shut until the warden is down
-      const gate = (s.key === 't5up') ? 'towerWarden' : null;
+      // the way onto the roof stays shut until the boss is down
+      const gate = (s.key === 't6up') ? 'towerWarden' : null;
       buildStairs(new THREE.Vector3(s.fx, fy, s.fz),
                   new THREE.Vector3(s.tx, ty, s.tz), s.label, 0x4a4238, 'up', gate);
     });
 
-    // ---- rooms that shut behind you ----
-    buildSealedRoomDoors(roomById, [
-      {tag:'towerHouse1', room:'t1house'},
-      {tag:'towerHouse2', room:'t2house'},
-      {tag:'towerHouse3', room:'t4house'},
-    ], 0x6a5a3a, r=> slabY[r.fl]);
+    // ---- 1F 塔の門: 止まった振り子時計・守衛の机 ----
+    const y1 = slabY.f1;
+    prop(-302.5, y1, -96, 1.6, 3.4, 1.0, woodMat, true);              // 玄関ホールの大きな振り子時計
+    const pend = prop(-302.5, y1 + 1.0, -95.4, 0.12, 1.4, 0.06, brassMat, false);
+    pend.rotation.z = 0.0;                                            // 振り子は止まったまま
+    prop(-316, y1, -92, 2.4, 0.9, 1.2, woodMat, true);                // 守衛の机
 
-    // ---- 2F: the plate sequence, and the door it opens ----
-    const gearRoom = roomById['t2gear'];
+    // ---- 2F 歯車機構: 止まった巨大歯車と、周りの金属板 ----
+    const y2 = slabY.f2;
+    towerGearMesh = new THREE.Group();
+    const gearBody = new THREE.Mesh(new THREE.CylinderGeometry(TOWER_GEAR.r, TOWER_GEAR.r, 0.7, 24), brassMat);
+    gearBody.castShadow = true; gearBody.receiveShadow = true;
+    towerGearMesh.add(gearBody);
+    for(let i=0;i<12;i++){
+      const a = i / 12 * Math.PI * 2;
+      const tooth = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.7, 0.9), brassMat);
+      tooth.position.set(Math.cos(a) * (TOWER_GEAR.r + 0.35), 0, Math.sin(a) * (TOWER_GEAR.r + 0.35));
+      tooth.rotation.y = -a;
+      towerGearMesh.add(tooth);
+    }
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 2.4, 12), darkMat);
+    axle.position.y = 0.8; towerGearMesh.add(axle);
+    // 指針: 止まったまま十二時(-z)の板を指している(機構が動き出すと歯車と一緒に回る)
+    const pointer = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, TOWER_GEAR.r + 1.2), darkMat);
+    pointer.position.set(0, 0.55, -(TOWER_GEAR.r + 1.2)/2); towerGearMesh.add(pointer);
+    towerGearMesh.position.set(TOWER_GEAR.x, y2 + 0.45, TOWER_GEAR.z);
+    scene.add(towerGearMesh);
+    walls.push({minX:TOWER_GEAR.x-3.3, maxX:TOWER_GEAR.x+3.3, minZ:TOWER_GEAR.z-3.3, maxZ:TOWER_GEAR.z+3.3});
+    // 壁際の小さな歯車(飾り)
+    [[-286, -70, 1.4], [-258, -48, 1.1], [-258, -70, 1.6]].forEach(([x, z, r])=>{
+      const g = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.3, 14), brassMat);
+      g.rotation.x = Math.PI/2; g.position.set(x, y2 + 1.4, z); scene.add(g);
+    });
+    const gearRoom = roomById.t2gear;
     const gearDoor = buildDoor('towerGearDoor',
       (gearRoom.gaps.N[0]+gearRoom.gaps.N[1])/2, gearRoom.z1,
-      gearRoom.gaps.N[1]-gearRoom.gaps.N[0], 0xb08a3a, 'EW', slabY[gearRoom.fl]);
+      gearRoom.gaps.N[1]-gearRoom.gaps.N[0], 0xb08a3a, 'EW', y2);
     lockDoorForFight(gearDoor);
     const plateNodes = TOWER_PLATES.map(p=>{
-      const m = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.18, 2.6), plateDim);
-      m.position.set(p.x, slabY['f2'] + 0.14, p.z);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.18, 2.4), plateDim);
+      m.position.set(p.x, y2 + 0.14, p.z);
       m.receiveShadow = true;
       scene.add(m);
-      return {x:p.x, z:p.z, label:p.label, mesh:m, baseY:slabY['f2'], litMat:plateLit, dimMat:plateDim};
+      if(p.label === 'XII'){   // 正午の板の印(真鍮の冠)
+        const crown = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.6, 4), brassMat);
+        crown.position.set(p.x, y2 + 0.55, p.z - 1.5); scene.add(crown);
+      }
+      return {x:p.x, z:p.z, label:p.label, mesh:m, baseY:y2, litMat:plateLit, dimMat:plateDim};
     });
-    addSequenceLock({
+    towerGearLock = addSequenceLock({
       kind:'plate', nodes:plateNodes, solution:TOWER_PLATE_SOLUTION,
       doorKey:'towerGearDoor',
-      stepToast:'⚙️ 歯車が噛み合った ({n}/{t})',
+      stepToast:'⚙️ 歯車がひとつ噛み合った ({n}/{t})',
       failToast:'⚙️ 歯車が空転した。順序が違う……',
-      doneToast:'⚙️ 錠が外れ、北の扉が開いた!'
+      doneToast:'⚙️ 巨大な歯車が回り出し、北の扉が開いた!'
+    });
+    // 錘の間: 吊られた錘(中ボスの部屋)
+    [[-280, -27], [-268, -35]].forEach(([x, z])=>{
+      prop(x, y2, z, 1.4, 2.0, 1.4, darkMat, true);
     });
 
-    // ---- 4F: the bells ----
-    const bellRoom = roomById['t4bell'];
+    // ---- 3F 時計工房: 作業台・分解された時計・作業灯。部品庫 ----
+    const y3 = slabY.f3;
+    prop(-272, y3, 3.2, 8, 1.0, 2.0, woodMat, true);                  // 長い作業台(北の壁際)
+    [[-275, 3.2], [-272, 3.0], [-269, 3.4]].forEach(([x, z])=>{       // 分解された時計
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.12, 14), brassMat);
+      c.position.set(x, y3 + 1.08, z); scene.add(c);
+    });
+    prop(-286, y3, -14, 1.2, 2.6, 1.2, woodMat, true);                // 柱時計の枠(中身が抜かれている)
+    prop(-262, y3, -14, 3.0, 2.2, 1.2, woodMat, true);                // 工具棚
+    // 作業灯の輪(光の下に立つと、娘の残像が浮かぶ。本編)
+    const lampRing = new THREE.Mesh(new THREE.CircleGeometry(1.6, 24),
+      new THREE.MeshBasicMaterial({color:0xffe2a0, transparent:true, opacity:0.22, depthWrite:false}));
+    lampRing.rotation.x = -Math.PI/2; lampRing.position.set(-266, y3 + 0.1, -1); scene.add(lampRing);
+    const lampLight = new THREE.PointLight(0xffd8a0, 0.9, 10);
+    lampLight.position.set(-266, y3 + 3.2, -1); scene.add(lampLight);
+    [[-282, 12], [-274, 12]].forEach(([x, z])=> prop(x, y3, z, 1.6, 1.2, 1.2, woodMat, true));   // 部品庫の木箱
+    TOWER_HANDS.forEach(h=> addClockHand(h.x, h.z, h.length, h.period, h.phase,
+      {arm:brassMat, tip:darkMat, hub:darkMat}, y3));
+
+    // ---- 4F 管理人の住まい: 二人分の食卓・椅子・娘の部屋 ----
+    const y4 = slabY.f4;
+    prop(-274, y4, 33, 4.0, 0.9, 2.2, woodMat, true);                 // 食卓
+    [[-277, 33], [-271, 33]].forEach(([x, z])=> prop(x, y4, z + (x < -274 ? -1.8 : 1.8), 0.8, 0.9, 0.8, woodMat, false));
+    [[-275.2, 33], [-272.8, 33]].forEach(([x, z])=>{                  // 二人分の皿
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.28, 0.05, 12),
+        new THREE.MeshStandardMaterial({color:0xd8d4c8, roughness:0.5}));
+      p.position.set(x, y4 + 0.93, z); scene.add(p);
+    });
+    const rug = new THREE.Mesh(new THREE.PlaneGeometry(9, 6), clothMat);
+    rug.rotation.x = -Math.PI/2; rug.position.set(-274, y4 + 0.1, 33); scene.add(rug);
+    prop(-286, y4, 41, 2.0, 1.8, 1.0, woodMat, true);                 // 食器棚
+    prop(-280, y4, 50, 2.2, 0.6, 3.0, clothMat, true);                // 娘の寝台
+    prop(-271.5, y4, 50.5, 1.2, 1.0, 1.0, woodMat, true);             // 娘の机
+    const homeDoor = buildDoor('towerHomeDoor', TOWER_HOME_DOOR.x, TOWER_HOME_DOOR.z, TOWER_HOME_DOOR.w, 0x6a4a2a, 'NS', y4);
+    lockDoorForFight(homeDoor);   // 鍵が掛かっている。扉の横の鉤の鍵で開く(下の出来事)
+    const hook = prop(TOWER_KEY_HOOK.x, y4 + 1.4, TOWER_KEY_HOOK.z, 0.15, 0.3, 0.15, brassMat, false);
+
+    // ---- 5F 鐘楼: 三つの鐘・倉庫の木箱 ----
+    const y5 = slabY.f5;
+    const bellRoom = roomById.t5bell;
     const bellDoor = buildDoor('towerBellDoor',
       (bellRoom.gaps.N[0]+bellRoom.gaps.N[1])/2, bellRoom.z1,
-      bellRoom.gaps.N[1]-bellRoom.gaps.N[0], 0xb08a3a, 'EW', slabY[bellRoom.fl]);
+      bellRoom.gaps.N[1]-bellRoom.gaps.N[0], 0xb08a3a, 'EW', y5);
     lockDoorForFight(bellDoor);
     const bellNodes = TOWER_BELLS.map(b=>{
       const g = new THREE.Group();
       const body = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.5, 2.2, 12, 1, true), bellDim);
-      body.position.y = slabY['f4'] + 2.3;
+      body.position.y = y5 + 2.3;
       body.castShadow = true;
       g.add(body);
       const beam = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.35, 0.35), darkMat);
-      beam.position.y = slabY['f4'] + 3.5;
+      beam.position.y = y5 + 3.5;
       g.add(beam);
       g.position.set(b.x, 0, b.z);
       scene.add(g);
       walls.push({minX:b.x-1.0, maxX:b.x+1.0, minZ:b.z-1.0, maxZ:b.z+1.0});
       return {x:b.x, z:b.z, label:b.label, mesh:body, meshBaseY:body.position.y,
-              baseY:slabY['f4'], litMat:bellLit, dimMat:bellDim};
+              baseY:y5, litMat:bellLit, dimMat:bellDim};
     });
     addSequenceLock({
       kind:'bell', nodes:bellNodes, solution:TOWER_BELL_SOLUTION,
@@ -832,34 +983,59 @@
       failToast:'🔔 音が濁った。旋律が違う……',
       doneToast:'🔔 三つの音が重なり、北の扉が開いた!'
     });
+    [[-282, 104], [-279, 104], [-282, 101]].forEach(([x, z])=> prop(x, y5, z, 1.6, 1.4, 1.6, woodMat, true));
+    buildSealedRoomDoors(roomById, [{tag:'towerStore', room:'t5store'}], 0x6a5a3a, r=> slabY[r.fl]);
 
-    // the warden's room seals once it wakes
-    const bossRoom = roomById['t5boss'];
+    // ---- 6F 文字盤の間: 七時十三分で止まった巨大な文字盤(床に嵌め込み) ----
+    const y6 = slabY.f6;
+    const faceG = new THREE.Group();
+    const dialMat = new THREE.MeshStandardMaterial({color:0xc8b890, roughness:0.55, metalness:0.15, emissive:0x2a2010, emissiveIntensity:0.35});
+    const face = new THREE.Mesh(new THREE.CircleGeometry(TOWER_FACE.r, 48), dialMat);
+    face.rotation.x = -Math.PI/2;
+    face.position.y = 0.11;
+    faceG.add(face);
+    const rim = new THREE.Mesh(new THREE.RingGeometry(TOWER_FACE.r, TOWER_FACE.r + 0.6, 48), brassMat);
+    rim.rotation.x = -Math.PI/2; rim.position.y = 0.12;
+    faceG.add(rim);
+    for(let i=0;i<12;i++){
+      const a = i / 12 * Math.PI * 2;
+      const tick = new THREE.Mesh(new THREE.BoxGeometry(i % 3 === 0 ? 0.7 : 0.4, 0.06, i % 3 === 0 ? 2.0 : 1.2), darkMat);
+      tick.position.set(Math.sin(a) * (TOWER_FACE.r - 1.4), 0.15, -Math.cos(a) * (TOWER_FACE.r - 1.4));
+      tick.rotation.y = -a;
+      faceG.add(tick);
+    }
+    // 針(床すれすれ。上を歩ける)。十二時(-z)向きに作り、setTowerClock で回す
+    const minute = new THREE.Group(), hour = new THREE.Group();
+    const mHand = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, TOWER_FACE.r * 0.85), darkMat);
+    mHand.position.set(0, 0.2, -TOWER_FACE.r * 0.425); minute.add(mHand);
+    const hHand = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, TOWER_FACE.r * 0.55), darkMat);
+    hHand.position.set(0, 0.22, -TOWER_FACE.r * 0.275); hour.add(hHand);
+    faceG.add(minute); faceG.add(hour);
+    faceG.position.set(TOWER_FACE.x, y6, TOWER_FACE.z);
+    scene.add(faceG);
+    towerFace = {minute, hour};
+    setTowerClock(7, 13);
+    const faceLight = new THREE.PointLight(0xffd27a, 1.1, 34);
+    faceLight.position.set(TOWER_FACE.x, y6 + 7, TOWER_FACE.z);
+    scene.add(faceLight);
+    // 止まった歯車の壁(東西の壁際)
+    [[-270, 118, 2.2], [-230, 120, 2.6], [-268, 140, 1.8], [-231, 138, 2.0]].forEach(([x, z, r])=>{
+      const g = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.4, 16), brassMat);
+      g.rotation.z = Math.PI/2; g.position.set(x, y6 + r + 0.2, z); scene.add(g);
+    });
+    const bossRoom = roomById.t6boss;
     buildDoor('towerBossDoor', bossRoom.x0,
               (bossRoom.gaps.W[0]+bossRoom.gaps.W[1])/2,
-              bossRoom.gaps.W[1]-bossRoom.gaps.W[0], 0xb08a3a, 'NS', slabY[bossRoom.fl]);
-
-    // ---- 3F: the sweeping hands ----
-    TOWER_HANDS.forEach(h=> addClockHand(h.x, h.z, h.length, h.period, h.phase,
-      {arm:brassMat, tip:darkMat, hub:darkMat}, slabY['f3']));
+              bossRoom.gaps.W[1]-bossRoom.gaps.W[0], 0xb08a3a, 'NS', y6);
 
     // ---- the roof, the pad and the island ----
-    // The escape is the clear condition: beat the warden, climb to the deck,
-    // and take the leap. Reaching the island is what ends the sortie.
-
-    // ---- the roof, the pad and the island ----
-    /* Touching down on the island is the ending. Driven by the landing rather
-       than by walking into a trigger, so the escape plays as one uninterrupted
-       move: step on the pad, sail out over the sea, land. */
-    /* The escape. Walk to the lip of the lookout and the character throws
-       themselves off; forty-five units later they hit the sea, and the
-       ending plays from the water. No device, no aiming. */
-    /* Reaching the lookout at all starts the ending: the character crosses to
-       the open north edge on their own and jumps. The whole deck is the
-       trigger, and the jump point is the middle of the missing parapet. */
-    setLookout({x0:-258, x1:-206, z0:236, z1:276}, slabY['rf'], 0.0,
-               {x:-232, z:274}, ()=>{
-      state.pos.set(-230, 0, 344);          // washed ashore on the island
+    /* The escape. Reaching the lookout at all starts the ending: the character
+       crosses to the open north edge on their own and jumps. The whole deck is
+       the trigger. Touching down on the island ends the sortie. */
+    const yr = slabY.rf;
+    setLookout({x0:-272, x1:-228, z0:156, z1:190}, yr, 0.0,
+               {x:-250, z:189}, ()=>{
+      state.pos.set(-250, 0, 262);          // washed ashore on the island
       state.grounded = true;
       if(clocktowerChapter1()) showIslandStranger();
       state.dialogueActive = true;
@@ -880,191 +1056,168 @@
       sfx('chime');
     }, ()=> clocktowerChapter1() ? CLOCKTOWER_CHAPTER1_LEAP() : null);
 
-
-    // the great clock face, standing over the roof deck
-    const face = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 0.8, 28), glassMat);
-    face.position.set(-232, slabY['rf'] + 12, 232);
-    face.rotation.x = Math.PI/2;
-    face.userData.rcAlways = true;   // 屋外(屋上の上)。部屋の区画に入れない(CLOCKTOWER-001)
-    scene.add(face);
-    const faceLight = new THREE.PointLight(0xffd27a, 1.2, 42);
-    faceLight.position.set(-232, slabY['rf'] + 12, 236);
-    scene.add(faceLight);
-
     /* ---- the view out ------------------------------------------------
-       A cloud deck at 24, spread across the whole tower footprint: from the
-       lower floors it is a ceiling, from the lookout it is a floor of cloud
-       with the sea showing through the gaps. Then the sea itself, far below
-       and wide enough to fall into. */
+       A cloud deck at 24: from the lower floors it is a ceiling, from the top
+       floors and the lookout it is a floor of cloud with the sea showing
+       through the gaps. Then the sea itself, far below. All outside the tower,
+       so none of it belongs to a room cell (rcAlways). */
     const cloudMat = new THREE.MeshBasicMaterial({color:0xd8e4f2, transparent:true,
                        opacity:0.30, depthWrite:false, side:THREE.DoubleSide});
     const cloudDeck = new THREE.Group();
-    for(let i=0;i<70;i++){
+    /* 雲は塔の外だけに置く(塔の真上・真下に置くと、高さ 24 前後の層が 3F のカメラの高さに重なり、
+       画面が白く霞む)。塔の平面(雲の半径＋余白)の外へ */
+    const nearTower = (x, z, r)=> x > -320 - r - 4 && x < -206 + r + 4 && z > -112 - r - 4 && z < 148 + r + 4;
+    for(let i=0, n=0; n<60 && i<800; i++){
+      const x = -420 + Math.random()*380, z = -180 + Math.random()*520;
       const r = 9 + Math.random()*22;
+      if(nearTower(x, z, r)) continue;
+      n++;
       const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 5), cloudMat);
-      puff.position.set(-380 + Math.random()*300, 24 + (Math.random()-0.5)*7,
-                        -140 + Math.random()*560);
+      puff.position.set(x, 24 + (Math.random()-0.5)*7, z);
       puff.scale.y = 0.16 + Math.random()*0.10;   // flattened: a deck, not balls
       cloudDeck.add(puff);
     }
-    cloudDeck.userData.rcAlways = true;   // 塔の外の雲。どの部屋の区画にも入れない
+    cloudDeck.userData.rcAlways = true;
     scene.add(cloudDeck);
-
-    // a thinner, higher veil so the lookout still has something above it
     const veilMat = new THREE.MeshBasicMaterial({color:0xf0f6ff, transparent:true,
                       opacity:0.14, depthWrite:false, side:THREE.DoubleSide});
-    for(let i=0;i<22;i++){
+    for(let i=0;i<18;i++){
       const puff = new THREE.Mesh(new THREE.SphereGeometry(14 + Math.random()*20, 7, 5), veilMat);
-      puff.position.set(-380 + Math.random()*300, 62 + Math.random()*14,
-                        -100 + Math.random()*520);
+      puff.position.set(-380 + Math.random()*300, 70 + Math.random()*14, -100 + Math.random()*420);
       puff.scale.y = 0.10;
       puff.userData.rcAlways = true;
       scene.add(puff);
     }
-
-    // the sea: what the lookout overlooks, and what the fall ends in
     const seaMat = new THREE.MeshStandardMaterial({color:0x16354e, roughness:0.25,
                      metalness:0.35, transparent:true, opacity:0.94});
     const sea = new THREE.Mesh(new THREE.PlaneGeometry(720, 720), seaMat);
     sea.rotation.x = -Math.PI/2;
-    sea.position.set(-230, -0.6, 300);
+    sea.position.set(-250, -0.6, 220);
     sea.userData.rcAlways = true;
     scene.add(sea);
     const foamMat = new THREE.MeshBasicMaterial({color:0x9fd4e0, transparent:true, opacity:0.30});
-    for(let i=0;i<26;i++){
+    for(let i=0;i<22;i++){
       const ring = new THREE.Mesh(new THREE.RingGeometry(2 + Math.random()*5, 3 + Math.random()*7, 16), foamMat);
       ring.rotation.x = -Math.PI/2;
-      ring.position.set(-380 + Math.random()*300, -0.5, 260 + Math.random()*180);
+      ring.position.set(-380 + Math.random()*300, -0.5, 196 + Math.random()*140);
       ring.userData.rcAlways = true;
       scene.add(ring);
     }
 
-    // ---- lighting ----
-    function lamp(x,z,y,col,intensity,dist){
-      const l = new THREE.PointLight(col, intensity, dist);
-      l.position.set(x, y + 3.6, z);
-      scene.add(l);
-    }
-    const NO_LAMP = {};
+    // ---- lighting: one lamp per room, warmer below, colder above ----
+    const LAMP = {f1:0xffd9a0, f2:0xffc880, f3:0xffd8a8, f4:0xffcf98, f5:0xc8c0e8, f6:0xd0b0ff, rf:0xfff0d8, is:0xfff0d8};
     TOWER_ROOMS.forEach(r=>{
       if(r.cor) return;
-      lamp((r.x0+r.x1)/2, (r.z0+r.z1)/2, slabY[r.fl],
-           r.id==='t5boss' ? 0xffb347 : 0xffd9a0,
-           r.id==='t5boss' ? 0.9 : 0.5,
-           Math.max(r.x1-r.x0, r.z1-r.z0) + 16);
+      const l = new THREE.PointLight(r.id === 't6boss' ? 0xffb347 : LAMP[r.fl], r.id === 't6boss' ? 0.9 : 0.55,
+                                     Math.max(r.x1-r.x0, r.z1-r.z0) + 14);
+      l.position.set((r.x0+r.x1)/2, slabY[r.fl] + 3.6, (r.z0+r.z1)/2);
+      scene.add(l);
     });
 
-    // ---- lore ----
-    buildLoreNote(new THREE.Vector3(-294, 0.0, -95.5), '塔の掲示板', [
+    // ---- 手記(どの遊び方でも同じ。謎解きの手がかり) ----
+    buildLoreNote(new THREE.Vector3(-294, y1, -98.6), '塔の掲示板', [
       '「王立時計塔　開放中。鐘は毎正時に鳴ります」',
       'その上に、新しい紙が重ねて貼られている。',
-      '「原因不明の停止につき調査中　管理人 入塔中 ―― 七日前」'
+      '「毎晩七時十三分、塔の時計が止まる。そのあいだ、街のあちこちに昔の光景が見えるとの届け出あり」',
+      '「原因を調査中　管理人 入塔中 ―― 七日前」'
     ], {kind:'sign', wall:true, facing:0});
-
-    // 止まった置時計の前、技師とおぼしき影が屈み込んでいる。近づくと消える
-    registerProximityEvent(new THREE.Vector3(-340,0,-80), 7, '???', ()=>{
-      spawnApparition(new THREE.Vector3(-342,0,-82), {vanishDist:6, color:0x4a4238});
-      return [
-        '止まった置時計の前に、屈み込んで手を入れている影がある。',
-        '振り返るより早く、その姿はほどけるように消えていた。'
-      ];
-    });
-    buildLoreNote(new THREE.Vector3(-247, 9.0, -58), '管理人の手帳', [
-      '「三日目。塔は七時十三分から、一向に動かない」',
-      '「あの子が出ていった時刻と、同じだ。……偶然、だろうか」',
-      '「二階の錠を開けた。文字盤の順だ。正午から時計回りに ―― XII、III、VI、IX」'
+    buildLoreNote(new THREE.Vector3(-284, y2, -48.5), '管理人の点検記録', [
+      '「点検、三日目。歯車にも錘にも、異常は無い」',
+      '「それでも塔は、七時十三分で止まる。……止めているのは、機械ではない」',
+      '「大歯車の起こし方を書いておく。正午から時計回りに ―― XII、III、VI、IX」'
     ], {kind:'book'});
-    buildLoreNote(new THREE.Vector3(-244, 18.0, 62), '娘の書き置き', [
-      '「お父さんへ。三階の針は、わたしが確かめておきます」',
-      '「南の針と北の針は、逃げ場が逆みたい。片側に寄り続けると、必ず捕まるよ」',
-      '「もし夜までに戻らなかったら……わたしの分まで、下へ降りて確かめてみて」',
-      'この紙は、上の階へ向かう側に落ちている。'
+    buildLoreNote(new THREE.Vector3(-284, y3, -12), '作業日誌', [
+      '「懐中時計の注文、一件。依頼主は、わたし。……娘の十六の誕生日に」',
+      '「仕上げは七日の夜。七時に、あの子と食卓で渡すつもりだった」',
+      'その先の頁は、白いままだ。'
+    ], {kind:'book'});
+    buildLoreNote(new THREE.Vector3(-262, y4, 41.5), '写真立て', [
+      '鐘楼の上で、少女が大きく手を振っている。隣で、白髪まじりの男が困ったように笑っている。',
+      '裏に、走り書き。「十五の夏。鐘を鳴らさせろと言って聞かなかった日」'
     ], {kind:'letter'});
-
-    // 回る針の合間、若い娘の影がじっと佇んでいる ―― 管理人の娘自身
-    registerProximityEvent(new THREE.Vector3(-224,18,50), 8, '???', ()=>{
-      spawnApparition(new THREE.Vector3(-224,18,50), {vanishDist:6.5, color:0x5a4a68});
-      return [
-        '回る針の合間に、じっとこちらを見ている影がある。',
-        '針が過ぎ去った瞬間、その姿はもう無かった。'
-      ];
-    });
-
-    buildLoreNote(new THREE.Vector3(-249, 27.0, 89), '鐘楼の譜面', [
-      '五線の上に、たった三音だけ。「開扉の旋律 ―― 高、低、中」',
-      '余白に、震える字。「鳴らし終えるまで振り返らないで。後ろにいるのは、わたしじゃないから」'
+    buildLoreNote(new THREE.Vector3(-284, y4, 24), '管理人の日記', [
+      '「あの子は、塔の外を見たいと言った。海の向こうの街を、山の上の村を」',
+      '「わたしは許さなかった。七時十三分。『出ていくなら、二度と戻るな』と言った。それが最後だ」',
+      '「あの時刻に戻れたら。今度こそ、違う言葉を言えたら。……そう願った夜から、塔が止まるようになった」'
     ], {kind:'book'});
-
-    // 鐘の間、初老の男の影が背を向けて立っている ―― 「後ろにいるのは
-    // わたしじゃない」という譜面の書き込みに対応する演出
-    registerProximityEvent(new THREE.Vector3(-230,27,100), 8, '???', ()=>{
-      spawnApparition(new THREE.Vector3(-230,27,103), {vanishDist:6.5, color:0x4a4238, facing:Math.PI});
-      return [
-        '鐘の下、誰かが背を向けて立っている。管理人だろうか。',
-        '声をかけようとした瞬間、その背中はかき消えていた。'
-      ];
-    });
-    buildLoreNote(new THREE.Vector3(-236, 45.0, 239), '射出台の銘板', [
+    buildLoreNote(new THREE.Vector3(-277, y4, 50.2), '娘のスケッチ帳', [
+      '海、山、知らない街の屋根。どの頁も、のびのびとした線で描かれている。',
+      'そして、どの絵の隅にも、小さく時計塔が描き込んである。'
+    ], {kind:'book'});
+    buildLoreNote(new THREE.Vector3(-284, y5, 62.5), '鐘楼の譜面', [
+      '五線の上に、たった三音だけ。「開扉の旋律 ―― 高、低、中」',
+      '余白に、跳ねるような字。「お父さんに教わった順番。忘れないように書いとく!」'
+    ], {kind:'book'});
+    buildLoreNote(new THREE.Vector3(-266, y5, 103), '娘の書き置き', [
+      '「お父さんへ。鐘の音が届くところまでは、ちゃんと聞こえてるから」',
+      '「いつか帰る。鍵は、扉の横に掛けておく」'
+    ], {kind:'letter'});
+    buildLoreNote(new THREE.Vector3(-297, y6, 129.5), '管理人の外套', [
+      '床に、くたびれた外套が畳んで置いてある。ポケットから、鎖の付いた懐中時計がのぞいている。',
+      '針は、七時十三分で止まっている。',
+      '外套の主は、ここから先へ一人で進んだらしい。'
+    ], {kind:'letter'});
+    buildLoreNote(new THREE.Vector3(-255, yr, 157.2), '射出台の銘板', [
       '「非常時脱出装置　整備記録 ―― 空欄」',
       '銘板の下に、二人分の名前が彫られている。ひとつは、彫りかけで止まっている。',
       '台座は、まだ生きている。'
-    ], {kind:'sign', wall:true, facing:Math.PI});
+    ], {kind:'sign', wall:true, facing:0});
 
-    // ---- events ----
-    /* 見せてから話す(CLOCKTOWER-001、docs/DUNGEON_RENDERING.md §3): 金属板・回る針・三つの鐘を
-       カメラで見せてから一文(床の高さ y を渡す。自動カメラ OFF の人には見せない) */
-    registerRoomEvent(roomById['t2gear'], slabY['f2'], '???', ()=>
-      isRepeatRun('clocktower')
-        ? ['……正午から、時計回りだったな。']
-        : ['床に、四つの金属板が埋め込まれている。',
-           '踏むと、塔の奥で重い歯車が噛み合う音がした。',
-           '「順序があるな。……どこかに手がかりがあるはずだ」'],
-      {show:{x:-228, z:-49, y:slabY['f2'], wait:1.1, height:12, dist:8}}
-    );
-    registerRoomEvent(roomById['t3hands'], slabY['f3'], '???', ()=>
-      isRepeatRun('clocktower')
-        ? ['……針の逃げ場は、交互だ。']
-        : ['回廊の奥で、巨大な時計の針が三本、ゆっくりと回っている。',
-           '床には、掃かれたような傷跡が幾筋も残っていた。'],
-      {show:{x:-224, z:50, y:slabY['f3'], wait:1.3, height:8, dist:10}}   // 3F はふだんの追従と同じ高さ(+8)。高く上げると雲の層(高さ 24 前後)越しに見下ろして白く霞む
-    );
-    registerRoomEvent(roomById['t4bell'], slabY['f4'], '???', [
-      '三つの鐘が、それぞれ違う高さで揺れている。',
+    // ---- 出来事(どの遊び方でも同じ) ----
+    /* 見せてから話す(docs/DUNGEON_RENDERING.md §3): 仕掛けをカメラで映してから一文。床の高さ y を渡す */
+    registerRoomEvent(roomById.t2gear, y2, '???', [
+      '部屋の真ん中で、巨大な歯車が止まっている。周りの床に、四つの金属板。',
+      '「……踏む順があるな。どこかに書き付けがあるはずだ」'
+    ], {show:{x:TOWER_GEAR.x, z:TOWER_GEAR.z, y:y2, wait:1.1, height:9, dist:8}});
+    registerRoomEvent(roomById.t3hands, y3, '???', [
+      '通路の床を、二本の巨大な針がゆっくりと掃いている。',
+      '軸のそばは動かない。……針が過ぎた後なら、抜けられる。'
+    ], {show:{x:-242, z:-2, y:y3, wait:1.2, height:8, dist:9}, inset:1.0});
+    registerRoomEvent(roomById.t5bell, y5, '???', [
+      '三つの鐘が、それぞれ違う高さで吊られている。北の扉には、音で開く錠。',
       '「……叩く順があるのか。譜面を探すか」'
-    ], {show:{x:-230, z:100, y:slabY['f4'], wait:1.1, height:12, dist:9}});
-    registerRoomEvent(roomById['rfdeck'], slabY['rf'], '???', ()=>
-      isRepeatRun('clocktower')
-        ? ['……また飛ぶか。何度やっても、肝が冷える。']
-        : ['天蓋の縁に、青く光る円い台座がある。北側の欄干だけが、外されている。',
-           '遥か下、霧の切れ間に――海に浮かぶ小さな無人島が見えた。',
-           '「降りる階段は無い。技師たちも、そう気づいたはずだ」',
-           '「……あの台座に乗れ、ということだな」']
-    );
-
+    ], {show:{x:-272, z:72, y:y5, wait:1.1, height:10, dist:9}});
+    registerRoomEvent(roomById.rfdeck, yr, '???', [
+      '天蓋の縁に、青く光る円い台座がある。北側の欄干だけが、外されている。',
+      '遥か下、霧の切れ間に――海に浮かぶ小さな無人島が見えた。'
+    ]);
     buildClocktowerChapter1Story(roomById, slabY);
 
-    // ---- 行き止まり分岐: 止まった置時計の間の奥(★3で開く) ----
+    /* 4F 居間の東の扉。扉の横の鉤に、古い鍵が掛かったまま(娘が掛けていった。本編の
+       「七時十三分の繰り返し」がここを指す)。近づけば誰でも開けられる ―― 場面を見逃しても詰まらない。
+       本編の物語より後に登録する(同じ所に立った時、繰り返しの場面が先に出るように) */
+    registerProximityEvent(new THREE.Vector3(TOWER_KEY_HOOK.x, y4, TOWER_KEY_HOOK.z), 2.0, '', null, {
+      marker:false,
+      onEnter:()=>{
+        playCutscene([
+          {t:0.1, run:()=> cutsceneLine('扉の横の鉤に、古い鍵が掛かったままになっている。', '')},
+          {t:0.1, run:()=>{
+            cutsceneHideLine();
+            const d = getDoor('towerHomeDoor');
+            if(d){ unlockDoor(d); swingOpen(d, true); }
+            sfx('door');
+            spawnLog('🗝️ 鍵を回すと、東の扉が開いた');
+            state.dialogueActive = false;
+            clearMovementInput(false);
+          }},
+        ]);
+      }});
+
+
+    // ---- 行き止まり分岐: 守衛の小部屋の奥(テストモードの旧成長の周回★3 で開く) ----
     if(scenarioStars('clocktower') >= TOWER_HOUSE1_DEPTHS_STARS){
-      buildStairs(new THREE.Vector3(-356, slabY['f1'], -70),
+      buildStairs(new THREE.Vector3(-317, y1, -86),
                   new THREE.Vector3(-346, 9, 120), '止まった時計の裏側へ', 0x6a5a3a, 'down');
       buildClocktowerDepths();
     }
   }
 
-  /* 第一章④ 時計塔の物語、1F〜5F 前室(CT-02、docs/CHAPTER1_STORY.md §4-4)。
+  /* 第一章④ 時計塔の物語(CLOCKTOWER-001、docs/CHAPTER1_STORY.md §4-4)。
 
-     **本編のときだけ**置く(legacyGrowth() が偽)。テストモードと周回では
-     既存の独白・手記だけの塔のまま。主人公は盗賊、支援は弓師。
-     置き場所は .ai/reports/CHAPTER1-CLOCKTOWER-checklist.md §2。
-       1F 鐘楼の玄関     … 掲示板の「七日前」を受けた盗賊の一言
-       2F 歯車の間       … 管理人の手帳を読んだ後
-       3F 針の回廊       … 娘の書き置きを読んだ後
-       4F 鐘の広間       … 譜面を読んだ後
-       5F 文字盤の前室   … 管理人の外套と懐中時計(新しい手記)、盗賊が預かる
-     2F〜4F は「その階の手記を読んだら、すぐ」。読まずに進んだ場合も、
-     次の通路(扉の先)で一度だけ出す(どちらか一方だけ)。
-     謎解き・封鎖戦・扉・階段・敵には触れない。セーブ項目も増やさない。
-
+     **本編のときだけ**置く(legacyGrowth() が偽)。テストモードの旧成長では、手記・謎解き・
+     一文だけの塔のまま。主人公は盗賊、支援は弓師。会話は DEC-016(弓師は丁寧で短く、盗賊はくだけた口調)。
+     大事な記憶(点検記録・作業日誌・日記・譜面・書き置き・外套)は「読んだら、その部屋ですぐ」。
+     読まずに先へ進んでも、次の通路で一度だけ同じ会話を出す(見逃しても話は繋がる。どちらか一方)。
      会話の最初の行は文字列(名前欄は speakerName)、2行目からは {name, text} */
   function clocktowerChapter1(){
     return !legacyGrowth() && state.scenarioKey === 'clocktower';
@@ -1074,65 +1227,146 @@
     const R = CLASSES.rogue.name, A = CLASSES.archer.name;
     const lore = title => loreObjects.find(l=> l.title === title);
     const last = ()=> proximityEvents[proximityEvents.length-1];
+    const inner = (room, d)=> ({x0:room.x0 + d, x1:room.x1 - d, z0:room.z0 + d, z1:room.z1 - d});
 
-    // 1F: 掲示板(塔の門)の先、鐘楼の玄関に入ったところ
-    registerRoomEvent(roomById['t1hall'], slabY['f1'], R, [
-      '「七日か。……待つ側にしちゃ、短いな」'
-    ], {condition:clocktowerChapter1});
+    /* 1F 鐘楼の玄関: 七時十三分に、時が止まる(導入)。止まった人影(昔の来訪者)が見え、すぐ消える */
+    const hall = roomById.t1hall;
+    registerRoomEvent(hall, slabY.f1, R, null, {marker:false, condition:clocktowerChapter1, onEnter:()=>{
+      const figs = [];
+      playCutscene([
+        {t:0.1, run:()=>{
+          sceneCamShot(-288, -88, 2.4, {y:slabY.f1, height:9, dist:9});
+          ambienceHold(8);
+          [[-296, -86, 0x4a4a5a], [-284, -84, 0x5a4a48], [-278, -90, 0x4a5a58]].forEach(([x, z, c])=>
+            figs.push(spawnApparition(new THREE.Vector3(x, slabY.f1, z), {color:c, vanishDist:0, maxOpacity:0.5, fadeIn:1.2})));
+        }},
+        {t:1.4, keep:true, run:()=> sfx('chime')},
+        {t:0.2, run:()=> cutsceneLine('塔じゅうの時計が、一斉に七時十三分を指した。音が、消えた。', '')},
+        {t:0.1, run:()=> cutsceneLine('「……人が、止まっています」', A)},
+        {t:0.1, run:()=> cutsceneLine('「止まってるのは人じゃない。……時間のほうだ」', R)},
+        {t:0.1, run:()=>{
+          figs.forEach(g=>{ const a = apparitions.find(x=> x.group === g); if(a){ a.state = 'out'; a.fadeOut = 1.2; } });
+          cutsceneLine('瞬きの間に、人影は消えていた。遠くで、秒針がまた刻み始める。', '');
+        }},
+        {t:0.1, run:()=> cutsceneLine('「七日か。……待つ側にしちゃ、短いな」', R)},
+        {t:0.1, run:()=>{ cutsceneHideLine(); state.dialogueActive = false; clearMovementInput(false); }},
+      ]);
+    }});
 
-    /* 2F〜4F: 手記を読んだら、その部屋の中ですぐ。読まずに扉の先の通路へ
-       出たら、そこで一度だけ。どちらか一方 */
-    function afterNote(title, room, fallback, fl, lines){
+    /* 大事な記憶: 読んだらその部屋ですぐ。読まずに先の通路(fallbackArea)へ出たら、そこで一度だけ */
+    function afterNote(title, room, fallbackArea, lines){
       const note = lore(title);
-      registerRoomEvent(roomById[room], slabY[fl], lines.speaker, lines.lines,
+      registerRoomEvent(roomById[room], 0, lines[0].name, [lines[0].text, ...lines.slice(1)],
         {condition:()=> clocktowerChapter1() && !!note && note.read && !fb.fired});
       const onRead = last();
-      registerRoomEvent(roomById[fallback], slabY[fl], lines.speaker, lines.lines,
-        {condition:()=> clocktowerChapter1() && !onRead.fired, marker:false});
+      registerProximityEvent(new THREE.Vector3((fallbackArea.x0 + fallbackArea.x1)/2, 0, (fallbackArea.z0 + fallbackArea.z1)/2), 1,
+        lines[0].name, [lines[0].text, ...lines.slice(1)],
+        {area:fallbackArea, marker:false, condition:()=> clocktowerChapter1() && !onRead.fired});
       const fb = last();
     }
-    afterNote('管理人の手帳', 't2gear', 't2cor2', 'f2', {speaker:A, lines:[
-      '「待っている人がいるんですね」',
-      {name:R, text:'「……出ていった方は、戻りにくいもんだ」'}
-    ]});
-    afterNote('娘の書き置き', 't3hands', 't3cor2', 'f3', {speaker:A, lines:[
-      '「上の階へ向かう側に落ちていました」',
-      {name:R, text:'「下りる気は、なかったんだな」'}
-    ]});
-    /* 3F → 盗賊の閃き(CLOCKTOWER-001)。針の回廊を抜けた先の通路(t3cor2)。回廊の先へは
-       この通路しか無い(螺旋階段の上 → 4F)ので、閃かないまま上の階へは進まない。
-       書き置きの会話(読まずに来た時はここで出る)が先に済んでから、次のフレームで起きる */
+    // 2F: 機械は壊れていない。止めている誰かがいる
+    afterNote('管理人の点検記録', 't2gear', inner(roomById.t2cor, 0.3), [
+      {name:A, text:'「機械は、壊れていないんですね」'},
+      {name:R, text:'「止めてる誰かが、いるってことだ」'}
+    ]);
+    // 3F: 娘への誕生日の贈り物。仕上がらなかった。読まずに来たら、針の通路の手前(針の届かない西の端)で
+    afterNote('作業日誌', 't3shop', {x0:-257.7, x1:-254.5, z0:-7.7, z1:3.7}, [
+      {name:R, text:'「誕生日の贈り物、か。……渡せなかったんだな」'},
+      {name:A, text:'「七時に、食卓で。……七時十三分の、少し前です」'}
+    ]);
+    /* 3F 光による記憶の可視化: 作業灯の輪の下に立つと、作業台に頬杖をつく娘の残像が浮かぶ */
+    registerProximityEvent(new THREE.Vector3(-266, slabY.f3, -1), 1.6, '', null, {marker:false,
+      condition:clocktowerChapter1, onEnter:()=>{
+        let girl = null;
+        playCutscene([
+          {t:0.1, run:()=>{
+            sceneCamShot(-270, 1, 2.0, {y:slabY.f3, height:7, dist:7});
+            girl = spawnApparition(new THREE.Vector3(-270, slabY.f3, 1.4), {color:0x6a5a80, vanishDist:0, maxOpacity:0.55, fadeIn:1.0, facing:Math.PI});
+          }},
+          {t:1.2, keep:true, run:()=>{}},
+          {t:0.1, run:()=> cutsceneLine('灯りの輪の中に、少女の姿が浮かんだ。作業台に頬杖をついて、父親の手元を覗き込み、何か言っては笑っている。', '')},
+          {t:0.1, run:()=> cutsceneLine('「……楽しそうに、笑っていました」', A)},
+          {t:0.1, run:()=> cutsceneLine('「うるさい客だったろうな。あの親父にしてみりゃ」', R)},
+          {t:0.1, run:()=>{
+            const a = girl && apparitions.find(x=> x.group === girl); if(a){ a.state = 'out'; a.fadeOut = 1.0; }
+            cutsceneHideLine(); state.dialogueActive = false; clearMovementInput(false);
+          }},
+        ]);
+      }});
+    /* 3F → 盗賊の閃き(針の通路を抜けた先の通路)。通路の先へはここしか無い(螺旋階段の中ほど → 4F)。
+       それでも起きなかった時(場面の途中で閉じた等)は、4F の踊り場で同じ場面を出す(代わりの発生) */
     towerInsightDone = false;
-    registerRoomEvent(roomById['t3cor2'], slabY['f3'], R, null, {onEnter:playTowerInsight, marker:false,
+    registerRoomEvent(roomById.t3cor, slabY.f3, R, null, {onEnter:playTowerInsight, marker:false,
       condition:()=> clocktowerChapter1() && !towerInsightDone});
-    afterNote('鐘楼の譜面', 't4bell', 't4cor2', 'f4', {speaker:A, lines:[
-      '「振り返らないで。……今だけは、私が後ろを見ています」'
-    ]});
+    registerRoomEvent(roomById.t4land, slabY.f4, R, null, {onEnter:playTowerInsight, marker:false,
+      condition:()=> clocktowerChapter1() && !towerInsightDone});
 
-    /* 5F 文字盤の前室: 管理人の外套と懐中時計(N-2)。前室は 4F からの階段の
-       着地点(-288,186)で、ボスの扉の手前。盗賊が時計を預かる。
-       この時計は島(CT-03)で拾い上げ、翌朝の酒場で返す */
-    buildLoreNote(new THREE.Vector3(-296, slabY['f5'], 192), '管理人の外套', [
-      '床に、くたびれた外套が畳んで置いてある。ポケットから、鎖の付いた懐中時計がのぞいている。',
-      '針は、七時十三分で止まっている。',
-      '外套の主は、ここから先へ一人で進んだらしい。'
-    ], {kind:'letter'});
-    const coat = lore('管理人の外套');
-    registerRoomEvent(roomById['t5ante'], slabY['f5'], R, [
-      '「……預かっとく。返すまでな」',
-      {name:A, text:'「……はい」'}
-    ], {condition:()=> clocktowerChapter1() && !!coat && coat.read && !coatFallback.fired});
-    const coatOnRead = last();
-    registerRoomEvent(roomById['t5cor1'], slabY['f5'], R, [
-      '「……管理人の時計だ。預かっとく。返すまでな」',
-      {name:A, text:'「……はい」'}
-    ], {condition:()=> clocktowerChapter1() && !coatOnRead.fired, marker:false});
-    const coatFallback = last();
+    /* 4F 居間: 二人分の食卓(見せてから一文) */
+    registerRoomEvent(roomById.t4living, slabY.f4, '', [
+      '食卓に、二人分の皿。片方の椅子だけ、ずっと引かれたままになっている。'
+    ], {condition:clocktowerChapter1, show:{x:-274, z:33, y:slabY.f4, wait:1.1, height:7, dist:7}});
+    /* 4F 時間の反復: 東の扉の前で、七時十三分の場面が繰り返されている。娘は出ていく前に、
+       扉の横の鉤へ鍵を掛けた ―― 進み方(鍵の在りか)が、この場面から分かる */
+    registerProximityEvent(new THREE.Vector3(-266, slabY.f4, 29), 1, '', null, {marker:false,
+      area:{x0:-271, x1:-260.5, z0:22.5, z1:37.6}, condition:clocktowerChapter1, onEnter:()=>{   // 鍵の鉤の輪(半径 2)を覆う
+        let father = null, girl = null;
+        playCutscene([
+          {t:0.1, run:()=>{
+            sceneCamShot(-264, 31, 2.6, {y:slabY.f4, height:7, dist:7});
+            father = spawnApparition(new THREE.Vector3(-271, slabY.f4, 31), {color:0x4a4238, vanishDist:0, maxOpacity:0.5, fadeIn:1.0, facing:Math.PI/2});
+            girl = spawnApparition(new THREE.Vector3(-262, slabY.f4, 30), {color:0x6a5a80, vanishDist:0, maxOpacity:0.55, fadeIn:1.0, facing:-Math.PI/2});
+          }},
+          {t:1.2, keep:true, run:()=> sfx('chime')},
+          {t:0.1, run:()=> cutsceneLine('七時十三分。食卓のそばで、父と娘が向き合っている。声は、聞こえない。', '')},
+          {t:0.1, run:()=> cutsceneLine('娘が扉に手をかける。振り返って、何か言いかけて ―― 扉の横の鉤に、鍵を掛けた。', '')},
+          {t:0.1, run:()=>{
+            [father, girl].forEach(g=>{ const a = g && apparitions.find(x=> x.group === g); if(a){ a.state = 'out'; a.fadeOut = 1.4; } });
+            sfx('door');
+            cutsceneLine('扉の閉まる音。……人影は消えた。そしてまた、食卓のそばに父の背中が浮かぶ。', '');
+          }},
+          {t:0.1, run:()=> cutsceneLine('「……鍵を、置いていきました」', A)},
+          {t:0.1, run:()=> cutsceneLine('「戻ってくる気だったんだ。鍵を持っていかなかったのは、そういうことだろ」', R)},
+          {t:0.1, run:()=>{ cutsceneHideLine(); state.dialogueActive = false; clearMovementInput(false); }},
+        ]);
+      }});
+    // 4F: 管理人の日記(七時十三分に何があったか)。読まずに来たら、東の扉の先の通路で
+    afterNote('管理人の日記', 't4living', inner(roomById.t4cor, 0.3), [
+      {name:A, text:'「戻れたら、違う言葉を言えたら。……そう願って、時間を止めたんですね」'},
+      {name:R, text:'「止めても、言い直せるわけじゃない。……分かってて、止めたんだろうな」'}
+    ]);
+    // 4F 娘の部屋: スケッチ帳(寄り道。読んだ時だけ)
+    const sketch = lore('娘のスケッチ帳');
+    registerRoomEvent(roomById.t4room, slabY.f4, A, [
+      '「出ていっても、塔のことは忘れていなかったんですね」'
+    ], {marker:false, condition:()=> clocktowerChapter1() && !!sketch && sketch.read});
 
-    /* 盗賊の過去(§4-4)。仕様は「射出台の前」だが、見晴台は乗った瞬間に
-       終幕が始まる(setLookout)ので、崩壊の後、見晴台へ上がる前の
-       文字盤の裏で出す(CT-01 §3)。何を・誰から盗んだかは語らない */
-    registerRoomEvent(roomById['t5boss'], slabY['f5'], R, [
+    // 5F: 譜面(娘の字)。読まずに来たら、倉庫への通路で
+    afterNote('鐘楼の譜面', 't5bell', inner(roomById.t5cor1, 0.3), [
+      {name:A, text:'「お父さんに教わった順番、だそうです」'},
+      {name:R, text:'「鐘を鳴らしたがる子に、根負けしたんだろうな」'}
+    ]);
+    // 5F 倉庫: 娘の書き置き(封鎖戦の後)。読まずに来たら、最上階への通路で
+    afterNote('娘の書き置き', 't5store', inner(roomById.t5cor2, 0.3), [
+      {name:A, text:'「……帰るつもりだったんですね」'},
+      {name:R, text:'「帰ってくる場所の時計を、親父のほうが止めちまった」'}
+    ]);
+    /* 5F 鐘楼: 上の階ほど残像が濃い。鐘の綱に手を伸ばす娘の影(近づくと消える) */
+    registerProximityEvent(new THREE.Vector3(-272, slabY.f5, 74), 6, '', null, {marker:false,
+      condition:clocktowerChapter1, onEnter:()=>{
+        spawnApparition(new THREE.Vector3(-272, slabY.f5, 80), {color:0x6a5a80, vanishDist:4.5, maxOpacity:0.5, fadeIn:0.8});
+        spawnLog('🔔 鐘の下に、背伸びして綱に手を伸ばす少女の影が見えた');
+      }});
+
+    /* 6F 文字盤の前室: 管理人の外套と懐中時計。盗賊が預かる(島で拾い上げ、翌朝の酒場で返す) */
+    afterNote('管理人の外套', 't6ante', inner(roomById.t6cor, 0.3), [
+      {name:R, text:'「……預かっとく。返すまでな」'},
+      {name:A, text:'「……はい」'}
+    ]);
+    /* 6F 文字盤の間: 管理人(本編だけ)。文字盤の前に座り込み、背を向けている */
+    towerKeeper = buildTowerKeeperNpc(new THREE.Vector3(TOWER_KEEPER_POS.x, slabY.f6, TOWER_KEEPER_POS.z));
+
+    /* 盗賊の過去(崩壊が始まった後、文字盤の間で一度だけ。何を・誰から盗んだかは語らない) */
+    registerRoomEvent(roomById.t6boss, slabY.f6, R, [
       '「……昔、出ていったことがある。持ってっちゃいけない物を持って」',
       {name:A, text:'「戻らなかったんですか」'},
       {name:R, text:'「戻れなかった、って言うと格好がつくな。……戻らなかった」'},
@@ -1140,18 +1374,35 @@
     ], {condition:()=> clocktowerChapter1() && collapsing});
   }
 
-  /* 盗賊の閃き(CLOCKTOWER-001、Chapter 1 の Skill 2「三連投げナイフ」)。
+  /* 管理人の姿(装飾 NPC の簡易ビルド。鍛冶士と同じ作法)。外套は前室に置いてきたのでシャツ姿 */
+  function buildTowerKeeperNpc(pos){
+    const g = new THREE.Group();
+    const shirt = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.95, 10),
+      new THREE.MeshStandardMaterial({color:0xb8b0a0, roughness:0.85}));
+    shirt.position.y = 0.62; g.add(shirt);                     // 膝をついているので低い
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10),
+      new THREE.MeshStandardMaterial({color:0xd8b090, roughness:0.7}));
+    head.position.y = 1.32; g.add(head);
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.31, 12, 8, 0, Math.PI*2, 0, Math.PI/2),
+      new THREE.MeshStandardMaterial({color:0xc8c8c0, roughness:0.9}));
+    hair.position.y = 1.36; g.add(hair);
+    g.position.copy(pos);
+    g.rotation.y = Math.PI;      // 文字盤(南)のほうを向く ―― カメラには背中
+    scene.add(g);
+    return g;
+  }
+
+  /* 盗賊の閃き(Chapter 1 の Skill 2「三連投げナイフ」)。
 
      洋館の瓦礫・村の観測の灯・船の爆弾投げと同じ型 ―― 同行者(弓師)のやり方を見た主人公が、
      自分の戦い方へ翻訳する。教わるのではない。
        盗賊 = 隙間を見る(docs/CHARACTERS.md)。隙間を見つけたら、自分が飛び込む(近接・影退きの一閃)
-       弓師 = 今を見る。針の回廊で、針が過ぎた一瞬に、針の向こうの撃ち手をこちら側から射抜いた
+       弓師 = 今を見る。針の通路で、針が過ぎた一瞬に、針の向こうの撃ち手をこちら側から射抜いた
      → 飛び込まなくても、隙間に刃だけを通せばいい。一本で足りなければ三本 ―― 既存の
        SKILL2_BY_CLASS.rogue「三連投げナイフ」(前へ扇に三本)。
-     置き場所は塔の中ほど(3F の針の回廊を抜けた先)。すぐ先の螺旋階段の上に強モブ(閃いた技を
-     すぐ試せる)、4F の鐘の広間・無音の鐘室へ続く。出撃ごとに一度。既に持っている出撃
-     (閃いてから撤退して出直した・テストモード)では場面を出さない。
-     習得と自動装備は grantChapter1Skill2()(core/chapter1-skills.js の learnSkill2) */
+     置き場所は塔の中ほど(3F の針の通路を抜けた先)。すぐ先の螺旋階段の中ほどに強モブ、4F の居間の
+     残響の影で試せる。出撃ごとに一度。既に持っている出撃(閃いてから撤退して出直した・テストモード)
+     では場面を出さない。習得と自動装備は grantChapter1Skill2()(core/chapter1-skills.js の learnSkill2) */
   let towerInsightDone = false;
   function playTowerInsight(){
     if(towerInsightDone) return;
@@ -1161,8 +1412,8 @@
     const hall = TOWER_ROOMS.find(r=> r.id === 't3hands');
     const fy = TOWER_SLABS.find(s=> s.fl === hall.fl).y;
     playCutscene([
-      // 抜けてきた針の回廊を見せてから話す(自動カメラ OFF の人には見せない。sceneCamShot)
-      {t:0.1, run:()=> sceneCamShot((hall.x0 + hall.x1)/2, (hall.z0 + hall.z1)/2, 1.8, {y:fy, height:8, dist:10})},   // ふだんの追従と同じ高さ。高く上げると雲の層越しに白く霞む
+      // 抜けてきた針の通路を見せてから話す(自動カメラ OFF の人には見せない。sceneCamShot)
+      {t:0.1, run:()=> sceneCamShot((hall.x0 + hall.x1)/2, (hall.z0 + hall.z1)/2, 1.8, {y:fy, height:8, dist:9})},   // ふだんの追従と同じ高さ。高く上げると雲の層越しに白く霞む
       {t:1.2, keep:true, run:()=>{}},
       {t:0.1, run:()=> cutsceneLine('「……さっきの撃ち手。針の向こうにいたのに、こっちから射抜いてたな」', R)},
       {t:0.1, run:()=> cutsceneLine('「針が過ぎた、その一瞬だけ、まっすぐ通っていましたから」', A)},
@@ -1179,7 +1430,7 @@
   }
 
   /* 跳ぶ瞬間(§4-5)。終幕の台詞を本編でだけ差し替える(仕組みは変えない)。
-     盗賊が抜け道を見つけ、弓師が「今」を読み、正しい時刻の鐘の一打で跳ぶ */
+     盗賊が抜け道を見つけ、弓師が「今」を読み、管理人が鳴らす正しい時刻の鐘の一打で跳ぶ */
   const CLOCKTOWER_CHAPTER1_LEAP = ()=>{ const R = CLASSES.rogue.name, A = CLASSES.archer.name; return {
     opening:[
       '見晴台に出た。眼下には雲が流れ、その裂け目に海が光っている。',
@@ -1188,7 +1439,7 @@
     atLip:[
       '足元で塔が軋む。……降りる道は、無い。',
       {name:A, text:'「鐘が鳴ります。……鳴ったら、跳びます」'},
-      {name:'', text:'頭上で、鐘が鳴った。ひと月ぶりの、正しい時刻の鐘だった。'}
+      {name:'', text:'頭上で、鐘が鳴った。管理人が鳴らす、ひと月ぶりの、正しい時刻の鐘だった。'}
     ]
   }; };
 
@@ -1212,26 +1463,26 @@
      無い遠景。島に着いた時だけ建てる(本編の第一章のみ) */
   /* 島は 2.3 の石垣で囲まれている(北は閉じている)ので、対岸は一段高い
      崖の上の街道にして、石垣ごしに見えるようにする */
-  const ISLAND_FAR_SHORE_Z = 377, ISLAND_FAR_SHORE_Y = 4.5;
+  const ISLAND_FAR_SHORE_Z = 293, ISLAND_FAR_SHORE_Y = 4.5;
   function showIslandStranger(){
     const shore = new THREE.Mesh(new THREE.BoxGeometry(150, ISLAND_FAR_SHORE_Y + 0.6, 14),
       new THREE.MeshStandardMaterial({color:0x7a8a5a, roughness:0.95}));
-    shore.position.set(-230, (ISLAND_FAR_SHORE_Y - 0.6)/2, ISLAND_FAR_SHORE_Z + 7);
+    shore.position.set(-250, (ISLAND_FAR_SHORE_Y - 0.6)/2, ISLAND_FAR_SHORE_Z + 7);
     scene.add(shore);
     const road = new THREE.Mesh(new THREE.PlaneGeometry(150, 2.2),
       new THREE.MeshStandardMaterial({color:0xd8c4a0, roughness:0.9}));
     road.rotation.x = -Math.PI/2;
-    road.position.set(-230, ISLAND_FAR_SHORE_Y + 0.02, ISLAND_FAR_SHORE_Z + 3);
+    road.position.set(-250, ISLAND_FAR_SHORE_Y + 0.02, ISLAND_FAR_SHORE_Z + 3);
     scene.add(road);
     // 明け方の薄明かり。崖の上の人影が、夜の海の向こうで見分けられる程度
     const dawn = new THREE.PointLight(0xffd8b0, 3.0, 60);
-    dawn.position.set(-226, ISLAND_FAR_SHORE_Y + 10, ISLAND_FAR_SHORE_Z + 10);
+    dawn.position.set(-246, ISLAND_FAR_SHORE_Y + 10, ISLAND_FAR_SHORE_Z + 10);
     scene.add(dawn);
     const fig = buildRoadTravelerFigure(false);
     scene.add(fig);
     trackPreJoinShadow(fig, {
-      from: new THREE.Vector3(-246, ISLAND_FAR_SHORE_Y, ISLAND_FAR_SHORE_Z + 3),
-      to:   new THREE.Vector3(-196, ISLAND_FAR_SHORE_Y, ISLAND_FAR_SHORE_Z + 3),
+      from: new THREE.Vector3(-266, ISLAND_FAR_SHORE_Y, ISLAND_FAR_SHORE_Z + 3),
+      to:   new THREE.Vector3(-216, ISLAND_FAR_SHORE_Y, ISLAND_FAR_SHORE_Z + 3),
       speed: 1.1,
     });
     // 建てた後に足したものなので、ワールドの片づけ(currentWorldObjects)へ自分で載せる
@@ -1276,7 +1527,7 @@
     scene.add(glow);
 
     const f1y = TOWER_SLABS.find(s=>s.fl==='f1').y;
-    buildStairs(new THREE.Vector3(cx, y, cz-10), new THREE.Vector3(-356, f1y, -74), '置時計の間へ戻った……', 0x3a3020, 'up');
+    buildStairs(new THREE.Vector3(cx, y, cz-10), new THREE.Vector3(-312, f1y, -89), '守衛の小部屋へ戻った……', 0x3a3020, 'up');
 
     registerProximityEvent(new THREE.Vector3(cx, y, cz+3), 4, '???', [
       'あの置時計が止まった理由は、盤面ではなく――この裏側にあったらしい。',

@@ -1,36 +1,38 @@
-# CLOCKTOWER-001 — 実装報告
+# CLOCKTOWER-001 — 実装報告（第 2 段: 全面再設計）
 
 Status: DONE（Agent 側）／ HUMAN DEVICE CHECK REQUIRED（iPhone 実機は未確認）
-調査・計画: `CLOCKTOWER-001-analysis.md`
-
-物語の台詞（既存の §4-4/§4-5）・謎解き・封鎖戦・ボスと敵の数値・セーブ形式・道は変えていない。
+調査: `CLOCKTOWER-001-analysis.md` / 設計: `CLOCKTOWER-001-design.md`
 
 ## 1. 変更
 
-| WI | 場所 | 内容 |
-| --- | --- | --- |
-| A 盗賊の閃き | `03-dungeons-mansion-temple.js` `playTowerInsight` / `buildClocktowerChapter1Story` | 3F 針の回廊を抜けた先の通路（`t3cor2`）で起きる。カメラで針の回廊を映す → 盗賊が尋ね、弓師が自分のやり方を言う → `grantChapter1Skill2()`（習得 = 自動装備、トースト「✴️ 閃いた ―― 🔪 三連投げナイフ(自動で装備した)」）→ 盗賊の一言。出撃ごとに一度、既に持っていれば場面を出さない。本編の物語の中だけで登録（テストモードの旧成長では塔の物語ごと出ない） |
-| B 共通のカメラ | `13-update-loop.js` `sceneCamShot` / `sceneCameraShot`、`02` `playShowThenEvent` | `opts.y`（見せる物の床の高さ、既定 0）。見る点とカメラの高さに足す。他の世界は 0 のまま変わらない。`show` も `y` を渡せる |
-| C 見せてから話す | `03` 2F 歯車の間・3F 針の回廊・4F 鐘の広間の部屋の出来事 | 金属板・回る針・三つの鐘を映してから一文（自動カメラ OFF の人には映さない）。3F は雲の層（高さ 24）の下から見る |
-| D 区画描画 | `02` WORLD_DEFS.clocktower、`03` `TOWER_CELL_ROOMS` | `roomCellBatch(TOWER_CELL_ROOMS, buildClocktower)` → `initRoomCells`。塔の中の部屋（見晴台・島を除く）。雲・霞・海・泡・文字盤は `rcAlways`。洋館と同じ規則（今いる部屋＋開口・開いている扉の先、境の上は直前の部屋） |
-| E 強モブ | `07-ai-combat.js` | 5F 前室の強モブ (-288,36,180) → (-280,36,179)。着地点 (-288,186) から約 10.6。数値は同じ |
-| F 開始地点 | `src/core/scenario-waypoints.js` | テストモードの 2F・3F・4F の踊り場（階段の着地点）。ボス直前の地点はそのまま |
-
-## 2. 発生条件（盗賊の閃き）
-
-| 場面 | 条件 |
+| 場所 | 内容 |
 | --- | --- |
-| 起きる | 本編の時計塔（`clocktowerChapter1()`）・その出撃でまだ起きていない・通路 `t3cor2` に入った |
-| 場面を出さない | 既に Skill 2 を持っている（閃いてから撤退して出直した・テストモードの第一章ルール） |
-| 起きない | テストモードの旧成長（塔の物語ごと無い）・他の行き先 |
-| 順番 | 同じ通路の「書き置き」の会話（読まずに来た時）が先、閃きは次のフレーム |
+| `03-dungeons-mansion-temple.js` 時計塔の節 | 作り直し: `TOWER_FLOORS` / `TOWER_SLABS` / `TOWER_ROOMS`（6 階 29 部屋 → 一階 3〜6 部屋）/ `TOWER_STAIRS` / `TOWER_HANDS` / `TOWER_GEAR` / `TOWER_PLATES` / `TOWER_BELLS` / `TOWER_FACE` / `TOWER_BOSS_POS` / `TOWER_KEEPER_POS` / `TOWER_HOME_DOOR` / `TOWER_KEY_HOOK`。`buildClocktower`（階ごとの床・壁の色、小物、2F 巨大歯車、3F 作業台と作業灯、4F 食卓と娘の部屋、5F 鐘と倉庫、6F 床の巨大な文字盤、雲を塔の外へ、手記、出来事、鍵の鉤）。`setTowerClock` / `updateTowerDecor`。`buildClocktowerChapter1Story`（本編の物語: 1F 時が止まる、記憶 6 つと代わりの通路、3F 灯りの記憶、4F 食卓・七時十三分の繰り返し・スケッチ帳、5F 鐘の綱の影、6F 外套・管理人、盗賊の過去）。`buildTowerKeeperNpc`。`playTowerInsight`（代わりの発生を 4F 踊り場に）。跳ぶ瞬間（管理人が鳴らす鐘）。島の位置 |
+| `07-ai-combat.js` | 時計塔の敵の表を作り直し（19 体。どれも着地点から 8 以上）。ボス「止刻の残響」（管理人との対峙の台詞、名前、位置。数値と key は同じ）。新しい技: 歯車を飛ばす・止刻（足元の輪で 0.7 秒動けない）・残像の破裂・文字盤の針（`towerBossMinute` / `towerBossEcho` / `updateTowerBossClock`）。止刻の輪の片付け |
+| `02-world-common.js` | `beginTowerCollapse` の本編の台詞（管理人が時間を動かし、鐘を鳴らしに残る）。テストモードは名前だけ止刻の残響 |
+| `12-progression-ui.js` | 崩壊の会話を閉じたら文字盤の針を七時十四分へ。酒場の出撃（本編だけ主人の 2 行を足す）。翌朝の主人の一行（管理人は自分の足で降りてきた） |
+| `08-loot-equipment.js` | 宝箱 5 つ（寄り道の小部屋とボスの手前）・回復結晶（4F 踊り場） |
+| `14-hud-boot.js` | 毎フレーム `updateTowerDecor`（2F の歯車が回る） |
+| `src/core/scenario-waypoints.js` | テストモードの開始地点（2F〜5F の踊り場、6F 文字盤の前室） |
+| 第 1 段から継続 | 共通のカメラの床の高さ `y`（13・02）、塔の区画描画（02） |
+
+## 2. 発生条件の要点
+
+| 出来事 | 条件 |
+| --- | --- |
+| 本編の物語 | `clocktowerChapter1()`（本編かつ行き先が塔）。テストモードの旧成長では出ない |
+| 記憶の会話 | 読んだらその部屋で / 読まずに次の通路へ出たらそこで（どちらか一方） |
+| 4F 東の扉 | 鍵の鉤に近づけば誰でも開く（物語の場面より後に登録 ―― 同じ所に立った時は場面が先） |
+| 盗賊の閃き | 3F の通路、起きなければ 4F の踊り場。出撃ごとに一度。既に持っていれば出さない |
+| 盗賊の過去 | 崩壊が始まった後、文字盤の間で一度 |
+| 止刻 | 輪が満ちた時に中・回避中でない・無敵でない・麻痺の直後でない |
 
 ## 3. 文書
 
-`docs/CHAPTER1_STORY.md` §4-4（3F の閃きの行）、`docs/SCENARIOS.md`（閃きの一覧: ④ 実装、⑤ 未実装）、`docs/COMBAT.md`（Skill 2 の表）、`docs/DUNGEON_RENDERING.md`（§2・§3 の時計塔、共通のカメラの `y`、残件）、`docs/CHAPTER1_PLAYTEST.md` §6（開始地点、D-09 更新、D-21〜D-24 追加）、`.ai/reports/CHAPTER1-CLOCKTOWER-balance.md`（強モブの位置）。
+`docs/CHAPTER1_STORY.md`（§4-4 を作り直し、§4-5 の跳ぶ理由・翌朝の主人）、`docs/SCENARIOS.md`、`docs/DUNGEON_RENDERING.md`、`docs/CHAPTER1_PLAYTEST.md`（§6 を作り直し D-01〜D-22、A-07/A-08、E-03）、`docs/PROGRESSION.md`（ボス能力の表の名前）、`.ai/reports/CHAPTER1-CLOCKTOWER-balance.md`。
 
 ## 4. 性能
 
-- 区画: 見えていない部屋は描画・影の対象から外れる。塔の壁・床の箱は以前は一枚ずつ別のメッシュだった（静的バッチ無し）ので、部屋ごとにまとめたぶん描画の呼び出しは減る
-- 閃き・見せる演出は出来事と会話だけ（毎フレームの処理は増えない）
+- 一階の部屋・壁が大きく減った（以前の塔より描く物が少ない）。区画描画で見えていない部屋は描かない
+- 新しい技はボス戦の間だけ（輪・歯車・残像は使い終わると外す）
 - iPhone の FPS は未計測

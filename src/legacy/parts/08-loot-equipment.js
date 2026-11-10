@@ -608,11 +608,12 @@
       ...(scenarioStars('temple') >= TEMPLE_DEPTHS_STARS
         ? [[new THREE.Vector3(156,0,-118), 'armoury']] : []), // temple: 最深部(周回★4+)
       [new THREE.Vector3(88,0,-114),  'supply'],          // temple: 前室, before the guardian
-      [new THREE.Vector3(-316,0,-90), 'armoury'],         // clocktower 1F dead end
-      [new THREE.Vector3(-244,9,-12)],                    // clocktower 2F: 錘の保管室
-      [new THREE.Vector3(-172,18,58)],                    // clocktower 3F
-      [new THREE.Vector3(-244,27,146),'armoury'],         // clocktower 4F: 無音の鐘室
-      [new THREE.Vector3(-292,36,192),'supply'],          // clocktower 5F, before the warden
+      // 時計塔(CLOCKTOWER-001 で作り直し): 寄り道の小部屋と、ボスの手前に一つずつ
+      [new THREE.Vector3(-312,0,-91), 'armoury'],         // clocktower 1F: 守衛の小部屋
+      [new THREE.Vector3(-271,18,11)],                    // clocktower 3F: 部品庫
+      [new THREE.Vector3(-282,27,47),'armoury'],          // clocktower 4F: 娘の部屋
+      [new THREE.Vector3(-263,36,95),'supply'],           // clocktower 5F: 鐘楼の倉庫(封鎖戦の後)
+      [new THREE.Vector3(-292,45,121),'supply'],          // clocktower 6F: 文字盤の前室, before the boss
       ...(scenarioStars('clocktower') >= TOWER_HOUSE1_DEPTHS_STARS
         ? [[new THREE.Vector3(-346,9,124), 'armoury']] : []), // clocktower: 隠し歯車庫(周回★3+)
       [new THREE.Vector3(184,0,-54)],                     // conservatory: 枯れた前庭
@@ -900,7 +901,7 @@
       new THREE.Vector3(-107.2,0,20.9),   // waterway underground
       new THREE.Vector3(126,0,86.5),      // mansion 保管庫
       new THREE.Vector3(-61.2,0,-196.6),  // temple 石橋の間
-      new THREE.Vector3(-243.2,9,-11.3),  // clocktower 2F
+      new THREE.Vector3(-296,27,36),      // clocktower 4F 踊り場(塔の中ほど)
       new THREE.Vector3(184.8,0,-53.3),   // conservatory 枯れた前庭
     ];
     spots.filter(p=> worldKeyForPos(p)===_spawnWorldKey && !gsChapter1World())

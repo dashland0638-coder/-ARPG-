@@ -409,7 +409,8 @@
     autoStairBusy = false; stairAutoArmed = true;   // auto階段の状態は世界ごとに素の状態へ
     surfaces = []; defaultSurfaceFn = null; resetAmbience();   // 足元の材質と環境音も世界ごと
     platforms.forEach(p=>scene.remove(p.mesh)); platforms = []; pits = [];
-    enemies.forEach(en=>{ if(en.isBoss) clearBossVfx(en); });
+    // 止刻の残響の残像の輪は en.vfx に載せていないので、ここで一緒に外す(時計塔、CLOCKTOWER-001)
+    enemies.forEach(en=>{ if(en.isBoss){ clearBossVfx(en); if(en.key === 'towerWarden') clearTowerBossFx(en); } });
     thornGates = []; sporeZones = []; thornTime = 0; sporeTickT = 0;
     groundSlabs = []; voidRespawn = null; voidT = 0; lastSolid = null;
     lookout = null; onSeaEntry = ()=>{}; seaY = -999; finaleStarted = false;
@@ -1507,15 +1508,33 @@
     state.dialogueActive = true;
     state.dialogueBoss = null;
     state.dialogueKind = 'towerCollapse';
-    state.dialogueLines = [
-      '時喰らいが砕けると同時に、足元が大きく傾いだ。',
+    /* 第一章の本編(CLOCKTOWER-001、docs/CHAPTER1_STORY.md §4-4): 管理人が自分の手で針を進め、
+       時間が動き出す。過去は変えられないが、抱えて進むことはできる ―― 説教にせず、手の動きで見せる。
+       止まっていた機構が一か月分の時間を取り戻そうとして塔が崩れ始め、管理人は鐘楼に残って鐘を鳴らす
+       (屋上から跳ぶ時に鳴る鐘 / 翌朝、自分の足で降りてくる)。テストモードは従来の台詞 */
+    const ch1 = typeof clocktowerChapter1 === 'function' && clocktowerChapter1();
+    if(ch1 && typeof setTowerClock === 'function') setTowerClock(7, 13);
+    const R = CLASSES.rogue.name, A = CLASSES.archer.name, K = '管理人';
+    state.dialogueLines = ch1 ? [
+      '止刻の残響が砕け、文字盤の針が、かすかに震えた。',
+      {name:K, text:'「……動かせば、あの時刻は二度と戻らん」'},
+      {name:A, text:'「戻らなくても、なくなるわけじゃありません」'},
+      {name:R, text:'「あんたの娘は、鍵を置いていった。帰る気でいたんだ。……帰ってくる場所の時計くらい、動かしとけ」'},
+      {name:'', text:'管理人は、震える手で長針に触れた。七時十四分。塔じゅうの歯車が、一斉に回り出した。'},
+      {name:'', text:'足元が大きく傾いだ。止まっていた機構が、ひと月分の時間を取り戻そうとしている。'},
+      {name:K, text:'「下の階段は、もう持たん。屋上の非常台へ行け。……鐘は、わしが鳴らす」'},
+      {name:R, text:'「あんたは」'},
+      {name:K, text:'「鳴らし終えたら、裏の梯子で降りる。……あの子の帰り道だ。わしが壊すわけにはいかん」'},
+      {name:'', text:'見上げた螺旋の果てに、見晴台への口が開いていた。'}
+    ] : [
+      '止刻の残響が砕けると同時に、足元が大きく傾いだ。',
       '歯車の軋みが、塔じゅうの壁を伝って降りてくる。',
       '――塔が、こちらを拒んでいる。',
       '「降りる階段は無い。……ならば、上だ」',
       '見上げた螺旋の果てに、見晴台への口が開いていた。'
     ];
     state.dialogueIndex = 0;
-    document.getElementById('dialogue-name').textContent = state.name || '';
+    document.getElementById('dialogue-name').textContent = ch1 ? '' : (state.name || '');   // 本編の一行目は地の文
     document.getElementById('dialogue-text').textContent = state.dialogueLines[0];
     document.getElementById('dialogue-overlay').classList.add('active');
     sfx('bossWake');

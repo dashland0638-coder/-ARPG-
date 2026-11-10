@@ -105,7 +105,17 @@ async function dismissIntroDialogue(page) {
  * menu won't open while dialogueActive) and before any such fixed-key walk.
  */
 async function disableCameraAutoFollow(page) {
-  await page.keyboard.press('Escape');
+  /* 演出・会話の最中はメニューが開かない(Escape が効かない)。遅い環境では直前の演出の終わりが
+     読めないので、一度押して待ち続けるのではなく、開くまで押し直す(会話が出ていれば送る)。
+     押し直しは 60 回(約 1.5 分)まで ―― それでも開かなければ下の待ちで失敗する */
+  const menuOpen = () => page.evaluate(() => document.getElementById('menu-overlay').classList.contains('active'));
+  for (let i = 0; i < 60 && !(await menuOpen()); i++) {
+    if (await page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'))) {
+      await page.evaluate(() => document.getElementById('dialogue-overlay').click());
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1500);
+  }
   await page.waitForFunction(() => document.getElementById('menu-overlay').classList.contains('active'));
   // 設定はメニューの「設定」タブにある(UI-002-F)
   await page.click('#menu-overlay [data-menu-tab="settings"]');

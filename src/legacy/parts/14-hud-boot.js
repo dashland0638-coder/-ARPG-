@@ -1412,6 +1412,7 @@
       if(!wasPlayable){ clearMovementInput(true); wasPlayable = true; }
       mechTime += dt;
       updateClockHands(dt);
+      updateTowerDecor(dt);   // 時計塔 2F の巨大歯車(機構を動かすと回る。CLOCKTOWER-001)
       updateSequenceLocks(dt);
       updateLookout(dt);
       updateEscapeFall(dt);

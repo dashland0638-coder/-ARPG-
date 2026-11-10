@@ -1,15 +1,15 @@
 // @ts-check
 /* CLOCKTOWER-001: 第一章④ 時計塔の、画面に出るところ。
  *
- * 盗賊の閃き(Skill 2「三連投げナイフ」)の場面そのもの(3F 針の回廊を抜けた先の通路・見せてから話す順番・
- * 一度だけ・既に持っている出撃では出さない)は unit(clocktower-insight)が本物の
+ * 盗賊の閃き(Skill 2「三連投げナイフ」)の場面そのもの(3F 針の通路を抜けた先の通路・見せてから話す順番・
+ * 一度だけ・代わりの 4F 踊り場・既に持っている出撃では出さない)は unit(clocktower-story)が本物の
  * buildClocktowerChapter1Story / playTowerInsight を動かして固定している。3F は入口から階段二つ先で、
  * この環境の速度では本編を歩き通せない(chapter1-late-scenarios.spec.js の冒頭と同じ判断)。
  *
  * ここで見るのは:
  *   本編: 閃く前は(弓師が船で閃いていても)盗賊のスキル2のボタンは出ない・撃てない
  *   本編: 閃いた後はセーブに残り、読み込み直しても出ている。塔の中で実際に撃てる
- *   テストモード: 途中の検証地点(2F・3F・4F の踊り場)に着く。Skill 2 は最初から持つ(閃きは出ない)
+ *   テストモード: 途中の検証地点(2F〜5F の踊り場)に着く。Skill 2 は最初から持つ(閃きは出ない)
  */
 import { test, expect } from '@playwright/test';
 import { openGame, watchErrors, disableCameraAutoFollow, startTestMode } from './helpers.js';
@@ -117,13 +117,14 @@ test.describe('時計塔（第一章④）', () => {
     expect(errors).toEqual([]);
   });
 
-  test('テストモード: 2F・3F・4F の踊り場から始められる(Skill 2 は最初から持つ)', async ({ page }) => {
+  test('テストモード: 2F〜5F の踊り場から始められる(Skill 2 は最初から持つ)', async ({ page }) => {
     test.setTimeout(600_000);
     const errors = watchErrors(page);
     const WPS = [
       { wp: 'f2gear', room: '2階 二階の踊り場' },
-      { wp: 'f3hands', room: '3階 三階の踊り場' },
-      { wp: 'f4bell', room: '4階 四階の踊り場' },
+      { wp: 'f3shop', room: '3階 三階の踊り場' },
+      { wp: 'f4home', room: '4階 四階の踊り場' },
+      { wp: 'f5bell', room: '5階 五階の踊り場' },
     ];
     for (const w of WPS) {
       await openGame(page);
