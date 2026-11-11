@@ -450,6 +450,7 @@
         state.dialogueActive = false;
         clearMovementInput(false);
         setTowerClock(7, 14);   // 時間が動き出した(文字盤の針。CLOCKTOWER-001)
+        towerTimeResumes();     // 塔の振り子・歯車の輪・街の灯りが動き出す(CLOCKTOWER-002)
         spawnToast('🪜 見晴台への階段が開いた。急げ');
       } else if(state.dialogueKind==='towerEscape'){
         state.dialogueKind = null;

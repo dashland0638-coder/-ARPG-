@@ -119,9 +119,9 @@ test('開始地点', async (t) => {
     }
   });
 
-  await t.test('時計塔の最上階(6 階 文字盤の前室)は床の高さ(y:45)を持つ(CLOCKTOWER-001 で塔を作り直した)', () => {
+  await t.test('時計塔の最上層(6 層 大時計の前室)は床の高さ(y:44)を持つ(CLOCKTOWER-002 で縦穴を登る塔に作り直した)', () => {
     const wp = SCENARIO_WAYPOINTS.clocktower.find(w => w.kind === 'boss-pre');
-    assert.equal(wp.y, 45);
+    assert.equal(wp.y, 44);
   });
 
   await t.test('地点表の kind は boss-pre / boss-start / 無し だけ', () => {

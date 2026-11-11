@@ -51,13 +51,13 @@ test('二つの戦闘は「突進2 + 射撃1」で、確定定数だけを使う
 
 /* 根拠: 時計塔 4F 鐘の広間(同じ「突進2 + 射撃1」、y=27 の3体)との比較 */
 /* 比べる相手は、以前の塔の 4F 鐘の広間(突進 152/32 ×2 + 射撃 138/35)。CLOCKTOWER-001 で塔を作り直した後は、
-   同じ数値の敵が 4F 居間の残響の影 2 体 + 5F 鐘楼の射撃 1 体に分かれている(数値は同じ) */
+   同じ数値の敵が 4F 居間の残響の影 2 体 + 5F 鐘楼の射撃 1 体に分かれていた。CLOCKTOWER-002 では
+   T4 鐘楼(y=34)に残響の影 2 体 + 射撃 1 体として同じ数値で置いている */
 test('根拠: 塔 4F より HP の合計は多め(+0〜30%)、ATK の合計は少なめ', () => {
   const spots = [
-    ...combat.matchAll(/pos:new THREE\.Vector3\(-?\d+,27,-?\d+\), variant:\{[^}]*hp:(\d+), atk:(\d+)[^}]*atkType:'(\w+)'/g),
-    ...combat.matchAll(/pos:new THREE\.Vector3\(-260,36,82\), variant:\{[^}]*hp:(\d+), atk:(\d+)[^}]*atkType:'(\w+)'/g),
+    ...combat.matchAll(/pos:new THREE\.Vector3\(-?\d+,34,-?\d+\), variant:\{[^}]*hp:(\d+), atk:(\d+)[^}]*atkType:'(\w+)'/g),
   ];
-  assert.equal(spots.length, 3, '塔 4F 居間 + 5F 鐘楼の射撃');
+  assert.equal(spots.length, 3, '塔 T4 鐘楼の残響の影 2 + 射撃');
   assert.deepEqual(spots.map(m => m[3]).sort(), ['fire', 'ghost', 'ghost']);
   const towerHp = spots.reduce((s, m) => s + +m[1], 0), towerAtk = spots.reduce((s, m) => s + +m[2], 0);
   const roadHp = BEAST.hp * 2 + SPITTER.hp, roadAtk = BEAST.atk * 2 + SPITTER.atk;

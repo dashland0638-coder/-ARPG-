@@ -165,11 +165,9 @@
     conservatory: { build: ()=>{ buildConservatory(); } },
     /* 部屋ごとの区画(CLOCKTOWER-001): 今いる部屋 ＋ 開口・開いている扉の先だけを描く(洋館と同じ部品)。
        静的バッチを部屋ごとに分けるので、描画の呼び出しもまとまる(以前は壁・床が一枚ずつ別のメッシュ) */
-    clocktower:   { build: ()=>{
-      const beforeTower = new Set(scene.children);
-      roomCellBatch(TOWER_CELL_ROOMS, buildClocktower);
-      initRoomCells('clocktower', TOWER_CELL_ROOMS, scene.children.filter(o=> !beforeTower.has(o)));
-    } },
+    /* 時計塔(CLOCKTOWER-002): 中央の縦穴の周りに階を積んだ塔。描画は「今の階と、その下に見える階」
+       だけ(階ごとの静的バッチ。towerTierBatch / updateTowerTiers、03-dungeons-mansion-temple.js) */
+    clocktower:   { build: ()=>{ buildClocktower(); } },
     duskvillage:  { build: ()=>{
       const beforeDusk = new Set(scene.children);
       buildDuskVillage();
@@ -411,6 +409,8 @@
     platforms.forEach(p=>scene.remove(p.mesh)); platforms = []; pits = [];
     // 止刻の残響の残像の輪は en.vfx に載せていないので、ここで一緒に外す(時計塔、CLOCKTOWER-001)
     enemies.forEach(en=>{ if(en.isBoss){ clearBossVfx(en); if(en.key === 'towerWarden') clearTowerBossFx(en); } });
+    clearGuestArrows();   // 支援の矢(時計塔)を次のワールドへ持ち越さない
+    clearTowerMech();     // 時計塔の機構(動く床・昇降の乗り手)の参照を捨てる
     thornGates = []; sporeZones = []; thornTime = 0; sporeTickT = 0;
     groundSlabs = []; voidRespawn = null; voidT = 0; lastSolid = null;
     lookout = null; onSeaEntry = ()=>{}; seaY = -999; finaleStarted = false;
@@ -1063,17 +1063,51 @@
      The height argument is kept for callers that want the nearest floor at or
      below them, but a floor is never hidden outright: if the only floor here
      is overhead, it is still the floor, and the player lands on it. */
+  /* 床の高さ。傾斜(ramp)を持つ床は、軸に沿って y0 → y1 へ一様に上がる(CLOCKTOWER-002 の
+     歩いて登る坂)。{axis:'x'|'z', a0, a1, y0, y1}: 座標 a0 で y0、a1 で y1 */
+  function slabHeightAt(s, x, z){
+    const r = s.ramp;
+    if(!r) return s.y;
+    const a = r.axis === 'x' ? x : z;
+    const t = Math.max(0, Math.min(1, (a - r.a0) / (r.a1 - r.a0)));
+    return r.y0 + (r.y1 - r.y0) * t;
+  }
   function groundYAt(x, z, fromY){
     let below = null, any = null;
     for(let i=0;i<groundSlabs.length;i++){
       const s = groundSlabs[i];
+      if(s.off) continue;                  // 今は無い床(回っている針・動いていない足場)
       if(x < s.x0 || x > s.x1 || z < s.z0 || z > s.z1) continue;
-      if(any === null || s.y < any) any = s.y;
-      if(fromY === undefined || s.y <= fromY + 0.6){
-        if(below === null || s.y > below) below = s.y;
+      const sy = s.ramp ? slabHeightAt(s, x, z) : s.y;
+      if(any === null || sy < any) any = sy;
+      if(fromY === undefined || sy <= fromY + 0.6){
+        if(below === null || sy > below) below = sy;
       }
     }
     return below !== null ? below : any;
+  }
+
+  /* =========================================================
+     階層(CLOCKTOWER-002)
+
+     床を積み重ねた世界(groundSlabs を持つ ―― 今は時計塔だけ)では、同じ平面の位置に
+     別の階がある。次の共通の決まりで、別の階のものを混ぜない:
+       ・壁は高さの帯(y0〜y1)を持てる。帯の外の者には無いのと同じ(wallApplies)
+       ・同じ階 = 足元の高さの差が FLOOR_SAME_DY 未満(onSameFloor)
+       ・別の階の敵は描かず、動かさず、プレイヤーにも気づかない(07 の updateEnemies)
+       ・敵は自分の階から出ない(坂・縁を越えない。keepEnemyOnFloor)
+       ・支援は床の高さに立ち、別の階の敵を狙わず、離れたらプレイヤーの所へ戻る(08)
+     積み重ねの無い世界(他のダンジョン)では、どれも今までと同じに振る舞う。
+  ========================================================= */
+  const FLOOR_SAME_DY = 4.0;
+  function stackedWorld(){ return groundSlabs.length > 0; }
+  function onSameFloor(y, refY){
+    if(!groundSlabs.length) return true;
+    return Math.abs(y - (refY === undefined ? state.pos.y : refY)) < FLOOR_SAME_DY;
+  }
+  // 壁 w は高さ y の者に効くか。帯の無い壁(他のダンジョンのすべての壁)はいつも効く
+  function wallApplies(w, y){
+    return w.y0 === undefined || (y >= w.y0 - 0.5 && y < w.y1);
   }
 
   /* Anything that moves the player by writing to their position - a clock
@@ -1626,7 +1660,9 @@
   // true when a point is strictly inside a wall box - the state the player
   // should never be able to reach, whatever pushed them there
   function insideAnyWall(pos){
+    const py = pos.y || 0;
     for(const w of walls){
+      if(w.y0 !== undefined && !wallApplies(w, py)) continue;
       if(pos.x > w.minX && pos.x < w.maxX && pos.z > w.minZ && pos.z < w.maxZ) return true;
     }
     return false;
@@ -1634,7 +1670,9 @@
 
   function resolveWallCollisions(pos){
     const r = 0.4;
+    const py = pos.y || 0;
     for(const w of walls){
+      if(w.y0 !== undefined && !wallApplies(w, py)) continue;
       const closestX = Math.max(w.minX, Math.min(pos.x, w.maxX));
       const closestZ = Math.max(w.minZ, Math.min(pos.z, w.maxZ));
       const dx = pos.x - closestX, dz = pos.z - closestZ;
@@ -1668,13 +1706,19 @@
   // samples points along the segment a->b and checks each against every wall
   // AABB; used to stop enemies from noticing/attacking the player through walls
   function hasLineOfSight(a, b){
+    // 積み重ねた世界: 別の階どうしは見えない(床と床の間の空を、平面の線が素通りしていた)
+    const ay = a.y || 0, by = b.y || 0;
+    if(groundSlabs.length && Math.abs(ay - by) >= FLOOR_SAME_DY) return false;
     const dist = Math.hypot(b.x-a.x, b.z-a.z);
     const steps = Math.max(6, Math.ceil(dist/0.5));
     for(let i=1;i<steps;i++){
       const t = i/steps;
       const x = a.x + (b.x-a.x)*t;
       const z = a.z + (b.z-a.z)*t;
+      const y = ay + (by-ay)*t;
       for(const w of walls){
+        if(w.y0 !== undefined && !wallApplies(w, y)) continue;
+        if(w.low) continue;   // 低い手すり(時計塔の縦穴の縁)の上は見通せる
         if(x>=w.minX && x<=w.maxX && z>=w.minZ && z<=w.maxZ) return false;
       }
     }
@@ -1711,7 +1755,7 @@
       const cx = (w.minX+w.maxX)/2, cz = (w.minZ+w.maxZ)/2;
       const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(sx, 2.6, sz));
       const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color:0xff2244}));
-      line.position.set(cx, 1.3, cz);
+      line.position.set(cx, (w.y0 || 0) + 1.3, cz);
       scene.add(line);
       debugColliderMeshes.push(line);
     });
@@ -2297,6 +2341,8 @@
     opts = opts || {};
     const inset = opts.inset === undefined ? 0.3 : opts.inset;
     const area = {x0:room.x0+inset, x1:room.x1-inset, z0:room.z0+inset, z1:room.z1-inset};
+    // band: [下, 上] 床の高さ y からの帯(積み重ねた階で、上下の階の同じ平面の位置を混ぜない)
+    if(opts.band){ area.y0 = (y||0) + opts.band[0]; area.y1 = (y||0) + opts.band[1]; }
     const pos = new THREE.Vector3((room.x0+room.x1)/2, y||0, (room.z0+room.z1)/2);
     registerProximityEvent(pos, 1, speakerName, lines, Object.assign({}, opts, {area}));
   }
@@ -2310,7 +2356,9 @@
       if(ev.condition && !ev.condition()) continue;
       const inside = ev.area
         ? (state.pos.x > ev.area.x0 && state.pos.x < ev.area.x1 &&
-           state.pos.z > ev.area.z0 && state.pos.z < ev.area.z1)
+           state.pos.z > ev.area.z0 && state.pos.z < ev.area.z1 &&
+           // 高さの帯を持つ範囲(積み重ねた階。CLOCKTOWER-002)は、その階に立っている時だけ
+           (ev.area.y0 === undefined || (state.pos.y >= ev.area.y0 && state.pos.y < ev.area.y1)))
         : (state.pos.distanceTo(ev.pos) < ev.radius);
       if(inside){
         // 見せてから話す: 先にカメラで対象を見せ、短い間の後でいつもの会話・一文を出す
@@ -2515,7 +2563,7 @@
       if(!it || !it.group) continue;
       const p = it.group.position;
       const r = rcRoomAt(rc.rooms, p.x, p.z);
-      const engaged = isEnemy && (it.triggered || Math.hypot(p.x - state.pos.x, p.z - state.pos.z) < 12);
+      const engaged = isEnemy && onSameFloor(p.y) && (it.triggered || Math.hypot(p.x - state.pos.x, p.z - state.pos.z) < 12);
       const hide = !!r && !vis.has(r.id) && !engaged;
       if(it.rcUnseen === hide) continue;
       it.rcUnseen = hide;

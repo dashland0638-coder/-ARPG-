@@ -268,38 +268,23 @@
       {pos:new THREE.Vector3(60,0,-126), variant:{color:0xd0a850, hp:210, atk:33, speed:2.6, atkType:'charge', xp:84, goldBonus:[22,32], strongMob:true, roomTag:'templeGauntlet'}},
       {pos:new THREE.Vector3(50,0,-114), variant:{color:0xe0b860, hp:250, atk:37, speed:1.9, atkType:'fire', xp:105, goldBonus:[26,38], projColor:0xffd24a, strongMob:true, roomTag:'templeGauntlet'}},
       {pos:new THREE.Vector3(90,0,-124), variant:{color:0xc9a44a, hp:130, atk:27, speed:2.5, atkType:'charge', xp:46, goldBonus:[14,20]}},
-      /* --- the clocktower (CLOCKTOWER-001 で作り直し), one small storey at a time ---
-         一階ごとに一度か二度の戦い。数値の幅は以前の塔と同じ(下の階ほど弱い)。
-         どの敵も階段の着地点(踊り場)から 8 以上離す(着いた瞬間にぶつからない) */
-      // 1F 鐘楼の玄関: 突進と射撃が一体ずつ
-      {pos:new THREE.Vector3(-282,0,-84), variant:{color:0x8a7a4a, hp:120, atk:25, speed:2.5, atkType:'charge', xp:52, goldBonus:[15,22]}},
-      {pos:new THREE.Vector3(-298,0,-83), variant:{color:0x6a8a9a, hp:105, atk:27, speed:1.0, atkType:'fire', xp:52, goldBonus:[15,22], projColor:16765562}},
-      // 2F 歯車の間: 跳躍(歯車の足場を飛び移る絡繰り兵)・射撃・突進。金属板を踏みに行く間に絡んでくる
-      {pos:new THREE.Vector3(-262,9,-52), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'jumper', xp:58, goldBonus:[17,25]}},
-      {pos:new THREE.Vector3(-260,9,-69), variant:{color:0x6a8a9a, hp:118, atk:30, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
-      {pos:new THREE.Vector3(-282,9,-69), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'charge', xp:58, goldBonus:[17,25]}},
-      // 2F 錘の間: 中ボス「止まった番人」。塔が狂う前の姿のまま、身体の一部だけが完全に停止している
-      {pos:new THREE.Vector3(-274,9,-31), variant:{color:0x9a5a3a, hp:225, atk:34, speed:2.4, atkType:'charge', xp:102, goldBonus:[28,40], strongMob:true, guardian:true,
+      /* --- the clocktower (CLOCKTOWER-002 で作り直し): 中央の縦穴を登る塔。少数精鋭 ---
+         どの戦いも足場の形に合わせる。坂の上り口・下り口、昇降の乗り口から 8 以上離す(着いた瞬間にぶつからない)。
+         数値の幅は以前の塔と同じ(下の層ほど弱い)。敵は自分の層から出ない(07 の keepEnemyOnFloor) */
+      // T1 時計工房(西半分): 最初の戦い。作業場の突進と、灯りの作業台の跳躍(作業台の間を跳ぶ絡繰り兵)
+      {pos:new THREE.Vector3(-268,8,29), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'charge', xp:58, goldBonus:[17,25]}},
+      {pos:new THREE.Vector3(-271,8,49), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'jumper', xp:58, goldBonus:[17,25]}},
+      // T2 縦穴の向こう岸の回廊: 撃ち手二体(歩いては行けない。弓師が縦穴越しに射抜く ―― 盗賊の閃き)
+      {pos:new THREE.Vector3(-270,16,32), variant:{color:0x6a8a9a, hp:96, atk:24, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
+      {pos:new THREE.Vector3(-254,16,32), variant:{color:0x6a8a9a, hp:96, atk:24, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
+      // T3 縦穴の上: 東の帯に強モブ(閃いた三連投げナイフをすぐ試せる)、住まいの突進
+      {pos:new THREE.Vector3(-250,26,40), variant:{color:0x9a5a3a, hp:240, atk:36, speed:2.4, atkType:'charge', xp:110, goldBonus:[30,44], strongMob:true, guardian:true,
         midbossName:'止まった番人', midbossFlavor:'止まっていた歯車が、最後に一度だけ回って砕けた。'}},
-      // 3F 時計工房: 突進・跳躍
-      {pos:new THREE.Vector3(-266,18,-10), variant:{color:0x8a7a4a, hp:145, atk:30, speed:2.7, atkType:'charge', xp:64, goldBonus:[19,28]}},
-      {pos:new THREE.Vector3(-276,18,-4), variant:{color:0x8a7a4a, hp:140, atk:29, speed:2.6, atkType:'jumper', xp:64, goldBonus:[19,28]}},
-      // 3F 針の通路: 東の端の撃ち手二体(針の届かない所。針の向こうから撃ってくる ―― 盗賊の閃きの場面)
-      {pos:new THREE.Vector3(-229,18,-6), variant:{color:0x6a8a9a, hp:130, atk:33, speed:1.0, atkType:'fire', xp:64, goldBonus:[19,28], projColor:16765562}},
-      {pos:new THREE.Vector3(-229,18,2), variant:{color:0x6a8a9a, hp:130, atk:33, speed:1.0, atkType:'fire', xp:64, goldBonus:[19,28], projColor:16765562}},
-      // 3F 螺旋階段の中ほど: 強モブ(閃いた三連投げナイフをすぐ試せる)
-      {pos:new THREE.Vector3(-212,18,4), variant:{color:0x9a5a3a, hp:240, atk:36, speed:2.4, atkType:'charge', xp:110, goldBonus:[30,44], strongMob:true}},
-      // 4F 居間: 残響の影(人の影の形。食卓の周りに留まっている)
-      {pos:new THREE.Vector3(-279,27,27), variant:{color:0x5a5a72, hp:152, atk:32, speed:1.9, atkType:'ghost', xp:68, goldBonus:[20,30]}},
-      {pos:new THREE.Vector3(-268,27,40), variant:{color:0x5a5a72, hp:152, atk:32, speed:1.9, atkType:'ghost', xp:68, goldBonus:[20,30]}},
-      // 5F 鐘楼: 射撃一体(鐘を叩く間に撃ってくる)
-      {pos:new THREE.Vector3(-260,36,82), variant:{color:0x6a8a9a, hp:138, atk:35, speed:1.1, atkType:'fire', xp:68, goldBonus:[20,30], projColor:16765562}},
-      // sealed 'towerStore'(5F 鐘楼の倉庫の封鎖戦)
-      {pos:new THREE.Vector3(-278,36,96), variant:{color:0x8a7a4a, hp:158, atk:33, speed:2.7, atkType:'charge', xp:72, goldBonus:[21,32], roomTag:'towerStore'}},
-      {pos:new THREE.Vector3(-266,36,96), variant:{color:0x8a7a4a, hp:158, atk:33, speed:2.7, atkType:'charge', xp:72, goldBonus:[21,32], roomTag:'towerStore'}},
-      {pos:new THREE.Vector3(-272,36,102), variant:{color:0xc9a44a, hp:300, atk:40, speed:2.3, atkType:'charge', xp:150, goldBonus:[38,54], strongMob:true, roomTag:'towerStore'}},
-      // 6F 文字盤の前室: 強モブ(着地点 (-296,125) から離した、ボスの扉へ続く通路の口の手前)
-      {pos:new THREE.Vector3(-283,45,120), variant:{color:0x9a5a3a, hp:250, atk:37, speed:2.5, atkType:'charge', xp:115, goldBonus:[32,46], strongMob:true}},
+      {pos:new THREE.Vector3(-266,26,53), variant:{color:0x8a7a4a, hp:145, atk:30, speed:2.7, atkType:'charge', xp:64, goldBonus:[19,28]}},
+      // T4 鐘楼: 残響の影二体(鐘の振動ですくむ)と撃ち手
+      {pos:new THREE.Vector3(-270,34,27), variant:{color:0x5a5a72, hp:152, atk:32, speed:1.9, atkType:'ghost', xp:68, goldBonus:[20,30]}},
+      {pos:new THREE.Vector3(-258,34,27), variant:{color:0x5a5a72, hp:152, atk:32, speed:1.9, atkType:'ghost', xp:68, goldBonus:[20,30]}},
+      {pos:new THREE.Vector3(-250,34,44), variant:{color:0x6a8a9a, hp:138, atk:35, speed:1.1, atkType:'fire', xp:68, goldBonus:[20,30], projColor:16765562}},
       // --- the glass conservatory (Lv.22-28) ---
       {pos:new THREE.Vector3(196,0,-46), variant:{color:0x4f7a3a, hp:270, atk:46, speed:2.6, atkType:'charge', xp:118, goldBonus:[26,40]}},
       {pos:new THREE.Vector3(212,0,-40), variant:{color:0x6f9c4a, hp:240, atk:48, speed:0.9, atkType:'fire', xp:118, goldBonus:[26,40], projColor:11075418}},
@@ -342,6 +327,15 @@
     if(gsCh1) gsSpawnCaptain();
     spots.filter(s=>worldKeyForPos(s.pos)===_spawnWorldKey && !gsCh1)
          .forEach(s=> enemies.push(buildEnemy(s.pos, s.variant)));
+    // 時計塔 T2 の向こう岸の撃ち手(盗賊の閃きの条件。03 の towerGalleryCleared)。
+    // 撃ち手の身体の点光源(飾り)は外す: 塔は点光源を 6 個に固定して使い回す(CLOCKTOWER-002 の FPS 対策)。
+    // 光源の数が変わるとシェーダーが作り直され、数が多いほど全ての床の画素が重くなる。色は発光で残る
+    if(_spawnWorldKey==='clocktower') enemies.forEach(en=>{
+      if(en.basePos && Math.abs(en.basePos.y - 16) < 0.5 && en.basePos.z < 34) en.towerGallery = true;
+      if(en.isBoss) return;
+      const ls = []; en.group.traverse(o=>{ if(o.isPointLight) ls.push(o); });
+      ls.forEach(l=> l.parent.remove(l));
+    });
     /* 「山を登る」拡張(★3/★4): 保管庫の奥・屋根裏。どちらも建物側の
        buildMansionCryptDepths()/buildMansionAttic()が同じ★条件でしか部屋
        自体を建てないので、床のない場所に敵だけ浮く事故は起きない。
@@ -478,7 +472,7 @@
     /* 第一章④の最上階のボス「止刻の残響」(CLOCKTOWER-001)。停止した時間と管理人の後悔が生んだもの。
        key は従来の 'towerWarden' のまま(ボス能力・装備の接頭辞・セーブの撃破記録が参照する)。
        数値は以前の時喰らいと同じ。文字盤の前に管理人が座り込んでいる(本編だけ) */
-    if(_spawnWorldKey==='clocktower') enemies.push(buildBoss(new THREE.Vector3(TOWER_BOSS_POS.x, 45, TOWER_BOSS_POS.z), {
+    if(_spawnWorldKey==='clocktower') enemies.push(buildBoss(new THREE.Vector3(TOWER_BOSS_POS.x, TOWER_BOSS_Y, TOWER_BOSS_POS.z), {
       key:'towerWarden', gateTag:'towerWarden', endsRun:false, afterDefeat:'towerCollapse',
       solidR:2.4, atkReach:2.8,
       bodyColor:0x6a5a3a, emissive:0xffb347, eyeColor:0xffe6a0, auraColor:0xd0a8ff,
@@ -854,6 +848,10 @@
       // scenario runs its update every frame regardless of where the
       // player actually is.
       if(en.group.position.distanceToSquared(state.pos) > 10000) return; // 100 units
+      /* 積み重ねた階(時計塔、CLOCKTOWER-002)。別の階の敵は描かず・動かさず・気づかない。
+         以前は平面の距離と平面の視線(床と床の間の空を素通り)だけで判定していたので、
+         上の階の敵がプレイヤーに気づき、壁越しの輪郭(X 線)だけが床越しに見えていた */
+      if(updateEnemyFloorPresence(en)) return;
       // Phase C(#36): 名前付き中ボスは近づいた瞬間に一度だけ名乗りを上げる
       if(en.midbossName && !en.midbossAnnounced && en.group.position.distanceToSquared(state.pos) < 144){ // 12 units
         en.midbossAnnounced = true;
@@ -1069,6 +1067,7 @@
       }
 
       if(en.isBoss){ updateBossAnim(en, dt); updateBossAI(en, dt); return; }
+      keepEnemyOnFloor(en);
       if(en.atkType==='charge')      updateChargerAI(en, dt);
       else if(en.atkType==='fire')   updateFireEnemyAI(en, dt);
       else if(en.atkType==='kite')   updateKiteAI(en, dt);
@@ -1084,6 +1083,7 @@
       else if(en.arenaFixedFacing)   { /* Arena の Dummy: 向きを変えない(HE-TF-01) */ }
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
+      keepEnemyOnFloor(en);
       updateMobAnim(en, dt);
     });
     /* 投げられた網は敵とは別に進む(WORK 5)。漁師を倒しても、すでに
@@ -4424,6 +4424,33 @@
   ========================================================= */
   // the height an object should hover around: its own spawn height, which on
   // a stacked world is its storey rather than zero
+  /* 別の階にいる敵(CLOCKTOWER-002)。true なら、このフレームはその敵を何もしない。
+     描画は本体ごと消す(layer 0 を外す。three.js の影の描画もこの層を見るので、影も出ない)。
+     気づいていた敵も、階が離れたら忘れる(戻ってきた時は、また気づくところから) */
+  function enemyFloorY(en){ return en.basePos && !en.flying ? en.basePos.y : en.group.position.y; }
+  function updateEnemyFloorPresence(en){
+    const off = stackedWorld() && !onSameFloor(enemyFloorY(en));
+    if(off !== !!en.offFloor){
+      en.offFloor = off;
+      en.group.traverse(n=>{ if(n.isLight) return; if(off) n.layers.disable(0); else n.layers.enable(0); });
+      if(off){ en.triggered = !!en.dummy; en.leashT = 0; }
+    }
+    return off;
+  }
+  /* 敵は自分の階から出ない(坂に踏み込まない・縁から落ちない)。プレイヤーの keepOnGround の敵版。
+     積み重ねの無い世界・飛ぶ敵・ボスは対象外 */
+  function keepEnemyOnFloor(en){
+    if(!groundSlabs.length || en.isBoss || en.flying || !en.basePos) return;
+    const p = en.group.position, fy = en.basePos.y;
+    const g = groundYAt(p.x, p.z, fy + 0.3);
+    if(g !== null && Math.abs(g - fy) < 0.3){
+      if(!en.floorSafe) en.floorSafe = new THREE.Vector2();
+      en.floorSafe.set(p.x, p.z);
+      return;
+    }
+    if(en.floorSafe){ p.x = en.floorSafe.x; p.z = en.floorSafe.y; }
+  }
+
   function baseYOf(en){
     return (en.basePos ? en.basePos.y : 0);
   }

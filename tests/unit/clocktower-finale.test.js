@@ -36,7 +36,7 @@ const NO_NAME = /影の旅人|旅人|剣士|戦士/;   // 加入前の人物に�
 
 /* ---- 止刻の残響(最上階のボス)と管理人 ---- */
 function warden(testMode){
-  const lit = slice(combat, "if(_spawnWorldKey==='clocktower') enemies.push(buildBoss(new THREE.Vector3(TOWER_BOSS_POS.x, 45, TOWER_BOSS_POS.z), {", '\n    }));');
+  const lit = slice(combat, "if(_spawnWorldKey==='clocktower') enemies.push(buildBoss(new THREE.Vector3(TOWER_BOSS_POS.x, TOWER_BOSS_Y, TOWER_BOSS_POS.z), {", '\n    }));');
   const obj = lit.slice(lit.indexOf('{', lit.indexOf('TOWER_BOSS_POS.z)')), lit.lastIndexOf('}') + 1);
   return new Function('legacyGrowth', 'CLASSES', 'return ' + obj + ';')(() => testMode, CLASSES);
 }
@@ -154,7 +154,7 @@ test('跳ぶ瞬間: 本編では 盗賊「出口は一つだ」→ 縁で 弓師
   const { shown, state } = finale(T.CLOCKTOWER_CHAPTER1_LEAP);
   const texts = shown.map(l => l.text);
   assert.deepEqual(texts, [
-    '見晴台に出た。眼下には雲が流れ、その裂け目に海が光っている。',
+    '見晴台に出た。眼下で、街の灯りがひとつずつ灯っていく。その向こうに、海が光っている。',
     '「出口は一つだ。……窓はどこにでもある、って言ったろ」',
     '足元で塔が軋む。……降りる道は、無い。',
     '「鐘が鳴ります。……鳴ったら、跳びます」',

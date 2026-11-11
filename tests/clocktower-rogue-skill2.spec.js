@@ -1,15 +1,16 @@
 // @ts-check
-/* CLOCKTOWER-001: 第一章④ 時計塔の、画面に出るところ。
+/* CLOCKTOWER-001 / 002: 第一章④ 時計塔の、画面に出るところ。
  *
- * 盗賊の閃き(Skill 2「三連投げナイフ」)の場面そのもの(3F 針の通路を抜けた先の通路・見せてから話す順番・
- * 一度だけ・代わりの 4F 踊り場・既に持っている出撃では出さない)は unit(clocktower-story)が本物の
- * buildClocktowerChapter1Story / playTowerInsight を動かして固定している。3F は入口から階段二つ先で、
+ * 盗賊の閃き(Skill 2「三連投げナイフ」)の場面そのもの(T2 縦穴の底・見せてから話す順番・
+ * 一度だけ・代わりの T3・既に持っている出撃では出さない)は unit(clocktower-story)が本物の
+ * buildClocktowerChapter1Story / playTowerInsight を動かして固定している。T2 は入口から坂と仕掛けの先で、
  * この環境の速度では本編を歩き通せない(chapter1-late-scenarios.spec.js の冒頭と同じ判断)。
  *
  * ここで見るのは:
  *   本編: 閃く前は(弓師が船で閃いていても)盗賊のスキル2のボタンは出ない・撃てない
  *   本編: 閃いた後はセーブに残り、読み込み直しても出ている。塔の中で実際に撃てる
- *   テストモード: 途中の検証地点(2F〜5F の踊り場)に着く。Skill 2 は最初から持つ(閃きは出ない)
+ *   テストモード: 途中の検証地点(2〜5 層の着いた所)に着く。Skill 2 は最初から持つ(閃きは出ない)
+ *   積み重ねた層(CLOCKTOWER-002): 支援は層の床の高さに立って付いてくる。別の層の敵は描かれない・動かない
  */
 import { test, expect } from '@playwright/test';
 import { openGame, watchErrors, disableCameraAutoFollow, startTestMode } from './helpers.js';
@@ -117,24 +118,41 @@ test.describe('時計塔（第一章④）', () => {
     expect(errors).toEqual([]);
   });
 
-  test('テストモード: 2F〜5F の踊り場から始められる(Skill 2 は最初から持つ)', async ({ page }) => {
+  test('テストモード: 2〜5 層の着いた所から始められる(Skill 2 は最初から持つ)。支援は同じ層の床に立ち、別の層の敵は描かない', async ({ page }) => {
     test.setTimeout(600_000);
     const errors = watchErrors(page);
     const WPS = [
-      { wp: 'f2gear', room: '2階 二階の踊り場' },
-      { wp: 'f3shop', room: '3階 三階の踊り場' },
-      { wp: 'f4home', room: '4階 四階の踊り場' },
-      { wp: 'f5bell', room: '5階 五階の踊り場' },
+      { wp: 'f2shop',  room: '2層 工房', y: 8 },
+      { wp: 'f3shaft', room: '3層 歯車の輪の下', y: 16 },
+      { wp: 'f4upper', room: '4層 縦穴の上', y: 26 },
+      { wp: 'f5bell',  room: '5層 鐘楼', y: 34 },
     ];
+    // 塔の中の状態を読む口(bgm-regression.spec.js と同じ作法: 連結した本体の末尾に足す)
+    await page.route('**/__legacy-core-concatenated.js*', async route => {
+      const r = await route.fetch();
+      const body = await r.text();
+      await route.fulfill({ response: r, body: `${body}\n;window.__tower = { get guest(){ return guestCompanion; }, get enemies(){ return enemies; }, get state(){ return state; } };` });
+    });
     for (const w of WPS) {
       await openGame(page);
       await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'clocktower', waypoint: w.wp });
       await expect(page.locator('#minimap-area')).toHaveText('狂いの時計塔', { timeout: 180_000 });
       await expect(page.locator('#minimap-room')).toHaveText(w.room, { timeout: 60_000 });
-      await closeDialogues(page, 1500);
+      await closeDialogues(page, 2500);
       // 落ちて入口へ戻されない
       await expect(page.locator('#minimap-room')).toHaveText(w.room);
       await expect(skill2Btn(page)).not.toHaveClass(/locked/);
+      // 支援(弓師)は高さ 0 ではなく、この層の床に描かれている(PR #121 の「階段の後で付いてこない」の原因)
+      await expect.poll(() => page.evaluate(() => {
+        const g = window.__tower.guest; return g ? Math.round(g.group.position.y) : null;
+      }), { timeout: 15_000 }).toBe(w.y);
+      // 別の層の敵は描かれず(本体も影も)、動かない
+      const off = await page.evaluate(() => window.__tower.enemies.filter(e => !e.dead).map(e => ({
+        off: !!e.offFloor, dy: Math.abs((e.basePos ? e.basePos.y : e.group.position.y) - window.__tower.state.pos.y), drawn: (e.group.layers.mask & 1) === 1 })));
+      for (const e of off) {
+        if (e.dy >= 4) { expect(e.off).toBe(true); expect(e.drawn).toBe(false); }
+        else expect(e.off).toBe(false);
+      }
     }
     expect(errors).toEqual([]);
   });
