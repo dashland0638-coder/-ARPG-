@@ -1021,6 +1021,7 @@
     }
 
     companion.bobT += dt;
+    if(groundSlabs.length) companion.pos.y = state.pos.y;   // 積み重ねた階では使い魔もプレイヤーの階に浮く
     companion.group.position.set(companion.pos.x, allyFloorY(companion.pos) + 0.75+Math.sin(companion.bobT*2.2)*0.08, companion.pos.z);
     companion.group.rotation.y += dt*0.6;
   }
@@ -1095,7 +1096,13 @@
     if(!groundSlabs.length) return;
     resolveWallCollisions(pos);
     const g = groundYAt(pos.x, pos.z, pos.y + 0.6);
-    if(g === null || g < pos.y - 1.2){ pos.x = prevX; pos.z = prevZ; return; }
+    if(g === null || g < pos.y - 1.2){
+      pos.x = prevX; pos.z = prevZ;
+      // 戻した所にも足元の床が無い(動く足場が去った後など)なら、宙に残さずプレイヤーの所へ
+      const h = groundYAt(pos.x, pos.z, pos.y + 0.6);
+      if(guestCompanion && pos === guestCompanion.pos && (h === null || h < pos.y - 1.2)) placeGuestNearPlayer();
+      return;
+    }
     pos.y = g;
   }
   /* 階を越えた追従の共通処理(CLOCKTOWER-002)。階段・昇降機・坂のどれで階を移っても、
@@ -1105,9 +1112,10 @@
   function guestCatchUp(dt){
     if(!guestCompanion || guestCompanion.waitAt) return;
     const P = guestCompanion.pos;
+    if(!groundSlabs.length) return;   // 積み重ねた階(時計塔)だけ。他のダンジョンの支援の歩き方は変えない
     const apart = !onSameFloor(P.y) || Math.hypot(P.x - state.pos.x, P.z - state.pos.z) > 16;
     guestApartT = apart ? guestApartT + dt : 0;
-    if(guestApartT < (groundSlabs.length ? 1.0 : 3.0)) return;
+    if(guestApartT < 1.0) return;
     guestApartT = 0;
     placeGuestNearPlayer();
   }
@@ -1146,6 +1154,11 @@
     if(typeof towerRiding === 'function' && towerRiding()){
       const a = state.facing + Math.PI;
       guestCompanion.pos.set(state.pos.x + Math.sin(a) * 0.9, state.pos.y, state.pos.z + Math.cos(a) * 0.9);
+      const rs = towerRideSlab();   // 足場の上に収める(縁の外の宙に置かない)
+      if(rs){
+        guestCompanion.pos.x = Math.max(rs.x0 + 0.3, Math.min(rs.x1 - 0.3, guestCompanion.pos.x));
+        guestCompanion.pos.z = Math.max(rs.z0 + 0.3, Math.min(rs.z1 - 0.3, guestCompanion.pos.z));
+      }
       guestCompanion.target = null; guestApartT = 0;
       guestCompanion.group.position.copy(guestCompanion.pos);
       return;

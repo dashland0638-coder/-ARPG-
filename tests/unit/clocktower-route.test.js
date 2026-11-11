@@ -274,3 +274,40 @@ test('周回用の隠し歯車庫(★3、テストモードの旧成長)は第�
   assert.ok(onSlab(-247, 37, 0) && onSlab(-251, 42, 0));
   assert.match(tower, /new THREE\.Vector3\(-251, f1y, 42\), '守衛の小部屋へ戻った……'/);
 });
+
+/* ---- CLOCKTOWER-002 独立レビューの指摘(R1〜R8)への回帰テスト ---- */
+const combatSrc = read('07-ai-combat.js'), hudSrc = read('14-hud-boot.js'), lootSrc = read('08-loot-equipment.js');
+function fnOf(src, sig){ const a = src.indexOf(sig); assert.ok(a >= 0, sig); return src.slice(a, src.indexOf('\n  }\n', a) + 4); }
+
+test('R1: 別の階の敵には、プレイヤー・支援のどの攻撃・狙いも届かない(isBossAccessible が別の階を外す)', () => {
+  const g = new Function('getDoor', fnOf(combatSrc, 'function isBossAccessible(en){') + '\nreturn isBossAccessible;');
+  const f = (en, gd) => g(gd)(en);
+  assert.equal(f({ offFloor: true }, () => null), false);
+  assert.equal(f({ offFloor: false }, () => null), true);
+  assert.equal(f({ offFloor: true, isBoss: true, triggered: true }, () => null), false);
+});
+
+test('R3/R4: 立っている者は一歩で一段(1.0)より深く落ちない・頭上の床を足元と見なさない(縦穴の足場の脇・橋の脇)', () => {
+  const groundSlabs = [{ x0: 0, x1: 3, z0: 0, z1: 3, y: 16 }, { x0: -5, x1: 8, z0: 1, z1: 2, y: 8 }];
+  const env = new Function('groundSlabs', [
+    fnOf(world, 'function slabHeightAt(s, x, z){'), fnOf(world, 'function groundYAt(x, z, fromY){'), fnOf(world, 'function standableAt(x, z, y){'),
+    'return standableAt;'].join('\n'))(groundSlabs);
+  assert.equal(env(1.5, 1.5, 16), true, '足場の上');
+  assert.equal(env(5, 1.5, 16), false, '足場の脇 → 下の橋(8)へは一歩で落ちない');
+  assert.equal(env(1.5, 0.5, 8), false, '真上に足場(16)しか無い所: 頭上の床は足元ではない(以前は any で拾って宙へ出た)');
+  assert.equal(env(5, 1.5, 8), true, '橋の上');
+  assert.equal(env(20, 20, 8), false, '床の無い所');
+  assert.match(world, /if\(standableAt\(state\.pos\.x, state\.pos\.z, y\)\) return;/, 'keepOnGround が使う');
+});
+
+test('R2: 乗り物の後、支援が宙に残らない(足場の上に乗せる・足元の床が無ければプレイヤーの所へ)', () => {
+  assert.match(lootSrc, /const rs = towerRideSlab\(\);/);
+  assert.match(lootSrc, /if\(guestCompanion && pos === guestCompanion\.pos && \(h === null \|\| h < pos\.y - 1\.2\)\) placeGuestNearPlayer\(\);/);
+});
+
+test('R5〜R8: ミニマップの範囲は今の層の部屋 / 支援の合流は積み重ねた階だけ / 島は島にいる時だけ描く / 使い魔はプレイヤーの階', () => {
+  assert.match(hudSrc, /if\(b\.y0 !== undefined && \(state\.pos\.y < b\.y0 - 0\.5 \|\| state\.pos\.y >= b\.y1\)\) continue;/);
+  assert.match(lootSrc, /if\(!groundSlabs\.length\) return;   \/\/ 積み重ねた階\(時計塔\)だけ/);
+  assert.match(tower, /const on = i === 7 \? state\.pos\.z > 200 :/);
+  assert.match(lootSrc, /if\(groundSlabs\.length\) companion\.pos\.y = state\.pos\.y;/);
+});

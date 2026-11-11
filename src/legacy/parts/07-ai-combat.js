@@ -5302,6 +5302,9 @@
   // a boss enemy can't be hit at all while its room door is still closed -
   // stops ranged/melee attacks from reaching it before the door is opened
   function isBossAccessible(en){
+    /* 別の階の敵(積み重ねた階、CLOCKTOWER-002)は、プレイヤー・支援のどの攻撃・狙いからも外す。
+       当たり判定は平面の距離なので、真上・真下の階の(描かれていない)敵に届いてしまっていた */
+    if(en.offFloor) return false;
     if(!en.isBoss) return true;
     if(en.triggered) return true; // fight is underway; the door being sealed for containment shouldn't also block hits
     const gateKey = en.bossDoorKey;

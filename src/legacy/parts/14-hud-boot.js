@@ -590,11 +590,13 @@
     ...CONS_ROOMS.filter(r=>!r.cor).map(r=>({minX:r.x0-2, maxX:r.x1+2, minZ:r.z0-2, maxZ:r.z1+2})),
     ...CONS_ROOMS.filter(r=> r.cor).map(r=>({minX:r.x0-7, maxX:r.x1+7, minZ:r.z0-7, maxZ:r.z1+7})),
     // the clocktower, storey by storey
-    ...TOWER_ROOMS.filter(r=>!r.cor).map(r=>({minX:r.x0-2, maxX:r.x1+2, minZ:r.z0-2, maxZ:r.z1+2})),
-    ...TOWER_ROOMS.filter(r=> r.cor).map(r=>({minX:r.x0-7, maxX:r.x1+7, minZ:r.z0-7, maxZ:r.z1+7})),
+    // 積み重ねた層は高さの帯も持つ(minimapSubZone が同じ平面の別の層の部屋を選ばない。CLOCKTOWER-002)
+    ...TOWER_ROOMS.filter(r=>!r.cor).map(r=>({minX:r.x0-2, maxX:r.x1+2, minZ:r.z0-2, maxZ:r.z1+2, y0:r.y, y1:r.y + (r.h || 7.5)})),
+    ...TOWER_ROOMS.filter(r=> r.cor).map(r=>({minX:r.x0-7, maxX:r.x1+7, minZ:r.z0-7, maxZ:r.z1+7, y0:r.y, y1:r.y + (r.h || 7.5)})),
   ];
   function minimapSubZone(x,z){
     for(const b of MINIMAP_SUBZONES){
+      if(b.y0 !== undefined && (state.pos.y < b.y0 - 0.5 || state.pos.y >= b.y1)) continue;
       if(x>=b.minX && x<=b.maxX && z>=b.minZ && z<=b.maxZ) return b;
     }
     return null;

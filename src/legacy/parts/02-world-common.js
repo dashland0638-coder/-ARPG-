@@ -1116,13 +1116,20 @@
      past the edge of a storey, where there is nothing to land on. Every
      such push goes through here, which refuses to leave them over a void.
   */
+  /* 積み重ねた階で、立っている者が一歩で行ってよい所か: 足元に床があり、その床が頭上でなく
+     (足元 +0.6 以下)、一段より深く落ちない(足元 -1.0 以上)。縦穴の縁・歯車の足場の脇・坂の口から
+     下の階へ落ちない(CLOCKTOWER-002)。groundYAt は真上の床しか無い所では頭上の床を返すので、それも弾く */
+  function standableAt(x, z, y){
+    const g = groundYAt(x, z, y);
+    return g !== null && g <= y + 0.6 && g >= y - 1.0;
+  }
   function pushPlayer(dx, dz){
     const nx = state.pos.x + dx, nz = state.pos.z + dz;
     const y = state.pos.y;
-    if(groundSlabs.length && groundYAt(nx, nz, y) === null){
+    if(groundSlabs.length && !standableAt(nx, nz, y)){
       // try the axes separately: sliding along the edge is fine, leaving isn't
-      if(groundYAt(nx, state.pos.z, y) !== null){ state.pos.x = nx; return; }
-      if(groundYAt(state.pos.x, nz, y) !== null){ state.pos.z = nz; return; }
+      if(standableAt(nx, state.pos.z, y)){ state.pos.x = nx; return; }
+      if(standableAt(state.pos.x, nz, y)){ state.pos.z = nz; return; }
       return;                       // nowhere safe to go: stay put
     }
     state.pos.x = nx; state.pos.z = nz;
@@ -1138,9 +1145,10 @@
     if(!groundSlabs.length) return;
     if(state.launch) return;              // the escape leap is meant to be airborne
     if(!state.grounded) return;           // already falling: let physics finish
-    if(groundYAt(state.pos.x, state.pos.z, state.pos.y) !== null) return;
-    if(groundYAt(state.pos.x, prevZ, state.pos.y) !== null){ state.pos.z = prevZ; return; }
-    if(groundYAt(prevX, state.pos.z, state.pos.y) !== null){ state.pos.x = prevX; return; }
+    const y = state.pos.y;
+    if(standableAt(state.pos.x, state.pos.z, y)) return;
+    if(standableAt(state.pos.x, prevZ, y)){ state.pos.z = prevZ; return; }
+    if(standableAt(prevX, state.pos.z, y)){ state.pos.x = prevX; return; }
     state.pos.x = prevX; state.pos.z = prevZ;
   }
 

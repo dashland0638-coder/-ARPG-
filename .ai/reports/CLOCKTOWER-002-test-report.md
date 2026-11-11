@@ -28,7 +28,7 @@
 | 種類 | 結果 |
 | --- | --- |
 | Build（`npm run build`） | 成功 |
-| Unit（`npm run test:unit`） | 2201 pass / 0 fail |
+| Unit（`npm run test:unit`） | 2205 pass / 0 fail（レビューの回帰テストを含む） |
 | E2E（手元、時計塔・第一章の後半・時計塔 → 道） | 10 / 10 pass |
 | E2E（全体） | CI（push 後） |
 

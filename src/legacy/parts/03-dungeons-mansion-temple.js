@@ -712,7 +712,7 @@
     [-276, 28, -276, 58, 8, 'r'],                    // 坂 r0 の口
     [-248, 30, -248, 58, 8, 'r'],                    // 坂 r1 の脇
     [-268, 34, -256, 34, 8, 'r'], [-268, 46, -256, 46, 8, 'r'],
-    [-268, 34, -268, 46, 8, 'r', [[38.8, 41.2]]], [-256, 34, -256, 46, 8, 'r', [[38.8, 41.2]]],   // 長針の橋の口
+    [-268, 34, -268, 46, 8, 'r', [[38.5, 41.5]]], [-256, 34, -256, 46, 8, 'r', [[38.5, 41.5]]],   // 長針の橋の口
     [-262, 22, -262, 34, 8, 'd'], [-262, 46, -262, 58, 8, 'd'],   // 崩れた棚(西半分と東半分を分ける)
     // ---- T2 ----
     [-280, 58, -244, 58, 16, 'w'], [-280, 46, -280, 58, 16, 'w'], [-244, 46, -244, 58, 16, 'w'],
@@ -769,7 +769,7 @@
      2. 歯車の輪(T2 → T3): 縦穴の中で回る巨大な輪。四つの足場が、止まるたびに下の桟橋と上の桟橋に並ぶ。
         クラッチを繋ぐと回り出す。乗れば運ばれる(乗っている間は足場から落ちない)
      3. 鐘の振動(T4 → T5): 大鐘を鳴らすと、その振動で昇降台の留め金が外れて上がる。近くの敵はすくむ */
-  const TOWER_HAND = {y:8, len:14, w:2.4, stuckMin:13, openMin:15};
+  const TOWER_HAND = {y:8, len:14, w:3.0, stuckMin:13, openMin:15};   // 幅は歯車の輪の足場(3.0)と同じ(足場の真下に、橋の外の細い隙間を作らない)
   const TOWER_CRANK = {x:-270.6, z:40, y:8};
   const TOWER_WHEEL = {x:-262, y:21, z:40, r:5, step:2.0, rest:2.6, size:3.0};
   const TOWER_CLUTCH = {x:-266.5, z:49.5, y:16};
@@ -820,8 +820,9 @@
     const py = state.pos.y;
     let key = '';
     for(let i=0;i<towerTierObjs.length;i++){
-      const ty = TOWER_TIER_Y[i] !== undefined ? TOWER_TIER_Y[i] : 0;
-      key += (ty <= py + 2.2 && ty >= py - 18) ? '1' : '0';
+      // 島(7)は島にいる時だけ(塔の中から見える距離ではない)
+      const on = i === 7 ? state.pos.z > 200 : (TOWER_TIER_Y[i] <= py + 2.2 && TOWER_TIER_Y[i] >= py - 18);
+      key += on ? '1' : '0';
     }
     const outside = state.pos.z > TOWER_OUT.z1 + 0.5 && py < 4;
     key += outside ? 'o' : 'i';
@@ -1031,6 +1032,13 @@
     const M = towerMech;
     if(!M || currentWorldKey !== 'clocktower') return false;
     return !!((M.wheel && M.wheel.rider) || (M.lift && M.lift.rider && (M.lift.state === 'up' || M.lift.state === 'down')));
+  }
+  // 今乗っている足場(歯車の輪の足場・昇降台)。乗っていなければ null
+  function towerRideSlab(){
+    if(!towerRiding()) return null;
+    const M = towerMech;
+    if(M.wheel && M.wheel.rider) return M.wheel.slabs[M.wheel.rider.i];
+    return M.lift ? M.lift.slab : null;
   }
   function towerWheelAtJetty(W, i){
     const p = towerWheelPose(W.theta, i);
