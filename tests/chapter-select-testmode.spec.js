@@ -196,7 +196,7 @@ test.describe('テスト用チャプター／シナリオ選択', () => {
       { key: 'mansion', wp: 'bossante', area: '囚われの洋館' },
       { key: 'duskvillage', wp: 'bossgate', area: '宵待ちの村', room: '村の奥' },
       { key: 'ghostship', wp: 'bosshold', area: '幽霊船' },
-      { key: 'clocktower', wp: 'bossante', area: '狂いの時計塔', room: '6階 文字盤の前室' },   // CLOCKTOWER-001 で塔を作り直した(最上階は 6 階)
+      { key: 'clocktower', wp: 'bossante', area: '狂いの時計塔', room: '6層 大時計の前室' },   // CLOCKTOWER-002 で縦穴を登る塔に作り直した(最上層は 6 層)
     ];
     for (const sc of PRE) {
       await startTestMode(page, { classKey: 'warrior', scenario: sc.key, waypoint: sc.wp, level: 30 });
