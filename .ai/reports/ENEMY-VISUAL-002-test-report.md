@@ -7,7 +7,9 @@
 | Unit | `node --test` | 2228 pass / 0 fail（SVG カタログの既存の skip 1 件は checkout に catalog が無いためで、この変更と無関係） |
 | Protocol | `.ai/tasks` / `.ai/reports` / `.ai/decisions`（DEC-021）を作成 | OK |
 | E2E（1 回目、レビュー前） | ghostship-chapter1 / ghostship-archer-skill2 / clocktower-rogue-skill2 / mansion-scenario / mansion-lord / mansion-enemies / mansion-butler / mansion-warden / mansion-escort / chapter1-dusk-basics / tavern-smith-greeting / action-zone / notifications | 57 passed（20.2 分）。skip・retry なし |
-| E2E（2 回目、レビュー指摘の修正後） | ghostship-chapter1 / ghostship-archer-skill2 / mansion-scenario / clocktower-rogue-skill2 | 下の追記を参照 |
+| E2E（2 回目、Round 1 の修正後） | ghostship-chapter1 / ghostship-archer-skill2 / mansion-scenario / clocktower-rogue-skill2 | 14 passed（8.0 分） |
+| E2E（3 回目、Round 2 の修正後） | ghostship-chapter1 / mansion-enemies / mansion-scenario / clocktower-rogue-skill2 | 17 passed（8.7 分） |
+| CI（GitHub Actions） | PR #122 のチェック | `ca99d32`・`f25f221`・`921e082`・`2acc82b` で失敗なし |
 
 assertion を弱めた変更は無い。消した assertion は消えた仕組み（回復結晶・チェックポイント）を確かめていたものだけで、
 代わりに「無いこと」を確かめる assertion を足した（`healing-objects-removed.test.js`）。
