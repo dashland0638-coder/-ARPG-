@@ -411,6 +411,7 @@
   }
   function updateFoeExtras(en, M, t, sw, moving, dt){
     const k = Math.min(1, dt * 12);
+    M.foeRoll = 0;   // よろめきの横の傾き(硬直の間だけ。中断されても残らない)
     const kind = M.foeKind;
     if(kind === 'phantomSailor' || kind === 'phantomEcho') posePhantom(en, M, t, moving, dt, k);
     else if(kind === 'drownedSailor' || kind === 'anchorDrowned') poseDrowned(en, M, t, moving, dt, k);
@@ -437,7 +438,7 @@
     M.foeArmR.rotation.x = lerpTo(M.foeArmR.rotation.x, r, k);
     M.foeArmL.rotation.x = lerpTo(M.foeArmL.rotation.x, l, k);
     M.foeBlade.rotation.y = lerpTo(M.foeBlade.rotation.y, bladeYaw, k);
-    en.group.rotation.x = lerpTo(en.group.rotation.x, lean, k);
+    M.foeLean = lerpTo(M.foeLean || 0, lean, k);
     M.foeBladeMat.emissiveIntensity = lerpTo(M.foeBladeMat.emissiveIntensity, glow, k);
     if(M.foeHem){ M.foeHem.rotation.y = t * 0.8; M.foeHem.scale.y = 1 + Math.sin(t * 2.3) * 0.08; }
     if(M.foeGhostMat) M.foeGhostMat.opacity = lerpTo(M.foeGhostMat.opacity, hem, k * 0.5);
@@ -467,13 +468,13 @@
       else { spread = 1.2; twist = -0.9 + (P.atk === 'swing' ? 7.2 : 2.0) * P.k; l = r = -0.4; }
     } else if(P.st === 'recover'){
       lean = 0.45 * (1 - P.k) + 0.22 * P.k; l = r = 0.6 * (1 - P.k);   // よろめき(前へ流れる)
-      en.group.rotation.z = Math.sin(P.k * Math.PI * 2) * 0.12 * (1 - P.k);
+      M.foeRoll = Math.sin(P.k * Math.PI * 2) * 0.12 * (1 - P.k);
     }
     M.foeArmL.rotation.x = lerpTo(M.foeArmL.rotation.x, l, k);
     M.foeArmR.rotation.x = lerpTo(M.foeArmR.rotation.x, r, k);
     M.foeArmL.rotation.z = lerpTo(M.foeArmL.rotation.z, spread, k);
     M.foeArmR.rotation.z = lerpTo(M.foeArmR.rotation.z, -spread, k);
-    en.group.rotation.x = lerpTo(en.group.rotation.x, lean, k * 0.6);
+    M.foeLean = lerpTo(M.foeLean || 0, lean, k * 0.6);
     if(M.foeCoat) M.foeCoat.rotation.y = twist;
     if(M.foeAnchor){
       // 錨の投擲: 振り抜く間に錨だけが前へ飛び、硬直の間に手繰り戻す
@@ -552,7 +553,7 @@
     if(M.foeRotors) M.foeRotors.forEach((ro, i)=>{ ro.rotation.y += (moving ? 14 : 4) * dt * (i ? 1.5 : 1); });
     M.foeArmR.rotation.x = lerpTo(M.foeArmR.rotation.x, r, k);
     M.foeArmL.rotation.x = lerpTo(M.foeArmL.rotation.x, l, k);
-    en.group.rotation.x = lerpTo(en.group.rotation.x, lean, k);
+    M.foeLean = lerpTo(M.foeLean || 0, lean, k);
     if(M.foeBladeMat) M.foeBladeMat.emissiveIntensity = lerpTo(M.foeBladeMat.emissiveIntensity, glow, k);
     M.foeEyeMat.emissiveIntensity = lerpTo(M.foeEyeMat.emissiveIntensity, P.st === 'recover' && P.k < 0.8 && (P.atk === 'wind' || P.atk === 'spin') ? 0.05 : 0.5, k);
     // 顔の針は時を刻む(一秒ごとに一目盛り)
@@ -591,16 +592,23 @@
     } else if(P.st === 'recover'){
       lean = 0.2 * (1 - P.k);
       if(P.atk === 'thrust'){ r = -1.5 * (1 - P.k); spearZ = 1.0 * (1 - P.k); }
-      else { en.group.rotation.z = Math.sin(P.k * Math.PI * 3) * 0.06 * (1 - P.k); }   // 大回転の後、重さに振られる
+      else { M.foeRoll = Math.sin(P.k * Math.PI * 3) * 0.06 * (1 - P.k); }   // 大回転の後、重さに振られる
     }
     M.foeArmR.rotation.x = lerpTo(M.foeArmR.rotation.x, r, k);
     M.foeBlade.position.z = lerpTo(M.foeBlade.position.z, 0.05 + spearZ, k);
     M.foePend.rotation.x = lerpTo(M.foePend.rotation.x, pendX, k);
     M.foePend.rotation.y = pendSpin;
-    en.group.rotation.x = lerpTo(en.group.rotation.x, lean, k * 0.7);
+    M.foeLean = lerpTo(M.foeLean || 0, lean, k * 0.7);
     M.foeBladeMat.emissiveIntensity = lerpTo(M.foeBladeMat.emissiveIntensity, glow, k);
     M.foeHandM.rotation.z = -t * 0.8;
     if(!P.st || P.st === 'idle') M.foePend.rotation.z = Math.sin(t * 1.4) * 0.25;
+  }
+
+  /* 前のめり・反りと、よろめきの横の傾き。07 の updateMobAnim が怯み(applyMobFlinch)の後に足す
+     (怯みが毎フレーム rotation.x を 0 へ戻すので、前に置くと見えない) */
+  function applyFoeLean(en, M){
+    if(M.foeLean) en.group.rotation.x += M.foeLean;
+    if(M.foeRoll) en.group.rotation.z += M.foeRoll;
   }
 
   /* 死亡: 敵の特徴で。幽霊船の亡霊・時間の残響は崩れて消え、異形は丸まって沈み、機械は前のめりに崩れて止まる
@@ -659,6 +667,15 @@
     r.grp.visible = true;
   }
   function foeHideRings(en){ (en.foeRings || []).forEach(r=>{ r.grp.visible = false; }); }
+  /* 倒れた敵が湧き直す時(07 の updateEnemies)。固有の AI の状態・遅れて弾ける残像・透け具合を持ち越さない
+     (持ち越すと、予兆の見えないまま一太刀・弾ける輪が来る) */
+  function foeResetOnRespawn(en){
+    en.echoState = null; en.echoBursts = []; en.abyssState = null; en.abyssTargets = null;
+    foeHideRings(en); foeHideLash(en); foeSetOpacity(en, 1);
+    if(en.mob && en.mob.foeTrail) en.mob.foeTrail.forEach(t=> t.visible = false);
+    if(en.dieScale != null) en.group.scale.setScalar(en.dieScale);
+    en.group.rotation.z = 0;
+  }
   function clearFoeFx(){
     if(!foeRingList) return;
     foeRingList.forEach(r=> scene.remove(r.grp));

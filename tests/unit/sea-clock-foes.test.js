@@ -168,3 +168,95 @@ function fnBody(src, sig){
   assert.ok(a >= 0, sig);
   return src.slice(a, src.indexOf('\n  }\n', a) + 4);
 }
+
+/* ---- 近接の状態機械を実際に動かす(独立レビュー R1・R6) ----
+   07 の本物の updateShadowServantAI / servantEnterIdle を、最小の stub で一歩ずつ進める */
+import * as profiles from '../../src/core/enemy-profiles.js';
+class V3 {
+  constructor(x = 0, y = 0, z = 0){ this.x = x; this.y = y; this.z = z; }
+  set(x, y, z){ this.x = x; this.y = y; this.z = z; return this; }
+  copy(v){ this.x = v.x; this.y = v.y; this.z = v.z; return this; }
+  clone(){ return new V3(this.x, this.y, this.z); }
+  subVectors(a, b){ this.x = a.x - b.x; this.y = a.y - b.y; this.z = a.z - b.z; return this; }
+  addScaledVector(v, s){ this.x += v.x * s; this.y += v.y * s; this.z += v.z * s; return this; }
+  length(){ return Math.hypot(this.x, this.y, this.z); }
+  lengthSq(){ return this.x * this.x + this.y * this.y + this.z * this.z; }
+  normalize(){ const l = this.length() || 1; this.x /= l; this.y /= l; this.z /= l; return this; }
+}
+function servantHarness(kind, dist){
+  const src = fnBody(combat, 'function servantEnterIdle(en){') + fnBody(combat, 'function servantGuardPhase(st){') + fnBody(combat, 'function updateShadowServantAI(en, dt){');
+  const state = { pos: new V3(0, 0, dist), paralyzeInvulnT: 0, invulnerable: false, hp: 1000, debugMode: false };
+  const log = { hits: 0, sfx: [] };
+  const stubs = {
+    THREE: { Vector3: V3 }, state,
+    meleeProfile: profiles.meleeProfile, meleeAttackPlan: profiles.meleeAttackPlan, meleeAttackChoice: profiles.meleeAttackChoice,
+    meleeHeavyCooldown: profiles.meleeHeavyCooldown,
+    stepGuardHold: () => 0, butlerShouldShiftPhase: () => false, butlerPhaseFor: () => 1, butlerCanShadowStep: () => false, butlerStepTarget: () => null,
+    BUTLER_PHASE_SHIFT_SEC: 1, BUTLER_FADE_SEC: 0.5, BUTLER_EMERGE_SEC: 0.4, BUTLER_STEP_COOLDOWN_SEC: 7,
+    setEnemyOpacity(){}, resolveWallCollisions(){}, sfx: n => log.sfx.push(n),
+    angleDiff: (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a)),
+    hasLineOfSight: () => true, aggroOnDetect: () => true, updateWanderAI(){},
+    turnBudget: (r, dt) => r * dt, resolveTurnRate: () => 99, turnTowardAngle: (a, b) => b,
+    shouldUseGuardianBreak: () => false, guardBreakPlan: () => ({}),
+    tryPerfectDodge(){}, tryConsumeOrbShield: () => false, applyIncomingDamageMul: d => d, chargeDamage: (en, d) => d,
+    spawnDamagePopup(){}, flashScreen(){}, addShake(){}, triggerPlayerDown(){},
+    POST_ATTACK_RECOVERY_SEC: 0.5,
+  };
+  const names = Object.keys(stubs);
+  const api = new Function(...names, src + '\nreturn { step: (en, dt) => updateShadowServantAI(en, dt), idle: en => servantEnterIdle(en) };')(...names.map(n => stubs[n]));
+  state.hp = 1000;
+  const origHp = () => 1000 - state.hp;
+  const en = { group: { position: new V3(), rotation: { y: 0 } }, meleeKind: kind, atk: 10, speed: 2,
+    servantState: 'idle', servantT: 0, servantSweepCD: 0, servantAtkCD: 0, servantFacing: new V3(0, 0, 1) };
+  return { api, en, state, log, hurt: origHp };
+}
+
+test('状態機械: 残像の亡霊の二度の踏み込みの後は heavy のクールダウンが掛かり、すぐ次の踏み込みは来ない', () => {
+  const { api, en } = servantHarness('phantomEcho', 3.5);
+  const seq = [];
+  for (let i = 0; i < 400; i++){
+    api.step(en, 0.02);
+    const tag = en.servantState + ':' + (en.servantAttack || '');
+    if (seq[seq.length - 1] !== tag) seq.push(tag);
+    if (seq.length > 1 && en.servantState === 'idle') break;
+  }
+  assert.deepEqual(seq.slice(0, 6), ['windup:lunge', 'strike:lunge', 'windup:relunge', 'strike:relunge', 'recover:relunge', 'idle:']);
+  // 連撃の終わり(二度目の踏み込みを振り抜いた時)に 3.6 秒。硬直 1.05 秒の間も減るので、待機に戻った時は約 2.5 秒残る
+  assert.ok(en.servantSweepCD > 2.4, `連撃の後のクールダウン ${en.servantSweepCD}`);
+  // クールダウン中はその距離(4 以内・一太刀より遠い)では踏み込まず、詰める
+  api.step(en, 0.02);
+  assert.notEqual(en.servantAttack, 'lunge');
+});
+
+test('状態機械: 踏み込みは振り抜く間に前へ詰め、離れた相手に届く(lunge)', () => {
+  const { api, en, hurt } = servantHarness('phantomSailor', 3.7);
+  const z0 = en.group.position.z;
+  for (let i = 0; i < 120 && en.servantState !== 'recover'; i++) api.step(en, 0.02);
+  assert.equal(en.servantAttack, 'lunge');
+  assert.ok(en.group.position.z - z0 > 1.8, `踏み込んだ距離 ${en.group.position.z - z0}`);
+  assert.ok(hurt() > 0, '踏み込んだ先から当たる');
+});
+
+test('状態機械: 回転機兵の三連突きは三手で終わり、最後に長い隙。湧き直し・崩されで連撃の印は消える', () => {
+  const { api, en } = servantHarness('gearSprinter', 1.5);
+  const atks = [];
+  for (let i = 0; i < 300 && en.servantState !== 'recover'; i++){
+    api.step(en, 0.02);
+    if (en.servantState === 'strike' && atks[atks.length - 1] !== en.servantAttack) atks.push(en.servantAttack);
+  }
+  assert.deepEqual(atks, ['jab', 'jab2', 'jab3']);
+  assert.ok(en.servantT >= 0.9, '三つ目の後の隙');
+  en.servantChainHeavy = true; api.idle(en);
+  assert.equal(en.servantChainHeavy, false);
+});
+
+test('湧き直し: 異形・残響の固有の AI と遅れて弾ける残像を持ち越さない(独立レビュー R3)', () => {
+  const reset = fnBody(foes, 'function foeResetOnRespawn(en){');
+  assert.match(reset, /en\.echoState = null; en\.echoBursts = \[\]; en\.abyssState = null;/);
+  assert.match(reset, /foeSetOpacity\(en, 1\)/);
+  assert.match(combat, /if\(en\.mob && en\.mob\.foeKind\) foeResetOnRespawn\(en\);/);
+  // 世界の片付けは敵の表を空にする前に(残像の影は敵ごとに持つ。R2)
+  const world = read('src/legacy/parts/02-world-common.js');
+  const d = world.slice(world.indexOf('function disposeWorld(){'));
+  assert.ok(d.indexOf('clearFoeFx();') < d.indexOf('enemies = [];'));
+});

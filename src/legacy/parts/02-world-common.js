@@ -371,6 +371,7 @@
     stallTriggers = [];
     checkpointTriggers = []; nearbyCheckpoint = null;
     enemies.forEach(en=>{ if(en.shockRing) scene.remove(en.shockRing); if(en.chargeLane) scene.remove(en.chargeLane); if(en.meleeTelegraphMesh) scene.remove(en.meleeTelegraphMesh); scene.remove(en.group); });
+    clearFoeFx();         // 幽霊船・時計塔の敵の床の輪・残像(ENEMY-VISUAL-001)。敵の表を空にする前に(残像は敵ごとに持つ)
     enemies = [];
     chests.forEach(c=>{ if(c.group) scene.remove(c.group); });
     chests = [];
@@ -410,7 +411,6 @@
     // 止刻の残響の残像の輪は en.vfx に載せていないので、ここで一緒に外す(時計塔、CLOCKTOWER-001)
     enemies.forEach(en=>{ if(en.isBoss){ clearBossVfx(en); if(en.key === 'towerWarden') clearTowerBossFx(en); } });
     clearGuestArrows();   // 支援の矢(時計塔)を次のワールドへ持ち越さない
-    clearFoeFx();         // 幽霊船・時計塔の敵の床の輪・残像(ENEMY-VISUAL-001)
     clearTowerMech();     // 時計塔の機構(動く床・昇降の乗り手)の参照を捨てる
     thornGates = []; sporeZones = []; thornTime = 0; sporeTickT = 0;
     groundSlabs = []; voidRespawn = null; voidT = 0; lastSolid = null;

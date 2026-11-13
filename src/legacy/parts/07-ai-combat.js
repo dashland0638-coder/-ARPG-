@@ -878,6 +878,7 @@
           en.stunT = 0;   // 大怯みの硬直(core/enemy-tier.js)も持ち越さない
           en.guardHoldT = 0; en.guardBreakCD = 0; en.guardBreak = false;   // 守護型のガードブレイクも仕切り直す
           if(en.servantState) servantEnterIdle(en);   // 使用人の攻撃相も持ち越さない
+          if(en.mob && en.mob.foeKind) foeResetOnRespawn(en);   // 幽霊船・時計塔の敵の固有の AI(異形・残響)と床の輪も(ENEMY-VISUAL-001)
           en.shotRootT = 0;                            // 侍女の撃ち終わりの足止めも
           if(en.fisherMelee) en.fisherMelee = createFisherMelee();   // 記憶漁師の近接の溜め・待ち時間・停止も(W2-MB1)
           // 執事のフェーズと影移動も仕切り直す(HPが満タンに戻るので Phase 1 から)
@@ -1274,6 +1275,7 @@
 
     // the flinch is layered on last, over whatever the mob was doing
     applyMobFlinch(en, dt, M);
+    if(M.foeKind) applyFoeLean(en, M);   // 幽霊船・時計塔の敵の前のめり・よろめき(怯みの後に足す)
   }
 
 
@@ -2170,6 +2172,7 @@
     en.guardBreak = false;
     // 影移動の途中で崩された/湧き直した場合に、透けたまま残らないようにする
     if(en.butlerFaded){ setEnemyOpacity(en, 1); en.butlerFaded = false; }
+    en.servantChainHeavy = false;
   }
 
   /* core/guardian-break.js は突進AIの語彙(idle/telegraph/dash/cooldown)で
@@ -2313,6 +2316,8 @@
       }
       /* 連撃(followUp): 振り抜いた後、すぐ次の攻撃の予兆へ。向きは今のプレイヤーへ取り直す(予兆は必ず見せる) */
       if(en.servantT <= 0 && plan.followUp && !en.guardBreak){
+        // 連撃の起点が heavy なら、連撃の終わりで heavy のクールダウンを掛ける(下の recover)
+        if(plan.key === prof.heavy) en.servantChainHeavy = true;
         const next = meleeAttackPlan(kind, plan.followUp, phase);
         en.servantState = 'windup';
         en.servantAttack = plan.followUp;
@@ -2332,7 +2337,8 @@
         en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
         en.servantAtkCD = prof.attackCooldown;
         // heavy の再使用間隔はフェーズで変わる(執事の影腕は Phase 2 で半減)
-        if(plan.key === prof.heavy) en.servantSweepCD = meleeHeavyCooldown(kind, phase);
+        if(plan.key === prof.heavy || en.servantChainHeavy) en.servantSweepCD = meleeHeavyCooldown(kind, phase);
+        en.servantChainHeavy = false;
       }
       return;
     }
@@ -4455,7 +4461,7 @@
     if(off !== !!en.offFloor){
       en.offFloor = off;
       en.group.traverse(n=>{ if(n.isLight) return; if(off) n.layers.disable(0); else n.layers.enable(0); });
-      if(off){ en.triggered = !!en.dummy; en.leashT = 0; if(en.foeRings) foeHideRings(en); if(en.foeLashMesh) foeHideLash(en); }
+      if(off){ en.triggered = !!en.dummy; en.leashT = 0; if(en.foeRings) foeHideRings(en); if(en.foeLashMesh) foeHideLash(en); if(en.meleeTelegraphMesh) en.meleeTelegraphMesh.visible = false; }
     }
     return off;
   }
@@ -5495,7 +5501,7 @@
         en.servantState = 'recover';
         en.servantT = meleeAttackPlan(en.meleeKind || 'servant', en.servantAttack, en.butlerPhase || 1).recovery;
         en.servantAtkCD = prof.attackCooldown;
-        if(en.servantAttack === prof.heavy){
+        if(en.servantAttack === prof.heavy || en.servantChainHeavy){   // 連撃の途中(heavy から続く二撃目)で潰されても heavy のクールダウン
           en.servantSweepCD = meleeHeavyCooldown(en.meleeKind || 'servant', en.butlerPhase || 1);
         }
         en.servantAttack = null;
