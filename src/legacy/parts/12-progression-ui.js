@@ -665,7 +665,7 @@
     switch(def.hook){
       case 'onFinishHit':
         addUltGauge(def.value);
-        spawnToast(`${def.icon} ${def.name}!`);
+        spawnToast(`${def.icon} ${def.name}!`, null, 'feedback');
         break;
       case 'onFinishHit2':
         if(ctx.target && ctx.target.postureMax){
@@ -678,7 +678,7 @@
         break;
       case 'onKillBonus':
         grantGold(def.value);
-        spawnToast(`${def.icon} ${def.name}! 🪙+${def.value}`);
+        spawnToast(`${def.icon} ${def.name}! 🪙+${def.value}`, null, 'feedback');
         break;
       case 'onKillHeal':
       case 'onKnockdownHeal':
@@ -686,7 +686,7 @@
         break;
       case 'onUltCast':
         state.stamina = state.maxStamina;
-        spawnToast(`${def.icon} ${def.name}!`);
+        spawnToast(`${def.icon} ${def.name}!`, null, 'feedback');
         break;
     }
   }
@@ -1682,8 +1682,8 @@
   function refreshScenarioTimerHUD(){
     const el = document.getElementById('scenario-timer');
     if(!el) return;
-    if(state.scenarioTimeLeft == null){ el.style.display = 'none'; return; }
-    el.style.display = 'block';
+    if(state.scenarioTimeLeft == null){ if(el.style.display !== 'none'){ el.style.display = 'none'; noticeHudChanged(); } return; }
+    if(el.style.display !== 'block'){ el.style.display = 'block'; noticeHudChanged(); }   // 上の帯の通知は制限時間の下へ(UI-VISUAL-001)
     el.textContent = `⏱️ ${formatTimeLimit(state.scenarioTimeLeft)}`;
     el.classList.toggle('timer-urgent', state.scenarioTimeLeft <= 30);
   }

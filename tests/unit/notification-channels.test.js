@@ -29,7 +29,14 @@ const stripComments = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/g
 test('spawnToast は中央トーストだけを出し、ログへ積まない', () => {
   const body = stripComments(fnBody(combat, 'spawnToast'));
   assert.doesNotMatch(body, /pushMsgLog\s*\(/);
-  assert.match(body, /item-pop/);
+  // UI-VISUAL-001: 種類ごとの表示先(上の帯・頭の上・操作ボタンのそば)へ振り分ける。どれも同じ .item-pop.is-toast の要素
+  assert.match(body, /spawnBottomNotice\(text, color\)/);
+  assert.match(body, /spawnActorNotice\(text, color\)/);
+  assert.match(body, /spawnTopNotice\(text, color, kind\)/);
+  assert.match(stripComments(fnBody(combat, 'noticeEl')), /el\.className = 'item-pop is-toast notice-' \+ kind;/);
+  for (const fn of ['spawnTopNotice', 'spawnBottomNotice', 'spawnActorNotice', 'showTopNotice']) {
+    assert.doesNotMatch(stripComments(fnBody(combat, fn)), /pushMsgLog\s*\(/, `${fn} はログへ積まない`);
+  }
 });
 
 test('ログへ積むのは spawnLog だけ(pushMsgLog の呼び出しは spawnLog の中の 1 か所)', () => {

@@ -105,10 +105,10 @@
     const wrap = document.getElementById('boss-bar-wrap');
     const boss = enemies.find(e=>e.isBoss && e.triggered && !e.dead);
     if(!boss || state.paused || state.activeOverlay!=='none'){
-      wrap.classList.remove('show');
+      if(wrap.classList.contains('show')){ wrap.classList.remove('show'); noticeHudChanged(); }
       return;
     }
-    wrap.classList.add('show');
+    if(!wrap.classList.contains('show')){ wrap.classList.add('show'); noticeHudChanged(); }   // 上の帯の通知はボスバーの下へ(UI-VISUAL-001)
     const pct = Math.max(0, boss.hp/boss.hpMax*100);
     document.getElementById('boss-bar-name').textContent = boss.dialogueName || '強敵';
     document.getElementById('boss-bar-fill').style.width = pct + '%';
@@ -236,6 +236,8 @@
       refreshSettingLabels();
       sfx('ui');
     });
+    /* 通知の表示の確認用(UI-VISUAL-001。?dev=1 の時だけ)。E2E が種類ごとの表示先・優先度・まとめを確かめる */
+    if(DEV_UI) window.__uiNotice = (text, color, kind)=> spawnToast(text, color, kind);
     // 確認用の段階の切り替え(?dev=1 の時だけ出す)。押すたびに 自動 → 剣士 → … → 完成版 → 自動
     if(DEV_UI){
       const row = document.getElementById('set-bgm-stage-row'), btn = document.getElementById('set-bgm-stage');

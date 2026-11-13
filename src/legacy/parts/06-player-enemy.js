@@ -3091,16 +3091,16 @@
         const d = getDoor(lock.doorKey);
         if(d){ unlockDoor(d); swingOpen(d, true); }
         sfx('seal'); addShake(0.10);
-        spawnToast(lock.doneToast);
+        spawnToast(lock.doneToast, null, 'story');
       } else {
-        spawnToast(lock.stepToast.replace('{n}', lock.progress).replace('{t}', lock.solution.length));
+        spawnToast(lock.stepToast.replace('{n}', lock.progress).replace('{t}', lock.solution.length), null, 'feedback');
       }
     } else {
       if(lock.progress === 0) return;   // a wrong first touch is just a touch
       lock.progress = 0;
       lock.nodes.forEach((n,i)=> setNodeLit(lock, i, false));
       sfx('deny');
-      spawnToast(lock.failToast);
+      spawnToast(lock.failToast, null, 'alert');
     }
   }
 

@@ -1931,3 +1931,97 @@
   #clear-overlay .event-title,
   #down-overlay .event-title{ font-size:20px; margin-bottom:10px; }
 }
+
+/* =========================================================
+   UI-VISUAL-001: 通知の表示先(分類・優先度は core/notice-rules.js、出し方は 11-combat-actions.js)
+   画面中央はプレイヤー・敵・攻撃の予兆のために空ける。プレートの見た目は UI-002-H の中央トーストのまま
+     上の帯 #notice-band … 危険・物語・出現・節目(強い通知ほど上、同時に 3 件まで)
+     .notice-bottom      … 入力を受け付けなかった理由(下の帯の中央、一件)
+     .notice-actor       … 自分の行動の結果(頭の上に小さく、すぐ消える)
+   ========================================================= */
+#notice-band{
+  position:fixed; z-index:var(--ui-z-msg-log); pointer-events:none;
+  left:50%; transform:translateX(-50%); width:min(520px, 46vw);
+  top:var(--notice-under, calc(env(safe-area-inset-top) + 12px));
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+/* 背の低い横画面(iPhone 844×390 など): 左上のパネルとミニマップ(80vw〜)の間に収める */
+@media (max-height:500px){
+  #notice-band{
+    left:calc(var(--hud-tl-right, calc(16px + 348px + env(safe-area-inset-left))) + 8px);
+    right:calc(20vw + 8px + env(safe-area-inset-right));
+    width:auto; transform:none;
+    top:var(--notice-under, calc(env(safe-area-inset-top) + 8px));
+  }
+  /* ボスバー・制限時間の下(左上のパネルより下): ログ(左の min(34vw, 320px))の右から広げる */
+  #notice-band.is-low{ left:calc(min(34vw, 320px) + 24px + env(safe-area-inset-left)); }
+}
+/* 幅の狭い画面(縦持ちなど): 左上のパネルとミニマップの下、端から端まで */
+@media (max-width:600px){
+  #notice-band{ left:12px; right:12px; width:auto; transform:none; top:var(--notice-under, calc(env(safe-area-inset-top) + 124px)); }
+}
+#notice-band .item-pop.is-toast{
+  position:relative; left:auto; top:auto; transform:none;
+  max-width:100%; white-space:normal; text-align:center;
+  font-size:13px; line-height:1.35; padding:3px 10px;
+  animation-name:noticeLife;
+}
+@keyframes noticeLife{
+  0%{ opacity:0; transform:translateY(-4px); }
+  6%{ opacity:1; transform:none; }
+  90%{ opacity:1; transform:none; }
+  100%{ opacity:0; }
+}
+/* 危険: 赤い縁と太字(点滅・発光はしない) */
+#notice-band .item-pop.notice-danger{ font-size:14px; border-color:#c9576a; color:#ffe2dc; }
+#notice-band .item-pop.notice-story{ color:#e9e1d6; }
+#notice-band .item-pop.notice-system{ font-size:12px; color:var(--ui-special); }
+/* 入力の理由: 操作ボタンのそば(右下。回避・JUMP・攻撃の列の左、必殺技・薬草の段の上)。
+   カメラはプレイヤーの後ろなので、下の中央はプレイヤーの体に重なる */
+#hud .item-pop.notice-bottom{
+  position:fixed; left:auto; top:auto; transform:none;
+  right:calc(env(safe-area-inset-right) + 104px);
+  bottom:calc(env(safe-area-inset-bottom) + 64px);
+  max-width:min(320px, 34vw); white-space:normal; text-align:right;
+  font-size:12.5px; padding:3px 10px;
+  animation-name:noticeBottomLife;
+}
+/* 背の低い横画面(iPhone 844×390): 下の帯(必殺技・溜め・薬草の段の上端の高さ)で、必殺技ボタンの左。
+   中央の視認領域(縦 80% より上)にも、操作ボタンにも重ならない */
+@media (max-height:500px){
+  #hud .item-pop.notice-bottom{ right:calc(env(safe-area-inset-right) + 166px); bottom:calc(env(safe-area-inset-bottom) + 51px); max-width:min(300px, 32vw); padding:2px 10px; line-height:1.3; }
+}
+@keyframes noticeBottomLife{   /* 動かさず、出て消えるだけ(操作ボタンのそばで位置が揺れない) */
+  0%{ opacity:0; }
+  6%{ opacity:1; }
+  90%{ opacity:1; }
+  100%{ opacity:0; }
+}
+#hud .item-pop.notice-actor{
+  font-size:12px; padding:2px 8px;
+  animation-name:noticeActorLife;
+}
+@keyframes noticeActorLife{
+  0%{ opacity:0; transform:translate(-50%,-50%) translateY(4px) scale(0.9); }
+  12%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  80%{ opacity:1; transform:translate(-50%,-50%) translateY(-10px); }
+  100%{ opacity:0; transform:translate(-50%,-50%) translateY(-16px); }
+}
+/* 左下ログ: 画面の中央へ伸ばさない(左の 3 分の 1 まで)。長い文は 2 行まで折り返す */
+#msg-log{ max-width:min(34vw, 320px); }
+#msg-log .msg-log-line{
+  white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.35;
+}
+/* メニューの「記録」タブ(UI-VISUAL-001) */
+#menu-overlay .menu-notice-log{ max-height:min(56vh, 320px); overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+#menu-overlay .menu-notice-row{
+  font-size:var(--ui-fs-body); line-height:1.45; color:var(--ui-text); padding:5px 10px;
+  background:var(--ui-plate-bg-sunken); border:var(--ui-plate-rim-w) solid var(--ui-plate-rim); border-radius:var(--ui-plate-radius);
+}
+#menu-overlay .menu-notice-row.notice-danger{ border-color:#c9576a; }
+#menu-overlay .menu-notice-row.notice-log{ color:var(--ui-text-muted); }
+#menu-overlay .menu-notice-empty{ font-size:var(--ui-fs-body); color:var(--ui-text-muted); padding:8px; }
+/* 制限時間: ボスバーが出ていない間は、ボスバーの段(上端)へ上がる(UI-VISUAL-001)。
+   以前はボスバーの分の段を空けて下に置いていたため、上の帯の通知が画面の中ほどまで押し下げられていた。
+   ボスバーが出ている間の位置(ボスバーの下)は変えない */
+#scenario-timer:not(:has(~ #boss-bar-wrap.show)){ top:calc(14px + env(safe-area-inset-top)); }

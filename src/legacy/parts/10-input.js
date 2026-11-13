@@ -233,6 +233,24 @@
     document.querySelectorAll('#menu-overlay [data-menu-section]').forEach(sec=>{
       sec.hidden = sec.dataset.menuSection !== name;
     });
+    if(name === 'log') renderNoticeHistory();
+  }
+  /* 「記録」タブ(UI-VISUAL-001): 上の帯とログに出た通知を新しい順に(noticeHistory、11-combat-actions.js)。
+     頭の上の行動の結果・入力の理由は一時的な物なので残さない */
+  function renderNoticeHistory(){
+    const box = document.getElementById('menu-notice-log');
+    if(!box) return;
+    box.textContent = '';
+    if(!noticeHistory.length){
+      const e = document.createElement('div'); e.className = 'menu-notice-empty'; e.textContent = 'まだ記録はない';
+      box.appendChild(e); return;
+    }
+    noticeHistory.forEach(h=>{
+      const row = document.createElement('div');
+      row.className = 'menu-notice-row notice-' + h.kind;
+      row.textContent = h.text;
+      box.appendChild(row);
+    });
   }
   document.querySelectorAll('#menu-overlay [data-menu-tab]').forEach(t=>{
     t.addEventListener('click', ()=>{ setMenuTab(t.dataset.menuTab); sfx('ui'); });

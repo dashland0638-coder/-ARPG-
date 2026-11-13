@@ -2779,18 +2779,18 @@
     // ルート分岐: 同じ分岐グループの別の道を既に選んでいれば、この階段は塞がれている
     if(s.routeNode && !routeCanEnter(s.routeNode)){
       const def = routeNodeDef(s.routeNode);
-      spawnToast((def && def.lockedMsg) || '🔒 こちらの道は、もう選べないようだ……');
+      spawnToast((def && def.lockedMsg) || '🔒 こちらの道は、もう選べないようだ……', null, 'deny');
       return;
     }
     stairAutoArmed = false;   // 手動で移動した先で、いきなりautoが噛まないように
     /* 塞がっている通路(gateMsg)。調べると理由の一文だけを出す */
-    if(s.gateKey && s.gateMsg && !isGateEnemyDead(s.gateKey)){ sfx('deny'); spawnToast(s.gateMsg); return; }
+    if(s.gateKey && s.gateMsg && !isGateEnemyDead(s.gateKey)){ sfx('deny'); spawnToast(s.gateMsg, null, 'deny'); return; }
     /* 行き先がその時々で変わる通路(幽霊船: 帰還不能の後は船の奥へ繋がる)。
        resolve() は {blocked:'一文'} か {targetPos, label, arriveFace, onArrive} か {run:fn} を返す */
     if(s.resolve){
       const r = s.resolve(s);
       if(!r) return;
-      if(r.blocked){ sfx('deny'); spawnToast(r.blocked); return; }
+      if(r.blocked){ sfx('deny'); spawnToast(r.blocked, null, 'deny'); return; }
       if(r.run){ r.run(); return; }
       s.targetPos.copy(r.targetPos);
       s.label = r.label || s.label;
