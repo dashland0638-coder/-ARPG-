@@ -3323,6 +3323,8 @@
     if(theme === 'village'){ dressVillageEnemy(g, body, variant, M); return; }
     // 第一章の幽霊船の乗組員の残影(GHOSTSHIP-REBUILD-002、14-dungeon-ghostship.js)
     if(theme === 'shipCrew'){ dressShipCrew(g, body, variant, M); return; }
+    // 幽霊船・時計塔の敵(ENEMY-VISUAL-001、16-foes-sea-clock.js)
+    if(theme === 'foe'){ dressFoe(g, body, variant, M); return; }
     const col = variant.color;
     const soft = new THREE.MeshStandardMaterial({color:col, roughness:0.85});
     const hard = new THREE.MeshStandardMaterial({color:col, roughness:0.45, metalness:0.55});
@@ -4680,6 +4682,8 @@
         eye.position.set(x, 4.25, 0.52); g.add(eye);
       });
       parts = {kind:'clockwork', pend, handL, handR, face, dialH, dialM, gear:body};
+      // 止刻の残響(時計塔のボス)だけ: 背の歯車の光輪と、遅れて付いてくる管理人の影(ENEMY-VISUAL-001)
+      if(cfg.key === 'towerWarden') Object.assign(parts, dressWardenFlair(g, cfg));
 
     } else if(cfg.key==='mansionBoss'){
       /* --- 館の主(Boss / Phase 5-D) ---

@@ -224,7 +224,7 @@ test('敵: 少数精鋭(8〜12)。どれも自分の層の床の上で、坂の�
   // T2 の撃ち手は縦穴の向こう岸(歩いて行けない回廊)
   const gal = ENEMIES.filter(e => e.y === 16);
   assert.equal(gal.length, 2);
-  for (const e of gal) assert.ok(e.z < SHAFT.z0 && /atkType:'fire'/.test(e.v));
+  for (const e of gal) assert.ok(e.z < SHAFT.z0 && /foe:'gearGunner'/.test(e.v), '機兵の射手(遠距離。ENEMY-VISUAL-001)');
   assert.match(combat, /if\(en\.basePos && Math\.abs\(en\.basePos\.y - 16\) < 0\.5 && en\.basePos\.z < 34\) en\.towerGallery = true;/);
 });
 

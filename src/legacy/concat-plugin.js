@@ -279,6 +279,10 @@ import {
   lordPhaseFor, lordShouldShiftPhase, lordAttackChoice, lordAttackPlan,
   lordAttackCooldown, lordShadowTarget, lordShadowCreep,
 } from '../core/mansion-enemies.js';
+/* 幽霊船・時計塔の敵(ENEMY-VISUAL-001)。近接の器へ登録し、固有の AI(異形・残響)の数値を持つ */
+import {
+  ABYSS, ABYSS_MUTANT, abyssSpikeTargets, TIME_ECHO, TIME_ECHO_TWIN, FOE_SPECS,
+} from '../core/sea-clock-foes.js';
 import { UI_GLYPH_VIEWBOX, uiGlyph, resolveSwordsmanGlyphIds } from '../core/ui-icons.js';
 import {
   legacyHudVisible, skill2ButtonVisible, skill3ButtonVisible, minimapPanelVisible,

@@ -127,7 +127,8 @@ export function meleeAttackChoice(kind, { dist, heavyCD = 0, atkCD = 0, phase = 
   const light = meleeAttackPlan(kind, prof.light, phase);
   const heavy = meleeAttackPlan(kind, prof.heavy, phase);
   if (dist <= light.reach) return light.key;
-  if (dist <= heavy.reach && heavyCD <= 0) return heavy.key;
+  // 踏み込みのある heavy(ENEMY-VISUAL-001 の lunge)は、踏み込んだ先まで届く距離で選ぶ
+  if (dist <= heavy.reach + (heavy.lunge || 0) && heavyCD <= 0) return heavy.key;
   return null;
 }
 
@@ -155,8 +156,11 @@ export function meleeTelegraphShape(kind, attack, phase) {
   const prof = meleeProfile(kind);
   if (!prof) return null;
   const plan = meleeAttackPlan(kind, attack, phase);
-  if (!plan || plan.key !== prof.heavy) return null;
-  return { key: plan.key, reach: plan.reach, halfAngle: plan.halfAngle };
+  if (!plan) return null;
+  /* 例外(ENEMY-VISUAL-001): telegraphAll のプロファイルは light にも弧を出す(全周の振り回し・
+     遠くまで届く突きなど、見ないと避けられない light)。踏み込みのある攻撃は telegraphReach まで描く */
+  if (plan.key !== prof.heavy && !prof.telegraphAll) return null;
+  return { key: plan.key, reach: plan.telegraphReach || plan.reach, halfAngle: plan.halfAngle };
 }
 
 /* 床に寝かせた扇メッシュ(rotation.x = -π/2、ジオメトリは局所角

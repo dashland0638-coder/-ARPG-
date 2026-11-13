@@ -410,6 +410,7 @@
     // 止刻の残響の残像の輪は en.vfx に載せていないので、ここで一緒に外す(時計塔、CLOCKTOWER-001)
     enemies.forEach(en=>{ if(en.isBoss){ clearBossVfx(en); if(en.key === 'towerWarden') clearTowerBossFx(en); } });
     clearGuestArrows();   // 支援の矢(時計塔)を次のワールドへ持ち越さない
+    clearFoeFx();         // 幽霊船・時計塔の敵の床の輪・残像(ENEMY-VISUAL-001)
     clearTowerMech();     // 時計塔の機構(動く床・昇降の乗り手)の参照を捨てる
     thornGates = []; sporeZones = []; thornTime = 0; sporeTickT = 0;
     groundSlabs = []; voidRespawn = null; voidT = 0; lastSolid = null;
