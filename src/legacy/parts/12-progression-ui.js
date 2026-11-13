@@ -940,7 +940,7 @@
       if(def.unlock==='skill1Alt') state.unlockedSkill1Alt = true;
       else if(def.unlock==='skill2Alt') state.unlockedSkill2Alt = true;
       else if(def.unlock==='ultAlt') state.unlockedUltAlt = true;
-      spawnToast(`${def.icon} 新しい技を習得した!`);
+      spawnToast(`${def.icon} 新しい技を習得した!`, null, 'system');
     } else {
       spawnLog(`${def.icon} スフィア「${def.name}」を解放!`);
     }
@@ -1091,21 +1091,21 @@
     if(choice==='skill'){
       if(learnBossSkill(bossKey)){
         const def = BOSS_SKILLS[bossKey];
-        spawnToast(`${def.icon} スキル「${def.name}」を習得!`);
+        spawnToast(`${def.icon} スキル「${def.name}」を習得!`, null, 'system');
         sfx('levelUp');
       }
     } else if(choice==='ability'){
       if(learnBossAbility(bossKey)){
         const def = BOSS_ABILITIES[bossKey];
         const equipped = (state.equippedBossAbilities||[]).includes(bossKey);
-        spawnToast(`${def.icon} アビリティ「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'));
+        spawnToast(`${def.icon} アビリティ「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'), null, 'system');
         sfx('levelUp');
       }
     } else if(choice==='activeSkill'){
       if(learnBossActiveSkill(bossKey)){
         const def = BOSS_ACTIVE_SKILLS[bossKey];
         const equipped = state.equippedBossActiveSkill===bossKey;
-        spawnToast(`${def.icon} 【スキル3】「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'));
+        spawnToast(`${def.icon} 【スキル3】「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'), null, 'system');
         sfx('levelUp');
       }
     } else {
@@ -2066,7 +2066,7 @@
     // 自体をここで作り直す
     swapPlayerWeaponVisual();
     applyJobPromotionVisual();
-    spawnToast(`✨ ${uj.name}へ転身した! ――${uj.flavor}`);
+    spawnToast(`✨ ${uj.name}へ転身した! ――${uj.flavor}`, null, 'system');
     sfx('levelUp');
   }
 
@@ -2423,7 +2423,7 @@
     state.skill2CD = 0;               // 閃いた直後にすぐ試せる
     sfx('levelUp');
     spawnToast(def ? `✴️ 閃いた ―― ${def.icon} ${def.name}(自動で装備した)`
-                   : '✴️ 新しい戦い方を閃いた');
+                   : '✴️ 新しい戦い方を閃いた', null, 'system');
     // ボタンをその場で出す(updateCooldownRings が .locked を外す)
     const icon = document.getElementById('btn-skill2-icon');
     if(icon && def) setGlyphOrText(icon, currentSwordsmanGlyphIds().skill2, def.icon);

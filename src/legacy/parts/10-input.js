@@ -241,11 +241,12 @@
     const box = document.getElementById('menu-notice-log');
     if(!box) return;
     box.textContent = '';
-    if(!noticeHistory.length){
+    const rows = noticeHistory.concat(noticeLogHistory).sort((a, b)=> b.at - a.at);
+    if(!rows.length){
       const e = document.createElement('div'); e.className = 'menu-notice-empty'; e.textContent = 'まだ記録はない';
       box.appendChild(e); return;
     }
-    noticeHistory.forEach(h=>{
+    rows.forEach(h=>{
       const row = document.createElement('div');
       row.className = 'menu-notice-row notice-' + h.kind;
       row.textContent = h.text;

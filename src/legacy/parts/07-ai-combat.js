@@ -4016,10 +4016,10 @@
     if(en.barkStage === undefined) en.barkStage = 0;
     if(en.barkStage < 1 && hpRatio <= 0.6 && lines.hi){
       en.barkStage = 1;
-      spawnToast(lines.hi, '#c9b6e8');
+      spawnToast(lines.hi, '#c9b6e8', 'story');   // ボスの台詞・様子(「」で始まらない地の文もある)
     } else if(en.barkStage < 2 && hpRatio <= 0.22 && lines.lo){
       en.barkStage = 2;
-      spawnToast(lines.lo, '#c9b6e8');
+      spawnToast(lines.lo, '#c9b6e8', 'story');
     }
   }
 

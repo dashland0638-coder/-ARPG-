@@ -426,6 +426,7 @@
     clearMobBars(); clearSparks(); clearSwingVFX(); clearMagicCircleVFX();
     bossBarChip = 100;
     document.getElementById('boss-bar-wrap').classList.remove('show');
+    noticeHudChanged();   // 上の帯の通知をボスバーの下から戻す(UI-VISUAL-001)
     nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false;
     mansionRoof = null; restroomRoof = null; platform = null;
     mansionOutdoor = null; mansionOutdoorHidden = false; mansionIslands = [];

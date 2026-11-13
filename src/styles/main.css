@@ -1953,8 +1953,10 @@
     width:auto; transform:none;
     top:var(--notice-under, calc(env(safe-area-inset-top) + 8px));
   }
-  /* ボスバー・制限時間の下(左上のパネルより下): ログ(左の min(34vw, 320px))の右から広げる */
+  /* ボスバー・制限時間の下(左上のパネルより下): ログ(左の min(34vw, 320px))の右から広げ、1 行にする
+     (画面の中ほどへ下りない。全文はメニューの「記録」) */
   #notice-band.is-low{ left:calc(min(34vw, 320px) + 24px + env(safe-area-inset-left)); }
+  #notice-band.is-low .item-pop.is-toast{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 }
 /* 幅の狭い画面(縦持ちなど): 左上のパネルとミニマップの下、端から端まで */
 @media (max-width:600px){
@@ -1976,12 +1978,12 @@
 #notice-band .item-pop.notice-danger{ font-size:14px; border-color:#c9576a; color:#ffe2dc; }
 #notice-band .item-pop.notice-story{ color:#e9e1d6; }
 #notice-band .item-pop.notice-system{ font-size:12px; color:var(--ui-special); }
-/* 入力の理由: 操作ボタンのそば(右下。回避・JUMP・攻撃の列の左、必殺技・薬草の段の上)。
-   カメラはプレイヤーの後ろなので、下の中央はプレイヤーの体に重なる */
+/* 入力の理由: 操作ボタンのそば(右下)。カメラはプレイヤーの後ろなので、下の中央はプレイヤーの体に重なる。
+   既定(背の高い画面のタッチ・PC の能力表示): 右下の操作ボタンの塊の上(塊の上端は下から 170px ほど) */
 #hud .item-pop.notice-bottom{
   position:fixed; left:auto; top:auto; transform:none;
-  right:calc(env(safe-area-inset-right) + 104px);
-  bottom:calc(env(safe-area-inset-bottom) + 64px);
+  right:calc(env(safe-area-inset-right) + 16px);
+  bottom:calc(env(safe-area-inset-bottom) + 190px);
   max-width:min(320px, 34vw); white-space:normal; text-align:right;
   font-size:12.5px; padding:3px 10px;
   animation-name:noticeBottomLife;
@@ -1990,6 +1992,8 @@
    中央の視認領域(縦 80% より上)にも、操作ボタンにも重ならない */
 @media (max-height:500px){
   #hud .item-pop.notice-bottom{ right:calc(env(safe-area-inset-right) + 166px); bottom:calc(env(safe-area-inset-bottom) + 51px); max-width:min(300px, 32vw); padding:2px 10px; line-height:1.3; }
+  /* PC の能力表示(キーボード操作。下に一列): 列の上 */
+  body:has(#touch-controls.pc-indicators) #hud .item-pop.notice-bottom{ right:calc(env(safe-area-inset-right) + 16px); bottom:calc(env(safe-area-inset-bottom) + 124px); }
 }
 @keyframes noticeBottomLife{   /* 動かさず、出て消えるだけ(操作ボタンのそばで位置が揺れない) */
   0%{ opacity:0; }
@@ -2007,10 +2011,13 @@
   80%{ opacity:1; transform:translate(-50%,-50%) translateY(-10px); }
   100%{ opacity:0; transform:translate(-50%,-50%) translateY(-16px); }
 }
-/* 左下ログ: 画面の中央へ伸ばさない(左の 3 分の 1 まで)。長い文は 2 行まで折り返す */
+/* 左下ログ: 画面の中央へ伸ばさない(左の 3 分の 1 まで)。背の高い画面は長い文を 2 行まで折り返す。
+   背の低い画面は 1 行(折り返すと左上のパネルまで伸びる)。全文はメニューの「記録」で読める */
 #msg-log{ max-width:min(34vw, 320px); }
-#msg-log .msg-log-line{
-  white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.35;
+@media (min-height:501px){
+  #msg-log .msg-log-line{
+    white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.35;
+  }
 }
 /* メニューの「記録」タブ(UI-VISUAL-001) */
 #menu-overlay .menu-notice-log{ max-height:min(56vh, 320px); overflow-y:auto; display:flex; flex-direction:column; gap:4px; }

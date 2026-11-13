@@ -2236,7 +2236,7 @@
        上の帯(#notice-band) … 危険・物語・出現・節目。左上のパネルとミニマップの間、ボスバー・制限時間の下。
                               同時に 3 件まで。強い通知ほど上。満ちていれば弱い通知を押し出し、押し出せなければ短く待つ
        頭の上               … 自分の行動の結果(技・パリィ・ジャストドッジ)。小さく、すぐ消える
-       下の帯の中央          … 入力を受け付けなかった理由。一件だけ(新しい理由で置き換える)
+       操作ボタンのそば      … 入力を受け付けなかった理由。一件だけ(新しい理由で置き換える)
      同じ文言が出ている間に同じ通知が来たら、積まずに「×n」にまとめて寿命を延ばす。
      上の帯とログに出た物はメニューの「記録」に残る(noticeHistory。消えても後で読める)。
      要素はどれも .item-pop.is-toast(見た目のプレートと、テストの観測を UI-002-H のまま使う)
@@ -2248,7 +2248,8 @@
   let noticeBottom = null;     // 下の帯の通知
   const noticeActor = [];      // 頭の上の通知
   const noticeRecent = new Map();   // 消えたばかりの出現通知(text → 消えた時刻)
-  const noticeHistory = [];    // メニューの「記録」(新しい順)
+  const noticeHistory = [];    // メニューの「記録」: 上の帯の物(新しい順)
+  const noticeLogHistory = []; // メニューの「記録」: ログの物(新しい順。上の帯の物を押し出さないよう別に数える)
   let noticeBandEl = null;
   let noticeTopMax = NOTICE_TOP_MAX;
   function noticeBand(){
@@ -2260,8 +2261,10 @@
     return noticeBandEl;
   }
   function recordNotice(text, kind){
-    noticeHistory.unshift({text, kind, at:Date.now()});
-    if(noticeHistory.length > NOTICE_HISTORY_MAX) noticeHistory.length = NOTICE_HISTORY_MAX;
+    const list = kind === 'log' ? noticeLogHistory : noticeHistory;
+    list.unshift({text, kind, at:Date.now()});
+    const max = kind === 'log' ? NOTICE_LOG_HISTORY_MAX : NOTICE_HISTORY_MAX;
+    if(list.length > max) list.length = max;
   }
   function noticeEl(text, color, kind, lifeMs){
     const el = document.createElement('div');
@@ -2301,7 +2304,9 @@
     const panel = document.querySelector('.hud-topleft');
     const low = top > 0 && short && (!panel || top > panel.getBoundingClientRect().bottom);
     band.classList.toggle('is-low', low);
-    noticeTopMax = short ? NOTICE_TOP_MAX - 1 : NOTICE_TOP_MAX;
+    /* ボス戦(ボスバーの下へ下がった時)は 1 件(ボスの動きを隠さない)。強い通知が押し出して出る */
+    const barOn = !!(bar && bar.classList.contains('show'));
+    noticeTopMax = !short ? NOTICE_TOP_MAX : barOn ? 1 : NOTICE_TOP_MAX - 1;
     while(noticeTop.length > noticeTopMax){
       const out = noticeTop.slice().sort(noticeOrder).pop();   // 一番弱い通知を外す(記録には残っている)
       clearTimeout(out.timer); out.el.remove(); noticeTop = noticeTop.filter(x=> x !== out);
@@ -2316,7 +2321,7 @@
     clearTimeout(n.timer);
     n.el.remove();
     noticeTop = noticeTop.filter(x=> x !== n);
-    if(n.kind === 'alert') noticeRecent.set(n.text, performance.now());
+    if(noticeRepeatSuppressed(n.text)) noticeRecent.set(n.text, performance.now());
     // 空いた所へ、待っていた通知(古すぎない物)を入れる
     const now = performance.now();
     noticeQueue = noticeQueue.filter(q=> now - q.at < NOTICE_QUEUE_STALE_MS);
@@ -2334,19 +2339,31 @@
     n.timer = setTimeout(()=> removeTopNotice(n), spec.lifeMs);
     layoutNoticeBand();
   }
+  // 待ち行列は NOTICE_QUEUE_MAX まで。あふれたら一番弱い(同じなら一番古い)物を捨てる
+  function trimNoticeQueue(){
+    while(noticeQueue.length > NOTICE_QUEUE_MAX){
+      let worst = 0;
+      noticeQueue.forEach((q, i)=>{
+        const a = noticeSpec(q.kind).priority, b = noticeSpec(noticeQueue[worst].kind).priority;
+        if(a > b || a === b && q.at < noticeQueue[worst].at) worst = i;
+      });
+      noticeQueue.splice(worst, 1);
+    }
+  }
   function spawnTopNotice(text, color, kind){
     const spec = noticeSpec(kind);
     const same = noticeTop.find(n=> n.text === text);
     if(same){ noticeBump(same, spec.lifeMs, ()=> removeTopNotice(same)); return; }
-    // 消えたばかりの同じ出現通知(同じ敵の湧き直しなど)は、続けて出さない
+    // 同じ敵が繰り返す気配(瞬間移動・分身・号笛など)は、消えた直後に同じ物が来ても続けて出さない
     const gone = noticeRecent.get(text);
-    if(kind === 'alert' && gone != null && performance.now() - gone < NOTICE_REPEAT_MS) return;
-    recordNotice(text, kind);
+    if(gone != null && performance.now() - gone < NOTICE_REPEAT_MS && noticeRepeatSuppressed(text)) return;
+    const queued = noticeQueue.some(q=> q.text === text);
+    if(!queued) recordNotice(text, kind);   // 待っている間の繰り返しは記録を増やさない
     layoutNoticeBand();   // ボスバー・制限時間の出入りで、帯の位置と出せる数が変わる
     const adm = noticeAdmit(noticeTop.map(n=> ({priority:n.priority, born:n.born})), spec.priority, noticeTopMax);
     if(adm.action === 'queue'){
-      if(!noticeQueue.some(q=> q.text === text)) noticeQueue.push({text, color, kind, at:performance.now()});
-      if(noticeQueue.length > NOTICE_QUEUE_MAX) noticeQueue.shift();
+      if(!queued) noticeQueue.push({text, color, kind, at:performance.now()});
+      trimNoticeQueue();
       return;
     }
     if(adm.action === 'replace'){
@@ -2355,7 +2372,10 @@
       const lifeLeft = noticeSpec(out.kind).lifeMs - (performance.now() - out.born);
       clearTimeout(out.timer); out.el.remove();
       noticeTop = noticeTop.filter(x=> x !== out);
-      if(lifeLeft > 600) noticeQueue.push({text:out.text, color:out.el.style.color, kind:out.kind, at:performance.now()});
+      if(lifeLeft > 600 && !noticeQueue.some(q=> q.text === out.text)){
+        noticeQueue.push({text:out.text, color:out.el.style.color, kind:out.kind, at:performance.now()});
+        trimNoticeQueue();
+      }
     }
     showTopNotice(text, color, kind);
   }

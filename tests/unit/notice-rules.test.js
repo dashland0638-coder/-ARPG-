@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  NOTICE_KINDS, NOTICE_TOP_MAX, classifyNotice, noticeSpec, noticeAdmit, noticeOrder,
+  NOTICE_KINDS, NOTICE_TOP_MAX, classifyNotice, noticeSpec, noticeAdmit, noticeOrder, noticeRepeatSuppressed,
 } from '../../src/core/notice-rules.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -114,4 +114,25 @@ test('種類を明示する呼び出し: 道を塞ぐ一文は入力の理由、
   const enemy = read('06-player-enemy.js');
   assert.match(enemy, /spawnToast\(lock\.doneToast, null, 'story'\)/);
   assert.match(enemy, /, null, 'feedback'\);/);
+});
+
+test('繰り返す気配だけ、消えた直後の同じ通知を出さない(落下・時間制限・出現の節目は毎回出す)', () => {
+  for (const t of ['👻 背後に気配が!', '🌊 水面が揺れ、同じ影が増えた', '📯 甲板長が号笛を吹いた', '👻 帰港を望む船長が乗員を呼び寄せた!', '🛡 盾持ちが構えを変えた!'])
+    assert.equal(noticeRepeatSuppressed(t), true, t);
+  for (const t of ['💨 足を踏み外した……手前の床からやり直しだ', '🕳️ 落下した……手前の足場からやり直しだ', '⏱️ 残り1分!', '⚔️ 黒衣の執事が立ちはだかる!', '⚠️ 天井の石が軋んだ――落ちてくる!'])
+    assert.equal(noticeRepeatSuppressed(t), false, t);
+});
+
+test('レビュー指摘: 習得・閃き・転身は節目(記録に残る)、ボスの台詞は物語として明示する', () => {
+  const prog = fs.readFileSync(path.join(partsDir, '12-progression-ui.js'), 'utf8');
+  for (const re of [/新しい技を習得した!`, null, 'system'\)/, /スキル「\$\{def\.name\}」を習得!`, null, 'system'\)/,
+    /アビリティ「\$\{def\.name\}」を習得!` \+ \(equipped \? '' : '\(鑑定所で装着できます\)'\), null, 'system'\)/,
+    /【スキル3】「\$\{def\.name\}」を習得!` \+ \(equipped \? '' : '\(鑑定所で装着できます\)'\), null, 'system'\)/,
+    /へ転身した! ――\$\{uj\.flavor\}`, null, 'system'\)/, /'✴️ 新しい戦い方を閃いた', null, 'system'\)/]) assert.match(prog, re);
+  const ai = fs.readFileSync(path.join(partsDir, '07-ai-combat.js'), 'utf8');
+  assert.match(ai, /spawnToast\(lines\.hi, '#c9b6e8', 'story'\)/);
+  assert.match(ai, /spawnToast\(lines\.lo, '#c9b6e8', 'story'\)/);
+  // ボスバーを他の所で消した時も、上の帯を並べ直す
+  assert.match(fs.readFileSync(path.join(partsDir, '02-world-common.js'), 'utf8'), /classList\.remove\('show'\);\n    noticeHudChanged\(\);/);
+  assert.match(fs.readFileSync(path.join(partsDir, '14-hud-boot.js'), 'utf8'), /wrap\.classList\.remove\('show'\); noticeHudChanged\(\); \}\n    const lbl/);
 });

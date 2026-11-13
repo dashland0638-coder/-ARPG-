@@ -4,7 +4,7 @@
    (UI-002-D の HD-D17「同じ情報を二か所へ出さない」はそのまま)。
      top    … 上の帯(左上のパネルとミニマップの間。ボスバー・制限時間の下)。危険・物語・出現・節目
      actor  … プレイヤーの頭の上に小さく(自分の行動の結果。技・パリィ・ジャストドッジ)
-     bottom … 下の帯の中央に小さく(入力を受け付けなかった理由。操作した指のそば)
+     bottom … 操作ボタンのそばに小さく(入力を受け付けなかった理由。操作した指のそば。下の中央はプレイヤーの体に重なる)
    左下(背の低い画面では左の中ほど)のログ(spawnLog)は今までどおり別の口。
 
    優先度(小さいほど強い): 1 危険 / 2 戦闘・物語の進行 / 3 敵の出現・状況の変化 / 4 行動の結果・入力の理由 / 5 システム
@@ -26,8 +26,9 @@ export const NOTICE_KINDS = {
 export const NOTICE_TOP_MAX = 3;          // 上の帯に同時に出す数
 export const NOTICE_QUEUE_MAX = 4;        // 待ち行列の長さ
 export const NOTICE_QUEUE_STALE_MS = 3000;  // 待ち行列でこれより古くなったものは出さない(もう遅い)
-export const NOTICE_REPEAT_MS = 4000;     // 消えてからこの時間内に同じ「出現」通知が来たら、出さずに数えるだけ
-export const NOTICE_HISTORY_MAX = 40;     // メニューの「記録」に残す数
+export const NOTICE_REPEAT_MS = 4000;     // 消えてからこの時間内に同じ「繰り返す気配」の通知が来たら、出さない(noticeRepeatSuppressed)
+export const NOTICE_HISTORY_MAX = 40;     // メニューの「記録」に残す数(上の帯の物)
+export const NOTICE_LOG_HISTORY_MAX = 20; // メニューの「記録」に残すログの数(獲得の記録が上の帯の物を押し出さないよう別に数える)
 
 // 分類の規則(上から順に最初に合ったもの)。文言の意味で分ける
 const RULES = [
@@ -44,6 +45,11 @@ const RULES = [
   // システム(節目・解放・切り替え)
   ['system', /習得|加わった|同行するように|初制覇|転身|閃いた|開いた|デバッグモード|Freeze|必殺技/],
 ];
+
+/* 同じ敵が何度も繰り返す気配・状況の変化(瞬間移動・分身・号笛など)。消えた直後に同じ物が来ても出さない。
+   落下・時間制限などの、毎回知らせるべき物は含めない */
+const REPEATING = /気配|揺れた|増えた|呼び寄せ|号笛|構えを変え/;
+export function noticeRepeatSuppressed(text) { return REPEATING.test(String(text || '')); }
 
 export function classifyNotice(text) {
   const s = String(text || '');

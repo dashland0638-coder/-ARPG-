@@ -14,6 +14,7 @@ import { watchErrors, openGame, startTestMode } from './helpers.js';
 const SIZES = [
   { name: 'iPhone 844×390', viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, max: 2 },
   { name: '1280×800', viewport: { width: 1280, height: 800 }, hasTouch: false, isMobile: false, max: 3 },
+  { name: 'タブレット 1180×820(タッチ)', viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true, max: 3 },
 ];
 const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 const rectsOf = (page, sel) => page.evaluate(q => [...document.querySelectorAll(q)].map(e => {
@@ -75,7 +76,14 @@ for (const sz of SIZES) {
       for (const h of hud) expect(overlaps(r, h), `「${r.text}」と ${h.cls}`).toBe(false);
     }
 
-    // 入力の理由: 操作ボタンのそば。中央・操作ボタン・HUD に重ならない。同じ理由はまとまる
+    // 入力の理由: 操作ボタンのそば。中央・操作ボタン・HUD に重ならない。同じ理由はまとまる。
+    // PC(キーボード)は戦闘中に下へ能力の列が出るので、攻撃して戦闘の構えにしてから測る
+    if (!sz.hasTouch) {
+      await page.keyboard.press('KeyJ');
+      await page.waitForFunction(() => document.querySelector('#touch-controls.in-combat'), null, { timeout: 5_000 });
+      hud.push(...await rectsOf(page, '#btn-ult, #btn-charge, #btn-skill2, #btn-skill3, #loot-potion-btn'));
+      expect(hud.some(h => h.cls.includes('action-btn')), '能力の列が見えている').toBe(true);
+    }
     await notice(page, '⚠ スタミナが足りない!');
     await notice(page, '⚠ スタミナが足りない!');
     const deny = await rectsOf(page, '#hud .item-pop.notice-bottom');
@@ -100,7 +108,11 @@ for (const sz of SIZES) {
         .map(r => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }));
       return { bar: { left: b.left, top: b.top, right: b.right, bottom: b.bottom }, items };
     });
-    for (const r of boss.items) expect(overlaps(r, boss.bar), `ボスバー ${JSON.stringify(boss.bar)} と通知 ${JSON.stringify(r)}`).toBe(false);
+    expect(boss.items.length, 'ボス戦の上の帯(背の低い画面は 1 件)').toBeLessThanOrEqual(sz.max === 2 ? 1 : 3);
+    for (const r of boss.items) {
+      expect(overlaps(r, boss.bar), `ボスバー ${JSON.stringify(boss.bar)} と通知 ${JSON.stringify(r)}`).toBe(false);
+      expect(overlaps(r, zone), `ボス戦の通知 ${JSON.stringify(r)} が中央の視認領域を覆わない`).toBe(false);
+    }
 
     // 消えた通知はメニューの「記録」で読める(危険・節目。行動の結果・入力の理由は残さない)
     await page.waitForTimeout(3000);

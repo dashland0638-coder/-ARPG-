@@ -88,7 +88,7 @@
     mobBars.forEach(el=> el.style.opacity = '0');
     mobPostureBars.forEach(el=> el.style.opacity = '0');
     const wrap = document.getElementById('boss-bar-wrap');
-    if(wrap) wrap.classList.remove('show');
+    if(wrap && wrap.classList.contains('show')){ wrap.classList.remove('show'); noticeHudChanged(); }
     const lbl = document.getElementById('minimap-label');
     if(lbl) lbl.classList.remove('show');
   }

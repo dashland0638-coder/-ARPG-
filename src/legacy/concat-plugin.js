@@ -39,7 +39,7 @@ import { initAudio, resumeAudio, setSfxVolume, sfx, ambient, setBgmVolume, setBg
 import { tavernBgmStage, TAVERN_BGM_STAGES } from '../core/tavern-bgm.js';
 import { groupsFromGraph, allCombos, comboKey, comboKeyFromPath, comboProgress, suggestUnseenCombo } from '../core/route-combos.js';
 import { applyIncomingDamage, applyOutgoingDamage } from '../core/damage-math.js';
-import { NOTICE_KINDS, NOTICE_TOP_MAX, NOTICE_QUEUE_MAX, NOTICE_QUEUE_STALE_MS, NOTICE_REPEAT_MS, NOTICE_HISTORY_MAX, classifyNotice, noticeSpec, noticeAdmit, noticeOrder } from '../core/notice-rules.js';   // 通知の分類・優先度(UI-VISUAL-001)
+import { NOTICE_KINDS, NOTICE_TOP_MAX, NOTICE_QUEUE_MAX, NOTICE_QUEUE_STALE_MS, NOTICE_REPEAT_MS, NOTICE_HISTORY_MAX, NOTICE_LOG_HISTORY_MAX, noticeRepeatSuppressed, classifyNotice, noticeSpec, noticeAdmit, noticeOrder } from '../core/notice-rules.js';   // 通知の分類・優先度(UI-VISUAL-001)
 import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../core/loot-math.js';
 import { timeLimitForStars } from '../core/scenario-timer.js';
 import { groupMansionLamps, pickMansionLampZone } from '../core/mansion-lamp-zones.js';
