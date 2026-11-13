@@ -58,7 +58,7 @@ test.describe('performance diagnostic', () => {
     await page.keyboard.press('Backquote');   // markPerfEvent はデバッグモード時だけ動く
 
     /* 酒場には敵が居ないので、ここでは「計測が有効な状態で攻撃入力を
-       通しても壊れない」ことだけを見る。実際のヒット/結晶破壊の計測は
+       通しても壊れない」ことだけを見る。実際のヒットの計測は
        ダンジョン内で行うが、それは実機で確認する類のもので、この環境の
        フレーム時間には意味が無い */
     for (let i = 0; i < 4; i++) {

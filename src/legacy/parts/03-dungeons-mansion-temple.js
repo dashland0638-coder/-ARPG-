@@ -834,8 +834,8 @@
       }
       if(towerShell) rcSetLayer(towerShell, outside);
     }
-    // 宝箱・回復結晶も、別の階のものは描かない(敵は 07 の updateEnemyFloorPresence)
-    towerHideOffFloor(chests); towerHideOffFloor(healingCrystals);
+    // 宝箱も、別の階のものは描かない(敵は 07 の updateEnemyFloorPresence)
+    towerHideOffFloor(chests);
     // 点光源は今の階のものだけ(6 個を置き直す。数を変えないのでシェーダーは作り直さない)
     const tier = towerTierAt(py);
     if(tier !== towerLightTier) placeTowerLights(tier);
@@ -3678,19 +3678,8 @@
       resetDoorState(d);   // 罠部屋の扉は開いた状態で生まれる
     });
 
-    // 階層の合間の休憩(姿見)。大階段の手前、戦闘②のあとに一息つける
-    const mirrorFrameMat = new THREE.MeshStandardMaterial({color:0x8a7a4a, roughness:0.5, metalness:0.5});
-    const mirrorGlassMat = new THREE.MeshStandardMaterial({color:0x6a8ac0, roughness:0.15, metalness:0.3, emissive:0x2a3a5a, emissiveIntensity:0.35});
-    const mirrorFrame = new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,0.12,16), mirrorFrameMat);
-    mirrorFrame.rotation.x = Math.PI/2;
-    mirrorFrame.position.set(-15, 1.8, -90);
-    scene.add(mirrorFrame);
-    const mirrorGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.95,0.95,0.05,16), mirrorGlassMat);
-    mirrorGlass.rotation.x = Math.PI/2;
-    mirrorGlass.position.set(-15, 1.8, -89.9);
-    scene.add(mirrorGlass);
-    mansionLamp(-15, -89.5, 0x6a8ac0, 0.5, 8);
-    registerCheckpoint(new THREE.Vector3(-15, 0, -89.5));
+    /* 以前はここに回復の姿見(休憩ポイント。HP/MP の不足分の半分を回復し、装備画面を開く)があった。
+       ENEMY-VISUAL-002 で撤去(回復はポーション・スキル・イベントで行う。装備の管理は酒場の鍛冶士) */
 
     /* 大階段。上りきった先が二階の踊り場。auto なので、近づけば
        勝手に数歩あるいて上ってくれる(選択UIは出さない)。
@@ -4650,21 +4639,8 @@
     seal.castShadow = true; seal.receiveShadow = true;
     manorAnomalyGroup.add(seal);
 
-    /* 大広間……? 側の目印。前半の大広間(mHall)にある姿見を、同じ
-       ジオメトリ・同じ材質で、同じオフセット(中心から -15 / 奥の壁から
-       2.1)へ。柱も同じ間隔(±13)で立てる。 */
-    const anomMirrorFrame = new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,0.12,16),
-      new THREE.MeshStandardMaterial({color:0x8a7a4a, roughness:0.5, metalness:0.5}));
-    anomMirrorFrame.rotation.x = Math.PI/2;
-    anomMirrorFrame.position.set(121, 1.8, 31.9);
-    manorAnomalyGroup.add(anomMirrorFrame);
-    const anomMirrorGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.95,0.95,0.05,16),
-      new THREE.MeshStandardMaterial({color:0x6a8ac0, roughness:0.15, metalness:0.3,
-                                      emissive:0x2a3a5a, emissiveIntensity:0.35}));
-    anomMirrorGlass.rotation.x = Math.PI/2;
-    anomMirrorGlass.position.set(121, 1.8, 31.8);
-    manorAnomalyGroup.add(anomMirrorGlass);
-
+    /* 以前はここに前半の大広間の姿見(回復の休憩ポイント)の写しを置いていた。本物の姿見を
+       ENEMY-VISUAL-002 で撤去したので、写しも置かない(同じ部屋に見せる約束を崩さないため) */
     // 大広間の柱。ここも前半と同じ間隔で立てる
     const pillarMat = new THREE.MeshStandardMaterial({color:0x3a3448, roughness:0.6});
     [[123,21],[149,21],[123,29],[149,29]].forEach(([x,z])=>{

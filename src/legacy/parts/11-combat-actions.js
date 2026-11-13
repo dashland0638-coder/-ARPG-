@@ -379,7 +379,6 @@
   function tryAttack(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging) return;
     if(state.executeT > 0) return;   // 処刑の再生中は通常攻撃を受け付けない(資料10章)
-    checkHealingCrystalBreak();   // 攻撃入力そのものに独立して乗せてあるので、通常のコンボ/CD管理には影響しない
     /* 空中の攻撃入力は必ず空中アクションへ落とす(Phase 5/7)。
 
        以前は `!state.grounded && !state.jumpAttacking` という条件だったため、

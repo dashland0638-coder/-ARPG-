@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import {
   GS_ENTRY, GS_ROOMS, gsRoomById, gsRoomAt, GS_ARRIVALS, GS_PASSAGES, gsPassageById, gsPassageState,
   gsReachableRooms, GS_PLATES_BEFORE, GS_PLATES_AFTER, GS_CREW, GS_CREW_LOST, gsRollcallTags, gsPlateSeat,
-  GS_MARKS, GS_CHAIN, gsLightFor, gsAmbienceZoneFor, GS_ANCHOR_DOOR, GS_CHESTS, GS_MIMICS, GS_HEALING,
+  GS_MARKS, GS_CHAIN, gsLightFor, gsAmbienceZoneFor, GS_ANCHOR_DOOR, GS_CHESTS, GS_MIMICS,
   GS_DOORS, GS_GATES, gsGateById, gsOpening, gsCopyOffset, gsRoomPresent, GS_DECKS, gsRoomLabel, GS_MESS_TABLE,
 } from '../../src/core/ghostship-map.js';
 
@@ -223,7 +223,7 @@ test('魔法の印: 3 つ。往路は帰り道を指し、帰還不能の後は�
 test('錨の鎖・宝箱・照明・環境音', () => {
   for (const c of GS_CHAIN.post.concat(GS_CHAIN.pre)) assert.ok(inside(gsRoomById(c.room), c.x, c.z), c.room);
   for (const id of ['xBilge', 'xHold', 'xQuartersDeep', 'xRollcall', 'xCabin', 'xAnte', 'xAnchor']) assert.ok(GS_CHAIN.post.some(c => c.room === id), id);
-  const all = GS_CHESTS.concat(GS_MIMICS, GS_HEALING);
+  const all = GS_CHESTS.concat(GS_MIMICS);   // 回復結晶(GS_HEALING)は ENEMY-VISUAL-002 で全廃
   for (const o of all) {
     assert.ok(inside(gsRoomById(o.room), o.x, o.z, 0.8), o.room);
     for (const p of GS_PASSAGES.filter(p => p.room === o.room)) assert.ok(Math.hypot(p.x - o.x, p.z - o.z) > 2.5);

@@ -74,7 +74,7 @@ import * as THREE from 'three';
     comboStage:0, comboCount:0, comboWindowT:0, comboWindowMax:0, comboLen:0, jumpAttacking:false, jumpAttackCD:0,
     invulnerable:false,
     paralyzed:false, paralyzeT:0, paralyzeInvulnT:0,
-    waterwayColdTimerT:0, waterwayColdTimerFired:false, lastDefeatedBossKey:null, sortied:false, hasBossKey:false, sortieKills:0, checkpointUsed:false,
+    waterwayColdTimerT:0, waterwayColdTimerFired:false, lastDefeatedBossKey:null, sortied:false, hasBossKey:false, sortieKills:0,
     learnedBossAbilities:[], equippedBossAbilities:[], invulnExtraT:0, learnedBossSkills:[],
     learnedBossActiveSkills:[], equippedBossActiveSkill:null, bossSkill3CD:0,
     unlockedSphereNodes:['root'], spherePoints:0,

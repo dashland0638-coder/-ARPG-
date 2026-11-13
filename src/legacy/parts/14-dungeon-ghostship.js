@@ -380,9 +380,9 @@
       if(!on) for(let j=0;j<c.ids.length;j++) if(vis.has(c.ids[j])){ on = true; break; }
       c.group.visible = on;
     }
-    // 宝箱・回復結晶・敵も、見えていない部屋にあるものは描かない(visible は各仕組みが使うので触らず、
+    // 宝箱・敵も、見えていない部屋にあるものは描かない(visible は各仕組みが使うので触らず、
     // 描画の層だけを外す)。部屋の外(境の上など)にあるものは描く
-    gsHideUnseen(chests, vis); gsHideUnseen(healingCrystals, vis); gsHideUnseen(enemies, vis);
+    gsHideUnseen(chests, vis); gsHideUnseen(enemies, vis);
     // 船の外(小舟・甲板)にいる時だけ海と夜空。中では外側を黒に
     const outside = !!room.outside;
     if(scene.background !== gsBgColor) gsOutsideShown = null;   // 明るさの設定などで背景が作り直された

@@ -66,6 +66,25 @@
     });
   }
 
+  /* 小さな動かない部品(フジツボ・肋・目の粒・縄の巻き)を一つの Geometry に溶接して共有する
+     (一体の部品数 = 描画の回数。輪郭・透視の殻も部品ごとに増えるので、細かい物はまとめる)。
+     parts: [geo, x, y, z, rx, ry, rz] の並び。key は種類ごとに一つ */
+  function foeWeld(key, parts){
+    return foeGeo('weld:' + key, ()=>{
+      const e = new THREE.Euler(), m4 = new THREE.Matrix4();
+      const list = parts.map(([geo, x, y, z, rx, ry, rz])=>{
+        const c = geo.clone();
+        e.set(rx || 0, ry || 0, rz || 0);
+        m4.makeRotationFromEuler(e); m4.setPosition(x, y, z);
+        c.applyMatrix4(m4);
+        return c;
+      });
+      const g = weldGeometries(list);
+      list.forEach(c=> c.dispose());
+      return g;
+    });
+  }
+
   /* buildEnemy → dressEnemy('foe') から。胴(body)と首・頭(M.neck / M.head)は buildEnemy が作った物を使う */
   function dressFoe(g, body, variant, M){
     const kind = variant.foeKind || 'phantomSailor';
@@ -83,49 +102,117 @@
   }
 
   /* ---------------- 幽霊船 ---------------- */
-  // 亡霊船員(変異: 残像の亡霊)。船員服の上半身、透けた下半身、錆びた舶刀。足は床から浮く
+  /* 亡霊船員(変異: 残像の亡霊)。ENEMY-VISUAL-002 で作り直し ―― 「海で死んだ水夫が、海の呪いで人でないものへ変わった」
+       ・人の左右対称を崩す: 上半身は前へ折れて捩じれ、右肩だけが盛り上がる。左腕は肩から先が無く、破れた袖が霧の帯になって流れる
+       ・右腕だけが異様に長い(関節が三つ。二つ目は逆に曲がる)。錆びた舶刀は手と癒着し、刃にフジツボ
+       ・頭は人の顔ではない: 細く伸びた首の先で、膨れた頭が真横へ垂れ、顎が外れたまま開く。目の光は左右で大きさが違う。
+         毛糸の帽子は頭から滑り落ちかけ、頭頂から霊の炎が細く立つ
+       ・脚は無い。腰から下は渦を巻く霧と水の尾(三節)。床には触れず、尾の先だけが霧の溜まりを引きずる
+       ・肩に破れた網と縄。胸は肋が透けて見える(破れたシャツの縞は胸の片側にだけ残る)
+     動き: 歩かない。漂う・沈む・引きずる。尾・帯・首・長い腕は胴に遅れて付いてくる(速さを局所の向きに直して遅らせる)。
+       攻撃の一瞬だけ実体化(霧の部分が濃くなる)、振り抜いた後は崩れて霧に戻る(縮んで沈み、霧の溜まりが広がる) */
   function dressPhantom(g, body, variant, M, echo){
     M.hover = true;
     const C = FOE_COLORS;
-    body.material.color.setHex(echo ? 0x24304a : C.coat);
-    body.geometry = _cyl(0.24, 0.19, 0.6, 8);
-    body.position.set(0, 1.05, 0);
-    body.scale.set(1, 1, 0.85);
     // 透ける部分は個体ごとの材質(踏み込みの間だけ濃くなる。共有すると全員が濃くなる)
-    const ghost = new THREE.MeshStandardMaterial({color:echo ? 0x8a9ad8 : C.pale, roughness:0.8, transparent:true, opacity:0.32, depthWrite:false, emissive:C.spirit, emissiveIntensity:0.25});
-    // 縞のシャツの裾と襟(船員服)
-    foePart(g, _cyl(0.245, 0.245, 0.08, 8), stdMat('stripe', C.stripe), 0, 0.8, 0, {outline:true});
-    foePart(g, _cyl(0.2, 0.25, 0.1, 8), stdMat('navy', C.navy), 0, 1.36, 0);
-    // 透けた下半身(裾が渦を巻いて床の霧に溶ける)
-    M.foeHem = foePart(g, _cone(0.24, 0.85, 8), ghost, 0, 0.36, 0, {rx:Math.PI});
-    M.foeMist = foePart(g, _disc(0.5), stdMat('mist', 0x9ab0c0, {transparent:true, opacity:0.2, depthWrite:false}), 0, 0.04, 0);
+    const ghost = new THREE.MeshStandardMaterial({color:echo ? 0x8a9ad8 : C.pale, roughness:0.8, transparent:true, opacity:0.32, depthWrite:false, emissive:echo ? 0x8a7af0 : C.spirit, emissiveIntensity:0.35, side:THREE.DoubleSide});
     M.foeGhostMat = ghost;
-    // 頭: 毛糸の帽子、青白い目の切れ込み
-    M.neck.position.set(0, 1.55, 0);
-    M.head.scale.setScalar(0.85);
-    foePart(M.neck, _sph(0.21, 10, 6), stdMat('cap', echo ? 0x3a2a4a : 0x5a2a2a), 0, 0.08, -0.01, {outline:true});
-    M.foeEyeMat = glowMat(C.spirit, 0.6);
-    foePart(M.neck, _box(0.16, 0.035, 0.03), M.foeEyeMat, 0, 0.0, 0.18);
-    // 腕: 右に舶刀(刃は個体の光る材質。予兆で光が集まる)。左腕は肘から先が霧
+    // 胴は前へ折れて捩じれた支点に吊る(首・腕も同じ支点に付けて、胴と一緒に傾く)
+    const torso = foePivot(g, 0, 1.12, 0);
+    torso.rotation.set(0.42, -0.18, 0.16);
+    M.foeTorso = torso;
+    torso.add(body);
+    body.material.color.setHex(echo ? 0x2c3656 : 0x3a4c6c);
+    body.geometry = _cyl(0.27, 0.11, 0.68, 7);
+    body.position.set(0.02, 0.06, 0);
+    body.scale.set(1.12, 1, 0.78);
+    // 胸の穴と透けた肋(片側だけ残ったシャツの縞)
+    foePart(torso, _box(0.2, 0.26, 0.04), stdMat('phHole', 0x07090e), -0.06, 0.12, 0.2);
+    const rib = stdMat('phRib', 0xb8c4c0);
+    foePart(torso, foeWeld('phRibs', [0, 1, 2].map(i=> [_box(0.22, 0.025, 0.03), 0, i * 0.08, 0, 0, 0, 0.12])), rib, -0.06, 0.04, 0.215);
+    foePart(torso, _box(0.16, 0.05, 0.05), stdMat('stripe', C.stripe), 0.14, -0.04, 0.17, {rz:-0.3});
+    foePart(torso, _cyl(0.17, 0.26, 0.1, 7, true), stdMat('navy', C.navy), 0, 0.42, 0);
+    // 盛り上がった右肩(フジツボと貝が肉に食い込む)
+    const shell = stdMat('barnacle', C.barnacle);
+    foePart(torso, _sph(0.17, 8, 6), stdMat(echo ? 'phArmE' : 'phArm', echo ? 0x24304a : C.coat), 0.27, 0.4, 0, {outline:true});
+    foePart(torso, foeWeld('phBarn', [[0.33, 0.52, 0.05], [0.22, 0.54, -0.06], [0.38, 0.44, -0.08], [0.18, 0.5, 0.1]].map(([x, y, z], i)=>
+      [_cone(0.045 + (i % 2) * 0.015, 0.08, 5), x, y, z, 0, 0, -0.5 + i * 0.3])), shell, 0, 0, 0);
+    // 肩に破れた網(ワイヤーの格子 1 枚)と縄
+    const net = foeMat('phNet', ()=> new THREE.MeshBasicMaterial({color:0x8a8a6a, wireframe:true, transparent:true, opacity:0.55}));
+    foePart(torso, foeGeo('phNetGeo', ()=> new THREE.PlaneGeometry(0.55, 0.75, 4, 5)), net, -0.12, 0.22, -0.2, {rz:0.5, ry:0.3});
+    foePart(torso, _tor(0.24, 0.022, 4, 10), stdMat('rope', 0x8a7448), -0.02, 0.28, 0, {rx:Math.PI/2, ry:0.6, rz:0.2});
+    // 頭: 細く伸びた首の先で、膨れた頭が真横へ垂れる。顎は外れて開き、目の光は左右で違う
+    torso.add(M.neck);
+    M.neck.position.set(0.06, 0.48, 0.1);
+    const stalk = foePart(M.neck, _cyl(0.04, 0.05, 0.42, 5), stdMat('phSkin', 0x8a9a9a), 0, 0.18, 0);
+    stalk.rotation.z = 0.35;
+    const skull = foePivot(M.neck, -0.12, 0.38, 0.02);
+    skull.rotation.z = 1.05;
+    M.foeSkull = skull;
+    skull.add(M.head);
+    M.head.position.set(0, 0, 0);
+    M.head.scale.set(0.62, 0.84, 0.68);
+    M.head.material = stdMat('phSkull', 0x8fb0ac, {emissive:0x2a4a50, emissiveIntensity:0.4});
+    foePart(skull, _box(0.12, 0.17, 0.05), stdMat('phMaw', 0x050608), 0, -0.11, 0.1);          // 外れた顎(縦に開いた穴)
+    M.foeEyeMat = glowMat(echo ? 0xb0a0ff : C.spirit, 0.9);
+    foePart(skull, foeWeld('phEyes', [[_sph(0.04, 6, 5), 0.05, 0.04, 0], [_sph(0.02, 5, 4), -0.06, 0.07, 0]]), M.foeEyeMat, 0, 0, 0.12);
+    foePart(skull, _sph(0.14, 8, 6), stdMat('cap', echo ? 0x3a2a4a : 0x5a2a2a), 0.05, 0.13, -0.05, {rz:-0.7, outline:true});  // 滑り落ちかけた帽子
+    M.foeWisp = foePart(skull, _cone(0.06, 0.4, 5), ghost, -0.02, 0.3, 0);                   // 頭頂の霊の炎
+    // 右腕だけ異様に長い。肩 → 肘 → 逆に曲がる第二の肘 → 癒着した舶刀
     const armMat = stdMat(echo ? 'phArmE' : 'phArm', echo ? 0x24304a : C.coat);
-    const R = foePivot(g, 0.3, 1.3, 0), L = foePivot(g, -0.3, 1.3, 0);
-    foePart(R, _cyl(0.06, 0.05, 0.5, 6), armMat, 0, -0.25, 0);
-    const blade = foePivot(R, 0, -0.5, 0.05);
-    M.foeBladeMat = glowMat(C.spirit, 0.05);
+    const flesh = stdMat('phSkin', 0x8a9a9a);
+    const R = foePivot(torso, 0.3, 0.36, 0.02);
+    foePart(R, _cyl(0.07, 0.055, 0.55, 6), armMat, 0, -0.27, 0, {outline:true});
+    const e1 = foePivot(R, 0, -0.55, 0);
+    foePart(e1, _cyl(0.045, 0.04, 0.52, 5), flesh, 0, -0.26, 0);
+    const e2 = foePivot(e1, 0, -0.52, 0);
+    foePart(e2, _cyl(0.04, 0.05, 0.3, 5), flesh, 0, -0.15, 0);
+    const blade = foePivot(e2, 0, -0.32, 0.02);
+    M.foeBladeMat = glowMat(echo ? 0xa090ff : C.spirit, 0.05);
     M.foeBladeMat.color.setHex(C.rust);
-    foePart(blade, _box(0.05, 0.08, 0.16), stdMat('rustDark', C.rustDark), 0, 0, 0);
-    foePart(blade, _box(0.04, 0.06, 0.78), M.foeBladeMat, 0, 0.0, 0.46, {outline:true});
-    foePart(L, _cyl(0.06, 0.05, 0.28, 6), armMat, 0, -0.14, 0);
-    foePart(L, _cone(0.06, 0.3, 6), ghost, 0, -0.4, 0, {rx:Math.PI});
-    M.foeArmR = R; M.foeArmL = L; M.foeBlade = blade;
+    foePart(blade, _box(0.07, 0.1, 0.12), stdMat('rustDark', C.rustDark), 0, 0, 0);
+    foePart(blade, _box(0.035, 0.07, 0.5), M.foeBladeMat, 0, -0.01, 0.3, {outline:true});
+    foePart(blade, _box(0.035, 0.065, 0.36), M.foeBladeMat, 0, 0.04, 0.68, {rx:-0.28});         // 反った刃先
+    M.foeArmR = R; M.foeElbow1 = e1; M.foeElbow2 = e2; M.foeBlade = blade;
+    // 左腕は無い。破れた袖の付け根から、霧の帯が三本流れる(胴に遅れる)
+    const L = foePivot(torso, -0.27, 0.34, 0);
+    foePart(L, _cone(0.09, 0.2, 6), armMat, 0, -0.08, 0, {rx:Math.PI});
+    M.foeArmL = L;
+    M.foeRibbons = [0, 1].map(i=>{
+      const p = foePivot(L, 0, -0.16, 0);
+      foePart(p, _box(0.06 - i * 0.012, 0.6 + i * 0.18, 0.012), ghost, 0, -0.3 - i * 0.09, 0);
+      p.rotation.set(0.5 + i * 0.25, 0, -0.2 + i * 0.25);
+      return {p, i};
+    });
+    // 背の破れた布(二枚。遅れて翻る)
+    const cloth = stdMat(echo ? 'phClothE' : 'phCloth', echo ? 0x2a2a48 : 0x34405a, {side:THREE.DoubleSide});
+    M.foeStreamers = [[0.02, 0]].map(([x, i])=>{
+      const p = foePivot(torso, x, 0.3, -0.16);
+      foePart(p, _box(0.24, 0.62, 0.01), cloth, 0, -0.3, 0);
+      return {p, i};
+    });
+    // 腰から下は渦を巻く霧と水の尾(三節)。節ごとに遅れて後ろへ流れる
+    M.foeTail = [];
+    let parent = foePivot(g, 0, 0.82, -0.02);
+    [[0.22, 0.15, 0.44], [0.16, 0.08, 0.38], [0.09, 0.01, 0.36]].forEach(([r0, r1, h], i)=>{
+      const seg = foePart(parent, _cyl(r0, r1, h, 7, true), ghost, 0, -h / 2, 0);
+      if(i === 0) M.foeHem = seg;
+      M.foeTail.push(parent);
+      const next = foePivot(parent, 0, -h * 0.92, 0);
+      parent = next;
+    });
+    M.foeMist = foePart(g, _disc(0.55), stdMat('mist', 0x9ab0c0, {transparent:true, opacity:0.2, depthWrite:false}), 0, 0.04, 0);
+    M.foeVel = {f:0, s:0}; M.foePrev = null; M.foeCollapse = 0;
     M.hitRadius = 0.42;
     if(echo){
-      // 残像(二つ)。身体の外形だけの影を、少し前の位置に置いていく(共有の材質・部品)
+      // 残像(二つ)。折れた胴・長い腕・尾の外形だけの影を、少し前の位置に置いていく(共有の材質・部品)
       const ghostMat = stdMat('echoTrail', 0x8a9ad8, {transparent:true, opacity:0.18, depthWrite:false});
       M.foeTrail = [0, 1].map(()=>{
         const t = new THREE.Group();
-        foePart(t, _cyl(0.24, 0.12, 1.1, 8), ghostMat, 0, 0.95, 0);
-        foePart(t, _sph(0.18, 8, 6), ghostMat, 0, 1.6, 0);
+        foePart(t, _cone(0.22, 0.9, 7), ghostMat, 0, 0.5, -0.05, {rx:Math.PI});
+        foePart(t, _cyl(0.26, 0.12, 0.7, 7), ghostMat, 0, 1.2, 0.12, {rx:0.42});
+        foePart(t, _sph(0.17, 8, 6), ghostMat, -0.2, 1.62, 0.32);
+        foePart(t, _box(0.08, 1.3, 0.08), ghostMat, 0.34, 0.75, 0.3, {rx:0.3});
         t.visible = false;
         scene.add(t);
         return t;
@@ -133,97 +220,197 @@
       M.foeHist = [];
     }
   }
-  // 溺死した船員(変異: 錨を引く溺死船員)。水を吸った重い外套、膨れた体、海藻と貝殻。腰が低い
+  /* 溺死した船員(変異: 錨を引く溺死船員)。ENEMY-VISUAL-002 で作り直し
+       ・重心が低い: 水を吸って膨れた胴が前へ倒れ、背が一番高い所になる(背に貝・フジツボ・絡まった網の瘤)
+       ・腕が異様に長い: 床に拳を突いて体を引きずる(肘は少し逆に曲がる)。左右で太さも違う
+         (右の前腕は膨れて船板が癒着し、左腕には縄が巻き付く)
+       ・頭は胸の高さに沈み、濡れた海藻が髪のように垂れて顔を覆う。隙間から片目だけが光る
+       ・脚は短く、右脚は膝から先が無い(ちぎれた縄が垂れる)。足元にいつも水溜まり、体から雫が落ちる
+     動き: 歩かない。腕を交互に前へ突き、胴を引きずる(拳で這う)。海藻と濡れた布は胴に遅れて揺れる */
   function dressDrowned(g, body, variant, M, anchor){
     const C = FOE_COLORS;
     M.heavy = true;
+    // 上半身(胴・頭・腕)をまとめて捩じる支点(薙ぎ・振り回しの溜め)
+    const upper = foePivot(g, 0, 0, 0);
+    M.foeCoat = upper;
+    const torso = foePivot(upper, 0, 0.78, 0);
+    torso.rotation.x = 0.75;
+    M.foeTorso = torso;
+    torso.add(body);
     body.material.color.setHex(anchor ? 0x3a4448 : C.bloat);
     body.geometry = _sph(0.4, 12, 10);
-    body.scale.set(1.25, 1.05, 1.1);
-    body.position.set(0, 0.95, 0.05);
-    const coat = stdMat(anchor ? 'drCoatA' : 'drCoat', anchor ? 0x1e2a30 : 0x24343a, {roughness:0.95});
-    // 外套(重く垂れた裾。前かがみ)
-    M.foeCoat = foePart(g, _cyl(0.42, 0.56, 0.75, 9, true), coat, 0, 0.6, 0, {outline:true, shadow:true});
-    // 海藻(垂れて揺れる)と貝殻
-    M.foeWeed = [];
-    [[-0.3, 0.2], [0.25, 0.3], [0.05, -0.38], [-0.1, 0.4]].forEach(([x, z], i)=>{
-      const w = foePivot(g, x, 1.15, z);
-      foePart(w, _box(0.05, 0.55, 0.02), stdMat('weed', C.weed), 0, -0.27, 0);
-      M.foeWeed.push({p:w, i});
+    body.scale.set(1.35, 1.05, 1.2);
+    body.position.set(0, 0, 0);
+    const coat = stdMat(anchor ? 'drCoatA' : 'drCoat', anchor ? 0x1e2a30 : 0x24343a, {roughness:0.95, side:THREE.DoubleSide});
+    // 水を吸って裂けた外套: 胴から床へ垂れる帯(裾は床を引きずる)
+    M.foeRags = [[-0.36, 0.1], [0.02, -0.32], [0.4, 0.05]].map(([x, z], i)=>{
+      const p = foePivot(torso, x, -0.15, z);
+      foePart(p, _box(0.2, 0.7 - (i % 2) * 0.15, 0.015), coat, 0, -0.32, 0);
+      return {p, i};
     });
-    [[0.32, 1.05, 0.25], [-0.36, 0.9, 0.2], [0.1, 1.25, 0.34], [-0.2, 1.2, -0.3]].forEach(([x, y, z])=>
-      foePart(g, _cone(0.05, 0.08, 5), stdMat('barnacle', C.barnacle), x, y, z, {rx:-0.6}));
-    // 頭は肩に埋もれて前へ垂れる
-    M.neck.position.set(0, 1.32, 0.28);
-    M.head.scale.setScalar(0.95);
+    foePart(torso, _cyl(0.46, 0.5, 0.35, 9, true), coat, 0, -0.1, 0, {outline:true, shadow:true});
+    // 背の瘤: 貝・フジツボ・絡まった網
+    const shell = stdMat('barnacle', C.barnacle);
+    foePart(torso, _sph(0.3, 8, 6), stdMat('drHump', anchor ? 0x34403e : 0x46524a), 0.1, 0.32, -0.12, {outline:true, shadow:true});
+    foePart(torso, foeWeld('drBarn', [[0.25, 0.5, -0.05], [-0.05, 0.55, -0.2], [0.3, 0.38, -0.3], [-0.2, 0.42, 0.05], [0.05, 0.6, 0.02], [0.38, 0.28, 0.1]].map(([x, y, z], i)=>
+      [_cone(0.05 + (i % 3) * 0.015, 0.1, 5), x, y, z, -0.3 + i * 0.2, 0, (i - 2) * 0.3])), shell, 0, 0, 0);
+    const net = foeMat('phNet', ()=> new THREE.MeshBasicMaterial({color:0x8a8a6a, wireframe:true, transparent:true, opacity:0.55}));
+    foePart(torso, foeGeo('drNetGeo', ()=> new THREE.SphereGeometry(0.46, 6, 4, 0, Math.PI * 2, 0, Math.PI / 2)), net, 0, 0.05, -0.05);
+    // 頭: 胸の高さに沈む。濡れた海藻が髪のように垂れて顔を覆い、隙間から片目だけ光る
+    torso.add(M.neck);
+    M.neck.position.set(0, -0.02, 0.5);
+    M.neck.rotation.x = -0.75;
+    M.head.scale.set(1.0, 0.85, 0.9);
     M.head.material = stdMat('drSkin', 0x6a7a74);
-    foePart(M.neck, _box(0.22, 0.05, 0.04), stdMat('drMouth', 0x101418), 0, -0.08, 0.2);
-    M.foeEyeMat = glowMat(anchor ? 0x7ec8f0 : 0x9ad8a8, 0.35);
-    foePart(M.neck, _box(0.2, 0.04, 0.03), M.foeEyeMat, 0, 0.04, 0.21);
-    // 太い腕(両手で振り下ろす)。脚は短く太い
-    const armMat = stdMat('drArm', 0x5a6a68);
-    const L = foePivot(g, -0.48, 1.18, 0.05), R = foePivot(g, 0.48, 1.18, 0.05);
-    [L, R].forEach(p=>{ foePart(p, _cyl(0.13, 0.11, 0.62, 7), armMat, 0, -0.31, 0, {outline:true}); foePart(p, _sph(0.14, 8, 6), armMat, 0, -0.66, 0); });
-    M.foeArmL = L; M.foeArmR = R;
-    const legL = foePivot(g, -0.2, 0.42, 0), legR = foePivot(g, 0.2, 0.42, 0);
-    [legL, legR].forEach(p=> foePart(p, _cyl(0.13, 0.15, 0.42, 7), stdMat('drLeg', 0x2a3436), 0, -0.21, 0));
+    foePart(M.neck, _box(0.24, 0.07, 0.05), stdMat('drMouth', 0x101418), 0.02, -0.1, 0.19, {rz:0.15});
+    M.foeEyeMat = glowMat(anchor ? 0x7ec8f0 : 0x9ad8a8, 0.6);
+    foePart(M.neck, _sph(0.04, 6, 5), M.foeEyeMat, 0.08, 0.03, 0.2);
+    const weed = stdMat('drWeed', 0x3e7a4a, {side:THREE.DoubleSide, emissive:0x0a2a14, emissiveIntensity:0.5});
+    M.foeWeed = [];
+    [[-0.12, 0.7], [-0.02, 0.85], [0.15, 0.6], [0.06, 0.75]].forEach(([x, len], i)=>{
+      const w = foePivot(M.neck, x, 0.16, 0.14 + (i === 2 ? -0.05 : 0));
+      foePart(w, _box(0.08, len, 0.015), weed, 0, -len / 2, 0);
+      M.foeWeed.push({p:w, i, base:0.15});
+    });
+    // 腕: 異様に長く、床に拳を突く。肩 → 少し逆に曲がる肘 → 膨れた前腕 → 大きな拳
+    const armMat = stdMat('drArm', 0x7a8c88);
+    const sleeve = stdMat(anchor ? 'drCoatA' : 'drCoat', anchor ? 0x1e2a30 : 0x24343a, {roughness:0.95, side:THREE.DoubleSide});
+    const mkArm = (side)=>{
+      const S = foePivot(upper, side * 0.58, 1.05, 0.28);
+      foePart(S, _sph(0.17, 8, 6), armMat, 0, 0, 0);
+      foePart(S, _cyl(0.13, 0.15, 0.58, 7), sleeve, 0, -0.27, 0, {outline:true});   // 濡れて張り付いた袖
+      const E = foePivot(S, 0, -0.58, 0);
+      E.rotation.x = 0.3;
+      const fat = side > 0 ? 1.25 : 0.9;
+      foePart(E, _cyl(0.11 * fat, 0.15 * fat, 0.52, 7), armMat, 0, -0.26, 0, {shadow:side > 0});
+      foePart(E, _sph(0.17 * fat, 8, 6), armMat, 0, -0.56, 0.03, {outline:true});
+      return {S, E};
+    };
+    const L = mkArm(-1), R = mkArm(1);
+    M.foeArmL = L.S; M.foeArmR = R.S; M.foeElbowL = L.E; M.foeElbowR = R.E;
+    // 右の前腕に癒着した船板、左腕に巻き付いた縄
+    foePart(R.E, _box(0.08, 0.6, 0.26), stdMat('wood', C.wood), 0.15, -0.3, 0, {rz:0.08});
+    const rope = stdMat('rope', 0x8a7448);
+    foePart(L.E, foeWeld('drRope', [0, 1, 2].map(i=> [_tor(0.13, 0.02, 4, 8), 0, -i * 0.14, 0, Math.PI/2 + (i - 1) * 0.3])), rope, 0, -0.12, 0);
+    // 腕から垂れる海藻(遅れて揺れる)
+    [[L.E, -0.05], [R.E, 0.05]].forEach(([par, x], i)=>{
+      const w = foePivot(par, x, -0.2 - i * 0.05, -0.1);
+      foePart(w, _box(0.06, 0.5, 0.015), weed, 0, -0.25, 0);
+      M.foeWeed.push({p:w, i:i + 4, base:0.1});
+    });
+    // 脚: 短い。右脚は膝から先が無く、ちぎれた縄が垂れる
+    const legMat = stdMat('drLeg', 0x2a3436);
+    const legL = foePivot(g, -0.22, 0.42, -0.2), legR = foePivot(g, 0.22, 0.42, -0.2);
+    foePart(legL, _cyl(0.13, 0.15, 0.42, 7), legMat, 0, -0.21, 0);
+    foePart(legR, _cyl(0.13, 0.1, 0.2, 7), legMat, 0, -0.1, 0);
     M.foeLegs = [legL, legR];
+    // 足元の水溜まりと、体から落ちる雫(二つを使い回す)
+    const water = stdMat('drWater', 0x5a8a9a, {transparent:true, opacity:0.35, depthWrite:false, roughness:0.15, metalness:0.2});
+    M.foePuddle = foePart(g, _disc(0.75), water, 0, 0.03, 0.15);
+    M.foeDrops = [0].map(i=> ({m:foePart(g, _sph(0.035, 5, 4), water, 0.4, 0.9, 0.3), i}));
     if(anchor){
-      // 錨(柄＋腕)と鎖。両手で持つ。投擲の間は錨だけが前へ飛ぶ
-      const A = foePivot(R, 0, -0.66, 0.1);
+      // 錨は右の拳に癒着し、鎖が腕に巻き付いて背の瘤へ。投擲の間は錨だけが前へ飛ぶ
+      const A = foePivot(R.E, 0, -0.56, 0.1);
+      A.rotation.x = 1.3;   // ふだんは床を引きずる(投擲の間だけ拳の先へ真っ直ぐ)
       const iron = stdMat('anchorIron', 0x3a3c3e, {metalness:0.5, roughness:0.6});
       foePart(A, _cyl(0.06, 0.06, 1.3, 6), iron, 0, -0.55, 0, {outline:true, shadow:true});
       foePart(A, _tor(0.38, 0.07, 5, 10), iron, 0, -1.15, 0, {outline:true});
       foePart(A, _box(0.5, 0.06, 0.06), iron, 0, 0.05, 0);
+      foePart(A, _cone(0.08, 0.14, 4), shell, 0.2, -1.05, 0.05);
       M.foeAnchor = A;
       const chainMat = stdMat('chain', 0x5a5a58, {metalness:0.6, roughness:0.5});
-      for(let i=0;i<4;i++) foePart(g, _tor(0.07, 0.025, 4, 8), chainMat, -0.3 + i*0.16, 1.3 - i*0.1, 0.32, {rz:0.7, ry:i % 2 ? Math.PI/2 : 0});
+      foePart(R.S, foeWeld('drChainArm', [0, 1, 2, 3].map(i=> [_tor(0.12, 0.025, 4, 8), 0, -i * 0.14, 0, Math.PI/2 + (i % 2) * 0.5])), chainMat, 0, -0.1, 0);
+      foePart(torso, foeWeld('drChainBack', [0, 1, 2].map(i=> [_tor(0.07, 0.025, 4, 8), -i * 0.12, i * 0.05, 0, 0, i % 2 ? Math.PI/2 : 0, 0.7])), chainMat, 0.35, 0.42, 0.1);
     }
+    M.foeVel = {f:0, s:0}; M.foePrev = null;
     M.hitRadius = 0.6;
   }
-  // 深海の異形(変異も同じ骨格で、甲殻・輪・光が大きい)。人ではない ―― 床を這う長い腕と甲殻、背の触手
+  /* 深海の異形(変異も同じ骨格で、甲殻・輪・光が大きい)。ENEMY-VISUAL-002 で作り直し ―― 人の形は残っていない
+       ・膨れた胴を、膝が胴より高く折れ上がった六本の細い脚で吊る(遠目には「床に立つ檻」の形)
+       ・脚の一本だけが、縞の袖を着たままの人の腕(かつて水夫だった名残)。床に掌を突いて歩く
+       ・頭は前へ伸びた節のある首の先。四枚の顎が花のように開き、目は大きさの違う光の粒の群れ。
+         頭の上から提灯のような光る疑似餌が垂れる
+       ・背に割れて開く三枚の甲殻(予兆)。腹の下から節のある触手が四本、後ろへ流れる
+     動き: 六本の脚が順にずれて床を掻く(這う)。疑似餌と触手は胴に遅れて揺れる。予兆では前の二本の脚を高く上げて床に突き立てる */
   function dressAbyss(g, body, variant, M, mutant){
     const C = FOE_COLORS;
     M.crawl = true;
     body.material.color.setHex(mutant ? 0x2a1e34 : C.abyss);
     body.geometry = _sph(0.42, 12, 8);
-    body.scale.set(1.0, 0.5, 1.5);
-    body.position.set(0, 0.38, 0);
+    body.scale.set(1.0, 0.62, 1.3);
+    body.position.set(0, 0.6, -0.05);
+    const glowC = mutant ? C.mutantGlow : C.abyssGlow;
+    M.foeEyeMat = glowMat(glowC, 0.5);
     // 背の甲殻(三枚。予兆で割れて開く)
     const shell = stdMat(mutant ? 'abShellM' : 'abShell', mutant ? 0x4a2a5a : 0x2a3a3c, {roughness:0.5, metalness:0.2});
     M.foePlates = [0, 1, 2].map(i=>{
-      const p = foePivot(g, 0, 0.55, -0.35 + i * 0.32);
+      const p = foePivot(g, 0, 0.8, -0.4 + i * 0.32);
       foePart(p, _sph(0.3 + (mutant ? 0.06 : 0), 8, 6), shell, 0, 0.02, 0, {outline:true, shadow:i === 1});
-      p.scale.set(1.2, 0.35, 0.8);
+      p.scale.set(1.25, 0.38, 0.8);
       return p;
     });
-    if(mutant) M.foePlates.forEach(p=> foePart(p, _cone(0.06, 0.4, 5), shell, 0, 0.3, 0));
-    // 光る斑点(海の生物の発光)
-    M.foeEyeMat = glowMat(mutant ? C.mutantGlow : C.abyssGlow, 0.5);
-    [[0.18, 0.5, 0.55], [-0.18, 0.5, 0.55], [0, 0.42, 0.64]].forEach(([x, y, z])=> foePart(g, _sph(0.05, 6, 5), M.foeEyeMat, x, y, z));
-    // 長い腕(肩 → 肘 → 鉤爪)。四本のうち前の二本が攻撃に伸びる
+    if(mutant){
+      M.foePlates.forEach(p=> foePart(p, _cone(0.06, 0.5, 5), shell, 0, 0.35, 0));
+      // 変異: 背に光る珊瑚が生える
+      foePart(g, foeWeld('abCoral', [[-0.25, 0.95, -0.2], [0.2, 0.98, 0.05], [0.05, 1.0, -0.45]].map(([x, y, z], i)=> [_cone(0.04, 0.28 + i * 0.06, 4), x, y, z, 0, 0, (i - 1) * 0.5])), M.foeEyeMat, 0, 0, 0);
+    }
+    // 六本の脚: 膝が胴より高く折れ上がり、床へ降りる。前の二本が攻撃に使われる。左の後ろの一本は人の腕
     const limb = stdMat(mutant ? 'abLimbM' : 'abLimb', mutant ? 0x3a2a44 : 0x24343a);
+    const claw = stdMat('claw', 0xc8c0a8);
+    const sleeve = stdMat('stripe', C.stripe), flesh = stdMat('phSkin', 0x8a9a9a);
     M.foeArms = [];
-    [[-0.38, 0.45, 1], [0.38, 0.45, 1], [-0.34, -0.3, 0], [0.34, -0.3, 0]].forEach(([x, z, front])=>{
-      const sh = foePivot(g, x, 0.42, z);
-      const upper = foePart(sh, _cyl(0.05, 0.04, 0.6, 5), limb, 0, -0.3, 0, {outline:true});
-      const el = foePivot(sh, 0, -0.6, 0);
-      foePart(el, _cyl(0.04, 0.025, 0.7 + (mutant ? 0.2 : 0), 5), limb, 0, -0.35, 0);
-      foePart(el, _cone(0.05, 0.22, 4), stdMat('claw', 0xc8c0a8), 0, -0.78, 0, {rx:Math.PI});
-      sh.rotation.z = x < 0 ? 0.9 : -0.9;
-      sh.userData.side = x < 0 ? -1 : 1;
-      M.foeArms.push({sh, el, front:!!front, up:upper});
+    [[-1, 0.4, 1], [1, 0.4, 1], [-1, 0, 0], [1, 0, 0], [-1, -0.4, 0], [1, -0.4, 0]].forEach(([side, z, front], i)=>{
+      const human = i === 4;
+      const sh = foePivot(g, side * 0.3, 0.62, z);
+      const upLen = front ? 0.75 : 0.62, loLen = (front ? 1.2 : 1.05) + (mutant ? 0.15 : 0);
+      foePart(sh, _cyl(0.06, 0.045, upLen, 5), human ? sleeve : limb, 0, upLen / 2, 0, {outline:!!front || human});
+      const el = foePivot(sh, 0, upLen, 0);
+      if(human){
+        foePart(el, _cyl(0.045, 0.02, loLen, 5), flesh, 0, -loLen / 2, 0);
+        foePart(el, _box(0.1, 0.03, 0.14), flesh, 0, -loLen, 0.02);  // 床に突いた掌
+      } else {
+        // 脚の先と鉤爪は一つに溶接(部品数を増やさない。鉤爪の白は頂点を分けず、脚と同じ材質の先を尖らせる)
+        foePart(el, foeWeld(`abLeg:${loLen}`, [[_cyl(0.045, 0.02, loLen, 5), 0, -loLen / 2, 0], [_cone(0.03, 0.22, 4), 0, -loLen - 0.1, 0, Math.PI]]), limb, 0, 0, 0, {outline:!!front});
+      }
+      sh.userData.side = side;
+      sh.userData.base = -side * 0.75;
+      el.userData.base = side * 1.15;
+      sh.rotation.z = sh.userData.base;
+      el.rotation.z = el.userData.base;
+      M.foeArms.push({sh, el, front:!!front, i});
     });
-    // 背の触手(後ろへ流れる)
+    // 腹の下の触手(四本、二節。後ろへ流れる)
     M.foeTentacles = [0, 1, 2].map(i=>{
-      const p = foePivot(g, (i - 1) * 0.18, 0.4, -0.6);
-      foePart(p, _cone(0.06, 0.8, 5), limb, 0, 0, -0.4, {rx:-Math.PI/2});
+      const p = foePivot(g, (i - 1) * 0.16, 0.45, -0.5);
+      foePart(p, _cone(0.06, 0.6, 5), limb, 0, 0, -0.3, {rx:-Math.PI/2});
+      const q = foePivot(p, 0, 0, -0.55);
+      foePart(q, _cone(0.035, 0.55, 5), limb, 0, 0, -0.27, {rx:-Math.PI/2});
+      return {p, q, i};
+    });
+    // 頭: 節のある首を前へ伸ばした先。四枚の顎が花のように開き、目は光の粒の群れ
+    M.neck.position.set(0, 0.62, 0.5);
+    foePart(M.neck, _cyl(0.1, 0.13, 0.3, 6), limb, 0, 0, -0.05, {rx:Math.PI/2});
+    M.head.position.set(0, 0, 0.28);
+    M.head.scale.set(0.7, 0.6, 1.05);
+    M.head.material = stdMat('abHead', mutant ? 0x3a2a44 : 0x2a3a3c);
+    M.foeJaws = [0, 1, 2, 3].map(i=>{
+      const a = i / 4 * Math.PI * 2 + Math.PI / 4;
+      const p = foePivot(M.neck, Math.cos(a) * 0.09, Math.sin(a) * 0.08, 0.45);
+      foePart(p, _cone(0.05, 0.26, 4), claw, 0, 0, 0.12, {rx:Math.PI/2});
+      p.userData.a = a;
       return p;
     });
-    M.neck.position.set(0, 0.42, 0.62);
-    M.head.scale.set(0.8, 0.6, 0.9);
-    M.head.material = stdMat('abHead', mutant ? 0x3a2a44 : 0x2a3a3c);
-    foePart(M.neck, _box(0.26, 0.06, 0.05), stdMat('abMaw', 0x060808), 0, -0.05, 0.2);
+    foePart(M.neck, _sph(0.07, 6, 5), stdMat('abMaw', 0x060808), 0, 0, 0.43);
+    foePart(M.neck, foeWeld('abEyes', [[0.11, 0.1, 0.38, 0.05], [-0.09, 0.12, 0.36, 0.03], [0.04, 0.16, 0.3, 0.025], [-0.13, 0.04, 0.33, 0.02], [0.14, 0.02, 0.3, 0.02], [-0.02, 0.18, 0.22, 0.018]]
+      .map(([x, y, z, r])=> [_sph(r, 5, 4), x, y, z])), M.foeEyeMat, 0, 0, 0);
+    // 頭の上から垂れる光る疑似餌(遅れて揺れる)
+    const lure = foePivot(M.neck, 0, 0.14, 0.2);
+    foePart(lure, foeWeld('abLure', [[_cyl(0.015, 0.02, 0.4, 4), 0, 0.2, 0, 0.3], [_cyl(0.012, 0.015, 0.3, 4), 0, 0.38, 0.27, Math.PI/2]]), limb, 0, 0, 0);
+    const bulb = foePivot(lure, 0, 0.38, 0.42);
+    foePart(bulb, _cyl(0.006, 0.006, 0.15, 3), limb, 0, -0.075, 0);
+    foePart(bulb, _sph(0.06 + (mutant ? 0.02 : 0), 8, 6), M.foeEyeMat, 0, -0.17, 0);
+    M.foeLure = lure; M.foeBulb = bulb;
+    M.foeVel = {f:0, s:0}; M.foePrev = null;
     M.hitRadius = 0.62;
     if(mutant) g.scale.setScalar(1.15);
   }
@@ -421,29 +608,98 @@
     else if(kind === 'clockGuardian') poseGuardian(en, M, t, moving, dt, k);
   }
 
+  /* 胴に遅れて付いてくる部品のための、局所の速さ(前 f / 横 s)。位置の差分から(AI の移動の仕方に依らない) */
+  function foeLocalVel(en, M, dt){
+    const P = en.group.position;
+    if(!M.foePrev || dt <= 0){ M.foePrev = {x:P.x, z:P.z}; return M.foeVel; }
+    const vx = (P.x - M.foePrev.x) / dt, vz = (P.z - M.foePrev.z) / dt;
+    M.foePrev.x = P.x; M.foePrev.z = P.z;
+    const ry = en.group.rotation.y, c = Math.cos(ry), s = Math.sin(ry);
+    const f = Math.max(-6, Math.min(6, vx * s + vz * c)), side = Math.max(-6, Math.min(6, vx * c - vz * s));
+    const k = Math.min(1, dt * 4);   // 遅れ(大きいほど早く追い付く)
+    M.foeVel.f += (f - M.foeVel.f) * k;
+    M.foeVel.s += (side - M.foeVel.s) * k;
+    return M.foeVel;
+  }
   function posePhantom(en, M, t, moving, dt, k){
     const P = foeAttackPhase(en);
-    let r = moving ? Math.sin(t) * 0.3 : Math.sin(t * 0.7) * 0.08, l = -r * 0.5, lean = 0, glow = 0.05, hem = 0.32, bladeYaw = 0;
+    const V = foeLocalVel(en, M, dt);
+    const drift = Math.min(1, Math.abs(V.f) / 3);          // 漂う速さ(0〜1)
+    // 既定: 前へ折れたまま漂う。長い腕は振り子のように胴に遅れて揺れ、刃先が床の近くを引きずる
+    let sh = 0.15 + Math.sin(t * 0.7 - 0.8) * 0.12 + drift * 0.55, e1 = 0.25, e2 = -0.35, armZ = 0.12;
+    let lean = 0.1 + drift * 0.35, glow = 0.05, hem = 0.3, bladeYaw = 0, stretch = 1, solid = 0, collapse = 0, headUp = 0;
+    let wispGlow = 0.35;
     if(P.st === 'windup'){
-      if(P.atk === 'slash'){ r = -1.6 * P.k; bladeYaw = -0.6 * P.k; glow = 0.1 + 0.3 * P.k; }
-      else { r = -2.4 * P.k; lean = -0.15 * P.k; glow = 0.2 + 1.6 * P.k; }   // 刃に光が集まる
+      headUp = P.k;                                          // 垂れた頭が跳ね起きて、こちらを向く
+      solid = 0.5 * P.k;                                     // 実体化が始まる
+      if(P.atk === 'slash'){ sh = -1.9 * P.k; e1 = 0.25 + 1.1 * P.k; e2 = -0.35 - 0.6 * P.k; bladeYaw = -0.6 * P.k; glow = 0.1 + 0.4 * P.k; }
+      else { sh = 0.9 * P.k; armZ = 0.12 + 0.5 * P.k; e1 = 0.25 + 1.5 * P.k; e2 = -0.35 - 1.2 * P.k; lean = -0.2 * P.k; glow = 0.2 + 1.7 * P.k; collapse = -0.12 * P.k; }  // 胴を縮め、腕を後ろへ巻き込む
     } else if(P.st === 'strike'){
-      // 一瞬だけ実体化する(裾が濃くなる)
-      r = -1.6 + 2.6 * P.k; bladeYaw = -0.6 + 1.2 * P.k; lean = 0.35; glow = 1.6 * (1 - P.k) + 0.3; hem = 0.85;
+      // 一瞬だけ実体化する(霧の部分が濃くなる)。関節が伸び切り、腕そのものが伸びる
+      headUp = 1; solid = 1;
+      sh = P.atk === 'slash' ? -1.9 + 2.9 * P.k : -1.55 + 0.25 * P.k; e1 = 0.1 * (1 - P.k); e2 = 0; armZ = 0.12;
+      bladeYaw = -0.6 + 1.2 * P.k; lean = 0.5; glow = 1.6 * (1 - P.k) + 0.3; stretch = P.atk === 'slash' ? 1.1 : 1.3;
     } else if(P.st === 'recover'){
-      // 霧に崩れながら元の姿勢へ(裾が薄く、少し沈む)
-      r = 1.0 * (1 - P.k); lean = 0.25 * (1 - P.k); glow = 0.05; hem = 0.12 + 0.2 * P.k;
-      en.group.position.y -= 0.18 * (1 - P.k);
+      // 崩れて霧に戻る: 縮んで沈み、腕はだらりと下がり、尾と霧の溜まりが広がる
+      collapse = 1 - P.k; solid = 0;
+      sh = 0.7 * (1 - P.k) + sh * P.k; e1 = 0.6; e2 = 0.3; lean = 0.55 * (1 - P.k) + lean * P.k;
+      glow = 0.05; hem = 0.1 + 0.2 * P.k; wispGlow = 0.05 + 0.3 * P.k;
     }
-    M.foeArmR.rotation.x = lerpTo(M.foeArmR.rotation.x, r, k);
-    M.foeArmL.rotation.x = lerpTo(M.foeArmL.rotation.x, l, k);
+    M.foeCollapse = lerpTo(M.foeCollapse, collapse, k);
+    const cl = M.foeCollapse;
+    M.foeArmR.rotation.x = lerpTo(M.foeArmR.rotation.x, sh, k * 0.8);
+    M.foeArmR.rotation.z = lerpTo(M.foeArmR.rotation.z, armZ, k);
+    M.foeElbow1.rotation.x = lerpTo(M.foeElbow1.rotation.x, e1, k * 0.6);   // 先の関節ほど遅れる
+    M.foeElbow2.rotation.x = lerpTo(M.foeElbow2.rotation.x, e2, k * 0.45);
+    const st = lerpTo(M.foeElbow1.scale.y, stretch, k);
+    M.foeElbow1.scale.y = st; M.foeElbow2.scale.y = st;
     M.foeBlade.rotation.y = lerpTo(M.foeBlade.rotation.y, bladeYaw, k);
     M.foeLean = lerpTo(M.foeLean || 0, lean, k);
     M.foeBladeMat.emissiveIntensity = lerpTo(M.foeBladeMat.emissiveIntensity, glow, k);
-    if(M.foeHem){ M.foeHem.rotation.y = t * 0.8; M.foeHem.scale.y = 1 + Math.sin(t * 2.3) * 0.08; }
-    if(M.foeGhostMat) M.foeGhostMat.opacity = lerpTo(M.foeGhostMat.opacity, hem, k * 0.5);
-    // 不安定な浮遊: 左右にも揺れる(機械的な繰り返しにしない ―― 二つの周期を重ねる)
+    M.foeEyeMat.emissiveIntensity = lerpTo(M.foeEyeMat.emissiveIntensity, 0.4 + 1.2 * headUp - 0.35 * Math.max(0, cl), k);
+    // 胴: 二つの周期を重ねた不安定な揺れ。崩れる間は縮んで沈む
+    const T = M.foeTorso;
+    T.rotation.x = 0.42 + Math.sin(t * 0.53) * 0.06;
+    T.rotation.z = 0.16 + Math.sin(t * 0.31 + 1.1) * 0.07 - V.s * 0.04;
+    T.rotation.y = -0.18 + Math.sin(t * 0.41) * 0.1;
+    T.scale.set(1 + cl * 0.25, 1 - cl * 0.4, 1 + cl * 0.25);
+    T.position.y = 1.12 - cl * 0.45;
+    // 頭: 真横に垂れたまま、遅れてぐらつく。時々ひきつる。予兆の間は跳ね起きる
+    const twitch = Math.sin(t * 0.53) > 0.985 ? Math.sin(t * 40) * 0.25 : 0;
+    const loll = 1.05 + Math.sin(t * 0.6 - 1.4) * 0.15 - V.s * 0.05 + twitch;
+    M.foeSkull.rotation.z = lerpTo(M.foeSkull.rotation.z, loll * (1 - headUp) + 0.15 * headUp + cl * 0.6, k * 0.5);
+    M.foeSkull.rotation.x = lerpTo(M.foeSkull.rotation.x, -0.2 * headUp + drift * 0.3, k * 0.5);
+    M.neck.rotation.x = -0.25 * headUp;
+    // 霊の炎: 揺らめき、崩れる間は消えかける
+    if(M.foeWisp){ M.foeWisp.scale.y = 1 + Math.sin(t * 3.1) * 0.2; M.foeWisp.rotation.z = Math.sin(t * 2.3) * 0.2 - drift * 0.4; }
+    M.foeGhostMat.emissiveIntensity = lerpTo(M.foeGhostMat.emissiveIntensity, wispGlow + solid * 0.5, k);
+    // 尾: 節ごとに遅れて後ろへ流れ、渦を巻く(実体化の間は縮み、崩れる間は伸びて広がる)
+    M.foeTail.forEach((p, i)=>{
+      p.rotation.x = lerpTo(p.rotation.x, -(0.25 + drift * 0.5) * (i + 1) * 0.55 + Math.sin(t * 1.3 - i * 0.9) * 0.15, k * (0.5 - i * 0.12));
+      p.rotation.z = lerpTo(p.rotation.z, Math.sin(t * 0.9 - i * 1.2) * 0.22 + V.s * 0.06 * (i + 1), k * 0.4);
+      p.scale.setScalar(1 - solid * 0.12 + cl * 0.2);
+    });
+    if(M.foeHem) M.foeHem.rotation.y = t * 0.8;
+    // 霧の帯・背の布: 胴に遅れて翻る(速いほど後ろへ寝る)
+    M.foeRibbons.forEach(r=>{
+      r.p.rotation.x = lerpTo(r.p.rotation.x, 0.5 + r.i * 0.25 + drift * 0.9 + Math.sin(t * 1.7 - r.i) * 0.18, k * 0.35);
+      r.p.rotation.z = lerpTo(r.p.rotation.z, -0.2 + r.i * 0.25 + V.s * 0.1, k * 0.35);
+    });
+    M.foeStreamers.forEach(s=>{
+      s.p.rotation.x = lerpTo(s.p.rotation.x, -(0.2 + drift * 1.0 + Math.sin(t * 2.1 + s.i * 2) * 0.15) - cl * 0.3, k * 0.3);
+    });
+    M.foeArmL.rotation.x = Math.sin(t * 0.8) * 0.15;
+    // 霧の溜まり: 崩れる間に広がる
+    if(M.foeGhostMat) M.foeGhostMat.opacity = lerpTo(M.foeGhostMat.opacity, Math.max(hem, 0.3 + 0.55 * solid), k * 0.5);
+    // 不安定な浮遊: 左右にも揺れ、ゆっくり沈んでは浮く
     en.group.position.x += Math.sin(t * 0.37) * 0.002;
+    en.group.position.y += 0.2 + Math.sin(t * 0.47 + 0.6) * 0.06;
+    if(M.foeMist){
+      // 霧の溜まりは床に置いたまま(浮く胴に付いて上がらない)。崩れる間に広がる
+      const ms = 1 + cl * 0.9 + Math.sin(t * 0.7) * 0.06;
+      M.foeMist.scale.set(ms, 1, ms);
+      M.foeMist.position.y = 0.04 - (en.group.position.y - baseYOf(en)) / Math.max(0.01, en.group.scale.y);
+    }
     if(M.foeTrail){
       // 残像: 少し前の位置を二つ置く。踏み込み・速い移動の間だけ見える
       const h = M.foeHist;
@@ -459,60 +715,100 @@
   }
   function poseDrowned(en, M, t, moving, dt, k){
     const P = foeAttackPhase(en);
-    let l = moving ? Math.sin(t) * 0.25 : 0.05, r = moving ? -Math.sin(t) * 0.25 : 0.05, lean = 0.22, twist = 0, spread = 0;
+    const V = foeLocalVel(en, M, dt);
+    const drag = Math.min(1, Math.abs(V.f) / 1.6);
+    // 拳で這う: 腕を交互に前へ突き、胴を引きずる(止まっている間は拳を床に突いたまま、肩で息をする)
+    const crawl = Math.sin(t * 0.9);
+    let l = -0.42 + (moving ? crawl * 0.38 : Math.sin(t * 0.5) * 0.03), r = -0.42 - (moving ? crawl * 0.38 : Math.sin(t * 0.5 + 1) * 0.03);
+    let lean = 0, twist = 0, spread = 0.12, el = 0.3, heave = moving ? Math.abs(crawl) * 0.07 : Math.sin(t * 0.5) * 0.02;
     if(P.st === 'windup'){
-      if(P.atk === 'smash' || P.atk === 'throw'){ l = r = -2.6 * P.k; lean = 0.22 - 0.35 * P.k; }          // 両腕を振り上げる
-      else { spread = 1.2 * P.k; twist = -0.9 * P.k; lean = 0.22 + 0.2 * P.k; l = -0.4; r = -0.4; }   // 腰を落としてひねる(薙ぎ・振り回し)
+      if(P.atk === 'smash' || P.atk === 'throw'){ l = r = -0.42 - 2.4 * P.k; lean = -0.45 * P.k; el = 0.3 + 0.6 * P.k; heave = 0.25 * P.k; }   // 胴を起こして両腕を振り上げる
+      else { spread = 0.12 + 1.1 * P.k; twist = -0.9 * P.k; lean = 0.1 * P.k; l = r = -0.7; heave = -0.08 * P.k; }                         // さらに沈み、ひねる(薙ぎ・振り回し)
     } else if(P.st === 'strike'){
-      if(P.atk === 'smash' || P.atk === 'throw'){ l = r = -2.6 + 3.4 * P.k; lean = -0.13 + 0.6 * P.k; }
-      else { spread = 1.2; twist = -0.9 + (P.atk === 'swing' ? 7.2 : 2.0) * P.k; l = r = -0.4; }
+      if(P.atk === 'smash' || P.atk === 'throw'){ l = r = -2.82 + 2.6 * P.k; lean = -0.45 + 0.75 * P.k; el = 0.9 - 0.7 * P.k; heave = 0.25 - 0.35 * P.k; }
+      else { spread = 1.22; twist = -0.9 + (P.atk === 'swing' ? 7.2 : 2.0) * P.k; l = r = -0.7; }
     } else if(P.st === 'recover'){
-      lean = 0.45 * (1 - P.k) + 0.22 * P.k; l = r = 0.6 * (1 - P.k);   // よろめき(前へ流れる)
-      M.foeRoll = Math.sin(P.k * Math.PI * 2) * 0.12 * (1 - P.k);
+      lean = 0.3 * (1 - P.k); l = r = -0.2 * (1 - P.k) - 0.42 * P.k; heave = -0.1 * (1 - P.k);    // よろめき(前へつんのめる)
+      M.foeRoll = Math.sin(P.k * Math.PI * 2) * 0.14 * (1 - P.k);
     }
-    M.foeArmL.rotation.x = lerpTo(M.foeArmL.rotation.x, l, k);
-    M.foeArmR.rotation.x = lerpTo(M.foeArmR.rotation.x, r, k);
-    M.foeArmL.rotation.z = lerpTo(M.foeArmL.rotation.z, spread, k);
-    M.foeArmR.rotation.z = lerpTo(M.foeArmR.rotation.z, -spread, k);
+    M.foeArmL.rotation.x = lerpTo(M.foeArmL.rotation.x, l, k * 0.8);
+    M.foeArmR.rotation.x = lerpTo(M.foeArmR.rotation.x, r, k * 0.8);
+    M.foeArmL.rotation.z = lerpTo(M.foeArmL.rotation.z, -spread, k);
+    M.foeArmR.rotation.z = lerpTo(M.foeArmR.rotation.z, spread, k);
+    M.foeElbowL.rotation.x = lerpTo(M.foeElbowL.rotation.x, el, k * 0.6);   // 肘は遅れて付いてくる
+    M.foeElbowR.rotation.x = lerpTo(M.foeElbowR.rotation.x, el, k * 0.6);
     M.foeLean = lerpTo(M.foeLean || 0, lean, k * 0.6);
-    if(M.foeCoat) M.foeCoat.rotation.y = twist;
+    M.foeCoat.rotation.y = twist;
+    M.foeTorso.position.y = lerpTo(M.foeTorso.position.y, 0.78 + heave, k);
+    M.foeTorso.rotation.z = Math.sin(t * 0.45) * 0.06 + (moving ? crawl * 0.08 : 0);
     if(M.foeAnchor){
       // 錨の投擲: 振り抜く間に錨だけが前へ飛び、硬直の間に手繰り戻す
       let fly = 0;
       if(P.atk === 'throw' && P.st === 'strike') fly = P.k;
       else if(P.atk === 'throw' && P.st === 'recover') fly = 1 - P.k;
-      // 腕を前へ水平に伸ばし、錨は腕の先(局所の -y)へ鎖ごと飛ぶ
-      M.foeAnchor.position.y = -0.66 - fly * 5.2;
-      if(P.atk === 'throw' && (P.st === 'strike' || P.st === 'recover')){ M.foeArmR.rotation.x = -Math.PI/2; M.foeArmL.rotation.x = -Math.PI/2; }
-      M.foeAnchor.parent.rotation.y = P.atk === 'swing' ? twist : 0;
+      // 腕を前へ水平に伸ばし(肘も伸ばす)、錨は拳の先(局所の -y)へ鎖ごと飛ぶ
+      M.foeAnchor.position.y = -0.56 - fly * 5.2;
+      M.foeAnchor.rotation.x = lerpTo(M.foeAnchor.rotation.x, P.atk === 'throw' && P.st !== 'idle' ? 0 : 1.3, k);
+      if(P.atk === 'throw' && (P.st === 'strike' || P.st === 'recover')){
+        M.foeArmR.rotation.x = -Math.PI/2; M.foeArmL.rotation.x = -Math.PI/2; M.foeElbowR.rotation.x = 0; M.foeElbowL.rotation.x = 0;
+      }
     }
-    // 重い歩行: 脚は大きく遅く
-    M.foeLegs.forEach((p, i)=>{ p.rotation.x = moving ? Math.sin(t + i * Math.PI) * 0.35 : 0; });
-    M.foeWeed.forEach(w=>{ w.p.rotation.x = Math.sin(t * 0.9 + w.i) * 0.2 + (moving ? -0.25 : 0); });
+    // 短い脚は引きずられる(右脚は膝から先が無い)
+    M.foeLegs.forEach((p, i)=>{ p.rotation.x = 0.5 + (moving ? Math.sin(t * 0.9 + i * Math.PI) * 0.2 : 0) + drag * 0.3; });
+    // 海藻・濡れた布: 胴に遅れて揺れる(這う速さで後ろへ流れる)
+    M.foeWeed.forEach(w=>{ w.p.rotation.x = lerpTo(w.p.rotation.x, w.base + Math.sin(t * 0.9 + w.i) * 0.18 + drag * 0.5, k * 0.3); w.p.rotation.z = Math.sin(t * 0.7 + w.i * 1.7) * 0.1 - V.s * 0.05; });
+    M.foeRags.forEach(r=>{ r.p.rotation.x = lerpTo(r.p.rotation.x, -0.75 + Math.sin(t * 0.8 + r.i) * 0.08 + drag * 0.35, k * 0.25); });
+    // 雫: 体から落ちて水溜まりに消える(二つを使い回す)
+    M.foeDrops.forEach(d=>{
+      const ph = (t * 0.45 + d.i * 0.5) % 1;
+      d.m.position.y = 0.9 - ph * ph * 0.88;
+      d.m.visible = ph < 0.95;
+    });
+    if(M.foePuddle){ const s = 1 + Math.sin(t * 0.6) * 0.05; M.foePuddle.scale.set(s, 1, s); }
   }
   function poseAbyss(en, M, t, moving, dt, k){
     const S = en.abyssState || 'crawl', T = en.abyssT || 0;
-    // 這う: 腕を交互に前へ
+    const V = foeLocalVel(en, M, dt);
+    const go = Math.min(1, Math.hypot(V.f, V.s) / 1.5);
     let open = 0, plunge = 0, lashArm = 0, rise = 0;
     if(S === 'spikeTell'){ const p = 1 - T / Math.max(0.01, en.abyssDur || 1); open = p; plunge = p; rise = 0.15 * p; }
     else if(S === 'spikeHit'){ open = 1; plunge = 1; }
-    else if(S === 'lashTell'){ lashArm = -(1 - T / Math.max(0.01, en.abyssDur || 1)); rise = 0.35 * -lashArm; }
-    else if(S === 'lashHit'){ lashArm = 1.2; rise = 0.3; }
+    else if(S === 'lashTell'){ lashArm = -(1 - T / Math.max(0.01, en.abyssDur || 1)); rise = 0.3 * -lashArm; }
+    else if(S === 'lashHit'){ lashArm = 1.2; rise = 0.25; }
+    // 六本の脚が順にずれて床を掻く(這う)。止まっている間も先が小刻みに震える
     M.foeArms.forEach((a, i)=>{
-      const base = a.sh.userData.side < 0 ? 0.9 : -0.9;
-      const crawl = moving ? Math.sin(t * 1.4 + i * 1.7) * 0.4 : Math.sin(t * 0.6 + i) * 0.06;
-      let z = base + crawl * a.sh.userData.side * -1, x = 0;
-      if(a.front && plunge) { x = -0.9 * plunge; z = base * (1 - 0.4 * plunge); }     // 床に腕を突き立てる
-      if(a.front && lashArm && a.sh.userData.side > 0){ x = -1.2 * Math.abs(lashArm); z = base + lashArm * 1.4; a.el.scale.y = 1 + 0.6 * Math.min(1, Math.abs(lashArm)); }
-      else a.el.scale.y = lerpTo(a.el.scale.y, 1, k);
+      const side = a.sh.userData.side;
+      const ph = t * 1.8 + i * 1.05;
+      const step = moving ? Math.sin(ph) : Math.sin(t * 0.7 + i) * 0.05;
+      const lift = moving ? Math.max(0, Math.cos(ph)) * 0.25 : 0;
+      let z = a.sh.userData.base - side * lift * 0.4, x = step * 0.35, ez = a.el.userData.base - side * lift;
+      let stretch = 1;
+      if(a.front && plunge){ x = -1.0 * plunge; z = a.sh.userData.base * (1 - 0.5 * plunge); ez = a.el.userData.base * (1 - 0.7 * plunge) + side * 0.3 * plunge; }   // 高く上げて床に突き立てる
+      if(a.front && lashArm && side > 0){ x = -1.25 * Math.min(1, Math.abs(lashArm)); z = a.sh.userData.base + lashArm * 1.3; ez = side * 0.15; stretch = 1 + 0.6 * Math.min(1, Math.abs(lashArm)); }
+      a.el.scale.y = lerpTo(a.el.scale.y, stretch, k);
       a.sh.rotation.z = lerpTo(a.sh.rotation.z, z, k);
       a.sh.rotation.x = lerpTo(a.sh.rotation.x, x, k);
+      a.el.rotation.z = lerpTo(a.el.rotation.z, ez, k);
     });
     // 背の甲殻が割れて開く(変形)
-    M.foePlates.forEach((p, i)=>{ p.rotation.x = lerpTo(p.rotation.x, (i - 1) * 0.8 * open, k); p.position.y = 0.55 + 0.12 * open; });
-    M.foeTentacles.forEach((p, i)=>{ p.rotation.y = Math.sin(t * 1.3 + i * 2) * 0.4; p.rotation.x = -0.3 * open; });
-    M.foeEyeMat.emissiveIntensity = lerpTo(M.foeEyeMat.emissiveIntensity, 0.5 + 1.4 * Math.max(open, Math.abs(lashArm)), k);
-    en.group.position.y += rise;
+    M.foePlates.forEach((p, i)=>{ p.rotation.x = lerpTo(p.rotation.x, (i - 1) * 0.8 * open, k); p.position.y = 0.8 + 0.12 * open; });
+    // 触手: 胴に遅れて後ろへ流れ、うねる
+    M.foeTentacles.forEach(tc=>{
+      tc.p.rotation.y = lerpTo(tc.p.rotation.y, Math.sin(t * 1.3 + tc.i * 2) * 0.4 - V.s * 0.15, k * 0.4);
+      tc.p.rotation.x = lerpTo(tc.p.rotation.x, -0.3 * open + 0.25 - go * 0.2 + Math.sin(t * 1.1 + tc.i) * 0.1, k * 0.4);
+      tc.q.rotation.x = Math.sin(t * 1.6 - tc.i) * 0.4;
+      tc.q.rotation.y = Math.sin(t * 1.2 + tc.i * 1.3) * 0.5;
+    });
+    // 顎: 予兆・薙ぎで花のように開き、ふだんは小さく噛み合わせる
+    const jaw = Math.max(open, Math.abs(lashArm)) * 0.9 + Math.max(0, Math.sin(t * 2.3)) * 0.12;
+    M.foeJaws.forEach(j=>{ const a = j.userData.a; j.rotation.x = -Math.sin(a) * jaw; j.rotation.y = Math.cos(a) * jaw; });
+    // 疑似餌: 胴に遅れて振り子のように揺れる
+    M.foeLure.rotation.x = lerpTo(M.foeLure.rotation.x, go * 0.5 + Math.sin(t * 0.9) * 0.12, k * 0.3);
+    M.foeLure.rotation.z = lerpTo(M.foeLure.rotation.z, -V.s * 0.12 + Math.sin(t * 0.7) * 0.1, k * 0.3);
+    M.foeBulb.rotation.x = Math.sin(t * 1.7) * 0.3 + go * 0.4;
+    M.foeEyeMat.emissiveIntensity = lerpTo(M.foeEyeMat.emissiveIntensity, 0.55 + 0.25 * Math.sin(t * 2.1) + 1.4 * Math.max(open, Math.abs(lashArm)), k);
+    // 胴は脚の間で揺れる(歩幅に合わせて上下)
+    en.group.position.y += rise + (moving ? Math.sin(t * 3.6) * 0.03 : Math.sin(t * 0.8) * 0.015);
   }
   function poseGear(en, M, t, moving, dt, k){
     const P = foeAttackPhase(en);
@@ -673,6 +969,7 @@
     en.echoState = null; en.echoBursts = []; en.abyssState = null; en.abyssTargets = null;
     foeHideRings(en); foeHideLash(en); foeSetOpacity(en, 1);
     if(en.mob && en.mob.foeTrail) en.mob.foeTrail.forEach(t=> t.visible = false);
+    if(en.mob){ en.mob.foePrev = null; en.mob.foeCollapse = 0; }   // 遅れて付いてくる部品は湧いた所から測り直す(ENEMY-VISUAL-002)
     if(en.dieScale != null) en.group.scale.setScalar(en.dieScale);
     en.group.rotation.z = 0;
   }

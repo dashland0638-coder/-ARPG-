@@ -92,8 +92,8 @@
 
   /* ---- color: semantic(UI-002-C2 追加。AP-C2-02 / 03、V-7) ----
      UI の意味色。いずれも既存の値を再利用しており、新しい色は無い
-     (--ui-recovery は回復結晶の既存色 #7fe8b8 ―― 08-loot-equipment.js /
-     ミニマップの印と同じ)。職業色はここに入れない(V-7)。
+     (--ui-recovery は以前の回復結晶の色 #7fe8b8。結晶は ENEMY-VISUAL-002 で撤去したが、
+     UI の回復の意味色としてこの値を残す)。職業色はここに入れない(V-7)。
      C1 の既存 selector はこれらを参照しない ―― 参照するのは
      C2 Prototype(ui-proto.css、AP-C2-04)だけで、見た目は変わらない */
   --ui-selected: var(--ember);

@@ -186,9 +186,9 @@ test('甲板長: 「誰も降ろすな」。号笛で一度だけ仲間を呼ぶ
 test('往路の錨の鎖を建てる。ダウンで船長の攻撃相を捨てる(07 の崩し・復帰の両方)', () => {
   assert.match(fnBody(ship, 'function gsBuildPreShip(){'), /GS_CHAIN\.pre\.forEach\(c=> gsChainColumn\(c\.x, c\.z\)\)/);
   assert.equal((combat.match(/if\(en\.capState\) shipCaptainEnterIdle\(en\);/g) || []).length, 2);
-  // 宝箱類は第一章の船では旧い配置を使わない
+  // 宝箱類は第一章の船では旧い配置を使わない(回復結晶は ENEMY-VISUAL-002 で全廃したので宝箱とミミックの 2 か所)
   const loot = read('08-loot-equipment.js');
-  assert.equal((loot.match(/!gsChapter1World\(\)/g) || []).length, 3);
+  assert.equal((loot.match(/!gsChapter1World\(\)/g) || []).length, 2);
   // 頭上の足音は環境音の表の音(sfx では鳴らない)
   assert.match(ship, /ambient\('floorTick'\)/);
   assert.doesNotMatch(ship, /sfx\('floorTick'\)/);

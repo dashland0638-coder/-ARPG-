@@ -1744,7 +1744,6 @@
     buildWorld(key); // tears down the tavern (or previous world) and builds this one fresh
     state.sortied = true;
     state.sortieKills = 0;   // 中途撤退ボーナスの計算に使う(このダンジョンでの撃破数)
-    state.checkpointUsed = false;   // 階層間休憩ポイントは1回の出撃につき1回だけ回復する
     timeLimitWarned60 = false; timeLimitWarned10 = false;
     state.scenarioTimeLimit = scenarioTimeLimitFor(key);
     state.scenarioTimeLeft = state.scenarioTimeLimit;
@@ -3222,9 +3221,8 @@
      探索中は可、戦闘体勢・会話・演出・ボス戦中は不可。判定そのものは
      core/chapter1-skills.js にあり、ここは state を詰めて渡すだけ。
 
-     この画面は酒場の鍛冶士の前に加えて、ダンジョン中のチェックポイント
-     (洋館の大広間、02-world-common.js の useCheckpoint)からも開くので、
-     「戦闘中は組み替えられない」は実際に効く。戦闘体勢の判定は
+     この画面は酒場の鍛冶士の前で開く(以前は洋館の大広間の休憩ポイントからも開いた。
+     ENEMY-VISUAL-002 で撤去)。「戦闘中は組み替えられない」は念のための守り。戦闘体勢の判定は
      state.combatStanceT(core/combat-stance.js)をそのまま使っていて、
      新しい戦闘状態フラグは足していない。 */
   function loadoutLockState(){

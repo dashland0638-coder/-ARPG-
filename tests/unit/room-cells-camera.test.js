@@ -43,8 +43,8 @@ function harness(){
     'function rcKeyObject(rooms, o){ return rcKeyPoint(rooms, o.x, o.z); }',
     'return { init: (objs)=> initRoomCells("mansion", ROOMS, objs), update: ()=> updateRoomCells(0.016), rect: (a,b,c,d)=> rcKeyRect(ROOMS,a,b,c,d), opening: (a,b)=> rcOpening(a,b), get rc(){ return roomCells; } };',
   ].join('\n');
-  const api = new Function('state', 'ROOMS', 'doors', 'chests', 'healingCrystals', 'enemies', 'currentWorldKey', code)
-    (state, ROOMS, doors, [], [], [], 'mansion');
+  const api = new Function('state', 'ROOMS', 'doors', 'chests', 'enemies', 'currentWorldKey', code)
+    (state, ROOMS, doors, [], [], 'mansion');
   const obj = (id, x, z)=> Object.assign(mk(id), { x, z });
   return { api, state, layers, obj, doors };
 }
@@ -157,8 +157,8 @@ test('村: 屋外は常に描く(建物の中からも、戸口に近づく前�
     fn(world, 'function rcSetLayer(o, on){'),
     'return { init: initDuskCells, update: updateDuskCells, get dc(){ return duskCells; } };',
   ].join('\n');
-  const api = new Function('state', 'duskInteriors', 'THREE', 'currentWorldKey', 'sceneShot', 'chests', 'healingCrystals', 'enemies', code)
-    (state, duskInteriors, { Box3, Vector3: V3 }, 'duskvillage', null, [], [], []);
+  const api = new Function('state', 'duskInteriors', 'THREE', 'currentWorldKey', 'sceneShot', 'chests', 'enemies', code)
+    (state, duskInteriors, { Box3, Vector3: V3 }, 'duskvillage', null, [], []);
   const counter = mk('counter', -46, 347), wall = mk('wall', -49.5, 348, { duskShell:0 }), stall = mk('stall', -2.7, 384.5),
         floor = mk('floor', -45, 348, { rcAlways:true });
   api.init([counter, wall, stall, floor]);

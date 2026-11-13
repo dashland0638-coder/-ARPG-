@@ -794,7 +794,6 @@
     stairs.forEach(s=> blip(s.pos.x, s.pos.z, '#7ec8ff', 5, 'diamond'));
     loreObjects.forEach(l=> blip(l.pos.x, l.pos.z, l.read?'rgba(220,220,220,0.4)':'#f0ead8', 3));
     chests.forEach(c=> blip(c.pos.x, c.pos.z, c.opened?'rgba(180,150,80,0.35)':'#ffd24a', 5, 'chest'));
-    healingCrystals.forEach(h=> blip(h.pos.x, h.pos.z, h.broken?'rgba(140,220,180,0.3)':'#7fe8b8', 4, 'diamond'));
     anomalyRifts.forEach(r=> blip(r.pos.x, r.pos.z, '#a855f7', 5));
     /* まだ起きていないイベントの地点に「!」(WORK 12.1)。判定は既存の
        近接/部屋イベント(registerProximityEvent)そのもので、起きたら消える。
@@ -1439,7 +1438,6 @@
       updateMobBars();
       updateBossBar(dt);
       updateChests(dt);
-      updateHealingCrystals(dt);
       updateAnomalyRifts(dt);
       updateTownReturnPoints();
       updateItemDrops(dt);
@@ -1463,7 +1461,6 @@
       updateKeyPickups(dt);
       updateStallTrigger();
       updateBartenderProximity();
-      updateCheckpointProximity();
       updateProximityEvents();
       updateApparitions(dt);
       updateAmbience(dt);   // 場所の環境音(区画ごとに間隔を空けて単発で鳴らす)

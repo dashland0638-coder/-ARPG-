@@ -157,7 +157,7 @@ import {
 import {
   GS_ENTRY, GS_ROOMS, gsRoomById, gsRoomAt, GS_ARRIVALS, GS_PASSAGES, GS_ANCHOR_DOOR, gsPassageById, gsPassageState,
   GS_DECKS, gsCopyOffset, GS_DOORS, GS_GATES, gsRoomLabel, GS_MESS_TABLE, gsRoomPresent, gsOpening,
-  GS_PLATES_BEFORE, GS_PLATES_AFTER, gsRollcallTags, gsPlateSeat, GS_MARKS, GS_CHAIN, gsLightFor, gsAmbienceZoneFor, GS_CHESTS, GS_MIMICS, GS_HEALING,
+  GS_PLATES_BEFORE, GS_PLATES_AFTER, gsRollcallTags, gsPlateSeat, GS_MARKS, GS_CHAIN, gsLightFor, gsAmbienceZoneFor, GS_CHESTS, GS_MIMICS,
 } from '../core/ghostship-map.js';
 import {
   captainPhaseFor, CAPTAIN_SHIFT_SEC, CAPTAIN_BREATH_SEC, CAPTAIN_ATTACKS, captainAttackPlan, captainAttackCooldown,

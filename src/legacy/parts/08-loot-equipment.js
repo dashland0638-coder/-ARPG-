@@ -569,10 +569,12 @@
       // ---- 囚われの洋館(最初のメインシナリオ) ----
       [new THREE.Vector3(24,1.2,-4)],                     // 森: 岩棚の上(跳ばないと届かない。yはFOREST_LEDGE.top)
       [new THREE.Vector3(-6,0,-17)],                      // 森: 荷車の脇
-      [new THREE.Vector3(-27,0,-63)],                     // 洋館: 食堂
+      /* ENEMY-VISUAL-002: 回復結晶(洋館に 3 つ)と大広間の回復の姿見を撤去した分を、新しい回復の置物ではなく
+         既存の宝箱の中身で埋める ―― 食堂と使用人区画の宝箱を supply(薬草 2・魔力の雫 1)へ。回復は自分で使う薬草として持つ */
+      [new THREE.Vector3(-27,0,-63),  'supply'],          // 洋館: 食堂(寄り道。大広間の手前)
       [new THREE.Vector3(99,0,-80)],                      // 洋館: 客室
       [new THREE.Vector3(53,0,-56),   'supply'],          // 洋館: 書斎の奥
-      [new THREE.Vector3(57,0,86)],                       // 洋館: 使用人区画
+      [new THREE.Vector3(57,0,86),    'supply'],          // 洋館: 使用人区画(地下へ降りる前)
       [new THREE.Vector3(110.5,0,49.5)],                  // 洋館: 酒蔵(地下室の西の寄り道。CH1-MANSION-EXPLORATION)
       [new THREE.Vector3(166,0,88),   'armoury'],         // 洋館: 小礼拝室(保管庫の東の寄り道。保管庫から移した)
       [new THREE.Vector3(71,0,136),   'supply'],          // 洋館: ボス前
@@ -846,107 +848,6 @@
     });
     nearbyChest = nearbyC;
     updateInteractPrompt();
-  }
-
-  /* =========================================================
-     HEALING CRYSTALS (壊すと回復する結晶)
-     宝箱と同様、ワールド単位で配置してdisposeWorld()で次のワールドへ
-     引き継がない一度きりのギミック。壊すと最大HPの一部を即座に回復する
-  ========================================================= */
-  function buildHealingCrystal(pos){
-    const g = new THREE.Group();
-    const stoneMat = new THREE.MeshStandardMaterial({color:0x4a4a52, roughness:0.85});
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.5,0.3,6), stoneMat);
-    base.position.y = 0.15; base.castShadow = true; base.receiveShadow = true;
-    g.add(base);
-    // 主軸1本+周りに小さい結晶3本、というありがちだが読みやすいシルエットにしてある
-    const crystalMat = new THREE.MeshStandardMaterial({
-      color:0x8ff0c0, emissive:0x5fe0a0, emissiveIntensity:0.9, roughness:0.25, metalness:0.1,
-      transparent:true, opacity:0.92,
-    });
-    const shards = [];
-    [
-      {h:0.9,  r:0.16, tilt:0,    rot:0},
-      {h:0.55, r:0.11, tilt:0.4,  rot:1.3},
-      {h:0.55, r:0.11, tilt:0.4,  rot:-1.7},
-      {h:0.4,  r:0.08, tilt:0.55, rot:2.6},
-    ].forEach(d=>{
-      const shard = new THREE.Mesh(new THREE.ConeGeometry(d.r, d.h, 5), crystalMat);
-      shard.position.y = 0.3 + d.h/2;
-      shard.rotation.z = d.tilt;
-      shard.castShadow = true;
-      const holder = new THREE.Group();
-      holder.rotation.y = d.rot;
-      holder.add(shard);
-      g.add(holder);
-      shards.push(holder);
-    });
-    const glow = new THREE.PointLight(0x7fe8b8, 1.1, 4.5);
-    glow.position.y = 0.7;
-    g.add(glow);
-    g.position.copy(pos);
-    scene.add(g);
-    return {group:g, shards, glow, pos:g.position.clone(), broken:false, t:Math.random()*10};
-  }
-
-  function spawnHealingCrystalsForWorld(key){
-    _spawnWorldKey = key;
-    // 各配置は既存の(確定枠ではない)宝箱のすぐ隣を選んである - 部屋の中で
-    // 実際に歩ける場所だとspawnChests()の実績で分かっているマスだけを使うため
-    const spots = [
-      new THREE.Vector3(13,0,-52),        // mansion 玄関ホール
-      new THREE.Vector3(88,0,72),         // mansion 使用人区画
-      new THREE.Vector3(-4.2,0,113.4),    // ghost ship deck
-      new THREE.Vector3(-107.2,0,20.9),   // waterway underground
-      new THREE.Vector3(126,0,86.5),      // mansion 保管庫
-      new THREE.Vector3(-61.2,0,-196.6),  // temple 石橋の間
-      new THREE.Vector3(-258,26,30),      // clocktower T3 北の桟橋の先(塔の中ほど。歯車の輪を降りた所)
-      new THREE.Vector3(184.8,0,-53.3),   // conservatory 枯れた前庭
-    ];
-    spots.filter(p=> worldKeyForPos(p)===_spawnWorldKey && !gsChapter1World())
-         .concat(gsChapter1World() ? GS_HEALING.map(h=> new THREE.Vector3(h.x, 0, h.z)) : [])
-         .forEach(p=> healingCrystals.push(buildHealingCrystal(p)));
-  }
-
-  function updateHealingCrystals(dt){
-    healingCrystals.forEach(h=>{
-      if(h.broken) return;
-      h.t += dt;
-      h.shards.forEach((holder,i)=>{ holder.rotation.y += dt*(0.4+i*0.15); });
-      h.glow.intensity = 1.1 * (1 + Math.sin(h.t*2.2)*0.12);
-    });
-  }
-
-  // 攻撃ボタンを押した瞬間、近くに壊れていない結晶があれば独立して割れる。
-  // 武器の間合い判定(findMeleeTargetsInArc、クラス/武器ごとに射程が違う)には
-  // 乗せず単純な距離判定にしてあるので、弓・魔法職でも歩み寄って攻撃ボタンを
-  // 押せば確実に割れる
-  function checkHealingCrystalBreak(){
-    for(const h of healingCrystals){
-      if(h.broken) continue;
-      if(state.pos.distanceTo(h.pos) < 2.2){ breakHealingCrystal(h); return; }
-    }
-  }
-
-  function breakHealingCrystal(h){
-    // 攻撃が当たった瞬間ではなく、破壊が確定したこの行から計測する
-    // (デバッグモード以外では何もしない。14-hud-boot.js参照)
-    markPerfEvent('CRYSTAL');
-    h.broken = true;
-    const healAmt = Math.max(1, Math.round(state.maxHp * 0.25));
-    state.hp = Math.min(state.maxHp, state.hp + healAmt);
-    spawnLog(`💚 結晶を砕いて${healAmt}回復した!`);
-    spawnHitSpark(new THREE.Vector3(h.pos.x, h.pos.y+0.6, h.pos.z), 0x7fe8b8, 1.6);
-    flashScreen();
-    /* 見た目だけ消し、シーンからは外さない。結晶は自前のPointLightを
-       抱えているので、group ごと scene.remove するとシーンの点光源の数が
-       減り、three.jsが全マテリアルのシェーダを組み直す ―― 砕くたびに
-       数秒固まる、という症状の原因がこれだった(lightPool/prewarmLightPool
-       が置かれているのと同じ問題。13-update-loop.js のコメント参照)。
-       ライトは強度0にすれば見えず、数は変わらないので組み直しも起きない。
-       実際の破棄はワールド切り替え時の disposeWorld() がまとめて行う。 */
-    if(h.glow) h.glow.intensity = 0;
-    h.group.visible = false;
   }
 
   /* =========================================================
