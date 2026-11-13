@@ -59,6 +59,7 @@
     if(key === actionZoneLayoutKey) return;
     actionZoneLayoutKey = key;
     tc.classList.toggle('pc-indicators', az.layout === 'indicators');
+    document.body.classList.toggle('pc-indicators-on', az.layout === 'indicators');   // 入力の理由の通知の位置(UI-VISUAL-001。:has の無いブラウザでも効く)
     tc.classList.toggle('in-combat', az.indicatorsVisible);
     tc.classList.toggle('key-labels', az.keyLabels);
   }

@@ -14,6 +14,7 @@ import { watchErrors, openGame, startTestMode } from './helpers.js';
 const SIZES = [
   { name: 'iPhone 844×390', viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, max: 2 },
   { name: '1280×800', viewport: { width: 1280, height: 800 }, hasTouch: false, isMobile: false, max: 3 },
+  { name: '844×390(PC・キーボード)', viewport: { width: 844, height: 390 }, hasTouch: false, isMobile: false, max: 2 },
   { name: 'タブレット 1180×820(タッチ)', viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true, max: 3 },
 ];
 const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
@@ -68,7 +69,7 @@ for (const sz of SIZES) {
     const sorted = [...band].sort((a, b) => a.top - b.top);
     for (let i = 1; i < sorted.length; i++) expect(sorted[i].top, '積んだ通知が重ならない').toBeGreaterThanOrEqual(sorted[i - 1].bottom - 0.5);
     const zone = centerZone(sz.viewport);
-    const hud = await rectsOf(page, '.hud-topleft, #hud-loot, #minimap-wrap, #btn-attack, #btn-jump, #btn-dodge, #btn-ult, #btn-charge, #loot-potion-btn, #joy-base');
+    const hud = await rectsOf(page, '.hud-topleft, #hud-loot, #minimap-wrap, #btn-attack, #btn-jump, #btn-dodge, #btn-ult, #btn-charge, #btn-skill2, #btn-skill3, #loot-potion-btn, #joy-base');
     for (const r of band) {
       expect(r.left).toBeGreaterThanOrEqual(0);
       expect(r.right).toBeLessThanOrEqual(sz.viewport.width);
@@ -90,6 +91,13 @@ for (const sz of SIZES) {
     expect(deny.map(d => d.text)).toEqual(['⚠ スタミナが足りない!  ×2']);
     expect(overlaps(deny[0], zone), `入力の理由 ${JSON.stringify(deny[0])} が中央を覆わない`).toBe(false);
     for (const h of hud) expect(overlaps(deny[0], h), `入力の理由 ${JSON.stringify(deny[0])} と ${h.cls} ${JSON.stringify(h)}`).toBe(false);
+
+    // 長い理由(折り返す)も、中央・操作ボタンに掛からない
+    await notice(page, '💥 スキル3が装着されていない(鑑定所で装着できます)');
+    const long = await rectsOf(page, '#hud .item-pop.notice-bottom');
+    expect(long.length).toBe(1);
+    expect(overlaps(long[0], zone), `長い入力の理由 ${JSON.stringify(long[0])} が中央を覆わない`).toBe(false);
+    for (const h of hud) expect(overlaps(long[0], h), `長い入力の理由 ${JSON.stringify(long[0])} と ${h.cls} ${JSON.stringify(h)}`).toBe(false);
 
     // 行動の結果: 頭の上に小さく(上の帯にも、記録にも入らない)
     await notice(page, '⚡ ジャストドッジ!');
@@ -124,6 +132,8 @@ for (const sz of SIZES) {
     expect(log.join(' / ')).toContain('仲間が旅に加わった');
     expect(log.join(' / ')).not.toContain('ジャストドッジ');
     expect(log.join(' / ')).not.toContain('スタミナが足りない');
+    // 背の低い画面で 1 行に収まらず切れた入力の理由は、全文が記録に残る
+    if (sz.max === 2) expect(log.join(' / ')).toContain('スキル3が装着されていない(鑑定所で装着できます)');
     expect(errors).toEqual([]);
     await context.close();
   });

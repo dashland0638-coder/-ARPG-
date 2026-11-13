@@ -2328,7 +2328,7 @@
     if(noticeQueue.length && noticeTop.length < noticeTopMax){
       noticeQueue.sort((a, b)=> noticeSpec(a.kind).priority - noticeSpec(b.kind).priority || a.at - b.at);
       const q = noticeQueue.shift();
-      showTopNotice(q.text, q.color, q.kind);
+      if(!noticeTop.some(n=> n.text === q.text)) showTopNotice(q.text, q.color, q.kind);
     }
     layoutNoticeBand();
   }
@@ -2361,6 +2361,8 @@
     if(!queued) recordNotice(text, kind);   // 待っている間の繰り返しは記録を増やさない
     layoutNoticeBand();   // ボスバー・制限時間の出入りで、帯の位置と出せる数が変わる
     const adm = noticeAdmit(noticeTop.map(n=> ({priority:n.priority, born:n.born})), spec.priority, noticeTopMax);
+    // 待っていた同じ通知が、空いた所へ直接出る時は、待ち行列から外す(後で二重に出ない)
+    if(queued && adm.action !== 'queue') noticeQueue = noticeQueue.filter(q=> q.text !== text);
     if(adm.action === 'queue'){
       if(!queued) noticeQueue.push({text, color, kind, at:performance.now()});
       trimNoticeQueue();
@@ -2388,6 +2390,8 @@
     document.getElementById('hud').appendChild(n.el);
     n.timer = setTimeout(endBottom(n), life);
     noticeBottom = n;
+    // 背の低い画面では 1 行に収める。切れて読めない部分がある時だけ、全文を「記録」へ残す(情報を失わない)
+    if(n.el.scrollWidth > n.el.clientWidth + 1) recordNotice(text, 'deny');
   }
   function endBottom(n){ return ()=>{ n.el.remove(); if(noticeBottom === n) noticeBottom = null; }; }
   // 頭の上: プレイヤーの頭の少し上(拾った物の表示 spawnPickupPopup と同じ投影)。同じ文言は一つにまとめる
