@@ -1275,7 +1275,7 @@
 
     // the flinch is layered on last, over whatever the mob was doing
     applyMobFlinch(en, dt, M);
-    if(M.foeKind) applyFoeLean(en, M);   // 幽霊船・時計塔の敵の前のめり・よろめき(怯みの後に足す)
+    if(M.foeKind){ applyFoeLean(en, M); foeLevelFloorParts(en, M); }   // 幽霊船・時計塔の敵の前のめり・よろめき(怯みの後に足す)。床に置く物は平らに戻す
   }
 
 

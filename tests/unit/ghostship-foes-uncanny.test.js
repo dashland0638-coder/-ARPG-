@@ -87,3 +87,14 @@ test('時計塔の敵は変えていない(見た目・モーション・AI の�
     assert.equal(crypto.createHash('sha256').update(fn(name)).digest('hex').slice(0, 16), hash, `${name} は変えない`);
   }
 });
+
+test('レビュー指摘: 錨の投擲は当たりの線(正面の一直線)に乗る・溺死船員の頭は前を向く・床に置く物は傾かない', () => {
+  const p = fn('poseDrowned');
+  assert.match(p, /const aim = Math\.atan2\(0\.58, 6\.2\);/, '肩の横のずれを、届く先で正面の線へ戻す');
+  assert.match(p, /M\.foeArmR\.rotation\.z = -aim; M\.foeArmL\.rotation\.z = aim; M\.foeCoat\.rotation\.y = 0;/, '投擲の間は腕を開かない・上半身を捩じらない');
+  assert.match(p, /M\.neck\.rotation\.x = -0\.75 \+ \(M\.baseNeckX \|\| 0\);/, '胴の傾きを打ち消して前を向く');
+  assert.match(fn('dressDrowned'), /A\.rotation\.x = 1\.55;/, '錨はふだん柄を床に寝かせる(床に埋めない)');
+  assert.match(fn('foeLevelFloorParts'), /f\.rotation\.x = -en\.group\.rotation\.x;\n    f\.rotation\.z = -en\.group\.rotation\.z;/);
+  const combat = fs.readFileSync(path.join(root, 'src/legacy/parts/07-ai-combat.js'), 'utf8');
+  assert.match(combat, /if\(M\.foeKind\)\{ applyFoeLean\(en, M\); foeLevelFloorParts\(en, M\); \}/);
+});

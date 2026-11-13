@@ -103,7 +103,7 @@
 
   /* ---------------- 幽霊船 ---------------- */
   /* 亡霊船員(変異: 残像の亡霊)。ENEMY-VISUAL-002 で作り直し ―― 「海で死んだ水夫が、海の呪いで人でないものへ変わった」
-       ・人の左右対称を崩す: 上半身は前へ折れて捩じれ、右肩だけが盛り上がる。左腕は肩から先が無く、破れた袖が霧の帯になって流れる
+       ・人の左右対称を崩す: 上半身は前へ折れて捩じれ、右肩だけが盛り上がる。左腕は肩から先が無く、破れた袖が霧の帯(二本)になって流れる
        ・右腕だけが異様に長い(関節が三つ。二つ目は逆に曲がる)。錆びた舶刀は手と癒着し、刃にフジツボ
        ・頭は人の顔ではない: 細く伸びた首の先で、膨れた頭が真横へ垂れ、顎が外れたまま開く。目の光は左右で大きさが違う。
          毛糸の帽子は頭から滑り落ちかけ、頭頂から霊の炎が細く立つ
@@ -174,7 +174,7 @@
     foePart(blade, _box(0.035, 0.07, 0.5), M.foeBladeMat, 0, -0.01, 0.3, {outline:true});
     foePart(blade, _box(0.035, 0.065, 0.36), M.foeBladeMat, 0, 0.04, 0.68, {rx:-0.28});         // 反った刃先
     M.foeArmR = R; M.foeElbow1 = e1; M.foeElbow2 = e2; M.foeBlade = blade;
-    // 左腕は無い。破れた袖の付け根から、霧の帯が三本流れる(胴に遅れる)
+    // 左腕は無い。破れた袖の付け根から、霧の帯が二本流れる(胴に遅れる)
     const L = foePivot(torso, -0.27, 0.34, 0);
     foePart(L, _cone(0.09, 0.2, 6), armMat, 0, -0.08, 0, {rx:Math.PI});
     M.foeArmL = L;
@@ -184,7 +184,7 @@
       p.rotation.set(0.5 + i * 0.25, 0, -0.2 + i * 0.25);
       return {p, i};
     });
-    // 背の破れた布(二枚。遅れて翻る)
+    // 背の破れた布(一枚。遅れて翻る)
     const cloth = stdMat(echo ? 'phClothE' : 'phCloth', echo ? 0x2a2a48 : 0x34405a, {side:THREE.DoubleSide});
     M.foeStreamers = [[0.02, 0]].map(([x, i])=>{
       const p = foePivot(torso, x, 0.3, -0.16);
@@ -225,7 +225,7 @@
        ・腕が異様に長い: 床に拳を突いて体を引きずる(肘は少し逆に曲がる)。左右で太さも違う
          (右の前腕は膨れて船板が癒着し、左腕には縄が巻き付く)
        ・頭は胸の高さに沈み、濡れた海藻が髪のように垂れて顔を覆う。隙間から片目だけが光る
-       ・脚は短く、右脚は膝から先が無い(ちぎれた縄が垂れる)。足元にいつも水溜まり、体から雫が落ちる
+       ・脚は短く、右脚は膝から先が無い(ちぎれた縄が垂れる)。足元にいつも水溜まり、体から雫が落ちる(一つを使い回す)
      動き: 歩かない。腕を交互に前へ突き、胴を引きずる(拳で這う)。海藻と濡れた布は胴に遅れて揺れる */
   function dressDrowned(g, body, variant, M, anchor){
     const C = FOE_COLORS;
@@ -304,14 +304,14 @@
     foePart(legL, _cyl(0.13, 0.15, 0.42, 7), legMat, 0, -0.21, 0);
     foePart(legR, _cyl(0.13, 0.1, 0.2, 7), legMat, 0, -0.1, 0);
     M.foeLegs = [legL, legR];
-    // 足元の水溜まりと、体から落ちる雫(二つを使い回す)
+    // 足元の水溜まりと、体から落ちる雫(一つを使い回す)
     const water = stdMat('drWater', 0x5a8a9a, {transparent:true, opacity:0.35, depthWrite:false, roughness:0.15, metalness:0.2});
     M.foePuddle = foePart(g, _disc(0.75), water, 0, 0.03, 0.15);
     M.foeDrops = [0].map(i=> ({m:foePart(g, _sph(0.035, 5, 4), water, 0.4, 0.9, 0.3), i}));
     if(anchor){
       // 錨は右の拳に癒着し、鎖が腕に巻き付いて背の瘤へ。投擲の間は錨だけが前へ飛ぶ
       const A = foePivot(R.E, 0, -0.56, 0.1);
-      A.rotation.x = 1.3;   // ふだんは床を引きずる(投擲の間だけ拳の先へ真っ直ぐ)
+      A.rotation.x = 1.55;  // ふだんは柄を床に寝かせて引きずる(投擲の間だけ拳の先へ真っ直ぐ)
       const iron = stdMat('anchorIron', 0x3a3c3e, {metalness:0.5, roughness:0.6});
       foePart(A, _cyl(0.06, 0.06, 1.3, 6), iron, 0, -0.55, 0, {outline:true, shadow:true});
       foePart(A, _tor(0.38, 0.07, 5, 10), iron, 0, -1.15, 0, {outline:true});
@@ -330,7 +330,7 @@
        ・脚の一本だけが、縞の袖を着たままの人の腕(かつて水夫だった名残)。床に掌を突いて歩く
        ・頭は前へ伸びた節のある首の先。四枚の顎が花のように開き、目は大きさの違う光の粒の群れ。
          頭の上から提灯のような光る疑似餌が垂れる
-       ・背に割れて開く三枚の甲殻(予兆)。腹の下から節のある触手が四本、後ろへ流れる
+       ・背に割れて開く三枚の甲殻(予兆)。腹の下から節のある触手が三本、後ろへ流れる
      動き: 六本の脚が順にずれて床を掻く(這う)。疑似餌と触手は胴に遅れて揺れる。予兆では前の二本の脚を高く上げて床に突き立てる */
   function dressAbyss(g, body, variant, M, mutant){
     const C = FOE_COLORS;
@@ -379,7 +379,7 @@
       el.rotation.z = el.userData.base;
       M.foeArms.push({sh, el, front:!!front, i});
     });
-    // 腹の下の触手(四本、二節。後ろへ流れる)
+    // 腹の下の触手(三本、二節。後ろへ流れる)
     M.foeTentacles = [0, 1, 2].map(i=>{
       const p = foePivot(g, (i - 1) * 0.16, 0.45, -0.5);
       foePart(p, _cone(0.06, 0.6, 5), limb, 0, 0, -0.3, {rx:-Math.PI/2});
@@ -739,6 +739,8 @@
     M.foeElbowR.rotation.x = lerpTo(M.foeElbowR.rotation.x, el, k * 0.6);
     M.foeLean = lerpTo(M.foeLean || 0, lean, k * 0.6);
     M.foeCoat.rotation.y = twist;
+    // 頭は前へ倒れた胴の傾き(0.75)を打ち消して前を向く(07 の updateMobAnim が毎フレーム首の x を書き戻すので、ここで足し直す)
+    M.neck.rotation.x = -0.75 + (M.baseNeckX || 0);
     M.foeTorso.position.y = lerpTo(M.foeTorso.position.y, 0.78 + heave, k);
     M.foeTorso.rotation.z = Math.sin(t * 0.45) * 0.06 + (moving ? crawl * 0.08 : 0);
     if(M.foeAnchor){
@@ -748,9 +750,14 @@
       else if(P.atk === 'throw' && P.st === 'recover') fly = 1 - P.k;
       // 腕を前へ水平に伸ばし(肘も伸ばす)、錨は拳の先(局所の -y)へ鎖ごと飛ぶ
       M.foeAnchor.position.y = -0.56 - fly * 5.2;
-      M.foeAnchor.rotation.x = lerpTo(M.foeAnchor.rotation.x, P.atk === 'throw' && P.st !== 'idle' ? 0 : 1.3, k);
-      if(P.atk === 'throw' && (P.st === 'strike' || P.st === 'recover')){
+      const throwing = P.atk === 'throw' && (P.st === 'strike' || P.st === 'recover');
+      M.foeAnchor.rotation.x = throwing ? 0 : lerpTo(M.foeAnchor.rotation.x, P.atk === 'throw' && P.st === 'windup' ? 0 : 1.55, k);
+      if(throwing){
+        /* 錨が飛ぶ線は、当たり(core の throw: 正面の細い一直線)と同じにする。肩は胴の中心から 0.58 横にあるので、
+           腕を真っ直ぐ前へ伸ばしたうえで、届く先(約 6)で正面の線に乗るよう少しだけ内へ向ける(局所の z の回転) */
+        const aim = Math.atan2(0.58, 6.2);
         M.foeArmR.rotation.x = -Math.PI/2; M.foeArmL.rotation.x = -Math.PI/2; M.foeElbowR.rotation.x = 0; M.foeElbowL.rotation.x = 0;
+        M.foeArmR.rotation.z = -aim; M.foeArmL.rotation.z = aim; M.foeCoat.rotation.y = 0;
       }
     }
     // 短い脚は引きずられる(右脚は膝から先が無い)
@@ -758,7 +765,7 @@
     // 海藻・濡れた布: 胴に遅れて揺れる(這う速さで後ろへ流れる)
     M.foeWeed.forEach(w=>{ w.p.rotation.x = lerpTo(w.p.rotation.x, w.base + Math.sin(t * 0.9 + w.i) * 0.18 + drag * 0.5, k * 0.3); w.p.rotation.z = Math.sin(t * 0.7 + w.i * 1.7) * 0.1 - V.s * 0.05; });
     M.foeRags.forEach(r=>{ r.p.rotation.x = lerpTo(r.p.rotation.x, -0.75 + Math.sin(t * 0.8 + r.i) * 0.08 + drag * 0.35, k * 0.25); });
-    // 雫: 体から落ちて水溜まりに消える(二つを使い回す)
+    // 雫: 体から落ちて水溜まりに消える(一つを使い回す)
     M.foeDrops.forEach(d=>{
       const ph = (t * 0.45 + d.i * 0.5) % 1;
       d.m.position.y = 0.9 - ph * ph * 0.88;
@@ -905,6 +912,14 @@
   function applyFoeLean(en, M){
     if(M.foeLean) en.group.rotation.x += M.foeLean;
     if(M.foeRoll) en.group.rotation.z += M.foeRoll;
+  }
+  /* 床に置く物(亡霊の霧の溜まり・溺死船員の水溜まり)は、群れの傾き(前のめり・よろめき・浮遊の揺れ)を打ち消して床と平らに保つ
+     (ENEMY-VISUAL-002。07 の updateMobAnim が applyFoeLean の後に呼ぶ) */
+  function foeLevelFloorParts(en, M){
+    const f = M.foeMist || M.foePuddle;
+    if(!f) return;
+    f.rotation.x = -en.group.rotation.x;
+    f.rotation.z = -en.group.rotation.z;
   }
 
   /* 死亡: 敵の特徴で。幽霊船の亡霊・時間の残響は崩れて消え、異形は丸まって沈み、機械は前のめりに崩れて止まる

@@ -352,7 +352,7 @@
     const disposedRoots = batchRoots.concat(
       currentWorldObjects,
       enemies.map(e=>e.group), chests.map(c=>c.group),
-platforms.map(p=>p.mesh),
+      platforms.map(p=>p.mesh),
       keyPickups.map(k=>k.group)).filter(Boolean);
     batchRoots.forEach(m=> scene.remove(m));
     currentWorldObjects.forEach(o=>scene.remove(o));
