@@ -29,11 +29,12 @@ test('一般の回復は残る: 回復薬・MP 回復薬・補給の箱', () => 
   assert.match(all, /potion/);
   assert.match(all, /mppotion/);
   assert.match(read('src/core/state.js'), /potion/);
+  assert.match(read('src/legacy/parts/08-loot-equipment.js'), /if\(c\.kind === 'supply'\)\{\n            grantItem\('potion', 2\);/);
 });
 
 test('セーブの互換: 結晶・姿見はセーブに項目を持たなかった(古いセーブを読んでも欠ける項目が無い)', () => {
   const save = read('src/legacy/parts/09-save-load.js');
   assert.doesNotMatch(save, /healingCrystal|crystalBroken|checkpointUsed|mirrorUsed/i);
   // 保存の版は上げていない(上げる理由が無い ―― 消した物は保存されていなかった)
-  assert.match(read('src/core/state.js'), /potion/);
+  assert.match(save, /const SAVE_VERSION = 2;/);
 });
