@@ -2306,7 +2306,9 @@
       const out = noticeTop.slice().sort(noticeOrder).pop();   // 一番弱い通知を外す(記録には残っている)
       clearTimeout(out.timer); out.el.remove(); noticeTop = noticeTop.filter(x=> x !== out);
     }
-    noticeTop.sort(noticeOrder).forEach(n=> band.appendChild(n.el));   // 強いほど上(DOM の順で並ぶ)
+    /* 強いほど上。並べ替えは flex の order で(要素を付け直すと、同じ通知が「新しく出た」ように見える ――
+       DOM の追加を数える観測や読み上げが二重になる) */
+    noticeTop.sort(noticeOrder).forEach((n, i)=>{ n.el.style.order = i; if(n.el.parentNode !== band) band.appendChild(n.el); });
   }
   /* ボスバー・制限時間が出入りした時(14-hud-boot.js / 12-progression-ui.js から)。通知が出ている時だけ並べ直す */
   function noticeHudChanged(){ if(noticeTop.length) layoutNoticeBand(); }

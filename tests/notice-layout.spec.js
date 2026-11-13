@@ -19,7 +19,7 @@ const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bot
 const rectsOf = (page, sel) => page.evaluate(q => [...document.querySelectorAll(q)].map(e => {
   const r = e.getBoundingClientRect();
   return { text: e.textContent, cls: e.className, left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-}).filter(r => r.right > r.left && r.bottom > r.top), sel);
+}).filter(r => r.right > r.left && r.bottom > r.top).sort((a, b) => a.top - b.top), sel);   // 見えている順(上から)
 // 画面中央の視認領域(横 25〜75%・縦 30〜80%)。プレイヤー・敵・攻撃の予兆がいる所
 const centerZone = vp => ({ left: vp.width * 0.25, right: vp.width * 0.75, top: vp.height * 0.3, bottom: vp.height * 0.8 });
 const notice = (page, text, kind) => page.evaluate(([t, k]) => window.__uiNotice(t, null, k), [text, kind || null]);
@@ -35,6 +35,13 @@ for (const sz of SIZES) {
     await expect(page.locator('#hud')).toHaveClass(/active/);
     await page.waitForFunction(() => typeof window.__uiNotice === 'function');
     await page.waitForTimeout(600);
+    // 通知の要素が DOM に加わった回数(並べ替えで付け直すと、同じ通知が二度「出た」ことになる)
+    await page.evaluate(() => {
+      window.__noticeAdds = [];
+      new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
+        if (n.nodeType === 1 && n.classList.contains('item-pop')) window.__noticeAdds.push(n.textContent);
+      }))).observe(document.getElementById('hud'), { childList: true, subtree: true });
+    });
 
     // 弱い通知が先に満ちていても、危険の警告は押し出して出て、一番上に来る
     await notice(page, '🏅 初制覇! 「習得の証」を手に入れた');
@@ -50,6 +57,7 @@ for (const sz of SIZES) {
     await notice(page, '✴️ 閃いた ―― 🔍 観測の灯(自動で装備した)');
     band = await rectsOf(page, '#notice-band .item-pop.is-toast');
     expect(band.map(b => b.text).some(t => t.includes('天井の石')), '危険の警告は残る').toBe(true);
+    expect((await page.evaluate(() => window.__noticeAdds)).filter(t => t.includes('天井の石')).length, '危険の警告は一度だけ DOM に加わる(並べ替えで付け直さない)').toBe(1);
     // 同じ通知はまとまる(積まない)
     await notice(page, '⚠️ 天井の石が軋んだ――落ちてくる!');
     band = await rectsOf(page, '#notice-band .item-pop.is-toast');
