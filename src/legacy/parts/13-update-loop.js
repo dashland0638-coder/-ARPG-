@@ -2402,7 +2402,10 @@
     // y: 見せる物の床の高さ(時計塔のように床が地面より高い所。既定 0)
     sceneShot = {x, z, y:opts.y || 0, t:0, dur:dur || 1.4, height:opts.height || 9.5, dist:opts.dist || 6.5, hold:opts.hold !== false, holdDialogue:!!opts.holdDialogue,
                  // look: 見る点を別に指定する(時計塔の縦穴を見上げる/見下ろす。CLOCKTOWER-002)
-                 look:opts.look || null};
+                 look:opts.look || null,
+                 /* pan: 秒。0 より大きいと、カメラの位置と見る点を今の画からゆっくり移す(縦穴を見上げる場面。
+                    既定の追い付き方は約 0.4 秒で、見上げる動きが速すぎて分かりにくかった) */
+                 pan:opts.pan || 0, fromPos:null, fromLook:null};
   }
   function clearSceneShot(){ sceneShot = null; }
   const _scTarget = new THREE.Vector3(), _scLook = new THREE.Vector3();
@@ -2415,7 +2418,13 @@
     if(s.look) _scLook.set(s.look.x, s.look.y, s.look.z);
     else _scLook.set(s.x, s.y + 0.8, s.z);
     _scTarget.set(s.x + Math.sin(state.camYaw) * s.dist, s.y + s.height, s.z + Math.cos(state.camYaw) * s.dist);
-    camera.position.lerp(_scTarget, 1 - Math.pow(0.004, Math.min(dt, 0.1)));
+    if(s.pan > 0){
+      // 始めの画(今のカメラの位置とプレイヤー)から、ゆっくり加減速して移す
+      if(!s.fromPos){ s.fromPos = camera.position.clone(); s.fromLook = new THREE.Vector3(state.pos.x, state.pos.y + 0.8, state.pos.z); }
+      const k = Math.min(1, s.t / s.pan), e = k * k * (3 - 2 * k);
+      camera.position.lerpVectors(s.fromPos, _scTarget, e);
+      _scLook.lerpVectors(s.fromLook, _scLook, e);
+    } else camera.position.lerp(_scTarget, 1 - Math.pow(0.004, Math.min(dt, 0.1)));
     camera.lookAt(_scLook);
     return true;
   }

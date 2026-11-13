@@ -1811,10 +1811,11 @@
         {t:0.1, run:()=>{
           figs.forEach(g=> towerFade(g, 1.2));
           // 縦穴を見上げる: 一番上に、大時計の裏が光っている
-          sceneCamShot(TOWER_C.x, TOWER_C.z + 8, 3.2, {y:0, height:2.5, dist:2, look:{x:TOWER_C.x, y:40, z:TOWER_C.z - 1}});
+          // 3.5 秒かけて、ゆっくり見上げる(縦穴の下から上へ視線が昇っていく)
+          sceneCamShot(TOWER_C.x, TOWER_C.z + 8, 6.0, {y:0, height:2.5, dist:2, look:{x:TOWER_C.x, y:40, z:TOWER_C.z - 1}, pan:3.5});
           keeper = spawnApparition(new THREE.Vector3(TOWER_C.x - 1.5, 26, TOWER_C.z - 4.6), {color:0x4a4238, vanishDist:0, maxOpacity:0.6, fadeIn:1.4, facing:0});
         }},
-        {t:1.4, keep:true, run:()=>{}},
+        {t:3.8, keep:true, run:()=>{}},   // 見上げ終わってから一文
         {t:0.1, run:()=> cutsceneLine('縦穴の遥か上に、大時計の裏側が光っている。その手前の縁から、誰かがこちらを見下ろしていた。', '')},
         {t:0.1, run:()=>{ towerFade(keeper, 1.0); cutsceneLine('「……管理人、でしょうか」', A); }},
         {t:0.1, run:()=> cutsceneLine('「上だな。止めたやつも、止まってる時計も」', R)},

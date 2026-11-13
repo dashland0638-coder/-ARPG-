@@ -115,7 +115,7 @@ test('T0 入口: 頭上で鐘が鳴り時が止まる → 縦穴を見上げる�
   assert.ok(r);
   assert.match(text(r), /頭上で、鐘がひとつ鳴った/);
   assert.match(text(r), /大時計の裏側が光っている/);
-  assert.ok(s.log.shots.some(sh => sh.look && sh.look.y >= 40), '縦穴を見上げる(見せてから話す)');
+  assert.ok(s.log.shots.some(sh => sh.look && sh.look.y >= 40 && sh.pan >= 3), '縦穴をゆっくり見上げる(3 秒以上かけて。見せてから話す)');
   assert.equal(s.at(-262, 54, 8), null, '同じ平面でも別の層では起きない(高さの帯)');
 });
 
