@@ -2391,7 +2391,8 @@
     n.timer = setTimeout(endBottom(n), life);
     noticeBottom = n;
     // 背の低い画面では 1 行に収める。切れて読めない部分がある時だけ、全文を「記録」へ残す(情報を失わない)
-    if(n.el.scrollWidth > n.el.clientWidth + 1) recordNotice(text, 'deny');
+    // 同じ理由を続けて押した時は、記録を増やさない(上の帯の危険・物語の記録を押し出さない)
+    if(n.el.scrollWidth > n.el.clientWidth + 1 && !(noticeHistory[0] && noticeHistory[0].text === text)) recordNotice(text, 'deny');
   }
   function endBottom(n){ return ()=>{ n.el.remove(); if(noticeBottom === n) noticeBottom = null; }; }
   // 頭の上: プレイヤーの頭の少し上(拾った物の表示 spawnPickupPopup と同じ投影)。同じ文言は一つにまとめる

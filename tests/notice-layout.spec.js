@@ -69,7 +69,7 @@ for (const sz of SIZES) {
     const sorted = [...band].sort((a, b) => a.top - b.top);
     for (let i = 1; i < sorted.length; i++) expect(sorted[i].top, '積んだ通知が重ならない').toBeGreaterThanOrEqual(sorted[i - 1].bottom - 0.5);
     const zone = centerZone(sz.viewport);
-    const hud = await rectsOf(page, '.hud-topleft, #hud-loot, #minimap-wrap, #btn-attack, #btn-jump, #btn-dodge, #btn-ult, #btn-charge, #btn-skill2, #btn-skill3, #loot-potion-btn, #joy-base');
+    const hud = await rectsOf(page, '.hud-topleft, #hud-loot, #minimap-wrap, #btn-attack, #btn-jump, #btn-dodge, #btn-ult, #btn-charge, #btn-skill2, #btn-skill3, #loot-potion-btn, #joy-base, #combo-indicator');
     for (const r of band) {
       expect(r.left).toBeGreaterThanOrEqual(0);
       expect(r.right).toBeLessThanOrEqual(sz.viewport.width);
@@ -122,7 +122,7 @@ for (const sz of SIZES) {
       expect(overlaps(r, zone), `ボス戦の通知 ${JSON.stringify(r)} が中央の視認領域を覆わない`).toBe(false);
     }
 
-    // 消えた通知はメニューの「記録」で読める(危険・節目。行動の結果・入力の理由は残さない)
+    // 消えた通知はメニューの「記録」で読める(危険・節目。行動の結果・入力の理由は残さない ―― 切れた入力の理由だけは全文を残す)
     await page.waitForTimeout(3000);
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => document.getElementById('menu-overlay').classList.contains('active'));

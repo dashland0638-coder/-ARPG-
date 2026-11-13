@@ -237,7 +237,7 @@
     if(name === 'log') renderNoticeHistory();
   }
   /* 「記録」タブ(UI-VISUAL-001): 上の帯とログに出た通知を新しい順に(noticeHistory、11-combat-actions.js)。
-     頭の上の行動の結果・入力の理由は一時的な物なので残さない */
+     頭の上の行動の結果・入力の理由は一時的な物なので残さない(入力の理由は、背の低い画面で 1 行に収まらず切れた時だけ残す) */
   function renderNoticeHistory(){
     const box = document.getElementById('menu-notice-log');
     if(!box) return;
