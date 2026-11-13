@@ -608,11 +608,11 @@
       ...(scenarioStars('temple') >= TEMPLE_DEPTHS_STARS
         ? [[new THREE.Vector3(156,0,-118), 'armoury']] : []), // temple: 最深部(周回★4+)
       [new THREE.Vector3(88,0,-114),  'supply'],          // temple: 前室, before the guardian
-      [new THREE.Vector3(-316,0,-90), 'armoury'],         // clocktower 1F dead end
-      [new THREE.Vector3(-244,9,-12)],                    // clocktower 2F: 錘の保管室
-      [new THREE.Vector3(-172,18,58)],                    // clocktower 3F
-      [new THREE.Vector3(-244,27,146),'armoury'],         // clocktower 4F: 無音の鐘室
-      [new THREE.Vector3(-292,36,192),'supply'],          // clocktower 5F, before the warden
+      // 時計塔(CLOCKTOWER-001 で作り直し): 寄り道の小部屋と、ボスの手前に一つずつ
+      [new THREE.Vector3(-248,0,41), 'armoury'],          // clocktower T0: 守衛の小部屋
+      [new THREE.Vector3(-252,8,54)],                     // clocktower T1: 部品庫(長針の橋の向こう)
+      [new THREE.Vector3(-247,26,55),'supply'],           // clocktower T3: 住まいの奥
+      [new THREE.Vector3(-247,44,29.5),'supply'],         // clocktower T5: 大時計の前室, before the boss
       ...(scenarioStars('clocktower') >= TOWER_HOUSE1_DEPTHS_STARS
         ? [[new THREE.Vector3(-346,9,124), 'armoury']] : []), // clocktower: 隠し歯車庫(周回★3+)
       [new THREE.Vector3(184,0,-54)],                     // conservatory: 枯れた前庭
@@ -900,7 +900,7 @@
       new THREE.Vector3(-107.2,0,20.9),   // waterway underground
       new THREE.Vector3(126,0,86.5),      // mansion 保管庫
       new THREE.Vector3(-61.2,0,-196.6),  // temple 石橋の間
-      new THREE.Vector3(-243.2,9,-11.3),  // clocktower 2F
+      new THREE.Vector3(-258,26,30),      // clocktower T3 北の桟橋の先(塔の中ほど。歯車の輪を降りた所)
       new THREE.Vector3(184.8,0,-53.3),   // conservatory 枯れた前庭
     ];
     spots.filter(p=> worldKeyForPos(p)===_spawnWorldKey && !gsChapter1World())
@@ -986,6 +986,7 @@
            起きていない strongMob / guardian を勝手に起こして戦線を
            広げてしまう ―― 戦闘を始めるかどうかはプレイヤーが決める */
         if(!isPartyHostile(en)) return;
+        if(en.offFloor) return;   // 別の階の敵は狙わない(CLOCKTOWER-002)
         const d = companion.pos.distanceTo(en.group.position);
         if(d<bestDist){ bestDist=d; best=en; }
       });
@@ -1020,7 +1021,8 @@
     }
 
     companion.bobT += dt;
-    companion.group.position.set(companion.pos.x, 0.75+Math.sin(companion.bobT*2.2)*0.08, companion.pos.z);
+    if(groundSlabs.length) companion.pos.y = state.pos.y;   // 積み重ねた階では使い魔もプレイヤーの階に浮く
+    companion.group.position.set(companion.pos.x, allyFloorY(companion.pos) + 0.75+Math.sin(companion.bobT*2.2)*0.08, companion.pos.z);
     companion.group.rotation.y += dt*0.6;
   }
 
@@ -1080,6 +1082,58 @@
     return state.pos.clone().add(new THREE.Vector3(Math.sin(a)*GUEST_FOLLOW_DIST, 0, Math.cos(a)*GUEST_FOLLOW_DIST));
   }
 
+  /* 味方(支援・使い魔)の足元の高さ(CLOCKTOWER-002)。積み重ねた階では、自分の位置の床
+     (pos.y から一段ぶんまでの、いちばん高い床)に立つ。以前は高さ 0 に描いていたので、
+     二階より上では支援が地面の高さに取り残され、階段の後で付いてこないように見えていた */
+  function allyFloorY(pos){
+    if(!groundSlabs.length) return 0;
+    const g = groundYAt(pos.x, pos.z, pos.y + 0.6);
+    return g === null ? pos.y : g;
+  }
+  /* 積み重ねた階で、支援の一歩を床に沿わせる。高さの帯の壁に当て、床の無い所(縦穴・階の縁)へは
+     出ない(プレイヤーの keepOnGround と同じ)。坂は段差 0.6 以内で上り下りできる */
+  function stepAllyOnFloor(pos, prevX, prevZ){
+    if(!groundSlabs.length) return;
+    resolveWallCollisions(pos);
+    const g = groundYAt(pos.x, pos.z, pos.y + 0.6);
+    if(g === null || g < pos.y - 1.2){
+      pos.x = prevX; pos.z = prevZ;
+      // 戻した所にも足元の床が無い(動く足場が去った後など)なら、宙に残さずプレイヤーの所へ
+      const h = groundYAt(pos.x, pos.z, pos.y + 0.6);
+      if(guestCompanion && pos === guestCompanion.pos && (h === null || h < pos.y - 1.2)) placeGuestNearPlayer();
+      return;
+    }
+    pos.y = g;
+  }
+  /* 階を越えた追従の共通処理(CLOCKTOWER-002)。階段・昇降機・坂のどれで階を移っても、
+     支援がプレイヤーと別の階に 1 秒以上いる・遠く離れたままなら、プレイヤーの斜め後ろへ戻す
+     (戦っていた相手も忘れる)。足元に床が無い時(昇降機の上など)はプレイヤーのすぐ隣 */
+  let guestApartT = 0;
+  function guestCatchUp(dt){
+    if(!guestCompanion || guestCompanion.waitAt) return;
+    const P = guestCompanion.pos;
+    if(!groundSlabs.length) return;   // 積み重ねた階(時計塔)だけ。他のダンジョンの支援の歩き方は変えない
+    const apart = !onSameFloor(P.y) || Math.hypot(P.x - state.pos.x, P.z - state.pos.z) > 16;
+    guestApartT = apart ? guestApartT + dt : 0;
+    if(guestApartT < 1.0) return;
+    guestApartT = 0;
+    placeGuestNearPlayer();
+  }
+  function placeGuestNearPlayer(){
+    if(!guestCompanion) return;
+    const P = guestCompanion.pos;
+    P.copy(guestFollowPoint());
+    if(groundSlabs.length){
+      const g = groundYAt(P.x, P.z, state.pos.y + 0.6);
+      if(g === null || Math.abs(g - state.pos.y) > 0.8 || insideAnyWall(P)){
+        P.set(state.pos.x - Math.sin(state.facing)*0.9, state.pos.y, state.pos.z - Math.cos(state.facing)*0.9);
+        const g2 = groundYAt(P.x, P.z, state.pos.y + 0.6);
+        if(g2 === null || Math.abs(g2 - state.pos.y) > 0.8) P.copy(state.pos);
+      } else P.y = g;
+    }
+    guestCompanion.target = null;
+  }
+
   function updateGuestCompanion(dt){
     if(!guestCompanion) return;
     /* 合流待ち(WORK 12.1)。シナリオの途中から同行する支援AIは、その地点で
@@ -1090,14 +1144,29 @@
       const near = Math.hypot(state.pos.x - W.x, state.pos.z - W.z) < W.radius;
       const passed = W.passZ != null && state.pos.z > W.passZ;
       if(!near && !passed){
-        guestCompanion.group.position.set(guestCompanion.pos.x, 0, guestCompanion.pos.z);
+        guestCompanion.group.position.set(guestCompanion.pos.x, allyFloorY(guestCompanion.pos), guestCompanion.pos.z);
         return;
       }
       guestCompanion.waitAt = null;
       if(passed && !near) guestCompanion.pos.copy(guestFollowPoint());   // 地点ジャンプで追い越した場合
     }
+    /* 時計塔の歯車の輪・昇降台に運ばれている間は、支援も同じ足場に乗る(足場が動いて落ちない) */
+    if(typeof towerRiding === 'function' && towerRiding()){
+      const a = state.facing + Math.PI;
+      guestCompanion.pos.set(state.pos.x + Math.sin(a) * 0.9, state.pos.y, state.pos.z + Math.cos(a) * 0.9);
+      const rs = towerRideSlab();   // 足場の上に収める(縁の外の宙に置かない)
+      if(rs){
+        guestCompanion.pos.x = Math.max(rs.x0 + 0.3, Math.min(rs.x1 - 0.3, guestCompanion.pos.x));
+        guestCompanion.pos.z = Math.max(rs.z0 + 0.3, Math.min(rs.z1 - 0.3, guestCompanion.pos.z));
+      }
+      guestCompanion.target = null; guestApartT = 0;
+      guestCompanion.group.position.copy(guestCompanion.pos);
+      return;
+    }
     const cdef = CLASSES[guestCompanion.classKey] || CLASSES.warrior;
-    const AGGRO=8.5, ATK_RANGE=cdef.meleeRange||1.8, ATK_CD=(cdef.atkCooldown||0.6)*1.6, DMG_MUL=0.55;
+    const ATK_RANGE=cdef.meleeRange||1.8, ATK_CD=(cdef.atkCooldown||0.6)*1.6, DMG_MUL=0.55;
+    // 積み重ねた階(時計塔)の射手は、矢の届く距離まで狙う(縦穴の向こう岸。CLOCKTOWER-002)
+    const AGGRO = (groundSlabs.length && cdef.range === 'ranged') ? GUEST_TOWER_SHOT_RANGE : 8.5;
     if(guestCompanion.attackCD>0) guestCompanion.attackCD -= dt;
 
     if(guestCompanion.target && guestCompanion.target.dead) guestCompanion.target = null;
@@ -1113,6 +1182,7 @@
         if(en.dead || en.dormant) return;
         if(!isBossAccessible(en)) return;
         if(!isPartyHostile(en)) return;   // 敵対済みの敵だけ(core/enemy-aggro.js)
+        if(en.offFloor || !onSameFloor(enemyFloorY(en), guestCompanion.pos.y)) return;   // 別の階の敵は狙わない(CLOCKTOWER-002)
         /* 支援AIは斜め後ろ(約2.4m)を歩く(WORK 12.1)。自分の位置だけで
            索敵すると、プレイヤーが敵の手前で止まったときに支援だけ射程の外に
            なる ―― 「プレイヤーの近くの敵」も同じ距離で拾う */
@@ -1125,12 +1195,24 @@
       guestCompanion.target = null;
     }
 
+    // 戦っていた相手が別の階へ行った(プレイヤーが階を移った)ら、追わない
+    if(guestCompanion.target && (guestCompanion.target.offFloor || !onSameFloor(enemyFloorY(guestCompanion.target), guestCompanion.pos.y))) guestCompanion.target = null;
+    const gPrevX = guestCompanion.pos.x, gPrevZ = guestCompanion.pos.z;
     if(guestCompanion.target){
       const targetPos = guestCompanion.target.group.position;
-      const dist = guestCompanion.pos.distanceTo(targetPos);
+      const dist = Math.hypot(targetPos.x - guestCompanion.pos.x, targetPos.z - guestCompanion.pos.z);
       const dir = new THREE.Vector3().subVectors(targetPos, guestCompanion.pos); dir.y=0;
       if(dir.lengthSq()>0.0001) guestCompanion.group.rotation.y = Math.atan2(dir.x, dir.z);
-      if(dist > ATK_RANGE){
+      /* 積み重ねた階(時計塔)では、射手の支援は届く所から矢で射る ―― 縦穴の向こう岸など、
+         歩いては行けない相手にも(CLOCKTOWER-002。他のダンジョンの支援の戦い方は変えない) */
+      const shootRange = (groundSlabs.length && cdef.range === 'ranged') ? GUEST_TOWER_SHOT_RANGE : 0;
+      if(shootRange && dist <= shootRange && hasLineOfSight(guestCompanion.pos, targetPos)){
+        if(guestCompanion.attackCD<=0){
+          const dmg = Math.max(4, Math.round(state.classDef.atk*DMG_MUL + (Math.random()*4-2)));
+          guestShootArrow(guestCompanion.target, dmg);
+          guestCompanion.attackCD = ATK_CD * 1.25;
+        }
+      } else if(dist > ATK_RANGE){
         if(dir.lengthSq()>0.0001){ dir.normalize(); guestCompanion.pos.addScaledVector(dir, (cdef.spd||5)*dt); }
       } else if(guestCompanion.attackCD<=0){
         const dmg = Math.max(4, Math.round(state.classDef.atk*DMG_MUL + (Math.random()*4-2)));
@@ -1153,9 +1235,48 @@
       }
     }
 
+    stepAllyOnFloor(guestCompanion.pos, gPrevX, gPrevZ);
+    guestCatchUp(dt);
     guestCompanion.bobT += dt;
-    guestCompanion.group.position.set(guestCompanion.pos.x, Math.sin(guestCompanion.bobT*8)*0.015, guestCompanion.pos.z);
+    guestCompanion.group.position.set(guestCompanion.pos.x, allyFloorY(guestCompanion.pos) + Math.sin(guestCompanion.bobT*8)*0.015, guestCompanion.pos.z);
   }
+
+  /* 支援の矢(積み重ねた階だけ。上の updateGuestCompanion)。見た目は短い光の線が相手まで飛び、
+     着いた時にダメージ。矢の当たりは相手に直接入れる(壁の判定は撃つ前の視線で済ませている) */
+  const GUEST_TOWER_SHOT_RANGE = 22;
+  const guestArrows = [];
+  let guestArrowGeo = null, guestArrowMat = null;
+  function guestShootArrow(target, dmg){
+    if(!guestArrowGeo){
+      guestArrowGeo = new THREE.BoxGeometry(0.06, 0.06, 0.9);
+      guestArrowMat = new THREE.MeshBasicMaterial({color:0xf2e2a8});
+    }
+    const m = new THREE.Mesh(guestArrowGeo, guestArrowMat);
+    const from = guestCompanion.group.position;
+    m.position.set(from.x, from.y + 1.2, from.z);
+    scene.add(m);
+    guestArrows.push({mesh:m, target, dmg, t:0});
+    sfx('bowRelease');
+  }
+  function updateGuestArrows(dt){
+    for(let i=guestArrows.length-1;i>=0;i--){
+      const a = guestArrows[i];
+      a.t += dt;
+      const tp = a.target.group.position;
+      const dx = tp.x - a.mesh.position.x, dy = (tp.y + 0.9) - a.mesh.position.y, dz = tp.z - a.mesh.position.z;
+      const d = Math.hypot(dx, dy, dz);
+      const step = 26 * dt;
+      if(d <= step || a.t > 1.5 || a.target.dead){
+        if(!a.target.dead && d <= step + 0.5) dealDamageToEnemy(a.target, a.dmg, true);
+        scene.remove(a.mesh);
+        guestArrows.splice(i, 1);
+        continue;
+      }
+      a.mesh.position.x += dx/d*step; a.mesh.position.y += dy/d*step; a.mesh.position.z += dz/d*step;
+      a.mesh.lookAt(tp.x, tp.y + 0.9, tp.z);
+    }
+  }
+  function clearGuestArrows(){ guestArrows.forEach(a=> scene.remove(a.mesh)); guestArrows.length = 0; }
 
   // COMPANION/GUEST COMPANION、双方の「プレイヤーの近くへスナップする」
   // 処理をここへ一本化した。以前は世界遷移のたびに個別のif(companion){...}
@@ -1170,8 +1291,8 @@
     }
     // 合流待ちの支援AIは、その場で待たせたまま(WORK 12.1)
     if(guestCompanion && !guestCompanion.waitAt){
-      guestCompanion.pos.copy(guestFollowPoint());
-      guestCompanion.target = null;
+      placeGuestNearPlayer();   // 床の高さ・壁を見て置く(積み重ねた階で、別の階や壁の中に置かない)
+      guestApartT = 0;
     }
     /* 洋館で同行している鍛冶屋(仕様 8)。戦闘には関与しないが、階段の
        テレポートで置いていかれると二度と追いつけないので、ここへ相乗り

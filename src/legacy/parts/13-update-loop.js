@@ -1615,6 +1615,8 @@
 
       let hitWall = false;
       for(const w of walls){
+        if(w.y0 !== undefined && !wallApplies(w, p.mesh.position.y - 0.8)) continue;   // 高さの帯の壁(積み重ねた階)
+        if(w.low) continue;   // 低い手すりの上は弾が通る
         if(p.mesh.position.x>=w.minX && p.mesh.position.x<=w.maxX && p.mesh.position.z>=w.minZ && p.mesh.position.z<=w.maxZ){
           hitWall = true; break;
         }
@@ -2397,7 +2399,13 @@
     // 自動カメラ OFF の人には、進行に要らない自動のカメラ演出をしない(カメラは本人の操作のまま)
     if(!camAutoOn) return;
     opts = opts || {};
-    sceneShot = {x, z, t:0, dur:dur || 1.4, height:opts.height || 9.5, dist:opts.dist || 6.5, hold:opts.hold !== false, holdDialogue:!!opts.holdDialogue};
+    // y: 見せる物の床の高さ(時計塔のように床が地面より高い所。既定 0)
+    sceneShot = {x, z, y:opts.y || 0, t:0, dur:dur || 1.4, height:opts.height || 9.5, dist:opts.dist || 6.5, hold:opts.hold !== false, holdDialogue:!!opts.holdDialogue,
+                 // look: 見る点を別に指定する(時計塔の縦穴を見上げる/見下ろす。CLOCKTOWER-002)
+                 look:opts.look || null,
+                 /* pan: 秒。0 より大きいと、カメラの位置と見る点を今の画からゆっくり移す(縦穴を見上げる場面。
+                    既定の追い付き方は約 0.4 秒で、見上げる動きが速すぎて分かりにくかった) */
+                 pan:opts.pan || 0, fromPos:null, fromLook:null};
   }
   function clearSceneShot(){ sceneShot = null; }
   const _scTarget = new THREE.Vector3(), _scLook = new THREE.Vector3();
@@ -2407,9 +2415,16 @@
     const s = sceneShot;
     s.t += cutsceneRealDt > 0 ? Math.min(cutsceneRealDt, 0.1) : dt;
     if(s.t >= s.dur && !(s.hold && cutsceneRunning()) && !(s.holdDialogue && state.dialogueActive)){ sceneShot = null; return false; }
-    _scLook.set(s.x, 0.8, s.z);
-    _scTarget.set(s.x + Math.sin(state.camYaw) * s.dist, s.height, s.z + Math.cos(state.camYaw) * s.dist);
-    camera.position.lerp(_scTarget, 1 - Math.pow(0.004, Math.min(dt, 0.1)));
+    if(s.look) _scLook.set(s.look.x, s.look.y, s.look.z);
+    else _scLook.set(s.x, s.y + 0.8, s.z);
+    _scTarget.set(s.x + Math.sin(state.camYaw) * s.dist, s.y + s.height, s.z + Math.cos(state.camYaw) * s.dist);
+    if(s.pan > 0){
+      // 始めの画(今のカメラの位置とプレイヤー)から、ゆっくり加減速して移す
+      if(!s.fromPos){ s.fromPos = camera.position.clone(); s.fromLook = new THREE.Vector3(state.pos.x, state.pos.y + 0.8, state.pos.z); }
+      const k = Math.min(1, s.t / s.pan), e = k * k * (3 - 2 * k);
+      camera.position.lerpVectors(s.fromPos, _scTarget, e);
+      _scLook.lerpVectors(s.fromLook, _scLook, e);
+    } else camera.position.lerp(_scTarget, 1 - Math.pow(0.004, Math.min(dt, 0.1)));
     camera.lookAt(_scLook);
     return true;
   }

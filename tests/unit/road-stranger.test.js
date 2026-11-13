@@ -183,7 +183,7 @@ test('加入前の影: 歩くと本人より遅れ、止まると足元へ追い
 });
 
 test('島の人影: 本編の第一章でだけ、対岸の街道を加入前の姿で歩く(N-4)', () => {
-  const landing = slice(tower, "state.pos.set(-230, 0, 344);", "state.dialogueKind = 'towerEscape';");
+  const landing = slice(tower, "state.pos.set(-250, 0, 262);", "state.dialogueKind = 'towerEscape';");
   assert.match(landing, /if\(clocktowerChapter1\(\)\) showIslandStranger\(\);/);
   const code = [
     roadConsts,
@@ -194,12 +194,12 @@ test('島の人影: 本編の第一章でだけ、対岸の街道を加入前の
   ].join('\n');
   const scene = new THREE.Scene();
   const currentWorldObjects = [];
-  const state = { pos: new THREE.Vector3(-230, 0, 344), camYaw: 0 };
+  const state = { pos: new THREE.Vector3(-250, 0, 262), camYaw: 0 };
   const k = new Function('THREE', 'scene', 'currentWorldObjects', 'state', code)(THREE, scene, currentWorldObjects, state);
   assert.equal(k.list.length, 1);
   const f = k.list[0];
   assert.equal(f.fig, k.fig);
-  assert.ok(f.walk.from.z > 372 && f.walk.to.z > 372, '島(z<=372)の外、対岸');
+  assert.ok(f.walk.from.z > 290 && f.walk.to.z > 290, '島(z<=290。CLOCKTOWER-001 で塔ごと作り直し)の外、対岸');
   assert.ok(f.walk.to.x > f.walk.from.x, '歩いていく');
   assert.ok(f.walk.from.y > 2.3, '島の石垣(高さ2.3)ごしに見える高さ');
   assert.equal(state.camYaw, Math.PI, 'カメラは南側から、主人公ごしに北の対岸を見る');

@@ -50,8 +50,10 @@ test('本編: 主人公の受け答え 7 行だけが承認済みの文言にな
   let changed = 0;
   for (const key of SCENARIOS) {
     const a = ch1(key), b = legacy(key);
-    // 道は本編だけの行(朝の鐘・懐中時計)が既存で入っているので、旧成長より長い。行数・話者の順は他の 4 つで比べる
-    if (key !== 'road') {
+    // 道は本編だけの行(朝の鐘・懐中時計)が既存で入っているので、旧成長より長い。時計塔も CLOCKTOWER-001 で
+    // 本編だけの行(七時十三分に時が止まる)を足した。行数・話者の順は他の 3 つで比べる
+    const ch1Extra = key === 'road' || key === 'clocktower';
+    if (!ch1Extra) {
       assert.equal(a.length, b.length, `${key}: 行数`);
       assert.deepEqual(a.map(l=>l[0]), b.map(l=>l[0]), `${key}: 話者の順`);
     }
@@ -59,12 +61,14 @@ test('本編: 主人公の受け答え 7 行だけが承認済みの文言にな
       assert.ok(a.includes(`Y|${after}`), `${k} 本編: ${after}`);
       assert.ok(!a.includes(`Y|${before}`), `${k} 本編に旧い文言が残っていない: ${before}`);
       assert.ok(b.includes(`Y|${before}`), `${k} 旧成長は旧い文言のまま: ${before}`);
-      assert.equal(a.indexOf(`Y|${after}`), b.indexOf(`Y|${before}`), `${k}: 同じ位置`);
+      // 同じ位置(本編だけの行がある時計塔は、終わりから数えて同じ位置)
+      if (ch1Extra) assert.equal(a.length - a.indexOf(`Y|${after}`), b.length - b.indexOf(`Y|${before}`), `${k}: 同じ位置`);
+      else assert.equal(a.indexOf(`Y|${after}`), b.indexOf(`Y|${before}`), `${k}: 同じ位置`);
       changed++;
     }
     // 変更した行以外は、本編と旧成長で同じ(主人の台詞を含む)。
     // 例外は幽霊船の主人の 2 行(GHOSTSHIP-REBUILD-002 で承認: 船は沖に浮かび、小舟で近づく)
-    if (key !== 'road') {
+    if (!ch1Extra) {
       const masterChanged = MASTER_CHANGED.filter(c=>c[0] === key);
       const diff = a.filter((l, i)=>l !== b[i]);
       assert.equal(diff.length, CHANGED.filter(c=>c[0] === key).length + masterChanged.length, `${key}: 変わったのは承認した行だけ`);
@@ -76,6 +80,14 @@ test('本編: 主人公の受け答え 7 行だけが承認済みの文言にな
     }
   }
   assert.equal(changed, 7, '受け答えは 7 行');
+  // 時計塔(CLOCKTOWER-001、Human の依頼による再設計): 本編だけ、七時十三分に時が止まり昔の景色が見える導入。
+  // 旧成長は従来の行のまま。前後の主人の台詞(鐘で起きて鐘で眠る・娘が家を出た時刻)は同じ
+  const tc = dialogue(true)('clocktower'), tl = dialogue(false)('clocktower');
+  assert.ok(tc.includes('M|先月から、毎晩七時十三分になると時計が止まる。止まってる間、街のあちこちに昔の景色が見えるって話だ。'));
+  assert.ok(tc.includes('Y|昔の景色?'));
+  assert.ok(tl.includes('M|それが先月から、毎晩七時十三分きっかりに止まるようになってな。様子を見に入った管理人が、まだ降りてこん。'));
+  assert.equal(tc.length, tl.length + 2);
+  assert.equal(tc[0], tl[0]); assert.equal(tc.at(-1), tl.at(-1));
   // 洋館・道は受け答えを変えない
   assert.deepEqual(dialogue(true)('mansion'), dialogue(false)('mansion'));
   for (const l of ['Y|いつもあそこに座ってた奴か。', 'Y|探してくる。', 'Y|……それと、これ。塔の管理人に、返しといてくれ。'])

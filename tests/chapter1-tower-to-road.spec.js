@@ -100,7 +100,8 @@ test.describe('時計塔 → 道 → 第一章の終わり（CR-03）', () => {
     expect(intro[0]).toBe('酒場の主人|……隅の席のあいつ、朝から戻っとらん。');
     expect(intro).toContain('酒場の主人|朝の鐘で目を覚ましたら、もういなかった。');
     expect(intro).toContain('盗賊|……それと、これ。塔の管理人に、返しといてくれ。');
-    expect(intro.some(l => l.includes('娘の名前を呼んでな'))).toBe(true);
+    // CLOCKTOWER-001: 管理人は時間を動かし、鐘を鳴らしてから自分の足で降りてきた(生還、N-3)
+    expect(intro.some(l => l.includes('自分の足で塔から降りてきたそうだ'))).toBe(true);
     expect(intro.filter(l => l.includes('影の旅人'))).toEqual([]);
 
     await expect(page.locator('#minimap-area')).toHaveText('名もなき街道', { timeout: 120_000 });

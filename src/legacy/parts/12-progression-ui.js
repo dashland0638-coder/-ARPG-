@@ -86,7 +86,14 @@
     clocktower: ()=>{ const M='酒場の主人', Y=state.name||'あなた'; const ch1 = !legacyGrowth(); return [
       {name:M, text:'時計塔か。……街の連中は、あの塔の鐘で起きて、あの鐘で眠る。'},
       {name:Y, text:'その鐘に、何かあったのか?'},
-      {name:M, text:'それが先月から、毎晩七時十三分きっかりに止まるようになってな。様子を見に入った管理人が、まだ降りてこん。'},
+      /* 第一章の本編(CLOCKTOWER-001): 七時十三分に時が止まり、昔の景色が見える ―― 塔の異常の導入 */
+      ...(ch1 ? [
+        {name:M, text:'先月から、毎晩七時十三分になると時計が止まる。止まってる間、街のあちこちに昔の景色が見えるって話だ。'},
+        {name:Y, text:'昔の景色?'},
+        {name:M, text:'とうに畳んだ店が、昔のまま灯りをつけてた、とかな。……調べに入った管理人が、まだ降りてこん。'},
+      ] : [
+        {name:M, text:'それが先月から、毎晩七時十三分きっかりに止まるようになってな。様子を見に入った管理人が、まだ降りてこん。'},
+      ]),
       {name:Y, text:'管理人が、一人で?'},
       {name:M, text:'ああ。何年か前に、娘さんが家を出たきり戻らんのだと。塔にこもりきりで、様子がおかしいという者もいる。'},
       {name:Y, text: ch1 ? '娘と鐘が、関係あるのか?' : '娘の行方と、鐘に何か関係が?'},
@@ -112,7 +119,8 @@
       {name:M, text:'ああ。街道のほうへ歩いていくのを見た者がいる。……あいつが外へ出るのは、初めて見た。'},
       ...(ch1 ? [
         {name:Y, text:'……それと、これ。塔の管理人に、返しといてくれ。'},
-        {name:M, text:'懐中時計か。……管理人は、朝になったら塔の下に座り込んでたそうだ。娘の名前を呼んでな。'}
+        /* 管理人は生還した(N-3)。CLOCKTOWER-001: 時間を動かし、鐘を鳴らしてから自分の足で降りてきた */
+        {name:M, text:'懐中時計か。……管理人は、朝になって自分の足で塔から降りてきたそうだ。鐘を鳴らしたのは自分だ、とだけ言ってな。'}
       ] : []),
       {name:Y, text:'探してくる。'},
       {name:M, text:'街道は一本だ。迷いはせん。……明るいうちに戻れよ。'}
@@ -441,6 +449,8 @@
         state.dialogueKind = null;
         state.dialogueActive = false;
         clearMovementInput(false);
+        setTowerClock(7, 14);   // 時間が動き出した(文字盤の針。CLOCKTOWER-001)
+        towerTimeResumes();     // 塔の振り子・歯車の輪・街の灯りが動き出す(CLOCKTOWER-002)
         spawnToast('🪜 見晴台への階段が開いた。急げ');
       } else if(state.dialogueKind==='towerEscape'){
         state.dialogueKind = null;
@@ -507,6 +517,7 @@
     // the summoner is gone - its crew goes with it
     if(boss.shockRing){ scene.remove(boss.shockRing); boss.shockRing = null; }
     if(boss.chargeLane){ scene.remove(boss.chargeLane); boss.chargeLane = null; }
+    if(boss.key === 'towerWarden') clearTowerBossFx(boss);   // 止刻の輪・残像(時計塔、CLOCKTOWER-001)
     cancelBossPhaseBurstFor(boss);   // 段階移行の爆発の予兆も、撃破の会話の後ろに残さない(CH1-COMP W2-4a)
     boss.special = null;
     enemies.filter(e=>e.summonedBy===boss).forEach(e=>scene.remove(e.group));

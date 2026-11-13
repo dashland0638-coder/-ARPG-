@@ -1,20 +1,21 @@
-/* 第一章④ 時計塔の物語、1F〜5F 前室(CT-02、docs/CHAPTER1_STORY.md §4-3/§4-4)。
+/* 第一章④ 時計塔「止まった時刻 ― 過去に縛られた後悔 ―」の物語(CLOCKTOWER-002 で縦穴を登る塔に作り直し、docs/CHAPTER1_STORY.md §4-4)。
 
-   時計塔はこの環境(software rendering)では歩いて回れないので、本物の
-   buildClocktowerChapter1Story / registerRoomEvent / registerProximityEvent /
-   updateProximityEvents を stub 付きで並べ、本物の TOWER_ROOMS の座標を
-   歩かせて確かめる。手記は buildLoreNote の stub が loreObjects に積む
-   (本物と同じ {title, read} の形) */
+   時計塔はこの環境では歩いて回れないので、本物の buildClocktowerChapter1Story / playTowerInsight /
+   registerRoomEvent / registerProximityEvent / updateProximityEvents を stub 付きで並べ、本物の
+   TOWER_ROOMS の座標に立たせて確かめる。手記は buildLoreNote の stub が loreObjects に積む(本物と同じ形) */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { hasSkill2, learnSkill2 } from '../../src/core/chapter1-skills.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const world = fs.readFileSync(path.join(root, 'src/legacy/parts/02-world-common.js'), 'utf8');
-const tower = fs.readFileSync(path.join(root, 'src/legacy/parts/03-dungeons-mansion-temple.js'), 'utf8');
-const hud = fs.readFileSync(path.join(root, 'src/legacy/parts/14-hud-boot.js'), 'utf8');
+const read = f => fs.readFileSync(path.join(root, 'src/legacy/parts', f), 'utf8');
+const world = read('02-world-common.js');
+const tower = read('03-dungeons-mansion-temple.js');
+const ui = read('12-progression-ui.js');
+const actions = read('11-combat-actions.js');
 
 function fn(src, signature){
   const a = src.indexOf(signature);
@@ -27,10 +28,10 @@ function table(name){
   const body = tower.slice(a + `const ${name} = `.length, tower.indexOf('\n  ];', a) + 4).replace(/\/\/[^\n]*/g, '');
   return new Function('return ' + body)();
 }
+const constLine = name => tower.match(new RegExp(`const ${name} = [^;]*;`))[0];
 const ROOMS = table('TOWER_ROOMS');
 const SLABS = table('TOWER_SLABS');
-const room = id => ROOMS.find(r => r.id === id);
-const mid = id => { const r = room(id); return [(r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2]; };
+const NOTES = ['塔の掲示板', '作業日誌', '長針の銘板', '管理人の点検記録', '管理人の日記', '写真立て', '綱に結ばれた紙', '管理人の外套', '射出台の銘板'];
 
 class V3 {
   constructor(x = 0, y = 0, z = 0){ this.x = x; this.y = y; this.z = z; }
@@ -39,133 +40,164 @@ class V3 {
   distanceTo(o){ return Math.hypot(this.x - o.x, this.y - o.y, this.z - o.z); }
 }
 
-function setup({ testMode = false, scenarioKey = 'clocktower' } = {}){
-  const state = { testMode, scenarioKey, started: true, paused: false, dialogueActive: false, pos: new V3() };
-  const shown = [];
-  const loreObjects = [];
-  const roomById = {}; ROOMS.forEach(r => roomById[r.id] = r);
+function setup({ testMode = false, learnedSkill2 = false, scenarioKey = 'clocktower', legacy = false } = {}){
+  const state = { testMode, learnedSkill2, scenarioKey, started: true, paused: false, dialogueActive: false, pos: new V3() };
+  const log = { seq: [], lines: [], shots: [], grants: 0, apps: 0, keeper: 0 };
+  let steps = null;
+  const loreObjects = NOTES.map(title => ({ title, read: false }));   // 本物の塔では buildClocktower の前半で先に積まれている
+  const enemies = [{ towerGallery: true, dead: false }, { towerGallery: true, dead: false }];
   const slabY = {}; SLABS.forEach(s => slabY[s.fl] = s.y);
   const code = [
-    'let proximityEvents = [];',
-    'let collapsing = false;',   // 02 の崩壊の状態(CT-03 の盗賊の過去が見る)
+    'let proximityEvents = []; let collapsing = false; let towerKeeper = null; let towerMech = {walkers:[]}; let towerTierObjs = [[],[],[],[],[],[],[],[]];',
+    constLine('TOWER_KEEPER_POS'), constLine('TOWER_KEY_HOOK'), constLine('TOWER_C'),
     fn(world, 'function registerProximityEvent(pos, radius, speakerName, lines, opts){'),
     fn(world, 'function registerRoomEvent(room, y, speakerName, lines, opts){'),
     fn(world, 'function updateProximityEvents(){'),
     fn(world, 'function fireProximityEvent(ev){'),
     fn(tower, 'function clocktowerChapter1(){'),
-    fn(tower, 'function buildClocktowerChapter1Story(roomById, slabY){'),
-    'buildClocktowerChapter1Story(roomById, slabY);',
-    'return { proximityEvents, updateProximityEvents };',
+    'function towerStoryOn(){ return clocktowerChapter1(); }',
+    tower.match(/  let towerInsightDone = false, [^\n]*\n  let towerBridgeTalkDone[^\n]*\n/)[0],
+    fn(tower, 'function towerEndScene(){'), fn(tower, 'function towerWalk(g, to, dur){'), fn(tower, 'function towerFade(g, t){'),
+    'function buildTowerKeeperNpc(){ log.keeper++; return {userData:{}}; }', 'function towerRiding(){ return false; }',
+    fn(tower, 'function playTowerInsight(){'),
+    fn(tower, 'function towerGalleryCleared(){'),
+    fn(tower, 'function buildClocktowerChapter1Story(slabY){'),
+    'buildClocktowerChapter1Story(slabY);',
+    'return { proximityEvents, updateProximityEvents, play: ()=> playTowerInsight(), collapse: ()=>{ collapsing = true; }, repeatSeen: ()=> towerRepeatSeen };',
   ].join('\n');
-  /* 本物の塔では、2F〜4F の手記は buildClocktower の前半で先に積まれている */
-  for (const t of ['管理人の手帳', '娘の書き置き', '鐘楼の譜面']) loreObjects.push({ title: t, read: false });
+  const apparitions = [];
   const deps = {
-    state, roomById, slabY, loreObjects,
+    state, slabY, loreObjects, log, apparitions, camAutoOn: false, enemies,
+    addShake: () => {},
     THREE: { Vector3: V3 },
-    legacyGrowth: () => !!state.testMode,
+    legacyGrowth: () => legacy,
     CLASSES: { rogue: { name: '盗賊' }, archer: { name: '弓師' } },
-    buildLoreNote: (pos, title, lines) => loreObjects.push({ pos, title, lines, read: false }),
-    document: { getElementById: id => ({ classList: { add: () => {} }, set textContent(v){ shown.push([id, v]); } }) },
+    document: { getElementById: id => ({ classList: { add: () => {} }, set textContent(v){ if (id === 'dialogue-text') log.lines.push(['?', v]); } }) },
+    hasSkill2,
+    playCutscene: s => { steps = s; state.dialogueActive = true; log.seq.push('cutscene'); },
+    cutsceneLine: (text, name) => { log.lines.push([name, text]); log.seq.push('line'); },
+    cutsceneHideLine: () => {}, clearMovementInput: () => {},
+    sceneCamShot: (x, z, dur, opts) => { log.shots.push({ x, z, ...opts }); log.seq.push('shot'); },
+    grantChapter1Skill2: () => { log.seq.push('grant'); const r = learnSkill2(state); if (r.changed) log.grants++; return r.changed; },
+    ambienceHold: () => {}, sfx: () => {}, spawnLog: () => {},
+    spawnApparition: () => { log.apps++; const g = { position: new V3() }; apparitions.push({ group: g, state: 'in' }); return g; },
   };
   const api = new Function(...Object.keys(deps), code)(...Object.values(deps));
-  const step = id => {
-    const [x, z] = mid(id);
-    state.pos.set(x, 0, z);
-    const before = shown.length;
+  const runCutscene = () => { const s = steps; steps = null; (s || []).forEach(x => x.run()); state.dialogueActive = false; };
+  const at = (x, z, y) => {
+    state.pos.set(x, y, z);
+    const n = log.lines.length, c = log.seq.filter(v => v === 'cutscene').length;
     api.updateProximityEvents();
-    const o = shown.slice(before);
+    const fired = log.lines.length > n || log.seq.filter(v => v === 'cutscene').length > c;
+    if (steps) runCutscene();
     state.dialogueActive = false;
-    return o.length ? { name: o[0][1], text: o[1][1], lines: state.dialogueLines } : null;
+    return fired ? { lines: state.dialogueLines, all: log.lines.slice(n) } : null;
   };
   const read = title => { loreObjects.find(l => l.title === title).read = true; };
-  return { step, read, loreObjects, events: api.proximityEvents };
+  return { state, log, api, at, read, enemies, events: api.proximityEvents };
 }
+const insightEvents = s => s.events.filter(e => e.onEnter && e.onEnter.name === 'playTowerInsight');
+const names = r => (r ? r.all.map(l => l[0]) : []);
+const text = r => (r ? r.all.map(l => l[1]).join('\n') : '');
 
-test('本編の時計塔だけに置く(テストモード・他の行き先では何も足さない)', () => {
-  assert.ok(setup().events.length > 0);
-  for (const opt of [{ testMode: true }, { scenarioKey: 'ghostship' }]) {
-    const s = setup(opt);
-    assert.equal(s.events.length, 0, JSON.stringify(opt));
-    assert.equal(s.loreObjects.length, 3, '外套の手記も置かない');
-  }
+test('本編の時計塔だけに物語を置く(テストモードの旧成長・他の行き先では何も足さない)', () => {
+  assert.equal(setup({ legacy: true }).events.length, 0);
+  assert.equal(setup({ scenarioKey: 'mansion' }).events.length, 0);
+  const s = setup();
+  assert.ok(s.events.length >= 9);
+  assert.equal(s.log.keeper, 1, '管理人は大時計の裏側に一人');
 });
 
-test('1F: 鐘楼の玄関で、盗賊「七日か。……待つ側にしちゃ、短いな」(1回)', () => {
-  const { step } = setup();
-  assert.equal(step('t1entry'), null, '塔の門(掲示板)ではまだ');
-  const d = step('t1hall');
-  assert.equal(d.name, '盗賊');
-  assert.equal(d.text, '「七日か。……待つ側にしちゃ、短いな」');
-  assert.equal(step('t1hall'), null);
+test('T0 入口: 頭上で鐘が鳴り時が止まる → 縦穴を見上げると大時計の裏が光り、縁から管理人が見下ろして消える', () => {
+  const s = setup();
+  assert.equal(s.at(-262, 70, 0), null, '前庭では起きない');
+  const r = s.at(-262, 54, 0);
+  assert.ok(r);
+  assert.match(text(r), /頭上で、鐘がひとつ鳴った/);
+  assert.match(text(r), /大時計の裏側が光っている/);
+  assert.ok(s.log.shots.some(sh => sh.look && sh.look.y >= 40 && sh.pan >= 3), '縦穴をゆっくり見上げる(3 秒以上かけて。見せてから話す)');
+  assert.equal(s.at(-262, 54, 8), null, '同じ平面でも別の層では起きない(高さの帯)');
 });
 
-for (const [title, roomId, corridor, first, reply] of [
-  ['管理人の手帳', 't2gear', 't2cor2', '「待っている人がいるんですね」', '「……出ていった方は、戻りにくいもんだ」'],
-  ['娘の書き置き', 't3hands', 't3cor2', '「上の階へ向かう側に落ちていました」', '「下りる気は、なかったんだな」'],
-  ['鐘楼の譜面', 't4bell', 't4cor2', '「振り返らないで。……今だけは、私が後ろを見ています」', null],
-]) {
-  test(`${title}: 読んだら同じ部屋ですぐ、弓師から(1回。通路では重ねない)`, () => {
-    const { step, read } = setup();
-    assert.equal(step(roomId), null, '読む前は出ない');
-    read(title);
-    const d = step(roomId);
-    assert.equal(d.name, '弓師');
-    assert.equal(d.text, first);
-    if (reply) assert.deepEqual(d.lines[1], { name: '盗賊', text: reply });
-    assert.equal(step(corridor), null, '扉の先の通路では出ない');
-  });
-  test(`${title}: 読まずに扉の先の通路へ出ても、そこで一度だけ出る`, () => {
-    const { step, read } = setup();
-    assert.equal(step(roomId), null);
-    const d = step(corridor);
-    assert.equal(d && d.text, first);
-    read(title);
-    assert.equal(step(roomId), null, '後から読んでも重ねない');
-  });
-}
-
-test('5F 前室: 管理人の外套(懐中時計・七時十三分)。読んだら盗賊「……預かっとく。返すまでな」', () => {
-  const { step, read, loreObjects } = setup();
-  const coat = loreObjects.find(l => l.title === '管理人の外套');
-  assert.ok(coat, '外套の手記がある');
-  assert.match(coat.lines.join(''), /懐中時計/);
-  assert.match(coat.lines.join(''), /七時十三分/);
-  const r = room('t5ante');
-  assert.ok(coat.pos.x > r.x0 && coat.pos.x < r.x1 && coat.pos.z > r.z0 && coat.pos.z < r.z1, '前室の中');
-  assert.equal(coat.pos.y, SLABS.find(s => s.fl === 'f5').y, '5F の床の高さ');
-  assert.equal(step('t5ante'), null);
-  read('管理人の外套');
-  const d = step('t5ante');
-  assert.equal(d.name, '盗賊');
-  assert.equal(d.text, '「……預かっとく。返すまでな」');
-  assert.equal(step('t5cor1'), null);
+test('T1 工房: 灯りの輪の下に、作業台の父と娘の残像(二人)', () => {
+  const s = setup();
+  const n = s.log.apps;
+  const r = s.at(-270, 53.5, 8);
+  assert.ok(r);
+  assert.equal(s.log.apps - n, 2);
+  assert.match(text(r), /懐中時計を耳に当てて/);
+  assert.equal(setup().at(-270, 53.5, 16), null, '上の層では起きない(半径の判定は高さも見る)');
 });
 
-test('5F 前室: 外套を読まずにボスへ向かっても、通路で一度だけ時計を預かる', () => {
-  const { step } = setup();
-  const d = step('t5cor1');
-  assert.equal(d.name, '盗賊');
-  assert.match(d.text, /預かっとく。返すまでな/);
-  assert.equal(step('t5ante'), null);
+test('盗賊の閃き: T2 で向こう岸の撃ち手が二体とも倒れた後。順番 = 向こう岸を映す → 盗賊が尋ね弓師が答える → 閃く → 盗賊の一言', () => {
+  const s = setup();
+  assert.equal(s.at(-262, 52, 16), null, '撃ち手が生きている間は起きない');
+  s.enemies.forEach(e => e.dead = true);
+  const r = s.at(-262, 52, 16);
+  assert.ok(r);
+  assert.deepEqual(names(r), ['盗賊', '弓師', '盗賊', '盗賊', '盗賊']);
+  assert.match(text(r), /縦穴の向こうにいたのに/);
+  assert.match(text(r), /飛び込めない隙間/);
+  assert.match(text(r), /一本で足りなきゃ、三本だ/);
+  const seq = s.log.seq.filter(v => v !== 'cutscene');
+  assert.equal(seq[0], 'shot');
+  assert.ok(seq.indexOf('grant') > seq.indexOf('line') && seq.indexOf('grant') < seq.lastIndexOf('line'));
+  assert.equal(s.log.grants, 1);
+  assert.equal(s.at(-262, 30, 26), null, '一度だけ(T3 の代わりは出ない)');
 });
 
-test('物語の部屋は本筋にある(階段の着地点 → 部屋 → 通路の順に、どれも TOWER_ROOMS の部屋)', () => {
-  for (const id of ['t1hall', 't2gear', 't2cor2', 't3hands', 't3cor2', 't4bell', 't4cor2', 't5ante', 't5cor1']) {
-    assert.ok(room(id), id);
-  }
-  const stairs = table('TOWER_STAIRS');
-  assert.equal(stairs.find(s => s.key === 't4up').to, 't5ante', '4F からの階段は前室に着く');
+test('盗賊の閃き: 起きなかった時は T3 に着いた所で(代わりの発生)。既に持っている出撃では出さない', () => {
+  const s = setup();
+  const r = s.at(-262, 30, 26);
+  assert.ok(r); assert.equal(s.log.grants, 1);
+  const t = setup({ learnedSkill2: true });
+  t.enemies.forEach(e => e.dead = true);
+  assert.equal(t.at(-262, 52, 16), null);
+  assert.equal(t.log.grants, 0);
+  assert.equal(insightEvents(s).length, 2);
 });
 
-/* GHOSTSHIP-REBUILD-002(E-1 = 案 A): 船と塔は結ばない。弓師は「待っている人がいる」ことに一言だけ触れる */
-test('酒場の交代(時計塔へ): 主人が管理人の噂を伝え、弓師(前の主人公)は待っている人に一言。船の話はしない', () => {
-  const a = hud.indexOf('const CHAPTER1_JOIN_LINES = {');
-  const lines = new Function(hud.slice(a, hud.indexOf('\n  };\n', a) + 5) + '\nreturn CHAPTER1_JOIN_LINES;')();
-  const rogue = lines.rogue('弓師');
-  assert.equal(rogue.length, 5);
-  assert.deepEqual(rogue[0], { name: '酒場の主人', text: '塔の管理人が、七日戻らないそうだ。鐘も、止まったままでな。' });
-  assert.deepEqual(rogue[1], { name: '弓師', text: '……待っている人が、いるんですね。' });
-  assert.ok(!rogue.some(l => /船/.test(l.text)), '幽霊船と時計塔を結ぶ行は無い');
-  assert.equal(rogue[2].name, '盗賊');
-  assert.equal(lines.mage('剣士').length, 4, '他の交代は変えない');
+test('T3 七時十三分の繰り返し: 父「出ていくなら、二度と戻るな」→ 娘は扉の横の鉤に鍵を掛けて出ていく(鍵の在りか)', () => {
+  const s = setup();
+  s.at(-262, 30, 26);                 // 閃き(代わり)を先に済ませる
+  const r = s.at(-250, 52, 26);
+  assert.ok(r);
+  assert.ok(r.all.some(l => l[0] === '管理人' && /二度と戻るな/.test(l[1])));
+  assert.match(text(r), /扉の横の鉤に、鍵を掛けた/);
+  assert.match(text(r), /戻ってくる気だったんだ/);
+  assert.equal(s.api.repeatSeen(), true);
+});
+
+test('記憶の断片は読んだらその場で一言(日記・外套)。読まなければ出ない', () => {
+  const s = setup();
+  s.at(-262, 30, 26);
+  s.at(-250, 52, 26);
+  assert.equal(s.at(-250, 40, 26), null, '日記を読む前');
+  s.read('管理人の日記');
+  assert.match(text(s.at(-250, 40, 26)), /時間を止めたんですね/);
+  assert.equal(s.at(-250, 30, 44), null, '外套を読む前');
+  s.read('管理人の外套');
+  assert.match(text(s.at(-250, 30, 44)), /預かっとく/);
+});
+
+test('盗賊の過去: 止刻の残響を倒して塔が崩れ始めた後、大時計の裏側で一度だけ(何を盗んだかは語らない)', () => {
+  const s = setup();
+  assert.equal(s.at(-270, 44, 44), null);
+  s.api.collapse();
+  const r = s.at(-270, 44, 44);
+  assert.match(text(r), /持ってっちゃいけない物を持って/);
+  assert.equal(s.at(-270, 44, 44), null);
+});
+
+test('プレイヤーの行動で塔が変わる: 長針を進めると工房の時計が動き出す / 鐘で街の灯りが揺れる / 撃破後は振り子・輪・街が動き出す', () => {
+  assert.match(tower, /function towerAfterBridge\(\)\{[\s\S]*?工房の壁の時計が、いくつか、思い出したように刻み始める/);
+  assert.match(tower, /function towerAfterClutch\(\)\{[\s\S]*?上がってくるな。ここは、止まっていなきゃならんのだ/);
+  assert.match(tower, /function towerAfterFirstRing\(\)\{[\s\S]*?止まっていた窓の灯りが、ひとつ、ふたつ、揺れた/);
+  assert.match(tower, /function towerTimeResumes\(\)\{[\s\S]*?M\.timeMoving = true;/);
+  assert.match(ui, /setTowerClock\(7, 14\);[^\n]*\n\s*towerTimeResumes\(\);/);
+});
+
+test('閃くのは既存の「三連投げナイフ」(新しい技・仕組みは足さない)。習得の呼び出しは塔の中で一か所', () => {
+  assert.equal((tower.match(/grantChapter1Skill2\(\);/g) || []).length, 1);
+  assert.match(actions, /三連投げナイフ|knife/);
 });

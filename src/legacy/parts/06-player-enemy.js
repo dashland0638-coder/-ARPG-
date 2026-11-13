@@ -5111,7 +5111,8 @@
   function setWorldBounds(key){
     if(key==='conservatory')  worldBounds = boundsFromRooms(CONS_ROOMS, 6);
     else if(key==='temple')   worldBounds = boundsFromRooms(TEMPLE_ROOMS, 6);
-    else if(key==='clocktower') worldBounds = boundsFromRooms(TOWER_ROOMS, 10);
+    // 時計塔は床(slab)の表から: 部屋の表に無い隠し歯車庫(★3)・屋上・島も含める(CLOCKTOWER-001 のレビュー指摘)
+    else if(key==='clocktower') worldBounds = boundsFromRooms(TOWER_SLABS, 10);
     else if(key==='duskvillage') worldBounds = boundsFromRooms(DUSK_ROOMS, 6);
     // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。部屋の表から
     else if(key==='ghostship' && gsActive) worldBounds = boundsFromRooms(GS_ROOMS, 4);

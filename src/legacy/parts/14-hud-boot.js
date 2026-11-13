@@ -590,11 +590,13 @@
     ...CONS_ROOMS.filter(r=>!r.cor).map(r=>({minX:r.x0-2, maxX:r.x1+2, minZ:r.z0-2, maxZ:r.z1+2})),
     ...CONS_ROOMS.filter(r=> r.cor).map(r=>({minX:r.x0-7, maxX:r.x1+7, minZ:r.z0-7, maxZ:r.z1+7})),
     // the clocktower, storey by storey
-    ...TOWER_ROOMS.filter(r=>!r.cor).map(r=>({minX:r.x0-2, maxX:r.x1+2, minZ:r.z0-2, maxZ:r.z1+2})),
-    ...TOWER_ROOMS.filter(r=> r.cor).map(r=>({minX:r.x0-7, maxX:r.x1+7, minZ:r.z0-7, maxZ:r.z1+7})),
+    // 積み重ねた層は高さの帯も持つ(minimapSubZone が同じ平面の別の層の部屋を選ばない。CLOCKTOWER-002)
+    ...TOWER_ROOMS.filter(r=>!r.cor).map(r=>({minX:r.x0-2, maxX:r.x1+2, minZ:r.z0-2, maxZ:r.z1+2, y0:r.y, y1:r.y + (r.h || 7.5)})),
+    ...TOWER_ROOMS.filter(r=> r.cor).map(r=>({minX:r.x0-7, maxX:r.x1+7, minZ:r.z0-7, maxZ:r.z1+7, y0:r.y, y1:r.y + (r.h || 7.5)})),
   ];
   function minimapSubZone(x,z){
     for(const b of MINIMAP_SUBZONES){
+      if(b.y0 !== undefined && (state.pos.y < b.y0 - 0.5 || state.pos.y >= b.y1)) continue;
       if(x>=b.minX && x<=b.maxX && z>=b.minZ && z<=b.maxZ) return b;
     }
     return null;
@@ -641,6 +643,8 @@
     for(const t of tables){
       if(!t.rooms) continue;
       for(const r of t.rooms){
+        // 積み重ねた階の部屋(時計塔、CLOCKTOWER-002)は、その階の高さにいる時だけ
+        if(r.y !== undefined && (state.pos.y < r.y - 0.5 || state.pos.y >= r.y + (r.h || 7.5))) continue;
         if(x>=r.x0 && x<=r.x1 && z>=r.z0 && z<=r.z1){
           if(r.cor) return null;              // corridors keep the last room's name
           if(t.floors && typeof TOWER_FLOORS !== 'undefined'){
@@ -746,6 +750,7 @@
     // walls - their negative space reads as the walkable floor plan
     ctx.fillStyle = 'rgba(150,160,185,0.5)';
     walls.forEach(w=>{
+      if(w.y0 !== undefined && !wallApplies(w, state.pos.y)) return;   // 別の階の壁は描かない(積み重ねた階)
       const midX = (w.minX+w.maxX)/2, midZ = (w.minZ+w.maxZ)/2;
       if(!inSubZone(zone, midX, midZ)) return;
       if(Math.abs(midX-px) > MINIMAP_RANGE+40 || Math.abs(midZ-pz) > MINIMAP_RANGE+40) return;
@@ -1412,6 +1417,7 @@
       if(!wasPlayable){ clearMovementInput(true); wasPlayable = true; }
       mechTime += dt;
       updateClockHands(dt);
+      updateTowerDecor(dt);   // 時計塔の機構(針の橋・歯車の昇降・鐘の足場。CLOCKTOWER-002)
       updateSequenceLocks(dt);
       updateLookout(dt);
       updateEscapeFall(dt);
@@ -1439,6 +1445,7 @@
       updateItemDrops(dt);
       updateCompanion(dt);
       updateGuestCompanion(dt);
+      updateGuestArrows(dt);   // 支援の矢(時計塔。CLOCKTOWER-002)
       updateManorSmith(dt);   // 洋館で同行中の鍛冶屋(仕様 8)。戦闘には関与しない
       updateCamera(dt);
       updateSunShadow();
@@ -1449,6 +1456,7 @@
       updateDoors(dt);
       updateMansionRoof();
       updateRoomCells(dt);
+      updateTowerTiers();   // 時計塔: 今の階と、その下に見える階だけを描く(CLOCKTOWER-002)
       updateRestroomRoof();
       updateStairs();
       updateLore();
@@ -1477,6 +1485,7 @@
       updateBodyWhileScripted(dt);   // 演出中も呼吸・歩きを止めない(CH1-EXP X-4)
       updateCollapse(dt);
       updateAltitude(dt);
+      updateTowerDecor(dt);   // 時計塔: 演出の中で歩く残像・鐘の波紋(乗り物は演出中は止める。CLOCKTOWER-002)
       /* 屋根の出し入れは演出中も要る。ここを止めていると、カットシーンで
          別の階へ飛ばした直後に屋根が前の階のままになり、プレイヤーが
          屋根の下に埋まって X-ray(壁越しの輪郭)で描かれる ―― 実機で
@@ -1485,6 +1494,7 @@
          副作用は無い */
       updateMansionRoof();
       updateRoomCells(dt);
+      updateTowerTiers();   // 時計塔: 今の階と、その下に見える階だけを描く(CLOCKTOWER-002)
       updateRestroomRoof();
       updateManorSmith(dt);   // 再会演出で鍛冶屋が歩み寄る(仕様 7)
       /* 宵待ちの村(WORK 3): 演出中も村は動かす ―― 水面・小舟・洗濯物が
@@ -1506,8 +1516,9 @@
       updateSwingVFX(dt);
       updateMagicCircleVFX(dt);
       updateCamera(dt);
-      drawMinimap();
-      renderScene();
+      /* 描画とミニマップは、この関数の先頭(drawMinimap)と末尾(renderScene)で毎フレーム一度だけ行う。
+         以前はこの分岐でも呼んでいたので、演出の間だけ一フレームに二回描画していた(CLOCKTOWER-002 の計測:
+         演出中に FPS が約半分。仕掛けを「見せてから話す」場面ほど重く見えた原因) */
     } else if(state.started && state.dialogueActive){
       hideMobBars();
       clearMovementInput(false); wasPlayable = false;   // never leave the stick held

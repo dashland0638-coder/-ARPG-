@@ -268,44 +268,23 @@
       {pos:new THREE.Vector3(60,0,-126), variant:{color:0xd0a850, hp:210, atk:33, speed:2.6, atkType:'charge', xp:84, goldBonus:[22,32], strongMob:true, roomTag:'templeGauntlet'}},
       {pos:new THREE.Vector3(50,0,-114), variant:{color:0xe0b860, hp:250, atk:37, speed:1.9, atkType:'fire', xp:105, goldBonus:[26,38], projColor:0xffd24a, strongMob:true, roomTag:'templeGauntlet'}},
       {pos:new THREE.Vector3(90,0,-124), variant:{color:0xc9a44a, hp:130, atk:27, speed:2.5, atkType:'charge', xp:46, goldBonus:[14,20]}},
-      // --- the deranged clocktower (Lv.11-16), one storey at a time ---
-      {pos:new THREE.Vector3(-300,0,-84), variant:{color:0x8a7a4a, hp:120, atk:25, speed:2.5, atkType:'charge', xp:52, goldBonus:[15,22]}},
-      {pos:new THREE.Vector3(-274,0,-88), variant:{color:0x6a8a9a, hp:105, atk:27, speed:1.0, atkType:'fire', xp:52, goldBonus:[15,22], projColor:16765562}},
-      // sealed 'towerHouse1'
-      {pos:new THREE.Vector3(-352,0,-88), variant:{color:0x8a7a4a, hp:125, atk:26, speed:2.5, atkType:'charge', xp:56, goldBonus:[16,24], roomTag:'towerHouse1'}},
-      {pos:new THREE.Vector3(-330,0,-88), variant:{color:0x8a7a4a, hp:125, atk:26, speed:2.5, atkType:'charge', xp:56, goldBonus:[16,24], roomTag:'towerHouse1'}},
-      {pos:new THREE.Vector3(-352,0,-74), variant:{color:0x8a7a4a, hp:125, atk:26, speed:2.5, atkType:'charge', xp:56, goldBonus:[16,24], roomTag:'towerHouse1'}},
-      {pos:new THREE.Vector3(-330,0,-74), variant:{color:0x8a7a4a, hp:125, atk:26, speed:2.5, atkType:'charge', xp:56, goldBonus:[16,24], roomTag:'towerHouse1'}},
-      {pos:new THREE.Vector3(-341,0,-81), variant:{color:0x9a5a3a, hp:215, atk:32, speed:2.3, atkType:'charge', xp:96, goldBonus:[26,38], strongMob:true, roomTag:'towerHouse1'}},
-      // 跳躍(jumper、敵デザイン強化#21): 歯車の足場を飛び移る絡繰り兵。
-      // 塔の階層構造(足場が飛び飛びの構造)に一番合う動きとして採用
-      {pos:new THREE.Vector3(-286,9,-50), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'jumper', xp:58, goldBonus:[17,25]}},
-      {pos:new THREE.Vector3(-244,9,-60), variant:{color:0x6a8a9a, hp:118, atk:30, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
-      {pos:new THREE.Vector3(-212,9,-40), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'charge', xp:58, goldBonus:[17,25]}},
-      // 中ボス(Phase C/#36)「止まった番人」: 巨大な時計兵。塔が狂う前の
-      // 姿のまま、身体の一部だけが完全に停止している
-      {pos:new THREE.Vector3(-232,9,-16), variant:{color:0x9a5a3a, hp:225, atk:34, speed:2.4, atkType:'charge', xp:102, goldBonus:[28,40], strongMob:true, guardian:true,
+      /* --- the clocktower (CLOCKTOWER-002 で作り直し): 中央の縦穴を登る塔。少数精鋭 ---
+         どの戦いも足場の形に合わせる。坂の上り口・下り口、昇降の乗り口から 8 以上離す(着いた瞬間にぶつからない)。
+         数値の幅は以前の塔と同じ(下の層ほど弱い)。敵は自分の層から出ない(07 の keepEnemyOnFloor) */
+      // T1 時計工房(西半分): 最初の戦い。作業場の突進と、灯りの作業台の跳躍(作業台の間を跳ぶ絡繰り兵)
+      {pos:new THREE.Vector3(-268,8,29), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'charge', xp:58, goldBonus:[17,25]}},
+      {pos:new THREE.Vector3(-271,8,49), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'jumper', xp:58, goldBonus:[17,25]}},
+      // T2 縦穴の向こう岸の回廊: 撃ち手二体(歩いては行けない。弓師が縦穴越しに射抜く ―― 盗賊の閃き)
+      {pos:new THREE.Vector3(-270,16,32), variant:{color:0x6a8a9a, hp:96, atk:24, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
+      {pos:new THREE.Vector3(-254,16,32), variant:{color:0x6a8a9a, hp:96, atk:24, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
+      // T3 縦穴の上: 東の帯に強モブ(閃いた三連投げナイフをすぐ試せる)、住まいの突進
+      {pos:new THREE.Vector3(-250,26,40), variant:{color:0x9a5a3a, hp:240, atk:36, speed:2.4, atkType:'charge', xp:110, goldBonus:[30,44], strongMob:true, guardian:true,
         midbossName:'止まった番人', midbossFlavor:'止まっていた歯車が、最後に一度だけ回って砕けた。'}},
-      // sealed 'towerHouse2'
-      {pos:new THREE.Vector3(-306,9,-20), variant:{color:0x8a7a4a, hp:138, atk:29, speed:2.6, atkType:'charge', xp:60, goldBonus:[18,26], roomTag:'towerHouse2'}},
-      {pos:new THREE.Vector3(-280,9,-20), variant:{color:0x8a7a4a, hp:138, atk:29, speed:2.6, atkType:'charge', xp:60, goldBonus:[18,26], roomTag:'towerHouse2'}},
-      {pos:new THREE.Vector3(-306,9,-8), variant:{color:0x8a7a4a, hp:138, atk:29, speed:2.6, atkType:'charge', xp:60, goldBonus:[18,26], roomTag:'towerHouse2'}},
-      {pos:new THREE.Vector3(-280,9,-8), variant:{color:0x8a7a4a, hp:138, atk:29, speed:2.6, atkType:'charge', xp:60, goldBonus:[18,26], roomTag:'towerHouse2'}},
-      {pos:new THREE.Vector3(-293,9,-14), variant:{color:0x6a8a9a, hp:128, atk:32, speed:1.1, atkType:'fire', xp:60, goldBonus:[18,26], projColor:16765562, roomTag:'towerHouse2'}},
-      {pos:new THREE.Vector3(-284,18,50), variant:{color:0x8a7a4a, hp:145, atk:30, speed:2.7, atkType:'charge', xp:64, goldBonus:[19,28]}},
-      {pos:new THREE.Vector3(-246,18,40), variant:{color:0x6a8a9a, hp:130, atk:33, speed:1.0, atkType:'fire', xp:64, goldBonus:[19,28], projColor:16765562}},
-      {pos:new THREE.Vector3(-202,18,60), variant:{color:0x6a8a9a, hp:130, atk:33, speed:1.0, atkType:'fire', xp:64, goldBonus:[19,28], projColor:16765562}},
-      {pos:new THREE.Vector3(-168,18,50), variant:{color:0x9a5a3a, hp:240, atk:36, speed:2.4, atkType:'charge', xp:110, goldBonus:[30,44], strongMob:true}},
-      {pos:new THREE.Vector3(-286,27,102), variant:{color:0x8a7a4a, hp:152, atk:32, speed:2.7, atkType:'charge', xp:68, goldBonus:[20,30]}},
-      {pos:new THREE.Vector3(-246,27,112), variant:{color:0x6a8a9a, hp:138, atk:35, speed:1.1, atkType:'fire', xp:68, goldBonus:[20,30], projColor:16765562}},
-      {pos:new THREE.Vector3(-214,27,112), variant:{color:0x8a7a4a, hp:152, atk:32, speed:2.7, atkType:'charge', xp:68, goldBonus:[20,30]}},
-      // sealed 'towerHouse3'
-      {pos:new THREE.Vector3(-246,27,134), variant:{color:0x8a7a4a, hp:158, atk:33, speed:2.7, atkType:'charge', xp:72, goldBonus:[21,32], roomTag:'towerHouse3'}},
-      {pos:new THREE.Vector3(-220,27,134), variant:{color:0x8a7a4a, hp:158, atk:33, speed:2.7, atkType:'charge', xp:72, goldBonus:[21,32], roomTag:'towerHouse3'}},
-      {pos:new THREE.Vector3(-246,27,146), variant:{color:0x8a7a4a, hp:158, atk:33, speed:2.7, atkType:'charge', xp:72, goldBonus:[21,32], roomTag:'towerHouse3'}},
-      {pos:new THREE.Vector3(-220,27,146), variant:{color:0x8a7a4a, hp:158, atk:33, speed:2.7, atkType:'charge', xp:72, goldBonus:[21,32], roomTag:'towerHouse3'}},
-      {pos:new THREE.Vector3(-233,27,140), variant:{color:0xc9a44a, hp:300, atk:40, speed:2.3, atkType:'charge', xp:150, goldBonus:[38,54], strongMob:true, roomTag:'towerHouse3'}},
-      {pos:new THREE.Vector3(-288,36,180), variant:{color:0x9a5a3a, hp:250, atk:37, speed:2.5, atkType:'charge', xp:115, goldBonus:[32,46], strongMob:true}},
+      {pos:new THREE.Vector3(-266,26,53), variant:{color:0x8a7a4a, hp:145, atk:30, speed:2.7, atkType:'charge', xp:64, goldBonus:[19,28]}},
+      // T4 鐘楼: 残響の影二体(鐘の振動ですくむ)と撃ち手
+      {pos:new THREE.Vector3(-270,34,27), variant:{color:0x5a5a72, hp:152, atk:32, speed:1.9, atkType:'ghost', xp:68, goldBonus:[20,30]}},
+      {pos:new THREE.Vector3(-258,34,27), variant:{color:0x5a5a72, hp:152, atk:32, speed:1.9, atkType:'ghost', xp:68, goldBonus:[20,30]}},
+      {pos:new THREE.Vector3(-250,34,44), variant:{color:0x6a8a9a, hp:138, atk:35, speed:1.1, atkType:'fire', xp:68, goldBonus:[20,30], projColor:16765562}},
       // --- the glass conservatory (Lv.22-28) ---
       {pos:new THREE.Vector3(196,0,-46), variant:{color:0x4f7a3a, hp:270, atk:46, speed:2.6, atkType:'charge', xp:118, goldBonus:[26,40]}},
       {pos:new THREE.Vector3(212,0,-40), variant:{color:0x6f9c4a, hp:240, atk:48, speed:0.9, atkType:'fire', xp:118, goldBonus:[26,40], projColor:11075418}},
@@ -348,6 +327,15 @@
     if(gsCh1) gsSpawnCaptain();
     spots.filter(s=>worldKeyForPos(s.pos)===_spawnWorldKey && !gsCh1)
          .forEach(s=> enemies.push(buildEnemy(s.pos, s.variant)));
+    // 時計塔 T2 の向こう岸の撃ち手(盗賊の閃きの条件。03 の towerGalleryCleared)。
+    // 撃ち手の身体の点光源(飾り)は外す: 塔は点光源を 6 個に固定して使い回す(CLOCKTOWER-002 の FPS 対策)。
+    // 光源の数が変わるとシェーダーが作り直され、数が多いほど全ての床の画素が重くなる。色は発光で残る
+    if(_spawnWorldKey==='clocktower') enemies.forEach(en=>{
+      if(en.basePos && Math.abs(en.basePos.y - 16) < 0.5 && en.basePos.z < 34) en.towerGallery = true;
+      if(en.isBoss) return;
+      const ls = []; en.group.traverse(o=>{ if(o.isPointLight) ls.push(o); });
+      ls.forEach(l=> l.parent.remove(l));
+    });
     /* 「山を登る」拡張(★3/★4): 保管庫の奥・屋根裏。どちらも建物側の
        buildMansionCryptDepths()/buildMansionAttic()が同じ★条件でしか部屋
        自体を建てないので、床のない場所に敵だけ浮く事故は起きない。
@@ -481,32 +469,46 @@
       clearName:'守護神像', clearFlavor:'守護神像は静かに膝を折り、砂となって祭壇に還っていった。',
       rewardLoot:{type:'gem', name:'人工神の核', icon:'💎', color:0xffd24a}
     }));
-    if(_spawnWorldKey==='clocktower') enemies.push(buildBoss(new THREE.Vector3(-228,36,196), {
+    /* 第一章④の最上階のボス「止刻の残響」(CLOCKTOWER-001)。停止した時間と管理人の後悔が生んだもの。
+       key は従来の 'towerWarden' のまま(ボス能力・装備の接頭辞・セーブの撃破記録が参照する)。
+       数値は以前の時喰らいと同じ。文字盤の前に管理人が座り込んでいる(本編だけ) */
+    if(_spawnWorldKey==='clocktower') enemies.push(buildBoss(new THREE.Vector3(TOWER_BOSS_POS.x, TOWER_BOSS_Y, TOWER_BOSS_POS.z), {
       key:'towerWarden', gateTag:'towerWarden', endsRun:false, afterDefeat:'towerCollapse',
       solidR:2.4, atkReach:2.8,
-      bodyColor:0x6a5a3a, emissive:0xffb347, eyeColor:0xffe6a0, auraColor:0xffd27a,
+      bodyColor:0x6a5a3a, emissive:0xffb347, eyeColor:0xffe6a0, auraColor:0xd0a8ff,
       hpMax:1180, atk:48, speed:2.3, xp:430,
       bossDoorKey:'towerBossDoor',
-      dialogueName:'時喰らい',
-      ambushDialogueLines:[
-        '文字盤の裏で、無数の歯車が一斉に噛み合った。',
-        '不用意に踏み込んだな――刻を乱す者め!'
+      dialogueName:'止刻の残響',
+      ambushDialogueLines: legacyGrowth() ? [
+        '文字盤の前で、無数の歯車が一斉に噛み合った。',
+        '止まった時間が、針と歯車の形を取って立ち上がる。'
+      ] : [
+        /* 本編: 扉の外から先に仕掛けても、管理人との対峙は飛ばさない(崩壊の会話が前提にしている) */
+        '文字盤の前で、無数の歯車が一斉に噛み合った。その前に、白髪の男が座り込んでいる。',
+        {name:'管理人', text:'「……来るな。ここだけは、動かさせん」'},
+        {name:'管理人', text:'「この時刻になれば、あの子はまだ扉の前にいる。何度でも、言い直せるんだ」'},
+        {name:'', text:'管理人の背後で、止まった時間が形を取った ―― 針と歯車でできた、巨大な残響。'}
       ],
-      dialogueLines:[
-        '巨大な文字盤の裏側、歯車の壁の中心に、それは座っていた。',
+      dialogueLines: legacyGrowth() ? [
+        '七時十三分で止まった巨大な文字盤。その前で、針と歯車が人の形に組み上がっていく。',
         '……七時十三分。',
         '幾晩、幾晩とこの時刻を繰り返してきたか、貴様に数えられるか。',
         'ならば貴様も――この止まった刻に、付き合ってもらうぞ!'
-      /* 第一章の本編では、既存の台詞の後に盗賊の一言(§4-4)。性能は不変 */
-      ].concat(legacyGrowth() ? [] : [
+      ] : [
+        /* 本編: 管理人との対峙。管理人は悪人ではない ―― 戻りたい時刻の前で、動けなくなっている */
+        '七時十三分で止まった巨大な文字盤。その前に、白髪の男が座り込んでいる。',
+        {name:'管理人', text:'「……来るな。ここだけは、動かさせん」'},
+        {name:'管理人', text:'「この時刻になれば、あの子はまだ扉の前にいる。何度でも、言い直せるんだ」'},
+        {name:CLASSES.archer.name, text:'「言い直せましたか。……一度でも」'},
+        {name:'', text:'管理人の背後で、止まった時間が形を取った ―― 針と歯車でできた、巨大な残響。'},
         {name:CLASSES.rogue.name, text:'「止めてりゃ、出ていかれずに済むってか。……そうはいかねえよ」'}
-      ]),
+      ],
       repeatDialogueLines: !legacyGrowth() ? null : [
         '歯車が、聞き覚えのある軋みを立てて回り出す。',
         '……また来たか。何度繰り返しても、七時十三分は変わらない。',
         'ならば今度こそ、その足を止めてやろう。'
       ],
-      clearName:'時喰らい', clearFlavor:'歯車が一つ、また一つと止まり、文字盤の針は静かに七時十三分から動き出した。',
+      clearName:'止刻の残響', clearFlavor:'歯車が一つ、また一つと止まり、文字盤の針は静かに七時十三分から動き出した。',
       rewardLoot:{type:'gem', name:'狂った時針', icon:'💎', color:0xffd27a}
     }));
     // 温室も同じ「山を登る」拡張(★4): 撃破後に温室の奥、最深部への
@@ -846,6 +848,10 @@
       // scenario runs its update every frame regardless of where the
       // player actually is.
       if(en.group.position.distanceToSquared(state.pos) > 10000) return; // 100 units
+      /* 積み重ねた階(時計塔、CLOCKTOWER-002)。別の階の敵は描かず・動かさず・気づかない。
+         以前は平面の距離と平面の視線(床と床の間の空を素通り)だけで判定していたので、
+         上の階の敵がプレイヤーに気づき、壁越しの輪郭(X 線)だけが床越しに見えていた */
+      if(updateEnemyFloorPresence(en)) return;
       // Phase C(#36): 名前付き中ボスは近づいた瞬間に一度だけ名乗りを上げる
       if(en.midbossName && !en.midbossAnnounced && en.group.position.distanceToSquared(state.pos) < 144){ // 12 units
         en.midbossAnnounced = true;
@@ -1061,6 +1067,7 @@
       }
 
       if(en.isBoss){ updateBossAnim(en, dt); updateBossAI(en, dt); return; }
+      keepEnemyOnFloor(en);
       if(en.atkType==='charge')      updateChargerAI(en, dt);
       else if(en.atkType==='fire')   updateFireEnemyAI(en, dt);
       else if(en.atkType==='kite')   updateKiteAI(en, dt);
@@ -1076,6 +1083,7 @@
       else if(en.arenaFixedFacing)   { /* Arena の Dummy: 向きを変えない(HE-TF-01) */ }
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
+      keepEnemyOnFloor(en);
       updateMobAnim(en, dt);
     });
     /* 投げられた網は敵とは別に進む(WORK 5)。漁師を倒しても、すでに
@@ -3796,7 +3804,60 @@
     if(en.vfx){ en.vfx.forEach(m=>scene.remove(m)); en.vfx = []; }
     if(en.chargeLane){ scene.remove(en.chargeLane); en.chargeLane = null; }
     if(en.shockRing){ scene.remove(en.shockRing); en.shockRing = null; }
+    if(en.stopRing){ scene.remove(en.stopRing); en.stopRing = null; }   // 止刻の輪(止刻の残響)
     en.special = null;
+  }
+
+  /* ---- 止刻の残響(第一章④ 時計塔の最上階、CLOCKTOWER-001) ----
+     文字盤の針は、体力が減るほど七時十三分へ近づく(満タン = 七時十分、四分の一以下 = 七時十三分)。
+     分が進むたびに一言のトーストと、巨大な文字盤の針(03 の setTowerClock)。七時十三分になると
+     攻撃の間合いが詰まり、歯車が三つずつ飛ぶ。巻き戻りの時は、元の場所に残像が残って弾ける */
+  const TOWER_STOP_R = 3.2;          // 止刻の輪の半径
+  const TOWER_ECHO_R = 3.0;          // 残像が弾ける範囲
+  function towerBossMinute(hpRatio){
+    return 10 + Math.min(3, Math.floor((1 - Math.max(0, hpRatio)) / 0.25));
+  }
+  function towerBossEcho(en, from){
+    const ghost = spawnApparition(new THREE.Vector3(from.x, en.group.position.y, from.z),
+      {color:0xd0a8ff, vanishDist:0, maxOpacity:0.6, fadeIn:3.0, fadeOut:2.0});
+    const disc = new THREE.Mesh(new THREE.RingGeometry(TOWER_ECHO_R - 0.35, TOWER_ECHO_R, 32),
+      new THREE.MeshBasicMaterial({color:0xd0a8ff, transparent:true, opacity:0.45, side:THREE.DoubleSide, depthWrite:false}));
+    disc.rotation.x = -Math.PI/2;
+    disc.position.set(from.x, en.group.position.y + 0.12, from.z);
+    // en.vfx には載せない(巻き戻りの終わり 0.8 秒の clearBossVfx で、弾ける 1.0 秒より先に消えてしまう)
+    scene.add(disc);
+    en.towerEcho = {x:from.x, z:from.z, t:1.0, ghost, disc};
+  }
+  /* 倒れた時(12 onBossDefeated)に、止刻の輪・残像の輪と残像を残さない */
+  function clearTowerBossFx(en){
+    if(!en) return;
+    if(en.stopRing){ scene.remove(en.stopRing); en.stopRing = null; }
+    const e = en.towerEcho;
+    if(e){
+      if(e.disc) scene.remove(e.disc);
+      const g = apparitions.find(a=> a.group === e.ghost); if(g){ g.state = 'out'; }
+      en.towerEcho = null;
+    }
+  }
+  function updateTowerBossClock(en, dt){
+    const m = towerBossMinute(en.hp / en.hpMax);
+    if(en.towerMinute !== m){
+      if(en.towerMinute !== undefined) spawnToast(m >= 13 ? '🕰️ 文字盤の針が、七時十三分を指した' : `🕰️ 文字盤の針が、七時${m}分を指した`);
+      en.towerMinute = m;
+      if(typeof setTowerClock === 'function') setTowerClock(7, m);
+    }
+    const e = en.towerEcho;
+    if(e){
+      e.t -= dt;
+      if(e.t <= 0){
+        en.towerEcho = null;
+        const g = apparitions.find(a=> a.group === e.ghost); if(g){ g.state = 'out'; }
+        if(e.disc) scene.remove(e.disc);
+        spawnUltimateVFX(new THREE.Vector3(e.x, en.group.position.y, e.z), {radius:TOWER_ECHO_R, vfxColor:0xd0a8ff});
+        sfx('groundBurst');
+        if(Math.hypot(state.pos.x - e.x, state.pos.z - e.z) < TOWER_ECHO_R) bossHitPlayer(en, Math.round(en.atk*0.7));
+      }
+    }
   }
 
   // a flat warning disc that fades in over its wind-up
@@ -4051,6 +4112,25 @@
         return true;
       }
 
+      if(s === 'stopTime'){
+        /* 止刻(CLOCKTOWER-001): 足元の時が止まる。床の輪(予兆 1.1 秒)が満ちた時に輪の中にいると、
+           0.7 秒だけ動けない(ダメージは無い)。回避中・無敵中・麻痺の直後は掛からない。長く縛らない */
+        const k = 1 - Math.max(0, en.specialT)/1.1;
+        if(en.stopRing) en.stopRing.material.opacity = 0.18 + k*0.5;
+        if(en.specialT <= 0){
+          if(en.stopRing){ scene.remove(en.stopRing); en.stopRing = null; }
+          const d = Math.hypot(state.pos.x - en.stopAt.x, state.pos.z - en.stopAt.z);
+          if(d < TOWER_STOP_R && !state.invulnerable && !state.dodging && !(state.paralyzeInvulnT > 0) && !state.debugMode){
+            state.paralyzed = true; state.paralyzeT = 0.7; state.paralyzeInvulnT = 1.4;
+            spawnToast('⏸️ 足元の時が、止まった');
+            sfx('tick');
+          }
+          en.special = null; en.specialCD = 6 + Math.random()*2;
+          return false;
+        }
+        return true;
+      }
+
       if(s === 'rewind'){
         // the warden steps back through its own last few seconds
         const k = 1 - Math.max(0, en.specialT)/en.rewindDur;
@@ -4059,7 +4139,7 @@
         if(en.specialT <= 0){
           if(en.body && en.body.material) en.body.material.emissiveIntensity = 0.25;
           en.hp = Math.min(en.hpMax, en.hp + en.rewindHeal);
-          spawnToast('🕰️ 時喰らいが時を巻き戻した');
+          spawnToast('🕰️ 止刻の残響が時を巻き戻した');
           sfx('chime');
           en.special = null; en.specialCD = 14 + Math.random()*4;
           clearBossVfx(en);
@@ -4251,7 +4331,39 @@
     if(en.key==='towerWarden'){
       // Clockwork: it throws a hand, sets a second hand sweeping the room,
       // and when hurt it simply undoes the last few seconds.
-      en.specialIdx = ((en.specialIdx||0) + 1) % 3;
+      en.specialIdx = ((en.specialIdx||0) + 1) % 5;
+      const late = towerBossMinute(hpRatio) >= 13;   // 七時十三分: 間合いが詰まる
+      if(en.specialIdx===2){
+        // 歯車を飛ばす(CLOCKTOWER-001)。回る歯車が床すれすれを飛んでくる。七時十三分は扇に三つ
+        const n = late ? 3 : 1;
+        for(let i=0;i<n;i++){
+          const a = (i - (n-1)/2) * 0.32;
+          const dv = new THREE.Vector3(dir.x*Math.cos(a) - dir.z*Math.sin(a), 0, dir.x*Math.sin(a) + dir.z*Math.cos(a));
+          const mat = new THREE.MeshStandardMaterial({color:0xb08a3a, roughness:0.35, metalness:0.8, emissive:0x6a4a10, emissiveIntensity:0.4});
+          const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.18, 12), mat);
+          const from = en.group.position.clone(); from.y += 1.1;
+          mesh.position.copy(from);
+          scene.add(mesh);
+          projectiles.push({mesh, dir:dv, speed:9.5, life:2.4, dmg:Math.round(en.atk*0.75), hostile:true, spin:9});
+        }
+        spawnToast('⚙️ 歯車が飛んできた!');
+        sfx('slashSpin');
+        en.specialCD = (late ? 4 : 5.5) + Math.random()*1.5;
+        return false;
+      }
+      if(en.specialIdx===3){
+        // 止刻: プレイヤーの足元に輪(予兆)。満ちた時に中にいると、少しだけ動けない
+        en.special = 'stopTime'; en.specialT = 1.1;
+        en.stopAt = {x:state.pos.x, z:state.pos.z};
+        const ring = new THREE.Mesh(new THREE.RingGeometry(TOWER_STOP_R - 0.35, TOWER_STOP_R, 32),
+          new THREE.MeshBasicMaterial({color:0xd0a8ff, transparent:true, opacity:0.2, side:THREE.DoubleSide, depthWrite:false}));
+        ring.rotation.x = -Math.PI/2;
+        ring.position.set(state.pos.x, en.group.position.y + 0.12, state.pos.z);
+        scene.add(ring);
+        en.stopRing = ring;
+        sfx('chime');
+        return true;
+      }
       if(en.specialIdx===0 && dist > 3){
         // a thrown clock hand that comes back - two chances to be clipped
         const mat = new THREE.MeshStandardMaterial({color:0xb08a3a, roughness:0.3, metalness:0.8,
@@ -4263,7 +4375,7 @@
         projectiles.push({mesh, dir:dir.clone(), speed:15, life:2.6,
                           dmg:Math.round(en.atk*0.85), hostile:true, spin:14,
                           boomerang:{base:15, dur:1.9}});
-        spawnToast('🕰️ 時喰らいが針を投げた!');
+        spawnToast('🕰️ 止刻の残響が針を投げた!');
         sfx('slashSpin');   // a thrown clock hand, not a sword stroke
         en.specialCD = 5 + Math.random()*2;
         return false;
@@ -4290,6 +4402,8 @@
         en.rewindTo = new THREE.Vector3(past.x, en.group.position.y, past.z);
         en.rewindHeal = Math.round(en.hpMax*0.04);
         spawnToast('⚠️ 歯車が逆回転を始めた……!');
+        /* 過去の残像(CLOCKTOWER-001): 巻き戻る前の場所に残像が残り、少し後に弾ける(輪の予兆つき) */
+        towerBossEcho(en, en.rewindFrom);
         return true;
       }
       en.specialCD = 4;
@@ -4310,6 +4424,33 @@
   ========================================================= */
   // the height an object should hover around: its own spawn height, which on
   // a stacked world is its storey rather than zero
+  /* 別の階にいる敵(CLOCKTOWER-002)。true なら、このフレームはその敵を何もしない。
+     描画は本体ごと消す(layer 0 を外す。three.js の影の描画もこの層を見るので、影も出ない)。
+     気づいていた敵も、階が離れたら忘れる(戻ってきた時は、また気づくところから) */
+  function enemyFloorY(en){ return en.basePos && !en.flying ? en.basePos.y : en.group.position.y; }
+  function updateEnemyFloorPresence(en){
+    const off = stackedWorld() && !onSameFloor(enemyFloorY(en));
+    if(off !== !!en.offFloor){
+      en.offFloor = off;
+      en.group.traverse(n=>{ if(n.isLight) return; if(off) n.layers.disable(0); else n.layers.enable(0); });
+      if(off){ en.triggered = !!en.dummy; en.leashT = 0; }
+    }
+    return off;
+  }
+  /* 敵は自分の階から出ない(坂に踏み込まない・縁から落ちない)。プレイヤーの keepOnGround の敵版。
+     積み重ねの無い世界・飛ぶ敵・ボスは対象外 */
+  function keepEnemyOnFloor(en){
+    if(!groundSlabs.length || en.isBoss || en.flying || !en.basePos) return;
+    const p = en.group.position, fy = en.basePos.y;
+    const g = groundYAt(p.x, p.z, fy + 0.3);
+    if(g !== null && Math.abs(g - fy) < 0.3){
+      if(!en.floorSafe) en.floorSafe = new THREE.Vector2();
+      en.floorSafe.set(p.x, p.z);
+      return;
+    }
+    if(en.floorSafe){ p.x = en.floorSafe.x; p.z = en.floorSafe.y; }
+  }
+
   function baseYOf(en){
     return (en.basePos ? en.basePos.y : 0);
   }
@@ -4918,6 +5059,7 @@
 
     // the warden rewinds itself, so it keeps a short trail of past positions
     if(en.key==='towerWarden'){
+      updateTowerBossClock(en, dt);   // 文字盤の針・残像(止刻の残響)
       en.rewindT = (en.rewindT || 0) + dt;
       if(en.rewindT >= 0.25){
         en.rewindT = 0;
@@ -5160,6 +5302,9 @@
   // a boss enemy can't be hit at all while its room door is still closed -
   // stops ranged/melee attacks from reaching it before the door is opened
   function isBossAccessible(en){
+    /* 別の階の敵(積み重ねた階、CLOCKTOWER-002)は、プレイヤー・支援のどの攻撃・狙いからも外す。
+       当たり判定は平面の距離なので、真上・真下の階の(描かれていない)敵に届いてしまっていた */
+    if(en.offFloor) return false;
     if(!en.isBoss) return true;
     if(en.triggered) return true; // fight is underway; the door being sealed for containment shouldn't also block hits
     const gateKey = en.bossDoorKey;

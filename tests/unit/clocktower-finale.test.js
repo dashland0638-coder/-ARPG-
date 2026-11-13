@@ -1,7 +1,7 @@
-/* 第一章④ 時計塔の締め(CT-03、docs/CHAPTER1_STORY.md §4-4 ボス前〜§4-5)。
-   時喰らいの台詞・盗賊の過去・跳ぶ瞬間・名も無い島・翌朝の酒場を、本物の
-   ソースを stub 付きで動かして確かめる。仕組み(setLookout / beginFinale /
-   towerCollapse)は変えず、本編のときだけ台詞が変わること */
+/* 第一章④ 時計塔の締め(CLOCKTOWER-001、docs/CHAPTER1_STORY.md §4-4〜§4-5)。
+   最上階の管理人との対峙・止刻の残響・時間を動かす(崩壊)・跳ぶ瞬間・名も無い島・翌朝の酒場を、本物の
+   ソースを stub 付きで動かして確かめる。仕組み(setLookout / beginFinale / towerCollapse)は変えず、
+   本編のときだけ台詞が変わること。盗賊の過去は clocktower-story.test.js */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -34,10 +34,10 @@ const towerConsts = slice(tower, 'const CLOCKTOWER_CHAPTER1_LEAP = ()=>', '}; };
 const T = new Function('CLASSES', towerConsts + '\nreturn {CLOCKTOWER_CHAPTER1_LEAP, CLOCKTOWER_CHAPTER1_ISLAND};')(CLASSES);
 const NO_NAME = /影の旅人|旅人|剣士|戦士/;   // 加入前の人物に名前・職業名を出さない(N-4)
 
-/* ---- 時喰らい ---- */
+/* ---- 止刻の残響(最上階のボス)と管理人 ---- */
 function warden(testMode){
-  const lit = slice(combat, "if(_spawnWorldKey==='clocktower') enemies.push(buildBoss(new THREE.Vector3(-228,36,196), {", '\n    }));');
-  const obj = lit.slice(lit.indexOf('{', lit.indexOf('buildBoss(')), lit.lastIndexOf('}') + 1);
+  const lit = slice(combat, "if(_spawnWorldKey==='clocktower') enemies.push(buildBoss(new THREE.Vector3(TOWER_BOSS_POS.x, TOWER_BOSS_Y, TOWER_BOSS_POS.z), {", '\n    }));');
+  const obj = lit.slice(lit.indexOf('{', lit.indexOf('TOWER_BOSS_POS.z)')), lit.lastIndexOf('}') + 1);
   return new Function('legacyGrowth', 'CLASSES', 'return ' + obj + ';')(() => testMode, CLASSES);
 }
 function speech(boss, repeat = false){
@@ -50,33 +50,85 @@ function speech(boss, repeat = false){
   return state.dialogueLines;
 }
 
-test('時喰らい: 本編では既存の台詞の後に盗賊の一言。周回でも同じ。性能は不変', () => {
+test('最上階: 本編では管理人との対峙(悪人にしない)→ 止まった時間が形を取る → 盗賊の一言。数値は以前のボスと同じ', () => {
   const b = warden(false);
   const lines = speech(b);
-  assert.equal(lines.length, 5);
-  assert.equal(lines[1], '……七時十三分。', '既存の台詞はそのまま');
-  assert.deepEqual(lines[4], { name: '盗賊', text: '「止めてりゃ、出ていかれずに済むってか。……そうはいかねえよ」' });
   assert.equal(typeof lines[0], 'string', '最初の行は文字列');
+  assert.match(lines[0], /七時十三分で止まった巨大な文字盤。その前に、白髪の男が座り込んでいる/);
+  const keeper = lines.filter(l => typeof l === 'object' && l.name === '管理人').map(l => l.text);
+  assert.equal(keeper.length, 2);
+  assert.match(keeper[1], /何度でも、言い直せるんだ/, '戻りたい時刻の前で動けなくなっている(悪人ではない)');
+  assert.ok(lines.some(l => typeof l === 'object' && l.name === '弓師' && /言い直せましたか/.test(l.text)));
+  assert.ok(lines.some(l => typeof l === 'object' && l.name === '' && /止まった時間が形を取った/.test(l.text)));
+  assert.deepEqual(lines.at(-1), { name: '盗賊', text: '「止めてりゃ、出ていかれずに済むってか。……そうはいかねえよ」' });
   assert.equal(speech(b, true), lines, '本編では周回用の短い台詞を使わない');
-  assert.equal(b.hpMax, 1180); assert.equal(b.atk, 48); assert.equal(b.afterDefeat, 'towerCollapse');
+  assert.equal(b.dialogueName, '止刻の残響');
+  assert.equal(b.clearName, '止刻の残響');
+  assert.equal(b.hpMax, 1180); assert.equal(b.atk, 48); assert.equal(b.speed, 2.3); assert.equal(b.afterDefeat, 'towerCollapse');
+  assert.equal(b.key, 'towerWarden', 'ボス能力・装備の接頭辞・撃破記録が参照する key はそのまま');
 });
 
-test('時喰らい: テストモードは既存の台詞(4行・周回用あり)のまま', () => {
+test('最上階: 扉の外から先に仕掛けても(不意打ち)、本編では管理人との対峙を飛ばさない', () => {
+  const b = warden(false);
+  b.sneakAttacked = true;
+  const lines = speech(b);
+  assert.equal(typeof lines[0], 'string');
+  assert.ok(lines.some(l => typeof l === 'object' && l.name === '管理人'), '管理人の台詞がある');
+  assert.ok(lines.some(l => typeof l === 'object' && /止まった時間が形を取った/.test(l.text)));
+  const legacy = warden(true); legacy.sneakAttacked = true;
+  assert.ok(speech(legacy).every(l => typeof l === 'string' && !/管理人|白髪/.test(l)), 'テストモードの旧成長は従来の不意打ちの 2 行');
+});
+
+test('最上階: テストモードの旧成長は管理人を出さない(4 行・周回用あり)', () => {
   const b = warden(true);
-  assert.equal(speech(b).length, 4);
+  const lines = speech(b);
+  assert.equal(lines.length, 4);
+  assert.ok(lines.every(l => typeof l === 'string' && !/管理人/.test(l)));
   assert.match(speech(b, true)[0], /歯車が、聞き覚えのある軋み/);
+});
+
+/* ---- 撃破 → 時間を動かす(beginTowerCollapse) ---- */
+function collapse(ch1){
+  const state = {};
+  const clock = [];
+  const code = 'let collapsing = false, collapseT = 0;\n' + fn(world, 'function beginTowerCollapse(){') + '\nbeginTowerCollapse(); return collapsing;';
+  const on = new Function('state', 'CLASSES', 'clocktowerChapter1', 'setTowerClock', 'sfx', 'document', code)(
+    state, CLASSES, () => ch1, (h, m) => clock.push([h, m]), () => {},
+    { getElementById: () => ({ classList: { add: () => {} }, set textContent(v){} }) });
+  return { lines: state.dialogueLines, kind: state.dialogueKind, on, clock };
+}
+test('撃破の後(本編): 管理人が自分の手で針を進め、時間が動き出す。塔が崩れ始め、管理人は鐘楼に残って鐘を鳴らす', () => {
+  const { lines, kind, on } = collapse(true);
+  assert.equal(kind, 'towerCollapse'); assert.equal(on, true);
+  const text = lines.map(l => typeof l === 'string' ? l : l.text).join('\n');
+  assert.match(text, /動かせば、あの時刻は二度と戻らん/);
+  assert.match(text, /戻らなくても、なくなるわけじゃありません/, '過去を忘れるのではなく、抱えて進む');
+  assert.match(text, /鍵を置いていった。帰る気でいたんだ/);
+  assert.match(text, /震える手で長針に触れた。七時十四分/, '針を進めるのは管理人自身');
+  assert.match(text, /鐘は、わしが鳴らす/);
+  assert.match(text, /裏の梯子で降りる/, '管理人は生きて降りる(翌朝の酒場、N-3)');
+  assert.match(text, /見晴台への口が開いていた/);
+  assert.equal(typeof lines[0], 'string');
+  // 閉じたら文字盤の針が七時十四分へ(12 advanceDialogue)
+  assert.match(ui, /state\.dialogueKind==='towerCollapse'\)\{[\s\S]{0,200}setTowerClock\(7, 14\);/);
+});
+test('撃破の後(テストモードの旧成長): 従来の 5 行のまま(名前だけ止刻の残響)', () => {
+  const { lines } = collapse(false);
+  assert.equal(lines.length, 5);
+  assert.equal(lines[0], '止刻の残響が砕けると同時に、足元が大きく傾いだ。');
+  assert.equal(lines[3], '「降りる階段は無い。……ならば、上だ」');
 });
 
 /* ---- 跳ぶ瞬間(beginFinale) ---- */
 function finale(finaleLines){
   const shown = [];
-  const state = { pos: { x: -232, z: 250 } };
+  const state = { pos: { x: -250, z: 170 } };
   let steps = null;
   const code = [
     'let lookout = null, seaY = 0, onSeaEntry = null, finaleStarted = false;',
     fn(player, 'function setLookout(box, y, seaLevel, jumpFrom, onSea, finaleLines){'),
     fn(player, 'function beginFinale(){'),
-    'setLookout({x0:-258, x1:-206, z0:236, z1:276}, 45, 0, {x:-232, z:274}, ()=>{}, finaleLines);',
+    'setLookout({x0:-272, x1:-228, z0:156, z1:190}, 54, 0, {x:-250, z:189}, ()=>{}, finaleLines);',
     'beginFinale();',
   ].join('\n');
   new Function('state', 'finaleLines', 'playCutscene', 'cutsceneLine', 'cutsceneHideLine', 'addShake', 'sfx', code)(
@@ -98,15 +150,15 @@ test('跳ぶ瞬間: 既存(関数なし・null)は従来の3行のまま', () =>
   }
 });
 
-test('跳ぶ瞬間: 本編では 盗賊「出口は一つだ」→ 縁で 弓師「鐘が鳴ります」→ 正しい時刻の鐘 → 跳ぶ', () => {
+test('跳ぶ瞬間: 本編では 盗賊「出口は一つだ」→ 縁で 弓師「鐘が鳴ります」→ 管理人が鳴らす正しい時刻の鐘 → 跳ぶ', () => {
   const { shown, state } = finale(T.CLOCKTOWER_CHAPTER1_LEAP);
   const texts = shown.map(l => l.text);
   assert.deepEqual(texts, [
-    '見晴台に出た。眼下には雲が流れ、その裂け目に海が光っている。',
+    '見晴台に出た。眼下で、街の灯りがひとつずつ灯っていく。その向こうに、海が光っている。',
     '「出口は一つだ。……窓はどこにでもある、って言ったろ」',
     '足元で塔が軋む。……降りる道は、無い。',
     '「鐘が鳴ります。……鳴ったら、跳びます」',
-    '頭上で、鐘が鳴った。ひと月ぶりの、正しい時刻の鐘だった。',
+    '頭上で、鐘が鳴った。管理人が鳴らす、ひと月ぶりの、正しい時刻の鐘だった。',
     '――跳んだ。'
   ]);
   assert.deepEqual(shown.map(l => l.name), [null, '盗賊', null, '弓師', '', null]);
@@ -130,68 +182,19 @@ test('島: 本編では 管理人の懐中時計 / 正しい時刻の鐘 / 対�
   assert.ok(tower.includes("state.dialogueLines = clocktowerChapter1() ? CLOCKTOWER_CHAPTER1_ISLAND() : ["), '本編のときだけ差し替える');
 });
 
-/* ---- 盗賊の過去(崩壊の後、文字盤の裏) ---- */
-class V3 {
-  constructor(x = 0, y = 0, z = 0){ this.x = x; this.y = y; this.z = z; }
-  clone(){ return new V3(this.x, this.y, this.z); }
-  set(x, y, z){ this.x = x; this.y = y; this.z = z; return this; }
-  distanceTo(o){ return Math.hypot(this.x - o.x, this.y - o.y, this.z - o.z); }
-}
-function table(name){
-  const a = tower.indexOf(`const ${name} = [`);
-  const body = tower.slice(a + `const ${name} = `.length, tower.indexOf('\n  ];', a) + 4).replace(/\/\/[^\n]*/g, '');
-  return new Function('return ' + body)();
-}
-test('盗賊の過去: 時喰らいを倒して塔が崩れ始めた後、文字盤の裏で一度だけ(何を盗んだかは語らない)', () => {
-  const ROOMS = table('TOWER_ROOMS'), SLABS = table('TOWER_SLABS');
-  const roomById = {}; ROOMS.forEach(r => roomById[r.id] = r);
-  const slabY = {}; SLABS.forEach(s => slabY[s.fl] = s.y);
-  const state = { testMode: false, scenarioKey: 'clocktower', started: true, paused: false, dialogueActive: false, pos: new V3() };
-  const shown = [];
-  const code = [
-    'let proximityEvents = []; let collapsing = false;',
-    fn(world, 'function registerProximityEvent(pos, radius, speakerName, lines, opts){'),
-    fn(world, 'function registerRoomEvent(room, y, speakerName, lines, opts){'),
-    fn(world, 'function updateProximityEvents(){'),
-    fn(world, 'function fireProximityEvent(ev){'),
-    fn(tower, 'function clocktowerChapter1(){'),
-    fn(tower, 'function buildClocktowerChapter1Story(roomById, slabY){'),
-    'buildClocktowerChapter1Story(roomById, slabY);',
-    'return { updateProximityEvents, collapse: ()=>{ collapsing = true; } };',
-  ].join('\n');
-  const deps = { state, roomById, slabY, loreObjects: [], THREE: { Vector3: V3 }, legacyGrowth: () => false, CLASSES,
-    buildLoreNote: () => {}, document: { getElementById: id => ({ classList: { add: () => {} }, set textContent(v){ shown.push([id, v]); } }) } };
-  const api = new Function(...Object.keys(deps), code)(...Object.values(deps));
-  const r = roomById['t5boss'];
-  state.pos.set((r.x0 + r.x1) / 2, 0, (r.z0 + r.z1) / 2);
-  api.updateProximityEvents();
-  assert.equal(shown.length, 0, 'ボス戦の前・最中には出ない');
-  api.collapse();
-  api.updateProximityEvents();
-  assert.equal(shown[0][1], '盗賊');
-  assert.equal(shown[1][1], '「……昔、出ていったことがある。持ってっちゃいけない物を持って」');
-  const lines = state.dialogueLines;
-  assert.deepEqual(lines.slice(1).map(l => l.name), ['弓師', '盗賊', '弓師']);
-  assert.match(lines[3].text, /跳んだ先から、ちゃんと/);
-  state.dialogueActive = false;
-  const before = shown.length;
-  api.updateProximityEvents();
-  assert.equal(shown.length, before, '一度だけ');
-});
-
 /* ---- 翌朝の酒場(道の導入) ---- */
 function roadIntro(testMode){
   const tbl = slice(ui, 'const SCENARIO_TAVERN_DIALOGUE = {', '\n  };');
   const D = new Function('state', 'legacyGrowth', tbl + '\nreturn SCENARIO_TAVERN_DIALOGUE;')({ name: '盗賊' }, () => testMode);
   return D.road();
 }
-test('翌朝の酒場: 本編では 朝の鐘の一行 / 盗賊が懐中時計を返す / 管理人は生還(名前を出さない)', () => {
+test('翌朝の酒場: 本編では 朝の鐘の一行 / 盗賊が懐中時計を返す / 管理人は自分の足で降りてきた(名前を出さない)', () => {
   const lines = roadIntro(false);
   const text = lines.map(l => l.text).join('\n');
   assert.match(text, /朝の鐘で目を覚ましたら、もういなかった/);
   assert.deepEqual(lines.find(l => /返しといてくれ/.test(l.text)).name, '盗賊');
-  assert.match(text, /管理人は、朝になったら塔の下に座り込んでた/);
-  assert.match(text, /娘の名前を呼んでな/);
+  assert.match(text, /管理人は、朝になって自分の足で塔から降りてきたそうだ/, '管理人は生還(N-3)。時間を動かし、鐘を鳴らしてから');
+  assert.match(text, /鐘を鳴らしたのは自分だ/);
   assert.doesNotMatch(text, NO_NAME);
   assert.equal(lines.at(-1).text, '街道は一本だ。迷いはせん。……明るいうちに戻れよ。', '締めは既存のまま');
 });
