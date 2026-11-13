@@ -92,9 +92,11 @@ test('レビュー指摘: 錨の投擲は当たりの線(正面の一直線)に�
   const p = fn('poseDrowned');
   assert.match(p, /const aim = Math\.atan2\(0\.58, 6\.2\);/, '肩の横のずれを、届く先で正面の線へ戻す');
   assert.match(p, /M\.foeArmR\.rotation\.z = -aim; M\.foeArmL\.rotation\.z = aim; M\.foeCoat\.rotation\.y = 0;/, '投擲の間は腕を開かない・上半身を捩じらない');
-  assert.match(p, /M\.neck\.rotation\.x = -0\.75 \+ \(M\.baseNeckX \|\| 0\);/, '胴の傾きを打ち消して前を向く');
+  assert.match(fn('dressDrowned'), /M\.neckBaseOffset = -0\.75;/, '胴の傾きを打ち消して前を向く');
+  assert.match(p, /M\.neck\.rotation\.x = M\.neckBaseOffset \+ \(M\.baseNeckX \|\| 0\);/);
   assert.match(fn('dressDrowned'), /A\.rotation\.x = 1\.55;/, '錨はふだん柄を床に寝かせる(床に埋めない)');
-  assert.match(fn('foeLevelFloorParts'), /f\.rotation\.x = -en\.group\.rotation\.x;\n    f\.rotation\.z = -en\.group\.rotation\.z;/);
+  assert.match(fn('foeLevelFloorParts'), /f\.quaternion\.copy\(en\.group\.quaternion\)\.invert\(\);/, 'どの向きでも床と平ら');
   const combat = fs.readFileSync(path.join(root, 'src/legacy/parts/07-ai-combat.js'), 'utf8');
   assert.match(combat, /if\(M\.foeKind\)\{ applyFoeLean\(en, M\); foeLevelFloorParts\(en, M\); \}/);
+  assert.match(combat, /M\.neck\.rotation\.x = \(M\.neckBaseOffset \|\| 0\) \+ \(M\.baseNeckX \|\| 0\) \+ sz \* f \* 0\.55;/, '怯みの間も頭の向きを保つ');
 });

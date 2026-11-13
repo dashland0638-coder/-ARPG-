@@ -1154,7 +1154,7 @@
     en.group.position.y = (M.baseY !== undefined ? M.baseY : en.group.position.y) + f * 0.05;
 
     if(M.neck){
-      M.neck.rotation.x = (M.baseNeckX || 0) + sz * f * 0.55;   // head snaps opposite the body
+      M.neck.rotation.x = (M.neckBaseOffset || 0) + (M.baseNeckX || 0) + sz * f * 0.55;   // head snaps opposite the body(neckBaseOffset: 胴が前へ倒れた敵の頭の向き。ENEMY-VISUAL-002)
       M.neck.rotation.y = (M.neckYaw || 0) - sx * f * 0.45;
     }
     // legs buckle: the pair on the struck side folds, the other braces

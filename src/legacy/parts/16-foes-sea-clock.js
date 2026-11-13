@@ -260,6 +260,7 @@
     torso.add(M.neck);
     M.neck.position.set(0, -0.02, 0.5);
     M.neck.rotation.x = -0.75;
+    M.neckBaseOffset = -0.75;   // 07 の首の書き戻し(歩行・怯み)にも足す(前へ倒れた胴の上でも頭が前を向く)
     M.head.scale.set(1.0, 0.85, 0.9);
     M.head.material = stdMat('drSkin', 0x6a7a74);
     foePart(M.neck, _box(0.24, 0.07, 0.05), stdMat('drMouth', 0x101418), 0.02, -0.1, 0.19, {rz:0.15});
@@ -740,7 +741,7 @@
     M.foeLean = lerpTo(M.foeLean || 0, lean, k * 0.6);
     M.foeCoat.rotation.y = twist;
     // 頭は前へ倒れた胴の傾き(0.75)を打ち消して前を向く(07 の updateMobAnim が毎フレーム首の x を書き戻すので、ここで足し直す)
-    M.neck.rotation.x = -0.75 + (M.baseNeckX || 0);
+    M.neck.rotation.x = M.neckBaseOffset + (M.baseNeckX || 0);
     M.foeTorso.position.y = lerpTo(M.foeTorso.position.y, 0.78 + heave, k);
     M.foeTorso.rotation.z = Math.sin(t * 0.45) * 0.06 + (moving ? crawl * 0.08 : 0);
     if(M.foeAnchor){
@@ -918,8 +919,8 @@
   function foeLevelFloorParts(en, M){
     const f = M.foeMist || M.foePuddle;
     if(!f) return;
-    f.rotation.x = -en.group.rotation.x;
-    f.rotation.z = -en.group.rotation.z;
+    // 群れの回転を丸ごと打ち消す(Euler の x・z だけを戻すと、向き(yaw)が 0 以外の時に傾きが残る。円盤なので yaw ごと消してよい)
+    f.quaternion.copy(en.group.quaternion).invert();
   }
 
   /* 死亡: 敵の特徴で。幽霊船の亡霊・時間の残響は崩れて消え、異形は丸まって沈み、機械は前のめりに崩れて止まる
