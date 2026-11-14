@@ -88,7 +88,7 @@
     mobBars.forEach(el=> el.style.opacity = '0');
     mobPostureBars.forEach(el=> el.style.opacity = '0');
     const wrap = document.getElementById('boss-bar-wrap');
-    if(wrap) wrap.classList.remove('show');
+    if(wrap && wrap.classList.contains('show')){ wrap.classList.remove('show'); noticeHudChanged(); }
     const lbl = document.getElementById('minimap-label');
     if(lbl) lbl.classList.remove('show');
   }
@@ -105,10 +105,10 @@
     const wrap = document.getElementById('boss-bar-wrap');
     const boss = enemies.find(e=>e.isBoss && e.triggered && !e.dead);
     if(!boss || state.paused || state.activeOverlay!=='none'){
-      wrap.classList.remove('show');
+      if(wrap.classList.contains('show')){ wrap.classList.remove('show'); noticeHudChanged(); }
       return;
     }
-    wrap.classList.add('show');
+    if(!wrap.classList.contains('show')){ wrap.classList.add('show'); noticeHudChanged(); }   // 上の帯の通知はボスバーの下へ(UI-VISUAL-001)
     const pct = Math.max(0, boss.hp/boss.hpMax*100);
     document.getElementById('boss-bar-name').textContent = boss.dialogueName || '強敵';
     document.getElementById('boss-bar-fill').style.width = pct + '%';
@@ -236,6 +236,8 @@
       refreshSettingLabels();
       sfx('ui');
     });
+    /* 通知の表示の確認用(UI-VISUAL-001。?dev=1 の時だけ)。E2E が種類ごとの表示先・優先度・まとめを確かめる */
+    if(DEV_UI) window.__uiNotice = (text, color, kind)=> spawnToast(text, color, kind);
     // 確認用の段階の切り替え(?dev=1 の時だけ出す)。押すたびに 自動 → 剣士 → … → 完成版 → 自動
     if(DEV_UI){
       const row = document.getElementById('set-bgm-stage-row'), btn = document.getElementById('set-bgm-stage');
@@ -388,14 +390,14 @@
   /* ---- 階層表示 ----
      ARPG開発アイデアまとめ 9番「1ステージ=3〜5階層」の例(1F通常戦闘・
      2F特殊イベント・3F回復整理・4F強敵・5Fボス)に、洋館の既存構造
-     (玄関→分岐→大広間の休憩ポイント→第2分岐→ボス)をそのまま
+     (玄関→分岐→大広間→第2分岐→ボス。大広間の休憩ポイント=回復の姿見は ENEMY-VISUAL-002 で撤去)をそのまま
      当てはめている。新しい階層を物理的に作るのではなく、既存の
      ルートグラフ(state.routeNode)にラベルを乗せるだけの軽量な実装。
      他のダンジョンに横展開する時は、このマップにシナリオを追加すればよい。 */
   const FLOOR_LABELS = {
     mansion: {
       hall:'1F 玄関ホール', crypt:'2F 地下納骨堂', study:'2F 二階書斎', court:'2F 荒れた中庭',
-      greathall:'3F 大広間(休憩)', grand:'4F 本館大階段', servant:'4F 使用人通路', boss:'5F 主の間',
+      greathall:'3F 大広間', grand:'4F 本館大階段', servant:'4F 使用人通路', boss:'5F 主の間',
     },
   };
   function updateFloorLabel(){
@@ -794,7 +796,6 @@
     stairs.forEach(s=> blip(s.pos.x, s.pos.z, '#7ec8ff', 5, 'diamond'));
     loreObjects.forEach(l=> blip(l.pos.x, l.pos.z, l.read?'rgba(220,220,220,0.4)':'#f0ead8', 3));
     chests.forEach(c=> blip(c.pos.x, c.pos.z, c.opened?'rgba(180,150,80,0.35)':'#ffd24a', 5, 'chest'));
-    healingCrystals.forEach(h=> blip(h.pos.x, h.pos.z, h.broken?'rgba(140,220,180,0.3)':'#7fe8b8', 4, 'diamond'));
     anomalyRifts.forEach(r=> blip(r.pos.x, r.pos.z, '#a855f7', 5));
     /* まだ起きていないイベントの地点に「!」(WORK 12.1)。判定は既存の
        近接/部屋イベント(registerProximityEvent)そのもので、起きたら消える。
@@ -1439,7 +1440,6 @@
       updateMobBars();
       updateBossBar(dt);
       updateChests(dt);
-      updateHealingCrystals(dt);
       updateAnomalyRifts(dt);
       updateTownReturnPoints();
       updateItemDrops(dt);
@@ -1463,7 +1463,6 @@
       updateKeyPickups(dt);
       updateStallTrigger();
       updateBartenderProximity();
-      updateCheckpointProximity();
       updateProximityEvents();
       updateApparitions(dt);
       updateAmbience(dt);   // 場所の環境音(区画ごとに間隔を空けて単発で鳴らす)

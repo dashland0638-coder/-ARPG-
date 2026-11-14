@@ -154,6 +154,8 @@ Execution（処刑）へ繋がる（`core/execution.js`）。
 - 攻撃後には「身体の流れ」があり、そこがプレイヤーの有利な時間になる
 - 敵の情報は距離・遮蔽で制限される（visible / sensed / hidden の3段階。
   `core/enemy-visibility.js`）
+- 幽霊船・時計塔の敵は種類ごとに役割・予兆・隙・対処を持つ（通常種・強化種・変異種。`docs/ENEMIES.md`、
+  ENEMY-VISUAL-001）。踏み込み（lunge）・連撃（followUp）・light の床の弧（telegraphAll）は既存の近接の器の拡張
 
 ## Mage
 

@@ -58,7 +58,7 @@ function harness(){
     sfx:(n)=> log.sfx.push(n), ambient:(n)=> log.sfx.push('amb:' + n), ambienceHold(){}, addShake(){},
     spawnLog:(t)=> log.logs.push(t), spawnToast:(t)=> log.toasts.push(t),
     fadeTransition:(fn)=>{ log.fades++; fn(); }, repositionAlliesToPlayer(){},
-    spawnApparition:()=> obj(), legacyGrowth:()=> false,
+    spawnApparition:()=> obj(), legacyGrowth:()=> false, foeVariant:(kind, st)=> Object.assign({theme:'foe', foeKind:kind}, st),   // 幽霊船の敵(ENEMY-VISUAL-001、16-foes-sea-clock.js)
     CLASSES:{ archer:{ name:'弓師' }, mage:{ name:'魔法使い' } },
     lordHitPlayer:(en, dmg)=>{ if(state.orbShield){ log.hits.push('orb'); return false; } log.hits.push(dmg); return true; },
     tryPerfectDodge:()=> log.hits.push('dodge'),

@@ -51,7 +51,7 @@ test('幽霊船: 船の中では海を描かず背景と霧を黒に。外(小�
   assert.match(upd, /const outside = !!room\.outside;/);
   assert.match(upd, /if\(gsSea\) gsSea\.visible = outside;/);
   assert.match(upd, /: 0x000000;/);
-  assert.match(upd, /gsHideUnseen\(chests, vis\); gsHideUnseen\(healingCrystals, vis\); gsHideUnseen\(enemies, vis\);/);
+  assert.match(upd, /gsHideUnseen\(chests, vis\); gsHideUnseen\(enemies, vis\);/);
   // 見えていない部屋の物は visible に触らず、描画の層だけ外す(宝箱・ミミックの visible は別の仕組みが使う)
   assert.match(ship, /n\.layers\.disable\(0\); else n\.layers\.enable\(0\);/);
 });

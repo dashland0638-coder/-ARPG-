@@ -128,11 +128,8 @@ test('PROGRESSION-003: セーブの値は書き換えない(判定の関数・�
 test('PROGRESSION-004: 施設の入口と作業台はすべて smithFacilityAvailable を通る', () => {
   const world = parts('02-world-common.js');
   assert.match(world, /nearbySmith = serviceFree && !nearbyBartender && smithFacilityAvailable\(state\) && !smithGreetingPending\(\)\s*&& state\.pos\.distanceTo\(SMITH_POS\) < 3;/);
-  const cp = world.slice(world.indexOf('function useCheckpoint(){'), world.indexOf('function updateBartenderProximity'));
-  assert.match(cp, /if\(smithFacilityAvailable\(state\)\) setOverlay\('appraisal'\);/);
-  assert.equal(cp.split("setOverlay('appraisal')").length - 1, 1);
-  assert.match(world, /!\(state\.checkpointUsed && !smithFacilityAvailable\(state\)\)/);
-  assert.match(world, /smithFacilityAvailable\(state\) \? '🏕️ 休憩する\(回復\+装備整理\)' : '🏕️ 休憩する\(回復\)'/);
+  // 以前の入口だった洋館の休憩ポイント(回復の姿見)は ENEMY-VISUAL-002 で撤去。仕組みごと残っていない
+  assert.doesNotMatch(world, /useCheckpoint|registerCheckpoint|checkpointUsed|休憩ポイント/);
 
   const toggle = body('function toggleAppraisal(){');
   assert.match(toggle, /if\(!state\.testMode\)\{\n\s+if\(!smithFacilityAvailable\(state\)\) return;/);
@@ -143,10 +140,10 @@ test('PROGRESSION-004: 施設の入口と作業台はすべて smithFacilityAvai
   // 作業台を指す影の旅人の 1 行も、施設が無ければ出さない(台詞は書き足さない)
   assert.match(src, /: smithFacilityAvailable\(state\)\n\s+\? \{name:S, text:'奥の隅に、間に合わせの作業台があります。/);
 
-  // setOverlay('appraisal') を直接呼ぶのは toggleAppraisal とチェックポイントだけ
+  // setOverlay('appraisal') を直接呼ぶのは toggleAppraisal だけ(洋館の休憩ポイントは ENEMY-VISUAL-002 で撤去)
   for (const name of ['02-world-common.js', '10-input.js', '11-combat-actions.js', '12-progression-ui.js', '13-update-loop.js', '14-hud-boot.js']) {
     const n = parts(name).split("setOverlay('appraisal')").length - 1;
-    assert.equal(n, name === '02-world-common.js' || name === '12-progression-ui.js' ? 1 : 0, name);
+    assert.equal(n, name === '12-progression-ui.js' ? 1 : 0, name);
   }
   const plugin = fs.readFileSync(path.join(root, 'src/legacy/concat-plugin.js'), 'utf8');
   assert.match(plugin, /smithFacilityAvailable,\n\} from '\.\.\/core\/chapter1-rules\.js';/);

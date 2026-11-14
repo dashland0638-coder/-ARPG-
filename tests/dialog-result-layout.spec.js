@@ -79,7 +79,7 @@ async function observableState(page) {
 }
 
 test.describe('UI-002-H 通知(H-D1 / H-D2)', () => {
-  for (const sz of SIZES) test(`${sz.name}: 中央トーストは実効 1.7 秒見え、3 件までで重ならず、ログと二重に出ない`, async ({ browser }) => {
+  for (const sz of SIZES) test(`${sz.name}: 通知は実効 1.7 秒見え、同じ通知はまとまり、上の帯は重ならず、ログと二重に出ない(UI-VISUAL-001)`, async ({ browser }) => {
     test.setTimeout(240_000);
     const context = await browser.newContext({ viewport: sz.viewport, hasTouch: sz.hasTouch });
     const page = await context.newPage();
@@ -112,9 +112,9 @@ test.describe('UI-002-H 通知(H-D1 / H-D2)', () => {
       a.play();
       return r;
     });
-    expect(anim, '中央トーストが出る').not.toBeNull();
+    expect(anim, '入力の理由の通知が出る').not.toBeNull();
     expect(anim.duration, '見えている時間 = DOM の寿命(1.7 秒)').toBe('1.7s');
-    expect(anim.name).toBe('toastLife');
+    expect(anim.name, '入力の理由は操作ボタンのそば(UI-VISUAL-001)').toBe('noticeBottomLife');
     expect(anim.o200, '出てすぐは見えている').toBeGreaterThan(0.99);
     expect(anim.o1300, '1.3 秒の時点でも見えている(以前は 1.1 秒で消えていた)').toBeGreaterThan(0.99);
     expect(anim.o1500, '1.5 秒の時点でも見えている').toBeGreaterThan(0.99);
@@ -130,32 +130,11 @@ test.describe('UI-002-H 通知(H-D1 / H-D2)', () => {
     expect(await notesSince(page, mark, 'toast')).toEqual(['🧪 薬草を持っていない……']);
     expect(await notesSince(page, mark, 'log')).toEqual([]);
 
-    // 5 件を同じフレームで: 画面には 3 件まで、互いに重ならず、画面の中
+    // 同じ通知を 5 件、同じフレームで: 積まずに 1 件へまとまり「×5」(UI-VISUAL-001。以前は同じ文言が 3 件積まれていた)
     await pressPotion(page, 5);
-    const stack = await page.evaluate(() => [...document.querySelectorAll('#hud .item-pop.is-toast')].map(e => {
-      const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
-    }));
-    expect(stack.length, '同時に 3 件まで').toBe(3);
-    const sorted = [...stack].sort((a, b) => a.top - b.top);
-    for (let i = 1; i < sorted.length; i++) {
-      expect(sorted[i].top, `積んだトーストが重ならない: ${JSON.stringify(sorted)}`).toBeGreaterThanOrEqual(sorted[i - 1].bottom);
-    }
-    for (const r of stack) {
-      expect(r.top).toBeGreaterThanOrEqual(0);
-      expect(r.left).toBeGreaterThanOrEqual(0);
-      expect(r.right).toBeLessThanOrEqual(sz.viewport.width);
-    }
-    // 左上のパネル・ミニマップに重ならない
-    const zones = await page.evaluate(() => ['.hud-topleft', '#hud-loot', '#minimap-wrap'].map(q => {
-      const el = document.querySelector(q);
-      if (!el || el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return null;
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0 ? { q, top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null;
-    }).filter(Boolean));
-    for (const r of stack) for (const z of zones) {
-      const hit = r.left < z.right && z.left < r.right && r.top < z.bottom && z.top < r.bottom;
-      expect(hit, `トースト ${JSON.stringify(r)} と ${z.q} ${JSON.stringify(z)}`).toBe(false);
-    }
+    const merged = await page.evaluate(() => [...document.querySelectorAll('#hud .item-pop.is-toast')].map(e => e.textContent));
+    expect(merged, '同じ入力の理由は 1 件にまとまる').toEqual(['🧪 薬草を持っていない……  ×5']);
+    // 違う種類の通知の並び・優先度・中央の空きは tests/notice-layout.spec.js(?dev=1 の確認用の口で出す)
     expect(errors).toEqual([]);
     await context.close();
   });

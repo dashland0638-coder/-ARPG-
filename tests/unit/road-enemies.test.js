@@ -55,10 +55,10 @@ test('二つの戦闘は「突進2 + 射撃1」で、確定定数だけを使う
    T4 鐘楼(y=34)に残響の影 2 体 + 射撃 1 体として同じ数値で置いている */
 test('根拠: 塔 4F より HP の合計は多め(+0〜30%)、ATK の合計は少なめ', () => {
   const spots = [
-    ...combat.matchAll(/pos:new THREE\.Vector3\(-?\d+,34,-?\d+\), variant:\{[^}]*hp:(\d+), atk:(\d+)[^}]*atkType:'(\w+)'/g),
-  ];
-  assert.equal(spots.length, 3, '塔 T4 鐘楼の残響の影 2 + 射撃');
-  assert.deepEqual(spots.map(m => m[3]).sort(), ['fire', 'ghost', 'ghost']);
+    ...combat.matchAll(/pos:new THREE\.Vector3\(-?\d+,34,-?\d+\), variant:\{foe:'(\w+)', hp:(\d+), atk:(\d+)/g),
+  ].map(m => [m[0], m[2], m[3], m[1]]);
+  assert.equal(spots.length, 3, '塔 T4 鐘楼の残響 2 + 射手(ENEMY-VISUAL-001 で見た目と戦い方を作り直した。数値は同じ)');
+  assert.deepEqual(spots.map(m => m[3]).sort(), ['echoTwin', 'gearGunner', 'timeEcho']);
   const towerHp = spots.reduce((s, m) => s + +m[1], 0), towerAtk = spots.reduce((s, m) => s + +m[2], 0);
   const roadHp = BEAST.hp * 2 + SPITTER.hp, roadAtk = BEAST.atk * 2 + SPITTER.atk;
   assert.ok(roadHp >= towerHp && roadHp <= towerHp * 1.3, `${roadHp} vs ${towerHp}`);

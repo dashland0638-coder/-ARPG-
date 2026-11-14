@@ -379,7 +379,6 @@
   function tryAttack(){
     if(!state.started||state.paused||state.dialogueActive||state.dodging) return;
     if(state.executeT > 0) return;   // 処刑の再生中は通常攻撃を受け付けない(資料10章)
-    checkHealingCrystalBreak();   // 攻撃入力そのものに独立して乗せてあるので、通常のコンボ/CD管理には影響しない
     /* 空中の攻撃入力は必ず空中アクションへ落とす(Phase 5/7)。
 
        以前は `!state.grounded && !state.jumpAttacking` という条件だったため、
@@ -2231,29 +2230,195 @@
     setTimeout(()=>el.remove(), 1150);
   }
 
-  // 同時に複数出ても重ならないよう、アクティブなトーストを縦に積む。
-  // 新しいものを基準位置(30%)に、古いものほど上へずらす。
-  /* UI-002-H H-D2: 見えている時間と DOM の寿命を同じ 1.7 秒にする(以前は CSS の itemfloat が
-     1.1 秒で消え、DOM だけが 1.7 秒残っていた)。同時に出すのは 3 件まで。4 件目が来たら
-     いちばん古いものを外す(種類・文言・発火条件は変えない) */
-  const TOAST_LIFE_MS = 1700;
-  const TOAST_MAX = 3;
-  let activeToasts = [];
-  function layoutToasts(){
-    const gapPx = 34;   // プレートの高さ(約 31px)＋すき間
-    // activeToasts[0] が最新。古いものほど上(小さいtop)に配置する
-    activeToasts.forEach((el, i)=>{
-      // 基準の高さは CSS(--ui-toast-base。既定 30%、背の低い画面では左上のパネルに重ならないよう下げる)
-      el.style.top = 'calc(var(--ui-toast-base, 30%) - ' + (i*gapPx) + 'px)';
-    });
-  }
-  /* 通知の表示先(UI-002-D WI-D5。HD-D17)。以前は spawnToast() が同じ文言を中央トーストと
-     左下ログの 2 か所へ出していた。いまは種類ごとに 1 か所だけへ出す。種類と表示先の表の正本は
-     .ai/tasks/UI-002-D.md の「WI-D5 計画」:
-       spawnToast … 中央トースト(1.7 秒・同時に 3 件まで。UI-002-H H-D2)。戦闘・危険のフィードバック、入力を受け付けなかった
-                    理由、時間制限の警告、敵の出現、一度きりの大きな出来事、操作の切り替えへの反応
+  /* 通知(UI-VISUAL-001。分類・優先度・寿命の表は core/notice-rules.js)。
+     画面中央はプレイヤー・敵・攻撃の予兆のために空ける。spawnToast は種類ごとに一つの表示先へ出す
+     (UI-002-D の HD-D17: 同じ情報を二か所へ出さない):
+       上の帯(#notice-band) … 危険・物語・出現・節目。左上のパネルとミニマップの間、ボスバー・制限時間の下。
+                              同時に 3 件まで。強い通知ほど上。満ちていれば弱い通知を押し出し、押し出せなければ短く待つ
+       頭の上               … 自分の行動の結果(技・パリィ・ジャストドッジ)。小さく、すぐ消える
+       操作ボタンのそば      … 入力を受け付けなかった理由。一件だけ(新しい理由で置き換える)
+     同じ文言が出ている間に同じ通知が来たら、積まずに「×n」にまとめて寿命を延ばす。
+     上の帯とログに出た物はメニューの「記録」に残る(noticeHistory。消えても後で読める)。
+     要素はどれも .item-pop.is-toast(見た目のプレートと、テストの観測を UI-002-H のまま使う)
        spawnLog   … 左下ログ(6.5 秒・最大 6 行)。獲得・売買・鑑定・使用の結果、探索・物語の
                     描写、システムの記録 ―― 続けて出やすく、文が長く、読み返せる方がよいもの */
+  const TOAST_LIFE_MS = NOTICE_KINDS.deny.lifeMs;   // 入力の理由(UI-002-H H-D2 の 1.7 秒)
+  let noticeTop = [];          // 上の帯に出ている通知 {el, text, kind, priority, born, count, timer}
+  let noticeQueue = [];        // 上の帯の待ち行列 {text, color, kind, at}
+  let noticeBottom = null;     // 下の帯の通知
+  const noticeActor = [];      // 頭の上の通知
+  const noticeRecent = new Map();   // 消えたばかりの出現通知(text → 消えた時刻)
+  const noticeHistory = [];    // メニューの「記録」: 上の帯の物(新しい順)
+  const noticeLogHistory = []; // メニューの「記録」: ログの物(新しい順。上の帯の物を押し出さないよう別に数える)
+  let noticeBandEl = null;
+  let noticeTopMax = NOTICE_TOP_MAX;
+  function noticeBand(){
+    if(!noticeBandEl){
+      noticeBandEl = document.createElement('div');
+      noticeBandEl.id = 'notice-band';
+      document.getElementById('hud').appendChild(noticeBandEl);
+    }
+    return noticeBandEl;
+  }
+  function recordNotice(text, kind){
+    const list = kind === 'log' ? noticeLogHistory : noticeHistory;
+    list.unshift({text, kind, at:Date.now()});
+    const max = kind === 'log' ? NOTICE_LOG_HISTORY_MAX : NOTICE_HISTORY_MAX;
+    if(list.length > max) list.length = max;
+  }
+  function noticeEl(text, color, kind, lifeMs){
+    const el = document.createElement('div');
+    el.className = 'item-pop is-toast notice-' + kind;
+    el.style.color = color || '';
+    el.style.animationDuration = lifeMs + 'ms';
+    el.dataset.text = text;
+    el.textContent = text;
+    return el;
+  }
+  // 同じ通知をまとめる: 「×n」を付け、アニメーションと寿命を最初からやり直す
+  function noticeBump(n, lifeMs, onEnd){
+    n.count++;
+    n.el.textContent = n.text + '  ×' + n.count;
+    n.el.style.animation = 'none';
+    void n.el.offsetWidth;
+    n.el.style.animation = '';
+    n.el.style.animationDuration = lifeMs + 'ms';
+    clearTimeout(n.timer);
+    n.timer = setTimeout(onEnd, lifeMs);
+  }
+  /* 上の帯の位置: 左右は左上のパネルとミニマップの間(CSS)、上はボスバー・制限時間の下(見えている時だけ) */
+  function layoutNoticeBand(){
+    const band = noticeBand();
+    let top = 0;
+    // ボスバーは「出ている」印(.show。透明度は 0.35 秒かけて上がるので見ない)、制限時間は display で判断する
+    const bar = document.getElementById('boss-bar-wrap'), timer = document.getElementById('scenario-timer');
+    [[bar, bar && bar.classList.contains('show')], [timer, timer && getComputedStyle(timer).display !== 'none']].forEach(([e, on])=>{
+      if(!on) return;
+      const r = e.getBoundingClientRect();
+      if(r.width > 0 && r.height > 0) top = Math.max(top, r.bottom);
+    });
+    band.style.setProperty('--notice-under', top > 0 ? (top + 6) + 'px' : '');
+    /* 背の低い画面(iPhone の横持ち): 出す数を 2 件に減らす(帯が画面の中ほどへ下りないように)。
+       ボスバー・制限時間に押し下げられて左上のパネルより下へ来た時は、帯を左へ広げる(ログの右から) */
+    const short = window.innerHeight <= 500;
+    const panel = document.querySelector('.hud-topleft');
+    const low = top > 0 && short && (!panel || top > panel.getBoundingClientRect().bottom);
+    band.classList.toggle('is-low', low);
+    /* ボス戦(ボスバーの下へ下がった時)は 1 件(ボスの動きを隠さない)。強い通知が押し出して出る */
+    const barOn = !!(bar && bar.classList.contains('show'));
+    noticeTopMax = !short ? NOTICE_TOP_MAX : barOn ? 1 : NOTICE_TOP_MAX - 1;
+    while(noticeTop.length > noticeTopMax){
+      const out = noticeTop.slice().sort(noticeOrder).pop();   // 一番弱い通知を外す(記録には残っている)
+      clearTimeout(out.timer); out.el.remove(); noticeTop = noticeTop.filter(x=> x !== out);
+    }
+    /* 強いほど上。並べ替えは flex の order で(要素を付け直すと、同じ通知が「新しく出た」ように見える ――
+       DOM の追加を数える観測や読み上げが二重になる) */
+    noticeTop.sort(noticeOrder).forEach((n, i)=>{ n.el.style.order = i; if(n.el.parentNode !== band) band.appendChild(n.el); });
+  }
+  /* ボスバー・制限時間が出入りした時(14-hud-boot.js / 12-progression-ui.js から)。通知が出ている時だけ並べ直す */
+  function noticeHudChanged(){ if(noticeTop.length) layoutNoticeBand(); }
+  function removeTopNotice(n){
+    clearTimeout(n.timer);
+    n.el.remove();
+    noticeTop = noticeTop.filter(x=> x !== n);
+    if(noticeRepeatSuppressed(n.text)) noticeRecent.set(n.text, performance.now());
+    // 空いた所へ、待っていた通知(古すぎない物)を入れる
+    const now = performance.now();
+    noticeQueue = noticeQueue.filter(q=> now - q.at < NOTICE_QUEUE_STALE_MS);
+    if(noticeQueue.length && noticeTop.length < noticeTopMax){
+      noticeQueue.sort((a, b)=> noticeSpec(a.kind).priority - noticeSpec(b.kind).priority || a.at - b.at);
+      const q = noticeQueue.shift();
+      if(!noticeTop.some(n=> n.text === q.text)) showTopNotice(q.text, q.color, q.kind);
+    }
+    layoutNoticeBand();
+  }
+  function showTopNotice(text, color, kind){
+    const spec = noticeSpec(kind);
+    const n = {text, kind, priority:spec.priority, born:performance.now(), count:1, el:noticeEl(text, color, kind, spec.lifeMs)};
+    noticeTop.push(n);
+    n.timer = setTimeout(()=> removeTopNotice(n), spec.lifeMs);
+    layoutNoticeBand();
+  }
+  // 待ち行列は NOTICE_QUEUE_MAX まで。あふれたら一番弱い(同じなら一番古い)物を捨てる
+  function trimNoticeQueue(){
+    while(noticeQueue.length > NOTICE_QUEUE_MAX){
+      let worst = 0;
+      noticeQueue.forEach((q, i)=>{
+        const a = noticeSpec(q.kind).priority, b = noticeSpec(noticeQueue[worst].kind).priority;
+        if(a > b || a === b && q.at < noticeQueue[worst].at) worst = i;
+      });
+      noticeQueue.splice(worst, 1);
+    }
+  }
+  function spawnTopNotice(text, color, kind){
+    const spec = noticeSpec(kind);
+    const same = noticeTop.find(n=> n.text === text);
+    if(same){ noticeBump(same, spec.lifeMs, ()=> removeTopNotice(same)); return; }
+    // 同じ敵が繰り返す気配(瞬間移動・分身・号笛など)は、消えた直後に同じ物が来ても続けて出さない
+    const gone = noticeRecent.get(text);
+    if(gone != null && performance.now() - gone < NOTICE_REPEAT_MS && noticeRepeatSuppressed(text)) return;
+    const queued = noticeQueue.some(q=> q.text === text);
+    if(!queued) recordNotice(text, kind);   // 待っている間の繰り返しは記録を増やさない
+    layoutNoticeBand();   // ボスバー・制限時間の出入りで、帯の位置と出せる数が変わる
+    const adm = noticeAdmit(noticeTop.map(n=> ({priority:n.priority, born:n.born})), spec.priority, noticeTopMax);
+    // 待っていた同じ通知が、空いた所へ直接出る時は、待ち行列から外す(後で二重に出ない)
+    if(queued && adm.action !== 'queue') noticeQueue = noticeQueue.filter(q=> q.text !== text);
+    if(adm.action === 'queue'){
+      if(!queued) noticeQueue.push({text, color, kind, at:performance.now()});
+      trimNoticeQueue();
+      return;
+    }
+    if(adm.action === 'replace'){
+      // 押し出された弱い通知は、まだ新しければ待ち行列へ戻す(強い通知が消えた後に出る)
+      const out = noticeTop[adm.index];
+      const lifeLeft = noticeSpec(out.kind).lifeMs - (performance.now() - out.born);
+      clearTimeout(out.timer); out.el.remove();
+      noticeTop = noticeTop.filter(x=> x !== out);
+      if(lifeLeft > 600 && !noticeQueue.some(q=> q.text === out.text)){
+        noticeQueue.push({text:out.text, color:out.el.style.color, kind:out.kind, at:performance.now()});
+        trimNoticeQueue();
+      }
+    }
+    showTopNotice(text, color, kind);
+  }
+  function spawnBottomNotice(text, color){
+    const life = NOTICE_KINDS.deny.lifeMs;
+    if(noticeBottom && noticeBottom.text === text){ noticeBump(noticeBottom, life, endBottom(noticeBottom)); return; }
+    if(noticeBottom){ clearTimeout(noticeBottom.timer); noticeBottom.el.remove(); }
+    const n = {text, kind:'deny', count:1, el:noticeEl(text, color, 'deny', life)};
+    n.el.classList.add('notice-bottom');
+    document.getElementById('hud').appendChild(n.el);
+    n.timer = setTimeout(endBottom(n), life);
+    noticeBottom = n;
+    // 背の低い画面では 1 行に収める。切れて読めない部分がある時だけ、全文を「記録」へ残す(情報を失わない)
+    // 同じ理由を続けて押した時は、記録を増やさない(上の帯の危険・物語の記録を押し出さない)
+    if(n.el.scrollWidth > n.el.clientWidth + 1 && !(noticeHistory[0] && noticeHistory[0].text === text)) recordNotice(text, 'deny');
+  }
+  function endBottom(n){ return ()=>{ n.el.remove(); if(noticeBottom === n) noticeBottom = null; }; }
+  // 頭の上: プレイヤーの頭の少し上(拾った物の表示 spawnPickupPopup と同じ投影)。同じ文言は一つにまとめる
+  function spawnActorNotice(text, color){
+    const life = NOTICE_KINDS.feedback.lifeMs;
+    const same = noticeActor.find(n=> n.text === text);
+    if(same){ noticeBump(same, life, ()=> endActor(same)); return; }
+    const vec = state.pos.clone(); vec.y += 2.5;
+    vec.project(camera);
+    const n = {text, kind:'feedback', count:1, el:noticeEl(text, color, 'feedback', life)};
+    n.el.classList.add('notice-actor');
+    n.el.style.left = ((vec.x*0.5+0.5)*window.innerWidth) + 'px';
+    n.el.style.top = ((-vec.y*0.5+0.5)*window.innerHeight - 22 * noticeActor.length) + 'px';
+    document.getElementById('hud').appendChild(n.el);
+    noticeActor.push(n);
+    n.timer = setTimeout(()=> endActor(n), life);
+  }
+  function endActor(n){ n.el.remove(); const i = noticeActor.indexOf(n); if(i >= 0) noticeActor.splice(i, 1); }
+  /* 戦闘・危険・出現などの通知。kind を省くと文言から分類する(core/notice-rules.js の classifyNotice) */
+  function spawnToast(text, color, kind){
+    kind = NOTICE_KINDS[kind] ? kind : classifyNotice(text);
+    const zone = noticeSpec(kind).zone;
+    if(zone === 'bottom') spawnBottomNotice(text, color);
+    else if(zone === 'actor') spawnActorNotice(text, color);
+    else spawnTopNotice(text, color, kind);
+  }
   let msgLogEl = null;
   const MSG_LOG_MAX = 6;
   function pushMsgLog(text, color){
@@ -2272,27 +2437,9 @@
       msgLogEl.removeChild(msgLogEl.firstChild);
     }
   }
-  function spawnToast(text, color){
-    const el = document.createElement('div');
-    // is-toast: 拾った物の表示(spawnPickupPopup)と同じ .item-pop のまま、見た目と寿命を分ける
-    el.className = 'item-pop is-toast';
-    el.style.left = '50%';
-    el.style.fontSize = '15px';
-    el.style.color = color || '#e9e1d6';
-    el.style.animationDuration = TOAST_LIFE_MS + 'ms';
-    el.textContent = text;
-    document.getElementById('hud').appendChild(el);
-    activeToasts.unshift(el);
-    while(activeToasts.length > TOAST_MAX) activeToasts.pop().remove();
-    layoutToasts();
-    setTimeout(()=>{
-      el.remove();
-      activeToasts = activeToasts.filter(x=>x!==el);
-      layoutToasts();
-    }, TOAST_LIFE_MS);
-  }
   function spawnLog(text, color){
     pushMsgLog(text, color);
+    recordNotice(text, 'log');
   }
 
   /* =========================================================

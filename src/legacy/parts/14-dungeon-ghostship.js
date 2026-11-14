@@ -380,9 +380,9 @@
       if(!on) for(let j=0;j<c.ids.length;j++) if(vis.has(c.ids[j])){ on = true; break; }
       c.group.visible = on;
     }
-    // 宝箱・回復結晶・敵も、見えていない部屋にあるものは描かない(visible は各仕組みが使うので触らず、
+    // 宝箱・敵も、見えていない部屋にあるものは描かない(visible は各仕組みが使うので触らず、
     // 描画の層だけを外す)。部屋の外(境の上など)にあるものは描く
-    gsHideUnseen(chests, vis); gsHideUnseen(healingCrystals, vis); gsHideUnseen(enemies, vis);
+    gsHideUnseen(chests, vis); gsHideUnseen(enemies, vis);
     // 船の外(小舟・甲板)にいる時だけ海と夜空。中では外側を黒に
     const outside = !!room.outside;
     if(scene.background !== gsBgColor) gsOutsideShown = null;   // 明るさの設定などで背景が作り直された
@@ -1787,19 +1787,34 @@
   function gsCrew(role, statKey, extra){
     return gsCrewVariant(role, Object.assign({}, GS_CREW_STATS[statKey || role], extra || {}));
   }
-  // 部屋ごとの残影(部屋に入ったとき、持ち場から起き上がる。倒したらこの出撃中は戻らない)
+  /* 幽霊船の敵(ENEMY-VISUAL-001、16-foes-sea-clock.js)。数値は上の役(GS_CREW_STATS)の値のまま、
+     見た目と戦い方だけを差し替える:
+       亡霊船員(通常・アタッカー)/ 残像の亡霊(変異)/ 溺死した船員(通常・タンク。船大工の枠は強化種)/
+       錨を引く溺死船員(変異。甲板長)/ 深海の異形(通常・レンジ)/ 変異した異形(変異)
+     往路(gs*)は通常種、ループの後の船の奥(x*)は変異種が混ざる ―― 船が深く変わるほど、敵も変わる */
+  function gsFoe(kind, statKey, extra){
+    const st = Object.assign({}, GS_CREW_STATS[statKey], extra || {});
+    delete st.atkType; delete st.projColor;
+    return foeVariant(kind, st);
+  }
+  // 部屋ごとの敵(部屋に入ったとき、持ち場から起き上がる。倒したらこの出撃中は戻らない)
   const GS_ROOM_CREW = {
-    gsHold:     [{x:-30, z:112, v:()=> gsCrew('deckhand')}, {x:-25, z:121, v:()=> gsCrew('deckhand')}],
-    gsQuarters: [{x:-26, z:53, v:()=> gsCrew('deckhand')}, {x:-35, z:55, v:()=> gsCrew('lookout')}],
-    gsMess:     [{x:-35, z:66, v:()=> gsCrew('steward')}, {x:-23.4, z:68, v:()=> gsCrew('steward')}],
-    xMess:      [{x:-13, z:63, v:()=> gsCrew('steward', 'steward', {hp:75, atk:19})},
-                 {x:-12, z:70.4, v:()=> gsCrew('steward', 'steward', {hp:75, atk:19})},
-                 {x:-2.6, z:61, v:()=> gsCrew('deckhand')}],
-    xBilge:     [{x:14, z:52, v:()=> gsCrew('carpenter', 'carpenter', {gateTag:'gsCarpenter'})}],
-    xHold:      [{x:-10, z:114, v:()=> gsCrew('deckhand', 'deckhandB')}, {x:-4, z:124, v:()=> gsCrew('deckhand', 'deckhandB')},
-                 {x:-12.6, z:128, v:()=> gsCrew('lookout', 'lookoutB')}],
-    xRollcall:  [{x:-7, z:176, v:()=> gsCrew('boatswain', 'boatswain', {gateTag:'gsBoatswain'})}],
-    xAnte:      [{x:31, z:156.6, v:()=> gsCrew('lookout', 'lookoutB', {hp:80, atk:18})}, {x:29.2, z:156.8, v:()=> gsCrew('deckhand', 'deckhandB', {atk:20})}],
+    // 前衛の溺死船員と、その陰から踏み込む亡霊船員
+    gsHold:     [{x:-30, z:112, v:()=> gsFoe('drownedSailor', 'deckhand')}, {x:-25, z:121, v:()=> gsFoe('phantomSailor', 'deckhand')}],
+    // 亡霊船員と、奥から足元を狙う異形
+    gsQuarters: [{x:-26, z:53, v:()=> gsFoe('phantomSailor', 'deckhand')}, {x:-35, z:55, v:()=> gsFoe('abyssCrawler', 'lookout')}],
+    gsMess:     [{x:-35, z:66, v:()=> gsFoe('drownedSailor', 'steward')}, {x:-23.4, z:68, v:()=> gsFoe('phantomSailor', 'steward')}],
+    // ループの後: 残像の亡霊二体と異形
+    xMess:      [{x:-13, z:63, v:()=> gsFoe('phantomEcho', 'steward', {hp:75, atk:19})},
+                 {x:-12, z:70.4, v:()=> gsFoe('phantomEcho', 'steward', {hp:75, atk:19})},
+                 {x:-2.6, z:61, v:()=> gsFoe('abyssCrawler', 'deckhand')}],
+    // 船底: 強化種の溺死船員(船大工の枠。大きく、大怯みで止まらない)
+    xBilge:     [{x:14, z:52, v:()=> gsFoe('drownedSailor', 'carpenter', {gateTag:'gsCarpenter'})}],
+    xHold:      [{x:-10, z:114, v:()=> gsFoe('drownedSailor', 'deckhandB')}, {x:-4, z:124, v:()=> gsFoe('phantomEcho', 'deckhandB')},
+                 {x:-12.6, z:128, v:()=> gsFoe('abyssMutant', 'lookoutB')}],
+    // 甲板長 = 錨を引く溺死船員(号笛で亡霊船員を呼ぶ)
+    xRollcall:  [{x:-7, z:176, v:()=> gsFoe('anchorDrowned', 'boatswain', {gateTag:'gsBoatswain'})}],
+    xAnte:      [{x:31, z:156.6, v:()=> gsFoe('abyssMutant', 'lookoutB', {hp:80, atk:18})}, {x:29.2, z:156.8, v:()=> gsFoe('phantomEcho', 'deckhandB', {atk:20})}],
   };
 
   let gsSpawned = {};
@@ -1841,7 +1856,7 @@
       spawnToast('📯 甲板長が号笛を吹いた');
       [-1, 1].forEach(s=>{
         const p = gsV(Math.max(-9.2, Math.min(-4.8, en.group.position.x + s*1.6)), en.group.position.z - 2.2);
-        const mob = buildEnemy(p, gsCrew('deckhand', 'summoned', {roomTag:'xRollcall'}));
+        const mob = buildEnemy(p, gsFoe('phantomSailor', 'summoned', {roomTag:'xRollcall'}));
         mob.triggered = true;
         enemies.push(mob);
         spawnApparition(p, {color:0x9ab0c0, vanishDist:200, maxOpacity:0.3, fadeIn:2.5, fadeOut:1.2});
@@ -2360,7 +2375,8 @@
     // 腰の舶刀
     const cutlass = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 0.22), trimMat);
     cutlass.position.set(0.7, 1.9, 0.5); cutlass.rotation.z = 0.5; g.add(cutlass);
-    return {body, parts:{lantern, lanternY:lantern.position.y, lanternDown, chainArm, sweep}};
+    const flair = dressCaptainFlair(g, cfg);   // 難破船の外套・肋材・海藻(ENEMY-VISUAL-001、16-foes-sea-clock.js)
+    return {body, parts:Object.assign({kind:'captain', lantern, lanternY:lantern.position.y, lanternDown, chainArm, sweep}, flair)};
   }
 
   /* =========================================================

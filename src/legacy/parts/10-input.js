@@ -59,6 +59,7 @@
     if(key === actionZoneLayoutKey) return;
     actionZoneLayoutKey = key;
     tc.classList.toggle('pc-indicators', az.layout === 'indicators');
+    document.body.classList.toggle('pc-indicators-on', az.layout === 'indicators');   // 入力の理由の通知の位置(UI-VISUAL-001。:has の無いブラウザでも効く)
     tc.classList.toggle('in-combat', az.indicatorsVisible);
     tc.classList.toggle('key-labels', az.keyLabels);
   }
@@ -232,6 +233,25 @@
     });
     document.querySelectorAll('#menu-overlay [data-menu-section]').forEach(sec=>{
       sec.hidden = sec.dataset.menuSection !== name;
+    });
+    if(name === 'log') renderNoticeHistory();
+  }
+  /* 「記録」タブ(UI-VISUAL-001): 上の帯とログに出た通知を新しい順に(noticeHistory、11-combat-actions.js)。
+     頭の上の行動の結果・入力の理由は一時的な物なので残さない(入力の理由は、背の低い画面で 1 行に収まらず切れた時だけ残す) */
+  function renderNoticeHistory(){
+    const box = document.getElementById('menu-notice-log');
+    if(!box) return;
+    box.textContent = '';
+    const rows = noticeHistory.concat(noticeLogHistory).sort((a, b)=> b.at - a.at);
+    if(!rows.length){
+      const e = document.createElement('div'); e.className = 'menu-notice-empty'; e.textContent = 'まだ記録はない';
+      box.appendChild(e); return;
+    }
+    rows.forEach(h=>{
+      const row = document.createElement('div');
+      row.className = 'menu-notice-row notice-' + h.kind;
+      row.textContent = h.text;
+      box.appendChild(row);
     });
   }
   document.querySelectorAll('#menu-overlay [data-menu-tab]').forEach(t=>{

@@ -204,8 +204,8 @@
       for(let k=0;k<c.ids.length;k++) if(vis.has(c.ids[k])){ on = true; break; }
       if(on !== c.on){ c.on = on; c.objs.forEach(o=> rcSetLayer(o, on)); }
     }
-    // 敵・宝箱・回復結晶: 中身を描かない建物の中にあるものは描かない(気づいている敵・近い敵は描く)
-    duskHideUnseen(chests, vis, false); duskHideUnseen(healingCrystals, vis, false); duskHideUnseen(enemies, vis, true);
+    // 敵・宝箱: 中身を描かない建物の中にあるものは描かない(気づいている敵・近い敵は描く)
+    duskHideUnseen(chests, vis, false); duskHideUnseen(enemies, vis, true);
   }
   function duskHideUnseen(list, vis, isEnemy){
     const x = state.pos.x, z = state.pos.z;

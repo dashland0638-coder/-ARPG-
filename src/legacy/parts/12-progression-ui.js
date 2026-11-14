@@ -665,7 +665,7 @@
     switch(def.hook){
       case 'onFinishHit':
         addUltGauge(def.value);
-        spawnToast(`${def.icon} ${def.name}!`);
+        spawnToast(`${def.icon} ${def.name}!`, null, 'feedback');
         break;
       case 'onFinishHit2':
         if(ctx.target && ctx.target.postureMax){
@@ -678,7 +678,7 @@
         break;
       case 'onKillBonus':
         grantGold(def.value);
-        spawnToast(`${def.icon} ${def.name}! 🪙+${def.value}`);
+        spawnToast(`${def.icon} ${def.name}! 🪙+${def.value}`, null, 'feedback');
         break;
       case 'onKillHeal':
       case 'onKnockdownHeal':
@@ -686,7 +686,7 @@
         break;
       case 'onUltCast':
         state.stamina = state.maxStamina;
-        spawnToast(`${def.icon} ${def.name}!`);
+        spawnToast(`${def.icon} ${def.name}!`, null, 'feedback');
         break;
     }
   }
@@ -940,7 +940,7 @@
       if(def.unlock==='skill1Alt') state.unlockedSkill1Alt = true;
       else if(def.unlock==='skill2Alt') state.unlockedSkill2Alt = true;
       else if(def.unlock==='ultAlt') state.unlockedUltAlt = true;
-      spawnToast(`${def.icon} 新しい技を習得した!`);
+      spawnToast(`${def.icon} 新しい技を習得した!`, null, 'system');
     } else {
       spawnLog(`${def.icon} スフィア「${def.name}」を解放!`);
     }
@@ -1091,21 +1091,21 @@
     if(choice==='skill'){
       if(learnBossSkill(bossKey)){
         const def = BOSS_SKILLS[bossKey];
-        spawnToast(`${def.icon} スキル「${def.name}」を習得!`);
+        spawnToast(`${def.icon} スキル「${def.name}」を習得!`, null, 'system');
         sfx('levelUp');
       }
     } else if(choice==='ability'){
       if(learnBossAbility(bossKey)){
         const def = BOSS_ABILITIES[bossKey];
         const equipped = (state.equippedBossAbilities||[]).includes(bossKey);
-        spawnToast(`${def.icon} アビリティ「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'));
+        spawnToast(`${def.icon} アビリティ「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'), null, 'system');
         sfx('levelUp');
       }
     } else if(choice==='activeSkill'){
       if(learnBossActiveSkill(bossKey)){
         const def = BOSS_ACTIVE_SKILLS[bossKey];
         const equipped = state.equippedBossActiveSkill===bossKey;
-        spawnToast(`${def.icon} 【スキル3】「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'));
+        spawnToast(`${def.icon} 【スキル3】「${def.name}」を習得!` + (equipped ? '' : '(鑑定所で装着できます)'), null, 'system');
         sfx('levelUp');
       }
     } else {
@@ -1682,8 +1682,8 @@
   function refreshScenarioTimerHUD(){
     const el = document.getElementById('scenario-timer');
     if(!el) return;
-    if(state.scenarioTimeLeft == null){ el.style.display = 'none'; return; }
-    el.style.display = 'block';
+    if(state.scenarioTimeLeft == null){ if(el.style.display !== 'none'){ el.style.display = 'none'; noticeHudChanged(); } return; }
+    if(el.style.display !== 'block'){ el.style.display = 'block'; noticeHudChanged(); }   // 上の帯の通知は制限時間の下へ(UI-VISUAL-001)
     el.textContent = `⏱️ ${formatTimeLimit(state.scenarioTimeLeft)}`;
     el.classList.toggle('timer-urgent', state.scenarioTimeLeft <= 30);
   }
@@ -1744,7 +1744,6 @@
     buildWorld(key); // tears down the tavern (or previous world) and builds this one fresh
     state.sortied = true;
     state.sortieKills = 0;   // 中途撤退ボーナスの計算に使う(このダンジョンでの撃破数)
-    state.checkpointUsed = false;   // 階層間休憩ポイントは1回の出撃につき1回だけ回復する
     timeLimitWarned60 = false; timeLimitWarned10 = false;
     state.scenarioTimeLimit = scenarioTimeLimitFor(key);
     state.scenarioTimeLeft = state.scenarioTimeLimit;
@@ -2067,7 +2066,7 @@
     // 自体をここで作り直す
     swapPlayerWeaponVisual();
     applyJobPromotionVisual();
-    spawnToast(`✨ ${uj.name}へ転身した! ――${uj.flavor}`);
+    spawnToast(`✨ ${uj.name}へ転身した! ――${uj.flavor}`, null, 'system');
     sfx('levelUp');
   }
 
@@ -2424,7 +2423,7 @@
     state.skill2CD = 0;               // 閃いた直後にすぐ試せる
     sfx('levelUp');
     spawnToast(def ? `✴️ 閃いた ―― ${def.icon} ${def.name}(自動で装備した)`
-                   : '✴️ 新しい戦い方を閃いた');
+                   : '✴️ 新しい戦い方を閃いた', null, 'system');
     // ボタンをその場で出す(updateCooldownRings が .locked を外す)
     const icon = document.getElementById('btn-skill2-icon');
     if(icon && def) setGlyphOrText(icon, currentSwordsmanGlyphIds().skill2, def.icon);
@@ -3222,9 +3221,8 @@
      探索中は可、戦闘体勢・会話・演出・ボス戦中は不可。判定そのものは
      core/chapter1-skills.js にあり、ここは state を詰めて渡すだけ。
 
-     この画面は酒場の鍛冶士の前に加えて、ダンジョン中のチェックポイント
-     (洋館の大広間、02-world-common.js の useCheckpoint)からも開くので、
-     「戦闘中は組み替えられない」は実際に効く。戦闘体勢の判定は
+     この画面は酒場の鍛冶士の前で開く(以前は洋館の大広間の休憩ポイントからも開いた。
+     ENEMY-VISUAL-002 で撤去)。「戦闘中は組み替えられない」は念のための守り。戦闘体勢の判定は
      state.combatStanceT(core/combat-stance.js)をそのまま使っていて、
      新しい戦闘状態フラグは足していない。 */
   function loadoutLockState(){

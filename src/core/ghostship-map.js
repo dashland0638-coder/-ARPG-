@@ -351,7 +351,7 @@ export const GS_CHAIN = {
   ],
 };
 
-/* ---- 宝箱・ミミック・回復結晶 ---- */
+/* ---- 宝箱・ミミック ---- */
 export const GS_CHESTS = [
   {room:'gsHold',  x:-35.4, z:132.4, kind:'supply'},   // 船倉の物資置き場(往路)
   {room:'gsNav',   x:-22.4, z:82},                     // 航海士の私室(往路の寄り道)
@@ -360,9 +360,6 @@ export const GS_CHESTS = [
 ];
 export const GS_MIMICS = [
   {room:'xHold', x:-13.6, z:118},                      // 船倉……? の木箱の山。積み上がった箱の一つは本物ではない
-];
-export const GS_HEALING = [
-  {room:'xCabin', x:-12, z:188},                       // 船長室……?(ボスの二つ手前)
 ];
 
 /* ---- 照明の段階 ---- */

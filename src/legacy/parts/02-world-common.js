@@ -10,7 +10,6 @@
   let hemiLight = null, rimLight = null;
   let enemies = [];
   let chests = [];
-  let healingCrystals = [];
   let anomalyRifts = [];        // メインダンジョン内に浮かぶ、入ると異空間へ転送する裂け目
   let inAnomalyRoom = false;
   let anomalyReturnPos = null;
@@ -349,11 +348,11 @@
     resetGhostShipSortieState();   // 幽霊船の出撃中の参照を手放す(GHOSTSHIP-REBUILD-002)
     /* この世界のためだけに建てたものを控えておく。どれもこの関数の中で
        シーンから外れるので、最後にまとめてGPUバッファを返しにいく
-       (敵・宝箱・回復結晶・足場・鍵も、世界ごとに作り直される) */
+       (敵・宝箱・足場・鍵も、世界ごとに作り直される) */
     const disposedRoots = batchRoots.concat(
       currentWorldObjects,
       enemies.map(e=>e.group), chests.map(c=>c.group),
-      healingCrystals.map(h=>h.group), platforms.map(p=>p.mesh),
+      platforms.map(p=>p.mesh),
       keyPickups.map(k=>k.group)).filter(Boolean);
     batchRoots.forEach(m=> scene.remove(m));
     currentWorldObjects.forEach(o=>scene.remove(o));
@@ -369,13 +368,11 @@
     clearApparitions();
     clearPreJoinFigures();   // 加入前の人物の遅れる影(14-dungeon-road.js)
     stallTriggers = [];
-    checkpointTriggers = []; nearbyCheckpoint = null;
     enemies.forEach(en=>{ if(en.shockRing) scene.remove(en.shockRing); if(en.chargeLane) scene.remove(en.chargeLane); if(en.meleeTelegraphMesh) scene.remove(en.meleeTelegraphMesh); scene.remove(en.group); });
+    clearFoeFx();         // 幽霊船・時計塔の敵の床の輪・残像(ENEMY-VISUAL-001)。敵の表を空にする前に(残像は敵ごとに持つ)
     enemies = [];
     chests.forEach(c=>{ if(c.group) scene.remove(c.group); });
     chests = [];
-    healingCrystals.forEach(h=>{ if(h.group) scene.remove(h.group); });
-    healingCrystals = [];
     // 異空間の裂け目/部屋: enemies配列の一括クリア(上)で中の雑魚は既に
     // 取り除かれているので、ここでは部屋自体の見た目とマップ上の裂け目
     // だけ後始末すればいい。walls配列自体は下でまとめてリセットされる
@@ -429,6 +426,7 @@
     clearMobBars(); clearSparks(); clearSwingVFX(); clearMagicCircleVFX();
     bossBarChip = 100;
     document.getElementById('boss-bar-wrap').classList.remove('show');
+    noticeHudChanged();   // 上の帯の通知をボスバーの下から戻す(UI-VISUAL-001)
     nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false;
     mansionRoof = null; restroomRoof = null; platform = null;
     mansionOutdoor = null; mansionOutdoorHidden = false; mansionIslands = [];
@@ -458,7 +456,6 @@
       if(!shadowOn) applyShadowSetting();   // new meshes default to casting
       spawnEnemiesForWorld(key);
       spawnChestsForWorld(key);
-      spawnHealingCrystalsForWorld(key);
       spawnAnomalyRiftForWorld(key);
       playBgm(key, bgmVariantForWorld(key));   // procedural music if this world has no track registered (asset-manifest.js)
       combatIntensity = 0; setBgmIntensity(0);   // fresh room, not still "loud" from the last one
@@ -567,7 +564,7 @@
        scene.remove  : visible=false と同じ扱い
      つまり visible/remove は本当にライト数を減らせる代わりに、
      ライト数が変わるたびに全マテリアルのシェーダを作り直す
-     (回復結晶の「数秒固まる」と同じ現象)。区画を移るたびにこれを
+     (点光源の数が変わると全マテリアルのシェーダーが組み直され、数秒固まる)。区画を移るたびにこれを
      起こしては本末転倒になる。
 
      そこで lightPool と同じ作法を採る: 1区画に必要な最大数ぶんだけ
@@ -1180,7 +1177,7 @@
   // 一時的にworldBoundsをこの隔離エリアを覆う矩形に差し替え、退出時に
   // 元のダンジョンの範囲へ戻す
   let anomalySavedWorldBounds;
-  // 各ダンジョンの、歩けることが分かっている場所(宝箱や回復結晶と同じ
+  // 各ダンジョンの、歩けることが分かっている場所(宝箱と同じ
   // 発想で、既存の確定枠でない宝箱の近くを選んである)
   const ANOMALY_RIFT_SPOTS = {
     mansion:       new THREE.Vector3(-25.5, 0, -61.5),    // mansion 食堂 (chest -27,0,-63 の隣)
@@ -2562,8 +2559,8 @@
       for(let j=0;j<c.ids.length;j++) if(vis.has(c.ids[j])){ on = true; break; }
       if(on !== c.on){ c.on = on; c.objs.forEach(o=> rcSetLayer(o, on)); }
     }
-    // 宝箱・回復結晶・敵も、見えていない部屋のものは描かない(気づいている敵・近い敵は描く)
-    rcHideUnseen(rc, chests, vis, false); rcHideUnseen(rc, healingCrystals, vis, false); rcHideUnseen(rc, enemies, vis, true);
+    // 宝箱・敵も、見えていない部屋のものは描かない(気づいている敵・近い敵は描く)
+    rcHideUnseen(rc, chests, vis, false); rcHideUnseen(rc, enemies, vis, true);
   }
   function rcHideUnseen(rc, list, vis, isEnemy){
     for(let i=0;i<list.length;i++){
@@ -2606,45 +2603,6 @@
     }
     nearbyStallTrigger = nearby;
     updateInteractPrompt();
-  }
-
-  /* ---- 階層間の休憩ポイント(チェックポイント) ----
-     ARPG開発アイデアまとめ 10番「階層間回復・階層間装備整理」。
-     ダンジョン中の要所(今のところ洋館の大広間)に置き、初回到達時だけ
-     体力・MPを部分回復し、鍛冶士画面(鑑定所)をその場で開けるようにする。
-     全回復にしない・毎回使えるわけではない、という制限で「もう少し
-     踏み込む前の一息」程度の緊張感を保っている。 */
-  let checkpointTriggers = [];
-  let nearbyCheckpoint = null;
-  function registerCheckpoint(pos){
-    checkpointTriggers.push({pos:pos.clone(), radius:3});
-  }
-  function updateCheckpointProximity(){
-    if(!checkpointTriggers.length){ nearbyCheckpoint = null; return; }
-    let nearby = null;
-    // 施設(鑑定所)が無い間は、休憩を済ませたチェックポイントにすることが無い(PROGRESSION-004)
-    if(!nearbyDoor && !nearbyStairs && !(state.checkpointUsed && !smithFacilityAvailable(state))){
-      checkpointTriggers.forEach(c=>{
-        if(state.pos.distanceTo(c.pos) < c.radius) nearby = c;
-      });
-    }
-    nearbyCheckpoint = nearby;
-    updateInteractPrompt();
-  }
-  const CHECKPOINT_HEAL_FRAC = 0.5;   // 不足分の50%だけ回復する(全回復にはしない)
-  function useCheckpoint(){
-    if(!nearbyCheckpoint) return;
-    if(!state.checkpointUsed){
-      state.checkpointUsed = true;
-      const hpGain = Math.round((state.maxHp - state.hp) * CHECKPOINT_HEAL_FRAC);
-      const mpGain = Math.round((state.maxMp - state.mp) * CHECKPOINT_HEAL_FRAC);
-      state.hp = Math.min(state.maxHp, state.hp + hpGain);
-      state.mp = Math.min(state.maxMp, state.mp + mpGain);
-      if(hpGain>0 || mpGain>0) spawnLog('🏕️ 一息ついた。HP/MPが少し回復した');
-      sfx('levelUp');
-    }
-    // 鑑定所(装備・スキル・ショップ)をその場で開く。鍛冶士の加入前は施設が無いので回復だけ
-    if(smithFacilityAvailable(state)) setOverlay('appraisal');
   }
 
   function updateBartenderProximity(){
@@ -2711,7 +2669,7 @@
   // single interact prompt shared by doors, staircases and lore notes: shows
   // a plain message, not a flashy call-to-action button
   function updateInteractPrompt(){
-    const target = nearbyShadowGuide || nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith || nearbyCheckpoint;
+    const target = nearbyShadowGuide || nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith;
     const el = document.getElementById('interact-btn');
     if(!el) return;
     el.classList.toggle('show', !!target && !state.paused && !state.dialogueActive);
@@ -2747,8 +2705,6 @@
     else if(nearbySmith) el.textContent = state.smithJoined
       ? (legacyGrowth() ? '🔨 鍛冶士と話す(鑑定・強化)' : '🔨 鍛冶士と話す(装備の管理)')
       : '🧰 仮設の作業台(鑑定・強化)';
-    else if(nearbyCheckpoint) el.textContent = state.checkpointUsed ? '🏕️ 休憩ポイント(装備を整える)'
-      : (smithFacilityAvailable(state) ? '🏕️ 休憩する(回復+装備整理)' : '🏕️ 休憩する(回復)');
   }
 
   /* インタラクトの対象のワールド座標(UI-002-D WI-D6: 表示を対象の上に出すため)。
@@ -2760,7 +2716,6 @@
     if(obj && obj.pos) return obj.pos;
     if(nearbyBartender) return BARTENDER_POS;
     if(nearbySmith) return SMITH_POS;
-    if(nearbyCheckpoint && nearbyCheckpoint.pos) return nearbyCheckpoint.pos;
     return null;
   }
 
@@ -2778,7 +2733,6 @@
     else if(nearbyStallTrigger){ triggerStallSleep(); }
     else if(nearbyBartender){ toggleScenarioSelect(); }   // 鍛冶士の再会を待つ間の止め方は toggleScenarioSelect の中(CAMERA-001)
     else if(nearbySmith){ toggleAppraisal(); }
-    else if(nearbyCheckpoint){ useCheckpoint(); }
   }
 
   // wraps any instant relocation in a short fade so the cut isn't jarring
@@ -2826,18 +2780,18 @@
     // ルート分岐: 同じ分岐グループの別の道を既に選んでいれば、この階段は塞がれている
     if(s.routeNode && !routeCanEnter(s.routeNode)){
       const def = routeNodeDef(s.routeNode);
-      spawnToast((def && def.lockedMsg) || '🔒 こちらの道は、もう選べないようだ……');
+      spawnToast((def && def.lockedMsg) || '🔒 こちらの道は、もう選べないようだ……', null, 'deny');
       return;
     }
     stairAutoArmed = false;   // 手動で移動した先で、いきなりautoが噛まないように
     /* 塞がっている通路(gateMsg)。調べると理由の一文だけを出す */
-    if(s.gateKey && s.gateMsg && !isGateEnemyDead(s.gateKey)){ sfx('deny'); spawnToast(s.gateMsg); return; }
+    if(s.gateKey && s.gateMsg && !isGateEnemyDead(s.gateKey)){ sfx('deny'); spawnToast(s.gateMsg, null, 'deny'); return; }
     /* 行き先がその時々で変わる通路(幽霊船: 帰還不能の後は船の奥へ繋がる)。
        resolve() は {blocked:'一文'} か {targetPos, label, arriveFace, onArrive} か {run:fn} を返す */
     if(s.resolve){
       const r = s.resolve(s);
       if(!r) return;
-      if(r.blocked){ sfx('deny'); spawnToast(r.blocked); return; }
+      if(r.blocked){ sfx('deny'); spawnToast(r.blocked, null, 'deny'); return; }
       if(r.run){ r.run(); return; }
       s.targetPos.copy(r.targetPos);
       s.label = r.label || s.label;

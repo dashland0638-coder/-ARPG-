@@ -220,7 +220,9 @@ test('寄り道: 本筋から外れた行き止まりで、宝箱か手記があ
   assert.deepEqual(MANSION_CHESTS.filter(c => inRoom(c, 'bChapel')).map(c => c.kind), ['armoury']);
   assert.equal(MANSION_CHESTS.filter(c => inRoom(c, 'bStore')).length, 0);
   const kinds = MANSION_CHESTS.reduce((m, c) => (m[c.kind] = (m[c.kind] || 0) + 1, m), {});
-  assert.deepEqual(kinds, { common: 6, supply: 2, armoury: 1 });
+  // ENEMY-VISUAL-002: 回復結晶 3 つと回復の姿見を撤去した分、食堂と使用人区画の宝箱を supply へ(新しい回復の置物は置かない)
+  assert.deepEqual(kinds, { common: 4, supply: 4, armoury: 1 });
+  assert.deepEqual(MANSION_CHESTS.filter(c => inRoom(c, 'mDining')).map(c => c.kind), ['supply']);
   // 書庫の手記が、地下の酒蔵と礼拝室を予告する
   const archive = fn(src, 'function buildManorArchive(');
   assert.match(archive, /地下の酒蔵と礼拝室/);

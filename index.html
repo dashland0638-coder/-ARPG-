@@ -261,6 +261,7 @@
         <button type="button" class="menu-tab active" data-menu-tab="adventure" role="tab">冒険</button>
         <button type="button" class="menu-tab" data-menu-tab="settings" role="tab">設定</button>
         <button type="button" class="menu-tab" data-menu-tab="controls" role="tab">操作</button>
+        <button type="button" class="menu-tab" data-menu-tab="log" role="tab">記録</button>
       </div>
     </div>
     <div class="menu-section menu-adventure" data-menu-section="adventure">
@@ -339,6 +340,10 @@
           <button type="button" class="menu-setting-btn" id="set-camheight">標準</button>
         </div>
       </div>
+    </div>
+    <!-- UI-VISUAL-001: 消えた通知(上の帯・ログ)を後から読む。新しい順 -->
+    <div class="menu-section" data-menu-section="log" hidden>
+      <div class="menu-notice-log" id="menu-notice-log"></div>
     </div>
     <div class="menu-section" data-menu-section="controls" hidden>
       <div class="menu-controls">

@@ -39,6 +39,7 @@ import { initAudio, resumeAudio, setSfxVolume, sfx, ambient, setBgmVolume, setBg
 import { tavernBgmStage, TAVERN_BGM_STAGES } from '../core/tavern-bgm.js';
 import { groupsFromGraph, allCombos, comboKey, comboKeyFromPath, comboProgress, suggestUnseenCombo } from '../core/route-combos.js';
 import { applyIncomingDamage, applyOutgoingDamage } from '../core/damage-math.js';
+import { NOTICE_KINDS, NOTICE_TOP_MAX, NOTICE_QUEUE_MAX, NOTICE_QUEUE_STALE_MS, NOTICE_REPEAT_MS, NOTICE_HISTORY_MAX, NOTICE_LOG_HISTORY_MAX, noticeRepeatSuppressed, classifyNotice, noticeSpec, noticeAdmit, noticeOrder } from '../core/notice-rules.js';   // 通知の分類・優先度(UI-VISUAL-001)
 import { pickWeighted, equipmentStatBonus, equipmentSellPrice } from '../core/loot-math.js';
 import { timeLimitForStars } from '../core/scenario-timer.js';
 import { groupMansionLamps, pickMansionLampZone } from '../core/mansion-lamp-zones.js';
@@ -157,7 +158,7 @@ import {
 import {
   GS_ENTRY, GS_ROOMS, gsRoomById, gsRoomAt, GS_ARRIVALS, GS_PASSAGES, GS_ANCHOR_DOOR, gsPassageById, gsPassageState,
   GS_DECKS, gsCopyOffset, GS_DOORS, GS_GATES, gsRoomLabel, GS_MESS_TABLE, gsRoomPresent, gsOpening,
-  GS_PLATES_BEFORE, GS_PLATES_AFTER, gsRollcallTags, gsPlateSeat, GS_MARKS, GS_CHAIN, gsLightFor, gsAmbienceZoneFor, GS_CHESTS, GS_MIMICS, GS_HEALING,
+  GS_PLATES_BEFORE, GS_PLATES_AFTER, gsRollcallTags, gsPlateSeat, GS_MARKS, GS_CHAIN, gsLightFor, gsAmbienceZoneFor, GS_CHESTS, GS_MIMICS,
 } from '../core/ghostship-map.js';
 import {
   captainPhaseFor, CAPTAIN_SHIFT_SEC, CAPTAIN_BREATH_SEC, CAPTAIN_ATTACKS, captainAttackPlan, captainAttackCooldown,
@@ -279,6 +280,10 @@ import {
   lordPhaseFor, lordShouldShiftPhase, lordAttackChoice, lordAttackPlan,
   lordAttackCooldown, lordShadowTarget, lordShadowCreep,
 } from '../core/mansion-enemies.js';
+/* 幽霊船・時計塔の敵(ENEMY-VISUAL-001)。近接の器へ登録し、固有の AI(異形・残響)の数値を持つ */
+import {
+  ABYSS, ABYSS_MUTANT, abyssSpikeTargets, TIME_ECHO, TIME_ECHO_TWIN, FOE_SPECS,
+} from '../core/sea-clock-foes.js';
 import { UI_GLYPH_VIEWBOX, uiGlyph, resolveSwordsmanGlyphIds } from '../core/ui-icons.js';
 import {
   legacyHudVisible, skill2ButtonVisible, skill3ButtonVisible, minimapPanelVisible,

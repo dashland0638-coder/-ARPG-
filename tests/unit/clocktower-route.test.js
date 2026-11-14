@@ -224,7 +224,7 @@ test('敵: 少数精鋭(8〜12)。どれも自分の層の床の上で、坂の�
   // T2 の撃ち手は縦穴の向こう岸(歩いて行けない回廊)
   const gal = ENEMIES.filter(e => e.y === 16);
   assert.equal(gal.length, 2);
-  for (const e of gal) assert.ok(e.z < SHAFT.z0 && /atkType:'fire'/.test(e.v));
+  for (const e of gal) assert.ok(e.z < SHAFT.z0 && /foe:'gearGunner'/.test(e.v), '機兵の射手(遠距離。ENEMY-VISUAL-001)');
   assert.match(combat, /if\(en\.basePos && Math\.abs\(en\.basePos\.y - 16\) < 0\.5 && en\.basePos\.z < 34\) en\.towerGallery = true;/);
 });
 
@@ -243,14 +243,13 @@ test('ボスは大時計の裏側(床の文字盤の真ん中)、数値は以前
   assert.match(tower, /buildStairs\(new THREE\.Vector3\(-270, y5, 24\.5\), new THREE\.Vector3\(-262, 52, 48\), '見晴台へ出る', 0x4a4238, 'up', 'towerWarden'\);/, '屋上への口はボスを倒すまで閉じている');
 });
 
-test('宝箱・回復結晶・検証地点は、その層の床の上', () => {
+test('宝箱・検証地点は、その層の床の上(回復結晶は ENEMY-VISUAL-002 で全廃)', () => {
   const a = loot.indexOf("'armoury'],          // clocktower T0");
   const chestBlock = loot.slice(a - 40, loot.indexOf("...(scenarioStars('clocktower')", a));
   const chests = [...chestBlock.matchAll(/new THREE\.Vector3\((-?[\d.]+),(\d+),(-?[\d.]+)\)/g)].map(m => ({ x: +m[1], y: +m[2], z: +m[3] }));
   assert.equal(chests.length, 4);
   for (const c of chests) assert.ok(onSlab(c.x, c.z, c.y), `宝箱 (${c.x},${c.y},${c.z})`);
-  const crystal = loot.match(/new THREE\.Vector3\((-?[\d.]+),(\d+),(-?[\d.]+)\),\s*\/\/ clocktower/);
-  assert.ok(onSlab(+crystal[1], +crystal[3], +crystal[2]), '回復結晶');
+  assert.doesNotMatch(loot, /HealingCrystal|healingCrystals/, '回復結晶は無い');
   for (const wp of SCENARIO_WAYPOINTS.clocktower) assert.ok(onSlab(wp.x, wp.z, wp.y || 0), wp.id);
   assert.equal(SCENARIO_WAYPOINTS.clocktower.find(w => w.kind === 'boss-pre').y, 44);
 });

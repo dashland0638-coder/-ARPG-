@@ -270,21 +270,22 @@
       {pos:new THREE.Vector3(90,0,-124), variant:{color:0xc9a44a, hp:130, atk:27, speed:2.5, atkType:'charge', xp:46, goldBonus:[14,20]}},
       /* --- the clocktower (CLOCKTOWER-002 で作り直し): 中央の縦穴を登る塔。少数精鋭 ---
          どの戦いも足場の形に合わせる。坂の上り口・下り口、昇降の乗り口から 8 以上離す(着いた瞬間にぶつからない)。
-         数値の幅は以前の塔と同じ(下の層ほど弱い)。敵は自分の層から出ない(07 の keepEnemyOnFloor) */
-      // T1 時計工房(西半分): 最初の戦い。作業場の突進と、灯りの作業台の跳躍(作業台の間を跳ぶ絡繰り兵)
-      {pos:new THREE.Vector3(-268,8,29), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'charge', xp:58, goldBonus:[17,25]}},
-      {pos:new THREE.Vector3(-271,8,49), variant:{color:0x8a7a4a, hp:132, atk:28, speed:2.6, atkType:'jumper', xp:58, goldBonus:[17,25]}},
-      // T2 縦穴の向こう岸の回廊: 撃ち手二体(歩いては行けない。弓師が縦穴越しに射抜く ―― 盗賊の閃き)
-      {pos:new THREE.Vector3(-270,16,32), variant:{color:0x6a8a9a, hp:96, atk:24, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
-      {pos:new THREE.Vector3(-254,16,32), variant:{color:0x6a8a9a, hp:96, atk:24, speed:1.0, atkType:'fire', xp:58, goldBonus:[17,25], projColor:16765562}},
-      // T3 縦穴の上: 東の帯に強モブ(閃いた三連投げナイフをすぐ試せる)、住まいの突進
-      {pos:new THREE.Vector3(-250,26,40), variant:{color:0x9a5a3a, hp:240, atk:36, speed:2.4, atkType:'charge', xp:110, goldBonus:[30,44], strongMob:true, guardian:true,
+         数値の幅は以前の塔と同じ(下の層ほど弱い)。敵は自分の層から出ない(07 の keepEnemyOnFloor)。
+         見た目と戦い方は ENEMY-VISUAL-001(16-foes-sea-clock.js の foeVariant。数値はこの表のまま) */
+      // T1 時計工房(西半分): 最初の戦い。歯車機兵(溜めて叩く)と、時間の残響(残像を残して横から斬る)
+      {pos:new THREE.Vector3(-268,8,29), variant:{foe:'gearSoldier', hp:132, atk:28, xp:58, goldBonus:[17,25]}},
+      {pos:new THREE.Vector3(-271,8,49), variant:{foe:'timeEcho', hp:132, atk:28, xp:58, goldBonus:[17,25]}},
+      // T2 縦穴の向こう岸の回廊: 機兵の射手二体(歩いては行けない。弓師が縦穴越しに射抜く ―― 盗賊の閃き)
+      {pos:new THREE.Vector3(-270,16,32), variant:{foe:'gearGunner', hp:96, atk:24, xp:58, goldBonus:[17,25]}},
+      {pos:new THREE.Vector3(-254,16,32), variant:{foe:'gearGunner', hp:96, atk:24, xp:58, goldBonus:[17,25]}},
+      // T3 縦穴の上: 東の帯に強化種の番人(閃いた三連投げナイフをすぐ試せる。正面は硬い)、住まいに変異の回転機兵
+      {pos:new THREE.Vector3(-250,26,40), variant:{foe:'clockGuardian', hp:240, atk:36, xp:110, goldBonus:[30,44], strongMob:true, guardian:true,
         midbossName:'止まった番人', midbossFlavor:'止まっていた歯車が、最後に一度だけ回って砕けた。'}},
-      {pos:new THREE.Vector3(-266,26,53), variant:{color:0x8a7a4a, hp:145, atk:30, speed:2.7, atkType:'charge', xp:64, goldBonus:[19,28]}},
-      // T4 鐘楼: 残響の影二体(鐘の振動ですくむ)と撃ち手
-      {pos:new THREE.Vector3(-270,34,27), variant:{color:0x5a5a72, hp:152, atk:32, speed:1.9, atkType:'ghost', xp:68, goldBonus:[20,30]}},
-      {pos:new THREE.Vector3(-258,34,27), variant:{color:0x5a5a72, hp:152, atk:32, speed:1.9, atkType:'ghost', xp:68, goldBonus:[20,30]}},
-      {pos:new THREE.Vector3(-250,34,44), variant:{color:0x6a8a9a, hp:138, atk:35, speed:1.1, atkType:'fire', xp:68, goldBonus:[20,30], projColor:16765562}},
+      {pos:new THREE.Vector3(-266,26,53), variant:{foe:'gearSprinter', hp:145, atk:30, xp:64, goldBonus:[19,28]}},
+      // T4 鐘楼: 分身する残響(変異)と時間の残響(鐘の振動ですくむ)、機兵の射手
+      {pos:new THREE.Vector3(-270,34,27), variant:{foe:'echoTwin', hp:152, atk:32, xp:68, goldBonus:[20,30]}},
+      {pos:new THREE.Vector3(-258,34,27), variant:{foe:'timeEcho', hp:152, atk:32, xp:68, goldBonus:[20,30]}},
+      {pos:new THREE.Vector3(-250,34,44), variant:{foe:'gearGunner', hp:138, atk:35, xp:68, goldBonus:[20,30]}},
       // --- the glass conservatory (Lv.22-28) ---
       {pos:new THREE.Vector3(196,0,-46), variant:{color:0x4f7a3a, hp:270, atk:46, speed:2.6, atkType:'charge', xp:118, goldBonus:[26,40]}},
       {pos:new THREE.Vector3(212,0,-40), variant:{color:0x6f9c4a, hp:240, atk:48, speed:0.9, atkType:'fire', xp:118, goldBonus:[26,40], projColor:11075418}},
@@ -326,7 +327,7 @@
     const gsCh1 = _spawnWorldKey === 'ghostship' && gsActive;
     if(gsCh1) gsSpawnCaptain();
     spots.filter(s=>worldKeyForPos(s.pos)===_spawnWorldKey && !gsCh1)
-         .forEach(s=> enemies.push(buildEnemy(s.pos, s.variant)));
+         .forEach(s=> enemies.push(buildEnemy(s.pos, s.variant.foe ? foeVariant(s.variant.foe, s.variant) : s.variant)));
     // 時計塔 T2 の向こう岸の撃ち手(盗賊の閃きの条件。03 の towerGalleryCleared)。
     // 撃ち手の身体の点光源(飾り)は外す: 塔は点光源を 6 個に固定して使い回す(CLOCKTOWER-002 の FPS 対策)。
     // 光源の数が変わるとシェーダーが作り直され、数が多いほど全ての床の画素が重くなる。色は発光で残る
@@ -877,6 +878,7 @@
           en.stunT = 0;   // 大怯みの硬直(core/enemy-tier.js)も持ち越さない
           en.guardHoldT = 0; en.guardBreakCD = 0; en.guardBreak = false;   // 守護型のガードブレイクも仕切り直す
           if(en.servantState) servantEnterIdle(en);   // 使用人の攻撃相も持ち越さない
+          if(en.mob && en.mob.foeKind) foeResetOnRespawn(en);   // 幽霊船・時計塔の敵の固有の AI(異形・残響)と床の輪も(ENEMY-VISUAL-001)
           en.shotRootT = 0;                            // 侍女の撃ち終わりの足止めも
           if(en.fisherMelee) en.fisherMelee = createFisherMelee();   // 記憶漁師の近接の溜め・待ち時間・停止も(W2-MB1)
           // 執事のフェーズと影移動も仕切り直す(HPが満タンに戻るので Phase 1 から)
@@ -1080,6 +1082,8 @@
       else if(en.atkType==='copy')  updateCopyShadeAI(en, dt);
       else if(en.atkType==='fisher') updateFisherAI(en, dt);
       else if(en.atkType==='keeper') updateKeeperAI(en, dt);
+      else if(en.atkType==='abyss')  updateAbyssAI(en, dt);      // 深海の異形(ENEMY-VISUAL-001、16-foes-sea-clock.js)
+      else if(en.atkType==='echo')   updateTimeEchoAI(en, dt);   // 時間の残響(同上)
       else if(en.arenaFixedFacing)   { /* Arena の Dummy: 向きを変えない(HE-TF-01) */ }
       else                           updateWanderAI(en, dt);
       if(en.mimicVisual) updateMimicVisual(en, dt);
@@ -1150,7 +1154,7 @@
     en.group.position.y = (M.baseY !== undefined ? M.baseY : en.group.position.y) + f * 0.05;
 
     if(M.neck){
-      M.neck.rotation.x = (M.baseNeckX || 0) + sz * f * 0.55;   // head snaps opposite the body
+      M.neck.rotation.x = (M.neckBaseOffset || 0) + (M.baseNeckX || 0) + sz * f * 0.55;   // head snaps opposite the body(neckBaseOffset: 胴が前へ倒れた敵の頭の向き。ENEMY-VISUAL-002)
       M.neck.rotation.y = (M.neckYaw || 0) - sx * f * 0.45;
     }
     // legs buckle: the pair on the struck side folds, the other braces
@@ -1267,9 +1271,11 @@
     if(M.villageKind) updateVillageMobExtras(en, M, t, sw, moving, dt);
     // 第一章の幽霊船の乗組員の残影(GHOSTSHIP-REBUILD-002)。腕の姿勢だけ
     if(M.shipRole) updateShipCrewExtras(en, M, t, sw, moving, dt);
+    if(M.foeKind) updateFoeExtras(en, M, t, sw, moving, dt);   // 幽霊船・時計塔の敵(ENEMY-VISUAL-001)
 
     // the flinch is layered on last, over whatever the mob was doing
     applyMobFlinch(en, dt, M);
+    if(M.foeKind){ applyFoeLean(en, M); foeLevelFloorParts(en, M); }   // 幽霊船・時計塔の敵の前のめり・よろめき(怯みの後に足す)。床に置く物は平らに戻す
   }
 
 
@@ -1347,7 +1353,7 @@
   const MANSION_MELEE_TELEGRAPH_WIDTH = 0.14;   // 弧の太さ(見た目だけ。判定には使わない)
   function updateMansionMeleeTelegraph(en, M){
     const kind = en.meleeKind || 'servant';
-    const shape = (MANSION_MELEE_TELEGRAPH_KINDS[M.mansionKind] && !en.dead &&
+    const shape = ((MANSION_MELEE_TELEGRAPH_KINDS[M.mansionKind] || M.foeTelegraph) && !en.dead &&
                    isProfileMeleeWindup(en) && en.visLevel === 'visible' && en.servantFacing)
       ? meleeTelegraphShape(kind, en.servantAttack, en.butlerPhase || 1) : null;
     let m = en.meleeTelegraphMesh;
@@ -2166,6 +2172,7 @@
     en.guardBreak = false;
     // 影移動の途中で崩された/湧き直した場合に、透けたまま残らないようにする
     if(en.butlerFaded){ setEnemyOpacity(en, 1); en.butlerFaded = false; }
+    en.servantChainHeavy = false;
   }
 
   /* core/guardian-break.js は突進AIの語彙(idle/telegraph/dash/cooldown)で
@@ -2278,11 +2285,18 @@
     if(en.servantState === 'strike'){
       en.servantT -= dt;
       const plan = meleeAttackPlan(kind, en.servantAttack, phase);
+      /* 踏み込み(ENEMY-VISUAL-001 の lunge): 振り抜く間に向きの方へ詰める。判定は踏み込んだ先から測る */
+      if(plan.lunge){
+        en.group.position.addScaledVector(en.servantFacing, plan.lunge / Math.max(0.05, plan.active) * dt);
+        resolveWallCollisions(en.group.position);
+        toPlayer.subVectors(state.pos, en.group.position); toPlayer.y = 0;
+      }
+      const sDist = plan.lunge ? toPlayer.length() : dist;
       if(!en.servantHit){
         const facing = Math.atan2(en.servantFacing.x, en.servantFacing.z);
         const bearing = Math.atan2(toPlayer.x, toPlayer.z);
         const inArc = Math.abs(angleDiff(facing, bearing)) <= plan.halfAngle;
-        if(dist <= plan.reach && inArc && state.paralyzeInvulnT <= 0){
+        if(sDist <= plan.reach && inArc && state.paralyzeInvulnT <= 0){
           en.servantHit = true;
           if(state.invulnerable){
             tryPerfectDodge(en);
@@ -2300,6 +2314,19 @@
           }
         }
       }
+      /* 連撃(followUp): 振り抜いた後、すぐ次の攻撃の予兆へ。向きは今のプレイヤーへ取り直す(予兆は必ず見せる) */
+      if(en.servantT <= 0 && plan.followUp && !en.guardBreak){
+        // 連撃の起点が heavy なら、連撃の終わりで heavy のクールダウンを掛ける(下の recover)
+        if(plan.key === prof.heavy) en.servantChainHeavy = true;
+        const next = meleeAttackPlan(kind, plan.followUp, phase);
+        en.servantState = 'windup';
+        en.servantAttack = plan.followUp;
+        en.servantT = next.telegraph;
+        en.servantRecoverOverride = 0;
+        en.servantFacing.copy(toPlayer); en.servantFacing.y = 0;
+        if(en.servantFacing.lengthSq() > 0.0001) en.servantFacing.normalize(); else en.servantFacing.set(0,0,1);
+        return;
+      }
       if(en.servantT <= 0){
         en.servantState = 'recover';
         // ガードブレイクを振り抜いた後だけ硬直が長い(既存の値をそのまま使う)
@@ -2310,7 +2337,8 @@
         en.postAtkRecoveryT = POST_ATTACK_RECOVERY_SEC;
         en.servantAtkCD = prof.attackCooldown;
         // heavy の再使用間隔はフェーズで変わる(執事の影腕は Phase 2 で半減)
-        if(plan.key === prof.heavy) en.servantSweepCD = meleeHeavyCooldown(kind, phase);
+        if(plan.key === prof.heavy || en.servantChainHeavy) en.servantSweepCD = meleeHeavyCooldown(kind, phase);
+        en.servantChainHeavy = false;
       }
       return;
     }
@@ -3988,10 +4016,10 @@
     if(en.barkStage === undefined) en.barkStage = 0;
     if(en.barkStage < 1 && hpRatio <= 0.6 && lines.hi){
       en.barkStage = 1;
-      spawnToast(lines.hi, '#c9b6e8');
+      spawnToast(lines.hi, '#c9b6e8', 'story');   // ボスの台詞・様子(「」で始まらない地の文もある)
     } else if(en.barkStage < 2 && hpRatio <= 0.22 && lines.lo){
       en.barkStage = 2;
-      spawnToast(lines.lo, '#c9b6e8');
+      spawnToast(lines.lo, '#c9b6e8', 'story');
     }
   }
 
@@ -4433,7 +4461,7 @@
     if(off !== !!en.offFloor){
       en.offFloor = off;
       en.group.traverse(n=>{ if(n.isLight) return; if(off) n.layers.disable(0); else n.layers.enable(0); });
-      if(off){ en.triggered = !!en.dummy; en.leashT = 0; }
+      if(off){ en.triggered = !!en.dummy; en.leashT = 0; if(en.foeRings) foeHideRings(en); if(en.foeLashMesh) foeHideLash(en); if(en.meleeTelegraphMesh) en.meleeTelegraphMesh.visible = false; }
     }
     return off;
   }
@@ -4465,6 +4493,8 @@
 
     // 村の残響(宵待ちの村のボス、CH1-COMP W3)。姿勢は 14-dungeon-duskvillage.js(分身と共用)
     if(P.kind === 'echo'){ poseDuskEchoBoss(en, P, t, dt, bossMeleeRingProgress(en)); return; }
+    // 帰港を望む船長(ENEMY-VISUAL-001 の飾り。攻撃の姿勢は updateShipCaptainAI が持つ)
+    if(P.kind === 'captain'){ poseCaptainFlair(en, P, t, dt); return; }
 
     if(P.kind === 'colossus'){
       // ponderous: the whole mass shifts, the arms swing out of time with
@@ -4628,6 +4658,7 @@
       // a tick, on the beat, quiet enough to be atmosphere
       const beat = Math.floor(t*1.9*rage / Math.PI);
       if(beat !== en.lastTick){ en.lastTick = beat; if(en.triggered) sfx('tick'); }
+      if(P.halo) poseWardenFlair(en, P, t, dt);   // 歯車の光輪と管理人の影(ENEMY-VISUAL-001)
     }
   }
 
@@ -5470,7 +5501,7 @@
         en.servantState = 'recover';
         en.servantT = meleeAttackPlan(en.meleeKind || 'servant', en.servantAttack, en.butlerPhase || 1).recovery;
         en.servantAtkCD = prof.attackCooldown;
-        if(en.servantAttack === prof.heavy){
+        if(en.servantAttack === prof.heavy || en.servantChainHeavy){   // 連撃の途中(heavy から続く二撃目)で潰されても heavy のクールダウン
           en.servantSweepCD = meleeHeavyCooldown(en.meleeKind || 'servant', en.butlerPhase || 1);
         }
         en.servantAttack = null;
@@ -6085,6 +6116,15 @@
   function updateDeathFall(en, dt){
     en.dieT += dt;
     const k = Math.min(1, en.dieT / en.dieDur);
+    /* 幽霊船・時計塔の敵(ENEMY-VISUAL-001): 亡霊・残響は霧に崩れ、異形は丸まって沈む(16-foes-sea-clock.js) */
+    if(en.mob && en.mob.foeKind && foeDeathPose(en, k)){
+      if(k >= 1){
+        en.dying = false; en.group.visible = false;
+        if(en.dieScale != null) en.group.scale.setScalar(en.dieScale);
+        en.group.position.y = en.dieBaseY;
+      }
+      return;
+    }
     // tip over fast, then settle
     const tip = Math.min(1, k*1.7);
     const lean = (tip*tip*(3-2*tip)) * Math.PI*0.5;   // smoothstep to 90 degrees
