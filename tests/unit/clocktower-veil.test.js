@@ -18,7 +18,10 @@ const fn = (src, name) => { const i = src.indexOf(`function ${name}(`); assert.o
 test('街が見え始めるのは鐘楼(5層、tier 4)。それより下は外壁の内側の面が塔の外を隠す', () => {
   assert.match(tower, /const TOWER_VIEW_TIER = 4;/);
   const tiers = fn(tower, 'updateTowerTiers');
-  assert.match(tiers, /const veil = !outside && state\.pos\.z < 200 && towerTierAt\(py\) < TOWER_VIEW_TIER;/);
+  // 塔の中(外壁の内側の範囲)だけ。前庭・島・隠し歯車庫(塔の外の別の床)では描かない。鐘楼から降りる時は 0.3 の余裕
+  assert.match(tiers, /const inTower = !outside && px >= TOWER_OUT\.x0 - 1 && px <= TOWER_OUT\.x1 \+ 1 && pz >= TOWER_OUT\.z0 - 1 && pz <= TOWER_OUT\.z1 \+ 0\.5;/);
+  assert.match(tiers, /const viewY = TOWER_TIER_Y\[TOWER_VIEW_TIER\] - 0\.5;/);
+  assert.match(tiers, /const veil = inTower && py < \(towerVeilOn \? viewY : viewY - 0\.3\);/);
   assert.match(tiers, /if\(towerVeil\) rcSetLayer\(towerVeil, veil\);/);
   assert.match(tiers, /towerVeilOn = veil;/);
 });
@@ -41,8 +44,12 @@ test('外壁の内側の面: 内側だけを向く(裏面は描かない)・影�
 test('カメラ: 外壁の内側の面がある間だけ外壁の内側に留める。時計塔の外では何もしない', () => {
   const c = fn(tower, 'clampTowerCamera');
   assert.match(c, /if\(currentWorldKey !== 'clocktower' \|\| !towerVeilOn\) return p;/);
-  assert.match(c, /p\.x = Math\.min\(TOWER_OUT\.x1 - m, Math\.max\(TOWER_OUT\.x0 \+ m, p\.x\)\);/);
-  assert.match(c, /p\.z = Math\.min\(TOWER_OUT\.z1 - m, Math\.max\(TOWER_OUT\.z0 \+ m, p\.z\)\);/);
+  // 向き(camYaw)のまま距離だけ縮める。境界はプレイヤーが近づける所より外(カメラがプレイヤーを越えない)
+  assert.match(c, /const m = 0\.5,/);
+  assert.match(c, /p\.x = P\.x \+ dx \* t; p\.z = P\.z \+ dz \* t;/);
+  assert.match(c, /t = Math\.max\(t, len > 0 \? Math\.min\(1, 0\.3 \/ len\) : 0\);/);
+  // 1層の門の口では留めない(前庭へ出入りする所)
+  assert.match(c, /if\(P\.y < 4 && P\.x >= -266 && P\.x <= -258 && P\.z > TOWER_OUT\.z1 - 3\) return p;/);
   const cam = fn(loop, 'updateCamera');
   assert.equal((cam.match(/clampTowerCamera\(new THREE\.Vector3\(\)\.copy\(state\.pos\)\.add\(getCamOffset\(\)\)\)/g) || []).length, 2, 'ボスの注視・通常の追従の両方');
   assert.match(tower, /towerShell = null; towerVeil = null; towerVeilOn = false;/, '世界を捨てる時に戻す');

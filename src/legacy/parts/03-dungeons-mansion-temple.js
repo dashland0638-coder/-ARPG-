@@ -831,8 +831,13 @@
     }
     const outside = state.pos.z > TOWER_OUT.z1 + 0.5 && py < 4;
     key += outside ? 'o' : 'i';
-    // 外壁の内側の面: 塔の中(1〜4層と坂)にいる間だけ。鐘楼(5層、屋外)に出た瞬間に消えて、街が開ける
-    const veil = !outside && state.pos.z < 200 && towerTierAt(py) < TOWER_VIEW_TIER;
+    /* 外壁の内側の面: 塔の中(外壁の内側の範囲。前庭・島・隠し歯車庫は含まない)の 1〜4層と坂にいる間だけ。
+       鐘楼(5層、屋外)に出た瞬間に消えて、街が開ける。鐘楼から降りる時は 0.3 下がってから戻す
+       (坂の上の境目で跳ねた時に、出たり消えたりしない) */
+    const px = state.pos.x, pz = state.pos.z;
+    const inTower = !outside && px >= TOWER_OUT.x0 - 1 && px <= TOWER_OUT.x1 + 1 && pz >= TOWER_OUT.z0 - 1 && pz <= TOWER_OUT.z1 + 0.5;
+    const viewY = TOWER_TIER_Y[TOWER_VIEW_TIER] - 0.5;
+    const veil = inTower && py < (towerVeilOn ? viewY : viewY - 0.3);
     key += veil ? 'v' : '-';
     towerVeilOn = veil;
     if(key !== towerTierVisKey){
@@ -852,11 +857,25 @@
   }
   /* カメラを外壁の内側に留める(外壁の内側の面がある間。13 の updateCamera から)。カメラが外壁の外へ出ると、
      塔の角の向こう(内側の面の外)から街が見えるため。外壁に寄った時はカメラがプレイヤーへ寄る */
+  /* カメラは、プレイヤーから見た向き(camYaw)のまま距離だけを縮めて外壁の内側に留める(x・z を別々に押し戻すと、
+     壁際でカメラがプレイヤーの真上や反対側へ回り込み、画面の向きが反転する)。境界は外壁の中心から 0.5 内側
+     (プレイヤーが近づける 0.7 より外 ―― カメラがプレイヤーを越えない)。プレイヤーの横の距離は最低 0.3 残す。
+     1層の門の口(前庭への出入り)では留めない: 門の口から見えるのは街と反対の前庭だけ */
   function clampTowerCamera(p){
     if(currentWorldKey !== 'clocktower' || !towerVeilOn) return p;
-    const m = 0.8;
-    p.x = Math.min(TOWER_OUT.x1 - m, Math.max(TOWER_OUT.x0 + m, p.x));
-    p.z = Math.min(TOWER_OUT.z1 - m, Math.max(TOWER_OUT.z0 + m, p.z));
+    const P = state.pos;
+    if(P.y < 4 && P.x >= -266 && P.x <= -258 && P.z > TOWER_OUT.z1 - 3) return p;
+    const m = 0.5, bx0 = TOWER_OUT.x0 + m, bx1 = TOWER_OUT.x1 - m, bz0 = TOWER_OUT.z0 + m, bz1 = TOWER_OUT.z1 - m;
+    const dx = p.x - P.x, dz = p.z - P.z;
+    let t = 1;
+    if(dx > 0 && p.x > bx1) t = Math.min(t, (bx1 - P.x) / dx);
+    if(dx < 0 && p.x < bx0) t = Math.min(t, (bx0 - P.x) / dx);
+    if(dz > 0 && p.z > bz1) t = Math.min(t, (bz1 - P.z) / dz);
+    if(dz < 0 && p.z < bz0) t = Math.min(t, (bz0 - P.z) / dz);
+    if(t >= 1) return p;
+    const len = Math.hypot(dx, dz);
+    t = Math.max(t, len > 0 ? Math.min(1, 0.3 / len) : 0);
+    p.x = P.x + dx * t; p.z = P.z + dz * t;
     return p;
   }
   function towerHideOffFloor(list){

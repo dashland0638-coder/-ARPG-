@@ -43,7 +43,9 @@ const PROBE = `
     rt.dispose(); mag.dispose();
     let town = 0;
     for(let i=0;i<px.length;i+=4) if(px[i] > 200 && px[i+1] < 60 && px[i+2] > 200) town++;
-    return {town, cam:[camera.position.x, camera.position.y, camera.position.z].map(v=> +v.toFixed(1)), tier:towerTierAt(state.pos.y), y:+state.pos.y.toFixed(2)};
+    const ox = camera.position.x - state.pos.x, oz = camera.position.z - state.pos.z;
+    return {town, cam:[camera.position.x, camera.position.y, camera.position.z].map(v=> +v.toFixed(1)), tier:towerTierAt(state.pos.y), y:+state.pos.y.toFixed(2),
+      veil:towerVeilOn, camDist:+Math.hypot(ox, oz).toFixed(2), camSide:+(ox * Math.sin(state.camYaw) + oz * Math.cos(state.camYaw)).toFixed(2)};
   },
 };`;
 
@@ -98,6 +100,26 @@ test.describe('CLOCKTOWER-MAP-001: 時計塔の視界', () => {
       }
     }
     expect(leaks, `塔の中から街が見えた: ${JSON.stringify(leaks.slice(0, 8))}`).toEqual([]);
+
+    // 壁際: カメラは向き(camYaw)の側に留まり、プレイヤーの真上・反対側へ回り込まない(画面が反転しない)
+    for (const [name, x, y, z, yaw] of [['1層 南の壁際', -250, 0, 57.2, 0], ['2層 北の壁際', -270, 8, 22.8, Math.PI], ['4層 東の壁際', -244.8, 26, 40, Math.PI / 2], ['坂 r3 の西の壁際', -279.2, 30, 42, -Math.PI / 2]]) {
+      const m = await sample(name, x, y, z, { auto: false, yaw, hIdx: 2 });
+      expect(m.town, `${name}: 街が映らない`).toBe(0);
+      expect(m.camSide, `${name}: カメラは向きの側(${JSON.stringify(m)})`).toBeGreaterThan(0.25);
+    }
+    // 1層の門の口: 前庭へ出入りする所。カメラは前庭側へ出てよい(見えるのは街と反対の前庭)。街は映らない
+    for (const yaw of [0, Math.PI / 4, -Math.PI / 4]) {
+      const m = await sample('1層 門の口', -262, 0, 57.5, { auto: false, yaw, hIdx: 2 });
+      expect(m.town, '門の口から街が映らない').toBe(0);
+      expect(m.camSide, `門の口: カメラは前庭側(${JSON.stringify(m)})`).toBeGreaterThan(3);
+    }
+    // 隠し歯車庫(塔の外の別の床。テストモードの周回★3): 外壁の内側の面もカメラの留めも効かない
+    {
+      const m = await sample('隠し歯車庫', -346, 9, 120, { auto: false, yaw: 0, hIdx: 2 });
+      expect(m.veil, `隠し歯車庫では外壁の内側の面を描かない(${JSON.stringify(m)})`).toBe(false);
+      expect(m.camDist, 'カメラはプレイヤーの近く(外壁の内側へ引き戻されない)').toBeLessThan(10);
+      expect(m.camDist).toBeGreaterThan(3);
+    }
 
     // 鐘楼(屋外)に出ると街が開ける: 北(街の方)を向くと街が映る
     let best = { town: 0 };
