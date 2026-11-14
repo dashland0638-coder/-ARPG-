@@ -27,11 +27,11 @@ const PROBE = `
     const keep = new Set([player, guestCompanion && guestCompanion.mesh, guestCompanion && guestCompanion.group].filter(Boolean));
     enemies.forEach(e=>{ if(e.group) keep.add(e.group); });
     const draw = ()=>{
-      const sa = renderer.shadowMap.autoUpdate;
-      renderer.shadowMap.autoUpdate = false;
+      const sa = renderer.shadowMap.autoUpdate, sn = renderer.shadowMap.needsUpdate;
+      renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false;
       camera.updateMatrixWorld();
       renderer.render(scene, camera);
-      renderer.shadowMap.autoUpdate = sa;
+      renderer.shadowMap.autoUpdate = sa; renderer.shadowMap.needsUpdate = sn;
       return {calls: renderer.info.render.calls, tris: renderer.info.render.triangles};
     };
     const hiddenEnemies = [];
@@ -89,7 +89,7 @@ test('道の景色は InstancedMesh にまとまり、描画回数が上限の�
   test.info().annotations.push({ type: 'road-scenery-calls', description: JSON.stringify(rows) });
 
   for (const r of rows) {
-    expect(r.instanced, `${r.name}: 木・石垣・木の部材の InstancedMesh`).toBeGreaterThanOrEqual(5);
+    expect(r.instanced, `${r.name}: 木・石垣・木の部材の InstancedMesh`).toBeGreaterThanOrEqual(6);
     expect(r.scenery, `${r.name}: 景色の描画回数`).toBeLessThanOrEqual(ROAD_SCENERY_CALL_BUDGET);
   }
   expect(errors).toEqual([]);

@@ -57,7 +57,7 @@ function loadInstances() {
   return { build, added };
 }
 
-test('段階1: 木の幹・葉・石垣・木の部材・柱が、それぞれ1つの InstancedMesh になる', () => {
+test('段階1: 木の幹・葉・石垣・木の部材・柱(形ごと)が、それぞれ1つの InstancedMesh になる', () => {
   const { build, added } = loadInstances();
   const M = { trunkMat: new THREE.MeshStandardMaterial(), stoneMat: new THREE.MeshStandardMaterial(), woodMat: new THREE.MeshStandardMaterial() };
   const L = {
@@ -65,12 +65,13 @@ test('段階1: 木の幹・葉・石垣・木の部材・柱が、それぞれ1�
     leaves: [{ x: 624, y: 3.7, z: 3, r: 1.4, color: 0x3f6a34 }, { x: 657, y: 4.7, z: 10, r: 1.6, color: 0x568640 }],
     stones: [{ sx: 1, sy: 0.5, sz: 1.9, x: 625.4, y: 0.22, z: 0, ry: 0.1 }],
     woodBoxes: [{ sx: 1.3, sy: 0.22, sz: 0.06, x: 643.7, y: 2.25, z: 16, ry: 0.3 }],
-    woodPosts: [{ x: 643.2, y: 1.3, z: 16, rTop: 0.12, rBot: 0.14, h: 2.6 }],
+    woodPosts: [{ x: 643.2, y: 1.3, z: 16, rTop: 0.12, rBot: 0.14, h: 2.6, seg: 8 },
+      { x: 644, y: 1.2, z: 79, rTop: 0.1, rBot: 0.12, h: 2.4, seg: 6 }, { x: 647, y: 1.2, z: 79, rTop: 0.1, rBot: 0.12, h: 2.4, seg: 6 }],
   };
   build(L, M);
-  assert.equal(added.length, 5);
+  assert.equal(added.length, 6);
   added.forEach(m => assert.ok(m.isInstancedMesh));
-  assert.deepEqual(added.map(m => m.count), [2, 2, 1, 1, 1]);
+  assert.deepEqual(added.map(m => m.count), [2, 2, 1, 1, 1, 2]);
 
   const m4 = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
   added[0].getMatrixAt(1, m4); m4.decompose(p, q, s);
@@ -79,13 +80,13 @@ test('段階1: 木の幹・葉・石垣・木の部材・柱が、それぞれ1�
   assert.deepEqual([s.x, s.y, s.z].map(v => +v.toFixed(3)), [1.4, 1.19, 1.4], '葉は縦を 0.85 倍');
   const c = new THREE.Color(); added[1].getColorAt(1, c);
   assert.equal(c.getHex(), 0x568640, '葉の色はインスタンスごと');
-  added[4].getMatrixAt(0, m4); m4.decompose(p, q, s);
-  assert.ok(Math.abs(s.x * 0.12 - 0.14) < 1e-6, '道標の柱の太さ');
+  const pg = added.slice(4).map(m => m.geometry.parameters);
+  assert.deepEqual(pg.map(g => [g.radiusTop, g.radiusBottom, g.radialSegments]), [[0.12, 0.14, 8], [0.1, 0.12, 6]], '柱は元の形のまま');
   added.forEach(m => { assert.equal(m.castShadow, false, '影は今までどおり落とさない'); assert.ok(m.boundingSphere); });
 
   // 作り直すと、前回の分を捨てる
   let disposed = 0;
   added.forEach(m => m.addEventListener('dispose', () => disposed++));
   build(L, M);
-  assert.equal(disposed, 5);
+  assert.equal(disposed, 6);
 });

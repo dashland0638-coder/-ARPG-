@@ -124,7 +124,7 @@
     }
 
     // ---- 道標(ここまで歩いてきた場所の名) ----
-    woodPosts.push({x:ROAD_SIGN_POS.x, y:1.3, z:ROAD_SIGN_POS.z, rTop:0.12, rBot:0.14, h:2.6});
+    woodPosts.push({x:ROAD_SIGN_POS.x, y:1.3, z:ROAD_SIGN_POS.z, rTop:0.12, rBot:0.14, h:2.6, seg:8});
     [[0.3, 2.25, '南'], [-0.35, 1.9, '西'], [0.25, 1.55, '東'], [-0.2, 1.2, '北']].forEach(([rot, y])=>{
       woodBoxes.push({sx:1.3, sy:0.22, sz:0.06,
         x:ROAD_SIGN_POS.x + Math.cos(rot)*0.55, y, z:ROAD_SIGN_POS.z + Math.sin(rot)*0.1, ry:rot});
@@ -158,7 +158,7 @@
     // ---- 旅人の休憩所(屋根つきの長椅子と井戸) ----
     const roofMat = new THREE.MeshStandardMaterial({color:0x7a4a32, roughness:0.8});
     [[-1.6,-1.2],[1.6,-1.2],[-1.6,1.2],[1.6,1.2]].forEach(([dx, dz])=>{
-      woodPosts.push({x:ROAD_REST_POS.x + 1.2 + dx, y:1.2, z:ROAD_REST_POS.z + dz, rTop:0.1, rBot:0.12, h:2.4});
+      woodPosts.push({x:ROAD_REST_POS.x + 1.2 + dx, y:1.2, z:ROAD_REST_POS.z + dz, rTop:0.1, rBot:0.12, h:2.4, seg:6});
     });
     const roof = new THREE.Mesh(new THREE.ConeGeometry(2.9, 1.1, 4), roofMat);
     roof.position.set(ROAD_REST_POS.x + 1.2, 2.9, ROAD_REST_POS.z);
@@ -226,7 +226,6 @@
      世界の破棄は geometry しか捨てないので、前回の道の instanceMatrix / instanceColor は
      作り直す時にここで捨てる(14-dungeon-duskvillage.js の duskNightInstanced と同じ) */
   let roadInstanced = [];
-  const ROAD_TRUNK_RATIO = 0.15/0.24;   // 幹の上下の半径の比(元の CylinderGeometry(0.15, 0.24))
   function buildRoadInstances(L, M){
     roadInstanced.forEach(m=> m.dispose());
     roadInstanced = [];
@@ -249,7 +248,7 @@
       e.set(0, ry || 0, 0); q.setFromEuler(e);
       mtx.compose(v.set(x, y, z), q, sc.set(sx, sy, sz));
     };
-    make(new THREE.CylinderGeometry(0.24*ROAD_TRUNK_RATIO, 0.24, 1, 7), M.trunkMat, L.trunks,
+    make(new THREE.CylinderGeometry(0.15, 0.24, 1, 7), M.trunkMat, L.trunks,
       t=> at(t.x, t.y, t.z, 0, 1, t.h, 1));
     make(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}), L.leaves,
       (l, i, m)=>{ at(l.x, l.y, l.z, 0, l.r, l.r*0.85, l.r); m.setColorAt(i, col.setHex(l.color)); });
@@ -257,10 +256,18 @@
       b=> at(b.x, b.y, b.z, b.ry, b.sx, b.sy, b.sz));
     make(new THREE.BoxGeometry(1, 1, 1), M.woodMat, L.woodBoxes,
       b=> at(b.x, b.y, b.z, b.ry, b.sx, b.sy, b.sz));
-    /* 道標の柱(0.12/0.14)と休憩所の柱(0.10/0.12)。上下の比が近いので、
-       ひとつの形(0.10/0.12)を太さで伸ばして使う */
-    make(new THREE.CylinderGeometry(0.1, 0.12, 1, 8), M.woodMat, L.woodPosts,
-      p=> at(p.x, p.y, p.z, 0, p.rBot/0.12, p.h, p.rBot/0.12));
+    // 柱は形(上下の半径・角の数)ごとに。道標の柱(0.12/0.14・8角)と休憩所の柱4本(0.10/0.12・6角)
+    const postKinds = new Map();
+    L.woodPosts.forEach(p=>{
+      const k = p.rTop + '/' + p.rBot + '/' + p.seg;
+      if(!postKinds.has(k)) postKinds.set(k, []);
+      postKinds.get(k).push(p);
+    });
+    postKinds.forEach(list=>{
+      const p0 = list[0];
+      make(new THREE.CylinderGeometry(p0.rTop, p0.rBot, 1, p0.seg), M.woodMat, list,
+        p=> at(p.x, p.y, p.z, 0, 1, p.h, 1));
+    });
   }
 
   /* 影の旅人の姿。酒場の隅に座っていた人物(buildTavern)と同じ作り ――
