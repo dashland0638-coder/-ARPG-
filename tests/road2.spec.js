@@ -109,9 +109,15 @@ test('道（新）: 5 つのエリアを渡れて、今いるエリアと隣だ�
 test('道（新）は本編の出撃には出ない(テストモードの作業中のシナリオだけ)', async ({ page }) => {
   test.setTimeout(120_000);
   await openGame(page);
-  const inMainline = await page.evaluate(async () => {
+  const offered = await page.evaluate(async () => {
     const m = await import('/src/core/chapter1-progress.js');
-    return m.CHAPTER1_ORDER.includes('road2');
+    // 第一章を進めていく各段階(何も終えていない → 道を終えた)で、本編の出撃に出るもの
+    const out = [];
+    let clears = {};
+    out.push(m.offeredScenarios(clears));
+    for (const k of m.CHAPTER1_ORDER) { clears = { ...clears, [k]: 1 }; out.push(m.offeredScenarios(clears)); }
+    return { lists: out, inOrder: m.CHAPTER1_ORDER.includes('road2') };
   });
-  expect(inMainline).toBe(false);
+  expect(offered.inOrder).toBe(false);
+  offered.lists.forEach(l => expect(l).not.toContain('road2'));
 });

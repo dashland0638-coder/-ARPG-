@@ -32,6 +32,7 @@
 
   let road2AreaGroups = {};     // エリアの id → そのエリアの小物の Group
   let road2CurrentAreaId = 0;   // 今いるエリア(0 = まだ分からない)
+  let road2VisInit = false;     // エリアの描画の切り替えを一度済ませたか
   let road2SeenAreas = new Set();   // この出撃で名前を出したエリア
   let road2Instanced = [];      // 作り直す時に instanceMatrix / instanceColor を捨てる
 
@@ -43,6 +44,7 @@
     road2Instanced = [];
     road2AreaGroups = {};
     road2CurrentAreaId = 0;
+    road2VisInit = false;
     road2SeenAreas = new Set();
 
     const mats = {
@@ -111,7 +113,10 @@
     });
 
     // ---- 当たり: 外枠(worldBounds)のうち、エリアの外のすき間 ----
-    blockedRects().forEach(r=> walls.push(r));
+    /* ミニマップは中心が近い壁だけを描くので、長い当たりは z 40 ごとに分ける */
+    road2BlockedRects().forEach(r=>{
+      for(let z = r.minZ; z < r.maxZ; z += 40) walls.push({minX:r.minX, maxX:r.maxX, minZ:z, maxZ:Math.min(r.maxZ, z + 40)});
+    });
 
     buildTownReturnPortal(new THREE.Vector3(ROAD2_CX, 0, ROAD2_Z0 + 3));
   }
@@ -151,7 +156,7 @@
     };
     along(a.x0, a.z0, a.x0, a.z1);
     along(a.x1, a.z0, a.x1, a.z1);
-    const prev = areaById(a.id - 1), next = areaById(a.id + 1);
+    const prev = road2AreaById(a.id - 1), next = road2AreaById(a.id + 1);
     const openParts = (lo, hi, nb)=>{
       if(!nb) return [[lo, hi]];
       const out = [];
@@ -254,7 +259,7 @@
       box(9, 0.12, 9, l.x, 0.06, l.z, mats.stone);   // 高台(登れる高さは R3-2 で段差の仕組みにする)
     } else if(l.kind === 'bridge'){
       // 川(谷の端から端まで)と、崩れた石橋の残った橋脚
-      const a = areaById(l.area);
+      const a = road2AreaById(l.area);
       const river = new THREE.Mesh(new THREE.PlaneGeometry(a.x1 - a.x0 + 20, 9), mats.water);
       river.rotation.x = -Math.PI/2; river.position.set((a.x0 + a.x1)/2, 0.04, l.z); grp.add(river);
       [-3.2, 0, 3.2].forEach(dz=> box(4.6, 0.5, 2.4, l.x, 0.25, l.z + dz));
@@ -278,20 +283,21 @@
 
   /* 今いるエリアと隣のエリアの小物だけを描く */
   function road2UpdateAreaVisibility(currentId){
-    const vis = new Set(visibleAreaIds(currentId));
+    const vis = new Set(road2VisibleAreaIds(currentId));
     Object.keys(road2AreaGroups).forEach(id=>{ road2AreaGroups[id].visible = vis.has(+id); });
   }
 
   function road2AreaNameAt(x, z){
-    const a = areaAt(x, z);
+    const a = road2AreaAt(x, z);
     return a ? a.name : null;
   }
 
   function updateRoad2(dt){
     if(currentWorldKey !== 'road2') return;
-    const a = areaAt(state.pos.x, state.pos.z);
+    const a = road2AreaAt(state.pos.x, state.pos.z);
     const id = a ? a.id : road2CurrentAreaId;
-    if(id !== road2CurrentAreaId || !road2CurrentAreaId){
+    if(id !== road2CurrentAreaId || !road2VisInit){
+      road2VisInit = true;
       road2CurrentAreaId = id;
       road2UpdateAreaVisibility(id);
       if(a && !road2SeenAreas.has(a.id)){
