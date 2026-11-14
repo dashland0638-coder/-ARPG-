@@ -25,6 +25,7 @@ const DEFS = [
   {key: 'conservatory', name: 'CO', unlocked: true},
   {key: 'duskvillage', name: 'D', unlocked: true},
   {key: 'road', name: 'R', unlocked: true},
+  {key: 'road2', name: 'R2', unlocked: true},   // 新しい道(ROAD-VISUAL-003。作業中のシナリオ)
   {key: 'pyramid', name: 'P', unlocked: false},
   {key: 'volcano', name: 'V', unlocked: false},
 ];
