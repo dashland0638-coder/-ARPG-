@@ -39,7 +39,8 @@ const PROBE = `
 
 const overlay = page => page.evaluate(() => document.getElementById('dialogue-overlay').classList.contains('active'));
 const advance = page => page.evaluate(() => document.getElementById('dialogue-overlay').click());
-/* 昇降台の状態を待つ。途中で着いた階の会話が開いたら送る(会話の間は世界が止まる) */
+/* 昇降台の状態を待つ。途中で着いた階の会話が開いたら送る(会話の間は世界が止まる)。
+   ヘッドレスのソフトウェア描画ではゲームの時間が実時間の 3 分の 1 ほどになる(並行で動かすとさらに遅い)ので、待ちは長めに */
 const liftState = page => page.evaluate(() => {
   const o = document.getElementById('dialogue-overlay');
   if (o.classList.contains('active')) o.click();
@@ -67,7 +68,7 @@ async function enterTower(page, waypoint) {
 
 test.describe('CLOCKTOWER-003', () => {
   test('昇降台: 鐘で留め金が外れて乗り場で待つ。乗ると上がり、乗り遅れても戻り、上の口から呼べ、鐘で降りる', async ({ page }) => {
-    test.setTimeout(400_000);
+    test.setTimeout(600_000);
     const errors = watchErrors(page);
     await page.setViewportSize({ width: 844, height: 390 });
     await enterTower(page, 'f5bell');
@@ -92,18 +93,18 @@ test.describe('CLOCKTOWER-003', () => {
 
     // 乗ると上がる
     await page.evaluate(() => window.__ct.go(-246.8, 34, 24.7));
-    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('top');
+    await expect.poll(() => liftState(page), { timeout: 60_000 }).toBe('top');
     L = await page.evaluate(() => window.__ct.lift());
     expect(L.py, '乗っていた人も上の口(6層)へ').toBeGreaterThan(43.5);
 
     // 乗り遅れ: 台だけが上にあり、人は下(鐘楼)にいる → ひとりでに戻ってくる
     await page.evaluate(() => window.__ct.go(-262, 34, 50));
-    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('ready');
+    await expect.poll(() => liftState(page), { timeout: 60_000 }).toBe('ready');
     expect((await page.evaluate(() => window.__ct.lift())).y, '戻って乗り場で待つ').toBe(34);
 
     // 上の口(6層)に近づくと、空の台が上がってくる(下りるために呼べる)
     await page.evaluate(() => window.__ct.go(-247, 44, 29.5));
-    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('top');
+    await expect.poll(() => liftState(page), { timeout: 60_000 }).toBe('top');
 
     // 上で乗ったまま待つと下りる。下に着いても、降りるまでは上がり直さない(乗ったままでも ready のまま)
     await page.evaluate(() => window.__ct.go(-246.8, 44, 24.7));
@@ -111,7 +112,7 @@ test.describe('CLOCKTOWER-003', () => {
     await page.evaluate(() => window.__ct.go(-249.5, 44, 29));   // 一度降りる
     await page.waitForTimeout(800);
     await page.evaluate(() => window.__ct.go(-246.8, 44, 24.7));   // また乗って待つ
-    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('ready');
+    await expect.poll(() => liftState(page), { timeout: 60_000 }).toBe('ready');
     expect((await page.evaluate(() => window.__ct.lift())).py, '乗っていた人も鐘楼へ').toBeLessThan(34.6);
     await page.waitForTimeout(4000);
     expect(await liftState(page), '降りてきた台に乗ったままでも、すぐには上がり直さない').toBe('ready');
@@ -119,27 +120,27 @@ test.describe('CLOCKTOWER-003', () => {
     await page.evaluate(() => window.__ct.go(-251, 34, 29));
     await page.waitForTimeout(800);
     await page.evaluate(() => window.__ct.go(-246.8, 34, 24.7));
-    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('top');
+    await expect.poll(() => liftState(page), { timeout: 60_000 }).toBe('top');
     await page.evaluate(() => window.__ct.go(-262, 34, 50));
-    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('ready');
+    await expect.poll(() => liftState(page), { timeout: 60_000 }).toBe('ready');
     // 上に呼んでおく(次の鐘の確認のため)
     await page.evaluate(() => window.__ct.go(-247, 44, 29.5));
-    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('top');
+    await expect.poll(() => liftState(page), { timeout: 60_000 }).toBe('top');
 
     // 鐘楼で鐘を鳴らすと、上の台が降りてくる(以前のまま)。鳴らしても留め金は外れたまま(何度でも使える)
     await page.evaluate(() => window.__ct.go(-251.5, 34, 30.6));
     await page.waitForTimeout(300);
     await page.keyboard.press('KeyR');
-    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('ready');
+    await expect.poll(() => liftState(page), { timeout: 60_000 }).toBe('ready');
     // もう一度乗れる
     await page.evaluate(() => window.__ct.go(-246.8, 34, 24.7));
-    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('top');
+    await expect.poll(() => liftState(page), { timeout: 60_000 }).toBe('top');
     expect(errors).toEqual([]);
   });
 
   for (const auto of [true, false]) {
     test(`影: 演出の中で管理人と娘の影が濃くなり、画面に映る。演出の後に残らない(自動追従 ${auto ? 'ON' : 'OFF'})`, async ({ page }) => {
-      test.setTimeout(400_000);
+      test.setTimeout(600_000);
       const errors = watchErrors(page);
       await page.setViewportSize({ width: 844, height: 390 });
       await enterTower(page, 'f2shop');
@@ -162,7 +163,7 @@ test.describe('CLOCKTOWER-003', () => {
       await page.evaluate(() => window.__ct.go(-276, 26, 26));
       await closeAll(page, 12_000);
       await page.evaluate(() => window.__ct.go(-250, 26, 52));
-      await expect.poll(() => overlay(page), { timeout: 8_000 }).toBe(true);
+      await expect.poll(() => overlay(page), { timeout: 30_000 }).toBe(true);
       s = await page.evaluate(() => window.__ct.shades());
       expect(s.length, `食卓の二人: ${JSON.stringify(s)}`).toBe(2);
       expect(Math.min(...s.map(x => x.op))).toBeGreaterThan(0.45);
@@ -180,7 +181,7 @@ test.describe('CLOCKTOWER-003', () => {
     await page.setViewportSize({ width: 844, height: 390 });
     await enterTower(page, null);
     await page.evaluate(() => window.__ct.go(-262, 0, 52));
-    await expect.poll(() => overlay(page), { timeout: 10_000 }).toBe(true);
+    await expect.poll(() => overlay(page), { timeout: 30_000 }).toBe(true);
     // 止まった人々(最初の一文の間)
     let s = await page.evaluate(() => window.__ct.shades());
     expect(s.length, `止まった人々: ${JSON.stringify(s)}`).toBeGreaterThanOrEqual(2);

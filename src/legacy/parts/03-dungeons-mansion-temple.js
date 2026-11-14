@@ -797,6 +797,7 @@
   let towerShell = null;         // 塔の外観(外にいる時だけ)
   let towerVeil = null;          // 外壁の内側の面(塔の中・鐘楼より下にいる時だけ。CLOCKTOWER-MAP-001)
   let towerVeilOn = false;
+  let towerLiftShotYaw = null;   // 昇降台を映す間だけ向けたカメラの向きの、元の値(CLOCKTOWER-003)
   let towerLights = null;        // 使い回す 6 個の点光源
   let towerLightTier = -1;
   let towerMech = null;          // 動く仕掛けの状態(clearTowerMech で捨てる)
@@ -937,6 +938,8 @@
   function clearTowerMech(){
     if(towerMech) towerMech.ripples.forEach(r=> scene.remove(r.mesh));
     towerMech = null; towerTierObjs = null; towerTierVisKey = ''; towerShell = null; towerVeil = null; towerVeilOn = false;
+    // 昇降台を映す途中で演出が止まった(世界が変わった)時に、向けたままのカメラの向きを戻す(CLOCKTOWER-003)
+    if(towerLiftShotYaw != null){ state.camYaw = towerLiftShotYaw; towerLiftShotYaw = null; }
     towerLights = null; towerLightTier = -1; towerTown = null;
   }
 
@@ -1930,7 +1933,6 @@
   function towerStoryOn(){ return clocktowerChapter1(); }
   let towerInsightDone = false, towerRepeatSeen = false, towerKeyTaken = false, towerFirstRingDone = false;
   let towerBridgeTalkDone = false, towerClutchTalkDone = false;
-  let towerLiftShotYaw = null;   // 昇降台を映す間だけ向けたカメラの向きの、元の値
   function towerEndScene(){ cutsceneHideLine(); state.dialogueActive = false; clearMovementInput(false); }
   function towerWalk(g, to, dur){
     if(!towerMech || !g) return;
@@ -2110,7 +2112,7 @@
          塔の内側へ向け、終わったら元に戻す。前の一文は閉じて、台を隠さない */
       {t:0.1, run:()=>{
         cutsceneHideLine();
-        towerLiftShotYaw = state.camYaw; state.camYaw = -Math.PI/4;
+        if(camAutoOn){ towerLiftShotYaw = state.camYaw; state.camYaw = -Math.PI/4; }   // 自動カメラ OFF の人には映す画を出さないので、向きも変えない
         sceneCamShot((TOWER_LIFT.x0 + TOWER_LIFT.x1)/2, (TOWER_LIFT.z0 + TOWER_LIFT.z1)/2, 2.2,
           {y:TOWER_LIFT.yLow, height:5, dist:8, look:{x:(TOWER_LIFT.x0 + TOWER_LIFT.x1)/2, y:TOWER_LIFT.yLow + 1, z:(TOWER_LIFT.z0 + TOWER_LIFT.z1)/2}});
       }},
