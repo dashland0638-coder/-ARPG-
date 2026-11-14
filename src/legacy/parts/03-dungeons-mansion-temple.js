@@ -797,6 +797,7 @@
   let towerShell = null;         // 塔の外観(外にいる時だけ)
   let towerVeil = null;          // 外壁の内側の面(塔の中・鐘楼より下にいる時だけ。CLOCKTOWER-MAP-001)
   let towerVeilOn = false;
+  let towerLiftShotYaw = null;   // 昇降台を映す間だけ向けたカメラの向きの、元の値(CLOCKTOWER-003)
   let towerLights = null;        // 使い回す 6 個の点光源
   let towerLightTier = -1;
   let towerMech = null;          // 動く仕掛けの状態(clearTowerMech で捨てる)
@@ -937,6 +938,8 @@
   function clearTowerMech(){
     if(towerMech) towerMech.ripples.forEach(r=> scene.remove(r.mesh));
     towerMech = null; towerTierObjs = null; towerTierVisKey = ''; towerShell = null; towerVeil = null; towerVeilOn = false;
+    // 昇降台を映す途中で演出が止まった(世界が変わった)時に、向けたままのカメラの向きを戻す(CLOCKTOWER-003)
+    if(towerLiftShotYaw != null){ state.camYaw = towerLiftShotYaw; towerLiftShotYaw = null; }
     towerLights = null; towerLightTier = -1; towerTown = null;
   }
 
@@ -1083,28 +1086,74 @@
     return Math.abs(p.z - TOWER_WHEEL.z) < 0.3;   // 真下(下の桟橋)か真上(上の桟橋)
   }
 
-  // 3. 鐘の昇降台。鳴らすと少し遅れて上がり、上の口で止まる。上にいる人が乗ったまま待つと下りる
+  /* 3. 鐘の昇降台(CLOCKTOWER-003 で、乗り遅れても詰まらない形に)
+     状態: low(留め金が掛かっている。鐘を鳴らす前) → armed(鳴らした。振動が伝わるまで少し待つ) → ready(留め金が外れた。
+     台は下の乗り場で待ち、灯りが脈打つ。乗ると上がる) → up → top(上の口)。
+       ・上で誰も乗っていない時、下の階にいる人がいれば台はひとりでに降りて ready に戻る(乗り遅れても、待てば戻る)
+       ・上の階(6層)から下りたい時は、上の口に近づけば台が上がってくる。上で乗ったまま待つと下りる(以前のまま)
+       ・鐘を鳴らすと、上にある台は降りてくる(以前のまま)
+     一度留め金が外れたら、その後はずっと使える(一度きりで使えなくならない) */
+  const LIFT_BOARD_S = 0.5;      // 乗ってから動き出すまで
+  const LIFT_RETURN_S = 1.5;     // 上で空のまま、下に人がいる時に戻るまで
+  const LIFT_CALL_S = 0.6;       // 上の口に近づいてから台が上がってくるまで
+  function towerLiftRelease(L, quiet){
+    if(!L || (L.state !== 'low' && L.state !== 'armed')) return;
+    L.state = 'ready'; L.unlocked = true; L.board = 0;
+    // 演出の中(乗り物の更新は止まっている)でも、灯りと乗り場の枠はこの瞬間に点ける
+    if(L.lampMat) L.lampMat.emissiveIntensity = 1.5;
+    if(L.mark && L.slab.y <= TOWER_LIFT.yLow + 0.05) L.mark.visible = true;
+    sfx('anvil'); setTimeout(()=> sfx('chainRun'), 140); addShake(0.06);
+    if(!quiet && !L.toldReady){
+      L.toldReady = true;
+      spawnToast('⛓️ 昇降台の留め金が外れた ―― 北東の角の台に乗ると上がる', null, 'story');
+    }
+  }
   function updateTowerLift(M, dt){
     const L = M.lift;
     if(!L) return;
     const onLift = state.grounded && Math.abs(state.pos.y - L.slab.y) < 0.6 &&
       state.pos.x > L.slab.x0 - 0.1 && state.pos.x < L.slab.x1 + 0.1 && state.pos.z > L.slab.z0 - 0.1 && state.pos.z < L.slab.z1 + 0.1;
+    const cx = (L.slab.x0 + L.slab.x1)/2, cz = (L.slab.z0 + L.slab.z1)/2;
+    const atTop = state.pos.y > TOWER_LIFT.yHigh - 1.5;
+    const below = state.pos.y < TOWER_LIFT.yHigh - 4;
     if(L.state === 'armed'){
       L.t -= dt;
-      if(L.t <= 0){ L.state = 'up'; L.rider = onLift; sfx('chainRun'); }
+      if(L.t <= 0) towerLiftRelease(L);
+    } else if(L.state === 'ready'){
+      // 乗ると上がる。上の階で上の口に近づいた人がいれば、空のまま上がってくる
+      const nearTop = atTop && Math.hypot(state.pos.x - cx, state.pos.z - cz) < 5.5;
+      // 乗って降りてきた人は、一度台から降りるまで「乗った」と数えない(降りた途端にまた上がらない。上の口の leftOnce と同じ)。
+      // 「降りた」は台の広さの外へ出た時(着いた瞬間に一フレームだけ足が浮くのを、降りたと数えない)
+      const offFootprint = !(state.pos.x > L.slab.x0 - 0.3 && state.pos.x < L.slab.x1 + 0.3 && state.pos.z > L.slab.z0 - 0.3 && state.pos.z < L.slab.z1 + 0.3)
+        || Math.abs(state.pos.y - L.slab.y) > 1.5;
+      if(offFootprint) L.leftLow = true;
+      const boarding = onLift && L.leftLow !== false;
+      L.board = (boarding || nearTop) ? L.board + dt : 0;
+      if(L.board >= (boarding ? LIFT_BOARD_S : LIFT_CALL_S)){ L.state = 'up'; L.rider = onLift; L.board = 0; sfx('chainRun'); }
     } else if(L.state === 'top'){
       if(!onLift) L.leftOnce = true;
       L.idle = (onLift && L.leftOnce) ? L.idle + dt : 0;   // 上の口で一度降りてから、また乗って待つと下りる
-      const below = state.pos.y < TOWER_LIFT.yHigh - 4;
-      if(L.idle > 1.6 || (below && (L.downCall))){ L.state = 'down'; L.rider = onLift; L.downCall = false; sfx('chainRun'); }
+      // 空のまま上にあり、下の階に人がいる → ひとりでに戻る(乗り遅れた時)
+      L.empty = (!onLift && below) ? (L.empty || 0) + dt : 0;
+      if(L.idle > 1.6 || (below && L.downCall) || L.empty > LIFT_RETURN_S){
+        L.returning = !onLift && below && !L.downCall;
+        L.state = 'down'; L.rider = onLift; L.downCall = false; L.empty = 0; sfx('chainRun');
+      }
     }
     let y = L.slab.y;
     if(L.state === 'up'){
       y = Math.min(TOWER_LIFT.yHigh, y + dt * (TOWER_LIFT.yHigh - TOWER_LIFT.yLow) / TOWER_LIFT.rise);
-      if(y >= TOWER_LIFT.yHigh){ L.state = 'top'; L.idle = 0; L.leftOnce = !L.rider; L.rider = false; addShake(0.08); sfx('anvil'); }
+      if(y >= TOWER_LIFT.yHigh){ L.state = 'top'; L.idle = 0; L.empty = 0; L.leftOnce = !L.rider; L.rider = false; addShake(0.08); sfx('anvil'); }
     } else if(L.state === 'down'){
       y = Math.max(TOWER_LIFT.yLow, y - dt * (TOWER_LIFT.yHigh - TOWER_LIFT.yLow) / TOWER_LIFT.rise);
-      if(y <= TOWER_LIFT.yLow){ L.state = 'low'; L.rider = false; sfx('anvil'); }
+      if(y <= TOWER_LIFT.yLow){
+        L.leftLow = !L.rider;   // 乗って降りてきた人は、一度降りるまで上がらない
+        L.state = L.unlocked ? 'ready' : 'low'; L.rider = false; L.board = 0; sfx('anvil');
+        // 乗り遅れて戻ってきた時だけ、短く知らせる(同じ階の近くにいる時)
+        if(L.returning && Math.abs(state.pos.y - TOWER_LIFT.yLow) < 3 && Math.hypot(state.pos.x - cx, state.pos.z - cz) < 26)
+          spawnToast('⛓️ 昇降台が降りてきた', null, 'alert');
+        L.returning = false;
+      }
     }
     if(L.rider && (L.state === 'up' || L.state === 'down')){
       state.pos.y = y; state.yVel = 0; state.grounded = true;
@@ -1116,6 +1165,17 @@
     }
     L.slab.y = y;
     L.mesh.position.y = y;
+    /* 目印: 台の灯り(留め金が外れて待っている間は脈打ち、動いている間は灯ったまま、掛かっている間は消えている)と、
+       下の乗り場の床の枠(台が下で待っている間だけ)。点光源は足さない(自分で光る材質だけ) */
+    if(L.lampMat){
+      const want = L.state === 'ready' ? 0.9 + Math.sin(M.t * 4.2) * 0.6 : (L.state === 'up' || L.state === 'down' || L.state === 'armed') ? 1.4 : L.state === 'top' ? 0.8 : 0.05;
+      L.lampMat.emissiveIntensity += (want - L.lampMat.emissiveIntensity) * Math.min(1, dt * 8);
+    }
+    if(L.mark){
+      const show = L.state === 'ready' && y <= TOWER_LIFT.yLow + 0.05;
+      L.mark.visible = show;
+      if(show) L.mark.material.opacity = 0.35 + Math.sin(M.t * 4.2) * 0.2;
+    }
     // 上の口の柵: 台が上に無い時だけ(上の階から穴へ落ちない)
     const guard = L.state !== 'top';
     if(guard !== L.guardOn){
@@ -1151,7 +1211,7 @@
     });
     const L = M.lift;
     if(L){
-      if(L.state === 'low'){ L.state = 'armed'; L.t = TOWER_LIFT.delay; }
+      if(L.state === 'low'){ L.state = 'armed'; L.t = TOWER_LIFT.delay; sfx('tick'); }   // 振動が台へ伝わる(機構の音)
       else if(L.state === 'top') L.downCall = true;
     }
     if(M.town) M.town.flicker = 1.6;
@@ -1426,7 +1486,21 @@
         {minX:TOWER_LIFT.x0 - 0.3, maxX:TOWER_LIFT.x0 + 0.3, minZ:22, maxZ:27.3, y0:44, y1:52},
         {minX:TOWER_LIFT.x0 - 0.3, maxX:-244, minZ:27 - 0.3, maxZ:27 + 0.3, y0:44, y1:52},
       ];
-      M.lift = {mesh:deck, slab, state:'low', t:0, idle:0, rider:false, guards, guardOn:false, downCall:false};
+      // 台の灯り(柱の上の小さな角灯。自分で光る材質だけ ―― 点光源は足さない)と、下の乗り場の床の枠
+      const lampMat = new THREE.MeshStandardMaterial({color:0x5a4020, emissive:0xffb347, emissiveIntensity:0.05, roughness:0.5});
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.6, 0.14), darkMat);
+      post.position.set(-1.9, 0.8, -2.0); deck.add(post);
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.42, 0.34), lampMat);
+      lamp.position.set(-1.9, 1.75, -2.0); deck.add(lamp);
+      const markW = TOWER_LIFT.x1 - TOWER_LIFT.x0, markD = TOWER_LIFT.z1 - TOWER_LIFT.z0;
+      const markGeo = new THREE.RingGeometry(0.5, 0.56, 4, 1); markGeo.rotateZ(Math.PI/4); markGeo.rotateX(-Math.PI/2);
+      const mark = new THREE.Mesh(markGeo, new THREE.MeshBasicMaterial({color:0xffc870, transparent:true, opacity:0.4, depthWrite:false}));
+      mark.scale.set(markW * 1.42, 1, markD * 1.42);
+      mark.position.set((TOWER_LIFT.x0 + TOWER_LIFT.x1)/2, TOWER_LIFT.yLow + 0.06, (TOWER_LIFT.z0 + TOWER_LIFT.z1)/2);
+      mark.visible = false; mark.userData.noOutline = true;
+      scene.add(mark); mark.userData.towerTier = 4; towerTierObjs[4].push(mark);
+      M.lift = {mesh:deck, slab, state:'low', t:0, idle:0, rider:false, guards, guardOn:false, downCall:false,
+                unlocked:false, board:0, empty:0, returning:false, toldReady:false, lampMat, mark};
     }
 
     /* ---- 点光源(6 個を使い回す) ---- */
@@ -1865,6 +1939,19 @@
     towerMech.walkers.push({g, from:g.position.clone(), to:to.clone(), dur, t:0});
   }
   function towerFade(g, t){ const a = g && apparitions.find(x=> x.group === g); if(a){ a.state = 'out'; a.fadeOut = t || 1.2; } }
+  /* 管理人と娘の影(CLOCKTOWER-003)。暗い塔の中で見分けられるよう、淡い色(管理人は灰褐色・娘は藤色)の半透明。
+     自分で光る材質(照明に左右されない)なので、通常の NPC のように明るくはならない。止まった人々は青みの灰 */
+  const TOWER_SHADE = {
+    keeper: {color:0xa89c88, maxOpacity:0.6},
+    girl:   {color:0xbcaee0, maxOpacity:0.62},
+    crowd:  {color:0x8a94a8, maxOpacity:0.45},
+  };
+  function towerShade(pos, who, opts){
+    opts = opts || {};
+    const g = spawnApparition(pos, Object.assign({vanishDist:0}, TOWER_SHADE[who], opts));
+    if(opts.scale) g.scale.setScalar(opts.scale);   // 遠くに立つ影(縦穴の縁から見下ろす管理人)は大きく
+    return g;
+  }
 
   function buildClocktowerChapter1Story(slabY){
     towerInsightDone = false; towerRepeatSeen = false; towerKeyTaken = false; towerFirstRingDone = false;
@@ -1880,8 +1967,7 @@
       playCutscene([
         {t:0.1, run:()=>{
           ambienceHold(8);
-          [[-274, 52, 0x4a4a5a], [-250, 50, 0x5a4a48]].forEach(([x, z, c])=>
-            figs.push(spawnApparition(new THREE.Vector3(x, 0, z), {color:c, vanishDist:0, maxOpacity:0.5, fadeIn:1.2})));
+          [[-274, 52], [-250, 50]].forEach(([x, z])=> figs.push(towerShade(new THREE.Vector3(x, 0, z), 'crowd', {fadeIn:1.2})));
         }},
         {t:0.6, keep:true, run:()=>{ sfx('chime'); addShake(0.12); }},
         {t:0.2, run:()=> cutsceneLine('頭上で、鐘がひとつ鳴った。塔じゅうの時計が、一斉に七時十三分を指して ―― 音が、消えた。', '')},
@@ -1892,7 +1978,12 @@
           // 縦穴を見上げる: 一番上に、大時計の裏が光っている
           // 3.5 秒かけて、ゆっくり見上げる(縦穴の下から上へ視線が昇っていく)
           sceneCamShot(TOWER_C.x, TOWER_C.z + 8, 6.0, {y:0, height:2.5, dist:2, look:{x:TOWER_C.x, y:40, z:TOWER_C.z - 1}, pan:3.5});
-          keeper = spawnApparition(new THREE.Vector3(TOWER_C.x - 1.5, 26, TOWER_C.z - 4.6), {color:0x4a4238, vanishDist:0, maxOpacity:0.6, fadeIn:1.4, facing:0});
+          // 縦穴の遥か上(約 30 先)の縁に立つので、人の大きさのままでは画面で 10 画素ほどにしかならない。
+          // 見下ろす影として大きく(×2.6)
+          // 以前の位置(4 層の縁、縦穴の中心の北 1.5 西)は、見上げるカメラから見ると縦穴の真ん中に吊られた大鐘の
+          // 真後ろで、しかも画面の下の会話の枠に重なり、ほとんど見えなかった。大時計の光のすぐ下 ―― 鐘楼(5 層)の
+          // 北の帯の床、縦穴の縁の手前(北西寄り。大鐘の脇)に立たせる
+          keeper = towerShade(new THREE.Vector3(TOWER_C.x - 4.5, 34, TOWER_C.z - 6.4), 'keeper', {fadeIn:1.4, facing:0, scale:2.6});
         }},
         {t:3.8, keep:true, run:()=>{}},   // 見上げ終わってから一文
         {t:0.1, run:()=> cutsceneLine('縦穴の遥か上に、大時計の裏側が光っている。その手前の縁から、誰かがこちらを見下ろしていた。', '')},
@@ -1909,8 +2000,8 @@
         playCutscene([
           {t:0.1, run:()=>{
             sceneCamShot(-272, 55.5, 2.0, {y:8, height:7, dist:7});
-            girl = spawnApparition(new THREE.Vector3(-273.5, 8, 55.2), {color:0x6a5a80, vanishDist:0, maxOpacity:0.55, fadeIn:1.0, facing:Math.PI});
-            father = spawnApparition(new THREE.Vector3(-270.5, 8, 55.4), {color:0x4a4238, vanishDist:0, maxOpacity:0.5, fadeIn:1.0, facing:Math.PI});
+            girl = towerShade(new THREE.Vector3(-273.5, 8, 55.2), 'girl', {fadeIn:1.0, facing:Math.PI});
+            father = towerShade(new THREE.Vector3(-270.5, 8, 55.4), 'keeper', {fadeIn:1.0, facing:Math.PI});
           }},
           {t:1.2, keep:true, run:()=>{}},
           {t:0.1, run:()=> cutsceneLine('灯りの輪の中に、作業台の二人が浮かんだ。少女が懐中時計を耳に当てて、父親を見上げて笑っている。', '')},
@@ -1933,8 +2024,8 @@
       playCutscene([
         {t:0.1, run:()=>{
           sceneCamShot(-262, 50, 3.0, {y:26, height:8, dist:9});
-          father = spawnApparition(new THREE.Vector3(-260.5, 26, 49.6), {color:0x4a4238, vanishDist:0, maxOpacity:0.5, fadeIn:1.0, facing:-Math.PI/2});
-          girl = spawnApparition(new THREE.Vector3(-263.5, 26, 49.6), {color:0x6a5a80, vanishDist:0, maxOpacity:0.55, fadeIn:1.0, facing:Math.PI/2});
+          father = towerShade(new THREE.Vector3(-260.5, 26, 49.6), 'keeper', {fadeIn:1.0, facing:-Math.PI/2});
+          girl = towerShade(new THREE.Vector3(-263.5, 26, 49.6), 'girl', {fadeIn:1.0, facing:Math.PI/2});
         }},
         {t:1.2, keep:true, run:()=> sfx('chime')},
         {t:0.1, run:()=> cutsceneLine('七時十三分。食卓のそばで、父と娘が向き合っている。', '')},
@@ -2016,7 +2107,18 @@
       {t:0.1, run:()=> cutsceneLine('鐘の音が、街まで降りていった。止まっていた窓の灯りが、ひとつ、ふたつ、揺れた。', '')},
       {t:0.1, run:()=> cutsceneLine('「……街の灯りが、動きました」', A)},
       {t:0.1, run:()=> cutsceneLine('「鐘の音だけは、止まってなかったんだな。……乗るぞ、台が上がる」', R)},
-      {t:0.1, run:towerEndScene},
+      /* 振動で昇降台の留め金が外れる所を見せる(北東の角。台の灯りが点く)。台は下の乗り場で待つ(CLOCKTOWER-003)。
+         カメラは台の南西(塔の内側)から ―― 見せる画のカメラの位置は今の向き(camYaw)で決まるので、この間だけ向きを
+         塔の内側へ向け、終わったら元に戻す。前の一文は閉じて、台を隠さない */
+      {t:0.1, run:()=>{
+        cutsceneHideLine();
+        if(camAutoOn){ towerLiftShotYaw = state.camYaw; state.camYaw = -Math.PI/4; }   // 自動カメラ OFF の人には映す画を出さないので、向きも変えない
+        sceneCamShot((TOWER_LIFT.x0 + TOWER_LIFT.x1)/2, (TOWER_LIFT.z0 + TOWER_LIFT.z1)/2, 2.2,
+          {y:TOWER_LIFT.yLow, height:5, dist:8, look:{x:(TOWER_LIFT.x0 + TOWER_LIFT.x1)/2, y:TOWER_LIFT.yLow + 1, z:(TOWER_LIFT.z0 + TOWER_LIFT.z1)/2}});
+      }},
+      {t:0.5, keep:true, run:()=>{ if(towerMech) towerLiftRelease(towerMech.lift); }},
+      {t:1.5, keep:true, run:()=>{}},
+      {t:0.1, run:()=>{ if(towerLiftShotYaw != null){ state.camYaw = towerLiftShotYaw; towerLiftShotYaw = null; } towerEndScene(); }},
     ]);
   }
   // 縦穴の向こう岸(T2 北の回廊)の撃ち手が二体とも倒れたか

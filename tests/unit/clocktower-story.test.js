@@ -80,7 +80,8 @@ function setup({ testMode = false, learnedSkill2 = false, scenarioKey = 'clockto
     sceneCamShot: (x, z, dur, opts) => { log.shots.push({ x, z, ...opts }); log.seq.push('shot'); },
     grantChapter1Skill2: () => { log.seq.push('grant'); const r = learnSkill2(state); if (r.changed) log.grants++; return r.changed; },
     ambienceHold: () => {}, sfx: () => {}, spawnLog: () => {},
-    spawnApparition: () => { log.apps++; const g = { position: new V3() }; apparitions.push({ group: g, state: 'in' }); return g; },
+    // 時計塔の影は大きさを持てる(CLOCKTOWER-003 の towerShade。縦穴の縁の管理人は大きく)
+    spawnApparition: () => { log.apps++; const g = { position: new V3(), scale: { setScalar: () => {} } }; apparitions.push({ group: g, state: 'in' }); return g; },
   };
   const api = new Function(...Object.keys(deps), code)(...Object.values(deps));
   const runCutscene = () => { const s = steps; steps = null; (s || []).forEach(x => x.run()); state.dialogueActive = false; };
