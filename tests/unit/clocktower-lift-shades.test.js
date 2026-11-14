@@ -14,8 +14,12 @@ const fn = (src, name) => { const i = src.indexOf(`function ${name}(`); assert.o
 test('昇降台: 鐘で留め金が外れると、台は乗り場で待つ(ready)。乗ると上がる。一度外れたらずっと使える', () => {
   const L = fn(tower, 'updateTowerLift');
   assert.match(L, /if\(L\.state === 'armed'\)\{\n      L\.t -= dt;\n      if\(L\.t <= 0\) towerLiftRelease\(L\);/, '鳴らして少し後に留め金が外れる(以前は上がってしまった)');
-  assert.match(L, /if\(L\.board >= \(onLift \? LIFT_BOARD_S : LIFT_CALL_S\)\)\{ L\.state = 'up'; L\.rider = onLift;/, '乗ると上がる・上の口から呼ぶと上がってくる');
+  assert.match(L, /if\(L\.board >= \(boarding \? LIFT_BOARD_S : LIFT_CALL_S\)\)\{ L\.state = 'up'; L\.rider = onLift;/, '乗ると上がる・上の口から呼ぶと上がってくる');
   assert.match(L, /L\.state = L\.unlocked \? 'ready' : 'low';/, '降りたら乗り場で待つ(留め金は外れたまま)');
+  // 乗って降りてきた人は、一度降りるまで上がらない(降りた途端にまた上がる繰り返しにならない)
+  assert.match(L, /L\.leftLow = !L\.rider;/);
+  assert.match(L, /const boarding = onLift && L\.leftLow !== false;/);
+  assert.match(L, /if\(offFootprint\) L\.leftLow = true;/, '降りたと数えるのは台の広さの外へ出た時');
   assert.match(fn(tower, 'towerLiftRelease'), /L\.state = 'ready'; L\.unlocked = true;/);
 });
 

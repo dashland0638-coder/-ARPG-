@@ -105,6 +105,27 @@ test.describe('CLOCKTOWER-003', () => {
     await page.evaluate(() => window.__ct.go(-247, 44, 29.5));
     await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('top');
 
+    // 上で乗ったまま待つと下りる。下に着いても、降りるまでは上がり直さない(乗ったままでも ready のまま)
+    await page.evaluate(() => window.__ct.go(-246.8, 44, 24.7));
+    await page.waitForTimeout(800);
+    await page.evaluate(() => window.__ct.go(-249.5, 44, 29));   // 一度降りる
+    await page.waitForTimeout(800);
+    await page.evaluate(() => window.__ct.go(-246.8, 44, 24.7));   // また乗って待つ
+    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('ready');
+    expect((await page.evaluate(() => window.__ct.lift())).py, '乗っていた人も鐘楼へ').toBeLessThan(34.6);
+    await page.waitForTimeout(4000);
+    expect(await liftState(page), '降りてきた台に乗ったままでも、すぐには上がり直さない').toBe('ready');
+    // 一度降りてから乗ると上がる
+    await page.evaluate(() => window.__ct.go(-251, 34, 29));
+    await page.waitForTimeout(800);
+    await page.evaluate(() => window.__ct.go(-246.8, 34, 24.7));
+    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('top');
+    await page.evaluate(() => window.__ct.go(-262, 34, 50));
+    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('ready');
+    // 上に呼んでおく(次の鐘の確認のため)
+    await page.evaluate(() => window.__ct.go(-247, 44, 29.5));
+    await expect.poll(() => liftState(page), { timeout: 30_000 }).toBe('top');
+
     // 鐘楼で鐘を鳴らすと、上の台が降りてくる(以前のまま)。鳴らしても留め金は外れたまま(何度でも使える)
     await page.evaluate(() => window.__ct.go(-251.5, 34, 30.6));
     await page.waitForTimeout(300);
@@ -172,7 +193,7 @@ test.describe('CLOCKTOWER-003', () => {
       return t;
     }), { timeout: 30_000, intervals: [500] }).toContain('見下ろしていた');
     s = await page.evaluate(() => window.__ct.shades());
-    const keeper = s.find(x => x.y === 34);   // 鐘楼の縁
+    const keeper = s.find(x => x.y === 34);   // 鐘楼の縁の手前
     expect(keeper, `縁の管理人: ${JSON.stringify(s)}`).toBeTruthy();
     expect(keeper.op).toBeGreaterThan(0.5);
     if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/t0-keeper.png` });

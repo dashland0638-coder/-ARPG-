@@ -1119,8 +1119,14 @@
     } else if(L.state === 'ready'){
       // 乗ると上がる。上の階で上の口に近づいた人がいれば、空のまま上がってくる
       const nearTop = atTop && Math.hypot(state.pos.x - cx, state.pos.z - cz) < 5.5;
-      L.board = (onLift || nearTop) ? L.board + dt : 0;
-      if(L.board >= (onLift ? LIFT_BOARD_S : LIFT_CALL_S)){ L.state = 'up'; L.rider = onLift; L.board = 0; sfx('chainRun'); }
+      // 乗って降りてきた人は、一度台から降りるまで「乗った」と数えない(降りた途端にまた上がらない。上の口の leftOnce と同じ)。
+      // 「降りた」は台の広さの外へ出た時(着いた瞬間に一フレームだけ足が浮くのを、降りたと数えない)
+      const offFootprint = !(state.pos.x > L.slab.x0 - 0.3 && state.pos.x < L.slab.x1 + 0.3 && state.pos.z > L.slab.z0 - 0.3 && state.pos.z < L.slab.z1 + 0.3)
+        || Math.abs(state.pos.y - L.slab.y) > 1.5;
+      if(offFootprint) L.leftLow = true;
+      const boarding = onLift && L.leftLow !== false;
+      L.board = (boarding || nearTop) ? L.board + dt : 0;
+      if(L.board >= (boarding ? LIFT_BOARD_S : LIFT_CALL_S)){ L.state = 'up'; L.rider = onLift; L.board = 0; sfx('chainRun'); }
     } else if(L.state === 'top'){
       if(!onLift) L.leftOnce = true;
       L.idle = (onLift && L.leftOnce) ? L.idle + dt : 0;   // 上の口で一度降りてから、また乗って待つと下りる
@@ -1138,6 +1144,7 @@
     } else if(L.state === 'down'){
       y = Math.max(TOWER_LIFT.yLow, y - dt * (TOWER_LIFT.yHigh - TOWER_LIFT.yLow) / TOWER_LIFT.rise);
       if(y <= TOWER_LIFT.yLow){
+        L.leftLow = !L.rider;   // 乗って降りてきた人は、一度降りるまで上がらない
         L.state = L.unlocked ? 'ready' : 'low'; L.rider = false; L.board = 0; sfx('anvil');
         // 乗り遅れて戻ってきた時だけ、短く知らせる(同じ階の近くにいる時)
         if(L.returning && Math.abs(state.pos.y - TOWER_LIFT.yLow) < 3 && Math.hypot(state.pos.x - cx, state.pos.z - cz) < 26)
@@ -1923,6 +1930,7 @@
   function towerStoryOn(){ return clocktowerChapter1(); }
   let towerInsightDone = false, towerRepeatSeen = false, towerKeyTaken = false, towerFirstRingDone = false;
   let towerBridgeTalkDone = false, towerClutchTalkDone = false;
+  let towerLiftShotYaw = null;   // 昇降台を映す間だけ向けたカメラの向きの、元の値
   function towerEndScene(){ cutsceneHideLine(); state.dialogueActive = false; clearMovementInput(false); }
   function towerWalk(g, to, dur){
     if(!towerMech || !g) return;
@@ -1968,12 +1976,12 @@
           // 縦穴を見上げる: 一番上に、大時計の裏が光っている
           // 3.5 秒かけて、ゆっくり見上げる(縦穴の下から上へ視線が昇っていく)
           sceneCamShot(TOWER_C.x, TOWER_C.z + 8, 6.0, {y:0, height:2.5, dist:2, look:{x:TOWER_C.x, y:40, z:TOWER_C.z - 1}, pan:3.5});
-          // 縦穴の遥か上(約 25 先)の縁に立つので、人の大きさのままでは画面で 10 画素ほどにしかならない。
-          // 見下ろす影として大きく(×3)
+          // 縦穴の遥か上(約 30 先)の縁に立つので、人の大きさのままでは画面で 10 画素ほどにしかならない。
+          // 見下ろす影として大きく(×2.6)
           // 以前の位置(4 層の縁、縦穴の中心の北 1.5 西)は、見上げるカメラから見ると縦穴の真ん中に吊られた大鐘の
-          // 真後ろで、しかも画面の下の会話の枠に重なり、ほとんど見えなかった。大時計の光のすぐ下 ―― 鐘楼(5 層)の縁の
-          // 北西の角(大鐘の脇)に立たせ、大きくする
-          keeper = towerShade(new THREE.Vector3(TOWER_SHAFT.x0 + 1.5, 34, TOWER_SHAFT.z0 + 0.6), 'keeper', {fadeIn:1.4, facing:0, scale:2.6});
+          // 真後ろで、しかも画面の下の会話の枠に重なり、ほとんど見えなかった。大時計の光のすぐ下 ―― 鐘楼(5 層)の
+          // 北の帯の床、縦穴の縁の手前(北西寄り。大鐘の脇)に立たせる
+          keeper = towerShade(new THREE.Vector3(TOWER_C.x - 4.5, 34, TOWER_C.z - 6.4), 'keeper', {fadeIn:1.4, facing:0, scale:2.6});
         }},
         {t:3.8, keep:true, run:()=>{}},   // 見上げ終わってから一文
         {t:0.1, run:()=> cutsceneLine('縦穴の遥か上に、大時計の裏側が光っている。その手前の縁から、誰かがこちらを見下ろしていた。', '')},
@@ -2097,12 +2105,18 @@
       {t:0.1, run:()=> cutsceneLine('鐘の音が、街まで降りていった。止まっていた窓の灯りが、ひとつ、ふたつ、揺れた。', '')},
       {t:0.1, run:()=> cutsceneLine('「……街の灯りが、動きました」', A)},
       {t:0.1, run:()=> cutsceneLine('「鐘の音だけは、止まってなかったんだな。……乗るぞ、台が上がる」', R)},
-      // 振動で昇降台の留め金が外れる所を見せる(北東の角。台の灯りが点く)。台は下の乗り場で待つ(CLOCKTOWER-003)
-      {t:0.1, run:()=> sceneCamShot((TOWER_LIFT.x0 + TOWER_LIFT.x1)/2, (TOWER_LIFT.z0 + TOWER_LIFT.z1)/2, 2.2,
-        {y:TOWER_LIFT.yLow, height:4.5, dist:7, look:{x:(TOWER_LIFT.x0 + TOWER_LIFT.x1)/2, y:TOWER_LIFT.yLow + 4, z:(TOWER_LIFT.z0 + TOWER_LIFT.z1)/2}})},
+      /* 振動で昇降台の留め金が外れる所を見せる(北東の角。台の灯りが点く)。台は下の乗り場で待つ(CLOCKTOWER-003)。
+         カメラは台の南西(塔の内側)から ―― 見せる画のカメラの位置は今の向き(camYaw)で決まるので、この間だけ向きを
+         塔の内側へ向け、終わったら元に戻す。前の一文は閉じて、台を隠さない */
+      {t:0.1, run:()=>{
+        cutsceneHideLine();
+        towerLiftShotYaw = state.camYaw; state.camYaw = -Math.PI/4;
+        sceneCamShot((TOWER_LIFT.x0 + TOWER_LIFT.x1)/2, (TOWER_LIFT.z0 + TOWER_LIFT.z1)/2, 2.2,
+          {y:TOWER_LIFT.yLow, height:5, dist:8, look:{x:(TOWER_LIFT.x0 + TOWER_LIFT.x1)/2, y:TOWER_LIFT.yLow + 1, z:(TOWER_LIFT.z0 + TOWER_LIFT.z1)/2}});
+      }},
       {t:0.5, keep:true, run:()=>{ if(towerMech) towerLiftRelease(towerMech.lift); }},
       {t:1.5, keep:true, run:()=>{}},
-      {t:0.1, run:towerEndScene},
+      {t:0.1, run:()=>{ if(towerLiftShotYaw != null){ state.camYaw = towerLiftShotYaw; towerLiftShotYaw = null; } towerEndScene(); }},
     ]);
   }
   // 縦穴の向こう岸(T2 北の回廊)の撃ち手が二体とも倒れたか
