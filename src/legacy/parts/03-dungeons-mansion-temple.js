@@ -787,11 +787,16 @@
   const TOWER_KEY_HOOK = {x:-267.4, z:47.3};
 
   const TOWER_TIER_Y = [0, 8, 16, 26, 34, 44, 52];
+  /* 塔の外(眼下の街)が見え始める階 = 鐘楼(5層、tier 4。Human Decision 2026-11-14「鐘楼から開く」)。
+     それより下(1〜4層と坂の途中)は、外壁の内側の面(towerVeil)が塔の外を隠す */
+  const TOWER_VIEW_TIER = 4;
   let towerFace = null;          // {minute, hour} 床の文字盤の針(止刻の残響の段で七時十三分へ近づく)
   let towerKeeper = null;        // T5 の管理人(本編だけ)
   let towerTierObjs = null;      // [tier] -> [Object3D]
   let towerTierVisKey = '';
   let towerShell = null;         // 塔の外観(外にいる時だけ)
+  let towerVeil = null;          // 外壁の内側の面(塔の中・鐘楼より下にいる時だけ。CLOCKTOWER-MAP-001)
+  let towerVeilOn = false;
   let towerLights = null;        // 使い回す 6 個の点光源
   let towerLightTier = -1;
   let towerMech = null;          // 動く仕掛けの状態(clearTowerMech で捨てる)
@@ -826,6 +831,15 @@
     }
     const outside = state.pos.z > TOWER_OUT.z1 + 0.5 && py < 4;
     key += outside ? 'o' : 'i';
+    /* 外壁の内側の面: 塔の中(外壁の内側の範囲。前庭・島・隠し歯車庫は含まない)の 1〜4層と坂にいる間だけ。
+       鐘楼(5層、屋外)に出た瞬間に消えて、街が開ける。鐘楼から降りる時は 0.3 下がってから戻す
+       (坂の上の境目で跳ねた時に、出たり消えたりしない) */
+    const px = state.pos.x, pz = state.pos.z;
+    const inTower = !outside && px >= TOWER_OUT.x0 - 1 && px <= TOWER_OUT.x1 + 1 && pz >= TOWER_OUT.z0 - 1 && pz <= TOWER_OUT.z1 + 0.5;
+    const viewY = TOWER_TIER_Y[TOWER_VIEW_TIER] - 0.5;
+    const veil = inTower && py < (towerVeilOn ? viewY : viewY - 0.3);
+    key += veil ? 'v' : '-';
+    towerVeilOn = veil;
     if(key !== towerTierVisKey){
       towerTierVisKey = key;
       for(let i=0;i<towerTierObjs.length;i++){
@@ -833,12 +847,36 @@
         towerTierObjs[i].forEach(o=> rcSetLayer(o, on));
       }
       if(towerShell) rcSetLayer(towerShell, outside);
+      if(towerVeil) rcSetLayer(towerVeil, veil);
     }
     // 宝箱も、別の階のものは描かない(敵は 07 の updateEnemyFloorPresence)
     towerHideOffFloor(chests);
     // 点光源は今の階のものだけ(6 個を置き直す。数を変えないのでシェーダーは作り直さない)
     const tier = towerTierAt(py);
     if(tier !== towerLightTier) placeTowerLights(tier);
+  }
+  /* カメラを外壁の内側に留める(外壁の内側の面がある間。13 の updateCamera から)。カメラが外壁の外へ出ると、
+     塔の角の向こう(内側の面の外)から街が見えるため。外壁に寄った時はカメラがプレイヤーへ寄る */
+  /* カメラは、プレイヤーから見た向き(camYaw)のまま距離だけを縮めて外壁の内側に留める(x・z を別々に押し戻すと、
+     壁際でカメラがプレイヤーの真上や反対側へ回り込み、画面の向きが反転する)。境界は外壁の中心から 0.5 内側
+     (プレイヤーが近づける 0.7 より外 ―― カメラがプレイヤーを越えない)。プレイヤーの横の距離は最低 0.3 残す。
+     1層の門の口(前庭への出入り)では留めない: 門の口から見えるのは街と反対の前庭だけ */
+  function clampTowerCamera(p){
+    if(currentWorldKey !== 'clocktower' || !towerVeilOn) return p;
+    const P = state.pos;
+    if(P.y < 4 && P.x >= -266 && P.x <= -258 && P.z > TOWER_OUT.z1 - 3) return p;
+    const m = 0.5, bx0 = TOWER_OUT.x0 + m, bx1 = TOWER_OUT.x1 - m, bz0 = TOWER_OUT.z0 + m, bz1 = TOWER_OUT.z1 - m;
+    const dx = p.x - P.x, dz = p.z - P.z;
+    let t = 1;
+    if(dx > 0 && p.x > bx1) t = Math.min(t, (bx1 - P.x) / dx);
+    if(dx < 0 && p.x < bx0) t = Math.min(t, (bx0 - P.x) / dx);
+    if(dz > 0 && p.z > bz1) t = Math.min(t, (bz1 - P.z) / dz);
+    if(dz < 0 && p.z < bz0) t = Math.min(t, (bz0 - P.z) / dz);
+    if(t >= 1) return p;
+    const len = Math.hypot(dx, dz);
+    t = Math.max(t, len > 0 ? Math.min(1, 0.3 / len) : 0);
+    p.x = P.x + dx * t; p.z = P.z + dz * t;
+    return p;
   }
   function towerHideOffFloor(list){
     for(let i=0;i<list.length;i++){
@@ -898,7 +936,7 @@
 
   function clearTowerMech(){
     if(towerMech) towerMech.ripples.forEach(r=> scene.remove(r.mesh));
-    towerMech = null; towerTierObjs = null; towerTierVisKey = ''; towerShell = null;
+    towerMech = null; towerTierObjs = null; towerTierVisKey = ''; towerShell = null; towerVeil = null; towerVeilOn = false;
     towerLights = null; towerLightTier = -1; towerTown = null;
   }
 
@@ -1588,7 +1626,7 @@
         addStaticBox(x, h * 0.6, z + d/2 + 0.05, w * 0.5, 0.9, 0.1, winMat, false);
       }
       endStaticBatch();
-      scene.children.forEach(o=>{ if(!townBefore.has(o)){ o.userData.towerTier = -1; o.traverse(n=>{ if(n.isMesh) n.castShadow = false; }); } });
+      scene.children.forEach(o=>{ if(!townBefore.has(o)){ o.userData.towerTier = -1; o.userData.towerTown = true; o.traverse(n=>{ if(n.isMesh) n.castShadow = false; }); } });
       M.town = {mat:winMat, flicker:0};
     }
 
@@ -1710,6 +1748,47 @@
       g.userData.towerTier = -2;
       towerShell = g;
       rcSetLayer(g, false);
+    }
+
+    /* ---- 外壁の内側の面(CLOCKTOWER-MAP-001) ----
+       塔の中の階の壁は高さ 2.4 で、階の間は 8〜10 あく。上の階は描かない(カメラを塞ぐため)ので、
+       壁の上から塔の外 ―― 眼下の街 ―― が見えていた。外壁のすぐ外側に、内側だけを向いた面を
+       地面の下から屋上より上まで立て、塔の中(1〜4層と坂)にいる間だけ描く(updateTowerTiers)。
+       ・内側だけを向く(裏面は描かない): カメラが外壁の外へ出た時、手前の面は見えずにプレイヤーを隠さない。
+         向こう側の面だけが塔の外を隠す
+       ・当たり判定は持たない(見た目だけ)。影を落とさない。四面で一つのメッシュ(描画 1 回)
+       ・1層の門(南の外壁の口)は開けておく(玄関から前庭が見える) */
+    {
+      const VW = 0.42;                                  // 外壁(厚さ 0.6、中心が境界)の外側の面より少し外
+      const y0 = -4, y1 = 62, h = y1 - y0;
+      const x0 = TOWER_OUT.x0 - VW, x1 = TOWER_OUT.x1 + VW, z0 = TOWER_OUT.z0 - VW, z1 = TOWER_OUT.z1 + VW;
+      const gate = {a:-266, b:-258, top:3.2};           // 1層の門(TOWER_WALLS の南の外壁の開口と同じ)
+      const quad = (w, hh, cx, cy, cz, ry)=>{
+        const g = new THREE.PlaneGeometry(w, hh);
+        const uv = g.attributes.uv;
+        for(let i=0;i<uv.count;i++) uv.setXY(i, uv.getX(i) * w / 4, uv.getY(i) * hh / 4);   // 石積み 4 単位で一回
+        g.rotateY(ry); g.translate(cx, cy, cz);
+        return g;
+      };
+      const parts = [
+        quad(z1 - z0, h, x0, (y0 + y1)/2, (z0 + z1)/2,  Math.PI/2),   // 西(+x を向く)
+        quad(z1 - z0, h, x1, (y0 + y1)/2, (z0 + z1)/2, -Math.PI/2),   // 東(-x を向く)
+        quad(x1 - x0, h, (x0 + x1)/2, (y0 + y1)/2, z0, 0),            // 北(+z を向く)
+        // 南(-z を向く)。門の口を残す
+        quad(gate.a - x0, h, (x0 + gate.a)/2, (y0 + y1)/2, z1, Math.PI),
+        quad(x1 - gate.b, h, (gate.b + x1)/2, (y0 + y1)/2, z1, Math.PI),
+        quad(gate.b - gate.a, y1 - gate.top, (gate.a + gate.b)/2, (gate.top + y1)/2, z1, Math.PI),
+      ];
+      const geo = weldGeometries(parts);
+      parts.forEach(g=> g.dispose());
+      const tex = wallTex.clone(); tex.needsUpdate = true;
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(1, 1);
+      const veil = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({map:tex, color:0x8a8070, roughness:0.9, side:THREE.FrontSide}));
+      veil.castShadow = false; veil.receiveShadow = false;
+      veil.userData.towerTier = -3; veil.userData.noOutline = true;
+      scene.add(veil);
+      towerVeil = veil;
+      rcSetLayer(veil, false);
     }
 
     /* ---- the view out: 雲・海(塔の外だけ) ---- */

@@ -2349,7 +2349,7 @@
         const desiredYaw = Math.atan2(dirX, dirZ);
         state.camYaw = lerpAngle(state.camYaw, desiredYaw, 1-Math.pow(0.0006,dt));
       }
-      const desired = new THREE.Vector3().copy(state.pos).add(getCamOffset());
+      const desired = clampTowerCamera(new THREE.Vector3().copy(state.pos).add(getCamOffset()));
       camera.position.lerp(desired, 1-Math.pow(0.001,dt));
       // 注視点もプレイヤー側だけでなくボス側へ寄せ、画面内に両方収まる
       // 時間を長くする(「注視点も操作」の要望に対応)
@@ -2366,7 +2366,8 @@
       if(desiredCombatFocus) combatCamFocusOffset.lerp(desiredCombatFocus, combatCameraLerpAlpha(0.0025, dt));
       else combatCamFocusOffset.lerp(_combatThreatFocus.set(0,0,0), combatCameraLerpAlpha(0.0009, dt));
     }
-    const desired = new THREE.Vector3().copy(state.pos).add(getCamOffset());
+    // 時計塔の中では、カメラを外壁の内側に留める(CLOCKTOWER-MAP-001。他の世界では何もしない)
+    const desired = clampTowerCamera(new THREE.Vector3().copy(state.pos).add(getCamOffset()));
     camera.position.lerp(desired, 1-Math.pow(0.001,dt));
     const lookAt = state.pos.clone().add(combatCamFocusOffset); lookAt.y += COMBAT_CAMERA_Y_OFFSET;
     camera.lookAt(lookAt);
