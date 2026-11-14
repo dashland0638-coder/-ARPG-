@@ -62,6 +62,8 @@ Decision: .ai/decisions/DEC-007-chapter1-comprehensive.md（HD-1〜HD-7、2026-1
 
 ## Status History
 
+- 2026-11-14: 道の見た目は、Human の判断（DEC-024 HD-R1）で W4-7 から切り出し、別の Work Item `ROAD-VISUAL-002` として進める。W3-3 は未承認のため、共通基準に依存する露出・太陽の色（段階2）は保留。
+
 - 2026-10-28: main `1cad92d` で進捗を照合した（`.ai/reports/NEXT-DEV-PLAN-2026-10-28.md`）。W1-1・W1-3・W2-T1・W2-MB2 の状態を merge 済みに直し、W3（村）・W4-7（洋館）・W1-4 の行を足した。次の推奨は W0-6。戦闘（W2-1a〜）は W2-D の承認待ち。
 
 - 2026-10-14: 監査・計画（PLANNED）。独立 Reviewer の判定は Round 1 が CHANGES_REQUIRED、Round 2 が PASS。

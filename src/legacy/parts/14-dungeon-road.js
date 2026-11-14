@@ -95,22 +95,19 @@
     scene.add(path);
 
     // ---- 両脇の木立と低い石垣(歩ける範囲の目印。当たり判定は worldBounds) ----
+    /* 同じ形の物は InstancedMesh にまとめる(ROAD-VISUAL-002 段階1)。
+       木の幹・葉・石垣・木の部材が、それぞれ1回の描画になる。見た目(寸法・位置・色)は
+       個別のメッシュだった時と同じ。影は今までどおり落とさない */
     const trunkMat = new THREE.MeshStandardMaterial({color:0x5a4030, roughness:0.9});
-    const leafMats = [0x3f6a34, 0x4a7a3a, 0x568640].map(c=> new THREE.MeshStandardMaterial({color:c, roughness:0.85}));
+    const leafColors = [0x3f6a34, 0x4a7a3a, 0x568640];
     const stoneMat = new THREE.MeshStandardMaterial({color:0x8a8478, roughness:0.95});
+    const woodMat = new THREE.MeshStandardMaterial({color:0x6a4e32, roughness:0.85});
+    const trunks = [], leaves = [], stones = [], woodBoxes = [], woodPosts = [];
     function roadTree(x, z, s){
       const h = (2.4 + Math.random()*1.8) * (s || 1);
-      const g = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.24, h, 7), trunkMat);
-      trunk.position.y = h/2;
-      g.add(trunk);
-      const leaf = new THREE.Mesh(new THREE.SphereGeometry(1.2 + Math.random()*0.5, 8, 6),
-        leafMats[Math.floor(Math.random()*leafMats.length)]);
-      leaf.position.y = h + 0.7;
-      leaf.scale.y = 0.85;
-      g.add(leaf);
-      g.position.set(x, 0, z);
-      scene.add(g);
+      trunks.push({x, y:h/2, z, h});
+      const r = 1.2 + Math.random()*0.5;
+      leaves.push({x, y:h + 0.7, z, r, color:leafColors[Math.floor(Math.random()*leafColors.length)]});
     }
     for(let z = -4; z <= 112; z += 7){
       if(Math.abs(z - ROAD_BRIDGE_Z) < 5) continue;       // 小川の岸は開けておく
@@ -121,23 +118,16 @@
     for(let z = -4; z <= 110; z += 2.6){
       if(Math.abs(z - ROAD_BRIDGE_Z) < 4) continue;
       [-1, 1].forEach(side=>{
-        const st = new THREE.Mesh(new THREE.BoxGeometry(0.9 + Math.random()*0.5, 0.45 + Math.random()*0.25, 1.9), stoneMat);
-        st.position.set(ROAD_X + side*(ROAD_BOUNDS.x1 - ROAD_X + 0.6), 0.22, z);
-        st.rotation.y = (Math.random()-0.5)*0.2;
-        scene.add(st);
+        stones.push({sx:0.9 + Math.random()*0.5, sy:0.45 + Math.random()*0.25, sz:1.9,
+          x:ROAD_X + side*(ROAD_BOUNDS.x1 - ROAD_X + 0.6), y:0.22, z, ry:(Math.random()-0.5)*0.2});
       });
     }
 
     // ---- 道標(ここまで歩いてきた場所の名) ----
-    const woodMat = new THREE.MeshStandardMaterial({color:0x6a4e32, roughness:0.85});
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 2.6, 8), woodMat);
-    post.position.set(ROAD_SIGN_POS.x, 1.3, ROAD_SIGN_POS.z);
-    scene.add(post);
+    woodPosts.push({x:ROAD_SIGN_POS.x, y:1.3, z:ROAD_SIGN_POS.z, rTop:0.12, rBot:0.14, h:2.6});
     [[0.3, 2.25, '南'], [-0.35, 1.9, '西'], [0.25, 1.55, '東'], [-0.2, 1.2, '北']].forEach(([rot, y])=>{
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.22, 0.06), woodMat);
-      arm.position.set(ROAD_SIGN_POS.x + Math.cos(rot)*0.55, y, ROAD_SIGN_POS.z + Math.sin(rot)*0.1);
-      arm.rotation.y = rot;
-      scene.add(arm);
+      woodBoxes.push({sx:1.3, sy:0.22, sz:0.06,
+        x:ROAD_SIGN_POS.x + Math.cos(rot)*0.55, y, z:ROAD_SIGN_POS.z + Math.sin(rot)*0.1, ry:rot});
     });
     buildLoreNote(new THREE.Vector3(ROAD_SIGN_POS.x - 0.8, 0, ROAD_SIGN_POS.z), '古い道標', [
       '南 ―― 港町。',
@@ -159,30 +149,22 @@
     deck.receiveShadow = true;
     scene.add(deck);
     [-1, 1].forEach(side=>{
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 7.2), woodMat);
-      rail.position.set(ROAD_X + side*2.7, 0.95, ROAD_BRIDGE_Z);
-      scene.add(rail);
+      woodBoxes.push({sx:0.12, sy:0.12, sz:7.2, x:ROAD_X + side*2.7, y:0.95, z:ROAD_BRIDGE_Z, ry:0});
       [-3, 0, 3].forEach(dz=>{
-        const p = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.95, 0.14), woodMat);
-        p.position.set(ROAD_X + side*2.7, 0.48, ROAD_BRIDGE_Z + dz);
-        scene.add(p);
+        woodBoxes.push({sx:0.14, sy:0.95, sz:0.14, x:ROAD_X + side*2.7, y:0.48, z:ROAD_BRIDGE_Z + dz, ry:0});
       });
     });
 
     // ---- 旅人の休憩所(屋根つきの長椅子と井戸) ----
     const roofMat = new THREE.MeshStandardMaterial({color:0x7a4a32, roughness:0.8});
     [[-1.6,-1.2],[1.6,-1.2],[-1.6,1.2],[1.6,1.2]].forEach(([dx, dz])=>{
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.4, 6), woodMat);
-      p.position.set(ROAD_REST_POS.x + 1.2 + dx, 1.2, ROAD_REST_POS.z + dz);
-      scene.add(p);
+      woodPosts.push({x:ROAD_REST_POS.x + 1.2 + dx, y:1.2, z:ROAD_REST_POS.z + dz, rTop:0.1, rBot:0.12, h:2.4});
     });
     const roof = new THREE.Mesh(new THREE.ConeGeometry(2.9, 1.1, 4), roofMat);
     roof.position.set(ROAD_REST_POS.x + 1.2, 2.9, ROAD_REST_POS.z);
     roof.rotation.y = Math.PI/4;
     scene.add(roof);
-    const bench = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 0.6), woodMat);
-    bench.position.set(ROAD_REST_POS.x + 1.2, 0.48, ROAD_REST_POS.z);
-    scene.add(bench);
+    woodBoxes.push({sx:2.4, sy:0.12, sz:0.6, x:ROAD_REST_POS.x + 1.2, y:0.48, z:ROAD_REST_POS.z, ry:0});
     const well = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.8, 0.8, 12, 1, true),
       new THREE.MeshStandardMaterial({color:0x8a8478, roughness:0.95, side:THREE.DoubleSide}));
     well.position.set(ROAD_X - 4.5, 0.4, 82);
@@ -194,9 +176,7 @@
     trackPreJoinShadow(roadTraveler);
 
     // ---- 丘の上の里程石と、その先の景色 ----
-    const mile = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.1, 0.35), stoneMat);
-    mile.position.set(ROAD_HILL_POS.x + 2.6, 0.55, ROAD_HILL_POS.z + 2);
-    scene.add(mile);
+    stones.push({sx:0.6, sy:1.1, sz:0.35, x:ROAD_HILL_POS.x + 2.6, y:0.55, z:ROAD_HILL_POS.z + 2, ry:0});
     /* 道の先。歩ける範囲(z<112)の外に、遠い山並みと、細くなって続く道を置く ――
        「世界が広がった」ことを、説明ではなく景色で見せる */
     const farPath = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 120),
@@ -211,6 +191,8 @@
       m.position.set(ROAD_X + dx, h/2 - 4, z);
       scene.add(m);
     });
+
+    buildRoadInstances({trunks, leaves, stones, woodBoxes, woodPosts}, {trunkMat, stoneMat, woodMat});
 
     // 明るい朝。灯りは足さず、空と日差しは WORLD_MOOD.road に任せる
     const sunFill = new THREE.PointLight(0xffe8c0, 0.35, 60);
@@ -238,6 +220,47 @@
     });
 
     buildTownReturnPortal(new THREE.Vector3(ROAD_X, 0, -3));
+  }
+
+  /* 道の静的な小物を、形ごとに1つの InstancedMesh にする(ROAD-VISUAL-002 段階1)。
+     世界の破棄は geometry しか捨てないので、前回の道の instanceMatrix / instanceColor は
+     作り直す時にここで捨てる(14-dungeon-duskvillage.js の duskNightInstanced と同じ) */
+  let roadInstanced = [];
+  const ROAD_TRUNK_RATIO = 0.15/0.24;   // 幹の上下の半径の比(元の CylinderGeometry(0.15, 0.24))
+  function buildRoadInstances(L, M){
+    roadInstanced.forEach(m=> m.dispose());
+    roadInstanced = [];
+    const q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(),
+          sc = new THREE.Vector3(), mtx = new THREE.Matrix4(), col = new THREE.Color();
+    function make(geo, mat, list, place){
+      if(!list.length) return null;
+      const m = new THREE.InstancedMesh(geo, mat, list.length);
+      list.forEach((it, i)=>{ place(it, i, m); m.setMatrixAt(i, mtx); });
+      m.instanceMatrix.needsUpdate = true;
+      if(m.instanceColor) m.instanceColor.needsUpdate = true;
+      m.computeBoundingSphere();
+      m.matrixAutoUpdate = false;
+      m.updateMatrix();
+      scene.add(m);
+      roadInstanced.push(m);
+      return m;
+    }
+    const at = (x, y, z, ry, sx, sy, sz)=>{
+      e.set(0, ry || 0, 0); q.setFromEuler(e);
+      mtx.compose(v.set(x, y, z), q, sc.set(sx, sy, sz));
+    };
+    make(new THREE.CylinderGeometry(0.24*ROAD_TRUNK_RATIO, 0.24, 1, 7), M.trunkMat, L.trunks,
+      t=> at(t.x, t.y, t.z, 0, 1, t.h, 1));
+    make(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}), L.leaves,
+      (l, i, m)=>{ at(l.x, l.y, l.z, 0, l.r, l.r*0.85, l.r); m.setColorAt(i, col.setHex(l.color)); });
+    make(new THREE.BoxGeometry(1, 1, 1), M.stoneMat, L.stones,
+      b=> at(b.x, b.y, b.z, b.ry, b.sx, b.sy, b.sz));
+    make(new THREE.BoxGeometry(1, 1, 1), M.woodMat, L.woodBoxes,
+      b=> at(b.x, b.y, b.z, b.ry, b.sx, b.sy, b.sz));
+    /* 道標の柱(0.12/0.14)と休憩所の柱(0.10/0.12)。上下の比が近いので、
+       ひとつの形(0.10/0.12)を太さで伸ばして使う */
+    make(new THREE.CylinderGeometry(0.1, 0.12, 1, 8), M.woodMat, L.woodPosts,
+      p=> at(p.x, p.y, p.z, 0, p.rBot/0.12, p.h, p.rBot/0.12));
   }
 
   /* 影の旅人の姿。酒場の隅に座っていた人物(buildTavern)と同じ作り ――
