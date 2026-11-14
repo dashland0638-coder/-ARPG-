@@ -101,10 +101,10 @@ test.describe('テスト用チャプター／シナリオ選択', () => {
     await openGame(page);
     await openTestScreen(page);
 
-    // チャプター: 第一章(既定で選択) と 章外のシナリオ
+    // チャプター: 第一章(既定で選択) と 章外のシナリオ と 作業中のシナリオ(ROAD-VISUAL-003 の新しい道)
     const chapters = cards(page, 'testmode-chapter-grid');
-    await expect(chapters).toHaveCount(2);
-    expect(await chapters.evaluateAll(els => els.map(e => e.dataset.chapterId))).toEqual(['ch1', 'extra']);
+    await expect(chapters).toHaveCount(3);
+    expect(await chapters.evaluateAll(els => els.map(e => e.dataset.chapterId))).toEqual(['ch1', 'extra', 'wip']);
     await expect(page.locator('#testmode-chapter-grid [data-chapter-id="ch1"]')).toHaveClass(/selected/);
     await expect(page.locator('#testmode-chapter-grid [data-chapter-id="ch1"]')).toHaveText('第一章');
 

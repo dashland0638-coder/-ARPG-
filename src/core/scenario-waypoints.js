@@ -88,6 +88,13 @@ export const SCENARIO_WAYPOINTS = {
     // 母樹の間の扉の前の通路(調べると開く)
     {id:'bossdoor', name:'母樹の間の扉の前', x:226, z:61, kind:'boss-pre'},
   ],
+  /* 新しい道(ROAD-VISUAL-003)。各エリアの入口の野営地(core/road-map.js ROAD2_CAMPS と同じ位置の手前) */
+  road2: [
+    {id:'moor',     name:'風渡る原野の入口',     x:1100, z:116},
+    {id:'vale',     name:'水鏡の谷の入口',       x:1100, z:306},
+    {id:'mountain', name:'忘れられた山道の入口', x:1100, z:456},
+    {id:'end',      name:'道の果ての入口',       x:1100, z:646},
+  ],
   road: [
     {id:'sign',     name:'道標',       x:640,  z:12},
     {id:'bridge',   name:'小川の橋',   x:640,  z:52},
