@@ -277,7 +277,7 @@
           const pitch = (ga !== null && gb !== null) ? -Math.atan2(gb - ga, 3) : 0;
           const w = (r.kind === 'main' ? r.width : r.width*0.8) * st.wf;
           const jitter = r.area === 4 ? ((k*37 + i*11) % 5 - 2) * 0.12 : 0;   // 踏み石は少し不揃い
-          tiles.push({x: x + jitter*uz, y:g + 0.05, z: z - jitter*ux, ry: ry + jitter*0.2, rx:pitch, w, L: st.len || (L/n + 0.6),
+          tiles.push({x: x + jitter*uz, y:g - 0.02, z: z - jitter*ux, ry: ry + jitter*0.2, rx:pitch, w, L: st.len || (L/n + 0.6),
             c: r.kind === 'main' ? st.c : (st.c - 0x0c0c0c)});
         }
       }
@@ -606,6 +606,15 @@
         lintel.rotation.y = -t + Math.PI/2; grp.add(lintel);
       });
     }
+  }
+
+  /* 下り坂で床へ吸い付けるか(R3-T1)。前のフレームで立っていた・跳んでいない(上向きの速さが無い)・
+     飛ばされていない・床が足より下で、その差が歩いて下りられる段差(1.0)以内 */
+  const ROAD2_SNAP_DOWN = 1.0;
+  function road2GroundSnapDown(floorY){
+    if(!state.grounded || state.yVel > 0 || state.launch) return false;
+    const d = state.pos.y - floorY;
+    return d > 0 && d <= ROAD2_SNAP_DOWN;
   }
 
   /* 今いるエリアと隣のエリアの物だけを描く */
