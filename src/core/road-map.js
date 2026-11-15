@@ -302,7 +302,8 @@ export function road2Obstacles(){
 
 /* 崖の縁と床の無い所の縁の当たり(R3-T の Reviewer 指摘)。歩いては段差で止まるが、
    跳ぶと空中では止まらず、手の届かない高さの台や床の無い所へ入ってしまう ―― 時計塔が壁で
-   防いでいるのと同じく、境に薄い当たりを置く。高さの差が 1.9 を超える所と、エリアの中の床の無い所の縁。
+   防いでいるのと同じく、境に薄い当たりを置く。高さの差が 1.0 を超える所(歩いて下りられない段差。
+   落ちている途中で縁を越えると、床に乗れずに箱の中へ落ちるため)と、エリアの中の床の無い所の縁。
    1 ずつ調べ、続く所はまとめる(長いものは 40 ごとに分ける。ミニマップのため) */
 let edgeCache = null;
 export function road2EdgeWalls(){
@@ -328,7 +329,7 @@ export function road2EdgeWalls(){
         let need = false;
         if(isWalkable(px, pz)){
           const hIn = road2SlabHeight(s, ix, iz), hOut = road2GroundAt(px, pz);
-          need = hOut === null || hIn - hOut > 1.9;   // 高い側からだけ数える(重複させない)
+          need = hOut === null || hIn - hOut > 1.0;   // 高い側からだけ数える(重複させない)。歩いて下りられない段差(-1.0 超)はすべて
         }
         if(need){ if(run) run.a1 = Math.min(hi, a + 1); else run = {axis: axis === 'z' ? 'x' : 'z', c, a0:a, a1:Math.min(hi, a + 1)}; }
         else if(run){ push(run); run = null; }
