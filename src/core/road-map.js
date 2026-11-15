@@ -137,6 +137,12 @@ export const ROAD2_TERRAIN = Object.freeze({
       {kind:'rock', x0:1084, x1:1090, z0:328, z1:334, h:3},
       {kind:'rock', x0:1088, x1:1094, z0:352, z1:357, h:2.5},
       {kind:'rock', x0:1112, x1:1120, z0:400, z1:406, h:3},
+      // 谷の入口から道の脇に並ぶ岩(既定のカメラに谷らしさが入るように)
+      {kind:'rock', x0:1106, x1:1110, z0:318, z1:322, h:2},
+      {kind:'rock', x0:1088, x1:1092, z0:322, z1:326, h:1.6},
+      {kind:'rock', x0:1124, x1:1129, z0:332, z1:336, h:2.4},
+      {kind:'rock', x0:1102, x1:1106, z0:390, z1:394, h:1.8},
+      {kind:'rock', x0:1092, x1:1096, z0:416, z1:420, h:2.2},
       {kind:'ruinstone', x0:1140, x1:1143, z0:348, z1:351, h:2},
       {kind:'ruinstone', x0:1148, x1:1150.5, z0:356, z1:359, h:1.6},
     ],
@@ -158,6 +164,7 @@ export const ROAD2_TERRAIN = Object.freeze({
       {kind:'outcrop', x0:1048, x1:1088, z0:496, z1:506, h:7},
       {kind:'outcrop', x0:1110, x1:1170, z0:500, z1:512, h:7},
       {kind:'oldtree', x0:1036.5, x1:1043, z0:522, z1:527, h:9},   // 狭間の入口を隠す古木
+      {kind:'thicket', x0:1030, x1:1034, z0:514, z1:530, h:3},      // 古木の脇の茂み(狭間の入口は古木と茂みのあいだの細い隙間だけ)
       // 遺構の中(寄り道): 東の二部屋
       {kind:'ruinwall', x0:1128, x1:1130, z0:565, z1:578, h:4},
       {kind:'ruinwall', x0:1128, x1:1130, z0:584, z1:600, h:4},
@@ -172,7 +179,12 @@ export const ROAD2_TERRAIN = Object.freeze({
       {id:'dais', x0:1086, x1:1114, z0:701, z1:729, y:8.4},
     ],
     holes: [],
-    obstacles: [],
+    obstacles: [
+      // 道の脇の風化した立石(疎らに。高原の静けさは保つ)
+      {kind:'menhir', x0:1090.5, x1:1091.5, z0:667.5, z1:668.5, h:2.6},
+      {kind:'menhir', x0:1109, x1:1110, z0:684, z1:685, h:2.1},
+      {kind:'menhir', x0:1090, x1:1091, z0:741, z1:742, h:1.8},
+    ],
   },
 });
 
@@ -284,7 +296,47 @@ export function road2Obstacles(){
   ringPillars(ROAD2_RUIN.x, ROAD2_RUIN.z, ROAD2_RUIN.r, 10, 1.4, 0.5).forEach(p=> out.push(Object.assign({area:4}, p)));
   ringPillars(ROAD2_RING.x, ROAD2_RING.z, ROAD2_RING.r, 12, 1.3, 0.5).forEach(p=> out.push(Object.assign({area:5}, p)));
   road2ForestTrees().forEach(t=> out.push({area:4, kind:'trunk', x0:t.x - 0.35, x1:t.x + 0.35, z0:t.z - 0.35, z1:t.z + 0.35, h:t.h}));
+  road2EdgeWalls().forEach(e=>{ const a = areaAt((e.x0 + e.x1)/2, (e.z0 + e.z1)/2); out.push(Object.assign({area: a ? a.id : 0, h:0}, e)); });
   return out;
+}
+
+/* 崖の縁と床の無い所の縁の当たり(R3-T の Reviewer 指摘)。歩いては段差で止まるが、
+   跳ぶと空中では止まらず、手の届かない高さの台や床の無い所へ入ってしまう ―― 時計塔が壁で
+   防いでいるのと同じく、境に薄い当たりを置く。高さの差が 1.9 を超える所と、エリアの中の床の無い所の縁。
+   1 ずつ調べ、続く所はまとめる(長いものは 40 ごとに分ける。ミニマップのため) */
+let edgeCache = null;
+export function road2EdgeWalls(){
+  if(edgeCache) return edgeCache;
+  const slabs = road2Slabs(), out = [], T = 0.2;
+  const push = (seg)=>{
+    // 40 ごとに分ける
+    const along = seg.axis === 'x' ? 'x' : 'z';
+    for(let a = seg.a0; a < seg.a1; a += 40){
+      const b = Math.min(seg.a1, a + 40);
+      out.push(along === 'x' ? {kind:'edge', x0:a, x1:b, z0:seg.c - T, z1:seg.c + T} : {kind:'edge', x0:seg.c - T, x1:seg.c + T, z0:a, z1:b});
+    }
+  };
+  slabs.forEach(s=>{
+    // 4 辺: [辺の座標, 辺に沿う軸, 外への向き]
+    [['z', s.z0, -1], ['z', s.z1, 1], ['x', s.x0, -1], ['x', s.x1, 1]].forEach(([axis, c, dir])=>{
+      const lo = axis === 'z' ? s.x0 : s.z0, hi = axis === 'z' ? s.x1 : s.z1;
+      let run = null;
+      for(let a = lo; a < hi; a += 1){
+        const m = Math.min(hi, a + 0.5);
+        const px = axis === 'z' ? m : c + dir*0.05, pz = axis === 'z' ? c + dir*0.05 : m;
+        const ix = axis === 'z' ? m : c - dir*0.05, iz = axis === 'z' ? c - dir*0.05 : m;
+        let need = false;
+        if(isWalkable(px, pz)){
+          const hIn = road2SlabHeight(s, ix, iz), hOut = road2GroundAt(px, pz);
+          need = hOut === null || hIn - hOut > 1.9;   // 高い側からだけ数える(重複させない)
+        }
+        if(need){ if(run) run.a1 = Math.min(hi, a + 1); else run = {axis: axis === 'z' ? 'x' : 'z', c, a0:a, a1:Math.min(hi, a + 1)}; }
+        else if(run){ push(run); run = null; }
+      }
+      if(run) push(run);
+    });
+  });
+  return (edgeCache = out);
 }
 
 /* 長方形 base から holes を切り抜いた、重ならない長方形の並び */

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
   ROAD2_X0, ROAD2_X1, ROAD2_Z0, ROAD2_Z1, ROAD2_AREAS, ROAD2_ENTRY, ROAD2_CAMPS, ROAD2_ROUTES,
   ROAD2_LANDMARKS, ROAD2_BANDS, areaById, areaAt, isWalkable, visibleAreaIds, blockedRects,
-  ROAD2_TERRAIN, road2Slabs, road2GroundAt, road2Obstacles, road2Reachability, subtractRects,
+  ROAD2_TERRAIN, road2Slabs, road2GroundAt, road2Obstacles, road2Reachability, subtractRects, road2EdgeWalls,
 } from '../../src/core/road-map.js';
 import { SCENARIO_WAYPOINTS } from '../../src/core/scenario-waypoints.js';
 import { TEST_CHAPTERS, chapterOfScenario } from '../../src/core/test-scenario-select.js';
@@ -187,4 +187,16 @@ test('当たりの物は歩ける範囲の中の床の上にある(浮いた当�
     const cx = (o.x0 + o.x1) / 2, cz = (o.z0 + o.z1) / 2;
     assert.ok(areaAt(cx, cz), `${o.kind} (${cx},${cz})`);
   });
+});
+
+test('崖の縁と床の無い所の縁に当たりがある(跳んでも崖の中・川へ入らない)', () => {
+  const edges = road2EdgeWalls();
+  const hit = (x, z) => edges.some(e => x >= e.x0 && x <= e.x1 && z >= e.z0 && z <= e.z1);
+  assert.ok(hit(1063, 336), '谷底と崖の上の道の境');
+  assert.ok(hit(1120, 372) && hit(1120, 380), '川の両岸');
+  assert.ok(hit(1095, 376) && hit(1105, 376), '崩れた石橋の両脇');
+  assert.ok(hit(1046, 278) || hit(1006, 278) || hit(1030, 262), '展望の高台の縁');
+  assert.ok(hit(1100, 756), '道の果ての北の崖');
+  // メインルートが通る坂・境には当たりが無い
+  ROAD2_ROUTES.filter(r => r.kind === 'main').forEach(r => r.pts.forEach(([x, z]) => assert.ok(!hit(x, z), `(${x},${z})`)));
 });

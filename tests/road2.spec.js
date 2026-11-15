@@ -27,6 +27,7 @@ const PROBE = `
     return true;
   },
   pos(){ return {x: +state.pos.x.toFixed(2), y: +state.pos.y.toFixed(2), z: +state.pos.z.toFixed(2)}; },
+  hp(){ return state.hp; },
   info(){
     const vis = {};
     Object.keys(road2AreaGroups).forEach(id=>{ vis[id] = road2AreaGroups[id].visible; });
@@ -113,7 +114,8 @@ const VIEWS = [
   [4, 1066, 482, Math.PI], [4, 1100, 590, Math.PI * 0.8],
   [5, 1100, 680, Math.PI], [5, 1100, 750, Math.PI],
 ];
-/* R3-T の実測(2026-11-15、この環境)を見て決めた上限。各エリアの段で物を足す時もこの内に収める */
+/* R3-T の実測(2026-11-15、この環境)を見て決めた上限。各エリアの段で物を足す時もこの内に収める。
+   影の描画(シャドウマップ)の回数は含まない(影の更新を止めて数える)。iPhone の実機の負荷は Human の確認 */
 const ROAD2_SCENERY_CALL_BUDGET = 60;
 
 async function enterRoad2(page, waypoint) {
@@ -205,6 +207,33 @@ test('道（新）: 寄り道と隠し道を、入口から端まで徒歩で行
     const res = await R('walk', rt.pts.slice(1), 300);
     console.log('ROAD2 walk', rt.area, rt.kind, JSON.stringify(res));
     expect(res.ok, `エリア ${rt.area} の ${rt.kind}: ${JSON.stringify(res)}`).toBe(true);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('道（新）: 崖や川へ跳んでも、崖の中・床の無い所へ入らない', async ({ page }) => {
+  test.setTimeout(400_000);
+  const errors = watchErrors(page);
+  const R = await enterRoad2(page);
+  // [x, z, 跳ぶ向きの camYaw(W がその向き), 立っている床の高さ]
+  const CASES = [
+    [1065.5, 336, Math.PI / 2, -2],   // 谷底から西の崖(崖の上の道 +2)へ
+    [1110, 370.6, Math.PI, -2],       // 谷底の南の岸から川へ
+    [1056, 279, Math.PI / 2, 1],      // 原野から展望の高台(6)の縁へ
+    [1100, 753, Math.PI, 8],          // 道の果ての北の崖から外へ
+  ];
+  for (const [x, z, yaw, y0] of CASES) {
+    await R('go', x, z, yaw);
+    await page.waitForTimeout(500);
+    const hp0 = await R('hp');
+    await page.keyboard.down('KeyW');
+    for (let k = 0; k < 6; k++) { await page.keyboard.press('Space'); await page.waitForTimeout(700); }
+    await page.keyboard.up('KeyW');
+    await page.waitForTimeout(1500);
+    const p = await R('pos');
+    console.log('ROAD2 jump', x, z, JSON.stringify(p));
+    expect(p.y, `(${x},${z}) から跳んだ後の高さ`).toBeGreaterThanOrEqual(y0 - 0.05);
+    expect(await R('hp'), `(${x},${z}) 落下の傷を負わない`).toBe(hp0);
   }
   expect(errors).toEqual([]);
 });
