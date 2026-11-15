@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
   ROAD2_X0, ROAD2_X1, ROAD2_Z0, ROAD2_Z1, ROAD2_AREAS, ROAD2_ENTRY, ROAD2_CAMPS, ROAD2_ROUTES,
   ROAD2_LANDMARKS, ROAD2_BANDS, areaById, areaAt, isWalkable, visibleAreaIds, blockedRects,
-  ROAD2_TERRAIN, road2Slabs, road2GroundAt, road2Obstacles, road2Reachability, subtractRects, road2EdgeWalls,
+  ROAD2_TERRAIN, road2Slabs, road2GroundAt, road2Obstacles, road2Reachability, subtractRects, road2EdgeWalls, road2SlabHeight,
 } from '../../src/core/road-map.js';
 import { SCENARIO_WAYPOINTS } from '../../src/core/scenario-waypoints.js';
 import { TEST_CHAPTERS, chapterOfScenario } from '../../src/core/test-scenario-select.js';
@@ -199,4 +199,30 @@ test('崖の縁と床の無い所の縁に当たりがある(跳んでも崖の�
   assert.ok(hit(1100, 756), '道の果ての北の崖');
   // メインルートが通る坂・境には当たりが無い
   ROAD2_ROUTES.filter(r => r.kind === 'main').forEach(r => r.pts.forEach(([x, z]) => assert.ok(!hit(x, z), `(${x},${z})`)));
+});
+
+test('落下の隙間の走査(R3-T1): 全床の板の辺を 0.1 刻みで、床の無い所・1.0 を超える段差に立てる点が無い', () => {
+  // 辺のすぐ内側に立った時、外が床の無い所か 1.0 を超えて低いなら、当たり(半径 0.4)で立てないはず。
+  // 坂の横の辺では段差が 1.0 をまたいで変わるので、ちょうど境の 1.00〜1.02 の点だけは許す
+  // (そこから下りるのは歩いて下りられる段差と同じで、床の無い所へは落ちない)
+  const walls = road2Obstacles().map(o => ({ minX: o.x0, maxX: o.x1, minZ: o.z0, maxZ: o.z1 })).concat(blockedRects());
+  const near = (x, z) => walls.some(w => x > w.minX - 0.4 && x < w.maxX + 0.4 && z > w.minZ - 0.4 && z < w.maxZ + 0.4);
+  let samples = 0;
+  const issues = [];
+  for (const s of road2Slabs()) {
+    for (const [axis, c, dir] of [['z', s.z0, -1], ['z', s.z1, 1], ['x', s.x0, -1], ['x', s.x1, 1]]) {
+      const lo = axis === 'z' ? s.x0 : s.z0, hi = axis === 'z' ? s.x1 : s.z1;
+      for (let a = lo; a <= hi + 1e-9; a += 0.1) {
+        samples++;
+        const ix = axis === 'z' ? a : c - dir * 0.02, iz = axis === 'z' ? c - dir * 0.02 : a;
+        const ox = axis === 'z' ? a : c + dir * 0.02, oz = axis === 'z' ? c + dir * 0.02 : a;
+        if (!isWalkable(ox, oz)) continue;
+        const hOut = road2GroundAt(ox, oz), drop = hOut === null ? Infinity : road2SlabHeight(s, ix, iz) - hOut;
+        if (drop <= 1.02 || near(ix, iz)) continue;
+        issues.push(`${s.area}/${s.id} ${axis}=${c} at ${a.toFixed(1)} drop=${hOut === null ? 'void' : drop.toFixed(2)}`);
+      }
+    }
+  }
+  assert.ok(samples > 100000, `走査した点 ${samples}`);
+  assert.deepEqual(issues, []);
 });
