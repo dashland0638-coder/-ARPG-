@@ -1,12 +1,16 @@
 // @ts-check
-/* ROAD-VISUAL-003 R3-0: 新しい「道 — その先へ」(テストモードの「道（新）」)の仮の地形。
+/* ROAD-VISUAL-003 R3-0 / R3-T: 新しい「道 — その先へ」(テストモードの「道（新）」)の地形と景観。
  *
  *   ・テストモードの「作業中のシナリオ」から入れて、エリアの名前がミニマップに出る
- *   ・5 つのエリアを南から北へ歩いて渡れる(エリアの境に壁が無い)。エリアの外へは出られない
- *   ・エリアごとの小物は、今いるエリアと隣のエリアだけ描く
- *   ・景色の描画回数が上限の内(road-visual.spec.js と同じ測り方)
+ *   ・入口から道の果てまで、メインルートを**徒歩で**通る(キー入力で歩く。座標を運ぶのは開始の時だけ)。
+ *     エリアの境でエリアの判定が順に切り替わる
+ *   ・寄り道と隠し道を、それぞれの入口から端まで徒歩で行ける
+ *   ・エリアごとの物は、今いるエリアと隣のエリアだけ描く。景色の描画回数が上限の内。点光源を足さない
  *   本編(第一章の出撃)には出ない ―― 本編の道は完成まで旧道のまま(DEC-025)。
  *   iPhone 844×390 の横向き。SHOTS を渡すと各エリアのスクリーンショットを撮る(PR に添える用)
+ *
+ *   歩き方: W キーを押したまま、毎フレーム「次の点の方向」へカメラの向きを合わせる(プレイヤーの
+ *   移動・当たり・床の高さの判定は本物のまま)。次の点へ近づけないまま 8 秒(ゲーム内)過ぎたら「進めない」
  */
 import { test, expect } from '@playwright/test';
 import { openGame, watchErrors, startTestMode } from './helpers.js';
@@ -16,19 +20,71 @@ test.use({ hasTouch: true, isMobile: true, viewport: { width: 844, height: 390 }
 const PROBE = `
 ;window.__road2 = {
   go(x, z, yaw){
-    state.pos.set(x, 0, z); state.yVel = 0; lastSolid = state.pos.clone();
+    const g = road2GroundAt(x, z);
+    state.pos.set(x, g === null ? 0 : g, z); state.yVel = 0; state.grounded = true; lastSolid = state.pos.clone(); voidT = 0;
     camAutoOn = false; if(yaw != null) state.camYaw = yaw;
     camera.position.copy(state.pos).add(getCamOffset());
     return true;
   },
-  pos(){ return {x: +state.pos.x.toFixed(2), z: +state.pos.z.toFixed(2)}; },
+  pos(){ return {x: +state.pos.x.toFixed(2), y: +state.pos.y.toFixed(2), z: +state.pos.z.toFixed(2)}; },
   info(){
     const vis = {};
     Object.keys(road2AreaGroups).forEach(id=>{ vis[id] = road2AreaGroups[id].visible; });
     return {world: currentWorldKey, area: road2CurrentAreaId, vis, room: document.getElementById('minimap-room').textContent,
-      // 帰還の門(buildTownReturnPortal、どのダンジョンにもある共通の門)の灯りは除いて数える
-      pointLights: (()=>{ let n = 0; currentWorldObjects.forEach(o=> o.traverse(c=>{ if(c.isPointLight && Math.hypot(c.position.x - ROAD2_CX, c.position.z - (ROAD2_Z0 + 3)) > 3) n++; })); return n; })()};
+      // 帰還の門(どのダンジョンにもある共通の門)の灯りは除いて数える
+      pointLights: (()=>{ let n = 0; currentWorldObjects.forEach(o=> o.traverse(c=>{ if(c.isPointLight && Math.hypot(c.position.x - ROAD2_CX, c.position.z - (ROAD2_Z0 + 3)) > 3) n++; })); return n; })(),
+      slabs: groundSlabs.length};
   },
+  /* pts を順に徒歩で辿る。戻り値: {ok, reached, areas(通ったエリアの順), stuckAt} */
+  walk(pts, maxGameSec){
+    return new Promise(res=>{
+      const areas = [];
+      let i = 0, best = Infinity, sinceBest = 0, total = 0, last = performance.now();
+      camAutoOn = false;
+      window.dispatchEvent(new KeyboardEvent('keydown', {code:'KeyW'}));
+      const done = (r)=>{ window.dispatchEvent(new KeyboardEvent('keyup', {code:'KeyW'})); res(r); };
+      const tick = ()=>{
+        const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
+        // ゲーム内の時間で数える(ヘッドレスは遅いので、実時間では測らない)
+        total += dt; sinceBest += dt;
+        if(road2CurrentAreaId && areas[areas.length - 1] !== road2CurrentAreaId) areas.push(road2CurrentAreaId);
+        if(state.dialogueActive && typeof advanceDialogue === 'function') advanceDialogue();
+        const [tx, tz] = pts[i];
+        const dx = tx - state.pos.x, dz = tz - state.pos.z, d = Math.hypot(dx, dz);
+        if(d < 1.3){
+          i++; best = Infinity; sinceBest = 0;
+          if(i >= pts.length) return done({ok:true, reached:i, areas, pos:[state.pos.x, state.pos.z]});
+        } else {
+          state.camYaw = Math.atan2(-dx, -dz);
+          if(d < best - 0.3){ best = d; sinceBest = 0; }
+          if(sinceBest > 8) return done({ok:false, reached:i, areas, stuckAt:[+state.pos.x.toFixed(1), +state.pos.y.toFixed(1), +state.pos.z.toFixed(1)], target:[tx, tz]});
+        }
+        if(total > maxGameSec) return done({ok:false, reached:i, areas, timeout:true, stuckAt:[state.pos.x, state.pos.z]});
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  },
+  camHeight(i){ camHeightIdx = i; applyCamHeightSetting(); camera.position.copy(state.pos).add(getCamOffset()); return true; },
+  /* 俯瞰(確認用。ゲームのカメラは使わず、別のカメラで別の描画先へ描いて PNG にする) */
+  overview(cx, cz, gy, dist){
+    const W = 960, H = 540;
+    const cam = new THREE.PerspectiveCamera(50, W/H, 1, 4000);
+    cam.position.set(cx - dist*0.35, gy + dist*0.75, cz - dist);
+    cam.lookAt(cx, gy, cz);
+    const vis = {}; Object.keys(road2AreaGroups).forEach(id=>{ vis[id] = road2AreaGroups[id].visible; road2AreaGroups[id].visible = true; });
+    const rt = new THREE.WebGLRenderTarget(W, H);
+    const prev = renderer.getRenderTarget();
+    renderer.setRenderTarget(rt); renderer.render(scene, cam); renderer.setRenderTarget(prev);
+    const px = new Uint8Array(W*H*4); renderer.readRenderTargetPixels(rt, 0, 0, W, H, px); rt.dispose();
+    Object.keys(vis).forEach(id=>{ road2AreaGroups[id].visible = vis[id]; });
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+    for(let y=0;y<H;y++) img.data.set(px.subarray((H-1-y)*W*4, (H-y)*W*4), y*W*4);   // 上下を返す
+    ctx.putImageData(img, 0, 0);
+    return cv.toDataURL('image/png');
+  },
+  routes(){ return ROAD2_ROUTES.map(r=> ({area:r.area, kind:r.kind, pts:r.pts})); },
   scenery(){
     const keep = new Set([player, guestCompanion && guestCompanion.group].filter(Boolean));
     enemies.forEach(e=>{ if(e.group) keep.add(e.group); });
@@ -48,61 +104,108 @@ const PROBE = `
   },
 };`;
 
-// 各エリアの中ほど(エリアの id, x, z)
-const AREAS = [[1, 1100, 40], [2, 1100, 200], [3, 1110, 340], [4, 1080, 520], [5, 1100, 700]];
 const NAMES = ['旅人の宿場', '風渡る原野', '水鏡の谷', '忘れられた山道', '道の果て'];
-/* R3-0 の実測(2026-11-14、この環境)は各エリア 10〜16。各エリアの段で物を足すので、まだ緩い上限 */
-const ROAD2_SCENERY_CALL_BUDGET = 80;
+/* 各エリアの見どころ(スクリーンショットと描画回数を測る地点)。[エリア, x, z, カメラの向き] */
+const VIEWS = [
+  [1, 1100, 30, Math.PI], [1, 1100, 84, Math.PI],
+  [2, 1100, 140, Math.PI], [2, 1026, 284, Math.PI * 0.75],
+  [3, 1100, 330, Math.PI], [3, 1054, 340, Math.PI * 1.4],
+  [4, 1066, 482, Math.PI], [4, 1100, 590, Math.PI * 0.8],
+  [5, 1100, 680, Math.PI], [5, 1100, 750, Math.PI],
+];
+/* R3-T の実測(2026-11-15、この環境)を見て決めた上限。各エリアの段で物を足す時もこの内に収める */
+const ROAD2_SCENERY_CALL_BUDGET = 60;
 
-test('道（新）: 5 つのエリアを渡れて、今いるエリアと隣だけを描く', async ({ page }) => {
-  test.setTimeout(400_000);
-  const errors = watchErrors(page);
+async function enterRoad2(page, waypoint) {
   await page.route('**/__legacy-core-concatenated.js*', async route => {
     const res = await route.fetch();
     await route.fulfill({ response: res, body: (await res.text()) + PROBE });
   });
   await openGame(page);
-  await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'road2', level: 40 });
+  await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'road2', level: 40, waypoint });
   await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
   await page.waitForFunction(() => /** @type {any} */ (window).__road2);
-  const R = (fn, ...a) => page.evaluate(([fn, a]) => /** @type {any} */ (window).__road2[fn](...a), [fn, a]);
+  return (fn, ...a) => page.evaluate(([fn, a]) => /** @type {any} */ (window).__road2[fn](...a), [fn, a]);
+}
 
-  // 入口は宿場。点光源は足していない(帰還の門の灯りを除く)
+test('道（新）: 5 つのエリアの景観、今いるエリアと隣だけを描く、描画回数', async ({ page }) => {
+  test.setTimeout(400_000);
+  const errors = watchErrors(page);
+  const R = await enterRoad2(page);
   await expect.poll(async () => (await R('info')).area, { timeout: 30_000 }).toBe(1);
-  expect((await R('info')).pointLights).toBe(0);
+  const first = await R('info');
+  expect(first.pointLights).toBe(0);
+  expect(first.slabs).toBeGreaterThan(40);   // 起伏は床の板で作る(R3-T)
   await expect(page.locator('#minimap-room')).toHaveText('旅人の宿場');
 
   const rows = [];
-  for (const [id, x, z] of AREAS) {
-    await R('go', x, z, Math.PI);
+  for (const [id, x, z, yaw] of VIEWS) {
+    await R('go', x, z, yaw);
     await expect.poll(async () => (await R('info')).area, { timeout: 30_000 }).toBe(id);
     const info = await R('info');
     expect(info.room).toBe(NAMES[id - 1]);
-    // 今のエリアと隣だけ描く
     for (const k of Object.keys(info.vis)) expect(info.vis[k], `エリア ${id} にいる時のエリア ${k}`).toBe(Math.abs(+k - id) <= 1);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(600);
     const m = await R('scenery');
-    rows.push({ area: NAMES[id - 1], ...m });
-    if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-area${id}.png` });
+    rows.push({ area: NAMES[id - 1], at: [x, z], ...m, y: (await R('pos')).y });
+    if (process.env.SHOTS) {
+      await page.screenshot({ path: `${process.env.SHOTS}/road2-a${id}-${x}-${z}.png` });
+      // 設定の「カメラの高さ: 低め」でも撮る(遠くの景色の見え方。既定のカメラは変えない)
+      await R('camHeight', 0); await page.waitForTimeout(400);
+      await page.screenshot({ path: `${process.env.SHOTS}/road2-a${id}-${x}-${z}-low.png` });
+      await R('camHeight', 2);
+    }
+  }
+  if (process.env.SHOTS) {
+    const fs = await import('node:fs');
+    const OV = [[1, 1100, 52, 0, 95], [2, 1100, 205, 1, 150], [3, 1100, 375, -2, 120], [4, 1100, 545, 3, 140], [5, 1100, 700, 8, 130]];
+    for (const [id, x, z, gy, dist] of OV) {
+      const url = await R('overview', x, z, gy, dist);
+      fs.writeFileSync(`${process.env.SHOTS}/road2-overview-a${id}.png`, Buffer.from(url.split(',')[1], 'base64'));
+    }
   }
   console.log('ROAD2 scenery calls', JSON.stringify(rows));
   test.info().annotations.push({ type: 'road2-scenery-calls', description: JSON.stringify(rows) });
-  rows.forEach(r => expect(r.scenery, `${r.area}: 景色の描画回数`).toBeLessThanOrEqual(ROAD2_SCENERY_CALL_BUDGET));
+  rows.forEach(r => expect(r.scenery, `${r.area} ${r.at}: 景色の描画回数`).toBeLessThanOrEqual(ROAD2_SCENERY_CALL_BUDGET));
+  // 高さがエリアで違う(宿場 0・原野 1・谷底 -2・高原 8)
+  expect(rows[0].y).toBeCloseTo(0, 1);
+  expect(rows[2].y).toBeCloseTo(1, 1);
+  expect(rows[4].y).toBeCloseTo(-2, 1);
+  expect(rows[8].y).toBeCloseTo(8, 1);
+  expect(errors).toEqual([]);
+});
 
-  // エリアの境を歩いて渡れる(宿場 → 原野): 北へ歩く
-  await R('go', 1100, 104, Math.PI);
-  await page.keyboard.down('KeyW');
-  await expect.poll(async () => (await R('pos')).z, { timeout: 60_000 }).toBeGreaterThan(112);
-  await page.keyboard.up('KeyW');
-  await expect.poll(async () => (await R('info')).area, { timeout: 30_000 }).toBe(2);
+test('道（新）: 入口から道の果てまで、メインルートを徒歩で通る', async ({ page }) => {
+  test.setTimeout(1_500_000);
+  const errors = watchErrors(page);
+  const R = await enterRoad2(page);
+  await expect.poll(async () => (await R('info')).area, { timeout: 30_000 }).toBe(1);
+  const routes = await R('routes');
+  const main = routes.filter(r => r.kind === 'main').sort((a, b) => a.area - b.area).flatMap(r => r.pts);
+  const r = await R('walk', main.slice(1), 900);
+  console.log('ROAD2 walk main', JSON.stringify(r));
+  expect(r.ok, `進めない所: ${JSON.stringify(r)}`).toBe(true);
+  expect(r.areas).toEqual([1, 2, 3, 4, 5]);   // 境で順に切り替わる(戻らない)
+  const end = await R('pos');
+  expect(end.z).toBeGreaterThan(750);
+  expect(end.y).toBeCloseTo(8, 1);
+  expect(errors).toEqual([]);
+});
 
-  // 宿場の外(原野より狭い所)へは出られない: 西へ歩いても x 1060 で止まる
-  await R('go', 1064, 50, Math.PI / 2);   // camYaw π/2 では W が西
-  await page.keyboard.down('KeyW');
-  await page.waitForTimeout(4000);
-  await page.keyboard.up('KeyW');
-  expect((await R('pos')).x).toBeGreaterThanOrEqual(1059);
-
+test('道（新）: 寄り道と隠し道を、入口から端まで徒歩で行ける', async ({ page }) => {
+  test.setTimeout(1_500_000);
+  const errors = watchErrors(page);
+  const R = await enterRoad2(page);
+  const routes = (await R('routes')).filter(r => r.kind !== 'main');
+  expect(routes.filter(r => r.kind === 'hidden').map(r => r.area).sort()).toEqual([1, 2, 3, 4]);
+  for (const rt of routes) {
+    // 入口(メインルートの上)へ運び、そこから歩く
+    await R('go', rt.pts[0][0], rt.pts[0][1], Math.PI);
+    await page.waitForTimeout(400);
+    const res = await R('walk', rt.pts.slice(1), 300);
+    console.log('ROAD2 walk', rt.area, rt.kind, JSON.stringify(res));
+    expect(res.ok, `エリア ${rt.area} の ${rt.kind}: ${JSON.stringify(res)}`).toBe(true);
+  }
   expect(errors).toEqual([]);
 });
 

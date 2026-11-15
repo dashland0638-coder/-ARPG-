@@ -35,48 +35,196 @@ export const ROAD2_AREAS = Object.freeze([
 export const ROAD2_ENTRY = Object.freeze({x:ROAD2_CX, z:3});
 
 /* 野営地。各エリアの入口に一つ。回復はしない(DEC-021・DEC-025 E-3)。
-   全滅・撤退の後の再開地点、支援を選び直す場所になる(後の段) */
+   全滅・撤退の後の再開地点、支援を選び直す場所になる(後の段)。y は床の高さ */
 export const ROAD2_CAMPS = Object.freeze([
-  {area:1, x:1092, z:8},
-  {area:2, x:1094, z:118},
-  {area:3, x:1094, z:308},
-  {area:4, x:1094, z:458},
-  {area:5, x:1094, z:648},
+  {area:1, x:1092, z:8,   y:0},
+  {area:2, x:1094, z:118, y:1},
+  {area:3, x:1094, z:322, y:-2},
+  {area:4, x:1094, z:458, y:1},
+  {area:5, x:1094, z:648, y:8},
 ]);
 
-/* 通り道(仮の地形で地面に描く帯)。kind: main = メインルート、side = 寄り道、hidden = 隠しルート。
-   点は順に結ぶ。width は帯の幅 */
+/* ==== 地形(R3-T。.ai/reports/ROAD-VISUAL-003-R3T-plan.md §3) ====
+   床の板(groundSlabs と同じ形)で起伏を作る。{x0,x1,z0,z1,y} は平らな台、
+   ramp:{axis,a0,a1,y0,y1} は坂(座標 a0 で y0、a1 で y1)。
+   エリアごとに「土台」(base)・「台と坂」(features)・「床の無い所」(holes: 川・滝つぼ・町の外)を書き、
+   土台から台と坂・床の無い所を切り抜いて、重ならない床の板の並びにする(road2Slabs)。
+   重ならないので、どの位置でも床は一つ ―― 一歩で上がれるのは +0.6、下りられるのは -1.0
+   (02-world-common.js standableAt)。それを超える段差は崖として働く。
+   obstacles は当たりの長方形(建物・岩・塀・柱)。描き方の種類 kind と高さ h を持つ */
+const R = (axis, a0, a1, y0, y1)=> ({axis, a0, a1, y0, y1});
+export const ROAD2_TERRAIN = Object.freeze({
+  1: {   // 旅人の宿場: 平らな町。北の門の坂で町を出る(0 → 1)
+    base: [{x0:1060, x1:1140, z0:-6, z1:110, y:0}],
+    features: [
+      {id:'gate-ramp', x0:1088, x1:1112, z0:96, z1:110, ramp:R('z', 96, 110, 0, 1)},
+    ],
+    holes: [
+      {x0:1060, x1:1088, z0:96, z1:110}, {x0:1112, x1:1140, z0:96, z1:110},   // 町の塀の外
+    ],
+    obstacles: [
+      // 宿場の建物(西の並び・東の並び)。あいだの路地が裏庭へ通じる
+      // 通りの幅は 12(既定のカメラで両側の家が画面に入る)
+      {kind:'house', x0:1080, x1:1094, z0:16, z1:32, h:5.5},
+      {kind:'house', x0:1080, x1:1094, z0:38, z1:54, h:6.5},   // 旅籠
+      {kind:'house', x0:1080, x1:1094, z0:60, z1:76, h:5},     // 馬小屋
+      {kind:'house', x0:1106, x1:1120, z0:14, z1:30, h:5},
+      {kind:'house', x0:1106, x1:1120, z0:36, z1:52, h:6},
+      {kind:'house', x0:1106, x1:1120, z0:58, z1:74, h:5.5},
+      // 物置の庭(隠し): 南の塀の割れ目(x 1069.8〜1072)からだけ入れる
+      {kind:'fence', x0:1060, x1:1069.8, z0:79, z1:80.5, h:2.2},
+      {kind:'fence', x0:1072, x1:1073.5, z0:78, z1:96, h:2.2},
+      // 北の塀(門の両脇)
+      {kind:'townwall', x0:1060, x1:1088, z0:96, z1:98, h:3.5},
+      {kind:'townwall', x0:1112, x1:1140, z0:96, z1:98, h:3.5},
+      {kind:'well', x0:1090.8, x1:1093.2, z0:84.8, z1:87.2, h:1},
+      {kind:'cart', x0:1066, x1:1069.5, z0:75.5, z1:78.5, h:1.6},   // 割れ目の手前で、通りから割れ目を隠す荷車
+      {kind:'post', x0:1107.6, x1:1108.4, z0:89.6, z1:90.4, h:5},
+    ],
+  },
+  2: {   // 風渡る原野: 一段高い草原(1)。歩ける丘・街道の高まり・北西の高台(6)。北の端で谷へ下る
+    base: [{x0:1000, x1:1200, z0:110, z1:300, y:1}],
+    features: [
+      {id:'hill-top', x0:1052, x1:1068, z0:162, z1:188, y:2.6},
+      {id:'hill-s',   x0:1052, x1:1068, z0:150, z1:162, ramp:R('z', 150, 162, 1, 2.6)},
+      {id:'hill-n',   x0:1052, x1:1068, z0:188, z1:200, ramp:R('z', 188, 200, 2.6, 1)},
+      {id:'hill-w',   x0:1040, x1:1052, z0:162, z1:188, ramp:R('x', 1040, 1052, 1, 2.6)},
+      {id:'hill-e',   x0:1068, x1:1080, z0:162, z1:188, ramp:R('x', 1068, 1080, 2.6, 1)},
+      {id:'rise-top', x0:1082, x1:1124, z0:206, z1:236, y:2.2},
+      {id:'rise-s',   x0:1082, x1:1124, z0:194, z1:206, ramp:R('z', 194, 206, 1, 2.2)},
+      {id:'rise-n',   x0:1082, x1:1124, z0:236, z1:248, ramp:R('z', 236, 248, 2.2, 1)},
+      {id:'lookout',  x0:1006, x1:1046, z0:262, z1:294, y:6},
+      {id:'lookout-ramp', x0:1016, x1:1026, z0:230, z1:262, ramp:R('z', 230, 262, 1, 6)},
+      {id:'descent',  x0:1070, x1:1130, z0:282, z1:300, ramp:R('z', 282, 300, 1, -1)},
+    ],
+    holes: [],
+    obstacles: [
+      {kind:'monolith', x0:1109, x1:1115, z0:216, z1:224, h:9},
+      // 東の岩の尾根。z 150〜154 の割れ目(草に隠れる)から岩場へ
+      {kind:'ridge', x0:1146, x1:1152, z0:110, z1:150, h:5},
+      {kind:'ridge', x0:1146, x1:1152, z0:154, z1:286, h:6},
+      {kind:'boulder', x0:1160, x1:1172, z0:170, z1:182, h:4},
+      {kind:'boulder', x0:1180, x1:1196, z0:200, z1:212, h:5},
+      {kind:'boulder', x0:1156, x1:1168, z0:224, z1:236, h:4.5},
+      {kind:'boulder', x0:1176, x1:1190, z0:250, z1:262, h:5},
+      {kind:'boulder', x0:1158, x1:1170, z0:268, z1:278, h:3.5},
+    ],
+  },
+  3: {   // 水鏡の谷: 谷底(-2)。東西の川(床なし)を崩れた石橋で渡る。西に崖の道(+2)と滝、滝の裏の岩棚
+    base: [{x0:1045, x1:1155, z0:300, z1:450, y:-2}],
+    features: [
+      {id:'entry',   x0:1070, x1:1130, z0:300, z1:316, ramp:R('z', 300, 316, -1, -2)},
+      {id:'cliff-ramp', x0:1047, x1:1063, z0:316, z1:330, ramp:R('z', 316, 330, -2, 2)},
+      {id:'cliff-1', x0:1045, x1:1063, z0:330, z1:352, y:2},
+      {id:'cliff-2', x0:1055, x1:1063, z0:352, z1:368, y:2},
+      {id:'falls-down', x0:1045, x1:1055, z0:352, z1:368, ramp:R('z', 352, 368, 2, 0)},
+      {id:'falls-ledge', x0:1045, x1:1055, z0:368, z1:384, y:0},
+      {id:'falls-out', x0:1045, x1:1055, z0:384, z1:396, ramp:R('z', 384, 396, 0, -2)},
+      {id:'bridge',  x0:1095, x1:1105, z0:372, z1:380, y:-1.8},
+      {id:'shallows', x0:1130, x1:1155, z0:340, z1:366, y:-2.3},
+      {id:'exit',    x0:1070, x1:1130, z0:425, z1:450, ramp:R('z', 425, 450, -2, 1)},
+    ],
+    holes: [
+      {x0:1063, x1:1155, z0:372, z1:380},   // 川
+      {x0:1055, x1:1063, z0:368, z1:396},   // 滝つぼ
+    ],
+    obstacles: [
+      // 谷底の東の岸の岩(谷を狭く見せる)と、道の脇の岩
+      {kind:'bank', x0:1136, x1:1155, z0:300, z1:338, h:7},
+      {kind:'bank', x0:1136, x1:1155, z0:382, z1:425, h:8},
+      {kind:'bank', x0:1066, x1:1082, z0:340, z1:368, h:6},     // 崖の道の下の岩(西の岸)
+      {kind:'bank', x0:1066, x1:1080, z0:415, z1:425, h:6},
+      {kind:'rock', x0:1084, x1:1090, z0:328, z1:334, h:3},
+      {kind:'rock', x0:1088, x1:1094, z0:352, z1:357, h:2.5},
+      {kind:'rock', x0:1112, x1:1120, z0:400, z1:406, h:3},
+      {kind:'ruinstone', x0:1140, x1:1143, z0:348, z1:351, h:2},
+      {kind:'ruinstone', x0:1148, x1:1150.5, z0:356, z1:359, h:1.6},
+    ],
+  },
+  4: {   // 忘れられた山道: 森の床(1)に岩の張り出し。石段で遺構の台(5)、細い山道で峠(8)
+    base: [{x0:1030, x1:1170, z0:450, z1:530, y:1}],
+    features: [
+      {id:'gorge',    x0:1034, x1:1044, z0:530, z1:585, y:1},
+      {id:'gorge-up', x0:1034, x1:1044, z0:585, z1:600, ramp:R('z', 585, 600, 1, 5)},
+      {id:'ledge',    x0:1034, x1:1062, z0:600, z1:608, y:5},
+      {id:'stairs',   x0:1062, x1:1078, z0:530, z1:555, ramp:R('z', 530, 555, 1, 5)},
+      {id:'ruins',    x0:1062, x1:1150, z0:555, z1:615, y:5},
+      {id:'path',     x0:1136, x1:1150, z0:615, z1:632, ramp:R('z', 615, 632, 5, 8)},
+      {id:'pass',     x0:1060, x1:1150, z0:632, z1:640, y:8},
+    ],
+    holes: [],
+    obstacles: [
+      {kind:'outcrop', x0:1075, x1:1130, z0:476, z1:490, h:6},
+      {kind:'outcrop', x0:1048, x1:1088, z0:496, z1:506, h:7},
+      {kind:'outcrop', x0:1110, x1:1170, z0:500, z1:512, h:7},
+      {kind:'oldtree', x0:1036.5, x1:1043, z0:522, z1:527, h:9},   // 狭間の入口を隠す古木
+      // 遺構の中(寄り道): 東の二部屋
+      {kind:'ruinwall', x0:1128, x1:1130, z0:565, z1:578, h:4},
+      {kind:'ruinwall', x0:1128, x1:1130, z0:584, z1:600, h:4},
+      {kind:'ruinwall', x0:1130, x1:1150, z0:588, z1:590, h:4},
+      {kind:'ruinwall', x0:1128, x1:1150, z0:563, z1:565, h:4},
+    ],
+  },
+  5: {   // 道の果て: 高原(8)。北の端は崖。石環の低い壇
+    base: [{x0:1000, x1:1200, z0:640, z1:756, y:8}],
+    features: [
+      {id:'dais', x0:1086, x1:1114, z0:701, z1:729, y:8.4},
+    ],
+    holes: [],
+    obstacles: [],
+  },
+});
+
+/* 石環・円い石の構造物の柱(当たりつき)。通り道の真上に柱が来ないよう、角度を半歩ずらす */
+function ringPillars(cx, cz, r, n, size, offset){
+  const out = [];
+  for(let i=0;i<n;i++){
+    const t = (i + offset) / n * Math.PI * 2;
+    const x = cx + Math.cos(t) * r, z = cz + Math.sin(t) * r;
+    out.push({kind:'pillar', x0:x - size/2, x1:x + size/2, z0:z - size/2, z1:z + size/2, h: 3.4 + (i % 3) * 0.5});
+  }
+  return out;
+}
+export const ROAD2_RING = Object.freeze({x:1100, z:715, r:12});
+export const ROAD2_RUIN = Object.freeze({x:1100, z:592, r:9});
+
+/* 通り道(地形に沿って地面に描く)。kind: main = メインルート、side = 寄り道、hidden = 隠しルート。
+   点は順に結ぶ。どの点も歩いて届くことを unit テストが確かめる(road2Reachability) */
 export const ROAD2_ROUTES = Object.freeze([
-  // AREA 1 宿場: 入口 → 宿場の通り → 広場の井戸 → 北の門
-  {area:1, kind:'main',   width:5,   pts:[[1100,0],[1100,45],[1100,75],[1100,110]]},
-  {area:1, kind:'side',   width:3,   pts:[[1100,60],[1124,62],[1128,88]]},            // 廃宿・裏庭
-  // AREA 2 原野: 街道 → 一枚岩 → 北の合流点
-  {area:2, kind:'main',   width:5,   pts:[[1100,110],[1092,170],[1110,232],[1100,300]]},
-  {area:2, kind:'side',   width:3.5, pts:[[1092,165],[1032,198],[1038,262],[1096,296]]}, // 旧道(西)
-  {area:2, kind:'side',   width:3,   pts:[[1038,262],[1030,272]]},                         // 展望の高台へ
-  {area:2, kind:'hidden', width:2.5, pts:[[1106,150],[1172,196],[1168,270],[1104,292]]}, // 岩場(東)
-  // AREA 3 谷: 谷の入口 → 川沿いの道 → 崩れた石橋 → 対岸の坂 → 谷の出口
-  {area:3, kind:'main',   width:4.5, pts:[[1100,300],[1122,338],[1100,375],[1080,410],[1100,450]]},
-  {area:3, kind:'side',   width:3,   pts:[[1122,338],[1145,356]]},                         // 水辺の遺構
-  {area:3, kind:'side',   width:3,   pts:[[1100,318],[1062,350],[1056,392]]},              // 上の崖道
-  {area:3, kind:'hidden', width:2.5, pts:[[1056,392],[1052,404],[1066,416]]},              // 滝の裏
-  // AREA 4 山道: 野営地 → 森の外周 → 石の階段 → 遺構の門 → 中庭 → 山道 → 峠
-  {area:4, kind:'main',   width:4.5, pts:[[1100,450],[1060,500],[1070,540],[1110,574],[1110,604],[1142,622],[1100,640]]},
-  {area:4, kind:'side',   width:3,   pts:[[1110,574],[1146,578]]},                         // 遺構の内部
-  {area:4, kind:'hidden', width:2.5, pts:[[1060,500],[1042,520],[1046,590],[1110,604]]},  // 古木のうろ → 地下の通路
-  // AREA 5 道の果て: 峠 → 高原 → 石環 → 最終戦の草原 → 北の端
-  {area:5, kind:'main',   width:5,   pts:[[1100,640],[1100,690],[1100,715],[1100,738],[1100,756]]},
+  // AREA 1 宿場: 入口 → 宿場の通り → 広場 → 北の門の坂
+  {area:1, kind:'main',   width:6,   pts:[[1100,0],[1100,45],[1100,80],[1100,110]]},
+  {area:1, kind:'side',   width:3,   pts:[[1100,33],[1113,33],[1130,33],[1130,66],[1113,55],[1100,55]]},   // 東の路地 → 裏庭
+  {area:1, kind:'hidden', width:2,   pts:[[1100,57],[1087,57],[1074,57],[1074,77],[1070.9,79.8],[1070.9,83],[1066,88]]}, // 西の路地 → 割れ目 → 物置の庭
+  // AREA 2 原野: 街道 → 高まりを越える → 北で谷へ下る
+  {area:2, kind:'main',   width:5,   pts:[[1100,110],[1096,160],[1100,200],[1100,240],[1100,282],[1100,300]]},
+  {area:2, kind:'side',   width:3.5, pts:[[1096,150],[1036,145],[1030,210],[1021,228],[1021,262],[1026,280]]},  // 旧道 → 高台
+  {area:2, kind:'side',   width:3,   pts:[[1030,210],[1060,240],[1080,270],[1096,282]]},                          // 旧道の合流
+  {area:2, kind:'side',   width:2.5, pts:[[1096,175],[1074,175],[1060,175]]},                                     // 丘の上へ
+  {area:2, kind:'hidden', width:2.5, pts:[[1104,150],[1149,152],[1166,165],[1176,190],[1170,218],[1186,240],[1170,264],[1149,292],[1136,290]]}, // 岩場
+  // AREA 3 谷: 下りる → 川沿い → 崩れた石橋 → 上る
+  {area:3, kind:'main',   width:4.5, pts:[[1100,300],[1100,316],[1118,340],[1100,368],[1100,384],[1088,410],[1100,425],[1100,450]]},
+  {area:3, kind:'side',   width:3,   pts:[[1118,340],[1142,352]]},                                                 // 浅瀬の遺構
+  {area:3, kind:'side',   width:3,   pts:[[1100,316],[1066,310],[1055,312],[1055,330],[1054,346]]},              // 崖の上の道
+  {area:3, kind:'hidden', width:2.5, pts:[[1054,346],[1050,356],[1050,368],[1050,384],[1050,396],[1050,410],[1068,412]]}, // 滝の裏
+  // AREA 4 山道: 森の折れ道 → 石段 → 遺構 → 山道 → 峠
+  {area:4, kind:'main',   width:4,   pts:[[1100,450],[1094,462],[1066,470],[1066,493],[1098,493],[1098,518],[1070,522],[1070,530],[1070,555],[1090,575],[1118,604],[1143,612],[1143,632],[1100,636],[1100,640]]},
+  {area:4, kind:'side',   width:2.5, pts:[[1120,582],[1138,581],[1140,594]]},                                     // 遺構の中
+  {area:4, kind:'hidden', width:2,   pts:[[1066,493],[1040,500],[1035,520],[1035.2,524.5],[1039,532],[1039,584],[1039,600],[1050,604],[1066,604]]}, // 古木の陰 → 狭間 → 岩棚
+  // AREA 5 道の果て: 峠 → 高原 → 石環 → 北の端
+  {area:5, kind:'main',   width:3,   pts:[[1100,640],[1100,690],[1100,701],[1100,715],[1100,738],[1100,754]]},
 ]);
 
-/* ランドマーク(仮の地形では灰色の形で置く)。kind は描き方の種類 */
+/* ランドマーク */
 export const ROAD2_LANDMARKS = Object.freeze([
-  {area:1, kind:'signpost', name:'朽ちた大きな道標', x:1106, z:96},
-  {area:2, kind:'monolith', name:'一枚岩',           x:1112, z:205},
-  {area:2, kind:'lookout',  name:'展望の高台',       x:1030, z:272},
-  {area:3, kind:'bridge',   name:'崩れた石橋',       x:1100, z:375},
-  {area:3, kind:'falls',    name:'滝',               x:1050, z:404},
-  {area:4, kind:'ruin',     name:'円い石の構造物',   x:1112, z:612},
-  {area:5, kind:'ring',     name:'石環',             x:1100, z:715},
+  {area:1, kind:'gate',     name:'宿場の北の門',     x:1100, z:97},
+  {area:1, kind:'signpost', name:'朽ちた大きな道標', x:1108, z:90},
+  {area:2, kind:'monolith', name:'一枚岩',           x:1112, z:220},
+  {area:2, kind:'lookout',  name:'展望の高台',       x:1026, z:278},
+  {area:3, kind:'bridge',   name:'崩れた石橋',       x:1100, z:376},
+  {area:3, kind:'falls',    name:'滝',               x:1056, z:382},
+  {area:4, kind:'ruin',     name:'円い石の構造物',   x:ROAD2_RUIN.x, z:ROAD2_RUIN.z},
+  {area:4, kind:'pass',     name:'峠',               x:1105, z:636},
+  {area:5, kind:'ring',     name:'石環',             x:ROAD2_RING.x, z:ROAD2_RING.z},
 ]);
 
 /* 必ず出る会話・演出の帯(設計 §5.2・§6)。道幅いっぱいの z の帯で拾う。
@@ -97,6 +245,148 @@ export const ROAD2_BANDS = Object.freeze([
   {id:'R5-01', area:5, z0:646, z1:654},   // 高原に出る
   {id:'R5-02', area:5, z0:704, z1:710},   // 石環の語らい
 ]);
+
+/* 木(当たりつき)。山道の森は歩ける所にも立つ。決まった種で並べる(毎回同じ) */
+function lcg(seed){ let s = seed >>> 0; return ()=> (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+function nearRoute(x, z, d){
+  for(const r of ROAD2_ROUTES){
+    for(let i=0;i<r.pts.length-1;i++){
+      const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i+1];
+      const dx = x1 - x0, dz = z1 - z0, L2 = dx*dx + dz*dz || 1;
+      const t = Math.max(0, Math.min(1, ((x - x0)*dx + (z - z0)*dz) / L2));
+      if(Math.hypot(x - (x0 + dx*t), z - (z0 + dz*t)) < d + r.width/2) return true;
+    }
+  }
+  return false;
+}
+let treesCache = null;
+export function road2ForestTrees(){
+  if(treesCache) return treesCache;
+  const rnd = lcg(4021);
+  const out = [];
+  const obst = ROAD2_TERRAIN[4].obstacles;
+  for(let i=0;i<900 && out.length<120;i++){
+    const x = 1031 + rnd() * 138, z = 451 + rnd() * 78;
+    if(nearRoute(x, z, 3.2)) continue;
+    if(Math.hypot(x - 1094, z - 458) < 9) continue;                 // 野営地
+    if(obst.some(o=> x > o.x0 - 2 && x < o.x1 + 2 && z > o.z0 - 2 && z < o.z1 + 2)) continue;
+    if(out.some(t=> Math.hypot(t.x - x, t.z - z) < 4.5)) continue;
+    out.push({x, z, h: 5 + rnd()*3, r: 1.8 + rnd()*0.8});
+  }
+  return (treesCache = out);
+}
+
+/* エリアの当たり(建物・岩・塀・柱・森の木の幹) */
+export function road2Obstacles(){
+  const out = [];
+  for(const id of [1, 2, 3, 4, 5]) ROAD2_TERRAIN[id].obstacles.forEach(o=> out.push(Object.assign({area:id}, o)));
+  ringPillars(ROAD2_RUIN.x, ROAD2_RUIN.z, ROAD2_RUIN.r, 10, 1.4, 0.5).forEach(p=> out.push(Object.assign({area:4}, p)));
+  ringPillars(ROAD2_RING.x, ROAD2_RING.z, ROAD2_RING.r, 12, 1.3, 0.5).forEach(p=> out.push(Object.assign({area:5}, p)));
+  road2ForestTrees().forEach(t=> out.push({area:4, kind:'trunk', x0:t.x - 0.35, x1:t.x + 0.35, z0:t.z - 0.35, z1:t.z + 0.35, h:t.h}));
+  return out;
+}
+
+/* 長方形 base から holes を切り抜いた、重ならない長方形の並び */
+export function subtractRects(base, holes){
+  const hs = holes.filter(h=> h.x1 > base.x0 && h.x0 < base.x1 && h.z1 > base.z0 && h.z0 < base.z1);
+  if(!hs.length) return [Object.assign({}, base)];
+  const xs = [...new Set([base.x0, base.x1, ...hs.flatMap(h=> [h.x0, h.x1])])].filter(x=> x >= base.x0 && x <= base.x1).sort((a, b)=> a - b);
+  const zs = [...new Set([base.z0, base.z1, ...hs.flatMap(h=> [h.z0, h.z1])])].filter(z=> z >= base.z0 && z <= base.z1).sort((a, b)=> a - b);
+  const out = [];
+  for(let j=0;j<zs.length-1;j++){
+    let run = null;
+    for(let i=0;i<xs.length-1;i++){
+      const cx = (xs[i] + xs[i+1]) / 2, cz = (zs[j] + zs[j+1]) / 2;
+      const inHole = hs.some(h=> cx > h.x0 && cx < h.x1 && cz > h.z0 && cz < h.z1);
+      if(!inHole){
+        if(run && run.x1 === xs[i]) run.x1 = xs[i+1];
+        else { run = Object.assign({}, base, {x0:xs[i], x1:xs[i+1], z0:zs[j], z1:zs[j+1]}); out.push(run); }
+      } else run = null;
+    }
+  }
+  return out;
+}
+
+/* 床の板の並び(groundSlabs にそのまま入れられる形)。台と坂はそのまま、土台は切り抜いた残り */
+let slabsCache = null;
+export function road2Slabs(){
+  if(slabsCache) return slabsCache;
+  const out = [];
+  for(const id of [1, 2, 3, 4, 5]){
+    const t = ROAD2_TERRAIN[id];
+    t.features.forEach(f=>{
+      const s = {area:id, id:f.id, x0:f.x0, x1:f.x1, z0:f.z0, z1:f.z1};
+      if(f.ramp){ s.ramp = Object.assign({}, f.ramp); s.y = Math.min(f.ramp.y0, f.ramp.y1); } else s.y = f.y;
+      out.push(s);
+    });
+    const cut = t.features.concat(t.holes);
+    t.base.forEach(b=> subtractRects(b, cut).forEach(r=> out.push(Object.assign({area:id, id:'base'}, r))));
+  }
+  return (slabsCache = out);
+}
+
+/* 床の高さ(床が重ならないので、位置ごとに一つ)。床が無ければ null */
+export function road2SlabHeight(s, x, z){
+  const r = s.ramp;
+  if(!r) return s.y;
+  const a = r.axis === 'x' ? x : z;
+  const t = Math.max(0, Math.min(1, (a - r.a0) / (r.a1 - r.a0)));
+  return r.y0 + (r.y1 - r.y0) * t;
+}
+export function road2GroundAt(x, z){
+  const slabs = road2Slabs();
+  for(let i=0;i<slabs.length;i++){
+    const s = slabs[i];
+    if(x >= s.x0 && x <= s.x1 && z >= s.z0 && z <= s.z1) return road2SlabHeight(s, x, z);
+  }
+  return null;
+}
+
+/* 歩いて届く所(地図の上の幅探索)。step の格子で、プレイヤーと同じ規則:
+   床がある・当たり(半径 0.4 広げる)の外・一歩で +0.6 まで上がり -1.0 まで下りる・歩ける範囲の中。
+   返すのは reachable(x, z) を答える関数 */
+export function road2Reachability(start, step, extraWalls){
+  step = step || 0.5;
+  const R0 = 0.4;
+  const walls = road2Obstacles().map(o=> ({minX:o.x0, maxX:o.x1, minZ:o.z0, maxZ:o.z1})).concat(blockedRects(), extraWalls || []);
+  const nx = Math.round((ROAD2_X1 - ROAD2_X0) / step), nz = Math.round((ROAD2_Z1 - ROAD2_Z0) / step);
+  const cx = i=> ROAD2_X0 + i * step, cz = j=> ROAD2_Z0 + j * step;
+  const H = new Float32Array(nx * nz).fill(NaN);
+  for(let j=0;j<nz;j++) for(let i=0;i<nx;i++){
+    const x = cx(i), z = cz(j);
+    if(!isWalkable(x, z)) continue;
+    if(walls.some(w=> x > w.minX - R0 && x < w.maxX + R0 && z > w.minZ - R0 && z < w.maxZ + R0)) continue;
+    const g = road2GroundAt(x, z);
+    if(g !== null) H[j*nx + i] = g;
+  }
+  const seen = new Uint8Array(nx * nz);
+  const si = Math.round((start.x - ROAD2_X0) / step), sj = Math.round((start.z - ROAD2_Z0) / step);
+  const q = [sj*nx + si];
+  if(Number.isNaN(H[q[0]])) return ()=> false;
+  seen[q[0]] = 1;
+  while(q.length){
+    const k = q.pop(), i = k % nx, j = (k - i) / nx, y = H[k];
+    for(const [di, dj] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const ii = i + di, jj = j + dj;
+      if(ii < 0 || jj < 0 || ii >= nx || jj >= nz) continue;
+      const kk = jj*nx + ii;
+      if(seen[kk]) continue;
+      const g = H[kk];
+      if(Number.isNaN(g) || g > y + 0.6 || g < y - 1.0) continue;
+      seen[kk] = 1; q.push(kk);
+    }
+  }
+  return (x, z)=>{
+    const i = Math.round((x - ROAD2_X0) / step), j = Math.round((z - ROAD2_Z0) / step);
+    if(i < 0 || j < 0 || i >= nx || j >= nz) return false;
+    // 格子の丸めで当たりの縁に落ちた点は、隣の格子でも認める
+    for(const [di, dj] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){
+      const ii = i + di, jj = j + dj;
+      if(ii >= 0 && jj >= 0 && ii < nx && jj < nz && seen[jj*nx + ii]) return true;
+    }
+    return false;
+  };
+}
 
 export function areaById(id){
   for(const a of ROAD2_AREAS) if(a.id === id) return a;

@@ -12,15 +12,20 @@
      こちらはワールドのキー 'road2' で、テストモードの「作業中のシナリオ」からだけ入れる。
      最後の段(R3-7)で本編を切り替え、旧道を消してキーを 'road' に戻す。
 
-     R3-0(この段): 灰色の仮の地形 ―― エリアごとの地面・通り道・境の石・木立・
-     野営地・ランドマークの形と、エリアごとの描画の切り替え。敵・会話・宝箱は次の段から。
+     R3-0: 地図の土台とエリアごとの描画の切り替え。
+     R3-T(この段): 5 エリアの地形と景観(.ai/reports/ROAD-VISUAL-003-R3T-plan.md)。
+       床の板(groundSlabs、時計塔と同じ仕組み)で起伏を作る ―― 宿場 0 → 原野 1(丘・高台 6)→
+       谷底 -2(崖の道 +2)→ 山道 1→5→8 → 高原 8。地形のデータは core/road-map.js ROAD2_TERRAIN。
+       敵・会話・宝箱・建物の中は次の段から。
 
      描き方(設計 §2・§10):
-       ・地面・通り道・遠景はいつも描く(屋外なので遠くまで見える)
-       ・エリアごとの小物(境の石・木立・野営地・ランドマーク)は、今いるエリアと
+       ・地形(床の板)・通り道・遠景はいつも描く(屋外なので遠くまで見える)。地形は
+         全エリアで 2 つの InstancedMesh(平らな台・坂)、上の面と横の面の 2 材質
+       ・エリアごとの物(建物・岩・木・草・水・ランドマーク・野営地)は、今いるエリアと
          隣のエリアだけ描く(road2UpdateAreaVisibility)
        ・同じ形の物は InstancedMesh にまとめる(PR #125 buildRoadInstances の作法)
-       ・点光源は足さない。灯り(野営地の火)は自発光の面で表す
+       ・草の揺れは頂点シェーダで動かす(描画回数は増えない)
+       ・点光源は足さない。灯り(野営地の火・宿場の提灯)は自発光の面で表す
 
      このファイルも前後のファイルとコメントの開き/閉じを跨いで連結される
      (14-dungeon-duskvillage.js の冒頭コメント参照)。本文中に独立した
@@ -29,15 +34,76 @@
 
   const ROAD2_ENTRY_POS = new THREE.Vector3(ROAD2_ENTRY.x, 0, ROAD2_ENTRY.z);
   const ROAD2_BOUNDS = {x0:ROAD2_X0, x1:ROAD2_X1, z0:ROAD2_Z0, z1:ROAD2_Z1};
+  const ROAD2_FLOOR_BOTTOM = -16;   // 床の板の箱の底(崖の面がここまで下りる)
 
-  let road2AreaGroups = {};     // エリアの id → そのエリアの小物の Group
+  let road2AreaGroups = {};     // エリアの id → そのエリアの物の Group
   let road2CurrentAreaId = 0;   // 今いるエリア(0 = まだ分からない)
   let road2VisInit = false;     // エリアの描画の切り替えを一度済ませたか
   let road2SeenAreas = new Set();   // この出撃で名前を出したエリア
   let road2Instanced = [];      // 作り直す時に instanceMatrix / instanceColor を捨てる
+  let road2SwayMats = [];       // 草の揺れの時刻を渡す材質
+  let road2Time = 0;
 
-  /* エリアごとの地面の色(仮)。時間帯の空と光は後の段 */
-  const ROAD2_GROUND = {1:0x8a8462, 2:0x6f9a4e, 3:0x5e7f62, 4:0x3f5e3a, 5:0x9a9a5a};
+  /* 床の板の上の面の色(場所ごと)。横の面は岩の色で、エリアの区別は地形と物で付ける */
+  const ROAD2_SURFACE = {
+    town:0x9a8a6a, grass2:0x7aa456, hill:0x86ae5c, lookout:0x8fb460, vale:0x6f8466, cliff:0x7a9a62,
+    ledge:0x6e6a60, wood:0x7a5a3a, sand:0x9a9478, forest:0x4a5e36, gorge:0x5c5a50, stone:0x8a8678,
+    high:0xb4ae6a, dais:0x9a9488,
+  };
+  function road2SurfaceOf(s){
+    if(s.area === 1) return s.ramp ? 'stone' : 'town';
+    if(s.area === 2) return s.id === 'base' ? 'grass2' : (s.id.indexOf('lookout') === 0 ? 'lookout' : (s.id === 'descent' ? 'grass2' : 'hill'));
+    if(s.area === 3){
+      if(s.id === 'bridge') return 'wood';
+      if(s.id === 'shallows') return 'sand';
+      if(s.id.indexOf('cliff') === 0) return 'cliff';
+      if(s.id.indexOf('falls') === 0) return 'ledge';
+      return 'vale';
+    }
+    if(s.area === 4){
+      if(s.id === 'gorge' || s.id === 'gorge-up' || s.id === 'ledge') return 'gorge';
+      if(s.id === 'ruins' || s.id === 'stairs') return 'stone';
+      if(s.id === 'path' || s.id === 'pass') return 'ledge';
+      return 'forest';
+    }
+    return s.id === 'dais' ? 'dais' : 'high';
+  }
+
+  /* 上の面と横の面を別の材質にした箱(InstancedMesh で 2 回の描画)。group 0 = 上、1 = 横と底 */
+  function road2TopSideBox(){
+    const g = new THREE.BoxGeometry(1, 1, 1);
+    const idx = g.index.array, top = [], rest = [];
+    for(let f=0; f<6; f++){ for(let k=0;k<6;k++) (f === 2 ? top : rest).push(idx[f*6 + k]); }   // 面 2 = +y
+    g.setIndex(top.concat(rest));
+    g.clearGroups(); g.addGroup(0, 6, 0); g.addGroup(6, 30, 1);
+    return g;
+  }
+  /* 横の面の材質は、インスタンスの色(上の面の色)を受けない */
+  function road2NoInstanceTint(mat){
+    mat.onBeforeCompile = sh=>{
+      sh.vertexShader = sh.vertexShader.replace('#include <color_vertex>',
+        '#if defined( USE_COLOR ) || defined( USE_INSTANCING_COLOR )\n vColor = vec3( 1.0 );\n#endif');
+    };
+    mat.customProgramCacheKey = ()=> 'road2-noInstTint';
+    return mat;
+  }
+  /* 風に揺れる草(頂点の高さに比例して横へ揺らす) */
+  function road2SwayMaterial(color, amp){
+    const mat = new THREE.MeshStandardMaterial({color, roughness:0.9, side:THREE.DoubleSide});
+    mat.onBeforeCompile = sh=>{
+      sh.uniforms.uRoad2Time = {value:0};
+      mat.userData.shader = sh;
+      sh.vertexShader = 'uniform float uRoad2Time;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+        '#include <begin_vertex>\n' +
+        '#ifdef USE_INSTANCING\n float road2Ph = instanceMatrix[3].x * 0.21 + instanceMatrix[3].z * 0.13;\n#else\n float road2Ph = 0.0;\n#endif\n' +
+        ' float road2W = sin(uRoad2Time * 1.6 + road2Ph) * 0.6 + sin(uRoad2Time * 2.7 + road2Ph * 1.7) * 0.4;\n' +
+        ` transformed.x += road2W * ${amp.toFixed(3)} * max(position.y + 0.5, 0.0);\n` +
+        ` transformed.z += road2W * ${(amp*0.5).toFixed(3)} * max(position.y + 0.5, 0.0);\n`);
+    };
+    mat.customProgramCacheKey = ()=> 'road2-sway-' + amp;
+    road2SwayMats.push(mat);
+    return mat;
+  }
 
   function buildRoad2(){
     road2Instanced.forEach(m=> m.dispose());
@@ -46,90 +112,93 @@
     road2CurrentAreaId = 0;
     road2VisInit = false;
     road2SeenAreas = new Set();
+    road2SwayMats = [];
+    road2Time = 0;
 
-    const mats = {
-      outer: new THREE.MeshStandardMaterial({color:0x4c6438, roughness:1}),
-      main:  new THREE.MeshStandardMaterial({color:0x9a8a68, roughness:0.95}),
-      side:  new THREE.MeshStandardMaterial({color:0x8c8462, roughness:0.95}),
-      hidden:new THREE.MeshStandardMaterial({color:0x6e6a52, roughness:0.95}),
-      stone: new THREE.MeshStandardMaterial({color:0x8a8478, roughness:0.95}),
-      trunk: new THREE.MeshStandardMaterial({color:0x5a4030, roughness:0.9}),
-      leaf:  new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}),
-      wood:  new THREE.MeshStandardMaterial({color:0x6a4e32, roughness:0.85}),
-      cloth: new THREE.MeshStandardMaterial({color:0x8a7a5a, roughness:0.9}),
-      water: new THREE.MeshStandardMaterial({color:0x5a8aa8, roughness:0.3, metalness:0.1}),
-      foam:  new THREE.MeshStandardMaterial({color:0xcfe0ea, roughness:0.5}),
-      fire:  new THREE.MeshBasicMaterial({color:0xffa040}),
-      far:   new THREE.MeshStandardMaterial({color:0x6a7a98, roughness:1}),
+    const M = {
+      top:    new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.95}),
+      side:   road2NoInstanceTint(new THREE.MeshStandardMaterial({color:0x7a7264, roughness:1})),
+      outer:  new THREE.MeshStandardMaterial({color:0x4c6438, roughness:1}),
+      path:   new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.95}),
+      plaster:new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.9}),
+      roof:   new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}),
+      wood:   new THREE.MeshStandardMaterial({color:0x6a4e32, roughness:0.85}),
+      stone:  new THREE.MeshStandardMaterial({color:0x8a8478, roughness:0.95}),
+      rock:   new THREE.MeshStandardMaterial({color:0xffffff, roughness:1}),
+      trunk:  new THREE.MeshStandardMaterial({color:0x4e3a2a, roughness:0.9}),
+      leaf:   new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}),
+      water:  new THREE.MeshStandardMaterial({color:0x4f86a8, roughness:0.15, metalness:0.2}),
+      falls:  new THREE.MeshStandardMaterial({color:0xdbeaf2, roughness:0.4, emissive:0x30404a}),
+      glow:   new THREE.MeshBasicMaterial({color:0xffb050}),
+      far:    new THREE.MeshStandardMaterial({color:0x6a7a98, roughness:1}),
+      low:    new THREE.MeshStandardMaterial({color:0x6c8a5a, roughness:1}),
+      cloth:  new THREE.MeshStandardMaterial({color:0x8a7a5a, roughness:0.9}),
     };
 
-    // ---- 地面(いつも描く): 外の草原と、エリアごとの歩ける面 ----
-    const outer = new THREE.Mesh(new THREE.PlaneGeometry(520, 1100), mats.outer);
+    // ---- 外の地面(歩けない所。いつも描く)。いちばん低い谷底(-2)より下に置く ----
+    const outer = new THREE.Mesh(new THREE.PlaneGeometry(700, 1300), M.outer);
     outer.rotation.x = -Math.PI/2;
-    outer.position.set(ROAD2_CX, -0.03, 380);
+    outer.position.set(ROAD2_CX, -2.6, 380);
     outer.receiveShadow = true;
     scene.add(outer);
-    ROAD2_AREAS.forEach(a=>{
-      const g = new THREE.Mesh(new THREE.PlaneGeometry(a.x1 - a.x0, a.z1 - a.z0),
-        new THREE.MeshStandardMaterial({color:ROAD2_GROUND[a.id], roughness:0.95}));
-      g.rotation.x = -Math.PI/2;
-      g.position.set((a.x0 + a.x1)/2, 0, (a.z0 + a.z1)/2);
-      g.receiveShadow = true;
-      scene.add(g);
-    });
 
-    // ---- 通り道(いつも描く): メイン・寄り道・隠しを、種類ごとに 1 回の描画 ----
-    const strips = {main:[], side:[], hidden:[]};
-    ROAD2_ROUTES.forEach(r=>{
-      for(let i=0;i<r.pts.length-1;i++){
-        const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i+1];
-        const len = Math.hypot(x1 - x0, z1 - z0);
-        strips[r.kind].push({x:(x0 + x1)/2, z:(z0 + z1)/2, len: len + r.width*0.6, w:r.width,
-          ry: Math.atan2(x1 - x0, z1 - z0)});
-      }
-    });
-    const stripY = {main:0.03, side:0.025, hidden:0.02};
-    Object.keys(strips).forEach(k=>{
-      road2Inst(new THREE.BoxGeometry(1, 1, 1), mats[k], strips[k], (s, at)=> at(s.x, stripY[k] - 0.01, s.z, s.ry, s.w, 0.02, s.len), scene);
-    });
-
-    // ---- エリアごとの小物(今いるエリアと隣だけ描く) ----
+    // ---- エリアの Group(今のエリアと隣だけ描く) ----
     ROAD2_AREAS.forEach(a=>{
       const grp = new THREE.Group();
       grp.userData.road2Area = a.id;
       road2AreaGroups[a.id] = grp;
       scene.add(grp);
-      road2BuildAreaEdges(a, grp, mats);
-      road2BuildAreaTrees(a, grp, mats);
-    });
-    ROAD2_CAMPS.forEach(c=> road2BuildCamp(c, road2AreaGroups[c.area], mats));
-    ROAD2_LANDMARKS.forEach(l=> road2BuildLandmark(l, road2AreaGroups[l.area], mats));
-
-    // ---- 遠景(いつも描く): 道の果ての先の山並み ----
-    [[-160, 900, 70], [-60, 950, 95], [40, 920, 80], [150, 980, 110], [-240, 980, 90], [250, 940, 85]].forEach(([dx, z, h])=>{
-      const m = new THREE.Mesh(new THREE.ConeGeometry(h*1.3, h, 7), mats.far);
-      m.position.set(ROAD2_CX + dx, h/2 - 6, z);
-      scene.add(m);
     });
 
-    // ---- 当たり: 外枠(worldBounds)のうち、エリアの外のすき間 ----
-    /* ミニマップは中心が近い壁だけを描くので、長い当たりは z 40 ごとに分ける */
+    // ---- 地形: 床の板(groundSlabs)と、その見た目 ----
+    const slabs = road2Slabs();
+    groundSlabs = slabs.map(s=> Object.assign({x0:s.x0, x1:s.x1, z0:s.z0, z1:s.z1, y:s.y}, s.ramp ? {ramp:Object.assign({}, s.ramp)} : {}));
+    road2BuildTerrain(slabs, M);
+
+    // ---- 通り道(地形に沿う。隠し道は描かない ―― 地形と物の陰に紛れさせる) ----
+    road2BuildPaths(M);
+
+    // ---- 当たり: 外枠のすき間(長いものは z 40 ごと。ミニマップのため)・建物・岩・柱・木の幹 ----
     road2BlockedRects().forEach(r=>{
       for(let z = r.minZ; z < r.maxZ; z += 40) walls.push({minX:r.minX, maxX:r.maxX, minZ:z, maxZ:Math.min(r.maxZ, z + 40)});
     });
+    road2Obstacles().forEach(o=> walls.push({minX:o.x0, maxX:o.x1, minZ:o.z0, maxZ:o.z1}));
+
+    // ---- エリアごとの景観 ----
+    road2BuildObstacleLooks(M);
+    road2BuildInn(road2AreaGroups[1], M);
+    road2BuildMoor(road2AreaGroups[2], M);
+    road2BuildVale(road2AreaGroups[3], M);
+    road2BuildMountain(road2AreaGroups[4], M);
+    road2BuildEnd(road2AreaGroups[5], M);
+    ROAD2_CAMPS.forEach(c=> road2BuildCamp(c, road2AreaGroups[c.area], M));
+    ROAD2_LANDMARKS.forEach(l=> road2BuildLandmark(l, road2AreaGroups[l.area], M));
+
+    // ---- 遠景(いつも描く): 道の両側の遠い丘と、道の果ての先の山並み ----
+    const far = [];
+    for(let z = -40; z < 760; z += 46){
+      [-1, 1].forEach(side=>{
+        const k = Math.floor(z * 7 + side * 31);
+        far.push({x: ROAD2_CX + side * (150 + (k % 5) * 18), z: z + (k % 3) * 9, h: 28 + (k % 7) * 9, r: 60 + (k % 4) * 12, c:0x5f7a54});
+      });
+    }
+    [[-220, 980, 90], [-90, 1040, 120], [30, 1000, 100], [160, 1060, 140], [290, 990, 110], [-330, 1020, 95]].forEach(([dx, z, h])=>
+      far.push({x: ROAD2_CX + dx, z, h, r: h*1.4, c:0x6a7a98}));
+    road2InstQ(new THREE.ConeGeometry(1, 1, 8), M.far, far, f=> ({x:f.x, y:f.h/2 - 10, z:f.z, sx:f.r, sy:f.h, sz:f.r}), scene, f=> f.c);
 
     buildTownReturnPortal(new THREE.Vector3(ROAD2_CX, 0, ROAD2_Z0 + 3));
   }
 
-  /* 同じ形の物を 1 つの InstancedMesh にする。place(item, at) の中で at(...) を呼んで行列を作る */
-  function road2Inst(geo, mat, list, place, parent, colorOf){
+  /* 同じ形の物を 1 つの InstancedMesh にする。place(item) が {x,y,z, rx,ry,rz, sx,sy,sz} を返す */
+  function road2InstQ(geo, mat, list, place, parent, colorOf){
     if(!list.length){ geo.dispose(); return null; }
-    const q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(),
+    const q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ'), v = new THREE.Vector3(),
           sc = new THREE.Vector3(), mtx = new THREE.Matrix4(), col = new THREE.Color();
-    const at = (x, y, z, ry, sx, sy, sz)=>{ e.set(0, ry || 0, 0); q.setFromEuler(e); mtx.compose(v.set(x, y, z), q, sc.set(sx, sy, sz)); };
     const m = new THREE.InstancedMesh(geo, mat, list.length);
     list.forEach((it, i)=>{
-      place(it, at);
+      const p = place(it);
+      e.set(p.rx || 0, p.ry || 0, p.rz || 0); q.setFromEuler(e);
+      mtx.compose(v.set(p.x, p.y, p.z), q, sc.set(p.sx, p.sy, p.sz));
       m.setMatrixAt(i, mtx);
       if(colorOf) m.setColorAt(i, col.setHex(colorOf(it)));
     });
@@ -143,75 +212,272 @@
     return m;
   }
 
-  /* エリアの境の低い石。左右の辺と、隣のエリアより広い所の南北の辺(道の果ての北の端は景色のために開ける) */
-  function road2BuildAreaEdges(a, grp, mats){
-    const stones = [];
-    const STEP = 3.2;
-    const along = (x0, z0, x1, z1)=>{
-      const len = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.floor(len / STEP));
-      for(let i=0;i<=n;i++){
-        const t = i / n;
-        stones.push({x: x0 + (x1 - x0)*t, z: z0 + (z1 - z0)*t, s: 0.8 + ((i*37 + a.id*11) % 7)/14, ry: ((i*53) % 9 - 4) * 0.05});
+  /* 地形の見た目。平らな台は底(ROAD2_FLOOR_BOTTOM)から上の面までの箱。坂は低い側までの台の上に、
+     傾けた厚い板を載せる(上の面が坂の面と一致する) */
+  function road2BuildTerrain(slabs, M){
+    const flats = [], ramps = [];
+    slabs.forEach(s=>{
+      const color = ROAD2_SURFACE[road2SurfaceOf(s)];
+      const low = s.ramp ? Math.min(s.ramp.y0, s.ramp.y1) : s.y;
+      flats.push({x:(s.x0 + s.x1)/2, z:(s.z0 + s.z1)/2, w:s.x1 - s.x0, d:s.z1 - s.z0, top:low, color: s.ramp ? 0x6a6458 : color});
+      if(s.ramp) ramps.push({s, color});
+    });
+    // 町の塀の外(床の無い所)は、歩けない草地の見た目で埋める(床の板には入れない)
+    ROAD2_TERRAIN[1].holes.forEach(h=> flats.push({x:(h.x0 + h.x1)/2, z:(h.z0 + h.z1)/2, w:h.x1 - h.x0, d:h.z1 - h.z0, top:0.5, color:0x5c7a44}));
+    road2InstQ(road2TopSideBox(), [M.top, M.side], flats,
+      f=> ({x:f.x, y:(f.top + ROAD2_FLOOR_BOTTOM)/2, z:f.z, sx:f.w, sy:f.top - ROAD2_FLOOR_BOTTOM, sz:f.d}), scene, f=> f.color);
+    road2InstQ(road2TopSideBox(), [M.top, M.side], ramps, ({s})=>{
+      const r = s.ramp, dy = r.y1 - r.y0, len = r.a1 - r.a0, slope = Math.hypot(len, dy), T = Math.abs(dy) + 1.2;
+      const cx = (s.x0 + s.x1)/2, cz = (s.z0 + s.z1)/2, my = (r.y0 + r.y1)/2;
+      if(r.axis === 'z'){
+        const a = -Math.atan2(dy, len);
+        return {x:cx, y:my - Math.cos(a)*T/2, z:cz - Math.sin(a)*T/2, rx:a, sx:s.x1 - s.x0, sy:T, sz:slope};
       }
-    };
-    along(a.x0, a.z0, a.x0, a.z1);
-    along(a.x1, a.z0, a.x1, a.z1);
-    const prev = road2AreaById(a.id - 1), next = road2AreaById(a.id + 1);
-    const openParts = (lo, hi, nb)=>{
-      if(!nb) return [[lo, hi]];
-      const out = [];
-      if(nb.x0 > lo) out.push([lo, Math.min(hi, nb.x0)]);
-      if(nb.x1 < hi) out.push([Math.max(lo, nb.x1), hi]);
-      return out;
-    };
-    // 南の辺(入口のエリアは門の両脇だけ。真ん中は帰り道の門)
-    if(prev) openParts(a.x0, a.x1, prev).forEach(([x0, x1])=> along(x0, a.z0, x1, a.z0));
-    else { along(a.x0, a.z0, ROAD2_CX - 4, a.z0); along(ROAD2_CX + 4, a.z0, a.x1, a.z0); }
-    if(next) openParts(a.x0, a.x1, next).forEach(([x0, x1])=> along(x0, a.z1, x1, a.z1));
-    road2Inst(new THREE.BoxGeometry(1, 1, 1), mats.stone, stones,
-      (s, at)=> at(s.x, 0.3*s.s, s.z, s.ry, 1.2*s.s, 0.6*s.s, 1.4*s.s), grp);
+      const b = Math.atan2(dy, len);
+      return {x:cx + Math.sin(b)*T/2, y:my - Math.cos(b)*T/2, z:cz, rz:b, sx:slope, sy:T, sz:s.z1 - s.z0};
+    }, scene, f=> f.color);
   }
 
-  /* 木立(仮)。エリアの左右の辺の外側に並べる。山道は森なので密に、道の果ては疎らに */
-  function road2BuildAreaTrees(a, grp, mats){
-    const density = {1:9, 2:12, 3:0, 4:5, 5:22}[a.id];
-    const trees = [];
-    if(density){
-      for(let z = a.z0 + 2; z < a.z1 - 2; z += density){
-        [-1, 1].forEach(side=>{
-          const k = Math.floor(z*7 + side*13 + a.id*29);
-          const x = (side < 0 ? a.x0 : a.x1) + side * (3 + (k % 5));
-          trees.push({x, z: z + (k % 3), h: 3 + (k % 4)*0.6, r: 1.4 + (k % 5)*0.15, c: [0x3f6a34, 0x4a7a3a, 0x568640, 0x35592c][k % 4]});
-        });
-      }
-    }
-    // 山道は森の中を歩く: 道の両脇にも木を立てる(通り道から 6 以上離す)
-    if(a.id === 4){
-      for(let z = a.z0 + 6; z < a.z1 - 6; z += 9){
-        for(let x = a.x0 + 6; x < a.x1 - 4; x += 11){
-          const k = Math.floor(x*3 + z*5);
-          const tx = x + (k % 4), tz = z + (k % 3);
-          if(road2NearRoute(tx, tz, 6)) continue;
-          trees.push({x:tx, z:tz, h: 4 + (k % 4)*0.7, r: 1.6 + (k % 5)*0.18, c: [0x2f5228, 0x35592c, 0x3f6a34][k % 3]});
+  /* 通り道。3 ずつの板を床の高さに沿って並べる(坂では傾ける)。メインと寄り道だけ */
+  function road2BuildPaths(M){
+    const tiles = [];
+    const tint = {1:0xb09a72, 2:0xa08e66, 3:0x8a8270, 4:0x8a8274, 5:0xa49a70};
+    ROAD2_ROUTES.forEach(r=>{
+      if(r.kind === 'hidden') return;
+      for(let i=0;i<r.pts.length-1;i++){
+        const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i+1];
+        const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(L / 3));
+        const ux = (x1 - x0) / L, uz = (z1 - z0) / L, ry = Math.atan2(x1 - x0, z1 - z0);
+        for(let k=0;k<n;k++){
+          const t = (k + 0.5) / n, x = x0 + (x1 - x0)*t, z = z0 + (z1 - z0)*t;
+          const g = road2GroundAt(x, z);
+          if(g === null) continue;
+          const ga = road2GroundAt(x - ux*1.5, z - uz*1.5), gb = road2GroundAt(x + ux*1.5, z + uz*1.5);
+          const pitch = (ga !== null && gb !== null) ? -Math.atan2(gb - ga, 3) : 0;
+          tiles.push({x, y:g + 0.05, z, ry, rx:pitch, w: r.kind === 'main' ? r.width : r.width*0.8, L: L/n + 0.6,
+            c: r.kind === 'main' ? tint[r.area] : 0x8e8a6a});
         }
       }
-    }
-    // 谷は木の代わりに崖(左右の高い壁。歩ける範囲の外)
-    if(a.id === 3){
-      const walls3 = [];
-      for(let z = a.z0; z < a.z1; z += 10){
-        [-1, 1].forEach(side=>{
-          const k = Math.floor(z*3 + side*7);
-          walls3.push({x: (side < 0 ? a.x0 - 4 : a.x1 + 4), z: z + 5, h: 10 + (k % 5)*1.6});
-        });
-      }
-      road2Inst(new THREE.BoxGeometry(1, 1, 1), mats.stone, walls3, (w, at)=> at(w.x, w.h/2, w.z, 0, 8, w.h, 10.5), grp);
-    }
-    road2Inst(new THREE.CylinderGeometry(0.16, 0.26, 1, 7), mats.trunk, trees, (t, at)=> at(t.x, t.h/2, t.z, 0, 1, t.h, 1), grp);
-    road2Inst(new THREE.SphereGeometry(1, 8, 6), mats.leaf, trees, (t, at)=> at(t.x, t.h + 0.8, t.z, 0, t.r, t.r*0.85, t.r), grp, t=> t.c);
+    });
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.path, tiles, t=> ({x:t.x, y:t.y, z:t.z, rx:t.rx, ry:t.ry, sx:t.w, sy:0.06, sz:t.L}), scene, t=> t.c);
   }
 
-  function road2NearRoute(x, z, d){
+  /* 当たりのある物の見た目(エリアの Group へ)。建物は壁と屋根、岩は重ねた不揃いの箱 */
+  function road2BuildObstacleLooks(M){
+    const byArea = {};
+    road2Obstacles().forEach(o=>{ (byArea[o.area] = byArea[o.area] || []).push(o); });
+    Object.keys(byArea).forEach(id=>{
+      const grp = road2AreaGroups[id], list = byArea[id];
+      const gyOf = o=>{ const g = road2GroundAt((o.x0 + o.x1)/2, (o.z0 + o.z1)/2); return g === null ? 0 : g; };
+      const houses = list.filter(o=> o.kind === 'house');
+      road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.plaster, houses, o=> ({x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h/2, z:(o.z0 + o.z1)/2, sx:o.x1 - o.x0, sy:o.h, sz:o.z1 - o.z0}),
+        grp, o=> [0xd8ccb0, 0xc8b898, 0xbfae8e, 0xd0c0a0][Math.floor(o.z0) % 4]);
+      road2InstQ(new THREE.ConeGeometry(0.72, 1, 4), M.roof, houses, o=> ({x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h + 1.6, z:(o.z0 + o.z1)/2, ry:Math.PI/4, sx:(o.x1 - o.x0)*1.05, sy:3.2, sz:(o.z1 - o.z0)*1.05}),
+        grp, o=> [0x7a4a32, 0x6a3e2c, 0x5a4a3e][Math.floor(o.z0) % 3]);
+      const woods = list.filter(o=> o.kind === 'fence' || o.kind === 'cart' || o.kind === 'post');
+      road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.wood, woods, o=> ({x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h/2, z:(o.z0 + o.z1)/2, sx:o.x1 - o.x0, sy:o.h, sz:o.z1 - o.z0}), grp);
+      const stones = list.filter(o=> ['townwall', 'well', 'ruinstone', 'ruinwall', 'pillar'].indexOf(o.kind) >= 0);
+      road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.stone, stones, o=> ({x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h/2, z:(o.z0 + o.z1)/2, sx:o.x1 - o.x0, sy:o.h, sz:o.z1 - o.z0}), grp);
+      // 岩: 足元の箱＋上に小さめの箱を二つ(不揃い)。色はエリアで変える
+      const rockCol = {2:0x8a8a7e, 3:0x6e6a62, 4:0x5e5a50}[id] || 0x80786a;
+      const rocks = [];
+      list.filter(o=> ['monolith', 'ridge', 'boulder', 'rock', 'outcrop', 'bank'].indexOf(o.kind) >= 0).forEach(o=>{
+        const cx = (o.x0 + o.x1)/2, cz = (o.z0 + o.z1)/2, w = o.x1 - o.x0, d = o.z1 - o.z0, g = gyOf(o);
+        if(o.kind === 'monolith'){ rocks.push({x:cx, y:g + o.h/2, z:cz, sx:w*0.9, sy:o.h, sz:d*0.7, ry:0.3, c:0x9a968a}); return; }
+        rocks.push({x:cx, y:g + o.h*0.35, z:cz, sx:w, sy:o.h*0.7, sz:d, ry:0, c:rockCol});
+        const n = Math.max(1, Math.round(Math.max(w, d) / 10));
+        for(let k=0;k<n;k++){
+          const t = (k + 0.5) / n, long = w > d;
+          rocks.push({x: long ? o.x0 + w*t : cx + ((k*7) % 3 - 1) * w*0.12, y:g + o.h*0.75, z: long ? cz + ((k*5) % 3 - 1) * d*0.12 : o.z0 + d*t,
+            sx: (long ? w/n : w) * 0.8, sy:o.h*0.55, sz:(long ? d : d/n) * 0.8, ry:((k*13) % 7 - 3) * 0.08, c:rockCol + 0x080808});
+        }
+      });
+      road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.rock, rocks, r=> ({x:r.x, y:r.y, z:r.z, ry:r.ry, sx:r.sx, sy:r.sy, sz:r.sz}), grp, r=> r.c);
+      // 森の木の幹と葉(山道)・古木
+      const trees = list.filter(o=> o.kind === 'trunk' || o.kind === 'oldtree');
+      road2InstQ(new THREE.CylinderGeometry(0.22, 0.34, 1, 6), M.trunk, trees, o=>{
+        const s = o.kind === 'oldtree' ? 5 : 1;
+        return {x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h/2, z:(o.z0 + o.z1)/2, sx:s, sy:o.h, sz:s};
+      }, grp);
+      road2InstQ(new THREE.ConeGeometry(1, 1, 7), M.leaf, trees, o=>{
+        const s = o.kind === 'oldtree' ? 3.2 : 1;
+        return {x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h*0.72, z:(o.z0 + o.z1)/2, sx:2.4*s, sy:o.h*0.75, sz:2.4*s};
+      }, grp, o=> o.kind === 'oldtree' ? 0x3a4e2a : [0x2c4626, 0x34502a, 0x2a3e22][Math.floor(o.x0 * 3) % 3]);
+    });
+  }
+
+  /* 旅人の宿場: 町の塀と門・提灯・樽と木箱・町の外の木 */
+  function road2BuildInn(grp, M){
+    // 門(柱二本と横木)
+    [[1088.5, 1089.8], [1110.2, 1111.5]].forEach(([x0, x1])=>{
+      const p = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 5.5, 1.6), M.stone);
+      p.position.set((x0 + x1)/2, 2.75, 97); grp.add(p);
+    });
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(24, 0.9, 1.8), M.wood);
+    lintel.position.set(1100, 5.6, 97); grp.add(lintel);
+    // 提灯(自発光。家の軒先)・樽と木箱
+    const lamps = [], props = [];
+    [[1094.6, 24], [1094.6, 46], [1094.6, 68], [1105.4, 22], [1105.4, 44], [1105.4, 66]].forEach(([x, z])=> lamps.push({x, z}));
+    [[1095.2, 20], [1104.8, 41], [1095.4, 34], [1126, 40], [1063, 66], [1066, 90], [1062, 84]].forEach(([x, z], i)=> props.push({x, z, s: 0.8 + (i % 3)*0.15}));
+    road2InstQ(new THREE.BoxGeometry(0.45, 0.6, 0.45), M.glow, lamps, l=> ({x:l.x, y:3.1, z:l.z, sx:1, sy:1, sz:1}), grp);
+    road2InstQ(new THREE.CylinderGeometry(0.45, 0.45, 1, 8), M.wood, props, p=> ({x:p.x, y:0.5*p.s, z:p.z, sx:p.s, sy:p.s, sz:p.s}), grp);
+    // 町の外の木(塀と家の向こう)
+    const trees = [];
+    for(let z = 0; z < 100; z += 8){ [-1, 1].forEach(side=>{ const k = Math.floor(z*3 + side*5); trees.push({x: side < 0 ? 1052 - (k % 6) : 1148 + (k % 6), z: z + (k % 4), h: 5 + (k % 4), c:[0x3f6a34, 0x4a7a3a, 0x568640][k % 3]}); }); }
+    road2InstQ(new THREE.CylinderGeometry(0.2, 0.3, 1, 6), M.trunk, trees, t=> ({x:t.x, y:t.h/2, z:t.z, sx:1, sy:t.h, sz:1}), grp);
+    road2InstQ(new THREE.SphereGeometry(1, 8, 6), M.leaf, trees, t=> ({x:t.x, y:t.h + 0.8, z:t.z, sx:2.2, sy:1.9, sz:2.2}), grp, t=> t.c);
+  }
+
+  /* 風渡る原野: 揺れる草・野の花・ひとり立つ木・東西の遠い起伏・境の低い石 */
+  function road2BuildMoor(grp, M){
+    const area = road2AreaById(2);
+    const grass = [], flowers = [];
+    const rnd = road2Rand(712);
+    for(let i=0;i<1600 && grass.length<760;i++){
+      const x = area.x0 + 2 + rnd()*(area.x1 - area.x0 - 4), z = area.z0 + 2 + rnd()*(area.z1 - area.z0 - 4);
+      if(road2OnPath(x, z, 1.5)) continue;
+      const g = road2GroundAt(x, z); if(g === null) continue;
+      grass.push({x, y:g, z, s: 0.9 + rnd()*1.1, ry: rnd()*Math.PI});
+    }
+    for(let i=0;i<400 && flowers.length<160;i++){
+      const x = area.x0 + 2 + rnd()*(area.x1 - area.x0 - 4), z = area.z0 + 2 + rnd()*(area.z1 - area.z0 - 4);
+      if(road2OnPath(x, z, 1.5)) continue;
+      const g = road2GroundAt(x, z); if(g === null) continue;
+      flowers.push({x, y:g, z, c:[0xe8d870, 0xf0f0e0, 0xc89ad8, 0xe89a70][Math.floor(rnd()*4)]});
+    }
+    // 岩場の割れ目(z 150〜154)は背の高い草で隠す
+    for(let k=0;k<14;k++) grass.push({x:1141 + (k % 4)*1.6, y:1, z:147 + Math.floor(k/4)*2.2, s:1.9, ry:k});
+    road2InstQ(road2GrassGeo(), road2SwayMaterial(0x8fb85a, 0.22), grass, g=> ({x:g.x, y:g.y, z:g.z, ry:g.ry, sx:g.s, sy:g.s, sz:g.s}), grp);
+    road2InstQ(new THREE.SphereGeometry(0.16, 5, 4), new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.8}), flowers, f=> ({x:f.x, y:f.y + 0.32, z:f.z, sx:1, sy:1, sz:1}), grp, f=> f.c);
+    // ひとり立つ木(風で片側に傾く)
+    const lone = [[1130, 178], [1036, 236], [1176, 132], [1018, 128]].map(([x, z])=> ({x, z, y:road2GroundAt(x, z) || 1}));
+    road2InstQ(new THREE.CylinderGeometry(0.22, 0.34, 1, 6), M.trunk, lone, t=> ({x:t.x, y:t.y + 2.6, z:t.z, rz:0.12, sx:1, sy:5.2, sz:1}), grp);
+    road2InstQ(new THREE.SphereGeometry(1, 8, 6), M.leaf, lone, t=> ({x:t.x + 0.7, y:t.y + 5.6, z:t.z, sx:3.2, sy:2.2, sz:2.8}), grp, ()=> 0x5a8a3e);
+    // 東西の遠い起伏(歩ける範囲の外。原野の広がり)
+    const swells = [];
+    for(let z = 120; z < 300; z += 30){ [-1, 1].forEach(side=> swells.push({x: ROAD2_CX + side*(118 + (z % 60)/3), z: z + 10, sx: 34, sy: 7 + (z % 45)/9, sz: 26})); }
+    road2InstQ(new THREE.SphereGeometry(1, 10, 6, 0, Math.PI*2, 0, Math.PI/2), M.low, swells, s=> ({x:s.x, y:-0.6, z:s.z, sx:s.sx, sy:s.sy, sz:s.sz}), grp);
+    road2EdgeStones(area, grp, M, 4.5);
+  }
+
+  /* 水鏡の谷: 両側の崖・川と滝つぼの水・滝・水辺の葦と石 */
+  function road2BuildVale(grp, M){
+    const a = road2AreaById(3);
+    const cliffs = [];
+    for(let z = a.z0; z < a.z1; z += 10){
+      [-1, 1].forEach(side=>{
+        const k = Math.floor(z*3 + side*7);
+        cliffs.push({x: side < 0 ? a.x0 - 5 : a.x1 + 5, z: z + 5, h: 14 + (k % 5)*2.2});
+      });
+    }
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.rock, cliffs, c=> ({x:c.x, y:ROAD2_FLOOR_BOTTOM + (c.h - ROAD2_FLOOR_BOTTOM)/2, z:c.z, ry:((c.z*7) % 5 - 2)*0.03, sx:10, sy:c.h - ROAD2_FLOOR_BOTTOM, sz:10.6}), grp, ()=> 0x6a665c);
+    // 水(川・滝つぼ・谷の外へ続く流れ)
+    const water = [{x:(a.x0 + a.x1)/2 + 10, z:376, w:a.x1 - a.x0 + 40, d:8}, {x:1059, z:382, w:8, d:28}];
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.water, water, w=> ({x:w.x, y:-2.75, z:w.z, sx:w.w, sy:0.3, sz:w.d}), grp);
+    // 滝(崖の上から滝つぼへ落ちる幕。裏の岩棚が透けないよう厚くする)
+    const falls = new THREE.Mesh(new THREE.BoxGeometry(1.4, 12, 16), M.falls);
+    falls.position.set(1055.8, 3.2, 376); falls.userData.road2Falls = true; grp.add(falls);
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(14, 1.2, 20), M.rock);
+    lip.position.set(1050, 9.6, 376); grp.add(lip);   // 滝の上の岩(岩棚の屋根)
+    // 葦と水辺の石
+    const reeds = [];
+    for(let x = a.x0 + 22; x < a.x1; x += 2.6){ [369.5, 382.5].forEach((z, i)=>{ const k = Math.floor(x*5 + i*3); if(Math.abs(x - 1100) < 7) return; reeds.push({x: x + (k % 3)*0.3, z: z + (k % 2)*0.6, s: 1.1 + (k % 4)*0.2}); }); }
+    // 谷底の小石(道の脇。川の谷らしい足元)
+    const pebbles = [];
+    const rndV = road2Rand(3307);
+    for(let i=0;i<900 && pebbles.length<240;i++){
+      const x = a.x0 + rndV()*(a.x1 - a.x0), z = a.z0 + rndV()*(a.z1 - a.z0);
+      const g = road2GroundAt(x, z);
+      if(g === null || g > -1.5 || road2OnPath(x, z, 0.6) || !road2OnPath(x, z, 9)) continue;
+      pebbles.push({x, z, y:g, s: 0.25 + rndV()*0.55, ry: rndV()*3});
+    }
+    road2InstQ(new THREE.DodecahedronGeometry(1, 0), M.rock, pebbles, p=> ({x:p.x, y:p.y + p.s*0.3, z:p.z, ry:p.ry, sx:p.s*1.3, sy:p.s*0.6, sz:p.s}), grp, ()=> 0x8a867a);
+    road2InstQ(road2GrassGeo(), road2SwayMaterial(0x6e8a4e, 0.12), reeds, r=> ({x:r.x, y:-2, z:r.z, sx:r.s*0.7, sy:r.s*1.6, sz:r.s*0.7}), grp);
+  }
+
+  /* 忘れられた山道: 斜面の針葉樹(歩けない所)・狭間の岩壁・石段の段・遺構の崩れた柱 */
+  function road2BuildMountain(grp, M){
+    const a = road2AreaById(4);
+    const slopeTrees = [];
+    const rnd = road2Rand(4407);
+    for(let i=0;i<500 && slopeTrees.length<170;i++){
+      const x = a.x0 - 14 + rnd()*(a.x1 - a.x0 + 28), z = 530 + rnd()*110;
+      if(road2GroundAt(x, z) !== null) continue;          // 歩ける所には立てない(斜面だけ)
+      if(x > 1044 && x < 1062 && z < 600) { if(rnd() < 0.6) continue; }
+      const y = Math.min(8, 1 + (z - 530) / 110 * 9);
+      slopeTrees.push({x, z, y, h: 5 + rnd()*4, c:[0x2c4626, 0x34502a, 0x2a3e22][Math.floor(rnd()*3)]});
+    }
+    road2InstQ(new THREE.ConeGeometry(1, 1, 7), M.leaf, slopeTrees, t=> ({x:t.x, y:t.y + t.h*0.6, z:t.z, sx:2.6, sy:t.h, sz:2.6}), grp, t=> t.c);
+    // 斜面そのもの(遺構の台・峠より低い所を埋める岩肌)
+    const slopes = [{x0:a.x0 - 20, x1:1034, z0:530, z1:640}, {x0:1044, x1:1062, z0:530, z1:600}, {x0:1078, x1:a.x1 + 20, z0:530, z1:555},
+                    {x0:1150, x1:a.x1 + 20, z0:555, z1:640}, {x0:1062, x1:1136, z0:615, z1:632}, {x0:1034, x1:1062, z0:608, z1:640}];
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.rock, slopes, s=>{
+      const h = s.z0 >= 600 ? 7.2 : (s.z0 >= 555 ? 4.6 : 2.4);
+      return {x:(s.x0 + s.x1)/2, y:(h + ROAD2_FLOOR_BOTTOM)/2, z:(s.z0 + s.z1)/2, sx:s.x1 - s.x0, sy:h - ROAD2_FLOOR_BOTTOM, sz:s.z1 - s.z0};
+    }, grp, ()=> 0x5a564c);
+    // 狭間の両側の高い岩壁
+    const gorgeWalls = [];
+    for(let z = 530; z < 600; z += 8){ gorgeWalls.push({x:1031.5, z: z + 4, h: 9 + (z % 3)}); gorgeWalls.push({x:1046.5, z: z + 4, h: 8 + (z % 4)}); }
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.rock, gorgeWalls, w=> ({x:w.x, y:w.h/2, z:w.z, ry:((w.z*3) % 5 - 2)*0.05, sx:5, sy:w.h, sz:8.4}), grp, ()=> 0x4e4a42);
+    // 石段の段
+    const steps = [];
+    for(let z = 531; z < 555; z += 1.6){ steps.push({x:1070, z, y: 1 + (z - 530) / 25 * 4}); }
+    road2InstQ(new THREE.BoxGeometry(16, 0.25, 0.5), M.stone, steps, s=> ({x:s.x, y:s.y + 0.08, z:s.z, sx:1, sy:1, sz:1}), grp);
+    // 遺構の崩れた柱と壁の名残
+    const broken = [[1068, 560, 2.2], [1078, 562, 3.4], [1146, 560, 2.8], [1066, 612, 3.8], [1124, 612, 1.8], [1082, 606, 2.6]].map(([x, z, h])=> ({x, z, h}));
+    road2InstQ(new THREE.CylinderGeometry(0.6, 0.7, 1, 8), M.stone, broken, b=> ({x:b.x, y:5 + b.h/2, z:b.z, sx:1, sy:b.h, sz:1}), grp);
+  }
+
+  /* 道の果て: 疎らな低い草・ケルン・北の崖の縁・はるか下の平野と地平線へ続く道 */
+  function road2BuildEnd(grp, M){
+    const a = road2AreaById(5);
+    const rnd = road2Rand(9031);
+    const grass = [];
+    for(let i=0;i<600 && grass.length<260;i++){
+      const x = a.x0 + 2 + rnd()*(a.x1 - a.x0 - 4), z = a.z0 + 2 + rnd()*(754 - a.z0 - 4);
+      if(road2OnPath(x, z, 1.2) || Math.hypot(x - ROAD2_RING.x, z - ROAD2_RING.z) < 16) continue;
+      grass.push({x, z, s: 0.5 + rnd()*0.5, ry: rnd()*Math.PI});
+    }
+    road2InstQ(road2GrassGeo(), road2SwayMaterial(0xc8bc72, 0.28), grass, g=> ({x:g.x, y:8, z:g.z, ry:g.ry, sx:g.s, sy:g.s, sz:g.s}), grp);
+    const cairns = [[1040, 680], [1160, 700], [1070, 740], [1138, 744]].flatMap(([x, z])=> [0, 1, 2].map(k=> ({x, z, k})));
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.stone, cairns, c=> ({x:c.x, y:8.2 + c.k*0.42, z:c.z, ry:c.k*0.7, sx:0.9 - c.k*0.2, sy:0.4, sz:0.8 - c.k*0.2}), grp);
+    // はるか下の平野と、地平線へ続く道
+    const plain = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), M.low);
+    plain.rotation.x = -Math.PI/2; plain.position.set(ROAD2_CX, -70, 1460); grp.add(plain);
+    const roadTiles = [];
+    let x = ROAD2_CX, z = 790;
+    for(let i=0;i<60;i++){ const nx = x + Math.sin(i*0.35)*14, nz = z + 22; roadTiles.push({x:(x + nx)/2, z:(z + nz)/2, ry:Math.atan2(nx - x, nz - z), L:Math.hypot(nx - x, nz - z)}); x = nx; z = nz; }
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.path, roadTiles, t=> ({x:t.x, y:-69.8, z:t.z, ry:t.ry, sx:6, sy:0.1, sz:t.L + 1}), grp, ()=> 0xb4a676);
+    road2EdgeStones(a, grp, M, 6);
+  }
+
+  /* 境の低い石(原野・高原の左右の端。道の果ての北の端は崖の縁に並べる) */
+  function road2EdgeStones(a, grp, M, step){
+    const stones = [];
+    for(let z = a.z0 + 2; z < a.z1 - 2; z += step){
+      [a.x0, a.x1].forEach((x, i)=>{ const g = road2GroundAt(x + (i ? -0.5 : 0.5), z); if(g !== null) stones.push({x, z, y:g, s: 0.7 + ((z*7 + i*3) % 5)/10}); });
+    }
+    if(a.id === 5) for(let x = a.x0 + 3; x < a.x1; x += 5) stones.push({x, z:755.5, y:8, s:0.8 + (x % 4)/10});
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.stone, stones, s=> ({x:s.x, y:s.y + 0.3*s.s, z:s.z, ry:(s.z % 3)*0.2, sx:1.3*s.s, sy:0.6*s.s, sz:1.5*s.s}), grp);
+  }
+
+  /* 草の形(交差した二枚の板。根元が y=0) */
+  function road2GrassGeo(){
+    const g = new THREE.PlaneGeometry(0.9, 0.9);
+    g.translate(0, 0.45, 0);
+    const g2 = g.clone(); g2.rotateY(Math.PI/2);
+    const pos = [...g.attributes.position.array, ...g2.attributes.position.array];
+    const nor = [...g.attributes.normal.array, ...g2.attributes.normal.array];
+    const idx = [...g.index.array, ...Array.from(g2.index.array).map(i=> i + 4)];
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    out.setIndex(idx);
+    g.dispose(); g2.dispose();
+    return out;
+  }
+  function road2Rand(seed){ let s = seed >>> 0; return ()=> (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+  function road2OnPath(x, z, d){
     for(const r of ROAD2_ROUTES){
       for(let i=0;i<r.pts.length-1;i++){
         const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i+1];
@@ -223,65 +489,69 @@
     return false;
   }
 
-  /* 野営地(仮): 天幕・丸太・焚き火(自発光。点光源は使わない)。回復はしない */
-  function road2BuildCamp(c, grp, mats){
-    const tent = new THREE.Mesh(new THREE.ConeGeometry(1.8, 2.2, 4), mats.cloth);
-    tent.position.set(c.x - 2.6, 1.1, c.z + 1.2);
+  /* 野営地: 天幕・丸太・焚き火(自発光。点光源は使わない)。回復はしない */
+  function road2BuildCamp(c, grp, M){
+    const y = c.y || 0;
+    const tent = new THREE.Mesh(new THREE.ConeGeometry(1.8, 2.2, 4), M.cloth);
+    tent.position.set(c.x - 2.6, y + 1.1, c.z + 1.2);
     tent.rotation.y = Math.PI/4;
     grp.add(tent);
     [[0, 1.3, 0], [1.3, 0, Math.PI/2]].forEach(([dx, dz, ry])=>{
-      const log = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.3, 0.35), mats.wood);
-      log.position.set(c.x + dx, 0.15, c.z + dz);
+      const log = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.3, 0.35), M.wood);
+      log.position.set(c.x + dx, y + 0.15, c.z + dz);
       log.rotation.y = ry;
       grp.add(log);
     });
-    const fire = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.8, 6), mats.fire);
-    fire.position.set(c.x, 0.4, c.z);
+    const fire = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.8, 6), M.glow);
+    fire.position.set(c.x, y + 0.4, c.z);
     fire.userData.road2Fire = true;
     grp.add(fire);
   }
 
-  /* ランドマーク(仮の灰色の形) */
-  function road2BuildLandmark(l, grp, mats){
-    const box = (w, h, d, x, y, z, mat, ry)=>{
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || mats.stone);
-      m.position.set(x, y, z); if(ry) m.rotation.y = ry;
-      grp.add(m); return m;
-    };
+  /* ランドマーク(地形・当たりの柱は別に作る。ここは目印の形だけ) */
+  function road2BuildLandmark(l, grp, M){
+    const gy = road2GroundAt(l.x, l.z);
+    const y = gy === null ? 0 : gy;
     if(l.kind === 'signpost'){
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 5.2, 8), mats.wood);
-      post.position.set(l.x, 2.6, l.z); grp.add(post);
-      [[0.35, 4.4], [-0.4, 3.7], [0.2, 3.0]].forEach(([ry, y])=> box(2.6, 0.4, 0.12, l.x + Math.cos(ry)*1.1, y, l.z + Math.sin(ry)*0.2, mats.wood, ry));
-    } else if(l.kind === 'monolith'){
-      box(6, 9, 4, l.x, 4.5, l.z, mats.stone, 0.3);
-      walls.push({minX:l.x - 3.2, maxX:l.x + 3.2, minZ:l.z - 2.6, maxZ:l.z + 2.6});
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 5.2, 8), M.wood);
+      post.position.set(l.x, y + 2.6, l.z); grp.add(post);
+      [[0.35, 4.4], [-0.4, 3.7], [0.2, 3.0]].forEach(([ry, yy])=>{
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.4, 0.12), M.wood);
+        arm.position.set(l.x + Math.cos(ry)*1.1, y + yy, l.z + Math.sin(ry)*0.2); arm.rotation.y = ry; grp.add(arm);
+      });
     } else if(l.kind === 'lookout'){
-      box(9, 0.12, 9, l.x, 0.06, l.z, mats.stone);   // 高台(登れる高さは R3-2 で段差の仕組みにする)
+      // 高台の縁の低い石垣と、見晴らしの石
+      const s = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 1.4), M.stone);
+      s.position.set(l.x, 6.6, l.z + 12); grp.add(s);
     } else if(l.kind === 'bridge'){
-      // 川(谷の端から端まで)と、崩れた石橋の残った橋脚
-      const a = road2AreaById(l.area);
-      const river = new THREE.Mesh(new THREE.PlaneGeometry(a.x1 - a.x0 + 20, 9), mats.water);
-      river.rotation.x = -Math.PI/2; river.position.set((a.x0 + a.x1)/2, 0.04, l.z); grp.add(river);
-      [-3.2, 0, 3.2].forEach(dz=> box(4.6, 0.5, 2.4, l.x, 0.25, l.z + dz));
-    } else if(l.kind === 'falls'){
-      box(10, 16, 2, l.x - 2, 8, l.z, mats.foam);
-      const pool = new THREE.Mesh(new THREE.CircleGeometry(6, 16), mats.water);
-      pool.rotation.x = -Math.PI/2; pool.position.set(l.x + 3, 0.05, l.z); grp.add(pool);
+      // 崩れた欄干の残り(片側だけ、途切れ途切れ)
+      [[-4.6, 372.5], [-4.6, 379.5], [4.6, 373.5]].forEach(([dx, z])=>{
+        const r = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.1, 2.2), M.stone);
+        r.position.set(l.x + dx, -1.2, z); grp.add(r);
+      });
+      [-4.2, 4.2].forEach(dx=>{ const p = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), M.stone); p.position.set(l.x + dx, -4, 376); grp.add(p); });
     } else if(l.kind === 'ruin'){
-      for(let i=0;i<10;i++){
-        const t = i/10 * Math.PI*2;
-        box(1.4, 3 + (i % 3), 1.4, l.x + Math.cos(t)*9, (3 + (i % 3))/2, l.z + Math.sin(t)*9);
-      }
-      const disc = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 0.4, 24), mats.stone);
-      disc.position.set(l.x, 3.2, l.z + 9.5); disc.rotation.x = Math.PI/2; grp.add(disc);   // 時計のような円い石
+      const disc = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 0.5, 24), M.stone);
+      disc.position.set(l.x, 5 + 4.2, l.z + 1); disc.rotation.x = Math.PI/2; grp.add(disc);   // 時計のような円い石
+      const hand = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.6, 0.3), M.wood);
+      hand.position.set(l.x + 0.6, 5 + 4.8, l.z + 0.6); hand.rotation.z = -0.5; grp.add(hand);
+      const stand = new THREE.Mesh(new THREE.BoxGeometry(1.2, 4, 1.2), M.stone);
+      stand.position.set(l.x, 5 + 2, l.z + 1); grp.add(stand);
+    } else if(l.kind === 'pass'){
+      const marker = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.4, 0.5), M.stone);
+      marker.position.set(l.x + 30, 8 + 1.2, l.z); grp.add(marker);
     } else if(l.kind === 'ring'){
-      const pillars = [];
-      for(let i=0;i<12;i++){ const t = i/12 * Math.PI*2; pillars.push({x:l.x + Math.cos(t)*12, z:l.z + Math.sin(t)*12, h: 3.4 + (i % 3)*0.5}); }
-      road2Inst(new THREE.BoxGeometry(1, 1, 1), mats.stone, pillars, (p, at)=> at(p.x, p.h/2, p.z, 0, 1.3, p.h, 1.3), grp);
+      // 石環の柱の上に、ところどころ横石を渡す
+      [0, 3, 7].forEach(i=>{
+        const t = (i + 1) / 12 * Math.PI * 2;
+        const lintel = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.7, 1.2), M.stone);
+        lintel.position.set(l.x + Math.cos(t)*ROAD2_RING.r, 8.4 + 4.1, l.z + Math.sin(t)*ROAD2_RING.r);
+        lintel.rotation.y = -t + Math.PI/2; grp.add(lintel);
+      });
     }
   }
 
-  /* 今いるエリアと隣のエリアの小物だけを描く */
+  /* 今いるエリアと隣のエリアの物だけを描く */
   function road2UpdateAreaVisibility(currentId){
     const vis = new Set(road2VisibleAreaIds(currentId));
     Object.keys(road2AreaGroups).forEach(id=>{ road2AreaGroups[id].visible = vis.has(+id); });
@@ -294,6 +564,8 @@
 
   function updateRoad2(dt){
     if(currentWorldKey !== 'road2') return;
+    road2Time += dt || 0;
+    for(let i=0;i<road2SwayMats.length;i++){ const sh = road2SwayMats[i].userData.shader; if(sh) sh.uniforms.uRoad2Time.value = road2Time; }
     const a = road2AreaAt(state.pos.x, state.pos.z);
     const id = a ? a.id : road2CurrentAreaId;
     if(id !== road2CurrentAreaId || !road2VisInit){
