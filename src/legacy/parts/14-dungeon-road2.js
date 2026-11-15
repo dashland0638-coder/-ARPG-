@@ -130,6 +130,7 @@
       cloth:  new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.9}),
       flower: new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.8}),
       monolith: new THREE.MeshStandardMaterial({color:0x9c988c, roughness:1}),
+      foam:   new THREE.MeshStandardMaterial({color:0xeef6fa, roughness:0.6, transparent:true, opacity:0.75}),
       grassMoor: road2SwayMaterial(0x8fb85a, 0.22),
       reed:      road2SwayMaterial(0x6e8a4e, 0.12),
       grassHigh: road2SwayMaterial(0xc8bc72, 0.16),   // 高原の草はゆっくり小さく揺れる(静けさ)
@@ -681,9 +682,10 @@
       }
     });
     road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.path, ruts, r=> ({x:r.x, y:r.y + 0.012, z:r.z, rx:r.rx, ry:r.ry, sx:0.38, sy:0.02, sz:r.L}), moor, ()=> 0x7a6a4a);
+    /* 北の山並み: 歩ける範囲(x 1000〜1200)の外の両脇に置き、いつも描く(エリアの境で消えない) */
     const range = [];
-    [[-120, 520, 44], [-60, 560, 58], [20, 600, 66], [90, 560, 52], [150, 520, 40]].forEach(([dx, z, h])=> range.push({x: ROAD2_CX + dx, z, h}));
-    road2InstQ(new THREE.ConeGeometry(1, 1, 7), M.far, range, f=> ({x:f.x, y:f.h/2 - 8, z:f.z, sx:f.h*1.3, sy:f.h, sz:f.h*1.3}), moor, ()=> 0x7488a2);
+    [[-190, 480, 46], [-215, 560, 58], [-180, 640, 50], [190, 500, 52], [215, 580, 62], [185, 660, 48]].forEach(([dx, z, h])=> range.push({x: ROAD2_CX + dx, z, h}));
+    road2InstQ(new THREE.ConeGeometry(1, 1, 7), M.far, range, f=> ({x:f.x, y:f.h/2 - 8, z:f.z, sx:f.h*0.95, sy:f.h, sz:f.h*0.95}), scene, ()=> 0x7488a2);
 
     // ---- 谷: 崖の層・滝つぼの泡の輪 ----
     const vale = road2AreaGroups[3], a3 = road2AreaById(3);
@@ -692,8 +694,8 @@
       [-1, 1].forEach(side=>{ [2, 5.5, 9].forEach((y, k)=> strata.push({x: side < 0 ? a3.x0 - 0.05 : a3.x1 + 0.05, y, z: z + 5, c: k % 2 ? 0x7e766a : 0x5c564e})); });
     }
     road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.rock, strata, s=> ({x:s.x, y:s.y, z:s.z, sx:0.3, sy:0.7, sz:10.4}), vale, s=> s.c);
-    const foam = new THREE.Mesh(new THREE.RingGeometry(1.6, 3.2, 20), new THREE.MeshStandardMaterial({color:0xeef6fa, roughness:0.6, transparent:true, opacity:0.75}));
-    foam.rotation.x = -Math.PI/2; foam.position.set(1059, -2.55, 380); foam.userData.road2Foam = true; vale.add(foam);
+    const foam = new THREE.Mesh(new THREE.RingGeometry(1.6, 3.2, 20), M.foam);
+    foam.rotation.x = -Math.PI/2; foam.position.set(1059, -2.55, 380); vale.add(foam);
 
     // ---- 山道: 不揃いな岩(張り出しの上に多面体)・曲がり角の石灯籠 ----
     const mtn = road2AreaGroups[4];
@@ -703,7 +705,7 @@
       for(let k=0;k<n;k++){ const t = (k + 0.5)/n; crags.push({x: o.x0 + (o.x1 - o.x0)*t, z: (o.z0 + o.z1)/2 + ((k*7 + i) % 3 - 1)*1.2, y: 1 + o.h*0.85, s: 2.6 + ((k*5 + i*3) % 4)*0.6, ry: k*1.3 + i}); }
     });
     road2InstQ(new THREE.DodecahedronGeometry(1, 0), M.rock, crags, c=> ({x:c.x, y:c.y, z:c.z, ry:c.ry, rx:0.3, sx:c.s*1.3, sy:c.s, sz:c.s*0.9}), mtn, ()=> 0x5a564e);
-    const lanterns = ROAD2_LANTERNS.map(([x, z])=> ({x, z, y: road2GroundAt(x, z) || 1}));
+    const lanterns = ROAD2_LANTERNS.map(([x, z])=> ({x, z, y: road2GroundAt(x, z) ?? 1}));
     road2InstQ(new THREE.BoxGeometry(0.6, 1.2, 0.6), M.stone, lanterns, l=> ({x:l.x, y:l.y + 0.6, z:l.z, sx:1, sy:1, sz:1}), mtn);
     road2InstQ(new THREE.ConeGeometry(0.62, 0.5, 4), M.stone, lanterns, l=> ({x:l.x, y:l.y + 1.45, z:l.z, ry:Math.PI/4, sx:1, sy:1, sz:1}), mtn);
     road2InstQ(new THREE.BoxGeometry(0.3, 0.3, 0.3), M.glow, lanterns, l=> ({x:l.x, y:l.y + 1.0, z:l.z, sx:1, sy:1, sz:1}), mtn);
@@ -712,12 +714,20 @@
   /* 見晴らしの地点(DEC-026 HD-2 = B)。初めて帯に入った時だけ、プレイヤーの後ろ上からカメラを引いて遠景を見せる。
      自動カメラ OFF の人には出ない(sceneCamShot の決まり)。他のダンジョンには無い */
   function road2CheckVistas(){
+    // 自動カメラ OFF の人には出さない(見た扱いにもしない)。他の演出・カメラの一場面の最中は重ねない
+    if(!camAutoOn || sceneShot || cutsceneRunning()) return null;
     for(const v of ROAD2_VISTAS){
       if(road2SeenVistas.has(v.id)) continue;
       const x = state.pos.x, z = state.pos.z;
       if(x < v.x0 || x > v.x1 || z < v.z0 || z > v.z1) continue;
       road2SeenVistas.add(v.id);
-      sceneCamShot(x, z, 3.2, {y: state.pos.y, height: 11, dist: 13, look: v.look, pan: 0.9, hold: false});
+      /* カメラは「見せる点」とプレイヤーを結ぶ線の後ろに置く(向きに頼ると、斜めや後ろ向きに入った時に
+         景色との間へ入ってしまう)。sceneCamShot は anchor + (sin camYaw, cos camYaw)·dist に置くので、
+         その分を差し引いた anchor を渡す */
+      const D = 13, dx = v.look.x - x, dz = v.look.z - z, L = Math.hypot(dx, dz) || 1;
+      const camX = x - dx / L * D, camZ = z - dz / L * D;
+      const ax = camX - Math.sin(state.camYaw) * D, az = camZ - Math.cos(state.camYaw) * D;
+      sceneCamShot(ax, az, 3.2, {y: state.pos.y, height: 11, dist: D, look: v.look, pan: 0.9, hold: false});
       return v.id;
     }
     return null;
