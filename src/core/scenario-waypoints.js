@@ -90,10 +90,11 @@ export const SCENARIO_WAYPOINTS = {
   ],
   /* 新しい道(ROAD-VISUAL-003)。各エリアの入口の野営地(core/road-map.js ROAD2_CAMPS と同じ位置の手前) */
   road2: [
-    {id:'moor',     name:'風渡る原野の入口',     x:1100, z:116},
-    {id:'vale',     name:'水鏡の谷の入口',       x:1100, z:306},
-    {id:'mountain', name:'忘れられた山道の入口', x:1100, z:456},
-    {id:'end',      name:'道の果ての入口',       x:1100, z:646},
+    // y は床の高さ(R3-T の地形: 原野 1・谷底 -2・山道 1・高原 8)
+    {id:'moor',     name:'風渡る原野の入口',     x:1100, z:116, y:1},
+    {id:'vale',     name:'水鏡の谷の入口',       x:1100, z:322, y:-2},
+    {id:'mountain', name:'忘れられた山道の入口', x:1100, z:456, y:1},
+    {id:'end',      name:'道の果ての入口',       x:1100, z:646, y:8},
   ],
   road: [
     {id:'sign',     name:'道標',       x:640,  z:12},
