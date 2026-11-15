@@ -240,6 +240,16 @@ export const ROAD2_LANDMARKS = Object.freeze([
   {area:5, kind:'ring',     name:'石環',             x:ROAD2_RING.x, z:ROAD2_RING.z},
 ]);
 
+/* 見晴らしの地点(DEC-026 HD-2 = B)。初めて帯に入った時だけ、カメラを一時的に引いて遠景を見せる。
+   rect は入る帯、look は見せる点(x, y, z) */
+export const ROAD2_VISTAS = Object.freeze([
+  {id:'gate',    area:1, x0:1088, x1:1112, z0:103, z1:110, look:{x:1100, y:2,   z:205}},   // 宿場の門: 原野と一枚岩
+  {id:'lookout', area:2, x0:1006, x1:1046, z0:272, z1:294, look:{x:1108, y:-2,  z:350}},   // 高台: 谷の口と石橋(西の崖で滝は隠れる)
+  {id:'vale',    area:3, x0:1070, x1:1130, z0:300, z1:312, look:{x:1080, y:-2,  z:378}},   // 谷の入口: 石橋と滝
+  {id:'pass',    area:4, x0:1060, x1:1150, z0:632, z1:640, look:{x:1100, y:8.4, z:715}},   // 峠: 高原と石環
+  {id:'edge',    area:5, x0:1080, x1:1120, z0:744, z1:756, look:{x:1100, y:-70, z:1150}},  // 道の果ての北の端: 地平線へ続く道
+]);
+
 /* 必ず出る会話・演出の帯(設計 §5.2・§6)。道幅いっぱいの z の帯で拾う。
    R3-0 では位置だけを持ち、中身は各エリアの段で入れる */
 export const ROAD2_BANDS = Object.freeze([
@@ -273,6 +283,8 @@ function nearRoute(x, z, d){
   return false;
 }
 let treesCache = null;
+/* 山道の曲がり角の石灯籠(当たりつき、道から 2.6 以上離す)。次の曲がり角の目印 */
+export const ROAD2_LANTERNS = Object.freeze([[1062, 474], [1069, 489], [1102, 490], [1102, 516], [1075.5, 526.5], [1082, 572], [1140, 618]]);
 export function road2ForestTrees(){
   if(treesCache) return treesCache;
   const rnd = lcg(4021);
@@ -294,6 +306,7 @@ export function road2Obstacles(){
   const out = [];
   for(const id of [1, 2, 3, 4, 5]) ROAD2_TERRAIN[id].obstacles.forEach(o=> out.push(Object.assign({area:id}, o)));
   ringPillars(ROAD2_RUIN.x, ROAD2_RUIN.z, ROAD2_RUIN.r, 10, 1.4, 0.5).forEach(p=> out.push(Object.assign({area:4}, p)));
+  ROAD2_LANTERNS.forEach(([x, z])=> out.push({area:4, kind:'lantern', x0:x - 0.35, x1:x + 0.35, z0:z - 0.35, z1:z + 0.35, h:1.6}));
   ringPillars(ROAD2_RING.x, ROAD2_RING.z, ROAD2_RING.r, 12, 1.3, 0.5).forEach(p=> out.push(Object.assign({area:5}, p)));
   road2ForestTrees().forEach(t=> out.push({area:4, kind:'trunk', x0:t.x - 0.35, x1:t.x + 0.35, z0:t.z - 0.35, z1:t.z + 0.35, h:t.h}));
   road2EdgeWalls().forEach(e=>{ const a = areaAt((e.x0 + e.x1)/2, (e.z0 + e.z1)/2); out.push(Object.assign({area: a ? a.id : 0, h:0}, e)); });

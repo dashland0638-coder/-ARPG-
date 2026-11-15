@@ -1,6 +1,6 @@
 # ROAD-VISUAL-003 — 第一章の最終シナリオ「道 — その先へ」全面リニューアル
 
-Status: IN PROGRESS（R3-T1）
+Status: IN PROGRESS（R3-T2）
 
 設計: `.ai/reports/ROAD-VISUAL-003-design.md`（APPROVED）。Human Decision: `.ai/decisions/DEC-025-road-renewal.md`（E-1〜E-6 すべて A）。
 ブランチ: 段ごとに新しい作業ブランチ（Human 2026-11-14）。R3-0 = `claude/road-visual-003-r3-0`（PR #125 のブランチの上）。main へは Human の明示の承認なしにマージしない。
@@ -16,8 +16,8 @@ Status: IN PROGRESS（R3-T1）
 | R3-T | 5 エリアの地形と景観（床の板による起伏・崖・川・分岐と隠し道・ランドマーク）。R3-1〜R3-5 の「地形」部分を、Human の依頼（2026-11-15）で前倒しにしたもの。計画 `.ai/reports/ROAD-VISUAL-003-R3T-plan.md` | DONE（PR、R3-0 の上） |
 | R3-T1 | 地形・坂の品質修正（下り坂の浮き・通り道の高さ）。監査と完成計画 `.ai/reports/ROAD-VISUAL-003-terrain-audit-and-completion-plan.md` | DONE（PR、R3-T の上） |
 | CT-SLOPE-FLOAT | 時計塔の坂の下りで足が浮くかを計測する（コードは変えない） | 未着手 |
-| R3-T2 | 5 エリアの景観の完成（HD-2 の答えが前提） | 未着手 |
-| R3-N | 羅針盤・道標（HD-3 の答えが前提） | 未着手 |
+| R3-T2 | 5 エリアの景観の完成と見晴らしのカメラ（DEC-026 HD-2 = B） | IN PROGRESS |
+| R3-N | 羅針盤・道標（DEC-026 HD-3 = A） | 未着手 |
 | R3-1 | AREA 1 宿場（戦闘・会話・壁の影・建物の中）と歩きながらの掛け合い | 未着手 |
 | R3-2 | AREA 2 原野（戦闘・会話・怪異） | 未着手 |
 | R3-3 | AREA 3 水鏡の谷（水面の演出・淵の大鰻・戦闘・会話） | 未着手 |
@@ -119,4 +119,4 @@ Status: IN PROGRESS（R3-T1）
   - unit: 隙間の走査（12.3 万点）
 - 回帰: 時計塔（1 並列で 5/5）・旧道・道（新）・チャプター選択
 - レビュー: Round 1 は CHANGES_REQUIRED（試験の質と計画の修正 14 件）、Round 2 は **PASS**
-- Human Decision 待ち: HD-2（カメラ）、HD-3（羅針盤と盗みの関係）
+- Human Decision: HD-2 = B、HD-3 = A（DEC-026、2026-11-15）

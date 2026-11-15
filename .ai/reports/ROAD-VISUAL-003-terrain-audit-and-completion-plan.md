@@ -241,7 +241,7 @@
 
 ---
 
-## Human Decision が必要な事項
+## Human Decision（2026-11-15: HD-2 = B、HD-3 = A。`DEC-026`）
 
 ### Escalation HD-2: 景色を見せるためのカメラ
 - Trigger: E-3（ゲームデザイン上の意味が大きく違う複数案）、E-1（共通のカメラの仕組みに触れる場合）

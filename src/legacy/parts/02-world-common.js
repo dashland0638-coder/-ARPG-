@@ -199,7 +199,7 @@
     // これまでのどのシナリオよりも明るく、霧も薄い
     road:         {sky:0x9ab8d0, fog:0.009, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, exp:0.96},
     // 新しい道(ROAD-VISUAL-003)。R3-0 は今の道と同じ。エリアごとの時間帯の補間は後の段(露出は固定。DEC-025)
-    road2:        {sky:0x9ab8d0, fog:0.006, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, exp:0.96},
+    road2:        {sky:0x9ab8d0, fog:0.0048, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, exp:0.96},
     // テストモード: 色味の判断を邪魔しない、明るく中立なライティング
     training:     {sky:0x181c22, fog:0.006, sun:0xf2f4f8, sunI:0.85, hemi:0.42, hemiSky:0xaeb8c8, hemiGnd:0x22262e, rim:0x8fb0d0, rimI:0.14, exp:0.86},
   };

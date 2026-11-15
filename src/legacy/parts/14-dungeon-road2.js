@@ -40,6 +40,7 @@
   let road2CurrentAreaId = 0;   // 今いるエリア(0 = まだ分からない)
   let road2VisInit = false;     // エリアの描画の切り替えを一度済ませたか
   let road2SeenAreas = new Set();   // この出撃で名前を出したエリア
+  let road2SeenVistas = new Set();  // この出撃で見せた見晴らし(DEC-026 HD-2 = B)
   let road2Instanced = [];      // 作り直す時に instanceMatrix / instanceColor を捨てる
   let road2SwayMats = [];       // 草の揺れの時刻を渡す材質
   let road2Time = 0;
@@ -122,18 +123,35 @@
       trunk:  new THREE.MeshStandardMaterial({color:0x4e3a2a, roughness:0.9}),
       leaf:   new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}),
       water:  new THREE.MeshStandardMaterial({color:0x4f86a8, roughness:0.15, metalness:0.2}),
-      falls:  new THREE.MeshStandardMaterial({color:0xdbeaf2, roughness:0.4, emissive:0x30404a}),
+      falls:  new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.4, emissive:0x30404a, map:road2FallsTexture()}),
       glow:   new THREE.MeshBasicMaterial({color:0xffb050}),
       far:    new THREE.MeshStandardMaterial({color:0x6a7a98, roughness:1}),
       low:    new THREE.MeshStandardMaterial({color:0x6c8a5a, roughness:1}),
       cloth:  new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.9}),
       flower: new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.8}),
+      monolith: new THREE.MeshStandardMaterial({color:0x9c988c, roughness:1}),
       grassMoor: road2SwayMaterial(0x8fb85a, 0.22),
       reed:      road2SwayMaterial(0x6e8a4e, 0.12),
-      grassHigh: road2SwayMaterial(0xc8bc72, 0.28),
+      grassHigh: road2SwayMaterial(0xc8bc72, 0.16),   // 高原の草はゆっくり小さく揺れる(静けさ)
       fern:      road2SwayMaterial(0x3e5a2e, 0.08),
     };
     return road2MatCache;
+  }
+
+  /* 滝の幕の流れ(縦の筋。updateRoad2 で下へ流す) */
+  function road2FallsTexture(){
+    const c = document.createElement('canvas'); c.width = 64; c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = '#b8d0de'; g.fillRect(0, 0, 64, 128);
+    for(let i=0;i<26;i++){
+      const x = (i * 37) % 64, w = 1 + (i % 3), y = (i * 53) % 128, h = 30 + (i * 29) % 70;
+      g.fillStyle = i % 2 ? 'rgba(255,255,255,0.75)' : 'rgba(150,180,200,0.6)';
+      g.fillRect(x, y, w, h); g.fillRect(x, y - 128, w, h);
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(2, 1.5);
+    return t;
   }
 
   function buildRoad2(){
@@ -143,6 +161,7 @@
     road2CurrentAreaId = 0;
     road2VisInit = false;
     road2SeenAreas = new Set();
+    road2SeenVistas = new Set();
     road2Time = 0;
 
     const M = road2Mats();
@@ -184,6 +203,7 @@
     road2BuildVale(road2AreaGroups[3], M);
     road2BuildMountain(road2AreaGroups[4], M);
     road2BuildEnd(road2AreaGroups[5], M);
+    road2BuildFinish(M);   // R3-T2: 景観の仕上げ(輪郭・生活感・水・岩・目印)
     ROAD2_CAMPS.forEach(c=> road2BuildCamp(c, road2AreaGroups[c.area], M));
     ROAD2_LANDMARKS.forEach(l=> road2BuildLandmark(l, road2AreaGroups[l.area], M));
 
@@ -408,7 +428,8 @@
     for(let z = a.z0; z < a.z1; z += 10){
       [-1, 1].forEach(side=>{
         const k = Math.floor(z*3 + side*7);
-        cliffs.push({x: side < 0 ? a.x0 - 5 : a.x1 + 5, z: z + 5, h: 14 + (k % 5)*2.2});
+        // 谷の口(z 320 まで)は崖を低くして、原野と高台から谷の中が見えるように
+        cliffs.push({x: side < 0 ? a.x0 - 5 : a.x1 + 5, z: z + 5, h: z < 320 ? 4 + (k % 3) : 14 + (k % 5)*2.2});
       });
     }
     road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.rock, cliffs, c=> ({x:c.x, y:ROAD2_FLOOR_BOTTOM + (c.h - ROAD2_FLOOR_BOTTOM)/2, z:c.z, ry:((c.z*7) % 5 - 2)*0.03, sx:10, sy:c.h - ROAD2_FLOOR_BOTTOM, sz:10.6}), grp, ()=> 0x6a665c);
@@ -617,6 +638,91 @@
     return d > 0 && d <= ROAD2_SNAP_DOWN;
   }
 
+  /* ==== R3-T2: 景観の仕上げ(.ai/reports/ROAD-VISUAL-003-terrain-audit-and-completion-plan.md Phase C) ====
+     物の数より、輪郭・視線の誘導・素材・水の動き・目印。どれもエリアの Group(今のエリアと隣だけ描く) */
+  function road2BuildFinish(M){
+    // ---- 宿場: 二階の張り出し・壁の崩れ・干した布(生活の跡と廃れ) ----
+    const inn = road2AreaGroups[1];
+    const houses = ROAD2_TERRAIN[1].obstacles.filter(o=> o.kind === 'house');
+    const upper = [], holes = [], beams = [];
+    houses.forEach((o, i)=>{
+      const west = o.x1 < ROAD2_CX, fx = west ? o.x1 : o.x0, dir = west ? 1 : -1, cz = (o.z0 + o.z1)/2;
+      if(i % 2 === 0) upper.push({x: fx + dir*0.5, y: o.h - 1.1, z: cz, w: 1.2, h: 2.2, d: (o.z1 - o.z0)*0.8});    // 通りへ張り出した二階
+      if(i % 3 === 1) holes.push({x: fx + dir*0.02, y: 1.6, z: cz - 2.5, w: 0.1, h: 1.8, d: 2.2});                  // 崩れた壁の穴(暗い)
+      if(i % 3 === 0) holes.push({x: fx + dir*0.02, y: 1.2, z: cz + 4, w: 0.1, h: 2.2, d: 1.3});                    // 閉じた戸
+      beams.push({x: fx + dir*0.05, y: o.h - 0.1, z: cz, w: 0.18, h: 0.25, d: o.z1 - o.z0});                        // 軒の梁
+    });
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.plaster, upper, u=> ({x:u.x, y:u.y, z:u.z, sx:u.w, sy:u.h, sz:u.d}), inn, ()=> 0xc4b494);
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.trunk, holes.concat(beams), u=> ({x:u.x, y:u.y, z:u.z, sx:u.w, sy:u.h, sz:u.d}), inn);
+    const cloth = [];
+    [[1124, 22, 1136, 22], [1064, 46, 1078, 46], [1124, 44, 1138, 46]].forEach(([x0, z0, x1, z1], k)=>{
+      for(let i=0;i<4;i++){ const t = (i + 0.5)/4; cloth.push({x: x0 + (x1 - x0)*t, z: z0 + (z1 - z0)*t, c:[0xd8d0c0, 0xa8b8c8, 0xc8a890, 0xe0d8b0][(i + k) % 4]}); }
+    });
+    road2InstQ(new THREE.BoxGeometry(1.1, 1.3, 0.04), M.cloth, cloth, c=> ({x:c.x, y:2.4, z:c.z, ry:Math.PI/2, sx:1, sy:1, sz:1}), inn, c=> c.c);
+
+    // ---- 原野: 傾いた一枚岩・高台の見張りの柱・轍・北の山並み ----
+    const moor = road2AreaGroups[2];
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 7, 6), M.wood);
+    post.position.set(1032, 6 + 3.5, 286); moor.add(post);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(3, 0.25, 0.25), M.wood);
+    arm.position.set(1032, 6 + 6.4, 286); moor.add(arm);
+    const lean = new THREE.Mesh(new THREE.BoxGeometry(3.4, 10, 2.8), M.monolith);
+    lean.position.set(1116.5, 2.2 + 4.4, 219); lean.rotation.set(0.05, 0.4, -0.16); moor.add(lean);   // 一枚岩の上に傾いた頭
+    const ruts = [];
+    ROAD2_ROUTES.filter(r=> r.area === 2 && r.kind === 'main').forEach(r=>{
+      for(let i=0;i<r.pts.length-1;i++){
+        const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i+1], L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(L / 3));
+        const ux = (x1 - x0) / L, uz = (z1 - z0) / L, ry = Math.atan2(x1 - x0, z1 - z0);
+        for(let k=0;k<n;k++){ const t = (k + 0.5)/n, x = x0 + (x1 - x0)*t, z = z0 + (z1 - z0)*t, g = road2GroundAt(x, z);
+          if(g === null) continue;
+          const ga = road2GroundAt(x - ux*1.5, z - uz*1.5), gb = road2GroundAt(x + ux*1.5, z + uz*1.5);
+          const pitch = (ga !== null && gb !== null) ? -Math.atan2(gb - ga, 3) : 0;
+          [-1, 1].forEach(s=> ruts.push({x: x + uz*s*1.1, z: z - ux*s*1.1, y: g, ry, rx: pitch, L: L/n + 0.4})); }
+      }
+    });
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.path, ruts, r=> ({x:r.x, y:r.y + 0.012, z:r.z, rx:r.rx, ry:r.ry, sx:0.38, sy:0.02, sz:r.L}), moor, ()=> 0x7a6a4a);
+    const range = [];
+    [[-120, 520, 44], [-60, 560, 58], [20, 600, 66], [90, 560, 52], [150, 520, 40]].forEach(([dx, z, h])=> range.push({x: ROAD2_CX + dx, z, h}));
+    road2InstQ(new THREE.ConeGeometry(1, 1, 7), M.far, range, f=> ({x:f.x, y:f.h/2 - 8, z:f.z, sx:f.h*1.3, sy:f.h, sz:f.h*1.3}), moor, ()=> 0x7488a2);
+
+    // ---- 谷: 崖の層・滝つぼの泡の輪 ----
+    const vale = road2AreaGroups[3], a3 = road2AreaById(3);
+    const strata = [];
+    for(let z = a3.z0; z < a3.z1; z += 10){
+      [-1, 1].forEach(side=>{ [2, 5.5, 9].forEach((y, k)=> strata.push({x: side < 0 ? a3.x0 - 0.05 : a3.x1 + 0.05, y, z: z + 5, c: k % 2 ? 0x7e766a : 0x5c564e})); });
+    }
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.rock, strata, s=> ({x:s.x, y:s.y, z:s.z, sx:0.3, sy:0.7, sz:10.4}), vale, s=> s.c);
+    const foam = new THREE.Mesh(new THREE.RingGeometry(1.6, 3.2, 20), new THREE.MeshStandardMaterial({color:0xeef6fa, roughness:0.6, transparent:true, opacity:0.75}));
+    foam.rotation.x = -Math.PI/2; foam.position.set(1059, -2.55, 380); foam.userData.road2Foam = true; vale.add(foam);
+
+    // ---- 山道: 不揃いな岩(張り出しの上に多面体)・曲がり角の石灯籠 ----
+    const mtn = road2AreaGroups[4];
+    const crags = [];
+    ROAD2_TERRAIN[4].obstacles.filter(o=> o.kind === 'outcrop').forEach((o, i)=>{
+      const n = Math.max(2, Math.round((o.x1 - o.x0) / 7));
+      for(let k=0;k<n;k++){ const t = (k + 0.5)/n; crags.push({x: o.x0 + (o.x1 - o.x0)*t, z: (o.z0 + o.z1)/2 + ((k*7 + i) % 3 - 1)*1.2, y: 1 + o.h*0.85, s: 2.6 + ((k*5 + i*3) % 4)*0.6, ry: k*1.3 + i}); }
+    });
+    road2InstQ(new THREE.DodecahedronGeometry(1, 0), M.rock, crags, c=> ({x:c.x, y:c.y, z:c.z, ry:c.ry, rx:0.3, sx:c.s*1.3, sy:c.s, sz:c.s*0.9}), mtn, ()=> 0x5a564e);
+    const lanterns = ROAD2_LANTERNS.map(([x, z])=> ({x, z, y: road2GroundAt(x, z) || 1}));
+    road2InstQ(new THREE.BoxGeometry(0.6, 1.2, 0.6), M.stone, lanterns, l=> ({x:l.x, y:l.y + 0.6, z:l.z, sx:1, sy:1, sz:1}), mtn);
+    road2InstQ(new THREE.ConeGeometry(0.62, 0.5, 4), M.stone, lanterns, l=> ({x:l.x, y:l.y + 1.45, z:l.z, ry:Math.PI/4, sx:1, sy:1, sz:1}), mtn);
+    road2InstQ(new THREE.BoxGeometry(0.3, 0.3, 0.3), M.glow, lanterns, l=> ({x:l.x, y:l.y + 1.0, z:l.z, sx:1, sy:1, sz:1}), mtn);
+  }
+
+  /* 見晴らしの地点(DEC-026 HD-2 = B)。初めて帯に入った時だけ、プレイヤーの後ろ上からカメラを引いて遠景を見せる。
+     自動カメラ OFF の人には出ない(sceneCamShot の決まり)。他のダンジョンには無い */
+  function road2CheckVistas(){
+    for(const v of ROAD2_VISTAS){
+      if(road2SeenVistas.has(v.id)) continue;
+      const x = state.pos.x, z = state.pos.z;
+      if(x < v.x0 || x > v.x1 || z < v.z0 || z > v.z1) continue;
+      road2SeenVistas.add(v.id);
+      sceneCamShot(x, z, 3.2, {y: state.pos.y, height: 11, dist: 13, look: v.look, pan: 0.9, hold: false});
+      return v.id;
+    }
+    return null;
+  }
+
   /* 今いるエリアと隣のエリアの物だけを描く */
   function road2UpdateAreaVisibility(currentId){
     const vis = new Set(road2VisibleAreaIds(currentId));
@@ -632,6 +738,11 @@
     if(currentWorldKey !== 'road2') return;
     road2Time += dt || 0;
     for(let i=0;i<road2SwayMats.length;i++){ const sh = road2SwayMats[i].userData.shader; if(sh) sh.uniforms.uRoad2Time.value = road2Time; }
+    // 滝の幕を下へ流す・水面の色をわずかに揺らす(描画回数は増えない)
+    const M = road2Mats();
+    if(M.falls.map) M.falls.map.offset.y = (road2Time * 0.9) % 1;
+    M.water.color.setHSL(0.56, 0.36, 0.47 + Math.sin(road2Time * 1.3) * 0.02);
+    if(!state.dialogueActive) road2CheckVistas();
     const a = road2AreaAt(state.pos.x, state.pos.z);
     const id = a ? a.id : road2CurrentAreaId;
     if(id !== road2CurrentAreaId || !road2VisInit){

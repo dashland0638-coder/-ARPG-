@@ -28,6 +28,8 @@ const PROBE = `
   },
   pos(){ return {x: +state.pos.x.toFixed(2), y: +state.pos.y.toFixed(2), z: +state.pos.z.toFixed(2)}; },
   hp(){ return state.hp; },
+  autoCam(on){ camAutoOn = !!on; return true; },
+  shot(){ return sceneShot ? {look: sceneShot.look, t: +sceneShot.t.toFixed(2)} : null; },
   info(){
     const vis = {};
     Object.keys(road2AreaGroups).forEach(id=>{ vis[id] = road2AreaGroups[id].visible; });
@@ -235,6 +237,40 @@ test('道（新）: 崖や川へ跳んでも、崖の中・床の無い所へ入
     console.log('ROAD2 jump', x, z, JSON.stringify(p));
     expect(p.y, `(${x},${z}) から跳んだ後の高さ`).toBeGreaterThanOrEqual(y0 - 0.05);
     expect(await R('hp'), `(${x},${z}) 落下の傷を負わない`).toBe(hp0);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('道（新）: 見晴らしの地点で一度だけカメラを引いて遠景を見せる(DEC-026 HD-2 = B)', async ({ page }) => {
+  test.setTimeout(400_000);
+  const errors = watchErrors(page);
+  const R = await enterRoad2(page);
+  // [名前, 帯の手前, 帯の中, 歩く向き(camYaw)]
+  const VISTAS = [
+    ['宿場の門', [1100, 100], [1100, 106], Math.PI],
+    ['高台', [1021, 266], [1021, 276], Math.PI],
+    ['谷の入口', [1100, 296], [1100, 306], Math.PI],
+    ['峠', [1143, 628], [1143, 636], Math.PI],
+    ['道の果て', [1100, 740], [1100, 750], Math.PI],
+  ];
+  for (const [name, from, into, yaw] of VISTAS) {
+    await R('go', from[0], from[1], yaw);
+    await R('autoCam', true);
+    await page.waitForTimeout(300);
+    expect(await R('shot'), `${name}: 帯の手前では出ない`).toBeNull();
+    const w = R('walk', [into], 60);
+    await R('autoCam', true);   // walk は自動カメラを切るので、歩き始めてから戻す(見晴らしは自動カメラ ON の人だけ)
+    await expect.poll(() => R('shot'), { timeout: 60_000, message: `${name}: 帯に入るとカメラを引く` }).not.toBeNull();
+    await page.waitForTimeout(1500);
+    if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-vista-${name}.png` });
+    await w;
+    await expect.poll(() => R('shot'), { timeout: 60_000, message: `${name}: 数秒で戻る` }).toBeNull();
+    // 二度目は出ない
+    await R('go', from[0], from[1], yaw);
+    const w2 = R('walk', [into], 60);
+    await R('autoCam', true);
+    await w2;
+    expect(await R('shot'), `${name}: 二度目は出ない`).toBeNull();
   }
   expect(errors).toEqual([]);
 });
