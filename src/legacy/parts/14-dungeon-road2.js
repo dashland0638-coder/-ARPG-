@@ -46,6 +46,7 @@
   let road2Joined = false;          // 影の旅人が加入した(R3-4 の出会いで立てる。今は立たない)
   let road2CompassPrev = null;      // 針の前のフレームの状態(core/road-compass.js compassStep)
   let road2CompassIdleT = 0;        // 止まっている時間(薄くする)
+  let road2DestIdx = 0;             // 羅針盤の次の目的地の番号(ROAD2_DESTINATIONS。この出撃の間だけ。R3-N-FIX-02)
   let road2Instanced = [];      // 作り直す時に instanceMatrix / instanceColor を捨てる
   let road2SwayMats = [];       // 草の揺れの時刻を渡す材質
   let road2Time = 0;
@@ -173,6 +174,7 @@
     road2Joined = false;
     road2CompassPrev = null;
     road2CompassIdleT = 0;
+    road2DestIdx = 0;
     road2TalkCount = {};
 
     const M = road2Mats();
@@ -181,7 +183,7 @@
     // ---- 外の地面(歩けない所。いつも描く)。いちばん低い谷底(-2)より下に置く ----
     const outer = new THREE.Mesh(new THREE.PlaneGeometry(700, 1300), M.outer);
     outer.rotation.x = -Math.PI/2;
-    outer.position.set(ROAD2_CX, -2.6, 380);
+    outer.position.set(ROAD2_CX, ROAD2_OUTER_Y, 380);
     outer.receiveShadow = true;
     scene.add(outer);
 
@@ -217,6 +219,7 @@
     road2BuildFinish(M);   // R3-T2: 景観の仕上げ(輪郭・生活感・水・岩・目印)
     road2BuildGuideposts(M);   // R3-N: 分かれ道の道標
     road2RegisterCompassTalks();   // R3-N: 羅針盤の会話
+    road2SetupMeeting();           // R3-N-FIX-01: エリア 4 の野営地の「？？？」と、出会い・加入
     ROAD2_CAMPS.forEach(c=> road2BuildCamp(c, road2AreaGroups[c.area], M));
     ROAD2_LANDMARKS.forEach(l=> road2BuildLandmark(l, road2AreaGroups[l.area], M));
 
@@ -447,8 +450,8 @@
     }
     road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.rock, cliffs, c=> ({x:c.x, y:ROAD2_FLOOR_BOTTOM + (c.h - ROAD2_FLOOR_BOTTOM)/2, z:c.z, ry:((c.z*7) % 5 - 2)*0.03, sx:10, sy:c.h - ROAD2_FLOOR_BOTTOM, sz:10.6}), grp, ()=> 0x6a665c);
     // 水(川・滝つぼ・谷の外へ続く流れ)
-    const water = [{x:(a.x0 + a.x1)/2 + 10, z:376, w:a.x1 - a.x0 + 40, d:8}, {x:1059, z:382, w:8, d:28}];
-    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.water, water, w=> ({x:w.x, y:-2.75, z:w.z, sx:w.w, sy:0.3, sz:w.d}), grp);
+    // 水面は ROAD2_WATER の高さ(外の地面より上・谷底より下)。箱の上の面が水面(R3-N-FIX-03)
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.water, ROAD2_WATER.slice(), w=> ({x:(w.x0 + w.x1)/2, y:w.top - 0.15, z:(w.z0 + w.z1)/2, sx:w.x1 - w.x0, sy:0.3, sz:w.z1 - w.z0}), grp);
     // 滝(崖の上から滝つぼへ落ちる幕。裏の岩棚が透けないよう厚くする)
     const falls = new THREE.Mesh(new THREE.BoxGeometry(1.4, 12, 16), M.falls);
     falls.position.set(1055.8, 3.2, 376); falls.userData.road2Falls = true; grp.add(falls);
@@ -707,7 +710,7 @@
     }
     road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.rock, strata, s=> ({x:s.x, y:s.y, z:s.z, sx:0.3, sy:0.7, sz:10.4}), vale, s=> s.c);
     const foam = new THREE.Mesh(new THREE.RingGeometry(1.6, 3.2, 20), M.foam);
-    foam.rotation.x = -Math.PI/2; foam.position.set(1059, -2.55, 380); vale.add(foam);
+    foam.rotation.x = -Math.PI/2; foam.position.set(1059, ROAD2_WATER.find(w=> w.id === 'pool').top + 0.02, 386); vale.add(foam);   // 滝の下(滝つぼ)
 
     // ---- 山道: 不揃いな岩(張り出しの上に多面体)・曲がり角の石灯籠 ----
     const mtn = road2AreaGroups[4];
@@ -753,7 +756,7 @@
       const a = road2AreaAt(x, z), grp = road2AreaGroups[a.id], y = road2GroundAt(x, z) ?? 0;
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 3, 6), M.wood);
       post.position.set(x, y + 1.5, z); grp.add(post);
-      const b = compassTargetBearing(x, z);
+      const b = roadDirectionAt(x, z);   // 道の向き(羅針盤ではなく、本道の先)
       const arm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.32, 1.6), M.wood);
       arm.position.set(x + Math.sin(b) * 0.7, y + 2.5, z + Math.cos(b) * 0.7);
       arm.rotation.y = b; grp.add(arm);
@@ -817,6 +820,86 @@
     ]);
   }
 
+  /* ==== R3-N-FIX-01: テストモードの顔ぶれと、出会い・加入(.ai/reports/ROAD-VISUAL-003-R3N-FIX-plan.md §A) ==== */
+  let road2Stranger = null;   // エリア 4 の入口の野営地に座っている、加入前の人物(「？？？」)
+  const ROAD2_STRANGER_POS = {x:1096, z:460};
+
+  /* エリア 4 の野営地に加入前の人物を座らせ、出会いの帯(R4-00)を登録する。
+     姿と遅れる影は旧道と同じ(buildRoadTravelerFigure / trackPreJoinShadow)。名前は出さない(DEC-004 N-4) */
+  function road2SetupMeeting(){
+    road2Stranger = buildRoadTravelerFigure(true);
+    const y = road2GroundAt(ROAD2_STRANGER_POS.x, ROAD2_STRANGER_POS.z) ?? 1;
+    road2Stranger.position.set(ROAD2_STRANGER_POS.x, y, ROAD2_STRANGER_POS.z);
+    road2Stranger.rotation.y = Math.PI;   // 来た道(南)を向いて座っている
+    road2AreaGroups[4].add(road2Stranger);
+    trackPreJoinShadow(road2Stranger);
+    const band = ROAD2_BANDS.find(b=> b.id === 'R4-00');
+    const zm = (band.z0 + band.z1)/2, mx = compassMainXAt(zm, 4) ?? ROAD2_CX;
+    registerProximityEvent(new THREE.Vector3(mx, 0, zm), 1, '', null, {
+      area: {x0:mx - 10, x1:mx + 10, z0:band.z0, z1:band.z1}, marker:false,
+      condition: ()=> !road2Joined && !!road2Stranger,
+      onEnter: ()=> road2PlayMeeting(),
+    });
+  }
+
+  /* 出会いの一幕。台詞は旧道の承認済みの出会い(14-dungeon-road.js playRoadMeeting)のうち、戦闘へ続く行を除いたもの。
+     加入の決め手は設計 §5.2 R4-00 の意味(剣士が「連れて行く」と決める)。R3-4 で出会いの中身を足す */
+  function road2PlayMeeting(){
+    if(road2Joined) return;
+    road2TalkCount['R4-00'] = (road2TalkCount['R4-00'] || 0) + 1;
+    const steps = [
+      {t:0.4, run:()=> cutsceneTurnTo(Math.atan2(ROAD2_STRANGER_POS.x - state.pos.x, ROAD2_STRANGER_POS.z - state.pos.z), 0.6)},
+      {t:0.6, run:()=> cutsceneLine('「……こんにちは」', ROAD_STRANGER)},
+      {t:2.0, run:()=> cutsceneLine('「こんにちは、じゃない。朝から探してたんだぞ」', ROAD_THIEF)},
+      {t:2.2, run:()=> cutsceneLine('「そうですか」', ROAD_STRANGER)},
+    ].concat(legacyGrowth() ? [] : [
+      {t:1.8, run:()=> cutsceneLine('「朝の鐘で出てったんだろ」', ROAD_THIEF)},
+      {t:1.8, run:()=> cutsceneLine('「……鳴ったので」', ROAD_STRANGER)},
+    ]).concat([
+      {t:1.8, run:()=> cutsceneLine('「ここで、何を」', ROAD_ARCHER)},
+      {t:1.8, run:()=> cutsceneLine('「待っていました。……たぶん」', ROAD_STRANGER)},
+      {t:2.2, run:()=> cutsceneLine('「誰を」', ROAD_THIEF)},
+      {t:1.6, run:()=> cutsceneLine('「分かりません。でも、ここで待つ気がしたので」', ROAD_STRANGER)},
+      {t:2.2, run:()=> cutsceneLine('「……一緒に来るか」', '剣士')},
+      {t:1.6, run:()=> cutsceneLine('「……はい」', ROAD_STRANGER)},
+      {t:1.8, run:()=>{ cutsceneHideLine(); fadeTransition(()=> road2Join()); }},
+      {t:0.9, run:()=>{ state.dialogueActive = false; clearMovementInput(false); }},
+    ]);
+    playCutscene(steps);
+  }
+
+  /* 加入そのもの: 旧道と同じ正規の処理(meetChapter1Protagonist、段 5 = 影の旅人が主人公・盗賊が支援)。
+     加入前の姿を片づけ、「影の旅人」の名前が初めて出る。進行(scenarioClears)とセーブには触れない */
+  function road2Join(){
+    if(road2Joined) return;
+    road2Joined = true;
+    if(road2Stranger){ if(road2Stranger.parent) road2Stranger.parent.remove(road2Stranger); road2Stranger = null; }
+    meetChapter1Protagonist(CHAPTER1_ORDER.indexOf('road') + 1);
+    state.vel.set(0, 0, 0);
+    repositionAlliesToPlayer();
+    camera.position.copy(state.pos).add(getCamOffset());
+    spawnLog(`${state.classDef.icon} ${ROAD_TRAVELER}`);
+  }
+
+  /* テストモードで道(新)に入った時の顔ぶれ(R3-N-FIX-01)。操作キャラクターはテストの選択のまま。
+     同行ゲストを選んでいなければ、道の段(時計塔の後 = 段 4)の正規の支援を付ける(主人公に支援と同じ職を選んだ時は、その段の主人公)。
+     影の旅人で入ったら、加入の後として扱う(加入前の人物は出さない)。本編の進行(scenarioClears)は変えない */
+  function road2EnterCast(){
+    if(!state.testMode) return;
+    if(selectedClass === 'wanderer'){
+      road2Joined = true;
+      if(road2Stranger){ if(road2Stranger.parent) road2Stranger.parent.remove(road2Stranger); road2Stranger = null; }
+      return;
+    }
+    if(!state.guestClassKey){
+      const stage = CHAPTER_CAST[CHAPTER1_ORDER.indexOf('road')];   // 段 4: 盗賊 + 弓師
+      state.guestClassKey = selectedClass === stage.guestClassKey ? stage.classKey : stage.guestClassKey;
+      syncAlliesToState();
+    }
+  }
+  /* テストモードの開始地点「加入後」: 着いた所で一幕なしに正規の加入処理を行う */
+  function road2ForceJoin(){ road2Join(); }
+
   /* 羅針盤の表示(ミニマップの左。文字は出さない)。HTML の要素 1 つ(WebGL の描画は増えない) */
   let road2CompassEl = null, road2NeedleEl = null, road2CompassWidthT = 0;
   function road2CompassElement(){
@@ -849,7 +932,8 @@
   function road2UpdateCompass(dt){
     if(!road2CompassOn){ road2HideCompass(); return; }
     const area = road2AreaAt(state.pos.x, state.pos.z);
-    road2CompassPrev = compassStep(road2CompassPrev, {x:state.pos.x, z:state.pos.z, areaId: area ? area.id : road2CurrentAreaId,
+    road2DestIdx = compassNextDestination(road2DestIdx, area ? area.id : road2CurrentAreaId, state.pos.z);
+    road2CompassPrev = compassStep(road2CompassPrev, {x:state.pos.x, z:state.pos.z, dest: compassDestination(road2DestIdx),
       t: road2Time, dt: dt || 0, camYaw: state.camYaw});
     // 出す条件: ミニマップが出ている・会話中でない・戦闘の緊張が低い
     const visible = minimapPanelVisible(state) && !state.dialogueActive && combatIntensity < 0.35;

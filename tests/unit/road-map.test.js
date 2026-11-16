@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
   ROAD2_X0, ROAD2_X1, ROAD2_Z0, ROAD2_Z1, ROAD2_AREAS, ROAD2_ENTRY, ROAD2_CAMPS, ROAD2_ROUTES,
   ROAD2_LANDMARKS, ROAD2_BANDS, areaById, areaAt, isWalkable, visibleAreaIds, blockedRects,
-  ROAD2_TERRAIN, road2Slabs, road2GroundAt, road2Obstacles, road2Reachability, subtractRects, road2EdgeWalls, road2SlabHeight,
+  ROAD2_TERRAIN, road2Slabs, road2GroundAt, road2Obstacles, road2Reachability, subtractRects, road2EdgeWalls, road2SlabHeight, ROAD2_WATER, ROAD2_OUTER_Y,
 } from '../../src/core/road-map.js';
 import { SCENARIO_WAYPOINTS } from '../../src/core/scenario-waypoints.js';
 import { TEST_CHAPTERS, chapterOfScenario } from '../../src/core/test-scenario-select.js';
@@ -109,7 +109,9 @@ test('テストモードだけに出る(本編の第一章の順には入らな�
   assert.ok(!CHAPTER1_ORDER.includes('road2'));
   assert.ok(!TEST_CHAPTERS.find(c => c.id === 'ch1').scenarios.includes('road2'));
   // 開始地点はエリア 2〜5 の入口
-  assert.deepEqual(SCENARIO_WAYPOINTS.road2.map(w => areaAt(w.x, w.z).id), [2, 3, 4, 5]);
+  // 開始地点はエリア 2〜5 の入口と、山道の加入後(R3-N-FIX-01)
+  assert.deepEqual(SCENARIO_WAYPOINTS.road2.map(w => areaAt(w.x, w.z).id), [2, 3, 4, 4, 5]);
+  assert.deepEqual(SCENARIO_WAYPOINTS.road2.filter(w => w.road2Join).map(w => w.id), ['joined']);
 });
 
 /* ==== R3-T: 地形 ==== */
@@ -225,4 +227,26 @@ test('落下の隙間の走査(R3-T1): 全床の板の辺を 0.1 刻みで、床
   }
   assert.ok(samples > 100000, `走査した点 ${samples}`);
   assert.deepEqual(issues, []);
+});
+
+test('川の水面(R3-N-FIX-03): 外の地面・他の水と同じ高さで重ならない。谷底より下、外の地面より上', () => {
+  for (const w of ROAD2_WATER) {
+    assert.ok(w.top > ROAD2_OUTER_Y + 0.1, `${w.id} は外の地面より上`);
+    // 水のまわり(縁の 0.5 外)の床(岸・石橋・岩棚)より、0.2 以上低い
+    let lowestBank = Infinity;
+    for (let x = w.x0; x <= w.x1; x += 1) for (const z of [w.z0 - 0.5, w.z1 + 0.5]) { const g = road2GroundAt(x, z); if (g !== null) lowestBank = Math.min(lowestBank, g); }
+    for (let z = w.z0; z <= w.z1; z += 1) for (const x of [w.x0 - 0.5, w.x1 + 0.5]) { const g = road2GroundAt(x, z); if (g !== null) lowestBank = Math.min(lowestBank, g); }
+    assert.ok(lowestBank < Infinity, `${w.id} のまわりに岸がある`);
+    assert.ok(w.top < lowestBank - 0.2, `${w.id} は岸(${lowestBank})より下`);
+  }
+  for (let i = 0; i < ROAD2_WATER.length; i++) for (let j = i + 1; j < ROAD2_WATER.length; j++) {
+    const a = ROAD2_WATER[i], b = ROAD2_WATER[j];
+    const ox = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), oz = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+    assert.ok(!(ox > 1e-6 && oz > 1e-6), `${a.id} と ${b.id} が重なる`);
+  }
+  // 水面は床の無い所(川・滝つぼ)の上だけ(歩ける床の上に水を置かない。石橋は川の上の床)
+  for (const w of ROAD2_WATER) for (let x = w.x0 + 1; x < w.x1; x += 3) for (let z = w.z0 + 0.5; z < w.z1; z += 2) {
+    const g = road2GroundAt(x, z), onBridge = x >= 1095 && x <= 1105 && z >= 372 && z <= 380;
+    if (areaAt(x, z) && !onBridge) assert.equal(g, null, `${w.id} (${x},${z}) の下に床がある`);
+  }
 });

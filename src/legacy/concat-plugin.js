@@ -170,8 +170,9 @@ import {
   ROAD2_LANDMARKS, ROAD2_RING, ROAD2_RUIN, areaById as road2AreaById, areaAt as road2AreaAt,
   visibleAreaIds as road2VisibleAreaIds, blockedRects as road2BlockedRects,
   road2Slabs, road2Obstacles, road2GroundAt, ROAD2_TERRAIN, ROAD2_VISTAS, ROAD2_LANTERNS, ROAD2_GUIDEPOSTS, ROAD2_BANDS,
+  ROAD2_WATER, ROAD2_OUTER_Y,
 } from '../core/road-map.js';
-import { compassStep, compassTargetBearing, compassMainXAt, ROAD2_ANOMALIES } from '../core/road-compass.js';
+import { compassStep, roadDirectionAt, compassMainXAt, compassNextDestination, compassDestination, ROAD2_ANOMALIES } from '../core/road-compass.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

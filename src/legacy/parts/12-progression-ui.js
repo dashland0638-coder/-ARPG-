@@ -1801,6 +1801,7 @@
       state.pos.copy(ROAD2_ENTRY_POS);
       state.camYaw = Math.PI;   // 北(道の先)を向いて出る
       state.vel.set(0,0,0);
+      road2EnterCast();         // テストモードの支援AI・加入の前後(R3-N-FIX-01)。本編では何もしない
       repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
     } else if(key==='road'){

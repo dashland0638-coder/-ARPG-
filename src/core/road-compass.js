@@ -1,27 +1,27 @@
 /* 盗賊の古い羅針盤(ROAD-VISUAL-003 R3-N、DEC-026 HD-3 = A)。
 
-   ■ 何を返すか
-   道(新)のメインルート(core/road-map.js ROAD2_ROUTES の kind:'main'、5 エリアをつないだ一本)の上で、
-   プレイヤーの少し先(LOOKAHEAD)の地点への向きを、ゆるく揺らして返す。
+   ■ 何を返すか(R3-N-FIX-02: 本道の先ではなく「次の目的地」を指す)
+   次の目的地(core/road-map.js ROAD2_DESTINATIONS の順番。各エリアの入口の野営地と石環)への向きを、
+   ゆるく揺らして返す。本道を外れても、目的地が同じなら目的地の向き。
      ・正確すぎない: いつも少し左を指す癖(BIAS_DEG)と、ゆっくり揺れるずれ(最大 ±WANDER_DEG)
-     ・距離は返さない。寄り道・隠し道・宝箱は指さない(メインルートだけを見る)
-     ・逆走しても、針が速く回らない(世界の向きの変化を MAX_TURN_DEG/秒 に抑える)
+     ・距離も道順も返さない。寄り道・隠し道・宝箱・怪異は目的地にしない
+     ・目的地が変わっても、針は自然に向きを変える(世界の向きの変化を MAX_TURN_DEG/秒 に抑える)
      ・カメラの向きには遅れずに付いていく(画面の上 = カメラの前)
      ・怪異の近く(ROAD2_ANOMALIES)では、左右に揺れが増える。怪異の方向は指さない(揺れは左右対称)
-     ・道の果ての北の端では、針が定まらずゆっくり回る(壊れたとは言わない)
+     ・目的地を全部終えた(石環に着いた)後は、針が定まらずゆっくり回る(壊れたとは言わない)
+   本道の一本の線(compassMainLine)は、会話の帯の位置と、道標の腕の向き(道の向き)にだけ使う
 
    state・THREE・scene に依存しない(ARCHITECTURE.md の core/ の作法)。 */
-import { ROAD2_ROUTES, ROAD2_AREAS } from './road-map.js';
+import { ROAD2_ROUTES, ROAD2_AREAS, ROAD2_DESTINATIONS } from './road-map.js';
 
-export const COMPASS_LOOKAHEAD = 20;      // メインルートの上で、この先の地点を指す
+export const ROAD_DIR_LOOKAHEAD = 20;     // 道標の腕: 本道の上で、この先の地点の向き(羅針盤には使わない)
 export const COMPASS_WANDER_DEG = 15;     // ゆっくり揺れるずれの最大
 /* 古い羅針盤の癖: 針はいつも少し左を指す(本当の向きは針の右。盗賊の「針の右、指一本ぶん」)。
    世界の向きで +8°(画面では反時計回り = 左)。揺れと合わせて最大 23°(依頼の ±25° の内) */
 export const COMPASS_BIAS_DEG = 8;
 export const COMPASS_MAX_TURN_DEG = 140;  // 世界の向きが 1 秒に変われる最大(逆走で高速回転しない)
 export const COMPASS_ANOMALY_DEG = 35;    // 怪異のそばの、左右の揺れの最大
-export const COMPASS_SPIN_DEG = 24;       // 道の果ての北の端で回る速さ(度/秒)
-export const COMPASS_END_Z = 735;         // ここより北(道の果て)で回り始める
+export const COMPASS_SPIN_DEG = 24;       // 目的地を全部終えた後に回る速さ(度/秒)
 
 /* 怪異の近く(設計 §6 の A-1〜A-8 の場所)。半径の中で揺れが増える。A-9 は道の果ての回る演出 */
 export const ROAD2_ANOMALIES = Object.freeze([
@@ -95,10 +95,11 @@ export function compassMainXAt(z, areaId){
   return null;
 }
 
-/* 世界の向き(0 = +z、+x へ回ると正。atan2(dx, dz))で、指すべき地点への向き(揺れの前) */
-export function compassTargetBearing(x, z){
+/* 道標の腕の向き: 本道の上の少し先への向き(世界の向き: 0 = +z、+x へ回ると正。atan2(dx, dz))。
+   羅針盤の針には使わない(羅針盤は目的地を指す) */
+export function roadDirectionAt(x, z){
   const s = compassProgress(x, z);
-  const [tx, tz] = compassPointAt(s + COMPASS_LOOKAHEAD);
+  const [tx, tz] = compassPointAt(s + ROAD_DIR_LOOKAHEAD);
   // 道の終わりの近くで、先の地点がほぼ足元になる時は、道の最後の向きを使う
   if(Math.hypot(tx - x, tz - z) < 1.5){
     const [ax, az] = compassPointAt(s - 5), [bx, bz] = compassPointAt(s + 5);
@@ -122,20 +123,34 @@ export function compassAnomalyLevel(x, z){
   return k;
 }
 
-/* 道の果ての北の端か */
-export function compassAtEnd(areaId, z){ return areaId === 5 && z >= COMPASS_END_Z; }
+/* 次の目的地の番号(着いた順に進める。戻らない)。全部終えたら ROAD2_DESTINATIONS.length */
+export function compassNextDestination(idx, areaId, z){
+  let i = Math.max(0, idx | 0);
+  while(i < ROAD2_DESTINATIONS.length){
+    const r = ROAD2_DESTINATIONS[i].reach;
+    const reached = areaId != null && areaId >= r.area && (r.zMin == null || (areaId > r.area) || z >= r.zMin);
+    if(!reached) break;
+    i++;
+  }
+  return i;
+}
+export function compassDestination(idx){ return ROAD2_DESTINATIONS[idx] || null; }
 
-/* 1 フレーム進める。prev = {world, spin}(初回は null)。
-   返り値: {world: 世界の向き, screen: 画面での針の角度(時計回りが正、0 = 画面の上), mode: 'route'|'end', anomaly} */
+/* 目的地への向き(揺れの前) */
+export function compassDestinationBearing(x, z, dest){ return Math.atan2(dest.x - x, dest.z - z); }
+
+/* 1 フレーム進める。prev = {world, spin}(初回は null)。inp.dest = 目的地 {x, z}、無ければ null(全部終えた)。
+   返り値: {world: 世界の向き, screen: 画面での針の角度(時計回りが正、0 = 画面の上), mode: 'dest'|'none', anomaly} */
 export function compassStep(prev, inp){
-  const {x, z, areaId, t, dt, camYaw} = inp;
+  const {x, z, dest, t, dt, camYaw} = inp;
   const camForward = Math.atan2(-Math.sin(camYaw), -Math.cos(camYaw));   // カメラの前の向き(世界)
   const anomaly = compassAnomalyLevel(x, z);
-  if(compassAtEnd(areaId, z)){
+  if(!dest){
+    // 目的地が無い: 針は定まらず、ゆっくり回る(向きを指さない)
     const spin = ((prev && prev.spin != null) ? prev.spin : (prev ? prev.world : 0)) + COMPASS_SPIN_DEG * D2R * dt;
-    return {world: wrapAngle(spin), spin, screen: wrapAngle(-(spin - camForward)), mode:'end', anomaly};
+    return {world: wrapAngle(spin), spin, screen: wrapAngle(-(spin - camForward)), mode:'none', anomaly};
   }
-  let want = compassTargetBearing(x, z) + COMPASS_BIAS_DEG * D2R + compassWander(t);
+  let want = compassDestinationBearing(x, z, dest) + COMPASS_BIAS_DEG * D2R + compassWander(t);
   // 怪異のそば: 左右対称の速い揺れ(向きの情報は持たない)
   if(anomaly > 0) want += anomaly * COMPASS_ANOMALY_DEG * D2R * (0.65 * Math.sin(t * 4.1) + 0.35 * Math.sin(t * 6.7 + 0.8));
   let world = want;
@@ -143,5 +158,5 @@ export function compassStep(prev, inp){
     const d = wrapAngle(want - prev.world), max = COMPASS_MAX_TURN_DEG * D2R * Math.max(0, dt);
     world = wrapAngle(prev.world + Math.max(-max, Math.min(max, d)));
   }
-  return {world, spin: null, screen: wrapAngle(-(world - camForward)), mode:'route', anomaly};
+  return {world, spin: null, screen: wrapAngle(-(world - camForward)), mode:'dest', anomaly};
 }

@@ -199,6 +199,15 @@ function ringPillars(cx, cz, r, n, size, offset){
   return out;
 }
 export const ROAD2_RING = Object.freeze({x:1100, z:715, r:12});
+
+/* 水と、歩けない所の外の地面の高さ(R3-N-FIX-03)。見た目だけ(床の板・当たりではない)。
+   水の面どうし・水と外の地面が同じ高さで重なると、描画を奪い合って模様が重なって見える(z-fighting)。
+   外の地面は一番低い谷底(-2)より下、水面はそれより上で谷底より下。水の長方形は重ならない */
+export const ROAD2_OUTER_Y = -2.6;
+export const ROAD2_WATER = Object.freeze([
+  {id:'river', x0:1055, x1:1195, z0:372, z1:380, top:-2.45},   // 東西の川(滝の下から谷の外まで。滝の裏の岩棚の下には置かない)
+  {id:'pool',  x0:1055, x1:1063, z0:380, z1:396, top:-2.45},   // 滝つぼ(川の北。川とは重ねない)
+]);
 export const ROAD2_RUIN = Object.freeze({x:1100, z:592, r:9});
 
 /* 通り道(地形に沿って地面に描く)。kind: main = メインルート、side = 寄り道、hidden = 隠しルート。
@@ -238,6 +247,18 @@ export const ROAD2_LANDMARKS = Object.freeze([
   {area:4, kind:'ruin',     name:'円い石の構造物',   x:ROAD2_RUIN.x, z:ROAD2_RUIN.z},
   {area:4, kind:'pass',     name:'峠',               x:1105, z:636},
   {area:5, kind:'ring',     name:'石環',             x:ROAD2_RING.x, z:ROAD2_RING.z},
+]);
+
+/* 羅針盤の目的地の順番(R3-N-FIX-02)。既存の地点データ(各エリアの入口の野営地と石環)から並べる。
+   道(新)の物語のイベント(R1-01〜R5-04)はまだ無い(R3-1〜R3-5)ので、目的地の管理は新しく作らず、
+   この順番と「着いた」の判定だけを持つ。着く: area があればそのエリアに入った時、zMin があればその z を越えた時。
+   寄り道・隠し道・宝箱・怪異は目的地にしない */
+export const ROAD2_DESTINATIONS = Object.freeze([
+  {id:'moor',     x:1094, z:118, reach:{area:2}},            // 原野の入口の野営地(宿場を出る)
+  {id:'vale',     x:1094, z:322, reach:{area:3}},            // 谷の入口の野営地
+  {id:'mountain', x:1094, z:458, reach:{area:4}},            // 山道の入口の野営地(加入前はここで「？？？」と会う)
+  {id:'end',      x:1094, z:648, reach:{area:5}},            // 道の果ての入口の野営地
+  {id:'ring',     x:1100, z:715, reach:{area:5, zMin:704}},  // 石環(R5-02 の帯)
 ]);
 
 /* 見晴らしの地点(DEC-026 HD-2 = B)。初めて帯に入った時だけ、カメラを一時的に引いて遠景を見せる。
