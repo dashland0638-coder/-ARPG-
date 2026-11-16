@@ -80,7 +80,7 @@ test('逆走しても、エリアをまたいでも、針の世界の向きは 1
       s += dir * 7 * dt;
       if (s < 0 || s > L.total - 25) break;
       let [x, z] = compassPointAt(s);
-      if (off){ const [ax, az] = compassPointAt(s + 1), len = Math.hypot(ax - x, az - z) || 1; x += (az - z) / len * off; z -= (ax - x) / len * off; }
+      if (off){ const [ax, az] = compassPointAt(s + 1), len = Math.hypot(ax - x, az - z) || 1, ox = (az - z) / len * off, oz = -(ax - x) / len * off; x += ox; z += oz; }   // 道に直交してずらす
       if (!areaAt(x, z)) continue;
       const cur = compassStep(prev, { x, z, areaId: areaAt(x, z).id, t: k * dt, dt, camYaw });
       if (prev && prev.world != null && cur.mode === 'route' && prev.mode === 'route') assert.ok(Math.abs(wrapAngle(cur.world - prev.world)) <= max, `s=${s.toFixed(1)}`);
