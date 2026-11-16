@@ -131,15 +131,6 @@ test('羅針盤: 宿場の会話で出し、次の目的地を指し(着くと�
   const want2 = ((-(c.destDeg - c.camFwdDeg)) + 540) % 360 - 180;
   expect(c.dest).toBe('moor');
   expect(Math.abs(((c.screenDeg - want2) + 540) % 360 - 180), `本道を外れても目的地の向き ${c.screenDeg} / ${want2}`).toBeLessThanOrEqual(25);
-  // 目的地と本道の向きが大きく違う所(谷の西の崖の上: 目的地 ≈ 21°、本道 ≈ 93°)で、本道ではなく目的地を指す
-  await R('go', 1047, 338, Math.PI);
-  await page.waitForTimeout(2500);
-  c = await R('compass');
-  expect(c.dest).toBe('mountain');
-  expect(Math.abs(((c.destDeg - c.roadDeg) + 540) % 360 - 180), '目的地と本道の向きが分かれる地点').toBeGreaterThan(60);
-  const want3 = ((-(c.destDeg - c.camFwdDeg)) + 540) % 360 - 180, road3 = ((-(c.roadDeg - c.camFwdDeg)) + 540) % 360 - 180;
-  expect(Math.abs(((c.screenDeg - want3) + 540) % 360 - 180), `目的地の向き ${c.screenDeg} / ${want3}`).toBeLessThanOrEqual(25);
-  expect(Math.abs(((c.screenDeg - road3) + 540) % 360 - 180), `本道の向きではない ${c.screenDeg} / ${road3}`).toBeGreaterThan(35);
   await R('go', 1100, 60, Math.PI);
   await page.waitForTimeout(1500);
   c = await R('compass');
@@ -176,6 +167,16 @@ test('羅針盤: 宿場の会話で出し、次の目的地を指し(着くと�
 
   // 原野に入ったので、目的地は谷の入口の野営地へ変わっている
   expect((await R('compass')).dest).toBe('vale');
+
+  // (谷へ入ると目的地は山道の入口へ進む)目的地と本道の向きが大きく違う所(谷の西の崖の上: 目的地 ≈ 21°、本道 ≈ 93°)で、本道ではなく目的地を指す
+  await R('go', 1047, 338, Math.PI);
+  await page.waitForTimeout(2500);
+  c = await R('compass');
+  expect(c.dest).toBe('mountain');
+  expect(Math.abs(((c.destDeg - c.roadDeg) + 540) % 360 - 180), '目的地と本道の向きが分かれる地点').toBeGreaterThan(60);
+  const want3 = ((-(c.destDeg - c.camFwdDeg)) + 540) % 360 - 180, road3 = ((-(c.roadDeg - c.camFwdDeg)) + 540) % 360 - 180;
+  expect(Math.abs(((c.screenDeg - want3) + 540) % 360 - 180), `目的地の向き ${c.screenDeg} / ${want3}`).toBeLessThanOrEqual(25);
+  expect(Math.abs(((c.screenDeg - road3) + 540) % 360 - 180), `本道の向きではない ${c.screenDeg} / ${road3}`).toBeGreaterThan(35);
 
   // 加入の前は、影の旅人の会話(N-3・N-4)は出ない(出会いの帯の北から入る)
   await R('go', 1066, 472, Math.PI);
