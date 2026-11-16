@@ -216,8 +216,9 @@ test('顔ぶれ: テストの選択で操作し、正規の支援がつく。野
   expect(c.stranger).toBe(true);                 // 野営地に加入前の人物
   const clears0 = c.clears;
   // エリア 4 の野営地(出会いの帯)へ歩く
-  await R('go', 1098, 448, Math.PI);
-  const w = R('walk', [[1096, 461]], 120);
+  // 野営地(1094,458)から、見えている人物(1088,466)へまっすぐ歩くと一幕が始まる
+  await R('go', 1094, 456, Math.PI);
+  const w = R('walk', [[1088, 465]], 120);
   const lines = await readTalk(page, R);
   await w;
   console.log('R4-00', JSON.stringify(lines));

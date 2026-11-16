@@ -822,7 +822,7 @@
 
   /* ==== R3-N-FIX-01: テストモードの顔ぶれと、出会い・加入(.ai/reports/ROAD-VISUAL-003-R3N-FIX-plan.md §A) ==== */
   let road2Stranger = null;   // エリア 4 の入口の野営地に座っている、加入前の人物(「？？？」)
-  const ROAD2_STRANGER_POS = {x:1096, z:466};
+  const ROAD2_STRANGER_POS = {x:1088, z:466};   // 野営地(1094,458)の焚き火の北西。本道の上(出会いの帯の中)
 
   /* エリア 4 の野営地に加入前の人物を座らせ、出会いの帯(R4-00)を登録する。
      姿と遅れる影は旧道と同じ(buildRoadTravelerFigure / trackPreJoinShadow)。名前は出さない(DEC-004 N-4) */
@@ -836,7 +836,7 @@
     const band = ROAD2_BANDS.find(b=> b.id === 'R4-00');
     const zm = (band.z0 + band.z1)/2, mx = compassMainXAt(zm, 4) ?? ROAD2_CX;
     registerProximityEvent(new THREE.Vector3(mx, 0, zm), 1, '', null, {
-      area: {x0:mx - 10, x1:mx + 10, z0:band.z0, z1:band.z1}, marker:false,
+      area: {x0:Math.min(mx - 10, ROAD2_STRANGER_POS.x - 6), x1:Math.max(mx + 10, ROAD2_STRANGER_POS.x + 6), z0:band.z0, z1:band.z1}, marker:false,   // 人物のそばへ歩けば必ず始まる
       condition: ()=> !road2Joined && !!road2Stranger,
       onEnter: ()=> road2PlayMeeting(),
     });
