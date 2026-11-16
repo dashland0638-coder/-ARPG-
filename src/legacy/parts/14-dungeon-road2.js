@@ -764,10 +764,11 @@
   function road2RegisterCompassTalks(){
     const talks = {'N-1': road2TalkCompassShown, 'N-2': road2TalkFork, 'N-3': road2TalkLearn, 'N-4': road2TalkRead};
     ROAD2_BANDS.filter(b=> talks[b.id]).forEach(b=>{
-      const a = road2AreaById(b.area);
+      const zm = (b.z0 + b.z1)/2, mx = compassMainXAt(zm, b.area) ?? ROAD2_CX;   // その z でメインルートが通る x
       const joinedOnly = b.id === 'N-3' || b.id === 'N-4';
-      registerProximityEvent(new THREE.Vector3(ROAD2_CX, 0, (b.z0 + b.z1)/2), 1, '', null, {
-        area: {x0:a.x0, x1:a.x1, z0:b.z0, z1:b.z1}, marker:false,
+      // 帯はメインルートのまわり(±10)だけ。寄り道・隠し道の上では出さない
+      registerProximityEvent(new THREE.Vector3(mx, 0, zm), 1, '', null, {
+        area: {x0:mx - 10, x1:mx + 10, z0:b.z0, z1:b.z1}, marker:false,
         condition: ()=> !legacyGrowth() && (!joinedOnly || road2Joined),
         onEnter: ()=> talks[b.id](),
       });
@@ -817,7 +818,7 @@
   }
 
   /* 羅針盤の表示(ミニマップの左。文字は出さない)。HTML の要素 1 つ(WebGL の描画は増えない) */
-  let road2CompassEl = null, road2NeedleEl = null;
+  let road2CompassEl = null, road2NeedleEl = null, road2CompassWidthT = 0;
   function road2CompassElement(){
     if(road2CompassEl) return road2CompassEl;
     const zone = document.getElementById('hud-zone-tr');
@@ -833,6 +834,13 @@
       + '<g id="road2-needle"><polygon points="0,-16 3.6,0 0,3 -3.6,0" fill="#d8b46a"/><polygon points="0,16 2.6,0 0,-2 -2.6,0" fill="#6a5a44"/>'
       + '<circle r="2" fill="#2a2016"/></g></svg>';
     zone.appendChild(el);
+    // ミニマップが隠れている間(ポーズ・メニュー・演出の無い会話・タイトル)は、羅針盤も必ず隠れる
+    if(!document.getElementById('road2-compass-style')){
+      const st = document.createElement('style');
+      st.id = 'road2-compass-style';
+      st.textContent = '#minimap-wrap:not(.show) ~ #road2-compass{display:none !important;}';
+      document.head.appendChild(st);
+    }
     road2CompassEl = el;
     road2NeedleEl = el.querySelector('#road2-needle');
     return el;
@@ -848,8 +856,12 @@
     const el = road2CompassElement();
     if(!el) return;
     if(!visible){ road2HideCompass(); return; }
-    const wrap = document.getElementById('minimap-wrap');
-    el.style.right = ((wrap ? wrap.offsetWidth : 104) + 8) + 'px';
+    // ミニマップの幅は、出した時と 1 秒ごとだけ読む(毎フレーム読むとレイアウトの計算が起きる)
+    if(el.style.display === 'none' || (road2CompassWidthT -= (dt || 0)) <= 0){
+      const wrap = document.getElementById('minimap-wrap');
+      el.style.right = ((wrap ? wrap.offsetWidth : 104) + 8) + 'px';
+      road2CompassWidthT = 1;
+    }
     el.style.display = 'block';
     const moving = Math.hypot(state.vel.x, state.vel.z) > 0.3;
     road2CompassIdleT = moving ? 0 : road2CompassIdleT + (dt || 0);

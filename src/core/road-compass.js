@@ -3,7 +3,7 @@
    ■ 何を返すか
    道(新)のメインルート(core/road-map.js ROAD2_ROUTES の kind:'main'、5 エリアをつないだ一本)の上で、
    プレイヤーの少し先(LOOKAHEAD)の地点への向きを、ゆるく揺らして返す。
-     ・正確すぎない: ゆっくり揺れるずれ(最大 ±WANDER_DEG)
+     ・正確すぎない: いつも少し左を指す癖(BIAS_DEG)と、ゆっくり揺れるずれ(最大 ±WANDER_DEG)
      ・距離は返さない。寄り道・隠し道・宝箱は指さない(メインルートだけを見る)
      ・逆走しても、針が速く回らない(世界の向きの変化を MAX_TURN_DEG/秒 に抑える)
      ・カメラの向きには遅れずに付いていく(画面の上 = カメラの前)
@@ -14,7 +14,10 @@
 import { ROAD2_ROUTES, ROAD2_AREAS } from './road-map.js';
 
 export const COMPASS_LOOKAHEAD = 20;      // メインルートの上で、この先の地点を指す
-export const COMPASS_WANDER_DEG = 20;     // ゆっくり揺れるずれの最大(依頼の ±25° の内)
+export const COMPASS_WANDER_DEG = 15;     // ゆっくり揺れるずれの最大
+/* 古い羅針盤の癖: 針はいつも少し左を指す(本当の向きは針の右。盗賊の「針の右、指一本ぶん」)。
+   世界の向きで +8°(画面では反時計回り = 左)。揺れと合わせて最大 23°(依頼の ±25° の内) */
+export const COMPASS_BIAS_DEG = 8;
 export const COMPASS_MAX_TURN_DEG = 140;  // 世界の向きが 1 秒に変われる最大(逆走で高速回転しない)
 export const COMPASS_ANOMALY_DEG = 35;    // 怪異のそばの、左右の揺れの最大
 export const COMPASS_SPIN_DEG = 24;       // 道の果ての北の端で回る速さ(度/秒)
@@ -78,6 +81,20 @@ export function compassPointAt(s){
   return pts[pts.length - 1].slice();
 }
 
+/* メインルートが z を横切る所の x(そのエリアの中で、道のりの早いほう)。会話の帯をメインルートのまわりに置くため */
+export function compassMainXAt(z, areaId){
+  const {pts} = compassMainLine();
+  for(let i=0;i<pts.length-1;i++){
+    const [x0, z0] = pts[i], [x1, z1] = pts[i+1];
+    if((z - z0) * (z - z1) > 0 || z0 === z1) continue;
+    const x = x0 + (x1 - x0) * (z - z0) / (z1 - z0);
+    const a = ROAD2_AREAS.find(ar=> ar.id === areaId);
+    if(a && (z < a.z0 || z > a.z1)) continue;
+    return x;
+  }
+  return null;
+}
+
 /* 世界の向き(0 = +z、+x へ回ると正。atan2(dx, dz))で、指すべき地点への向き(揺れの前) */
 export function compassTargetBearing(x, z){
   const s = compassProgress(x, z);
@@ -118,7 +135,7 @@ export function compassStep(prev, inp){
     const spin = ((prev && prev.spin != null) ? prev.spin : (prev ? prev.world : 0)) + COMPASS_SPIN_DEG * D2R * dt;
     return {world: wrapAngle(spin), spin, screen: wrapAngle(-(spin - camForward)), mode:'end', anomaly};
   }
-  let want = compassTargetBearing(x, z) + compassWander(t);
+  let want = compassTargetBearing(x, z) + COMPASS_BIAS_DEG * D2R + compassWander(t);
   // 怪異のそば: 左右対称の速い揺れ(向きの情報は持たない)
   if(anomaly > 0) want += anomaly * COMPASS_ANOMALY_DEG * D2R * (0.65 * Math.sin(t * 4.1) + 0.35 * Math.sin(t * 6.7 + 0.8));
   let world = want;

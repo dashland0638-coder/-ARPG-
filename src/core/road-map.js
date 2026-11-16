@@ -290,7 +290,7 @@ let treesCache = null;
 /* 山道の曲がり角の石灯籠(当たりつき、道から 2.6 以上離す)。次の曲がり角の目印 */
 /* 分かれ道の道標(R3-N)。目印の無い分かれ道だけ(原野の旧道の分かれ・谷の崖の道の分かれ)。
    腕はメインルートの先を指す(14-dungeon-road2.js が羅針盤と同じ向きで作る)。当たりつき */
-export const ROAD2_GUIDEPOSTS = Object.freeze([[1103.5, 146], [1107, 312]]);
+export const ROAD2_GUIDEPOSTS = Object.freeze([[1091, 155], [1107, 312]]);   // 原野の道標は旧道の分かれの側(東の岩場の割れ目から離す)
 export const ROAD2_LANTERNS = Object.freeze([[1062, 474], [1069, 489], [1102, 490], [1102, 516], [1075.5, 526.5], [1082, 572], [1140, 618]]);
 export function road2ForestTrees(){
   if(treesCache) return treesCache;

@@ -171,7 +171,7 @@ import {
   visibleAreaIds as road2VisibleAreaIds, blockedRects as road2BlockedRects,
   road2Slabs, road2Obstacles, road2GroundAt, ROAD2_TERRAIN, ROAD2_VISTAS, ROAD2_LANTERNS, ROAD2_GUIDEPOSTS, ROAD2_BANDS,
 } from '../core/road-map.js';
-import { compassStep, compassTargetBearing, ROAD2_ANOMALIES } from '../core/road-compass.js';
+import { compassStep, compassTargetBearing, compassMainXAt, ROAD2_ANOMALIES } from '../core/road-compass.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

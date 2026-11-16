@@ -55,6 +55,9 @@ const PROBE = `
   running(){ return cutsceneRunning(); },
   dialogue(){ return state.dialogueActive ? document.getElementById('dialogue-name').textContent + '|' + document.getElementById('dialogue-text').textContent : null; },
   joined(on){ road2Joined = !!on; return true; },
+  menu(){ toggleMenu(); return true; },
+  visibleNow(){ const el = document.getElementById('road2-compass'); return !!el && getComputedStyle(el).display !== 'none'; },
+  minimapShown(){ return document.getElementById('minimap-wrap').classList.contains('show'); },
   rebuild(){ buildWorld('tavern'); buildWorld('road2'); return true; },
 };`;
 
@@ -114,7 +117,7 @@ test('羅針盤: 宿場の会話で出し、メインルートの先を指し、
   await R('go', 1100, 60, Math.PI);
   await page.waitForTimeout(1500);
   c = await R('compass');
-  expect(Math.abs(c.screenDeg), `北を向いた時の針 ${c.screenDeg}`).toBeLessThanOrEqual(22);
+  expect(Math.abs(c.screenDeg), `北を向いた時の針 ${c.screenDeg}`).toBeLessThanOrEqual(25);   // 癖(左 8°)と揺れ(±15°)
   // カメラを 90° 回すと、針は逆へ約 90° 回る(遅れずに付いていく)
   const before = c;
   await R('setYaw', Math.PI / 2);
@@ -122,6 +125,14 @@ test('羅針盤: 宿場の会話で出し、メインルートの先を指し、
   c = await R('compass');
   const turned = ((c.screenDeg - before.screenDeg + 540) % 360) - 180;
   expect(Math.abs(Math.abs(turned) - 90), `カメラを回した時の針の回り ${turned}`).toBeLessThanOrEqual(12);
+
+  // ポーズ・メニューでミニマップが隠れると、羅針盤も隠れる。閉じると戻る
+  expect(await R('visibleNow')).toBe(true);
+  await R('menu');
+  await expect.poll(() => R('minimapShown'), { timeout: 10_000 }).toBe(false);
+  expect(await R('visibleNow'), 'メニューの間は隠れる').toBe(false);
+  await R('menu');
+  await expect.poll(() => R('visibleNow'), { timeout: 10_000 }).toBe(true);
 
   // 会話の間は隠れる / N-1 は二度出ない
   await R('go', 1100, 80, Math.PI);
