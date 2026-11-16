@@ -70,10 +70,12 @@ test('会話の帯はそのエリアの z の中で、重ならず、南から�
   for (let i = 1; i < ROAD2_BANDS.length; i++) {
     assert.ok(ROAD2_BANDS[i].z0 >= ROAD2_BANDS[i - 1].z1, `${ROAD2_BANDS[i - 1].id} → ${ROAD2_BANDS[i].id}`);
   }
-  // 出会い(E-1 = A)は、エリア 4 の野営地の帯
+  // 出会い(E-1 = A)は、エリア 4 の野営地のすぐ北の帯。入口の開始地点・谷からの坂(z 456 まで)には掛けない
   const meet = ROAD2_BANDS.find(b => b.id === 'R4-00'), camp4 = ROAD2_CAMPS.find(c => c.area === 4);
   assert.equal(meet.area, 4);
-  assert.ok(camp4.z >= meet.z0 && camp4.z <= meet.z1);
+  assert.ok(meet.z0 > camp4.z && meet.z0 - camp4.z <= 6, `野営地 ${camp4.z} の北 / 帯 ${meet.z0}`);
+  const wp4 = SCENARIO_WAYPOINTS.road2.find(w => w.id === 'mountain');
+  assert.ok(wp4.z < meet.z0 - 2, '入口の開始地点は出会いの帯の外');
 });
 
 test('areaAt / isWalkable / visibleAreaIds', () => {

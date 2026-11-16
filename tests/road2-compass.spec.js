@@ -49,6 +49,7 @@ const PROBE = `
       worldDeg: road2CompassPrev ? road2CompassPrev.world * 180 / Math.PI : null,
       dest: (compassDestination(road2DestIdx) || {}).id || null,
       destDeg: compassDestination(road2DestIdx) ? Math.atan2(compassDestination(road2DestIdx).x - state.pos.x, compassDestination(road2DestIdx).z - state.pos.z) * 180 / Math.PI : null,
+      roadDeg: roadDirectionAt(state.pos.x, state.pos.z) * 180 / Math.PI,
       camFwdDeg: Math.atan2(-Math.sin(state.camYaw), -Math.cos(state.camYaw)) * 180 / Math.PI,
       rect: r && {l:r.left, t:r.top, r:r.right, b:r.bottom}, mm: m && {l:m.left, t:m.top, r:m.right, b:m.bottom}};
   },
@@ -130,6 +131,15 @@ test('羅針盤: 宿場の会話で出し、次の目的地を指し(着くと�
   const want2 = ((-(c.destDeg - c.camFwdDeg)) + 540) % 360 - 180;
   expect(c.dest).toBe('moor');
   expect(Math.abs(((c.screenDeg - want2) + 540) % 360 - 180), `本道を外れても目的地の向き ${c.screenDeg} / ${want2}`).toBeLessThanOrEqual(25);
+  // 目的地と本道の向きが大きく違う所(谷の西の崖の上: 目的地 ≈ 21°、本道 ≈ 93°)で、本道ではなく目的地を指す
+  await R('go', 1047, 338, Math.PI);
+  await page.waitForTimeout(2500);
+  c = await R('compass');
+  expect(c.dest).toBe('mountain');
+  expect(Math.abs(((c.destDeg - c.roadDeg) + 540) % 360 - 180), '目的地と本道の向きが分かれる地点').toBeGreaterThan(60);
+  const want3 = ((-(c.destDeg - c.camFwdDeg)) + 540) % 360 - 180, road3 = ((-(c.roadDeg - c.camFwdDeg)) + 540) % 360 - 180;
+  expect(Math.abs(((c.screenDeg - want3) + 540) % 360 - 180), `目的地の向き ${c.screenDeg} / ${want3}`).toBeLessThanOrEqual(25);
+  expect(Math.abs(((c.screenDeg - road3) + 540) % 360 - 180), `本道の向きではない ${c.screenDeg} / ${road3}`).toBeGreaterThan(35);
   await R('go', 1100, 60, Math.PI);
   await page.waitForTimeout(1500);
   c = await R('compass');

@@ -256,7 +256,7 @@ export const ROAD2_LANDMARKS = Object.freeze([
 export const ROAD2_DESTINATIONS = Object.freeze([
   {id:'moor',     x:1094, z:118, reach:{area:2}},            // 原野の入口の野営地(宿場を出る)
   {id:'vale',     x:1094, z:322, reach:{area:3}},            // 谷の入口の野営地
-  {id:'mountain', x:1094, z:458, reach:{area:4}},            // 山道の入口の野営地(加入前はここで「？？？」と会う)
+  {id:'mountain', x:1094, z:458, reach:{area:4}},            // 山道の入口の野営地(加入前は、その北の焚き火のそばで「？？？」と会う)
   {id:'end',      x:1094, z:648, reach:{area:5}},            // 道の果ての入口の野営地
   {id:'ring',     x:1100, z:715, reach:{area:5, zMin:704}},  // 石環(R5-02 の帯)
 ]);
@@ -282,7 +282,7 @@ export const ROAD2_BANDS = Object.freeze([
   {id:'R3-01', area:3, z0:304, z1:312},   // 谷の入口
   {id:'R3-02', area:3, z0:362, z1:368},   // 水面の景色(A-5)
   {id:'R3-03', area:3, z0:373, z1:377},   // 水に映らないもの(A-6)
-  {id:'R4-00', area:4, z0:455, z1:462},   // 出会い(野営地。E-1)
+  {id:'R4-00', area:4, z0:462, z1:468},   // 出会い(野営地の焚き火の北。E-1)。入口の地点(z 456)と谷からの坂(〜456)には掛けない
   {id:'R4-01', area:4, z0:468, z1:476},   // 森に入る
   {id:'N-3',   area:4, z0:478, z1:484},   // 影の旅人が読み方を覚える(R3-N。加入の後だけ)
   {id:'A-7a',  area:4, z0:486, z1:492},   // 鐘 1(森の縁)

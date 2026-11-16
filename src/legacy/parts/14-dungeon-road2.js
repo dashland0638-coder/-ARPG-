@@ -822,7 +822,7 @@
 
   /* ==== R3-N-FIX-01: テストモードの顔ぶれと、出会い・加入(.ai/reports/ROAD-VISUAL-003-R3N-FIX-plan.md §A) ==== */
   let road2Stranger = null;   // エリア 4 の入口の野営地に座っている、加入前の人物(「？？？」)
-  const ROAD2_STRANGER_POS = {x:1096, z:460};
+  const ROAD2_STRANGER_POS = {x:1096, z:466};
 
   /* エリア 4 の野営地に加入前の人物を座らせ、出会いの帯(R4-00)を登録する。
      姿と遅れる影は旧道と同じ(buildRoadTravelerFigure / trackPreJoinShadow)。名前は出さない(DEC-004 N-4) */
@@ -832,7 +832,7 @@
     road2Stranger.position.set(ROAD2_STRANGER_POS.x, y, ROAD2_STRANGER_POS.z);
     road2Stranger.rotation.y = Math.PI;   // 来た道(南)を向いて座っている
     road2AreaGroups[4].add(road2Stranger);
-    trackPreJoinShadow(road2Stranger);
+    trackPreJoinShadow(road2Stranger);   // 影だまりはシーンへ直に置かれる。エリア 4 を描かない間は一緒に隠す(road2UpdateAreaVisibility)
     const band = ROAD2_BANDS.find(b=> b.id === 'R4-00');
     const zm = (band.z0 + band.z1)/2, mx = compassMainXAt(zm, 4) ?? ROAD2_CX;
     registerProximityEvent(new THREE.Vector3(mx, 0, zm), 1, '', null, {
@@ -842,8 +842,9 @@
     });
   }
 
-  /* 出会いの一幕。台詞は旧道の承認済みの出会い(14-dungeon-road.js playRoadMeeting)のうち、戦闘へ続く行を除いたもの。
-     加入の決め手は設計 §5.2 R4-00 の意味(剣士が「連れて行く」と決める)。R3-4 で出会いの中身を足す */
+  /* 出会いの一幕。台詞は旧道の承認済みの出会い(14-dungeon-road.js playRoadMeeting)のうち、戦闘へ続く行を除いたもの
+     + 加入の決め手の 2 行(新しい台詞): 剣士「……一緒に来るか」/ ？？？「……はい」。設計 §5.2 R4-00「剣が『連れて行く』と決める」による
+     (Agent Decision、ROAD-VISUAL-003 R3-N-FIX)。R3-4 で出会いの中身を足す時に見直す */
   function road2PlayMeeting(){
     if(road2Joined) return;
     road2TalkCount['R4-00'] = (road2TalkCount['R4-00'] || 0) + 1;
@@ -889,6 +890,7 @@
     if(selectedClass === 'wanderer'){
       road2Joined = true;
       if(road2Stranger){ if(road2Stranger.parent) road2Stranger.parent.remove(road2Stranger); road2Stranger = null; }
+      if(!state.guestClassKey){ state.guestClassKey = CHAPTER_CAST[CHAPTER1_ORDER.indexOf('road') + 1].guestClassKey; syncAlliesToState(); }   // 段 5 の支援(盗賊)
       return;
     }
     if(!state.guestClassKey){
@@ -957,6 +959,7 @@
   function road2UpdateAreaVisibility(currentId){
     const vis = new Set(road2VisibleAreaIds(currentId));
     Object.keys(road2AreaGroups).forEach(id=>{ road2AreaGroups[id].visible = vis.has(+id); });
+    if(road2Stranger && road2Stranger.userData.pool) road2Stranger.userData.pool.visible = vis.has(4);
   }
 
   function road2AreaNameAt(x, z){
