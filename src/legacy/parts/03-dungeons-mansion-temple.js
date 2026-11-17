@@ -242,6 +242,7 @@
   const BARTENDER_POS = new THREE.Vector3(0,0,20);
   const SMITH_POS = new THREE.Vector3(-6.5,0,12);
   let nearbySmith = false;
+  let nearbyRoad2Camp = null;   // 道(新)の野営地の焚き火のそば(支援を選ぶ。R3-4)
   // 5人目「影の旅人」。まだ仲間ではなく、酒場の片隅に座る謎めいたNPC
   // (プレイアブル化までの流れは12-progression-ui.jsのSHADOW_GUIDE_*参照)
   const SHADOW_GUIDE_POS = new THREE.Vector3(7.5,0,8.5);

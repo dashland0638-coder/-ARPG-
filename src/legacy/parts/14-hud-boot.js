@@ -1591,6 +1591,7 @@
     diceTotal = 12; allocPoints = zeroAlloc(); allocDraft = zeroAlloc();
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;   // 5人目「影の旅人」の酒場会話進行
+    state.roadArea = 0;   // 道(新)の到達(R3-4)。新しい冒険は最初から
     state.smithJoined = false; state.smithGreeted = false;      // 鍛冶士は洋館クリアまで酒場に居ない
     /* Chapter 1 は Skill 1 だけで始まる。Skill 2 は洋館の瓦礫イベントで
        閃くまでボタンごと出ない(core/chapter1-skills.js) */
@@ -1700,6 +1701,7 @@
     state.freeRanks = seed.freeRanks;
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;
+    state.roadArea = 0;   // 道(新)の到達(R3-4)。テストは最初から。通常のセーブへは書かない
     state.smithJoined = false; state.smithGreeted = false;
     state.learnedSkill2 = false;   // Chapter 1 は Skill 1 だけで始まる
     state.smithEscort = ESCORT.NONE; state.mansionNormalized = false;

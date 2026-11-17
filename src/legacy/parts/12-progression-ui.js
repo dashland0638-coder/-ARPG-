@@ -1798,10 +1798,10 @@
       state.waterwayColdTimerT = 5;
       state.waterwayColdTimerFired = false;
     } else if(key==='road2'){
-      state.pos.copy(ROAD2_ENTRY_POS);
+      state.pos.copy(road2StartPos());   // 到達したエリアの野営地から(DEC-025 E-3)。まだなら入口
       state.camYaw = Math.PI;   // 北(道の先)を向いて出る
       state.vel.set(0,0,0);
-      road2EnterCast();         // テストモードの支援AI・加入の前後(R3-N-FIX-01)。本編では何もしない
+      road2EnterCast();         // 加入の復元(到達 4 以上)・テストモードの既定の支援(R3-4 / R3-N-FIX-01)
       repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
     } else if(key==='road'){

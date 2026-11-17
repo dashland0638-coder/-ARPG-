@@ -10,7 +10,7 @@
  *   iPhone 844×390 の横向き。SHOTS を渡すと各エリアのスクリーンショットを撮る(PR に添える用)
  *
  *   歩き方: W キーを押したまま、毎フレーム「次の点の方向」へカメラの向きを合わせる(プレイヤーの
- *   移動・当たり・床の高さの判定は本物のまま)。次の点へ近づけないまま 8 秒(ゲーム内)過ぎたら「進めない」
+ *   移動・当たり・床の高さの判定は本物のまま)。次の点へ近づけないまま実時間で 8 秒(1 フレーム 0.1 秒まで。会話・演出の間は数えない)過ぎたら「進めない」
  */
 import { test, expect } from '@playwright/test';
 import { openGame, watchErrors, startTestMode } from './helpers.js';
@@ -28,6 +28,7 @@ const PROBE = `
   },
   pos(){ return {x: +state.pos.x.toFixed(2), y: +state.pos.y.toFixed(2), z: +state.pos.z.toFixed(2)}; },
   hp(){ return state.hp; },
+  joined(){ return {joined: road2Joined, cls: selectedClass, meet: (road2TalkCount || {})['R4-00'] || 0}; },
   autoCam(on){ camAutoOn = !!on; return true; },
   shot(){ return sceneShot ? {look: sceneShot.look, t: +sceneShot.t.toFixed(2)} : null; },
   vistas(){ return ROAD2_VISTAS.map(v=> ({id: v.id, look: v.look})); },
@@ -40,19 +41,32 @@ const PROBE = `
       slabs: groundSlabs.length};
   },
   /* pts を順に徒歩で辿る。戻り値: {ok, reached, areas(通ったエリアの順), stuckAt} */
-  walk(pts, maxGameSec){
+  walk(pts, maxRealSec){
     return new Promise(res=>{
       const areas = [];
-      let i = 0, best = Infinity, sinceBest = 0, total = 0, last = performance.now();
+      let i = 0, best = Infinity, sinceBest = 0, total = 0, inDialogue = 0, last = performance.now();
       camAutoOn = false;
       window.dispatchEvent(new KeyboardEvent('keydown', {code:'KeyW'}));
       const done = (r)=>{ window.dispatchEvent(new KeyboardEvent('keyup', {code:'KeyW'})); res(r); };
       const tick = ()=>{
         const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
         // ゲーム内の時間で数える(ヘッドレスは遅いので、実時間では測らない)
-        total += dt; sinceBest += dt;
+        total += dt;
         if(road2CurrentAreaId && areas[areas.length - 1] !== road2CurrentAreaId) areas.push(road2CurrentAreaId);
-        if(state.dialogueActive && typeof advanceDialogue === 'function') advanceDialogue();
+        /* 会話・演出の間は操作が止まる(仕様)。「進めない」の判定には数えない。
+           E2E のゲーム内時間は実時間の 1/4(AD-004)なので、出会いの一幕(R4-00)のような長い演出を
+           実時間で数えると、歩けているのに「進めない」になる。総時間(maxRealSec)は数え続ける */
+        if(state.dialogueActive){
+          inDialogue += dt;
+          if(typeof advanceDialogue === 'function') advanceDialogue();
+          // 一続きの会話が終わらない時は早めに失敗にする(出会いの一幕でゲーム内約 37 秒 = 実時間約 150 秒)
+          if(inDialogue > 240) return done({ok:false, reached:i, areas, dialogueStuck:true, line: document.getElementById('dialogue-text').textContent, stuckAt:[state.pos.x, state.pos.z]});
+          if(total > maxRealSec) return done({ok:false, reached:i, areas, timeout:true, dialogue:true, stuckAt:[state.pos.x, state.pos.z]});
+          requestAnimationFrame(tick);
+          return;
+        }
+        inDialogue = 0;
+        sinceBest += dt;
         const [tx, tz] = pts[i];
         const dx = tx - state.pos.x, dz = tz - state.pos.z, d = Math.hypot(dx, dz);
         if(d < 1.3){
@@ -63,7 +77,7 @@ const PROBE = `
           if(d < best - 0.3){ best = d; sinceBest = 0; }
           if(sinceBest > 8) return done({ok:false, reached:i, areas, stuckAt:[+state.pos.x.toFixed(1), +state.pos.y.toFixed(1), +state.pos.z.toFixed(1)], target:[tx, tz]});
         }
-        if(total > maxGameSec) return done({ok:false, reached:i, areas, timeout:true, stuckAt:[state.pos.x, state.pos.z]});
+        if(total > maxRealSec) return done({ok:false, reached:i, areas, timeout:true, stuckAt:[state.pos.x, state.pos.z]});
         requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
@@ -191,6 +205,11 @@ test('道（新）: 入口から道の果てまで、メインルートを徒歩
   console.log('ROAD2 walk main', JSON.stringify(r));
   expect(r.ok, `進めない所: ${JSON.stringify(r)}`).toBe(true);
   expect(r.areas).toEqual([1, 2, 3, 4, 5]);   // 境で順に切り替わる(戻らない)
+  // メインルートを歩くと、エリア 4 の野営地で出会い、加入してから先へ進む(R3-4a。出会わずに北へは抜けられない)
+  const j = await R('joined');
+  expect(j.joined).toBe(true);
+  expect(j.cls).toBe('wanderer');
+  expect(j.meet).toBe(1);
   const end = await R('pos');
   expect(end.z).toBeGreaterThan(750);
   expect(end.y).toBeCloseTo(8, 1);
