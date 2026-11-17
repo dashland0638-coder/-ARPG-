@@ -1,6 +1,6 @@
 # DEC-028 — 道（新）の「一日の旅路」と、マップの二つのカテゴリー
 
-Status: 一部 Accepted（Human の指示 2026-11-17「ROAD-VISUAL-004『一日の旅路』＋マップ設計方針の体系化」）。HD-1 は回答待ち。
+Status: 一部 Accepted（Human の指示 2026-11-17「ROAD-VISUAL-004『一日の旅路』＋マップ設計方針の体系化」）。Escalation E-1・E-2 は回答待ち。
 
 ## 決定（Human の指示）
 | ID | 決定 |
@@ -11,7 +11,7 @@ Status: 一部 Accepted（Human の指示 2026-11-17「ROAD-VISUAL-004『一日�
 | J-4 | 第一章の道（新）は、フィールドマップの魅力を少しだけ体験させる導入。リスキーモブ・依頼・サブミッションの本格化は第二章以降 |
 
 ## 上書きするもの
-- DEC-025 Agent Decision「時間帯は朝に出てエリアごとに進む」と、設計 `.ai/reports/ROAD-VISUAL-003-design.md` §2 の各エリアの時間（朝・昼・午後・夕暮れ・夕暮れ→薄明）、`ROAD2_AREAS[].time` → J-1 の並びに置き換える（Agent Decision の上書き。Human の指示による）
+- DEC-025 Agent Decision「時間帯は朝に出てエリアごとに進む」と、設計 `.ai/reports/ROAD-VISUAL-003-design.md` §2 の各エリアの時間（朝・昼・午後・夕暮れ・夕暮れ→薄明）、`ROAD2_AREAS[].time` → Human が明示した J-1 の表で置き換える（Superseded by DEC-028 J-1）
 
 ## 変えないもの
 - DEC-025 E-1〜E-6、DEC-026 HD-2 = B・HD-3 = A、DEC-027
@@ -20,7 +20,9 @@ Status: 一部 Accepted（Human の指示 2026-11-17「ROAD-VISUAL-004『一日�
 - 時間帯は保存しない（DEC-025 E-3 の保存は到達したエリアだけ）
 
 ## 回答待ち（Escalation）
-- HD-1: 最終戦（高原の大角）の時間帯。推奨 A = 朝日の低い日差し、段階 3 を「朝日」（設計 `.ai/reports/ROAD-VISUAL-004-design.md` §9）
+- E-1: 最終戦（高原の大角）の時間帯。推奨 A = 朝日の低い日差し、段階 3 を「朝日」
+- E-2: 光の強さ（太陽・半球光・リム）を時間帯で動かすか（K-11 は色と向きだけ）。推奨 A = 既存のマップの値の範囲で、道（新）の中だけ。露出は固定
+- どちらも設計 `.ai/reports/ROAD-VISUAL-004-design.md` §9
 
 ## Related Tasks
 - `.ai/tasks/ROAD-VISUAL-004.md`
