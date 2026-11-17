@@ -1,7 +1,7 @@
 # ROAD-VISUAL-004 — 一日の旅路（タスク計画）
 
-Status: PLANNED（設計 `.ai/reports/ROAD-VISUAL-004-design.md`。2026-11-17）
-決定: `.ai/decisions/DEC-028-road-one-day-journey.md`（時間帯の並びは Human の指示。Escalation E-1・E-2 は回答待ち）
+Status: PLANNED（Escalation は回答済み。実装は ROAD-VISUAL-003 の順番を守り、**PR #131 の実機確認とマージの前には始めない**。設計 `.ai/reports/ROAD-VISUAL-004-design.md`。2026-11-17）
+決定: `.ai/decisions/DEC-028-road-one-day-journey.md`（時間帯の並びは Human の指示。Escalation E-1 = A・E-2 = A は Human Decision 2026-11-17）
 方針: `docs/MAP_DESIGN_PHILOSOPHY.md`（道（新）はフィールドマップの導入）
 
 - ブランチ: 段ごとに新しい作業ブランチ、積み上げ（ROAD-VISUAL-003 と同じ。Human 2026-11-14）。main へは Human の明示の承認なしにマージしない
@@ -81,8 +81,8 @@ Status: PLANNED（設計 `.ai/reports/ROAD-VISUAL-004-design.md`。2026-11-17）
 
 | ID | 事項 | 推奨 | 状態 |
 | --- | --- | --- | --- |
-| E-1 | 最終戦（高原の大角）の時間帯（承認済みの設計 §7 の「夕暮れ」「夕日」） | A: 朝日の低い日差し。段階 3「朝日」 | WAITING_APPROVAL（T5・R3-5 の前に要る） |
-| E-2 | 光の強さを時間帯で動かすか（K-11 の「色と向きだけ」） | A: 既存のマップの値の範囲で、道（新）の中だけ動かす。露出は固定 | WAITING_APPROVAL（T1 の前に要る） |
+| E-1 | 最終戦（高原の大角）の時間帯（承認済みの設計 §7 の「夕暮れ」「夕日」） | A: 朝日の低い日差し。段階 3「朝日」 | **APPROVED**（Human 2026-11-17「E-1: A で OK」）。時系列は設計 §3-2 |
+| E-2 | 光の強さを時間帯で動かすか（K-11 の「色と向きだけ」） | A: 既存のマップの値の範囲で、道（新）の中だけ動かす。露出は固定 | **APPROVED**（Human 2026-11-17「E-2: A で OK」。K-11 の明示的な例外、DEC-028） |
 
 ## Agent Decisions
 - 時間帯の管理は `src/core/dusk-light.js` の作法を広げる（重ねて作らない）
