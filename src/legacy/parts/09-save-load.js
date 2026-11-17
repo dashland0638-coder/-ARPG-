@@ -82,6 +82,9 @@
          (scenarioClears)から毎回導かれる ―― ここに保存されるのは
          その結果であって、進行そのものではない */
       guestClassKey:state.guestClassKey || null,
+      /* 道(新)の到達したエリアの番号(ROAD-VISUAL-003 R3-4、DEC-025 E-3)。純追加の項目で、
+         無い旧セーブは 0(最初から)と読む。加入したかどうかはここから導く(core/road-party.js) */
+      roadArea:sanitizeRoadArea(state.roadArea),
     };
   }
 
@@ -212,6 +215,7 @@
     }
     state.shadowGuideMet = !!data.shadowGuideMet;
     state.shadowGuideTalks = data.shadowGuideTalks || 0;
+    state.roadArea = sanitizeRoadArea(data.roadArea);   // 道(新)の到達(R3-4)。無い旧セーブは 0
     state.smithJoined = !!data.smithJoined;       // 洋館クリアで鍛冶士が酒場へ加入
     state.smithGreeted = !!data.smithGreeted;     // 加入直後の一度きりの挨拶を済ませたか
     state.learnedSkill2 = loadedSkill2Flag(data);  // 旧セーブ(キー無し)は習得済み扱い

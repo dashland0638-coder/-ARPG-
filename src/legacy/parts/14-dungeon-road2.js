@@ -43,7 +43,8 @@
   let road2SeenVistas = new Set();  // この出撃で見せた見晴らし(DEC-026 HD-2 = B)
   /* 盗賊の古い羅針盤(R3-N、DEC-026 HD-3 = A)。この出撃の間だけ覚える(セーブしない) */
   let road2CompassOn = false;       // 羅針盤を出した(N-1 の会話の後。旧成長では最初から)
-  let road2Joined = false;          // 影の旅人が加入した(R3-4 の出会いで立てる。今は立たない)
+  const ROAD_SWORD = '剣士', ROAD_MAGE = '魔法使い';   // 出会いの場面の同行者の話者名(R3-4)
+  let road2Joined = false;          // 影の旅人が加入した(出撃のたびに、到達したエリアと主人公から決め直す。R3-4)
   let road2CompassPrev = null;      // 針の前のフレームの状態(core/road-compass.js compassStep)
   let road2CompassIdleT = 0;        // 止まっている時間(薄くする)
   let road2DestIdx = 0;             // 羅針盤の次の目的地の番号(ROAD2_DESTINATIONS。この出撃の間だけ。R3-N-FIX-02)
@@ -176,6 +177,11 @@
     road2CompassIdleT = 0;
     road2DestIdx = 0;
     road2TalkCount = {};
+    road2MeetingActive = false;
+    road2JoinCount = 0;
+    road2CompanionFigs = [];
+    road2CompanionArea = 0;
+    nearbyRoad2Camp = null;
 
     const M = road2Mats();
 
@@ -820,87 +826,230 @@
     ]);
   }
 
-  /* ==== R3-N-FIX-01: テストモードの顔ぶれと、出会い・加入(.ai/reports/ROAD-VISUAL-003-R3N-FIX-plan.md §A) ==== */
+  /* ==== R3-4: 出会い・正式加入・一行・野営地の支援・到達の保存(.ai/reports/ROAD-VISUAL-003-R3-4-plan.md) ====
+     加入は road2Join() の 1 か所だけ(一幕・テストの開始地点「加入後」・出撃し直した時の復元が同じ関数を通る)。
+     到達したエリア(state.roadArea)だけを覚えてセーブする(DEC-025 E-3)。加入したかどうかはそこから導く */
   let road2Stranger = null;   // エリア 4 の入口の野営地に座っている、加入前の人物(「？？？」)
-  const ROAD2_STRANGER_POS = {x:1088, z:466};   // 野営地(1094,458)の焚き火の北西。本道の上(出会いの帯の中)
+  const ROAD2_STRANGER_POS = {x:1088, z:466};   // 野営地(1094,458)の焚き火の北西。本道の上
+  let road2MeetingActive = false;   // 出会いの一幕の最中(野営地の支援の選択を出さない)
+  let road2JoinCount = 0;           // 試験用: 正式な加入処理が走った回数(1 出撃で 1 回だけのはず)
+  let road2CompanionFigs = [];      // 同行者(戦闘に出ない仲間)の姿。今いるエリアの野営地の焚き火のそばに立つ
+  let road2CompanionArea = 0;
+  /* 焚き火のまわりの立ち位置(焚き火からのずれ)。同行者は最大 3 人 */
+  const ROAD2_CAMP_SPOTS = [[-2.4, 1.2], [2.4, 1.4], [0.2, -2.6]];
 
   /* エリア 4 の野営地に加入前の人物を座らせ、出会いの帯(R4-00)を登録する。
-     姿と遅れる影は旧道と同じ(buildRoadTravelerFigure / trackPreJoinShadow)。名前は出さない(DEC-004 N-4) */
+     姿と遅れる影は旧道と同じ(buildRoadTravelerFigure / trackPreJoinShadow)。名前は出さない(DEC-004 N-4)。
+     帯はエリア 4 の幅いっぱい ―― 北へ歩けば必ず通る(出会わずに加入の先へは行けない) */
   function road2SetupMeeting(){
     road2Stranger = buildRoadTravelerFigure(true);
     const y = road2GroundAt(ROAD2_STRANGER_POS.x, ROAD2_STRANGER_POS.z) ?? 1;
     road2Stranger.position.set(ROAD2_STRANGER_POS.x, y, ROAD2_STRANGER_POS.z);
     road2Stranger.rotation.y = Math.PI;   // 来た道(南)を向いて座っている
-    road2AreaGroups[4].add(road2Stranger);
+    road2AreaGroups[ROAD_JOIN_AREA].add(road2Stranger);
     trackPreJoinShadow(road2Stranger);   // 影だまりはシーンへ直に置かれる。エリア 4 を描かない間は一緒に隠す(road2UpdateAreaVisibility)
     const band = ROAD2_BANDS.find(b=> b.id === 'R4-00');
-    const zm = (band.z0 + band.z1)/2, mx = compassMainXAt(zm, 4) ?? ROAD2_CX;
-    registerProximityEvent(new THREE.Vector3(mx, 0, zm), 1, '', null, {
-      area: {x0:Math.min(mx - 10, ROAD2_STRANGER_POS.x - 6), x1:Math.max(mx + 10, ROAD2_STRANGER_POS.x + 6), z0:band.z0, z1:band.z1}, marker:false,   // 人物のそばへ歩けば必ず始まる
+    const a4 = ROAD2_AREAS.find(a=> a.id === ROAD_JOIN_AREA);
+    registerProximityEvent(new THREE.Vector3(ROAD2_STRANGER_POS.x, 0, (band.z0 + band.z1)/2), 1, '', null, {
+      area: {x0:a4.x0, x1:a4.x1, z0:band.z0, z1:band.z1}, marker:false,
       condition: ()=> !road2Joined && !!road2Stranger,
       onEnter: ()=> road2PlayMeeting(),
     });
   }
+  function road2RemoveStranger(){
+    if(!road2Stranger) return;
+    if(road2Stranger.parent) road2Stranger.parent.remove(road2Stranger);   // 影だまりは updatePreJoinFigures が片づける
+    road2Stranger = null;
+  }
+  /* 人物が立ち上がり、一歩こちらへ。足元の影だまりは少し遅れてついてくる(言葉では説明しない) */
+  function road2StrangerStands(){
+    if(!road2Stranger) return;
+    const from = road2Stranger.position.clone();
+    road2RemoveStranger();
+    const fig = buildRoadTravelerFigure(false);
+    const dx = state.pos.x - from.x, dz = state.pos.z - from.z, d = Math.hypot(dx, dz) || 1;
+    fig.rotation.y = Math.atan2(dx, dz);
+    road2AreaGroups[ROAD_JOIN_AREA].add(fig);
+    road2Stranger = fig;
+    trackPreJoinShadow(fig, {from, to: new THREE.Vector3(from.x + dx/d * 1.2, from.y, from.z + dz/d * 1.2), speed: 1.4});
+  }
 
-  /* 出会いの一幕。台詞は旧道の承認済みの出会い(14-dungeon-road.js playRoadMeeting)のうち、戦闘へ続く行を除いたもの
-     + 加入の決め手の 2 行(新しい台詞): 剣士「……一緒に来るか」/ ？？？「……はい」。設計 §5.2 R4-00「剣が『連れて行く』と決める」による
-     (Agent Decision、ROAD-VISUAL-003 R3-N-FIX)。R3-4 で出会いの中身を足す時に見直す */
+  /* 出会いの一幕(計画 §4)。旧道の承認済みの出会いを土台に、伏線(焚き火)・立ち上がる人物・
+     魔法使いの一言・剣士の決断・加入後の一言を足した。正体・怪異・羅針盤の由来は語らない */
   function road2PlayMeeting(){
-    if(road2Joined) return;
+    if(road2Joined || road2MeetingActive) return;
+    road2MeetingActive = true;
     road2TalkCount['R4-00'] = (road2TalkCount['R4-00'] || 0) + 1;
+    const main = !legacyGrowth();   // 第一章の台詞は本編だけ(DEC-025 Agent Decision)
+    const S = ROAD2_STRANGER_POS;
     const steps = [
-      {t:0.4, run:()=> cutsceneTurnTo(Math.atan2(ROAD2_STRANGER_POS.x - state.pos.x, ROAD2_STRANGER_POS.z - state.pos.z), 0.6)},
-      {t:0.6, run:()=> cutsceneLine('「……こんにちは」', ROAD_STRANGER)},
+      {t:0.3, run:()=> cutsceneTurnTo(Math.atan2(S.x - state.pos.x, S.z - state.pos.z), 0.6)},
+      {t:0.7, run:()=> cutsceneLine('「……焚き火が、もう点いています」', ROAD_ARCHER)},
+      {t:2.0, run:()=> cutsceneLine('「……こんにちは」', ROAD_STRANGER)},
       {t:2.0, run:()=> cutsceneLine('「こんにちは、じゃない。朝から探してたんだぞ」', ROAD_THIEF)},
       {t:2.2, run:()=> cutsceneLine('「そうですか」', ROAD_STRANGER)},
-    ].concat(legacyGrowth() ? [] : [
+    ].concat(main ? [
       {t:1.8, run:()=> cutsceneLine('「朝の鐘で出てったんだろ」', ROAD_THIEF)},
       {t:1.8, run:()=> cutsceneLine('「……鳴ったので」', ROAD_STRANGER)},
-    ]).concat([
+    ] : []).concat([
       {t:1.8, run:()=> cutsceneLine('「ここで、何を」', ROAD_ARCHER)},
       {t:1.8, run:()=> cutsceneLine('「待っていました。……たぶん」', ROAD_STRANGER)},
       {t:2.2, run:()=> cutsceneLine('「誰を」', ROAD_THIEF)},
       {t:1.6, run:()=> cutsceneLine('「分かりません。でも、ここで待つ気がしたので」', ROAD_STRANGER)},
-      {t:2.2, run:()=> cutsceneLine('「……一緒に来るか」', '剣士')},
-      {t:1.6, run:()=> cutsceneLine('「……はい」', ROAD_STRANGER)},
+      {t:2.4, run:()=>{ cutsceneHideLine(); road2StrangerStands(); }},
+    ]).concat(main ? [
+      {t:1.6, run:()=> cutsceneLine('「……見てから決めても、遅くはありません」', ROAD_MAGE)},
+    ] : []).concat([
+      {t: main ? 2.2 : 1.6, run:()=> cutsceneLine('「……どうする」', ROAD_THIEF)},
+      {t:1.8, run:()=> cutsceneLine('「……一緒に来るか」', ROAD_SWORD)},
+      {t:2.2, run:()=> cutsceneLine('「……はい」', ROAD_STRANGER)},
       {t:1.8, run:()=>{ cutsceneHideLine(); fadeTransition(()=> road2Join()); }},
-      {t:0.9, run:()=>{ state.dialogueActive = false; clearMovementInput(false); }},
+      // 加入を表す一言: 新しい姿で焚き火の前に立つ。戦闘は二人、他は同行(E-2)
+      {t:1.2, run:()=> cutsceneLine('「前は二人で歩け。後ろは、俺たちが見る」', ROAD_SWORD)},
+      {t:2.4, run:()=> cutsceneLine('「……はい」', ROAD_TRAVELER)},
+      {t:1.8, run:()=>{ cutsceneHideLine(); state.dialogueActive = false; clearMovementInput(false); road2MeetingActive = false; }},
     ]);
     playCutscene(steps);
   }
 
-  /* 加入そのもの: 旧道と同じ正規の処理(meetChapter1Protagonist、段 5 = 影の旅人が主人公・盗賊が支援)。
-     加入前の姿を片づけ、「影の旅人」の名前が初めて出る。進行(scenarioClears)とセーブには触れない */
-  function road2Join(){
-    if(road2Joined) return;
+  /* 正式な加入(唯一の入口)。旧道と同じ正規の処理(meetChapter1Protagonist、段 5 = 影の旅人が主人公・盗賊が支援)。
+     加入前の姿を片づけ、「影の旅人」の名前が初めて出る。到達 4 を記録する。進行(scenarioClears)には触れない。
+     opts.quiet … 一幕なしの加入(テストの開始地点「加入後」・出撃し直した時の復元)。ログを出さず、位置を動かさない */
+  function road2Join(opts){
+    if(road2Joined) return false;
+    opts = opts || {};
     road2Joined = true;
-    if(road2Stranger){ if(road2Stranger.parent) road2Stranger.parent.remove(road2Stranger); road2Stranger = null; }
-    meetChapter1Protagonist(CHAPTER1_ORDER.indexOf('road') + 1);
+    road2JoinCount++;
+    const at = road2Stranger ? road2Stranger.position.clone() : null;
+    road2RemoveStranger();
+    if(selectedClass !== ROAD_JOINER) meetChapter1Protagonist(CHAPTER1_ORDER.indexOf('road') + 1);
+    else if(!state.guestClassKey){ state.guestClassKey = CHAPTER_CAST[CHAPTER1_ORDER.indexOf('road') + 1].guestClassKey; syncAlliesToState(); }
+    state.roadArea = recordRoadArea(state.roadArea, ROAD_JOIN_AREA, true);
+    if(!opts.quiet && at){
+      state.pos.set(at.x, at.y, at.z);   // 人物の立っていた所に、新しい姿で立つ
+      state.facing = Math.PI;            // 焚き火(南)を向く
+    }
     state.vel.set(0, 0, 0);
     repositionAlliesToPlayer();
     camera.position.copy(state.pos).add(getCamOffset());
-    spawnLog(`${state.classDef.icon} ${ROAD_TRAVELER}`);
+    road2RefreshCompanions();
+    if(!opts.quiet) spawnLog(`${state.classDef.icon} ${ROAD_TRAVELER}`);
+    return true;
   }
 
-  /* テストモードで道(新)に入った時の顔ぶれ(R3-N-FIX-01)。操作キャラクターはテストの選択のまま。
-     同行ゲストを選んでいなければ、道の段(時計塔の後 = 段 4)の正規の支援を付ける(主人公に支援と同じ職を選んだ時は、その段の主人公)。
-     影の旅人で入ったら、加入の後として扱う(加入前の人物は出さない)。本編の進行(scenarioClears)は変えない */
+  /* 出撃した時の顔ぶれ(launchScenarioNow から)。
+     - 到達したエリアが 4 以上、または主人公が影の旅人なら、加入の後(一幕なしで road2Join。二重には走らない)
+     - テストモードで同行ゲストを選んでいなければ、道の段の正規の支援(R3-N-FIX-01)
+     本編の進行(scenarioClears)とセーブの他の項目は変えない */
   function road2EnterCast(){
-    if(!state.testMode) return;
-    if(selectedClass === 'wanderer'){
-      road2Joined = true;
-      if(road2Stranger){ if(road2Stranger.parent) road2Stranger.parent.remove(road2Stranger); road2Stranger = null; }
-      if(!state.guestClassKey){ state.guestClassKey = CHAPTER_CAST[CHAPTER1_ORDER.indexOf('road') + 1].guestClassKey; syncAlliesToState(); }   // 段 5 の支援(盗賊)
-      return;
-    }
-    if(!state.guestClassKey){
+    if(state.testMode && !state.guestClassKey && selectedClass !== ROAD_JOINER){
       const stage = CHAPTER_CAST[CHAPTER1_ORDER.indexOf('road')];   // 段 4: 盗賊 + 弓師
       state.guestClassKey = selectedClass === stage.guestClassKey ? stage.classKey : stage.guestClassKey;
       syncAlliesToState();
     }
+    if(roadJoinedFromArea(state.roadArea) || selectedClass === ROAD_JOINER) road2Join({quiet:true});
+    road2RefreshCompanions();
   }
-  /* テストモードの開始地点「加入後」: 着いた所で一幕なしに正規の加入処理を行う */
-  function road2ForceJoin(){ road2Join(); }
+  /* 出撃の位置: 到達したエリアの野営地から(E-3)。まだなら入口 */
+  function road2StartPos(){
+    const area = roadStartCamp(state.roadArea);
+    const c = area ? ROAD2_CAMPS.find(k=> k.area === area) : null;
+    if(!c) return ROAD2_ENTRY_POS.clone();
+    return new THREE.Vector3(c.x + 3, road2GroundAt(c.x + 3, c.z - 3) ?? c.y, c.z - 3);   // 焚き火の手前(南東)
+  }
+  /* テストモードの開始地点「加入後」: 着いた所で一幕なしに正規の加入処理を行う(同じ road2Join) */
+  function road2ForceJoin(){ road2Join({quiet:true}); }
+
+  /* 到達の記録: 野営地に着いたら、そのエリアを覚える(エリア 4 は加入の時だけ。recordRoadArea が止める) */
+  function road2RecordReach(){
+    const c = ROAD2_CAMPS.find(k=> k.area === road2CurrentAreaId);
+    if(!c || Math.hypot(state.pos.x - c.x, state.pos.z - c.z) > 8) return;
+    const next = recordRoadArea(state.roadArea, c.area, road2Joined);
+    if(next !== state.roadArea) state.roadArea = next;
+  }
+
+  /* 同行者(戦闘に出ない仲間)を、今いるエリアの野営地の焚き火のそばに立たせる(E-2「他の仲間は会話の場面に立つ」)。
+     姿は旧道と同じ buildCastFigure。当たり・AI は持たない(戦闘は 2 人のまま) */
+  function road2RefreshCompanions(){
+    road2CompanionFigs.forEach(f=>{ if(f.parent) f.parent.remove(f); });
+    road2CompanionFigs = [];
+    const camp = ROAD2_CAMPS.find(k=> k.area === road2CompanionArea);
+    if(!camp || !road2AreaGroups[camp.area]) return;
+    roadCompanions(selectedClass, state.guestClassKey, road2Joined).forEach((k, i)=>{
+      const off = ROAD2_CAMP_SPOTS[i];
+      if(!off || !CLASSES[k]) return;
+      const fig = buildCastFigure(k);
+      const x = camp.x + off[0], z = camp.z + off[1];
+      fig.position.set(x, road2GroundAt(x, z) ?? camp.y, z);
+      fig.rotation.y = Math.atan2(camp.x - x, camp.z - z);   // 焚き火を向く
+      fig.userData.road2Companion = k;
+      road2AreaGroups[camp.area].add(fig);
+      road2CompanionFigs.push(fig);
+    });
+  }
+
+  /* 野営地の支援の選択(E-2)。焚き火のそば・戦闘と会話の外だけ。回復はしない(DEC-021) */
+  function road2UpdateCampProximity(){
+    let near = null;
+    if(!state.dialogueActive && !state.paused && !road2MeetingActive && combatIntensity < 0.35){
+      const c = ROAD2_CAMPS.find(k=> k.area === road2CurrentAreaId);
+      if(c && Math.hypot(state.pos.x - c.x, state.pos.z - c.z) < 3.5) near = c;
+    }
+    if(near !== nearbyRoad2Camp){ nearbyRoad2Camp = near; updateInteractPrompt(); }
+  }
+  let road2SupportEl = null;
+  function road2SupportElement(){
+    if(road2SupportEl) return road2SupportEl;
+    const el = document.createElement('div');
+    el.id = 'road2-support';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', '支援を選ぶ');
+    document.body.appendChild(el);
+    if(!document.getElementById('road2-support-style')){
+      const st = document.createElement('style');
+      st.id = 'road2-support-style';
+      st.textContent = '#road2-support{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);z-index:60;}'
+        + '#road2-support.active{display:flex;}'
+        + '#road2-support .r2s-panel{background:rgba(28,22,16,0.95);border:2px solid rgba(190,160,110,0.75);border-radius:10px;padding:12px 14px;min-width:240px;max-width:calc(100vw - 32px);color:#efe2c4;font-size:15px;}'
+        + '#road2-support .r2s-title{margin:0 0 8px;font-size:15px;text-align:center;}'
+        + '#road2-support .r2s-list{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}'
+        + '#road2-support button{min-height:44px;min-width:96px;padding:6px 10px;border-radius:8px;border:1px solid rgba(190,160,110,0.6);background:rgba(70,56,38,0.9);color:#efe2c4;font-size:15px;}'
+        + '#road2-support button.now{border-color:#e8c878;background:rgba(110,88,48,0.95);}'
+        + '#road2-support .r2s-close{display:block;margin:10px auto 0;}';
+      document.head.appendChild(st);
+    }
+    road2SupportEl = el;
+    return el;
+  }
+  function road2OpenSupportPicker(){
+    const el = road2SupportElement();
+    const opts = roadSupportOptions(selectedClass, road2Joined).filter(k=> CLASSES[k]);
+    el.innerHTML = '<div class="r2s-panel"><p class="r2s-title">🔥 支援を選ぶ</p><div class="r2s-list"></div><button class="r2s-close" type="button">やめる</button></div>';
+    const list = el.querySelector('.r2s-list');
+    opts.forEach(k=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.road2Support = k;
+      b.textContent = `${CLASSES[k].icon} ${CLASSES[k].name}`;
+      if(k === state.guestClassKey) b.classList.add('now');
+      b.addEventListener('click', ()=> road2ChooseSupport(k));
+      list.appendChild(b);
+    });
+    el.querySelector('.r2s-close').addEventListener('click', ()=> setOverlay('none'));
+    setOverlay('road2support');
+  }
+  /* 支援を替える。替わる前の支援は同行者になって焚き火のそばに立つ。戦闘は 2 人のまま */
+  function road2ChooseSupport(key){
+    if(roadSupportOptions(selectedClass, road2Joined).indexOf(key) < 0) return false;
+    if(key !== state.guestClassKey){
+      state.guestClassKey = key;
+      syncAlliesToState();
+      road2RefreshCompanions();
+      spawnLog(`${CLASSES[key].icon} ${CLASSES[key].name}`, '#e8d8a8');
+    }
+    setOverlay('none');
+    return true;
+  }
 
   /* 羅針盤の表示(ミニマップの左。文字は出さない)。HTML の要素 1 つ(WebGL の描画は増えない) */
   let road2CompassEl = null, road2NeedleEl = null, road2CompassWidthT = 0;
@@ -977,12 +1126,16 @@
     M.water.color.setHSL(0.56, 0.36, 0.47 + Math.sin(road2Time * 1.3) * 0.02);
     if(!state.dialogueActive) road2CheckVistas();
     road2UpdateCompass(dt);
+    road2RecordReach();
+    road2UpdateCampProximity();
     const a = road2AreaAt(state.pos.x, state.pos.z);
     const id = a ? a.id : road2CurrentAreaId;
     if(id !== road2CurrentAreaId || !road2VisInit){
       road2VisInit = true;
       road2CurrentAreaId = id;
       road2UpdateAreaVisibility(id);
+      road2CompanionArea = id;
+      road2RefreshCompanions();
       if(a && !road2SeenAreas.has(a.id)){
         road2SeenAreas.add(a.id);
         spawnLog(`🧭 ${a.name}`, '#e8d8a8');

@@ -5,7 +5,7 @@
  *   ・針は次の目的地(各エリアの入口の野営地・石環。R3-N-FIX-02)を指し、着くと次へ。カメラには遅れない。会話の間は隠れる
  *   ・目的地を全部終えたら(石環の後)、ゆっくり回る
  *   ・会話は一度だけ(同じ出撃で二度出ない)。出撃し直すと、また最初から(セーブしない)
- *   ・影の旅人の会話(N-3・N-4)は、加入した後だけ(加入は R3-4。今は試験の口で立てる)
+ *   ・影の旅人の会話(N-3・N-4)は、加入した後だけ(加入は R3-4 の出会い。一部の試験は試験の口で立てる)
  *   iPhone 844×390 の横向き
  */
 import { test, expect } from '@playwright/test';
@@ -223,8 +223,13 @@ test('顔ぶれ: テストの選択で操作し、正規の支援がつく。野
   const lines = await readTalk(page, R);
   await w;
   console.log('R4-00', JSON.stringify(lines));
-  expect(lines[0]).toBe('？？？|「……こんにちは」');
-  expect(lines.join('\n')).not.toContain('影の旅人|');   // 加入前は名前を出さない
+  // 出会いの一幕(R3-4): 焚き火の伏線 → 「？？？」 → 剣士が決める → 加入。加入の瞬間まで名前を出さない
+  expect(lines[0]).toBe('弓師|「……焚き火が、もう点いています」');
+  expect(lines[1]).toBe('？？？|「……こんにちは」');
+  const joinAt = lines.indexOf('剣士|「前は二人で歩け。後ろは、俺たちが見る」');
+  expect(joinAt).toBeGreaterThan(0);
+  expect(lines.slice(0, joinAt).join('\n')).not.toContain('影の旅人|');   // 加入前は名前を出さない
+  expect(lines[joinAt - 2]).toBe('剣士|「……一緒に来るか」');
   await expect.poll(async () => (await R('cast')).joined, { timeout: 30_000 }).toBe(true);
   c = await R('cast');
   expect(c.cls).toBe('wanderer');                // 加入の後は正規の顔ぶれ: 影の旅人が主人公

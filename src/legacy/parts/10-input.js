@@ -203,6 +203,9 @@
     document.getElementById('scenario-overlay').classList.remove('active');
     state.activeOverlay = name;
     state.paused = (name !== 'none');
+    // 道(新)の野営地の支援の選択(R3-4)。他の画面へ切り替わる時は必ず閉じる
+    const road2Support = document.getElementById('road2-support');
+    if(road2Support) road2Support.classList.toggle('active', name === 'road2support');
     if(name==='menu'){
       setMenuTab('adventure');   // UI-002-F: 開いた時は常に「冒険」(キャラクター情報・セーブ等)
       document.getElementById('menu-overlay').classList.add('active');
