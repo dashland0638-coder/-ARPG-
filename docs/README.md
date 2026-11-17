@@ -33,6 +33,9 @@ Chapter 1 の実機通しプレイのチェックリストと Content Ready の�
 ### [DUNGEON_RENDERING.md](./DUNGEON_RENDERING.md)
 全ダンジョン共通の描画・カメラ方針（外側は黒・未到達の部屋を先に見せない・今いる空間を描く・見せてから話す）と、描画欠落の確認項目。
 
+### [MAP_DESIGN_PHILOSOPHY.md](./MAP_DESIGN_PHILOSOPHY.md)
+マップの二つのカテゴリー（閉じたマップ＝ストーリー体験型／フィールドマップ＝移動・探索体験型）の設計方針。第二章以降の基本方針（ROAD-VISUAL-004）。
+
 ### [ARCHITECTURE.md](./ARCHITECTURE.md)
 ゲーム実装上のアーキテクチャ（AIが実装変更時に守るルール）。
 
