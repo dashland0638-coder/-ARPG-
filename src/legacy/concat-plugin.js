@@ -173,6 +173,7 @@ import {
   ROAD2_WATER, ROAD2_OUTER_Y,
 } from '../core/road-map.js';
 import { compassStep, roadDirectionAt, compassMainXAt, compassNextDestination, compassDestination, ROAD2_ANOMALIES } from '../core/road-compass.js';
+import { GUARDIAN_FOCUS_SEC, canFocusAlly, stepGuardianFocus, guardianFacingTarget, guardianMayWake } from '../core/road-guardian.js';
 import { ROAD_JOINER, ROAD_JOIN_AREA, roadSupportOptions, roadCompanions, recordRoadArea, roadJoinedFromArea, roadStartCamp, sanitizeRoadArea } from '../core/road-party.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';

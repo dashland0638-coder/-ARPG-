@@ -5697,7 +5697,8 @@
     opts = opts || {};
     if(!en || en.dead) return;
     // 支援の攻撃で向きを変える敵(道(新)の古き守り手、ROAD-VISUAL-003 R3-4b)。印(en.turnToAlly = 秒)を持つ敵だけに効く
-    if(isAlly && en.turnToAlly && !opts.isDot) en.allyFocusT = en.turnToAlly;
+    // 向いている間は延ばさない・向き直った後の待ち(en.allyFocusCD)の間は向かない(core/road-guardian.js canFocusAlly)
+    if(isAlly && en.turnToAlly && !opts.isDot && canFocusAlly(en.allyFocusT, en.allyFocusCD)) en.allyFocusT = en.turnToAlly;
     /* 水鏡の影の分身(WORK 3)。当てても damage は入らず、手応えなく散る
        ―― 「全部壊せば勝ち」ではなく「どれが本体かを見る」戦いにするため。
        散らした事実そのものがプレイヤーの得た情報なので、当たり前に消す

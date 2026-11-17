@@ -39,10 +39,12 @@ const PROBE = `
       };
       requestAnimationFrame(tick);
     });
-  },  talks(){ return Object.assign({}, road2TalkCount); },
+  },
+  talks(){ return Object.assign({}, road2TalkCount); },
   waiting(){ return cutsceneWaitingForInput() ? document.getElementById('dialogue-name').textContent + '|' + document.getElementById('dialogue-text').textContent : null; },
   running(){ return cutsceneRunning(); },
   dialogue(){ return state.dialogueActive; },
+  lore(){ return {name: document.getElementById('dialogue-name').textContent, text: document.getElementById('dialogue-text').textContent}; },
   fight(id){
     const list = enemies.filter(en=> en && en.road2Fight === id);
     return {state: road2Fights[id] || null, alive: list.filter(en=> !en.dead).map(en=> ({kind: en.road2Kind, wave: en.road2Wave, strong: !!en.strongMob, guardian: !!en.guardian, room: en.roomTag})),
@@ -52,7 +54,7 @@ const PROBE = `
   guardian(){
     const en = road2GuardianEn;
     return {state: road2GuardianState, statue: !!road2GuardianStatue, en: !!en, dead: !!(en && en.dead), name: en && en.midbossName,
-      yaw: en ? en.group.rotation.y : null, focus: en ? (en.allyFocusT || 0) : 0, charge: en && en.chargeState,
+      yaw: en ? en.group.rotation.y : null, focus: en ? (en.allyFocusT || 0) : 0, focusCD: en ? (en.allyFocusCD || 0) : 0, charge: en && en.chargeState,
       hp: en ? en.hp : null, hpMax: en ? en.hpMax : null, x: en ? en.group.position.x : null, z: en ? en.group.position.z : null,
       ally: guestCompanion && guestCompanion.group ? [guestCompanion.group.position.x, guestCompanion.group.position.z] : null};
   },
@@ -66,7 +68,6 @@ const PROBE = `
   allyHit(){ const en = road2GuardianEn; dealDamageToEnemy(en, 1, true); return en.allyFocusT || 0; },
   placeAlly(dx, dz){ const en = road2GuardianEn; if(!guestCompanion) return false;
     guestCompanion.group.position.set(en.group.position.x + dx, en.group.position.y, en.group.position.z + dz); guestCompanion.pos.copy(guestCompanion.group.position); return true; },
-  freezeAlly(on){ window.__freeze = !!on; return true; },
   resultShown(){ const el = document.getElementById('clear-overlay'); return !!el && el.classList.contains('active'); },
   cast(){ return {cls: selectedClass, guest: state.guestClassKey, joined: road2Joined, clears: JSON.stringify(state.scenarioClears), roadArea: state.roadArea, hired: !!companion}; },
   prompt(){ const el = document.getElementById('interact-btn'); return el && el.classList.contains('show') ? el.textContent : null; },
@@ -178,6 +179,15 @@ test('古き守り手: 石像が動き出す。正面が硬い。支援の攻撃
     return Math.abs(((s.yaw - want) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
   }, { timeout: 10_000 }).toBeLessThan(0.6);
   expect(['idle', 'cooldown']).toContain((await R('guardian')).charge);
+  // 向いている間に当たっても延ばさない
+  const f1 = (await R('guardian')).focus;
+  expect(await R('allyHit')).toBeLessThanOrEqual(f1 + 0.05);
+  // 向き直った後: 待ち(focusCD)の間は支援に当たっても向かない。プレイヤーが正面 6 以内なら、また突進の溜めに入る
+  await expect.poll(async () => (await R('guardian')).focus, { timeout: 20_000 }).toBe(0);
+  expect((await R('guardian')).focusCD).toBeGreaterThan(0);
+  expect(await R('allyHit')).toBe(0);
+  await expect.poll(async () => { const s = await R('guardian'); await R('go', s.x + Math.sin(s.yaw) * 3.5, s.z + Math.cos(s.yaw) * 3.5); return (await R('guardian')).charge; },
+    { timeout: 20_000, intervals: [300] }).toMatch(/telegraph|dash/);
   // 倒す: R4-05、結果画面は出ない、進行・顔ぶれは変わらない
   await R('kill', 'F4-B');
   const after = await readTalk(page, R);
@@ -230,8 +240,21 @@ test('遺構の会話と怪異: 鐘(2 回目で R4-02)・影の模様を調べ�
   for (let k = 0; k < 4 && await R('dialogue') && !(await R('running')); k++) { await page.click('#dialogue-overlay'); await page.waitForTimeout(300); }
   const r403 = await readTalk(page, R);
   expect(r403).toEqual(['弓師|「……人の影、ですね」', '盗賊|「彫ったのか、焼けたのか」', '魔法使い|「どちらにも、見えません」']);
-  // R4-04 古い記録(北の部屋)
-  await R('go', 1138, 593, 0);
+  // R4-04 古い記録(北の部屋)を調べる
+  await R('go', 1138, 593.6, 0);
   await expect.poll(() => R('prompt'), { timeout: 10_000 }).toBe('調べる');
+  await page.click('#interact-btn');
+  await expect.poll(() => R('dialogue'), { timeout: 5_000 }).toBe(true);
+  expect(await R('lore')).toEqual({name: '古い記録', text: '石の台に刻まれた文字は、ほとんど削れて読めない。'});
+  for (let k = 0; k < 4 && await R('dialogue'); k++) { await page.click('#dialogue-overlay'); await page.waitForTimeout(300); }
+  expect(await R('dialogue')).toBe(false);
+  // 鐘 3(峠の手前)→ 峠で R4-06
+  await R('go', 1143, 624, 0);
+  const w3 = R('walk', [[1143, 634]], 120);
+  const r406 = await readTalk(page, R);
+  await w3;
+  expect((await R('talks'))['A-7c']).toBe(1);
+  expect(r406).toEqual(['影の旅人|「……まだ、続いています」']);
+  expect((await R('talks'))['R4-02']).toBe(1);   // R4-02 は 2 回目の鐘の後だけ(3 回目では出ない)
   expect(errors).toEqual([]);
 });

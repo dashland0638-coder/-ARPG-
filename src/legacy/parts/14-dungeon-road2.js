@@ -1127,6 +1127,7 @@
     const slab = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.9), M.stone);
     slab.position.set(1138, ry + 0.4, 596);
     road2AreaGroups[4].add(slab);
+    walls.push({minX:1137.3, maxX:1138.7, minZ:595.55, maxZ:596.45});   // 石の台は通り抜けない
     road2OldRecord = {pos:new THREE.Vector3(1138, ry, 595), title:'古い記録',
       lines:['石の台に刻まれた文字は、ほとんど削れて読めない。', '読めるのは、数を数えるような印だけだ。'], radius:2.2, read:false, kind:'mark', promptText:'調べる'};
     loreObjects.push(road2OldRecord);
@@ -1200,7 +1201,8 @@
     if(road2GuardianStatue){ if(road2GuardianStatue.parent) road2GuardianStatue.parent.remove(road2GuardianStatue); road2GuardianStatue = null; }
     const en = buildEnemy(at, Object.assign({roomTag:`road2${G.id}`}, ROAD2_GUARDIAN_FOE));
     en.road2Fight = G.id; en.road2Wave = 0; en.road2Kind = 'guardian';
-    en.turnToAlly = G.allyFocusSec;   // 支援の攻撃が当たると、その秒数だけ支援のほうへ向く(07-ai-combat.js)
+    en.turnToAlly = GUARDIAN_FOCUS_SEC;   // 支援の攻撃が当たると、その秒数だけ支援のほうへ向く(07-ai-combat.js、core/road-guardian.js)
+    en.allyFocusT = 0; en.allyFocusCD = 0;
     en.group.rotation.y = Math.atan2(state.pos.x - at.x, state.pos.z - at.z);
     en.triggered = true;
     en.onDefeat = ()=> road2OnGuardianDefeated();
@@ -1217,16 +1219,21 @@
   function road2UpdateGuardian(dt){
     const G = ROAD2_GUARDIAN;
     if(road2GuardianState === 'dormant'){
-      if(road2Joined && !state.dialogueActive && state.pos.y >= G.minY
-         && Math.hypot(state.pos.x - G.x, state.pos.z - G.z) < G.wake) road2WakeGuardian();
+      // 同時に 4 体まで(設計 §4): 残っている戦闘の敵が 3 体までの時だけ目覚める
+      const liveFoes = enemies.filter(e=> e && e.road2Fight && !e.dead).length;
+      if(guardianMayWake({joined: road2Joined, dialogue: state.dialogueActive, y: state.pos.y, minY: G.minY,
+          dist: Math.hypot(state.pos.x - G.x, state.pos.z - G.z), wake: G.wake, liveFoes})) road2WakeGuardian();
       return;
     }
     const en = road2GuardianEn;
     if(!en || en.dead) return;
-    if(en.allyFocusT > 0) en.allyFocusT = Math.max(0, en.allyFocusT - (dt || 0));
-    if(en.chargeState === 'telegraph' || en.chargeState === 'dash' || en.knockedDown) return;
+    const cut = cutsceneRunning();   // 演出の間は敵が止まっているので、向きも秒数も進めない
+    if(!cut){ const f = stepGuardianFocus(en.allyFocusT, en.allyFocusCD, dt || 0); en.allyFocusT = f.focusT; en.allyFocusCD = f.cdT; }
     const ally = guestCompanion && guestCompanion.group;
-    const tgt = (en.allyFocusT > 0 && ally) ? ally.position : state.pos;
+    const target = guardianFacingTarget({focusT: en.allyFocusT, chargeState: en.chargeState, knockedDown: en.knockedDown,
+      stunT: en.stunT, cutscene: cut, hasAlly: !!ally});
+    if(target === 'none') return;
+    const tgt = target === 'ally' ? ally.position : state.pos;
     en.wanderTarget.copy(en.group.position); en.wanderT = 1;   // 歩き回らず、その場で向きを変える
     const yaw = Math.atan2(tgt.x - en.group.position.x, tgt.z - en.group.position.z);
     en.group.rotation.y = turnTowardAngle(en.group.rotation.y, yaw, turnBudget(resolveTurnRate(en), dt || 0));

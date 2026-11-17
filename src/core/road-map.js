@@ -289,7 +289,7 @@ export const ROAD2_FIGHTS = Object.freeze([
    waves:[[{kind:'mossStone', x:1143, z:621}]]},
 ]);
 /* F4-B 遺構の中庭の「古き守り手」(中ボス級)。円い石の構造物の中心に石像として立ち、wake の半径に入ると動き出す */
-export const ROAD2_GUARDIAN = Object.freeze({id:'F4-B', area:4, x:ROAD2_RUIN.x, z:ROAD2_RUIN.z, wake:13, minY:4, allyFocusSec:2.4});
+export const ROAD2_GUARDIAN = Object.freeze({id:'F4-B', area:4, x:ROAD2_RUIN.x, z:ROAD2_RUIN.z, wake:13, minY:4});   // 支援へ向く秒数などは core/road-guardian.js
 
 /* 必ず出る会話・演出の帯(設計 §5.2・§6)。道幅いっぱいの z の帯で拾う。
    R3-0 では位置だけを持ち、中身は各エリアの段で入れる */
