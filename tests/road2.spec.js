@@ -28,6 +28,7 @@ const PROBE = `
   },
   pos(){ return {x: +state.pos.x.toFixed(2), y: +state.pos.y.toFixed(2), z: +state.pos.z.toFixed(2)}; },
   hp(){ return state.hp; },
+  joined(){ return {joined: road2Joined, cls: selectedClass, meet: (road2TalkCount || {})['R4-00'] || 0}; },
   autoCam(on){ camAutoOn = !!on; return true; },
   shot(){ return sceneShot ? {look: sceneShot.look, t: +sceneShot.t.toFixed(2)} : null; },
   vistas(){ return ROAD2_VISTAS.map(v=> ({id: v.id, look: v.look})); },
@@ -50,9 +51,18 @@ const PROBE = `
       const tick = ()=>{
         const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
         // ゲーム内の時間で数える(ヘッドレスは遅いので、実時間では測らない)
-        total += dt; sinceBest += dt;
+        total += dt;
         if(road2CurrentAreaId && areas[areas.length - 1] !== road2CurrentAreaId) areas.push(road2CurrentAreaId);
-        if(state.dialogueActive && typeof advanceDialogue === 'function') advanceDialogue();
+        /* 会話・演出の間は操作が止まる(仕様)。「進めない」の判定には数えない。
+           E2E のゲーム内時間は実時間の 1/4(AD-004)なので、出会いの一幕(R4-00)のような長い演出を
+           実時間で数えると、歩けているのに「進めない」になる。総時間(maxGameSec)は数え続ける */
+        if(state.dialogueActive){
+          if(typeof advanceDialogue === 'function') advanceDialogue();
+          if(total > maxGameSec) return done({ok:false, reached:i, areas, timeout:true, dialogue:true, stuckAt:[state.pos.x, state.pos.z]});
+          requestAnimationFrame(tick);
+          return;
+        }
+        sinceBest += dt;
         const [tx, tz] = pts[i];
         const dx = tx - state.pos.x, dz = tz - state.pos.z, d = Math.hypot(dx, dz);
         if(d < 1.3){
@@ -191,6 +201,11 @@ test('道（新）: 入口から道の果てまで、メインルートを徒歩
   console.log('ROAD2 walk main', JSON.stringify(r));
   expect(r.ok, `進めない所: ${JSON.stringify(r)}`).toBe(true);
   expect(r.areas).toEqual([1, 2, 3, 4, 5]);   // 境で順に切り替わる(戻らない)
+  // メインルートを歩くと、エリア 4 の野営地で出会い、加入してから先へ進む(R3-4a。出会わずに北へは抜けられない)
+  const j = await R('joined');
+  expect(j.joined).toBe(true);
+  expect(j.cls).toBe('wanderer');
+  expect(j.meet).toBe(1);
   const end = await R('pos');
   expect(end.z).toBeGreaterThan(750);
   expect(end.y).toBeCloseTo(8, 1);
