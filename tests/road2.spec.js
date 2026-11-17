@@ -10,7 +10,7 @@
  *   iPhone 844×390 の横向き。SHOTS を渡すと各エリアのスクリーンショットを撮る(PR に添える用)
  *
  *   歩き方: W キーを押したまま、毎フレーム「次の点の方向」へカメラの向きを合わせる(プレイヤーの
- *   移動・当たり・床の高さの判定は本物のまま)。次の点へ近づけないまま 8 秒(ゲーム内)過ぎたら「進めない」
+ *   移動・当たり・床の高さの判定は本物のまま)。次の点へ近づけないまま実時間で 8 秒(1 フレーム 0.1 秒まで。会話・演出の間は数えない)過ぎたら「進めない」
  */
 import { test, expect } from '@playwright/test';
 import { openGame, watchErrors, startTestMode } from './helpers.js';
@@ -41,10 +41,10 @@ const PROBE = `
       slabs: groundSlabs.length};
   },
   /* pts を順に徒歩で辿る。戻り値: {ok, reached, areas(通ったエリアの順), stuckAt} */
-  walk(pts, maxGameSec){
+  walk(pts, maxRealSec){
     return new Promise(res=>{
       const areas = [];
-      let i = 0, best = Infinity, sinceBest = 0, total = 0, last = performance.now();
+      let i = 0, best = Infinity, sinceBest = 0, total = 0, inDialogue = 0, last = performance.now();
       camAutoOn = false;
       window.dispatchEvent(new KeyboardEvent('keydown', {code:'KeyW'}));
       const done = (r)=>{ window.dispatchEvent(new KeyboardEvent('keyup', {code:'KeyW'})); res(r); };
@@ -55,13 +55,17 @@ const PROBE = `
         if(road2CurrentAreaId && areas[areas.length - 1] !== road2CurrentAreaId) areas.push(road2CurrentAreaId);
         /* 会話・演出の間は操作が止まる(仕様)。「進めない」の判定には数えない。
            E2E のゲーム内時間は実時間の 1/4(AD-004)なので、出会いの一幕(R4-00)のような長い演出を
-           実時間で数えると、歩けているのに「進めない」になる。総時間(maxGameSec)は数え続ける */
+           実時間で数えると、歩けているのに「進めない」になる。総時間(maxRealSec)は数え続ける */
         if(state.dialogueActive){
+          inDialogue += dt;
           if(typeof advanceDialogue === 'function') advanceDialogue();
-          if(total > maxGameSec) return done({ok:false, reached:i, areas, timeout:true, dialogue:true, stuckAt:[state.pos.x, state.pos.z]});
+          // 一続きの会話が終わらない時は早めに失敗にする(出会いの一幕でゲーム内約 37 秒 = 実時間約 150 秒)
+          if(inDialogue > 240) return done({ok:false, reached:i, areas, dialogueStuck:true, line: document.getElementById('dialogue-text').textContent, stuckAt:[state.pos.x, state.pos.z]});
+          if(total > maxRealSec) return done({ok:false, reached:i, areas, timeout:true, dialogue:true, stuckAt:[state.pos.x, state.pos.z]});
           requestAnimationFrame(tick);
           return;
         }
+        inDialogue = 0;
         sinceBest += dt;
         const [tx, tz] = pts[i];
         const dx = tx - state.pos.x, dz = tz - state.pos.z, d = Math.hypot(dx, dz);
@@ -73,7 +77,7 @@ const PROBE = `
           if(d < best - 0.3){ best = d; sinceBest = 0; }
           if(sinceBest > 8) return done({ok:false, reached:i, areas, stuckAt:[+state.pos.x.toFixed(1), +state.pos.y.toFixed(1), +state.pos.z.toFixed(1)], target:[tx, tz]});
         }
-        if(total > maxGameSec) return done({ok:false, reached:i, areas, timeout:true, stuckAt:[state.pos.x, state.pos.z]});
+        if(total > maxRealSec) return done({ok:false, reached:i, areas, timeout:true, stuckAt:[state.pos.x, state.pos.z]});
         requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
