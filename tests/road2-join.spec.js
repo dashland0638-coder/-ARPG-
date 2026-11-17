@@ -48,12 +48,14 @@ const PROBE = `
       stranger: !!road2Stranger, joinCount: road2JoinCount, meet: window.__meet || 0, roadArea: state.roadArea,
       companions: road2CompanionFigs.map(f=> f.userData.road2Companion), companionArea: road2CompanionArea,
       clears: JSON.stringify(state.scenarioClears), hud: document.getElementById('hud-name') ? document.getElementById('hud-name').textContent : '',
-      pos: [state.pos.x, state.pos.z], area: road2CurrentAreaId, dest: (compassDestination(road2DestIdx) || {}).id || null};
+      pos: [state.pos.x, state.pos.z], area: road2CurrentAreaId, compassOn: road2CompassOn, dest: (compassDestination(road2DestIdx) || {}).id || null};
   },
   prompt(){ const el = document.getElementById('interact-btn'); return el && el.classList.contains('show') ? el.textContent : null; },
   pickerOpen(){ const el = document.getElementById('road2-support'); return !!el && el.classList.contains('active'); },
   pickerOptions(){ return Array.from(document.querySelectorAll('#road2-support [data-road2-support]')).map(b=> b.dataset.road2Support); },
   relaunch(){ launchScenarioNow('road2'); return true; },
+  menu(){ toggleMenu(); return state.activeOverlay; },
+  pressInteract(){ interact(); return state.activeOverlay; },
   spawnFoe(dx, dz){
     const en = buildEnemy(new THREE.Vector3(state.pos.x + dx, state.pos.y, state.pos.z + dz), Object.assign({}, ROAD_BEAST, {hp:4000, atk:1}));
     enemies.push(en); window.__foe = en; return true;
@@ -205,6 +207,16 @@ test('野営地の支援の選択: 焚き火のそばで選び直す。前の支
   await page.click('#road2-support .r2s-close');
   await expect.poll(() => R('pickerOpen'), { timeout: 5_000 }).toBe(false);
   expect((await R('cast')).guest).toBe('mage');
+  // メニューを開いている間は、焚き火のそばで調べても支援の画面にすり替わらない
+  expect(await R('menu')).toBe('menu');
+  expect(await R('pressInteract')).toBe('menu');
+  expect(await R('pickerOpen')).toBe(false);
+  expect(await R('menu')).toBe('none');
+  // 暗い背景を押すと閉じる
+  await page.click('#interact-btn');
+  await expect.poll(() => R('pickerOpen'), { timeout: 5_000 }).toBe(true);
+  await page.mouse.click(8, 380);
+  await expect.poll(() => R('pickerOpen'), { timeout: 5_000 }).toBe(false);
   // 焚き火から離れると出ない
   await R('go', 1100, 500, Math.PI);
   await expect.poll(() => R('prompt'), { timeout: 10_000 }).toBe(null);
@@ -233,6 +245,7 @@ test('出撃し直し・セーブ: 到達した野営地から加入の後で始
   expect(c.joinCount).toBe(1);
   expect(Math.hypot(c.pos[0] - 1097, c.pos[1] - 455)).toBeLessThan(2);   // 山道の野営地から
   expect((await R('talks'))['R4-00']).toBeUndefined();
+  expect(c.compassOn).toBe(true);      // 羅針盤は前の出撃で出してある(宿場の会話はもう通らない)
   // セーブの往復(本物の buildSaveData / applySaveData)。テストモードでは通常のセーブへ書かない
   const s = await R('saveRoundTrip', 5);
   expect(s.written).toBe(5);

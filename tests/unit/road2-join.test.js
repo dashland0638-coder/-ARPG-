@@ -37,7 +37,7 @@ function harness({ cls = 'rogue', guest = 'archer', roadArea = 0, testMode = fal
   const src = [
     line(road2, "const ROAD_SWORD = '剣士'"),
     "const ROAD_THIEF = '盗賊', ROAD_ARCHER = '弓師', ROAD_TRAVELER = '影の旅人', ROAD_STRANGER = '？？？';",
-    'let road2Joined = false; let road2TalkCount = {};',
+    'let road2Joined = false; let road2TalkCount = {}; let road2CompassOn = false;',
     line(road2, 'let road2Stranger = null;'),
     line(road2, 'const ROAD2_STRANGER_POS'),
     line(road2, 'let road2MeetingActive'),
@@ -55,7 +55,7 @@ function harness({ cls = 'rogue', guest = 'archer', roadArea = 0, testMode = fal
     fn(road2, 'function road2RefreshCompanions(){'),
     fn(road2, 'function road2ChooseSupport(key){'),
     `return {
-      get joined(){ return road2Joined; }, get joinCount(){ return road2JoinCount; }, get stranger(){ return road2Stranger; },
+      get joined(){ return road2Joined; }, get compassOn(){ return road2CompassOn; }, get joinCount(){ return road2JoinCount; }, get stranger(){ return road2Stranger; },
       get meeting(){ return road2MeetingActive; }, get companions(){ return road2CompanionFigs.map(f => f.userData.road2Companion); },
       set area(v){ road2CurrentAreaId = v; road2CompanionArea = v; },
       setStranger(v){ road2Stranger = v; },
@@ -153,9 +153,14 @@ test('出撃し直した時: 到達 4 以上なら一幕なしで正規の加入
   assert.equal(h.log.meet, 1);
   assert.equal(h.api.stranger, null, '加入前の人物は出さない');
   assert.deepEqual(h.log.logs, [], '一幕なしの加入はログを出さない');
+  assert.equal(h.api.compassOn, true, '野営地から出撃し直す時は羅針盤が出ている(N-1 は宿場にあり、もう通らない)');
   h = harness({ roadArea: 3 });
   h.api.road2EnterCast();
   assert.equal(h.api.joined, false);
+  assert.equal(h.api.compassOn, true);
+  h = harness({ roadArea: 1 });
+  h.api.road2EnterCast();
+  assert.equal(h.api.compassOn, false, '入口から始める時は N-1 の会話で出す');
   assert.equal(h.env.selectedClass, 'rogue');
   assert.ok(h.api.stranger);
 });
