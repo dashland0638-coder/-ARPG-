@@ -199,6 +199,15 @@ function ringPillars(cx, cz, r, n, size, offset){
   return out;
 }
 export const ROAD2_RING = Object.freeze({x:1100, z:715, r:12});
+
+/* 水と、歩けない所の外の地面の高さ(R3-N-FIX-03)。見た目だけ(床の板・当たりではない)。
+   水の面どうし・水と外の地面が同じ高さで重なると、描画を奪い合って模様が重なって見える(z-fighting)。
+   外の地面は一番低い谷底(-2)より下、水面はそれより上で谷底より下。水の長方形は重ならない */
+export const ROAD2_OUTER_Y = -2.6;
+export const ROAD2_WATER = Object.freeze([
+  {id:'river', x0:1055, x1:1195, z0:372, z1:380, top:-2.45},   // 東西の川(滝の下から谷の外まで。滝の裏の岩棚の下には置かない)
+  {id:'pool',  x0:1055, x1:1063, z0:380, z1:396, top:-2.45},   // 滝つぼ(川の北。川とは重ねない)
+]);
 export const ROAD2_RUIN = Object.freeze({x:1100, z:592, r:9});
 
 /* 通り道(地形に沿って地面に描く)。kind: main = メインルート、side = 寄り道、hidden = 隠しルート。
@@ -240,6 +249,18 @@ export const ROAD2_LANDMARKS = Object.freeze([
   {area:5, kind:'ring',     name:'石環',             x:ROAD2_RING.x, z:ROAD2_RING.z},
 ]);
 
+/* 羅針盤の目的地の順番(R3-N-FIX-02)。既存の地点データ(各エリアの入口の野営地と石環)から並べる。
+   道(新)の物語のイベント(R1-01〜R5-04)はまだ無い(R3-1〜R3-5)ので、目的地の管理は新しく作らず、
+   この順番と「着いた」の判定だけを持つ。着く: area があればそのエリアに入った時、zMin があればその z を越えた時。
+   寄り道・隠し道・宝箱・怪異は目的地にしない */
+export const ROAD2_DESTINATIONS = Object.freeze([
+  {id:'moor',     x:1094, z:118, reach:{area:2}},            // 原野の入口の野営地(宿場を出る)
+  {id:'vale',     x:1094, z:322, reach:{area:3}},            // 谷の入口の野営地
+  {id:'mountain', x:1094, z:458, reach:{area:4}},            // 山道の入口の野営地(加入前は、その北の焚き火のそばで「？？？」と会う)
+  {id:'end',      x:1094, z:648, reach:{area:5}},            // 道の果ての入口の野営地
+  {id:'ring',     x:1100, z:715, reach:{area:5, zMin:704}},  // 石環(R5-02 の帯)
+]);
+
 /* 見晴らしの地点(DEC-026 HD-2 = B)。初めて帯に入った時だけ、カメラを一時的に引いて遠景を見せる。
    rect は入る帯、look は見せる点(x, y, z) */
 export const ROAD2_VISTAS = Object.freeze([
@@ -255,14 +276,18 @@ export const ROAD2_VISTAS = Object.freeze([
 export const ROAD2_BANDS = Object.freeze([
   {id:'R1-01', area:1, z0:3,   z1:10},    // 出発
   {id:'R1-04', area:1, z0:44,  z1:50},    // 壁の影(A-1)
+  {id:'N-1',   area:1, z0:86,  z1:92},    // 羅針盤を出す(R3-N。盗賊・弓師)
   {id:'R2-01', area:2, z0:114, z1:122},   // 原野に出る
+  {id:'N-2',   area:2, z0:140, z1:146},   // 分かれ道で羅針盤を見る(R3-N)
   {id:'R3-01', area:3, z0:304, z1:312},   // 谷の入口
   {id:'R3-02', area:3, z0:362, z1:368},   // 水面の景色(A-5)
   {id:'R3-03', area:3, z0:373, z1:377},   // 水に映らないもの(A-6)
-  {id:'R4-00', area:4, z0:455, z1:462},   // 出会い(野営地。E-1)
+  {id:'R4-00', area:4, z0:462, z1:468},   // 出会い(野営地の焚き火の北。E-1)。入口の地点(z 456)と谷からの坂(〜456)には掛けない
   {id:'R4-01', area:4, z0:468, z1:476},   // 森に入る
+  {id:'N-3',   area:4, z0:478, z1:484},   // 影の旅人が読み方を覚える(R3-N。加入の後だけ)
   {id:'A-7a',  area:4, z0:486, z1:492},   // 鐘 1(森の縁)
   {id:'A-7b',  area:4, z0:560, z1:566},   // 鐘 2(遺構の門)→ R4-02
+  {id:'N-4',   area:4, z0:568, z1:574},   // 影の旅人が自分で読む(R3-N。加入の後だけ)
   {id:'A-7c',  area:4, z0:626, z1:630},   // 鐘 3(峠の手前)
   {id:'R4-06', area:4, z0:632, z1:639},   // 峠
   {id:'R5-01', area:5, z0:646, z1:654},   // 高原に出る
@@ -284,6 +309,9 @@ function nearRoute(x, z, d){
 }
 let treesCache = null;
 /* 山道の曲がり角の石灯籠(当たりつき、道から 2.6 以上離す)。次の曲がり角の目印 */
+/* 分かれ道の道標(R3-N)。目印の無い分かれ道だけ(原野の旧道の分かれ・谷の崖の道の分かれ)。
+   腕はメインルートの先を指す(14-dungeon-road2.js が羅針盤と同じ向きで作る)。当たりつき */
+export const ROAD2_GUIDEPOSTS = Object.freeze([[1091, 155], [1107, 312]]);   // 原野の道標は旧道の分かれの側(東の岩場の割れ目から離す)
 export const ROAD2_LANTERNS = Object.freeze([[1062, 474], [1069, 489], [1102, 490], [1102, 516], [1075.5, 526.5], [1082, 572], [1140, 618]]);
 export function road2ForestTrees(){
   if(treesCache) return treesCache;
@@ -307,6 +335,7 @@ export function road2Obstacles(){
   for(const id of [1, 2, 3, 4, 5]) ROAD2_TERRAIN[id].obstacles.forEach(o=> out.push(Object.assign({area:id}, o)));
   ringPillars(ROAD2_RUIN.x, ROAD2_RUIN.z, ROAD2_RUIN.r, 10, 1.4, 0.5).forEach(p=> out.push(Object.assign({area:4}, p)));
   ROAD2_LANTERNS.forEach(([x, z])=> out.push({area:4, kind:'lantern', x0:x - 0.35, x1:x + 0.35, z0:z - 0.35, z1:z + 0.35, h:1.6}));
+  ROAD2_GUIDEPOSTS.forEach(([x, z])=> out.push({area: areaAt(x, z).id, kind:'guidepost', x0:x - 0.25, x1:x + 0.25, z0:z - 0.25, z1:z + 0.25, h:3}));
   ringPillars(ROAD2_RING.x, ROAD2_RING.z, ROAD2_RING.r, 12, 1.3, 0.5).forEach(p=> out.push(Object.assign({area:5}, p)));
   road2ForestTrees().forEach(t=> out.push({area:4, kind:'trunk', x0:t.x - 0.35, x1:t.x + 0.35, z0:t.z - 0.35, z1:t.z + 0.35, h:t.h}));
   road2EdgeWalls().forEach(e=>{ const a = areaAt((e.x0 + e.x1)/2, (e.z0 + e.z1)/2); out.push(Object.assign({area: a ? a.id : 0, h:0}, e)); });

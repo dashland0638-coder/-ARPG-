@@ -2287,6 +2287,8 @@
     state.pos.set(wp.x, wp.y || 0, wp.z);
     state.vel.set(0,0,0);
     state.yVel = 0; state.grounded = true;
+    // 道(新)の「加入後」の開始地点: 一幕なしで正規の加入処理(R3-N-FIX-01。テストモードだけ)
+    if(wp.road2Join && currentWorldKey === 'road2') road2ForceJoin();
     // 階段の移動(stairMoveTo)と同じく、落下の時計と「最後に立っていた所」を着いた場所に置き直す
     voidT = 0; lastSolid = state.pos.clone();
     if(state.safePos) state.safePos.copy(state.pos);
