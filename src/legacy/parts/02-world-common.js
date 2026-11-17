@@ -2720,6 +2720,7 @@
     if(obj && obj.pos) return obj.pos;
     if(nearbyBartender) return BARTENDER_POS;
     if(nearbySmith) return SMITH_POS;
+    if(nearbyRoad2Camp) return new THREE.Vector3(nearbyRoad2Camp.x, nearbyRoad2Camp.y + 1, nearbyRoad2Camp.z);   // 野営地の焚き火(R3-4)
     return null;
   }
 

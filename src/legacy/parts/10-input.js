@@ -298,6 +298,7 @@
     if(document.getElementById('clear-overlay').classList.contains('active')) return document.getElementById('clear-overlay');
     if(document.getElementById('down-overlay').classList.contains('active')) return document.getElementById('down-overlay');
     if(state.activeOverlay==='menu') return document.getElementById('menu-overlay');
+    if(state.activeOverlay==='road2support') return document.getElementById('road2-support');   // 道(新)の野営地の支援の選択(R3-4)
     if(state.activeOverlay==='appraisal') return document.getElementById('appraisal-overlay');
     if(state.activeOverlay==='scenario') return document.getElementById('scenario-overlay');
     return null;
@@ -467,6 +468,7 @@
     document.getElementById('menu-overlay').classList.remove('active');
     document.getElementById('appraisal-overlay').classList.remove('active');
     document.getElementById('scenario-overlay').classList.remove('active');
+    { const r2 = document.getElementById('road2-support'); if(r2) r2.classList.remove('active'); }
     document.getElementById('dialogue-overlay').classList.remove('active');
     document.getElementById('clear-overlay').classList.remove('active');
     document.getElementById('down-overlay').classList.remove('active');

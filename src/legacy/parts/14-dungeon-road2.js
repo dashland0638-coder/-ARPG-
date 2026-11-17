@@ -948,6 +948,9 @@
       syncAlliesToState();
     }
     if(roadJoinedFromArea(state.roadArea) || selectedClass === ROAD_JOINER) road2Join({quiet:true});
+    /* 野営地から出撃し直す時は、羅針盤は前の出撃で出してある(N-1 の会話は宿場の広場にあり、もう通らない)。
+       羅針盤を出したことはセーブしない(DEC-026)ので、到達したエリアから導く */
+    if(roadStartCamp(state.roadArea) !== null) road2CompassOn = true;
     road2RefreshCompanions();
   }
   /* 出撃の位置: 到達したエリアの野営地から(E-3)。まだなら入口 */
@@ -971,7 +974,11 @@
   /* 同行者(戦闘に出ない仲間)を、今いるエリアの野営地の焚き火のそばに立たせる(E-2「他の仲間は会話の場面に立つ」)。
      姿は旧道と同じ buildCastFigure。当たり・AI は持たない(戦闘は 2 人のまま) */
   function road2RefreshCompanions(){
-    road2CompanionFigs.forEach(f=>{ if(f.parent) f.parent.remove(f); });
+    // 片づけた姿の GPU の資源を返す(エリアの行き来・支援の交代のたびに作り直すため)
+    road2CompanionFigs.forEach(f=>{
+      if(f.parent) f.parent.remove(f);
+      if(f.traverse) f.traverse(o=>{ if(o.geometry && o.geometry.dispose) o.geometry.dispose(); if(o.material && o.material.dispose) o.material.dispose(); });
+    });
     road2CompanionFigs = [];
     const camp = ROAD2_CAMPS.find(k=> k.area === road2CompanionArea);
     if(!camp || !road2AreaGroups[camp.area]) return;
@@ -1004,6 +1011,7 @@
     el.id = 'road2-support';
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', '支援を選ぶ');
+    el.addEventListener('click', e=>{ if(e.target === el) setOverlay('none'); });   // 暗い背景を押しても閉じる(他の画面と同じ)
     document.body.appendChild(el);
     if(!document.getElementById('road2-support-style')){
       const st = document.createElement('style');
@@ -1022,6 +1030,8 @@
     return el;
   }
   function road2OpenSupportPicker(){
+    // 会話・出会いの一幕・他の画面(メニュー等)が開いている間は開かない(toggleAppraisal と同じ作法)
+    if(state.dialogueActive || road2MeetingActive || (state.activeOverlay !== 'none' && state.activeOverlay !== 'road2support')) return false;
     const el = road2SupportElement();
     const opts = roadSupportOptions(selectedClass, road2Joined).filter(k=> CLASSES[k]);
     el.innerHTML = '<div class="r2s-panel"><p class="r2s-title">🔥 支援を選ぶ</p><div class="r2s-list"></div><button class="r2s-close" type="button">やめる</button></div>';
