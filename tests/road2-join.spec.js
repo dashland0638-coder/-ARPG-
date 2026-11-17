@@ -53,7 +53,8 @@ const PROBE = `
   prompt(){ const el = document.getElementById('interact-btn'); return el && el.classList.contains('show') ? el.textContent : null; },
   pickerOpen(){ const el = document.getElementById('road2-support'); return !!el && el.classList.contains('active'); },
   pickerOptions(){ return Array.from(document.querySelectorAll('#road2-support [data-road2-support]')).map(b=> b.dataset.road2Support); },
-  relaunch(){ launchScenarioNow('road2'); return true; },
+  // 出撃し直す: 本編と同じく酒場を経てから(同じワールドのままだと buildWorld が組み直さない)
+  relaunch(){ buildWorld('tavern'); launchScenarioNow('road2'); return true; },
   menu(){ toggleMenu(); return state.activeOverlay; },
   pressInteract(){ interact(); return state.activeOverlay; },
   spawnFoe(dx, dz){

@@ -2699,7 +2699,7 @@
       }
     }
     else if(nearbyKey) el.textContent = '鍵を拾う';
-    else if(nearbyLore) el.textContent = nearbyLore.read ? 'もう一度読む' : '読む';
+    else if(nearbyLore) el.textContent = nearbyLore.promptText || (nearbyLore.read ? 'もう一度読む' : '読む');   // 壁の模様などは「調べる」(道(新) R3-4b)
     else if(nearbyChest) el.textContent = '調べる';
     else if(nearbyStallTrigger) el.textContent = '個室に入る';
     else if(nearbyBartender) el.textContent = '🗺️ 店主と話す(出撃)';
