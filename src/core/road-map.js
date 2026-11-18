@@ -66,8 +66,9 @@ export const ROAD2_TERRAIN = Object.freeze({
       // 宿場の建物(西の並び・東の並び)。あいだの路地が裏庭へ通じる
       // 通りの幅は 12(既定のカメラで両側の家が画面に入る)
       {kind:'house', x0:1080, x1:1094, z0:16, z1:32, h:5.5},
-      {kind:'house', x0:1080, x1:1094, z0:38, z1:54, h:6.5},   // 旅籠
-      {kind:'house', x0:1080, x1:1094, z0:60, z1:76, h:5},     // 馬小屋
+      // 旅籠・馬小屋は入れる(R3-1。設計「廃宿(入れる 2 棟)」)。外の形は今のまま、壁を 4 枚にして通り側に戸口を開ける
+      {kind:'house', x0:1080, x1:1094, z0:38, z1:54, h:6.5, hollow:{id:'inn', door:{z0:39.5, z1:42.5}}},      // 旅籠(戸口は壁の影 A-1 の南)
+      {kind:'house', x0:1080, x1:1094, z0:60, z1:76, h:5,   hollow:{id:'stable', door:{z0:63, z1:66.5}}},     // 馬小屋
       {kind:'house', x0:1106, x1:1120, z0:14, z1:30, h:5},
       {kind:'house', x0:1106, x1:1120, z0:36, z1:52, h:6},
       {kind:'house', x0:1106, x1:1120, z0:58, z1:74, h:5.5},
@@ -80,6 +81,9 @@ export const ROAD2_TERRAIN = Object.freeze({
       {kind:'well', x0:1090.8, x1:1093.2, z0:84.8, z1:87.2, h:1},
       {kind:'cart', x0:1066, x1:1069.5, z0:75.5, z1:78.5, h:1.6},   // 割れ目の手前で、通りから割れ目を隠す荷車
       {kind:'post', x0:1107.6, x1:1108.4, z0:89.6, z1:90.4, h:5},
+      // 建物の中(R3-1): 旅籠の机・馬小屋の馬車
+      {kind:'table', x0:1085, x1:1088, z0:45, z1:47, h:0.9},
+      {kind:'carriage', x0:1083, x1:1088, z0:68, z1:73, h:2.2},
     ],
   },
   2: {   // 風渡る原野: 一段高い草原(1)。歩ける丘・街道の高まり・北西の高台(6)。北の端で谷へ下る
@@ -216,6 +220,8 @@ export const ROAD2_ROUTES = Object.freeze([
   // AREA 1 宿場: 入口 → 宿場の通り → 広場 → 北の門の坂
   {area:1, kind:'main',   width:6,   pts:[[1100,0],[1100,45],[1100,80],[1100,110]]},
   {area:1, kind:'side',   width:3,   pts:[[1100,33],[1113,33],[1130,33],[1130,66],[1113,55],[1100,55]]},   // 東の路地 → 裏庭
+  {area:1, kind:'side',   width:2.5, pts:[[1100,41],[1095.5,41],[1091,42],[1089,48]]},     // 廃宿: 旅籠の中(R3-1)
+  {area:1, kind:'side',   width:2.5, pts:[[1100,64.8],[1095.5,64.8],[1091,65],[1090,70]]},  // 廃宿: 馬小屋の中(R3-1)
   {area:1, kind:'hidden', width:2,   pts:[[1100,57],[1087,57],[1074,57],[1074,77],[1070.9,79.8],[1070.9,83],[1066,88]]}, // 西の路地 → 割れ目 → 物置の庭
   // AREA 2 原野: 街道 → 高まりを越える → 北で谷へ下る
   {area:2, kind:'main',   width:5,   pts:[[1100,110],[1096,160],[1100,200],[1100,240],[1100,282],[1100,300]]},
@@ -273,19 +279,27 @@ export const ROAD2_VISTAS = Object.freeze([
 
 /* エリア 4 の戦闘(R3-4b、設計 §2 AREA 4)。顔ぶれは設計のまま。
    trigger … その長方形に入ると敵が出る(一度だけ)。waves … 一波を全部倒すと次の波
-   kind … 'beast' 獣 / 'bigBeast' 森の大型獣 / 'spitter' 射撃 / 'warden' 遺構の守り手 / 'mossStone' 苔むした番石
-   敵の場所は同じ高さの帯の中(森の床 1・狭間 1・遺構 5・山道の坂 5〜6)。同時に 4 体まで */
+   kind … 'roadEater' 道喰らい / 'spitBeast' 射撃の獣(宿場。R3-1) / 'beast' 獣 / 'bigBeast' 森の大型獣 / 'spitter' 射撃 /
+           'warden' 遺構の守り手 / 'mossStone' 苔むした番石
+   afterJoin … 加入の後だけ出る(エリア 4。出会いの帯の北)
+   敵の場所は同じ高さの帯の中(宿場 0・森の床 1・狭間 1・遺構 5・山道の坂 5〜6)。同時に 4 体まで */
 export const ROAD2_FIGHTS = Object.freeze([
-  {id:'F4-1', area:4, must:true,  name:'森の外周',  trigger:{x0:1086, x1:1110, z0:495, z1:501},
+  // AREA 1 旅人の宿場(R3-1、設計 §2 AREA 1)
+  {id:'F1-1', area:1, must:true,  name:'宿場の通り', trigger:{x0:1094, x1:1106, z0:24, z1:28},
+   waves:[[{kind:'roadEater', x:1098, z:36}, {kind:'roadEater', x:1102.5, z:39}]]},
+  {id:'F1-2', area:1, must:false, name:'裏庭',       trigger:{x0:1122, x1:1138, z0:36, z1:42},
+   waves:[[{kind:'roadEater', x:1127, z:51}, {kind:'roadEater', x:1133, z:53}, {kind:'spitBeast', x:1130.5, z:61}]]},
+  // AREA 4 忘れられた山道(R3-4b)
+  {id:'F4-1', area:4, afterJoin:true, must:true,  name:'森の外周',  trigger:{x0:1086, x1:1110, z0:495, z1:501},
    waves:[[{kind:'bigBeast', x:1098, z:510}, {kind:'beast', x:1093, z:514}, {kind:'beast', x:1103, z:514}]]},
-  {id:'F4-2', area:4, must:true,  name:'遺構の門',  trigger:{x0:1062, x1:1078, z0:546, z1:552},
+  {id:'F4-2', area:4, afterJoin:true, must:true,  name:'遺構の門',  trigger:{x0:1062, x1:1078, z0:546, z1:552},
    waves:[[{kind:'warden', x:1066, z:560}, {kind:'warden', x:1075, z:560}]]},
-  {id:'F4-3', area:4, must:true,  name:'遺構の通路', trigger:{x0:1074, x1:1098, z0:565, z1:570},
+  {id:'F4-3', area:4, afterJoin:true, must:true,  name:'遺構の通路', trigger:{x0:1074, x1:1098, z0:565, z1:570},
    waves:[[{kind:'warden', x:1088, z:575}, {kind:'beast', x:1082, z:578}],
           [{kind:'warden', x:1094, z:580}, {kind:'beast', x:1086, z:583}]]},
-  {id:'F4-4', area:4, must:false, name:'地下の通路(狭間)', trigger:{x0:1034, x1:1044, z0:538, z1:544},
+  {id:'F4-4', area:4, afterJoin:true, must:false, name:'地下の通路(狭間)', trigger:{x0:1034, x1:1044, z0:538, z1:544},
    waves:[[{kind:'spitter', x:1037, z:566}, {kind:'spitter', x:1041, z:572}, {kind:'beast', x:1039, z:556}]]},
-  {id:'F4-S', area:4, must:true,  name:'山道の強敵', trigger:{x0:1136, x1:1150, z0:612, z1:616},
+  {id:'F4-S', area:4, afterJoin:true, must:true,  name:'山道の強敵', trigger:{x0:1136, x1:1150, z0:612, z1:616},
    waves:[[{kind:'mossStone', x:1143, z:621}]]},
 ]);
 /* F4-B 遺構の中庭の「古き守り手」(中ボス級)。円い石の構造物の中心に石像として立ち、wake の半径に入ると動き出す */
@@ -352,7 +366,10 @@ export function road2ForestTrees(){
 /* エリアの当たり(建物・岩・塀・柱・森の木の幹) */
 export function road2Obstacles(){
   const out = [];
-  for(const id of [1, 2, 3, 4, 5]) ROAD2_TERRAIN[id].obstacles.forEach(o=> out.push(Object.assign({area:id}, o)));
+  for(const id of [1, 2, 3, 4, 5]) ROAD2_TERRAIN[id].obstacles.forEach(o=>{
+    if(o.hollow) road2HollowWalls(o).forEach(w=> out.push(Object.assign({area:id}, w)));
+    else out.push(Object.assign({area:id}, o));
+  });
   ringPillars(ROAD2_RUIN.x, ROAD2_RUIN.z, ROAD2_RUIN.r, 10, 1.4, 0.5).forEach(p=> out.push(Object.assign({area:4}, p)));
   ROAD2_LANTERNS.forEach(([x, z])=> out.push({area:4, kind:'lantern', x0:x - 0.35, x1:x + 0.35, z0:z - 0.35, z1:z + 0.35, h:1.6}));
   ROAD2_GUIDEPOSTS.forEach(([x, z])=> out.push({area: areaAt(x, z).id, kind:'guidepost', x0:x - 0.25, x1:x + 0.25, z0:z - 0.25, z1:z + 0.25, h:3}));
@@ -360,6 +377,28 @@ export function road2Obstacles(){
   road2ForestTrees().forEach(t=> out.push({area:4, kind:'trunk', x0:t.x - 0.35, x1:t.x + 0.35, z0:t.z - 0.35, z1:t.z + 0.35, h:t.h}));
   road2EdgeWalls().forEach(e=>{ const a = areaAt((e.x0 + e.x1)/2, (e.z0 + e.z1)/2); out.push(Object.assign({area: a ? a.id : 0, h:0}, e)); });
   return out;
+}
+
+/* 入れる家(R3-1): 外の形のまま、厚さ 0.6 の壁 4 枚にする。通り側(西の家なら東の面)に戸口を開ける。
+   kind 'housewall' は箱の見た目だけ家と同じ(屋根は家ごとに別に置き、中にいる間は隠す) */
+export const ROAD2_WALL_T = 0.6;
+export function road2HollowWalls(o){
+  const T = ROAD2_WALL_T, d = o.hollow.door, west = o.x1 < ROAD2_CX;
+  const base = {kind:'housewall', h:o.h, hollowOf:o.hollow.id, colorZ:o.z0};   // 色は家ごと(壁ごとに変わらないように)
+  const fx0 = west ? o.x1 - T : o.x0, fx1 = west ? o.x1 : o.x0 + T;   // 通り側の面
+  const bx0 = west ? o.x0 : o.x1 - T, bx1 = west ? o.x0 + T : o.x1;   // 裏の面
+  return [
+    Object.assign({}, base, {x0:o.x0, x1:o.x1, z0:o.z0, z1:o.z0 + T}),                 // 南
+    Object.assign({}, base, {x0:o.x0, x1:o.x1, z0:o.z1 - T, z1:o.z1}),                 // 北
+    Object.assign({}, base, {x0:bx0, x1:bx1, z0:o.z0 + T, z1:o.z1 - T}),               // 裏
+    Object.assign({}, base, {x0:fx0, x1:fx1, z0:o.z0 + T, z1:d.z0}),                   // 通り側(戸口の南)
+    Object.assign({}, base, {x0:fx0, x1:fx1, z0:d.z1, z1:o.z1 - T}),                   // 通り側(戸口の北)
+  ];
+}
+/* 入れる家の中(床の長方形)。屋根を隠す範囲 */
+export function road2HollowInterior(o){
+  const T = ROAD2_WALL_T;
+  return {x0:o.x0 + T, x1:o.x1 - T, z0:o.z0 + T, z1:o.z1 - T};
 }
 
 /* 崖の縁と床の無い所の縁の当たり(R3-T の Reviewer 指摘)。歩いては段差で止まるが、
