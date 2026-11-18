@@ -1102,8 +1102,9 @@
       [f.trigger].concat(f.triggers || []).forEach(t=>{
         registerProximityEvent(new THREE.Vector3((t.x0 + t.x1)/2, 0, (t.z0 + t.z1)/2), 1, '', null, {
           area: {x0:t.x0, x1:t.x1, z0:t.z0, z1:t.z1}, marker:false,
-          // 同時に 4 体まで(設計 §4): 前の戦闘の敵が残っていて超える時は、減るまで出さない(帯の中にいる間は毎フレーム見直す)
-          condition: ()=> (!f.afterJoin || road2Joined) && !road2Fights[f.id] && foesFit(road2LiveFoes(), f.waves[0].length),
+          // 帯に入ったら戦闘を始める。同時に 4 体まで(設計 §4)なので、前の戦闘の敵が残っていて超える時は「待ち」にし、
+          // 減ったところで(その時プレイヤーがどこにいても)出す(road2UpdateFights)。帯を通り過ぎても必ずの戦闘を逃さない
+          condition: ()=> (!f.afterJoin || road2Joined) && !road2Fights[f.id],
           onEnter: ()=> road2StartFight(f),
         });
       });
@@ -1178,11 +1179,12 @@
   /* 戦闘: 一波目を出す。二波目は一波を全部倒すと出る(road2UpdateFights) */
   function road2StartFight(f){
     if(road2Fights[f.id]) return;
-    road2Fights[f.id] = {wave:-1, cleared:false};
-    road2SpawnWave(f, 0);
+    road2Fights[f.id] = {wave:-1, cleared:false, pending:true};
+    if(foesFit(road2LiveFoes(), f.waves[0].length)) road2SpawnWave(f, 0);
   }
   function road2SpawnWave(f, i){
     road2Fights[f.id].wave = i;
+    road2Fights[f.id].pending = false;
     f.waves[i].forEach(e=>{
       const v = ROAD2_FOES[e.kind];
       const y = road2GroundAt(e.x, e.z) ?? 0;
@@ -1222,7 +1224,9 @@
   function road2UpdateFights(){
     ROAD2_FIGHTS.forEach(f=>{
       const st = road2Fights[f.id];
-      if(!st || st.cleared || road2FightAlive(f.id, st.wave)) return;
+      if(!st || st.cleared) return;
+      if(st.pending){ if(foesFit(road2LiveFoes(), f.waves[0].length)) road2SpawnWave(f, 0); return; }   // 待ちの戦闘
+      if(road2FightAlive(f.id, st.wave)) return;
       if(st.wave + 1 < f.waves.length){ if(foesFit(road2LiveFoes(), f.waves[st.wave + 1].length)) road2SpawnWave(f, st.wave + 1); }
       else st.cleared = true;
     });

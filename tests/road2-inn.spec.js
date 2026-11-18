@@ -124,12 +124,15 @@ test('宿場の戦闘: F1-1 は通りで道喰らい ×2、F1-2 は裏庭で道�
   expect(f1.map(e => e.kind)).toEqual(['roadEater', 'roadEater']);
   expect(f1.every(e => e.atkType === 'charge' && e.tel === 0.8 && e.cd === 1.2)).toBe(true);   // 地面を掻く溜め・頭を振る隙
   expect((await R('fight', 'F1-1')).alive.every(e => e.room === 'road2F1-1')).toBe(true);
-  // 通りの 2 体が残ったまま裏庭へ走っても、裏庭の 3 体は出ない(同時に 4 体まで)
+  // 通りの 2 体が残ったまま裏庭へ走っても、裏庭の 3 体は出ない(同時に 4 体まで)。戦闘は「待ち」になる
   await R('go', 1130, 38.5, Math.PI);
   await page.waitForTimeout(3000);
   expect((await R('fight', 'F1-2')).total).toBe(0);
+  expect((await R('fight', 'F1-2')).state.pending).toBe(true);
+  // 帯を出て通りへ戻っても、通りの敵が減ったところで裏庭の敵が出る(逃さない)
+  await R('go', 1100, 30, Math.PI);
   await R('kill', 'F1-1');
-  await expect.poll(async () => (await R('fight', 'F1-2')).alive.length, { timeout: 15_000 }).toBe(3);   // 減ったら出る(帯の中にいる)
+  await expect.poll(async () => (await R('fight', 'F1-2')).alive.length, { timeout: 15_000 }).toBe(3);
   await R('kill', 'F1-2');
   await expect.poll(async () => { const f = await R('fight', 'F1-1'); return f.state && f.state.cleared; }, { timeout: 20_000 }).toBe(true);
   expect((await R('fight', 'F1-2')).total).toBe(3);
