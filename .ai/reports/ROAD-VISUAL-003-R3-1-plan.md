@@ -50,3 +50,19 @@ Status: 実装（2026-11-18）。Human の依頼「ROAD-VISUAL-003 R3-1 実装�
 ## 6. 時間帯（ROAD-VISUAL-004）との関係
 - 空・光・時間帯・共通の光（`WORLD_MOOD.road2`・露出・太陽・半球光・輪郭光）は変えていない
 - 壁の影の向きは、今の太陽の向き（東から）に合わせて西の壁に映している。ROAD-VISUAL-004 で太陽の向きを時間帯で動かす時に、A-1 の影の向きを合わせる（申し送り）
+
+## 7. 結果（2026-11-18、この環境）
+- 描画回数（景色。上限 60、`road2.spec`）: 宿場の通り (1100,30) 32 ／ 壁の影の範囲 (1100,48) 34 ／ 旅籠の中 (1089,47) 34 ／ 広場 (1100,84) 35
+- unit 2305/2305、build 成功
+- E2E（最終版）: road2-inn 5 件（新規）を含む 60 件
+  - 対象: road2-inn・road2-fights・road2-join・road2-compass・road2・road2-terrain・chapter-select-testmode・road（旧道）・road-visual・chapter1-tower-to-road・combat-center-messages・combat-events-layout・notice-layout・mansion-enemies・shadow-guide
+  - 59 件は一度目に成功。`road2.spec` の景観の 1 件は、宿場に足した 2 地点で行の番号がずれただけ（試験の作りの問題）。座標で引くように直して成功
+- 独立 Reviewer
+  - Round 1: FAIL（major 1: 通りと裏庭の戦闘が重なると 5 体）
+  - Round 2: PASS（minor 1: 待ちの間に帯を通り過ぎると必ずの戦闘を逃す）
+  - Round 3: PASS（待ちの戦闘を記録し、減ったところで出すように直した）
+
+## 8. 決めたこと（Round 1〜3 の後）
+- どの戦闘も、残っている敵＋出す数が 4 体までの時だけ出す（`foesFit`）。超える時は「待ち」として記録し、減ったところで出す（プレイヤーがどこにいても）
+- 裏庭（F1-2）は北の路地の入口にも帯を置き、どちらから入っても敵の手前で出す
+- 壁の影の遅れは各人の壁からの距離で決め、0.3 秒かけて移す（2 m の線で跳ばない）

@@ -187,10 +187,12 @@ test('道（新）: 5 つのエリアの景観、今いるエリアと隣だけ�
   test.info().annotations.push({ type: 'road2-scenery-calls', description: JSON.stringify(rows) });
   rows.forEach(r => expect(r.scenery, `${r.area} ${r.at}: 景色の描画回数`).toBeLessThanOrEqual(ROAD2_SCENERY_CALL_BUDGET));
   // 高さがエリアで違う(宿場 0・原野 1・谷底 -2・高原 8)
-  expect(rows[0].y).toBeCloseTo(0, 1);
-  expect(rows[2].y).toBeCloseTo(1, 1);
-  expect(rows[4].y).toBeCloseTo(-2, 1);
-  expect(rows[8].y).toBeCloseTo(8, 1);
+  // 地点は座標で引く(VIEWS に地点を足しても崩れないように。R3-1 で宿場に 2 地点を足した)
+  const yAt = (x, z) => rows.find(r => r.at[0] === x && r.at[1] === z).y;
+  expect(yAt(1100, 30)).toBeCloseTo(0, 1);
+  expect(yAt(1100, 140)).toBeCloseTo(1, 1);
+  expect(yAt(1100, 330)).toBeCloseTo(-2, 1);
+  expect(yAt(1100, 680)).toBeCloseTo(8, 1);
   expect(errors).toEqual([]);
 });
 
