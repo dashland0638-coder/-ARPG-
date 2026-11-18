@@ -39,6 +39,11 @@ export function guardianFacingTarget({focusT, chargeState, knockedDown, stunT, c
   return (focusT > 0 && hasAlly) ? 'ally' : 'player';
 }
 
+/* 戦闘の波を出してよいか(道(新)のどの戦闘にも使う。R3-1): 残っている敵＋出す数が 4 体まで */
+export function foesFit(liveFoes, add, max = GUARDIAN_MAX_FOES){
+  return (liveFoes || 0) + (add || 0) <= max;
+}
+
 /* 目覚めてよいか: 加入の後・会話の外・遺構の台の上・円の近く・残っている敵が 3 体まで */
 export function guardianMayWake({joined, dialogue, y, minY, dist, wake, liveFoes}){
   if(!joined || dialogue) return false;

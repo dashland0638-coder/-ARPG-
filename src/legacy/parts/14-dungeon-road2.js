@@ -674,8 +674,8 @@
     houses.forEach((o, i)=>{
       const west = o.x1 < ROAD2_CX, fx = west ? o.x1 : o.x0, dir = west ? 1 : -1, cz = (o.z0 + o.z1)/2;
       if(i % 2 === 0) upper.push({x: fx + dir*0.5, y: o.h - 1.1, z: cz, w: 1.2, h: 2.2, d: (o.z1 - o.z0)*0.8});    // 通りへ張り出した二階
-      if(i % 3 === 1) holes.push({x: fx + dir*0.02, y: 1.6, z: cz - 2.5, w: 0.1, h: 1.8, d: 2.2});                  // 崩れた壁の穴(暗い)
-      if(i % 3 === 0) holes.push({x: fx + dir*0.02, y: 1.2, z: cz + 4, w: 0.1, h: 2.2, d: 1.3});                    // 閉じた戸
+      if(i % 3 === 1 && !o.hollow) holes.push({x: fx + dir*0.02, y: 1.6, z: cz - 2.5, w: 0.1, h: 1.8, d: 2.2});                  // 崩れた壁の穴(暗い)
+      if(i % 3 === 0 && !o.hollow) holes.push({x: fx + dir*0.02, y: 1.2, z: cz + 4, w: 0.1, h: 2.2, d: 1.3});                    // 閉じた戸
       beams.push({x: fx + dir*0.05, y: o.h - 0.1, z: cz, w: 0.18, h: 0.25, d: o.z1 - o.z0});                        // 軒の梁
     });
     road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.plaster, upper, u=> ({x:u.x, y:u.y, z:u.z, sx:u.w, sy:u.h, sz:u.d}), inn, ()=> 0xc4b494);
@@ -1099,11 +1099,13 @@
   function road2SetupArea4(M){
     road2ResetArea4();
     ROAD2_FIGHTS.forEach(f=>{
-      const t = f.trigger;
-      registerProximityEvent(new THREE.Vector3((t.x0 + t.x1)/2, 0, (t.z0 + t.z1)/2), 1, '', null, {
-        area: {x0:t.x0, x1:t.x1, z0:t.z0, z1:t.z1}, marker:false,
-        condition: ()=> (!f.afterJoin || road2Joined) && !road2Fights[f.id],
-        onEnter: ()=> road2StartFight(f),
+      [f.trigger].concat(f.triggers || []).forEach(t=>{
+        registerProximityEvent(new THREE.Vector3((t.x0 + t.x1)/2, 0, (t.z0 + t.z1)/2), 1, '', null, {
+          area: {x0:t.x0, x1:t.x1, z0:t.z0, z1:t.z1}, marker:false,
+          // 同時に 4 体まで(設計 §4): 前の戦闘の敵が残っていて超える時は、減るまで出さない(帯の中にいる間は毎フレーム見直す)
+          condition: ()=> (!f.afterJoin || road2Joined) && !road2Fights[f.id] && foesFit(road2LiveFoes(), f.waves[0].length),
+          onEnter: ()=> road2StartFight(f),
+        });
       });
     });
     // 古き守り手: 円い石の構造物の中心に立つ石像(近づくと同じ場所に敵として出る。それまでは AI を持たない)
@@ -1213,6 +1215,7 @@
       }
     }
   }
+  function road2LiveFoes(){ return enemies.filter(e=> e && e.road2Fight && !e.dead).length; }
   function road2FightAlive(id, wave){
     return enemies.some(en=> en && en.road2Fight === id && en.road2Wave === wave && !en.dead);
   }
@@ -1220,7 +1223,7 @@
     ROAD2_FIGHTS.forEach(f=>{
       const st = road2Fights[f.id];
       if(!st || st.cleared || road2FightAlive(f.id, st.wave)) return;
-      if(st.wave + 1 < f.waves.length) road2SpawnWave(f, st.wave + 1);
+      if(st.wave + 1 < f.waves.length){ if(foesFit(road2LiveFoes(), f.waves[st.wave + 1].length)) road2SpawnWave(f, st.wave + 1); }
       else st.cleared = true;
     });
   }
@@ -1253,7 +1256,7 @@
     const G = ROAD2_GUARDIAN;
     if(road2GuardianState === 'dormant'){
       // 同時に 4 体まで(設計 §4): 残っている戦闘の敵が 3 体までの時だけ目覚める
-      const liveFoes = enemies.filter(e=> e && e.road2Fight && !e.dead).length;
+      const liveFoes = road2LiveFoes();
       if(guardianMayWake({joined: road2Joined, dialogue: state.dialogueActive, y: state.pos.y, minY: G.minY,
           dist: Math.hypot(state.pos.x - G.x, state.pos.z - G.z), wake: G.wake, liveFoes})) road2WakeGuardian();
       return;
@@ -1308,7 +1311,8 @@
   let road2HollowRoofs = [];         // 入れる家の屋根 {mesh, rect}。中にいる間は隠す
   let road2Area1Lore = [];           // 調べ物 {lore, talkId, lines}(読んだら会話を一度)
   let road2WallShadowFigs = [];      // A-1: 壁に映る一行の影 {fig, trail, src}
-  let road2WallShadowLag = 0;        // 試験用: 今の遅れ(秒)
+  let road2WallShadowLag = 0;        // 試験用: 主人公の影の今の遅れ(秒)
+  let road2WallShadowT = 0;
   let road2Banter = newBanterState();
   let road2BanterEl = null;
   /* 歩きながらの掛け合いの話題(操作を止めない帯。第一章の本編のルールだけ) */
@@ -1329,13 +1333,13 @@
   ];
 
   function road2SetupArea1(M){
-    road2HollowRoofs = []; road2Area1Lore = []; road2WallShadowFigs = []; road2WallShadowLag = 0;
+    road2HollowRoofs = []; road2Area1Lore = []; road2WallShadowFigs = []; road2WallShadowLag = 0; road2WallShadowT = 0;
     road2Banter = newBanterState();
     const grp = road2AreaGroups[1];
     // ---- 入れる家: 屋根(家ごとに 1 つ。中にいる間は隠す)と中の物 ----
     ROAD2_TERRAIN[1].obstacles.filter(o=> o.hollow).forEach(o=>{
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(0.72, 1, 4),
-        new THREE.MeshStandardMaterial({color:[0x7a4a32, 0x6a3e2c, 0x5a4a3e][Math.floor(o.z0) % 3], roughness:0.85}));
+      const roofMat = M.roof.clone(); roofMat.color.setHex([0x7a4a32, 0x6a3e2c, 0x5a4a3e][Math.floor(o.z0) % 3]);
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(0.72, 1, 4), roofMat);
       roof.position.set((o.x0 + o.x1)/2, o.h + 1.6, (o.z0 + o.z1)/2);
       roof.rotation.y = Math.PI/4;
       roof.scale.set((o.x1 - o.x0)*1.05, 3.2, (o.z1 - o.z0)*1.05);
@@ -1398,10 +1402,14 @@
     });
     // ---- A-1 壁の影: 一行(主人公と支援)の影を白壁に映す。光らせない ----
     const shade = new THREE.MeshBasicMaterial({color:0x221e2a, transparent:true, opacity:0.55, depthWrite:false});
+    // 人の形を一枚の形にする(描画 1 回)。頭・肩・胴・脚
+    const sil = new THREE.Shape();
+    sil.moveTo(-0.22, 0); sil.lineTo(-0.06, 0); sil.lineTo(0, 0.55); sil.lineTo(0.06, 0); sil.lineTo(0.22, 0);
+    sil.lineTo(0.2, 0.72); sil.lineTo(0.3, 1.45); sil.lineTo(0.12, 1.55); sil.lineTo(0.14, 1.85); sil.lineTo(0, 1.93);
+    sil.lineTo(-0.14, 1.85); sil.lineTo(-0.12, 1.55); sil.lineTo(-0.3, 1.45); sil.lineTo(-0.2, 0.72); sil.lineTo(-0.22, 0);
+    const silGeo = new THREE.ShapeGeometry(sil);
     const makeFig = ()=>{
-      const g = new THREE.Group();
-      [[0, 1.72, 0.34, 0.36], [0, 1.08, 0.56, 0.9], [-0.12, 0.33, 0.2, 0.66], [0.12, 0.33, 0.2, 0.66]]
-        .forEach(([x, y, w, h])=>{ const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), shade); m.position.set(x, y, 0); g.add(m); });
+      const g = new THREE.Mesh(silGeo, shade);
       g.rotation.y = Math.PI/2;   // 壁の東の面(通り側)
       g.visible = false;
       grp.add(g);
@@ -1442,13 +1450,17 @@
   function road2UpdateWallShadow(){
     const S = ROAD2_WALL_SHADOW;
     const show = currentWorldKey === 'road2' && road2CurrentAreaId === 1 && inWallShadowZone(state.pos.x, state.pos.z);
-    road2WallShadowLag = wallShadowLag(state.pos.x - S.wallX);
-    road2WallShadowFigs.forEach(F=>{
+    const dt = Math.min(0.1, Math.max(0, road2Time - (road2WallShadowT || road2Time))); road2WallShadowT = road2Time;
+    road2WallShadowFigs.forEach((F, i)=>{
       const p = F.src();
       if(!p){ F.fig.visible = false; F.foot.visible = false; F.trail.length = 0; return; }
       pushShadowTrail(F.trail, {t: road2Time, z: p.z, y: p.y || 0});
-      if(!show){ F.fig.visible = false; F.foot.visible = false; return; }
-      const s = sampleShadowTrail(F.trail, road2Time, road2WallShadowLag);
+      // 遅れはその人の壁からの距離で決め、0.3 秒かけて移る(2 m の線をまたいだ時に影が跳ばない)
+      const want = wallShadowLag(p.x - S.wallX);
+      F.lag = F.lag == null ? want : (F.lag < want ? Math.min(want, F.lag + dt * S.lag / 0.3) : Math.max(want, F.lag - dt * S.lag / 0.3));
+      if(i === 0) road2WallShadowLag = F.lag;
+      if(!show || !inWallShadowZone(p.x, p.z)){ F.fig.visible = false; F.foot.visible = false; return; }
+      const s = sampleShadowTrail(F.trail, road2Time, F.lag);
       const onWall = s && s.z > S.z0 + 0.3 && s.z < S.z1 - 0.3;
       F.fig.visible = !!onWall; F.foot.visible = !!onWall;
       if(onWall){

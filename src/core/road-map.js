@@ -282,12 +282,14 @@ export const ROAD2_VISTAS = Object.freeze([
    kind … 'roadEater' 道喰らい / 'spitBeast' 射撃の獣(宿場。R3-1) / 'beast' 獣 / 'bigBeast' 森の大型獣 / 'spitter' 射撃 /
            'warden' 遺構の守り手 / 'mossStone' 苔むした番石
    afterJoin … 加入の後だけ出る(エリア 4。出会いの帯の北)
+   triggers … 別の入口から入った時の帯(どれか一つで出る)。どの戦闘も、残っている敵＋出す数が 4 体までの時だけ出る(core/road-guardian.js foesFit)
    敵の場所は同じ高さの帯の中(宿場 0・森の床 1・狭間 1・遺構 5・山道の坂 5〜6)。同時に 4 体まで */
 export const ROAD2_FIGHTS = Object.freeze([
   // AREA 1 旅人の宿場(R3-1、設計 §2 AREA 1)
   {id:'F1-1', area:1, must:true,  name:'宿場の通り', trigger:{x0:1094, x1:1106, z0:24, z1:28},
    waves:[[{kind:'roadEater', x:1098, z:36}, {kind:'roadEater', x:1102.5, z:39}]]},
   {id:'F1-2', area:1, must:false, name:'裏庭',       trigger:{x0:1122, x1:1138, z0:36, z1:42},
+   triggers:[{x0:1112, x1:1120, z0:52.5, z1:57.5}],   // 北の路地(z 55)から入った時も、敵の手前で出す
    waves:[[{kind:'roadEater', x:1127, z:51}, {kind:'roadEater', x:1133, z:53}, {kind:'spitBeast', x:1130.5, z:61}]]},
   // AREA 4 忘れられた山道(R3-4b)
   {id:'F4-1', area:4, afterJoin:true, must:true,  name:'森の外周',  trigger:{x0:1086, x1:1110, z0:495, z1:501},

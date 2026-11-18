@@ -124,16 +124,15 @@ test('宿場の戦闘: F1-1 は通りで道喰らい ×2、F1-2 は裏庭で道�
   expect(f1.map(e => e.kind)).toEqual(['roadEater', 'roadEater']);
   expect(f1.every(e => e.atkType === 'charge' && e.tel === 0.8 && e.cd === 1.2)).toBe(true);   // 地面を掻く溜め・頭を振る隙
   expect((await R('fight', 'F1-1')).alive.every(e => e.room === 'road2F1-1')).toBe(true);
+  // 通りの 2 体が残ったまま裏庭へ走っても、裏庭の 3 体は出ない(同時に 4 体まで)
+  await R('go', 1130, 38.5, Math.PI);
+  await page.waitForTimeout(3000);
+  expect((await R('fight', 'F1-2')).total).toBe(0);
   await R('kill', 'F1-1');
-  await expect.poll(async () => { const f = await R('fight', 'F1-1'); return f.state && f.state.cleared; }, { timeout: 20_000 }).toBe(true);
-  // F1-2 裏庭(東の路地の先)
-  await R('go', 1130, 33, Math.PI);
-  await R('walk', [[1130, 39]], 60);
-  await expect.poll(async () => (await R('fight', 'F1-2')).alive.length, { timeout: 10_000 }).toBe(3);
-  const f2 = await R('foeInfo', 'F1-2');
-  expect(f2.map(e => e.kind).sort()).toEqual(['roadEater', 'roadEater', 'spitBeast']);
-  expect(f2.find(e => e.kind === 'spitBeast').atkType).toBe('fire');
+  await expect.poll(async () => (await R('fight', 'F1-2')).alive.length, { timeout: 15_000 }).toBe(3);   // 減ったら出る(帯の中にいる)
   await R('kill', 'F1-2');
+  await expect.poll(async () => { const f = await R('fight', 'F1-1'); return f.state && f.state.cleared; }, { timeout: 20_000 }).toBe(true);
+  expect((await R('fight', 'F1-2')).total).toBe(3);
   await expect.poll(async () => { const f = await R('fight', 'F1-2'); return f.state && f.state.cleared; }, { timeout: 20_000 }).toBe(true);
   await page.waitForTimeout(25_000);   // 湧き直しの時間(20 秒)を過ぎても戻らない
   expect((await R('fight', 'F1-1')).alive.length).toBe(0);
@@ -187,10 +186,26 @@ test('R1-01 出発・掛け合い・R1-04 壁の影: 影は 0.45 秒遅れ、壁
   await w2;
   // 壁から 2 m 以内では遅れない
   await R('go', 1095.4, 47, Math.PI);
-  await page.waitForTimeout(1500);
+  await expect.poll(async () => (await R('shadow')).lag, { timeout: 10_000 }).toBe(0);   // 0.3 秒かけて遅れが無くなる(跳ばない)
+  await page.waitForTimeout(1000);
   const s2 = await R('shadow');
   expect(s2.lag).toBe(0);
   expect(Math.abs(s2.figs[0].z - s2.pz)).toBeLessThan(0.05);
+  expect(errors).toEqual([]);
+});
+
+test('裏庭の戦闘 F1-2: 北の路地から入っても、敵の手前で出る。射撃の獣は前衛の後ろ', async ({ page }) => {
+  test.setTimeout(300_000);
+  const errors = watchErrors(page);
+  const R = await enter(page, { classKey: 'rogue', guestKey: 'archer' });
+  await R('invuln');
+  await R('go', 1108, 55, -Math.PI / 2);
+  await R('walk', [[1116, 55]], 60);
+  await expect.poll(async () => (await R('fight', 'F1-2')).alive.length, { timeout: 10_000 }).toBe(3);
+  const f2 = await R('foeInfo', 'F1-2');
+  expect(f2.map(e => e.kind).sort()).toEqual(['roadEater', 'roadEater', 'spitBeast']);
+  expect(f2.find(e => e.kind === 'spitBeast').atkType).toBe('fire');
+  expect((await R('pos')).x, '敵(x 1127〜1133)の手前').toBeLessThan(1121);
   expect(errors).toEqual([]);
 });
 

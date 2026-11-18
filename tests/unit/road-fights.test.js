@@ -99,4 +99,11 @@ test('宿場の戦闘(R3-1): F1-1 通りの道喰らい ×2(必ず)、F1-2 裏�
   };
   assert.ok(crosses(main, by['F1-1'].trigger));
   assert.ok(crosses(side, by['F1-2'].trigger));
+  // 裏庭は北の路地(z 55)からも入れる: その入口にも帯があり、どちらから入っても敵の手前で出る
+  const back = side.slice(side.findIndex(([x, z]) => x === 1130 && z === 66));   // 裏庭の北 → 北の路地
+  assert.ok(by['F1-2'].triggers.some(t => crosses(back, t)), '北の路地の帯');
+  const spawnZ = by['F1-2'].waves[0].map(e => e.z);
+  assert.ok(by['F1-2'].trigger.z1 < Math.min(...spawnZ), '南の入口の帯は敵の手前');
+  // 同時に 4 体まで: 通りの戦闘(2)と裏庭の戦闘(3)は合わせると 5。裏庭は foesFit で通りの敵が減るまで出ない
+  assert.ok(by['F1-1'].waves[0].length + by['F1-2'].waves[0].length > 4, '重なると超える組み合わせ(foesFit で止める)');
 });

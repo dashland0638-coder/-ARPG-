@@ -175,7 +175,7 @@ import {
 import { compassStep, roadDirectionAt, compassMainXAt, compassNextDestination, compassDestination, ROAD2_ANOMALIES } from '../core/road-compass.js';
 import { ROAD2_WALL_SHADOW, wallShadowLag, inWallShadowZone, sampleShadowTrail, pushShadowTrail } from '../core/road-wall-shadow.js';
 import { newBanterState, queueBanter, stepBanter } from '../core/road-banter.js';
-import { GUARDIAN_FOCUS_SEC, canFocusAlly, stepGuardianFocus, guardianFacingTarget, guardianMayWake } from '../core/road-guardian.js';
+import { GUARDIAN_FOCUS_SEC, canFocusAlly, stepGuardianFocus, guardianFacingTarget, guardianMayWake, foesFit } from '../core/road-guardian.js';
 import { ROAD_JOINER, ROAD_JOIN_AREA, roadSupportOptions, roadCompanions, recordRoadArea, roadJoinedFromArea, roadStartCamp, sanitizeRoadArea } from '../core/road-party.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
