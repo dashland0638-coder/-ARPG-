@@ -443,6 +443,8 @@ import { startProceduralBgm } from './procedural-bgm.js';
     death(arg){ deathByMaterial(arg && arg.material); },
     ui(){ tone('square', 700, 700, 0.05, 0.07); },
     chime(){ tone('sine', 880, 880, 0.55, 0.16); tone('sine', 1320, 1320, 0.45, 0.08, 0.02); },
+    // 道(新)の山道の遠い鐘(A-7)。時計塔の鐘とは違う、低く遠い一打。派手にしない
+    distantBell(){ tone('sine', 196, 194, 2.6, 0.09); tone('sine', 293, 290, 2.0, 0.045, 0.02); tone('sine', 523, 520, 0.9, 0.02, 0.04); },
     tick(){ tone('square', 1200, 1200, 0.03, 0.05); },
     deny(){ tone('square', 220, 160, 0.16, 0.12); },
     /* 環境音。洋館シナリオは「読ませる」より「聞かせる」を優先しているので、

@@ -95,7 +95,7 @@ export const SCENARIO_WAYPOINTS = {
     {id:'vale',     name:'水鏡の谷の入口',       x:1100, z:322, y:-2},
     {id:'mountain', name:'忘れられた山道の入口', x:1100, z:456, y:1},
     // 加入の後(影の旅人が主人公・盗賊が支援)から試す。着くと一幕なしで正規の加入処理(R3-N-FIX-01)
-    {id:'joined',   name:'忘れられた山道（加入後）', x:1100, z:470, y:1, road2Join:true},
+    {id:'joined',   name:'忘れられた山道（加入後）', x:1066, z:477, y:1, road2Join:true},   // 森の帯(R4-01、468〜476)と N-3(478〜)のあいだ(着いてすぐ会話が始まらない。R3-4b)
     {id:'end',      name:'道の果ての入口',       x:1100, z:646, y:8},
   ],
   road: [

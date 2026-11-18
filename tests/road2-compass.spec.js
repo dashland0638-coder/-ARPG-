@@ -237,7 +237,7 @@ test('顔ぶれ: テストの選択で操作し、正規の支援がつく。野
   expect(c.stranger).toBe(false);
   expect(c.clears).toBe(clears0);                // 進行は変わらない
   // 加入後の会話(N-3)が出る
-  await R('go', 1066, 472, Math.PI);
+  await R('go', 1066, 476.6, Math.PI);   // 森の帯(R4-01、加入の後に出る。R3-4b)の北・N-3 の南
   const w3 = R('walk', [[1066, 486]], 120);
   const l3 = await readTalk(page, R);
   await w3;
@@ -272,7 +272,7 @@ test('羅針盤: 影の旅人は会話で読み方を覚える(加入の後だ�
   const errors = watchErrors(page);
   const R = await enter(page);
   await R('joined', true);
-  await R('go', 1066, 472, Math.PI);
+  await R('go', 1066, 476.6, Math.PI);   // 森の帯(R4-01、加入の後に出る。R3-4b)の北・N-3 の南
   const w = R('walk', [[1066, 486]], 120);
   const l3 = await readTalk(page, R);
   await w;

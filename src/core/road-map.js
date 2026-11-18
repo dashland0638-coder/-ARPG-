@@ -271,6 +271,26 @@ export const ROAD2_VISTAS = Object.freeze([
   {id:'edge',    area:5, x0:1080, x1:1120, z0:744, z1:756, look:{x:1100, y:-70, z:1150}},  // 道の果ての北の端: 地平線へ続く道
 ]);
 
+/* エリア 4 の戦闘(R3-4b、設計 §2 AREA 4)。顔ぶれは設計のまま。
+   trigger … その長方形に入ると敵が出る(一度だけ)。waves … 一波を全部倒すと次の波
+   kind … 'beast' 獣 / 'bigBeast' 森の大型獣 / 'spitter' 射撃 / 'warden' 遺構の守り手 / 'mossStone' 苔むした番石
+   敵の場所は同じ高さの帯の中(森の床 1・狭間 1・遺構 5・山道の坂 5〜6)。同時に 4 体まで */
+export const ROAD2_FIGHTS = Object.freeze([
+  {id:'F4-1', area:4, must:true,  name:'森の外周',  trigger:{x0:1086, x1:1110, z0:495, z1:501},
+   waves:[[{kind:'bigBeast', x:1098, z:510}, {kind:'beast', x:1093, z:514}, {kind:'beast', x:1103, z:514}]]},
+  {id:'F4-2', area:4, must:true,  name:'遺構の門',  trigger:{x0:1062, x1:1078, z0:546, z1:552},
+   waves:[[{kind:'warden', x:1066, z:560}, {kind:'warden', x:1075, z:560}]]},
+  {id:'F4-3', area:4, must:true,  name:'遺構の通路', trigger:{x0:1074, x1:1098, z0:565, z1:570},
+   waves:[[{kind:'warden', x:1088, z:575}, {kind:'beast', x:1082, z:578}],
+          [{kind:'warden', x:1094, z:580}, {kind:'beast', x:1086, z:583}]]},
+  {id:'F4-4', area:4, must:false, name:'地下の通路(狭間)', trigger:{x0:1034, x1:1044, z0:538, z1:544},
+   waves:[[{kind:'spitter', x:1037, z:566}, {kind:'spitter', x:1041, z:572}, {kind:'beast', x:1039, z:556}]]},
+  {id:'F4-S', area:4, must:true,  name:'山道の強敵', trigger:{x0:1136, x1:1150, z0:612, z1:616},
+   waves:[[{kind:'mossStone', x:1143, z:621}]]},
+]);
+/* F4-B 遺構の中庭の「古き守り手」(中ボス級)。円い石の構造物の中心に石像として立ち、wake の半径に入ると動き出す */
+export const ROAD2_GUARDIAN = Object.freeze({id:'F4-B', area:4, x:ROAD2_RUIN.x, z:ROAD2_RUIN.z, wake:13, minY:4});   // 支援へ向く秒数などは core/road-guardian.js
+
 /* 必ず出る会話・演出の帯(設計 §5.2・§6)。道幅いっぱいの z の帯で拾う。
    R3-0 では位置だけを持ち、中身は各エリアの段で入れる */
 export const ROAD2_BANDS = Object.freeze([

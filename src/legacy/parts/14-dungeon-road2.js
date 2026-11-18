@@ -226,6 +226,7 @@
     road2BuildGuideposts(M);   // R3-N: 分かれ道の道標
     road2RegisterCompassTalks();   // R3-N: 羅針盤の会話
     road2SetupMeeting();           // R3-N-FIX-01: エリア 4 の野営地の「？？？」と、出会い・加入
+    road2SetupArea4(M);            // R3-4b: エリア 4 の戦闘・古き守り手・遺構の会話と怪異
     ROAD2_CAMPS.forEach(c=> road2BuildCamp(c, road2AreaGroups[c.area], M));
     ROAD2_LANDMARKS.forEach(l=> road2BuildLandmark(l, road2AreaGroups[l.area], M));
 
@@ -1061,6 +1062,213 @@
     return true;
   }
 
+  /* ==== R3-4b: エリア 4 の戦闘・古き守り手・遺構の会話と怪異(.ai/reports/ROAD-VISUAL-003-R3-4b-plan.md) ====
+     戦闘の顔ぶれと場所は core/road-map.js ROAD2_FIGHTS(設計 §2 のまま)。倒した敵は戻らない(roomTag、DEC-025 E-5)。
+     どの戦闘・会話も加入の後だけ(出会いの帯の北にある)。倒したことは保存しない(出撃し直すと最初から。E-3 は到達だけ)。
+     空・光・時間帯は変えない(ROAD-VISUAL-004 T1〜T5)。古き守り手の状態だけを持ち、深夜・夜明けの表現はそちらが読む */
+  /* 数値は CR-01 の作法(時計塔 4F と旧道の敵が基準。計画 §4)。difficultyFor('road2') の倍率がこの上に掛かる */
+  const ROAD2_FOES = {
+    beast:     {color:0x6a5a44, hp:190, atk:30, speed:2.6, atkType:'charge', xp:80,  goldBonus:[16,24]},
+    bigBeast:  {color:0x4e4232, hp:300, atk:34, speed:2.4, atkType:'charge', xp:120, goldBonus:[22,32], scale:1.35},
+    spitter:   {color:0x7a6a4a, hp:150, atk:26, speed:0.9, atkType:'fire',   xp:84,  goldBonus:[16,24], projColor:0xd8b060},
+    warden:    {color:0x8a8a78, hp:240, atk:34, speed:2.4, atkType:'charge', xp:110, goldBonus:[30,44], theme:'stone', strongMob:true, guardian:true},
+    mossStone: {color:0x6a7a52, hp:420, atk:40, speed:2.2, atkType:'charge', xp:160, goldBonus:[40,56], theme:'stone', strongMob:true, guardian:true},
+  };
+  const ROAD2_GUARDIAN_FOE = {color:0x9a9480, hp:900, atk:40, speed:2.2, atkType:'charge', xp:320, goldBonus:[70,95], theme:'stone',
+    strongMob:true, guardian:true, midbossName:'古き守り手', midbossFlavor:'石の輪の中で、守り手は動かなくなった。'};
+  let road2Fights = {};                 // id → {wave, cleared}(この出撃の間だけ)
+  let road2GuardianState = 'dormant';   // 'dormant'(石像) / 'active'(戦闘中) / 'defeated'。ROAD-VISUAL-004 の深夜・夜明けが読む
+  let road2GuardianEn = null, road2GuardianStatue = null;
+  let road2BellCount = 0;               // A-7 の鐘が鳴った回数
+  let road2ShadowMark = null, road2OldRecord = null;   // A-8 影の模様 / R4-04 古い記録(調べる)
+  let road2PendingTalks = [];           // 調べ物を閉じた後に出す会話
+
+  function road2ResetArea4(){
+    road2Fights = {}; road2GuardianState = 'dormant'; road2GuardianEn = null; road2GuardianStatue = null;
+    road2BellCount = 0; road2ShadowMark = null; road2OldRecord = null; road2PendingTalks = [];
+  }
+
+  /* 戦闘の帯・古き守り手の石像・遺構の調べ物・鐘と会話の帯を置く(buildRoad2 から) */
+  function road2SetupArea4(M){
+    road2ResetArea4();
+    ROAD2_FIGHTS.forEach(f=>{
+      const t = f.trigger;
+      registerProximityEvent(new THREE.Vector3((t.x0 + t.x1)/2, 0, (t.z0 + t.z1)/2), 1, '', null, {
+        area: {x0:t.x0, x1:t.x1, z0:t.z0, z1:t.z1}, marker:false,
+        condition: ()=> road2Joined && !road2Fights[f.id],
+        onEnter: ()=> road2StartFight(f),
+      });
+    });
+    // 古き守り手: 円い石の構造物の中心に立つ石像(近づくと同じ場所に敵として出る。それまでは AI を持たない)
+    const G = ROAD2_GUARDIAN, gy = road2GroundAt(G.x, G.z) ?? 5;
+    const statue = new THREE.Group();
+    const stone = new THREE.MeshStandardMaterial({color:ROAD2_GUARDIAN_FOE.color, roughness:0.95});
+    const base = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 2.4), stone); base.position.y = 0.25; statue.add(base);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.9, 1.1), stone); body.position.y = 1.45; statue.add(body);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.8, 0.9), stone); head.position.y = 2.8; statue.add(head);
+    statue.position.set(G.x, gy, G.z);
+    statue.rotation.y = Math.PI;   // 来る方(南)を向いている
+    road2AreaGroups[G.area].add(statue);
+    road2GuardianStatue = statue;
+    // A-8 影の模様: 遺構の東の部屋の壁(調べると R4-03)。光らせない・消さない(設計 §6 の規則)
+    const mark = new THREE.Group();
+    const shade = new THREE.MeshBasicMaterial({color:0x1a1622, transparent:true, opacity:0.55, depthWrite:false});
+    [[0, 1.55, 0.36, 0.42], [0, 0.95, 0.6, 0.9], [-0.42, 0.95, 0.2, 0.8], [0.42, 0.95, 0.2, 0.8], [-0.16, 0.25, 0.22, 0.6], [0.16, 0.25, 0.22, 0.6]]
+      .forEach(([x, y, w, h])=>{ const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), shade); m.position.set(x, y, 0); mark.add(m); });
+    const my = road2GroundAt(1131, 572) ?? 5;
+    mark.position.set(1130.06, my + 0.4, 572);
+    mark.rotation.y = Math.PI/2;   // 壁の東の面(部屋の中)に貼る
+    road2AreaGroups[4].add(mark);
+    road2ShadowMark = {pos:new THREE.Vector3(1131.2, my, 572), title:'壁の模様',
+      lines:['壁に、人のような形の影が残っている。', '光の向きとは、合っていない。'], radius:2.4, read:false, kind:'mark', promptText:'調べる'};
+    loreObjects.push(road2ShadowMark);
+    // R4-04 古い記録: 遺構の北の部屋の石の台
+    const ry = road2GroundAt(1138, 596) ?? 5;
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.9), M.stone);
+    slab.position.set(1138, ry + 0.4, 596);
+    road2AreaGroups[4].add(slab);
+    walls.push({minX:1137.3, maxX:1138.7, minZ:595.55, maxZ:596.45});   // 石の台は通り抜けない
+    road2OldRecord = {pos:new THREE.Vector3(1138, ry, 595), title:'古い記録',
+      lines:['石の台に刻まれた文字は、ほとんど削れて読めない。', '読めるのは、数を数えるような印だけだ。'], radius:2.2, read:false, kind:'mark', promptText:'調べる'};
+    loreObjects.push(road2OldRecord);
+    // A-7 鐘(3 か所の帯で 1 回ずつ。2 回目の後に R4-02)、R4-01 森、R4-06 峠
+    ['A-7a', 'A-7b', 'A-7c'].forEach(id=> road2RegisterBand(id, ()=> road2RingBell(id), false));
+    road2RegisterBand('R4-01', ()=> road2Talk('R4-01', [[ROAD_ARCHER, '「……暗くなってきました」'], [ROAD_TRAVELER, '「はい」']]), true);
+    road2RegisterBand('R4-06', ()=> road2Talk('R4-06', [[ROAD_TRAVELER, '「……まだ、続いています」']]), true);
+  }
+  /* 帯(ROAD2_BANDS)を道幅いっぱいで登録する。talk = 第一章の台詞(本編のルールだけで出す) */
+  function road2RegisterBand(id, fn, talk){
+    const b = ROAD2_BANDS.find(k=> k.id === id);
+    const a = b && ROAD2_AREAS.find(k=> k.id === b.area);
+    if(!b || !a) return;
+    registerProximityEvent(new THREE.Vector3((a.x0 + a.x1)/2, 0, (b.z0 + b.z1)/2), 1, '', null, {
+      area: {x0:a.x0, x1:a.x1, z0:b.z0, z1:b.z1}, marker:false,
+      condition: ()=> road2Joined && (!talk || !legacyGrowth()),
+      onEnter: fn,
+    });
+  }
+  /* A-7: 遠い鐘の音(時計塔とは違う響き)。2 回目の後に R4-02 */
+  function road2RingBell(id){
+    road2BellCount++;
+    road2TalkCount[id] = (road2TalkCount[id] || 0) + 1;
+    sfx('distantBell');
+    if(road2BellCount === 2 && !legacyGrowth()){
+      road2Talk('R4-02', [
+        [ROAD_MAGE, '「時計塔の鐘を思い出します」'],
+        [ROAD_THIEF, '「でも、あの時とは響きが違う」'],
+        [ROAD_ARCHER, '「どこから聞こえているんでしょう」'],
+        [ROAD_SWORD, '「分からないな」'],
+        [ROAD_MAGE, '「分からないことが、ずいぶん増えました」'],
+      ]);
+    }
+  }
+
+  /* 戦闘: 一波目を出す。二波目は一波を全部倒すと出る(road2UpdateFights) */
+  function road2StartFight(f){
+    if(road2Fights[f.id]) return;
+    road2Fights[f.id] = {wave:-1, cleared:false};
+    road2SpawnWave(f, 0);
+  }
+  function road2SpawnWave(f, i){
+    road2Fights[f.id].wave = i;
+    f.waves[i].forEach(e=>{
+      const v = ROAD2_FOES[e.kind];
+      const y = road2GroundAt(e.x, e.z) ?? 0;
+      const en = buildEnemy(new THREE.Vector3(e.x, y, e.z), Object.assign({roomTag:`road2${f.id}`}, v));
+      if(v.scale) en.group.scale.setScalar(v.scale);
+      en.road2Fight = f.id; en.road2Wave = i; en.road2Kind = e.kind;
+      enemies.push(en);
+    });
+  }
+  function road2FightAlive(id, wave){
+    return enemies.some(en=> en && en.road2Fight === id && en.road2Wave === wave && !en.dead);
+  }
+  function road2UpdateFights(){
+    ROAD2_FIGHTS.forEach(f=>{
+      const st = road2Fights[f.id];
+      if(!st || st.cleared || road2FightAlive(f.id, st.wave)) return;
+      if(st.wave + 1 < f.waves.length) road2SpawnWave(f, st.wave + 1);
+      else st.cleared = true;
+    });
+  }
+
+  /* 古き守り手: 円の中へ近づくと動き出す(一度だけ)。本編のルールでは短い一言、カメラで円を見せてから */
+  function road2WakeGuardian(){
+    if(road2GuardianState !== 'dormant') return;
+    road2GuardianState = 'active';
+    const G = ROAD2_GUARDIAN;
+    const at = road2GuardianStatue ? road2GuardianStatue.position.clone() : new THREE.Vector3(G.x, road2GroundAt(G.x, G.z) ?? 5, G.z);
+    if(road2GuardianStatue){ if(road2GuardianStatue.parent) road2GuardianStatue.parent.remove(road2GuardianStatue); road2GuardianStatue = null; }
+    const en = buildEnemy(at, Object.assign({roomTag:`road2${G.id}`}, ROAD2_GUARDIAN_FOE));
+    en.road2Fight = G.id; en.road2Wave = 0; en.road2Kind = 'guardian';
+    en.turnToAlly = GUARDIAN_FOCUS_SEC;   // 支援の攻撃が当たると、その秒数だけ支援のほうへ向く(07-ai-combat.js、core/road-guardian.js)
+    en.allyFocusT = 0; en.allyFocusCD = 0;
+    en.group.rotation.y = Math.atan2(state.pos.x - at.x, state.pos.z - at.z);
+    en.triggered = true;
+    en.onDefeat = ()=> road2OnGuardianDefeated();
+    enemies.push(en);
+    road2GuardianEn = en;
+    sfx('bossWake');
+    sceneCamShot(at.x, at.z, 2.2, {y: at.y, height: 10, dist: 9});
+    if(!legacyGrowth()){
+      road2Talk('F4-B', [[ROAD_ARCHER, '「……石が、動きました」'], [ROAD_SWORD, '「来るぞ」']]);
+    }
+  }
+  /* 向き: 戦っている間は、狙う相手へ回る(回る速さは既存の上限。瞬時に振り返らない)。
+     支援の攻撃が当たった後の数秒は支援のほうへ。その間はプレイヤーへの突進に入らない(07-ai-combat.js)→ 背後が空く */
+  function road2UpdateGuardian(dt){
+    const G = ROAD2_GUARDIAN;
+    if(road2GuardianState === 'dormant'){
+      // 同時に 4 体まで(設計 §4): 残っている戦闘の敵が 3 体までの時だけ目覚める
+      const liveFoes = enemies.filter(e=> e && e.road2Fight && !e.dead).length;
+      if(guardianMayWake({joined: road2Joined, dialogue: state.dialogueActive, y: state.pos.y, minY: G.minY,
+          dist: Math.hypot(state.pos.x - G.x, state.pos.z - G.z), wake: G.wake, liveFoes})) road2WakeGuardian();
+      return;
+    }
+    const en = road2GuardianEn;
+    if(!en || en.dead) return;
+    const cut = cutsceneRunning();   // 演出の間は敵が止まっているので、向きも秒数も進めない
+    if(!cut){ const f = stepGuardianFocus(en.allyFocusT, en.allyFocusCD, dt || 0); en.allyFocusT = f.focusT; en.allyFocusCD = f.cdT; }
+    const ally = guestCompanion && guestCompanion.group;
+    const target = guardianFacingTarget({focusT: en.allyFocusT, chargeState: en.chargeState, knockedDown: en.knockedDown,
+      stunT: en.stunT, cutscene: cut, hasAlly: !!ally});
+    if(target === 'none') return;
+    const tgt = target === 'ally' ? ally.position : state.pos;
+    en.wanderTarget.copy(en.group.position); en.wanderT = 1;   // 歩き回らず、その場で向きを変える
+    const yaw = Math.atan2(tgt.x - en.group.position.x, tgt.z - en.group.position.z);
+    en.group.rotation.y = turnTowardAngle(en.group.rotation.y, yaw, turnBudget(resolveTurnRate(en), dt || 0));
+  }
+  /* 撃破: 中ボス級の作法(結果画面・クリアの加算は無い)。R4-05 の一言(本編のルール) */
+  function road2OnGuardianDefeated(){
+    road2GuardianState = 'defeated';
+    road2Fights[ROAD2_GUARDIAN.id] = {wave:0, cleared:true};
+    if(!legacyGrowth()){
+      road2PendingTalks.push(()=> road2Talk('R4-05', [
+        [ROAD_MAGE, '「……何を、守っていたんでしょう」'],
+        [ROAD_SWORD, '「さあな。……先へ行こう」'],
+      ]));
+    }
+  }
+
+  /* 調べ物(A-8 → R4-03)と、待っている会話。会話・演出が閉じてから出す */
+  function road2UpdateArea4Talks(){
+    if(road2ShadowMark && road2ShadowMark.read && !road2ShadowMark.talked){
+      road2ShadowMark.talked = true;
+      if(!legacyGrowth()) road2PendingTalks.push(()=> road2Talk('R4-03', [
+        [ROAD_ARCHER, '「……人の影、ですね」'],
+        [ROAD_THIEF, '「彫ったのか、焼けたのか」'],
+        [ROAD_MAGE, '「どちらにも、見えません」'],
+      ]));
+    }
+    if(road2PendingTalks.length && !state.dialogueActive && !cutsceneRunning()) road2PendingTalks.shift()();
+  }
+
+  function road2UpdateArea4(dt){
+    road2UpdateFights();
+    road2UpdateGuardian(dt);
+    road2UpdateArea4Talks();
+  }
+
   /* 羅針盤の表示(ミニマップの左。文字は出さない)。HTML の要素 1 つ(WebGL の描画は増えない) */
   let road2CompassEl = null, road2NeedleEl = null, road2CompassWidthT = 0;
   function road2CompassElement(){
@@ -1138,6 +1346,7 @@
     road2UpdateCompass(dt);
     road2RecordReach();
     road2UpdateCampProximity();
+    road2UpdateArea4(dt);
     const a = road2AreaAt(state.pos.x, state.pos.z);
     const id = a ? a.id : road2CurrentAreaId;
     if(id !== road2CurrentAreaId || !road2VisInit){
