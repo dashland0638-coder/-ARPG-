@@ -75,7 +75,13 @@ const PROBE = `
   relaunch(){ buildWorld('tavern'); launchScenarioNow('road2'); return true; },
   invuln(){ state.maxHp = 99999; state.hp = 99999; return true; },   // デバッグ表示を出さずに倒れないようにする(スクリーンショットのため)
   pos(){ return {x: state.pos.x, z: state.pos.z, dlg: state.dialogueActive}; },
-  shadow(){ return {lag: road2WallShadowLag, figs: road2WallShadowFigs.map(F=> ({vis: F.fig.visible, z: F.fig.position.z})), pz: state.pos.z}; },
+  shadow(){ return {dir: road2WallShadowDir, op: road2WallShadowMat ? road2WallShadowMat.opacity : null,
+    figs: road2WallShadowFigs.map(F=> ({vis: F.fig.visible, y: F.fig.position.y, z: F.fig.position.z, top: F.proj ? F.proj.top : null})),
+    px: state.pos.x, pz: state.pos.z, recv: (()=>{ let n = 0; scene.traverse(o=>{ if(o.isInstancedMesh && o.receiveShadow) n++; }); return n; })(),
+    cast: !!(player && (()=>{ let c = false; (player.group || player).traverse(o=>{ if(o.isMesh && o.castShadow) c = true; }); return c; })()), sm: renderer.shadowMap.enabled}; },
+  // 決まった速さで z へ動かす(カメラは動かさない)。歩いている間の影を、横から見るため
+  slide(z1, speed){ return new Promise(res=>{ let last = performance.now(); const tick = ()=>{ const now = performance.now(), dt = Math.min(0.1, (now - last)/1000); last = now;
+    state.pos.z = Math.min(z1, state.pos.z + speed*dt*0.25); if(state.pos.z >= z1) return res(true); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }); },
   roofs(){ return road2HollowRoofs.map(r=> ({id: r.id, vis: r.mesh.visible})); },
   banter(){ const el = document.getElementById('road2-banter'); if(!el || el.style.display === 'none') return null;
     const r = el.getBoundingClientRect(); return {text: el.textContent, pe: getComputedStyle(el).pointerEvents, rect: {l:r.left, t:r.top, r:r.right, b:r.bottom}}; },
@@ -263,3 +269,4 @@ test('旧成長のルール: 第一章の台詞(R1-01・掛け合い)は出な�
   await expect.poll(async () => (await R('fight', 'F1-1')).alive.length, { timeout: 10_000 }).toBe(2);
   expect(errors).toEqual([]);
 });
+

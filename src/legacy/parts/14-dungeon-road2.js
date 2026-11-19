@@ -281,9 +281,11 @@
     });
     // 町の塀の外(床の無い所)は、歩けない草地の見た目で埋める(床の板には入れない)
     ROAD2_TERRAIN[1].holes.forEach(h=> flats.push({x:(h.x0 + h.x1)/2, z:(h.z0 + h.z1)/2, w:h.x1 - h.x0, d:h.z1 - h.z0, top:0.5, color:0x5c7a44}));
-    road2InstQ(road2TopSideBox(), [M.top, M.side], flats,
+    // 床は太陽の影を受ける(足元のいつもの影。A-1 の壁の影と比べられるように)。影を落とすのは人と敵だけ ―― 描画回数は増えない
+    const flatMesh = road2InstQ(road2TopSideBox(), [M.top, M.side], flats,
       f=> ({x:f.x, y:(f.top + ROAD2_FLOOR_BOTTOM)/2, z:f.z, sx:f.w, sy:f.top - ROAD2_FLOOR_BOTTOM, sz:f.d}), scene, f=> f.color);
-    road2InstQ(road2TopSideBox(), [M.top, M.side], ramps, ({s})=>{
+    if(flatMesh) flatMesh.receiveShadow = true;
+    const rampMesh = road2InstQ(road2TopSideBox(), [M.top, M.side], ramps, ({s})=>{
       const r = s.ramp, dy = r.y1 - r.y0, len = r.a1 - r.a0, slope = Math.hypot(len, dy), T = Math.abs(dy) + 1.2;
       const cx = (s.x0 + s.x1)/2, cz = (s.z0 + s.z1)/2, my = (r.y0 + r.y1)/2;
       if(r.axis === 'z'){
@@ -293,6 +295,7 @@
       const b = Math.atan2(dy, len);
       return {x:cx + Math.sin(b)*T/2, y:my - Math.cos(b)*T/2, z:cz, rz:b, sx:slope, sy:T, sz:s.z1 - s.z0};
     }, scene, f=> f.color);
+    if(rampMesh) rampMesh.receiveShadow = true;
   }
 
   /* 通り道。床の高さに沿って板を並べる(坂では傾ける)。メインと寄り道だけ。
@@ -326,7 +329,8 @@
         }
       }
     });
-    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.path, tiles, t=> ({x:t.x, y:t.y, z:t.z, rx:t.rx, ry:t.ry, sx:t.w, sy:0.06, sz:t.L}), scene, t=> t.c);
+    const pathMesh = road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.path, tiles, t=> ({x:t.x, y:t.y, z:t.z, rx:t.rx, ry:t.ry, sx:t.w, sy:0.06, sz:t.L}), scene, t=> t.c);
+    if(pathMesh) pathMesh.receiveShadow = true;   // 敷石の上にも足元の影
   }
 
   /* 当たりのある物の見た目(エリアの Group へ)。建物は壁と屋根、岩は重ねた不揃いの箱 */
@@ -1315,8 +1319,8 @@
   let road2HollowRoofs = [];         // 入れる家の屋根 {mesh, rect}。中にいる間は隠す
   let road2Area1Lore = [];           // 調べ物 {lore, talkId, lines}(読んだら会話を一度)
   let road2WallShadowFigs = [];      // A-1: 壁に映る一行の影 {fig, trail, src}
-  let road2WallShadowLag = 0;        // 試験用: 主人公の影の今の遅れ(秒)
-  let road2WallShadowT = 0;
+  let road2WallShadowMat = null;     // 壁の影の材質(濃さを光の強さから毎フレーム)
+  let road2WallShadowDir = null;     // 試験用: 今の光の進む向き
   let road2Banter = newBanterState();
   let road2BanterEl = null;
   /* 歩きながらの掛け合いの話題(操作を止めない帯。第一章の本編のルールだけ) */
@@ -1337,7 +1341,7 @@
   ];
 
   function road2SetupArea1(M){
-    road2HollowRoofs = []; road2Area1Lore = []; road2WallShadowFigs = []; road2WallShadowLag = 0; road2WallShadowT = 0;
+    road2HollowRoofs = []; road2Area1Lore = []; road2WallShadowFigs = []; road2WallShadowMat = null; road2WallShadowDir = null;
     road2Banter = newBanterState();
     const grp = road2AreaGroups[1];
     // ---- 入れる家: 屋根(家ごとに 1 つ。中にいる間は隠す)と中の物 ----
@@ -1404,8 +1408,10 @@
         onEnter: ()=> { queueBanter(road2Banter, b.id, b.lines); road2TalkCount[b.id] = (road2TalkCount[b.id] || 0) + 1; return false; },
       });
     });
-    // ---- A-1 壁の影: 一行(主人公と支援)の影を白壁に映す。光らせない ----
-    const shade = new THREE.MeshBasicMaterial({color:0x221e2a, transparent:true, opacity:0.55, depthWrite:false});
+    // ---- A-1 壁の影: 一行(主人公と支援)の足元の影が、光の向きのとおり白壁の上へ伸びる。
+    //      壁の上の部分だけが 0.45 秒遅れる。光らせない(黒の重ねだけ。濃さは光の強さから) ----
+    const shade = new THREE.MeshBasicMaterial({color:0x0c0e16, transparent:true, opacity:0.45, depthWrite:false, fog:true});
+    road2WallShadowMat = shade;
     // 人の形を一枚の形にする(描画 1 回)。頭・肩・胴・脚
     const sil = new THREE.Shape();
     sil.moveTo(-0.22, 0); sil.lineTo(-0.06, 0); sil.lineTo(0, 0.55); sil.lineTo(0.06, 0); sil.lineTo(0.22, 0);
@@ -1414,22 +1420,14 @@
     const silGeo = new THREE.ShapeGeometry(sil);
     const makeFig = ()=>{
       const g = new THREE.Mesh(silGeo, shade);
-      g.rotation.y = Math.PI/2;   // 壁の東の面(通り側)
+      g.rotation.y = Math.PI/2;   // 壁の東の面(通り側)。床より下に来た部分は床に隠れる(床の上は足元の影が受け持つ)
       g.visible = false;
       grp.add(g);
       return g;
     };
-    // 壁の足元から通りへ伸びる影(上から見るカメラでも見える。壁の上の影とつながって、同じだけ遅れる)
-    const makeFoot = ()=>{
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(4.0, 0.6), shade);   // 軒の庇(壁から 1.8)の外まで伸ばす
-      m.rotation.x = -Math.PI/2;
-      m.visible = false;
-      grp.add(m);
-      return m;
-    };
     road2WallShadowFigs = [
-      {fig: makeFig(), foot: makeFoot(), trail: [], src: ()=> state.pos},
-      {fig: makeFig(), foot: makeFoot(), trail: [], src: ()=> (guestCompanion && guestCompanion.group) ? guestCompanion.group.position : null},
+      {fig: makeFig(), trail: [], src: ()=> state.pos},
+      {fig: makeFig(), trail: [], src: ()=> (guestCompanion && guestCompanion.group) ? guestCompanion.group.position : null},
     ];
   }
 
@@ -1450,27 +1448,28 @@
     road2UpdateBanter(dt);
   }
 
-  /* A-1: 通りにいる間だけ、白壁に一行の影。本人より 0.45 秒遅れて動く。壁から 2 m 以内では遅れない */
+  /* A-1: 通りにいる間だけ。足元の影(影の地図)は本人に付いて動き、白壁の上に伸びた部分だけが
+     0.45 秒前の位置から写る。位置は毎フレームの太陽の向きから求める(時間帯で向きが替わっても付いてくる) */
   function road2UpdateWallShadow(){
     const S = ROAD2_WALL_SHADOW;
     const show = currentWorldKey === 'road2' && road2CurrentAreaId === 1 && inWallShadowZone(state.pos.x, state.pos.z);
-    const dt = Math.min(0.1, Math.max(0, road2Time - (road2WallShadowT || road2Time))); road2WallShadowT = road2Time;
-    road2WallShadowFigs.forEach((F, i)=>{
+    const d = sunLight ? wallShadowLightDir(sunLight.position, sunLight.target.position) : null;
+    road2WallShadowDir = d;
+    if(d && road2WallShadowMat){
+      // 照らされた壁と影の明るさの差(太陽の強さ × 壁の面への入り方 と 半球光)
+      road2WallShadowMat.opacity = wallShadowOpacity(sunLight.intensity, hemiLight ? hemiLight.intensity : 0, -d.x);
+    }
+    road2WallShadowFigs.forEach(F=>{
       const p = F.src();
-      if(!p){ F.fig.visible = false; F.foot.visible = false; F.trail.length = 0; return; }
-      pushShadowTrail(F.trail, {t: road2Time, z: p.z, y: p.y || 0});
-      // 遅れはその人の壁からの距離で決め、0.3 秒かけて移る(2 m の線をまたいだ時に影が跳ばない)
-      const want = wallShadowLag(p.x - S.wallX);
-      F.lag = F.lag == null ? want : (F.lag < want ? Math.min(want, F.lag + dt * S.lag / 0.3) : Math.max(want, F.lag - dt * S.lag / 0.3));
-      if(i === 0) road2WallShadowLag = F.lag;
-      if(!show || !inWallShadowZone(p.x, p.z)){ F.fig.visible = false; F.foot.visible = false; return; }
-      const s = sampleShadowTrail(F.trail, road2Time, F.lag);
-      const onWall = s && s.z > S.z0 + 0.3 && s.z < S.z1 - 0.3;
-      F.fig.visible = !!onWall; F.foot.visible = !!onWall;
-      if(onWall){
-        F.fig.position.set(S.wallX + 0.04, s.y, s.z);
-        F.foot.position.set(S.wallX + 2.05, s.y + 0.03, s.z);
-      }
+      if(!p){ F.fig.visible = false; F.trail.length = 0; return; }
+      pushShadowTrail(F.trail, {t: road2Time, x: p.x, y: p.y || 0, z: p.z});
+      if(!show){ F.fig.visible = false; return; }
+      const s = sampleShadowTrail(F.trail, road2Time, S.lag);
+      const pr = s ? projectToWall(s, d) : null;
+      const on = wallShadowOnWall(pr, 0);
+      F.fig.visible = on;
+      if(on) F.fig.position.set(S.wallX + 0.04, pr.y, pr.z);
+      F.proj = on ? pr : null;
     });
   }
 

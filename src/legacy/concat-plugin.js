@@ -173,7 +173,7 @@ import {
   ROAD2_WATER, ROAD2_OUTER_Y,
 } from '../core/road-map.js';
 import { compassStep, roadDirectionAt, compassMainXAt, compassNextDestination, compassDestination, ROAD2_ANOMALIES } from '../core/road-compass.js';
-import { ROAD2_WALL_SHADOW, wallShadowLag, inWallShadowZone, sampleShadowTrail, pushShadowTrail } from '../core/road-wall-shadow.js';
+import { ROAD2_WALL_SHADOW, wallShadowLightDir, projectToWall, wallShadowOnWall, wallShadowOpacity, inWallShadowZone, sampleShadowTrail, pushShadowTrail } from '../core/road-wall-shadow.js';
 import { newBanterState, queueBanter, stepBanter } from '../core/road-banter.js';
 import { GUARDIAN_FOCUS_SEC, canFocusAlly, stepGuardianFocus, guardianFacingTarget, guardianMayWake, foesFit } from '../core/road-guardian.js';
 import { ROAD_JOINER, ROAD_JOIN_AREA, roadSupportOptions, roadCompanions, recordRoadArea, roadJoinedFromArea, roadStartCamp, sanitizeRoadArea } from '../core/road-party.js';
