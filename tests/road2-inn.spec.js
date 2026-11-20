@@ -3,7 +3,7 @@
  *
  *   ・戦闘: F1-1 通りの道喰らい ×2(必ず)、F1-2 裏庭の道喰らい ×2＋射撃の獣 ×1(寄り道)。倒した敵は戻らない
  *   ・会話: R1-01 出発・R1-04 壁の影(必ず)。調べる: R1-02 道標・R1-03 旅人の日記(旅籠の中)・R1-05 馬車(馬小屋の中)
- *   ・怪異 A-1: 白壁に一行の影。0.45 秒遅れ、壁から 2 m 以内では遅れない
+ *   ・怪異 A-1(E-1 = A): 足元のいつもの影＋白壁の前の通りでだけ、0.45 秒前の姿の二つ目の影(止まると重なる)
  *   ・廃宿(旅籠・馬小屋)に入れる。中にいる間は屋根を隠す
  *   ・歩きながらの掛け合い: 画面の下に一行ずつ。操作を止めない。HUD・操作ボタンと重ならない
  *   iPhone 844×390 の横向き
@@ -75,7 +75,17 @@ const PROBE = `
   relaunch(){ buildWorld('tavern'); launchScenarioNow('road2'); return true; },
   invuln(){ state.maxHp = 99999; state.hp = 99999; return true; },   // デバッグ表示を出さずに倒れないようにする(スクリーンショットのため)
   pos(){ return {x: state.pos.x, z: state.pos.z, dlg: state.dialogueActive}; },
-  shadow(){ return {lag: road2WallShadowLag, figs: road2WallShadowFigs.map(F=> ({vis: F.fig.visible, z: F.fig.position.z})), pz: state.pos.z}; },
+  shadow(){ const E = road2Echo; const f = E && E.frame;
+    const inst = []; scene.traverse(o=>{ if(o.isInstancedMesh && o.receiveShadow) inst.push(o.material && (Array.isArray(o.material) ? o.material[0] : o.material) === road2Mats().plaster ? 'wall' : 'floor'); });
+    let cast = false; if(player) player.traverse(o=>{ if(o.isMesh && o.castShadow) cast = true; });
+    return {vis: !!(E && E.mesh.visible), parts: E ? E.parts.length : 0, lagT: f ? road2Time - f.t : null, ex: f ? f.x : null, ez: f ? f.z : null,
+      px: state.pos.x, pz: state.pos.z, t: road2Time,
+      depthWrite: E ? E.mesh.material.depthWrite : null, colorWrite: E ? E.mesh.material.colorWrite : null, castShadow: E ? E.mesh.castShadow : null, enemy: !!(E && enemies.some(en=> en.group === E.mesh)),
+      recvFloor: inst.filter(k=> k === 'floor').length, recvWall: inst.filter(k=> k === 'wall').length, playerCast: cast, sm: renderer.shadowMap.enabled}; },
+  // 決まった速さ(ゲームの時計で毎秒 v)で z1 まで動かす。カメラは動かさない(遅れを時計どおりに確かめる)
+  slide(z1, v){ return new Promise(res=>{ const z0 = state.pos.z, t0 = road2Time; const tick = ()=>{ state.pos.z = Math.min(z1, z0 + v * (road2Time - t0)); state.vel.set(0, 0, 0);
+    if(state.pos.z >= z1) return res(true); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }); },
+  setShadow(on){ shadowOn = on; applyShadowSetting(); return renderer.shadowMap.enabled; },
   roofs(){ return road2HollowRoofs.map(r=> ({id: r.id, vis: r.mesh.visible})); },
   banter(){ const el = document.getElementById('road2-banter'); if(!el || el.style.display === 'none') return null;
     const r = el.getBoundingClientRect(); return {text: el.textContent, pe: getComputedStyle(el).pointerEvents, rect: {l:r.left, t:r.top, r:r.right, b:r.bottom}}; },
@@ -143,7 +153,7 @@ test('宿場の戦闘: F1-1 は通りで道喰らい ×2、F1-2 は裏庭で道�
   expect(errors).toEqual([]);
 });
 
-test('R1-01 出発・掛け合い・R1-04 壁の影: 影は 0.45 秒遅れ、壁から 2 m 以内では遅れない。掛け合いは操作を止めない', async ({ page }) => {
+test('R1-01 出発・掛け合い・R1-04 壁の影: 二つ目の影だけ 0.45 秒遅れ、止まると重なる。掛け合いは操作を止めない', async ({ page }) => {
   test.setTimeout(600_000);
   const errors = watchErrors(page);
   const R = await enter(page, { classKey: 'rogue', guestKey: 'archer' });
@@ -178,22 +188,51 @@ test('R1-01 出発・掛け合い・R1-04 壁の影: 影は 0.45 秒遅れ、壁
   const r104 = await readTalk(page, R);
   await w1;
   expect(r104).toEqual(['盗賊|「今の、見たか」', '弓師|「壁の影……少し、遅れていました」', '魔法使い|「光の角度かもしれません」', '剣士|「確かめようがないな」']);
-  // 白壁(x 1094)に一行の影。通りを歩くと、影は 0.45 秒遅れて動く(本人より後ろ)
-  await R('go', 1100, 44, Math.PI);
-  const w2 = R('walk', [[1100, 54]], 60);
-  await expect.poll(async () => { const s = await R('shadow'); return s.figs[0].vis && s.pz > 47.5; }, { timeout: 10_000 }).toBe(true);
-  const s1 = await R('shadow');
-  expect(s1.lag).toBe(0.45);
-  expect(s1.figs[0].z, '影は本人より後ろ(遅れている)').toBeLessThan(s1.pz - 0.2);
-  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-wall-shadow.png` });
-  await w2;
-  // 壁から 2 m 以内では遅れない
-  await R('go', 1095.4, 47, Math.PI);
-  await expect.poll(async () => (await R('shadow')).lag, { timeout: 10_000 }).toBe(0);   // 0.3 秒かけて遅れが無くなる(跳ばない)
-  await page.waitForTimeout(1000);
+  // A-1(E-1 = A): 足元のいつもの影＋白壁の前の通りでだけ、0.45 秒前の姿の二つ目の影
+  await R('go', 1095.0, 44, Math.PI / 2);
+  await expect.poll(async () => (await R('shadow')).vis, { timeout: 10_000 }).toBe(true);
+  const s0 = await R('shadow');
+  expect(s0.playerCast, '主人公は影を落とす').toBe(true);
+  expect(s0.recvFloor, '道(新)の床・坂・敷石が影を受ける').toBeGreaterThanOrEqual(3);
+  expect(s0.recvWall, '宿場の家の壁が影を受ける(壁際で影が床から壁へ上る)').toBeGreaterThanOrEqual(1);
+  expect(s0.parts, '二つ目の影は主人公の体の部品から作る').toBeGreaterThan(5);
+  expect(s0.colorWrite, '画面には色を書かない(光らない・姿は見えない)').toBe(false);
+  expect(s0.depthWrite, '奥行きも書かない(他の物を隠さない)').toBe(false);
+  expect(s0.castShadow).toBe(true);
+  expect(s0.enemy, '敵ではない(倒せない)').toBe(false);
+  // 止まっている間は、二つ目の影は足元の影と同じ位置(重なる)。カメラを回しても同じ
+  const t0 = (await R('shadow')).t;
+  await expect.poll(async () => (await R('shadow')).t - t0, { timeout: 30_000 }).toBeGreaterThan(0.6);
+  for (const yaw of [Math.PI / 2, Math.PI, 0]) {
+    await page.evaluate(y => { /** @type {any} */ (window).__rc.go(1095.0, 44, y); }, yaw);
+    const st = await R('shadow');
+    expect(Math.hypot(st.ex - st.px, st.ez - st.pz), `止まると重なる(カメラ ${yaw.toFixed(2)})`).toBeLessThan(0.05);
+  }
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-a1-still.png` });
+  // 歩くと、二つ目の影だけが 0.45 秒遅れて離れる(毎秒 3 m)
+  const sl = R('slide', 52, 3);
+  await expect.poll(async () => (await R('shadow')).pz, { timeout: 60_000 }).toBeGreaterThan(48);
+  const m1 = await R('shadow');
+  expect(m1.vis).toBe(true);
+  expect(m1.lagT, '0.45 秒前の姿').toBeGreaterThanOrEqual(0.45 - 1e-9);
+  expect(m1.lagT).toBeLessThan(0.55);
+  expect(m1.pz - m1.ez, '遅れの距離 = 速さ × 遅れ').toBeGreaterThan(3 * 0.45 - 0.2);
+  expect(m1.pz - m1.ez).toBeLessThan(3 * m1.lagT + 0.2);
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-a1-moving.png` });
+  await sl;
+  // 止まると、遅れた影が追いついて重なる
+  const t1 = (await R('shadow')).t;
+  await expect.poll(async () => (await R('shadow')).t - t1, { timeout: 30_000 }).toBeGreaterThan(0.6);
   const s2 = await R('shadow');
-  expect(s2.lag).toBe(0);
-  expect(Math.abs(s2.figs[0].z - s2.pz)).toBeLessThan(0.05);
+  expect(Math.hypot(s2.ex - s2.px, s2.ez - s2.pz)).toBeLessThan(0.05);
+  // 品質「影なし」: いつもの影も二つ目の影も出ない(既存の設定どおり)。戻すと出る
+  expect(await R('setShadow', false)).toBe(false);
+  await expect.poll(async () => (await R('shadow')).vis, { timeout: 10_000 }).toBe(false);
+  expect(await R('setShadow', true)).toBe(true);
+  await expect.poll(async () => (await R('shadow')).vis, { timeout: 10_000 }).toBe(true);
+  // 通りの範囲の外(旅籠の中・通りの南)では、二つ目の影は出ない
+  await R('go', 1100, 30, Math.PI);
+  await expect.poll(async () => (await R('shadow')).vis, { timeout: 10_000 }).toBe(false);
   expect(errors).toEqual([]);
 });
 
@@ -263,3 +302,4 @@ test('旧成長のルール: 第一章の台詞(R1-01・掛け合い)は出な�
   await expect.poll(async () => (await R('fight', 'F1-1')).alive.length, { timeout: 10_000 }).toBe(2);
   expect(errors).toEqual([]);
 });
+

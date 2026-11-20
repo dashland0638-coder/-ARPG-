@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ROAD2_TERRAIN, road2Obstacles, road2HollowWalls, road2HollowInterior, road2Reachability, ROAD2_ROUTES, ROAD2_BANDS, ROAD2_ENTRY, areaAt } from '../../src/core/road-map.js';
-import { ROAD2_WALL_SHADOW, wallShadowLag, inWallShadowZone, sampleShadowTrail, pushShadowTrail } from '../../src/core/road-wall-shadow.js';
+import { ROAD2_WALL_SHADOW, shadowLightDir, shadowCastable, wallShadowReach, inWallShadowZone, pushPoseFrame, pickPoseFrame } from '../../src/core/road-wall-shadow.js';
 import { newBanterState, queueBanter, stepBanter, BANTER_LINE_SEC, BANTER_GAP_SEC } from '../../src/core/road-banter.js';
 
 const hollow = ROAD2_TERRAIN[1].obstacles.filter(o => o.hollow);
@@ -44,23 +44,42 @@ test('廃宿の中へ歩いて入れる(寄り道の点はすべて届く)', () 
   });
 });
 
-test('壁の影: 0.45 秒遅れる。壁から 2 m 以内では遅れない。通りの範囲だけ', () => {
-  assert.equal(ROAD2_WALL_SHADOW.lag, 0.45);
-  assert.equal(wallShadowLag(5), 0.45);
-  assert.equal(wallShadowLag(2.01), 0.45);
-  assert.equal(wallShadowLag(2), 0);
-  assert.equal(wallShadowLag(0.8), 0);
+test('壁の影(E-1 = A): 二つ目の影は 0.45 秒前の姿。通りの範囲だけ。影が床に落ちる光の時だけ', () => {
+  const S = ROAD2_WALL_SHADOW;
+  assert.equal(S.lag, 0.45);
   assert.equal(inWallShadowZone(1100, 47), true);
-  assert.equal(inWallShadowZone(1088, 47), false, '旅籠の中では映らない');
+  assert.equal(inWallShadowZone(1088, 47), false, '旅籠の中では出さない');
   assert.equal(inWallShadowZone(1100, 80), false);
-  // 足跡: 1 秒で z 40 → 50 を等速で歩いたら、0.45 秒遅れの位置は 4.5 手前
-  const trail = [];
-  for (let i = 0; i <= 20; i++) pushShadowTrail(trail, {t: i * 0.05, z: 40 + i * 0.5, y: 0});
-  const s = sampleShadowTrail(trail, 1.0, 0.45);
-  assert.ok(Math.abs(s.z - 45.5) < 1e-6, `遅れた位置 ${s.z}`);
-  assert.ok(Math.abs(sampleShadowTrail(trail, 1.0, 0).z - 50) < 1e-6, '遅れ 0 なら今の位置');
-  assert.ok(trail[0].t >= 0 && trail.length <= 21, '古い足跡は捨てる');
-  assert.equal(sampleShadowTrail([], 1, 0.45), null);
+  // 姿の記録: 60 fps で 1 秒、z 40 → 50 を等速で歩いた。0.45 秒前の姿は z 45.5 付近(1 枚の幅の内)
+  const hist = [];
+  for (let i = 0; i <= 60; i++) pushPoseFrame(hist, {t: i / 60, z: 40 + i / 6});
+  const f = pickPoseFrame(hist, 1.0, 0.45);
+  assert.ok(f.t <= 1.0 - 0.45 + 1e-9 && f.t > 1.0 - 0.45 - 1 / 60, `0.45 秒前の一枚 ${f.t}`);
+  assert.ok(Math.abs(f.z - 45.5) <= 1 / 6 + 1e-9, `遅れた位置 ${f.z}`);
+  assert.equal(pickPoseFrame(hist, 1.0, 0).z, 50, '遅れ 0 なら今の姿');
+  // 止まっている間は、0.45 秒前の姿 = 今の姿(二つの影は重なる)
+  const still = [];
+  for (let i = 0; i <= 60; i++) pushPoseFrame(still, {t: i / 60, z: 47});
+  assert.equal(pickPoseFrame(still, 1.0, 0.45).z, 47);
+  // 古い記録は捨てる(1 秒より前)。遅れの分は残る。上限の数も守る
+  assert.ok(hist[0].t >= 1.0 - S.keepSec - 1e-9);
+  const many = [];
+  for (let i = 0; i < 1000; i++) pushPoseFrame(many, {t: i * 1e-4});
+  assert.ok(many.length <= S.maxFrames);
+  assert.equal(pickPoseFrame([], 1, 0.45), null);
+  assert.equal(pickPoseFrame([{t: 0.9, z: 1}], 1, 0.45).z, 1, '記録が足りなければ一番古い一枚');
+  // 光: 昼の太陽(プレイヤー + (30, 45, 20)、13-update-loop.js updateSunShadow)は影を落とす
+  const day = shadowLightDir({x: 30, y: 45, z: 20}, {x: 0, y: 0, z: 0});
+  assert.ok(shadowCastable(day));
+  const reach = wallShadowReach(day, 1.8);
+  assert.ok(reach > 1.1 && reach < 1.3, `昼に人の影が白壁に届くのは壁から約 1.2 m の内側 ${reach}`);
+  // 壁の裏(西)から照らす光は白壁(東の面)に届かない。地平すれすれ・下からの光では影を出さない
+  assert.equal(wallShadowReach(shadowLightDir({x: -30, y: 45, z: 20}, {x: 0, y: 0, z: 0}), 1.8), 0);
+  assert.equal(shadowCastable(shadowLightDir({x: 30, y: 1, z: 20}, {x: 0, y: 0, z: 0})), false);
+  assert.equal(shadowCastable(shadowLightDir({x: 30, y: -10, z: 20}, {x: 0, y: 0, z: 0})), false);
+  assert.equal(shadowCastable(null), false);
+  // 低い朝日(東から、高さ約 8°)では遠くからでも壁に届く(ROAD-VISUAL-004 の sunOffset に同じ式で付いてくる)
+  assert.ok(wallShadowReach(shadowLightDir({x: 40, y: 7, z: 25}, {x: 0, y: 0, z: 0}), 1.8) > 8);
   // 帯 R1-04 は影の範囲の中
   const b = ROAD2_BANDS.find(k => k.id === 'R1-04');
   assert.ok(b.z0 >= ROAD2_WALL_SHADOW.zone.z0 && b.z1 <= ROAD2_WALL_SHADOW.zone.z1);

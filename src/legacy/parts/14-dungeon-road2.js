@@ -281,9 +281,11 @@
     });
     // 町の塀の外(床の無い所)は、歩けない草地の見た目で埋める(床の板には入れない)
     ROAD2_TERRAIN[1].holes.forEach(h=> flats.push({x:(h.x0 + h.x1)/2, z:(h.z0 + h.z1)/2, w:h.x1 - h.x0, d:h.z1 - h.z0, top:0.5, color:0x5c7a44}));
-    road2InstQ(road2TopSideBox(), [M.top, M.side], flats,
+    // 床は太陽の影を受ける(足元のいつもの影。A-1 の二つ目の影もここに落ちる)。床は影を落とさない ―― 描画回数は増えない
+    const flatMesh = road2InstQ(road2TopSideBox(), [M.top, M.side], flats,
       f=> ({x:f.x, y:(f.top + ROAD2_FLOOR_BOTTOM)/2, z:f.z, sx:f.w, sy:f.top - ROAD2_FLOOR_BOTTOM, sz:f.d}), scene, f=> f.color);
-    road2InstQ(road2TopSideBox(), [M.top, M.side], ramps, ({s})=>{
+    if(flatMesh) flatMesh.receiveShadow = true;
+    const rampMesh = road2InstQ(road2TopSideBox(), [M.top, M.side], ramps, ({s})=>{
       const r = s.ramp, dy = r.y1 - r.y0, len = r.a1 - r.a0, slope = Math.hypot(len, dy), T = Math.abs(dy) + 1.2;
       const cx = (s.x0 + s.x1)/2, cz = (s.z0 + s.z1)/2, my = (r.y0 + r.y1)/2;
       if(r.axis === 'z'){
@@ -293,6 +295,7 @@
       const b = Math.atan2(dy, len);
       return {x:cx + Math.sin(b)*T/2, y:my - Math.cos(b)*T/2, z:cz, rz:b, sx:slope, sy:T, sz:s.z1 - s.z0};
     }, scene, f=> f.color);
+    if(rampMesh) rampMesh.receiveShadow = true;
   }
 
   /* 通り道。床の高さに沿って板を並べる(坂では傾ける)。メインと寄り道だけ。
@@ -326,7 +329,8 @@
         }
       }
     });
-    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.path, tiles, t=> ({x:t.x, y:t.y, z:t.z, rx:t.rx, ry:t.ry, sx:t.w, sy:0.06, sz:t.L}), scene, t=> t.c);
+    const pathMesh = road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.path, tiles, t=> ({x:t.x, y:t.y, z:t.z, rx:t.rx, ry:t.ry, sx:t.w, sy:0.06, sz:t.L}), scene, t=> t.c);
+    if(pathMesh) pathMesh.receiveShadow = true;   // 敷石の上にも足元の影
   }
 
   /* 当たりのある物の見た目(エリアの Group へ)。建物は壁と屋根、岩は重ねた不揃いの箱 */
@@ -339,8 +343,9 @@
       const houses = list.filter(o=> o.kind === 'house');
       // 入れる家の壁(R3-1)は、家と同じ箱の見た目でまとめて描く(描画回数は増えない)。屋根は家ごとに別(中にいる間は隠す)
       const walled = houses.concat(list.filter(o=> o.kind === 'housewall'));
-      road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.plaster, walled, o=> ({x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h/2, z:(o.z0 + o.z1)/2, sx:o.x1 - o.x0, sy:o.h, sz:o.z1 - o.z0}),
+      const wallMesh = road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.plaster, walled, o=> ({x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h/2, z:(o.z0 + o.z1)/2, sx:o.x1 - o.x0, sy:o.h, sz:o.z1 - o.z0}),
         grp, o=> [0xd8ccb0, 0xc8b898, 0xbfae8e, 0xd0c0a0][Math.floor(o.colorZ != null ? o.colorZ : o.z0) % 4]);
+      if(wallMesh) wallMesh.receiveShadow = true;   // 家の壁も影を受ける(壁際では影が床から壁へ上る。A-1 の白壁)
       road2InstQ(new THREE.ConeGeometry(0.72, 1, 4), M.roof, houses, o=> ({x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h + 1.6, z:(o.z0 + o.z1)/2, ry:Math.PI/4, sx:(o.x1 - o.x0)*1.05, sy:3.2, sz:(o.z1 - o.z0)*1.05}),
         grp, o=> [0x7a4a32, 0x6a3e2c, 0x5a4a3e][Math.floor(o.z0) % 3]);
       const woods = list.filter(o=> o.kind === 'fence' || o.kind === 'cart' || o.kind === 'post');
@@ -1314,9 +1319,7 @@
      第一章の台詞は本編のルールだけで出す。空・光・時間帯は変えない(ROAD-VISUAL-004) */
   let road2HollowRoofs = [];         // 入れる家の屋根 {mesh, rect}。中にいる間は隠す
   let road2Area1Lore = [];           // 調べ物 {lore, talkId, lines}(読んだら会話を一度)
-  let road2WallShadowFigs = [];      // A-1: 壁に映る一行の影 {fig, trail, src}
-  let road2WallShadowLag = 0;        // 試験用: 主人公の影の今の遅れ(秒)
-  let road2WallShadowT = 0;
+  let road2Echo = null;              // A-1: 遅れる二つ目の影 {mesh, src, parts, local, hist, frame}
   let road2Banter = newBanterState();
   let road2BanterEl = null;
   /* 歩きながらの掛け合いの話題(操作を止めない帯。第一章の本編のルールだけ) */
@@ -1337,7 +1340,7 @@
   ];
 
   function road2SetupArea1(M){
-    road2HollowRoofs = []; road2Area1Lore = []; road2WallShadowFigs = []; road2WallShadowLag = 0; road2WallShadowT = 0;
+    road2HollowRoofs = []; road2Area1Lore = []; road2Echo = null;
     road2Banter = newBanterState();
     const grp = road2AreaGroups[1];
     // ---- 入れる家: 屋根(家ごとに 1 つ。中にいる間は隠す)と中の物 ----
@@ -1404,33 +1407,19 @@
         onEnter: ()=> { queueBanter(road2Banter, b.id, b.lines); road2TalkCount[b.id] = (road2TalkCount[b.id] || 0) + 1; return false; },
       });
     });
-    // ---- A-1 壁の影: 一行(主人公と支援)の影を白壁に映す。光らせない ----
-    const shade = new THREE.MeshBasicMaterial({color:0x221e2a, transparent:true, opacity:0.55, depthWrite:false});
-    // 人の形を一枚の形にする(描画 1 回)。頭・肩・胴・脚
-    const sil = new THREE.Shape();
-    sil.moveTo(-0.22, 0); sil.lineTo(-0.06, 0); sil.lineTo(0, 0.55); sil.lineTo(0.06, 0); sil.lineTo(0.22, 0);
-    sil.lineTo(0.2, 0.72); sil.lineTo(0.3, 1.45); sil.lineTo(0.12, 1.55); sil.lineTo(0.14, 1.85); sil.lineTo(0, 1.93);
-    sil.lineTo(-0.14, 1.85); sil.lineTo(-0.12, 1.55); sil.lineTo(-0.3, 1.45); sil.lineTo(-0.2, 0.72); sil.lineTo(-0.22, 0);
-    const silGeo = new THREE.ShapeGeometry(sil);
-    const makeFig = ()=>{
-      const g = new THREE.Mesh(silGeo, shade);
-      g.rotation.y = Math.PI/2;   // 壁の東の面(通り側)
-      g.visible = false;
-      grp.add(g);
-      return g;
-    };
-    // 壁の足元から通りへ伸びる影(上から見るカメラでも見える。壁の上の影とつながって、同じだけ遅れる)
-    const makeFoot = ()=>{
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(4.0, 0.6), shade);   // 軒の庇(壁から 1.8)の外まで伸ばす
-      m.rotation.x = -Math.PI/2;
-      m.visible = false;
-      grp.add(m);
-      return m;
-    };
-    road2WallShadowFigs = [
-      {fig: makeFig(), foot: makeFoot(), trail: [], src: ()=> state.pos},
-      {fig: makeFig(), foot: makeFoot(), trail: [], src: ()=> (guestCompanion && guestCompanion.group) ? guestCompanion.group.position : null},
-    ];
+    // ---- A-1 壁の影(E-1 = A): 主人公の 0.45 秒前の姿を、見えない形にして影だけを落とす。
+    //      形は主人公の体の部品を毎フレーム一つの形にまとめたもの(画面 1 回・影の地図 1 回の描画)。光らせない ----
+    // 画面には色も奥行きも書かない(何も見えない・光らない)。影の地図には形が入る。
+    // (層で画面から外す方法は使えない: three.js の影の地図は画面のカメラの層で選ぶ)
+    const echoMat = new THREE.MeshBasicMaterial({colorWrite:false, depthWrite:false});
+    const echo = new THREE.Mesh(new THREE.BufferGeometry(), echoMat);
+    echo.matrixAutoUpdate = false;           // 頂点はそのまま世界の位置(エリアの Group は原点)
+    echo.frustumCulled = false;
+    echo.castShadow = true; echo.receiveShadow = false;
+    echo.renderOrder = 10;
+    echo.visible = false;
+    grp.add(echo);
+    road2Echo = {mesh: echo, src: null, parts: [], local: [], hist: [], frame: null};
   }
 
   /* 毎フレーム: 屋根・調べ物の会話・壁の影・掛け合い */
@@ -1450,28 +1439,71 @@
     road2UpdateBanter(dt);
   }
 
-  /* A-1: 通りにいる間だけ、白壁に一行の影。本人より 0.45 秒遅れて動く。壁から 2 m 以内では遅れない */
-  function road2UpdateWallShadow(){
-    const S = ROAD2_WALL_SHADOW;
-    const show = currentWorldKey === 'road2' && road2CurrentAreaId === 1 && inWallShadowZone(state.pos.x, state.pos.z);
-    const dt = Math.min(0.1, Math.max(0, road2Time - (road2WallShadowT || road2Time))); road2WallShadowT = road2Time;
-    road2WallShadowFigs.forEach((F, i)=>{
-      const p = F.src();
-      if(!p){ F.fig.visible = false; F.foot.visible = false; F.trail.length = 0; return; }
-      pushShadowTrail(F.trail, {t: road2Time, z: p.z, y: p.y || 0});
-      // 遅れはその人の壁からの距離で決め、0.3 秒かけて移る(2 m の線をまたいだ時に影が跳ばない)
-      const want = wallShadowLag(p.x - S.wallX);
-      F.lag = F.lag == null ? want : (F.lag < want ? Math.min(want, F.lag + dt * S.lag / 0.3) : Math.max(want, F.lag - dt * S.lag / 0.3));
-      if(i === 0) road2WallShadowLag = F.lag;
-      if(!show || !inWallShadowZone(p.x, p.z)){ F.fig.visible = false; F.foot.visible = false; return; }
-      const s = sampleShadowTrail(F.trail, road2Time, F.lag);
-      const onWall = s && s.z > S.z0 + 0.3 && s.z < S.z1 - 0.3;
-      F.fig.visible = !!onWall; F.foot.visible = !!onWall;
-      if(onWall){
-        F.fig.position.set(S.wallX + 0.04, s.y, s.z);
-        F.foot.position.set(S.wallX + 2.05, s.y + 0.03, s.z);
-      }
+  /* A-1: 主人公の体の部品(影を落とす物)から、二つ目の影の形を作り直す。主人公の作りが替わった時だけ */
+  function road2EchoRebuild(E){
+    const parts = [], local = [];
+    let nv = 0, ni = 0;
+    player.traverse(o=>{
+      if(!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || !o.geometry || !o.geometry.attributes.position) return;
+      if(!(o.userData.castShadowDefault !== undefined ? o.userData.castShadowDefault : o.castShadow)) return;
+      const g = o.geometry, pos = g.attributes.position;
+      parts.push(o); local.push({pos: pos.array, itemSize: pos.itemSize, count: pos.count, index: g.index ? g.index.array : null, v0: nv});
+      nv += pos.count; ni += g.index ? g.index.count : pos.count;
     });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nv * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    const idx = new (nv > 65535 ? Uint32Array : Uint16Array)(ni);
+    let k = 0;
+    local.forEach(L=>{
+      if(L.index){ for(let i=0;i<L.index.length;i++) idx[k++] = L.index[i] + L.v0; }
+      else { for(let i=0;i<L.count;i++) idx[k++] = i + L.v0; }
+    });
+    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    E.mesh.geometry.dispose();
+    E.mesh.geometry = geo;
+    E.src = player; E.parts = parts; E.local = local; E.hist = []; E.frame = null;
+  }
+
+  /* A-1: 毎フレーム、主人公の姿(部品ごとの世界の行列)を記録し、白壁の前の通りにいる間だけ
+     0.45 秒前の姿で二つ目の影を落とす。影の地図そのものなので、光の向き・床から壁への折れ・
+     壁の裏からの光は、いつもの影と同じに決まる(ROAD-VISUAL-004 の太陽の向きにも付いてくる) */
+  function road2UpdateWallShadow(){
+    const S = ROAD2_WALL_SHADOW, E = road2Echo;
+    if(!E || !player) return;
+    if(E.src !== player) road2EchoRebuild(E);
+    if(!E.parts.length){ E.mesh.visible = false; return; }
+    // 姿を一枚記録する(部品の行列 16 個ずつ・足元の位置)
+    player.updateMatrixWorld(true);
+    const n = E.parts.length;
+    const old = E.hist.length >= S.maxFrames ? E.hist[0] : null;
+    const m = (old && old.m.length === n * 16) ? old.m : new Float32Array(n * 16);
+    for(let i=0;i<n;i++){
+      // 隠れている部品(持ち替えた武器など)は、その時の姿に入れない(大きさ 0 の行列)
+      let o = E.parts[i], vis = true;
+      while(o && o !== player){ if(!o.visible){ vis = false; break; } o = o.parent; }
+      if(vis) m.set(E.parts[i].matrixWorld.elements, i * 16); else m.fill(0, i * 16, i * 16 + 16);
+    }
+    pushPoseFrame(E.hist, {t: road2Time, m, x: player.position.x, y: player.position.y, z: player.position.z});
+    const d = sunLight ? shadowLightDir(sunLight.position, sunLight.target.position) : null;
+    const show = currentWorldKey === 'road2' && road2CurrentAreaId === 1 && renderer.shadowMap.enabled
+      && inWallShadowZone(state.pos.x, state.pos.z) && shadowCastable(d);
+    E.mesh.visible = show;
+    if(!show){ E.frame = null; return; }
+    const f = pickPoseFrame(E.hist, road2Time, S.lag);
+    E.frame = f;
+    // 0.45 秒前の姿の頂点を世界の位置へ(部品ごとに、その時の行列を掛ける)
+    const out = E.mesh.geometry.attributes.position.array;
+    for(let i=0;i<n;i++){
+      const L = E.local[i], e = f.m, o = i * 16, a = L.pos, st = L.itemSize;
+      let w = L.v0 * 3;
+      for(let j=0;j<L.count;j++){
+        const x = a[j*st], y = a[j*st + 1], z = a[j*st + 2];
+        out[w++] = e[o]*x + e[o+4]*y + e[o+8]*z + e[o+12];
+        out[w++] = e[o+1]*x + e[o+5]*y + e[o+9]*z + e[o+13];
+        out[w++] = e[o+2]*x + e[o+6]*y + e[o+10]*z + e[o+14];
+      }
+    }
+    E.mesh.geometry.attributes.position.needsUpdate = true;
   }
 
   /* 歩きながらの掛け合い: 画面の下に一行ずつ(操作を止めない)。会話・演出・戦闘の間は止めて隠す */
