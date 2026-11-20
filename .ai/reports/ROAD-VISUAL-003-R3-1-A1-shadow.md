@@ -94,3 +94,10 @@ Human の回答: 「E-1：A案を採用する」（DEC-030）。
 - 記録は白壁の前の通りの近く（範囲 + 6 m）にいる間だけ。捨てた記録の入れ物は使い回す（毎フレームの確保をしない）
 - 体の部品の並び（数と id）が替わったら作り直す（武器の持ち替え・転職。古い武器の影が残らない）
 - three.js の影の地図は画面のカメラの層で物を選ぶ（`WebGLShadowMap.js` `renderObject`）ので、層で画面から外す方法は使えない。画面に色・奥行きを書かない材質で見えなくした
+
+### 6-5. 結果（2026-11-20、この環境）
+- build 成功、unit 2305/2305
+- E2E 64 件すべて一度目に成功
+  - road2-inn（A-1: 遅れ 0.45 秒・止まると重なる・形の位置・カメラを回しても同じ・影なしで出ない・範囲の外で出ない・武器の持ち替え）・road2-fights・road2-join・road2-compass・road2・road2-terrain・chapter-select-testmode・road（旧道）・road-visual・chapter1-tower-to-road・combat-center-messages・combat-events-layout・notice-layout・mansion-enemies・shadow-guide・chapter1-dusk-basics（光）
+- 描画回数（景色。上限 60）: 宿場の通り 32 ／ 壁の影の範囲 35（二つ目の影の 1 回）／ 旅籠の中 34 ／ 広場 35
+- 独立 Reviewer: Round 1 FAIL（major 1: 武器の持ち替えで古い武器の影が残る。minor 3・nit 4）→ Round 2 PASS（nit 3）
