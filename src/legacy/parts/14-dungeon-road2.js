@@ -1416,10 +1416,9 @@
     echo.matrixAutoUpdate = false;           // 頂点はそのまま世界の位置(エリアの Group は原点)
     echo.frustumCulled = false;
     echo.castShadow = true; echo.receiveShadow = false;
-    echo.renderOrder = 10;
     echo.visible = false;
     grp.add(echo);
-    road2Echo = {mesh: echo, src: null, parts: [], local: [], hist: [], frame: null};
+    road2Echo = {mesh: echo, src: null, sig: '', parts: [], local: [], hist: [], pool: [], frame: null};
   }
 
   /* 毎フレーム: 屋根・調べ物の会話・壁の影・掛け合い */
@@ -1440,14 +1439,27 @@
   }
 
   /* A-1: 主人公の体の部品(影を落とす物)から、二つ目の影の形を作り直す。主人公の作りが替わった時だけ */
-  function road2EchoRebuild(E){
-    const parts = [], local = [];
-    let nv = 0, ni = 0;
+  /* A-1: 主人公の体の部品のうち、影を落とす物。作りの「しるし」(数と id の和)も返す */
+  function road2EchoCasters(){
+    const list = []; let sig = 0;
     player.traverse(o=>{
       if(!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || !o.geometry || !o.geometry.attributes.position) return;
       if(!(o.userData.castShadowDefault !== undefined ? o.userData.castShadowDefault : o.castShadow)) return;
+      list.push(o); sig += o.id * 7 + o.geometry.id;
+    });
+    return {list, sig: list.length + ':' + sig};
+  }
+  /* A-1: 二つ目の影の形を作り直す。主人公の作りが替わった時(主人公の入れ替え・武器の持ち替え・転職)だけ */
+  function road2EchoRebuild(E, C){
+    const parts = C.list, local = [];
+    let nv = 0, ni = 0;
+    parts.forEach(o=>{
       const g = o.geometry, pos = g.attributes.position;
-      parts.push(o); local.push({pos: pos.array, itemSize: pos.itemSize, count: pos.count, index: g.index ? g.index.array : null, v0: nv});
+      // 頂点の並び(交互に詰めた形にも対応)
+      const arr = pos.isInterleavedBufferAttribute ? pos.data.array : pos.array;
+      const stride = pos.isInterleavedBufferAttribute ? pos.data.stride : pos.itemSize;
+      const off = pos.isInterleavedBufferAttribute ? pos.offset : 0;
+      local.push({pos: arr, stride, off, count: pos.count, index: g.index ? g.index.array : null, v0: nv});
       nv += pos.count; ni += g.index ? g.index.count : pos.count;
     });
     const geo = new THREE.BufferGeometry();
@@ -1461,32 +1473,36 @@
     geo.setIndex(new THREE.BufferAttribute(idx, 1));
     E.mesh.geometry.dispose();
     E.mesh.geometry = geo;
-    E.src = player; E.parts = parts; E.local = local; E.hist = []; E.frame = null;
+    E.src = player; E.sig = C.sig; E.parts = parts; E.local = local; E.hist = []; E.pool = []; E.frame = null;
   }
 
-  /* A-1: 毎フレーム、主人公の姿(部品ごとの世界の行列)を記録し、白壁の前の通りにいる間だけ
-     0.45 秒前の姿で二つ目の影を落とす。影の地図そのものなので、光の向き・床から壁への折れ・
+  /* A-1: 白壁の前の通りの近く(通りの範囲 + 6 m)にいる間、主人公の姿(部品ごとの世界の行列)を記録し、
+     通りの中では 0.45 秒前の姿で二つ目の影を落とす。影の地図そのものなので、光の向き・床から壁への折れ・
      壁の裏からの光は、いつもの影と同じに決まる(ROAD-VISUAL-004 の太陽の向きにも付いてくる) */
   function road2UpdateWallShadow(){
-    const S = ROAD2_WALL_SHADOW, E = road2Echo;
+    const S = ROAD2_WALL_SHADOW, E = road2Echo, r = S.zone;
     if(!E || !player) return;
-    if(E.src !== player) road2EchoRebuild(E);
+    const near = currentWorldKey === 'road2' && road2CurrentAreaId === 1
+      && state.pos.x > r.x0 - 6 && state.pos.x < r.x1 + 6 && state.pos.z > r.z0 - 6 && state.pos.z < r.z1 + 6;
+    if(!near){ E.mesh.visible = false; E.frame = null; if(E.hist.length){ E.pool.push(...E.hist); E.hist.length = 0; } return; }
+    const C = road2EchoCasters();
+    if(E.src !== player || E.sig !== C.sig) road2EchoRebuild(E, C);
     if(!E.parts.length){ E.mesh.visible = false; return; }
-    // 姿を一枚記録する(部品の行列 16 個ずつ・足元の位置)
+    // 姿を一枚記録する(部品の行列 16 個ずつ・足元の位置)。捨てた記録の入れ物は使い回す
     player.updateMatrixWorld(true);
     const n = E.parts.length;
-    const old = E.hist.length >= S.maxFrames ? E.hist[0] : null;
-    const m = (old && old.m.length === n * 16) ? old.m : new Float32Array(n * 16);
+    const fr = E.pool.pop() || {t: 0, m: new Float32Array(n * 16), x: 0, y: 0, z: 0};
+    const m = fr.m;
     for(let i=0;i<n;i++){
-      // 隠れている部品(持ち替えた武器など)は、その時の姿に入れない(大きさ 0 の行列)
+      // 隠れている部品は、その時の姿に入れない(大きさ 0 の行列)
       let o = E.parts[i], vis = true;
       while(o && o !== player){ if(!o.visible){ vis = false; break; } o = o.parent; }
       if(vis) m.set(E.parts[i].matrixWorld.elements, i * 16); else m.fill(0, i * 16, i * 16 + 16);
     }
-    pushPoseFrame(E.hist, {t: road2Time, m, x: player.position.x, y: player.position.y, z: player.position.z});
+    fr.t = road2Time; fr.x = player.position.x; fr.y = player.position.y; fr.z = player.position.z;
+    pushPoseFrame(E.hist, fr, S, f=> E.pool.push(f));
     const d = sunLight ? shadowLightDir(sunLight.position, sunLight.target.position) : null;
-    const show = currentWorldKey === 'road2' && road2CurrentAreaId === 1 && renderer.shadowMap.enabled
-      && inWallShadowZone(state.pos.x, state.pos.z) && shadowCastable(d);
+    const show = renderer.shadowMap.enabled && player.visible && inWallShadowZone(state.pos.x, state.pos.z) && shadowCastable(d);
     E.mesh.visible = show;
     if(!show){ E.frame = null; return; }
     const f = pickPoseFrame(E.hist, road2Time, S.lag);
@@ -1494,10 +1510,10 @@
     // 0.45 秒前の姿の頂点を世界の位置へ(部品ごとに、その時の行列を掛ける)
     const out = E.mesh.geometry.attributes.position.array;
     for(let i=0;i<n;i++){
-      const L = E.local[i], e = f.m, o = i * 16, a = L.pos, st = L.itemSize;
+      const L = E.local[i], e = f.m, o = i * 16, a = L.pos, st = L.stride;
       let w = L.v0 * 3;
       for(let j=0;j<L.count;j++){
-        const x = a[j*st], y = a[j*st + 1], z = a[j*st + 2];
+        const q = j*st + L.off, x = a[q], y = a[q + 1], z = a[q + 2];
         out[w++] = e[o]*x + e[o+4]*y + e[o+8]*z + e[o+12];
         out[w++] = e[o+1]*x + e[o+5]*y + e[o+9]*z + e[o+13];
         out[w++] = e[o+2]*x + e[o+6]*y + e[o+10]*z + e[o+14];

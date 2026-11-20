@@ -78,7 +78,14 @@ const PROBE = `
   shadow(){ const E = road2Echo; const f = E && E.frame;
     const inst = []; scene.traverse(o=>{ if(o.isInstancedMesh && o.receiveShadow) inst.push(o.material && (Array.isArray(o.material) ? o.material[0] : o.material) === road2Mats().plaster ? 'wall' : 'floor'); });
     let cast = false; if(player) player.traverse(o=>{ if(o.isMesh && o.castShadow) cast = true; });
+    // 二つ目の影の形(頂点)の中心。止まると主人公の位置、歩くと遅れた位置
+    let cx = null, cz = null;
+    if(E && E.mesh.visible){ const a = E.mesh.geometry.attributes.position.array; let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+      for(let i=0;i<a.length;i+=3){ if(a[i] === 0 && a[i+2] === 0) continue; x0 = Math.min(x0, a[i]); x1 = Math.max(x1, a[i]); z0 = Math.min(z0, a[i+2]); z1 = Math.max(z1, a[i+2]); }
+      cx = (x0 + x1) / 2; cz = (z0 + z1) / 2; }
+    const under = o=>{ while(o){ if(o === player) return true; o = o.parent; } return false; };
     return {vis: !!(E && E.mesh.visible), parts: E ? E.parts.length : 0, lagT: f ? road2Time - f.t : null, ex: f ? f.x : null, ez: f ? f.z : null,
+      cx, cz, stale: !!(E && E.parts.some(p=> !under(p))),
       px: state.pos.x, pz: state.pos.z, t: road2Time,
       depthWrite: E ? E.mesh.material.depthWrite : null, colorWrite: E ? E.mesh.material.colorWrite : null, castShadow: E ? E.mesh.castShadow : null, enemy: !!(E && enemies.some(en=> en.group === E.mesh)),
       recvFloor: inst.filter(k=> k === 'floor').length, recvWall: inst.filter(k=> k === 'wall').length, playerCast: cast, sm: renderer.shadowMap.enabled}; },
@@ -86,6 +93,7 @@ const PROBE = `
   slide(z1, v){ return new Promise(res=>{ const z0 = state.pos.z, t0 = road2Time; const tick = ()=>{ state.pos.z = Math.min(z1, z0 + v * (road2Time - t0)); state.vel.set(0, 0, 0);
     if(state.pos.z >= z1) return res(true); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }); },
   setShadow(on){ shadowOn = on; applyShadowSetting(); return renderer.shadowMap.enabled; },
+  swapWeapon(){ swapPlayerWeaponVisual(); return true; },
   roofs(){ return road2HollowRoofs.map(r=> ({id: r.id, vis: r.mesh.visible})); },
   banter(){ const el = document.getElementById('road2-banter'); if(!el || el.style.display === 'none') return null;
     const r = el.getBoundingClientRect(); return {text: el.textContent, pe: getComputedStyle(el).pointerEvents, rect: {l:r.left, t:r.top, r:r.right, b:r.bottom}}; },
@@ -207,6 +215,7 @@ test('R1-01 出発・掛け合い・R1-04 壁の影: 二つ目の影だけ 0.45 
     await page.evaluate(y => { /** @type {any} */ (window).__rc.go(1095.0, 44, y); }, yaw);
     const st = await R('shadow');
     expect(Math.hypot(st.ex - st.px, st.ez - st.pz), `止まると重なる(カメラ ${yaw.toFixed(2)})`).toBeLessThan(0.05);
+    expect(Math.hypot(st.cx - st.px, st.cz - st.pz), '二つ目の影の形は主人公の位置にある').toBeLessThan(0.6);
   }
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-a1-still.png` });
   // 歩くと、二つ目の影だけが 0.45 秒遅れて離れる(毎秒 3 m)
@@ -218,6 +227,7 @@ test('R1-01 出発・掛け合い・R1-04 壁の影: 二つ目の影だけ 0.45 
   expect(m1.lagT).toBeLessThan(0.55);
   expect(m1.pz - m1.ez, '遅れの距離 = 速さ × 遅れ').toBeGreaterThan(3 * 0.45 - 0.2);
   expect(m1.pz - m1.ez).toBeLessThan(3 * m1.lagT + 0.2);
+  expect(m1.pz - m1.cz, '形そのものも遅れた位置にある').toBeGreaterThan(3 * 0.45 - 0.6);
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-a1-moving.png` });
   await sl;
   // 止まると、遅れた影が追いついて重なる
@@ -225,6 +235,10 @@ test('R1-01 出発・掛け合い・R1-04 壁の影: 二つ目の影だけ 0.45 
   await expect.poll(async () => (await R('shadow')).t - t1, { timeout: 30_000 }).toBeGreaterThan(0.6);
   const s2 = await R('shadow');
   expect(Math.hypot(s2.ex - s2.px, s2.ez - s2.pz)).toBeLessThan(0.05);
+  expect(Math.hypot(s2.cx - s2.px, s2.cz - s2.pz)).toBeLessThan(0.6);
+  // 武器の見た目を作り直しても、二つ目の影は今の体の部品から作り直す(古い武器の影が残らない)
+  await R('swapWeapon');
+  await expect.poll(async () => (await R('shadow')).stale, { timeout: 10_000 }).toBe(false);
   // 品質「影なし」: いつもの影も二つ目の影も出ない(既存の設定どおり)。戻すと出る
   expect(await R('setShadow', false)).toBe(false);
   await expect.poll(async () => (await R('shadow')).vis, { timeout: 10_000 }).toBe(false);
@@ -302,4 +316,3 @@ test('旧成長のルール: 第一章の台詞(R1-01・掛け合い)は出な�
   await expect.poll(async () => (await R('fight', 'F1-1')).alive.length, { timeout: 10_000 }).toBe(2);
   expect(errors).toEqual([]);
 });
-

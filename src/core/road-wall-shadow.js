@@ -46,10 +46,14 @@ export function inWallShadowZone(x, z, S = ROAD2_WALL_SHADOW){
   return x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1;
 }
 
-/* 姿の記録に一枚足す(古い順)。frame = {t, ...}。keepSec より古いものは捨てる(遅れの分は必ず残す) */
-export function pushPoseFrame(hist, frame, S = ROAD2_WALL_SHADOW){
+/* 姿の記録に一枚足す(古い順)。frame = {t, ...}。keepSec より古いもの・数の上限を超えたものは捨てる
+   (遅れの分は必ず残す)。onDrop があれば捨てた一枚を渡す(入れ物の使い回し) */
+export function pushPoseFrame(hist, frame, S = ROAD2_WALL_SHADOW, onDrop = null){
   hist.push(frame);
-  while(hist.length > 2 && (hist[1].t <= frame.t - S.keepSec || hist.length > S.maxFrames)) hist.shift();
+  while(hist.length > 2 && (hist[1].t <= frame.t - S.keepSec || hist.length > S.maxFrames)){
+    const f = hist.shift();
+    if(onDrop) onDrop(f);
+  }
   return hist;
 }
 
