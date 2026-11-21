@@ -134,3 +134,26 @@ test('段階的な伏線(DEC-031): 宿場・原野・谷の三か所。反応は
   });
   assert.ok(ROAD2_ECHO_NOTICE_SEP > 0.5 && ROAD2_ECHO_NOTICE_SEP < 1.8, '歩いて離れた時だけ(止まっている時は重なる)');
 });
+
+test('原野の怪異・調べ物の場所(R3-2): 旧道の道標・街道の脇の足跡・丘の上・遠くの人影', async () => {
+  const { ROAD2_MOOR, road2GroundAt: g, road2Obstacles: obs } = await import('../../src/core/road-map.js');
+  const M = ROAD2_MOOR;
+  const near = (pts, x, z) => { let d = Infinity; for (let i = 1; i < pts.length; i++) { const [ax, az] = pts[i - 1], [bx, bz] = pts[i]; for (let k = 0; k <= 60; k++) { const t = k / 60; d = Math.min(d, Math.hypot(ax + (bx - ax) * t - x, az + (bz - az) * t - z)); } } return d; };
+  const oldRoad = ROAD2_ROUTES.filter(r => r.area === 2 && r.kind === 'side')[0].pts, main = ROAD2_ROUTES.find(r => r.area === 2 && r.kind === 'main').pts;
+  assert.ok(near(oldRoad, M.oldPost.x, M.oldPost.z) < 3, '道標は旧道の脇');
+  assert.ok(near(main, M.oldPost.x, M.oldPost.z) > 30, '街道からは離れている');
+  assert.ok(near(main, M.steps.x, (M.steps.z0 + M.steps.z1) / 2) < 5, '足跡は街道の脇');
+  assert.ok(near(main, M.steps.x, M.steps.z0) > 2, '足跡は街道の上には無い(脇)');
+  [[M.oldPost.x, M.oldPost.z], [M.steps.x, M.steps.z0], [M.steps.x, M.steps.z1], [M.figure.x, M.figure.z]].forEach(([x, z]) => {
+    assert.equal(areaAt(x, z).id, 2, `(${x},${z}) は原野`);
+    assert.ok(g(x, z) !== null, `(${x},${z}) に床がある`);
+    assert.ok(!obs().some(o => x > o.x0 && x < o.x1 && z > o.z0 && z < o.z1), `(${x},${z}) は当たりの外`);
+  });
+  assert.ok(Math.abs(g((M.hillTop.x0 + M.hillTop.x1) / 2, (M.hillTop.z0 + M.hillTop.z1) / 2) - 2.6) < 0.01, '丘の上');
+  const dHill = Math.hypot(M.figure.x - (M.hillTop.x0 + M.hillTop.x1) / 2, M.figure.z - (M.hillTop.z0 + M.hillTop.z1) / 2);
+  assert.ok(dHill > M.figure.hideNear, '人影は丘の上から見て遠く(近づくと消える距離より遠い)');
+  // 怪異・調べ物は DEC-031 の E2 と重ならない
+  const { ROAD2_ECHO_ZONES } = await import('../../src/core/road-wall-shadow.js');
+  const E2 = ROAD2_ECHO_ZONES.find(z => z.id === 'E2').rect;
+  assert.ok(M.steps.z0 >= E2.z1, '足跡は E2 の北');
+});
