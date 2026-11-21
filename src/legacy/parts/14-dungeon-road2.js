@@ -171,6 +171,9 @@
     road2SeenAreas = new Set();
     road2SeenVistas = new Set();
     road2Time = 0;
+    // 時間帯: 出撃し直した時は到達したエリアから(設計 §3-1)。出来事は出撃ごとに初めから
+    road2DayPos = road2DayTarget = roadDaylightStart(state.roadArea); road2DeepW = 0; road2EndW = 0;
+    road2NightBegun = false; road2DawnBegun = false;
     road2CompassOn = legacyGrowth();   // 旧成長・周回では会話なしで最初から(第一章の台詞は本編だけ)
     road2Joined = false;
     road2CompassPrev = null;
@@ -1341,6 +1344,9 @@
      第一章の台詞は本編のルールだけで出す。空・光・時間帯は変えない(ROAD-VISUAL-004) */
   let road2HollowRoofs = [];         // 入れる家の屋根 {mesh, rect}。中にいる間は隠す
   let road2Area1Lore = [];           // 調べ物 {lore, talkId, lines}(読んだら会話を一度)
+  /* ROAD-VISUAL-004 T1〜T5: 一日の旅路(core/road-daylight.js)。出撃の中だけの値(保存しない) */
+  let road2DayPos = 0, road2DayTarget = 0, road2DeepW = 0, road2EndW = 0, road2DayColor = null;
+  let road2NightBegun = false, road2DawnBegun = false;
   let road2Echo = null;              // A-1: 遅れる二つ目の影 {mesh, src, parts, local, hist, frame}
   let road2EchoNoticed = new Set();  // 段階的な伏線: 主人公が反応した(気づいた)場所の id(その出撃の間)
   let road2EchoSpent = new Set();    // 反応を終えて出た場所(もう二つ目の影を出さない)
@@ -1897,9 +1903,34 @@
     return a ? a.name : null;
   }
 
+  /* ROAD-VISUAL-004 T1〜T5: 時間帯を進め、光・空・霧・灯の色・太陽の向きへ当てる(道(新)だけ)。
+     露出は固定(DEC-028 E-2)。目標は上がるだけ、実際の位置は数秒で追いつく。DEEP_NIGHT は古き守り手の戦闘の間だけ */
+  function road2UpdateDaylight(dt){
+    const a = road2AreaAt(state.pos.x, state.pos.z), area = a ? a.id : road2CurrentAreaId, z = state.pos.z;
+    if(area === 4 && z >= 468) road2NightBegun = true;   // 森に入った(R4-01 の帯の始まり)
+    if(road2GuardianState === 'defeated') road2DawnBegun = true;
+    road2DayTarget = advanceRoadDaylight(road2DayTarget, roadDaylightTarget({area, z, nightBegun: road2NightBegun, dawnBegun: road2DawnBegun}));
+    road2DayPos = stepRoadDaylight(road2DayPos, road2DayTarget, dt);
+    road2DeepW = stepRoadWeight(road2DeepW, road2GuardianState === 'active', dt, 3);
+    const L = roadDaylight(road2DayPos, road2DeepW, road2EndW);
+    if(!road2DayColor) road2DayColor = new THREE.Color();
+    road2DayColor.setHex(L.sky);
+    scene.background = road2DayColor;
+    if(scene.fog){ scene.fog.color.copy(road2DayColor); scene.fog.density = L.fog; }
+    if(sunLight){ sunLight.color.setHex(L.sun); sunLight.intensity = L.sunI; }
+    if(hemiLight){ hemiLight.color.setHex(L.hemiSky); hemiLight.groundColor.setHex(L.hemiGnd); hemiLight.intensity = L.hemi; }
+    if(rimLight){ rimLight.color.setHex(L.rim); rimLight.intensity = L.rimI; }
+    if(renderer) renderer.toneMappingExposure = L.exp * (state.brightness || 1);
+    // 焚き火・灯籠・宿場の灯(M.glow、光を受けない)。夜は 1 を超える明るさにして ACES で灯って見せる(点光源は使わない)
+    const M = road2Mats(), night = Math.max(0, Math.min(1, road2DayPos - 2)) * (road2DayPos < 4 ? 1 : Math.max(0, 1 - (road2DayPos - 4) * 2)) + road2DeepW * 0.5;
+    M.glow.color.setHex(L.glow).multiplyScalar(1 + Math.min(1, night) * 0.8);
+    sunOffset[0] = L.sunDir[0]; sunOffset[1] = L.sunDir[1]; sunOffset[2] = L.sunDir[2];
+  }
+
   function updateRoad2(dt){
     if(currentWorldKey !== 'road2'){ road2HideCompass(); road2HideBanter(); return; }
     road2Time += dt || 0;
+    road2UpdateDaylight(dt);
     for(let i=0;i<road2SwayMats.length;i++){ const sh = road2SwayMats[i].userData.shader; if(sh) sh.uniforms.uRoad2Time.value = road2Time; }
     // 滝の幕を下へ流す・水面の色をわずかに揺らす(描画回数は増えない)
     const M = road2Mats();

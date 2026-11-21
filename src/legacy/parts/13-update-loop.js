@@ -2385,7 +2385,7 @@
   // player instead of covering the whole spread-out world at once
   function updateSunShadow(){
     if(!sunLight) return;
-    sunLight.position.set(state.pos.x+30, state.pos.y+45, state.pos.z+20);
+    sunLight.position.set(state.pos.x + sunOffset[0], state.pos.y + sunOffset[1], state.pos.z + sunOffset[2]);
     sunLight.target.position.copy(state.pos);
     sunLight.target.updateMatrixWorld();
   }

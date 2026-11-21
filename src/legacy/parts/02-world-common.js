@@ -6,6 +6,10 @@
   ========================================================= */
   let scene, camera, renderer, clock;
   let sunLight = null;
+  /* 太陽の位置 = プレイヤー + sunOffset(13-update-loop.js updateSunShadow)。既定は (30, 45, 20)。
+     道(新)だけが時間帯で替える(ROAD-VISUAL-004 §5-3)。ワールドを替える時に既定へ戻す(disposeWorld) */
+  const SUN_OFFSET_DEFAULT = Object.freeze([30, 45, 20]);
+  let sunOffset = SUN_OFFSET_DEFAULT.slice();
   let player, playerMixerParts = {};
   let hemiLight = null, rimLight = null;
   let enemies = [];
@@ -348,6 +352,7 @@
        currentWorldObjects 側の remove で外れるので、ここでは参照と
        出撃中だけの進行状態を落とす ―― 次の出撃へ持ち越さないため */
     resetMansionSortieState();
+    sunOffset = SUN_OFFSET_DEFAULT.slice();   // 道(新)の時間帯で替えた太陽の向きを既定へ戻す
     resetGhostShipSortieState();   // 幽霊船の出撃中の参照を手放す(GHOSTSHIP-REBUILD-002)
     /* この世界のためだけに建てたものを控えておく。どれもこの関数の中で
        シーンから外れるので、最後にまとめてGPUバッファを返しにいく
