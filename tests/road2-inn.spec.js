@@ -319,6 +319,12 @@ test('旧成長のルール: 第一章の台詞(R1-01・掛け合い)は出な�
   expect(await R('banter')).toBeNull();
   await R('walk', [[1100, 27]], 60);
   await expect.poll(async () => (await R('fight', 'F1-1')).alive.length, { timeout: 10_000 }).toBe(2);
+  // 段階的な伏線(DEC-031)の反応は出ない。二つ目の影は前のとおり宿場の白壁の前だけ(原野には出ない)
+  expect((await R('echoState')).spent.sort()).toEqual(['E2', 'E3']);
+  await R('go', 1100, 210, Math.PI);
+  const w = R('slideTo', 1100, 230, 3);
+  for (let k = 0; k < 8; k++) { expect((await R('shadow')).vis).toBe(false); expect(await R('banter')).toBeNull(); await page.waitForTimeout(300); }
+  await w;
   expect(errors).toEqual([]);
 });
 
@@ -362,8 +368,8 @@ test('段階的な伏線(DEC-031): 宿場「……ん？」→ 原野「……�
   await page.waitForTimeout(1500);
   expect((await R('shadow')).vis).toBe(false);
   expect((await R('echoState')).spent).toContain('E2');
-  // 掛け合いの一行は、三つの反応のほかに増えていない(説明の会話は足していない)
-  expect(seen.filter(t => t.includes('……'))).toEqual(expect.arrayContaining(['盗賊「……ん？」', '盗賊「……また？」', '盗賊「……やっぱり、何か変だ」']));
+  // 掛け合いの一行は、三つの反応のほかに増えていない(説明の会話は足していない。この道筋に他の掛け合いの帯は無い)
+  expect(seen).toEqual(['盗賊「……ん？」', '盗賊「……また？」', '盗賊「……やっぱり、何か変だ」']);
   // 出撃し直して原野から始めたら、そこで最初に気づくので「……ん？」(気づいた回数はその出撃の中だけ。保存しない)
   await R('relaunch');
   await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
@@ -374,5 +380,27 @@ test('段階的な伏線(DEC-031): 宿場「……ん？」→ 原野「……�
   const w4 = R('slideTo', 1100, 233, 3);
   await watchBanter('盗賊「……ん？」', 60_000);
   await w4;
+  expect(errors).toEqual([]);
+});
+
+test('段階的な伏線: 宿場で R1-04 が先に始まったら、主人公の「……ん？」は出さない(気づいた回数には数える)', async ({ page }) => {
+  test.setTimeout(400_000);
+  const errors = watchErrors(page);
+  const R = await enter(page, { classKey: 'rogue', guestKey: 'archer' });
+  await R('invuln');
+  await R('go', 1100, 46, Math.PI);   // 帯(z 44〜50)の中に立つ → 止まったまま R1-04
+  const r104 = await readTalk(page, R);
+  expect(r104[0]).toBe('盗賊|「今の、見たか」');
+  const seen = [];
+  const sl = R('slideTo', 1100, 56, 3);
+  for (let k = 0; k < 20; k++) { const b = await R('banter'); if (b) seen.push(b.text); await page.waitForTimeout(250); }
+  await sl;
+  expect(seen.filter(t => t.includes('……ん？')), '会話の後に「……ん？」は出ない').toEqual([]);
+  expect((await R('echoState')).noticed).toEqual(['E1']);
+  // 次に気づく原野では 2 回目の「……また？」
+  await R('go', 1100, 199, Math.PI);
+  const w2 = R('slideTo', 1100, 233, 3);
+  await expect.poll(async () => { const b = await R('banter'); return b && b.text; }, { timeout: 60_000 }).toBe('盗賊「……また？」');
+  await w2;
   expect(errors).toEqual([]);
 });

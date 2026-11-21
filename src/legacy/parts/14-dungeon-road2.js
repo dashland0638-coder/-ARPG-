@@ -792,7 +792,7 @@
       });
     });
   }
-  let road2TalkCount = {};   // 試験用: 会話が何回始まったか
+  let road2TalkCount = {};   // 会話が何回始まったか(試験と、A-1 の伏線の判定 road2EchoNotice が読む。出撃ごとに buildRoad2 で空にする)
   function road2Talk(id, lines, after){
     road2TalkCount[id] = (road2TalkCount[id] || 0) + 1;
     const steps = [];
@@ -1342,7 +1342,9 @@
   ];
 
   function road2SetupArea1(M){
-    road2HollowRoofs = []; road2Area1Lore = []; road2Echo = null; road2EchoNoticed = new Set(); road2EchoSpent = new Set();
+    road2HollowRoofs = []; road2Area1Lore = []; road2Echo = null; road2EchoNoticed = new Set();
+    // 旧成長のルール(第一章の台詞が出ない)では反応が無いので、二つ目の影は前のとおり宿場の白壁の前だけ
+    road2EchoSpent = new Set(legacyGrowth() ? ROAD2_ECHO_ZONES.filter(Z=> Z.id !== 'E1').map(Z=> Z.id) : []);
     road2Banter = newBanterState();
     const grp = road2AreaGroups[1];
     // ---- 入れる家: 屋根(家ごとに 1 つ。中にいる間は隠す)と中の物 ----
@@ -1511,7 +1513,7 @@
     // 反応を終えた場所は、出たらその出撃の間は閉じる(同じ所で繰り返さない)
     if(E.zone && !echoZoneAt(state.pos.x, state.pos.z, E.zone.area, null) && road2EchoNoticed.has(E.zone.id)) road2EchoSpent.add(E.zone.id);
     const near = currentWorldKey === 'road2' ? nearEchoZone(state.pos.x, state.pos.z, area, road2EchoSpent) : null;
-    if(!near){ E.mesh.visible = false; E.frame = null; E.zone = null; E.sepT = 0; if(E.hist.length){ E.pool.push(...E.hist); E.hist.length = 0; } return; }
+    if(!near){ E.mesh.visible = false; E.frame = null; E.zone = null; E.sepT = 0; E.lastT = road2Time; if(E.hist.length){ E.pool.push(...E.hist); E.hist.length = 0; } return; }
     // 二つ目の影は、今いるエリアの Group に置く(描くのは今のエリアと隣だけ)
     const grp = road2AreaGroups[area];
     if(grp && E.mesh.parent !== grp) grp.add(E.mesh);
@@ -1536,7 +1538,7 @@
     E.zone = zone || E.zone;
     const show = !!zone && renderer.shadowMap.enabled && player.visible && shadowCastable(d);
     E.mesh.visible = show;
-    if(!show){ E.frame = null; E.sepT = 0; return; }
+    if(!show){ E.frame = null; E.sepT = 0; E.lastT = road2Time; return; }
     const f = pickPoseFrame(E.hist, road2Time, S.lag);
     E.frame = f;
     road2EchoNotice(E, zone, f);
