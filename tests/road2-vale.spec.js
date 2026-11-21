@@ -97,7 +97,8 @@ const PROBE = `
   allyTo(x, z){ if(!guestCompanion) return false; const y = road2GroundAt(x, z) ?? 0; guestCompanion.group.position.set(x, y, z); guestCompanion.pos.copy(guestCompanion.group.position); return true; },
   vale(){ const R = road2Vale; if(!R) return null; return {vis: R.vision.visible, op: R.vision.material.opacity, refl: R.reflections.map(r=> r.mesh.visible), pending: R.a6Pending,
     vanishIdx: R.vanishIdx, vanishT: R.vanishT, a6: R.a6Done, ledge: R.ledgeSeen}; },
-  midboss(id){ const en = enemies.find(e=> e && e.road2Fight === id); return en ? {name: en.midbossName || null, strong: !!en.strongMob, dead: !!en.dead} : null; },
+  midboss(id){ const en = enemies.find(e=> e && e.road2Fight === id); return en ? {name: en.midbossName || null, strong: !!en.strongMob, dead: !!en.dead, scale: en.group.scale.x} : null; },
+  strongScale(id){ const en = enemies.find(e=> e && e.road2Fight === id); return en ? en.group.scale.x : null; },
   moor(){ const R = road2Moor; if(!R) return null;
     // 影(見えない写し)の上の端が、根元から世界のどちらへ動いたか。草の揺れの向き(1, 0, 0.5)との内積と、草の揺れ w
     const top = new THREE.Vector3(0, 2, 0), base = new THREE.Vector3(0, 0, 0);
@@ -173,9 +174,13 @@ test('谷: R3-01 → F3-1 川沿い → R3-02 水面の景色(A-5)→ 石橋の�
   // A-6 石橋の上: 水面に映る一行から、一人だけ 1.5 秒消える(一度だけ)
   // 橋に一人で入った時は待つ(「一行から一人」にならない)。支援も橋に乗ると、一人だけ消える
   await R('go', 1100, 371, Math.PI);
-  await R('walk', [[1100, 374]], 30);
+  await R('walk', [[1100, 374.5]], 30);
   await expect.poll(async () => (await R('vale')).pending, { timeout: 15_000 }).toBe(true);
-  await R('allyTo', 1099, 373);
+  await R('allyTo', 1099, 373.5);
+  await page.waitForTimeout(1500);
+  expect((await R('vale')).a6, '橋の半ば(z 376)の手前では消さない').toBe(false);
+  await R('walk', [[1100, 377.5]], 30);
+  await R('allyTo', 1099, 376.5);
   await expect.poll(async () => (await R('vale')).a6, { timeout: 15_000 }).toBe(true);
   const v1 = await R('vale');
   expect(v1.vanishIdx).toBeGreaterThanOrEqual(0);
@@ -202,6 +207,7 @@ test('谷: 浅瀬の遺構(F3-S 淵を這うもの・R3-04)と、滝の裏(R3-05
   await R('walk', [[1131, 348]], 60);
   await expect.poll(async () => (await R('fight', 'F3-S')).alive.length, { timeout: 10_000 }).toBe(1);
   expect((await R('fight', 'F3-S')).alive[0]).toMatchObject({ kind: 'creeper', strong: true });
+  const creeperScale = await R('strongScale', 'F3-S');
   await R('kill', 'F3-S');
   const readLoreTalk = async (title) => {
     await expect.poll(() => R('prompt'), { timeout: 10_000, message: JSON.stringify(await R('loreDbg')) }).toBe('調べる');
@@ -224,7 +230,9 @@ test('谷: 浅瀬の遺構(F3-S 淵を這うもの・R3-04)と、滝の裏(R3-05
   await R('go', 1050, 396, Math.PI);
   await R('walk', [[1052, 402]], 30);
   await expect.poll(async () => (await R('fight', 'F3-H')).alive.length, { timeout: 10_000 }).toBe(1);
-  expect(await R('midboss', 'F3-H')).toMatchObject({ name: '淵の大鰻', strong: true });
+  const mb = await R('midboss', 'F3-H');
+  expect(mb).toMatchObject({ name: '淵の大鰻', strong: true });
+  expect(mb.scale, '中ボス級は強敵(淵を這うもの)より大きい').toBeGreaterThan(creeperScale);
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-vale-f3h.png` });
   await R('kill', 'F3-H');
   await expect.poll(async () => (await R('talks'))['F3-H'], { timeout: 10_000 }).toBe(1);   // 倒した直後に一言を予約

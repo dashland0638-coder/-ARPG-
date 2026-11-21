@@ -1090,7 +1090,7 @@
     // 谷(R3-3): 水辺の魔物(川の青緑の鰻の型)・淵を這うもの(強敵)・淵の大鰻(隠しの中ボス級。強敵の枠組みで大きく、K-14)
     waterMob:  {color:0x3e6a62, hp:170, atk:28, speed:2.4, atkType:'charge', xp:76, goldBonus:[14,20], theme:'eel', telegraph:0.7, cooldown:1.1},
     creeper:   {color:0x2e4a46, hp:400, atk:38, speed:2.2, atkType:'charge', xp:156, goldBonus:[38,52], theme:'eel', strongMob:true, telegraph:0.9, cooldown:1.4},
-    greatEel:  {color:0x24403e, hp:820, atk:40, speed:2.0, atkType:'charge', xp:300, goldBonus:[64,88], theme:'eel', strongMob:true, scale:1.25,
+    greatEel:  {color:0x24403e, hp:820, atk:40, speed:2.0, atkType:'charge', xp:300, goldBonus:[64,88], theme:'eel', strongMob:true,   // 大きさは名前付きの中ボス級の既定(1.7、強敵の 1.5 より大きい)
                 telegraph:1.0, cooldown:1.6, midbossName:'淵の大鰻', midbossFlavor:'淵の水が、静かに戻っていく。'},
     beast:     {color:0x6a5a44, hp:190, atk:30, speed:2.6, atkType:'charge', xp:80,  goldBonus:[16,24]},
     bigBeast:  {color:0x4e4232, hp:300, atk:34, speed:2.4, atkType:'charge', xp:120, goldBonus:[22,32], scale:1.35},
@@ -1555,7 +1555,7 @@
   let road2Vale = null;   // {vision, visionT, reflections:[{mesh, src}], vanishIdx, vanishT, a6Done, ledgeSeen}
   function road2SetupArea3(M){
     const grp = road2AreaGroups[3], V = ROAD2_VALE, river = ROAD2_WATER.find(w=> w.id === 'river');
-    road2Vale = {vision:null, visionT:-1, reflections:[], vanishIdx:-1, vanishT:0, a6Done:false, a6Pending:false, ledgeSeen:false};
+    road2Vale = {vision:null, visionT:-1, reflections:[], vanishIdx:-1, vanishT:0, a6Done:false, a6Pending:false, ledgeSeen:false, afterVision:null, talkPending:null};
     // ---- R3-01 谷の入口(必ず) ----
     road2RegisterBand('R3-01', ()=> road2Talk('R3-01', [
       [ROAD_MAGE, '「水の音がします」'],
@@ -1597,7 +1597,7 @@
     sil.moveTo(-0.22, 0); sil.lineTo(0.22, 0); sil.lineTo(0.3, 1.45); sil.lineTo(0.12, 1.55); sil.lineTo(0.14, 1.85);
     sil.lineTo(0, 1.93); sil.lineTo(-0.14, 1.85); sil.lineTo(-0.12, 1.55); sil.lineTo(-0.3, 1.45); sil.lineTo(-0.22, 0);
     const silGeo = new THREE.ShapeGeometry(sil);
-    const refMat = new THREE.MeshBasicMaterial({color:0x1e3446, transparent:true, opacity:0.42, depthWrite:false});
+    const refMat = new THREE.MeshBasicMaterial({color:0x182a3a, transparent:true, opacity:0.55, depthWrite:false});   // 水面の明るい青の上で読める濃さ。光らせない
     const mk = src=>{
       const m = new THREE.Mesh(silGeo, refMat);
       m.rotation.set(-Math.PI/2, 0, -Math.PI/2);   // 水面に寝かせ、頭を東(川の下流、橋から離れる向き)へ
@@ -1635,9 +1635,11 @@
       R.vision.material.opacity = op * 0.8;
       if(t > A.inSec + A.holdSec + A.outSec){
         R.vision.visible = false; R.visionT = -1;
-        if(R.afterVision){ const f = R.afterVision; R.afterVision = null; f(); }
+        if(R.afterVision){ R.talkPending = R.afterVision; R.afterVision = null; }
       }
     }
+    // R3-02 の会話: 景色が消えた後、会話・演出の最中でなく、戦闘の敵が残っていない時に(戦闘を会話で止めない)
+    if(R.talkPending && !state.dialogueActive && !cutsceneRunning() && road2LiveFoes() === 0){ const f = R.talkPending; R.talkPending = null; f(); }
     // A-6: 橋の上の一人ずつの姿を、橋の東の水面に映す。消える一人は 1.5 秒(ゲームの時計)だけ
     const B = V.reflect.bridge;
     if(R.vanishT > 0) R.vanishT -= d;
@@ -1647,7 +1649,7 @@
       r.mesh.visible = on && !(i === R.vanishIdx && R.vanishT > 0);
       if(on) r.mesh.position.set(V.reflect.edge, ROAD2_WATER.find(w=> w.id === 'river').top + 0.02, p.z);
     });
-    if(R.a6Pending && !R.a6Done){
+    if(R.a6Pending && !R.a6Done && state.pos.z >= V.reflect.at){   // 橋を半分渡った時
       const on = R.reflections.map((r, i)=> ({r, i})).filter(({r})=> r.mesh.visible);
       if(on.length >= 2){
         R.a6Done = true; R.a6Pending = false;

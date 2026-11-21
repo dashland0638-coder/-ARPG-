@@ -383,7 +383,7 @@ export const ROAD2_MOOR = Object.freeze({
    R3-04 水辺の遺構(浅瀬の石組みを調べる)・R3-05 滝の裏(初めて入った時の一言) */
 export const ROAD2_VALE = Object.freeze({
   vision: Object.freeze({x0:1106, x1:1121, z0:372.4, z1:379.6, inSec:1.2, holdSec:3.6, outSec:1.4}),
-  reflect: Object.freeze({bridge:Object.freeze({x0:1095, x1:1105, z0:372, z1:380}), edge:1105.4, len:1.9, vanishSec:1.5, at:376}),
+  reflect: Object.freeze({bridge:Object.freeze({x0:1095, x1:1105, z0:372, z1:380}), edge:1105.4, len:1.93, vanishSec:1.5, at:376}),   // at: 橋の半ば(この z を越えたら一人消す)
   ruins: Object.freeze({x:1141.5, z:353.2}),
   ledge: Object.freeze({x0:1045, x1:1055, z0:368, z1:384}),
 });
