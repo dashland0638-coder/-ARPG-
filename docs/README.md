@@ -36,6 +36,9 @@ Chapter 1 の実機通しプレイのチェックリストと Content Ready の�
 ### [WALK_TALK.md](./WALK_TALK.md)
 歩きながらの掛け合い（操作を止めない一行の会話）の共通方針。条件と台詞はシナリオごと、表示と流し方は共通。
 
+### [MAP_DESIGN_PHILOSOPHY.md](./MAP_DESIGN_PHILOSOPHY.md)
+マップの二つのカテゴリー（閉じたマップ＝ストーリー体験型／フィールドマップ＝移動・探索体験型）の設計方針。第二章以降の基本方針（ROAD-VISUAL-004）。
+
 ### [ARCHITECTURE.md](./ARCHITECTURE.md)
 ゲーム実装上のアーキテクチャ（AIが実装変更時に守るルール）。
 
