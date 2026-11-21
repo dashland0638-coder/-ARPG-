@@ -10,7 +10,7 @@
  *   iPhone 844×390 の横向き。SHOTS を渡すと各エリアのスクリーンショットを撮る(PR に添える用)
  *
  *   歩き方: W キーを押したまま、毎フレーム「次の点の方向」へカメラの向きを合わせる(プレイヤーの
- *   移動・当たり・床の高さの判定は本物のまま)。次の点へ近づけないまま 8 秒(ゲーム内)過ぎたら「進めない」
+ *   移動・当たり・床の高さの判定は本物のまま)。次の点へ近づけないまま実時間で 8 秒(1 フレーム 0.1 秒まで。会話・演出の間は数えない)過ぎたら「進めない」
  */
 import { test, expect } from '@playwright/test';
 import { openGame, watchErrors, startTestMode } from './helpers.js';
@@ -28,6 +28,10 @@ const PROBE = `
   },
   pos(){ return {x: +state.pos.x.toFixed(2), y: +state.pos.y.toFixed(2), z: +state.pos.z.toFixed(2)}; },
   hp(){ return state.hp; },
+  joined(){ return {joined: road2Joined, cls: selectedClass, meet: (road2TalkCount || {})['R4-00'] || 0}; },
+  autoCam(on){ camAutoOn = !!on; return true; },
+  shot(){ return sceneShot ? {look: sceneShot.look, t: +sceneShot.t.toFixed(2)} : null; },
+  vistas(){ return ROAD2_VISTAS.map(v=> ({id: v.id, look: v.look})); },
   info(){
     const vis = {};
     Object.keys(road2AreaGroups).forEach(id=>{ vis[id] = road2AreaGroups[id].visible; });
@@ -37,19 +41,32 @@ const PROBE = `
       slabs: groundSlabs.length};
   },
   /* pts を順に徒歩で辿る。戻り値: {ok, reached, areas(通ったエリアの順), stuckAt} */
-  walk(pts, maxGameSec){
+  walk(pts, maxRealSec){
     return new Promise(res=>{
       const areas = [];
-      let i = 0, best = Infinity, sinceBest = 0, total = 0, last = performance.now();
+      let i = 0, best = Infinity, sinceBest = 0, total = 0, inDialogue = 0, last = performance.now();
       camAutoOn = false;
       window.dispatchEvent(new KeyboardEvent('keydown', {code:'KeyW'}));
       const done = (r)=>{ window.dispatchEvent(new KeyboardEvent('keyup', {code:'KeyW'})); res(r); };
       const tick = ()=>{
         const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
         // ゲーム内の時間で数える(ヘッドレスは遅いので、実時間では測らない)
-        total += dt; sinceBest += dt;
+        total += dt;
         if(road2CurrentAreaId && areas[areas.length - 1] !== road2CurrentAreaId) areas.push(road2CurrentAreaId);
-        if(state.dialogueActive && typeof advanceDialogue === 'function') advanceDialogue();
+        /* 会話・演出の間は操作が止まる(仕様)。「進めない」の判定には数えない。
+           E2E のゲーム内時間は実時間の 1/4(AD-004)なので、出会いの一幕(R4-00)のような長い演出を
+           実時間で数えると、歩けているのに「進めない」になる。総時間(maxRealSec)は数え続ける */
+        if(state.dialogueActive){
+          inDialogue += dt;
+          if(typeof advanceDialogue === 'function') advanceDialogue();
+          // 一続きの会話が終わらない時は早めに失敗にする(出会いの一幕でゲーム内約 37 秒 = 実時間約 150 秒)
+          if(inDialogue > 240) return done({ok:false, reached:i, areas, dialogueStuck:true, line: document.getElementById('dialogue-text').textContent, stuckAt:[state.pos.x, state.pos.z]});
+          if(total > maxRealSec) return done({ok:false, reached:i, areas, timeout:true, dialogue:true, stuckAt:[state.pos.x, state.pos.z]});
+          requestAnimationFrame(tick);
+          return;
+        }
+        inDialogue = 0;
+        sinceBest += dt;
         const [tx, tz] = pts[i];
         const dx = tx - state.pos.x, dz = tz - state.pos.z, d = Math.hypot(dx, dz);
         if(d < 1.3){
@@ -60,7 +77,7 @@ const PROBE = `
           if(d < best - 0.3){ best = d; sinceBest = 0; }
           if(sinceBest > 8) return done({ok:false, reached:i, areas, stuckAt:[+state.pos.x.toFixed(1), +state.pos.y.toFixed(1), +state.pos.z.toFixed(1)], target:[tx, tz]});
         }
-        if(total > maxGameSec) return done({ok:false, reached:i, areas, timeout:true, stuckAt:[state.pos.x, state.pos.z]});
+        if(total > maxRealSec) return done({ok:false, reached:i, areas, timeout:true, stuckAt:[state.pos.x, state.pos.z]});
         requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
@@ -108,7 +125,7 @@ const PROBE = `
 const NAMES = ['旅人の宿場', '風渡る原野', '水鏡の谷', '忘れられた山道', '道の果て'];
 /* 各エリアの見どころ(スクリーンショットと描画回数を測る地点)。[エリア, x, z, カメラの向き] */
 const VIEWS = [
-  [1, 1100, 30, Math.PI], [1, 1100, 84, Math.PI],
+  [1, 1100, 30, Math.PI], [1, 1100, 48, Math.PI], [1, 1089, 47, Math.PI], [1, 1100, 84, Math.PI],   // 壁の影の範囲・旅籠の中(R3-1)
   [2, 1100, 140, Math.PI], [2, 1026, 284, Math.PI * 0.75],
   [3, 1100, 330, Math.PI], [3, 1054, 340, Math.PI * 1.4],
   [4, 1066, 482, Math.PI], [4, 1100, 590, Math.PI * 0.8],
@@ -170,10 +187,12 @@ test('道（新）: 5 つのエリアの景観、今いるエリアと隣だけ�
   test.info().annotations.push({ type: 'road2-scenery-calls', description: JSON.stringify(rows) });
   rows.forEach(r => expect(r.scenery, `${r.area} ${r.at}: 景色の描画回数`).toBeLessThanOrEqual(ROAD2_SCENERY_CALL_BUDGET));
   // 高さがエリアで違う(宿場 0・原野 1・谷底 -2・高原 8)
-  expect(rows[0].y).toBeCloseTo(0, 1);
-  expect(rows[2].y).toBeCloseTo(1, 1);
-  expect(rows[4].y).toBeCloseTo(-2, 1);
-  expect(rows[8].y).toBeCloseTo(8, 1);
+  // 地点は座標で引く(VIEWS に地点を足しても崩れないように。R3-1 で宿場に 2 地点を足した)
+  const yAt = (x, z) => rows.find(r => r.at[0] === x && r.at[1] === z).y;
+  expect(yAt(1100, 30)).toBeCloseTo(0, 1);
+  expect(yAt(1100, 140)).toBeCloseTo(1, 1);
+  expect(yAt(1100, 330)).toBeCloseTo(-2, 1);
+  expect(yAt(1100, 680)).toBeCloseTo(8, 1);
   expect(errors).toEqual([]);
 });
 
@@ -188,6 +207,11 @@ test('道（新）: 入口から道の果てまで、メインルートを徒歩
   console.log('ROAD2 walk main', JSON.stringify(r));
   expect(r.ok, `進めない所: ${JSON.stringify(r)}`).toBe(true);
   expect(r.areas).toEqual([1, 2, 3, 4, 5]);   // 境で順に切り替わる(戻らない)
+  // メインルートを歩くと、エリア 4 の野営地で出会い、加入してから先へ進む(R3-4a。出会わずに北へは抜けられない)
+  const j = await R('joined');
+  expect(j.joined).toBe(true);
+  expect(j.cls).toBe('wanderer');
+  expect(j.meet).toBe(1);
   const end = await R('pos');
   expect(end.z).toBeGreaterThan(750);
   expect(end.y).toBeCloseTo(8, 1);
@@ -235,6 +259,49 @@ test('道（新）: 崖や川へ跳んでも、崖の中・床の無い所へ入
     console.log('ROAD2 jump', x, z, JSON.stringify(p));
     expect(p.y, `(${x},${z}) から跳んだ後の高さ`).toBeGreaterThanOrEqual(y0 - 0.05);
     expect(await R('hp'), `(${x},${z}) 落下の傷を負わない`).toBe(hp0);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('道（新）: 見晴らしの地点で一度だけカメラを引いて遠景を見せる(DEC-026 HD-2 = B)', async ({ page }) => {
+  test.setTimeout(600_000);
+  const errors = watchErrors(page);
+  const R = await enterRoad2(page);
+  const vistas = await R('vistas');
+  // [id, 帯の手前, 帯の中, 歩く向き(camYaw)]
+  const VISTAS = [
+    ['gate', [1100, 100], [1100, 106], Math.PI],
+    ['lookout', [1021, 266], [1021, 276], Math.PI],
+    ['vale', [1100, 296], [1100, 306], Math.PI],
+    ['pass', [1143, 628], [1143, 636], Math.PI],
+    ['edge', [1100, 740], [1100, 750], Math.PI],
+  ];
+  // 自動カメラ OFF の人には出ない(sceneCamShot の決まり)
+  await R('go', 1100, 100, Math.PI);
+  await R('walk', [[1100, 106]], 60);   // walk は自動カメラを切ったまま歩く
+  expect(await R('shot'), '自動カメラ OFF では出ない').toBeNull();
+  // 上で gate を通ったが、出していないので、もう一度通れば ON で出る(見た扱いにしない)
+  for (const [id, from, into, yaw] of VISTAS) {
+    await R('go', from[0], from[1], yaw);
+    await R('autoCam', true);
+    await page.waitForTimeout(300);
+    expect(await R('shot'), `${id}: 帯の手前では出ない`).toBeNull();
+    const w = R('walk', [into], 60);
+    await R('autoCam', true);   // walk は自動カメラを切るので、歩き始めてから戻す
+    await expect.poll(() => R('shot'), { timeout: 60_000, message: `${id}: 帯に入るとカメラを引く` }).not.toBeNull();
+    const sh = await R('shot');
+    expect(sh.look, `${id}: 見せる点`).toEqual(vistas.find(v => v.id === id).look);
+    await page.waitForTimeout(1200);
+    if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-vista-${id}.png` });
+    // 数秒(ゲーム内 3.2 秒。ヘッドレスは遅いので実時間の余裕をとる)で戻る
+    await expect.poll(() => R('shot'), { timeout: 30_000, message: `${id}: 数秒で戻る` }).toBeNull();
+    await w;
+    // 二度目は出ない
+    await R('go', from[0], from[1], yaw);
+    const w2 = R('walk', [into], 60);
+    await R('autoCam', true);
+    await w2;
+    expect(await R('shot'), `${id}: 二度目は出ない`).toBeNull();
   }
   expect(errors).toEqual([]);
 });

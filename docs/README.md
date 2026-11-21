@@ -33,6 +33,9 @@ Chapter 1 の実機通しプレイのチェックリストと Content Ready の�
 ### [DUNGEON_RENDERING.md](./DUNGEON_RENDERING.md)
 全ダンジョン共通の描画・カメラ方針（外側は黒・未到達の部屋を先に見せない・今いる空間を描く・見せてから話す）と、描画欠落の確認項目。
 
+### [WALK_TALK.md](./WALK_TALK.md)
+歩きながらの掛け合い（操作を止めない一行の会話）の共通方針。条件と台詞はシナリオごと、表示と流し方は共通。
+
 ### [ARCHITECTURE.md](./ARCHITECTURE.md)
 ゲーム実装上のアーキテクチャ（AIが実装変更時に守るルール）。
 
