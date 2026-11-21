@@ -120,3 +120,9 @@ AREA 1 の小さな違和感 → AREA 2 で思い出す → AREA 3 で確信に�
 - `src/core/road-wall-shadow.js`: `ROAD2_ECHO_ZONES`・`ROAD2_ECHO_LINES`・`echoZoneAt`・`nearEchoZone`・`echoLineFor`
 - `14-dungeon-road2.js`: 二つ目の影を「今いるエリアの場所」で出す（影の作り方・遅れは前のまま）。`road2EchoNotice` で主人公の反応。反応した場所は出たら閉じる
 - 二つ目の影は今いるエリアの Group へ移す（描くのは今のエリアと隣だけのため）
+
+### 7-4. 結果（2026-11-21、この環境）
+- build 成功、unit 2306/2306
+- E2E 66 件: 65 件は一度目に成功。1 件（road2-inn の掛け合いの 2 行目）は、試験が `R('banter')` を 2 回呼び、行と行の間（0.35 秒）に当たると null を読む作りの問題（伏線の変更とは無関係）。1 回の呼び出しで判定するように直し、road2-inn 7 件すべて成功
+- 描画回数（景色。上限 60）: 壁の影の範囲 35（変わらず）
+- 独立 Reviewer: Round 1 FAIL（major 1: R1-04 の弓師の台詞が AREA 1 の方針とぶつかる → Escalation E-2 に。minor 4・nit 1）→ Round 2 PASS

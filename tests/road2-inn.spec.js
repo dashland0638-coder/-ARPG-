@@ -193,7 +193,7 @@ test('R1-01 出発・掛け合い・R1-04 壁の影: 二つ目の影だけ 0.45 
   expect(b.rect.l).toBeGreaterThanOrEqual(0); expect(b.rect.r).toBeLessThanOrEqual(844);
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-banter.png` });
   await wb;
-  await expect.poll(async () => (await R('banter')) && (await R('banter')).text, { timeout: 15_000 }).toBe('盗賊「宿場ってのは、もっとうるさいもんだ」');
+  await expect.poll(async () => { const b = await R('banter'); return b && b.text; }, { timeout: 15_000 }).toBe('盗賊「宿場ってのは、もっとうるさいもんだ」');
   await expect.poll(() => R('banter'), { timeout: 15_000 }).toBeNull();
   // A-1: 通りの中ほど(R1-04 の帯)で会話
   await R('go', 1100, 39, Math.PI);
