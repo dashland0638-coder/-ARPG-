@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ROAD2_TERRAIN, road2Obstacles, road2HollowWalls, road2HollowInterior, road2Reachability, ROAD2_ROUTES, ROAD2_BANDS, ROAD2_ENTRY, areaAt } from '../../src/core/road-map.js';
-import { ROAD2_WALL_SHADOW, shadowLightDir, shadowCastable, wallShadowReach, inWallShadowZone, pushPoseFrame, pickPoseFrame } from '../../src/core/road-wall-shadow.js';
+import { ROAD2_WALL_SHADOW, ROAD2_ECHO_ZONES, ROAD2_ECHO_LINES, ROAD2_ECHO_NOTICE_SEP, echoZoneAt, nearEchoZone, echoLineFor, shadowLightDir, shadowCastable, wallShadowReach, inWallShadowZone, pushPoseFrame, pickPoseFrame } from '../../src/core/road-wall-shadow.js';
 import { newBanterState, queueBanter, stepBanter, BANTER_LINE_SEC, BANTER_GAP_SEC } from '../../src/core/road-banter.js';
 
 const hollow = ROAD2_TERRAIN[1].obstacles.filter(o => o.hollow);
@@ -102,4 +102,35 @@ test('歩きながらの掛け合い: 一行ずつ流れて消える。同じ話
   assert.equal(blockedFrames, 30);
   assert.equal(stepBanter(st, dt, false), null, '終わると消える');
   assert.ok(BANTER_LINE_SEC >= 2 && BANTER_LINE_SEC <= 4 && BANTER_GAP_SEC < 1);
+});
+
+test('段階的な伏線(DEC-031): 宿場・原野・谷の三か所。反応は気づいた回数で変わる。正体を語らない', () => {
+  assert.deepEqual(ROAD2_ECHO_ZONES.map(z => z.area), [1, 2, 3], 'AREA 1〜3 に一か所ずつ(AREA 4 の加入には足さない)');
+  assert.equal(ROAD2_ECHO_ZONES[0].rect, ROAD2_WALL_SHADOW.zone, '宿場は A-1 の場所のまま');
+  // 場所はそのエリアの中で、ほかの会話の帯と重ならない(R1-04 は宿場の場所の中にあってよい)
+  ROAD2_ECHO_ZONES.forEach(Z => {
+    const r = Z.rect, cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+    assert.equal(areaAt(cx, cz).id, Z.area, `${Z.id} はエリア ${Z.area} の中`);
+    ROAD2_BANDS.filter(b => b.area === Z.area && b.id !== 'R1-04').forEach(b =>
+      assert.ok(b.z1 <= r.z0 || b.z0 >= r.z1, `${Z.id} と ${b.id} は重ならない`));
+  });
+  assert.equal(echoZoneAt(1100, 47, 1).id, 'E1');
+  assert.equal(echoZoneAt(1100, 220, 2).id, 'E2');
+  assert.equal(echoZoneAt(1110, 330, 3).id, 'E3');
+  assert.equal(echoZoneAt(1100, 220, 1), null, 'エリアが違えば出ない');
+  assert.equal(echoZoneAt(1100, 47, 1, new Set(['E1'])), null, '反応を終えて出た場所は閉じる');
+  assert.equal(nearEchoZone(1100, 200, 2).id, 'E2', '手前 6 m から姿を記録する');
+  assert.equal(nearEchoZone(1100, 190, 2), null);
+  // 反応: 1 回目「……ん？」、2 回目「……また？」、3 回目以降「……やっぱり、何か変だ」
+  assert.equal(echoLineFor(1), '「……ん？」');
+  assert.equal(echoLineFor(2), '「……また？」');
+  assert.equal(echoLineFor(3), '「……やっぱり、何か変だ」');
+  assert.equal(echoLineFor(9), '「……やっぱり、何か変だ」');
+  assert.equal(echoLineFor(0), '「……ん？」');
+  // 短く、断定・説明をしない
+  ROAD2_ECHO_LINES.forEach(l => {
+    assert.ok(l.length <= 14, `短い ${l}`);
+    ['誰か', 'ついて', '旅人', '羅針盤', 'おかしい', '正体'].forEach(w => assert.ok(!l.includes(w), `${l} に「${w}」が無い`));
+  });
+  assert.ok(ROAD2_ECHO_NOTICE_SEP > 0.5 && ROAD2_ECHO_NOTICE_SEP < 1.8, '歩いて離れた時だけ(止まっている時は重なる)');
 });

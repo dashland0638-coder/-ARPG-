@@ -1320,6 +1320,8 @@
   let road2HollowRoofs = [];         // 入れる家の屋根 {mesh, rect}。中にいる間は隠す
   let road2Area1Lore = [];           // 調べ物 {lore, talkId, lines}(読んだら会話を一度)
   let road2Echo = null;              // A-1: 遅れる二つ目の影 {mesh, src, parts, local, hist, frame}
+  let road2EchoNoticed = new Set();  // 段階的な伏線: 主人公が反応した(気づいた)場所の id(その出撃の間)
+  let road2EchoSpent = new Set();    // 反応を終えて出た場所(もう二つ目の影を出さない)
   let road2Banter = newBanterState();
   let road2BanterEl = null;
   /* 歩きながらの掛け合いの話題(操作を止めない帯。第一章の本編のルールだけ) */
@@ -1340,7 +1342,7 @@
   ];
 
   function road2SetupArea1(M){
-    road2HollowRoofs = []; road2Area1Lore = []; road2Echo = null;
+    road2HollowRoofs = []; road2Area1Lore = []; road2Echo = null; road2EchoNoticed = new Set(); road2EchoSpent = new Set();
     road2Banter = newBanterState();
     const grp = road2AreaGroups[1];
     // ---- 入れる家: 屋根(家ごとに 1 つ。中にいる間は隠す)と中の物 ----
@@ -1418,7 +1420,7 @@
     echo.castShadow = true; echo.receiveShadow = false;
     echo.visible = false;
     grp.add(echo);
-    road2Echo = {mesh: echo, src: null, sig: '', parts: [], local: [], hist: [], pool: [], frame: null};
+    road2Echo = {mesh: echo, src: null, sig: '', parts: [], local: [], hist: [], pool: [], frame: null, zone: null, sepT: 0, lastT: 0};
   }
 
   /* 毎フレーム: 屋根・調べ物の会話・壁の影・掛け合い */
@@ -1476,15 +1478,43 @@
     E.src = player; E.sig = C.sig; E.parts = parts; E.local = local; E.hist = []; E.pool = []; E.frame = null;
   }
 
+  /* 段階的な伏線(DEC-031): 二つ目の影が足元の影から離れて見えた時、主人公が短く反応する
+     (歩きながらの掛け合いの一行。操作を止めない)。気づいた回数で言葉が変わる。
+     会話・演出・戦闘の間は反応しない(後から場違いに出さない)。本編のルールの時だけ */
+  function road2EchoNotice(E, zone, f){
+    if(road2EchoNoticed.has(zone.id) || legacyGrowth()) return;
+    // 宿場では、一行がすでに R1-04 で影を話した後なら、主人公の「……ん？」は出さない(気づいた回数には数える)
+    if(zone.area === 1 && road2TalkCount['R1-04']){ road2EchoNoticed.add(zone.id); return; }
+    const busy = state.dialogueActive || cutsceneRunning() || state.paused || combatIntensity >= 0.35;
+    const sep = Math.hypot(f.x - state.pos.x, f.z - state.pos.z);
+    E.sepT = (!busy && sep >= ROAD2_ECHO_NOTICE_SEP) ? (E.sepT || 0) + Math.max(0, road2Time - (E.lastT || road2Time)) : 0;
+    E.lastT = road2Time;
+    if(E.sepT < 0.3) return;   // 離れたまま 0.3 秒(ゲームの時計)
+    road2EchoNoticed.add(zone.id);
+    const who = (CLASSES[selectedClass] && CLASSES[selectedClass].name) || ROAD_THIEF;
+    queueBanter(road2Banter, 'A1-' + zone.id, [[who, echoLineFor(road2EchoNoticed.size)]]);
+    road2TalkCount['A1-' + zone.id] = (road2TalkCount['A1-' + zone.id] || 0) + 1;
+  }
+
   /* A-1: 白壁の前の通りの近く(通りの範囲 + 6 m)にいる間、主人公の姿(部品ごとの世界の行列)を記録し、
      通りの中では 0.45 秒前の姿で二つ目の影を落とす。影の地図そのものなので、光の向き・床から壁への折れ・
      壁の裏からの光は、いつもの影と同じに決まる(ROAD-VISUAL-004 の太陽の向きにも付いてくる) */
   function road2UpdateWallShadow(){
-    const S = ROAD2_WALL_SHADOW, E = road2Echo, r = S.zone;
+    const S = ROAD2_WALL_SHADOW, E = road2Echo;
     if(!E || !player) return;
-    const near = currentWorldKey === 'road2' && road2CurrentAreaId === 1
-      && state.pos.x > r.x0 - 6 && state.pos.x < r.x1 + 6 && state.pos.z > r.z0 - 6 && state.pos.z < r.z1 + 6;
-    if(!near){ E.mesh.visible = false; E.frame = null; if(E.hist.length){ E.pool.push(...E.hist); E.hist.length = 0; } return; }
+    const area = road2CurrentAreaId;
+    // 宿場: 主人公の「……ん？」の途中で R1-04(一行の会話)が始まったら、その一行は残さない(会話の後に場違いに出さない)
+    if(state.dialogueActive && road2TalkCount['R1-04']){
+      if(road2Banter.cur && road2Banter.cur.id === 'A1-E1'){ road2Banter.cur = null; road2Banter.t = 0; }
+      if(road2Banter.queue.length) road2Banter.queue = road2Banter.queue.filter(q=> q.id !== 'A1-E1');
+    }
+    // 反応を終えた場所は、出たらその出撃の間は閉じる(同じ所で繰り返さない)
+    if(E.zone && !echoZoneAt(state.pos.x, state.pos.z, E.zone.area, null) && road2EchoNoticed.has(E.zone.id)) road2EchoSpent.add(E.zone.id);
+    const near = currentWorldKey === 'road2' ? nearEchoZone(state.pos.x, state.pos.z, area, road2EchoSpent) : null;
+    if(!near){ E.mesh.visible = false; E.frame = null; E.zone = null; E.sepT = 0; if(E.hist.length){ E.pool.push(...E.hist); E.hist.length = 0; } return; }
+    // 二つ目の影は、今いるエリアの Group に置く(描くのは今のエリアと隣だけ)
+    const grp = road2AreaGroups[area];
+    if(grp && E.mesh.parent !== grp) grp.add(E.mesh);
     const C = road2EchoCasters();
     if(E.src !== player || E.sig !== C.sig) road2EchoRebuild(E, C);
     if(!E.parts.length){ E.mesh.visible = false; return; }
@@ -1502,11 +1532,14 @@
     fr.t = road2Time; fr.x = player.position.x; fr.y = player.position.y; fr.z = player.position.z;
     pushPoseFrame(E.hist, fr, S, f=> E.pool.push(f));
     const d = sunLight ? shadowLightDir(sunLight.position, sunLight.target.position) : null;
-    const show = renderer.shadowMap.enabled && player.visible && inWallShadowZone(state.pos.x, state.pos.z) && shadowCastable(d);
+    const zone = echoZoneAt(state.pos.x, state.pos.z, area, road2EchoSpent);
+    E.zone = zone || E.zone;
+    const show = !!zone && renderer.shadowMap.enabled && player.visible && shadowCastable(d);
     E.mesh.visible = show;
-    if(!show){ E.frame = null; return; }
+    if(!show){ E.frame = null; E.sepT = 0; return; }
     const f = pickPoseFrame(E.hist, road2Time, S.lag);
     E.frame = f;
+    road2EchoNotice(E, zone, f);
     // 0.45 秒前の姿の頂点を世界の位置へ(部品ごとに、その時の行列を掛ける)
     const out = E.mesh.geometry.attributes.position.array;
     for(let i=0;i<n;i++){

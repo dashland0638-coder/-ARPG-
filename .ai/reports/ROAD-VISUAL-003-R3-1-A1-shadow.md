@@ -101,3 +101,22 @@ Human の回答: 「E-1：A案を採用する」（DEC-030）。
   - road2-inn（A-1: 遅れ 0.45 秒・止まると重なる・形の位置・カメラを回しても同じ・影なしで出ない・範囲の外で出ない・武器の持ち替え）・road2-fights・road2-join・road2-compass・road2・road2-terrain・chapter-select-testmode・road（旧道）・road-visual・chapter1-tower-to-road・combat-center-messages・combat-events-layout・notice-layout・mansion-enemies・shadow-guide・chapter1-dusk-basics（光）
 - 描画回数（景色。上限 60）: 宿場の通り 32 ／ 壁の影の範囲 35（二つ目の影の 1 回）／ 旅籠の中 34 ／ 広場 35
 - 独立 Reviewer: Round 1 FAIL（major 1: 武器の持ち替えで古い武器の影が残る。minor 3・nit 4）→ Round 2 PASS（nit 3）
+
+## 7. 段階的な伏線（2026-11-21、DEC-031）
+### 7-1. 演出方針（Human）
+AREA 1 の小さな違和感 → AREA 2 で思い出す → AREA 3 で確信に近づく → AREA 4 の加入で振り返る余白。正体は説明しない。
+
+### 7-2. 調べたこと（Analyzer）
+| 項目 | 事実 |
+| --- | --- |
+| 前の A-1 の出る条件 | 白壁の前の通り（`ROAD2_WALL_SHADOW.zone`）にいる間ずっと。会話は R1-04（帯 z 44〜50） |
+| 影の描画と進行 | 描画（二つ目の影）は進行の条件に関わらない。R1-04 だけが帯の会話 |
+| AREA 2・3 | 地形・道・帯（R2-01・N-2・R3-01〜03）はある。戦闘・会話の中身（R3-2・R3-3）はまだ |
+| 掛け合い | `queueBanter` の id ごとに出撃で 1 回（`road2Banter` は出撃ごとに作り直す） |
+| 加入 | R4-00（帯 z 462〜468）。A-1 と依存なし |
+| セーブ | 保存は到達したエリアだけ（DEC-025 E-3）。演出の記録は保存しない |
+
+### 7-3. 作り（実装仕様は DEC-031 の表）
+- `src/core/road-wall-shadow.js`: `ROAD2_ECHO_ZONES`・`ROAD2_ECHO_LINES`・`echoZoneAt`・`nearEchoZone`・`echoLineFor`
+- `14-dungeon-road2.js`: 二つ目の影を「今いるエリアの場所」で出す（影の作り方・遅れは前のまま）。`road2EchoNotice` で主人公の反応。反応した場所は出たら閉じる
+- 二つ目の影は今いるエリアの Group へ移す（描くのは今のエリアと隣だけのため）

@@ -94,6 +94,11 @@ const PROBE = `
     if(state.pos.z >= z1) return res(true); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }); },
   setShadow(on){ shadowOn = on; applyShadowSetting(); return renderer.shadowMap.enabled; },
   swapWeapon(){ swapPlayerWeaponVisual(); return true; },
+  // (x1, z1) へまっすぐ、ゲームの時計で毎秒 v で動かす(斜めの道でも道の上を通る)
+  slideTo(x1, z1, v){ return new Promise(res=>{ const x0 = state.pos.x, z0 = state.pos.z, t0 = road2Time, L = Math.hypot(x1 - x0, z1 - z0);
+    const tick = ()=>{ const k = Math.min(1, v * (road2Time - t0) / L); state.pos.x = x0 + (x1 - x0) * k; state.pos.z = z0 + (z1 - z0) * k; state.vel.set(0, 0, 0);
+      if(k >= 1) return res(true); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }); },
+  echoState(){ return {noticed: [...road2EchoNoticed], spent: [...road2EchoSpent], area: road2CurrentAreaId}; },
   roofs(){ return road2HollowRoofs.map(r=> ({id: r.id, vis: r.mesh.visible})); },
   banter(){ const el = document.getElementById('road2-banter'); if(!el || el.style.display === 'none') return null;
     const r = el.getBoundingClientRect(); return {text: el.textContent, pe: getComputedStyle(el).pointerEvents, rect: {l:r.left, t:r.top, r:r.right, b:r.bottom}}; },
@@ -314,5 +319,60 @@ test('旧成長のルール: 第一章の台詞(R1-01・掛け合い)は出な�
   expect(await R('banter')).toBeNull();
   await R('walk', [[1100, 27]], 60);
   await expect.poll(async () => (await R('fight', 'F1-1')).alive.length, { timeout: 10_000 }).toBe(2);
+  expect(errors).toEqual([]);
+});
+
+test('段階的な伏線(DEC-031): 宿場「……ん？」→ 原野「……また？」→ 谷「……やっぱり、何か変だ」。同じ所では繰り返さない。再出撃では最初に気づいた所が「……ん？」', async ({ page }) => {
+  test.setTimeout(600_000);
+  const errors = watchErrors(page);
+  const R = await enter(page, { classKey: 'rogue', guestKey: 'archer' });
+  await R('invuln');
+  const seen = [];
+  const watchBanter = async (want, ms) => {
+    await expect.poll(async () => { const b = await R('banter'); if (b && !seen.includes(b.text)) seen.push(b.text); return seen.includes(want); }, { timeout: ms }).toBe(true);
+  };
+  // AREA 1: 白壁の前の通りを北へ。二つ目の影が離れて見えると、主人公(盗賊)の短い反応。その後に R1-04(台詞は前のまま)
+  await R('go', 1100, 36, Math.PI);
+  const w1 = R('slideTo', 1100, 46, 3);
+  await watchBanter('盗賊「……ん？」', 30_000);
+  expect((await R('pos')).dlg, '操作を止めない').toBe(false);
+  const r104 = await readTalk(page, R);
+  await w1;
+  expect(r104).toEqual(['盗賊|「今の、見たか」', '弓師|「壁の影……少し、遅れていました」', '魔法使い|「光の角度かもしれません」', '剣士|「確かめようがないな」']);
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-echo-a1.png` });
+  // AREA 2: 原野の開けた一本道。「……また？」
+  await R('go', 1100, 199, Math.PI);
+  const w2 = R('slideTo', 1100, 233, 3);
+  await watchBanter('盗賊「……また？」', 60_000);
+  const s2 = await R('shadow');
+  expect(s2.vis).toBe(true);
+  expect(s2.lagT, '遅れは 0.45 秒のまま').toBeGreaterThanOrEqual(0.45 - 1e-9);
+  expect(s2.lagT).toBeLessThan(0.55);
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-echo-a2.png` });
+  await w2;
+  // AREA 3: 谷の斜めの道。「……やっぱり、何か変だ」
+  await R('go', 1101.5, 318.5, Math.PI);
+  const w3 = R('slideTo', 1116.5, 338, 3);
+  await watchBanter('盗賊「……やっぱり、何か変だ」', 60_000);
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-echo-a3.png` });
+  await w3;
+  expect((await R('echoState')).noticed).toEqual(['E1', 'E2', 'E3']);
+  // 反応を終えて出た場所には、もう二つ目の影は出ない(同じ所で繰り返さない)
+  await R('go', 1100, 220, Math.PI);
+  await page.waitForTimeout(1500);
+  expect((await R('shadow')).vis).toBe(false);
+  expect((await R('echoState')).spent).toContain('E2');
+  // 掛け合いの一行は、三つの反応のほかに増えていない(説明の会話は足していない)
+  expect(seen.filter(t => t.includes('……'))).toEqual(expect.arrayContaining(['盗賊「……ん？」', '盗賊「……また？」', '盗賊「……やっぱり、何か変だ」']));
+  // 出撃し直して原野から始めたら、そこで最初に気づくので「……ん？」(気づいた回数はその出撃の中だけ。保存しない)
+  await R('relaunch');
+  await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
+  await page.waitForFunction(() => /** @type {any} */ (window).__rc);
+  await R('invuln');
+  seen.length = 0;
+  await R('go', 1100, 199, Math.PI);
+  const w4 = R('slideTo', 1100, 233, 3);
+  await watchBanter('盗賊「……ん？」', 60_000);
+  await w4;
   expect(errors).toEqual([]);
 });
