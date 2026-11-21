@@ -228,6 +228,7 @@
     road2SetupMeeting();           // R3-N-FIX-01: エリア 4 の野営地の「？？？」と、出会い・加入
     road2SetupArea4(M);            // R3-4b: エリア 4 の戦闘・古き守り手・遺構の会話と怪異
     road2SetupArea1(M);            // R3-1: 宿場の建物の中・会話と調べ物・壁の影・歩きながらの掛け合い(戦闘は ROAD2_FIGHTS)
+    road2SetupArea2(M);            // R3-2: 原野の会話・調べ物・怪異 A-2〜A-4(戦闘は ROAD2_FIGHTS)
     ROAD2_CAMPS.forEach(c=> road2BuildCamp(c, road2AreaGroups[c.area], M));
     ROAD2_LANDMARKS.forEach(l=> road2BuildLandmark(l, road2AreaGroups[l.area], M));
 
@@ -1080,6 +1081,11 @@
     roadEater: {color:0x8a6a44, hp:160, atk:26, speed:2.8, atkType:'charge', xp:64, goldBonus:[12,18], look:'roadEater',
                 telegraph:0.8, cooldown:1.2},   // 前脚で地面を掻く溜め(少し長め)・跳びかかりの後に頭を振る隙
     spitBeast: {color:0x7a6040, hp:130, atk:22, speed:0.9, atkType:'fire', xp:70, goldBonus:[12,18], projColor:0xc8a060, look:'spitBeast'},
+    // 原野(R3-2): 原野の群れ(速い変種。細身・明るい毛)と、岩陰の大牙(強敵。大きく、下顎の牙)
+    moorBeast: {color:0x9a8256, hp:150, atk:24, speed:3.3, atkType:'charge', xp:66, goldBonus:[12,18], look:'moorBeast',
+                telegraph:0.6, cooldown:1.0},   // 溜めは短く、隙も短い(群れで来る速い獣)
+    rockFang:  {color:0x5a5248, hp:380, atk:38, speed:2.6, atkType:'charge', xp:150, goldBonus:[36,50], look:'rockFang',
+                strongMob:true, telegraph:0.9, cooldown:1.4},   // 岩陰の大牙: 溜めが長く、突進の後の隙も長い
     beast:     {color:0x6a5a44, hp:190, atk:30, speed:2.6, atkType:'charge', xp:80,  goldBonus:[16,24]},
     bigBeast:  {color:0x4e4232, hp:300, atk:34, speed:2.4, atkType:'charge', xp:120, goldBonus:[22,32], scale:1.35},
     spitter:   {color:0x7a6a4a, hp:150, atk:26, speed:0.9, atkType:'fire',   xp:84,  goldBonus:[16,24], projColor:0xd8b060},
@@ -1213,6 +1219,15 @@
         strap.rotation.x = Math.PI/2; strap.position.set(0, -0.08, -0.06);   // 首に古い革紐の切れ端
         M.neck.add(strap);
       }
+    } else if(v.look === 'moorBeast'){
+      en.group.scale.set(0.9, 0.9, 1.08);   // 細身で長い脚の、速い群れ
+    } else if(v.look === 'rockFang'){
+      const tuskMat = new THREE.MeshStandardMaterial({color:0xd8cdb4, roughness:0.6});
+      const head = (M && M.snout) || body;
+      [-1, 1].forEach(sd=>{   // 下顎から上へ反る二本の牙
+        const t = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.32, 6), tuskMat);
+        t.position.set(sd * 0.1, 0.02, 0.12); t.rotation.x = -0.5; head.add(t);
+      });
     } else if(v.look === 'spitBeast'){
       en.group.scale.set(1, 0.8, 1.05);
       const spineMat = new THREE.MeshStandardMaterial({color:0x5a4430, roughness:0.85});
@@ -1423,6 +1438,108 @@
     echo.visible = false;
     grp.add(echo);
     road2Echo = {mesh: echo, src: null, sig: '', parts: [], local: [], hist: [], pool: [], frame: null, zone: null, sepT: 0, lastT: 0};
+  }
+
+  /* ==== R3-2: AREA 2「風渡る原野」(設計 §2 AREA 2・§5.2・§6) ====
+     会話 R2-01(必ず)・調べる R2-02 道標の影・R2-03 足跡・A-4 遠くの人影(R2-04)・R2-05 高台の景色。
+     第一章の台詞は本編のルールだけ。正体・羅針盤の由来には触れない */
+  let road2Moor = null;   // {post, postShadow, figure, figureT, hillSeen, vistaTalked}
+  function road2SetupArea2(M){
+    road2Moor = {post:null, postShadow:null, figure:null, figureT:0, hillSeen:false, vistaTalked:false};
+    const grp = road2AreaGroups[2], P = ROAD2_MOOR.oldPost, py = road2GroundAt(P.x, P.z) ?? 1;
+    // ---- R2-01 原野に出る(必ず) ----
+    road2RegisterBand('R2-01', ()=> road2Talk('R2-01', [
+      [ROAD_ARCHER, '「……広いですね」'],
+      [ROAD_THIEF, '「迷いようがない広さってのも、困るな」'],
+    ]), true, {beforeJoin:true});
+    // ---- A-2 旧道の道標。見える道標は影を落とさない。影は見えない写し(画面に何も書かない)が落とす。
+    //      写しだけを草と逆へ揺らす → 影だけが逆へ揺れる(DEC-030 と同じ、太陽の影の地図の影) ----
+    const post = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.1, 0.16), M.wood); pole.position.y = 1.05; post.add(pole);
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.26, 0.06), M.wood); board.position.set(0.32, 1.75, 0); board.rotation.z = -0.12; post.add(board);
+    post.position.set(P.x, py, P.z); post.rotation.y = 0.5;
+    post.traverse(o=>{ if(o.isMesh){ o.castShadow = false; o.receiveShadow = false; } });
+    grp.add(post);
+    const ghostMat = new THREE.MeshBasicMaterial({colorWrite:false, depthWrite:false});
+    // 外: 草の揺れの向き(世界の (1, 0, 0.5))に局所の x を合わせる → 中: その向きの逆へ傾ける → 内: 道標の向き
+    const GRASS_YAW = -Math.atan2(0.5, 1);
+    const outer = new THREE.Group(), tilt = new THREE.Group(), inner = new THREE.Group();
+    outer.position.copy(post.position); outer.rotation.y = GRASS_YAW;
+    inner.rotation.y = post.rotation.y - GRASS_YAW;
+    post.children.forEach(c=>{ const g = new THREE.Mesh(c.geometry, ghostMat); g.position.copy(c.position); g.rotation.copy(c.rotation); g.castShadow = true; inner.add(g); });
+    tilt.add(inner); outer.add(tilt); grp.add(outer);
+    road2Moor.post = post; road2Moor.postShadow = tilt; road2Moor.postAmp = 0;
+    // ---- A-3 街道の脇の足跡(途中で終わる)。地面の小さな跡 ----
+    const S = ROAD2_MOOR.steps, steps = [];
+    for(let z = S.z0, k = 0; z <= S.z1; z += S.stride, k++) steps.push({x: S.x + (k % 2 ? 0.18 : -0.18), z});
+    const stepMat = new THREE.MeshBasicMaterial({color:0x5a4a32, transparent:true, opacity:0.5, depthWrite:false});
+    road2InstQ(new THREE.CircleGeometry(0.13, 8), stepMat, steps, t=> ({x:t.x, y:(road2GroundAt(t.x, t.z) ?? 1) + 0.03, z:t.z, rx:-Math.PI/2, sx:0.8, sy:1.3, sz:1}), grp);
+    // ---- 調べ物(読んだら一度だけ短い会話) ----
+    const addLore = (pos, title, lines, talkId, talk)=>{
+      const lore = {pos:new THREE.Vector3(pos[0], road2GroundAt(pos[0], pos[1]) ?? 1, pos[1]), title, lines, radius:2.2, read:false, kind:'mark', promptText:'調べる'};
+      loreObjects.push(lore);
+      road2Area1Lore.push({lore, talkId, talk, talked:false});
+    };
+    addLore([P.x + 0.9, P.z - 0.4], '古い道標', ['旧道の、古い道標。', '風は東から吹いている。'], 'R2-02', [
+      [ROAD_ARCHER, '「……道標の影、草と違う向きに揺れていませんか」'],
+      [ROAD_THIEF, '「風のいたずらだろ」'],
+    ]);
+    addLore([S.x, S.z1 + 0.4], '足跡', ['街道の脇に、足跡が続いている。', 'ここで、ふいに途切れている。'], 'R2-03', [
+      [ROAD_THIEF, '「……ここで終わってる」'],
+      [ROAD_SWORD, '「先は、草が深いだけだ」'],
+    ]);
+    // ---- A-4 遠くの人影(加入前の影の旅人の姿。出会いの前だけ) ----
+    const F = ROAD2_MOOR.figure;
+    const fig = buildRoadTravelerFigure(false);
+    fig.position.set(F.x, road2GroundAt(F.x, F.z) ?? 1, F.z);
+    fig.visible = false;
+    grp.add(fig);
+    road2Moor.figure = fig;
+  }
+
+  /* 毎フレーム: 道標の影・遠くの人影・高台の一言 */
+  function road2UpdateArea2(dt){
+    const R = road2Moor;
+    if(!R || currentWorldKey !== 'road2') return;
+    // A-2: 道標から 8 m の内だけ、影(見えない写し)を草と逆へ揺らす。草の揺れと同じ式(road2SwayMaterial)
+    const P = ROAD2_MOOR.oldPost;
+    if(R.postShadow){
+      const near = Math.hypot(state.pos.x - P.x, state.pos.z - P.z) < P.near;
+      const ph = P.x * 0.21 + P.z * 0.13;
+      const w = Math.sin(road2Time * 1.6 + ph) * 0.6 + Math.sin(road2Time * 2.7 + ph * 1.7) * 0.4;
+      // 草は世界の (1, 0, 0.5) の向きへ(高さに比例して)揺れる。写しは局所の z まわりに傾け、上の端をその逆へ動かす。
+      // 8 m の線をまたぐ時は 0.5 秒かけて揺れを出し入れする(跳ばない)
+      R.postAmp = Math.max(0, Math.min(1, R.postAmp + (near ? 1 : -1) * (dt || 0) / 0.5));
+      R.postShadow.rotation.z = R.postAmp > 0 ? w * 0.16 * R.postAmp : 0;
+      R.postSway = w;
+    }
+    // A-4: 丘の上に初めて立つと、西の遠くに人影。5 秒で消える。近づいた時も消える(誰もいない)
+    const H = ROAD2_MOOR.hillTop, F = ROAD2_MOOR.figure;
+    if(!R.hillSeen && !road2Joined && state.pos.x > H.x0 && state.pos.x < H.x1 && state.pos.z > H.z0 && state.pos.z < H.z1){
+      R.hillSeen = true;
+      if(R.figure){
+        R.figure.visible = true; R.figureT = F.showSec;
+        R.figure.rotation.y = Math.atan2(state.pos.x - F.x, state.pos.z - F.z);
+      }
+      if(!legacyGrowth()){
+        queueBanter(road2Banter, 'R2-04', [[ROAD_ARCHER, '「……今、丘の向こうに」'], [ROAD_THIEF, '「……何も見えないぞ」']]);
+        road2TalkCount['R2-04'] = (road2TalkCount['R2-04'] || 0) + 1;
+      }
+    }
+    if(R.figure && R.figure.visible){
+      R.figureT -= dt || 0;
+      if(R.figureT <= 0 || Math.hypot(state.pos.x - F.x, state.pos.z - F.z) < F.hideNear) R.figure.visible = false;
+    }
+    // R2-05: 展望の高台に立ったら一言(見晴らしのカメラがある時は、それが終わってから)
+    const V = ROAD2_VISTAS.find(v=> v.id === 'lookout');
+    const onLookout = V && state.pos.x > V.x0 && state.pos.x < V.x1 && state.pos.z > V.z0 && state.pos.z < V.z1;
+    if(!R.vistaTalked && onLookout && !sceneShot && !cutsceneRunning() && !state.dialogueActive){
+      R.vistaTalked = true;
+      if(!legacyGrowth()){
+        queueBanter(road2Banter, 'R2-05', [[ROAD_MAGE, '「谷が見えます。……橋も」'], [ROAD_SWORD, '「あそこを越えるんだな」']]);
+        road2TalkCount['R2-05'] = (road2TalkCount['R2-05'] || 0) + 1;
+      }
+    }
   }
 
   /* 毎フレーム: 屋根・調べ物の会話・壁の影・掛け合い */
@@ -1664,6 +1781,7 @@
     road2UpdateCampProximity();
     road2UpdateArea4(dt);
     road2UpdateArea1(dt);
+    road2UpdateArea2(dt);
     const a = road2AreaAt(state.pos.x, state.pos.z);
     const id = a ? a.id : road2CurrentAreaId;
     if(id !== road2CurrentAreaId || !road2VisInit){

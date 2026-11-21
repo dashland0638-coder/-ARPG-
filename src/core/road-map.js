@@ -291,6 +291,16 @@ export const ROAD2_FIGHTS = Object.freeze([
   {id:'F1-2', area:1, must:false, name:'裏庭',       trigger:{x0:1122, x1:1138, z0:36, z1:42},
    triggers:[{x0:1112, x1:1120, z0:52.5, z1:57.5}],   // 北の路地(z 55)から入った時も、敵の手前で出す
    waves:[[{kind:'roadEater', x:1127, z:51}, {kind:'roadEater', x:1133, z:53}, {kind:'spitBeast', x:1130.5, z:61}]]},
+  // AREA 2 風渡る原野(R3-2、設計 §2 AREA 2)。草原の高さ 1
+  {id:'F2-1', area:2, must:true,  name:'街道の群れ', trigger:{x0:1090, x1:1110, z0:160, z1:164},
+   waves:[[{kind:'moorBeast', x:1095, z:176}, {kind:'moorBeast', x:1101, z:179}, {kind:'moorBeast', x:1106, z:175}]]},
+  {id:'F2-2', area:2, must:false, name:'旧道',       trigger:{x0:1046, x1:1052, z0:138, z1:153},
+   waves:[[{kind:'beast', x:1030, z:160}, {kind:'beast', x:1035, z:163}, {kind:'spitter', x:1029, z:174}]]},
+  {id:'F2-S', area:2, must:false, name:'岩場の強敵', trigger:{x0:1154, x1:1182, z0:184, z1:188},
+   waves:[[{kind:'rockFang', x:1168, z:200}]]},
+  {id:'F2-X', area:2, must:false, name:'岩場の奥',   trigger:{x0:1156, x1:1196, z0:240, z1:244},
+   waves:[[{kind:'rockFang', x:1170, z:253}],
+          [{kind:'moorBeast', x:1164, z:259}, {kind:'moorBeast', x:1172, z:264}, {kind:'moorBeast', x:1182, z:266}]]},
   // AREA 4 忘れられた山道(R3-4b)
   {id:'F4-1', area:4, afterJoin:true, must:true,  name:'森の外周',  trigger:{x0:1086, x1:1110, z0:495, z1:501},
    waves:[[{kind:'bigBeast', x:1098, z:510}, {kind:'beast', x:1093, z:514}, {kind:'beast', x:1103, z:514}]]},
@@ -347,6 +357,17 @@ let treesCache = null;
 /* 山道の曲がり角の石灯籠(当たりつき、道から 2.6 以上離す)。次の曲がり角の目印 */
 /* 分かれ道の道標(R3-N)。目印の無い分かれ道だけ(原野の旧道の分かれ・谷の崖の道の分かれ)。
    腕はメインルートの先を指す(14-dungeon-road2.js が羅針盤と同じ向きで作る)。当たりつき */
+/* AREA 2 の怪異と調べ物(R3-2、設計 §6)
+   A-2 旧道の道標: 道標から 8 m の内で、草は風下へ、道標の影だけ逆へ揺れる。調べると R2-02
+   A-3 街道の脇の足跡: 途中で終わる。最後の足跡を調べると R2-03
+   A-4 丘の上に初めて立つと、西の遠くに人影(加入前の影の旅人の姿)。近づくと誰もいない。R2-04(短い)
+   R2-05 展望の高台の見晴らしの後に一言 */
+export const ROAD2_MOOR = Object.freeze({
+  oldPost: Object.freeze({x:1043.5, z:143.2, near:8}),
+  steps: Object.freeze({x:1104.6, z0:250, z1:266, stride:1.3}),
+  hillTop: Object.freeze({x0:1052, x1:1068, z0:162, z1:188}),
+  figure: Object.freeze({x:1011, z:197, hideNear:30, showSec:5}),
+});
 export const ROAD2_GUIDEPOSTS = Object.freeze([[1091, 155], [1107, 312]]);   // 原野の道標は旧道の分かれの側(東の岩場の割れ目から離す)
 export const ROAD2_LANTERNS = Object.freeze([[1062, 474], [1069, 489], [1102, 490], [1102, 516], [1075.5, 526.5], [1082, 572], [1140, 618]]);
 export function road2ForestTrees(){

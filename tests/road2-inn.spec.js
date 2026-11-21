@@ -192,8 +192,11 @@ test('R1-01 出発・掛け合い・R1-04 壁の影: 二つ目の影だけ 0.45 
   expect(b.pe, 'タッチを受けない(スティックの操作を妨げない)').toBe('none');
   expect(b.rect.l).toBeGreaterThanOrEqual(0); expect(b.rect.r).toBeLessThanOrEqual(844);
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-banter.png` });
+  // 2 行目は歩いている途中で出ることがある(歩きの終わりを待ってから見ると、もう流れた後のことがある): 出た行を集めながら待つ
+  const shown = [b.text];
+  await expect.poll(async () => { const c = await R('banter'); if (c && !shown.includes(c.text)) shown.push(c.text); return shown; }, { timeout: 40_000 })
+    .toEqual(['弓師「……静かですね」', '盗賊「宿場ってのは、もっとうるさいもんだ」']);
   await wb;
-  await expect.poll(async () => { const b = await R('banter'); return b && b.text; }, { timeout: 15_000 }).toBe('盗賊「宿場ってのは、もっとうるさいもんだ」');
   await expect.poll(() => R('banter'), { timeout: 15_000 }).toBeNull();
   // A-1: 通りの中ほど(R1-04 の帯)で会話
   await R('go', 1100, 39, Math.PI);
