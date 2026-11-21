@@ -1461,11 +1461,14 @@
     post.traverse(o=>{ if(o.isMesh){ o.castShadow = false; o.receiveShadow = false; } });
     grp.add(post);
     const ghostMat = new THREE.MeshBasicMaterial({colorWrite:false, depthWrite:false});
-    const shadow = new THREE.Group();
-    post.children.forEach(c=>{ const g = new THREE.Mesh(c.geometry, ghostMat); g.position.copy(c.position); g.rotation.copy(c.rotation); g.castShadow = true; shadow.add(g); });
-    shadow.position.copy(post.position); shadow.rotation.copy(post.rotation);
-    grp.add(shadow);
-    road2Moor.post = post; road2Moor.postShadow = shadow;
+    // 外: 草の揺れの向き(世界の (1, 0, 0.5))に局所の x を合わせる → 中: その向きの逆へ傾ける → 内: 道標の向き
+    const GRASS_YAW = -Math.atan2(0.5, 1);
+    const outer = new THREE.Group(), tilt = new THREE.Group(), inner = new THREE.Group();
+    outer.position.copy(post.position); outer.rotation.y = GRASS_YAW;
+    inner.rotation.y = post.rotation.y - GRASS_YAW;
+    post.children.forEach(c=>{ const g = new THREE.Mesh(c.geometry, ghostMat); g.position.copy(c.position); g.rotation.copy(c.rotation); g.castShadow = true; inner.add(g); });
+    tilt.add(inner); outer.add(tilt); grp.add(outer);
+    road2Moor.post = post; road2Moor.postShadow = tilt; road2Moor.postAmp = 0;
     // ---- A-3 街道の脇の足跡(途中で終わる)。地面の小さな跡 ----
     const S = ROAD2_MOOR.steps, steps = [];
     for(let z = S.z0, k = 0; z <= S.z1; z += S.stride, k++) steps.push({x: S.x + (k % 2 ? 0.18 : -0.18), z});
@@ -1504,9 +1507,11 @@
       const near = Math.hypot(state.pos.x - P.x, state.pos.z - P.z) < P.near;
       const ph = P.x * 0.21 + P.z * 0.13;
       const w = Math.sin(road2Time * 1.6 + ph) * 0.6 + Math.sin(road2Time * 2.7 + ph * 1.7) * 0.4;
-      // 草は +x へ(高さに比例して)揺れる。写しは z 軸まわりの傾きで、上の端が -x へ動く向きに傾ける
-      R.postShadow.rotation.z = near ? w * 0.16 : 0;
-      R.postSway = near ? w : 0;
+      // 草は世界の (1, 0, 0.5) の向きへ(高さに比例して)揺れる。写しは局所の z まわりに傾け、上の端をその逆へ動かす。
+      // 8 m の線をまたぐ時は 0.5 秒かけて揺れを出し入れする(跳ばない)
+      R.postAmp = Math.max(0, Math.min(1, R.postAmp + (near ? 1 : -1) * (dt || 0) / 0.5));
+      R.postShadow.rotation.z = R.postAmp > 0 ? w * 0.16 * R.postAmp : 0;
+      R.postSway = w;
     }
     // A-4: 丘の上に初めて立つと、西の遠くに人影。5 秒で消える。近づいた時も消える(誰もいない)
     const H = ROAD2_MOOR.hillTop, F = ROAD2_MOOR.figure;

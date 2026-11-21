@@ -95,7 +95,12 @@ const PROBE = `
   slideTo(x1, z1, v){ return new Promise(res=>{ const x0 = state.pos.x, z0 = state.pos.z, t0 = road2Time, L = Math.hypot(x1 - x0, z1 - z0);
     const tick = ()=>{ const k = Math.min(1, v * (road2Time - t0) / L); state.pos.x = x0 + (x1 - x0) * k; state.pos.z = z0 + (z1 - z0) * k; state.vel.set(0, 0, 0);
       if(k >= 1) return res(true); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }); },
-  moor(){ const R = road2Moor; return {sway: R ? R.postShadow.rotation.z : null, fig: !!(R && R.figure && R.figure.visible), hill: !!(R && R.hillSeen)}; },
+  moor(){ const R = road2Moor; if(!R) return null;
+    // 影(見えない写し)の上の端が、根元から世界のどちらへ動いたか。草の揺れの向き(1, 0, 0.5)との内積と、草の揺れ w
+    const top = new THREE.Vector3(0, 2, 0), base = new THREE.Vector3(0, 0, 0);
+    R.postShadow.updateMatrixWorld(true); const t = R.postShadow.localToWorld(top.clone()), b = R.postShadow.localToWorld(base.clone());
+    const dot = (t.x - b.x) * 1 + (t.z - b.z) * 0.5;
+    return {sway: R.postShadow.rotation.z, grassW: R.postSway || 0, shadowDot: dot, fig: !!(R.figure && R.figure.visible), hill: !!R.hillSeen}; },
   echoState(){ return {noticed: [...road2EchoNoticed], spent: [...road2EchoSpent], area: road2CurrentAreaId}; },
   roofs(){ return road2HollowRoofs.map(r=> ({id: r.id, vis: r.mesh.visible})); },
   banter(){ const el = document.getElementById('road2-banter'); if(!el || el.style.display === 'none') return null;
@@ -173,9 +178,12 @@ test('原野: 旧道の F2-2・A-2 道標の影(草と逆へ揺れる)・R2-02�
   // 道標の 8 m の内: 影(見えない写し)が揺れる。時間とともに向きが変わる
   await R('go', 1045.5, 145.2, -Math.PI / 2);
   const sw = [];
-  for (let k = 0; k < 8; k++) { sw.push((await R('moor')).sway); await page.waitForTimeout(500); }
-  expect(sw.some(v => Math.abs(v) > 0.01), JSON.stringify(sw)).toBe(true);
-  expect(Math.max(...sw) - Math.min(...sw)).toBeGreaterThan(0.01);
+  for (let k = 0; k < 10; k++) { sw.push(await R('moor')); await page.waitForTimeout(500); }
+  expect(sw.some(v => Math.abs(v.sway) > 0.01), JSON.stringify(sw)).toBe(true);
+  expect(Math.max(...sw.map(v => v.sway)) - Math.min(...sw.map(v => v.sway))).toBeGreaterThan(0.01);
+  // 影の上の端は、草が揺れる向きの逆へ動く(草の揺れ w と、影の動きの向きの符号が逆)
+  sw.filter(v => Math.abs(v.grassW) > 0.15 && Math.abs(v.shadowDot) > 0.005).forEach(v => expect(Math.sign(v.shadowDot), JSON.stringify(v)).toBe(-Math.sign(v.grassW)));
+  expect(sw.filter(v => Math.abs(v.grassW) > 0.15 && Math.abs(v.shadowDot) > 0.005).length).toBeGreaterThan(0);
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-moor-a2.png` });
   const readLoreTalk = async (title) => {
     await expect.poll(() => R('prompt'), { timeout: 10_000, message: JSON.stringify(await R('loreDbg')) }).toBe('調べる');
@@ -226,12 +234,14 @@ test('原野: A-4 丘の上から遠くの人影(R2-04、近づくと誰もい�
   await R('go', 1062, 176, Math.PI * 0.6);
   await expect.poll(async () => (await R('moor')).fig, { timeout: 10_000 }).toBe(true);
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-moor-a4.png` });
+  // 人影の近く(30 m の内)へ行くと、5 秒を待たずに消える(誰もいない)
+  const t0 = Date.now();
+  await R('go', 1030, 190, Math.PI * 0.6);
+  await expect.poll(async () => (await R('moor')).fig, { timeout: 3_000 }).toBe(false);
+  expect(Date.now() - t0, 'ゲームの 5 秒(試験の時計では約 20 秒)より前に消える').toBeLessThan(10_000);
   await watch('弓師「……今、丘の向こうに」', 15_000);
   expect((await R('pos')).dlg, '会話の窓を開かない').toBe(false);
-  await watch('盗賊「……何も見えないぞ」', 20_000);
-  // 人影の近くへ行くと、誰もいない
-  await R('go', 1030, 190, Math.PI * 0.6);
-  await expect.poll(async () => (await R('moor')).fig, { timeout: 10_000 }).toBe(false);
+  await watch('盗賊「……何も見えないぞ」', 25_000);
   // 一度だけ: 丘に戻っても、もう出ない
   await R('go', 1062, 176, Math.PI * 0.6);
   await page.waitForTimeout(1500);
