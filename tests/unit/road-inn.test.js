@@ -157,3 +157,19 @@ test('原野の怪異・調べ物の場所(R3-2): 旧道の道標・街道の脇
   const E2 = ROAD2_ECHO_ZONES.find(z => z.id === 'E2').rect;
   assert.ok(M.steps.z0 >= E2.z1, '足跡は E2 の北');
 });
+
+test('谷の怪異・調べ物の場所(R3-3): 水面の景色は川の上・橋の東の水面に映る・浅瀬の遺構・滝の裏の岩棚', async () => {
+  const { ROAD2_VALE: V, ROAD2_WATER, ROAD2_TERRAIN, road2GroundAt: g } = await import('../../src/core/road-map.js');
+  const river = ROAD2_WATER.find(w => w.id === 'river');
+  assert.ok(V.vision.x0 >= river.x0 && V.vision.x1 <= river.x1 && V.vision.z0 >= river.z0 && V.vision.z1 <= river.z1, '景色は川の水面の上だけ');
+  const bridge = ROAD2_TERRAIN[3].features.find(f => f.id === 'bridge');
+  assert.ok(V.vision.x0 > bridge.x1, '景色は橋の東(橋の上には重ならない)');
+  assert.deepEqual([V.reflect.bridge.x0, V.reflect.bridge.x1, V.reflect.bridge.z0, V.reflect.bridge.z1], [bridge.x0, bridge.x1, bridge.z0, bridge.z1], '映るのは橋の上の時');
+  assert.ok(V.reflect.edge > bridge.x1 && V.reflect.edge + V.reflect.len < river.x1, '映る姿は橋の東の水面');
+  assert.equal(V.reflect.vanishSec, 1.5, '一人だけ 1.5 秒消える');
+  const shallows = ROAD2_TERRAIN[3].features.find(f => f.id === 'shallows');
+  assert.ok(V.ruins.x > shallows.x0 && V.ruins.x < shallows.x1 && V.ruins.z > shallows.z0 && V.ruins.z < shallows.z1, '遺構は浅瀬');
+  const ledge = ROAD2_TERRAIN[3].features.find(f => f.id === 'falls-ledge');
+  assert.deepEqual([V.ledge.x0, V.ledge.x1, V.ledge.z0, V.ledge.z1], [ledge.x0, ledge.x1, ledge.z0, ledge.z1], '滝の裏の岩棚');
+  assert.ok(g(V.ruins.x, V.ruins.z) !== null);
+});

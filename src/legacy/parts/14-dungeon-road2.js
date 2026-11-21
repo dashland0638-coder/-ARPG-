@@ -229,6 +229,7 @@
     road2SetupArea4(M);            // R3-4b: エリア 4 の戦闘・古き守り手・遺構の会話と怪異
     road2SetupArea1(M);            // R3-1: 宿場の建物の中・会話と調べ物・壁の影・歩きながらの掛け合い(戦闘は ROAD2_FIGHTS)
     road2SetupArea2(M);            // R3-2: 原野の会話・調べ物・怪異 A-2〜A-4(戦闘は ROAD2_FIGHTS)
+    road2SetupArea3(M);            // R3-3: 谷の会話・調べ物・怪異 A-5・A-6(戦闘は ROAD2_FIGHTS)
     ROAD2_CAMPS.forEach(c=> road2BuildCamp(c, road2AreaGroups[c.area], M));
     ROAD2_LANDMARKS.forEach(l=> road2BuildLandmark(l, road2AreaGroups[l.area], M));
 
@@ -1086,6 +1087,11 @@
                 telegraph:0.6, cooldown:1.0},   // 溜めは短く、隙も短い(群れで来る速い獣)
     rockFang:  {color:0x5a5248, hp:380, atk:38, speed:2.6, atkType:'charge', xp:150, goldBonus:[36,50], look:'rockFang',
                 strongMob:true, telegraph:0.9, cooldown:1.4},   // 岩陰の大牙: 溜めが長く、突進の後の隙も長い
+    // 谷(R3-3): 水辺の魔物(川の青緑の鰻の型)・淵を這うもの(強敵)・淵の大鰻(隠しの中ボス級。強敵の枠組みで大きく、K-14)
+    waterMob:  {color:0x3e6a62, hp:170, atk:28, speed:2.4, atkType:'charge', xp:76, goldBonus:[14,20], theme:'eel', telegraph:0.7, cooldown:1.1},
+    creeper:   {color:0x2e4a46, hp:400, atk:38, speed:2.2, atkType:'charge', xp:156, goldBonus:[38,52], theme:'eel', strongMob:true, telegraph:0.9, cooldown:1.4},
+    greatEel:  {color:0x24403e, hp:820, atk:40, speed:2.0, atkType:'charge', xp:300, goldBonus:[64,88], theme:'eel', strongMob:true, scale:1.25,
+                telegraph:1.0, cooldown:1.6, midbossName:'淵の大鰻', midbossFlavor:'淵の水が、静かに戻っていく。'},
     beast:     {color:0x6a5a44, hp:190, atk:30, speed:2.6, atkType:'charge', xp:80,  goldBonus:[16,24]},
     bigBeast:  {color:0x4e4232, hp:300, atk:34, speed:2.4, atkType:'charge', xp:120, goldBonus:[22,32], scale:1.35},
     spitter:   {color:0x7a6a4a, hp:150, atk:26, speed:0.9, atkType:'fire',   xp:84,  goldBonus:[16,24], projColor:0xd8b060},
@@ -1205,6 +1211,7 @@
       if(v.cooldown) en.chargeCooldownOverride = v.cooldown;
       if(v.look) road2DressFoe(en, v);
       en.road2Fight = f.id; en.road2Wave = i; en.road2Kind = e.kind;
+      if(v.midbossName) en.onDefeat = ()=> road2OnRoadMidboss(f.id);   // 結果画面は出さない(R3-4b の作法)
       enemies.push(en);
     });
   }
@@ -1542,6 +1549,125 @@
     }
   }
 
+  /* ==== R3-3: AREA 3「水鏡の谷」(設計 §2 AREA 3・§5.2・§6) ====
+     会話 R3-01(必ず)・R3-02 水面の景色(必ず、A-5)・R3-03 水に映らないもの(必ず・台詞なし、A-6)・
+     調べる R3-04 水辺の遺構・R3-05 滝の裏の一言。第一章の台詞は本編のルールだけ */
+  let road2Vale = null;   // {vision, visionT, reflections:[{mesh, src}], vanishIdx, vanishT, a6Done, ledgeSeen}
+  function road2SetupArea3(M){
+    const grp = road2AreaGroups[3], V = ROAD2_VALE, river = ROAD2_WATER.find(w=> w.id === 'river');
+    road2Vale = {vision:null, visionT:-1, reflections:[], vanishIdx:-1, vanishT:0, a6Done:false, a6Pending:false, ledgeSeen:false};
+    // ---- R3-01 谷の入口(必ず) ----
+    road2RegisterBand('R3-01', ()=> road2Talk('R3-01', [
+      [ROAD_MAGE, '「水の音がします」'],
+      [ROAD_SWORD, '「……船を思い出すか」'],
+      [ROAD_MAGE, '「少しだけ」'],
+    ]), true, {beforeJoin:true});
+    // ---- A-5 水面の別の景色: 霧の景色と船のような影の絵(光らない。霧に溶ける) ----
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96;
+    const c = cv.getContext('2d');
+    // 霧の景色: 灰の濃淡の帯(川の青とは違う色)。光らせない(暗めの灰)
+    const gr = c.createLinearGradient(0, 0, 0, 96); gr.addColorStop(0, '#5e666e'); gr.addColorStop(0.5, '#8a9298'); gr.addColorStop(1, '#4a535c');
+    c.fillStyle = gr; c.fillRect(0, 0, 256, 96);
+    c.fillStyle = 'rgba(18,22,28,0.9)';   // 船のような影(船体と二本の帆柱)。輪郭はぼかす
+    c.filter = 'blur(2px)';
+    c.beginPath(); c.moveTo(56, 58); c.lineTo(200, 58); c.lineTo(180, 78); c.lineTo(76, 78); c.closePath(); c.fill();
+    c.fillRect(100, 14, 5, 46); c.fillRect(150, 22, 5, 38);
+    const tex = new THREE.CanvasTexture(cv);
+    const vis = new THREE.Mesh(new THREE.PlaneGeometry(V.vision.x1 - V.vision.x0, V.vision.z1 - V.vision.z0),
+      new THREE.MeshBasicMaterial({map:tex, transparent:true, opacity:0, depthWrite:false, color:0xa8b0b8}));
+    vis.rotation.x = -Math.PI/2; vis.rotation.z = Math.PI;   // 絵の上(地平)を北へ
+    vis.position.set((V.vision.x0 + V.vision.x1)/2, river.top + 0.03, (V.vision.z0 + V.vision.z1)/2);
+    vis.visible = false;
+    grp.add(vis);
+    road2Vale.vision = vis;
+    road2RegisterBand('R3-02', ()=>{
+      road2Vale.visionT = 0; road2Vale.vision.visible = true;
+      sceneCamShot((V.vision.x0 + V.vision.x1)/2, (V.vision.z0 + V.vision.z1)/2, 3.4, {y: river.top, height: 9, dist: 9, hold: false});
+      // 会話は景色が消えてから(「今、水面に何か映っていませんでしたか」)。その間に橋へ歩けば、カメラを動かさなくても川が前に見える
+      if(!legacyGrowth()) road2Vale.afterVision = ()=> road2Talk('R3-02', [
+        [ROAD_ARCHER, '「今、水面に何か映っていませんでしたか」'],
+        [ROAD_THIEF, '「船……に見えたな」'],
+        [ROAD_MAGE, '「ここに船があるはずはありません」'],
+        [ROAD_SWORD, '「見間違いかもしれない」'],
+        [ROAD_MAGE, '「そうかもしれません。でも、見えたものまで、無かったことにしなくていいと思います」'],
+      ]);
+    }, false, {beforeJoin:true, x0:1064, x1:1155});   // 谷底だけ(西の崖の道・滝の裏の岩棚では出さない)
+    // ---- A-6 水に映る一行(橋の東の水面に、橋の上の一人ずつの姿)。帯 R3-03 で一人だけ 1.5 秒消える ----
+    const sil = new THREE.Shape();
+    sil.moveTo(-0.22, 0); sil.lineTo(0.22, 0); sil.lineTo(0.3, 1.45); sil.lineTo(0.12, 1.55); sil.lineTo(0.14, 1.85);
+    sil.lineTo(0, 1.93); sil.lineTo(-0.14, 1.85); sil.lineTo(-0.12, 1.55); sil.lineTo(-0.3, 1.45); sil.lineTo(-0.22, 0);
+    const silGeo = new THREE.ShapeGeometry(sil);
+    const refMat = new THREE.MeshBasicMaterial({color:0x1e3446, transparent:true, opacity:0.42, depthWrite:false});
+    const mk = src=>{
+      const m = new THREE.Mesh(silGeo, refMat);
+      m.rotation.set(-Math.PI/2, 0, -Math.PI/2);   // 水面に寝かせ、頭を東(川の下流、橋から離れる向き)へ
+      m.visible = false; grp.add(m);
+      return {mesh:m, src};
+    };
+    road2Vale.reflections = [mk(()=> state.pos), mk(()=> (guestCompanion && guestCompanion.group) ? guestCompanion.group.position : null)];
+    // 帯に入ったら待ちにし、橋の上に二人とも映った時に一人だけ消す(一人だけの時は「一行から一人」にならないので待つ)
+    road2RegisterBand('R3-03', ()=>{ if(!road2Vale.a6Done) road2Vale.a6Pending = true; }, false, {beforeJoin:true, x0:V.reflect.bridge.x0, x1:V.reflect.bridge.x1});
+    // ---- R3-04 水辺の遺構(調べる) ----
+    const lore = {pos:new THREE.Vector3(V.ruins.x, road2GroundAt(V.ruins.x, V.ruins.z) ?? -2.3, V.ruins.z), title:'水辺の遺構',
+      lines:['浅瀬に、崩れた石組みが沈んでいる。', '水の底に、同じ形の石がいくつも並んでいる。'], radius:2.2, read:false, kind:'mark', promptText:'調べる'};
+    loreObjects.push(lore);
+    road2Area1Lore.push({lore, talkId:'R3-04', talk:[[ROAD_MAGE, '「……何かの、土台でしょうか」'], [ROAD_ARCHER, '「ずっと昔の、ですね」']], talked:false});
+  }
+
+  /* 淵の大鰻(中ボス級)を倒した時: 結果画面は出さず、一言だけ(戦闘直後の一言、設計 §5.1) */
+  function road2OnRoadMidboss(id){
+    if(id === 'F3-H' && !legacyGrowth()){
+      queueBanter(road2Banter, 'F3-H', [[ROAD_SWORD, '「……淵の主か」'], [ROAD_THIEF, '「もう、出てこないだろ」']]);
+      road2TalkCount['F3-H'] = (road2TalkCount['F3-H'] || 0) + 1;
+    }
+  }
+
+  /* 毎フレーム: 水面の景色・水に映る一行・滝の裏の一言 */
+  function road2UpdateArea3(dt){
+    const R = road2Vale;
+    if(!R || currentWorldKey !== 'road2') return;
+    const V = ROAD2_VALE, d = dt || 0;
+    // A-5: 帯に入ると、水面に霧の景色がゆっくり重なり、数秒で消える(一度だけ。R3-02 の帯は一度だけ鳴る)
+    if(R.visionT >= 0 && R.vision){
+      R.visionT += d;
+      const A = V.vision, t = R.visionT;
+      const op = t < A.inSec ? t / A.inSec : t < A.inSec + A.holdSec ? 1 : Math.max(0, 1 - (t - A.inSec - A.holdSec) / A.outSec);
+      R.vision.material.opacity = op * 0.8;
+      if(t > A.inSec + A.holdSec + A.outSec){
+        R.vision.visible = false; R.visionT = -1;
+        if(R.afterVision){ const f = R.afterVision; R.afterVision = null; f(); }
+      }
+    }
+    // A-6: 橋の上の一人ずつの姿を、橋の東の水面に映す。消える一人は 1.5 秒(ゲームの時計)だけ
+    const B = V.reflect.bridge;
+    if(R.vanishT > 0) R.vanishT -= d;
+    R.reflections.forEach((r, i)=>{
+      const p = r.src();
+      const on = !!p && p.x > B.x0 && p.x < B.x1 && p.z > B.z0 && p.z < B.z1;
+      r.mesh.visible = on && !(i === R.vanishIdx && R.vanishT > 0);
+      if(on) r.mesh.position.set(V.reflect.edge, ROAD2_WATER.find(w=> w.id === 'river').top + 0.02, p.z);
+    });
+    if(R.a6Pending && !R.a6Done){
+      const on = R.reflections.map((r, i)=> ({r, i})).filter(({r})=> r.mesh.visible);
+      if(on.length >= 2){
+        R.a6Done = true; R.a6Pending = false;
+        R.vanishIdx = on[Math.floor(Math.random() * on.length)].i;   // 誰の姿かは決めない
+        R.vanishT = V.reflect.vanishSec;
+        R.reflections[R.vanishIdx].mesh.visible = false;
+        road2TalkCount['R3-03'] = (road2TalkCount['R3-03'] || 0) + 1;
+      }
+    }
+    // R3-05 滝の裏: 初めて岩棚に入った時の一言
+    const L = V.ledge;
+    if(!R.ledgeSeen && state.pos.x > L.x0 && state.pos.x < L.x1 && state.pos.z > L.z0 && state.pos.z < L.z1){
+      R.ledgeSeen = true;
+      if(!legacyGrowth()){
+        queueBanter(road2Banter, 'R3-05', [[ROAD_THIEF, '「……滝の裏に、道がある」'], [ROAD_ARCHER, '「足元に、気をつけて」']]);
+        road2TalkCount['R3-05'] = (road2TalkCount['R3-05'] || 0) + 1;
+      }
+    }
+  }
+
   /* 毎フレーム: 屋根・調べ物の会話・壁の影・掛け合い */
   function road2UpdateArea1(dt){
     // 入れる家の中にいる間は、その家の屋根を隠す
@@ -1782,6 +1908,7 @@
     road2UpdateArea4(dt);
     road2UpdateArea1(dt);
     road2UpdateArea2(dt);
+    road2UpdateArea3(dt);
     const a = road2AreaAt(state.pos.x, state.pos.z);
     const id = a ? a.id : road2CurrentAreaId;
     if(id !== road2CurrentAreaId || !road2VisInit){
