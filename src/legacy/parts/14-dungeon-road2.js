@@ -227,6 +227,7 @@
     road2RegisterCompassTalks();   // R3-N: 羅針盤の会話
     road2SetupMeeting();           // R3-N-FIX-01: エリア 4 の野営地の「？？？」と、出会い・加入
     road2SetupArea4(M);            // R3-4b: エリア 4 の戦闘・古き守り手・遺構の会話と怪異
+    road2SetupArea1(M);            // R3-1: 宿場の建物の中・会話と調べ物・壁の影・歩きながらの掛け合い(戦闘は ROAD2_FIGHTS)
     ROAD2_CAMPS.forEach(c=> road2BuildCamp(c, road2AreaGroups[c.area], M));
     ROAD2_LANDMARKS.forEach(l=> road2BuildLandmark(l, road2AreaGroups[l.area], M));
 
@@ -280,9 +281,11 @@
     });
     // 町の塀の外(床の無い所)は、歩けない草地の見た目で埋める(床の板には入れない)
     ROAD2_TERRAIN[1].holes.forEach(h=> flats.push({x:(h.x0 + h.x1)/2, z:(h.z0 + h.z1)/2, w:h.x1 - h.x0, d:h.z1 - h.z0, top:0.5, color:0x5c7a44}));
-    road2InstQ(road2TopSideBox(), [M.top, M.side], flats,
+    // 床は太陽の影を受ける(足元のいつもの影。A-1 の二つ目の影もここに落ちる)。床は影を落とさない ―― 描画回数は増えない
+    const flatMesh = road2InstQ(road2TopSideBox(), [M.top, M.side], flats,
       f=> ({x:f.x, y:(f.top + ROAD2_FLOOR_BOTTOM)/2, z:f.z, sx:f.w, sy:f.top - ROAD2_FLOOR_BOTTOM, sz:f.d}), scene, f=> f.color);
-    road2InstQ(road2TopSideBox(), [M.top, M.side], ramps, ({s})=>{
+    if(flatMesh) flatMesh.receiveShadow = true;
+    const rampMesh = road2InstQ(road2TopSideBox(), [M.top, M.side], ramps, ({s})=>{
       const r = s.ramp, dy = r.y1 - r.y0, len = r.a1 - r.a0, slope = Math.hypot(len, dy), T = Math.abs(dy) + 1.2;
       const cx = (s.x0 + s.x1)/2, cz = (s.z0 + s.z1)/2, my = (r.y0 + r.y1)/2;
       if(r.axis === 'z'){
@@ -292,6 +295,7 @@
       const b = Math.atan2(dy, len);
       return {x:cx + Math.sin(b)*T/2, y:my - Math.cos(b)*T/2, z:cz, rz:b, sx:slope, sy:T, sz:s.z1 - s.z0};
     }, scene, f=> f.color);
+    if(rampMesh) rampMesh.receiveShadow = true;
   }
 
   /* 通り道。床の高さに沿って板を並べる(坂では傾ける)。メインと寄り道だけ。
@@ -325,7 +329,8 @@
         }
       }
     });
-    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.path, tiles, t=> ({x:t.x, y:t.y, z:t.z, rx:t.rx, ry:t.ry, sx:t.w, sy:0.06, sz:t.L}), scene, t=> t.c);
+    const pathMesh = road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.path, tiles, t=> ({x:t.x, y:t.y, z:t.z, rx:t.rx, ry:t.ry, sx:t.w, sy:0.06, sz:t.L}), scene, t=> t.c);
+    if(pathMesh) pathMesh.receiveShadow = true;   // 敷石の上にも足元の影
   }
 
   /* 当たりのある物の見た目(エリアの Group へ)。建物は壁と屋根、岩は重ねた不揃いの箱 */
@@ -336,8 +341,11 @@
       const grp = road2AreaGroups[id], list = byArea[id];
       const gyOf = o=>{ const g = road2GroundAt((o.x0 + o.x1)/2, (o.z0 + o.z1)/2); return g === null ? 0 : g; };
       const houses = list.filter(o=> o.kind === 'house');
-      road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.plaster, houses, o=> ({x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h/2, z:(o.z0 + o.z1)/2, sx:o.x1 - o.x0, sy:o.h, sz:o.z1 - o.z0}),
-        grp, o=> [0xd8ccb0, 0xc8b898, 0xbfae8e, 0xd0c0a0][Math.floor(o.z0) % 4]);
+      // 入れる家の壁(R3-1)は、家と同じ箱の見た目でまとめて描く(描画回数は増えない)。屋根は家ごとに別(中にいる間は隠す)
+      const walled = houses.concat(list.filter(o=> o.kind === 'housewall'));
+      const wallMesh = road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.plaster, walled, o=> ({x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h/2, z:(o.z0 + o.z1)/2, sx:o.x1 - o.x0, sy:o.h, sz:o.z1 - o.z0}),
+        grp, o=> [0xd8ccb0, 0xc8b898, 0xbfae8e, 0xd0c0a0][Math.floor(o.colorZ != null ? o.colorZ : o.z0) % 4]);
+      if(wallMesh) wallMesh.receiveShadow = true;   // 家の壁も影を受ける(壁際では影が床から壁へ上る。A-1 の白壁)
       road2InstQ(new THREE.ConeGeometry(0.72, 1, 4), M.roof, houses, o=> ({x:(o.x0 + o.x1)/2, y:gyOf(o) + o.h + 1.6, z:(o.z0 + o.z1)/2, ry:Math.PI/4, sx:(o.x1 - o.x0)*1.05, sy:3.2, sz:(o.z1 - o.z0)*1.05}),
         grp, o=> [0x7a4a32, 0x6a3e2c, 0x5a4a3e][Math.floor(o.z0) % 3]);
       const woods = list.filter(o=> o.kind === 'fence' || o.kind === 'cart' || o.kind === 'post');
@@ -671,8 +679,8 @@
     houses.forEach((o, i)=>{
       const west = o.x1 < ROAD2_CX, fx = west ? o.x1 : o.x0, dir = west ? 1 : -1, cz = (o.z0 + o.z1)/2;
       if(i % 2 === 0) upper.push({x: fx + dir*0.5, y: o.h - 1.1, z: cz, w: 1.2, h: 2.2, d: (o.z1 - o.z0)*0.8});    // 通りへ張り出した二階
-      if(i % 3 === 1) holes.push({x: fx + dir*0.02, y: 1.6, z: cz - 2.5, w: 0.1, h: 1.8, d: 2.2});                  // 崩れた壁の穴(暗い)
-      if(i % 3 === 0) holes.push({x: fx + dir*0.02, y: 1.2, z: cz + 4, w: 0.1, h: 2.2, d: 1.3});                    // 閉じた戸
+      if(i % 3 === 1 && !o.hollow) holes.push({x: fx + dir*0.02, y: 1.6, z: cz - 2.5, w: 0.1, h: 1.8, d: 2.2});                  // 崩れた壁の穴(暗い)
+      if(i % 3 === 0 && !o.hollow) holes.push({x: fx + dir*0.02, y: 1.2, z: cz + 4, w: 0.1, h: 2.2, d: 1.3});                    // 閉じた戸
       beams.push({x: fx + dir*0.05, y: o.h - 0.1, z: cz, w: 0.18, h: 0.25, d: o.z1 - o.z0});                        // 軒の梁
     });
     road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.plaster, upper, u=> ({x:u.x, y:u.y, z:u.z, sx:u.w, sy:u.h, sz:u.d}), inn, ()=> 0xc4b494);
@@ -784,7 +792,7 @@
       });
     });
   }
-  let road2TalkCount = {};   // 試験用: 会話が何回始まったか
+  let road2TalkCount = {};   // 会話が何回始まったか(試験と、A-1 の伏線の判定 road2EchoNotice が読む。出撃ごとに buildRoad2 で空にする)
   function road2Talk(id, lines, after){
     road2TalkCount[id] = (road2TalkCount[id] || 0) + 1;
     const steps = [];
@@ -1068,6 +1076,10 @@
      空・光・時間帯は変えない(ROAD-VISUAL-004 T1〜T5)。古き守り手の状態だけを持ち、深夜・夜明けの表現はそちらが読む */
   /* 数値は CR-01 の作法(時計塔 4F と旧道の敵が基準。計画 §4)。difficultyFor('road2') の倍率がこの上に掛かる */
   const ROAD2_FOES = {
+    // 宿場(R3-1): 道喰らい(低い四つ足・長い鼻面・土色の剛毛・首に古い革紐)と、射撃の獣(低い姿勢・背の棘・喉が膨らむ)
+    roadEater: {color:0x8a6a44, hp:160, atk:26, speed:2.8, atkType:'charge', xp:64, goldBonus:[12,18], look:'roadEater',
+                telegraph:0.8, cooldown:1.2},   // 前脚で地面を掻く溜め(少し長め)・跳びかかりの後に頭を振る隙
+    spitBeast: {color:0x7a6040, hp:130, atk:22, speed:0.9, atkType:'fire', xp:70, goldBonus:[12,18], projColor:0xc8a060, look:'spitBeast'},
     beast:     {color:0x6a5a44, hp:190, atk:30, speed:2.6, atkType:'charge', xp:80,  goldBonus:[16,24]},
     bigBeast:  {color:0x4e4232, hp:300, atk:34, speed:2.4, atkType:'charge', xp:120, goldBonus:[22,32], scale:1.35},
     spitter:   {color:0x7a6a4a, hp:150, atk:26, speed:0.9, atkType:'fire',   xp:84,  goldBonus:[16,24], projColor:0xd8b060},
@@ -1092,11 +1104,14 @@
   function road2SetupArea4(M){
     road2ResetArea4();
     ROAD2_FIGHTS.forEach(f=>{
-      const t = f.trigger;
-      registerProximityEvent(new THREE.Vector3((t.x0 + t.x1)/2, 0, (t.z0 + t.z1)/2), 1, '', null, {
-        area: {x0:t.x0, x1:t.x1, z0:t.z0, z1:t.z1}, marker:false,
-        condition: ()=> road2Joined && !road2Fights[f.id],
-        onEnter: ()=> road2StartFight(f),
+      [f.trigger].concat(f.triggers || []).forEach(t=>{
+        registerProximityEvent(new THREE.Vector3((t.x0 + t.x1)/2, 0, (t.z0 + t.z1)/2), 1, '', null, {
+          area: {x0:t.x0, x1:t.x1, z0:t.z0, z1:t.z1}, marker:false,
+          // 帯に入ったら戦闘を始める。同時に 4 体まで(設計 §4)なので、前の戦闘の敵が残っていて超える時は「待ち」にし、
+          // 減ったところで(その時プレイヤーがどこにいても)出す(road2UpdateFights)。帯を通り過ぎても必ずの戦闘を逃さない
+          condition: ()=> (!f.afterJoin || road2Joined) && !road2Fights[f.id],
+          onEnter: ()=> road2StartFight(f),
+        });
       });
     });
     // 古き守り手: 円い石の構造物の中心に立つ石像(近づくと同じ場所に敵として出る。それまでは AI を持たない)
@@ -1137,13 +1152,16 @@
     road2RegisterBand('R4-06', ()=> road2Talk('R4-06', [[ROAD_TRAVELER, '「……まだ、続いています」']]), true);
   }
   /* 帯(ROAD2_BANDS)を道幅いっぱいで登録する。talk = 第一章の台詞(本編のルールだけで出す) */
-  function road2RegisterBand(id, fn, talk){
+  function road2RegisterBand(id, fn, talk, opts){
+    opts = opts || {};
     const b = ROAD2_BANDS.find(k=> k.id === id);
     const a = b && ROAD2_AREAS.find(k=> k.id === b.area);
     if(!b || !a) return;
-    registerProximityEvent(new THREE.Vector3((a.x0 + a.x1)/2, 0, (b.z0 + b.z1)/2), 1, '', null, {
-      area: {x0:a.x0, x1:a.x1, z0:b.z0, z1:b.z1}, marker:false,
-      condition: ()=> road2Joined && (!talk || !legacyGrowth()),
+    const x0 = opts.x0 != null ? opts.x0 : a.x0, x1 = opts.x1 != null ? opts.x1 : a.x1;
+    registerProximityEvent(new THREE.Vector3((x0 + x1)/2, 0, (b.z0 + b.z1)/2), 1, '', null, {
+      area: {x0, x1, z0:b.z0, z1:b.z1}, marker:false,
+      // beforeJoin … 加入の前のエリア(宿場など)の会話。加入を条件にしない(R3-1)
+      condition: ()=> (opts.beforeJoin || road2Joined) && (!talk || !legacyGrowth()),
       onEnter: fn,
     });
   }
@@ -1166,28 +1184,55 @@
   /* 戦闘: 一波目を出す。二波目は一波を全部倒すと出る(road2UpdateFights) */
   function road2StartFight(f){
     if(road2Fights[f.id]) return;
-    road2Fights[f.id] = {wave:-1, cleared:false};
-    road2SpawnWave(f, 0);
+    road2Fights[f.id] = {wave:-1, cleared:false, pending:true};
+    if(foesFit(road2LiveFoes(), f.waves[0].length)) road2SpawnWave(f, 0);
   }
   function road2SpawnWave(f, i){
     road2Fights[f.id].wave = i;
+    road2Fights[f.id].pending = false;
     f.waves[i].forEach(e=>{
       const v = ROAD2_FOES[e.kind];
       const y = road2GroundAt(e.x, e.z) ?? 0;
       const en = buildEnemy(new THREE.Vector3(e.x, y, e.z), Object.assign({roomTag:`road2${f.id}`}, v));
       if(v.scale) en.group.scale.setScalar(v.scale);
+      if(v.telegraph) en.chargeTelegraphOverride = v.telegraph;
+      if(v.cooldown) en.chargeCooldownOverride = v.cooldown;
+      if(v.look) road2DressFoe(en, v);
       en.road2Fight = f.id; en.road2Wave = i; en.road2Kind = e.kind;
       enemies.push(en);
     });
   }
+  /* 宿場の獣の見た目(既存の beast に最小の差だけ足す。R3-1) */
+  function road2DressFoe(en, v){
+    const M = en.mob, body = en.body;
+    if(v.look === 'roadEater'){
+      en.group.scale.set(1.05, 0.82, 1.18);   // 低く、長く
+      if(M && M.snout) M.snout.scale.set(1, 1, 1.6);   // 長い鼻面
+      if(M && M.neck){
+        const strap = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 5, 10), new THREE.MeshStandardMaterial({color:0x4a3220, roughness:0.9}));
+        strap.rotation.x = Math.PI/2; strap.position.set(0, -0.08, -0.06);   // 首に古い革紐の切れ端
+        M.neck.add(strap);
+      }
+    } else if(v.look === 'spitBeast'){
+      en.group.scale.set(1, 0.8, 1.05);
+      const spineMat = new THREE.MeshStandardMaterial({color:0x5a4430, roughness:0.85});
+      for(let k=0;k<4;k++){   // 背の棘の列
+        const sp = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 5), spineMat);
+        sp.position.set(0, 0.62, -0.18 + k*0.13); body.parent.add(sp);
+      }
+    }
+  }
+  function road2LiveFoes(){ return enemies.filter(e=> e && e.road2Fight && !e.dead).length; }
   function road2FightAlive(id, wave){
     return enemies.some(en=> en && en.road2Fight === id && en.road2Wave === wave && !en.dead);
   }
   function road2UpdateFights(){
     ROAD2_FIGHTS.forEach(f=>{
       const st = road2Fights[f.id];
-      if(!st || st.cleared || road2FightAlive(f.id, st.wave)) return;
-      if(st.wave + 1 < f.waves.length) road2SpawnWave(f, st.wave + 1);
+      if(!st || st.cleared) return;
+      if(st.pending){ if(foesFit(road2LiveFoes(), f.waves[0].length)) road2SpawnWave(f, 0); return; }   // 待ちの戦闘
+      if(road2FightAlive(f.id, st.wave)) return;
+      if(st.wave + 1 < f.waves.length){ if(foesFit(road2LiveFoes(), f.waves[st.wave + 1].length)) road2SpawnWave(f, st.wave + 1); }
       else st.cleared = true;
     });
   }
@@ -1220,7 +1265,7 @@
     const G = ROAD2_GUARDIAN;
     if(road2GuardianState === 'dormant'){
       // 同時に 4 体まで(設計 §4): 残っている戦闘の敵が 3 体までの時だけ目覚める
-      const liveFoes = enemies.filter(e=> e && e.road2Fight && !e.dead).length;
+      const liveFoes = road2LiveFoes();
       if(guardianMayWake({joined: road2Joined, dialogue: state.dialogueActive, y: state.pos.y, minY: G.minY,
           dist: Math.hypot(state.pos.x - G.x, state.pos.z - G.z), wake: G.wake, liveFoes})) road2WakeGuardian();
       return;
@@ -1268,6 +1313,277 @@
     road2UpdateGuardian(dt);
     road2UpdateArea4Talks();
   }
+
+  /* ==== R3-1: AREA 1 旅人の宿場 ―― 建物の中・会話と調べ物・怪異 A-1「壁の影」・歩きながらの掛け合い ====
+     (.ai/reports/ROAD-VISUAL-003-R3-1-plan.md。戦闘 F1-1・F1-2 は ROAD2_FIGHTS の作法で R3-4b と同じ仕組み)
+     第一章の台詞は本編のルールだけで出す。空・光・時間帯は変えない(ROAD-VISUAL-004) */
+  let road2HollowRoofs = [];         // 入れる家の屋根 {mesh, rect}。中にいる間は隠す
+  let road2Area1Lore = [];           // 調べ物 {lore, talkId, lines}(読んだら会話を一度)
+  let road2Echo = null;              // A-1: 遅れる二つ目の影 {mesh, src, parts, local, hist, frame}
+  let road2EchoNoticed = new Set();  // 段階的な伏線: 主人公が反応した(気づいた)場所の id(その出撃の間)
+  let road2EchoSpent = new Set();    // 反応を終えて出た場所(もう二つ目の影を出さない)
+  let road2Banter = newBanterState();
+  let road2BanterEl = null;
+  /* 歩きながらの掛け合いの話題(操作を止めない帯。第一章の本編のルールだけ) */
+  const ROAD2_BANTER = [
+    {id:'B1-1', area:1, rect:{x0:1094, x1:1106, z0:14, z1:20}, lines:[
+      [ROAD_ARCHER, '「……静かですね」'],
+      [ROAD_THIEF, '「宿場ってのは、もっとうるさいもんだ」'],
+    ]},
+    {id:'B1-2', area:1, rect:{x0:1120, x1:1140, z0:66, z1:72}, lines:[
+      [ROAD_THIEF, '「干したままの布だ」'],
+      [ROAD_ARCHER, '「急いで、出ていったんでしょうか」'],
+      [ROAD_SWORD, '「……さあな」'],
+    ]},
+    {id:'B1-3', area:1, rect:{x0:1094, x1:1106, z0:76, z1:82}, lines:[
+      [ROAD_MAGE, '「井戸の桶が、まだ吊るしてあります」'],
+      [ROAD_SWORD, '「使う者がいたんだろう。少し前までは」'],
+    ]},
+  ];
+
+  function road2SetupArea1(M){
+    road2HollowRoofs = []; road2Area1Lore = []; road2Echo = null; road2EchoNoticed = new Set();
+    // 旧成長のルール(第一章の台詞が出ない)では反応が無いので、二つ目の影は前のとおり宿場の白壁の前だけ
+    road2EchoSpent = new Set(legacyGrowth() ? ROAD2_ECHO_ZONES.filter(Z=> Z.id !== 'E1').map(Z=> Z.id) : []);
+    road2Banter = newBanterState();
+    const grp = road2AreaGroups[1];
+    // ---- 入れる家: 屋根(家ごとに 1 つ。中にいる間は隠す)と中の物 ----
+    ROAD2_TERRAIN[1].obstacles.filter(o=> o.hollow).forEach(o=>{
+      const roofMat = M.roof.clone(); roofMat.color.setHex([0x7a4a32, 0x6a3e2c, 0x5a4a3e][Math.floor(o.z0) % 3]);
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(0.72, 1, 4), roofMat);
+      roof.position.set((o.x0 + o.x1)/2, o.h + 1.6, (o.z0 + o.z1)/2);
+      roof.rotation.y = Math.PI/4;
+      roof.scale.set((o.x1 - o.x0)*1.05, 3.2, (o.z1 - o.z0)*1.05);
+      roof.userData.road2Roof = o.hollow.id;
+      grp.add(roof);
+      road2HollowRoofs.push({mesh: roof, rect: road2HollowInterior(o), id: o.hollow.id});
+    });
+    // 中の床(土間)・机・馬車・車輪は、まとめて描く(描画回数を増やさない)
+    const insides = ROAD2_TERRAIN[1].obstacles.filter(o=> o.hollow).map(o=> road2HollowInterior(o));
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.wood, insides, r=> ({x:(r.x0 + r.x1)/2, y:0.03, z:(r.z0 + r.z1)/2, sx:r.x1 - r.x0, sy:0.06, sz:r.z1 - r.z0}), grp, ()=> 0x6a5238);
+    const furn = ROAD2_TERRAIN[1].obstacles.filter(o=> o.kind === 'table' || o.kind === 'carriage');   // 当たりは road-map.js の table / carriage
+    road2InstQ(new THREE.BoxGeometry(1, 1, 1), M.wood, furn, o=> ({x:(o.x0 + o.x1)/2, y:o.h/2 + (o.kind === 'carriage' ? 0.35 : 0), z:(o.z0 + o.z1)/2, sx:o.x1 - o.x0, sy:o.h, sz:o.z1 - o.z0}), grp);
+    const wheels = [];
+    furn.filter(o=> o.kind === 'carriage').forEach(o=> [[o.x0 + 0.6, o.z0 - 0.05], [o.x1 - 0.6, o.z0 - 0.05], [o.x0 + 0.6, o.z1 + 0.05], [o.x1 - 0.6, o.z1 + 0.05]].forEach(([x, z])=> wheels.push({x, z})));
+    road2InstQ(new THREE.CylinderGeometry(0.55, 0.55, 0.12, 10), M.trunk, wheels, w=> ({x:w.x, y:0.55, z:w.z, rx:Math.PI/2, sx:1, sy:1, sz:1}), grp);
+    const book = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.36), M.cloth);
+    book.position.set(1086.6, 0.95, 46); grp.add(book);
+    // ---- 調べ物(R1-02 道標・R1-03 旅人の日記・R1-05 馬車)。読んだら一度だけ短い会話 ----
+    const addLore = (pos, title, lines, talkId, talk)=>{
+      const lore = {pos:new THREE.Vector3(pos[0], 0, pos[1]), title, lines, radius:2.2, read:false, kind:'mark', promptText:'調べる'};
+      loreObjects.push(lore);
+      road2Area1Lore.push({lore, talkId, talk, talked:false});
+    };
+    addLore([1106.6, 90], '朽ちた道標', ['朽ちた大きな道標。板の文字は、ほとんど読めない。', '残っている矢印は、どれも来たほうを指している。'], 'R1-02', [
+      [ROAD_ARCHER, '「……来たほうばかり、指しています」'],
+      [ROAD_SWORD, '「先のことは、書いていないか」'],
+      [ROAD_THIEF, '「書く奴が、いなかったんだろ」'],
+    ]);
+    addLore([1089.2, 46], '旅人の日記', ['机の上に、古い日記が残っている。', '「朝、宿を発つ。北の門の向こうへ」', 'その先の頁は、白いままだ。'], 'R1-03', [
+      [ROAD_MAGE, '「……続きは、書かれていませんね」'],
+      [ROAD_ARCHER, '「書く前に、発ったのかもしれません」'],
+    ]);
+    addLore([1089.4, 69.8], '古い馬車', ['馬小屋に、古い馬車が残っている。', '車輪には、遠くの土がこびりついている。'], 'R1-05', [
+      [ROAD_THIEF, '「昔はここも、人で溢れてたんだろうな」'],
+      [ROAD_ARCHER, '「馬の声がしないのは、少し寂しいですね」'],
+    ]);
+    // ---- R1-01 出発・R1-04 壁の影(必ず。本編のルール) ----
+    road2RegisterBand('R1-01', ()=> road2Talk('R1-01', [
+      [ROAD_SWORD, '「ずいぶん遠くまで来たものだな」'],
+      [ROAD_THIEF, '「最初は、こんな所まで来るとは思ってなかったな」'],
+      [ROAD_MAGE, '「振り返ると、不思議なことばかりでした」'],
+      [ROAD_SWORD, '「森の館も、村も」'],
+      [ROAD_MAGE, '「……船も」'],
+      [ROAD_THIEF, '「……あの影は、何だったんだろうな」'],
+    ]), true, {beforeJoin:true});
+    // 壁の影は通りから見るもの: 帯は通りの幅だけ(旅籠の中では出さない)
+    road2RegisterBand('R1-04', ()=> road2Talk('R1-04', [
+      [ROAD_THIEF, '「今の、見たか」'],
+      [ROAD_ARCHER, '「壁の影……少し、遅れていました」'],
+      [ROAD_MAGE, '「光の角度かもしれません」'],
+      [ROAD_SWORD, '「確かめようがないな」'],
+    ]), true, {beforeJoin:true, x0:ROAD2_WALL_SHADOW.zone.x0, x1:ROAD2_WALL_SHADOW.zone.x1});
+    // ---- 歩きながらの掛け合いの帯 ----
+    ROAD2_BANTER.forEach(b=>{
+      registerProximityEvent(new THREE.Vector3((b.rect.x0 + b.rect.x1)/2, 0, (b.rect.z0 + b.rect.z1)/2), 1, '', null, {
+        area: b.rect, marker:false,
+        condition: ()=> !legacyGrowth(),
+        onEnter: ()=> { queueBanter(road2Banter, b.id, b.lines); road2TalkCount[b.id] = (road2TalkCount[b.id] || 0) + 1; return false; },
+      });
+    });
+    // ---- A-1 壁の影(E-1 = A): 主人公の 0.45 秒前の姿を、見えない形にして影だけを落とす。
+    //      形は主人公の体の部品を毎フレーム一つの形にまとめたもの(画面 1 回・影の地図 1 回の描画)。光らせない ----
+    // 画面には色も奥行きも書かない(何も見えない・光らない)。影の地図には形が入る。
+    // (層で画面から外す方法は使えない: three.js の影の地図は画面のカメラの層で選ぶ)
+    const echoMat = new THREE.MeshBasicMaterial({colorWrite:false, depthWrite:false});
+    const echo = new THREE.Mesh(new THREE.BufferGeometry(), echoMat);
+    echo.matrixAutoUpdate = false;           // 頂点はそのまま世界の位置(エリアの Group は原点)
+    echo.frustumCulled = false;
+    echo.castShadow = true; echo.receiveShadow = false;
+    echo.visible = false;
+    grp.add(echo);
+    road2Echo = {mesh: echo, src: null, sig: '', parts: [], local: [], hist: [], pool: [], frame: null, zone: null, sepT: 0, lastT: 0};
+  }
+
+  /* 毎フレーム: 屋根・調べ物の会話・壁の影・掛け合い */
+  function road2UpdateArea1(dt){
+    // 入れる家の中にいる間は、その家の屋根を隠す
+    road2HollowRoofs.forEach(r=>{
+      const inside = state.pos.x > r.rect.x0 && state.pos.x < r.rect.x1 && state.pos.z > r.rect.z0 && state.pos.z < r.rect.z1;
+      if(r.mesh.visible === inside) r.mesh.visible = !inside;
+    });
+    road2Area1Lore.forEach(L=>{
+      if(L.lore.read && !L.talked){
+        L.talked = true;
+        if(!legacyGrowth()) road2PendingTalks.push(()=> road2Talk(L.talkId, L.talk));
+      }
+    });
+    road2UpdateWallShadow();
+    road2UpdateBanter(dt);
+  }
+
+  /* A-1: 主人公の体の部品(影を落とす物)から、二つ目の影の形を作り直す。主人公の作りが替わった時だけ */
+  /* A-1: 主人公の体の部品のうち、影を落とす物。作りの「しるし」(数と id の和)も返す */
+  function road2EchoCasters(){
+    const list = []; let sig = 0;
+    player.traverse(o=>{
+      if(!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || !o.geometry || !o.geometry.attributes.position) return;
+      if(!(o.userData.castShadowDefault !== undefined ? o.userData.castShadowDefault : o.castShadow)) return;
+      list.push(o); sig += o.id * 7 + o.geometry.id;
+    });
+    return {list, sig: list.length + ':' + sig};
+  }
+  /* A-1: 二つ目の影の形を作り直す。主人公の作りが替わった時(主人公の入れ替え・武器の持ち替え・転職)だけ */
+  function road2EchoRebuild(E, C){
+    const parts = C.list, local = [];
+    let nv = 0, ni = 0;
+    parts.forEach(o=>{
+      const g = o.geometry, pos = g.attributes.position;
+      // 頂点の並び(交互に詰めた形にも対応)
+      const arr = pos.isInterleavedBufferAttribute ? pos.data.array : pos.array;
+      const stride = pos.isInterleavedBufferAttribute ? pos.data.stride : pos.itemSize;
+      const off = pos.isInterleavedBufferAttribute ? pos.offset : 0;
+      local.push({pos: arr, stride, off, count: pos.count, index: g.index ? g.index.array : null, v0: nv});
+      nv += pos.count; ni += g.index ? g.index.count : pos.count;
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nv * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    const idx = new (nv > 65535 ? Uint32Array : Uint16Array)(ni);
+    let k = 0;
+    local.forEach(L=>{
+      if(L.index){ for(let i=0;i<L.index.length;i++) idx[k++] = L.index[i] + L.v0; }
+      else { for(let i=0;i<L.count;i++) idx[k++] = i + L.v0; }
+    });
+    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    E.mesh.geometry.dispose();
+    E.mesh.geometry = geo;
+    E.src = player; E.sig = C.sig; E.parts = parts; E.local = local; E.hist = []; E.pool = []; E.frame = null;
+  }
+
+  /* 段階的な伏線(DEC-031): 二つ目の影が足元の影から離れて見えた時、主人公が短く反応する
+     (歩きながらの掛け合いの一行。操作を止めない)。気づいた回数で言葉が変わる。
+     会話・演出・戦闘の間は反応しない(後から場違いに出さない)。本編のルールの時だけ */
+  function road2EchoNotice(E, zone, f){
+    if(road2EchoNoticed.has(zone.id) || legacyGrowth()) return;
+    // 宿場では、一行がすでに R1-04 で影を話した後なら、主人公の「……ん？」は出さない(気づいた回数には数える)
+    if(zone.area === 1 && road2TalkCount['R1-04']){ road2EchoNoticed.add(zone.id); return; }
+    const busy = state.dialogueActive || cutsceneRunning() || state.paused || combatIntensity >= 0.35;
+    const sep = Math.hypot(f.x - state.pos.x, f.z - state.pos.z);
+    E.sepT = (!busy && sep >= ROAD2_ECHO_NOTICE_SEP) ? (E.sepT || 0) + Math.max(0, road2Time - (E.lastT || road2Time)) : 0;
+    E.lastT = road2Time;
+    if(E.sepT < 0.3) return;   // 離れたまま 0.3 秒(ゲームの時計)
+    road2EchoNoticed.add(zone.id);
+    const who = (CLASSES[selectedClass] && CLASSES[selectedClass].name) || ROAD_THIEF;
+    queueBanter(road2Banter, 'A1-' + zone.id, [[who, echoLineFor(road2EchoNoticed.size)]]);
+    road2TalkCount['A1-' + zone.id] = (road2TalkCount['A1-' + zone.id] || 0) + 1;
+  }
+
+  /* A-1: 白壁の前の通りの近く(通りの範囲 + 6 m)にいる間、主人公の姿(部品ごとの世界の行列)を記録し、
+     通りの中では 0.45 秒前の姿で二つ目の影を落とす。影の地図そのものなので、光の向き・床から壁への折れ・
+     壁の裏からの光は、いつもの影と同じに決まる(ROAD-VISUAL-004 の太陽の向きにも付いてくる) */
+  function road2UpdateWallShadow(){
+    const S = ROAD2_WALL_SHADOW, E = road2Echo;
+    if(!E || !player) return;
+    const area = road2CurrentAreaId;
+    // 宿場: 主人公の「……ん？」の途中で R1-04(一行の会話)が始まったら、その一行は残さない(会話の後に場違いに出さない)
+    if(state.dialogueActive && road2TalkCount['R1-04']){
+      if(road2Banter.cur && road2Banter.cur.id === 'A1-E1'){ road2Banter.cur = null; road2Banter.t = 0; }
+      if(road2Banter.queue.length) road2Banter.queue = road2Banter.queue.filter(q=> q.id !== 'A1-E1');
+    }
+    // 反応を終えた場所は、出たらその出撃の間は閉じる(同じ所で繰り返さない)
+    if(E.zone && !echoZoneAt(state.pos.x, state.pos.z, E.zone.area, null) && road2EchoNoticed.has(E.zone.id)) road2EchoSpent.add(E.zone.id);
+    const near = currentWorldKey === 'road2' ? nearEchoZone(state.pos.x, state.pos.z, area, road2EchoSpent) : null;
+    if(!near){ E.mesh.visible = false; E.frame = null; E.zone = null; E.sepT = 0; E.lastT = road2Time; if(E.hist.length){ E.pool.push(...E.hist); E.hist.length = 0; } return; }
+    // 二つ目の影は、今いるエリアの Group に置く(描くのは今のエリアと隣だけ)
+    const grp = road2AreaGroups[area];
+    if(grp && E.mesh.parent !== grp) grp.add(E.mesh);
+    const C = road2EchoCasters();
+    if(E.src !== player || E.sig !== C.sig) road2EchoRebuild(E, C);
+    if(!E.parts.length){ E.mesh.visible = false; return; }
+    // 姿を一枚記録する(部品の行列 16 個ずつ・足元の位置)。捨てた記録の入れ物は使い回す
+    player.updateMatrixWorld(true);
+    const n = E.parts.length;
+    const fr = E.pool.pop() || {t: 0, m: new Float32Array(n * 16), x: 0, y: 0, z: 0};
+    const m = fr.m;
+    for(let i=0;i<n;i++){
+      // 隠れている部品は、その時の姿に入れない(大きさ 0 の行列)
+      let o = E.parts[i], vis = true;
+      while(o && o !== player){ if(!o.visible){ vis = false; break; } o = o.parent; }
+      if(vis) m.set(E.parts[i].matrixWorld.elements, i * 16); else m.fill(0, i * 16, i * 16 + 16);
+    }
+    fr.t = road2Time; fr.x = player.position.x; fr.y = player.position.y; fr.z = player.position.z;
+    pushPoseFrame(E.hist, fr, S, f=> E.pool.push(f));
+    const d = sunLight ? shadowLightDir(sunLight.position, sunLight.target.position) : null;
+    const zone = echoZoneAt(state.pos.x, state.pos.z, area, road2EchoSpent);
+    E.zone = zone || E.zone;
+    const show = !!zone && renderer.shadowMap.enabled && player.visible && shadowCastable(d);
+    E.mesh.visible = show;
+    if(!show){ E.frame = null; E.sepT = 0; E.lastT = road2Time; return; }
+    const f = pickPoseFrame(E.hist, road2Time, S.lag);
+    E.frame = f;
+    road2EchoNotice(E, zone, f);
+    // 0.45 秒前の姿の頂点を世界の位置へ(部品ごとに、その時の行列を掛ける)
+    const out = E.mesh.geometry.attributes.position.array;
+    for(let i=0;i<n;i++){
+      const L = E.local[i], e = f.m, o = i * 16, a = L.pos, st = L.stride;
+      let w = L.v0 * 3;
+      for(let j=0;j<L.count;j++){
+        const q = j*st + L.off, x = a[q], y = a[q + 1], z = a[q + 2];
+        out[w++] = e[o]*x + e[o+4]*y + e[o+8]*z + e[o+12];
+        out[w++] = e[o+1]*x + e[o+5]*y + e[o+9]*z + e[o+13];
+        out[w++] = e[o+2]*x + e[o+6]*y + e[o+10]*z + e[o+14];
+      }
+    }
+    E.mesh.geometry.attributes.position.needsUpdate = true;
+  }
+
+  /* 歩きながらの掛け合い: 画面の下に一行ずつ(操作を止めない)。会話・演出・戦闘の間は止めて隠す */
+  function road2BanterElement(){
+    if(road2BanterEl) return road2BanterEl;
+    const zone = document.getElementById('hud-zone-bc');
+    if(!zone) return null;
+    const el = document.createElement('div');
+    el.id = 'road2-banter';
+    el.setAttribute('aria-live', 'polite');
+    // 下中央の帯の一番下。カメラ回転のボタン(下から 14〜48px)の上に置く
+    el.style.cssText = 'position:relative;order:99;max-width:min(46vw,420px);margin-bottom:40px;padding:4px 12px;border-radius:8px;'
+      + 'background:rgba(16,12,10,0.55);color:#efe6d2;font-size:14px;line-height:1.4;text-align:center;pointer-events:none;'
+      + 'display:none;text-shadow:0 1px 2px rgba(0,0,0,0.7);';
+    zone.appendChild(el);
+    road2BanterEl = el;
+    return el;
+  }
+  function road2UpdateBanter(dt){
+    const blocked = state.dialogueActive || cutsceneRunning() || state.paused || combatIntensity >= 0.35;
+    const line = stepBanter(road2Banter, dt || 0, blocked);
+    const el = road2BanterElement();
+    if(!el) return;
+    if(!line){ if(el.style.display !== 'none') el.style.display = 'none'; return; }
+    const text = `${line.name}${line.text}`;
+    if(el.textContent !== text) el.textContent = text;
+    if(el.style.display !== 'block') el.style.display = 'block';
+  }
+  function road2HideBanter(){ if(road2BanterEl) road2BanterEl.style.display = 'none'; }
 
   /* 羅針盤の表示(ミニマップの左。文字は出さない)。HTML の要素 1 つ(WebGL の描画は増えない) */
   let road2CompassEl = null, road2NeedleEl = null, road2CompassWidthT = 0;
@@ -1335,7 +1651,7 @@
   }
 
   function updateRoad2(dt){
-    if(currentWorldKey !== 'road2'){ road2HideCompass(); return; }
+    if(currentWorldKey !== 'road2'){ road2HideCompass(); road2HideBanter(); return; }
     road2Time += dt || 0;
     for(let i=0;i<road2SwayMats.length;i++){ const sh = road2SwayMats[i].userData.shader; if(sh) sh.uniforms.uRoad2Time.value = road2Time; }
     // 滝の幕を下へ流す・水面の色をわずかに揺らす(描画回数は増えない)
@@ -1347,6 +1663,7 @@
     road2RecordReach();
     road2UpdateCampProximity();
     road2UpdateArea4(dt);
+    road2UpdateArea1(dt);
     const a = road2AreaAt(state.pos.x, state.pos.z);
     const id = a ? a.id : road2CurrentAreaId;
     if(id !== road2CurrentAreaId || !road2VisInit){

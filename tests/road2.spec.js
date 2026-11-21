@@ -125,7 +125,7 @@ const PROBE = `
 const NAMES = ['旅人の宿場', '風渡る原野', '水鏡の谷', '忘れられた山道', '道の果て'];
 /* 各エリアの見どころ(スクリーンショットと描画回数を測る地点)。[エリア, x, z, カメラの向き] */
 const VIEWS = [
-  [1, 1100, 30, Math.PI], [1, 1100, 84, Math.PI],
+  [1, 1100, 30, Math.PI], [1, 1100, 48, Math.PI], [1, 1089, 47, Math.PI], [1, 1100, 84, Math.PI],   // 壁の影の範囲・旅籠の中(R3-1)
   [2, 1100, 140, Math.PI], [2, 1026, 284, Math.PI * 0.75],
   [3, 1100, 330, Math.PI], [3, 1054, 340, Math.PI * 1.4],
   [4, 1066, 482, Math.PI], [4, 1100, 590, Math.PI * 0.8],
@@ -187,10 +187,12 @@ test('道（新）: 5 つのエリアの景観、今いるエリアと隣だけ�
   test.info().annotations.push({ type: 'road2-scenery-calls', description: JSON.stringify(rows) });
   rows.forEach(r => expect(r.scenery, `${r.area} ${r.at}: 景色の描画回数`).toBeLessThanOrEqual(ROAD2_SCENERY_CALL_BUDGET));
   // 高さがエリアで違う(宿場 0・原野 1・谷底 -2・高原 8)
-  expect(rows[0].y).toBeCloseTo(0, 1);
-  expect(rows[2].y).toBeCloseTo(1, 1);
-  expect(rows[4].y).toBeCloseTo(-2, 1);
-  expect(rows[8].y).toBeCloseTo(8, 1);
+  // 地点は座標で引く(VIEWS に地点を足しても崩れないように。R3-1 で宿場に 2 地点を足した)
+  const yAt = (x, z) => rows.find(r => r.at[0] === x && r.at[1] === z).y;
+  expect(yAt(1100, 30)).toBeCloseTo(0, 1);
+  expect(yAt(1100, 140)).toBeCloseTo(1, 1);
+  expect(yAt(1100, 330)).toBeCloseTo(-2, 1);
+  expect(yAt(1100, 680)).toBeCloseTo(8, 1);
   expect(errors).toEqual([]);
 });
 

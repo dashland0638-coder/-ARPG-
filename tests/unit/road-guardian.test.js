@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  GUARDIAN_FOCUS_SEC, GUARDIAN_REFOCUS_CD, canFocusAlly, stepGuardianFocus, guardianFacingTarget, guardianMayWake,
+  GUARDIAN_FOCUS_SEC, GUARDIAN_REFOCUS_CD, canFocusAlly, stepGuardianFocus, guardianFacingTarget, guardianMayWake, foesFit,
 } from '../../src/core/road-guardian.js';
 
 test('支援へ向くのは、向いていない・待ちでない時だけ(当たり続けても延ばさない)', () => {
@@ -52,4 +52,12 @@ test('目覚め: 加入の後・会話の外・台の上・円の近く・残っ
   assert.equal(guardianMayWake({...ok, dialogue: true}), false);
   assert.equal(guardianMayWake({...ok, y: 1}), false, '下の森の床からは目覚めない');
   assert.equal(guardianMayWake({...ok, dist: 13}), false);
+});
+
+test('戦闘の波: 残っている敵＋出す数が 4 体までの時だけ出す(同時に 4 体まで、設計 §4)', () => {
+  assert.equal(foesFit(0, 3), true);
+  assert.equal(foesFit(1, 3), true);
+  assert.equal(foesFit(2, 3), false, '通りの 2 体が残っている間は裏庭の 3 体を出さない');
+  assert.equal(foesFit(2, 2), true);
+  assert.equal(foesFit(undefined, 4), true);
 });
