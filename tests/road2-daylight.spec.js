@@ -15,6 +15,8 @@ const PROBE = `
     world: currentWorldKey, guard: road2GuardianState}; },
   worldLight(){ return {world: currentWorldKey, off: sunOffset.slice(), sunI: sunLight.intensity, exp: renderer.toneMappingExposure}; },
   toTavern(){ buildWorld('tavern'); return true; },
+  setArea(a){ state.roadArea = a; return true; },
+  normalBias(){ return sunLight.shadow.normalBias; },
   go(x, z, yaw){
     const g = road2GroundAt(x, z);
     state.pos.set(x, g === null ? 0 : g, z); state.yVel = 0; state.grounded = true; lastSolid = state.pos.clone(); voidT = 0;
@@ -199,5 +201,23 @@ test('一日の旅路: 古き守り手を倒さずに遺構の北の端を過ぎ
   await R('go', 1140, 620, Math.PI);
   await expect.poll(async () => (await R('day')).target, { timeout: 30_000 }).toBeGreaterThanOrEqual(4);
   expect((await R('guardian')).state).toBe('dormant');
+  expect(errors).toEqual([]);
+});
+
+test('一日の旅路: 出撃し直すと、到達したエリアから時間帯を戻す(到達 5 → 夜明けの 4.6、保存は増やさない)。他のワールドでは低い太陽の値を持ち越さない', async ({ page }) => {
+  test.setTimeout(400_000);
+  const errors = watchErrors(page);
+  const R = await enter(page, { classKey: 'rogue', guestKey: 'archer' });
+  expect((await R('day')).pos).toBe(0);
+  await R('setArea', 5);
+  await R('relaunch');
+  await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
+  await page.waitForFunction(() => /** @type {any} */ (window).__rc);
+  const d = await R('day');
+  expect(d.pos, '到達 5 は夜明けの 4.6 から').toBeGreaterThanOrEqual(4.6 - 1e-9);
+  expect(await R('normalBias'), '低い太陽では影を法線へずらす').toBeGreaterThan(0);
+  await R('toTavern');
+  await page.waitForTimeout(500);
+  expect(await R('normalBias'), '他のワールドへは持ち越さない').toBe(0);
   expect(errors).toEqual([]);
 });

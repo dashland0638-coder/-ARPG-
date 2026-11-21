@@ -1910,8 +1910,15 @@
     if(area === 4 && z >= 468) road2NightBegun = true;   // 森に入った(R4-01 の帯の始まり)
     if(road2GuardianState === 'defeated') road2DawnBegun = true;
     road2DayTarget = advanceRoadDaylight(road2DayTarget, roadDaylightTarget({area, z, nightBegun: road2NightBegun, dawnBegun: road2DawnBegun}));
-    road2DayPos = stepRoadDaylight(road2DayPos, road2DayTarget, dt);
-    road2DeepW = stepRoadWeight(road2DeepW, road2GuardianState === 'active', dt, 3);
+    // 夕暮れ → 夜は約 8 秒(設計 §3。森に入ってから暗くなるのが見える速さ)。ほかの区間は 1 位置 3.5 秒
+    road2DayPos = stepRoadDaylight(road2DayPos, road2DayTarget, dt, (road2DayPos >= 2 && road2DayPos < 3) ? 8 : 3.5);
+    // 深夜の重みは古き守り手の戦闘の間だけ。夜明けに入ったら(戦闘のまま峠へ抜けても)下げる
+    road2DeepW = stepRoadWeight(road2DeepW, road2GuardianState === 'active' && road2DayTarget < 4, dt, 3);
+    road2ApplyDaylight();
+  }
+  /* 今の時間帯の値を光・空・霧・灯・太陽の向きへ当てる。毎フレームのほか、入る時(applyWorldMood の後)と、
+     一時停止中に設定の明るさを変えた時にも呼ぶ(昼の値に戻して見えないように) */
+  function road2ApplyDaylight(){
     const L = roadDaylight(road2DayPos, road2DeepW, road2EndW);
     if(!road2DayColor) road2DayColor = new THREE.Color();
     road2DayColor.setHex(L.sky);
@@ -1925,6 +1932,8 @@
     const M = road2Mats(), night = Math.max(0, Math.min(1, road2DayPos - 2)) * (road2DayPos < 4 ? 1 : Math.max(0, 1 - (road2DayPos - 4) * 2)) + road2DeepW * 0.5;
     M.glow.color.setHex(L.glow).multiplyScalar(1 + Math.min(1, night) * 0.8);
     sunOffset[0] = L.sunDir[0]; sunOffset[1] = L.sunDir[1]; sunOffset[2] = L.sunDir[2];
+    // 低い太陽(夜明け)では、影が床に斜めに長く伸びて面のちらつきが出やすい。道(新)の中だけ法線の方向へ少しずらす
+    if(sunLight){ const elev = Math.atan2(L.sunDir[1], Math.hypot(L.sunDir[0], L.sunDir[2])); sunLight.shadow.normalBias = elev < 0.2 ? 0.03 : 0; }
   }
 
   function updateRoad2(dt){
