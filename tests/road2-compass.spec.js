@@ -124,8 +124,9 @@ test('羅針盤: 宿場の会話で出し、次の目的地を指し(着くと�
   expect(c.dest).toBe('moor');
   const want = ((-(c.destDeg - c.camFwdDeg)) + 540) % 360 - 180;
   expect(Math.abs(((c.screenDeg - want) + 540) % 360 - 180), `目的地を指す針 ${c.screenDeg} / ${want}`).toBeLessThanOrEqual(25);
-  // 本道から外れても(宿場の裏庭)、同じ目的地の向き
-  await R('go', 1132, 40, Math.PI);
+  // 本道から外れても(宿場の西の物置の庭)、同じ目的地の向き。
+  // 裏庭(1132,40)は R3-1 で戦闘 F1-2 の帯になった(戦闘中は針が止まる)ので、戦闘の無い寄り道で確かめる
+  await R('go', 1064, 86, Math.PI);
   await page.waitForTimeout(2500);
   c = await R('compass');
   const want2 = ((-(c.destDeg - c.camFwdDeg)) + 540) % 360 - 180;
