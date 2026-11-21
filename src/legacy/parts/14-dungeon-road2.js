@@ -1638,8 +1638,10 @@
         if(R.afterVision){ R.talkPending = R.afterVision; R.afterVision = null; }
       }
     }
-    // R3-02 の会話: 景色が消えた後、会話・演出の最中でなく、戦闘の敵が残っていない時に(戦闘を会話で止めない)
-    if(R.talkPending && !state.dialogueActive && !cutsceneRunning() && road2LiveFoes() === 0){ const f = R.talkPending; R.talkPending = null; f(); }
+    // R3-02 の会話: 景色が消えた後、会話・演出の最中でなく、近くに戦闘の敵が残っていない時に(戦闘を会話で止めない)
+    // 敵は近く(30 m の内)だけを見る(前のエリアで逃げてきた寄り道の敵で、必ずの会話を止めない)
+    const nearFoe = enemies.some(en=> en && en.road2Fight && !en.dead && en.group && Math.hypot(en.group.position.x - state.pos.x, en.group.position.z - state.pos.z) < 30);
+    if(R.talkPending && !state.dialogueActive && !cutsceneRunning() && !nearFoe){ const f = R.talkPending; R.talkPending = null; f(); }
     // A-6: 橋の上の一人ずつの姿を、橋の東の水面に映す。消える一人は 1.5 秒(ゲームの時計)だけ
     const B = V.reflect.bridge;
     if(R.vanishT > 0) R.vanishT -= d;
