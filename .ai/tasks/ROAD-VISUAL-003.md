@@ -20,7 +20,7 @@ Status: IN PROGRESS（R3-N）
 | R3-N | 羅針盤・道標（DEC-026 HD-3 = A）。設計 `.ai/reports/ROAD-VISUAL-003-R3N-design.md` | DONE（PR、R3-T2 の上） |
 | R3-1 | AREA 1 宿場（戦闘・会話・壁の影・建物の中）と歩きながらの掛け合い | DONE（R3-1、計画 `.ai/reports/ROAD-VISUAL-003-R3-1-plan.md`）。宝箱は R3-6（E-4） |
 | R3-2 | AREA 2 原野（戦闘・会話・怪異） | DONE（R3-2、計画 `.ai/reports/ROAD-VISUAL-003-R3-2-plan.md`）。宝箱は R3-6 |
-| R3-3 | AREA 3 水鏡の谷（水面の演出・淵の大鰻・戦闘・会話） | 未着手 |
+| R3-3 | AREA 3 水鏡の谷（水面の演出・淵の大鰻・戦闘・会話） | DONE（R3-3、計画 `.ai/reports/ROAD-VISUAL-003-R3-3-plan.md`）。宝箱は R3-6 |
 | R3-4 | AREA 4 山道（出会いと加入・遺構の中・古き守り手・戦闘・会話） | 出会いと加入・野営地の支援の選択・到達の保存は DONE（R3-4a、PR #131）。遺構の中・古き守り手・戦闘は DONE（R3-4b）。宝箱は R3-6（E-4） |
 | R3-5 | AREA 5 と最終戦（高原の大角・結果画面を後に回す処理） | 未着手 |
 | R3-6 | エンディング・最後の酒場・野営地の支援の選択・到達の保存・固定の報酬表 | 未着手 |
