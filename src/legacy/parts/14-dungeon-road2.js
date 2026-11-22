@@ -95,20 +95,26 @@
     mat.customProgramCacheKey = ()=> 'road2-noInstTint';
     return mat;
   }
+  /* 突風の値(全部の草の材質で共有する uniform。最終戦の段階 1 で使う) */
+  const road2GustU = {gust:{value:0}, dir:{value:new THREE.Vector2(0, 1)}, pos:{value:new THREE.Vector2(0, 0)}};
   /* 風に揺れる草(頂点の高さに比例して横へ揺らす) */
   function road2SwayMaterial(color, amp){
     const mat = new THREE.MeshStandardMaterial({color, roughness:0.9, side:THREE.DoubleSide});
     mat.onBeforeCompile = sh=>{
       sh.uniforms.uRoad2Time = {value:0};
+      // 突風(最終戦の段階 1「風」の予兆): 中心 uRoad2GustPos から半径 14 の草だけ、uRoad2GustDir の向きへ強くなびく
+      sh.uniforms.uRoad2Gust = road2GustU.gust; sh.uniforms.uRoad2GustDir = road2GustU.dir; sh.uniforms.uRoad2GustPos = road2GustU.pos;
       mat.userData.shader = sh;
-      sh.vertexShader = 'uniform float uRoad2Time;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+      sh.vertexShader = 'uniform float uRoad2Time;\nuniform float uRoad2Gust;\nuniform vec2 uRoad2GustDir;\nuniform vec2 uRoad2GustPos;\n' + sh.vertexShader.replace('#include <begin_vertex>',
         '#include <begin_vertex>\n' +
-        '#ifdef USE_INSTANCING\n float road2Ph = instanceMatrix[3].x * 0.21 + instanceMatrix[3].z * 0.13;\n#else\n float road2Ph = 0.0;\n#endif\n' +
+        '#ifdef USE_INSTANCING\n float road2Ph = instanceMatrix[3].x * 0.21 + instanceMatrix[3].z * 0.13;\n vec2 road2Ip = instanceMatrix[3].xz;\n#else\n float road2Ph = 0.0;\n vec2 road2Ip = vec2(1e5);\n#endif\n' +
         ' float road2W = sin(uRoad2Time * 1.6 + road2Ph) * 0.6 + sin(uRoad2Time * 2.7 + road2Ph * 1.7) * 0.4;\n' +
         ` transformed.x += road2W * ${amp.toFixed(3)} * max(position.y + 0.5, 0.0);\n` +
-        ` transformed.z += road2W * ${(amp*0.5).toFixed(3)} * max(position.y + 0.5, 0.0);\n`);
+        ` transformed.z += road2W * ${(amp*0.5).toFixed(3)} * max(position.y + 0.5, 0.0);\n` +
+        ' float road2G = uRoad2Gust * clamp(1.0 - distance(road2Ip, uRoad2GustPos) / 14.0, 0.0, 1.0) * max(position.y + 0.5, 0.0);\n' +
+        ' transformed.x += uRoad2GustDir.x * road2G * 0.55;\n transformed.z += uRoad2GustDir.y * road2G * 0.55;\n');
     };
-    mat.customProgramCacheKey = ()=> 'road2-sway-' + amp;
+    mat.customProgramCacheKey = ()=> 'road2-sway-gust-' + amp;
     road2SwayMats.push(mat);
     return mat;
   }
@@ -233,6 +239,7 @@
     road2SetupArea1(M);            // R3-1: 宿場の建物の中・会話と調べ物・壁の影・歩きながらの掛け合い(戦闘は ROAD2_FIGHTS)
     road2SetupArea2(M);            // R3-2: 原野の会話・調べ物・怪異 A-2〜A-4(戦闘は ROAD2_FIGHTS)
     road2SetupArea3(M);            // R3-3: 谷の会話・調べ物・怪異 A-5・A-6(戦闘は ROAD2_FIGHTS)
+    road2SetupArea5(M);            // R3-5: 道の果ての会話 R5-01・R5-02・最終戦(高原の大角)
     ROAD2_CAMPS.forEach(c=> road2BuildCamp(c, road2AreaGroups[c.area], M));
     ROAD2_LANDMARKS.forEach(l=> road2BuildLandmark(l, road2AreaGroups[l.area], M));
 
@@ -1295,7 +1302,10 @@
           dist: Math.hypot(state.pos.x - G.x, state.pos.z - G.z), wake: G.wake, liveFoes})) road2WakeGuardian();
       return;
     }
-    const en = road2GuardianEn;
+    road2UpdateAllyFocus(road2GuardianEn, dt);
+  }
+  /* 支援の攻撃で支援のほうを向く敵(古き守り手・高原の大角)の、向きと秒数を進める */
+  function road2UpdateAllyFocus(en, dt){
     if(!en || en.dead) return;
     const cut = cutsceneRunning();   // 演出の間は敵が止まっているので、向きも秒数も進めない
     if(!cut){ const f = stepGuardianFocus(en.allyFocusT, en.allyFocusCD, dt || 0); en.allyFocusT = f.focusT; en.allyFocusCD = f.cdT; }
@@ -1347,6 +1357,9 @@
   /* ROAD-VISUAL-004 T1〜T5: 一日の旅路(core/road-daylight.js)。出撃の中だけの値(保存しない) */
   let road2DayPos = 0, road2DayTarget = 0, road2DeepW = 0, road2EndW = 0, road2DayColor = null;
   let road2NightBegun = false, road2DawnBegun = false;
+  /* R3-5 最終戦(高原の大角)。出撃の中だけ */
+  let road2Finale = null;   // {state:'idle'|'active'|'defeated', en, phase, cloudT, second, lane, mark, yielder, yieldT}
+  let road2CloudW = 0;      // 段階 2「雲」: 雲が朝日を隠す重み(光の強さだけを下げる。露出は固定)
   let road2Echo = null;              // A-1: 遅れる二つ目の影 {mesh, src, parts, local, hist, frame}
   let road2EchoNoticed = new Set();  // 段階的な伏線: 主人公が反応した(気づいた)場所の id(その出撃の間)
   let road2EchoSpent = new Set();    // 反応を終えて出た場所(もう二つ目の影を出さない)
@@ -1678,6 +1691,154 @@
     }
   }
 
+  /* ==== R3-5: AREA 5「道の果て」と最終戦(設計 §7・ROAD-VISUAL-004 §3-2・T6) ====
+     R5-01 高原(剣「ここで、少し休もう」)→ R5-02 石環の語らい → 草原の奥から「高原の大角」。
+     段階 1「風」(突進の前に草が獣の向きへ強くなびく)/ 2「雲」(雲が朝日を隠す間だけ暗い・跳びかかりの着地点に影が先に落ちる)/
+     3「朝日」(低い朝日で長く伸びる影が突進の線を示す・突進は二連)。支援の攻撃が当たると支援のほうを向く(F4-B と同じ)。
+     倒すと膝をつき、立ち上がって草原の奥へ去る(殺さない)。結果画面はまだ出さない(R3-6 の結末の後) */
+  const ROAD2_BIGHORN = {color:0x7a6450, hp:1500, atk:42, speed:2.5, atkType:'charge', xp:420, goldBonus:[90,120], theme:'beast',
+    strongMob:true, telegraph:0.9, cooldown:1.4, midbossName:'高原の大角'};
+  function road2SetupArea5(M){
+    road2Finale = {state:'idle', en:null, phase:0, cloudT:0, second:false, lane:null, mark:null, yielder:null, yieldT:0, talked:false};
+    road2CloudW = 0; road2EndW = 0;
+    const grp = road2AreaGroups[5];
+    road2RegisterBand('R5-01', ()=> road2Talk('R5-01', [[ROAD_SWORD, '「ここで、少し休もう」']]), true);
+    road2RegisterBand('R5-02', ()=>{
+      const go = ()=> road2StartFinale();
+      if(legacyGrowth()){ go(); return; }
+      road2Talk('R5-02', [
+        [ROAD_MAGE, '「自然の一部なのかもしれません」'],
+        [ROAD_ARCHER, '「誰かの記憶が残っているのかも」'],
+        [ROAD_THIEF, '「分からないだけで、理由はあるんだろ」'],
+        [ROAD_SWORD, '「分からなくても、歩ける」'],
+        [ROAD_THIEF, '「お前、何者なんだ」'],
+        [ROAD_TRAVELER, '「分かりません」'],
+        [ROAD_THIEF, '「……今度は、置いていかない」'],
+      ], go);
+    }, false);
+    // 予兆の印(地面に落ちる影の色。光らない): 段階 2 の着地点の影・段階 3 の長い影の線
+    const shadowMat = new THREE.MeshBasicMaterial({color:0x14100c, transparent:true, opacity:0, depthWrite:false});
+    const mark = new THREE.Mesh(new THREE.CircleGeometry(1.5, 20), shadowMat.clone());
+    mark.rotation.x = -Math.PI/2; mark.visible = false; grp.add(mark);
+    const lane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), shadowMat.clone());
+    lane.rotation.x = -Math.PI/2; lane.visible = false; grp.add(lane);
+    road2Finale.mark = mark; road2Finale.lane = lane;
+  }
+  function road2StartFinale(){
+    const F = road2Finale, P = ROAD2_FINALE;
+    if(!F || F.state !== 'idle') return;
+    F.state = 'active';
+    const y = road2GroundAt(P.spawn.x, P.spawn.z) ?? 8;
+    const en = buildEnemy(new THREE.Vector3(P.spawn.x, y, P.spawn.z), Object.assign({roomTag:'road2Finale'}, ROAD2_BIGHORN));
+    en.group.scale.setScalar(2.1);
+    en.chargeTelegraphOverride = ROAD2_BIGHORN.telegraph; en.chargeCooldownOverride = ROAD2_BIGHORN.cooldown;
+    en.road2Fight = 'F5-B'; en.road2Wave = 0; en.road2Kind = 'bigHorn';
+    en.turnToAlly = GUARDIAN_FOCUS_SEC; en.allyFocusT = 0; en.allyFocusCD = 0;
+    en.triggered = true;
+    en.group.rotation.y = Math.atan2(state.pos.x - P.spawn.x, state.pos.z - P.spawn.z);
+    road2DressBigHorn(en);
+    en.onDefeat = ()=> road2OnFinaleDefeated(en);
+    enemies.push(en);
+    F.en = en; F.phase = 1;
+    sfx('bossWake');
+    sceneCamShot(P.spawn.x, P.spawn.z, 2.4, {y, height: 10, dist: 11});
+    spawnLog('🌬 高原の大角 ―― 風');
+  }
+  /* 大きな角・長い毛・穏やかな目(獣の姿に最小の差を足す) */
+  function road2DressBigHorn(en){
+    const M = en.mob, head = (M && M.snout) || en.body;
+    const hornMat = new THREE.MeshStandardMaterial({color:0xd8ccb0, roughness:0.55});
+    [-1, 1].forEach(sd=>{
+      const h = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.62, 7), hornMat);
+      h.position.set(sd * 0.16, 0.2, -0.05); h.rotation.set(-0.7, 0, sd * -0.55); head.add(h);
+    });
+    const furMat = new THREE.MeshStandardMaterial({color:0x8a7258, roughness:0.95, side:THREE.DoubleSide});
+    for(let k=0;k<5;k++){
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.42), furMat);
+      f.position.set(-0.24 + k*0.12, 0.3, 0.05); f.rotation.x = 0.2; en.body.add(f);
+    }
+  }
+  function road2OnFinaleDefeated(en){
+    const F = road2Finale;
+    if(!F) return;
+    F.state = 'defeated';
+    F.mark.visible = false; F.lane.visible = false; road2GustU.gust.value = 0;
+    // 倒した獣は膝をつき、しばらくして立ち上がり、草原の奥へ去っていく(殺さない)。戦闘の外の飾りの姿
+    const at = en.group.position.clone();
+    const fig = buildEnemy(at.clone(), Object.assign({}, ROAD2_BIGHORN, {midbossName:null, strongMob:false}));
+    if(fig.group.parent) fig.group.parent.remove(fig.group);
+    fig.group.scale.setScalar(2.1); fig.group.rotation.y = en.group.rotation.y;
+    road2DressBigHorn(fig);
+    road2AreaGroups[5].add(fig.group);
+    F.yielder = fig.group; F.yieldT = 0; F.yieldFrom = at;
+    spawnLog('高原の大角は、膝をついた。');
+  }
+  function road2UpdateArea5(dt){
+    const F = road2Finale;
+    if(!F || currentWorldKey !== 'road2') return;
+    const d = dt || 0, P = ROAD2_FINALE;
+    // 雲の重み: 段階 2 の間だけ、10 秒ごとに 4 秒ほど雲が朝日を隠す(ゆっくり)
+    let cloudOn = false;
+    if(F.state === 'active' && F.phase === 2){ F.cloudT += d; cloudOn = (F.cloudT % 10) > 6; }
+    road2CloudW = stepRoadWeight(road2CloudW, cloudOn, d, 1.2);
+    // 結末の重み(T6): 倒した後、数秒かけて太陽を少し上げる(高さ約 12°、白に近づく)
+    road2EndW = stepRoadWeight(road2EndW, F.state === 'defeated', d, 4);
+    const en = F.en;
+    if(F.state === 'active' && en && !en.dead){
+      road2UpdateAllyFocus(en, d);   // 支援の攻撃が当たると支援のほうを向く(古き守り手と同じ)
+      const r = en.hp / en.hpMax;
+      const ph = r > P.phases[0] ? 1 : r > P.phases[1] ? 2 : 3;
+      if(ph !== F.phase){ F.phase = ph; spawnLog(ph === 2 ? '☁ 雲が、朝日を隠しはじめた' : '🌅 雲が切れた ―― 朝日'); }
+      const tele = en.chargeState === 'telegraph', dir = en.chargeDir;
+      const k = tele ? Math.max(0, Math.min(1, 1 - en.chargeT / (en.chargeTelegraphDur || 0.9))) : 0;
+      // 段階 1「風」: 溜めの間、獣の向きへ草が強くなびく
+      road2GustU.gust.value = (F.phase === 1 && tele) ? 1.6 * k : Math.max(0, road2GustU.gust.value - d * 4);
+      if(tele && dir){ road2GustU.dir.value.set(dir.x, dir.z); road2GustU.pos.value.set(en.group.position.x, en.group.position.z); }
+      // 段階 2「雲」: 跳びかかりの着地点(突進の終わり)に、獣の影が先に落ちる
+      const land = en.group.position.clone().addScaledVector(dir || new THREE.Vector3(0, 0, 1), 4.4);
+      F.mark.visible = F.phase === 2 && tele;
+      if(F.mark.visible){ F.mark.position.set(land.x, (road2GroundAt(land.x, land.z) ?? 8) + 0.04, land.z); F.mark.material.opacity = 0.25 + 0.4 * k; }
+      // 段階 3「朝日」: 低い朝日で獣の影が長く伸び、突進の線を示す(影の色の帯。影を切る設定でも見える)
+      F.lane.visible = F.phase === 3 && tele;
+      if(F.lane.visible && dir){
+        const L = 9, mid = en.group.position.clone().addScaledVector(dir, L / 2);
+        F.lane.position.set(mid.x, (road2GroundAt(mid.x, mid.z) ?? 8) + 0.05, mid.z);
+        F.lane.scale.set(1, L, 1); F.lane.rotation.set(-Math.PI/2, 0, Math.atan2(dir.x, dir.z));
+        F.lane.material.opacity = 0.22 + 0.4 * k;
+      }
+      // 段階 3: 突進は二連(一度目の突進の後、短い溜めでもう一度)
+      if(F.phase === 3 && en.chargeState === 'cooldown' && !F.second){
+        F.second = true;
+        en.chargeState = 'telegraph'; en.chargeTelegraphDur = 0.45; en.chargeT = 0.45;
+        const to = new THREE.Vector3().subVectors(state.pos, en.group.position); to.y = 0;
+        en.chargeDir = to.lengthSq() > 1e-6 ? to.normalize() : (en.chargeDir || new THREE.Vector3(0, 0, 1));
+      } else if(en.chargeState === 'idle') F.second = false;
+    }
+    // 倒した後: 膝をつく(2.5 秒)→ 立ち上がる → 草原の奥へ歩いて去る(8 秒)→ 消える。その後に R5-03
+    if(F.yielder){
+      F.yieldT += d;
+      const t = F.yieldT, g = F.yielder;
+      if(t < 2.5){ g.rotation.x = Math.min(0.35, t * 0.6); g.position.y = F.yieldFrom.y - Math.min(0.5, t * 0.4); }
+      else if(t < 3.5){ g.rotation.x = Math.max(0, 0.35 - (t - 2.5) * 0.35); g.position.y = F.yieldFrom.y - Math.max(0, 0.5 - (t - 2.5) * 0.5); }
+      else {
+        const k2 = Math.min(1, (t - 3.5) / 8), to = P.leave;
+        g.position.x = F.yieldFrom.x + (to.x - F.yieldFrom.x) * k2; g.position.z = F.yieldFrom.z + (to.z - F.yieldFrom.z) * k2;
+        g.position.y = road2GroundAt(g.position.x, g.position.z) ?? F.yieldFrom.y;
+        g.rotation.y = Math.atan2(to.x - F.yieldFrom.x, to.z - F.yieldFrom.z);
+        if(k2 >= 1){ if(g.parent) g.parent.remove(g); F.yielder = null; }
+      }
+      if(t > 4 && !F.talked){
+        F.talked = true;
+        if(!legacyGrowth()) road2PendingTalks.push(()=> road2Talk('R5-03', [
+          [ROAD_THIEF, '「結局、何だったんだろうな。今まで見てきたもの」'],
+          [ROAD_ARCHER, '「分からないまま、ですね」'],
+          [ROAD_MAGE, '「分からないことがあっても、世界は続いています」'],
+          [ROAD_SWORD, '「そういうものなのかもしれないな」'],
+        ]));
+      }
+    }
+  }
+
   /* 毎フレーム: 屋根・調べ物の会話・壁の影・掛け合い */
   function road2UpdateArea1(dt){
     // 入れる家の中にいる間は、その家の屋根を隠す
@@ -1920,6 +2081,10 @@
      一時停止中に設定の明るさを変えた時にも呼ぶ(昼の値に戻して見えないように) */
   function road2ApplyDaylight(){
     const L = roadDaylight(road2DayPos, road2DeepW, road2EndW);
+    if(road2CloudW > 0){   // 雲が朝日を隠す間: 太陽と半球光の強さだけを下げる(範囲の中。露出は固定)
+      L.sunI = Math.max(0.15, L.sunI * (1 - 0.55 * road2CloudW));
+      L.hemi = Math.max(0.13, L.hemi * (1 - 0.2 * road2CloudW));
+    }
     if(!road2DayColor) road2DayColor = new THREE.Color();
     road2DayColor.setHex(L.sky);
     scene.background = road2DayColor;
@@ -1953,6 +2118,7 @@
     road2UpdateArea1(dt);
     road2UpdateArea2(dt);
     road2UpdateArea3(dt);
+    road2UpdateArea5(dt);
     const a = road2AreaAt(state.pos.x, state.pos.z);
     const id = a ? a.id : road2CurrentAreaId;
     if(id !== road2CurrentAreaId || !road2VisInit){
