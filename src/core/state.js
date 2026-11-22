@@ -83,6 +83,7 @@ import * as THREE from 'three';
        洋館をクリアして初めてこの街に落ち着く。それまで同じ場所には
        仮設の作業台があり、鑑定・強化そのものは最初から使える */
     smithJoined:false, smithGreeted:false,
+    roadArea:0,   // 道(新)の到達したエリア(ROAD-VISUAL-003 R3-4、DEC-025 E-3。セーブする)
     /* Chapter 1 のスキル進行(core/chapter1-skills.js)。主人公は Skill 1
        だけを持って酒場を出て、ダンジョン中盤で同行者の行動を見て Skill 2 を
        閃く ―― 閃いた時点で自動装備され、専用ボタンがそこで初めて開く。

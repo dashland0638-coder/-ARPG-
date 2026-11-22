@@ -199,7 +199,7 @@
     // これまでのどのシナリオよりも明るく、霧も薄い
     road:         {sky:0x9ab8d0, fog:0.009, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, exp:0.96},
     // 新しい道(ROAD-VISUAL-003)。R3-0 は今の道と同じ。エリアごとの時間帯の補間は後の段(露出は固定。DEC-025)
-    road2:        {sky:0x9ab8d0, fog:0.006, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, exp:0.96},
+    road2:        {sky:0x9ab8d0, fog:0.0048, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, exp:0.96},
     // テストモード: 色味の判断を邪魔しない、明るく中立なライティング
     training:     {sky:0x181c22, fog:0.006, sun:0xf2f4f8, sunI:0.85, hemi:0.42, hemiSky:0xaeb8c8, hemiGnd:0x22262e, rim:0x8fb0d0, rimI:0.14, exp:0.86},
   };
@@ -430,7 +430,7 @@
     bossBarChip = 100;
     document.getElementById('boss-bar-wrap').classList.remove('show');
     noticeHudChanged();   // 上の帯の通知をボスバーの下から戻す(UI-VISUAL-001)
-    nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false;
+    nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false; nearbyRoad2Camp = null;
     mansionRoof = null; restroomRoof = null; platform = null;
     mansionOutdoor = null; mansionOutdoorHidden = false; mansionIslands = [];
     mansionShell = null; mansionShellHidden = false;
@@ -2672,7 +2672,7 @@
   // single interact prompt shared by doors, staircases and lore notes: shows
   // a plain message, not a flashy call-to-action button
   function updateInteractPrompt(){
-    const target = nearbyShadowGuide || nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith;
+    const target = nearbyShadowGuide || nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith || nearbyRoad2Camp;
     const el = document.getElementById('interact-btn');
     if(!el) return;
     el.classList.toggle('show', !!target && !state.paused && !state.dialogueActive);
@@ -2699,7 +2699,7 @@
       }
     }
     else if(nearbyKey) el.textContent = '鍵を拾う';
-    else if(nearbyLore) el.textContent = nearbyLore.read ? 'もう一度読む' : '読む';
+    else if(nearbyLore) el.textContent = nearbyLore.promptText || (nearbyLore.read ? 'もう一度読む' : '読む');   // 壁の模様などは「調べる」(道(新) R3-4b)
     else if(nearbyChest) el.textContent = '調べる';
     else if(nearbyStallTrigger) el.textContent = '個室に入る';
     else if(nearbyBartender) el.textContent = '🗺️ 店主と話す(出撃)';
@@ -2708,6 +2708,7 @@
     else if(nearbySmith) el.textContent = state.smithJoined
       ? (legacyGrowth() ? '🔨 鍛冶士と話す(鑑定・強化)' : '🔨 鍛冶士と話す(装備の管理)')
       : '🧰 仮設の作業台(鑑定・強化)';
+    else if(nearbyRoad2Camp) el.textContent = '🔥 支援を選ぶ';   // 道(新)の野営地(R3-4、DEC-025 E-2)
   }
 
   /* インタラクトの対象のワールド座標(UI-002-D WI-D6: 表示を対象の上に出すため)。
@@ -2719,6 +2720,7 @@
     if(obj && obj.pos) return obj.pos;
     if(nearbyBartender) return BARTENDER_POS;
     if(nearbySmith) return SMITH_POS;
+    if(nearbyRoad2Camp) return new THREE.Vector3(nearbyRoad2Camp.x, nearbyRoad2Camp.y + 1, nearbyRoad2Camp.z);   // 野営地の焚き火(R3-4)
     return null;
   }
 
@@ -2736,6 +2738,7 @@
     else if(nearbyStallTrigger){ triggerStallSleep(); }
     else if(nearbyBartender){ toggleScenarioSelect(); }   // 鍛冶士の再会を待つ間の止め方は toggleScenarioSelect の中(CAMERA-001)
     else if(nearbySmith){ toggleAppraisal(); }
+    else if(nearbyRoad2Camp){ road2OpenSupportPicker(); }
   }
 
   // wraps any instant relocation in a short fade so the cut isn't jarring
