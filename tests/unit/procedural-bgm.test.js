@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startProceduralBgm } from '../../src/audio/procedural-bgm.js';
+import { scenarioWorldKey } from '../../src/core/scenario-world.js';
 import { CHAPTER1_ORDER } from '../../src/core/chapter1-progress.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -43,13 +44,17 @@ function fakeCtx(){
   return { ctx, made };
 }
 
+// 鳴らす鍵はワールドの鍵(buildWorld → playBgm(key))。道はシナリオ 'road' → ワールド 'road2'(DEC-032)
+const WORLDS1 = ['tavern', ...CHAPTER1_ORDER.map(scenarioWorldKey)];
+
 test('第一章の5つの舞台と酒場に、手続き生成 BGM の項目がある(無音の区間を作らない)', () => {
   assert.deepEqual(CHAPTER1_ORDER, ['mansion', 'duskvillage', 'ghostship', 'clocktower', 'road']);
-  for (const key of ['tavern', ...CHAPTER1_ORDER]) assert.ok(MOODS[key], key);
+  for (const key of WORLDS1) assert.ok(MOODS[key], key);
+  assert.ok(!MOODS.road, '旧道のワールドの項目は残さない');
 });
 
 test('その項目で BGM が実際に組み上がり、止められる', () => {
-  for (const key of ['tavern', ...CHAPTER1_ORDER]) {
+  for (const key of WORLDS1) {
     const { ctx, made } = fakeCtx();
     const h = startProceduralBgm(ctx, {}, key, 0.4);
     assert.ok(h, key);
@@ -74,12 +79,12 @@ test('どの項目も形が正しい(5音・昇順、残響と音量は 0〜1)',
 });
 
 test('宵待ちの村と道は、環境音を消さないよう洋館より控えめ', () => {
-  for (const key of ['duskvillage', 'road']) {
+  for (const key of ['duskvillage', 'road2']) {
     assert.ok(MOODS[key].padGain <= MOODS.mansion.padGain, key);
     assert.ok(MOODS[key].eventGain <= MOODS.mansion.eventGain, key);
   }
   // 村は夕暮れの湖(短調寄り・高域を落とす)、道は明るい朝(長調の5音)
-  assert.deepEqual(MOODS.road.scale, [0, 2, 4, 7, 9]);
+  assert.deepEqual(MOODS.road2.scale, [0, 2, 4, 7, 9]);
   assert.ok(MOODS.duskvillage.scale.includes(3), '村は短3度を含む');
-  assert.ok(MOODS.duskvillage.cutoff < MOODS.road.cutoff);
+  assert.ok(MOODS.duskvillage.cutoff < MOODS.road2.cutoff);
 });

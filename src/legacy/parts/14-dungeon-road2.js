@@ -22,7 +22,7 @@
          全エリアで 2 つの InstancedMesh(平らな台・坂)、上の面と横の面の 2 材質
        ・エリアごとの物(建物・岩・木・草・水・ランドマーク・野営地)は、今いるエリアと
          隣のエリアだけ描く(road2UpdateAreaVisibility)
-       ・同じ形の物は InstancedMesh にまとめる(PR #125 buildRoadInstances の作法)
+       ・同じ形の物は InstancedMesh にまとめる(PR #125 の作法)
        ・草の揺れは頂点シェーダで動かす(描画回数は増えない)
        ・点光源は足さない。灯り(野営地の火・宿場の提灯)は自発光の面で表す
 
@@ -1092,7 +1092,7 @@
      戦闘の顔ぶれと場所は core/road-map.js ROAD2_FIGHTS(設計 §2 のまま)。倒した敵は戻らない(roomTag、DEC-025 E-5)。
      どの戦闘・会話も加入の後だけ(出会いの帯の北にある)。倒したことは保存しない(出撃し直すと最初から。E-3 は到達だけ)。
      空・光・時間帯は変えない(ROAD-VISUAL-004 T1〜T5)。古き守り手の状態だけを持ち、深夜・夜明けの表現はそちらが読む */
-  /* 数値は CR-01 の作法(時計塔 4F と旧道の敵が基準。計画 §4)。difficultyFor('road2') の倍率がこの上に掛かる */
+  /* 数値は CR-01 の作法(時計塔 4F と旧道の敵が基準。計画 §4)。difficultyFor('road2')(= シナリオ 'road' の★、scenarioKeyForWorld)の倍率がこの上に掛かる */
   const ROAD2_FOES = {
     // 宿場(R3-1): 道喰らい(低い四つ足・長い鼻面・土色の剛毛・首に古い革紐)と、射撃の獣(低い姿勢・背の棘・喉が膨らむ)
     roadEater: {color:0x8a6a44, hp:160, atk:26, speed:2.8, atkType:'charge', xp:64, goldBonus:[12,18], look:'roadEater',

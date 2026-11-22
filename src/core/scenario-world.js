@@ -7,3 +7,10 @@ export const SCENARIO_WORLD = Object.freeze({road: 'road2'});
 export function scenarioWorldKey(key){
   return Object.prototype.hasOwnProperty.call(SCENARIO_WORLD, key) ? SCENARIO_WORLD[key] : key;
 }
+
+/* 逆向き: ワールドの鍵 → シナリオの鍵。敵の★(difficultyFor)は湧いたワールドの鍵で引くが、
+   クリアの数はシナリオの鍵(scenarioClears.road)に数えるので、ここでそろえる */
+export function scenarioKeyForWorld(worldKey){
+  for(const k in SCENARIO_WORLD) if(SCENARIO_WORLD[k] === worldKey) return k;
+  return worldKey;
+}

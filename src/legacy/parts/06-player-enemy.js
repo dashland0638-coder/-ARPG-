@@ -2822,7 +2822,7 @@
   // そのものに掛け合わせることで、洋館以外の全シナリオにも一括で効かせる。
   const COMBAT_REBALANCE = { hp: 1.20, atk: 1.10 };
   function difficultyFor(key){
-    const stars = scenarioStars(key), t = stars - 1;
+    const stars = scenarioStars(scenarioKeyForWorld(key)), t = stars - 1;   // 道: ワールド 'road2' → シナリオ 'road' のクリアで★(DEC-032)
     return { stars, hp:(1 + t*0.55)*COMBAT_REBALANCE.hp, atk:(1 + t*0.28)*COMBAT_REBALANCE.atk, speed:1 + t*0.06,
              xp:1 + t*0.34, gold:1 + t*0.30 };
   }

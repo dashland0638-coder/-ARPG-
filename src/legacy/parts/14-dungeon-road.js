@@ -10,7 +10,6 @@
        ・話者名(ROAD_THIEF / ROAD_ARCHER / ROAD_TRAVELER / 加入前の ROAD_STRANGER)
        ・影の旅人の加入前の姿と、遅れて動く影(buildRoadTravelerFigure / trackPreJoinShadow、DEC-004 N-4)
        ・仲間の立ち姿(buildCastFigure)と、酒場の隅の卓(buildChapter1TavernTrace)
-       ・道の小物の InstancedMesh(buildRoadInstances、ROAD-VISUAL-002)
        ・第一章の最後の酒場(roadPendingFinale / consumeChapter1Finale / playChapter1Finale)
 
      5人目「影の旅人」は、Chapter 1 のあいだずっと酒場の隅に座っていた人物。
@@ -30,54 +29,6 @@
      その帰還の一度だけ ―― ワールドを壊しても残るよう、ワールドの作り直しでは
      触らない。セーブにも入れない(入れると新しい進行状態になる) */
   let roadPendingFinale = false;
-
-  /* 道の静的な小物を、形ごとに1つの InstancedMesh にする(ROAD-VISUAL-002 段階1)。
-     世界の破棄は geometry しか捨てないので、前回の道の instanceMatrix / instanceColor は
-     作り直す時にここで捨てる(14-dungeon-duskvillage.js の duskNightInstanced と同じ) */
-  let roadInstanced = [];
-  function buildRoadInstances(L, M){
-    roadInstanced.forEach(m=> m.dispose());
-    roadInstanced = [];
-    const q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(),
-          sc = new THREE.Vector3(), mtx = new THREE.Matrix4(), col = new THREE.Color();
-    function make(geo, mat, list, place){
-      if(!list.length) return null;
-      const m = new THREE.InstancedMesh(geo, mat, list.length);
-      list.forEach((it, i)=>{ place(it, i, m); m.setMatrixAt(i, mtx); });
-      m.instanceMatrix.needsUpdate = true;
-      if(m.instanceColor) m.instanceColor.needsUpdate = true;
-      m.computeBoundingSphere();
-      m.matrixAutoUpdate = false;
-      m.updateMatrix();
-      scene.add(m);
-      roadInstanced.push(m);
-      return m;
-    }
-    const at = (x, y, z, ry, sx, sy, sz)=>{
-      e.set(0, ry || 0, 0); q.setFromEuler(e);
-      mtx.compose(v.set(x, y, z), q, sc.set(sx, sy, sz));
-    };
-    make(new THREE.CylinderGeometry(0.15, 0.24, 1, 7), M.trunkMat, L.trunks,
-      t=> at(t.x, t.y, t.z, 0, 1, t.h, 1));
-    make(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}), L.leaves,
-      (l, i, m)=>{ at(l.x, l.y, l.z, 0, l.r, l.r*0.85, l.r); m.setColorAt(i, col.setHex(l.color)); });
-    make(new THREE.BoxGeometry(1, 1, 1), M.stoneMat, L.stones,
-      b=> at(b.x, b.y, b.z, b.ry, b.sx, b.sy, b.sz));
-    make(new THREE.BoxGeometry(1, 1, 1), M.woodMat, L.woodBoxes,
-      b=> at(b.x, b.y, b.z, b.ry, b.sx, b.sy, b.sz));
-    // 柱は形(上下の半径・角の数)ごとに。道標の柱(0.12/0.14・8角)と休憩所の柱4本(0.10/0.12・6角)
-    const postKinds = new Map();
-    L.woodPosts.forEach(p=>{
-      const k = p.rTop + '/' + p.rBot + '/' + p.seg;
-      if(!postKinds.has(k)) postKinds.set(k, []);
-      postKinds.get(k).push(p);
-    });
-    postKinds.forEach(list=>{
-      const p0 = list[0];
-      make(new THREE.CylinderGeometry(p0.rTop, p0.rBot, 1, p0.seg), M.woodMat, list,
-        p=> at(p.x, p.y, p.z, 0, 1, p.h, 1));
-    });
-  }
 
   /* 影の旅人の姿。酒場の隅に座っていた人物(buildTavern)と同じ作り ――
      黒ずくめの装いに、足元だけ紫がかった影がまとわりつく */
@@ -149,7 +100,7 @@
     preJoinFigures = [];
   }
 
-  /* 仲間の立ち姿(休憩所に残る弓師と、最後の酒場の3人)。GUEST COMPANION
+  /* 仲間の立ち姿(道(新)の同行者・最後の酒場の3人)。GUEST COMPANION
      (08-loot-equipment.js)と同じ簡易な作り ―― 酒場のNPC共通の作法で、
      専用のリグは持たせない。クラスの色と、得物の目印だけ */
   function buildCastFigure(classKey){

@@ -24,3 +24,11 @@ test('出撃は scenarioWorldKey を通して建てる。旧道のワールド�
   assert.doesNotMatch(world, /\n\s*road:\s*\{ build:/, '旧道のワールドの定義は無い');
   assert.match(world, /\n\s*road2:\s*\{ build:/);
 });
+
+test('逆向き(ワールド → シナリオ): 道の敵の★は scenarioClears.road で決まる', async () => {
+  const { scenarioKeyForWorld } = await import('../../src/core/scenario-world.js');
+  assert.equal(scenarioKeyForWorld('road2'), 'road');
+  assert.equal(scenarioKeyForWorld('mansion'), 'mansion');
+  assert.equal(scenarioKeyForWorld('training'), 'training');
+  assert.match(read('06-player-enemy.js'), /scenarioStars\(scenarioKeyForWorld\(key\)\)/);
+});
