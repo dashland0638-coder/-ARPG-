@@ -466,6 +466,7 @@
       spawnEnemiesForWorld(key);
       spawnChestsForWorld(key);
       spawnAnomalyRiftForWorld(key);
+      setupWalkTalkForWorld(key);   // 歩きながらの掛け合い(第一章のシナリオの帯・話題の列を作り直す。14-walk-talk.js)
       playBgm(key, bgmVariantForWorld(key));   // procedural music if this world has no track registered (asset-manifest.js)
       combatIntensity = 0; setBgmIntensity(0);   // fresh room, not still "loud" from the last one
     }catch(err){

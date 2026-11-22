@@ -1934,6 +1934,7 @@
   function towerStoryOn(){ return clocktowerChapter1(); }
   let towerInsightDone = false, towerRepeatSeen = false, towerKeyTaken = false, towerFirstRingDone = false;
   let towerBridgeTalkDone = false, towerClutchTalkDone = false;
+  let towerStoppedSeen = false;   // 1 層で鐘が鳴り時が止まる出来事を見た(歩きながらの掛け合い T-2 の条件。出撃のたびに戻る)
   function towerEndScene(){ cutsceneHideLine(); state.dialogueActive = false; clearMovementInput(false); }
   function towerWalk(g, to, dur){
     if(!towerMech || !g) return;
@@ -1956,13 +1957,14 @@
 
   function buildClocktowerChapter1Story(slabY){
     towerInsightDone = false; towerRepeatSeen = false; towerKeyTaken = false; towerFirstRingDone = false;
-    towerBridgeTalkDone = false; towerClutchTalkDone = false;
+    towerBridgeTalkDone = false; towerClutchTalkDone = false; towerStoppedSeen = false;
     if(!clocktowerChapter1()) return;
     const R = CLASSES.rogue.name, A = CLASSES.archer.name, K = '管理人';
     const band = [-0.6, 6];
 
     /* T0: 頭上で鐘が鳴り、時が止まる。縦穴を見上げると、目的地の大時計の裏が光っている */
     registerRoomEvent({x0:-272, x1:-252, z0:46.5, z1:57.5}, 0, R, null, {band, marker:false, inset:0, onEnter:()=>{
+      towerStoppedSeen = true;
       let keeper = null;
       const figs = [];
       playCutscene([

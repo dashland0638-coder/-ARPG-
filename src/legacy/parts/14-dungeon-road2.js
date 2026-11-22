@@ -1372,7 +1372,6 @@
   let road2EchoNoticed = new Set();  // 段階的な伏線: 主人公が反応した(気づいた)場所の id(その出撃の間)
   let road2EchoSpent = new Set();    // 反応を終えて出た場所(もう二つ目の影を出さない)
   let road2Banter = newBanterState();
-  let road2BanterEl = null;
   /* 歩きながらの掛け合いの話題(操作を止めない帯。第一章の本編のルールだけ) */
   const ROAD2_BANTER = [
     {id:'B1-1', area:1, rect:{x0:1094, x1:1106, z0:14, z1:20}, lines:[
@@ -2089,33 +2088,11 @@
     E.mesh.geometry.attributes.position.needsUpdate = true;
   }
 
-  /* 歩きながらの掛け合い: 画面の下に一行ずつ(操作を止めない)。会話・演出・戦闘の間は止めて隠す */
-  function road2BanterElement(){
-    if(road2BanterEl) return road2BanterEl;
-    const zone = document.getElementById('hud-zone-bc');
-    if(!zone) return null;
-    const el = document.createElement('div');
-    el.id = 'road2-banter';
-    el.setAttribute('aria-live', 'polite');
-    // 下中央の帯の一番下。カメラ回転のボタン(下から 14〜48px)の上に置く
-    el.style.cssText = 'position:relative;order:99;max-width:min(46vw,420px);margin-bottom:40px;padding:4px 12px;border-radius:8px;'
-      + 'background:rgba(16,12,10,0.55);color:#efe6d2;font-size:14px;line-height:1.4;text-align:center;pointer-events:none;'
-      + 'display:none;text-shadow:0 1px 2px rgba(0,0,0,0.7);';
-    zone.appendChild(el);
-    road2BanterEl = el;
-    return el;
-  }
+  /* 歩きながらの掛け合い: 画面の下に一行ずつ(操作を止めない)。会話・演出・戦闘の間は止めて隠す。
+     表示と止める条件は共通(14-walk-talk.js walkTalkShow / walkTalkBlockNow。WALK-TALK-CH1 で共通の場所へ移した。見た目・動きは R3-1 のまま) */
   function road2UpdateBanter(dt){
-    const blocked = state.dialogueActive || cutsceneRunning() || state.paused || combatIntensity >= 0.35;
-    const line = stepBanter(road2Banter, dt || 0, blocked);
-    const el = road2BanterElement();
-    if(!el) return;
-    if(!line){ if(el.style.display !== 'none') el.style.display = 'none'; return; }
-    const text = `${line.name}${line.text}`;
-    if(el.textContent !== text) el.textContent = text;
-    if(el.style.display !== 'block') el.style.display = 'block';
+    walkTalkShow(stepBanter(road2Banter, dt || 0, !!walkTalkBlockNow()));
   }
-  function road2HideBanter(){ if(road2BanterEl) road2BanterEl.style.display = 'none'; }
 
   /* 羅針盤の表示(ミニマップの左。文字は出さない)。HTML の要素 1 つ(WebGL の描画は増えない) */
   let road2CompassEl = null, road2NeedleEl = null, road2CompassWidthT = 0;
@@ -2220,7 +2197,7 @@
   }
 
   function updateRoad2(dt){
-    if(currentWorldKey !== 'road2'){ road2HideCompass(); road2HideBanter(); return; }
+    if(currentWorldKey !== 'road2'){ road2HideCompass(); return; }   // 掛け合いの表示は updateWalkTalk が持つ(ワールドを建てる時にも隠す)
     road2Time += dt || 0;
     road2UpdateDaylight(dt);
     for(let i=0;i<road2SwayMats.length;i++){ const sh = road2SwayMats[i].userData.shader; if(sh) sh.uniforms.uRoad2Time.value = road2Time; }

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ROAD2_TERRAIN, road2Obstacles, road2HollowWalls, road2HollowInterior, road2Reachability, ROAD2_ROUTES, ROAD2_BANDS, ROAD2_ENTRY, areaAt } from '../../src/core/road-map.js';
 import { ROAD2_WALL_SHADOW, ROAD2_ECHO_ZONES, ROAD2_ECHO_LINES, ROAD2_ECHO_NOTICE_SEP, echoZoneAt, nearEchoZone, echoLineFor, shadowLightDir, shadowCastable, wallShadowReach, inWallShadowZone, pushPoseFrame, pickPoseFrame } from '../../src/core/road-wall-shadow.js';
-import { newBanterState, queueBanter, stepBanter, BANTER_LINE_SEC, BANTER_GAP_SEC } from '../../src/core/road-banter.js';
+import { newBanterState, queueBanter, stepBanter, BANTER_LINE_SEC, BANTER_GAP_SEC } from '../../src/core/walk-talk.js';
 
 const hollow = ROAD2_TERRAIN[1].obstacles.filter(o => o.hollow);
 

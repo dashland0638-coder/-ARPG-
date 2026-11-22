@@ -103,7 +103,7 @@ const PROBE = `
     return {sway: R.postShadow.rotation.z, grassW: R.postSway || 0, shadowDot: dot, fig: !!(R.figure && R.figure.visible), hill: !!R.hillSeen}; },
   echoState(){ return {noticed: [...road2EchoNoticed], spent: [...road2EchoSpent], area: road2CurrentAreaId}; },
   roofs(){ return road2HollowRoofs.map(r=> ({id: r.id, vis: r.mesh.visible})); },
-  banter(){ const el = document.getElementById('road2-banter'); if(!el || el.style.display === 'none') return null;
+  banter(){ const el = document.getElementById('walk-talk'); if(!el || el.style.display === 'none') return null;
     const r = el.getBoundingClientRect(); return {text: el.textContent, pe: getComputedStyle(el).pointerEvents, rect: {l:r.left, t:r.top, r:r.right, b:r.bottom}}; },
   loreDbg(){ return {near: nearbyLore && nearbyLore.title, door: !!nearbyDoor, stairs: !!nearbyStairs, pos:[state.pos.x, state.pos.y, state.pos.z], lores: loreObjects.map(l=> [l.title, +state.pos.distanceTo(l.pos).toFixed(2)])}; },
   rects(ids){ return ids.map(id=>{ const el = document.getElementById(id); if(!el) return null; const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
