@@ -1430,6 +1430,7 @@
       updateTavernBgmStage();   // 酒場 BGM の加入段階(交代の会話・第一章の最後の会話の後で次の段へ)。他では即 return
       updatePreJoinFigures(dt); // 影の旅人の加入前の姿の遅れる影(時計塔の島・酒場・道)。ワールドを問わない
       updateRoad2(dt);         // 新しい道(ROAD-VISUAL-003)。他のワールドでは即return
+      updateWalkTalk(dt);      // 歩きながらの掛け合い(第一章の村・幽霊船・時計塔。14-walk-talk.js)。道(新)は updateRoad2 が流す
       updateGhostShip(dt);     // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。他のワールドでは即return
       updateCutscene(dt);
       updateSwingVFX(dt);
@@ -1511,6 +1512,7 @@
       updateTavernBgmStage();
       updatePreJoinFigures(dt);
       updateRoad2(dt);
+      updateWalkTalkBlocked(dt);   // 演出の間は掛け合いを隠す
       updateGhostShip(dt);
       updateShake(dt);
       updateSparks(dt);
@@ -1532,6 +1534,7 @@
       /* 島の遠景の人影(showIslandStranger)は、島の地の文を読んでいる間に
          歩いていく。加入前の人物を動かすだけで、他のワールドでは何もしない */
       updatePreJoinFigures(dt);
+      updateWalkTalkBlocked(dt);   // 会話の窓の間は掛け合いを隠す(道(新)の行も。止めた所から会話の後に続ける)
       // controller support for reading dialogue/lore notes and the clear/down screens
       // (#25: クリア/戦闘不能画面はボス報酬選択・ステータス振り分け・
       // 「探索を続ける」等の選択肢を持つため、単なるA=決定固定ではなく
@@ -1540,6 +1543,7 @@
       if(gp) updateGamepadMenuNav(gp, dt);
     } else if(state.started && state.paused){
       hideMobBars();
+      walkTalkHide();   // 一時停止の間は掛け合いを隠す(W-2。止めた所から再開後に続ける)
       clearMovementInput(false); wasPlayable = false;
       const gp = pollGamepad();
       if(gp){
