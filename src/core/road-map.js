@@ -387,6 +387,13 @@ export const ROAD2_VALE = Object.freeze({
   ruins: Object.freeze({x:1141.5, z:353.2}),
   ledge: Object.freeze({x0:1045, x1:1055, z0:368, z1:384}),
 });
+/* AREA 5 道の果ての最終戦(R3-5、設計 §7・ROAD-VISUAL-004 §3-2)。石環の外の草原(直径 40 m)。
+   R5-02 の石環の語らいの後に、草原の奥から「高原の大角」が出る。段階の境目は HP 65% / 30%(他のボスと同じ) */
+export const ROAD2_FINALE = Object.freeze({
+  spawn: Object.freeze({x:1100, z:744}),   // 石環(中心 z 715、半径 12)の北の外の草原
+  phases: Object.freeze([0.65, 0.30]),
+  leave: Object.freeze({x:1150, z:756}),   // 倒した後に去っていく先(草原の奥)
+});
 export const ROAD2_GUIDEPOSTS = Object.freeze([[1091, 155], [1107, 312]]);   // 原野の道標は旧道の分かれの側(東の岩場の割れ目から離す)
 export const ROAD2_LANTERNS = Object.freeze([[1062, 474], [1069, 489], [1102, 490], [1102, 516], [1075.5, 526.5], [1082, 572], [1140, 618]]);
 export function road2ForestTrees(){
