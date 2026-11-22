@@ -54,7 +54,7 @@ const PROBE = `
   pickerOpen(){ const el = document.getElementById('road2-support'); return !!el && el.classList.contains('active'); },
   pickerOptions(){ return Array.from(document.querySelectorAll('#road2-support [data-road2-support]')).map(b=> b.dataset.road2Support); },
   // 出撃し直す: 本編と同じく酒場を経てから(同じワールドのままだと buildWorld が組み直さない)
-  relaunch(){ buildWorld('tavern'); launchScenarioNow('road2'); return true; },
+  relaunch(){ buildWorld('tavern'); launchScenarioNow('road'); return true; },
   menu(){ toggleMenu(); return state.activeOverlay; },
   pressInteract(){ interact(); return state.activeOverlay; },
   spawnFoe(dx, dz){
@@ -90,7 +90,7 @@ async function enter(page, opts) {
     await route.fulfill({ response: res, body: (await res.text()) + PROBE });
   });
   await openGame(page);
-  await startTestMode(page, Object.assign({ scenario: 'road2' }, opts));
+  await startTestMode(page, Object.assign({ scenario: 'road' }, opts));
   await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
   await page.waitForFunction(() => /** @type {any} */ (window).__rc);
   return (fn, ...a) => page.evaluate(([fn, a]) => /** @type {any} */ (window).__rc[fn](...a), [fn, a]);

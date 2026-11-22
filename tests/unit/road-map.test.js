@@ -40,7 +40,7 @@ test('入口・野営地は自分のエリアの中。野営地はエリアご�
     assert.ok(Math.abs(road2GroundAt(c.x, c.z) - c.y) < 1e-6, `野営地 ${c.area} の高さ`);
   });
   // テストモードの開始地点の高さも床と同じ
-  SCENARIO_WAYPOINTS.road2.forEach(w => assert.ok(Math.abs(road2GroundAt(w.x, w.z) - w.y) < 1e-6, w.id));
+  SCENARIO_WAYPOINTS.road.forEach(w => assert.ok(Math.abs(road2GroundAt(w.x, w.z) - w.y) < 1e-6, w.id));
 });
 
 test('通り道の点は、そのエリア(か境の上)にある。メインルートはエリアをまたいでつながる', () => {
@@ -74,7 +74,7 @@ test('会話の帯はそのエリアの z の中で、重ならず、南から�
   const meet = ROAD2_BANDS.find(b => b.id === 'R4-00'), camp4 = ROAD2_CAMPS.find(c => c.area === 4);
   assert.equal(meet.area, 4);
   assert.ok(meet.z0 > camp4.z && meet.z0 - camp4.z <= 6, `野営地 ${camp4.z} の北 / 帯 ${meet.z0}`);
-  const wp4 = SCENARIO_WAYPOINTS.road2.find(w => w.id === 'mountain');
+  const wp4 = SCENARIO_WAYPOINTS.road.find(w => w.id === 'mountain');
   assert.ok(wp4.z < meet.z0 - 2, '入口の開始地点は出会いの帯の外');
 });
 
@@ -106,19 +106,21 @@ test('歩けない所の当たりは、エリアの長方形と重ならず、�
   }
 });
 
-test('テストモードだけに出る(本編の第一章の順には入らない)', () => {
-  assert.equal(chapterOfScenario('road2'), 'wip');
-  assert.ok(!CHAPTER1_ORDER.includes('road2'));
-  assert.ok(!TEST_CHAPTERS.find(c => c.id === 'ch1').scenarios.includes('road2'));
-  // 開始地点はエリア 2〜5 の入口
+test('本編の第一章の「道」として出る(R3-7、DEC-032)。テストモードの作業中の組・旧道の地点は無い', () => {
+  assert.equal(chapterOfScenario('road'), 'ch1');
+  assert.equal(chapterOfScenario('road2'), null);
+  assert.ok(!TEST_CHAPTERS.some(c => c.id === 'wip'));
+  assert.equal(CHAPTER1_ORDER[CHAPTER1_ORDER.length - 1], 'road');
+  assert.ok(!('road2' in SCENARIO_WAYPOINTS));
+  assert.ok(!SCENARIO_WAYPOINTS.road.some(w => w.x < 900), '旧道(x 640)の地点は残さない');
   // 開始地点はエリア 2〜5 の入口と、山道の加入後(R3-N-FIX-01)
-  assert.deepEqual(SCENARIO_WAYPOINTS.road2.map(w => areaAt(w.x, w.z).id), [2, 3, 4, 4, 5]);
-  assert.deepEqual(SCENARIO_WAYPOINTS.road2.filter(w => w.road2Join).map(w => w.id), ['joined']);
+  assert.deepEqual(SCENARIO_WAYPOINTS.road.map(w => areaAt(w.x, w.z).id), [2, 3, 4, 4, 5]);
+  assert.deepEqual(SCENARIO_WAYPOINTS.road.filter(w => w.road2Join).map(w => w.id), ['joined']);
   // 開始地点は当たりの外(岩の張り出しの中に置くと押し出されて、帯の中へ入ってしまう。R3-4b)
   const obs = road2Obstacles();
-  SCENARIO_WAYPOINTS.road2.forEach(w => assert.ok(!obs.some(o => w.x > o.x0 - 0.6 && w.x < o.x1 + 0.6 && w.z > o.z0 - 0.6 && w.z < o.z1 + 0.6), `${w.id} は当たりの外`));
+  SCENARIO_WAYPOINTS.road.forEach(w => assert.ok(!obs.some(o => w.x > o.x0 - 0.6 && w.x < o.x1 + 0.6 && w.z > o.z0 - 0.6 && w.z < o.z1 + 0.6), `${w.id} は当たりの外`));
   // 「加入後」は会話の帯の外(着いてすぐ会話が始まらない)
-  const joinedWp = SCENARIO_WAYPOINTS.road2.find(w => w.id === 'joined');
+  const joinedWp = SCENARIO_WAYPOINTS.road.find(w => w.id === 'joined');
   ROAD2_BANDS.filter(b => b.area === 4).forEach(b => assert.ok(!(joinedWp.z > b.z0 && joinedWp.z < b.z1), `加入後の開始地点は ${b.id} の外`));
 });
 

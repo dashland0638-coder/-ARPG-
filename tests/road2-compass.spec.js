@@ -72,7 +72,7 @@ async function enter(page) {
   });
   await openGame(page);
   // level を渡すと旧成長のルールになる(第一章の台詞が出ない)。本編と同じ現行のルールで入る
-  await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'road2' });
+  await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'road' });
   await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
   await page.waitForFunction(() => /** @type {any} */ (window).__rc);
   return (fn, ...a) => page.evaluate(([fn, a]) => /** @type {any} */ (window).__rc[fn](...a), [fn, a]);
@@ -206,7 +206,7 @@ test('顔ぶれ: テストの選択で操作し、正規の支援がつく。野
     await route.fulfill({ response: res, body: (await res.text()) + PROBE });
   });
   await openGame(page);
-  await startTestMode(page, { classKey: 'warrior', scenario: 'road2' });
+  await startTestMode(page, { classKey: 'warrior', scenario: 'road' });
   await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
   await page.waitForFunction(() => /** @type {any} */ (window).__rc);
   const R = (fn, ...a) => page.evaluate(([fn, a]) => /** @type {any} */ (window).__rc[fn](...a), [fn, a]);
@@ -256,7 +256,7 @@ test('顔ぶれ: 開始地点「忘れられた山道（加入後）」から、
     await route.fulfill({ response: res, body: (await res.text()) + PROBE });
   });
   await openGame(page);
-  await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'road2', waypoint: 'joined' });
+  await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'road', waypoint: 'joined' });
   await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
   await page.waitForFunction(() => /** @type {any} */ (window).__rc);
   const R = (fn, ...a) => page.evaluate(([fn, a]) => /** @type {any} */ (window).__rc[fn](...a), [fn, a]);

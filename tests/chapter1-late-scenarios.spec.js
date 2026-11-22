@@ -212,7 +212,6 @@ async function nearestDot(page, rgb) {
   }, rgb);
 }
 const nearestEnemy = page => nearestDot(page, [0xe0, 0x57, 0x4a]);
-const nearestEventMark = page => nearestDot(page, [0xff, 0xcf, 0x4a]);
 /* 点の向きへ 1 歩(押している間だけ進む) */
 async function stepToward(page, dot) {
   const keys = [];
@@ -230,21 +229,20 @@ test.describe('第一章（本編）: 本物の戦闘不能', () => {
     const clears = { mansion: 1, duskvillage: 1, ghostship: 1, clocktower: 1 };
     await continueFrom(page, saveWith({ clears, selectedClass: 'rogue', guestClassKey: 'archer', playerName: '盗賊', gold: 100 }));
     await expect(page.locator('#hud-name')).toHaveText('盗賊 ｜ 支援: 弓師');
-    const talk = await sortie(page, 'road', '名もなき街道');
+    const talk = await sortie(page, 'road', '道 — その先へ');
     // 出撃の会話の終わり: 「探してくる。」→ 主人 → 盗賊の締め(行方不明の人を探す場面の一言。DEC-016)
     expect(talk.slice(-3)).toEqual(['盗賊|探してくる。', '酒場の主人|街道は一本だ。迷いはせん。……明るいうちに戻れよ。', '盗賊|ああ。日が落ちる前にな。']);
     await disableCameraAutoFollow(page);
 
-    /* 道を北へ進み(まだ起きていないイベントの「!」= 道標の方へ)、戦闘1の獣の近くで立ち止まる
-       (攻撃しない)。倒されるまで、獣が離れたら寄る */
+    /* 道(道 — その先へ、R3-7)を入口から北へ進み、宿場の通りの戦闘(F1-1)の敵の近くで立ち止まる
+       (攻撃しない)。倒されるまで、敵が離れたら寄る */
     const downActive = () => page.evaluate(() => document.getElementById('down-overlay').classList.contains('active'));
     for (let i = 0; i < 3000 && !(await downActive()); i++) {
       if (await overlayActive(page)) { await page.evaluate(() => document.getElementById('dialogue-overlay').click()); continue; }
       const en = await nearestEnemy(page);
       if (en && en.dist <= 2.5) { await page.waitForTimeout(500); continue; }
-      const target = en || await nearestEventMark(page);
-      // どちらも見えなければ道なりに北(出撃直後の camYaw では W+D が北。mansion-scenario.spec.js)
-      await stepToward(page, target || { up: 1, right: 1 });
+      // 敵が見えなければ道なりに北(入口は北を向いて出る。camYaw = π で W が北)
+      await stepToward(page, en || { up: 1, right: 0 });
     }
     await expect(page.locator('#down-overlay'), '倒されると戦闘不能の画面が出る').toHaveClass(/active/);
     await expect(page.locator('#down-overlay .down-title')).toHaveText('力尽きた……');

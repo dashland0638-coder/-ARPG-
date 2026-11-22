@@ -23,7 +23,7 @@ const CH1 = [
   { key: 'duskvillage', area: '宵待ちの村' },
   { key: 'ghostship', area: '幽霊船' },
   { key: 'clocktower', area: '狂いの時計塔' },
-  { key: 'road', area: '名もなき街道' },
+  { key: 'road', area: '道 — その先へ' },
 ];
 
 /* 洋館をクリアした剣士のセーブ(tests/chapter1-progression.spec.js と同じ形)。
@@ -101,10 +101,11 @@ test.describe('テスト用チャプター／シナリオ選択', () => {
     await openGame(page);
     await openTestScreen(page);
 
-    // チャプター: 第一章(既定で選択) と 章外のシナリオ と 作業中のシナリオ(ROAD-VISUAL-003 の新しい道)
+    // チャプター: 第一章(既定で選択) と 章外のシナリオ。作業中のシナリオの組は R3-7 で消した(道 — その先へ は第一章の道)
     const chapters = cards(page, 'testmode-chapter-grid');
-    await expect(chapters).toHaveCount(3);
-    expect(await chapters.evaluateAll(els => els.map(e => e.dataset.chapterId))).toEqual(['ch1', 'extra', 'wip']);
+    await expect(chapters).toHaveCount(2);
+    expect(await chapters.evaluateAll(els => els.map(e => e.dataset.chapterId))).toEqual(['ch1', 'extra']);
+    await expect(page.locator('[data-scenario-key="road2"]')).toHaveCount(0);
     await expect(page.locator('#testmode-chapter-grid [data-chapter-id="ch1"]')).toHaveClass(/selected/);
     await expect(page.locator('#testmode-chapter-grid [data-chapter-id="ch1"]')).toHaveText('第一章');
 
@@ -139,7 +140,7 @@ test.describe('テスト用チャプター／シナリオ選択', () => {
       await expect(page.locator('#testmode-waypoint-grid [data-start-kind="boss-start"]')).toHaveCount(0);
     }
 
-    // 道にはボスがいない: ボス戦直前・開始は出ない(選べない)
+    // 道の最終戦(高原の大角)は石環の帯で始まるので、ボス戦直前・開始の地点は持たない(選べない。途中の地点は道の果ての入口まで)
     await page.click('#testmode-scenario-grid [data-scenario-key="road"]');
     await expect(page.locator('#testmode-waypoint-grid [data-start-kind="boss-pre"]')).toHaveCount(0);
     await expect(page.locator('#testmode-waypoint-grid [data-start-kind="boss-start"]')).toHaveCount(0);

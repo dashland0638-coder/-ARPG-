@@ -1,6 +1,5 @@
-/* ROAD-VISUAL-002(道の見た目の改良)で変えてはいけないもの、と段階1の InstancedMesh。
-   見た目だけの改良なので、イベントの帯・敵の位置・遅れる影の秒数・灯りの数は
-   どの段階でもこのままであることを本物のソースから確かめる */
+/* ROAD-VISUAL-002 段階1 の InstancedMesh(buildRoadInstances、道(新)も使う)と、
+   第一章の終わりの共通部分(14-dungeon-road.js)に旧道が残っていないこと(R3-7、DEC-032) */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,37 +12,17 @@ const read = f => fs.readFileSync(path.join(root, 'src/legacy/parts', f), 'utf8'
 const road = read('14-dungeon-road.js');
 const combat = read('07-ai-combat.js');
 
-test('道の長さ・主要な位置は変えない', () => {
-  assert.match(road, /const ROAD_X = 640;/);
-  assert.match(road, /const ROAD_ENTRY = new THREE\.Vector3\(ROAD_X, 0, 2\);/);
-  assert.match(road, /const ROAD_BOUNDS = \{x0:ROAD_X-14, x1:ROAD_X\+14, z0:-6, z1:112\};/);
-  assert.match(road, /const ROAD_SIGN_POS {2}= new THREE\.Vector3\(ROAD_X\+3\.2, 0, 16\);/);
-  assert.match(road, /const ROAD_BRIDGE_Z {2}= 60;/);
-  assert.match(road, /const ROAD_REST_POS {2}= new THREE\.Vector3\(ROAD_X\+2\.4, 0, 80\.5\);/);
-  assert.match(road, /const ROAD_HILL_POS {2}= new THREE\.Vector3\(ROAD_X, 0, 104\);/);
-});
-
-test('イベントの帯と順番は変えない(道標 → 橋 → 休憩所 → 丘)', () => {
-  const bands = [...road.matchAll(/area: band\(([^()]*)\),/g)].map(m => m[1]);
-  assert.deepEqual(bands, ['12, 18', 'ROAD_BRIDGE_Z - 6, ROAD_BRIDGE_Z - 2', '71, 76', '99, ROAD_BOUNDS.z1 + 1']);
-  assert.match(road, /area: band\(99, ROAD_BOUNDS\.z1 \+ 1\),\s*condition: \(\)=> roadMet && roadFight2Done,/);
-  const order = ['playRoadSignpost()', 'playRoadGlimpse()', 'playRoadMeeting()', 'playRoadEnding()']
-    .map(s => road.indexOf(`onEnter: ()=> ${s}`));
-  order.forEach(i => assert.ok(i > 0));
-  assert.deepEqual([...order].sort((a, b) => a - b), order);
-});
-
-test('敵の位置は変えない(戦闘1・戦闘2)', () => {
-  assert.match(combat, /new THREE\.Vector3\(ROAD_X - 3, 0, 38\), Object\.assign\(\{\}, ROAD_BEAST\)/);
-  assert.match(combat, /new THREE\.Vector3\(ROAD_X \+ 4, 0, 42\), Object\.assign\(\{\}, ROAD_BEAST\)/);
-  assert.match(combat, /new THREE\.Vector3\(ROAD_X \+ 0\.5, 0, 49\), Object\.assign\(\{\}, ROAD_SPITTER\)/);
-  assert.match(road, /\[\[ROAD_X - 7, 88, ROAD_BEAST\],\s*\[ROAD_X \+ 7, 90, ROAD_BEAST\],\s*\[ROAD_X \+ 1, 95, ROAD_SPITTER\]\]/);
-});
-
-test('加入前の影の遅れは 0.45 秒のまま。灯り(点光源)は増やさない', () => {
+test('加入前の影の遅れは 0.45 秒のまま。共有部分に灯り(点光源)は置かない', () => {
   assert.match(road, /const PRE_JOIN_SHADOW_LAG = 0\.45;/);
-  assert.equal((road.match(/new THREE\.PointLight\(/g) || []).length, 1, '点光源は sunFill だけ');
+  assert.doesNotMatch(road, /new THREE\.PointLight\(/);
   assert.doesNotMatch(road, /new THREE\.SpotLight\(/);
+});
+
+test('旧道(名もなき街道)のワールド・一幕・敵は残さない(R3-7、DEC-032)', () => {
+  for (const name of ['ROAD_X', 'ROAD_ENTRY', 'ROAD_BOUNDS', 'ROAD_BEAST', 'ROAD_SPITTER', 'function buildRoad(', 'function roadHandOff', 'function finishRoad', 'function playRoadMeeting']) {
+    assert.ok(!road.includes(name), name);
+  }
+  assert.ok(!/_spawnWorldKey==='road'/.test(combat), '旧道の湧きは無い');
 });
 
 // buildRoadInstances を本物の three で動かす

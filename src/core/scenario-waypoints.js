@@ -35,7 +35,6 @@ export const SCENARIO_WAYPOINTS = {
     {id:'bossgate', name:'水鏡の跡の手前', x:0, z:495, kind:'boss-pre'},
     {id:'boss',     name:'水鏡の跡',   x:0,    z:515, kind:'boss-start'},
   ],
-  // 道(WORK 11)。x は ROAD_X(14-dungeon-road.js)と同じ 640
   /* ボス戦直前・開始(TEST-CHAPTER-SELECT-001)。座標の根拠は .ai/reports/TEST-CHAPTER-SELECT-001-analysis.md。
      どれも本編でその場所へ着く時と同じ位置(階段の着地点など)で、進行フラグ・扉・ボスの状態には触らない。
      y を持つ地点は上の階(床の高さ)。持たないものは地面(y:0) */
@@ -88,8 +87,8 @@ export const SCENARIO_WAYPOINTS = {
     // 母樹の間の扉の前の通路(調べると開く)
     {id:'bossdoor', name:'母樹の間の扉の前', x:226, z:61, kind:'boss-pre'},
   ],
-  /* 新しい道(ROAD-VISUAL-003)。各エリアの入口の野営地(core/road-map.js ROAD2_CAMPS と同じ位置の手前) */
-  road2: [
+  /* 道(第一章の最後。ROAD-VISUAL-003、ワールドは 'road2'、DEC-032)。各エリアの入口の野営地(core/road-map.js ROAD2_CAMPS と同じ位置の手前) */
+  road: [
     // y は床の高さ(R3-T の地形: 原野 1・谷底 -2・山道 1・高原 8)
     {id:'moor',     name:'風渡る原野の入口',     x:1100, z:116, y:1},
     {id:'vale',     name:'水鏡の谷の入口',       x:1100, z:322, y:-2},
@@ -97,11 +96,6 @@ export const SCENARIO_WAYPOINTS = {
     // 加入の後(影の旅人が主人公・盗賊が支援)から試す。着くと一幕なしで正規の加入処理(R3-N-FIX-01)
     {id:'joined',   name:'忘れられた山道（加入後）', x:1066, z:477, y:1, road2Join:true},   // 森の帯(R4-01、468〜476)と N-3(478〜)のあいだ(着いてすぐ会話が始まらない。R3-4b)
     {id:'end',      name:'道の果ての入口',       x:1100, z:646, y:8},
-  ],
-  road: [
-    {id:'sign',     name:'道標',       x:640,  z:12},
-    {id:'bridge',   name:'小川の橋',   x:640,  z:52},
-    {id:'rest',     name:'休憩所の手前', x:640, z:68},
   ],
 };
 
