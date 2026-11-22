@@ -58,7 +58,7 @@ const PROBE = `
   menu(){ toggleMenu(); return state.activeOverlay; },
   pressInteract(){ interact(); return state.activeOverlay; },
   spawnFoe(dx, dz){
-    const en = buildEnemy(new THREE.Vector3(state.pos.x + dx, state.pos.y, state.pos.z + dz), Object.assign({}, ROAD_BEAST, {hp:4000, atk:1}));
+    const en = buildEnemy(new THREE.Vector3(state.pos.x + dx, state.pos.y, state.pos.z + dz), Object.assign({}, ROAD2_FOES.roadEater, {hp:4000, atk:1}));
     enemies.push(en); window.__foe = en; return true;
   },
   foe(){ const en = window.__foe; return en ? {hp: en.hp, maxHp: en.maxHp, dead: !!en.dead} : null; },
