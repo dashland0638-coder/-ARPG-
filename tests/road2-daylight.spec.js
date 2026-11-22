@@ -16,6 +16,14 @@ const PROBE = `
   worldLight(){ return {world: currentWorldKey, off: sunOffset.slice(), sunI: sunLight.intensity, exp: renderer.toneMappingExposure}; },
   toTavern(){ buildWorld('tavern'); return true; },
   setArea(a){ state.roadArea = a; return true; },
+  lumAt(p, deep){ road2DayPos = road2DayTarget = p; road2DeepW = deep || 0; road2ApplyDaylight();
+    return new Promise(res=>{ camera.updateMatrixWorld(); renderer.render(scene, camera); const url = renderer.domElement.toDataURL('image/png'); const im = new Image();
+    im.onload = ()=>{ const W = 160, H = Math.round(160 * im.height / im.width); const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'); c.drawImage(im, 0, 0, W, H);
+      const d = c.getImageData(0, 0, W, H).data; let all = 0, n = 0, mid = 0, m = 0;
+      for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i = (y*W + x)*4; const L = 0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2]; all += L; n++;
+        if(x > W*0.4 && x < W*0.6 && y > H*0.35 && y < H*0.75){ mid += L; m++; } }
+      res({all: all/n, mid: mid/m, pos: road2DayPos, deep: road2DeepW}); }; im.src = url; }); },
+
   normalBias(){ return sunLight.shadow.normalBias; },
   go(x, z, yaw){
     const g = road2GroundAt(x, z);
@@ -219,5 +227,28 @@ test('一日の旅路: 出撃し直すと、到達したエリアから時間帯
   await R('toTavern');
   await page.waitForTimeout(500);
   expect(await R('normalBias'), '他のワールドへは持ち越さない').toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('一日の旅路(T7): 夜・深夜・夜明けの始まりでも、道と主人公が見える明るさを保つ(暗さの順は 昼 > 夕暮れ > 夜 > 深夜)', async ({ page }) => {
+  test.setTimeout(300_000);
+  const errors = watchErrors(page);
+  const R = await enter(page, { classKey: 'rogue', guestKey: 'archer', waypoint: 'joined' });
+  await expect.poll(async () => (await R('cast')).joined, { timeout: 30_000 }).toBe(true);
+  /** @type {Record<string, number>} */
+  const mid = {};
+  for (const [name, p, deep] of /** @type {[string, number, number][]} */ ([['day', 0, 0], ['sunset', 2, 0], ['night', 3, 0], ['deep', 3, 1], ['dawn', 4, 0]])) {
+    const L = await page.evaluate(([p, d]) => /** @type {any} */ (window).__rc.lumAt(p, d), [p, deep]);
+    mid[name] = L.mid;
+    const d = await R('day');
+    expect(d.hemi, `${name}: 半球光は範囲の中`).toBeGreaterThanOrEqual(0.13 - 1e-6);
+    expect(d.sunI, `${name}: 太陽は範囲の中`).toBeLessThanOrEqual(0.95 + 1e-6);
+  }
+  expect(mid.night, '夜でも道と主人公が見える').toBeGreaterThanOrEqual(17);
+  expect(mid.deep, '深夜(古き守り手の戦闘)でも見える').toBeGreaterThanOrEqual(13);
+  expect(mid.dawn, '夜明けの始まり(紺)も見える').toBeGreaterThanOrEqual(16);
+  expect(mid.day).toBeGreaterThan(mid.sunset);
+  expect(mid.sunset).toBeGreaterThan(mid.deep);
+  expect(mid.night, '深夜は夜より暗い').toBeGreaterThan(mid.deep);
   expect(errors).toEqual([]);
 });
