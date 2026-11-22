@@ -107,3 +107,35 @@ test('宿場の戦闘(R3-1): F1-1 通りの道喰らい ×2(必ず)、F1-2 裏�
   // 同時に 4 体まで: 通りの戦闘(2)と裏庭の戦闘(3)は合わせると 5。裏庭は foesFit で通りの敵が減るまで出ない
   assert.ok(by['F1-1'].waves[0].length + by['F1-2'].waves[0].length > 4, '重なると超える組み合わせ(foesFit で止める)');
 });
+
+test('原野の戦闘(R3-2): F2-1 街道の群れ ×3(必ず)・F2-2 旧道・F2-S 岩場の強敵・F2-X 岩場の奥(二波)。DEC-031 の場所と重ならない', async () => {
+  const { ROAD2_ECHO_ZONES } = await import('../../src/core/road-wall-shadow.js');
+  const F2 = ROAD2_FIGHTS.filter(f => f.area === 2), by = Object.fromEntries(F2.map(f => [f.id, f]));
+  assert.deepEqual(Object.keys(by), ['F2-1', 'F2-2', 'F2-S', 'F2-X']);
+  assert.deepEqual(by['F2-1'].waves.map(w => w.map(e => e.kind)), [['moorBeast', 'moorBeast', 'moorBeast']]);
+  assert.deepEqual(by['F2-2'].waves.map(w => w.map(e => e.kind).sort()), [['beast', 'beast', 'spitter']]);
+  assert.deepEqual(by['F2-S'].waves.map(w => w.map(e => e.kind)), [['rockFang']]);
+  assert.deepEqual(by['F2-X'].waves.map(w => w.map(e => e.kind)), [['rockFang'], ['moorBeast', 'moorBeast', 'moorBeast']], '強敵 1 → 群れ 3 の二波');
+  assert.deepEqual(F2.filter(f => f.must).map(f => f.id), ['F2-1'], '必ず通るのは F2-1 だけ');
+  assert.ok(F2.every(f => !f.afterJoin), '加入を条件にしない');
+  const route = (kind, i = 0) => ROAD2_ROUTES.filter(r => r.area === 2 && r.kind === kind)[i].pts;
+  const crosses = (pts, rect) => {
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, az] = pts[i - 1], [bx, bz] = pts[i];
+      for (let k = 0; k <= 60; k++) { const t = k / 60; if (inRect(ax + (bx - ax) * t, az + (bz - az) * t, rect)) return true; }
+    }
+    return false;
+  };
+  assert.ok(crosses(route('main'), by['F2-1'].trigger), 'F2-1 は街道の上');
+  assert.ok(crosses(route('side'), by['F2-2'].trigger), 'F2-2 は旧道の上');
+  assert.ok(!crosses(route('main'), by['F2-2'].trigger), 'F2-2 は街道からは出ない');
+  ['F2-S', 'F2-X'].forEach(id => {
+    assert.ok(crosses(route('hidden'), by[id].trigger), `${id} は東の岩場(隠し道)の上`);
+    assert.ok(by[id].waves.flat().every(e => e.x > 1152), `${id} の敵は岩の尾根の東`);
+  });
+  // 二つ目の影の場所(DEC-031 E2)では戦闘を始めない(気づく前に戦闘で隠れない)
+  const E2 = ROAD2_ECHO_ZONES.find(z => z.id === 'E2').rect;
+  F2.forEach(f => assert.ok(f.trigger.z1 <= E2.z0 || f.trigger.z0 >= E2.z1 || f.trigger.x1 <= E2.x0 || f.trigger.x0 >= E2.x1, `${f.id} の帯は E2 と重ならない`));
+  // 同時に 4 体まで(一波ごと)
+  F2.forEach(f => f.waves.forEach(w => assert.ok(w.length <= 4)));
+});
