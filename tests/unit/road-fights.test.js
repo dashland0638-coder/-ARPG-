@@ -139,3 +139,35 @@ test('原野の戦闘(R3-2): F2-1 街道の群れ ×3(必ず)・F2-2 旧道・F2
   // 同時に 4 体まで(一波ごと)
   F2.forEach(f => f.waves.forEach(w => assert.ok(w.length <= 4)));
 });
+
+test('谷の戦闘(R3-3): F3-1 川沿い・F3-2 狭い渓谷(一列、必ず)・F3-S 水辺の強敵・F3-H 隠しの淵の大鰻。DEC-031 の場所と重ならない', async () => {
+  const { ROAD2_ECHO_ZONES } = await import('../../src/core/road-wall-shadow.js');
+  const F3 = ROAD2_FIGHTS.filter(f => f.area === 3), by = Object.fromEntries(F3.map(f => [f.id, f]));
+  assert.deepEqual(Object.keys(by), ['F3-1', 'F3-2', 'F3-S', 'F3-H']);
+  assert.deepEqual(by['F3-1'].waves.map(w => w.map(e => e.kind).sort()), [['spitter', 'waterMob', 'waterMob']]);
+  assert.deepEqual(by['F3-2'].waves.map(w => w.map(e => e.kind)), [['waterMob', 'waterMob', 'waterMob']]);
+  assert.deepEqual(by['F3-S'].waves.map(w => w.map(e => e.kind)), [['creeper']]);
+  assert.deepEqual(by['F3-H'].waves.map(w => w.map(e => e.kind)), [['greatEel']]);
+  assert.deepEqual(F3.filter(f => f.must).map(f => f.id), ['F3-1', 'F3-2'], '必ず通るのは F3-1・F3-2');
+  // 一列で来る(F3-2): 道の向き(南西 → 北)に沿って並ぶ
+  const line = by['F3-2'].waves[0];
+  for (let i = 1; i < line.length; i++) assert.ok(line[i].z > line[i - 1].z, 'z の順に並ぶ');
+  const route = kind => ROAD2_ROUTES.filter(r => r.area === 3 && r.kind === kind);
+  const crosses = (pts, rect) => {
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, az] = pts[i - 1], [bx, bz] = pts[i];
+      for (let k = 0; k <= 60; k++) { const t = k / 60; if (inRect(ax + (bx - ax) * t, az + (bz - az) * t, rect)) return true; }
+    }
+    return false;
+  };
+  ['F3-1', 'F3-2'].forEach(id => assert.ok(crosses(route('main')[0].pts, by[id].trigger), `${id} は本道の上`));
+  assert.ok(route('side').some(r => crosses(r.pts, by['F3-S'].trigger)), 'F3-S は浅瀬の遺構への寄り道の上');
+  assert.ok(!crosses(route('main')[0].pts, by['F3-S'].trigger), 'F3-S は本道からは出ない');
+  assert.ok(crosses(route('hidden')[0].pts, by['F3-H'].trigger), 'F3-H は滝の裏の隠し道の出口');
+  assert.ok(!crosses(route('main')[0].pts, by['F3-H'].trigger), 'F3-H は本道からは出ない');
+  const E3 = ROAD2_ECHO_ZONES.find(z => z.id === 'E3').rect;
+  F3.forEach(f => assert.ok(f.trigger.z1 <= E3.z0 || f.trigger.z0 >= E3.z1 || f.trigger.x1 <= E3.x0 || f.trigger.x0 >= E3.x1, `${f.id} の帯は E3 と重ならない`));
+  // 必ず出る会話の帯(R3-02 水面・R3-03 橋)と、必ずの戦闘の帯は重ならない
+  ['R3-02', 'R3-03'].forEach(b => { const B = ROAD2_BANDS.find(k => k.id === b);
+    ['F3-1', 'F3-2'].forEach(id => assert.ok(by[id].trigger.z1 <= B.z0 || by[id].trigger.z0 >= B.z1, `${id} と ${b}`)); });
+});

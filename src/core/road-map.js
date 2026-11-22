@@ -301,6 +301,15 @@ export const ROAD2_FIGHTS = Object.freeze([
   {id:'F2-X', area:2, must:false, name:'岩場の奥',   trigger:{x0:1156, x1:1196, z0:240, z1:244},
    waves:[[{kind:'rockFang', x:1170, z:253}],
           [{kind:'moorBeast', x:1164, z:259}, {kind:'moorBeast', x:1172, z:264}, {kind:'moorBeast', x:1182, z:266}]]},
+  // AREA 3 水鏡の谷(R3-3、設計 §2 AREA 3)。谷底 -2、浅瀬 -2.3
+  {id:'F3-1', area:3, must:true,  name:'川沿い',       trigger:{x0:1106, x1:1124, z0:342, z1:346},
+   waves:[[{kind:'waterMob', x:1108, z:354}, {kind:'waterMob', x:1112, z:357}, {kind:'spitter', x:1104, z:360}]]},
+  {id:'F3-2', area:3, must:true,  name:'狭い渓谷の道', trigger:{x0:1090, x1:1106, z0:388, z1:392},
+   waves:[[{kind:'waterMob', x:1093, z:400}, {kind:'waterMob', x:1091, z:404}, {kind:'waterMob', x:1089, z:408}]]},   // 一列で来る
+  {id:'F3-S', area:3, must:false, name:'水辺の強敵',   trigger:{x0:1126, x1:1134, z0:342, z1:358},
+   waves:[[{kind:'creeper', x:1145, z:361}]]},
+  {id:'F3-H', area:3, must:false, name:'隠しの淵',     trigger:{x0:1045, x1:1064, z0:398, z1:414},
+   waves:[[{kind:'greatEel', x:1054, z:406}]]},
   // AREA 4 忘れられた山道(R3-4b)
   {id:'F4-1', area:4, afterJoin:true, must:true,  name:'森の外周',  trigger:{x0:1086, x1:1110, z0:495, z1:501},
    waves:[[{kind:'bigBeast', x:1098, z:510}, {kind:'beast', x:1093, z:514}, {kind:'beast', x:1103, z:514}]]},
@@ -367,6 +376,16 @@ export const ROAD2_MOOR = Object.freeze({
   steps: Object.freeze({x:1104.6, z0:250, z1:266, stride:1.3}),
   hillTop: Object.freeze({x0:1052, x1:1068, z0:162, z1:188}),
   figure: Object.freeze({x:1011, z:197, hideNear:30, showSec:5}),
+});
+/* AREA 3 の怪異と調べ物(R3-3、設計 §6)
+   A-5 谷の橋の手前(帯 R3-02): 水面だけに霧の景色と、船のような影が重なる(水面の上に別の絵を重ねる。数秒)
+   A-6 石橋の上(帯 R3-03): 水面に映る一行から、一人だけ 1.5 秒消える。一度だけ。誰の姿かは決めない
+   R3-04 水辺の遺構(浅瀬の石組みを調べる)・R3-05 滝の裏(初めて入った時の一言) */
+export const ROAD2_VALE = Object.freeze({
+  vision: Object.freeze({x0:1106, x1:1121, z0:372.4, z1:379.6, inSec:1.2, holdSec:3.6, outSec:1.4}),
+  reflect: Object.freeze({bridge:Object.freeze({x0:1095, x1:1105, z0:372, z1:380}), edge:1105.4, len:1.93, vanishSec:1.5, at:376}),   // at: 橋の半ば(この z を越えたら一人消す)
+  ruins: Object.freeze({x:1141.5, z:353.2}),
+  ledge: Object.freeze({x0:1045, x1:1055, z0:368, z1:384}),
 });
 export const ROAD2_GUIDEPOSTS = Object.freeze([[1091, 155], [1107, 312]]);   // 原野の道標は旧道の分かれの側(東の岩場の割れ目から離す)
 export const ROAD2_LANTERNS = Object.freeze([[1062, 474], [1069, 489], [1102, 490], [1102, 516], [1075.5, 526.5], [1082, 572], [1140, 618]]);
