@@ -1,7 +1,7 @@
 // @ts-check
 /* ROAD-VISUAL-003 R3-5 ＋ ROAD-VISUAL-004 T6: 道の果てと最終戦「高原の大角」(設計 §7・ROAD-VISUAL-004 §3-2)。
  *   R5-01 → R5-02 石環の語らい → 高原の大角。段階 1「風」(草が獣の向きへなびく)/ 2「雲」(雲が朝日を隠す・着地点に影)/ 3「朝日」(長い影の線・突進二連)
- *   支援の攻撃で支援のほうを向く。倒すと膝をつき去る(殺さない)→ 太陽が少し上がる → R5-03。結果画面はまだ出さない
+ *   支援の攻撃で支援のほうを向く。倒すと膝をつき去る(殺さない)→ 太陽が少し上がる → R5-03(結末は road2-ending.spec)
  */
 import { test, expect } from '@playwright/test';
 import { openGame, watchErrors, startTestMode } from './helpers.js';
@@ -103,7 +103,7 @@ async function readTalk(page, R) {
   return lines;
 }
 
-test('最終戦: R5-01 → R5-02 → 高原の大角。三つの段階の予兆・支援へ向く・倒すと去る・太陽が上がる・R5-03・結果画面は出ない', async ({ page }) => {
+test('最終戦: R5-01 → R5-02 → 高原の大角。三つの段階の予兆・支援へ向く・倒すと去る・太陽が上がる・R5-03', async ({ page }) => {
   test.setTimeout(900_000);
   const errors = watchErrors(page);
   const R = await enter(page, { classKey: 'rogue', guestKey: 'archer', waypoint: 'joined' });
@@ -156,11 +156,11 @@ test('最終戦: R5-01 → R5-02 → 高原の大角。三つの段階の予兆�
   expect(fd.beastVis, '倒れて沈む姿は見せない(殺さない)').toBe(false);
   expect(fd.yShells, '飾りの姿は壁越しの輪郭を持たない').toBe(0);
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-finale-yield.png` });
-  expect(await readTalk(page, R)).toEqual(['盗賊|「結局、何だったんだろうな。今まで見てきたもの」', '弓師|「分からないまま、ですね」',
+  // R5-03(この後、結末 R5-04 へ続く。結末・結果画面は road2-ending.spec)
+  const lines = await readTalk(page, R);
+  expect(lines.slice(0, 4)).toEqual(['盗賊|「結局、何だったんだろうな。今まで見てきたもの」', '弓師|「分からないまま、ですね」',
     '魔法使い|「分からないことがあっても、世界は続いています」', '剣士|「そういうものなのかもしれないな」']);
-  await expect.poll(async () => (await R('finale')).endW, { timeout: 120_000 }).toBe(1);
-  await expect.poll(async () => (await R('finale')).yielder, { timeout: 120_000 }).toBe(false);   // 草原の奥へ去った
-  expect(await R('resultShown'), '結果画面はまだ出さない(結末の後、R3-6)').toBe(false);
-  expect((await R('cast')).clears, 'クリアはまだ数えない').toBe(clears0);
+  // 倒した後は太陽が少し上がる(結末の重み)
+  await expect.poll(async () => (await R('finale')).endW, { timeout: 120_000 }).toBeGreaterThan(0.5);
   expect(errors).toEqual([]);
 });

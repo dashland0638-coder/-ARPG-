@@ -628,6 +628,25 @@
     state.dialogueActive = true;
     state.dialogueBoss = null;
     state.dialogueKind = 'chapter1Finale';
+    /* 道(新)を終えて戻った時(ROAD-VISUAL-003 R3-6、設計 §8): 一行全員が道を歩いてきたので、影の旅人に初めて会う前提の
+       台詞は合わない。主人の最初と最後の一言は残し、間を一人ずつの「これから」の一言にする。剣士の「連れて行く」は道の出会いへ移した */
+    if(typeof road2NewFinale !== 'undefined' && road2NewFinale){
+      road2NewFinale = false;
+      state.dialogueLines = [
+        {name:K, text:'……戻ったか。隅の席、空けたままにしてあるぞ。'},
+        {name:W, text:'しばらくは、ここで腕を鈍らせないでおく。'},
+        {name:M, text:'見たものを、書き留めておきます。分からないままでも。'},
+        {name:A, text:'次は、もう少し遠くまで見に行きたいです。'},
+        {name:R, text:'……あの羅針盤、まだ返せてないんだよな。'},
+        {name:T, text:'……ここに、座っていてもいいですか。'},
+        {name:R, text:'好きにしろ。もう、お前の席だ。'},
+        {name:K, text:'さて。ここから先の行き先は、あんたたちで決めな。話だけは、集めておいてやる。'},
+      ];
+      state.dialogueIndex = 0;
+      renderDialogueLine(state.dialogueLines[0]);
+      document.getElementById('dialogue-overlay').classList.add('active');
+      return;
+    }
     state.dialogueLines = [
       {name:K, text:'……戻ったか。隅の席、空けたままにしてあるぞ。'},
       {name:W, text:'何者なのかは、聞いても分からんのだろうな。'},
