@@ -173,6 +173,7 @@ import {
   ROAD2_WATER, ROAD2_OUTER_Y,
 } from '../core/road-map.js';
 import { compassStep, roadDirectionAt, compassMainXAt, compassNextDestination, compassDestination, ROAD2_ANOMALIES } from '../core/road-compass.js';
+import { roadDaylight, roadDaylightTarget, roadDaylightStart, advanceRoadDaylight, stepRoadDaylight, stepRoadWeight } from '../core/road-daylight.js';
 import { ROAD2_WALL_SHADOW, ROAD2_ECHO_ZONES, ROAD2_ECHO_NOTICE_SEP, shadowLightDir, shadowCastable, echoZoneAt, nearEchoZone, echoLineFor, pushPoseFrame, pickPoseFrame } from '../core/road-wall-shadow.js';
 import { newBanterState, queueBanter, stepBanter } from '../core/road-banter.js';
 import { GUARDIAN_FOCUS_SEC, canFocusAlly, stepGuardianFocus, guardianFacingTarget, guardianMayWake, foesFit } from '../core/road-guardian.js';
