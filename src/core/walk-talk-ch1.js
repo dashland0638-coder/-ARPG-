@@ -3,10 +3,11 @@
 
    ■ 話題の形
      id     … その出撃で 1 回だけ(同じ話題は繰り返さない)
-     rect   … 帯(x0..x1 / z0..z1。積み重ねた階は y0..y1 も)。止める会話・戦闘の場所と重ねない
+     rect   … 帯(x0..x1 / z0..z1。積み重ねた階は y0..y1 も)。自動で始まる会話・演出・戦闘の場所と重ねない。
+              調べ物(読む時だけ開く窓)は重なってよい(読んで 3 秒より長く止まった話題は、残りを捨てる)
      lead   … 操作している主人公の職業 / guest … 同行している支援の職業。どちらかが違えば出さない(テストモードの自由な組み合わせ、合流前)
      when   … 物語の進み具合の条件の名前(legacy の walkTalkWhen が意味を持つ)。省略 = いつでも
-     lines  … [[話す人の職業, 台詞], …]。2〜3 行、一行は名前を含めて全角 20 字前後(W-8)
+     lines  … [[話す人の職業, 台詞], …]。2〜3 行、一行は名前を含めて全角 20 字前後(W-8。試験は名前＋台詞で 22 字まで)
      retryLines … 同じ出撃先へもう一度出た時(全滅・撤退の後。保存はせず、その遊んでいる間だけ数える)の台詞
 
    ■ 守ること(docs/CHAPTER1_STORY.md・各シナリオの決定)
@@ -30,7 +31,7 @@ export const WALK_TALK_CH1 = Object.freeze({
   duskvillage: Object.freeze([
     {id: 'D-1', lead: 'mage', guest: 'warrior', when: 'duskEntered',
       rect: {x0: -20, x1: 20, z0: 333, z1: 344},   // 中央広場の南(入口の会話の後。戦いは広場の北西)
-      lines: [['mage', '「……どの家にも、灯りがついていますね」'], ['warrior', '「灯りだけだ。人の声がしない」']],
+      lines: [['mage', '「……どの家も、灯りがついています」'], ['warrior', '「灯りだけだ。人の声がしない」']],
       retryLines: [['mage', '「……さっきと、同じ灯りです」'], ['warrior', '「なら、さっきより速く歩ける」']]},
     {id: 'D-2', lead: 'mage', guest: 'warrior', when: 'duskBeforeFish',
       rect: {x0: -34, x1: -26, z0: 344.5, z1: 351.5},   // 魚屋への小道(魚屋の記憶の手前)
@@ -40,12 +41,12 @@ export const WALK_TALK_CH1 = Object.freeze({
       lines: [['mage', '「水の音が、近くなりました」'], ['warrior', '「板が浮いてる。足元を見ろ」']]},
     {id: 'D-4', lead: 'mage', guest: 'warrior', when: 'duskAfterChild',
       rect: {x0: 38.5, x1: 51.5, z0: 362, z1: 380},   // 裏通り(住宅の記憶の後)
-      lines: [['warrior', '「狭い通りだな」'], ['mage', '「……子どもが走るには、ちょうどいい幅です」'], ['warrior', '「……そうか」']]},
+      lines: [['warrior', '「狭い通りだな」'], ['mage', '「……子どもが走るには、いい幅です」'], ['warrior', '「……そうか」']]},
     {id: 'D-5', lead: 'mage', guest: 'warrior', when: 'duskAfterInsight',
       rect: {x0: -45, x1: -31, z0: 413, z1: 427},   // 見張り小屋(行き止まり。観測の灯の後)
       lines: [['mage', '「……ここだけ、灯りがありません」'], ['warrior', '「見張りは、暗いほうが遠くまで見える」']]},
     {id: 'D-6', lead: 'mage', guest: 'warrior', when: 'duskGateOpening',
-      rect: {x0: -11, x1: 11, z0: 440, z1: 447.5},   // 水門の手前(水門守の後、門が開くのを待つ間。村の奥より前)
+      rect: {x0: -11, x1: 11, z0: 440, z1: 447.5},   // 水門の手前(水門守を倒した後。門が開くのを待つ間に流れる。村の奥より前)
       lines: [['mage', '「……水の匂いが、変わりました」'], ['warrior', '「ここから先は、離れるな」'], ['mage', '「はい」']]},
   ].map(freezeTopic)),
 
@@ -76,13 +77,13 @@ export const WALK_TALK_CH1 = Object.freeze({
   clocktower: Object.freeze([
     {id: 'T-1', lead: 'rogue', guest: 'archer',
       rect: floor({x0: -269, x1: -255, z0: 59, z1: 71}, 0),   // 前庭(着いてすぐ。1 層の鐘の出来事の手前)
-      lines: [['rogue', '「正面から入るのは、性に合わないんだがな」'], ['archer', '「窓は、全部閉まっています」'], ['rogue', '「……今日は、扉からだ」']],
+      lines: [['rogue', '「正面から入るのは、性に合わない」'], ['archer', '「窓は、全部閉まっています」'], ['rogue', '「……今日は、扉からだ」']],
       retryLines: [['rogue', '「また、正面からか」'], ['archer', '「はい。……今度は、上まで」']]},
     {id: 'T-2', lead: 'rogue', guest: 'archer', when: 'towerStopped',
       rect: Object.assign({}, {x0: -280, x1: -276, z0: 44, z1: 55}, {y0: -0.6, y1: 5}),   // 1 層の西の坂の下(鐘が鳴り時が止まった後)
-      lines: [['archer', '「……さっきの人、瞬きもしていませんでした」'], ['rogue', '「見るな。見ても、止まったままだ」']]},
+      lines: [['archer', '「……あの人たち、瞬きひとつしません」'], ['rogue', '「見るな。見ても、止まったままだ」']]},
     {id: 'T-3', lead: 'rogue', guest: 'archer', when: 'towerBridged',
-      rect: floor({x0: -255, x1: -246, z0: 36, z1: 52}, 8),   // 2 層の部品庫(橋が架かった後)
+      rect: floor({x0: -255, x1: -246, z0: 36, z1: 52}, 8),   // 2 層の東の帯(部品庫の側。東の坂の手前。橋が架かった後)
       lines: [['archer', '「……部品が、全部磨いてあります」'], ['rogue', '「使う気だったんだろ。いつかな」']]},
     {id: 'T-4', lead: 'rogue', guest: 'archer', when: 'towerRung',
       rect: floor({x0: -255.5, x1: -244.5, z0: 28, z1: 33.5}, 44),   // 6 層の前室(鐘を鳴らして昇降台で上がった後。崩壊の前)

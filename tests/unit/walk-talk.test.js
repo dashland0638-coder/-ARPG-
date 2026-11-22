@@ -107,7 +107,8 @@ test('話題のデータ: 顔ぶれは第一章のその段のもの・話すの
         for (const [who, text] of lines) {
           assert.ok(who === t.lead || who === t.guest, `${t.id}: 話すのは二人だけ`);
           assert.match(text, /^「.+」$/, `${t.id}: 台詞の形`);
-          assert.ok(text.length <= 22, `${t.id}: 一行は短く(${text.length})`);
+          const name = { mage: '魔法使い', warrior: '剣士', archer: '弓師', rogue: '盗賊' }[who];
+          assert.ok((name + text).length <= 22, `${t.id}: 一行は名前を含めて短く(${(name + text).length})`);
         }
       }
       if (t.when) assert.match(walk, new RegExp(`\\b${t.when}:\\s*\\(\\)=>`), `${t.id}: 条件 ${t.when} が legacy にある`);

@@ -139,7 +139,7 @@ test('時計塔: 前庭で盗賊と弓師。別の顔ぶれ(剣士＋魔法使�
   const errors = watchErrors(page);
   const R = await enter(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'clocktower' });
   await expect.poll(async () => (await R('st')).world, { timeout: 120_000 }).toBe('clocktower');
-  await collect(page, R, ['盗賊「正面から入るのは、性に合わないんだがな」', '弓師「窓は、全部閉まっています」', '盗賊「……今日は、扉からだ」']);
+  await collect(page, R, ['盗賊「正面から入るのは、性に合わない」', '弓師「窓は、全部閉まっています」', '盗賊「……今日は、扉からだ」']);
   expect(errors).toEqual([]);
 });
 

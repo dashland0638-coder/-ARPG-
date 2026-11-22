@@ -1543,6 +1543,7 @@
       if(gp) updateGamepadMenuNav(gp, dt);
     } else if(state.started && state.paused){
       hideMobBars();
+      walkTalkHide();   // 一時停止の間は掛け合いを隠す(W-2。止めた所から再開後に続ける)
       clearMovementInput(false); wasPlayable = false;
       const gp = pollGamepad();
       if(gp){
