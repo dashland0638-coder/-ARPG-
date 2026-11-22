@@ -56,3 +56,52 @@ None（Files To Change への記載漏れ 3 件は Checklist #2 のとおり、�
 
 ## Notes for Orchestrator
 - 本 Reviewer は指示により review report 1 ファイルだけを commit した。Task file の `Status:` を `CHANGES_REQUIRED` にする更新と Status History の行追加（reviewer.md の Task Status 欄）は Orchestrator 側で行うこと
+
+## Round 2/3
+
+### Review Target
+| 項目 | 値 |
+| --- | --- |
+| Task ID | WANDERER-RENEWAL-001 |
+| Branch | `claude/wanderer-renewal-001-nhlxns` |
+| Reviewed SHA | `e8ebadef2d29b08b22234a734cb447d3e1e1b518` |
+| Diff range | fix: `3b4eecdaa74ba65fc7d2d83e0b05eb58d174b293..e8ebadef2d29b08b22234a734cb447d3e1e1b518`（1 commit、5 files、+28 / −2）/ full: `eebf0244c26d80fdf44d7daa86f4989addb414f2..e8ebadef2d29b08b22234a734cb447d3e1e1b518` |
+| Handoff Verification | V-1 OK（remote 先端 = Implementation SHA）/ V-2 OK / V-2a OK（Plan Source `eebf0244`:Task → `e8ebadef`:Task の差分は `Status:` 行（REVIEWING）と、Status History の行追加・Implementation Result 節（AC 表の 1 行訂正と `### Round 1 Fix` を含む）だけ。hunk は `@@ -3 +3 @@` と `@@ -143,0 +144,73 @@`）/ V-3 OK / V-4・V-4a OK（`e8ebadef`:analysis = `6f4d955a7aacaa6a7096d3993d13ca0209e5e431`）・V-4b OK / V-5 OK（Round 1 Fix に Test 記載）/ V-6 OK |
+| Analysis Source | 同上（Round 1 と同じ） |
+| Plan Source | 同上（Round 1 と同じ） |
+
+### Result
+PASS
+
+### Independence
+別 Agent・別セッション（別コンテキストの Reviewer subagent）
+
+### Required Change #1 の検証
+- `14-hud-boot.js` の `animate` に `if(state.started && state.dialogueActive) clearWandererEchoes();` が `updatePlayer` を呼ぶ分岐の直前に入った。会話・演出（`playCutscene` も `dialogueActive = true`）の最初のフレームで、待っている追撃と残像が捨てられる → 会話の後に解決しない。ポーズ中（会話なし）は従来どおり止まるだけ
+- `clearWandererEchoes` の早期 return は `wandererEchoes` / `wandererAfterimages` が配列かつ両方空のときだけ。起動時（17 の評価前、両方 `undefined`）は早期 return せず従来の初期化経路を通るので TDZ・未初期化の問題は生じない（`animate` の同期 1 回目は `state.started` が false で呼ばれない）
+- 他職の保留中の技（pendingSkill2 等）の扱いは変わっていない
+- テスト: `wanderer-renewal.spec.js` に「3 段目 → `dialogueActive = true` → `echoes()` が `{queued:0, images:0}` → 閉じた後 HP 不変」を追加。Implementation Result の AC 表の根拠も実装に合わせて訂正済み
+- 非ブロッキング指摘 R-c（ジャンプの記述）も `docs/CHARACTERS.md` で訂正済み
+
+### Checklist（差分に関わる項目）
+| # | 項目 | 結果 | 根拠 |
+| --- | --- | --- | --- |
+| 1 | Specification compliance | OK | AC「会話・遷移で落ちる」が成立（上記） |
+| 2 | Scope compliance | OK | 変更は Required Change #1 と docs の 1 行・Task の記録のみ |
+| 3 | Regression | OK | 追加は `dialogueActive` 中だけ・影の旅人の配列が空なら no-op |
+| 4 | Build | PASS | Reviewer 再実行 |
+| 5 | Unit tests | PASS | Reviewer 再実行（pass 2329 / fail 0） |
+| 6 | E2E tests | 未実行（Reviewer） | 指示により未実行。Round 1 Fix の Test: wanderer-renewal / shadow-guide / auto-combo / character-motion 計 22 PASS |
+| 7 | Save/Load integrity | OK | 変更なし |
+| 8 | Existing behavior | OK | 会話・演出・通常起動の流れは不変 |
+| 9 | Code duplication | OK | 既存の `clearWandererEchoes` を再利用 |
+| 10 | Unnecessary architecture changes | OK | なし |
+
+### Risks
+Round 1 の R-a / R-b / R-d は残る（非ブロッキング）。
+
+### Required Changes
+None
+
+### Notes for Orchestrator
+- 本 Reviewer は指示により review report だけを commit した。Task file の Status History への `REVIEWING（Reviewer PASS）` の追記は Orchestrator 側で行うこと
