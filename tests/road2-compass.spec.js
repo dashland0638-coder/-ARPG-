@@ -206,7 +206,16 @@ test('顔ぶれ: テストの選択で操作し、正規の支援がつく。野
     await route.fulfill({ response: res, body: (await res.text()) + PROBE });
   });
   await openGame(page);
-  await startTestMode(page, { classKey: 'warrior', scenario: 'road' });
+  /* 道は第一章のシナリオ(R3-7)なので、選ぶと顔ぶれが盗賊＋弓師に揃う(presetChapter1Cast)。
+     その後で職業を剣士・同行ゲストなしに選び直す(テストモードは選び直せる) */
+  await page.click('#open-testmode-btn');
+  await page.click('#testmode-rules-grid [data-test-rules="current"]');
+  await page.waitForSelector('#testmode-scenario-grid .testmode-job-card[data-scenario-key="road"]');
+  await page.click('#testmode-scenario-grid .testmode-job-card[data-scenario-key="road"]');
+  await page.click('.class-card[data-key="warrior"]');
+  await page.waitForFunction(() => document.querySelectorAll('#testmode-job-grid .testmode-job-card').length >= 2);
+  await page.click('#testmode-guest-grid .testmode-job-card:not([data-guest-key])');
+  await page.click('#testmode-start-btn');
   await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
   await page.waitForFunction(() => /** @type {any} */ (window).__rc);
   const R = (fn, ...a) => page.evaluate(([fn, a]) => /** @type {any} */ (window).__rc[fn](...a), [fn, a]);
