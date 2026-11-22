@@ -617,7 +617,6 @@
     waterway:'埠頭の地下水路', temple:'古代神殿',
     clocktower:'狂いの時計塔', conservatory:'硝子の温室',
     duskvillage:'宵待ちの村',
-    road:'名もなき街道',
     road2:'道 — その先へ',
   };
   // 「山を登る」拡張の各部屋(周回★でしか現れず、テーブル駆動の部屋一覧
@@ -1429,7 +1428,7 @@
       updateDuskVillage(dt);   // Phase D(#37): 昼夜進行+ランタン近接+ボスの光ギミック
       updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)。他では即 return
       updateTavernBgmStage();   // 酒場 BGM の加入段階(交代の会話・第一章の最後の会話の後で次の段へ)。他では即 return
-      updateRoad(dt);          // 道(WORK 11)。他のワールドでは即return
+      updatePreJoinFigures(dt); // 影の旅人の加入前の姿の遅れる影(時計塔の島・酒場・道)。ワールドを問わない
       updateRoad2(dt);         // 新しい道(ROAD-VISUAL-003)。他のワールドでは即return
       updateGhostShip(dt);     // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。他のワールドでは即return
       updateCutscene(dt);
@@ -1510,7 +1509,7 @@
       updateDuskVillage(dt);
       updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)
       updateTavernBgmStage();
-      updateRoad(dt);
+      updatePreJoinFigures(dt);
       updateRoad2(dt);
       updateGhostShip(dt);
       updateShake(dt);

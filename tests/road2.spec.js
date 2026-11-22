@@ -141,7 +141,7 @@ async function enterRoad2(page, waypoint) {
     await route.fulfill({ response: res, body: (await res.text()) + PROBE });
   });
   await openGame(page);
-  await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'road2', level: 40, waypoint });
+  await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'road', level: 40, waypoint });
   await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
   await page.waitForFunction(() => /** @type {any} */ (window).__road2);
   return (fn, ...a) => page.evaluate(([fn, a]) => /** @type {any} */ (window).__road2[fn](...a), [fn, a]);
@@ -306,18 +306,21 @@ test('道（新）: 見晴らしの地点で一度だけカメラを引いて遠
   expect(errors).toEqual([]);
 });
 
-test('道（新）は本編の出撃には出ない(テストモードの作業中のシナリオだけ)', async ({ page }) => {
+test('本編の第一章の「道」が道 — その先へ(ワールド road2)を建てる。road2 という出撃は無い(R3-7、DEC-032)', async ({ page }) => {
   test.setTimeout(120_000);
   await openGame(page);
   const offered = await page.evaluate(async () => {
     const m = await import('/src/core/chapter1-progress.js');
-    // 第一章を進めていく各段階(何も終えていない → 道を終えた)で、本編の出撃に出るもの
+    const w = await import('/src/core/scenario-world.js');
     const out = [];
     let clears = {};
     out.push(m.offeredScenarios(clears));
     for (const k of m.CHAPTER1_ORDER) { clears = { ...clears, [k]: 1 }; out.push(m.offeredScenarios(clears)); }
-    return { lists: out, inOrder: m.CHAPTER1_ORDER.includes('road2') };
+    return { lists: out, inOrder: m.CHAPTER1_ORDER.includes('road2'), world: w.scenarioWorldKey('road'), last: m.CHAPTER1_ORDER[m.CHAPTER1_ORDER.length - 1] };
   });
   expect(offered.inOrder).toBe(false);
+  expect(offered.last).toBe('road');
+  expect(offered.world).toBe('road2');
   offered.lists.forEach(l => expect(l).not.toContain('road2'));
+  expect(offered.lists.some(l => l.includes('road')), '時計塔の後に「道」が出る').toBe(true);
 });

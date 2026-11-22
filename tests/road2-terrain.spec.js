@@ -139,7 +139,7 @@ test('道（新）: 坂・境を歩いて、足が浮かない・震えない・
     await route.fulfill({ response: res, body: (await res.text()) + PROBE });
   });
   await openGame(page);
-  await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'road2', level: 40 });
+  await startTestMode(page, { classKey: 'rogue', guestKey: 'archer', scenario: 'road', level: 40 });
   await expect(page.locator('#minimap-area')).toHaveText('道 — その先へ', { timeout: 180_000 });
   await page.waitForFunction(() => /** @type {any} */ (window).__road2);
   const R = (fn, ...a) => page.evaluate(([fn, a]) => /** @type {any} */ (window).__road2[fn](...a), [fn, a]);

@@ -108,7 +108,7 @@
       {name:Y, text:'研究員たちは……?'},
       {name:M, text:'誰一人、戻らなかった。今もあそこへ行くと、"助けて"だの"先生"だのと声が聞こえるという話でな。……それでも行くかい?'}
     ]; },
-    /* 道(WORK 11)。酒場の隅にいた「影の旅人」が戻らない ――
+    /* 道(WORK 11 → 道 — その先へ、DEC-032)。酒場の隅にいた「影の旅人」が戻らない ――
        原案の「行方不明者の捜索」を起点にした導入。主人は理由を知らない */
     /* 第一章の本編(§4-5「酒場(翌朝)」): 朝の鐘の一行、盗賊が預かった懐中時計を
        返す、管理人は生還した(N-3)。隅の席の人物の名前は出さない(N-4) */
@@ -1595,14 +1595,10 @@
        詳細は buildDuskVillage(14-dungeon-duskvillage.js)と
        .ai/reports/DUSKVILLAGE-WORK2〜7-report.md */
     {key:'duskvillage', name:'🏮 宵待ちの村', levelRange:'26〜85(★8)', minLevel:26, desc:'湖のほとりの村。網も舟も干したまま、人だけがいない。忘れられたことが、そのまま形になって残っている。', unlocked:true},
-    /* 道(Chapter 1 の最後、WORK 11)。短い一本道の街道で、ボスはいない。
-       道標 → 先を歩く人影 → 休憩所で影の旅人と出会い、そこから主人公が
-       交代する。終えて酒場へ戻ると Chapter 1 が閉じる(14-dungeon-road.js)。
-       推奨レベルは時計塔の少し上を目安に置いてあるだけで、解放条件ではない */
+    /* 道 — その先へ(Chapter 1 の最後。ROAD-VISUAL-003 / 004、DEC-025・DEC-032)。宿場から道の果てまで 5 エリア、
+       最後に高原の大角。終えて酒場へ戻ると Chapter 1 が閉じる。シナリオの鍵は 'road' のまま、ワールドは 'road2'
+       (scenarioWorldKey、14-dungeon-road2.js)。推奨レベルは目安で、解放条件ではない */
     {key:'road',       name:'🌅 道',             levelRange:'20〜',    minLevel:1,  desc:'酒場の隅の席が、朝から空いている。街道のほうへ歩いていくのを見た者がいるという。', unlocked:true},
-    /* 新しい「道 — その先へ」(ROAD-VISUAL-003、DEC-025)。作業中はテストモードの「作業中のシナリオ」からだけ。
-       本編の出撃の一覧(offeredScenarios)には出ない。最後の段で 'road' に置き換える */
-    {key:'road2',      name:'🌅 道（新）',        levelRange:'20〜',    minLevel:1,  desc:'作業中。第一章の最終シナリオ「道 — その先へ」の新しい地図。', unlocked:true},
     {key:'pyramid',    name:'🏜️ 砂漠のピラミッド', levelRange:'16〜20', minLevel:16, desc:'黄金の呪いに満ちた古の墓所。目覚めた王が眠りへの帰還を拒む者を裁く。', unlocked:false},
     {key:'volcano',    name:'🌋 業火の火山',     levelRange:'21〜25', minLevel:21, desc:'絶えず溶岩が滾る山の奥、炎そのものと化した支配者が待つ。', unlocked:false},
   ];
@@ -1744,7 +1740,7 @@
     // set before buildWorld: enemy construction reads the star rating from here
     state.scenarioKey = key;
     routeReset();    // scenarioKey を見てグラフを引くので、必ずこの順で
-    buildWorld(key); // tears down the tavern (or previous world) and builds this one fresh
+    buildWorld(scenarioWorldKey(key)); // tears down the tavern (or previous world) and builds this one fresh(道は 'road2' のワールド)
     state.sortied = true;
     state.sortieKills = 0;   // 中途撤退ボーナスの計算に使う(このダンジョンでの撃破数)
     timeLimitWarned60 = false; timeLimitWarned10 = false;
@@ -1797,17 +1793,11 @@
       camera.position.copy(state.pos).add(getCamOffset());
       state.waterwayColdTimerT = 5;
       state.waterwayColdTimerFired = false;
-    } else if(key==='road2'){
+    } else if(key==='road'){
       state.pos.copy(road2StartPos());   // 到達したエリアの野営地から(DEC-025 E-3)。まだなら入口
       state.camYaw = Math.PI;   // 北(道の先)を向いて出る
       state.vel.set(0,0,0);
       road2EnterCast();         // 加入の復元(到達 4 以上)・テストモードの既定の支援(R3-4 / R3-N-FIX-01)
-      repositionAlliesToPlayer();
-      camera.position.copy(state.pos).add(getCamOffset());
-    } else if(key==='road'){
-      state.pos.copy(ROAD_ENTRY);
-      state.camYaw = Math.PI;   // 北(道の先)を向いて出る
-      state.vel.set(0,0,0);
       repositionAlliesToPlayer();
       camera.position.copy(state.pos).add(getCamOffset());
     } else if(key==='duskvillage'){

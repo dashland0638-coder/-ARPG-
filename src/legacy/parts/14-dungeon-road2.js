@@ -2,15 +2,14 @@
 // (14-dungeon-road2.js - concatenated with the other src/legacy/parts/*.js
 // files into one shared scope at build time; see src/legacy/concat-plugin.js)
 
-     ROAD2 ―― 第一章の最終シナリオの全面リニューアル(作業中)
+     ROAD2 ―― 第一章の最終シナリオ「道 — その先へ」
 
      5 つのエリア(旅人の宿場 → 風渡る原野 → 水鏡の谷 → 忘れられた山道 → 道の果て)を
      一続きの屋外の地域として作る。地図のデータは core/road-map.js、設計は
      .ai/reports/ROAD-VISUAL-003-design.md。
 
-     本編の道(14-dungeon-road.js、ワールドのキー 'road')は、完成まで今のまま。
-     こちらはワールドのキー 'road2' で、テストモードの「作業中のシナリオ」からだけ入れる。
-     最後の段(R3-7)で本編を切り替え、旧道を消してキーを 'road' に戻す。
+     R3-7(DEC-032)で本編に入れた。シナリオの鍵は 'road'(保存・進行・第一章の順番)、建てるワールドは 'road2'
+     (core/scenario-world.js scenarioWorldKey)。旧道(名もなき街道)は消し、共有の物だけ 14-dungeon-road.js に残した。
 
      R3-0: 地図の土台とエリアごとの描画の切り替え。
      R3-T(この段): 5 エリアの地形と景観(.ai/reports/ROAD-VISUAL-003-R3T-plan.md)。
@@ -23,7 +22,7 @@
          全エリアで 2 つの InstancedMesh(平らな台・坂)、上の面と横の面の 2 材質
        ・エリアごとの物(建物・岩・木・草・水・ランドマーク・野営地)は、今いるエリアと
          隣のエリアだけ描く(road2UpdateAreaVisibility)
-       ・同じ形の物は InstancedMesh にまとめる(PR #125 buildRoadInstances の作法)
+       ・同じ形の物は InstancedMesh にまとめる(PR #125 の作法)
        ・草の揺れは頂点シェーダで動かす(描画回数は増えない)
        ・点光源は足さない。灯り(野営地の火・宿場の提灯)は自発光の面で表す
 
@@ -1093,7 +1092,7 @@
      戦闘の顔ぶれと場所は core/road-map.js ROAD2_FIGHTS(設計 §2 のまま)。倒した敵は戻らない(roomTag、DEC-025 E-5)。
      どの戦闘・会話も加入の後だけ(出会いの帯の北にある)。倒したことは保存しない(出撃し直すと最初から。E-3 は到達だけ)。
      空・光・時間帯は変えない(ROAD-VISUAL-004 T1〜T5)。古き守り手の状態だけを持ち、深夜・夜明けの表現はそちらが読む */
-  /* 数値は CR-01 の作法(時計塔 4F と旧道の敵が基準。計画 §4)。difficultyFor('road2') の倍率がこの上に掛かる */
+  /* 数値は CR-01 の作法(時計塔 4F と旧道の敵が基準。計画 §4)。difficultyFor('road2')(= シナリオ 'road' の★、scenarioKeyForWorld)の倍率がこの上に掛かる */
   const ROAD2_FOES = {
     // 宿場(R3-1): 道喰らい(低い四つ足・長い鼻面・土色の剛毛・首に古い革紐)と、射撃の獣(低い姿勢・背の棘・喉が膨らむ)
     roadEater: {color:0x8a6a44, hp:160, atk:26, speed:2.8, atkType:'charge', xp:64, goldBonus:[12,18], look:'roadEater',
@@ -1367,9 +1366,8 @@
   /* R3-5 最終戦(高原の大角)。出撃の中だけ */
   let road2Finale = null;   // {state:'idle'|'active'|'defeated', en, phase, cloudT, second, lane, mark, yielder, yieldT}
   let road2CloudW = 0;      // 段階 2「雲」: 雲が朝日を隠す重み(光の強さだけを下げる。露出は固定)
-  /* R3-6 結末: 道の宝箱(出撃の中だけ)・結末を見たか(最後の酒場の台詞を新しい一行のものにする合図) */
+  /* R3-6 結末: 道の宝箱(出撃の中だけ) */
   let road2Chests = [];
-  let road2NewFinale = false;
   let road2Echo = null;              // A-1: 遅れる二つ目の影 {mesh, src, parts, local, hist, frame}
   let road2EchoNoticed = new Set();  // 段階的な伏線: 主人公が反応した(気づいた)場所の id(その出撃の間)
   let road2EchoSpent = new Set();    // 反応を終えて出た場所(もう二つ目の影を出さない)
@@ -1952,7 +1950,6 @@
   }
   function road2FinishRoad(){
     state.roadArea = 0;            // 道を終えたら到達を戻す(DEC-028 R3-6。第一章の後に歩き直す時は入口から)
-    road2NewFinale = true;         // 最後の酒場は一行全員の台詞(設計 §8)
     roadPendingFinale = true;      // 酒場へ戻ったところで最後の酒場を出す(旧道と同じ合図)
     // 保存はしない: 結果画面がクリアを数えた後、酒場へ戻る時に保存される(結果画面で閉じても、クリアの無い到達 0 を残さない)
     state.dialogueActive = true;   // 結果画面の間は動かさない(結果画面の「戻る」で酒場へ)
