@@ -1,6 +1,6 @@
 # WANDERER-RENEWAL-001 — 影の旅人の全面刷新（バトルデザイン・戦闘モーション・外見/造形）
 
-Status: REVIEWING
+Status: DONE
 
 Analysis: .ai/reports/WANDERER-RENEWAL-001-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `d53532b6e9573ae683f835e8601698334d851e42`、blob `6f4d955a7aacaa6a7096d3993d13ca0209e5e431`）
 
@@ -145,6 +145,8 @@ None
 | 2026-11-22 | Task | TESTING → REVIEWING | Implementer | build / unit PASS、E2E Targeted 97 中 96 PASS + 1 FLAKY（auto-combo、再実行で PASS）。Review Handoff を Reviewer へ |
 | 2026-11-22 | Task | REVIEWING → CHANGES_REQUIRED | Reviewer | Round 1/3（`3b4eecdaa74ba65fc7d2d83e0b05eb58d174b293`）: 会話・演出の間に追撃が落ちない |
 | 2026-11-22 | Task | CHANGES_REQUIRED → TESTING → REVIEWING | Implementer | Review Fix Loop Round 1（Auto Fix 1）。build / unit / E2E 22 件 PASS |
+| 2026-11-22 | Task | REVIEWING（Reviewer PASS） | Reviewer | Round 2/3 PASS（`b278bb0d47584d2984164ffa7d4c1222bb473a9b`） |
+| 2026-11-22 | Task | REVIEWING → DONE | Orchestrator | PR #145（base `claude/road-visual-003-r3-7`）。merge は Human |
 
 ## Implementation Result
 
@@ -214,3 +216,11 @@ None
 - AC の表の該当行を訂正（打ち切りの根拠）
 - 非ブロッキングの指摘への対応: `docs/CHARACTERS.md` のジャンプの記述を「係数だけ影の旅人の行を持つ」に訂正。Files To Change に無かった `02-world-common.js` / `10-input.js` / `src/core/weapon-state.js` は Changed Files に記載済み（計画の範囲内の最小の変更）。auto-combo の FLAKY は変更前コードと比較していない（Risks に残す）
 - Test: build PASS、unit 2329 PASS、E2E wanderer-renewal（2）/ shadow-guide / auto-combo / character-motion 計 22 PASS
+
+### Autonomy Metrics
+- Human Escalation Count: 0
+- Human Decision Count: 0
+- Auto Fix Count: 1
+- Reviewer Round Count: 2
+- Test Retry Count: 1
+- PR Created: Yes (#145)
