@@ -112,7 +112,9 @@
         ` transformed.x += road2W * ${amp.toFixed(3)} * max(position.y + 0.5, 0.0);\n` +
         ` transformed.z += road2W * ${(amp*0.5).toFixed(3)} * max(position.y + 0.5, 0.0);\n` +
         ' float road2G = uRoad2Gust * clamp(1.0 - distance(road2Ip, uRoad2GustPos) / 14.0, 0.0, 1.0) * max(position.y + 0.5, 0.0);\n' +
-        ' transformed.x += uRoad2GustDir.x * road2G * 0.55;\n transformed.z += uRoad2GustDir.y * road2G * 0.55;\n');
+        // 向きは世界の向き。草は一本ずつ向き(ry)・大きさが違うので、その逆で局所の向きへ直してから足す
+        '#ifdef USE_INSTANCING\n vec3 road2Gd = inverse(mat3(instanceMatrix)) * vec3(uRoad2GustDir.x, 0.0, uRoad2GustDir.y);\n#else\n vec3 road2Gd = vec3(uRoad2GustDir.x, 0.0, uRoad2GustDir.y);\n#endif\n' +
+        ' transformed += road2Gd * road2G * 0.55;\n');
     };
     mat.customProgramCacheKey = ()=> 'road2-sway-gust-' + amp;
     road2SwayMats.push(mat);
@@ -1701,6 +1703,7 @@
   function road2SetupArea5(M){
     road2Finale = {state:'idle', en:null, phase:0, cloudT:0, second:false, lane:null, mark:null, yielder:null, yieldT:0, talked:false};
     road2CloudW = 0; road2EndW = 0;
+    road2GustU.gust.value = 0;   // 前の出撃の突風を持ち越さない
     const grp = road2AreaGroups[5];
     road2RegisterBand('R5-01', ()=> road2Talk('R5-01', [[ROAD_SWORD, '「ここで、少し休もう」']]), true);
     road2RegisterBand('R5-02', ()=>{
@@ -1742,7 +1745,6 @@
     F.en = en; F.phase = 1;
     sfx('bossWake');
     sceneCamShot(P.spawn.x, P.spawn.z, 2.4, {y, height: 10, dist: 11});
-    spawnLog('🌬 高原の大角 ―― 風');
   }
   /* 大きな角・長い毛・穏やかな目(獣の姿に最小の差を足す) */
   function road2DressBigHorn(en){
@@ -1763,10 +1765,14 @@
     if(!F) return;
     F.state = 'defeated';
     F.mark.visible = false; F.lane.visible = false; road2GustU.gust.value = 0;
+    en.group.visible = false;   // 倒れて沈む演出(撃破の既定)は見せない。代わりに膝をつく姿を置く(殺さない)
     // 倒した獣は膝をつき、しばらくして立ち上がり、草原の奥へ去っていく(殺さない)。戦闘の外の飾りの姿
     const at = en.group.position.clone();
     const fig = buildEnemy(at.clone(), Object.assign({}, ROAD2_BIGHORN, {midbossName:null, strongMob:false}));
     if(fig.group.parent) fig.group.parent.remove(fig.group);
+    // 壁越しの輪郭(X-ray の殻)は戦闘の外の飾りには要らない(enemies に居ないので、見え方の処理が隠さない)
+    const shells = []; fig.group.traverse(o=>{ if(o.isMesh && o.material && o.material.depthFunc === THREE.GreaterDepth) shells.push(o); });
+    shells.forEach(o=>{ if(o.parent) o.parent.remove(o); });
     fig.group.scale.setScalar(2.1); fig.group.rotation.y = en.group.rotation.y;
     road2DressBigHorn(fig);
     road2AreaGroups[5].add(fig.group);
@@ -1807,7 +1813,9 @@
         F.lane.material.opacity = 0.22 + 0.4 * k;
       }
       // 段階 3: 突進は二連(一度目の突進の後、短い溜めでもう一度)
-      if(F.phase === 3 && en.chargeState === 'cooldown' && !F.second){
+      const fromDash = F.prevCharge === 'dash' && en.chargeState === 'cooldown';   // 突進をやり終えた時だけ(怯み・割り込みで止まった時は二連にしない)
+      F.prevCharge = en.chargeState;
+      if(F.phase === 3 && fromDash && !F.second && !(en.allyFocusT > 0) && hasLineOfSight(en.group.position, state.pos)){
         F.second = true;
         en.chargeState = 'telegraph'; en.chargeTelegraphDur = 0.45; en.chargeT = 0.45;
         const to = new THREE.Vector3().subVectors(state.pos, en.group.position); to.y = 0;

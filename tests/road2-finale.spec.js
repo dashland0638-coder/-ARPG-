@@ -13,7 +13,8 @@ const PROBE = `
   finale(){ const F = road2Finale; if(!F) return null; const en = F.en;
     return {state: F.state, phase: F.phase, hp: en ? en.hp : null, hpMax: en ? en.hpMax : null, name: en ? en.midbossName : null, scale: en ? en.group.scale.x : null,
       charge: en ? en.chargeState : null, second: F.second, mark: F.mark.visible, lane: F.lane.visible, gust: road2GustU.gust.value, cloudW: road2CloudW, endW: road2EndW,
-      yielder: !!F.yielder, yieldT: F.yieldT, focus: en ? (en.allyFocusT || 0) : 0, dayPos: road2DayPos, ex: en ? en.group.position.x : null, ez: en ? en.group.position.z : null}; },
+      yielder: !!F.yielder, yieldT: F.yieldT, beastVis: en ? en.group.visible : null,
+      yShells: F.yielder ? (()=>{ let n = 0; F.yielder.traverse(o=>{ if(o.isMesh && o.material && o.material.depthFunc === THREE.GreaterDepth) n++; }); return n; })() : null, focus: en ? (en.allyFocusT || 0) : 0, dayPos: road2DayPos, ex: en ? en.group.position.x : null, ez: en ? en.group.position.z : null}; },
   finaleHp(r){ const en = road2Finale.en; en.hp = Math.max(1, Math.round(en.hpMax * r)); return en.hp; },
   nearBoss(d){ const en = road2Finale.en; state.pos.set(en.group.position.x, state.pos.y, en.group.position.z - d); state.vel.set(0,0,0); return true; },
   finaleAllyHit(){ const en = road2Finale.en; dealDamageToEnemy(en, 1, true); return en.allyFocusT || 0; },
@@ -150,7 +151,10 @@ test('最終戦: R5-01 → R5-02 → 高原の大角。三つの段階の予兆�
   // 倒す: 膝をついて去る(殺さない)。太陽が少し上がる。R5-03。結果画面はまだ出ない
   await R('killFinale');
   await expect.poll(async () => (await R('finale')).state, { timeout: 10_000 }).toBe('defeated');
-  expect((await R('finale')).yielder, '膝をついた姿が残る').toBe(true);
+  const fd = await R('finale');
+  expect(fd.yielder, '膝をついた姿が残る').toBe(true);
+  expect(fd.beastVis, '倒れて沈む姿は見せない(殺さない)').toBe(false);
+  expect(fd.yShells, '飾りの姿は壁越しの輪郭を持たない').toBe(0);
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/road2-finale-yield.png` });
   expect(await readTalk(page, R)).toEqual(['盗賊|「結局、何だったんだろうな。今まで見てきたもの」', '弓師|「分からないまま、ですね」',
     '魔法使い|「分からないことがあっても、世界は続いています」', '剣士|「そういうものなのかもしれないな」']);
