@@ -750,6 +750,11 @@
       }
     }
 
+    /* 新しい道(ROAD-VISUAL-003 R3-T1)の下り坂: 前のフレームで立っていた者が、跳んでおらず、
+       床が 1.0 以内の下にあるなら床へ置く。置かないと、坂が重力より速く下がるので毎フレーム
+       足が浮き(grounded が落ちる)、歩きの動きが止まって「滑る・震える」。道だけに効かせる
+       (時計塔の坂は変えない。road2GroundSnapDown、14-dungeon-road2.js) */
+    if(currentWorldKey === 'road2' && !overVoid && road2GroundSnapDown(floorY)) state.pos.y = floorY;
     if(state.pos.y <= floorY){
       state.pos.y = floorY;
       if(!state.grounded){
