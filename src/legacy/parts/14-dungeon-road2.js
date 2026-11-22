@@ -113,7 +113,10 @@
         ` transformed.z += road2W * ${(amp*0.5).toFixed(3)} * max(position.y + 0.5, 0.0);\n` +
         ' float road2G = uRoad2Gust * clamp(1.0 - distance(road2Ip, uRoad2GustPos) / 14.0, 0.0, 1.0) * max(position.y + 0.5, 0.0);\n' +
         // 向きは世界の向き。草は一本ずつ向き(ry)・大きさが違うので、その逆で局所の向きへ直してから足す
-        '#ifdef USE_INSTANCING\n vec3 road2Gd = inverse(mat3(instanceMatrix)) * vec3(uRoad2GustDir.x, 0.0, uRoad2GustDir.y);\n#else\n vec3 road2Gd = vec3(uRoad2GustDir.x, 0.0, uRoad2GustDir.y);\n#endif\n' +
+        // (草の向きは y まわりの回転と一様な大きさだけなので、逆は「列との内積 ÷ 大きさの二乗」。inverse() は WebGL1 に無いので使わない)
+        ' vec3 road2Gw = vec3(uRoad2GustDir.x, 0.0, uRoad2GustDir.y);\n' +
+        '#ifdef USE_INSTANCING\n float road2S2 = max(dot(instanceMatrix[0].xyz, instanceMatrix[0].xyz), 1e-4);\n' +
+        ' vec3 road2Gd = vec3(dot(instanceMatrix[0].xyz, road2Gw), dot(instanceMatrix[1].xyz, road2Gw), dot(instanceMatrix[2].xyz, road2Gw)) / road2S2;\n#else\n vec3 road2Gd = road2Gw;\n#endif\n' +
         ' transformed += road2Gd * road2G * 0.55;\n');
     };
     mat.customProgramCacheKey = ()=> 'road2-sway-gust-' + amp;
