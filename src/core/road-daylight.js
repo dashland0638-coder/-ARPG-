@@ -22,13 +22,13 @@ export const ROAD_DAYLIGHT = Object.freeze([
   Object.freeze({pos:0,   name:'DAY',       sky:0x9ab8d0, fog:0.0048, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, glow:0xffb050, sunDir:Object.freeze([30, 45, 20])}),
   Object.freeze({pos:1,   name:'AFTERNOON', sky:0xb0b4b8, fog:0.0055, sun:0xffd890, sunI:0.85, hemi:0.46, hemiSky:0xd6d0c0, hemiGnd:0x4a4a34, rim:0xffc080, rimI:0.18, glow:0xffb050, sunDir:Object.freeze([-28, 32, -12])}),
   Object.freeze({pos:2,   name:'SUNSET',    sky:0x9a6a70, fog:0.0070, sun:0xff9a5a, sunI:0.62, hemi:0.36, hemiSky:0xb08a90, hemiGnd:0x2a2028, rim:0xff8a4a, rimI:0.24, glow:0xffa040, sunDir:Object.freeze([-44, 12, -14])}),
-  Object.freeze({pos:3,   name:'NIGHT',     sky:0x141a30, fog:0.0110, sun:0x8a9ad0, sunI:0.22, hemi:0.18, hemiSky:0x3a4a7a, hemiGnd:0x0a0a16, rim:0x6a8ae0, rimI:0.26, glow:0xffc070, sunDir:Object.freeze([12, 50, -18])}),
-  Object.freeze({pos:4,   name:'DAWN',      sky:0x3a3a5a, fog:0.0100, sun:0xb090c0, sunI:0.24, hemi:0.22, hemiSky:0x6a6a9a, hemiGnd:0x1a1824, rim:0xc090c0, rimI:0.22, glow:0xffb060, sunDir:Object.freeze([30, 3, 40])}),
+  Object.freeze({pos:3,   name:'NIGHT',     sky:0x1a2240, fog:0.0100, sun:0x9aaae0, sunI:0.28, hemi:0.40, hemiSky:0x6070a8, hemiGnd:0x14141e, rim:0x7a9af0, rimI:0.30, glow:0xffc070, sunDir:Object.freeze([12, 50, -18])}),
+  Object.freeze({pos:4,   name:'DAWN',      sky:0x46466a, fog:0.0095, sun:0xc0a0d0, sunI:0.32, hemi:0.32, hemiSky:0x8a8ab8, hemiGnd:0x221e2a, rim:0xc8a0d0, rimI:0.24, glow:0xffb060, sunDir:Object.freeze([30, 3, 40])}),
   Object.freeze({pos:4.5, name:'DAWN_ORANGE', sky:0xc08a70, fog:0.0080, sun:0xffa060, sunI:0.55, hemi:0.34, hemiSky:0xd0a090, hemiGnd:0x3a2a28, rim:0xffa060, rimI:0.24, glow:0xffb050, sunDir:Object.freeze([30, 5, 40])}),
   Object.freeze({pos:5,   name:'DAWN_GOLD', sky:0xe0c090, fog:0.0062, sun:0xffd090, sunI:0.80, hemi:0.42, hemiSky:0xe8d4b0, hemiGnd:0x4a4030, rim:0xffd080, rimI:0.20, glow:0xffb050, sunDir:Object.freeze([30, 7, 40])}),
 ]);
-/* DEEP_NIGHT(重み 1 の時の値)。古き守り手の戦闘の間の重さ。見やすさの下限: 半球光 0.16 */
-export const ROAD_DEEP_NIGHT = Object.freeze({sky:0x080a18, fog:0.0150, sun:0x6a7ab8, sunI:0.15, hemi:0.16, hemiSky:0x2a3460, hemiGnd:0x06060c, rim:0x5a7ae0, rimI:0.30, glow:0xffd080, sunDir:Object.freeze([8, 52, -16])});
+/* DEEP_NIGHT(重み 1 の時の値)。古き守り手の戦闘の間の重さ。見やすさの下限: 半球光 0.16 以上(T7 で主人公の周りの明るさを測って決めた) */
+export const ROAD_DEEP_NIGHT = Object.freeze({sky:0x0e1226, fog:0.0135, sun:0x8090d0, sunI:0.22, hemi:0.24, hemiSky:0x46549a, hemiGnd:0x0c0c14, rim:0x6a8af0, rimI:0.30, glow:0xffd080, sunDir:Object.freeze([8, 52, -16])});
 /* 結末の値(重み 1 の時)。太陽の高さ約 12°、光が白に近づく */
 export const ROAD_ENDING = Object.freeze({sky:0xd8d0b8, fog:0.0055, sun:0xfff0d8, sunI:0.88, hemi:0.46, hemiSky:0xe8e0cc, hemiGnd:0x4a4a3a, rim:0xffe0a0, rimI:0.18, glow:0xffb050, sunDir:Object.freeze([30, 11, 40])});
 
