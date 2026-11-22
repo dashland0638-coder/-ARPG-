@@ -618,6 +618,7 @@
     clocktower:'狂いの時計塔', conservatory:'硝子の温室',
     duskvillage:'宵待ちの村',
     road:'名もなき街道',
+    road2:'道 — その先へ',
   };
   // 「山を登る」拡張の各部屋(周回★でしか現れず、テーブル駆動の部屋一覧
   // には乗っていない)にも、迷わないよう固有の場所名を出す。星条件を
@@ -635,6 +636,7 @@
   function roomNameAt(x, z){
     // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。「……?」の部屋の名前で、別の部屋だと分かる
     if(currentWorldKey === 'ghostship' && gsActive){ return gsRoomLabel(gsRoomAt(x, z, gsFlags.phase)); }
+    if(currentWorldKey === 'road2') return road2AreaNameAt(x, z);   // 新しい道: エリアの名前
     const tables = [
       {rooms: typeof MANSION_ROOMS !== 'undefined' ? MANSION_ROOMS : null},
       {rooms: typeof TOWER_ROOMS !== 'undefined' ? TOWER_ROOMS : null, floors:true},
@@ -1428,6 +1430,7 @@
       updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)。他では即 return
       updateTavernBgmStage();   // 酒場 BGM の加入段階(交代の会話・第一章の最後の会話の後で次の段へ)。他では即 return
       updateRoad(dt);          // 道(WORK 11)。他のワールドでは即return
+      updateRoad2(dt);         // 新しい道(ROAD-VISUAL-003)。他のワールドでは即return
       updateGhostShip(dt);     // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。他のワールドでは即return
       updateCutscene(dt);
       updateSwingVFX(dt);
@@ -1508,6 +1511,7 @@
       updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)
       updateTavernBgmStage();
       updateRoad(dt);
+      updateRoad2(dt);
       updateGhostShip(dt);
       updateShake(dt);
       updateSparks(dt);

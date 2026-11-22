@@ -1,6 +1,6 @@
 # ROAD-VISUAL-002 — 道（名もなき街道）の見た目の改良（案 B）の実装
 
-Status: IN PROGRESS（段階1 = 本 PR）
+Status: CLOSED（段階1 = PR #125 で完了。段階2〜6 は DEC-025 E-6 で取り下げ。新しい道 ROAD-VISUAL-003 へ移す）
 
 基準: main `0fc4572`。ブランチ: `claude/dazzling-maxwell-y3msf3`。main へはマージしない（Human が判断）。
 調査・設計: `.ai/reports/ROAD-VISUAL-001-analysis.md` / `-design.md`
@@ -60,11 +60,11 @@ Human Decision: `.ai/decisions/DEC-024-road-visual.md`
 | 段階 | 内容 | 状態 |
 | --- | --- | --- |
 | 1 | 描画の工夫（InstancedMesh）と描画回数の E2E | DONE（本 PR） |
-| 2 | 光と色（HD-R4） | **保留（W3-3）** |
-| 3 | 道の脇と景色の段階 | 段階1のマージ後 |
-| 4 | 地点の飾り | 段階3の後 |
-| 5 | 丘の先とカメラ演出（HD-R3） | 段階4の後 |
-| 6 | 加入前の影だまり（HD-R5）と実機確認 | 段階5の後 |
+| 2 | 光と色（HD-R4） | 取り下げ（DEC-025） |
+| 3 | 道の脇と景色の段階 | 取り下げ（DEC-025） |
+| 4 | 地点の飾り | 取り下げ（DEC-025） |
+| 5 | 丘の先とカメラ演出（HD-R3） | 取り下げ（DEC-025） |
+| 6 | 加入前の影だまり（HD-R5）と実機確認 | 取り下げ（DEC-025） |
 | — | iPhone 実機 | **未確認（Human）** |
 
 ## Agent Decisions

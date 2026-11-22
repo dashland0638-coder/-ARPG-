@@ -45,6 +45,7 @@ const MOODS = {
   duskvillage:  { root:110, scale:[0,3,5,7,10], tempo:0.6, density:0.14, wave:'sine',     cutoff:700,  padGain:0.040, eventGain:0.032, drift:0.8, pluck:true,               reverbTime:2.4, reverbMix:0.34 },
   /* 道(第一章 ⑤、HD-C2): 第一章で一番明るい朝の街道。長調の5音を、酒場より少し
      高く柔らかく。屋外なので残響は短い。森の環境音(道は 'forest' を流用)の下に敷く */
+  road2:        { root:131, scale:[0,2,4,7,9],  tempo:0.9, density:0.20, wave:'triangle', cutoff:1800, padGain:0.038, eventGain:0.038, drift:0.4,                          reverbTime:1.4, reverbMix:0.20 },   // 新しい道(作業中。今の道と同じ)
   road:         { root:131, scale:[0,2,4,7,9],  tempo:0.9, density:0.20, wave:'triangle', cutoff:1800, padGain:0.038, eventGain:0.038, drift:0.4,                          reverbTime:1.4, reverbMix:0.20 },
 };
 

@@ -34,6 +34,8 @@ export const TEST_CHAPTERS = [
   {id: 'ch1', label: '第一章', scenarios: ['mansion', 'duskvillage', 'ghostship', 'clocktower', 'road']},
   // 第一章の進行には出てこないが、ワールドは実装済みのシナリオ
   {id: 'extra', label: '章外のシナリオ', scenarios: ['temple', 'waterway', 'conservatory']},
+  // 作業中のシナリオ。本編には出ない(ROAD-VISUAL-003: 新しい道。完成したら第一章の 'road' に置き換えて、ここから消す)
+  {id: 'wip', label: '作業中のシナリオ', scenarios: ['road2']},
 ];
 
 export const DEFAULT_TEST_CHAPTER = 'ch1';

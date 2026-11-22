@@ -5122,6 +5122,7 @@
     else if(key==='ghostship' && gsActive) worldBounds = boundsFromRooms(GS_ROOMS, 4);
     // 道(WORK 11)。部屋の表を持たない屋外の一本道なので、直接座標で
     else if(key==='road') worldBounds = Object.assign({}, ROAD_BOUNDS);
+    else if(key==='road2') worldBounds = Object.assign({}, ROAD2_BOUNDS);
     // テストモード(上位職デバッグ用)のトレーニング空間。他のどのダンジョン
     // とも重ならない、ずっと東(x>400)の未使用領域に置いてある
     // (worldKeyForPos参照)。専用の部屋テーブルは無いので直接座標を指定
@@ -5147,6 +5148,7 @@
     // ずっと東(x>400)の未使用領域。conservatory側のx>170判定より先に
     // 判定しないと吸われてしまうため、他のどの分岐よりも先に置く
     // 道(WORK 11)はトレーニング空間よりさらに東(x>600)。training の判定より先に
+    if(x > 900) return 'road2';   // 新しい道(ROAD-VISUAL-003、x 1000〜1200)。旧道の判定より先に
     if(x > 600) return 'road';
     if(x > 400) return 'training';
     // Phase D(#37): 宵待ちの村は他のどのダンジョンとも重ならない、

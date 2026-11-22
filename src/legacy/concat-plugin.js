@@ -164,6 +164,12 @@ import {
   captainPhaseFor, CAPTAIN_SHIFT_SEC, CAPTAIN_BREATH_SEC, CAPTAIN_ATTACKS, captainAttackPlan, captainAttackCooldown,
   captainAttackChoice, captainFanHit, chainLineHit, chainPullDest,
 } from '../core/ghostship-captain.js';
+/* 新しい「道 — その先へ」(ROAD-VISUAL-003)。作業中はテストモードの「道(新)」だけ */
+import {
+  ROAD2_X0, ROAD2_X1, ROAD2_CX, ROAD2_Z0, ROAD2_Z1, ROAD2_AREAS, ROAD2_ENTRY, ROAD2_CAMPS, ROAD2_ROUTES,
+  ROAD2_LANDMARKS, areaById as road2AreaById, areaAt as road2AreaAt,
+  visibleAreaIds as road2VisibleAreaIds, blockedRects as road2BlockedRects,
+} from '../core/road-map.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

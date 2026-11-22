@@ -1,6 +1,6 @@
 # DEC-024 — 道（名もなき街道）の見た目の改良（案 B）
 
-Status: Accepted（Human Decision 2026-11-14。`ROAD-VISUAL-001` の設計（`.ai/reports/ROAD-VISUAL-001-design.md` §13）への Human の回答）
+Status: Partly superseded by DEC-025（2026-11-14。追加条件と HD-R6 は廃止、ROAD-VISUAL-002 の段階2〜6 は取り下げ）。元の Status: Accepted（Human Decision 2026-11-14。`ROAD-VISUAL-001` の設計（`.ai/reports/ROAD-VISUAL-001-design.md` §13）への Human の回答）
 
 ## 決定（Human）
 | ID | 決定 |
