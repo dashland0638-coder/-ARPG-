@@ -164,6 +164,23 @@ import {
   captainPhaseFor, CAPTAIN_SHIFT_SEC, CAPTAIN_BREATH_SEC, CAPTAIN_ATTACKS, captainAttackPlan, captainAttackCooldown,
   captainAttackChoice, captainFanHit, chainLineHit, chainPullDest,
 } from '../core/ghostship-captain.js';
+/* 新しい「道 — その先へ」(ROAD-VISUAL-003)。作業中はテストモードの「道(新)」だけ */
+import {
+  ROAD2_X0, ROAD2_X1, ROAD2_CX, ROAD2_Z0, ROAD2_Z1, ROAD2_AREAS, ROAD2_ENTRY, ROAD2_CAMPS, ROAD2_ROUTES, ROAD2_FIGHTS, ROAD2_GUARDIAN, ROAD2_MOOR, ROAD2_VALE, ROAD2_FINALE, road2HollowInterior,
+  ROAD2_LANDMARKS, ROAD2_RING, ROAD2_RUIN, areaById as road2AreaById, areaAt as road2AreaAt,
+  visibleAreaIds as road2VisibleAreaIds, blockedRects as road2BlockedRects,
+  road2Slabs, road2Obstacles, road2GroundAt, ROAD2_TERRAIN, ROAD2_VISTAS, ROAD2_LANTERNS, ROAD2_GUIDEPOSTS, ROAD2_BANDS,
+  ROAD2_WATER, ROAD2_OUTER_Y,
+} from '../core/road-map.js';
+import { compassStep, roadDirectionAt, compassMainXAt, compassNextDestination, compassDestination, ROAD2_ANOMALIES } from '../core/road-compass.js';
+import { roadDaylight, roadDaylightTarget, roadDaylightStart, advanceRoadDaylight, stepRoadDaylight, stepRoadWeight } from '../core/road-daylight.js';
+import { ROAD2_CHESTS, roadChestReward } from '../core/road-rewards.js';
+import { scenarioWorldKey, scenarioKeyForWorld } from '../core/scenario-world.js';
+import { ROAD2_WALL_SHADOW, ROAD2_ECHO_ZONES, ROAD2_ECHO_NOTICE_SEP, shadowLightDir, shadowCastable, echoZoneAt, nearEchoZone, echoLineFor, pushPoseFrame, pickPoseFrame } from '../core/road-wall-shadow.js';
+import { newBanterState, queueBanter, stepBanter, walkTalkBlock, walkTalkPartyOk, walkTalkLines, WALK_TALK_STALE_SEC } from '../core/walk-talk.js';
+import { WALK_TALK_CH1 } from '../core/walk-talk-ch1.js';
+import { GUARDIAN_FOCUS_SEC, canFocusAlly, stepGuardianFocus, guardianFacingTarget, guardianMayWake, foesFit } from '../core/road-guardian.js';
+import { ROAD_JOINER, ROAD_JOIN_AREA, roadSupportOptions, roadCompanions, recordRoadArea, roadJoinedFromArea, roadStartCamp, sanitizeRoadArea } from '../core/road-party.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';
 import {

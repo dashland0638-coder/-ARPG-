@@ -242,6 +242,7 @@
   const BARTENDER_POS = new THREE.Vector3(0,0,20);
   const SMITH_POS = new THREE.Vector3(-6.5,0,12);
   let nearbySmith = false;
+  let nearbyRoad2Camp = null;   // 道(新)の野営地の焚き火のそば(支援を選ぶ。R3-4)
   // 5人目「影の旅人」。まだ仲間ではなく、酒場の片隅に座る謎めいたNPC
   // (プレイアブル化までの流れは12-progression-ui.jsのSHADOW_GUIDE_*参照)
   const SHADOW_GUIDE_POS = new THREE.Vector3(7.5,0,8.5);
@@ -1933,6 +1934,7 @@
   function towerStoryOn(){ return clocktowerChapter1(); }
   let towerInsightDone = false, towerRepeatSeen = false, towerKeyTaken = false, towerFirstRingDone = false;
   let towerBridgeTalkDone = false, towerClutchTalkDone = false;
+  let towerStoppedSeen = false;   // 1 層で鐘が鳴り時が止まる出来事を見た(歩きながらの掛け合い T-2 の条件。出撃のたびに戻る)
   function towerEndScene(){ cutsceneHideLine(); state.dialogueActive = false; clearMovementInput(false); }
   function towerWalk(g, to, dur){
     if(!towerMech || !g) return;
@@ -1955,13 +1957,14 @@
 
   function buildClocktowerChapter1Story(slabY){
     towerInsightDone = false; towerRepeatSeen = false; towerKeyTaken = false; towerFirstRingDone = false;
-    towerBridgeTalkDone = false; towerClutchTalkDone = false;
+    towerBridgeTalkDone = false; towerClutchTalkDone = false; towerStoppedSeen = false;
     if(!clocktowerChapter1()) return;
     const R = CLASSES.rogue.name, A = CLASSES.archer.name, K = '管理人';
     const band = [-0.6, 6];
 
     /* T0: 頭上で鐘が鳴り、時が止まる。縦穴を見上げると、目的地の大時計の裏が光っている */
     registerRoomEvent({x0:-272, x1:-252, z0:46.5, z1:57.5}, 0, R, null, {band, marker:false, inset:0, onEnter:()=>{
+      towerStoppedSeen = true;
       let keeper = null;
       const figs = [];
       playCutscene([
@@ -3508,7 +3511,7 @@
     if(currentWorldKey === 'tavern') return 'tavern';
     // 宵待ちの村は区画の決め方が違う(部屋idで分ける)ので、向こうに任せる
     if(currentWorldKey === 'duskvillage') return duskAmbienceZone();
-    if(currentWorldKey === 'road') return 'forest';   // 道(WORK 11): 屋外の街道。森の音をそのまま
+    if(currentWorldKey === 'road2') return 'forest';   // 道 — その先へ: 屋外の街道。森の音をそのまま
     // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。部屋の区画で分ける
     if(currentWorldKey === 'ghostship' && gsActive) return gsAmbienceZone();
     if(currentWorldKey !== 'mansion') return null;

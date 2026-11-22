@@ -1,7 +1,7 @@
 /* 第一章⑤ 道の導入と正体不明の人物(CR-02、docs/CHAPTER1_STORY.md §3 / §4-5 / §4-6、
    DEC-004 N-4)。本物のソースを stub 付きで動かして確かめる:
-     ・加入前(酒場の隅・島・橋・休憩所)は名前を出さない。話者名は「？？？」
-     ・正式加入(roadHandOff)で初めて「影の旅人」が出て、以後の話者名もそれ
+     ・加入前(酒場の隅・島)は名前を出さない。話者名は「？？？」
+       (道 — その先へ の出会いと正式加入は tests/road2-join.spec.js。旧道の一幕は R3-7 で消した)
      ・加入前の人物の影は、本人よりわずかに遅れて動く
      ・島から対岸の街道を歩く人影が見える(本編の第一章のみ) */
 import test from 'node:test';
@@ -32,8 +32,6 @@ function slice(src, start, end){
 }
 const STRANGER = '？？？', TRAVELER = '影の旅人';
 const roadConsts = [
-  "const ROAD_X = 640, ROAD_BRIDGE_Z = 60;",
-  slice(road, 'const ROAD_REST_POS', ';'),
   slice(road, "const ROAD_THIEF = '盗賊'", ';'),
   slice(road, 'const ROAD_STRANGER', ';'),
   slice(road, 'const PRE_JOIN_SHADOW_LAG', ';'),
@@ -43,117 +41,6 @@ const roadConsts = [
   fn(road, 'function updatePreJoinFigures(dt){'),
   fn(road, 'function clearPreJoinFigures(){'),
 ].join('\n');
-
-/* 道の一幕を最後まで回し、出た台詞を [話者, 本文] の順に集める。
-   fadeTransition の先(交代)は呼ばずに印だけ残す */
-function runRoad(fnSig, call, testMode){
-  const lines = [];
-  const scene = new THREE.Scene();
-  const state = { pos: new THREE.Vector3(640, 0, 73) };
-  const code = [
-    roadConsts,
-    'let roadMet = false, roadEnded = false, roadGlimpseDone = false, roadBridgeShadow = null;',
-    'let roadTraveler = buildRoadTravelerFigure(true); scene.add(roadTraveler); trackPreJoinShadow(roadTraveler);',
-    'const currentWorldObjects = [];',
-    fn(road, fnSig),
-    call,
-    'return {roadTraveler, preJoinFigures};',
-  ].join('\n');
-  const out = new Function('THREE', 'scene', 'state', 'legacyGrowth', 'playCutscene', 'cutsceneLine', 'cutsceneHideLine',
-    'cutsceneTurnTo', 'clearMovementInput', 'ambienceHold', 'sfx', 'fadeTransition', 'spawnApparition', 'finishRoad', code)(
-    THREE, scene, state, () => testMode,
-    steps => steps.forEach(s => s.run()),
-    (text, name) => lines.push([name, text]),
-    () => {}, () => {}, () => {}, () => {}, () => {},
-    () => lines.push(['', '<交代>']),
-    () => {}, () => lines.push(['', '<道の終わり>']));
-  return { lines, ...out };
-}
-
-test('休憩所の出会い: 加入前の人物の話者名は「？？？」。「影の旅人」は出ない', () => {
-  for (const testMode of [false, true]) {
-    const { lines } = runRoad('function playRoadMeeting(){', 'playRoadMeeting();', testMode);
-    const handoff = lines.findIndex(l => l[1] === '<交代>');
-    assert.ok(handoff > 0, '一幕の最後で交代する');
-    const before = lines.slice(0, handoff);
-    assert.deepEqual(before[0], [STRANGER, '「……こんにちは」']);
-    assert.ok(before.some(l => l[0] === STRANGER && l[1] === '「いいえ。……私が行きます」'), '「私が行きます」も加入前');
-    for (const [name, text] of before) {
-      assert.doesNotMatch(name + text, /影の旅人|旅人/, `加入前に名前を出さない: ${name} ${text}`);
-      assert.ok([STRANGER, '盗賊', '弓師'].includes(name), name);
-    }
-  }
-});
-
-test('休憩所の出会い: 本編では「朝の鐘で出てったんだろ」「……鳴ったので」(§4-6)。テストモードは既存のまま', () => {
-  const main = runRoad('function playRoadMeeting(){', 'playRoadMeeting();', false).lines;
-  const i = main.findIndex(l => l[1] === '「朝の鐘で出てったんだろ」');
-  assert.ok(i > 0);
-  assert.deepEqual(main[i], ['盗賊', '「朝の鐘で出てったんだろ」']);
-  assert.deepEqual(main[i + 1], [STRANGER, '「……鳴ったので」']);
-  assert.deepEqual(main[i - 1], [STRANGER, '「そうですか」'], '「朝から探してたんだぞ」の流れの後');
-  const tm = runRoad('function playRoadMeeting(){', 'playRoadMeeting();', true).lines;
-  assert.equal(tm.length, main.length - 2);
-  assert.ok(!tm.some(l => /朝の鐘|鳴ったので/.test(l[1])));
-});
-
-test('休憩所の出会い: 立ち上がった人物は長椅子から歩いて出て、影が遅れてついてくる', () => {
-  const { roadTraveler, preJoinFigures } = runRoad('function playRoadMeeting(){', 'playRoadMeeting();', false);
-  // 座った姿は外れ、立ち姿(加入前のグラフィック)に入れ替わっている
-  const live = preJoinFigures.filter(f => f.fig.parent);
-  assert.equal(live.length, 1);
-  assert.equal(live[0].fig, roadTraveler);
-  assert.ok(live[0].walk, '歩いて出る');
-  assert.equal(live[0].walk.to.x, 640 + 0.6);
-  assert.equal(live[0].walk.to.z, 80.5 - 3.0);
-});
-
-test('橋の人影: 本編では弓師「……島から見えた人です」。名前は出ない', () => {
-  const main = runRoad('function playRoadGlimpse(){', 'playRoadGlimpse();', false).lines;
-  assert.ok(main.some(l => l[0] === '弓師' && l[1] === '「……島から見えた人です」'));
-  assert.ok(!main.some(l => /旅人/.test(l[0] + l[1])));
-  const tm = runRoad('function playRoadGlimpse(){', 'playRoadGlimpse();', true).lines;
-  assert.ok(!tm.some(l => /島から/.test(l[1])), 'テストモードは島を通っていないので言わない');
-  assert.equal(tm.length, main.length - 1);
-});
-
-test('丘(加入後): 話者名は「影の旅人」', () => {
-  const { lines } = runRoad('function playRoadEnding(){', 'playRoadEnding();', false);
-  const own = lines.filter(l => l[1] === '「分かりません」' || l[1] === '「……はい」');
-  assert.ok(own.length >= 2);
-  own.forEach(l => assert.equal(l[0], TRAVELER));
-  assert.ok(!lines.some(l => l[0] === STRANGER));
-});
-
-test('正式加入(roadHandOff): 名前「影の旅人」が初めて出て、加入前の姿は外れる', () => {
-  const logs = [];
-  const scene = new THREE.Scene();
-  const state = { pos: new THREE.Vector3(640, 0, 73), vel: new THREE.Vector3(), classDef: null };
-  const code = [
-    roadConsts,
-    'const CHAPTER1_ORDER = ["mansion","duskvillage","ghostship","clocktower","road"];',
-    'const ROAD_BEAST = {}, ROAD_SPITTER = {};',
-    'let roadMet = false, roadArcherStay = null, roadFight2 = [];',
-    'const enemies = [];',
-    'let roadTraveler = buildRoadTravelerFigure(false); scene.add(roadTraveler); trackPreJoinShadow(roadTraveler);',
-    fn(road, 'function roadHandOff(){'),
-    'roadHandOff();',
-    'updatePreJoinFigures(0.016);',
-    'return {roadMet, roadTraveler, preJoinFigures};',
-  ].join('\n');
-  let stage = null;
-  const camera = { position: new THREE.Vector3() };
-  const out = new Function('THREE', 'scene', 'state', 'camera', 'spawnLog', 'meetChapter1Protagonist', 'buildRoadArcherFigure',
-    'repositionAlliesToPlayer', 'getCamOffset', 'buildEnemy', code)(
-    THREE, scene, state, camera, m => logs.push(m),
-    n => { stage = n; state.classDef = { icon: '◐', name: TRAVELER }; },
-    () => new THREE.Group(), () => {}, () => new THREE.Vector3(), () => ({}));
-  assert.equal(out.roadMet, true);
-  assert.equal(stage, 5, '表の5段目(影の旅人＋盗賊)へ');
-  assert.equal(out.roadTraveler, null, '加入前の姿は外れる(以後は操作キャラクターのリグ)');
-  assert.equal(out.preJoinFigures.length, 0, '加入前の影も一緒に片づく');
-  assert.deepEqual(logs, ['◐ 影の旅人']);
-});
 
 test('加入前の影: 歩くと本人より遅れ、止まると足元へ追いつく。人物が外れたら影も消える', () => {
   const code = [
@@ -240,7 +127,7 @@ test('加入前の人物は、会話中(島の地の文)も動く。片づけは
   const boot = read('14-hud-boot.js');
   const dialogueBranch = slice(boot, '} else if(state.started && state.dialogueActive){', 'updateGamepadMenuNav(gp, dt);');
   assert.match(dialogueBranch, /updatePreJoinFigures\(dt\);/);
-  assert.match(fn(road, 'function updateRoad(dt){'), /updatePreJoinFigures\(dt\);\s*\/\/[^\n]*\n\s*if\(currentWorldKey !== 'road'\) return;/,
-    '時計塔でも動かすので、ワールドの判定より前');
+  assert.equal((boot.match(/^\s*updatePreJoinFigures\(dt\);/gm) || []).length, 3, '通常・演出・会話の三つの更新で、ワールドを問わず動かす(時計塔の島でも)');
+  assert.ok(!/function updateRoad\(/.test(road), '旧道の更新は無い');
   assert.match(world, /clearApparitions\(\);\n\s*clearPreJoinFigures\(\);/);
 });

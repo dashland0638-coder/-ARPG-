@@ -600,13 +600,6 @@
          (bossDoorKey 無し。理由は 14-dungeon-duskvillage.js buildDuskVillageEcho) */
       enemies.push(buildDuskVillageEcho());
     }
-    /* 道(WORK 11)。道標を過ぎた先に、既存の汎用の獣が3体だけ。
-       出会いのあとの戦闘は roadHandOff() がその場で出す(14-dungeon-road.js) */
-    if(_spawnWorldKey==='road'){
-      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X - 3, 0, 38), Object.assign({}, ROAD_BEAST)));
-      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 4, 0, 42), Object.assign({}, ROAD_BEAST)));
-      enemies.push(buildEnemy(new THREE.Vector3(ROAD_X + 0.5, 0, 49), Object.assign({}, ROAD_SPITTER)));
-    }
     // テストモードのカカシ(訓練用の的)。hp/atk/speedはdifficultyFor()の
     // 補正(_D)がそのままかかるが、'training'は星取りデータが無いキーの
     // ためscenarioStars()は既定の1扱いになり、_D.hpも1倍で素直に効く。
@@ -1796,7 +1789,8 @@
     en.guardHoldT = stepGuardHold(en, dt, distToPlayer, en.chargeState);
 
     if(en.chargeState==='idle'){
-      if(distToPlayer < 6 && hasLineOfSight(en.group.position, state.pos)){
+      // 支援のほうを向いている間(en.allyFocusT。道(新)の古き守り手だけが持つ)は、プレイヤーへの溜めに入らない
+      if(distToPlayer < 6 && !(en.allyFocusT > 0) && hasLineOfSight(en.group.position, state.pos)){
         // 索敵成立 = パーティへの敵対(core/enemy-aggro.js)。距離もLoS条件も
         // 既存のまま ―― 成立した事実を en.triggered に記録するだけ
         if(aggroOnDetect(en, true)) en.triggered = true;
@@ -5695,6 +5689,9 @@
   function dealDamageToEnemy(en, amount, isAlly, opts){
     opts = opts || {};
     if(!en || en.dead) return;
+    // 支援の攻撃で向きを変える敵(道(新)の古き守り手、ROAD-VISUAL-003 R3-4b)。印(en.turnToAlly = 秒)を持つ敵だけに効く
+    // 向いている間は延ばさない・向き直った後の待ち(en.allyFocusCD)の間は向かない(core/road-guardian.js canFocusAlly)
+    if(isAlly && en.turnToAlly && !opts.isDot && canFocusAlly(en.allyFocusT, en.allyFocusCD)) en.allyFocusT = en.turnToAlly;
     /* 水鏡の影の分身(WORK 3)。当てても damage は入らず、手応えなく散る
        ―― 「全部壊せば勝ち」ではなく「どれが本体かを見る」戦いにするため。
        散らした事実そのものがプレイヤーの得た情報なので、当たり前に消す

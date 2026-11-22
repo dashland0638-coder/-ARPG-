@@ -6,6 +6,10 @@
   ========================================================= */
   let scene, camera, renderer, clock;
   let sunLight = null;
+  /* 太陽の位置 = プレイヤー + sunOffset(13-update-loop.js updateSunShadow)。既定は (30, 45, 20)。
+     道(新)だけが時間帯で替える(ROAD-VISUAL-004 §5-3)。ワールドを替える時に既定へ戻す(disposeWorld) */
+  const SUN_OFFSET_DEFAULT = Object.freeze([30, 45, 20]);
+  let sunOffset = SUN_OFFSET_DEFAULT.slice();
   let player, playerMixerParts = {};
   let hemiLight = null, rimLight = null;
   let enemies = [];
@@ -172,7 +176,7 @@
       buildDuskVillage();
       initDuskCells(scene.children.filter(o=> !beforeDusk.has(o)));   // 入れる建物の中と外(CAMERA-001)
     } },
-    road:         { build: ()=>{ buildRoad(); } },   // 道(Chapter 1 の最後、WORK 11)
+    road2:        { build: ()=>{ buildRoad2(); } },  // 道 — その先へ(Chapter 1 の最後。シナリオ 'road' が建てる、scenarioWorldKey。DEC-032)
     // テストモード(タイトル画面 → 🛠テストモード)専用。上位職のデバッグ
     // 用に、職業/転身/レベルを直接指定してここへ入る(14-training-ground.js
     // /14-hud-boot.jsのbeginTestMode参照)
@@ -196,7 +200,8 @@
     duskvillage:  {sky:0x2a1a28, fog:0.020, sun:0xff9a5a, sunI:0.5, hemi:0.30, hemiSky:0x8a5a6a, hemiGnd:0x1a1018, rim:0xff8a4a, rimI:0.22, exp:0.78},
     // 道(WORK 11): 宵待ちの村の夜明けのあと、次の土地へ向かう朝。
     // これまでのどのシナリオよりも明るく、霧も薄い
-    road:         {sky:0x9ab8d0, fog:0.009, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, exp:0.96},
+    // 新しい道(ROAD-VISUAL-003)。R3-0 は今の道と同じ。エリアごとの時間帯の補間は後の段(露出は固定。DEC-025)
+    road2:        {sky:0x9ab8d0, fog:0.0048, sun:0xfff0d0, sunI:0.95, hemi:0.52, hemiSky:0xcfe0ee, hemiGnd:0x4a5a3a, rim:0xffd9a0, rimI:0.16, exp:0.96},
     // テストモード: 色味の判断を邪魔しない、明るく中立なライティング
     training:     {sky:0x181c22, fog:0.006, sun:0xf2f4f8, sunI:0.85, hemi:0.42, hemiSky:0xaeb8c8, hemiGnd:0x22262e, rim:0x8fb0d0, rimI:0.14, exp:0.86},
   };
@@ -253,6 +258,8 @@
     }
     if(rimLight){ rimLight.color.setHex(m.rim); rimLight.intensity = m.rimI; }
     if(renderer) renderer.toneMappingExposure = m.exp * (state.brightness || 1);
+    // 道(新)は時間帯の光を持つ(ROAD-VISUAL-004)。入る時・設定の明るさを変えた時も、今の時間帯の値へ戻す
+    if(key === 'road2' && typeof road2ApplyDaylight === 'function') road2ApplyDaylight();
   }
 
   let currentWorldKey = null;
@@ -345,6 +352,8 @@
        currentWorldObjects 側の remove で外れるので、ここでは参照と
        出撃中だけの進行状態を落とす ―― 次の出撃へ持ち越さないため */
     resetMansionSortieState();
+    sunOffset = SUN_OFFSET_DEFAULT.slice();   // 道(新)の時間帯で替えた太陽の向きを既定へ戻す
+    if(sunLight) sunLight.shadow.normalBias = 0;   // 道(新)の低い太陽の時だけの値を戻す
     resetGhostShipSortieState();   // 幽霊船の出撃中の参照を手放す(GHOSTSHIP-REBUILD-002)
     /* この世界のためだけに建てたものを控えておく。どれもこの関数の中で
        シーンから外れるので、最後にまとめてGPUバッファを返しにいく
@@ -427,7 +436,7 @@
     bossBarChip = 100;
     document.getElementById('boss-bar-wrap').classList.remove('show');
     noticeHudChanged();   // 上の帯の通知をボスバーの下から戻す(UI-VISUAL-001)
-    nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false;
+    nearbyChest = null; nearbyStallTrigger = null; nearbyBartender = false; nearbySmith = false; nearbyShadowGuide = false; nearbyRoad2Camp = null;
     mansionRoof = null; restroomRoof = null; platform = null;
     mansionOutdoor = null; mansionOutdoorHidden = false; mansionIslands = [];
     mansionShell = null; mansionShellHidden = false;
@@ -457,6 +466,7 @@
       spawnEnemiesForWorld(key);
       spawnChestsForWorld(key);
       spawnAnomalyRiftForWorld(key);
+      setupWalkTalkForWorld(key);   // 歩きながらの掛け合い(第一章のシナリオの帯・話題の列を作り直す。14-walk-talk.js)
       playBgm(key, bgmVariantForWorld(key));   // procedural music if this world has no track registered (asset-manifest.js)
       combatIntensity = 0; setBgmIntensity(0);   // fresh room, not still "loud" from the last one
     }catch(err){
@@ -2669,7 +2679,7 @@
   // single interact prompt shared by doors, staircases and lore notes: shows
   // a plain message, not a flashy call-to-action button
   function updateInteractPrompt(){
-    const target = nearbyShadowGuide || nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith;
+    const target = nearbyShadowGuide || nearbyDoor || nearbyStairs || nearbyKey || nearbyLore || nearbyChest || nearbyStallTrigger || nearbyBartender || nearbySmith || nearbyRoad2Camp;
     const el = document.getElementById('interact-btn');
     if(!el) return;
     el.classList.toggle('show', !!target && !state.paused && !state.dialogueActive);
@@ -2696,7 +2706,7 @@
       }
     }
     else if(nearbyKey) el.textContent = '鍵を拾う';
-    else if(nearbyLore) el.textContent = nearbyLore.read ? 'もう一度読む' : '読む';
+    else if(nearbyLore) el.textContent = nearbyLore.promptText || (nearbyLore.read ? 'もう一度読む' : '読む');   // 壁の模様などは「調べる」(道(新) R3-4b)
     else if(nearbyChest) el.textContent = '調べる';
     else if(nearbyStallTrigger) el.textContent = '個室に入る';
     else if(nearbyBartender) el.textContent = '🗺️ 店主と話す(出撃)';
@@ -2705,6 +2715,7 @@
     else if(nearbySmith) el.textContent = state.smithJoined
       ? (legacyGrowth() ? '🔨 鍛冶士と話す(鑑定・強化)' : '🔨 鍛冶士と話す(装備の管理)')
       : '🧰 仮設の作業台(鑑定・強化)';
+    else if(nearbyRoad2Camp) el.textContent = '🔥 支援を選ぶ';   // 道(新)の野営地(R3-4、DEC-025 E-2)
   }
 
   /* インタラクトの対象のワールド座標(UI-002-D WI-D6: 表示を対象の上に出すため)。
@@ -2716,6 +2727,7 @@
     if(obj && obj.pos) return obj.pos;
     if(nearbyBartender) return BARTENDER_POS;
     if(nearbySmith) return SMITH_POS;
+    if(nearbyRoad2Camp) return new THREE.Vector3(nearbyRoad2Camp.x, nearbyRoad2Camp.y + 1, nearbyRoad2Camp.z);   // 野営地の焚き火(R3-4)
     return null;
   }
 
@@ -2733,6 +2745,7 @@
     else if(nearbyStallTrigger){ triggerStallSleep(); }
     else if(nearbyBartender){ toggleScenarioSelect(); }   // 鍛冶士の再会を待つ間の止め方は toggleScenarioSelect の中(CAMERA-001)
     else if(nearbySmith){ toggleAppraisal(); }
+    else if(nearbyRoad2Camp){ road2OpenSupportPicker(); }
   }
 
   // wraps any instant relocation in a short fade so the cut isn't jarring

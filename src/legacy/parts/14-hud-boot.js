@@ -617,7 +617,7 @@
     waterway:'埠頭の地下水路', temple:'古代神殿',
     clocktower:'狂いの時計塔', conservatory:'硝子の温室',
     duskvillage:'宵待ちの村',
-    road:'名もなき街道',
+    road2:'道 — その先へ',
   };
   // 「山を登る」拡張の各部屋(周回★でしか現れず、テーブル駆動の部屋一覧
   // には乗っていない)にも、迷わないよう固有の場所名を出す。星条件を
@@ -635,6 +635,7 @@
   function roomNameAt(x, z){
     // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。「……?」の部屋の名前で、別の部屋だと分かる
     if(currentWorldKey === 'ghostship' && gsActive){ return gsRoomLabel(gsRoomAt(x, z, gsFlags.phase)); }
+    if(currentWorldKey === 'road2') return road2AreaNameAt(x, z);   // 新しい道: エリアの名前
     const tables = [
       {rooms: typeof MANSION_ROOMS !== 'undefined' ? MANSION_ROOMS : null},
       {rooms: typeof TOWER_ROOMS !== 'undefined' ? TOWER_ROOMS : null, floors:true},
@@ -1427,7 +1428,9 @@
       updateDuskVillage(dt);   // Phase D(#37): 昼夜進行+ランタン近接+ボスの光ギミック
       updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)。他では即 return
       updateTavernBgmStage();   // 酒場 BGM の加入段階(交代の会話・第一章の最後の会話の後で次の段へ)。他では即 return
-      updateRoad(dt);          // 道(WORK 11)。他のワールドでは即return
+      updatePreJoinFigures(dt); // 影の旅人の加入前の姿の遅れる影(時計塔の島・酒場・道)。ワールドを問わない
+      updateRoad2(dt);         // 新しい道(ROAD-VISUAL-003)。他のワールドでは即return
+      updateWalkTalk(dt);      // 歩きながらの掛け合い(第一章の村・幽霊船・時計塔。14-walk-talk.js)。道(新)は updateRoad2 が流す
       updateGhostShip(dt);     // 第一章の幽霊船(GHOSTSHIP-REBUILD-002)。他のワールドでは即return
       updateCutscene(dt);
       updateSwingVFX(dt);
@@ -1507,7 +1510,9 @@
       updateDuskVillage(dt);
       updateChapter1JoinFigure(dt);   // 交代の一幕で次の主人公が歩み寄る(X-5)
       updateTavernBgmStage();
-      updateRoad(dt);
+      updatePreJoinFigures(dt);
+      updateRoad2(dt);
+      updateWalkTalkBlocked(dt);   // 演出の間は掛け合いを隠す
       updateGhostShip(dt);
       updateShake(dt);
       updateSparks(dt);
@@ -1529,6 +1534,7 @@
       /* 島の遠景の人影(showIslandStranger)は、島の地の文を読んでいる間に
          歩いていく。加入前の人物を動かすだけで、他のワールドでは何もしない */
       updatePreJoinFigures(dt);
+      updateWalkTalkBlocked(dt);   // 会話の窓の間は掛け合いを隠す(道(新)の行も。止めた所から会話の後に続ける)
       // controller support for reading dialogue/lore notes and the clear/down screens
       // (#25: クリア/戦闘不能画面はボス報酬選択・ステータス振り分け・
       // 「探索を続ける」等の選択肢を持つため、単なるA=決定固定ではなく
@@ -1537,6 +1543,7 @@
       if(gp) updateGamepadMenuNav(gp, dt);
     } else if(state.started && state.paused){
       hideMobBars();
+      walkTalkHide();   // 一時停止の間は掛け合いを隠す(W-2。止めた所から再開後に続ける)
       clearMovementInput(false); wasPlayable = false;
       const gp = pollGamepad();
       if(gp){
@@ -1587,6 +1594,7 @@
     diceTotal = 12; allocPoints = zeroAlloc(); allocDraft = zeroAlloc();
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;   // 5人目「影の旅人」の酒場会話進行
+    state.roadArea = 0;   // 道(新)の到達(R3-4)。新しい冒険は最初から
     state.smithJoined = false; state.smithGreeted = false;      // 鍛冶士は洋館クリアまで酒場に居ない
     /* Chapter 1 は Skill 1 だけで始まる。Skill 2 は洋館の瓦礫イベントで
        閃くまでボタンごと出ない(core/chapter1-skills.js) */
@@ -1696,6 +1704,7 @@
     state.freeRanks = seed.freeRanks;
     state.clearedScenarios = {};
     state.shadowGuideMet = false; state.shadowGuideTalks = 0;
+    state.roadArea = 0;   // 道(新)の到達(R3-4)。テストは最初から。通常のセーブへは書かない
     state.smithJoined = false; state.smithGreeted = false;
     state.learnedSkill2 = false;   // Chapter 1 は Skill 1 だけで始まる
     state.smithEscort = ESCORT.NONE; state.mansionNormalized = false;
@@ -2283,6 +2292,8 @@
     state.pos.set(wp.x, wp.y || 0, wp.z);
     state.vel.set(0,0,0);
     state.yVel = 0; state.grounded = true;
+    // 道(新)の「加入後」の開始地点: 一幕なしで正規の加入処理(R3-N-FIX-01。テストモードだけ)
+    if(wp.road2Join && currentWorldKey === 'road2') road2ForceJoin();
     // 階段の移動(stairMoveTo)と同じく、落下の時計と「最後に立っていた所」を着いた場所に置き直す
     voidT = 0; lastSolid = state.pos.clone();
     if(state.safePos) state.safePos.copy(state.pos);
