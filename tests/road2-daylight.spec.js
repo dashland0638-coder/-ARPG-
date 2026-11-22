@@ -248,7 +248,7 @@ test('一日の旅路(T7): 夜・深夜・夜明けの始まりでも、道と�
   expect(mid.deep, '深夜(古き守り手の戦闘)でも見える').toBeGreaterThanOrEqual(13);
   expect(mid.dawn, '夜明けの始まり(紺)も見える').toBeGreaterThanOrEqual(16);
   expect(mid.day).toBeGreaterThan(mid.sunset);
-  expect(mid.sunset).toBeGreaterThan(mid.deep);
+  expect(mid.sunset).toBeGreaterThan(mid.night);
   expect(mid.night, '深夜は夜より暗い').toBeGreaterThan(mid.deep);
   expect(errors).toEqual([]);
 });
