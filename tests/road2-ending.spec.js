@@ -159,7 +159,7 @@ test('結末: 最終戦の後 R5-03 → A-9 → 盗「帰ろう。まだ、帰�
   expect(lines).toEqual(['盗賊|「結局、何だったんだろうな。今まで見てきたもの」', '弓師|「分からないまま、ですね」',
     '魔法使い|「分からないことがあっても、世界は続いています」', '剣士|「そういうものなのかもしれないな」', '盗賊|「帰ろう。まだ、帰る場所がある」']);
   expect((await R('talks'))['A-9']).toBe(1);
-  expect((await R('pos')).z, '結末は石環の北の端(から北へ歩き出す)').toBeGreaterThan(727);
+  expect((await R('pos')).z, '結末は石環の北の端(から北へ歩き出す)').toBeGreaterThan(729);
   // 結果画面: クリアは一度だけ。到達は 0 に戻る
   await expect.poll(() => R('resultShown'), { timeout: 60_000 }).toBe(true);
   const after = await R('scen');

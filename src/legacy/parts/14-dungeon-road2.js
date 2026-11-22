@@ -1791,7 +1791,7 @@
     const F = road2Finale;
     if(!F || currentWorldKey !== 'road2') return;
     const d = dt || 0, P = ROAD2_FINALE;
-    if(road2EndingWalk){ state.pos.z = Math.min(ROAD2_Z1 - 4, state.pos.z + d * 1.6); state.pos.y = road2GroundAt(state.pos.x, state.pos.z) ?? state.pos.y; }
+    if(road2EndingWalk){ state.pos.y = road2GroundAt(state.pos.x, state.pos.z) ?? state.pos.y; if(state.pos.z > ROAD2_Z1 - 4) state.walkTo = null; }
     // 雲の重み: 段階 2 の間だけ、10 秒ごとに 4 秒ほど雲が朝日を隠す(ゆっくり)
     let cloudOn = false;
     if(F.state === 'active' && F.phase === 2){ F.cloudT += d; cloudOn = (F.cloudT % 10) > 6; }
@@ -1917,9 +1917,9 @@
     steps.push({t:1.4, run:()=> road2HideA9()});
     if(!legacyGrowth()) steps.push({t:0.6, run:()=> cutsceneLine('「帰ろう。まだ、帰る場所がある」', ROAD_THIEF)});
     // 一行が歩き出す → 背中から道の先(地平線へ続く道)を見る → 暗転
-    steps.push({t:2.6, run:()=>{ cutsceneHideLine(); road2EndingWalk = true;
+    steps.push({t:2.6, run:()=>{ cutsceneHideLine(); road2EndingWalk = true; state.walkTo = {vx:0, vz:1.6};   // 演出の徒歩(足を動かして歩く)
       sceneCamShot(state.pos.x, state.pos.z - 10, 3.2, {y: state.pos.y, height: 6, dist: 10, look:{x: state.pos.x, y: state.pos.y + 2, z: state.pos.z + 60}}); }});
-    steps.push({t:3.0, run:()=> fadeTransition(()=>{ road2EndingWalk = false; road2FinishRoad(); })});
+    steps.push({t:3.0, run:()=> fadeTransition(()=>{ road2EndingWalk = false; state.walkTo = null; road2FinishRoad(); })});
     playCutscene(steps);
   }
   /* A-9: 主人公の影を一瞬だけ消し、太陽と違う向きへ伸びる影(見えない平らな写しが落とす本物の影)を置く */
