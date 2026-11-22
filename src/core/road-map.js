@@ -391,6 +391,7 @@ export const ROAD2_VALE = Object.freeze({
    R5-02 の石環の語らいの後に、草原の奥から「高原の大角」が出る。段階の境目は HP 65% / 30%(他のボスと同じ) */
 export const ROAD2_FINALE = Object.freeze({
   spawn: Object.freeze({x:1100, z:744}),   // 石環(中心 z 715、半径 12)の北の外の草原
+  ringNorth: Object.freeze({x:1100, z:728}),   // 結末(R5-04・A-9)の石環の北の端
   phases: Object.freeze([0.65, 0.30]),
   leave: Object.freeze({x:1150, z:756}),   // 倒した後に去っていく先(草原の奥)
 });

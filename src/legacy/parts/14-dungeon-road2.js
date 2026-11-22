@@ -185,7 +185,7 @@
     // 時間帯: 出撃し直した時は到達したエリアから(設計 §3-1)。出来事は出撃ごとに初めから
     road2DayPos = road2DayTarget = roadDaylightStart(state.roadArea); road2DeepW = 0; road2EndW = 0;
     road2NightBegun = false; road2DawnBegun = false;
-    road2EndingStarted = false; road2A9 = null;
+    road2EndingStarted = false; road2A9 = null; road2EndingWalk = false;
     road2CompassOn = legacyGrowth();   // 旧成長・周回では会話なしで最初から(第一章の台詞は本編だけ)
     road2Joined = false;
     road2CompassPrev = null;
@@ -1791,6 +1791,7 @@
     const F = road2Finale;
     if(!F || currentWorldKey !== 'road2') return;
     const d = dt || 0, P = ROAD2_FINALE;
+    if(road2EndingWalk){ state.pos.z = Math.min(ROAD2_Z1 - 4, state.pos.z + d * 1.6); state.pos.y = road2GroundAt(state.pos.x, state.pos.z) ?? state.pos.y; }
     // 雲の重み: 段階 2 の間だけ、10 秒ごとに 4 秒ほど雲が朝日を隠す(ゆっくり)
     let cloudOn = false;
     if(F.state === 'active' && F.phase === 2){ F.cloudT += d; cloudOn = (F.cloudT % 10) > 6; }
@@ -1904,14 +1905,25 @@
     if(road2EndingStarted) return;
     road2EndingStarted = true;
     const steps = [];
-    if(!legacyGrowth()) steps.push({t:0.6, run:()=> road2ShowA9()});   // A-9: 一人の影が、一瞬だけ太陽と違う向きへ伸びる
+    // 石環の北の端へ(暗転で移る)。一行は北(道の先)を向く。誰かが足元を見る間に A-9
+    steps.push({t:0.3, run:()=> fadeTransition(()=>{
+      const E = ROAD2_FINALE.ringNorth, y = road2GroundAt(E.x, E.z) ?? 8;
+      state.pos.set(E.x, y, E.z); state.vel.set(0, 0, 0); state.facing = 0; if(player) player.rotation.y = 0;
+      state.camYaw = Math.PI;   // カメラは背中から、道の先(北)を見る
+      repositionAlliesToPlayer();
+      camera.position.copy(state.pos).add(getCamOffset());
+    })});
+    if(!legacyGrowth()) steps.push({t:1.6, run:()=> road2ShowA9()});   // A-9: 一人の影が、一瞬だけ太陽と違う向きへ伸びる
     steps.push({t:1.4, run:()=> road2HideA9()});
     if(!legacyGrowth()) steps.push({t:0.6, run:()=> cutsceneLine('「帰ろう。まだ、帰る場所がある」', ROAD_THIEF)});
-    steps.push({t:2.6, run:()=>{ cutsceneHideLine(); sceneCamShot(state.pos.x, state.pos.z + 12, 2.6, {y: state.pos.y, height: 6, dist: 10, look:{x: state.pos.x, y: state.pos.y + 2, z: state.pos.z + 60}}); }});
-    steps.push({t:2.8, run:()=> fadeTransition(()=> road2FinishRoad())});
+    // 一行が歩き出す → 背中から道の先(地平線へ続く道)を見る → 暗転
+    steps.push({t:2.6, run:()=>{ cutsceneHideLine(); road2EndingWalk = true;
+      sceneCamShot(state.pos.x, state.pos.z - 10, 3.2, {y: state.pos.y, height: 6, dist: 10, look:{x: state.pos.x, y: state.pos.y + 2, z: state.pos.z + 60}}); }});
+    steps.push({t:3.0, run:()=> fadeTransition(()=>{ road2EndingWalk = false; road2FinishRoad(); })});
     playCutscene(steps);
   }
   /* A-9: 主人公の影を一瞬だけ消し、太陽と違う向きへ伸びる影(見えない平らな写しが落とす本物の影)を置く */
+  let road2EndingWalk = false;   // 結末で一行が北へ歩き出している間
   function road2ShowA9(){
     const d = new THREE.Vector3(-sunOffset[0], 0, -sunOffset[2]).normalize();   // 本当の影の向き
     const wrong = d.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI * 0.6);   // 違う向き
@@ -1920,13 +1932,21 @@
     m.position.set(state.pos.x + wrong.x * 1.3, state.pos.y + 0.12, state.pos.z + wrong.z * 1.3);
     m.rotation.y = Math.atan2(wrong.x, wrong.z);
     road2AreaGroups[5].add(m);
+    // 影を切る設定・影の地図が無い時は、同じ形の暗い地面の印で見せる(光らない)
+    let mark = null;
+    if(!renderer.shadowMap.enabled){
+      mark = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 2.4), new THREE.MeshBasicMaterial({color:0x14100c, transparent:true, opacity:0.5, depthWrite:false}));
+      mark.rotation.set(-Math.PI/2, 0, Math.atan2(wrong.x, wrong.z));
+      mark.position.set(m.position.x, state.pos.y + 0.04, m.position.z);
+      road2AreaGroups[5].add(mark);
+    }
     const off = []; if(player) player.traverse(o=>{ if(o.isMesh && o.castShadow){ o.castShadow = false; off.push(o); } });
-    road2A9 = {mesh:m, off};
+    road2A9 = {mesh:m, mark, off};
     road2TalkCount['A-9'] = (road2TalkCount['A-9'] || 0) + 1;
   }
   function road2HideA9(){
     if(!road2A9) return;
-    if(road2A9.mesh.parent) road2A9.mesh.parent.remove(road2A9.mesh);
+    [road2A9.mesh, road2A9.mark].forEach(m=>{ if(!m) return; if(m.parent) m.parent.remove(m); m.geometry.dispose(); m.material.dispose(); });
     road2A9.off.forEach(o=>{ o.castShadow = shadowOn; });
     road2A9 = null;
   }
@@ -1934,7 +1954,7 @@
     state.roadArea = 0;            // 道を終えたら到達を戻す(DEC-028 R3-6。第一章の後に歩き直す時は入口から)
     road2NewFinale = true;         // 最後の酒場は一行全員の台詞(設計 §8)
     roadPendingFinale = true;      // 酒場へ戻ったところで最後の酒場を出す(旧道と同じ合図)
-    try{ saveGame(); }catch(e){}
+    // 保存はしない: 結果画面がクリアを数えた後、酒場へ戻る時に保存される(結果画面で閉じても、クリアの無い到達 0 を残さない)
     state.dialogueActive = true;   // 結果画面の間は動かさない(結果画面の「戻る」で酒場へ)
     try{ showBossResultScreen(ROAD2_RESULT_BOSS, state.level); }
     catch(err){ console.error('showBossResultScreen failed:', err); state.dialogueActive = false; returnToTown(false); }
