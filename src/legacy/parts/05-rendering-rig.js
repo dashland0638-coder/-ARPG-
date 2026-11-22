@@ -2420,6 +2420,14 @@
       grip:'BOTH', aimWorld:true, armSwing:0.30, tip:0.55, draw:0.0, trail:false
     }
   };
+  /* モーションの鍵(WANDERER-RENEWAL-001、AD-005)。構え・休め・握り・収納・クリップの
+     表を引くキー。影の旅人は kit(基礎職キー 'warrior')を装備・配色・セーブのために
+     持ったまま、動きだけは自分の表(STANCE.wanderer / CLIPS.wanderer、
+     17-wanderer-style.js)を引く。charKey を持たない 4 人と上位職は今までどおり
+     classDef.key がそのまま返る(core/wanderer-style.js の wandererRigKey) */
+  function rigKeyOf(cdef){
+    return cdef ? wandererRigKey(cdef.key, cdef.charKey) : 'warrior';
+  }
   // usingAlt が true かつ、そのクラスのサブ武器に専用の構えが用意されて
   // いればそれを返す。無ければ従来通りクラスの基本構え(STANCE)を返す
   function activeStance(clsKey, usingAlt){
@@ -3194,7 +3202,7 @@
      切り替えるようになっても、この分岐はそのまま通用する。 */
   function ultClipName(ult){
     if(ult && ult.clip) return ult.clip;
-    const lib = CLIPS[state.classDef && state.classDef.key];
+    const lib = CLIPS[rigKeyOf(state.classDef)];
     const jobClip = JOB_ULT_CLIP[state.job];
     if(jobClip && lib && lib[jobClip]) return jobClip;
     return 'ult';
@@ -3480,7 +3488,7 @@
               basic3:'bowVolley', basic4:'knifeThrow', uppercut:'slashLight' }       // 3段目=spin, フィニッシュ=skill2 のSEを流用
   };
   function moveSfx(name){
-    const t = MOVE_SFX[state.classDef && state.classDef.key];
+    const t = MOVE_SFX[rigKeyOf(state.classDef)];
     sfx((t && t[name]) || 'swing');
   }
 
@@ -3568,7 +3576,7 @@
      spin本来のSE(旋風・矢の連射)は「切り上げ」の音ではないので、
      ここだけ音を差し替える。省略時は今まで通りクリップ名で引く。 */
   function beginMove(name, sfxName){
-    const lib = CLIPS[state.classDef.key];
+    const lib = CLIPS[rigKeyOf(state.classDef)];
     // サブ武器装備中は basic/basic2 を altBasic/altBasic2 へ透過的に差し替える。
     // 呼び出し側(tryAttack等)は常に 'basic'/'basic2' を渡すだけでよく、
     // どちらの武器の型を再生するかはここで一括して決める
@@ -3625,7 +3633,8 @@
 
   /* Runs after locomotion, so an attack always wins over the walk cycle. */
   function applyCombatPose(dt, moving){
-    const lib = CLIPS[state.classDef.key];
+    const rk = rigKeyOf(state.classDef);
+    const lib = CLIPS[rk];
     if(!lib) return;
     /* 弓の aimWorld 補正のウェイト。このフレームの aimWeapon() 呼び出しは
        ここから updateGrip() までの間に全部起きるので、先頭で1回入れれば
@@ -3636,7 +3645,7 @@
        古くなるより毎フレーム引き直す方が安い ―― 転身の瞬間に大剣が
        基礎職のソケットへ残る、のような事故を構造的に起こさないため */
     playerMixerParts.weaponSockets = state.usingAltWeapon
-      ? null : weaponSocketFor(state.classDef.key, state.job);
+      ? null : weaponSocketFor(rk, state.job);
     _poseShift.set(0,0,0);
     combatIdleWaistTarget = 0;   // Combat Idle の分岐に入ったときだけ入る
     /* 非戦闘 ↔ 戦闘 と 移動 ↔ 停止 のクロスフェード係数。どの分岐へ
@@ -3733,7 +3742,7 @@
       kneeL:P.kneeL ? P.kneeL.rotation.x : 0, kneeR:P.kneeR ? P.kneeR.rotation.x : 0,
     };
 
-    const st = activeStance(state.classDef.key, state.usingAltWeapon);
+    const st = activeStance(rigKeyOf(state.classDef), state.usingAltWeapon);
     const prof = idleProfile(state.classDef.key, state.job);
     /* 構え + 微細な揺れ + 上位職の恒久バイアス。組み立ては
        core/combat-stance.js の buildCombatIdleTarget() に集約してある ――
@@ -3818,11 +3827,11 @@
       hipL:P.legL ? P.legL.rotation.x : 0, hipR:P.legR ? P.legR.rotation.x : 0,
       kneeL:P.kneeL ? P.kneeL.rotation.x : 0, kneeR:P.kneeR ? P.kneeR.rotation.x : 0,
       // 上記「cur に入れてある理由」を参照
-      wep: activeStance(state.classDef.key, state.usingAltWeapon).wep,
+      wep: activeStance(rigKeyOf(state.classDef), state.usingAltWeapon).wep,
       drop: -_poseShift.y
     };
 
-    const st = activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job);
+    const st = activeRelaxedStance(rigKeyOf(state.classDef), state.usingAltWeapon, state.job);
     const prof = relaxedIdleProfile(state.classDef.key, state.job);
     // 組み立ては core/relaxed-idle.js。揺れの式そのものは Combat Idle と
     // 共有しており(combatIdleOffsets)、振幅の表だけが別

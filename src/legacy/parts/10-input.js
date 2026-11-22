@@ -577,6 +577,8 @@
     /* 鷹の目のターンアシスト猶予(Phase 3)。回避してから短い間だけ、
        抜けていった敵を拾える角度を広げる。他クラスでは参照されない */
     state.hawkAssistT = TURN_ASSIST_DODGE_WINDOW;
+    // 影の旅人: 出だしの位置に一瞬だけ残像(見た目だけ。距離・無敵は共通。17-wanderer-style.js)
+    if(isWandererStyle()) spawnShadowAfterimage({life:0.32, opacity:0.30});
     state.dodging = true; sfx('dodge');
     state.dodgeT = 0.2;
     state.dodgeDir = dir;

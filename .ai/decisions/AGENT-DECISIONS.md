@@ -40,3 +40,16 @@ Human Decision と矛盾した場合は Human Decision が優先する。上書�
 - Decision: 自動テストで操作されているブラウザ(`navigator.webdriver === true`)では、ゲーム内の時間を実時間の 1/4 に固定する(`src/core/sim-time.js`)。E2E の描画の解像度は `deviceScaleFactor: 0.5`。新しい E2E は、ゲーム内の出来事を「決め打ちの実時間の待ち → 1 回だけ読む」で確かめず、`expect.poll` 等で状態が満たされるまで読み直す。デバッグ表示(Motion Preview・Arena の情報)はゲーム内 0.5 秒ごとの書き換えであることを前提にする
 - Basis: `.ai/reports/CI-001-analysis.md`、`.ai/tasks/CI-001.md`(実測: 2 CPU で 23 FAIL → 0)。実時間へ追いつかせる案は入力のタイミングの spec が成り立たず不採用
 - Applies when: E2E を書く・直す・CI の失敗を調べるとき。比を変える場合は E2E 全体を 2 CPU で流し直す
+
+### AD-005: 影の旅人の戦い方は「影と半拍ずれて戦う」。モーション・コンボ・Skill は charKey を鍵に引き、kit は装備・配色・セーブの鍵として残す
+- Date / Task: 2026-11-22 / WANDERER-RENEWAL-001
+- Decision:
+  - コンセプト: 本人が斬り、足元の影が 0.45 秒遅れて同じ所をもう一度斬る(3 段目・Skill 1「影残し」・Skill 2「影渡り」)。遅れは加入前の影(`PRE_JOIN_SHADOW_LAG`、DEC-004 N-4 / DEC-030)と同じ値で、言葉では説明しない(DEC-031)
+  - 素手 + 戦闘中だけの「影の刃」。既存の武器の仕組み(握り・向き・軌跡・抜刀)で動かし、収納先は持たない(杖の「収納しない」と同じ扱い)
+  - 影の演出(刃・軌跡・残像・追撃の弧)は `CLASSES.wanderer.atkColorHex`(#8A5AD6、DEC-005)の独立した Material。衣服の配色表(trim #654F86)を読まない(P-D8)
+  - `CLASSES.wanderer.kit = 'warrior'` は残す(WEAPON_TYPES・道の報酬・配色・必殺技ゲージ・セーブの鍵)。構え・休め・握り・収納・クリップ・コンボ・Skill・回避/滞空の型は `rigKeyOf(classDef)`(`core/wanderer-style.js` の `wandererRigKey`)で引く。新しいキャラクター固有の動きを足す時も、表に行を足して同じ鍵で引く
+  - 影の位置から当たる一撃は `dealDamageToEnemy(..., {fromPos})` で正面耐性・ノックバックを判定する(省略時は従来どおり `state.pos`)
+  - Skill 1 は第一章の固定枠 'retreat' のキーで定義する(UI-002 HD-1 と同じ作法)。Skill 2 の閃きは道のエリア 4「遺構の門」(F4-2)の後、取りこぼしは峠の手前(z ≥ 626)
+- Basis: Human 着手指示(2026-11-22、Goal §3〜§5 で設計を Agent に委任)、docs/CHARACTERS.md(素手・影による攻撃)、DEC-004 / DEC-005 / DEC-030 / DEC-031、CHARACTER-VIS-001 P-D8、`.ai/reports/WANDERER-RENEWAL-001-analysis.md`
+- Applies when: 影の旅人の戦闘・モーション・見た目を変える時、charKey を持つキャラクターに専用の動きを足す時
+- Note: 計画(`.ai/tasks/WANDERER-RENEWAL-001.md`)では `DEC-034` の新規ファイルとしていたが、`DEC-` は Human Decision の記録(decisions/README.md)なので、Agent Decision として本ファイルへ記録した

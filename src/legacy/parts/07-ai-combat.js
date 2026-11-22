@@ -5751,7 +5751,11 @@
        向きは en.group.rotation.y、攻撃者位置は state.pos ―― どちらも
        すぐ下のノックバック計算やBack Attack判定が既に使っている値。 */
     const guardBraced = en.guardian && !en.knockedDown;
-    const guardAbsorbed = guardianAbsorbs(en, en.group.rotation.y, en.group.position, state.pos);
+    /* 攻撃が来た位置。ふつうはプレイヤー(state.pos)。影の旅人の影の追撃だけは影の位置
+       (opts.fromPos、17-wanderer-style.js)から来る ―― 影の側から当たれば、正面の盾を
+       抜け、ノックバックも影から離れる向きになる(WANDERER-RENEWAL-001 WR-6) */
+    const srcPos = opts.fromPos || state.pos;
+    const guardAbsorbed = guardianAbsorbs(en, en.group.rotation.y, en.group.position, srcPos);
     if(guardAbsorbed){
       amount = guardianDamage(true, amount);
     }
@@ -5825,7 +5829,7 @@
     // DoTでは発生させない(ボスは据わりが重い設定、ダウン中は既に無力化済み)。
     // 砲台/石像(en.turret)も台座に固定されている設定なので対象外
     if(!en.isBoss && !en.knockedDown && !isAlly && !en.turret){
-      const kdir = new THREE.Vector3().subVectors(en.group.position, state.pos);
+      const kdir = new THREE.Vector3().subVectors(en.group.position, srcPos);
       kdir.y = 0;
       if(kdir.lengthSq() < 0.0001) kdir.set(Math.sin(state.facing), 0, Math.cos(state.facing));
       kdir.normalize();
@@ -5837,7 +5841,7 @@
     const contact = en.group.position.clone();
     contact.y += en.isBoss ? 2.0 : 1.0;
     // nudge the burst back toward whoever swung, so it reads as a strike
-    const from = new THREE.Vector3().subVectors(state.pos, en.group.position); from.y = 0;
+    const from = new THREE.Vector3().subVectors(srcPos, en.group.position); from.y = 0;
     if(from.lengthSq() > 0.0001){
       from.normalize();
       contact.addScaledVector(from, en.isBoss ? 2.2 : 0.9);

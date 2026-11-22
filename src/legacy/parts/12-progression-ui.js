@@ -1934,7 +1934,7 @@
     if(btnUltIcon) btnUltIcon.textContent = cdef.ult.icon;
     updateSkillButtonIcon();
     const btnSkill2Icon = document.getElementById('btn-skill2-icon');
-    const skill2Def = activeSkill2Def(cdef.key);
+    const skill2Def = activeSkill2Def(rigKeyOf(cdef));
     if(btnSkill2Icon && skill2Def) setGlyphOrText(btnSkill2Icon, currentSwordsmanGlyphIds().skill2, skill2Def.icon);
     updateUltHUD();
   }
@@ -2375,6 +2375,10 @@
     }
   };
 
+  /* 影の旅人の Skill 1(WANDERER-RENEWAL-001)。第一章の固定 Skill 1 の枠 'retreat' に
+     「影残し」を置く(UI-002 HD-1 の各職の 'retreat' と同じ作法)。定義は core/wanderer-style.js */
+  CHARGE_VARIANTS_BY_CLASS.wanderer = { retreat: Object.assign({}, WANDERER_SKILL1) };
+
   const SKILL2_BY_CLASS = {
     warrior: { name:'地裂斬', icon:'⚡', desc:'地を裂きながら前方遠くまで斬撃を飛ばす', cd:9, mult:2.0 },
     rogue:   { name:'三連投げナイフ', icon:'🔪', desc:'短剣を3連続で投げつける', cd:8, mult:0.75 },
@@ -2419,7 +2423,7 @@
     const before = !!state.learnedSkill2;
     const r = learnSkill2(state);
     if(!r.changed) return false;
-    const def = activeSkill2Def(state.classDef && state.classDef.key);
+    const def = activeSkill2Def(rigKeyOf(state.classDef));
     state.skill2CD = 0;               // 閃いた直後にすぐ試せる
     sfx('levelUp');
     spawnToast(def ? `✴️ 閃いた ―― ${def.icon} ${def.name}(自動で装備した)`
@@ -2440,6 +2444,9 @@
      数値が正式に決まるまでの比較対象でもある。他の3職は今まで通り。 */
   function defaultSkill2Def(classKey){
     if(classKey === 'warrior') return CRUSH_SLASH;
+    /* 影の旅人(呼び出し側が rigKeyOf で 'wanderer' を渡す): 道で閃く「影渡り」
+       (core/wanderer-style.js、WANDERER-RENEWAL-001) */
+    if(classKey === 'wanderer') return WANDERER_SKILL2;
     return SKILL2_BY_CLASS[classKey];
   }
   function activeSkill2Def(classKey){
@@ -2578,7 +2585,8 @@
   }
 
   function getChargeVariants(){
-    return CHARGE_VARIANTS_BY_CLASS[state.classDef.key] || CHARGE_VARIANTS_BY_CLASS.warrior;
+    // 影の旅人は自分の Skill 1(影残し。rigKeyOf、WANDERER-RENEWAL-001)
+    return CHARGE_VARIANTS_BY_CLASS[rigKeyOf(state.classDef)] || CHARGE_VARIANTS_BY_CLASS.warrior;
   }
 
   /* 第一章(本編)では、旧セーブに残る「変化系」の技を使わない・見せない(PROGRESSION-003)。
@@ -3378,8 +3386,8 @@
          引くと、実際に振る技と画面に出る技が食い違う */
       const skill2Alt = skill2AltAvailable();
       const skill2Options = skill2Alt
-        ? [['default', defaultSkill2Def(state.classDef.key)], ['alt', SKILL2_ALT_BY_CLASS[state.classDef.key]]]
-        : [['default', defaultSkill2Def(state.classDef.key)]];
+        ? [['default', defaultSkill2Def(rigKeyOf(state.classDef))], ['alt', SKILL2_ALT_BY_CLASS[rigKeyOf(state.classDef)]]]
+        : [['default', defaultSkill2Def(rigKeyOf(state.classDef))]];
       html += `<div class="ap-charge-title">スキル2(専用ボタン2・${skill2Alt?'付け替え可能':'固定'})</div><div class="ap-charge-variants">`;
       skill2Options.forEach(([choiceKey, def])=>{
         if(!def) return;

@@ -3289,29 +3289,11 @@
       return;
     }
 
-    const shadowCloakMat = new THREE.MeshStandardMaterial({color:0x0c0a10, roughness:0.9});
-    const shadowSkinMat = new THREE.MeshStandardMaterial({color:0xcabcd6, roughness:0.6});
-    const shadowGuide = new THREE.Group();
-    // 座った姿勢: 立像(店主・鍛冶士)より胴を短く低くし、椅子に腰掛けて
-    // いるシルエットにする
-    const sgBody = new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.46,0.68,10), shadowCloakMat);
-    sgBody.position.y = 0.62;
-    shadowGuide.add(sgBody);
-    const sgHead = new THREE.Mesh(new THREE.SphereGeometry(0.32,12,10), shadowSkinMat);
-    sgHead.position.y = 1.1;
-    shadowGuide.add(sgHead);
-    const sgHair = new THREE.Mesh(new THREE.SphereGeometry(0.35,12,10,0,Math.PI*2,0,Math.PI*0.6),
-      new THREE.MeshStandardMaterial({color:0x0a0810, roughness:0.7}));
-    sgHair.position.y = 1.2;
-    shadowGuide.add(sgHair);
-    // 影だまり: 本人の足元に不自然に広がる、紫みを帯びた影。「本人とは
-    // 少し違う意思を持つ影」というインフォグラフィックの設定を、まだ
-    // 戦闘に出ない段階でも視覚的にほのめかす
-    const shadowPoolMat = new THREE.MeshBasicMaterial({color:0x2a1a3a, transparent:true, opacity:0.55});
-    const shadowPool = new THREE.Mesh(new THREE.CircleGeometry(0.85,16), shadowPoolMat);
-    shadowPool.rotation.x = -Math.PI/2;
-    shadowPool.position.set(0.35, 0.03, 0.15);
-    shadowGuide.add(shadowPool);
+    /* 姿は道・島の人影と同じ関数(buildRoadTravelerFigure、14-dungeon-road.js)。
+       WANDERER-RENEWAL-001 で、ここにあった同じ形の複製(円柱の胴・球の頭)をやめた ――
+       加入後の姿と同じ頭部・髪・マフラー・フードの外套。足元の影だまりも同じ関数が持つ
+       (座っているので遅れは出ない)。紫の灯りだけはこの席の演出として足す */
+    const shadowGuide = buildRoadTravelerFigure(true);
     const shadowGlow = new THREE.PointLight(0x8a5ad6, 0.35, 5);
     shadowGlow.position.set(0, 1.2, 0);
     shadowGuide.add(shadowGlow);

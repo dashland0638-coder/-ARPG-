@@ -180,6 +180,11 @@ import { ROAD2_WALL_SHADOW, ROAD2_ECHO_ZONES, ROAD2_ECHO_NOTICE_SEP, shadowLight
 import { newBanterState, queueBanter, stepBanter, walkTalkBlock, walkTalkPartyOk, walkTalkLines, WALK_TALK_STALE_SEC } from '../core/walk-talk.js';
 import { WALK_TALK_CH1 } from '../core/walk-talk-ch1.js';
 import { GUARDIAN_FOCUS_SEC, canFocusAlly, stepGuardianFocus, guardianFacingTarget, guardianMayWake, foesFit } from '../core/road-guardian.js';
+import {
+  WANDERER_KEY, WANDERER_ECHO, WANDERER_COMBAT, WANDERER_COMBO_LENGTH, WANDERER_COMBO_CLIPS, WANDERER_LUNGE,
+  WANDERER_SKILL1, WANDERER_SKILL2, WANDERER_STANCE, WANDERER_RELAXED, WANDERER_GRIP_OFFSET,
+  wandererRigKey, buildWandererClips, planEcho, pushEcho, stepEchoes, echoArcHit, echoCircleHit, lineHit, shadowPassEnd,
+} from '../core/wanderer-style.js';   // 影の旅人の戦い方(WANDERER-RENEWAL-001、17-wanderer-style.js)
 import { ROAD_JOINER, ROAD_JOIN_AREA, roadSupportOptions, roadCompanions, recordRoadArea, roadJoinedFromArea, roadStartCamp, sanitizeRoadArea } from '../core/road-party.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';
 import { attackLungeDistance, lungeStep, lungeFinished } from '../core/attack-lunge.js';

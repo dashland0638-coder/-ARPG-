@@ -1231,6 +1231,17 @@
           { y:HIP_Y - 0.10,       hw:bodyR*1.06, hd:bodyR*1.02 },
           { y:HIP_Y - 0.34,       hw:bodyR*1.16, hd:bodyR*1.12 },
         ], {closedTop:true}), wandererWhite));
+        /* マフラーの両端(WANDERER-RENEWAL-001): 背中の左側へ長く垂らす。剣士と並んだ時に
+           背中のシルエットで見分けられるように ―― 加入前の姿(14-dungeon-road.js)が胸の前へ
+           垂らしていた同じマフラーの端。色はマフラーと同じ role accent(配色表どおり) */
+        [[-bodyR*0.42, 0.62, 0.07, 0.16], [-bodyR*0.10, 0.50, -0.05, 0.12]].forEach(([x, L, tiltZ, kick])=>{
+          const tail = addDecor(new THREE.Mesh(makePlate([
+            {x:-0.055, y:0}, {x:-0.062, y:-L*0.9}, {x:-0.02, y:-L}, {x:0.02, y:-L*0.95}, {x:0.06, y:-L}, {x:0.05, y:0},
+          ], {thickness:0.012, foldWaves:2, foldDepth:0.014}), clothAcc));
+          tail.position.set(x, hY - headR*0.92, -bodyR*1.12 + HEAD_BACK_Z);
+          tail.rotation.set(kick, 0, tiltZ);
+          tail.userData.wandererScarfTail = true;
+        });
         /* 髪: 共通の髪(低ポリの殻 + 前髪・横・後ろの房)の外側に、薄く平たい
            尖った毛束(板状の毛束、makePlate)を重ねて、柔らかく跳ねた髪の輪郭を
            作る(Human: 太い円錐の房はドレッドに見えた → 細く平たい毛束の候補)。
@@ -1878,8 +1889,10 @@
     }
 
     // class stance, straight out of the choreography table
+    // (rigKeyOf: 影の旅人は自分の構え。4 人は classDef.key のまま。05-rendering-rig.js)
+    const rigKey = rigKeyOf(classDef);
     {
-      const s0 = activeStance(classDef.key, state.usingAltWeapon);
+      const s0 = activeStance(rigKey, state.usingAltWeapon);
       armL.rotation.set(s0.shL[0], s0.shL[1], s0.shL[2]);
       armR.rotation.set(s0.shR[0], s0.shR[1], s0.shR[2]);
       elbowL.rotation.x = s0.elL;
@@ -1889,7 +1902,11 @@
     // weapon / focus item, attached to right arm
     const activeWeaponKey = weaponDefFor(classDef.key, state.usingAltWeapon).key;
     const equippedWeapon = state.equipped && state.equipped.weapon;
-    const weapon = buildWeaponMesh(activeWeaponKey, classDef, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
+    /* 影の旅人は素手。武器の枠には「影の刃」(影の VFX。17-wanderer-style.js)を入れる ――
+       握り・向き・軌跡・抜刀の仕組みはそのまま使い、衣服とは別の Material で描く */
+    const weapon = rigKey === 'wanderer'
+      ? buildShadowBladeMesh()
+      : buildWeaponMesh(activeWeaponKey, classDef, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
     // Sit the weapon where the hands actually ended up, rather than at a
     // hard-coded offset that goes stale the moment the rig is retuned.
     group.updateMatrixWorld(true);
@@ -1898,8 +1915,8 @@
     // The resting stance and the weapon's resting orientation both come from
     // STANCE, which is also the first and last keyframe of every clip - so a
     // move can never end anywhere but back in the character's guard.
-    const st = activeStance(classDef.key, state.usingAltWeapon);
-    const go = GRIP_OFFSET[classDef.key] || [0,0,0];
+    const st = activeStance(rigKey, state.usingAltWeapon);
+    const go = GRIP_OFFSET[rigKey] || [0,0,0];
     const gripOff = new THREE.Vector3(go[0], go[1], go[2]);
     const gripHand = st.grip === 'L' ? handL : handR;
     aimWeapon(weapon, st.wep);
@@ -1919,7 +1936,7 @@
     weapon.add(tipNode);
     playerMixerParts.weaponTip = tipNode;
 
-    weapon.traverse(child => { if(child.isMesh) child.castShadow = true; });
+    weapon.traverse(child => { if(child.isMesh) child.castShadow = !weapon.userData.shadowBlade; });
     group.add(weapon);
 
     // 二刀流/両手斧のオフハンド(#39系): 主武器と同じ手順(手の位置から
@@ -2014,10 +2031,10 @@
     // the reparent shifted everything down by the waist height; the grip
     // offset is a difference of two points, so it survives unchanged
 
-    /* CHARACTER-VIS-001 T-4(Human Decision: 影の旅人は最終的に素手想定): 影の
-       旅人だけ武器メッシュを見せない(見た目のみ。攻撃処理・判定・モーションは
-       剣士の kit のまま。素手の演出は別 Task) */
-    if(classDef.charKey === 'wanderer') weapon.visible = false;
+    /* CHARACTER-VIS-001 T-4(影の旅人は素手)→ WANDERER-RENEWAL-001: 大剣を隠すのを
+       やめ、武器の枠そのものを影の刃にした(上の buildShadowBladeMesh)。刃は抜刀の
+       進み具合で現れ・消える(updateShadowBlade、13 の updateGrip から) */
+    playerMixerParts.shadowBlade = weapon.userData.shadowBlade ? weapon : null;
     playerMixerParts.weapon = weapon;
     playerMixerParts.gripHand = gripHand;
     playerMixerParts.gripHandB = st.grip === 'BOTH' ? handL : null;
@@ -2033,7 +2050,7 @@
        weaponAimedWep は構え ↔ 収納の向きを混ぜる起点で、最初のフレームで
        applyPose がまだ走っていなくても updateGrip が使えるよう種を入れる */
     playerMixerParts.weaponSockets = state.usingAltWeapon
-      ? null : weaponSocketFor(classDef.key, state.job);
+      ? null : weaponSocketFor(rigKey, state.job);
     playerMixerParts.weaponAimedWep = st.wep ? st.wep.slice() : null;
     playerMixerParts.armLBase = armL.rotation.clone();
     playerMixerParts.armRBase = armR.rotation.clone();
@@ -2176,9 +2193,12 @@
     // T-7(S-6): 武器の Material(装飾の trim 色を含む)は buildWeaponMesh() が生成時と同じ規則で作る
     const weaponKey = weaponDefFor(classDef.key, state.usingAltWeapon).key;
     const equippedWeapon = state.equipped && state.equipped.weapon;
-    const weapon = buildWeaponMesh(weaponKey, classDef, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
+    const rigKey = rigKeyOf(classDef);
+    const weapon = rigKey === 'wanderer'
+      ? buildShadowBladeMesh()   // 影の旅人は持ち替えても影の刃のまま(WANDERER-RENEWAL-001)
+      : buildWeaponMesh(weaponKey, classDef, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
 
-    const st = activeStance(classDef.key, state.usingAltWeapon);
+    const st = activeStance(rigKey, state.usingAltWeapon);
     // 武器の向きだけでなく、腕そのものの構え(肩・肘の角度)も持ち替え先の
     // 型に更新する。これを忘れると「新しい武器を古い構えのまま握る」
     // 違和感が残ってしまう。手の位置をサンプリングする前に必ず適用する
@@ -2193,7 +2213,7 @@
     player.updateMatrixWorld(true);
     const _hL = new THREE.Vector3(), _hR = new THREE.Vector3();
     P.handL.getWorldPosition(_hL); P.handR.getWorldPosition(_hR);
-    const go = GRIP_OFFSET[classDef.key] || [0,0,0];
+    const go = GRIP_OFFSET[rigKey] || [0,0,0];
     const gripOff = new THREE.Vector3(go[0], go[1], go[2]);
     aimWeapon(weapon, st.wep);
     const _seed = new THREE.Vector3();
@@ -2207,16 +2227,16 @@
     weapon.add(tipNode);
     P.weaponTip = tipNode;
 
-    weapon.traverse(c=>{ if(c.isMesh) c.castShadow = true; });
+    weapon.traverse(c=>{ if(c.isMesh) c.castShadow = !weapon.userData.shadowBlade; });
     P.waist.add(weapon);
-    if(classDef.charKey === 'wanderer') weapon.visible = false;   // T-4: 影の旅人は見た目だけ素手
+    P.shadowBlade = weapon.userData.shadowBlade ? weapon : null;   // 影の旅人の影の刃(WANDERER-RENEWAL-001)
 
     P.weapon = weapon;
     P.weaponBasePos = weapon.position.clone();
     P.weaponBaseRot = weapon.rotation.clone();
     // 持ち替えでも収納先は職業で決まる(サブ武器はまだ表を持たないので、
     // その場合 null = 手に持ったまま。仕様の範囲外 ―― P3 の課題)
-    P.weaponSockets = state.usingAltWeapon ? null : weaponSocketFor(classDef.key, state.job);
+    P.weaponSockets = state.usingAltWeapon ? null : weaponSocketFor(rigKey, state.job);
     P.weaponAimedWep = st.wep ? st.wep.slice() : null;
 
     // 二刀流/両手斧のオフハンド(#39系): buildPlayer()と同じ手順

@@ -1,6 +1,6 @@
 # WANDERER-RENEWAL-001 — 影の旅人の全面刷新（バトルデザイン・戦闘モーション・外見/造形）
 
-Status: APPROVED
+Status: REVIEWING
 
 Analysis: .ai/reports/WANDERER-RENEWAL-001-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `d53532b6e9573ae683f835e8601698334d851e42`、blob `6f4d955a7aacaa6a7096d3993d13ca0209e5e431`）
 
@@ -141,3 +141,67 @@ None
 | 2026-11-22 | Task | — → DRAFT | Agent | WI「第一章・移動中会話システムの横展開」の §8 残件として登録（Human の指示） |
 | 2026-11-22 | Task | DRAFT → ANALYZING | Orchestrator | Human 着手指示（2026-11-22）。Analyzer report を persist（`d53532b6e9573ae683f835e8601698334d851e42`） |
 | 2026-11-22 | Task | ANALYZING → APPROVED | Planner (Agent) | Artifact Handoff（analysis）H-1〜H-8 確認。Escalation Check: None → Agent Approval |
+| 2026-11-22 | Task | APPROVED → IMPLEMENTING → TESTING | Implementer | Plan Handoff（plan）H-1〜H-8 確認。Debugger サイクル 0 |
+| 2026-11-22 | Task | TESTING → REVIEWING | Implementer | build / unit PASS、E2E Targeted 97 中 96 PASS + 1 FLAKY（auto-combo、再実行で PASS）。Review Handoff を Reviewer へ |
+
+## Implementation Result
+
+### Artifact Handoff
+| Kind | Path | Source（branch @ SHA） | Blob SHA | 確認（I-1 / H-1〜H-8） |
+| --- | --- | --- | --- | --- |
+| analysis | `.ai/reports/WANDERER-RENEWAL-001-analysis.md` | `claude/wanderer-renewal-001-nhlxns` @ `d53532b6e9573ae683f835e8601698334d851e42` | `6f4d955a7aacaa6a7096d3993d13ca0209e5e431` | H-1〜H-8 OK（単独 commit・見出し一致・blob 一致） |
+| plan | `.ai/tasks/WANDERER-RENEWAL-001.md` | `claude/wanderer-renewal-001-nhlxns` @ `eebf0244c26d80fdf44d7daa86f4989addb414f2` | `452810a63236b23a7999edd03d47f380baf3708f` | H-1〜H-8 OK |
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `src/core/wanderer-style.js`（新規） | 数値（間合い・コンボ・踏み込み・抜刀・追撃の遅れと倍率）、Skill 1「影残し」/ Skill 2「影渡り」の定義、追撃の予定・判定（弧・円・線）・影渡りの到達点、構え・休め・キーフレーム一式、`wandererRigKey` |
+| `src/legacy/parts/17-wanderer-style.js`（新規） | STANCE / 休め / 握り / CLIPS / MOVE_SFX / 回避・滞空・低HP の型の wanderer 行、影の刃（生成・抜刀で伸び/ほどけ）、残像、影の追撃の待ち行列と解決、影渡りの発動 |
+| `src/legacy/concat-plugin.js` | core の import 1 件 |
+| `01-character-creation.js` | CLASSES.wanderer に戦闘の数値（WANDERER_COMBAT）。コメント更新。kit は 'warrior' のまま |
+| `05-rendering-rig.js` | `rigKeyOf()` を追加し、CLIPS / 構え / 休め / 収納 / 効果音の表引きをそれ経由に |
+| `06-player-enemy.js` | 構え・握り・収納の鍵を rigKey に。影の旅人の武器の枠を影の刃へ（大剣の非表示をやめる）。マフラーの両端を背中へ |
+| `07-ai-combat.js` | `dealDamageToEnemy` の `opts.fromPos`（正面耐性・ノックバック・火花の向き。省略時は従来どおり state.pos） |
+| `10-input.js` | 回避の出だしの残像（影の旅人だけ） |
+| `11-combat-actions.js` | コンボの段数・クリップ・踏み込みを rigKey で。3 段目の追撃。Skill 2 の影渡り分岐。処刑のクリップ名 |
+| `12-progression-ui.js` | Skill 1 の候補表・Skill 2 の既定を rigKey で（影残し / 影渡り） |
+| `13-update-loop.js` | 抜刀時間・構え・回避/滞空/低HP の表を rigKey で。executeVariant の追撃予約。毎フレームの追撃更新。影の刃の更新 |
+| `14-hud-boot.js` / `15-ui-proto.js` / `02-world-common.js` | Skill 2 の表引き・収納表示を rigKey で。ワールド移動・地点移動で追撃を落とす |
+| `14-dungeon-road.js` | `buildRoadTravelerFigure` を共通の造形部品で作り直し（フードの外套・Loft の頭部・同じ髪・マフラー・ワイドパンツ。球を使わない） |
+| `03-dungeons-mansion-temple.js` | 酒場の隅の人物を `buildRoadTravelerFigure(true)` に統一 |
+| `14-dungeon-road2.js` | 影の旅人の閃き（F4-2 の後 / z ≥ 626、支援ごとの一言、`grantChapter1Skill2`） |
+| `src/core/weapon-state.js` | 抜刀時間の表に wanderer 行（WANDERER_DRAW_TIME） |
+| `tests/unit/wanderer-style.test.js`（新規）・`tests/wanderer-renewal.spec.js`（新規） | core・差し込み・E2E（戦闘・色・閃き） |
+| `tests/unit/wanderer-attack-color.test.js` / `road-stranger.test.js` / `mansion-insight.test.js` | 新しい仕様（自前の数値・新しい加入前の姿・rigKeyOf の stub）に合わせて更新 |
+| `docs/CHARACTERS.md` / `COMBAT.md` / `SCENARIOS.md` / `CHAPTER1_STORY.md` / `GAME_DESIGN.md` | 戦い方・武器・加入前後の見た目・閃きを実装事実として記載。「未確定」から専用の戦闘スタイルを外す |
+| `.ai/decisions/AGENT-DECISIONS.md` | AD-005（計画の DEC-034 から変更: `DEC-` は Human Decision の記録のため） |
+| `.ai/reports/img/WANDERER-RENEWAL-001/*.jpg` | 変更前後の撮影 |
+
+### Test Report
+- Scope: Targeted
+- Executed: `npm run build`、`npm run test:unit`（全件 2329）、`npx playwright test` で wanderer-renewal / character-palette / character-clothing / character-motion / character-weapon-visual / weapon-stow / auto-combo / base-class-identity / road2-join / road2-fights / shadow-guide / chapter1-skill2 / save-load / production-build / clocktower-rogue-skill2 / ghostship-archer-skill2 / chapter1-tower-to-road（97 件）。最終変更後に wanderer-renewal / shadow-guide を再実行
+- Why this scope: 影の旅人の経路と、変更した共通基盤（構え・クリップ・武器・収納・コンボ・閃き・加入・セーブ・公開ビルド）を通る spec
+- Not run: 残りの E2E（ダンジョン個別のシナリオ等。今回触れていない経路。全件は 2 CPU の SwiftShader で数時間かかるため）
+- Environment: プロジェクトの Playwright 1.62.1 が要求するブラウザ（chromium-1234）が無く、事前導入の chromium-1243 を `/opt/pw-browsers/*-1234` へシンボリックリンク（リポジトリ外）
+
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| build | PASS | |
+| unit（2329） | PASS | |
+| wanderer-renewal.spec（2） | PASS | 3 段・影残し・影渡り・追撃・盾を抜ける・刃の色・衣服の色・他職の型・閃き |
+| 上記 E2E 計 97 | 96 PASS / 1 FLAKY | auto-combo「押しっぱなしで連撃」: 初回 0 回（サーバ起動直後の 1 本目、剣士）→ 再実行で 4/4 PASS。影の旅人の経路を通らない（INFERENCE: 起動直後の負荷）。変更前コードでの比較はしていない |
+
+### Acceptance Criteria
+| AC | 確認方法 | 根拠 |
+| --- | --- | --- |
+| 影の旅人のクリップで再生 | VERIFIED | wanderer-renewal.spec（clip 名 basic/basic2/basic3/retreat/shadowPass、CLIPS.wanderer）、unit（CLIPS を classDef.key で直接引かない） |
+| 追撃が 0.45 秒後・残像・会話等で落ちる | VERIFIED / FACT (code) | spec（HP が後から減る）、unit（stepEchoes）、`updateWandererEchoes` の打ち切り条件 |
+| Skill 2 が道で閃き自動装備 | VERIFIED | spec「閃き」 |
+| 影の紫の独立 Material / 衣服に #8A5AD6 なし | VERIFIED | spec（blade / clothColors）、character-palette.spec |
+| 加入前の姿に球なし・同じ部品・名前なし・遅れる影 | VERIFIED | unit（road-stranger / wanderer-style）、shadow-guide.spec、road2-join.spec、撮影 after-4 |
+| 他の 4 人が変わらない | VERIFIED | spec（rogue 4 段・warrior 3 段・刃なし）、character-motion / weapon-stow / base-class-identity |
+| 旧セーブ | VERIFIED | save-load.spec。新しいセーブ項目なし |
+
+### Out of Scope Found
+- 剣士・盗賊などの回避や被弾の共通の型は全キャラクター共通の仕組みのまま（今回は影の旅人の行だけ足した）
+- 影の追撃の効果音は既存のキュー（slashLight）の流用。専用の SE は MUSIC-AUDIO-003 の範囲

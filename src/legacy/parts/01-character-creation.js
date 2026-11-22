@@ -89,15 +89,17 @@
        入らない ―― 「この世界の異常に関わる特殊なキャラクター」。
        UPPER_JOBS に載せていないので転身も起きない。
 
-       ただし「操作できる」ところまでは要るので、戦闘の骨格(通常攻撃・
-       回避・Skill・必殺技の型、武器の持ち方、リグ)は既存の職のものを
-       借りている(kit)。専用の戦闘システムは作らない ―― 攻撃範囲や
-       モーション、WEAPON_TYPES/STANCE/CLIPS など基礎職キーに紐づく
-       既存の仕組みは、上位職(#9)と同じく key を借りた職のまま動かす
-       (recomputeStats が state.classDef.key を kit に揃える)。
-       自前で持つのは名前・見た目の色・基礎ステータス・必殺技の名前だけ。
+       kit(基礎職キー 'warrior')は、装備(WEAPON_TYPES・道の報酬)・配色・必殺技ゲージ・
+       セーブの鍵として借りたまま(recomputeStats が state.classDef.key を kit に揃え、
+       charKey に 'wanderer' を残す)。
 
-       どの職を借りるかは暫定(剣。いちばん素直な近接の型)。
+       WANDERER-RENEWAL-001(AD-005)で、戦い方は自前になった ―― 「影と半拍ずれて
+       戦う旅人」。素手で、戦っている間だけ右手の影が刃になり、3 段目・Skill 1・
+       Skill 2 では足元の影が 0.45 秒遅れて同じ所をもう一度斬る。構え・クリップ・
+       コンボ・Skill は charKey を鍵に引く(rigKeyOf、05-rendering-rig.js)。
+       数値と型は core/wanderer-style.js、仕組みへの差し込みは 17-wanderer-style.js。
+       下の meleeRange 等は kit(剣士)の値を上書きする(recomputeStats の
+       Object.assign の順で own が勝つ)。
        Boss Ability を取得できるという特殊性は、既存の BOSS_ABILITIES の
        仕組みを壊さないことだけ確認してある(WORK 11 レポート §4)。
 
@@ -111,10 +113,13 @@
       hairColor:0x0a0810, eyeColor:0x8a5ad6,
       desc:'酒場の片隅にいた旅人。どこから来たのかは、本人にも分からない。',
       vit:13, str:13, mag:9, mnd:10, agi:11, foc:10, spd:5.3,
-      /* 斬撃・軌跡・着地の光の色(表示のみ。HD-CR02-1 = a)。必殺技「影送り」と
-         同じ影の紫に揃える ―― kit(剣士)から借りるのはこの色だけやめる。
-         モーション・判定・ダメージ・Skill は剣士の kit のまま。素手のモーションは
-         影の旅人の戦闘スタイルが決まってから(別 Work Item) */
+      /* 中間の間合い(剣士 3.6 / 半角 106° / 0.52 と 盗賊 2.8 / 39° / 0.38 の間)。
+         影の刃は通り抜ける(cleave)。値は core/wanderer-style.js の WANDERER_COMBAT */
+      range:WANDERER_COMBAT.range, meleeRange:WANDERER_COMBAT.meleeRange, meleeAngle:WANDERER_COMBAT.meleeAngle,
+      cleave:WANDERER_COMBAT.cleave, atkCooldown:WANDERER_COMBAT.atkCooldown, staggerMul:WANDERER_COMBAT.staggerMul,
+      /* 影の紫(表示のみ。HD-CR02-1 = a、DEC-005)。斬撃・軌跡・着地の光・影の刃・残像・
+         影の追撃の弧はすべてこの色。衣服の紫(配色表の trim #654F86)とは別の値・別の
+         Material(CHARACTER-VIS-001 P-D8) */
       atkColorHex:'#8a5ad6',
       ult:{ name:'影送り', icon:'◐', cd:20, radius:4.2, mult:3.2, vfxColor:0x8a5ad6 }
     }

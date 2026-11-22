@@ -270,6 +270,9 @@
     const mult = (variant.baseMult + chargeRatio*(variant.maxMult-variant.baseMult)) * skillBonus * rankBonus;
     const dmg = Math.round(state.classDef.atk * mult) + Math.round(Math.random()*5);
     const fwd = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
+    /* 影の旅人の技(variant.echo、core/wanderer-style.js): 動き出す前の位置と向きに
+       影を残し、0.45 秒後に追撃させる(下の末尾で予約。17-wanderer-style.js) */
+    const echoFrom = variant.echo ? {x:state.pos.x, z:state.pos.z, yaw:state.facing} : null;
 
     state.swinging = true;
     beginMove(variant.key || 'basic');
@@ -390,6 +393,7 @@
                               homing:true, homingTurn:2.6, homingRange:13});
       });
     }
+    if(echoFrom) queueWandererEcho(variant.echo, echoFrom, dmg);
     flashScreen();
   }
 
@@ -497,6 +501,7 @@
     updatePendingUlt(dt); // 必殺技の一撃が届く瞬間(core/ult-clips.js)
     updatePendingExecution(dt);   // 処刑の一撃が届く瞬間(11-combat-actions.js、Phase 4)
     updatePendingSkill2(dt);      // 崩し斬りの刃が前を通過する瞬間(D-04)
+    updateWandererEchoes(dt);     // 影の旅人の影の追撃(0.45 秒後。17-wanderer-style.js)
     updateUltBurst(dt);   // 多段必殺技の残りの段(サブ武器専用)
     if(state.dodgeCD>0) state.dodgeCD = Math.max(0,state.dodgeCD-dt);
     if(state.ultLockT>0) state.ultLockT = Math.max(0,state.ultLockT-dt);   // 発動直後の保険的ロックアウトのみ(本体はゲージ制)
@@ -937,6 +942,8 @@
       }
       P.offhandWeapon.position.copy(_gripW3b);
     }
+    // 影の旅人の影の刃: 抜刀の進み具合で現れ・消える(収納先は無い。17-wanderer-style.js)
+    if(P.shadowBlade) updateShadowBlade(P, ws || state.weapon);
   }
 
 
@@ -976,7 +983,7 @@
   const _tipW = new THREE.Vector3(), _gripW3 = new THREE.Vector3();
   function updateBladeTrail(dt){
     const P = playerMixerParts;
-    const st = state.classDef ? activeStance(state.classDef.key, state.usingAltWeapon) : null;
+    const st = state.classDef ? activeStance(rigKeyOf(state.classDef), state.usingAltWeapon) : null;
     if(!P.weaponTip || !P.weapon || !st || st.trail === false){ trailSamples.length = 0; return; }
 
     if(state.swinging){
@@ -1111,7 +1118,7 @@
        既に抜いているものはそのまま、収納しているものは収納のまま */
     if(cutsceneRunning() || state.dialogueActive){ return; }
 
-    const times = drawTimesFor(state.classDef.key, state.job);
+    const times = drawTimesFor(rigKeyOf(state.classDef), state.job);
     stepWeaponState(ws, {
       dt,
       // 戦闘態勢が立っている = 武器を手に持っていたい。それだけ
@@ -1145,7 +1152,7 @@
     const ws = state.weapon;
     if(!ws) return false;
     if(canAttack(ws)) return false;
-    const times = drawTimesFor(state.classDef.key, state.job);
+    const times = drawTimesFor(rigKeyOf(state.classDef), state.job);
     queueAction(ws, kind, queueTtlFor(times.draw));
     // 「抜きたい」という意思表示。これが無いと納刀したまま待ち続ける
     state.combatStanceT = refreshCombatStance(state.combatStanceT);
@@ -1179,7 +1186,7 @@
     // state.maxHpが未確定(0)の間はhpRatio=1(苦しんでいない)扱いにする安全弁
     const hpRatio = state.maxHp>0 ? state.hp/state.maxHp : 1;
     const lhm = (hpRatio>0 && hpRatio<=LOW_HP_RATIO)
-      ? ((state.classDef && LOW_HP_MOTION[state.classDef.key]) || LOW_HP_MOTION.warrior) : null;
+      ? ((state.classDef && LOW_HP_MOTION[rigKeyOf(state.classDef)]) || LOW_HP_MOTION.warrior) : null;
 
     // stride phase advances with ground covered
     // roughly 0.85 strides per metre covered, so the feet track the ground
@@ -1252,7 +1259,7 @@
           /* 歩いている間の休め側は、腕を体の横へ下ろした形(CH1-EXP X-3)。
              止まっている度合い(relaxStopBlend、1 フレーム前の値)で休め姿勢と
              混ぜるので、歩き出しでも止まりでも基準が連続に変わる */
-          relaxedWalkStance(activeRelaxedStance(state.classDef.key, state.usingAltWeapon, state.job), relaxStopBlend),
+          relaxedWalkStance(activeRelaxedStance(rigKeyOf(state.classDef), state.usingAltWeapon, state.job), relaxStopBlend),
           walkW)
       : null;
     const runUpper = run * locomotionMix(RELAXED_WALK_UPPER.run, 1, walkW);
@@ -1263,7 +1270,7 @@
     armSwingAmp = stepArmSwingAmp(armSwingAmp, swing, dt);
     if(!busy && P.armL && P.armR && armBase){
       const stanceSwing = P.armSwing !== undefined ? P.armSwing : 1;
-      const relaxedSwing = RELAXED_WALK_ARM_SWING[state.classDef.key] ?? stanceSwing;
+      const relaxedSwing = RELAXED_WALK_ARM_SWING[rigKeyOf(state.classDef)] ?? stanceSwing;
       const asw = locomotionMix(relaxedSwing, stanceSwing, walkW) * 0.62 * B.armSwing;
       P.armL.rotation.set(armBase.shL[0] - s * armSwingAmp * asw, armBase.shL[1], armBase.shL[2]);
       P.armR.rotation.set(armBase.shR[0] + s * armSwingAmp * asw, armBase.shR[1], armBase.shR[2]);
@@ -1314,7 +1321,7 @@
 
     // ---- airborne: knees tuck on the way up, legs reach on the way down ----
     if(!state.grounded && P.legL && P.legR && P.kneeL && P.kneeR){
-      const jm = (state.classDef && JUMP_AIR_MOTION[state.classDef.key]) || JUMP_AIR_MOTION.warrior;
+      const jm = (state.classDef && JUMP_AIR_MOTION[rigKeyOf(state.classDef)]) || JUMP_AIR_MOTION.warrior;
       const rise = Math.max(-1, Math.min(1, state.yVel/7));
       const tuck = (rise > 0 ? rise : rise*0.45) * jm.tuckMul;
       P.legL.rotation.x = -0.30*tuck - 0.06;
@@ -1329,7 +1336,7 @@
 
     // ---- the dodge: tuck low and lean hard into the roll ----
     if(state.dodging && P.waist && P.kneeL && P.kneeR){
-      const dm = (state.classDef && DODGE_MOTION[state.classDef.key]) || DODGE_MOTION.warrior;
+      const dm = (state.classDef && DODGE_MOTION[rigKeyOf(state.classDef)]) || DODGE_MOTION.warrior;
       const dodgeK = Math.max(0, Math.min(1, state.dodgeT/0.2));
       const curl = Math.sin(dodgeK*Math.PI);      // 0 -> 1 -> 0 across the roll
       // 横っ跳び系(盗賊/弓師)は入力方向に応じて左右どちらかへ傾ける。

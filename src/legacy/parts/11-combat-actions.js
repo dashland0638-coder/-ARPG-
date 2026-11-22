@@ -69,8 +69,11 @@
        弓(弓師)    : 1→2→3→フィニッシュ の4段(3連射)。加えて、接近戦では
                       弱いというロードマップの思想を damage 側で直接反映
                       している(applyOutgoingDamageMods を参照)。 */
-  const COMBO_LENGTH = { warrior:3, rogue:4, mage:2, archer:4 };
+  /* 影の旅人: 払い → 返し → 踏み込みの振り下ろし(+ 影の追撃)の 3 段
+     (core/wanderer-style.js、WANDERER-RENEWAL-001) */
+  const COMBO_LENGTH = { warrior:3, rogue:4, mage:2, archer:4, wanderer:WANDERER_COMBO_LENGTH };
   const COMBO_CLIP_BY_STAGE = {
+    wanderer: WANDERER_COMBO_CLIPS,
     warrior: {1:'basic', 2:'basic2', 3:'basic4'},               // spin(basic3)は使わず、フィニッシュへ直行
     rogue:   {1:'basic', 2:'basic2', 3:'basic3', 4:'basic4'},
     mage:    {1:'basic', 2:'basic4'},                           // 2段目がそのままフィニッシュ(貫通弾)
@@ -420,7 +423,9 @@
 
     if(action === 'dodgeAttack'){ tryDodgeAttack(); return; }
 
-    const clsKey = state.classDef.key;
+    /* 段数・クリップ・踏み込みはモーションの鍵で引く(影の旅人は 3 段の自分の型。
+       WANDERER-RENEWAL-001。4 人は classDef.key のまま) */
+    const clsKey = rigKeyOf(state.classDef);
     // サブ武器は常に2段(1→フィニッシュ)。メインはクラス/武器思想ごとの段数
     const len = state.usingAltWeapon ? ALT_COMBO_LENGTH : (COMBO_LENGTH[clsKey] || 4);
     const chaining = (state.comboWindowT||0) > 0;
@@ -464,7 +469,8 @@
        掛けると既存の間合いが変わってしまう。
        遠隔職(魔法使い・弓師)は踏み込む動作自体が噛み合わないので、
        ATTACK_LUNGE_BY_CLASS 側で 0 にしてある。 */
-    const lungeDist = state.job==='berserker' ? 0 : attackLungeDistance(clsKey);
+    const lungeDist = state.job==='berserker' ? 0
+      : (clsKey === 'wanderer' ? WANDERER_LUNGE : attackLungeDistance(clsKey));
     if(lungeDist > 0 && state.grounded){
       state.attackLunge = {
         t: 0,
@@ -758,6 +764,11 @@
         triggerBossSkills('onFinishHit');
         triggerBossSkills('onFinishHit2', {target: hitTarget});
       }
+      /* 影の旅人の 3 段目: 影がその場に残り、0.45 秒後に同じ弧をもう一度斬る
+         (当たらなくても残る ―― 置いておく技。17-wanderer-style.js) */
+      if(isFinish && isWandererStyle() && !state.usingAltWeapon){
+        queueWandererEcho('finish', {x:state.pos.x, z:state.pos.z, yaw:state.facing}, dmg);
+      }
     } else {
       // 魔導士の攻撃時魔法陣(ユーザー指摘: 「攻撃の度に魔法陣が床や目の
       // 前に出現するように」)。弾の発射そのものには影響しない演出のみの
@@ -1024,7 +1035,7 @@
     if(state.swinging || state.skillCharging) return; // can't overlap with other attack actions
     if(!hasRes('skill2')){ warnNoRes(); return; }
     const cdef = state.classDef;
-    const skill2 = activeSkill2Def(cdef.key);
+    const skill2 = activeSkill2Def(rigKeyOf(cdef));
     if(!skill2) return;
     spendRes('skill2');
     state.skill2CD = skill2.cd * rankCD('skill2') * Math.max(0.4, 1 + sphereValue('skill2CDSphereMul'));   // スフィア「神速の一撃」
@@ -1035,12 +1046,14 @@
       executeVariant(skill2, 1, 1, 'skill2');
       return;
     }
-    state.swinging = true; beginMove(skill2.key === 'crushSlash' ? 'crushSlash' : 'skill2');
+    state.swinging = true;
+    beginMove(skill2.key === 'crushSlash' ? 'crushSlash' : skill2.key === 'shadowPass' ? 'shadowPass' : 'skill2');
     if(sequenceLocks.length) tryStrikeBell(state.pos);
     state.swingLockFacing = state.facing;
     const dmg = Math.round(cdef.atk * skill2.mult * rankDmg('skill2') * (1 + sphereValue('skill2DmgSphereMul'))) + Math.round(Math.random()*5);   // スフィア「二の太刀」
     const fwd = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
     if(skill2.key === 'crushSlash') castCrushSlash(dmg, fwd, skill2);
+    else if(skill2.key === 'shadowPass') castShadowPass(dmg, skill2);   // 影の旅人「影渡り」(17-wanderer-style.js)
     else if(cdef.key==='warrior') castGroundSplit(dmg, fwd);
     else if(cdef.key==='rogue') castKnifeBarrage(dmg, fwd);
     else if(cdef.key==='mage') castObserveLight();
@@ -1871,7 +1884,7 @@
      必殺技とも手応えが分かれる。
   ========================================================= */
   function executionClipName(){
-    const lib = CLIPS[state.classDef && state.classDef.key];
+    const lib = CLIPS[rigKeyOf(state.classDef)];
     const jobClip = JOB_ULT_CLIP[state.job];
     if(jobClip && lib && lib[jobClip]) return jobClip;   // 上位職の専用の型
     return (lib && lib.ult) ? 'ult' : 'basic';

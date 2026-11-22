@@ -156,6 +156,7 @@ function runGrant(state){
     document: { getElementById: () => null },
     setGlyphOrText: () => {},
     currentSwordsmanGlyphIds: () => ({}),
+    rigKeyOf: cdef => (cdef && cdef.key) || 'warrior',
     updateCooldownRings: () => log.push('rings'),
   };
   const code = [fn(ui, 'function grantChapter1Skill2(){'), 'return grantChapter1Skill2();'].join('\n');

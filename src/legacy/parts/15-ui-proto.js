@@ -132,7 +132,7 @@
       el.skill1.style.setProperty('--cd', s1);
 
       const learned = hasSkill2(state);
-      const s2def = cls ? activeSkill2Def(cls.key) : null;
+      const s2def = cls ? activeSkill2Def(rigKeyOf(cls)) : null;
       const s2 = learned && s2def && state.skill2CD > 0 ? clamp01(state.skill2CD / s2def.cd) : 0;
       el.skill2.classList.toggle('is-disabled', !learned);
       el.skill2.classList.toggle('is-cd', s2 > 0);
