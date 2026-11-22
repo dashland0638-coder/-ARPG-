@@ -1404,6 +1404,9 @@
     updateMotionPanel(dt);   // Debug Motion Preview。通常プレイでは即return
     drawMinimap(); // top-level so it also hides itself while paused / in menus
     updatePendingJoinScene();   // 酒場が描かれてから交代の会話を開く(WORK 12.1)
+    /* 影の旅人の影の追撃・残像は、会話・演出が始まったら落とす(WANDERER-RENEWAL-001)。
+       会話の間は下の updatePlayer が呼ばれないので、ここで見る(閉じた後に追撃が飛ばないように) */
+    if(state.started && state.dialogueActive) clearWandererEchoes();
     if(state.started && !state.paused && !state.dialogueActive){
       updateInput(dt);
       updatePlayer(dt);

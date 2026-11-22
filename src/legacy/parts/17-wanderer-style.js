@@ -162,6 +162,7 @@
     return e;
   }
   function clearWandererEchoes(){
+    if(wandererEchoes && !wandererEchoes.length && wandererAfterimages && !wandererAfterimages.length) return;   // 毎フレーム呼ばれても何も作らない
     if(wandererEchoes) wandererEchoes.forEach(e=> disposeAfterimage(e.image));
     wandererEchoes = [];
     if(wandererAfterimages) wandererAfterimages.slice().forEach(disposeAfterimage);

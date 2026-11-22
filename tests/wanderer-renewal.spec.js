@@ -131,6 +131,19 @@ test('影の旅人: 自分の型の 3 段・影残し・影渡り、0.45 秒後�
   expect(passDmg, '影の通過は正面から = 盾で減る').toBeGreaterThan(0);
   expect(backDmg, '斬り返しは背中から = 盾を抜ける').toBeGreaterThan(passDmg * 2);
 
+  // 会話・演出が始まったら、待っている追撃と残像は落ちる(閉じた後に飛ばない。Review Round 1)
+  await page.waitForTimeout(1500);
+  await R('ready');
+  const d = await R('foe', 0, 2.0);
+  for (let s = 0; s < 3; s++) { await R('attack'); if (s < 2) await page.waitForTimeout(120); }
+  expect((await R('echoes')).queued).toBe(1);
+  await R('ev', 'state.dialogueActive = true; true');
+  await expect.poll(() => R('echoes'), { timeout: 5_000 }).toEqual({ queued: 0, images: 0 });
+  const hpDlg = await R('hp', d);
+  await R('ev', 'state.dialogueActive = false; true');
+  await page.waitForTimeout(1200);
+  expect(await R('hp', d), '会話の後に追撃が飛ばない').toBe(hpDlg);
+
   // 他の 4 人は自分の型のまま
   const r = await R('cast', 'rogue');
   expect(r.rig).toBe('rogue');

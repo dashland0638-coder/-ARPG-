@@ -143,6 +143,8 @@ None
 | 2026-11-22 | Task | ANALYZING → APPROVED | Planner (Agent) | Artifact Handoff（analysis）H-1〜H-8 確認。Escalation Check: None → Agent Approval |
 | 2026-11-22 | Task | APPROVED → IMPLEMENTING → TESTING | Implementer | Plan Handoff（plan）H-1〜H-8 確認。Debugger サイクル 0 |
 | 2026-11-22 | Task | TESTING → REVIEWING | Implementer | build / unit PASS、E2E Targeted 97 中 96 PASS + 1 FLAKY（auto-combo、再実行で PASS）。Review Handoff を Reviewer へ |
+| 2026-11-22 | Task | REVIEWING → CHANGES_REQUIRED | Reviewer | Round 1/3（`3b4eecdaa74ba65fc7d2d83e0b05eb58d174b293`）: 会話・演出の間に追撃が落ちない |
+| 2026-11-22 | Task | CHANGES_REQUIRED → TESTING → REVIEWING | Implementer | Review Fix Loop Round 1（Auto Fix 1）。build / unit / E2E 22 件 PASS |
 
 ## Implementation Result
 
@@ -195,7 +197,7 @@ None
 | AC | 確認方法 | 根拠 |
 | --- | --- | --- |
 | 影の旅人のクリップで再生 | VERIFIED | wanderer-renewal.spec（clip 名 basic/basic2/basic3/retreat/shadowPass、CLIPS.wanderer）、unit（CLIPS を classDef.key で直接引かない） |
-| 追撃が 0.45 秒後・残像・会話等で落ちる | VERIFIED / FACT (code) | spec（HP が後から減る）、unit（stepEchoes）、`updateWandererEchoes` の打ち切り条件 |
+| 追撃が 0.45 秒後・残像・会話等で落ちる | VERIFIED | spec（HP が後から減る / 会話を開くと追撃・残像が 0 になり、閉じた後に HP が減らない）、unit（stepEchoes）。打ち切りは `animate`（14-hud-boot.js、会話中）とワールド・地点移動（Round 1 Fix） |
 | Skill 2 が道で閃き自動装備 | VERIFIED | spec「閃き」 |
 | 影の紫の独立 Material / 衣服に #8A5AD6 なし | VERIFIED | spec（blade / clothColors）、character-palette.spec |
 | 加入前の姿に球なし・同じ部品・名前なし・遅れる影 | VERIFIED | unit（road-stranger / wanderer-style）、shadow-guide.spec、road2-join.spec、撮影 after-4 |
@@ -205,3 +207,10 @@ None
 ### Out of Scope Found
 - 剣士・盗賊などの回避や被弾の共通の型は全キャラクター共通の仕組みのまま（今回は影の旅人の行だけ足した）
 - 影の追撃の効果音は既存のキュー（slashLight）の流用。専用の SE は MUSIC-AUDIO-003 の範囲
+
+### Round 1 Fix
+- Required Change #1（会話・演出の間に追撃が落ちない）: `animate`（`14-hud-boot.js`）で `state.started && state.dialogueActive` の間は `clearWandererEchoes()` を呼ぶ（会話中は updatePlayer が呼ばれないため）。`clearWandererEchoes` は空なら何もしない早期 return を足した（毎フレーム呼ばれても何も作らない）。他職の保留中の技の扱いは変えていない
+- テスト: `wanderer-renewal.spec.js` に「3 段目の直後に会話を開く → 追撃・残像が 0 → 閉じた後に敵の HP が減らない」を追加
+- AC の表の該当行を訂正（打ち切りの根拠）
+- 非ブロッキングの指摘への対応: `docs/CHARACTERS.md` のジャンプの記述を「係数だけ影の旅人の行を持つ」に訂正。Files To Change に無かった `02-world-common.js` / `10-input.js` / `src/core/weapon-state.js` は Changed Files に記載済み（計画の範囲内の最小の変更）。auto-combo の FLAKY は変更前コードと比較していない（Risks に残す）
+- Test: build PASS、unit 2329 PASS、E2E wanderer-renewal（2）/ shadow-guide / auto-combo / character-motion 計 22 PASS
