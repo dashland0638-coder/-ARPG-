@@ -185,6 +185,7 @@
     // 時間帯: 出撃し直した時は到達したエリアから(設計 §3-1)。出来事は出撃ごとに初めから
     road2DayPos = road2DayTarget = roadDaylightStart(state.roadArea); road2DeepW = 0; road2EndW = 0;
     road2NightBegun = false; road2DawnBegun = false;
+    road2EndingStarted = false; road2A9 = null;
     road2CompassOn = legacyGrowth();   // 旧成長・周回では会話なしで最初から(第一章の台詞は本編だけ)
     road2Joined = false;
     road2CompassPrev = null;
@@ -245,6 +246,7 @@
     road2SetupArea2(M);            // R3-2: 原野の会話・調べ物・怪異 A-2〜A-4(戦闘は ROAD2_FIGHTS)
     road2SetupArea3(M);            // R3-3: 谷の会話・調べ物・怪異 A-5・A-6(戦闘は ROAD2_FIGHTS)
     road2SetupArea5(M);            // R3-5: 道の果ての会話 R5-01・R5-02・最終戦(高原の大角)
+    road2SetupChests();            // R3-6: 道の宝箱(道だけの固定の報酬表、DEC-025 E-4)
     ROAD2_CAMPS.forEach(c=> road2BuildCamp(c, road2AreaGroups[c.area], M));
     ROAD2_LANDMARKS.forEach(l=> road2BuildLandmark(l, road2AreaGroups[l.area], M));
 
@@ -1365,6 +1367,9 @@
   /* R3-5 最終戦(高原の大角)。出撃の中だけ */
   let road2Finale = null;   // {state:'idle'|'active'|'defeated', en, phase, cloudT, second, lane, mark, yielder, yieldT}
   let road2CloudW = 0;      // 段階 2「雲」: 雲が朝日を隠す重み(光の強さだけを下げる。露出は固定)
+  /* R3-6 結末: 道の宝箱(出撃の中だけ)・結末を見たか(最後の酒場の台詞を新しい一行のものにする合図) */
+  let road2Chests = [];
+  let road2NewFinale = false;
   let road2Echo = null;              // A-1: 遅れる二つ目の影 {mesh, src, parts, local, hist, frame}
   let road2EchoNoticed = new Set();  // 段階的な伏線: 主人公が反応した(気づいた)場所の id(その出撃の間)
   let road2EchoSpent = new Set();    // 反応を終えて出た場所(もう二つ目の影を出さない)
@@ -1845,9 +1850,94 @@
           [ROAD_ARCHER, '「分からないまま、ですね」'],
           [ROAD_MAGE, '「分からないことがあっても、世界は続いています」'],
           [ROAD_SWORD, '「そういうものなのかもしれないな」'],
-        ]));
+        ], ()=> road2BeginEnding()));
+        else road2PendingTalks.push(()=> road2BeginEnding());
       }
     }
+  }
+
+  /* ==== R3-6: 道の宝箱(DEC-025 E-4 = A: 道だけの固定の報酬表。宝箱の ID × 主人公の職業。ランダムではない) ==== */
+  function road2SetupChests(){
+    road2Chests = [];
+    ROAD2_CHESTS.forEach(def=>{
+      const y = road2GroundAt(def.x, def.z) ?? 0;
+      const ch = buildChest(new THREE.Vector3(def.x, y, def.z), false, def.kind === 'special' ? 'armoury' : def.kind);
+      if(ch.group.parent) ch.group.parent.remove(ch.group);
+      road2AreaGroups[def.area].add(ch.group);   // 今のエリアと隣だけ描く
+      road2Chests.push({def, chest:ch});
+    });
+  }
+  function road2GrantChest(def){
+    const r = roadChestReward(def.id, selectedClass);
+    if(!r) return;
+    if(r.kind === 'equipment' && !state.equipmentInventory.some(it=> it.id === r.item.id)){
+      const cls = (CLASSES[selectedClass] && WEAPON_TYPES[selectedClass]) ? selectedClass : 'warrior';
+      const item = Object.assign({}, r.item, {
+        weaponType: r.item.slot === 'weapon' ? WEAPON_TYPES[cls].native.key : null,
+        icon: r.item.slot === 'weapon' ? (GEAR_WEAPON_ICON_BY_CLASS[cls] || '⚔️') : GEAR_SLOT_ICON[r.item.slot],
+      });
+      addEquipmentItem(item);
+      return;
+    }
+    // 補給の箱、または同じ品を持っている時: 薬草(と魔力の雫)
+    grantItem('potion', 2); spawnLog('🧪 薬草を2つ手に入れた!');
+    if(state.maxMp > 0){ grantItem('mppotion', 1); spawnLog('🔷 魔力の雫を手に入れた!'); }
+  }
+  function road2UpdateChests(dt){
+    if(currentWorldKey !== 'road2') return;
+    road2Chests.forEach(C=>{
+      const c = C.chest;
+      if(!c.opened && state.pos.distanceTo(c.pos) < 1.7 && !state.dialogueActive){
+        c.opened = true; sfx('chest');
+        road2GrantChest(C.def);
+      }
+      if(c.opened && c.lidAngle > -1.9){ c.lidAngle = Math.max(-1.9, c.lidAngle - (dt || 0) * 4.5); c.lidPivot.rotation.x = c.lidAngle; }
+    });
+  }
+
+  /* ==== R3-6: 結末(設計 §8)。R5-03 の後 → R5-04(誰かが足元を見る → A-9 → 盗「帰ろう。まだ、帰る場所がある」→ 歩き出す → 暗転)
+     → 結果画面(クリアは一度だけ。K-14)→ 最後の酒場。到達したエリアは 0 に戻す(DEC-028 R3-6) ==== */
+  const ROAD2_RESULT_BOSS = {key:'roadHighlandHorn', clearName:'高原の大角', clearFlavor:'獣は草原の奥へ去っていった。道は、まだ先へ続いている。',
+    rewardLoot:{type:'gem', name:'大角の抜け毛', icon:'🪶', color:0xd8ccb0}};
+  let road2EndingStarted = false, road2A9 = null;
+  function road2BeginEnding(){
+    if(road2EndingStarted) return;
+    road2EndingStarted = true;
+    const steps = [];
+    if(!legacyGrowth()) steps.push({t:0.6, run:()=> road2ShowA9()});   // A-9: 一人の影が、一瞬だけ太陽と違う向きへ伸びる
+    steps.push({t:1.4, run:()=> road2HideA9()});
+    if(!legacyGrowth()) steps.push({t:0.6, run:()=> cutsceneLine('「帰ろう。まだ、帰る場所がある」', ROAD_THIEF)});
+    steps.push({t:2.6, run:()=>{ cutsceneHideLine(); sceneCamShot(state.pos.x, state.pos.z + 12, 2.6, {y: state.pos.y, height: 6, dist: 10, look:{x: state.pos.x, y: state.pos.y + 2, z: state.pos.z + 60}}); }});
+    steps.push({t:2.8, run:()=> fadeTransition(()=> road2FinishRoad())});
+    playCutscene(steps);
+  }
+  /* A-9: 主人公の影を一瞬だけ消し、太陽と違う向きへ伸びる影(見えない平らな写しが落とす本物の影)を置く */
+  function road2ShowA9(){
+    const d = new THREE.Vector3(-sunOffset[0], 0, -sunOffset[2]).normalize();   // 本当の影の向き
+    const wrong = d.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI * 0.6);   // 違う向き
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 2.4), new THREE.MeshBasicMaterial({colorWrite:false, depthWrite:false}));
+    m.castShadow = true;
+    m.position.set(state.pos.x + wrong.x * 1.3, state.pos.y + 0.12, state.pos.z + wrong.z * 1.3);
+    m.rotation.y = Math.atan2(wrong.x, wrong.z);
+    road2AreaGroups[5].add(m);
+    const off = []; if(player) player.traverse(o=>{ if(o.isMesh && o.castShadow){ o.castShadow = false; off.push(o); } });
+    road2A9 = {mesh:m, off};
+    road2TalkCount['A-9'] = (road2TalkCount['A-9'] || 0) + 1;
+  }
+  function road2HideA9(){
+    if(!road2A9) return;
+    if(road2A9.mesh.parent) road2A9.mesh.parent.remove(road2A9.mesh);
+    road2A9.off.forEach(o=>{ o.castShadow = shadowOn; });
+    road2A9 = null;
+  }
+  function road2FinishRoad(){
+    state.roadArea = 0;            // 道を終えたら到達を戻す(DEC-028 R3-6。第一章の後に歩き直す時は入口から)
+    road2NewFinale = true;         // 最後の酒場は一行全員の台詞(設計 §8)
+    roadPendingFinale = true;      // 酒場へ戻ったところで最後の酒場を出す(旧道と同じ合図)
+    try{ saveGame(); }catch(e){}
+    state.dialogueActive = true;   // 結果画面の間は動かさない(結果画面の「戻る」で酒場へ)
+    try{ showBossResultScreen(ROAD2_RESULT_BOSS, state.level); }
+    catch(err){ console.error('showBossResultScreen failed:', err); state.dialogueActive = false; returnToTown(false); }
   }
 
   /* 毎フレーム: 屋根・調べ物の会話・壁の影・掛け合い */
@@ -2130,6 +2220,7 @@
     road2UpdateArea2(dt);
     road2UpdateArea3(dt);
     road2UpdateArea5(dt);
+    road2UpdateChests(dt);
     const a = road2AreaAt(state.pos.x, state.pos.z);
     const id = a ? a.id : road2CurrentAreaId;
     if(id !== road2CurrentAreaId || !road2VisInit){
