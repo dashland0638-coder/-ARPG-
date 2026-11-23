@@ -1,6 +1,6 @@
 # ROAD-VISUAL-003 / R3-7R — 道シナリオのクリア時リセットの確認と固め
 
-Status: REVIEWING
+Status: DONE
 
 Analysis: .ai/reports/ROAD-VISUAL-003-R3-7R-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `fa251ff384ce10a77a5c5654c48dc79dfb3386b0`、blob `e7119ece6b57b2f619fda1ac9aa4a32d676831c0`）
 
@@ -50,6 +50,8 @@ None
 | --- | --- | --- | --- | --- |
 | 2026-11-23 | Work Item | — → ANALYZING → APPROVED | Orchestrator / Planner | r3-7 先端 `cbbece8`（#145 を含む）を確認。Analyzer report `fa251ff`。H-1〜H-8 確認 |
 | 2026-11-23 | Work Item | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer | Plan Handoff（`c243b1f`、blob `749ceb0`）H-1〜H-8 確認。コード変更なし。build / unit 2337 / E2E 38 PASS |
+| 2026-11-23 | Work Item | REVIEWING（Reviewer PASS） | Reviewer | Round 1/3 PASS（`8f3ca357371c44f8762556f4083632bd773e38e7`） |
+| 2026-11-23 | Work Item | REVIEWING → DONE | Orchestrator | PR #146（base `claude/road-visual-003-r3-7`）。merge は Human |
 
 ## Implementation Result
 
@@ -84,3 +86,15 @@ None
 | 道のクリアで到達 0、酒場へ戻った時の保存に到達 0 とクリアが同時に入る | VERIFIED（spec A、unit） |
 | 途中の撤退・エリア移動では戻さない。再出撃は到達した野営地・時間帯から | VERIFIED（spec B、unit の 0 を書く箇所の検査、road2-join の到達の記録） |
 | 他シナリオ・セーブ形式・影の旅人・時間帯・石環・高原の大角に変更なし | VERIFIED（`src/` 変更なし、回帰 E2E） |
+
+### Notes（Reviewer）
+- 結果画面を開いたままページを閉じた場合は、既存の `beforeunload` / `visibilitychange` の保存が「到達 0・クリア 1」を同時に書く（整合する）。保存されない最後の酒場の合図（`roadPendingFinale`）だけが失われる（R3-6 の既存の挙動）
+- unit の「到達へ 0 を書くのは 3 か所」は意図的に厳しい。正当なリセット箇所を足す時は試験も直す
+
+### Autonomy Metrics
+- Human Escalation Count: 0
+- Human Decision Count: 0
+- Auto Fix Count: 0
+- Reviewer Round Count: 1
+- Test Retry Count: 0
+- PR Created: Yes (#146)
