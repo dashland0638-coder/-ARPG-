@@ -559,7 +559,9 @@
       const base = state.classDef.atk + Math.round(Math.random()*4);
       const dmg = Math.round(base * 1.5);
       const staggerOpts = {staggerMul: 2.5, ultGauge: 6};
-      spawnMeleeSwingVFX(range, angle, state.classDef.trim, 'dodge');
+      // 影の旅人は斬撃の弧の代わりに影の手(見た目だけ。判定は従来どおり)
+      if(isWandererStyle()) spawnWandererQuickHand(WANDERER_HAND_SCALE.basic);
+      else spawnMeleeSwingVFX(range, angle, state.classDef.trim, 'dodge');
       if(state.classDef.cleave){
         findMeleeTargetsInArc(range, angle).forEach(t=> dealDamageToEnemy(t, dmg, false, staggerOpts));
       } else {
@@ -626,7 +628,8 @@
     const base = cdef.atk + Math.round(Math.random()*4);
     const dmg = Math.round(base * UPPERCUT_DMG_MUL);
 
-    spawnMeleeSwingVFX(range, angle, cdef.trim, 3);
+    if(isWandererStyle()) spawnWandererQuickHand(WANDERER_HAND_SCALE.basic);   // 影の旅人は影の手(DEC-034)
+    else spawnMeleeSwingVFX(range, angle, cdef.trim, 3);
     let landed = 0, lifted = 0, grounded = 0;
     targets.forEach(en=>{
       const weight = enemyWeightClass(en);
@@ -733,6 +736,12 @@
       // isFinish は処刑(core/execution.js)の発動条件。コンボの最終段で
       // 当てた一撃だけが瀕死の敵を「決められる」
       const staggerOpts = {staggerMul, ultGauge: isFinish ? 6 : 3, isFinish};
+      /* 影の旅人(DEC-034): 斬撃の弧は出さない。少し遅れて地面から影の手が現れ、
+         手が当たる瞬間に判定する(突き上げ / 薙ぎ払い / 握砕。17-wanderer-style.js) */
+      if(isWandererStyle() && !state.usingAltWeapon){
+        castWandererCombo(stage, comboLen, dmg, staggerOpts);
+        return;
+      }
       spawnMeleeSwingVFX(range, angle, state.classDef.trim, styleKey);
       let hitTarget = null;
       if(state.classDef.cleave){
@@ -763,11 +772,6 @@
       if(isFinish && hitTarget){
         triggerBossSkills('onFinishHit');
         triggerBossSkills('onFinishHit2', {target: hitTarget});
-      }
-      /* 影の旅人の 3 段目: 影がその場に残り、0.45 秒後に同じ弧をもう一度斬る
-         (当たらなくても残る ―― 置いておく技。17-wanderer-style.js) */
-      if(isFinish && isWandererStyle() && !state.usingAltWeapon){
-        queueWandererEcho('finish', {x:state.pos.x, z:state.pos.z, yaw:state.facing}, dmg);
       }
     } else {
       // 魔導士の攻撃時魔法陣(ユーザー指摘: 「攻撃の度に魔法陣が床や目の
@@ -2075,6 +2079,8 @@
        そのまま繰り返す(新しい当たり判定の形は増やさない方針)。 */
     const hits = Math.max(1, Math.round(ult.hits || 1));
     const perHit = 1 / hits;
+    // 影の旅人: 範囲のまわりから複数の巨大な影の手が一斉に襲いかかる(見た目だけ。DEC-034)
+    if(isWandererStyle()) spawnWandererUltHands(center, ultRadius);
     const applyUltHit = ()=>{
       spawnUltimateVFX(center, Object.assign({}, ult, {radius:ultRadius}));
       enemies.forEach(en=>{

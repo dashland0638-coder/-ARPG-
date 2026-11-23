@@ -183,7 +183,8 @@ import { GUARDIAN_FOCUS_SEC, canFocusAlly, stepGuardianFocus, guardianFacingTarg
 import {
   WANDERER_KEY, WANDERER_ECHO, WANDERER_COMBAT, WANDERER_COMBO_LENGTH, WANDERER_COMBO_CLIPS, WANDERER_LUNGE,
   WANDERER_SKILL1, WANDERER_SKILL2, WANDERER_STANCE, WANDERER_RELAXED, WANDERER_GRIP_OFFSET,
-  wandererRigKey, buildWandererClips, planEcho, pushEcho, stepEchoes, echoArcHit, echoCircleHit, lineHit, shadowPassEnd,
+  WANDERER_ECHO_LAG, WANDERER_STRIKE, WANDERER_HAND_SCALE, SHADOW_HAND_SHAPE,
+  wandererRigKey, buildWandererClips, planEcho, planStrike, handTargetPoint, pushEcho, stepEchoes, echoArcHit, echoCircleHit, lineHit, shadowPassEnd,
 } from '../core/wanderer-style.js';   // 影の旅人の戦い方(WANDERER-RENEWAL-001、17-wanderer-style.js)
 import { ROAD_JOINER, ROAD_JOIN_AREA, roadSupportOptions, roadCompanions, recordRoadArea, roadJoinedFromArea, roadStartCamp, sanitizeRoadArea } from '../core/road-party.js';
 import { rogueBackAttackDamageMul } from '../core/rogue-back-attack.js';

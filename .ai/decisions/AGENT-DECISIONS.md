@@ -53,3 +53,4 @@ Human Decision と矛盾した場合は Human Decision が優先する。上書�
 - Basis: Human 着手指示(2026-11-22、Goal §3〜§5 で設計を Agent に委任)、docs/CHARACTERS.md(素手・影による攻撃)、DEC-004 / DEC-005 / DEC-030 / DEC-031、CHARACTER-VIS-001 P-D8、`.ai/reports/WANDERER-RENEWAL-001-analysis.md`
 - Applies when: 影の旅人の戦闘・モーション・見た目を変える時、charKey を持つキャラクターに専用の動きを足す時
 - Note: 計画(`.ai/tasks/WANDERER-RENEWAL-001.md`)では `DEC-034` の新規ファイルとしていたが、`DEC-` は Human Decision の記録(decisions/README.md)なので、Agent Decision として本ファイルへ記録した
+- Superseded in part (2026-11-23): 「影の刃」「本人の残像」「加入後の T-4/T-5 の衣服・配色」は Human の DEC-034(最終キャラクター設計書)で「地面から出る影の手」「フード外套姿」へ置き換えた。charKey を鍵にする作り・kit の扱い・fromPos・閃きの場所は引き続き有効(WANDERER-RENEWAL-002)

@@ -1,10 +1,11 @@
 // @ts-check
-/* WANDERER-RENEWAL-001: 影の旅人の戦い方・見た目・閃き(AD-005)。
+/* WANDERER-RENEWAL-001 / 002: 影の旅人の戦い方・見た目・閃き(AD-005、DEC-034)。
  *
  *   ・影の旅人は自分の型(CLIPS.wanderer)で 3 段・Skill 1「影残し」・Skill 2「影渡り」を振る。剣士の型を引かない
- *   ・3 段目・Skill 1・Skill 2 は 0.45 秒後に影が追撃する(残像が見えている。当たった敵の HP が後から減る)
- *   ・影渡りの斬り返しは影の側から当たる ―― こちらを向いた守護型の盾を抜ける
- *   ・武器の枠は影の刃(影の紫 #8A5AD6 の別 Material)。衣服の Material(配色表)に影の紫は無い
+ *   ・武器を持たない。攻撃は地面から出る影の手 ―― 本人の動作から少し遅れて当たる(入力の瞬間には HP が減らない)
+ *   ・3 段目(握砕)・Skill 1・Skill 2 は 0.45 秒後に影の手がもう一度動く(影の追撃)
+ *   ・影渡りの薙ぎ戻しは影の手の側から当たる ―― こちらを向いた守護型の盾を抜ける
+ *   ・影の手は内部が黒に近い紫・輪郭が影の紫 #8A5AD6。衣服の Material(配色表)に影の紫は無い
  *   ・他の 4 人の型・段数は変わらない
  *   ・道のエリア 4「遺構の門」の後で、影の旅人が Skill 2 を閃く(自動で装備される)
  *   iPhone 844×390 の横向き
@@ -36,24 +37,28 @@ const PROBE = `
   attack(){ armWeaponNow(state.weapon); state.attackCD = 0; tryAttack(); return state.moveClip; },
   skill1(){ armWeaponNow(state.weapon); state.skillCD = 0; skillInputDown(); skillInputUp(); return {clip: state.moveClip, name: activeSkill1Variant().name}; },
   skill2(){ armWeaponNow(state.weapon); state.skill2CD = 0; state.mp = state.maxMp; castSkill2(); return {clip: state.moveClip, name: activeSkill2Def(rigKeyOf(state.classDef)).name}; },
-  echoes(){ return {queued: wandererEchoes.length, images: wandererAfterimages.length}; },
-  blade(){
-    const P = playerMixerParts, b = P.shadowBlade;
-    if(!b) return null;
-    const cols = (b.userData.bladeMats || []).map(m=> m.mat.color.getHexString());
-    return {isWeapon: P.weapon === b, visible: b.visible, cols, outline: (function(){ let n = 0; b.traverse(o=>{ if(o.userData.isOutline) n++; }); return n; })()};
+  echoes(){ return {queued: wandererEchoes.length, hands: shadowHands.filter(h=> h.active).length,
+    kinds: wandererEchoes.map(e=> e.kind)}; },
+  weapon(){
+    const P = playerMixerParts; let meshes = 0;
+    if(P.weapon) P.weapon.traverse(o=>{ if(o.isMesh) meshes++; });
+    return {meshes, empty: !!(P.weapon && P.weapon.userData.wandererNoWeapon)};
+  },
+  handLook(){
+    const A = shadowHandAssets();
+    return {core: A.mat.core.color.getHexString(), line: '#' + A.mat.line.uniforms.uColor.value.getHexString(),
+      coreOpaque: !A.mat.core.transparent, inPlayer: (function(){ let n = 0; player.traverse(o=>{ if(o.name === 'wandererShadowHand') n++; }); return n; })()};
   },
   clothColors(){
     const set = new Set();
     player.traverse(o=>{
       if(!o.isMesh || !o.material || o.userData.isOutline || o.userData.isXray) return;
-      let p = o, inBlade = false; while(p){ if(p.userData && p.userData.shadowBlade) inBlade = true; p = p.parent; }
-      if(inBlade) return;
       const ms = Array.isArray(o.material) ? o.material : [o.material];
       ms.forEach(m=>{ if(m.color && m.type === 'MeshStandardMaterial') set.add(m.color.getHexString()); });
     });
     return Array.from(set);
   },
+  pal(){ return resolvePalette('wanderer').main.toString(16); },
   clipLib(){ return Object.keys(CLIPS[rigKeyOf(state.classDef)]).sort(); },
   comboLen(){ return COMBO_LENGTH[rigKeyOf(state.classDef)]; },
 };`;
@@ -74,7 +79,7 @@ async function enterArena(page) {
   return (fn, ...a) => page.evaluate(([fn, a]) => /** @type {any} */ (window).__wr[fn](...a), [fn, a]);
 }
 
-test('影の旅人: 自分の型の 3 段・影残し・影渡り、0.45 秒後の影の追撃、影の刃の色', async ({ page }) => {
+test('影の旅人: 自分の型の 3 段(影の手)・影残し・影渡り、少し遅れて当たる影の手と 0.45 秒後の影の追撃', async ({ page }) => {
   test.setTimeout(300_000);
   const errors = watchErrors(page);
   const R = await enterArena(page);
@@ -84,71 +89,70 @@ test('影の旅人: 自分の型の 3 段・影残し・影渡り、0.45 秒後�
   expect(await R('comboLen')).toBe(3);
   expect(await R('clipLib')).toEqual(expect.arrayContaining(['basic', 'basic2', 'basic3', 'retreat', 'shadowPass', 'dash', 'spin', 'ult']));
 
-  // 影の刃: 武器の枠そのもの。影の紫、輪郭線なし。衣服の Material に影の紫は無い
+  // 武器を一切持たない(武器の枠は空)。衣服は配色表どおり(外套 #654F86)で、影の紫は無い
   await R('ready');
   await page.waitForTimeout(500);
-  const blade = await R('blade');
-  expect(blade.isWeapon).toBe(true);
-  expect(blade.cols).toContain('8a5ad6');
-  expect(blade.outline).toBe(0);
+  expect(await R('weapon')).toEqual({ meshes: 0, empty: true });
   const cloth = await R('clothColors');
-  expect(cloth.length).toBeGreaterThan(3);
+  expect(await R('pal')).toBe('654f86');   // 外套は配色表の行(布の色はテクスチャ側。character-palette.spec が役割ごとに検査)
   expect(cloth).not.toContain('8a5ad6');
 
-  // 3 段: 払い → 返し → 振り下ろし。3 段目の後に影が残り、0.45 秒後に追撃が当たる
+  // 3 段: 突き上げ → 薙ぎ払い → 握砕。影の手は少し遅れて当たる。3 段目の手は 0.45 秒で握り潰す
   const f = await R('foe', 0, 2.2);
+  const hp0 = await R('hp', f);
   const clips = [];
-  for (let s = 0; s < 3; s++) {
-    clips.push(await R('attack'));
-    if (s < 2) await page.waitForTimeout(120);
-  }
+  clips.push(await R('attack'));
+  expect(await R('hp', f), '入力の瞬間にはまだ当たらない(影の手が遅れて当たる)').toBe(hp0);
+  expect((await R('echoes')).hands).toBeGreaterThan(0);
+  const look = await R('handLook');
+  expect(look).toEqual({ core: expect.stringMatching(/^1[0-9a-f]0[0-9a-f]1[0-9a-f]$/), line: '#8a5ad6', coreOpaque: true, inPlayer: 0 });
+  await expect.poll(() => R('hp', f), { timeout: 10_000 }).toBeLessThan(hp0);
+  for (let s = 0; s < 2; s++) { await page.waitForTimeout(120); clips.push(await R('attack')); }
   expect(clips).toEqual(['basic', 'basic2', 'basic3']);
-  expect((await R('echoes')).queued).toBe(1);
-  const hpAfterSwing = await R('hp', f);
+  expect((await R('echoes')).kinds).toContain('finish');
   await expect.poll(() => R('echoes').then(e => e.queued), { timeout: 10_000 }).toBe(0);
-  expect(await R('hp', f), '影の追撃が当たる').toBeLessThan(hpAfterSwing);
 
-  // Skill 1 影残し: 一撃 + 後退。元の場所に影が残る
+  // Skill 1 影残し: 一撃 + 後退。元の場所の影の手が 0.45 秒後に周りを薙ぐ
   await page.waitForTimeout(1200);
   await R('ready');
   const s1 = await R('skill1');
   expect(s1).toEqual({ clip: 'retreat', name: '影残し' });
-  expect((await R('echoes')).queued).toBe(1);
+  expect((await R('echoes')).kinds).toEqual(['skill1']);
   await expect.poll(() => R('echoes').then(e => e.queued), { timeout: 10_000 }).toBe(0);
 
-  // Skill 2 影渡り: 守護型(正面に盾)を挟む。斬り返しは影の側(背中)から当たる
+  // Skill 2 影渡り: 守護型(正面に盾)を挟む。薙ぎ戻しは影の手の側(背中)から当たる
   await page.waitForTimeout(1500);
   await R('ready');
   const g = await R('foe', 0, 3.0, { guardian: true, strongMob: true });
-  await R('face', g, Math.PI);   // こちら(−z)を向いている = 本人の攻撃は正面で弾かれる
-  const hp0 = await R('hp', g);
+  await R('face', g, Math.PI);   // こちら(−z)を向いている = 本人の側からの一撃は正面で弾かれる
+  const g0 = await R('hp', g);
   const s2 = await R('skill2');
   expect(s2).toEqual({ clip: 'shadowPass', name: '影渡り' });
-  const hpPass = await R('hp', g);
-  const passDmg = hp0 - hpPass;
+  expect((await R('echoes')).kinds).toEqual(['skill2pass', 'skill2']);
+  await expect.poll(() => R('echoes').then(e => e.kinds.includes('skill2pass')), { timeout: 10_000 }).toBe(false);
+  const gPass = await R('hp', g);
   await expect.poll(() => R('echoes').then(e => e.queued), { timeout: 10_000 }).toBe(0);
-  const backDmg = hpPass - await R('hp', g);
-  expect(passDmg, '影の通過は正面から = 盾で減る').toBeGreaterThan(0);
-  expect(backDmg, '斬り返しは背中から = 盾を抜ける').toBeGreaterThan(passDmg * 2);
+  const passDmg = g0 - gPass, backDmg = gPass - await R('hp', g);
+  expect(passDmg, '這う手の通過は正面から = 盾で減る').toBeGreaterThan(0);
+  expect(backDmg, '薙ぎ戻しは背中から = 盾を抜ける').toBeGreaterThan(passDmg * 2);
 
-  // 会話・演出が始まったら、待っている追撃と残像は落ちる(閉じた後に飛ばない。Review Round 1)
+  // 会話・演出が始まったら、待っている影の手と追撃は落ちる(閉じた後に飛ばない。WANDERER-RENEWAL-001 Review Round 1)
   await page.waitForTimeout(1500);
   await R('ready');
   const d = await R('foe', 0, 2.0);
   for (let s = 0; s < 3; s++) { await R('attack'); if (s < 2) await page.waitForTimeout(120); }
-  expect((await R('echoes')).queued).toBe(1);
   await R('ev', 'state.dialogueActive = true; true');
-  await expect.poll(() => R('echoes'), { timeout: 5_000 }).toEqual({ queued: 0, images: 0 });
+  await expect.poll(() => R('echoes').then(e => [e.queued, e.hands]), { timeout: 5_000 }).toEqual([0, 0]);
   const hpDlg = await R('hp', d);
   await R('ev', 'state.dialogueActive = false; true');
   await page.waitForTimeout(1200);
-  expect(await R('hp', d), '会話の後に追撃が飛ばない').toBe(hpDlg);
+  expect(await R('hp', d), '会話の後に影の手が当たらない').toBe(hpDlg);
 
-  // 他の 4 人は自分の型のまま
+  // 他の 4 人は自分の型のまま(武器もある)
   const r = await R('cast', 'rogue');
   expect(r.rig).toBe('rogue');
   expect(await R('comboLen')).toBe(4);
-  expect(await R('blade')).toBeNull();
+  expect((await R('weapon')).meshes).toBeGreaterThan(0);
   const w = await R('cast', 'warrior');
   expect(w.rig).toBe('warrior');
   expect(await R('comboLen')).toBe(3);

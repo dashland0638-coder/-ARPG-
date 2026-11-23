@@ -9,7 +9,8 @@ import {
   WANDERER_KEY, WANDERER_ECHO_LAG, WANDERER_ECHO_MAX, WANDERER_ECHO, WANDERER_COMBAT,
   WANDERER_COMBO_LENGTH, WANDERER_COMBO_CLIPS, WANDERER_SKILL1, WANDERER_SKILL2,
   WANDERER_STANCE, WANDERER_CLIP_DUR, WANDERER_CLIP_CONTACT, WANDERER_DRAW_TIME,
-  wandererRigKey, planEcho, pushEcho, stepEchoes, echoArcHit, echoCircleHit, lineHit, shadowPassEnd,
+  WANDERER_STRIKE, WANDERER_HAND_SCALE, SHADOW_HAND_SHAPE,
+  wandererRigKey, planEcho, planStrike, handTargetPoint, pushEcho, stepEchoes, echoArcHit, echoCircleHit, lineHit, shadowPassEnd,
   buildWandererClips,
 } from '../../src/core/wanderer-style.js';
 import { drawTimesFor } from '../../src/core/weapon-state.js';
@@ -118,22 +119,64 @@ test('キーフレーム: 全クリップが構えで始まり構えで終わる
   for (let s = 1; s <= 3; s++) assert.ok(clips[WANDERER_COMBO_CLIPS[s]], `stage ${s}`);
 });
 
-test('キーフレーム: 振り抜き(接触)の位置にキーフレームがある。Hit 遅延なしなので前半', () => {
+test('キーフレーム: 本人の決めの姿勢 → 少し遅れて影の手が当たる(DEC-034 §1「適度な時間差」)', () => {
   const clips = buildWandererClips(WANDERER_STANCE);
   for (const [name, t] of Object.entries(WANDERER_CLIP_CONTACT)) {
     assert.ok(clips[name].some(f => Math.abs(f.t - t) < 1e-9), `${name} has a key at ${t}`);
-    if (name !== 'ult') assert.ok(t <= 0.30, `${name} contact early (${t})`);
   }
   // 必殺技は core/ult-clips.js の 'ult' の接触と同じ位置(判定の遅れと見た目が重なる)
   assert.equal(WANDERER_CLIP_CONTACT.ult, ULT_IMPACT_FRAC.ult);
+  // 通常攻撃: 影の手は本人の動作より後に当たる(delay > 0)。本人が動き出してから当たるまでの間がある
+  for (const [kind, s] of Object.entries(WANDERER_STRIKE)) {
+    assert.ok(s.delay > 0.08 && s.delay < 0.3, `${kind} delay ${s.delay}`);
+    assert.ok(s.scale >= 2.0, `${kind}: 影の手は主人公より大きい`);
+  }
+  assert.equal(WANDERER_STRIKE.basic.hand, 'rise');
+  assert.equal(WANDERER_STRIKE.basic2.hand, 'sweep');
+  assert.equal(WANDERER_STRIKE.basic3.hand, 'grab');
+  assert.ok(WANDERER_STRIKE.basic3.delay < WANDERER_ECHO_LAG, '握砕は手が出てから閉じる');
+  // 大振り: 1 段目は右腕を頭上近くまで振り上げる・2 段目は腰が大きく回る・3 段目は両腕を大きく広げる
+  const b1 = clips.basic.find(f => f.t === WANDERER_CLIP_CONTACT.basic);
+  assert.ok(b1.shR[0] < -2.0, '1 段目: 右手を前上へ振り上げる');
+  const b2a = clips.basic2[1], b2b = clips.basic2.find(f => f.t === WANDERER_CLIP_CONTACT.basic2);
+  assert.ok(Math.abs(b2a.waist[1] - b2b.waist[1]) > 1.2, '2 段目: 腰と上体が回る');
+  const b3 = clips.basic3.find(f => f.t === WANDERER_CLIP_CONTACT.basic3);
+  assert.ok(b3.shL[2] > 1.0 && b3.shR[2] < -1.0, '3 段目: 両腕を大きく広げる');
   // 影残しは前へ出てから後ろへ(push が正 → 負)
   const r = clips.retreat;
   assert.ok(r.find(f => f.t === WANDERER_CLIP_CONTACT.retreat).push > 0);
   assert.ok(r.some(f => f.push < 0));
-  // 影渡りは低く沈む(本人はその場)
-  const sp = clips.shadowPass.find(f => f.t === WANDERER_CLIP_CONTACT.shadowPass);
-  assert.ok(sp.drop > 0.15 && !(sp.push > 0));
+  // 構えは静かな立ち姿(腕を下ろす)。武器を持たない(軌跡を出さない)
+  assert.ok(WANDERER_STANCE.shR[0] > -0.5 && WANDERER_STANCE.shL[0] > -0.5);
+  assert.equal(WANDERER_STANCE.trail, false);
   assert.equal(WANDERER_CLIP_DUR.basic3 > WANDERER_CLIP_DUR.basic, true, '3 段目は重い');
+});
+
+test('影の手: 人間の手の形(4 本の指 + 外へ開く親指)、指は長く指先だけ鋭い', () => {
+  const H = SHADOW_HAND_SHAPE;
+  assert.equal(H.fingers.length, 4);
+  const middle = H.palm.len + H.segs[0] + H.segs[1] + H.tip;
+  assert.ok(H.segs[0] + H.segs[1] + H.tip > H.palm.len * 1.4, '指が長い(手のひらの 1.4 倍以上)');
+  assert.ok(H.tip > H.segs[0], '指先の節がいちばん長く尖る');
+  assert.ok(H.radius[2] < H.radius[0], '先へ細くなる');
+  assert.ok(H.thumb.spread < -0.8, '親指は大きく外へ開く');
+  assert.ok(Math.abs(middle - 1) < 0.15, '手首〜中指の先 ≒ 1(大きさは倍率で決める)');
+  for (const k of ['basic', 'grab', 'skill1', 'skill2', 'ult']) assert.ok(WANDERER_HAND_SCALE[k] >= 2.0, k);
+  assert.ok(WANDERER_HAND_SCALE.ult > WANDERER_HAND_SCALE.basic, '必殺技はいちばん大きい');
+  assert.ok(WANDERER_HAND_SCALE.dodge < WANDERER_HAND_SCALE.basic, '回避は小さな手');
+});
+
+test('影の手の出る場所: 扇の中の一番近い敵の足元。いなければ前方', () => {
+  const c = [{x: 0, z: 3, r: 0.4}, {x: 0, z: 1.8, r: 0.4}, {x: 0, z: -2, r: 0.4}];
+  assert.deepEqual(handTargetPoint(0, 0, 0, c, 3.2, Math.PI / 3), {x: 0, z: 1.8, target: true});
+  const none = handTargetPoint(0, 0, 0, [{x: 0, z: -2, r: 0.4}], 3.2, Math.PI / 3, 2.0);
+  assert.equal(none.target, false);
+  assert.ok(Math.abs(none.z - 2.0) < 1e-9);
+  const s = planStrike('basic3', {x: 1, z: 2, yaw: 0, ox: 0, oz: 0}, 50, {staggerMul: 1.6, isFinish: true});
+  assert.equal(s.t, WANDERER_STRIKE.basic3.delay);
+  assert.equal(s.strike, true);
+  assert.equal(s.isFinish, true);
+  assert.equal(planStrike('nope', {x: 0, z: 0}, 1), null);
 });
 
 test('legacy への差し込み: 表の行・鍵・コンボ・Skill・閃き', () => {
@@ -150,16 +193,20 @@ test('legacy への差し込み: 表の行・鍵・コンボ・Skill・閃き', 
     assert.ok(wnd.includes(t), t);
   }
   assert.match(cmb, /wanderer:WANDERER_COMBO_LENGTH/);
-  assert.match(cmb, /queueWandererEcho\('finish'/);
+  assert.match(cmb, /castWandererCombo\(stage, comboLen, dmg, staggerOpts\)/);
+  assert.match(wnd, /queueWandererEcho\('finish'/);
   assert.match(cmb, /castShadowPass\(/);
   assert.match(ui, /CHARGE_VARIANTS_BY_CLASS\.wanderer = \{ retreat:/);
   assert.match(ui, /if\(classKey === 'wanderer'\) return WANDERER_SKILL2;/);
   assert.match(road2, /grantChapter1Skill2\(\)/);
   assert.match(road2, /ROAD2_INSIGHT_GATE = 'F4-2'/);
-  // 影の刃は大剣を隠すのではなく、武器の枠そのものを差し替える
+  // 武器を一切持たない(大剣を隠すのではなく、武器の枠そのものを空にする。DEC-034)
   assert.doesNotMatch(pe, /charKey === 'wanderer'\) weapon\.visible = false/);
-  assert.match(pe, /buildShadowBladeMesh\(\)/);
-  // 影の刃・残像は影の紫(atkColorHex)。衣服の配色表(trim)を読まない
+  assert.match(pe, /buildWandererEmptyWeapon\(\)/);
+  assert.doesNotMatch(wnd, /shadowBlade|Afterimage/);
+  // 影の旅人では斬撃の弧を出さない(影の手を単なる紫の斬撃エフェクトにしない)
+  assert.match(cmb, /if\(isWandererStyle\(\)\) spawnWandererQuickHand/);
+  // 影の手は影の紫(atkColorHex)の輪郭。衣服の配色表(trim)を読まない
   assert.match(wnd, /CLASSES\.wanderer\.atkColorHex/);
   assert.doesNotMatch(wnd, /resolvePalette|PLAYER_PALETTE/);
 });

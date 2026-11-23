@@ -1192,7 +1192,8 @@
         ], {closedTop:true}), warriorHelmMat), null, true));
       });
       }
-      // ネックゲイター(影の旅人ではマフラー): 肩から口元の下まで首を高く覆う(顔の目より上は出す)
+      if(!isWanderer){
+      // ネックゲイター: 肩から口元の下まで首を高く覆う(顔の目より上は出す)
       addDecor(new THREE.Mesh(makeGarmentLoft([
         { y:hY - headR*0.55,     hw:headR*0.80, hd:headR*0.78, dz:HEAD_BACK_Z },
         { y:hY - headR*0.95,     hw:headR*0.96, hd:headR*0.92, dz:HEAD_BACK_Z },
@@ -1208,68 +1209,13 @@
       // ロング丈のマウンテンパーカー: 肩から膝まで。前はファスナー程度に細く
       // 開け、裾だけ広く開けて(A 字)歩行で脚が前へ出ても突き抜けにくくする
       const parkaHemY = HIP_Y + 0.03 - B.thighLen + 0.02;
-      addDecor(new THREE.Mesh(makeOpenGarmentLoft(isWanderer ? [
-        // 影の旅人: 腰までのショートコート。前を大きく開けて中のレイヤードを見せる
-        { y:HIP_Y + bodyH*1.00, hw:bodyR*1.24, hd:bodyR*0.90, open:bodyR*0.30, t:bodyR*0.08 },
-        { y:HIP_Y + bodyH*0.62, hw:bodyR*1.16, hd:bodyR*1.05, open:bodyR*0.38, t:bodyR*0.08 },
-        { y:HIP_Y,              hw:bodyR*1.12, hd:bodyR*1.06, open:bodyR*0.44, t:bodyR*0.08 },
-        { y:HIP_Y - 0.20,       hw:bodyR*1.24, hd:bodyR*1.20, open:bodyR*0.52, t:bodyR*0.08 },
-      ] : [
+      addDecor(new THREE.Mesh(makeOpenGarmentLoft([
         { y:HIP_Y + bodyH*1.00, hw:bodyR*1.24, hd:bodyR*0.90, open:bodyR*0.12, t:bodyR*0.08 },
         { y:HIP_Y + bodyH*0.62, hw:bodyR*1.14, hd:bodyR*1.04, open:bodyR*0.12, t:bodyR*0.08 },
         { y:HIP_Y,              hw:bodyR*1.10, hd:bodyR*1.04, open:bodyR*0.14, t:bodyR*0.08 },
         { y:HIP_Y - 0.25,       hw:bodyR*1.24, hd:bodyR*1.22, open:bodyR*0.30, t:bodyR*0.08 },
         { y:parkaHemY,          hw:bodyR*1.36, hd:bodyR*1.32, open:bodyR*0.45, t:bodyR*0.08 },
       ]), clothMat));
-      if(isWanderer){
-        /* 中のレイヤード(白いシャツ): 胸から、コートの裾の下まで長く覗く。
-           T-5: role layer(T-4 で先行した専用の wandererWhite を統合) */
-        const wandererWhite = layerMat;
-        addDecor(new THREE.Mesh(makeGarmentLoft([
-          { y:HIP_Y + bodyH*0.92, hw:bodyR*1.00, hd:bodyR*0.86 },
-          { y:HIP_Y + bodyH*0.40, hw:bodyR*0.96, hd:bodyR*0.95 },
-          { y:HIP_Y - 0.10,       hw:bodyR*1.06, hd:bodyR*1.02 },
-          { y:HIP_Y - 0.34,       hw:bodyR*1.16, hd:bodyR*1.12 },
-        ], {closedTop:true}), wandererWhite));
-        /* マフラーの両端(WANDERER-RENEWAL-001): 背中の左側へ長く垂らす。剣士と並んだ時に
-           背中のシルエットで見分けられるように ―― 加入前の姿(14-dungeon-road.js)が胸の前へ
-           垂らしていた同じマフラーの端。色はマフラーと同じ role accent(配色表どおり) */
-        [[-bodyR*0.42, 0.62, 0.07, 0.16], [-bodyR*0.10, 0.50, -0.05, 0.12]].forEach(([x, L, tiltZ, kick])=>{
-          const tail = addDecor(new THREE.Mesh(makePlate([
-            {x:-0.055, y:0}, {x:-0.062, y:-L*0.9}, {x:-0.02, y:-L}, {x:0.02, y:-L*0.95}, {x:0.06, y:-L}, {x:0.05, y:0},
-          ], {thickness:0.012, foldWaves:2, foldDepth:0.014}), clothAcc));
-          tail.position.set(x, hY - headR*0.92, -bodyR*1.12 + HEAD_BACK_Z);
-          tail.rotation.set(kick, 0, tiltZ);
-          tail.userData.wandererScarfTail = true;
-        });
-        /* 髪: 共通の髪(低ポリの殻 + 前髪・横・後ろの房)の外側に、薄く平たい
-           尖った毛束(板状の毛束、makePlate)を重ねて、柔らかく跳ねた髪の輪郭を
-           作る(Human: 太い円錐の房はドレッドに見えた → 細く平たい毛束の候補)。
-           髪色は既存の hairMat */
-        const hairCard = (w, L) => makePlate([
-          {x:-w, y:0}, {x:w, y:0}, {x:w*0.55, y:-L*0.55}, {x:w*0.08, y:-L}, {x:-w*0.40, y:-L*0.60},
-        ], { thickness: headR*0.035 });
-        // [頭のまわりの角度(0 = 前), 根元の高さ(headR 比), 幅, 長さ, 外への開き]。顔の前は空ける
-        const cards = [
-          [ 0.85, 0.62, 0.20, 0.62, 0.45], [-0.85, 0.62, 0.20, 0.62, 0.45],
-          [ 1.25, 0.55, 0.22, 0.70, 0.50], [-1.25, 0.55, 0.22, 0.70, 0.50],
-          [ 1.65, 0.50, 0.22, 0.74, 0.55], [-1.65, 0.50, 0.22, 0.74, 0.55],
-          [ 2.05, 0.50, 0.22, 0.76, 0.50], [-2.05, 0.50, 0.22, 0.76, 0.50],
-          [ 2.45, 0.55, 0.22, 0.78, 0.45], [-2.45, 0.55, 0.22, 0.78, 0.45],
-          [ 2.85, 0.58, 0.22, 0.80, 0.40], [-2.85, 0.58, 0.22, 0.80, 0.40],
-          [ Math.PI, 0.60, 0.24, 0.82, 0.38],
-        ];
-        cards.forEach(([ang, yMul, wMul, lenMul, splay])=>{
-          const pivot = new THREE.Group();
-          pivot.position.set(Math.sin(ang)*headR*0.98, hY + headR*yMul, Math.cos(ang)*headR*0.98*0.9 + HEAD_BACK_Z);
-          pivot.rotation.y = ang;   // 板の面を頭の外向きに
-          const card = new THREE.Mesh(hairCard(headR*wMul, headR*lenMul), hairMat);
-          card.rotation.x = -splay;  // 毛先を外へ開く(板の表 = 頭の外側の向きへ倒す)
-          card.castShadow = true;
-          pivot.add(card);
-          group.add(pivot); headwearMeshes.push(pivot);
-        });
-      }
       // ポケット(胸に1つ、腰の左右に1つずつ)。パーカーの前面に重ねる薄い板
       [[-1, bodyH*0.78, bodyH*0.60, 0.45, 0.95, 0.22], [-1, -0.02, -0.20, 0.62, 1.02, 0.28], [1, -0.02, -0.20, 0.62, 1.02, 0.28]]
         .forEach(([sx, yT, yB, xMul, zMul, wMul])=>{
@@ -1278,6 +1224,42 @@
             { y:HIP_Y + yB, hw:bodyR*wMul, hd:bodyR*0.05, dx:sx*bodyR*xMul, dz:bodyR*zMul },
           ], {closedTop:true}), clothMat));
         });
+      } else {
+        /* 影の旅人(DEC-034「影の旅人・最終キャラクター設計書」、WANDERER-RENEWAL-002):
+           加入前のフード外套姿が基本デザイン。加入前と同じ部品(buildWandererHoodParts、
+           17-wanderer-style.js)で、フードを少し後ろへずらした形(目元が見え、顔の上半分に
+           フードの影)。腰丈の外套・暗い灰紫のインナー・明るい紫のマフラー。色は配色表の
+           影の旅人の行(外套 #654F86。影の手の紫 #8A5AD6 とは別の Material) */
+        const shadeMat = new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.42, depthWrite:false});
+        const parts = buildWandererHoodParts((geo, mat, x, y, z, role)=>{
+          const m = addDecor(new THREE.Mesh(geo, mat), null, role === 'head');
+          m.position.set(x || 0, y || 0, z || 0);
+          if(mat === shadeMat){ m.castShadow = false; m.userData.noOutline = true; }
+          return m;
+        }, {headY:hY, headR, headBackZ:HEAD_BACK_Z, sh:HIP_Y + bodyH, hipY:HIP_Y, chest:bodyR, deep:false,
+            mats:{cloak:clothMat, inner:layerMat, scarf:clothAcc, shade:shadeMat}});
+        playerMixerParts.wandererCloth = parts;
+        /* 髪: 共通の髪(低ポリの殻 + 前髪・横・後ろの房)の外側に、薄く平たい
+           尖った毛束(板状の毛束、makePlate)を重ねる(Human: 太い円錐の房はドレッドに
+           見えた → 細く平たい毛束)。フードを被っているので、見えるのはフードの縁から
+           覗く前髪だけ(DEC-034「前髪は少しだけ見える」) */
+        const hairCard = (w, L) => makePlate([
+          {x:-w, y:0}, {x:w, y:0}, {x:w*0.55, y:-L*0.55}, {x:w*0.08, y:-L}, {x:-w*0.40, y:-L*0.60},
+        ], { thickness: headR*0.035 });
+        [
+          [ 0.30, 0.66, 0.20, 0.52, 0.30], [-0.30, 0.66, 0.20, 0.52, 0.30], [0.00, 0.70, 0.22, 0.46, 0.25],
+          [ 0.80, 0.60, 0.20, 0.58, 0.40], [-0.80, 0.60, 0.20, 0.58, 0.40],
+        ].forEach(([ang, yMul, wMul, lenMul, splay])=>{
+          const pivot = new THREE.Group();
+          pivot.position.set(Math.sin(ang)*headR*1.0, hY + headR*yMul, Math.cos(ang)*headR*0.95 + HEAD_BACK_Z);
+          pivot.rotation.y = ang;
+          const card = new THREE.Mesh(hairCard(headR*wMul, headR*lenMul), hairMat);
+          card.rotation.x = -splay;
+          card.castShadow = true;
+          pivot.add(card);
+          group.add(pivot); headwearMeshes.push(pivot);
+        });
+      }
       /* 裾を短く切ったワイドパンツ(太腿側は股関節ピボット、すね側は膝ピボット)。
          裾はすねの中ほど。左右の脚の内側で重ならないよう、stanceW を超える分
          だけ断面の中心を外側へずらす(P-R25) */
@@ -1902,10 +1884,10 @@
     // weapon / focus item, attached to right arm
     const activeWeaponKey = weaponDefFor(classDef.key, state.usingAltWeapon).key;
     const equippedWeapon = state.equipped && state.equipped.weapon;
-    /* 影の旅人は素手。武器の枠には「影の刃」(影の VFX。17-wanderer-style.js)を入れる ――
-       握り・向き・軌跡・抜刀の仕組みはそのまま使い、衣服とは別の Material で描く */
+    /* 影の旅人は武器を一切持たない(DEC-034)。リグの仕組み(握り・抜刀の状態)が
+       武器の枠を前提にしているので、何も描かない空の枠を入れる(17-wanderer-style.js) */
     const weapon = rigKey === 'wanderer'
-      ? buildShadowBladeMesh()
+      ? buildWandererEmptyWeapon()
       : buildWeaponMesh(activeWeaponKey, classDef, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
     // Sit the weapon where the hands actually ended up, rather than at a
     // hard-coded offset that goes stale the moment the rig is retuned.
@@ -1936,7 +1918,7 @@
     weapon.add(tipNode);
     playerMixerParts.weaponTip = tipNode;
 
-    weapon.traverse(child => { if(child.isMesh) child.castShadow = !weapon.userData.shadowBlade; });
+    weapon.traverse(child => { if(child.isMesh) child.castShadow = true; });
     group.add(weapon);
 
     // 二刀流/両手斧のオフハンド(#39系): 主武器と同じ手順(手の位置から
@@ -2031,10 +2013,9 @@
     // the reparent shifted everything down by the waist height; the grip
     // offset is a difference of two points, so it survives unchanged
 
-    /* CHARACTER-VIS-001 T-4(影の旅人は素手)→ WANDERER-RENEWAL-001: 大剣を隠すのを
-       やめ、武器の枠そのものを影の刃にした(上の buildShadowBladeMesh)。刃は抜刀の
-       進み具合で現れ・消える(updateShadowBlade、13 の updateGrip から) */
-    playerMixerParts.shadowBlade = weapon.userData.shadowBlade ? weapon : null;
+    /* CHARACTER-VIS-001 T-4(影の旅人は素手)→ WANDERER-RENEWAL-002(DEC-034): 大剣を
+       隠すのをやめ、武器の枠そのものを空にした(上の buildWandererEmptyWeapon)。
+       攻撃の見た目は地面から出る影の手(17-wanderer-style.js) */
     playerMixerParts.weapon = weapon;
     playerMixerParts.gripHand = gripHand;
     playerMixerParts.gripHandB = st.grip === 'BOTH' ? handL : null;
@@ -2195,7 +2176,7 @@
     const equippedWeapon = state.equipped && state.equipped.weapon;
     const rigKey = rigKeyOf(classDef);
     const weapon = rigKey === 'wanderer'
-      ? buildShadowBladeMesh()   // 影の旅人は持ち替えても影の刃のまま(WANDERER-RENEWAL-001)
+      ? buildWandererEmptyWeapon()   // 影の旅人は持ち替えても武器を持たない(DEC-034)
       : buildWeaponMesh(weaponKey, classDef, bodyR, bodyH, HIP_Y, equippedWeapon && equippedWeapon.specialId);
 
     const st = activeStance(rigKey, state.usingAltWeapon);
@@ -2227,9 +2208,8 @@
     weapon.add(tipNode);
     P.weaponTip = tipNode;
 
-    weapon.traverse(c=>{ if(c.isMesh) c.castShadow = !weapon.userData.shadowBlade; });
+    weapon.traverse(c=>{ if(c.isMesh) c.castShadow = true; });
     P.waist.add(weapon);
-    P.shadowBlade = weapon.userData.shadowBlade ? weapon : null;   // 影の旅人の影の刃(WANDERER-RENEWAL-001)
 
     P.weapon = weapon;
     P.weaponBasePos = weapon.position.clone();

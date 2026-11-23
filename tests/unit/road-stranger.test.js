@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
 import { makePlate } from '../../src/render/lowpoly-primitives.js';
+import { resolvePalette } from '../../src/render/player-palette.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = f => fs.readFileSync(path.join(root, 'src/legacy/parts', f), 'utf8');
@@ -18,6 +19,7 @@ const world = read('02-world-common.js');
 const tower = read('03-dungeons-mansion-temple.js');
 const ui = read('12-progression-ui.js');
 const road = read('14-dungeon-road.js');
+const wanderer = read('17-wanderer-style.js');
 
 function fn(src, signature){
   const a = src.indexOf(signature);
@@ -41,9 +43,11 @@ const rigStubs = [
   'const makeOpenGarmentLoft = () => new THREE.BoxGeometry(0.2, 0.2, 0.2);',
   'const makeCharacterHead = () => new THREE.BoxGeometry(0.3, 0.5, 0.3);',
   'const makeCharacterHairShell = () => new THREE.BoxGeometry(0.32, 0.5, 0.32);',
+  "const hexStr = n => '#' + n.toString(16).padStart(6, '0'), makeLeatherTexture = () => null, applyBump = m => m, PLAYER_FINISH = {cloth:{roughness:0.85, metalness:0}};",
 ].join('\n');
 const roadConsts = [
   rigStubs,
+  fn(wanderer, 'function buildWandererHoodParts(add, o){'),   // フード外套は加入後のリグと共有(DEC-034)
   slice(road, "const ROAD_THIEF = '盗賊'", ';'),
   slice(road, 'const ROAD_STRANGER', ';'),
   slice(road, 'const PRE_JOIN_SHADOW_LAG', ';'),
@@ -63,7 +67,7 @@ test('加入前の影: 歩くと本人より遅れ、止まると足元へ追い
     'return {fig, off, update: updatePreJoinFigures, clear: clearPreJoinFigures, list: ()=> preJoinFigures, LAG: PRE_JOIN_SHADOW_LAG};',
   ].join('\n');
   const scene = new THREE.Scene();
-  const k = new Function('THREE', 'scene', 'makePlate', code)(THREE, scene, makePlate);
+  const k = new Function('THREE', 'scene', 'makePlate', 'resolvePalette', code)(THREE, scene, makePlate, resolvePalette);
   const pool = k.fig.userData.pool;
   assert.equal(pool.parent, scene, '影だまりは人物から外してシーンへ直に置く');
   assert.ok(k.LAG > 0 && k.LAG < 1, 'わずかに遅れる');
@@ -94,7 +98,7 @@ test('島の人影: 本編の第一章でだけ、対岸の街道を加入前の
   const scene = new THREE.Scene();
   const currentWorldObjects = [];
   const state = { pos: new THREE.Vector3(-250, 0, 262), camYaw: 0 };
-  const k = new Function('THREE', 'scene', 'currentWorldObjects', 'state', 'makePlate', code)(THREE, scene, currentWorldObjects, state, makePlate);
+  const k = new Function('THREE', 'scene', 'currentWorldObjects', 'state', 'makePlate', 'resolvePalette', code)(THREE, scene, currentWorldObjects, state, makePlate, resolvePalette);
   assert.equal(k.list.length, 1);
   const f = k.list[0];
   assert.equal(f.fig, k.fig);

@@ -284,7 +284,9 @@
 
     if(variant.mode==='single'){
       const target = findMeleeTarget(state.classDef.meleeRange||2.6, state.classDef.meleeAngle||Math.PI/2.1) || findRangedTargetInLine(fwd, 9, 1.4);
-      spawnMeleeSwingVFX((state.classDef.meleeRange||2.6)*1.15, state.classDef.meleeAngle||Math.PI/2.1, variant.vfxColor);
+      // 影の旅人(影残しの前への一撃)は斬撃の弧の代わりに影の手(見た目だけ。DEC-034)
+      if(variant.echo && isWandererStyle()) spawnWandererQuickHand(WANDERER_HAND_SCALE.small);
+      else spawnMeleeSwingVFX((state.classDef.meleeRange||2.6)*1.15, state.classDef.meleeAngle||Math.PI/2.1, variant.vfxColor);
       if(target) dealDamageToEnemy(target, dmg, false);
       checkMimicRevealInRange(state.classDef.meleeRange||2.6, state.classDef.meleeAngle||Math.PI/2.1, dmg);
     } else if(variant.mode==='aoe'){
@@ -942,8 +944,6 @@
       }
       P.offhandWeapon.position.copy(_gripW3b);
     }
-    // 影の旅人の影の刃: 抜刀の進み具合で現れ・消える(収納先は無い。17-wanderer-style.js)
-    if(P.shadowBlade) updateShadowBlade(P, ws || state.weapon);
   }
 
 

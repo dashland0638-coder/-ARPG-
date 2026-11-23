@@ -32,13 +32,13 @@
 
   /* 影の旅人の加入前の姿(WANDERER-RENEWAL-001 で作り直し。酒場の隅・島の人影・道の出会い)。
 
-     加入後のリグ(buildPlayer の影の旅人)と同じ人物に見えるよう、同じ部品・同じ寸法で組む:
-       ・頭は共通の Loft の頭部(makeCharacterHead)と同じ肌色、髪は同じ殻(makeCharacterHairShell)と
-         平たい毛束(makePlate)。球の組み合わせは使わない
-       ・フードを被った長い旅の外套(黒ずくめ。docs/CHARACTERS.md)。加入後に背中へ下りている
-         フードは、このフード ―― 加入の前と後で同じ服を着ている
-       ・首には同じマフラー(陰の中の暗いシルバーブルー)、外套の下から同じ裾の長いワイドパンツ
-       ・目は描かない(フードの陰)。名前も出さない(DEC-004 N-4)
+     DEC-034(影の旅人・最終キャラクター設計書): このフード外套姿が影の旅人の基本デザイン。
+     加入後のリグ(buildPlayer の影の旅人)と同じ部品・同じ寸法・同じ色で組む:
+       ・フード外套・マフラー・インナーは共有の buildWandererHoodParts(17-wanderer-style.js)。
+         加入前はフードを深く被る(目元まで影)。加入後は少し後ろへずらす
+       ・頭は共通の Loft の頭部(makeCharacterHead)と同じ肌色、髪は同じ殻と平たい毛束。球は使わない
+       ・色は配色表の影の旅人の行(外套 #654F86・インナー/パンツ 暗い灰紫・マフラー 明るい紫・
+         ブーツ 暗い灰色)。目は描かない(深いフードの陰)。名前も出さない(DEC-004 N-4)
      寸法は剣士の BUILD(加入後と同じ)を、酒場の人物・同行者の立ち姿の大きさへ
      縮めて使う(TRAVELER_FIG_SCALE。丸椅子・卓が NPC の寸法のため)。
      足元の影だまり(userData.pool)は縮めない子として持ち、trackPreJoinShadow が今までどおり
@@ -48,9 +48,13 @@
     const B = BUILD.warrior;
     const headR = B.headR;
     const M = (c, r)=> new THREE.MeshStandardMaterial({color:c, roughness:r == null ? 0.88 : r});
-    const cloakMat = M(0x17131d, 0.92), innerMat = M(0x2b2830, 0.9), scarfMat = M(0x5a6470, 0.85);
-    const pantsMat = M(0x2a2234, 0.9), bootMat = M(0x1b181f, 0.8);
+    const pal = resolvePalette('wanderer');   // 加入後のリグと同じ配色の行(DEC-034 §2-3)
+    // 外套・パンツは加入後のリグと同じ作り(革のテクスチャ + 配色表の色。buildPlayer の clothMat / subMat)
+    const cloth = (hex)=> applyBump(new THREE.MeshStandardMaterial(Object.assign({map: makeLeatherTexture(hexStr(hex), 2, 2)}, PLAYER_FINISH.cloth)));
+    const cloakMat = cloth(pal.main), innerMat = M(pal.layer, 0.9), scarfMat = M(pal.accent, 0.85);
+    const pantsMat = cloth(pal.sub), bootMat = M(pal.boot, 0.8);
     const skinMat = M(0xe8dce0, 0.8), hairMat = M(0x0a0810, 0.7);
+    const shadeMat = new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.62, depthWrite:false});
     scarfMat.side = THREE.DoubleSide; cloakMat.side = THREE.DoubleSide;
     const g = new THREE.Group();
     const body = new THREE.Group();
@@ -94,27 +98,14 @@
       }
     });
 
-    // ---- 外套: 肩からすね(座ると座面)まで。前はわずかに開き、中の暗いシャツが覗く ----
+    // ---- 外套・フード・マフラー: 加入後と共有の部品(フードを深く被った形) ----
     const sh = B.height;   // 肩の高さ(腰から)
-    const hem = seated ? -0.08 : -(hipY - 0.55);
-    add(makeGarmentLoft([
-      {y: sh*0.98, hw: B.chest*1.00, hd: B.chest*0.86},
-      {y: hem + 0.05, hw: B.chest*1.10, hd: B.chest*1.00},
-    ], {closedTop:true}), innerMat, upper);
-    add(makeOpenGarmentLoft([
-      {y: sh*1.00, hw: B.chest*1.30, hd: B.chest*0.98, open: B.chest*0.18, t: B.chest*0.08},
-      {y: sh*0.60, hw: B.chest*1.30, hd: B.chest*1.14, open: B.chest*0.20, t: B.chest*0.08},
-      {y: 0,       hw: B.chest*1.34, hd: B.chest*1.22, open: B.chest*0.24, t: B.chest*0.08},
-      {y: hem,     hw: B.chest*(seated ? 1.62 : 1.70), hd: B.chest*(seated ? 1.70 : 1.52), open: B.chest*0.40, t: B.chest*0.08},
-    ]), cloakMat, upper);
-    // 肩を覆う短いケープ(外套の一部)。腕は外套の中
-    add(makeGarmentLoft([
-      {y: sh*1.08, hw: B.chest*0.95, hd: B.chest*0.80},
-      {y: sh*0.70, hw: B.chest*1.62, hd: B.chest*1.36},
-    ], {closedTop:true}), cloakMat, upper);
+    const headY = sh + B.headGap + headR*0.62;
+    buildWandererHoodParts((geo, mat, x, y, z)=> add(geo, mat, upper, x, y, z),
+      {headY, headR, headBackZ:HEAD_BACK_Z, sh, hipY:0, chest:B.chest, deep:true,
+       mats:{cloak:cloakMat, inner:innerMat, scarf:scarfMat, shade:shadeMat}});
 
     // ---- 頭: 加入後と同じ Loft の頭部・同じ肌色。フードの陰で目は描かない ----
-    const headY = sh + B.headGap + headR*0.62;
     const HEAD_DIMS = {width:headR, depth:headR*HEAD_DEPTH_MUL, height:headR*2};
     add(makeCharacterHead(HEAD_DIMS), skinMat, upper, 0, headY, HEAD_BACK_Z);
     add(makeCharacterHairShell(Object.assign({}, HEAD_DIMS, {classKey:'wanderer'})), hairMat, upper, 0, headY, HEAD_BACK_Z);
@@ -123,7 +114,7 @@
       {x:-w, y:0}, {x:w, y:0}, {x:w*0.55, y:-L*0.55}, {x:w*0.08, y:-L}, {x:-w*0.40, y:-L*0.60},
     ], {thickness: headR*0.035});
     [[0.30, 0.66, 0.20, 0.52, 0.30], [-0.30, 0.66, 0.20, 0.52, 0.30], [0.00, 0.70, 0.22, 0.46, 0.25],
-     [0.85, 0.60, 0.20, 0.62, 0.40], [-0.85, 0.60, 0.20, 0.62, 0.40]].forEach(([ang, yMul, wMul, lenMul, splay])=>{
+     [0.80, 0.60, 0.20, 0.58, 0.40], [-0.80, 0.60, 0.20, 0.58, 0.40]].forEach(([ang, yMul, wMul, lenMul, splay])=>{
       const pivot = new THREE.Group();
       pivot.position.set(Math.sin(ang)*headR*1.0, headY + headR*yMul, Math.cos(ang)*headR*0.95 + HEAD_BACK_Z);
       pivot.rotation.y = ang;
@@ -131,25 +122,6 @@
       card.rotation.x = -splay;
       upper.add(pivot);
     });
-    // フード: 頭より一回り大きく、前だけ開いた布。縁を額の前へ少し引き出して目元を陰にする
-    const hr = (y, w, d, dz)=> ({y: headY + headR*y, hw: headR*w, hd: headR*d, dz: headR*(dz || 0) + HEAD_BACK_Z});
-    const ho = (y, w, d, open)=> ({y: headY + headR*y, hw: headR*w, hd: headR*d, open: headR*open, t: headR*0.10});
-    add(makeOpenGarmentLoft([ho(1.05, 0.95, 0.95, 0.30), ho(0.55, 1.28, 1.24, 0.62), ho(-0.20, 1.30, 1.26, 0.66),
-      ho(-0.75, 1.20, 1.10, 0.50)]), cloakMat, upper, 0, 0, HEAD_BACK_Z + headR*0.04);
-    // フードの頂: 後ろへ少し尖らせる(丸い帽子に見えないように)
-    add(makeGarmentLoft([hr(1.30, 0.30, 0.34, -0.42), hr(1.16, 0.72, 0.74, -0.20), hr(0.98, 1.00, 1.00, -0.06)], {closedTop:true}), cloakMat, upper);
-
-    // ---- マフラー: 首を高く覆い、片端を胸の前へ垂らす(加入後のマフラーと同じ色の、陰の中の色) ----
-    add(makeGarmentLoft([
-      {y: headY - headR*0.55, hw: headR*0.80, hd: headR*0.78, dz: HEAD_BACK_Z},
-      {y: sh*1.02,            hw: B.chest*0.90, hd: B.chest*0.80},
-    ], {closedTop:true}), scarfMat, upper);
-    const tailL = seated ? 0.36 : 0.52;
-    const tail = add(makePlate([
-      {x:-0.055, y:0}, {x:-0.062, y:-tailL*0.9}, {x:-0.02, y:-tailL}, {x:0.02, y:-tailL*0.95}, {x:0.06, y:-tailL}, {x:0.05, y:0},
-    ], {thickness:0.012, foldWaves:2, foldDepth:0.012}), scarfMat, upper, -B.chest*0.42, sh*1.00, B.chest*1.02);
-    tail.rotation.x = -0.10;
-
     // 影だまり: 本人の足元に不自然に広がる、紫みを帯びた影(縮めない。trackPreJoinShadow が遅らせる)
     const pool = new THREE.Mesh(new THREE.CircleGeometry(0.85, 16),
       new THREE.MeshBasicMaterial({color:0x2a1a3a, transparent:true, opacity:0.55}));

@@ -1,6 +1,6 @@
 # WANDERER-RENEWAL-002 — 影の旅人・最終設計（影の手・フード外套・大振りのモーション）
 
-Status: APPROVED
+Status: REVIEWING
 
 Analysis: .ai/reports/WANDERER-RENEWAL-002-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `9cb8f545b95c3ef221271ebb748955d257f4fec4`、blob `0f159b46a7fd1104afd512d47a49f6a4f3ceadbd`）
 
@@ -64,3 +64,57 @@ None
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |
 | 2026-11-23 | Task | — → ANALYZING → APPROVED | Orchestrator / Planner | Human の最終キャラクター設計書（DEC-034）。Analyzer report persist（`9cb8f545b95c3ef221271ebb748955d257f4fec4`）。H-1〜H-8 確認 |
+| 2026-11-23 | Task | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer | Plan Handoff H-1〜H-8 確認。build / unit 2331 / E2E 80 + 7 PASS。Debugger サイクル 0 |
+
+## Implementation Result
+
+### Artifact Handoff
+| Kind | Path | Source（branch @ SHA） | Blob SHA | 確認 |
+| --- | --- | --- | --- | --- |
+| analysis | `.ai/reports/WANDERER-RENEWAL-002-analysis.md` | `claude/wanderer-renewal-001-nhlxns` @ `9cb8f545b95c3ef221271ebb748955d257f4fec4` | `0f159b46a7fd1104afd512d47a49f6a4f3ceadbd` | H-1〜H-8 OK |
+| plan | `.ai/tasks/WANDERER-RENEWAL-002.md` | `claude/wanderer-renewal-001-nhlxns` @ `8860d024acc2420e2b1582f9f919f315efdb961e` | `1050fe013dc47e9d93377f60e0e224ea3c4281dd` | H-1〜H-8 OK |
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `src/core/wanderer-style.js` | 通常攻撃の影の手の表（`WANDERER_STRIKE`: 突き上げ / 薙ぎ払い / 握砕、遅れ・形・大きさ）、`WANDERER_HAND_SCALE`、`planStrike`、`handTargetPoint`、影の手の型（`SHADOW_HAND_SHAPE`）、3 段目の追撃を手の円へ、構え（腕を下ろした静かな立ち姿・武器なし・軌跡なし）と全クリップを大振りの「影を呼ぶ」動作へ |
+| `src/legacy/parts/17-wanderer-style.js` | 影の刃・本人の残像を廃止。空の武器の枠、フード外套の共有部品 `buildWandererHoodParts`、影の手（造形・共有ジオメトリ/Material・プール・7 種の動き）、影の手の一撃と追撃の待ち行列、影渡り（這う手）、必殺技の 5 本の手、回避の小さな手、加入後の 0.45 秒遅れる足元の影、外套の裾・マフラーの揺れ |
+| `06-player-enemy.js` | 影の旅人の衣服をフード外套へ（コート・白いシャツ・ポケット・背中のフード・ゲイターをやめる）。前髪だけ覗く。武器の枠は空 |
+| `11-combat-actions.js` | 影の旅人の通常攻撃は `castWandererCombo`（影の手が当たる瞬間に判定）。回避攻撃・切り上げは斬撃の弧の代わりに影の手。必殺技に影の手 |
+| `13-update-loop.js` / `10-input.js` | 影残しの前への一撃・回避を影の手に。影の刃の更新を削除 |
+| `14-dungeon-road.js` | 加入前の姿を共有部品（深いフード）・配色表の色・加入後と同じ布の作りへ |
+| `src/render/player-palette.js` | 影の旅人の行を DEC-034 の色へ（外套 #654F86 / インナー #46404F / パンツ #3D3846 / マフラー #8E70B8 / ブーツ #3B3B41） |
+| `src/legacy/concat-plugin.js` | core の import 追加 |
+| `docs/CHARACTERS.md` / `COMBAT.md` | 影の手・フード外套・配色・モーションを実装事実として記載 |
+| `.ai/decisions/DEC-034-wanderer-shadow-hands.md`（新規）/ `AGENT-DECISIONS.md` | Human の設計書の記録 / AD-005 の一部置き換えの注記 |
+| tests | `unit/wanderer-style.test.js`（影の手の形・時刻・場所・大振り）、`unit/player-palette.test.js`（影の旅人の行）、`unit/road-stranger.test.js`（共有部品の stub）、`wanderer-renewal.spec.js`（武器なし・影の手が遅れて当たる・追撃・盾・会話で落ちる） |
+| `.ai/reports/img/WANDERER-RENEWAL-002/*.jpg` | 撮影 |
+
+### Test Report
+- Scope: Targeted
+- Executed: `npm run build`、`npm run test:unit`（2331）、E2E: wanderer-renewal / character-palette / character-clothing / character-motion / character-weapon-visual / weapon-stow / road2-join / shadow-guide / save-load / production-build / base-class-identity（80 件）、最終変更後に wanderer-renewal / shadow-guide / road2-join（7 件）を再実行
+- Why this scope: 影の旅人の経路と、触れた共通基盤（衣服・配色・武器の枠・収納・加入・セーブ・公開ビルド）
+- Not run: 残りの E2E（触れていない経路）
+- Environment: WANDERER-RENEWAL-001 と同じ（Chromium のリンクはリポジトリ外）
+
+| テスト | 結果 | メモ |
+| --- | --- | --- |
+| build | PASS | |
+| unit（2331） | PASS | dusk-enemies の「敵の色を味方から離す」に合わせ、マフラーを #8E70B8 に（初案 #8A77AB は敵の色に近かった） |
+| E2E 80 件 + 再実行 7 件 | PASS | |
+
+### Acceptance Criteria（DEC-034 §11）
+| AC | 確認 | 根拠 |
+| --- | --- | --- |
+| 加入前後で同一人物 / 加入後はフードが後ろへ・目元が見える / 外套は腰丈 | VERIFIED | 共有部品 `buildWandererHoodParts`（unit）、撮影 2-prejoin-vs-joined |
+| 武器を持たない | VERIFIED | spec（武器の枠のメッシュ 0） |
+| 3 段が剣士と明確に違う / 大振り | VERIFIED | unit（突き上げ・腰の回転・両腕を広げる）、撮影 3-motions |
+| 巨大な影の手が地面から出る / 人間の手・尖った指先 / 内部黒紫・輪郭紫 | VERIFIED | spec（手の Material: 不透明の黒紫・輪郭 #8A5AD6）、unit（形）、撮影 4・5 |
+| スキル性能・閃き・セーブ互換 | VERIFIED | spec（影残し・影渡りの追撃と盾抜け・閃き）、save-load.spec。倍率・範囲・距離は WANDERER_ECHO / SKILL の値のまま |
+| 844×390 で影の手と対象が見える | VERIFIED（撮影） | 5-combat-844x390 |
+| 他職への回帰なし | VERIFIED | spec（盗賊 4 段・武器あり）、character-* / weapon-stow / base-class-identity |
+
+### Notes
+- 1 段目・3 段目の判定は手の出た場所の円（WR2-1）。2 段目は従来の扇
+- 影の手の大きさは目安（1.5〜3 倍）より控えめ（WR2-2: 見下ろしカメラで主人公と攻撃範囲を隠さないため）。iPhone 実機で Human が確認して調整できる（`WANDERER_HAND_SCALE`）
+- 勝利の専用の動きは作っていない（WR2-5）
