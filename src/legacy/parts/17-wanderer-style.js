@@ -250,41 +250,43 @@
   const wEaseOut = k=> 1 - Math.pow(1 - Math.max(0, Math.min(1, k)), 3);
   const wEaseIn  = k=> Math.pow(Math.max(0, Math.min(1, k)), 2);
   const wSpan = (t, a, b)=> Math.max(0, Math.min(1, (t - a) / Math.max(1e-4, b - a)));
-  /* 手ごとの時間割(t は出してからの秒)。rise = 0 が床の下、1 が出きった高さ */
+  /* 手ごとの時間割(t は出してからの秒)。rise = 0 が床の下、1 が出きった高さ。
+     WANDERER-RENEWAL-003: 当たる時刻(hitT / crushT)は変えず、当たった後に留まる時間と沈む時間を
+     少し長くした(余韻)。必殺技は倒れ込みを少しゆっくり重く */
   function applyShadowHand(h){
     const o = h.o, t = h.t, s = o.scale || 2.4;
     let rise = 0, curl = 0, leanX = 0, done = false, discK = 1;
     const hit = o.hitT != null ? o.hitT : 0.16;
     const sinkFrom = (a, dur)=> 1 - wEaseIn(wSpan(t, a, a + dur));
     if(h.mode === 'rise'){   // 1 段目・回避攻撃・切り上げ: 足元から指を広げて突き上げる
-      rise = t < hit ? wEaseOut(wSpan(t, hit*0.25, hit)) * 1.06 : sinkFrom(hit + 0.14, 0.26);
+      rise = t < hit ? wEaseOut(wSpan(t, hit*0.25, hit)) * 1.06 : sinkFrom(hit + 0.16, 0.34);
       curl = t < hit ? 0.5 - 0.5*wSpan(t, 0, hit) : 0.25*wSpan(t, hit + 0.1, hit + 0.4);
       leanX = 0.30;
-      done = t > hit + 0.42;
+      done = t > hit + 0.52;
     } else if(h.mode === 'grab'){   // 3 段目: 開いて出る → 指を閉じて握り潰す → 崩れて消える
       const crush = o.crushT != null ? o.crushT : 0.45;
-      rise = t < crush + 0.12 ? wEaseOut(wSpan(t, hit*0.2, hit)) : sinkFrom(crush + 0.12, 0.30);
+      rise = t < crush + 0.16 ? wEaseOut(wSpan(t, hit*0.2, hit)) : sinkFrom(crush + 0.16, 0.38);
       curl = t < hit ? 0.3 - 0.3*wSpan(t, 0, hit) : wEaseIn(wSpan(t, crush - 0.16, crush)) * 1.25;
       leanX = 0.28 + 0.30*wSpan(t, crush - 0.16, crush);
-      if(t > crush + 0.12) h.wrist.scale.set(s, s * (1 - 0.5*wSpan(t, crush + 0.12, crush + 0.42)), s);
-      done = t > crush + 0.44;
+      if(t > crush + 0.16) h.wrist.scale.set(s, s * (1 - 0.5*wSpan(t, crush + 0.16, crush + 0.54)), s);
+      done = t > crush + 0.56;
     } else if(h.mode === 'sweep'){   // 2 段目: 横向きの手が扇を薙ぐ。最後に指を閉じて沈む
       const a0 = 1.15, a1 = -1.15;
       const k = wSpan(t, hit - 0.10, hit + 0.12);
       h.yawG.rotation.y = (o.yaw || 0) + a0 + (a1 - a0) * wEaseOut(k);
       h.arm.position.z = o.radius || 1.8;
       h.lean.rotation.y = -Math.PI/2;
-      rise = t < hit + 0.14 ? wEaseOut(wSpan(t, 0, hit - 0.06)) : sinkFrom(hit + 0.14, 0.24);
+      rise = t < hit + 0.16 ? wEaseOut(wSpan(t, 0, hit - 0.06)) : sinkFrom(hit + 0.16, 0.30);
       curl = t < hit + 0.08 ? 0.05 : wSpan(t, hit + 0.08, hit + 0.26) * 0.9;
       leanX = 0.10;
-      done = t > hit + 0.40;
+      done = t > hit + 0.48;
     } else if(h.mode === 'spin'){   // Skill 1: 元の位置から出て、0.45 秒後に周りを一回り薙ぐ
       const st = o.hitT != null ? o.hitT : 0.45;
-      rise = t < st + 0.30 ? wEaseOut(wSpan(t, 0.02, 0.28)) : sinkFrom(st + 0.30, 0.26);
+      rise = t < st + 0.32 ? wEaseOut(wSpan(t, 0.02, 0.28)) : sinkFrom(st + 0.32, 0.32);
       leanX = 0.25 + 0.85*wEaseOut(wSpan(t, st - 0.12, st));
       h.yawG.rotation.y = (o.yaw || 0) + Math.PI*2 * wEaseOut(wSpan(t, st - 0.06, st + 0.26));
       curl = t < st - 0.1 ? 0.2 : 0.05;
-      done = t > st + 0.58;
+      done = t > st + 0.66;
     } else if(h.mode === 'crawl'){   // Skill 2: 地面を這って前へ → 先端で向きを変え → こちらへ薙ぎ戻す
       const go = 0.30, st = o.hitT != null ? o.hitT : 0.45;
       const k = wEaseOut(wSpan(t, 0, go));
@@ -294,18 +296,18 @@
       const sweep = wSpan(t, st - 0.04, st + 0.16);
       h.yawG.rotation.y = (o.yaw || 0) + Math.PI * turn + (sweep > 0 ? (0.9 - 1.8*wEaseOut(sweep)) : 0);
       leanX = 1.40 - 0.45*turn;
-      rise = t < st + 0.20 ? 0.32 + 0.30*turn : sinkFrom(st + 0.20, 0.24) * 0.62;
+      rise = t < st + 0.22 ? 0.32 + 0.30*turn : sinkFrom(st + 0.22, 0.30) * 0.62;
       curl = t < go ? 0.35 + 0.30*Math.sin(t*38) : 0.15;
-      done = t > st + 0.46;
+      done = t > st + 0.54;
     } else if(h.mode === 'slam'){   // 必殺技: 範囲のまわりから立ち上がり、中心へ一斉に倒れ込む
-      rise = t < 0.55 ? wEaseOut(wSpan(t, 0, 0.12)) : sinkFrom(0.55, 0.30);
-      leanX = 0.15 + 1.10*wEaseIn(wSpan(t, 0.12, 0.26));
-      curl = 0.2 + 0.9*wSpan(t, 0.16, 0.30);
-      done = t > 0.86;
+      rise = t < 0.62 ? wEaseOut(wSpan(t, 0, 0.12)) : sinkFrom(0.62, 0.38);
+      leanX = 0.15 + 1.10*wEaseIn(wSpan(t, 0.12, 0.30));   // 倒れ込みは少しゆっくり、重く(WANDERER-RENEWAL-003)
+      curl = 0.2 + 0.9*wSpan(t, 0.18, 0.34);
+      done = t > 1.02;
     } else {   // flick(回避): 小さな手が一瞬だけ
-      rise = t < 0.12 ? wEaseOut(wSpan(t, 0, 0.10)) : sinkFrom(0.12, 0.20);
+      rise = t < 0.12 ? wEaseOut(wSpan(t, 0, 0.10)) : sinkFrom(0.12, 0.24);
       curl = 0.1; leanX = 0.4;
-      done = t > 0.34;
+      done = t > 0.38;
     }
     h.lean.rotation.x = leanX;
     h.wrist.position.y = -1.25 * s * (1 - rise);

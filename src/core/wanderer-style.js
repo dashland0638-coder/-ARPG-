@@ -226,10 +226,19 @@ function F(t, o){ const out = Object.assign({}, o); out.t = t; return out; }
 /* 各クリップの長さ(秒)と、手の動作が決まる(影の手を呼ぶ)キーフレームの位置。
    影の手は本人の動作から少し遅れて当たる(WANDERER_STRIKE の delay)ので、本人の
    決めの姿勢は delay より少し前に置く */
+/* WANDERER-RENEWAL-003(重量感): 巨大な影の手に見合うよう、本人の動作を少し遅くした
+   (旧: basic 0.40 / basic2 0.40 / basic3 0.62 / retreat 0.40 / shadowPass 0.50 / dash 0.34 /
+   spin 0.38 / ult 0.80)。キーフレームの位置(割合)は変えないので、溜め(slow)と余韻(settle)が
+   そのまま長くなる。攻撃間隔(atkCooldown 0.44)・影の手の当たる時刻(WANDERER_STRIKE.delay)・
+   握砕の 0.45 秒は変えない ―― 決めの姿勢は手が当たる時刻とほぼ重なる(unit テストで検査)。
+   1 段目と 2 段目は同じテンポ。3 段目は両腕を広げてから握り込むまでを長く取り、握り込みの姿勢が
+   握り潰す瞬間(0.45 秒)に重なる */
 export const WANDERER_CLIP_DUR = Object.freeze({
-  basic: 0.40, basic2: 0.40, basic3: 0.62, retreat: 0.40, shadowPass: 0.50,
-  dash: 0.34, spin: 0.38, ult: 0.80, hold: 1,
+  basic: 0.50, basic2: 0.50, basic3: 0.78, retreat: 0.48, shadowPass: 0.60,
+  dash: 0.38, spin: 0.44, ult: 0.95, hold: 1,
 });
+/* 3 段目の「握り込み」のキーフレームの位置(握り潰す瞬間 = WANDERER_ECHO_LAG に重なる) */
+export const WANDERER_GRAB_CLOSE_FRAC = 0.56;
 export const WANDERER_CLIP_CONTACT = Object.freeze({
   basic: 0.30, basic2: 0.30, basic3: 0.24, retreat: 0.24, shadowPass: 0.30,
   dash: 0.24, spin: 0.26, ult: 0.45,
@@ -286,7 +295,7 @@ export function buildWandererClips(st){
         shL: [-0.70, 0.00, 1.30], elL: -0.15,
         shR: [-0.70, 0.00, -1.30], elR: -0.15,
         hipL: -0.10, hipR: 0.10, kneeL: 0.14, kneeR: 0.14}),
-      F(0.56, {e: 'slow', push: 0.24, drop: 0.12, waist: [0.36, 0.10, 0.00],
+      F(WANDERER_GRAB_CLOSE_FRAC, {e: 'slow', push: 0.24, drop: 0.12, waist: [0.36, 0.10, 0.00],
         shL: [-0.60, 0.00, 1.00], elL: -0.30,
         shR: [-1.40, 0.00, -0.20], elR: -1.20,
         hipL: -0.34, hipR: 0.26, kneeL: 0.38, kneeR: 0.10}),

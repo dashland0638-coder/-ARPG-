@@ -1,6 +1,6 @@
 # WANDERER-RENEWAL-003 — 影の旅人の攻撃モーション重量感調整・最終マージ
 
-Status: APPROVED
+Status: REVIEWING
 
 Analysis: .ai/reports/WANDERER-RENEWAL-003-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `cc2384cc1b0f18aaf58f3ec24dc67f3e2d58e2b3`、blob `939af04bc76619188795bb2486480b077bc476ba`）
 
@@ -45,3 +45,47 @@ None
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |
 | 2026-11-23 | Task | — → ANALYZING → APPROVED | Orchestrator / Planner | Human 依頼。PR #145 head `493c69f` / base `claude/road-visual-003-r3-7`（`f99e346`）を確認。Analyzer report `cc2384c`。H-1〜H-8 確認 |
+| 2026-11-23 | Task | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer | Plan Handoff（`9e7af94`、blob `57d0726`）H-1〜H-8 確認。build / unit 2332 / E2E 12 PASS。全 E2E は CI |
+
+## Implementation Result
+
+### Artifact Handoff
+| Kind | Path | Source | Blob SHA | 確認 |
+| --- | --- | --- | --- | --- |
+| analysis | `.ai/reports/WANDERER-RENEWAL-003-analysis.md` | `claude/wanderer-renewal-001-nhlxns` @ `cc2384cc1b0f18aaf58f3ec24dc67f3e2d58e2b3` | `939af04bc76619188795bb2486480b077bc476ba` | H-1〜H-8 OK |
+| plan | `.ai/tasks/WANDERER-RENEWAL-003.md` | `claude/wanderer-renewal-001-nhlxns` @ `9e7af94958e4e64b747ade59a9f256801e5b3165` | `57d072666a7000d557181ce64a7ae456b80592b1` | H-1〜H-8 OK |
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `src/core/wanderer-style.js` | `WANDERER_CLIP_DUR` を 1.12〜1.26 倍（下表）。握砕の握り込みのキーフレームの割合を `WANDERER_GRAB_CLOSE_FRAC`（0.56、値は不変）として定数化 |
+| `src/legacy/parts/17-wanderer-style.js` | 影の手の当たった後の留まり・沈みを長く（当たる時刻は不変）、影送りの倒れ込みを 0.14 → 0.18 秒、回避の小さな手の沈み 0.20 → 0.24 秒 |
+| `tests/unit/wanderer-style.test.js` | 重量感の検査を追加 |
+| `tests/ui-production-glyphs.spec.js` | 影の旅人の Skill 1 / 2 の期待値を 🌘 / 👥（実装・docs のとおり。剣士の glyph が出ない検査は維持） |
+
+| 動作 | 変更前 | 変更後 | 決めの姿勢の実時間 / 影の手 |
+| --- | --- | --- | --- |
+| 突き上げ | 0.40 | 0.50 | 0.150 / 0.16（前 0.120） |
+| 薙ぎ払い | 0.40 | 0.50 | 0.150 / 0.14（前 0.120） |
+| 握砕 | 0.62 | 0.78 | 腕を広げる 0.187 / 0.18、握り込み 0.437 / 0.45（前 0.149 / 0.347） |
+| 影残し | 0.40 | 0.48 | |
+| 影渡り | 0.50 | 0.60 | |
+| 回避攻撃 | 0.34 | 0.38 | |
+| 切り上げ | 0.38 | 0.44 | |
+| 影送り | 0.80 | 0.95 | 当たる時刻は上限 0.30 秒のまま（ultClipWarp が見た目を合わせる） |
+| 回避（本人） | 共通 0.2 秒 + DODGE_MOTION | 変更なし | 小さな手の沈みだけ 0.20 → 0.24 |
+
+### Test Report
+- Scope: Targeted（ローカル）+ Full Regression（CI の Test ワークフロー、最新 head）
+- Executed: `npm run build`、`npm run test:unit`（2332）、E2E wanderer-renewal / ui-production-glyphs / auto-combo（12）
+- Environment: WANDERER-RENEWAL-001 と同じ
+
+| テスト | 結果 |
+| --- | --- |
+| build | PASS |
+| unit（2332） | PASS |
+| E2E 12 件 | PASS |
+| 全 E2E | CI で確認（PR 本文と Final Report に記載） |
+
+### Acceptance
+- 倍率・攻撃間隔・クールダウン・範囲・影の手の大きさ/造形/時刻・配色・セーブ・閃き・他職: 変更なし（unit で攻撃間隔・手の時刻・大きさを検査）

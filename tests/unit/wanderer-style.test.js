@@ -9,7 +9,7 @@ import {
   WANDERER_KEY, WANDERER_ECHO_LAG, WANDERER_ECHO_MAX, WANDERER_ECHO, WANDERER_COMBAT,
   WANDERER_COMBO_LENGTH, WANDERER_COMBO_CLIPS, WANDERER_SKILL1, WANDERER_SKILL2,
   WANDERER_STANCE, WANDERER_CLIP_DUR, WANDERER_CLIP_CONTACT, WANDERER_DRAW_TIME,
-  WANDERER_STRIKE, WANDERER_HAND_SCALE, SHADOW_HAND_SHAPE,
+  WANDERER_STRIKE, WANDERER_HAND_SCALE, SHADOW_HAND_SHAPE, WANDERER_GRAB_CLOSE_FRAC,
   wandererRigKey, planEcho, planStrike, handTargetPoint, pushEcho, stepEchoes, echoArcHit, echoCircleHit, lineHit, shadowPassEnd,
   buildWandererClips,
 } from '../../src/core/wanderer-style.js';
@@ -223,4 +223,28 @@ test('加入前の姿: 球の組み合わせを使わず、加入後と同じ頭
   // 酒場の隅の人物も同じ関数
   const tavern = read('src/legacy/parts/03-dungeons-mansion-temple.js');
   assert.match(tavern, /const shadowGuide = buildRoadTravelerFigure\(true\);/);
+});
+
+test('重量感(WANDERER-RENEWAL-003): 動作は少し遅く、決めの姿勢は影の手の当たる時刻に重なる。攻撃間隔は変えない', () => {
+  const OLD = {basic: 0.40, basic2: 0.40, basic3: 0.62, retreat: 0.40, shadowPass: 0.50, dash: 0.34, spin: 0.38, ult: 0.80};
+  for (const [k, v] of Object.entries(OLD)) {
+    const r = WANDERER_CLIP_DUR[k] / v;
+    assert.ok(r > 1.05 && r <= 1.30, `${k}: 少し遅く(×${r.toFixed(2)})、大幅には変えない`);
+  }
+  assert.equal(WANDERER_CLIP_DUR.basic, WANDERER_CLIP_DUR.basic2, '1 段目と 2 段目は同じテンポ');
+  assert.equal(WANDERER_COMBAT.atkCooldown, 0.44, '攻撃間隔は変えない');
+  // 決めの姿勢(実時間)と影の手の当たる時刻のずれは 0.03 秒以内
+  for (const k of ['basic', 'basic2', 'basic3']) {
+    const pose = WANDERER_CLIP_CONTACT[k] * WANDERER_CLIP_DUR[k];
+    assert.ok(Math.abs(pose - WANDERER_STRIKE[k].delay) <= 0.03, `${k}: 姿勢 ${pose.toFixed(3)} / 手 ${WANDERER_STRIKE[k].delay}`);
+  }
+  // 握砕: 握り込みの姿勢が握り潰す瞬間(0.45 秒)に重なる
+  const close = WANDERER_GRAB_CLOSE_FRAC * WANDERER_CLIP_DUR.basic3;
+  assert.ok(Math.abs(close - WANDERER_ECHO_LAG) <= 0.03, `握り込み ${close.toFixed(3)}`);
+  // 影の手の当たる時刻・大きさは変えない
+  assert.deepEqual([WANDERER_STRIKE.basic.delay, WANDERER_STRIKE.basic2.delay, WANDERER_STRIKE.basic3.delay], [0.16, 0.14, 0.18]);
+  assert.deepEqual([WANDERER_STRIKE.basic.scale, WANDERER_STRIKE.basic3.scale, WANDERER_HAND_SCALE.ult], [3.4, 4.7, 5.2]);
+  // 回避の型は軽快なまま(横へ滑る)
+  const wnd = read('src/legacy/parts/17-wanderer-style.js');
+  assert.match(wnd, /DODGE_MOTION\.wanderer    = \{waistPitch:0\.14, waistRoll:0\.26, kneeCurl:0\.50/);
 });
