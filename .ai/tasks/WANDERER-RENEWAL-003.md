@@ -1,6 +1,6 @@
 # WANDERER-RENEWAL-003 — 影の旅人の攻撃モーション重量感調整・最終マージ
 
-Status: REVIEWING
+Status: DONE
 
 Analysis: .ai/reports/WANDERER-RENEWAL-003-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `cc2384cc1b0f18aaf58f3ec24dc67f3e2d58e2b3`、blob `939af04bc76619188795bb2486480b077bc476ba`）
 
@@ -46,6 +46,8 @@ None
 | --- | --- | --- | --- | --- |
 | 2026-11-23 | Task | — → ANALYZING → APPROVED | Orchestrator / Planner | Human 依頼。PR #145 head `493c69f` / base `claude/road-visual-003-r3-7`（`f99e346`）を確認。Analyzer report `cc2384c`。H-1〜H-8 確認 |
 | 2026-11-23 | Task | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer | Plan Handoff（`9e7af94`、blob `57d0726`）H-1〜H-8 確認。build / unit 2332 / E2E 12 PASS。全 E2E は CI |
+| 2026-11-23 | Task | REVIEWING（Reviewer PASS） | Reviewer | Round 1/3 PASS（`3e6b81096bca65d245e87b62a067bcd0bd63842c`） |
+| 2026-11-23 | Task | REVIEWING → DONE | Orchestrator | PR #145 を更新。CI（全 E2E）・Preview の一致を確認後、Human の許可どおり base `claude/road-visual-003-r3-7` へ merge（結果は Final Report） |
 
 ## Implementation Result
 
@@ -89,3 +91,14 @@ None
 
 ### Acceptance
 - 倍率・攻撃間隔・クールダウン・範囲・影の手の大きさ/造形/時刻・配色・セーブ・閃き・他職: 変更なし（unit で攻撃間隔・手の時刻・大きさを検査）
+
+### Autonomy Metrics
+- Human Escalation Count: 0
+- Human Decision Count: 1（Human の依頼: 重量感の方針と merge の許可）
+- Auto Fix Count: 0
+- Reviewer Round Count: 1
+- Test Retry Count: 0
+- PR Created: Yes (#145 を更新)
+
+### Known risks（Reviewer）
+- 攻撃ボタンを押し続けている間は、1・2 段目の動作（0.50 秒）が攻撃間隔（0.44 秒）より長いので Skill 2 の入力が通らない（以前も 1 段あたり約 0.04 秒の隙だけ）。離した後に Skill 2 が通るまでが最大 0.10 秒（3 段目の後は 0.16 秒）遅くなる
