@@ -1,6 +1,6 @@
 # WANDERER-RENEWAL-002 — 影の旅人・最終設計（影の手・フード外套・大振りのモーション）
 
-Status: REVIEWING
+Status: DONE
 
 Analysis: .ai/reports/WANDERER-RENEWAL-002-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `9cb8f545b95c3ef221271ebb748955d257f4fec4`、blob `0f159b46a7fd1104afd512d47a49f6a4f3ceadbd`）
 
@@ -67,6 +67,8 @@ None
 | 2026-11-23 | Task | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer | Plan Handoff H-1〜H-8 確認。build / unit 2331 / E2E 80 + 7 PASS。Debugger サイクル 0 |
 | 2026-11-23 | Task | REVIEWING → CHANGES_REQUIRED | Reviewer | Round 1/3（`591370292c171a56713808e7c734489b5a46787b`）: 影の手の大きさが WR2-2 と不一致 |
 | 2026-11-23 | Task | CHANGES_REQUIRED → TESTING → REVIEWING | Implementer | Review Fix Loop Round 1（Auto Fix 1）。build / unit 2331 / E2E 5 PASS |
+| 2026-11-23 | Task | REVIEWING（Reviewer PASS） | Reviewer | Round 2/3 PASS（`a0dd0e97b4f9c8ff469217d6ec25af7b9e86796e`） |
+| 2026-11-23 | Task | REVIEWING → DONE | Orchestrator | PR #145 を更新（同じブランチ。base `claude/road-visual-003-r3-7`）。merge は Human |
 
 ## Implementation Result
 
@@ -125,3 +127,11 @@ None
 - Required Change #1（影の手の大きさが WR2-2 と不一致）: 案 (a)。倍率を WR2-2 の値へ（手首から先 ≒ 倍率 × 1.08 m）: 通常 3.4（≒ 3.7 m = 身長の約 1.4 倍）・握砕/影残し 4.7（約 2 倍）・影渡り 3.6・必殺技 5.2（約 2.2 倍）・回避攻撃等の小さな手 2.4。core のコメントと docs/CHARACTERS.md の数値を揃えた。844×390 の撮影で主人公と対象が見えることを確認（`img/WANDERER-RENEWAL-002/5-combat-844x390.jpg` を差し替え）
 - 非ブロッキングの指摘への対応: 加入前のフードの影の帯の castShadow を外した（R5）。足元の影は地点移動（4 m 以上の飛び）で足取りを捨てる（R4）。使い回した手を前の持ち主の予定が片づけないよう、手に世代番号を持たせた（R2）。R1（待ち行列の上限）・R3（旧成長ルールのサブ武器）・R6（当たりの効果音）は Risks として残す
 - Test: build PASS、unit 2331 PASS、E2E wanderer-renewal / road2-join 5 PASS
+
+### Autonomy Metrics
+- Human Escalation Count: 0
+- Human Decision Count: 1（DEC-034 = Human の最終キャラクター設計書）
+- Auto Fix Count: 1
+- Reviewer Round Count: 2
+- Test Retry Count: 0
+- PR Created: Yes (#145 を更新)
