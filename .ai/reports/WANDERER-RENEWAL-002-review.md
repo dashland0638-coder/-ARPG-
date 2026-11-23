@@ -63,3 +63,49 @@ None（`concat-plugin.js` の import 追加は新しい core の export を lega
 | 1 | `src/core/wanderer-style.js:146-156`（`WANDERER_STRIKE.*.scale` / `WANDERER_HAND_SCALE`、コメント 153 行「手の全長 + 地面から出る手首 ≒ 倍率 × 1.6 m」）、`.ai/tasks/WANDERER-RENEWAL-002.md` Implementation Result | 影の手の実際の大きさが、承認済み Plan の Agent Decision **WR2-2「通常 約 1.4〜1.6 倍・強い 約 2 倍・必殺技 2.2 倍（身長 2.54 基準）」**と一致しない。`SHADOW_HAND_SHAPE` の手首〜中指の先は 0.42 + 0.20 + 0.16 + 0.30 ≒ **1.08 / 倍率**で、手首から下の腕（`arm`）は出きった時も床の下（`wrist.position.y = -1.25·s·(1-rise)`、rise ≦ 1.06）。よって 通常 2.4 → 約 2.6 m ≒ **1.0 倍**、握砕 3.0 → 約 3.2 m ≒ **1.25 倍**、必殺技 3.6×0.92〜1.1 → 約 3.6〜4.3 m ≒ **1.4〜1.7 倍**（撮影 4-shadow-hands.jpg でも手は主人公とほぼ同じ高さ）。コード上のコメント「≒ 倍率 × 1.6 m」（これだと WR2-2 の値になる）は事実と違い、docs/CHARACTERS.md:138 の「約 1〜1.5 倍…」とも食い違う。Task の Notes「目安（1.5〜3 倍）より控えめ（WR2-2…）」も WR2-2 の記載と合わない。DEC-034 の目安（通常 1.5〜2 倍・強い 2〜3 倍）からも、WR2-2 で決めた幅からも下に外れている | 次のどちらか: **(a) 推奨**: 倍率を WR2-2 に合わせる（例: 手首〜中指 ≒ 1.08 として 通常 ≒ 3.4〜3.8、握砕 ≒ 4.7、必殺技 ≒ 5.2 前後。見下ろしカメラで主人公を隠さないよう斜めに出す WR2-2 の後半はそのまま）、コメントを実際の計算に直し、docs/CHARACTERS.md の倍率表記を実値に更新。**(b)**: 小さくする判断を残すなら、Implementation Result に WR2-2 からの逸脱（実値と理由）を明記し、core のコメントを実際の計算（≒ 倍率 × 1.08 m）に直し、Notes の「1.5〜3 倍」の記述と docs の数値を一致させる。どちらでも DEC-034 の「固定値にせずカメラに合わせて調整」の範囲内として扱える | `WANDERER_HAND_SCALE` / `WANDERER_STRIKE.scale` × 1.08 ÷ 2.54 が、Plan（または Implementation Result に記録した逸脱）・コードのコメント・docs/CHARACTERS.md の記載と一致すること。(a) の場合は 844×390 の撮影で主人公と攻撃対象が隠れないことを確認。`npm run test:unit` が通ること（unit で倍率を検査していれば期待値も更新） |
 
 Task の Status 更新（`CHANGES_REQUIRED`）は、Orchestrator の指示（このレビューではレポート以外を変更しない）に従い、このコミットでは行っていない。Orchestrator が反映する。
+
+## Round 2/3
+
+### Review Target
+| 項目 | 値 |
+| --- | --- |
+| Reviewed SHA | `7542fcaf2d7dc85efc33dd70bd67ca31101084a1` |
+| Diff range | fix: `591370292c171a56713808e7c734489b5a46787b..7542fcaf2d7dc85efc33dd70bd67ca31101084a1`（full: `8860d024acc2420e2b1582f9f919f315efdb961e..7542fcaf2d7dc85efc33dd70bd67ca31101084a1`） |
+| Handoff Verification | V-1 OK（remote HEAD = `7542fca`）/ V-2 OK / V-2a OK（Plan Source → `7542fca` の Task file 差分は `Status:` 行・Status History・Implementation Result（`### Round 1 Fix` を含む）の追加だけ）/ V-3 OK / V-4 OK / V-4a OK（blob `0f159b46a7fd1104afd512d47a49f6a4f3ceadbd` 一致）/ V-4b OK / V-5 OK / V-6 OK（fix 6 files、終点 = Implementation SHA） |
+
+### Result
+PASS
+
+### Independence
+別 Agent・別セッション（separate-context subagent）。Round 1 の指摘を前提にせず、Handoff から検証し直した
+
+### Required Change #1 の確認
+- 実装は案 (a)。`WANDERER_STRIKE` basic/basic2 3.4・basic3 4.7、`WANDERER_HAND_SCALE` basic 3.4 / grab 4.7 / skill1 4.7 / skill2 3.6 / ult 5.2 / small 2.4（dodge 1.0 のまま）
+- 手首から先 ≒ 倍率 × 1.08 m で計算し直すと、通常 3.67 m ≒ 身長 2.54 の 1.45 倍、握砕・影残し 5.08 m ≒ 2.0 倍、必殺技 5.62 m ≒ 2.2 倍（左右の手 ×0.92 / 中央 ×1.1 で 2.0〜2.4 倍）。WR2-2（1.4〜1.6 / 2 / 2.2）と一致
+- core のコメント（`src/core/wanderer-style.js:151-154`、「≒ 倍率 × 1.08 m」）と docs/CHARACTERS.md:138-139（通常 約 1.4・強い一撃 約 2・必殺技 約 2.2 倍 × 5 本）は実際の値と一致
+- 差し替えた撮影 `5-combat-844x390.jpg`: 3 段・Skill 1/2・必殺技のどれでも主人公と対象（標的）が見えている
+- **Resolved**
+
+### 非ブロッキング対応の確認（回帰なし）
+- R2: `spawnShadowHand` で `h.gen` を進め、`pushWandererQueue` が一撃に `handGen` を記録、押し出し時は `releaseShadowHandFor`（世代が一致する時だけ解放）。追撃は従来どおり `keepHand` で解放しない。横取りされた手を前の持ち主の予定が消す問題は解消
+- R4: `updateWandererFoot` で直前の足取りから 4 m を超える飛びがあれば trail を捨てる。通常の移動・回避の 1 フレームの移動量は 4 m に届かないので、0.45 秒の遅れは維持
+- R5: `buildWandererHoodParts` の影の帯に `castShadow = false` / `noOutline`（14 の `add`・06 の `add` とも Mesh を返す）
+- R1・R3・R6 は Risks のまま（Round 1 の記載どおり、ブロッキングではない）
+- 新たな TDZ: 追加は関数宣言（`releaseShadowHandFor`）と手のプロパティだけで、起動時の経路は変わらない
+
+### Checklist（Round 2）
+| # | 項目 | 結果 | 根拠 |
+| --- | --- | --- | --- |
+| 1 | Specification compliance | PASS | 上の確認。WR2-2 と一致 |
+| 2 | Scope compliance | PASS | fix は core の倍率とコメント・17 の 3 か所・docs・撮影・Task だけ |
+| 3 | Regression | PASS | 他職の経路・判定の形・時刻・Skill の数値に変更なし（倍率は見た目だけ。判定の半径 1.5 / 1.6 / 2.4 等は不変） |
+| 4 | Build | PASS | `npm run build` 再実行で成功 |
+| 5 | Unit tests | PASS | `npm run test:unit` 2331 pass / 0 fail（1 skip） |
+| 6 | E2E tests | 未再実行（指示により） | Implementer: wanderer-renewal / road2-join 5 PASS |
+| 7 | Save/Load integrity | PASS | 変更なし |
+| 8 | Existing behavior | PASS | 同上 |
+| 9 | Code duplication | PASS | 新しい重複なし |
+| 10 | Unnecessary architecture changes | PASS | なし |
+
+### Required Changes
+None
