@@ -144,15 +144,16 @@ export function lineHit({ox, oz, yaw, tx, tz, length, width}){
      3 段目 握砕     … 敵の足元に開いた手。当たった後、0.45 秒(予定から)で握り潰す
    scale は影の手の大きさ(手首〜中指の先 = 1 の型に掛ける倍率。主人公の身長 2.54) */
 export const WANDERER_STRIKE = Object.freeze({
-  basic:  {hand: 'rise',  delay: 0.16, shape: 'circle', radius: 1.5, scale: 2.4},
-  basic2: {hand: 'sweep', delay: 0.14, shape: 'arc',                  scale: 2.4},
-  basic3: {hand: 'grab',  delay: 0.18, shape: 'circle', radius: 1.6, scale: 3.0},
+  basic:  {hand: 'rise',  delay: 0.16, shape: 'circle', radius: 1.5, scale: 3.4},
+  basic2: {hand: 'sweep', delay: 0.14, shape: 'arc',                  scale: 3.4},
+  basic3: {hand: 'grab',  delay: 0.18, shape: 'circle', radius: 1.6, scale: 4.7},
 });
-/* 影の手の大きさ(手首〜中指の先 = 1 の型への倍率)。DEC-034 §3-3 の目安
-   (通常 約 1.5〜2 倍 / 強い 約 2〜3 倍 / 必殺技 圧倒的)を、見下ろしカメラで主人公と
-   攻撃範囲が隠れない所まで詰めた値(手の全長 + 地面から出る手首 ≒ 倍率 × 1.6 m) */
+/* 影の手の大きさ(手首〜中指の先 ≒ 1.08 の型への倍率。手首から先の高さ ≒ 倍率 × 1.08 m)。
+   DEC-034 §3-3 の目安と WANDERER-RENEWAL-002 WR2-2(主人公の身長 2.54 に対し、通常 約 1.4〜1.5 倍・
+   強い一撃 約 2 倍・必殺技 約 2.2 倍)。見下ろしカメラで主人公と対象が隠れないよう、手は敵の足元・
+   攻撃範囲の上に出し、短時間で沈める */
 export const WANDERER_HAND_SCALE = Object.freeze({
-  basic: 2.4, grab: 3.0, skill1: 3.4, skill2: 2.8, ult: 3.6, dodge: 1.0, small: 1.6,
+  basic: 3.4, grab: 4.7, skill1: 4.7, skill2: 3.6, ult: 5.2, dodge: 1.0, small: 2.4,
 });
 
 export function planStrike(kind, at, dmg, opts){

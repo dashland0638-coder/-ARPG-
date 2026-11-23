@@ -65,6 +65,8 @@ None
 | --- | --- | --- | --- | --- |
 | 2026-11-23 | Task | — → ANALYZING → APPROVED | Orchestrator / Planner | Human の最終キャラクター設計書（DEC-034）。Analyzer report persist（`9cb8f545b95c3ef221271ebb748955d257f4fec4`）。H-1〜H-8 確認 |
 | 2026-11-23 | Task | APPROVED → IMPLEMENTING → TESTING → REVIEWING | Implementer | Plan Handoff H-1〜H-8 確認。build / unit 2331 / E2E 80 + 7 PASS。Debugger サイクル 0 |
+| 2026-11-23 | Task | REVIEWING → CHANGES_REQUIRED | Reviewer | Round 1/3（`591370292c171a56713808e7c734489b5a46787b`）: 影の手の大きさが WR2-2 と不一致 |
+| 2026-11-23 | Task | CHANGES_REQUIRED → TESTING → REVIEWING | Implementer | Review Fix Loop Round 1（Auto Fix 1）。build / unit 2331 / E2E 5 PASS |
 
 ## Implementation Result
 
@@ -116,5 +118,10 @@ None
 
 ### Notes
 - 1 段目・3 段目の判定は手の出た場所の円（WR2-1）。2 段目は従来の扇
-- 影の手の大きさは目安（1.5〜3 倍）より控えめ（WR2-2: 見下ろしカメラで主人公と攻撃範囲を隠さないため）。iPhone 実機で Human が確認して調整できる（`WANDERER_HAND_SCALE`）
+- 影の手の大きさは WR2-2 どおり（Round 1 Fix）。iPhone 実機で Human が確認して調整できる（`WANDERER_HAND_SCALE`）
 - 勝利の専用の動きは作っていない（WR2-5）
+
+### Round 1 Fix
+- Required Change #1（影の手の大きさが WR2-2 と不一致）: 案 (a)。倍率を WR2-2 の値へ（手首から先 ≒ 倍率 × 1.08 m）: 通常 3.4（≒ 3.7 m = 身長の約 1.4 倍）・握砕/影残し 4.7（約 2 倍）・影渡り 3.6・必殺技 5.2（約 2.2 倍）・回避攻撃等の小さな手 2.4。core のコメントと docs/CHARACTERS.md の数値を揃えた。844×390 の撮影で主人公と対象が見えることを確認（`img/WANDERER-RENEWAL-002/5-combat-844x390.jpg` を差し替え）
+- 非ブロッキングの指摘への対応: 加入前のフードの影の帯の castShadow を外した（R5）。足元の影は地点移動（4 m 以上の飛び）で足取りを捨てる（R4）。使い回した手を前の持ち主の予定が片づけないよう、手に世代番号を持たせた（R2）。R1（待ち行列の上限）・R3（旧成長ルールのサブ武器）・R6（当たりの効果音）は Risks として残す
+- Test: build PASS、unit 2331 PASS、E2E wanderer-renewal / road2-join 5 PASS

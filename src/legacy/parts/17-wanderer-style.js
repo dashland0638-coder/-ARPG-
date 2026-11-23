@@ -108,7 +108,8 @@
     if(M.shade){
       const yTop = hy + r*1.00, yBot = hy + r*(o.deep ? -0.08 : 0.30);
       const band = new THREE.CylinderGeometry(r*1.00, r*1.00, yTop - yBot, 14, 1, true, -0.95, 1.90);
-      add(band, M.shade, 0, (yTop + yBot)/2, bz + r*0.02, 'head');
+      const shade = add(band, M.shade, 0, (yTop + yBot)/2, bz + r*0.02, 'head');
+      shade.castShadow = false; shade.userData.noOutline = true;
     }
 
     // マフラー: 首を高く覆い、片端を胸の前へ、両端を背中へ垂らす
@@ -230,6 +231,7 @@
      o: {x, z, y, yaw, scale, hitT, crushT, radius(sweep の半径), endX, endZ(crawl), lean} */
   function spawnShadowHand(mode, o){
     const h = takeShadowHand();
+    h.gen = (h.gen || 0) + 1;   // 使い回した手を、前の持ち主の予定が消さないように(releaseShadowHandFor)
     h.mode = mode; h.o = Object.assign({}, o); h.t = 0; h.active = true; h.root.visible = true;
     h.root.position.set(o.x, o.y != null ? o.y : state.pos.y, o.z);
     h.yawG.rotation.set(0, o.yaw || 0, 0);
@@ -243,6 +245,8 @@
     return h;
   }
   function releaseShadowHand(h){ if(!h) return; h.active = false; h.root.visible = false; }
+  /* 予定(待ち行列の項目)が持っている手を片づける。その手が既に別の技に使い回されていれば触らない */
+  function releaseShadowHandFor(e){ if(e && e.hand && e.hand.gen === e.handGen) releaseShadowHand(e.hand); }
   const wEaseOut = k=> 1 - Math.pow(1 - Math.max(0, Math.min(1, k)), 3);
   const wEaseIn  = k=> Math.pow(Math.max(0, Math.min(1, k)), 2);
   const wSpan = (t, a, b)=> Math.max(0, Math.min(1, (t - a) / Math.max(1e-4, b - a)));
@@ -389,7 +393,8 @@
     if(stage === comboLen) queueWandererEcho('finish', {x:at.x, z:at.z, yaw}, dmg, e.hand);
   }
   function pushWandererQueue(e){
-    pushEcho(wandererEchoes, e).forEach(d=>{ if(d.hand && !d.keepHand) releaseShadowHand(d.hand); });
+    if(e.hand && e.handGen == null) e.handGen = e.hand.gen;
+    pushEcho(wandererEchoes, e).forEach(d=>{ if(!d.keepHand) releaseShadowHandFor(d); });
   }
   /* 影の追撃の予約。hand が渡されればその手が動く(握砕)。無ければ種類に応じて手を出す */
   function queueWandererEcho(kind, at, dmg, hand){
@@ -520,6 +525,9 @@
     const f = wandererFoot;
     if(!f.mesh.parent) scene.add(f.mesh);
     f.t += dt;
+    // 運ばれた(地点移動・世界の作り直し)時は、前の場所の足取りを捨てる
+    const last = f.trail[f.trail.length - 1];
+    if(last && Math.hypot(last.x - state.pos.x, last.z - state.pos.z) > 4) f.trail.length = 0;
     f.trail.push({t:f.t, x:state.pos.x, y:state.pos.y, z:state.pos.z});
     while(f.trail.length > 1 && f.trail[1].t <= f.t - WANDERER_ECHO_LAG) f.trail.shift();
     const at = f.trail[0];
