@@ -233,8 +233,10 @@ test.describe('UI-002-E Production Integration: 承認済み Swordsman glyph', (
     await expectFallback(page, '#weapon-badge', '🗡️');
     await expectFallback(page, '#btn-attack-glyph', '');
     await expect(page.locator('#btn-attack')).toHaveText('攻撃');
-    await expectFallback(page, '#btn-charge-icon', '⬇️');
-    await expectFallback(page, '#btn-skill2-icon', '🌀');
+    /* 影の旅人の Skill 1「影残し」は 🌘、Skill 2「影渡り」は 👥(WANDERER-RENEWAL-001、core/wanderer-style.js の
+       WANDERER_SKILL1 / WANDERER_SKILL2 の icon)。剣士の glyph(skill.warrior.retreat 等)は出さない(上の expectNoSwordsmanGlyph) */
+    await expectFallback(page, '#btn-charge-icon', '🌘');
+    await expectFallback(page, '#btn-skill2-icon', '👥');
     await expectUltUnchanged(page, '◐');
     expect(errors).toEqual([]);
   });

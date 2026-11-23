@@ -1126,6 +1126,48 @@
   function road2ResetArea4(){
     road2Fights = {}; road2GuardianState = 'dormant'; road2GuardianEn = null; road2GuardianStatue = null;
     road2BellCount = 0; road2ShadowMark = null; road2OldRecord = null; road2PendingTalks = [];
+    road2InsightDone = false;
+  }
+
+  /* ==== WANDERER-RENEWAL-001: 影の旅人の閃き(Chapter 1 の Skill 2「影渡り」) ====
+     洋館・村・幽霊船・時計塔の閃きと同じ型 ―― 同行者の工夫を見た主人公が、それを自分の
+     戦い方へ翻訳する。教わるのではない。演出は本人の一言で終える。
+     場所: エリア 4「遺構の門」(F4-2、守護型 2 体 = 正面に盾を持つ敵)を片づけた後。支援は
+     横から崩していた。影の旅人は「回り込むのは、私でなくてもいい」―― 影を先へ送る技へ。
+     取りこぼし(門を戦わずに抜けた等)は峠の手前(z 626 = 鐘 3 の帯)で同じ場面。
+     既に持っている(セーブ・テストモード)なら起こさない。習得と自動装備は
+     grantChapter1Skill2()(core/chapter1-skills.js の learnSkill2)。
+     支援は野営地で選び直せるので、支援の一言は支援ごとに用意する。正体には触れない */
+  let road2InsightDone = false;
+  const ROAD2_INSIGHT_GATE = 'F4-2', ROAD2_INSIGHT_FALLBACK_Z = 626;
+  const ROAD2_INSIGHT_SUPPORT_LINE = {
+    rogue:   '「横に回れ。盾は、前にしか無い」',
+    warrior: '「正面で受けるやつは、横が空く」',
+    mage:    '「横からなら、届きました。正面は、硬いので」',
+    archer:  '「横からなら、通っていました」',
+  };
+  function road2InsightDue(){
+    if(road2InsightDone || !road2Joined || selectedClass !== ROAD_JOINER) return false;
+    if(state.dialogueActive || cutsceneRunning()) return false;
+    const gate = road2Fights[ROAD2_INSIGHT_GATE];
+    return !!(gate && gate.cleared) || state.pos.z >= ROAD2_INSIGHT_FALLBACK_Z;
+  }
+  function road2PlayInsight(){
+    if(road2InsightDone) return false;
+    road2InsightDone = true;
+    if(hasSkill2(state)) return false;
+    road2TalkCount['WR-INSIGHT'] = (road2TalkCount['WR-INSIGHT'] || 0) + 1;
+    const sup = state.guestClassKey;
+    const supName = (CLASSES[sup] && CLASSES[sup].name) || ROAD_THIEF;
+    playCutscene([
+      {t:0.4, run:()=> cutsceneLine('「……正面からは、ほとんど通りませんでした」', ROAD_TRAVELER)},
+      {t:2.0, run:()=> cutsceneLine(ROAD2_INSIGHT_SUPPORT_LINE[sup] || ROAD2_INSIGHT_SUPPORT_LINE.rogue, supName)},
+      {t:2.2, run:()=> cutsceneLine('「……回り込むのは、私でなくてもいい」', ROAD_TRAVELER)},
+      {t:2.0, run:()=>{ cutsceneHideLine(); grantChapter1Skill2(); }},
+      {t:0.8, run:()=> cutsceneLine('「影なら、先に着きます」', ROAD_TRAVELER)},
+      {t:2.2, run:()=>{ cutsceneHideLine(); state.dialogueActive = false; clearMovementInput(false); }},
+    ]);
+    return true;
   }
 
   /* 戦闘の帯・古き守り手の石像・遺構の調べ物・鐘と会話の帯を置く(buildRoad2 から) */
@@ -1353,6 +1395,7 @@
     road2UpdateFights();
     road2UpdateGuardian(dt);
     road2UpdateArea4Talks();
+    if(road2InsightDue()) road2PlayInsight();   // 影の旅人の閃き(WANDERER-RENEWAL-001)
   }
 
   /* ==== R3-1: AREA 1 旅人の宿場 ―― 建物の中・会話と調べ物・怪異 A-1「壁の影」・歩きながらの掛け合い ====

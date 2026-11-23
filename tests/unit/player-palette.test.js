@@ -108,17 +108,19 @@ function luminance(hex){
   return 0.2126 * ch((hex >> 16) & 255) + 0.7152 * ch((hex >> 8) & 255) + 0.0722 * ch(hex & 255);
 }
 
-test('影の旅人: 衣服の紫は影 VFX の紫と別の値 / 全身黒でない(HDR-T5-6、P-D8)', ()=>{
+test('影の旅人: 衣服の紫は影の手の紫と別の値 / 全身黒でない(DEC-034 §2-3、P-D8)', ()=>{
   const w = resolvePalette('wanderer');
-  const SHADOW_VFX = 0x8a5ad6;   // CLASSES.wanderer.trim(影 VFX・足元リング)
-  for(const role of ['main', 'sub', 'accent', 'layer', 'trim']){
-    assert.notEqual(w[role], SHADOW_VFX, `wanderer.${role} が影 VFX の紫と同じでない`);
+  const SHADOW_VFX = 0x8a5ad6;   // CLASSES.wanderer.atkColorHex(影の手の輪郭・足元の影の縁)
+  for(const role of ['main', 'sub', 'accent', 'layer', 'trim', 'hat', 'boot']){
+    assert.notEqual(w[role], SHADOW_VFX, `wanderer.${role} が影の紫と同じでない`);
   }
-  // 全身黒の検出: T-4 の黒ずくめ(0x1a1622)より明るいメイン、明るい白系レイヤーがある
+  // DEC-034: 外套 #654F86、マフラーは外套より少し明るい紫、インナー・パンツは暗い灰紫、ブーツは暗い灰色
+  assert.equal(w.main, 0x654f86);
+  assert.equal(w.hat, w.main, 'フードは外套と同じ布');
+  assert.ok(luminance(w.accent) > luminance(w.main), 'マフラーは外套より明るい');
+  assert.ok(luminance(w.layer) < luminance(w.main) && luminance(w.sub) < luminance(w.main), 'インナー・パンツは外套より暗い');
+  // 全身黒の検出: T-4 の黒ずくめ(0x1a1622)より明るい外套
   assert.ok(luminance(w.main) > luminance(0x1a1622) * 2, `main が黒ずくめより明るい(${luminance(w.main).toFixed(3)})`);
-  assert.ok(luminance(w.layer) > 0.5, 'Off White のレイヤーがある');
-  // マフラーは V-1 第2段階の Human 指定(紫 → シルバーブルー)
-  assert.deepEqual([w.main, w.sub, w.accent, w.layer], [0x30323a, 0x403454, 0xa3b1bf, 0xd8d4d0]);
 });
 
 test('上位職: 白系レイヤーと専用色(P-D7、HDR-T5 配色体系)', ()=>{

@@ -30,30 +30,106 @@
      触らない。セーブにも入れない(入れると新しい進行状態になる) */
   let roadPendingFinale = false;
 
-  /* 影の旅人の姿。酒場の隅に座っていた人物(buildTavern)と同じ作り ――
-     黒ずくめの装いに、足元だけ紫がかった影がまとわりつく */
+  /* 影の旅人の加入前の姿(WANDERER-RENEWAL-001 で作り直し。酒場の隅・島の人影・道の出会い)。
+
+     DEC-034(影の旅人・最終キャラクター設計書): このフード外套姿が影の旅人の基本デザイン。
+     加入後のリグ(buildPlayer の影の旅人)と同じ部品・同じ寸法・同じ色で組む:
+       ・フード外套・マフラー・インナーは共有の buildWandererHoodParts(17-wanderer-style.js)。
+         加入前はフードを深く被る(目元まで影)。加入後は少し後ろへずらす
+       ・頭は共通の Loft の頭部(makeCharacterHead)と同じ肌色、髪は同じ殻と平たい毛束。球は使わない
+       ・色は配色表の影の旅人の行(外套 #654F86・インナー/パンツ 暗い灰紫・マフラー 明るい紫・
+         ブーツ 暗い灰色)。目は描かない(深いフードの陰)。名前も出さない(DEC-004 N-4)
+     寸法は剣士の BUILD(加入後と同じ)を、酒場の人物・同行者の立ち姿の大きさへ
+     縮めて使う(TRAVELER_FIG_SCALE。丸椅子・卓が NPC の寸法のため)。
+     足元の影だまり(userData.pool)は縮めない子として持ち、trackPreJoinShadow が今までどおり
+     シーンへ移して 0.45 秒遅らせる(DEC-030 / DEC-031) */
   function buildRoadTravelerFigure(seated){
-    const cloak = new THREE.MeshStandardMaterial({color:0x0c0a10, roughness:0.9});
-    const skin = new THREE.MeshStandardMaterial({color:0xcabcd6, roughness:0.6});
+    const TRAVELER_FIG_SCALE = 0.82;
+    const B = BUILD.warrior;
+    const headR = B.headR;
+    const M = (c, r)=> new THREE.MeshStandardMaterial({color:c, roughness:r == null ? 0.88 : r});
+    const pal = resolvePalette('wanderer');   // 加入後のリグと同じ配色の行(DEC-034 §2-3)
+    // 外套・パンツは加入後のリグと同じ作り(革のテクスチャ + 配色表の色。buildPlayer の clothMat / subMat)
+    const cloth = (hex)=> applyBump(new THREE.MeshStandardMaterial(Object.assign({map: makeLeatherTexture(hexStr(hex), 2, 2)}, PLAYER_FINISH.cloth)));
+    const cloakMat = cloth(pal.main), innerMat = M(pal.layer, 0.9), scarfMat = M(pal.accent, 0.85);
+    const pantsMat = cloth(pal.sub), bootMat = M(pal.boot, 0.8);
+    const skinMat = M(0xe8dce0, 0.8), hairMat = M(0x0a0810, 0.7);
+    const shadeMat = new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.62, depthWrite:false});
+    scarfMat.side = THREE.DoubleSide; cloakMat.side = THREE.DoubleSide;
     const g = new THREE.Group();
-    const bodyH = seated ? 0.68 : 1.1;
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.46, bodyH, 10), cloak);
-    body.position.y = seated ? 0.62 : 0.9;
+    const body = new THREE.Group();
+    body.scale.setScalar(TRAVELER_FIG_SCALE);
     g.add(body);
-    const headY = seated ? 1.1 : 1.66;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), skin);
-    head.position.y = headY;
-    g.add(head);
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 10, 0, Math.PI*2, 0, Math.PI*0.6),
-      new THREE.MeshStandardMaterial({color:0x0a0810, roughness:0.7}));
-    hair.position.y = headY + 0.1;
-    g.add(hair);
+    const add = (geo, mat, parent, x, y, z)=>{
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x || 0, y || 0, z || 0);
+      m.castShadow = true;
+      (parent || body).add(m);
+      return m;
+    };
+
+    // 腰(ベルト線)。座っている時は丸椅子の座面(0.48)の高さ
+    const hipY = seated ? 0.50 / TRAVELER_FIG_SCALE + 0.04 : B.hipY;
+    const upper = new THREE.Group();
+    upper.position.y = hipY;
+    if(seated) upper.rotation.x = 0.14;   // 少し背を丸めて座っている
+    body.add(upper);
+
+    // ---- 脚: 裾の長いワイドパンツとブーツ(加入後と同じ形) ----
+    const pantsRing = (y, w)=> ({y, hw:w, hd:w*0.94});
+    [-1, 1].forEach(sx=>{
+      const x = sx * B.stanceW * 1.05;
+      if(!seated){
+        add(makeGarmentLoft([pantsRing(-0.05, B.thigh*1.35), pantsRing(-hipY*0.55, B.thigh*1.55),
+          pantsRing(-hipY + 0.16, B.thigh*1.32)], {closedTop:true}), pantsMat, upper, x, 0, 0);
+        add(new THREE.BoxGeometry(B.calf*2.4, 0.16, B.calf*3.2), bootMat, body, x, 0.08, 0.03);
+      } else {
+        // 太腿は前へ(丸椅子の座面に沿って)、すねは膝から下へ
+        const thigh = new THREE.Group();
+        thigh.position.set(x, 0, 0);
+        thigh.rotation.x = -Math.PI/2;
+        upper.add(thigh);
+        add(makeGarmentLoft([pantsRing(0, B.thigh*1.40), pantsRing(-B.thighLen*0.98, B.thigh*1.50)], {closedTop:true}),
+          pantsMat, thigh);
+        const kneeY = hipY, kneeZ = B.thighLen * 0.98;
+        add(makeGarmentLoft([pantsRing(kneeY - 0.02, B.thigh*1.50), pantsRing(0.18, B.thigh*1.32)], {closedTop:true}),
+          pantsMat, body, x, 0, kneeZ);
+        add(new THREE.BoxGeometry(B.calf*2.4, 0.16, B.calf*3.2), bootMat, body, x, 0.08, kneeZ + 0.04);
+      }
+    });
+
+    // ---- 外套・フード・マフラー: 加入後と共有の部品(フードを深く被った形) ----
+    const sh = B.height;   // 肩の高さ(腰から)
+    const headY = sh + B.headGap + headR*0.62;
+    buildWandererHoodParts((geo, mat, x, y, z)=> add(geo, mat, upper, x, y, z),
+      {headY, headR, headBackZ:HEAD_BACK_Z, sh, hipY:0, chest:B.chest, deep:true,
+       mats:{cloak:cloakMat, inner:innerMat, scarf:scarfMat, shade:shadeMat}});
+
+    // ---- 頭: 加入後と同じ Loft の頭部・同じ肌色。フードの陰で目は描かない ----
+    const HEAD_DIMS = {width:headR, depth:headR*HEAD_DEPTH_MUL, height:headR*2};
+    add(makeCharacterHead(HEAD_DIMS), skinMat, upper, 0, headY, HEAD_BACK_Z);
+    add(makeCharacterHairShell(Object.assign({}, HEAD_DIMS, {classKey:'wanderer'})), hairMat, upper, 0, headY, HEAD_BACK_Z);
+    // 前髪と横の毛束(加入後と同じ平たい毛束の形)。フードの縁から少しだけ覗く
+    const hairCard = (w, L)=> makePlate([
+      {x:-w, y:0}, {x:w, y:0}, {x:w*0.55, y:-L*0.55}, {x:w*0.08, y:-L}, {x:-w*0.40, y:-L*0.60},
+    ], {thickness: headR*0.035});
+    [[0.30, 0.66, 0.20, 0.52, 0.30], [-0.30, 0.66, 0.20, 0.52, 0.30], [0.00, 0.70, 0.22, 0.46, 0.25],
+     [0.80, 0.60, 0.20, 0.58, 0.40], [-0.80, 0.60, 0.20, 0.58, 0.40]].forEach(([ang, yMul, wMul, lenMul, splay])=>{
+      const pivot = new THREE.Group();
+      pivot.position.set(Math.sin(ang)*headR*1.0, headY + headR*yMul, Math.cos(ang)*headR*0.95 + HEAD_BACK_Z);
+      pivot.rotation.y = ang;
+      const card = add(hairCard(headR*wMul, headR*lenMul), hairMat, pivot);
+      card.rotation.x = -splay;
+      upper.add(pivot);
+    });
+    // 影だまり: 本人の足元に不自然に広がる、紫みを帯びた影(縮めない。trackPreJoinShadow が遅らせる)
     const pool = new THREE.Mesh(new THREE.CircleGeometry(0.85, 16),
       new THREE.MeshBasicMaterial({color:0x2a1a3a, transparent:true, opacity:0.55}));
     pool.rotation.x = -Math.PI/2;
     pool.position.set(0.35, 0.04, 0.15);
     g.add(pool);
     g.userData.pool = pool;
+    g.userData.wandererPreJoin = true;
     return g;
   }
 

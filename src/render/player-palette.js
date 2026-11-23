@@ -71,13 +71,12 @@ export const PLAYER_PALETTE = {
      パーカーは Human V-1 第1段階で Muted Purple #5B4B78 → Dusty Blue #526A78(緑と黄色を
      冷色でつなぐ。紫を主役にしない) */
   rogue:   { main: 0x304d45, sub: 0x304d45, accent: 0x526a78, layer: 0xe6e4dd, hat: 0xd2a83e, trim: 0x263449, boot: 0x263449 },
-  /* 影の旅人(HDR-T5-6): Charcoal のコート / Dark Purple のパンツ / Shadow Purple の
-     マフラー・金具 / Off White のシャツ。全身黒にしない(P-D8: 暗く見えれば明るくして
-     よい)。衣服の紫は影 VFX・足元リングの紫(CLASSES.wanderer.trim 0x8a5ad6)と
-     別の値(unit テストで検査)。キャップは無い(hat は未使用)。
-     首元のマフラー(accent)は Human V-1 第2段階で Shadow Purple #654F86 → シルバーブルー
-     (値 #A3B1BF は Implementer の候補。最終は Human の目視) */
-  wanderer: { main: 0x30323a, sub: 0x403454, accent: 0xa3b1bf, layer: 0xd8d4d0, hat: 0x30323a, trim: 0x654f86, boot: DEFAULT_BOOT },
+  /* 影の旅人: DEC-034「影の旅人・最終キャラクター設計書」(2026-11-23、Human)で、CHARACTER-VIS-001
+     T-5(HDR-T5-6: Charcoal のコート・白いシャツ)から置き換えた。加入前のフード外套姿が基本デザイン:
+     外套・フード #654F86 / インナー 暗い灰紫 / マフラー 外套より少し明るい紫 / パンツ 暗い灰紫 /
+     ブーツ 暗い灰色。衣服の紫は影の手・影の輪郭の紫(CLASSES.wanderer.atkColorHex 0x8a5ad6)と
+     別の値・別の Material(unit テストで検査)。trim(金具)は外套より暗い紫(金属の装飾は持たない) */
+  wanderer: { main: 0x654f86, sub: 0x3d3846, accent: 0x8e70b8, layer: 0x46404f, hat: 0x654f86, trim: 0x4a3d62, boot: 0x3b3b41 },
 
   /* 上位職。role 以外のキーは上位職の装飾だけが使う色
      (steel / gold = 戦騎士の強化肩・ハーネス、cape = 鷹の目の背中のフード) */

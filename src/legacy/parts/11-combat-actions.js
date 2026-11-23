@@ -69,8 +69,11 @@
        弓(弓師)    : 1→2→3→フィニッシュ の4段(3連射)。加えて、接近戦では
                       弱いというロードマップの思想を damage 側で直接反映
                       している(applyOutgoingDamageMods を参照)。 */
-  const COMBO_LENGTH = { warrior:3, rogue:4, mage:2, archer:4 };
+  /* 影の旅人: 払い → 返し → 踏み込みの振り下ろし(+ 影の追撃)の 3 段
+     (core/wanderer-style.js、WANDERER-RENEWAL-001) */
+  const COMBO_LENGTH = { warrior:3, rogue:4, mage:2, archer:4, wanderer:WANDERER_COMBO_LENGTH };
   const COMBO_CLIP_BY_STAGE = {
+    wanderer: WANDERER_COMBO_CLIPS,
     warrior: {1:'basic', 2:'basic2', 3:'basic4'},               // spin(basic3)は使わず、フィニッシュへ直行
     rogue:   {1:'basic', 2:'basic2', 3:'basic3', 4:'basic4'},
     mage:    {1:'basic', 2:'basic4'},                           // 2段目がそのままフィニッシュ(貫通弾)
@@ -420,7 +423,9 @@
 
     if(action === 'dodgeAttack'){ tryDodgeAttack(); return; }
 
-    const clsKey = state.classDef.key;
+    /* 段数・クリップ・踏み込みはモーションの鍵で引く(影の旅人は 3 段の自分の型。
+       WANDERER-RENEWAL-001。4 人は classDef.key のまま) */
+    const clsKey = rigKeyOf(state.classDef);
     // サブ武器は常に2段(1→フィニッシュ)。メインはクラス/武器思想ごとの段数
     const len = state.usingAltWeapon ? ALT_COMBO_LENGTH : (COMBO_LENGTH[clsKey] || 4);
     const chaining = (state.comboWindowT||0) > 0;
@@ -464,7 +469,8 @@
        掛けると既存の間合いが変わってしまう。
        遠隔職(魔法使い・弓師)は踏み込む動作自体が噛み合わないので、
        ATTACK_LUNGE_BY_CLASS 側で 0 にしてある。 */
-    const lungeDist = state.job==='berserker' ? 0 : attackLungeDistance(clsKey);
+    const lungeDist = state.job==='berserker' ? 0
+      : (clsKey === 'wanderer' ? WANDERER_LUNGE : attackLungeDistance(clsKey));
     if(lungeDist > 0 && state.grounded){
       state.attackLunge = {
         t: 0,
@@ -553,7 +559,9 @@
       const base = state.classDef.atk + Math.round(Math.random()*4);
       const dmg = Math.round(base * 1.5);
       const staggerOpts = {staggerMul: 2.5, ultGauge: 6};
-      spawnMeleeSwingVFX(range, angle, state.classDef.trim, 'dodge');
+      // 影の旅人は斬撃の弧の代わりに影の手(見た目だけ。判定は従来どおり)
+      if(isWandererStyle()) spawnWandererQuickHand(WANDERER_HAND_SCALE.basic);
+      else spawnMeleeSwingVFX(range, angle, state.classDef.trim, 'dodge');
       if(state.classDef.cleave){
         findMeleeTargetsInArc(range, angle).forEach(t=> dealDamageToEnemy(t, dmg, false, staggerOpts));
       } else {
@@ -620,7 +628,8 @@
     const base = cdef.atk + Math.round(Math.random()*4);
     const dmg = Math.round(base * UPPERCUT_DMG_MUL);
 
-    spawnMeleeSwingVFX(range, angle, cdef.trim, 3);
+    if(isWandererStyle()) spawnWandererQuickHand(WANDERER_HAND_SCALE.basic);   // 影の旅人は影の手(DEC-034)
+    else spawnMeleeSwingVFX(range, angle, cdef.trim, 3);
     let landed = 0, lifted = 0, grounded = 0;
     targets.forEach(en=>{
       const weight = enemyWeightClass(en);
@@ -727,6 +736,12 @@
       // isFinish は処刑(core/execution.js)の発動条件。コンボの最終段で
       // 当てた一撃だけが瀕死の敵を「決められる」
       const staggerOpts = {staggerMul, ultGauge: isFinish ? 6 : 3, isFinish};
+      /* 影の旅人(DEC-034): 斬撃の弧は出さない。少し遅れて地面から影の手が現れ、
+         手が当たる瞬間に判定する(突き上げ / 薙ぎ払い / 握砕。17-wanderer-style.js) */
+      if(isWandererStyle() && !state.usingAltWeapon){
+        castWandererCombo(stage, comboLen, dmg, staggerOpts);
+        return;
+      }
       spawnMeleeSwingVFX(range, angle, state.classDef.trim, styleKey);
       let hitTarget = null;
       if(state.classDef.cleave){
@@ -1024,7 +1039,7 @@
     if(state.swinging || state.skillCharging) return; // can't overlap with other attack actions
     if(!hasRes('skill2')){ warnNoRes(); return; }
     const cdef = state.classDef;
-    const skill2 = activeSkill2Def(cdef.key);
+    const skill2 = activeSkill2Def(rigKeyOf(cdef));
     if(!skill2) return;
     spendRes('skill2');
     state.skill2CD = skill2.cd * rankCD('skill2') * Math.max(0.4, 1 + sphereValue('skill2CDSphereMul'));   // スフィア「神速の一撃」
@@ -1035,12 +1050,14 @@
       executeVariant(skill2, 1, 1, 'skill2');
       return;
     }
-    state.swinging = true; beginMove(skill2.key === 'crushSlash' ? 'crushSlash' : 'skill2');
+    state.swinging = true;
+    beginMove(skill2.key === 'crushSlash' ? 'crushSlash' : skill2.key === 'shadowPass' ? 'shadowPass' : 'skill2');
     if(sequenceLocks.length) tryStrikeBell(state.pos);
     state.swingLockFacing = state.facing;
     const dmg = Math.round(cdef.atk * skill2.mult * rankDmg('skill2') * (1 + sphereValue('skill2DmgSphereMul'))) + Math.round(Math.random()*5);   // スフィア「二の太刀」
     const fwd = new THREE.Vector3(Math.sin(state.facing),0,Math.cos(state.facing));
     if(skill2.key === 'crushSlash') castCrushSlash(dmg, fwd, skill2);
+    else if(skill2.key === 'shadowPass') castShadowPass(dmg, skill2);   // 影の旅人「影渡り」(17-wanderer-style.js)
     else if(cdef.key==='warrior') castGroundSplit(dmg, fwd);
     else if(cdef.key==='rogue') castKnifeBarrage(dmg, fwd);
     else if(cdef.key==='mage') castObserveLight();
@@ -1871,7 +1888,7 @@
      必殺技とも手応えが分かれる。
   ========================================================= */
   function executionClipName(){
-    const lib = CLIPS[state.classDef && state.classDef.key];
+    const lib = CLIPS[rigKeyOf(state.classDef)];
     const jobClip = JOB_ULT_CLIP[state.job];
     if(jobClip && lib && lib[jobClip]) return jobClip;   // 上位職の専用の型
     return (lib && lib.ult) ? 'ult' : 'basic';
@@ -2062,6 +2079,8 @@
        そのまま繰り返す(新しい当たり判定の形は増やさない方針)。 */
     const hits = Math.max(1, Math.round(ult.hits || 1));
     const perHit = 1 / hits;
+    // 影の旅人: 範囲のまわりから複数の巨大な影の手が一斉に襲いかかる(見た目だけ。DEC-034)
+    if(isWandererStyle()) spawnWandererUltHands(center, ultRadius);
     const applyUltHit = ()=>{
       spawnUltimateVFX(center, Object.assign({}, ult, {radius:ultRadius}));
       enemies.forEach(en=>{

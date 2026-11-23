@@ -403,6 +403,7 @@
     if(state.mageOrbs){ state.mageOrbs.forEach(orb=>scene.remove(orb.mesh)); state.mageOrbs = []; }
     state.observeLightT = 0;   // 観測の灯は世界をまたいで持ち越さない
     clearPhantomDecoys();      // 幻影も世界をまたいで残さない(WORK 4)
+    clearWandererEchoes();     // 影の旅人の影の追撃・残像も(WANDERER-RENEWAL-001)
     state.attackSnapshot = null;
     if(state.posHistory) state.posHistory.length = 0;   // 足取りも持ち越さない(WORK 5)
     clearMemoryNets();

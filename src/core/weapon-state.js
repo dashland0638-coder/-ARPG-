@@ -1,3 +1,4 @@
+import { WANDERER_DRAW_TIME } from './wanderer-style.js';
 /* 武器の収納・抜刀・納刀の状態機械。
    state・three.js・シーンに一切依存しないので tests/unit/ から直接呼べる
    (core/combat-stance.js / core/relaxed-idle.js と同じ切り出し方)。
@@ -51,6 +52,8 @@ export const JOB_DRAW_TIME = {
   archmage:     {draw:0.12, sheathe:0.14},   // 杖 ×1.32。より端正に
   archer:       {draw:0.22, sheathe:0.26},   // 小弓
   hawkEye:      {draw:0.24, sheathe:0.29},   // 大弓
+  // 影の旅人(モーションの鍵 'wanderer'): 影が刃になるのは速く、ほどけるのはゆっくり
+  wanderer:     WANDERER_DRAW_TIME,
 };
 
 export const DEFAULT_DRAW_TIME = {draw:0.22, sheathe:0.26};

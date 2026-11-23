@@ -444,7 +444,7 @@
     const cdef = state.classDef;
     if(!cdef) return resolveSwordsmanGlyphIds(null);
     const variant = activeSkill1Variant();
-    const skill2 = activeSkill2Def(cdef.key);
+    const skill2 = activeSkill2Def(rigKeyOf(cdef));
     return resolveSwordsmanGlyphIds({
       classKey: cdef.key,
       charKey: cdef.charKey,
@@ -910,7 +910,7 @@
     const skillEl = document.getElementById('btn-charge');
     if(skillEl) skillEl.style.setProperty('--cd-pct', state.skillCD>0 ? Math.max(0,1-state.skillCD/1.6) : 1);
     // 実際に振る技のクールダウンでリングを回す(剣士は崩し斬り、D-04)
-    const skill2 = activeSkill2Def(state.classDef.key);
+    const skill2 = activeSkill2Def(rigKeyOf(state.classDef));
     const skill2El = document.getElementById('btn-skill2');
     /* Chapter 1 は Skill 1 だけで出発する(全体基本仕様 §18)。ボタンを
        薄く出して「まだ無い枠」を見せるのではなく、閃くまで存在しない ――
@@ -1319,7 +1319,7 @@
     if(!ws || !state.classDef) return null;
     const P = playerMixerParts;
     const sock = state.usingAltWeapon
-      ? null : weaponSocketFor(state.classDef.key, state.job);
+      ? null : weaponSocketFor(rigKeyOf(state.classDef), state.job);
     const out = {
       phase: ws.phase,
       blend: weaponBlend(ws),
@@ -1404,6 +1404,9 @@
     updateMotionPanel(dt);   // Debug Motion Preview。通常プレイでは即return
     drawMinimap(); // top-level so it also hides itself while paused / in menus
     updatePendingJoinScene();   // 酒場が描かれてから交代の会話を開く(WORK 12.1)
+    /* 影の旅人の影の追撃・残像は、会話・演出が始まったら落とす(WANDERER-RENEWAL-001)。
+       会話の間は下の updatePlayer が呼ばれないので、ここで見る(閉じた後に追撃が飛ばないように) */
+    if(state.started && state.dialogueActive) clearWandererEchoes();
     if(state.started && !state.paused && !state.dialogueActive){
       updateInput(dt);
       updatePlayer(dt);
@@ -2302,6 +2305,7 @@
        着いた瞬間に「誰もいない場所から網が落ちてくる」ようなことが起きる。
        進行フラグ・敵・イベント登録には触らない ―― 消すのは一時状態だけ */
     clearPhantomDecoys();
+    clearWandererEchoes();   // 影の旅人の影の追撃・残像(WANDERER-RENEWAL-001)
     clearMemoryNets();
     clearKeeperEchoes();
     clearBossPhaseBursts();
