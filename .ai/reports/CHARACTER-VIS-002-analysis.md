@@ -15,7 +15,7 @@ CHARACTER-VIS-002 / プレイヤーキャラクター（剣士・魔法使い・
 3. **INFERENCE**: 「可愛らしさが失われた」主因の候補は T-2 の体格変更（約3.4頭身 → 5.0頭身、華奢・縦長、DEC-T2-9）と、顔の造形の硬さ（顎の細い頭の Loft・角の立った目の板）。衣服の量感・色は T-4 / T-5 で Human が承認済みで、主因ではない
 4. **FACT（計測）**: プレイヤー1人で表示メッシュ 285〜361個、描画回数（draw call）300〜376回（空のトレーニング空間。シーンの描画回数のほぼすべてがプレイヤー）。原因は部品の細かさ（本体 72〜91個）と、**部品ごとに輪郭線2枚と X 線シェルを複製する方式**（1部品 = 4メッシュ）。iPhone の描画負荷で最も大きいリスク
 5. **FACT**: 影の旅人は `buildPlayer()` の剣士の分岐の中で作られ（`isWanderer`）、BUILD（剣士）・頭・目・腕・脚・手・脛当て・胸当ての共通部品を共有している。**共通の造形を変えると影の旅人の完成済みの見た目も変わる**（DEC-034 の固定対象）。改修の前に切り離しが必要
-6. **ESCALATION 候補**: 頭身の変更（D-1 の範囲 4.5〜5.0 を下回る場合）、顔の造形の追加（HDR-T4-15「眉・口を追加しない」）、承認済みデザイン（T-4 / T-5）の形の作り直しの範囲、影の旅人を共通基盤の改善に追従させるか（下の §13）
+6. **ESCALATION 候補**: 頭身の変更（D-1 で最終値は Human が決める）と、承認済みデザイン（T-4 / T-5）の形をどこまで変えるか（下の Unknowns U-5 / U-7）。眉・口は HDR-T4-15 のまま追加しない、影の旅人は DEC-034 と依頼文に従い固定する（どちらも既存の決定から導ける）
 
 ## 1. GitHub の確認結果（FACT、2026-11-24）
 | 項目 | 値 |
@@ -41,14 +41,15 @@ CHARACTER-VIS-002 / プレイヤーキャラクター（剣士・魔法使い・
 | 上位職の外見 | `applyJobPromotionVisual` | あり: `06:2303`、解除 `clearJobPromotionVisual` `06:2265` |
 | 頭の形 | `HEAD_SECTION_RATIOS` | あり: `05:738-745`（顎 0.38 → 頬 1.06 → 頭頂 0.60 の5段） |
 | 目 | `makeEyeSclera` / `eyeSizeMul` | あり: `05:1954-1975`（白目 8点・瞳 6点・ハイライト 4点の板）、`06:869-893`（Human 確定値） |
-| 髪 | `makeCharacterHairShell` / `makeHairBang` | あり: `06:916-1100`（全職共通の殻と房。職ごとの差は被り物の隠れ判定だけ） |
+| 髪 | `makeCharacterHairShell` / `makeHairBang` | あり: 定義 `05:1881` / `05:1923`、組み立て `06:916-1100`（全職共通の殻と房。職ごとの差は被り物の隠れ判定だけ） |
 | 肌色 | `SKIN_COLOR` | あり: `06:566`（Human 確定値） |
 | 配色・質感 | `PLAYER_PALETTE` / `PLAYER_FINISH` / `WEAPON_FINISH` | あり: `src/render/player-palette.js` |
 | 衣服の生成 | `makeGarmentLoft` / `makeOpenGarmentLoft` | あり: `05:617` / `05:635`（`userData.garment` を付ける） |
-| 輪郭線・X 線 | `addOutline` / `addXrayShell` / `xrayMat` | あり: `05:2133-2150` / `05:2270` / `05:2262`（`depthFunc: GreaterDepth`） |
+| 輪郭線・X 線 | `addOutline` / `addXrayShell` / `xrayMat` | あり: `05:2129-2150` / `05:2270` / `05:2262`（`depthFunc: GreaterDepth`） |
 | 待機・構え・攻撃 | `STANCE` / `STANCE_ALT` / `STANCE_RELAXED` / `CLIPS` | あり: `05:2324` / `05:2389` / `05:2479` / `05:2672` |
 | 武器の位置 | `WEAPON_SOCKET` | あり: `05:2562` |
-| 影の旅人の部品 | `buildWandererHoodParts` | あり: `17-wanderer-style.js:67`（加入後 `06:1234`・加入前 `14-dungeon-road.js:104` で共有） |
+| 影の旅人の部品 | `buildWandererHoodParts` | あり: `17-wanderer-style.js:67`（加入後 `06:1234`・加入前 `14-dungeon-road.js:104` で共有）。加入前の姿 `buildRoadTravelerFigure` `14-dungeon-road.js:46` |
+| 静的な Geometry の統合 | `weldGeometries` | あり: `02-world-common.js:495-515`（壁・柱を Material ごとに1つの buffer へ。BufferGeometryUtils はコアのビルドに無いため手書き） |
 | 外見の仕様 | `docs/CHARACTERS.md` | あり: 「## 外見」`:165-219`（9キャラクターの頭・上半身・下半身・顔・目・肌・配色・武器） |
 | キャラクターの見た目の固定（Decision） | `.ai/decisions/` | DEC-034（影の旅人）、DEC-005（影の紫）。プレイヤー4職の外見の DEC ファイルは無い（Human Decision は CHARACTER-VIS-001 の Task file 内に記録） |
 | 回帰テスト | `tests/*.spec.js`、`tests/unit/` | `character-clothing`（CLOTH）/ `character-palette`（PAL）/ `character-weapon-visual`（OUTL）/ `character-motion` / `weapon-stow` / `battle-knight-visual` / `base-class-*`、unit `lowpoly-primitives`（298 assert。06 / 05 のソースを検査）/ `player-palette` / `relaxed-idle` / `wanderer-style` |
@@ -69,7 +70,7 @@ CHARACTER-VIS-002 / プレイヤーキャラクター（剣士・魔法使い・
 - **頭**: `makeCharacterHead()` の5段の断面（`HEAD_SECTION_RATIOS`: 顎 widthMul 0.38 / 顎線 0.72 / 頬 1.06 / 額 0.92 / 頭頂 0.60、奥行き ×0.80 × `HEAD_DEPTH_MUL` 0.85）
 - **目**: 白目（8点の板）・瞳（6点）・ハイライト（4点）の3層、`MeshBasicMaterial`（陰影を受けない）。値は Human 確定（`eyeSizeMul` 0.72 / `EYE_SPACING` 0.095 / 瞳 0.046 / 白目の縦横比 1.28）。眉・口は無い（HDR-T4-15）
 - **髪**: 全職共通の髪の殻 + 前髪3本 + 横・後ろの房（`makeHairBang` の円錐）。剣士・弓師（と鷹の目）は前髪を作らない（被り物の開口に房が角のように出たため、Phase 13-C）。職ごとの差は「被り物の隠れ判定」で削られる量だけ。魔導士は長い銀髪（板）を追加
-- **古い鎧の部品が共通の体に残っている**: 胸当て `chestPlate`（`06:732`）、膝の球、脛当て `greave`（盗賊以外、`06:667`）、足首の帯（`06:690`）、籠手 `vambrace`（盗賊以外、`06:1740`）、肩当て `pauldron`（`06:1777`）。T-4 の衣服（パーカー・コート等）で多くは覆われるが、生成と描画は続いている（INFERENCE: 外から見えない部品も輪郭線・X 線を含めて描画回数に入る）
+- **古い鎧の部品が共通の体に残っている**: 胸当て `chestPlate`（`06:732`）、脛当て `greave`（盗賊以外、`06:667`）、足首の帯（`06:690`）、籠手 `vambrace`（盗賊以外、`06:1740`）、肩当て `pauldron`（`06:1777`。転身の表示切り替えが参照: `06:1784`・`06:2274-2275`・`06:2375-2376`）。膝の球（`06:658-662`）は T-3 の関節キャップ（`jointCapRadius`）で、古い鎧の部品ではない。T-4 の衣服（パーカー・コート等）で多くは覆われるが、生成と描画は続いている（INFERENCE: 外から見えない部品も輪郭線・X 線を含めて描画回数に入る）
 - **Material**: 1人あたり固有 Material 16〜26個（skin / cloth / clothFlat / trim / trimFlat / sub / subFlat / layer / hat / boot / belt / hair / 目3種 / 職ごとの小物 / 上位職の専用 Material）。値は配色表・質感表から（T-5 / T-7）。共有による色の波及は T-5 で解消済み（`applyPlayerPalette` が全 role を毎回上書き）
 - **輪郭線**: `addOutline()` が部品ごとに暗い外側・明るい内側の2枚の裏面シェルを、`addXrayShell()` が壁に隠れたとき用のシェルを作る（Material は全員で共有、メッシュは部品ごと）
 - **セーブ**: 外見はセーブに無い。`buildPlayer()` は `classDef`・`gender`・`state.job`・`classDef.charKey` だけで決まる（**FACT**: セーブ項目を増やさずに外見を変えられる）
@@ -77,7 +78,7 @@ CHARACTER-VIS-002 / プレイヤーキャラクター（剣士・魔法使い・
 ## 3. 撮影（FACT）
 - 条件: Playwright（Chromium、ソフトウェア描画）。基礎4職・上位4職はテストモードのトレーニング空間、影の旅人は第一章を終えたセーブの酒場。撮影用の一時 spec を `tests/` に置いて実行し、削除した（コード・テストの差分なし）
 - 視点: ゲーム画面（iPhone 横向き相当 844×390）と、キャラクターだけを撮る固定カメラ（正面・斜め45°・側面・背面・顔・見下ろし）
-- 画像: `.ai/reports/CHARACTER-VIS-002-assets/`（`current-front.jpg` / `current-face.jpg` / `current-side.jpg` / `current-back.jpg` / `current-top.jpg` / `current-game-camera-844x390.jpg`。左から 剣士・戦騎士・魔法使い・魔導士・弓師・鷹の目・盗賊・バーサーカー・影の旅人）。影の旅人は酒場の照明で他と色味が違う
+- 画像: `.ai/reports/CHARACTER-VIS-002-assets/`（`current-front.jpg` / `current-q45.jpg` / `current-face.jpg` / `current-side.jpg` / `current-back.jpg` / `current-top.jpg` / `current-game-camera-844x390.jpg`。左から 剣士・戦騎士・魔法使い・魔導士・弓師・鷹の目・盗賊・バーサーカー・影の旅人）。影の旅人は酒場の照明で他と色味が違う
 
 | 観察 | 内容（FACT: 画像） |
 | --- | --- |
@@ -140,7 +141,7 @@ CHARACTER-VIS-002 / プレイヤーキャラクター（剣士・魔法使い・
 | 頭身・比率 | 全員 5.0頭身。剣士だけ全高 2.54、他は 2.40〜2.42 | Human Decision（D-1 / DEC-T2-9）。変えるなら Escalation |
 | 頭部 | 5段の Loft、顎が細い逆三角形。奥行きを 0.85 倍に圧縮 | 造形の値で改善可能（顎・顎線の幅、頬の位置） |
 | 顔（目・眉・口） | 目の3層の板（8 / 6 / 4点）、眉・口なし | 目の板の滑らかさは改善可能。眉・口は HDR-T4-15 で Escalation |
-| 髪型 | 共通の殻＋円錐の房。被り物の隠れ判定で削る | 職ごとの髪の作り分けは「髪の新規造形」で、T-4 では範囲外とされた。新規に入れるかは計画で判断（下の §13 E 候補） |
+| 髪型 | 共通の殻＋円錐の房。被り物の隠れ判定で削る | 職ごとの髪の作り分けは「髪の新規造形」で、T-4 では範囲外とされた。新規に入れるかは計画で判断（下の Unknowns U-9） |
 | 衣装の立体感 | Loft の断面の点数が少なく、面が平ら。前開きの縁・ポケットは平らな板 | 衣服の Loft の断面・段数の改善で可能（形の承認内容を変えない範囲） |
 | 職業間のシルエット | 頭の外形は分かれる。腰〜裾は似る（筒） | 量感の改善で可能（S-a） |
 | 上位職 | 基礎職の衣服を継承し、白いレイヤーと部品を足す（P-a、Human 承認） | 維持。基礎職の改善がそのまま継承される構造 |
@@ -174,7 +175,7 @@ CHARACTER-VIS-002 / プレイヤーキャラクター（剣士・魔法使い・
 ## 9. 調査 E: 技術的なリスク
 | # | リスク | 根拠（FACT） | 影響 |
 | --- | --- | --- | --- |
-| R-1 | **影の旅人への波及** | 影の旅人は剣士の分岐（`06:1175` `isWanderer`）で作られ、BUILD（剣士）・頭・目・髪の殻・腕・手・指・脚・脛当て・胸当ての共通部品を共有 | 共通基盤や剣士の変更で DEC-034 の完成済みの見た目が変わる |
+| R-1 | **影の旅人への波及** | (a) 加入後: 剣士の分岐（`06:1175` `isWanderer`）で作られ、BUILD（剣士）・頭・目・髪の殻・腕・手・指・脚・脛当て・胸当ての共通部品を共有。(b) 加入前の姿 `buildRoadTravelerFigure`（`14-dungeon-road.js:46`）も `BUILD.warrior` を直接読み（`:48`）、`makeCharacterHead(HEAD_DIMS)`（グローバルの `HEAD_SECTION_RATIOS` / `HEAD_DEPTH_MUL`、`:109-110`）・`makeCharacterHairShell`（`:111`）・`makeGarmentLoft` を使う。(c) フード外套と DEC-034 の影の手の Geometry（`17-wanderer-style.js:151` / `:156`）も `makeGarmentLoft` | 共通の関数の既定値・BUILD.warrior・Loft の品質を変えると、加入前後の影の旅人と影の手の見た目が変わる（DEC-034）。`buildPlayer()` の中だけの切り離しでは足りない |
 | R-2 | 既存リグとの互換性 | 衣服・被り物は可動部の子。`playerMixerParts` の名前（torso / head / legL / kneeL 等）を他のファイル（`05`・`11`・`13-update-loop.js`・`14-hud-boot.js`・`17`）が参照 | 部品の名前・親子関係を変えると歩行・戦闘・影の旅人の差し込みが壊れる |
 | R-3 | 武器ソケット | `WEAPON_SOCKET` と手の位置の関係。T-4 で戦騎士の切っ先が床に届いた前例 | 体格・手の位置を変えると収納・握りがずれる |
 | R-4 | モーション再生 | STANCE / CLIPS は角度。体格の比率が変わると同じ角度で手の届く位置が変わる | 攻撃の見た目・武器の弧（判定は距離・角度だけで、メッシュ非依存 = 判定は不変） |
@@ -190,6 +191,7 @@ CHARACTER-VIS-002 / プレイヤーキャラクター（剣士・魔法使い・
 - 配色表・質感表（`player-palette.js`）と `applyPlayerPalette()`
 - Debug Motion Preview の RIG ブロック（CLOTH / PAL / OUTL の行）と、それを読む E2E（`character-clothing` / `character-palette` / `character-weapon-visual`）
 - `buildWandererHoodParts`（影の旅人の部品の共有方式。加入前後で同じ部品を使う作り方は、上位職の継承の参考になる）
+- `weldGeometries`（`02:495-515`）: 描画回数を減らすための既存の統合関数
 - 本調査の撮影手順（テストモード + 固定カメラの probe）。リポジトリには置いていない
 
 ## Risks
@@ -227,11 +229,11 @@ CHARACTER-VIS-002 / プレイヤーキャラクター（剣士・魔法使い・
 | U-1 | iPhone 実機の FPS と、描画回数の上限の目安 | 実機確認の項目にする。計画では描画回数を増やさないことを不変条件にし、減らす作業は独立の Work Item にする（Agent が決められる） |
 | U-2 | X 線の自己遮蔽がゲーム画面で目立つか | 計画の最初の撮影で確認。直すかどうかは見た目の変化を伴うため、計画で扱いを決める（バグ修正として Agent が決められる見込み。ただし見た目は Human の V-1） |
 | U-3 | 古い鎧の部品のうち、外から見えているもの | 撮影と部品ごとの表示 / 非表示の比較で確定できる（Agent） |
-| U-4 | 目の板の点数を増やすことが Human 確定事項の変更に当たるか | 確定したのは4つの値（大きさ・間隔・瞳・縦横比）。点数は Human が選んだ記録が無い。ただし T-4 の記録は「点数・輪郭は不変」と書いている → **ESCALATION 候補**として Human に確認するのが安全 |
+| U-4 | 目の板の点数を増やすことが Human 確定事項の変更に当たるか | 確定したのは4つの値（大きさ・間隔・瞳・縦横比）。「点数・輪郭は不変」は T-4 の実装時のコードのコメント（`06:866-868`）で、Human の決定ではない → Agent が決められる（見た目は V-1 で Human が確認） |
 | U-5 | 頭身を変えるか | **ESCALATION 候補**（D-1 / DEC-T2-9） |
-| U-6 | 眉・口を足すか | **ESCALATION 候補**（HDR-T4-15） |
+| U-6 | 眉・口を足すか | HDR-T4-15（追加しない）に従う。既存の決定から導けるため Escalation しない |
 | U-7 | 承認済みデザインの形をどこまで変えてよいか（品質の底上げに留めるか、デザインの再検討まで含めるか） | **ESCALATION 候補**（E-3。T-4 / T-5 の V-1 承認との関係） |
-| U-8 | 影の旅人を共通基盤の改善（顔・目・手）に追従させるか、現状で固定するか | **ESCALATION 候補**（DEC-034 / 依頼文「影の旅人の完成済みデザインを壊さない」）。既定は固定 |
+| U-8 | 影の旅人を共通基盤の改善（顔・目・手）に追従させるか | DEC-034 と依頼文「影の旅人の完成済みデザインを壊さない」から、固定する（Agent）。加入前の姿・フード・影の手も対象（R-1） |
 | U-9 | 職ごとの髪を作り分けるか（髪の新規造形） | 依頼文が「頭部・髪型に明確な個性」を目的に挙げているので、目的の範囲。魔法使いの長い髪は承認済みの設計の未実装分。Agent が計画に入れられる（V-1 は Human） |
 | U-10 | CHARACTER-VIS-001 の Task Level の Status（PLANNED のまま） | 全 Work Item が DONE / 取り下げで、§7.1 の DONE 条件を満たす。記録の整合は Agent が直せる（本 Task の範囲外の文書変更になるため、計画で扱いを決める） |
 
