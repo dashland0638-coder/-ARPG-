@@ -127,3 +127,33 @@ Reviewer は Analyzer / Planner とは別のコンテキストで実行した。
 
 ## Verdict
 **CHANGES_REQUIRED**（must-fix 1件: M-1。should-fix 7件、note 3件）
+
+## Round 2
+
+- Reviewed SHA: `031150c`（analysis 新版 `7caabaf` / blob `6eb47b9f`、計画 `fa872ca`、斜め45°の画像と Round 1 の report は `031150c`）
+- 範囲: Round 1 の指摘（M-1、S-1〜S-7、N-1〜N-3）と、修正で新しく入った問題。コードで照合した
+- Diff: `git diff --stat 3b168a2..HEAD -- src tests` は空。ソース・テストの変更なし — PASS
+- Handoff（新版）: `7caabaf` は HEAD の祖先、`7caabaf` の変更は analysis の1件のみ、1行目が一致、blob `6eb47b9f`（HEAD と同一）。H-7 は §5.2 の「新版」の規則（Status が `WAITING_APPROVAL` より前なので、Planner が H-1〜H-8 をやり直して `Analysis:` 行を更新する）どおり — PASS
+
+| # | Status | 確認 |
+| --- | --- | --- |
+| M-1 | **RESOLVED** | analysis R-1 に (a) 加入後 (b) 加入前の姿（`14:46` / `:48` / `:109-111`）(c) フードと影の手（`17:151` / `:156`）を FACT として追加（コードと一致）。計画 T-0 Step 1 で `14:48` の参照を `BUILD.wanderer` に替え（Files To Change に1か所だけの変更として明記、Files Not To Change に例外を記載）、Step 1b で共通の関数の既定の結果を固定して、改善は4職がオプションで選ぶ方式にした。Step 1c で `makeCharacterHead(HEAD_DIMS)`・髪の殻（`wanderer`）・`buildWandererHoodParts`・`shadowHandGeo`（`17:144` に実在）の頂点数と外接箱を固定する unit を追加。T-1 Step 1 / 2 / 4 と T-3 の髪も「既定値を変えない・`BUILD.wanderer` を変えない」に合わせて直した。テスト計画の `road2-join` / `road-stranger` / `wanderer-style` はすべて実在 |
+| S-1 | RESOLVED | E-4 を削除し、AD-3 に統合（加入前の姿・フード・影の手を含む）。T-1 の依存から外した |
+| S-2 | RESOLVED | E-2（顔）を AD-10 へ移した（HDR-T4-15 を守る、点数は `06:866-868` のコメントで Human の決定ではない）。E-1 の Trigger は E-9 を主にし、C の場合だけ E-2 とした（妥当） |
+| S-3 | RESOLVED | T-0 / T-7 を `PLANNED`（Escalation Check: None、着手の指示を受けた時点で Agent Approval を記入。AD-11）にした |
+| S-4 | RESOLVED | T-7 Step 1・AD-12・C-11 で `weldGeometries`（`02:495-515`）を使う方針にし、analysis の Existing System Search にも記録した |
+| S-5 | RESOLVED | 膝の球を T-3 の関節キャップ（`06:658-662`）として古い鎧から外した。肩当ての参照（`06:1784` / `:2274-2275` / `:2375-2376`）を T-0 Step 3 と T-7（統合しない部品）に反映した |
+| S-6 | RESOLVED | 「マテリアル構成の改善方針」M-1〜M-7 を追加（role を増やさない・色の値を変えない・dispose の除外・影の旅人の Material の分離・小物・計測）|
+| S-7 | RESOLVED | T-7 Step 2a（ゲームカメラで再現を確認し、再現しなければ直さない）と 2b（壁越しの X 線が出ることを撮影で確認、Human の V-1）、P-R9、Acceptance を追加 |
+| N-1 | RESOLVED | 髪の定義 `05:1881` / `05:1923`、`addOutline` `05:2129`、C-7 `06:774-782` に修正した |
+| N-2 | RESOLVED | `current-q45.jpg` を追加し、analysis §3 に記載した |
+| N-3 | 変更なし（note）| 旧 E-3 を E-2 に番号変更。そのままで許容できる |
+
+### Round 2 の新しい指摘
+- **R2-1（should-fix）Files To Change の `05` の行が T-1 の方針と食い違っている**: `05-rendering-rig.js` の行が今も「`HEAD_SECTION_RATIOS`、目の板の点数」を変更内容に挙げている。一方で T-0 Step 1b と T-1 Step 1 は「グローバルの `HEAD_SECTION_RATIOS` は変えない。新しい比率の表をオプションで渡す」としている。修正案: その行を「`makeCharacterHead` / 目の生成関数 / `makeGarmentLoft` / 髪の殻のオプション引数の追加と、4職用の新しい比率の表（既定値と `HEAD_SECTION_RATIOS` は不変）」に書き換える。後続の Implementer が誤読しやすい箇所だが、本文の Step と Acceptance（影の旅人の不変の unit）で守られるため、must-fix ではない
+- **R2-2（note）analysis の残り**: §5 の表（`:143`）に「眉・口は HDR-T4-15 で Escalation」が残っている（U-6・計画の AD-10 では Escalation しない）。Summary 5 は加入後だけを書いている（R-1 は直っている）。次に analysis を改訂するときに合わせればよい
+- **R2-3（note）壁越しの X 線の E2E**: T-7 Step 2b の「OUTL 行の X 線シェルの数」は、シェルがあることしか見られず、表示されることは確かめられない。主な確認は撮影と V-1 であることを明記するとよい
+- **R2-4（note）Out of Scope の「加入前の影の旅人」**: T-0 で `14` を1か所だけ変える（見た目は不変）ことと字面では食い違う。意味は「デザインの変更の対象外」なので、そう書き添えるとよい
+
+### Round 2 Verdict
+**PASS**（must-fix なし。should-fix 1件 R2-1、note 3件）

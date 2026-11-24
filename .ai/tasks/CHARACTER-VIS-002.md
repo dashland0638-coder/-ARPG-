@@ -7,6 +7,7 @@ Analysis: .ai/reports/CHARACTER-VIS-002-analysis.md（branch `claude/wanderer-re
 
 - Kind: `analysis` / Persisted by: `Agent`
 - Plan baseline: `claude/road-visual-003-r3-7` @ `3b168a227b577b136286cfedfe78626e620266f5`（PR #145・#146 を含む最新の積み上げ先）。`path:line` はこの版の行番号
+- Analyzer report の既知の記述のずれ（Review Round 2 R2-2、本 Task file を正とする）: report §5 の表の「眉・口は Escalation」は AD-10（HDR-T4-15 に従い追加しない）に、Summary の5番（加入後の影の旅人だけ）は report §9 R-1 と本 Task の T-0（加入前の姿・フード・影の手を含む）に読み替える
 - 比較資料（現状の撮影）: `.ai/reports/CHARACTER-VIS-002-assets/`（commit `f2806b7`、斜め45°を Round 1 で追加）
 
 ## Artifact Handoff 検証（H-1〜H-8、AGENTS.md §5.2）
@@ -151,7 +152,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | --- | --- | --- |
 | 1 | 同じ可動部（親）・同じ Material で、転身・差し替えで表示を切り替えない部品を、組み立ての最後に1つのメッシュへまとめる。統合には既存の `weldGeometries`（`02-world-common.js:495-515`。壁・柱の統合用に手書きされた関数。BufferGeometryUtils はコアのビルドに無い）を使い、部品の位置・回転を親の座標へ焼き込む処理だけ足す（§3）。切り替える部品（`warriorBaseDecor`・肩当て等）と武器はまとめない | 描画回数の主因（部品 × 4）。輪郭線・X 線はまとめた後のメッシュに付くので見た目は同じ |
 | 2a | X 線シェルの自己遮蔽の再現: ゲームカメラでカメラから離れる向きに歩く・攻撃する場面を撮影し、手などが胴越しに光るかを確認（report O-9 はキャラクター用の固定カメラでの FACT、ゲーム画面は INFERENCE）。再現しなければ Step 2b は行わず記録だけ残す | AD-6 |
-| 2b | 再現した場合だけ直す。方式は Implementer が選ぶ（例: X 線シェルの描画をプレイヤー本体の深度で隠さない順序にする / 対象を外形の大きい部品に限る）。**壁・柱に隠れたときの X 線の表示は今までどおり出ること**を撮影と E2E（OUTL 行の X 線シェルの数）で確認し、変更前後の画像を Human へ（V-1）| report O-9（既存の不具合）|
+| 2b | 再現した場合だけ直す。方式は Implementer が選ぶ（例: X 線シェルの描画をプレイヤー本体の深度で隠さない順序にする / 対象を外形の大きい部品に限る）。**壁・柱に隠れたときの X 線の表示は今までどおり出ること**を撮影と Human の目視で確認し（主な確認。OUTL 行の X 線シェルの数は構造の補助で、描画されることの証明にはならない）、変更前後の画像を Human へ（V-1）| report O-9（既存の不具合）|
 | 3 | 計測: T-0 の MESH 行で減少を確認し、E2E の上限を新しい値へ下げる | 回帰の防止 |
 
 ### T-8 全体統合・品質確認
@@ -163,7 +164,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 ## Files To Change（予定。承認された Work Item の行だけが有効）
 | ファイル | Work Item | 内容 |
 | --- | --- | --- |
-| `src/legacy/parts/05-rendering-rig.js` | T-0 / T-1 / T-3〜T-7 | BUILD（`wanderer` の追加、頭身の値）、`HEAD_SECTION_RATIOS`、目の板の点数、被り物・髪の定数と Coverage、`motionBodySnapshot`、`addXrayShell` / 輪郭線の付け方、`WEAPON_SOCKET` の収納 `off`（必要な職だけ）|
+| `src/legacy/parts/05-rendering-rig.js` | T-0 / T-1 / T-3〜T-7 | BUILD（`wanderer` の追加、4系列の頭身の値）、`makeCharacterHead`・目の生成関数・髪・`makeGarmentLoft` へのオプション引数の追加（4職が新しい頭の比率の表・目の板の点数・断面の丸みを渡す。グローバルの `HEAD_SECTION_RATIOS` と各関数の既定の結果は変えない = T-0 Step 1b）、被り物・髪の定数と Coverage（4職の分だけ）、`motionBodySnapshot`、`addXrayShell` / 輪郭線の付け方、`WEAPON_SOCKET` の収納 `off`（必要な職だけ）|
 | `src/legacy/parts/06-player-enemy.js` | T-0〜T-7 | `buildPlayer()`（共通の体・各職の被り物・衣服・髪・影の旅人の固定）、`applyJobPromotionVisual()`、部品の統合 |
 | `src/core/motion-preview.js` | T-0 | RIG ブロックの MESH 行 |
 | `src/legacy/parts/14-dungeon-road.js` | T-0 | `buildRoadTravelerFigure` の `BUILD.warrior` → `BUILD.wanderer` の参照の差し替え1か所のみ（見た目は不変）|
@@ -224,7 +225,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 ## Out of Scope
 - モーション（待機の立ち姿が全員同じ問題 = report O-5 / G-6 を含む）。必要なら別 Task（下の「次の Task 候補」）
 - 配色の変更、武器の形・大きさ・持ち方、攻撃 VFX・魔法陣・足元リング
-- 支援AI（D-5）、NPC・敵・ボス、加入前の影の旅人
+- 支援AI（D-5）、NPC・敵・ボス。加入前の影の旅人はデザイン変更の対象外（T-0 の `BUILD.wanderer` への参照の差し替え1か所だけ行う）
 - セルシェーディング・新しい Material 基盤、撮影比較テストの基盤
 - 新しい職業・装備の着せ替え・キャラクターメイクの拡張
 
@@ -327,7 +328,7 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 - Human Escalation Count: 1（E-1・E-2 を1回の Escalation にまとめて送る）
 - Human Decision Count: 0
 - Auto Fix Count: 1（Review Round 1 の指摘への修正）
-- Reviewer Round Count: 1（Round 1 = CHANGES_REQUIRED、修正後の Round 2 は下の Status History）
+- Reviewer Round Count: 2（Round 1 = CHANGES_REQUIRED、Round 2 = PASS）
 - Test Retry Count: 0
 - PR Created:（下の Status History）
 
@@ -339,3 +340,5 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-24 | Task | ANALYZING → PLANNED | Planner | Artifact Handoff（Kind `analysis`、`51ed36a`、blob `3fd9a39c`）H-1〜H-8 PASS。T-0〜T-8 を計画。T-0 / T-7 は Agent Approval（着手は Human の指示待ち）、T-1〜T-6 は E-1〜E-4 の回答待ち（WAITING_APPROVAL）。初版の計画 commit `4a3aa48` |
 | 2026-11-24 | Task | PLANNED（変更なし）| Reviewer | `.ai/reports/CHARACTER-VIS-002-plan-review.md` Round 1 = CHANGES_REQUIRED（M-1: 加入前の影の旅人・フード・影の手が共通の関数と BUILD.warrior を使う。S-1〜S-7、N-1〜N-3）|
 | 2026-11-24 | Task | PLANNED（変更なし）| Planner | Round 1 の指摘を反映: Analyzer report の新版（`7caabaf`、blob `6eb47b9f`）で Handoff をやり直し H-1〜H-8 PASS。T-0 に共通関数の既定値の固定（オプションで4職が選ぶ）と影の旅人の不変の unit を追加、E-2（顔）・E-4（影の旅人）を Agent Decision（AD-10 / AD-3）へ、旧 E-3 を E-2 に、T-0 / T-7 を PLANNED（AD-11）、T-7 は `weldGeometries`（AD-12）と X 線の再現・壁越しの確認、マテリアル構成の節を追加 |
+| 2026-11-24 | Task | PLANNED（変更なし）| Reviewer | Round 2 = **PASS**（Reviewed SHA `031150c`、別コンテキストの Reviewer）。R2-1（should-fix）、R2-2〜R2-4（note）|
+| 2026-11-24 | Task | PLANNED（変更なし）| Planner | R2-1・R2-3・R2-4 を本文へ反映、R2-2 は report を改訂せず本 Task の読み替えとして記録（Handoff の版を増やさないため）|
