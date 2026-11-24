@@ -330,7 +330,7 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 - Auto Fix Count: 1（Review Round 1 の指摘への修正）
 - Reviewer Round Count: 2（Round 1 = CHANGES_REQUIRED、Round 2 = PASS）
 - Test Retry Count: 0
-- PR Created:（下の Status History）
+- PR Created: Yes（#147、文書のみ、base `claude/road-visual-003-r3-7`）
 
 ## Status History
 | Date | Target | From → To | By | Note |
