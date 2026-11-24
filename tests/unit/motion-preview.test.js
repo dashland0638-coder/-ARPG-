@@ -217,6 +217,20 @@ test('motionDebugLines', async t=>{
     assert.match(none, /^ OUTL\s+-$/m);
   });
 
+  await t.test('RIG ブロック ―― 描画の量の行(CHARACTER-VIS-002 T-0)', ()=>{
+    const rig = {relaxWeight:1, stopBlend:1, combatBlend:0, walkArmW:null,
+      shL:[0,0,0], shR:[0,0,0], elL:0, elR:0, wep:null, cloth:12,
+      mesh:{body:82, total:325, tris:15744.4, mats:20}};
+    const text = motionDebugLines(Object.assign({}, base, {rig})).join('\n');
+    // 本体 / 全体(描画回数)、三角形、固有 Material
+    assert.match(text, /^ MESH\s+82\/325  TRI 15744  MAT 20$/m);
+    const missing = motionDebugLines(Object.assign({}, base,
+      {rig:Object.assign({}, rig, {mesh:{body:82, total:null, tris:10, mats:3}})})).join('\n');
+    assert.match(missing, /^ MESH\s+82\/-  TRI 10  MAT 3$/m);
+    const none = motionDebugLines(Object.assign({}, base, {rig:Object.assign({}, rig, {mesh:null})})).join('\n');
+    assert.match(none, /^ MESH\s+-$/m);
+  });
+
   await t.test('RIG ブロック ―― 体格の行(CHARACTER-VIS-001 T-2)', ()=>{
     const rig = {relaxWeight:1, stopBlend:1, combatBlend:0, walkArmW:null,
       shL:[0,0,0], shR:[0,0,0], elL:0, elR:0, wep:null,

@@ -45,7 +45,7 @@
      シーンへ移して 0.45 秒遅らせる(DEC-030 / DEC-031) */
   function buildRoadTravelerFigure(seated){
     const TRAVELER_FIG_SCALE = 0.82;
-    const B = BUILD.warrior;
+    const B = BUILD.wanderer;   // CHARACTER-VIS-002 T-0: 加入後と同じ独立の行(剣士の改善に巻き込まない)
     const headR = B.headR;
     const M = (c, r)=> new THREE.MeshStandardMaterial({color:c, roughness:r == null ? 0.88 : r});
     const pal = resolvePalette('wanderer');   // 加入後のリグと同じ配色の行(DEC-034 §2-3)

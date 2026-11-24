@@ -1997,7 +1997,7 @@
      性別で選ばない(各キャラクターの性別はゲーム内で固定 ―― 章の固定
      キャスト CHAPTER_CAST)。上位職は系列の BUILD をそのまま使う
      (battleKnight→warrior / archmage→mage / hawkEye→archer / berserker→rogue)。
-     影の旅人(wanderer)は剣士の BUILD(buildPlayer のフォールバック)。
+     影の旅人(wanderer)は独立の行 BUILD.wanderer(CHARACTER-VIS-002 T-0。値は剣士の写しで固定)。
 
      すべて絶対値(m)。相対倍率は持たない。構造上の派生値は buildPlayer 側で
      計算し、次の整合を checkBuild() が検査する:
@@ -2053,6 +2053,21 @@
       upperLen:0.40, foreLen:0.38,
       chest:0.215, shoulderOut:0.045, hipR:0.185, pelvisH:0.28, pelvisDrop:0.25,
       stanceW:0.100, thigh:0.085, calf:0.066, upper:0.060, forearm:0.052, neck:0.058,
+      strideAmp:1.00, armSwing:1.00, hipSway:0.55, shoulderRoll:1.15,
+      bobAmp:1.05, kneeLift:1.00, idleShift:0.7
+    },
+    /* 影の旅人(CHARACTER-VIS-002 T-0): DEC-034 で完成した体格を固定する独立の行。
+       値は剣士の行(2026-11-24 時点)の写しで、見た目は変わらない。以前は剣士の行を
+       共有していた(buildPlayer のフォールバック、加入前の姿 buildRoadTravelerFigure は
+       BUILD.warrior を直接参照)ため、CHARACTER-VIS-002 で剣士の頭身・体格を変えると
+       影の旅人まで変わる構造だった。剣士の行を変えてもこの行は変えない
+       (tests/unit/wanderer-visual-freeze.test.js が値を固定) */
+    wanderer: {
+      stature:2.54, headR:0.254, hairR:0.2735, headGap:0.29,
+      height:0.796, hipY:1.20, thighLen:0.615, calfLen:0.585,
+      upperLen:0.42, foreLen:0.40,
+      chest:0.24, shoulderOut:0.060, hipR:0.20, pelvisH:0.30, pelvisDrop:0.27,
+      stanceW:0.110, thigh:0.095, calf:0.075, upper:0.070, forearm:0.058, neck:0.065,
       strideAmp:1.00, armSwing:1.00, hipSway:0.55, shoulderRoll:1.15,
       bobAmp:1.05, kneeLift:1.00, idleShift:0.7
     }
@@ -3926,10 +3941,28 @@
       };
       outl = { wep: count([P.weapon, P.offhandWeapon]), deco: count(P.jobDecorMeshes || []) };
     }
+    /* 描画の量(CHARACTER-VIS-002 T-0)。player の中で見えているメッシュのうち、本体
+       (輪郭線・X 線シェル以外)の数・全体の数(1 メッシュ = 1 回の描画)・三角形の数・
+       本体の固有 Material の数。描画回数の予算を E2E で見張るための検証用 */
+    let mesh = null;
+    if(player){
+      let body = 0, total = 0, tris = 0;
+      const mats = new Set();
+      player.traverseVisible(o=>{
+        if(!o.isMesh || !o.geometry) return;
+        total++;
+        const g = o.geometry;
+        tris += g.index ? g.index.count/3 : (g.attributes.position ? g.attributes.position.count/3 : 0);
+        if(o.userData && (o.userData.isOutline || o.userData.isXray)) return;
+        body++;
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m=>{ if(m) mats.add(m); });
+      });
+      mesh = { body, total, tris: Math.round(tris), mats: mats.size };
+    }
     return {
       headsTall: top / (2 * B.headR), stature: top, handY, beltY: B.hipY,
       shoulderW, shoulderRatio: shoulderW / top, shoulderPerHead: shoulderW / (2 * B.headR),
-      hipW, hipRatio: hipW / top, cloth, pal, outl,
+      hipW, hipRatio: hipW / top, cloth, pal, outl, mesh,
     };
   }
 

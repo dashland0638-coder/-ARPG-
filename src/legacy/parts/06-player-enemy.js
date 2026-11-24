@@ -547,10 +547,12 @@
     const group = new THREE.Group();
     const isFemale = gender === 'female';   // 髪色など見た目の既存用途だけ(体格は BUILD)
     // CHARACTER-VIS-001 T-2: 体格はキャラクター系列ごとの固定 BUILD。上位職は
-    // classDef.key が基礎職のままなので系列を継承し、影の旅人(wanderer)ほか
-    // 表に無いキーは剣士の BUILD
-    const B = BUILD[classDef.key] || BUILD.warrior;
-    checkBuild(classDef.key, B);
+    // classDef.key が基礎職のままなので系列を継承し、表に無いキーは剣士の BUILD。
+    // 影の旅人(charKey)は classDef.key が剣士(kit)のままでも独立の BUILD.wanderer
+    // (CHARACTER-VIS-002 T-0: 剣士の体格の改善に巻き込まない。値は同じ)
+    const buildKey = classDef.charKey === 'wanderer' ? 'wanderer' : classDef.key;
+    const B = BUILD[buildKey] || BUILD.warrior;
+    checkBuild(buildKey, B);
     const bodyH = B.height;
     const HIP_Y = B.hipY;      // the belt line: legs below, torso above
     const bodyR = B.chest;
