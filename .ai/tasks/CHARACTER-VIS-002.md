@@ -421,6 +421,14 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 関連 E2E 67件（`character-visual-budget`〔新規 9〕・`character-clothing`・`character-palette`・`character-weapon-visual`・`character-motion`・`weapon-stow`・`battle-knight-visual`・`wanderer-renewal`・`road2-join`）| **67 PASS**（FLAKY・FAIL なし）|
 | 全 E2E | CI で実行（PR #147）|
 
+### Autonomy Metrics（T-0）
+- Human Escalation Count: 0
+- Human Decision Count: 1（DEC-035: E-1 = A・E-2 = A・追加要求・T-0 の着手）
+- Auto Fix Count: 2（unit の代役の更新 1、Review R-1 の修正 1）
+- Reviewer Round Count: 1（PASS）
+- Test Retry Count: 0
+- PR Created: Yes（#147 を更新）
+
 ## Status History
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |
