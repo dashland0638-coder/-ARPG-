@@ -82,7 +82,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 ## Work Items
 | ID | Summary | Status | Approval | 依存 | 見た目の変化 |
 | --- | --- | --- | --- | --- | --- |
-| T-0 | 基準づくり: 影の旅人（加入前後・影の手）の切り離し、外見の計測行、見えない古い鎧の部品の調査 | REVIEWING（下の Implementation Result（T-0））| [x] | なし | **なし**（形のシグネチャの一致で確認）|
+| T-0 | 基準づくり: 影の旅人（加入前後・影の手）の切り離し、外見の計測行、見えない古い鎧の部品の調査 | DONE（Reviewer PASS、下の Implementation Result（T-0））| [x] | なし | **なし**（形のシグネチャの一致で確認）|
 | T-1 | 共通の顔・頭（頭身の確定、頭の下半分の丸み、目の板の滑らかさ、首と襟）と共通の接合部（joint analysis の J-1・J-2・J-4・J-7・J-8、J-9 の方針）| WAITING_APPROVAL（**Human の頭身の選択待ち**: 比較画像 `CHARACTER-VIS-002-assets/head-ratio-compare.jpg`）| [ ] | T-0、頭身の選択 | あり（4職）|
 | T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続。戦騎士への継承の確認 | PLANNED | [ ] | T-1 | あり |
 | T-3 | 魔法使い: 長く広がった髪（承認済み設計の実装）、コートの前開き・袖、キャスケットの丸み、横の髪の浮き（J-3）・箱型の袖（J-5）| PLANNED | [ ] | T-2 | あり |
@@ -356,7 +356,7 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | `tests/unit/motion-preview.test.js` | MESH 行の unit |
 | `tests/unit/wanderer-visual-freeze.test.js`（新規）| BUILD.wanderer の値・独立性、加入前後の参照、共通関数の既定値（頭の断面の比率・奥行き・目の板の点数）|
 | `tests/unit/road-stranger.test.js` | 加入前の姿を動かす unit の代役の BUILD を `wanderer` の行へ（加入前の姿が参照する行が変わったため。値は同じ。assert は変えていない）|
-| `tests/character-visual-budget.spec.js`（新規）| 4基礎職・上位4職の描画の量の上限（T-0 の記録値）、影の旅人の形のシグネチャ（加入後・加入前の立ち / 座り・影の手）と描画の量の一致 |
+| `tests/character-visual-budget.spec.js`（新規）| 4基礎職・上位4職の描画の量の上限（T-0 の記録値）、影の旅人の形のシグネチャ（加入後のリグ・加入前の立ち / 座りは probe の中で組み立て直して変形込み、影の手は Geometry と Material）と描画の量の一致。期待値は `3b168a2`（変更前）の worktree でも同じ値になることを確認 |
 
 変えていない: 見た目（形・配色・Material の値）、モーション、`17-wanderer-style.js`、`13-update-loop.js`、セーブ、戦闘
 
@@ -366,7 +366,7 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 9キャラクターのリグの形 | probe で、木の形・各メッシュのジオメトリ（種類・頂点数・インデックス数・外接箱・頂点座標のチェックサム）・Material（種類・色・発光・質感・透過・flatShading・面・テクスチャの有無）・表示フラグからハッシュを作り、変更前（`3b168a2`）と変更後で比較 | **9キャラクターとも一致**（変更前は2回取得して再現性を確認）|
 | 加入前の影の旅人（立ち・酒場の座り）| 同上（組み立て直後の変形も含める）| **一致** |
 | 影の手の形 | 影の手の Geometry と Material | **一致** |
-| 検査が変化を検出できること | 共通の頭の断面（顎の幅）を一時的に変える / 影の旅人を剣士の行に戻して剣士の頭を大きくする | **どちらも失敗として検出**（変更は元に戻した）|
+| 検査が変化を検出できること | 共通の頭の断面（顎の幅）を一時的に変える / 影の旅人を剣士の行に戻して剣士の頭を大きくする / 首の位置だけを約 7 cm 下げる（`06` の `neck.position.y` の `bodyH*0.99` → `0.90`。Review R-1 の指摘を受け、加入後のリグを probe の中で組み立て直して変形も比べる方式に変えた後）| **3つとも失敗として検出**（変更は元に戻した）|
 
 ### 描画回数（変更前後、同じ条件）
 条件: Playwright（Chromium・ソフトウェア描画）、1280×800、テストモードのトレーニング空間（旧既定のルール、Lv 50、敵なし）、待機の立ち姿で約1.2秒後。影の旅人は第一章を終えたセーブの酒場。「画面」は `renderer.info.render.calls`（シーン全体の1フレーム）。
@@ -434,3 +434,5 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-24 | Task | PLANNED → IMPLEMENTING | Human / Planner | Human Decision DEC-035（E-1 = A、E-2 = A、ポリゴン接合とモーション刷新の追加、T-0 の着手）。T-0 Agent Approval。T-1〜T-6 の E-1・E-2 依存を解除（T-1 は頭身の選択待ち）|
 | 2026-11-24 | T-0 | APPROVED → IMPLEMENTING → TESTING | Implementer | 下の Implementation Result（T-0）。見た目の不変を形のシグネチャで確認 |
 | 2026-11-24 | T-0 | TESTING → REVIEWING | Implementer | build / unit / 関連 E2E PASS。独立 Reviewer へ |
+| 2026-11-24 | T-0 | REVIEWING（変更なし）| Reviewer | `.ai/reports/CHARACTER-VIS-002-T0-review.md` **PASS**（Reviewed SHA `cc1b8f1`、別コンテキストの Reviewer、Round 1/3）。should-fix R-1（加入後のリグのシグネチャが変形を含まない）、note R-2〜R-6 |
+| 2026-11-24 | T-0 | REVIEWING → DONE | Implementer / Orchestrator | R-1 を反映（加入後のリグを probe の中で組み立て直し変形込みで比較。首の位置だけの変更を検出することを確認、期待値は変更前 `3b168a2` でも一致）。R-3 / R-4 の記録を更新。R-2（デバッグ表示の毎フレームの走査）は許容範囲として記録のみ。R-5: 比較画像は本 Task file の値の表とあわせて Human へ提示 |

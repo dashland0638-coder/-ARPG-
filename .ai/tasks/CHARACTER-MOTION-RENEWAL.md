@@ -3,7 +3,7 @@
 Status: PLANNED（今回は調査と計画のみ。実装は別途、計画・レビューを経て Human の指示で着手。DEC-035）
 優先度: 通常。CHARACTER-VIS-002（造形）と並行実装しない
 
-Analysis: .ai/reports/CHARACTER-MOTION-RENEWAL-analysis.md（作業ブランチ `claude/wanderer-renewal-001-nhlxns`。Persistence 後に Source SHA / blob を Status History へ記録）
+Analysis: .ai/reports/CHARACTER-MOTION-RENEWAL-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `0fe3195ae90211060f6863dcce1a0b10e08e32cf`、blob `0230126191bc11135980a42b1fa69a652444ac5b`）
 
 ## Goal
 DEC-035（Human 2026-11-24）: 現状のモーションはプロトタイプ段階。キャラクターの見た目だけでなく、アクションゲームとして魅力的な動作へ改善する。

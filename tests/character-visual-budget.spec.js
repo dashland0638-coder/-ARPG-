@@ -6,8 +6,8 @@
  *   足すときに、描画回数が増えていないかを見張る(減るのは可。減らしたら値を下げる)
  * ・影の旅人: 加入後のリグ・加入前の姿(立ち・座り)・影の手の「形のシグネチャ」が T-0 の記録値と一致。
  *   シグネチャは、木の形・各メッシュのジオメトリ(種類・頂点数・インデックス数・外接箱)・Material
- *   (種類・色・質感・表示の設定)・表示フラグから作るハッシュで、アニメーションで動く変形は含めない。
- *   加入前の姿は変形も含める(組み立て直後の値)。DEC-034 で完成した見た目を、4職の改善
+ *   (種類・色・質感・表示の設定)・表示フラグ・変形から作るハッシュ。
+ *   加入後のリグ・加入前の姿は probe の中で組み立て直し、組み立て直後の変形も含める。DEC-034 で完成した見た目を、4職の改善
  *   (共通の関数・剣士の体格)に巻き込まないための回帰テスト。影の旅人の見た目を意図して変える
  *   ときだけ、Human の承認を得て期待値を更新する
  *
@@ -60,7 +60,15 @@ const PROBE = `
   }
   return {
     sigs(){
-      const out = { player: hash(treeSig(player, false)) };
+      /* 加入後のリグは、ゲーム中のものを使わずにここで組み立て直し、組み立て直後の変形(位置・回転・
+         拡大)も含めて比べる ―― ゲーム中のリグは待機のアニメーションで部品が動くため、変形を比べられない。
+         組み立ては共有変数(playerMixerParts)を書くので、元へ戻してシーンからも外す */
+      const keepParts = playerMixerParts;
+      playerMixerParts = {};
+      const fresh = buildPlayer(state.classDef, selectedGender);
+      scene.remove(fresh);
+      playerMixerParts = keepParts;
+      const out = { player: hash(treeSig(fresh, true)) };
       if(typeof buildRoadTravelerFigure === 'function'){
         out.prejoin = hash(treeSig(buildRoadTravelerFigure(false), true));
         out.prejoinSeated = hash(treeSig(buildRoadTravelerFigure(true), true));
@@ -87,7 +95,7 @@ const BUDGET = [
 ];
 const WANDERER = {
   mesh: {body:82, total:322, tris:15508, mats:16},
-  sig: {player:'5fa1eb90/341', prejoin:'4aeddb73/31', prejoinSeated:'4e1507f0/35', hand:'b9781fa3/8'},
+  sig: {player:'ef435a21/341', prejoin:'4aeddb73/31', prejoinSeated:'4e1507f0/35', hand:'b9781fa3/8'},
 };
 
 async function readMesh(page){
@@ -156,13 +164,13 @@ test('影の旅人: 加入後・加入前(立ち・座り)・影の手の形が 
   await expect(page.locator('#hud-name')).toContainText('影の旅人');
   await page.waitForFunction(() => /** @type {any} */ (window).__cvb);
   await page.waitForTimeout(700);
+  const m = await readMesh(page);
+  expect(m, '描画の量').toEqual(WANDERER.mesh);
   const sig = await page.evaluate(() => /** @type {any} */ (window).__cvb.sigs());
   if (process.env.CVB_PRINT) console.log('CVB_SIG ' + JSON.stringify(sig));
   expect(sig.player, '加入後のリグの形').toBe(WANDERER.sig.player);
   expect(sig.prejoin, '加入前の姿(立ち)の形').toBe(WANDERER.sig.prejoin);
   expect(sig.prejoinSeated, '加入前の姿(酒場の座り)の形').toBe(WANDERER.sig.prejoinSeated);
   expect(sig.hand, '影の手の形').toBe(WANDERER.sig.hand);
-  const m = await readMesh(page);
-  expect(m, '描画の量').toEqual(WANDERER.mesh);
   expect(errors, `コンソールエラーが無いこと:\n${errors.join('\n')}`).toEqual([]);
 });
