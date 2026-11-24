@@ -37,7 +37,8 @@ const STRANGER = '？？？', TRAVELER = '影の旅人';
 /* 加入前の姿は加入後のリグと同じ造形部品で組む(WANDERER-RENEWAL-001)。部品は
    05-rendering-rig.js の共有スコープにあるので、ここでは形だけの代役を渡す(makePlate は実物) */
 const rigStubs = [
-  'const BUILD = {warrior:{headR:0.254, headGap:0.29, height:0.796, hipY:1.20, thighLen:0.615, calfLen:0.585, chest:0.24, stanceW:0.110, thigh:0.095, calf:0.075}};',
+  // 加入前の姿は影の旅人の独立の行 BUILD.wanderer を使う(CHARACTER-VIS-002 T-0。値は剣士の写し)
+  'const BUILD = {wanderer:{headR:0.254, headGap:0.29, height:0.796, hipY:1.20, thighLen:0.615, calfLen:0.585, chest:0.24, stanceW:0.110, thigh:0.095, calf:0.075}};',
   'const HEAD_DEPTH_MUL = 0.85, HEAD_BACK_Z = -0.05;',
   'const makeGarmentLoft = () => new THREE.BoxGeometry(0.2, 0.2, 0.2);',
   'const makeOpenGarmentLoft = () => new THREE.BoxGeometry(0.2, 0.2, 0.2);',

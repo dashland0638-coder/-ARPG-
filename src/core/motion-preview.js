@@ -177,6 +177,14 @@ export function motionDebugLines(snap){
     } else {
       lines.push(' OUTL   -');
     }
+    /* 描画の量(CHARACTER-VIS-002 T-0)。見えている本体のメッシュ / 全メッシュ(輪郭線・
+       X 線シェルを含む = 描画回数)、三角形、本体の固有 Material の数 */
+    if(r.mesh){
+      const n = v => has(v) ? String(Math.round(Number(v))) : '-';
+      lines.push(' MESH   ' + n(r.mesh.body) + '/' + n(r.mesh.total) + '  TRI ' + n(r.mesh.tris) + '  MAT ' + n(r.mesh.mats));
+    } else {
+      lines.push(' MESH   -');
+    }
     lines.push(' SH.L  ' + vec3(r.shL));
     lines.push(' SH.R  ' + vec3(r.shR));
     lines.push(' EL.L  ' + deg(r.elL) + '   EL.R ' + deg(r.elR));
