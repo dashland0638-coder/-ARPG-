@@ -3,23 +3,23 @@
 Status: PLANNED（Work Item ごとの状態は下の表。今回の依頼は Analyzer / Planner まで。実装は Human の次の指示から）
 優先度: 通常。WANDERER-RENEWAL-001（影の旅人の全面刷新）の後に行う（完了済み: PR #145 / #146 merge）
 
-Analysis: .ai/reports/CHARACTER-VIS-002-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `51ed36ab32ccec5bb8f80181403016ec78156cc4`、blob `3fd9a39c31e926de017909dc1e58c1faa3affd38`）
+Analysis: .ai/reports/CHARACTER-VIS-002-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `7caabaf1ef5381d71e8b97db5dceedef47e87c11`、blob `6eb47b9f987ccccbc7363e90d84f6b7f9d6260e5`。初版 `51ed36a` / blob `3fd9a39c` を Review Round 1 の指摘で改訂した新版）
 
 - Kind: `analysis` / Persisted by: `Agent`
 - Plan baseline: `claude/road-visual-003-r3-7` @ `3b168a227b577b136286cfedfe78626e620266f5`（PR #145・#146 を含む最新の積み上げ先）。`path:line` はこの版の行番号
-- 比較資料（現状の撮影）: `.ai/reports/CHARACTER-VIS-002-assets/`（commit `f2806b7`）
+- 比較資料（現状の撮影）: `.ai/reports/CHARACTER-VIS-002-assets/`（commit `f2806b7`、斜め45°を Round 1 で追加）
 
 ## Artifact Handoff 検証（H-1〜H-8、AGENTS.md §5.2）
 | # | 確認 | 結果 |
 | --- | --- | --- |
-| H-1 | `git merge-base --is-ancestor 51ed36a… origin/claude/wanderer-renewal-001-nhlxns` | PASS |
-| H-2 | `git cat-file -e 51ed36a…:.ai/reports/CHARACTER-VIS-002-analysis.md` | PASS |
-| H-3 | `git diff --name-only 51ed36a…^ 51ed36a…` → analysis の1件のみ | PASS |
+| H-1 | `git merge-base --is-ancestor 7caabaf… origin/claude/wanderer-renewal-001-nhlxns` | PASS |
+| H-2 | `git cat-file -e 7caabaf…:.ai/reports/CHARACTER-VIS-002-analysis.md` | PASS |
+| H-3 | `git diff --name-only 7caabaf…^ 7caabaf…` → analysis の1件のみ | PASS |
 | H-4 | Path と1行目 `# CHARACTER-VIS-002 Analysis` | PASS |
 | H-5 | Kind `analysis` | PASS |
-| H-6 | `git rev-parse 51ed36a…:<Path>` = `3fd9a39c31e926de017909dc1e58c1faa3affd38` | PASS |
-| H-7 | 同じ `(Task ID, Kind)` の既存記録なし（本 Task file は DRAFT の登録だけで Analysis 行は無かった） | PASS |
-| H-8 | `git show 51ed36a…:<Path>` で読んだ | PASS |
+| H-6 | `git rev-parse 7caabaf…:<Path>` = `6eb47b9f987ccccbc7363e90d84f6b7f9d6260e5` | PASS |
+| H-7 | 同じ `(Task ID, Kind)` の記録は初版（`51ed36a`）のみ。Review Round 1 の指摘による新版として差し替え（初版の記録は Status History に残す） | PASS |
+| H-8 | `git show 7caabaf…:<Path>` で読んだ | PASS |
 
 ## Goal
 Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊と各上位職について、各職業の個性・可愛らしさ・シルエット・装備・動作の特徴を維持しながら、キャラクター全体の完成度を引き上げる。単に見た目を変えるのではない。リアル化・ポリゴン数の増加を品質向上とみなさない。影の旅人は改修対象外（品質・造形・モーション設計の参考基準）。
@@ -45,12 +45,12 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | 髪 | 全職共通の殻 + 円錐の房。魔法使いの「長く広がった髪」は未実装 | `06:916-1100`、CHARACTER-VIS-001 T-4 記録 |
 | 撮影の所見 | 顔が大人びる / 目の角 / つばで目が隠れる（弓師・鷹の目・盗賊・バーサーカー）/ 体が四角い筒 / 待機姿勢が同じ / 髪の作り分けなし / X 線シェルの自己遮蔽 | report §3 O-1〜O-10 |
 | 負荷 | 1人で表示メッシュ 285〜361、描画回数 300〜376（部品 × 4: 本体・輪郭線2枚・X 線） | report §4 |
-| 影の旅人 | 剣士の分岐で作られ、BUILD・頭・目・腕・脚などの共通部品を共有 | report §9 R-1、`06:1175` |
-| 古い鎧の部品 | 胸当て・膝の球・脛当て・足首の帯・籠手・肩当てが共通の体に残る（多くは衣服の下） | `06:664-690`、`06:732`、`06:1740`、`06:1777` |
+| 影の旅人 | 加入後は剣士の分岐で作られ、BUILD・頭・目・腕・脚などの共通部品を共有。加入前の姿（`buildRoadTravelerFigure`）も `BUILD.warrior`・`makeCharacterHead`（グローバルの頭の比率）・`makeCharacterHairShell`・`makeGarmentLoft` を使い、フード外套と影の手も `makeGarmentLoft` | report §9 R-1、`06:1175`、`14-dungeon-road.js:46-111`、`17-wanderer-style.js:151-156` |
+| 古い鎧の部品 | 胸当て・脛当て・足首の帯・籠手・肩当てが共通の体に残る（多くは衣服の下）。肩当ては転身の表示切り替えが参照。膝の球は T-3 の関節キャップで鎧ではない | `06:664-690`、`06:732`、`06:1740`、`06:1777`、`06:2274-2275`・`06:2375-2376` |
 | セーブ | 外見はセーブに無い | report §2 |
 
 ## 全体設計（Planner）
-**方針: 「デザインを作り直す」のではなく「承認済みのデザインを、可愛く・読みやすく作り直す」**（Escalation E-3 の推奨案 A）。
+**方針: 「デザインを作り直す」のではなく「承認済みのデザインを、可愛く・読みやすく作り直す」**（Escalation E-2 の推奨案 A）。
 過去の改修で可愛さが失われた原因（report Root Cause の INFERENCE: 頭が小さい・顎が細い・角の立った目・平らな筒）を、
 衣服の種類や配色に手を付けずに、**顔・頭・目・面の丸み・量感・被り物の位置・髪**で直す。
 
@@ -81,38 +81,40 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 ## Work Items
 | ID | Summary | Status | Approval | 依存 | 見た目の変化 |
 | --- | --- | --- | --- | --- | --- |
-| T-0 | 基準づくり: 影の旅人の切り離し、外見の計測行、見えない古い鎧の部品の整理 | APPROVED（Agent Approval）| [x] | なし | **なし**（変化しないことを撮影の差分で確認）|
-| T-1 | 共通の顔・頭（頭の下半分の丸み、目の板の滑らかさ、首と襟の接続）と頭身の比較 | WAITING_APPROVAL | [ ] | T-0、E-1・E-2・E-4 | あり（全員）|
-| T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続。戦騎士への継承の確認 | WAITING_APPROVAL | [ ] | T-1、E-3 | あり |
-| T-3 | 魔法使い: 長く広がった髪（承認済み設計の実装）、コートの前開き・袖、キャスケットの丸み | WAITING_APPROVAL | [ ] | T-2、E-3 | あり |
-| T-4 | 弓師: 帽子の位置とつば（目を出す）、毛皮の襟、短丈上着の裾 | WAITING_APPROVAL | [ ] | T-2、E-3 | あり |
-| T-5 | 盗賊: フードの丸み、帽子の位置、オーバーオールの胸当て | WAITING_APPROVAL | [ ] | T-2、E-3 | あり |
-| T-6 | 上位職の仕上げ: 魔導士の銀髪・バーサーカーのフード・戦騎士 / 鷹の目の継承の調整 | WAITING_APPROVAL | [ ] | T-2〜T-5、E-3 | あり |
-| T-7 | 描画回数の削減（見た目を変えない統合）と X 線シェルの自己遮蔽の修正 | APPROVED（Agent Approval）| [x] | T-0（T-1〜T-6 と並行しない）| 自己遮蔽の光る手が消える以外はなし |
+| T-0 | 基準づくり: 影の旅人（加入前後・影の手）の切り離し、外見の計測行、見えない古い鎧の部品の整理 | PLANNED（Escalation Check: None。Agent Approval は Human の着手指示で記入）| [ ] | なし | **なし**（変化しないことを撮影の差分で確認）|
+| T-1 | 共通の顔・頭（頭の下半分の丸み、目の板の滑らかさ、首と襟の接続）と頭身の比較 | WAITING_APPROVAL | [ ] | T-0、E-1・E-2 | あり（全員）|
+| T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続。戦騎士への継承の確認 | WAITING_APPROVAL | [ ] | T-1、E-2 | あり |
+| T-3 | 魔法使い: 長く広がった髪（承認済み設計の実装）、コートの前開き・袖、キャスケットの丸み | WAITING_APPROVAL | [ ] | T-2、E-2 | あり |
+| T-4 | 弓師: 帽子の位置とつば（目を出す）、毛皮の襟、短丈上着の裾 | WAITING_APPROVAL | [ ] | T-2、E-2 | あり |
+| T-5 | 盗賊: フードの丸み、帽子の位置、オーバーオールの胸当て | WAITING_APPROVAL | [ ] | T-2、E-2 | あり |
+| T-6 | 上位職の仕上げ: 魔導士の銀髪・バーサーカーのフード・戦騎士 / 鷹の目の継承の調整 | WAITING_APPROVAL | [ ] | T-2〜T-5、E-2 | あり |
+| T-7 | 描画回数の削減（見た目を変えない統合）と X 線シェルの自己遮蔽の修正 | PLANNED（Escalation Check: None。Agent Approval は Human の着手指示で記入）| [ ] | T-0（T-1〜T-6 と並行しない）| 自己遮蔽の光る手が消える以外はなし |
 | T-8 | 全体統合・品質確認: 9人の同一条件の V-1、`docs/CHARACTERS.md`、全 E2E、iPhone 実機 | PLANNED | [ ] | T-1〜T-7 | なし（確認のみ）|
 
 - **実施順（推奨）**: T-0 → T-1 → T-2（パイロット）→ T-3 → T-4 → T-5 → T-6 → T-7 → T-8。並行実装はしない（前の Work Item の Review PASS と、見た目の変化がある Work Item は Human の V-1 OK の後に次へ）
 - T-3〜T-5 の順番は入れ替え可（互いに依存しない）。T-7 は T-0 の後ならいつでも入れられるが、見た目を変える Work Item と同時には行わない（差分の切り分けのため）
-- **本依頼では実装しない**。APPROVED の T-0 / T-7 も、実装の着手は Human の次の指示から
+- **本依頼では実装しない**。T-0 / T-7 は Escalation に当たらないが、Human が「実装は次の指示から」としたため PLANNED に留める（着手の指示を受けた時点で Agent Approval を記入して APPROVED へ）
 
 ## Implementation Plan
 
 ### T-0 基準づくり（見た目を変えない）
 | Step | ファイル / 関数 | 変更内容 | 理由 |
 | --- | --- | --- | --- |
-| 1 | `05` BUILD、`06` `buildPlayer()` | `BUILD.wanderer` を剣士の現在値の複製として追加し、影の旅人（charKey）はそれを使う。共通部（頭の Loft・目・手・脚）で T-1 以降に変える値は、影の旅人では現在値を使う分岐を用意する（値の表を `WANDERER_BODY_FREEZE` 等の1か所にまとめる）| R-1。共通基盤・剣士の改善が DEC-034 の見た目へ波及しないようにする（E-4 の推奨 A を先取りした「現状維持」なので、見た目は変わらない）|
+| 1 | `05` BUILD、`06` `buildPlayer()`、`14-dungeon-road.js` `buildRoadTravelerFigure` | `BUILD.wanderer` を剣士の現在値の複製として追加し、加入後（charKey）と加入前の姿（現在 `BUILD.warrior` を直接読む `14:48`）の両方がそれを使う（14 の変更はこの参照の差し替え1か所だけで、見た目は不変）| R-1(a)(b)。剣士の BUILD の変更が影の旅人へ波及しないように |
+| 1b | `05` 共通の生成関数 | **共通の関数の既定値は変えない方針を固定する**: `makeCharacterHead`（`HEAD_SECTION_RATIOS` / `HEAD_DEPTH_MUL`）・`makeCharacterHairShell`・`makeGarmentLoft` / `makeOpenGarmentLoft`・目の生成関数に、T-1 以降の改善は**オプション引数（例: 頭の比率の表・断面の丸みの段数）で4職が明示的に選ぶ**形で入れる。既定の呼び出し（影の旅人の加入前後・フード外套・影の手・敵や NPC が使う箇所）は今の結果のまま | R-1(b)(c)。グローバルの定数を書き換えると、加入前の姿・フード・影の手まで変わる |
+| 1c | `tests/unit/` | 影の旅人の不変の unit: 既定の呼び出しの `makeCharacterHead(HEAD_DIMS)`・`makeCharacterHairShell({classKey:'wanderer'})`・`buildWandererHoodParts` の部品・影の手の Geometry（`17` の `shadowHandGeo`）の頂点数と外接箱が T-0 の記録値と一致 | 1 / 1b の担保（加入前の姿は E2E で撮れる場面が限られるため unit で固定）|
 | 2 | `05` `motionBodySnapshot()`、`src/core/motion-preview.js` | RIG ブロックに ` MESH  本体 / 合計  TRI n  MAT n` の1行（検証用。CLOTH / PAL / OUTL と同じ作法、本番 UI は不変）| 描画回数の予算を E2E で見張る（R-7）|
-| 3 | `06` 共通の体 | 衣服の下で外から見えない古い鎧の部品（候補: 胸当て・脛当て・籠手・肩当て・足首の帯・膝の球。職ごとに見えているかを撮影で判定）を作らない。見えている部品は残す | 描画回数の無駄（1部品 = 4メッシュ）。承認済みの見た目を変えない |
-| 4 | `tests/` | 影の旅人の外見の不変の検査（E2E: MESH 行・PAL 行が T-0 の記録値と一致）、描画回数の上限（各職の T-0 後の値 + 余裕 0）| 以降の Work Item の回帰の土台 |
+| 3 | `06` 共通の体 | 衣服の下で外から見えない古い鎧の部品（候補: 胸当て・脛当て・籠手・足首の帯。職ごとに見えているかを撮影で判定）を作らない。見えている部品は残す。肩当ては転身の表示切り替え（`06:1784`・`06:2274-2275`・`06:2375-2376`）が参照するため、作らない場合は参照側も合わせる（隠す処理を残すだけでも可）。膝の球は T-3 の関節キャップなので対象外 | 描画回数の無駄（1部品 = 4メッシュ）。承認済みの見た目を変えない |
+| 4 | `tests/` | 影の旅人（加入後）の外見の不変の検査（E2E: MESH 行・PAL 行が T-0 の記録値と一致）、加入前の姿の構築（既存の `road-stranger` unit と道の E2E）、描画回数の上限（各職の T-0 後の値 + 余裕 0）| 以降の Work Item の回帰の土台 |
 | 5 | リポジトリ外（scratchpad） | 撮影手順（テストモード + 固定カメラ: 正面・斜め45°・側面・背面・顔・見下ろし・ゲーム画面 844×390、塗りつぶしシルエット）。T-0 の前後で画素の差分が無いことを確認 | V-1 の比較の土台。撮影比較テストの基盤はリポジトリに入れない（CHARACTER-VIS-001 Out of Scope を踏襲）|
 
-### T-1 共通の顔・頭（Escalation E-1 / E-2 / E-4 の回答で確定）
+### T-1 共通の顔・頭（Escalation E-1 の回答で頭身を確定）
 | Step | ファイル / 関数 | 変更内容 | 理由 |
 | --- | --- | --- | --- |
-| 1 | `05` `HEAD_SECTION_RATIOS` | 頭の下半分を丸く（顎・顎線の widthMul を上げ、頬の最大幅の位置を下げる。候補値は撮影で3案作る）| O-1。顎の尖りが大人びた印象の主因（INFERENCE）|
-| 2 | `05` `makeEyeSclera/Pupil/Highlight` | 板の点数を増やして角を取る（白目 8 → 12〜14、瞳 6 → 10〜12、ハイライト 4 → 6〜8）。**大きさ・間隔・瞳・縦横比の4つの確定値は変えない** | O-2。E-2 の推奨 A |
+| 1 | `05` `makeCharacterHead` のオプション、`06` 4職の頭 | 頭の下半分を丸く（顎・顎線の widthMul を上げ、頬の最大幅の位置を下げる。候補値は撮影で3案作る）。新しい比率の表を4職の呼び出しだけが渡す（T-0 Step 1b。グローバルの `HEAD_SECTION_RATIOS` は変えない）| O-1。顎の尖りが大人びた印象の主因（INFERENCE）|
+| 2 | `05` `makeEyeSclera/Pupil/Highlight` のオプション | 板の点数を増やして角を取る（白目 8 → 12〜14、瞳 6 → 10〜12、ハイライト 4 → 6〜8）。**大きさ・間隔・瞳・縦横比の4つの確定値は変えない**。眉・口は追加しない（HDR-T4-15）。影の旅人は今の点数のまま（AD-3）| O-2。AD-10 |
 | 3 | `06` 首・襟 | 首の長さと襟（ゲイター・タートルネック等）の重なり。顔の下半分が隠れない高さへ | O-1（剣士のゲイター）。各職の襟は T-2〜T-5 で調整 |
-| 4 | `05` BUILD（E-1 = A の場合のみ） | 全高を維持したまま headR を 5.0 / 4.75 / 4.5 頭身の3案で比較撮影し、Human が選んだ値を4系列へ。胴・脚は BUILD の絶対値で引き直し、`checkBuild` の整合を保つ | G-1。D-1 の範囲内の微調整（最終値は Human）|
+| 4 | `05` BUILD（E-1 = A の場合のみ） | 全高を維持したまま headR を 5.0 / 4.75 / 4.5 頭身の3案で比較撮影し、Human が選んだ値を4系列（warrior / mage / archer / rogue）へ。`BUILD.wanderer` は変えない（T-0）。胴・脚は BUILD の絶対値で引き直し、`checkBuild` の整合を保つ | G-1。D-1 の範囲内の微調整（最終値は Human）|
 | 5 | 被り物・髪の追従 | 被り物・髪・Coverage は headR 比なので自動で追従する。ずれた箇所だけ直す | H-a（HDR-T4-3）の作り方を維持 |
 | 6 | `tests/unit/lowpoly-primitives.test.js` ほか | 目・頭の複製値の同期（assert を弱めない。CHARACTER-VIS-001 Human Decision 2 の前例）| R-8 |
 
@@ -130,7 +132,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 ### T-3 魔法使い / T-4 弓師 / T-5 盗賊（同じ手順を各職へ）
 | 職 | 残す特徴（変えない）| 改善する造形 |
 | --- | --- | --- |
-| 魔法使い | 緑の目、水色のロングコート、キャスケット（候補 B の深さ）、杖、細く縦長の体格 | 長く広がった髪（承認済み設計の未実装分。房の円錐ではなく、帯状の板を重ねる影の旅人の髪の方式を参考）、コートの前開きの縁・襟を形で見せる、箱型の袖を細く、キャスケットの角を取る |
+| 魔法使い | 緑の目、水色のロングコート、キャスケット（候補 B の深さ）、杖、細く縦長の体格 | 長く広がった髪（承認済み設計の未実装分。房の円錐ではなく、帯状の板を重ねる影の旅人の髪の方式を参考。髪の殻の既定の結果は変えず、魔法使いの呼び出しだけが新しい髪を足す = T-0 Step 1b）、コートの前開きの縁・襟を形で見せる、箱型の袖を細く、キャスケットの角を取る |
 | 弓師 | 緑の帽子とつば、毛皮の襟、矢筒、日焼けした肌、身軽な体格 | 帽子を浅く・つばを短く（見下ろしで目が出る位置へ）、襟を細く（浮き輪に見えない太さ）、短丈上着の裾と袖 |
 | 盗賊 | 黄色の帽子入りのパーカーのフード、オーバーオール、小柄な体格、腰の双剣 | フードの六角形の角を取る（Loft の点数・丸み）、帽子を目の上へ、胸当てに厚み、裾を軽く絞った形は維持 |
 
@@ -147,8 +149,9 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 ### T-7 描画回数の削減（見た目を変えない）
 | Step | 内容 | 理由 |
 | --- | --- | --- |
-| 1 | 同じ可動部（親）・同じ Material で、転身・差し替えで表示を切り替えない部品を、組み立ての最後に1つのメッシュへまとめる（three の `BufferGeometryUtils.mergeGeometries`。three に同梱で依存の追加なし）。切り替える部品（`warriorBaseDecor` 等）と武器はまとめない | 描画回数の主因（部品 × 4）。輪郭線・X 線はまとめた後のメッシュに付くので見た目は同じ |
-| 2 | X 線シェルの自己遮蔽（体の前の手が胴越しに光る）を直す。方式は Implementer が選ぶ（例: X 線シェルの描画をプレイヤー本体の深度で隠さない順序にする / 対象を外形の大きい部品に限る）| report O-9（既存の不具合）|
+| 1 | 同じ可動部（親）・同じ Material で、転身・差し替えで表示を切り替えない部品を、組み立ての最後に1つのメッシュへまとめる。統合には既存の `weldGeometries`（`02-world-common.js:495-515`。壁・柱の統合用に手書きされた関数。BufferGeometryUtils はコアのビルドに無い）を使い、部品の位置・回転を親の座標へ焼き込む処理だけ足す（§3）。切り替える部品（`warriorBaseDecor`・肩当て等）と武器はまとめない | 描画回数の主因（部品 × 4）。輪郭線・X 線はまとめた後のメッシュに付くので見た目は同じ |
+| 2a | X 線シェルの自己遮蔽の再現: ゲームカメラでカメラから離れる向きに歩く・攻撃する場面を撮影し、手などが胴越しに光るかを確認（report O-9 はキャラクター用の固定カメラでの FACT、ゲーム画面は INFERENCE）。再現しなければ Step 2b は行わず記録だけ残す | AD-6 |
+| 2b | 再現した場合だけ直す。方式は Implementer が選ぶ（例: X 線シェルの描画をプレイヤー本体の深度で隠さない順序にする / 対象を外形の大きい部品に限る）。**壁・柱に隠れたときの X 線の表示は今までどおり出ること**を撮影と E2E（OUTL 行の X 線シェルの数）で確認し、変更前後の画像を Human へ（V-1）| report O-9（既存の不具合）|
 | 3 | 計測: T-0 の MESH 行で減少を確認し、E2E の上限を新しい値へ下げる | 回帰の防止 |
 
 ### T-8 全体統合・品質確認
@@ -163,6 +166,8 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | `src/legacy/parts/05-rendering-rig.js` | T-0 / T-1 / T-3〜T-7 | BUILD（`wanderer` の追加、頭身の値）、`HEAD_SECTION_RATIOS`、目の板の点数、被り物・髪の定数と Coverage、`motionBodySnapshot`、`addXrayShell` / 輪郭線の付け方、`WEAPON_SOCKET` の収納 `off`（必要な職だけ）|
 | `src/legacy/parts/06-player-enemy.js` | T-0〜T-7 | `buildPlayer()`（共通の体・各職の被り物・衣服・髪・影の旅人の固定）、`applyJobPromotionVisual()`、部品の統合 |
 | `src/core/motion-preview.js` | T-0 | RIG ブロックの MESH 行 |
+| `src/legacy/parts/14-dungeon-road.js` | T-0 | `buildRoadTravelerFigure` の `BUILD.warrior` → `BUILD.wanderer` の参照の差し替え1か所のみ（見た目は不変）|
+| `tests/unit/wanderer-visual-freeze.test.js`（新規）| T-0 | 共通の生成関数の既定の結果・フード外套・影の手の Geometry の不変 |
 | `tests/unit/lowpoly-primitives.test.js` | T-1〜T-6 | 複製値の同期、新しい構築の検査（assert を弱めない）|
 | `tests/unit/motion-preview.test.js` | T-0 | MESH 行 |
 | `tests/character-visual-budget.spec.js`（新規）| T-0 / T-7 | 9人の描画メッシュの上限、影の旅人の MESH / PAL の不変 |
@@ -171,14 +176,14 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | 本 Task file | 全 | Implementation Result・Status・Status History |
 
 ## Files Not To Change
-`src/legacy/parts/13-update-loop.js`、`src/legacy/parts/17-wanderer-style.js`、`src/core/wanderer-style.js`、`src/core/combat-stance.js`、STANCE / STANCE_ALT / STANCE_RELAXED / CLIPS、`10-input.js`、`11-combat-actions.js`（攻撃・判定）、`src/render/player-palette.js` の色の値（`PLAYER_PALETTE`）と `WEAPON_FINISH`、`01-character-creation.js` の `CLASSES` の color / trim / 数値・`CHAPTER_CAST`、`09-save-load.js`、支援AI（`buildGuestCompanion` / `buildCompanion` / `spawnPhantomDecoy`）、`14-dungeon-road.js` の加入前の影の旅人、NPC・敵・ボス、`playwright.config.js`、`basefile.html`
+`src/legacy/parts/13-update-loop.js`、`src/legacy/parts/17-wanderer-style.js`、`14-dungeon-road.js`（T-0 の参照の差し替え1か所を除く）、`src/core/wanderer-style.js`、`src/core/combat-stance.js`、STANCE / STANCE_ALT / STANCE_RELAXED / CLIPS、`10-input.js`、`11-combat-actions.js`（攻撃・判定）、`src/render/player-palette.js` の色の値（`PLAYER_PALETTE`）と `WEAPON_FINISH`、`01-character-creation.js` の `CLASSES` の color / trim / 数値・`CHAPTER_CAST`、`09-save-load.js`、支援AI（`buildGuestCompanion` / `buildCompanion` / `spawnPhantomDecoy`）、NPC・敵・ボス、`playwright.config.js`、`basefile.html`
 
 ## Test Plan
 | 区分 | 対象 | 確認 | 時期 |
 | --- | --- | --- | --- |
 | Build / Unit | `npm run build`、`npm run test:unit`（`ai-protocol.test.js` を含む）| PASS | 各 Work Item |
 | E2E 対象 | `character-clothing`・`character-palette`・`character-weapon-visual`・`character-motion`・`weapon-stow`・`battle-knight-visual`・`base-class-identity`・`base-class-comparison`・`job-traits`・`wanderer-renewal`・`chapter1-progression`・`character-visual-budget`（新規）| PASS（FLAKY は PASS に数えない。§14）| 各 Work Item |
-| 影の旅人の不変 | `character-visual-budget` の影の旅人の行、`wanderer-renewal`、`road-stranger`（unit）| T-0 の記録値と一致 | 各 Work Item |
+| 影の旅人の不変 | `character-visual-budget` の影の旅人の行、`wanderer-visual-freeze`（unit、新規）、`wanderer-renewal`、`road2-join`、`road-stranger`（unit）、`wanderer-style`（unit）| 加入前後・フード・影の手が T-0 の記録値と一致 | 各 Work Item |
 | 描画の予算 | MESH 行（本体 / 合計）| T-0 の値を超えない（T-7 後は下げた値）| 各 Work Item |
 | 撮影の差分 | scratchpad の撮影手順 | T-0 / T-7: 画素の差分なし（T-7 は自己遮蔽の箇所を除く）。T-1〜T-6: 変更前後の比較画像を Human へ | 各 Work Item |
 | Full Regression | 全 E2E（CI）| PASS | T-0・T-2・T-7・T-8、および Review の前 |
@@ -194,19 +199,20 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 7. 影の旅人の見た目が変わっていない（加入前・加入後）
 
 ## Acceptance Criteria
-- T-0 / T-7: 撮影の画素差分なし（T-7 の自己遮蔽を除く）、影の旅人の不変 PASS、描画メッシュが T-0 の値以下（T-7 は減少）、build / unit / 対象 E2E / 全 E2E PASS
+- T-0 / T-7: 撮影の画素差分なし（T-7 の自己遮蔽を除く）、影の旅人（加入前後・フード・影の手）の不変 PASS、T-7 は壁越しの X 線が引き続き出ること・自己遮蔽の修正を Human が V-1 で確認、描画メッシュが T-0 の値以下（T-7 は減少）、build / unit / 対象 E2E / 全 E2E PASS
 - T-1〜T-6: Human の V-1 OK（評価基準の表）、各職の「残す特徴」が残る、配色表の色・`CLASSES`・モーション・武器の形・セーブに差分なし、影の旅人の不変 PASS、描画メッシュが予算内、build / unit / 対象 E2E PASS
 - T-8: 9人の同一条件の V-1 OK、iPhone 実機の確認項目、全 E2E PASS、`docs/CHARACTERS.md` が実装と一致
 
 ## Risks
 | # | リスク | 対応 |
 | --- | --- | --- |
-| P-R1 | 影の旅人への波及（report R-1）| T-0 で切り離し、以降は毎回不変の検査 |
+| P-R1 | 影の旅人への波及（report R-1。加入後・加入前の姿・フード外套・影の手）| T-0 で BUILD を分け、共通の関数は既定値を変えずオプションで4職だけが選ぶ。以降は毎回不変の検査（unit + E2E）|
 | P-R2 | 承認済みデザインの退行（「整えたら可愛くなくなった」の再発、R-10）| 職ごとに「残す特徴」を Acceptance に入れ、変更前後を同じ条件で並べて Human が判断。1 Work Item = 1職 |
 | P-R3 | 頭身の変更による武器・手・衣服のずれ（R-3 / R-4）| E-1 の回答が出るまで BUILD を変えない。変える場合は T-1 で `weapon-stow`・`character-motion` E-2 を含めて確認 |
 | P-R4 | 衣服の量感と腕・脚・武器の貫通（P-R25〜R28）| 停止・歩行・構え・攻撃・回避の撮影。収納の補正は `off` のみ |
 | P-R5 | 描画回数の増加（R-7）| 予算の E2E。部品を足す変更は同じ親・同じ Material へまとめる前提 |
-| P-R6 | 部品の統合で転身の表示切り替えが壊れる（T-7）| 切り替える部品・武器はまとめない。上位4職の生成と `clearJobPromotionVisual` の E2E / unit |
+| P-R6 | 部品の統合で転身の表示切り替えが壊れる（T-7）| 切り替える部品（`warriorBaseDecor`・肩当て等）・武器はまとめない。上位4職の生成と `clearJobPromotionVisual` の E2E / unit |
+| P-R9 | X 線の修正で壁越しの表示が出なくなる（T-7）| 2a で再現を先に確認。壁越しの表示を撮影と OUTL 行で確認し、Human の V-1 |
 | P-R7 | ソース検査の unit の大量の同期（R-8）| assert を弱めず、新しい構築を検査する形へ置き換える（前例どおり）|
 | P-R8 | 「可愛さ」の判定が往復する | パイロット（剣士）で方向を固めてから他職へ。比較画像は3案までに絞る |
 
@@ -234,7 +240,8 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | C-4 | 上位職を別モデルにすると保守コストが増える | 上位職は今の「基礎職を継承して差し替える」方式（P-a）を維持。別モデルにしない | 別モデル案は不採用 |
 | C-5 | 既存の魅力を残すため、変えない方がよい部分がある | 変えない: 配色・衣服の種類・剣士のキャップの耳・盗賊の黄色の帽子とオーバーオール・魔法使いの緑の目・弓師の肌色・上位職の白いレイヤー・目の4つの確定値・影の旅人。職ごとの「残す特徴」を Acceptance に入れる | 採用 |
 | C-6 | 頭身を下げれば一気に可愛くなる（最も効果が大きい）| 効果は大きいが、Human が T-2 で選んだ「華奢で縦にスッとした」目的（DEC-T2-9）と衝突し、武器・手・衣服の位置も動く。D-1 の範囲（4.5〜5.0）なら Human の微調整として扱える | E-1 で Human に提示（推奨: D-1 の範囲内で比較）|
-| C-7 | 眉・口を足せば表情が読める | 見下ろしのゲームカメラでは顔の面が浅い角度になり、描いた絵や小さな部品は読めない（CHARACTER-VIS-001 以前の Canvas 試作の記録 `06:799-812`）。HDR-T4-15 とも衝突 | E-2 で Human に提示（推奨: 足さない）|
+| C-7 | 眉・口を足せば表情が読める | 見下ろしのゲームカメラでは顔の面が浅い角度になり、描いた絵や小さな部品は読めない（Canvas 試作の記録 `06:774-782`）。HDR-T4-15（追加しない）がある | 足さない（AD-10。HDR-T4-15 に従う）|
+| C-11 | 部品の統合に three の BufferGeometryUtils を使う | コアのビルドに無く、既存の `weldGeometries` が同じ目的で手書きされている（§3）| 不採用（`weldGeometries` を使う）|
 | C-8 | 描画回数の削減を最初にやるべき | 統合は部品の作り直しの後の方が二度手間にならない。一方で予算の見張りは最初に要る | T-0 で計測と予算、T-7 で削減（順序の採否）|
 | C-9 | 弓師を先にやるべき（顔が隠れる問題が最大）| 弓師は CHARACTER-VIS-001 T-4 のパイロットで、問題は帽子の位置に限られる。剣士は第一章の主人公で画面に出る時間が最長、戦騎士の土台で、影の旅人との共有が最も多い（T-0 の切り離しの検証になる）| 剣士をパイロットに採用 |
 | C-10 | 体の筒（胴・腕・脚）の断面比率を職ごとに変える（S-b）| HDR-T4-4 で Human が S-a（衣服の量感）を選び、S-b / S-c は不実施と決めている | 不採用（S-a の範囲で行う）|
@@ -255,19 +262,33 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | --- | --- | --- | --- |
 | AD-1 | 作業基準は `claude/road-visual-003-r3-7` @ `3b168a2`、文書 PR の base も同じ | 4（PR #145・#146 の積み上げ先）、依頼文 §3 | main 基準（PR #145・#146 を含まないため不採用）|
 | AD-2 | CHARACTER-VIS-001 の残りの段は無い（全 Work Item DONE / 取り下げ）ので、本 Task は CHARACTER-VIS-001 の続きではなく、その成果の上の品質改善として扱う | 4（CHARACTER-VIS-001 Status History）| ― |
-| AD-3 | 影の旅人は T-0 で現状の値に固定し、共通基盤の改善に追従させない（E-4 の回答が B なら T-1 で追従分だけ外す）| 3（DEC-034）、依頼文 §5-3 | 共通基盤に追従（DEC-034 の完成済みの見た目が変わるため既定にしない）|
+| AD-3 | 影の旅人（加入後・加入前の姿・フード外套・影の手）は T-0 で現状の値に固定し、共通基盤の改善に追従させない。共通の関数は既定値を変えず、改善は4職がオプションで選ぶ | 3（DEC-034）、依頼文 §5-3「他職業の変更によって影の旅人の完成済みデザインを壊さない」| 顔・目・手だけ追従（DEC-034 の見た目が変わる。必要になれば別途 Human が判断）|
 | AD-4 | パイロットは剣士 | 4・6（上の C-9）| 弓師（T-4 のパイロットの前例）|
 | AD-5 | 描画回数は「増やさない」を全 Work Item の不変条件にし、削減は独立の T-7 | 1（report §4 の計測）、5 | 各職の Work Item の中で削減（差分の切り分けができないため不採用）|
-| AD-6 | X 線シェルの自己遮蔽は既存の不具合として T-7 で直す（§17.1 のバグ修正）| 1（report O-9）| 直さない |
+| AD-6 | X 線シェルの自己遮蔽は、ゲーム画面で再現した場合に既存の不具合として T-7 で直す（§17.1 のバグ修正。見た目の変化は Human の V-1）| 1（report O-9）| 直さない |
 | AD-7 | 撮影比較はリポジトリ外（scratchpad）で行い、比較テストの基盤は入れない。代わりに数値（MESH / CLOTH / PAL / OUTL）を E2E で見る | 4（CHARACTER-VIS-001 Out of Scope と T-4〜T-7 の前例）| スクリーンショット比較テストの導入 |
 | AD-8 | 職ごとの髪の作り分けは本 Task の目的（依頼文 §5-1「頭部・髪型に明確な個性」）に含める。魔法使いの長い髪は承認済み設計の未実装分 | 2〜4（依頼文、CHARACTER-VIS-001 魔法使い C の記録）| 髪は変えない |
 | AD-9 | 待機の立ち姿（モーション）は本 Task に入れず、次の Task 候補として記録する | 依頼文 §2（モーションを変えない）| 本 Task に含める |
+| AD-10 | 顔: 眉・口は追加しない（HDR-T4-15）。目の板の点数は増やしてよい（4つの確定値は不変。「点数・輪郭は不変」は T-4 実装時のコードのコメント `06:866-868` で Human の決定ではない）。見た目は T-1 の V-1 で Human が確認 | 3（HDR-T4-15）、4（CHARACTER-VIS-001 の目の Human Decision）| 眉・口の試作（HDR-T4-15 に反する）|
+| AD-11 | T-0 / T-7 は Escalation に当たらないが、Human の「実装は次の指示から」に従い PLANNED に留め、着手指示の時点で Agent Approval を記入する | 依頼文 §2、AGENTS.md §6.1 | 今 Agent Approval（APPROVED）にする |
+| AD-12 | T-7 の統合は既存の `weldGeometries` を使う | 5（§3、`02:495-515`）| BufferGeometryUtils |
+
+## マテリアル構成の改善方針（依頼文 §7-5）
+| 方針 | 内容 | 根拠 |
+| --- | --- | --- |
+| M-1 role を増やさない | 役割は7つ（main / sub / accent / layer / hat / trim / boot）のまま。新しい部品（髪・襟の作り直し等）は既存の role の Material を使う | P-D3、report §6 |
+| M-2 配色の値を変えない | `PLAYER_PALETTE` の色・`PLAYER_FINISH` / `WEAPON_FINISH` の質感は Human 承認の値のまま | T-5 / T-7 の V-1 |
+| M-3 色の波及を起こさない | 部品の作り直しで共有 Material を直接書き換えない。上位職の色は `applyPlayerPalette()` の role の上書きだけで行う。dispose の除外（輪郭線・X 線・role Material）を保つ | T-5 / T-7 の構造 |
+| M-4 影の旅人の Material を分ける | 影の旅人の衣服の紫と影の手・輪郭の紫（#8A5AD6）は別 Material・別色のまま（DEC-034 / P-D8）。共通の改善で影の旅人の Material を共有・統合しない | DEC-034 |
+| M-5 flat の双子の整理は描画回数の観点で | flat の双子（clothMatFlat 等）は描画回数にほぼ影響しない（Material 数ではなく部品数で決まる）。T-7 で統合するときは「同じ Material の部品」をまとめる単位として扱うだけで、双子を減らす変更はしない | report §6 |
+| M-6 職の小物の Material | 矢筒・投げナイフ・毛皮の襟など role の外の Material は、作り直す職の Work Item で role へ寄せられるか確認する（色の値は今の見た目を保つ。寄せると色が変わるものは寄せない）| report §6 |
+| M-7 計測 | 固有 Material 数を MESH 行に出し（T-0）、Work Item ごとに増えていないことを見る | report §4 |
 
 ## Escalation
-本計画の Work Item のうち、T-1〜T-6 は下の E-1〜E-4 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-7 / T-8 の計画は E-1〜E-4 に依存しない。
+T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-7 / T-8 の計画は E-1・E-2 に依存しない。顔の眉・口（HDR-T4-15 に従い追加しない = AD-10）と影の旅人の固定（DEC-034 と依頼文 = AD-3）は既存の決定から導けるため Escalation にしない（Review Round 1 の指摘で Escalation から Agent Decision へ移した）。
 
 ## Escalation E-1: 頭身を変えるか（可愛らしさのためのデフォルメ）
-- Trigger: E-2 / E-9（D-1「5.0頭身を第一候補、4.5〜5.0 の範囲で Human が実機確認後に微調整」、DEC-T2-9「華奢で縦にスッとしたシルエット」）
+- Trigger: E-9（D-1「5.0頭身を第一候補、4.5〜5.0 の範囲で Human が実機確認後に微調整」= 最終値は Human が決める）。C を選ぶ場合は E-2（DEC-T2-9「華奢で縦にスッとしたシルエット」の変更）にも当たる
 - Facts: 現在は全員 5.0頭身（`05:2018`）。T-2 前は約 3.4頭身。可愛らしさを下げている候補要因の一つが頭の小ささ（report Root Cause、INFERENCE）。頭身を変えると手の高さ・武器・衣服の位置が動く（report §7）
 - Why Agent cannot decide: 最終値は Human が決めると D-1 に書かれている。4.5 未満は D-1 の範囲外で DEC-T2-9 の目的とも衝突する
 - Options:
@@ -277,18 +298,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 - Recommendation: A。理由: Human の既存の決定（D-1）の範囲内で、可愛さに最も効く手段を試せる。範囲外（C）は A の比較を見てから判断できる
 - Minimal answer: 「A」/「B」/「C」
 
-## Escalation E-2: 顔の造形（眉・口の追加と、目の板の点数）
-- Trigger: E-2（HDR-T4-15「眉・口などの新しい顔の造形は追加しない」、T-4 の記録「目の点数・輪郭・3層構造は不変」）
-- Facts: 目は 8 / 6 / 4 点の板で角が見える（report O-2）。Human が確定したのは大きさ・間隔・瞳・縦横比の4つの値で、点数を Human が選んだ記録は無い。見下ろしのカメラでは顔の面に描いたものは読めない（`06` の頭の組み立てのコメント、Canvas の試作の記録）
-- Why Agent cannot decide: 眉・口は HDR-T4-15 と矛盾する。点数の変更は T-4 の記録で「不変」とされた項目に当たる
-- Options:
-  - A（推奨）: 眉・口は追加しない。目の板の点数だけ増やして角を取る（4つの確定値は変えない）— 影響: 目が柔らかく見える。顔の印象は保たれる。三角形の増加はごくわずか
-  - B: A に加えて、小さな口（または眉）を1案試作し、V-1 で有無を比較する — 影響: 表情が読める可能性。カメラ距離では効果が小さい見込み。HDR-T4-15 の変更
-  - C: 目も含めて現状維持 — 影響: 顔の硬さが残る
-- Recommendation: A。理由: 確定値を守ったまま、撮影で確認できた硬さ（角）だけを取れる。B は A の結果を見てからでも試せる
-- Minimal answer: 「A」/「B」/「C」
-
-## Escalation E-3: 改善の範囲（承認済みデザインを維持した品質の底上げか、デザインの再検討か）
+## Escalation E-2: 改善の範囲（承認済みデザインを維持した品質の底上げか、デザインの再検討か）
 - Trigger: E-3（T-4 / T-5 / T-7 の衣服・配色は Human が V-1 で承認。依頼文は「個性を維持しながら完成度を引き上げる」）
 - Facts: 衣服の種類（剣士 = 膝丈マウンテンパーカー、魔法使い = ロングコート、弓師 = 短丈上着、盗賊 = オーバーオール）と配色は Human の V-1 承認済み。撮影で見えた問題は面の硬さ・量感・被り物の位置・髪で、衣服の種類ではない（report §3）
 - Why Agent cannot decide: 承認済みの形をどこまで変えてよいかは、ゲームデザイン上の意味が大きく異なり、既存の記録からは決まらない
@@ -298,48 +308,26 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 - Recommendation: A。理由: 依頼文の「個性・可愛らしさを維持しながら」と、過去の退行（整えたら可愛くなくなった）を避ける方針に合う
 - Minimal answer: 「A」/「B」
 
-## Escalation E-4: 影の旅人を共通基盤の改善に追従させるか
-- Trigger: E-2 / E-9（DEC-034、依頼文「他職業の変更によって影の旅人の完成済みデザインを壊さない」）
-- Facts: 影の旅人は剣士の分岐で作られ、頭・目・手・脚などの共通部品を共有している（report R-1）。T-1 の顔・頭・目の改善は、そのままだと影の旅人にも効く
-- Why Agent cannot decide: 影の旅人の外見は DEC-034 で完成済み。共通の顔の改善を影の旅人にも入れるかは、DEC-034 の見た目を変えるかどうかの判断
-- Options:
-  - A（推奨）: 影の旅人は現状で固定（T-0 で切り離し、共通基盤の改善を追従させない）— 影響: DEC-034 の見た目を確実に守る。将来、顔の品質に差が出る可能性
-  - B: 顔・目・手の共通改善だけ影の旅人にも追従させる（フード外套・配色・体型・影の手は不変）。T-8 の V-1 で影の旅人も確認 — 影響: 9人の顔の品質がそろう。DEC-034 の見た目が少し変わる
-- Recommendation: A。理由: 依頼文の「影の旅人を壊さない」が最優先。B は T-1 の結果を見てから別に判断できる
-- Minimal answer: 「A」/「B」
-
 ## Approval
-### T-0 Agent Approval
-- [x] Approved
-- Approval type: Agent Approval（AGENTS.md §6.1）
-- Escalation Check: None（見た目を変えない。E-1〜E-7 / E-9 に当たらない: 影の旅人は現状維持、仕様・Decision Record の変更なし、新しいゲームシステムなし）
-- Approved by / date / where: Planner (Agent) / 2026-11-24 / `claude/wanderer-renewal-001-nhlxns`
-- Scope of approval: T-0 の Step 1〜5、Files To Change の T-0 の行
-- Persistence: 実装の作業ブランチは Human の着手指示で決める（本依頼は計画まで）
-- Implementation: 着手は Human の次の指示から
-
-### T-7 Agent Approval
-- [x] Approved
-- Approval type: Agent Approval（AGENTS.md §6.1）
-- Escalation Check: None（見た目を変えない部品の統合と、既存の不具合の修正。§17.1）
-- Approved by / date / where: Planner (Agent) / 2026-11-24 / `claude/wanderer-renewal-001-nhlxns`
-- Scope of approval: T-7 の Step 1〜3、Files To Change の T-7 の行
-- Persistence: 同上
-- Implementation: 着手は Human の次の指示から（T-0 の後。見た目を変える Work Item と同時に行わない）
-
-### T-1〜T-6 Human Approval
+### T-0 / T-7
 - [ ] Approved
-- Approval type: Human Approval 待ち（E-1〜E-4 の回答。各 Work Item の主 Acceptance は Human の V-1）
+- Approval type: Agent Approval（AGENTS.md §6.1）を予定。Escalation Check: None（T-0 は見た目を変えない基準づくり、T-7 は見た目を変えない部品の統合と既存の不具合の修正。E-1〜E-7 / E-9 に当たらない）
+- Status: PLANNED。Human が「実装は次の指示から」としたため、着手の指示を受けた時点で Planner (Agent) が Approved by / date / where・Persistence（作業ブランチ）を記入して APPROVED にする（AD-11）
+- Scope of approval（予定）: T-0 の Step 1〜5、T-7 の Step 1〜3、Files To Change の該当行
+
+### T-1〜T-6
+- [ ] Approved
+- Approval type: E-1・E-2 の回答の後に Agent Approval（回答が計画の範囲を変える場合は計画を更新）。各 Work Item の主 Acceptance は Human の V-1
 - Implementation: BLOCKED until approval
 
 ### T-8
 - [ ] Approved（T-1〜T-7 の完了後に計画を確定する）
 
 ## Autonomy Metrics（Analyzer / Planner の段）
-- Human Escalation Count: 1（E-1〜E-4 を1回の Escalation にまとめて送る）
+- Human Escalation Count: 1（E-1・E-2 を1回の Escalation にまとめて送る）
 - Human Decision Count: 0
-- Auto Fix Count: 0
-- Reviewer Round Count:（下の Status History）
+- Auto Fix Count: 1（Review Round 1 の指摘への修正）
+- Reviewer Round Count: 1（Round 1 = CHANGES_REQUIRED、修正後の Round 2 は下の Status History）
 - Test Retry Count: 0
 - PR Created:（下の Status History）
 
@@ -348,4 +336,6 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | --- | --- | --- | --- | --- |
 | 2026-11-22 | Task | — → DRAFT | Agent | WI「第一章・移動中会話システムの横展開」の §8 残件として登録（Human の指示） |
 | 2026-11-24 | Task | DRAFT → ANALYZING | Analyzer | Human の着手指示（Analyzer / Planner のみ）。基準 `claude/road-visual-003-r3-7` @ `3b168a2` |
-| 2026-11-24 | Task | ANALYZING → PLANNED | Planner | Artifact Handoff（Kind `analysis`、`51ed36a`、blob `3fd9a39c`）H-1〜H-8 PASS。T-0〜T-8 を計画。T-0 / T-7 は Agent Approval（着手は Human の指示待ち）、T-1〜T-6 は E-1〜E-4 の回答待ち（WAITING_APPROVAL）|
+| 2026-11-24 | Task | ANALYZING → PLANNED | Planner | Artifact Handoff（Kind `analysis`、`51ed36a`、blob `3fd9a39c`）H-1〜H-8 PASS。T-0〜T-8 を計画。T-0 / T-7 は Agent Approval（着手は Human の指示待ち）、T-1〜T-6 は E-1〜E-4 の回答待ち（WAITING_APPROVAL）。初版の計画 commit `4a3aa48` |
+| 2026-11-24 | Task | PLANNED（変更なし）| Reviewer | `.ai/reports/CHARACTER-VIS-002-plan-review.md` Round 1 = CHANGES_REQUIRED（M-1: 加入前の影の旅人・フード・影の手が共通の関数と BUILD.warrior を使う。S-1〜S-7、N-1〜N-3）|
+| 2026-11-24 | Task | PLANNED（変更なし）| Planner | Round 1 の指摘を反映: Analyzer report の新版（`7caabaf`、blob `6eb47b9f`）で Handoff をやり直し H-1〜H-8 PASS。T-0 に共通関数の既定値の固定（オプションで4職が選ぶ）と影の旅人の不変の unit を追加、E-2（顔）・E-4（影の旅人）を Agent Decision（AD-10 / AD-3）へ、旧 E-3 を E-2 に、T-0 / T-7 を PLANNED（AD-11）、T-7 は `weldGeometries`（AD-12）と X 線の再現・壁越しの確認、マテリアル構成の節を追加 |
