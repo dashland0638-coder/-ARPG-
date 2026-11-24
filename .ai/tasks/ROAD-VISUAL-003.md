@@ -24,7 +24,7 @@ Status: IN PROGRESS（R3-N）
 | R3-4 | AREA 4 山道（出会いと加入・遺構の中・古き守り手・戦闘・会話） | 出会いと加入・野営地の支援の選択・到達の保存は DONE（R3-4a、PR #131）。遺構の中・古き守り手・戦闘は DONE（R3-4b）。宝箱は R3-6（E-4） |
 | R3-5 | AREA 5 と最終戦（高原の大角・結果画面を後に回す処理） | DONE（R3-5 ＋ 004 T6、計画 `.ai/reports/ROAD-VISUAL-003-R3-5-plan.md`）。結果画面・クリアは R3-6 |
 | R3-6 | エンディング・最後の酒場・野営地の支援の選択・到達の保存・固定の報酬表 | DONE（R3-6、計画 `.ai/reports/ROAD-VISUAL-003-R3-6-plan.md`）。支援の選択は R3-4a |
-| R3-7 | 本編の切り替え・旧道の削除・試験の置き換え・文書 | 未着手 |
+| R3-7 | 本編の切り替え・旧道の削除・試験の置き換え・文書 | DONE（R3-7、計画 `.ai/reports/ROAD-VISUAL-003-R3-7-plan.md`、PR #142 → #144 で main。DEC-032）。必須作業「道のクリアで `roadArea` を 0 に戻す」は R3-6 の `road2FinishRoad` で実装済みであることを R3-7R（`.ai/tasks/ROAD-VISUAL-003-R3-7R.md`）で確認し、本編のセーブの試験で固めた |
 
 ## R3-0 の範囲
 - Files To Change
