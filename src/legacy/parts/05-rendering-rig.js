@@ -1869,6 +1869,8 @@
   const HAIR_NAPE_YFRAC = 0.34;
   const HAIR_NAPE_FRONT_MUL = 0.55;
   const HEAD_FRONT_POINT_IDX = new Set([0, 5, 6, 7]);   // faceL, faceR, noseR, noseL
+  const HAIR_NAPE_SIDE_POINT_IDX = new Set([1, 4]);      // cheekL, cheekR(HEAD_HEX_TEMPLATE の最大幅の点)
+  const HAIR_NAPE_SIDE_IN_MUL = 0.96;
   /* hairShellPointAt(classKey, o, x, z, yLocal, baseMul): うなじリングの
      前方4点(HAIR_NAPE_FRONT_MUL)と生え際〜頭頂の全点(HAIR_SHELL_MUL)の
      両方が経由する、Headwear Coverageを反映した頂点座標の決定。
@@ -1909,7 +1911,12 @@
       sections.push({
         y: yLocal,
         points: headSectionPoints(o, headRatioAt(HAIR_NAPE_YFRAC, o.sections)).map(([x,z], i) => {
-          const k = HEAD_FRONT_POINT_IDX.has(i) ? HAIR_NAPE_FRONT_MUL : HAIR_SHELL_MUL;
+          /* opts.napeSideIn(CHARACTER-VIS-002 T-1、4職だけが選ぶ): うなじの輪の頬の2点を頭の面の
+             わずかに内側へ入れる。既定(頭の外 HAIR_SHELL_MUL 倍)のままだと、頬の点(外)から顔側の点
+             (内)へ向かう面が頬の横へ黒いくさびのように突き出す(丸い下顎で幅が増えて目立った)。
+             殻がうなじで頭の外に出るのは後頭部の2点だけになる */
+          const k = HEAD_FRONT_POINT_IDX.has(i) ? HAIR_NAPE_FRONT_MUL
+                  : (o.napeSideIn && HAIR_NAPE_SIDE_POINT_IDX.has(i)) ? HAIR_NAPE_SIDE_IN_MUL : HAIR_SHELL_MUL;
           return hairShellPointAt(classKey, o, x, z, yLocal, k);
         }),
       });

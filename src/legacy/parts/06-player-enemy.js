@@ -908,9 +908,10 @@
     // コメント参照)。未指定クラスは1.0で従来通り無変化
     const eyeSpacingMul = classDef.eyeSpacingMul!=null ? classDef.eyeSpacingMul : 1.0;
     /* 目の外周の点の数(CHARACTER-VIS-002 T-1、AD-10)。4職は白目 14・瞳 12・ハイライト 8 で
-       角を目立たなくする(既定は 8 / 6 / 4)。大きさ・縦横比・間隔・瞳の色は上の確定値のまま。
+       角を目立たなくする(既定は 8 / 6 / 4)。白目は 16(4 の倍数)で真上・真下と真横に頂点が来るので、
+       描画上の縦横比も確定値 1.28 のまま。大きさ・間隔・瞳の色は上の確定値のまま。
        影の旅人は既定の点数 */
-    const eyePts = softHead ? {sclera:14, pupil:12, highlight:8} : {};
+    const eyePts = softHead ? {sclera:16, pupil:12, highlight:8} : {};
     const EYE_SPACING = 0.095;   // T-4: 旧 0.115(目の中心の左右位置、eyeScale 倍)
     [-EYE_SPACING*eyeScale*eyeSpacingMul, EYE_SPACING*eyeScale*eyeSpacingMul].forEach(x=>{
       const sclera = new THREE.Mesh(
@@ -933,6 +934,7 @@
         const EYE_TILT = 0.28;
         const th = Math.sign(x)*EYE_TILT, c = Math.cos(th), sn = Math.sin(th);
         const cx = sclera.position.x, cz = sclera.position.z;
+        const pupilX0 = pupil.position.x;
         [sclera, pupil, highlight].forEach(m=>{
           m.userData.noOutline = true;
           const dx = m.position.x - cx, dz = m.position.z - cz;
@@ -940,6 +942,10 @@
           m.position.z = cz - dx*sn + dz*c;
           m.rotation.y = th;
         });
+        // 回すと白目より手前の瞳が外へずれ、左右の瞳の間隔が開く(T-4 で「離れすぎ」と指摘された方向)。
+        // 3枚をまとめて横へ戻し、瞳の左右の位置を回す前と同じにする
+        const back = pupil.position.x - pupilX0;
+        [sclera, pupil, highlight].forEach(m=>{ m.position.x -= back; });
       }
     });
 
@@ -984,7 +990,7 @@
        影の旅人は帽子を被らない(Human: 操作時デザイン案)ので、剣士のキャップの
        判定を使わず、表に無いキー(= 被り物なし)で髪を作る */
     const hairCoverageKey = classDef.charKey === 'wanderer' ? 'wanderer' : classDef.key;
-    const hair = new THREE.Mesh(makeCharacterHairShell({...HEAD_DIMS, classKey: hairCoverageKey}), hairMat);
+    const hair = new THREE.Mesh(makeCharacterHairShell({...HEAD_DIMS, classKey: hairCoverageKey, napeSideIn: softHead}), hairMat);
     hair.position.set(0, head.position.y, HEAD_BACK_Z);
     hair.castShadow = true;
     group.add(hair);
@@ -2591,6 +2597,7 @@
          半径はHead自身のサイズに対して明確に太く(Root≈headR*0.30)取り、
          極端な先細りを避けるためTip半径はRoot半径の35%前後に留めている。 */
       const archHeadR = B.headR;
+      // 魔導士は必ず魔法使い(4職)なので 4職の頭の断面。ここは buildPlayer の外(転身)で headSections は見えない
       const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2, sections:HEAD_SECTION_RATIOS_SOFT };
       const archHeadYLocal = bodyH + B.headGap;   // P.waist基準でのHead中心Y(buildPlayerのhead.position.yに相当)
       const archHeadOut = (yFrac) => headOutlineAt(archHeadDims, yFrac);

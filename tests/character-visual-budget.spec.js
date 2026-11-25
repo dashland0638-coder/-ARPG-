@@ -84,17 +84,17 @@ const PROBE = `
 
 /* 描画の量の上限(本体 / 全体 / 三角形 / 固有 Material)。T-0 の記録値から CHARACTER-VIS-002 T-1 で更新:
    目の3枚に輪郭線・X 線シェルを付けなくなった分、全体が 1 人 -18(輪郭線 2 枚 + X 線 1 枚 × 6 枚)。
-   三角形は目の外周の点の数の増加(+128 / 人)と輪郭線の削減を合わせて T-0 より 1 人 -232。
+   三角形は目の外周の点の数の増加(白目 16・瞳 12・ハイライト 8 で +144 / 人)と輪郭線の削減を合わせて T-0 より 1 人 -216。
    本体のメッシュ数と Material の数は T-0 のまま。減らした値を新しい上限にする */
 const BUDGET = [
-  {key:'warrior', job:null,           name:'剣士',         body:82, total:307, tris:15512, mats:20},
-  {key:'warrior', job:'battleKnight', name:'戦騎士',       body:91, total:343, tris:17088, mats:23},
-  {key:'mage',    job:null,           name:'魔法使い',     body:72, total:267, tris:15152, mats:19},
-  {key:'mage',    job:'archmage',     name:'魔導士',       body:87, total:327, tris:16560, mats:21},
-  {key:'archer',  job:null,           name:'弓師',         body:76, total:283, tris:15300, mats:22},
-  {key:'archer',  job:'hawkEye',      name:'鷹の目',       body:86, total:323, tris:17124, mats:26},
-  {key:'rogue',   job:null,           name:'盗賊',         body:78, total:291, tris:14536, mats:23},
-  {key:'rogue',   job:'berserker',    name:'バーサーカー', body:83, total:311, tris:15312, mats:25},
+  {key:'warrior', job:null,           name:'剣士',         body:82, total:307, tris:15528, mats:20},
+  {key:'warrior', job:'battleKnight', name:'戦騎士',       body:91, total:343, tris:17104, mats:23},
+  {key:'mage',    job:null,           name:'魔法使い',     body:72, total:267, tris:15168, mats:19},
+  {key:'mage',    job:'archmage',     name:'魔導士',       body:87, total:327, tris:16576, mats:21},
+  {key:'archer',  job:null,           name:'弓師',         body:76, total:283, tris:15316, mats:22},
+  {key:'archer',  job:'hawkEye',      name:'鷹の目',       body:86, total:323, tris:17140, mats:26},
+  {key:'rogue',   job:null,           name:'盗賊',         body:78, total:291, tris:14552, mats:23},
+  {key:'rogue',   job:'berserker',    name:'バーサーカー', body:83, total:311, tris:15328, mats:25},
 ];
 const WANDERER = {
   mesh: {body:82, total:322, tris:15508, mats:16},
