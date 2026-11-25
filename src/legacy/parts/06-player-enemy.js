@@ -926,6 +926,21 @@
       highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ - highlightHalfDepth*eyeScale + highlightPoke*eyeScale);
       group.add(highlight);
       faceMeshes.push(highlight);
+      /* 4職(CHARACTER-VIS-002 T-1): 目の3枚は輪郭線・X 線シェルを付けない(薄い板の輪郭線が
+         目のまわりに黒い点線の輪になり、板を貼った見た目の主因だった)。左右の目を白目の中心を
+         軸に外へ EYE_TILT だけ回し、顔の曲面に沿わせる(位置・大きさ・間隔・瞳は同じ) */
+      if(softHead){
+        const EYE_TILT = 0.28;
+        const th = Math.sign(x)*EYE_TILT, c = Math.cos(th), sn = Math.sin(th);
+        const cx = sclera.position.x, cz = sclera.position.z;
+        [sclera, pupil, highlight].forEach(m=>{
+          m.userData.noOutline = true;
+          const dx = m.position.x - cx, dz = m.position.z - cz;
+          m.position.x = cx + dx*c + dz*sn;
+          m.position.z = cz - dx*sn + dz*c;
+          m.rotation.y = th;
+        });
+      }
     });
 
     // hair - グラフィック刷新(Hair再設計 Phase 1): SphereGeometry(滑らかな
@@ -1063,6 +1078,14 @@
         makeHairBang({rootR:headR*0.20, tipR:headR*0.105, length:sideLen}), hairMat);
       sideHair.position.set(s*sideTipX, head.position.y + sTipOut.y, sideZ + HEAD_BACK_Z);
       sideHair.rotation.set(0, 0, -s*sideTilt);
+      /* 4職(CHARACTER-VIS-002 T-1、joint analysis J-3): 横の髪の房が頬の横で黒い板のように
+         見え、横顔の印象を崩していた。房を細く(太さ 0.62 倍)・短く(0.78 倍、毛先側を基準に
+         付け根を下げる)し、頬の後ろ(headR × 0.16)・少し上(× 0.10)へ寄せる。形と数は同じ */
+      if(softHead){
+        sideHair.scale.set(0.62, 0.78, 0.62);
+        sideHair.position.z -= headR*0.16;
+        sideHair.position.y += headR*0.10;
+      }
       sideHair.castShadow = true;
       group.add(sideHair);
       sideHairMeshes.push(sideHair);

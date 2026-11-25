@@ -747,16 +747,18 @@
   /* CHARACTER-VIS-002 T-1(DEC-036): 4職の頭の断面。上の HEAD_SECTION_RATIOS(既定。影の旅人・
      敵・NPC が使う)は変えず、4職の buildPlayer だけが opts.sections でこの表を渡す
      (T-0 Step 1b の「共通の関数の既定値は変えず、4職はオプションで選ぶ」)。
-     変えるのは頭の下半分だけ: 顎(chin)を 0.38 → 0.58、顎線(jaw)を 0.72 → 0.88 へ広げ、
-     逆三角形の尖った顎を丸い下顎にする。頬(cheek、最大幅・目の高さ)から上は既定と同じ
-     ―― 目・髪・被り物の位置が頬より上の断面で決まっているため、そこは動かさない。
+     顎(chin)を 0.38 → 0.58、顎線(jaw)を 0.72 → 0.88 へ広げ、逆三角形の尖った顎を丸い下顎にする。
+     横顔の奥行き(Human 追加要求「顔の形が変」): 顔の前面の膨らみ nosePush を額 0 → 0.04・
+     頬 0.04 → 0.07・顎線 0.08 → 0.09・顎 0.03 → 0.04 にし、額から頬・口元へ前に丸く出る横顔にする。
+     幅(widthMul)は頬(最大幅・目の高さ)から上は既定と同じ ―― 髪・被り物の位置が頬より上の
+     断面の幅で決まっているため、幅は動かさない。
      断面の段数・点の数は既定と同じ(ポリゴンを増やさない)。単純な球にはせず、
      顔側が平らで後頭部が絞れた既定の断面の形(HEAD_HEX_TEMPLATE)はそのまま */
   const HEAD_SECTION_RATIOS_SOFT = {
-    chin:      { yFrac:0.00, widthMul:0.58, nosePush:0.03 },
-    jaw:       { yFrac:0.22, widthMul:0.88, nosePush:0.07 },
-    cheek:     { yFrac:0.52, widthMul:1.06, nosePush:0.04 },
-    upperHead: { yFrac:0.80, widthMul:0.92, nosePush:0.00 },
+    chin:      { yFrac:0.00, widthMul:0.58, nosePush:0.04 },
+    jaw:       { yFrac:0.22, widthMul:0.88, nosePush:0.09 },
+    cheek:     { yFrac:0.52, widthMul:1.06, nosePush:0.07 },
+    upperHead: { yFrac:0.80, widthMul:0.92, nosePush:0.04 },
     crown:     { yFrac:1.00, widthMul:0.60, nosePush:0.00 },
   };
   Object.values(HEAD_SECTION_RATIOS_SOFT).forEach(r => { r.depthMul = r.widthMul * DEPTH_TO_WIDTH_RATIO; });
