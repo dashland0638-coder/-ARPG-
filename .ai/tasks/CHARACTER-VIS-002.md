@@ -546,7 +546,7 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | `npm run test:unit` | PASS（2341）|
 | 関連 E2E 93件（`character-visual-budget`・`character-clothing`・`character-palette`・`character-weapon-visual`・`character-motion`・`weapon-stow`・`battle-knight-visual`・`base-class-identity`・`base-class-comparison`・`job-traits`・`wanderer-renewal`・`road2-join`・`chapter1-progression`）| 初回 89 PASS / 4 FAIL → 修正後 93 PASS（FLAKY なし）|
 | 初回の FAIL 4件 | `character-motion.spec.js` の T-2 体格（4職）: 頭身の期待値 5.0（DEC-036 で 4.75 に変わった仕様）。期待値を 4.75 へ、肩の外幅 / 頭の幅の範囲（T-2 V-1a の 1.26〜1.46）を頭の拡大の比 4.75/5.0 で換算（1.197〜1.387）した（AD-18）。全高・手とベルト・腰幅の比の assert は変えていない。修正後 4 PASS |
-| 関連 E2E 93件（顔の造形の追加・Review の指摘の対応の後）| 下の Status History |
+| 関連 E2E 93件（顔の造形の追加・Review の指摘の対応の後、`0923f6d` のコード）| **93 PASS**（FLAKY・FAIL なし）。build PASS、unit 2341 PASS |
 | 全 E2E | CI で実行（PR）|
 
 ### 影の旅人への非影響
@@ -571,3 +571,4 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-24 | T-0 | REVIEWING → DONE | Implementer / Orchestrator | R-1 を反映（加入後のリグを probe の中で組み立て直し変形込みで比較。首の位置だけの変更を検出することを確認、期待値は変更前 `3b168a2` でも一致）。R-3 / R-4 の記録を更新。R-2（デバッグ表示の毎フレームの走査）は許容範囲として記録のみ。R-5: 比較画像は本 Task file の値の表とあわせて Human へ提示 |
 | 2026-11-25 | T-1 | PLANNED → APPROVED → IMPLEMENTING → TESTING | Planner / Implementer | Human Decision DEC-036（頭身 4.75）。Agent Approval。下の Implementation Result（T-1）|
 | 2026-11-25 | T-1 | TESTING → IMPLEMENTING | Implementer | Human 追加要求（顔の造形）。前面の奥行き・目の輪郭線 / 向き・横の髪を実装、顔のパーツ・目の部品は設計案（`CHARACTER-VIS-002-face-design.md`）と E-3 |
+| 2026-11-25 | T-1 | IMPLEMENTING（変更なし）| Reviewer / Implementer | Review Round 1 PASS（`7734197` / `c4d66e3`）、推奨の指摘 S-1〜S-4 と note を反映（`0923f6d`）。関連 E2E 93 PASS。E-3 の回答と Human の目視承認を待つ |
