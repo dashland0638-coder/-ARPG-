@@ -82,16 +82,18 @@ const PROBE = `
   };
 })();`;
 
-/* T-0 の記録値(本体 / 全体 / 三角形 / 固有 Material) */
+/* T-0 の記録値(本体 / 全体 / 三角形 / 固有 Material)。三角形だけ CHARACTER-VIS-002 T-1 で更新:
+   目の外周の点の数(白目 8→14・瞳 6→12・ハイライト 4→8)で 1 人あたり +128(両目)、輪郭線 2 枚と
+   X 線シェルの複製を含めて +512(約 +3%)。描画回数(メッシュ数)と Material の数は T-0 のまま */
 const BUDGET = [
-  {key:'warrior', job:null,           name:'剣士',         body:82, total:325, tris:15744, mats:20},
-  {key:'warrior', job:'battleKnight', name:'戦騎士',       body:91, total:361, tris:17320, mats:23},
-  {key:'mage',    job:null,           name:'魔法使い',     body:72, total:285, tris:15384, mats:19},
-  {key:'mage',    job:'archmage',     name:'魔導士',       body:87, total:345, tris:16792, mats:21},
-  {key:'archer',  job:null,           name:'弓師',         body:76, total:301, tris:15532, mats:22},
-  {key:'archer',  job:'hawkEye',      name:'鷹の目',       body:86, total:341, tris:17356, mats:26},
-  {key:'rogue',   job:null,           name:'盗賊',         body:78, total:309, tris:14768, mats:23},
-  {key:'rogue',   job:'berserker',    name:'バーサーカー', body:83, total:329, tris:15544, mats:25},
+  {key:'warrior', job:null,           name:'剣士',         body:82, total:325, tris:16256, mats:20},
+  {key:'warrior', job:'battleKnight', name:'戦騎士',       body:91, total:361, tris:17832, mats:23},
+  {key:'mage',    job:null,           name:'魔法使い',     body:72, total:285, tris:15896, mats:19},
+  {key:'mage',    job:'archmage',     name:'魔導士',       body:87, total:345, tris:17304, mats:21},
+  {key:'archer',  job:null,           name:'弓師',         body:76, total:301, tris:16044, mats:22},
+  {key:'archer',  job:'hawkEye',      name:'鷹の目',       body:86, total:341, tris:17868, mats:26},
+  {key:'rogue',   job:null,           name:'盗賊',         body:78, total:309, tris:15280, mats:23},
+  {key:'rogue',   job:'berserker',    name:'バーサーカー', body:83, total:329, tris:16056, mats:25},
 ];
 const WANDERER = {
   mesh: {body:82, total:322, tris:15508, mats:16},
