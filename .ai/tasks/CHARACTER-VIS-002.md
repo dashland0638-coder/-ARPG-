@@ -279,6 +279,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | AD-14 | 共通関数のオプション引数は、使う Work Item（T-1 以降）で足す。T-0 では先回りの引数を足さず、既定値の固定をテスト（AD-13）で担保する | 5（§10 Scope、使われないコードを足さない）| T-0 で引数だけ先に足す |
 | AD-16 | T-1 は PR #147（文書・T-0、未 merge）と目的が異なるため、T-0 の先端 `4e76a69` から別の作業ブランチで実装し、別の PR にする（base は PR #147 の head ブランチ。#147 の merge 後は `claude/road-visual-003-r3-7` へ変更する）| 依頼文「既存 PR の目的と異なる変更を混在させない」「既存の変更を破棄・rebase しない」| PR #147 に積む |
 | AD-17 | 4職の頭の改善は、頭の断面の表を `o.sections` で渡す（頭・髪の殻・被り物の隠れ判定・魔導士の髪が同じ表を読む）。目は点の数の引数。首は `softHead` の分岐。共通関数の既定は不変 | 3（DEC-036、AD-3 / AD-14）| グローバルの表の書き換え |
+| AD-18 | `character-motion` の T-2 体格テストは、頭身の期待値を 4.75 に、肩の外幅 / 頭の幅の範囲を頭の拡大の比（4.75/5.0）で換算する。肩幅は変えない（DEC-036「肩幅を過度に増やさない」）。換算後の範囲で魔法使い 1.20・盗賊 1.256 は下限付近 → Human の目視確認の項目にする | 3（DEC-036）、1（T-2 V-1a の範囲は 5.0 頭身の頭の幅に対する比）| 魔法使い・盗賊の肩を広げて 1.26 以上を保つ（肩幅の変更）|
 | AD-15 | 古い鎧の部品は T-0 で削除しない。同じフレームで表示 / 非表示の画素を比べ、胸当て・脛当て・足首の帯・籠手・肩当てのすべてが画面に写ることを確認したため（削除は見た目の変化）。扱いは T-1（J-4 籠手）以降で Human の V-1 とともに | 1（T-0 の画素の計測）、DEC-035「T-0 では見た目を変えない」| 見えにくい部品を削除 |
 
 ## マテリアル構成の改善方針（依頼文 §7-5）
@@ -463,6 +464,7 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | `src/legacy/parts/06-player-enemy.js` | `buildPlayer()`: `softHead`（影の旅人以外）で、頭・`HEAD_DIMS`（髪・被り物の隠れ判定が読む）に `HEAD_SECTION_RATIOS_SOFT`、目の点の数 14 / 12 / 8、首（上端を顎の下面 + 0.05 まで、中心を `HEAD_BACK_Z × 0.5`、上端の太さ `B.neck`）。魔導士の長い銀髪の頭の寸法にも同じ断面 |
 | `tests/unit/wanderer-visual-freeze.test.js` | 目の生成関数の既定の点数（`n || 8` 等）、4職だけが改善を選ぶ（`softHead`・`headSections`・`eyePts`）、`headRatioAt` の既定の表 |
 | `tests/character-visual-budget.spec.js` | 三角形の上限を +512（目の点の数の分。メッシュ数・Material の数は T-0 のまま）|
+| `tests/character-motion.spec.js` | T-2 体格のテストの頭身の期待値 4.75、肩 / 頭の範囲の換算（AD-18）|
 | `docs/CHARACTERS.md` | 外見の節: 4.75 頭身、頭身の定義と計測、頭の形、目の点の数 |
 | `.ai/decisions/DEC-036-character-vis-002-head-ratio.md` | Human Decision（頭身 4.75）|
 
@@ -499,6 +501,15 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 ### 描画の量
 - メッシュ数（描画回数）・固有 Material の数: 9キャラクターとも T-0 と同じ
 - 三角形: 4職 +512（約 +3%。目の点の数。輪郭線・X 線シェルの複製を含む）。影の旅人は不変
+
+### Test Report（T-1）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit` | PASS（2341）|
+| 関連 E2E 93件（`character-visual-budget`・`character-clothing`・`character-palette`・`character-weapon-visual`・`character-motion`・`weapon-stow`・`battle-knight-visual`・`base-class-identity`・`base-class-comparison`・`job-traits`・`wanderer-renewal`・`road2-join`・`chapter1-progression`）| 初回 89 PASS / 4 FAIL → 修正後 93 PASS（FLAKY なし）|
+| 初回の FAIL 4件 | `character-motion.spec.js` の T-2 体格（4職）: 頭身の期待値 5.0（DEC-036 で 4.75 に変わった仕様）。期待値を 4.75 へ、肩の外幅 / 頭の幅の範囲（T-2 V-1a の 1.26〜1.46）を頭の拡大の比 4.75/5.0 で換算（1.197〜1.387）した（AD-18）。全高・手とベルト・腰幅の比の assert は変えていない。修正後 4 PASS |
+| 全 E2E | CI で実行（PR）|
 
 ### 影の旅人への非影響
 - `character-visual-budget` の影の旅人（加入後のリグ・加入前の立ち / 座り・影の手の形のシグネチャ、描画の量）: PASS（T-0 の値と一致）
