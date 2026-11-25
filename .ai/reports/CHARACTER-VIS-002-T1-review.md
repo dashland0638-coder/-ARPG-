@@ -50,3 +50,31 @@
 
 ## Verdict
 **PASS**（must-fix なし。`7734197` / `c4d66e3` とも）。should-fix S-1〜S-4 は Implementer へ戻すことを推奨（特に S-1 の横顔の黒い楔と S-2 の目の見た目の記述）。T-1 は E-3 の回答と Human の目視承認（V-1）が残っている。
+
+## Round 2（Reviewed SHA `396c83c`）
+- 範囲: `c4d66e3..396c83c`（コード `0923f6d`、記録 `5bcf10a` / `7e9d206` / `396c83c`）。Round 1 の指摘への対応と、それが起こしうる退行だけを確認した
+- 独立性: 同じく別コンテキスト。一時 worktree（`396c83c`、ポート 5273 / 4273 の一時 config）で実行し、終了後に削除した。同時に動いている他の Playwright は無かった
+
+### Checks & Results
+| 確認 | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit` | PASS（2341 pass / 0 fail / 1 skip）|
+| E2E `character-visual-budget` `character-motion` `weapon-stow` `wanderer-renewal` `character-clothing`（隔離した worktree）| **44/44 PASS**（9.6 分）。`CVB_PRINT=1` の実測値は budget の8行と完全に一致（剣士 307 / 15528 … バーサーカー 311 / 15328。body・mats は T-0 のまま）|
+| 三角形の算術 | 白目 14 → 16 点で 1 眼 +8（4n−4）、両目 +16 / 人。目は輪郭線・X 線が無いので複製されない。T-0 との差は −232 → **−216**。8行すべて +16 で一致 |
+| S-1 頬のくさび | `05` `makeCharacterHairShell` の `opts.napeSideIn`: うなじの輪の点 1 / 4（`HEAD_HEX_TEMPLATE` の cheekL / cheekR。`headSectionPoints` の並びは face 6 点 + nose 2 点なので添字は正しい）だけを 0.96 倍にする。`hairShellPointAt` は被り物の内側へ縮めるだけで外へは押し出さない。新しい `t1-compare-head.jpg` の横顔でくさびは消えている（こめかみに細い横の房の小さな影が残る。記録どおり）。後頭部・背面の髪の見え方は Round 1 と同じで、地肌の新しい露出は見られない |
+| S-1 の影の旅人への影響 | `06` は `napeSideIn: softHead`、`14-dungeon-road.js` は渡さない → 影の旅人の殻は既定のまま。budget spec の影の旅人のシグネチャ（加入後・加入前の立ち / 座り）PASS |
+| S-2 目 | 白目 16 点: 0° / 90° / 180° / 270° に頂点が来るので、描画上の縦横比は 1.28 で厳密。回した後に3枚を `pupil.x − pupilX0` だけ横へ戻す: 瞳の左右の位置は回す前と一致し、3枚の相対の配置（回転）は保たれる。unit の固定値も 16 へ同期（`wanderer-visual-freeze`）|
+| S-3 / S-4 | AD-19 と T-2〜T-5 の行に J-1 / J-4 / J-7 / J-8 / J-9 の担当、J-11 は T-8 と iPhone の確認。E-3 の Facts に実装済みの目の変更を明示、E 案（目を T-4 の見た目へ戻す）と Minimal answer を追加 ―― 妥当 |
+| 魔導士の `archHeadDims` | `applyJobPromotionVisual` は `buildPlayer` の外で `headSections` が見えない ―― 確認した。`HEAD_SECTION_RATIOS_SOFT` のままとコメントで可（Round 1 N-3 の提案は取り下げ）|
+
+### Findings（Round 2）
+- must-fix: なし
+- should-fix: なし
+- note:
+  - **R2-N1** 瞳を元の位置へ戻した代わりに、白目の中心が左右とも内側へ ≈ dz·sin(0.28) ≈ 0.004 寄る（白目の中心の間隔 ≈ −4%）。「間隔 0.095」が実際には瞳の位置を指すことになった。Implementation Result の「目の向き」の行（「大きさ・間隔・瞳・縦横比は不変」）と E-3 の Facts（「左右の瞳の間隔がわずかに変わる」）は、`0923f6d` の後の状態（瞳の間隔は同じ、白目がわずかに内側）に合わせて書き直すとよい
+  - **R2-N2** Round 1 N-4 の続き: 白目を内側へ寄せたので、外側の前面の角と顔の面の余裕は計算で ≈0.0006（剣士、目の高さ）とさらに小さい。撮影では埋まりは見えない。iPhone 実機の拡大・首振りで確認する項目として残す
+  - **R2-N3** 瞳の見かけの高さ +15%・ハイライトの面積 +41% は、Implementation Result で V-1 の確認項目と明記された（Round 1 S-2 の残り。対応として十分）
+
+### Verdict（Round 2）
+**PASS**（`396c83c`）。Round 1 の S-1〜S-4 は解消されている。退行は見つからなかった。T-1 に残っているのは E-3 の回答と Human の目視承認（V-1）。
