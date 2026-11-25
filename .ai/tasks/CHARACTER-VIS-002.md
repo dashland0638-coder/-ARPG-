@@ -526,7 +526,17 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
   | 目の輪郭線 | 目の3枚に `userData.noOutline`（輪郭線・X 線シェルを付けない）。点線の輪の解消。描画 1 人 -18 メッシュ |
   | 目の向き | 左右の目を白目の中心を軸に外へ 0.28 rad（位置の回転 + 板の回転）。大きさ・間隔・瞳・縦横比は不変 |
   | 横の髪 | 横の髪の房を太さ 0.62 倍・長さ 0.78 倍、頬の後ろ（headR × 0.16）・上（× 0.10）へ（joint analysis J-3）|
-- 描画の量（`character-visual-budget` の上限を更新）: 全メッシュ 1 人 -18（剣士 325 → 307 ほか）、三角形は T-0 より 1 人 -232、本体メッシュ・Material の数は不変
+- 描画の量（`character-visual-budget` の上限を更新）: 全メッシュ 1 人 -18（剣士 325 → 307 ほか）、三角形は T-0 より 1 人 -216、本体メッシュ・Material の数は不変
+- Review（Round 1、PASS、`.ai/reports/CHARACTER-VIS-002-T1-review.md`）の推奨の指摘への対応:
+  | 指摘 | 対応 |
+  | --- | --- |
+  | S-1 横顔の頬の黒いくさび | 原因は髪の殻（横の髪の房を隠しても残った）。うなじの輪の頬の2点が頭の外（1.09 倍）、顔側の点が内側（0.55 倍）で、その間の面が頬の横へ突き出していた。4職だけ、うなじの輪の頬の2点を頭の面の内側（0.96 倍、`opts.napeSideIn`）へ。撮影でくさびはほぼ消えた（こめかみの小さな影 = 細くした横の髪の房は残る）|
+  | S-2 目の描画上の差 | 白目の点の数 14 → 16（真上・真下・真横に頂点 → 描画上の縦横比も 1.28）。回した後に3枚をまとめて横へ戻し、左右の瞳の位置を回す前と同じにした。残る描画上の差（瞳の見かけの高さ +15%: 6 角形 → 12 角形で真上・真下に頂点が来るため、ハイライトの面積 +41%: 4 角形 → 8 角形）は V-1 の確認項目 |
+  | S-3 接合の項目の割り当て | AD-19 と Work Items の表に割り当て |
+  | S-4 目の変更を E-3 に | E-3 の Facts と E 案（目を T-4 の見た目へ戻す）に追加 |
+  | note 魔導士の髪の頭の断面 | `headSections` に変えたところ、転身の関数（`applyJobPromotionVisual`）の中で見えない変数で魔導士の生成が壊れた（`character-visual-budget` の魔導士で検出）。`HEAD_SECTION_RATIOS_SOFT` のまま（魔導士は必ず魔法使い）とし、コメントで理由を残した |
+  | note 表記 | 顎線 nosePush の基準、案 B のメッシュ数を統一 |
+- 三角形の上限: 白目 16 点の分 1 人 +16（目には輪郭線が無いので複製されない）
 - 判断を待つもの（ESCALATION E-3、下）: 目の部品（瞳孔・上まぶた）と顔のパーツ（口・鼻・眉）
 
 ### Test Report（T-1）
@@ -536,6 +546,7 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | `npm run test:unit` | PASS（2341）|
 | 関連 E2E 93件（`character-visual-budget`・`character-clothing`・`character-palette`・`character-weapon-visual`・`character-motion`・`weapon-stow`・`battle-knight-visual`・`base-class-identity`・`base-class-comparison`・`job-traits`・`wanderer-renewal`・`road2-join`・`chapter1-progression`）| 初回 89 PASS / 4 FAIL → 修正後 93 PASS（FLAKY なし）|
 | 初回の FAIL 4件 | `character-motion.spec.js` の T-2 体格（4職）: 頭身の期待値 5.0（DEC-036 で 4.75 に変わった仕様）。期待値を 4.75 へ、肩の外幅 / 頭の幅の範囲（T-2 V-1a の 1.26〜1.46）を頭の拡大の比 4.75/5.0 で換算（1.197〜1.387）した（AD-18）。全高・手とベルト・腰幅の比の assert は変えていない。修正後 4 PASS |
+| 関連 E2E 93件（顔の造形の追加・Review の指摘の対応の後）| 下の Status History |
 | 全 E2E | CI で実行（PR）|
 
 ### 影の旅人への非影響
