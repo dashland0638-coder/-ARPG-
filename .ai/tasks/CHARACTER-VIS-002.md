@@ -598,7 +598,7 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 1 | `06` 剣士の分岐 | ネックゲイターの上端を headR × 0.55 下 → 0.74 下（顎の上）、上端の輪 hw 0.80 → 0.82・hd 0.78 → 0.80、中の輪 0.95 → 1.02 下 |
 | 2 | `06` 剣士の分岐 | パーカーの腰の輪 hw bodyR × 1.10 → 1.04、腰の下の輪 1.24 → 1.26、裾 1.36 → 1.44（丈・前開き・ポケットの数は不変）|
 | 3 | `06` 腕の組み立て | 籠手（vambrace）を剣士・戦騎士では作らない（`noVambrace`。影の旅人・他職は今のまま）|
-| 4 | `06` 剣士の分岐（パンツ）| 剣士のすね側のパンツの最初の輪を膝より上（太腿の長さ × 0.12）へ、太さ 1.50 / 1.40 → 1.44 / 1.34（太腿側の内側へ差し込む）。影の旅人のパンツの輪は不変 |
+| 4 | `06` 剣士の分岐（パンツ）| 剣士のすね側のパンツの最初の輪を膝より上（太腿の長さ × 0.06）へ、太さ 1.50 / 1.40 → 1.44 / 1.24（太腿側の内側へ差し込む。Review S-2 で 0.12 / 1.34 から変更: 膝を 5〜30° 曲げたときに輪の前が太腿側の前面から最大 約 13 mm 突き出していた）。影の旅人のパンツの輪は不変 |
 | 5 | `06` 剣士の分岐 | ポケット3つに `noOutline`（輪郭線・X 線シェルなし）|
 | 6 | ― | J-9: flatShading は変えない（方針の記録）|
 | 7 | ― | J-1: T-8 で全職まとめて（記録）|
@@ -648,3 +648,4 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-25 | T-1 | IMPLEMENTING（変更なし）| Reviewer | Review Round 2 **PASS**（Reviewed SHA `396c83c`）。S-1〜S-4 解消、回帰なし。note R2-N1（記述の更新、反映済み）・R2-N2（白目の外側の縁と顔の面の隙間 約 0.0006 → iPhone の拡大確認）・R2-N3。PR #148。E-3 の回答と Human の目視承認を待つ |
 | 2026-11-26 | T-1 | IMPLEMENTING → REVIEWING → DONE | Planner / Implementer / Reviewer | DEC-037（E-3 = B、iPhone 目視確認完了）。口・鼻を実装（`86c9327`）、関連 E2E 55 + 9 PASS。口・鼻の追加分（`3110bfe..ceaf8a0`）の Reviewer **PASS**（`.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`、T-2 のブランチ）。目の部品（瞳孔・上まぶた）は DEC-037 の読み方のとおり足していない |
 | 2026-11-26 | T-2 | PLANNED → APPROVED → IMPLEMENTING → TESTING | Planner / Implementer | 下の Implementation Result（T-2）|
+| 2026-11-26 | T-2 | TESTING → REVIEWING | Reviewer / Implementer | Review **PASS**（`.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`、Reviewed `ceaf8a0..5d56950`）。S-2（膝の輪の突き出し）を反映: すね側の最初の輪 0.12 → 0.06、奥行き 1.34 → 1.24。S-1 / S-3 は記録を反映、N-2 は docs の白目 16 |

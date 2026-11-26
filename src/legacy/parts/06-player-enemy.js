@@ -1362,9 +1362,11 @@
           warriorPantsRing(wandererHemY,     B.thigh*1.30, B.thigh*1.30, outSign),
         ] : [
           /* CHARACTER-VIS-002 T-2(joint analysis J-7): 膝を曲げると太腿側とすね側の境目が開いて
-             段差が見えていた。すね側の最初の輪を膝より上(太腿の長さ × 0.12)から始め、太腿側の裾
-             (1.50 / 1.40)より少し細くして内側へ差し込む(点・段の数は同じ) */
-          warriorPantsRing(B.thighLen*0.12, B.thigh*1.44, B.thigh*1.34, outSign),
+             段差が見えていた。すね側の最初の輪を膝より上(太腿の長さ × 0.06)から始め、太腿側の裾
+             (1.50 / 1.40)より少し細く・浅くして内側へ差し込む(点・段の数は同じ)。輪が膝より上に
+             あるほど、膝を曲げたときに輪の前が太腿側の前面から突き出すので、高さ 0.06・奥行き 1.24
+             にして、膝を 5〜30° 曲げても太腿側の裾の奥行きの内側に収める(Review T-2 S-2) */
+          warriorPantsRing(B.thighLen*0.06, B.thigh*1.44, B.thigh*1.24, outSign),
           warriorPantsRing(-B.calfLen*0.30, B.thigh*1.55, B.thigh*1.45, outSign),
           warriorPantsRing(-B.calfLen*0.58, B.thigh*1.55, B.thigh*1.45, outSign),
         ], {closedTop:true}), subMatFlat), knee);
