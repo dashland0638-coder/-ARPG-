@@ -980,6 +980,29 @@
     const HEAD_DIMS = { width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2, sections:headSections };
     const headOut = (yFrac) => headOutlineAt(HEAD_DIMS, yFrac);
 
+    /* 顔のパーツ(CHARACTER-VIS-002 T-1、Human Decision E-3 = B / DEC-037): 4職だけに控えめな口と小さな鼻。
+       眉は足さない。目はそのまま(瞳孔・上まぶたは足さない)。どちらも頭のメッシュの子にして頭と一緒に
+       動かし、輪郭線・X 線シェルは付けない(小さな部品の輪郭線は黒い点の塊になるため)。位置と大きさは
+       頭の断面(headOutlineAt = HEAD_SECTION_RATIOS_SOFT)と headR から導く(職ごとの頭の大きさに追従) */
+    if(softHead){
+      const yAt = yf => -headR + 2*headR*yf;
+      // 鼻: 肌と同じ Material の低い四角錐。頬の高さより少し下(yFrac 0.40)の前面から headR × 0.015 だけ前
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(headR*0.06, headR*0.10, 4), skinMat);
+      nose.rotation.x = Math.PI/2 * 0.9;
+      nose.position.set(0, yAt(0.40), headOut(0.40).frontZ + headR*0.015);
+      nose.userData.noOutline = true;
+      head.add(nose);
+      // 口: 小さな微笑みの弧(幅 headR × 0.26、濃い赤茶、陰影を受けない)。yFrac 0.27 の前面に沿わせる
+      const MOUTH_W = headR*0.13, mouthPts = [];
+      for(let i=0;i<=8;i++){ const t = -1 + 2*i/8; mouthPts.push({x:t*MOUTH_W, y:-(1 - t*t)*MOUTH_W*0.35}); }
+      for(let i=8;i>=0;i--){ const t = -1 + 2*i/8; mouthPts.push({x:t*MOUTH_W*0.9, y:-(1 - t*t)*MOUTH_W*0.35 + MOUTH_W*0.16}); }
+      const mouth = new THREE.Mesh(makePlate(mouthPts, {thickness:0.004}), new THREE.MeshBasicMaterial({color:0x6a2e2a}));
+      mouth.position.set(0, yAt(0.27), headOut(0.27).frontZ + 0.002);
+      mouth.userData.noOutline = true;
+      head.add(mouth);
+      playerMixerParts.faceParts = [nose, mouth];
+    }
+
     // ---- Hair Shell(旧Hair Cap): Headの外殻。原点・引数はHead本体と同一 ----
     // classKeyを渡すことで、makeCharacterHairShell()内部でHeadwear
     // Coverageを参照し、Headwearが存在する(Y,angle)ではHairの生成半径
