@@ -86,10 +86,12 @@ const PROBE = `
    目の3枚に輪郭線・X 線シェルを付けなくなった分、全体が 1 人 -18(輪郭線 2 枚 + X 線 1 枚 × 6 枚)。
    三角形は目の外周の点の数の増加(白目 16・瞳 12・ハイライト 8 で +144 / 人)と輪郭線の削減を合わせて T-0 より 1 人 -216。
    減らした値を新しい上限にする。
-   顔のパーツ(Human Decision E-3 = B): 口と鼻で本体 +2(輪郭線なし)・三角形 +80・Material +1(口の色) */
+   顔のパーツ(Human Decision E-3 = B): 口と鼻で本体 +2(輪郭線なし)・三角形 +80・Material +1(口の色)。
+   剣士・戦騎士(CHARACTER-VIS-002 T-2): 籠手を作らない(本体 -2、全体 -8)、ポケットの輪郭線・X 線なし
+   (全体 -9)で全体 -17、三角形 -692 */
 const BUDGET = [
-  {key:'warrior', job:null,           name:'剣士',         body:84, total:309, tris:15608, mats:21},
-  {key:'warrior', job:'battleKnight', name:'戦騎士',       body:93, total:345, tris:17184, mats:24},
+  {key:'warrior', job:null,           name:'剣士',         body:82, total:292, tris:14916, mats:21},
+  {key:'warrior', job:'battleKnight', name:'戦騎士',       body:91, total:328, tris:16492, mats:24},
   {key:'mage',    job:null,           name:'魔法使い',     body:74, total:269, tris:15248, mats:20},
   {key:'mage',    job:'archmage',     name:'魔導士',       body:89, total:329, tris:16656, mats:22},
   {key:'archer',  job:null,           name:'弓師',         body:78, total:285, tris:15396, mats:23},

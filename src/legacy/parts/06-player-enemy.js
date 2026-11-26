@@ -1269,10 +1269,12 @@
       });
       }
       if(!isWanderer){
-      // ネックゲイター: 肩から口元の下まで首を高く覆う(顔の目より上は出す)
+      /* ネックゲイター: 肩から顎の上まで首を覆う。CHARACTER-VIS-002 T-2: 上端を口元の下
+         (headR × 0.55 下)から顎の上(× 0.74 下)へ下げ、T-1 の丸い顎と口(E-3 = B)を見せる。
+         上端の輪は顎の幅に合わせる */
       addDecor(new THREE.Mesh(makeGarmentLoft([
-        { y:hY - headR*0.55,     hw:headR*0.80, hd:headR*0.78, dz:HEAD_BACK_Z },
-        { y:hY - headR*0.95,     hw:headR*0.96, hd:headR*0.92, dz:HEAD_BACK_Z },
+        { y:hY - headR*0.74,     hw:headR*0.82, hd:headR*0.80, dz:HEAD_BACK_Z },
+        { y:hY - headR*1.02,     hw:headR*0.96, hd:headR*0.92, dz:HEAD_BACK_Z },
         { y:HIP_Y + bodyH*0.96,  hw:bodyR*0.82, hd:bodyR*0.72 },
       ], {closedTop:true}), clothAcc));
       // 背中に下ろしたフード(パーカーの一部)。頭と一緒に回らないよう waist 側。
@@ -1288,17 +1290,21 @@
       addDecor(new THREE.Mesh(makeOpenGarmentLoft([
         { y:HIP_Y + bodyH*1.00, hw:bodyR*1.24, hd:bodyR*0.90, open:bodyR*0.12, t:bodyR*0.08 },
         { y:HIP_Y + bodyH*0.62, hw:bodyR*1.14, hd:bodyR*1.04, open:bodyR*0.12, t:bodyR*0.08 },
-        { y:HIP_Y,              hw:bodyR*1.10, hd:bodyR*1.04, open:bodyR*0.14, t:bodyR*0.08 },
-        { y:HIP_Y - 0.25,       hw:bodyR*1.24, hd:bodyR*1.22, open:bodyR*0.30, t:bodyR*0.08 },
-        { y:parkaHemY,          hw:bodyR*1.36, hd:bodyR*1.32, open:bodyR*0.45, t:bodyR*0.08 },
+        // CHARACTER-VIS-002 T-2: 腰を少し絞り(1.10 → 1.04)、裾を少し広げる(1.36 → 1.44)A ライン
+        { y:HIP_Y,              hw:bodyR*1.04, hd:bodyR*1.04, open:bodyR*0.14, t:bodyR*0.08 },
+        { y:HIP_Y - 0.25,       hw:bodyR*1.26, hd:bodyR*1.22, open:bodyR*0.30, t:bodyR*0.08 },
+        { y:parkaHemY,          hw:bodyR*1.44, hd:bodyR*1.32, open:bodyR*0.45, t:bodyR*0.08 },
       ]), clothMat));
       // ポケット(胸に1つ、腰の左右に1つずつ)。パーカーの前面に重ねる薄い板
       [[-1, bodyH*0.78, bodyH*0.60, 0.45, 0.95, 0.22], [-1, -0.02, -0.20, 0.62, 1.02, 0.28], [1, -0.02, -0.20, 0.62, 1.02, 0.28]]
         .forEach(([sx, yT, yB, xMul, zMul, wMul])=>{
-          addDecor(new THREE.Mesh(makeGarmentLoft([
+          const pocket = addDecor(new THREE.Mesh(makeGarmentLoft([
             { y:HIP_Y + yT, hw:bodyR*wMul, hd:bodyR*0.05, dx:sx*bodyR*xMul, dz:bodyR*zMul },
             { y:HIP_Y + yB, hw:bodyR*wMul, hd:bodyR*0.05, dx:sx*bodyR*xMul, dz:bodyR*zMul },
           ], {closedTop:true}), clothMat));
+          // CHARACTER-VIS-002 T-2(joint analysis J-8): 外形を作らない内側の小さな部品なので輪郭線・
+          // X 線シェルを付けない(縁の黒い線が継ぎ接ぎに見えていた)
+          pocket.userData.noOutline = true;
         });
       } else {
         /* 影の旅人(DEC-034「影の旅人・最終キャラクター設計書」、WANDERER-RENEWAL-002):
@@ -1355,7 +1361,10 @@
           warriorPantsRing(wandererHemY*0.5, B.thigh*1.55, B.thigh*1.45, outSign),
           warriorPantsRing(wandererHemY,     B.thigh*1.30, B.thigh*1.30, outSign),
         ] : [
-          warriorPantsRing(0,               B.thigh*1.50, B.thigh*1.40, outSign),
+          /* CHARACTER-VIS-002 T-2(joint analysis J-7): 膝を曲げると太腿側とすね側の境目が開いて
+             段差が見えていた。すね側の最初の輪を膝より上(太腿の長さ × 0.12)から始め、太腿側の裾
+             (1.50 / 1.40)より少し細くして内側へ差し込む(点・段の数は同じ) */
+          warriorPantsRing(B.thighLen*0.12, B.thigh*1.44, B.thigh*1.34, outSign),
           warriorPantsRing(-B.calfLen*0.30, B.thigh*1.55, B.thigh*1.45, outSign),
           warriorPantsRing(-B.calfLen*0.58, B.thigh*1.55, B.thigh*1.45, outSign),
         ], {closedTop:true}), subMatFlat), knee);
@@ -1812,7 +1821,10 @@
       // hand, lathed the same way as the pauldron - the forearm alone read
       // as a bare cloth sleeve with nothing marking it as armoured。
       // 盗賊は軽装のため省く
-      if(!lightArmor){
+      /* CHARACTER-VIS-002 T-2(joint analysis J-4): 剣士・戦騎士は長袖のパーカーの袖口から籠手が出て
+         手袋の縁のように見えていたので作らない(影の旅人・他職は今のまま) */
+      const noVambrace = classDef.key === 'warrior' && classDef.charKey !== 'wanderer';
+      if(!lightArmor && !noVambrace){
         const vambrace = new THREE.Mesh(limbGeo(CUFF_PROFILE, B.forearm*1.2, 0.11, 8), trimMatFlat);
         vambrace.position.y = -FA*0.9; vambrace.castShadow = true;
         el.add(vambrace);
