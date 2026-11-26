@@ -744,6 +744,25 @@
   };
   Object.values(HEAD_SECTION_RATIOS).forEach(r => { r.depthMul = r.widthMul * DEPTH_TO_WIDTH_RATIO; });
 
+  /* CHARACTER-VIS-002 T-1(DEC-036): 4職の頭の断面。上の HEAD_SECTION_RATIOS(既定。影の旅人・
+     敵・NPC が使う)は変えず、4職の buildPlayer だけが opts.sections でこの表を渡す
+     (T-0 Step 1b の「共通の関数の既定値は変えず、4職はオプションで選ぶ」)。
+     顎(chin)を 0.38 → 0.58、顎線(jaw)を 0.72 → 0.88 へ広げ、逆三角形の尖った顎を丸い下顎にする。
+     横顔の奥行き(Human 追加要求「顔の形が変」): 顔の前面の膨らみ nosePush を額 0 → 0.04・
+     頬 0.04 → 0.07・顎線 0.08 → 0.09・顎 0.03 → 0.04 にし、額から頬・口元へ前に丸く出る横顔にする。
+     幅(widthMul)は頬(最大幅・目の高さ)から上は既定と同じ ―― 髪・被り物の位置が頬より上の
+     断面の幅で決まっているため、幅は動かさない。
+     断面の段数・点の数は既定と同じ(ポリゴンを増やさない)。単純な球にはせず、
+     顔側が平らで後頭部が絞れた既定の断面の形(HEAD_HEX_TEMPLATE)はそのまま */
+  const HEAD_SECTION_RATIOS_SOFT = {
+    chin:      { yFrac:0.00, widthMul:0.58, nosePush:0.04 },
+    jaw:       { yFrac:0.22, widthMul:0.88, nosePush:0.09 },
+    cheek:     { yFrac:0.52, widthMul:1.06, nosePush:0.07 },
+    upperHead: { yFrac:0.80, widthMul:0.92, nosePush:0.04 },
+    crown:     { yFrac:1.00, widthMul:0.60, nosePush:0.00 },
+  };
+  Object.values(HEAD_SECTION_RATIOS_SOFT).forEach(r => { r.depthMul = r.widthMul * DEPTH_TO_WIDTH_RATIO; });
+
   /* makeCharacterHead({width, depth, height}): makeCharacterForearm()と
      同じ考え方の、頭部専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの
      基準値(旧limbGeo()のradius引数と同じ意味、B.headRをそのまま渡す)。
@@ -777,8 +796,9 @@
      Hair Shell・Side Hair・Back Hair・Bangsはすべてこれらを経由して
      配置されるため、headR / HEAD_DEPTH_MUL / HEAD_SECTION_RATIOS を
      変更してもHairが自動的にHeadの外側へ追従する。 */
-  function headRatioAt(yFrac){
-    const secs = Object.values(HEAD_SECTION_RATIOS);
+  // table: 断面の表(省略時は既定の HEAD_SECTION_RATIOS。4職は HEAD_SECTION_RATIOS_SOFT)
+  function headRatioAt(yFrac, table){
+    const secs = Object.values(table || HEAD_SECTION_RATIOS);
     if(yFrac <= secs[0].yFrac) return Object.assign({}, secs[0], {yFrac});
     for(let i=0;i<secs.length-1;i++){
       const a = secs[i], b = secs[i+1];
@@ -803,7 +823,7 @@
   /* headOutlineAt: その高さでのHeadの実寸。Hair/装飾の配置は必ずこれを
      基準にする(headRに独自係数を掛けた手打ち座標を使わない)。 */
   function headOutlineAt(o, yFrac){
-    const r = headRatioAt(yFrac);
+    const r = headRatioAt(yFrac, o.sections);
     const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
     return {
       y:         -o.height/2 + o.height*yFrac,
@@ -817,7 +837,7 @@
   function makeCharacterHead(opts){
     const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
     const hh = o.height/2;
-    const sections = Object.values(HEAD_SECTION_RATIOS).map(r => ({
+    const sections = Object.values(o.sections || HEAD_SECTION_RATIOS).map(r => ({
       y: -hh + o.height*r.yFrac,
       points: headSectionPoints(o, r),
     }));
@@ -1849,6 +1869,8 @@
   const HAIR_NAPE_YFRAC = 0.34;
   const HAIR_NAPE_FRONT_MUL = 0.55;
   const HEAD_FRONT_POINT_IDX = new Set([0, 5, 6, 7]);   // faceL, faceR, noseR, noseL
+  const HAIR_NAPE_SIDE_POINT_IDX = new Set([1, 4]);      // cheekL, cheekR(HEAD_HEX_TEMPLATE の最大幅の点)
+  const HAIR_NAPE_SIDE_IN_MUL = 0.96;
   /* hairShellPointAt(classKey, o, x, z, yLocal, baseMul): うなじリングの
      前方4点(HAIR_NAPE_FRONT_MUL)と生え際〜頭頂の全点(HAIR_SHELL_MUL)の
      両方が経由する、Headwear Coverageを反映した頂点座標の決定。
@@ -1888,20 +1910,25 @@
       const yLocal = -hh + o.height*HAIR_NAPE_YFRAC;
       sections.push({
         y: yLocal,
-        points: headSectionPoints(o, headRatioAt(HAIR_NAPE_YFRAC)).map(([x,z], i) => {
-          const k = HEAD_FRONT_POINT_IDX.has(i) ? HAIR_NAPE_FRONT_MUL : HAIR_SHELL_MUL;
+        points: headSectionPoints(o, headRatioAt(HAIR_NAPE_YFRAC, o.sections)).map(([x,z], i) => {
+          /* opts.napeSideIn(CHARACTER-VIS-002 T-1、4職だけが選ぶ): うなじの輪の頬の2点を頭の面の
+             わずかに内側へ入れる。既定(頭の外 HAIR_SHELL_MUL 倍)のままだと、頬の点(外)から顔側の点
+             (内)へ向かう面が頬の横へ黒いくさびのように突き出す(丸い下顎で幅が増えて目立った)。
+             殻がうなじで頭の外に出るのは後頭部の2点だけになる */
+          const k = HEAD_FRONT_POINT_IDX.has(i) ? HAIR_NAPE_FRONT_MUL
+                  : (o.napeSideIn && HAIR_NAPE_SIDE_POINT_IDX.has(i)) ? HAIR_NAPE_SIDE_IN_MUL : HAIR_SHELL_MUL;
           return hairShellPointAt(classKey, o, x, z, yLocal, k);
         }),
       });
     }
     // 生え際〜頭頂: Headの断面をそのままHAIR_SHELL_MUL倍した外殻
     const yfs = [HAIR_HAIRLINE_YFRAC];
-    Object.values(HEAD_SECTION_RATIOS).forEach(r => {
+    Object.values(o.sections || HEAD_SECTION_RATIOS).forEach(r => {
       if(r.yFrac > HAIR_HAIRLINE_YFRAC + 1e-6) yfs.push(r.yFrac);
     });
     yfs.forEach((yf, i) => {
       const yLocal = -hh + o.height*yf;
-      const pts = headSectionPoints(o, headRatioAt(yf)).map(([x,z]) => hairShellPointAt(classKey, o, x, z, yLocal, HAIR_SHELL_MUL));
+      const pts = headSectionPoints(o, headRatioAt(yf, o.sections)).map(([x,z]) => hairShellPointAt(classKey, o, x, z, yLocal, HAIR_SHELL_MUL));
       const isTop = (i === yfs.length-1);
       sections.push({ y: yLocal + (isTop ? o.height*HAIR_TOP_LIFT : 0), points: pts });
     });
@@ -1962,16 +1989,18 @@
   // Sclera(白目): 8点、縦にやや長い(ry>rx)。halfDepthは中心から前面
   // までのZ距離(呼び出し側のscleraFrontZ計算と対応させるため、
   // thickness=halfDepth*2で渡す)
-  function makeEyeSclera(rx, ry, halfDepth){
-    return makePlate(makeEyeOutline(8, rx, ry), { thickness: halfDepth*2 });
+  /* n: 外周の点の数(CHARACTER-VIS-002 T-1。省略時は既定の点数。4職は角が目立たない点数を渡す。
+     大きさ・縦横比は呼び出し側の値のまま) */
+  function makeEyeSclera(rx, ry, halfDepth, n){
+    return makePlate(makeEyeOutline(n || 8, rx, ry), { thickness: halfDepth*2 });
   }
   // Pupil(瞳): 6点、六角形に近い形。Scleraより小さい
-  function makeEyePupil(r, halfDepth){
-    return makePlate(makeEyeOutline(6, r, r), { thickness: halfDepth*2 });
+  function makeEyePupil(r, halfDepth, n){
+    return makePlate(makeEyeOutline(n || 6, r, r), { thickness: halfDepth*2 });
   }
   // Highlight(ハイライト): 4点の小さな菱形。Pupilよりさらに小さい
-  function makeEyeHighlight(r, halfDepth){
-    return makePlate(makeEyeOutline(4, r, r), { thickness: halfDepth*2 });
+  function makeEyeHighlight(r, halfDepth, n){
+    return makePlate(makeEyeOutline(n || 4, r, r), { thickness: halfDepth*2 });
   }
 
   /* Pauldron: rim (u=0) to the crown of the dome (u=1). One shared profile
@@ -2006,8 +2035,18 @@
        headGap > headR                              (首が見える)
        stanceW + thigh <= hipR * 1.10               (脚の付け根が骨盤に収まる)
 
-     目的は「華奢で、横幅が狭く、縦にスッとしたシルエット」(約5頭身)。
+     目的は「華奢で、横幅が狭く、縦にスッとしたシルエット」(DEC-T2-9)。
      旧 male/female の表(頭身 約3.4、肩の外幅 / 全高 0.43)からの置き換え。
+
+     頭身(CHARACTER-VIS-002 T-1、DEC-036): 4職は 4.75 頭身。
+       頭身の定義 = stature / (2 × headR)。stature は足の裏(y = 0)から頭頂
+       (hipY + height + headGap + headR)までの体の高さで、被り物・髪の盛り上がり・
+       武器は含まない。頭の高さは headR × 2(makeCharacterHead の height)
+       作り方: 全高(stature)は T-2 第3版の値のまま。headR = stature / 9.5。
+       頭の半径の増分 dr の 2 倍(頭が大きくなった分 + 首の見える長さを保つために
+       headGap も dr だけ伸ばした分)を、脚 6 割(thighLen / calfLen を元の比で)・
+       胴 4 割(height)で短くする。hairR は headR と同じ比で拡大。肩幅・腰・手足の
+       太さ・動きの係数は変えない。影の旅人の行は変えない(5.0 頭身のまま、DEC-034)
 
      height は胴(ベルト〜襟)、hipY はベルト線、headGap は胴上端〜頭の中心、
      upperLen / foreLen は上腕 / 前腕の長さ、pelvisH / pelvisDrop は骨盤の
@@ -2018,8 +2057,8 @@
   const BUILD = {
     // 剣士: 4人の中では一番しっかりした体格。ただし旧 male のゴツさは削る
     warrior: {
-      stature:2.54, headR:0.254, hairR:0.2735, headGap:0.29,
-      height:0.796, hipY:1.20, thighLen:0.615, calfLen:0.585,
+      stature:2.54, headR:0.2674, hairR:0.2879, headGap:0.3034,
+      height:0.7853, hipY:1.1840, thighLen:0.6068, calfLen:0.5772,
       upperLen:0.42, foreLen:0.40,
       chest:0.24, shoulderOut:0.060, hipR:0.20, pelvisH:0.30, pelvisDrop:0.27,
       stanceW:0.110, thigh:0.095, calf:0.075, upper:0.070, forearm:0.058, neck:0.065,
@@ -2028,8 +2067,8 @@
     },
     // 魔法使い: 肩・胴が最も細く、縦長
     mage: {
-      stature:2.40, headR:0.240, hairR:0.2585, headGap:0.28,
-      height:0.74, hipY:1.14, thighLen:0.585, calfLen:0.555,
+      stature:2.40, headR:0.2526, hairR:0.2721, headGap:0.2926,
+      height:0.7299, hipY:1.1248, thighLen:0.5772, calfLen:0.5476,
       upperLen:0.41, foreLen:0.38,
       chest:0.20, shoulderOut:0.045, hipR:0.19, pelvisH:0.27, pelvisDrop:0.24,
       stanceW:0.095, thigh:0.085, calf:0.066, upper:0.058, forearm:0.050, neck:0.056,
@@ -2038,8 +2077,8 @@
     },
     // 弓師: 細身で腕と脚がやや長め。肩は広げすぎない
     archer: {
-      stature:2.40, headR:0.240, hairR:0.2585, headGap:0.28,
-      height:0.71, hipY:1.17, thighLen:0.600, calfLen:0.570,
+      stature:2.40, headR:0.2526, hairR:0.2721, headGap:0.2926,
+      height:0.6999, hipY:1.1548, thighLen:0.5922, calfLen:0.5626,
       upperLen:0.41, foreLen:0.38,
       chest:0.21, shoulderOut:0.050, hipR:0.19, pelvisH:0.27, pelvisDrop:0.24,
       stanceW:0.100, thigh:0.088, calf:0.068, upper:0.060, forearm:0.052, neck:0.056,
@@ -2048,8 +2087,8 @@
     },
     // 盗賊: 小柄寄りの細身。肩幅が狭く身軽
     rogue: {
-      stature:2.42, headR:0.242, hairR:0.2605, headGap:0.28,
-      height:0.758, hipY:1.14, thighLen:0.585, calfLen:0.555,
+      stature:2.42, headR:0.2547, hairR:0.2742, headGap:0.2927,
+      height:0.7478, hipY:1.1248, thighLen:0.5772, calfLen:0.5476,
       upperLen:0.40, foreLen:0.38,
       chest:0.215, shoulderOut:0.045, hipR:0.185, pelvisH:0.28, pelvisDrop:0.25,
       stanceW:0.100, thigh:0.085, calf:0.066, upper:0.060, forearm:0.052, neck:0.058,

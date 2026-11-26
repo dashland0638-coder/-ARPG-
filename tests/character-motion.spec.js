@@ -466,7 +466,12 @@ const T2_BUILD = {
   archer:  { stature: 2.40, shoulderMax: 0.28 },
   rogue:   { stature: 2.42, shoulderMax: 0.28 },
 };
-const T2_HEADS = 5.0;
+/* 頭身は CHARACTER-VIS-002 T-1(Human Decision DEC-036)で 5.0 → 4.75。全高(stature)は T-2 のまま */
+const T2_HEADS = 4.75;
+/* 肩の外幅 / 頭の幅の範囲(T-2 の V-1a: 5.0 頭身で 1.26〜1.46)。T-1 は肩幅を変えずに頭だけを
+   5.0 / 4.75 倍にした(DEC-036「肩幅を過度に増やさない」)ので、同じ肩幅を表す範囲も同じ比で換算する */
+const T1_HEAD_SCALE = 4.75 / 5.0;
+const SHOULDER_PER_HEAD = { min: 1.26 * T1_HEAD_SCALE, max: 1.46 * T1_HEAD_SCALE };
 
 // キーを短く押して、その方向へ体を向けてから止まる(移動入力はカメラ相対)
 async function faceBy(page, keys) {
@@ -478,7 +483,7 @@ async function faceBy(page, keys) {
 
 test.describe('CHARACTER-VIS-001 T-2 体格(第3版)', () => {
   for (const [classKey, spec] of Object.entries(T2_BUILD)) {
-    test(`${classKey}: 約5頭身・全高・手とベルト・肩幅と腰幅の比`, async ({ page }) => {
+    test(`${classKey}: 4.75頭身・全高・手とベルト・肩幅と腰幅の比`, async ({ page }) => {
       test.setTimeout(120_000);
       const errors = watchErrors(page);
       await openGame(page);
@@ -499,9 +504,9 @@ test.describe('CHARACTER-VIS-001 T-2 体格(第3版)', () => {
       const sw = /^([\d.]+)m\s+\/H ([\d.]+)\s+\/head ([\d.]+)$/.exec((await panelValue(page, 'SHLD\\.W')) || '');
       expect(sw, 'SHLD.W が読めない').not.toBeNull();
       expect(Number(sw[2]), '肩の外幅 / 全高').toBeLessThanOrEqual(spec.shoulderMax);
-      // 狭すぎない(Task file の V-1a: 肩の外幅 / 頭の幅 1.26〜1.46)
-      expect(Number(sw[3])).toBeGreaterThanOrEqual(1.26 - 0.005);
-      expect(Number(sw[3])).toBeLessThanOrEqual(1.46 + 0.005);
+      // 狭すぎない(T-2 の V-1a の範囲を T-1 の頭の拡大の比で換算)
+      expect(Number(sw[3])).toBeGreaterThanOrEqual(SHOULDER_PER_HEAD.min - 0.005);
+      expect(Number(sw[3])).toBeLessThanOrEqual(SHOULDER_PER_HEAD.max + 0.005);
 
       const hw = /^([\d.]+)m\s+\/H ([\d.]+)$/.exec((await panelValue(page, 'HIP\\.W')) || '');
       expect(hw, 'HIP.W が読めない').not.toBeNull();

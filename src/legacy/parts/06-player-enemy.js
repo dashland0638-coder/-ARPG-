@@ -553,6 +553,10 @@
     const buildKey = classDef.charKey === 'wanderer' ? 'wanderer' : classDef.key;
     const B = BUILD[buildKey] || BUILD.warrior;
     checkBuild(buildKey, B);
+    /* CHARACTER-VIS-002 T-1(DEC-036): 4職だけが選ぶ頭・顔の改善(頭の下半分の丸い断面、
+       角の目立たない目、頭へ埋まる首)。影の旅人(charKey)は既定のまま(DEC-034 の完成形、AD-3) */
+    const softHead = classDef.charKey !== 'wanderer';
+    const headSections = softHead ? HEAD_SECTION_RATIOS_SOFT : undefined;
     const bodyH = B.height;
     const HIP_Y = B.hipY;      // the belt line: legs below, torso above
     const bodyR = B.chest;
@@ -737,9 +741,23 @@
     group.add(chestPlate);
 
     // a neck, so the head is joined to the body instead of hovering over it
-    const neck = new THREE.Mesh(
-      new THREE.CylinderGeometry(B.neck*0.92, B.neck*1.15, bodyH*0.13, 8), skinMat);
-    neck.position.y = HIP_Y + bodyH*0.99;
+    /* 4職(CHARACTER-VIS-002 T-1): 首の上端を顎の下面より NECK_INTO_HEAD だけ頭の中へ
+       伸ばし、頭と首の境目に隙間・段差が見えないようにする(下端は既定と同じ襟の中)。
+       頭は HEAD_BACK_Z だけ後ろにあるので、首の中心も半分だけ後ろへ寄せて、顎の下から
+       首の前面が出ないようにする。断面の点の数は既定と同じ 8。影の旅人は既定のまま */
+    const NECK_INTO_HEAD = 0.05;
+    let neck;
+    if(softHead){
+      const neckBottom = HIP_Y + bodyH*0.925;
+      const neckTop = HIP_Y + bodyH + B.headGap - B.headR + NECK_INTO_HEAD;
+      neck = new THREE.Mesh(
+        new THREE.CylinderGeometry(B.neck, B.neck*1.15, neckTop - neckBottom, 8), skinMat);
+      neck.position.set(0, (neckTop + neckBottom)/2, HEAD_BACK_Z*0.5);
+    } else {
+      neck = new THREE.Mesh(
+        new THREE.CylinderGeometry(B.neck*0.92, B.neck*1.15, bodyH*0.13, 8), skinMat);
+      neck.position.y = HIP_Y + bodyH*0.99;
+    }
     neck.castShadow = true;
     group.add(neck);
 
@@ -788,7 +806,7 @@
     // 「前後にだけ長い」という指摘に対応するため、前後方向だけを狙って
     // 縮める
     const head = new THREE.Mesh(
-      makeCharacterHead({width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2}), skinMat);
+      makeCharacterHead({width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2, sections:headSections}), skinMat);
     head.position.y = HIP_Y + bodyH + B.headGap;
     // Head/Posture Alignment再設計フェーズ: HEAD_BACK_Z(05-rendering-rig.js
     // 参照)ぶんだけHeadを後方(-Z)へ。Torso胸部の前面ZよりHead自身の前面Z
@@ -889,21 +907,46 @@
     // フィールド」(Phase 7、詳細は01-character-creation.jsのmage側
     // コメント参照)。未指定クラスは1.0で従来通り無変化
     const eyeSpacingMul = classDef.eyeSpacingMul!=null ? classDef.eyeSpacingMul : 1.0;
+    /* 目の外周の点の数(CHARACTER-VIS-002 T-1、AD-10)。4職は白目 14・瞳 12・ハイライト 8 で
+       角を目立たなくする(既定は 8 / 6 / 4)。白目は 16(4 の倍数)で真上・真下と真横に頂点が来るので、
+       描画上の縦横比も確定値 1.28 のまま。大きさ・間隔・瞳の色は上の確定値のまま。
+       影の旅人は既定の点数 */
+    const eyePts = softHead ? {sclera:16, pupil:12, highlight:8} : {};
     const EYE_SPACING = 0.095;   // T-4: 旧 0.115(目の中心の左右位置、eyeScale 倍)
     [-EYE_SPACING*eyeScale*eyeSpacingMul, EYE_SPACING*eyeScale*eyeSpacingMul].forEach(x=>{
       const sclera = new THREE.Mesh(
-        makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*EYE_SCLERA_ASPECT, scleraHalfDepth*eyeScale), scleraMat);
+        makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*EYE_SCLERA_ASPECT, scleraHalfDepth*eyeScale, eyePts.sclera), scleraMat);
       sclera.position.set(x, head.position.y+0.02, eyeFrontZ);
       group.add(sclera);
       faceMeshes.push(sclera);
-      const pupil = new THREE.Mesh(makeEyePupil(pupilR*eyeScale, pupilHalfDepth*eyeScale), pupilMat);
+      const pupil = new THREE.Mesh(makeEyePupil(pupilR*eyeScale, pupilHalfDepth*eyeScale, eyePts.pupil), pupilMat);
       pupil.position.set(x, head.position.y+0.02, scleraFrontZ - pupilHalfDepth*eyeScale + pupilPoke*eyeScale);
       group.add(pupil);
       faceMeshes.push(pupil);
-      const highlight = new THREE.Mesh(makeEyeHighlight(highlightR*eyeScale, highlightHalfDepth*eyeScale), highlightMat);
+      const highlight = new THREE.Mesh(makeEyeHighlight(highlightR*eyeScale, highlightHalfDepth*eyeScale, eyePts.highlight), highlightMat);
       highlight.position.set(x-0.016*eyeScale, head.position.y+0.035, scleraFrontZ - highlightHalfDepth*eyeScale + highlightPoke*eyeScale);
       group.add(highlight);
       faceMeshes.push(highlight);
+      /* 4職(CHARACTER-VIS-002 T-1): 目の3枚は輪郭線・X 線シェルを付けない(薄い板の輪郭線が
+         目のまわりに黒い点線の輪になり、板を貼った見た目の主因だった)。左右の目を白目の中心を
+         軸に外へ EYE_TILT だけ回し、顔の曲面に沿わせる(位置・大きさ・間隔・瞳は同じ) */
+      if(softHead){
+        const EYE_TILT = 0.28;
+        const th = Math.sign(x)*EYE_TILT, c = Math.cos(th), sn = Math.sin(th);
+        const cx = sclera.position.x, cz = sclera.position.z;
+        const pupilX0 = pupil.position.x;
+        [sclera, pupil, highlight].forEach(m=>{
+          m.userData.noOutline = true;
+          const dx = m.position.x - cx, dz = m.position.z - cz;
+          m.position.x = cx + dx*c + dz*sn;
+          m.position.z = cz - dx*sn + dz*c;
+          m.rotation.y = th;
+        });
+        // 回すと白目より手前の瞳が外へずれ、左右の瞳の間隔が開く(T-4 で「離れすぎ」と指摘された方向)。
+        // 3枚をまとめて横へ戻し、瞳の左右の位置を回す前と同じにする
+        const back = pupil.position.x - pupilX0;
+        [sclera, pupil, highlight].forEach(m=>{ m.position.x -= back; });
+      }
     });
 
     // hair - グラフィック刷新(Hair再設計 Phase 1): SphereGeometry(滑らかな
@@ -934,8 +977,31 @@
        Headの断面から実寸を返す共通API)を経由して配置する。HEAD_DIMSは
        Head本体の生成に渡したものと同一 ―― Head/Hairが同じ原点・同じ
        基準値・同じ断面プロファイルを共有する。 */
-    const HEAD_DIMS = { width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2 };
+    const HEAD_DIMS = { width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2, sections:headSections };
     const headOut = (yFrac) => headOutlineAt(HEAD_DIMS, yFrac);
+
+    /* 顔のパーツ(CHARACTER-VIS-002 T-1、Human Decision E-3 = B / DEC-037): 4職だけに控えめな口と小さな鼻。
+       眉は足さない。目はそのまま(瞳孔・上まぶたは足さない)。どちらも頭のメッシュの子にして頭と一緒に
+       動かし、輪郭線・X 線シェルは付けない(小さな部品の輪郭線は黒い点の塊になるため)。位置と大きさは
+       頭の断面(headOutlineAt = HEAD_SECTION_RATIOS_SOFT)と headR から導く(職ごとの頭の大きさに追従) */
+    if(softHead){
+      const yAt = yf => -headR + 2*headR*yf;
+      // 鼻: 肌と同じ Material の低い四角錐。頬の高さより少し下(yFrac 0.40)の前面から headR × 0.015 だけ前
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(headR*0.06, headR*0.10, 4), skinMat);
+      nose.rotation.x = Math.PI/2 * 0.9;
+      nose.position.set(0, yAt(0.40), headOut(0.40).frontZ + headR*0.015);
+      nose.userData.noOutline = true;
+      head.add(nose);
+      // 口: 小さな微笑みの弧(幅 headR × 0.26、濃い赤茶、陰影を受けない)。yFrac 0.27 の前面に沿わせる
+      const MOUTH_W = headR*0.13, mouthPts = [];
+      for(let i=0;i<=8;i++){ const t = -1 + 2*i/8; mouthPts.push({x:t*MOUTH_W, y:-(1 - t*t)*MOUTH_W*0.35}); }
+      for(let i=8;i>=0;i--){ const t = -1 + 2*i/8; mouthPts.push({x:t*MOUTH_W*0.9, y:-(1 - t*t)*MOUTH_W*0.35 + MOUTH_W*0.16}); }
+      const mouth = new THREE.Mesh(makePlate(mouthPts, {thickness:0.004}), new THREE.MeshBasicMaterial({color:0x6a2e2a}));
+      mouth.position.set(0, yAt(0.27), headOut(0.27).frontZ + 0.002);
+      mouth.userData.noOutline = true;
+      head.add(mouth);
+      playerMixerParts.faceParts = [nose, mouth];
+    }
 
     // ---- Hair Shell(旧Hair Cap): Headの外殻。原点・引数はHead本体と同一 ----
     // classKeyを渡すことで、makeCharacterHairShell()内部でHeadwear
@@ -947,7 +1013,7 @@
        影の旅人は帽子を被らない(Human: 操作時デザイン案)ので、剣士のキャップの
        判定を使わず、表に無いキー(= 被り物なし)で髪を作る */
     const hairCoverageKey = classDef.charKey === 'wanderer' ? 'wanderer' : classDef.key;
-    const hair = new THREE.Mesh(makeCharacterHairShell({...HEAD_DIMS, classKey: hairCoverageKey}), hairMat);
+    const hair = new THREE.Mesh(makeCharacterHairShell({...HEAD_DIMS, classKey: hairCoverageKey, napeSideIn: softHead}), hairMat);
     hair.position.set(0, head.position.y, HEAD_BACK_Z);
     hair.castShadow = true;
     group.add(hair);
@@ -1041,6 +1107,14 @@
         makeHairBang({rootR:headR*0.20, tipR:headR*0.105, length:sideLen}), hairMat);
       sideHair.position.set(s*sideTipX, head.position.y + sTipOut.y, sideZ + HEAD_BACK_Z);
       sideHair.rotation.set(0, 0, -s*sideTilt);
+      /* 4職(CHARACTER-VIS-002 T-1、joint analysis J-3): 横の髪の房が頬の横で黒い板のように
+         見え、横顔の印象を崩していた。房を細く(太さ 0.62 倍)・短く(0.78 倍、毛先側を基準に
+         付け根を下げる)し、頬の後ろ(headR × 0.16)・少し上(× 0.10)へ寄せる。形と数は同じ */
+      if(softHead){
+        sideHair.scale.set(0.62, 0.78, 0.62);
+        sideHair.position.z -= headR*0.16;
+        sideHair.position.y += headR*0.10;
+      }
       sideHair.castShadow = true;
       group.add(sideHair);
       sideHairMeshes.push(sideHair);
@@ -2546,7 +2620,8 @@
          半径はHead自身のサイズに対して明確に太く(Root≈headR*0.30)取り、
          極端な先細りを避けるためTip半径はRoot半径の35%前後に留めている。 */
       const archHeadR = B.headR;
-      const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2 };
+      // 魔導士は必ず魔法使い(4職)なので 4職の頭の断面。ここは buildPlayer の外(転身)で headSections は見えない
+      const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2, sections:HEAD_SECTION_RATIOS_SOFT };
       const archHeadYLocal = bodyH + B.headGap;   // P.waist基準でのHead中心Y(buildPlayerのhead.position.yに相当)
       const archHeadOut = (yFrac) => headOutlineAt(archHeadDims, yFrac);
       // Hair色: 参考画像(ダークソウル風の白髪術者)指摘により、紫の
