@@ -83,7 +83,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | ID | Summary | Status | Approval | 依存 | 見た目の変化 |
 | --- | --- | --- | --- | --- | --- |
 | T-0 | 基準づくり: 影の旅人（加入前後・影の手）の切り離し、外見の計測行、見えない古い鎧の部品の調査 | DONE（Reviewer PASS、下の Implementation Result（T-0））| [x] | なし | **なし**（形のシグネチャの一致で確認）|
-| T-1 | 共通の顔・頭（頭身 4.75、頭の下半分の丸みと前面の奥行き、目の角・輪郭線・向き、首と頭の接合、横の髪）と顔・頭・首・髪の接合の確認。顔のパーツ（口・鼻・眉）と目の部品（瞳孔・まぶた）は E-3 | REVIEWING（下の「T-1 の完了処理」。E-3 = B の口・鼻を実装、Human の iPhone 目視確認完了 = DEC-037。口・鼻の追加分の Reviewer PASS で DONE）| [x] | T-0、DEC-036、DEC-037 | あり（4職）|
+| T-1 | 共通の顔・頭（頭身 4.75、頭の下半分の丸みと前面の奥行き、目の角・輪郭線・向き、首と頭の接合、横の髪）と顔・頭・首・髪の接合の確認。顔のパーツ（口・鼻・眉）と目の部品（瞳孔・まぶた）は E-3 | DONE（下の「T-1 の完了処理」。E-3 = B の口・鼻を実装、Human の iPhone 目視確認完了 = DEC-037、口・鼻の追加分の Reviewer PASS = `.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`（T-2 のブランチに記録））| [x] | T-0、DEC-036、DEC-037 | あり（4職）|
 | T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続、接合 J-4・J-7・J-8・J-9 の方針決め（AD-19）、帽子の下の髪 J-1。戦騎士への継承の確認 | REVIEWING（下の Implementation Result（T-2）。Reviewer の後 **Human の目視承認待ち**、承認まで T-3 へ進まない）| [x] | T-1 | あり |
 | T-3 | 魔法使い: 長く広がった髪（承認済み設計の実装）、コートの前開き・袖、キャスケットの丸み、箱型の袖（J-5）、帽子の下の髪 J-1、J-4・J-7・J-8 の展開（J-3 は T-1 で実施済み）| PLANNED | [ ] | T-2 | あり |
 | T-4 | 弓師: 帽子の位置とつば（目を出す）、帽子の下の髪 J-1、毛皮の襟（J-6）、短丈上着の裾、J-4・J-7・J-8 の展開 | PLANNED | [ ] | T-2 | あり |
@@ -646,5 +646,5 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-25 | T-1 | TESTING → IMPLEMENTING | Implementer | Human 追加要求（顔の造形）。前面の奥行き・目の輪郭線 / 向き・横の髪を実装、顔のパーツ・目の部品は設計案（`CHARACTER-VIS-002-face-design.md`）と E-3 |
 | 2026-11-25 | T-1 | IMPLEMENTING（変更なし）| Reviewer / Implementer | Review Round 1 PASS（`7734197` / `c4d66e3`）、推奨の指摘 S-1〜S-4 と note を反映（`0923f6d`）。関連 E2E 93 PASS。E-3 の回答と Human の目視承認を待つ |
 | 2026-11-25 | T-1 | IMPLEMENTING（変更なし）| Reviewer | Review Round 2 **PASS**（Reviewed SHA `396c83c`）。S-1〜S-4 解消、回帰なし。note R2-N1（記述の更新、反映済み）・R2-N2（白目の外側の縁と顔の面の隙間 約 0.0006 → iPhone の拡大確認）・R2-N3。PR #148。E-3 の回答と Human の目視承認を待つ |
-| 2026-11-26 | T-1 | IMPLEMENTING → REVIEWING | Planner / Implementer | DEC-037（E-3 = B、iPhone 目視確認完了）。口・鼻を実装（`86c9327`）、関連 E2E 55 + 9 PASS。口・鼻の追加分の Reviewer 確認は T-2 と同じ Reviewer が別の判定として出す |
+| 2026-11-26 | T-1 | IMPLEMENTING → REVIEWING → DONE | Planner / Implementer / Reviewer | DEC-037（E-3 = B、iPhone 目視確認完了）。口・鼻を実装（`86c9327`）、関連 E2E 55 + 9 PASS。口・鼻の追加分（`3110bfe..ceaf8a0`）の Reviewer **PASS**（`.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`、T-2 のブランチ）。目の部品（瞳孔・上まぶた）は DEC-037 の読み方のとおり足していない |
 | 2026-11-26 | T-2 | PLANNED → APPROVED → IMPLEMENTING → TESTING | Planner / Implementer | 下の Implementation Result（T-2）|
