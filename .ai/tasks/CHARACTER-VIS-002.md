@@ -615,6 +615,14 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 ### 比較画像
 - `.ai/reports/CHARACTER-VIS-002-assets/t2-compare-warrior.jpg`（剣士・戦騎士・影の旅人 × 前（T-1）/ 後（T-2）× 正面・斜め45°・横・背面・顔・横顔・歩行・攻撃）
 
+### Test Report（T-2）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit`（`ai-protocol.test.js` を含む）| PASS（2341）|
+| 関連 E2E 93件（`character-visual-budget`・`character-clothing`・`character-palette`・`character-weapon-visual`・`character-motion`・`weapon-stow`・`battle-knight-visual`・`base-class-identity`・`base-class-comparison`・`job-traits`・`wanderer-renewal`・`road2-join`・`chapter1-progression`）| **93 PASS**（FLAKY・FAIL なし）|
+| 全 E2E | CI で実行（PR）|
+
 ### 影の旅人への非影響
 - `character-visual-budget` の影の旅人の形のシグネチャ（加入後・加入前の立ち / 座り・影の手）と描画の量: PASS（不変）
 - 撮影で変化なし
