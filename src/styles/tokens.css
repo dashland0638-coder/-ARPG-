@@ -88,6 +88,7 @@
   --ui-z-boot: 40;
   --ui-z-fade: 60;
   --ui-z-rotate: 60;
+  --ui-z-face-preview: 10000;   /* 顔の確認のプレビュー(?dev=1 のみ)。縦向きの案内より上 */
   --ui-z-confirm: 120;
 
   /* ---- color: semantic(UI-002-C2 追加。AP-C2-02 / 03、V-7) ----

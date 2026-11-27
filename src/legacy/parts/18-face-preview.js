@@ -4,10 +4,14 @@
        ・8 職(4 基礎職 + 4 上位職)を切り替える
        ・正面 / 斜め45° / 横 / 下から / 後頭部 の 5 方向。ドラッグで左右に回せる(方向のボタンで正確な角度に戻る)
        ・顔の拡大 / 全身
-       ・診断: 頭を赤・髪の殻を緑(頭と髪の貫通を見る)、帽子・フードを隠す。武器は既定で隠す(顔の前に来るため)
+       ・診断: 頭 = 赤・髪の殻 = 明るい緑・髪の房(前髪 / 横髪 / 後ろ髪)= 濃い緑(頭と髪の貫通を見る)。
+         「＋帽子なし」は頭のピボットの子で頭・髪・目以外(帽子・フード、上位職で頭に載せた髪飾り・髭も)を隠す
+         (戦騎士の装飾は waist に付くので隠れない)。武器は既定で隠す(顔の前に来るため)
+       ・開いている間はキー入力をゲームへ渡さない(Esc で閉じる)
      ゲームのシーン・プレイヤー・カメラには触れない: 自分のシーンとレンダラーを持ち、確認用の姿は
      buildPlayer()(本物の組み立て)で作る。buildPlayer / applyJobPromotionVisual が書く共有変数
-     (playerMixerParts・player・state.job・state.classDef)は組み立ての間だけ差し替えて必ず戻し、
+     (playerMixerParts・player・state.job・state.classDef)は組み立ての間だけ差し替えて必ず戻し
+     (applyJobPromotionVisual は _jobDecorLastFacing も null にするが、ゲームの旋回の検出が 1 フレーム止まるだけ)、
      ゲームのシーンへ足された部品は確認用のシーンへ移す。影の旅人は対象外(8 職に含めない)。
      本番の URL では入口も出さない(DEV_UI)。 */
   const FACE_PREVIEW_VIEWS = [
@@ -56,9 +60,10 @@
       player = saved.player;
       state.job = saved.job;
       state.classDef = saved.classDef;
+      // ゲームのシーンへ足された部品(姿そのもの・上位職のオーラ等)を確認用のシーンへ移す。組み立ての途中で
+      // 例外が出ても、ゲームのシーンに残さない(T-2R-2 Review S-1)
+      scene.children.filter(o => !before.has(o)).forEach(o=>{ scene.remove(o); previewScene.add(o); });
     }
-    // ゲームのシーンへ足された部品(姿そのもの・上位職のオーラ等)を確認用のシーンへ移す
-    scene.children.filter(o => !before.has(o)).forEach(o=>{ scene.remove(o); previewScene.add(o); });
     group.position.set(0, 0, 0);
     group.rotation.set(0, 0, 0);
     // X 線シェル(壁越しの表示用)は確認用のシーンでは使わない
@@ -82,15 +87,19 @@
     if(!fp.fig) return;
     const P = fp.fig.parts, hg = P.headGroupParts || [];
     const head = hg[0], hair = hg[1];
+    // 髪の房(前髪・横髪・後ろ髪)。殻(明るい緑)と区別できるよう濃い緑にする(T-2R-2 Review S-2)
+    const strands = [...(P.bangMeshes || []), ...(P.sideHairMeshes || []), ...(P.backHairMeshes || [])];
     if(!fp.diagMats){
       fp.diagMats = new Map();
-      [head, hair].forEach(m=>{ if(m) fp.diagMats.set(m, m.material); });
+      [head, hair, ...strands].forEach(m=>{ if(m) fp.diagMats.set(m, m.material); });
       fp.diagRed = new THREE.MeshBasicMaterial({ color:0xff2020 });
       fp.diagGreen = new THREE.MeshBasicMaterial({ color:0x20d040 });
+      fp.diagStrand = new THREE.MeshBasicMaterial({ color:0x0a7a28 });
     }
     const on = fp.diag !== 'off';
     if(head) head.material = on ? fp.diagRed : fp.diagMats.get(head);
     if(hair) hair.material = on ? fp.diagGreen : fp.diagMats.get(hair);
+    strands.forEach(m=>{ if(m) m.material = on ? fp.diagStrand : fp.diagMats.get(m); });
     const pivot = P.headLookPivot;
     if(pivot){
       const keepSet = new Set([...hg]);
@@ -130,7 +139,15 @@
   function setFacePreviewEntry(fp, entry){
     disposeFacePreviewFigure(fp);
     fp.entry = entry;
-    fp.fig = buildFacePreviewFigure(entry, fp.scene);
+    try{
+      fp.fig = buildFacePreviewFigure(entry, fp.scene);
+    }catch(err){
+      // 組み立てに失敗した: 途中で移した部品を片付け、上端に出す(黙って空にしない)
+      fp.scene.children.filter(o => o.userData.facePreviewFixed !== true).forEach(o => fp.scene.remove(o));
+      fp.label.textContent = `${entry.label}: 組み立てに失敗 (${err && err.message || err})`;
+      console.error(err);
+      return;
+    }
     applyFacePreviewDiag(fp);
     applyFacePreviewWeapon(fp);
     placeFacePreviewCamera(fp);
@@ -222,6 +239,12 @@
     const endDrag = ()=>{ fp.drag = null; };
     cv.addEventListener('pointerup', endDrag);
     cv.addEventListener('pointercancel', endDrag);
+    /* 開いている間はキーをゲームへ渡さない(メニューの上で開いて Esc を押すとゲームが再開しうる)。Esc で閉じる */
+    fp.onKey = e=>{
+      e.stopPropagation();
+      if(e.key === 'Escape'){ e.preventDefault(); closeFacePreview(); }
+    };
+    document.addEventListener('keydown', fp.onKey, true);
     fp.onResize = ()=> resizeFacePreview(fp);
     window.addEventListener('resize', fp.onResize);
     refreshFacePreviewButtons(fp);
@@ -256,6 +279,8 @@
     disposeFacePreviewFigure(fp);
     if(fp.diagRed) fp.diagRed.dispose();
     if(fp.diagGreen) fp.diagGreen.dispose();
+    if(fp.diagStrand) fp.diagStrand.dispose();
+    document.removeEventListener('keydown', fp.onKey, true);
     fp.renderer.dispose();
     try{ fp.renderer.forceContextLoss(); }catch(e){}
     fp.root.remove();

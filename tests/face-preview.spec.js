@@ -87,7 +87,10 @@ test.describe('顔の確認のプレビュー(CHARACTER-VIS-002 T-2R-2)', () => 
       const fp = /** @type {any} */ (window).__facePreview, hg = fp.fig.parts.headGroupParts;
       const pivot = fp.fig.parts.headLookPivot, keep = new Set(hg);
       const hats = pivot.children.filter(c => !keep.has(c) && !c.userData.isOutline && !c.userData.isXray);
+      const strands = [...fp.fig.parts.bangMeshes, ...fp.fig.parts.sideHairMeshes, ...fp.fig.parts.backHairMeshes];
       return { head: hg[0].material.color.getHexString(), hair: hg[1].material.color.getHexString(), headType: hg[0].material.type,
+        strands: [...new Set(strands.map(x => x.material.color.getHexString()))].sort().join(','),
+        xrayVisible: (() => { let n = 0; fp.fig.group.traverse(o => { if (o.userData.isXray && o.visible) n++; }); return n; })(),
         hats: hats.length, hatsVisible: hats.filter(c => c.visible).length };
     });
     const normal = await mats();
@@ -96,6 +99,8 @@ test.describe('顔の確認のプレビュー(CHARACTER-VIS-002 T-2R-2)', () => 
     let m = await mats();
     expect(m.head).toBe('ff2020');
     expect(m.hair).toBe('20d040');
+    expect(m.strands, '髪の房は濃い緑').toBe('0a7a28');
+    expect(normal.xrayVisible, 'X 線シェルは隠す').toBe(0);
     expect(m.hatsVisible).toBe(normal.hatsVisible);
     await page.click('#face-preview [data-fp-diag="nohat"]');
     m = await mats();

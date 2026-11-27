@@ -86,7 +86,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | T-1 | 共通の顔・頭（頭身 4.75、頭の下半分の丸みと前面の奥行き、目の角・輪郭線・向き、首と頭の接合、横の髪）と顔・頭・首・髪の接合の確認。顔のパーツ（口・鼻・眉）と目の部品（瞳孔・まぶた）は E-3 | DONE（下の「T-1 の完了処理」。E-3 = B の口・鼻を実装、Human の iPhone 目視確認完了 = DEC-037、口・鼻の追加分の Reviewer PASS = `.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`（T-2 のブランチに記録））| [x] | T-0、DEC-036、DEC-037 | あり（4職）|
 | T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続、接合 J-4・J-7・J-8・J-9 の方針決め（AD-19）、帽子の下の髪 J-1。戦騎士への継承の確認 | REVIEWING（Reviewer PASS。**Human Review 2026-11-27 で指摘 A〜D**（`.ai/reports/CHARACTER-VIS-002-T2-human-review.md`）。分析と設計案を提示し Human の判断 H-1〜H-4 待ち。T-2 の承認・T-3 への進行は Human の明示の許可まで保留）| [x] | T-1 | あり |
 | T-2R-1 | BGM: 裏に回ったら音を一時停止・戻ったら開始後だけ再開、bfcache、?dev=1 の BGM の数の表示、E2E（DEC-038 H-3）| **DONE**（Reviewer PASS（`f9fc4e5` / `a634fbf`）、CI 成功（`a634fbf`）、**Human の iPhone 実機確認 PASS**（2026-11-27: Safari・ChatGPT のアプリ内ブラウザ・Claude のアプリ内ブラウザで正常、BGM の重複の改善を確認））| [x] | T-2 | iPhone |
-| T-2R-2 | 顔の確認のプレビュー（?dev=1 の全画面のプレビュー: 8 職・正面 / 45° / 横 / 下 / 後頭部・顔 / 全身・頭赤 / 髪緑の診断）| REVIEWING（下の Implementation Result（T-2R-2））| [ ] | T-2R-1 | あり |
+| T-2R-2 | 顔の確認のプレビュー（?dev=1 の全画面のプレビュー: 8 職・正面 / 45° / 横 / 下 / 後頭部・顔 / 全身・頭赤 / 髪緑の診断）| REVIEWING（Reviewer PASS。**Human の iPhone での確認待ち**。下の Implementation Result（T-2R-2））| [ ] | T-2R-1 | あり |
 | T-2R-3 | O1 の共通の頭の拡張（4職のオプション）と髪の貫通の修正（髪の輪・下限・napeSideIn の再評価、貫通の検出テスト）（DEC-038 H-1 / H-4）| PLANNED | [ ] | T-2R-2 | あり |
 | T-2R-4 | 職ごとの顔（断面表・口の形・目尻の角度と縦横比 ±10%、値と理由の記録）（DEC-038 H-2）| PLANNED | [ ] | T-2R-3 | あり |
 | T-2R-5 | 上位4職への継承の確認と微調整 | PLANNED | [ ] | T-2R-4 | あり |
@@ -692,6 +692,11 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 
 ## Implementation Result（T-2R-2、顔の確認のプレビュー）
 
+### 既存の Motion Preview の調査と方式の決定
+- FACT: 既存の Debug Motion Preview（`index.html` の `#motion-panel`、`14-hud-boot.js` の `updateMotionPanel()` / `motionPanelSnapshot()`、`05-rendering-rig.js` の読み取り、`13-update-loop.js` の Visual Freeze）は、デバッグモード（`state.debugMode`。`` ` `` キー / バージョン表記の 5 回タップ）の間だけ出る**文字の表示**（姿勢・クリップの値を 0.5 秒ごと）で、カメラは**ゲームのカメラ**をそのまま使う。プレイヤーは操作中の 1 体だけ
+- 計画では「Motion Preview に顔カメラ」としていたが、そこに顔のカメラを足すとゲームのカメラを動かすことになり、Human の条件「既存のゲーム本編の操作・カメラ・キャラクター表示に影響させない」とぶつかる。8 職の切り替えも操作中の主人公を差し替えることになる（ステータス・装備が変わる）
+- そこで**独立した全画面のプレビュー**（自分のシーン・レンダラー・カメラ）にした。入口は `?dev=1` の時だけ（デバッグモードを入れる操作は要らない）
+
 ### Changed Files
 | ファイル | 変更 |
 | --- | --- |
@@ -704,7 +709,8 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 - 職（8）: 剣士・戦騎士・魔法使い・大魔導・弓師・鷹の目・盗賊・バーサーカー（影の旅人は含めない）
 - 方向（5）: 正面（0°）・45°・横（90°）・下から（方位 20°・見上げ 32°）・後頭部（180°）。表示をドラッグすると左右に回る（方向のボタンで正確な角度に戻る）
 - 顔（頭の高さが表示の縦の 約 40%）/ 全身
-- 診断: 通常 / 頭赤・髪緑（頭 = 赤、髪の殻 = 緑）/ ＋帽子なし（帽子・フードを隠す）
+- 診断: 通常 / 頭赤・髪緑（頭 = 赤、髪の殻 = 明るい緑、髪の房（前髪・横髪・後ろ髪）= 濃い緑）/ ＋帽子なし（頭のピボットの子で頭・髪・目以外を隠す = 帽子・フード、上位職で頭に載せた髪飾り・髭も。戦騎士の装飾は waist に付くので隠れない）
+- 開いている間はキー入力をゲームへ渡さない（Esc で閉じる）
 - 武器: 既定は隠す（待機の姿では武器が顔の前に来るため）。「武器」で出す
 - 上端に「職 / 方向 / 顔・全身 / 診断」の表示と「閉じる」
 
@@ -749,3 +755,4 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-27 | T-2R-1 | REVIEWING → DONE | Human | CI 成功（`a634fbf`）。Human の iPhone 実機確認 PASS（Safari・ChatGPT / Claude のアプリ内ブラウザで正常、BGM の重複の改善を確認）|
 | 2026-11-27 | T-2R-2 | PLANNED → APPROVED → IMPLEMENTING | Human / Planner | Human の着手指示（顔の確認のプレビューのみ。T-2R-3 以降・T-3 は未着手）|
 | 2026-11-27 | T-2R-2 | IMPLEMENTING → TESTING → REVIEWING | Implementer | 顔の確認のプレビューを実装（下の Implementation Result（T-2R-2））。unit 2341・E2E 22 PASS。Reviewer へ |
+| 2026-11-27 | T-2R-2 | REVIEWING（変更なし）| Reviewer / Implementer | Review **PASS**（Reviewed SHA `733449b`、`.ai/reports/CHARACTER-VIS-002-T2R2-review.md`）。should-fix S-1（組み立ての例外でゲームのシーンに部品が残る）・S-2（髪の房も緑に）・S-3（Motion Preview の調査の記録）と note（キー入力の遮断・z-index のトークン・X 線を隠すことの E2E）を反映。face-preview 3 PASS。**Human の iPhone での確認待ち**、確認まで T-2R-3 へ進まない |

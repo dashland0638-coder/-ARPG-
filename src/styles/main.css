@@ -2036,7 +2036,7 @@
 
 /* ---------- 顔の確認のプレビュー(CHARACTER-VIS-002 T-2R-2、?dev=1 のみ。18-face-preview.js)---------- */
 #face-preview{
-  position:fixed; inset:0; z-index:10000; display:flex; flex-direction:column;
+  position:fixed; inset:0; z-index:var(--ui-z-face-preview); display:flex; flex-direction:column;
   background:#1c1f26; color:#e8e8ee; font-size:13px;
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
