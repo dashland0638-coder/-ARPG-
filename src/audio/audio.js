@@ -33,6 +33,9 @@ import { startProceduralBgm } from './procedural-bgm.js';
      simply stays silent until then.
   ========================================================= */
   let audioCtx = null, masterGain = null, noiseBuffer = null;
+  /* ?dev=1 の診断用の数(CHARACTER-VIS-002 T-2R-1 追加調査)。個人の情報は持たない */
+  const audioDiag = { ctxCreated:0, playCalls:0, stopCalls:0, last:'-' };
+  function noteAudio(what){ audioDiag.last = what; }
 
   /* ---- 3つのレイヤー -------------------------------------------------
        BGM     感情とエリアの雰囲気。登録曲は AudioBufferSource → 曲ごとの GainNode、
@@ -60,6 +63,7 @@ import { startProceduralBgm } from './procedural-bgm.js';
     const AC = window.AudioContext || window.webkitAudioContext;
     if(!AC) return null;
     audioCtx = new AC();
+    audioDiag.ctxCreated++;
     masterGain = audioCtx.createGain();
     masterGain.gain.value = state.sfxVolume != null ? state.sfxVolume : 0.5;
     masterGain.connect(audioCtx.destination);
@@ -80,8 +84,9 @@ import { startProceduralBgm } from './procedural-bgm.js';
     });
     return audioCtx;
   }
-  function resumeAudio(){
+  function resumeAudio(reason){
     const ctx = initAudio();
+    if(reason) noteAudio('resume:' + reason);
     // iOS Safari: a context the OS paused (call, another app's audio, backgrounding) reports 'interrupted'
     if(ctx && (ctx.state === 'suspended' || ctx.state === 'interrupted')) ctx.resume().catch(()=>{});
     // autoplay is blocked until a real user gesture - this is the first
@@ -96,7 +101,11 @@ import { startProceduralBgm } from './procedural-bgm.js';
      of the game (iOS Safari keeps a hidden page's AudioContext running). Nothing is stopped or
      forgotten: resumeAudio() continues the same song at the same place. The caller decides whether to
      resume (only once the game has started: the title screen stays silent, DEC-015). */
-  function suspendAudio(){
+  function suspendAudio(reason){
+    noteAudio('suspend:' + (reason || '-'));
+    /* 止めている間はフェードが進まない(音の時計が止まる)ので、フェード中の古い音源はここで切る。戻ったときに
+       古い段が一瞬重ならないように(裏のタブでは setTimeout も間引かれる) */
+    for(const v of [...bgmVoices]) if(v !== bgmCurrent) killVoice(v, 0);
     /* 'running' だけでなく、resume() の途中(state はまだ 'suspended')や iOS の 'interrupted'(OS が自動で再開する
        ことがある)でも suspend を送る。WebAudio は呼ばれた順に適用するので、resume → suspend は suspended で終わる
        (T-2R-1 Review M-1: 戻ってすぐ裏に回ると、resume の途中で suspend が飛ばされて裏で鳴り続けていた) */
@@ -843,6 +852,7 @@ import { startProceduralBgm } from './procedural-bgm.js';
      (crossfade); a different key stops this world's music and starts the
      next one from the top. */
   function playBgm(key, variant){
+    audioDiag.playCalls++;
     if(key === bgmKey){
       if(variant !== undefined) setBgmVariant(key, variant);
       return;
@@ -932,6 +942,7 @@ import { startProceduralBgm } from './procedural-bgm.js';
      AudioContext, sound effects and the volume settings alone, and is safe to
      call any number of times. The next playBgm() starts from a clean state. */
   function stopBgm(){
+    audioDiag.stopCalls++;
     bgmToken++;
     if(bgmEl){ bgmEl.pause(); bgmEl = null; }
     if(proceduralBgm){ proceduralBgm.stop(); proceduralBgm = null; }
@@ -949,7 +960,7 @@ import { startProceduralBgm } from './procedural-bgm.js';
     const procedural = proceduralBgm ? 1 : 0;
     const el = (bgmEl && !bgmEl.paused) ? 1 : 0;
     return { total: voices + procedural + el, voices, procedural, el, key: bgmKey, variant: bgmVariant,
-      ctx: audioCtx ? audioCtx.state : 'none' };
+      ctx: audioCtx ? audioCtx.state : 'none', ...audioDiag };
   }
 
 export { suspendAudio, bgmDebugInfo, initAudio, resumeAudio, setSfxVolume, sfx, ambient, setBgmVolume, setBgmIntensity, playBgm, setBgmVariant, stopBgm };

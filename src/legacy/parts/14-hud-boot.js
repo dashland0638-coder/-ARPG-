@@ -2406,6 +2406,7 @@
     document.getElementById('menu-overlay').classList.remove('active');
 
     state.started = true;      // the pad derives from this, so set it first
+    audioGameStarted();        // このページが音の持ち主(他のページの BGM を止める。T-2R-1 追加調査)
     refreshTouchControls();
     if(isTouchDevice) document.getElementById('hud-hint').style.display = 'none';
     /* Chapter 1 に無い旧成長系の HUD 表示(UI-002-A)。state.testMode は
@@ -2460,35 +2461,115 @@
      ゲームを始めた後だけ再開する(タイトルでは鳴らさない: DEC-015)。曲は止めないので同じ位置から続く。
      bfcache から戻ったタイトル(pageshow persisted)は念のため BGM を止める。戻ったときの resume が
      iOS で拒まれた場合は、次のタップで再開する(pointerdown)。音響の仕組み自体は変えない */
+  /* 音の持ち主(T-2R-1 追加調査: iOS のアプリ内ブラウザで BGM が重なる)。
+     ・このページの中では AudioContext は 1 つ、BGM は 1 系統(audio.js)。タイトルでは鳴らさない
+     ・それでもタイトルで BGM が聞こえる = このページの外(前に開いた同じゲームのページ)が鳴らしている。
+       アプリ内ブラウザは、閉じる・チャットへ戻るときに visibilitychange / pagehide を出さないことがある
+       ので、上の対策だけでは前のページが止まらない
+     そこで「同じ origin で BGM を鳴らすのは最後に操作したページ 1 つ」とする: ゲームを始めた・戻った・
+     タップしたページが BroadcastChannel で claim を送り、受け取った他のページは自分の音を一時停止する
+     (止められた側は、表に戻ってタップすれば claim し直して鳴る)。描画が止まった(requestAnimationFrame が
+     3 秒来ない。見えないのに visibilitychange が来ない WebView)ときも一時停止し、描画が戻れば開始後だけ再開。
+     この修正を含まない古いビルドのページは claim を受け取らない(iPhone の確認の手順で閉じる) */
+  const AUDIO_CHANNEL_NAME = 'soulforge-audio';
+  const audioInstanceId = Math.random().toString(36).slice(2, 10);   // このページの区別だけ(保存しない)
+  let audioChannel = null;
+  const lifeDiag = { hidden:0, visible:0, pagehide:0, pageshow:0, renderStop:0, claimsIn:0, others:0 };
+  let audioSuspendedFor = null;   // 'hidden' | 'pagehide' | 'other-instance' | 'render-stopped' | null
+  function claimAudio(){
+    if(audioChannel) try{ audioChannel.postMessage({type:'claim', id:audioInstanceId}); }catch(e){}
+  }
+  function pauseAudioFor(reason){ audioSuspendedFor = reason; suspendAudio(reason); }
   function bindAudioLifecycle(){
-    const resumeIfPlaying = ()=>{ if(state.started && document.visibilityState === 'visible') resumeAudio(); };
+    const resumeIfPlaying = (reason)=>{
+      if(!state.started || document.visibilityState !== 'visible') return;
+      audioSuspendedFor = null;
+      resumeAudio(reason);
+      claimAudio();
+    };
     document.addEventListener('visibilitychange', ()=>{
-      if(document.visibilityState === 'hidden') suspendAudio();
-      else resumeIfPlaying();
+      if(document.visibilityState === 'hidden'){ lifeDiag.hidden++; pauseAudioFor('hidden'); }
+      else { lifeDiag.visible++; resumeIfPlaying('visible'); }
     });
-    window.addEventListener('pagehide', ()=> suspendAudio());
+    window.addEventListener('pagehide', ()=>{ lifeDiag.pagehide++; pauseAudioFor('pagehide'); });
     window.addEventListener('pageshow', ev=>{
       if(!ev.persisted) return;
+      lifeDiag.pageshow++;
       if(!state.started) stopBgm();
-      resumeIfPlaying();
+      resumeIfPlaying('pageshow');
     });
-    document.addEventListener('pointerdown', resumeIfPlaying, {passive:true});
+    document.addEventListener('pointerdown', ()=> resumeIfPlaying('tap'), {passive:true});
+    // 他のページ(同じ origin)との持ち主の調整
+    if(typeof BroadcastChannel === 'function'){
+      try{ audioChannel = new BroadcastChannel(AUDIO_CHANNEL_NAME); }catch(e){ audioChannel = null; }
+    }
+    if(audioChannel){
+      const pongs = new Set();
+      audioChannel.onmessage = ev=>{
+        const m = ev.data || {};
+        if(!m.id || m.id === audioInstanceId) return;
+        if(m.type === 'claim'){ lifeDiag.claimsIn++; pauseAudioFor('other-instance'); }
+        else if(m.type === 'ping') try{ audioChannel.postMessage({type:'pong', id:audioInstanceId, to:m.id}); }catch(e){}
+        else if(m.type === 'pong' && m.to === audioInstanceId) pongs.add(m.id);
+      };
+      // 生きている他のページの数(診断の表示用。2 秒ごと)
+      if(DEV_UI) setInterval(()=>{
+        lifeDiag.others = pongs.size; pongs.clear();
+        try{ audioChannel.postMessage({type:'ping', id:audioInstanceId}); }catch(e){}
+      }, 2000);
+    }
+    // 描画が止まったら一時停止(見えなくなったのに visibilitychange が来ない WebView)
+    let lastFrame = performance.now(), lastTick = performance.now();
+    const RENDER_STALL_MS = 3000;
+    setInterval(()=>{
+      const now = performance.now();
+      const blocked = now - lastTick > RENDER_STALL_MS;   // この間隔自体が遅れた = 重い処理でスレッドが詰まっただけ
+      lastTick = now;
+      requestAnimationFrame(()=>{
+        lastFrame = performance.now();
+        if(audioSuspendedFor === 'render-stopped') resumeIfPlaying('render');
+      });
+      if(!blocked && state.started && audioSuspendedFor == null && now - lastFrame > RENDER_STALL_MS){
+        lifeDiag.renderStop++;
+        pauseAudioFor('render-stopped');
+      }
+    }, 1000);
   }
-  /* ?dev=1 の時だけ: 鳴っている BGM の数を画面の左下に出す(iPhone で重複を目で確かめるため)。
-     「BGM 1 tavern/complete running」。2 以上が 3 秒より長く続けば重複(切り替えの 2 秒のクロスフェード中は 2) */
+  /* 開始(beginGame / continueGame の state.started = true の直後)に呼ぶ: このページが持ち主になる */
+  function audioGameStarted(){ audioSuspendedFor = null; claimAudio(); }
+  function uaKind(){
+    // 実行環境の大まかな区別だけ(userAgent そのものは出さない・保存しない)。
+    // SFSafariViewController は Safari と区別できない
+    const ua = navigator.userAgent || '';
+    const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if(!ios) return /Chrome\//.test(ua) ? 'chromium' : 'other';
+    if(/CriOS|FxiOS|EdgiOS/.test(ua)) return 'ios-other-browser';
+    return /Safari\//.test(ua) ? 'ios-safari' : 'ios-webview';
+  }
+  /* ?dev=1 の時だけ: BGM の数と音の状態を画面の左下に出す(iPhone で重複を目で確かめるため)。
+     1 行目「BGM 1 tavern/complete running」。2 以上が 3 秒より長く続けば重複(切り替えの 2 秒のクロスフェード中は 2)。
+     2 行目: 実行環境・表示状態・AudioContext を作った数・BGM の開始 / 停止の呼び出し数・裏 / 表 / pagehide /
+     pageshow / 描画停止の回数・他のページの数(他)・受け取った claim の数・最後の音の状態の変更 */
   function startBgmDebugReadout(){
     if(!DEV_UI) return;
     const el = document.createElement('div');
     el.id = 'dev-bgm-count';
     el.style.cssText = 'position:fixed;left:calc(4px + env(safe-area-inset-left));bottom:calc(4px + env(safe-area-inset-bottom));'
-      + 'z-index:9999;pointer-events:none;'
-      + 'font:11px/1.3 monospace;color:#fff;background:rgba(0,0,0,.55);padding:2px 5px;border-radius:3px';
+      + 'z-index:9999;pointer-events:none;max-width:70vw;'
+      + 'font:10px/1.3 monospace;color:#fff;background:rgba(0,0,0,.55);padding:2px 5px;border-radius:3px';
+    const l1 = document.createElement('div'), l2 = document.createElement('div');
+    l2.id = 'dev-audio-diag';
+    el.append(l1, l2);
     document.body.appendChild(el);
+    const kind = uaKind();
     const tick = ()=>{
-      const i = bgmDebugInfo();
-      el.textContent = `BGM ${i.total} ${i.key || '-'}${i.variant ? '/' + i.variant : ''} ${i.ctx}`
+      const i = bgmDebugInfo(), d = lifeDiag;
+      l1.textContent = `BGM ${i.total} ${i.key || '-'}${i.variant ? '/' + i.variant : ''} ${i.ctx}`
         + (i.procedural ? ' proc' : '') + (i.el ? ' el' : '');
-      el.style.background = i.total > 1 ? 'rgba(170,20,20,.8)' : 'rgba(0,0,0,.55)';
+      l2.textContent = `${kind} ${document.visibilityState} ctx#${i.ctxCreated} play${i.playCalls} stop${i.stopCalls}`
+        + ` hid${d.hidden} vis${d.visible} ph${d.pagehide} ps${d.pageshow} rs${d.renderStop}`
+        + ` 他${audioChannel ? d.others : '?'} claim${d.claimsIn} ${i.last}`;
+      el.style.background = (i.total > 1 || d.others > 0) ? 'rgba(170,20,20,.8)' : 'rgba(0,0,0,.55)';
     };
     tick();
     setInterval(tick, 500);

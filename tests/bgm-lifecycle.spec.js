@@ -121,6 +121,63 @@ test.describe('ページが裏に回ったときの BGM(CHARACTER-VIS-002 T-2R-1
     expect(errors).toEqual([]);
   });
 
+  test('同じ origin の 2 つのページ: 後から始めたページが音の持ち主になり、前のページは一時停止(タイトルで重ならない)。前のページをタップすると持ち主が戻る', async ({ page, context }) => {
+    test.setTimeout(150_000);
+    const errors = watchErrors(page);
+    await exposeAudioContext(page);
+    await page.addInitScript(([k, v]) => localStorage.setItem(k, v), [SAVE_KEY, JSON.stringify(save())]);
+    await openGame(page);
+    await page.click('#cc-continue-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
+    await dismissIntroDialogue(page);
+    await expect.poll(() => bgmCount(page), { timeout: 20_000 }).toBe(1);
+    await expect.poll(() => ctxState(page), { timeout: 5_000 }).toBe('running');
+
+    // 2 つ目のページ(アプリ内ブラウザで開き直した想定)。前のページは裏の合図を出さないまま残る
+    const page2 = await context.newPage();
+    const errors2 = watchErrors(page2);
+    await exposeAudioContext(page2);
+    await openGame(page2);
+    await page2.waitForTimeout(1_000);
+    expect(await bgmCount(page2), '2 つ目のタイトルでは BGM 0').toBe(0);
+    // 診断の表示: 他のページが 1 つ生きている
+    await expect.poll(async () => ((await page2.locator('#dev-audio-diag').textContent()) || '').includes('他1'), { timeout: 8_000 }).toBe(true);
+    // 2 つ目で始める → 前のページは一時停止(曲の登録は 1 のまま = 戻れば同じ位置から)
+    await page2.click('#cc-continue-btn');
+    await expect(page2.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
+    await expect.poll(() => ctxState(page), { message: '前のページは一時停止', timeout: 5_000 }).toBe('suspended');
+    await expect(page.locator('#dev-audio-diag')).toContainText('suspend:other-instance');
+    await dismissIntroDialogue(page2);
+    await expect.poll(() => bgmCount(page2), { timeout: 20_000 }).toBe(1);
+    await expect.poll(() => ctxState(page2), { timeout: 5_000 }).toBe('running');
+    // 前のページをタップ → 持ち主が戻り、2 つ目が一時停止
+    await page.bringToFront();
+    await page.mouse.click(5, 5);
+    await expect.poll(() => ctxState(page), { timeout: 5_000 }).toBe('running');
+    await expect.poll(() => ctxState(page2), { timeout: 5_000 }).toBe('suspended');
+    expect(errors).toEqual([]);
+    expect(errors2).toEqual([]);
+  });
+
+  test('描画が止まった(requestAnimationFrame が来ない・visibilitychange も来ない)ら一時停止し、描画が戻れば再開する', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await exposeAudioContext(page);
+    await page.addInitScript(([k, v]) => localStorage.setItem(k, v), [SAVE_KEY, JSON.stringify(save())]);
+    await openGame(page);
+    await page.click('#cc-continue-btn');
+    await expect(page.locator('#hud')).toHaveClass(/active/, { timeout: 20_000 });
+    await dismissIntroDialogue(page);
+    await expect.poll(() => ctxState(page), { timeout: 20_000 }).toBe('running');
+    await page.evaluate(() => { const w = /** @type {any} */ (window); w.__raf = w.requestAnimationFrame; w.requestAnimationFrame = () => 0; });
+    await expect.poll(() => ctxState(page), { message: '描画が止まると一時停止', timeout: 10_000 }).toBe('suspended');
+    await expect(page.locator('#dev-audio-diag')).toContainText('suspend:render-stopped');
+    await page.evaluate(() => { const w = /** @type {any} */ (window); w.requestAnimationFrame = w.__raf; });
+    await expect.poll(() => ctxState(page), { message: '描画が戻ると再開', timeout: 10_000 }).toBe('running');
+    expect(await bgmCount(page)).toBe(1);
+    expect(errors).toEqual([]);
+  });
+
   test('通常の URL には BGM の数の表示を出さない', async ({ page }) => {
     await openGame(page, { dev: false });
     await page.waitForTimeout(500);
