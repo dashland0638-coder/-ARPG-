@@ -756,3 +756,4 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-27 | T-2R-2 | PLANNED → APPROVED → IMPLEMENTING | Human / Planner | Human の着手指示（顔の確認のプレビューのみ。T-2R-3 以降・T-3 は未着手）|
 | 2026-11-27 | T-2R-2 | IMPLEMENTING → TESTING → REVIEWING | Implementer | 顔の確認のプレビューを実装（下の Implementation Result（T-2R-2））。unit 2341・E2E 22 PASS。Reviewer へ |
 | 2026-11-27 | T-2R-2 | REVIEWING（変更なし）| Reviewer / Implementer | Review **PASS**（Reviewed SHA `733449b`、`.ai/reports/CHARACTER-VIS-002-T2R2-review.md`）。should-fix S-1（組み立ての例外でゲームのシーンに部品が残る）・S-2（髪の房も緑に）・S-3（Motion Preview の調査の記録）と note（キー入力の遮断・z-index のトークン・X 線を隠すことの E2E）を反映。face-preview 3 PASS。**Human の iPhone での確認待ち**、確認まで T-2R-3 へ進まない |
+| 2026-11-27 | T-2R-2 | REVIEWING（変更なし）| Reviewer | Review Round 2 **PASS**（Reviewed SHA `e6dbc41`）。例外の注入でゲームのシーン・共有変数が戻ること、キー入力の遮断が閉じた後に漏れないことを確認。Human の iPhone での確認待ち |

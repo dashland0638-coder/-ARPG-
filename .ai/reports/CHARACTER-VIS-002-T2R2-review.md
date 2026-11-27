@@ -72,3 +72,42 @@
 | Reviewer のプローブ（3 回開く × 8 職 ×2 周 × 診断の切り替え → 閉じる → ゲームの状態を確認）| PASS（上の「Reviewer のプローブ」）|
 
 `/home/user/-ARPG-` は変更・commit・push していない。
+
+---
+
+# Round 2
+
+- Verdict: **PASS**
+- Reviewed SHA: `e6dbc41`（diff `733449b..e6dbc41`）
+
+## 指摘の反映の確認
+| 指摘 | 判定 | 根拠 |
+| --- | --- | --- |
+| S-1 例外でゲームのシーンに部品が残る | 解消 | シーンの部品を移す処理が `finally` の中に入った（18-face-preview.js:65）。`setFacePreviewEntry` は try/catch でラベルにエラーを出す（:142-150）。**注入の検証**: `applyJobPromotionVisual` を組み立ての後で throw するように差し替え、大魔導（魔法石・魔法陣をシーンへ足す）を選んだ。結果: ゲームのシーンの子の数は不変。`player`・`playerMixerParts`・`state.job`・`state.classDef` は同じもの（identity）に戻った。ラベルは「魔導士: 組み立てに失敗 (inj)」、`fp.fig = null`、プレビューのシーンには固定の 4 つだけが残る。次に別の職を選ぶと正常に組み立て直せた。閉じた後もゲームのシーンは不変で、pageerror は無い |
+| S-2 髪の房 | 解消 | 前髪・横髪・後ろ髪 = 濃い緑 `0a7a28`、殻 = `20d040`。通常に戻すと元の Material に戻る（E2E の `toEqual(normal)` に房の色も入った）。帽子なしの範囲はコメント（:7-9）と記録に書かれた |
+| S-3 Motion Preview の調査 | 解消 | Implementation Result に、調査で分かったこと（文字の表示・ゲームのカメラ・デバッグモードでのみ出る）と、計画から変えた理由（ゲームのカメラ・操作中の主人公を変えないため）が書かれた。内容はコードと一致する |
+| N-2 z-index | 解消 | `--ui-z-face-preview: 10000`（tokens.css）|
+| N-4 キー入力 | 解消 | 下の確認 |
+| N-6 E2E | 解消 | 房の色と、X 線シェルが 0 枚見えていることを確かめるようになった |
+
+## keydown のリスナーの確認（依頼の重点）
+- 登録は `document.addEventListener('keydown', fp.onKey, true)`（:247）、解除は同じ参照・同じ capture フラグの `removeEventListener`（:283）で、`closeFacePreview` を通る経路はすべて解除する。二重に開く経路は `if(!DEV_UI || facePreview) return` で塞がれていて、リスナーは最大 1 つ
+- ゲームのキー処理は `window` の bubble（09-save-load.js:319 / 324 / 362）。`document` の capture で `stopPropagation` すれば、ゲームへは届かない。`preventDefault` は Esc の時だけなので、プレビューのボタンを Enter / Space で押す標準の動作は壊れない
+- keyup は止めないので、開く前から押していたキーも `keys[...]` が false に戻る（押しっぱなしで固まらない）
+- **実機の確認**（1280×800、テストモードの剣士）:
+  - ゲームの中で Esc を押すとメニューが開く → プレビューを開く → KeyW を押してもゲームの `keys.KeyW` は false のまま → Esc でプレビューだけが閉じ、メニューは開いたまま
+  - 開く / 閉じるを 3 回繰り返した後で Esc を押すと、ゲームがメニューを閉じる。KeyW もゲームの `keys.KeyW` = true になる。閉じた後に漏れは無く、ゲームの入力は正常
+- note R2-N1: 開いている間の Esc の keyup はゲームへ届くが、ゲームは Esc を keydown でしか扱わないので無害
+
+## note（Round 2）
+- R2-N2 例外の時、`setFacePreviewEntry` の catch はプレビューのシーンから部品を remove するだけで、`dispose` しない（18-face-preview.js:146）。dev 専用で、閉じれば `forceContextLoss` でコンテキストごと解放されるので実害は小さい。気になるなら `disposePlayerPartTree(o, null)` を呼ぶ
+
+## 実行したテスト（isolated worktree `/tmp/rev-t2r2b` @ e6dbc41、Vite :5293、削除済み）
+| テスト | 結果 |
+| --- | --- |
+| `tests/face-preview.spec.js` | 3 passed |
+| `npm run test:unit` | tests 2342 / pass 2338 / fail 0 |
+| Reviewer のプローブ（キー入力・漏れ）| PASS（上の数値）|
+| Reviewer のプローブ（組み立ての例外の注入）| PASS（上の数値）|
+
+`/home/user/-ARPG-` は変更・commit・push していない。
