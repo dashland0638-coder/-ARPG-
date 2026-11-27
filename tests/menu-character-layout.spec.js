@@ -113,11 +113,13 @@ for (const [label, viewport, hasTouch] of [['1280×800', { width: 1280, height: 
       expect(await minHeight(page, '#menu-overlay .menu-tab, #menu-overlay .menu-btn')).toBeGreaterThanOrEqual(36);
 
       // 「設定」: 11 項目が見え、押すと値が変わる(既存の動き)。
-      // ?dev=1 の時だけ、確認用の「BGM 段階」が 1 つ増える(MUSIC-BGM-REGRESSION-001。通常の URL では出ない)
+      // ?dev=1 の時だけ、確認用の「BGM 段階」(MUSIC-BGM-REGRESSION-001)と「顔の確認」(CHARACTER-VIS-002 T-2R-2)が
+      // 増える(通常の URL では出ない)。本番の設定の 11 項目は変わらない
       await page.click('#menu-overlay [data-menu-tab="settings"]');
       await expect(page.locator('#menu-overlay [data-menu-tab="settings"]')).toHaveClass(/active/);
-      await expect(page.locator('#menu-overlay .menu-setting-btn:not(#set-bgm-stage)')).toHaveCount(11);
+      await expect(page.locator('#menu-overlay .menu-setting-btn:not(#set-bgm-stage):not(#set-face-preview)')).toHaveCount(11);
       await expect(page.locator('#set-bgm-stage')).toBeVisible();
+      await expect(page.locator('#set-face-preview')).toBeVisible();
       await expect(page.locator('#menu-resume')).toBeHidden();
       const sfx = await page.locator('#set-sfx').textContent();
       await page.click('#set-sfx');
