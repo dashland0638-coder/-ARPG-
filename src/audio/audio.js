@@ -97,7 +97,10 @@ import { startProceduralBgm } from './procedural-bgm.js';
      forgotten: resumeAudio() continues the same song at the same place. The caller decides whether to
      resume (only once the game has started: the title screen stays silent, DEC-015). */
   function suspendAudio(){
-    if(audioCtx && audioCtx.state === 'running') audioCtx.suspend().catch(()=>{});
+    /* 'running' だけでなく、resume() の途中(state はまだ 'suspended')や iOS の 'interrupted'(OS が自動で再開する
+       ことがある)でも suspend を送る。WebAudio は呼ばれた順に適用するので、resume → suspend は suspended で終わる
+       (T-2R-1 Review M-1: 戻ってすぐ裏に回ると、resume の途中で suspend が飛ばされて裏で鳴り続けていた) */
+    if(audioCtx && audioCtx.state !== 'closed') audioCtx.suspend().catch(()=>{});
     if(bgmEl && !bgmEl.paused){ bgmEl.pause(); pendingBgmEl = bgmEl; }   // resumeAudio() plays it again
   }
   function setSfxVolume(v){

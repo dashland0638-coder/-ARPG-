@@ -639,6 +639,45 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 - 提案: 顔は O1（頭のメッシュの拡張、4職だけのオプション）、職ごとの断面表で作り分け、髪の殻は O1 の中で修正、BGM は裏に回ったら suspend。作業は T-2R-1〜5
 - **コードは変えていない**。Human の判断 H-1〜H-4 待ち。顔の大規模な造形変更・T-3 は Human の明示の許可まで着手しない
 
+## Implementation Result（T-2R-1、DEC-038 H-3: BGM の重複対策）
+
+### 作業の基準
+- ブランチ `claude/character-vis-002-t2`（PR #149。base / head は変えない）。音響の仕組みは作り直さず、ページのライフサイクルへの対応だけを足す
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `src/audio/audio.js` | `suspendAudio()`（AudioContext を suspend。`closed` 以外は常に送る = resume の途中・iOS の `interrupted` でも止める。`<audio>` の代替は一時停止して、次の `resumeAudio()` で再生）、`bgmDebugInfo()`（音が出うる BGM の数・キー・段・context の状態）。`resumeAudio()` は `interrupted` も再開の対象 |
+| `src/legacy/parts/14-hud-boot.js` | `bindAudioLifecycle()`: `visibilitychange` hidden / `pagehide` → `suspendAudio()`。visible / `pageshow`（persisted）/ `pointerdown` → **ゲーム開始後（`state.started`）だけ** `resumeAudio()`。bfcache から戻ったタイトルは `stopBgm()`。`startBgmDebugReadout()`: `?dev=1` の時だけ左下（safe-area の内側）に「BGM n キー/段 context」（2 以上で赤）。`pointer-events:none` |
+| `src/legacy/concat-plugin.js` | 2 関数の import |
+| `tests/bgm-lifecycle.spec.js`（新規）| タイトル 0・タップでも 0、開始後 1、hidden → suspended（曲は 1 のまま）、visible → running で 1 のまま、戻ってすぐ裏（hidden → visible → hidden を同期で）→ suspended、pagehide → suspended、pageshow persisted → 再開して 1、タイトルへ戻る → 0、タイトルでは裏から戻っても・タップしても suspended / 0、つづきから → running で 1。通常の URL には表示なし |
+
+### 自動テストで確かめる範囲 / iPhone 実機（Human）で確かめる範囲
+| 範囲 | 内容 |
+| --- | --- |
+| 自動（Chromium）| 上の E2E。BGM の数（タイトル 0・開始後 1・増えない）と、裏 / 表で context が止まる・開始後だけ再開すること |
+| iPhone 実機（Human）| iOS Safari 固有の挙動（裏のタブ・ホーム画面のアプリの音、bfcache、`interrupted`、裏から戻ったときの resume が拒まれた場合にタップで再開すること）。**実機の確認の前に修正完了とはしない** |
+
+### iPhone での確認の手順（Human）
+1. **この修正を含まない古いビルド**（他の Safari タブで開いたままの以前の PR のプレビュー・本番、ホーム画面に追加したアプリ）は、裏で鳴り続けることがある。確認の前に Safari のタブをすべて閉じ、ホーム画面のアプリを上へスワイプして終了する
+2. PR #149 のプレビュー `?dev=1` を 1 つのタブだけで開く。左下の表示が「BGM 0」で、タイトルで音が鳴らないこと
+3. 開始（つづきから / はじめる）→「BGM 1 tavern/…」で、音が重ならないこと（段の切り替えの 2 秒のクロスフェードの間だけ 2）
+4. ホーム画面へ戻る・別のタブへ切り替える → 音が止まること。戻る → 同じ曲が続き、表示は 1 のまま（鳴らなければ画面をタップ）
+5. タイトルへ戻る → 0。裏へ回して戻っても、タイトルでは鳴らないこと
+6. 本番（main のビルド）で同じことが起きるかは、本番にはこの修正が無いので、手順 1 のあと本番だけを開いて確かめる（任意）
+
+### Test Report（T-2R-1）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit` | PASS |
+| `bgm-lifecycle`・`bgm-regression`・`tavern-bgm`・`audio` | PASS |
+| レイアウト系（`action-zone`・`character-zone`・`combat-events-layout`・`hud-zones-layout`・`chapter-select-testmode`、`?dev=1` の表示が常に出るため）| 下の Status History |
+| 全 E2E | CI（PR #149）|
+
+### Review（T-2R-1）
+- Round 1 = CHANGES_REQUIRED（Reviewed SHA `a51c40f`、別コンテキストの Reviewer、`.ai/reports/CHARACTER-VIS-002-T2R1-review.md`）。M-1（resume の途中で裏に回ると suspend が飛ばされる）・M-2（本節が無い）・S-1（safe-area）・S-2（E2E の不足）→ 反映
+
 ## Status History
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |

@@ -2480,7 +2480,8 @@
     if(!DEV_UI) return;
     const el = document.createElement('div');
     el.id = 'dev-bgm-count';
-    el.style.cssText = 'position:fixed;left:4px;bottom:4px;z-index:9999;pointer-events:none;'
+    el.style.cssText = 'position:fixed;left:calc(4px + env(safe-area-inset-left));bottom:calc(4px + env(safe-area-inset-bottom));'
+      + 'z-index:9999;pointer-events:none;'
       + 'font:11px/1.3 monospace;color:#fff;background:rgba(0,0,0,.55);padding:2px 5px;border-radius:3px';
     document.body.appendChild(el);
     const tick = ()=>{
