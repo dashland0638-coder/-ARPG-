@@ -85,8 +85,8 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | T-0 | 基準づくり: 影の旅人（加入前後・影の手）の切り離し、外見の計測行、見えない古い鎧の部品の調査 | DONE（Reviewer PASS、下の Implementation Result（T-0））| [x] | なし | **なし**（形のシグネチャの一致で確認）|
 | T-1 | 共通の顔・頭（頭身 4.75、頭の下半分の丸みと前面の奥行き、目の角・輪郭線・向き、首と頭の接合、横の髪）と顔・頭・首・髪の接合の確認。顔のパーツ（口・鼻・眉）と目の部品（瞳孔・まぶた）は E-3 | DONE（下の「T-1 の完了処理」。E-3 = B の口・鼻を実装、Human の iPhone 目視確認完了 = DEC-037、口・鼻の追加分の Reviewer PASS = `.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`（T-2 のブランチに記録））| [x] | T-0、DEC-036、DEC-037 | あり（4職）|
 | T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続、接合 J-4・J-7・J-8・J-9 の方針決め（AD-19）、帽子の下の髪 J-1。戦騎士への継承の確認 | REVIEWING（Reviewer PASS。**Human Review 2026-11-27 で指摘 A〜D**（`.ai/reports/CHARACTER-VIS-002-T2-human-review.md`）。分析と設計案を提示し Human の判断 H-1〜H-4 待ち。T-2 の承認・T-3 への進行は Human の明示の許可まで保留）| [x] | T-1 | あり |
-| T-2R-1 | BGM: 裏に回ったら音を一時停止・戻ったら開始後だけ再開、bfcache、?dev=1 の BGM の数の表示、E2E（DEC-038 H-3）| REVIEWING（Safari は Human 確認で正常。ChatGPT / Claude のアプリ内ブラウザで問題 → 追加調査と修正（`.ai/reports/CHARACTER-VIS-002-T2R1-inapp-browser.md`）。**Human の実機の再確認待ち**、確認まで完了としない）| [x] | T-2 | iPhone |
-| T-2R-2 | 顔の確認のプレビュー（?dev=1 の Motion Preview の「顔」カメラ: 正面 / 45° / 横 / 下 / 背面）| PLANNED | [ ] | T-2R-1 | あり |
+| T-2R-1 | BGM: 裏に回ったら音を一時停止・戻ったら開始後だけ再開、bfcache、?dev=1 の BGM の数の表示、E2E（DEC-038 H-3）| **DONE**（Reviewer PASS（`f9fc4e5` / `a634fbf`）、CI 成功（`a634fbf`）、**Human の iPhone 実機確認 PASS**（2026-11-27: Safari・ChatGPT のアプリ内ブラウザ・Claude のアプリ内ブラウザで正常、BGM の重複の改善を確認））| [x] | T-2 | iPhone |
+| T-2R-2 | 顔の確認のプレビュー（?dev=1 の全画面のプレビュー: 8 職・正面 / 45° / 横 / 下 / 後頭部・顔 / 全身・頭赤 / 髪緑の診断）| REVIEWING（下の Implementation Result（T-2R-2））| [ ] | T-2R-1 | あり |
 | T-2R-3 | O1 の共通の頭の拡張（4職のオプション）と髪の貫通の修正（髪の輪・下限・napeSideIn の再評価、貫通の検出テスト）（DEC-038 H-1 / H-4）| PLANNED | [ ] | T-2R-2 | あり |
 | T-2R-4 | 職ごとの顔（断面表・口の形・目尻の角度と縦横比 ±10%、値と理由の記録）（DEC-038 H-2）| PLANNED | [ ] | T-2R-3 | あり |
 | T-2R-5 | 上位4職への継承の確認と微調整 | PLANNED | [ ] | T-2R-4 | あり |
@@ -687,7 +687,37 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 - **Safari・ChatGPT・Claude のアプリ内ブラウザでの Human の確認まで T-2R-1 は完了にしない**
 - Review（追加調査分）Round 1 = CHANGES_REQUIRED（Reviewed SHA `edac383`、`.ai/reports/CHARACTER-VIS-002-T2R1b-review.md`）。M-1（攻撃・回避・回復薬の `resumeAudio()` が持ち主の調整を通らず、キー / パッドで 2 ページが同時に鳴る）→ `resumeAudioFromInput()` に置き換え。S-1（戻った直後の描画停止の誤判定）→ 再開・開始で判定の時刻をやり直す。S-2（E2E: タイトルのページは持ち主にならない・キー操作で持ち主が移る）・S-3（報告の記述）→ 反映（`a634fbf`）
 - Review（追加調査分）Round 2 = **PASS**（Reviewed SHA `a634fbf`）。起動中・タイトルでのキー操作で ReferenceError なし、入力の多い E2E 14 件 PASS。note R2-N1（設定のボタンをキーボードで押したときだけ claim しない。クリック / タップは pointerdown で claim）・R2-N2（2 つの見えている窓が同じパッドを読むと両方 claim する理論上の場合。iPhone には無い）
-- **Human の iPhone（Safari・ChatGPT・Claude のアプリ内ブラウザ）での再確認待ち。確認まで T-2R-1 は完了にしない**
+- CI: `a634fbf` 成功（全 E2E を含む）
+- **Human の iPhone 実機確認 PASS（2026-11-27）**: iPhone Safari・ChatGPT のアプリ内ブラウザ・Claude のアプリ内ブラウザのすべてで正常。両アプリ内ブラウザで BGM の重複の改善を確認 → **T-2R-1 DONE**
+
+## Implementation Result（T-2R-2、顔の確認のプレビュー）
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `src/legacy/parts/18-face-preview.js`（新規）| `?dev=1` の時だけの全画面のプレビュー。自分のシーン・レンダラー・カメラを持ち、確認用の姿は `buildPlayer()` / `applyJobPromotionVisual()`（本物の組み立て）で作る。組み立ての間だけ共有変数（`playerMixerParts`・`player`・`state.job`・`state.classDef`）を差し替えて必ず戻し、ゲームのシーンに足された部品（上位職のオーラ等）は確認用のシーンへ移す。X 線シェルは隠す。閉じるとジオメトリ・Material・レンダラーを破棄 |
+| `index.html` | 入口: タイトルのテストモードの入口の下「🙂 顔の確認(開発用)」、設定タブの「顔の確認(開発用)」の行（どちらも `?dev=1` の時だけ）|
+| `src/styles/main.css` | プレビューの配置（縦画面: 上に表示・下にボタン。横画面: 左に表示・右にボタン。safe-area の内側。z-index はゲームの縦向きの案内より上）|
+| `tests/face-preview.spec.js`（新規）| 下の Test Report |
+
+### 操作
+- 職（8）: 剣士・戦騎士・魔法使い・大魔導・弓師・鷹の目・盗賊・バーサーカー（影の旅人は含めない）
+- 方向（5）: 正面（0°）・45°・横（90°）・下から（方位 20°・見上げ 32°）・後頭部（180°）。表示をドラッグすると左右に回る（方向のボタンで正確な角度に戻る）
+- 顔（頭の高さが表示の縦の 約 40%）/ 全身
+- 診断: 通常 / 頭赤・髪緑（頭 = 赤、髪の殻 = 緑）/ ＋帽子なし（帽子・フードを隠す）
+- 武器: 既定は隠す（待機の姿では武器が顔の前に来るため）。「武器」で出す
+- 上端に「職 / 方向 / 顔・全身 / 診断」の表示と「閉じる」
+
+### 撮影
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r2-face-preview-8jobs.jpg`（390×844 のプレビューの表示。行 = 8 職、列 = 正面・45°・横・下から・後頭部・診断の後頭部・診断の横・帽子なしの後頭部・全身）。診断で、Human Review C（後頭部が髪を突き抜ける）が赤い面としてはっきり見える（修正は T-2R-3）
+
+### Test Report（T-2R-2）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit` | PASS（2341）|
+| `face-preview`（3 件: タイトルから 8 職・5 方向の方位と仰角・顔 / 全身・診断の Material と帽子・武器・縦画面でボタンが画面に収まる・閉じた後のゲームのシーンとプレイヤーが不変 / ゲームの中の設定タブから開いて上位職を組み立てても操作中の姿が同じ・縦向きにしてもプレビューが上 / 通常の URL に入口なし）| PASS |
+| `character-visual-budget`（影の旅人のシグネチャを含む）・`hud-zones-layout` | PASS |
 
 ## Status History
 | Date | Target | From → To | By | Note |
@@ -716,3 +746,6 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-27 | Task / T-2R-1 | — → IMPLEMENTING → REVIEWING | Human / Planner / Implementer / Reviewer | DEC-038（H-1 = O1・H-2 = B・H-3 実装・H-4 実施、T-2R-1〜5）。T-2R-1 を実装（`a51c40f`）、Review Round 1 CHANGES_REQUIRED → 反映（`f9fc4e5`）→ Round 2 **PASS**。unit 2341・BGM の E2E 16・レイアウト系 44 PASS。iPhone 実機の確認（Human）待ち。T-2R-2 以降は Human の確認の後 |
 | 2026-11-27 | T-2R-1 | REVIEWING（変更なし）| Human / Analyzer / Implementer | Human の実機の確認: Safari は正常、ChatGPT / Claude のアプリ内ブラウザで BGM の問題。追加調査と修正（音の持ち主は 1 ページ・描画停止で一時停止・診断の表示）。unit 2341・BGM の E2E 18 PASS。Reviewer へ |
 | 2026-11-27 | T-2R-1 | REVIEWING（変更なし）| Reviewer / Implementer | 追加調査分の Review Round 1 CHANGES_REQUIRED（M-1 操作からの再開が持ち主の調整を通らない）→ 反映（`a634fbf`）→ Round 2 **PASS**。unit 2341・BGM の E2E 18 PASS。Human の iPhone の再確認待ち |
+| 2026-11-27 | T-2R-1 | REVIEWING → DONE | Human | CI 成功（`a634fbf`）。Human の iPhone 実機確認 PASS（Safari・ChatGPT / Claude のアプリ内ブラウザで正常、BGM の重複の改善を確認）|
+| 2026-11-27 | T-2R-2 | PLANNED → APPROVED → IMPLEMENTING | Human / Planner | Human の着手指示（顔の確認のプレビューのみ。T-2R-3 以降・T-3 は未着手）|
+| 2026-11-27 | T-2R-2 | IMPLEMENTING → TESTING → REVIEWING | Implementer | 顔の確認のプレビューを実装（下の Implementation Result（T-2R-2））。unit 2341・E2E 22 PASS。Reviewer へ |
