@@ -2454,6 +2454,45 @@
     document.getElementById('dialogue-overlay').classList.add('active');
   }
 
+  /* ページが裏に回ったときの音(CHARACTER-VIS-002 T-2R-1 / DEC-038 H-3)。iOS Safari は裏のタブ・
+     ホーム画面のアプリの AudioContext を止めないので、別のタブで開いたゲームのタイトルに前のタブの
+     BGM が重なって聞こえる。裏に回ったら(visibilitychange hidden / pagehide)音を一時停止し、戻ったら
+     ゲームを始めた後だけ再開する(タイトルでは鳴らさない: DEC-015)。曲は止めないので同じ位置から続く。
+     bfcache から戻ったタイトル(pageshow persisted)は念のため BGM を止める。戻ったときの resume が
+     iOS で拒まれた場合は、次のタップで再開する(pointerdown)。音響の仕組み自体は変えない */
+  function bindAudioLifecycle(){
+    const resumeIfPlaying = ()=>{ if(state.started && document.visibilityState === 'visible') resumeAudio(); };
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState === 'hidden') suspendAudio();
+      else resumeIfPlaying();
+    });
+    window.addEventListener('pagehide', ()=> suspendAudio());
+    window.addEventListener('pageshow', ev=>{
+      if(!ev.persisted) return;
+      if(!state.started) stopBgm();
+      resumeIfPlaying();
+    });
+    document.addEventListener('pointerdown', resumeIfPlaying, {passive:true});
+  }
+  /* ?dev=1 の時だけ: 鳴っている BGM の数を画面の左下に出す(iPhone で重複を目で確かめるため)。
+     「BGM 1 tavern/complete running」。2 以上が 3 秒より長く続けば重複(切り替えの 2 秒のクロスフェード中は 2) */
+  function startBgmDebugReadout(){
+    if(!DEV_UI) return;
+    const el = document.createElement('div');
+    el.id = 'dev-bgm-count';
+    el.style.cssText = 'position:fixed;left:4px;bottom:4px;z-index:9999;pointer-events:none;'
+      + 'font:11px/1.3 monospace;color:#fff;background:rgba(0,0,0,.55);padding:2px 5px;border-radius:3px';
+    document.body.appendChild(el);
+    const tick = ()=>{
+      const i = bgmDebugInfo();
+      el.textContent = `BGM ${i.total} ${i.key || '-'}${i.variant ? '/' + i.variant : ''} ${i.ctx}`
+        + (i.procedural ? ' proc' : '') + (i.el ? ' el' : '');
+      el.style.background = i.total > 1 ? 'rgba(170,20,20,.8)' : 'rgba(0,0,0,.55)';
+    };
+    tick();
+    setInterval(tick, 500);
+  }
+
   /* =========================================================
      BOOT
   ========================================================= */
@@ -2462,6 +2501,8 @@
     // 起動時のタイトルでもゲームの BGM は鳴らさない(MUSIC-BGM-REGRESSION-001)。酒場を組んだ buildWorld が
     // 頼んだ BGM を止める(読み込んだ音はキャッシュに残るので、入場したときすぐ鳴る)
     stopBgm();
+    bindAudioLifecycle();
+    startBgmDebugReadout();
     loadAndApplySettings();
     bindSettings();
     refreshContinueBanner();

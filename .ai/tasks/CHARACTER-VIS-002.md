@@ -1,6 +1,6 @@
 # CHARACTER-VIS-002 — プレイヤーキャラクターのデザイン更新
 
-Status: IMPLEMENTING（Work Item ごとの状態は下の表。DEC-035: E-1 = A・E-2 = A・T-0。DEC-036: 頭身 4.75・T-1。DEC-037: E-3 = B・T-1 の目視確認完了・T-2 の着手）
+Status: IMPLEMENTING（Work Item ごとの状態は下の表。DEC-035: E-1 = A・E-2 = A・T-0。DEC-036: 頭身 4.75・T-1。DEC-037: E-3 = B・T-1 の目視確認完了・T-2 の着手。DEC-038: T-2 Human Review の H-1 = O1・H-2 = B・H-3 実装・H-4 実施、T-2R-1〜5）
 優先度: 通常。WANDERER-RENEWAL-001（影の旅人の全面刷新）の後に行う（完了済み: PR #145 / #146 merge）
 
 Analysis: .ai/reports/CHARACTER-VIS-002-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `7caabaf1ef5381d71e8b97db5dceedef47e87c11`、blob `6eb47b9f987ccccbc7363e90d84f6b7f9d6260e5`。初版 `51ed36a` / blob `3fd9a39c` を Review Round 1 の指摘で改訂した新版）
@@ -85,6 +85,11 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | T-0 | 基準づくり: 影の旅人（加入前後・影の手）の切り離し、外見の計測行、見えない古い鎧の部品の調査 | DONE（Reviewer PASS、下の Implementation Result（T-0））| [x] | なし | **なし**（形のシグネチャの一致で確認）|
 | T-1 | 共通の顔・頭（頭身 4.75、頭の下半分の丸みと前面の奥行き、目の角・輪郭線・向き、首と頭の接合、横の髪）と顔・頭・首・髪の接合の確認。顔のパーツ（口・鼻・眉）と目の部品（瞳孔・まぶた）は E-3 | DONE（下の「T-1 の完了処理」。E-3 = B の口・鼻を実装、Human の iPhone 目視確認完了 = DEC-037、口・鼻の追加分の Reviewer PASS = `.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`（T-2 のブランチに記録））| [x] | T-0、DEC-036、DEC-037 | あり（4職）|
 | T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続、接合 J-4・J-7・J-8・J-9 の方針決め（AD-19）、帽子の下の髪 J-1。戦騎士への継承の確認 | REVIEWING（Reviewer PASS。**Human Review 2026-11-27 で指摘 A〜D**（`.ai/reports/CHARACTER-VIS-002-T2-human-review.md`）。分析と設計案を提示し Human の判断 H-1〜H-4 待ち。T-2 の承認・T-3 への進行は Human の明示の許可まで保留）| [x] | T-1 | あり |
+| T-2R-1 | BGM: 裏に回ったら音を一時停止・戻ったら開始後だけ再開、bfcache、?dev=1 の BGM の数の表示、E2E（DEC-038 H-3）| IMPLEMENTING（下の Implementation Result（T-2R-1）。iPhone 実機の確認は Human）| [x] | T-2 | iPhone |
+| T-2R-2 | 顔の確認のプレビュー（?dev=1 の Motion Preview の「顔」カメラ: 正面 / 45° / 横 / 下 / 背面）| PLANNED | [ ] | T-2R-1 | あり |
+| T-2R-3 | O1 の共通の頭の拡張（4職のオプション）と髪の貫通の修正（髪の輪・下限・napeSideIn の再評価、貫通の検出テスト）（DEC-038 H-1 / H-4）| PLANNED | [ ] | T-2R-2 | あり |
+| T-2R-4 | 職ごとの顔（断面表・口の形・目尻の角度と縦横比 ±10%、値と理由の記録）（DEC-038 H-2）| PLANNED | [ ] | T-2R-3 | あり |
+| T-2R-5 | 上位4職への継承の確認と微調整 | PLANNED | [ ] | T-2R-4 | あり |
 | T-3 | 魔法使い: 長く広がった髪（承認済み設計の実装）、コートの前開き・袖、キャスケットの丸み、箱型の袖（J-5）、帽子の下の髪 J-1、J-4・J-7・J-8 の展開（J-3 は T-1 で実施済み）| PLANNED | [ ] | T-2 | あり |
 | T-4 | 弓師: 帽子の位置とつば（目を出す）、帽子の下の髪 J-1、毛皮の襟（J-6）、短丈上着の裾、J-4・J-7・J-8 の展開 | PLANNED | [ ] | T-2 | あり |
 | T-5 | 盗賊: フードの丸み、帽子の位置、オーバーオールの胸当て・パーカーとの重なり（J-10）、J-4・J-7・J-8 の展開 | PLANNED | [ ] | T-2 | あり |
