@@ -85,7 +85,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | T-0 | 基準づくり: 影の旅人（加入前後・影の手）の切り離し、外見の計測行、見えない古い鎧の部品の調査 | DONE（Reviewer PASS、下の Implementation Result（T-0））| [x] | なし | **なし**（形のシグネチャの一致で確認）|
 | T-1 | 共通の顔・頭（頭身 4.75、頭の下半分の丸みと前面の奥行き、目の角・輪郭線・向き、首と頭の接合、横の髪）と顔・頭・首・髪の接合の確認。顔のパーツ（口・鼻・眉）と目の部品（瞳孔・まぶた）は E-3 | DONE（下の「T-1 の完了処理」。E-3 = B の口・鼻を実装、Human の iPhone 目視確認完了 = DEC-037、口・鼻の追加分の Reviewer PASS = `.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`（T-2 のブランチに記録））| [x] | T-0、DEC-036、DEC-037 | あり（4職）|
 | T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続、接合 J-4・J-7・J-8・J-9 の方針決め（AD-19）、帽子の下の髪 J-1。戦騎士への継承の確認 | REVIEWING（Reviewer PASS。**Human Review 2026-11-27 で指摘 A〜D**（`.ai/reports/CHARACTER-VIS-002-T2-human-review.md`）。分析と設計案を提示し Human の判断 H-1〜H-4 待ち。T-2 の承認・T-3 への進行は Human の明示の許可まで保留）| [x] | T-1 | あり |
-| T-2R-1 | BGM: 裏に回ったら音を一時停止・戻ったら開始後だけ再開、bfcache、?dev=1 の BGM の数の表示、E2E（DEC-038 H-3）| IMPLEMENTING（下の Implementation Result（T-2R-1）。iPhone 実機の確認は Human）| [x] | T-2 | iPhone |
+| T-2R-1 | BGM: 裏に回ったら音を一時停止・戻ったら開始後だけ再開、bfcache、?dev=1 の BGM の数の表示、E2E（DEC-038 H-3）| REVIEWING（Reviewer Round 2 PASS。**iPhone 実機の確認（Human）待ち**、確認まで完了としない。下の Implementation Result（T-2R-1））| [x] | T-2 | iPhone |
 | T-2R-2 | 顔の確認のプレビュー（?dev=1 の Motion Preview の「顔」カメラ: 正面 / 45° / 横 / 下 / 背面）| PLANNED | [ ] | T-2R-1 | あり |
 | T-2R-3 | O1 の共通の頭の拡張（4職のオプション）と髪の貫通の修正（髪の輪・下限・napeSideIn の再評価、貫通の検出テスト）（DEC-038 H-1 / H-4）| PLANNED | [ ] | T-2R-2 | あり |
 | T-2R-4 | 職ごとの顔（断面表・口の形・目尻の角度と縦横比 ±10%、値と理由の記録）（DEC-038 H-2）| PLANNED | [ ] | T-2R-3 | あり |
@@ -672,11 +672,13 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | `npm run build` | PASS |
 | `npm run test:unit` | PASS |
 | `bgm-lifecycle`・`bgm-regression`・`tavern-bgm`・`audio` | PASS |
-| レイアウト系（`action-zone`・`character-zone`・`combat-events-layout`・`hud-zones-layout`・`chapter-select-testmode`、`?dev=1` の表示が常に出るため）| 下の Status History |
+| レイアウト系（`action-zone`・`character-zone`・`combat-events-layout`・`hud-zones-layout`・`chapter-select-testmode`、`?dev=1` の表示が常に出るため）| **44 PASS**（最初の実行は開発サーバー 5173 が途中で落ちて 22 件が接続拒否 = 環境の問題。単独で再実行して全件 PASS）|
 | 全 E2E | CI（PR #149）|
 
 ### Review（T-2R-1）
-- Round 1 = CHANGES_REQUIRED（Reviewed SHA `a51c40f`、別コンテキストの Reviewer、`.ai/reports/CHARACTER-VIS-002-T2R1-review.md`）。M-1（resume の途中で裏に回ると suspend が飛ばされる）・M-2（本節が無い）・S-1（safe-area）・S-2（E2E の不足）→ 反映
+- Round 1 = CHANGES_REQUIRED（Reviewed SHA `a51c40f`、別コンテキストの Reviewer、`.ai/reports/CHARACTER-VIS-002-T2R1-review.md`）。M-1（resume の途中で裏に回ると suspend が飛ばされる）・M-2（本節が無い）・S-1（safe-area）・S-2（E2E の不足）→ 反映（`f9fc4e5`）
+- Round 2 = **PASS**（Reviewed SHA `f9fc4e5`）。M-1 を元に戻すと新しい E2E が落ちることを確認。note R2-N1（Status History の行 → 追加済み）・R2-N2（WebKit の状態の更新が遅いと戻った直後は無音のことがある。タップ等で再開 = iPhone 手順 4）・R2-N3
+- **iPhone 実機の確認（Human）待ち。確認の前に修正完了とはしない**
 
 ## Status History
 | Date | Target | From → To | By | Note |
@@ -702,3 +704,4 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-26 | T-2 | TESTING → REVIEWING | Reviewer / Implementer | Review **PASS**（`.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`、Reviewed `ceaf8a0..5d56950`）。S-2（膝の輪の突き出し）を反映: すね側の最初の輪 0.12 → 0.06、奥行き 1.34 → 1.24。S-1 / S-3 は記録を反映、N-2 は docs の白目 16 |
 | 2026-11-26 | T-2 | REVIEWING（変更なし）| Reviewer | Review Round 2 **PASS**（Reviewed SHA `4c4d876`）。膝の突き出しは解消（膝 0〜60° ですね側の前面が太腿側の前面より 9.7 mm 以上内側）。note R2-N1: 膝を約 0.5 rad 以上曲げると太腿の裾の下に細い暗い帯（透けない、T-1 の段差より小さい）→ V-1 の確認項目。**Human の目視承認待ち**、承認まで T-3 へ進まない |
 | 2026-11-27 | T-2 | REVIEWING（変更なし）| Human / Analyzer / Planner | Human Review（iPhone）で指摘 A〜D。原因の分析と設計案（`.ai/reports/CHARACTER-VIS-002-T2-human-review.md`）。コードの変更なし。Human の判断 H-1〜H-4 待ち、T-2 の承認と T-3 は保留 |
+| 2026-11-27 | Task / T-2R-1 | — → IMPLEMENTING → REVIEWING | Human / Planner / Implementer / Reviewer | DEC-038（H-1 = O1・H-2 = B・H-3 実装・H-4 実施、T-2R-1〜5）。T-2R-1 を実装（`a51c40f`）、Review Round 1 CHANGES_REQUIRED → 反映（`f9fc4e5`）→ Round 2 **PASS**。unit 2341・BGM の E2E 16・レイアウト系 44 PASS。iPhone 実機の確認（Human）待ち。T-2R-2 以降は Human の確認の後 |

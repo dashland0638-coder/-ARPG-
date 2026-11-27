@@ -81,3 +81,38 @@ worktree は削除済み。`/home/user/-ARPG-` は変更していない。
 | 2 | `.ai/tasks/CHARACTER-VIS-002.md` | 参照先の Implementation Result（T-2R-1）が無い（V-5）| Test Report・Changed Files・iPhone 手順（古いビルドのタブ / ホーム画面のアプリを閉じる、表示の読み方）、「未確認・完了と断定しない」を記録 | Task file を読む |
 | 3（should）| `src/legacy/parts/14-hud-boot.js:2484` | 表示が safe-area を考えず iPhone 横持ちで隠れうる | `env(safe-area-inset-left/bottom)` を足す | 844×390・safe-area の E2E で表示が画面内・inset の内側 |
 | 4（should）| `tests/bgm-lifecycle.spec.js` | タイトルで裏→戻り後のタップで再開しない／その後の開始で 1 に戻る、が未確認。:60 は古い表示でも通る | ケース追加、poll 化 | E2E |
+
+## Round 2/3
+
+| 項目 | 値 |
+| --- | --- |
+| Reviewed SHA | `f9fc4e5`（Diff range `a51c40f..f9fc4e5`）|
+| Handoff Verification | V-5 充足（`.ai/tasks/CHARACTER-VIS-002.md` の「Implementation Result（T-2R-1）」に Changed Files・自動 / 実機の範囲・iPhone 手順・Test Report・Review の記録）|
+
+### Result
+**PASS**
+
+### Round 1 の指摘の確認
+| # | 結果 | 根拠 |
+| --- | --- | --- |
+| M-1 | 解消 | `src/audio/audio.js:103` `state !== 'closed'` なら常に `suspend()`。新しい E2E（hidden → visible → hidden を 1 回の evaluate で同期送信 → `suspended`）を追加。**変異確認**: 条件を `=== 'running'` に戻すとこのケースが `Expected "suspended" / Received "running"` で落ちる → E2E は M-1 の回帰を検出する |
+| M-2 | 解消 | Implementation Result（T-2R-1）を追加。「実機の確認の前に修正完了とはしない」、古いビルド（他タブ・ホーム画面のアプリ）を閉じてから確認する手順、本番には修正が無いことを明記。Round 1 の review を `.ai/reports/CHARACTER-VIS-002-T2R1-review.md` に記録 |
+| S-1 | 解消 | `14-hud-boot.js:2483` `left/bottom: calc(4px + env(safe-area-inset-*))` |
+| S-2 | 解消 | pagehide → suspended、pageshow persisted → running で 1、タイトルでのタップ後も 0、つづきから → running・1（2.5 秒後も 1）、表示の更新待ち（700ms）。期待値は緩めていない |
+
+### 新しい指摘
+must-fix: なし。should-fix: なし。
+
+note:
+- R2-N1. `.ai/tasks/CHARACTER-VIS-002.md` の Test Report は「レイアウト系 … 下の Status History」と書くが、T-2R-1 の Status History の行がまだ無い。Orchestrator が PR 作成時に行を足すこと（Round 1 で Reviewer が action-zone / hud-zones-layout 19 passed を確認済み）。
+- R2-N2. `resumeAudio()`（`audio.js:86`）は引き続き `suspended` / `interrupted` の時だけ resume する。Chromium は suspend() で state が同期的に `suspended` になるので「裏 → すぐ戻る」は問題ないが、WebKit で state の更新が遅れる場合は戻った直後に止まったままになりうる。その場合も pointerdown・攻撃 / 回避 / 回復の入力で再開するので、無音のまま固まることはない（鳴り続ける方向の不具合ではない）。iPhone 手順 4 の「鳴らなければ画面をタップ」で扱われている。
+- R2-N3. タイトルでのタップの確認は BGM の数（0）だけを見ていて、context の状態は見ていない。BGM は `stopBgm` 済みなので鳴る音は無く、DEC-015 の確認としては十分。
+
+### Tests（独立 worktree、Vite port 5392。5173 / 4173 は不使用）
+| テスト | 結果 |
+| --- | --- |
+| `npm run test:unit` | 2342 件: pass 2338 / fail 0 / skipped 4 |
+| `bgm-lifecycle`・`bgm-regression`・`tavern-bgm`・`audio` | **16 passed**（4.0m）|
+| 変異確認（suspend の条件を Round 1 の `=== 'running'` に戻す）| bgm-lifecycle 1 本目が「戻ってすぐ裏に回ったら止まったまま」で **failed** → 期待どおり |
+
+worktree は削除済み。`/home/user/-ARPG-` は変更していない。iOS の重複が直ったかどうかは Human の iPhone での確認を待つ（Reviewer PASS は修正完了の断定ではない）。
