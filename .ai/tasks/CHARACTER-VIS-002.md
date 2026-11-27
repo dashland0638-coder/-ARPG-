@@ -84,7 +84,7 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | --- | --- | --- | --- | --- | --- |
 | T-0 | 基準づくり: 影の旅人（加入前後・影の手）の切り離し、外見の計測行、見えない古い鎧の部品の調査 | DONE（Reviewer PASS、下の Implementation Result（T-0））| [x] | なし | **なし**（形のシグネチャの一致で確認）|
 | T-1 | 共通の顔・頭（頭身 4.75、頭の下半分の丸みと前面の奥行き、目の角・輪郭線・向き、首と頭の接合、横の髪）と顔・頭・首・髪の接合の確認。顔のパーツ（口・鼻・眉）と目の部品（瞳孔・まぶた）は E-3 | DONE（下の「T-1 の完了処理」。E-3 = B の口・鼻を実装、Human の iPhone 目視確認完了 = DEC-037、口・鼻の追加分の Reviewer PASS = `.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`（T-2 のブランチに記録））| [x] | T-0、DEC-036、DEC-037 | あり（4職）|
-| T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続、接合 J-4・J-7・J-8・J-9 の方針決め（AD-19）、帽子の下の髪 J-1。戦騎士への継承の確認 | REVIEWING（下の Implementation Result（T-2）。Reviewer の後 **Human の目視承認待ち**、承認まで T-3 へ進まない）| [x] | T-1 | あり |
+| T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続、接合 J-4・J-7・J-8・J-9 の方針決め（AD-19）、帽子の下の髪 J-1。戦騎士への継承の確認 | REVIEWING（Reviewer PASS。**Human Review 2026-11-27 で指摘 A〜D**（`.ai/reports/CHARACTER-VIS-002-T2-human-review.md`）。分析と設計案を提示し Human の判断 H-1〜H-4 待ち。T-2 の承認・T-3 への進行は Human の明示の許可まで保留）| [x] | T-1 | あり |
 | T-3 | 魔法使い: 長く広がった髪（承認済み設計の実装）、コートの前開き・袖、キャスケットの丸み、箱型の袖（J-5）、帽子の下の髪 J-1、J-4・J-7・J-8 の展開（J-3 は T-1 で実施済み）| PLANNED | [ ] | T-2 | あり |
 | T-4 | 弓師: 帽子の位置とつば（目を出す）、帽子の下の髪 J-1、毛皮の襟（J-6）、短丈上着の裾、J-4・J-7・J-8 の展開 | PLANNED | [ ] | T-2 | あり |
 | T-5 | 盗賊: フードの丸み、帽子の位置、オーバーオールの胸当て・パーカーとの重なり（J-10）、J-4・J-7・J-8 の展開 | PLANNED | [ ] | T-2 | あり |
@@ -627,6 +627,13 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 - `character-visual-budget` の影の旅人の形のシグネチャ（加入後・加入前の立ち / 座り・影の手）と描画の量: PASS（不変）
 - 撮影で変化なし
 
+### Human Review（2026-11-27、PR #149 の iPhone 実機確認）
+- 記録と分析: `.ai/reports/CHARACTER-VIS-002-T2-human-review.md`（画像 `t2-review-face-views.jpg` / `t2-review-hair-back.jpg` / `t2-review-hair-vs-head.jpg`）
+- A 個性の不足（顔が同じテンプレートの色違い）/ B 顔が平面的・輪郭が不自然（最重要）/ C 後頭部が髪を突き抜ける / D BGM の重複（タイトルで酒場の BGM、開始後に別の音が重なる。iPhone のテスト用ビルド）
+- 分析の要点: B は頭の土台（8 点 × 5 段の Loft・奥行き 0.68 倍・前面が平面・目のくぼみ / 耳なし）。C は髪の殻に頭の最大幅の段（0.52）の輪が無いこと・`napeSideIn`・被り物の Coverage が頭の内側まで髪を寄せること。D は Chromium で再現せず、裏のタブ / ホーム画面のアプリの音が止まらないこと（`visibilitychange` / `pagehide` で止めていない）が有力
+- 提案: 顔は O1（頭のメッシュの拡張、4職だけのオプション）、職ごとの断面表で作り分け、髪の殻は O1 の中で修正、BGM は裏に回ったら suspend。作業は T-2R-1〜5
+- **コードは変えていない**。Human の判断 H-1〜H-4 待ち。顔の大規模な造形変更・T-3 は Human の明示の許可まで着手しない
+
 ## Status History
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |
@@ -650,3 +657,4 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-26 | T-2 | PLANNED → APPROVED → IMPLEMENTING → TESTING | Planner / Implementer | 下の Implementation Result（T-2）|
 | 2026-11-26 | T-2 | TESTING → REVIEWING | Reviewer / Implementer | Review **PASS**（`.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`、Reviewed `ceaf8a0..5d56950`）。S-2（膝の輪の突き出し）を反映: すね側の最初の輪 0.12 → 0.06、奥行き 1.34 → 1.24。S-1 / S-3 は記録を反映、N-2 は docs の白目 16 |
 | 2026-11-26 | T-2 | REVIEWING（変更なし）| Reviewer | Review Round 2 **PASS**（Reviewed SHA `4c4d876`）。膝の突き出しは解消（膝 0〜60° ですね側の前面が太腿側の前面より 9.7 mm 以上内側）。note R2-N1: 膝を約 0.5 rad 以上曲げると太腿の裾の下に細い暗い帯（透けない、T-1 の段差より小さい）→ V-1 の確認項目。**Human の目視承認待ち**、承認まで T-3 へ進まない |
+| 2026-11-27 | T-2 | REVIEWING（変更なし）| Human / Analyzer / Planner | Human Review（iPhone）で指摘 A〜D。原因の分析と設計案（`.ai/reports/CHARACTER-VIS-002-T2-human-review.md`）。コードの変更なし。Human の判断 H-1〜H-4 待ち、T-2 の承認と T-3 は保留 |
