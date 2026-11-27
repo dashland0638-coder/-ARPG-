@@ -685,7 +685,9 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 - 調査と修正: `.ai/reports/CHARACTER-VIS-002-T2R1-inapp-browser.md`。ページの中では BGM は 1 系統でタイトルでは鳴らない（FACT）→ 重なる音は前に開いたページから（INFERENCE: アプリ内ブラウザは閉じても hidden / pagehide を出さずにページが残る）
 - 追加の修正: 同じ origin で音の持ち主は 1 ページ（BroadcastChannel の claim）、描画が止まったら一時停止、止めるときにフェード中の音源を切る、`?dev=1` の診断の 2 行目。E2E `bgm-lifecycle` に 2 件（2 つのページ・描画の停止）
 - **Safari・ChatGPT・Claude のアプリ内ブラウザでの Human の確認まで T-2R-1 は完了にしない**
-- Review（追加調査分）Round 1 = CHANGES_REQUIRED（Reviewed SHA `edac383`、`.ai/reports/CHARACTER-VIS-002-T2R1b-review.md`）。M-1（攻撃・回避・回復薬の `resumeAudio()` が持ち主の調整を通らず、キー / パッドで 2 ページが同時に鳴る）→ `resumeAudioFromInput()` に置き換え。S-1（戻った直後の描画停止の誤判定）→ 再開・開始で判定の時刻をやり直す。S-2（E2E: タイトルのページは持ち主にならない・キー操作で持ち主が移る）・S-3（報告の記述）→ 反映
+- Review（追加調査分）Round 1 = CHANGES_REQUIRED（Reviewed SHA `edac383`、`.ai/reports/CHARACTER-VIS-002-T2R1b-review.md`）。M-1（攻撃・回避・回復薬の `resumeAudio()` が持ち主の調整を通らず、キー / パッドで 2 ページが同時に鳴る）→ `resumeAudioFromInput()` に置き換え。S-1（戻った直後の描画停止の誤判定）→ 再開・開始で判定の時刻をやり直す。S-2（E2E: タイトルのページは持ち主にならない・キー操作で持ち主が移る）・S-3（報告の記述）→ 反映（`a634fbf`）
+- Review（追加調査分）Round 2 = **PASS**（Reviewed SHA `a634fbf`）。起動中・タイトルでのキー操作で ReferenceError なし、入力の多い E2E 14 件 PASS。note R2-N1（設定のボタンをキーボードで押したときだけ claim しない。クリック / タップは pointerdown で claim）・R2-N2（2 つの見えている窓が同じパッドを読むと両方 claim する理論上の場合。iPhone には無い）
+- **Human の iPhone（Safari・ChatGPT・Claude のアプリ内ブラウザ）での再確認待ち。確認まで T-2R-1 は完了にしない**
 
 ## Status History
 | Date | Target | From → To | By | Note |
@@ -713,3 +715,4 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-27 | T-2 | REVIEWING（変更なし）| Human / Analyzer / Planner | Human Review（iPhone）で指摘 A〜D。原因の分析と設計案（`.ai/reports/CHARACTER-VIS-002-T2-human-review.md`）。コードの変更なし。Human の判断 H-1〜H-4 待ち、T-2 の承認と T-3 は保留 |
 | 2026-11-27 | Task / T-2R-1 | — → IMPLEMENTING → REVIEWING | Human / Planner / Implementer / Reviewer | DEC-038（H-1 = O1・H-2 = B・H-3 実装・H-4 実施、T-2R-1〜5）。T-2R-1 を実装（`a51c40f`）、Review Round 1 CHANGES_REQUIRED → 反映（`f9fc4e5`）→ Round 2 **PASS**。unit 2341・BGM の E2E 16・レイアウト系 44 PASS。iPhone 実機の確認（Human）待ち。T-2R-2 以降は Human の確認の後 |
 | 2026-11-27 | T-2R-1 | REVIEWING（変更なし）| Human / Analyzer / Implementer | Human の実機の確認: Safari は正常、ChatGPT / Claude のアプリ内ブラウザで BGM の問題。追加調査と修正（音の持ち主は 1 ページ・描画停止で一時停止・診断の表示）。unit 2341・BGM の E2E 18 PASS。Reviewer へ |
+| 2026-11-27 | T-2R-1 | REVIEWING（変更なし）| Reviewer / Implementer | 追加調査分の Review Round 1 CHANGES_REQUIRED（M-1 操作からの再開が持ち主の調整を通らない）→ 反映（`a634fbf`）→ Round 2 **PASS**。unit 2341・BGM の E2E 18 PASS。Human の iPhone の再確認待ち |
