@@ -2480,13 +2480,24 @@
     if(audioChannel) try{ audioChannel.postMessage({type:'claim', id:audioInstanceId}); }catch(e){}
   }
   function pauseAudioFor(reason){ audioSuspendedFor = reason; suspendAudio(reason); }
+  let audioLastFrame = performance.now();
+  /* ゲーム開始後・表のページで音を再開する唯一の入口: 一時停止の理由を消し、再開し、持ち主になる(claim)。
+     描画の停止の判定も今からやり直す(裏から戻った直後に、裏にいた間の古い時刻で止めない。Review S-1) */
+  function resumeIfPlaying(reason){
+    if(!state.started || document.visibilityState !== 'visible') return;
+    audioSuspendedFor = null;
+    audioLastFrame = performance.now();
+    resumeAudio(reason);
+    claimAudio();
+  }
+  /* 操作(攻撃・回避・回復薬。キーボード・パッド・タップ)からの再開(T-2R-1 Review M-1)。ゲーム開始後は
+     持ち主の調整を通す(通さないと、止められた側のページがキー操作で鳴り出して 2 ページが重なる)。
+     開始前(タイトル)は今までどおり効果音のための再開だけ */
+  function resumeAudioFromInput(){
+    if(state.started) resumeIfPlaying('input');
+    else resumeAudio();
+  }
   function bindAudioLifecycle(){
-    const resumeIfPlaying = (reason)=>{
-      if(!state.started || document.visibilityState !== 'visible') return;
-      audioSuspendedFor = null;
-      resumeAudio(reason);
-      claimAudio();
-    };
     document.addEventListener('visibilitychange', ()=>{
       if(document.visibilityState === 'hidden'){ lifeDiag.hidden++; pauseAudioFor('hidden'); }
       else { lifeDiag.visible++; resumeIfPlaying('visible'); }
@@ -2519,24 +2530,24 @@
       }, 2000);
     }
     // 描画が止まったら一時停止(見えなくなったのに visibilitychange が来ない WebView)
-    let lastFrame = performance.now(), lastTick = performance.now();
+    let lastTick = performance.now();
     const RENDER_STALL_MS = 3000;
     setInterval(()=>{
       const now = performance.now();
       const blocked = now - lastTick > RENDER_STALL_MS;   // この間隔自体が遅れた = 重い処理でスレッドが詰まっただけ
       lastTick = now;
       requestAnimationFrame(()=>{
-        lastFrame = performance.now();
+        audioLastFrame = performance.now();
         if(audioSuspendedFor === 'render-stopped') resumeIfPlaying('render');
       });
-      if(!blocked && state.started && audioSuspendedFor == null && now - lastFrame > RENDER_STALL_MS){
+      if(!blocked && state.started && audioSuspendedFor == null && now - audioLastFrame > RENDER_STALL_MS){
         lifeDiag.renderStop++;
         pauseAudioFor('render-stopped');
       }
     }, 1000);
   }
   /* 開始(beginGame / continueGame の state.started = true の直後)に呼ぶ: このページが持ち主になる */
-  function audioGameStarted(){ audioSuspendedFor = null; claimAudio(); }
+  function audioGameStarted(){ audioSuspendedFor = null; audioLastFrame = performance.now(); claimAudio(); }
   function uaKind(){
     // 実行環境の大まかな区別だけ(userAgent そのものは出さない・保存しない)。
     // SFSafariViewController は Safari と区別できない

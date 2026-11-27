@@ -121,7 +121,7 @@ test.describe('ページが裏に回ったときの BGM(CHARACTER-VIS-002 T-2R-1
     expect(errors).toEqual([]);
   });
 
-  test('同じ origin の 2 つのページ: 後から始めたページが音の持ち主になり、前のページは一時停止(タイトルで重ならない)。前のページをタップすると持ち主が戻る', async ({ page, context }) => {
+  test('同じ origin の 2 つのページ: 後から始めたページが音の持ち主になり、前のページは一時停止(タイトルで重ならない)。タイトルのページは持ち主にならない。止められた側でキー操作・タップすると持ち主が移る', async ({ page, context }) => {
     test.setTimeout(150_000);
     const errors = watchErrors(page);
     await exposeAudioContext(page);
@@ -140,6 +140,10 @@ test.describe('ページが裏に回ったときの BGM(CHARACTER-VIS-002 T-2R-1
     await openGame(page2);
     await page2.waitForTimeout(1_000);
     expect(await bgmCount(page2), '2 つ目のタイトルでは BGM 0').toBe(0);
+    // タイトルのページは持ち主にならない(開いただけ・タイトルをタップしただけでは前のページを止めない)
+    await page2.mouse.click(5, 5);
+    await page2.waitForTimeout(800);
+    expect(await ctxState(page), 'タイトルのページは前のページを止めない').toBe('running');
     // 診断の表示: 他のページが 1 つ生きている
     await expect.poll(async () => ((await page2.locator('#dev-audio-diag').textContent()) || '').includes('他1'), { timeout: 8_000 }).toBe(true);
     // 2 つ目で始める → 前のページは一時停止(曲の登録は 1 のまま = 戻れば同じ位置から)
@@ -150,11 +154,17 @@ test.describe('ページが裏に回ったときの BGM(CHARACTER-VIS-002 T-2R-1
     await dismissIntroDialogue(page2);
     await expect.poll(() => bgmCount(page2), { timeout: 20_000 }).toBe(1);
     await expect.poll(() => ctxState(page2), { timeout: 5_000 }).toBe('running');
-    // 前のページをタップ → 持ち主が戻り、2 つ目が一時停止
+    // 前のページでキー操作(攻撃 J)→ 持ち主の調整を通って持ち主が戻り、2 つ目が一時停止(Review M-1: 2 ページが同時に鳴らない)
     await page.bringToFront();
-    await page.mouse.click(5, 5);
+    await page.keyboard.press('KeyJ');
     await expect.poll(() => ctxState(page), { timeout: 5_000 }).toBe('running');
     await expect.poll(() => ctxState(page2), { timeout: 5_000 }).toBe('suspended');
+    await expect(page.locator('#dev-audio-diag')).toContainText('resume:input');
+    // 2 つ目をタップ → 持ち主が 2 つ目へ、前のページが一時停止
+    await page2.bringToFront();
+    await page2.mouse.click(5, 5);
+    await expect.poll(() => ctxState(page2), { timeout: 5_000 }).toBe('running');
+    await expect.poll(() => ctxState(page), { timeout: 5_000 }).toBe('suspended');
     expect(errors).toEqual([]);
     expect(errors2).toEqual([]);
   });

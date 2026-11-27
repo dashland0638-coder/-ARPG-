@@ -550,7 +550,7 @@
   }
 
   function tryDodge(){
-    resumeAudio();
+    resumeAudioFromInput();   // ゲーム開始後は音の持ち主の調整を通す(14-hud-boot.js)
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
     if(state.executeT > 0) return;   // 処刑の再生中は他の行動を受け付けない(資料10章)
     /* 空中では回避できない(Combat Design Audit 2 / Phase G)。

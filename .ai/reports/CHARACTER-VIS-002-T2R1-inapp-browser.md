@@ -45,12 +45,12 @@
 ## 4. 修正（音の持ち主とライフサイクルを明確にする。音響の仕組みは作り直さない）
 | # | 内容 | ファイル |
 | --- | --- | --- |
-| ① 音の持ち主は 1 ページ | 同じ origin（`dashland0638-coder.github.io`、本番とプレビューを含む）で BGM を鳴らすのは**最後に始めた・戻った・タップしたページ 1 つ**。そのページが `BroadcastChannel('soulforge-audio')` で claim を送り、受け取った他のページは自分の AudioContext を一時停止する（曲は捨てない。表に戻ってタップすれば claim し直して同じ位置から鳴る）| `14-hud-boot.js`（`claimAudio` / `audioGameStarted`、開始時に `state.started = true` の直後で claim）|
+| ① 音の持ち主は 1 ページ | 同じ origin（`dashland0638-coder.github.io`、本番とプレビューを含む）で BGM を鳴らすのは**最後に始めた・戻った・タップしたページ 1 つ**。そのページが（開始・表に戻る・タップ / 操作・描画が戻るときに）`BroadcastChannel('soulforge-audio')` で claim を送り、受け取った他のページは自分の AudioContext を一時停止する（曲は捨てない。表に戻ってタップすれば claim し直して同じ位置から鳴る）| `14-hud-boot.js`（`claimAudio` / `audioGameStarted`、開始時に `state.started = true` の直後で claim）|
 | ② 描画が止まったら一時停止 | `requestAnimationFrame` が 3 秒来ない（見えないのに visibilitychange が来ない WebView）ときに一時停止。描画が戻れば、ゲーム開始後だけ再開。重い処理でスレッドが詰まっただけ（タイマー自体が遅れた）ときは止めない | `14-hud-boot.js` |
 | ③ 止めるときにフェード中の古い音源を切る | 止めている間は音の時計が進まずフェードが終わらないので、戻ったときに古い段が一瞬重ならないよう、一時停止のときにフェード中の音源を切る | `audio.js` `suspendAudio` |
 | ④ 診断の表示（`?dev=1` のみ）| 左下の 2 行目: 実行環境の大まかな区別（`ios-safari` / `ios-webview` / `ios-other-browser` / `chromium`。userAgent そのものは出さない・保存しない）、`visibilityState`、AudioContext を作った数、BGM の開始 / 停止の呼び出し数、hidden / visible / pagehide / pageshow / 描画停止の回数、**生きている他のページの数（他 n）**、受け取った claim の数、最後の音の状態の変更（例 `suspend:other-instance`）。他のページがあると赤 | `14-hud-boot.js`、`audio.js` `bgmDebugInfo` |
 - 本番の画面には何も出ない。ページの区別の ID は乱数で、保存・送信しない（同じ端末の同じ origin のページの間だけ）
-- AudioContext を作り直さない。自動再生はしない（再開は、開始後のページが表に戻ったとき・タップしたときだけ。iOS が拒めば次のタップ）
+- AudioContext を作り直さない。新しく自動再生はしない。再開するのは**ゲーム開始後のページ**が、表に戻ったとき（visible / pageshow）・タップ / 操作（攻撃・回避・回復薬。キーボード・パッドを含む）したとき・描画が戻ったとき（`requestAnimationFrame`。ユーザーの操作ではない）だけ。どの再開も持ち主の調整（claim）を通る（`resumeIfPlaying` / `resumeAudioFromInput`）。iOS が操作なしの再開を拒めば次のタップで再開
 
 ### 制約（正直な限界）
 - この修正を含まない**古いビルドのページ**（本番・以前のプレビュー）は claim を受け取らない → 確認の前に閉じる必要がある

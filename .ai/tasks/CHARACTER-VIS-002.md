@@ -685,6 +685,7 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 - 調査と修正: `.ai/reports/CHARACTER-VIS-002-T2R1-inapp-browser.md`。ページの中では BGM は 1 系統でタイトルでは鳴らない（FACT）→ 重なる音は前に開いたページから（INFERENCE: アプリ内ブラウザは閉じても hidden / pagehide を出さずにページが残る）
 - 追加の修正: 同じ origin で音の持ち主は 1 ページ（BroadcastChannel の claim）、描画が止まったら一時停止、止めるときにフェード中の音源を切る、`?dev=1` の診断の 2 行目。E2E `bgm-lifecycle` に 2 件（2 つのページ・描画の停止）
 - **Safari・ChatGPT・Claude のアプリ内ブラウザでの Human の確認まで T-2R-1 は完了にしない**
+- Review（追加調査分）Round 1 = CHANGES_REQUIRED（Reviewed SHA `edac383`、`.ai/reports/CHARACTER-VIS-002-T2R1b-review.md`）。M-1（攻撃・回避・回復薬の `resumeAudio()` が持ち主の調整を通らず、キー / パッドで 2 ページが同時に鳴る）→ `resumeAudioFromInput()` に置き換え。S-1（戻った直後の描画停止の誤判定）→ 再開・開始で判定の時刻をやり直す。S-2（E2E: タイトルのページは持ち主にならない・キー操作で持ち主が移る）・S-3（報告の記述）→ 反映
 
 ## Status History
 | Date | Target | From → To | By | Note |
