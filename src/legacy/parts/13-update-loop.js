@@ -145,7 +145,7 @@
   let attackHeldStart = null;   // 押下中なら押し始めの時刻、離していれば null
 
   function attackInputDown(){
-    resumeAudio();
+    resumeAudioFromInput();   // ゲーム開始後は音の持ち主の調整を通す(14-hud-boot.js)
     if(!state.started||state.paused||state.dialogueActive||state.dodging||state.paralyzed) return;
     if(attackHeldStart!=null) return; // already held (e.g. key auto-repeat)
     if(state.skillCharging || skillHeldStart!=null) return; // can't attack while a skill is in progress

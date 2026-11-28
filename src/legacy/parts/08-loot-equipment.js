@@ -467,7 +467,7 @@
   }
 
   function usePotion(){
-    resumeAudio();
+    resumeAudioFromInput();   // ゲーム開始後は音の持ち主の調整を通す(14-hud-boot.js)
     if(!state.started || state.paused || state.dialogueActive) return;
     if(!state.inventory.potion || state.inventory.potion<=0){
       sfx('deny');

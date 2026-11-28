@@ -86,16 +86,27 @@ const PROBE = `
    目の3枚に輪郭線・X 線シェルを付けなくなった分、全体が 1 人 -18(輪郭線 2 枚 + X 線 1 枚 × 6 枚)。
    三角形は目の外周の点の数の増加(白目 16・瞳 12・ハイライト 8 で +144 / 人)と輪郭線の削減を合わせて T-0 より 1 人 -216。
    減らした値を新しい上限にする。
-   顔のパーツ(Human Decision E-3 = B): 口と鼻で本体 +2(輪郭線なし)・三角形 +80・Material +1(口の色) */
+   顔のパーツ(Human Decision E-3 = B): 口と鼻で本体 +2(輪郭線なし)・三角形 +80・Material +1(口の色)。
+   剣士・戦騎士(CHARACTER-VIS-002 T-2): 籠手を作らない(本体 -2、全体 -8)、ポケットの輪郭線・X 線なし
+   (全体 -9)で全体 -17、三角形 -692
+   頭(CHARACTER-VIS-002 T-2R-3、DEC-038 H-1 = O1 / H-4): 4職と上位4職の頭を 8 点 × 5 段 → 16 点 × 10 段、髪の殻を
+   8 点 × 4 段 → 16 点 × 7 段にした。描画の数(本体・全体)と Material は変わらない。三角形は 1 人 +1600
+   (頭 +240・髪の殻 +160 = +400 が、本体・輪郭線 2 枚・X 線シェルの 4 つで描かれる)。影の旅人は不変。
+   T-2R-3 再修正(Human Review: 45° の頬・横顔の鼻・口元・顎): 頭に下唇・鼻の下の 2 段を足し 10 段 → 12 段、
+   三角形はさらに 1 人 +256(頭 +64 × 4)。Review M-1 で顔の前側だけ点を足し(±11.25°・±33.75°、16 → 20 点。
+   横・後ろの点は同じ)、頭 +96・髪の殻 +56 = +152 × 4 = +608。T-2 からの合計 +2464(剣士 14,916 → 17,380)。
+   DEC-039(顔造形方針の再定義: Stylized Realism / Geometry + Texture): 頭を 34 点 × 23 段の骨格の場で作り直し(鼻筋・鼻先・
+   鼻翼・眉骨・眼窩・頬骨・唇・顎)、1 人 +3648。頭は本体と輪郭線 2 枚で描き、壁越しの影(X 線シェル)だけ前の版の 20 点 × 12 段の
+   粗い形にした。髪の殻は 20 点のまま。T-2 からの合計 +6112(剣士 14,916 → 21,028、約 +41%)。描画の数・Material は不変 */
 const BUDGET = [
-  {key:'warrior', job:null,           name:'剣士',         body:84, total:309, tris:15608, mats:21},
-  {key:'warrior', job:'battleKnight', name:'戦騎士',       body:93, total:345, tris:17184, mats:24},
-  {key:'mage',    job:null,           name:'魔法使い',     body:74, total:269, tris:15248, mats:20},
-  {key:'mage',    job:'archmage',     name:'魔導士',       body:89, total:329, tris:16656, mats:22},
-  {key:'archer',  job:null,           name:'弓師',         body:78, total:285, tris:15396, mats:23},
-  {key:'archer',  job:'hawkEye',      name:'鷹の目',       body:88, total:325, tris:17220, mats:27},
-  {key:'rogue',   job:null,           name:'盗賊',         body:80, total:293, tris:14632, mats:24},
-  {key:'rogue',   job:'berserker',    name:'バーサーカー', body:85, total:313, tris:15408, mats:26},
+  {key:'warrior', job:null,           name:'剣士',         body:82, total:292, tris:21028, mats:21},
+  {key:'warrior', job:'battleKnight', name:'戦騎士',       body:91, total:328, tris:22604, mats:24},
+  {key:'mage',    job:null,           name:'魔法使い',     body:74, total:269, tris:21360, mats:20},
+  {key:'mage',    job:'archmage',     name:'魔導士',       body:89, total:329, tris:22768, mats:22},
+  {key:'archer',  job:null,           name:'弓師',         body:78, total:285, tris:21508, mats:23},
+  {key:'archer',  job:'hawkEye',      name:'鷹の目',       body:88, total:325, tris:23332, mats:27},
+  {key:'rogue',   job:null,           name:'盗賊',         body:80, total:293, tris:20744, mats:24},
+  {key:'rogue',   job:'berserker',    name:'バーサーカー', body:85, total:313, tris:21520, mats:26},
 ];
 const WANDERER = {
   mesh: {body:82, total:322, tris:15508, mats:16},

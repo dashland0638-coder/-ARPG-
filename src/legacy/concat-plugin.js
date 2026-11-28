@@ -34,7 +34,7 @@ import {
   makeStoneTileTexture, makeGrassTexture, applySurfaceDetail, makeNoiseTexture, makeTileTexture,
   getMaxAnisotropy, makeLeatherTexture, makeMetalTexture, applyBump,
 } from '../textures/textures.js';
-import { initAudio, resumeAudio, setSfxVolume, sfx, ambient, setBgmVolume, setBgmIntensity, playBgm, setBgmVariant, stopBgm } from '../audio/audio.js';
+import { suspendAudio, bgmDebugInfo, initAudio, resumeAudio, setSfxVolume, sfx, ambient, setBgmVolume, setBgmIntensity, playBgm, setBgmVariant, stopBgm } from '../audio/audio.js';
 // 酒場 BGM の加入段階(MUSIC-BGM-TAVERN-002)
 import { tavernBgmStage, TAVERN_BGM_STAGES } from '../core/tavern-bgm.js';
 import { groupsFromGraph, allCombos, comboKey, comboKeyFromPath, comboProgress, suggestUnseenCombo } from '../core/route-combos.js';

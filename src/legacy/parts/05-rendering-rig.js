@@ -744,24 +744,183 @@
   };
   Object.values(HEAD_SECTION_RATIOS).forEach(r => { r.depthMul = r.widthMul * DEPTH_TO_WIDTH_RATIO; });
 
-  /* CHARACTER-VIS-002 T-1(DEC-036): 4職の頭の断面。上の HEAD_SECTION_RATIOS(既定。影の旅人・
-     敵・NPC が使う)は変えず、4職の buildPlayer だけが opts.sections でこの表を渡す
-     (T-0 Step 1b の「共通の関数の既定値は変えず、4職はオプションで選ぶ」)。
-     顎(chin)を 0.38 → 0.58、顎線(jaw)を 0.72 → 0.88 へ広げ、逆三角形の尖った顎を丸い下顎にする。
-     横顔の奥行き(Human 追加要求「顔の形が変」): 顔の前面の膨らみ nosePush を額 0 → 0.04・
-     頬 0.04 → 0.07・顎線 0.08 → 0.09・顎 0.03 → 0.04 にし、額から頬・口元へ前に丸く出る横顔にする。
-     幅(widthMul)は頬(最大幅・目の高さ)から上は既定と同じ ―― 髪・被り物の位置が頬より上の
-     断面の幅で決まっているため、幅は動かさない。
-     断面の段数・点の数は既定と同じ(ポリゴンを増やさない)。単純な球にはせず、
-     顔側が平らで後頭部が絞れた既定の断面の形(HEAD_HEX_TEMPLATE)はそのまま */
-  const HEAD_SECTION_RATIOS_SOFT = {
-    chin:      { yFrac:0.00, widthMul:0.58, nosePush:0.04 },
-    jaw:       { yFrac:0.22, widthMul:0.88, nosePush:0.09 },
-    cheek:     { yFrac:0.52, widthMul:1.06, nosePush:0.07 },
-    upperHead: { yFrac:0.80, widthMul:0.92, nosePush:0.04 },
-    crown:     { yFrac:1.00, widthMul:0.60, nosePush:0.00 },
+  /* CHARACTER-VIS-002 T-2R-3(DEC-038 H-1 = O1: 既存の頭のメッシュの拡張): 4職(と上位4職)の頭。
+     T-1 の頭(HEAD_SECTION_RATIOS_SOFT、8 点 × 5 段・奥行きが幅の 0.68 倍・顔の前面が平らな 1 枚)は、
+     Human Review B「顔が平面的で輪郭が不自然」の原因だった(.ai/reports/CHARACTER-VIS-002-T2-human-review.md §2)。
+     ここでは同じ Loft の仕組みのまま、断面を 20 点 × 12 段にし(T-2R-3 の最初は 16 点 × 10 段、下の再修正で増やした)、各段を「前半分・後ろ半分で別の深さと丸みを持つ
+     超楕円」で作る(headSectionPointsV2):
+       widthMul … 半幅(headR 比)。頬・目の高さ(0.54)が最大。被り物の下(0.72 より上)は帽子の内側に収まる幅
+       frontMul … 顔の中心線の前への深さ(headR 比)。額 → 鼻筋 → 口元 → 顎先の横顔の線
+       backMul  … 後頭部の深さ(headR 比)。T-1 の 0.83 より深く、丸い頭蓋
+       nf / nb  … 前 / 後ろの丸みの指数(2 = 楕円。大きいほど角が張る)。頬・口元の段は 2.5 で頬がふっくら、
+                  額・頭頂・顎は 2.0〜2.2 で丸い。顔は平らな板にならず、単純な球にもならない
+       socket   … 目の高さの段で、鼻筋の両側(11.25°・22.5°・33.75° に 0.5 / 1 / 0.6、目の中心のまわり)を奥へ下げる量(headR 比)。
+                  鼻筋が残り、目のまわりに奥行きができる
+     寸法はすべて o.width(= headR)基準で、o.depth(HEAD_DEPTH_MUL)は使わない(奥行きは frontMul / backMul で直接
+     決める。HEAD_DEPTH_MUL を変えても 4職の頭は変わらない: T-2R-3 Review N-3)。
+     影の旅人・敵・NPC は既定の HEAD_SECTION_RATIOS のまま(共通の関数の既定値は変えない: T-0)。
+     髪の殻・顔の部品・被り物の判定は headSectionPoints / headOutlineAt / headRatioAt を通して自動で追従する */
+  /* T-2R-3 再修正(Human Review 2026-11-28: 45° で頬の膨らみと奥行き、横顔で鼻・口元・顎の前後の立体が不足)。
+     頭蓋・後頭部・正面の輪郭・下からの接続(Human が合格とした部分)は変えず、顔の部分だけを足す:
+       center     … 顔の中心線(0°)を前へ出す量(headR 比)。横顔の線: 顎先 → 顎の窪み → 下唇 → 口元(膨らみ)→
+                    鼻の下(鼻先より奥へ引っ込む段)→ 鼻先(最も前)→ 鼻の付け根(目の高さ)→ 眉 → 額
+       centerSide … center のうち 11.25° に掛ける割合(22.5° にはその 2 乗)。口元は広く(0.55〜0.62)、鼻は細く(0.25)
+       cheek      … 頬を外へ押し出す量(headR 比)。22.5°・33.75°・45°・67.5° に 0.35 / 0.75 / 1 / 0.45 で分ける
+     重みは headV2Weights。顔の前側(67.5° まで)だけを動かすので、横(90°)・後ろ・帽子の下(0.66 より上は不変)の形と
+     髪の殻の関係は変わらない(顎の下 0.00 は顔の中心線だけ少し前へ: 顎の底を丸める)。横顔の起伏は 1 つの段に曲がりを
+     集めず、どの段でも曲がりがおよそ 30° 以内になるよう隣の段へ分ける(Round 2 Review M-1: 段の折れが折れ線・溝に見えた)。
+     引っ込み(center が負)は centerSide 1.0 で幅広く掛け、中心線の点が隣の点より奥にならない(縦の溝を作らない)。
+     下唇(0.24)と鼻の下(0.36)の段を足し(10 段 → 12 段)、Review M-1 で顔の前側だけ点を
+     足した(16 → 20 点: ±11.25°・±33.75°)。追加の段の幅・後ろの深さ・指数は上下の段の中間(横・後ろの差 ≤ 0.005 headR) */
+  const HEAD_SECTIONS_V2 = {
+    chinBase:  { yFrac:0.00, widthMul:0.40, frontMul:0.34, backMul:0.30, nf:2.0, nb:2.0, socket:0,     center:0.05, centerSide:0.60, cheek:0     }, // 顎の下
+    chin:      { yFrac:0.08, widthMul:0.64, frontMul:0.56, backMul:0.52, nf:2.2, nb:2.0, socket:0,     center:0.04, centerSide:0.60, cheek:0     }, // 顎先(小さく丸い)
+    jaw:       { yFrac:0.18, widthMul:0.89, frontMul:0.70, backMul:0.70, nf:2.6, nb:2.1, socket:0,     center:-0.005, centerSide:1.00, cheek:0.02 }, // 顎の窪み(下唇と顎先の間、幅広く浅い)・下頬
+    lowerLip:  { yFrac:0.24, widthMul:0.945, frontMul:0.73, backMul:0.77, nf:2.6, nb:2.1, socket:0,     center:0.035, centerSide:0.70, cheek:0.035 }, // 下唇
+    mouth:     { yFrac:0.30, widthMul:1.00, frontMul:0.76, backMul:0.84, nf:2.6, nb:2.1, socket:0,     center:0.06, centerSide:0.62, cheek:0.055 }, // 口元(前への膨らみ)・頬
+    subNose:   { yFrac:0.36, widthMul:1.025, frontMul:0.77, backMul:0.88, nf:2.5, nb:2.1, socket:0,     center:0.04, centerSide:0.60, cheek:0.065 }, // 鼻の下(鼻先より奥・口元とほぼ同じ深さで、口元と鼻をつなぐ)
+    noseBase:  { yFrac:0.42, widthMul:1.05, frontMul:0.78, backMul:0.92, nf:2.4, nb:2.1, socket:0,     center:0.07, centerSide:0.30, cheek:0.065 }, // 鼻先の高さ(横顔で最も前)・頬骨
+    eye:       { yFrac:0.54, widthMul:1.06, frontMul:0.76, backMul:0.95, nf:2.3, nb:2.1, socket:0.040, center:0.04, centerSide:0.20, cheek:0.035 }, // 鼻の付け根・眼窩(最大幅)
+    brow:      { yFrac:0.66, widthMul:1.00, frontMul:0.74, backMul:0.93, nf:2.2, nb:2.1, socket:0.010, center:0,     centerSide:0,    cheek:0     }, // 眉の骨(眉は描かない: E-3 = B)
+    forehead:  { yFrac:0.78, widthMul:0.88, frontMul:0.64, backMul:0.84, nf:2.1, nb:2.1, socket:0,     center:0,     centerSide:0,    cheek:0     }, // 額(帽子の内側)
+    upperHead: { yFrac:0.89, widthMul:0.70, frontMul:0.46, backMul:0.64, nf:2.0, nb:2.0, socket:0,     center:0,     centerSide:0,    cheek:0     },
+    crown:     { yFrac:1.00, widthMul:0.34, frontMul:0.18, backMul:0.26, nf:2.0, nb:2.0, socket:0,     center:0,     centerSide:0,    cheek:0     }, // 頭頂
   };
-  Object.values(HEAD_SECTION_RATIOS_SOFT).forEach(r => { r.depthMul = r.widthMul * DEPTH_TO_WIDTH_RATIO; });
+
+  /* =========================================================
+     CHARACTER-VIS-002 T-2R-3 顔造形方針の再定義(DEC-039: Stylized Realism / Geometry + Texture)
+     ローポリの可愛い顔から、骨格・顔面の凹凸・自然な横顔を持つスタイライズド・リアリズムへ。顔の立体
+     (眉骨・眼窩・鼻筋と鼻先・鼻翼と鼻下・頬骨と頬・口元・顎)はメッシュの形で作り、テクスチャ・陰影に頼らない。
+     作り方(O1 の延長):
+       ・土台 … HEAD_SECTIONS_V2 と同じ「前後で深さと丸みが違う超楕円」の頭蓋(HEAD_V3_BASE)。後頭部・側頭部・
+         帽子の下(0.66 より上)は V2 と同じ形
+       ・顔の起伏 … 土台の点に、顔の前側だけで効く連続した「骨格の場」(headV3FaceField: 眉骨・眼窩・鼻筋・鼻先・
+         鼻翼・上唇・下唇・顎の窪み・顎先・頬骨・頬)を足す。どの角度・高さでも計算できる関数なので、点の密度に依らない
+       ・点の密度 … 顔の前側だけ細かく(中心線の近くほど細かい角度 HEAD_V3_DEGS)、顔の高さだけ段を細かく
+         (HEAD_V3_YFRACS)。横・後ろの角度(67.5° 以降)は V2 と同じ
+     案(HEAD_V3_VARIANTS): A = 標準、B = 骨格を強めに。顔確認モード(?dev=1)で比較する。ゲームは A */
+  const HEAD_V3_BASE = {
+    chinBase:  { yFrac:0.00, widthMul:0.40, frontMul:0.36, backMul:0.30, nf:2.0, nb:2.0 },
+    chin:      { yFrac:0.08, widthMul:0.60, frontMul:0.56, backMul:0.52, nf:2.2, nb:2.0 },
+    jaw:       { yFrac:0.18, widthMul:0.86, frontMul:0.68, backMul:0.70, nf:2.4, nb:2.1 },
+    mouth:     { yFrac:0.30, widthMul:0.99, frontMul:0.74, backMul:0.84, nf:2.4, nb:2.1 },
+    noseBase:  { yFrac:0.42, widthMul:1.05, frontMul:0.76, backMul:0.92, nf:2.3, nb:2.1 },
+    eye:       { yFrac:0.54, widthMul:1.06, frontMul:0.76, backMul:0.95, nf:2.3, nb:2.1 },
+    brow:      { yFrac:0.66, widthMul:1.00, frontMul:0.74, backMul:0.93, nf:2.2, nb:2.1 },
+    forehead:  { yFrac:0.78, widthMul:0.88, frontMul:0.64, backMul:0.84, nf:2.1, nb:2.1 },
+    upperHead: { yFrac:0.89, widthMul:0.70, frontMul:0.46, backMul:0.64, nf:2.0, nb:2.0 },
+    crown:     { yFrac:1.00, widthMul:0.34, frontMul:0.18, backMul:0.26, nf:2.0, nb:2.0 },
+  };
+  // 顔の高さ(0.10〜0.60)は細かく。鼻先〜鼻の下(0.385〜0.45)は特に細かい
+  const HEAD_V3_YFRACS = [0.00, 0.10, 0.18, 0.22, 0.255, 0.285, 0.315, 0.345, 0.37, 0.385, 0.40, 0.415,
+    0.43, 0.45, 0.48, 0.52, 0.56, 0.60, 0.66, 0.72, 0.78, 0.89, 1.00];
+  // 顔の中心線(0°)からの角度。中心線の近くほど細かい(超楕円は小さい角度で横へ大きく進むため)。67.5° 以降は V2 と同じ
+  const HEAD_V3_DEGS_HALF = [0, 2.5, 5, 8, 12, 16, 21, 27, 33.75, 41, 50, 58, 67.5, 90, 112.5, 135, 157.5, 180];
+  const HEAD_V3_DEGS = (()=>{ const a = [...HEAD_V3_DEGS_HALF]; for(let i=HEAD_V3_DEGS_HALF.length-2;i>=1;i--) a.push(360 - HEAD_V3_DEGS_HALF[i]); return a; })();
+  /* 骨格の場の強さ(headR 比)。A = 標準、B = 骨格を強めに */
+  const HEAD_V3_VARIANTS = {
+    A: { brow:0.040, socket:0.065, bridge:0.095, tip:0.035, alar:0.026, upperLip:0.032, lowerLip:0.026, sulcus:0.020, chin:0.040, cheekbone:0.050, cheek:0.020 },
+    B: { brow:0.055, socket:0.085, bridge:0.120, tip:0.040, alar:0.032, upperLip:0.036, lowerLip:0.030, sulcus:0.028, chin:0.050, cheekbone:0.068, cheek:0.016 },
+  };
+  let headV3Variant = 'A';   // 顔確認モードが案を切り替えるときだけ一時的に変える(ゲームは A)
+  const gauss = a => Math.exp(-a*a);
+  const smooth01 = t => { t = Math.max(0, Math.min(1, t)); return t*t*(3 - 2*t); };
+  /* 骨格の場: 土台の点(角度 deg = 0〜180、横位置 xs = |x|/headR、高さ y = yFrac)に足す量。
+     dz … 前(+Z)へ、dr … その点の向き(外)へ。顔の前側(〜75°)だけで効く */
+  function headV3FaceField(deg, xs, y, V){
+    const front = 1 - smooth01((deg - 52)/23);           // 52° まで 1、75° で 0
+    if(front <= 0) return { dz:0, dr:0 };
+    let dz = 0, dr = 0;
+    // 眉骨: 目の上の横の張り(眉間も少し)
+    dz += V.brow*gauss((y - 0.655)/0.032)*gauss((xs - 0.28)/0.34);
+    // 眼窩: 目のまわりを奥へ(目の中心 x ≈ 0.365、y ≈ 0.545)
+    dz -= V.socket*gauss((xs - 0.37)/0.15)*gauss((y - 0.545)/0.06);
+    // 鼻筋: 眉間(0.58)から鼻先(0.43)へ高くなる細い稜線。鼻先の下(0.40 より下)で急に引っ込む
+    {
+      const t = Math.max(0, Math.min(1, (0.585 - y)/0.155));
+      let h = 0.25 + 0.75*Math.pow(t, 1.2);                 // 付け根 0.25 → 鼻先 1
+      if(y > 0.585) h *= gauss((y - 0.585)/0.035);          // 眉間へ消える
+      if(y < 0.405) h *= gauss((y - 0.405)/0.042);          // 鼻の下(鼻柱)で引っ込む(急すぎると輪郭線が折れ目から覗く)
+      const w = 0.050 + 0.030*t;                            // 稜線の幅(鼻先ほど広い)
+      dz += V.bridge*h*gauss(xs/w);
+    }
+    // 鼻先の丸み
+    dz += V.tip*gauss(xs/0.07)*gauss((y - 0.425)/0.024);
+    // 鼻翼(小鼻): 鼻先の両脇・少し下
+    dz += V.alar*gauss((xs - 0.115)/0.05)*gauss((y - 0.41)/0.028);
+    // 上唇・下唇・顎の窪み・顎先(口元は鼻先より後ろ、顎先へ下がる)
+    dz += V.upperLip*gauss(xs/0.18)*gauss((y - 0.305)/0.045);
+    dz += V.lowerLip*gauss(xs/0.15)*gauss((y - 0.255)/0.032);
+    dz -= V.sulcus*gauss(xs/0.22)*gauss((y - 0.205)/0.035);
+    dz += V.chin*gauss(xs/0.17)*gauss((y - 0.115)/0.045);
+    // 頬骨(目の外下)と頬
+    dr += V.cheekbone*gauss((deg - 50)/13)*gauss((y - 0.47)/0.06);
+    dr += V.cheek*gauss((deg - 38)/16)*gauss((y - 0.33)/0.07);
+    return { dz: dz*front, dr: dr*front };
+  }
+  /* 4職(T-2R-3 / DEC-039)の断面: 土台の超楕円 + 骨格の場。degs を渡すと、その角度の点だけ返す(髪の殻は V2 の
+     20 点の角度で頭の点を求める) */
+  function headSectionPointsV3(o, r, degs){
+    const W = o.width, V = HEAD_V3_VARIANTS[headV3Variant] || HEAD_V3_VARIANTS.A;
+    const hw = W*r.widthMul, hf = W*r.frontMul, hb = W*r.backMul;
+    return (degs || HEAD_V3_DEGS).map(degFull=>{
+      const th = -degFull*Math.PI/180, sn = Math.sin(th), cs = Math.cos(th);
+      const front = cs >= 0;
+      const e = 2/(front ? r.nf : r.nb);
+      let x = hw*sgnPow(sn, e);
+      let z = (front ? hf : hb)*sgnPow(cs, e);
+      const deg = degFull > 180 ? 360 - degFull : degFull;
+      const f = headV3FaceField(deg, Math.abs(x)/W, r.yFrac, V);
+      if(f.dr){ const len = Math.hypot(x, z) || 1; x += x/len*W*f.dr; z += z/len*W*f.dr; }
+      z += W*f.dz;
+      return [x, z];
+    });
+  }
+  /* 4職の頭の段の表(HEAD_V3_YFRACS の高さ。土台は HEAD_V3_BASE を補間、v3 = 1 の印) */
+  const HEAD_SECTIONS_V3 = (()=>{
+    const out = {};
+    HEAD_V3_YFRACS.forEach((y, i)=>{ out['r' + i] = Object.assign(headRatioAt(y, HEAD_V3_BASE), { v3:1 }); });
+    return out;
+  })();
+  const isHeadV2 = r => r && r.frontMul != null;
+  const sgnPow = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+  /* 断面の点の角度(顔の中心線からの度。巻き順は HEAD_HEX_TEMPLATE と同じ「前 → 左 → 後ろ → 右」)。
+     T-2R-3 再修正(Review M-1): 顔の前側だけ点を足す(±11.25°・±33.75°)。横・後ろ(67.5° より後ろ)の角度は 16 点の時と同じ */
+  const HEAD_V2_ANGLES = [0, 11.25, 22.5, 33.75, 45, 67.5, 90, 112.5, 135, 157.5, 180];
+  const HEAD_V2_RING_DEGS = (()=>{ const a = [...HEAD_V2_ANGLES]; for(let i=HEAD_V2_ANGLES.length-2;i>=1;i--) a.push(360 - HEAD_V2_ANGLES[i]); return a; })();
+  const HEAD_RING_POINTS_V2 = HEAD_V2_RING_DEGS.length;   // 20
+  /* 角度ごとの重み(左右対称、度は 0〜180):
+       center … 中心線を前へ(0° = 1、11.25° = centerSide、22.5° = centerSide の 2 乗: 鼻筋は細く、口元は広く)
+       cheek  … 頬を外へ(22.5° = 0.35、33.75° = 0.75、45° = 1、67.5° = 0.45: 1 点に偏らず丸く。Review S-1)
+       socket … 眼窩を奥へ(11.25° = 0.5、22.5° = 1、33.75° = 0.6) */
+  function headV2Weights(deg, r){
+    const cs = r.centerSide || 0;
+    return {
+      center: deg === 0 ? 1 : deg === 11.25 ? cs : deg === 22.5 ? cs*cs : 0,
+      cheek:  deg === 22.5 ? 0.35 : deg === 33.75 ? 0.75 : deg === 45 ? 1 : deg === 67.5 ? 0.45 : 0,
+      socket: deg === 11.25 ? 0.5 : deg === 22.5 ? 1 : deg === 33.75 ? 0.6 : 0,
+    };
+  }
+  function headSectionPointsV2(o, r){
+    const W = o.width;
+    const hw = W*r.widthMul, hf = W*r.frontMul, hb = W*r.backMul;
+    return HEAD_V2_RING_DEGS.map(degFull=>{
+      const th = -degFull*Math.PI/180, sn = Math.sin(th), cs = Math.cos(th);
+      const front = cs >= 0;
+      const e = 2/(front ? r.nf : r.nb);
+      let x = hw*sgnPow(sn, e);
+      let z = (front ? hf : hb)*sgnPow(cs, e);
+      const deg = degFull > 180 ? 360 - degFull : degFull;
+      const w = headV2Weights(deg, r);
+      if(r.socket) z -= W*r.socket*w.socket;
+      // 顔の中心線を前へ: 鼻先・口元・顎の前後の起伏(T-2R-3 再修正)
+      if(r.center) z += W*r.center*w.center;
+      // 頬の膨らみ
+      if(r.cheek && w.cheek){ const len = Math.hypot(x, z) || 1; x += x/len*W*r.cheek*w.cheek; z += z/len*W*r.cheek*w.cheek; }
+      return [x, z];
+    });
+  }
+
 
   /* makeCharacterHead({width, depth, height}): makeCharacterForearm()と
      同じ考え方の、頭部専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの
@@ -796,7 +955,7 @@
      Hair Shell・Side Hair・Back Hair・Bangsはすべてこれらを経由して
      配置されるため、headR / HEAD_DEPTH_MUL / HEAD_SECTION_RATIOS を
      変更してもHairが自動的にHeadの外側へ追従する。 */
-  // table: 断面の表(省略時は既定の HEAD_SECTION_RATIOS。4職は HEAD_SECTION_RATIOS_SOFT)
+  // table: 断面の表(省略時は既定の HEAD_SECTION_RATIOS。4職は HEAD_SECTIONS_V2: T-2R-3)
   function headRatioAt(yFrac, table){
     const secs = Object.values(table || HEAD_SECTION_RATIOS);
     if(yFrac <= secs[0].yFrac) return Object.assign({}, secs[0], {yFrac});
@@ -804,17 +963,17 @@
       const a = secs[i], b = secs[i+1];
       if(yFrac <= b.yFrac){
         const t = (yFrac - a.yFrac) / (b.yFrac - a.yFrac);
-        return {
-          yFrac,
-          widthMul: a.widthMul + (b.widthMul - a.widthMul)*t,
-          depthMul: a.depthMul + (b.depthMul - a.depthMul)*t,
-          nosePush: a.nosePush + (b.nosePush - a.nosePush)*t,
-        };
+        // 表にある数値の列をすべて補間する(既定の表は widthMul / depthMul / nosePush、4職の表は T-2R-3 の列)
+        const out = { yFrac };
+        for(const key in a) if(key !== 'yFrac' && typeof a[key] === 'number') out[key] = a[key] + ((typeof b[key] === 'number' ? b[key] : a[key]) - a[key])*t;
+        return out;
       }
     }
     return Object.assign({}, secs[secs.length-1], {yFrac});
   }
   function headSectionPoints(o, r){
+    if(r && r.v3) return headSectionPointsV3(o, r);    // 4職(T-2R-3 / DEC-039)
+    if(isHeadV2(r)) return headSectionPointsV2(o, r);   // T-2R-3 の前の版
     const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
     const facePts = HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]);
     const nosePts = HEAD_NOSE_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd + o.depth*r.nosePush]);
@@ -824,6 +983,8 @@
      基準にする(headRに独自係数を掛けた手打ち座標を使わない)。 */
   function headOutlineAt(o, yFrac){
     const r = headRatioAt(yFrac, o.sections);
+    if(r && r.v3) return headOutlineAtV3(o, r, yFrac);
+    if(isHeadV2(r)) return headOutlineAtV2(o, r, yFrac);
     const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
     return {
       y:         -o.height/2 + o.height*yFrac,
@@ -834,6 +995,65 @@
       backHalfWidth: hw*0.22,                   // 後頭部点のX
     };
   }
+  /* 4職(T-2R-3)の headOutlineAt。項目の意味は既定と同じ。frontZ / backZ は顔の中心線上、
+     backHalfWidth は既定と同じ「後頭部の点の X = 半幅 × 0.22」とその点の後ろの深さ(後ろ髪の房の位置)。
+     frontZAt(x): その高さで、横位置 x の顔の前面の Z(実際に描かれる断面の多角形の上で補間)。目の板の奥行きに使う */
+  function headOutlineAtV2(o, r, yFrac){
+    const W = o.width, hw = W*r.widthMul, hb = W*r.backMul;
+    const e = r.nb/2;
+    const bx = 0.22, bs = Math.pow(bx, e), bc = Math.sqrt(Math.max(0, 1 - bs*bs));
+    const pts = headSectionPointsV2(o, r);
+    const n = pts.length;
+    // 顔側(k = 0 → n/4 と k = 0 → 3n/4)の点を |x| の小さい順に並べた片側の列(左右対称)
+    const half = []; HEAD_V2_RING_DEGS.forEach((d, k)=>{ if(d <= 90) half.push([Math.abs(pts[k][0]), pts[k][1]]); });
+    half.sort((p, q)=> p[0] - q[0]);
+    const frontZAt = (x)=>{
+      const ax = Math.abs(x);
+      for(let i=0;i<half.length-1;i++){
+        const [x0,z0] = half[i], [x1,z1] = half[i+1];
+        if(ax <= x1) return z0 + (z1 - z0)*((ax - x0)/Math.max(1e-9, x1 - x0));
+      }
+      return half[half.length-1][1];
+    };
+    return {
+      y:         -o.height/2 + o.height*yFrac,
+      halfWidth: hw,
+      sideZ:     0,
+      frontZ:    pts[0][1],   // 顔の中心線の点(center を含む)
+      backZ:     -hb*Math.pow(bc, 2/r.nb),
+      backHalfWidth: hw*bx,
+      frontZAt,
+    };
+  }
+  /* 4職(DEC-039)の headOutlineAt。frontZ / frontZAt は、上下の段の断面(実際に描かれる多角形)を高さで補間した値
+     (メッシュと一致させる。段の間で骨格の場を直接計算するとメッシュとずれるため) */
+  function headOutlineAtV3(o, r, yFrac){
+    const W = o.width, hw = W*r.widthMul, hb = W*r.backMul;
+    const ys = HEAD_V3_YFRACS;
+    let i = 0; while(i < ys.length-2 && yFrac > ys[i+1]) i++;
+    const y0 = ys[i], y1 = ys[i+1], t = Math.max(0, Math.min(1, (yFrac - y0)/Math.max(1e-9, y1 - y0)));
+    const ringAt = y => headSectionPointsV3(o, headRatioAt(y, o.sections), HEAD_V3_DEGS_HALF.filter(d => d <= 90));
+    const p0 = ringAt(y0), p1 = ringAt(y1);
+    const half = p0.map((a, k)=> [Math.abs(a[0] + (p1[k][0] - a[0])*t), a[1] + (p1[k][1] - a[1])*t]);
+    const frontZAt = (x)=>{
+      const ax = Math.abs(x);
+      for(let k=0;k<half.length-1;k++){
+        const [x0,z0] = half[k], [x1,z1] = half[k+1];
+        if(ax <= x1) return z0 + (z1 - z0)*((ax - x0)/Math.max(1e-9, x1 - x0));
+      }
+      return half[half.length-1][1];
+    };
+    const e = r.nb/2, bx = 0.22, bs = Math.pow(bx, e), bc = Math.sqrt(Math.max(0, 1 - bs*bs));
+    return {
+      y:         -o.height/2 + o.height*yFrac,
+      halfWidth: hw,
+      sideZ:     0,
+      frontZ:    half[0][1],
+      backZ:     -hb*Math.pow(bc, 2/r.nb),
+      backHalfWidth: hw*bx,
+      frontZAt,
+    };
+  }
   function makeCharacterHead(opts){
     const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
     const hh = o.height/2;
@@ -841,6 +1061,13 @@
       y: -hh + o.height*r.yFrac,
       points: headSectionPoints(o, r),
     }));
+    /* DEC-039 の頭(34 点): 上下のふたを 1 点からの扇形(makeLoft の既定)で閉じると、細長い三角形が並んで頂点の法線が
+       乱れ、輪郭線の殻が頭頂の面から覗く(細い黒い線)。上下に小さく縮めた輪を足し、小さな丸いふたで閉じる */
+    if(sections.length && Object.values(o.sections || {})[0] && Object.values(o.sections)[0].v3){
+      const top = sections[sections.length-1], bot = sections[0];
+      sections.push({ y: top.y + o.height*0.006, points: top.points.map(([x,z]) => [x*0.3, z*0.3]) });
+      sections.unshift({ y: bot.y - o.height*0.004, points: bot.points.map(([x,z]) => [x*0.4, z*0.4]) });
+    }
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }
 
@@ -1893,18 +2120,64 @@
     const cov = getHeadwearCoverage(classKey, o, yLocal, angle);
     if(cov.state !== 'HEADWEAR' || cov.surfaceRadius == null) return [baseX, baseZ];
     const baseR = Math.hypot(baseX, baseZ);
-    const capR = cov.surfaceRadius*HAIR_HEADWEAR_INSET;
+    let capR = cov.surfaceRadius*HAIR_HEADWEAR_INSET;
     if(baseR <= capR) return [baseX, baseZ];
     const headR2 = Math.hypot(x, z);
     if(headR2 < 1e-9) return [baseX, baseZ];
+    /* 4職(T-2R-3、DEC-038 H-4): 被り物の内側へ寄せても、頭の面より内側には入れない(頭 × HAIR_NO_PENETRATE_MUL)。
+       旧来は「被り物 × 0.97」まで寄せるだけで、頭がそれより太い高さでは髪が頭の中へ入り、帽子の下で地肌が
+       見えていた(Human Review C-3)。下限が被り物の面を超える場合(頭そのものが帽子を突き抜ける)は寄せない
+       ―― その場合は頭の形の問題で、E2E の貫通の確認が検出する */
+    if(o.hairNoPenetrate && baseMul >= 1){
+      const floor = headR2*HAIR_NO_PENETRATE_MUL;
+      if(floor > capR && floor <= cov.surfaceRadius) capR = floor;
+    }
     const k = capR/headR2;
     return [x*k, z*k];
+  }
+  const HAIR_NO_PENETRATE_MUL = 1.006;
+  /* 4職(T-2R-3)の髪の殻の点の種類: 顔の中心線からの角度で決める(20 点の断面は既定の 8 点の番号の表が使えない)。
+       front … 顔(70° より前)。うなじと途中の段では頭の内側へ隠す(HAIR_NAPE_FRONT_MUL)
+       side  … こめかみ〜耳の前後(70°〜105°)。顎の高さ(0.45 未満)では頭のわずかに内側(頬の横に黒いくさびを
+               出さない: T-1 の napeSideIn と同じ理由)、それより上は頭の外(髪が側頭部を覆う)
+       back  … 後頭部(105° より後ろ)。頭 × HAIR_SHELL_MUL の外 */
+  /* 4職の髪の殻の輪の高さ: うなじ 0.34・頭の noseBase / eye / brow の段(0.42・0.54・0.66。頭が最も広く深い)・
+     生え際 0.72・頭の upperHead 0.89・頭頂 1.00。頭の forehead(0.78)の段は生え際と近いので置かない */
+  const HAIR_V2_YFRACS = [0.34, 0.42, 0.54, 0.66, 0.72, 0.89, 1.00];
+  const HAIR_V2_FRONT_DEG = 70, HAIR_V2_BACK_DEG = 105, HAIR_V2_SIDE_OUT_YFRAC = 0.45;
+  function hairV2PointMul(x, z, yFrac){
+    const deg = Math.atan2(Math.abs(x), z)*180/Math.PI;
+    if(deg < HAIR_V2_FRONT_DEG) return HAIR_NAPE_FRONT_MUL;
+    if(deg < HAIR_V2_BACK_DEG) return yFrac < HAIR_V2_SIDE_OUT_YFRAC ? HAIR_NAPE_SIDE_IN_MUL : HAIR_SHELL_MUL;
+    return HAIR_SHELL_MUL;
   }
   function makeCharacterHairShell(opts){
     const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
     const classKey = opts && opts.classKey;
     const hh = o.height/2;
     const sections = [];
+    /* 4職(T-2R-3、DEC-038 H-4): 20 点の頭に合わせた髪の殻。うなじ(0.34)と生え際(0.72)の間にも頭の段
+       (0.42・0.54・0.66 = 頭が最も広く深い高さ)の輪を置き、後頭部・側頭部の点を頭 × HAIR_SHELL_MUL の外に出す。
+       旧来はこの間が直線で、頭の膨らみが髪を突き抜けていた(Human Review C-1)。顔側の点は頭の内側に隠す。
+       生え際より上は既定と同じく全点を頭の外(被り物の内側へ寄せるが、頭の内側には入れない: hairNoPenetrate) */
+    if(isHeadV2(headRatioAt(0.5, o.sections))){
+      const o2 = Object.assign({}, o, { hairNoPenetrate:true });
+      // 輪は HAIR_V2_YFRACS の高さだけ(頭の 10 段すべてには置かない: 輪を 1 つ増やすごとに三角形が 32 ×
+      // 4(本体・輪郭線 2 枚・X 線)増えるため)。どの段を抜いても髪が頭の外にあることは E2E が確かめる
+      const yfs = HAIR_V2_YFRACS.slice();
+      yfs.forEach((yf, i)=>{
+        const yLocal = -hh + o.height*yf;
+        const aboveHairline = yf >= HAIR_HAIRLINE_YFRAC - 1e-6;
+        const rr = headRatioAt(yf, o.sections);
+        // DEC-039 の頭は顔の前側の点が細かいが、髪の殻は V2 の 20 点の角度で頭の点を求める(顔側の点は頭の内側に隠れる)
+        const headPts = rr.v3 ? headSectionPointsV3(o, rr, HEAD_V2_RING_DEGS) : headSectionPoints(o, rr);
+        const pts = headPts.map(([x,z]) =>
+          hairShellPointAt(classKey, o2, x, z, yLocal, aboveHairline ? HAIR_SHELL_MUL : hairV2PointMul(x, z, yf)));
+        const isTop = (i === yfs.length-1);
+        sections.push({ y: yLocal + (isTop ? o.height*HAIR_TOP_LIFT : 0), points: pts });
+      });
+      return makeLoft({ sections, closedTop:true, closedBottom:true });
+    }
     // うなじリング(後方・側面だけHeadの外、顔側はHeadの内側へ隠す)
     {
       const yLocal = -hh + o.height*HAIR_NAPE_YFRAC;
@@ -2331,7 +2604,8 @@
       targets.push(n);
     });
     targets.forEach(m=>{
-      const shell = new THREE.Mesh(m.geometry, mat);
+      // userData.xrayGeometry: 壁越しの黄色い影だけ粗い形で描く(DEC-039 の頭: 細かい顔の形は影には要らない)
+      const shell = new THREE.Mesh(m.userData.xrayGeometry || m.geometry, mat);
       shell.userData.isXray = true;
       shell.castShadow = false;
       shell.receiveShadow = false;

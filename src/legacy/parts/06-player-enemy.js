@@ -556,7 +556,7 @@
     /* CHARACTER-VIS-002 T-1(DEC-036): 4職だけが選ぶ頭・顔の改善(頭の下半分の丸い断面、
        角の目立たない目、頭へ埋まる首)。影の旅人(charKey)は既定のまま(DEC-034 の完成形、AD-3) */
     const softHead = classDef.charKey !== 'wanderer';
-    const headSections = softHead ? HEAD_SECTION_RATIOS_SOFT : undefined;
+    const headSections = softHead ? HEAD_SECTIONS_V3 : undefined;
     const bodyH = B.height;
     const HIP_Y = B.hipY;      // the belt line: legs below, torso above
     const bodyR = B.chest;
@@ -807,6 +807,9 @@
     // 縮める
     const head = new THREE.Mesh(
       makeCharacterHead({width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2, sections:headSections}), skinMat);
+    /* DEC-039 の頭: 壁越しの影(addXrayShell)は細かい顔の形が要らないので、T-2R-3 の前の版(20 点 × 12 段)の形で描く
+       (三角形を減らす。影の輪郭は頭とほぼ同じ) */
+    if(softHead) head.userData.xrayGeometry = makeCharacterHead({width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2, sections:HEAD_SECTIONS_V2});
     head.position.y = HIP_Y + bodyH + B.headGap;
     // Head/Posture Alignment再設計フェーズ: HEAD_BACK_Z(05-rendering-rig.js
     // 参照)ぶんだけHeadを後方(-Z)へ。Torso胸部の前面ZよりHead自身の前面Z
@@ -890,7 +893,19 @@
     const scleraR = 0.062*eyeSizeMul;
     const scleraZScale = 0.6;
     const scleraHalfDepth = scleraR*scleraZScale;
-    const scleraFrontZ = eyeFrontZ + scleraHalfDepth*eyeScale;
+    /* 4職(T-2R-3): 顔の前面が平らな 1 枚ではなく曲面になったので、目の奥行きはその目の横位置の顔の面
+       (headOutlineAt().frontZAt)から決める。目の中心(白目の板の中心)を、その位置の顔の面から headR × 0.018 奥に置く
+       (旧来の平らな顔の面 0.715 と目の基準 0.697 の差と同じ量)。ただし顔が曲面になり目を外へ 0.28 rad 回すため、
+       白目の前面は顔の面より 0.024〜0.033 headR 手前に出る(T-1 はほぼ面と同じ。沈み込まず浮きすぎない範囲、
+       T-2R-3 Review N-1)。目の大きさ・間隔・高さ・点数・傾きは T-1 の確定値のまま */
+    const EYE_RECESS = 0.018;
+    const eyeHeadDims = { width:headR, depth:headR*HEAD_DEPTH_MUL, height:headR*2, sections:headSections };
+    const eyeFrontZAt = (x)=>{
+      if(!softHead) return eyeFrontZ;
+      const out = headOutlineAt(eyeHeadDims, 0.5 + 0.02/(headR*2));
+      return out.frontZAt ? out.frontZAt(x) - headR*EYE_RECESS + HEAD_BACK_Z : eyeFrontZ;
+    };
+    const scleraFrontZ0 = eyeFrontZ + scleraHalfDepth*eyeScale;
     /* T-4(Human: 「もう少し可愛く。黒目を大きくするか目を縦長に」): 目全体の大きさ・
        間隔(上の eyeSizeMul / 下の EYE_SPACING)は Human が OK とした値のまま、
        黒目の基準半径を 0.038 → 0.046、白目の縦横比を 1.15 → 1.28 にする(候補値) */
@@ -916,7 +931,8 @@
     [-EYE_SPACING*eyeScale*eyeSpacingMul, EYE_SPACING*eyeScale*eyeSpacingMul].forEach(x=>{
       const sclera = new THREE.Mesh(
         makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*EYE_SCLERA_ASPECT, scleraHalfDepth*eyeScale, eyePts.sclera), scleraMat);
-      sclera.position.set(x, head.position.y+0.02, eyeFrontZ);
+      const eyeZ = eyeFrontZAt(x), scleraFrontZ = softHead ? eyeZ + scleraHalfDepth*eyeScale : scleraFrontZ0;
+      sclera.position.set(x, head.position.y+0.02, eyeZ);
       group.add(sclera);
       faceMeshes.push(sclera);
       const pupil = new THREE.Mesh(makeEyePupil(pupilR*eyeScale, pupilHalfDepth*eyeScale, eyePts.pupil), pupilMat);
@@ -983,24 +999,31 @@
     /* 顔のパーツ(CHARACTER-VIS-002 T-1、Human Decision E-3 = B / DEC-037): 4職だけに控えめな口と小さな鼻。
        眉は足さない。目はそのまま(瞳孔・上まぶたは足さない)。どちらも頭のメッシュの子にして頭と一緒に
        動かし、輪郭線・X 線シェルは付けない(小さな部品の輪郭線は黒い点の塊になるため)。位置と大きさは
-       頭の断面(headOutlineAt = HEAD_SECTION_RATIOS_SOFT)と headR から導く(職ごとの頭の大きさに追従) */
+       頭の断面(headOutlineAt = HEAD_SECTIONS_V3、DEC-039)と headR から導く(職ごとの頭の大きさに追従) */
     if(softHead){
       const yAt = yf => -headR + 2*headR*yf;
-      // 鼻: 肌と同じ Material の低い四角錐。頬の高さより少し下(yFrac 0.40)の前面から headR × 0.015 だけ前
-      const nose = new THREE.Mesh(new THREE.ConeGeometry(headR*0.06, headR*0.10, 4), skinMat);
-      nose.rotation.x = Math.PI/2 * 0.9;
-      nose.position.set(0, yAt(0.40), headOut(0.40).frontZ + headR*0.015);
-      nose.userData.noOutline = true;
-      head.add(nose);
-      // 口: 小さな微笑みの弧(幅 headR × 0.26、濃い赤茶、陰影を受けない)。yFrac 0.27 の前面に沿わせる
+      /* 鼻: DEC-039(T-2R-3 顔造形方針の再定義)で、鼻筋・鼻先・鼻翼は頭のメッシュの形(headV3FaceField)で作る。
+         以前の別部品の四角錐(E-3 = B の小さな鼻)は作らない */
+      // 口: 小さな微笑みの弧(幅 headR × 0.26、濃い赤茶、陰影を受けない)。上唇と下唇の間(yFrac 0.285)の前面に沿わせる
       const MOUTH_W = headR*0.13, mouthPts = [];
       for(let i=0;i<=8;i++){ const t = -1 + 2*i/8; mouthPts.push({x:t*MOUTH_W, y:-(1 - t*t)*MOUTH_W*0.35}); }
       for(let i=8;i>=0;i--){ const t = -1 + 2*i/8; mouthPts.push({x:t*MOUTH_W*0.9, y:-(1 - t*t)*MOUTH_W*0.35 + MOUTH_W*0.16}); }
-      const mouth = new THREE.Mesh(makePlate(mouthPts, {thickness:0.004}), new THREE.MeshBasicMaterial({color:0x6a2e2a}));
-      mouth.position.set(0, yAt(0.27), headOut(0.27).frontZ + 0.002);
+      const mouthGeo = makePlate(mouthPts, {thickness:0.004});
+      /* 4職(T-2R-3 再修正、Review S-2): 顔の面は中心線から左右へ奥へ回るので、平らな板のままでは両端が面から浮く。
+         板の頂点を、その横位置の顔の面の深さ(frontZAt)に合わせて奥へ曲げる */
+      const MOUTH_YFRAC = 0.285;
+      const mouthOut = headOut(MOUTH_YFRAC);
+      if(mouthOut.frontZAt){
+        const pa = mouthGeo.attributes.position;
+        for(let i=0;i<pa.count;i++) pa.setZ(i, pa.getZ(i) + mouthOut.frontZAt(pa.getX(i)) - mouthOut.frontZ);
+        pa.needsUpdate = true;
+        mouthGeo.computeVertexNormals();
+      }
+      const mouth = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({color:0x6a2e2a}));
+      mouth.position.set(0, yAt(MOUTH_YFRAC), mouthOut.frontZ + 0.002);
       mouth.userData.noOutline = true;
       head.add(mouth);
-      playerMixerParts.faceParts = [nose, mouth];
+      playerMixerParts.faceParts = [mouth];
     }
 
     // ---- Hair Shell(旧Hair Cap): Headの外殻。原点・引数はHead本体と同一 ----
@@ -1269,10 +1292,12 @@
       });
       }
       if(!isWanderer){
-      // ネックゲイター: 肩から口元の下まで首を高く覆う(顔の目より上は出す)
+      /* ネックゲイター: 肩から顎の上まで首を覆う。CHARACTER-VIS-002 T-2: 上端を口元の下
+         (headR × 0.55 下)から顎の上(× 0.74 下)へ下げ、T-1 の丸い顎と口(E-3 = B)を見せる。
+         上端の輪は顎の幅に合わせる */
       addDecor(new THREE.Mesh(makeGarmentLoft([
-        { y:hY - headR*0.55,     hw:headR*0.80, hd:headR*0.78, dz:HEAD_BACK_Z },
-        { y:hY - headR*0.95,     hw:headR*0.96, hd:headR*0.92, dz:HEAD_BACK_Z },
+        { y:hY - headR*0.74,     hw:headR*0.82, hd:headR*0.80, dz:HEAD_BACK_Z },
+        { y:hY - headR*1.02,     hw:headR*0.96, hd:headR*0.92, dz:HEAD_BACK_Z },
         { y:HIP_Y + bodyH*0.96,  hw:bodyR*0.82, hd:bodyR*0.72 },
       ], {closedTop:true}), clothAcc));
       // 背中に下ろしたフード(パーカーの一部)。頭と一緒に回らないよう waist 側。
@@ -1288,17 +1313,21 @@
       addDecor(new THREE.Mesh(makeOpenGarmentLoft([
         { y:HIP_Y + bodyH*1.00, hw:bodyR*1.24, hd:bodyR*0.90, open:bodyR*0.12, t:bodyR*0.08 },
         { y:HIP_Y + bodyH*0.62, hw:bodyR*1.14, hd:bodyR*1.04, open:bodyR*0.12, t:bodyR*0.08 },
-        { y:HIP_Y,              hw:bodyR*1.10, hd:bodyR*1.04, open:bodyR*0.14, t:bodyR*0.08 },
-        { y:HIP_Y - 0.25,       hw:bodyR*1.24, hd:bodyR*1.22, open:bodyR*0.30, t:bodyR*0.08 },
-        { y:parkaHemY,          hw:bodyR*1.36, hd:bodyR*1.32, open:bodyR*0.45, t:bodyR*0.08 },
+        // CHARACTER-VIS-002 T-2: 腰を少し絞り(1.10 → 1.04)、裾を少し広げる(1.36 → 1.44)A ライン
+        { y:HIP_Y,              hw:bodyR*1.04, hd:bodyR*1.04, open:bodyR*0.14, t:bodyR*0.08 },
+        { y:HIP_Y - 0.25,       hw:bodyR*1.26, hd:bodyR*1.22, open:bodyR*0.30, t:bodyR*0.08 },
+        { y:parkaHemY,          hw:bodyR*1.44, hd:bodyR*1.32, open:bodyR*0.45, t:bodyR*0.08 },
       ]), clothMat));
       // ポケット(胸に1つ、腰の左右に1つずつ)。パーカーの前面に重ねる薄い板
       [[-1, bodyH*0.78, bodyH*0.60, 0.45, 0.95, 0.22], [-1, -0.02, -0.20, 0.62, 1.02, 0.28], [1, -0.02, -0.20, 0.62, 1.02, 0.28]]
         .forEach(([sx, yT, yB, xMul, zMul, wMul])=>{
-          addDecor(new THREE.Mesh(makeGarmentLoft([
+          const pocket = addDecor(new THREE.Mesh(makeGarmentLoft([
             { y:HIP_Y + yT, hw:bodyR*wMul, hd:bodyR*0.05, dx:sx*bodyR*xMul, dz:bodyR*zMul },
             { y:HIP_Y + yB, hw:bodyR*wMul, hd:bodyR*0.05, dx:sx*bodyR*xMul, dz:bodyR*zMul },
           ], {closedTop:true}), clothMat));
+          // CHARACTER-VIS-002 T-2(joint analysis J-8): 外形を作らない内側の小さな部品なので輪郭線・
+          // X 線シェルを付けない(縁の黒い線が継ぎ接ぎに見えていた)
+          pocket.userData.noOutline = true;
         });
       } else {
         /* 影の旅人(DEC-034「影の旅人・最終キャラクター設計書」、WANDERER-RENEWAL-002):
@@ -1355,7 +1384,12 @@
           warriorPantsRing(wandererHemY*0.5, B.thigh*1.55, B.thigh*1.45, outSign),
           warriorPantsRing(wandererHemY,     B.thigh*1.30, B.thigh*1.30, outSign),
         ] : [
-          warriorPantsRing(0,               B.thigh*1.50, B.thigh*1.40, outSign),
+          /* CHARACTER-VIS-002 T-2(joint analysis J-7): 膝を曲げると太腿側とすね側の境目が開いて
+             段差が見えていた。すね側の最初の輪を膝より上(太腿の長さ × 0.06)から始め、太腿側の裾
+             (1.50 / 1.40)より少し細く・浅くして内側へ差し込む(点・段の数は同じ)。輪が膝より上に
+             あるほど、膝を曲げたときに輪の前が太腿側の前面から突き出すので、高さ 0.06・奥行き 1.24
+             にして、膝を 5〜30° 曲げても太腿側の裾の奥行きの内側に収める(Review T-2 S-2) */
+          warriorPantsRing(B.thighLen*0.06, B.thigh*1.44, B.thigh*1.24, outSign),
           warriorPantsRing(-B.calfLen*0.30, B.thigh*1.55, B.thigh*1.45, outSign),
           warriorPantsRing(-B.calfLen*0.58, B.thigh*1.55, B.thigh*1.45, outSign),
         ], {closedTop:true}), subMatFlat), knee);
@@ -1812,7 +1846,10 @@
       // hand, lathed the same way as the pauldron - the forearm alone read
       // as a bare cloth sleeve with nothing marking it as armoured。
       // 盗賊は軽装のため省く
-      if(!lightArmor){
+      /* CHARACTER-VIS-002 T-2(joint analysis J-4): 剣士・戦騎士は長袖のパーカーの袖口から籠手が出て
+         手袋の縁のように見えていたので作らない(影の旅人・他職は今のまま) */
+      const noVambrace = classDef.key === 'warrior' && classDef.charKey !== 'wanderer';
+      if(!lightArmor && !noVambrace){
         const vambrace = new THREE.Mesh(limbGeo(CUFF_PROFILE, B.forearm*1.2, 0.11, 8), trimMatFlat);
         vambrace.position.y = -FA*0.9; vambrace.castShadow = true;
         el.add(vambrace);
@@ -2199,6 +2236,7 @@
     root.traverse(c=>{
       if(!c.isMesh || c.userData.isOutline || c.userData.isXray) return;
       if(c.geometry) c.geometry.dispose();
+      if(c.userData.xrayGeometry) c.userData.xrayGeometry.dispose();   // DEC-039 の頭の壁越しの影の粗い形
       if(c.material && !keep.has(c.material)) c.material.dispose();
     });
   }
@@ -2621,7 +2659,7 @@
          極端な先細りを避けるためTip半径はRoot半径の35%前後に留めている。 */
       const archHeadR = B.headR;
       // 魔導士は必ず魔法使い(4職)なので 4職の頭の断面。ここは buildPlayer の外(転身)で headSections は見えない
-      const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2, sections:HEAD_SECTION_RATIOS_SOFT };
+      const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2, sections:HEAD_SECTIONS_V3 };
       const archHeadYLocal = bodyH + B.headGap;   // P.waist基準でのHead中心Y(buildPlayerのhead.position.yに相当)
       const archHeadOut = (yFrac) => headOutlineAt(archHeadDims, yFrac);
       // Hair色: 参考画像(ダークソウル風の白髪術者)指摘により、紫の

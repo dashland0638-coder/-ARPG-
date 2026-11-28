@@ -1,6 +1,6 @@
 # CHARACTER-VIS-002 — プレイヤーキャラクターのデザイン更新
 
-Status: IMPLEMENTING（Work Item ごとの状態は下の表。DEC-035: E-1 = A・E-2 = A・T-0。DEC-036: 頭身 4.75・T-1。DEC-037: E-3 = B・T-1 の目視確認完了・T-2 の着手）
+Status: IMPLEMENTING（Work Item ごとの状態は下の表。DEC-035: E-1 = A・E-2 = A・T-0。DEC-036: 頭身 4.75・T-1。DEC-037: E-3 = B・T-1 の目視確認完了・T-2 の着手。DEC-038: T-2 Human Review の H-1 = O1・H-2 = B・H-3 実装・H-4 実施、T-2R-1〜5。DEC-039: 顔造形方針の再定義 Stylized Realism / Geometry + Texture）
 優先度: 通常。WANDERER-RENEWAL-001（影の旅人の全面刷新）の後に行う（完了済み: PR #145 / #146 merge）
 
 Analysis: .ai/reports/CHARACTER-VIS-002-analysis.md（branch `claude/wanderer-renewal-001-nhlxns` @ `7caabaf1ef5381d71e8b97db5dceedef47e87c11`、blob `6eb47b9f987ccccbc7363e90d84f6b7f9d6260e5`。初版 `51ed36a` / blob `3fd9a39c` を Review Round 1 の指摘で改訂した新版）
@@ -84,7 +84,12 @@ Human の着手指示（2026-11-24）: 剣士・魔法使い・弓師・盗賊�
 | --- | --- | --- | --- | --- | --- |
 | T-0 | 基準づくり: 影の旅人（加入前後・影の手）の切り離し、外見の計測行、見えない古い鎧の部品の調査 | DONE（Reviewer PASS、下の Implementation Result（T-0））| [x] | なし | **なし**（形のシグネチャの一致で確認）|
 | T-1 | 共通の顔・頭（頭身 4.75、頭の下半分の丸みと前面の奥行き、目の角・輪郭線・向き、首と頭の接合、横の髪）と顔・頭・首・髪の接合の確認。顔のパーツ（口・鼻・眉）と目の部品（瞳孔・まぶた）は E-3 | DONE（下の「T-1 の完了処理」。E-3 = B の口・鼻を実装、Human の iPhone 目視確認完了 = DEC-037、口・鼻の追加分の Reviewer PASS = `.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`（T-2 のブランチに記録））| [x] | T-0、DEC-036、DEC-037 | あり（4職）|
-| T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続、接合 J-4・J-7・J-8・J-9 の方針決め（AD-19）、帽子の下の髪 J-1。戦騎士への継承の確認 | APPROVED（Agent Approval、下の「T-2 詳細計画」）| [x] | T-1 | あり |
+| T-2 | 剣士（パイロット）: パーカー・ゲイター・袖・裾・ブーツの量感と接続、接合 J-4・J-7・J-8・J-9 の方針決め（AD-19）、帽子の下の髪 J-1。戦騎士への継承の確認 | REVIEWING（Reviewer PASS。**Human Review 2026-11-27 で指摘 A〜D**（`.ai/reports/CHARACTER-VIS-002-T2-human-review.md`）。分析と設計案を提示し Human の判断 H-1〜H-4 待ち。T-2 の承認・T-3 への進行は Human の明示の許可まで保留）| [x] | T-1 | あり |
+| T-2R-1 | BGM: 裏に回ったら音を一時停止・戻ったら開始後だけ再開、bfcache、?dev=1 の BGM の数の表示、E2E（DEC-038 H-3）| **DONE**（Reviewer PASS（`f9fc4e5` / `a634fbf`）、CI 成功（`a634fbf`）、**Human の iPhone 実機確認 PASS**（2026-11-27: Safari・ChatGPT のアプリ内ブラウザ・Claude のアプリ内ブラウザで正常、BGM の重複の改善を確認））| [x] | T-2 | iPhone |
+| T-2R-2 | 顔の確認のプレビュー（?dev=1 の全画面のプレビュー: 8 職・正面 / 45° / 横 / 下 / 後頭部・顔 / 全身・頭赤 / 髪緑の診断）| **DONE**（Reviewer PASS（`733449b` / `e6dbc41`）、CI 成功（`b816fa3`）、**Human の iPhone 実機確認 PASS**（2026-11-28: 顔確認モードは正常に動作、目視で問題なし））| [ ] | T-2R-1 | あり |
+| T-2R-3 | O1 の共通の頭の拡張（4職のオプション）と髪の貫通の修正（髪の輪・下限・napeSideIn の再評価、貫通の検出テスト）（DEC-038 H-1 / H-4）| IMPLEMENTING（下の Implementation Result（T-2R-3））| [ ] | T-2R-2 | あり |
+| T-2R-4 | 職ごとの顔（断面表・口の形・目尻の角度と縦横比 ±10%、値と理由の記録）（DEC-038 H-2）| PLANNED | [ ] | T-2R-3 | あり |
+| T-2R-5 | 上位4職への継承の確認と微調整 | PLANNED | [ ] | T-2R-4 | あり |
 | T-3 | 魔法使い: 長く広がった髪（承認済み設計の実装）、コートの前開き・袖、キャスケットの丸み、箱型の袖（J-5）、帽子の下の髪 J-1、J-4・J-7・J-8 の展開（J-3 は T-1 で実施済み）| PLANNED | [ ] | T-2 | あり |
 | T-4 | 弓師: 帽子の位置とつば（目を出す）、帽子の下の髪 J-1、毛皮の襟（J-6）、短丈上着の裾、J-4・J-7・J-8 の展開 | PLANNED | [ ] | T-2 | あり |
 | T-5 | 盗賊: フードの丸み、帽子の位置、オーバーオールの胸当て・パーカーとの重なり（J-10）、J-4・J-7・J-8 の展開 | PLANNED | [ ] | T-2 | あり |
@@ -586,6 +591,312 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 - `wanderer-visual-freeze`（unit）: PASS。BUILD.wanderer の値、共通関数の既定値、4職だけが改善を選ぶこと
 - 撮影: 影の旅人の頭身 5.0・頭の形・目・首が変更前と同じ
 
+## Implementation Result（T-2）
+
+### 作業の基準
+- ブランチ `claude/character-vis-002-t2`（T-1 の先端 `ceaf8a0` から。PR は T-1 のブランチを base にした別 PR）。PR #147・#148 は open（未 merge）
+- 計画: 上の「T-2 詳細計画」（Agent Approval）
+
+### 変更内容（剣士と戦騎士だけ。影の旅人は `isWanderer` / `charKey` の条件で除外）
+| Step | ファイル | 変更 |
+| --- | --- | --- |
+| 1 | `06` 剣士の分岐 | ネックゲイターの上端を headR × 0.55 下 → 0.74 下（顎の上）、上端の輪 hw 0.80 → 0.82・hd 0.78 → 0.80、中の輪 0.95 → 1.02 下 |
+| 2 | `06` 剣士の分岐 | パーカーの腰の輪 hw bodyR × 1.10 → 1.04、腰の下の輪 1.24 → 1.26、裾 1.36 → 1.44（丈・前開き・ポケットの数は不変）|
+| 3 | `06` 腕の組み立て | 籠手（vambrace）を剣士・戦騎士では作らない（`noVambrace`。影の旅人・他職は今のまま）|
+| 4 | `06` 剣士の分岐（パンツ）| 剣士のすね側のパンツの最初の輪を膝より上（太腿の長さ × 0.06）へ、太さ 1.50 / 1.40 → 1.44 / 1.24（太腿側の内側へ差し込む。Review S-2 で 0.12 / 1.34 から変更: 膝を 5〜30° 曲げたときに輪の前が太腿側の前面から最大 約 13 mm 突き出していた）。影の旅人のパンツの輪は不変 |
+| 5 | `06` 剣士の分岐 | ポケット3つに `noOutline`（輪郭線・X 線シェルなし）|
+| 6 | ― | J-9: flatShading は変えない（方針の記録）|
+| 7 | ― | J-1: T-8 で全職まとめて（記録）|
+| 8 | ― | 戦騎士: 撮影で白いジャケット・強化肩・ハーネスの浮き / 埋もれなし（直す箇所なし）|
+| ― | `tests/character-visual-budget.spec.js` | 剣士・戦騎士の上限を下げた（全体 -17、三角形 -692。本体 -2）|
+
+### 描画の量
+| | 本体 | 全体（描画回数）| 三角形 | Material |
+| --- | --- | --- | --- | --- |
+| 剣士 T-1 → T-2 | 84 → 82 | 309 → 292 | 15,608 → 14,916 | 21 → 21 |
+| 戦騎士 T-1 → T-2 | 93 → 91 | 345 → 328 | 17,184 → 16,492 | 24 → 24 |
+| 他職・影の旅人 | 不変 | 不変 | 不変 | 不変 |
+
+### 比較画像
+- `.ai/reports/CHARACTER-VIS-002-assets/t2-compare-warrior.jpg`（剣士・戦騎士・影の旅人 × 前（T-1）/ 後（T-2）× 正面・斜め45°・横・背面・顔・横顔・歩行・攻撃）
+
+### Test Report（T-2）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit`（`ai-protocol.test.js` を含む）| PASS（2341）|
+| 関連 E2E 93件（`character-visual-budget`・`character-clothing`・`character-palette`・`character-weapon-visual`・`character-motion`・`weapon-stow`・`battle-knight-visual`・`base-class-identity`・`base-class-comparison`・`job-traits`・`wanderer-renewal`・`road2-join`・`chapter1-progression`）| **93 PASS**（FLAKY・FAIL なし）|
+| 全 E2E | CI で実行（PR）|
+
+### 影の旅人への非影響
+- `character-visual-budget` の影の旅人の形のシグネチャ（加入後・加入前の立ち / 座り・影の手）と描画の量: PASS（不変）
+- 撮影で変化なし
+
+### Human Review（2026-11-27、PR #149 の iPhone 実機確認）
+- 記録と分析: `.ai/reports/CHARACTER-VIS-002-T2-human-review.md`（画像 `t2-review-face-views.jpg` / `t2-review-hair-back.jpg` / `t2-review-hair-vs-head.jpg`）
+- A 個性の不足（顔が同じテンプレートの色違い）/ B 顔が平面的・輪郭が不自然（最重要）/ C 後頭部が髪を突き抜ける / D BGM の重複（タイトルで酒場の BGM、開始後に別の音が重なる。iPhone のテスト用ビルド）
+- 分析の要点: B は頭の土台（8 点 × 5 段の Loft・奥行き 0.68 倍・前面が平面・目のくぼみ / 耳なし）。C は髪の殻に頭の最大幅の段（0.52）の輪が無いこと・`napeSideIn`・被り物の Coverage が頭の内側まで髪を寄せること。D は Chromium で再現せず、裏のタブ / ホーム画面のアプリの音が止まらないこと（`visibilitychange` / `pagehide` で止めていない）が有力
+- 提案: 顔は O1（頭のメッシュの拡張、4職だけのオプション）、職ごとの断面表で作り分け、髪の殻は O1 の中で修正、BGM は裏に回ったら suspend。作業は T-2R-1〜5
+- **コードは変えていない**。Human の判断 H-1〜H-4 待ち。顔の大規模な造形変更・T-3 は Human の明示の許可まで着手しない
+
+## Implementation Result（T-2R-1、DEC-038 H-3: BGM の重複対策）
+
+### 作業の基準
+- ブランチ `claude/character-vis-002-t2`（PR #149。base / head は変えない）。音響の仕組みは作り直さず、ページのライフサイクルへの対応だけを足す
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `src/audio/audio.js` | `suspendAudio()`（AudioContext を suspend。`closed` 以外は常に送る = resume の途中・iOS の `interrupted` でも止める。`<audio>` の代替は一時停止して、次の `resumeAudio()` で再生）、`bgmDebugInfo()`（音が出うる BGM の数・キー・段・context の状態）。`resumeAudio()` は `interrupted` も再開の対象 |
+| `src/legacy/parts/14-hud-boot.js` | `bindAudioLifecycle()`: `visibilitychange` hidden / `pagehide` → `suspendAudio()`。visible / `pageshow`（persisted）/ `pointerdown` → **ゲーム開始後（`state.started`）だけ** `resumeAudio()`。bfcache から戻ったタイトルは `stopBgm()`。`startBgmDebugReadout()`: `?dev=1` の時だけ左下（safe-area の内側）に「BGM n キー/段 context」（2 以上で赤）。`pointer-events:none` |
+| `src/legacy/concat-plugin.js` | 2 関数の import |
+| `tests/bgm-lifecycle.spec.js`（新規）| タイトル 0・タップでも 0、開始後 1、hidden → suspended（曲は 1 のまま）、visible → running で 1 のまま、戻ってすぐ裏（hidden → visible → hidden を同期で）→ suspended、pagehide → suspended、pageshow persisted → 再開して 1、タイトルへ戻る → 0、タイトルでは裏から戻っても・タップしても suspended / 0、つづきから → running で 1。通常の URL には表示なし |
+
+### 自動テストで確かめる範囲 / iPhone 実機（Human）で確かめる範囲
+| 範囲 | 内容 |
+| --- | --- |
+| 自動（Chromium）| 上の E2E。BGM の数（タイトル 0・開始後 1・増えない）と、裏 / 表で context が止まる・開始後だけ再開すること |
+| iPhone 実機（Human）| iOS Safari 固有の挙動（裏のタブ・ホーム画面のアプリの音、bfcache、`interrupted`、裏から戻ったときの resume が拒まれた場合にタップで再開すること）。**実機の確認の前に修正完了とはしない** |
+
+### iPhone での確認の手順（Human）
+1. **この修正を含まない古いビルド**（他の Safari タブで開いたままの以前の PR のプレビュー・本番、ホーム画面に追加したアプリ）は、裏で鳴り続けることがある。確認の前に Safari のタブをすべて閉じ、ホーム画面のアプリを上へスワイプして終了する
+2. PR #149 のプレビュー `?dev=1` を 1 つのタブだけで開く。左下の表示が「BGM 0」で、タイトルで音が鳴らないこと
+3. 開始（つづきから / はじめる）→「BGM 1 tavern/…」で、音が重ならないこと（段の切り替えの 2 秒のクロスフェードの間だけ 2）
+4. ホーム画面へ戻る・別のタブへ切り替える → 音が止まること。戻る → 同じ曲が続き、表示は 1 のまま（鳴らなければ画面をタップ）
+5. タイトルへ戻る → 0。裏へ回して戻っても、タイトルでは鳴らないこと
+6. 本番（main のビルド）で同じことが起きるかは、本番にはこの修正が無いので、手順 1 のあと本番だけを開いて確かめる（任意）
+
+### Test Report（T-2R-1）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit` | PASS |
+| `bgm-lifecycle`・`bgm-regression`・`tavern-bgm`・`audio` | PASS |
+| レイアウト系（`action-zone`・`character-zone`・`combat-events-layout`・`hud-zones-layout`・`chapter-select-testmode`、`?dev=1` の表示が常に出るため）| **44 PASS**（最初の実行は開発サーバー 5173 が途中で落ちて 22 件が接続拒否 = 環境の問題。単独で再実行して全件 PASS）|
+| 全 E2E | CI（PR #149）|
+
+### Review（T-2R-1）
+- Round 1 = CHANGES_REQUIRED（Reviewed SHA `a51c40f`、別コンテキストの Reviewer、`.ai/reports/CHARACTER-VIS-002-T2R1-review.md`）。M-1（resume の途中で裏に回ると suspend が飛ばされる）・M-2（本節が無い）・S-1（safe-area）・S-2（E2E の不足）→ 反映（`f9fc4e5`）
+- Round 2 = **PASS**（Reviewed SHA `f9fc4e5`）。M-1 を元に戻すと新しい E2E が落ちることを確認。note R2-N1（Status History の行 → 追加済み）・R2-N2（WebKit の状態の更新が遅いと戻った直後は無音のことがある。タップ等で再開 = iPhone 手順 4）・R2-N3
+- **iPhone 実機の確認（Human）待ち。確認の前に修正完了とはしない**
+
+### Human の実機の確認と追加調査（2026-11-27）
+- HUMAN: iPhone Safari で直接開くと BGM は正常。**ChatGPT / Claude の iOS アプリの中から開くと BGM の問題が起きる**（詳しい再現条件は未確定）
+- 調査と修正: `.ai/reports/CHARACTER-VIS-002-T2R1-inapp-browser.md`。ページの中では BGM は 1 系統でタイトルでは鳴らない（FACT）→ 重なる音は前に開いたページから（INFERENCE: アプリ内ブラウザは閉じても hidden / pagehide を出さずにページが残る）
+- 追加の修正: 同じ origin で音の持ち主は 1 ページ（BroadcastChannel の claim）、描画が止まったら一時停止、止めるときにフェード中の音源を切る、`?dev=1` の診断の 2 行目。E2E `bgm-lifecycle` に 2 件（2 つのページ・描画の停止）
+- **Safari・ChatGPT・Claude のアプリ内ブラウザでの Human の確認まで T-2R-1 は完了にしない**
+- Review（追加調査分）Round 1 = CHANGES_REQUIRED（Reviewed SHA `edac383`、`.ai/reports/CHARACTER-VIS-002-T2R1b-review.md`）。M-1（攻撃・回避・回復薬の `resumeAudio()` が持ち主の調整を通らず、キー / パッドで 2 ページが同時に鳴る）→ `resumeAudioFromInput()` に置き換え。S-1（戻った直後の描画停止の誤判定）→ 再開・開始で判定の時刻をやり直す。S-2（E2E: タイトルのページは持ち主にならない・キー操作で持ち主が移る）・S-3（報告の記述）→ 反映（`a634fbf`）
+- Review（追加調査分）Round 2 = **PASS**（Reviewed SHA `a634fbf`）。起動中・タイトルでのキー操作で ReferenceError なし、入力の多い E2E 14 件 PASS。note R2-N1（設定のボタンをキーボードで押したときだけ claim しない。クリック / タップは pointerdown で claim）・R2-N2（2 つの見えている窓が同じパッドを読むと両方 claim する理論上の場合。iPhone には無い）
+- CI: `a634fbf` 成功（全 E2E を含む）
+- **Human の iPhone 実機確認 PASS（2026-11-27）**: iPhone Safari・ChatGPT のアプリ内ブラウザ・Claude のアプリ内ブラウザのすべてで正常。両アプリ内ブラウザで BGM の重複の改善を確認 → **T-2R-1 DONE**
+
+## Implementation Result（T-2R-2、顔の確認のプレビュー）
+
+### 既存の Motion Preview の調査と方式の決定
+- FACT: 既存の Debug Motion Preview（`index.html` の `#motion-panel`、`14-hud-boot.js` の `updateMotionPanel()` / `motionPanelSnapshot()`、`05-rendering-rig.js` の読み取り、`13-update-loop.js` の Visual Freeze）は、デバッグモード（`state.debugMode`。`` ` `` キー / バージョン表記の 5 回タップ）の間だけ出る**文字の表示**（姿勢・クリップの値を 0.5 秒ごと）で、カメラは**ゲームのカメラ**をそのまま使う。プレイヤーは操作中の 1 体だけ
+- 計画では「Motion Preview に顔カメラ」としていたが、そこに顔のカメラを足すとゲームのカメラを動かすことになり、Human の条件「既存のゲーム本編の操作・カメラ・キャラクター表示に影響させない」とぶつかる。8 職の切り替えも操作中の主人公を差し替えることになる（ステータス・装備が変わる）
+- そこで**独立した全画面のプレビュー**（自分のシーン・レンダラー・カメラ）にした。入口は `?dev=1` の時だけ（デバッグモードを入れる操作は要らない）
+
+### Changed Files
+| ファイル | 変更 |
+| --- | --- |
+| `src/legacy/parts/18-face-preview.js`（新規）| `?dev=1` の時だけの全画面のプレビュー。自分のシーン・レンダラー・カメラを持ち、確認用の姿は `buildPlayer()` / `applyJobPromotionVisual()`（本物の組み立て）で作る。組み立ての間だけ共有変数（`playerMixerParts`・`player`・`state.job`・`state.classDef`）を差し替えて必ず戻し、ゲームのシーンに足された部品（上位職のオーラ等）は確認用のシーンへ移す。X 線シェルは隠す。閉じるとジオメトリ・Material・レンダラーを破棄 |
+| `index.html` | 入口: タイトルのテストモードの入口の下「🙂 顔の確認(開発用)」、設定タブの「顔の確認(開発用)」の行（どちらも `?dev=1` の時だけ）|
+| `src/styles/main.css` | プレビューの配置（縦画面: 上に表示・下にボタン。横画面: 左に表示・右にボタン。safe-area の内側。z-index はゲームの縦向きの案内より上）|
+| `tests/face-preview.spec.js`（新規）| 下の Test Report |
+
+### 操作
+- 職（8）: 剣士・戦騎士・魔法使い・大魔導・弓師・鷹の目・盗賊・バーサーカー（影の旅人は含めない）
+- 方向（5）: 正面（0°）・45°・横（90°）・下から（方位 20°・見上げ 32°）・後頭部（180°）。表示をドラッグすると左右に回る（方向のボタンで正確な角度に戻る）
+- 顔（頭の高さが表示の縦の 約 40%）/ 全身
+- 診断: 通常 / 頭赤・髪緑（頭 = 赤、髪の殻 = 明るい緑、髪の房（前髪・横髪・後ろ髪）= 濃い緑）/ ＋帽子なし（頭のピボットの子で頭・髪・目以外を隠す = 帽子・フード、上位職で頭に載せた髪飾り・髭も。戦騎士の装飾は waist に付くので隠れない）
+- 開いている間はキー入力をゲームへ渡さない（Esc で閉じる）
+- 武器: 既定は隠す（待機の姿では武器が顔の前に来るため）。「武器」で出す
+- 上端に「職 / 方向 / 顔・全身 / 診断」の表示と「閉じる」
+
+### 撮影
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r2-face-preview-8jobs.jpg`（390×844 のプレビューの表示。行 = 8 職、列 = 正面・45°・横・下から・後頭部・診断の後頭部・診断の横・帽子なしの後頭部・全身）。診断で、Human Review C（後頭部が髪を突き抜ける）が赤い面としてはっきり見える（修正は T-2R-3）
+
+### Test Report（T-2R-2）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit` | PASS（2341）|
+| `face-preview`（3 件: タイトルから 8 職・5 方向の方位と仰角・顔 / 全身・診断の Material と帽子・武器・縦画面でボタンが画面に収まる・閉じた後のゲームのシーンとプレイヤーが不変 / ゲームの中の設定タブから開いて上位職を組み立てても操作中の姿が同じ・縦向きにしてもプレビューが上 / 通常の URL に入口なし）| PASS |
+| `character-visual-budget`（影の旅人のシグネチャを含む）・`hud-zones-layout` | PASS |
+
+### Human の確認（T-2R-2、2026-11-28）
+- iPhone 実機で顔確認モードが正常に動作、目視で問題なし → **T-2R-2 DONE**
+
+## Implementation Result（T-2R-3、共通の頭の立体と髪の貫通の修正。DEC-038 H-1 = O1 / H-4）
+
+### 作業の基準
+- ブランチ `claude/character-vis-002-t2`（PR #149、`b816fa3` の上。base / head は変えない）
+- Human の参考画像（2026-11-28、デフォルメの頭: 大きく丸い頭蓋・ふっくらした下頬・小さく丸い顎・顔が頭の下半分）を方向の参考にした。眉・耳は足さない（E-3 = B、顔のパーツは変えない）
+
+### 変更内容
+| ファイル | 変更 |
+| --- | --- |
+| `src/legacy/parts/05-rendering-rig.js` | 4職の頭の表 `HEAD_SECTIONS_V2`（16 点 × 10 段。各段は前半分・後ろ半分で別の深さと丸みを持つ超楕円: `widthMul` 半幅・`frontMul` 顔の中心線の深さ・`backMul` 後頭部の深さ・`nf` / `nb` 丸みの指数・`socket` 目の高さで鼻筋の両側を奥へ下げる量）と `headSectionPointsV2`・`headOutlineAtV2`（`frontZAt(x)` で目の横位置の顔の面）。T-1 の `HEAD_SECTION_RATIOS_SOFT` は削除。`headRatioAt` は表の数値の列をすべて補間（既定の表の結果は同じ）。髪の殻: 4職は輪を 0.34・0.42・0.54・0.66・0.72・0.89・1.00 に置き、点の種類を角度で決める（顔 < 70° は頭の内側、こめかみ〜耳 70°〜105° は 0.45 未満で頭のわずかに内側・それより上は外、後頭部は頭 × 1.09）。被り物の内側へ寄せても頭 × 1.006 より内側に入れない（`hairNoPenetrate`）。既定（影の旅人・敵・NPC）は不変 |
+| `src/legacy/parts/06-player-enemy.js` | 4職の頭の表を `HEAD_SECTIONS_V2` に（魔導士の帽子の基準も）。目の奥行きを顔の面（`frontZAt`）から決める（面からの沈み込みは T-1 と同じ headR × 0.018。目の大きさ・間隔・高さ・点数・傾きは確定値のまま）|
+| `src/legacy/parts/18-face-preview.js` | 「帽子」を診断の色と別の切り替えに（帽子なし・通常の色で顔の形を見る）。顔の陰影が読めるよう環境光を控えめに（0.9）・主光を強く（2.2）|
+| `tests/head-hair-penetration.spec.js`（新規）| 8 職の後頭部（110°〜250°、0.38〜0.96）・側頭部（80°〜100°、0.48〜0.96）へ外から光線を飛ばし、最初に当たるのが頭（肌）でないこと（帽子の下も）。変更前のコードでは剣士・魔法使い・弓師などで失敗することを確認 |
+| `tests/character-visual-budget.spec.js` | 8 職の三角形の上限 +1600（理由は下）|
+| `tests/face-preview.spec.js` | 帽子の切り替えの確認 |
+| `tests/unit/wanderer-visual-freeze.test.js` | 4職の頭の表の名前（`HEAD_SECTIONS_V2`）。影の旅人が既定（undefined）のままであることの確認は同じ |
+
+### 頭の形（headR 比）
+| 段 | yFrac | 半幅 | 前 | 後ろ | 丸み 前 / 後ろ | 眼窩 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 顎の下 | 0.00 | 0.40 | 0.34 | 0.30 | 2.0 / 2.0 | |
+| 顎先 | 0.08 | 0.64 | 0.56 | 0.52 | 2.2 / 2.0 | |
+| 下頬・顎 | 0.18 | 0.89 | 0.70 | 0.70 | 2.6 / 2.1 | |
+| 口元・頬 | 0.30 | 1.00 | 0.76 | 0.84 | 2.6 / 2.1 | |
+| 鼻・頬骨 | 0.42 | 1.05 | 0.78 | 0.92 | 2.4 / 2.1 | |
+| 目（最大幅）| 0.54 | 1.06 | 0.76 | 0.95 | 2.3 / 2.1 | 0.040 |
+| 眉の骨 | 0.66 | 1.00 | 0.74 | 0.93 | 2.2 / 2.1 | 0.010 |
+| 額 | 0.78 | 0.88 | 0.64 | 0.84 | 2.1 / 2.1 | |
+| 頭上 | 0.89 | 0.70 | 0.46 | 0.64 | 2.0 / 2.0 | |
+| 頭頂 | 1.00 | 0.34 | 0.18 | 0.26 | 2.0 / 2.0 | |
+- 前後の奥行き（目の高さ）: T-1 の 1.55（前 0.72 平ら + 後ろ 0.83）→ 1.71（前 0.76 + 後ろ 0.95）。幅に対する奥行き 0.73 → 0.81
+- 顔の前面: 平らな 1 枚 → 中心線（鼻筋）から頬へ丸く回る曲面。目の高さで鼻筋の両側が 0.04 奥（眼窩）
+- 被り物の下（0.72 より上）は帽子の内側に収まる幅（剣士の帽子の 0.72 の半径 0.972 に対し頭 0.94）
+- 単純な球ではない: 前半分は頬・口元の段で角が張り（指数 2.6）、顎は小さく丸く、後頭部は丸い（2.1）
+- 4.75 頭身・頭の高さ（2 × headR）・目の確定値は不変
+
+### 描画の量
+| | 本体 | 全体（描画回数）| 三角形 | Material |
+| --- | --- | --- | --- | --- |
+| 8 職（T-2 → T-2R-3）| 不変 | 不変 | **1 人 +1600**（剣士 14,916 → 16,516、全体の約 +10.7%）| 不変 |
+| 影の旅人 | 不変 | 不変 | 不変 | 不変 |
+- 内訳: 頭 +240・髪の殻 +160 = +400 が、本体・輪郭線 2 枚・X 線シェルの 4 つで描かれる。髪の殻の輪を 1 つ（0.78）減らして +1728 → +1600。0.42 の輪を抜くと後頭部の貫通が戻ることを E2E で確認したため残した
+
+### 比較画像（顔の確認のプレビュー、390×844）
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r3-compare-before-after.jpg`（行 = 8 職、列 = 正面・45°・横・後頭部・診断の後頭部・診断の横、それぞれ 変更前 / 変更後）
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r3-bare-head-before-after.jpg`（剣士・魔法使い・弓師・盗賊の髪と帽子を外した頭。正面・45°・横・下から、変更前 / 変更後）
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r3-8jobs-after.jpg`（変更後の 8 職: 正面・45°・横・下から・後頭部・診断の後頭部・診断の横・帽子なしの横（診断）・全身）
+- 診断の後頭部: 変更前は帽子の下〜首まで赤（頭の肌）、変更後は緑（髪）。うなじ（0.34）より下の首の上の細い赤は、髪の生え際より下の肌（意図どおり）
+
+### Test Report（T-2R-3）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit`（`ai-protocol.test.js`・`wanderer-visual-freeze.test.js` を含む）| PASS（2341）|
+| `head-hair-penetration`（新規）| PASS（8 職。変更前のコードでは失敗）|
+| `character-visual-budget`（影の旅人の形のシグネチャを含む）| PASS（三角形の上限を +1600）|
+| 関連 E2E 93 件（`base-class-comparison`・`base-class-identity`・`battle-knight-visual`・`character-clothing`・`character-motion`・`character-palette`・`character-weapon-visual`・`face-preview`・`head-hair-penetration`・`job-traits`・`wanderer-renewal`・`weapon-stow`・`road2-join`・`chapter1-progression`・`menu-character-layout`）| **93 PASS** |
+| 全 E2E | CI（PR #149）|
+
+### Review（T-2R-3）
+- Round 1 = **PASS**（Reviewed SHA `ea9c8cb`、別コンテキストの Reviewer、`.ai/reports/CHARACTER-VIS-002-T2R3-review.md`）。全周・上からの光線で帽子の下（前・天辺を含む）も頭が出ないこと、目の板の前面が顔の面より 0.024〜0.033 headR 手前（沈まず浮きすぎない）、首・襟との関係を確認
+- should-fix S-1（`docs/CHARACTERS.md` が削除した `HEAD_SECTION_RATIOS_SOFT` のまま）→ 新しい頭と髪の殻の説明に更新。S-2（貫通の E2E が帽子の前・天辺を見ていない）→ 生え際より上の全周と上からの光線を追加（PASS）
+- note: N-1（目の奥行きのコメント）→ 実際の値に直した。N-3（4職の頭は `HEAD_DEPTH_MUL` を使わない）→ コメントに記録。N-2（口がわずかに浮く ≤ 0.015 headR）・N-4（フードの中で頬が少し多く見える）・N-5・N-7 は記録のみ
+- Reviewer の造形の意見（横顔で鼻・口元を載せる前への形が弱い、正面で頭頂の角が多角形に見える、帽子を被ると変化が見えにくい、髪の量感は一様な外殻）は Human の目視確認の項目にする。口元・鼻の段を前へ出す案（0.76 / 0.78 → 0.79 / 0.81）を試したところ、80° の側頭部（0.48〜0.52）で頭が髪より外に出たため採用しなかった（T-2R-4 の職ごとの顔で、髪の境目と合わせて扱う）
+
+### Human Review（T-2R-3、2026-11-28、iPhone）と再修正
+| 視点 | Human の判定 |
+| --- | --- |
+| 正面: 額から頬・顎までの輪郭 | PASS |
+| 下から: 顔面と頭蓋の接続 | PASS |
+| 後頭部: 頭と髪の貫通 | PASS |
+| 全身: 4.75 頭身のバランスと可愛らしさ | PASS |
+| 45°: 頬の膨らみと顔の奥行き | **未達** |
+| 横顔: 鼻・口元・顎の前後の立体 | **未達** |
+| 帽子を被ったときの髪と頭の整合 | 未確認 |
+- T-2R-3 は Human の承認待ちのまま。合格した頭蓋・後頭部・正面の輪郭・下からの接続・全身は変えず、顔の部分だけを再修正する
+
+### 再修正の内容（`05-rendering-rig.js` の `HEAD_SECTIONS_V2`・`headSectionPointsV2`・`headV2Weights`、`06` の口）
+- 段を 10 → 12（下唇 0.24・鼻の下 0.36 を追加。幅・後ろの深さ・指数は上下の段の中間）
+- 点を 16 → 20（顔の前側だけ ±11.25°・±33.75° を追加。67.5° より後ろの角度は同じ）。Review M-1（顔の前側の頂点の密度）
+- 各段に 3 つの値（headR 比）。角度ごとの重みは `headV2Weights`:
+  - `center`: 顔の中心線（0°）を前へ。11.25° に `centerSide` 倍、22.5° にその 2 乗 → 鼻筋は細く（0.25）、口元は広く（0.55〜0.62）丸く膨らむ
+  - `cheek`: 頬を外へ。22.5° / 33.75° / 45° / 67.5° に 0.35 / 0.75 / 1 / 0.45 → 1 点に偏らず丸い頬（Review S-1）
+  - `socket`（既存）: 眼窩。11.25° / 22.5° / 33.75° に 0.5 / 1 / 0.6
+- 口の板を顔の曲面に沿って曲げた（板の各頂点の Z をその横位置の `frontZAt` に合わせる。Review S-2）
+- 顔の前側（67.5° まで）だけを動かす。0.66 より上（帽子の下を含む）・横（90°）・後ろの点は動かさない。顎の下（0.00）は顔の中心側だけ前へ（0° +0.05・11.25° +0.03・22.5° +0.018、33.75° より後ろは不変。顎の底を丸める）。追加の段の横・後ろは上下の段の補間との差 ≤ 0.005 headR（Review S-3）
+
+| 段 | yFrac | center | centerSide | cheek | 横顔の中心線の深さ（frontMul + center）|
+| --- | --- | --- | --- | --- | --- |
+| 顎の下 | 0.00 | 0.05 | 0.60 | 0 | 0.39（顎の底を丸める）|
+| 顎先 | 0.08 | 0.04 | 0.60 | 0 | 0.60 |
+| 顎の窪み・下頬 | 0.18 | -0.005 | 1.00 | 0.02 | 0.695（幅広く浅い）|
+| 下唇（新）| 0.24 | 0.035 | 0.70 | 0.035 | 0.765 |
+| 口元・頬 | 0.30 | 0.06 | 0.62 | 0.055 | 0.82（前への膨らみ）|
+| 鼻の下（新）| 0.36 | 0.04 | 0.60 | 0.065 | 0.81（鼻先より 0.04 奥）|
+| 鼻先・頬骨 | 0.42 | 0.07 | 0.30 | 0.065 | 0.85（横顔で最も前、鼻筋は細い）|
+| 鼻の付け根・眼窩 | 0.54 | 0.04 | 0.20 | 0.035 | 0.80 |
+| 眉の骨 | 0.66 | 0 | 0 | 0 | 0.74 |
+| 額 | 0.78 | 0 | 0 | 0 | 0.64 |
+- 横顔の中心線の曲がり（段ごと、正 = 凸）: 顎先 27°・顎の窪み -5°・下唇 6°・口元 29°・鼻の下 -23°・鼻先 30°。どの段もおよそ 30° 以内（Round 2 Review M-1: 顎先 52°・顎の窪み -30°・鼻の下 -39°・鼻先 48° の折れが、横顔のジグザグと正面の口の下の暗い線に見えた）。どの段も中心線の点が隣の 11.25° の点より奥にならない（縦の溝なし）
+- 試して採用しなかった値: ①頬を顎・下唇の段まで強く押す → 正面の顎の輪郭に下ぶくれ。②中心線を強く（鼻 0.12・口元 0.10・顎の窪み -0.05〜-0.06）→ 横顔で鼻先が尖り、口元がすぼめた口のように膨らみ、口の下に横の折れ線。③16 点のまま中心線を出す → 鼻と口元の区別が付かない（Review M-1）。④20 点で起伏を 1 段ずつの折れで作る（Round 2 の値: 顎先 0.075・顎の窪み -0.03・鼻の下 0.035・鼻先 0.10）→ 段の折れが横顔のジグザグ・正面の口の下の暗い線と顎の中央の暗い点・顎の縦の溝になった（Round 2 Review M-1）。曲がりを隣の段へ分け、引っ込みは幅広く浅くした
+- 口・鼻の部品（E-3 = B）の位置は `headOutlineAt().frontZ`（中心線の点）から決まる。眉は足さない
+
+### 比較画像（同じカメラ・倍率・照明）
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r3b-profile-before-after.jpg`（剣士・弓師の頭だけ（髪・帽子・胴を隠す）、高解像度。左から 横顔 前 / 後・45° 前 / 後・正面 前 / 後）
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r3b-compare-before-after.jpg`（8 職 × 帽子あり 正面・45°・横、頭だけ 45°・横、髪あり後頭部、診断の後頭部。それぞれ 前 / 後）
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r3b-8jobs-after.jpg`（変更後の 8 職: 帽子あり 正面・45°・横・下から・後頭部、頭だけ 正面・45°・横・下から、診断の後頭部・横）
+
+### 描画の量（再修正）
+- 三角形: 段の追加で 1 人 +256、前側の点の追加（16 → 20 点）で +608（頭 +92・髪の殻 +60 が本体・輪郭線 2 枚・X 線の 4 つで描かれる）。T-2 からの合計 **+2464**（剣士 14,916 → 17,380、約 +16.5%）。描画の数・Material は不変
+
+## T-2R-3 DEC-039: 顔造形方針の再定義（Stylized Realism / Geometry + Texture）
+
+### Phase A: 現在の顔メッシュの構造（`ab3bc24` の時点）
+| 項目 | 内容 |
+| --- | --- |
+| 作り方 | `makeCharacterHead` → `makeLoft`（断面の輪を縦に積み、上下を扇形で閉じる）。断面は `headSectionPointsV2`（前半分・後ろ半分で深さと丸みが違う超楕円）|
+| 点・段 | 20 点（顔の前側だけ ±11.25°・±33.75° を追加）× 12 段。三角形は頭 1 つ 約 476 |
+| 顔の起伏 | 段ごとの `center`（中心線を前へ）・`centerSide`・`cheek`（頬）・`socket`（眼窩）。中心線の点の上下の段の差だけで横顔を作る |
+| 限界 | 鼻の幅（中心線から 11.25° = 横 約 0.24 headR）より細い稜線を作れない → 鼻筋が通らない・鼻翼が無い。眉骨・頬骨は段の値の分け方でしか作れない。鼻は別部品の四角錐で、面に貼り付いて見える |
+| 周辺 | 髪の殻は頭の断面 × 1.09（20 点）。目の奥行き・口の板は `headOutlineAt().frontZAt` から。帽子の判定は headR 基準の独立した形 |
+
+### Phase A: 新しい顔面の設計（`05-rendering-rig.js` の `HEAD_V3_*`・`headV3FaceField`・`headSectionPointsV3`）
+- **土台**: `HEAD_V3_BASE`（V2 の土台の超楕円と同じ。顎は少し細く 0.60）。後頭部・側頭部・帽子の下（0.66 より上）は V2 と同じ形
+- **骨格の場** `headV3FaceField(角度, 横位置, 高さ)`: 土台の点に、顔の前側（〜52° で 1、75° で 0）だけで効く連続した量を足す。点の密度に依らない関数なので、どの角度・高さでも同じ顔になる
+  | 部位 | 形（headR 比、案 A）| 意図 |
+  | --- | --- | --- |
+  | 眉骨 | 目の上（0.655）の横の張り +0.040 | 目との前後関係（目が眼窩に入る）|
+  | 眼窩 | 目のまわり（横 0.37・高さ 0.545）を -0.065 | 目が顔に貼り付かず、くぼみに収まる |
+  | 鼻筋 | 眉間（0.585）から鼻先（0.43）へ高くなる細い稜線（幅 0.05〜0.08、高さ +0.024 → +0.095）| 眉間から鼻先へ通る鼻筋。鼻だけを大きくせず、付け根は低い |
+  | 鼻先・鼻柱 | 鼻先の丸み +0.035。鼻先の下（0.405 より下）で引っ込む | 横顔で鼻の高さが分かる。鼻の下は鼻先より奥 |
+  | 鼻翼 | 鼻先の両脇・少し下（横 0.115、0.41）+0.026 | 小鼻の立体 |
+  | 上唇・下唇・顎の窪み・顎先 | +0.032（0.305）・+0.026（0.255）・-0.020（0.205）・+0.040（0.115）| 口元は鼻先より後ろ、唇から顎先へ自然に下がる。顎は適度にシャープ |
+  | 頬骨・頬 | 50° の外へ +0.050（0.47）・38° の外へ +0.020（0.33）| 頬骨による面の変化と頬の丸み。45° で奥行き |
+- **点の密度**: 顔の前側だけ細かい角度（0・2.5・5・8・12・16・21・27・33.75・41・50・58・67.5°。中心線ほど細かい: 超楕円は小さい角度で横へ大きく進むため）。67.5° より後ろは V2 と同じ。段は顔の高さを細かく（鼻先〜鼻の下 0.37〜0.45 は 0.015 間隔）: 34 点 × 23 段。上下のふたは小さな輪で閉じる（扇形の細長い三角形が輪郭線を乱すため）
+- **案**: A = 標準（ゲームはこれ）、B = 骨格強め（眉骨 0.055・眼窩 0.085・鼻筋 0.120・頬骨 0.068 など）。顔確認モード（?dev=1）の「顔 案A / 案B」で切り替え（組み立ての間だけ `headV3Variant` を差し替えて戻す）
+- **鼻の別部品**（E-3 = B の四角錐）は作らない（DEC-039 の読み方）。口の板は上唇と下唇の間（0.285）の面に沿って曲げる。眉毛は描かない
+- **目**: 大きさ・間隔・高さ・縦横比・瞳・点数・傾きは T-1 のまま。奥行きは眼窩の面（`frontZAt`）から同じ沈み込みで決まる
+- **髪の殻**: 20 点のまま（頭の点は同じ関数で 20 点の角度だけ求める）。後頭部の髪の貫通の修正はそのまま（E2E PASS）
+
+### Phase B: 実装で直したこと
+- 輪郭線の殻が折れ目から覗く問題: 鼻の下（最大 52° の内側への折れ）と顎の窪みが急すぎ → 鼻柱の引っ込み・上唇・下唇・顎の窪みの幅を広げ、最大の折れ（案 A）を約 34° に。頭頂の細い黒い線 → 上下のふたを小さな輪で閉じて解消
+- 三角形を抑える: 壁越しの影（X 線シェル）だけ前の版（20 点 × 12 段）の粗い形（`userData.xrayGeometry`）。顎の 2 段（0.05・0.14）を省く
+
+### 描画の量
+| | 本体 | 全体（描画回数）| 三角形（剣士）| Material |
+| --- | --- | --- | --- | --- |
+| T-2 | 82 | 292 | 14,916 | 21 |
+| 直前（`ab3bc24`）| 不変 | 不変 | 17,380 | 不変 |
+| DEC-039（今回）| 不変 | 不変 | **21,028**（直前 +3,648、T-2 から +6,112 = 約 +41%）| 不変 |
+- 8 職とも同じ増え方（+3,648）。影の旅人は不変。頭 1 つ 約 1,560 三角形（本体・輪郭線 2 枚で 3 回描く）
+
+### 比較画像（同じカメラ・倍率・照明、無地の肌色）
+- `.ai/reports/CHARACTER-VIS-002-assets/dec039-profile-before-A-B.jpg`（剣士・弓師の頭だけ、高解像度。横顔・45°・正面 それぞれ 直前 / 案A / 案B）
+- `.ai/reports/CHARACTER-VIS-002-assets/dec039-compare-before-after.jpg`（8 職: 頭だけ 正面・45°・横・下から、帽子あり 正面・45°・横、髪あり後頭部、診断の後頭部。それぞれ 直前 / 案A）
+- `.ai/reports/CHARACTER-VIS-002-assets/dec039-8jobs-after.jpg`（案A の 8 職: 帽子あり・頭だけの 5 方向と診断）
+
+### Test Report（DEC-039）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit` | PASS（2341）|
+| `head-hair-penetration`・`character-visual-budget`（三角形の上限を更新、影の旅人のシグネチャ不変）・`face-preview`（案 A / B の切り替えを追加）| PASS |
+| 関連 E2E | 下の Status History |
+
+### Known limitations
+- 案 B は鼻の脇（45°）に輪郭線の細い線がわずかに残る（骨格を強めた分、内側への折れが大きい）
+- 目は T-1 の大きな目のまま（DEC-039 で維持）。写実寄りの頭蓋と大きな目の釣り合いは Human の目視の項目
+
 ## Status History
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |
@@ -606,3 +917,26 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-25 | T-1 | IMPLEMENTING（変更なし）| Reviewer / Implementer | Review Round 1 PASS（`7734197` / `c4d66e3`）、推奨の指摘 S-1〜S-4 と note を反映（`0923f6d`）。関連 E2E 93 PASS。E-3 の回答と Human の目視承認を待つ |
 | 2026-11-25 | T-1 | IMPLEMENTING（変更なし）| Reviewer | Review Round 2 **PASS**（Reviewed SHA `396c83c`）。S-1〜S-4 解消、回帰なし。note R2-N1（記述の更新、反映済み）・R2-N2（白目の外側の縁と顔の面の隙間 約 0.0006 → iPhone の拡大確認）・R2-N3。PR #148。E-3 の回答と Human の目視承認を待つ |
 | 2026-11-26 | T-1 | IMPLEMENTING → REVIEWING → DONE | Planner / Implementer / Reviewer | DEC-037（E-3 = B、iPhone 目視確認完了）。口・鼻を実装（`86c9327`）、関連 E2E 55 + 9 PASS。口・鼻の追加分（`3110bfe..ceaf8a0`）の Reviewer **PASS**（`.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`、T-2 のブランチ）。目の部品（瞳孔・上まぶた）は DEC-037 の読み方のとおり足していない |
+| 2026-11-26 | T-2 | PLANNED → APPROVED → IMPLEMENTING → TESTING | Planner / Implementer | 下の Implementation Result（T-2）|
+| 2026-11-26 | T-2 | TESTING → REVIEWING | Reviewer / Implementer | Review **PASS**（`.ai/reports/CHARACTER-VIS-002-T1B-T2-review.md`、Reviewed `ceaf8a0..5d56950`）。S-2（膝の輪の突き出し）を反映: すね側の最初の輪 0.12 → 0.06、奥行き 1.34 → 1.24。S-1 / S-3 は記録を反映、N-2 は docs の白目 16 |
+| 2026-11-26 | T-2 | REVIEWING（変更なし）| Reviewer | Review Round 2 **PASS**（Reviewed SHA `4c4d876`）。膝の突き出しは解消（膝 0〜60° ですね側の前面が太腿側の前面より 9.7 mm 以上内側）。note R2-N1: 膝を約 0.5 rad 以上曲げると太腿の裾の下に細い暗い帯（透けない、T-1 の段差より小さい）→ V-1 の確認項目。**Human の目視承認待ち**、承認まで T-3 へ進まない |
+| 2026-11-27 | T-2 | REVIEWING（変更なし）| Human / Analyzer / Planner | Human Review（iPhone）で指摘 A〜D。原因の分析と設計案（`.ai/reports/CHARACTER-VIS-002-T2-human-review.md`）。コードの変更なし。Human の判断 H-1〜H-4 待ち、T-2 の承認と T-3 は保留 |
+| 2026-11-27 | Task / T-2R-1 | — → IMPLEMENTING → REVIEWING | Human / Planner / Implementer / Reviewer | DEC-038（H-1 = O1・H-2 = B・H-3 実装・H-4 実施、T-2R-1〜5）。T-2R-1 を実装（`a51c40f`）、Review Round 1 CHANGES_REQUIRED → 反映（`f9fc4e5`）→ Round 2 **PASS**。unit 2341・BGM の E2E 16・レイアウト系 44 PASS。iPhone 実機の確認（Human）待ち。T-2R-2 以降は Human の確認の後 |
+| 2026-11-27 | T-2R-1 | REVIEWING（変更なし）| Human / Analyzer / Implementer | Human の実機の確認: Safari は正常、ChatGPT / Claude のアプリ内ブラウザで BGM の問題。追加調査と修正（音の持ち主は 1 ページ・描画停止で一時停止・診断の表示）。unit 2341・BGM の E2E 18 PASS。Reviewer へ |
+| 2026-11-27 | T-2R-1 | REVIEWING（変更なし）| Reviewer / Implementer | 追加調査分の Review Round 1 CHANGES_REQUIRED（M-1 操作からの再開が持ち主の調整を通らない）→ 反映（`a634fbf`）→ Round 2 **PASS**。unit 2341・BGM の E2E 18 PASS。Human の iPhone の再確認待ち |
+| 2026-11-27 | T-2R-1 | REVIEWING → DONE | Human | CI 成功（`a634fbf`）。Human の iPhone 実機確認 PASS（Safari・ChatGPT / Claude のアプリ内ブラウザで正常、BGM の重複の改善を確認）|
+| 2026-11-27 | T-2R-2 | PLANNED → APPROVED → IMPLEMENTING | Human / Planner | Human の着手指示（顔の確認のプレビューのみ。T-2R-3 以降・T-3 は未着手）|
+| 2026-11-27 | T-2R-2 | IMPLEMENTING → TESTING → REVIEWING | Implementer | 顔の確認のプレビューを実装（下の Implementation Result（T-2R-2））。unit 2341・E2E 22 PASS。Reviewer へ |
+| 2026-11-27 | T-2R-2 | REVIEWING（変更なし）| Reviewer / Implementer | Review **PASS**（Reviewed SHA `733449b`、`.ai/reports/CHARACTER-VIS-002-T2R2-review.md`）。should-fix S-1（組み立ての例外でゲームのシーンに部品が残る）・S-2（髪の房も緑に）・S-3（Motion Preview の調査の記録）と note（キー入力の遮断・z-index のトークン・X 線を隠すことの E2E）を反映。face-preview 3 PASS。**Human の iPhone での確認待ち**、確認まで T-2R-3 へ進まない |
+| 2026-11-27 | T-2R-2 | REVIEWING（変更なし）| Reviewer | Review Round 2 **PASS**（Reviewed SHA `e6dbc41`）。例外の注入でゲームのシーン・共有変数が戻ること、キー入力の遮断が閉じた後に漏れないことを確認。Human の iPhone での確認待ち |
+| 2026-11-27 | T-2R-2 | REVIEWING（変更なし）| Implementer | CI（`0311f43`）で `menu-character-layout` が 2 件失敗: 設定タブのボタンの数（本番 11 項目）を、`?dev=1` の確認用の「BGM 段階」だけ除いて数えていたため、新しい dev 専用の「顔の確認」で 12 になった。既存の「BGM 段階」と同じ扱い（数から除き、表示を別に確かめる）にテストを合わせた（本番の 11 項目の期待は変えない）。ローカル 5 PASS |
+| 2026-11-28 | T-2R-2 | REVIEWING → DONE | Human | iPhone 実機確認 PASS（顔確認モードは正常、目視で問題なし）|
+| 2026-11-28 | T-2R-3 | PLANNED → APPROVED → IMPLEMENTING | Human / Implementer | Human の着手指示（O1 の共通の頭と髪の貫通の修正）。下の Implementation Result（T-2R-3）|
+| 2026-11-28 | T-2R-3 | IMPLEMENTING → TESTING → REVIEWING | Implementer / Reviewer | 実装（`3fc25d0`）・記録（`ea9c8cb`）。unit 2341・関連 E2E 93 PASS。Review **PASS**（`ea9c8cb`）、S-1・S-2・N-1・N-3 を反映。**Human の iPhone での目視確認待ち**、確認まで T-2R-4 へ進まない |
+| 2026-11-28 | T-2R-3 | REVIEWING（変更なし）| Reviewer | Review Round 2 **PASS**（Reviewed SHA `0338bef`）。追加した光線（生え際より上の全周・上から）は、頭を広げると前側の突き抜けを検出することを確認（変更前のコードに前側の突き抜けは無く、今後の回帰の防止）。note N-8（上からの光線は今の帽子の作りではほぼ重複）。Human の iPhone での目視確認待ち |
+| 2026-11-28 | T-2R-3 | REVIEWING → IMPLEMENTING | Human / Implementer | Human Review（iPhone）: 正面・下から・後頭部・全身 PASS、45°・横顔 未達、帽子は未確認。顔の部分（頬・鼻・口元・顎）だけを再修正 |
+| 2026-11-28 | T-2R-3 | IMPLEMENTING（変更なし）| Reviewer / Implementer | 再修正（`9e57e29`）の Review Round 1 = **CHANGES_REQUIRED**（`.ai/reports/CHARACTER-VIS-002-T2R3b-review.md`）。M-1 横顔の鼻・口元・顎がまだ読めない、S-1 頬が 45° の 1 点に偏る、S-2 口の板の端が浮く、S-3 記録。→ 顔の前側だけ 20 点に、鼻の下の段・重みの分散・口の板を曲げる・記録の修正 |
+| 2026-11-28 | T-2R-3 | IMPLEMENTING（変更なし）| Reviewer / Implementer | Review Round 2 = CHANGES_REQUIRED（`63fc4b1`）: M-1 横顔の起伏が 1 段ずつの折れ（最大 52°）で、ジグザグ・正面の暗い線・顎の縦の溝。→ 曲がりを隣の段へ分け（各段 ≤ 約 30°）、引っ込みを幅広く浅く、顎の底を丸める。note（内訳 +96 / +56、「67.5° まで」、古いコメント）を反映 |
+| 2026-11-28 | T-2R-3 | IMPLEMENTING → REVIEWING | Reviewer | Review Round 3 **PASS**（Reviewed SHA `ab3bc24`、`.ai/reports/CHARACTER-VIS-002-T2R3b-review.md`）。横顔の中心線の曲がり ≤ 30°、縦の溝なし、0.66 以上・90°〜270°・正面の輪郭は変更前と差 0。note: 顎の下（0.00）の変更は Human の「下から」の確認項目、弓師の顎の底の小さな暗い V（気になれば chinBase center 0.03〜0.04）。**Human の iPhone での再確認待ち**、T-2R-4 へ進まない |
+| 2026-11-28 | T-2R-3 | REVIEWING（変更なし）| Implementer | 関連 E2E（`ab3bc24`）102 件: 101 PASS・1 件（`chapter1-progression` 宵待ちの村クリア後）が実行中のソースのコメント修正による開発サーバーの再読み込みで中断（navigation）→ 単独で再実行して 11 PASS。build・unit 2341 PASS |
+| 2026-11-28 | T-2R-3 | REVIEWING → IMPLEMENTING | Human / Planner / Implementer | DEC-039（顔造形方針の再定義: Stylized Realism / Geometry + Texture）。Phase A（現状の分析・新しい顔面の設計）・Phase B（骨格の場による実装、案 A / B）。unit 2341・貫通 / 描画の量 / 顔確認モードの E2E PASS |

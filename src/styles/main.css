@@ -2033,3 +2033,30 @@
    以前はボスバーの分の段を空けて下に置いていたため、上の帯の通知が画面の中ほどまで押し下げられていた。
    ボスバーが出ている間の位置(ボスバーの下)は変えない */
 #scenario-timer:not(:has(~ #boss-bar-wrap.show)){ top:calc(14px + env(safe-area-inset-top)); }
+
+/* ---------- 顔の確認のプレビュー(CHARACTER-VIS-002 T-2R-2、?dev=1 のみ。18-face-preview.js)---------- */
+#face-preview{
+  position:fixed; inset:0; z-index:var(--ui-z-face-preview); display:flex; flex-direction:column;
+  background:#1c1f26; color:#e8e8ee; font-size:13px;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+#face-preview .fp-head{ display:flex; align-items:center; gap:8px; padding:6px 8px; }
+#face-preview .fp-label{ flex:1; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#face-preview .fp-stage{ flex:1; min-height:0; position:relative; }
+#face-preview .fp-stage canvas{ display:block; width:100%; height:100%; }
+#face-preview .fp-controls{ padding:6px; display:flex; flex-direction:column; gap:6px; }
+#face-preview .fp-row{ display:flex; flex-wrap:wrap; gap:5px; }
+#face-preview .fp-jobs .fp-btn{ flex:1 1 calc(25% - 5px); }
+#face-preview .fp-views .fp-btn{ flex:1 1 calc(20% - 5px); }
+#face-preview .fp-btn{
+  min-height:38px; padding:4px 8px; border-radius:6px; border:1px solid #4a5060;
+  background:#2a2e38; color:#e8e8ee; font-size:13px; cursor:pointer;
+}
+#face-preview .fp-btn.selected{ background:#3d6a8c; border-color:#7fb3d8; }
+#face-preview .fp-close{ min-height:34px; }
+@media (orientation: landscape) and (max-height: 500px){
+  #face-preview{ flex-direction:row; }
+  #face-preview .fp-head{ position:absolute; top:env(safe-area-inset-top); left:env(safe-area-inset-left); z-index:1; }
+  #face-preview .fp-controls{ width:42%; overflow-y:auto; }
+  #face-preview .fp-btn{ min-height:32px; font-size:12px; }
+}
