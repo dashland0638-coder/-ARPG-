@@ -91,16 +91,18 @@ const PROBE = `
    (全体 -9)で全体 -17、三角形 -692
    頭(CHARACTER-VIS-002 T-2R-3、DEC-038 H-1 = O1 / H-4): 4職と上位4職の頭を 8 点 × 5 段 → 16 点 × 10 段、髪の殻を
    8 点 × 4 段 → 16 点 × 7 段にした。描画の数(本体・全体)と Material は変わらない。三角形は 1 人 +1600
-   (頭 +240・髪の殻 +160 = +400 が、本体・輪郭線 2 枚・X 線シェルの 4 つで描かれる)。影の旅人は不変 */
+   (頭 +240・髪の殻 +160 = +400 が、本体・輪郭線 2 枚・X 線シェルの 4 つで描かれる)。影の旅人は不変。
+   T-2R-3 再修正(Human Review: 45° の頬・横顔の鼻・口元・顎): 頭に下唇・鼻の下の 2 段を足し 10 段 → 12 段、
+   三角形はさらに 1 人 +256(頭 +64 × 4)。T-2 からの合計 +1856 */
 const BUDGET = [
-  {key:'warrior', job:null,           name:'剣士',         body:82, total:292, tris:16516, mats:21},
-  {key:'warrior', job:'battleKnight', name:'戦騎士',       body:91, total:328, tris:18092, mats:24},
-  {key:'mage',    job:null,           name:'魔法使い',     body:74, total:269, tris:16848, mats:20},
-  {key:'mage',    job:'archmage',     name:'魔導士',       body:89, total:329, tris:18256, mats:22},
-  {key:'archer',  job:null,           name:'弓師',         body:78, total:285, tris:16996, mats:23},
-  {key:'archer',  job:'hawkEye',      name:'鷹の目',       body:88, total:325, tris:18820, mats:27},
-  {key:'rogue',   job:null,           name:'盗賊',         body:80, total:293, tris:16232, mats:24},
-  {key:'rogue',   job:'berserker',    name:'バーサーカー', body:85, total:313, tris:17008, mats:26},
+  {key:'warrior', job:null,           name:'剣士',         body:82, total:292, tris:16772, mats:21},
+  {key:'warrior', job:'battleKnight', name:'戦騎士',       body:91, total:328, tris:18348, mats:24},
+  {key:'mage',    job:null,           name:'魔法使い',     body:74, total:269, tris:17104, mats:20},
+  {key:'mage',    job:'archmage',     name:'魔導士',       body:89, total:329, tris:18512, mats:22},
+  {key:'archer',  job:null,           name:'弓師',         body:78, total:285, tris:17252, mats:23},
+  {key:'archer',  job:'hawkEye',      name:'鷹の目',       body:88, total:325, tris:19076, mats:27},
+  {key:'rogue',   job:null,           name:'盗賊',         body:80, total:293, tris:16488, mats:24},
+  {key:'rogue',   job:'berserker',    name:'バーサーカー', body:85, total:313, tris:17264, mats:26},
 ];
 const WANDERER = {
   mesh: {body:82, total:322, tris:15508, mats:16},

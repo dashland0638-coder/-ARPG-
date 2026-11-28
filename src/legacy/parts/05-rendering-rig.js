@@ -761,17 +761,27 @@
      影の旅人・敵・NPC は既定の HEAD_SECTION_RATIOS のまま(共通の関数の既定値は変えない: T-0)。
      髪の殻・顔の部品・被り物の判定は headSectionPoints / headOutlineAt / headRatioAt を通して自動で追従する */
   const HEAD_RING_POINTS_V2 = 16;
+  /* T-2R-3 再修正(Human Review 2026-11-28: 45° で頬の膨らみと奥行き、横顔で鼻・口元・顎の前後の立体が不足)。
+     頭蓋・後頭部・正面の輪郭・下からの接続(Human が合格とした部分)は変えず、顔の部分だけを足す:
+       center     … 顔の中心線の点(k = 0)だけを前へ出す量(headR 比)。横顔の線: 顎先 → 顎の窪み → 下唇 → 口元 →
+                    鼻の下 → 鼻先の高さ(最も前)→ 鼻の付け根(目の高さ)→ 眉 → 額
+       centerSide … center のうち鼻筋の両隣(k = 1・15)にも掛ける割合(口元は広く、鼻は狭く)
+       cheek      … 45°(k = 2・14)の点を外へ押し出す量(headR 比、67.5° の k = 3・13 には 0.3 倍)。頬の膨らみ
+     顔の中心線と 45° 付近だけを動かすので、横(90°)・後ろ・帽子の下の形と髪の殻の関係は変わらない。
+     下唇(0.24)と鼻の下(0.36)の段を足し、顔の前後の起伏を置く(10 段 → 12 段) */
   const HEAD_SECTIONS_V2 = {
-    chinBase:  { yFrac:0.00, widthMul:0.40, frontMul:0.34, backMul:0.30, nf:2.0, nb:2.0, socket:0 },     // 顎の下
-    chin:      { yFrac:0.08, widthMul:0.64, frontMul:0.56, backMul:0.52, nf:2.2, nb:2.0, socket:0 },     // 顎先の丸み(小さく丸い)
-    jaw:       { yFrac:0.18, widthMul:0.89, frontMul:0.70, backMul:0.70, nf:2.6, nb:2.1, socket:0 },     // 下頬・顎の幅(ふっくら)
-    mouth:     { yFrac:0.30, widthMul:1.00, frontMul:0.76, backMul:0.84, nf:2.6, nb:2.1, socket:0 },     // 口元・頬の膨らみ
-    noseBase:  { yFrac:0.42, widthMul:1.05, frontMul:0.78, backMul:0.92, nf:2.4, nb:2.1, socket:0 },     // 鼻・頬骨
-    eye:       { yFrac:0.54, widthMul:1.06, frontMul:0.76, backMul:0.95, nf:2.3, nb:2.1, socket:0.040 }, // 目の高さ(最大幅)・眼窩
-    brow:      { yFrac:0.66, widthMul:1.00, frontMul:0.74, backMul:0.93, nf:2.2, nb:2.1, socket:0.010 }, // 眉の骨(眉は描かない: E-3 = B)
-    forehead:  { yFrac:0.78, widthMul:0.88, frontMul:0.64, backMul:0.84, nf:2.1, nb:2.1, socket:0 },     // 額(帽子の内側)
-    upperHead: { yFrac:0.89, widthMul:0.70, frontMul:0.46, backMul:0.64, nf:2.0, nb:2.0, socket:0 },
-    crown:     { yFrac:1.00, widthMul:0.34, frontMul:0.18, backMul:0.26, nf:2.0, nb:2.0, socket:0 },     // 頭頂
+    chinBase:  { yFrac:0.00, widthMul:0.40, frontMul:0.34, backMul:0.30, nf:2.0, nb:2.0, socket:0,     center:0,     centerSide:0,    cheek:0     }, // 顎の下
+    chin:      { yFrac:0.08, widthMul:0.64, frontMul:0.56, backMul:0.52, nf:2.2, nb:2.0, socket:0,     center:0.045, centerSide:0.30, cheek:0     }, // 顎先(少し前へ、小さく丸い)
+    jaw:       { yFrac:0.18, widthMul:0.89, frontMul:0.70, backMul:0.70, nf:2.6, nb:2.1, socket:0,     center:-0.01, centerSide:0.30, cheek:0.01 }, // 顎の窪み(下唇から顎先へ後ろへ下がる)・下頬
+    lowerLip:  { yFrac:0.24, widthMul:0.95, frontMul:0.73, backMul:0.77, nf:2.6, nb:2.1, socket:0,     center:0.05, centerSide:0.40, cheek:0.025 }, // 下唇
+    mouth:     { yFrac:0.30, widthMul:1.00, frontMul:0.76, backMul:0.84, nf:2.6, nb:2.1, socket:0,     center:0.075, centerSide:0.45, cheek:0.045 }, // 口元(前への膨らみ)・頬
+    subNose:   { yFrac:0.36, widthMul:1.03, frontMul:0.77, backMul:0.88, nf:2.5, nb:2.1, socket:0,     center:0.08, centerSide:0.35, cheek:0.065 }, // 鼻の下(口元と鼻をつなぐ)
+    noseBase:  { yFrac:0.42, widthMul:1.05, frontMul:0.78, backMul:0.92, nf:2.4, nb:2.1, socket:0,     center:0.085, centerSide:0.30, cheek:0.07 }, // 鼻先の高さ(横顔で最も前)・頬骨
+    eye:       { yFrac:0.54, widthMul:1.06, frontMul:0.76, backMul:0.95, nf:2.3, nb:2.1, socket:0.040, center:0.04, centerSide:0.00, cheek:0.035 }, // 鼻の付け根・眼窩(最大幅)
+    brow:      { yFrac:0.66, widthMul:1.00, frontMul:0.74, backMul:0.93, nf:2.2, nb:2.1, socket:0.010, center:0,     centerSide:0,    cheek:0     }, // 眉の骨(眉は描かない: E-3 = B)
+    forehead:  { yFrac:0.78, widthMul:0.88, frontMul:0.64, backMul:0.84, nf:2.1, nb:2.1, socket:0,     center:0,     centerSide:0,    cheek:0     }, // 額(帽子の内側)
+    upperHead: { yFrac:0.89, widthMul:0.70, frontMul:0.46, backMul:0.64, nf:2.0, nb:2.0, socket:0,     center:0,     centerSide:0,    cheek:0     },
+    crown:     { yFrac:1.00, widthMul:0.34, frontMul:0.18, backMul:0.26, nf:2.0, nb:2.0, socket:0,     center:0,     centerSide:0,    cheek:0     }, // 頭頂
   };
   const isHeadV2 = r => r && r.frontMul != null;
   const sgnPow = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
@@ -784,9 +794,19 @@
       const th = -k*Math.PI*2/n, sn = Math.sin(th), cs = Math.cos(th);
       const front = cs >= 0;
       const e = 2/(front ? r.nf : r.nb);
-      const x = hw*sgnPow(sn, e);
+      let x = hw*sgnPow(sn, e);
       let z = (front ? hf : hb)*sgnPow(cs, e);
       if(r.socket && (k === 1 || k === n-1)) z -= W*r.socket;
+      // 顔の中心線(と鼻筋の両隣)を前へ: 鼻先・口元・顎の前後の起伏(T-2R-3 再修正)
+      if(r.center){
+        if(k === 0) z += W*r.center;
+        else if(k === 1 || k === n-1) z += W*r.center*(r.centerSide || 0);
+      }
+      // 頬の膨らみ: 45°(と 67.5° に少し)の点を外へ
+      if(r.cheek){
+        const f = (k === 2 || k === n-2) ? 1 : (k === 3 || k === n-3) ? 0.3 : 0;
+        if(f){ const len = Math.hypot(x, z) || 1; x += x/len*W*r.cheek*f; z += z/len*W*r.cheek*f; }
+      }
       pts.push([x, z]);
     }
     return pts;
@@ -886,7 +906,7 @@
       y:         -o.height/2 + o.height*yFrac,
       halfWidth: hw,
       sideZ:     0,
-      frontZ:    W*r.frontMul,
+      frontZ:    pts[0][1],   // 顔の中心線の点(center を含む)
       backZ:     -hb*Math.pow(bc, 2/r.nb),
       backHalfWidth: hw*bx,
       frontZAt,
