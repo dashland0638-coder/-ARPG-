@@ -829,3 +829,4 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-28 | T-2R-2 | REVIEWING → DONE | Human | iPhone 実機確認 PASS（顔確認モードは正常、目視で問題なし）|
 | 2026-11-28 | T-2R-3 | PLANNED → APPROVED → IMPLEMENTING | Human / Implementer | Human の着手指示（O1 の共通の頭と髪の貫通の修正）。下の Implementation Result（T-2R-3）|
 | 2026-11-28 | T-2R-3 | IMPLEMENTING → TESTING → REVIEWING | Implementer / Reviewer | 実装（`3fc25d0`）・記録（`ea9c8cb`）。unit 2341・関連 E2E 93 PASS。Review **PASS**（`ea9c8cb`）、S-1・S-2・N-1・N-3 を反映。**Human の iPhone での目視確認待ち**、確認まで T-2R-4 へ進まない |
+| 2026-11-28 | T-2R-3 | REVIEWING（変更なし）| Reviewer | Review Round 2 **PASS**（Reviewed SHA `0338bef`）。追加した光線（生え際より上の全周・上から）は、頭を広げると前側の突き抜けを検出することを確認（変更前のコードに前側の突き抜けは無く、今後の回帰の防止）。note N-8（上からの光線は今の帽子の作りではほぼ重複）。Human の iPhone での目視確認待ち |
