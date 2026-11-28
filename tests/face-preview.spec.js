@@ -121,6 +121,14 @@ test.describe('顔の確認のプレビュー(CHARACTER-VIS-002 T-2R-2)', () => 
     expect(await weaponVisible()).toBe(true);
     await page.click('#face-preview [data-fp-weapon]');
     expect(await weaponVisible()).toBe(false);
+    // 顔の案(DEC-039): 案B に切り替えると頭の形が変わり、案A に戻すと元の形。ゲームの姿は変わらない(下の gameSnapshot)
+    const headSig = () => page.evaluate(() => { const p = /** @type {any} */ (window).__facePreview.fig.parts.headGroupParts[0].geometry.attributes.position; let s = 0; for (let i = 0; i < p.count; i++) s += p.getZ(i) * (i % 7 + 1); return +s.toFixed(5); });
+    const sigA = await headSig();
+    await page.click('#face-preview [data-fp-variant="B"]');
+    await expect(page.locator('#face-preview .fp-label')).toContainText('案B');
+    expect(await headSig()).not.toBe(sigA);
+    await page.click('#face-preview [data-fp-variant="A"]');
+    expect(await headSig()).toBe(sigA);
     // 描画している
     expect(await page.evaluate(() => /** @type {any} */ (window).__facePreview.renderer.info.render.calls)).toBeGreaterThan(0);
     await page.screenshot({ path: test.info().outputPath('face-preview-390x844.png') });

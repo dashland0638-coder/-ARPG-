@@ -786,6 +786,102 @@
     upperHead: { yFrac:0.89, widthMul:0.70, frontMul:0.46, backMul:0.64, nf:2.0, nb:2.0, socket:0,     center:0,     centerSide:0,    cheek:0     },
     crown:     { yFrac:1.00, widthMul:0.34, frontMul:0.18, backMul:0.26, nf:2.0, nb:2.0, socket:0,     center:0,     centerSide:0,    cheek:0     }, // 頭頂
   };
+
+  /* =========================================================
+     CHARACTER-VIS-002 T-2R-3 顔造形方針の再定義(DEC-039: Stylized Realism / Geometry + Texture)
+     ローポリの可愛い顔から、骨格・顔面の凹凸・自然な横顔を持つスタイライズド・リアリズムへ。顔の立体
+     (眉骨・眼窩・鼻筋と鼻先・鼻翼と鼻下・頬骨と頬・口元・顎)はメッシュの形で作り、テクスチャ・陰影に頼らない。
+     作り方(O1 の延長):
+       ・土台 … HEAD_SECTIONS_V2 と同じ「前後で深さと丸みが違う超楕円」の頭蓋(HEAD_V3_BASE)。後頭部・側頭部・
+         帽子の下(0.66 より上)は V2 と同じ形
+       ・顔の起伏 … 土台の点に、顔の前側だけで効く連続した「骨格の場」(headV3FaceField: 眉骨・眼窩・鼻筋・鼻先・
+         鼻翼・上唇・下唇・顎の窪み・顎先・頬骨・頬)を足す。どの角度・高さでも計算できる関数なので、点の密度に依らない
+       ・点の密度 … 顔の前側だけ細かく(中心線の近くほど細かい角度 HEAD_V3_DEGS)、顔の高さだけ段を細かく
+         (HEAD_V3_YFRACS)。横・後ろの角度(67.5° 以降)は V2 と同じ
+     案(HEAD_V3_VARIANTS): A = 標準、B = 骨格を強めに。顔確認モード(?dev=1)で比較する。ゲームは A */
+  const HEAD_V3_BASE = {
+    chinBase:  { yFrac:0.00, widthMul:0.40, frontMul:0.36, backMul:0.30, nf:2.0, nb:2.0 },
+    chin:      { yFrac:0.08, widthMul:0.60, frontMul:0.56, backMul:0.52, nf:2.2, nb:2.0 },
+    jaw:       { yFrac:0.18, widthMul:0.86, frontMul:0.68, backMul:0.70, nf:2.4, nb:2.1 },
+    mouth:     { yFrac:0.30, widthMul:0.99, frontMul:0.74, backMul:0.84, nf:2.4, nb:2.1 },
+    noseBase:  { yFrac:0.42, widthMul:1.05, frontMul:0.76, backMul:0.92, nf:2.3, nb:2.1 },
+    eye:       { yFrac:0.54, widthMul:1.06, frontMul:0.76, backMul:0.95, nf:2.3, nb:2.1 },
+    brow:      { yFrac:0.66, widthMul:1.00, frontMul:0.74, backMul:0.93, nf:2.2, nb:2.1 },
+    forehead:  { yFrac:0.78, widthMul:0.88, frontMul:0.64, backMul:0.84, nf:2.1, nb:2.1 },
+    upperHead: { yFrac:0.89, widthMul:0.70, frontMul:0.46, backMul:0.64, nf:2.0, nb:2.0 },
+    crown:     { yFrac:1.00, widthMul:0.34, frontMul:0.18, backMul:0.26, nf:2.0, nb:2.0 },
+  };
+  // 顔の高さ(0.10〜0.60)は細かく。鼻先〜鼻の下(0.385〜0.45)は特に細かい
+  const HEAD_V3_YFRACS = [0.00, 0.10, 0.18, 0.22, 0.255, 0.285, 0.315, 0.345, 0.37, 0.385, 0.40, 0.415,
+    0.43, 0.45, 0.48, 0.52, 0.56, 0.60, 0.66, 0.72, 0.78, 0.89, 1.00];
+  // 顔の中心線(0°)からの角度。中心線の近くほど細かい(超楕円は小さい角度で横へ大きく進むため)。67.5° 以降は V2 と同じ
+  const HEAD_V3_DEGS_HALF = [0, 2.5, 5, 8, 12, 16, 21, 27, 33.75, 41, 50, 58, 67.5, 90, 112.5, 135, 157.5, 180];
+  const HEAD_V3_DEGS = (()=>{ const a = [...HEAD_V3_DEGS_HALF]; for(let i=HEAD_V3_DEGS_HALF.length-2;i>=1;i--) a.push(360 - HEAD_V3_DEGS_HALF[i]); return a; })();
+  /* 骨格の場の強さ(headR 比)。A = 標準、B = 骨格を強めに */
+  const HEAD_V3_VARIANTS = {
+    A: { brow:0.040, socket:0.065, bridge:0.095, tip:0.035, alar:0.026, upperLip:0.032, lowerLip:0.026, sulcus:0.020, chin:0.040, cheekbone:0.050, cheek:0.020 },
+    B: { brow:0.055, socket:0.085, bridge:0.120, tip:0.040, alar:0.032, upperLip:0.036, lowerLip:0.030, sulcus:0.028, chin:0.050, cheekbone:0.068, cheek:0.016 },
+  };
+  let headV3Variant = 'A';   // 顔確認モードが案を切り替えるときだけ一時的に変える(ゲームは A)
+  const gauss = a => Math.exp(-a*a);
+  const smooth01 = t => { t = Math.max(0, Math.min(1, t)); return t*t*(3 - 2*t); };
+  /* 骨格の場: 土台の点(角度 deg = 0〜180、横位置 xs = |x|/headR、高さ y = yFrac)に足す量。
+     dz … 前(+Z)へ、dr … その点の向き(外)へ。顔の前側(〜75°)だけで効く */
+  function headV3FaceField(deg, xs, y, V){
+    const front = 1 - smooth01((deg - 52)/23);           // 52° まで 1、75° で 0
+    if(front <= 0) return { dz:0, dr:0 };
+    let dz = 0, dr = 0;
+    // 眉骨: 目の上の横の張り(眉間も少し)
+    dz += V.brow*gauss((y - 0.655)/0.032)*gauss((xs - 0.28)/0.34);
+    // 眼窩: 目のまわりを奥へ(目の中心 x ≈ 0.365、y ≈ 0.545)
+    dz -= V.socket*gauss((xs - 0.37)/0.15)*gauss((y - 0.545)/0.06);
+    // 鼻筋: 眉間(0.58)から鼻先(0.43)へ高くなる細い稜線。鼻先の下(0.40 より下)で急に引っ込む
+    {
+      const t = Math.max(0, Math.min(1, (0.585 - y)/0.155));
+      let h = 0.25 + 0.75*Math.pow(t, 1.2);                 // 付け根 0.25 → 鼻先 1
+      if(y > 0.585) h *= gauss((y - 0.585)/0.035);          // 眉間へ消える
+      if(y < 0.405) h *= gauss((y - 0.405)/0.042);          // 鼻の下(鼻柱)で引っ込む(急すぎると輪郭線が折れ目から覗く)
+      const w = 0.050 + 0.030*t;                            // 稜線の幅(鼻先ほど広い)
+      dz += V.bridge*h*gauss(xs/w);
+    }
+    // 鼻先の丸み
+    dz += V.tip*gauss(xs/0.07)*gauss((y - 0.425)/0.024);
+    // 鼻翼(小鼻): 鼻先の両脇・少し下
+    dz += V.alar*gauss((xs - 0.115)/0.05)*gauss((y - 0.41)/0.028);
+    // 上唇・下唇・顎の窪み・顎先(口元は鼻先より後ろ、顎先へ下がる)
+    dz += V.upperLip*gauss(xs/0.18)*gauss((y - 0.305)/0.045);
+    dz += V.lowerLip*gauss(xs/0.15)*gauss((y - 0.255)/0.032);
+    dz -= V.sulcus*gauss(xs/0.22)*gauss((y - 0.205)/0.035);
+    dz += V.chin*gauss(xs/0.17)*gauss((y - 0.115)/0.045);
+    // 頬骨(目の外下)と頬
+    dr += V.cheekbone*gauss((deg - 50)/13)*gauss((y - 0.47)/0.06);
+    dr += V.cheek*gauss((deg - 38)/16)*gauss((y - 0.33)/0.07);
+    return { dz: dz*front, dr: dr*front };
+  }
+  /* 4職(T-2R-3 / DEC-039)の断面: 土台の超楕円 + 骨格の場。degs を渡すと、その角度の点だけ返す(髪の殻は V2 の
+     20 点の角度で頭の点を求める) */
+  function headSectionPointsV3(o, r, degs){
+    const W = o.width, V = HEAD_V3_VARIANTS[headV3Variant] || HEAD_V3_VARIANTS.A;
+    const hw = W*r.widthMul, hf = W*r.frontMul, hb = W*r.backMul;
+    return (degs || HEAD_V3_DEGS).map(degFull=>{
+      const th = -degFull*Math.PI/180, sn = Math.sin(th), cs = Math.cos(th);
+      const front = cs >= 0;
+      const e = 2/(front ? r.nf : r.nb);
+      let x = hw*sgnPow(sn, e);
+      let z = (front ? hf : hb)*sgnPow(cs, e);
+      const deg = degFull > 180 ? 360 - degFull : degFull;
+      const f = headV3FaceField(deg, Math.abs(x)/W, r.yFrac, V);
+      if(f.dr){ const len = Math.hypot(x, z) || 1; x += x/len*W*f.dr; z += z/len*W*f.dr; }
+      z += W*f.dz;
+      return [x, z];
+    });
+  }
+  /* 4職の頭の段の表(HEAD_V3_YFRACS の高さ。土台は HEAD_V3_BASE を補間、v3 = 1 の印) */
+  const HEAD_SECTIONS_V3 = (()=>{
+    const out = {};
+    HEAD_V3_YFRACS.forEach((y, i)=>{ out['r' + i] = Object.assign(headRatioAt(y, HEAD_V3_BASE), { v3:1 }); });
+    return out;
+  })();
   const isHeadV2 = r => r && r.frontMul != null;
   const sgnPow = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
   /* 断面の点の角度(顔の中心線からの度。巻き順は HEAD_HEX_TEMPLATE と同じ「前 → 左 → 後ろ → 右」)。
@@ -876,7 +972,8 @@
     return Object.assign({}, secs[secs.length-1], {yFrac});
   }
   function headSectionPoints(o, r){
-    if(isHeadV2(r)) return headSectionPointsV2(o, r);   // 4職(T-2R-3)
+    if(r && r.v3) return headSectionPointsV3(o, r);    // 4職(T-2R-3 / DEC-039)
+    if(isHeadV2(r)) return headSectionPointsV2(o, r);   // T-2R-3 の前の版
     const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
     const facePts = HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]);
     const nosePts = HEAD_NOSE_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd + o.depth*r.nosePush]);
@@ -886,6 +983,7 @@
      基準にする(headRに独自係数を掛けた手打ち座標を使わない)。 */
   function headOutlineAt(o, yFrac){
     const r = headRatioAt(yFrac, o.sections);
+    if(r && r.v3) return headOutlineAtV3(o, r, yFrac);
     if(isHeadV2(r)) return headOutlineAtV2(o, r, yFrac);
     const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
     return {
@@ -927,6 +1025,35 @@
       frontZAt,
     };
   }
+  /* 4職(DEC-039)の headOutlineAt。frontZ / frontZAt は、上下の段の断面(実際に描かれる多角形)を高さで補間した値
+     (メッシュと一致させる。段の間で骨格の場を直接計算するとメッシュとずれるため) */
+  function headOutlineAtV3(o, r, yFrac){
+    const W = o.width, hw = W*r.widthMul, hb = W*r.backMul;
+    const ys = HEAD_V3_YFRACS;
+    let i = 0; while(i < ys.length-2 && yFrac > ys[i+1]) i++;
+    const y0 = ys[i], y1 = ys[i+1], t = Math.max(0, Math.min(1, (yFrac - y0)/Math.max(1e-9, y1 - y0)));
+    const ringAt = y => headSectionPointsV3(o, headRatioAt(y, o.sections), HEAD_V3_DEGS_HALF.filter(d => d <= 90));
+    const p0 = ringAt(y0), p1 = ringAt(y1);
+    const half = p0.map((a, k)=> [Math.abs(a[0] + (p1[k][0] - a[0])*t), a[1] + (p1[k][1] - a[1])*t]);
+    const frontZAt = (x)=>{
+      const ax = Math.abs(x);
+      for(let k=0;k<half.length-1;k++){
+        const [x0,z0] = half[k], [x1,z1] = half[k+1];
+        if(ax <= x1) return z0 + (z1 - z0)*((ax - x0)/Math.max(1e-9, x1 - x0));
+      }
+      return half[half.length-1][1];
+    };
+    const e = r.nb/2, bx = 0.22, bs = Math.pow(bx, e), bc = Math.sqrt(Math.max(0, 1 - bs*bs));
+    return {
+      y:         -o.height/2 + o.height*yFrac,
+      halfWidth: hw,
+      sideZ:     0,
+      frontZ:    half[0][1],
+      backZ:     -hb*Math.pow(bc, 2/r.nb),
+      backHalfWidth: hw*bx,
+      frontZAt,
+    };
+  }
   function makeCharacterHead(opts){
     const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
     const hh = o.height/2;
@@ -934,6 +1061,13 @@
       y: -hh + o.height*r.yFrac,
       points: headSectionPoints(o, r),
     }));
+    /* DEC-039 の頭(34 点): 上下のふたを 1 点からの扇形(makeLoft の既定)で閉じると、細長い三角形が並んで頂点の法線が
+       乱れ、輪郭線の殻が頭頂の面から覗く(細い黒い線)。上下に小さく縮めた輪を足し、小さな丸いふたで閉じる */
+    if(sections.length && Object.values(o.sections || {})[0] && Object.values(o.sections)[0].v3){
+      const top = sections[sections.length-1], bot = sections[0];
+      sections.push({ y: top.y + o.height*0.006, points: top.points.map(([x,z]) => [x*0.3, z*0.3]) });
+      sections.unshift({ y: bot.y - o.height*0.004, points: bot.points.map(([x,z]) => [x*0.4, z*0.4]) });
+    }
     return makeLoft({ sections, closedTop:true, closedBottom:true });
   }
 
@@ -2034,7 +2168,10 @@
       yfs.forEach((yf, i)=>{
         const yLocal = -hh + o.height*yf;
         const aboveHairline = yf >= HAIR_HAIRLINE_YFRAC - 1e-6;
-        const pts = headSectionPoints(o, headRatioAt(yf, o.sections)).map(([x,z]) =>
+        const rr = headRatioAt(yf, o.sections);
+        // DEC-039 の頭は顔の前側の点が細かいが、髪の殻は V2 の 20 点の角度で頭の点を求める(顔側の点は頭の内側に隠れる)
+        const headPts = rr.v3 ? headSectionPointsV3(o, rr, HEAD_V2_RING_DEGS) : headSectionPoints(o, rr);
+        const pts = headPts.map(([x,z]) =>
           hairShellPointAt(classKey, o2, x, z, yLocal, aboveHairline ? HAIR_SHELL_MUL : hairV2PointMul(x, z, yf)));
         const isTop = (i === yfs.length-1);
         sections.push({ y: yLocal + (isTop ? o.height*HAIR_TOP_LIFT : 0), points: pts });
@@ -2467,7 +2604,8 @@
       targets.push(n);
     });
     targets.forEach(m=>{
-      const shell = new THREE.Mesh(m.geometry, mat);
+      // userData.xrayGeometry: 壁越しの黄色い影だけ粗い形で描く(DEC-039 の頭: 細かい顔の形は影には要らない)
+      const shell = new THREE.Mesh(m.userData.xrayGeometry || m.geometry, mat);
       shell.userData.isXray = true;
       shell.castShadow = false;
       shell.receiveShadow = false;

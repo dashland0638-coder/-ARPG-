@@ -8,6 +8,8 @@
          「帽子」(表示の切り替え。診断の色と別に使える: T-2R-3)を外すと、頭のピボットの子で頭・髪・目以外(帽子・フード、上位職で頭に載せた髪飾り・髭も)を隠す
          (戦騎士の装飾は waist に付くので隠れない)。武器は既定で隠す(顔の前に来るため)
        ・開いている間はキー入力をゲームへ渡さない(Esc で閉じる)
+       ・顔の案(DEC-039): 案A(標準・ゲームと同じ)/ 案B(骨格強め)を切り替えて比べる。組み立ての間だけ headV3Variant を
+         差し替えて戻す(ゲームの姿は常に案A)
      ゲームのシーン・プレイヤー・カメラには触れない: 自分のシーンとレンダラーを持ち、確認用の姿は
      buildPlayer()(本物の組み立て)で作る。buildPlayer / applyJobPromotionVisual が書く共有変数
      (playerMixerParts・player・state.job・state.classDef)は組み立ての間だけ差し替えて必ず戻し
@@ -43,11 +45,12 @@
 
   /* 確認用の姿を本物の組み立てで作る。共有変数は必ず戻す */
   function buildFacePreviewFigure(entry, previewScene){
-    const saved = { parts: playerMixerParts, player, job: state.job, classDef: state.classDef };
+    const saved = { parts: playerMixerParts, player, job: state.job, classDef: state.classDef, variant: headV3Variant };
     const before = new Set(scene.children);
     let group = null, parts = null;
     try{
       playerMixerParts = {};
+      headV3Variant = facePreview && facePreview.variant || 'A';   // 顔の案(DEC-039、顔確認モードだけ)
       const cd = Object.assign({}, CLASSES[entry.classKey]);
       state.classDef = cd;
       state.job = entry.job;
@@ -60,6 +63,7 @@
       player = saved.player;
       state.job = saved.job;
       state.classDef = saved.classDef;
+      headV3Variant = saved.variant;
       // ゲームのシーンへ足された部品(姿そのもの・上位職のオーラ等)を確認用のシーンへ移す。組み立ての途中で
       // 例外が出ても、ゲームのシーンに残さない(T-2R-2 Review S-1)
       scene.children.filter(o => !before.has(o)).forEach(o=>{ scene.remove(o); previewScene.add(o); });
@@ -134,7 +138,7 @@
       target.z + Math.cos(yaw)*Math.cos(elev)*dist);
     fp.camera.lookAt(target);
     fp.label.textContent = `${fp.entry.label} / ${v.label}${fp.yawOffset ? ` ${fp.yawOffset > 0 ? '+' : ''}${Math.round(fp.yawOffset)}°` : ''}`
-      + ` / ${fp.zoom === 'face' ? '顔' : '全身'}${fp.diag === 'off' ? '' : ' / 診断'}${fp.hat ? '' : ' / 帽子なし'}`;
+      + ` / 案${fp.variant} / ${fp.zoom === 'face' ? '顔' : '全身'}${fp.diag === 'off' ? '' : ' / 診断'}${fp.hat ? '' : ' / 帽子なし'}`;
   }
   function setFacePreviewEntry(fp, entry){
     disposeFacePreviewFigure(fp);
@@ -172,6 +176,10 @@
         <div class="fp-row fp-jobs"></div>
         <div class="fp-row fp-views"></div>
         <div class="fp-row">
+          <button type="button" class="fp-btn" data-fp-variant="A">顔 案A(標準)</button>
+          <button type="button" class="fp-btn" data-fp-variant="B">顔 案B(骨格強め)</button>
+        </div>
+        <div class="fp-row">
           <button type="button" class="fp-btn" data-fp-zoom="face">顔</button>
           <button type="button" class="fp-btn" data-fp-zoom="body">全身</button>
           <button type="button" class="fp-btn" data-fp-diag="off">通常</button>
@@ -202,7 +210,7 @@
     const fp = facePreview = {
       root, stage, renderer, scene:pscene, camera:new THREE.PerspectiveCamera(30, 1, 0.02, 100),
       label: root.querySelector('.fp-label'), fig:null, entry:null,
-      view:'front', zoom:'face', diag:'off', hat:true, weapon:false, yawOffset:0, raf:0, drag:null,
+      view:'front', zoom:'face', diag:'off', hat:true, weapon:false, variant:'A', yawOffset:0, raf:0, drag:null,
     };
     const jobs = facePreviewJobs();
     const jobRow = root.querySelector('.fp-jobs'), viewRow = root.querySelector('.fp-views');
@@ -223,6 +231,9 @@
     }));
     root.querySelectorAll('[data-fp-diag]').forEach(b => b.addEventListener('click', ()=>{
       fp.diag = b.dataset.fpDiag; refreshFacePreviewButtons(fp); applyFacePreviewDiag(fp); placeFacePreviewCamera(fp);
+    }));
+    root.querySelectorAll('[data-fp-variant]').forEach(b => b.addEventListener('click', ()=>{
+      fp.variant = b.dataset.fpVariant; refreshFacePreviewButtons(fp); setFacePreviewEntry(fp, fp.entry);
     }));
     root.querySelector('[data-fp-hat]').addEventListener('click', ()=>{
       fp.hat = !fp.hat; refreshFacePreviewButtons(fp); applyFacePreviewDiag(fp); placeFacePreviewCamera(fp);
@@ -268,6 +279,7 @@
     fp.root.querySelectorAll('[data-fp-diag]').forEach(b => b.classList.toggle('selected', b.dataset.fpDiag === fp.diag));
     fp.root.querySelector('[data-fp-weapon]').classList.toggle('selected', fp.weapon);
     fp.root.querySelector('[data-fp-hat]').classList.toggle('selected', fp.hat);
+    fp.root.querySelectorAll('[data-fp-variant]').forEach(b => b.classList.toggle('selected', b.dataset.fpVariant === fp.variant));
   }
   /* 武器: 既定は隠す(待機の姿では剣・杖・弓が顔の前に来るため)。「武器」で出す */
   function applyFacePreviewWeapon(fp){

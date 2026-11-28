@@ -556,7 +556,7 @@
     /* CHARACTER-VIS-002 T-1(DEC-036): 4職だけが選ぶ頭・顔の改善(頭の下半分の丸い断面、
        角の目立たない目、頭へ埋まる首)。影の旅人(charKey)は既定のまま(DEC-034 の完成形、AD-3) */
     const softHead = classDef.charKey !== 'wanderer';
-    const headSections = softHead ? HEAD_SECTIONS_V2 : undefined;
+    const headSections = softHead ? HEAD_SECTIONS_V3 : undefined;
     const bodyH = B.height;
     const HIP_Y = B.hipY;      // the belt line: legs below, torso above
     const bodyR = B.chest;
@@ -807,6 +807,9 @@
     // 縮める
     const head = new THREE.Mesh(
       makeCharacterHead({width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2, sections:headSections}), skinMat);
+    /* DEC-039 の頭: 壁越しの影(addXrayShell)は細かい顔の形が要らないので、T-2R-3 の前の版(20 点 × 12 段)の形で描く
+       (三角形を減らす。影の輪郭は頭とほぼ同じ) */
+    if(softHead) head.userData.xrayGeometry = makeCharacterHead({width:B.headR, depth:B.headR*HEAD_DEPTH_MUL, height:B.headR*2, sections:HEAD_SECTIONS_V2});
     head.position.y = HIP_Y + bodyH + B.headGap;
     // Head/Posture Alignment再設計フェーズ: HEAD_BACK_Z(05-rendering-rig.js
     // 参照)ぶんだけHeadを後方(-Z)へ。Torso胸部の前面ZよりHead自身の前面Z
@@ -996,23 +999,20 @@
     /* 顔のパーツ(CHARACTER-VIS-002 T-1、Human Decision E-3 = B / DEC-037): 4職だけに控えめな口と小さな鼻。
        眉は足さない。目はそのまま(瞳孔・上まぶたは足さない)。どちらも頭のメッシュの子にして頭と一緒に
        動かし、輪郭線・X 線シェルは付けない(小さな部品の輪郭線は黒い点の塊になるため)。位置と大きさは
-       頭の断面(headOutlineAt = HEAD_SECTIONS_V2、T-2R-3)と headR から導く(職ごとの頭の大きさに追従) */
+       頭の断面(headOutlineAt = HEAD_SECTIONS_V3、DEC-039)と headR から導く(職ごとの頭の大きさに追従) */
     if(softHead){
       const yAt = yf => -headR + 2*headR*yf;
-      // 鼻: 肌と同じ Material の低い四角錐。頬の高さより少し下(yFrac 0.40)の前面から headR × 0.015 だけ前
-      const nose = new THREE.Mesh(new THREE.ConeGeometry(headR*0.06, headR*0.10, 4), skinMat);
-      nose.rotation.x = Math.PI/2 * 0.9;
-      nose.position.set(0, yAt(0.40), headOut(0.40).frontZ + headR*0.015);
-      nose.userData.noOutline = true;
-      head.add(nose);
-      // 口: 小さな微笑みの弧(幅 headR × 0.26、濃い赤茶、陰影を受けない)。yFrac 0.27 の前面に沿わせる
+      /* 鼻: DEC-039(T-2R-3 顔造形方針の再定義)で、鼻筋・鼻先・鼻翼は頭のメッシュの形(headV3FaceField)で作る。
+         以前の別部品の四角錐(E-3 = B の小さな鼻)は作らない */
+      // 口: 小さな微笑みの弧(幅 headR × 0.26、濃い赤茶、陰影を受けない)。上唇と下唇の間(yFrac 0.285)の前面に沿わせる
       const MOUTH_W = headR*0.13, mouthPts = [];
       for(let i=0;i<=8;i++){ const t = -1 + 2*i/8; mouthPts.push({x:t*MOUTH_W, y:-(1 - t*t)*MOUTH_W*0.35}); }
       for(let i=8;i>=0;i--){ const t = -1 + 2*i/8; mouthPts.push({x:t*MOUTH_W*0.9, y:-(1 - t*t)*MOUTH_W*0.35 + MOUTH_W*0.16}); }
       const mouthGeo = makePlate(mouthPts, {thickness:0.004});
       /* 4職(T-2R-3 再修正、Review S-2): 顔の面は中心線から左右へ奥へ回るので、平らな板のままでは両端が面から浮く。
          板の頂点を、その横位置の顔の面の深さ(frontZAt)に合わせて奥へ曲げる */
-      const mouthOut = headOut(0.27);
+      const MOUTH_YFRAC = 0.285;
+      const mouthOut = headOut(MOUTH_YFRAC);
       if(mouthOut.frontZAt){
         const pa = mouthGeo.attributes.position;
         for(let i=0;i<pa.count;i++) pa.setZ(i, pa.getZ(i) + mouthOut.frontZAt(pa.getX(i)) - mouthOut.frontZ);
@@ -1020,10 +1020,10 @@
         mouthGeo.computeVertexNormals();
       }
       const mouth = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({color:0x6a2e2a}));
-      mouth.position.set(0, yAt(0.27), mouthOut.frontZ + 0.002);
+      mouth.position.set(0, yAt(MOUTH_YFRAC), mouthOut.frontZ + 0.002);
       mouth.userData.noOutline = true;
       head.add(mouth);
-      playerMixerParts.faceParts = [nose, mouth];
+      playerMixerParts.faceParts = [mouth];
     }
 
     // ---- Hair Shell(旧Hair Cap): Headの外殻。原点・引数はHead本体と同一 ----
@@ -2236,6 +2236,7 @@
     root.traverse(c=>{
       if(!c.isMesh || c.userData.isOutline || c.userData.isXray) return;
       if(c.geometry) c.geometry.dispose();
+      if(c.userData.xrayGeometry) c.userData.xrayGeometry.dispose();   // DEC-039 の頭の壁越しの影の粗い形
       if(c.material && !keep.has(c.material)) c.material.dispose();
     });
   }
@@ -2658,7 +2659,7 @@
          極端な先細りを避けるためTip半径はRoot半径の35%前後に留めている。 */
       const archHeadR = B.headR;
       // 魔導士は必ず魔法使い(4職)なので 4職の頭の断面。ここは buildPlayer の外(転身)で headSections は見えない
-      const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2, sections:HEAD_SECTIONS_V2 };
+      const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2, sections:HEAD_SECTIONS_V3 };
       const archHeadYLocal = bodyH + B.headGap;   // P.waist基準でのHead中心Y(buildPlayerのhead.position.yに相当)
       const archHeadOut = (yFrac) => headOutlineAt(archHeadDims, yFrac);
       // Hair色: 参考画像(ダークソウル風の白髪術者)指摘により、紫の
