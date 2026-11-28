@@ -767,17 +767,20 @@
        centerSide … center のうち 11.25° に掛ける割合(22.5° にはその 2 乗)。口元は広く(0.55〜0.62)、鼻は細く(0.25)
        cheek      … 頬を外へ押し出す量(headR 比)。22.5°・33.75°・45°・67.5° に 0.35 / 0.75 / 1 / 0.45 で分ける
      重みは headV2Weights。顔の前側(67.5° より前)だけを動かすので、横(90°)・後ろ・帽子の下(0.66 より上は不変)の形と
-     髪の殻の関係は変わらない。下唇(0.24)と鼻の下(0.36)の段を足し(10 段 → 12 段)、Review M-1 で顔の前側だけ点を
+     髪の殻の関係は変わらない(顎の下 0.00 は顔の中心線だけ少し前へ: 顎の底を丸める)。横顔の起伏は 1 つの段に曲がりを
+     集めず、どの段でも曲がりがおよそ 30° 以内になるよう隣の段へ分ける(Round 2 Review M-1: 段の折れが折れ線・溝に見えた)。
+     引っ込み(center が負)は centerSide 1.0 で幅広く掛け、中心線の点が隣の点より奥にならない(縦の溝を作らない)。
+     下唇(0.24)と鼻の下(0.36)の段を足し(10 段 → 12 段)、Review M-1 で顔の前側だけ点を
      足した(16 → 20 点: ±11.25°・±33.75°)。追加の段の幅・後ろの深さ・指数は上下の段の中間(横・後ろの差 ≤ 0.005 headR) */
   const HEAD_SECTIONS_V2 = {
-    chinBase:  { yFrac:0.00, widthMul:0.40, frontMul:0.34, backMul:0.30, nf:2.0, nb:2.0, socket:0,     center:0,     centerSide:0,    cheek:0     }, // 顎の下
-    chin:      { yFrac:0.08, widthMul:0.64, frontMul:0.56, backMul:0.52, nf:2.2, nb:2.0, socket:0,     center:0.075, centerSide:0.40, cheek:0     }, // 顎先(少し前へ、小さく丸い)
-    jaw:       { yFrac:0.18, widthMul:0.89, frontMul:0.70, backMul:0.70, nf:2.6, nb:2.1, socket:0,     center:-0.03, centerSide:0.45, cheek:0.02 }, // 顎の窪み(下唇から顎先へ後ろへ下がる)・下頬
-    lowerLip:  { yFrac:0.24, widthMul:0.945, frontMul:0.73, backMul:0.77, nf:2.6, nb:2.1, socket:0,     center:0.04, centerSide:0.55, cheek:0.035 }, // 下唇
+    chinBase:  { yFrac:0.00, widthMul:0.40, frontMul:0.34, backMul:0.30, nf:2.0, nb:2.0, socket:0,     center:0.05, centerSide:0.60, cheek:0     }, // 顎の下
+    chin:      { yFrac:0.08, widthMul:0.64, frontMul:0.56, backMul:0.52, nf:2.2, nb:2.0, socket:0,     center:0.04, centerSide:0.60, cheek:0     }, // 顎先(小さく丸い)
+    jaw:       { yFrac:0.18, widthMul:0.89, frontMul:0.70, backMul:0.70, nf:2.6, nb:2.1, socket:0,     center:-0.005, centerSide:1.00, cheek:0.02 }, // 顎の窪み(下唇と顎先の間、幅広く浅い)・下頬
+    lowerLip:  { yFrac:0.24, widthMul:0.945, frontMul:0.73, backMul:0.77, nf:2.6, nb:2.1, socket:0,     center:0.035, centerSide:0.70, cheek:0.035 }, // 下唇
     mouth:     { yFrac:0.30, widthMul:1.00, frontMul:0.76, backMul:0.84, nf:2.6, nb:2.1, socket:0,     center:0.06, centerSide:0.62, cheek:0.055 }, // 口元(前への膨らみ)・頬
-    subNose:   { yFrac:0.36, widthMul:1.025, frontMul:0.77, backMul:0.88, nf:2.5, nb:2.1, socket:0,     center:0.035, centerSide:0.55, cheek:0.065 }, // 鼻の下(口元と鼻をつなぐ)
-    noseBase:  { yFrac:0.42, widthMul:1.05, frontMul:0.78, backMul:0.92, nf:2.4, nb:2.1, socket:0,     center:0.1, centerSide:0.25, cheek:0.065 }, // 鼻先の高さ(横顔で最も前)・頬骨
-    eye:       { yFrac:0.54, widthMul:1.06, frontMul:0.76, backMul:0.95, nf:2.3, nb:2.1, socket:0.040, center:0.05, centerSide:0.15, cheek:0.035 }, // 鼻の付け根・眼窩(最大幅)
+    subNose:   { yFrac:0.36, widthMul:1.025, frontMul:0.77, backMul:0.88, nf:2.5, nb:2.1, socket:0,     center:0.04, centerSide:0.60, cheek:0.065 }, // 鼻の下(鼻先より奥・口元とほぼ同じ深さで、口元と鼻をつなぐ)
+    noseBase:  { yFrac:0.42, widthMul:1.05, frontMul:0.78, backMul:0.92, nf:2.4, nb:2.1, socket:0,     center:0.07, centerSide:0.30, cheek:0.065 }, // 鼻先の高さ(横顔で最も前)・頬骨
+    eye:       { yFrac:0.54, widthMul:1.06, frontMul:0.76, backMul:0.95, nf:2.3, nb:2.1, socket:0.040, center:0.04, centerSide:0.20, cheek:0.035 }, // 鼻の付け根・眼窩(最大幅)
     brow:      { yFrac:0.66, widthMul:1.00, frontMul:0.74, backMul:0.93, nf:2.2, nb:2.1, socket:0.010, center:0,     centerSide:0,    cheek:0     }, // 眉の骨(眉は描かない: E-3 = B)
     forehead:  { yFrac:0.78, widthMul:0.88, frontMul:0.64, backMul:0.84, nf:2.1, nb:2.1, socket:0,     center:0,     centerSide:0,    cheek:0     }, // 額(帽子の内側)
     upperHead: { yFrac:0.89, widthMul:0.70, frontMul:0.46, backMul:0.64, nf:2.0, nb:2.0, socket:0,     center:0,     centerSide:0,    cheek:0     },
@@ -785,7 +788,6 @@
   };
   const isHeadV2 = r => r && r.frontMul != null;
   const sgnPow = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
-  /* 16 点の断面(巻き順は HEAD_HEX_TEMPLATE と同じ「前 → 左 → 後ろ → 右」。k = 0 が顔の中心線) */
   /* 断面の点の角度(顔の中心線からの度。巻き順は HEAD_HEX_TEMPLATE と同じ「前 → 左 → 後ろ → 右」)。
      T-2R-3 再修正(Review M-1): 顔の前側だけ点を足す(±11.25°・±33.75°)。横・後ろ(67.5° より後ろ)の角度は 16 点の時と同じ */
   const HEAD_V2_ANGLES = [0, 11.25, 22.5, 33.75, 45, 67.5, 90, 112.5, 135, 157.5, 180];
@@ -2000,7 +2002,7 @@
     return [x*k, z*k];
   }
   const HAIR_NO_PENETRATE_MUL = 1.006;
-  /* 4職(T-2R-3)の髪の殻の点の種類: 顔の中心線からの角度で決める(16 点の断面は既定の 8 点の番号の表が使えない)。
+  /* 4職(T-2R-3)の髪の殻の点の種類: 顔の中心線からの角度で決める(20 点の断面は既定の 8 点の番号の表が使えない)。
        front … 顔(70° より前)。うなじと途中の段では頭の内側へ隠す(HAIR_NAPE_FRONT_MUL)
        side  … こめかみ〜耳の前後(70°〜105°)。顎の高さ(0.45 未満)では頭のわずかに内側(頬の横に黒いくさびを
                出さない: T-1 の napeSideIn と同じ理由)、それより上は頭の外(髪が側頭部を覆う)
@@ -2020,7 +2022,7 @@
     const classKey = opts && opts.classKey;
     const hh = o.height/2;
     const sections = [];
-    /* 4職(T-2R-3、DEC-038 H-4): 16 点の頭に合わせた髪の殻。うなじ(0.34)と生え際(0.72)の間にも頭の段
+    /* 4職(T-2R-3、DEC-038 H-4): 20 点の頭に合わせた髪の殻。うなじ(0.34)と生え際(0.72)の間にも頭の段
        (0.42・0.54・0.66 = 頭が最も広く深い高さ)の輪を置き、後頭部・側頭部の点を頭 × HAIR_SHELL_MUL の外に出す。
        旧来はこの間が直線で、頭の膨らみが髪を突き抜けていた(Human Review C-1)。顔側の点は頭の内側に隠す。
        生え際より上は既定と同じく全点を頭の外(被り物の内側へ寄せるが、頭の内側には入れない: hairNoPenetrate) */
