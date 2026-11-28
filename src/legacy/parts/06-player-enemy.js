@@ -891,8 +891,10 @@
     const scleraZScale = 0.6;
     const scleraHalfDepth = scleraR*scleraZScale;
     /* 4職(T-2R-3): 顔の前面が平らな 1 枚ではなく曲面になったので、目の奥行きはその目の横位置の顔の面
-       (headOutlineAt().frontZAt)から決める。面から目の板の中心までの沈み込みは T-1 の頭と同じ量(headR × 0.018:
-       旧来の平らな顔の面 0.715 と目の基準 0.697 の差)。目の大きさ・間隔・高さ・点数・傾きは T-1 の確定値のまま */
+       (headOutlineAt().frontZAt)から決める。目の中心(白目の板の中心)を、その位置の顔の面から headR × 0.018 奥に置く
+       (旧来の平らな顔の面 0.715 と目の基準 0.697 の差と同じ量)。ただし顔が曲面になり目を外へ 0.28 rad 回すため、
+       白目の前面は顔の面より 0.024〜0.033 headR 手前に出る(T-1 はほぼ面と同じ。沈み込まず浮きすぎない範囲、
+       T-2R-3 Review N-1)。目の大きさ・間隔・高さ・点数・傾きは T-1 の確定値のまま */
     const EYE_RECESS = 0.018;
     const eyeHeadDims = { width:headR, depth:headR*HEAD_DEPTH_MUL, height:headR*2, sections:headSections };
     const eyeFrontZAt = (x)=>{

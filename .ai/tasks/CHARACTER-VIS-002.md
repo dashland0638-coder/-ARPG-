@@ -787,6 +787,12 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 関連 E2E 93 件（`base-class-comparison`・`base-class-identity`・`battle-knight-visual`・`character-clothing`・`character-motion`・`character-palette`・`character-weapon-visual`・`face-preview`・`head-hair-penetration`・`job-traits`・`wanderer-renewal`・`weapon-stow`・`road2-join`・`chapter1-progression`・`menu-character-layout`）| **93 PASS** |
 | 全 E2E | CI（PR #149）|
 
+### Review（T-2R-3）
+- Round 1 = **PASS**（Reviewed SHA `ea9c8cb`、別コンテキストの Reviewer、`.ai/reports/CHARACTER-VIS-002-T2R3-review.md`）。全周・上からの光線で帽子の下（前・天辺を含む）も頭が出ないこと、目の板の前面が顔の面より 0.024〜0.033 headR 手前（沈まず浮きすぎない）、首・襟との関係を確認
+- should-fix S-1（`docs/CHARACTERS.md` が削除した `HEAD_SECTION_RATIOS_SOFT` のまま）→ 新しい頭と髪の殻の説明に更新。S-2（貫通の E2E が帽子の前・天辺を見ていない）→ 生え際より上の全周と上からの光線を追加（PASS）
+- note: N-1（目の奥行きのコメント）→ 実際の値に直した。N-3（4職の頭は `HEAD_DEPTH_MUL` を使わない）→ コメントに記録。N-2（口がわずかに浮く ≤ 0.015 headR）・N-4（フードの中で頬が少し多く見える）・N-5・N-7 は記録のみ
+- Reviewer の造形の意見（横顔で鼻・口元を載せる前への形が弱い、正面で頭頂の角が多角形に見える、帽子を被ると変化が見えにくい、髪の量感は一様な外殻）は Human の目視確認の項目にする。口元・鼻の段を前へ出す案（0.76 / 0.78 → 0.79 / 0.81）を試したところ、80° の側頭部（0.48〜0.52）で頭が髪より外に出たため採用しなかった（T-2R-4 の職ごとの顔で、髪の境目と合わせて扱う）
+
 ## Status History
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |
@@ -822,3 +828,4 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 | 2026-11-27 | T-2R-2 | REVIEWING（変更なし）| Implementer | CI（`0311f43`）で `menu-character-layout` が 2 件失敗: 設定タブのボタンの数（本番 11 項目）を、`?dev=1` の確認用の「BGM 段階」だけ除いて数えていたため、新しい dev 専用の「顔の確認」で 12 になった。既存の「BGM 段階」と同じ扱い（数から除き、表示を別に確かめる）にテストを合わせた（本番の 11 項目の期待は変えない）。ローカル 5 PASS |
 | 2026-11-28 | T-2R-2 | REVIEWING → DONE | Human | iPhone 実機確認 PASS（顔確認モードは正常、目視で問題なし）|
 | 2026-11-28 | T-2R-3 | PLANNED → APPROVED → IMPLEMENTING | Human / Implementer | Human の着手指示（O1 の共通の頭と髪の貫通の修正）。下の Implementation Result（T-2R-3）|
+| 2026-11-28 | T-2R-3 | IMPLEMENTING → TESTING → REVIEWING | Implementer / Reviewer | 実装（`3fc25d0`）・記録（`ea9c8cb`）。unit 2341・関連 E2E 93 PASS。Review **PASS**（`ea9c8cb`）、S-1・S-2・N-1・N-3 を反映。**Human の iPhone での目視確認待ち**、確認まで T-2R-4 へ進まない |

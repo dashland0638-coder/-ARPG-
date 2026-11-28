@@ -4,6 +4,7 @@
    光線を飛ばし、最初に当たるのが頭(肌)でないことを確かめる:
      ・後頭部(顔の中心線から 110°〜250°)… うなじ(0.38)〜頭頂(0.96)
      ・側頭部(80°〜100°、左右)… 0.48(顎より上)〜頭頂。顎の横・こめかみの前(〜70°)は肌が見えてよい(頬・顎の線)
+     ・生え際より上(0.76〜0.96)の全周と、上から(仰角 30°〜75°)… 前髪・帽子の前側・天辺の下で頭が出ない
    当たり判定の対象は頭・髪(殻・前髪・横髪・後ろ髪)・頭の被り物(帽子・フード・頭に載せた上位職の飾り)。輪郭線・
    X 線シェルは除く。帽子の下で頭が帽子を突き抜けていないことも同時に確かめる(帽子より先に頭に当たれば失敗)。 */
 import { test, expect } from '@playwright/test';
@@ -50,6 +51,19 @@ test('8 職: 後頭部・側頭部で頭(肌)が髪・帽子より外に出な�
       };
       for (let yf = 0.38; yf <= 0.961; yf += 0.04) for (let d = 110; d <= 250; d += 10) cast(yf, d);
       for (let yf = 0.48; yf <= 0.961; yf += 0.04) for (const d of [80, 90, 100, 260, 270, 280]) cast(yf, d);
+      // 生え際より上(0.76〜0.96)は全周(前・横・後ろ)。前髪・帽子の前側の下で頭が突き抜けないこと(T-2R-3 Review S-2)
+      for (let yf = 0.76; yf <= 0.961; yf += 0.04) for (let d = 0; d < 360; d += 15) cast(yf, d);
+      // 上から(仰角 30°〜75°、全周)。帽子の天辺・頭頂
+      for (const el of [30, 50, 75]) for (let d = 0; d < 360; d += 30) {
+        const a = d * Math.PI / 180, e = el * Math.PI / 180;
+        const top = new T.Vector3(c.x, c.y + R * 0.9, c.z);
+        const dir = new T.Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
+        rc.set(top.clone().addScaledVector(dir, R * 4), dir.clone().negate());
+        rc.far = R * 4;
+        const hits = rc.intersectObjects(meshes, false);
+        rays++;
+        if (hits.length && headSet.has(hits[0].object)) bad.push(`上${el}°@${d}°`);
+      }
       return { label: fp.entry.label, rays, bad };
     }));
   }

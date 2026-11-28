@@ -756,6 +756,8 @@
                   額・頭頂・顎は 2.0〜2.2 で丸い。顔は平らな板にならず、単純な球にもならない
        socket   … 目の高さの段で、鼻筋の両側(16 点の 1 番目と 15 番目、目の中心の少し外)を奥へ下げる量(headR 比)。
                   鼻筋が残り、目のまわりに奥行きができる
+     寸法はすべて o.width(= headR)基準で、o.depth(HEAD_DEPTH_MUL)は使わない(奥行きは frontMul / backMul で直接
+     決める。HEAD_DEPTH_MUL を変えても 4職の頭は変わらない: T-2R-3 Review N-3)。
      影の旅人・敵・NPC は既定の HEAD_SECTION_RATIOS のまま(共通の関数の既定値は変えない: T-0)。
      髪の殻・顔の部品・被り物の判定は headSectionPoints / headOutlineAt / headRatioAt を通して自動で追従する */
   const HEAD_RING_POINTS_V2 = 16;
