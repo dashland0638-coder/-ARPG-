@@ -1009,8 +1009,18 @@
       const MOUTH_W = headR*0.13, mouthPts = [];
       for(let i=0;i<=8;i++){ const t = -1 + 2*i/8; mouthPts.push({x:t*MOUTH_W, y:-(1 - t*t)*MOUTH_W*0.35}); }
       for(let i=8;i>=0;i--){ const t = -1 + 2*i/8; mouthPts.push({x:t*MOUTH_W*0.9, y:-(1 - t*t)*MOUTH_W*0.35 + MOUTH_W*0.16}); }
-      const mouth = new THREE.Mesh(makePlate(mouthPts, {thickness:0.004}), new THREE.MeshBasicMaterial({color:0x6a2e2a}));
-      mouth.position.set(0, yAt(0.27), headOut(0.27).frontZ + 0.002);
+      const mouthGeo = makePlate(mouthPts, {thickness:0.004});
+      /* 4職(T-2R-3 再修正、Review S-2): 顔の面は中心線から左右へ奥へ回るので、平らな板のままでは両端が面から浮く。
+         板の頂点を、その横位置の顔の面の深さ(frontZAt)に合わせて奥へ曲げる */
+      const mouthOut = headOut(0.27);
+      if(mouthOut.frontZAt){
+        const pa = mouthGeo.attributes.position;
+        for(let i=0;i<pa.count;i++) pa.setZ(i, pa.getZ(i) + mouthOut.frontZAt(pa.getX(i)) - mouthOut.frontZ);
+        pa.needsUpdate = true;
+        mouthGeo.computeVertexNormals();
+      }
+      const mouth = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({color:0x6a2e2a}));
+      mouth.position.set(0, yAt(0.27), mouthOut.frontZ + 0.002);
       mouth.userData.noOutline = true;
       head.add(mouth);
       playerMixerParts.faceParts = [nose, mouth];
