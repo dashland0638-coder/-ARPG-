@@ -5,7 +5,7 @@
        ・正面 / 斜め45° / 横 / 下から / 後頭部 の 5 方向。ドラッグで左右に回せる(方向のボタンで正確な角度に戻る)
        ・顔の拡大 / 全身
        ・診断: 頭 = 赤・髪の殻 = 明るい緑・髪の房(前髪 / 横髪 / 後ろ髪)= 濃い緑(頭と髪の貫通を見る)。
-         「＋帽子なし」は頭のピボットの子で頭・髪・目以外(帽子・フード、上位職で頭に載せた髪飾り・髭も)を隠す
+         「帽子」(表示の切り替え。診断の色と別に使える: T-2R-3)を外すと、頭のピボットの子で頭・髪・目以外(帽子・フード、上位職で頭に載せた髪飾り・髭も)を隠す
          (戦騎士の装飾は waist に付くので隠れない)。武器は既定で隠す(顔の前に来るため)
        ・開いている間はキー入力をゲームへ渡さない(Esc で閉じる)
      ゲームのシーン・プレイヤー・カメラには触れない: 自分のシーンとレンダラーを持ち、確認用の姿は
@@ -106,7 +106,7 @@
       pivot.children.forEach(c=>{
         if(keepSet.has(c) || c.userData.isOutline || c.userData.isXray) return;
         if(c.userData.facePreviewVisible == null) c.userData.facePreviewVisible = c.visible;
-        c.visible = fp.diag === 'nohat' ? false : c.userData.facePreviewVisible;
+        c.visible = fp.hat ? c.userData.facePreviewVisible : false;
       });
     }
   }
@@ -134,7 +134,7 @@
       target.z + Math.cos(yaw)*Math.cos(elev)*dist);
     fp.camera.lookAt(target);
     fp.label.textContent = `${fp.entry.label} / ${v.label}${fp.yawOffset ? ` ${fp.yawOffset > 0 ? '+' : ''}${Math.round(fp.yawOffset)}°` : ''}`
-      + ` / ${fp.zoom === 'face' ? '顔' : '全身'}${fp.diag === 'off' ? '' : fp.diag === 'nohat' ? ' / 診断(帽子なし)' : ' / 診断'}`;
+      + ` / ${fp.zoom === 'face' ? '顔' : '全身'}${fp.diag === 'off' ? '' : ' / 診断'}${fp.hat ? '' : ' / 帽子なし'}`;
   }
   function setFacePreviewEntry(fp, entry){
     disposeFacePreviewFigure(fp);
@@ -176,7 +176,7 @@
           <button type="button" class="fp-btn" data-fp-zoom="body">全身</button>
           <button type="button" class="fp-btn" data-fp-diag="off">通常</button>
           <button type="button" class="fp-btn" data-fp-diag="on">頭赤・髪緑</button>
-          <button type="button" class="fp-btn" data-fp-diag="nohat">＋帽子なし</button>
+          <button type="button" class="fp-btn" data-fp-hat>帽子</button>
           <button type="button" class="fp-btn" data-fp-weapon>武器</button>
         </div>
       </div>`;
@@ -190,8 +190,9 @@
     stage.appendChild(renderer.domElement);
     const pscene = new THREE.Scene();
     pscene.background = new THREE.Color(0x30353f);
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x404858, 1.3);
-    const key = new THREE.DirectionalLight(0xffffff, 1.6);
+    // 顔の立体(頬・鼻筋・顎)の陰影が読めるよう、環境光を控えめにして主光の差を付ける(T-2R-3)
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x404858, 0.9);
+    const key = new THREE.DirectionalLight(0xffffff, 2.2);
     key.position.set(2.5, 5, 4);
     const rim = new THREE.DirectionalLight(0xbfd0ff, 0.6);
     rim.position.set(-3, 3, -4);
@@ -201,7 +202,7 @@
     const fp = facePreview = {
       root, stage, renderer, scene:pscene, camera:new THREE.PerspectiveCamera(30, 1, 0.02, 100),
       label: root.querySelector('.fp-label'), fig:null, entry:null,
-      view:'front', zoom:'face', diag:'off', weapon:false, yawOffset:0, raf:0, drag:null,
+      view:'front', zoom:'face', diag:'off', hat:true, weapon:false, yawOffset:0, raf:0, drag:null,
     };
     const jobs = facePreviewJobs();
     const jobRow = root.querySelector('.fp-jobs'), viewRow = root.querySelector('.fp-views');
@@ -223,6 +224,9 @@
     root.querySelectorAll('[data-fp-diag]').forEach(b => b.addEventListener('click', ()=>{
       fp.diag = b.dataset.fpDiag; refreshFacePreviewButtons(fp); applyFacePreviewDiag(fp); placeFacePreviewCamera(fp);
     }));
+    root.querySelector('[data-fp-hat]').addEventListener('click', ()=>{
+      fp.hat = !fp.hat; refreshFacePreviewButtons(fp); applyFacePreviewDiag(fp); placeFacePreviewCamera(fp);
+    });
     root.querySelector('[data-fp-weapon]').addEventListener('click', ()=>{
       fp.weapon = !fp.weapon; refreshFacePreviewButtons(fp); applyFacePreviewWeapon(fp);
     });
@@ -263,6 +267,7 @@
     fp.root.querySelectorAll('[data-fp-zoom]').forEach(b => b.classList.toggle('selected', b.dataset.fpZoom === fp.zoom));
     fp.root.querySelectorAll('[data-fp-diag]').forEach(b => b.classList.toggle('selected', b.dataset.fpDiag === fp.diag));
     fp.root.querySelector('[data-fp-weapon]').classList.toggle('selected', fp.weapon);
+    fp.root.querySelector('[data-fp-hat]').classList.toggle('selected', fp.hat);
   }
   /* 武器: 既定は隠す(待機の姿では剣・杖・弓が顔の前に来るため)。「武器」で出す */
   function applyFacePreviewWeapon(fp){

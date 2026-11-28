@@ -151,3 +151,10 @@ INFERENCE: 原因は「部品の不足」より**頭の土台（断面の点の�
 ## 12. CI の不安定さ（独立の作業の提案）
 - PR #148 の CI で、実行ごとに別の E2E が 1 件失敗（`combat-events-layout.spec.js:91`、再実行で `dusk-enemy-design.spec.js:236`）。どちらもローカルでは PASS、PR #149 の CI では全件 PASS
 - 本件とは切り離す。テストの仕組みは変えていない。必要なら独立の Task（「CI の E2E の不安定な失敗の調査」: 失敗の記録の収集・タイミング依存の特定）として提案する
+
+## 13. 進行の記録（DEC-038 の後）
+| 日付 | 作業 | 結果 |
+| --- | --- | --- |
+| 2026-11-27 | T-2R-1 BGM | Reviewer PASS・CI 成功（`a634fbf`）・Human の iPhone 実機確認 PASS（Safari・ChatGPT / Claude のアプリ内ブラウザ）→ DONE。追加調査 `.ai/reports/CHARACTER-VIS-002-T2R1-inapp-browser.md` |
+| 2026-11-28 | T-2R-2 顔の確認のプレビュー | Reviewer PASS・CI 成功（`b816fa3`）・Human の iPhone 実機確認 PASS → DONE |
+| 2026-11-28 | T-2R-3 共通の頭・髪の貫通 | 実装中（`.ai/tasks/CHARACTER-VIS-002.md` の Implementation Result（T-2R-3））|

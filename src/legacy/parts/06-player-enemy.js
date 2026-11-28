@@ -556,7 +556,7 @@
     /* CHARACTER-VIS-002 T-1(DEC-036): 4職だけが選ぶ頭・顔の改善(頭の下半分の丸い断面、
        角の目立たない目、頭へ埋まる首)。影の旅人(charKey)は既定のまま(DEC-034 の完成形、AD-3) */
     const softHead = classDef.charKey !== 'wanderer';
-    const headSections = softHead ? HEAD_SECTION_RATIOS_SOFT : undefined;
+    const headSections = softHead ? HEAD_SECTIONS_V2 : undefined;
     const bodyH = B.height;
     const HIP_Y = B.hipY;      // the belt line: legs below, torso above
     const bodyR = B.chest;
@@ -890,7 +890,17 @@
     const scleraR = 0.062*eyeSizeMul;
     const scleraZScale = 0.6;
     const scleraHalfDepth = scleraR*scleraZScale;
-    const scleraFrontZ = eyeFrontZ + scleraHalfDepth*eyeScale;
+    /* 4職(T-2R-3): 顔の前面が平らな 1 枚ではなく曲面になったので、目の奥行きはその目の横位置の顔の面
+       (headOutlineAt().frontZAt)から決める。面から目の板の中心までの沈み込みは T-1 の頭と同じ量(headR × 0.018:
+       旧来の平らな顔の面 0.715 と目の基準 0.697 の差)。目の大きさ・間隔・高さ・点数・傾きは T-1 の確定値のまま */
+    const EYE_RECESS = 0.018;
+    const eyeHeadDims = { width:headR, depth:headR*HEAD_DEPTH_MUL, height:headR*2, sections:headSections };
+    const eyeFrontZAt = (x)=>{
+      if(!softHead) return eyeFrontZ;
+      const out = headOutlineAt(eyeHeadDims, 0.5 + 0.02/(headR*2));
+      return out.frontZAt ? out.frontZAt(x) - headR*EYE_RECESS + HEAD_BACK_Z : eyeFrontZ;
+    };
+    const scleraFrontZ0 = eyeFrontZ + scleraHalfDepth*eyeScale;
     /* T-4(Human: 「もう少し可愛く。黒目を大きくするか目を縦長に」): 目全体の大きさ・
        間隔(上の eyeSizeMul / 下の EYE_SPACING)は Human が OK とした値のまま、
        黒目の基準半径を 0.038 → 0.046、白目の縦横比を 1.15 → 1.28 にする(候補値) */
@@ -916,7 +926,8 @@
     [-EYE_SPACING*eyeScale*eyeSpacingMul, EYE_SPACING*eyeScale*eyeSpacingMul].forEach(x=>{
       const sclera = new THREE.Mesh(
         makeEyeSclera(scleraR*eyeScale, scleraR*eyeScale*EYE_SCLERA_ASPECT, scleraHalfDepth*eyeScale, eyePts.sclera), scleraMat);
-      sclera.position.set(x, head.position.y+0.02, eyeFrontZ);
+      const eyeZ = eyeFrontZAt(x), scleraFrontZ = softHead ? eyeZ + scleraHalfDepth*eyeScale : scleraFrontZ0;
+      sclera.position.set(x, head.position.y+0.02, eyeZ);
       group.add(sclera);
       faceMeshes.push(sclera);
       const pupil = new THREE.Mesh(makeEyePupil(pupilR*eyeScale, pupilHalfDepth*eyeScale, eyePts.pupil), pupilMat);
@@ -983,7 +994,7 @@
     /* 顔のパーツ(CHARACTER-VIS-002 T-1、Human Decision E-3 = B / DEC-037): 4職だけに控えめな口と小さな鼻。
        眉は足さない。目はそのまま(瞳孔・上まぶたは足さない)。どちらも頭のメッシュの子にして頭と一緒に
        動かし、輪郭線・X 線シェルは付けない(小さな部品の輪郭線は黒い点の塊になるため)。位置と大きさは
-       頭の断面(headOutlineAt = HEAD_SECTION_RATIOS_SOFT)と headR から導く(職ごとの頭の大きさに追従) */
+       頭の断面(headOutlineAt = HEAD_SECTIONS_V2、T-2R-3)と headR から導く(職ごとの頭の大きさに追従) */
     if(softHead){
       const yAt = yf => -headR + 2*headR*yf;
       // 鼻: 肌と同じ Material の低い四角錐。頬の高さより少し下(yFrac 0.40)の前面から headR × 0.015 だけ前
@@ -2635,7 +2646,7 @@
          極端な先細りを避けるためTip半径はRoot半径の35%前後に留めている。 */
       const archHeadR = B.headR;
       // 魔導士は必ず魔法使い(4職)なので 4職の頭の断面。ここは buildPlayer の外(転身)で headSections は見えない
-      const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2, sections:HEAD_SECTION_RATIOS_SOFT };
+      const archHeadDims = { width:archHeadR, depth:archHeadR*HEAD_DEPTH_MUL, height:archHeadR*2, sections:HEAD_SECTIONS_V2 };
       const archHeadYLocal = bodyH + B.headGap;   // P.waist基準でのHead中心Y(buildPlayerのhead.position.yに相当)
       const archHeadOut = (yFrac) => headOutlineAt(archHeadDims, yFrac);
       // Hair色: 参考画像(ダークソウル風の白髪術者)指摘により、紫の

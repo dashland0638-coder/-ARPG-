@@ -76,7 +76,7 @@ test('共通の関数の既定値は今のまま(4職の改善はオプション
   assert.match(rig, /function makeEyeHighlight\(r, halfDepth, n\)\{\n\s*return makePlate\(makeEyeOutline\(n \|\| 4, r, r\)/);
   // 4職だけが改善を選ぶ(影の旅人は既定の頭の断面・目の点数・首)
   assert.match(player, /const softHead = classDef\.charKey !== 'wanderer';/);
-  assert.match(player, /const headSections = softHead \? HEAD_SECTION_RATIOS_SOFT : undefined;/);
+  assert.match(player, /const headSections = softHead \? HEAD_SECTIONS_V2 : undefined;/);   // T-2R-3: 4職の頭の表の名前(影の旅人は undefined = 既定のまま)
   assert.match(player, /const eyePts = softHead \? \{sclera:16, pupil:12, highlight:8\} : \{\};/);
   // 頭の断面の既定(HEAD_SECTION_RATIOS)を読む関数は、表を渡されなければ既定を使う
   assert.match(rig, /function headRatioAt\(yFrac, table\)\{\n\s*const secs = Object\.values\(table \|\| HEAD_SECTION_RATIOS\);/);

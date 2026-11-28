@@ -102,10 +102,16 @@ test.describe('顔の確認のプレビュー(CHARACTER-VIS-002 T-2R-2)', () => 
     expect(m.strands, '髪の房は濃い緑').toBe('0a7a28');
     expect(normal.xrayVisible, 'X 線シェルは隠す').toBe(0);
     expect(m.hatsVisible).toBe(normal.hatsVisible);
-    await page.click('#face-preview [data-fp-diag="nohat"]');
+    // 帽子の表示は診断の色と別に切り替えられる(帽子なし・通常の色で顔の形を見る: T-2R-3)
+    await page.click('#face-preview [data-fp-hat]');
     m = await mats();
     expect(m.hatsVisible).toBe(0);
+    expect(m.head, '診断の色のまま').toBe('ff2020');
     await page.click('#face-preview [data-fp-diag="off"]');
+    m = await mats();
+    expect(m.hatsVisible, '通常の色でも帽子なし').toBe(0);
+    expect(m.head).toBe(normal.head);
+    await page.click('#face-preview [data-fp-hat]');
     m = await mats();
     expect(m).toEqual(normal);
     // 武器: 既定は隠す(顔の前に来るため)。「武器」で出す

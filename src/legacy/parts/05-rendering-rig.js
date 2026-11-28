@@ -744,24 +744,51 @@
   };
   Object.values(HEAD_SECTION_RATIOS).forEach(r => { r.depthMul = r.widthMul * DEPTH_TO_WIDTH_RATIO; });
 
-  /* CHARACTER-VIS-002 T-1(DEC-036): 4職の頭の断面。上の HEAD_SECTION_RATIOS(既定。影の旅人・
-     敵・NPC が使う)は変えず、4職の buildPlayer だけが opts.sections でこの表を渡す
-     (T-0 Step 1b の「共通の関数の既定値は変えず、4職はオプションで選ぶ」)。
-     顎(chin)を 0.38 → 0.58、顎線(jaw)を 0.72 → 0.88 へ広げ、逆三角形の尖った顎を丸い下顎にする。
-     横顔の奥行き(Human 追加要求「顔の形が変」): 顔の前面の膨らみ nosePush を額 0 → 0.04・
-     頬 0.04 → 0.07・顎線 0.08 → 0.09・顎 0.03 → 0.04 にし、額から頬・口元へ前に丸く出る横顔にする。
-     幅(widthMul)は頬(最大幅・目の高さ)から上は既定と同じ ―― 髪・被り物の位置が頬より上の
-     断面の幅で決まっているため、幅は動かさない。
-     断面の段数・点の数は既定と同じ(ポリゴンを増やさない)。単純な球にはせず、
-     顔側が平らで後頭部が絞れた既定の断面の形(HEAD_HEX_TEMPLATE)はそのまま */
-  const HEAD_SECTION_RATIOS_SOFT = {
-    chin:      { yFrac:0.00, widthMul:0.58, nosePush:0.04 },
-    jaw:       { yFrac:0.22, widthMul:0.88, nosePush:0.09 },
-    cheek:     { yFrac:0.52, widthMul:1.06, nosePush:0.07 },
-    upperHead: { yFrac:0.80, widthMul:0.92, nosePush:0.04 },
-    crown:     { yFrac:1.00, widthMul:0.60, nosePush:0.00 },
+  /* CHARACTER-VIS-002 T-2R-3(DEC-038 H-1 = O1: 既存の頭のメッシュの拡張): 4職(と上位4職)の頭。
+     T-1 の頭(HEAD_SECTION_RATIOS_SOFT、8 点 × 5 段・奥行きが幅の 0.68 倍・顔の前面が平らな 1 枚)は、
+     Human Review B「顔が平面的で輪郭が不自然」の原因だった(.ai/reports/CHARACTER-VIS-002-T2-human-review.md §2)。
+     ここでは同じ Loft の仕組みのまま、断面を 16 点 × 10 段にし、各段を「前半分・後ろ半分で別の深さと丸みを持つ
+     超楕円」で作る(headSectionPointsV2):
+       widthMul … 半幅(headR 比)。頬・目の高さ(0.54)が最大。被り物の下(0.72 より上)は帽子の内側に収まる幅
+       frontMul … 顔の中心線の前への深さ(headR 比)。額 → 鼻筋 → 口元 → 顎先の横顔の線
+       backMul  … 後頭部の深さ(headR 比)。T-1 の 0.83 より深く、丸い頭蓋
+       nf / nb  … 前 / 後ろの丸みの指数(2 = 楕円。大きいほど角が張る)。頬・口元の段は 2.5 で頬がふっくら、
+                  額・頭頂・顎は 2.0〜2.2 で丸い。顔は平らな板にならず、単純な球にもならない
+       socket   … 目の高さの段で、鼻筋の両側(16 点の 1 番目と 15 番目、目の中心の少し外)を奥へ下げる量(headR 比)。
+                  鼻筋が残り、目のまわりに奥行きができる
+     影の旅人・敵・NPC は既定の HEAD_SECTION_RATIOS のまま(共通の関数の既定値は変えない: T-0)。
+     髪の殻・顔の部品・被り物の判定は headSectionPoints / headOutlineAt / headRatioAt を通して自動で追従する */
+  const HEAD_RING_POINTS_V2 = 16;
+  const HEAD_SECTIONS_V2 = {
+    chinBase:  { yFrac:0.00, widthMul:0.40, frontMul:0.34, backMul:0.30, nf:2.0, nb:2.0, socket:0 },     // 顎の下
+    chin:      { yFrac:0.08, widthMul:0.64, frontMul:0.56, backMul:0.52, nf:2.2, nb:2.0, socket:0 },     // 顎先の丸み(小さく丸い)
+    jaw:       { yFrac:0.18, widthMul:0.89, frontMul:0.70, backMul:0.70, nf:2.6, nb:2.1, socket:0 },     // 下頬・顎の幅(ふっくら)
+    mouth:     { yFrac:0.30, widthMul:1.00, frontMul:0.76, backMul:0.84, nf:2.6, nb:2.1, socket:0 },     // 口元・頬の膨らみ
+    noseBase:  { yFrac:0.42, widthMul:1.05, frontMul:0.78, backMul:0.92, nf:2.4, nb:2.1, socket:0 },     // 鼻・頬骨
+    eye:       { yFrac:0.54, widthMul:1.06, frontMul:0.76, backMul:0.95, nf:2.3, nb:2.1, socket:0.040 }, // 目の高さ(最大幅)・眼窩
+    brow:      { yFrac:0.66, widthMul:1.00, frontMul:0.74, backMul:0.93, nf:2.2, nb:2.1, socket:0.010 }, // 眉の骨(眉は描かない: E-3 = B)
+    forehead:  { yFrac:0.78, widthMul:0.88, frontMul:0.64, backMul:0.84, nf:2.1, nb:2.1, socket:0 },     // 額(帽子の内側)
+    upperHead: { yFrac:0.89, widthMul:0.70, frontMul:0.46, backMul:0.64, nf:2.0, nb:2.0, socket:0 },
+    crown:     { yFrac:1.00, widthMul:0.34, frontMul:0.18, backMul:0.26, nf:2.0, nb:2.0, socket:0 },     // 頭頂
   };
-  Object.values(HEAD_SECTION_RATIOS_SOFT).forEach(r => { r.depthMul = r.widthMul * DEPTH_TO_WIDTH_RATIO; });
+  const isHeadV2 = r => r && r.frontMul != null;
+  const sgnPow = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+  /* 16 点の断面(巻き順は HEAD_HEX_TEMPLATE と同じ「前 → 左 → 後ろ → 右」。k = 0 が顔の中心線) */
+  function headSectionPointsV2(o, r){
+    const W = o.width, n = HEAD_RING_POINTS_V2;
+    const hw = W*r.widthMul, hf = W*r.frontMul, hb = W*r.backMul;
+    const pts = [];
+    for(let k=0;k<n;k++){
+      const th = -k*Math.PI*2/n, sn = Math.sin(th), cs = Math.cos(th);
+      const front = cs >= 0;
+      const e = 2/(front ? r.nf : r.nb);
+      const x = hw*sgnPow(sn, e);
+      let z = (front ? hf : hb)*sgnPow(cs, e);
+      if(r.socket && (k === 1 || k === n-1)) z -= W*r.socket;
+      pts.push([x, z]);
+    }
+    return pts;
+  }
 
   /* makeCharacterHead({width, depth, height}): makeCharacterForearm()と
      同じ考え方の、頭部専用Loft生成ヘルパー。widthとdepthは半幅・半厚みの
@@ -796,7 +823,7 @@
      Hair Shell・Side Hair・Back Hair・Bangsはすべてこれらを経由して
      配置されるため、headR / HEAD_DEPTH_MUL / HEAD_SECTION_RATIOS を
      変更してもHairが自動的にHeadの外側へ追従する。 */
-  // table: 断面の表(省略時は既定の HEAD_SECTION_RATIOS。4職は HEAD_SECTION_RATIOS_SOFT)
+  // table: 断面の表(省略時は既定の HEAD_SECTION_RATIOS。4職は HEAD_SECTIONS_V2: T-2R-3)
   function headRatioAt(yFrac, table){
     const secs = Object.values(table || HEAD_SECTION_RATIOS);
     if(yFrac <= secs[0].yFrac) return Object.assign({}, secs[0], {yFrac});
@@ -804,17 +831,16 @@
       const a = secs[i], b = secs[i+1];
       if(yFrac <= b.yFrac){
         const t = (yFrac - a.yFrac) / (b.yFrac - a.yFrac);
-        return {
-          yFrac,
-          widthMul: a.widthMul + (b.widthMul - a.widthMul)*t,
-          depthMul: a.depthMul + (b.depthMul - a.depthMul)*t,
-          nosePush: a.nosePush + (b.nosePush - a.nosePush)*t,
-        };
+        // 表にある数値の列をすべて補間する(既定の表は widthMul / depthMul / nosePush、4職の表は T-2R-3 の列)
+        const out = { yFrac };
+        for(const key in a) if(key !== 'yFrac' && typeof a[key] === 'number') out[key] = a[key] + ((typeof b[key] === 'number' ? b[key] : a[key]) - a[key])*t;
+        return out;
       }
     }
     return Object.assign({}, secs[secs.length-1], {yFrac});
   }
   function headSectionPoints(o, r){
+    if(isHeadV2(r)) return headSectionPointsV2(o, r);   // 4職(T-2R-3)
     const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
     const facePts = HEAD_HEX_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd]);
     const nosePts = HEAD_NOSE_TEMPLATE.map(([fx,fz]) => [fx*hw, fz*hd + o.depth*r.nosePush]);
@@ -824,6 +850,7 @@
      基準にする(headRに独自係数を掛けた手打ち座標を使わない)。 */
   function headOutlineAt(o, yFrac){
     const r = headRatioAt(yFrac, o.sections);
+    if(isHeadV2(r)) return headOutlineAtV2(o, r, yFrac);
     const hw = o.width*r.widthMul, hd = o.depth*r.depthMul;
     return {
       y:         -o.height/2 + o.height*yFrac,
@@ -832,6 +859,35 @@
       frontZ:    hd*1.00 + o.depth*r.nosePush,  // 鼻〜口点(最前面)
       backZ:     hd*(-1.15),                    // 後頭部点(最後面)
       backHalfWidth: hw*0.22,                   // 後頭部点のX
+    };
+  }
+  /* 4職(T-2R-3)の headOutlineAt。項目の意味は既定と同じ。frontZ / backZ は顔の中心線上、
+     backHalfWidth は既定と同じ「後頭部の点の X = 半幅 × 0.22」とその点の後ろの深さ(後ろ髪の房の位置)。
+     frontZAt(x): その高さで、横位置 x の顔の前面の Z(実際に描かれる断面の多角形の上で補間)。目の板の奥行きに使う */
+  function headOutlineAtV2(o, r, yFrac){
+    const W = o.width, hw = W*r.widthMul, hb = W*r.backMul;
+    const e = r.nb/2;
+    const bx = 0.22, bs = Math.pow(bx, e), bc = Math.sqrt(Math.max(0, 1 - bs*bs));
+    const pts = headSectionPointsV2(o, r);
+    const n = pts.length;
+    // 顔側(k = 0 → n/4 と k = 0 → 3n/4)の点を |x| の小さい順に並べた片側の列(左右対称)
+    const half = []; for(let k=0;k<=n/4;k++) half.push([Math.abs(pts[k][0]), pts[k][1]]);
+    const frontZAt = (x)=>{
+      const ax = Math.abs(x);
+      for(let i=0;i<half.length-1;i++){
+        const [x0,z0] = half[i], [x1,z1] = half[i+1];
+        if(ax <= x1) return z0 + (z1 - z0)*((ax - x0)/Math.max(1e-9, x1 - x0));
+      }
+      return half[half.length-1][1];
+    };
+    return {
+      y:         -o.height/2 + o.height*yFrac,
+      halfWidth: hw,
+      sideZ:     0,
+      frontZ:    W*r.frontMul,
+      backZ:     -hb*Math.pow(bc, 2/r.nb),
+      backHalfWidth: hw*bx,
+      frontZAt,
     };
   }
   function makeCharacterHead(opts){
@@ -1893,18 +1949,61 @@
     const cov = getHeadwearCoverage(classKey, o, yLocal, angle);
     if(cov.state !== 'HEADWEAR' || cov.surfaceRadius == null) return [baseX, baseZ];
     const baseR = Math.hypot(baseX, baseZ);
-    const capR = cov.surfaceRadius*HAIR_HEADWEAR_INSET;
+    let capR = cov.surfaceRadius*HAIR_HEADWEAR_INSET;
     if(baseR <= capR) return [baseX, baseZ];
     const headR2 = Math.hypot(x, z);
     if(headR2 < 1e-9) return [baseX, baseZ];
+    /* 4職(T-2R-3、DEC-038 H-4): 被り物の内側へ寄せても、頭の面より内側には入れない(頭 × HAIR_NO_PENETRATE_MUL)。
+       旧来は「被り物 × 0.97」まで寄せるだけで、頭がそれより太い高さでは髪が頭の中へ入り、帽子の下で地肌が
+       見えていた(Human Review C-3)。下限が被り物の面を超える場合(頭そのものが帽子を突き抜ける)は寄せない
+       ―― その場合は頭の形の問題で、E2E の貫通の確認が検出する */
+    if(o.hairNoPenetrate && baseMul >= 1){
+      const floor = headR2*HAIR_NO_PENETRATE_MUL;
+      if(floor > capR && floor <= cov.surfaceRadius) capR = floor;
+    }
     const k = capR/headR2;
     return [x*k, z*k];
+  }
+  const HAIR_NO_PENETRATE_MUL = 1.006;
+  /* 4職(T-2R-3)の髪の殻の点の種類: 顔の中心線からの角度で決める(16 点の断面は既定の 8 点の番号の表が使えない)。
+       front … 顔(70° より前)。うなじと途中の段では頭の内側へ隠す(HAIR_NAPE_FRONT_MUL)
+       side  … こめかみ〜耳の前後(70°〜105°)。顎の高さ(0.45 未満)では頭のわずかに内側(頬の横に黒いくさびを
+               出さない: T-1 の napeSideIn と同じ理由)、それより上は頭の外(髪が側頭部を覆う)
+       back  … 後頭部(105° より後ろ)。頭 × HAIR_SHELL_MUL の外 */
+  /* 4職の髪の殻の輪の高さ: うなじ 0.34・頭の noseBase / eye / brow の段(0.42・0.54・0.66。頭が最も広く深い)・
+     生え際 0.72・頭の upperHead 0.89・頭頂 1.00。頭の forehead(0.78)の段は生え際と近いので置かない */
+  const HAIR_V2_YFRACS = [0.34, 0.42, 0.54, 0.66, 0.72, 0.89, 1.00];
+  const HAIR_V2_FRONT_DEG = 70, HAIR_V2_BACK_DEG = 105, HAIR_V2_SIDE_OUT_YFRAC = 0.45;
+  function hairV2PointMul(x, z, yFrac){
+    const deg = Math.atan2(Math.abs(x), z)*180/Math.PI;
+    if(deg < HAIR_V2_FRONT_DEG) return HAIR_NAPE_FRONT_MUL;
+    if(deg < HAIR_V2_BACK_DEG) return yFrac < HAIR_V2_SIDE_OUT_YFRAC ? HAIR_NAPE_SIDE_IN_MUL : HAIR_SHELL_MUL;
+    return HAIR_SHELL_MUL;
   }
   function makeCharacterHairShell(opts){
     const o = Object.assign({ width:0.39, depth:0.39, height:0.78 }, opts || {});
     const classKey = opts && opts.classKey;
     const hh = o.height/2;
     const sections = [];
+    /* 4職(T-2R-3、DEC-038 H-4): 16 点の頭に合わせた髪の殻。うなじ(0.34)と生え際(0.72)の間にも頭の段
+       (0.42・0.54・0.66 = 頭が最も広く深い高さ)の輪を置き、後頭部・側頭部の点を頭 × HAIR_SHELL_MUL の外に出す。
+       旧来はこの間が直線で、頭の膨らみが髪を突き抜けていた(Human Review C-1)。顔側の点は頭の内側に隠す。
+       生え際より上は既定と同じく全点を頭の外(被り物の内側へ寄せるが、頭の内側には入れない: hairNoPenetrate) */
+    if(isHeadV2(headRatioAt(0.5, o.sections))){
+      const o2 = Object.assign({}, o, { hairNoPenetrate:true });
+      // 輪は HAIR_V2_YFRACS の高さだけ(頭の 10 段すべてには置かない: 輪を 1 つ増やすごとに三角形が 32 ×
+      // 4(本体・輪郭線 2 枚・X 線)増えるため)。どの段を抜いても髪が頭の外にあることは E2E が確かめる
+      const yfs = HAIR_V2_YFRACS.slice();
+      yfs.forEach((yf, i)=>{
+        const yLocal = -hh + o.height*yf;
+        const aboveHairline = yf >= HAIR_HAIRLINE_YFRAC - 1e-6;
+        const pts = headSectionPoints(o, headRatioAt(yf, o.sections)).map(([x,z]) =>
+          hairShellPointAt(classKey, o2, x, z, yLocal, aboveHairline ? HAIR_SHELL_MUL : hairV2PointMul(x, z, yf)));
+        const isTop = (i === yfs.length-1);
+        sections.push({ y: yLocal + (isTop ? o.height*HAIR_TOP_LIFT : 0), points: pts });
+      });
+      return makeLoft({ sections, closedTop:true, closedBottom:true });
+    }
     // うなじリング(後方・側面だけHeadの外、顔側はHeadの内側へ隠す)
     {
       const yLocal = -hh + o.height*HAIR_NAPE_YFRAC;
