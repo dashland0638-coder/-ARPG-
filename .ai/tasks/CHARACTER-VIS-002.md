@@ -764,6 +764,29 @@ T-1〜T-6 は下の E-1・E-2 の回答待ち（`WAITING_APPROVAL`）。T-0 / T-
 - 単純な球ではない: 前半分は頬・口元の段で角が張り（指数 2.6）、顎は小さく丸く、後頭部は丸い（2.1）
 - 4.75 頭身・頭の高さ（2 × headR）・目の確定値は不変
 
+### 描画の量
+| | 本体 | 全体（描画回数）| 三角形 | Material |
+| --- | --- | --- | --- | --- |
+| 8 職（T-2 → T-2R-3）| 不変 | 不変 | **1 人 +1600**（剣士 14,916 → 16,516、全体の約 +10.7%）| 不変 |
+| 影の旅人 | 不変 | 不変 | 不変 | 不変 |
+- 内訳: 頭 +240・髪の殻 +160 = +400 が、本体・輪郭線 2 枚・X 線シェルの 4 つで描かれる。髪の殻の輪を 1 つ（0.78）減らして +1728 → +1600。0.42 の輪を抜くと後頭部の貫通が戻ることを E2E で確認したため残した
+
+### 比較画像（顔の確認のプレビュー、390×844）
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r3-compare-before-after.jpg`（行 = 8 職、列 = 正面・45°・横・後頭部・診断の後頭部・診断の横、それぞれ 変更前 / 変更後）
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r3-bare-head-before-after.jpg`（剣士・魔法使い・弓師・盗賊の髪と帽子を外した頭。正面・45°・横・下から、変更前 / 変更後）
+- `.ai/reports/CHARACTER-VIS-002-assets/t2r3-8jobs-after.jpg`（変更後の 8 職: 正面・45°・横・下から・後頭部・診断の後頭部・診断の横・帽子なしの横（診断）・全身）
+- 診断の後頭部: 変更前は帽子の下〜首まで赤（頭の肌）、変更後は緑（髪）。うなじ（0.34）より下の首の上の細い赤は、髪の生え際より下の肌（意図どおり）
+
+### Test Report（T-2R-3）
+| テスト | 結果 |
+| --- | --- |
+| `npm run build` | PASS |
+| `npm run test:unit`（`ai-protocol.test.js`・`wanderer-visual-freeze.test.js` を含む）| PASS（2341）|
+| `head-hair-penetration`（新規）| PASS（8 職。変更前のコードでは失敗）|
+| `character-visual-budget`（影の旅人の形のシグネチャを含む）| PASS（三角形の上限を +1600）|
+| 関連 E2E 93 件（`base-class-comparison`・`base-class-identity`・`battle-knight-visual`・`character-clothing`・`character-motion`・`character-palette`・`character-weapon-visual`・`face-preview`・`head-hair-penetration`・`job-traits`・`wanderer-renewal`・`weapon-stow`・`road2-join`・`chapter1-progression`・`menu-character-layout`）| **93 PASS** |
+| 全 E2E | CI（PR #149）|
+
 ## Status History
 | Date | Target | From → To | By | Note |
 | --- | --- | --- | --- | --- |
